@@ -1,0 +1,8 @@
+compil_mode//_build/myocamlbuild=native
+compil_mode//_build/src/tiny-bang-toploop/tiny_bang_toploop.byte=byte-code
+compil_mode//_build/src/toy-nested-toploop/toy_nested_toploop.byte=byte-code
+compil_mode//_build/src/toy-toploop/toy_toploop.byte=byte-code
+compil_mode//_build/test/test_tiny_bang.byte=byte-code
+compil_mode//_build/test/test_toy.byte=byte-code
+compil_mode/configure=native
+eclipse.preferences.version=1

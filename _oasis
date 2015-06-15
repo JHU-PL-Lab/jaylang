@@ -1,0 +1,126 @@
+Name: ToyLanguage
+Version: 0.1
+Synopsis: A base toy language project.
+Authors: JHU PL Lab <pl.cs@jhu.edu>
+License: BSD-4-clause
+
+Description: A toy language used for proof-of-concept language development.
+Homepage: http://www.big-bang-lang.org/
+
+OASISFormat: 0.4
+BuildTools: ocamlbuild
+Plugins: META (0.4), DevFiles (0.4)
+AlphaFeatures: ocamlbuild_more_args
+XOCamlbuildExtraArgs: -use-menhir -use-ocamlfind
+
+Library "toy-utils"
+  Path: src/toy-utils
+  Modules:
+    Toy_ast_uid,
+    Toy_logger,
+    Toy_parser_support,
+    Toy_source_origin,
+    Toy_string_utils,
+    Toy_utils
+  BuildDepends:
+    batteries
+
+Library "toy-ast"
+  Path: src/toy-ast
+  Modules:
+    Toy_ast,
+    Toy_ast_pretty,
+    Toy_ast_wellformedness
+  BuildDepends:
+    batteries,
+    toy-utils
+
+Library "toy-parser"
+  Path: src/toy-parser
+  Modules:
+    Toy_generated_lexer,
+    Toy_generated_parser,
+    Toy_parser
+  BuildDepends:
+    batteries,
+    toy-ast,
+    toy-utils
+  BuildTools+:
+    ocamllex,
+    menhir
+
+Library "toy-interpreter"
+  Path: src/toy-interpreter
+  Modules:
+    Toy_interpreter
+  BuildDepends:
+    batteries,
+    toy-ast,
+    toy-utils
+
+Library "toy-nested-ast"
+  Path: src/toy-nested-ast
+  Modules:
+    Toy_nested_ast
+  BuildDepends:
+    batteries,
+    toy-ast,
+    toy-utils
+
+Library "toy-nested-parser"
+  Path: src/toy-nested-parser
+  Modules:
+    Toy_nested_generated_lexer,
+    Toy_nested_generated_parser,
+    Toy_nested_parser
+  BuildDepends:
+    batteries,
+    toy-nested-ast,
+    toy-utils
+  BuildTools+:
+    ocamllex,
+    menhir
+    
+Library "toy-a-translator"
+  Path: src/toy-a-translator
+  Modules:
+    Toy_a_translator
+  BuildDepends:
+    batteries,
+    toy-ast,
+    toy-nested-ast,
+    toy-utils
+
+Executable "toy-toploop"
+  Path: src/toy-toploop
+  MainIs: toy_toploop.ml
+  BuildDepends:
+    toy-ast,
+    toy-interpreter,
+    toy-parser,
+    batteries
+
+Executable "toy-nested-toploop"
+  Path: src/toy-nested-toploop
+  MainIs: toy_nested_toploop.ml
+  BuildDepends:
+    toy-a-translator,
+    toy-ast,
+    toy-nested-ast,
+    toy-interpreter,
+    toy-nested-parser,
+    batteries
+
+Executable "test-toy"
+  Path: test/
+  MainIs: test_toy.ml
+  BuildDepends:
+    toy-interpreter,
+    toy-parser,
+    toy-utils,
+    oUnit,
+    batteries
+
+Test test_toy
+  Command: $test_toy
+
