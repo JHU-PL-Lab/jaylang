@@ -1,0 +1,23 @@
+toy:
+  image: leafac/big-bang:0.0.1
+  volumes:
+    - .:/home/opam/toy-language
+  working_dir: /home/opam/toy-language
+  entrypoint: ["bash", "-ic"]
+  command: ["
+             # Use the OASIS metadata to generate a configuration script.
+
+             oasis setup -setup-update dynamic &&
+
+             # Configure the build environment.
+
+             ./configure &&
+
+             # Enable tests.
+
+             ocaml setup.ml -configure --enable-tests &&
+
+             # Build the project and run the tests for the first time.
+
+             make test
+           "]
