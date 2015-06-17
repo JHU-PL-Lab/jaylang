@@ -19,9 +19,18 @@ let pretty_env (env : value Environment.t) =
   "{ " ^ inner ^ " }"
   ;;
 
+exception Evaluation_failure of string;;
+
 let lookup env x =
-  (* TODO: Handle Not_found in a more graceful manner? Custom exception? *)
-  Environment.find env x
+  if Environment.mem env x then
+    Environment.find env x
+  else
+    raise (
+        Evaluation_failure (
+          "cannot find variable `" ^ (pretty_var x) ^ "' in environment `" ^ (pretty_env env) ^ "'."
+        )
+      )
+;;
 
 let bound_vars_of_expr (Expr(cls)) =
   cls
@@ -52,8 +61,6 @@ and var_replace_value fn v =
 and var_replace_function_value fn (Function_value(x, e)) =
   Function_value(fn x, var_replace_expr fn e)
       
-exception Evaluation_failure of string;;
-
 let freshening_stack_from_var x =
   let Var(appl_i, appl_fso) = x in
   (* The freshening stack of a call site at top level is always

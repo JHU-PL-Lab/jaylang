@@ -15,7 +15,7 @@ let pretty_freshening_stack (Freshening_stack ids) =
 
 let pretty_var (Var(i, mfs)) =
   match mfs with
-    | None -> pretty_ident i
+    | None -> pretty_ident i ^ "$"
     | Some fs -> pretty_ident i ^ pretty_freshening_stack fs
 ;;
 
