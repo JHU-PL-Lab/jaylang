@@ -42,11 +42,6 @@
  *               per-module basis using command line arguments. Refer to the
  *               `README.md' for more information.
  *
- * ---
- *
- * WARNING: Be aware that, due to I/O buffering, log entries may not show up on
- *          the terminal as soon as you might expect. To solve that, you might want
- *          to call `flush stdout' after logging.
  *
  * [1]: http://12factor.net/logs
  *)
@@ -111,7 +106,8 @@ let level_for prefix =
 
 let make_logger prefix level message =
   BatLog.Easy.level := level_for prefix;
-  BatLog.Easy.log level ("[" ^ prefix ^ "]: " ^ message)
+  BatLog.Easy.log level ("[" ^ prefix ^ "]: " ^ message);
+  flush stdout
 ;;
 
 let bracket_log logger level pre_message post_message_fn thunk =
