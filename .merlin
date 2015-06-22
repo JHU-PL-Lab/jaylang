@@ -1,0 +1,4 @@
+PKG oasis batteries menhirLib oUnit
+S src/**
+B _build/src/**
+EXT ounit
