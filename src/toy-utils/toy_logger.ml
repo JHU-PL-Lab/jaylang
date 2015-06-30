@@ -107,7 +107,7 @@ let level_for prefix =
 let make_logger prefix level message =
   BatLog.Easy.level := level_for prefix;
   BatLog.Easy.log level ("[" ^ prefix ^ "]: " ^ message);
-  flush stdout
+  flush stderr
 ;;
 
 let bracket_log logger level pre_message post_message_fn thunk =
