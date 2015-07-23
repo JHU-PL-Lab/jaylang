@@ -1,1 +1,6 @@
-.paths
+/.paths
+/Makefile
+/_build
+/configure
+/*.byte
+/setup.*

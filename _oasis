@@ -13,114 +13,113 @@ Plugins: META (0.4), DevFiles (0.4)
 AlphaFeatures: ocamlbuild_more_args
 XOCamlbuildExtraArgs: -use-menhir -use-ocamlfind
 
-Library "toy-utils"
-  Path: src/toy-utils
+Library "utils"
+  Path: src/utils
   Modules:
-    Toy_ast_uid,
-    Toy_logger,
-    Toy_parser_support,
-    Toy_source_origin,
-    Toy_string_utils,
-    Toy_utils
+    Ast_uid,
+    Logger_utils,
+    Parser_support,
+    Source_origin,
+    String_utils,
+    Utils
   BuildDepends:
     batteries
 
-Library "toy-ast"
-  Path: src/toy-ast
+Library "ast"
+  Path: src/ast
   Modules:
-    Toy_ast,
-    Toy_ast_pretty,
-    Toy_ast_wellformedness
+    Ast,
+    Ast_pretty,
+    Ast_wellformedness
   BuildDepends:
     batteries,
-    toy-utils
+    utils
 
-Library "toy-parser"
-  Path: src/toy-parser
+Library "parser"
+  Path: src/parser
   Modules:
-    Toy_generated_lexer,
-    Toy_generated_parser,
-    Toy_parser
+    Generated_lexer,
+    Generated_parser,
+    Parser
   BuildDepends:
     batteries,
-    toy-ast,
-    toy-utils
+    ast,
+    utils
   BuildTools+:
     ocamllex,
     menhir
 
-Library "toy-interpreter"
-  Path: src/toy-interpreter
+Library "interpreter"
+  Path: src/interpreter
   Modules:
-    Toy_interpreter
+    Interpreter
   BuildDepends:
     batteries,
-    toy-ast,
-    toy-utils
+    ast,
+    utils
 
-Library "toy-nested-ast"
-  Path: src/toy-nested-ast
+Library "nested-ast"
+  Path: src/nested-ast
   Modules:
-    Toy_nested_ast
+    Nested_ast
   BuildDepends:
     batteries,
-    toy-ast,
-    toy-utils
+    ast,
+    utils
 
-Library "toy-nested-parser"
-  Path: src/toy-nested-parser
+Library "nested-parser"
+  Path: src/nested-parser
   Modules:
-    Toy_nested_generated_lexer,
-    Toy_nested_generated_parser,
-    Toy_nested_parser
+    Nested_generated_lexer,
+    Nested_generated_parser,
+    Nested_parser
   BuildDepends:
     batteries,
-    toy-nested-ast,
-    toy-utils
+    nested-ast,
+    utils
   BuildTools+:
     ocamllex,
     menhir
     
-Library "toy-a-translator"
-  Path: src/toy-a-translator
+Library "a-translator"
+  Path: src/a-translator
   Modules:
-    Toy_a_translator
+    A_translator
   BuildDepends:
     batteries,
-    toy-ast,
-    toy-nested-ast,
-    toy-utils
+    ast,
+    nested-ast,
+    utils
 
-Executable "toy-toploop"
-  Path: src/toy-toploop
-  MainIs: toy_toploop.ml
+Executable "toploop"
+  Path: src/toploop
+  MainIs: toploop.ml
   BuildDepends:
-    toy-ast,
-    toy-interpreter,
-    toy-parser,
+    ast,
+    interpreter,
+    parser,
     batteries
 
-Executable "toy-nested-toploop"
-  Path: src/toy-nested-toploop
-  MainIs: toy_nested_toploop.ml
+Executable "nested-toploop"
+  Path: src/nested-toploop
+  MainIs: nested_toploop.ml
   BuildDepends:
-    toy-a-translator,
-    toy-ast,
-    toy-nested-ast,
-    toy-interpreter,
-    toy-nested-parser,
+    a-translator,
+    ast,
+    nested-ast,
+    interpreter,
+    nested-parser,
     batteries
 
-Executable "test-toy"
+Executable "test"
   Path: test/
-  MainIs: test_toy.ml
+  MainIs: test.ml
   BuildDepends:
-    toy-interpreter,
-    toy-parser,
-    toy-utils,
+    interpreter,
+    parser,
+    utils,
     oUnit,
     batteries
 
-Test test_toy
-  Command: $test_toy
-
+Test test
+  Command: $test
