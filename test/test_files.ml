@@ -21,40 +21,60 @@ exception File_test_creation_failure of string;;
 type test_expectation =
   | Expect_evaluate
   | Expect_stuck
+  | Expect_well_formed
+  | Expect_ill_formed
 ;;
 
 let parse_expectation str =
   match str with
   | "EXPECT-EVALUATE" -> Some(Expect_evaluate)
   | "EXPECT-STUCK" -> Some(Expect_stuck)
+  | "EXPECT-WELL-FORMED" -> Some(Expect_well_formed)
+  | "EXPECT-ILL-FORMED" -> Some(Expect_ill_formed)
   | _ -> None
 ;;
 
-let observe_evaluated expectations =
-  expectations |> List.iter
-    (function
-      | Expect_stuck ->
-        assert_failure @@
-        "Evaluation completed but was expected to become stuck."
-      | _ -> ()
-    )
+let observe_evaluated expectation =
+  match expectation with
+  | Expect_evaluate -> None
+  | Expect_stuck ->
+    assert_failure @@ "Evaluation completed but was expected to become stuck."
+  | _ -> Some expectation
 ;;
 
-let observe_stuck failure expectations =
-  expectations |> List.iter
-    (function
-      | Expect_evaluate ->
-        assert_failure @@ "Evaluation became stuck: " ^ failure
-      | _ -> ()
-    )
+let observe_stuck failure expectation =
+  match expectation with
+  | Expect_evaluate ->
+    assert_failure @@ "Evaluation became stuck: " ^ failure
+  | Expect_stuck -> None
+  | _ -> Some expectation
+;;
+
+let observe_well_formed expectation =
+  match expectation with
+  | Expect_well_formed -> None
+  | Expect_ill_formed ->
+    assert_failure @@ "Well-formedness check passed but was expect to fail."
+  | _ -> Some expectation
+;;
+
+let observe_ill_formed illformednesses expectation =
+  match expectation with
+  | Expect_well_formed -> 
+    assert_failure @@ "Expression was unexpectedly ill-formed.  Causes:" ^
+                      "\n    * " ^ concat_sep "\n    *"
+                        (List.enum @@
+                         List.map pretty_illformedness illformednesses)
+  | Expect_ill_formed -> None
+  | _ -> Some expectation
 ;;
 
 let make_test filename expectations =
   let name_of_expectation expectation = match expectation with
-    | Expect_evaluate ->
-      "should evaluate"
-    | Expect_stuck ->
-      "should get stuck"
+    | Expect_evaluate -> "should evaluate"
+    | Expect_stuck -> "should get stuck"
+    | Expect_well_formed -> "should be well-formed"
+    | Expect_ill_formed -> "should be ill-formed"
   in
   let test_name = filename ^ ": (" ^
                   pretty_list name_of_expectation expectations ^ ")"
@@ -62,17 +82,46 @@ let make_test filename expectations =
   (* Create the test in a thunk. *)
   test_name >::
   function _ ->
-    (* Begin by parsing the file. *)
-    let expr = File.with_file_in filename Parser.parse_program in
-    (* Verify that it is well-formed. *)
-    check_wellformed_expr expr;
-    (* Now, based on our expectation, do the right thing. *)
-    try
-      ignore (eval expr);
-      expectations |> observe_evaluated
-    with
-    | Evaluation_failure(failure) ->
-      expectations |> observe_stuck failure
+    (* Using a mutable list of not-yet-handled expectations. *)
+    let expectations_left = ref expectations in
+    (* This routine takes an observation function and applies it to all of the
+       not-yet-handled expectations. *)
+    let observation f =
+      expectations_left := List.filter_map f @@ !expectations_left
+    in
+    (* We're going to execute the following block.  If it completes without
+       error, we're also going to require that all of its expectations were
+       satisfied.  This addresses nonsense cases such as expecting an ill-formed
+       expression to evaluate. *)
+    begin
+      let expr = File.with_file_in filename Parser.parse_program in
+      (* Confirm well-formedness. *)
+      begin
+        try
+          check_wellformed_expr expr;
+          observation observe_well_formed
+        with
+        | Illformedness_found(illformednesses) ->
+          observation (observe_ill_formed illformednesses)
+      end;
+      (* Evaluate. *)
+      begin
+        try
+          ignore (eval expr);
+          observation observe_evaluated
+        with
+        | Evaluation_failure(failure) ->
+          observation (observe_stuck failure)
+      end
+    end;
+    (* Now assert that every expectation has been addressed. *)
+    match !expectations_left with
+    | [] -> ()
+    | expectations' ->
+      assert_failure @@ "The following expectations could not be met:" ^
+                        "\n    * " ^ concat_sep "\n    *"
+                          (List.enum @@
+                           List.map name_of_expectation expectations')
 ;;
 
 let make_test_from filename =
