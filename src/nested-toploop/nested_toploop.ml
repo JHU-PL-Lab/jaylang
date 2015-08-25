@@ -4,8 +4,9 @@ open A_translator;;
 open Ast_pretty;;
 open Ast_wellformedness;;
 open Interpreter;;
+open Logger_options;;
 
-let toploop_operate e =
+let toploop_operate () e =
   print_string "\n";
   begin
     try
@@ -27,13 +28,24 @@ let toploop_operate e =
   flush stdout
 ;;
 
+let command_line_parsing () = 
+  let parser = BatOptParse.OptParser.make ~version:"version 0.3" () in
+  BatOptParse.OptParser.add parser ~long_name:"log" logging_option;
+  let spare_args = BatOptParse.OptParser.parse_argv parser in
+  match spare_args with
+  | [] -> ()
+  | _ -> failwith "Unexpected command-line arguments."
+;;
+
 let () =
+  let toploop_options = command_line_parsing () in
+
   print_string "Toy Nested Toploop\n";
-  print_string "--------------------\n";
+  print_string "-----------\n";
   print_string "\n";
   print_string "Please enter an expression to evaluate followed by \";;\".\n";
   print_string "\n";
   flush stdout;
   Nested_parser.parse_expressions IO.stdin
-  |> LazyList.iter toploop_operate
+  |> LazyList.iter (toploop_operate toploop_options)
 ;;
