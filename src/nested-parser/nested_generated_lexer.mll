@@ -1,5 +1,15 @@
 {
   open Nested_generated_parser;;
+
+  (* ocamllex is a slave to tradition, so we have to handle line breaks
+     ourselves. *)
+  open Lexing
+  let incr_lineno lexbuf =
+    let pos = lexbuf.lex_curr_p in
+    lexbuf.lex_curr_p <- { pos with
+      pos_lnum = pos.pos_lnum + 1;
+      pos_bol = pos.pos_cnum;
+    }
 }
 
 let digit = ['0'-'9']
