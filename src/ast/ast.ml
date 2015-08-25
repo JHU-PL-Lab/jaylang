@@ -61,10 +61,10 @@ module Var_hashtbl = Hashtbl.Make(
   end
   );;
 
-(** A type to express toy "record" values. *)
+(** A type to express record values. *)
 type record_value = Record_value of var Ident_map.t
 
-(** A type to express toy function values. *)
+(** A type to express function values. *)
 and function_value = Function_value of var * expr
 
 (** A type to represent values. *)
