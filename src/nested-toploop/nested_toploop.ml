@@ -41,7 +41,7 @@ let () =
   let toploop_options = command_line_parsing () in
 
   print_string "Toy Nested Toploop\n";
-  print_string "-----------\n";
+  print_string "------------------\n";
   print_string "\n";
   print_string "Please enter an expression to evaluate followed by \";;\".\n";
   print_string "\n";
