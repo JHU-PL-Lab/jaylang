@@ -55,7 +55,8 @@ and var_replace_clause_body fn r =
 
 and var_replace_value fn v =
   match v with
-  | Value_record(_) -> v
+  | Value_record(Record_value(es)) ->
+    Value_record(Record_value(Ident_map.map fn es))
   | Value_function(f) -> Value_function(var_replace_function_value fn f)
 
 and var_replace_function_value fn (Function_value(x, e)) =
@@ -109,7 +110,7 @@ let rec matches env x p =
         |> Enum.for_all
             (fun (i,p') ->
               try
-                matches env (Ident_map.find i els) p
+                matches env (Ident_map.find i els) p'
               with
               | Not_found -> false
             )
