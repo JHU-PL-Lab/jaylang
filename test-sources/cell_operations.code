@@ -1,0 +1,9 @@
+# EXPECT-EVALUATE
+
+x = {};
+r = ref x;
+y = {l=x};
+r <- y;
+z = !r;
+m = z ~ {l={}} ? fun a -> { ra = {} } : fun b -> { rb = x x };
+
