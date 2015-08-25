@@ -1,5 +1,5 @@
 (**
-  This module contains support components for the Menhir parser.
+   This module contains support components for the Menhir parser.
 *)
 
 type file_pos = { file_pos_lineno : int
@@ -14,4 +14,4 @@ type file_region = { file_region_filename : string
 type src_origin =
   | File_origin of file_region
   | Gen_origin of src_origin list
-  ;;
+;;

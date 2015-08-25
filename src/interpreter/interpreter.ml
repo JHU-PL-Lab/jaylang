@@ -14,10 +14,10 @@ let pretty_env (env : value Environment.t) =
     |> Environment.enum
     |> Enum.map (fun (x,v) -> pretty_var x ^ " = " ^ pretty_value v)
     |> Enum.fold
-        (fun acc -> fun s -> if acc = "" then s else acc ^ ", " ^ s) ""
+      (fun acc -> fun s -> if acc = "" then s else acc ^ ", " ^ s) ""
   in
   "{ " ^ inner ^ " }"
-  ;;
+;;
 
 exception Evaluation_failure of string;;
 
@@ -26,10 +26,10 @@ let lookup env x =
     Environment.find env x
   else
     raise (
-        Evaluation_failure (
-          "cannot find variable `" ^ (pretty_var x) ^ "' in environment `" ^ (pretty_env env) ^ "'."
-        )
+      Evaluation_failure (
+        "cannot find variable `" ^ (pretty_var x) ^ "' in environment `" ^ (pretty_env env) ^ "'."
       )
+    )
 ;;
 
 let bound_vars_of_expr (Expr(cls)) =
@@ -50,8 +50,8 @@ and var_replace_clause_body fn r =
   | Var_body(x) -> Var_body(fn x)
   | Appl_body(x1, x2) -> Appl_body(fn x1, fn x2)
   | Conditional_body(x,p,f1,f2) ->
-      Conditional_body(fn x, p, var_replace_function_value fn f1,
-        var_replace_function_value fn f2)
+    Conditional_body(fn x, p, var_replace_function_value fn f1,
+                     var_replace_function_value fn f2)
 
 and var_replace_value fn v =
   match v with
@@ -61,14 +61,14 @@ and var_replace_value fn v =
 
 and var_replace_function_value fn (Function_value(x, e)) =
   Function_value(fn x, var_replace_expr fn e)
-      
+
 let freshening_stack_from_var x =
   let Var(appl_i, appl_fso) = x in
   (* The freshening stack of a call site at top level is always
      present. *)
   let Freshening_stack idents = Option.get appl_fso in
   Freshening_stack (appl_i :: idents)
-  ;;
+;;
 
 let repl_fn_for clauses freshening_stack extra_bound =
   let bound_variables =
@@ -79,8 +79,8 @@ let repl_fn_for clauses freshening_stack extra_bound =
   in
   let repl_fn (Var(i, fso) as x) =
     if Var_set.mem x bound_variables
-      then Var(i, Some freshening_stack)
-      else x
+    then Var(i, Some freshening_stack)
+    else x
   in
   repl_fn
 ;;
@@ -89,7 +89,7 @@ let fresh_wire (Function_value(param_x, Expr(body))) arg_x call_site_x =
   (* Build the variable freshening function. *)
   let freshening_stack = freshening_stack_from_var call_site_x in
   let repl_fn =
-      repl_fn_for body freshening_stack @@ Var_set.singleton param_x in
+    repl_fn_for body freshening_stack @@ Var_set.singleton param_x in
   (* Create the freshened, wired body. *)
   let freshened_body = List.map (var_replace_clause repl_fn) body in
   let head_clause = Clause(repl_fn param_x, Var_body(arg_x)) in
@@ -120,42 +120,48 @@ let rec matches env x p =
 
 let rec evaluate env lastvar cls =
   logger `debug (
-      pretty_env env ^ "\n" ^
-      (Option.default "?" (Option.map pretty_var lastvar)) ^ "\n" ^
-      (cls
-       |> List.map pretty_clause
-       |> List.fold_left (fun acc -> fun s -> acc ^ s ^ "; ") "") ^ "\n\n");
+    pretty_env env ^ "\n" ^
+    (Option.default "?" (Option.map pretty_var lastvar)) ^ "\n" ^
+    (cls
+     |> List.map pretty_clause
+     |> List.fold_left (fun acc -> fun s -> acc ^ s ^ "; ") "") ^ "\n\n");
   flush stdout;
   match cls with
   | [] ->
-      begin
-        match lastvar with
-        | Some(x) -> (x, env)
-        | None ->
+    begin
+      match lastvar with
+      | Some(x) -> (x, env)
+      | None ->
         (* TODO: different exception? *)
-            raise (Failure "evaluation of empty expression!")
-      end
+        raise (Failure "evaluation of empty expression!")
+    end
   | (Clause(x, b)):: t ->
-      match b with
-      | Value_body(v) ->
-          Environment.add env x v;
-          evaluate env (Some x) t
-      | Var_body(x') ->
-          let v = lookup env x' in
-          Environment.add env x v;
-          evaluate env (Some x) t
-      | Appl_body(x', x'') ->
+    match b with
+    | Value_body(v) ->
+      Environment.add env x v;
+      evaluate env (Some x) t
+    | Var_body(x') ->
+      let v = lookup env x' in
+      Environment.add env x v;
+      evaluate env (Some x) t
+    | Appl_body(x', x'') ->
+      begin
+        match lookup env x' with
+        | Value_record(_) as r -> raise (Evaluation_failure
+                                           ("cannot apply " ^ pretty_var x' ^
+                                            " as it contains non-function " ^ pretty_value r))
+        | Value_function(f) ->
+          evaluate env (Some x) @@ fresh_wire f x'' x @ t
+      end
+    | Conditional_body(x',p,f1,f2) ->
+      let successful_match =
+        match lookup env x' with
+        | Value_record(Record_value(is)) ->
           begin
-            match lookup env x' with
-              | Value_record(_) as r -> raise (Evaluation_failure
-                  ("cannot apply " ^ pretty_var x' ^
-                    " as it contains non-function " ^ pretty_value r))
-              | Value_function(f) ->
-                  evaluate env (Some x) @@ fresh_wire f x'' x @ t
+            match p with
+            | Record_pattern(is') -> Ident_set.subset is' is
           end
-      | Conditional_body(x',p,f1,f2) ->
-          let f_target = if matches env x' p then f1 else f2 in
-          evaluate env (Some x) @@ fresh_wire f_target x' x @ t            
+        | Value_function(Function_value(_)) -> false
 ;;
 
 let eval (Expr(cls)) =
