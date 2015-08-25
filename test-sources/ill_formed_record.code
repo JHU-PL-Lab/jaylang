@@ -1,0 +1,4 @@
+# EXPECT-ILL-FORMED
+
+y={l=z}
+
