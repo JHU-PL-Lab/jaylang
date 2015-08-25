@@ -57,7 +57,7 @@ module Var_hashtbl = Hashtbl.Make(
     let equal = (=)
     let hash = Hashtbl.hash
   end
-);;
+  );;
 
 (** A type to express toy "record" values. *)
 type record_value = Record_value of Ident_set.t

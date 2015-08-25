@@ -1,6 +1,6 @@
 (**
-  Provides support mechanisms for the AST module.  This module should not be
-  used directly; the Ast module should be used instead.
+   Provides support mechanisms for the AST module.  This module should not be
+   used directly; the Ast module should be used instead.
 *)
 
 (**/**)

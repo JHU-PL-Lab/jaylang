@@ -4,7 +4,7 @@ open String_utils;;
 
 let natural_compare_seq_returns_0_for_empty_list _ =
   assert_equal 0 (Utils.natural_compare_seq [])
-  
+
 let pretty_list_list pretty lst =
   pretty_list (pretty_list pretty) lst
 ;;
@@ -42,7 +42,7 @@ let cartesian_product_tests =
     ]
 
 let tests = "Utils" >::: [
-      "natural_compare_seq returns 0 for empty list" >:: natural_compare_seq_returns_0_for_empty_list;
-    ] @
+    "natural_compare_seq returns 0 for empty list" >:: natural_compare_seq_returns_0_for_empty_list;
+  ] @
     cartesian_product_tests
 ;;

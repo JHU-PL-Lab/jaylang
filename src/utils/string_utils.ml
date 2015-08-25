@@ -3,9 +3,9 @@ open Batteries;;
 let concat_sep sep strs =
   Enum.fold
     (fun acc s ->
-      acc ^
-      (if String.is_empty acc then "" else sep) ^
-      s
+       acc ^
+       (if String.is_empty acc then "" else sep) ^
+       s
     ) "" strs
 ;;
 
