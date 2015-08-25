@@ -154,14 +154,8 @@ let rec evaluate env lastvar cls =
           evaluate env (Some x) @@ fresh_wire f x'' x @ t
       end
     | Conditional_body(x',p,f1,f2) ->
-      let successful_match =
-        match lookup env x' with
-        | Value_record(Record_value(is)) ->
-          begin
-            match p with
-            | Record_pattern(is') -> Ident_set.subset is' is
-          end
-        | Value_function(Function_value(_)) -> false
+      let f_target = if matches env x' p then f1 else f2 in
+      evaluate env (Some x) @@ fresh_wire f_target x' x @ t                  
 ;;
 
 let eval (Expr(cls)) =
