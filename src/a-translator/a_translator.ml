@@ -44,6 +44,9 @@ and clauses_and_var_of_nested_expr e =
       ([], Ast.Value_body(
           Ast.Value_function(
             function_value_of_nested_function_value f)))
+    | Nested_ast.Ref_expr(e') ->
+      let (cls0,x') = clauses_and_var_of_nested_expr e' in
+      (cls0, Ast.Value_body(Ast.Value_ref(Ast.Ref_value(x'))))
     | Nested_ast.Var_expr(x') ->
       ([], Ast.Var_body(x'))
     | Nested_ast.Appl_expr(e1,e2) ->
@@ -57,16 +60,26 @@ and clauses_and_var_of_nested_expr e =
           x', pattern_of_nested_pattern p,
           function_value_of_nested_function_value f1,
           function_value_of_nested_function_value f2))
+    | Nested_ast.Deref_expr(e') ->
+      let (cls0,x') = clauses_and_var_of_nested_expr e' in
+      ( cls0
+      , Ast.Deref_body(x'))
+    | Nested_ast.Update_expr(e1,e2) ->
+      let (cls1,x1) = clauses_and_var_of_nested_expr e1 in
+      let (cls2,x2) = clauses_and_var_of_nested_expr e2 in
+      ( cls1 @ cls2 @ [ Ast.Update_clause(x1,x2) ]
+      , Ast.Value_body(Ast.Value_record(Ast.Record_value(Ident_map.empty)))
+      )      
     | Nested_ast.Let_expr(x',e1,e2) ->
       let (cls1,x1) = clauses_and_var_of_nested_expr e1 in
       let (cls2,x2) = clauses_and_var_of_nested_expr e2 in
       ( cls1 @
-        [ Ast.Clause(x', Ast.Var_body(x1)) ] @
+        [ Ast.Assignment_clause(x', Ast.Var_body(x1)) ] @
         cls2
       , Ast.Var_body(x2)
       )
   in
-  (clauses @ [Ast.Clause(x,final_body)],x)
+  (clauses @ [Ast.Assignment_clause(x,final_body)],x)
 
 let a_translate_nested_expr e =
   let (cls,_) = clauses_and_var_of_nested_expr e in

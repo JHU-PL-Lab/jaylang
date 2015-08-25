@@ -8,9 +8,12 @@ open Ast;;
 type expr =
   | Record_expr of expr Ident_map.t
   | Function_expr of function_value
+  | Ref_expr of expr
   | Var_expr of var
   | Appl_expr of expr * expr
   | Conditional_expr of expr * pattern * function_value * function_value
+  | Deref_expr of expr
+  | Update_expr of expr * expr
   | Let_expr of var * expr * expr
 
 (** Function values in the nested language. *)

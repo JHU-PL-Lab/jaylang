@@ -35,6 +35,8 @@ rule token = parse
   | "?"                              { QUESTION_MARK }
   | "~"                              { TILDE }
   | ":"                              { COLON }
+  | "<-"                             { LEFT_ARROW }
   | "fun"                            { KEYWORD_FUN }
+  | "ref"                            { KEYWORD_REF }
   | ident_start ident_cont* as s     { IDENTIFIER s }
   | ";;"                             { DOUBLE_SEMICOLON }

@@ -65,20 +65,27 @@ type record_value = Record_value of var Ident_map.t
 (** A type to express function values. *)
 and function_value = Function_value of var * expr
 
+(** A type to express reference values. *)
+and ref_value = Ref_value of var
+
 (** A type to represent values. *)
 and value =
   | Value_record of record_value
   | Value_function of function_value
+  | Value_ref of ref_value
 
 (** A type to represent the bodies of clauses. *)
-and clause_body =
+and assignment_clause_body =
   | Value_body of value
   | Var_body of var
   | Appl_body of var * var
   | Conditional_body of var * pattern * function_value * function_value
+  | Deref_body of var
 
 (** A type to represent clauses. *)
-and clause = Clause of var * clause_body
+and clause =
+  | Assignment_clause of var * assignment_clause_body
+  | Update_clause of var * var
 
 (** A type to represent expressions. *)
 and expr = Expr of clause list

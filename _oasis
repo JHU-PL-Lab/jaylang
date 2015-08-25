@@ -1,10 +1,10 @@
-Name: ToyLanguageWithDeepRecords
-Version: 0.1
-Synopsis: An extension of the base toy language project which uses deep records.
+Name: Odefa
+Version: 0.2
+Synopsis: An implementation of CBA analysis.
 Authors: JHU PL Lab <pl.cs@jhu.edu>
 License: BSD-4-clause
 
-Description: A toy language used for proof-of-concept language development.
+Description: An implementation of CBA analysis.
 Homepage: http://www.big-bang-lang.org/
 
 OASISFormat: 0.4

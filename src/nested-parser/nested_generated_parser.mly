@@ -19,6 +19,7 @@ module List = BatList;;
 %token KEYWORD_FUN
 %token KEYWORD_LET
 %token KEYWORD_IN
+%token KEYWORD_REF
 %token DOUBLE_SEMICOLON
 %token EOF
 
@@ -72,6 +73,8 @@ primary_expr:
       { Function_expr($1) }
   | variable
       { Var_expr($1) }
+  | KEYWORD_REF expr
+      { Ref_expr($2) }
   | OPEN_PAREN expr CLOSE_PAREN
       { $2 }
   ;

@@ -24,6 +24,8 @@ let pretty_record_value (Record_value(els)) =
   concat_sep_delim "{" "}" ", " @@ Enum.map pretty_element @@ Ident_map.enum els
 ;;
 
+let pretty_ref_value (Ref_value(x)) = "!" ^ pretty_var x;;
+
 let rec pretty_function_value (Function_value(x,e)) =
   pretty_var x ^ " -> { " ^ pretty_expr e ^ " }"
 
@@ -31,6 +33,7 @@ and pretty_value v =
   match v with
   | Value_record(r) -> pretty_record_value r
   | Value_function(f) -> pretty_function_value f
+  | Value_ref(r) -> pretty_ref_value r
 
 and pretty_clause_body b =
   match b with
@@ -40,9 +43,14 @@ and pretty_clause_body b =
   | Conditional_body(x,p,f1,f2) ->
     pretty_var x ^ " ~ " ^ pretty_pattern p ^ " ? " ^
     pretty_function_value f1 ^ " : " ^ pretty_function_value f2
+  | Deref_body(x) -> "!" ^ pretty_var x
 
-and pretty_clause (Clause(x,b)) =
-  pretty_var x ^ " = " ^ pretty_clause_body b
+and pretty_clause c =
+  match c with
+  | Assignment_clause(x,b) ->
+    pretty_var x ^ " = " ^ pretty_clause_body b
+  | Update_clause(x,x') ->
+    pretty_var x ^ " <- " ^ pretty_var x'
 
 and pretty_expr (Expr(cls)) =
   concat_sep "; " @@ Enum.map pretty_clause @@ List.enum cls

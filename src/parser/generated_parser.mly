@@ -13,8 +13,10 @@ module List = BatList;;
 %token ARROW 
 %token QUESTION_MARK 
 %token TILDE 
-%token COLON 
+%token COLON
+%token LEFT_ARROW
 %token KEYWORD_FUN 
+%token KEYWORD_REF
 %token DOUBLE_SEMICOLON 
 
 %start <Ast.expr> prog
@@ -42,8 +44,20 @@ expr:
   ;
 
 clause:
+  | assignment_clause
+      { $1 }
+  | update_clause
+      { $1 }
+  ;
+
+assignment_clause:
   | variable EQUALS clause_body
-      { Clause($1,$3) }
+      { Assignment_clause($1,$3) }
+  ;
+
+update_clause:
+  | variable LEFT_ARROW variable
+      { Update_clause($1,$3) }
   ;
 
 variable:
@@ -72,6 +86,8 @@ value:
       { Value_record($1) }
   | function_value
       { Value_function($1) }
+  | ref_value
+      { Value_ref($1) }
   ;
 
 record_value:
@@ -89,6 +105,11 @@ record_element:
 function_value:
   | KEYWORD_FUN variable ARROW OPEN_BRACE expr CLOSE_BRACE
       { Function_value($2,$5) }
+  ;
+  
+ref_value:
+  | KEYWORD_REF variable
+      { Ref_value($2) }
   ;
 
 pattern:

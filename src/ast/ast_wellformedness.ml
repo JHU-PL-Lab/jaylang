@@ -15,6 +15,7 @@ type illformedness =
   | Open_filter_variable of var
   | Duplicate_variable_binding of var
   | Open_expression_variable of var
+  | Non_assignment_terminated_expression of clause
 ;;
 
 exception Illformedness_found of illformedness list;;
@@ -30,6 +31,9 @@ let pretty_illformedness ill =
     sprintf "Variable %s bound twice" (pretty_var x)
   | Open_expression_variable(x) ->
     sprintf "Variable %s is free in this expression" (pretty_var x)
+  | Non_assignment_terminated_expression(c) ->
+    sprintf "Expression terminates in non-assignment clause %s"
+      (pretty_clause c)
 ;;
 
 let merge_illformedness xs =
@@ -54,7 +58,12 @@ let merge_illformedness xs =
    Determines the variables bound by an expression.
 *)
 let vars_bound_by_expr (Expr(cls)) =
-  Var_set.of_list @@ List.map (fun (Clause(x,_)) -> x) cls
+  cls
+  |> List.filter_map
+    (function
+      | Assignment_clause(x,_) -> Some x
+      | Update_clause(_,_) -> None)
+  |> Var_set.of_list
 ;;
 
 (**
@@ -64,7 +73,7 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
   let rec walk cls =
     match cls with
     | [] -> Var_set.empty
-    | (Clause(x,b))::t ->
+    | (Assignment_clause(x,b))::t ->
       let free_t = walk t in
       let free_h =
         match b with
@@ -75,6 +84,7 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
             | Value_function(f) -> walk_fn f
             | Value_record(Record_value(els)) ->
               els |> Ident_map.enum |> Enum.map snd |> Var_set.of_enum
+            | Value_ref(Ref_value(x')) -> Var_set.singleton x'
           end
         | Appl_body(x1',x2') -> Var_set.of_list [x1';x2']
         | Conditional_body(x',_,f1,f2) ->
@@ -83,8 +93,13 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
             ; walk_fn f1
             ; walk_fn f2
             ]
+        | Deref_body x' -> Var_set.singleton x'
       in
       Var_set.remove x @@ Var_set.union free_h free_t
+    | (Update_clause(x1,x2))::t ->
+      let free_t = walk t in
+      let free_h = Var_set.of_enum @@ List.enum @@ [x1;x2] in
+      Var_set.union free_t free_h
   and walk_fn (Function_value(x',e)) =
     Var_set.remove x' @@ vars_free_in_expr e
   in
@@ -95,6 +110,13 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
    Determines if an expression is well-formed.
 *)
 let check_wellformed_expr e_initial : unit =
+  let check_terminates_with_assignment (Expr(cls_initial)) =
+    match List.last cls_initial with
+    | Assignment_clause(_,_) -> ()
+    | Update_clause(_,_) ->
+      raise (Illformedness_found([Non_assignment_terminated_expression(
+        List.last cls_initial)]))
+  in
   let check_closed e =
     let free = vars_free_in_expr e in
     if Var_set.cardinal free > 0
@@ -117,16 +139,18 @@ let check_wellformed_expr e_initial : unit =
       cls
       |> List.enum
       |> Enum.map
-        (fun (Clause(x,b)) ->
-           let extras =
-             match b with
-             | Value_body(Value_function(Function_value(x',(Expr(cls'))))) ->
-               let pat_map = Var_map.singleton x' 1 in
-               let body_map = count_clause_bindings cls' in
-               merge_count_maps pat_map body_map
-             | _ -> Var_map.empty
-           in
-           merge_count_maps extras @@ Var_map.singleton x 1
+        (function
+          | Assignment_clause(x,b) ->
+            let extras =
+              match b with
+              | Value_body(Value_function(Function_value(x',(Expr(cls'))))) ->
+                let pat_map = Var_map.singleton x' 1 in
+                let body_map = count_clause_bindings cls' in
+                merge_count_maps pat_map body_map
+              | _ -> Var_map.empty
+            in
+            merge_count_maps extras @@ Var_map.singleton x 1
+          | Update_clause(_,_) -> Var_map.empty
         )
       |> Enum.fold merge_count_maps Var_map.empty
     in
@@ -143,6 +167,7 @@ let check_wellformed_expr e_initial : unit =
   in
   (* These must be done sequentially to satisfy invariants of the validation
      steps. *)
+  check_terminates_with_assignment e_initial;
   check_closed e_initial;
   check_unique_bindings e_initial
 ;;

@@ -2,6 +2,7 @@ open Batteries;;
 
 open Ast;;
 open Ast_pretty;;
+open Utils;;
 
 let logger = Logger_utils.make_logger "Interpreter";;
 
@@ -33,15 +34,22 @@ let lookup env x =
 
 let bound_vars_of_expr (Expr(cls)) =
   cls
-  |> List.map (fun (Clause(x, _)) -> x)
+  |> List.filter_map
+    (function
+      | Assignment_clause(x, _) -> Some x
+      | Update_clause(_,_) -> None
+    )
   |> Var_set.of_list
 ;;
 
 let rec var_replace_expr fn (Expr(cls)) =
   Expr(List.map (var_replace_clause fn) cls)
 
-and var_replace_clause fn (Clause(x, b)) =
-  Clause(fn x, var_replace_clause_body fn b)
+and var_replace_clause fn c =
+  match c with
+  | Assignment_clause(x, b) ->
+    Assignment_clause(fn x, var_replace_clause_body fn b)
+  | Update_clause(x, x') -> Update_clause(fn x, fn x')
 
 and var_replace_clause_body fn r =
   match r with
@@ -51,12 +59,14 @@ and var_replace_clause_body fn r =
   | Conditional_body(x,p,f1,f2) ->
     Conditional_body(fn x, p, var_replace_function_value fn f1,
                      var_replace_function_value fn f2)
+  | Deref_body(x) -> Deref_body(fn x)
 
 and var_replace_value fn v =
   match v with
   | Value_record(Record_value(es)) ->
     Value_record(Record_value(Ident_map.map fn es))
   | Value_function(f) -> Value_function(var_replace_function_value fn f)
+  | Value_ref(Ref_value(x)) -> Value_ref(Ref_value(fn x))
 
 and var_replace_function_value fn (Function_value(x, e)) =
   Function_value(fn x, var_replace_expr fn e)
@@ -72,7 +82,10 @@ let freshening_stack_from_var x =
 let repl_fn_for clauses freshening_stack extra_bound =
   let bound_variables =
     clauses
-    |> List.map (fun (Clause(x, _)) -> x)
+    |> List.filter_map
+      (function
+        | Assignment_clause(x,_) -> Some x
+        | Update_clause(_,_) -> None)
     |> Var_set.of_list
     |> Var_set.union extra_bound 
   in
@@ -91,9 +104,15 @@ let fresh_wire (Function_value(param_x, Expr(body))) arg_x call_site_x =
     repl_fn_for body freshening_stack @@ Var_set.singleton param_x in
   (* Create the freshened, wired body. *)
   let freshened_body = List.map (var_replace_clause repl_fn) body in
-  let head_clause = Clause(repl_fn param_x, Var_body(arg_x)) in
-  let Clause(last_var, _) = List.last freshened_body in
-  let tail_clause = Clause(call_site_x, Var_body(last_var)) in
+  let head_clause = Assignment_clause(repl_fn param_x, Var_body(arg_x)) in
+  let last_var =
+    match List.last freshened_body with
+    | Assignment_clause(last_var,_) -> last_var
+    | Update_clause(_,_) ->
+      raise @@ Invariant_failure
+        "Ill-formed expression (last clause is not assignment) passed to fresh_wire in interpreter"
+  in
+  let tail_clause = Assignment_clause(call_site_x, Var_body(last_var)) in
   [head_clause] @ freshened_body @ [tail_clause]
 ;;
 
@@ -107,14 +126,15 @@ let rec matches env x p =
         els'
         |> Ident_map.enum
         |> Enum.for_all
-            (fun (i,p') ->
-              try
-                matches env (Ident_map.find i els) p'
-              with
-              | Not_found -> false
-            )
+          (fun (i,p') ->
+             try
+               matches env (Ident_map.find i els) p'
+             with
+             | Not_found -> false
+          )
     end
   | Value_function(Function_value(_)) -> false
+  | Value_ref(Ref_value(_)) -> false
 ;;
 
 let rec evaluate env lastvar cls =
@@ -134,27 +154,53 @@ let rec evaluate env lastvar cls =
         (* TODO: different exception? *)
         raise (Failure "evaluation of empty expression!")
     end
-  | (Clause(x, b)):: t ->
-    match b with
-    | Value_body(v) ->
-      Environment.add env x v;
-      evaluate env (Some x) t
-    | Var_body(x') ->
-      let v = lookup env x' in
-      Environment.add env x v;
-      evaluate env (Some x) t
-    | Appl_body(x', x'') ->
-      begin
-        match lookup env x' with
-        | Value_record(_) as r -> raise (Evaluation_failure
-                                           ("cannot apply " ^ pretty_var x' ^
-                                            " as it contains non-function " ^ pretty_value r))
-        | Value_function(f) ->
-          evaluate env (Some x) @@ fresh_wire f x'' x @ t
-      end
-    | Conditional_body(x',p,f1,f2) ->
-      let f_target = if matches env x' p then f1 else f2 in
-      evaluate env (Some x) @@ fresh_wire f_target x' x @ t                  
+  | (Assignment_clause(x, b)):: t ->
+    begin
+      match b with
+      | Value_body(v) ->
+        Environment.add env x v;
+        evaluate env (Some x) t
+      | Var_body(x') ->
+        let v = lookup env x' in
+        Environment.add env x v;
+        evaluate env (Some x) t
+      | Appl_body(x', x'') ->
+        begin
+          match lookup env x' with
+          | Value_function(f) ->
+            evaluate env (Some x) @@ fresh_wire f x'' x @ t
+          | r -> raise (Evaluation_failure
+                          ("cannot apply " ^ pretty_var x' ^
+                           " as it contains non-function " ^ pretty_value r))
+        end
+      | Conditional_body(x',p,f1,f2) ->
+        let f_target = if matches env x' p then f1 else f2 in
+        evaluate env (Some x) @@ fresh_wire f_target x' x @ t
+      | Deref_body(x') ->
+        let v = lookup env x' in
+        begin
+          match v with
+          | Value_ref(Ref_value(x'')) ->
+            let v' = lookup env x'' in
+            Environment.add env x v';
+            evaluate env (Some x) t
+          | _ -> raise (Evaluation_failure
+                          ("cannot dereference " ^ pretty_var x' ^
+                           " as it contains non-reference " ^ pretty_value v))
+        end
+    end
+  | (Update_clause(x, x')) :: t ->
+    let v = lookup env x in
+    let v' = lookup env x' in
+    begin
+      match v with
+      | Value_ref(Ref_value(x'')) ->
+        Environment.replace env x'' v';
+        evaluate env None t
+      | _ -> raise (Evaluation_failure
+                          ("cannot update " ^ pretty_var x' ^
+                           " as it contains non-reference " ^ pretty_value v))
+    end
 ;;
 
 let eval (Expr(cls)) =

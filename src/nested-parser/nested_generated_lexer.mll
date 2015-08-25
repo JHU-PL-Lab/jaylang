@@ -39,5 +39,6 @@ rule token = parse
   | "fun"                            { KEYWORD_FUN }
   | "let"                            { KEYWORD_LET }
   | "in"                             { KEYWORD_IN }
+  | "ref"                            { KEYWORD_REF }
   | ident_start ident_cont* as s     { IDENTIFIER s }
   | ";;"                             { DOUBLE_SEMICOLON }
