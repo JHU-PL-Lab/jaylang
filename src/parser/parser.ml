@@ -4,9 +4,6 @@
 
 open Batteries;;
 
-open Ast;;
-open Generated_lexer;;
-open Generated_parser;;
 open Lexing;;
 
 exception Parse_error of exn * int * int * string;;

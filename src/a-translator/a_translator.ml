@@ -9,7 +9,7 @@ let fresh_var () =
   Ast.Var(Ast.Ident(name),None)
 ;;
 
-let rec pattern_of_nested_pattern p =
+let pattern_of_nested_pattern p =
   match p with
   | Nested_ast.Record_pattern idents ->
     Ast.Record_pattern idents

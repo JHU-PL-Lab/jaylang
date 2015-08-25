@@ -8,9 +8,7 @@ open Printf;;
 
 open Ast;;
 open Ast_pretty;;
-open Ast_uid;;
 open String_utils;;
-open Utils;;
 
 type illformedness =
   | Filter_cycle of var list
@@ -78,7 +76,7 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
             | Value_record(Record_value(_)) -> Var_set.empty
           end
         | Appl_body(x1',x2') -> Var_set.of_list [x1';x2']
-        | Conditional_body(x',p,f1,f2) ->
+        | Conditional_body(x',_,f1,f2) ->
           List.fold_left Var_set.union Var_set.empty
             [ Var_set.singleton x'
             ; walk_fn f1
@@ -96,16 +94,16 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
    Determines if an expression is well-formed.
 *)
 let check_wellformed_expr e_initial : unit =
-  let rec check_closed e =
+  let check_closed e =
     let free = vars_free_in_expr e in
     if Var_set.cardinal free > 0
     then raise (Illformedness_found(
         free |> Var_set.enum |> Enum.map (fun x -> Open_expression_variable(x))
         |> List.of_enum))
   in
-  let rec check_unique_bindings (Expr(cls_initial)) =
+  let check_unique_bindings (Expr(cls_initial)) =
     let merge_count_maps m1 m2 =
-      let merge_fn k n1o n2o =
+      let merge_fn _ n1o n2o =
         match (n1o,n2o) with
         | (Some n1, None) -> Some n1
         | (None, Some n2) -> Some n2

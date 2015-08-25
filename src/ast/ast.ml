@@ -3,8 +3,6 @@
 *)
 
 open Batteries;;
-open Ast_uid;;
-open Utils;;
 
 (** A module for hashtables keyed by UIDs. *)
 module Ast_uid_hashtbl = Ast_uid.Ast_uid_hashtbl;;

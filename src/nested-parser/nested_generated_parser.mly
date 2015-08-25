@@ -1,8 +1,5 @@
 %{
-open Lexing;;
-
 open Ast;;
-open Ast_uid;;
 open Nested_ast;;
 %}
 
@@ -79,9 +76,9 @@ primary_expr:
   
 pattern:
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, identifier) CLOSE_BRACE
-      { Record_pattern(Ident_set.of_list $2) }
+      { Nested_ast.Record_pattern(Ident_set.of_list $2) }
   | OPEN_BRACE CLOSE_BRACE
-      { Record_pattern(Ident_set.empty) }
+      { Nested_ast.Record_pattern(Ident_set.empty) }
   ;
   
 function_value:

@@ -1,10 +1,5 @@
 %{
-open Lexing;;
-
 open Ast;;
-open Ast_uid;;
-open Parser_support;;
-open Source_origin;;
 %}
 
 %token <string> IDENTIFIER

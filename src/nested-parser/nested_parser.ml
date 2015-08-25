@@ -5,9 +5,6 @@
 open Batteries;;
 
 open Lexing;;
-open Nested_ast;;
-open Nested_generated_lexer;;
-open Nested_generated_parser;;
 
 exception Parse_error of exn * int * int * string;;
 

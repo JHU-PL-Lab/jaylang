@@ -4,8 +4,6 @@
    directly.
 *)
 
-open Batteries;;
-
 open Ast_uid;;
 open Source_origin;;
 

@@ -32,10 +32,10 @@ let match_string_with_bool boolean_string =
 
 
 let extract_map log_config = match log_config with
-  |Logging_config(default,map) -> map;;
+  | Logging_config(_,map) -> map;;
 
 let extract_default log_config = match log_config with
-  |Logging_config(default,map) -> default;;
+  | Logging_config(default,_) -> default;;
 
 let logging_config_global = ref @@ Logging_config(`warn, String_map.empty);;
 
