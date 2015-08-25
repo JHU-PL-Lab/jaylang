@@ -1,7 +1,7 @@
 # EXPECT-EVALUATE
-e = {l};
-# Match {l} with {l}
-c = e ~ {l} ? fun a -> { ra = {y} } : fun b -> { rb = {n} };
-# Now get stuck if we didn't get a {y}
-t = c ~ {y} ? fun j -> { rj = {} } : fun k -> { r = e e };
+e = {l={}};
+# Match {l={}} with {l={}}
+c = e ~ {l={}} ? fun a -> { ra = {y={}} } : fun b -> { rb = {n={}} };
+# Now get stuck if we didn't get a {y={}}
+t = c ~ {y={}} ? fun j -> { rj = {} } : fun k -> { r = e e };
 

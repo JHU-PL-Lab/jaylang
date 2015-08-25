@@ -97,6 +97,26 @@ let fresh_wire (Function_value(param_x, Expr(body))) arg_x call_site_x =
   [head_clause] @ freshened_body @ [tail_clause]
 ;;
 
+let rec matches env x p =
+  let v = lookup env x in
+  match v with
+  | Value_record(Record_value(els)) ->
+    begin
+      match p with
+      | Record_pattern(els') ->
+        els'
+        |> Ident_map.enum
+        |> Enum.for_all
+            (fun (i,p') ->
+              try
+                matches env (Ident_map.find i els) p
+              with
+              | Not_found -> false
+            )
+    end
+  | Value_function(Function_value(_)) -> false
+;;
+
 let rec evaluate env lastvar cls =
   logger `debug (
       pretty_env env ^ "\n" ^
@@ -133,16 +153,7 @@ let rec evaluate env lastvar cls =
                   evaluate env (Some x) @@ fresh_wire f x'' x @ t
           end
       | Conditional_body(x',p,f1,f2) ->
-          let successful_match =
-                match lookup env x' with
-                  | Value_record(Record_value(is)) ->
-                      begin
-                        match p with
-                          | Record_pattern(is') -> Ident_set.subset is' is
-                      end
-                  | Value_function(Function_value(_)) -> false
-          in
-          let f_target = if successful_match then f1 else f2 in
+          let f_target = if matches env x' p then f1 else f2 in
           evaluate env (Some x) @@ fresh_wire f_target x' x @ t            
 ;;
 

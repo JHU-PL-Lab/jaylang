@@ -1,6 +1,6 @@
-Name: ToyLanguage
+Name: ToyLanguageWithDeepRecords
 Version: 0.1
-Synopsis: A base toy language project.
+Synopsis: An extension of the base toy language project which uses deep records.
 Authors: JHU PL Lab <pl.cs@jhu.edu>
 License: BSD-4-clause
 

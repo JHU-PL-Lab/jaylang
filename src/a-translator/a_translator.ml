@@ -1,5 +1,7 @@
 open Batteries;;
 
+module Ident_map = Ast.Ident_map;;
+
 let fresh_var_counter = ref 0;;
 
 let fresh_var () =
@@ -11,8 +13,8 @@ let fresh_var () =
 
 let rec pattern_of_nested_pattern p =
   match p with
-    | Nested_ast.Record_pattern idents ->
-        Ast.Record_pattern idents
+    | Nested_ast.Record_pattern elements ->
+        Ast.Record_pattern (Ident_map.map pattern_of_nested_pattern elements)
 ;;
 
 let rec function_value_of_nested_function_value
@@ -24,10 +26,20 @@ and clauses_and_var_of_nested_expr e =
   let x = fresh_var() in
   let (clauses,final_body) =
     match e with
-      | Nested_ast.Record_expr idents ->
-          ([], Ast.Value_body(
-                  Ast.Value_record(
-                    Ast.Record_value idents)))
+      | Nested_ast.Record_expr elements ->
+          let elements' =
+            Ident_map.map clauses_and_var_of_nested_expr elements
+          in
+          let record_body = Ident_map.map snd elements' in
+          let extra_clauses =
+            elements'
+            |> Ident_map.enum
+            |> Enum.map (snd %> fst)
+            |> List.of_enum
+            |> List.concat
+          in
+          (extra_clauses,
+            Ast.Value_body(Ast.Value_record(Ast.Record_value record_body)))
       | Nested_ast.Function_expr(f) ->
           ([], Ast.Value_body(
                   Ast.Value_function(

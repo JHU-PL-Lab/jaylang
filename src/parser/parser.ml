@@ -4,6 +4,8 @@
 
 open Batteries;;
 
+open Lexing;;
+
 open Ast;;
 open Generated_lexer;;
 open Generated_parser;;

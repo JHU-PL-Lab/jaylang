@@ -9,7 +9,7 @@ open Utils;;
 
 (** Expressions in the nested language. *)
 type expr =
-  | Record_expr of Ident_set.t
+  | Record_expr of expr Ident_map.t
   | Function_expr of function_value
   | Var_expr of var
   | Appl_expr of expr * expr
@@ -22,5 +22,5 @@ and function_value =
 
 (** Patterns in the nested language. *)
 and pattern =
-  | Record_pattern of Ident_set.t
+  | Record_pattern of pattern Ident_map.t
 ;;

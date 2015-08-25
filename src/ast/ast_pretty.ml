@@ -19,8 +19,9 @@ let pretty_var (Var(i, mfs)) =
     | Some fs -> pretty_ident i ^ pretty_freshening_stack fs
 ;;
 
-let pretty_record_value (Record_value(is)) =
-  concat_sep_delim "{" "}" ", " @@ Enum.map pretty_ident @@ Ident_set.enum is
+let pretty_record_value (Record_value(els)) =
+  let pretty_element = pretty_tuple pretty_ident pretty_var in
+  concat_sep_delim "{" "}" ", " @@ Enum.map pretty_element @@ Ident_map.enum els
 ;;
 
 let rec pretty_function_value (Function_value(x,e)) =
@@ -48,7 +49,8 @@ and pretty_expr (Expr(cls)) =
 
 and pretty_pattern p =
   match p with
-    | Record_pattern(is) ->
-        concat_sep_delim "{" "}" ", " @@ Enum.map pretty_ident @@
-          Ident_set.enum is
+    | Record_pattern(els) ->
+        let pretty_element = pretty_tuple pretty_ident pretty_pattern in
+        concat_sep_delim "{" "}" ", " @@ Enum.map pretty_element @@
+          Ident_map.enum els
 ;;

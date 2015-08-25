@@ -5,6 +5,7 @@ open Ast;;
 open Ast_uid;;
 open Parser_support;;
 open Source_origin;;
+module List = BatList;;
 %}
 
 %token <string> IDENTIFIER
@@ -80,9 +81,14 @@ value:
 
 record_value:
   | OPEN_BRACE CLOSE_BRACE
-  |   { Record_value(Ident_set.empty) }
-  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, identifier) CLOSE_BRACE
-      { Record_value(Ident_set.of_list $2) }
+      { Record_value(Ident_map.empty) }
+  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_element) CLOSE_BRACE
+      { Record_value(Ident_map.of_enum @@ List.enum $2) }
+  ;
+  
+record_element:
+  | identifier EQUALS variable
+      { ($1,$3) }
   ;
   
 function_value:
@@ -91,8 +97,20 @@ function_value:
   ;
 
 pattern:
-  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, identifier) CLOSE_BRACE
-      { Record_pattern(Ident_set.of_list $2) }
+  | record_pattern
+      { $1 }
+  ;
+
+record_pattern:
+  | OPEN_BRACE CLOSE_BRACE
+      { Record_pattern(Ident_map.empty) }
+  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE
+      { Record_pattern(Ident_map.of_enum @@ List.enum $2) }
+  ;
+
+record_pattern_element:
+  | identifier EQUALS pattern
+      { ($1,$3) }
   ;
 
 separated_nonempty_trailing_list(separator, rule):

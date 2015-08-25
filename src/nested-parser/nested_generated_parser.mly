@@ -4,6 +4,8 @@ open Lexing;;
 open Ast;;
 open Ast_uid;;
 open Nested_ast;;
+
+module List = BatList;;
 %}
 
 %token <string> IDENTIFIER
@@ -65,10 +67,10 @@ application_expr:
   ;
 
 primary_expr:
-  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, identifier) CLOSE_BRACE
-      { Record_expr(Ident_set.of_list $2) }
+  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_element) CLOSE_BRACE
+      { Record_expr(Ident_map.of_enum @@ List.enum $2) }
   | OPEN_BRACE CLOSE_BRACE
-      { Record_expr(Ident_set.empty) }
+      { Record_expr(Ident_map.empty) }
   | function_value
       { Function_expr($1) }
   | variable
@@ -76,12 +78,22 @@ primary_expr:
   | OPEN_PAREN expr CLOSE_PAREN
       { $2 }
   ;
+
+record_element:
+  | identifier EQUALS expr
+      { ($1,$3) }
+  ;
   
 pattern:
-  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, identifier) CLOSE_BRACE
-      { Record_pattern(Ident_set.of_list $2) }
+  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE
+      { Record_pattern(Ident_map.of_enum @@ List.enum $2) }
   | OPEN_BRACE CLOSE_BRACE
-      { Record_pattern(Ident_set.empty) }
+      { Record_pattern(Ident_map.empty) }
+  ;
+  
+record_pattern_element:
+  | identifier EQUALS pattern
+      { ($1,$3) }
   ;
   
 function_value:
