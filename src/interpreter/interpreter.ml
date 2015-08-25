@@ -2,7 +2,6 @@ open Batteries;;
 
 open Ast;;
 open Ast_pretty;;
-open Ast_uid;;
 
 let logger = Logger_utils.make_logger "Interpreter";;
 
@@ -77,7 +76,7 @@ let repl_fn_for clauses freshening_stack extra_bound =
     |> Var_set.of_list
     |> Var_set.union extra_bound 
   in
-  let repl_fn (Var(i, fso) as x) =
+  let repl_fn (Var(i, _) as x) =
     if Var_set.mem x bound_variables
     then Var(i, Some freshening_stack)
     else x

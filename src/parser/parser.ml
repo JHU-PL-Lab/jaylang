@@ -6,11 +6,6 @@ open Batteries;;
 
 open Lexing;;
 
-open Ast;;
-open Generated_lexer;;
-open Generated_parser;;
-open Lexing;;
-
 exception Parse_error of exn * int * int * string;;
 
 let handle_parse_error buf f =

@@ -2,10 +2,7 @@
    Contains data type definitions for the AST of the *nested* toy language.
 *)
 
-open Batteries;;
 open Ast;;
-open Ast_uid;;
-open Utils;;
 
 (** Expressions in the nested language. *)
 type expr =

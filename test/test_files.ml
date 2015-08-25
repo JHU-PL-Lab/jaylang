@@ -14,8 +14,6 @@ open OUnit2;;
 
 open Ast_wellformedness;;
 open Interpreter;;
-open Parser;;
-open Utils;;
 
 exception File_test_creation_failure of string;;
 
@@ -60,7 +58,7 @@ let make_test filename expectation =
         try
           ignore (eval expr);
           assert_failure ("Evaluation completed")                
-        with Evaluation_failure(failure) ->
+        with Evaluation_failure(_) ->
           ()
       end
 ;;

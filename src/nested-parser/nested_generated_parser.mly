@@ -1,8 +1,5 @@
 %{
-open Lexing;;
-
 open Ast;;
-open Ast_uid;;
 open Nested_ast;;
 
 module List = BatList;;
@@ -86,9 +83,9 @@ record_element:
   
 pattern:
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE
-      { Record_pattern(Ident_map.of_enum @@ List.enum $2) }
+      { Nested_ast.Record_pattern(Ident_map.of_enum @@ List.enum $2) }
   | OPEN_BRACE CLOSE_BRACE
-      { Record_pattern(Ident_map.empty) }
+      { Nested_ast.Record_pattern(Ident_map.empty) }
   ;
   
 record_pattern_element:
