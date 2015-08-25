@@ -14,6 +14,7 @@ open OUnit2;;
 
 open Ast_wellformedness;;
 open Interpreter;;
+open String_utils;;
 
 exception File_test_creation_failure of string;;
 
@@ -29,14 +30,35 @@ let parse_expectation str =
   | _ -> None
 ;;
 
-let make_test filename expectation =
-  let test_name_expectation = match expectation with
+let observe_evaluated expectations =
+  expectations |> List.iter
+    (function
+      | Expect_stuck ->
+        assert_failure @@
+        "Evaluation completed but was expected to become stuck."
+      | _ -> ()
+    )
+;;
+
+let observe_stuck failure expectations =
+  expectations |> List.iter
+    (function
+      | Expect_evaluate ->
+        assert_failure @@ "Evaluation became stuck: " ^ failure
+      | _ -> ()
+    )
+;;
+
+let make_test filename expectations =
+  let name_of_expectation expectation = match expectation with
     | Expect_evaluate ->
-      "(should evaluate)"
+      "should evaluate"
     | Expect_stuck ->
-      "(should get stuck)"
+      "should get stuck"
   in
-  let test_name = filename ^ ": " ^ test_name_expectation in
+  let test_name = filename ^ ": (" ^
+                  pretty_list name_of_expectation expectations ^ ")"
+  in
   (* Create the test in a thunk. *)
   test_name >::
   function _ ->
@@ -45,22 +67,12 @@ let make_test filename expectation =
     (* Verify that it is well-formed. *)
     check_wellformed_expr expr;
     (* Now, based on our expectation, do the right thing. *)
-    match expectation with
-    | Expect_evaluate ->
-      begin
-        try
-          ignore @@ eval expr
-        with Evaluation_failure(failure) ->
-          assert_failure @@ "Evaluation became stuck: " ^ failure
-      end
-    | Expect_stuck ->
-      begin
-        try
-          ignore (eval expr);
-          assert_failure ("Evaluation completed")                
-        with Evaluation_failure(_) ->
-          ()
-      end
+    try
+      ignore (eval expr);
+      expectations |> observe_evaluated
+    with
+    | Evaluation_failure(failure) ->
+      expectations |> observe_stuck failure
 ;;
 
 let make_test_from filename =
@@ -79,16 +91,13 @@ let make_test_from filename =
     |> List.of_enum
   in
   match expectations with
-  | [expectation] ->
-    make_test filename expectation
   | [] ->
     raise (File_test_creation_failure(
         "Could not create test from file " ^ filename ^
         ": no expectation comment found."))
   | _ ->
-    raise (File_test_creation_failure(
-        "Could not create test from file " ^ filename ^
-        ": multiple expectation comments found."))
+    make_test filename expectations
+;;
 
 let make_all_tests pathname =
   if Sys.file_exists pathname && Sys.is_directory pathname
