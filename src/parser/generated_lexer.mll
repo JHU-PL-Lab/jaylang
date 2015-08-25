@@ -36,6 +36,7 @@ rule token = parse
   | "~"                              { TILDE }
   | ":"                              { COLON }
   | "<-"                             { LEFT_ARROW }
+  | "!"                              { BANG }
   | "fun"                            { KEYWORD_FUN }
   | "ref"                            { KEYWORD_REF }
   | ident_start ident_cont* as s     { IDENTIFIER s }

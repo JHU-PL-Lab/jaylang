@@ -16,6 +16,7 @@ module List = BatList;;
 %token TILDE
 %token COLON
 %token EQUALS
+%token BANG
 %token KEYWORD_FUN
 %token KEYWORD_LET
 %token KEYWORD_IN
@@ -75,6 +76,8 @@ primary_expr:
       { Var_expr($1) }
   | KEYWORD_REF expr
       { Ref_expr($2) }
+  | BANG expr
+      { Deref_expr($2) }
   | OPEN_PAREN expr CLOSE_PAREN
       { $2 }
   ;

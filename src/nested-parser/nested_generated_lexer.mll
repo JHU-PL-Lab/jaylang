@@ -36,6 +36,7 @@ rule token = parse
   | "~"                              { TILDE }
   | ":"                              { COLON }
   | "="                              { EQUALS }
+  | "!"                              { BANG }
   | "fun"                            { KEYWORD_FUN }
   | "let"                            { KEYWORD_LET }
   | "in"                             { KEYWORD_IN }

@@ -15,6 +15,7 @@ module List = BatList;;
 %token TILDE 
 %token COLON
 %token LEFT_ARROW
+%token BANG
 %token KEYWORD_FUN 
 %token KEYWORD_REF
 %token DOUBLE_SEMICOLON 
@@ -79,6 +80,8 @@ clause_body:
       { Appl_body($1,$2) }
   | variable TILDE pattern QUESTION_MARK function_value COLON function_value
       { Conditional_body($1,$3,$5,$7) }
+  | BANG variable
+      { Deref_body($2) }
   ;
 
 value:
