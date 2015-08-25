@@ -14,7 +14,8 @@
 
 let digit = ['0'-'9']
 let alpha = ['a'-'z'] | ['A'-'Z']
-let whitespace = [' ' '\t' '\n']
+let whitespace = [' ' '\t']
+let newline = '\n'
 let comment = '#' [^'\n']* '\n'
 
 let ident_start = alpha
@@ -22,8 +23,9 @@ let ident_cont = alpha | digit
 
 rule token = parse
   | eof                              { EOF }
-  | comment                          { token lexbuf }
+  | comment                          { incr_lineno lexbuf; token lexbuf }
   | whitespace                       { token lexbuf }
+  | newline                          { incr_lineno lexbuf; token lexbuf }
   | "{"                              { OPEN_BRACE }
   | "}"                              { CLOSE_BRACE }
   | "("                              { OPEN_PAREN }
