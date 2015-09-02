@@ -45,20 +45,8 @@ expr:
   ;
 
 clause:
-  | assignment_clause
-      { $1 }
-  | update_clause
-      { $1 }
-  ;
-
-assignment_clause:
   | variable EQUALS clause_body
-      { Assignment_clause($1,$3) }
-  ;
-
-update_clause:
-  | variable LEFT_ARROW variable
-      { Update_clause($1,$3) }
+      { Clause($1,$3) }
   ;
 
 variable:
@@ -82,6 +70,8 @@ clause_body:
       { Conditional_body($1,$3,$5,$7) }
   | BANG variable
       { Deref_body($2) }
+  | variable LEFT_ARROW variable
+      { Update_body($1,$3) }
   ;
 
 value:

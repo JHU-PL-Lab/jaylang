@@ -67,19 +67,19 @@ and clauses_and_var_of_nested_expr e =
     | Nested_ast.Update_expr(e1,e2) ->
       let (cls1,x1) = clauses_and_var_of_nested_expr e1 in
       let (cls2,x2) = clauses_and_var_of_nested_expr e2 in
-      ( cls1 @ cls2 @ [ Ast.Update_clause(x1,x2) ]
-      , Ast.Value_body(Ast.Value_record(Ast.Record_value(Ident_map.empty)))
+      ( cls1 @ cls2
+      , Ast.Update_body(x1,x2)
       )      
     | Nested_ast.Let_expr(x',e1,e2) ->
       let (cls1,x1) = clauses_and_var_of_nested_expr e1 in
       let (cls2,x2) = clauses_and_var_of_nested_expr e2 in
       ( cls1 @
-        [ Ast.Assignment_clause(x', Ast.Var_body(x1)) ] @
+        [ Ast.Clause(x', Ast.Var_body(x1)) ] @
         cls2
       , Ast.Var_body(x2)
       )
   in
-  (clauses @ [Ast.Assignment_clause(x,final_body)],x)
+  (clauses @ [Ast.Clause(x,final_body)],x)
 
 let a_translate_nested_expr e =
   let (cls,_) = clauses_and_var_of_nested_expr e in

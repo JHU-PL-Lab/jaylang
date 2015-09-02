@@ -75,17 +75,17 @@ and value =
   | Value_ref of ref_value
 
 (** A type to represent the bodies of clauses. *)
-and assignment_clause_body =
+and clause_body =
   | Value_body of value
   | Var_body of var
   | Appl_body of var * var
   | Conditional_body of var * pattern * function_value * function_value
   | Deref_body of var
+  | Update_body of var * var
 
 (** A type to represent clauses. *)
 and clause =
-  | Assignment_clause of var * assignment_clause_body
-  | Update_clause of var * var
+  | Clause of var * clause_body
 
 (** A type to represent expressions. *)
 and expr = Expr of clause list

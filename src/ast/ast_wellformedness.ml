@@ -59,10 +59,7 @@ let merge_illformedness xs =
 *)
 let vars_bound_by_expr (Expr(cls)) =
   cls
-  |> List.filter_map
-    (function
-      | Assignment_clause(x,_) -> Some x
-      | Update_clause(_,_) -> None)
+  |> List.map (fun (Clause(x,_)) -> x)
   |> Var_set.of_list
 ;;
 
@@ -73,7 +70,7 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
   let rec walk cls =
     match cls with
     | [] -> Var_set.empty
-    | (Assignment_clause(x,b))::t ->
+    | (Clause(x,b))::t ->
       let free_t = walk t in
       let free_h =
         match b with
@@ -94,12 +91,9 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
             ; walk_fn f2
             ]
         | Deref_body x' -> Var_set.singleton x'
+        | Update_body(x1',x2') -> Var_set.of_list [x1';x2']
       in
       Var_set.remove x @@ Var_set.union free_h free_t
-    | (Update_clause(x1,x2))::t ->
-      let free_t = walk t in
-      let free_h = Var_set.of_enum @@ List.enum @@ [x1;x2] in
-      Var_set.union free_t free_h
   and walk_fn (Function_value(x',e)) =
     Var_set.remove x' @@ vars_free_in_expr e
   in
@@ -110,13 +104,6 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
    Determines if an expression is well-formed.
 *)
 let check_wellformed_expr e_initial : unit =
-  let check_terminates_with_assignment (Expr(cls_initial)) =
-    match List.last cls_initial with
-    | Assignment_clause(_,_) -> ()
-    | Update_clause(_,_) ->
-      raise (Illformedness_found([Non_assignment_terminated_expression(
-        List.last cls_initial)]))
-  in
   let check_closed e =
     let free = vars_free_in_expr e in
     if Var_set.cardinal free > 0
@@ -139,8 +126,7 @@ let check_wellformed_expr e_initial : unit =
       cls
       |> List.enum
       |> Enum.map
-        (function
-          | Assignment_clause(x,b) ->
+        (fun (Clause(x,b)) ->
             let extras =
               match b with
               | Value_body(Value_function(Function_value(x',(Expr(cls'))))) ->
@@ -150,7 +136,6 @@ let check_wellformed_expr e_initial : unit =
               | _ -> Var_map.empty
             in
             merge_count_maps extras @@ Var_map.singleton x 1
-          | Update_clause(_,_) -> Var_map.empty
         )
       |> Enum.fold merge_count_maps Var_map.empty
     in
@@ -167,7 +152,6 @@ let check_wellformed_expr e_initial : unit =
   in
   (* These must be done sequentially to satisfy invariants of the validation
      steps. *)
-  check_terminates_with_assignment e_initial;
   check_closed e_initial;
   check_unique_bindings e_initial
 ;;

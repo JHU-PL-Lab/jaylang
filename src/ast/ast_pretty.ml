@@ -44,13 +44,12 @@ and pretty_clause_body b =
     pretty_var x ^ " ~ " ^ pretty_pattern p ^ " ? " ^
     pretty_function_value f1 ^ " : " ^ pretty_function_value f2
   | Deref_body(x) -> "!" ^ pretty_var x
+  | Update_body(x1,x2) -> pretty_var x1 ^ " <- " ^ pretty_var x2
 
 and pretty_clause c =
   match c with
-  | Assignment_clause(x,b) ->
+  | Clause(x,b) ->
     pretty_var x ^ " = " ^ pretty_clause_body b
-  | Update_clause(x,x') ->
-    pretty_var x ^ " <- " ^ pretty_var x'
 
 and pretty_expr (Expr(cls)) =
   concat_sep "; " @@ Enum.map pretty_clause @@ List.enum cls

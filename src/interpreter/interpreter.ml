@@ -2,7 +2,6 @@ open Batteries;;
 
 open Ast;;
 open Ast_pretty;;
-open Utils;;
 
 let logger = Logger_utils.make_logger "Interpreter";;
 
@@ -32,24 +31,19 @@ let lookup env x =
     )
 ;;
 
+(* FIXME: this functionality is duplicated in ast_wellformedness.
+   (Needs fixed upstream.) *)
 let bound_vars_of_expr (Expr(cls)) =
   cls
-  |> List.filter_map
-    (function
-      | Assignment_clause(x, _) -> Some x
-      | Update_clause(_,_) -> None
-    )
+  |> List.map (fun (Clause(x, _)) -> x)
   |> Var_set.of_list
 ;;
 
 let rec var_replace_expr fn (Expr(cls)) =
   Expr(List.map (var_replace_clause fn) cls)
 
-and var_replace_clause fn c =
-  match c with
-  | Assignment_clause(x, b) ->
-    Assignment_clause(fn x, var_replace_clause_body fn b)
-  | Update_clause(x, x') -> Update_clause(fn x, fn x')
+and var_replace_clause fn (Clause(x, b)) =
+  Clause(fn x, var_replace_clause_body fn b)
 
 and var_replace_clause_body fn r =
   match r with
@@ -60,6 +54,7 @@ and var_replace_clause_body fn r =
     Conditional_body(fn x, p, var_replace_function_value fn f1,
                      var_replace_function_value fn f2)
   | Deref_body(x) -> Deref_body(fn x)
+  | Update_body(x1,x2) -> Update_body(fn x1, fn x2)
 
 and var_replace_value fn v =
   match v with
@@ -81,11 +76,10 @@ let freshening_stack_from_var x =
 
 let repl_fn_for clauses freshening_stack extra_bound =
   let bound_variables =
+    (* FIXME: this functionality is duplicated above in bound_vars_of_expr; this
+       needs to be fixed upstream. *)
     clauses
-    |> List.filter_map
-      (function
-        | Assignment_clause(x,_) -> Some x
-        | Update_clause(_,_) -> None)
+    |> List.map (fun (Clause(x,_)) -> x)
     |> Var_set.of_list
     |> Var_set.union extra_bound 
   in
@@ -104,15 +98,9 @@ let fresh_wire (Function_value(param_x, Expr(body))) arg_x call_site_x =
     repl_fn_for body freshening_stack @@ Var_set.singleton param_x in
   (* Create the freshened, wired body. *)
   let freshened_body = List.map (var_replace_clause repl_fn) body in
-  let head_clause = Assignment_clause(repl_fn param_x, Var_body(arg_x)) in
-  let last_var =
-    match List.last freshened_body with
-    | Assignment_clause(last_var,_) -> last_var
-    | Update_clause(_,_) ->
-      raise @@ Invariant_failure
-        "Ill-formed expression (last clause is not assignment) passed to fresh_wire in interpreter"
-  in
-  let tail_clause = Assignment_clause(call_site_x, Var_body(last_var)) in
+  let head_clause = Clause(repl_fn param_x, Var_body(arg_x)) in
+  let Clause(last_var,_) = List.last freshened_body in
+  let tail_clause = Clause(call_site_x, Var_body(last_var)) in
   [head_clause] @ freshened_body @ [tail_clause]
 ;;
 
@@ -154,7 +142,7 @@ let rec evaluate env lastvar cls =
         (* TODO: different exception? *)
         raise (Failure "evaluation of empty expression!")
     end
-  | (Assignment_clause(x, b)):: t ->
+  | (Clause(x, b)):: t ->
     begin
       match b with
       | Value_body(v) ->
@@ -188,18 +176,18 @@ let rec evaluate env lastvar cls =
                           ("cannot dereference " ^ pretty_var x' ^
                            " as it contains non-reference " ^ pretty_value v))
         end
-    end
-  | (Update_clause(x, x')) :: t ->
-    let v = lookup env x in
-    let v' = lookup env x' in
-    begin
-      match v with
-      | Value_ref(Ref_value(x'')) ->
-        Environment.replace env x'' v';
-        evaluate env None t
-      | _ -> raise (Evaluation_failure
+      | Update_body(x', x'') ->
+        let v = lookup env x' in
+        let v' = lookup env x'' in
+        begin
+          match v with
+          | Value_ref(Ref_value(x'')) ->
+            Environment.replace env x'' v';
+            evaluate env (Some x) ((Clause(x, Value_body(Value_record(Record_value(Ident_map.empty)))))::t)
+          | _ -> raise (Evaluation_failure
                           ("cannot update " ^ pretty_var x' ^
                            " as it contains non-reference " ^ pretty_value v))
+        end
     end
 ;;
 
