@@ -29,7 +29,10 @@ module List = BatList;;
 %left LAM
 %right KEYWORD_IN
 %left TILDE
+%right BANG
 %left DOT
+%left LEFT_ARROW
+%right KEYWORD_REF
 
 %start <Nested_ast.expr> prog
 %start <Nested_ast.expr option> delim_expr
@@ -79,9 +82,9 @@ primary_expr:
       { Function_expr($1) }
   | variable
       { Var_expr($1) }
-  | KEYWORD_REF expr
+  | KEYWORD_REF primary_expr
       { Ref_expr($2) }
-  | BANG expr
+  | BANG primary_expr
       { Deref_expr($2) }
   | OPEN_PAREN expr CLOSE_PAREN
       { $2 }
