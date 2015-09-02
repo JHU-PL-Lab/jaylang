@@ -26,6 +26,11 @@ module List = BatList;;
 %token DOUBLE_SEMICOLON
 %token EOF
 
+%left LAM
+%right KEYWORD_IN
+%left TILDE
+%left DOT
+
 %start <Nested_ast.expr> prog
 %start <Nested_ast.expr option> delim_expr
 
@@ -46,20 +51,14 @@ delim_expr:
   ;
 
 expr:
-  | let_body_expr
-      { $1 }
   | KEYWORD_LET variable EQUALS expr KEYWORD_IN expr
       { Let_expr($2,$4,$6) }
-  ;
-
-let_body_expr:
+  | expr TILDE pattern QUESTION_MARK function_value COLON function_value
+      { Conditional_expr($1,$3,$5,$7) }
+  | expr LEFT_ARROW expr
+      { Update_expr($1,$3) }
   | application_expr
       { $1 }
-  | let_body_expr TILDE pattern QUESTION_MARK function_value
-                                        COLON function_value
-      { Conditional_expr($1,$3,$5,$7) }
-  | let_body_expr LEFT_ARROW let_body_expr
-      { Update_expr($1,$3) }
   ;
   
 application_expr:
@@ -106,7 +105,7 @@ record_pattern_element:
   ;
   
 function_value:
-  | KEYWORD_FUN variable ARROW primary_expr
+  | KEYWORD_FUN variable ARROW primary_expr %prec LAM
       { Function($2,$4) } 
   ;
 
