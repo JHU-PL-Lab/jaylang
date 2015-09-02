@@ -38,6 +38,7 @@ rule token = parse
   | "="                              { EQUALS }
   | "."                              { DOT }
   | "!"                              { BANG }
+  | "<-"                             { LEFT_ARROW }
   | "fun"                            { KEYWORD_FUN }
   | "let"                            { KEYWORD_LET }
   | "in"                             { KEYWORD_IN }

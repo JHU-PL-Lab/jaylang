@@ -18,6 +18,7 @@ module List = BatList;;
 %token EQUALS
 %token DOT
 %token BANG
+%token LEFT_ARROW
 %token KEYWORD_FUN
 %token KEYWORD_LET
 %token KEYWORD_IN
@@ -57,6 +58,8 @@ let_body_expr:
   | let_body_expr TILDE pattern QUESTION_MARK function_value
                                         COLON function_value
       { Conditional_expr($1,$3,$5,$7) }
+  | let_body_expr LEFT_ARROW let_body_expr
+      { Update_expr($1,$3) }
   ;
   
 application_expr:
