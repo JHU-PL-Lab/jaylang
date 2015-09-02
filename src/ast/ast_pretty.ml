@@ -40,6 +40,7 @@ and pretty_clause_body b =
   | Conditional_body(x,p,f1,f2) ->
     pretty_var x ^ " ~ " ^ pretty_pattern p ^ " ? " ^
     pretty_function_value f1 ^ " : " ^ pretty_function_value f2
+  | Projection_body(x,i) -> pretty_var x ^ "." ^ pretty_ident i
 
 and pretty_clause (Clause(x,b)) =
   pretty_var x ^ " = " ^ pretty_clause_body b

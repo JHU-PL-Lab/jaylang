@@ -14,7 +14,8 @@ module List = BatList;;
 %token QUESTION_MARK 
 %token TILDE 
 %token COLON 
-%token KEYWORD_FUN 
+%token DOT
+%token KEYWORD_FUN
 %token DOUBLE_SEMICOLON 
 
 %start <Ast.expr> prog
@@ -65,6 +66,8 @@ clause_body:
       { Appl_body($1,$2) }
   | variable TILDE pattern QUESTION_MARK function_value COLON function_value
       { Conditional_body($1,$3,$5,$7) }
+  | variable DOT identifier
+      { Projection_body($1,$3) }
   ;
 
 value:

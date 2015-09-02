@@ -51,6 +51,7 @@ and var_replace_clause_body fn r =
   | Conditional_body(x,p,f1,f2) ->
     Conditional_body(fn x, p, var_replace_function_value fn f1,
                      var_replace_function_value fn f2)
+  | Projection_body(x,i) -> Projection_body(fn x, i)
 
 and var_replace_value fn v =
   match v with
@@ -135,26 +136,47 @@ let rec evaluate env lastvar cls =
         raise (Failure "evaluation of empty expression!")
     end
   | (Clause(x, b)):: t ->
-    match b with
-    | Value_body(v) ->
-      Environment.add env x v;
-      evaluate env (Some x) t
-    | Var_body(x') ->
-      let v = lookup env x' in
-      Environment.add env x v;
-      evaluate env (Some x) t
-    | Appl_body(x', x'') ->
-      begin
-        match lookup env x' with
-        | Value_record(_) as r -> raise (Evaluation_failure
-                                           ("cannot apply " ^ pretty_var x' ^
-                                            " as it contains non-function " ^ pretty_value r))
-        | Value_function(f) ->
-          evaluate env (Some x) @@ fresh_wire f x'' x @ t
-      end
-    | Conditional_body(x',p,f1,f2) ->
-      let f_target = if matches env x' p then f1 else f2 in
-      evaluate env (Some x) @@ fresh_wire f_target x' x @ t                  
+    begin
+      match b with
+      | Value_body(v) ->
+        Environment.add env x v;
+        evaluate env (Some x) t
+      | Var_body(x') ->
+        let v = lookup env x' in
+        Environment.add env x v;
+        evaluate env (Some x) t
+      | Appl_body(x', x'') ->
+        begin
+          match lookup env x' with
+          | Value_record(_) as r -> raise (Evaluation_failure
+                                             ("cannot apply " ^ pretty_var x' ^
+                                              " as it contains non-function " ^ pretty_value r))
+          | Value_function(f) ->
+            evaluate env (Some x) @@ fresh_wire f x'' x @ t
+        end
+      | Conditional_body(x',p,f1,f2) ->
+        let f_target = if matches env x' p then f1 else f2 in
+        evaluate env (Some x) @@ fresh_wire f_target x' x @ t
+      | Projection_body(x', i) ->
+        begin
+          match lookup env x' with
+          | Value_record(Record_value(els)) as r ->
+            begin
+              try
+                let x'' = Ident_map.find i els in
+                let v = lookup env x'' in
+                Environment.add env x v;
+                evaluate env (Some x) t
+              with
+              | Not_found ->
+                raise @@ Evaluation_failure("cannot project " ^ pretty_ident i ^
+                                  " from " ^ pretty_value r ^ ": not present")
+            end
+          | Value_function(_) as f ->
+            raise @@ Evaluation_failure("cannot project " ^ pretty_ident i ^
+                                " from non-record value " ^ pretty_value f)
+        end
+    end
 ;;
 
 let eval (Expr(cls)) =

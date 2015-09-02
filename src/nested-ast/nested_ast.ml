@@ -12,6 +12,7 @@ type expr =
   | Appl_expr of expr * expr
   | Conditional_expr of expr * pattern * function_value * function_value
   | Let_expr of var * expr * expr
+  | Projection_expr of expr * ident
 
 (** Function values in the nested language. *)
 and function_value =
