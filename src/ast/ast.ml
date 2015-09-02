@@ -80,6 +80,7 @@ and clause_body =
   | Var_body of var
   | Appl_body of var * var
   | Conditional_body of var * pattern * function_value * function_value
+  | Projection_body of var * ident
   | Deref_body of var
   | Update_body of var * var
 

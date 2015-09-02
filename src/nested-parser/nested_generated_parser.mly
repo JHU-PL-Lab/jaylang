@@ -16,6 +16,7 @@ module List = BatList;;
 %token TILDE
 %token COLON
 %token EQUALS
+%token DOT
 %token BANG
 %token KEYWORD_FUN
 %token KEYWORD_LET
@@ -66,6 +67,8 @@ application_expr:
   ;
 
 primary_expr:
+  | primary_expr DOT identifier
+      { Projection_expr($1, $3) }
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_element) CLOSE_BRACE
       { Record_expr(Ident_map.of_enum @@ List.enum $2) }
   | OPEN_BRACE CLOSE_BRACE

@@ -78,6 +78,11 @@ and clauses_and_var_of_nested_expr e =
         cls2
       , Ast.Var_body(x2)
       )
+    | Nested_ast.Projection_expr(e',i) ->
+      let (cls0,x') = clauses_and_var_of_nested_expr e' in
+      ( cls0
+      , Ast.Projection_body(x', i)
+      )
   in
   (clauses @ [Ast.Clause(x,final_body)],x)
 

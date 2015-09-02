@@ -90,6 +90,7 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
             ; walk_fn f1
             ; walk_fn f2
             ]
+        | Projection_body(x',_) -> Var_set.singleton x'
         | Deref_body x' -> Var_set.singleton x'
         | Update_body(x1',x2') -> Var_set.of_list [x1';x2']
       in

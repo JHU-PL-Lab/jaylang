@@ -53,6 +53,7 @@ and var_replace_clause_body fn r =
   | Conditional_body(x,p,f1,f2) ->
     Conditional_body(fn x, p, var_replace_function_value fn f1,
                      var_replace_function_value fn f2)
+  | Projection_body(x,i) -> Projection_body(fn x, i)
   | Deref_body(x) -> Deref_body(fn x)
   | Update_body(x1,x2) -> Update_body(fn x1, fn x2)
 
@@ -164,6 +165,25 @@ let rec evaluate env lastvar cls =
       | Conditional_body(x',p,f1,f2) ->
         let f_target = if matches env x' p then f1 else f2 in
         evaluate env (Some x) @@ fresh_wire f_target x' x @ t
+      | Projection_body(x', i) ->
+        begin
+          match lookup env x' with
+          | Value_record(Record_value(els)) as r ->
+            begin
+              try
+                let x'' = Ident_map.find i els in
+                let v = lookup env x'' in
+                Environment.add env x v;
+                evaluate env (Some x) t
+              with
+              | Not_found ->
+                raise @@ Evaluation_failure("cannot project " ^ pretty_ident i ^
+                                  " from " ^ pretty_value r ^ ": not present")
+            end
+          | v ->
+            raise @@ Evaluation_failure("cannot project " ^ pretty_ident i ^
+                                " from non-record value " ^ pretty_value v)
+        end
       | Deref_body(x') ->
         let v = lookup env x' in
         begin

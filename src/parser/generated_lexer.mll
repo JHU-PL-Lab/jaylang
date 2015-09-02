@@ -35,6 +35,7 @@ rule token = parse
   | "?"                              { QUESTION_MARK }
   | "~"                              { TILDE }
   | ":"                              { COLON }
+  | "."                              { DOT }
   | "<-"                             { LEFT_ARROW }
   | "!"                              { BANG }
   | "fun"                            { KEYWORD_FUN }

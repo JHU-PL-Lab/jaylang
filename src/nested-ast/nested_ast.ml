@@ -15,6 +15,7 @@ type expr =
   | Deref_expr of expr
   | Update_expr of expr * expr
   | Let_expr of var * expr * expr
+  | Projection_expr of expr * ident
 
 (** Function values in the nested language. *)
 and function_value =
