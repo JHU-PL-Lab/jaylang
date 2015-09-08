@@ -1,59 +1,34 @@
-(**
-   A simple module for logging in Odefa.
-*)
-
 open Batteries;;
 
 module String_map = BatMap.Make(BatString);;
 
-type level = [`warn|`trace|`debug|`info|`error|`fatal|`always];;
+type level = [`trace|`debug|`info|`warn|`error|`fatal|`always];;
 
-type logging_config = Logging_config of level * level String_map.t;;
-
-exception Option_error of string * string;;
-
-let match_string_with_level level_string = 
+let level_of_string level_string =
   match level_string with
-  | "trace" -> `trace
-  | "debug" -> `debug
-  | "info" -> `info
-  | "warn" -> `warn
-  | "error" -> `error
-  | "fatal" -> `fatal
-  | "always" -> `always
-  | _ -> failwith ("Invalid log level `" ^ level_string ^ "'.")
+  | "trace" -> Some `trace
+  | "debug" -> Some `debug
+  | "info" -> Some `info
+  | "warn" -> Some `warn
+  | "error" -> Some `error
+  | "fatal" -> Some `fatal
+  | "always" -> Some `always
+  | _ -> None
 ;;
-
-let match_string_with_bool boolean_string = 
-  match boolean_string with
-  | "true" -> true
-  | "false" -> false
-  | _ -> failwith ("Invalid boolean for typecheck'" ^ boolean_string ^ " '.")
-
-
-let extract_map log_config = match log_config with
-  | Logging_config(_,map) -> map;;
-
-let extract_default log_config = match log_config with
-  | Logging_config(default,_) -> default;;
-
-let logging_config_global = ref @@ Logging_config(`warn, String_map.empty);;
-
-let type_check_global = ref true;;
 
 let default_level = ref `warn ;;
 
 let level_map = ref String_map.empty;;
 
-let update_levels () = 
-  default_level := (extract_default (!logging_config_global));
-  level_map := (extract_map (!logging_config_global))
+let set_default_logging_level level = default_level := level;;
+
+let set_logging_level_for module_name level =
+  level_map := String_map.add module_name level !level_map
 ;;
 
 let level_for prefix =
-  update_levels (); 
   if String_map.mem prefix !level_map
-  then  (String_map.find prefix !level_map)
+  then (String_map.find prefix !level_map)
   else
     !default_level
 ;;

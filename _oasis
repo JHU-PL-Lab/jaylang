@@ -17,11 +17,11 @@ Library "utils"
   Path: src/utils
   Modules:
     Ast_uid,
-    Logger_options,
     Logger_utils,
     Parser_support,
     Source_origin,
     String_utils,
+    Toploop_options,
     Utils
   BuildDepends:
     batteries
