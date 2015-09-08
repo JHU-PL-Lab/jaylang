@@ -3,7 +3,7 @@ open Batteries;;
 open Ast_pretty;;
 open Ast_wellformedness;;
 open Interpreter;;
-open Logger_options;;
+open Toploop_options;;
 
 let toploop_operate () e =
   print_string "\n";
