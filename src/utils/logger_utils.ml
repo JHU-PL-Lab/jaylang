@@ -16,6 +16,16 @@ let level_of_string level_string =
   | _ -> None
 ;;
 
+let int_of_level = function
+  | `trace -> 0
+  | `debug -> 1
+  | `info -> 2
+  | `warn -> 3
+  | `error -> 4
+  | `fatal -> 5
+  | `always -> 6
+;;
+
 let default_level = ref `warn ;;
 
 let level_map = ref String_map.empty;;
@@ -37,6 +47,12 @@ let make_logger prefix level message =
   BatLog.Easy.level := level_for prefix;
   BatLog.Easy.log level ("[" ^ prefix ^ "]: " ^ message);
   flush stderr
+;;
+
+let make_lazy_logger prefix level message_fn =
+  if int_of_level (level_for prefix) <= int_of_level level
+  then make_logger prefix level @@ message_fn ()
+  else ()
 ;;
 
 let bracket_log logger level pre_message post_message_fn thunk =
