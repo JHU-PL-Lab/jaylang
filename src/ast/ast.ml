@@ -8,12 +8,12 @@ open Batteries;;
 module Ast_uid_hashtbl = Ast_uid.Ast_uid_hashtbl;;
 
 (** A data type for identifiers in the toy language. *)
-type ident = Ident of string;;
+type ident = Ident of string [@@deriving eq, ord];;
 
 module Ident_hash =
 struct
   type t = ident
-  let equal = (=)
+  let equal = equal_ident
   let hash = Hashtbl.hash
 end
 ;;
@@ -23,7 +23,7 @@ module Ident_hashtbl = Hashtbl.Make(Ident_hash);;
 module Ident_order =
 struct
   type t = ident
-  let compare = compare
+  let compare = compare_ident
 end
 ;;
 
@@ -36,15 +36,15 @@ module Ident_map = Map.Make(Ident_order);;
     list is the topmost element in the stack.  If this stack is absent, then
     the variable in question has not been instantiated (and remains within the
     body of a function). *)
-type freshening_stack = Freshening_stack of ident list;;
+type freshening_stack = Freshening_stack of ident list [@@deriving eq, ord];;
 
 (** Variables in the AST. *)
-type var = Var of ident * freshening_stack option;;
+type var = Var of ident * freshening_stack option [@@deriving eq, ord];;
 
 module Var_order =
 struct
   type t = var
-  let compare = compare
+  let compare = compare_var
 end;;
 
 module Var_set = Set.Make(Var_order);;
@@ -54,25 +54,26 @@ module Var_map = Map.Make(Var_order);;
 module Var_hashtbl = Hashtbl.Make(
   struct
     type t = var
-    let equal = (=)
+    let equal = equal_var
     let hash = Hashtbl.hash
   end
   );;
 
 (** A type to express record values. *)
-type record_value = Record_value of var Ident_map.t
+type record_value = Record_value of var Ident_map.t [@@deriving eq, ord]
 
 (** A type to express function values. *)
-and function_value = Function_value of var * expr
+and function_value = Function_value of var * expr [@@deriving eq, ord]
 
 (** A type to express reference values. *)
-and ref_value = Ref_value of var
+and ref_value = Ref_value of var [@@deriving eq, ord]
 
 (** A type to represent values. *)
 and value =
   | Value_record of record_value
   | Value_function of function_value
   | Value_ref of ref_value
+  [@@deriving eq, ord]
 
 (** A type to represent the bodies of clauses. *)
 and clause_body =
@@ -83,15 +84,24 @@ and clause_body =
   | Projection_body of var * ident
   | Deref_body of var
   | Update_body of var * var
+  [@@deriving eq, ord]
 
 (** A type to represent clauses. *)
 and clause =
   | Clause of var * clause_body
+  [@@deriving eq, ord]
 
 (** A type to represent expressions. *)
-and expr = Expr of clause list
+and expr = Expr of clause list [@@deriving eq, ord]
 
 (** A type representing conditional patterns. *)
 and pattern =
   | Record_pattern of pattern Ident_map.t
+  [@@deriving eq, ord]
 ;;
+
+module Value_order =
+struct
+  type t = value
+  let compare = compare_value
+end;;

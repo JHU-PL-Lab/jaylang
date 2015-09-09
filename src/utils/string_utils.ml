@@ -22,3 +22,9 @@ let pretty_tuple : 'a 'b. ('a -> string) -> ('b -> string) -> 'a * 'b -> string
   = fun pretty_a pretty_b (a,b) ->
     "(" ^ pretty_a a ^ ", " ^ pretty_b b ^ ")"
 ;;
+
+let indent n s =
+  String.replace_chars
+    (fun x -> if x = '\n' then "\n" ^ String.make n ' ' else String.of_char x)
+    s
+;;

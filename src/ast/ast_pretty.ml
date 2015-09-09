@@ -62,3 +62,5 @@ and pretty_pattern p =
       concat_sep_delim "{" "}" ", " @@ Enum.map pretty_element @@
         Ident_map.enum els
 ;;
+
+let brief_pretty_clause (Clause(x,_)) = pretty_var x;;

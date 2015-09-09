@@ -11,13 +11,15 @@ OASISFormat: 0.4
 BuildTools: ocamlbuild
 Plugins: META (0.4), DevFiles (0.4)
 AlphaFeatures: ocamlbuild_more_args
-XOCamlbuildExtraArgs: -use-menhir -use-ocamlfind -cflags -w,@A-4-44-45
+XOCamlbuildExtraArgs: -use-menhir -use-ocamlfind -cflags -w,@A-4-39-44-45
 
 Library "utils"
   Path: src/utils
   Modules:
     Ast_uid,
     Logger_utils,
+    Multimap,
+    Multimap_pp,
     Parser_support,
     Source_origin,
     String_utils,
@@ -34,6 +36,7 @@ Library "ast"
     Ast_wellformedness
   BuildDepends:
     batteries,
+    ppx_deriving.std,
     utils
 
 Library "parser"
@@ -92,6 +95,22 @@ Library "a-translator"
     nested-ast,
     utils
 
+Library "analysis"
+  Path: src/analysis
+  Modules:
+    Analysis,
+    Analysis_context_stack,
+    Analysis_data_structures,
+    Analysis_nonrepeating_stack,
+    Analysis_single_element_stack,
+    Analysis_two_element_stack,
+    Analysis_unit_stack,
+    Analysis_utils,
+    Pds_reachability
+  BuildDepends:
+    ast,
+    batteries
+
 Executable "toploop"
   Path: src/toploop
   MainIs: toploop.ml
@@ -116,8 +135,10 @@ Executable "test"
   Path: test/
   MainIs: test.ml
   BuildDepends:
+    analysis,
     interpreter,
     parser,
+    ppx_deriving.std,
     utils,
     oUnit,
     batteries

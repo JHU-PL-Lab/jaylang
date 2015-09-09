@@ -15,6 +15,13 @@ let rec natural_compare_seq (parts : (unit -> int) list) =
     if r = 0 then natural_compare_seq t else r
 ;;
 
+let uniq_enum : 'a. ('a -> 'a -> int) -> 'a Enum.t -> 'a Enum.t =
+  fun comparator e ->
+    let empty_set = Set.PSet.create comparator in
+    let all_set = Enum.fold (fun a e -> Set.PSet.add e a) empty_set e in
+    Set.PSet.enum all_set
+;;
+
 (**
    Expands a list of lists as a Cartesian product.  That is, the list
    {[
