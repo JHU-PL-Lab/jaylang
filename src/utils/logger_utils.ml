@@ -55,9 +55,9 @@ let make_lazy_logger prefix level message_fn =
   else ()
 ;;
 
-let bracket_log logger level pre_message post_message_fn thunk =
-  logger level pre_message;
+let bracket_log leveled_logger pre_message post_message_fn thunk =
+  leveled_logger pre_message;
   let value = thunk () in
-  logger level (pre_message ^ "\n  : " ^ post_message_fn value);
+  leveled_logger (pre_message ^ "\n  : " ^ post_message_fn value);
   value
 ;;
