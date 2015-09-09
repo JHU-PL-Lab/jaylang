@@ -59,8 +59,7 @@ val make_logger : string -> level -> string -> unit
 val make_lazy_logger : string -> level -> (unit -> string) -> unit
 
 val bracket_log :
-  (level -> string -> unit) ->
-  level ->
+  (string -> unit) ->
   string ->
   ('a -> string) ->
   (unit -> 'a) ->
