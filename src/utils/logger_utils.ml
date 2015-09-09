@@ -61,3 +61,11 @@ let bracket_log leveled_logger pre_message post_message_fn thunk =
   leveled_logger (pre_message ^ "\n  : " ^ post_message_fn value);
   value
 ;;
+
+let lazy_bracket_log leveled_lazy_logger pre_message post_message_fn thunk =
+  leveled_lazy_logger pre_message;
+  let value = thunk () in
+  leveled_lazy_logger
+    (fun () -> pre_message () ^ "\n  : " ^ post_message_fn value);
+  value
+;;

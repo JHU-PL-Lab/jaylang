@@ -64,3 +64,10 @@ val bracket_log :
   ('a -> string) ->
   (unit -> 'a) ->
   'a
+
+val lazy_bracket_log :
+  ((unit -> string) -> unit) ->
+  (unit -> string) ->
+  ('a -> string) ->
+  (unit -> 'a) ->
+  'a
