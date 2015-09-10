@@ -94,6 +94,15 @@ Library "a-translator"
     ast,
     nested-ast,
     utils
+    
+Library "pds-reachability"
+  Path: src/pds-reachability
+  Modules:
+    Pds_reachability
+  BuildDepends:
+    batteries,
+    ppx_deriving.std,
+    utils
 
 Library "analysis"
   Path: src/analysis
@@ -105,10 +114,10 @@ Library "analysis"
     Analysis_single_element_stack,
     Analysis_two_element_stack,
     Analysis_unit_stack,
-    Analysis_utils,
-    Pds_reachability
+    Analysis_utils
   BuildDepends:
     ast,
+    pds-reachability,
     batteries
 
 Executable "toploop"
