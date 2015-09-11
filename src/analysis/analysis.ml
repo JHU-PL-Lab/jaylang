@@ -118,12 +118,12 @@ struct
   module Analysis_struct : Analysis_struct_sig =
   struct
     type cba_analysis =
-      Cba_analysis of cba_graph * Cba_pds_reachability.reachability_analysis
+      Cba_analysis of cba_graph * Cba_pds_reachability.analysis
     ;;
     let empty_analysis =
       Cba_analysis(Cba_graph.empty, Cba_pds_reachability.empty)
     ;;
-    let add_edge edge analysis =
+    let add_edge =
       raise @@ Utils.Not_yet_implemented "add_edge for analysis structure"
     ;;
   end;;
@@ -153,7 +153,7 @@ struct
     List.fold_left (flip add_edge) empty_analysis edges
   ;;
 
-  let values_of_variable x analysis =
+  let values_of_variable =
     raise @@ Utils.Not_yet_implemented "values_of_variable"
   ;;
 

@@ -98,11 +98,15 @@ Library "a-translator"
 Library "pds-reachability"
   Path: src/pds-reachability
   Modules:
+    Pds_reachability_analysis,
+    Pds_reachability_basis,
+    Pds_reachability_structure,
+    Pds_reachability_types,
     Pds_reachability
   BuildDepends:
+    utils,
     batteries,
-    ppx_deriving.std,
-    utils
+    ppx_deriving.std
 
 Library "analysis"
   Path: src/analysis
@@ -144,11 +148,11 @@ Executable "test"
   Path: test/
   MainIs: test.ml
   BuildDepends:
-    analysis,
+    utils,
+    pds-reachability,
     interpreter,
     parser,
     ppx_deriving.std,
-    utils,
     oUnit,
     batteries
 

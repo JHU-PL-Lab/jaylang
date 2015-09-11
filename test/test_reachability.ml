@@ -6,8 +6,6 @@
 open Batteries;;
 open OUnit2;;
 
-open Pds_reachability;;
-
 let lazy_logger = Logger_utils.make_lazy_logger "Test_reachability";;
 
 module Test_state_ord =
@@ -33,6 +31,8 @@ struct
 end;;
 
 module Test_reachability = Pds_reachability.Make(Test_spec);;
+
+open Test_reachability;;
 
 let immediate_reachability_test =
   "immediate_reachability_test" >:: fun _ ->
