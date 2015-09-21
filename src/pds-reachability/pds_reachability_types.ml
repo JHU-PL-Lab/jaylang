@@ -16,7 +16,8 @@ sig
   type stack_action =
     | Push of stack_element
     | Pop of stack_element
-    | Nop
+    | Nop of bool
+      (** A stack no-op.  Boolean indicates liveness for closure. *)
 
   (** Comparison for stack actions. *)
   val compare_stack_action : stack_action -> stack_action -> int
@@ -60,7 +61,7 @@ struct
   type stack_action =
     | Push of stack_element
     | Pop of stack_element
-    | Nop
+    | Nop of bool
         [@@deriving ord]
   ;;
 
@@ -68,7 +69,7 @@ struct
     match action with
     | Push x -> "push " ^ Basis.pp_stack_element x
     | Pop x -> "pop " ^ Basis.pp_stack_element x
-    | Nop -> "nop"
+    | Nop x -> if x then "live-nop" else "nop"
   ;;
 
   type node =

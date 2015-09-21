@@ -93,21 +93,24 @@ struct
   (********** Define analysis structure. **********)
   
   type analysis =
-    { known_nodes : Node_set.t
+    { known_nodes : Node_set.t (** Nodes appearing somewhere in the structure *)
+    ; live_nodes : Node_set.t (** Known starting nodes for lookups *)
     ; reachability : Structure.structure
     ; edge_functions : edge_function list
     };;
 
   (********** Define analysis operations. **********)
   
+  let pp_node_set node_set =
+    String_utils.concat_sep_delim "{" "}" ", " @@ Enum.map pp_node @@
+      Node_set.enum node_set
+  ;;
+  
   let pp_analysis analysis =
-    let known_nodes_str =
-      String_utils.concat_sep_delim "{" "}" ", " @@ Enum.map pp_node @@
-        Node_set.enum analysis.known_nodes
-    in
     "{\n" ^
     (String_utils.indent 2 @@ String_utils.concat_sep ",\n" @@ List.enum
-      [ "known nodes = " ^ known_nodes_str
+      [ "known nodes = " ^ pp_node_set analysis.known_nodes
+      ; "live_nodes = " ^ pp_node_set analysis.live_nodes
       ; "reachability = " ^ Structure.pp_structure analysis.reachability
       ; "length edge_functions = " ^
           string_of_int (List.length analysis.edge_functions)
@@ -116,6 +119,7 @@ struct
 
   let empty =
     { known_nodes = Node_set.empty
+    ; live_nodes = Node_set.empty
     ; reachability = Structure.empty
     ; edge_functions = []
     };;
@@ -148,22 +152,23 @@ struct
          a push during closure (see below). *)
       let analysis'' =
         match edge.edge_action with
-        | Nop | Push _ -> add_node edge.source @@ add_node edge.target analysis'
+        | Nop _ | Push _ ->
+          add_node edge.source false @@ add_node edge.target false analysis'
         | Pop _ -> analysis'
       in
       (* Next, we need to perform edge closure.  The particular action depends
          on this new edge's action.  The closure rules are summarized below.
           1. (a) -- push a --> (b) -- pop a --> (c) ==> (a) -- nop --> (c)
           2. (a) -- push a --> (b) -- nop --> (c) ==> (a) -- push a --> (c)
-          3. (a) -- nop --> (b) -- nop --> (c) ==> (a) -- nop --> (c)
-         TODO: only perform closure rule #3 if node (a) was actively added to
-               the analysis.  The only reason those edges are important is for
-               answering the top-level reachability question; they are not
-               necessary for correctness otherwise.
+          3. (a) -- live nop --> (b) -- nop --> (c) ==> (a) -- live nop --> (c)
       *)
       let more_edges =
         match edge.edge_action with
-        | Nop ->
+        | Nop liveness ->
+          (* Actual liveness may be modified by fixed live nodes. *)
+          let liveness' =
+            liveness || Node_set.mem edge.source analysis''.live_nodes
+          in
           let push_into_source =
             analysis''.reachability
             |> Structure.find_push_edges_by_target edge.source
@@ -175,17 +180,20 @@ struct
           in
           let nop_into_source =
             analysis''.reachability
-            |> Structure.find_nop_edges_by_target edge.source
+            |> Structure.find_live_nop_edges_by_target edge.source
             |> Enum.map
               (fun source' ->
-                { source = source'; target = edge.target; edge_action = Nop })
+                { source = source'; target = edge.target
+                ; edge_action = Nop true })
           in
           let nop_out_of_target =
-            analysis''.reachability
-            |> Structure.find_nop_edges_by_source edge.target
-            |> Enum.map
-              (fun target' ->
-                { source = edge.source; target = target'; edge_action = Nop })
+            if not liveness' then Enum.empty () else
+              analysis''.reachability
+              |> Structure.find_nop_edges_by_source edge.target
+              |> Enum.map
+                (fun target' ->
+                  { source = edge.source; target = target'
+                  ; edge_action = Nop true })
           in
           Enum.concat @@ List.enum
             [ push_into_source; nop_into_source; nop_out_of_target ]
@@ -203,7 +211,9 @@ struct
               edge.target element
             |> Enum.map
               (fun target' ->
-                 { source = edge.source; target = target'; edge_action = Nop })
+                let liveness = Node_set.mem edge.source analysis''.live_nodes in
+                 { source = edge.source; target = target'
+                ; edge_action = Nop liveness })
           in
           Enum.append nop_out_of_target pop_out_of_target
         | Pop element ->
@@ -213,7 +223,9 @@ struct
               edge.source element
             |> Enum.map
               (fun source' ->
-                 { source = source'; target = edge.target; edge_action = Nop })
+                let liveness = Node_set.mem source' analysis''.live_nodes in
+                { source = source'; target = edge.target
+                ; edge_action = Nop liveness })
           in
           push_into_source
       in
@@ -225,14 +237,16 @@ struct
      presentation of an edge structure.
   *)
   and add_edge source_state stack_action_list target_state analysis =
-    let (first_action, stack_left) =
-      match stack_action_list with
-      | [] -> (Nop, [])
-      | action::actions' -> (action, actions')
-    in
     let source_node =
       { node_state = source_state ; node_stack_left_to_push = [] }
     in 
+    let (first_action, stack_left) =
+      match stack_action_list with
+      | [] ->
+        let liveness = Node_set.mem source_node analysis.live_nodes in
+        (Nop liveness, [])
+      | action::actions' -> (action, actions')
+    in
     let target_node =
       { node_state = target_state ; node_stack_left_to_push = stack_left }
     in
@@ -246,39 +260,58 @@ struct
      Adds a node to the analysis.  Specifically, adds all edges with that node
      as a source that are returned by the analysis's edge functions.
   *)
-  and add_node node analysis =
+  and add_node node live analysis =
     Logger_utils.lazy_bracket_log (lazy_logger `trace)
       (fun _ ->
-         "add_node (" ^ pp_node node ^ ")")
+         "add_node (" ^ pp_node node ^ ") " ^ string_of_bool live)
       (fun _ -> "Finished") @@
     fun () ->
-    if Node_set.mem node analysis.known_nodes then analysis else
-      let { node_state = node_state; node_stack_left_to_push = node_stack } =
-        node
-      in
+    (* If we already know about the node, then we need not do anything.  Note
+       that, if the node is being marked live, we need to know that as well. *)
+    let already_know = Node_set.mem node analysis.known_nodes in
+    let liveness_ok = not live || Node_set.mem node analysis.live_nodes in
+    if already_know && liveness_ok then analysis else
+      (* We should start by adding the node to the structure. *)
       let analysis' =
         { analysis with
-          known_nodes = Node_set.add node analysis.known_nodes }
+          known_nodes = Node_set.add node analysis.known_nodes;
+          live_nodes = if live then Node_set.add node analysis.live_nodes else analysis.live_nodes
+        }
       in
-      match node_stack with
-      | [] ->
-        analysis.edge_functions
-        |> List.enum
-        |> Enum.map (fun f -> f node.node_state)
-        |> Enum.concat
-        |> Enum.fold
-          (fun analysis' (actions,target_state) ->
-             add_edge node_state actions target_state analysis')
-          analysis'
-      | action::actions ->
-        let target = { node_state = node.node_state
-                     ; node_stack_left_to_push = actions
+      (* Next, add edges for each action indicated by the node. *)
+      let node_stack = node.node_stack_left_to_push in
+      let analysis'' =
+        match node_stack with
+        | [] ->
+          analysis.edge_functions
+          |> List.enum
+          |> Enum.map (fun f -> f node.node_state)
+          |> Enum.concat
+          |> Enum.fold
+            (fun analysis' (actions,target_state) ->
+               add_edge node.node_state actions target_state analysis')
+            analysis'
+        | action::actions ->
+          let target = { node_state = node.node_state
+                       ; node_stack_left_to_push = actions
+                       } in
+          let edge = { source = node
+                     ; target = target
+                     ; edge_action = action
                      } in
-        let edge = { source = node
-                   ; target = target
-                   ; edge_action = action
-                   } in
-        add_real_edge_and_close edge analysis' 
+          add_real_edge_and_close edge analysis'
+      in
+      (* Finally, if we've just learned that the node is live, make sure that
+         all of its nop edges are marked as live. *)
+      analysis''.reachability
+      |> Structure.find_nop_edges_by_source node
+      |> Enum.fold
+        (fun analysis''' target ->
+          let edge =
+            { source = node; target = target; edge_action = Nop true }
+          in
+          add_real_edge_and_close edge analysis''')
+        analysis''
   ;;
 
   let add_edge_function edge_function analysis =
@@ -308,7 +341,7 @@ struct
     let node = { node_state = state
                ; node_stack_left_to_push = [Push stack_element]
                }
-    in add_node node analysis
+    in add_node node true analysis
   ;;
 
   let get_reachable_states state stack_element analysis =
@@ -323,7 +356,7 @@ struct
         then there will be a nop edge to it.  It's that simple by this point.
       *)
       analysis.reachability
-      |> Structure.find_nop_edges_by_source node
+      |> Structure.find_live_nop_edges_by_source node
       |> Enum.filter_map
         (fun node ->
            match node.node_stack_left_to_push with
