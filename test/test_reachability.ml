@@ -111,7 +111,8 @@ let nondeterminism_reachability_test =
       |> Test_reachability.add_start_state 0 'a'
     in
     let states = Test_reachability.get_reachable_states 0 'a' analysis in
-    assert_equal (List.sort compare @@ List.of_enum states) [1;2]    
+    assert_equal (List.sort compare @@ List.of_enum states) [1;2]
+;;
 
 let tests = "Test_reachability" >:::
   [ immediate_reachability_test
