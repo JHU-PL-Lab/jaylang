@@ -41,15 +41,11 @@ sig
     : node -> structure -> (node * stack_element) Enum.t
   val find_nop_edges_by_source
     : node -> structure -> node Enum.t
-  val find_live_nop_edges_by_source
-    : node -> structure -> node Enum.t
   val find_push_edges_by_target
     : node -> structure -> (node * stack_element) Enum.t
   val find_pop_edges_by_target
     : node -> structure -> (node * stack_element) Enum.t
   val find_nop_edges_by_target
-    : node -> structure -> node Enum.t
-  val find_live_nop_edges_by_target
     : node -> structure -> node Enum.t
   val find_push_edges_by_source_and_element
     : node -> stack_element -> structure -> node Enum.t
@@ -150,11 +146,9 @@ struct
     { push_edges_by_source : Node_to_node_and_stack_element_multimap.t
     ; pop_edges_by_source : Node_to_node_and_stack_element_multimap.t
     ; nop_edges_by_source : Node_to_node_multimap.t
-    ; live_nop_edges_by_source : Node_to_node_multimap.t
     ; push_edges_by_target : Node_to_node_and_stack_element_multimap.t
     ; pop_edges_by_target : Node_to_node_and_stack_element_multimap.t
     ; nop_edges_by_target : Node_to_node_multimap.t
-    ; live_nop_edges_by_target : Node_to_node_multimap.t
     ; push_edges_by_source_and_element : Node_and_stack_element_to_node_multimap.t
     ; pop_edges_by_source_and_element : Node_and_stack_element_to_node_multimap.t
     ; push_edges_by_target_and_element : Node_and_stack_element_to_node_multimap.t
@@ -172,9 +166,6 @@ struct
         ; "nop_edges_by_source: " ^
           Node_to_node_multimap_pp.pp
             structure.nop_edges_by_source
-        ; "live_nop_edges_by_source: " ^
-          Node_to_node_multimap_pp.pp
-            structure.live_nop_edges_by_source
         ; "push_edges_by_target: " ^
           Node_to_node_and_stack_element_multimap_pp.pp
             structure.push_edges_by_target
@@ -184,9 +175,6 @@ struct
         ; "nop_edges_by_target: " ^
           Node_to_node_multimap_pp.pp
             structure.nop_edges_by_target
-        ; "live_nop_edges_by_target: " ^
-          Node_to_node_multimap_pp.pp
-            structure.live_nop_edges_by_target
         ; "push_edges_by_source_and_element: " ^
           Node_and_stack_element_to_node_multimap_pp.pp
             structure.push_edges_by_source_and_element
@@ -208,11 +196,9 @@ struct
     { push_edges_by_source = Node_to_node_and_stack_element_multimap.empty
     ; pop_edges_by_source = Node_to_node_and_stack_element_multimap.empty
     ; nop_edges_by_source = Node_to_node_multimap.empty
-    ; live_nop_edges_by_source = Node_to_node_multimap.empty
     ; push_edges_by_target = Node_to_node_and_stack_element_multimap.empty
     ; pop_edges_by_target = Node_to_node_and_stack_element_multimap.empty
     ; nop_edges_by_target = Node_to_node_multimap.empty
-    ; live_nop_edges_by_target = Node_to_node_multimap.empty
     ; push_edges_by_source_and_element = Node_and_stack_element_to_node_multimap.empty
     ; pop_edges_by_source_and_element = Node_and_stack_element_to_node_multimap.empty
     ; push_edges_by_target_and_element = Node_and_stack_element_to_node_multimap.empty
@@ -221,11 +207,9 @@ struct
 
   let has_edge edge analysis =
     match edge.edge_action with
-    | Nop liveness ->
-      Node_to_node_multimap.mem edge.source edge.target @@
-        if liveness
-        then analysis.live_nop_edges_by_source
-        else analysis.nop_edges_by_source
+    | Nop ->
+      analysis.nop_edges_by_source
+      |> Node_to_node_multimap.mem edge.source edge.target
     | Push element ->
       analysis.push_edges_by_source_and_element
       |> Node_and_stack_element_to_node_multimap.mem
@@ -238,26 +222,15 @@ struct
 
   let add_edge edge structure =
     match edge.edge_action with
-    | Nop liveness ->
-      let structure' =
-        { structure with
-          nop_edges_by_source =
-            structure.nop_edges_by_source
-            |> Node_to_node_multimap.add edge.source edge.target
-        ; nop_edges_by_target =
-            structure.nop_edges_by_target
-            |> Node_to_node_multimap.add edge.target edge.source
-        }
-      in
-      if not liveness then structure' else
-        { structure' with
-          live_nop_edges_by_source =
-            structure.live_nop_edges_by_source
-            |> Node_to_node_multimap.add edge.source edge.target
-        ; live_nop_edges_by_target =
-            structure.live_nop_edges_by_target
-            |> Node_to_node_multimap.add edge.target edge.source
-        }
+    | Nop ->
+      { structure with
+        nop_edges_by_source =
+          structure.nop_edges_by_source
+          |> Node_to_node_multimap.add edge.source edge.target
+      ; nop_edges_by_target =
+          structure.nop_edges_by_target
+          |> Node_to_node_multimap.add edge.target edge.source
+      }
     | Push element ->
       { structure with
         push_edges_by_source =
@@ -312,10 +285,6 @@ struct
     Node_to_node_multimap.find source structure.nop_edges_by_source
   ;;
 
-  let find_live_nop_edges_by_source source structure =
-    Node_to_node_multimap.find source structure.live_nop_edges_by_source
-  ;;
-
   let find_push_edges_by_target target structure =
     Node_to_node_and_stack_element_multimap.find
       target structure.push_edges_by_target
@@ -328,10 +297,6 @@ struct
 
   let find_nop_edges_by_target target structure =
     Node_to_node_multimap.find target structure.nop_edges_by_target
-  ;;
-
-  let find_live_nop_edges_by_target target structure =
-    Node_to_node_multimap.find target structure.live_nop_edges_by_target
   ;;
 
   let find_push_edges_by_source_and_element source stack_element structure =
