@@ -21,17 +21,14 @@ sig
     | Nop
       (** Represents no action being taken on the stack. *)
 
-  (** Comparison for stack actions. *)
-  val compare_stack_action : stack_action -> stack_action -> int
-
   (** A pretty-printer for stack actions. *)  
   val pp_stack_action : stack_action -> string  
 
   (** The type of node used for reachability. *)
   type node =
-    { node_state : state
-    ; node_stack_left_to_push : stack_action list
-    };;
+    | State_node of state
+    | Intermediate_node of int
+    | Initial_node of state * stack_element
 
   (** A comparison for nodes. *)
   val compare_node : node -> node -> int
@@ -64,7 +61,6 @@ struct
     | Push of stack_element
     | Pop of stack_element
     | Nop
-        [@@deriving ord]
   ;;
 
   let pp_stack_action action =
@@ -75,13 +71,19 @@ struct
   ;;
 
   type node =
-    { node_state : state
-    ; node_stack_left_to_push : stack_action list
-    } [@@deriving ord];;
+    | State_node of state
+    | Intermediate_node of int
+    | Initial_node of state * stack_element
+    [@@deriving ord]
+  ;;
 
   let pp_node node =
-    "(" ^ Basis.pp_state node.node_state ^ "," ^
-    String_utils.pretty_list pp_stack_action node.node_stack_left_to_push ^ ")"
+    match node with
+    | State_node state -> Basis.pp_state state
+    | Intermediate_node n -> "#" ^ string_of_int n
+    | Initial_node(state,stack_element) ->
+      String_utils.pretty_tuple Basis.pp_state Basis.pp_stack_element
+        (state,stack_element)
   ;;
 
   type edge =
