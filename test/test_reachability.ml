@@ -82,6 +82,9 @@ let cycle_reachability_test =
       |> Test_reachability.add_edge 1 [Pop 'a'] 2
       |> Test_reachability.add_start_state 0 'a'
     in
+    lazy_logger `trace
+      (fun () -> "analysis:\n" ^
+        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 'a' analysis in
     assert_equal (List.of_enum states) [2] 
 ;;
@@ -98,6 +101,9 @@ let edge_function_reachability_test =
       |> Test_reachability.add_edge 50 [Pop 'a'] 51
       |> Test_reachability.add_start_state 0 'a'
     in
+    lazy_logger `trace
+      (fun () -> "analysis:\n" ^
+        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 'a' analysis in
     assert_equal (List.of_enum states) [51]
 ;;
@@ -110,8 +116,55 @@ let nondeterminism_reachability_test =
       |> Test_reachability.add_edge 0 [Pop 'a'] 2
       |> Test_reachability.add_start_state 0 'a'
     in
+    lazy_logger `trace
+      (fun () -> "analysis:\n" ^
+        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 'a' analysis in
     assert_equal (List.sort compare @@ List.of_enum states) [1;2]
+;;
+
+let dynamic_pop_reachability_test =
+  "dynamic_pop_reachability_test" >:: fun _ ->
+    (* The following function dynamically duplicates an element on the stack. *)
+    let dyamic_pop_function element =
+      Enum.singleton [ Push element; Push element ]
+    in
+    let analysis =
+      Test_reachability.empty
+      |> Test_reachability.add_edge 0 [Pop_dynamic dyamic_pop_function] 1
+      |> Test_reachability.add_edge 1 [Pop 'a'; Pop 'a'] 2
+      |> Test_reachability.add_edge 1 [Pop 'a'] 3
+      |> Test_reachability.add_start_state 0 'a'
+    in
+    lazy_logger `trace
+      (fun () -> "analysis:\n" ^
+        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
+    let states = Test_reachability.get_reachable_states 0 'a' analysis in
+    assert_equal (List.sort compare @@ List.of_enum states) [2]
+;;
+
+let dynamic_pop_nondeterminism_reachability_test =
+  "dynamic_pop_nondeterminism_reachability_test" >:: fun _ ->
+    let dynamic_pop_function element =
+      List.enum
+        [ [ Push 'z'; Push element; Push 'y' ]
+        ; [ Push 'x'; Push element ]
+        ]
+    in
+    let analysis =
+      Test_reachability.empty
+      |> Test_reachability.add_edge 0 [Pop_dynamic dynamic_pop_function] 1
+      |> Test_reachability.add_edge 1 [Pop 'y'; Pop 'a'] 2
+      |> Test_reachability.add_edge 2 [Pop 'z' ] 3
+      |> Test_reachability.add_edge 1 [Pop 'a'; Pop 'x'] 4
+      |> Test_reachability.add_edge 1 [Pop 'a' ] 5
+      |> Test_reachability.add_start_state 0 'a'
+    in
+    lazy_logger `trace
+      (fun () -> "analysis:\n" ^
+        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
+    let states = Test_reachability.get_reachable_states 0 'a' analysis in
+    assert_equal (List.sort compare @@ List.of_enum states) [3;4]
 ;;
 
 let tests = "Test_reachability" >:::
@@ -121,5 +174,7 @@ let tests = "Test_reachability" >:::
   ; cycle_reachability_test
   ; edge_function_reachability_test
   ; nondeterminism_reachability_test
+  ; dynamic_pop_reachability_test
+  ; dynamic_pop_nondeterminism_reachability_test
   ]
 ;;

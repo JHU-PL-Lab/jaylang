@@ -17,6 +17,9 @@ sig
 
   (** The edge type in the reachability structure. *)
   type edge
+  
+  (** The type of dynamic pop functions in this structure. *)
+  type dynamic_pop_function
 
   (** The type of the PDS reachability data structure. *)
   type structure
@@ -41,6 +44,8 @@ sig
     : node -> structure -> (node * stack_element) Enum.t
   val find_nop_edges_by_source
     : node -> structure -> node Enum.t
+  val find_dynamic_pop_edges_by_source
+    : node -> structure -> (node * dynamic_pop_function) Enum.t
   val find_push_edges_by_target
     : node -> structure -> (node * stack_element) Enum.t
   val find_pop_edges_by_target
@@ -65,6 +70,7 @@ module Make
     with type stack_element = Basis.stack_element
      and type edge = Types.edge
      and type node = Types.node
+     and type dynamic_pop_function = Types.dynamic_pop_function 
 =
 struct
   (********** Wiring in the arguments. **********)
@@ -76,10 +82,15 @@ struct
   type stack_element = Basis.stack_element;;
   type node = Types.node;;
   type edge = Types.edge;;
+  type dynamic_pop_function = Types.dynamic_pop_function;;
 
   (********** Simple internal data structures. **********)
 
   type node_and_stack_element = node * stack_element [@@ deriving ord]
+  ;;
+
+  type node_and_dynamic_pop_function =
+    node * dynamic_pop_function
   ;;
 
   let pp_node_and_stack_element x =
@@ -97,6 +108,8 @@ struct
   end;;
 
   module Node_set = Set.Make(Node_ord);;
+
+  module Node_map = Map.Make(Node_ord);;
 
   module Node_and_stack_element_ord =
   struct
@@ -140,12 +153,31 @@ struct
     end
     );;
 
+  (********** Substructure utility functions. **********)
+  
+  let node_and_dynamic_pop_function_map_get source m =
+    try
+      List.enum @@ Node_map.find source m
+    with
+    | Not_found -> Enum.empty ()
+  ;;
+
+  let node_and_dynamic_pop_function_map_add
+        source node_and_dynamic_pop_function m =
+    Node_map.modify_def
+      [node_and_dynamic_pop_function]
+      source
+      (fun x -> node_and_dynamic_pop_function::x)
+      m
+  ;;
+
   (********** The data structure itself. **********)
 
   type structure =
     { push_edges_by_source : Node_to_node_and_stack_element_multimap.t
     ; pop_edges_by_source : Node_to_node_and_stack_element_multimap.t
     ; nop_edges_by_source : Node_to_node_multimap.t
+    ; dynamic_pop_edges_by_source : node_and_dynamic_pop_function list Node_map.t
     ; push_edges_by_target : Node_to_node_and_stack_element_multimap.t
     ; pop_edges_by_target : Node_to_node_and_stack_element_multimap.t
     ; nop_edges_by_target : Node_to_node_multimap.t
@@ -196,6 +228,7 @@ struct
     { push_edges_by_source = Node_to_node_and_stack_element_multimap.empty
     ; pop_edges_by_source = Node_to_node_and_stack_element_multimap.empty
     ; nop_edges_by_source = Node_to_node_multimap.empty
+    ; dynamic_pop_edges_by_source = Node_map.empty
     ; push_edges_by_target = Node_to_node_and_stack_element_multimap.empty
     ; pop_edges_by_target = Node_to_node_and_stack_element_multimap.empty
     ; nop_edges_by_target = Node_to_node_multimap.empty
@@ -218,6 +251,10 @@ struct
       analysis.pop_edges_by_source_and_element
       |> Node_and_stack_element_to_node_multimap.mem
         (edge.source, element) edge.target
+    | Pop_dynamic f ->
+      analysis.dynamic_pop_edges_by_source
+      |> node_and_dynamic_pop_function_map_get edge.source
+      |> Enum.exists (fun x -> x == (edge.target, f))
   ;;
 
   let add_edge edge structure =
@@ -269,6 +306,12 @@ struct
           |> Node_and_stack_element_to_node_multimap.add
             (edge.target, element) edge.source
       }
+    | Pop_dynamic f ->
+      { structure with
+        dynamic_pop_edges_by_source =
+          structure.dynamic_pop_edges_by_source
+          |> node_and_dynamic_pop_function_map_add edge.source (edge.target, f)
+      }
   ;;
 
   let find_push_edges_by_source source structure =
@@ -283,6 +326,11 @@ struct
 
   let find_nop_edges_by_source source structure =
     Node_to_node_multimap.find source structure.nop_edges_by_source
+  ;;
+
+  let find_dynamic_pop_edges_by_source source structure =
+    node_and_dynamic_pop_function_map_get source
+      structure.dynamic_pop_edges_by_source
   ;;
 
   let find_push_edges_by_target target structure =

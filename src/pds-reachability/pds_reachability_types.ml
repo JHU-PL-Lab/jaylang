@@ -11,7 +11,7 @@ sig
 
   (** The type of stack elements in the PDS. *)
   type stack_element
-
+  
   (** Stack actions which may be performed in the PDS. *)
   type stack_action =
     | Push of stack_element
@@ -20,6 +20,15 @@ sig
       (** Represents the pop of a single stack element. *)
     | Nop
       (** Represents no action being taken on the stack. *)
+    | Pop_dynamic of dynamic_pop_function
+      (** Represents a pop operation which leads to the target node only after
+          performing a series of stack actions.  These stack actions are not
+          fixed; they vary depending upon the stack element which is provided.
+          This operation may also be non-deterministic, providing several
+          chains of operations to the same target. *)
+
+  (** The type of dynamic pop functions. *)
+  and dynamic_pop_function = stack_element -> stack_action list Enum.t
 
   (** A pretty-printer for stack actions. *)  
   val pp_stack_action : stack_action -> string  
@@ -61,6 +70,9 @@ struct
     | Push of stack_element
     | Pop of stack_element
     | Nop
+    | Pop_dynamic of dynamic_pop_function
+  
+  and dynamic_pop_function = stack_element -> stack_action list Enum.t
   ;;
 
   let pp_stack_action action =
@@ -68,6 +80,7 @@ struct
     | Push x -> "push " ^ Basis.pp_stack_element x
     | Pop x -> "pop " ^ Basis.pp_stack_element x
     | Nop -> "nop"
+    | Pop_dynamic _ -> "pop_dynamic"
   ;;
 
   type node =

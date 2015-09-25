@@ -153,18 +153,19 @@ struct
       let analysis'' =
         match edge.edge_action with
         | Nop | Push _ -> add_node edge.source @@ add_node edge.target analysis'
-        | Pop _ -> analysis'
+        | Pop _ | Pop_dynamic _ -> analysis'
       in
       (* Next, we need to perform edge closure.  The particular action depends
          on this new edge's action.  The closure rules are summarized below.
           1. (a) -- push a --> (b) -- pop a --> (c) ==> (a) -- nop --> (c)
           2. (a) -- push a --> (b) -- nop --> (c) ==> (a) -- push a --> (c)
           3. (a) -- nop --> (b) -- nop --> (c) ==> (a) -- nop --> (c)
-         TODO: only perform closure rule #3 if node (a) was actively added to
-               the analysis.  The only reason those edges are important is for
-               answering the top-level reachability question; they are not
-               necessary for correctness otherwise.
+          4. (a) -- push a --> (b) -- dynamic_pop f --> (c) ==>
+              (a) -- action_1 --> ... -- action_n --> (c)
+             for each [action_1,...,action_n] in f a
       *)
+      (* more_edges is an enumeration containing edges which are immediately
+         known *)
       let more_edges =
         match edge.edge_action with
         | Nop ->
@@ -220,17 +221,63 @@ struct
                  { source = source'; target = edge.target; edge_action = Nop })
           in
           push_into_source
+        | Pop_dynamic _ -> Enum.empty ()
       in
-      more_edges
-      |> Enum.fold (flip add_real_edge_and_close) analysis''
+      (* analysis_updates is an enumeration of functions which will update the
+         analysis by adding edges.  This is appropriate when e.g. new
+         intermediate nodes must be created. *)
+      let analysis_updates =
+        match edge.edge_action with
+        | Nop -> Enum.empty ()
+        | Push element ->
+          let dynamic_pop_out_of_target =
+            analysis''.reachability
+            |> Structure.find_dynamic_pop_edges_by_source edge.target
+            |> Enum.map
+              (fun (target', f) ->
+                fun (analysis : analysis) ->
+                  f element
+                  |> Enum.fold
+                      (fun analysis' actions ->
+                        add_edges_between_nodes
+                          edge.source target' actions analysis')
+                      analysis
+              )
+          in
+          dynamic_pop_out_of_target
+        | Pop _ -> Enum.empty ()
+        | Pop_dynamic f ->
+          let push_into_source =
+            analysis''.reachability
+            |> Structure.find_push_edges_by_target edge.source
+            |> Enum.map
+              (fun (source, element) ->
+                fun analysis ->
+                  f element
+                  |> Enum.fold
+                      (fun analysis' actions ->
+                        add_edges_between_nodes
+                          source edge.target actions analysis')
+                      analysis
+              )
+          in
+          push_into_source
+      in
+      let analysis_after_edges =
+        more_edges
+        |> Enum.fold (flip add_real_edge_and_close) analysis''
+      in
+      let analysis_after_updates =
+        analysis_updates
+        |> Enum.fold (fun a f -> f a) analysis_after_edges
+      in
+      analysis_after_updates
 
   (**
-     Adds an edge to this analysis.  Here, "edge" refers to the interface's
-     presentation of an edge structure.
+     Adds a sequence of edges between two nodes in the analysis.  This is
+     accomplished by introducing intermediate nodes as necessary.
   *)
-  and add_edge source_state stack_action_list target_state analysis =
-    let source_node = State_node(source_state) in
-    let target_node = State_node(target_state) in
+  and add_edges_between_nodes source_node target_node stack_actions analysis =
     (* This recursive function creates the chain of single stack action edges
        from the provided list of stack actions.  It consumes intermediate node
        numbers as necessary to generate the edges, so it takes and returns this
@@ -269,7 +316,7 @@ struct
     (* Let's figure out which new single-action edges we will be adding. *)
     let (real_edges, next_intermediate') =
       mk_real_edges
-        stack_action_list
+        stack_actions
         analysis.next_intermediate_node
         source_node
     in
@@ -285,6 +332,15 @@ struct
         (fun analysis''' real_edge ->
           add_real_edge_and_close real_edge analysis''')
         analysis''
+
+  (**
+     Adds an edge to this analysis.  Here, "edge" refers to the interface's
+     presentation of an edge structure.
+  *)
+  and add_edge source_state stack_action_list target_state analysis =
+    let source_node = State_node(source_state) in
+    let target_node = State_node(target_state) in
+    add_edges_between_nodes source_node target_node stack_action_list analysis
 
   (**
      Adds a node to the analysis.  Specifically, adds all edges with that node
