@@ -9,6 +9,7 @@ open Analysis_context_stack;;
 open Ast;;
 open Ast_pretty;;
 open Cba_graph;;
+open Nondeterminism;;
 
 let logger = Logger_utils.make_logger "Analysis";;
 
@@ -75,13 +76,13 @@ struct
   ;;
 
   type pds_state =
-    Pds_state of annotated_clause * C.t * Pattern_set.t * Pattern_set.t
+    Pds_state of annotated_clause * C.t
     [@@deriving ord]
   ;;
 
-  let pp_pds_state (Pds_state(acl,ctx,patsp,patsn)) =
-    Printf.sprintf "(%s,%s,%s,%s)"
-      (pp_annotated_clause acl) (C.pretty ctx) (pp_pattern_set patsp) (pp_pattern_set patsn)
+  let pp_pds_state (Pds_state(acl,ctx)) =
+    Printf.sprintf "(%s @ %s)"
+      (pp_annotated_clause acl) (C.pretty ctx)
   ;;
 
   module Pds_state_ord =
@@ -100,6 +101,8 @@ struct
       let pp_stack_element = pp_pds_continuation
     end
   );;
+
+  open Cba_pds_reachability;;
 
   (*
     Here, we're creating the analysis data type in an internal module with a
@@ -123,8 +126,36 @@ struct
     let empty_analysis =
       Cba_analysis(Cba_graph.empty, Cba_pds_reachability.empty)
     ;;
-    let add_edge =
-      raise @@ Utils.Not_yet_implemented "add_edge for analysis structure"
+    let add_edge edge (Cba_analysis(cba_graph,pda_reachability) as analysis) =
+      if Cba_graph.has_edge edge cba_graph then analysis else
+        let (Cba_edge(acl1,acl0)) = edge in
+        let edge_functions =
+          let open Monad.Option in
+          Enum.filter_map identity @@ List.enum
+          [
+            (* Variable discovery.  Base cases do not lead to edges in the
+               PDS, but eliminations of variables from the stack do. *)
+            let%orzero
+              Unannotated_clause(Abs_clause(x, Abs_value_body _)) = acl1
+            in
+            return @@
+            (fun (Pds_state(acl0',ctx)) ->
+              Enum.concat @@ Nondeterminism_monad.enum @@
+              let open Nondeterminism_monad in
+              [%guard equal_annotated_clause acl0 acl0'];
+              return @@ Enum.singleton
+                ( [Pop (Lookup_var(x,Pattern_set.empty,Pattern_set.empty))]
+                , Pds_state(acl1,ctx) )
+            )
+          ]
+        in
+        let pda_reachability' =
+          edge_functions |>
+          Enum.fold (flip Cba_pds_reachability.add_edge_function)
+            pda_reachability
+        in
+        let cba_graph' = Cba_graph.add_edge edge cba_graph in
+        (Cba_analysis(cba_graph',pda_reachability'))
     ;;
   end;;
 

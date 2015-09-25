@@ -81,7 +81,7 @@ type annotated_clause =
   | Exit_clause of var * var * abstract_clause
   | Start_clause
   | End_clause
-  [@@deriving ord]
+  [@@deriving ord, eq]
 ;;
 
 let pp_annotated_clause acl =
@@ -120,6 +120,8 @@ sig
   val add_edge : cba_edge -> cba_graph -> cba_graph
   
   val edges_of : cba_graph -> cba_edge Enum.t
+  
+  val has_edge : cba_edge -> cba_graph -> bool
 end;;
 
 module Graph_impl : Graph_sig =
@@ -133,6 +135,8 @@ struct
   let add_edge edge (Graph(s)) = Graph(Cba_edge_set.add edge s);;
 
   let edges_of (Graph(s)) = Cba_edge_set.enum s;;
+
+  let has_edge edge (Graph(s)) = Cba_edge_set.mem edge s;;
 end;;
 
 include Graph_impl;;

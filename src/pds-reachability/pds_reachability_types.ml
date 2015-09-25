@@ -15,8 +15,11 @@ sig
   (** Stack actions which may be performed in the PDS. *)
   type stack_action =
     | Push of stack_element
+      (** Represents the push of a single stack element. *)
     | Pop of stack_element
+      (** Represents the pop of a single stack element. *)
     | Nop
+      (** Represents no action being taken on the stack. *)
 
   (** Comparison for stack actions. *)
   val compare_stack_action : stack_action -> stack_action -> int
