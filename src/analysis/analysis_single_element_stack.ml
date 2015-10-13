@@ -1,13 +1,11 @@
 open Batteries;;
 
 open Analysis_context_stack;;
-open Analysis_utils;;
-open Ast;;
-open Ast_pretty;;
+open Cba_graph;;
 
 module Stack : Context_stack =
 struct
-  type t = S of clause option;;
+  type t = S of abstract_clause option;;
   let compare = compare;;
   let empty = S(None);;
   let push c _ = S(Some(c));;
@@ -18,12 +16,7 @@ struct
     | None -> true
   ;;
   let pretty = function
-    | S(Some(c)) -> brief_pretty_clause c ^ "|?"
+    | S(Some(c)) -> pp_abstract_clause c ^ "|?"
     | S(None) -> "?"
-  ;;
-  let enumerate e : t Enum.t =
-    extract_context_clauses e
-    |> Enum.map (fun c -> S(Some c))
-    |> Enum.append (Enum.singleton @@ S(None))
   ;;
 end;;

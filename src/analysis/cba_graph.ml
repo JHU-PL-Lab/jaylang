@@ -67,13 +67,21 @@ and pp_abstract_expr (Abs_expr(cls)) =
   String_utils.concat_sep "; " @@ Enum.map pp_abstract_clause @@ List.enum cls
 ;;
 
-module Abs_value_order =
+module Abs_value_ord =
 struct
   type t = abstract_value
   let compare = compare_abstract_value
 end;;
 
-module Abs_value_set = Set.Make(Abs_value_order);;
+module Abs_value_set = Set.Make(Abs_value_ord);;
+
+module Abs_clause_ord =
+struct
+  type t = abstract_clause
+  let compare = compare_abstract_clause
+end;;
+
+module Abs_clause_set = Set.Make(Abs_clause_ord);;
 
 type annotated_clause =
   | Unannotated_clause of abstract_clause
