@@ -133,20 +133,85 @@ struct
           let open Monad.Option in
           Enum.filter_map identity @@ List.enum
           [
-            (* Variable discovery.  Base cases do not lead to edges in the
-               PDS, but eliminations of variables from the stack do. *)
-            let%orzero
-              Unannotated_clause(Abs_clause(x, Abs_value_body _)) = acl1
-            in
-            return @@
-            (fun (Pds_state(acl0',ctx)) ->
-              Enum.concat @@ Nondeterminism_monad.enum @@
-              let open Nondeterminism_monad in
-              [%guard equal_annotated_clause acl0 acl0'];
-              return @@ Enum.singleton
-                ( [Pop (Lookup_var(x,Pattern_set.empty,Pattern_set.empty))]
-                , Pds_state(acl1,ctx) )
-            )
+            begin
+              (* Variable discovery.  Base cases do not lead to edges in the
+                 PDS, but eliminations of variables from the stack do. *)
+              let%orzero
+                Unannotated_clause(Abs_clause(x, Abs_value_body _)) = acl1
+              in
+              return @@
+              (fun (Pds_state(acl0',ctx)) ->
+                Enum.concat @@ Nondeterminism_monad.enum @@
+                let open Nondeterminism_monad in
+                [%guard equal_annotated_clause acl0 acl0'];
+                return @@ Enum.singleton
+                  ( [Pop (Lookup_var(x,Pattern_set.empty,Pattern_set.empty))]
+                  , Pds_state(acl1,ctx) )
+              )
+            end
+          ;
+            begin
+              (* Variable aliasing for unannotated clauses. *)
+              let%orzero
+                Unannotated_clause(Abs_clause(x, Abs_var_body x')) = acl1
+              in
+              return @@
+              (fun (Pds_state(acl0',ctx)) ->
+                Enum.concat @@ Nondeterminism_monad.enum @@
+                let open Nondeterminism_monad in
+                [%guard equal_annotated_clause acl0 acl0'];
+                let dynamic_pop element =
+                  Nondeterminism_monad.enum @@
+                  let%orzero (Lookup_var(x0,patsp,patsn)) = element in
+                  [%guard equal_var x x0];
+                  return @@ [Push (Lookup_var(x',patsp,patsn))]
+                in
+                return @@ Enum.singleton
+                  ( [Pop_dynamic dynamic_pop]
+                  , Pds_state(acl1,ctx) )
+              )
+            end
+          ;
+            begin
+              (* Variable aliasing for annotated entrance clauses. *)
+              let%orzero Enter_clause(x,x',c) = acl1 in
+              return @@
+              (fun (Pds_state(acl0',ctx)) ->
+                Enum.concat @@ Nondeterminism_monad.enum @@
+                let open Nondeterminism_monad in
+                [%guard equal_annotated_clause acl0 acl0'];
+                [%guard C.is_top c ctx];
+                let dynamic_pop element =
+                  Nondeterminism_monad.enum @@
+                  let%orzero (Lookup_var(x0,patsp,patsn)) = element in
+                  [%guard equal_var x x0];
+                  return @@ [Push (Lookup_var(x',patsp,patsn))]
+                in
+                return @@ Enum.singleton
+                  ( [Pop_dynamic dynamic_pop]
+                  , Pds_state(acl1, C.pop ctx) )
+              )
+            end
+          ;
+            begin
+              (* Variable aliasing for annotated exit clauses. *)
+              let%orzero Exit_clause(x,x',c) = acl1 in
+              return @@
+              (fun (Pds_state(acl0',ctx)) ->
+                Enum.concat @@ Nondeterminism_monad.enum @@
+                let open Nondeterminism_monad in
+                [%guard equal_annotated_clause acl0 acl0'];
+                let dynamic_pop element =
+                  Nondeterminism_monad.enum @@
+                  let%orzero (Lookup_var(x0,patsp,patsn)) = element in
+                  [%guard equal_var x x0];
+                  return @@ [Push (Lookup_var(x',patsp,patsn))]
+                in
+                return @@ Enum.singleton
+                  ( [Pop_dynamic dynamic_pop]
+                  , Pds_state(acl1, C.push c ctx) )
+              )
+            end
           ]
         in
         let pda_reachability' =
