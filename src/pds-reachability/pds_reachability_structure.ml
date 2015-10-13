@@ -86,8 +86,7 @@ struct
 
   (********** Simple internal data structures. **********)
 
-  type node_and_stack_element = node * stack_element [@@ deriving ord]
-  ;;
+  type node_and_stack_element = node * stack_element [@@ deriving ord];;
 
   type node_and_dynamic_pop_function =
     node * dynamic_pop_function
