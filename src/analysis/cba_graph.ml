@@ -108,6 +108,11 @@ type cba_edge =
   [@@deriving ord]
 ;;
 
+let pp_cba_edge (Cba_edge(acl1,acl0)) =
+  Printf.sprintf "%s ==> %s"
+    (pp_annotated_clause acl1) (pp_annotated_clause acl0)
+;;
+
 module Cba_edge_ord =
 struct
   type t = cba_edge

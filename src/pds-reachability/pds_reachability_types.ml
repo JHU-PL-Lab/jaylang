@@ -3,6 +3,7 @@
    and utility functions for them.
 *)
 open Batteries;;
+open Pds_reachability_types_stack;;
 
 module type Types =
 sig
@@ -12,23 +13,11 @@ sig
   (** The type of stack elements in the PDS. *)
   type stack_element
   
+  (** The type of dynamic pop actions in the PDS. *)
+  type dynamic_pop_action
+  
   (** Stack actions which may be performed in the PDS. *)
-  type stack_action =
-    | Push of stack_element
-      (** Represents the push of a single stack element. *)
-    | Pop of stack_element
-      (** Represents the pop of a single stack element. *)
-    | Nop
-      (** Represents no action being taken on the stack. *)
-    | Pop_dynamic of dynamic_pop_function
-      (** Represents a pop operation which leads to the target node only after
-          performing a series of stack actions.  These stack actions are not
-          fixed; they vary depending upon the stack element which is provided.
-          This operation may also be non-deterministic, providing several
-          chains of operations to the same target. *)
-
-  (** The type of dynamic pop functions. *)
-  and dynamic_pop_function = stack_element -> stack_action list Enum.t
+  type stack_action = (stack_element,dynamic_pop_action) pds_stack_action
 
   (** A pretty-printer for stack actions. *)  
   val pp_stack_action : stack_action -> string  
@@ -56,31 +45,29 @@ sig
   val pp_edge : edge -> string
 end;;
 
-module Make(Basis : Pds_reachability_basis.Basis)
+module Make
+        (Basis : Pds_reachability_basis.Basis)
+        (Dph : Pds_reachability_types_stack.Dynamic_pop_handler)
   : Types with type stack_element = Basis.stack_element
-           and type state = Basis.state =
+           and type state = Basis.state
+           and type dynamic_pop_action = Dph.dynamic_pop_action
+  =
 struct
-  type state = Basis.state
-  type stack_element = Basis.stack_element
+  type state = Basis.state;;
+  type stack_element = Basis.stack_element;;
+  type dynamic_pop_action = Dph.dynamic_pop_action;;
 
   let compare_state = Basis.State_ord.compare;;
   let compare_stack_element = Basis.Stack_element_ord.compare;;
 
-  type stack_action =
-    | Push of stack_element
-    | Pop of stack_element
-    | Nop
-    | Pop_dynamic of dynamic_pop_function
-  
-  and dynamic_pop_function = stack_element -> stack_action list Enum.t
-  ;;
+  type stack_action = (stack_element,dynamic_pop_action) pds_stack_action;;
 
   let pp_stack_action action =
     match action with
     | Push x -> "push " ^ Basis.pp_stack_element x
     | Pop x -> "pop " ^ Basis.pp_stack_element x
     | Nop -> "nop"
-    | Pop_dynamic _ -> "pop_dynamic"
+    | Pop_dynamic action -> "pop_dynamic " ^ Dph.pp_dynamic_pop_action action
   ;;
 
   type node =

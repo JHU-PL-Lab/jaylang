@@ -4,4 +4,7 @@
 *)
 
 module type Basis = Pds_reachability_basis.Basis;;
+module type Dynamic_pop_handler =
+  Pds_reachability_types_stack.Dynamic_pop_handler
+;;
 module Make = Pds_reachability_analysis.Make;;

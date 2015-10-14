@@ -3,6 +3,7 @@
 *)
 
 open Batteries;;
+open Pds_reachability_types_stack;;
 
 let logger = Logger_utils.make_logger "Pds_reachability_analysis";;
 let lazy_logger = Logger_utils.make_lazy_logger "Pds_reachability_analysis";;
@@ -62,15 +63,20 @@ sig
   exception Reachability_request_for_non_start_state of state;;
 end;;
 
-module Make(Basis : Pds_reachability_basis.Basis)
+module Make
+    (Basis : Pds_reachability_basis.Basis)
+    (Dph : Pds_reachability_types_stack.Dynamic_pop_handler
+      with type stack_element = Basis.stack_element)
   : Analysis
   with type state = Basis.state
-  and type stack_element = Basis.stack_element =
+  and type stack_element = Basis.stack_element
+  and type dynamic_pop_action = Dph.dynamic_pop_action
+  =
 struct
   (********** Create and wire in appropriate components. **********)
   
-  module Types = Pds_reachability_types.Make(Basis);;
-  module Structure = Pds_reachability_structure.Make(Basis)(Types);;
+  module Types = Pds_reachability_types.Make(Basis)(Dph);;
+  module Structure = Pds_reachability_structure.Make(Basis)(Dph)(Types);;
 
   include Types;;
 
@@ -234,9 +240,9 @@ struct
             analysis''.reachability
             |> Structure.find_dynamic_pop_edges_by_source edge.target
             |> Enum.map
-              (fun (target', f) ->
+              (fun (target', action) ->
                 fun (analysis : analysis) ->
-                  f element
+                  Dph.perform_dynamic_pop element action
                   |> Enum.fold
                       (fun analysis' actions ->
                         add_edges_between_nodes
@@ -246,14 +252,14 @@ struct
           in
           dynamic_pop_out_of_target
         | Pop _ -> Enum.empty ()
-        | Pop_dynamic f ->
+        | Pop_dynamic action ->
           let push_into_source =
             analysis''.reachability
             |> Structure.find_push_edges_by_target edge.source
             |> Enum.map
               (fun (source, element) ->
                 fun analysis ->
-                  f element
+                  Dph.perform_dynamic_pop element action
                   |> Enum.fold
                       (fun analysis' actions ->
                         add_edges_between_nodes

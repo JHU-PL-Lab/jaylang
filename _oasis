@@ -104,6 +104,7 @@ Library "pds-reachability"
     Pds_reachability_basis,
     Pds_reachability_structure,
     Pds_reachability_types,
+    Pds_reachability_types_stack,
     Pds_reachability
   BuildDepends:
     utils,
