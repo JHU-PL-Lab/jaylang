@@ -123,6 +123,23 @@ struct
           continuation. *)
     | Stateless_nonmatching_clause_skip_2_of_2 of pds_continuation
       (** The second step of skipping a non-matching clause while stateless. *)
+    | Function_closure_lookup of var * var
+      (** Represents a function closure lookup.  The first variable is the
+          parameter of the function; the second variable is the function itself.
+          If the lookup variable does not match the parameter, then this lookup
+          is for a non-local and we must search for the function's definition
+          first. *)
+    | Conditional_closure_lookup of var * pattern * bool
+      (** Represents a conditional closure lookup.  If the variable matches our
+          lookup target, then we've learned something about it: that it matches
+          the pattern (if the boolean is true) or that it does not (if the
+          boolean is false).  If the variable does not match our lookup target,
+          we have learned nothing. *)
+    | Record_projection_lookup of var * var * ident
+      (** Represents a record projection.  If the first variable matches our
+          lookup target, then we've discovered that we are looking up the
+          projection of the ident label from a record stored in the second
+          variable. *)
     (* TODO *)
     [@@deriving ord]
   ;;
@@ -139,6 +156,15 @@ struct
     | Stateless_nonmatching_clause_skip_2_of_2(k) ->
       Printf.sprintf "Stateless_nonmatching_clause_skip_2_of_2(%s)"
         (pp_pds_continuation k)
+    | Function_closure_lookup(x'',xf) ->
+      Printf.sprintf "Function_closure_lookup(%s,%s)"
+        (pretty_var x'') (pretty_var xf)
+    | Conditional_closure_lookup(x,p,b) ->
+      Printf.sprintf "Function_closure_lookup(%s,%s,%b)"
+        (pretty_var x) (pretty_pattern p) b
+    | Record_projection_lookup(x,x',l) ->
+      Printf.sprintf "Record_projection_lookup(%s,%s,%s)"
+        (pretty_var x) (pretty_var x') (pretty_ident l)
   ;;
 
   module Dph =
@@ -175,15 +201,42 @@ struct
            clause.  If we're stateless, that'll be fine. *)
         return [Pop_dynamic(Stateless_nonmatching_clause_skip_2_of_2 element)]
       | Stateless_nonmatching_clause_skip_2_of_2 element' ->
-        match element with
-        | Deref(_,_) ->
-          (* This means we're in a stateful mode.  Stateless non-matching clause
-             skip is inappropriate here. *)
-          zero ()
-        | _ ->
-          (* We're not in a stateful mode, so we can skip the clause.  We still
-             have to put these elements back on the stack, though. *)
-          return [Push(element');Push(element)]
+        begin
+          match element with
+          | Deref(_,_) ->
+            (* This means we're in a stateful mode.  Stateless non-matching
+               clause skip is inappropriate here. *)
+            zero ()
+          | _ ->
+            (* We're not in a stateful mode, so we can skip the clause.  We
+               still have to put these elements back on the stack, though. *)
+            return [Push(element);Push(element')]
+        end
+      | Function_closure_lookup(x'',xf) ->
+        let%orzero (Lookup_var(x,_,_)) = element in
+        [%guard (not @@ equal_var x x'')];
+        (* We're looking for a non-local variable.  Push a lookup for the
+           function. *)
+        return [ Push(element)
+               ; Push(Lookup_var(xf,Pattern_set.empty,Pattern_set.empty))
+               ]
+      | Conditional_closure_lookup(xc,pat,positive_side) ->
+        let%orzero (Lookup_var(x,patsp,patsn)) = element in
+        if not @@ equal_var x xc
+        then return [Push(element)]
+        else
+          let (patsp',patsn') =
+            if positive_side
+            then (Pattern_set.add pat patsp,patsn)
+            else (patsp,Pattern_set.add pat patsn)
+          in
+          return [Push(Lookup_var(x,patsp',patsn'))]
+      | Record_projection_lookup(x,x',l) ->
+        let%orzero (Lookup_var(x0,patsp,patsn)) = element in
+        [%guard (equal_var x0 x)];
+        return [ Push(Project(l,patsp,patsn))
+               ; Push(Lookup_var(x',Pattern_set.empty,Pattern_set.empty))
+               ]
     ;;
   end;;
   
@@ -260,11 +313,45 @@ struct
                          , Pds_state(acl0,ctx)
                          )
                 end
+              ;
+                begin
+                  let%orzero (Enter_clause(x'',_,c)) = acl0 in
+                  let%orzero (Abs_clause(_,Abs_appl_body(xf,_))) = c in
+                  (* x'' =(down)c x' for functions *)
+                  [%guard C.is_top c ctx];
+                  let ctx' = C.pop ctx in
+                  return ( Function_closure_lookup(x'',xf)
+                         , Pds_state(acl1,ctx')
+                         )
+                end
+              ;
+                begin
+                  let%orzero (Enter_clause(x'',_,c)) = acl0 in
+                  let%orzero (Abs_clause(_,Abs_conditional_body(x1,p,f1,_))) = c in
+                  let Abs_function_value(f1x,_) = f1 in
+                  (* x'' =(down)c x' for conditionals *)
+                  [%guard C.is_top c ctx];
+                  [%guard (not @@ equal_var x'' x1)];
+                  let closure_for_positive_path = equal_var f1x x'' in
+                  (* FIXME: should be popping ctx, yes? *)
+                  return ( Conditional_closure_lookup
+                            (x1,p,closure_for_positive_path)
+                         , Pds_state(acl1,ctx)
+                         )
+                end
+              ;
+                begin
+                  let%orzero
+                    (Unannotated_clause(
+                      Abs_clause(x,Abs_projection_body(x',l)))) = acl0
+                  in
+                  (* x = x'.l *)
+                  return (Record_projection_lookup(x,x',l),Pds_state(acl1,ctx))
+                end
               ]
             in
             edge_actions
             |> Enum.map
-                (* FIXME: we can't always have this be ctx *)
                 (fun (action,state) -> ([Pop_dynamic(action)], state))
         in
         let pds_reachability' =
