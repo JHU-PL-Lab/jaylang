@@ -79,6 +79,21 @@ struct
     |> Enum.filter_map identity
     |> Pattern_set.of_enum
   ;;
+
+  let labels_in_record (Record_value m) =
+    Ident_set.of_enum @@ Ident_map.keys m
+  ;;
+
+  let labels_in_pattern (Record_pattern m) =
+    Ident_set.of_enum @@ Ident_map.keys m
+  ;;
+
+  let labels_in_pattern_set set =
+    set
+    |> Pattern_set.enum
+    |> Enum.map labels_in_pattern
+    |> Enum.fold Ident_set.union Ident_set.empty
+  ;;
   
   type pds_continuation =
     | Lookup_var of var * Pattern_set.t * Pattern_set.t
@@ -177,20 +192,35 @@ struct
           lookup target, then we've discovered that we are looking up the
           projection of the ident label from a record stored in the second
           variable. *)
-    | Record_construction_lookup_1_of_2 of pds_state * var * record_value
-      (** Represents the first step of record construction lookup.  If the
-          variable matches our lookup variable and we are performing a record
-          projection, then we have found our value and we should project from
-          it.  The PDS state is the target of the operation and is carried here
-          for convenience.  This action comes in two steps to accommodate the
-          stack requirements. *)
+    | Record_construction_lookup_1_of_2 of
+        pds_state * pds_state * var * record_value
+      (** Represents lookup as applied to a record construction node.  If the
+          variable matches our lookup variable, then we've found our value and
+          should take action.  The particular action to take depends upon
+          whether the next stack element is a projection (in which case we
+          should do the projection) or if it is not (in which case we should
+          just validate the record filters).  The PDS states are the source and
+          target of the operation (respectively) and are carried here for
+          convenience. *)
       (* FIXME: Shouldn't rule 1b specifically exclude variables from which we
                 are projecting values? *)
+      (* FIXME: There's no good way for the caller to get at the filters which
+                applied to the record under this model, right?  That seems a
+                shame. *)
+      (* FIXME: This doesn't work if the record is the eventual lookup target!
+                (That is, this is a problem if the record lookup is on the
+                bottom of the stack.)  Perhaps we need a distinguished
+                start-of-stack element?  We could perhaps use such a thing to
+                fix the above, too, by moving to a dedicated answer state when
+                we pop the last stack element. *)
     | Record_construction_lookup_2_of_2 of
-        pds_state * var * record_value * Pattern_set.t * Pattern_set.t
-      (** The second step of record construction lookup.  This action takes the
-          same arguments as step 1 as well as positive and (pre-selected)
-          negative pattern sets. *)
+        pds_state * pds_state * var * record_value *
+          Pattern_set.t * Pattern_set.t
+      (** The second step of record construction lookup. *)
+    | Function_filter_validation of var
+      (** Represents the validation of filters for a function under lookup.  If
+          the variable matches our lookup variable, any negative filters are
+          admissible and can be erased (although positive filters cannot). *)
     (* TODO *)
     [@@deriving ord]
   ;;
@@ -216,13 +246,17 @@ struct
     | Record_projection_lookup(x,x',l) ->
       Printf.sprintf "Record_projection_lookup(%s,%s,%s)"
         (pretty_var x) (pretty_var x') (pretty_ident l)
-    | Record_construction_lookup_1_of_2(state,x,r) ->
-      Printf.sprintf "Record_construction_lookup_1_of_2(%s,%s,%s)"
-        (pp_pds_state state) (pretty_var x) (pretty_record_value r)
-    | Record_construction_lookup_2_of_2(state,x,r,patsp,patsn) ->
-      Printf.sprintf "Record_construction_lookup_2_of_2(%s,%s,%s,%s,%s)"
-        (pp_pds_state state) (pretty_var x) (pretty_record_value r)
-          (pp_pattern_set patsp) (pp_pattern_set patsn)
+    | Record_construction_lookup_1_of_2(source_state,target_state,x,r) ->
+      Printf.sprintf "Record_construction_lookup_1_of_2(%s,%s,%s,%s)"
+        (pp_pds_state source_state) (pp_pds_state target_state) (pretty_var x)
+          (pretty_record_value r)
+    | Record_construction_lookup_2_of_2(
+        source_state,target_state,x,r,patsp,patsn) ->
+      Printf.sprintf "Record_construction_lookup_2_of_2(%s,%s,%s,%s,%s,%s)"
+        (pp_pds_state source_state) (pp_pds_state target_state) (pretty_var x)
+          (pretty_record_value r) (pp_pattern_set patsp) (pp_pattern_set patsn)
+    | Function_filter_validation(x) ->
+      Printf.sprintf "Function_filter_validation(%s)" (pretty_var x)
   ;;
 
   module Dph =
@@ -295,7 +329,7 @@ struct
         return [ Push(Project(l,patsp,patsn))
                ; Push(Lookup_var(x',Pattern_set.empty,Pattern_set.empty))
                ]
-      | Record_construction_lookup_1_of_2(state,x,r) ->
+      | Record_construction_lookup_1_of_2(source_state,taret_state,x,r) ->
         let%orzero (Lookup_var(x0,patsp,patsn)) = element in
         [% guard (equal_var x x0) ];
         return @@ List.of_enum @@ Nondeterminism_monad.enum @@
@@ -303,22 +337,66 @@ struct
           let open Nondeterminism_monad in
           let%bind patsn' = negative_pattern_set_selection r patsn in
           return @@ Pop_dynamic(
-                    Record_construction_lookup_2_of_2(state,x,r,patsp,patsn'))
+                      Record_construction_lookup_2_of_2(
+                        source_state,taret_state,x,r,patsp,patsn'))
         end
-      | Record_construction_lookup_2_of_2(state,x,r,patsp0,patsn2) ->
-        let%orzero (Project(l,patsp1,patsn1)) = element in
+      | Record_construction_lookup_2_of_2(
+          source_state,target_state,x,r,patsp0,patsn2) ->
         let Record_value m = r in
-        [% guard (Ident_map.mem l m) ];
-        let x' = Ident_map.find l m in
-        let Pds_state(acl0,ctx) = state in
-        return [ Push(Lookup_var( x'
-                                , (Pattern_set.union patsp1
-                                    (pattern_set_projection patsp0 l))
-                                , (Pattern_set.union patsn1
-                                    (pattern_set_projection patsn2 l))))
-               ; Push(Jump(acl0,ctx))
-               ; Push(Lookup_var(x, patsp0, patsn2))
-               ]
+        let Pds_state(acl1,ctx1) = source_state in
+        let Pds_state(acl0,ctx0) = target_state in
+        begin
+          match element with
+          | Project(l,patsp1,patsn1) ->
+            [% guard (Ident_map.mem l m) ];
+            let x' = Ident_map.find l m in
+            (* This case is record projection. *)
+            return [ Push(Lookup_var( x'
+                                    , (Pattern_set.union patsp1
+                                        (pattern_set_projection patsp0 l))
+                                    , (Pattern_set.union patsn1
+                                        (pattern_set_projection patsn2 l))))
+                   ; Push(Jump(acl0,ctx0))
+                   ; Push(Lookup_var(x, patsp0, patsn2))
+                   ]
+          | _ ->
+            (* This case is record validation. *)
+            let record_labels = labels_in_record r in
+            let pattern_set_labels = labels_in_pattern_set patsp0 in
+            [%guard (Ident_set.subset pattern_set_labels record_labels) ];
+            let make_k'' l =
+              let x'' = Ident_map.find l m in
+              List.enum [ Push(Lookup_var( x''
+                                         , pattern_set_projection patsp0 l
+                                         , pattern_set_projection patsn2 l))
+                        ; Push(Jump(acl1,ctx1))
+                        ]
+            in
+            let first_pushes =
+              List.enum [ Push(element)
+                        ; Push(Lookup_var( x
+                                         , Pattern_set.empty
+                                         , Pattern_set.empty))
+                        ; Push(Jump(acl0,ctx0))
+                        ]
+            in
+            let all_pushes =
+              pattern_set_labels
+              |> Ident_set.enum
+              |> Enum.map make_k''
+              |> Enum.concat
+              |> flip Enum.append first_pushes
+            in
+            return @@ List.of_enum all_pushes
+        end
+      | Function_filter_validation(x) ->
+        let%orzero (Lookup_var(x0,patsp,patsn)) = element in
+        [% guard (equal_var x x0) ];
+        [% guard (Pattern_set.is_empty patsp) ];
+        (* The following isn't strictly necessary, but it'd be redundant to do
+           this for an empty negative pattern set. *)
+        [% guard (not @@ Pattern_set.is_empty patsn) ];
+        return [ Push(Lookup_var(x0,Pattern_set.empty,Pattern_set.empty)) ]
     ;;
   end;;
   
@@ -439,10 +517,21 @@ struct
                       Abs_clause(x,Abs_value_body(Abs_value_record(r))))) = acl0
                   in
                   (* x = r *)
+                  let source_state = Pds_state(acl1,ctx) in
                   let target_state = Pds_state(acl0,ctx) in
-                  return ( Record_construction_lookup_1_of_2(target_state,x,r)
+                  return ( Record_construction_lookup_1_of_2(
+                             source_state,target_state,x,r)
                          , target_state
                          )
+                end
+              ;
+                begin
+                  let%orzero
+                    (Unannotated_clause(Abs_clause(
+                        x,Abs_value_body(Abs_value_function(_))))) = acl0
+                  in
+                  (* x = f *)
+                  return (Function_filter_validation(x), Pds_state(acl0,ctx))
                 end
               ]
             in
