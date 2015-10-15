@@ -14,6 +14,11 @@ sig
 
   (** The type of edge-generating functions used in this analysis. *)
   type edge_function = state -> (stack_action list * state) Enum.t
+  
+  (** The type of functions to generate untargeted dynamic pop actions in this
+      analysis. *)
+  type untargeted_dynamic_pop_action_function =
+    state -> untargeted_dynamic_pop_action Enum.t
 
   exception Reachability_request_for_non_start_state of state;;
 
@@ -29,13 +34,10 @@ sig
     : state -> stack_action list -> state -> analysis -> analysis
 
   (** Adds a function to generate edges for a reachability analysis.  Given a
-      source node, this function generates edges from that source edge.  The
+      source node, the function generates edges from that source node.  The
       function must be pure; for a given source node, it must generate all edges
       that it can generate on the first call. *)
-  val add_edge_function
-    : (state -> (stack_action list * state) Enum.t)
-    -> analysis
-    -> analysis
+  val add_edge_function : edge_function -> analysis -> analysis
     
   (** Adds an untargeted pop action to a reachability analysis.  Untargeted pop
       action are similar to targeted pop actions except that they are not
@@ -44,6 +46,14 @@ sig
       consuming. *)
   val add_untargeted_dynamic_pop_action
     : state -> untargeted_dynamic_pop_action -> analysis -> analysis
+    
+  (** Adds a function to generate untargeted dynamic pop ations for a
+      reachability analysis.  Given a source node, the function generates
+      untargeted actions from that source node.  The function must be pure; for
+      a given source, it must generate all actions that it can generate on the
+      first call. *)
+  val add_untargeted_dynamic_pop_action_function
+    : untargeted_dynamic_pop_action_function -> analysis -> analysis
 
   (** Adds a state and initial stack element to the analysis.  This permits the
       state to be used as the source state of a call to [get_reachable_states].
@@ -91,6 +101,8 @@ struct
   include Types;;
 
   type edge_function = state -> (stack_action list * state) Enum.t;;
+  type untargeted_dynamic_pop_action_function =
+    state -> untargeted_dynamic_pop_action Enum.t;;
 
   (********** Define utility data structures. **********)
   
@@ -112,6 +124,8 @@ struct
     { known_nodes : Node_set.t
     ; reachability : Structure.structure
     ; edge_functions : edge_function list
+    ; untargeted_dynamic_pop_action_functions :
+        untargeted_dynamic_pop_action_function list
     ; next_intermediate_node : int
     };;
 
@@ -128,6 +142,9 @@ struct
       ; "reachability = " ^ Structure.pp_structure analysis.reachability
       ; "length edge_functions = " ^
           string_of_int (List.length analysis.edge_functions)
+      ; "length untargeted_dynamic_pop_action_functions = " ^
+          string_of_int
+            (List.length analysis.untargeted_dynamic_pop_action_functions)
       ; "next_intermediate_node = " ^
           string_of_int analysis.next_intermediate_node
       ]) ^ "\n}"
@@ -137,6 +154,7 @@ struct
     { known_nodes = Node_set.empty
     ; reachability = Structure.empty
     ; edge_functions = []
+    ; untargeted_dynamic_pop_action_functions = []
     ; next_intermediate_node = 0
     };;
   
@@ -374,63 +392,7 @@ struct
     let target_node = State_node(target_state) in
     add_edges_between_nodes source_node target_node stack_action_list analysis
 
-  (**
-     Adds a node to the analysis.  Specifically, adds all edges with that node
-     as a source that are returned by the analysis's edge functions.
-  *)
-  and add_node node analysis =
-    Logger_utils.lazy_bracket_log (lazy_logger `trace)
-      (fun _ ->
-         "add_node (" ^ pp_node node ^ ")")
-      (fun _ -> "Finished") @@
-    fun () ->
-    match node with
-    | Intermediate_node _ -> analysis
-    | Initial_node _ ->
-      if Node_set.mem node analysis.known_nodes then analysis else
-        { analysis with
-          known_nodes = Node_set.add node analysis.known_nodes }
-    | State_node state ->
-      if Node_set.mem node analysis.known_nodes then analysis else
-        let analysis' =
-          { analysis with
-            known_nodes = Node_set.add node analysis.known_nodes }
-        in
-        analysis.edge_functions
-        |> List.enum
-        |> Enum.map (fun f -> f state)
-        |> Enum.concat
-        |> Enum.fold
-          (fun analysis' (actions,target_state) ->
-             add_edge state actions target_state analysis')
-          analysis'
-  ;;
-
-  let add_edge_function edge_function analysis =
-    let analysis' =
-      { analysis with edge_functions = edge_function::analysis.edge_functions }
-    in
-    (* Of course, there may be nodes already in the graph which will respond to
-       this function.  Make sure to get edges for them. *)
-    analysis'.known_nodes
-    |> Node_set.enum
-    |> Enum.filter_map
-      (fun node ->
-        match node with
-        | State_node state -> Some state
-        | Intermediate_node _ -> None
-        | Initial_node _ -> None)
-    |> Enum.map
-      (fun source_state ->
-         edge_function source_state |> Enum.map (fun x -> (source_state, x)))
-    |> Enum.concat
-    |> Enum.fold
-      (fun analysis'' (source_state,(action_list,target_state)) ->
-         add_edge source_state action_list target_state analysis'')
-      analysis'
-  ;;
-
-  let add_untargeted_dynamic_pop_action source_state action analysis =
+  and add_untargeted_dynamic_pop_action source_state action analysis =
     let source_node = State_node source_state in
     if Structure.has_untargeted_dynamic_pop_action source_node action
         analysis.reachability
@@ -458,6 +420,101 @@ struct
           let target_node = State_node target_state in
           add_edges_between_nodes push_source_node target_node path analysis'')
         analysis'
+
+  (**
+     Adds a node to the analysis.  Specifically, adds all edges with that node
+     as a source that are returned by the analysis's edge functions.
+  *)
+  and add_node node analysis =
+    Logger_utils.lazy_bracket_log (lazy_logger `trace)
+      (fun _ ->
+         "add_node (" ^ pp_node node ^ ")")
+      (fun _ -> "Finished") @@
+    fun () ->
+    match node with
+    | Intermediate_node _ -> analysis
+    | Initial_node _ ->
+      if Node_set.mem node analysis.known_nodes then analysis else
+        { analysis with
+          known_nodes = Node_set.add node analysis.known_nodes }
+    | State_node state ->
+      if Node_set.mem node analysis.known_nodes then analysis else
+        let analysis' =
+          { analysis with
+            known_nodes = Node_set.add node analysis.known_nodes }
+        in
+        let analysis'' =
+          analysis.edge_functions
+          |> List.enum
+          |> Enum.map (fun f -> f state)
+          |> Enum.concat
+          |> Enum.fold
+            (fun analysis_so_far (actions,target_state) ->
+              add_edge state actions target_state analysis_so_far)
+            analysis'
+        in
+        let analysis''' =
+          analysis.untargeted_dynamic_pop_action_functions
+          |> List.enum
+          |> Enum.map (fun f -> f state)
+          |> Enum.concat
+          |> Enum.fold
+            (fun analysis_so_far action ->
+              add_untargeted_dynamic_pop_action state action analysis_so_far)
+            analysis''
+        in
+        analysis'''
+  ;;
+
+  let add_edge_function edge_function analysis =
+    let analysis' =
+      { analysis with edge_functions = edge_function::analysis.edge_functions }
+    in
+    (* Of course, there may be nodes already in the graph which will respond to
+       this function.  Make sure to get edges for them. *)
+    analysis'.known_nodes
+    |> Node_set.enum
+    |> Enum.filter_map
+      (fun node ->
+        match node with
+        | State_node state -> Some state
+        | Intermediate_node _ -> None
+        | Initial_node _ -> None)
+    |> Enum.map
+      (fun source_state ->
+         edge_function source_state |> Enum.map (fun x -> (source_state, x)))
+    |> Enum.concat
+    |> Enum.fold
+      (fun analysis'' (source_state,(action_list,target_state)) ->
+         add_edge source_state action_list target_state analysis'')
+      analysis'
+  ;;
+
+  let add_untargeted_dynamic_pop_action_function fn analysis =
+    let analysis' =
+      { analysis with
+          untargeted_dynamic_pop_action_functions =
+            fn::analysis.untargeted_dynamic_pop_action_functions
+      }
+    in
+    (* There may be nodes already in the graph which need the pop actions from
+       this function.  Find them and add those actions. *)
+    analysis'.known_nodes
+    |> Node_set.enum
+    |> Enum.filter_map
+      (fun node ->
+        match node with
+        | State_node state -> Some state
+        | Intermediate_node _ -> None
+        | Initial_node _ -> None)
+    |> Enum.map
+      (fun source_state ->
+        fn source_state |> Enum.map (fun x -> (source_state, x)))
+    |> Enum.concat
+    |> Enum.fold
+      (fun analysis'' (source_state, action) ->
+        add_untargeted_dynamic_pop_action source_state action analysis'')
+      analysis'
   ;;
 
   let add_start_state state stack_element analysis =

@@ -247,6 +247,61 @@ let untargeted_dynamic_pop_reachability_test =
     assert_equal states [8;19;28;29]
 ;;
 
+let untargeted_dynamic_pop_function_reachability_test =
+  "untargeted_dynamic_pop_function_reachability_test" >:: fun _ ->
+    (* We're building this:
+      1. (S) -- Push 'q' --> (0)
+      2. (0) -- Push 'a', Push 'b', Push 'b' --> (1)
+      3. (0) -- Push 'a', Push 'a', Push 'a' --> (1)
+      4. (0) -- Push 'b', Push 'b' --> (1)
+      5. (0) -- Nop --> (1)
+      6. (n) -- Pop 'a' --> (n+1)  for 1 <= n <= 7
+      7. (n) -- Pop not 'a' --> (n+2) for 1 <= n <= 7
+      8. (n) -- Pop 'q' --> (n+20) for 1 <= n <= 7
+      
+      Given the above, we expect the following successful paths:
+      
+      (S) ~1~> (0) ~2~> (1) ~7~> (3) ~7~> (5) ~6~> (6) ~7~> (8)
+      (S) ~1~> (0) ~2~> (1) ~7~> (3) ~7~> (5) ~6~> (6) ~8~> (26)
+      (S) ~1~> (0) ~3~> (1) ~6~> (2) ~6~> (3) ~6~> (4) ~7~> (6)
+      (S) ~1~> (0) ~3~> (1) ~6~> (2) ~6~> (3) ~6~> (4) ~8~> (24)
+      (S) ~1~> (0) ~4~> (1) ~7~> (3) ~7~> (5) ~7~> (7)
+      (S) ~1~> (0) ~4~> (1) ~7~> (3) ~7~> (5) ~8~> (25)
+      (S) ~1~> (0) ~5~> (1) ~7~> (3)
+      (S) ~1~> (0) ~5~> (1) ~8~> (21)
+    *)
+    let edge_function state =
+      if state >= 1 && state < 8
+      then Enum.singleton ([Pop 'q'], state + 20)
+      else Enum.empty ()
+    in
+    let untargeted_dynamic_pop_action_fn state =
+      if state >= 1 && state < 8
+      then Enum.singleton
+            (Test_dph.Target_condition_on_element_is_A(state+1,state+2))
+      else Enum.empty ()
+    in 
+    let analysis =
+      Test_reachability.empty
+      |> Test_reachability.add_edge 0 [Push 'a'; Push 'b'; Push 'b'] 1
+      |> Test_reachability.add_edge 0 [Push 'a'; Push 'a'; Push 'a'] 1
+      |> Test_reachability.add_edge 0 [Push 'b'; Push 'b'] 1
+      |> Test_reachability.add_edge 0 [] 1
+      |> Test_reachability.add_edge_function edge_function
+      |> Test_reachability.add_untargeted_dynamic_pop_action_function
+          untargeted_dynamic_pop_action_fn
+      |> Test_reachability.add_start_state 0 'q'
+    in
+    lazy_logger `trace
+      (fun () -> "analysis:\n" ^
+        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
+    let states = List.sort compare @@ List.of_enum @@
+                    Test_reachability.get_reachable_states 0 'q' analysis in
+    lazy_logger `trace
+      (fun () -> "states: " ^ String_utils.pretty_list string_of_int states);
+    assert_equal states [3;6;7;8;21;24;25;26]
+;;
+
 let tests = "Test_reachability" >:::
   [ immediate_reachability_test
   ; immediate_non_reachable_test
@@ -257,5 +312,6 @@ let tests = "Test_reachability" >:::
   ; targeted_dynamic_pop_reachability_test
   ; targeted_dynamic_pop_nondeterminism_reachability_test
   ; untargeted_dynamic_pop_reachability_test
+  ; untargeted_dynamic_pop_function_reachability_test
   ]
 ;;
