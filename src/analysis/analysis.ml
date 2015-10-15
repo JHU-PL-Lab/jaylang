@@ -573,9 +573,27 @@ struct
             |> Enum.map
                 (fun (action,state) -> ([Pop_dynamic_targeted(action)], state))
         in
+        let untargeted_dynamic_pop_action_function (Pds_state(acl0',_)) =
+          (* TODO: There should be a way to associate each action function with
+                   its corresponding acl0. *)
+          if compare_annotated_clause acl0 acl0' <> 0 then Enum.empty () else
+            let open Option.Monad in
+            (* let zero () = None in *)
+            let untargeted_dynamic_pops = Enum.filter_map identity @@ List.enum
+              [
+                begin
+                  return @@ Do_jump
+                end
+              ]
+            in
+            untargeted_dynamic_pops
+        in
         (* TODO: add untargeted pop for each new node *)
         let pds_reachability' =
-          Cba_pds_reachability.add_edge_function edge_function pds_reachability
+          pds_reachability
+          |> Cba_pds_reachability.add_edge_function edge_function
+          |> Cba_pds_reachability.add_untargeted_dynamic_pop_action_function
+              untargeted_dynamic_pop_action_function
         in
         let cba_graph' = Cba_graph.add_edge edge cba_graph in
         (Cba_analysis(cba_graph',pds_reachability'))
