@@ -260,13 +260,14 @@ struct
   ;;
 
   type pds_untargeted_dynamic_pop_action =
-    | TODO
+    | Do_jump
+      (** The action for performing basic jump operations. *)
     [@@deriving ord]
   ;; (* TODO *)
   
   let pp_pds_untargeted_dynamic_pop_action action =
     match action with
-    | TODO -> "TODO"
+    | Do_jump -> "Do_jump"
   ;;
 
   module Dph =
@@ -421,8 +422,15 @@ struct
         [% guard (not @@ Pattern_set.is_empty patsn) ];
         return [ Push(Lookup_var(x0,Pattern_set.empty,Pattern_set.empty)) ]
     ;;
-    let perform_untargeted_dynamic_pop _ _ =
-      raise @@ Utils.Not_yet_implemented "perform_untargeted_dynamic_pop"
+    let perform_untargeted_dynamic_pop element action =
+      Nondeterminism_monad.enum @@
+      let open Nondeterminism_monad in
+      match action with
+      | Do_jump ->
+        begin
+          let%orzero (Jump(acl1,ctx)) = element in
+          return ([], Pds_state(acl1,ctx))
+        end
     ;;
   end;;
   
@@ -459,7 +467,7 @@ struct
           if compare_annotated_clause acl0 acl0' <> 0 then Enum.empty () else
             let open Option.Monad in
             let zero () = None in
-            let edge_actions = Enum.filter_map identity @@ List.enum
+            let targeted_dynamic_pops = Enum.filter_map identity @@ List.enum
               [
                 begin
                   let%orzero
@@ -561,10 +569,11 @@ struct
                 end
               ]
             in
-            edge_actions
+            targeted_dynamic_pops
             |> Enum.map
                 (fun (action,state) -> ([Pop_dynamic_targeted(action)], state))
         in
+        (* TODO: add untargeted pop for each new node *)
         let pds_reachability' =
           Cba_pds_reachability.add_edge_function edge_function pds_reachability
         in
