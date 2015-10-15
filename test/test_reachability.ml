@@ -36,27 +36,52 @@ module Test_dph =
 struct
   type stack_element = Test_spec.stack_element;;
   let compare_stack_element = Test_stack_element_ord.compare;;
-  type dynamic_pop_action =
+  type state = Test_spec.state;;
+  let compare_state = Test_state_ord.compare;;
+  type targeted_dynamic_pop_action =
     | Double_push
     | Consume_identical_1_of_2
     | Consume_identical_2_of_2 of stack_element
     [@@deriving ord]
   ;;
-  let pp_dynamic_pop_action = function
+  type untargeted_dynamic_pop_action =
+    | Target_condition_on_element_is_A of state * state
+    [@@deriving ord]
+  ;;
+  type stack_action =
+    ( stack_element
+    , targeted_dynamic_pop_action
+    ) pds_stack_action
+  ;;
+  let pp_targeted_dynamic_pop_action = function
     | Double_push -> "Double_push"
     | Consume_identical_1_of_2 -> "Consume_identical_1_of_2"
     | Consume_identical_2_of_2(k) ->
       Printf.sprintf "Consume_identical_2_of_2(%s)"
         (Test_spec.pp_stack_element k)
-  let perform_dynamic_pop element action =
+  ;;
+  let pp_untargeted_dynamic_pop_action = function
+    | Target_condition_on_element_is_A(s1,s2) ->
+      Printf.sprintf "Target_condition_on_element_is_A_pushing(%s,%s)"
+        (Test_spec.pp_state s1) (Test_spec.pp_state s2)
+  ;;
+  let perform_targeted_dynamic_pop element action =
     match action with
     | Double_push -> Enum.singleton [Push(element);Push(element)]
     | Consume_identical_1_of_2 -> Enum.singleton
-        [Pop_dynamic(Consume_identical_2_of_2 element)]
+        [Pop_dynamic_targeted(Consume_identical_2_of_2 element)]
     | Consume_identical_2_of_2 element' ->
         if Test_stack_element_ord.compare element element' == 0
         then Enum.singleton []
         else Enum.empty ()
+  ;;
+  let perform_untargeted_dynamic_pop element action =
+    match action with
+    | Target_condition_on_element_is_A(s1,s2) ->
+      if element == 'a'
+      then Enum.singleton ([],s1)
+      else Enum.singleton ([],s2)
+  ;;
 end;;
 
 module Test_reachability = Pds_reachability.Make(Test_spec)(Test_dph);;
@@ -150,12 +175,13 @@ let nondeterminism_reachability_test =
     assert_equal (List.sort compare @@ List.of_enum states) [1;2]
 ;;
 
-let dynamic_pop_reachability_test =
-  "dynamic_pop_reachability_test" >:: fun _ ->
+let targeted_dynamic_pop_reachability_test =
+  "targeted_dynamic_pop_reachability_test" >:: fun _ ->
     (* The following function dynamically duplicates an element on the stack. *)
     let analysis =
       Test_reachability.empty
-      |> Test_reachability.add_edge 0 [Pop_dynamic Test_dph.Double_push] 1
+      |> Test_reachability.add_edge 0
+          [Pop_dynamic_targeted Test_dph.Double_push] 1
       |> Test_reachability.add_edge 1 [Pop 'a'; Pop 'a'] 2
       |> Test_reachability.add_edge 1 [Pop 'a'] 3
       |> Test_reachability.add_start_state 0 'a'
@@ -167,9 +193,9 @@ let dynamic_pop_reachability_test =
     assert_equal (List.sort compare @@ List.of_enum states) [2]
 ;;
 
-let dynamic_pop_nondeterminism_reachability_test =
-  "dynamic_pop_nondeterminism_reachability_test" >:: fun _ ->
-    let dyn = Pop_dynamic Test_dph.Consume_identical_1_of_2 in
+let targeted_dynamic_pop_nondeterminism_reachability_test =
+  "targeted_dynamic_pop_nondeterminism_reachability_test" >:: fun _ ->
+    let dyn = Pop_dynamic_targeted Test_dph.Consume_identical_1_of_2 in
     let analysis =
       Test_reachability.empty
       |> Test_reachability.add_edge 0 [Push 'b'; Push 'c'] 1
@@ -189,6 +215,38 @@ let dynamic_pop_nondeterminism_reachability_test =
     assert_equal (List.sort compare @@ List.of_enum states) [6;8]
 ;;
 
+let untargeted_dynamic_pop_reachability_test =
+  "untargeted_dynamic_pop_reachability_test" >:: fun _ ->
+    let analysis =
+      Test_reachability.empty
+      |> Test_reachability.add_edge 0 [Push 'a'] 1
+      |> Test_reachability.add_untargeted_dynamic_pop_action
+          1 (Test_dph.Target_condition_on_element_is_A(2,3))
+      |> Test_reachability.add_edge 2 [Pop 'q'] 8
+      |> Test_reachability.add_edge 3 [Pop 'q'] 9
+      |> Test_reachability.add_edge 0 [Push 'b'] 11
+      |> Test_reachability.add_untargeted_dynamic_pop_action
+          11 (Test_dph.Target_condition_on_element_is_A(12,13))
+      |> Test_reachability.add_edge 12 [Pop 'q'] 18
+      |> Test_reachability.add_edge 13 [Pop 'q'] 19
+      |> Test_reachability.add_edge 0 [Push 'a'] 21
+      |> Test_reachability.add_edge 0 [Push 'b'] 21
+      |> Test_reachability.add_untargeted_dynamic_pop_action
+          21 (Test_dph.Target_condition_on_element_is_A(22,23))
+      |> Test_reachability.add_edge 22 [Pop 'q'] 28
+      |> Test_reachability.add_edge 23 [Pop 'q'] 29
+      |> Test_reachability.add_start_state 0 'q'
+    in
+    lazy_logger `trace
+      (fun () -> "analysis:\n" ^
+        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
+    let states = List.sort compare @@ List.of_enum @@
+                    Test_reachability.get_reachable_states 0 'q' analysis in
+    lazy_logger `trace
+      (fun () -> "states: " ^ String_utils.pretty_list string_of_int states);
+    assert_equal states [8;19;28;29]
+;;
+
 let tests = "Test_reachability" >:::
   [ immediate_reachability_test
   ; immediate_non_reachable_test
@@ -196,7 +254,8 @@ let tests = "Test_reachability" >:::
   ; cycle_reachability_test
   ; edge_function_reachability_test
   ; nondeterminism_reachability_test
-  ; dynamic_pop_reachability_test
-  ; dynamic_pop_nondeterminism_reachability_test
+  ; targeted_dynamic_pop_reachability_test
+  ; targeted_dynamic_pop_nondeterminism_reachability_test
+  ; untargeted_dynamic_pop_reachability_test
   ]
 ;;

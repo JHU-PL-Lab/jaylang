@@ -154,7 +154,7 @@ struct
     let pp_stack_element = pp_pds_continuation
   end
   
-  type pds_dynamic_pop_action =
+  type pds_targeted_dynamic_pop_action =
     | Variable_discovery of var
       (** Represents the rule that, upon discovering the variable for which we
           are looking, we pop that variable from the stack and move on.  The
@@ -225,7 +225,7 @@ struct
     [@@deriving ord]
   ;;
   
-  let pp_pds_dynamic_pop_action action =
+  let pp_pds_targeted_dynamic_pop_action action =
     match action with
     | Variable_discovery x ->
       Printf.sprintf "Variable_discovery(%s)" (pretty_var x)
@@ -259,13 +259,35 @@ struct
       Printf.sprintf "Function_filter_validation(%s)" (pretty_var x)
   ;;
 
+  type pds_untargeted_dynamic_pop_action =
+    | TODO
+    [@@deriving ord]
+  ;; (* TODO *)
+  
+  let pp_pds_untargeted_dynamic_pop_action action =
+    match action with
+    | TODO -> "TODO"
+  ;;
+
   module Dph =
   struct
     type stack_element = pds_continuation;;
-    type dynamic_pop_action = pds_dynamic_pop_action;;
-    let compare_dynamic_pop_action = compare_pds_dynamic_pop_action;;
-    let pp_dynamic_pop_action = pp_pds_dynamic_pop_action;;
-    let perform_dynamic_pop element action =
+    type state = pds_state;;
+    type targeted_dynamic_pop_action = pds_targeted_dynamic_pop_action;;
+    type untargeted_dynamic_pop_action = pds_untargeted_dynamic_pop_action;;
+    type stack_action =
+      ( stack_element
+      , targeted_dynamic_pop_action
+      ) pds_stack_action
+    ;;
+    let compare_targeted_dynamic_pop_action =
+      compare_pds_targeted_dynamic_pop_action;;
+    let pp_targeted_dynamic_pop_action = pp_pds_targeted_dynamic_pop_action;;
+    let compare_untargeted_dynamic_pop_action =
+      compare_pds_untargeted_dynamic_pop_action;;
+    let pp_untargeted_dynamic_pop_action =
+      pp_pds_untargeted_dynamic_pop_action;;
+    let perform_targeted_dynamic_pop element action =
       Nondeterminism_monad.enum @@
       let open Nondeterminism_monad in
       match action with
@@ -291,7 +313,8 @@ struct
         [%guard (not @@ equal_var x x'')];
         (* We're looking for a variable which does not match the one in this
            clause.  If we're stateless, that'll be fine. *)
-        return [Pop_dynamic(Stateless_nonmatching_clause_skip_2_of_2 element)]
+        return [Pop_dynamic_targeted(
+                  Stateless_nonmatching_clause_skip_2_of_2 element)]
       | Stateless_nonmatching_clause_skip_2_of_2 element' ->
         begin
           match element with
@@ -336,7 +359,7 @@ struct
         begin
           let open Nondeterminism_monad in
           let%bind patsn' = negative_pattern_set_selection r patsn in
-          return @@ Pop_dynamic(
+          return @@ Pop_dynamic_targeted(
                       Record_construction_lookup_2_of_2(
                         source_state,taret_state,x,r,patsp,patsn'))
         end
@@ -397,6 +420,9 @@ struct
            this for an empty negative pattern set. *)
         [% guard (not @@ Pattern_set.is_empty patsn) ];
         return [ Push(Lookup_var(x0,Pattern_set.empty,Pattern_set.empty)) ]
+    ;;
+    let perform_untargeted_dynamic_pop _ _ =
+      raise @@ Utils.Not_yet_implemented "perform_untargeted_dynamic_pop"
     ;;
   end;;
   
@@ -537,7 +563,7 @@ struct
             in
             edge_actions
             |> Enum.map
-                (fun (action,state) -> ([Pop_dynamic(action)], state))
+                (fun (action,state) -> ([Pop_dynamic_targeted(action)], state))
         in
         let pds_reachability' =
           Cba_pds_reachability.add_edge_function edge_function pds_reachability

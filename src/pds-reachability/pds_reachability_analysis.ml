@@ -36,6 +36,14 @@ sig
     : (state -> (stack_action list * state) Enum.t)
     -> analysis
     -> analysis
+    
+  (** Adds an untargeted pop action to a reachability analysis.  Untargeted pop
+      action are similar to targeted pop actions except that they are not
+      created as an edge with a target node; instead, the target is decided in
+      some way by the pushed element that the untargeted dynamic pop is
+      consuming. *)
+  val add_untargeted_dynamic_pop_action
+    : state -> untargeted_dynamic_pop_action -> analysis -> analysis
 
   (** Adds a state and initial stack element to the analysis.  This permits the
       state to be used as the source state of a call to [get_reachable_states].
@@ -66,11 +74,13 @@ end;;
 module Make
     (Basis : Pds_reachability_basis.Basis)
     (Dph : Pds_reachability_types_stack.Dynamic_pop_handler
-      with type stack_element = Basis.stack_element)
+      with type stack_element = Basis.stack_element
+       and type state = Basis.state)
   : Analysis
   with type state = Basis.state
   and type stack_element = Basis.stack_element
-  and type dynamic_pop_action = Dph.dynamic_pop_action
+  and type targeted_dynamic_pop_action = Dph.targeted_dynamic_pop_action
+  and type untargeted_dynamic_pop_action = Dph.untargeted_dynamic_pop_action
   =
 struct
   (********** Create and wire in appropriate components. **********)
@@ -159,16 +169,19 @@ struct
       let analysis'' =
         match edge.edge_action with
         | Nop | Push _ -> add_node edge.source @@ add_node edge.target analysis'
-        | Pop _ | Pop_dynamic _ -> analysis'
+        | Pop _ | Pop_dynamic_targeted _ -> analysis'
       in
       (* Next, we need to perform edge closure.  The particular action depends
          on this new edge's action.  The closure rules are summarized below.
           1. (a) -- push a --> (b) -- pop a --> (c) ==> (a) -- nop --> (c)
           2. (a) -- push a --> (b) -- nop --> (c) ==> (a) -- push a --> (c)
           3. (a) -- nop --> (b) -- nop --> (c) ==> (a) -- nop --> (c)
-          4. (a) -- push a --> (b) -- dynamic_pop f --> (c) ==>
+          4. (a) -- push a --> (b) -- targeted_dynamic_pop f --> (c) ==>
               (a) -- action_1 --> ... -- action_n --> (c)
              for each [action_1,...,action_n] in f a
+          5. (a) -- push a --> (b) -- untargeted_dynamic_pop f ==>
+              (a) -- action_1 --> ... -- action_n --> (c)
+             for each ([action_1,...,action_n],c) in f a
       *)
       (* more_edges is an enumeration containing edges which are immediately
          known *)
@@ -227,7 +240,7 @@ struct
                  { source = source'; target = edge.target; edge_action = Nop })
           in
           push_into_source
-        | Pop_dynamic _ -> Enum.empty ()
+        | Pop_dynamic_targeted _ -> Enum.empty ()
       in
       (* analysis_updates is an enumeration of functions which will update the
          analysis by adding edges.  This is appropriate when e.g. new
@@ -236,13 +249,13 @@ struct
         match edge.edge_action with
         | Nop -> Enum.empty ()
         | Push element ->
-          let dynamic_pop_out_of_target =
+          let targeted_dynamic_pop_out_of_target =
             analysis''.reachability
-            |> Structure.find_dynamic_pop_edges_by_source edge.target
+            |> Structure.find_targeted_dynamic_pop_edges_by_source edge.target
             |> Enum.map
               (fun (target', action) ->
                 fun (analysis : analysis) ->
-                  Dph.perform_dynamic_pop element action
+                  Dph.perform_targeted_dynamic_pop element action
                   |> Enum.fold
                       (fun analysis' actions ->
                         add_edges_between_nodes
@@ -250,16 +263,29 @@ struct
                       analysis
               )
           in
-          dynamic_pop_out_of_target
+          let untargeted_dynamic_pop_out_of_target =
+            analysis''.reachability
+            |> Structure.find_untargeted_dynamic_pop_actions_by_source
+                edge.target
+            |> Enum.map (Dph.perform_untargeted_dynamic_pop element)
+            |> Enum.concat
+            |> Enum.map
+              (fun (path, target) ->
+                let target_node = State_node target in
+                add_edges_between_nodes edge.source target_node path)
+          in
+          Enum.append
+            untargeted_dynamic_pop_out_of_target
+            targeted_dynamic_pop_out_of_target
         | Pop _ -> Enum.empty ()
-        | Pop_dynamic action ->
+        | Pop_dynamic_targeted action ->
           let push_into_source =
             analysis''.reachability
             |> Structure.find_push_edges_by_target edge.source
             |> Enum.map
               (fun (source, element) ->
                 fun analysis ->
-                  Dph.perform_dynamic_pop element action
+                  Dph.perform_targeted_dynamic_pop element action
                   |> Enum.fold
                       (fun analysis' actions ->
                         add_edges_between_nodes
@@ -402,6 +428,36 @@ struct
       (fun analysis'' (source_state,(action_list,target_state)) ->
          add_edge source_state action_list target_state analysis'')
       analysis'
+  ;;
+
+  let add_untargeted_dynamic_pop_action source_state action analysis =
+    let source_node = State_node source_state in
+    if Structure.has_untargeted_dynamic_pop_action source_node action
+        analysis.reachability
+    then analysis
+    else
+      let analysis' =
+        { analysis with
+          reachability =
+            Structure.add_untargeted_dynamic_pop_action source_node action
+              analysis.reachability
+        }
+      in
+      (* Any existing pushes into the source of this pop action may generate
+         new edges.  Collect and add them. *)
+      analysis'.reachability
+      |> Structure.find_push_edges_by_target source_node
+      |> Enum.map
+        (fun (push_source_node, element) ->
+          Dph.perform_untargeted_dynamic_pop element action
+          |> Enum.map (fun x -> (push_source_node,x))
+        )
+      |> Enum.concat
+      |> Enum.fold
+        (fun analysis'' (push_source_node, (path, target_state)) ->
+          let target_node = State_node target_state in
+          add_edges_between_nodes push_source_node target_node path analysis'')
+        analysis'
   ;;
 
   let add_start_state state stack_element analysis =

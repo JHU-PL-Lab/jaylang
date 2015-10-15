@@ -19,8 +19,11 @@ sig
   (** The edge type in the reachability structure. *)
   type edge
   
-  (** The type of dynamic pop actions in this structure. *)
-  type dynamic_pop_action
+  (** The type of targeted dynamic pop actions in this structure. *)
+  type targeted_dynamic_pop_action
+
+  (** The type of untargeted dynamic pop actions in this structure. *)
+  type untargeted_dynamic_pop_action
 
   (** The type of the PDS reachability data structure. *)
   type structure
@@ -36,6 +39,15 @@ sig
 
   (** Determines if a structure has a particular edge. *)
   val has_edge : edge -> structure -> bool
+  
+  (** Adds an untargeted dynamic pop action to a reachability structure. *)
+  val add_untargeted_dynamic_pop_action :
+    node -> untargeted_dynamic_pop_action -> structure -> structure
+
+  (** Determines if a given untargeted dynamic pop action is present in a
+      reachability structure. *)
+  val has_untargeted_dynamic_pop_action :
+    node -> untargeted_dynamic_pop_action -> structure -> bool
 
   (** {6 Query functions.} *)
 
@@ -45,8 +57,10 @@ sig
     : node -> structure -> (node * stack_element) Enum.t
   val find_nop_edges_by_source
     : node -> structure -> node Enum.t
-  val find_dynamic_pop_edges_by_source
-    : node -> structure -> (node * dynamic_pop_action) Enum.t
+  val find_targeted_dynamic_pop_edges_by_source
+    : node -> structure -> (node * targeted_dynamic_pop_action) Enum.t
+  val find_untargeted_dynamic_pop_actions_by_source
+    : node -> structure -> untargeted_dynamic_pop_action Enum.t
   val find_push_edges_by_target
     : node -> structure -> (node * stack_element) Enum.t
   val find_pop_edges_by_target
@@ -67,16 +81,21 @@ end;;
 module Make
     (Basis : Pds_reachability_basis.Basis)
     (Dph : Pds_reachability_types_stack.Dynamic_pop_handler
-      with type stack_element = Basis.stack_element)
+      with type stack_element = Basis.stack_element
+      and type state = Basis.state)
     (Types : Pds_reachability_types.Types
       with type state = Basis.state
       and type stack_element = Basis.stack_element
-      and type dynamic_pop_action = Dph.dynamic_pop_action)
+      and type targeted_dynamic_pop_action = Dph.targeted_dynamic_pop_action
+      and type untargeted_dynamic_pop_action = Dph.untargeted_dynamic_pop_action
+      )
   : Structure
     with type stack_element = Basis.stack_element
      and type edge = Types.edge
      and type node = Types.node
-     and type dynamic_pop_action = Types.dynamic_pop_action
+     and type targeted_dynamic_pop_action = Types.targeted_dynamic_pop_action
+     and type untargeted_dynamic_pop_action =
+      Types.untargeted_dynamic_pop_action
 =
 struct
   (********** Wiring in the arguments. **********)
@@ -89,22 +108,23 @@ struct
   type stack_element = Basis.stack_element;;
   type node = Types.node;;
   type edge = Types.edge;;
-  type dynamic_pop_action = Types.dynamic_pop_action;;
+  type targeted_dynamic_pop_action = Types.targeted_dynamic_pop_action;;
+  type untargeted_dynamic_pop_action = Types.untargeted_dynamic_pop_action;;
 
   (********** Simple internal data structures. **********)
 
   type node_and_stack_element = node * stack_element [@@deriving ord];;
 
-  type node_and_dynamic_pop_action =
-    node * dynamic_pop_action [@@deriving ord]
+  type node_and_targeted_dynamic_pop_action =
+    node * targeted_dynamic_pop_action [@@deriving ord]
   ;;
 
   let pp_node_and_stack_element x =
     String_utils.pretty_tuple Types.pp_node Basis.pp_stack_element x
   ;;
 
-  let pp_node_and_dynamic_pop_action x =
-    String_utils.pretty_tuple Types.pp_node Dph.pp_dynamic_pop_action x
+  let pp_node_and_targeted_dynamic_pop_action x =
+    String_utils.pretty_tuple Types.pp_node Dph.pp_targeted_dynamic_pop_action x
   ;;
 
   (********** Substructure definitions. **********)
@@ -127,10 +147,16 @@ struct
     let compare = compare_node_and_stack_element
   end;;
 
-  module Node_and_dynamic_pop_action_ord =
+  module Node_and_targeted_dynamic_pop_action_ord =
   struct
-    type t = node_and_dynamic_pop_action
-    let compare = compare_node_and_dynamic_pop_action
+    type t = node_and_targeted_dynamic_pop_action
+    let compare = compare_node_and_targeted_dynamic_pop_action
+  end;;
+
+  module Untargeted_dynamic_pop_action_ord =
+  struct
+    type t = untargeted_dynamic_pop_action
+    let compare = compare_untargeted_dynamic_pop_action
   end;;
 
   module Node_to_node_and_stack_element_multimap =
@@ -141,12 +167,16 @@ struct
     Multimap.Make(Node_and_stack_element_ord)(Node_ord)
   ;;
 
-  module Node_to_node_and_dynamic_pop_action_multimap =
-    Multimap.Make(Node_ord)(Node_and_dynamic_pop_action_ord)
+  module Node_to_node_and_targeted_dynamic_pop_action_multimap =
+    Multimap.Make(Node_ord)(Node_and_targeted_dynamic_pop_action_ord)
   ;;
 
-  module Node_and_dynamic_pop_action_to_node_multimap =
-    Multimap.Make(Node_and_dynamic_pop_action_ord)(Node_ord)
+  module Node_to_untargeted_dynamic_pop_action_multimap =
+    Multimap.Make(Node_ord)(Untargeted_dynamic_pop_action_ord)
+  ;;
+
+  module Node_and_targeted_dynamic_pop_action_to_node_multimap =
+    Multimap.Make(Node_and_targeted_dynamic_pop_action_ord)(Node_ord)
   ;;
 
   module Node_to_node_multimap =
@@ -169,19 +199,20 @@ struct
     end
     );;
 
-  module Node_to_node_and_dynamic_pop_action_multimap_pp = Multimap_pp.Make(
+  module Node_to_node_and_targeted_dynamic_pop_action_multimap_pp =
+    Multimap_pp.Make(
     struct
-      module M = Node_to_node_and_dynamic_pop_action_multimap
+      module M = Node_to_node_and_targeted_dynamic_pop_action_multimap
       let pp_key = Types.pp_node
-      let pp_value = pp_node_and_dynamic_pop_action
+      let pp_value = pp_node_and_targeted_dynamic_pop_action
     end
     );;
 
-  module Node_and_dynamic_pop_action_to_node_multimap_pp = Multimap_pp.Make(
+  module Node_to_untargeted_dynamic_pop_action_multimap_pp = Multimap_pp.Make(
     struct
-      module M = Node_and_dynamic_pop_action_to_node_multimap
-      let pp_key = pp_node_and_dynamic_pop_action
-      let pp_value = Types.pp_node
+      module M = Node_to_untargeted_dynamic_pop_action_multimap
+      let pp_key = Types.pp_node
+      let pp_value = Dph.pp_untargeted_dynamic_pop_action
     end
     );;
 
@@ -199,7 +230,8 @@ struct
     { push_edges_by_source : Node_to_node_and_stack_element_multimap.t
     ; pop_edges_by_source : Node_to_node_and_stack_element_multimap.t
     ; nop_edges_by_source : Node_to_node_multimap.t
-    ; dynamic_pop_edges_by_source : Node_to_node_and_dynamic_pop_action_multimap.t
+    ; targeted_dynamic_pop_edges_by_source : Node_to_node_and_targeted_dynamic_pop_action_multimap.t
+    ; untargeted_dynamic_pop_actions_by_source : Node_to_untargeted_dynamic_pop_action_multimap.t
     ; push_edges_by_target : Node_to_node_and_stack_element_multimap.t
     ; pop_edges_by_target : Node_to_node_and_stack_element_multimap.t
     ; nop_edges_by_target : Node_to_node_multimap.t
@@ -220,9 +252,12 @@ struct
         ; "nop_edges_by_source: " ^
           Node_to_node_multimap_pp.pp
             structure.nop_edges_by_source
-        ; "dynamic_pop_edges_by_source: " ^
-          Node_to_node_and_dynamic_pop_action_multimap_pp.pp
-            structure.dynamic_pop_edges_by_source
+        ; "targeted_dynamic_pop_edges_by_source: " ^
+          Node_to_node_and_targeted_dynamic_pop_action_multimap_pp.pp
+            structure.targeted_dynamic_pop_edges_by_source
+        ; "untargeted_dynamic_pop_actions_by_source: " ^
+          Node_to_untargeted_dynamic_pop_action_multimap_pp.pp
+            structure.untargeted_dynamic_pop_actions_by_source
         ; "push_edges_by_target: " ^
           Node_to_node_and_stack_element_multimap_pp.pp
             structure.push_edges_by_target
@@ -253,7 +288,10 @@ struct
     { push_edges_by_source = Node_to_node_and_stack_element_multimap.empty
     ; pop_edges_by_source = Node_to_node_and_stack_element_multimap.empty
     ; nop_edges_by_source = Node_to_node_multimap.empty
-    ; dynamic_pop_edges_by_source = Node_to_node_and_dynamic_pop_action_multimap.empty
+    ; targeted_dynamic_pop_edges_by_source =
+        Node_to_node_and_targeted_dynamic_pop_action_multimap.empty
+    ; untargeted_dynamic_pop_actions_by_source =
+        Node_to_untargeted_dynamic_pop_action_multimap.empty
     ; push_edges_by_target = Node_to_node_and_stack_element_multimap.empty
     ; pop_edges_by_target = Node_to_node_and_stack_element_multimap.empty
     ; nop_edges_by_target = Node_to_node_multimap.empty
@@ -276,9 +314,9 @@ struct
       analysis.pop_edges_by_source_and_element
       |> Node_and_stack_element_to_node_multimap.mem
         (edge.source, element) edge.target
-    | Pop_dynamic action ->
-      analysis.dynamic_pop_edges_by_source
-      |> Node_to_node_and_dynamic_pop_action_multimap.mem
+    | Pop_dynamic_targeted action ->
+      analysis.targeted_dynamic_pop_edges_by_source
+      |> Node_to_node_and_targeted_dynamic_pop_action_multimap.mem
         edge.source (edge.target, action)
   ;;
 
@@ -331,13 +369,27 @@ struct
           |> Node_and_stack_element_to_node_multimap.add
             (edge.target, element) edge.source
       }
-    | Pop_dynamic action ->
+    | Pop_dynamic_targeted action ->
       { structure with
-        dynamic_pop_edges_by_source =
-          structure.dynamic_pop_edges_by_source
-          |> Node_to_node_and_dynamic_pop_action_multimap.add
+        targeted_dynamic_pop_edges_by_source =
+          structure.targeted_dynamic_pop_edges_by_source
+          |> Node_to_node_and_targeted_dynamic_pop_action_multimap.add
             edge.source (edge.target, action)
       }
+  ;;
+
+  let add_untargeted_dynamic_pop_action source action structure =
+    { structure with
+      untargeted_dynamic_pop_actions_by_source =
+        structure.untargeted_dynamic_pop_actions_by_source
+        |> Node_to_untargeted_dynamic_pop_action_multimap.add
+          source action
+    }
+  ;;
+
+  let has_untargeted_dynamic_pop_action source action structure =
+    structure.untargeted_dynamic_pop_actions_by_source
+    |> Node_to_untargeted_dynamic_pop_action_multimap.mem source action
   ;;
 
   let find_push_edges_by_source source structure =
@@ -354,9 +406,14 @@ struct
     Node_to_node_multimap.find source structure.nop_edges_by_source
   ;;
 
-  let find_dynamic_pop_edges_by_source source structure =
-    Node_to_node_and_dynamic_pop_action_multimap.find source
-      structure.dynamic_pop_edges_by_source
+  let find_targeted_dynamic_pop_edges_by_source source structure =
+    Node_to_node_and_targeted_dynamic_pop_action_multimap.find source
+      structure.targeted_dynamic_pop_edges_by_source
+  ;;
+
+  let find_untargeted_dynamic_pop_actions_by_source source structure =
+    Node_to_untargeted_dynamic_pop_action_multimap.find source
+      structure.untargeted_dynamic_pop_actions_by_source
   ;;
 
   let find_push_edges_by_target target structure =

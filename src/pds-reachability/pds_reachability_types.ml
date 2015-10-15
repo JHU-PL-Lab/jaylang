@@ -13,11 +13,17 @@ sig
   (** The type of stack elements in the PDS. *)
   type stack_element
   
-  (** The type of dynamic pop actions in the PDS. *)
-  type dynamic_pop_action
+  (** The type of targeted dynamic pop actions in the PDS. *)
+  type targeted_dynamic_pop_action
+  
+  (** The type of untargeted dynamic pop actions in the PDS. *)
+  type untargeted_dynamic_pop_action
   
   (** Stack actions which may be performed in the PDS. *)
-  type stack_action = (stack_element,dynamic_pop_action) pds_stack_action
+  type stack_action =
+    ( stack_element
+    , targeted_dynamic_pop_action
+    ) pds_stack_action
 
   (** A pretty-printer for stack actions. *)  
   val pp_stack_action : stack_action -> string  
@@ -47,27 +53,38 @@ end;;
 
 module Make
         (Basis : Pds_reachability_basis.Basis)
-        (Dph : Pds_reachability_types_stack.Dynamic_pop_handler)
+        (Dph : Pds_reachability_types_stack.Dynamic_pop_handler
+            with type stack_element = Basis.stack_element
+             and type state = Basis.state
+        )
   : Types with type stack_element = Basis.stack_element
            and type state = Basis.state
-           and type dynamic_pop_action = Dph.dynamic_pop_action
+           and type targeted_dynamic_pop_action =
+                      Dph.targeted_dynamic_pop_action
+           and type untargeted_dynamic_pop_action =
+                      Dph.untargeted_dynamic_pop_action
   =
 struct
   type state = Basis.state;;
   type stack_element = Basis.stack_element;;
-  type dynamic_pop_action = Dph.dynamic_pop_action;;
+  type targeted_dynamic_pop_action = Dph.targeted_dynamic_pop_action;;
+  type untargeted_dynamic_pop_action = Dph.untargeted_dynamic_pop_action;;
 
   let compare_state = Basis.State_ord.compare;;
   let compare_stack_element = Basis.Stack_element_ord.compare;;
 
-  type stack_action = (stack_element,dynamic_pop_action) pds_stack_action;;
+  type stack_action =
+    ( stack_element
+    , targeted_dynamic_pop_action
+    ) pds_stack_action;;
 
   let pp_stack_action action =
     match action with
     | Push x -> "push " ^ Basis.pp_stack_element x
     | Pop x -> "pop " ^ Basis.pp_stack_element x
     | Nop -> "nop"
-    | Pop_dynamic action -> "pop_dynamic " ^ Dph.pp_dynamic_pop_action action
+    | Pop_dynamic_targeted action ->
+      "pop_dynamic_targeted " ^ Dph.pp_targeted_dynamic_pop_action action
   ;;
 
   type node =
