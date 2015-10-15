@@ -41,10 +41,49 @@ end;;
 *)
 module Make(C : Context_stack) =
 struct
+  let negative_pattern_set_selection record_type pattern_set =
+    let (Record_value m) = record_type in
+    let record_labels = Ident_set.of_enum @@ Ident_map.keys m in
+    let relevant_patterns = pattern_set
+      |> Pattern_set.enum
+      |> Enum.filter
+          (fun (Record_pattern m') ->
+            Ident_set.subset (Ident_set.of_enum @@ Ident_map.keys m')
+              record_labels)
+    in
+    (* This function selects a single label from a given pattern and constructs
+       a pattern from it. *)
+    let pick_pattern (Record_pattern m') =
+      let open Nondeterminism_monad in
+      let%bind (k,v) = pick_enum @@ Ident_map.enum m' in
+      return @@ Record_pattern(Ident_map.singleton k v)
+    in
+    let open Nondeterminism_monad in
+    let%bind selected_patterns = 
+      Nondeterminism_monad.mapM pick_pattern relevant_patterns
+    in
+    return @@ Pattern_set.of_enum selected_patterns
+  ;;
+
+  let pattern_projection (Record_pattern m) label =
+    try
+      Some (Ident_map.find label m)
+    with
+    | Not_found -> None
+  ;;
+
+  let pattern_set_projection set label =
+    set
+    |> Pattern_set.enum
+    |> Enum.map (flip pattern_projection label)
+    |> Enum.filter_map identity
+    |> Pattern_set.of_enum
+  ;;
+  
   type pds_continuation =
     | Lookup_var of var * Pattern_set.t * Pattern_set.t
     | Project of ident * Pattern_set.t * Pattern_set.t
-    | Jump of var * annotated_clause * C.t * Pattern_set.t * Pattern_set.t
+    | Jump of annotated_clause * C.t
     | Deref of Pattern_set.t * Pattern_set.t
     | Capture
     | Continuation_value of abstract_value
@@ -65,10 +104,8 @@ struct
     | Project(i,patsp,patsn) ->
       Printf.sprintf ".%s(%s/%s)"
         (pretty_ident i) (pp_pattern_set patsp) (pp_pattern_set patsn)
-    | Jump(x,acl,ctx,patsp,patsn) ->
-      Printf.sprintf "Jump(%s,%s,%s,%s,%s)"
-        (pretty_var x) (pp_annotated_clause acl) (C.pretty ctx)
-          (pp_pattern_set patsp) (pp_pattern_set patsn)
+    | Jump(acl,ctx) ->
+      Printf.sprintf "Jump(%s,%s)" (pp_annotated_clause acl) (C.pretty ctx)
     | Deref(patsp,patsn) ->
       Printf.sprintf "!(%s,%s)" (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Capture -> "Capture"
@@ -140,6 +177,20 @@ struct
           lookup target, then we've discovered that we are looking up the
           projection of the ident label from a record stored in the second
           variable. *)
+    | Record_construction_lookup_1_of_2 of pds_state * var * record_value
+      (** Represents the first step of record construction lookup.  If the
+          variable matches our lookup variable and we are performing a record
+          projection, then we have found our value and we should project from
+          it.  The PDS state is the target of the operation and is carried here
+          for convenience.  This action comes in two steps to accommodate the
+          stack requirements. *)
+      (* FIXME: Shouldn't rule 1b specifically exclude variables from which we
+                are projecting values? *)
+    | Record_construction_lookup_2_of_2 of
+        pds_state * var * record_value * Pattern_set.t * Pattern_set.t
+      (** The second step of record construction lookup.  This action takes the
+          same arguments as step 1 as well as positive and (pre-selected)
+          negative pattern sets. *)
     (* TODO *)
     [@@deriving ord]
   ;;
@@ -165,6 +216,13 @@ struct
     | Record_projection_lookup(x,x',l) ->
       Printf.sprintf "Record_projection_lookup(%s,%s,%s)"
         (pretty_var x) (pretty_var x') (pretty_ident l)
+    | Record_construction_lookup_1_of_2(state,x,r) ->
+      Printf.sprintf "Record_construction_lookup_1_of_2(%s,%s,%s)"
+        (pp_pds_state state) (pretty_var x) (pretty_record_value r)
+    | Record_construction_lookup_2_of_2(state,x,r,patsp,patsn) ->
+      Printf.sprintf "Record_construction_lookup_2_of_2(%s,%s,%s,%s,%s)"
+        (pp_pds_state state) (pretty_var x) (pretty_record_value r)
+          (pp_pattern_set patsp) (pp_pattern_set patsn)
   ;;
 
   module Dph =
@@ -236,6 +294,30 @@ struct
         [%guard (equal_var x0 x)];
         return [ Push(Project(l,patsp,patsn))
                ; Push(Lookup_var(x',Pattern_set.empty,Pattern_set.empty))
+               ]
+      | Record_construction_lookup_1_of_2(state,x,r) ->
+        let%orzero (Lookup_var(x0,patsp,patsn)) = element in
+        [% guard (equal_var x x0) ];
+        return @@ List.of_enum @@ Nondeterminism_monad.enum @@
+        begin
+          let open Nondeterminism_monad in
+          let%bind patsn' = negative_pattern_set_selection r patsn in
+          return @@ Pop_dynamic(
+                    Record_construction_lookup_2_of_2(state,x,r,patsp,patsn'))
+        end
+      | Record_construction_lookup_2_of_2(state,x,r,patsp0,patsn2) ->
+        let%orzero (Project(l,patsp1,patsn1)) = element in
+        let Record_value m = r in
+        [% guard (Ident_map.mem l m) ];
+        let x' = Ident_map.find l m in
+        let Pds_state(acl0,ctx) = state in
+        return [ Push(Lookup_var( x'
+                                , (Pattern_set.union patsp1
+                                    (pattern_set_projection patsp0 l))
+                                , (Pattern_set.union patsn1
+                                    (pattern_set_projection patsn2 l))))
+               ; Push(Jump(acl0,ctx))
+               ; Push(Lookup_var(x, patsp0, patsn2))
                ]
     ;;
   end;;
@@ -326,6 +408,8 @@ struct
                 end
               ;
                 begin
+                  (* This block represents *all* conditional closure
+                     handling. *)
                   let%orzero (Enter_clause(x'',_,c)) = acl0 in
                   let%orzero (Abs_clause(_,Abs_conditional_body(x1,p,f1,_))) = c in
                   let Abs_function_value(f1x,_) = f1 in
@@ -348,6 +432,18 @@ struct
                   (* x = x'.l *)
                   return (Record_projection_lookup(x,x',l),Pds_state(acl1,ctx))
                 end
+              ;
+                begin
+                  let%orzero
+                    (Unannotated_clause(
+                      Abs_clause(x,Abs_value_body(Abs_value_record(r))))) = acl0
+                  in
+                  (* x = r *)
+                  let target_state = Pds_state(acl0,ctx) in
+                  return ( Record_construction_lookup_1_of_2(target_state,x,r)
+                         , target_state
+                         )
+                end
               ]
             in
             edge_actions
@@ -359,51 +455,6 @@ struct
         in
         let cba_graph' = Cba_graph.add_edge edge cba_graph in
         (Cba_analysis(cba_graph',pds_reachability'))
-        
-          
-          (* TODO
-            begin
-              (* Variable aliasing for annotated entrance clauses. *)
-              let%orzero Enter_clause(x,x',c) = acl1 in
-              return @@
-              (fun (Pds_state(acl0',ctx)) ->
-                Enum.concat @@ Nondeterminism_monad.enum @@
-                let open Nondeterminism_monad in
-                [%guard equal_annotated_clause acl0 acl0'];
-                [%guard C.is_top c ctx];
-                let dynamic_pop element =
-                  Nondeterminism_monad.enum @@
-                  let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-                  [%guard equal_var x x0];
-                  return @@ [Push (Lookup_var(x',patsp,patsn))]
-                in
-                return @@ Enum.singleton
-                  ( [Pop_dynamic dynamic_pop]
-                  , Pds_state(acl1, C.pop ctx) )
-              )
-            end
-          ;
-            begin
-              (* Variable aliasing for annotated exit clauses. *)
-              let%orzero Exit_clause(x,x',c) = acl1 in
-              return @@
-              (fun (Pds_state(acl0',ctx)) ->
-                Enum.concat @@ Nondeterminism_monad.enum @@
-                let open Nondeterminism_monad in
-                [%guard equal_annotated_clause acl0 acl0'];
-                let dynamic_pop element =
-                  Nondeterminism_monad.enum @@
-                  let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-                  [%guard equal_var x x0];
-                  return @@ [Push (Lookup_var(x',patsp,patsn))]
-                in
-                return @@ Enum.singleton
-                  ( [Pop_dynamic dynamic_pop]
-                  , Pds_state(acl1, C.push c ctx) )
-              )
-            end
-          ]
-          *)
     ;;
   end;;
 

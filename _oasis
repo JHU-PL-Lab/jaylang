@@ -18,6 +18,7 @@ Library "utils"
   Modules:
     Ast_uid,
     Logger_utils,
+    Monad_utils,
     Multimap,
     Multimap_pp,
     Nondeterminism,
@@ -28,7 +29,8 @@ Library "utils"
     Utils
   BuildDepends:
     batteries,
-    monadlib
+    monadlib,
+    ocaml-monadic
 
 Library "ast"
   Path: src/ast

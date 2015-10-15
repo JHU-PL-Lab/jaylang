@@ -7,6 +7,7 @@ open Batteries;;
 module type Nondeterminism_monad_sig = sig
   type 'a m
   include Monad.LazyPlus with type 'a m := 'a m
+  include Monad_utils.Utils with type 'a m := 'a m
   val pick_enum : 'a Enum.t -> 'a m
   val enum : 'a m -> 'a Enum.t
 
