@@ -588,7 +588,6 @@ struct
             in
             untargeted_dynamic_pops
         in
-        (* TODO: add untargeted pop for each new node *)
         let pds_reachability' =
           pds_reachability
           |> Cba_pds_reachability.add_edge_function edge_function
