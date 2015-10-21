@@ -456,18 +456,29 @@ struct
     { cba_analysis_graph : cba_graph
     ; cba_graph_fully_closed : bool
     ; pds_reachability : Cba_pds_reachability.analysis
+    ; cba_active_nodes : Annotated_clause_set.t
+        (** The active nodes in the CBA graph.  This set is maintained
+            incrementally as edges are added. *)
+    ; cba_active_non_immediate_nodes : Annotated_clause_set.t
+        (** A subset of [cba_active_nodes] which only contains the non-immediate
+            nodes.  This is useful during closure. *)
     }
   ;;
   let empty_analysis =
       { cba_analysis_graph = Cba_graph.empty
       ; cba_graph_fully_closed = true
       ; pds_reachability = Cba_pds_reachability.empty
+      ; cba_active_nodes = Annotated_clause_set.singleton Start_clause
+      ; cba_active_non_immediate_nodes = Annotated_clause_set.empty
       }
   ;;
   let add_edge edge analysis =
     if Cba_graph.has_edge edge analysis.cba_analysis_graph
     then analysis
     else
+      (* ***
+        First, create the edge and untargeted pop functions for this edge.
+      *)
       let (Cba_edge(acl1,acl0)) = edge in
       let edge_function (Pds_state(acl0',ctx)) =
         (* TODO: There should be a way to associate each edge function with
@@ -602,12 +613,56 @@ struct
         |> Cba_pds_reachability.add_untargeted_dynamic_pop_action_function
             untargeted_dynamic_pop_action_function
       in
+      (* ***
+        Next, add the edge to the CBA graph.
+      *)
       let cba_graph' =
         Cba_graph.add_edge edge analysis.cba_analysis_graph
+      in
+      (* ***
+        Now, perform closure over the active node set.  This function uses a
+        list of enumerations of nodes to explore.  This reduces the cost of
+        managing the work queue.
+      *)
+      let rec find_new_active_nodes from_acls_enums results_so_far =
+        match from_acls_enums with
+        | [] -> results_so_far
+        | from_acls_enum::from_acls_enums' ->
+          if Enum.is_empty from_acls_enum
+          then find_new_active_nodes from_acls_enums' results_so_far
+          else
+            let from_acl = Enum.get_exn from_acls_enum in
+            if Annotated_clause_set.mem from_acl analysis.cba_active_nodes ||
+               Annotated_clause_set.mem from_acl results_so_far
+            then find_new_active_nodes from_acls_enums results_so_far
+            else
+              let results_so_far' =
+                Annotated_clause_set.add from_acl results_so_far
+              in
+              let from_here = cba_graph' |> Cba_graph.succs from_acl in
+              find_new_active_nodes (from_here::from_acls_enums) results_so_far'
+      in
+      let (cba_active_nodes',cba_active_non_immediate_nodes') =
+        if not @@ Annotated_clause_set.mem acl1 analysis.cba_active_nodes
+        then ( analysis.cba_active_nodes
+             , analysis.cba_active_non_immediate_nodes )
+        else
+          let new_active_nodes =
+            find_new_active_nodes [Enum.singleton acl0]
+              Annotated_clause_set.empty
+          in
+          ( Annotated_clause_set.union analysis.cba_active_nodes
+              new_active_nodes
+          , Annotated_clause_set.union analysis.cba_active_non_immediate_nodes
+              ( new_active_nodes |> Annotated_clause_set.filter
+                  is_annotated_clause_immediate )
+          )
       in
       { cba_analysis_graph = cba_graph'
       ; cba_graph_fully_closed = false
       ; pds_reachability =  pds_reachability'
+      ; cba_active_nodes = cba_active_nodes'
+      ; cba_active_non_immediate_nodes = cba_active_non_immediate_nodes'
       }
   ;;
 
@@ -632,6 +687,36 @@ struct
     in
     let edges = mk_edges acls in
     List.fold_left (flip add_edge) empty_analysis edges
+  ;;
+
+  let rv body =
+    match body with
+    | [] -> raise @@ Utils.Invariant_failure "empty function body provided to rv"
+    | _ -> let Abs_clause(x,_) = List.last body in x
+  ;;
+
+  let wire site_cl func x1 x2 graph =
+    let site_acl = Unannotated_clause(site_cl) in
+    let Abs_function_value(x0, Abs_expr(body)) = func in
+    let wire_in_acl = Enter_clause(x0,x1,site_cl) in
+    let wire_out_acl = Exit_clause(x2,rv body,site_cl) in
+    let pred_edges =
+      Cba_graph.preds site_acl graph
+      |> Enum.map (fun acl' -> Cba_edge(acl',wire_in_acl))
+    in
+    let succ_edges =
+      Cba_graph.succs site_acl graph
+      |> Enum.map (fun acl' -> Cba_edge(wire_out_acl,acl'))
+    in
+    let inner_edges =
+      List.enum body
+      |> Enum.map (fun cl -> Unannotated_clause(cl))
+      |> Enum.append (Enum.singleton wire_in_acl)
+      |> flip Enum.append (Enum.singleton wire_out_acl)
+      |> Utils.pairwise_enum_fold
+          (fun acl1 acl2 -> Cba_edge(acl1,acl2))
+    in
+    Enum.append pred_edges @@ Enum.append inner_edges succ_edges
   ;;
 
   let perform_closure_steps analysis =

@@ -49,4 +49,21 @@ let rec cartesian_product_of_list lst =
       )
     |> Enum.concat
     |> List.of_enum
-;;        
+;;
+
+(**
+  A pairwise pseudo-map over an enum.  For each successive pair of values in the
+  enum, the map function is called.  So,
+  {[  pairwise_enum_fold f (List.enum [1;2;3;4])  ]}
+  is equivalent to
+  {[  List.enum [f 1 2; f 2 3; f 3 4]  ]}
+  This is equivalent to cloning the enum, discarding the first element from the
+  clone, zipping the resulting enums, and mapping over the result.
+*)
+let pairwise_enum_fold f e =
+  if Enum.is_empty e then Enum.empty () else
+    let e' = Enum.clone e in
+    let _ = Enum.get_exn e' in
+    if Enum.is_empty e' then Enum.empty () else
+      Enum.combine (e,e') |> Enum.map (uncurry f)
+;;

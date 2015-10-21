@@ -67,6 +67,13 @@ and pp_abstract_expr (Abs_expr(cls)) =
   String_utils.concat_sep "; " @@ Enum.map pp_abstract_clause @@ List.enum cls
 ;;
 
+let is_abstract_clause_immediate (Abs_clause(_,b)) =
+  match b with
+  | Abs_var_body _ | Abs_value_body _ | Abs_projection_body _ | Abs_deref_body _
+  | Abs_update_body _ -> true
+  | Abs_appl_body _ | Abs_conditional_body _ -> false
+;;
+
 module Abs_value_ord =
 struct
   type t = abstract_value
@@ -103,6 +110,20 @@ let pp_annotated_clause acl =
   | End_clause -> "End"
 ;;
 
+module Annotated_clause_ord =
+struct
+  type t = annotated_clause
+  let compare = compare_annotated_clause
+end;;
+
+module Annotated_clause_set = Set.Make(Annotated_clause_ord);;
+
+let is_annotated_clause_immediate acl =
+  match acl with
+  | Unannotated_clause(cl) -> is_abstract_clause_immediate cl
+  | Enter_clause _ | Exit_clause _ | Start_clause | End_clause -> true
+;;
+
 type cba_edge =
   | Cba_edge of annotated_clause * annotated_clause
   [@@deriving ord]
@@ -135,8 +156,17 @@ sig
   val edges_of : cba_graph -> cba_edge Enum.t
   
   val has_edge : cba_edge -> cba_graph -> bool
+  
+  val edges_from : annotated_clause -> cba_graph -> cba_edge Enum.t
+
+  val edges_to : annotated_clause -> cba_graph -> cba_edge Enum.t
+  
+  val preds : annotated_clause -> cba_graph -> annotated_clause Enum.t
+  
+  val succs : annotated_clause -> cba_graph -> annotated_clause Enum.t
 end;;
 
+(* TODO: improve the performance of this implementation! *)
 module Graph_impl : Graph_sig =
 struct
   module Cba_edge_set = Set.Make(Cba_edge_ord);;
@@ -150,6 +180,24 @@ struct
   let edges_of (Graph(s)) = Cba_edge_set.enum s;;
 
   let has_edge edge (Graph(s)) = Cba_edge_set.mem edge s;;
+
+  let edges_from acl (Graph(s)) =
+    Cba_edge_set.enum s
+    |> Enum.filter (fun (Cba_edge(acl',_)) -> equal_annotated_clause acl acl')
+  ;;
+
+  let succs acl g =
+    edges_from acl g |> Enum.map (fun (Cba_edge(_,acl)) -> acl)
+  ;;
+
+  let edges_to acl (Graph(s)) =
+    Cba_edge_set.enum s
+    |> Enum.filter (fun (Cba_edge(_,acl')) -> equal_annotated_clause acl acl')
+  ;;
+
+  let preds acl g =
+    edges_to acl g |> Enum.map (fun (Cba_edge(acl,_)) -> acl)
+  ;;
 end;;
 
 include Graph_impl;;
