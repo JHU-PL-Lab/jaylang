@@ -46,10 +46,13 @@ sig
   (** Fully closes an analysis. *)
   val perform_full_closure : cba_analysis -> cba_analysis
   
-  (** Determines the values of the provided variable in the given analysis.
-      This is an approximation -- false positives may arise -- but it is
-      guaranteed to be conservative if the analysis is fully closed. *)
-  val values_of_variable : var -> cba_analysis -> Abs_value_set.t
+  (** Determines the values at a given position of the provided variable in the
+      given analysis.  This is an approximation -- false positives may arise --
+      but it is guaranteed to be conservative if the analysis is fully closed.
+      The returned analysis contains a cache structure to accelerate answering
+      of this question in the future. *)
+  val values_of_variable :
+    annotated_clause -> var -> cba_analysis -> Abs_value_set.t * cba_analysis
 end;;
 
 (**
@@ -453,7 +456,7 @@ struct
   module Cba_pds_reachability = Pds_reachability.Make(Cba_pds_reachability_basis)(Dph);;
 
   type cba_analysis =
-    { cba_analysis_graph : cba_graph
+    { cba_graph : cba_graph
     ; cba_graph_fully_closed : bool
     ; pds_reachability : Cba_pds_reachability.analysis
     ; cba_active_nodes : Annotated_clause_set.t
@@ -465,159 +468,173 @@ struct
     }
   ;;
   let empty_analysis =
-      { cba_analysis_graph = Cba_graph.empty
+      { cba_graph = Cba_graph.empty
       ; cba_graph_fully_closed = true
       ; pds_reachability = Cba_pds_reachability.empty
       ; cba_active_nodes = Annotated_clause_set.singleton Start_clause
       ; cba_active_non_immediate_nodes = Annotated_clause_set.empty
       }
   ;;
-  let add_edge edge analysis =
-    if Cba_graph.has_edge edge analysis.cba_analysis_graph
-    then analysis
-    else
+  let add_edges edges analysis =
+    let already_present =
+      Enum.clone edges
+      |> Enum.for_all
+        (fun edge -> Cba_graph.has_edge edge analysis.cba_graph)
+    in
+    if already_present then (analysis,false) else
       (* ***
-        First, create the edge and untargeted pop functions for this edge.
+        First, update the PDS reachability analysis with the new edge
+        information.
       *)
-      let (Cba_edge(acl1,acl0)) = edge in
-      let edge_function (Pds_state(acl0',ctx)) =
-        (* TODO: There should be a way to associate each edge function with
-                 its corresponding acl0. *)
-        if compare_annotated_clause acl0 acl0' <> 0 then Enum.empty () else
-          let open Option.Monad in
-          let zero () = None in
-          let targeted_dynamic_pops = Enum.filter_map identity @@ List.enum
-            [
-              begin
-                let%orzero
-                  (Unannotated_clause(Abs_clause(x, Abs_value_body _))) = acl0
-                in
-                (* x = v *)
-                return (Variable_discovery x,Pds_state(acl1,ctx))
-              end
-            ;
-              begin
-                let%orzero
-                  (Unannotated_clause(Abs_clause(x, Abs_var_body x'))) = acl0
-                in
-                (* x = x' *)
-                return (Variable_aliasing(x,x'),Pds_state(acl1,ctx))
-              end
-            ;
-              begin
-                let%orzero (Enter_clause(x,x',c)) = acl0 in
-                (* x =(down)c x' *)
-                [%guard C.is_top c ctx];
-                let ctx' = C.pop ctx in
-                return (Variable_aliasing(x,x'),Pds_state(acl1,ctx'))
-              end
-            ;
-              begin
-                let%orzero (Exit_clause(x,x',c)) = acl0 in
-                (* x =(up)c x' *)
-                let ctx' = C.push c ctx in
-                return (Variable_aliasing(x,x'),Pds_state(acl1,ctx'))
-              end
-            ;
-              begin
-                let%orzero (Unannotated_clause(Abs_clause(x,_))) = acl0 in
-                (* x'' = b *)
-                return ( Stateless_nonmatching_clause_skip_1_of_2 x
-                       , Pds_state(acl0,ctx)
-                       )
-              end
-            ;
-              begin
-                let%orzero (Enter_clause(x'',_,c)) = acl0 in
-                let%orzero (Abs_clause(_,Abs_appl_body(xf,_))) = c in
-                (* x'' =(down)c x' for functions *)
-                [%guard C.is_top c ctx];
-                let ctx' = C.pop ctx in
-                return ( Function_closure_lookup(x'',xf)
-                       , Pds_state(acl1,ctx')
-                       )
-              end
-            ;
-              begin
-                (* This block represents *all* conditional closure
-                   handling. *)
-                let%orzero (Enter_clause(x'',_,c)) = acl0 in
-                let%orzero (Abs_clause(_,Abs_conditional_body(x1,p,f1,_))) = c in
-                let Abs_function_value(f1x,_) = f1 in
-                (* x'' =(down)c x' for conditionals *)
-                [%guard C.is_top c ctx];
-                [%guard (not @@ equal_var x'' x1)];
-                let closure_for_positive_path = equal_var f1x x'' in
-                (* FIXME: should be popping ctx, yes? *)
-                return ( Conditional_closure_lookup
-                          (x1,p,closure_for_positive_path)
-                       , Pds_state(acl1,ctx)
-                       )
-              end
-            ;
-              begin
-                let%orzero
-                  (Unannotated_clause(
-                    Abs_clause(x,Abs_projection_body(x',l)))) = acl0
-                in
-                (* x = x'.l *)
-                return (Record_projection_lookup(x,x',l),Pds_state(acl1,ctx))
-              end
-            ;
-              begin
-                let%orzero
-                  (Unannotated_clause(
-                    Abs_clause(x,Abs_value_body(Abs_value_record(r))))) = acl0
-                in
-                (* x = r *)
-                let source_state = Pds_state(acl1,ctx) in
-                let target_state = Pds_state(acl0,ctx) in
-                return ( Record_construction_lookup_1_of_2(
-                           source_state,target_state,x,r)
-                       , target_state
-                       )
-              end
-            ;
-              begin
-                let%orzero
-                  (Unannotated_clause(Abs_clause(
-                      x,Abs_value_body(Abs_value_function(_))))) = acl0
-                in
-                (* x = f *)
-                return (Function_filter_validation(x), Pds_state(acl0,ctx))
-              end
-            ]
-          in
-          targeted_dynamic_pops
-          |> Enum.map
-              (fun (action,state) -> ([Pop_dynamic_targeted(action)], state))
-      in
-      let untargeted_dynamic_pop_action_function (Pds_state(acl0',_)) =
-        (* TODO: There should be a way to associate each action function with
-                 its corresponding acl0. *)
-        if compare_annotated_clause acl0 acl0' <> 0 then Enum.empty () else
-          let open Option.Monad in
-          (* let zero () = None in *)
-          let untargeted_dynamic_pops = Enum.filter_map identity @@ List.enum
-            [
-              begin
-                return @@ Do_jump
-              end
-            ]
-          in
-          untargeted_dynamic_pops
-      in
-      let pds_reachability' =
-        analysis.pds_reachability
+      let add_edge_for_reachability edge reachability =
+        (* ***
+          First, create each edge and untargeted pop functions for this edge.
+        *)
+        let (Cba_edge(acl1,acl0)) = edge in
+        let edge_function (Pds_state(acl0',ctx)) =
+          (* TODO: There should be a way to associate each edge function with
+                   its corresponding acl0. *)
+          if compare_annotated_clause acl0 acl0' <> 0 then Enum.empty () else
+            let open Option.Monad in
+            let zero () = None in
+            let targeted_dynamic_pops = Enum.filter_map identity @@ List.enum
+              [
+                begin
+                  let%orzero
+                    (Unannotated_clause(Abs_clause(x, Abs_value_body _))) = acl0
+                  in
+                  (* x = v *)
+                  return (Variable_discovery x,Pds_state(acl1,ctx))
+                end
+              ;
+                begin
+                  let%orzero
+                    (Unannotated_clause(Abs_clause(x, Abs_var_body x'))) = acl0
+                  in
+                  (* x = x' *)
+                  return (Variable_aliasing(x,x'),Pds_state(acl1,ctx))
+                end
+              ;
+                begin
+                  let%orzero (Enter_clause(x,x',c)) = acl0 in
+                  (* x =(down)c x' *)
+                  [%guard C.is_top c ctx];
+                  let ctx' = C.pop ctx in
+                  return (Variable_aliasing(x,x'),Pds_state(acl1,ctx'))
+                end
+              ;
+                begin
+                  let%orzero (Exit_clause(x,x',c)) = acl0 in
+                  (* x =(up)c x' *)
+                  let ctx' = C.push c ctx in
+                  return (Variable_aliasing(x,x'),Pds_state(acl1,ctx'))
+                end
+              ;
+                begin
+                  let%orzero (Unannotated_clause(Abs_clause(x,_))) = acl0 in
+                  (* x'' = b *)
+                  return ( Stateless_nonmatching_clause_skip_1_of_2 x
+                         , Pds_state(acl0,ctx)
+                         )
+                end
+              ;
+                begin
+                  let%orzero (Enter_clause(x'',_,c)) = acl0 in
+                  let%orzero (Abs_clause(_,Abs_appl_body(xf,_))) = c in
+                  (* x'' =(down)c x' for functions *)
+                  [%guard C.is_top c ctx];
+                  let ctx' = C.pop ctx in
+                  return ( Function_closure_lookup(x'',xf)
+                         , Pds_state(acl1,ctx')
+                         )
+                end
+              ;
+                begin
+                  (* This block represents *all* conditional closure
+                     handling. *)
+                  let%orzero (Enter_clause(x'',_,c)) = acl0 in
+                  let%orzero
+                    (Abs_clause(_,Abs_conditional_body(x1,p,f1,_))) = c
+                  in
+                  let Abs_function_value(f1x,_) = f1 in
+                  (* x'' =(down)c x' for conditionals *)
+                  [%guard C.is_top c ctx];
+                  [%guard (not @@ equal_var x'' x1)];
+                  let closure_for_positive_path = equal_var f1x x'' in
+                  (* FIXME: should be popping ctx, yes? *)
+                  return ( Conditional_closure_lookup
+                            (x1,p,closure_for_positive_path)
+                         , Pds_state(acl1,ctx)
+                         )
+                end
+              ;
+                begin
+                  let%orzero
+                    (Unannotated_clause(
+                      Abs_clause(x,Abs_projection_body(x',l)))) = acl0
+                  in
+                  (* x = x'.l *)
+                  return (Record_projection_lookup(x,x',l),Pds_state(acl1,ctx))
+                end
+              ;
+                begin
+                  let%orzero
+                    (Unannotated_clause(
+                      Abs_clause(x,Abs_value_body(Abs_value_record(r))))) = acl0
+                  in
+                  (* x = r *)
+                  let source_state = Pds_state(acl1,ctx) in
+                  let target_state = Pds_state(acl0,ctx) in
+                  return ( Record_construction_lookup_1_of_2(
+                             source_state,target_state,x,r)
+                         , target_state
+                         )
+                end
+              ;
+                begin
+                  let%orzero
+                    (Unannotated_clause(Abs_clause(
+                        x,Abs_value_body(Abs_value_function(_))))) = acl0
+                  in
+                  (* x = f *)
+                  return (Function_filter_validation(x), Pds_state(acl0,ctx))
+                end
+              ]
+            in
+            targeted_dynamic_pops
+            |> Enum.map
+                (fun (action,state) -> ([Pop_dynamic_targeted(action)], state))
+        in
+        let untargeted_dynamic_pop_action_function (Pds_state(acl0',_)) =
+          (* TODO: There should be a way to associate each action function with
+                   its corresponding acl0. *)
+          if compare_annotated_clause acl0 acl0' <> 0 then Enum.empty () else
+            let open Option.Monad in
+            (* let zero () = None in *)
+            let untargeted_dynamic_pops = Enum.filter_map identity @@ List.enum
+              [
+                begin
+                  return @@ Do_jump
+                end
+              ]
+            in
+            untargeted_dynamic_pops
+        in
+        reachability
         |> Cba_pds_reachability.add_edge_function edge_function
         |> Cba_pds_reachability.add_untargeted_dynamic_pop_action_function
             untargeted_dynamic_pop_action_function
+      in
+      let pds_reachability' =
+        Enum.clone edges
+        |> Enum.fold (flip add_edge_for_reachability) analysis.pds_reachability
       in
       (* ***
         Next, add the edge to the CBA graph.
       *)
       let cba_graph' =
-        Cba_graph.add_edge edge analysis.cba_analysis_graph
+        Enum.clone edges
+        |> Enum.fold (flip Cba_graph.add_edge) analysis.cba_graph 
       in
       (* ***
         Now, perform closure over the active node set.  This function uses a
@@ -643,27 +660,37 @@ struct
               find_new_active_nodes (from_here::from_acls_enums) results_so_far'
       in
       let (cba_active_nodes',cba_active_non_immediate_nodes') =
-        if not @@ Annotated_clause_set.mem acl1 analysis.cba_active_nodes
-        then ( analysis.cba_active_nodes
-             , analysis.cba_active_non_immediate_nodes )
-        else
-          let new_active_nodes =
-            find_new_active_nodes [Enum.singleton acl0]
-              Annotated_clause_set.empty
-          in
-          ( Annotated_clause_set.union analysis.cba_active_nodes
-              new_active_nodes
-          , Annotated_clause_set.union analysis.cba_active_non_immediate_nodes
-              ( new_active_nodes |> Annotated_clause_set.filter
-                  is_annotated_clause_immediate )
-          )
+        let new_active_root_nodes =
+          Enum.clone edges
+          |> Enum.filter_map
+            (fun (Cba_edge(acl_left,acl_right)) ->
+              if Annotated_clause_set.mem acl_left analysis.cba_active_nodes
+              then Some acl_right
+              else None)
+          |> Enum.filter
+            (fun acl ->
+              not @@ Annotated_clause_set.mem acl analysis.cba_active_nodes)
+        in
+        let new_active_nodes =
+          find_new_active_nodes [new_active_root_nodes]
+            Annotated_clause_set.empty
+        in
+        ( Annotated_clause_set.union analysis.cba_active_nodes
+            new_active_nodes
+        , Annotated_clause_set.union analysis.cba_active_non_immediate_nodes
+            ( new_active_nodes |> Annotated_clause_set.filter
+                is_annotated_clause_immediate )
+        )
       in
-      { cba_analysis_graph = cba_graph'
-      ; cba_graph_fully_closed = false
-      ; pds_reachability =  pds_reachability'
-      ; cba_active_nodes = cba_active_nodes'
-      ; cba_active_non_immediate_nodes = cba_active_non_immediate_nodes'
-      }
+      (
+        { cba_graph = cba_graph'
+        ; cba_graph_fully_closed = false
+        ; pds_reachability =  pds_reachability'
+        ; cba_active_nodes = cba_active_nodes'
+        ; cba_active_non_immediate_nodes = cba_active_non_immediate_nodes'
+        }
+      , true
+      )
   ;;
 
   let create_initial_analysis e =
@@ -685,8 +712,35 @@ struct
         | Some acl2 ->
           Cba_edge(acl1,acl2) :: mk_edges acls'
     in
-    let edges = mk_edges acls in
-    List.fold_left (flip add_edge) empty_analysis edges
+    let edges = List.enum @@ mk_edges acls in
+    fst @@ add_edges edges empty_analysis
+  ;;
+
+  let restricted_values_of_variable acl x patsp patsn analysis =
+    let start_state = Pds_state(acl,C.empty) in
+    let start_element = Lookup_var(x,patsp,patsn) in
+    let reachability = analysis.pds_reachability in
+    let reachability' =
+      reachability
+      |> Cba_pds_reachability.add_start_state start_state start_element
+    in
+    let analysis' = { analysis with pds_reachability = reachability' } in
+    let values =
+      reachability'
+      |> Cba_pds_reachability.get_reachable_states start_state start_element
+      |> Enum.filter_map
+        (fun (Pds_state(acl,_)) ->
+          match acl with
+          | Unannotated_clause(Abs_clause(_,Abs_value_body(v))) -> Some v
+          | _ -> None)
+    in
+    (values, analysis')
+  ;;
+
+  let values_of_variable acl x analysis =
+    let (values, analysis') = restricted_values_of_variable acl x
+                                Pattern_set.empty Pattern_set.empty analysis in
+    (Abs_value_set.of_enum values, analysis')
   ;;
 
   let rv body =
@@ -720,7 +774,70 @@ struct
   ;;
 
   let perform_closure_steps analysis =
-    raise @@ Utils.Not_yet_implemented "perform_closure_steps"
+    (* We need to do work on each of the active, non-immediate nodes.  This
+       process includes variable lookups, which may result in additional work
+       being done; as a result, each closure step might change the underlying
+       graph.  We'll keep the analysis in a ref so that, whenever work is done
+       which produces a new analysis, we can just update the ref. *)
+    let analysis_ref = ref analysis in
+    let new_edges_enum = Nondeterminism_monad.enum
+      (
+        let open Nondeterminism_monad in
+        let%bind acl =
+          pick_enum @@
+            Annotated_clause_set.enum analysis.cba_active_non_immediate_nodes
+        in
+        let has_values x patsp patsn =
+          let (values,analysis') =
+            restricted_values_of_variable acl x patsp patsn !analysis_ref
+          in
+          analysis_ref := analysis';
+          not @@ Enum.is_empty values
+        in
+        match acl with
+        | Unannotated_clause(Abs_clause(x1,Abs_appl_body(x2,x3)) as cl) ->
+          (* Make sure that a value shows up to the argument. *)
+          [%guard has_values x3 Pattern_set.empty Pattern_set.empty];
+          (* Get each of the function values. *)
+          let (x2_values,analysis_2) =
+            restricted_values_of_variable
+              acl x2 Pattern_set.empty Pattern_set.empty !analysis_ref
+          in
+          analysis_ref := analysis_2;
+          let%bind x2_value = pick_enum x2_values in
+          let%orzero Abs_value_function(fn) = x2_value in
+          (* Wire each one in. *)
+          return @@ wire cl fn x3 x1 analysis_2.cba_graph
+        | Unannotated_clause(
+            Abs_clause(x1,Abs_conditional_body(x2,p,f1,f2)) as cl) ->
+          (* We have two functions we may wish to wire: f1 (if x2 has values
+             which match the pattern) and f2 (if x2 has values which antimatch
+             the pattern). *)
+          [ (Pattern_set.singleton p, Pattern_set.empty, f1)
+          ; (Pattern_set.empty, Pattern_set.singleton p, f2)
+          ]
+            |> List.enum
+            |> Enum.filter_map
+              (fun (patsp,patsn,f) ->
+                if has_values x2 patsp patsn then Some f else None)
+            |> Enum.map (fun f -> wire cl f x2 x1 (!analysis_ref).cba_graph)
+            |> Nondeterminism_monad.pick_enum
+        | _ ->
+          raise @@ Utils.Invariant_failure
+            "Unhandled clause in perform_closure_steps"
+      )
+        |> Enum.concat
+    in
+    (* Due to the stateful effects of computing the new edges, we're going to
+       want to pull on the entire enumeration before we start looking at the
+       analysis. *)
+    let new_edges_list = List.of_enum new_edges_enum in
+    (* Now we want to add all of the new edges.  If there are any new ones, we
+       need to know about it. *)
+    let (analysis',any_new) =
+      add_edges (List.enum new_edges_list) !analysis_ref
+    in
+    { analysis' with cba_graph_fully_closed = not any_new }
   ;;
   
   let is_fully_closed analysis = analysis.cba_graph_fully_closed;;
@@ -730,10 +847,4 @@ struct
     then analysis
     else perform_full_closure @@ perform_closure_steps analysis
   ;;
-
-  let values_of_variable =
-    raise @@ Utils.Not_yet_implemented "values_of_variable"
-  ;;
-
-
 end;;
