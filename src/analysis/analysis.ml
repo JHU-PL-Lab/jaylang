@@ -13,6 +13,7 @@ open Nondeterminism;;
 open Pds_reachability_types_stack;;
 
 let logger = Logger_utils.make_logger "Analysis";;
+let lazy_logger = Logger_utils.make_lazy_logger "Analysis";;
 
 module Pattern_ord =
 struct
@@ -34,6 +35,9 @@ sig
   
   (** The initial, unclosed analysis derived from an expression. *)
   val create_initial_analysis : expr -> cba_analysis
+  
+  (** Pretty-prints a CBA structure. *)
+  val pp_cba : cba_analysis -> string
   
   (** Performs a series of closure steps on an analysis.  This is not guaranteed
       to complete closure; however, it will make progress as long as the
@@ -468,6 +472,16 @@ struct
     }
   ;;
 
+  let pp_cba analysis =
+    Printf.sprintf
+      "{\n  cba_graph = %s;\n  cba_graph_fully_closed = %s;\n  pds_reachability = %s;\n  cba_active_nodes = %s;\n  cba_active_non_immediate_nodes = %s;\n}"
+      (pp_cba_graph analysis.cba_graph)
+      (string_of_bool analysis.cba_graph_fully_closed)
+      (Cba_pds_reachability.pp_analysis analysis.pds_reachability)
+      (pp_annotated_clause_set analysis.cba_active_nodes)
+      (pp_annotated_clause_set analysis.cba_active_non_immediate_nodes)
+  ;;
+
   let empty_analysis =
       { cba_graph = Cba_graph.empty
       ; cba_graph_fully_closed = true
@@ -489,11 +503,29 @@ struct
         information.
       *)
       let add_edge_for_reachability edge reachability =
+        logger `trace (Printf.sprintf "add_edge_for_reachability (%s) (%s)"
+                        (pp_cba_edge edge)
+                        (Cba_pds_reachability.pp_analysis reachability)
+                      );
         (* ***
           First, create each edge and untargeted pop functions for this edge.
         *)
         let (Cba_edge(acl1,acl0)) = edge in
-        let edge_function (Pds_state(acl0',ctx)) =
+        let edge_function (Pds_state(acl0',ctx) as state) =
+          Logger_utils.lazy_bracket_log (lazy_logger `trace)
+          (fun () -> Printf.sprintf "CBA %s edge function at state %s"
+                        (pp_cba_edge edge) (pp_pds_state state))
+          (fun edges ->
+            let pretty_output (actions,target) =
+              String_utils.pretty_tuple
+                (String_utils.pretty_list Cba_pds_reachability.pp_stack_action)
+                pp_pds_state
+                (actions,target)
+            in
+            Printf.sprintf "Generates edges: %s"
+                        (String_utils.pretty_list pretty_output @@
+                          List.of_enum @@ Enum.clone edges)) @@
+          fun () ->
           (* TODO: There should be a way to associate each edge function with
                    its corresponding acl0. *)
           if compare_annotated_clause acl0 acl0' <> 0 then Enum.empty () else
@@ -503,7 +535,7 @@ struct
               [
                 begin
                   let%orzero
-                    (Unannotated_clause(Abs_clause(x, Abs_value_body _))) = acl0
+                    (Unannotated_clause(Abs_clause(x, Abs_value_body _))) = acl1
                   in
                   (* x = v *)
                   return (Variable_discovery x,Pds_state(acl1,ctx))
@@ -511,14 +543,14 @@ struct
               ;
                 begin
                   let%orzero
-                    (Unannotated_clause(Abs_clause(x, Abs_var_body x'))) = acl0
+                    (Unannotated_clause(Abs_clause(x, Abs_var_body x'))) = acl1
                   in
                   (* x = x' *)
                   return (Variable_aliasing(x,x'),Pds_state(acl1,ctx))
                 end
               ;
                 begin
-                  let%orzero (Enter_clause(x,x',c)) = acl0 in
+                  let%orzero (Enter_clause(x,x',c)) = acl1 in
                   (* x =(down)c x' *)
                   [%guard C.is_top c ctx];
                   let ctx' = C.pop ctx in
@@ -526,14 +558,14 @@ struct
                 end
               ;
                 begin
-                  let%orzero (Exit_clause(x,x',c)) = acl0 in
+                  let%orzero (Exit_clause(x,x',c)) = acl1 in
                   (* x =(up)c x' *)
                   let ctx' = C.push c ctx in
                   return (Variable_aliasing(x,x'),Pds_state(acl1,ctx'))
                 end
               ;
                 begin
-                  let%orzero (Unannotated_clause(Abs_clause(x,_))) = acl0 in
+                  let%orzero (Unannotated_clause(Abs_clause(x,_))) = acl1 in
                   (* x'' = b *)
                   return ( Stateless_nonmatching_clause_skip_1_of_2 x
                          , Pds_state(acl0,ctx)
@@ -541,7 +573,7 @@ struct
                 end
               ;
                 begin
-                  let%orzero (Enter_clause(x'',_,c)) = acl0 in
+                  let%orzero (Enter_clause(x'',_,c)) = acl1 in
                   let%orzero (Abs_clause(_,Abs_appl_body(xf,_))) = c in
                   (* x'' =(down)c x' for functions *)
                   [%guard C.is_top c ctx];
@@ -554,7 +586,7 @@ struct
                 begin
                   (* This block represents *all* conditional closure
                      handling. *)
-                  let%orzero (Enter_clause(x'',_,c)) = acl0 in
+                  let%orzero (Enter_clause(x'',_,c)) = acl1 in
                   let%orzero
                     (Abs_clause(_,Abs_conditional_body(x1,p,f1,_))) = c
                   in
@@ -573,7 +605,7 @@ struct
                 begin
                   let%orzero
                     (Unannotated_clause(
-                      Abs_clause(x,Abs_projection_body(x',l)))) = acl0
+                      Abs_clause(x,Abs_projection_body(x',l)))) = acl1
                   in
                   (* x = x'.l *)
                   return (Record_projection_lookup(x,x',l),Pds_state(acl1,ctx))
@@ -582,7 +614,7 @@ struct
                 begin
                   let%orzero
                     (Unannotated_clause(
-                      Abs_clause(x,Abs_value_body(Abs_value_record(r))))) = acl0
+                      Abs_clause(x,Abs_value_body(Abs_value_record(r))))) = acl1
                   in
                   (* x = r *)
                   let source_state = Pds_state(acl1,ctx) in
@@ -596,7 +628,7 @@ struct
                 begin
                   let%orzero
                     (Unannotated_clause(Abs_clause(
-                        x,Abs_value_body(Abs_value_function(_))))) = acl0
+                        x,Abs_value_body(Abs_value_function(_))))) = acl1
                   in
                   (* x = f *)
                   return (Function_filter_validation(x), Pds_state(acl0,ctx))
@@ -622,10 +654,19 @@ struct
             in
             untargeted_dynamic_pops
         in
-        reachability
-        |> Cba_pds_reachability.add_edge_function edge_function
-        |> Cba_pds_reachability.add_untargeted_dynamic_pop_action_function
-            untargeted_dynamic_pop_action_function
+        let result =
+          reachability
+          |> Cba_pds_reachability.add_edge_function edge_function
+          |> Cba_pds_reachability.add_untargeted_dynamic_pop_action_function
+              untargeted_dynamic_pop_action_function
+        in
+        logger `trace (Printf.sprintf
+                        "add_edge_for_reachability (%s) (%s) ==> %s"
+                        (pp_cba_edge edge)
+                        (Cba_pds_reachability.pp_analysis reachability)
+                        (Cba_pds_reachability.pp_analysis result)
+                      );        
+        result
       in
       let pds_reachability' =
         Enum.clone edges
@@ -847,8 +888,19 @@ struct
   let is_fully_closed analysis = analysis.cba_graph_fully_closed;;
   
   let rec perform_full_closure analysis =
+    logger `trace (Printf.sprintf "Performing closure on %s" (pp_cba analysis));
     if is_fully_closed analysis
-    then analysis
-    else perform_full_closure @@ perform_closure_steps analysis
+    then
+      begin
+        logger `trace "Closure complete.";
+        analysis
+      end
+    else
+      begin
+        let analysis' = perform_full_closure @@
+                          perform_closure_steps analysis in
+        logger `trace (Printf.sprintf "Closure produced %s" (pp_cba analysis'));
+        analysis'
+      end
   ;;
 end;;

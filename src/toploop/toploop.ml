@@ -9,6 +9,8 @@ open Cba_graph;;
 open Interpreter;;
 open Toploop_options;;
 
+let logger = Logger_utils.make_logger "Toploop";;
+
 type toploop_configuration =
   { topconf_analysis : (module Analysis_sig) option
   }
@@ -111,6 +113,7 @@ let toploop_operate conf e =
               print_endline @@
                 pretty_ident_map pp_abs_value_set variable_values;
               (* Shush the warning about a4. *)
+              logger `trace (Printf.sprintf "CBA analysis: %s" (A.pp_cba a4));
               ignore a4;
               (* Now run the actual program. *)
               evaluation_step ()

@@ -115,6 +115,12 @@ let pp_annotated_clause acl =
   | End_clause -> "End"
 ;;
 
+let is_annotated_clause_immediate acl =
+  match acl with
+  | Unannotated_clause(cl) -> is_abstract_clause_immediate cl
+  | Enter_clause _ | Exit_clause _ | Start_clause | End_clause -> true
+;;
+
 module Annotated_clause_ord =
 struct
   type t = annotated_clause
@@ -123,10 +129,9 @@ end;;
 
 module Annotated_clause_set = Set.Make(Annotated_clause_ord);;
 
-let is_annotated_clause_immediate acl =
-  match acl with
-  | Unannotated_clause(cl) -> is_abstract_clause_immediate cl
-  | Enter_clause _ | Exit_clause _ | Start_clause | End_clause -> true
+let pp_annotated_clause_set s =
+  String_utils.concat_sep_delim "{" "}" ", " @@ Enum.map pp_annotated_clause @@
+    Annotated_clause_set.enum s
 ;;
 
 type cba_edge =
@@ -206,6 +211,11 @@ struct
 end;;
 
 include Graph_impl;;
+
+let pp_cba_graph g =
+  String_utils.concat_sep_delim "{" "}" ", " @@
+    Enum.map pp_cba_edge @@ edges_of g
+;;
 
 let rec lift_expr (Expr(cls)) =
   Abs_expr(List.map lift_clause cls)

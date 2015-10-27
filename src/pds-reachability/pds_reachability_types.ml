@@ -99,6 +99,7 @@ struct
     | State_node state -> Basis.pp_state state
     | Intermediate_node n -> "#" ^ string_of_int n
     | Initial_node(state,stack_element) ->
+      "Initial_node" ^
       String_utils.pretty_tuple Basis.pp_state Basis.pp_stack_element
         (state,stack_element)
   ;;
