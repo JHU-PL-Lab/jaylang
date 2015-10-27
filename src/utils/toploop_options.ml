@@ -45,5 +45,3 @@ let logging_option:unit BatOptParse.Opt.t =
     option_defhelp = Some("Sets the logging level.")
     ;
   };;
-
-let disable_typechecking_option = BatOptParse.StdOpt.store_true ();;

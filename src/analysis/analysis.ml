@@ -467,6 +467,7 @@ struct
             nodes.  This is useful during closure. *)
     }
   ;;
+
   let empty_analysis =
       { cba_graph = Cba_graph.empty
       ; cba_graph_fully_closed = true
@@ -475,6 +476,7 @@ struct
       ; cba_active_non_immediate_nodes = Annotated_clause_set.empty
       }
   ;;
+
   let add_edges edges analysis =
     let already_present =
       Enum.clone edges
@@ -679,7 +681,7 @@ struct
             new_active_nodes
         , Annotated_clause_set.union analysis.cba_active_non_immediate_nodes
             ( new_active_nodes |> Annotated_clause_set.filter
-                is_annotated_clause_immediate )
+                (not % is_annotated_clause_immediate) )
         )
       in
       (
@@ -738,8 +740,10 @@ struct
   ;;
 
   let values_of_variable acl x analysis =
-    let (values, analysis') = restricted_values_of_variable acl x
-                                Pattern_set.empty Pattern_set.empty analysis in
+    let (values, analysis') =
+      restricted_values_of_variable acl x
+        Pattern_set.empty Pattern_set.empty analysis
+    in
     (Abs_value_set.of_enum values, analysis')
   ;;
 

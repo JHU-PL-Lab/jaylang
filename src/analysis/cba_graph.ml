@@ -82,6 +82,11 @@ end;;
 
 module Abs_value_set = Set.Make(Abs_value_ord);;
 
+let pp_abs_value_set s =
+  String_utils.concat_sep_delim "{" "}" ", " @@
+    Enum.map pp_abstract_value @@ Abs_value_set.enum s
+;;
+
 module Abs_clause_ord =
 struct
   type t = abstract_clause

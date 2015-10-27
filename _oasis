@@ -37,6 +37,7 @@ Library "ast"
   Modules:
     Ast,
     Ast_pretty,
+    Ast_tools,
     Ast_wellformedness
   BuildDepends:
     batteries,
@@ -129,13 +130,23 @@ Library "analysis"
     pds-reachability,
     batteries,
     monadlib,
-    ocaml-monadic (>= 0.2.0)
+    ocaml-monadic (>= 0.3.1)
+
+Library "analysis-instances"
+  Path: src/analysis-instances
+  Modules:
+    Analysis_instances,
+    Analysis_instances_toploop_options
+  BuildDepends:
+    analysis
 
 Executable "toploop"
   Path: src/toploop
   MainIs: toploop.ml
   BuildDepends:
     ast,
+    analysis,
+    analysis-instances,
     interpreter,
     parser,
     batteries
