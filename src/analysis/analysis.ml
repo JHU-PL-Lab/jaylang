@@ -507,10 +507,6 @@ struct
         information.
       *)
       let add_edge_for_reachability edge reachability =
-        logger `trace (Printf.sprintf "add_edge_for_reachability (%s) (%s)"
-                        (pp_cba_edge edge)
-                        (Cba_pds_reachability.pp_analysis reachability)
-                      );
         (* ***
           First, create each edge and untargeted pop functions for this edge.
         *)
@@ -658,19 +654,10 @@ struct
             in
             untargeted_dynamic_pops
         in
-        let result =
-          reachability
-          |> Cba_pds_reachability.add_edge_function edge_function
-          |> Cba_pds_reachability.add_untargeted_dynamic_pop_action_function
-              untargeted_dynamic_pop_action_function
-        in
-        logger `trace (Printf.sprintf
-                        "add_edge_for_reachability (%s) (%s) ==> %s"
-                        (pp_cba_edge edge)
-                        (Cba_pds_reachability.pp_analysis reachability)
-                        (Cba_pds_reachability.pp_analysis result)
-                      );        
-        result
+        reachability
+        |> Cba_pds_reachability.add_edge_function edge_function
+        |> Cba_pds_reachability.add_untargeted_dynamic_pop_action_function
+            untargeted_dynamic_pop_action_function
       in
       let pds_reachability' =
         Enum.clone edges
@@ -827,6 +814,8 @@ struct
   ;;
 
   let perform_closure_steps analysis =
+    logger `trace
+      (Printf.sprintf "Performing closure step %d" (analysis.closure_steps+1));
     (* We need to do work on each of the active, non-immediate nodes.  This
        process includes variable lookups, which may result in additional work
        being done; as a result, each closure step might change the underlying
@@ -896,6 +885,8 @@ struct
         closure_steps = analysis'.closure_steps + 1          
       }
     in
+    logger `trace
+      (Printf.sprintf "Completed closure step %d" (result.closure_steps));
     Cba_graph_logger.log
       (Cba_graph_logger.Cba_log_intermediate_graph
         (result.cba_graph, result.closure_steps));
@@ -905,7 +896,6 @@ struct
   let is_fully_closed analysis = analysis.cba_graph_fully_closed;;
   
   let rec perform_full_closure analysis =
-    logger `trace (Printf.sprintf "Performing closure on %s" (pp_cba analysis));
     if is_fully_closed analysis
     then
       begin
@@ -916,10 +906,7 @@ struct
       end
     else
       begin
-        let analysis' = perform_full_closure @@
-                          perform_closure_steps analysis in
-        logger `trace (Printf.sprintf "Closure produced %s" (pp_cba analysis'));
-        analysis'
+        perform_full_closure @@ perform_closure_steps analysis
       end
   ;;
 end;;

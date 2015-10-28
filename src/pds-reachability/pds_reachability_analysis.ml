@@ -5,7 +5,6 @@
 open Batteries;;
 open Pds_reachability_types_stack;;
 
-let logger = Logger_utils.make_logger "Pds_reachability_analysis";;
 let lazy_logger = Logger_utils.make_lazy_logger "Pds_reachability_analysis";;
 
 module type Analysis =
