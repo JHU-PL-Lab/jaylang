@@ -1,9 +1,15 @@
+# Eclipse config files
+# The following because OcaIDE changes the path file regularly...
 /.paths
+
+# OASIS temp files
 /Makefile
 /_build
 /configure
 /*.byte
 /setup.*
+
+# Generated DOT files
 /*.dot
 /*.pdf
 
