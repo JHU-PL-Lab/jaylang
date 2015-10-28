@@ -22,18 +22,6 @@ let uniq_enum : 'a. ('a -> 'a -> int) -> 'a Enum.t -> 'a Enum.t =
     Set.PSet.enum all_set
 ;;
 
-(**
-   Expands a list of lists as a Cartesian product.  That is, the list
-   {[
-     [[1;2;3];[4];[5;6]]
-   ]}
-   would yield the list
-   {[
-     [[1;4;5];[2;4;5];[3;4;5];[1;4;6];[2;4;6];[3;4;6]]
-   ]}
-   the first element being the result of selecting [1], [4], and [5] from the
-   original three lists.
-*)
 let rec cartesian_product_of_list lst =
   match lst with
   | [] ->  [[]]
@@ -51,19 +39,15 @@ let rec cartesian_product_of_list lst =
     |> List.of_enum
 ;;
 
-(**
-  A pairwise pseudo-map over an enum.  For each successive pair of values in the
-  enum, the map function is called.  So,
-  {[  pairwise_enum_fold f (List.enum [1;2;3;4])  ]}
-  is equivalent to
-  {[  List.enum [f 1 2; f 2 3; f 3 4]  ]}
-  This is equivalent to cloning the enum, discarding the first element from the
-  clone, zipping the resulting enums, and mapping over the result.
-*)
 let pairwise_enum_fold f e =
   if Enum.is_empty e then Enum.empty () else
     let e' = Enum.clone e in
     let _ = Enum.get_exn e' in
     if Enum.is_empty e' then Enum.empty () else
       Enum.combine (e,e') |> Enum.map (uncurry f)
+;;
+
+let set_file_contents filename s =
+  File.with_file_out ~mode:[`create;`trunc;`text] filename
+    (fun output -> IO.nwrite output s; IO.write output '\n')
 ;;

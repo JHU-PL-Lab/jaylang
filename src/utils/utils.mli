@@ -25,4 +25,18 @@ val uniq_enum : ('a -> 'a -> int) -> 'a Enum.t -> 'a Enum.t
 *)
 val cartesian_product_of_list : 'a list list -> 'a list list
 
+(**
+  A pairwise pseudo-map over an enum.  For each successive pair of values in the
+  enum, the map function is called.  So,
+  {[  pairwise_enum_fold f (List.enum [1;2;3;4])  ]}
+  is equivalent to
+  {[  List.enum [f 1 2; f 2 3; f 3 4]  ]}
+  This is equivalent to cloning the enum, discarding the first element from the
+  clone, zipping the resulting enums, and mapping over the result.
+*)
 val pairwise_enum_fold : ('a -> 'a -> 'b) -> 'a Enum.t -> 'b Enum.t
+
+(**
+  Sets the contents of the indicated file to the provided string.
+*)
+val set_file_contents : string -> string -> unit
