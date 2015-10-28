@@ -749,12 +749,21 @@ struct
     in
     let edges = List.enum @@ mk_edges acls in
     let analysis = fst @@ add_edges edges empty_analysis in
+    logger `trace "Created initial analysis";
     Cba_graph_logger.log
       (Cba_graph_logger.Cba_log_initial_graph analysis.cba_graph);
     analysis
   ;;
 
   let restricted_values_of_variable acl x patsp patsn analysis =
+    Logger_utils.lazy_bracket_log (lazy_logger `trace)
+      (fun () ->
+        Printf.sprintf "Determining values of variable %s at position %s"
+          (pretty_var x) (pp_annotated_clause acl))
+      (fun (values, _) ->
+        String_utils.concat_sep_delim "{" "}" ", " @@
+          Enum.map pp_abstract_value @@ Enum.clone values)
+    @@ fun () ->
     let start_state = Pds_state(acl,C.empty) in
     let start_element = Lookup_var(x,patsp,patsn) in
     let reachability = analysis.pds_reachability in
