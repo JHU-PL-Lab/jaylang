@@ -1,7 +1,6 @@
 open Batteries;;
 
 open Analysis;;
-open Analysis_instances_toploop_options;;
 open Ast;;
 open Ast_pretty;;
 open Ast_wellformedness;;
@@ -146,6 +145,9 @@ let command_line_parsing () =
   (* Add ability to select the analysis. *)
   BatOptParse.OptParser.add parser ~long_name:"select-analysis" ~short_name:'a'
     select_analysis_option;
+    
+  (* Add CBA graph logging option. *)
+  BatOptParse.OptParser.add parser ~long_name:"cba-logging" cba_logging_option;
   
   (* Handle arguments. *)
   let spare_args = BatOptParse.OptParser.parse_argv parser in
@@ -159,6 +161,7 @@ let command_line_parsing () =
 
 let () =
   let toploop_configuration = command_line_parsing () in
+  Cba_graph_logger.set_name_prefix "_toploop";
 
   print_string "Toy Toploop\n";
   print_string "-----------\n";

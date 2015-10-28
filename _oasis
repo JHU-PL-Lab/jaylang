@@ -136,19 +136,13 @@ Library "analysis"
     monadlib,
     ocaml-monadic (>= 0.3.1)
 
-Library "analysis-instances"
-  Path: src/analysis-instances
-  Modules:
-    Analysis_instances,
-    Analysis_instances_toploop_options
-  BuildDepends:
-    analysis
-
 Library "toploop-utils"
   Path: src/toploop-utils
   Modules:
+    Analysis_instances,
     Toploop_options
   BuildDepends:
+    analysis,
     utils,
     batteries
 
@@ -158,7 +152,6 @@ Executable "toploop"
   BuildDepends:
     ast,
     analysis,
-    analysis-instances,
     interpreter,
     parser,
     toploop-utils,

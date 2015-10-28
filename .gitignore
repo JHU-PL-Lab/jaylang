@@ -4,3 +4,6 @@
 /configure
 /*.byte
 /setup.*
+/*.dot
+/*.pdf
+
