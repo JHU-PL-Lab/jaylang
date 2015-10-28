@@ -853,6 +853,10 @@ struct
         in
         match acl with
         | Unannotated_clause(Abs_clause(x1,Abs_appl_body(x2,x3)) as cl) ->
+          lazy_logger `trace
+            (fun () ->
+              Printf.sprintf "Considering application closure for clause %s"
+                (pp_abstract_clause cl));
           (* Make sure that a value shows up to the argument. *)
           [%guard has_values x3 Pattern_set.empty Pattern_set.empty];
           (* Get each of the function values. *)
@@ -867,6 +871,10 @@ struct
           return @@ wire cl fn x3 x1 analysis_2.cba_graph
         | Unannotated_clause(
             Abs_clause(x1,Abs_conditional_body(x2,p,f1,f2)) as cl) ->
+          lazy_logger `trace
+            (fun () ->
+              Printf.sprintf "Considering conditional closure for clause %s"
+                (pp_abstract_clause cl));
           (* We have two functions we may wish to wire: f1 (if x2 has values
              which match the pattern) and f2 (if x2 has values which antimatch
              the pattern). *)
