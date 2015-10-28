@@ -21,7 +21,6 @@ Library "utils"
     Parser_support,
     Source_origin,
     String_utils,
-    Toploop_options,
     Utils
   BuildDepends:
     batteries
@@ -92,6 +91,14 @@ Library "a-translator"
     nested-ast,
     utils
 
+Library "toploop-utils"
+  Path: src/toploop-utils
+  Modules:
+    Toploop_options
+  BuildDepends:
+    utils,
+    batteries
+
 Executable "toploop"
   Path: src/toploop
   MainIs: toploop.ml
@@ -99,6 +106,7 @@ Executable "toploop"
     ast,
     interpreter,
     parser,
+    toploop-utils,
     batteries
 
 Executable "nested-toploop"
@@ -110,6 +118,7 @@ Executable "nested-toploop"
     nested-ast,
     interpreter,
     nested-parser,
+    toploop-utils,
     batteries
 
 Executable "test"
