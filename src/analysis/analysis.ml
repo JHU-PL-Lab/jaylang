@@ -758,8 +758,14 @@ struct
   let restricted_values_of_variable acl x patsp patsn analysis =
     Logger_utils.lazy_bracket_log (lazy_logger `trace)
       (fun () ->
-        Printf.sprintf "Determining values of variable %s at position %s"
-          (pretty_var x) (pp_annotated_clause acl))
+        Printf.sprintf "Determining values of variable %s at position %s%s"
+          (pretty_var x) (pp_annotated_clause acl) @@
+          if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
+          then ""
+          else
+            Printf.sprintf " with pattern sets %s and %s"
+              (pp_pattern_set patsp) (pp_pattern_set patsn)
+          )
       (fun (values, _) ->
         String_utils.concat_sep_delim "{" "}" ", " @@
           Enum.map pp_abstract_value @@ Enum.clone values)
