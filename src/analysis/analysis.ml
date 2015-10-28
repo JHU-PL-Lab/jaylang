@@ -469,6 +469,9 @@ struct
     ; cba_active_non_immediate_nodes : Annotated_clause_set.t
         (** A subset of [cba_active_nodes] which only contains the non-immediate
             nodes.  This is useful during closure. *)
+    ; closure_steps : int
+        (** The number of closure steps to which this graph has been subjected.
+            Used for debugging only. *)
     }
   ;;
 
@@ -488,6 +491,7 @@ struct
       ; pds_reachability = Cba_pds_reachability.empty
       ; cba_active_nodes = Annotated_clause_set.singleton Start_clause
       ; cba_active_non_immediate_nodes = Annotated_clause_set.empty
+      ; closure_steps = 0
       }
   ;;
 
@@ -731,6 +735,7 @@ struct
         ; pds_reachability =  pds_reachability'
         ; cba_active_nodes = cba_active_nodes'
         ; cba_active_non_immediate_nodes = cba_active_non_immediate_nodes'
+        ; closure_steps = analysis.closure_steps
         }
       , true
       )
@@ -756,7 +761,10 @@ struct
           Cba_edge(acl1,acl2) :: mk_edges acls'
     in
     let edges = List.enum @@ mk_edges acls in
-    fst @@ add_edges edges empty_analysis
+    let analysis = fst @@ add_edges edges empty_analysis in
+    Cba_graph_logger.log
+      (Cba_graph_logger.Cba_log_initial_graph analysis.cba_graph);
+    analysis
   ;;
 
   let restricted_values_of_variable acl x patsp patsn analysis =
@@ -882,7 +890,16 @@ struct
     let (analysis',any_new) =
       add_edges (List.enum new_edges_list) !analysis_ref
     in
-    { analysis' with cba_graph_fully_closed = not any_new }
+    let result = 
+      { analysis' with
+        cba_graph_fully_closed = not any_new;
+        closure_steps = analysis'.closure_steps + 1          
+      }
+    in
+    Cba_graph_logger.log
+      (Cba_graph_logger.Cba_log_intermediate_graph
+        (result.cba_graph, result.closure_steps));
+    result
   ;;
   
   let is_fully_closed analysis = analysis.cba_graph_fully_closed;;
@@ -893,6 +910,8 @@ struct
     then
       begin
         logger `trace "Closure complete.";
+        Cba_graph_logger.log
+          (Cba_graph_logger.Cba_log_closed_graph analysis.cba_graph);
         analysis
       end
     else

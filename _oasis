@@ -17,6 +17,8 @@ Library "utils"
   Path: src/utils
   Modules:
     Ast_uid,
+    Dot_file_logger_utils,
+    Dot_file_logger_utils_types,
     Logger_utils,
     Monad_utils,
     Multimap,
@@ -124,7 +126,10 @@ Library "analysis"
     Analysis_single_element_stack,
     Analysis_two_element_stack,
     Analysis_unit_stack,
-    Analysis_utils
+    Analysis_utils,
+    Cba_graph,
+    Cba_graph_logger,
+    Cba_graph_logger_types
   BuildDepends:
     ast,
     pds-reachability,
