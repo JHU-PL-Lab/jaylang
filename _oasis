@@ -127,8 +127,8 @@ Library "analysis"
     Analysis_unit_stack,
     Analysis_utils,
     Cba_graph,
-    Cba_graph_logger_utils,
-    Cba_graph_logger_utils_types
+    Cba_graph_logger,
+    Cba_graph_logger_types
   BuildDepends:
     ast,
     pds-reachability,

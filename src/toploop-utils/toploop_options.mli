@@ -9,4 +9,4 @@ val select_context_stack_option :
 
 (** This logging option configures how CBA DOT graphs are logged. *)
 val cba_logging_option :
-  Cba_graph_logger_utils.cba_graph_logger_level BatOptParse.Opt.t
+  Cba_graph_logger.cba_graph_logger_level BatOptParse.Opt.t

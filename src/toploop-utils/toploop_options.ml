@@ -98,9 +98,9 @@ let cba_logging_option =
       | [level_name] ->
         let level =
           match level_name with
-          | "none" -> Cba_graph_logger_utils.Cba_log_none
-          | "result" -> Cba_graph_logger_utils.Cba_log_result
-          | "all" -> Cba_graph_logger_utils.Cba_log_all
+          | "none" -> Cba_graph_logger.Cba_log_none
+          | "result" -> Cba_graph_logger.Cba_log_result
+          | "all" -> Cba_graph_logger.Cba_log_all
           | _ -> raise @@ Option_error(option_name,
                     Printf.sprintf "Invalid CBA logging level: %s" level_name)
         in

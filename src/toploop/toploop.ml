@@ -12,7 +12,7 @@ let logger = Logger_utils.make_logger "Toploop";;
 type toploop_configuration =
   { topconf_context_stack : (module Analysis_context_stack.Context_stack) option
   ; topconf_log_prefix : string
-  ; topconf_cba_log_level : Cba_graph_logger_utils.cba_graph_logger_level option
+  ; topconf_cba_log_level : Cba_graph_logger.cba_graph_logger_level option
   }
 ;;
 
@@ -50,20 +50,17 @@ let toploop_operate conf e =
           evaluation_step ()
         | Some context_stack ->
           let module Context_stack = (val context_stack) in
-          let module Logger_basis =
-            struct
-              let prefix = conf.topconf_log_prefix
-            end
-          in
           (* Define the analysis module. *)
-          let module A = Analysis.Make(Context_stack)(Logger_basis) in
+          let module A = Analysis.Make(Context_stack) in
           begin
             match conf.topconf_cba_log_level with
-            | Some level -> A.Logger.set_level level
+            | Some level -> Cba_graph_logger.set_level level
             | None -> ();
           end;
           (* Create the initial analysis. *)
-          let a1 = A.create_initial_analysis e in
+          let a1 =
+            A.create_initial_analysis ~logging_prefix:(Some "_toploop") e
+          in
           (* Close over the analysis. *)
           let a2 = A.perform_full_closure a1 in
           (* Check the consistency of an analysis.  In particular, look for

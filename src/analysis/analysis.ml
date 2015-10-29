@@ -34,7 +34,8 @@ sig
   type cba_analysis
   
   (** The initial, unclosed analysis derived from an expression. *)
-  val create_initial_analysis : expr -> cba_analysis
+  val create_initial_analysis :
+    ?logging_prefix:string option -> expr -> cba_analysis
   
   (** Pretty-prints a CBA structure. *)
   val pp_cba : cba_analysis -> string
@@ -57,20 +58,14 @@ sig
       of this question in the future. *)
   val values_of_variable :
     annotated_clause -> var -> cba_analysis -> Abs_value_set.t * cba_analysis
-
-  module Logger : Cba_graph_logger_utils.Cba_graph_logger_sig
 end;;
 
 (**
   A functor which constructs a CBA analysis module.
 *)
 module Make(C : Context_stack)
-           (Logger_basis : Cba_graph_logger_utils.Cba_graph_logger_basis)
   : Analysis_sig =
 struct
-  module Cba_graph_logger = Cba_graph_logger_utils.Make(Logger_basis);;
-  module Logger = Cba_graph_logger;;
-  
   let negative_pattern_set_selection record_type pattern_set =
     let (Record_value m) = record_type in
     let record_labels = Ident_set.of_enum @@ Ident_map.keys m in
@@ -466,6 +461,11 @@ struct
   
   module Cba_pds_reachability = Pds_reachability.Make(Cba_pds_reachability_basis)(Dph);;
 
+  type cba_analysis_logging_data =
+    { cba_logging_prefix : string
+    ; cba_closure_steps : int
+    }
+
   type cba_analysis =
     { cba_graph : cba_graph
     ; cba_graph_fully_closed : bool
@@ -476,9 +476,8 @@ struct
     ; cba_active_non_immediate_nodes : Annotated_clause_set.t
         (** A subset of [cba_active_nodes] which only contains the non-immediate
             nodes.  This is useful during closure. *)
-    ; closure_steps : int
-        (** The number of closure steps to which this graph has been subjected.
-            Used for debugging only. *)
+    ; cba_logging_data : cba_analysis_logging_data option
+        (** Data associated with logging, if appropriate. *)
     }
   ;;
 
@@ -498,8 +497,14 @@ struct
       ; pds_reachability = Cba_pds_reachability.empty
       ; cba_active_nodes = Annotated_clause_set.singleton Start_clause
       ; cba_active_non_immediate_nodes = Annotated_clause_set.empty
-      ; closure_steps = 0
+      ; cba_logging_data = None
       }
+  ;;
+
+  let log_cba_graph analysis action_fn =
+    match analysis.cba_logging_data with
+    | None -> ()
+    | Some data -> Cba_graph_logger.log (action_fn data)
   ;;
 
   let add_edges edges analysis =
@@ -729,13 +734,13 @@ struct
         ; pds_reachability =  pds_reachability'
         ; cba_active_nodes = cba_active_nodes'
         ; cba_active_non_immediate_nodes = cba_active_non_immediate_nodes'
-        ; closure_steps = analysis.closure_steps
+        ; cba_logging_data = analysis.cba_logging_data
         }
       , true
       )
   ;;
 
-  let create_initial_analysis e =
+  let create_initial_analysis ?logging_prefix:(logging_prefix=None) e =
     let Abs_expr(cls) = lift_expr e in
     (* Put the annotated clauses together. *)
     let acls =
@@ -755,10 +760,23 @@ struct
           Cba_edge(acl1,acl2) :: mk_edges acls'
     in
     let edges = List.enum @@ mk_edges acls in
-    let analysis = fst @@ add_edges edges empty_analysis in
+    let empty_analysis' =
+      match logging_prefix with
+      | None -> empty_analysis
+      | Some prefix ->
+        { empty_analysis with
+          cba_logging_data = Some
+            { cba_closure_steps = 0
+            ; cba_logging_prefix = prefix
+            }
+        }
+    in
+    let analysis = fst @@ add_edges edges empty_analysis' in
     logger `trace "Created initial analysis";
-    Cba_graph_logger.log
-      (Cba_graph_logger_utils.Cba_log_initial_graph analysis.cba_graph);
+    log_cba_graph analysis (fun data ->
+      (Cba_graph_logger.Cba_log_initial_graph(
+        analysis.cba_graph,data.cba_logging_prefix))
+      );
     analysis
   ;;
 
@@ -836,8 +854,13 @@ struct
   ;;
 
   let perform_closure_steps analysis =
-    logger `trace
-      (Printf.sprintf "Performing closure step %d" (analysis.closure_steps+1));
+    begin
+      match analysis.cba_logging_data with
+      | None -> logger `trace "Performing closure step"
+      | Some data -> logger `trace
+          (Printf.sprintf "Performing closure step %d"
+            (data.cba_closure_steps+1));
+    end;
     (* We need to do work on each of the active, non-immediate nodes.  This
        process includes variable lookups, which may result in additional work
        being done; as a result, each closure step might change the underlying
@@ -909,17 +932,29 @@ struct
     let (analysis',any_new) =
       add_edges (List.enum new_edges_list) !analysis_ref
     in
+    let cba_logging_data' =
+      match analysis'.cba_logging_data with
+      | None -> None
+      | Some data ->
+        Some { data with cba_closure_steps = data.cba_closure_steps+1 }
+    in
     let result = 
       { analysis' with
         cba_graph_fully_closed = not any_new;
-        closure_steps = analysis'.closure_steps + 1          
+        cba_logging_data = cba_logging_data'
       }
     in
-    logger `trace
-      (Printf.sprintf "Completed closure step %d" (result.closure_steps));
-    Cba_graph_logger.log
-      (Cba_graph_logger_utils.Cba_log_intermediate_graph
-        (result.cba_graph, result.closure_steps));
+    begin
+      match result.cba_logging_data with
+      | None -> logger `trace "Completed closure step"
+      | Some data -> logger `trace
+          (Printf.sprintf "Completed closure step %d"
+            (data.cba_closure_steps));
+    end;
+    log_cba_graph analysis (fun data ->
+      (Cba_graph_logger.Cba_log_intermediate_graph(
+        analysis.cba_graph,data.cba_logging_prefix,data.cba_closure_steps))
+      );
     result
   ;;
   
@@ -930,8 +965,10 @@ struct
     then
       begin
         logger `trace "Closure complete.";
-        Cba_graph_logger.log
-          (Cba_graph_logger_utils.Cba_log_closed_graph analysis.cba_graph);
+        log_cba_graph analysis (fun data ->
+          (Cba_graph_logger.Cba_log_closed_graph(
+            analysis.cba_graph,data.cba_logging_prefix))
+          );
         analysis
       end
     else

@@ -6,10 +6,12 @@
 
 open Cba_graph;;
 
+(** Describes the logger actions for CBA graphs.  Each action takes at least a
+    graph and the prefix string naming the graph. *)
 type cba_graph_logger_action =
-  | Cba_log_initial_graph of cba_graph
-  | Cba_log_closed_graph of cba_graph
-  | Cba_log_intermediate_graph of cba_graph * int
+  | Cba_log_initial_graph of cba_graph * string
+  | Cba_log_closed_graph of cba_graph * string
+  | Cba_log_intermediate_graph of cba_graph * string * int
 ;;
 
 type cba_graph_logger_level =
@@ -25,11 +27,6 @@ let pp_cba_graph_logger_level level =
   | Cba_log_result -> "result-only"
   | Cba_log_all -> "all"
 ;;
-
-module type Cba_graph_logger_basis =
-sig
-  val prefix : string
-end;;
 
 module type Cba_graph_logger_sig =
   Dot_file_logger_utils.Dot_file_logger_sig
