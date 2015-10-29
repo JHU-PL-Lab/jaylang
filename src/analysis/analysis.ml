@@ -501,10 +501,12 @@ struct
       }
   ;;
 
-  let log_cba_graph analysis action_fn =
+  let log_cba_graph level analysis name_fn =
     match analysis.cba_logging_data with
     | None -> ()
-    | Some data -> Cba_graph_logger.log (action_fn data)
+    | Some data ->
+      let name = name_fn data in
+      Cba_graph_logger.log level name analysis.cba_graph
   ;;
 
   let add_edges edges analysis =
@@ -773,10 +775,9 @@ struct
     in
     let analysis = fst @@ add_edges edges empty_analysis' in
     logger `trace "Created initial analysis";
-    log_cba_graph analysis (fun data ->
-      (Cba_graph_logger.Cba_log_initial_graph(
-        analysis.cba_graph,data.cba_logging_prefix))
-      );
+    log_cba_graph Cba_graph_logger.Cba_log_all analysis
+      (fun data ->
+        Cba_graph_logger.Cba_graph_name_initial data.cba_logging_prefix);
     analysis
   ;;
 
@@ -951,10 +952,9 @@ struct
           (Printf.sprintf "Completed closure step %d"
             (data.cba_closure_steps));
     end;
-    log_cba_graph analysis (fun data ->
-      (Cba_graph_logger.Cba_log_intermediate_graph(
-        analysis.cba_graph,data.cba_logging_prefix,data.cba_closure_steps))
-      );
+    log_cba_graph Cba_graph_logger.Cba_log_all analysis
+      (fun data -> Cba_graph_logger.Cba_graph_name_intermediate(
+          data.cba_logging_prefix, data.cba_closure_steps));
     result
   ;;
   
@@ -965,10 +965,9 @@ struct
     then
       begin
         logger `trace "Closure complete.";
-        log_cba_graph analysis (fun data ->
-          (Cba_graph_logger.Cba_log_closed_graph(
-            analysis.cba_graph,data.cba_logging_prefix))
-          );
+        log_cba_graph Cba_graph_logger.Cba_log_result analysis
+          (fun data ->
+            Cba_graph_logger.Cba_graph_name_closed(data.cba_logging_prefix));
         analysis
       end
     else

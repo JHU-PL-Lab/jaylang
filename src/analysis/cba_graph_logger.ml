@@ -18,13 +18,8 @@ struct
   let pp_level = pp_cba_graph_logger_level;;
   let default_level = Cba_log_none;;
 
-  type action = cba_graph_logger_action;;
-  let level_of action =
-    match action with
-    | Cba_log_initial_graph _ -> Cba_log_all
-    | Cba_log_closed_graph _ -> Cba_log_result
-    | Cba_log_intermediate_graph _ -> Cba_log_all
-  ;;
+  type name = cba_graph_name
+  type data = cba_graph;;
 
   type dot_node_id = annotated_clause;;
   let string_of_dot_node_id acl =
@@ -40,13 +35,7 @@ struct
     | End_clause -> "end"
   ;;
 
-  let graph_of action =
-    let cba_graph =
-      match action with
-      | Cba_log_initial_graph(g,_) -> g
-      | Cba_log_closed_graph(g,_) -> g
-      | Cba_log_intermediate_graph(g,_,_) -> g
-    in
+  let graph_of cba_graph =
     let immediate_node_color = "#44ff44" in
     let non_immediate_node_color = "gray" in
     let wiring_node_color = "ff8844" in
@@ -89,12 +78,12 @@ struct
     in
     (nodes,edges)
   ;;
-  let name_of action =
+  let string_of_name name =
     let (prefix,suffix) =
-      match action with
-      | Cba_log_initial_graph (_,pfx) -> (pfx,"initial")
-      | Cba_log_closed_graph (_,pfx) -> (pfx,"final")
-      | Cba_log_intermediate_graph(_,pfx,n) -> (pfx,string_of_int n)
+      match name with
+      | Cba_graph_name_initial pfx -> (pfx,"initial")
+      | Cba_graph_name_closed pfx -> (pfx,"final")
+      | Cba_graph_name_intermediate(pfx,n) -> (pfx,string_of_int n)
     in prefix ^ "_CBA_" ^ suffix
   ;;
 end;;

@@ -11,14 +11,13 @@ module Make(Base : Dot_file_logger_base) = struct
 
   let set_level level = logging_level := level;;
 
-  let log action =
+  let log level name data =
     (* Make sure that we should be logging this action. *)
-    let action_level = level_of action in
-    if compare_level action_level (get_level ()) < 0
+    if compare_level level (get_level ()) < 0
     then ()
     else
-      let (nodes,edges) = graph_of action in
-      let name = name_of action in
+      let (nodes,edges) = graph_of data in
+      let name = string_of_name name in
       let buffer = Buffer.create 1024 in
       Buffer.add_string buffer "strict digraph ";
       Buffer.add_string buffer name;

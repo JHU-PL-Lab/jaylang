@@ -6,12 +6,12 @@
 
 open Cba_graph;;
 
-(** Describes the logger actions for CBA graphs.  Each action takes at least a
-    graph and the prefix string naming the graph. *)
-type cba_graph_logger_action =
-  | Cba_log_initial_graph of cba_graph * string
-  | Cba_log_closed_graph of cba_graph * string
-  | Cba_log_intermediate_graph of cba_graph * string * int
+(** Describes the namespace of logged CBA graphs.  Each name takes at least the
+    prefix string naming the graph closure. *)
+type cba_graph_name =
+  | Cba_graph_name_initial of string
+  | Cba_graph_name_closed of string
+  | Cba_graph_name_intermediate of string * int
 ;;
 
 type cba_graph_logger_level =
@@ -31,6 +31,7 @@ let pp_cba_graph_logger_level level =
 module type Cba_graph_logger_sig =
   Dot_file_logger_utils.Dot_file_logger_sig
       with type level = cba_graph_logger_level
-       and type action = cba_graph_logger_action
+       and type name = cba_graph_name
+       and type data = cba_graph
        and type dot_node_id = annotated_clause
 ;;

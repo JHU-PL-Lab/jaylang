@@ -36,12 +36,11 @@ sig
   (** A default logging level.  Used when no logging level is set. *)
   val default_level : level
   
-  (** A type describing the different logging actions which may be taken by the
-      module. *)
-  type action
+  (** A type describing the namespace of the logging actions in the module. *)
+  type name
   
-  (** A function which determines the logging level of an action. *)
-  val level_of : action -> level
+  (** A type describing the data which is logged by this module. *)
+  type data
   
   (** A type used to identify nodes in a DOT graph. *)
   type dot_node_id
@@ -50,14 +49,14 @@ sig
       graph. *)
   val string_of_dot_node_id : dot_node_id -> string
   
-  (** A function to generate the DOT graph for an action. *)
+  (** A function to generate the DOT graph for a log datum. *)
   val graph_of :
-    action -> dot_node_id dot_node Enum.t * dot_node_id dot_edge Enum.t
+    data -> dot_node_id dot_node Enum.t * dot_node_id dot_edge Enum.t
     
-  (** A function to select a name for the DOT graph for an action.  This is used
+  (** A function which translates a namespace value into a string.  This is used
       as both the filename in which to save the graph as well as the title of
       the graph within the file. *)
-  val name_of : action -> string
+  val string_of_name : name -> string
 end;;
 
 module type Dot_file_logger_sig =
@@ -68,5 +67,5 @@ sig
 
   val set_level : level -> unit
   
-  val log : action -> unit
+  val log : level -> name -> data -> unit
 end;;

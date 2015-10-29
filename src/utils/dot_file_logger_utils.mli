@@ -9,6 +9,7 @@ module Make :
   functor (Base : Dot_file_logger_base) ->
     Dot_file_logger_sig
       with type level = Base.level
-       and type action = Base.action
+       and type name = Base.name
+       and type data = Base.data
        and type dot_node_id = Base.dot_node_id
 ;;
