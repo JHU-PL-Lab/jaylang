@@ -25,3 +25,15 @@ let pp_cba_graph_logger_level level =
   | Cba_log_result -> "result-only"
   | Cba_log_all -> "all"
 ;;
+
+module type Cba_graph_logger_basis =
+sig
+  val prefix : string
+end;;
+
+module type Cba_graph_logger_sig =
+  Dot_file_logger_utils.Dot_file_logger_sig
+      with type level = cba_graph_logger_level
+       and type action = cba_graph_logger_action
+       and type dot_node_id = annotated_clause
+;;

@@ -57,13 +57,20 @@ sig
       of this question in the future. *)
   val values_of_variable :
     annotated_clause -> var -> cba_analysis -> Abs_value_set.t * cba_analysis
+
+  module Logger : Cba_graph_logger_utils.Cba_graph_logger_sig
 end;;
 
 (**
   A functor which constructs a CBA analysis module.
 *)
-module Make(C : Context_stack) : Analysis_sig =
+module Make(C : Context_stack)
+           (Logger_basis : Cba_graph_logger_utils.Cba_graph_logger_basis)
+  : Analysis_sig =
 struct
+  module Cba_graph_logger = Cba_graph_logger_utils.Make(Logger_basis);;
+  module Logger = Cba_graph_logger;;
+  
   let negative_pattern_set_selection record_type pattern_set =
     let (Record_value m) = record_type in
     let record_labels = Ident_set.of_enum @@ Ident_map.keys m in
@@ -751,7 +758,7 @@ struct
     let analysis = fst @@ add_edges edges empty_analysis in
     logger `trace "Created initial analysis";
     Cba_graph_logger.log
-      (Cba_graph_logger.Cba_log_initial_graph analysis.cba_graph);
+      (Cba_graph_logger_utils.Cba_log_initial_graph analysis.cba_graph);
     analysis
   ;;
 
@@ -911,7 +918,7 @@ struct
     logger `trace
       (Printf.sprintf "Completed closure step %d" (result.closure_steps));
     Cba_graph_logger.log
-      (Cba_graph_logger.Cba_log_intermediate_graph
+      (Cba_graph_logger_utils.Cba_log_intermediate_graph
         (result.cba_graph, result.closure_steps));
     result
   ;;
@@ -924,7 +931,7 @@ struct
       begin
         logger `trace "Closure complete.";
         Cba_graph_logger.log
-          (Cba_graph_logger.Cba_log_closed_graph analysis.cba_graph);
+          (Cba_graph_logger_utils.Cba_log_closed_graph analysis.cba_graph);
         analysis
       end
     else

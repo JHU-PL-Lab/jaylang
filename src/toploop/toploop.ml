@@ -1,6 +1,5 @@
 open Batteries;;
 
-open Analysis;;
 open Ast;;
 open Ast_pretty;;
 open Ast_wellformedness;;
@@ -11,7 +10,9 @@ open Toploop_options;;
 let logger = Logger_utils.make_logger "Toploop";;
 
 type toploop_configuration =
-  { topconf_analysis : (module Analysis_sig) option
+  { topconf_context_stack : (module Analysis_context_stack.Context_stack) option
+  ; topconf_log_prefix : string
+  ; topconf_cba_log_level : Cba_graph_logger_utils.cba_graph_logger_level option
   }
 ;;
 
@@ -42,13 +43,25 @@ let toploop_operate conf e =
   begin
     try
       check_wellformed_expr e;
-      let analysis_module_opt = conf.topconf_analysis in
+      let context_stack_opt = conf.topconf_context_stack in
       let toploop_action evaluation_step =
-        match analysis_module_opt with
+        match context_stack_opt with
         | None ->
           evaluation_step ()
-        | Some analysis_module ->
-          let module A = (val analysis_module) in
+        | Some context_stack ->
+          let module Context_stack = (val context_stack) in
+          let module Logger_basis =
+            struct
+              let prefix = conf.topconf_log_prefix
+            end
+          in
+          (* Define the analysis module. *)
+          let module A = Analysis.Make(Context_stack)(Logger_basis) in
+          begin
+            match conf.topconf_cba_log_level with
+            | Some level -> A.Logger.set_level level
+            | None -> ();
+          end;
           (* Create the initial analysis. *)
           let a1 = A.create_initial_analysis e in
           (* Close over the analysis. *)
@@ -142,9 +155,9 @@ let command_line_parsing () =
   (* Add logging options *)
   BatOptParse.OptParser.add parser ~long_name:"log" logging_option;
   
-  (* Add ability to select the analysis. *)
-  BatOptParse.OptParser.add parser ~long_name:"select-analysis" ~short_name:'a'
-    select_analysis_option;
+  (* Add ability to select the context stack. *)
+  BatOptParse.OptParser.add parser ~long_name:"select-context-stack"
+    ~short_name:'S' select_context_stack_option;
     
   (* Add CBA graph logging option. *)
   BatOptParse.OptParser.add parser ~long_name:"cba-logging" cba_logging_option;
@@ -153,15 +166,16 @@ let command_line_parsing () =
   let spare_args = BatOptParse.OptParser.parse_argv parser in
   match spare_args with
   | [] ->
-    { topconf_analysis =
-      Option.get @@ select_analysis_option.BatOptParse.Opt.option_get ()
+    { topconf_context_stack =
+      Option.get @@ select_context_stack_option.BatOptParse.Opt.option_get ()
+    ; topconf_log_prefix = "_toploop"
+    ; topconf_cba_log_level = cba_logging_option.BatOptParse.Opt.option_get ()
     }
   | _ -> failwith "Unexpected command-line arguments."
 ;;
 
 let () =
   let toploop_configuration = command_line_parsing () in
-  Cba_graph_logger.set_name_prefix "_toploop";
 
   print_string "Toy Toploop\n";
   print_string "-----------\n";

@@ -4,8 +4,9 @@
 val logging_option : unit BatOptParse.Opt.t
 
 (** This logging option selects a particular CBA analysis to perform. *)
-val select_analysis_option :
-  (module Analysis.Analysis_sig) option BatOptParse.Opt.t
+val select_context_stack_option :
+  (module Analysis_context_stack.Context_stack) option BatOptParse.Opt.t
 
 (** This logging option configures how CBA DOT graphs are logged. *)
-val cba_logging_option : Cba_graph_logger.level BatOptParse.Opt.t
+val cba_logging_option :
+  Cba_graph_logger_utils.cba_graph_logger_level BatOptParse.Opt.t
