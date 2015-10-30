@@ -195,7 +195,17 @@ struct
     | None -> analysis
     | Some data ->
       log_analysis level analysis;
-      { analysis with logging_data = Some (inc_fn data) }
+      lazy_logger `trace
+        (fun () ->
+          let name = Pds_reachability_logger_name(
+                        data.analysis_logging_prefix,
+                        data.major_log_index,
+                        data.minor_log_index)
+          in
+          Printf.sprintf "Logging graph %s" @@ Logger.string_of_name name
+        );
+      let data' = inc_fn data in
+      { analysis with logging_data = Some data' }
   ;;
 
   let log_major =

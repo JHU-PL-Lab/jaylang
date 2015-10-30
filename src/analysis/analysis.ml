@@ -324,6 +324,22 @@ struct
     let pp_untargeted_dynamic_pop_action =
       pp_pds_untargeted_dynamic_pop_action;;
     let perform_targeted_dynamic_pop element action =
+      Logger_utils.lazy_bracket_log (lazy_logger `trace)
+        (fun () ->
+          Printf.sprintf "perform_targeted_dynamic_pop (%s) (%s)"
+            (pp_pds_continuation element)
+            (pp_pds_targeted_dynamic_pop_action action))
+        (fun results ->
+          String_utils.concat_sep_delim "[" "]" ", "
+            (
+              results
+              |> Enum.clone
+              |> Enum.map (String_utils.pretty_list @@
+                  pp_pds_stack_action pp_pds_continuation
+                    pp_pds_targeted_dynamic_pop_action)
+            )
+        )
+      @@ fun () ->
       Nondeterminism_monad.enum @@
       let open Nondeterminism_monad in
       match action with
@@ -593,7 +609,7 @@ struct
                   let%orzero (Unannotated_clause(Abs_clause(x,_))) = acl1 in
                   (* x'' = b *)
                   return ( Stateless_nonmatching_clause_skip_1_of_2 x
-                         , Pds_state(acl0,ctx)
+                         , Pds_state(acl0,ctx)  (* FIXME: is this node right? *)
                          )
                 end
               ;

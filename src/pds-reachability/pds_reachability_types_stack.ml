@@ -22,6 +22,17 @@ type ( 'stack_element
   [@@deriving ord]
 ;;
 
+(** Pretty-prints a stack action. *)
+let pp_pds_stack_action pp_stack_element pp_targeted_dynamic_pop_action action =
+  match action with
+  | Push element -> Printf.sprintf "Push(%s)" (pp_stack_element element)
+  | Pop element -> Printf.sprintf "Pop(%s)" (pp_stack_element element)
+  | Nop -> "Nop"
+  | Pop_dynamic_targeted action' ->
+    Printf.sprintf "Pop_dynamic_targeted(%s)"
+      (pp_targeted_dynamic_pop_action action')
+;;
+
 (** The type of a module which resolves dynamic pops. *)
 module type Dynamic_pop_handler =
 sig
