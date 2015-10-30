@@ -106,6 +106,8 @@ Library "pds-reachability"
   Modules:
     Pds_reachability_analysis,
     Pds_reachability_basis,
+    Pds_reachability_logger_utils,
+    Pds_reachability_logger_utils_types,
     Pds_reachability_structure,
     Pds_reachability_types,
     Pds_reachability_types_stack,

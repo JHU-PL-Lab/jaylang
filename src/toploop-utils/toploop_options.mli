@@ -10,3 +10,8 @@ val select_context_stack_option :
 (** This logging option configures how CBA DOT graphs are logged. *)
 val cba_logging_option :
   Cba_graph_logger.cba_graph_logger_level BatOptParse.Opt.t
+
+(** This logging option configures how PDS reachability DOT graphs are
+    logged. *)
+val pdr_logging_option :
+  Pds_reachability_logger_utils.pds_reachability_logger_level BatOptParse.Opt.t

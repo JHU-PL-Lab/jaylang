@@ -120,3 +120,39 @@ let cba_logging_option =
     ;       
   }
 ;;
+
+let pdr_logging_option =
+  let logging_level = ref None in
+  {
+    option_set = (fun option_name args ->
+      match args with
+      | [level_name] ->
+        let level =
+          match level_name with
+          | "each-edge" ->
+            Pds_reachability_logger_utils.Pds_reachability_log_each_edge
+          | "edge-call" ->
+            Pds_reachability_logger_utils.Pds_reachability_log_each_call
+          | "nothing" ->
+            Pds_reachability_logger_utils.Pds_reachability_log_nothing
+          | _ -> raise @@ Option_error(option_name,
+                    Printf.sprintf "Invalid PDR logging level: %s" level_name)
+        in
+        logging_level := Some level
+      | _ ->
+        raise @@ Option_error (option_name,
+          Printf.sprintf "Invalid argument count: %d" (List.length args))
+      )
+    ;
+    option_set_value = (fun level -> logging_level := Some level)
+    ;
+    option_get = (fun () -> !logging_level)
+    ;
+    option_metavars = ["PDR_LEVEL"]
+    ;
+    option_defhelp =
+      Some("Selects a PDR logging level (nothing,each-call,each-edge).")
+    ;       
+  }
+;;
+  

@@ -22,7 +22,10 @@ module Make(Base : Dot_file_logger_base) = struct
       Buffer.add_string buffer "strict digraph ";
       Buffer.add_string buffer name;
       Buffer.add_string buffer " {\n";
-      Buffer.add_string buffer "  rankdir=\"LR\"\n";
+      Buffer.add_string buffer "  rankdir=\"LR\";\n";
+      Buffer.add_string buffer "  label=\"";
+      Buffer.add_string buffer name;
+      Buffer.add_string buffer "\";\n";
       nodes
       |> Enum.iter
         (fun node ->
@@ -58,7 +61,9 @@ module Make(Base : Dot_file_logger_base) = struct
           begin
             match edge.dot_edge_text with
             | Some text ->
-              Buffer.add_string buffer "[\"";
+              Buffer.add_string buffer "[label=\"";
+              Buffer.add_string buffer text;
+              Buffer.add_string buffer "\",key=\"";
               Buffer.add_string buffer text;
               Buffer.add_string buffer "\"]";
             | None -> ()

@@ -24,7 +24,7 @@ sig
 
   (** The type of untargeted dynamic pop actions in this structure. *)
   type untargeted_dynamic_pop_action
-
+  
   (** The type of the PDS reachability data structure. *)
   type structure
 
@@ -75,7 +75,14 @@ sig
     : node -> stack_element -> structure -> node Enum.t
   val find_pop_edges_by_target_and_element
     : node -> stack_element -> structure -> node Enum.t
-
+    
+  val enumerate_nodes : structure -> node Enum.t
+  val enumerate_edges : structure -> edge Enum.t
+  
+  (** {6 Submodules.} *)
+  
+  module Node_ord : Interfaces.OrderedType with type t = node
+  module Node_set : Set.S with type elt = node
 end;;
 
 module Make
@@ -450,4 +457,55 @@ struct
       (target,stack_element) structure.pop_edges_by_target_and_element
   ;;
 
+  let enumerate_nodes structure =
+    Node_set.enum @@ Node_set.of_enum @@ Enum.concat @@ List.enum
+      [ Node_to_node_and_stack_element_multimap.keys
+          structure.push_edges_by_source
+      ; Node_to_node_and_stack_element_multimap.keys
+          structure.pop_edges_by_source
+      ; Node_to_node_multimap.keys
+          structure.nop_edges_by_source
+      ; Node_to_node_and_targeted_dynamic_pop_action_multimap.keys
+          structure.targeted_dynamic_pop_edges_by_source
+      ; Node_to_untargeted_dynamic_pop_action_multimap.keys
+          structure.untargeted_dynamic_pop_actions_by_source
+      ]
+  ;;
+
+  let enumerate_edges structure =
+    Enum.concat @@ List.enum
+      [ Node_to_node_and_stack_element_multimap.enum
+          structure.push_edges_by_source
+        |> Enum.map
+            (fun (source,(target,element)) ->
+              { source = source
+              ; target = target
+              ; edge_action = Push element
+              })
+      ; Node_to_node_and_stack_element_multimap.enum
+          structure.pop_edges_by_source
+        |> Enum.map
+            (fun (source,(target,element)) ->
+              { source = source
+              ; target = target
+              ; edge_action = Pop element
+              })
+      ; Node_to_node_multimap.enum
+          structure.nop_edges_by_source
+        |> Enum.map
+            (fun (source,target) ->
+              { source = source
+              ; target = target
+              ; edge_action = Nop
+              })
+      ; Node_to_node_and_targeted_dynamic_pop_action_multimap.enum
+          structure.targeted_dynamic_pop_edges_by_source
+        |> Enum.map
+            (fun (source,(target,dynamic_pop)) ->
+              { source = source
+              ; target = target
+              ; edge_action = Pop_dynamic_targeted dynamic_pop
+              })
+      ]
+  ;;
 end;;

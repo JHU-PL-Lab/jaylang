@@ -58,6 +58,16 @@ sig
       of this question in the future. *)
   val values_of_variable :
     annotated_clause -> var -> cba_analysis -> Abs_value_set.t * cba_analysis
+    
+  (** Sets the logging level for the PDS reachability analysis used by this
+      module. *)
+  val set_pdr_logger_level :
+    Pds_reachability_logger_utils.pds_reachability_logger_level -> unit
+    
+  (** Gets the logging level for the PDS reachability analysis used by this
+      module. *)
+  val get_pdr_logger_level :
+    unit -> Pds_reachability_logger_utils.pds_reachability_logger_level
 end;;
 
 (**
@@ -491,10 +501,11 @@ struct
       (pp_annotated_clause_set analysis.cba_active_non_immediate_nodes)
   ;;
 
-  let empty_analysis =
+  let empty_analysis logging_prefix_opt =
       { cba_graph = Cba_graph.empty
       ; cba_graph_fully_closed = true
-      ; pds_reachability = Cba_pds_reachability.empty
+      ; pds_reachability =
+        Cba_pds_reachability.empty ~logging_prefix:logging_prefix_opt ()
       ; cba_active_nodes = Annotated_clause_set.singleton Start_clause
       ; cba_active_non_immediate_nodes = Annotated_clause_set.empty
       ; cba_logging_data = None
@@ -764,9 +775,9 @@ struct
     let edges = List.enum @@ mk_edges acls in
     let empty_analysis' =
       match logging_prefix with
-      | None -> empty_analysis
+      | None -> empty_analysis None
       | Some prefix ->
-        { empty_analysis with
+        { (empty_analysis @@ Some prefix) with
           cba_logging_data = Some
             { cba_closure_steps = 0
             ; cba_logging_prefix = prefix
@@ -974,5 +985,13 @@ struct
       begin
         perform_full_closure @@ perform_closure_steps analysis
       end
+  ;;
+
+  let set_pdr_logger_level level =
+    Cba_pds_reachability.set_logging_level level
+  ;;
+
+  let get_pdr_logger_level () =
+    Cba_pds_reachability.get_logging_level ()
   ;;
 end;;

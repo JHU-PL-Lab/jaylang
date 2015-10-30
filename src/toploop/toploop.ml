@@ -13,6 +13,8 @@ type toploop_configuration =
   { topconf_context_stack : (module Analysis_context_stack.Context_stack) option
   ; topconf_log_prefix : string
   ; topconf_cba_log_level : Cba_graph_logger.cba_graph_logger_level option
+  ; topconf_pdr_log_level :
+      Pds_reachability_logger_utils.pds_reachability_logger_level option
   }
 ;;
 
@@ -52,9 +54,15 @@ let toploop_operate conf e =
           let module Context_stack = (val context_stack) in
           (* Define the analysis module. *)
           let module A = Analysis.Make(Context_stack) in
+          (* Set logging configuration. *)
           begin
             match conf.topconf_cba_log_level with
             | Some level -> Cba_graph_logger.set_level level
+            | None -> ();
+          end;
+          begin
+            match conf.topconf_pdr_log_level with
+            | Some level -> A.set_pdr_logger_level level
             | None -> ();
           end;
           (* Create the initial analysis. *)
@@ -159,6 +167,9 @@ let command_line_parsing () =
   (* Add CBA graph logging option. *)
   BatOptParse.OptParser.add parser ~long_name:"cba-logging" cba_logging_option;
   
+  (* Add PDS reachability graph logging option. *)
+  BatOptParse.OptParser.add parser ~long_name:"pdr-logging" pdr_logging_option;
+  
   (* Handle arguments. *)
   let spare_args = BatOptParse.OptParser.parse_argv parser in
   match spare_args with
@@ -167,6 +178,7 @@ let command_line_parsing () =
       Option.get @@ select_context_stack_option.BatOptParse.Opt.option_get ()
     ; topconf_log_prefix = "_toploop"
     ; topconf_cba_log_level = cba_logging_option.BatOptParse.Opt.option_get ()
+    ; topconf_pdr_log_level = pdr_logging_option.BatOptParse.Opt.option_get ()
     }
   | _ -> failwith "Unexpected command-line arguments."
 ;;
