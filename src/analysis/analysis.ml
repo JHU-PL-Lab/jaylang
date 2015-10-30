@@ -824,16 +824,16 @@ struct
           Enum.map pp_abstract_value @@ Enum.clone values)
     @@ fun () ->
     let start_state = Pds_state(acl,C.empty) in
-    let start_element = Lookup_var(x,patsp,patsn) in
+    let start_actions = [Push (Lookup_var(x,patsp,patsn))] in
     let reachability = analysis.pds_reachability in
     let reachability' =
       reachability
-      |> Cba_pds_reachability.add_start_state start_state start_element
+      |> Cba_pds_reachability.add_start_state start_state start_actions
     in
     let analysis' = { analysis with pds_reachability = reachability' } in
     let values =
       reachability'
-      |> Cba_pds_reachability.get_reachable_states start_state start_element
+      |> Cba_pds_reachability.get_reachable_states start_state start_actions
       |> Enum.filter_map
         (fun (Pds_state(acl,_)) ->
           match acl with

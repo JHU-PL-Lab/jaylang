@@ -44,9 +44,10 @@ struct
       match node with
       | Types.State_node state -> Basis.pp_state state
       | Types.Intermediate_node n -> "#" ^ string_of_int n
-      | Types.Initial_node (state,element) ->
+      | Types.Initial_node (state,actions) ->
         Printf.sprintf "%s +(%s)"
-          (Basis.pp_state state) (Basis.pp_stack_element element)
+          (Basis.pp_state state)
+          (String_utils.pretty_list Types.pp_stack_action actions)
     ;;
 
     type data = Structure.structure;;

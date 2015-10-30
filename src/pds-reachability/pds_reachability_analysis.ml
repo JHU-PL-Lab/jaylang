@@ -61,7 +61,7 @@ sig
   *)
   val add_start_state
     : state
-    -> stack_element
+    -> stack_action list
     -> analysis
     -> analysis
 
@@ -70,7 +70,7 @@ sig
       previously. *)
   val get_reachable_states
     : state
-    -> stack_element
+    -> stack_action list
     -> analysis
     -> state Enum.t
 
@@ -612,22 +612,21 @@ struct
     |> log_major Pds_reachability_log_each_call
   ;;
 
-  let add_start_state state stack_element analysis =
+  let add_start_state state stack_actions analysis =
     Logger_utils.lazy_bracket_log (lazy_logger `trace)
       (fun _ -> Printf.sprintf "add_start_state(%s,...)" (Basis.pp_state state))
       (fun _ -> "Finished") @@
     fun () ->
     analysis
-    |> add_real_edge_and_close
-        { source = Initial_node(state, stack_element)
-        ; target = State_node(state)
-        ; edge_action = Push stack_element
-        }
+    |> add_edges_between_nodes
+        (Initial_node(state, stack_actions))
+        (State_node(state))
+        stack_actions
     |> log_major Pds_reachability_log_each_call
   ;;
 
-  let get_reachable_states state stack_element analysis =
-    let node = Initial_node(state, stack_element) in
+  let get_reachable_states state stack_actions analysis =
+    let node = Initial_node(state, stack_actions) in
     if Node_set.mem node analysis.known_nodes
     then
       (*

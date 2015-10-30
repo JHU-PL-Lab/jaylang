@@ -32,7 +32,7 @@ sig
   type node =
     | State_node of state
     | Intermediate_node of int
-    | Initial_node of state * stack_element
+    | Initial_node of state * stack_action list
 
   (** A comparison for nodes. *)
   val compare_node : node -> node -> int
@@ -72,11 +72,15 @@ struct
 
   let compare_state = Basis.State_ord.compare;;
   let compare_stack_element = Basis.Stack_element_ord.compare;;
+  let compare_targeted_dynamic_pop_action =
+    Dph.compare_targeted_dynamic_pop_action;;
 
   type stack_action =
     ( stack_element
     , targeted_dynamic_pop_action
-    ) pds_stack_action;;
+    ) pds_stack_action
+    [@@deriving ord]
+  ;;
 
   let pp_stack_action action =
     match action with
@@ -90,7 +94,7 @@ struct
   type node =
     | State_node of state
     | Intermediate_node of int
-    | Initial_node of state * stack_element
+    | Initial_node of state * stack_action list
     [@@deriving ord]
   ;;
 
@@ -98,10 +102,11 @@ struct
     match node with
     | State_node state -> Basis.pp_state state
     | Intermediate_node n -> "#" ^ string_of_int n
-    | Initial_node(state,stack_element) ->
+    | Initial_node(state,stack_actions) ->
       "Initial_node" ^
-      String_utils.pretty_tuple Basis.pp_state Basis.pp_stack_element
-        (state,stack_element)
+      String_utils.pretty_tuple Basis.pp_state
+        (String_utils.pretty_list pp_stack_action)
+        (state,stack_actions)
   ;;
 
   type edge =
