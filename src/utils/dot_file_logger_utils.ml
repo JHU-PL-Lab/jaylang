@@ -19,7 +19,7 @@ module Make(Base : Dot_file_logger_base) = struct
       let (nodes,edges) = graph_of data in
       let name = string_of_name name in
       let buffer = Buffer.create 1024 in
-      Buffer.add_string buffer "strict digraph ";
+      Buffer.add_string buffer "digraph ";
       Buffer.add_string buffer name;
       Buffer.add_string buffer " {\n";
       Buffer.add_string buffer "  rankdir=\"LR\";\n";
