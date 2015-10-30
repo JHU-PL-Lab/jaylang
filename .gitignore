@@ -9,6 +9,9 @@
 /*.byte
 /setup.*
 
+# Execution temp files
+/*.log
+
 # Generated DOT files
 /*.dot
 /*.pdf
