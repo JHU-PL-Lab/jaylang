@@ -1,9 +1,19 @@
 #!/bin/bash -e
 
-pdfs="$(
+filenames="[ $(
     ls -1 *_PDR_*.pdf |\
-    sed -r 's/(.*)_PDR_([0-9]+)_([0-9]+).pdf/\2_\3___@@\1_PDR_\2_\3.pdf/g' |\
-    sort -n |\
-    sed -r 's/^.*___@@//g'
+    sed -r 's/^(.*)$/"\1"/g' | tr '\n' ','
+    ) ]"
+pdf_ordering="$(
+    python -c '
+names='"$filenames"'
+def nums_of_filename(f):
+  f = f[:-4]
+  parts = f.rsplit("_",2)
+  return (int(parts[-2]),int(parts[-1]))
+names.sort(key=nums_of_filename)
+for name in names:
+  print name
+    '
 )"
-pdftk $pdfs cat output PDRs.pdf
+pdftk $pdf_ordering cat output PDRs.pdf
