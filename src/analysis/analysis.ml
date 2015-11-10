@@ -131,6 +131,7 @@ struct
   ;;
   
   type pds_continuation =
+    | Bottom_of_stack
     | Lookup_var of var * Pattern_set.t * Pattern_set.t
     | Project of ident * Pattern_set.t * Pattern_set.t
     | Jump of annotated_clause * C.t
@@ -148,6 +149,8 @@ struct
   end;;
 
   let pp_pds_continuation = function
+    | Bottom_of_stack ->
+      "Bottom_of_stack"
     | Lookup_var(x,patsp,patsn) ->
       Printf.sprintf "%s(%s/%s)"
         (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
@@ -518,14 +521,23 @@ struct
   ;;
 
   let empty_analysis logging_prefix_opt =
-      { cba_graph = Cba_graph.empty
-      ; cba_graph_fully_closed = true
-      ; pds_reachability =
-        Cba_pds_reachability.empty ~logging_prefix:logging_prefix_opt ()
-      ; cba_active_nodes = Annotated_clause_set.singleton Start_clause
-      ; cba_active_non_immediate_nodes = Annotated_clause_set.empty
-      ; cba_logging_data = None
-      }
+    (* The initial reachability analysis should include an edge function which
+       always allows discarding the bottom-of-stack marker. *)
+    let empty_reachability =
+      Cba_pds_reachability.empty ~logging_prefix:logging_prefix_opt ()
+    in
+    let initial_reachability =
+      empty_reachability
+      |> Cba_pds_reachability.add_edge_function
+        (fun state -> Enum.singleton ([Pop Bottom_of_stack], state))
+    in
+    { cba_graph = Cba_graph.empty
+    ; cba_graph_fully_closed = true
+    ; pds_reachability = initial_reachability  
+    ; cba_active_nodes = Annotated_clause_set.singleton Start_clause
+    ; cba_active_non_immediate_nodes = Annotated_clause_set.empty
+    ; cba_logging_data = None
+    }
   ;;
 
   let log_cba_graph level analysis name_fn =
@@ -824,7 +836,9 @@ struct
           Enum.map pp_abstract_value @@ Enum.clone values)
     @@ fun () ->
     let start_state = Pds_state(acl,C.empty) in
-    let start_actions = [Push (Lookup_var(x,patsp,patsn))] in
+    let start_actions =
+      [Push Bottom_of_stack; Push (Lookup_var(x,patsp,patsn))]
+    in
     let reachability = analysis.pds_reachability in
     let reachability' =
       reachability
