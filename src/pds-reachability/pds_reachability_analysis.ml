@@ -143,7 +143,6 @@ struct
     ; edge_functions : edge_function list
     ; untargeted_dynamic_pop_action_functions :
         untargeted_dynamic_pop_action_function list
-    ; next_intermediate_node : int
     ; logging_data : analysis_logging_data option
     };;
 
@@ -169,8 +168,6 @@ struct
       ; "length untargeted_dynamic_pop_action_functions = " ^
           string_of_int
             (List.length analysis.untargeted_dynamic_pop_action_functions)
-      ; "next_intermediate_node = " ^
-          string_of_int analysis.next_intermediate_node
       ; "logging_data = " ^
           (match analysis.logging_data with
           | None -> "None"
@@ -228,7 +225,6 @@ struct
     ; reachability = Structure.empty
     ; edge_functions = []
     ; untargeted_dynamic_pop_action_functions = []
-    ; next_intermediate_node = 0
     ; logging_data =
       match logging_prefix with
       | None -> None
@@ -414,7 +410,7 @@ struct
        from the provided list of stack actions.  It consumes intermediate node
        numbers as necessary to generate the edges, so it takes and returns this
        value. *)
-    let rec mk_real_edges actions next_intermediate next_source =
+    let rec mk_real_edges actions next_source =
       match actions with
       | [] ->
         let edge =
@@ -423,7 +419,7 @@ struct
           ; edge_action = Nop
           }
         in
-        ([edge], next_intermediate)
+        [edge]
       | [action] ->
         let edge =
           { source = next_source
@@ -431,39 +427,29 @@ struct
           ; edge_action = action
           }
         in
-        ([edge], next_intermediate)
+        [edge]
       | action::actions' ->
-        let target = Intermediate_node(next_intermediate) in
+        let target = Intermediate_node(target_node, actions') in
         let edge =
           { source = next_source
           ; target = target
           ; edge_action = action
           }
         in
-        let (real_edges, next_intermediate') =
-          mk_real_edges actions' (next_intermediate+1) target
-        in
-        (edge :: real_edges, next_intermediate')
+        let real_edges = mk_real_edges actions' target in
+        edge :: real_edges
     in
     (* Let's figure out which new single-action edges we will be adding. *)
-    let (real_edges, next_intermediate') =
-      mk_real_edges
-        stack_actions
-        analysis.next_intermediate_node
-        source_node
-    in
+    let real_edges = mk_real_edges stack_actions source_node in
     let analysis' =
-      { analysis with next_intermediate_node = next_intermediate' }
-    in
-    let analysis'' =
-      add_node source_node @@ add_node target_node analysis'
+      add_node source_node @@ add_node target_node analysis
     in
     (* Now, let's add them. *)
     real_edges
       |> List.fold_left
-        (fun analysis''' real_edge ->
-          add_real_edge_and_close real_edge analysis''')
-        analysis''
+        (fun analysis'' real_edge ->
+          add_real_edge_and_close real_edge analysis'')
+        analysis'
 
   (**
      Adds an edge to this analysis.  Here, "edge" refers to the interface's
@@ -516,18 +502,14 @@ struct
          "add_node (" ^ pp_node node ^ ")")
       (fun _ -> "Finished") @@
     fun () ->
-    match node with
-    | Intermediate_node _ -> analysis
-    | Initial_node _ ->
-      if Node_set.mem node analysis.known_nodes then analysis else
+    if Node_set.mem node analysis.known_nodes then analysis else
+      let analysis' =
         { analysis with
           known_nodes = Node_set.add node analysis.known_nodes }
-    | State_node state ->
-      if Node_set.mem node analysis.known_nodes then analysis else
-        let analysis' =
-          { analysis with
-            known_nodes = Node_set.add node analysis.known_nodes }
-        in
+      in
+      match node with
+      | Intermediate_node _ -> analysis'
+      | State_node state ->        
         let analysis'' =
           analysis.edge_functions
           |> List.enum
@@ -567,8 +549,7 @@ struct
       (fun node ->
         match node with
         | State_node state -> Some state
-        | Intermediate_node _ -> None
-        | Initial_node _ -> None)
+        | Intermediate_node _ -> None)
     |> Enum.map
       (fun source_state ->
          edge_function source_state |> Enum.map (fun x -> (source_state, x)))
@@ -599,8 +580,7 @@ struct
       (fun node ->
         match node with
         | State_node state -> Some state
-        | Intermediate_node _ -> None
-        | Initial_node _ -> None)
+        | Intermediate_node _ -> None)
     |> Enum.map
       (fun source_state ->
         fn source_state |> Enum.map (fun x -> (source_state, x)))
@@ -619,14 +599,14 @@ struct
     fun () ->
     analysis
     |> add_edges_between_nodes
-        (Initial_node(state, stack_actions))
+        (Intermediate_node(State_node(state), stack_actions))
         (State_node(state))
         stack_actions
     |> log_major Pds_reachability_log_each_call
   ;;
 
   let get_reachable_states state stack_actions analysis =
-    let node = Initial_node(state, stack_actions) in
+    let node = Intermediate_node(State_node(state), stack_actions) in
     if Node_set.mem node analysis.known_nodes
     then
       (*
@@ -640,7 +620,6 @@ struct
           match node with
           | State_node state -> Some state
           | Intermediate_node _ -> None
-          | Initial_node _ -> None
         )
     else
       raise @@ Reachability_request_for_non_start_state state  

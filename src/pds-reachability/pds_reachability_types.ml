@@ -31,8 +31,7 @@ sig
   (** The type of node used for reachability. *)
   type node =
     | State_node of state
-    | Intermediate_node of int
-    | Initial_node of state * stack_action list
+    | Intermediate_node of node * stack_action list
 
   (** A comparison for nodes. *)
   val compare_node : node -> node -> int
@@ -93,20 +92,18 @@ struct
 
   type node =
     | State_node of state
-    | Intermediate_node of int
-    | Initial_node of state * stack_action list
+    | Intermediate_node of node * stack_action list
     [@@deriving ord]
   ;;
 
-  let pp_node node =
+  let rec pp_node node =
     match node with
     | State_node state -> Basis.pp_state state
-    | Intermediate_node n -> "#" ^ string_of_int n
-    | Initial_node(state,stack_actions) ->
-      "Initial_node" ^
-      String_utils.pretty_tuple Basis.pp_state
+    | Intermediate_node (node,stack_actions) ->
+      "InterNode" ^
+      String_utils.pretty_tuple pp_node
         (String_utils.pretty_list pp_stack_action)
-        (state,stack_actions)
+        (node,stack_actions)
   ;;
 
   type edge =

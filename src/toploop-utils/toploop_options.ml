@@ -131,7 +131,7 @@ let pdr_logging_option =
           match level_name with
           | "each-edge" ->
             Pds_reachability_logger_utils.Pds_reachability_log_each_edge
-          | "edge-call" ->
+          | "each-call" ->
             Pds_reachability_logger_utils.Pds_reachability_log_each_call
           | "nothing" ->
             Pds_reachability_logger_utils.Pds_reachability_log_nothing

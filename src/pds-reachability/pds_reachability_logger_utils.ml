@@ -40,13 +40,12 @@ struct
     ;;
 
     type dot_node_id = Types.node;;
-    let string_of_dot_node_id node =
+    let rec string_of_dot_node_id node =
       match node with
       | Types.State_node state -> Basis.pp_state state
-      | Types.Intermediate_node n -> "#" ^ string_of_int n
-      | Types.Initial_node (state,actions) ->
-        Printf.sprintf "%s +(%s)"
-          (Basis.pp_state state)
+      | Types.Intermediate_node (node',actions) ->
+        Printf.sprintf "InterNode(%s,%s)"
+          (string_of_dot_node_id node')
           (String_utils.pretty_list Types.pp_stack_action actions)
     ;;
 
@@ -71,9 +70,11 @@ struct
           (fun node ->
             { dot_node_id = node
             ; dot_node_color =
-              (match node with
-              | Types.State_node _ | Types.Intermediate_node _ -> None
-              | Types.Initial_node _ -> Some "yellow")
+              begin
+                match node with
+                | Types.State_node _ -> Some "#aaccff"
+                | Types.Intermediate_node _ -> Some "#ccaaff"
+              end
             ; dot_node_text =
               Some (string_of_dot_node_id node)
             }
