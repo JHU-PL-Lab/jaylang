@@ -67,6 +67,8 @@ and pp_abstract_expr (Abs_expr(cls)) =
   String_utils.concat_sep "; " @@ Enum.map pp_abstract_clause @@ List.enum cls
 ;;
 
+let ppa_abstract_clause (Abs_clause(x,_)) = pretty_var x;;
+
 let is_abstract_clause_immediate (Abs_clause(_,b)) =
   match b with
   | Abs_var_body _ | Abs_value_body _ | Abs_projection_body _ | Abs_deref_body _
@@ -111,6 +113,17 @@ let pp_annotated_clause acl =
       (pretty_var x) (pretty_var x') (pp_abstract_clause cl)
   | Exit_clause(x,x',cl) -> Printf.sprintf "%s=%s@%s+"
       (pretty_var x) (pretty_var x') (pp_abstract_clause cl)
+  | Start_clause -> "Start"
+  | End_clause -> "End"
+;;
+
+let ppa_annotated_clause acl =
+  match acl with
+  | Unannotated_clause(cl) -> ppa_abstract_clause cl
+  | Enter_clause(x,x',cl) -> Printf.sprintf "%s=%s@%s+"
+      (pretty_var x) (pretty_var x') (ppa_abstract_clause cl)
+  | Exit_clause(x,x',cl) -> Printf.sprintf "%s=%s@%s+"
+      (pretty_var x) (pretty_var x') (ppa_abstract_clause cl)
   | Start_clause -> "Start"
   | End_clause -> "End"
 ;;

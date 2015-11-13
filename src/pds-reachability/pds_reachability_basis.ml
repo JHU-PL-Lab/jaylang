@@ -18,5 +18,8 @@ sig
   module Stack_element_ord : Interfaces.OrderedType with type t = stack_element
 
   val pp_state : state -> string
-  val pp_stack_element : stack_element -> string   
+  val pp_stack_element : stack_element -> string
+  
+  val ppa_state : state -> string
+  val ppa_stack_element : stack_element -> string
 end;;

@@ -19,4 +19,8 @@ struct
     | S(Some(c)) -> pp_abstract_clause c ^ "|?"
     | S(None) -> "?"
   ;;
+  let pretty_abbrv = function
+    | S(Some(c)) -> ppa_abstract_clause c
+    | S(None) -> "?"
+  ;;
 end;;

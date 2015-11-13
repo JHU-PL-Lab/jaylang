@@ -26,7 +26,10 @@ sig
     ) pds_stack_action
 
   (** A pretty-printer for stack actions. *)  
-  val pp_stack_action : stack_action -> string  
+  val pp_stack_action : stack_action -> string
+  
+  (** An abbreviated pretty-printer for stack actions. *)
+  val ppa_stack_action : stack_action -> string
 
   (** The type of node used for reachability. *)
   type node =
@@ -39,6 +42,9 @@ sig
   (** Pretty-printing for nodes. *)
   val pp_node : node -> string
 
+  (** Abbreviated pretty-printing for nodes. *)
+  val ppa_node : node -> string
+
   (** The type of edge used in reachability. *)
   type edge =
     { source : node
@@ -48,6 +54,9 @@ sig
 
   (** Pretty-printing for edges. *)
   val pp_edge : edge -> string
+
+  (** Abstract pretty-printing for edges. *)
+  val ppa_edge : edge -> string
 end;;
 
 module Make
@@ -90,6 +99,15 @@ struct
       "pop_dynamic_targeted " ^ Dph.pp_targeted_dynamic_pop_action action
   ;;
 
+  let ppa_stack_action action =
+    match action with
+    | Push x -> "+" ^ Basis.ppa_stack_element x
+    | Pop x -> "-" ^ Basis.ppa_stack_element x
+    | Nop -> "nop"
+    | Pop_dynamic_targeted action ->
+      "pdyn " ^ Dph.ppa_targeted_dynamic_pop_action action
+  ;;
+
   type node =
     | State_node of state
     | Intermediate_node of node * stack_action list
@@ -100,9 +118,19 @@ struct
     match node with
     | State_node state -> Basis.pp_state state
     | Intermediate_node (node,stack_actions) ->
-      "InterNode" ^
+      "Intermediate_node" ^
       String_utils.pretty_tuple pp_node
         (String_utils.pretty_list pp_stack_action)
+        (node,stack_actions)
+  ;;
+
+  let rec ppa_node node =
+    match node with
+    | State_node state -> Basis.ppa_state state
+    | Intermediate_node (node,stack_actions) ->
+      "IN" ^
+      String_utils.pretty_tuple ppa_node
+        (String_utils.pretty_list ppa_stack_action)
         (node,stack_actions)
   ;;
 
@@ -115,5 +143,10 @@ struct
   let pp_edge edge =
     pp_node edge.source ^ " --[" ^ pp_stack_action edge.edge_action ^ "]--> " ^
     pp_node edge.target
+  ;;
+
+  let ppa_edge edge =
+    ppa_node edge.source ^ " -[" ^ ppa_stack_action edge.edge_action ^ "]-> " ^
+    ppa_node edge.target
   ;;
 end;;

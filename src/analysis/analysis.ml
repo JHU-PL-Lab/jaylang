@@ -166,6 +166,28 @@ struct
     | Alias_huh -> "Alias?"
   ;;
 
+  let ppa_pds_continuation = function
+    | Bottom_of_stack -> "Bot"
+    | Lookup_var(x,patsp,patsn) ->
+      if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
+      then pretty_var x
+      else Printf.sprintf "%s(%s/%s)"
+              (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+    | Project(i,patsp,patsn) ->
+      if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
+      then Printf.sprintf ".%s" (pretty_ident i)
+      else Printf.sprintf ".%s(%s/%s)"
+              (pretty_ident i) (pp_pattern_set patsp) (pp_pattern_set patsn)
+    | Jump(acl,ctx) ->
+      Printf.sprintf "Jump(%s,%s)"
+        (ppa_annotated_clause acl) (C.pretty_abbrv ctx)
+    | Deref(patsp,patsn) ->
+      Printf.sprintf "!(%s,%s)" (pp_pattern_set patsp) (pp_pattern_set patsn)
+    | Capture -> "Capture"
+    | Continuation_value v -> pp_abstract_value v
+    | Alias_huh -> "Alias?"
+  ;;
+
   type pds_state =
     Pds_state of annotated_clause * C.t
     [@@deriving ord]
@@ -174,6 +196,11 @@ struct
   let pp_pds_state (Pds_state(acl,ctx)) =
     Printf.sprintf "(%s @ %s)"
       (pp_annotated_clause acl) (C.pretty ctx)
+  ;;
+
+  let ppa_pds_state (Pds_state(acl,ctx)) =
+    Printf.sprintf "(%s @ %s)"
+      (ppa_annotated_clause acl) (C.pretty_abbrv ctx)
   ;;
 
   module Pds_state_ord =
@@ -190,6 +217,8 @@ struct
     module Stack_element_ord = Pds_continuation_ord
     let pp_state = pp_pds_state
     let pp_stack_element = pp_pds_continuation
+    let ppa_state = ppa_pds_state
+    let ppa_stack_element = ppa_pds_continuation
   end
   
   type pds_targeted_dynamic_pop_action =
@@ -279,7 +308,7 @@ struct
       Printf.sprintf "Function_closure_lookup(%s,%s)"
         (pretty_var x'') (pretty_var xf)
     | Conditional_closure_lookup(x,p,b) ->
-      Printf.sprintf "Function_closure_lookup(%s,%s,%b)"
+      Printf.sprintf "Conditional_closure_lookup(%s,%s,%b)"
         (pretty_var x) (pretty_pattern p) b
     | Record_projection_lookup(x,x',l) ->
       Printf.sprintf "Record_projection_lookup(%s,%s,%s)"
@@ -297,6 +326,40 @@ struct
       Printf.sprintf "Function_filter_validation(%s)" (pretty_var x)
   ;;
 
+  let ppa_pds_targeted_dynamic_pop_action action =
+    match action with
+    | Variable_discovery x ->
+      Printf.sprintf "VDisc(%s)" (pretty_var x)
+    | Variable_aliasing(x,x') ->
+      Printf.sprintf "VAlias(%s,%s)" (pretty_var x) (pretty_var x')
+    | Stateless_nonmatching_clause_skip_1_of_2(x) ->
+      Printf.sprintf "SNMCS1(%s)"
+        (pretty_var x)
+    | Stateless_nonmatching_clause_skip_2_of_2(k) ->
+      Printf.sprintf "SNMCS2(%s)"
+        (ppa_pds_continuation k)
+    | Function_closure_lookup(x'',xf) ->
+      Printf.sprintf "FunCL(%s,%s)"
+        (pretty_var x'') (pretty_var xf)
+    | Conditional_closure_lookup(x,p,b) ->
+      Printf.sprintf "CondCL(%s,%s,%b)"
+        (pretty_var x) (pretty_pattern p) b
+    | Record_projection_lookup(x,x',l) ->
+      Printf.sprintf "RProjL(%s,%s,%s)"
+        (pretty_var x) (pretty_var x') (pretty_ident l)
+    | Record_construction_lookup_1_of_2(source_state,target_state,x,r) ->
+      Printf.sprintf "RCL1(%s,%s,%s,%s)"
+        (ppa_pds_state source_state) (ppa_pds_state target_state) (pretty_var x)
+          (pretty_record_value r)
+    | Record_construction_lookup_2_of_2(
+        source_state,target_state,x,r,patsp,patsn) ->
+      Printf.sprintf "RCL2(%s,%s,%s,%s,%s,%s)"
+        (ppa_pds_state source_state) (ppa_pds_state target_state) (pretty_var x)
+          (pretty_record_value r) (pp_pattern_set patsp) (pp_pattern_set patsn)
+    | Function_filter_validation(x) ->
+      Printf.sprintf "FunFilVal(%s)" (pretty_var x)
+  ;;
+
   type pds_untargeted_dynamic_pop_action =
     | Do_jump
       (** The action for performing basic jump operations. *)
@@ -304,6 +367,11 @@ struct
   ;; (* TODO *)
   
   let pp_pds_untargeted_dynamic_pop_action action =
+    match action with
+    | Do_jump -> "Do_jump"
+  ;;
+
+  let ppa_pds_untargeted_dynamic_pop_action action =
     match action with
     | Do_jump -> "Do_jump"
   ;;
@@ -322,10 +390,13 @@ struct
     let compare_targeted_dynamic_pop_action =
       compare_pds_targeted_dynamic_pop_action;;
     let pp_targeted_dynamic_pop_action = pp_pds_targeted_dynamic_pop_action;;
+    let ppa_targeted_dynamic_pop_action = ppa_pds_targeted_dynamic_pop_action;;
     let compare_untargeted_dynamic_pop_action =
       compare_pds_untargeted_dynamic_pop_action;;
     let pp_untargeted_dynamic_pop_action =
       pp_pds_untargeted_dynamic_pop_action;;
+    let ppa_untargeted_dynamic_pop_action =
+      ppa_pds_untargeted_dynamic_pop_action;;
     let perform_targeted_dynamic_pop element action =
       Logger_utils.lazy_bracket_log (lazy_logger `trace)
         (fun () ->

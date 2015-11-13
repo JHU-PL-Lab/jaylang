@@ -30,6 +30,8 @@ struct
   module Stack_element_ord = Test_stack_element_ord
   let pp_state = string_of_int
   let pp_stack_element = String.make 1
+  let ppa_state = pp_state
+  let ppa_stack_element = pp_stack_element
 end;;
 
 module Test_dph =
@@ -60,11 +62,25 @@ struct
       Printf.sprintf "Consume_identical_2_of_2(%s)"
         (Test_spec.pp_stack_element k)
   ;;
+  let ppa_targeted_dynamic_pop_action = function
+    | Double_push -> "DP"
+    | Consume_identical_1_of_2 -> "CI1"
+    | Consume_identical_2_of_2(k) ->
+      Printf.sprintf "CI2(%s)" (Test_spec.ppa_stack_element k)
+  ;;
+      
   let pp_untargeted_dynamic_pop_action = function
     | Target_condition_on_element_is_A(s1,s2) ->
       Printf.sprintf "Target_condition_on_element_is_A_pushing(%s,%s)"
         (Test_spec.pp_state s1) (Test_spec.pp_state s2)
   ;;
+
+  let ppa_untargeted_dynamic_pop_action = function
+    | Target_condition_on_element_is_A(s1,s2) ->
+      Printf.sprintf "TCO_A(%s,%s)"
+        (Test_spec.ppa_state s1) (Test_spec.ppa_state s2)
+  ;;      
+
   let perform_targeted_dynamic_pop element action =
     match action with
     | Double_push -> Enum.singleton [Push(element);Push(element)]

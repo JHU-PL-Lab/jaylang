@@ -61,12 +61,18 @@ sig
   (** A pretty-printing function for targeted dynamic pop actions. *)
   val pp_targeted_dynamic_pop_action : targeted_dynamic_pop_action -> string
   
+  (** A pretty-printing function for targeted dynamic pop actions. *)
+  val ppa_targeted_dynamic_pop_action : targeted_dynamic_pop_action -> string
+  
   (** A comparator for dynamic pop actions. *)
   val compare_untargeted_dynamic_pop_action :
     untargeted_dynamic_pop_action -> untargeted_dynamic_pop_action -> int
   
   (** A pretty-printing function for targeted dynamic pop actions. *)
   val pp_untargeted_dynamic_pop_action : untargeted_dynamic_pop_action -> string
+  
+  (** A pretty-printing function for targeted dynamic pop actions. *)
+  val ppa_untargeted_dynamic_pop_action : untargeted_dynamic_pop_action -> string
   
   (** The resolution function for targeted dynamic pops.  This function takes a
       stack element which was pushed and the associated dynamic pop action.  The
@@ -105,9 +111,11 @@ struct
   let compare_targeted_dynamic_pop_action
         Null_targeted_action Null_targeted_action = 0;;
   let pp_targeted_dynamic_pop_action Null_targeted_action = "_";;
+  let ppa_targeted_dynamic_pop_action Null_targeted_action = "_";;
   let compare_untargeted_dynamic_pop_action
         Null_untargeted_action Null_untargeted_action = 0;;
   let pp_untargeted_dynamic_pop_action Null_untargeted_action = "_";;
+  let ppa_untargeted_dynamic_pop_action Null_untargeted_action = "_";;
   let perform_targeted_dynamic_pop _ Null_targeted_action = Enum.empty ();;
   let perform_untargeted_dynamic_pop _ Null_untargeted_action = Enum.empty ();;
 end;;

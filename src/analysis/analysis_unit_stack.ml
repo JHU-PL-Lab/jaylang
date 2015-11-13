@@ -11,4 +11,5 @@ struct
   let pop () = ();;
   let is_top _ () = true;;
   let pretty () = "-";;
+  let pretty_abbrv = pretty;;
 end;;

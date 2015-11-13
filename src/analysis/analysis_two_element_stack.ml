@@ -29,4 +29,11 @@ struct
     in
     pfx ^ "?"
   ;;
+  let pretty_abbrv (S(lst)) =
+    match lst with
+    | [] -> "?"
+    | _ ->
+      String_utils.concat_sep "|" @@
+        Enum.map ppa_abstract_clause @@ List.enum lst
+  ;;
 end;;

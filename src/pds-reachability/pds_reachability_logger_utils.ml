@@ -42,7 +42,7 @@ struct
     type dot_node_id = Types.node;;
     let rec string_of_dot_node_id node =
       match node with
-      | Types.State_node state -> Basis.pp_state state
+      | Types.State_node state -> Basis.ppa_state state
       | Types.Intermediate_node (node',actions) ->
         Printf.sprintf "InterNode(%s,%s)"
           (string_of_dot_node_id node')
@@ -50,17 +50,7 @@ struct
     ;;
 
     type data = Structure.structure;;
-    let string_of_edge_action edge_action =
-      match edge_action with
-      | Pds_reachability_types_stack.Push element ->
-        Printf.sprintf "push %s" (Basis.pp_stack_element element)
-      | Pds_reachability_types_stack.Pop element ->
-        Printf.sprintf "pop %s" (Basis.pp_stack_element element)
-      | Pds_reachability_types_stack.Nop ->
-        "nop"
-      | Pds_reachability_types_stack.Pop_dynamic_targeted action ->
-        Printf.sprintf "popdyn %s" (Dph.pp_targeted_dynamic_pop_action action)
-    ;;
+    let string_of_edge_action = Types.ppa_stack_action ;;
     let graph_of structure =
       let nodes = Structure.enumerate_nodes structure in
       let edges = Structure.enumerate_edges structure in
@@ -76,7 +66,7 @@ struct
                 | Types.Intermediate_node _ -> Some "#ccaaff"
               end
             ; dot_node_text =
-              Some (string_of_dot_node_id node)
+              Some (Types.ppa_node node)
             }
           )
       in

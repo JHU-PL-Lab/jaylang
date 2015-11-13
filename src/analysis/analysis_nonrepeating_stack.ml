@@ -31,4 +31,5 @@ struct
       (Enum.map pp_abstract_clause @@ List.enum c_list)
       (Enum.singleton "?")
   ;;
+  let pretty_abbrv = pretty;;
 end;;
