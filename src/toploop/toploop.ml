@@ -18,17 +18,20 @@ type toploop_configuration =
   }
 ;;
 
+(** Finds all of the call sites in the provided expression.  Returns an
+    enumeration of call sites as pairs between the function variable and the
+    clause representing the call site. *)
 let rec find_all_call_sites (Expr cls) =
-  let rec call_sites_from_function_value (Function_value(_,e)) =
+  let rec call_sites_from_function_value (Function_value(_, e)) =
     find_all_call_sites e
   in
   let rec call_sites_from_clause cl =
     match cl with
-    | Clause(_,Appl_body(x2,_)) ->
-      Some (Enum.singleton (x2,cl))
-    | Clause(_,Value_body(Value_function(f))) ->
+    | Clause(_, Appl_body(x2, _)) ->
+      Some (Enum.singleton (x2, cl))
+    | Clause(_, Value_body(Value_function(f))) ->
       Some (call_sites_from_function_value f)
-    | Clause(_,Conditional_body(_,_,f1,f2)) ->
+    | Clause(_, Conditional_body(_, _, f1, f2)) ->
       Some (Enum.append (call_sites_from_function_value f1)
                         (call_sites_from_function_value f2))
     | _ -> None
@@ -67,19 +70,19 @@ let toploop_operate conf e =
           end;
           (* Create the initial analysis. *)
           let a1 =
-            A.create_initial_analysis ~logging_prefix:(Some "_toploop") e
+            A.create_initial_analysis ~logging_prefix: (Some "_toploop") e
           in
           (* Close over the analysis. *)
           let a2 = A.perform_full_closure a1 in
-          (* Check the consistency of an analysis.  In particular, look for
-             call sites where non-function values appear. *)
+          (* Check the consistency of an analysis. In particular, look for
+             call sites where non - function values appear. *)
           let aref = ref a2 in
           let inconsistencies =
             find_all_call_sites e
             |> Enum.map
-              (fun (x2,cl) ->
+              (fun (x2, cl) ->
                 let acl = Unannotated_clause(lift_clause cl) in
-                let (values,a') = A.values_of_variable acl x2 !aref in
+                let (values, a') = A.values_of_variable acl x2 !aref in
                 aref := a';
                 values
                 |> Abs_value_set.enum
@@ -87,7 +90,7 @@ let toploop_operate conf e =
                   (fun v ->
                     match v with
                     | Abs_value_function _ -> None
-                    | _ -> Some (x2,cl,v)
+                    | _ -> Some (x2, cl, v)
                   )
               )
             |> Enum.concat
@@ -98,7 +101,14 @@ let toploop_operate conf e =
           (* If there are inconsistencies, report them. *)
           if not @@ List.is_empty inconsistencies
           then
-            raise @@ Utils.Not_yet_implemented "toploop_operate"
+            inconsistencies
+            |> List.iter
+              (fun (x2, cl, v) ->
+                let Clause(x,_) = cl in
+                print_endline @@ Printf.sprintf
+                  "Error: call site %s has function variable %s to which a non-function value may flow: %s"
+                  (pretty_var x) (pretty_var x2) (pp_abstract_value v)
+              )
           else
             begin
               (* Show the value of each top-level clause in the program. *)
@@ -112,18 +122,18 @@ let toploop_operate conf e =
               in
               let acls' = Enum.clone acls in
               ignore @@ Enum.get_exn acls';
-              let acl_pairs = Enum.combine (acls,acls') in
+              let acl_pairs = Enum.combine (acls, acls') in
               let (variable_values, a4) = 
                 acl_pairs
                 |> Enum.fold
-                  (fun (m,a) (acl1,acl0) ->
+                  (fun (m, a) (acl1, acl0) ->
                     match acl1 with
-                    | Unannotated_clause(Abs_clause(x,_)) ->
-                      let (vs,a') = (A.values_of_variable acl0 x a) in
-                      let Var(i,_) = x in
+                    | Unannotated_clause(Abs_clause(x, _)) ->
+                      let (vs, a') = (A.values_of_variable acl0 x a) in
+                      let Var(i, _) = x in
                       let m' = Ident_map.add i vs m in
-                      (m',a')
-                    | _ -> (m,a)
+                      (m', a')
+                    | _ -> (m, a)
                   ) (Ident_map.empty, a3)
               in
               (* Show our results. *)
@@ -137,8 +147,8 @@ let toploop_operate conf e =
             end
       in
       toploop_action (fun () ->
-          let v,env = eval e in
-          print_string (pretty_var v ^ " where "  ^ pretty_env env ^ "\n")
+          let v, env = eval e in
+          print_string (pretty_var v ^ " where " ^ pretty_env env ^ "\n")
         )
     with
     | Illformedness_found(ills) ->
