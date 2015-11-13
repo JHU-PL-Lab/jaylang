@@ -38,7 +38,7 @@ struct
   let graph_of cba_graph =
     let immediate_node_color = "#44ff44" in
     let non_immediate_node_color = "gray" in
-    let wiring_node_color = "ff8844" in
+    let wiring_node_color = "#ff8844" in
     let nodes =
       Cba_graph.edges_of cba_graph
       |> Enum.fold

@@ -406,6 +406,14 @@ struct
      accomplished by introducing intermediate nodes as necessary.
   *)
   and add_edges_between_nodes source_node target_node stack_actions analysis =
+    Logger_utils.lazy_bracket_log (lazy_logger `trace)
+      (fun () ->
+        Printf.sprintf "add_edges_between_nodes(%s,%s,%s)"
+          (Types.pp_node source_node) (Types.pp_node target_node)
+          (String_utils.pretty_list (Types.pp_stack_action) stack_actions)
+      )
+      (fun _ -> "Finished") @@
+    fun () ->
     (* This recursive function creates the chain of single stack action edges
        from the provided list of stack actions.  It consumes intermediate node
        numbers as necessary to generate the edges, so it takes and returns this
@@ -444,6 +452,14 @@ struct
     let analysis' =
       add_node source_node @@ add_node target_node analysis
     in
+    (* Log the result. *)
+    lazy_logger `trace @@
+    (fun () ->
+      Printf.sprintf "In add_edges_between_nodes(%s,%s,%s), generated edges: %s"
+          (Types.pp_node source_node) (Types.pp_node target_node)
+          (String_utils.pretty_list (Types.pp_stack_action) stack_actions)
+          (String_utils.pretty_list Types.pp_edge real_edges)
+    );
     (* Now, let's add them. *)
     real_edges
       |> List.fold_left

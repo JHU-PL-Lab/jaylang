@@ -692,7 +692,7 @@ struct
                   let%orzero (Unannotated_clause(Abs_clause(x,_))) = acl1 in
                   (* x'' = b *)
                   return ( Stateless_nonmatching_clause_skip_1_of_2 x
-                         , Pds_state(acl0,ctx)  (* FIXME: is this node right? *)
+                         , Pds_state(acl1,ctx)
                          )
                 end
               ;
