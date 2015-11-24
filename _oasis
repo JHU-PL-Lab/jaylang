@@ -12,6 +12,7 @@ BuildTools: ocamlbuild
 Plugins: META (0.4), DevFiles (0.4)
 AlphaFeatures: ocamlbuild_more_args
 XOCamlbuildExtraArgs: -use-menhir -use-ocamlfind
+BuildDepends: threads
 
 Library "utils"
   Path: src/utils
