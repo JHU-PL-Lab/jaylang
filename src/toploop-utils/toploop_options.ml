@@ -57,20 +57,12 @@ let select_context_stack_option =
       match args with
       | [analysis_name] ->
         let analysis_module =
-          begin
-            match analysis_name with
-            | "cba0" ->
-              Some (module Analysis_unit_stack.Stack : Stack)
-            | "cba1" ->
-              Some (module Analysis_single_element_stack.Stack : Stack)
-            | "cba2" ->
-              Some (module Analysis_two_element_stack.Stack : Stack)
-            | "cbanr" ->
-              Some (module Analysis_nonrepeating_stack.Stack : Stack)
-            | "none" -> None
-            | _ -> raise @@ Option_error (option_name,
-                      Printf.sprintf "Invalid analysis name: %s" analysis_name)
-          end
+          try
+            Toploop_cba.stack_from_name analysis_name
+          with
+          | Not_found ->
+            raise @@ Option_error (option_name,
+              Printf.sprintf "Invalid analysis name: %s" analysis_name)
         in
         analysis_module_ref := analysis_module
       | _ ->

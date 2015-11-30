@@ -32,4 +32,5 @@ struct
       (Enum.singleton "?")
   ;;
   let pretty_abbrv = pretty;;
+  let name = "cbanr";;
 end;;

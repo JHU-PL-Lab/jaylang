@@ -183,7 +183,9 @@ Executable "test"
     parser,
     ppx_deriving.std,
     oUnit,
-    batteries
+    batteries,
+    analysis,
+    toploop-utils
 
 Test test
   Command: $test

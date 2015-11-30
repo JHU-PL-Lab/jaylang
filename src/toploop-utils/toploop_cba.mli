@@ -14,3 +14,9 @@ include module type of Toploop_cba_types;;
 val pp_inconsistency : inconsistency -> string;;
 
 module Make : functor (A : Analysis_sig) -> CBA;;
+
+(** Finds an appropriate context stack from a given textual name.  Raises
+    [Not_found] if the name is invalid.  The string ["none"] produces 
+    [None] as the stack. *)
+val stack_from_name :
+  string -> (module Analysis_context_stack.Context_stack) option

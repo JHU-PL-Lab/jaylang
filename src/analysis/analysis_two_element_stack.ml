@@ -36,4 +36,5 @@ struct
       String_utils.concat_sep "|" @@
         Enum.map ppa_abstract_clause @@ List.enum lst
   ;;
+  let name = "cba2";;
 end;;

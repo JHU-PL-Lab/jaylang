@@ -28,3 +28,16 @@ let indent n s =
     (fun x -> if x = '\n' then "\n" ^ String.make n ' ' else String.of_char x)
     s
 ;;
+
+let rec whitespace_split ?max:(n=max_int) s =
+  if n <= 1
+  then [s]
+  else
+    try
+      let (s1,s2) = String.split (String.trim s) ~by:" " in
+      s1::(whitespace_split ~max:(n-1) s2)
+    with
+    | Not_found -> [s]
+;;
+
+    

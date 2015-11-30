@@ -40,6 +40,23 @@ let pp_inconsistency inconsistency =
       (pretty_clause c) (pretty_var x) (pp_abstract_value v)
 ;;
 
+module type Stack = Analysis_context_stack.Context_stack;;
+let stack_from_name name =
+  begin
+    match name with
+    | "cba0" ->
+      Some (module Analysis_unit_stack.Stack : Stack)
+    | "cba1" ->
+      Some (module Analysis_single_element_stack.Stack : Stack)
+    | "cba2" ->
+      Some (module Analysis_two_element_stack.Stack : Stack)
+    | "cbanr" ->
+      Some (module Analysis_nonrepeating_stack.Stack : Stack)
+    | "none" -> None
+    | _ -> raise Not_found
+  end
+;;
+
 module Make(A : Analysis_sig) = struct
   type analysis =
     { aref : A.cba_analysis ref

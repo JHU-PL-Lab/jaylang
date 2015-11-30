@@ -12,4 +12,5 @@ sig
   val is_top : abstract_clause -> t -> bool
   val pretty : t -> string
   val pretty_abbrv : t -> string
+  val name : string
 end;;

@@ -23,4 +23,5 @@ struct
     | S(Some(c)) -> ppa_abstract_clause c
     | S(None) -> "?"
   ;;
+  let name = "cba1";;
 end;;
