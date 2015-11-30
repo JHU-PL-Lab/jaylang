@@ -28,6 +28,7 @@ type test_expectation =
   | Expect_analysis_stack_is of
     (module Analysis_context_stack.Context_stack) option
   | Expect_analysis_variable_lookup_from_end of ident * string
+  | Expect_analysis_inconsistency_at of ident
 ;;
 
 type expectation_parse =
@@ -99,6 +100,11 @@ let parse_expectation str =
         let (ident_str, pp_expectation) = assert_two_args args in
         let ident = Ident(ident_str) in
         Expect_analysis_variable_lookup_from_end(ident,pp_expectation)
+      | "EXPECT-ANALYSIS-INCONSISTENCY-AT"::args_part ->
+        let args_str = String.join "" args_part in
+        let args = whitespace_split args_str in
+        let call_site = assert_one_arg args in
+        Expect_analysis_inconsistency_at (Ident(call_site))
       | _ ->
         raise @@ Expectation_not_found
     in
@@ -175,6 +181,19 @@ let observe_analysis_variable_lookup_from_end ident repr expectation =
   | _ -> Some expectation
 ;;
 
+let observe_inconsistency inconsistency expectation =
+  match inconsistency with
+  | Toploop_cba.Application_of_non_function(_,Clause(Var(ident,_),_),_) ->
+    begin
+      match expectation with
+      | Expect_analysis_inconsistency_at ident' ->
+        if ident = ident'
+        then None
+        else Some expectation
+      | _ -> Some expectation
+    end
+;;
+
 let make_test filename expectations =
   let name_of_expectation expectation = match expectation with
     | Expect_evaluate -> "should evaluate"
@@ -194,6 +213,8 @@ let make_test filename expectations =
       "should use analysis stack " ^ name
     | Expect_analysis_variable_lookup_from_end(ident,_) ->
       "should have particular values for variable " ^ (pretty_ident ident)
+    | Expect_analysis_inconsistency_at ident ->
+      "should be consistent at " ^ pretty_ident ident
   in
   let test_name = filename ^ ": (" ^
                   pretty_list name_of_expectation expectations ^ ")"
@@ -208,6 +229,8 @@ let make_test filename expectations =
     let observation f =
       expectations_left := List.filter_map f @@ !expectations_left
     in
+    (* This routine detects expectations of a particular form. *)
+    let have_expectation pred = List.exists pred (!expectations_left) in
     (* We're going to execute the following block.  If it completes without
        error, we're also going to require that all of its expectations were
        satisfied.  This addresses nonsense cases such as expecting an ill-formed
@@ -244,8 +267,35 @@ let make_test filename expectations =
           let module TLA = Toploop_cba.Make(A) in
           (* Create the analysis now. *)
           let analysis = TLA.create_analysis expr in
-          (* We're going to cheat a little bit here: we only want to observe
-             variables for which there is an expectation. *)
+          (* If we have any expectations about inconsistency, we should observe
+             them now. *)
+          if not @@ have_expectation
+              (function
+                | Expect_analysis_inconsistency_at _ -> true
+                | _ -> false)
+          then ()
+          else 
+            begin
+              let inconsistencies = TLA.check_inconsistencies analysis in
+              (* Report each inconsistency. *)
+              inconsistencies
+              |> Enum.iter
+                (fun inconsistency ->
+                  observation @@ observe_inconsistency inconsistency);
+              (* If there are any expectations of inconsistency left, they're
+                 a problem. *)
+              !expectations_left
+              |> List.iter
+                (function
+                  | Expect_analysis_inconsistency_at ident ->
+                    assert_failure @@ "Expected inconsistency at " ^
+                      pretty_ident ident ^ " which did not occur"
+                  | _ -> ()
+                )
+            end
+          ;
+          (* We only want to observe variable values for which there is an
+             expectation. *)
           let variable_idents =
             !expectations_left
             |> List.enum
@@ -267,15 +317,23 @@ let make_test filename expectations =
             ) variable_idents
         end
       ;
-      (* Evaluate. *)
-      begin
-        try
-          ignore (eval expr);
-          observation observe_evaluated
-        with
-        | Evaluation_failure(failure) ->
-          observation (observe_stuck failure)
-      end
+      (* Evaluate, but only if an appropriate expectation exists. *)
+      if not @@ have_expectation
+                  (function
+                    | Expect_evaluate -> true
+                    | Expect_stuck -> true
+                    | _ -> false)
+      then ()
+      else
+        begin
+          try
+            ignore (eval expr);
+            observation observe_evaluated
+          with
+          | Evaluation_failure(failure) ->
+            observation (observe_stuck failure)
+        end
+      ;
     end;
     (* Now assert that every expectation has been addressed. *)
     match !expectations_left with
