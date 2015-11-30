@@ -57,6 +57,8 @@ let toploop_operate conf e =
           let module Context_stack = (val context_stack) in
           (* Define the analysis module. *)
           let module A = Analysis.Make(Context_stack) in
+          (* Use the toploop wrapper on it. *)
+          let module TLA = Toploop_cba.Make(A) in
           (* Set logging configuration. *)
           begin
             match conf.topconf_cba_log_level with
@@ -68,47 +70,19 @@ let toploop_operate conf e =
             | Some level -> A.set_pdr_logger_level level
             | None -> ();
           end;
-          (* Create the initial analysis. *)
-          let a1 =
-            A.create_initial_analysis ~logging_prefix: (Some "_toploop") e
+          (* Create the analysis.  The wrapper performs full closure on it. *)
+          let analysis =
+            TLA.create_analysis ~logging_prefix: (Some "_toploop") e
           in
-          (* Close over the analysis. *)
-          let a2 = A.perform_full_closure a1 in
-          (* Check the consistency of an analysis. In particular, look for
-             call sites where non - function values appear. *)
-          let aref = ref a2 in
-          let inconsistencies =
-            find_all_call_sites e
-            |> Enum.map
-              (fun (x2, cl) ->
-                let acl = Unannotated_clause(lift_clause cl) in
-                let (values, a') = A.values_of_variable acl x2 !aref in
-                aref := a';
-                values
-                |> Abs_value_set.enum
-                |> Enum.filter_map
-                  (fun v ->
-                    match v with
-                    | Abs_value_function _ -> None
-                    | _ -> Some (x2, cl, v)
-                  )
-              )
-            |> Enum.concat
-            |> List.of_enum (* force us to pull on the enum so the analysis
-                               updates *)
-          in
-          let a3 = !aref in
+          (* Determine if it is consistent. *)
+          let inconsistencies = TLA.check_inconsistencies analysis in
           (* If there are inconsistencies, report them. *)
-          if not @@ List.is_empty inconsistencies
+          if not @@ Enum.is_empty inconsistencies
           then
             inconsistencies
-            |> List.iter
-              (fun (x2, cl, v) ->
-                let Clause(x,_) = cl in
-                print_endline @@ Printf.sprintf
-                  "Error: call site %s has function variable %s to which a non-function value may flow: %s"
-                  (pretty_var x) (pretty_var x2) (pp_abstract_value v)
-              )
+            |> Enum.iter
+              (fun inconsistency ->
+                print_endline @@ Toploop_cba.pp_inconsistency inconsistency)
           else
             begin
               (* Show the value of each top-level clause in the program. *)
@@ -123,25 +97,24 @@ let toploop_operate conf e =
               let acls' = Enum.clone acls in
               ignore @@ Enum.get_exn acls';
               let acl_pairs = Enum.combine (acls, acls') in
-              let (variable_values, a4) = 
+              let variable_values =
                 acl_pairs
                 |> Enum.fold
-                  (fun (m, a) (acl1, acl0) ->
+                  (fun m (acl1, acl0) ->
                     match acl1 with
                     | Unannotated_clause(Abs_clause(x, _)) ->
-                      let (vs, a') = (A.values_of_variable acl0 x a) in
+                      let vs = TLA.values_of_variable_from x acl0 analysis in
                       let Var(i, _) = x in
-                      let m' = Ident_map.add i vs m in
-                      (m', a')
-                    | _ -> (m, a)
-                  ) (Ident_map.empty, a3)
+                      Ident_map.add i vs m
+                    | _ -> m
+                  ) Ident_map.empty
               in
               (* Show our results. *)
               print_endline @@
                 pretty_ident_map pp_abs_value_set variable_values;
-              (* Shush the warning about a4. *)
-              logger `trace (Printf.sprintf "CBA analysis: %s" (A.pp_cba a4));
-              ignore a4;
+              (* Dump the analysis to debugging. *)
+              logger `trace
+                (Printf.sprintf "CBA analysis: %s" (TLA.pp_analysis analysis));
               (* Now run the actual program. *)
               evaluation_step ()
             end

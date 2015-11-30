@@ -142,6 +142,8 @@ Library "analysis"
 Library "toploop-utils"
   Path: src/toploop-utils
   Modules:
+    Toploop_cba,
+    Toploop_cba_types,
     Toploop_options
   BuildDepends:
     analysis,
