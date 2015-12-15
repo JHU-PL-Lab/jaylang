@@ -6,6 +6,8 @@ open Ast;;
 %token EOF 
 %token OPEN_BRACE 
 %token CLOSE_BRACE 
+%token OPEN_PAREN 
+%token CLOSE_PAREN 
 %token SEMICOLON
 %token COMMA
 %token EQUALS 
@@ -81,7 +83,7 @@ record_value:
   ;
   
 function_value:
-  | KEYWORD_FUN variable ARROW OPEN_BRACE expr CLOSE_BRACE
+  | KEYWORD_FUN variable ARROW OPEN_PAREN expr CLOSE_PAREN
       { Function_value($2,$5) }
   ;
 
