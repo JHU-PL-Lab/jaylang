@@ -2,7 +2,7 @@
 empty = {};
 e = {l=empty};
 # Match {l={}} with {l={}}
-c = e ~ {l={}} ? fun a -> { ra = {y=empty} } : fun b -> { rb = {n=empty} };
+c = e ~ {l={}} ? fun a -> ( ra = {y=empty} ) : fun b -> ( rb = {n=empty} );
 # Now get stuck if we didn't get a {y={}}
-t = c ~ {y={}} ? fun j -> { rj = empty } : fun k -> { r = e e };
+t = c ~ {y={}} ? fun j -> ( rj = empty ) : fun k -> ( r = e e );
 
