@@ -273,13 +273,9 @@ struct
                 are projecting values? *)
       (* FIXME: There's no good way for the caller to get at the filters which
                 applied to the record under this model, right?  That seems a
-                shame. *)
-      (* FIXME: This doesn't work if the record is the eventual lookup target!
-                (That is, this is a problem if the record lookup is on the
-                bottom of the stack.)  Perhaps we need a distinguished
-                start-of-stack element?  We could perhaps use such a thing to
-                fix the above, too, by moving to a dedicated answer state when
-                we pop the last stack element. *)
+                shame.  Perhaps we can use the start-of-stack element to
+                move to a dedicated answer state when we pop the last
+                element? *)
     | Record_construction_lookup_2_of_2 of
         pds_state * pds_state * var * record_value *
           Pattern_set.t * Pattern_set.t
