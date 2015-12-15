@@ -25,7 +25,7 @@ let pretty_record_value (Record_value(els)) =
 ;;
 
 let rec pretty_function_value (Function_value(x,e)) =
-  pretty_var x ^ " -> { " ^ pretty_expr e ^ " }"
+  pretty_var x ^ " -> ( " ^ pretty_expr e ^ " )"
 
 and pretty_value v =
   match v with
@@ -55,3 +55,4 @@ and pretty_pattern p =
       concat_sep_delim "{" "}" ", " @@ Enum.map pretty_element @@
         Ident_map.enum els
 ;;
+
