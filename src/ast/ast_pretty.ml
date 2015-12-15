@@ -24,7 +24,7 @@ let pretty_record_value (Record_value(is)) =
 ;;
 
 let rec pretty_function_value (Function_value(x,e)) =
-  pretty_var x ^ " -> { " ^ pretty_expr e ^ " }"
+  pretty_var x ^ " -> ( " ^ pretty_expr e ^ " )"
 
 and pretty_value v =
   match v with
