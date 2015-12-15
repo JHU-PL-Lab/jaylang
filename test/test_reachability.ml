@@ -44,6 +44,8 @@ struct
     | Double_push
     | Consume_identical_1_of_2
     | Consume_identical_2_of_2 of stack_element
+    | Chain_two_push_1_of_2 of stack_element * stack_element
+    | Chain_two_push_2_of_2 of stack_element
     [@@deriving ord]
   ;;
   type untargeted_dynamic_pop_action =
@@ -61,12 +63,23 @@ struct
     | Consume_identical_2_of_2(k) ->
       Printf.sprintf "Consume_identical_2_of_2(%s)"
         (Test_spec.pp_stack_element k)
+    | Chain_two_push_1_of_2(k1,k2) ->
+      Printf.sprintf "Chain_two_push_1_of_2(%s,%s)"
+        (Test_spec.pp_stack_element k1) (Test_spec.pp_stack_element k2)
+    | Chain_two_push_2_of_2(k) ->
+      Printf.sprintf "Chain_two_push_2_of_2(%s)"
+        (Test_spec.pp_stack_element k)
   ;;
   let ppa_targeted_dynamic_pop_action = function
     | Double_push -> "DP"
     | Consume_identical_1_of_2 -> "CI1"
     | Consume_identical_2_of_2(k) ->
       Printf.sprintf "CI2(%s)" (Test_spec.ppa_stack_element k)
+    | Chain_two_push_1_of_2(k1,k2) ->
+      Printf.sprintf "CDP1(%s,%s)"
+        (Test_spec.ppa_stack_element k1) (Test_spec.ppa_stack_element k2)
+    | Chain_two_push_2_of_2(k) ->
+      Printf.sprintf "CDP2(%s)" (Test_spec.ppa_stack_element k)
   ;;
       
   let pp_untargeted_dynamic_pop_action = function
@@ -90,6 +103,15 @@ struct
         if Test_stack_element_ord.compare element element' == 0
         then Enum.singleton []
         else Enum.empty ()
+    | Chain_two_push_1_of_2(k1,k2) ->
+        Enum.singleton
+          [ Pop_dynamic_targeted(Chain_two_push_2_of_2(k2))
+          ; Push(k1)
+          ; Push(element) ]
+    | Chain_two_push_2_of_2 k ->
+        Enum.singleton
+          [ Push(k)
+          ; Push(element) ]
   ;;
   let perform_untargeted_dynamic_pop element action =
     match action with
@@ -320,6 +342,23 @@ let untargeted_dynamic_pop_function_reachability_test =
     lazy_logger `trace
       (fun () -> "states: " ^ String_utils.pretty_list string_of_int states);
     assert_equal states [3;6;7;8;21;24;25;26]
+;;
+
+let targeted_dynamic_pop_chain_test =
+  "targeted_dynamic_pop_chain_test" >:: fun _ ->
+    let analysis =
+      Test_reachability.empty ()
+      |> Test_reachability.add_edge 0
+          [Pop_dynamic_targeted(
+            Test_dph.Chain_two_push_1_of_2('a','b')); Push 'c'] 1
+      |> Test_reachability.add_edge 1 [Pop 'c'; Pop 'b'; Pop 'a'; Pop 'x'] 2
+      |> Test_reachability.add_start_state 0 [Push 'x']
+    in
+    lazy_logger `trace
+      (fun () -> "analysis:\n" ^
+        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
+    let states = Test_reachability.get_reachable_states 0 [Push 'x'] analysis in
+    assert_equal (List.sort compare @@ List.of_enum states) [2]
 ;;
 
 let tests = "Test_reachability" >:::
