@@ -715,10 +715,9 @@ struct
                   [%guard C.is_top c ctx];
                   [%guard (not @@ equal_var x'' x1)];
                   let closure_for_positive_path = equal_var f1x x'' in
-                  (* FIXME: should be popping ctx, yes? *)
                   return ( Conditional_closure_lookup
                             (x1,p,closure_for_positive_path)
-                         , Pds_state(acl1,ctx)
+                         , Pds_state(acl1,C.pop ctx)
                          )
                 end
               ;
