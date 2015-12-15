@@ -1,7 +1,7 @@
 open Batteries;;
 
 open Analysis_context_stack;;
-open Cba_graph;;
+open Ddpa_graph;;
 
 module Stack : Context_stack =
 struct
@@ -23,5 +23,5 @@ struct
     | S(Some(c)) -> ppa_abstract_clause c
     | S(None) -> "?"
   ;;
-  let name = "cba1";;
+  let name = "ddpa1";;
 end;;

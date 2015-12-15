@@ -58,7 +58,7 @@ let select_context_stack_option =
       | [analysis_name] ->
         let analysis_module =
           try
-            Toploop_cba.stack_from_name analysis_name
+            Toploop_ddpa.stack_from_name analysis_name
           with
           | Not_found ->
             raise @@ Option_error (option_name,
@@ -78,11 +78,11 @@ let select_context_stack_option =
     ;
     option_metavars = ["ANALYSIS"]
     ;
-    option_defhelp = Some("Selects an analysis (cba0,cba1,cba1,cbanr,none).")
+    option_defhelp = Some("Selects an analysis (ddpa0,ddpa1,ddpa1,ddpanr,none).")
     ;
   };;
 
-let cba_logging_option =
+let ddpa_logging_option =
   let logging_level = ref None in
   {
     option_set = (fun option_name args ->
@@ -90,11 +90,11 @@ let cba_logging_option =
       | [level_name] ->
         let level =
           match level_name with
-          | "none" -> Cba_graph_logger.Cba_log_none
-          | "result" -> Cba_graph_logger.Cba_log_result
-          | "all" -> Cba_graph_logger.Cba_log_all
+          | "none" -> Ddpa_graph_logger.Ddpa_log_none
+          | "result" -> Ddpa_graph_logger.Ddpa_log_result
+          | "all" -> Ddpa_graph_logger.Ddpa_log_all
           | _ -> raise @@ Option_error(option_name,
-                    Printf.sprintf "Invalid CBA logging level: %s" level_name)
+                    Printf.sprintf "Invalid DDPA logging level: %s" level_name)
         in
         logging_level := Some level
       | _ ->
@@ -106,9 +106,9 @@ let cba_logging_option =
     ;
     option_get = (fun () -> !logging_level)
     ;
-    option_metavars = ["CBA_LEVEL"]
+    option_metavars = ["DDPA_LEVEL"]
     ;
-    option_defhelp = Some("Selects a CBA logging level (none,result,all).")
+    option_defhelp = Some("Selects a DDPA logging level (none,result,all).")
     ;       
   }
 ;;

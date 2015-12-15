@@ -3,7 +3,7 @@ open Batteries;;
 open Ast;;
 open Ast_pretty;;
 open Ast_wellformedness;;
-open Cba_graph;;
+open Ddpa_graph;;
 open Interpreter;;
 open Toploop_options;;
 
@@ -12,7 +12,7 @@ let logger = Logger_utils.make_logger "Toploop";;
 type toploop_configuration =
   { topconf_context_stack : (module Analysis_context_stack.Context_stack) option
   ; topconf_log_prefix : string
-  ; topconf_cba_log_level : Cba_graph_logger.cba_graph_logger_level option
+  ; topconf_ddpa_log_level : Ddpa_graph_logger.ddpa_graph_logger_level option
   ; topconf_pdr_log_level :
       Pds_reachability_logger_utils.pds_reachability_logger_level option
   }
@@ -58,11 +58,11 @@ let toploop_operate conf e =
           (* Define the analysis module. *)
           let module A = Analysis.Make(Context_stack) in
           (* Use the toploop wrapper on it. *)
-          let module TLA = Toploop_cba.Make(A) in
+          let module TLA = Toploop_ddpa.Make(A) in
           (* Set logging configuration. *)
           begin
-            match conf.topconf_cba_log_level with
-            | Some level -> Cba_graph_logger.set_level level
+            match conf.topconf_ddpa_log_level with
+            | Some level -> Ddpa_graph_logger.set_level level
             | None -> ();
           end;
           begin
@@ -82,7 +82,7 @@ let toploop_operate conf e =
             inconsistencies
             |> Enum.iter
               (fun inconsistency ->
-                print_endline @@ Toploop_cba.pp_inconsistency inconsistency)
+                print_endline @@ Toploop_ddpa.pp_inconsistency inconsistency)
           else
             begin
               (* Show the value of each top-level clause in the program. *)
@@ -114,7 +114,7 @@ let toploop_operate conf e =
                 pretty_ident_map pp_abs_value_set variable_values;
               (* Dump the analysis to debugging. *)
               logger `trace
-                (Printf.sprintf "CBA analysis: %s" (TLA.pp_analysis analysis));
+                (Printf.sprintf "DDPA analysis: %s" (TLA.pp_analysis analysis));
               (* Now run the actual program. *)
               evaluation_step ()
             end
@@ -147,8 +147,8 @@ let command_line_parsing () =
   BatOptParse.OptParser.add parser ~long_name:"select-context-stack"
     ~short_name:'S' select_context_stack_option;
     
-  (* Add CBA graph logging option. *)
-  BatOptParse.OptParser.add parser ~long_name:"cba-logging" cba_logging_option;
+  (* Add DDPA graph logging option. *)
+  BatOptParse.OptParser.add parser ~long_name:"ddpa-logging" ddpa_logging_option;
   
   (* Add PDS reachability graph logging option. *)
   BatOptParse.OptParser.add parser ~long_name:"pdr-logging" pdr_logging_option;
@@ -160,7 +160,7 @@ let command_line_parsing () =
     { topconf_context_stack =
       Option.get @@ select_context_stack_option.BatOptParse.Opt.option_get ()
     ; topconf_log_prefix = "_toploop"
-    ; topconf_cba_log_level = cba_logging_option.BatOptParse.Opt.option_get ()
+    ; topconf_ddpa_log_level = ddpa_logging_option.BatOptParse.Opt.option_get ()
     ; topconf_pdr_log_level = pdr_logging_option.BatOptParse.Opt.option_get ()
     }
   | _ -> failwith "Unexpected command-line arguments."

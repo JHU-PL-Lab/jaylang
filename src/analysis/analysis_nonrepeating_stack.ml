@@ -1,7 +1,7 @@
 open Batteries;;
 
 open Analysis_context_stack;;
-open Cba_graph;;
+open Ddpa_graph;;
 open String_utils;;
 
 module Stack : Context_stack =
@@ -32,5 +32,5 @@ struct
       (Enum.singleton "?")
   ;;
   let pretty_abbrv = pretty;;
-  let name = "cbanr";;
+  let name = "ddpanr";;
 end;;

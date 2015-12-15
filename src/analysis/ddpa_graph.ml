@@ -1,5 +1,5 @@
 (**
-  A module defining data structures and basic operations to form a CBA graph.
+  A module defining data structures and basic operations to form a DDPA graph.
 *)
 
 open Batteries;;
@@ -147,20 +147,20 @@ let pp_annotated_clause_set s =
     Annotated_clause_set.enum s
 ;;
 
-type cba_edge =
-  | Cba_edge of annotated_clause * annotated_clause
+type ddpa_edge =
+  | Ddpa_edge of annotated_clause * annotated_clause
   [@@deriving ord]
 ;;
 
-let pp_cba_edge (Cba_edge(acl1,acl0)) =
+let pp_ddpa_edge (Ddpa_edge(acl1,acl0)) =
   Printf.sprintf "%s ==> %s"
     (pp_annotated_clause acl1) (pp_annotated_clause acl0)
 ;;
 
-module Cba_edge_ord =
+module Ddpa_edge_ord =
 struct
-  type t = cba_edge
-  let compare = compare_cba_edge
+  type t = ddpa_edge
+  let compare = compare_ddpa_edge
 end;;
 
 (*
@@ -170,64 +170,64 @@ end;;
 *)
 module type Graph_sig =
 sig
-  type cba_graph
+  type ddpa_graph
   
-  val empty : cba_graph
+  val empty : ddpa_graph
   
-  val add_edge : cba_edge -> cba_graph -> cba_graph
+  val add_edge : ddpa_edge -> ddpa_graph -> ddpa_graph
   
-  val edges_of : cba_graph -> cba_edge Enum.t
+  val edges_of : ddpa_graph -> ddpa_edge Enum.t
   
-  val has_edge : cba_edge -> cba_graph -> bool
+  val has_edge : ddpa_edge -> ddpa_graph -> bool
   
-  val edges_from : annotated_clause -> cba_graph -> cba_edge Enum.t
+  val edges_from : annotated_clause -> ddpa_graph -> ddpa_edge Enum.t
 
-  val edges_to : annotated_clause -> cba_graph -> cba_edge Enum.t
+  val edges_to : annotated_clause -> ddpa_graph -> ddpa_edge Enum.t
   
-  val preds : annotated_clause -> cba_graph -> annotated_clause Enum.t
+  val preds : annotated_clause -> ddpa_graph -> annotated_clause Enum.t
   
-  val succs : annotated_clause -> cba_graph -> annotated_clause Enum.t
+  val succs : annotated_clause -> ddpa_graph -> annotated_clause Enum.t
 end;;
 
 (* TODO: improve the performance of this implementation! *)
 module Graph_impl : Graph_sig =
 struct
-  module Cba_edge_set = Set.Make(Cba_edge_ord);;
+  module Ddpa_edge_set = Set.Make(Ddpa_edge_ord);;
   
-  type cba_graph = Graph of Cba_edge_set.t;;
+  type ddpa_graph = Graph of Ddpa_edge_set.t;;
 
-  let empty = Graph(Cba_edge_set.empty);;
+  let empty = Graph(Ddpa_edge_set.empty);;
 
-  let add_edge edge (Graph(s)) = Graph(Cba_edge_set.add edge s);;
+  let add_edge edge (Graph(s)) = Graph(Ddpa_edge_set.add edge s);;
 
-  let edges_of (Graph(s)) = Cba_edge_set.enum s;;
+  let edges_of (Graph(s)) = Ddpa_edge_set.enum s;;
 
-  let has_edge edge (Graph(s)) = Cba_edge_set.mem edge s;;
+  let has_edge edge (Graph(s)) = Ddpa_edge_set.mem edge s;;
 
   let edges_from acl (Graph(s)) =
-    Cba_edge_set.enum s
-    |> Enum.filter (fun (Cba_edge(acl',_)) -> equal_annotated_clause acl acl')
+    Ddpa_edge_set.enum s
+    |> Enum.filter (fun (Ddpa_edge(acl',_)) -> equal_annotated_clause acl acl')
   ;;
 
   let succs acl g =
-    edges_from acl g |> Enum.map (fun (Cba_edge(_,acl)) -> acl)
+    edges_from acl g |> Enum.map (fun (Ddpa_edge(_,acl)) -> acl)
   ;;
 
   let edges_to acl (Graph(s)) =
-    Cba_edge_set.enum s
-    |> Enum.filter (fun (Cba_edge(_,acl')) -> equal_annotated_clause acl acl')
+    Ddpa_edge_set.enum s
+    |> Enum.filter (fun (Ddpa_edge(_,acl')) -> equal_annotated_clause acl acl')
   ;;
 
   let preds acl g =
-    edges_to acl g |> Enum.map (fun (Cba_edge(acl,_)) -> acl)
+    edges_to acl g |> Enum.map (fun (Ddpa_edge(acl,_)) -> acl)
   ;;
 end;;
 
 include Graph_impl;;
 
-let pp_cba_graph g =
+let pp_ddpa_graph g =
   String_utils.concat_sep_delim "{" "}" ", " @@
-    Enum.map pp_cba_edge @@ edges_of g
+    Enum.map pp_ddpa_edge @@ edges_of g
 ;;
 
 let rec lift_expr (Expr(cls)) =

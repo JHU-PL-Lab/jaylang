@@ -3,9 +3,9 @@ open Batteries;;
 open Analysis;;
 open Ast;;
 open Ast_pretty;;
-open Cba_graph;;
+open Ddpa_graph;;
 
-include Toploop_cba_types;;
+include Toploop_ddpa_types;;
 
 (** Finds all of the call sites in the provided expression.  Returns an
     enumeration of call sites as pairs between the function variable and the
@@ -44,13 +44,13 @@ module type Stack = Analysis_context_stack.Context_stack;;
 let stack_from_name name =
   begin
     match name with
-    | "cba0" ->
+    | "ddpa0" ->
       Some (module Analysis_unit_stack.Stack : Stack)
-    | "cba1" ->
+    | "ddpa1" ->
       Some (module Analysis_single_element_stack.Stack : Stack)
-    | "cba2" ->
+    | "ddpa2" ->
       Some (module Analysis_two_element_stack.Stack : Stack)
-    | "cbanr" ->
+    | "ddpanr" ->
       Some (module Analysis_nonrepeating_stack.Stack : Stack)
     | "none" -> None
     | _ -> raise Not_found
@@ -59,7 +59,7 @@ let stack_from_name name =
 
 module Make(A : Analysis_sig) = struct
   type analysis =
-    { aref : A.cba_analysis ref
+    { aref : A.ddpa_analysis ref
     ; expression : expr
     };;
   
@@ -100,6 +100,6 @@ module Make(A : Analysis_sig) = struct
   ;;
 
   let pp_analysis analysis =
-    A.pp_cba !(analysis.aref)
+    A.pp_ddpa !(analysis.aref)
   ;;
 end;;

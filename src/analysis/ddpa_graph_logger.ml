@@ -1,25 +1,25 @@
 (**
-   A logger module for CBA graphs.
+   A logger module for DDPA graphs.
 *)
 
 open Batteries;;
 
 open Ast;;
 open Ast_pretty;;
-open Cba_graph;;
+open Ddpa_graph;;
 open Dot_file_logger_utils;;
 
-include Cba_graph_logger_types;;
+include Ddpa_graph_logger_types;;
 
 module Dot_file_basis =
 struct
-  type level = cba_graph_logger_level;;
-  let compare_level = compare_cba_graph_logger_level;;
-  let pp_level = pp_cba_graph_logger_level;;
-  let default_level = Cba_log_none;;
+  type level = ddpa_graph_logger_level;;
+  let compare_level = compare_ddpa_graph_logger_level;;
+  let pp_level = pp_ddpa_graph_logger_level;;
+  let default_level = Ddpa_log_none;;
 
-  type name = cba_graph_name
-  type data = cba_graph;;
+  type name = ddpa_graph_name
+  type data = ddpa_graph;;
 
   type dot_node_id = annotated_clause;;
   let string_of_dot_node_id acl =
@@ -35,14 +35,14 @@ struct
     | End_clause -> "end"
   ;;
 
-  let graph_of cba_graph =
+  let graph_of ddpa_graph =
     let immediate_node_color = "#44ff44" in
     let non_immediate_node_color = "gray" in
     let wiring_node_color = "#ff8844" in
     let nodes =
-      Cba_graph.edges_of cba_graph
+      Ddpa_graph.edges_of ddpa_graph
       |> Enum.fold
-        (fun acls (Cba_edge(acl,acl')) ->
+        (fun acls (Ddpa_edge(acl,acl')) ->
            Annotated_clause_set.add acl @@ Annotated_clause_set.add acl' acls)
         Annotated_clause_set.empty
       |> Annotated_clause_set.enum
@@ -68,9 +68,9 @@ struct
            })
     in
     let edges =
-      Cba_graph.edges_of cba_graph
+      Ddpa_graph.edges_of ddpa_graph
       |> Enum.map
-        (fun (Cba_edge(acl0,acl1)) ->
+        (fun (Ddpa_edge(acl0,acl1)) ->
            { dot_edge_source = acl0
            ; dot_edge_target = acl1
            ; dot_edge_text = None
@@ -81,10 +81,10 @@ struct
   let string_of_name name =
     let (prefix,suffix) =
       match name with
-      | Cba_graph_name_initial pfx -> (pfx,"initial")
-      | Cba_graph_name_closed pfx -> (pfx,"final")
-      | Cba_graph_name_intermediate(pfx,n) -> (pfx,string_of_int n)
-    in prefix ^ "_CBA_" ^ suffix
+      | Ddpa_graph_name_initial pfx -> (pfx,"initial")
+      | Ddpa_graph_name_closed pfx -> (pfx,"final")
+      | Ddpa_graph_name_intermediate(pfx,n) -> (pfx,string_of_int n)
+    in prefix ^ "_DDPA_" ^ suffix
   ;;
 end;;
 

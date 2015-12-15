@@ -1,13 +1,13 @@
 (**
   A type-only declaration module.  This module is intended to be re-exported
-  from the Toploop_cba module interface and implementation; it should not be
+  from the Toploop_ddpa module interface and implementation; it should not be
   used directly.
 *)
 
 open Batteries;;
 
 open Ast;;
-open Cba_graph;;
+open Ddpa_graph;;
 
 type inconsistency =
   | Application_of_non_function of var * clause * abstract_value
@@ -15,7 +15,7 @@ type inconsistency =
           are the function variable, the call site clause, and the abstract
           non-function value which appeared at the call site. *);;
 
-module type CBA = sig
+module type DDPA = sig
   type analysis
   
   val create_analysis : ?logging_prefix:string option -> expr -> analysis

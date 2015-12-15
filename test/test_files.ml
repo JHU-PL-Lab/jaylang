@@ -14,7 +14,7 @@ open OUnit2;;
 
 open Ast;;
 open Ast_wellformedness;;
-open Cba_graph;;
+open Ddpa_graph;;
 open Interpreter;;
 open String_utils;;
 
@@ -88,7 +88,7 @@ let parse_expectation str =
         let name = assert_one_arg args in
         begin
           try
-            let stack_module = Toploop_cba.stack_from_name name in
+            let stack_module = Toploop_ddpa.stack_from_name name in
             Expect_analysis_stack_is stack_module
           with
           | Not_found ->
@@ -183,7 +183,7 @@ let observe_analysis_variable_lookup_from_end ident repr expectation =
 
 let observe_inconsistency inconsistency expectation =
   match inconsistency with
-  | Toploop_cba.Application_of_non_function(_,Clause(Var(ident,_),_),_) ->
+  | Toploop_ddpa.Application_of_non_function(_,Clause(Var(ident,_),_),_) ->
     begin
       match expectation with
       | Expect_analysis_inconsistency_at ident' ->
@@ -264,7 +264,7 @@ let make_test filename expectations =
         begin
           let module Stack = (val chosen_module) in
           let module A = Analysis.Make(Stack) in
-          let module TLA = Toploop_cba.Make(A) in
+          let module TLA = Toploop_ddpa.Make(A) in
           (* Create the analysis now. *)
           let analysis = TLA.create_analysis expr in
           (* If we have any expectations about inconsistency, we should observe

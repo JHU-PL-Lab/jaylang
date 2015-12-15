@@ -1,7 +1,7 @@
 open Batteries;;
 
 open Analysis_context_stack;;
-open Cba_graph;;
+open Ddpa_graph;;
 
 module Stack : Context_stack =
 struct
@@ -36,5 +36,5 @@ struct
       String_utils.concat_sep "|" @@
         Enum.map ppa_abstract_clause @@ List.enum lst
   ;;
-  let name = "cba2";;
+  let name = "ddpa2";;
 end;;

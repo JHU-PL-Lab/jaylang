@@ -1,6 +1,6 @@
 (**
   Defines basic data structures for the analysis.  This module does not contain
-  CBA-specific structures; instead, it merely contains functor-generated data
+  DDPA-specific structures; instead, it merely contains functor-generated data
   structures for Odefa AST elements.
 *)
 

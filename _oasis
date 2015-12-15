@@ -1,10 +1,10 @@
 Name: Odefa
 Version: 0.2
-Synopsis: An implementation of CBA analysis.
+Synopsis: An implementation of DDPA analysis.
 Authors: JHU PL Lab <pl.cs@jhu.edu>
 License: BSD-4-clause
 
-Description: An implementation of CBA analysis.
+Description: An implementation of DDPA analysis.
 Homepage: http://www.big-bang-lang.org/
 
 OASISFormat: 0.4
@@ -129,9 +129,9 @@ Library "analysis"
     Analysis_two_element_stack,
     Analysis_unit_stack,
     Analysis_utils,
-    Cba_graph,
-    Cba_graph_logger,
-    Cba_graph_logger_types
+    Ddpa_graph,
+    Ddpa_graph_logger,
+    Ddpa_graph_logger_types
   BuildDepends:
     ast,
     pds-reachability,
@@ -142,8 +142,8 @@ Library "analysis"
 Library "toploop-utils"
   Path: src/toploop-utils
   Modules:
-    Toploop_cba,
-    Toploop_cba_types,
+    Toploop_ddpa,
+    Toploop_ddpa_types,
     Toploop_options
   BuildDepends:
     analysis,
