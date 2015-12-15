@@ -469,6 +469,15 @@ struct
           structure.targeted_dynamic_pop_edges_by_source
       ; Node_to_untargeted_dynamic_pop_action_multimap.keys
           structure.untargeted_dynamic_pop_actions_by_source
+      ; Node_to_node_and_stack_element_multimap.keys
+          structure.push_edges_by_target
+      ; Node_to_node_and_stack_element_multimap.keys
+          structure.pop_edges_by_target
+      ; Node_to_node_multimap.keys
+          structure.nop_edges_by_target
+      ; Enum.map (fst % snd)
+          (Node_to_node_and_targeted_dynamic_pop_action_multimap.enum
+            structure.targeted_dynamic_pop_edges_by_source)
       ]
   ;;
 
