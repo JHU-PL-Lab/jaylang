@@ -27,7 +27,7 @@ let pretty_record_value (Record_value(els)) =
 let pretty_ref_value (Ref_value(x)) = "!" ^ pretty_var x;;
 
 let rec pretty_function_value (Function_value(x,e)) =
-  pretty_var x ^ " -> { " ^ pretty_expr e ^ " }"
+  pretty_var x ^ " -> ( " ^ pretty_expr e ^ " )"
 
 and pretty_value v =
   match v with
@@ -64,3 +64,4 @@ and pretty_pattern p =
 ;;
 
 let brief_pretty_clause (Clause(x,_)) = pretty_var x;;
+
