@@ -32,5 +32,5 @@ struct
       (Enum.singleton "?")
   ;;
   let pretty_abbrv = pretty;;
-  let name = "ddpanr";;
+  let name = "ddpaNR";;
 end;;

@@ -44,13 +44,13 @@ module type Stack = Analysis_context_stack.Context_stack;;
 let stack_from_name name =
   begin
     match name with
-    | "ddpa0" ->
+    | "0ddpa" ->
       Some (module Analysis_unit_stack.Stack : Stack)
-    | "ddpa1" ->
+    | "1ddpa" ->
       Some (module Analysis_single_element_stack.Stack : Stack)
-    | "ddpa2" ->
+    | "2ddpa" ->
       Some (module Analysis_two_element_stack.Stack : Stack)
-    | "ddpanr" ->
+    | "ddpaNR" ->
       Some (module Analysis_nonrepeating_stack.Stack : Stack)
     | "none" -> None
     | _ -> raise Not_found

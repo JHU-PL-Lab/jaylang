@@ -78,7 +78,7 @@ let select_context_stack_option =
     ;
     option_metavars = ["ANALYSIS"]
     ;
-    option_defhelp = Some("Selects an analysis (ddpa0,ddpa1,ddpa1,ddpanr,none).")
+    option_defhelp = Some("Selects an analysis (0ddpa,1ddpa,2ddpa,ddpaNR,none).")
     ;
   };;
 

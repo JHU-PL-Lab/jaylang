@@ -12,5 +12,5 @@ struct
   let is_top _ () = true;;
   let pretty () = "-";;
   let pretty_abbrv = pretty;;
-  let name = "ddpa0";;
+  let name = "0ddpa";;
 end;;
