@@ -5,5 +5,5 @@ r = ref x;
 y = {l=x};
 j0 = r <- y;
 z = !r;
-m = z ~ {l={}} ? fun a -> { ra = {} } : fun b -> { rb = x x };
+m = z ~ {l={}} ? fun a -> ( ra = {} ) : fun b -> ( rb = x x );
 

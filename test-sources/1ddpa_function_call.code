@@ -5,5 +5,5 @@
 # EXPECT-ANALYSIS-LOOKUP-FROM-END z {{}}
 
 x = {};
-y = fun i -> { r=i };
+y = fun i -> ( r=i );
 z = y x;
