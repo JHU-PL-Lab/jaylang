@@ -530,7 +530,7 @@ struct
               |> Ident_set.enum
               |> Enum.map make_k''
               |> Enum.concat
-              |> flip Enum.append first_pushes
+              |> Enum.append first_pushes
             in
             return @@ List.of_enum all_pushes
         end
