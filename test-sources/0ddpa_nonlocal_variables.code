@@ -1,0 +1,14 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 0ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END z {{(a, empty$)}, {(b, empty$)}}
+
+empty = {};
+f = fun k -> ( r0 = fun j -> ( r1 = k; ); );
+a = {a=empty};
+b = {b=empty};
+g = f a;
+h = f b;
+x = g empty;
+y = h empty;
+z = x;
