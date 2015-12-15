@@ -40,7 +40,7 @@ and abstract_expr = Abs_expr of abstract_clause list [@@deriving eq, ord]
 ;;
 
 let rec pp_abstract_function_value (Abs_function_value(x,e)) =
-  Printf.sprintf "%s -> { %s }" (pretty_var x) (pp_abstract_expr e)
+  Printf.sprintf "%s -> ( %s )" (pretty_var x) (pp_abstract_expr e)
 
 and pp_abstract_value v =
   match v with
