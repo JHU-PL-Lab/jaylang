@@ -28,6 +28,8 @@ rule token = parse
   | newline                          { incr_lineno lexbuf; token lexbuf }
   | "{"                              { OPEN_BRACE }
   | "}"                              { CLOSE_BRACE }
+  | "("                              { OPEN_PAREN }
+  | ")"                              { CLOSE_PAREN }
   | ";"                              { SEMICOLON }
   | ","                              { COMMA }
   | "="                              { EQUALS }

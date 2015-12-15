@@ -5,5 +5,5 @@ y = {a=x};
 z = {b=y};
 v = z.b;
 
-q = v ~ {a={}} ? fun a1 -> { r1 = {} } : fun a2 -> { r2 = x x };
+q = v ~ {a={}} ? fun a1 -> ( r1 = {} ) : fun a2 -> ( r2 = x x );
 
