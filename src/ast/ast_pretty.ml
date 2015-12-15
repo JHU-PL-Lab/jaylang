@@ -20,7 +20,9 @@ let pretty_var (Var(i, mfs)) =
 ;;
 
 let pretty_record_value (Record_value(els)) =
-  let pretty_element = pretty_tuple pretty_ident pretty_var in
+  let pretty_element (k,v) =
+      Printf.sprintf "%s=%s" (pretty_ident k) (pretty_var v)
+  in
   concat_sep_delim "{" "}" ", " @@ Enum.map pretty_element @@ Ident_map.enum els
 ;;
 
