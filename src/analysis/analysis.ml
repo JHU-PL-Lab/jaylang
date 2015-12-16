@@ -477,10 +477,18 @@ struct
       | Record_construction_lookup_1_of_2(source_state,taret_state,x,r) ->
         let%orzero (Lookup_var(x0,patsp,patsn)) = element in
         [% guard (equal_var x x0) ];
+        logger `trace (Printf.sprintf ":::::::1   x=>%s   r=>%s   patsp=>%s   patsn=>%s   records-allowed=>%s" (pretty_var x) (pretty_record_value r)
+          (pp_pattern_set patsp) (pp_pattern_set patsn)
+          (string_of_bool @@ not @@ Pattern_set.mem (Record_pattern Ident_map.empty) patsn)
+          );
+        (* FIXME: the following isn't in the spec, but maybe it should be... just here to test things for now *)
+        [% guard (not @@ Pattern_set.mem (Record_pattern Ident_map.empty) patsn) ];
         return @@ List.of_enum @@ Nondeterminism_monad.enum @@
         begin
           let open Nondeterminism_monad in
           let%bind patsn' = negative_pattern_set_selection r patsn in
+          logger `trace (Printf.sprintf ":::::::2   patsn=>%s   picked=>%s"
+            (pp_pattern_set patsn) (pp_pattern_set patsn'));
           return @@ Pop_dynamic_targeted(
                       Record_construction_lookup_2_of_2(
                         source_state,taret_state,x,r,patsp,patsn'))
@@ -526,7 +534,7 @@ struct
                         ]
             in
             let all_pushes =
-              pattern_set_labels
+              record_labels
               |> Ident_set.enum
               |> Enum.map make_k''
               |> Enum.concat
