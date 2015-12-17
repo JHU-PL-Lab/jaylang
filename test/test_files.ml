@@ -29,6 +29,7 @@ type test_expectation =
     (module Analysis_context_stack.Context_stack) option
   | Expect_analysis_variable_lookup_from_end of ident * string
   | Expect_analysis_inconsistency_at of ident
+  | Expect_analysis_no_inconsistencies
 ;;
 
 type expectation_parse =
@@ -105,6 +106,9 @@ let parse_expectation str =
         let args = whitespace_split args_str in
         let call_site = assert_one_arg args in
         Expect_analysis_inconsistency_at (Ident(call_site))
+      | "EXPECT-ANALYSIS-NO-INCONSISTENCIES"::args_part ->
+        assert_no_args args_part;
+        Expect_analysis_no_inconsistencies
       | _ ->
         raise @@ Expectation_not_found
     in
@@ -194,6 +198,12 @@ let observe_inconsistency inconsistency expectation =
     end
 ;;
 
+let observe_no_inconsistency expectation =
+  match expectation with
+  | Expect_analysis_no_inconsistencies -> None
+  | _ -> Some expectation
+;;
+
 let make_test filename expectations =
   let name_of_expectation expectation = match expectation with
     | Expect_evaluate -> "should evaluate"
@@ -214,7 +224,9 @@ let make_test filename expectations =
     | Expect_analysis_variable_lookup_from_end(ident,_) ->
       "should have particular values for variable " ^ (pretty_ident ident)
     | Expect_analysis_inconsistency_at ident ->
-      "should be consistent at " ^ pretty_ident ident
+      "should be inconsistent at " ^ pretty_ident ident
+    | Expect_analysis_no_inconsistencies ->
+      "should be consistent"
   in
   let test_name = filename ^ ": (" ^
                   pretty_list name_of_expectation expectations ^ ")"
@@ -271,12 +283,16 @@ let make_test filename expectations =
              them now. *)
           if not @@ have_expectation
               (function
+                | Expect_analysis_no_inconsistencies -> true
                 | Expect_analysis_inconsistency_at _ -> true
                 | _ -> false)
           then ()
           else 
             begin
               let inconsistencies = TLA.check_inconsistencies analysis in
+              (* Report the lack of inconsistencies, when appropriate. *)
+              if Enum.is_empty inconsistencies
+              then observation observe_no_inconsistency;
               (* Report each inconsistency. *)
               inconsistencies
               |> Enum.iter

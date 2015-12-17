@@ -2,6 +2,7 @@
 # EXPECT-EVALUATE
 # EXPECT-ANALYSIS-STACK-IS 1ddpa
 # EXPECT-ANALYSIS-LOOKUP-FROM-END z {{a=empty$}}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 empty = {};
 f = fun k -> ( r0 = fun j -> ( r1 = k; ); );
