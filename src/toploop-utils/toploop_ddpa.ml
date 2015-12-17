@@ -40,21 +40,55 @@ let pp_inconsistency inconsistency =
       (pretty_clause c) (pretty_var x) (pp_abstract_value v)
 ;;
 
+(* TODO: the "none" should be handled elsewhere as a special case *)
 module type Stack = Analysis_context_stack.Context_stack;;
+let name_parsing_functions =
+  [
+    (* A function for the literally-named modules. *)
+    (fun name ->
+      match name with
+      | "0ddpa" ->
+        Some (module Analysis_unit_stack.Stack : Stack)
+      | "1ddpa" ->
+        Some (module Analysis_single_element_stack.Stack : Stack)
+      | "2ddpa" ->
+        Some (module Analysis_two_element_stack.Stack : Stack)
+      | "ddpaNR" ->
+        Some (module Analysis_nonrepeating_stack.Stack : Stack)
+      | "none" -> None
+      | _ -> raise Not_found
+    )
+  ;
+    (* A function for parsing kddpa *)
+    (fun name ->
+      if not @@ String.ends_with name "ddpa" then raise Not_found;
+      let num_str = String.sub name 0 @@ String.length name - 4 in
+      try
+        let num = int_of_string num_str in
+        let module Spec : Analysis_n_element_stack.Spec =
+          struct
+            let size = num
+          end
+        in
+        let module NStack = Analysis_n_element_stack.Make(Spec) in
+        Some (module NStack : Stack)
+      with
+      | Failure _ -> raise Not_found 
+    )
+  ];;
 let stack_from_name name =
-  begin
-    match name with
-    | "0ddpa" ->
-      Some (module Analysis_unit_stack.Stack : Stack)
-    | "1ddpa" ->
-      Some (module Analysis_single_element_stack.Stack : Stack)
-    | "2ddpa" ->
-      Some (module Analysis_two_element_stack.Stack : Stack)
-    | "ddpaNR" ->
-      Some (module Analysis_nonrepeating_stack.Stack : Stack)
-    | "none" -> None
-    | _ -> raise Not_found
-  end
+  let rec loop fns =
+    match fns with
+    | [] -> raise Not_found
+    | fn::fns' ->
+      begin
+        try
+          fn name
+        with
+        | Not_found -> loop fns'
+      end
+  in
+  loop name_parsing_functions
 ;;
 
 module Make(A : Analysis_sig) = struct

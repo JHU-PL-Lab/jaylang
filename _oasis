@@ -125,6 +125,7 @@ Library "analysis"
     Analysis_context_stack,
     Analysis_data_structures,
     Analysis_nonrepeating_stack,
+    Analysis_n_element_stack,
     Analysis_single_element_stack,
     Analysis_two_element_stack,
     Analysis_unit_stack,
