@@ -306,6 +306,10 @@ struct
     | Dereference_lookup of var * var
       (** Represents a dereferencing action.  The first variable is the lookup
           variable; the second variable is the variable it dereferences. *)
+    | Cell_filter_validation of var
+      (** Represents the validation of filters for a cell  under lookup.  If
+          the variable matches our lookup variable, any negative filters are
+          admissible and can be erased (although positive filters cannot). *)
     (* TODO *)
     [@@deriving ord]
   ;;
@@ -346,6 +350,8 @@ struct
       Printf.sprintf "Empty_record_filter_validation(%s)" (pretty_var x)
     | Dereference_lookup(x,x') ->
       Printf.sprintf "Dereference_lookup(%s,%s)" (pretty_var x) (pretty_var x') 
+    | Cell_filter_validation(x) ->
+      Printf.sprintf "Cell_filter_validation(%s)" (pretty_var x)
   ;;
 
   let ppa_pds_targeted_dynamic_pop_action action =
@@ -384,6 +390,8 @@ struct
       Printf.sprintf "ERFilVal(%s)" (pretty_var x)
     | Dereference_lookup(x,x') ->
       Printf.sprintf "Deref(%s,%s)" (pretty_var x) (pretty_var x')
+    | Cell_filter_validation(x) ->
+      Printf.sprintf "CellFilVal(%s)" (pretty_var x)
   ;;
 
   type pds_untargeted_dynamic_pop_action =
@@ -594,7 +602,15 @@ struct
         return [ Push(Deref(patsp, patsn))
                ; Push(Lookup_var(x', Pattern_set.empty, Pattern_set.empty))
                ]
-    ;;
+      | Cell_filter_validation(x) ->
+        let%orzero (Lookup_var(x0,patsp,patsn)) = element in
+        [% guard (equal_var x x0) ];
+        [% guard (Pattern_set.is_empty patsp) ];
+        (* The following isn't strictly necessary, but it'd be redundant to do
+           this for an empty negative pattern set. *)
+        [% guard (not @@ Pattern_set.is_empty patsn) ];
+        return [ Push(Lookup_var(x0,Pattern_set.empty,Pattern_set.empty)) ]
+     ;;
     let perform_untargeted_dynamic_pop element action =
       Nondeterminism_monad.enum @@
       let open Nondeterminism_monad in
@@ -858,6 +874,16 @@ struct
                 return ( Dereference_lookup(x,x')
                        , Program_point_state(acl1,ctx) )
               end
+            ;
+              (* 7d. Cell filter validation *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(
+                      x,Abs_value_body(Abs_value_ref(_))))) = acl1
+                in
+                (* x = ref x' *)
+                return (Cell_filter_validation(x), Program_point_state(acl0,ctx))
+              end              
             ]
           in
           targeted_dynamic_pops

@@ -1,0 +1,9 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 0ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END z {{}}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+x = {};
+cell = ref x;
+z = cell ~ {} ? fun a1 -> ( r1 = cell ) : fun a2 -> ( r2 = x );
