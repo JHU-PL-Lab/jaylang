@@ -262,7 +262,7 @@ struct
           first. *)
     | Conditional_closure_lookup of var * var * pattern * bool
       (** Represents a conditional closure lookup.  The first variable is the
-          one bound by the parameter wiring; if it does not match our lookup
+          one to which the parameter is bound; if it does not match our lookup
           target, then the conditional closure has no effect on the result.  The
           second variable is the one on which control flow conditions; if the
           first variable matches our lookup operation, then this second variable
@@ -299,6 +299,8 @@ struct
       (** Represents the validation of filters for a function under lookup.  If
           the variable matches our lookup variable, any negative filters are
           admissible and can be erased (although positive filters cannot). *)
+    | Empty_record_filter_validation
+      (** Represents the validation of filters for the empty record. *)
     (* TODO *)
     [@@deriving ord]
   ;;
@@ -335,6 +337,8 @@ struct
           (pretty_record_value r) (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Function_filter_validation(x) ->
       Printf.sprintf "Function_filter_validation(%s)" (pretty_var x)
+    | Empty_record_filter_validation ->
+      "Empty_record_filter_validation"
   ;;
 
   let ppa_pds_targeted_dynamic_pop_action action =
@@ -369,6 +373,7 @@ struct
           (pretty_record_value r) (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Function_filter_validation(x) ->
       Printf.sprintf "FunFilVal(%s)" (pretty_var x)
+    | Empty_record_filter_validation -> "ERFilVal"
   ;;
 
   type pds_untargeted_dynamic_pop_action =
@@ -565,6 +570,13 @@ struct
            this for an empty negative pattern set. *)
         [% guard (not @@ Pattern_set.is_empty patsn) ];
         return [ Push(Lookup_var(x0,Pattern_set.empty,Pattern_set.empty)) ]
+      | Empty_record_filter_validation ->
+        let%orzero (Lookup_var(x0,patsp,patsn)) = element in
+        let empty_record_pattern = Record_pattern Ident_map.empty in
+        [% guard (Pattern_set.subset
+                    patsp (Pattern_set.singleton empty_record_pattern)) ];
+        [% guard (not @@ Pattern_set.mem empty_record_pattern patsn) ];
+        return [ Push(Lookup_var(x0,Pattern_set.empty,Pattern_set.empty)) ]
     ;;
     let perform_untargeted_dynamic_pop element action =
       Nondeterminism_monad.enum @@
@@ -744,12 +756,13 @@ struct
                 let%orzero
                   (Abs_clause(_,Abs_conditional_body(x1,p,f1,_))) = c
                 in
+                [%guard (equal_var x' x1)];
                 let Abs_function_value(f1x,_) = f1 in
                 (* x'' =(down)c x' for conditionals *)
-                let closure_for_positive_path = equal_var f1x x' in
+                let closure_for_positive_path = equal_var f1x x'' in
                 return ( Conditional_closure_lookup
                           (x'',x1,p,closure_for_positive_path)
-                       , Program_point_state(acl1,C.pop ctx)
+                       , Program_point_state(acl1,ctx)
                        )
               end
             ;
@@ -808,6 +821,17 @@ struct
                 return ( Variable_discovery x
                        , Special_value_state empty_record)
               end
+            ;
+              (* 7b. Assignment result filter validation *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(_, Abs_update_body _))) = acl1
+                in
+                (* x = x' <- x'' -- validate {} for x *)
+                return ( Empty_record_filter_validation
+                       , Program_point_state(acl0,ctx) )
+              end
+              
             ]
           in
           targeted_dynamic_pops
