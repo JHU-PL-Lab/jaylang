@@ -189,21 +189,33 @@ struct
   ;;
 
   type pds_state =
-    Pds_state of annotated_clause * C.t
+    | Program_point_state of annotated_clause * C.t
+      (** A state in the PDS representing a specific program point and
+          context. *)
+    | Special_value_state of abstract_value
+      (** A state in the PDS representing a special value canonized by the
+          analysis.  This is necessary for analysis rules that generate values
+          which may not be in the program (such as empty record). *)
     [@@deriving ord]
   ;;
 
-  let pp_pds_state (Pds_state(acl,ctx)) =
-    Printf.sprintf "(%s @ %s)"
-      (pp_annotated_clause acl) (C.pretty ctx)
+  let pp_pds_state state =
+    match state with
+    | Program_point_state(acl,ctx) ->
+      Printf.sprintf "(%s @ %s)" (pp_annotated_clause acl) (C.pretty ctx)
+    | Special_value_state v ->
+      Printf.sprintf "(value: %s)" (pp_abstract_value v)
   ;;
 
-  let ppa_pds_state (Pds_state(acl,ctx)) =
-    Printf.sprintf "(%s @ %s)"
-      (ppa_annotated_clause acl) (C.pretty_abbrv ctx)
+  let ppa_pds_state state =
+    match state with
+    | Program_point_state(acl,ctx) ->
+      Printf.sprintf "(%s @ %s)" (ppa_annotated_clause acl) (C.pretty_abbrv ctx)
+    | Special_value_state v ->
+      Printf.sprintf "(%s)" (pp_abstract_value v)
   ;;
 
-  module Pds_state_ord =
+  module Program_point_state_ord =
   struct
     type t = pds_state
     let compare = compare_pds_state
@@ -213,7 +225,7 @@ struct
   struct
     type state = pds_state
     type stack_element = pds_continuation
-    module State_ord = Pds_state_ord
+    module State_ord = Program_point_state_ord
     module Stack_element_ord = Pds_continuation_ord
     let pp_state = pp_pds_state
     let pp_stack_element = pp_pds_continuation
@@ -499,8 +511,8 @@ struct
       | Record_construction_lookup_2_of_2(
           source_state,target_state,x,r,patsp0,patsn2) ->
         let Record_value m = r in
-        let Pds_state(acl1,ctx1) = source_state in
-        let Pds_state(acl0,ctx0) = target_state in
+        let%orzero Program_point_state(acl1,ctx1) = source_state in
+        let%orzero Program_point_state(acl0,ctx0) = target_state in
         begin
           match element with
           | Project(l,patsp1,patsn1) ->
@@ -561,7 +573,7 @@ struct
       | Do_jump ->
         begin
           let%orzero (Jump(acl1,ctx)) = element in
-          return ([], Pds_state(acl1,ctx))
+          return ([], Program_point_state(acl1,ctx))
         end
     ;;
   end;;
@@ -642,7 +654,7 @@ struct
           First, create each edge and untargeted pop functions for this edge.
         *)
         let (Ddpa_edge(acl1,acl0)) = edge in
-        let edge_function (Pds_state(acl0',ctx) as state) =
+        let edge_function state =
           Logger_utils.lazy_bracket_log (lazy_logger `trace)
           (fun () -> Printf.sprintf "DDPA %s edge function at state %s"
                         (pp_ddpa_edge edge) (pp_pds_state state))
@@ -657,150 +669,154 @@ struct
                         (String_utils.pretty_list pretty_output @@
                           List.of_enum @@ Enum.clone edges)) @@
           fun () ->
+          let zero = Enum.empty in
+          let%orzero Program_point_state(acl0',ctx) = state in
           (* TODO: There should be a way to associate each edge function with
-                   its corresponding acl0. *)
-          if compare_annotated_clause acl0 acl0' <> 0 then Enum.empty () else
-            let open Option.Monad in
-            let zero () = None in
-            let targeted_dynamic_pops = Enum.filter_map identity @@ List.enum
-              [
-                (* 1b. Variable discovery. *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(x, Abs_value_body _))) = acl1
-                  in
-                  (* x = v *)
-                  return (Variable_discovery x,Pds_state(acl1,ctx))
-                end
-              ;
-                (* 2a. Transitivity *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(x, Abs_var_body x'))) = acl1
-                  in
-                  (* x = x' *)
-                  return (Variable_aliasing(x,x'),Pds_state(acl1,ctx))
-                end
-              ;
-                (* 2b. Stateless non-matching clause skip *)
-                begin
-                  let%orzero (Unannotated_clause(Abs_clause(x,_))) = acl1 in
-                  (* x' = b *)
-                  return ( Stateless_nonmatching_clause_skip_1_of_2 x
-                         , Pds_state(acl1,ctx)
-                         )
-                end
-              ;
-                (* 3a. Function parameter wiring *) 
-                begin
-                  let%orzero (Enter_clause(x,x',c)) = acl1 in
-                  let%orzero (Abs_clause(_,Abs_appl_body _)) = c in
-                  (* x =(down)c x' *)
-                  [%guard C.is_top c ctx];
-                  let ctx' = C.pop ctx in
-                  return (Variable_aliasing(x,x'),Pds_state(acl1,ctx'))
-                end
-              ;
-                (* 3b. Function return wiring *)
-                begin
-                  let%orzero (Exit_clause(x,x',c)) = acl1 in
-                  let%orzero (Abs_clause(_,Abs_appl_body _)) = c in
-                  (* x =(up)c x' *)
-                  let ctx' = C.push c ctx in
-                  return (Variable_aliasing(x,x'),Pds_state(acl1,ctx'))
-                end
-              ;
-                (* 3c. Function non-local wiring *)
-                begin
-                  let%orzero (Enter_clause(x'',_,c)) = acl1 in
-                  let%orzero (Abs_clause(_,Abs_appl_body(x2'',_))) = c in
-                  (* x'' =(down)c x' *)
-                  [%guard C.is_top c ctx];
-                  let ctx' = C.pop ctx in
-                  return ( Function_closure_lookup(x'',x2'')
-                         , Pds_state(acl1,ctx')
-                         )
-                end
-              ;
-                (* 4a, 4b, and 4d. Conditional entrance wiring *)
-                begin
-                  (* This block represents *all* conditional closure handling on
-                     the entering side. *)
-                  let%orzero (Enter_clause(x'',x',c)) = acl1 in
-                  let%orzero
-                    (Abs_clause(_,Abs_conditional_body(x1,p,f1,_))) = c
-                  in
-                  let Abs_function_value(f1x,_) = f1 in
-                  (* x'' =(down)c x' for conditionals *)
-                  let closure_for_positive_path = equal_var f1x x' in
-                  return ( Conditional_closure_lookup
-                            (x'',x1,p,closure_for_positive_path)
-                         , Pds_state(acl1,C.pop ctx)
-                         )
-                end
-              ;
-                (* 4c. Conditional return wiring *)
-                begin
-                  let%orzero (Exit_clause(x,x',c)) = acl1 in
-                  let%orzero (Abs_clause(_,Abs_conditional_body _)) = c in
-                  (* x =(up) x' for conditionals *)
-                  return (Variable_aliasing(x,x'),Pds_state(acl1,ctx))                  
-                end
-              ;
-                (* 5a. Record destruction *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(
-                      Abs_clause(x,Abs_projection_body(x',l)))) = acl1
-                  in
-                  (* x = x'.l *)
-                  return (Record_projection_lookup(x,x',l),Pds_state(acl1,ctx))
-                end
-              ;
-                (* 5b, 6b. Record discovery *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(
-                      Abs_clause(x,Abs_value_body(Abs_value_record(r))))) = acl1
-                  in
-                  (* x = r *)
-                  let source_state = Pds_state(acl1,ctx) in
-                  let target_state = Pds_state(acl0,ctx) in
-                  return ( Record_construction_lookup_1_of_2(
-                             source_state,target_state,x,r)
-                         , target_state
-                         )
-                end
-              ;
-                (* 6a. Function filter validation *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(
-                        x,Abs_value_body(Abs_value_function(_))))) = acl1
-                  in
-                  (* x = f *)
-                  return (Function_filter_validation(x), Pds_state(acl0,ctx))
-                end
-              ]
-            in
-            targeted_dynamic_pops
-            |> Enum.map
-                (fun (action,state) -> ([Pop_dynamic_targeted(action)], state))
+                   its corresponding acl0 rather than using this guard. *)
+          [%guard (compare_annotated_clause acl0 acl0' == 0) ];
+          let open Option.Monad in
+          let zero () = None in
+          let targeted_dynamic_pops = Enum.filter_map identity @@ List.enum
+            [
+              (* 1b. Variable discovery. *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(x, Abs_value_body _))) = acl1
+                in
+                (* x = v *)
+                return (Variable_discovery x,Program_point_state(acl1,ctx))
+              end
+            ;
+              (* 2a. Transitivity *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(x, Abs_var_body x'))) = acl1
+                in
+                (* x = x' *)
+                return (Variable_aliasing(x,x'),Program_point_state(acl1,ctx))
+              end
+            ;
+              (* 2b. Stateless non-matching clause skip *)
+              begin
+                let%orzero (Unannotated_clause(Abs_clause(x,_))) = acl1 in
+                (* x' = b *)
+                return ( Stateless_nonmatching_clause_skip_1_of_2 x
+                       , Program_point_state(acl1,ctx)
+                       )
+              end
+            ;
+              (* 3a. Function parameter wiring *) 
+              begin
+                let%orzero (Enter_clause(x,x',c)) = acl1 in
+                let%orzero (Abs_clause(_,Abs_appl_body _)) = c in
+                (* x =(down)c x' *)
+                [%guard C.is_top c ctx];
+                let ctx' = C.pop ctx in
+                return (Variable_aliasing(x,x'),Program_point_state(acl1,ctx'))
+              end
+            ;
+              (* 3b. Function return wiring *)
+              begin
+                let%orzero (Exit_clause(x,x',c)) = acl1 in
+                let%orzero (Abs_clause(_,Abs_appl_body _)) = c in
+                (* x =(up)c x' *)
+                let ctx' = C.push c ctx in
+                return (Variable_aliasing(x,x'),Program_point_state(acl1,ctx'))
+              end
+            ;
+              (* 3c. Function non-local wiring *)
+              begin
+                let%orzero (Enter_clause(x'',_,c)) = acl1 in
+                let%orzero (Abs_clause(_,Abs_appl_body(x2'',_))) = c in
+                (* x'' =(down)c x' *)
+                [%guard C.is_top c ctx];
+                let ctx' = C.pop ctx in
+                return ( Function_closure_lookup(x'',x2'')
+                       , Program_point_state(acl1,ctx')
+                       )
+              end
+            ;
+              (* 4a, 4b, and 4d. Conditional entrance wiring *)
+              begin
+                (* This block represents *all* conditional closure handling on
+                   the entering side. *)
+                let%orzero (Enter_clause(x'',x',c)) = acl1 in
+                let%orzero
+                  (Abs_clause(_,Abs_conditional_body(x1,p,f1,_))) = c
+                in
+                let Abs_function_value(f1x,_) = f1 in
+                (* x'' =(down)c x' for conditionals *)
+                let closure_for_positive_path = equal_var f1x x' in
+                return ( Conditional_closure_lookup
+                          (x'',x1,p,closure_for_positive_path)
+                       , Program_point_state(acl1,C.pop ctx)
+                       )
+              end
+            ;
+              (* 4c. Conditional return wiring *)
+              begin
+                let%orzero (Exit_clause(x,x',c)) = acl1 in
+                let%orzero (Abs_clause(_,Abs_conditional_body _)) = c in
+                (* x =(up) x' for conditionals *)
+                return (Variable_aliasing(x,x'),Program_point_state(acl1,ctx))                  
+              end
+            ;
+              (* 5a. Record destruction *)
+              begin
+                let%orzero
+                  (Unannotated_clause(
+                    Abs_clause(x,Abs_projection_body(x',l)))) = acl1
+                in
+                (* x = x'.l *)
+                return (Record_projection_lookup(x,x',l),Program_point_state(acl1,ctx))
+              end
+            ;
+              (* 5b, 6b. Record discovery *)
+              begin
+                let%orzero
+                  (Unannotated_clause(
+                    Abs_clause(x,Abs_value_body(Abs_value_record(r))))) = acl1
+                in
+                (* x = r *)
+                let source_state = Program_point_state(acl1,ctx) in
+                let target_state = Program_point_state(acl0,ctx) in
+                return ( Record_construction_lookup_1_of_2(
+                           source_state,target_state,x,r)
+                       , target_state
+                       )
+              end
+            ;
+              (* 6a. Function filter validation *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(
+                      x,Abs_value_body(Abs_value_function(_))))) = acl1
+                in
+                (* x = f *)
+                return (Function_filter_validation(x), Program_point_state(acl0,ctx))
+              end
+            ]
+          in
+          targeted_dynamic_pops
+          |> Enum.map
+              (fun (action,state) -> ([Pop_dynamic_targeted(action)], state))
         in
-        let untargeted_dynamic_pop_action_function (Pds_state(acl0',_)) =
+        let untargeted_dynamic_pop_action_function state =
+          let zero = Enum.empty in
+          let%orzero Program_point_state(acl0',_) = state in
           (* TODO: There should be a way to associate each action function with
-                   its corresponding acl0. *)
-          if compare_annotated_clause acl0 acl0' <> 0 then Enum.empty () else
-            let open Option.Monad in
-            let untargeted_dynamic_pops = Enum.filter_map identity @@ List.enum
-              [
-                (* 6c. Jump rule *)
-                begin
-                  return @@ Do_jump
-                end
-              ]
-            in
-            untargeted_dynamic_pops
+                   its corresponding acl0 rather than using this guard. *)
+          [%guard (compare_annotated_clause acl0 acl0' == 0)];
+          let open Option.Monad in
+          let untargeted_dynamic_pops = Enum.filter_map identity @@ List.enum
+            [
+              (* 6c. Jump rule *)
+              begin
+                return @@ Do_jump
+              end
+            ]
+          in
+          untargeted_dynamic_pops
         in
         reachability
         |> Ddpa_pds_reachability.add_edge_function edge_function
@@ -930,7 +946,7 @@ struct
         String_utils.concat_sep_delim "{" "}" ", " @@
           Enum.map pp_abstract_value @@ Enum.clone values)
     @@ fun () ->
-    let start_state = Pds_state(acl,C.empty) in
+    let start_state = Program_point_state(acl,C.empty) in
     let start_actions =
       [Push Bottom_of_stack; Push (Lookup_var(x,patsp,patsn))]
     in
@@ -944,10 +960,14 @@ struct
       reachability'
       |> Ddpa_pds_reachability.get_reachable_states start_state start_actions
       |> Enum.filter_map
-        (fun (Pds_state(acl,_)) ->
-          match acl with
-          | Unannotated_clause(Abs_clause(_,Abs_value_body(v))) -> Some v
-          | _ -> None)
+        (fun state ->
+          let open Option.Monad in
+          let zero () = None in
+          let%orzero Program_point_state(acl,_) = state in
+          let%orzero
+            Unannotated_clause(Abs_clause(_,Abs_value_body(v))) = acl
+          in
+          return v)
     in
     (values, analysis')
   ;;
