@@ -299,8 +299,10 @@ struct
       (** Represents the validation of filters for a function under lookup.  If
           the variable matches our lookup variable, any negative filters are
           admissible and can be erased (although positive filters cannot). *)
-    | Empty_record_filter_validation
-      (** Represents the validation of filters for the empty record. *)
+    | Empty_record_filter_validation of var
+      (** Represents the validation of filters for the empty record.  This
+          action only takes place if the provided variable is the current lookup
+          variable. *)
     | Dereference_lookup of var * var
       (** Represents a dereferencing action.  The first variable is the lookup
           variable; the second variable is the variable it dereferences. *)
@@ -340,8 +342,8 @@ struct
           (pretty_record_value r) (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Function_filter_validation(x) ->
       Printf.sprintf "Function_filter_validation(%s)" (pretty_var x)
-    | Empty_record_filter_validation ->
-      "Empty_record_filter_validation"
+    | Empty_record_filter_validation(x) ->
+      Printf.sprintf "Empty_record_filter_validation(%s)" (pretty_var x)
     | Dereference_lookup(x,x') ->
       Printf.sprintf "Dereference_lookup(%s,%s)" (pretty_var x) (pretty_var x') 
   ;;
@@ -378,7 +380,8 @@ struct
           (pretty_record_value r) (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Function_filter_validation(x) ->
       Printf.sprintf "FunFilVal(%s)" (pretty_var x)
-    | Empty_record_filter_validation -> "ERFilVal"
+    | Empty_record_filter_validation(x) ->
+      Printf.sprintf "ERFilVal(%s)" (pretty_var x)
     | Dereference_lookup(x,x') ->
       Printf.sprintf "Deref(%s,%s)" (pretty_var x) (pretty_var x')
   ;;
@@ -577,8 +580,9 @@ struct
            this for an empty negative pattern set. *)
         [% guard (not @@ Pattern_set.is_empty patsn) ];
         return [ Push(Lookup_var(x0,Pattern_set.empty,Pattern_set.empty)) ]
-      | Empty_record_filter_validation ->
+      | Empty_record_filter_validation(x) ->
         let%orzero (Lookup_var(x0,patsp,patsn)) = element in
+        [%guard (equal_var x x0)];
         let empty_record_pattern = Record_pattern Ident_map.empty in
         [% guard (Pattern_set.subset
                     patsp (Pattern_set.singleton empty_record_pattern)) ];
@@ -838,10 +842,10 @@ struct
               (* 7b. Assignment result filter validation *)
               begin
                 let%orzero
-                  (Unannotated_clause(Abs_clause(_, Abs_update_body _))) = acl1
+                  (Unannotated_clause(Abs_clause(x, Abs_update_body _))) = acl1
                 in
                 (* x = x' <- x'' -- validate {} for x *)
-                return ( Empty_record_filter_validation
+                return ( Empty_record_filter_validation(x)
                        , Program_point_state(acl0,ctx) )
               end
             ;
