@@ -747,6 +747,7 @@ struct
                   return (Variable_aliasing(x,x'),Pds_state(acl1,ctx))                  
                 end
               ;
+                (* 5a. Record destruction *)
                 begin
                   let%orzero
                     (Unannotated_clause(
@@ -756,6 +757,7 @@ struct
                   return (Record_projection_lookup(x,x',l),Pds_state(acl1,ctx))
                 end
               ;
+                (* 5b, 6b. Record discovery *)
                 begin
                   let%orzero
                     (Unannotated_clause(
@@ -770,6 +772,7 @@ struct
                          )
                 end
               ;
+                (* 6a. Function filter validation *)
                 begin
                   let%orzero
                     (Unannotated_clause(Abs_clause(
@@ -789,9 +792,9 @@ struct
                    its corresponding acl0. *)
           if compare_annotated_clause acl0 acl0' <> 0 then Enum.empty () else
             let open Option.Monad in
-            (* let zero () = None in *)
             let untargeted_dynamic_pops = Enum.filter_map identity @@ List.enum
               [
+                (* 6c. Jump rule *)
                 begin
                   return @@ Do_jump
                 end
