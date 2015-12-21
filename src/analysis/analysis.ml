@@ -301,6 +301,9 @@ struct
           admissible and can be erased (although positive filters cannot). *)
     | Empty_record_filter_validation
       (** Represents the validation of filters for the empty record. *)
+    | Dereference_lookup of var * var
+      (** Represents a dereferencing action.  The first variable is the lookup
+          variable; the second variable is the variable it dereferences. *)
     (* TODO *)
     [@@deriving ord]
   ;;
@@ -339,6 +342,8 @@ struct
       Printf.sprintf "Function_filter_validation(%s)" (pretty_var x)
     | Empty_record_filter_validation ->
       "Empty_record_filter_validation"
+    | Dereference_lookup(x,x') ->
+      Printf.sprintf "Dereference_lookup(%s,%s)" (pretty_var x) (pretty_var x') 
   ;;
 
   let ppa_pds_targeted_dynamic_pop_action action =
@@ -374,6 +379,8 @@ struct
     | Function_filter_validation(x) ->
       Printf.sprintf "FunFilVal(%s)" (pretty_var x)
     | Empty_record_filter_validation -> "ERFilVal"
+    | Dereference_lookup(x,x') ->
+      Printf.sprintf "Deref(%s,%s)" (pretty_var x) (pretty_var x')
   ;;
 
   type pds_untargeted_dynamic_pop_action =
@@ -577,6 +584,12 @@ struct
                     patsp (Pattern_set.singleton empty_record_pattern)) ];
         [% guard (not @@ Pattern_set.mem empty_record_pattern patsn) ];
         return [ Push(Lookup_var(x0,Pattern_set.empty,Pattern_set.empty)) ]
+      | Dereference_lookup(x,x') ->
+        let%orzero (Lookup_var(x0,patsp,patsn)) = element in
+        [% guard (equal_var x x0) ];
+        return [ Push(Deref(patsp, patsn))
+               ; Push(Lookup_var(x', Pattern_set.empty, Pattern_set.empty))
+               ]
     ;;
     let perform_untargeted_dynamic_pop element action =
       Nondeterminism_monad.enum @@
@@ -831,7 +844,16 @@ struct
                 return ( Empty_record_filter_validation
                        , Program_point_state(acl0,ctx) )
               end
-              
+            ;
+              (* 7c. Dereference lookup *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(x, Abs_deref_body(x')))) = acl1
+                in
+                (* x = !x' *)
+                return ( Dereference_lookup(x,x')
+                       , Program_point_state(acl1,ctx) )
+              end
             ]
           in
           targeted_dynamic_pops
