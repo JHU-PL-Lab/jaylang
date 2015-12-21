@@ -26,7 +26,7 @@ let pretty_record_value (Record_value(els)) =
   concat_sep_delim "{" "}" ", " @@ Enum.map pretty_element @@ Ident_map.enum els
 ;;
 
-let pretty_ref_value (Ref_value(x)) = "!" ^ pretty_var x;;
+let pretty_ref_value (Ref_value(x)) = "ref " ^ pretty_var x;;
 
 let rec pretty_function_value (Function_value(x,e)) =
   pretty_var x ^ " -> ( " ^ pretty_expr e ^ " )"
