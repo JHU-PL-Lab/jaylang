@@ -248,12 +248,15 @@ struct
           If the lookup variable does not match the parameter, then this lookup
           is for a non-local and we must search for the function's definition
           first. *)
-    | Conditional_closure_lookup of var * pattern * bool
-      (** Represents a conditional closure lookup.  If the variable matches our
-          lookup target, then we've learned something about it: that it matches
-          the pattern (if the boolean is true) or that it does not (if the
-          boolean is false).  If the variable does not match our lookup target,
-          we have learned nothing. *)
+    | Conditional_closure_lookup of var * var * pattern * bool
+      (** Represents a conditional closure lookup.  The first variable is the
+          one bound by the parameter wiring; if it does not match our lookup
+          target, then the conditional closure has no effect on the result.  The
+          second variable is the one on which control flow conditions; if the
+          first variable matches our lookup operation, then this second variable
+          becomes our new lookup target.  The given pattern appears in the
+          conditional; the boolean describes whether the parameter wiring node
+          we are inspecting is the true branch of the conditional or not. *)
     | Record_projection_lookup of var * var * ident
       (** Represents a record projection.  If the first variable matches our
           lookup target, then we've discovered that we are looking up the
@@ -303,9 +306,9 @@ struct
     | Function_closure_lookup(x'',xf) ->
       Printf.sprintf "Function_closure_lookup(%s,%s)"
         (pretty_var x'') (pretty_var xf)
-    | Conditional_closure_lookup(x,p,b) ->
-      Printf.sprintf "Conditional_closure_lookup(%s,%s,%b)"
-        (pretty_var x) (pretty_pattern p) b
+    | Conditional_closure_lookup(x'',x1,p,b) ->
+      Printf.sprintf "Conditional_closure_lookup(%s,%s,%s,%b)"
+        (pretty_var x'') (pretty_var x1) (pretty_pattern p) b
     | Record_projection_lookup(x,x',l) ->
       Printf.sprintf "Record_projection_lookup(%s,%s,%s)"
         (pretty_var x) (pretty_var x') (pretty_ident l)
@@ -337,9 +340,9 @@ struct
     | Function_closure_lookup(x'',xf) ->
       Printf.sprintf "FunCL(%s,%s)"
         (pretty_var x'') (pretty_var xf)
-    | Conditional_closure_lookup(x,p,b) ->
-      Printf.sprintf "CondCL(%s,%s,%b)"
-        (pretty_var x) (pretty_pattern p) b
+    | Conditional_closure_lookup(x'',x1,p,b) ->
+      Printf.sprintf "CondCL(%s,%s,%s,%b)"
+        (pretty_var x'') (pretty_var x1) (pretty_pattern p) b
     | Record_projection_lookup(x,x',l) ->
       Printf.sprintf "RProjL(%s,%s,%s)"
         (pretty_var x) (pretty_var x') (pretty_ident l)
@@ -457,9 +460,9 @@ struct
         return [ Push(element)
                ; Push(Lookup_var(xf,Pattern_set.empty,Pattern_set.empty))
                ]
-      | Conditional_closure_lookup(xc,pat,positive_side) ->
+      | Conditional_closure_lookup(x'',x1,pat,positive_side) ->
         let%orzero (Lookup_var(x,patsp,patsn)) = element in
-        if not @@ equal_var x xc
+        if not @@ equal_var x x''
         then return [Push(element)]
         else
           let (patsp',patsn') =
@@ -467,7 +470,7 @@ struct
             then (Pattern_set.add pat patsp,patsn)
             else (patsp,Pattern_set.add pat patsn)
           in
-          return [Push(Lookup_var(x,patsp',patsn'))]
+          return [Push(Lookup_var(x1,patsp',patsn'))]
       | Record_projection_lookup(x,x',l) ->
         let%orzero (Lookup_var(x0,patsp,patsn)) = element in
         [%guard (equal_var x0 x)];
@@ -661,6 +664,7 @@ struct
             let zero () = None in
             let targeted_dynamic_pops = Enum.filter_map identity @@ List.enum
               [
+                (* 1b. Variable discovery. *)
                 begin
                   let%orzero
                     (Unannotated_clause(Abs_clause(x, Abs_value_body _))) = acl1
@@ -669,6 +673,7 @@ struct
                   return (Variable_discovery x,Pds_state(acl1,ctx))
                 end
               ;
+                (* 2a. Transitivity *)
                 begin
                   let%orzero
                     (Unannotated_clause(Abs_clause(x, Abs_var_body x'))) = acl1
@@ -677,56 +682,69 @@ struct
                   return (Variable_aliasing(x,x'),Pds_state(acl1,ctx))
                 end
               ;
+                (* 2b. Stateless non-matching clause skip *)
+                begin
+                  let%orzero (Unannotated_clause(Abs_clause(x,_))) = acl1 in
+                  (* x' = b *)
+                  return ( Stateless_nonmatching_clause_skip_1_of_2 x
+                         , Pds_state(acl1,ctx)
+                         )
+                end
+              ;
+                (* 3a. Function parameter wiring *) 
                 begin
                   let%orzero (Enter_clause(x,x',c)) = acl1 in
+                  let%orzero (Abs_clause(_,Abs_appl_body _)) = c in
                   (* x =(down)c x' *)
                   [%guard C.is_top c ctx];
                   let ctx' = C.pop ctx in
                   return (Variable_aliasing(x,x'),Pds_state(acl1,ctx'))
                 end
               ;
+                (* 3b. Function return wiring *)
                 begin
                   let%orzero (Exit_clause(x,x',c)) = acl1 in
+                  let%orzero (Abs_clause(_,Abs_appl_body _)) = c in
                   (* x =(up)c x' *)
                   let ctx' = C.push c ctx in
                   return (Variable_aliasing(x,x'),Pds_state(acl1,ctx'))
                 end
               ;
-                begin
-                  let%orzero (Unannotated_clause(Abs_clause(x,_))) = acl1 in
-                  (* x'' = b *)
-                  return ( Stateless_nonmatching_clause_skip_1_of_2 x
-                         , Pds_state(acl1,ctx)
-                         )
-                end
-              ;
+                (* 3c. Function non-local wiring *)
                 begin
                   let%orzero (Enter_clause(x'',_,c)) = acl1 in
-                  let%orzero (Abs_clause(_,Abs_appl_body(xf,_))) = c in
-                  (* x'' =(down)c x' for functions *)
+                  let%orzero (Abs_clause(_,Abs_appl_body(x2'',_))) = c in
+                  (* x'' =(down)c x' *)
                   [%guard C.is_top c ctx];
                   let ctx' = C.pop ctx in
-                  return ( Function_closure_lookup(x'',xf)
+                  return ( Function_closure_lookup(x'',x2'')
                          , Pds_state(acl1,ctx')
                          )
                 end
               ;
+                (* 4a, 4b, and 4d. Conditional entrance wiring *)
                 begin
-                  (* This block represents *all* conditional closure
-                     handling. *)
-                  let%orzero (Enter_clause(x'',_,c)) = acl1 in
+                  (* This block represents *all* conditional closure handling on
+                     the entering side. *)
+                  let%orzero (Enter_clause(x'',x',c)) = acl1 in
                   let%orzero
                     (Abs_clause(_,Abs_conditional_body(x1,p,f1,_))) = c
                   in
                   let Abs_function_value(f1x,_) = f1 in
                   (* x'' =(down)c x' for conditionals *)
-                  [%guard C.is_top c ctx];
-                  [%guard (not @@ equal_var x'' x1)];
-                  let closure_for_positive_path = equal_var f1x x'' in
+                  let closure_for_positive_path = equal_var f1x x' in
                   return ( Conditional_closure_lookup
-                            (x1,p,closure_for_positive_path)
+                            (x'',x1,p,closure_for_positive_path)
                          , Pds_state(acl1,C.pop ctx)
                          )
+                end
+              ;
+                (* 4c. Conditional return wiring *)
+                begin
+                  let%orzero (Exit_clause(x,x',c)) = acl1 in
+                  let%orzero (Abs_clause(_,Abs_conditional_body _)) = c in
+                  (* x =(up) x' for conditionals *)
+                  return (Variable_aliasing(x,x'),Pds_state(acl1,ctx))                  
                 end
               ;
                 begin
