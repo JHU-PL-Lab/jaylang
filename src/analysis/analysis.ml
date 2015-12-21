@@ -307,9 +307,19 @@ struct
       (** Represents a dereferencing action.  The first variable is the lookup
           variable; the second variable is the variable it dereferences. *)
     | Cell_filter_validation of var
-      (** Represents the validation of filters for a cell  under lookup.  If
+      (** Represents the validation of filters for a cell under lookup.  If
           the variable matches our lookup variable, any negative filters are
           admissible and can be erased (although positive filters cannot). *)
+    | Cell_dereference_1_of_2 of var * var
+      (** Represents the first step of dereferencing a located cell.  The first
+          variable is the variable under lookup; the second variable represents
+          the contents of the cell.  If the first variable matches the lookup
+          variable *and* there are no filters on the cell, this action will move
+          to the second step, which obtains the filters from the dereference
+          continuation. *)
+    | Cell_dereference_2_of_2 of var
+      (** Represents the second step of dereferencing a located cell.  The
+          provided variable represents the contents of that cell. *)
     (* TODO *)
     [@@deriving ord]
   ;;
@@ -352,6 +362,11 @@ struct
       Printf.sprintf "Dereference_lookup(%s,%s)" (pretty_var x) (pretty_var x') 
     | Cell_filter_validation(x) ->
       Printf.sprintf "Cell_filter_validation(%s)" (pretty_var x)
+    | Cell_dereference_1_of_2(x,x') ->
+      Printf.sprintf "Cell_dereference_1_of_2(%s,%s)"
+        (pretty_var x) (pretty_var x')
+    | Cell_dereference_2_of_2(x') ->
+      Printf.sprintf "Cell_dereference_2_of_2(%s)" (pretty_var x')
   ;;
 
   let ppa_pds_targeted_dynamic_pop_action action =
@@ -392,6 +407,11 @@ struct
       Printf.sprintf "Deref(%s,%s)" (pretty_var x) (pretty_var x')
     | Cell_filter_validation(x) ->
       Printf.sprintf "CellFilVal(%s)" (pretty_var x)
+    | Cell_dereference_1_of_2(x,x') ->
+      Printf.sprintf "CDr1(%s,%s)"
+        (pretty_var x) (pretty_var x')
+    | Cell_dereference_2_of_2(x') ->
+      Printf.sprintf "CDr2(%s)" (pretty_var x')
   ;;
 
   type pds_untargeted_dynamic_pop_action =
@@ -610,6 +630,17 @@ struct
            this for an empty negative pattern set. *)
         [% guard (not @@ Pattern_set.is_empty patsn) ];
         return [ Push(Lookup_var(x0,Pattern_set.empty,Pattern_set.empty)) ]
+      | Cell_dereference_1_of_2(x,x') ->
+        let%orzero (Lookup_var(x0,patsp,patsn)) = element in
+        [% guard (equal_var x x0) ];
+        [% guard (Pattern_set.is_empty patsp) ];
+        [% guard (Pattern_set.is_empty patsn) ];
+        (* From here, we need another stack frame element to confirm the
+           dereference action and obtain its filters. *)
+        return [ Pop_dynamic_targeted(Cell_dereference_2_of_2(x')) ]
+      | Cell_dereference_2_of_2(x') ->
+        let%orzero (Deref(patsp,patsn)) = element in
+        return [ Push(Lookup_var(x', patsp, patsn)) ]
      ;;
     let perform_untargeted_dynamic_pop element action =
       Nondeterminism_monad.enum @@
@@ -883,7 +914,18 @@ struct
                 in
                 (* x = ref x' *)
                 return (Cell_filter_validation(x), Program_point_state(acl0,ctx))
-              end              
+              end
+            ;
+              (* 7e. Cell dereference *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(
+                      x,Abs_value_body(Abs_value_ref(Ref_value x'))))) = acl1
+                in
+                (* x = ref x' *)
+                return ( Cell_dereference_1_of_2(x, x')
+                       , Program_point_state(acl0, ctx) )                
+              end
             ]
           in
           targeted_dynamic_pops
