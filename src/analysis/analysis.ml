@@ -795,6 +795,19 @@ struct
                 (* x = f *)
                 return (Function_filter_validation(x), Program_point_state(acl0,ctx))
               end
+            ;
+              (* 7a. Assignment result *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(x, Abs_update_body _))) = acl1
+                in
+                (* x = x' <- x'' -- produce {} for x *)
+                let empty_record =
+                  Abs_value_record(Record_value Ident_map.empty)
+                in
+                return ( Variable_discovery x
+                       , Special_value_state empty_record)
+              end
             ]
           in
           targeted_dynamic_pops
