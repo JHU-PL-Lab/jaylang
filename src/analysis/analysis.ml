@@ -960,14 +960,14 @@ struct
       reachability'
       |> Ddpa_pds_reachability.get_reachable_states start_state start_actions
       |> Enum.filter_map
-        (fun state ->
-          let open Option.Monad in
-          let zero () = None in
-          let%orzero Program_point_state(acl,_) = state in
-          let%orzero
-            Unannotated_clause(Abs_clause(_,Abs_value_body(v))) = acl
-          in
-          return v)
+        (function
+          | Program_point_state(acl,_) ->
+            begin
+              match acl with
+              | Unannotated_clause(Abs_clause(_,Abs_value_body(v))) -> Some v
+              | _ -> None
+            end
+          | Special_value_state v -> Some v)
     in
     (values, analysis')
   ;;
