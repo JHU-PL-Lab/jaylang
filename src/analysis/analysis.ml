@@ -320,6 +320,58 @@ struct
     | Cell_dereference_2_of_2 of var
       (** Represents the second step of dereferencing a located cell.  The
           provided variable represents the contents of that cell. *)
+    | Cell_update_alias_analysis_init_1_of_2 of var * pds_state * pds_state
+      (** Represents the initialization of alias analysis for a given cell
+          update.  This is used to determine if the update in question is
+          modifying a cell for which we are looking via a different name.  The
+          variable here is the cell being updated; the states are the source and
+          target state of the original transition, respectively. *)
+    | Cell_update_alias_analysis_init_2_of_2 of
+        var * pds_state * pds_state * var * Pattern_set.t * Pattern_set.t
+      (** Represents the second step of alias analysis initialization for a cell
+          update.  The additional parameters are the contents of the
+          continuation found during the first step. *)
+    | Value_capture of abstract_value
+      (** Represents the value capture action.  (This action is dynamic because
+          even it must be appropriate in any polyvariance context.) *)
+    | Alias_analysis_first_capture_exchange_1_of_4
+      (** Represents the first step of reorganizing the stack after the first
+          value is captured during alias analysis. *)
+    | Alias_analysis_first_capture_exchange_2_of_4 of
+        pds_continuation
+    | Alias_analysis_first_capture_exchange_3_of_4 of
+        pds_continuation * pds_continuation
+    | Alias_analysis_first_capture_exchange_4_of_4 of
+        pds_continuation * pds_continuation * pds_continuation    
+    | Alias_analysis_second_capture_exchange_1_of_4
+      (** Represents the second step of reorganizing the stack after the second
+          value is captured during alias analysis. *)
+    | Alias_analysis_second_capture_exchange_2_of_4 of
+        pds_continuation
+    | Alias_analysis_second_capture_exchange_3_of_4 of
+        pds_continuation * pds_continuation
+    | Alias_analysis_second_capture_exchange_4_of_4 of
+        pds_continuation * pds_continuation * pds_continuation
+    | Alias_analysis_resolution_1_of_5 of var
+      (** Represents the final step of alias analysis which determines whether
+          a cell may be an alias of the one currently under lookup.  The
+          variable here is the name of the contents of the cell under
+          consideration. *)
+    | Alias_analysis_resolution_2_of_5 of var * abstract_value
+      (** Alias analysis resolution after consuming the first abstract value
+          from the stack. *)
+    | Alias_analysis_resolution_3_of_5 of var * bool
+      (** Alias analysis resolution after consuming the second abstract value
+          from the stack.  The boolean here indicates whether those values were
+          equal. *)
+    | Alias_analysis_resolution_4_of_5 of var * bool
+      (** Alias analysis resolution after consuming the Alias? element from the
+          stack. *)
+    | Alias_analysis_resolution_5_of_5 of
+        var * bool * var * Pattern_set.t * Pattern_set.t
+      (** Alias analysis resolution after consuming the lookup variable from the
+          stack.  The additional elements here are the components of the lookup
+          continuation. *)
     (* TODO *)
     [@@deriving ord]
   ;;
@@ -367,6 +419,54 @@ struct
         (pretty_var x) (pretty_var x')
     | Cell_dereference_2_of_2(x') ->
       Printf.sprintf "Cell_dereference_2_of_2(%s)" (pretty_var x')
+    | Cell_update_alias_analysis_init_1_of_2(x',s1,s2) ->
+      Printf.sprintf "Cell_update_alias_analysis_init_1_of_2(%s,%s,%s)"
+        (pretty_var x') (pp_pds_state s1) (pp_pds_state s2)
+    | Cell_update_alias_analysis_init_2_of_2(x',s1,s2,x,patsp,patsn) ->
+      Printf.sprintf "Cell_update_alias_analysis_init_2_of_2(%s,%s,%s,%s,%s,%s)"
+        (pretty_var x') (pp_pds_state s1) (pp_pds_state s2)
+        (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+    | Value_capture(v) ->
+      Printf.sprintf "Value_capture(%s)" (pp_abstract_value v)
+    | Alias_analysis_first_capture_exchange_1_of_4 ->
+      "Alias_analysis_first_capture_exchange_1_of_4"
+    | Alias_analysis_first_capture_exchange_2_of_4(el1) ->
+      Printf.sprintf "Alias_analysis_first_capture_exchange_2_of_4(%s)"
+        (pp_pds_continuation el1)
+    | Alias_analysis_first_capture_exchange_3_of_4(el1,el2) ->
+      Printf.sprintf "Alias_analysis_first_capture_exchange_3_of_4(%s,%s)"
+        (pp_pds_continuation el1) (pp_pds_continuation el2)
+    | Alias_analysis_first_capture_exchange_4_of_4(el1,el2,el3) ->
+      Printf.sprintf "Alias_analysis_first_capture_exchange_4_of_4(%s,%s,%s)"
+        (pp_pds_continuation el1) (pp_pds_continuation el2)
+        (pp_pds_continuation el3)
+    | Alias_analysis_second_capture_exchange_1_of_4 ->
+      "Alias_analysis_second_capture_exchange_1_of_4"
+    | Alias_analysis_second_capture_exchange_2_of_4(el1) ->
+      Printf.sprintf "Alias_analysis_second_capture_exchange_2_of_4(%s)"
+        (pp_pds_continuation el1)
+    | Alias_analysis_second_capture_exchange_3_of_4(el1,el2) ->
+      Printf.sprintf "Alias_analysis_second_capture_exchange_3_of_4(%s,%s)"
+        (pp_pds_continuation el1) (pp_pds_continuation el2)
+    | Alias_analysis_second_capture_exchange_4_of_4(el1,el2,el3) ->
+      Printf.sprintf "Alias_analysis_second_capture_exchange_4_of_4(%s,%s,%s)"
+        (pp_pds_continuation el1) (pp_pds_continuation el2)
+        (pp_pds_continuation el3)
+    | Alias_analysis_resolution_1_of_5(x'') ->
+      Printf.sprintf "AAR1(%s)" (pretty_var x'')
+    | Alias_analysis_resolution_2_of_5(x'',v) ->
+      Printf.sprintf "AAR2(%s,%s)"
+        (pretty_var x'') (pp_abstract_value v)
+    | Alias_analysis_resolution_3_of_5(x'',b) ->
+      Printf.sprintf "AAR3(%s,%s)"
+        (pretty_var x'') (string_of_bool b)
+    | Alias_analysis_resolution_4_of_5(x'',b) ->
+      Printf.sprintf "AAR4(%s,%s)"
+        (pretty_var x'') (string_of_bool b)
+    | Alias_analysis_resolution_5_of_5(x'',b,x,patsp,patsn) ->
+      Printf.sprintf "AAR5(%s,%s,%s,%s,%s)"
+        (pretty_var x'') (string_of_bool b) (pretty_var x)
+        (pp_pattern_set patsp) (pp_pattern_set patsn)
   ;;
 
   let ppa_pds_targeted_dynamic_pop_action action =
@@ -412,6 +512,50 @@ struct
         (pretty_var x) (pretty_var x')
     | Cell_dereference_2_of_2(x') ->
       Printf.sprintf "CDr2(%s)" (pretty_var x')
+    | Cell_update_alias_analysis_init_1_of_2(x',s1,s2) ->
+      Printf.sprintf "CUAA1(%s,%s,%s)"
+        (pretty_var x') (pp_pds_state s1) (pp_pds_state s2)
+    | Cell_update_alias_analysis_init_2_of_2(x',s1,s2,x,patsp,patsn) ->
+      Printf.sprintf "CUAA2(%s,%s,%s,%s,%s,%s)"
+        (pretty_var x') (pp_pds_state s1) (pp_pds_state s2)
+        (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+    | Value_capture(v) ->
+      Printf.sprintf "VCap(%s)" (pp_abstract_value v)
+    | Alias_analysis_first_capture_exchange_1_of_4 -> "AA1CX1"
+    | Alias_analysis_first_capture_exchange_2_of_4(el1) ->
+      Printf.sprintf "AA1CX2(%s)" (ppa_pds_continuation el1)
+    | Alias_analysis_first_capture_exchange_3_of_4(el1,el2) ->
+      Printf.sprintf "AA1CX3(%s,%s)"
+        (ppa_pds_continuation el1) (ppa_pds_continuation el2)
+    | Alias_analysis_first_capture_exchange_4_of_4(el1,el2,el3) ->
+      Printf.sprintf "AA1CX4(%s,%s,%s)"
+        (ppa_pds_continuation el1) (ppa_pds_continuation el2)
+        (ppa_pds_continuation el3)
+    | Alias_analysis_second_capture_exchange_1_of_4 -> "AA2CX1"
+    | Alias_analysis_second_capture_exchange_2_of_4(el1) ->
+      Printf.sprintf "AA2CX2(%s)" (ppa_pds_continuation el1)
+    | Alias_analysis_second_capture_exchange_3_of_4(el1,el2) ->
+      Printf.sprintf "AA2CX3(%s,%s)"
+        (ppa_pds_continuation el1) (ppa_pds_continuation el2)
+    | Alias_analysis_second_capture_exchange_4_of_4(el1,el2,el3) ->
+      Printf.sprintf "AA2CX4(%s,%s,%s)"
+        (ppa_pds_continuation el1) (ppa_pds_continuation el2)
+        (ppa_pds_continuation el3)
+    | Alias_analysis_resolution_1_of_5(x'') ->
+      Printf.sprintf "AAR1(%s)" (pretty_var x'')
+    | Alias_analysis_resolution_2_of_5(x'',v) ->
+      Printf.sprintf "AAR2(%s,%s)"
+        (pretty_var x'') (pp_abstract_value v)
+    | Alias_analysis_resolution_3_of_5(x'',b) ->
+      Printf.sprintf "AAR3(%s,%s)"
+        (pretty_var x'') (string_of_bool b)
+    | Alias_analysis_resolution_4_of_5(x'',b) ->
+      Printf.sprintf "AAR4(%s,%s)"
+        (pretty_var x'') (string_of_bool b)
+    | Alias_analysis_resolution_5_of_5(x'',b,x,patsp,patsn) ->
+      Printf.sprintf "AAR5(%s,%s,%s,%s,%s)"
+        (pretty_var x'') (string_of_bool b) (pretty_var x)
+        (pp_pattern_set patsp) (pp_pattern_set patsn)
   ;;
 
   type pds_untargeted_dynamic_pop_action =
@@ -641,7 +785,89 @@ struct
       | Cell_dereference_2_of_2(x') ->
         let%orzero (Deref(patsp,patsn)) = element in
         return [ Push(Lookup_var(x', patsp, patsn)) ]
-     ;;
+      | Cell_update_alias_analysis_init_1_of_2(x',source_state,target_state) ->
+        let%orzero (Lookup_var(x,patsp,patsn)) = element in
+        return [ Pop_dynamic_targeted(
+                    Cell_update_alias_analysis_init_2_of_2(
+                      x',source_state,target_state,x,patsp,patsn)) ]
+      | Cell_update_alias_analysis_init_2_of_2(
+          x',source_state,target_state,x,patsp0,patsn0) ->
+        let%orzero (Deref _) = element in
+        let%orzero Program_point_state(acl1,ctx1) = source_state in
+        let%orzero Program_point_state(acl0,ctx0) = target_state in
+        (* The lists below are in reverse order of their presentation in the
+           formal rules because we are not directly modifying the stack;
+           instead, we are pushing stack elements one at a time. *)
+        let k0 = [ element ; Lookup_var(x,patsp0,patsn0) ] in
+        let k1'' = [ Capture ; Lookup_var(x,patsp0,patsn0) ] in
+        let k2'' = [ Capture
+                   ; Lookup_var(x',Pattern_set.empty,Pattern_set.empty)
+                   ; Jump(acl1, ctx1) ] in
+        let k3'' = [ Alias_huh ; Jump(acl0,ctx0) ] in
+        return @@ List.map (fun x -> Push x) @@
+          k0 @ k3'' @ k2'' @ k1''
+      | Value_capture v ->
+        let%orzero Capture = element in
+        return [ Push(Continuation_value v) ]
+      | Alias_analysis_first_capture_exchange_1_of_4 ->
+        let%orzero Continuation_value _ = element in
+        return [ Pop_dynamic_targeted
+                  (Alias_analysis_first_capture_exchange_2_of_4 element) ]
+      | Alias_analysis_first_capture_exchange_2_of_4(el1) ->
+        let%orzero Jump _ = element in
+        return [ Pop_dynamic_targeted
+                  (Alias_analysis_first_capture_exchange_3_of_4(el1,element)) ]
+      | Alias_analysis_first_capture_exchange_3_of_4(el1,el2) ->
+        let%orzero Lookup_var _ = element in
+        return [ Pop_dynamic_targeted
+                  (Alias_analysis_first_capture_exchange_4_of_4(
+                    el1,el2,element)) ]
+      | Alias_analysis_first_capture_exchange_4_of_4(el1,el2,el3) ->
+        let%orzero Capture = element in
+        return [ Push el1 ; Push element ; Push el3 ; Push el2 ]
+      | Alias_analysis_second_capture_exchange_1_of_4 ->
+        let%orzero Continuation_value _ = element in
+        return [ Pop_dynamic_targeted
+                  (Alias_analysis_second_capture_exchange_2_of_4 element) ]
+      | Alias_analysis_second_capture_exchange_2_of_4(el1) ->
+        let%orzero Continuation_value _ = element in
+        return [ Pop_dynamic_targeted
+                  (Alias_analysis_second_capture_exchange_3_of_4(el1,element)) ]
+      | Alias_analysis_second_capture_exchange_3_of_4(el1,el2) ->
+        let%orzero Jump _ = element in
+        return [ Pop_dynamic_targeted
+                  (Alias_analysis_second_capture_exchange_4_of_4(
+                    el1,el2,element)) ]
+      | Alias_analysis_second_capture_exchange_4_of_4(el1,el2,el3) ->
+        let%orzero Alias_huh = element in
+        return [ Push element ; Push el2 ; Push el1 ; Push el3 ]
+      | Alias_analysis_resolution_1_of_5(x'') ->
+        let%orzero Continuation_value v = element in
+        return [ Pop_dynamic_targeted
+                  (Alias_analysis_resolution_2_of_5(x'',v)) ]
+      | Alias_analysis_resolution_2_of_5(x'',v) ->
+        let%orzero Continuation_value v' = element in
+        let equal_values = equal_abstract_value v v' in
+        return [ Pop_dynamic_targeted
+                  (Alias_analysis_resolution_3_of_5(x'', equal_values)) ]
+      | Alias_analysis_resolution_3_of_5(x'',equal_values) ->
+        let%orzero Alias_huh = element in
+        return [ Pop_dynamic_targeted
+                  (Alias_analysis_resolution_4_of_5(x'',equal_values)) ]
+      | Alias_analysis_resolution_4_of_5(x'',equal_values) ->
+        let%orzero Lookup_var(x,patsp0,patsn0) = element in
+        return [ Pop_dynamic_targeted
+                  (Alias_analysis_resolution_5_of_5(
+                    x'',equal_values,x,patsp0,patsn0)) ]
+      | Alias_analysis_resolution_5_of_5(x'',equal_values,x,patsp0,patsn0) ->
+        let%orzero Deref(patsp1,patsn1) = element in
+        if equal_values
+        then
+          return [ Push(Lookup_var(x'',patsp1,patsn1)) ]
+        else
+          return [ Push(Deref(patsp1,patsn1))
+                 ; Push(Lookup_var(x,patsp0,patsn0)) ]
+    ;;
     let perform_untargeted_dynamic_pop element action =
       Nondeterminism_monad.enum @@
       let open Nondeterminism_monad in
@@ -726,10 +952,10 @@ struct
         information.
       *)
       let add_edge_for_reachability edge reachability =
-        (* ***
-          First, create each edge and untargeted pop functions for this edge.
-        *)
+        (* Unpack the edge *)
         let (Ddpa_edge(acl1,acl0)) = edge in
+        (* Create an edge function to generate targeted dynamic pops for each
+           edge. *)
         let edge_function state =
           Logger_utils.lazy_bracket_log (lazy_logger `trace)
           (fun () -> Printf.sprintf "DDPA %s edge function at state %s"
@@ -926,12 +1152,58 @@ struct
                 return ( Cell_dereference_1_of_2(x, x')
                        , Program_point_state(acl0, ctx) )                
               end
+            ;
+              (* 7f.i. Cell update alias analysis initialization *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(
+                      _, Abs_update_body(x',_)))) = acl1
+                in
+                (* x''' = x' <- x'' *)
+                let source_state = Program_point_state(acl1,ctx) in
+                let target_state = Program_point_state(acl0,ctx) in
+                return ( Cell_update_alias_analysis_init_1_of_2(
+                          x',source_state,target_state)
+                       , Program_point_state(acl0, ctx) )
+              end
+            ;
+              (* 7f.ii. Value capture *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(
+                      _, Abs_value_body v))) = acl0
+                in
+                (* x = v *)
+                return ( Value_capture(v)
+                       , Program_point_state(acl0, ctx) )
+              end
+            ; (* 7f.iii. Alias analysis first capture exchange *)
+              begin
+                return ( Alias_analysis_first_capture_exchange_1_of_4
+                       , Program_point_state(acl0, ctx) )
+              end
+            ; (* 7f.iv. Alias analysis second capture exchange *)
+              begin
+                return ( Alias_analysis_second_capture_exchange_1_of_4
+                       , Program_point_state(acl0, ctx) )
+              end
+            ; (* 7f.v, 7f.vi. Alias resolution *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(
+                      _, Abs_update_body(_,x'')))) = acl1
+                in
+                (* x''' = x' <- x'' *)
+                return ( Alias_analysis_resolution_1_of_5(x'')
+                       , Program_point_state(acl1, ctx) )
+              end
             ]
           in
           targeted_dynamic_pops
           |> Enum.map
               (fun (action,state) -> ([Pop_dynamic_targeted(action)], state))
         in
+        (* Create another function to handle the untargeted dynamic pops. *)
         let untargeted_dynamic_pop_action_function state =
           let zero = Enum.empty in
           let%orzero Program_point_state(acl0',_) = state in
@@ -949,6 +1221,8 @@ struct
           in
           untargeted_dynamic_pops
         in
+        (* Put it all together with the reachability parameter to produce the
+           new reachability structure. *)
         reachability
         |> Ddpa_pds_reachability.add_edge_function edge_function
         |> Ddpa_pds_reachability.add_untargeted_dynamic_pop_action_function
