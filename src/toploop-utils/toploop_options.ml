@@ -147,4 +147,45 @@ let pdr_logging_option =
     ;       
   }
 ;;
-  
+
+let analyze_variables_option =
+  let variables_to_analyze = ref (fun _ -> false) in
+  {
+    option_set = (fun option_name args ->
+      match args with
+      | [filter_string] ->
+        let new_filter =
+          match filter_string with
+          | "none" -> (fun _ -> false)
+          | "all" -> (fun _ -> true)
+          | _ ->
+            if String.starts_with filter_string "only:"
+            then
+              let names =
+                filter_string
+                |> String.lchop ~n:5
+                |> (fun x -> String.nsplit x ~by:",")
+              in
+              (fun (Ast.Ident s) -> List.mem s names)
+            else
+              raise @@ Option_error (option_name,
+                Printf.sprintf "Unrecognized variable analysis mode: %s"
+                  filter_string)
+        in
+        variables_to_analyze := new_filter
+      | _ ->
+        raise @@ Option_error (option_name,
+          Printf.sprintf "Invalid argument count: %d" (List.length args))
+      )
+    ;
+    option_set_value = (fun filter -> variables_to_analyze := filter)
+    ;
+    option_get = (fun () -> Some (!variables_to_analyze))
+    ;
+    option_metavars = ["VAR_FILTER"]
+    ;
+    option_defhelp =
+      Some("Selects variables to analyze (none, all, only:a,b,c,...)")
+    ;
+  }
+;;

@@ -15,6 +15,7 @@ type toploop_configuration =
   ; topconf_ddpa_log_level : Ddpa_graph_logger.ddpa_graph_logger_level option
   ; topconf_pdr_log_level :
       Pds_reachability_logger_utils.pds_reachability_logger_level option
+  ; topconf_analyze_vars : (ident -> bool)
   }
 ;;
 
@@ -85,31 +86,34 @@ let toploop_operate conf e =
                 print_endline @@ Toploop_ddpa.pp_inconsistency inconsistency)
           else
             begin
-              (* Show the value of each top-level clause in the program. *)
-              let acls =
+              (* Analyze the variables that the user requested.  If the user
+                 requested non-existent variables, they are ignored. *)
+              let vars_to_analyze =
                 e
                 |> (fun (Expr(cls)) -> cls)
                 |> List.enum
                 |> Enum.map lift_clause
-                |> Enum.map (fun x -> Unannotated_clause(x))
+                |> Enum.map (fun (Abs_clause(x, _)) -> x)
+                |> Enum.filter
+                  (fun (Var(i,_)) -> conf.topconf_analyze_vars i)
               in
-              let variable_values =
-                acls
-                |> Enum.fold
-                  (fun m acl ->
-                    match acl with
-                    | Unannotated_clause(Abs_clause(x, _)) ->
+              if not @@ Enum.is_empty vars_to_analyze then
+              begin
+                let variable_values =
+                  vars_to_analyze
+                  |> Enum.fold
+                    (fun m x ->
                       let vs =
                         TLA.values_of_variable_from x End_clause analysis
                       in
-                      let Var(i, _) = x in
+                      let (Var(i,_)) = x in
                       Ident_map.add i vs m
-                    | _ -> m
-                  ) Ident_map.empty
-              in
-              (* Show our results. *)
-              print_endline @@
-                pretty_ident_map pp_abs_value_set variable_values;
+                    ) Ident_map.empty
+                in
+                (* Show our results. *)
+                print_endline @@
+                  pretty_ident_map pp_abs_value_set variable_values
+              end;
               (* Dump the analysis to debugging. *)
               logger `trace
                 (Printf.sprintf "DDPA analysis: %s" (TLA.pp_analysis analysis));
@@ -146,10 +150,15 @@ let command_line_parsing () =
     ~short_name:'S' select_context_stack_option;
     
   (* Add DDPA graph logging option. *)
-  BatOptParse.OptParser.add parser ~long_name:"ddpa-logging" ddpa_logging_option;
+  BatOptParse.OptParser.add parser ~long_name:"ddpa-logging"
+    ddpa_logging_option;
   
   (* Add PDS reachability graph logging option. *)
   BatOptParse.OptParser.add parser ~long_name:"pdr-logging" pdr_logging_option;
+  
+  (* Add control over variables used in toploop analysis. *)
+  BatOptParse.OptParser.add parser ~long_name:"analyze-variables"
+    analyze_variables_option;
   
   (* Handle arguments. *)
   let spare_args = BatOptParse.OptParser.parse_argv parser in
@@ -160,6 +169,8 @@ let command_line_parsing () =
     ; topconf_log_prefix = "_toploop"
     ; topconf_ddpa_log_level = ddpa_logging_option.BatOptParse.Opt.option_get ()
     ; topconf_pdr_log_level = pdr_logging_option.BatOptParse.Opt.option_get ()
+    ; topconf_analyze_vars = Option.get @@
+        analyze_variables_option.BatOptParse.Opt.option_get ()
     }
   | _ -> failwith "Unexpected command-line arguments."
 ;;

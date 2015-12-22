@@ -15,3 +15,10 @@ val ddpa_logging_option :
     logged. *)
 val pdr_logging_option :
   Pds_reachability_logger_utils.pds_reachability_logger_level BatOptParse.Opt.t
+
+(** This option sets an end-of-program analysis variable filter.  If an analysis
+    is configured, the toploop uses it to display the potential values appearing
+    in certain variables.  This option permits the user to configure which
+    variables will be analyzed. *)
+val analyze_variables_option :
+  (Ast.ident -> bool) BatOptParse.Opt.t
