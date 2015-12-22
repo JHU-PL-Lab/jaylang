@@ -92,18 +92,16 @@ let toploop_operate conf e =
                 |> List.enum
                 |> Enum.map lift_clause
                 |> Enum.map (fun x -> Unannotated_clause(x))
-                |> flip Enum.append (Enum.singleton End_clause)
               in
-              let acls' = Enum.clone acls in
-              ignore @@ Enum.get_exn acls';
-              let acl_pairs = Enum.combine (acls, acls') in
               let variable_values =
-                acl_pairs
+                acls
                 |> Enum.fold
-                  (fun m (acl1, acl0) ->
-                    match acl1 with
+                  (fun m acl ->
+                    match acl with
                     | Unannotated_clause(Abs_clause(x, _)) ->
-                      let vs = TLA.values_of_variable_from x acl0 analysis in
+                      let vs =
+                        TLA.values_of_variable_from x End_clause analysis
+                      in
                       let Var(i, _) = x in
                       Ident_map.add i vs m
                     | _ -> m
