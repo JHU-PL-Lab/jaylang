@@ -1,0 +1,15 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 0ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END z1 {{}}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END z2 {{q=empty$}}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+empty = {};
+a = empty;
+cell = ref a;
+z1 = !cell;
+b = {q=empty};
+cell2 = cell;
+junk = cell2 <- b;
+z2 = !cell;
