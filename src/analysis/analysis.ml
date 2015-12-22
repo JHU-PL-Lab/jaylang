@@ -129,6 +129,23 @@ struct
     |> Enum.map labels_in_pattern
     |> Enum.fold Ident_set.union Ident_set.empty
   ;;
+
+  let is_immediate acl =
+    match acl with
+    | Unannotated_clause(Abs_clause(_,Abs_value_body _))
+    | Unannotated_clause(Abs_clause(_,Abs_var_body _))
+    | Unannotated_clause(Abs_clause(_,Abs_deref_body _))
+    | Unannotated_clause(Abs_clause(_,Abs_update_body _))
+    | Unannotated_clause(Abs_clause(_,Abs_projection_body _))
+    | Enter_clause _
+    | Exit_clause _
+      -> true
+    | Start_clause
+    | End_clause
+    | Unannotated_clause(Abs_clause(_,Abs_appl_body _))
+    | Unannotated_clause(Abs_clause(_,Abs_conditional_body _))
+      -> false
+  ;;
   
   type pds_continuation =
     | Bottom_of_stack
@@ -372,6 +389,15 @@ struct
       (** Alias analysis resolution after consuming the lookup variable from the
           stack.  The additional elements here are the components of the lookup
           continuation. *)
+    | Nonsideeffecting_nonmatching_clause_skip of var
+      (** Represents the skip of a non-matching, non-stateful clause.  Although
+          the rules indicate that this step should occur only when a deref
+          exists on the stack, the rule overlaps with the stateless nonmatching
+          clause skip in each occasion that a deref is not present.  So we
+          simply drop that requirement here, as the overlap does not present
+          a problem and it reduces the number of steps involved in performing
+          this task.  The associated variable is the variable that a lookup must
+          *not* match to be able to skip the clause. *) 
     (* TODO *)
     [@@deriving ord]
   ;;
@@ -467,6 +493,9 @@ struct
       Printf.sprintf "AAR5(%s,%s,%s,%s,%s)"
         (pretty_var x'') (string_of_bool b) (pretty_var x)
         (pp_pattern_set patsp) (pp_pattern_set patsn)
+    | Nonsideeffecting_nonmatching_clause_skip(x'') ->
+      Printf.sprintf "Nonsideeffecting_nonmatching_clause_skip(%s)"
+        (pretty_var x'')
   ;;
 
   let ppa_pds_targeted_dynamic_pop_action action =
@@ -556,6 +585,8 @@ struct
       Printf.sprintf "AAR5(%s,%s,%s,%s,%s)"
         (pretty_var x'') (string_of_bool b) (pretty_var x)
         (pp_pattern_set patsp) (pp_pattern_set patsn)
+    | Nonsideeffecting_nonmatching_clause_skip(x'') ->
+      Printf.sprintf "NNCS(%s)" (pretty_var x'')
   ;;
 
   type pds_untargeted_dynamic_pop_action =
@@ -867,6 +898,10 @@ struct
         else
           return [ Push(Deref(patsp1,patsn1))
                  ; Push(Lookup_var(x,patsp0,patsn0)) ]
+      | Nonsideeffecting_nonmatching_clause_skip(x'') ->
+        let%orzero Lookup_var(x,_,_) = element in
+        [%guard (not @@ equal_var x x'')];
+        return [Push element]
     ;;
     let perform_untargeted_dynamic_pop element action =
       Nondeterminism_monad.enum @@
@@ -1196,6 +1231,19 @@ struct
                 (* x''' = x' <- x'' *)
                 return ( Alias_analysis_resolution_1_of_5(x'')
                        , Program_point_state(acl1, ctx) )
+              end
+            ; (* 7g.i. Stateful non-side-effecting clause skip *)
+              begin
+                let%orzero (Unannotated_clause(Abs_clause(x,b))) = acl1 in
+                [% guard (is_immediate acl1) ];
+                [% guard (b |>
+                    (function
+                      | Abs_update_body _ -> false
+                      | _ -> true)) ];
+                (* x' = b *)
+                return ( Nonsideeffecting_nonmatching_clause_skip x
+                       , Program_point_state(acl1,ctx)
+                       )
               end
             ]
           in
