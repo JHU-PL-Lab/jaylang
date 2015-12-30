@@ -156,6 +156,10 @@ struct
     | Capture
     | Continuation_value of abstract_value
     | Alias_huh
+    | Side_effect_search_start
+    | Side_effect_search_escape of var
+    | Side_effect_lookup_var of
+        var * Pattern_set.t * Pattern_set.t * annotated_clause * C.t
     [@@deriving ord]
   ;;
 
@@ -181,6 +185,13 @@ struct
     | Capture -> "Capture"
     | Continuation_value v -> pp_abstract_value v
     | Alias_huh -> "Alias?"
+    | Side_effect_search_start -> "Side_effect_search_start"
+    | Side_effect_search_escape x ->
+      Printf.sprintf "Side_effect_search_escape(%s)" (pretty_var x)
+    | Side_effect_lookup_var(x,patsp,patsn,acl,ctx) ->
+      Printf.sprintf "Side_effect_lookup_var(%s,%s,%s,%s,%s)"
+        (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+        (pp_annotated_clause acl) (C.pretty ctx)
   ;;
 
   let ppa_pds_continuation = function
@@ -203,6 +214,13 @@ struct
     | Capture -> "Capture"
     | Continuation_value v -> pp_abstract_value v
     | Alias_huh -> "Alias?"
+    | Side_effect_search_start -> "SEStart"
+    | Side_effect_search_escape x ->
+      Printf.sprintf "SEEsc(%s)" (pretty_var x)
+    | Side_effect_lookup_var(x,patsp,patsn,acl,ctx) ->
+      Printf.sprintf "SEVar(%s,%s,%s,%s,%s)"
+        (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+        (pp_annotated_clause acl) (C.pretty ctx)
   ;;
 
   type pds_state =
@@ -397,7 +415,74 @@ struct
           simply drop that requirement here, as the overlap does not present
           a problem and it reduces the number of steps involved in performing
           this task.  The associated variable is the variable that a lookup must
-          *not* match to be able to skip the clause. *) 
+          *not* match to be able to skip the clause. *)
+    | Side_effect_search_init_1_of_2 of
+        var * annotated_clause * C.t
+      (** Represents the initialization of a search for side effects.  The
+          provided variable must *not* be the lookup variable (since we'd be
+          looking for an immediate definition in that case).  The clause and
+          context represent the starting point of the side-effect search. *)
+    | Side_effect_search_init_2_of_2 of
+        var * Pattern_set.t * Pattern_set.t * annotated_clause * C.t
+      (** Represents the initialization of a search for side effects.  At this
+          point, all work has been performed except (1) validating the presence
+          of a deref and (2) pushing the appropriate lookup continuations onto
+          the stack. *)
+    | Side_effect_search_nonmatching_clause_skip
+      (** Represents the action of skipping any immediate, unannotated,
+          non-update clause while searching for side effects. *)
+    | Side_effect_search_exit_wiring
+      (** Represents the action of moving into an exit wiring node during a
+          side-effect search. *)
+    | Side_effect_search_enter_wiring
+      (** Represents the action of moving into an entrance wiring node during a
+          side-effect search. *)
+    | Side_effect_search_without_discovery
+      (** Represents the end of a side-effect search which did not discover any
+          relevant side effects. *)
+    | Side_effect_search_alias_analysis_init of var * annotated_clause * C.t
+      (** Represents the initialization of alias analysis for a cell update
+          while in a side-effect search.  The variable is the cell being
+          updated; the clause and context designate the state at which the
+          alias analysis began. *)
+    | Side_effect_search_alias_analysis_resolution_1_of_4 of var
+      (** Represents the resolution of an alias analysis within a side-effect
+          lookup.  The variable is the one being assigned to the cell. *)
+    | Side_effect_search_alias_analysis_resolution_2_of_4 of
+        var * abstract_value
+      (** The second step of alias analysis resolution in a side-effect search.
+          This step has stored a single captured value from the analysis. *)
+    | Side_effect_search_alias_analysis_resolution_3_of_4 of var * bool
+      (** The third step of alias analysis resolution in a side-effect search.
+          The variable is the one being assigned to a cell; the boolean
+          indicates whether the particular value pair discovered here indicates
+          aliasing or not. *)
+    | Side_effect_search_alias_analysis_resolution_4_of_4 of var * bool
+      (** The last step of alias analysis resolution in a side-effect search.
+          These variables have the same meaning as in the third step. *)
+    | Side_effect_search_escape_1_of_2
+      (** The first step of processing a side-effect search escape.  This is
+          used when the alias analysis of a cell update during a side-effect
+          search successfully identifies a possible aliasing of the cell we are
+          attempting to dereference.  This process is used to eliminate the
+          stack frames which represent the side-effect search portion of the
+          overall analysis so that lookup can proceed from the point at which
+          the alias update is found. *)
+    | Side_effect_search_escape_2_of_2 of var
+      (** The second step of processing a side-effect search escape.  The
+          variable is the one which was found to be the new value of the cell
+          being dereferenced. *)
+    | Side_effect_search_escape_completion_1_of_4
+      (** Represents the completion of a side-effect search escape. *)
+    | Side_effect_search_escape_completion_2_of_4 of var
+      (** Represents the completion of a side-effect search escape.  The given
+          variable is the one to which the aliased cell is being assigned. *)
+    | Side_effect_search_escape_completion_3_of_4 of var
+      (** Represents the completion of a side-effect search escape.  The given
+          variable is the one to which the aliased cell is being assigned. *)
+    | Side_effect_search_escape_completion_4_of_4 of var
+      (** Represents the completion of a side-effect search escape.  The given
+          variable is the one to which the aliased cell is being assigned. *)
     (* TODO *)
     [@@deriving ord]
   ;;
@@ -496,6 +581,51 @@ struct
     | Nonsideeffecting_nonmatching_clause_skip(x'') ->
       Printf.sprintf "Nonsideeffecting_nonmatching_clause_skip(%s)"
         (pretty_var x'')
+    | Side_effect_search_init_1_of_2(x,acl0,ctx) ->
+      Printf.sprintf "Side_effect_search_init_1_of_2(%s,%s,%s)"
+        (pretty_var x) (pp_annotated_clause acl0) (C.pretty ctx)
+    | Side_effect_search_init_2_of_2(x,patsp,patsn,acl0,ctx) ->
+      Printf.sprintf "Side_effect_search_init_2_of_2(%s,%s,%s,%s,%s)"
+        (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+        (pp_annotated_clause acl0) (C.pretty ctx)
+    | Side_effect_search_nonmatching_clause_skip ->
+      "Side_effect_search_nonmatching_clause_skip"
+    | Side_effect_search_exit_wiring ->
+      "Side_effect_search_exit_wiring"
+    | Side_effect_search_enter_wiring ->
+      "Side_effect_search_enter_wiring"
+    | Side_effect_search_without_discovery ->
+      "Side_effect_search_without_discovery"
+    | Side_effect_search_alias_analysis_init(x',acl,ctx) ->
+      Printf.sprintf "Side_effect_search_alias_analysis_init(%s,%s,%s)"
+        (pretty_var x') (pp_annotated_clause acl) (C.pretty ctx)
+    | Side_effect_search_alias_analysis_resolution_1_of_4 x'' ->
+      Printf.sprintf "Side_effect_search_alias_analysis_resolution_1_of_4(%s)"
+        (pretty_var x'')
+    | Side_effect_search_alias_analysis_resolution_2_of_4(x'',v) ->
+      Printf.sprintf "Side_effect_search_alias_analysis_resolution_2_of_4(%s,%s)"
+        (pretty_var x'') (pp_abstract_value v)
+    | Side_effect_search_alias_analysis_resolution_3_of_4(x'',is_alias) ->
+      Printf.sprintf "Side_effect_search_alias_analysis_resolution_3_of_4(%s,%s)"
+        (pretty_var x'') (string_of_bool is_alias)
+    | Side_effect_search_alias_analysis_resolution_4_of_4(x'',is_alias) ->
+      Printf.sprintf "Side_effect_search_alias_analysis_resolution_4_of_4(%s,%s)"
+        (pretty_var x'') (string_of_bool is_alias)
+    | Side_effect_search_escape_1_of_2 ->
+      "Side_effect_search_escape_1_of_2"
+    | Side_effect_search_escape_2_of_2 x'' ->
+      Printf.sprintf "Side_effect_search_escape_2_of_2(%s)" (pretty_var x'')
+    | Side_effect_search_escape_completion_1_of_4 ->
+      "Side_effect_search_escape_completion_1_of_4"
+    | Side_effect_search_escape_completion_2_of_4 x ->
+      Printf.sprintf "Side_effect_search_escape_completion_2_of_4(%s)"
+        (pretty_var x)
+    | Side_effect_search_escape_completion_3_of_4 x ->
+      Printf.sprintf "Side_effect_search_escape_completion_3_of_4(%s)"
+        (pretty_var x)
+    | Side_effect_search_escape_completion_4_of_4 x ->
+      Printf.sprintf "Side_effect_search_escape_completion_4_of_4(%s)"
+        (pretty_var x)
   ;;
 
   let ppa_pds_targeted_dynamic_pop_action action =
@@ -587,6 +717,42 @@ struct
         (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Nonsideeffecting_nonmatching_clause_skip(x'') ->
       Printf.sprintf "NNCS(%s)" (pretty_var x'')
+    | Side_effect_search_init_1_of_2(x,acl0,ctx) ->
+      Printf.sprintf "SESI1(%s,%s,%s)"
+        (pretty_var x) (ppa_annotated_clause acl0) (C.pretty ctx)
+    | Side_effect_search_init_2_of_2(x,patsp,patsn,acl0,ctx) ->
+      Printf.sprintf "SESI2(%s,%s,%s,%s,%s)"
+        (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+        (ppa_annotated_clause acl0) (C.pretty ctx)
+    | Side_effect_search_nonmatching_clause_skip -> "SESNCS"
+    | Side_effect_search_exit_wiring -> "SESXW"
+    | Side_effect_search_enter_wiring -> "SESEW"
+    | Side_effect_search_without_discovery -> "SESWD"
+    | Side_effect_search_alias_analysis_init(x',acl,ctx) ->
+      Printf.sprintf "SESAAI(%s,%s,%s)"
+        (pretty_var x') (pp_annotated_clause acl) (C.pretty ctx)
+    | Side_effect_search_alias_analysis_resolution_1_of_4 x'' ->
+      Printf.sprintf "SESAAR1(%s)"
+        (pretty_var x'')
+    | Side_effect_search_alias_analysis_resolution_2_of_4(x'',v) ->
+      Printf.sprintf "SESAAR2(%s,%s)"
+        (pretty_var x'') (pp_abstract_value v)
+    | Side_effect_search_alias_analysis_resolution_3_of_4(x'',is_alias) ->
+      Printf.sprintf "SESAAR3(%s,%s)"
+        (pretty_var x'') (string_of_bool is_alias)
+    | Side_effect_search_alias_analysis_resolution_4_of_4(x'',is_alias) ->
+      Printf.sprintf "SESAAR4(%s,%s)"
+        (pretty_var x'') (string_of_bool is_alias)
+    | Side_effect_search_escape_1_of_2 -> "SESE1"
+    | Side_effect_search_escape_2_of_2 x'' ->
+      Printf.sprintf "SESE2(%s)" (pretty_var x'')
+    | Side_effect_search_escape_completion_1_of_4 -> "SESEC1"
+    | Side_effect_search_escape_completion_2_of_4 x ->
+      Printf.sprintf "SESEC2(%s)" (pretty_var x)
+    | Side_effect_search_escape_completion_3_of_4 x ->
+      Printf.sprintf "SESEC3(%s)" (pretty_var x)
+    | Side_effect_search_escape_completion_4_of_4 x ->
+      Printf.sprintf "SESEC4(%s)" (pretty_var x)
   ;;
 
   type pds_untargeted_dynamic_pop_action =
@@ -902,6 +1068,92 @@ struct
         let%orzero Lookup_var(x,_,_) = element in
         [%guard (not @@ equal_var x x'')];
         return [Push element]
+      | Side_effect_search_init_1_of_2(x'',acl0,ctx) ->
+        let%orzero Lookup_var(x,patsp,patsn) = element in
+        [%guard (not @@ equal_var x x'')];
+        return [ Pop_dynamic_targeted(
+                  Side_effect_search_init_2_of_2(x,patsp,patsn,acl0,ctx)) ]
+      | Side_effect_search_init_2_of_2(x,patsp,patsn,acl0,ctx) ->
+        let%orzero Deref _ = element in
+        return [ Push element ; Push (Lookup_var(x,patsp,patsn))
+               ; Push Side_effect_search_start
+               ; Push (Side_effect_lookup_var(x,patsp,patsn,acl0,ctx))
+               ]
+      | Side_effect_search_nonmatching_clause_skip ->
+        let%orzero (Side_effect_lookup_var _) = element in
+        return [ Push element ]
+      | Side_effect_search_exit_wiring ->
+        let%orzero (Side_effect_lookup_var _) = element in
+        return [ Push element ; Push element ]
+      | Side_effect_search_enter_wiring ->
+        let%orzero (Side_effect_lookup_var _) = element in
+        return []
+      | Side_effect_search_without_discovery ->
+        let%orzero Side_effect_search_start = element in
+        return []
+      | Side_effect_search_alias_analysis_init(x',acl0,ctx) ->
+        let%orzero (Side_effect_lookup_var(x,patsp,patsn,acl',ctx')) =
+          element
+        in
+        (* The following stack elements are "backwards" because they appear in
+           the order in which they are pushed (similar to the other case of
+           alias analysis initialization). *)
+        let k1'' =
+          [ Capture ; Lookup_var(x',Pattern_set.empty,Pattern_set.empty) ]
+        in
+        let k2'' =
+          [ Capture ; Lookup_var(x,patsp,patsn); Jump(acl',ctx') ]
+        in
+        let k3'' =
+          [ Alias_huh ; Jump(acl0, ctx) ]
+        in
+        return @@ List.map (fun x -> Push x) @@ [element] @ k3'' @ k2'' @ k1''
+      | Side_effect_search_alias_analysis_resolution_1_of_4(x'') ->
+        let%orzero Continuation_value v = element in
+        return [ Pop_dynamic_targeted (
+                  Side_effect_search_alias_analysis_resolution_2_of_4(
+                    x'',v)) ]
+      | Side_effect_search_alias_analysis_resolution_2_of_4(x'',v1) ->
+        let%orzero Continuation_value v2 = element in
+        let is_alias = equal_abstract_value v1 v2 in
+        return [ Pop_dynamic_targeted (
+                  Side_effect_search_alias_analysis_resolution_3_of_4(
+                    x'',is_alias)) ]
+      | Side_effect_search_alias_analysis_resolution_3_of_4(x'',is_alias) ->
+        let%orzero Alias_huh = element in
+        return [ Pop_dynamic_targeted (
+                  Side_effect_search_alias_analysis_resolution_4_of_4(
+                    x'',is_alias)) ]
+      | Side_effect_search_alias_analysis_resolution_4_of_4(x'',is_alias) ->
+        let%orzero (Side_effect_lookup_var _) = element in
+        if is_alias then
+          (* 7g.ix *)
+          return [ Push (Side_effect_search_escape x'') ]
+        else
+          (* 7g.viii *)
+          return [ Push element ]
+      | Side_effect_search_escape_1_of_2 ->
+        let%orzero Side_effect_search_escape x'' = element in
+        return [ Pop_dynamic_targeted (
+                    Side_effect_search_escape_2_of_2 x'') ]
+      | Side_effect_search_escape_2_of_2 x'' ->
+        let%orzero Side_effect_lookup_var _ = element in
+        return [ Push (Side_effect_search_escape x'') ]
+      | Side_effect_search_escape_completion_1_of_4 ->
+        let%orzero Side_effect_search_escape x = element in
+        return [ Pop_dynamic_targeted (
+                    Side_effect_search_escape_completion_2_of_4 x) ]
+      | Side_effect_search_escape_completion_2_of_4 x ->
+        let%orzero Side_effect_search_start = element in
+        return [ Pop_dynamic_targeted (
+                    Side_effect_search_escape_completion_3_of_4 x) ]
+      | Side_effect_search_escape_completion_3_of_4 x ->
+        let%orzero Lookup_var _ = element in
+        return [ Pop_dynamic_targeted (
+                    Side_effect_search_escape_completion_4_of_4 x) ]
+      | Side_effect_search_escape_completion_4_of_4 x ->
+        let%orzero Deref(patsp,patsn) = element in
+        return [ Push (Lookup_var(x,patsp,patsn)) ]
     ;;
     let perform_untargeted_dynamic_pop element action =
       Nondeterminism_monad.enum @@
@@ -1244,6 +1496,90 @@ struct
                 return ( Nonsideeffecting_nonmatching_clause_skip x
                        , Program_point_state(acl1,ctx)
                        )
+              end
+            ; (* 7g.ii. Side-effect search initialization *)
+              begin
+                let%orzero (Exit_clause(x'',_,c)) = acl1 in
+                (* x'' =(up)c x' *)
+                let%bind ctx' =
+                  match c with
+                  | Abs_clause(_,Abs_appl_body _) -> return @@ C.push c ctx
+                  | Abs_clause(_,Abs_conditional_body _) -> return ctx
+                  | _ -> zero ()
+                in
+                return ( Side_effect_search_init_1_of_2(x'',acl0,ctx)
+                       , Program_point_state(acl1,ctx') )
+              end
+            ; (* 7g.iii. Side-effect search non-matching clause skip *)
+              begin
+                let%orzero (Unannotated_clause(Abs_clause(_,b))) = acl1 in
+                [% guard (is_immediate acl1) ];
+                [% guard (b |>
+                    (function
+                      | Abs_update_body _ -> false
+                      | _ -> true)) ];
+                (* x' = b *)
+                return ( Side_effect_search_nonmatching_clause_skip
+                       , Program_point_state(acl1,ctx) )
+              end
+            ; (* 7g.iv. Side-effect search exit wiring node *)
+              begin
+                let%orzero (Exit_clause(_,_,c)) = acl1 in
+                (* x'' =(up)c x' *)
+                let%bind ctx' =
+                  match c with
+                  | Abs_clause(_,Abs_appl_body _) -> return @@ C.push c ctx
+                  | Abs_clause(_,Abs_conditional_body _) -> return ctx
+                  | _ -> zero ()
+                in
+                return ( Side_effect_search_exit_wiring
+                       , Program_point_state(acl1,ctx') )
+              end
+            ; (* 7g.v. Side-effect search enter wiring node *)
+              begin
+                let%orzero (Enter_clause(_,_,c)) = acl1 in
+                (* x'' =(down)c x' *)
+                let%bind ctx' =
+                  match c with
+                  | Abs_clause(_,Abs_appl_body _) -> return @@ C.pop ctx
+                  | Abs_clause(_,Abs_conditional_body _) -> return ctx
+                  | _ -> zero ()
+                in
+                return ( Side_effect_search_enter_wiring
+                       , Program_point_state(acl1,ctx') )
+              end
+              (* FIXME: why does this clause kill performance? *)
+            ; (* 7g.vi. Side-effect search without discovery *)
+              begin
+                return ( Side_effect_search_without_discovery
+                       , Program_point_state(acl0,ctx) )
+              end
+            ; (* 7g.vii. Side-effect search alias analysis initialization *)
+              begin
+                let%orzero (Unannotated_clause(
+                              Abs_clause(_,Abs_update_body(x',_)))) = acl1
+                in
+                return ( Side_effect_search_alias_analysis_init(x',acl0,ctx)
+                       , Program_point_state(acl1,ctx) )
+              end
+            ; (* 7g.viii, 7g.ix. Side-effect search alias analysis resolution *)
+              begin
+                let%orzero (Unannotated_clause(
+                              Abs_clause(_,Abs_update_body(_,x'')))) = acl1
+                in
+                return ( Side_effect_search_alias_analysis_resolution_1_of_4(
+                            x'')
+                       , Program_point_state(acl1,ctx) )
+              end
+            ; (* 7g.x. Side-effect search escape *)
+              begin
+                return ( Side_effect_search_escape_1_of_2
+                       , Program_point_state(acl0,ctx) )
+              end
+            ; (* 7g.xi. Side-effect search escape completion *)
+              begin
+                return ( Side_effect_search_escape_completion_1_of_4
+                       , Program_point_state(acl0,ctx) )
               end
             ]
           in
