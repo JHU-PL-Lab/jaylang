@@ -283,7 +283,7 @@ let untargeted_dynamic_pop_reachability_test =
         Test_reachability.get_reachable_states 0 [Push 'q'] analysis
     in
     lazy_logger `trace
-      (fun () -> "states: " ^ String_utils.pretty_list string_of_int states);
+      (fun () -> "states: " ^ String_utils.pp_list string_of_int states);
     assert_equal states [8;19;28;29]
 ;;
 
@@ -340,7 +340,7 @@ let untargeted_dynamic_pop_function_reachability_test =
         Test_reachability.get_reachable_states 0 [Push 'q'] analysis
     in
     lazy_logger `trace
-      (fun () -> "states: " ^ String_utils.pretty_list string_of_int states);
+      (fun () -> "states: " ^ String_utils.pp_list string_of_int states);
     assert_equal states [3;6;7;8;21;24;25;26]
 ;;
 

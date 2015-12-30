@@ -1,7 +1,7 @@
 open Batteries;;
 
 open Ast;;
-open Ast_pretty;;
+open Ast_pp;;
 open Ast_wellformedness;;
 open Ddpa_graph;;
 open Interpreter;;
@@ -112,7 +112,7 @@ let toploop_operate conf e =
                 in
                 (* Show our results. *)
                 print_endline @@
-                  pretty_ident_map pp_abs_value_set variable_values
+                  pp_ident_map pp_abs_value_set variable_values
               end;
               (* Dump the analysis to debugging. *)
               logger `trace
@@ -123,14 +123,14 @@ let toploop_operate conf e =
       in
       toploop_action (fun () ->
           let v, env = eval e in
-          print_string (pretty_var v ^ " where " ^ pretty_env env ^ "\n")
+          print_string (pp_var v ^ " where " ^ pp_env env ^ "\n")
         )
     with
     | Illformedness_found(ills) ->
       print_string "Provided expression is ill-formed:\n";
       List.iter
         (fun ill ->
-           print_string @@ "   " ^ pretty_illformedness ill ^ "\n")
+           print_string @@ "   " ^ pp_illformedness ill ^ "\n")
         ills
   end;
   print_string "\n";

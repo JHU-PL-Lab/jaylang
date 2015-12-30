@@ -410,7 +410,7 @@ struct
       (fun () ->
         Printf.sprintf "add_edges_between_nodes(%s,%s,%s)"
           (Types.pp_node source_node) (Types.pp_node target_node)
-          (String_utils.pretty_list (Types.pp_stack_action) stack_actions)
+          (String_utils.pp_list (Types.pp_stack_action) stack_actions)
       )
       (fun _ -> "Finished") @@
     fun () ->
@@ -457,8 +457,8 @@ struct
     (fun () ->
       Printf.sprintf "In add_edges_between_nodes(%s,%s,%s), generated edges: %s"
           (Types.pp_node source_node) (Types.pp_node target_node)
-          (String_utils.pretty_list (Types.pp_stack_action) stack_actions)
-          (String_utils.pretty_list Types.pp_edge real_edges)
+          (String_utils.pp_list (Types.pp_stack_action) stack_actions)
+          (String_utils.pp_list Types.pp_edge real_edges)
     );
     (* Now, let's add them. *)
     real_edges

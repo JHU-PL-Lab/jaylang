@@ -148,7 +148,7 @@ let observe_ill_formed illformednesses expectation =
     assert_failure @@ "Expression was unexpectedly ill-formed.  Causes:" ^
                       "\n    * " ^ concat_sep "\n    *"
                         (List.enum @@
-                         List.map pretty_illformedness illformednesses)
+                         List.map pp_illformedness illformednesses)
   | Expect_ill_formed -> None
   | _ -> Some expectation
 ;;
@@ -179,7 +179,7 @@ let observe_analysis_variable_lookup_from_end ident repr expectation =
         then None
         else assert_failure @@
           Printf.sprintf "for variable %s, expected %s but got %s"
-            (pretty_ident ident) repr' repr
+            (pp_ident ident) repr' repr
       end
     else Some expectation
   | _ -> Some expectation
@@ -222,14 +222,14 @@ let make_test filename expectations =
       in
       "should use analysis stack " ^ name
     | Expect_analysis_variable_lookup_from_end(ident,_) ->
-      "should have particular values for variable " ^ (pretty_ident ident)
+      "should have particular values for variable " ^ (pp_ident ident)
     | Expect_analysis_inconsistency_at ident ->
-      "should be inconsistent at " ^ pretty_ident ident
+      "should be inconsistent at " ^ pp_ident ident
     | Expect_analysis_no_inconsistencies ->
       "should be consistent"
   in
   let test_name = filename ^ ": (" ^
-                  pretty_list name_of_expectation expectations ^ ")"
+                  pp_list name_of_expectation expectations ^ ")"
   in
   (* Create the test in a thunk. *)
   test_name >::
@@ -305,7 +305,7 @@ let make_test filename expectations =
                 (function
                   | Expect_analysis_inconsistency_at ident ->
                     assert_failure @@ "Expected inconsistency at " ^
-                      pretty_ident ident ^ " which did not occur"
+                      pp_ident ident ^ " which did not occur"
                   | _ -> ()
                 )
             end

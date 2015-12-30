@@ -127,11 +127,11 @@ struct
   ;;
 
   let pp_node_and_stack_element x =
-    String_utils.pretty_tuple Types.pp_node Basis.pp_stack_element x
+    String_utils.pp_tuple Types.pp_node Basis.pp_stack_element x
   ;;
 
   let pp_node_and_targeted_dynamic_pop_action x =
-    String_utils.pretty_tuple Types.pp_node Dph.pp_targeted_dynamic_pop_action x
+    String_utils.pp_tuple Types.pp_node Dph.pp_targeted_dynamic_pop_action x
   ;;
 
   (********** Substructure definitions. **********)

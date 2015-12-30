@@ -2,7 +2,7 @@ open Batteries;;
 
 open Analysis;;
 open Ast;;
-open Ast_pretty;;
+open Ast_pp;;
 open Ddpa_graph;;
 
 include Toploop_ddpa_types;;
@@ -37,7 +37,7 @@ let pp_inconsistency inconsistency =
   | Application_of_non_function(x,c,v) ->
     Printf.sprintf
       "Error: call site %s has function variable %s to which a non-function value may flow: %s"
-      (pretty_clause c) (pretty_var x) (pp_abstract_value v)
+      (pp_clause c) (pp_var x) (pp_abstract_value v)
 ;;
 
 (* TODO: the "none" should be handled elsewhere as a special case *)

@@ -5,7 +5,7 @@
 open Batteries;;
 
 open Ast;;
-open Ast_pretty;;
+open Ast_pp;;
 
 (** A type to express abstract values. *)
 type abstract_value =
@@ -40,34 +40,34 @@ and abstract_expr = Abs_expr of abstract_clause list [@@deriving eq, ord]
 ;;
 
 let rec pp_abstract_function_value (Abs_function_value(x,e)) =
-  Printf.sprintf "%s -> ( %s )" (pretty_var x) (pp_abstract_expr e)
+  Printf.sprintf "%s -> ( %s )" (pp_var x) (pp_abstract_expr e)
 
 and pp_abstract_value v =
   match v with
-  | Abs_value_record r -> pretty_record_value r
+  | Abs_value_record r -> pp_record_value r
   | Abs_value_function f -> pp_abstract_function_value f
-  | Abs_value_ref r -> pretty_ref_value r
+  | Abs_value_ref r -> pp_ref_value r
 
 and pp_abstract_clause_body b =
   match b with
-  | Abs_var_body(x) -> pretty_var x
+  | Abs_var_body(x) -> pp_var x
   | Abs_value_body(v) -> pp_abstract_value v
-  | Abs_appl_body(x1,x2) -> pretty_var x1 ^ " " ^ pretty_var x2
+  | Abs_appl_body(x1,x2) -> pp_var x1 ^ " " ^ pp_var x2
   | Abs_conditional_body(x,p,f1,f2) ->
-    pretty_var x ^ " ~ " ^ pretty_pattern p ^ " ? " ^
+    pp_var x ^ " ~ " ^ pp_pattern p ^ " ? " ^
     pp_abstract_function_value f1 ^ " : " ^ pp_abstract_function_value f2
-  | Abs_projection_body(x,i) -> pretty_var x ^ "." ^ pretty_ident i
-  | Abs_deref_body(x) -> "!" ^ pretty_var x
-  | Abs_update_body(x1,x2) -> pretty_var x1 ^ " <- " ^ pretty_var x2
+  | Abs_projection_body(x,i) -> pp_var x ^ "." ^ pp_ident i
+  | Abs_deref_body(x) -> "!" ^ pp_var x
+  | Abs_update_body(x1,x2) -> pp_var x1 ^ " <- " ^ pp_var x2
 
 and pp_abstract_clause (Abs_clause(x,b)) =
-  Printf.sprintf "%s = %s" (pretty_var x) (pp_abstract_clause_body b)
+  Printf.sprintf "%s = %s" (pp_var x) (pp_abstract_clause_body b)
   
 and pp_abstract_expr (Abs_expr(cls)) =
   String_utils.concat_sep "; " @@ Enum.map pp_abstract_clause @@ List.enum cls
 ;;
 
-let ppa_abstract_clause (Abs_clause(x,_)) = pretty_var x;;
+let ppa_abstract_clause (Abs_clause(x,_)) = pp_var x;;
 
 let is_abstract_clause_immediate (Abs_clause(_,b)) =
   match b with
@@ -110,9 +110,9 @@ let pp_annotated_clause acl =
   match acl with
   | Unannotated_clause(cl) -> pp_abstract_clause cl
   | Enter_clause(x,x',cl) -> Printf.sprintf "%s=%s@%s+"
-      (pretty_var x) (pretty_var x') (pp_abstract_clause cl)
+      (pp_var x) (pp_var x') (pp_abstract_clause cl)
   | Exit_clause(x,x',cl) -> Printf.sprintf "%s=%s@%s+"
-      (pretty_var x) (pretty_var x') (pp_abstract_clause cl)
+      (pp_var x) (pp_var x') (pp_abstract_clause cl)
   | Start_clause -> "Start"
   | End_clause -> "End"
 ;;
@@ -121,9 +121,9 @@ let ppa_annotated_clause acl =
   match acl with
   | Unannotated_clause(cl) -> ppa_abstract_clause cl
   | Enter_clause(x,x',cl) -> Printf.sprintf "%s=%s@%s+"
-      (pretty_var x) (pretty_var x') (ppa_abstract_clause cl)
+      (pp_var x) (pp_var x') (ppa_abstract_clause cl)
   | Exit_clause(x,x',cl) -> Printf.sprintf "%s=%s@%s+"
-      (pretty_var x) (pretty_var x') (ppa_abstract_clause cl)
+      (pp_var x) (pp_var x') (ppa_abstract_clause cl)
   | Start_clause -> "Start"
   | End_clause -> "End"
 ;;

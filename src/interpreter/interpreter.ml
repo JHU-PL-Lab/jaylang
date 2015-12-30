@@ -1,17 +1,17 @@
 open Batteries;;
 
 open Ast;;
-open Ast_pretty;;
+open Ast_pp;;
 
 let logger = Logger_utils.make_logger "Interpreter";;
 
 module Environment = Var_hashtbl;;
 
-let pretty_env (env : value Environment.t) =
+let pp_env (env : value Environment.t) =
   let inner =
     env
     |> Environment.enum
-    |> Enum.map (fun (x,v) -> pretty_var x ^ " = " ^ pretty_value v)
+    |> Enum.map (fun (x,v) -> pp_var x ^ " = " ^ pp_value v)
     |> Enum.fold
       (fun acc -> fun s -> if acc = "" then s else acc ^ ", " ^ s) ""
   in
@@ -26,7 +26,7 @@ let lookup env x =
   else
     raise (
       Evaluation_failure (
-        "cannot find variable `" ^ (pretty_var x) ^ "' in environment `" ^ (pretty_env env) ^ "'."
+        "cannot find variable `" ^ (pp_var x) ^ "' in environment `" ^ (pp_env env) ^ "'."
       )
     )
 ;;
@@ -128,10 +128,10 @@ let rec matches env x p =
 
 let rec evaluate env lastvar cls =
   logger `debug (
-    pretty_env env ^ "\n" ^
-    (Option.default "?" (Option.map pretty_var lastvar)) ^ "\n" ^
+    pp_env env ^ "\n" ^
+    (Option.default "?" (Option.map pp_var lastvar)) ^ "\n" ^
     (cls
-     |> List.map pretty_clause
+     |> List.map pp_clause
      |> List.fold_left (fun acc -> fun s -> acc ^ s ^ "; ") "") ^ "\n\n");
   flush stdout;
   match cls with
@@ -159,8 +159,8 @@ let rec evaluate env lastvar cls =
           | Value_function(f) ->
             evaluate env (Some x) @@ fresh_wire f x'' x @ t
           | r -> raise (Evaluation_failure
-                          ("cannot apply " ^ pretty_var x' ^
-                           " as it contains non-function " ^ pretty_value r))
+                          ("cannot apply " ^ pp_var x' ^
+                           " as it contains non-function " ^ pp_value r))
         end
       | Conditional_body(x',p,f1,f2) ->
         let f_target = if matches env x' p then f1 else f2 in
@@ -177,12 +177,12 @@ let rec evaluate env lastvar cls =
                 evaluate env (Some x) t
               with
               | Not_found ->
-                raise @@ Evaluation_failure("cannot project " ^ pretty_ident i ^
-                                  " from " ^ pretty_value r ^ ": not present")
+                raise @@ Evaluation_failure("cannot project " ^ pp_ident i ^
+                                  " from " ^ pp_value r ^ ": not present")
             end
           | v ->
-            raise @@ Evaluation_failure("cannot project " ^ pretty_ident i ^
-                                " from non-record value " ^ pretty_value v)
+            raise @@ Evaluation_failure("cannot project " ^ pp_ident i ^
+                                " from non-record value " ^ pp_value v)
         end
       | Deref_body(x') ->
         let v = lookup env x' in
@@ -193,8 +193,8 @@ let rec evaluate env lastvar cls =
             Environment.add env x v';
             evaluate env (Some x) t
           | _ -> raise (Evaluation_failure
-                          ("cannot dereference " ^ pretty_var x' ^
-                           " as it contains non-reference " ^ pretty_value v))
+                          ("cannot dereference " ^ pp_var x' ^
+                           " as it contains non-reference " ^ pp_value v))
         end
       | Update_body(x', x'') ->
         let v = lookup env x' in
@@ -205,8 +205,8 @@ let rec evaluate env lastvar cls =
             Environment.replace env x'' v';
             evaluate env (Some x) ((Clause(x, Value_body(Value_record(Record_value(Ident_map.empty)))))::t)
           | _ -> raise (Evaluation_failure
-                          ("cannot update " ^ pretty_var x' ^
-                           " as it contains non-reference " ^ pretty_value v))
+                          ("cannot update " ^ pp_var x' ^
+                           " as it contains non-reference " ^ pp_value v))
         end
     end
 ;;

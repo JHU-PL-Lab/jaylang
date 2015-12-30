@@ -13,14 +13,14 @@ let concat_sep_delim start stop sep strs =
   start ^ concat_sep sep strs ^ stop
 ;;
 
-let pretty_list : 'a. ('a -> string) -> 'a list -> string =
-  fun pretty_el lst ->
-    concat_sep_delim "[" "]" ";" @@ List.enum @@ List.map pretty_el lst
+let pp_list : 'a. ('a -> string) -> 'a list -> string =
+  fun pp_el lst ->
+    concat_sep_delim "[" "]" ";" @@ List.enum @@ List.map pp_el lst
 ;;
 
-let pretty_tuple : 'a 'b. ('a -> string) -> ('b -> string) -> 'a * 'b -> string
-  = fun pretty_a pretty_b (a,b) ->
-    "(" ^ pretty_a a ^ ", " ^ pretty_b b ^ ")"
+let pp_tuple : 'a 'b. ('a -> string) -> ('b -> string) -> 'a * 'b -> string
+  = fun pp_a pp_b (a,b) ->
+    "(" ^ pp_a a ^ ", " ^ pp_b b ^ ")"
 ;;
 
 let indent n s =
@@ -39,5 +39,3 @@ let rec whitespace_split ?max:(n=max_int) s =
     with
     | Not_found -> [s]
 ;;
-
-    

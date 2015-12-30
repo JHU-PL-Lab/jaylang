@@ -38,7 +38,7 @@ Library "ast"
   Path: src/ast
   Modules:
     Ast,
-    Ast_pretty,
+    Ast_pp,
     Ast_tools,
     Ast_wellformedness
   BuildDepends:

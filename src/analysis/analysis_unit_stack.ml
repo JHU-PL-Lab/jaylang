@@ -10,7 +10,7 @@ struct
   let push _ () = ();;
   let pop () = ();;
   let is_top _ () = true;;
-  let pretty () = "-";;
-  let pretty_abbrv = pretty;;
+  let pp () = "-";;
+  let ppa = pp;;
   let name = "0ddpa";;
 end;;

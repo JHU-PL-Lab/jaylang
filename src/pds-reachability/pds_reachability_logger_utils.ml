@@ -46,7 +46,7 @@ struct
       | Types.Intermediate_node (node',actions) ->
         Printf.sprintf "InterNode(%s,%s)"
           (string_of_dot_node_id node')
-          (String_utils.pretty_list Types.pp_stack_action actions)
+          (String_utils.pp_list Types.pp_stack_action actions)
     ;;
 
     type data = Structure.structure;;

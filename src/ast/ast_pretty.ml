@@ -60,7 +60,7 @@ and pretty_expr (Expr(cls)) =
 and pretty_pattern p =
   match p with
   | Record_pattern(els) ->
-      let pretty_element = pretty_tuple pretty_ident pretty_pattern in
+      let pretty_element = pp_tuple pretty_ident pretty_pattern in
       concat_sep_delim "{" "}" ", " @@ Enum.map pretty_element @@
         Ident_map.enum els
 ;;

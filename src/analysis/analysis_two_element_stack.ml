@@ -23,13 +23,13 @@ struct
     | h::_ -> c = h
     | [] -> true
   ;;
-  let pretty (S(lst)) =
+  let pp (S(lst)) =
     let pfx =
       List.fold_left (fun a c -> a ^ pp_abstract_clause c ^ "|") "" lst
     in
     pfx ^ "?"
   ;;
-  let pretty_abbrv (S(lst)) =
+  let ppa (S(lst)) =
     match lst with
     | [] -> "?"
     | _ ->

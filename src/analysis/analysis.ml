@@ -7,7 +7,7 @@ open Batteries;;
 
 open Analysis_context_stack;;
 open Ast;;
-open Ast_pretty;;
+open Ast_pp;;
 open Ddpa_graph;;
 open Nondeterminism;;
 open Pds_reachability_types_stack;;
@@ -24,7 +24,7 @@ end;;
 module Pattern_set = Set.Make(Pattern_ord);;
 
 let pp_pattern_set pats =
-  String_utils.concat_sep_delim "{" "}" ", " @@ Enum.map pretty_pattern @@
+  String_utils.concat_sep_delim "{" "}" ", " @@ Enum.map pp_pattern @@
     Pattern_set.enum pats
 ;;
 
@@ -174,12 +174,12 @@ struct
       "Bottom_of_stack"
     | Lookup_var(x,patsp,patsn) ->
       Printf.sprintf "%s(%s/%s)"
-        (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+        (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Project(i,patsp,patsn) ->
       Printf.sprintf ".%s(%s/%s)"
-        (pretty_ident i) (pp_pattern_set patsp) (pp_pattern_set patsn)
+        (pp_ident i) (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Jump(acl,ctx) ->
-      Printf.sprintf "Jump(%s,%s)" (pp_annotated_clause acl) (C.pretty ctx)
+      Printf.sprintf "Jump(%s,%s)" (pp_annotated_clause acl) (C.pp ctx)
     | Deref(patsp,patsn) ->
       Printf.sprintf "!(%s,%s)" (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Capture -> "Capture"
@@ -187,28 +187,28 @@ struct
     | Alias_huh -> "Alias?"
     | Side_effect_search_start -> "Side_effect_search_start"
     | Side_effect_search_escape x ->
-      Printf.sprintf "Side_effect_search_escape(%s)" (pretty_var x)
+      Printf.sprintf "Side_effect_search_escape(%s)" (pp_var x)
     | Side_effect_lookup_var(x,patsp,patsn,acl,ctx) ->
       Printf.sprintf "Side_effect_lookup_var(%s,%s,%s,%s,%s)"
-        (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
-        (pp_annotated_clause acl) (C.pretty ctx)
+        (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+        (pp_annotated_clause acl) (C.pp ctx)
   ;;
 
   let ppa_pds_continuation = function
     | Bottom_of_stack -> "Bot"
     | Lookup_var(x,patsp,patsn) ->
       if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
-      then pretty_var x
+      then pp_var x
       else Printf.sprintf "%s(%s/%s)"
-              (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+              (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Project(i,patsp,patsn) ->
       if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
-      then Printf.sprintf ".%s" (pretty_ident i)
+      then Printf.sprintf ".%s" (pp_ident i)
       else Printf.sprintf ".%s(%s/%s)"
-              (pretty_ident i) (pp_pattern_set patsp) (pp_pattern_set patsn)
+              (pp_ident i) (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Jump(acl,ctx) ->
       Printf.sprintf "Jump(%s,%s)"
-        (ppa_annotated_clause acl) (C.pretty_abbrv ctx)
+        (ppa_annotated_clause acl) (C.ppa ctx)
     | Deref(patsp,patsn) ->
       Printf.sprintf "!(%s,%s)" (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Capture -> "Capture"
@@ -216,11 +216,11 @@ struct
     | Alias_huh -> "Alias?"
     | Side_effect_search_start -> "SEStart"
     | Side_effect_search_escape x ->
-      Printf.sprintf "SEEsc(%s)" (pretty_var x)
+      Printf.sprintf "SEEsc(%s)" (pp_var x)
     | Side_effect_lookup_var(x,patsp,patsn,acl,ctx) ->
       Printf.sprintf "SEVar(%s,%s,%s,%s,%s)"
-        (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
-        (pp_annotated_clause acl) (C.pretty ctx)
+        (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+        (pp_annotated_clause acl) (C.pp ctx)
   ;;
 
   type pds_state =
@@ -237,7 +237,7 @@ struct
   let pp_pds_state state =
     match state with
     | Program_point_state(acl,ctx) ->
-      Printf.sprintf "(%s @ %s)" (pp_annotated_clause acl) (C.pretty ctx)
+      Printf.sprintf "(%s @ %s)" (pp_annotated_clause acl) (C.pp ctx)
     | Special_value_state v ->
       Printf.sprintf "(value: %s)" (pp_abstract_value v)
   ;;
@@ -245,7 +245,7 @@ struct
   let ppa_pds_state state =
     match state with
     | Program_point_state(acl,ctx) ->
-      Printf.sprintf "(%s @ %s)" (ppa_annotated_clause acl) (C.pretty_abbrv ctx)
+      Printf.sprintf "(%s @ %s)" (ppa_annotated_clause acl) (C.ppa ctx)
     | Special_value_state v ->
       Printf.sprintf "(%s)" (pp_abstract_value v)
   ;;
@@ -490,53 +490,53 @@ struct
   let pp_pds_targeted_dynamic_pop_action action =
     match action with
     | Variable_discovery x ->
-      Printf.sprintf "Variable_discovery(%s)" (pretty_var x)
+      Printf.sprintf "Variable_discovery(%s)" (pp_var x)
     | Variable_aliasing(x,x') ->
-      Printf.sprintf "Variable_aliasing(%s,%s)" (pretty_var x) (pretty_var x')
+      Printf.sprintf "Variable_aliasing(%s,%s)" (pp_var x) (pp_var x')
     | Stateless_nonmatching_clause_skip_1_of_2(x) ->
       Printf.sprintf "Stateless_nonmatching_clause_skip_1_of_2(%s)"
-        (pretty_var x)
+        (pp_var x)
     | Stateless_nonmatching_clause_skip_2_of_2(k) ->
       Printf.sprintf "Stateless_nonmatching_clause_skip_2_of_2(%s)"
         (pp_pds_continuation k)
     | Function_closure_lookup(x'',xf) ->
       Printf.sprintf "Function_closure_lookup(%s,%s)"
-        (pretty_var x'') (pretty_var xf)
+        (pp_var x'') (pp_var xf)
     | Conditional_closure_lookup(x'',x1,p,b) ->
       Printf.sprintf "Conditional_closure_lookup(%s,%s,%s,%b)"
-        (pretty_var x'') (pretty_var x1) (pretty_pattern p) b
+        (pp_var x'') (pp_var x1) (pp_pattern p) b
     | Record_projection_lookup(x,x',l) ->
       Printf.sprintf "Record_projection_lookup(%s,%s,%s)"
-        (pretty_var x) (pretty_var x') (pretty_ident l)
+        (pp_var x) (pp_var x') (pp_ident l)
     | Record_construction_lookup_1_of_2(source_state,target_state,x,r) ->
       Printf.sprintf "Record_construction_lookup_1_of_2(%s,%s,%s,%s)"
-        (pp_pds_state source_state) (pp_pds_state target_state) (pretty_var x)
-          (pretty_record_value r)
+        (pp_pds_state source_state) (pp_pds_state target_state) (pp_var x)
+          (pp_record_value r)
     | Record_construction_lookup_2_of_2(
         source_state,target_state,x,r,patsp,patsn) ->
       Printf.sprintf "Record_construction_lookup_2_of_2(%s,%s,%s,%s,%s,%s)"
-        (pp_pds_state source_state) (pp_pds_state target_state) (pretty_var x)
-          (pretty_record_value r) (pp_pattern_set patsp) (pp_pattern_set patsn)
+        (pp_pds_state source_state) (pp_pds_state target_state) (pp_var x)
+          (pp_record_value r) (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Function_filter_validation(x) ->
-      Printf.sprintf "Function_filter_validation(%s)" (pretty_var x)
+      Printf.sprintf "Function_filter_validation(%s)" (pp_var x)
     | Empty_record_filter_validation(x) ->
-      Printf.sprintf "Empty_record_filter_validation(%s)" (pretty_var x)
+      Printf.sprintf "Empty_record_filter_validation(%s)" (pp_var x)
     | Dereference_lookup(x,x') ->
-      Printf.sprintf "Dereference_lookup(%s,%s)" (pretty_var x) (pretty_var x') 
+      Printf.sprintf "Dereference_lookup(%s,%s)" (pp_var x) (pp_var x') 
     | Cell_filter_validation(x) ->
-      Printf.sprintf "Cell_filter_validation(%s)" (pretty_var x)
+      Printf.sprintf "Cell_filter_validation(%s)" (pp_var x)
     | Cell_dereference_1_of_2(x,x') ->
       Printf.sprintf "Cell_dereference_1_of_2(%s,%s)"
-        (pretty_var x) (pretty_var x')
+        (pp_var x) (pp_var x')
     | Cell_dereference_2_of_2(x') ->
-      Printf.sprintf "Cell_dereference_2_of_2(%s)" (pretty_var x')
+      Printf.sprintf "Cell_dereference_2_of_2(%s)" (pp_var x')
     | Cell_update_alias_analysis_init_1_of_2(x',s1,s2) ->
       Printf.sprintf "Cell_update_alias_analysis_init_1_of_2(%s,%s,%s)"
-        (pretty_var x') (pp_pds_state s1) (pp_pds_state s2)
+        (pp_var x') (pp_pds_state s1) (pp_pds_state s2)
     | Cell_update_alias_analysis_init_2_of_2(x',s1,s2,x,patsp,patsn) ->
       Printf.sprintf "Cell_update_alias_analysis_init_2_of_2(%s,%s,%s,%s,%s,%s)"
-        (pretty_var x') (pp_pds_state s1) (pp_pds_state s2)
-        (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+        (pp_var x') (pp_pds_state s1) (pp_pds_state s2)
+        (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Value_capture(v) ->
       Printf.sprintf "Value_capture(%s)" (pp_abstract_value v)
     | Alias_analysis_first_capture_exchange_1_of_4 ->
@@ -564,30 +564,30 @@ struct
         (pp_pds_continuation el1) (pp_pds_continuation el2)
         (pp_pds_continuation el3)
     | Alias_analysis_resolution_1_of_5(x'') ->
-      Printf.sprintf "AAR1(%s)" (pretty_var x'')
+      Printf.sprintf "AAR1(%s)" (pp_var x'')
     | Alias_analysis_resolution_2_of_5(x'',v) ->
       Printf.sprintf "AAR2(%s,%s)"
-        (pretty_var x'') (pp_abstract_value v)
+        (pp_var x'') (pp_abstract_value v)
     | Alias_analysis_resolution_3_of_5(x'',b) ->
       Printf.sprintf "AAR3(%s,%s)"
-        (pretty_var x'') (string_of_bool b)
+        (pp_var x'') (string_of_bool b)
     | Alias_analysis_resolution_4_of_5(x'',b) ->
       Printf.sprintf "AAR4(%s,%s)"
-        (pretty_var x'') (string_of_bool b)
+        (pp_var x'') (string_of_bool b)
     | Alias_analysis_resolution_5_of_5(x'',b,x,patsp,patsn) ->
       Printf.sprintf "AAR5(%s,%s,%s,%s,%s)"
-        (pretty_var x'') (string_of_bool b) (pretty_var x)
+        (pp_var x'') (string_of_bool b) (pp_var x)
         (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Nonsideeffecting_nonmatching_clause_skip(x'') ->
       Printf.sprintf "Nonsideeffecting_nonmatching_clause_skip(%s)"
-        (pretty_var x'')
+        (pp_var x'')
     | Side_effect_search_init_1_of_2(x,acl0,ctx) ->
       Printf.sprintf "Side_effect_search_init_1_of_2(%s,%s,%s)"
-        (pretty_var x) (pp_annotated_clause acl0) (C.pretty ctx)
+        (pp_var x) (pp_annotated_clause acl0) (C.pp ctx)
     | Side_effect_search_init_2_of_2(x,patsp,patsn,acl0,ctx) ->
       Printf.sprintf "Side_effect_search_init_2_of_2(%s,%s,%s,%s,%s)"
-        (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
-        (pp_annotated_clause acl0) (C.pretty ctx)
+        (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+        (pp_annotated_clause acl0) (C.pp ctx)
     | Side_effect_search_nonmatching_clause_skip ->
       "Side_effect_search_nonmatching_clause_skip"
     | Side_effect_search_exit_wiring ->
@@ -598,86 +598,86 @@ struct
       "Side_effect_search_without_discovery"
     | Side_effect_search_alias_analysis_init(x',acl,ctx) ->
       Printf.sprintf "Side_effect_search_alias_analysis_init(%s,%s,%s)"
-        (pretty_var x') (pp_annotated_clause acl) (C.pretty ctx)
+        (pp_var x') (pp_annotated_clause acl) (C.pp ctx)
     | Side_effect_search_alias_analysis_resolution_1_of_4 x'' ->
       Printf.sprintf "Side_effect_search_alias_analysis_resolution_1_of_4(%s)"
-        (pretty_var x'')
+        (pp_var x'')
     | Side_effect_search_alias_analysis_resolution_2_of_4(x'',v) ->
       Printf.sprintf "Side_effect_search_alias_analysis_resolution_2_of_4(%s,%s)"
-        (pretty_var x'') (pp_abstract_value v)
+        (pp_var x'') (pp_abstract_value v)
     | Side_effect_search_alias_analysis_resolution_3_of_4(x'',is_alias) ->
       Printf.sprintf "Side_effect_search_alias_analysis_resolution_3_of_4(%s,%s)"
-        (pretty_var x'') (string_of_bool is_alias)
+        (pp_var x'') (string_of_bool is_alias)
     | Side_effect_search_alias_analysis_resolution_4_of_4(x'',is_alias) ->
       Printf.sprintf "Side_effect_search_alias_analysis_resolution_4_of_4(%s,%s)"
-        (pretty_var x'') (string_of_bool is_alias)
+        (pp_var x'') (string_of_bool is_alias)
     | Side_effect_search_escape_1_of_2 ->
       "Side_effect_search_escape_1_of_2"
     | Side_effect_search_escape_2_of_2 x'' ->
-      Printf.sprintf "Side_effect_search_escape_2_of_2(%s)" (pretty_var x'')
+      Printf.sprintf "Side_effect_search_escape_2_of_2(%s)" (pp_var x'')
     | Side_effect_search_escape_completion_1_of_4 ->
       "Side_effect_search_escape_completion_1_of_4"
     | Side_effect_search_escape_completion_2_of_4 x ->
       Printf.sprintf "Side_effect_search_escape_completion_2_of_4(%s)"
-        (pretty_var x)
+        (pp_var x)
     | Side_effect_search_escape_completion_3_of_4 x ->
       Printf.sprintf "Side_effect_search_escape_completion_3_of_4(%s)"
-        (pretty_var x)
+        (pp_var x)
     | Side_effect_search_escape_completion_4_of_4 x ->
       Printf.sprintf "Side_effect_search_escape_completion_4_of_4(%s)"
-        (pretty_var x)
+        (pp_var x)
   ;;
 
   let ppa_pds_targeted_dynamic_pop_action action =
     match action with
     | Variable_discovery x ->
-      Printf.sprintf "VDisc(%s)" (pretty_var x)
+      Printf.sprintf "VDisc(%s)" (pp_var x)
     | Variable_aliasing(x,x') ->
-      Printf.sprintf "VAlias(%s,%s)" (pretty_var x) (pretty_var x')
+      Printf.sprintf "VAlias(%s,%s)" (pp_var x) (pp_var x')
     | Stateless_nonmatching_clause_skip_1_of_2(x) ->
       Printf.sprintf "SNMCS1(%s)"
-        (pretty_var x)
+        (pp_var x)
     | Stateless_nonmatching_clause_skip_2_of_2(k) ->
       Printf.sprintf "SNMCS2(%s)"
         (ppa_pds_continuation k)
     | Function_closure_lookup(x'',xf) ->
       Printf.sprintf "FunCL(%s,%s)"
-        (pretty_var x'') (pretty_var xf)
+        (pp_var x'') (pp_var xf)
     | Conditional_closure_lookup(x'',x1,p,b) ->
       Printf.sprintf "CondCL(%s,%s,%s,%b)"
-        (pretty_var x'') (pretty_var x1) (pretty_pattern p) b
+        (pp_var x'') (pp_var x1) (pp_pattern p) b
     | Record_projection_lookup(x,x',l) ->
       Printf.sprintf "RProjL(%s,%s,%s)"
-        (pretty_var x) (pretty_var x') (pretty_ident l)
+        (pp_var x) (pp_var x') (pp_ident l)
     | Record_construction_lookup_1_of_2(source_state,target_state,x,r) ->
       Printf.sprintf "RCL1(%s,%s,%s,%s)"
-        (ppa_pds_state source_state) (ppa_pds_state target_state) (pretty_var x)
-          (pretty_record_value r)
+        (ppa_pds_state source_state) (ppa_pds_state target_state) (pp_var x)
+          (pp_record_value r)
     | Record_construction_lookup_2_of_2(
         source_state,target_state,x,r,patsp,patsn) ->
       Printf.sprintf "RCL2(%s,%s,%s,%s,%s,%s)"
-        (ppa_pds_state source_state) (ppa_pds_state target_state) (pretty_var x)
-          (pretty_record_value r) (pp_pattern_set patsp) (pp_pattern_set patsn)
+        (ppa_pds_state source_state) (ppa_pds_state target_state) (pp_var x)
+          (pp_record_value r) (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Function_filter_validation(x) ->
-      Printf.sprintf "FunFilVal(%s)" (pretty_var x)
+      Printf.sprintf "FunFilVal(%s)" (pp_var x)
     | Empty_record_filter_validation(x) ->
-      Printf.sprintf "ERFilVal(%s)" (pretty_var x)
+      Printf.sprintf "ERFilVal(%s)" (pp_var x)
     | Dereference_lookup(x,x') ->
-      Printf.sprintf "Deref(%s,%s)" (pretty_var x) (pretty_var x')
+      Printf.sprintf "Deref(%s,%s)" (pp_var x) (pp_var x')
     | Cell_filter_validation(x) ->
-      Printf.sprintf "CellFilVal(%s)" (pretty_var x)
+      Printf.sprintf "CellFilVal(%s)" (pp_var x)
     | Cell_dereference_1_of_2(x,x') ->
       Printf.sprintf "CDr1(%s,%s)"
-        (pretty_var x) (pretty_var x')
+        (pp_var x) (pp_var x')
     | Cell_dereference_2_of_2(x') ->
-      Printf.sprintf "CDr2(%s)" (pretty_var x')
+      Printf.sprintf "CDr2(%s)" (pp_var x')
     | Cell_update_alias_analysis_init_1_of_2(x',s1,s2) ->
       Printf.sprintf "CUAA1(%s,%s,%s)"
-        (pretty_var x') (pp_pds_state s1) (pp_pds_state s2)
+        (pp_var x') (pp_pds_state s1) (pp_pds_state s2)
     | Cell_update_alias_analysis_init_2_of_2(x',s1,s2,x,patsp,patsn) ->
       Printf.sprintf "CUAA2(%s,%s,%s,%s,%s,%s)"
-        (pretty_var x') (pp_pds_state s1) (pp_pds_state s2)
-        (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+        (pp_var x') (pp_pds_state s1) (pp_pds_state s2)
+        (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Value_capture(v) ->
       Printf.sprintf "VCap(%s)" (pp_abstract_value v)
     | Alias_analysis_first_capture_exchange_1_of_4 -> "AA1CX1"
@@ -701,58 +701,58 @@ struct
         (ppa_pds_continuation el1) (ppa_pds_continuation el2)
         (ppa_pds_continuation el3)
     | Alias_analysis_resolution_1_of_5(x'') ->
-      Printf.sprintf "AAR1(%s)" (pretty_var x'')
+      Printf.sprintf "AAR1(%s)" (pp_var x'')
     | Alias_analysis_resolution_2_of_5(x'',v) ->
       Printf.sprintf "AAR2(%s,%s)"
-        (pretty_var x'') (pp_abstract_value v)
+        (pp_var x'') (pp_abstract_value v)
     | Alias_analysis_resolution_3_of_5(x'',b) ->
       Printf.sprintf "AAR3(%s,%s)"
-        (pretty_var x'') (string_of_bool b)
+        (pp_var x'') (string_of_bool b)
     | Alias_analysis_resolution_4_of_5(x'',b) ->
       Printf.sprintf "AAR4(%s,%s)"
-        (pretty_var x'') (string_of_bool b)
+        (pp_var x'') (string_of_bool b)
     | Alias_analysis_resolution_5_of_5(x'',b,x,patsp,patsn) ->
       Printf.sprintf "AAR5(%s,%s,%s,%s,%s)"
-        (pretty_var x'') (string_of_bool b) (pretty_var x)
+        (pp_var x'') (string_of_bool b) (pp_var x)
         (pp_pattern_set patsp) (pp_pattern_set patsn)
     | Nonsideeffecting_nonmatching_clause_skip(x'') ->
-      Printf.sprintf "NNCS(%s)" (pretty_var x'')
+      Printf.sprintf "NNCS(%s)" (pp_var x'')
     | Side_effect_search_init_1_of_2(x,acl0,ctx) ->
       Printf.sprintf "SESI1(%s,%s,%s)"
-        (pretty_var x) (ppa_annotated_clause acl0) (C.pretty ctx)
+        (pp_var x) (ppa_annotated_clause acl0) (C.pp ctx)
     | Side_effect_search_init_2_of_2(x,patsp,patsn,acl0,ctx) ->
       Printf.sprintf "SESI2(%s,%s,%s,%s,%s)"
-        (pretty_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
-        (ppa_annotated_clause acl0) (C.pretty ctx)
+        (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
+        (ppa_annotated_clause acl0) (C.pp ctx)
     | Side_effect_search_nonmatching_clause_skip -> "SESNCS"
     | Side_effect_search_exit_wiring -> "SESXW"
     | Side_effect_search_enter_wiring -> "SESEW"
     | Side_effect_search_without_discovery -> "SESWD"
     | Side_effect_search_alias_analysis_init(x',acl,ctx) ->
       Printf.sprintf "SESAAI(%s,%s,%s)"
-        (pretty_var x') (pp_annotated_clause acl) (C.pretty ctx)
+        (pp_var x') (pp_annotated_clause acl) (C.pp ctx)
     | Side_effect_search_alias_analysis_resolution_1_of_4 x'' ->
       Printf.sprintf "SESAAR1(%s)"
-        (pretty_var x'')
+        (pp_var x'')
     | Side_effect_search_alias_analysis_resolution_2_of_4(x'',v) ->
       Printf.sprintf "SESAAR2(%s,%s)"
-        (pretty_var x'') (pp_abstract_value v)
+        (pp_var x'') (pp_abstract_value v)
     | Side_effect_search_alias_analysis_resolution_3_of_4(x'',is_alias) ->
       Printf.sprintf "SESAAR3(%s,%s)"
-        (pretty_var x'') (string_of_bool is_alias)
+        (pp_var x'') (string_of_bool is_alias)
     | Side_effect_search_alias_analysis_resolution_4_of_4(x'',is_alias) ->
       Printf.sprintf "SESAAR4(%s,%s)"
-        (pretty_var x'') (string_of_bool is_alias)
+        (pp_var x'') (string_of_bool is_alias)
     | Side_effect_search_escape_1_of_2 -> "SESE1"
     | Side_effect_search_escape_2_of_2 x'' ->
-      Printf.sprintf "SESE2(%s)" (pretty_var x'')
+      Printf.sprintf "SESE2(%s)" (pp_var x'')
     | Side_effect_search_escape_completion_1_of_4 -> "SESEC1"
     | Side_effect_search_escape_completion_2_of_4 x ->
-      Printf.sprintf "SESEC2(%s)" (pretty_var x)
+      Printf.sprintf "SESEC2(%s)" (pp_var x)
     | Side_effect_search_escape_completion_3_of_4 x ->
-      Printf.sprintf "SESEC3(%s)" (pretty_var x)
+      Printf.sprintf "SESEC3(%s)" (pp_var x)
     | Side_effect_search_escape_completion_4_of_4 x ->
-      Printf.sprintf "SESEC4(%s)" (pretty_var x)
+      Printf.sprintf "SESEC4(%s)" (pp_var x)
   ;;
 
   type pds_untargeted_dynamic_pop_action =
@@ -803,7 +803,7 @@ struct
             (
               results
               |> Enum.clone
-              |> Enum.map (String_utils.pretty_list @@
+              |> Enum.map (String_utils.pp_list @@
                   pp_pds_stack_action pp_pds_continuation
                     pp_pds_targeted_dynamic_pop_action)
             )
@@ -876,7 +876,7 @@ struct
       | Record_construction_lookup_1_of_2(source_state,taret_state,x,r) ->
         let%orzero (Lookup_var(x0,patsp,patsn)) = element in
         [% guard (equal_var x x0) ];
-        logger `trace (Printf.sprintf ":::::::1   x=>%s   r=>%s   patsp=>%s   patsn=>%s   records-allowed=>%s" (pretty_var x) (pretty_record_value r)
+        logger `trace (Printf.sprintf ":::::::1   x=>%s   r=>%s   patsp=>%s   patsn=>%s   records-allowed=>%s" (pp_var x) (pp_record_value r)
           (pp_pattern_set patsp) (pp_pattern_set patsn)
           (string_of_bool @@ not @@ Pattern_set.mem (Record_pattern Ident_map.empty) patsn)
           );
@@ -1248,14 +1248,14 @@ struct
           (fun () -> Printf.sprintf "DDPA %s edge function at state %s"
                         (pp_ddpa_edge edge) (pp_pds_state state))
           (fun edges ->
-            let pretty_output (actions,target) =
-              String_utils.pretty_tuple
-                (String_utils.pretty_list Ddpa_pds_reachability.pp_stack_action)
+            let pp_output (actions,target) =
+              String_utils.pp_tuple
+                (String_utils.pp_list Ddpa_pds_reachability.pp_stack_action)
                 pp_pds_state
                 (actions,target)
             in
             Printf.sprintf "Generates edges: %s"
-                        (String_utils.pretty_list pretty_output @@
+                        (String_utils.pp_list pp_output @@
                           List.of_enum @@ Enum.clone edges)) @@
           fun () ->
           let zero = Enum.empty in
@@ -1724,7 +1724,7 @@ struct
     Logger_utils.lazy_bracket_log (lazy_logger `trace)
       (fun () ->
         Printf.sprintf "Determining values of variable %s at position %s%s"
-          (pretty_var x) (pp_annotated_clause acl) @@
+          (pp_var x) (pp_annotated_clause acl) @@
           if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
           then ""
           else

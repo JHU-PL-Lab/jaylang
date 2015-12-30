@@ -25,12 +25,12 @@ struct
     | [] -> true
     | h::_ -> c = h
   ;;
-  let pretty (S(c_list,_)) =
+  let pp (S(c_list,_)) =
     concat_sep "|" @@
     Enum.append
       (Enum.map pp_abstract_clause @@ List.enum c_list)
       (Enum.singleton "?")
   ;;
-  let pretty_abbrv = pretty;;
+  let ppa = pp;;
   let name = "ddpaNR";;
 end;;

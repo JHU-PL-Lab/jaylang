@@ -15,11 +15,11 @@ struct
     | Some c' -> c = c'
     | None -> true
   ;;
-  let pretty = function
+  let pp = function
     | S(Some(c)) -> pp_abstract_clause c ^ "|?"
     | S(None) -> "?"
   ;;
-  let pretty_abbrv = function
+  let ppa = function
     | S(Some(c)) -> ppa_abstract_clause c
     | S(None) -> "?"
   ;;

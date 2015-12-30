@@ -119,8 +119,8 @@ struct
     | State_node state -> Basis.pp_state state
     | Intermediate_node (node,stack_actions) ->
       "Intermediate_node" ^
-      String_utils.pretty_tuple pp_node
-        (String_utils.pretty_list pp_stack_action)
+      String_utils.pp_tuple pp_node
+        (String_utils.pp_list pp_stack_action)
         (node,stack_actions)
   ;;
 
@@ -129,9 +129,8 @@ struct
     | State_node state -> Basis.ppa_state state
     | Intermediate_node (node,stack_actions) ->
       "IN" ^
-      String_utils.pretty_tuple ppa_node
-        (String_utils.pretty_list ppa_stack_action)
-        (node,stack_actions)
+      String_utils.pp_tuple ppa_node
+        (String_utils.pp_list ppa_stack_action) (node,stack_actions)
   ;;
 
   type edge =
