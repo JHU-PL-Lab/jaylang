@@ -1,17 +1,17 @@
 open Batteries;;
 
 open Ast;;
-open Ast_pretty;;
+open Ast_pp;;
 
 let logger = Logger_utils.make_logger "Interpreter";;
 
 module Environment = Var_hashtbl;;
 
-let pretty_env (env : value Environment.t) =
+let pp_env (env : value Environment.t) =
   let inner =
     env
     |> Environment.enum
-    |> Enum.map (fun (x,v) -> pretty_var x ^ " = " ^ pretty_value v)
+    |> Enum.map (fun (x,v) -> pp_var x ^ " = " ^ pp_value v)
     |> Enum.fold
       (fun acc -> fun s -> if acc = "" then s else acc ^ ", " ^ s) ""
   in
@@ -26,7 +26,7 @@ let lookup env x =
   else
     raise (
       Evaluation_failure (
-        "cannot find variable `" ^ (pretty_var x) ^ "' in environment `" ^ (pretty_env env) ^ "'."
+        "cannot find variable `" ^ (pp_var x) ^ "' in environment `" ^ (pp_env env) ^ "'."
       )
     )
 ;;
@@ -98,10 +98,10 @@ let fresh_wire (Function_value(param_x, Expr(body))) arg_x call_site_x =
 
 let rec evaluate env lastvar cls =
   logger `debug (
-    pretty_env env ^ "\n" ^
-    (Option.default "?" (Option.map pretty_var lastvar)) ^ "\n" ^
+    pp_env env ^ "\n" ^
+    (Option.default "?" (Option.map pp_var lastvar)) ^ "\n" ^
     (cls
-     |> List.map pretty_clause
+     |> List.map pp_clause
      |> List.fold_left (fun acc -> fun s -> acc ^ s ^ "; ") "") ^ "\n\n");
   flush stdout;
   match cls with
@@ -126,8 +126,8 @@ let rec evaluate env lastvar cls =
       begin
         match lookup env x' with
         | Value_record(_) as r -> raise (Evaluation_failure
-                                           ("cannot apply " ^ pretty_var x' ^
-                                            " as it contains non-function " ^ pretty_value r))
+                                           ("cannot apply " ^ pp_var x' ^
+                                            " as it contains non-function " ^ pp_value r))
         | Value_function(f) ->
           evaluate env (Some x) @@ fresh_wire f x'' x @ t
       end
