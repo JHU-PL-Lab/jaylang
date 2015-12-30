@@ -1,0 +1,13 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 1ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END z {{}}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END d {{}}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+x = {};
+q = {a=x};
+c = ref q;
+y = fun i -> ( r=c<-x );
+z = y x;
+d = !c;
