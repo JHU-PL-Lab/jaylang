@@ -29,7 +29,7 @@ Library "ast"
   Path: src/ast
   Modules:
     Ast,
-    Ast_pretty,
+    Ast_pp,
     Ast_wellformedness
   BuildDepends:
     batteries,

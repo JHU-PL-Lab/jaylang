@@ -64,7 +64,7 @@ let observe_ill_formed illformednesses expectation =
     assert_failure @@ "Expression was unexpectedly ill-formed.  Causes:" ^
                       "\n    * " ^ concat_sep "\n    *"
                         (List.enum @@
-                         List.map pretty_illformedness illformednesses)
+                         List.map pp_illformedness illformednesses)
   | Expect_ill_formed -> None
   | _ -> Some expectation
 ;;
@@ -77,7 +77,7 @@ let make_test filename expectations =
     | Expect_ill_formed -> "should be ill-formed"
   in
   let test_name = filename ^ ": (" ^
-                  pretty_list name_of_expectation expectations ^ ")"
+                  pp_list name_of_expectation expectations ^ ")"
   in
   (* Create the test in a thunk. *)
   test_name >::
