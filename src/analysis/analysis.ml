@@ -11,6 +11,7 @@ open Ast_pp;;
 open Ddpa_graph;;
 open Nondeterminism;;
 open Pds_reachability_types_stack;;
+open String_utils;;
 
 let logger = Logger_utils.make_logger "Analysis";;
 let lazy_logger = Logger_utils.make_lazy_logger "Analysis";;
@@ -147,13 +148,42 @@ struct
       -> false
   ;;
   
+  (** This module is meant to verify that the system never attempts to create
+   *  a capture size larger than a fixed maximum (here, 4).  This property is
+   *  necessary to argue that the analysis is decidable.
+   *)
+  module Bounded_capture_size :
+  sig
+    type bounded_capture_size;;
+    val compare_bounded_capture_size :
+      bounded_capture_size -> bounded_capture_size -> int
+    (*val equal_bounded_capture_size :
+      bounded_capture_size -> bounded_capture_size -> bool*)
+    val make_bounded_capture_size : int -> bounded_capture_size
+    val int_of_bounded_capture_size : bounded_capture_size -> int
+  end =
+  struct
+    type bounded_capture_size =
+      | Bounded_capture_size of int
+      [@@deriving ord]
+    ;;
+    let max_capture_size = 4;;
+    let make_bounded_capture_size n =
+      if n >= 1 && n <= max_capture_size
+      then Bounded_capture_size(n)
+      else raise @@ Utils.Invariant_failure(
+        Printf.sprintf "Invalid size %d provided for bounded capture" n);;
+    let int_of_bounded_capture_size (Bounded_capture_size(n)) = n;;
+  end;;
+  open Bounded_capture_size;;
+
   type pds_continuation =
     | Bottom_of_stack
     | Lookup_var of var * Pattern_set.t * Pattern_set.t
     | Project of ident * Pattern_set.t * Pattern_set.t
     | Jump of annotated_clause * C.t
     | Deref of Pattern_set.t * Pattern_set.t
-    | Capture
+    | Capture of bounded_capture_size
     | Continuation_value of abstract_value
     | Alias_huh
     | Side_effect_search_start
@@ -182,7 +212,8 @@ struct
       Printf.sprintf "Jump(%s,%s)" (pp_annotated_clause acl) (C.pp ctx)
     | Deref(patsp,patsn) ->
       Printf.sprintf "!(%s,%s)" (pp_pattern_set patsp) (pp_pattern_set patsn)
-    | Capture -> "Capture"
+    | Capture(size) ->
+      Printf.sprintf "Capture(%d)" @@ int_of_bounded_capture_size size
     | Continuation_value v -> pp_abstract_value v
     | Alias_huh -> "Alias?"
     | Side_effect_search_start -> "Side_effect_search_start"
@@ -211,7 +242,8 @@ struct
         (ppa_annotated_clause acl) (C.ppa ctx)
     | Deref(patsp,patsn) ->
       Printf.sprintf "!(%s,%s)" (pp_pattern_set patsp) (pp_pattern_set patsn)
-    | Capture -> "Capture"
+    | Capture(size) ->
+      Printf.sprintf "Capture(%d)" @@ int_of_bounded_capture_size size      
     | Continuation_value v -> pp_abstract_value v
     | Alias_huh -> "Alias?"
     | Side_effect_search_start -> "SEStart"
@@ -363,27 +395,16 @@ struct
       (** Represents the second step of alias analysis initialization for a cell
           update.  The additional parameters are the contents of the
           continuation found during the first step. *)
-    | Value_capture of abstract_value
-      (** Represents the value capture action.  (This action is dynamic because
-          even it must be appropriate in any polyvariance context.) *)
-    | Alias_analysis_first_capture_exchange_1_of_4
-      (** Represents the first step of reorganizing the stack after the first
-          value is captured during alias analysis. *)
-    | Alias_analysis_first_capture_exchange_2_of_4 of
-        pds_continuation
-    | Alias_analysis_first_capture_exchange_3_of_4 of
-        pds_continuation * pds_continuation
-    | Alias_analysis_first_capture_exchange_4_of_4 of
-        pds_continuation * pds_continuation * pds_continuation    
-    | Alias_analysis_second_capture_exchange_1_of_4
-      (** Represents the second step of reorganizing the stack after the second
-          value is captured during alias analysis. *)
-    | Alias_analysis_second_capture_exchange_2_of_4 of
-        pds_continuation
-    | Alias_analysis_second_capture_exchange_3_of_4 of
-        pds_continuation * pds_continuation
-    | Alias_analysis_second_capture_exchange_4_of_4 of
-        pds_continuation * pds_continuation * pds_continuation
+    | Value_capture_1_of_2 of abstract_value
+      (** Represents the first step of the value capture action.  This action
+          extracts the number of other stack elements to gather up before
+          capturing the value. *)
+    | Value_capture_2_of_2 of
+        abstract_value * pds_continuation list * bounded_capture_size
+      (** Represents the second step of the value capture action.  This action
+          collects other stack elements into a list until it has consumed as
+          many as the original Capture stack element dictated.  It then pushes
+          a value to the stack followed by all of the elements it collected. *)
     | Alias_analysis_resolution_1_of_5 of var
       (** Represents the final step of alias analysis which determines whether
           a cell may be an alias of the one currently under lookup.  The
@@ -534,32 +555,12 @@ struct
       Printf.sprintf "Cell_update_alias_analysis_init_2_of_2(%s,%s,%s,%s,%s,%s)"
         (pp_var x') (pp_pds_state s1) (pp_pds_state s2)
         (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
-    | Value_capture(v) ->
-      Printf.sprintf "Value_capture(%s)" (pp_abstract_value v)
-    | Alias_analysis_first_capture_exchange_1_of_4 ->
-      "Alias_analysis_first_capture_exchange_1_of_4"
-    | Alias_analysis_first_capture_exchange_2_of_4(el1) ->
-      Printf.sprintf "Alias_analysis_first_capture_exchange_2_of_4(%s)"
-        (pp_pds_continuation el1)
-    | Alias_analysis_first_capture_exchange_3_of_4(el1,el2) ->
-      Printf.sprintf "Alias_analysis_first_capture_exchange_3_of_4(%s,%s)"
-        (pp_pds_continuation el1) (pp_pds_continuation el2)
-    | Alias_analysis_first_capture_exchange_4_of_4(el1,el2,el3) ->
-      Printf.sprintf "Alias_analysis_first_capture_exchange_4_of_4(%s,%s,%s)"
-        (pp_pds_continuation el1) (pp_pds_continuation el2)
-        (pp_pds_continuation el3)
-    | Alias_analysis_second_capture_exchange_1_of_4 ->
-      "Alias_analysis_second_capture_exchange_1_of_4"
-    | Alias_analysis_second_capture_exchange_2_of_4(el1) ->
-      Printf.sprintf "Alias_analysis_second_capture_exchange_2_of_4(%s)"
-        (pp_pds_continuation el1)
-    | Alias_analysis_second_capture_exchange_3_of_4(el1,el2) ->
-      Printf.sprintf "Alias_analysis_second_capture_exchange_3_of_4(%s,%s)"
-        (pp_pds_continuation el1) (pp_pds_continuation el2)
-    | Alias_analysis_second_capture_exchange_4_of_4(el1,el2,el3) ->
-      Printf.sprintf "Alias_analysis_second_capture_exchange_4_of_4(%s,%s,%s)"
-        (pp_pds_continuation el1) (pp_pds_continuation el2)
-        (pp_pds_continuation el3)
+    | Value_capture_1_of_2(v) ->
+      Printf.sprintf "Value_capture_1_of_2(%s)" (pp_abstract_value v)
+    | Value_capture_2_of_2(v,elements,size) ->
+      Printf.sprintf "Value_capture_2_of_2(%s,%s,%d)"
+        (pp_abstract_value v) (pp_list pp_pds_continuation elements)
+        (int_of_bounded_capture_size size)
     | Alias_analysis_resolution_1_of_5(x'') ->
       Printf.sprintf "AAR1(%s)" (pp_var x'')
     | Alias_analysis_resolution_2_of_5(x'',v) ->
@@ -675,28 +676,12 @@ struct
       Printf.sprintf "CUAA2(%s,%s,%s,%s,%s,%s)"
         (pp_var x') (pp_pds_state s1) (pp_pds_state s2)
         (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
-    | Value_capture(v) ->
-      Printf.sprintf "VCap(%s)" (pp_abstract_value v)
-    | Alias_analysis_first_capture_exchange_1_of_4 -> "AA1CX1"
-    | Alias_analysis_first_capture_exchange_2_of_4(el1) ->
-      Printf.sprintf "AA1CX2(%s)" (ppa_pds_continuation el1)
-    | Alias_analysis_first_capture_exchange_3_of_4(el1,el2) ->
-      Printf.sprintf "AA1CX3(%s,%s)"
-        (ppa_pds_continuation el1) (ppa_pds_continuation el2)
-    | Alias_analysis_first_capture_exchange_4_of_4(el1,el2,el3) ->
-      Printf.sprintf "AA1CX4(%s,%s,%s)"
-        (ppa_pds_continuation el1) (ppa_pds_continuation el2)
-        (ppa_pds_continuation el3)
-    | Alias_analysis_second_capture_exchange_1_of_4 -> "AA2CX1"
-    | Alias_analysis_second_capture_exchange_2_of_4(el1) ->
-      Printf.sprintf "AA2CX2(%s)" (ppa_pds_continuation el1)
-    | Alias_analysis_second_capture_exchange_3_of_4(el1,el2) ->
-      Printf.sprintf "AA2CX3(%s,%s)"
-        (ppa_pds_continuation el1) (ppa_pds_continuation el2)
-    | Alias_analysis_second_capture_exchange_4_of_4(el1,el2,el3) ->
-      Printf.sprintf "AA2CX4(%s,%s,%s)"
-        (ppa_pds_continuation el1) (ppa_pds_continuation el2)
-        (ppa_pds_continuation el3)
+    | Value_capture_1_of_2(v) ->
+      Printf.sprintf "VCap1(%s)" (pp_abstract_value v)
+    | Value_capture_2_of_2(v,elements,size) ->
+      Printf.sprintf "VCap2(%s,%s,%d)"
+        (pp_abstract_value v) (pp_list ppa_pds_continuation elements)
+        (int_of_bounded_capture_size size)
     | Alias_analysis_resolution_1_of_5(x'') ->
       Printf.sprintf "AAR1(%s)" (pp_var x'')
     | Alias_analysis_resolution_2_of_5(x'',v) ->
@@ -992,49 +977,36 @@ struct
         (* The lists below are in reverse order of their presentation in the
            formal rules because we are not directly modifying the stack;
            instead, we are pushing stack elements one at a time. *)
+        let capture_size_4 = make_bounded_capture_size 4 in
+        let capture_size_1 = make_bounded_capture_size 1 in
         let k0 = [ element ; Lookup_var(x,patsp0,patsn0) ] in
-        let k1'' = [ Capture ; Lookup_var(x,patsp0,patsn0) ] in
-        let k2'' = [ Capture
+        let k1'' = [ Capture capture_size_4 ; Lookup_var(x,patsp0,patsn0) ] in
+        let k2'' = [ Capture capture_size_1
                    ; Lookup_var(x',Pattern_set.empty,Pattern_set.empty)
                    ; Jump(acl1, ctx1) ] in
         let k3'' = [ Alias_huh ; Jump(acl0,ctx0) ] in
         return @@ List.map (fun x -> Push x) @@
           k0 @ k3'' @ k2'' @ k1''
-      | Value_capture v ->
-        let%orzero Capture = element in
-        return [ Push(Continuation_value v) ]
-      | Alias_analysis_first_capture_exchange_1_of_4 ->
-        let%orzero Continuation_value _ = element in
-        return [ Pop_dynamic_targeted
-                  (Alias_analysis_first_capture_exchange_2_of_4 element) ]
-      | Alias_analysis_first_capture_exchange_2_of_4(el1) ->
-        let%orzero Jump _ = element in
-        return [ Pop_dynamic_targeted
-                  (Alias_analysis_first_capture_exchange_3_of_4(el1,element)) ]
-      | Alias_analysis_first_capture_exchange_3_of_4(el1,el2) ->
-        let%orzero Lookup_var _ = element in
-        return [ Pop_dynamic_targeted
-                  (Alias_analysis_first_capture_exchange_4_of_4(
-                    el1,el2,element)) ]
-      | Alias_analysis_first_capture_exchange_4_of_4(el1,el2,el3) ->
-        let%orzero Capture = element in
-        return [ Push el1 ; Push element ; Push el3 ; Push el2 ]
-      | Alias_analysis_second_capture_exchange_1_of_4 ->
-        let%orzero Continuation_value _ = element in
-        return [ Pop_dynamic_targeted
-                  (Alias_analysis_second_capture_exchange_2_of_4 element) ]
-      | Alias_analysis_second_capture_exchange_2_of_4(el1) ->
-        let%orzero Continuation_value _ = element in
-        return [ Pop_dynamic_targeted
-                  (Alias_analysis_second_capture_exchange_3_of_4(el1,element)) ]
-      | Alias_analysis_second_capture_exchange_3_of_4(el1,el2) ->
-        let%orzero Jump _ = element in
-        return [ Pop_dynamic_targeted
-                  (Alias_analysis_second_capture_exchange_4_of_4(
-                    el1,el2,element)) ]
-      | Alias_analysis_second_capture_exchange_4_of_4(el1,el2,el3) ->
-        let%orzero Alias_huh = element in
-        return [ Push element ; Push el2 ; Push el1 ; Push el3 ]
+      | Value_capture_1_of_2 v ->
+        let%orzero Capture(size) = element in
+        return [ Pop_dynamic_targeted(Value_capture_2_of_2(v,[],size)) ]
+      | Value_capture_2_of_2(v,collected_elements,size) ->
+        let n = int_of_bounded_capture_size size in
+        if n > 1
+        then
+          begin
+            let size' = make_bounded_capture_size (n-1) in
+            return
+              [Pop_dynamic_targeted
+                (Value_capture_2_of_2(v,element::collected_elements,size'))]
+          end
+        else
+          begin
+            let pushes =
+              List.map (fun x -> Push x) (element::collected_elements)
+            in
+            return @@ (Push (Continuation_value v))::pushes 
+          end
       | Alias_analysis_resolution_1_of_5(x'') ->
         let%orzero Continuation_value v = element in
         return [ Pop_dynamic_targeted
@@ -1095,11 +1067,16 @@ struct
         (* The following stack elements are "backwards" because they appear in
            the order in which they are pushed (similar to the other case of
            alias analysis initialization). *)
+        let capture_size_4 = make_bounded_capture_size 4 in
+        let capture_size_1 = make_bounded_capture_size 1 in
         let k1'' =
-          [ Capture ; Lookup_var(x',Pattern_set.empty,Pattern_set.empty) ]
+          [ Capture(capture_size_4)
+          ; Lookup_var(x',Pattern_set.empty,Pattern_set.empty) ]
         in
         let k2'' =
-          [ Capture ; Lookup_var(x,patsp,patsn); Jump(acl',ctx') ]
+          [ Capture(capture_size_1)
+          ; Lookup_var(x,patsp,patsn)
+          ; Jump(acl',ctx') ]
         in
         let k3'' =
           [ Alias_huh ; Jump(acl0, ctx) ]
@@ -1459,20 +1436,10 @@ struct
                       _, Abs_value_body v))) = acl0
                 in
                 (* x = v *)
-                return ( Value_capture(v)
+                return ( Value_capture_1_of_2(v)
                        , Program_point_state(acl0, ctx) )
               end
-            ; (* 7f.iii. Alias analysis first capture exchange *)
-              begin
-                return ( Alias_analysis_first_capture_exchange_1_of_4
-                       , Program_point_state(acl0, ctx) )
-              end
-            ; (* 7f.iv. Alias analysis second capture exchange *)
-              begin
-                return ( Alias_analysis_second_capture_exchange_1_of_4
-                       , Program_point_state(acl0, ctx) )
-              end
-            ; (* 7f.v, 7f.vi. Alias resolution *)
+            ; (* 7f.iii, 7f.iv. Alias resolution *)
               begin
                 let%orzero
                   (Unannotated_clause(Abs_clause(
