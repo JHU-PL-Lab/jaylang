@@ -1426,7 +1426,7 @@ struct
                        , Program_point_state(acl0, ctx) )                
               end
             ;
-              (* 8f.i. Cell update alias analysis initialization *)
+              (* 9a. Cell update alias analysis initialization *)
               begin
                 let%orzero
                   (Unannotated_clause(Abs_clause(
@@ -1439,7 +1439,7 @@ struct
                           x',source_state,target_state)
                        , Program_point_state(acl0, ctx) )
               end
-            ; (* 8f.ii, 8f.iii. Alias resolution *)
+            ; (* 9b,9c. Alias resolution *)
               begin
                 let%orzero
                   (Unannotated_clause(Abs_clause(
@@ -1449,7 +1449,7 @@ struct
                 return ( Alias_analysis_resolution_1_of_5(x'')
                        , Program_point_state(acl1, ctx) )
               end
-            ; (* 8g.i. Stateful non-side-effecting clause skip *)
+            ; (* 10a. Stateful non-side-effecting clause skip *)
               begin
                 let%orzero (Unannotated_clause(Abs_clause(x,b))) = acl1 in
                 [% guard (is_immediate acl1) ];
@@ -1462,7 +1462,7 @@ struct
                        , Program_point_state(acl1,ctx)
                        )
               end
-            ; (* 8g.ii. Side-effect search initialization *)
+            ; (* 10b. Side-effect search initialization *)
               begin
                 let%orzero (Exit_clause(x'',_,c)) = acl1 in
                 (* x'' =(up)c x' *)
@@ -1475,7 +1475,7 @@ struct
                 return ( Side_effect_search_init_1_of_2(x'',acl0,ctx)
                        , Program_point_state(acl1,ctx') )
               end
-            ; (* 8g.iii. Side-effect search non-matching clause skip *)
+            ; (* 10c. Side-effect search non-matching clause skip *)
               begin
                 let%orzero (Unannotated_clause(Abs_clause(_,b))) = acl1 in
                 [% guard (is_immediate acl1) ];
@@ -1487,7 +1487,7 @@ struct
                 return ( Side_effect_search_nonmatching_clause_skip
                        , Program_point_state(acl1,ctx) )
               end
-            ; (* 8g.iv. Side-effect search exit wiring node *)
+            ; (* 10d. Side-effect search exit wiring node *)
               begin
                 let%orzero (Exit_clause(_,_,c)) = acl1 in
                 (* x'' =(up)c x' *)
@@ -1500,7 +1500,7 @@ struct
                 return ( Side_effect_search_exit_wiring
                        , Program_point_state(acl1,ctx') )
               end
-            ; (* 8g.v. Side-effect search enter wiring node *)
+            ; (* 10e. Side-effect search enter wiring node *)
               begin
                 let%orzero (Enter_clause(_,_,c)) = acl1 in
                 (* x'' =(down)c x' *)
@@ -1514,12 +1514,12 @@ struct
                        , Program_point_state(acl1,ctx') )
               end
               (* FIXME: why does this clause kill performance? *)
-            ; (* 8g.vi. Side-effect search without discovery *)
+            ; (* 10f. Side-effect search without discovery *)
               begin
                 return ( Side_effect_search_without_discovery
                        , Program_point_state(acl0,ctx) )
               end
-            ; (* 8g.vii. Side-effect search alias analysis initialization *)
+            ; (* 10g. Side-effect search alias analysis initialization *)
               begin
                 let%orzero (Unannotated_clause(
                               Abs_clause(_,Abs_update_body(x',_)))) = acl1
@@ -1527,7 +1527,7 @@ struct
                 return ( Side_effect_search_alias_analysis_init(x',acl0,ctx)
                        , Program_point_state(acl1,ctx) )
               end
-            ; (* 8g.viii, 8g.ix. Side-effect search alias analysis resolution *)
+            ; (* 10h,10i. Side-effect search alias analysis resolution *)
               begin
                 let%orzero (Unannotated_clause(
                               Abs_clause(_,Abs_update_body(_,x'')))) = acl1
@@ -1536,12 +1536,12 @@ struct
                             x'')
                        , Program_point_state(acl1,ctx) )
               end
-            ; (* 8g.x. Side-effect search escape *)
+            ; (* 10j. Side-effect search escape *)
               begin
                 return ( Side_effect_search_escape_1_of_2
                        , Program_point_state(acl0,ctx) )
               end
-            ; (* 8g.xi. Side-effect search escape completion *)
+            ; (* 10k. Side-effect search escape completion *)
               begin
                 return ( Side_effect_search_escape_completion_1_of_4
                        , Program_point_state(acl0,ctx) )
