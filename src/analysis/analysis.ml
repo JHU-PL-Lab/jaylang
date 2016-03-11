@@ -1268,7 +1268,18 @@ struct
                        )
               end
             ;
-              (* 3a. Function parameter wiring *) 
+              (* 3b. Value capture *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(
+                      _, Abs_value_body v))) = acl0
+                in
+                (* x = v *)
+                return ( Value_capture_1_of_2(v)
+                       , Program_point_state(acl0, ctx) )
+              end
+            ;
+              (* 4a. Function parameter wiring *) 
               begin
                 let%orzero (Enter_clause(x,x',c)) = acl1 in
                 let%orzero (Abs_clause(_,Abs_appl_body _)) = c in
@@ -1278,7 +1289,7 @@ struct
                 return (Variable_aliasing(x,x'),Program_point_state(acl1,ctx'))
               end
             ;
-              (* 3b. Function return wiring *)
+              (* 4b. Function return wiring *)
               begin
                 let%orzero (Exit_clause(x,x',c)) = acl1 in
                 let%orzero (Abs_clause(_,Abs_appl_body _)) = c in
@@ -1287,7 +1298,7 @@ struct
                 return (Variable_aliasing(x,x'),Program_point_state(acl1,ctx'))
               end
             ;
-              (* 3c. Function non-local wiring *)
+              (* 4c. Function non-local wiring *)
               begin
                 let%orzero (Enter_clause(x'',_,c)) = acl1 in
                 let%orzero (Abs_clause(_,Abs_appl_body(x2'',_))) = c in
@@ -1299,7 +1310,7 @@ struct
                        )
               end
             ;
-              (* 4a, 4b, and 4d. Conditional entrance wiring *)
+              (* 5a, 5b, and 5d. Conditional entrance wiring *)
               begin
                 (* This block represents *all* conditional closure handling on
                    the entering side. *)
@@ -1318,7 +1329,7 @@ struct
                        )
               end
             ;
-              (* 4c. Conditional return wiring *)
+              (* 5c. Conditional return wiring *)
               begin
                 let%orzero (Exit_clause(x,x',c)) = acl1 in
                 let%orzero (Abs_clause(_,Abs_conditional_body _)) = c in
@@ -1326,7 +1337,7 @@ struct
                 return (Variable_aliasing(x,x'),Program_point_state(acl1,ctx))                  
               end
             ;
-              (* 5a. Record destruction *)
+              (* 6a. Record destruction *)
               begin
                 let%orzero
                   (Unannotated_clause(
@@ -1336,7 +1347,7 @@ struct
                 return (Record_projection_lookup(x,x',l),Program_point_state(acl1,ctx))
               end
             ;
-              (* 5b, 6b. Record discovery *)
+              (* 6b, 7b. Record discovery *)
               begin
                 let%orzero
                   (Unannotated_clause(
@@ -1351,7 +1362,7 @@ struct
                        )
               end
             ;
-              (* 6a. Function filter validation *)
+              (* 7a. Function filter validation *)
               begin
                 let%orzero
                   (Unannotated_clause(Abs_clause(
@@ -1361,7 +1372,7 @@ struct
                 return (Function_filter_validation(x), Program_point_state(acl0,ctx))
               end
             ;
-              (* 7a. Assignment result *)
+              (* 8a. Assignment result *)
               begin
                 let%orzero
                   (Unannotated_clause(Abs_clause(x, Abs_update_body _))) = acl1
@@ -1374,7 +1385,7 @@ struct
                        , Special_value_state empty_record)
               end
             ;
-              (* 7b. Assignment result filter validation *)
+              (* 8b. Assignment result filter validation *)
               begin
                 let%orzero
                   (Unannotated_clause(Abs_clause(x, Abs_update_body _))) = acl1
@@ -1384,7 +1395,7 @@ struct
                        , Program_point_state(acl0,ctx) )
               end
             ;
-              (* 7c. Dereference lookup *)
+              (* 8c. Dereference lookup *)
               begin
                 let%orzero
                   (Unannotated_clause(Abs_clause(x, Abs_deref_body(x')))) = acl1
@@ -1394,7 +1405,7 @@ struct
                        , Program_point_state(acl1,ctx) )
               end
             ;
-              (* 7d. Cell filter validation *)
+              (* 8d. Cell filter validation *)
               begin
                 let%orzero
                   (Unannotated_clause(Abs_clause(
@@ -1404,7 +1415,7 @@ struct
                 return (Cell_filter_validation(x), Program_point_state(acl0,ctx))
               end
             ;
-              (* 7e. Cell dereference *)
+              (* 8e. Cell dereference *)
               begin
                 let%orzero
                   (Unannotated_clause(Abs_clause(
@@ -1415,7 +1426,7 @@ struct
                        , Program_point_state(acl0, ctx) )                
               end
             ;
-              (* 7f.i. Cell update alias analysis initialization *)
+              (* 8f.i. Cell update alias analysis initialization *)
               begin
                 let%orzero
                   (Unannotated_clause(Abs_clause(
@@ -1428,18 +1439,7 @@ struct
                           x',source_state,target_state)
                        , Program_point_state(acl0, ctx) )
               end
-            ;
-              (* 7f.ii. Value capture *)
-              begin
-                let%orzero
-                  (Unannotated_clause(Abs_clause(
-                      _, Abs_value_body v))) = acl0
-                in
-                (* x = v *)
-                return ( Value_capture_1_of_2(v)
-                       , Program_point_state(acl0, ctx) )
-              end
-            ; (* 7f.iii, 7f.iv. Alias resolution *)
+            ; (* 8f.ii, 8f.iii. Alias resolution *)
               begin
                 let%orzero
                   (Unannotated_clause(Abs_clause(
@@ -1449,7 +1449,7 @@ struct
                 return ( Alias_analysis_resolution_1_of_5(x'')
                        , Program_point_state(acl1, ctx) )
               end
-            ; (* 7g.i. Stateful non-side-effecting clause skip *)
+            ; (* 8g.i. Stateful non-side-effecting clause skip *)
               begin
                 let%orzero (Unannotated_clause(Abs_clause(x,b))) = acl1 in
                 [% guard (is_immediate acl1) ];
@@ -1462,7 +1462,7 @@ struct
                        , Program_point_state(acl1,ctx)
                        )
               end
-            ; (* 7g.ii. Side-effect search initialization *)
+            ; (* 8g.ii. Side-effect search initialization *)
               begin
                 let%orzero (Exit_clause(x'',_,c)) = acl1 in
                 (* x'' =(up)c x' *)
@@ -1475,7 +1475,7 @@ struct
                 return ( Side_effect_search_init_1_of_2(x'',acl0,ctx)
                        , Program_point_state(acl1,ctx') )
               end
-            ; (* 7g.iii. Side-effect search non-matching clause skip *)
+            ; (* 8g.iii. Side-effect search non-matching clause skip *)
               begin
                 let%orzero (Unannotated_clause(Abs_clause(_,b))) = acl1 in
                 [% guard (is_immediate acl1) ];
@@ -1487,7 +1487,7 @@ struct
                 return ( Side_effect_search_nonmatching_clause_skip
                        , Program_point_state(acl1,ctx) )
               end
-            ; (* 7g.iv. Side-effect search exit wiring node *)
+            ; (* 8g.iv. Side-effect search exit wiring node *)
               begin
                 let%orzero (Exit_clause(_,_,c)) = acl1 in
                 (* x'' =(up)c x' *)
@@ -1500,7 +1500,7 @@ struct
                 return ( Side_effect_search_exit_wiring
                        , Program_point_state(acl1,ctx') )
               end
-            ; (* 7g.v. Side-effect search enter wiring node *)
+            ; (* 8g.v. Side-effect search enter wiring node *)
               begin
                 let%orzero (Enter_clause(_,_,c)) = acl1 in
                 (* x'' =(down)c x' *)
@@ -1514,12 +1514,12 @@ struct
                        , Program_point_state(acl1,ctx') )
               end
               (* FIXME: why does this clause kill performance? *)
-            ; (* 7g.vi. Side-effect search without discovery *)
+            ; (* 8g.vi. Side-effect search without discovery *)
               begin
                 return ( Side_effect_search_without_discovery
                        , Program_point_state(acl0,ctx) )
               end
-            ; (* 7g.vii. Side-effect search alias analysis initialization *)
+            ; (* 8g.vii. Side-effect search alias analysis initialization *)
               begin
                 let%orzero (Unannotated_clause(
                               Abs_clause(_,Abs_update_body(x',_)))) = acl1
@@ -1527,7 +1527,7 @@ struct
                 return ( Side_effect_search_alias_analysis_init(x',acl0,ctx)
                        , Program_point_state(acl1,ctx) )
               end
-            ; (* 7g.viii, 7g.ix. Side-effect search alias analysis resolution *)
+            ; (* 8g.viii, 8g.ix. Side-effect search alias analysis resolution *)
               begin
                 let%orzero (Unannotated_clause(
                               Abs_clause(_,Abs_update_body(_,x'')))) = acl1
@@ -1536,12 +1536,12 @@ struct
                             x'')
                        , Program_point_state(acl1,ctx) )
               end
-            ; (* 7g.x. Side-effect search escape *)
+            ; (* 8g.x. Side-effect search escape *)
               begin
                 return ( Side_effect_search_escape_1_of_2
                        , Program_point_state(acl0,ctx) )
               end
-            ; (* 7g.xi. Side-effect search escape completion *)
+            ; (* 8g.xi. Side-effect search escape completion *)
               begin
                 return ( Side_effect_search_escape_completion_1_of_4
                        , Program_point_state(acl0,ctx) )
@@ -1562,7 +1562,7 @@ struct
           let open Option.Monad in
           let untargeted_dynamic_pops = Enum.filter_map identity @@ List.enum
             [
-              (* 6c. Jump rule *)
+              (* 2a. Jump rule *)
               begin
                 return @@ Do_jump
               end
