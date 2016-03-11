@@ -1,0 +1,20 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 0ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END z {{a=e$}}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+# We're testing to make sure that the ztfr branch can't be reached.
+
+i = fun ip -> ( ir = ip );
+e = {};
+a = {a=e};
+b = {b=e};
+u1 = i a;
+u2 = i b;
+z = u1 ~ {a={}} ?
+         fun ztp -> ( ztr = ztp ~ {a={}} ?
+                                  fun zttp -> ( zttr = a ) :
+                                  fun ztfp -> ( ztfr = b )
+                    ) :
+         fun zfp -> ( zfr = a );

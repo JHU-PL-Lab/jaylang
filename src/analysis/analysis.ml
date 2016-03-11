@@ -297,13 +297,10 @@ struct
           first. *)
     | Conditional_closure_lookup of var * var * pattern * bool
       (** Represents a conditional closure lookup.  The first variable is the
-          one to which the parameter is bound; if it does not match our lookup
-          target, then the conditional closure has no effect on the result.  The
-          second variable is the one on which control flow conditions; if the
-          first variable matches our lookup operation, then this second variable
-          becomes our new lookup target.  The given pattern appears in the
-          conditional; the boolean describes whether the parameter wiring node
-          we are inspecting is the true branch of the conditional or not. *)
+          formal parameter of the case branch that we are leaving from the top.
+          The second variable is the subject of the pattern match.  The provided
+          pattern is the pattern against which the subject was matched; the
+          boolean is true if the match succeeded and false otherwise. *)   
     | Record_projection_lookup of var * var * ident
       (** Represents a record projection.  If the first variable matches our
           lookup target, then we've discovered that we are looking up the
@@ -856,9 +853,9 @@ struct
         return [ Push(element)
                ; Push(Lookup_var(xf,Pattern_set.empty,Pattern_set.empty))
                ]
-      | Conditional_closure_lookup(x'',x1,pat,positive_side) ->
+      | Conditional_closure_lookup(x',x1,pat,positive_side) ->
         let%orzero (Lookup_var(x,patsp,patsn)) = element in
-        if not @@ equal_var x x''
+        if not @@ (equal_var x x' || equal_var x x1)
         then return [Push(element)]
         else
           let (patsp',patsn') =
@@ -1329,16 +1326,17 @@ struct
               begin
                 (* This block represents *all* conditional closure handling on
                    the entering side. *)
-                let%orzero (Enter_clause(x'',x',c)) = acl1 in
+                let%orzero (Enter_clause(x',x1,c)) = acl1 in
                 let%orzero
-                  (Abs_clause(_,Abs_conditional_body(x1,p,f1,_))) = c
+                  (Abs_clause(_,Abs_conditional_body(x1',p,f1,_))) = c
                 in
-                [%guard (equal_var x' x1)];
+                (* TODO: this guard should always succeed; make an assertion *)
+                [%guard (equal_var x1 x1')];
                 let Abs_function_value(f1x,_) = f1 in
                 (* x'' =(down)c x' for conditionals *)
-                let closure_for_positive_path = equal_var f1x x'' in
+                let closure_for_positive_path = equal_var f1x x' in
                 return ( Conditional_closure_lookup
-                          (x'',x1,p,closure_for_positive_path)
+                          (x',x1,p,closure_for_positive_path)
                        , Program_point_state(acl1,ctx)
                        )
               end
