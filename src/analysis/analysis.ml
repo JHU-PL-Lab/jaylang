@@ -77,6 +77,12 @@ end;;
 module Make(C : Context_stack)
   : Analysis_sig =
 struct
+  let rv body =
+    match body with
+    | [] -> raise @@ Utils.Invariant_failure "empty function body provided to rv"
+    | _ -> let Abs_clause(x,_) = List.last body in x
+  ;;
+
   let negative_pattern_set_selection record_type pattern_set =
     let (Record_value m) = record_type in
     let record_labels = Ident_set.of_enum @@ Ident_map.keys m in
@@ -167,7 +173,7 @@ struct
       | Bounded_capture_size of int
       [@@deriving ord]
     ;;
-    let max_capture_size = 4;;
+    let max_capture_size = 5;;
     let make_bounded_capture_size n =
       if n >= 1 && n <= max_capture_size
       then Bounded_capture_size(n)
@@ -185,6 +191,7 @@ struct
     | Deref of Pattern_set.t * Pattern_set.t
     | Capture of bounded_capture_size
     | Continuation_value of abstract_value
+    | Real_flow_huh
     | Alias_huh
     | Side_effect_search_start
     | Side_effect_search_escape of var
@@ -215,6 +222,7 @@ struct
     | Capture(size) ->
       Printf.sprintf "Capture(%d)" @@ int_of_bounded_capture_size size
     | Continuation_value v -> pp_abstract_value v
+    | Real_flow_huh -> "RealFlow?"
     | Alias_huh -> "Alias?"
     | Side_effect_search_start -> "Side_effect_search_start"
     | Side_effect_search_escape x ->
@@ -245,6 +253,7 @@ struct
     | Capture(size) ->
       Printf.sprintf "Capture(%d)" @@ int_of_bounded_capture_size size      
     | Continuation_value v -> pp_abstract_value v
+    | Real_flow_huh -> "RealFlow?"
     | Alias_huh -> "Alias?"
     | Side_effect_search_start -> "SEStart"
     | Side_effect_search_escape x ->
@@ -321,6 +330,28 @@ struct
           continuation. *)
     | Stateless_nonmatching_clause_skip_2_of_2 of pds_continuation
       (** The second step of skipping a non-matching clause while stateless. *)
+    | Value_capture_1_of_2 of abstract_value
+      (** Represents the first step of the value capture action.  This action
+          extracts the number of other stack elements to gather up before
+          capturing the value. *)
+    | Value_capture_2_of_2 of
+        abstract_value * pds_continuation list * bounded_capture_size
+      (** Represents the second step of the value capture action.  This action
+          collects other stack elements into a list until it has consumed as
+          many as the original Capture stack element dictated.  It then pushes
+          a value to the stack followed by all of the elements it collected. *)
+    | Function_call_flow_validation of var * annotated_clause * C.t * var
+      (** Represents the validation of a function at a call site to ensure that
+          we only explore exit nodes which apply in this context.  The first
+          variable is the called function.  The given state is the target to
+          which to jump once a function value has been discovered.  The second
+          variable is the call site for which this validation is occurring. *)
+    | Function_call_flow_validation_resolution_1_of_2 of var * var
+      (** The first step of resolving function call flow validation.  The first
+          variable is the call site; the second variable is the return variable
+          for the called function's wiring node. *)
+    | Function_call_flow_validation_resolution_2_of_2 of var * var
+      (** We've captured the "RealFlow?" and now expect to see a value. *)
     | Function_closure_lookup of var * var
       (** Represents a function closure lookup.  The first variable is the
           parameter of the function; the second variable is the function itself.
@@ -395,31 +426,21 @@ struct
       (** Represents the second step of alias analysis initialization for a cell
           update.  The additional parameters are the contents of the
           continuation found during the first step. *)
-    | Value_capture_1_of_2 of abstract_value
-      (** Represents the first step of the value capture action.  This action
-          extracts the number of other stack elements to gather up before
-          capturing the value. *)
-    | Value_capture_2_of_2 of
-        abstract_value * pds_continuation list * bounded_capture_size
-      (** Represents the second step of the value capture action.  This action
-          collects other stack elements into a list until it has consumed as
-          many as the original Capture stack element dictated.  It then pushes
-          a value to the stack followed by all of the elements it collected. *)
     | Alias_analysis_resolution_1_of_5 of var
       (** Represents the final step of alias analysis which determines whether
           a cell may be an alias of the one currently under lookup.  The
           variable here is the name of the contents of the cell under
           consideration. *)
-    | Alias_analysis_resolution_2_of_5 of var * abstract_value
+    | Alias_analysis_resolution_2_of_5 of var
+      (** Alias analysis resolution after consuming the alias question from
+          the stack. *)
+    | Alias_analysis_resolution_3_of_5 of var * abstract_value
       (** Alias analysis resolution after consuming the first abstract value
           from the stack. *)
-    | Alias_analysis_resolution_3_of_5 of var * bool
-      (** Alias analysis resolution after consuming the second abstract value
-          from the stack.  The boolean here indicates whether those values were
-          equal. *)
     | Alias_analysis_resolution_4_of_5 of var * bool
-      (** Alias analysis resolution after consuming the Alias? element from the
-          stack. *)
+      (** Alias analysis resolution after consuming the second abstract value
+          from the stack.  The boolean indicates whether the two abstract values
+          were equal. *)
     | Alias_analysis_resolution_5_of_5 of
         var * bool * var * Pattern_set.t * Pattern_set.t
       (** Alias analysis resolution after consuming the lookup variable from the
@@ -466,18 +487,18 @@ struct
     | Side_effect_search_alias_analysis_resolution_1_of_4 of var
       (** Represents the resolution of an alias analysis within a side-effect
           lookup.  The variable is the one being assigned to the cell. *)
-    | Side_effect_search_alias_analysis_resolution_2_of_4 of
-        var * abstract_value
+    | Side_effect_search_alias_analysis_resolution_2_of_4 of var
       (** The second step of alias analysis resolution in a side-effect search.
-          This step has stored a single captured value from the analysis. *)
-    | Side_effect_search_alias_analysis_resolution_3_of_4 of var * bool
+          This step has consumed the "Alias?" question. *)
+    | Side_effect_search_alias_analysis_resolution_3_of_4 of
+        var * abstract_value
       (** The third step of alias analysis resolution in a side-effect search.
+          The first abstract value has been consumed. *)
+    | Side_effect_search_alias_analysis_resolution_4_of_4 of var * bool
+      (** The last step of alias analysis resolution in a side-effect search.
           The variable is the one being assigned to a cell; the boolean
           indicates whether the particular value pair discovered here indicates
           aliasing or not. *)
-    | Side_effect_search_alias_analysis_resolution_4_of_4 of var * bool
-      (** The last step of alias analysis resolution in a side-effect search.
-          These variables have the same meaning as in the third step. *)
     | Side_effect_search_escape_1_of_2
       (** The first step of processing a side-effect search escape.  This is
           used when the alias analysis of a cell update during a side-effect
@@ -517,6 +538,22 @@ struct
     | Stateless_nonmatching_clause_skip_2_of_2(k) ->
       Printf.sprintf "Stateless_nonmatching_clause_skip_2_of_2(%s)"
         (pp_pds_continuation k)
+    | Value_capture_1_of_2(v) ->
+      Printf.sprintf "Value_capture_1_of_2(%s)" (pp_abstract_value v)
+    | Value_capture_2_of_2(v,elements,size) ->
+      Printf.sprintf "Value_capture_2_of_2(%s,%s,%d)"
+        (pp_abstract_value v) (pp_list pp_pds_continuation elements)
+        (int_of_bounded_capture_size size)
+    | Function_call_flow_validation(x_func,acl0,ctx,x_site) ->
+      Printf.sprintf "Function_call_flow_validation(%s,%s,%s,%s)"
+      (pp_var x_func) (pp_annotated_clause acl0) (C.pp ctx)
+      (pp_var x_site)
+    | Function_call_flow_validation_resolution_1_of_2(x,x') ->
+      Printf.sprintf "Function_call_flow_validation_resolution_1_of_2(%s,%s)"
+      (pp_var x) (pp_var x')
+    | Function_call_flow_validation_resolution_2_of_2(x,x') ->
+      Printf.sprintf "Function_call_flow_validation_resolution_2_of_2(%s,%s)"
+      (pp_var x) (pp_var x')
     | Function_closure_lookup(x'',xf) ->
       Printf.sprintf "Function_closure_lookup(%s,%s)"
         (pp_var x'') (pp_var xf)
@@ -555,20 +592,13 @@ struct
       Printf.sprintf "Cell_update_alias_analysis_init_2_of_2(%s,%s,%s,%s,%s,%s)"
         (pp_var x') (pp_pds_state s1) (pp_pds_state s2)
         (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
-    | Value_capture_1_of_2(v) ->
-      Printf.sprintf "Value_capture_1_of_2(%s)" (pp_abstract_value v)
-    | Value_capture_2_of_2(v,elements,size) ->
-      Printf.sprintf "Value_capture_2_of_2(%s,%s,%d)"
-        (pp_abstract_value v) (pp_list pp_pds_continuation elements)
-        (int_of_bounded_capture_size size)
     | Alias_analysis_resolution_1_of_5(x'') ->
       Printf.sprintf "AAR1(%s)" (pp_var x'')
-    | Alias_analysis_resolution_2_of_5(x'',v) ->
-      Printf.sprintf "AAR2(%s,%s)"
-        (pp_var x'') (pp_abstract_value v)
-    | Alias_analysis_resolution_3_of_5(x'',b) ->
+    | Alias_analysis_resolution_2_of_5(x'') ->
+      Printf.sprintf "AAR2(%s)" (pp_var x'')
+    | Alias_analysis_resolution_3_of_5(x'',v) ->
       Printf.sprintf "AAR3(%s,%s)"
-        (pp_var x'') (string_of_bool b)
+        (pp_var x'') (pp_abstract_value v)
     | Alias_analysis_resolution_4_of_5(x'',b) ->
       Printf.sprintf "AAR4(%s,%s)"
         (pp_var x'') (string_of_bool b)
@@ -600,12 +630,12 @@ struct
     | Side_effect_search_alias_analysis_resolution_1_of_4 x'' ->
       Printf.sprintf "Side_effect_search_alias_analysis_resolution_1_of_4(%s)"
         (pp_var x'')
-    | Side_effect_search_alias_analysis_resolution_2_of_4(x'',v) ->
-      Printf.sprintf "Side_effect_search_alias_analysis_resolution_2_of_4(%s,%s)"
-        (pp_var x'') (pp_abstract_value v)
-    | Side_effect_search_alias_analysis_resolution_3_of_4(x'',is_alias) ->
+    | Side_effect_search_alias_analysis_resolution_2_of_4(x'') ->
+      Printf.sprintf "Side_effect_search_alias_analysis_resolution_2_of_4(%s)"
+        (pp_var x'')
+    | Side_effect_search_alias_analysis_resolution_3_of_4(x'',v) ->
       Printf.sprintf "Side_effect_search_alias_analysis_resolution_3_of_4(%s,%s)"
-        (pp_var x'') (string_of_bool is_alias)
+        (pp_var x'') (pp_abstract_value v)
     | Side_effect_search_alias_analysis_resolution_4_of_4(x'',is_alias) ->
       Printf.sprintf "Side_effect_search_alias_analysis_resolution_4_of_4(%s,%s)"
         (pp_var x'') (string_of_bool is_alias)
@@ -638,6 +668,22 @@ struct
     | Stateless_nonmatching_clause_skip_2_of_2(k) ->
       Printf.sprintf "SNMCS2(%s)"
         (ppa_pds_continuation k)
+    | Value_capture_1_of_2(v) ->
+      Printf.sprintf "VCap1(%s)" (pp_abstract_value v)
+    | Value_capture_2_of_2(v,elements,size) ->
+      Printf.sprintf "VCap2(%s,%s,%d)"
+        (pp_abstract_value v) (pp_list ppa_pds_continuation elements)
+        (int_of_bounded_capture_size size)
+    | Function_call_flow_validation(x_func,acl0,ctx,x_site) ->
+      Printf.sprintf "FCFV(%s,%s,%s,%s)"
+      (pp_var x_func) (pp_annotated_clause acl0) (C.pp ctx)
+      (pp_var x_site)
+    | Function_call_flow_validation_resolution_1_of_2(x,x') ->
+      Printf.sprintf "FCFVR1(%s,%s)"
+      (pp_var x) (pp_var x')
+    | Function_call_flow_validation_resolution_2_of_2(x,x') ->
+      Printf.sprintf "FCFVR2(%s,%s)"
+      (pp_var x) (pp_var x')
     | Function_closure_lookup(x'',xf) ->
       Printf.sprintf "FunCL(%s,%s)"
         (pp_var x'') (pp_var xf)
@@ -676,20 +722,13 @@ struct
       Printf.sprintf "CUAA2(%s,%s,%s,%s,%s,%s)"
         (pp_var x') (pp_pds_state s1) (pp_pds_state s2)
         (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
-    | Value_capture_1_of_2(v) ->
-      Printf.sprintf "VCap1(%s)" (pp_abstract_value v)
-    | Value_capture_2_of_2(v,elements,size) ->
-      Printf.sprintf "VCap2(%s,%s,%d)"
-        (pp_abstract_value v) (pp_list ppa_pds_continuation elements)
-        (int_of_bounded_capture_size size)
     | Alias_analysis_resolution_1_of_5(x'') ->
       Printf.sprintf "AAR1(%s)" (pp_var x'')
-    | Alias_analysis_resolution_2_of_5(x'',v) ->
-      Printf.sprintf "AAR2(%s,%s)"
-        (pp_var x'') (pp_abstract_value v)
-    | Alias_analysis_resolution_3_of_5(x'',b) ->
+    | Alias_analysis_resolution_2_of_5(x'') ->
+      Printf.sprintf "AAR2(%s)" (pp_var x'')
+    | Alias_analysis_resolution_3_of_5(x'',v) ->
       Printf.sprintf "AAR3(%s,%s)"
-        (pp_var x'') (string_of_bool b)
+        (pp_var x'') (pp_abstract_value v)
     | Alias_analysis_resolution_4_of_5(x'',b) ->
       Printf.sprintf "AAR4(%s,%s)"
         (pp_var x'') (string_of_bool b)
@@ -716,12 +755,11 @@ struct
     | Side_effect_search_alias_analysis_resolution_1_of_4 x'' ->
       Printf.sprintf "SESAAR1(%s)"
         (pp_var x'')
-    | Side_effect_search_alias_analysis_resolution_2_of_4(x'',v) ->
-      Printf.sprintf "SESAAR2(%s,%s)"
-        (pp_var x'') (pp_abstract_value v)
-    | Side_effect_search_alias_analysis_resolution_3_of_4(x'',is_alias) ->
+    | Side_effect_search_alias_analysis_resolution_2_of_4(x'') ->
+      Printf.sprintf "SESAAR2(%s)" (pp_var x'')
+    | Side_effect_search_alias_analysis_resolution_3_of_4(x'',v) ->
       Printf.sprintf "SESAAR3(%s,%s)"
-        (pp_var x'') (string_of_bool is_alias)
+        (pp_var x'') (pp_abstract_value v)
     | Side_effect_search_alias_analysis_resolution_4_of_4(x'',is_alias) ->
       Printf.sprintf "SESAAR4(%s,%s)"
         (pp_var x'') (string_of_bool is_alias)
@@ -830,6 +868,46 @@ struct
                still have to put these elements back on the stack, though. *)
             return [Push(element);Push(element')]
         end
+      | Value_capture_1_of_2 v ->
+        let%orzero Capture(size) = element in
+        return [ Pop_dynamic_targeted(Value_capture_2_of_2(v,[],size)) ]
+      | Value_capture_2_of_2(v,collected_elements,size) ->
+        let n = int_of_bounded_capture_size size in
+        if n > 1
+        then
+          begin
+            let size' = make_bounded_capture_size (n-1) in
+            return
+              [Pop_dynamic_targeted
+                (Value_capture_2_of_2(v,element::collected_elements,size'))]
+          end
+        else
+          begin
+            let pushes =
+              List.map (fun x -> Push x) (element::collected_elements)
+            in
+            return @@ (Push (Continuation_value v))::pushes 
+          end
+      | Function_call_flow_validation(x2'',acl0,ctx,x) ->
+        let%orzero (Lookup_var(x',_,_)) = element in
+        [%guard (equal_var x x')];
+        return [ Push(element)
+               ; Push(Real_flow_huh)
+               ; Push(Jump(acl0,ctx))
+               ; Push(Capture(make_bounded_capture_size 2))
+               ; Push(Lookup_var(x2'',Pattern_set.empty,Pattern_set.empty))
+               ]
+      | Function_call_flow_validation_resolution_1_of_2(x,x') ->
+        let%orzero Real_flow_huh = element in
+        let action = Function_call_flow_validation_resolution_2_of_2(x,x') in
+        return [ Pop_dynamic_targeted(action) ]
+      | Function_call_flow_validation_resolution_2_of_2(x,x') ->
+        let%orzero Continuation_value(v) = element in
+        let%orzero
+          Abs_value_function(Abs_function_value(_,Abs_expr(acls))) = v
+        in
+        [%guard (equal_var x' @@ rv acls)];
+        return [ Pop_dynamic_targeted(Variable_aliasing(x,x')) ]
       | Function_closure_lookup(x'',xf) ->
         let%orzero (Lookup_var(x,_,_)) = element in
         [%guard (not @@ equal_var x x'')];
@@ -977,47 +1055,27 @@ struct
         (* The lists below are in reverse order of their presentation in the
            formal rules because we are not directly modifying the stack;
            instead, we are pushing stack elements one at a time. *)
-        let capture_size_4 = make_bounded_capture_size 4 in
-        let capture_size_1 = make_bounded_capture_size 1 in
+        let capture_size_5 = make_bounded_capture_size 5 in
+        let capture_size_2 = make_bounded_capture_size 2 in
         let k0 = [ element ; Lookup_var(x,patsp0,patsn0) ] in
-        let k1'' = [ Capture capture_size_4 ; Lookup_var(x,patsp0,patsn0) ] in
-        let k2'' = [ Capture capture_size_1
+        let k1'' = [ Capture capture_size_5 ; Lookup_var(x,patsp0,patsn0) ] in
+        let k2'' = [ Capture capture_size_2
                    ; Lookup_var(x',Pattern_set.empty,Pattern_set.empty)
                    ; Jump(acl1, ctx1) ] in
         let k3'' = [ Alias_huh ; Jump(acl0,ctx0) ] in
         return @@ List.map (fun x -> Push x) @@
           k0 @ k3'' @ k2'' @ k1''
-      | Value_capture_1_of_2 v ->
-        let%orzero Capture(size) = element in
-        return [ Pop_dynamic_targeted(Value_capture_2_of_2(v,[],size)) ]
-      | Value_capture_2_of_2(v,collected_elements,size) ->
-        let n = int_of_bounded_capture_size size in
-        if n > 1
-        then
-          begin
-            let size' = make_bounded_capture_size (n-1) in
-            return
-              [Pop_dynamic_targeted
-                (Value_capture_2_of_2(v,element::collected_elements,size'))]
-          end
-        else
-          begin
-            let pushes =
-              List.map (fun x -> Push x) (element::collected_elements)
-            in
-            return @@ (Push (Continuation_value v))::pushes 
-          end
       | Alias_analysis_resolution_1_of_5(x'') ->
+        let%orzero Alias_huh = element in
+        return [ Pop_dynamic_targeted
+                  (Alias_analysis_resolution_2_of_5(x'')) ]
+      | Alias_analysis_resolution_2_of_5(x'') ->
         let%orzero Continuation_value v = element in
         return [ Pop_dynamic_targeted
-                  (Alias_analysis_resolution_2_of_5(x'',v)) ]
-      | Alias_analysis_resolution_2_of_5(x'',v) ->
+                  (Alias_analysis_resolution_3_of_5(x'', v)) ]
+      | Alias_analysis_resolution_3_of_5(x'',v) ->
         let%orzero Continuation_value v' = element in
         let equal_values = equal_abstract_value v v' in
-        return [ Pop_dynamic_targeted
-                  (Alias_analysis_resolution_3_of_5(x'', equal_values)) ]
-      | Alias_analysis_resolution_3_of_5(x'',equal_values) ->
-        let%orzero Alias_huh = element in
         return [ Pop_dynamic_targeted
                   (Alias_analysis_resolution_4_of_5(x'',equal_values)) ]
       | Alias_analysis_resolution_4_of_5(x'',equal_values) ->
@@ -1067,14 +1125,14 @@ struct
         (* The following stack elements are "backwards" because they appear in
            the order in which they are pushed (similar to the other case of
            alias analysis initialization). *)
-        let capture_size_4 = make_bounded_capture_size 4 in
-        let capture_size_1 = make_bounded_capture_size 1 in
+        let capture_size_5 = make_bounded_capture_size 5 in
+        let capture_size_2 = make_bounded_capture_size 2 in
         let k1'' =
-          [ Capture(capture_size_4)
+          [ Capture(capture_size_5)
           ; Lookup_var(x',Pattern_set.empty,Pattern_set.empty) ]
         in
         let k2'' =
-          [ Capture(capture_size_1)
+          [ Capture(capture_size_2)
           ; Lookup_var(x,patsp,patsn)
           ; Jump(acl',ctx') ]
         in
@@ -1083,18 +1141,16 @@ struct
         in
         return @@ List.map (fun x -> Push x) @@ [element] @ k3'' @ k2'' @ k1''
       | Side_effect_search_alias_analysis_resolution_1_of_4(x'') ->
-        let%orzero Continuation_value v = element in
+        let%orzero Alias_huh = element in
         return [ Pop_dynamic_targeted (
-                  Side_effect_search_alias_analysis_resolution_2_of_4(
-                    x'',v)) ]
-      | Side_effect_search_alias_analysis_resolution_2_of_4(x'',v1) ->
+                  Side_effect_search_alias_analysis_resolution_2_of_4(x'')) ]
+      | Side_effect_search_alias_analysis_resolution_2_of_4(x'') ->
+        let%orzero Continuation_value v1 = element in
+        return [ Pop_dynamic_targeted (
+                  Side_effect_search_alias_analysis_resolution_3_of_4(x'',v1)) ]
+      | Side_effect_search_alias_analysis_resolution_3_of_4(x'',v1) ->
         let%orzero Continuation_value v2 = element in
         let is_alias = equal_abstract_value v1 v2 in
-        return [ Pop_dynamic_targeted (
-                  Side_effect_search_alias_analysis_resolution_3_of_4(
-                    x'',is_alias)) ]
-      | Side_effect_search_alias_analysis_resolution_3_of_4(x'',is_alias) ->
-        let%orzero Alias_huh = element in
         return [ Pop_dynamic_targeted (
                   Side_effect_search_alias_analysis_resolution_4_of_4(
                     x'',is_alias)) ]
@@ -1289,16 +1345,28 @@ struct
                 return (Variable_aliasing(x,x'),Program_point_state(acl1,ctx'))
               end
             ;
-              (* 4b. Function return wiring *)
+              (* 4b. Function return wiring start *)
+              begin
+                let%orzero (Exit_clause(x,_,c)) = acl1 in
+                let%orzero (Abs_clause(_,Abs_appl_body(x2'',_))) = c in
+                (* x =(up)c _ (for functions) *)
+                return ( Function_call_flow_validation(x2'',acl0,ctx,x)
+                       , Program_point_state(Unannotated_clause(c),ctx)
+                       )
+              end
+            ;
+              (* 4c. Function return wiring finish *)
               begin
                 let%orzero (Exit_clause(x,x',c)) = acl1 in
                 let%orzero (Abs_clause(_,Abs_appl_body _)) = c in
                 (* x =(up)c x' *)
                 let ctx' = C.push c ctx in
-                return (Variable_aliasing(x,x'),Program_point_state(acl1,ctx'))
+                return ( Function_call_flow_validation_resolution_1_of_2(x,x')
+                       , Program_point_state(acl1,ctx')
+                       )
               end
             ;
-              (* 4c. Function non-local wiring *)
+              (* 4d. Function non-local wiring *)
               begin
                 let%orzero (Enter_clause(x'',_,c)) = acl1 in
                 let%orzero (Abs_clause(_,Abs_appl_body(x2'',_))) = c in
@@ -1732,12 +1800,6 @@ struct
         Pattern_set.empty Pattern_set.empty analysis
     in
     (Abs_value_set.of_enum values, analysis')
-  ;;
-
-  let rv body =
-    match body with
-    | [] -> raise @@ Utils.Invariant_failure "empty function body provided to rv"
-    | _ -> let Abs_clause(x,_) = List.last body in x
   ;;
 
   let wire site_cl func x1 x2 graph =
