@@ -1,0 +1,19 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 1ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END ra {{a=e$}}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END rb {{b=e$}}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+e = {};
+h = fun f -> (
+  hr = f e;
+  n0 = hr;
+);
+
+fa = fun ia -> ( a = {a=e}; );
+fb = fun ib -> ( b = {b=e}; );
+
+ra = h fa;
+n1 = {};
+rb = h fb;
