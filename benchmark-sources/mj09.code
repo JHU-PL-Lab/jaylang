@@ -1,7 +1,7 @@
 # EXPECT-WELL-FORMED
 # EXPECT-EVALUATE
 # EXPECT-ANALYSIS-STACK-IS 1ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END r {2}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {int}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 true = {};
@@ -38,4 +38,4 @@ h = fun b -> (
 );
 x2 = h true;
 y2 = h false;
-r = y2;
+r = y2; # => 2
