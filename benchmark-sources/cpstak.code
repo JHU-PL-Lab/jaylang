@@ -1,0 +1,138 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 1ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {int}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+# (define (cpstak x y z)
+#
+#   (define (tak x y z k)
+#     (if (not (< y x))
+#         (k z)
+#         (tak (- x 1)
+#              y
+#              z
+#              (lambda (v1)
+#                (tak (- y 1)
+#                     z
+#                     x
+#                     (lambda (v2)
+#                       (tak (- z 1)
+#                            x
+#                            y
+#                            (lambda (v3)
+#                              (tak v1 v2 v3 k)))))))))
+#
+#   (tak x y z (lambda (a) a)))
+#
+# (cpstak 32 15 8)
+
+ycombinator = fun ycombinatorf -> (
+  ycombinatorfx1 = fun ycombinatorx1 -> (
+    ycombinatorfv1 = fun ycombinatorv1 -> (
+      ycombinatorxx1 = ycombinatorx1 ycombinatorx1;
+      ycombinatorfv1r = ycombinatorxx1 ycombinatorv1;
+    );
+    ycombinatorfx1r = ycombinatorf ycombinatorfv1;
+  );
+
+  ycombinatorfx2 = fun ycombinatorx2 -> (
+    ycombinatorfv2 = fun ycombinatorv2 -> (
+      ycombinatorxx2 = ycombinatorx2 ycombinatorx2;
+      ycombinatorfv2r = ycombinatorxx2 ycombinatorv2;
+    );
+    ycombinatorfx2r = ycombinatorf ycombinatorfv2;
+  );
+
+  ycombinatorr = ycombinatorfx1 ycombinatorfx2;
+);
+
+true = {};
+false = 0;
+
+not = fun notp -> (
+  notr = notp ~ {}
+              ? fun notm -> (
+                notmr = false;
+              )
+              : fun nota -> (
+                notar = nota ~ int
+                ? fun notam -> (
+                  notamr = true;
+                )
+                : fun notaa -> (
+                  baaf = {};
+                  baar = baaf baaf;
+                );
+              );
+);
+
+one = 1;
+thirtytwo = 32;
+fifteen = 15;
+eight = 8;
+
+cpstak = fun cpstakx -> (
+  cpstakr = fun cpstaky -> (
+    cpstakyr = fun cpstakz -> (
+      takp = fun takr -> (
+        takpr = fun x -> (
+          xr = fun y -> (
+            yr = fun z -> (
+              zr = fun k -> (
+                yx = y < x;
+                notyx = not yx;
+                kr = notyx ~ {}
+                           ? fun notyxm -> (
+                             notyxmr = k z;
+                           )
+                           : fun notyxa -> (
+                             x1 = x - 1;
+                             fv1 = fun v1 -> (
+                               y1 = y - 1;
+                               fv2 = fun v2 -> (
+                                 z1 = z - 1;
+                                 fv3 = fun v3 -> (
+                                   takv1 = takr v1;
+                                   takv1v2 = takv1 v2;
+                                   takv1v2v3 = takv1v2 v3;
+                                   takv1v2v3k = takv1v2v3 k;
+                                 );
+                                 takz1 = takr z1;
+                                 takz1x = takz1 x;
+                                 takz1xy = takz1x y;
+                                 takz1xyfv2 = takz1xy fv2;
+                               );
+                               taky1 = takr y1;
+                               taky1z = taky1 z;
+                               taky1zx = taky1z x;
+                               taky1zxfv2 = taky1zx fv2;
+                             );
+                             takx1 = takr x1;
+                             takx1y = takx1 y;
+                             takx1yz = takx1y z;
+                             takx1yzfv1 = takx1yz fv1;
+                           );
+              );
+            );
+          );
+        );
+      );
+    
+      tak = ycombinator takp;
+    
+      takid = fun a -> (
+        takidr = a;
+      );
+
+      takx = tak cpstakx;
+      takxy = takx cpstaky;
+      takxyz = takxy cpstakz;
+      takxyzr = takxyz takid;
+    );
+  );
+);
+
+cpstak32 = cpstak thirtytwo;
+cpstak3215 = cpstak32 fifteen;
+r = cpstak3215 eight; # => 15
