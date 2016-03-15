@@ -1,3 +1,9 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 1ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END lp2 {{}}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
 ycombinator = fun ycombinatorf -> (
   ycombinatorfx1 = fun ycombinatorx1 -> (
     ycombinatorfv1 = fun ycombinatorv1 -> (
