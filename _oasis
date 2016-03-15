@@ -190,3 +190,17 @@ Executable "test"
 
 Test test
   Command: $test
+
+Executable "benchmark"
+  Path: benchmark/
+  MainIs: benchmark.ml
+  BuildDepends:
+    utils,
+    pds-reachability,
+    interpreter,
+    parser,
+    ppx_deriving.std,
+    oUnit,
+    batteries,
+    analysis,
+    toploop-utils

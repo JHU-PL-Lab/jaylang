@@ -1,0 +1,39 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 1ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {2}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+h = fun b -> (
+  g = fun z -> (
+    gr = z;
+  );
+  f = fun k -> (
+    fr = b ~ {}
+           ? fun bm -> (
+             bmone = 1;
+             bmr = k bmone;
+           )
+           : fun ba -> (
+             bar = ba ~ int
+                      ? fun bam -> (
+                        bamtwo = 2;
+                        bamr = k bamtwo;
+                      )
+                      : fun baa -> (
+                        baaf = {};
+                        baar = baaf baaf;
+                      );
+           );
+  );
+  i = fun x -> (
+    ir = x;
+  );
+  y = f i;
+  hr = g y;
+);
+htrue = {};
+hfalse = 0;
+x2 = h htrue;
+y2 = h hfalse;
+r = y2;
