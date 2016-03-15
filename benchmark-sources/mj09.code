@@ -4,6 +4,9 @@
 # EXPECT-ANALYSIS-LOOKUP-FROM-END r {2}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
+true = {};
+false = 0;
+
 h = fun b -> (
   g = fun z -> (
     gr = z;
@@ -32,8 +35,6 @@ h = fun b -> (
   y = f i;
   hr = g y;
 );
-htrue = {};
-hfalse = 0;
-x2 = h htrue;
-y2 = h hfalse;
+x2 = h true;
+y2 = h false;
 r = y2;

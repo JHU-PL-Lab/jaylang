@@ -1,0 +1,51 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 1ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {0}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+true = {};
+false = 0;
+
+ff1 = fun f1 -> (
+  a = f1 true;
+  ff1r = f1 false;
+);
+
+fx1 = fun x1 (
+  ff2 = fun f2 -> (
+    b = f2 true;
+    ff2r = f2 false;
+  );
+
+  fx2 = fun x2 -> (
+    fx2r = fun f3 -> (
+      c = f3 true;
+      f3a = f3 false;
+
+      fx3 = fun x3 -> (
+        fz = fun z (
+          z1 = z x1;
+          z2 = z1 x2;
+          z3 = z2 x3;
+        );
+
+        fy1 = fun y1 -> (
+          fy1r = fun y2 -> (
+            fy2r = fun y3 -> (
+              fy3r = y1;
+            );
+          );
+        );
+
+        fx3r = fz fy1;
+      );
+
+      f3r = f3a fx3;
+    );
+  );
+
+  fx1r = ff2 fx2;
+);
+
+r = ff1 fx1;

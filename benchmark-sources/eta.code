@@ -1,0 +1,36 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 1ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END idar {{}}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END idbr {0}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+true = {};
+false = 0;
+
+dosomething = fun dosomethingi -> (
+  dosomethingr = 10;
+);
+
+id = fun y -> (
+  dosomethingp = {};
+  dosomethingc = dosomething dosomethingp;
+  idr = y;
+);
+
+true = {};
+false = 0;
+
+fa = fun a -> (
+  far = a;
+);
+
+fb = fun b -> (
+  fbr = b;
+);
+
+ida = id fa;
+idb = id fb;
+
+idar = ida true;
+idbr = idb false;
