@@ -7,6 +7,9 @@
 true = {};
 false = 0;
 
+one = 1;
+two = 2;
+
 h = fun b -> (
   g = fun z -> (
     gr = z;
@@ -14,14 +17,12 @@ h = fun b -> (
   f = fun k -> (
     fr = b ~ {}
            ? fun bm -> (
-             bmone = 1;
-             bmr = k bmone;
+             bmr = k one;
            )
            : fun ba -> (
              bar = ba ~ int
                       ? fun bam -> (
-                        bamtwo = 2;
-                        bamr = k bamtwo;
+                        bamr = k two;
                       )
                       : fun baa -> (
                         baaf = {};

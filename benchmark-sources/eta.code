@@ -8,8 +8,10 @@
 true = {};
 false = 0;
 
+ten = 10;
+
 dosomething = fun dosomethingi -> (
-  dosomethingr = 10;
+  dosomethingr = ten;
 );
 
 id = fun y -> (
@@ -17,9 +19,6 @@ id = fun y -> (
   dosomethingc = dosomething dosomethingp;
   idr = y;
 );
-
-true = {};
-false = 0;
 
 fa = fun a -> (
   far = a;

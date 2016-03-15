@@ -1,0 +1,78 @@
+ycombinator = fun ycombinatorf -> (
+  ycombinatorfx1 = fun ycombinatorx1 -> (
+    ycombinatorfv1 = fun ycombinatorv1 -> (
+      ycombinatorxx1 = ycombinatorx1 ycombinatorx1;
+      ycombinatorfv1r = ycombinatorxx1 ycombinatorv1;
+    );
+    ycombinatorfx1r = ycombinatorf ycombinatorfv1;
+  );
+
+  ycombinatorfx2 = fun ycombinatorx2 -> (
+    ycombinatorfv2 = fun ycombinatorv2 -> (
+      ycombinatorxx2 = ycombinatorx2 ycombinatorx2;
+      ycombinatorfv2r = ycombinatorxx2 ycombinatorv2;
+    );
+    ycombinatorfx2r = ycombinatorf ycombinatorfv2;
+  );
+
+  ycombinatorr = ycombinatorfx1 ycombinatorfx2;
+);
+
+true = {};
+false = 0;
+
+not = fun notp -> (
+  notr = notp ~ {}
+              ? fun notm -> (
+                notmr = false;
+              )
+              : fun nota -> (
+                notar = nota ~ int
+                ? fun notam -> (
+                  notamr = true;
+                )
+                : fun notaa -> (
+                  baaf = {};
+                  baar = baaf baaf;
+                );
+              );
+);
+
+one = 1;
+two = 2;
+
+id = fun x -> (
+  idr = x;
+);
+
+blur = fun y -> (
+  blurr = y;
+);
+
+lpp = fun lpr -> (
+  lppr = fun a -> (
+    ar = fun n -> (
+      nl = n <= one;
+      nr = nl ~ {}
+              ? fun nlm -> (
+                nlmr = id a;
+              )
+              : fun nla -> (
+                rf = blur id;
+                r = rf true;
+                sf = blur id;
+                s = sf false;
+                blurlp = blur lpr;
+                n1 = n - one;
+                blurlp1 = blurlp s;
+                blurlp2 = blurlp1 n1;
+                nlar = not blurlp2;
+              );
+    );
+  );
+);
+
+lp = ycombinator lpp;
+
+lp1 = lp false;
+lp2 = lp1 two;
