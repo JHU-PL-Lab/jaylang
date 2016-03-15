@@ -4,6 +4,13 @@
 # EXPECT-ANALYSIS-LOOKUP-FROM-END r {int}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
+# (define (ack m n)
+#   (cond ((= m 0) (+ n 1))
+#         ((= n 0) (ack (- m 1) 1))
+#         (else (ack (- m 1) (ack m (- n 1))))))
+#
+# (ack 3 12)
+
 zero = 0;
 one = 1;
 three = 3;

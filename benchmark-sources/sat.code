@@ -4,6 +4,23 @@
 # EXPECT-ANALYSIS-LOOKUP-FROM-END r {{}}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
+# (define (phi x1 x2 x3 x4)
+#   (and (or x1 (not x2) (not x3))
+#        (or (not x2) (not x3))
+#        (or x4 x2)))
+#
+# (define (try f)
+#   (or (f #t) (f #f)))
+#
+# (define (sat-solve-4 p)
+#   (try (lambda (n1)
+#          (try (lambda (n2)
+#                 (try (lambda (n3)
+#                        (try (lambda (n4)
+#                               (p n1 n2 n3 n4))))))))))
+#
+# (sat-solve-4 phi)
+
 true = {};
 false = 0;
 
@@ -93,9 +110,9 @@ satsolve4 = fun p -> (
           pn3 = pn2 n3;
           pn4 = pn3 n4;
         );
-        tryfn4 = try fn4;    
+        tryfn4 = try fn4;
       );
-      tryfn3 = try fn3;    
+      tryfn3 = try fn3;
     );
     tryfn2 = try fn2;
   );

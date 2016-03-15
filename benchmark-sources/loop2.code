@@ -4,6 +4,16 @@
 # EXPECT-ANALYSIS-LOOKUP-FROM-END lp13 {int}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
+# (letrec ((lp1 (lambda (i x)
+#                 (if (= 0 i)
+#                     x
+#                     (letrec ((lp2 (lambda (j f y)
+#                                     (if (= 0 j)
+#                                         (lp1 (- i 1) y)
+#                                         (lp2 (- j 1) f (f y))))))
+#                       (lp2 10 (lambda (n) (+ n i)) x))))))
+#   (lp1 10 0))
+
 ycombinator = fun ycombinatorf -> (
   ycombinatorfx1 = fun ycombinatorx1 -> (
     ycombinatorfv1 = fun ycombinatorv1 -> (

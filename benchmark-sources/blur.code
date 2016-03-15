@@ -4,6 +4,18 @@
 # EXPECT-ANALYSIS-LOOKUP-FROM-END lp2 {{}}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
+# (letrec ((id (lambda (x) x))
+#
+#          (blur (lambda (y) y))
+#
+#          (lp (lambda (a n)
+#                (if (<= n 1)
+#                    (id a)
+#                    (let* ((r ((blur id) #t))
+#                           (s ((blur id) #f)))
+#                      (not ((blur lp) s (- n 1))))))))
+#   (lp #f 2))
+
 ycombinator = fun ycombinatorf -> (
   ycombinatorfx1 = fun ycombinatorx1 -> (
     ycombinatorfv1 = fun ycombinatorv1 -> (
