@@ -1,0 +1,105 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 1ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {{}}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+true = {};
+false = 0;
+
+not = fun notp -> (
+  notr = notp ~ {}
+              ? fun notm -> (
+                notmr = false;
+              )
+              : fun nota -> (
+                notar = nota ~ int
+                ? fun notam -> (
+                  notamr = true;
+                )
+                : fun notaa -> (
+                  baaf = {};
+                  baar = baaf baaf;
+                );
+              );
+);
+
+or = fun ora -> (
+  orar = fun orb -> (
+    orbr = ora ~ {}
+               ? fun oram -> (
+                 oram = true;
+               )
+               : fun oraa -> (
+                 oraar = orb ~ {}
+                             ? fun orbm -> (
+                               orbm = true;
+                             )
+                             : fun orba -> (
+                               orbar = false;
+                             );
+               );
+  );
+);
+
+and = fun anda -> (
+  andar = fun andb -> (
+    andbr = anda ~ {}
+               ? fun andam -> (
+                 andaar = andb ~ {}
+                             ? fun andbm -> (
+                               andbm = true;
+                             )
+                             : fun andba -> (
+                               andbar = false;
+                             );
+               )
+               : fun andaa -> (
+                 andam = false;
+               );
+  );
+);
+
+phi = fun x1 -> (
+  x1r = fun x2 -> (
+    x2r = fun x3 -> (
+      x3r = fun x4 -> (
+        notx2 = not x2;
+        notx3 = not x3;
+        orx1notx2 = or x1 notx2;
+        orx1notx2notx3 = or orx1notx2 notx3;
+        ornotx2notx3 = or notx2 notx3;
+        orx4x2 = or x4 x2;
+        andorx1notx2orx1notx2notx3 = and orx1notx2 orx1notx2notx3;
+        andorx1notx2orx1notx2notx3orx4x2 = andorx1notx2orx1notx2notx3 orx4x2;
+      );
+    );
+  );
+);
+
+try = fun f -> (
+  ft = f true;
+  ff = f false;
+  orftff = or ft ff;
+);
+
+satsolve4 = fun p -> (
+  fn1 = fun n1 -> (
+    fn2 = fun n2 -> (
+      fn3 = fun n3 -> (
+        fn4 = fun n4 -> (
+          pn1 = p n1;
+          pn2 = pn1 n2;
+          pn3 = pn2 n3;
+          pn4 = pn3 n4;
+        );
+        tryfn4 = try fn4;    
+      );
+      tryfn3 = try fn3;    
+    );
+    tryfn2 = try fn2;
+  );
+  tryfn1 = try fn1;
+);
+
+r = satsolve4 phi;
