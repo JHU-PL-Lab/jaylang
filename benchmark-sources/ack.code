@@ -1,0 +1,40 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 1ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {int}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+zero = 0;
+one = 1;
+three = 3;
+twelve = 12;
+
+ack = fun m -> (
+  ackr = fun n -> (
+     mzero = m = zero;
+     ackrr = mzero ~ {}
+             ? fun mzerom -> (
+               mzeromr = n + one;
+             )
+             : fun mzeroa -> (
+               nzero = n = zero;
+               mzeroar = nzero ~ {}
+                       ? fun nzerom -> (
+                         m1 = m - one;
+                         ackm1 = ack m1;
+                         nzeromr = ackm1 one;
+                       )
+                       : fun mzeroa -> (
+                         n1 = n - 1;
+                         ackm = ack m;
+                         ackmn1 = ackm n1;
+                         m12 = m - 1;
+                         ackm12 = ack m12;
+                         mzeroar = ackm12 ackmn1;
+                       );
+             );
+  );
+);
+
+rp = ack three;
+r = rp twelve; # => 32765
