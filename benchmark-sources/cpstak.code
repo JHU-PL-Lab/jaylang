@@ -65,67 +65,55 @@ thirtytwo = 32;
 fifteen = 15;
 eight = 8;
 
-cpstak = fun cpstakx -> (
-  cpstakr = fun cpstaky -> (
-    cpstakyr = fun cpstakz -> (
-      takp = fun takr -> (
-        takpr = fun x -> (
-          xr = fun y -> (
-            yr = fun z -> (
-              zr = fun k -> (
-                yx = y < x;
-                notyx = not yx;
-                kr = notyx ~ {}
-                           ? fun notyxm -> (
-                             notyxmr = k z;
-                           )
-                           : fun notyxa -> (
-                             x1 = x - 1;
-                             fv1 = fun v1 -> (
-                               y1 = y - 1;
-                               fv2 = fun v2 -> (
-                                 z1 = z - 1;
-                                 fv3 = fun v3 -> (
-                                   takv1 = takr v1;
-                                   takv1v2 = takv1 v2;
-                                   takv1v2v3 = takv1v2 v3;
-                                   takv1v2v3k = takv1v2v3 k;
-                                 );
-                                 takz1 = takr z1;
-                                 takz1x = takz1 x;
-                                 takz1xy = takz1x y;
-                                 takz1xyfv2 = takz1xy fv2;
-                               );
-                               taky1 = takr y1;
-                               taky1z = taky1 z;
-                               taky1zx = taky1z x;
-                               taky1zxfv2 = taky1zx fv2;
-                             );
-                             takx1 = takr x1;
-                             takx1y = takx1 y;
-                             takx1yz = takx1y z;
-                             takx1yzfv1 = takx1yz fv1;
-                           );
-              );
-            );
-          );
-        );
-      );
-    
-      tak = ycombinator takp;
-    
-      takid = fun a -> (
-        takidr = a;
-      );
+cpstak = fun cpstakparams -> (
+  cpstakx = cpstakparams.x;
+  cpstaky = cpstakparams.y;
+  cpstakz = cpstakparams.z;
 
-      takx = tak cpstakx;
-      takxy = takx cpstaky;
-      takxyz = takxy cpstakz;
-      takxyzr = takxyz takid;
+  takp = fun takr -> (
+    takpr = fun takprparams -> (
+      x = takprparams.x;
+      y = takprparams.y;
+      z = takprparams.z;
+      k = takprparams.k;
+
+      yx = y < x;
+      notyx = not yx;
+      kr = notyx ~ {}
+                 ? fun notyxm -> (
+                   notyxmr = k z;
+                 )
+                 : fun notyxa -> (
+                   x1 = x - 1;
+                   fv1 = fun v1 -> (
+                     y1 = y - 1;
+                     fv2 = fun v2 -> (
+                       z1 = z - 1;
+                       fv3 = fun v3 -> (
+                         takfinalparams = {x = v1, y = v2, z = v3, k = k};
+                         fv3r = takr takfinalparams;
+                       );
+                       takzparams = {x = z1, y = x, z = y, k = fv3};
+                       fv2r = takr takzparams;
+                     );
+                     takyparams = {x = y1, y = z, z = x, k = fv2};
+                     fv1r = takr takyparams;
+                   );
+                   takxparams = {x = x1, y = y, z = z, k = fv1};
+                   notyxar = takr takxparams;
+                 );
     );
   );
+  
+  tak = ycombinator takp;
+  
+  takid = fun a -> (
+    takidr = a;
+  );
+
+  takparams = {x = cpstakx, y = cpstaky, z = cpstakz, k = takid};
+  cpstakr = tak takparams;
 );
 
-cpstak32 = cpstak thirtytwo;
-cpstak3215 = cpstak32 fifteen;
-r = cpstak3215 eight; # => 15
+cpstakparamsxyz = {x = thirtytwo, y = fifteen, z = eight};
+r = cpstak cpstakparamsxyz; # => 15
