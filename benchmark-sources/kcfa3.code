@@ -31,30 +31,29 @@ fx1 = fun x1 (
   );
 
   fx2 = fun x2 -> (
-    fx2r = fun f3 -> (
+    ff3 = fun f3 -> (
       c = f3 true;
-      f3a = f3 false;
+      ff3r = f3 false;
+    );
 
-      fx3 = fun x3 -> (
-        fz = fun z (
-          z1 = z x1;
-          z2 = z1 x2;
-          z3 = z2 x3;
-        );
-
-        fy1 = fun y1 -> (
-          fy1r = fun y2 -> (
-            fy2r = fun y3 -> (
-              fy3r = y1;
-            );
-          );
-        );
-
-        fx3r = fz fy1;
+    fx3 = fun x3 -> (
+      fz = fun z (
+        zparams = {y1 = x1, y2 = x2, y3 = x3};
+        fzr = z zparams;
       );
 
-      f3r = f3a fx3;
+      fy1 = fun fy1params -> (
+        y1 = fy1params.y1;
+        y2 = fy1params.y2;
+        y3 = fy1params.y3;
+
+        fy1r = y1;
+      );
+
+      fx3r = fz fy1;
     );
+
+    fx2r = ff3 fx3;
   );
 
   fx1r = ff2 fx2;
