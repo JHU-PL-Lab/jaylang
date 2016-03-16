@@ -42,14 +42,7 @@ not = fun notp -> (
                 notmr = false;
               )
               : fun nota -> (
-                notar = nota ~ int
-                ? fun notam -> (
-                  notamr = true;
-                )
-                : fun notaa -> (
-                  baaf = {};
-                  baar = baaf baaf;
-                );
+                notar = true;
               );
 );
 
