@@ -31,14 +31,7 @@ h = fun b -> (
              bmr = k one;
            )
            : fun ba -> (
-             bar = ba ~ int
-                      ? fun bam -> (
-                        bamr = k two;
-                      )
-                      : fun baa -> (
-                        baaf = {};
-                        baar = baaf baaf;
-                      );
+             bar = k two;
            );
   );
   i = fun x -> (
