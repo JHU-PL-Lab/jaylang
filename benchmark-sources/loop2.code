@@ -1,7 +1,7 @@
 # EXPECT-WELL-FORMED
 # EXPECT-EVALUATE
 # EXPECT-ANALYSIS-STACK-IS 1ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END lp13 {int}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {int}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 # (letrec ((lp1 (lambda (i x)
@@ -39,49 +39,46 @@ one = 1;
 ten = 10;
 
 lp1p = fun lp1r -> (
-  fun i -> (
-    lp1r = fun x -> (
-      izero = zero == i;
-      xr = izero ~ {}
-           ? fun izerom -> (
-             izeromr = x;
-           )
-           : fun izeroa -> (
-             lp2p = fun lp2r -> (
-               lp2r = fun j -> (
-                 jr = fun f -> (
-                   fr = fun y -> (
-                     jzero = zero == j;
-                     yr = jzero ~ {}
-                                ? fun yrm -> (
-                                  i1 = i - one;
-                                  yrm1 = lp1r i1;
-                                  yrm2 = yrm1 y;
-                                )
-                                : fun yra -> (
-                                  j1 = j - one;
-                                  fy = f y;
-                                  yrm1 = lp1r j1;
-                                  yrm2 = yrm1 f;
-                                  yrm3 = yrm2 f y;
-                                );
-                   );
-                 );
-               );
+  lp1pr = fun lp1prparams -> (
+    i = lp1prparams.i;
+    x = lp1prparams.x;
+    izero = zero == i;
+    xr = izero ~ {}
+         ? fun izerom -> (
+           izeromr = x;
+         )
+         : fun izeroa -> (
+           lp2p = fun lp2r -> (
+             lp2pr = fun lp2prparams -> (
+               j = lp2prparams.j;
+               f = lp2prparams.f;
+               y = lp2prparams.y;
+               jzero = zero == j;
+               yr = jzero ~ {}
+                          ? fun yrm -> (
+                            i1 = i - one;
+                            lp1rparams = {i = i1, x = y};
+                            yrmr = lp1r lp1rparams;
+                          )
+                          : fun yra -> (
+                            j1 = j - one;
+                            fy = f y;
+                            lp2rparams = {j = j1, f = f, y = fy};
+                            yrar = lp2r lp2rparams;
+                          );
              );
-             lp2 = ycombinator lp2p;
-             fn = fun n -> (
-               ni = n + i;
-             );
-             lp22 = lp2 ten;
-             lp23 = lp22 fn;
-             lp24 = lp23 x;
            );
-    );
+           lp2 = ycombinator lp2p;
+           fn = fun n -> (
+             ni = n + i;
+           );
+           lp2finalparams = {j = ten, f = fn, y = x};
+           izeroar = lp2 lp2finalparams;
+         );
   );
 );
 
 lp1 = ycombinator lp1p;
 
-lp12 = lp1 ten;
-lp13 = lp12 zero; # => 550
+lp1params = {i = ten, x = zero};
+r = lp1 lp1params; # => 550
