@@ -24,15 +24,22 @@ module List = BatList;;
 %token KEYWORD_LET
 %token KEYWORD_IN
 %token KEYWORD_REF
+%token BINOP_PLUS
+%token BINOP_MINUS
+%token BINOP_LESS
+%token BINOP_LESS_EQUAL
+%token BINOP_EQUAL
 %token DOUBLE_SEMICOLON
 %token EOF
 
 %left LAM
 %right KEYWORD_IN
-%left TILDE
+%nonassoc TILDE
+%left LEFT_ARROW
+%nonassoc BINOP_LESS BINOP_LESS_EQUAL BINOP_EQUAL
+%left BINOP_PLUS BINOP_MINUS
 %right BANG
 %left DOT
-%left LEFT_ARROW
 %right KEYWORD_REF
 
 %start <Nested_ast.expr> prog
@@ -61,6 +68,16 @@ expr:
       { Conditional_expr($1,$3,$5,$7) }
   | expr LEFT_ARROW expr
       { Update_expr($1,$3) }
+  | expr BINOP_PLUS expr
+      { Binary_operation_expr($1,Binary_operator_int_plus,$3) }
+  | expr BINOP_MINUS expr
+      { Binary_operation_expr($1,Binary_operator_int_minus,$3) }
+  | expr BINOP_LESS expr
+      { Binary_operation_expr($1,Binary_operator_int_less_than,$3) }
+  | expr BINOP_LESS_EQUAL expr
+      { Binary_operation_expr($1,Binary_operator_int_less_than_or_equal_to,$3) }
+  | expr BINOP_EQUAL expr
+      { Binary_operation_expr($1,Binary_operator_int_equal_to,$3) }
   | application_expr
       { $1 }
   ;

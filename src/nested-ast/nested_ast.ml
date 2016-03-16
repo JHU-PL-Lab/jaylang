@@ -15,6 +15,7 @@ type expr =
   | Conditional_expr of expr * pattern * function_value * function_value
   | Deref_expr of expr
   | Update_expr of expr * expr
+  | Binary_operation_expr of expr * binary_operator * expr
   | Let_expr of var * expr * expr
   | Projection_expr of expr * ident
 

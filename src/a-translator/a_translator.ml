@@ -71,7 +71,13 @@ and clauses_and_var_of_nested_expr e =
       let (cls2,x2) = clauses_and_var_of_nested_expr e2 in
       ( cls1 @ cls2
       , Ast.Update_body(x1,x2)
-      )      
+      )
+    | Nested_ast.Binary_operation_expr(e1,op,e2) ->
+      let (cls1,x1) = clauses_and_var_of_nested_expr e1 in
+      let (cls2,x2) = clauses_and_var_of_nested_expr e2 in
+      ( cls1 @ cls2
+      , Ast.Binary_operation_body(x1,op,x2)
+      )
     | Nested_ast.Let_expr(x',e1,e2) ->
       let (cls1,x1) = clauses_and_var_of_nested_expr e1 in
       let (cls2,x2) = clauses_and_var_of_nested_expr e2 in
