@@ -18,13 +18,13 @@ twelve = 12;
 
 ack = fun m -> (
   ackr = fun n -> (
-     mzero = m = zero;
+     mzero = m == zero;
      ackrr = mzero ~ {}
              ? fun mzerom -> (
                mzeromr = n + one;
              )
              : fun mzeroa -> (
-               nzero = n = zero;
+               nzero = n == zero;
                mzeroar = nzero ~ {}
                        ? fun nzerom -> (
                          m1 = m - one;

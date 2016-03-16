@@ -41,7 +41,7 @@ ten = 10;
 lp1p = fun lp1r -> (
   fun i -> (
     lp1r = fun x -> (
-      izero = zero = i;
+      izero = zero == i;
       xr = izero ~ {}
            ? fun izerom -> (
              izeromr = x;
@@ -51,7 +51,7 @@ lp1p = fun lp1r -> (
                lp2r = fun j -> (
                  jr = fun f -> (
                    fr = fun y -> (
-                     jzero = zero = j;
+                     jzero = zero == j;
                      yr = jzero ~ {}
                                 ? fun yrm -> (
                                   i1 = i - one;
