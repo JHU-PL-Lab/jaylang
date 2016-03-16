@@ -26,6 +26,7 @@ and find_all_variables_in_clause_body b =
   | Projection_body(x,_) -> Enum.singleton x
   | Deref_body x -> Enum.singleton x
   | Update_body(x1,x2) -> List.enum [x1;x2]
+  | Binary_operation_body(x1,_,x2) -> List.enum [x1;x2]
 
 and find_all_variables_in_value v =
   match v with
@@ -64,6 +65,7 @@ and find_all_clauses_in_clause_body b =
   | Projection_body _ -> Enum.empty ()
   | Deref_body _ -> Enum.empty ()
   | Update_body _ -> Enum.empty ()
+  | Binary_operation_body _ -> Enum.empty()
 
 and find_all_clauses_in_value v =
   match v with

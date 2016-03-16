@@ -128,19 +128,11 @@ struct
 
   let is_immediate acl =
     match acl with
-    | Unannotated_clause(Abs_clause(_,Abs_value_body _))
-    | Unannotated_clause(Abs_clause(_,Abs_var_body _))
-    | Unannotated_clause(Abs_clause(_,Abs_deref_body _))
-    | Unannotated_clause(Abs_clause(_,Abs_update_body _))
-    | Unannotated_clause(Abs_clause(_,Abs_projection_body _))
+    | Unannotated_clause(abs_clause) -> is_abstract_clause_immediate abs_clause
     | Enter_clause _
-    | Exit_clause _
-      -> true
+    | Exit_clause _ -> true
     | Start_clause
-    | End_clause
-    | Unannotated_clause(Abs_clause(_,Abs_appl_body _))
-    | Unannotated_clause(Abs_clause(_,Abs_conditional_body _))
-      -> false
+    | End_clause -> false
   ;;
   
   (** This module is meant to verify that the system never attempts to create
