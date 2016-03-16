@@ -16,32 +16,32 @@ one = 1;
 three = 3;
 twelve = 12;
 
-ack = fun m -> (
-  ackr = fun n -> (
-     mzero = m == zero;
-     ackrr = mzero ~ {}
-             ? fun mzerom -> (
-               mzeromr = n + one;
-             )
-             : fun mzeroa -> (
-               nzero = n == zero;
-               mzeroar = nzero ~ {}
-                       ? fun nzerom -> (
-                         m1 = m - one;
-                         ackm1 = ack m1;
-                         nzeromr = ackm1 one;
-                       )
-                       : fun mzeroa -> (
-                         n1 = n - one;
-                         ackm = ack m;
-                         ackmn1 = ackm n1;
-                         m12 = m - one;
-                         ackm12 = ack m12;
-                         mzeroar = ackm12 ackmn1;
-                       );
-             );
-  );
+ack = fun ackparams -> (
+  m = ackparams.m;
+  n = ackparams.n;
+  mzero = m == zero;
+  ackrr = mzero ~ {}
+          ? fun mzerom -> (
+            mzeromr = n + one;
+          )
+          : fun mzeroa -> (
+            nzero = n == zero;
+            mzeroar = nzero ~ {}
+                    ? fun nzerom -> (
+                      m1 = m - one;
+                      nzeromrparams = {m = m1, n = one};
+                      nzeromr = ack nzeromrparams;
+                    )
+                    : fun mzeroa -> (
+                      m12 = m - one;
+                      n1 = n - one;
+                      ackmn1params = {m = m, n = n1};
+                      ackmn1 = ack ackmn1params;
+                      mzeroarparams = {m = m12, n = ackmn1};
+                      mzeroar = ack mzeroarparams;
+                    );
+          );
 );
 
-rp = ack three;
-r = rp twelve; # => 32765
+rparams = {m = three, n = twelve};
+r = ack rparams; # => 32765
