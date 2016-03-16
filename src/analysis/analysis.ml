@@ -299,15 +299,10 @@ struct
   end
   
   type pds_targeted_dynamic_pop_action =
-    | Value_drop_1_of_2
+    | Value_drop
       (** An action to drop values from the top of the stack.  This is necessary
           for actions such as non-local lookup which perform a subordinate
-          lookup but do not act upon the resulting value.  The first step of
-          this action pops a single value from the stack; the second step
-          ensures that the next value is a variable lookup and then replaces it
-          on the stack. *)
-    | Value_drop_2_of_2
-      (** The second part of value discard. *)
+          lookup but do not act upon the resulting value. *)
     | Value_discovery_2_of_2
       (** The second step of value discovery, which confirms that the special
           "bottom" stack element is next on the stack.  This step pops that
@@ -522,8 +517,7 @@ struct
   
   let pp_pds_targeted_dynamic_pop_action action =
     match action with
-    | Value_drop_1_of_2 -> "Value_drop_1_of_2"
-    | Value_drop_2_of_2 -> "Value_drop_2_of_2"
+    | Value_drop -> "Value_drop"
     | Value_discovery_2_of_2 -> "Value_discovery_2_of_2"
     | Variable_aliasing(x,x') ->
       Printf.sprintf "Variable_aliasing(%s,%s)" (pp_var x) (pp_var x')
@@ -656,8 +650,7 @@ struct
 
   let ppa_pds_targeted_dynamic_pop_action action =
     match action with
-    | Value_drop_1_of_2 -> "ValDrop1"
-    | Value_drop_2_of_2 -> "ValDrop2"
+    | Value_drop -> "ValDrop"
     | Value_discovery_2_of_2 -> "ValDisc2"
     | Variable_aliasing(x,x') ->
       Printf.sprintf "VAlias(%s,%s)" (pp_var x) (pp_var x')
@@ -840,12 +833,9 @@ struct
       Nondeterminism_monad.enum @@
       let open Nondeterminism_monad in
       match action with
-      | Value_drop_1_of_2 ->
+      | Value_drop ->
         let%orzero Continuation_value _ = element in
-        return [Pop_dynamic_targeted Value_drop_2_of_2]
-      | Value_drop_2_of_2 ->
-        let%orzero Lookup_var _ = element in
-        return [Push element]
+        return []
       | Value_discovery_2_of_2 ->
         let%orzero Bottom_of_stack = element in
         return []
@@ -1319,7 +1309,7 @@ struct
             [
               (* 1b. Value drop *)
               begin
-                return (Value_drop_1_of_2, Program_point_state(acl0,ctx))
+                return (Value_drop, Program_point_state(acl0,ctx))
               end
             ;
               (* 2a. Transitivity *)

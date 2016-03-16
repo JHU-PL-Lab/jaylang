@@ -119,7 +119,7 @@ let pp_abs_filtered_value (Abs_filtered_value(v,patsp,patsn)) =
   if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
   then pp_abstract_value v
   else
-    Printf.sprintf "%s(%s,%s)"
+    Printf.sprintf "%s:(+%s,-%s)"
       (pp_abstract_value v) (pp_pattern_set patsp) (pp_pattern_set patsn)
 ;;
 
