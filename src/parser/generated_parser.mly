@@ -4,6 +4,7 @@ module List = BatList;;
 %}
 
 %token <string> IDENTIFIER
+%token <int> INT_LITERAL
 %token EOF 
 %token OPEN_BRACE 
 %token CLOSE_BRACE 
@@ -86,6 +87,8 @@ value:
       { Value_function($1) }
   | ref_value
       { Value_ref($1) }
+  | int_value
+      { Value_int($1) }
   ;
 
 record_value:
@@ -108,6 +111,11 @@ function_value:
 ref_value:
   | KEYWORD_REF variable
       { Ref_value($2) }
+  ;
+
+int_value:
+  | INT_LITERAL
+      { $1 }
   ;
 
 pattern:

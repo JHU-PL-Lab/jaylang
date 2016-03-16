@@ -36,6 +36,7 @@ and pp_value v =
   | Value_record(r) -> pp_record_value r
   | Value_function(f) -> pp_function_value f
   | Value_ref(r) -> pp_ref_value r
+  | Value_int(n) -> string_of_int n
 
 and pp_clause_body b =
   match b with

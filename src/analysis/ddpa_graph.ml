@@ -25,6 +25,7 @@ type abstract_value =
   | Abs_value_record of record_value
   | Abs_value_function of abstract_function_value
   | Abs_value_ref of ref_value
+  | Abs_value_int
   [@@deriving eq, ord]
 
 and abstract_function_value =
@@ -60,6 +61,7 @@ and pp_abstract_value v =
   | Abs_value_record r -> pp_record_value r
   | Abs_value_function f -> pp_abstract_function_value f
   | Abs_value_ref r -> pp_ref_value r
+  | Abs_value_int -> "int"
 
 and pp_abstract_clause_body b =
   match b with
@@ -291,6 +293,7 @@ and lift_value v =
   | Value_record r -> Abs_value_record r
   | Value_function f -> Abs_value_function(lift_function_value f)
   | Value_ref r -> Abs_value_ref r
+  | Value_int _ -> Abs_value_int
 
 and lift_function_value (Function_value(x,e)) =
   Abs_function_value(x, lift_expr e)

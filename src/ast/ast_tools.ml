@@ -33,6 +33,7 @@ and find_all_variables_in_value v =
     Ident_map.values m
   | Value_function f -> find_all_variables_in_function_value f
   | Value_ref(Ref_value x) -> Enum.singleton x
+  | Value_int _ -> Enum.empty ()
 
 and find_all_variables_in_function_value (Function_value(x,e)) =
   Enum.append (Enum.singleton x) @@ find_all_variables_in_expr e
@@ -69,6 +70,7 @@ and find_all_clauses_in_value v =
   | Value_record _ -> Enum.empty ()
   | Value_function f -> find_all_clauses_in_function_value f
   | Value_ref _ -> Enum.empty ()
+  | Value_int _ -> Enum.empty ()
 
 and find_all_clauses_in_function_value (Function_value(_,e)) =
   find_all_clauses_in_expr e

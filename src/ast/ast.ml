@@ -82,6 +82,7 @@ and value =
   | Value_record of record_value
   | Value_function of function_value
   | Value_ref of ref_value
+  | Value_int of int
   [@@deriving eq, ord]
 
 (** A type to represent the bodies of clauses. *)

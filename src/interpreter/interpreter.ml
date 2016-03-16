@@ -63,6 +63,7 @@ and var_replace_value fn v =
     Value_record(Record_value(Ident_map.map fn es))
   | Value_function(f) -> Value_function(var_replace_function_value fn f)
   | Value_ref(Ref_value(x)) -> Value_ref(Ref_value(fn x))
+  | Value_int n -> Value_int n
 
 and var_replace_function_value fn (Function_value(x, e)) =
   Function_value(fn x, var_replace_expr fn e)
@@ -124,6 +125,7 @@ let rec matches env x p =
     end
   | Value_function(Function_value(_)) -> false
   | Value_ref(Ref_value(_)) -> false
+  | Value_int _ -> false
 ;;
 
 let rec evaluate env lastvar cls =
