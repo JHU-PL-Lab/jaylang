@@ -43,5 +43,6 @@ rule token = parse
   | "let"                            { KEYWORD_LET }
   | "in"                             { KEYWORD_IN }
   | "ref"                            { KEYWORD_REF }
+  | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) } 
   | ident_start ident_cont* as s     { IDENTIFIER s }
   | ";;"                             { DOUBLE_SEMICOLON }

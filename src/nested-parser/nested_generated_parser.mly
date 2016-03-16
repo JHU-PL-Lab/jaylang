@@ -6,6 +6,7 @@ module List = BatList;;
 %}
 
 %token <string> IDENTIFIER
+%token <int> INT_LITERAL
 %token OPEN_BRACE
 %token CLOSE_BRACE
 %token OPEN_PAREN
@@ -80,6 +81,8 @@ primary_expr:
       { Record_expr(Ident_map.empty) }
   | function_value
       { Function_expr($1) }
+  | int_value
+      { Int_expr($1) }
   | variable
       { Var_expr($1) }
   | KEYWORD_REF primary_expr
@@ -110,6 +113,11 @@ record_pattern_element:
 function_value:
   | KEYWORD_FUN variable ARROW primary_expr %prec LAM
       { Function($2,$4) } 
+  ;
+
+int_value:
+  | INT_LITERAL
+      { $1 }
   ;
 
 variable:

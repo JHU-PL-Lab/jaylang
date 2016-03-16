@@ -44,6 +44,8 @@ and clauses_and_var_of_nested_expr e =
       ([], Ast.Value_body(
           Ast.Value_function(
             function_value_of_nested_function_value f)))
+    | Nested_ast.Int_expr(n) ->
+      ([], Ast.Value_body(Ast.Value_int(n)))
     | Nested_ast.Ref_expr(e') ->
       let (cls0,x') = clauses_and_var_of_nested_expr e' in
       (cls0, Ast.Value_body(Ast.Value_ref(Ast.Ref_value(x'))))

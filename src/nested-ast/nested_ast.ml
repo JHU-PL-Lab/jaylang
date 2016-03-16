@@ -8,6 +8,7 @@ open Ast;;
 type expr =
   | Record_expr of expr Ident_map.t
   | Function_expr of function_value
+  | Int_expr of int
   | Ref_expr of expr
   | Var_expr of var
   | Appl_expr of expr * expr
