@@ -52,39 +52,34 @@ fifteen = 15;
 eight = 8;
 
 takp = fun takr -> (
-  takpr = fun x -> (
-    xr = fun y -> (
-      yr = fun z -> (
-        yx = y < x;
-        notyx = not yx;
-        zr = notyx ~ {}
-                   ? fun notyxm -> (
-                     notyxmr = z;
-                   )
-                   : fun notyxa -> (
-                     x1 = x - 1;
-                     takx1 = takr x1;
-                     takx1y = takx1 y;
-                     takx1yz = takx1y z;
-                     y1 = y - 1;
-                     taky1 = takr y1;
-                     taky1z = taky1 z;
-                     taky1zx = taky1z x;
-                     z1 = z - 1;
-                     takz1 = takr z1;
-                     takz1x = takz1 x;
-                     takz1xy = takz1x y;
-                     taktakx1yz = tak takx1yz;
-                     taktakx1yztaky1zx = taktakx1yz taky1zx;
-                     taktakx1yztaky1zxtakz1xy = taktakx1yztaky1zx takz1xy;
-                   );
-      );
-    );
+  takpr = fun takprparams -> (
+  x = takprparams.x;
+  y = takprparams.y;
+  z = takprparams.z;
+  yx = y < x;
+  notyx = not yx;
+  zr = notyx ~ {}
+             ? fun notyxm -> (
+               notyxmr = z;
+             )
+             : fun notyxa -> (
+               x1 = x - 1;
+               takxparams = {x = x1, y = y, z = z};
+               takx = takr takxparams;
+               y1 = y - 1;
+               takyparams = {x = x, y = y1, z = z};
+               taky = takr takyparams;
+               z1 = z - 1;
+               takzparams = {x = x, y = y, z = z1};
+               takz = takr takzparams;
+
+               takrparams = {x = takx, y = taky, z = takz};
+               notyxar = takr takrparams;
+             );
   );
 );
 
 tak = ycombinator takp;
 
-tak32 = tak thirtytwo;
-tak3215 = tak32 fifteen;
-r = tak3215 eight; # => 15
+takparams = {x = thirtytwo, y = fifteen, z = eight};
+r = tak takparams; # => 15
