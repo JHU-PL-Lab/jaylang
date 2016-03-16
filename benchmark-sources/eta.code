@@ -25,8 +25,7 @@ dosomething = fun dosomethingi -> (
 );
 
 id = fun y -> (
-  dosomethingp = {};
-  dosomethingc = dosomething dosomethingp;
+  dosomethingc = dosomething true;
   idr = y;
 );
 
