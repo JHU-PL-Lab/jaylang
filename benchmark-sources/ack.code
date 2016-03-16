@@ -32,10 +32,10 @@ ack = fun m -> (
                          nzeromr = ackm1 one;
                        )
                        : fun mzeroa -> (
-                         n1 = n - 1;
+                         n1 = n - one;
                          ackm = ack m;
                          ackmn1 = ackm n1;
-                         m12 = m - 1;
+                         m12 = m - one;
                          ackm12 = ack m12;
                          mzeroar = ackm12 ackmn1;
                        );
