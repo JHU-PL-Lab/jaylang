@@ -112,7 +112,7 @@ let toploop_operate conf e =
                 in
                 (* Show our results. *)
                 print_endline @@
-                  pp_ident_map pp_abs_value_set variable_values
+                  pp_ident_map pp_abs_filtered_value_set variable_values
               end;
               (* Dump the analysis to debugging. *)
               logger `trace

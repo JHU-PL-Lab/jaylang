@@ -7,6 +7,19 @@ open Batteries;;
 open Ast;;
 open Ast_pp;;
 
+module Pattern_ord =
+struct
+  type t = pattern
+  let compare = compare_pattern
+end;;
+
+module Pattern_set = Set.Make(Pattern_ord);;
+
+let pp_pattern_set pats =
+  String_utils.concat_sep_delim "{" "}" ", " @@ Enum.map pp_pattern @@
+    Pattern_set.enum pats
+;;
+
 (** A type to express abstract values. *)
 type abstract_value =
   | Abs_value_record of record_value
@@ -87,6 +100,32 @@ module Abs_value_set = Set.Make(Abs_value_ord);;
 let pp_abs_value_set s =
   String_utils.concat_sep_delim "{" "}" ", " @@
     Enum.map pp_abstract_value @@ Abs_value_set.enum s
+;;
+
+type abs_filtered_value =
+  | Abs_filtered_value of abstract_value * Pattern_set.t * Pattern_set.t
+  [@@deriving ord]
+;;
+
+module Abs_filtered_value_ord =
+struct
+  type t = abs_filtered_value
+  let compare = compare_abs_filtered_value
+end;;
+
+module Abs_filtered_value_set = Set.Make(Abs_filtered_value_ord);;
+
+let pp_abs_filtered_value (Abs_filtered_value(v,patsp,patsn)) =
+  if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
+  then pp_abstract_value v
+  else
+    Printf.sprintf "%s(%s,%s)"
+      (pp_abstract_value v) (pp_pattern_set patsp) (pp_pattern_set patsn)
+;;
+
+let pp_abs_filtered_value_set s =
+  String_utils.concat_sep_delim "{" "}" ", " @@
+    Enum.map pp_abs_filtered_value @@ Abs_filtered_value_set.enum s
 ;;
 
 module Abs_clause_ord =
