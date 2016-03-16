@@ -1,7 +1,7 @@
 # EXPECT-WELL-FORMED
 # EXPECT-EVALUATE
 # EXPECT-ANALYSIS-STACK-IS 1ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END lp2 {{}}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {{}}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 # (letrec ((id (lambda (x) x))
@@ -61,29 +61,29 @@ blur = fun y -> (
 );
 
 lpp = fun lpr -> (
-  lppr = fun a -> (
-    ar = fun n -> (
-      nl = n <= one;
-      nr = nl ~ {}
-              ? fun nlm -> (
-                nlmr = id a;
-              )
-              : fun nla -> (
-                rf = blur id;
-                r = rf true;
-                sf = blur id;
-                s = sf false;
-                blurlp = blur lpr;
-                n1 = n - one;
-                blurlp1 = blurlp s;
-                blurlp2 = blurlp1 n1;
-                nlar = not blurlp2;
-              );
-    );
+  lppr = fun lpprparams -> (
+    a = lpprparams.a;
+    n = lpprparams.n;
+    nl = n <= one;
+    nr = nl ~ {}
+            ? fun nlm -> (
+              nlmr = id a;
+            )
+            : fun nla -> (
+              rf = blur id;
+              r = rf true;
+              sf = blur id;
+              s = sf false;
+              blurlp = blur lpr;
+              n1 = n - one;
+              blurlpsn1params = {a = s, n = n1};
+              blurlpsn1 = blurlp blurlpsn1params;
+              nlar = not blurlpsn1;
+            );
   );
 );
 
 lp = ycombinator lpp;
 
-lp1 = lp false;
-lp2 = lp1 two;
+lpparams = {a = false, n = two};
+r = lp lpparams;
