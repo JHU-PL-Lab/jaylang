@@ -30,14 +30,14 @@ fx1 = fun x1 (
 
   fx2 = fun x2 -> (
     fz = fun z -> (
-      z1 = z x1;
-      z2 = z1 x2;
+      zparams = {y1 = x1, y2 = x2};
+      fzr = z zparams;
     );
 
-    fy1 = fun y1 -> (
-      fy1r = fun y2 -> (
-        fy2r = y1;
-      );
+    fy1 = fun fy1params -> (
+      y1 = fy1params.y1;
+      y2 = fy1params.y2;
+      fy2r = y1;
     );
 
     fx2r = fz fy1;
