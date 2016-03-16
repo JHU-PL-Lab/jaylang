@@ -70,21 +70,21 @@ and = fun anda -> (
   );
 );
 
-phi = fun x1 -> (
-  x1r = fun x2 -> (
-    x2r = fun x3 -> (
-      x3r = fun x4 -> (
-        notx2 = not x2;
-        notx3 = not x3;
-        orx1notx2 = or x1 notx2;
-        orx1notx2notx3 = or orx1notx2 notx3;
-        ornotx2notx3 = or notx2 notx3;
-        orx4x2 = or x4 x2;
-        andorx1notx2orx1notx2notx3 = and orx1notx2 orx1notx2notx3;
-        andorx1notx2orx1notx2notx3orx4x2 = andorx1notx2orx1notx2notx3 orx4x2;
-      );
-    );
-  );
+phi = fun phiparams -> (
+  x1 = phiparams.x1;
+  x2 = phiparams.x2;
+  x3 = phiparams.x3;
+  x4 = phiparams.x4;
+  notx2 = not x2;
+  notx3 = not x3;
+  orx1notx2 = or x1 notx2;
+  orx1notx2notx3 = or orx1notx2 notx3;
+  notx22 = not x22;
+  notx32 = not x32;
+  ornotx2notx3 = or notx22 notx32;
+  orx4x2 = or x4 x2;
+  andorx1notx2orx1notx2notx3 = and orx1notx2 orx1notx2notx3;
+  andorx1notx2orx1notx2notx3orx4x2 = andorx1notx2orx1notx2notx3 orx4x2;
 );
 
 try = fun f -> (
@@ -98,10 +98,8 @@ satsolve4 = fun p -> (
     fn2 = fun n2 -> (
       fn3 = fun n3 -> (
         fn4 = fun n4 -> (
-          pn1 = p n1;
-          pn2 = pn1 n2;
-          pn3 = pn2 n3;
-          pn4 = pn3 n4;
+          pparams = {x1 = n1, x2 = n2, x3 = n3, x4 = n4};
+          fn4r = p pparams;
         );
         tryfn4 = try fn4;
       );
