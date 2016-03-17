@@ -136,8 +136,22 @@ phi = fun phiparams -> (
 try = fun f -> (
   ft = f true;
   ff = f false;
-  or2ftffparams = {a = ft, b = ff};
-  or2ftff = or2 or2ftffparams;
+
+  # or2ftffparams = {a = ft, b = ff};
+  # or2ftff = or2 or2ftffparams;
+  or2ftff = ft ~ {}
+             ? fun or2ftffam -> (
+               or2ftffamr = true;
+             )
+             : fun or2ftffaa -> (
+               or2ftffaar = ff ~ {}
+                           ? fun or2ftffbm -> (
+                             or2ftffbmr = true;
+                           )
+                           : fun or2ftffba -> (
+                             or2ftffbar = false;
+                           );
+             );
 );
 
 satsolve4 = fun p -> (
