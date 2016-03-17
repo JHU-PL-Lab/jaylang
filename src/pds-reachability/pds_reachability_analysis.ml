@@ -87,6 +87,10 @@ sig
   
   (** Retrieves the logging level used by analyses produced by this module. *)
   val get_logging_level : unit -> pds_reachability_logger_level
+  
+  (** Determines the size of the provided analysis in terms of both node and
+      edge count (respectively). *)
+  val get_size : analysis -> int * int
 end;;
 
 module Make
@@ -219,6 +223,13 @@ struct
   let get_logging_level () = Logger.get_level ();;
 
   let set_logging_level level = Logger.set_level level;;
+
+  let get_size analysis =
+    let reachability = analysis.reachability in
+    let node_count = Enum.count @@ Structure.enumerate_nodes reachability in
+    let edge_count = Enum.count @@ Structure.enumerate_edges reachability in
+    (node_count, edge_count)
+  ;;
 
   let empty ?logging_prefix:(logging_prefix=None) () =
     { known_nodes = Node_set.empty

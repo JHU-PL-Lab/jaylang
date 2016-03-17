@@ -42,5 +42,11 @@ rule token = parse
   | "!"                              { BANG }
   | "fun"                            { KEYWORD_FUN }
   | "ref"                            { KEYWORD_REF }
+  | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) } 
+  | "+"                              { BINOP_PLUS }
+  | "-"                              { BINOP_MINUS }
+  | "<"                              { BINOP_LESS }
+  | "<="                             { BINOP_LESS_EQUAL }
+  | "=="                             { BINOP_EQUAL }
   | ident_start ident_cont* as s     { IDENTIFIER s }
   | ";;"                             { DOUBLE_SEMICOLON }

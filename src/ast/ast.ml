@@ -68,6 +68,15 @@ module Var_hashtbl = Hashtbl.Make(
   end
   );;
 
+type binary_operator =
+  | Binary_operator_int_plus
+  | Binary_operator_int_minus
+  | Binary_operator_int_less_than
+  | Binary_operator_int_less_than_or_equal_to
+  | Binary_operator_int_equal_to
+  [@@deriving eq, ord]
+;;
+
 (** A type to express record values. *)
 type record_value = Record_value of var Ident_map.t [@@deriving eq, ord]
 
@@ -82,6 +91,7 @@ and value =
   | Value_record of record_value
   | Value_function of function_value
   | Value_ref of ref_value
+  | Value_int of int
   [@@deriving eq, ord]
 
 (** A type to represent the bodies of clauses. *)
@@ -93,6 +103,7 @@ and clause_body =
   | Projection_body of var * ident
   | Deref_body of var
   | Update_body of var * var
+  | Binary_operation_body of var * binary_operator * var
   [@@deriving eq, ord]
 
 (** A type to represent clauses. *)

@@ -81,6 +81,7 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
             | Value_record(Record_value(els)) ->
               els |> Ident_map.enum |> Enum.map snd |> Var_set.of_enum
             | Value_ref(Ref_value(x')) -> Var_set.singleton x'
+            | Value_int _ -> Var_set.empty
           end
         | Appl_body(x1',x2') -> Var_set.of_list [x1';x2']
         | Conditional_body(x',_,f1,f2) ->
@@ -92,6 +93,7 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
         | Projection_body(x',_) -> Var_set.singleton x'
         | Deref_body x' -> Var_set.singleton x'
         | Update_body(x1',x2') -> Var_set.of_list [x1';x2']
+        | Binary_operation_body(x1',_,x2') -> Var_set.of_list [x1';x2']
       in
       Var_set.remove x @@ Var_set.union free_h free_t
   and walk_fn (Function_value(x',e)) =

@@ -21,7 +21,7 @@ module type DDPA = sig
   val create_analysis : ?logging_prefix:string option -> expr -> analysis
   
   val values_of_variable_from :
-    var -> annotated_clause -> analysis -> Abs_value_set.t 
+    var -> annotated_clause -> analysis -> Abs_filtered_value_set.t 
   
   val check_inconsistencies : analysis -> inconsistency Enum.t
   

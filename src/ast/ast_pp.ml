@@ -19,6 +19,15 @@ let pp_var (Var(i, mfs)) =
   | Some fs -> pp_ident i ^ pp_freshening_stack fs
 ;;
 
+let pp_binary_operator binop =
+  match binop with
+  | Binary_operator_int_plus -> "+"
+  | Binary_operator_int_minus -> "-"
+  | Binary_operator_int_less_than -> "<"
+  | Binary_operator_int_less_than_or_equal_to -> "<="
+  | Binary_operator_int_equal_to -> "=="
+;;
+
 let pp_record_value (Record_value(els)) =
   let pp_element (k,v) =
       Printf.sprintf "%s=%s" (pp_ident k) (pp_var v)
@@ -36,6 +45,7 @@ and pp_value v =
   | Value_record(r) -> pp_record_value r
   | Value_function(f) -> pp_function_value f
   | Value_ref(r) -> pp_ref_value r
+  | Value_int(n) -> string_of_int n
 
 and pp_clause_body b =
   match b with
@@ -48,6 +58,8 @@ and pp_clause_body b =
   | Projection_body(x,i) -> pp_var x ^ "." ^ pp_ident i
   | Deref_body(x) -> "!" ^ pp_var x
   | Update_body(x1,x2) -> pp_var x1 ^ " <- " ^ pp_var x2
+  | Binary_operation_body(x1,op,x2) ->
+    Printf.sprintf "%s %s %s" (pp_var x1) (pp_binary_operator op) (pp_var x2)
 
 and pp_clause c =
   match c with

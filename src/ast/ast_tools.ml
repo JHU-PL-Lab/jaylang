@@ -26,6 +26,7 @@ and find_all_variables_in_clause_body b =
   | Projection_body(x,_) -> Enum.singleton x
   | Deref_body x -> Enum.singleton x
   | Update_body(x1,x2) -> List.enum [x1;x2]
+  | Binary_operation_body(x1,_,x2) -> List.enum [x1;x2]
 
 and find_all_variables_in_value v =
   match v with
@@ -33,6 +34,7 @@ and find_all_variables_in_value v =
     Ident_map.values m
   | Value_function f -> find_all_variables_in_function_value f
   | Value_ref(Ref_value x) -> Enum.singleton x
+  | Value_int _ -> Enum.empty ()
 
 and find_all_variables_in_function_value (Function_value(x,e)) =
   Enum.append (Enum.singleton x) @@ find_all_variables_in_expr e
@@ -63,12 +65,14 @@ and find_all_clauses_in_clause_body b =
   | Projection_body _ -> Enum.empty ()
   | Deref_body _ -> Enum.empty ()
   | Update_body _ -> Enum.empty ()
+  | Binary_operation_body _ -> Enum.empty()
 
 and find_all_clauses_in_value v =
   match v with
   | Value_record _ -> Enum.empty ()
   | Value_function f -> find_all_clauses_in_function_value f
   | Value_ref _ -> Enum.empty ()
+  | Value_int _ -> Enum.empty ()
 
 and find_all_clauses_in_function_value (Function_value(_,e)) =
   find_all_clauses_in_expr e

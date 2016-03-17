@@ -4,6 +4,7 @@ module List = BatList;;
 %}
 
 %token <string> IDENTIFIER
+%token <int> INT_LITERAL
 %token EOF 
 %token OPEN_BRACE 
 %token CLOSE_BRACE 
@@ -21,6 +22,11 @@ module List = BatList;;
 %token DOT
 %token KEYWORD_FUN 
 %token KEYWORD_REF
+%token BINOP_PLUS
+%token BINOP_MINUS
+%token BINOP_LESS
+%token BINOP_LESS_EQUAL
+%token BINOP_EQUAL
 %token DOUBLE_SEMICOLON 
 
 %start <Ast.expr> prog
@@ -77,6 +83,16 @@ clause_body:
       { Deref_body($2) }
   | variable LEFT_ARROW variable
       { Update_body($1,$3) }
+  | variable BINOP_PLUS variable
+      { Binary_operation_body($1,Binary_operator_int_plus,$3) }
+  | variable BINOP_MINUS variable
+      { Binary_operation_body($1,Binary_operator_int_minus,$3) }
+  | variable BINOP_LESS variable
+      { Binary_operation_body($1,Binary_operator_int_less_than,$3) }
+  | variable BINOP_LESS_EQUAL variable
+      { Binary_operation_body($1,Binary_operator_int_less_than_or_equal_to,$3) }
+  | variable BINOP_EQUAL variable
+      { Binary_operation_body($1,Binary_operator_int_equal_to,$3) }
   ;
 
 value:
@@ -86,6 +102,8 @@ value:
       { Value_function($1) }
   | ref_value
       { Value_ref($1) }
+  | int_value
+      { Value_int($1) }
   ;
 
 record_value:
@@ -108,6 +126,11 @@ function_value:
 ref_value:
   | KEYWORD_REF variable
       { Ref_value($2) }
+  ;
+
+int_value:
+  | INT_LITERAL
+      { $1 }
   ;
 
 pattern:

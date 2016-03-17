@@ -56,6 +56,7 @@ and var_replace_clause_body fn r =
   | Projection_body(x,i) -> Projection_body(fn x, i)
   | Deref_body(x) -> Deref_body(fn x)
   | Update_body(x1,x2) -> Update_body(fn x1, fn x2)
+  | Binary_operation_body(x1,op,x2) -> Binary_operation_body(fn x1, op, fn x2) 
 
 and var_replace_value fn v =
   match v with
@@ -63,6 +64,7 @@ and var_replace_value fn v =
     Value_record(Record_value(Ident_map.map fn es))
   | Value_function(f) -> Value_function(var_replace_function_value fn f)
   | Value_ref(Ref_value(x)) -> Value_ref(Ref_value(fn x))
+  | Value_int n -> Value_int n
 
 and var_replace_function_value fn (Function_value(x, e)) =
   Function_value(fn x, var_replace_expr fn e)
@@ -124,6 +126,7 @@ let rec matches env x p =
     end
   | Value_function(Function_value(_)) -> false
   | Value_ref(Ref_value(_)) -> false
+  | Value_int _ -> false
 ;;
 
 let rec evaluate env lastvar cls =
@@ -203,11 +206,45 @@ let rec evaluate env lastvar cls =
           match v with
           | Value_ref(Ref_value(x'')) ->
             Environment.replace env x'' v';
-            evaluate env (Some x) ((Clause(x, Value_body(Value_record(Record_value(Ident_map.empty)))))::t)
+            evaluate env (Some x)
+              ((Clause(x,
+                  Value_body(Value_record(Record_value(Ident_map.empty)))))::t)
           | _ -> raise (Evaluation_failure
                           ("cannot update " ^ pp_var x' ^
                            " as it contains non-reference " ^ pp_value v))
         end
+      | Binary_operation_body(x1,op,x2) ->
+        let v1 = lookup env x1 in
+        let v2 = lookup env x2 in
+        let result =
+          begin
+            let bool_of b =
+              if b
+              then Value_record(Record_value(Ident_map.empty))
+              else Value_int(0)
+            in
+            match v1,op,v2 with
+            | (Value_int(n1),Binary_operator_int_plus,Value_int(n2)) ->
+              Value_int(n1+n2)
+            | (Value_int(n1),Binary_operator_int_minus,Value_int(n2)) ->
+              Value_int(n1-n2)
+            | (Value_int(n1),Binary_operator_int_less_than,Value_int(n2)) ->
+              bool_of (n1 < n2)
+            | ( Value_int(n1)
+              , Binary_operator_int_less_than_or_equal_to
+              , Value_int(n2)
+              ) ->
+              bool_of (n1 <= n2)
+            | (Value_int(n1),Binary_operator_int_equal_to,Value_int(n2)) ->
+              bool_of (n1 = n2)
+            | v1,op,v2 ->
+              raise @@ Evaluation_failure(
+                Printf.sprintf "Cannot complete binary operation: (%s) %s (%s)"
+                  (pp_value v1) (pp_binary_operator op) (pp_value v2))
+          end
+        in
+        Environment.add env x result;
+        evaluate env (Some x) t
     end
 ;;
 

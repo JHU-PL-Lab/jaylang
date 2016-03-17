@@ -34,6 +34,7 @@ let find_all_vars e =
             | Projection_body(x',_) -> List.enum [x;x']
             | Deref_body(x') -> List.enum [x;x']
             | Update_body(x',x'') -> List.enum [x;x';x'']
+            | Binary_operation_body(x1,_,x2) -> List.enum [x;x1;x2]
         )
     |> Enum.concat
   and find_all_vars_in_fn (Function_value(x,e)) =
@@ -66,6 +67,7 @@ let rec find_all_projection_labels (Expr cls) =
           | Projection_body(_,l) -> Some (Enum.singleton l)
           | Deref_body _ -> None
           | Update_body _ -> None
+          | Binary_operation_body _ -> None
       )
   |> Enum.concat
 

@@ -119,9 +119,9 @@ module Make(A : Analysis_sig) = struct
         let (values, a') = A.values_of_variable acl x2 !(analysis.aref) in
         analysis.aref := a';
         values
-        |> Abs_value_set.enum
+        |> Abs_filtered_value_set.enum
         |> Enum.filter_map
-          (fun v ->
+          (fun (Abs_filtered_value(v,_,_)) ->
             match v with
             | Abs_value_function _ -> None
             | _ -> Some (Application_of_non_function(x2, cl, v))
