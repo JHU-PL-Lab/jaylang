@@ -125,7 +125,7 @@ phi = fun phiparams -> (
   # and3or3x1notx2notx3or2notx2notx3or2x4x2 = and3 and3or3x1notx2notx3or2notx2notx3or2x4x2params;
   and3or3x1notx2notx3or2notx2notx3or2x4x2 = or3x1notx2notx3 ~ {}
                                                             ? fun and3am -> (
-                                                              and3aar = or2notx2notx3 ~ {}
+                                                              and3amr = or2notx2notx3 ~ {}
                                                                                       ? fun and3bm -> (
                                                                                         and3bmr = or2x4x2 ~ {}
                                                                                                           ? fun and3cm -> (

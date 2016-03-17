@@ -35,13 +35,13 @@ ackp = fun ackpr -> (
                       nzeromrparams = {m = m1, n = one};
                       nzeromr = ackr nzeromrparams;
                     )
-                    : fun mzeroa -> (
+                    : fun nzeroa -> (
                       m12 = m - one;
                       n1 = n - one;
                       ackmn1params = {m = m, n = n1};
                       ackmn1 = ackr ackmn1params;
-                      mzeroarparams = {m = m12, n = ackmn1};
-                      mzeroar = ackr mzeroarparams;
+                      nzeroarparams = {m = m12, n = ackmn1};
+                      nzeroar = ackr nzeroarparams;
                     );
           );
   );

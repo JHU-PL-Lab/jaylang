@@ -44,7 +44,7 @@
 #                : fun xa -> (
 #                  noop = {};
 #                );
-#         gr = !y;
+#         grr = !y;
 #       );
 #     );
 #
@@ -85,7 +85,7 @@ gp = fun gpr -> (
            : fun xa -> (
              noop = {};
            );
-    gr = !y;
+    grr = !y;
   );
 );
 
