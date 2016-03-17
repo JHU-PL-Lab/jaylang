@@ -33,40 +33,40 @@ not = fun notp -> (
               );
 );
 
-or = fun ora -> (
-  orar = fun orb -> (
-    orbr = ora ~ {}
-               ? fun oram -> (
-                 oram = true;
-               )
-               : fun oraa -> (
-                 oraar = orb ~ {}
-                             ? fun orbm -> (
-                               orbm = true;
-                             )
-                             : fun orba -> (
-                               orbar = false;
-                             );
-               );
-  );
+or = fun orparams -> (
+  ora = orparams.a;
+  orb = orparams.b;
+  orbr = ora ~ {}
+             ? fun oram -> (
+               oram = true;
+             )
+             : fun oraa -> (
+               oraar = orb ~ {}
+                           ? fun orbm -> (
+                             orbm = true;
+                           )
+                           : fun orba -> (
+                             orbar = false;
+                           );
+             );
 );
 
-and = fun anda -> (
-  andar = fun andb -> (
-    andbr = anda ~ {}
-               ? fun andam -> (
-                 andaar = andb ~ {}
-                             ? fun andbm -> (
-                               andbm = true;
-                             )
-                             : fun andba -> (
-                               andbar = false;
-                             );
-               )
-               : fun andaa -> (
-                 andam = false;
-               );
-  );
+and = fun andparams -> (
+  anda = andparams.a;
+  andb = andparams.b;
+  andbr = anda ~ {}
+             ? fun andam -> (
+               andaar = andb ~ {}
+                           ? fun andbm -> (
+                             andbm = true;
+                           )
+                           : fun andba -> (
+                             andbar = false;
+                           );
+             )
+             : fun andaa -> (
+               andam = false;
+             );
 );
 
 phi = fun phiparams -> (
@@ -76,20 +76,28 @@ phi = fun phiparams -> (
   x4 = phiparams.x4;
   notx2 = not x2;
   notx3 = not x3;
-  orx1notx2 = or x1 notx2;
-  orx1notx2notx3 = or orx1notx2 notx3;
-  notx22 = not x22;
-  notx32 = not x32;
-  ornotx2notx3 = or notx22 notx32;
-  orx4x2 = or x4 x2;
-  andorx1notx2orx1notx2notx3 = and orx1notx2 orx1notx2notx3;
-  andorx1notx2orx1notx2notx3orx4x2 = andorx1notx2orx1notx2notx3 orx4x2;
+
+  orx1notx2params = {a = x1, b = notx2};
+  orx1notx2 = or orx1notx2params;
+  orx1notx2notx3params = {a = orx1notx2, b = notx3};
+  orx1notx2notx3 = or orx1notx2notx3params;
+  notx22 = not x2;
+  notx32 = not x3;
+  ornotx2notx3params = {a = notx22, b = notx32};
+  ornotx2notx3 = or ornotx2notx3params;
+  orx4x2params = {a = x4, b = x2};
+  orx4x2 = or orx4x2params;
+  andorx1notx2orx1notx2notx3params = {a = orx1notx2, b = orx1notx2notx3};
+  andorx1notx2orx1notx2notx3 = and andorx1notx2orx1notx2notx3params;
+  andorx1notx2orx1notx2notx3orx4x2params = {a = andorx1notx2orx1notx2notx3, b = orx4x2};
+  andorx1notx2orx1notx2notx3orx4x2 = and andorx1notx2orx1notx2notx3orx4x2params;
 );
 
 try = fun f -> (
   ft = f true;
   ff = f false;
-  orftff = or ft ff;
+  orftffparams = {a = ft, b = ff};
+  orftff = or orftffparams;
 );
 
 satsolve4 = fun p -> (
