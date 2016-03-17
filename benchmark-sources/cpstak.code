@@ -84,11 +84,11 @@ cpstak = fun cpstakparams -> (
                    notyxmr = k z;
                  )
                  : fun notyxa -> (
-                   x1 = x - 1;
+                   x1 = x - one;
                    fv1 = fun v1 -> (
-                     y1 = y - 1;
+                     y1 = y - one;
                      fv2 = fun v2 -> (
-                       z1 = z - 1;
+                       z1 = z - one;
                        fv3 = fun v3 -> (
                          takfinalparams = {x = v1, y = v2, z = v3, k = k};
                          fv3r = takr takfinalparams;

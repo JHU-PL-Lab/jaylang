@@ -21,7 +21,7 @@ ff1 = fun f1 -> (
   ff1r = f1 false;
 );
 
-fx1 = fun x1 (
+fx1 = fun x1 -> (
   ff2 = fun f2 -> (
     b = f2 true;
     c = f2 false;

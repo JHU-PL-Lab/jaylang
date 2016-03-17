@@ -63,13 +63,13 @@ takp = fun takr -> (
                notyxmr = z;
              )
              : fun notyxa -> (
-               x1 = x - 1;
+               x1 = x - one;
                takxparams = {x = x1, y = y, z = z};
                takx = takr takxparams;
-               y1 = y - 1;
+               y1 = y - one;
                takyparams = {x = x, y = y1, z = z};
                taky = takr takyparams;
-               z1 = z - 1;
+               z1 = z - one;
                takzparams = {x = x, y = y, z = z1};
                takz = takr takzparams;
 

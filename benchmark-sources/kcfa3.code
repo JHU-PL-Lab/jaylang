@@ -24,7 +24,7 @@ ff1 = fun f1 -> (
   ff1r = f1 false;
 );
 
-fx1 = fun x1 (
+fx1 = fun x1 -> (
   ff2 = fun f2 -> (
     b = f2 true;
     ff2r = f2 false;
@@ -37,7 +37,7 @@ fx1 = fun x1 (
     );
 
     fx3 = fun x3 -> (
-      fz = fun z (
+      fz = fun z -> (
         zparams = {y1 = x1, y2 = x2, y3 = x3};
         fzr = z zparams;
       );
