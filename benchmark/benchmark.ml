@@ -317,7 +317,7 @@ let make_test filename expectations =
               let values =
                 TLA.values_of_variable_from var End_clause analysis
               in
-              let repr = pp_abs_value_set values in
+              let repr = pp_abs_filtered_value_set values in
               observation (observe_analysis_variable_lookup_from_end ident repr)
             ) variable_idents
         end
