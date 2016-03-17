@@ -24,7 +24,7 @@
 #
 #   (tak x y z (lambda (a) a)))
 #
-# (cpstak 32 15 8)
+# (cpstak 32 15 8) ; => 15
 
 true = {};
 false = 0;

@@ -18,7 +18,7 @@
 #                        (try (lambda (n4)
 #                               (p n1 n2 n3 n4))))))))))
 #
-# (sat-solve-4 phi)
+# (sat-solve-4 phi) ; => #t
 
 true = {};
 false = 0;
@@ -180,4 +180,4 @@ satsolve4 = fun p -> (
   tryfn1 = try fn1;
 );
 
-r = satsolve4 phi; # => true
+r = satsolve4 phi; # => {}

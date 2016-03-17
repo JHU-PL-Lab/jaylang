@@ -12,7 +12,7 @@
 #                (let ((y (f (lambda (x) x))))
 #                  (g y)))))))
 #   (let ((x (h #t)) (y (h #f)))
-#     y))
+#     y)) ; => 2
 
 true = {};
 false = 0;

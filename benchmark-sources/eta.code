@@ -11,8 +11,8 @@
 #   (do-something)
 #   y)
 #
-# ((id (lambda (a) a)) #t)
-# ((id (lambda (b) b)) #f)
+# ((id (lambda (a) a)) #t) ; => #t
+# ((id (lambda (b) b)) #f) ; => #f
 
 true = {};
 false = 0;

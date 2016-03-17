@@ -10,7 +10,7 @@
 #                  (let ((b (f2 #t)))
 #                    (let ((c (f2 #f)))
 #                      (f2 #t))))
-#                (lambda (x2) ((lambda (z) (z x1 x2)) (lambda (y1 y2) y1))))))
+#                (lambda (x2) ((lambda (z) (z x1 x2)) (lambda (y1 y2) y1)))))) ; => #f
 
 true = {};
 false = 0;

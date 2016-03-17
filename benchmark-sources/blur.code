@@ -13,7 +13,7 @@
 #                    (let* ((r ((blur id) #t))
 #                           (s ((blur id) #f)))
 #                      (not ((blur lp) s (- n 1))))))))
-#   (lp #f 2))
+#   (lp #f 2)) ; => #t
 
 true = {};
 false = 0;
@@ -63,4 +63,4 @@ lpp = fun lppr -> (
 lp = lpp lpp;
 
 lpparams = {a = false, n = two};
-r = lp lpparams; # => true
+r = lp lpparams; # => {}
