@@ -23,16 +23,6 @@
 true = {};
 false = 0;
 
-not = fun notp -> (
-  notr = notp ~ {}
-              ? fun notm -> (
-                notmr = false;
-              )
-              : fun nota -> (
-                notar = true;
-              );
-);
-
 or2 = fun or2params -> (
   or2a = or2params.a;
   or2b = or2params.b;
@@ -47,31 +37,6 @@ or2 = fun or2params -> (
                            )
                            : fun or2ba -> (
                              or2bar = false;
-                           );
-             );
-);
-
-or3 = fun or3params -> (
-  or3a = or3params.a;
-  or3b = or3params.b;
-  or3c = or3params.c;
-  or3br = or3a ~ {}
-             ? fun or3am -> (
-               or3amr = true;
-             )
-             : fun or3aa -> (
-               or3aar = or3b ~ {}
-                           ? fun or3bm -> (
-                             or3bmr = true;
-                           )
-                           : fun or3ba -> (
-                             or3bar = or3c ~ {}
-                                         ? fun or3cm -> (
-                                           or3cmr = true;
-                                         )
-                                         : fun or3ca -> (
-                                           or3car = false;
-                                         );
                            );
              );
 );
@@ -100,8 +65,27 @@ phi = fun phiparams -> (
                notx3ar = true;
              );
 
-  or3x1notx2notx3params = {a = x1, b = notx2, c = notx3};
-  or3x1notx2notx3 = or3 or3x1notx2notx3params;
+  # or3x1notx2notx3params = {a = x1, b = notx2, c = notx3};
+  # or3x1notx2notx3 = or3 or3x1notx2notx3params;
+  or3x1notx2notx3 = x1 ~ {}
+             ? fun or3am -> (
+               or3amr = true;
+             )
+             : fun or3aa -> (
+               or3aar = notx2 ~ {}
+                           ? fun or3bm -> (
+                             or3bmr = true;
+                           )
+                           : fun or3ba -> (
+                             or3bar = notx3 ~ {}
+                                         ? fun or3cm -> (
+                                           or3cmr = true;
+                                         )
+                                         : fun or3ca -> (
+                                           or3car = false;
+                                         );
+                           );
+             );
 
   # notx22 = not x2;
   notx22 = x2 ~ {}
@@ -126,6 +110,7 @@ phi = fun phiparams -> (
   or2x4x2params = {a = x4, b = x2};
   or2x4x2 = or2 or2x4x2params;
 
+  # and3or3x1notx2notx3or2notx2notx3or2x4x2params = {a = or3x1notx2notx3, b = or2notx2notx3, c = or2x4x2};
   # and3or3x1notx2notx3or2notx2notx3or2x4x2 = and3 and3or3x1notx2notx3or2notx2notx3or2x4x2params;
   and3or3x1notx2notx3or2notx2notx3or2x4x2 = or3x1notx2notx3 ~ {}
                                                             ? fun and3am -> (
