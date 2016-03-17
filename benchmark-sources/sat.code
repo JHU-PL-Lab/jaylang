@@ -76,31 +76,6 @@ or3 = fun or3params -> (
              );
 );
 
-and3 = fun and3params -> (
-  and3a = and3params.a;
-  and3b = and3params.b;
-  and3c = and3params.c;
-  and3br = and3a ~ {}
-             ? fun and3am -> (
-               and3aar = and3b ~ {}
-                           ? fun and3bm -> (
-                             and3bmr = and3c ~ {}
-                                         ? fun and3cm -> (
-                                           and3cmr = true;
-                                         )
-                                         : fun and3ca -> (
-                                           and3car = false;
-                                         );
-                           )
-                           : fun and3ba -> (
-                             and3bar = false;
-                           );
-             )
-             : fun and3aa -> (
-               and3aar = false;
-             );
-);
-
 phi = fun phiparams -> (
   x1 = phiparams.x1;
   x2 = phiparams.x2;
@@ -150,8 +125,27 @@ phi = fun phiparams -> (
   or2notx2notx3 = or2 or2notx2notx3params;
   or2x4x2params = {a = x4, b = x2};
   or2x4x2 = or2 or2x4x2params;
-  and3or3x1notx2notx3or2notx2notx3or2x4x2params = {a = or3x1notx2notx3, b = or2notx2notx3, c = or2x4x2};
-  and3or3x1notx2notx3or2notx2notx3or2x4x2 = and3 and3or3x1notx2notx3or2notx2notx3or2x4x2params;
+
+  # and3or3x1notx2notx3or2notx2notx3or2x4x2 = and3 and3or3x1notx2notx3or2notx2notx3or2x4x2params;
+  and3or3x1notx2notx3or2notx2notx3or2x4x2 = or3x1notx2notx3 ~ {}
+                                                            ? fun and3am -> (
+                                                              and3aar = or2notx2notx3 ~ {}
+                                                                                      ? fun and3bm -> (
+                                                                                        and3bmr = or2x4x2 ~ {}
+                                                                                                          ? fun and3cm -> (
+                                                                                                            and3cmr = true;
+                                                                                                          )
+                                                                                                          : fun and3ca -> (
+                                                                                                            and3car = false;
+                                                                                                          );
+                                                                                      )
+                                                                                      : fun and3ba -> (
+                                                                                        and3bar = false;
+                                                                                      );
+                                                            )
+                                                            : fun and3aa -> (
+                                                              and3aar = false;
+                                                            );
 );
 
 try = fun f -> (
