@@ -13,32 +13,12 @@
 #                       (lp2 10 (lambda (n) (+ n i)) x))))))
 #   (lp1 10 0))
 
-ycombinator = fun ycombinatorf -> (
-  ycombinatorfx1 = fun ycombinatorx1 -> (
-    ycombinatorfv1 = fun ycombinatorv1 -> (
-      ycombinatorxx1 = ycombinatorx1 ycombinatorx1;
-      ycombinatorfv1r = ycombinatorxx1 ycombinatorv1;
-    );
-    ycombinatorfx1r = ycombinatorf ycombinatorfv1;
-  );
-
-  ycombinatorfx2 = fun ycombinatorx2 -> (
-    ycombinatorfv2 = fun ycombinatorv2 -> (
-      ycombinatorxx2 = ycombinatorx2 ycombinatorx2;
-      ycombinatorfv2r = ycombinatorxx2 ycombinatorv2;
-    );
-    ycombinatorfx2r = ycombinatorf ycombinatorfv2;
-  );
-
-  ycombinatorr = ycombinatorfx1 ycombinatorfx2;
-);
-
 zero = 0;
 one = 1;
 ten = 10;
 
-lp1p = fun lp1r -> (
-  lp1pr = fun lp1prparams -> (
+lp1p = fun lp1pr -> (
+  lp1prr = fun lp1prparams -> (
     i = lp1prparams.i;
     x = lp1prparams.x;
     izero = zero == i;
@@ -47,8 +27,8 @@ lp1p = fun lp1r -> (
            izeromr = x;
          )
          : fun izeroa -> (
-           lp2p = fun lp2r -> (
-             lp2pr = fun lp2prparams -> (
+           lp2p = fun lp2pr -> (
+             lp2prr = fun lp2prparams -> (
                j = lp2prparams.j;
                f = lp2prparams.f;
                y = lp2prparams.y;
@@ -57,17 +37,19 @@ lp1p = fun lp1r -> (
                           ? fun yrm -> (
                             i1 = i - one;
                             lp1rparams = {i = i1, x = y};
+                            lp1r = lp1pr lp1pr;
                             yrmr = lp1r lp1rparams;
                           )
                           : fun yra -> (
                             j1 = j - one;
                             fy = f y;
                             lp2rparams = {j = j1, f = f, y = fy};
+                            lp2r = lp2pr lp2pr;
                             yrar = lp2r lp2rparams;
                           );
              );
            );
-           lp2 = ycombinator lp2p;
+           lp2 = lp2p lp2p;
            fn = fun n -> (
              ni = n + i;
            );
@@ -77,7 +59,7 @@ lp1p = fun lp1r -> (
   );
 );
 
-lp1 = ycombinator lp1p;
+lp1 = lp1p lp1p;
 
 lp1params = {i = ten, x = zero};
 r = lp1 lp1params; # => 550

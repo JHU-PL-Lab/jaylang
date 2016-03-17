@@ -26,26 +26,6 @@
 #
 # (cpstak 32 15 8)
 
-ycombinator = fun ycombinatorf -> (
-  ycombinatorfx1 = fun ycombinatorx1 -> (
-    ycombinatorfv1 = fun ycombinatorv1 -> (
-      ycombinatorxx1 = ycombinatorx1 ycombinatorx1;
-      ycombinatorfv1r = ycombinatorxx1 ycombinatorv1;
-    );
-    ycombinatorfx1r = ycombinatorf ycombinatorfv1;
-  );
-
-  ycombinatorfx2 = fun ycombinatorx2 -> (
-    ycombinatorfv2 = fun ycombinatorv2 -> (
-      ycombinatorxx2 = ycombinatorx2 ycombinatorx2;
-      ycombinatorfv2r = ycombinatorxx2 ycombinatorv2;
-    );
-    ycombinatorfx2r = ycombinatorf ycombinatorfv2;
-  );
-
-  ycombinatorr = ycombinatorfx1 ycombinatorfx2;
-);
-
 true = {};
 false = 0;
 
@@ -69,8 +49,8 @@ cpstak = fun cpstakparams -> (
   cpstaky = cpstakparams.y;
   cpstakz = cpstakparams.z;
 
-  takp = fun takr -> (
-    takpr = fun takprparams -> (
+  takp = fun takpr -> (
+    takprr = fun takprparams -> (
       x = takprparams.x;
       y = takprparams.y;
       z = takprparams.z;
@@ -78,6 +58,7 @@ cpstak = fun cpstakparams -> (
 
       yx = y < x;
       notyx = not yx;
+      takr = takpr takpr;
       kr = notyx ~ {}
                  ? fun notyxm -> (
                    notyxmr = k z;
@@ -104,7 +85,7 @@ cpstak = fun cpstakparams -> (
     );
   );
   
-  tak = ycombinator takp;
+  tak = takp takp;
   
   takid = fun a -> (
     takidr = a;

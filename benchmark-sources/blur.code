@@ -15,26 +15,6 @@
 #                      (not ((blur lp) s (- n 1))))))))
 #   (lp #f 2))
 
-ycombinator = fun ycombinatorf -> (
-  ycombinatorfx1 = fun ycombinatorx1 -> (
-    ycombinatorfv1 = fun ycombinatorv1 -> (
-      ycombinatorxx1 = ycombinatorx1 ycombinatorx1;
-      ycombinatorfv1r = ycombinatorxx1 ycombinatorv1;
-    );
-    ycombinatorfx1r = ycombinatorf ycombinatorfv1;
-  );
-
-  ycombinatorfx2 = fun ycombinatorx2 -> (
-    ycombinatorfv2 = fun ycombinatorv2 -> (
-      ycombinatorxx2 = ycombinatorx2 ycombinatorx2;
-      ycombinatorfv2r = ycombinatorxx2 ycombinatorv2;
-    );
-    ycombinatorfx2r = ycombinatorf ycombinatorfv2;
-  );
-
-  ycombinatorr = ycombinatorfx1 ycombinatorfx2;
-);
-
 true = {};
 false = 0;
 
@@ -59,8 +39,8 @@ blur = fun y -> (
   blurr = y;
 );
 
-lpp = fun lpr -> (
-  lppr = fun lpprparams -> (
+lpp = fun lppr -> (
+  lpprr = fun lpprparams -> (
     a = lpprparams.a;
     n = lpprparams.n;
     nl = n <= one;
@@ -73,6 +53,7 @@ lpp = fun lpr -> (
               r = rf true;
               sf = blur id;
               s = sf false;
+              lpr = lppr lppr;
               blurlp = blur lpr;
               n1 = n - one;
               blurlpsn1params = {a = s, n = n1};
@@ -82,7 +63,7 @@ lpp = fun lpr -> (
   );
 );
 
-lp = ycombinator lpp;
+lp = lpp lpp;
 
 lpparams = {a = false, n = two};
 r = lp lpparams;
