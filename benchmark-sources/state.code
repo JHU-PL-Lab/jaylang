@@ -1,0 +1,47 @@
+# EXPECT-WELL-FORMED
+# EXPECT-ANALYSIS-STACK-IS 1ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {int}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+# let f = fun z ->
+#   z := -3
+# in
+# let rec g = fun x ->
+#   let y = ref x in
+#   f y;
+#   if x < 10 then ignore (g (x + 1));
+#   !y
+# in
+# g 0 (* => -3 *)
+
+zero = 0;
+one = 1;
+three = 3;
+minusthree = zero - three;
+ten = 10;
+
+f = fun z -> (
+  fr = z <- minusthree;
+);
+
+gp = fun gpr -> (
+  gprr = fun x -> (
+    y = ref x;
+    fy = f y;
+    x10 = x < ten;
+    if = x ~ {}
+           ? fun xm -> (
+             x1 = x + one;
+             gr = gpr gpr;
+             xmr = gr x1;
+           )
+           : fun xa -> (
+             noop = {};
+           );
+    gr = !y;
+  );
+);
+
+g = gp gp;
+
+r = g zero; # => -3
