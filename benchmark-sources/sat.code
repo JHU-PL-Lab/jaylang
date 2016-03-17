@@ -137,13 +137,13 @@ phi = fun phiparams -> (
                notx22ar = true;
              );
 
-  # notx33 = not x3;
-  notx33 = x3 ~ {}
-             ? fun notx33m -> (
-               notx33mr = false;
+  # notx32 = not x3;
+  notx32 = x3 ~ {}
+             ? fun notx32m -> (
+               notx32mr = false;
              )
-             : fun notx33a -> (
-               notx33ar = true;
+             : fun notx32a -> (
+               notx32ar = true;
              );
 
   or2notx2notx3params = {a = notx22, b = notx32};
