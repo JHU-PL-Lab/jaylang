@@ -63,4 +63,4 @@ lpp = fun lppr -> (
 lp = lpp lpp;
 
 lpparams = {a = false, n = two};
-r = lp lpparams;
+r = lp lpparams; # => true

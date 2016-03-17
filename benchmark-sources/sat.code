@@ -180,4 +180,4 @@ satsolve4 = fun p -> (
   tryfn1 = try fn1;
 );
 
-r = satsolve4 phi;
+r = satsolve4 phi; # => true
