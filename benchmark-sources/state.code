@@ -3,6 +3,8 @@
 # EXPECT-ANALYSIS-LOOKUP-FROM-END r {int}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
+# Reference: Single and loving it: must-alias analysis for higher-order languages, page 330.
+#
 # let f = fun z ->
 #   z := -3
 # in
