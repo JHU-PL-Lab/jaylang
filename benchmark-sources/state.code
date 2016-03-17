@@ -1,41 +1,86 @@
 # EXPECT-WELL-FORMED
 # EXPECT-ANALYSIS-STACK-IS 1ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END r {int}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {{}}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 # Reference: Single and loving it: must-alias analysis for higher-order languages, page 330.
 #
-# let f = fun z ->
-#   z := -3
-# in
-# let rec g = fun x ->
-#   let y = ref x in
-#   f y;
-#   if x < 10 then ignore (g (x + 1));
-#   !y
-# in
-# g 0 (* => -3 *)
+# Original snippet translated to OCaml:
+#
+#     let f = fun z ->
+#       z := -3
+#     in
+#     let rec g = fun x ->
+#       let y = ref x in
+#       f y;
+#       if x < 10 then ignore (g (x + 1));
+#       !y
+#     in
+#     g 0 (* => -3 *)
+#
+# Odefa version of that snippet:
+#
+#     zero = 0;
+#     one = 1;
+#     three = 3;
+#     minusthree = zero - three;
+#     ten = 10;
+#
+#     f = fun z -> (
+#       fr = z <- minusthree;
+#     );
+#
+#     gp = fun gpr -> (
+#       gprr = fun x -> (
+#         y = ref x;
+#         fy = f y;
+#         x10 = x < ten;
+#         if = x10 ~ {}
+#                ? fun xm -> (
+#                  x1 = x + one;
+#                  gr = gpr gpr;
+#                  xmr = gr x1;
+#                )
+#                : fun xa -> (
+#                  noop = {};
+#                );
+#         gr = !y;
+#       );
+#     );
+#
+#     g = gp gp;
+#
+#     r = g zero; # => -3
+#
+# Our system doesn't have distinct abstract values for distinct numbers.
+# OCaml version of an adapted test that makes sense for our system:
+#
+#     let f = fun z ->
+#       z := true
+#     in
+#     let rec g = fun x ->
+#       let y = ref x in
+#       f y;
+#       if x then ignore (g true);
+#       !y
+#     in
+#     g false (* => true *)
 
-zero = 0;
-one = 1;
-three = 3;
-minusthree = zero - three;
-ten = 10;
+true = {};
+false = 0;
 
 f = fun z -> (
-  fr = z <- minusthree;
+  fr = z <- true;
 );
 
 gp = fun gpr -> (
   gprr = fun x -> (
     y = ref x;
     fy = f y;
-    x10 = x < ten;
     if = x ~ {}
            ? fun xm -> (
-             x1 = x + one;
              gr = gpr gpr;
-             xmr = gr x1;
+             xmr = gr true;
            )
            : fun xa -> (
              noop = {};
@@ -46,4 +91,4 @@ gp = fun gpr -> (
 
 g = gp gp;
 
-r = g zero; # => -3
+r = g false; # => {}
