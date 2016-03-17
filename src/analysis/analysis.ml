@@ -1245,9 +1245,8 @@ struct
         return [ Push (Continuation_value(Abs_filtered_value(
                           Abs_value_int,Pattern_set.empty,Pattern_set.empty))) ]
       | Integer_binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
-        let%orzero Lookup_var(x1',patsp,_) = element in
+        let%orzero Lookup_var(x1',_,_) = element in
         [%guard (equal_var x1 x1') ];
-        [%guard (Pattern_set.is_empty patsp) ];
         (* The lists below are in reverse order of their presentation in the
            formal rules because we are not directly modifying the stack;
            instead, we are pushing stack elements one at a time. *)
@@ -1285,9 +1284,8 @@ struct
         return [ Pop_dynamic_targeted(
                     Integer_binary_operator_resolution_4_of_4(x1,op)) ]
       | Integer_binary_operator_resolution_4_of_4(x1,op) ->
-        let%orzero Lookup_var(x1',patsp,_) = element in
+        let%orzero Lookup_var(x1',patsp,patsn) = element in
         [%guard (equal_var x1 x1') ];
-        [%guard (Pattern_set.is_empty patsp) ];
         let outcomes =
           match op with
           | Binary_operator_int_plus
@@ -1295,7 +1293,22 @@ struct
           | Binary_operator_int_less_than
           | Binary_operator_int_less_than_or_equal_to
           | Binary_operator_int_equal_to ->
-            [Abs_value_int; Abs_value_record(Record_value(Ident_map.empty))]
+            let positive_filters_have_only_empty_record =
+              Pattern_set.subset patsp @@
+                Pattern_set.singleton (Record_pattern Ident_map.empty)
+            in
+            let negative_filters_have_no_empty_record =
+              not @@ Pattern_set.mem (Record_pattern Ident_map.empty) patsn
+            in
+            let empty_record_passes_filters =
+              positive_filters_have_only_empty_record &&
+              negative_filters_have_no_empty_record
+            in
+            if empty_record_passes_filters
+            then [ Abs_value_int
+                 ; Abs_value_record(Record_value(Ident_map.empty))
+                 ]
+            else [ Abs_value_int ]
         in
         let%bind v = pick_enum @@ List.enum outcomes in
         return [ Push (Continuation_value(Abs_filtered_value(
