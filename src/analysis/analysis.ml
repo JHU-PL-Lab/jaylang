@@ -178,6 +178,7 @@ struct
     | Side_effect_search_escape of var
     | Side_effect_lookup_var of
         var * Pattern_set.t * Pattern_set.t * annotated_clause * C.t
+    | Binary_operation
     [@@deriving ord]
   ;;
 
@@ -212,6 +213,7 @@ struct
       Printf.sprintf "Side_effect_lookup_var(%s,%s,%s,%s,%s)"
         (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
         (pp_annotated_clause acl) (C.pp ctx)
+    | Binary_operation -> "Binary_operation"
   ;;
 
   let ppa_pds_continuation = function
@@ -243,6 +245,7 @@ struct
       Printf.sprintf "SEVar(%s,%s,%s,%s,%s)"
         (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
         (pp_annotated_clause acl) (C.pp ctx)
+    | Binary_operation -> "BinOp"
   ;;
 
   type pds_state =
@@ -504,6 +507,29 @@ struct
     | Side_effect_search_escape_completion_4_of_4 of var
       (** Represents the completion of a side-effect search escape.  The given
           variable is the one to which the aliased cell is being assigned. *)
+    | Integer_filter_validation of var
+      (** Represents the discovery of an integer value if the current lookup
+          variable is the one indicated. *)
+    | Integer_binary_operator_lookup_init of
+        var * var * var * annotated_clause * C.t * annotated_clause * C.t
+      (** Represents the kickstart of a process which looks up values for a
+          binary operation on integers.  The first variable above must be the
+          current target of lookup.  The next two variables are the operands
+          of the operation.  The remaining two pairs of values represent the
+          source and target states of the DDPA edge. *)
+    | Integer_binary_operator_resolution_1_of_4 of var * binary_operator
+      (** Represents the start of the resolution of a binary operator after its
+          operands have been found.  The variable here is the one under
+          lookup. *)
+    | Integer_binary_operator_resolution_2_of_4 of var * binary_operator
+      (** The second step of integer binary operator resolution.  This step
+          collects the first operand. *)
+    | Integer_binary_operator_resolution_3_of_4 of var * binary_operator
+      (** The third step of integer binary operator resolution.  This step
+          collects the second operand. *)
+    | Integer_binary_operator_resolution_4_of_4 of var * binary_operator
+      (** The third step of integer binary operator resolution.  This step
+          collects and checks the lookup variable. *)
     [@@deriving ord]
   ;;
   
@@ -638,6 +664,25 @@ struct
     | Side_effect_search_escape_completion_4_of_4 x ->
       Printf.sprintf "Side_effect_search_escape_completion_4_of_4(%s)"
         (pp_var x)
+    | Integer_filter_validation x ->
+      Printf.sprintf "Integer_filter_validation(%s)" (pp_var x)
+    | Integer_binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
+      Printf.sprintf "Integer_binary_operator_lookup_init(%s,%s,%s,%s,%s,%s,%s)"
+        (pp_var x1) (pp_var x2) (pp_var x3)
+        (pp_annotated_clause acl1) (C.pp ctx1)
+        (pp_annotated_clause acl0) (C.pp ctx0)
+    | Integer_binary_operator_resolution_1_of_4(x1,op) ->
+      Printf.sprintf "Integer_binary_operator_resolution_1_of_4(%s,%s)"
+        (pp_var x1) (pp_binary_operator op)
+    | Integer_binary_operator_resolution_2_of_4(x1,op) ->
+      Printf.sprintf "Integer_binary_operator_resolution_2_of_4(%s,%s)"
+        (pp_var x1) (pp_binary_operator op)
+    | Integer_binary_operator_resolution_3_of_4(x1,op) ->
+      Printf.sprintf "Integer_binary_operator_resolution_3_of_4(%s,%s)"
+        (pp_var x1) (pp_binary_operator op)
+    | Integer_binary_operator_resolution_4_of_4(x1,op) ->
+      Printf.sprintf "Integer_binary_operator_resolution_4_of_4(%s,%s)"
+        (pp_var x1) (pp_binary_operator op)
   ;;
 
   let ppa_pds_targeted_dynamic_pop_action action =
@@ -757,6 +802,21 @@ struct
       Printf.sprintf "SESEC3(%s)" (pp_var x)
     | Side_effect_search_escape_completion_4_of_4 x ->
       Printf.sprintf "SESEC4(%s)" (pp_var x)
+    | Integer_filter_validation x ->
+      Printf.sprintf "IntFV(%s)" (pp_var x)
+    | Integer_binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
+      Printf.sprintf "IntBinOpInit(%s,%s,%s,%s,%s,%s,%s)"
+        (pp_var x1) (pp_var x2) (pp_var x3)
+        (ppa_annotated_clause acl1) (C.pp ctx1)
+        (ppa_annotated_clause acl0) (C.pp ctx0)
+    | Integer_binary_operator_resolution_1_of_4(x1,op) ->
+      Printf.sprintf "IntBinOpRes1(%s,%s)" (pp_var x1) (pp_binary_operator op)
+    | Integer_binary_operator_resolution_2_of_4(x1,op) ->
+      Printf.sprintf "IntBinOpRes2(%s,%s)" (pp_var x1) (pp_binary_operator op)
+    | Integer_binary_operator_resolution_3_of_4(x1,op) ->
+      Printf.sprintf "IntBinOpRes3(%s,%s)" (pp_var x1) (pp_binary_operator op)
+    | Integer_binary_operator_resolution_4_of_4(x1,op) ->
+      Printf.sprintf "IntBinOpRes4(%s,%s)" (pp_var x1) (pp_binary_operator op)
   ;;
 
   type pds_untargeted_dynamic_pop_action =
@@ -1035,12 +1095,12 @@ struct
            instead, we are pushing stack elements one at a time. *)
         let capture_size_5 = make_bounded_capture_size 5 in
         let capture_size_2 = make_bounded_capture_size 2 in
-        let k0 = [ element ; Lookup_var(x,patsp0,patsn0) ] in
         let k1'' = [ Capture capture_size_5 ; Lookup_var(x,patsp0,patsn0) ] in
         let k2'' = [ Capture capture_size_2
                    ; Lookup_var(x',Pattern_set.empty,Pattern_set.empty)
                    ; Jump(acl1, ctx1) ] in
         let k3'' = [ Alias_huh ; Jump(acl0,ctx0) ] in
+        let k0 = [ element ; Lookup_var(x,patsp0,patsn0) ] in
         return @@ List.map (fun x -> Push x) @@
           k0 @ k3'' @ k2'' @ k1''
       | Alias_analysis_resolution_1_of_5(x'') ->
@@ -1178,7 +1238,70 @@ struct
       | Side_effect_search_escape_completion_4_of_4 x ->
         let%orzero Deref(patsp,patsn) = element in
         return [ Push (Lookup_var(x,patsp,patsn)) ]
+      | Integer_filter_validation x ->
+        let%orzero Lookup_var(x0,patsp,_) = element in
+        [%guard (equal_var x x0) ];
+        [%guard (Pattern_set.is_empty patsp) ];
+        return [ Push (Continuation_value(Abs_filtered_value(
+                          Abs_value_int,Pattern_set.empty,Pattern_set.empty))) ]
+      | Integer_binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
+        let%orzero Lookup_var(x1',patsp,_) = element in
+        [%guard (equal_var x1 x1') ];
+        [%guard (Pattern_set.is_empty patsp) ];
+        (* The lists below are in reverse order of their presentation in the
+           formal rules because we are not directly modifying the stack;
+           instead, we are pushing stack elements one at a time. *)
+        let capture_size_5 = make_bounded_capture_size 5 in
+        let capture_size_2 = make_bounded_capture_size 2 in
+        let k1'' = [ Capture capture_size_5
+                   ; Lookup_var(x2,Pattern_set.empty,Pattern_set.empty)
+                   ] in
+        let k2'' = [ Capture capture_size_2
+                   ; Lookup_var(x3,Pattern_set.empty,Pattern_set.empty)
+                   ; Jump(acl1, ctx1) ] in
+        let k3'' = [ Binary_operation ; Jump(acl0,ctx0) ] in
+        let k0 = [ element ] in
+        return @@ List.map (fun x -> Push x) @@ k0 @ k3'' @ k2'' @ k1''
+      | Integer_binary_operator_resolution_1_of_4(x1,op) ->
+        let%orzero Binary_operation = element in
+        return [ Pop_dynamic_targeted(
+                    Integer_binary_operator_resolution_2_of_4(x1,op)) ]
+      | Integer_binary_operator_resolution_2_of_4(x1,op) ->
+        let%orzero
+          Continuation_value(Abs_filtered_value(Abs_value_int,patsp,patsn)) =
+            element
+        in
+        [%guard (Pattern_set.is_empty patsp) ];
+        [%guard (Pattern_set.is_empty patsn) ];
+        return [ Pop_dynamic_targeted(
+                    Integer_binary_operator_resolution_3_of_4(x1,op)) ]
+      | Integer_binary_operator_resolution_3_of_4(x1,op) ->
+        let%orzero
+          Continuation_value(Abs_filtered_value(Abs_value_int,patsp,patsn)) =
+            element
+        in
+        [%guard (Pattern_set.is_empty patsp) ];
+        [%guard (Pattern_set.is_empty patsn) ];
+        return [ Pop_dynamic_targeted(
+                    Integer_binary_operator_resolution_4_of_4(x1,op)) ]
+      | Integer_binary_operator_resolution_4_of_4(x1,op) ->
+        let%orzero Lookup_var(x1',patsp,_) = element in
+        [%guard (equal_var x1 x1') ];
+        [%guard (Pattern_set.is_empty patsp) ];
+        let outcomes =
+          match op with
+          | Binary_operator_int_plus
+          | Binary_operator_int_minus -> [Abs_value_int]
+          | Binary_operator_int_less_than
+          | Binary_operator_int_less_than_or_equal_to
+          | Binary_operator_int_equal_to ->
+            [Abs_value_int; Abs_value_record(Record_value(Ident_map.empty))]
+        in
+        let%bind v = pick_enum @@ List.enum outcomes in
+        return [ Push (Continuation_value(Abs_filtered_value(
+                          v,Pattern_set.empty,Pattern_set.empty))) ]
     ;;
+      
     let perform_untargeted_dynamic_pop element action =
       Nondeterminism_monad.enum @@
       let open Nondeterminism_monad in
@@ -1603,6 +1726,40 @@ struct
               begin
                 return ( Side_effect_search_escape_completion_1_of_4
                        , Program_point_state(acl0,ctx) )
+              end
+            ; (* 11a. Integer filter validation *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(x,
+                            Abs_value_body Abs_value_int))) = acl1
+                in
+                (* x = int *)
+                return ( Integer_filter_validation(x)
+                       , Program_point_state(acl1,ctx)
+                       )
+              end
+            ; (* 11b. Integer binary operation operand lookup *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(x1,
+                            Abs_binary_operation_body(x2,_,x3)))) = acl1
+                in
+                (* x1 = x2 op x3 *)
+                return ( Integer_binary_operator_lookup_init(
+                            x1,x2,x3,acl1,ctx,acl0,ctx)
+                       , Program_point_state(acl1,ctx)
+                       )
+              end
+            ; (* 11c,11d,11e. Integer binary operator resolution *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(x1,
+                            Abs_binary_operation_body(_,op,_)))) = acl1
+                in
+                (* x1 = x2 op x3 *)
+                return ( Integer_binary_operator_resolution_1_of_4(x1,op)
+                       , Program_point_state(acl0,ctx)
+                       )
               end
             ]
           in
