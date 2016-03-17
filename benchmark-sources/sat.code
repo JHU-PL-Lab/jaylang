@@ -106,13 +106,46 @@ phi = fun phiparams -> (
   x2 = phiparams.x2;
   x3 = phiparams.x3;
   x4 = phiparams.x4;
-  notx2 = not x2;
-  notx3 = not x3;
+
+  # notx2 = not x2;
+  notx2 = x2 ~ {}
+             ? fun notx2m -> (
+               notx2mr = false;
+             )
+             : fun notx2a -> (
+               notx2ar = true;
+             );
+
+  # notx3 = not x3;
+  notx3 = x3 ~ {}
+             ? fun notx3m -> (
+               notx3mr = false;
+             )
+             : fun notx3a -> (
+               notx3ar = true;
+             );
 
   or3x1notx2notx3params = {a = x1, b = notx2, c = notx3};
   or3x1notx2notx3 = or3 or3x1notx2notx3params;
-  notx22 = not x2;
-  notx32 = not x3;
+
+  # notx22 = not x2;
+  notx22 = x2 ~ {}
+             ? fun notx22m -> (
+               notx22mr = false;
+             )
+             : fun notx22a -> (
+               notx22ar = true;
+             );
+
+  # notx33 = not x3;
+  notx33 = x3 ~ {}
+             ? fun notx33m -> (
+               notx33mr = false;
+             )
+             : fun notx33a -> (
+               notx33ar = true;
+             );
+
   or2notx2notx3params = {a = notx22, b = notx32};
   or2notx2notx3 = or2 or2notx2notx3params;
   or2x4x2params = {a = x4, b = x2};
