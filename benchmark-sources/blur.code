@@ -18,15 +18,17 @@
 true = {};
 false = 0;
 
-not = fun notp -> (
-  notr = notp ~ {}
-              ? fun notm -> (
-                notmr = false;
-              )
-              : fun nota -> (
-                notar = true;
-              );
-);
+# Inlined.
+#
+# not = fun notp -> (
+#   notr = notp ~ {}
+#               ? fun notm -> (
+#                 notmr = false;
+#               )
+#               : fun nota -> (
+#                 notar = true;
+#               );
+# );
 
 one = 1;
 two = 2;
@@ -58,7 +60,13 @@ lpp = fun lppr -> (
               n1 = n - one;
               blurlpsn1params = {a = s, n = n1};
               blurlpsn1 = blurlp blurlpsn1params;
-              nlar = not blurlpsn1;
+              nlar = blurlpsn1 ~ {}
+                               ? fun notm -> (
+                                 notmr = false;
+                               )
+                               : fun nota -> (
+                                 notar = true;
+                               );
             );
   );
 );
