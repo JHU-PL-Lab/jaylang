@@ -1989,10 +1989,10 @@ struct
   let perform_closure_steps analysis =
     begin
       match analysis.ddpa_logging_data with
-      | None -> logger `trace "Performing closure step"
-      | Some data -> logger `trace
+      | None -> lazy_logger `trace (fun () -> "Performing closure step")
+      | Some data -> lazy_logger `trace (fun () ->
           (Printf.sprintf "Performing closure step %d"
-            (data.ddpa_closure_steps+1));
+            (data.ddpa_closure_steps+1)));
     end;
     (* We need to do work on each of the active, non-immediate nodes.  This
        process includes variable lookups, which may result in additional work
@@ -2082,8 +2082,8 @@ struct
     begin
       match result.ddpa_logging_data with
       | None -> logger `trace "Completed closure step"
-      | Some data -> logger `trace
-          (Printf.sprintf "Completed closure step %d"
+      | Some data -> lazy_logger `trace
+          (fun () -> Printf.sprintf "Completed closure step %d"
             (data.ddpa_closure_steps));
     end;
     log_ddpa_graph Ddpa_graph_logger.Ddpa_log_all analysis

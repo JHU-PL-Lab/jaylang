@@ -7,6 +7,7 @@
 /_build
 /configure
 /*.byte
+/*.native
 /setup.*
 
 # Execution temp files

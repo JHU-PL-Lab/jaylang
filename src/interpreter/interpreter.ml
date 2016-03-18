@@ -3,7 +3,7 @@ open Batteries;;
 open Ast;;
 open Ast_pp;;
 
-let logger = Logger_utils.make_logger "Interpreter";;
+let lazy_logger = Logger_utils.make_lazy_logger "Interpreter";;
 
 module Environment = Var_hashtbl;;
 
@@ -130,7 +130,7 @@ let rec matches env x p =
 ;;
 
 let rec evaluate env lastvar cls =
-  logger `debug (
+  lazy_logger `debug (fun () ->
     pp_env env ^ "\n" ^
     (Option.default "?" (Option.map pp_var lastvar)) ^ "\n" ^
     (cls
