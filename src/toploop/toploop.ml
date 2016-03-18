@@ -16,6 +16,7 @@ type toploop_configuration =
   ; topconf_pdr_log_level :
       Pds_reachability_logger_utils.pds_reachability_logger_level option
   ; topconf_analyze_vars : (ident -> bool)
+  ; topconf_disable_evaluation : bool
   }
 ;;
 
@@ -122,8 +123,13 @@ let toploop_operate conf e =
             end
       in
       toploop_action (fun () ->
-          let v, env = eval e in
-          print_string (pp_var v ^ " where " ^ pp_env env ^ "\n")
+          if conf.topconf_disable_evaluation
+          then print_string "Evaluation disabled"
+          else
+            begin
+              let v, env = eval e in
+              print_string (pp_var v ^ " where " ^ pp_env env ^ "\n")
+            end
         )
     with
     | Illformedness_found(ills) ->
@@ -160,6 +166,10 @@ let command_line_parsing () =
   BatOptParse.OptParser.add parser ~long_name:"analyze-variables"
     analyze_variables_option;
   
+  (* Add control over whether evaluation actually occurs. *)
+  BatOptParse.OptParser.add parser ~long_name:"disable-evaluation"
+    ~short_name:'E' disable_evaluation_option;
+  
   (* Handle arguments. *)
   let spare_args = BatOptParse.OptParser.parse_argv parser in
   match spare_args with
@@ -171,6 +181,8 @@ let command_line_parsing () =
     ; topconf_pdr_log_level = pdr_logging_option.BatOptParse.Opt.option_get ()
     ; topconf_analyze_vars = Option.get @@
         analyze_variables_option.BatOptParse.Opt.option_get ()
+    ; topconf_disable_evaluation = Option.get @@
+        disable_evaluation_option.BatOptParse.Opt.option_get ()
     }
   | _ -> failwith "Unexpected command-line arguments."
 ;;
