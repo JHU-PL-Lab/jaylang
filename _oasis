@@ -197,6 +197,7 @@ Test test
 Executable "benchmark"
   Path: benchmark/
   MainIs: benchmark.ml
+  CompiledObject: native
   BuildDepends:
     utils,
     pds-reachability,
