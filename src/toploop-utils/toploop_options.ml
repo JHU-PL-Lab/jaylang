@@ -194,3 +194,6 @@ let disable_evaluation_option =
   BatOptParse.StdOpt.store_true ()
 ;;
   
+let disable_inconsistency_check_option =
+  BatOptParse.StdOpt.store_true ()
+;;

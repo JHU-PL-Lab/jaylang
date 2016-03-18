@@ -8,6 +8,7 @@ open Interpreter;;
 open Toploop_options;;
 
 let logger = Logger_utils.make_logger "Toploop";;
+let lazy_logger = Logger_utils.make_lazy_logger "Toploop";;
 
 type toploop_configuration =
   { topconf_context_stack : (module Analysis_context_stack.Context_stack) option
@@ -17,6 +18,7 @@ type toploop_configuration =
       Pds_reachability_logger_utils.pds_reachability_logger_level option
   ; topconf_analyze_vars : (ident -> bool)
   ; topconf_disable_evaluation : bool
+  ; topconf_disable_inconsistency_check : bool
   }
 ;;
 
@@ -77,7 +79,11 @@ let toploop_operate conf e =
             TLA.create_analysis ~logging_prefix: (Some "_toploop") e
           in
           (* Determine if it is consistent. *)
-          let inconsistencies = TLA.check_inconsistencies analysis in
+          let inconsistencies =
+            if conf.topconf_disable_inconsistency_check
+            then Enum.empty ()
+            else TLA.check_inconsistencies analysis
+          in
           (* If there are inconsistencies, report them. *)
           if not @@ Enum.is_empty inconsistencies
           then
@@ -116,8 +122,9 @@ let toploop_operate conf e =
                   pp_ident_map pp_abs_filtered_value_set variable_values
               end;
               (* Dump the analysis to debugging. *)
-              logger `trace
-                (Printf.sprintf "DDPA analysis: %s" (TLA.pp_analysis analysis));
+              lazy_logger `trace
+                (fun () -> Printf.sprintf "DDPA analysis: %s"
+                              (TLA.pp_analysis analysis));
               (* Now run the actual program. *)
               evaluation_step ()
             end
@@ -170,6 +177,10 @@ let command_line_parsing () =
   BatOptParse.OptParser.add parser ~long_name:"disable-evaluation"
     ~short_name:'E' disable_evaluation_option;
   
+  (* Add control over whether evaluation actually occurs. *)
+  BatOptParse.OptParser.add parser ~long_name:"disable-inconsistency-check"
+    ~short_name:'I' disable_inconsistency_check_option;
+  
   (* Handle arguments. *)
   let spare_args = BatOptParse.OptParser.parse_argv parser in
   match spare_args with
@@ -183,6 +194,8 @@ let command_line_parsing () =
         analyze_variables_option.BatOptParse.Opt.option_get ()
     ; topconf_disable_evaluation = Option.get @@
         disable_evaluation_option.BatOptParse.Opt.option_get ()
+    ; topconf_disable_inconsistency_check = Option.get @@
+        disable_inconsistency_check_option.BatOptParse.Opt.option_get ()
     }
   | _ -> failwith "Unexpected command-line arguments."
 ;;
