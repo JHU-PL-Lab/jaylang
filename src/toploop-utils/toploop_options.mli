@@ -22,3 +22,7 @@ val pdr_logging_option :
     variables will be analyzed. *)
 val analyze_variables_option :
   (Ast.ident -> bool) BatOptParse.Opt.t
+
+(** This option disables the execution of the provided expressions (and simply
+    performs the specified analysis. *)
+val disable_evaluation_option : bool BatOptParse.Opt.t

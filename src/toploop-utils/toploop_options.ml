@@ -189,3 +189,8 @@ let analyze_variables_option =
     ;
   }
 ;;
+
+let disable_evaluation_option =
+  BatOptParse.StdOpt.store_true ()
+;;
+  
