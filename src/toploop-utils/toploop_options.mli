@@ -26,3 +26,6 @@ val analyze_variables_option :
 (** This option disables the execution of the provided expressions (and simply
     performs the specified analysis. *)
 val disable_evaluation_option : bool BatOptParse.Opt.t
+
+(** This option disables the inconsistency check performed by the analysis. *)
+val disable_inconsistency_check_option : bool BatOptParse.Opt.t
