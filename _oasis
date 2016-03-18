@@ -154,6 +154,7 @@ Library "toploop-utils"
 Executable "toploop"
   Path: src/toploop
   MainIs: toploop.ml
+  CompiledObject: native
   BuildDepends:
     ast,
     analysis,
@@ -165,6 +166,7 @@ Executable "toploop"
 Executable "nested-toploop"
   Path: src/nested-toploop
   MainIs: nested_toploop.ml
+  CompiledObject: native
   BuildDepends:
     a-translator,
     ast,
@@ -177,6 +179,7 @@ Executable "nested-toploop"
 Executable "test"
   Path: test/
   MainIs: test.ml
+  CompiledObject: native
   BuildDepends:
     utils,
     pds-reachability,
