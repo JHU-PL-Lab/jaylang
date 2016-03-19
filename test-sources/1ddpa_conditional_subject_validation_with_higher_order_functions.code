@@ -1,0 +1,23 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 1ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END nopr {int}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+zero = 0;
+f = fun g -> (
+        nop0f = {};
+        gresult = g zero;
+        nop1f = gresult;
+        fret = gresult ~ {} ? fun gresultT -> (gresultTret = 0)
+                            : fun gresultF -> (gresultFret = {});
+        nop2f = fret;
+    );
+h1 = fun h1param -> ( h1ret = h1param );
+h2 = fun h2param -> (
+        nop0h2 = {};
+        h2ret = f h1;
+        nop1h2 = h2ret;
+    );
+z = f h2;
+nopr = z;
