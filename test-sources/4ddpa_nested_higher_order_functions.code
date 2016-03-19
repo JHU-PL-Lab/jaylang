@@ -1,0 +1,32 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 1ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {int}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+# let f g x =
+#   g x
+# in
+# let foo y =
+#   let h1 x = x in
+#   let h2 x = f h1 x in
+#   f h2 y
+# in
+# foo 0
+
+f = fun fparams -> (
+        g = fparams.g;
+        x = fparams.x;
+        fret = g x;
+    );
+foo = fun fooparam -> (
+        h1 = fun h1param -> ( h1ret = h1param );
+        h2 = fun h2param -> (
+                h2fparams = { g = h1 , x = h2param };
+                h2ret = f h2fparams;
+            );
+        fooh2params = { g = h2 , x = fooparam };
+        fooret = f fooh2params;
+    );
+zero = 0;
+r = foo zero;
