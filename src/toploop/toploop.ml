@@ -10,13 +10,15 @@ open Toploop_options;;
 let logger = Logger_utils.make_logger "Toploop";;
 let lazy_logger = Logger_utils.make_lazy_logger "Toploop";;
 
+exception Invalid_variable_analysis of string;;
+
 type toploop_configuration =
   { topconf_context_stack : (module Analysis_context_stack.Context_stack) option
   ; topconf_log_prefix : string
   ; topconf_ddpa_log_level : Ddpa_graph_logger.ddpa_graph_logger_level option
   ; topconf_pdr_log_level :
       Pds_reachability_logger_utils.pds_reachability_logger_level option
-  ; topconf_analyze_vars : (ident -> bool)
+  ; topconf_analyze_vars : analyze_variables_selection
   ; topconf_disable_evaluation : bool
   ; topconf_disable_inconsistency_check : bool
   }
@@ -95,31 +97,81 @@ let toploop_operate conf e =
             begin
               (* Analyze the variables that the user requested.  If the user
                  requested non-existent variables, they are ignored. *)
-              let vars_to_analyze =
-                e
-                |> (fun (Expr(cls)) -> cls)
-                |> List.enum
-                |> Enum.map lift_clause
-                |> Enum.map (fun (Abs_clause(x, _)) -> x)
-                |> Enum.filter
-                  (fun (Var(i,_)) -> conf.topconf_analyze_vars i)
+              let analyses_desc =
+                match conf.topconf_analyze_vars with
+                | Analyze_no_variables -> []
+                | Analyze_toplevel_variables ->
+                  e
+                  |> (fun (Expr(cls)) -> cls)
+                  |> List.enum
+                  |> Enum.map lift_clause
+                  |> Enum.map (fun (Abs_clause(Var(i,_), _)) -> (i, None, None))
+                  |> List.of_enum
+                | Analyze_specific_variables lst ->
+                  lst |> List.map (fun (x,y,z) -> (Ident(x),y,z))
               in
-              if not @@ Enum.is_empty vars_to_analyze then
-              begin
-                let variable_values =
-                  vars_to_analyze
-                  |> Enum.fold
-                    (fun m x ->
-                      let vs =
-                        TLA.values_of_variable_from x End_clause analysis
+              (* We'll need a mapping from variable names to clauses. *)
+              let varname_to_clause_map =
+                e
+                |> Ast_tools.find_all_clauses_in_expr
+                |> Enum.map lift_clause
+                |> Enum.map
+                    (fun (Abs_clause(Var(i,_),_) as c) -> (i, c))
+                |> Ident_map.of_enum
+              in
+              let lookup_clause_by_ident ident =
+                try
+                  Ident_map.find ident varname_to_clause_map
+                with
+                | Not_found -> raise @@
+                    Invalid_variable_analysis(Printf.sprintf
+                      "No such variable: %s" (pp_ident ident))
+              in
+              (* Determine the analyses to perform. *)
+              let analyses =
+                analyses_desc
+                |> List.enum
+                |> Enum.map
+                    (fun (var_ident,site_name_opt,context_opt) ->
+                      let site =
+                        match site_name_opt with
+                        | None -> End_clause
+                        | Some site_name ->
+                          Unannotated_clause(
+                            lookup_clause_by_ident (Ident site_name))
                       in
-                      let (Var(i,_)) = x in
-                      Ident_map.add i vs m
-                    ) Ident_map.empty
-                in
-                (* Show our results. *)
-                print_endline @@
-                  pp_ident_map pp_abs_filtered_value_set variable_values
+                      let context_stack =
+                        match context_opt with
+                        | None -> TLA.C.empty
+                        | Some context_vars ->
+                          context_vars
+                          |> List.enum
+                          |> Enum.fold
+                              (fun a e ->
+                                let c = lookup_clause_by_ident (Ident e) in
+                                TLA.C.push c a
+                              )
+                              TLA.C.empty
+                      in
+                      (Var(var_ident,None),site,context_stack)
+                    )
+              in
+              (* Perform and render the analyses. *)
+              if not @@ Enum.is_empty analyses then
+              begin
+                print_endline "Variable analyses:";
+                analyses
+                |> Enum.iter
+                  (fun (var, site, context) ->
+                    let values =
+                      TLA.contextual_values_of_variable_from
+                        var site context analysis
+                    in
+                    print_endline @@ Printf.sprintf
+                      "    %s: %s"
+                      (pp_var var) (pp_abs_filtered_value_set values)
+                  );
+                print_endline "End variable analyses.";
               end;
               (* Dump the analysis to debugging. *)
               lazy_logger `trace
