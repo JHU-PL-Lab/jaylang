@@ -91,11 +91,14 @@ let stack_from_name name =
   loop name_parsing_functions
 ;;
 
-module Make(A : Analysis_sig) = struct
+module Make(A : Analysis_sig) : DDPA with module C = A.C =
+struct
   type analysis =
     { aref : A.ddpa_analysis ref
     ; expression : expr
     };;
+  
+  module C = A.C;;
   
   let create_analysis ?logging_prefix:(pfx=None) expr =
     let a = A.create_initial_analysis ~logging_prefix:pfx expr in
@@ -106,9 +109,16 @@ module Make(A : Analysis_sig) = struct
 
   let values_of_variable_from x acl analysis =
     let a = !(analysis.aref) in
-    let (values,a') = A.values_of_variable acl x a in
+    let (values,a') = A.values_of_variable x acl a in
     analysis.aref := a';
     values
+  ;;
+
+  let contextual_values_of_variable_from x acl ctx analysis =
+    let a = !(analysis.aref) in
+    let (values,a') = A.contextual_values_of_variable x acl ctx a in
+    analysis.aref := a';
+    values    
   ;;
 
   let check_inconsistencies analysis =
@@ -116,7 +126,7 @@ module Make(A : Analysis_sig) = struct
     |> Enum.map
       (fun (x2, cl) ->
         let acl = Unannotated_clause(lift_clause cl) in
-        let (values, a') = A.values_of_variable acl x2 !(analysis.aref) in
+        let (values, a') = A.values_of_variable x2 acl !(analysis.aref) in
         analysis.aref := a';
         values
         |> Abs_filtered_value_set.enum

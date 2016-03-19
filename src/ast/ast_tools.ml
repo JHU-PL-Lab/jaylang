@@ -54,7 +54,7 @@ and find_all_clauses_in_clause (Clause(_,b) as cl) =
   
 and find_all_clauses_in_clause_body b =
   match b with
-  | Value_body _ -> Enum.empty ()
+  | Value_body v -> find_all_clauses_in_value v
   | Var_body _ -> Enum.empty ()
   | Appl_body _ -> Enum.empty ()
   | Conditional_body(_,_,f1,f2) ->

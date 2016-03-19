@@ -148,44 +148,81 @@ let pdr_logging_option =
   }
 ;;
 
+type analyze_variables_selection =
+  | Analyze_no_variables
+  | Analyze_toplevel_variables
+  | Analyze_specific_variables of
+      (string * string option * string list option) list
+;;
+
 let analyze_variables_option =
-  let variables_to_analyze = ref (fun _ -> false) in
+  let variables_to_analyze = ref Analyze_no_variables in
   {
     option_set = (fun option_name args ->
       match args with
-      | [filter_string] ->
-        let new_filter =
-          match filter_string with
-          | "none" -> (fun _ -> false)
-          | "all" -> (fun _ -> true)
+      | [analyze_string] ->
+        let new_selection =
+          match analyze_string with
+          | "none" -> Analyze_no_variables
+          | "all" -> Analyze_toplevel_variables
           | _ ->
-            if String.starts_with filter_string "only:"
+            if String.starts_with analyze_string "only:"
             then
-              let names =
-                filter_string
+              let components =
+                analyze_string
                 |> String.lchop ~n:5
                 |> (fun x -> String.nsplit x ~by:",")
               in
-              (fun (Ast.Ident s) -> List.mem s names)
+              let parse_component component =
+                begin
+                  match String.nsplit component ~by:"@" with
+                  | [name] -> (name, None, None)
+                  | [name;rest] ->
+                    begin
+                      match String.nsplit rest ~by:":" with
+                      | [loc] -> (name, Some loc, None)
+                      | [loc;stack] ->
+                        begin
+                          let stack_elements = String.nsplit stack ~by:"|" in
+                          (name, Some loc, Some stack_elements)
+                        end
+                      | _ -> raise @@ Option_error (option_name,
+                                Printf.sprintf "Invalid component string: %s"
+                                  component)
+                    end
+                  | _ -> raise @@ Option_error (option_name,
+                            Printf.sprintf "Invalid component string: %s"
+                              component)
+                end
+              in
+              Analyze_specific_variables(List.map parse_component components)
             else
               raise @@ Option_error (option_name,
                 Printf.sprintf "Unrecognized variable analysis mode: %s"
-                  filter_string)
+                  analyze_string)
         in
-        variables_to_analyze := new_filter
+        variables_to_analyze := new_selection
       | _ ->
         raise @@ Option_error (option_name,
           Printf.sprintf "Invalid argument count: %d" (List.length args))
       )
     ;
-    option_set_value = (fun filter -> variables_to_analyze := filter)
+    option_set_value = (fun selection -> variables_to_analyze := selection)
     ;
     option_get = (fun () -> Some (!variables_to_analyze))
     ;
-    option_metavars = ["VAR_FILTER"]
+    option_metavars = ["ANALYZE_SPEC"]
     ;
     option_defhelp =
-      Some("Selects variables to analyze (none, all, only:a,b,c,...)")
+      Some("Selects variables to analyze.  Valid options are \"none\" (to \
+            perform no variable-specific analysis), \"top\" (to analyze all \
+            top-level variables from the end of the program), or \"only\".  \
+            If \"only\" is given, it must be followed by a colon and then a \
+            comma-separated list of specifications.  A specification is the \
+            name of a variable (e.g. \"a\"), optionally followed by \"@\" and \
+            a lookup site variable (e.g. \"s\"), optionally followed by \":\" \
+            and a pipe-separated list of variable names representing a context \
+            stack (from top to bottom).")
     ;
   }
 ;;
