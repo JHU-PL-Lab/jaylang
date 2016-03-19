@@ -364,7 +364,17 @@ struct
           formal parameter of the case branch that we are leaving from the top.
           The second variable is the subject of the pattern match.  The provided
           pattern is the pattern against which the subject was matched; the
-          boolean is true if the match succeeded and false otherwise. *)   
+          boolean is true if the match succeeded and false otherwise. *)
+    | Conditional_subject_validation of 
+        var * var * var * pattern * bool * annotated_clause * C.t
+      (** Represents the handling of an exit wiring node for a conditional.  The
+          first variable is the conditional site; the second variable is the
+          return variable of the conditional branch.  The third variable is the
+          subject of the conditional; it is followed by the conditional's
+          pattern.  The boolean indicates whether this is the "then" branch
+          (true) or the "else" branch (false).  The state and context refer to
+          this wiring clause so a jump can be issued after the subject is
+          validated in this branch. *)
     | Record_projection_lookup of var * var * ident
       (** Represents the start of a record projection.  If the first variable
           matches our lookup target, then we've discovered that we are looking
@@ -577,6 +587,10 @@ struct
     | Conditional_closure_lookup(x'',x1,p,b) ->
       Printf.sprintf "Conditional_closure_lookup(%s,%s,%s,%b)"
         (pp_var x'') (pp_var x1) (pp_pattern p) b
+    | Conditional_subject_validation(x,x',x1,pat,then_branch,acl1,ctx) ->
+      Printf.sprintf "Conditional_subject_validation(%s,%s,%s,%s,%s,%s,%s)"
+        (pp_var x) (pp_var x') (pp_var x1) (pp_pattern pat)
+        (string_of_bool then_branch) (pp_annotated_clause acl1) (C.pp ctx)
     | Record_projection_lookup(x,x',l) ->
       Printf.sprintf "Record_projection_lookup(%s,%s,%s)"
         (pp_var x) (pp_var x') (pp_ident l)
@@ -729,6 +743,10 @@ struct
     | Conditional_closure_lookup(x'',x1,p,b) ->
       Printf.sprintf "CondCL(%s,%s,%s,%b)"
         (pp_var x'') (pp_var x1) (pp_pattern p) b
+    | Conditional_subject_validation(x,x',x1,pat,then_branch,acl1,ctx) ->
+      Printf.sprintf "CondSV(%s,%s,%s,%s,%s,%s,%s)"
+        (pp_var x) (pp_var x') (pp_var x1) (pp_pattern pat)
+        (string_of_bool then_branch) (ppa_annotated_clause acl1) (C.pp ctx)
     | Record_projection_lookup(x,x',l) ->
       Printf.sprintf "RProjL(%s,%s,%s)"
         (pp_var x) (pp_var x') (pp_ident l)
@@ -989,6 +1007,18 @@ struct
             else (patsp,Pattern_set.add pat patsn)
           in
           return [Push(Lookup_var(x1,patsp',patsn'))]
+      | Conditional_subject_validation(x,x',x1,pat,then_branch,acl1,ctx) ->
+        let%orzero (Lookup_var(x0,patsp,patsn)) = element in
+        [%guard (equal_var x0 x)];
+        let patsp',patsn' =
+          if then_branch
+          then (Pattern_set.singleton pat, Pattern_set.empty)
+          else (Pattern_set.empty, Pattern_set.singleton pat)
+        in
+        return [ Push(Lookup_var(x',patsp,patsn))
+               ; Push(Jump(acl1,ctx))
+               ; Push(Lookup_var(x1,patsp',patsn'))
+               ]
       | Record_projection_lookup(x,x',l) ->
         let%orzero (Lookup_var(x0,patsp,patsn)) = element in
         [%guard (equal_var x0 x)];
@@ -1517,7 +1547,7 @@ struct
                        )
               end
             ;
-              (* 5a, 5b, and 5d. Conditional entrance wiring *)
+              (* 5a, 5b, and 5e. Conditional entrance wiring *)
               begin
                 (* This block represents *all* conditional closure handling on
                    the entering side. *)
@@ -1536,12 +1566,20 @@ struct
                        )
               end
             ;
-              (* 5c. Conditional return wiring *)
+              (* 5c, 5d. Conditional return wiring *)
               begin
                 let%orzero (Exit_clause(x,x',c)) = acl1 in
-                let%orzero (Abs_clause(_,Abs_conditional_body _)) = c in
+                let%orzero
+                  (Abs_clause(_,Abs_conditional_body(x1,pat,f1,_))) = c
+                in
                 (* x =(up) x' for conditionals *)
-                return (Variable_aliasing(x,x'),Program_point_state(acl1,ctx))                  
+                let Abs_function_value(_,Abs_expr(cls)) = f1 in
+                let f1ret = rv cls in
+                let then_branch = equal_var f1ret x' in
+                return ( Conditional_subject_validation(
+                            x,x',x1,pat,then_branch,acl1,ctx)
+                       , Program_point_state(Unannotated_clause(c),ctx)
+                       )
               end
             ;
               (* 6a. Record destruction *)
