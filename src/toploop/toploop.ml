@@ -21,6 +21,7 @@ type toploop_configuration =
   ; topconf_analyze_vars : analyze_variables_selection
   ; topconf_disable_evaluation : bool
   ; topconf_disable_inconsistency_check : bool
+  ; topconf_report_sizes : bool
   }
 ;;
 
@@ -176,7 +177,22 @@ let toploop_operate conf e =
               (* Dump the analysis to debugging. *)
               lazy_logger `trace
                 (fun () -> Printf.sprintf "DDPA analysis: %s"
-                              (TLA.pp_analysis analysis));
+                    (TLA.pp_analysis analysis));
+              if conf.topconf_report_sizes then
+                begin
+                  let ddpa_number_of_active_nodes,
+                      ddpa_number_of_active_non_immediate_nodes,
+                      ddpa_number_of_edges,
+                      pds_number_of_nodes,
+                      pds_number_of_edges
+                    = TLA.get_size analysis in
+                  Printf.printf "DDPA number of active nodes: %n.\nDDPA number of active non immediate nodes: %n.\nDDPA number of edges: %n.\nPDS number of nodes: %n.\nPDS number of edges: %n.\n"
+                    ddpa_number_of_active_nodes
+                    ddpa_number_of_active_non_immediate_nodes
+                    ddpa_number_of_edges
+                    pds_number_of_nodes
+                    pds_number_of_edges
+                end;
               (* Now run the actual program. *)
               evaluation_step ()
             end
@@ -233,6 +249,10 @@ let command_line_parsing () =
   BatOptParse.OptParser.add parser ~long_name:"disable-inconsistency-check"
     ~short_name:'I' disable_inconsistency_check_option;
   
+  (* Add ability to report sizes of generated graphs. *)
+  BatOptParse.OptParser.add parser ~long_name:"report-sizes"
+    report_sizes_option;
+  
   (* Handle arguments. *)
   let spare_args = BatOptParse.OptParser.parse_argv parser in
   match spare_args with
@@ -248,6 +268,8 @@ let command_line_parsing () =
         disable_evaluation_option.BatOptParse.Opt.option_get ()
     ; topconf_disable_inconsistency_check = Option.get @@
         disable_inconsistency_check_option.BatOptParse.Opt.option_get ()
+    ; topconf_report_sizes = Option.get @@
+        report_sizes_option.BatOptParse.Opt.option_get ()
     }
   | _ -> failwith "Unexpected command-line arguments."
 ;;

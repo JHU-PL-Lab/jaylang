@@ -30,6 +30,9 @@ sig
   
   (** Pretty-prints a DDPA structure. *)
   val pp_ddpa : ddpa_analysis -> string
+
+  (** Get size of DDPA and underlying PDS. *)
+  val get_size : ddpa_analysis -> int * int * int * int * int
   
   (** Performs a series of closure steps on an analysis.  This is not guaranteed
       to complete closure; however, it will make progress as long as the
@@ -64,6 +67,7 @@ sig
       module. *)
   val get_pdr_logger_level :
     unit -> Pds_reachability_logger_utils.pds_reachability_logger_level
+
 end;;
 
 (**
@@ -1401,6 +1405,18 @@ struct
       (Ddpa_pds_reachability.pp_analysis analysis.pds_reachability)
       (pp_annotated_clause_set analysis.ddpa_active_nodes)
       (pp_annotated_clause_set analysis.ddpa_active_non_immediate_nodes)
+  ;;
+
+  let get_size analysis =
+    let pds_node_count, pds_edge_count = Ddpa_pds_reachability.get_size analysis.pds_reachability in
+    Annotated_clause_set.cardinal analysis.ddpa_active_nodes,
+    Annotated_clause_set.cardinal analysis.ddpa_active_non_immediate_nodes,
+    analysis.ddpa_graph
+    |> edges_of
+    |> List.of_enum
+    |> List.length,
+    pds_node_count,
+    pds_edge_count
   ;;
 
   let empty_analysis logging_prefix_opt =

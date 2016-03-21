@@ -32,4 +32,6 @@ module type DDPA = sig
   val check_inconsistencies : analysis -> inconsistency Enum.t
   
   val pp_analysis : analysis -> string
+
+  val get_size : analysis -> int * int * int * int * int
 end;;

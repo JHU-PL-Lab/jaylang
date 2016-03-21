@@ -146,4 +146,8 @@ struct
   let pp_analysis analysis =
     A.pp_ddpa !(analysis.aref)
   ;;
+
+  let get_size analysis =
+    A.get_size !(analysis.aref)
+  ;;
 end;;
