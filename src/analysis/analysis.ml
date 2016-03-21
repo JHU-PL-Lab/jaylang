@@ -1409,8 +1409,18 @@ struct
 
   let get_size analysis =
     let pds_node_count, pds_edge_count = Ddpa_pds_reachability.get_size analysis.pds_reachability in
-    Annotated_clause_set.cardinal analysis.ddpa_active_nodes,
-    Annotated_clause_set.cardinal analysis.ddpa_active_non_immediate_nodes,
+    let filter_inferrable_nodes nodes =
+      nodes
+      |> Annotated_clause_set.filter (
+        fun node ->
+          match node with
+          | Enter_clause _
+          | Exit_clause _ -> false
+          | _ -> true
+      )
+    in
+    Annotated_clause_set.cardinal (filter_inferrable_nodes analysis.ddpa_active_nodes),
+    Annotated_clause_set.cardinal (filter_inferrable_nodes analysis.ddpa_active_non_immediate_nodes),
     analysis.ddpa_graph
     |> edges_of
     |> List.of_enum
