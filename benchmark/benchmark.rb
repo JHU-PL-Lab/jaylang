@@ -12,7 +12,7 @@ require "benchmark"
 
 TEST_ON_KS.each do |k|
   Dir["#{CURRENT_DIRECTORY}/../benchmark-sources/*.code"].each do |file|
-    command_line = "#{CURRENT_DIRECTORY}/../toploop.native --select-context-stack=#{k}ddpa --analyze-variables=all --disable-evaluation --disable-inconsistency-check < #{file}"
+    command_line = "#{CURRENT_DIRECTORY}/../toploop.native --select-context-stack=#{k}ddpa --disable-evaluation --disable-inconsistency-check < #{file}"
     puts RULER
     puts "Test: `#{File.basename(file, ".*")}'."
     puts "k: `#{k}'."
