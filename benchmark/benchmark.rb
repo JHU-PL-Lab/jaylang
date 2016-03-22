@@ -3,6 +3,7 @@
 #
 # This script times the execution and reports numbers.
 
+REPETITIONS = 100
 TEST_ON_KS = [0]
 
 RULER = "==========================================="
@@ -16,11 +17,21 @@ TEST_ON_KS.each do |k|
     puts RULER
     puts "Test: `#{File.basename(file, ".*")}'."
     puts "k: `#{k}'."
+    puts "Repetitions: `#{REPETITIONS}'."
     puts "Command line: `#{command_line}'."
     puts
 
     duration = Benchmark.measure do
-      system command_line#, {out: "/dev/null", err: "/dev/null"}
+      REPETITIONS.times do |repetition|
+        if repetition % 10 == 0
+          puts "Repetition: #{repetition}."
+        end
+        if repetition == 0
+          system command_line
+        else
+          system command_line, {out: "/dev/null", err: "/dev/null"}
+        end
+      end
     end
 
     puts
