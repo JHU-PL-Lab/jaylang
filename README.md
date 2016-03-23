@@ -108,6 +108,29 @@ Generates a Graphviz DOT file of the DDPA CFG at the end of analysis.  These fil
 
 Other options exist, including a setting to produce diagrams of the incremental PDR graphs.
                     
+Benchmark
+---------
+
+To reproduce the benchmark, start by asserting that the code builds and runs as
+expected:
+
+    make && ./benchmark.native
+
+Then, use `benchmark/generate-big-example.rb` to create big programs by copying
+a benchmark over and over, renaming variables accordingly.
+
+    ruby benchmark/generate-big-example.rb <odefa|scheme> <file> <times>
+
+Where `odefa` is used for Odefa code and `scheme` is used for Scheme code from
+the P4F benchmarks.
+
+Example:
+
+    ruby benchmark/generate-big-example.rb odefa benchmark-sources/sat.code 5
+
+The experiments reported on the paper are documented as scripts named
+`benchmark/benchmark-*.rb`.
+
 Authors
 -------
 
