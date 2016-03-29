@@ -95,7 +95,7 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
         | Update_body(x1',x2') -> Var_set.of_list [x1';x2']
         | Binary_operation_body(x1',_,x2') -> Var_set.of_list [x1';x2']
       in
-      Var_set.remove x @@ Var_set.union free_h free_t
+      Var_set.union free_h (Var_set.remove x free_t)
   and walk_fn (Function_value(x',e)) =
     Var_set.remove x' @@ vars_free_in_expr e
   in
