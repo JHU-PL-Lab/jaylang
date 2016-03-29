@@ -1,0 +1,4 @@
+# EXPECT-ILL-FORMED
+
+x = {};
+c = x ~ {l={}} ? fun a -> ( x = {} ) : fun b -> ( rb = {n = x} );
