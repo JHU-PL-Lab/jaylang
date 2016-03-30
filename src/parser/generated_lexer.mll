@@ -42,6 +42,12 @@ rule token = parse
   | "!"                              { BANG }
   | "fun"                            { KEYWORD_FUN }
   | "ref"                            { KEYWORD_REF }
+  | "int"                            { KEYWORD_INT }
+  | "true"                           { KEYWORD_TRUE }
+  | "false"                          { KEYWORD_FALSE }
+  | "and"                            { KEYWORD_AND }
+  | "or"                             { KEYWORD_OR }
+  | "not"                            { KEYWORD_NOT }
   | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) } 
   | "+"                              { BINOP_PLUS }
   | "-"                              { BINOP_MINUS }

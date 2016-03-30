@@ -77,7 +77,7 @@ expr:
   | expr BINOP_LESS_EQUAL expr
       { Binary_operation_expr($1,Binary_operator_int_less_than_or_equal_to,$3) }
   | expr BINOP_EQUAL expr
-      { Binary_operation_expr($1,Binary_operator_int_equal_to,$3) }
+      { Binary_operation_expr($1,Binary_operator_equal_to,$3) }
   | application_expr
       { $1 }
   ;

@@ -57,6 +57,7 @@ and var_replace_clause_body fn r =
   | Deref_body(x) -> Deref_body(fn x)
   | Update_body(x1,x2) -> Update_body(fn x1, fn x2)
   | Binary_operation_body(x1,op,x2) -> Binary_operation_body(fn x1, op, fn x2) 
+  | Unary_operation_body(op,x1) -> Unary_operation_body(op, fn x1) 
 
 and var_replace_value fn v =
   match v with
@@ -65,6 +66,7 @@ and var_replace_value fn v =
   | Value_function(f) -> Value_function(var_replace_function_value fn f)
   | Value_ref(Ref_value(x)) -> Value_ref(Ref_value(fn x))
   | Value_int n -> Value_int n
+  | Value_bool b -> Value_bool b
 
 and var_replace_function_value fn (Function_value(x, e)) =
   Function_value(fn x, var_replace_expr fn e)
@@ -123,10 +125,23 @@ let rec matches env x p =
              with
              | Not_found -> false
           )
+      | _ -> false
     end
   | Value_function(Function_value(_)) -> false
   | Value_ref(Ref_value(_)) -> false
-  | Value_int _ -> false
+  | Value_int _ ->
+    begin
+      match p with
+      | Int_pattern -> true
+      | _ -> false
+    end
+  | Value_bool actual_boolean ->
+    begin
+      match p with
+      | Bool_pattern pattern_boolean ->
+        actual_boolean = pattern_boolean
+      | _ -> false
+    end
 ;;
 
 let rec evaluate env lastvar cls =
@@ -218,29 +233,45 @@ let rec evaluate env lastvar cls =
         let v2 = lookup env x2 in
         let result =
           begin
-            let bool_of b =
-              if b
-              then Value_record(Record_value(Ident_map.empty))
-              else Value_int(0)
-            in
             match v1,op,v2 with
             | (Value_int(n1),Binary_operator_int_plus,Value_int(n2)) ->
               Value_int(n1+n2)
             | (Value_int(n1),Binary_operator_int_minus,Value_int(n2)) ->
               Value_int(n1-n2)
             | (Value_int(n1),Binary_operator_int_less_than,Value_int(n2)) ->
-              bool_of (n1 < n2)
+              Value_bool (n1 < n2)
             | ( Value_int(n1)
               , Binary_operator_int_less_than_or_equal_to
               , Value_int(n2)
               ) ->
-              bool_of (n1 <= n2)
-            | (Value_int(n1),Binary_operator_int_equal_to,Value_int(n2)) ->
-              bool_of (n1 = n2)
+              Value_bool (n1 <= n2)
+            | (Value_int(n1),Binary_operator_equal_to,Value_int(n2)) ->
+              Value_bool (n1 = n2)
+            | (Value_bool(b1),Binary_operator_equal_to,Value_bool(b2)) ->
+              Value_bool (b1 = b2)
+            | (Value_bool(b1),Binary_operator_bool_and,Value_bool(b2)) ->
+              Value_bool (b1 && b2)
+            | (Value_bool(b1),Binary_operator_bool_or,Value_bool(b2)) ->
+              Value_bool (b1 || b2)
             | v1,op,v2 ->
               raise @@ Evaluation_failure(
                 Printf.sprintf "Cannot complete binary operation: (%s) %s (%s)"
                   (pp_value v1) (pp_binary_operator op) (pp_value v2))
+          end
+        in
+        Environment.add env x result;
+        evaluate env (Some x) t
+      | Unary_operation_body(op,x1) ->
+        let v1 = lookup env x1 in
+        let result =
+          begin
+            match op,v1 with
+            | (Unary_operator_bool_not,Value_bool(b1)) ->
+              Value_bool (not b1)
+            | op,v1 ->
+              raise @@ Evaluation_failure(
+                Printf.sprintf "Cannot complete unary operation: %s (%s)"
+                  (pp_unary_operator op) (pp_value v1))
           end
         in
         Environment.add env x result;

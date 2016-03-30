@@ -91,16 +91,22 @@ struct
     let relevant_patterns = pattern_set
       |> Pattern_set.enum
       |> Enum.filter
-          (fun (Record_pattern m') ->
+        (fun pattern ->
+           match pattern with
+           | Record_pattern m' ->
             Ident_set.subset (Ident_set.of_enum @@ Ident_map.keys m')
-              record_labels)
+              record_labels
+           | _ -> failwith "Not implemented.")
     in
     (* This function selects a single label from a given pattern and constructs
        a pattern from it. *)
-    let pick_pattern (Record_pattern m') =
-      let open Nondeterminism_monad in
-      let%bind (k,v) = pick_enum @@ Ident_map.enum m' in
-      return @@ Record_pattern(Ident_map.singleton k v)
+    let pick_pattern pattern =
+      match pattern with
+      | Record_pattern m' ->
+        let open Nondeterminism_monad in
+        let%bind (k,v) = pick_enum @@ Ident_map.enum m' in
+        return @@ Record_pattern(Ident_map.singleton k v)
+      | _ -> failwith "Not implemented."
     in
     let open Nondeterminism_monad in
     let%bind selected_patterns = 
@@ -109,11 +115,16 @@ struct
     return @@ Pattern_set.of_enum selected_patterns
   ;;
 
-  let pattern_projection (Record_pattern m) label =
-    try
-      Some (Ident_map.find label m)
-    with
-    | Not_found -> None
+  let pattern_projection pattern label =
+    match pattern with
+    | Record_pattern m ->
+      begin
+        try
+          Some (Ident_map.find label m)
+        with
+        | Not_found -> None
+      end
+    | _ -> failwith "Not implemented."
   ;;
 
   let pattern_set_projection set label =
@@ -128,8 +139,11 @@ struct
     Ident_set.of_enum @@ Ident_map.keys m
   ;;
 
-  let labels_in_pattern (Record_pattern m) =
-    Ident_set.of_enum @@ Ident_map.keys m
+  let labels_in_pattern pattern =
+    match pattern with
+    | Record_pattern m ->
+      Ident_set.of_enum @@ Ident_map.keys m
+    | _ -> failwith "Not implemented."
   ;;
 
   let labels_in_pattern_set set =
@@ -1335,7 +1349,7 @@ struct
           | Binary_operator_int_minus -> [Abs_value_int]
           | Binary_operator_int_less_than
           | Binary_operator_int_less_than_or_equal_to
-          | Binary_operator_int_equal_to ->
+          | Binary_operator_equal_to ->
             let positive_filters_have_only_empty_record =
               Pattern_set.subset patsp @@
                 Pattern_set.singleton (Record_pattern Ident_map.empty)
@@ -1352,6 +1366,9 @@ struct
                  ; Abs_value_record(Record_value(Ident_map.empty))
                  ]
             else [ Abs_value_int ]
+          | Binary_operator_bool_and
+          | Binary_operator_bool_or ->
+            failwith "Not implemented."
         in
         let%bind v = pick_enum @@ List.enum outcomes in
         return [ Push (Continuation_value(Abs_filtered_value(

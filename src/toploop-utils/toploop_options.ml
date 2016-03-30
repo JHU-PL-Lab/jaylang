@@ -235,6 +235,10 @@ let disable_inconsistency_check_option =
   BatOptParse.StdOpt.store_true ()
 ;;
 
+let disable_analysis_option =
+  BatOptParse.StdOpt.store_true ()
+;;
+
 let report_sizes_option =
   BatOptParse.StdOpt.store_true ()
 ;;

@@ -25,7 +25,14 @@ let pp_binary_operator binop =
   | Binary_operator_int_minus -> "-"
   | Binary_operator_int_less_than -> "<"
   | Binary_operator_int_less_than_or_equal_to -> "<="
-  | Binary_operator_int_equal_to -> "=="
+  | Binary_operator_equal_to -> "=="
+  | Binary_operator_bool_and -> "and"
+  | Binary_operator_bool_or -> "or"
+;;
+
+let pp_unary_operator unop =
+  match unop with
+  | Unary_operator_bool_not -> "not"
 ;;
 
 let pp_record_value (Record_value(els)) =
@@ -46,6 +53,7 @@ and pp_value v =
   | Value_function(f) -> pp_function_value f
   | Value_ref(r) -> pp_ref_value r
   | Value_int(n) -> string_of_int n
+  | Value_bool(b) -> string_of_bool b
 
 and pp_clause_body b =
   match b with
@@ -60,6 +68,8 @@ and pp_clause_body b =
   | Update_body(x1,x2) -> pp_var x1 ^ " <- " ^ pp_var x2
   | Binary_operation_body(x1,op,x2) ->
     Printf.sprintf "%s %s %s" (pp_var x1) (pp_binary_operator op) (pp_var x2)
+  | Unary_operation_body(op,x1) ->
+    Printf.sprintf "%s %s" (pp_unary_operator op) (pp_var x1)
 
 and pp_clause c =
   match c with
@@ -74,7 +84,9 @@ and pp_pattern p =
   | Record_pattern(els) ->
       let pp_element = pp_tuple pp_ident pp_pattern in
       concat_sep_delim "{" "}" ", " @@ Enum.map pp_element @@
-        Ident_map.enum els
+      Ident_map.enum els
+  | Int_pattern -> "int"
+  | Bool_pattern(b) -> string_of_bool b
 ;;
 
 let brief_pp_clause (Clause(x,_)) = pp_var x;;

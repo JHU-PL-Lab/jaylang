@@ -291,6 +291,7 @@ and lift_clause_body b =
   | Deref_body(x) -> Abs_deref_body(x)
   | Update_body(x,x') -> Abs_update_body(x,x')
   | Binary_operation_body(x1,op,x2) -> Abs_binary_operation_body(x1,op,x2)
+  | Unary_operation_body(_,_) -> failwith "Not implemented"
 
 and lift_value v =
   match v with
@@ -298,6 +299,7 @@ and lift_value v =
   | Value_function f -> Abs_value_function(lift_function_value f)
   | Value_ref r -> Abs_value_ref r
   | Value_int _ -> Abs_value_int
+  | Value_bool _ -> failwith "Not implemented"
 
 and lift_function_value (Function_value(x,e)) =
   Abs_function_value(x, lift_expr e)

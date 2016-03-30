@@ -73,7 +73,14 @@ type binary_operator =
   | Binary_operator_int_minus
   | Binary_operator_int_less_than
   | Binary_operator_int_less_than_or_equal_to
-  | Binary_operator_int_equal_to
+  | Binary_operator_equal_to
+  | Binary_operator_bool_and
+  | Binary_operator_bool_or
+  [@@deriving eq, ord]
+;;
+
+type unary_operator =
+  | Unary_operator_bool_not
   [@@deriving eq, ord]
 ;;
 
@@ -92,6 +99,7 @@ and value =
   | Value_function of function_value
   | Value_ref of ref_value
   | Value_int of int
+  | Value_bool of bool
   [@@deriving eq, ord]
 
 (** A type to represent the bodies of clauses. *)
@@ -104,6 +112,7 @@ and clause_body =
   | Deref_body of var
   | Update_body of var * var
   | Binary_operation_body of var * binary_operator * var
+  | Unary_operation_body of unary_operator * var
   [@@deriving eq, ord]
 
 (** A type to represent clauses. *)
@@ -117,6 +126,8 @@ and expr = Expr of clause list [@@deriving eq, ord]
 (** A type representing conditional patterns. *)
 and pattern =
   | Record_pattern of pattern Ident_map.t
+  | Int_pattern
+  | Bool_pattern of bool
   [@@deriving eq, ord]
 ;;
 

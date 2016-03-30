@@ -21,7 +21,13 @@ module List = BatList;;
 %token BANG
 %token DOT
 %token KEYWORD_FUN 
+%token KEYWORD_INT
 %token KEYWORD_REF
+%token KEYWORD_TRUE
+%token KEYWORD_FALSE
+%token KEYWORD_AND
+%token KEYWORD_OR
+%token KEYWORD_NOT
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
@@ -92,7 +98,13 @@ clause_body:
   | variable BINOP_LESS_EQUAL variable
       { Binary_operation_body($1,Binary_operator_int_less_than_or_equal_to,$3) }
   | variable BINOP_EQUAL variable
-      { Binary_operation_body($1,Binary_operator_int_equal_to,$3) }
+      { Binary_operation_body($1,Binary_operator_equal_to,$3) }
+  | variable KEYWORD_AND variable
+      { Binary_operation_body($1,Binary_operator_bool_and,$3) }
+  | variable KEYWORD_OR variable
+      { Binary_operation_body($1,Binary_operator_bool_or,$3) }
+  | KEYWORD_NOT variable
+      { Unary_operation_body(Unary_operator_bool_not,$2) }
   ;
 
 value:
@@ -104,6 +116,8 @@ value:
       { Value_ref($1) }
   | int_value
       { Value_int($1) }
+  | bool_value
+      { Value_bool($1) }
   ;
 
 record_value:
@@ -133,9 +147,20 @@ int_value:
       { $1 }
   ;
 
+bool_value:
+  | KEYWORD_TRUE
+      { true }
+  | KEYWORD_FALSE
+      { false }
+  ;
+
 pattern:
   | record_pattern
       { $1 }
+  | KEYWORD_INT
+      { Int_pattern }
+  | bool_pattern
+      { Bool_pattern($1) }
   ;
 
 record_pattern:
@@ -148,6 +173,13 @@ record_pattern:
 record_pattern_element:
   | identifier EQUALS pattern
       { ($1,$3) }
+  ;
+
+bool_pattern:
+  | KEYWORD_TRUE
+      { true }
+  | KEYWORD_FALSE
+      { false }
   ;
 
 separated_nonempty_trailing_list(separator, rule):
