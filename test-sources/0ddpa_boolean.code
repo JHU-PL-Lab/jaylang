@@ -1,0 +1,69 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 0ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END numberpatternmatch {int}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END nott {bool}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+t = true;
+f = false;
+
+# `not' and pattern match on `false'.
+
+nott = not t;
+
+nottpatternmatch = nott ~ false
+                    ? fun nottmatch -> (
+                      nottmatchreturn = 0;
+                    )
+                    : fun nottantimatch -> (
+                      nottantimatchreturn = t t;
+                    );
+
+# `and'.
+
+tandf = t and f;
+
+tandfpatternmatch = tandf ~ false
+                    ? fun tandfmatch -> (
+                      tandfmatchreturn = 0;
+                    )
+                    : fun tandfantimatch -> (
+                      tandfantimatchreturn = t t;
+                    );
+
+# `or' and pattern match on `true'.
+
+torf = t or f;
+
+torfpatternmatch = torf ~ true
+                   ? fun torfmatch -> (
+                     torfmatchreturn = 0;
+                   )
+                   : fun torfantimatch -> (
+                     torfantimatchreturn = t t;
+                   );
+
+# `==' between Boolean values.
+
+tequalf = t == f;
+
+tequalfpatternmatch = tequalf ~ false
+                    ? fun tequalfmatch -> (
+                      tequalfmatchreturn = 0;
+                    )
+                    : fun tequalfantimatch -> (
+                      tequalfantimatchreturn = t t;
+                    );
+
+# Pattern match on numbers.
+
+number = 0;
+
+numberpatternmatch = number ~ int
+                     ? fun numbermatch -> (
+                       numbermatchreturn = 0;
+                     )
+                     : fun numberantimatch -> (
+                       numberantimatchreturn = t t;
+                     );
