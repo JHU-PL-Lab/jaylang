@@ -43,6 +43,7 @@ and abstract_clause_body =
   | Abs_deref_body of var
   | Abs_update_body of var * var
   | Abs_binary_operation_body of var * binary_operator * var
+  | Abs_unary_operation_body of unary_operator * var
   [@@deriving eq, ord]
 
 (** A type to represent abstract clauses. *)
@@ -77,6 +78,8 @@ and pp_abstract_clause_body b =
   | Abs_update_body(x1,x2) -> pp_var x1 ^ " <- " ^ pp_var x2
   | Abs_binary_operation_body(x1,op,x2) ->
     Printf.sprintf "%s %s %s" (pp_var x1) (pp_binary_operator op) (pp_var x2)
+  | Abs_unary_operation_body(op,x1) ->
+    Printf.sprintf "%s %s" (pp_unary_operator op) (pp_var x1)
 
 and pp_abstract_clause (Abs_clause(x,b)) =
   Printf.sprintf "%s = %s" (pp_var x) (pp_abstract_clause_body b)
@@ -90,7 +93,7 @@ let ppa_abstract_clause (Abs_clause(x,_)) = pp_var x;;
 let is_abstract_clause_immediate (Abs_clause(_,b)) =
   match b with
   | Abs_var_body _ | Abs_value_body _ | Abs_projection_body _ | Abs_deref_body _
-  | Abs_update_body _ | Abs_binary_operation_body _ -> true
+  | Abs_update_body _ | Abs_binary_operation_body _ | Abs_unary_operation_body _ -> true
   | Abs_appl_body _ | Abs_conditional_body _ -> false
 ;;
 
@@ -291,7 +294,7 @@ and lift_clause_body b =
   | Deref_body(x) -> Abs_deref_body(x)
   | Update_body(x,x') -> Abs_update_body(x,x')
   | Binary_operation_body(x1,op,x2) -> Abs_binary_operation_body(x1,op,x2)
-  | Unary_operation_body(_,_) -> failwith "Not implemented"
+  | Unary_operation_body(op,x1) -> Abs_unary_operation_body(op,x1)
 
 and lift_value v =
   match v with
