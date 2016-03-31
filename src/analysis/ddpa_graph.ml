@@ -26,6 +26,7 @@ type abstract_value =
   | Abs_value_function of abstract_function_value
   | Abs_value_ref of ref_value
   | Abs_value_int
+  | Abs_value_bool of bool
   [@@deriving eq, ord]
 
 and abstract_function_value =
@@ -64,6 +65,7 @@ and pp_abstract_value v =
   | Abs_value_function f -> pp_abstract_function_value f
   | Abs_value_ref r -> pp_ref_value r
   | Abs_value_int -> "int"
+  | Abs_value_bool b -> if b then "true" else "false"
 
 and pp_abstract_clause_body b =
   match b with
@@ -302,7 +304,7 @@ and lift_value v =
   | Value_function f -> Abs_value_function(lift_function_value f)
   | Value_ref r -> Abs_value_ref r
   | Value_int _ -> Abs_value_int
-  | Value_bool _ -> failwith "Not implemented"
+  | Value_bool b -> Abs_value_bool b
 
 and lift_function_value (Function_value(x,e)) =
   Abs_function_value(x, lift_expr e)
