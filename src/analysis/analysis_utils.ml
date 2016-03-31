@@ -35,7 +35,7 @@ let find_all_vars e =
             | Deref_body(x') -> List.enum [x;x']
             | Update_body(x',x'') -> List.enum [x;x';x'']
             | Binary_operation_body(x1,_,x2) -> List.enum [x;x1;x2]
-            | Unary_operation_body(_,_) -> failwith "Not implemented."
+            | Unary_operation_body(_,x1) -> List.enum [x;x1]
         )
     |> Enum.concat
   and find_all_vars_in_fn (Function_value(x,e)) =
