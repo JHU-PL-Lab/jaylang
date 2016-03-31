@@ -9,6 +9,7 @@ type expr =
   | Record_expr of expr Ident_map.t
   | Function_expr of function_value
   | Int_expr of int
+  | Bool_expr of bool
   | Ref_expr of expr
   | Var_expr of var
   | Appl_expr of expr * expr
@@ -16,6 +17,7 @@ type expr =
   | Deref_expr of expr
   | Update_expr of expr * expr
   | Binary_operation_expr of expr * binary_operator * expr
+  | Unary_operation_expr of unary_operator * expr
   | Let_expr of var * expr * expr
   | Projection_expr of expr * ident
 
@@ -26,4 +28,6 @@ and function_value =
 (** Patterns in the nested language. *)
 and pattern =
   | Record_pattern of pattern Ident_map.t
+  | Int_pattern
+  | Bool_pattern of bool
 ;;
