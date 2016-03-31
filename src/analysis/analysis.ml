@@ -98,7 +98,7 @@ struct
            | Record_pattern m' ->
             Ident_set.subset (Ident_set.of_enum @@ Ident_map.keys m')
               record_labels
-           | _ -> failwith "Not implemented.")
+           | _ -> false)
     in
     (* This function selects a single label from a given pattern and constructs
        a pattern from it. *)
@@ -108,7 +108,7 @@ struct
         let open Nondeterminism_monad in
         let%bind (k,v) = pick_enum @@ Ident_map.enum m' in
         return @@ Record_pattern(Ident_map.singleton k v)
-      | _ -> failwith "Not implemented."
+      | _ -> raise @@ Utils.Invariant_failure ("The non-record pattern `" ^ pp_pattern pattern ^ "' ended up on `analysis.ml:negative_pattern_set_selection:pick_pattern'.")
     in
     let open Nondeterminism_monad in
     let%bind selected_patterns = 
