@@ -126,7 +126,7 @@ struct
         with
         | Not_found -> None
       end
-    | _ -> raise @@ Non_record_projection ("Tried to project out of a non-record pattern `" ^ pp_pattern pattern ^ "' in `analysis.ml:patter_projection'.")
+    | _ -> raise @@ Non_record_projection ("Tried to project out of a non-record pattern `" ^ pp_pattern pattern ^ "' in `analysis.ml:pattern_projection'.")
   ;;
 
   let pattern_set_projection set label =
@@ -145,7 +145,7 @@ struct
     match pattern with
     | Record_pattern m ->
       Ident_set.of_enum @@ Ident_map.keys m
-    | _ -> failwith "Not implemented."
+    | _ -> raise @@ Non_record_projection ("Tried to enumerate labels out of a non-record pattern `" ^ pp_pattern pattern ^ "' in `analysis.ml:labels_in_pattern'.")
   ;;
 
   let labels_in_pattern_set set =
