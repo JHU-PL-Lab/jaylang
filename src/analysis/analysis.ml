@@ -872,7 +872,7 @@ struct
     | Value_discovery_1_of_2
       (** Represents the rule that, if a value is the only element on the stack,
           we transition to one of the result states.  To determine that the
-          value is the only element, we must be able to pop the special "bototm"
+          value is the only element, we must be able to pop the special "bottom"
           stack element, so this is the first step of the process (which pops
           the value).  Because the value dictates the target of the second
           step, this is an untargeted action.  The second step is targeted. *)
