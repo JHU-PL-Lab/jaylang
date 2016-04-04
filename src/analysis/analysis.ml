@@ -447,7 +447,7 @@ struct
           PDS states given here are the source node (which follows the record
           assignment node in control flow) and the target node (which is the
           record assignment node itself); they are used to construct the
-          subordinate lookups used in filter valiation. *)
+          subordinate lookups used in filter validation. *)
     | Empty_record_value_discovery of var
       (** Represents the discovery of an empty record value assuming that the
           current lookup variable matches the one provided here. *) 
