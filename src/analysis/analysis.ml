@@ -1105,6 +1105,7 @@ struct
         (* Make sure we're looking for this variable. *)
         let%orzero (Lookup_var(x0,patsp0,patsn0)) = element in
         [% guard (equal_var x x0) ];
+        [% guard (is_record_pattern_set patsp0)];
         (* FIXME: the following isn't in the spec, but maybe it should be... just here to test things for now *)
         [% guard (not @@
                     Pattern_set.mem (Record_pattern Ident_map.empty) patsn0) ];
