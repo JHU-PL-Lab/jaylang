@@ -195,6 +195,9 @@ struct
 
   type pds_continuation =
     | Bottom_of_stack
+    (** The bottom of stack element is necessary as a sentinel. It's pushed as
+        the initial element on the continuation stack so we don't need to check
+        for empty continuation stacks. *)
     | Lookup_var of var * Pattern_set.t * Pattern_set.t
     | Project of ident * Pattern_set.t * Pattern_set.t
     | Jump of annotated_clause * C.t
