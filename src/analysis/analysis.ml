@@ -87,6 +87,12 @@ struct
     | _ -> let Abs_clause(x,_) = List.last body in x
   ;;
 
+  (* FIXME: the following restriction isn't in the spec, but maybe it should be... just here to test things for now *)
+  (* The `pattern_set' passed into this function must not contain the empty record pattern. Use the following guard to test:
+      (* FIXME: the following isn't in the spec, but maybe it should be... just here to test things for now *)
+      [% guard (not @@
+                    Pattern_set.mem (Record_pattern Ident_map.empty) pattern_set) ];
+  *)
   let negative_pattern_set_selection record_type pattern_set =
     let (Record_value m) = record_type in
     let record_labels = Ident_set.of_enum @@ Ident_map.keys m in
@@ -1075,6 +1081,9 @@ struct
         [%guard (is_record_pattern_set patsp0)];
         let%orzero (Project(l,patsp1,patsn1)) = element in
         [%guard (Ident_map.mem l m)];
+        (* FIXME: the following isn't in the spec, but maybe it should be... just here to test things for now *)
+        [% guard (not @@
+                      Pattern_set.mem (Record_pattern Ident_map.empty) patsn0) ];
         let%bind patsn2 = negative_pattern_set_selection r patsn0 in
         [%guard (is_record_pattern_set patsn2)];
         let x' = Ident_map.find l m in
