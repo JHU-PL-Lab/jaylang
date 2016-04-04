@@ -208,6 +208,7 @@ struct
     | Side_effect_lookup_var of
         var * Pattern_set.t * Pattern_set.t * annotated_clause * C.t
     | Binary_operation
+    | Unary_operation
     [@@deriving ord]
   ;;
 
@@ -243,6 +244,7 @@ struct
         (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
         (pp_annotated_clause acl) (C.pp ctx)
     | Binary_operation -> "Binary_operation"
+    | Unary_operation -> "Unary_operation"
   ;;
 
   let ppa_pds_continuation = function
@@ -275,6 +277,7 @@ struct
         (pp_var x) (pp_pattern_set patsp) (pp_pattern_set patsn)
         (pp_annotated_clause acl) (C.pp ctx)
     | Binary_operation -> "BinOp"
+    | Unary_operation -> "UnOp"
   ;;
 
   type pds_state =
