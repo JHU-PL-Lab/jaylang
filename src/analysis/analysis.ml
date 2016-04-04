@@ -448,6 +448,11 @@ struct
           assignment node in control flow) and the target node (which is the
           record assignment node itself); they are used to construct the
           subordinate lookups used in filter validation. *)
+    | Int_filter_validation of var
+      (** Represents the validation of filters for an integer under lookup.  If
+          the variable matches our lookup variable, only the `int' filter on the
+          positive set is admissible and anything but `int' in the negative
+          filters is admissible and can be erased. *)
     | Empty_record_value_discovery of var
       (** Represents the discovery of an empty record value assuming that the
           current lookup variable matches the one provided here. *) 
@@ -652,6 +657,9 @@ struct
         (pp_var x) (pp_record_value r)
         (pp_annotated_clause acl1) (C.pp ctx1)
         (pp_annotated_clause acl0) (C.pp ctx0)
+    | Int_filter_validation(x) ->
+      Printf.sprintf "Int_filter_validation(%s)"
+        (pp_var x)
     | Empty_record_value_discovery(x) ->
       Printf.sprintf "Empty_record_value_discovery(%s)" (pp_var x)
     | Dereference_lookup(x,x') ->
@@ -808,6 +816,9 @@ struct
         (pp_var x) (pp_record_value r)
         (pp_annotated_clause acl1) (C.pp ctx1)
         (pp_annotated_clause acl0) (C.pp ctx0)
+    | Int_filter_validation(x) ->
+      Printf.sprintf "IntFilVal(%s)"
+        (pp_var x)
     | Empty_record_value_discovery(x) ->
       Printf.sprintf "ERValDisc(%s)" (pp_var x)
     | Dereference_lookup(x,x') ->
@@ -1136,6 +1147,15 @@ struct
           |> Enum.append first_pushes
         in
         return @@ List.of_enum all_pushes
+      | Int_filter_validation(x) ->
+        let%orzero (Lookup_var(x0,patsp,patsn)) = element in
+        [% guard (equal_var x x0) ];
+        [% guard (Pattern_set.subset patsp (Pattern_set.singleton Int_pattern)) ];
+        [% guard (not @@ Pattern_set.mem Int_pattern patsn) ];
+        let abs_filtered_value =
+          Abs_filtered_value(Abs_value_int,Pattern_set.empty,Pattern_set.empty)
+        in
+        return [ Push(Continuation_value abs_filtered_value) ]
       | Empty_record_value_discovery(x) ->
         let%orzero (Lookup_var(x0,patsp,patsn)) = element in
         [%guard (equal_var x x0)];
@@ -1703,6 +1723,18 @@ struct
                 return ( Record_filter_validation(
                            x,r,acl1,ctx,acl0,ctx)
                        , target_state
+                       )
+              end
+            ;
+              (* 7c. Integer filter validation *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(
+                      x,Abs_value_body(Abs_value_int)))) = acl1
+                in
+                (* x = int *)
+                return ( Int_filter_validation(x)
+                       , Program_point_state(acl1,ctx)
                        )
               end
             ;
