@@ -137,6 +137,18 @@ struct
     |> Pattern_set.of_enum
   ;;
 
+  let is_record_pattern_set set =
+    set
+    |> Pattern_set.enum
+    |> Enum.for_all
+      (
+        fun pattern ->
+          match pattern with
+          | Record_pattern _ -> true
+          | _ -> false
+      )
+  ;;
+
   let labels_in_record (Record_value m) =
     Ident_set.of_enum @@ Ident_map.keys m
   ;;
@@ -1060,9 +1072,11 @@ struct
         let%orzero (Abs_filtered_value(Abs_value_record(r),patsp,patsn)) = fv in
         return [ Pop_dynamic_targeted(Record_projection_2_of_2(r,patsp,patsn)) ]
       | Record_projection_2_of_2(Record_value(m) as r,patsp0,patsn0) ->
+        [%guard (is_record_pattern_set patsp0)];
         let%orzero (Project(l,patsp1,patsn1)) = element in
         [%guard (Ident_map.mem l m)];
         let%bind patsn2 = negative_pattern_set_selection r patsn0 in
+        [%guard (is_record_pattern_set patsn2)];
         let x' = Ident_map.find l m in
         let patsp' = Pattern_set.union patsp1 @@
                         pattern_set_projection patsp0 l in
