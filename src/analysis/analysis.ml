@@ -367,12 +367,14 @@ struct
           collects other stack elements into a list until it has consumed as
           many as the original Capture stack element dictated.  It then pushes
           a value to the stack followed by all of the elements it collected. *)
-    | Function_call_flow_validation of var * annotated_clause * C.t * var
+    | Function_call_flow_validation of var * var * annotated_clause * annotated_clause * C.t * var
       (** Represents the validation of a function at a call site to ensure that
           we only explore exit nodes which apply in this context.  The first
-          variable is the called function.  The given state is the target to
-          which to jump once a function value has been discovered.  The second
-          variable is the call site for which this validation is occurring. *)
+          variable is the called function. The second variable is the argument
+          passed to the function.  The given states are used to build the targets
+          to which to jump once the function argument has been validated and
+          once a function value has been discovered.  The third variable is the
+          call site for which this validation is occurring. *)
     | Function_call_flow_validation_resolution_1_of_2 of var * var
       (** The first step of resolving function call flow validation.  The first
           variable is the call site; the second variable is the return variable
@@ -597,10 +599,10 @@ struct
       Printf.sprintf "Value_capture_2_of_2(%s,%s,%d)"
         (pp_abs_filtered_value v) (pp_list pp_pds_continuation elements)
         (int_of_bounded_capture_size size)
-    | Function_call_flow_validation(x_func,acl0,ctx,x_site) ->
-      Printf.sprintf "Function_call_flow_validation(%s,%s,%s,%s)"
-      (pp_var x_func) (pp_annotated_clause acl0) (C.pp ctx)
-      (pp_var x_site)
+    | Function_call_flow_validation(x_func,x_arg,acl0,c,ctx,x_site) ->
+      Printf.sprintf "Function_call_flow_validation(%s,%s,%s,%s,%s,%s)"
+        (pp_var x_func) (pp_var x_arg) (pp_annotated_clause acl0)
+        (pp_annotated_clause c) (C.pp ctx) (pp_var x_site)
     | Function_call_flow_validation_resolution_1_of_2(x,x') ->
       Printf.sprintf "Function_call_flow_validation_resolution_1_of_2(%s,%s)"
       (pp_var x) (pp_var x')
@@ -753,10 +755,10 @@ struct
       Printf.sprintf "VCap3(%s,%s,%d)"
         (pp_abs_filtered_value v) (pp_list ppa_pds_continuation elements)
         (int_of_bounded_capture_size size)
-    | Function_call_flow_validation(x_func,acl0,ctx,x_site) ->
-      Printf.sprintf "FCFV(%s,%s,%s,%s)"
-      (pp_var x_func) (pp_annotated_clause acl0) (C.pp ctx)
-      (pp_var x_site)
+    | Function_call_flow_validation(x_func,x_arg,acl0,c,ctx,x_site) ->
+      Printf.sprintf "FCFV(%s,%s,%s,%s,%s,%s)"
+        (pp_var x_func) (pp_var x_arg) (pp_annotated_clause acl0)
+        (pp_annotated_clause c) (C.pp ctx) (pp_var x_site)
     | Function_call_flow_validation_resolution_1_of_2(x,x') ->
       Printf.sprintf "FCFVR1(%s,%s)"
       (pp_var x) (pp_var x')
@@ -993,7 +995,7 @@ struct
             in
             return @@ (Push (Continuation_value fv))::pushes 
           end
-      | Function_call_flow_validation(x2'',acl0,ctx,x) ->
+      | Function_call_flow_validation(x2'',x3'',acl0,c,ctx,x) ->
         let%orzero (Lookup_var(x',_,_)) = element in
         [%guard (equal_var x x')];
         return [ Push(element)
@@ -1001,6 +1003,8 @@ struct
                ; Push(Jump(acl0,ctx))
                ; Push(Capture(make_bounded_capture_size 2))
                ; Push(Lookup_var(x2'',Pattern_set.empty,Pattern_set.empty))
+               ; Push(Jump(c,ctx))
+               ; Push(Lookup_var(x3'',Pattern_set.empty,Pattern_set.empty))
                ]
       | Function_call_flow_validation_resolution_1_of_2(x,x') ->
         let%orzero Real_flow_huh = element in
@@ -1568,9 +1572,9 @@ struct
               (* 4b. Function return wiring start *)
               begin
                 let%orzero (Exit_clause(x,_,c)) = acl1 in
-                let%orzero (Abs_clause(_,Abs_appl_body(x2'',_))) = c in
+                let%orzero (Abs_clause(_,Abs_appl_body(x2'',x3''))) = c in
                 (* x =(up)c _ (for functions) *)
-                return ( Function_call_flow_validation(x2'',acl0,ctx,x)
+                return ( Function_call_flow_validation(x2'',x3'',acl0,Unannotated_clause(c),ctx,x)
                        , Program_point_state(Unannotated_clause(c),ctx)
                        )
               end
