@@ -605,7 +605,7 @@ struct
     | Binary_operator_resolution_3_of_4 of var * binary_operator * abstract_value option
       (** The third step of binary operator resolution.  This step
           collects the second operand. *)
-    | Binary_operator_resolution_4_of_4 of var * abstract_value
+    | Binary_operator_resolution_4_of_4 of var * binary_operator * abstract_value
       (** The forth step of binary operator resolution.  This step
           collects and checks the lookup variable. *)
     | Unary_operator_resolution_1_of_3 of var * unary_operator
@@ -615,7 +615,7 @@ struct
     | Unary_operator_resolution_2_of_3 of var * unary_operator
       (** The second step of unary operator resolution.  This step
           collects the operand. *)
-    | Unary_operator_resolution_3_of_3 of var * abstract_value
+    | Unary_operator_resolution_3_of_3 of var * unary_operator * abstract_value
       (** The third step of binary operator resolution.  This step
           collects and checks the lookup variable. *)
     [@@deriving ord]
@@ -783,18 +783,18 @@ struct
         (match abstract_value_option with
         | Some abstract_value -> "Some " ^ pp_abstract_value abstract_value
         | None -> "None")
-    | Binary_operator_resolution_4_of_4(x1,abstract_value) ->
-      Printf.sprintf "Binary_operator_resolution_4_of_4(%s,%s)"
-        (pp_var x1) (pp_abstract_value abstract_value)
+    | Binary_operator_resolution_4_of_4(x1,op,abstract_value) ->
+      Printf.sprintf "Binary_operator_resolution_4_of_4(%s,%s,%s)"
+        (pp_var x1) (pp_binary_operator op) (pp_abstract_value abstract_value)
     | Unary_operator_resolution_1_of_3(x1,op) ->
       Printf.sprintf "Unary_operator_resolution_1_of_3(%s,%s)"
         (pp_var x1) (pp_unary_operator op)
     | Unary_operator_resolution_2_of_3(x1,op) ->
       Printf.sprintf "Unary_operator_resolution_2_of_3(%s,%s)"
         (pp_var x1) (pp_unary_operator op)
-    | Unary_operator_resolution_3_of_3(x1,abstract_value) ->
-      Printf.sprintf "Unary_operator_resolution_3_of_3(%s,%s)"
-        (pp_var x1) (pp_abstract_value abstract_value)
+    | Unary_operator_resolution_3_of_3(x1,op,abstract_value) ->
+      Printf.sprintf "Unary_operator_resolution_3_of_3(%s,%s,%s)"
+        (pp_var x1) (pp_unary_operator op) (pp_abstract_value abstract_value)
   ;;
 
   let ppa_pds_targeted_dynamic_pop_action action =
@@ -942,14 +942,16 @@ struct
         (match abstract_value_option with
         | Some abstract_value -> "Some " ^ pp_abstract_value abstract_value
         | None -> "None")
-    | Binary_operator_resolution_4_of_4(x1,abstract_value) ->
-      Printf.sprintf "BinOpRes4(%s,%s)" (pp_var x1) (pp_abstract_value abstract_value)
+    | Binary_operator_resolution_4_of_4(x1,op,abstract_value) ->
+      Printf.sprintf "BinOpRes4(%s,%s,%s)" (pp_var x1) (pp_binary_operator op)
+        (pp_abstract_value abstract_value)
     | Unary_operator_resolution_1_of_3(x1,op) ->
       Printf.sprintf "UnOpRes1(%s,%s)" (pp_var x1) (pp_unary_operator op)
     | Unary_operator_resolution_2_of_3(x1,op) ->
       Printf.sprintf "UnOpRes2(%s,%s)" (pp_var x1) (pp_unary_operator op)
-    | Unary_operator_resolution_3_of_3(x1,abstract_value) ->
-      Printf.sprintf "UnOpRes3(%s,%s)" (pp_var x1) (pp_abstract_value abstract_value)
+    | Unary_operator_resolution_3_of_3(x1,op,abstract_value) ->
+      Printf.sprintf "UnOpRes3(%s,%s,%s)" (pp_var x1) (pp_unary_operator op)
+        (pp_abstract_value abstract_value)
   ;;
 
   type pds_untargeted_dynamic_pop_action =
@@ -1496,7 +1498,7 @@ struct
             [%guard (Pattern_set.is_empty patsp) ];
             [%guard (Pattern_set.is_empty patsn) ];
             return [ Pop_dynamic_targeted(
-                Binary_operator_resolution_4_of_4(x1,Abs_value_int)) ]
+                Binary_operator_resolution_4_of_4(x1,op,Abs_value_int)) ]
           | Binary_operator_int_less_than
           | Binary_operator_int_less_than_or_equal_to ->
             let%orzero
@@ -1507,7 +1509,7 @@ struct
             [%guard (Pattern_set.is_empty patsn) ];
             let%bind v = pick_enum @@ List.enum [Abs_value_bool(true); Abs_value_bool(false)] in
             return [ Pop_dynamic_targeted(
-                Binary_operator_resolution_4_of_4(x1,v)) ]
+                Binary_operator_resolution_4_of_4(x1,op,v)) ]
           | Binary_operator_equal_to ->
             begin
               match element with
@@ -1516,7 +1518,7 @@ struct
                 [%guard (Pattern_set.is_empty patsn) ];
                 let%bind v = pick_enum @@ List.enum [Abs_value_bool(true); Abs_value_bool(false)] in
                 return [ Pop_dynamic_targeted(
-                    Binary_operator_resolution_4_of_4(x1,v)) ]
+                    Binary_operator_resolution_4_of_4(x1,op,v)) ]
               | Continuation_value(Abs_filtered_value(Abs_value_bool op2bool,patsp,patsn)) ->
                 [%guard (Pattern_set.is_empty patsp) ];
                 [%guard (Pattern_set.is_empty patsn) ];
@@ -1527,7 +1529,7 @@ struct
                       match abstract_value with
                       | Abs_value_bool op1bool ->
                         return [ Pop_dynamic_targeted(
-                            Binary_operator_resolution_4_of_4(x1,Abs_value_bool(op1bool = op2bool))) ]
+                            Binary_operator_resolution_4_of_4(x1,op,Abs_value_bool(op1bool = op2bool))) ]
                       | _ ->
                         raise @@ Utils.Invariant_failure "Accumulated wrong binary Boolean operand."
                     end
@@ -1549,7 +1551,7 @@ struct
                   match abstract_value with
                   | Abs_value_bool op1bool ->
                     return [ Pop_dynamic_targeted(
-                        Binary_operator_resolution_4_of_4(x1,Abs_value_bool(op1bool && op2bool))) ]
+                        Binary_operator_resolution_4_of_4(x1,op,Abs_value_bool(op1bool && op2bool))) ]
                   | _ ->
                     raise @@ Utils.Invariant_failure "Accumulated wrong binary Boolean operand."
                 end
@@ -1569,18 +1571,42 @@ struct
                   match abstract_value with
                   | Abs_value_bool op1bool ->
                     return [ Pop_dynamic_targeted(
-                        Binary_operator_resolution_4_of_4(x1,Abs_value_bool(op1bool || op2bool))) ]
+                        Binary_operator_resolution_4_of_4(x1,op,Abs_value_bool(op1bool || op2bool))) ]
                   | _ ->
                     raise @@ Utils.Invariant_failure "Accumulated wrong binary Boolean operand."
                 end
               | None -> raise @@ Utils.Invariant_failure "Didn't accumulate binary Boolean operand."
             end
         end
-      | Binary_operator_resolution_4_of_4(x1,abstract_value) ->
-        let%orzero Lookup_var(x1',_,_) = element in
+      | Binary_operator_resolution_4_of_4(x1,op,abstract_value) ->
+        let%orzero Lookup_var(x1',patsp,patsn) = element in
         [%guard (equal_var x1 x1') ];
-        return [ Push (Continuation_value(Abs_filtered_value(
-            abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
+        begin
+          match op with
+          | Binary_operator_int_plus
+          | Binary_operator_int_minus ->
+            [%guard (Pattern_set.subset
+                        patsp (Pattern_set.singleton Int_pattern)) ];
+            [%guard (not @@ Pattern_set.mem Int_pattern patsn) ];
+            return [ Push (Continuation_value(Abs_filtered_value(
+                abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
+          | Binary_operator_int_less_than
+          | Binary_operator_int_less_than_or_equal_to
+          | Binary_operator_equal_to
+          | Binary_operator_bool_and
+          | Binary_operator_bool_or ->
+            begin
+              match abstract_value with
+              | Abs_value_bool result_bool ->
+                [% guard (Pattern_set.subset
+                            patsp (Pattern_set.singleton (Bool_pattern(result_bool)))) ];
+                [% guard (not @@ Pattern_set.mem (Bool_pattern(result_bool)) patsn) ];
+                return [ Push (Continuation_value(Abs_filtered_value(
+                    abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
+              | _ ->
+                raise @@ Utils.Invariant_failure "Accumulated wrong binary operation result."
+            end
+        end
       | Unary_operator_resolution_1_of_3 _
       | Unary_operator_resolution_2_of_3 _
       | Unary_operator_resolution_3_of_3 _ -> failwith "Not implemented."
