@@ -595,18 +595,28 @@ struct
           unary operation.  The first variable above must be the
           current target of lookup.  The second variable is the operand
           of the operation.  The state is the source states of the DDPA edge. *)
-    | Integer_binary_operator_resolution_1_of_4 of var * binary_operator
+    | Binary_operator_resolution_1_of_4 of var * binary_operator
       (** Represents the start of the resolution of a binary operator after its
           operands have been found.  The variable here is the one under
           lookup. *)
-    | Integer_binary_operator_resolution_2_of_4 of var * binary_operator
-      (** The second step of integer binary operator resolution.  This step
+    | Binary_operator_resolution_2_of_4 of var * binary_operator
+      (** The second step of binary operator resolution.  This step
           collects the first operand. *)
-    | Integer_binary_operator_resolution_3_of_4 of var * binary_operator
-      (** The third step of integer binary operator resolution.  This step
+    | Binary_operator_resolution_3_of_4 of var * binary_operator
+      (** The third step of binary operator resolution.  This step
           collects the second operand. *)
-    | Integer_binary_operator_resolution_4_of_4 of var * binary_operator
-      (** The third step of integer binary operator resolution.  This step
+    | Binary_operator_resolution_4_of_4 of var * binary_operator
+      (** The forth step of binary operator resolution.  This step
+          collects and checks the lookup variable. *)
+    | Unary_operator_resolution_1_of_3 of var * unary_operator
+      (** Represents the start of the resolution of a unary operator after its
+          operands have been found.  The variable here is the one under
+          lookup. *)
+    | Unary_operator_resolution_2_of_3 of var * unary_operator
+      (** The second step of unary operator resolution.  This step
+          collects the operand. *)
+    | Unary_operator_resolution_3_of_3 of var * unary_operator
+      (** The third step of binary operator resolution.  This step
           collects and checks the lookup variable. *)
     [@@deriving ord]
   ;;
@@ -761,18 +771,27 @@ struct
       Printf.sprintf "Unary_operator_lookup_init(%s,%s,%s,%s)"
         (pp_var x1) (pp_var x2)
         (pp_annotated_clause acl0) (C.pp ctx0)
-    | Integer_binary_operator_resolution_1_of_4(x1,op) ->
-      Printf.sprintf "Integer_binary_operator_resolution_1_of_4(%s,%s)"
+    | Binary_operator_resolution_1_of_4(x1,op) ->
+      Printf.sprintf "Binary_operator_resolution_1_of_4(%s,%s)"
         (pp_var x1) (pp_binary_operator op)
-    | Integer_binary_operator_resolution_2_of_4(x1,op) ->
-      Printf.sprintf "Integer_binary_operator_resolution_2_of_4(%s,%s)"
+    | Binary_operator_resolution_2_of_4(x1,op) ->
+      Printf.sprintf "Binary_operator_resolution_2_of_4(%s,%s)"
         (pp_var x1) (pp_binary_operator op)
-    | Integer_binary_operator_resolution_3_of_4(x1,op) ->
-      Printf.sprintf "Integer_binary_operator_resolution_3_of_4(%s,%s)"
+    | Binary_operator_resolution_3_of_4(x1,op) ->
+      Printf.sprintf "Binary_operator_resolution_3_of_4(%s,%s)"
         (pp_var x1) (pp_binary_operator op)
-    | Integer_binary_operator_resolution_4_of_4(x1,op) ->
-      Printf.sprintf "Integer_binary_operator_resolution_4_of_4(%s,%s)"
+    | Binary_operator_resolution_4_of_4(x1,op) ->
+      Printf.sprintf "Binary_operator_resolution_4_of_4(%s,%s)"
         (pp_var x1) (pp_binary_operator op)
+    | Unary_operator_resolution_1_of_3(x1,op) ->
+      Printf.sprintf "Unary_operator_resolution_1_of_3(%s,%s)"
+        (pp_var x1) (pp_unary_operator op)
+    | Unary_operator_resolution_2_of_3(x1,op) ->
+      Printf.sprintf "Unary_operator_resolution_2_of_3(%s,%s)"
+        (pp_var x1) (pp_unary_operator op)
+    | Unary_operator_resolution_3_of_3(x1,op) ->
+      Printf.sprintf "Unary_operator_resolution_3_of_3(%s,%s)"
+        (pp_var x1) (pp_unary_operator op)
   ;;
 
   let ppa_pds_targeted_dynamic_pop_action action =
@@ -911,14 +930,20 @@ struct
       Printf.sprintf "UnOpInit(%s,%s,%s,%s)"
         (pp_var x1) (pp_var x2)
         (ppa_annotated_clause acl0) (C.pp ctx0)
-    | Integer_binary_operator_resolution_1_of_4(x1,op) ->
-      Printf.sprintf "IntBinOpRes1(%s,%s)" (pp_var x1) (pp_binary_operator op)
-    | Integer_binary_operator_resolution_2_of_4(x1,op) ->
-      Printf.sprintf "IntBinOpRes2(%s,%s)" (pp_var x1) (pp_binary_operator op)
-    | Integer_binary_operator_resolution_3_of_4(x1,op) ->
-      Printf.sprintf "IntBinOpRes3(%s,%s)" (pp_var x1) (pp_binary_operator op)
-    | Integer_binary_operator_resolution_4_of_4(x1,op) ->
-      Printf.sprintf "IntBinOpRes4(%s,%s)" (pp_var x1) (pp_binary_operator op)
+    | Binary_operator_resolution_1_of_4(x1,op) ->
+      Printf.sprintf "BinOpRes1(%s,%s)" (pp_var x1) (pp_binary_operator op)
+    | Binary_operator_resolution_2_of_4(x1,op) ->
+      Printf.sprintf "BinOpRes2(%s,%s)" (pp_var x1) (pp_binary_operator op)
+    | Binary_operator_resolution_3_of_4(x1,op) ->
+      Printf.sprintf "BinOpRes3(%s,%s)" (pp_var x1) (pp_binary_operator op)
+    | Binary_operator_resolution_4_of_4(x1,op) ->
+      Printf.sprintf "BinOpRes4(%s,%s)" (pp_var x1) (pp_binary_operator op)
+    | Unary_operator_resolution_1_of_3(x1,op) ->
+      Printf.sprintf "UnOpRes1(%s,%s)" (pp_var x1) (pp_unary_operator op)
+    | Unary_operator_resolution_2_of_3(x1,op) ->
+      Printf.sprintf "UnOpRes2(%s,%s)" (pp_var x1) (pp_unary_operator op)
+    | Unary_operator_resolution_3_of_3(x1,op) ->
+      Printf.sprintf "UnOpRes3(%s,%s)" (pp_var x1) (pp_unary_operator op)
   ;;
 
   type pds_untargeted_dynamic_pop_action =
@@ -1408,11 +1433,11 @@ struct
         let k2'' = [ Unary_operation ; Jump(acl0,ctx0) ] in
         let k0 = [ element ] in
         return @@ List.map (fun x -> Push x) @@ k0 @ k2'' @ k1''
-      | Integer_binary_operator_resolution_1_of_4(x1,op) ->
+      | Binary_operator_resolution_1_of_4(x1,op) ->
         let%orzero Binary_operation = element in
         return [ Pop_dynamic_targeted(
-                    Integer_binary_operator_resolution_2_of_4(x1,op)) ]
-      | Integer_binary_operator_resolution_2_of_4(x1,op) ->
+                    Binary_operator_resolution_2_of_4(x1,op)) ]
+      | Binary_operator_resolution_2_of_4(x1,op) ->
         let%orzero
           Continuation_value(Abs_filtered_value(Abs_value_int,patsp,patsn)) =
             element
@@ -1420,8 +1445,8 @@ struct
         [%guard (Pattern_set.is_empty patsp) ];
         [%guard (Pattern_set.is_empty patsn) ];
         return [ Pop_dynamic_targeted(
-                    Integer_binary_operator_resolution_3_of_4(x1,op)) ]
-      | Integer_binary_operator_resolution_3_of_4(x1,op) ->
+                    Binary_operator_resolution_3_of_4(x1,op)) ]
+      | Binary_operator_resolution_3_of_4(x1,op) ->
         let%orzero
           Continuation_value(Abs_filtered_value(Abs_value_int,patsp,patsn)) =
             element
@@ -1429,8 +1454,8 @@ struct
         [%guard (Pattern_set.is_empty patsp) ];
         [%guard (Pattern_set.is_empty patsn) ];
         return [ Pop_dynamic_targeted(
-                    Integer_binary_operator_resolution_4_of_4(x1,op)) ]
-      | Integer_binary_operator_resolution_4_of_4(x1,op) ->
+                    Binary_operator_resolution_4_of_4(x1,op)) ]
+      | Binary_operator_resolution_4_of_4(x1,op) ->
         let%orzero Lookup_var(x1',patsp,patsn) = element in
         [%guard (equal_var x1 x1') ];
         let outcomes =
@@ -1462,7 +1487,10 @@ struct
         in
         let%bind v = pick_enum @@ List.enum outcomes in
         return [ Push (Continuation_value(Abs_filtered_value(
-                          v,Pattern_set.empty,Pattern_set.empty))) ]
+            v,Pattern_set.empty,Pattern_set.empty))) ]
+      | Unary_operator_resolution_1_of_3 _
+      | Unary_operator_resolution_2_of_3 _
+      | Unary_operator_resolution_3_of_3 _ -> failwith "Not implemented."
     ;;
       
     let perform_untargeted_dynamic_pop element action =
@@ -1968,14 +1996,25 @@ struct
                        , Program_point_state(acl1,ctx)
                        )
               end
-            ; (* 12a,12b,12c. Integer operator resolution *)
+            ; (* 12a,12b,12c,13a,13b,13c,13d,13e,13f,13g,13h,13i,13j,13k,13l. Binary operator resolution *)
               begin
                 let%orzero
                   (Unannotated_clause(Abs_clause(x1,
                             Abs_binary_operation_body(_,op,_)))) = acl1
                 in
                 (* x1 = x2 op x3 *)
-                return ( Integer_binary_operator_resolution_1_of_4(x1,op)
+                return ( Binary_operator_resolution_1_of_4(x1,op)
+                       , Program_point_state(acl0,ctx)
+                       )
+              end
+            ; (* 13m,13n. Unary operator resolution *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(x1,
+                            Abs_unary_operation_body(op,_)))) = acl1
+                in
+                (* x1 = op x2 *)
+                return ( Unary_operator_resolution_1_of_3(x1,op)
                        , Program_point_state(acl0,ctx)
                        )
               end
