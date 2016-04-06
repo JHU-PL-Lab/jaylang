@@ -582,10 +582,10 @@ struct
     | Side_effect_search_escape_completion_4_of_4 of var
       (** Represents the completion of a side-effect search escape.  The given
           variable is the one to which the aliased cell is being assigned. *)
-    | Integer_binary_operator_lookup_init of
+    | Binary_operator_lookup_init of
         var * var * var * annotated_clause * C.t * annotated_clause * C.t
       (** Represents the kickstart of a process which looks up values for a
-          binary operation on integers.  The first variable above must be the
+          binary operation.  The first variable above must be the
           current target of lookup.  The next two variables are the operands
           of the operation.  The remaining two pairs of values represent the
           source and target states of the DDPA edge. *)
@@ -746,8 +746,8 @@ struct
     | Side_effect_search_escape_completion_4_of_4 x ->
       Printf.sprintf "Side_effect_search_escape_completion_4_of_4(%s)"
         (pp_var x)
-    | Integer_binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
-      Printf.sprintf "Integer_binary_operator_lookup_init(%s,%s,%s,%s,%s,%s,%s)"
+    | Binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
+      Printf.sprintf "Binary_operator_lookup_init(%s,%s,%s,%s,%s,%s,%s)"
         (pp_var x1) (pp_var x2) (pp_var x3)
         (pp_annotated_clause acl1) (C.pp ctx1)
         (pp_annotated_clause acl0) (C.pp ctx0)
@@ -892,8 +892,8 @@ struct
       Printf.sprintf "SESEC3(%s)" (pp_var x)
     | Side_effect_search_escape_completion_4_of_4 x ->
       Printf.sprintf "SESEC4(%s)" (pp_var x)
-    | Integer_binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
-      Printf.sprintf "IntBinOpInit(%s,%s,%s,%s,%s,%s,%s)"
+    | Binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
+      Printf.sprintf "BinOpInit(%s,%s,%s,%s,%s,%s,%s)"
         (pp_var x1) (pp_var x2) (pp_var x3)
         (ppa_annotated_clause acl1) (C.pp ctx1)
         (ppa_annotated_clause acl0) (C.pp ctx0)
@@ -1364,7 +1364,7 @@ struct
       | Side_effect_search_escape_completion_4_of_4 x ->
         let%orzero Deref(patsp,patsn) = element in
         return [ Push (Lookup_var(x,patsp,patsn)) ]
-      | Integer_binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
+      | Binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
         let%orzero Lookup_var(x1',_,_) = element in
         [%guard (equal_var x1 x1') ];
         (* The lists below are in reverse order of their presentation in the
@@ -1917,14 +1917,14 @@ struct
                 return ( Side_effect_search_escape_completion_1_of_4
                        , Program_point_state(acl0,ctx) )
               end
-            ; (* 11b. Integer binary operation operand lookup *)
+            ; (* 11a. Binary operation operand lookup *)
               begin
                 let%orzero
                   (Unannotated_clause(Abs_clause(x1,
                             Abs_binary_operation_body(x2,_,x3)))) = acl1
                 in
                 (* x1 = x2 op x3 *)
-                return ( Integer_binary_operator_lookup_init(
+                return ( Binary_operator_lookup_init(
                             x1,x2,x3,acl1,ctx,acl0,ctx)
                        , Program_point_state(acl1,ctx)
                        )
