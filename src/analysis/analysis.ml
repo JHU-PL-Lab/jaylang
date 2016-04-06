@@ -1968,7 +1968,7 @@ struct
                        , Program_point_state(acl1,ctx)
                        )
               end
-            ; (* 11c,11d,11e. Integer binary operator resolution *)
+            ; (* 12a,12b,12c. Integer operator resolution *)
               begin
                 let%orzero
                   (Unannotated_clause(Abs_clause(x1,
