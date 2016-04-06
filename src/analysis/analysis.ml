@@ -1607,9 +1607,41 @@ struct
                 raise @@ Utils.Invariant_failure "Accumulated wrong binary operation result."
             end
         end
-      | Unary_operator_resolution_1_of_3 _
-      | Unary_operator_resolution_2_of_3 _
-      | Unary_operator_resolution_3_of_3 _ -> failwith "Not implemented."
+      | Unary_operator_resolution_1_of_3(x1,op) ->
+        let%orzero Unary_operation = element in
+        return [ Pop_dynamic_targeted(
+                    Unary_operator_resolution_2_of_3(x1,op)) ]
+      | Unary_operator_resolution_2_of_3(x1,op) ->
+        begin
+          match op with
+          | Unary_operator_bool_not ->
+            let%orzero
+              Continuation_value(Abs_filtered_value(Abs_value_bool opbool,patsp,patsn)) =
+              element
+            in
+            [%guard (Pattern_set.is_empty patsp) ];
+            [%guard (Pattern_set.is_empty patsn) ];
+            return [ Pop_dynamic_targeted(
+                Unary_operator_resolution_3_of_3(x1,op,Abs_value_bool (not opbool))) ]
+        end
+      | Unary_operator_resolution_3_of_3(x1,op,abstract_value) ->
+        let%orzero Lookup_var(x1',patsp,patsn) = element in
+        [%guard (equal_var x1 x1') ];
+        begin
+          match op with
+          | Unary_operator_bool_not ->
+            begin
+              match abstract_value with
+              | Abs_value_bool result_bool ->
+                [% guard (Pattern_set.subset
+                            patsp (Pattern_set.singleton (Bool_pattern(result_bool)))) ];
+                [% guard (not @@ Pattern_set.mem (Bool_pattern(result_bool)) patsn) ];
+                return [ Push (Continuation_value(Abs_filtered_value(
+                    abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
+              | _ ->
+                raise @@ Utils.Invariant_failure "Accumulated wrong binary operation result."
+            end
+        end
     ;;
       
     let perform_untargeted_dynamic_pop element action =
