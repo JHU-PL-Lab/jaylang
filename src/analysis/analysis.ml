@@ -582,9 +582,6 @@ struct
     | Side_effect_search_escape_completion_4_of_4 of var
       (** Represents the completion of a side-effect search escape.  The given
           variable is the one to which the aliased cell is being assigned. *)
-    | Integer_filter_validation of var
-      (** Represents the discovery of an integer value if the current lookup
-          variable is the one indicated. *)
     | Integer_binary_operator_lookup_init of
         var * var * var * annotated_clause * C.t * annotated_clause * C.t
       (** Represents the kickstart of a process which looks up values for a
@@ -749,8 +746,6 @@ struct
     | Side_effect_search_escape_completion_4_of_4 x ->
       Printf.sprintf "Side_effect_search_escape_completion_4_of_4(%s)"
         (pp_var x)
-    | Integer_filter_validation x ->
-      Printf.sprintf "Integer_filter_validation(%s)" (pp_var x)
     | Integer_binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
       Printf.sprintf "Integer_binary_operator_lookup_init(%s,%s,%s,%s,%s,%s,%s)"
         (pp_var x1) (pp_var x2) (pp_var x3)
@@ -897,8 +892,6 @@ struct
       Printf.sprintf "SESEC3(%s)" (pp_var x)
     | Side_effect_search_escape_completion_4_of_4 x ->
       Printf.sprintf "SESEC4(%s)" (pp_var x)
-    | Integer_filter_validation x ->
-      Printf.sprintf "IntFV(%s)" (pp_var x)
     | Integer_binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
       Printf.sprintf "IntBinOpInit(%s,%s,%s,%s,%s,%s,%s)"
         (pp_var x1) (pp_var x2) (pp_var x3)
@@ -1371,12 +1364,6 @@ struct
       | Side_effect_search_escape_completion_4_of_4 x ->
         let%orzero Deref(patsp,patsn) = element in
         return [ Push (Lookup_var(x,patsp,patsn)) ]
-      | Integer_filter_validation x ->
-        let%orzero Lookup_var(x0,patsp,_) = element in
-        [%guard (equal_var x x0) ];
-        [%guard (Pattern_set.is_empty patsp) ];
-        return [ Push (Continuation_value(Abs_filtered_value(
-                          Abs_value_int,Pattern_set.empty,Pattern_set.empty))) ]
       | Integer_binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
         let%orzero Lookup_var(x1',_,_) = element in
         [%guard (equal_var x1 x1') ];
@@ -1929,17 +1916,6 @@ struct
               begin
                 return ( Side_effect_search_escape_completion_1_of_4
                        , Program_point_state(acl0,ctx) )
-              end
-            ; (* 11a. Integer filter validation *)
-              begin
-                let%orzero
-                  (Unannotated_clause(Abs_clause(x,
-                            Abs_value_body Abs_value_int))) = acl1
-                in
-                (* x = int *)
-                return ( Integer_filter_validation(x)
-                       , Program_point_state(acl1,ctx)
-                       )
               end
             ; (* 11b. Integer binary operation operand lookup *)
               begin
