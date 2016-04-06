@@ -589,6 +589,12 @@ struct
           current target of lookup.  The next two variables are the operands
           of the operation.  The remaining two pairs of values represent the
           source and target states of the DDPA edge. *)
+    | Unary_operator_lookup_init of
+        var * var * annotated_clause * C.t
+      (** Represents the kickstart of a process which looks up values for a
+          unary operation.  The first variable above must be the
+          current target of lookup.  The second variable is the operand
+          of the operation.  The state is the source states of the DDPA edge. *)
     | Integer_binary_operator_resolution_1_of_4 of var * binary_operator
       (** Represents the start of the resolution of a binary operator after its
           operands have been found.  The variable here is the one under
@@ -751,6 +757,10 @@ struct
         (pp_var x1) (pp_var x2) (pp_var x3)
         (pp_annotated_clause acl1) (C.pp ctx1)
         (pp_annotated_clause acl0) (C.pp ctx0)
+    | Unary_operator_lookup_init(x1,x2,acl0,ctx0) ->
+      Printf.sprintf "Unary_operator_lookup_init(%s,%s,%s,%s)"
+        (pp_var x1) (pp_var x2)
+        (pp_annotated_clause acl0) (C.pp ctx0)
     | Integer_binary_operator_resolution_1_of_4(x1,op) ->
       Printf.sprintf "Integer_binary_operator_resolution_1_of_4(%s,%s)"
         (pp_var x1) (pp_binary_operator op)
@@ -896,6 +906,10 @@ struct
       Printf.sprintf "BinOpInit(%s,%s,%s,%s,%s,%s,%s)"
         (pp_var x1) (pp_var x2) (pp_var x3)
         (ppa_annotated_clause acl1) (C.pp ctx1)
+        (ppa_annotated_clause acl0) (C.pp ctx0)
+    | Unary_operator_lookup_init(x1,x2,acl0,ctx0) ->
+      Printf.sprintf "UnOpInit(%s,%s,%s,%s)"
+        (pp_var x1) (pp_var x2)
         (ppa_annotated_clause acl0) (C.pp ctx0)
     | Integer_binary_operator_resolution_1_of_4(x1,op) ->
       Printf.sprintf "IntBinOpRes1(%s,%s)" (pp_var x1) (pp_binary_operator op)
@@ -1381,6 +1395,19 @@ struct
         let k3'' = [ Binary_operation ; Jump(acl0,ctx0) ] in
         let k0 = [ element ] in
         return @@ List.map (fun x -> Push x) @@ k0 @ k3'' @ k2'' @ k1''
+      | Unary_operator_lookup_init(x1,x2,acl0,ctx0) ->
+        let%orzero Lookup_var(x1',_,_) = element in
+        [%guard (equal_var x1 x1') ];
+        (* The lists below are in reverse order of their presentation in the
+           formal rules because we are not directly modifying the stack;
+           instead, we are pushing stack elements one at a time. *)
+        let capture_size_2 = make_bounded_capture_size 2 in
+        let k1'' = [ Capture capture_size_2
+                   ; Lookup_var(x2,Pattern_set.empty,Pattern_set.empty)
+                   ] in
+        let k2'' = [ Unary_operation ; Jump(acl0,ctx0) ] in
+        let k0 = [ element ] in
+        return @@ List.map (fun x -> Push x) @@ k0 @ k2'' @ k1''
       | Integer_binary_operator_resolution_1_of_4(x1,op) ->
         let%orzero Binary_operation = element in
         return [ Pop_dynamic_targeted(
@@ -1926,6 +1953,18 @@ struct
                 (* x1 = x2 op x3 *)
                 return ( Binary_operator_lookup_init(
                             x1,x2,x3,acl1,ctx,acl0,ctx)
+                       , Program_point_state(acl1,ctx)
+                       )
+              end
+            ; (* 11b. Unary operation operand lookup *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(x1,
+                            Abs_unary_operation_body(_,x2)))) = acl1
+                in
+                (* x1 = op x2 *)
+                return ( Unary_operator_lookup_init(
+                            x1,x2,acl0,ctx)
                        , Program_point_state(acl1,ctx)
                        )
               end
