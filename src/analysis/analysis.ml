@@ -1816,7 +1816,13 @@ struct
               (* 4a. Function parameter wiring *) 
               begin
                 let%orzero (Enter_clause(x,x',c)) = acl1 in
-                let%orzero (Abs_clause(_,Abs_appl_body _)) = c in
+                let%orzero (Abs_clause(_,Abs_appl_body (_,x3''))) = c in
+                begin
+                  if not (equal_var x' x3'') then
+                    raise @@ Utils.Invariant_failure "Ill-formed wiring node."
+                  else
+                    ()
+                end;
                 (* x =(down)c x' *)
                 [%guard C.is_top c ctx];
                 let ctx' = C.pop ctx in
@@ -1826,7 +1832,13 @@ struct
               (* 4b. Function return wiring start *)
               begin
                 let%orzero (Exit_clause(x,_,c)) = acl1 in
-                let%orzero (Abs_clause(_,Abs_appl_body(x2'',x3''))) = c in
+                let%orzero (Abs_clause(x1'',Abs_appl_body(x2'',x3''))) = c in
+                begin
+                  if not (equal_var x x1'') then
+                    raise @@ Utils.Invariant_failure "Ill-formed wiring node."
+                  else
+                    ()
+                end;
                 (* x =(up)c _ (for functions) *)
                 return ( Function_call_flow_validation(x2'',x3'',acl0,ctx,Unannotated_clause(c),ctx,x)
                        , Program_point_state(Unannotated_clause(c),ctx)
@@ -1836,7 +1848,13 @@ struct
               (* 4c. Function return wiring finish *)
               begin
                 let%orzero (Exit_clause(x,x',c)) = acl1 in
-                let%orzero (Abs_clause(_,Abs_appl_body _)) = c in
+                let%orzero (Abs_clause(x1'',Abs_appl_body _)) = c in
+                begin
+                  if not (equal_var x x1'') then
+                    raise @@ Utils.Invariant_failure "Ill-formed wiring node."
+                  else
+                    ()
+                end;
                 (* x =(up)c x' *)
                 let ctx' = C.push c ctx in
                 return ( Function_call_flow_validation_resolution_1_of_2(x,x')
@@ -1846,8 +1864,14 @@ struct
             ;
               (* 4d. Function non-local wiring *)
               begin
-                let%orzero (Enter_clause(x'',_,c)) = acl1 in
-                let%orzero (Abs_clause(_,Abs_appl_body(x2'',_))) = c in
+                let%orzero (Enter_clause(x'',x',c)) = acl1 in
+                let%orzero (Abs_clause(_,Abs_appl_body(x2'',x3''))) = c in
+                begin
+                  if not (equal_var x' x3'') then
+                    raise @@ Utils.Invariant_failure "Ill-formed wiring node."
+                  else
+                    ()
+                end;
                 (* x'' =(down)c x' *)
                 [%guard C.is_top c ctx];
                 let ctx' = C.pop ctx in
