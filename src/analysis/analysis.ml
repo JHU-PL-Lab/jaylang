@@ -1929,7 +1929,7 @@ struct
                     Abs_clause(x,Abs_value_body(Abs_value_record(r))))) = acl1
                 in
                 (* x = r *)
-                let target_state = Program_point_state(acl0,ctx) in
+                let target_state = Program_point_state(acl1,ctx) in
                 return ( Record_filter_validation(
                            x,r,acl1,ctx)
                        , target_state
@@ -1990,7 +1990,7 @@ struct
                 in
                 (* x = ref x' *)
                 return ( Cell_filter_validation(x,cell)
-                       , Program_point_state(acl0,ctx)
+                       , Program_point_state(acl1,ctx)
                        )
               end
             ;
@@ -2152,7 +2152,7 @@ struct
                 in
                 (* x1 = x2 op x3 *)
                 return ( Binary_operator_resolution_1_of_4(x1,op)
-                       , Program_point_state(acl0,ctx)
+                       , Program_point_state(acl1,ctx)
                        )
               end
             ; (* 13m,13n. Unary operator resolution *)
@@ -2163,7 +2163,7 @@ struct
                 in
                 (* x1 = op x2 *)
                 return ( Unary_operator_resolution_1_of_3(x1,op)
-                       , Program_point_state(acl0,ctx)
+                       , Program_point_state(acl1,ctx)
                        )
               end
             ]
