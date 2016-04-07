@@ -437,16 +437,14 @@ struct
           the variable matches our lookup variable, any negative filters are
           admissible and can be erased (although positive filters cannot). *)
     | Record_filter_validation of
-        var * record_value *
-        annotated_clause * C.t * annotated_clause * C.t
+        var * record_value * annotated_clause * C.t
       (** Represents the validation of filters for a record under lookup.  If
           the variable matches our lookup variable, we will perform a series
           of lookups on each field of the record to validate that this record
           does, in fact, exist.  Once those lookups succeed, the resulting
           record value will replace the lookup variable on the stack.  The
-          PDS states given here are the source node (which follows the record
-          assignment node in control flow) and the target node (which is the
-          record assignment node itself); they are used to construct the
+          PDS state given here is the source node (which follows the record
+          assignment node in control flow); it is used to construct the
           subordinate lookups used in filter validation. *)
     | Int_filter_validation of var
       (** Represents the validation of filters for an integer under lookup.  If
@@ -670,11 +668,10 @@ struct
     | Function_filter_validation(x,v) ->
       Printf.sprintf "Function_filter_validation(%s,%s)"
         (pp_var x) (pp_abstract_function_value v)
-    | Record_filter_validation(x,r,acl1,ctx1,acl0,ctx0) ->
-      Printf.sprintf "Record_filter_validation(%s,%s,%s,%s,%s,%s)"
+    | Record_filter_validation(x,r,acl1,ctx1) ->
+      Printf.sprintf "Record_filter_validation(%s,%s,%s,%s)"
         (pp_var x) (pp_record_value r)
         (pp_annotated_clause acl1) (C.pp ctx1)
-        (pp_annotated_clause acl0) (C.pp ctx0)
     | Int_filter_validation(x) ->
       Printf.sprintf "Int_filter_validation(%s)"
         (pp_var x)
@@ -846,11 +843,10 @@ struct
     | Function_filter_validation(x,f) ->
       Printf.sprintf "FunFilVal(%s,%s)"
         (pp_var x) (pp_abstract_function_value f)
-    | Record_filter_validation(x,r,acl1,ctx1,acl0,ctx0) ->
-      Printf.sprintf "RecFilVal(%s,%s,%s,%s,%s,%s)"
+    | Record_filter_validation(x,r,acl1,ctx1) ->
+      Printf.sprintf "RecFilVal(%s,%s,%s,%s)"
         (pp_var x) (pp_record_value r)
         (pp_annotated_clause acl1) (C.pp ctx1)
-        (pp_annotated_clause acl0) (C.pp ctx0)
     | Int_filter_validation(x) ->
       Printf.sprintf "IntFilVal(%s)"
         (pp_var x)
@@ -1163,7 +1159,7 @@ struct
           Abs_filtered_value(value,Pattern_set.empty,Pattern_set.empty)
         in
         return [ Push(Continuation_value abs_filtered_value) ]
-      | Record_filter_validation(x,r,acl1,ctx1,acl0,ctx0) ->
+      | Record_filter_validation(x,r,acl1,ctx1) ->
         (* Make sure we're looking for this variable. *)
         let%orzero (Lookup_var(x0,patsp0,patsn0)) = element in
         [% guard (equal_var x x0) ];
@@ -1187,7 +1183,7 @@ struct
         let first_pushes =
           List.enum [ Push(Continuation_value(Abs_filtered_value(
                               Abs_value_record(r), patsp0, patsn2)))
-                    ; Push(Jump(acl0,ctx0))
+                    ; Push(Jump(acl1,ctx1))
                     ]
         in
         let all_pushes =
@@ -1934,7 +1930,7 @@ struct
                 (* x = r *)
                 let target_state = Program_point_state(acl0,ctx) in
                 return ( Record_filter_validation(
-                           x,r,acl1,ctx,acl0,ctx)
+                           x,r,acl1,ctx)
                        , target_state
                        )
               end
