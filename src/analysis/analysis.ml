@@ -1888,8 +1888,12 @@ struct
                 let%orzero
                   (Abs_clause(_,Abs_conditional_body(x1',p,f1,_))) = c
                 in
-                (* TODO: this guard should always succeed; make an assertion *)
-                [%guard (equal_var x1 x1')];
+                begin
+                  if not (equal_var x1 x1') then
+                    raise @@ Utils.Invariant_failure "Ill-formed wiring node."
+                  else
+                    ()
+                end;
                 let Abs_function_value(f1x,_) = f1 in
                 (* x'' =(down)c x' for conditionals *)
                 let closure_for_positive_path = equal_var f1x x' in
@@ -1903,8 +1907,14 @@ struct
               begin
                 let%orzero (Exit_clause(x,x',c)) = acl1 in
                 let%orzero
-                  (Abs_clause(_,Abs_conditional_body(x1,pat,f1,_))) = c
+                  (Abs_clause(x2,Abs_conditional_body(x1,pat,f1,_))) = c
                 in
+                begin
+                  if not (equal_var x x2) then
+                    raise @@ Utils.Invariant_failure "Ill-formed wiring node."
+                  else
+                    ()
+                end;
                 (* x =(up) x' for conditionals *)
                 let Abs_function_value(_,Abs_expr(cls)) = f1 in
                 let f1ret = rv cls in
