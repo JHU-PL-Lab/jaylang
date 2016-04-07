@@ -1918,7 +1918,7 @@ struct
                 in
                 (* x = f *)
                 return ( Function_filter_validation(x,v)
-                       , Program_point_state(acl0,ctx)
+                       , Program_point_state(acl1,ctx)
                        )
               end
             ;
