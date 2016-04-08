@@ -123,6 +123,8 @@ struct
     return @@ Pattern_set.of_enum selected_patterns
   ;;
 
+  (* `pattern' /must/ satisfy the `is_record_pattern_set' predicate. Note that
+     the results of `negative_pattern_set_selection' already satisfy it. *)
   let pattern_projection pattern label =
     match pattern with
     | Record_pattern m ->
@@ -159,6 +161,8 @@ struct
     Ident_set.of_enum @@ Ident_map.keys m
   ;;
 
+  (* `pattern' /must/ satisfy the `is_record_pattern_set' predicate. Note that
+     the results of `negative_pattern_set_selection' already satisfy it. *)
   let labels_in_pattern pattern =
     match pattern with
     | Record_pattern m ->
@@ -1144,7 +1148,6 @@ struct
         [% guard (not @@
                       Pattern_set.mem (Record_pattern Ident_map.empty) patsn0) ];
         let%bind patsn2 = negative_pattern_set_selection r patsn0 in
-        [%guard (is_record_pattern_set patsn2)];
         let x' = Ident_map.find l m in
         let patsp' = Pattern_set.union patsp1 @@
                         pattern_set_projection patsp0 l in
