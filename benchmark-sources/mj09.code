@@ -16,8 +16,8 @@
 #   (let ((x (h #t)) (y (h #f)))
 #     y)) ; => 2
 
-true = {};
-false = 0;
+tru = true;
+fals = false;
 
 one = 1;
 two = 2;
@@ -27,7 +27,7 @@ h = fun b -> (
     gr = z;
   );
   f = fun k -> (
-    fr = b ~ {}
+    fr = b ~ true
            ? fun bm -> (
              bmr = k one;
            )
@@ -41,6 +41,6 @@ h = fun b -> (
   y = f i;
   hr = g y;
 );
-x2 = h true;
-y2 = h false;
+x2 = h tru;
+y2 = h fals;
 r = y2; # => 2

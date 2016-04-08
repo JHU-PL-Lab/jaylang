@@ -22,14 +22,14 @@ ackp = fun ackpr -> (
     m = ackparams.m;
     n = ackparams.n;
     mzero = m == zero;
-    ackrr = mzero ~ {}
+    ackrr = mzero ~ true
             ? fun mzerom -> (
               mzeromr = n + one;
             )
             : fun mzeroa -> (
               nzero = n == zero;
               ackr = ackpr ackpr;
-              mzeroar = nzero ~ {}
+              mzeroar = nzero ~ true
                       ? fun nzerom -> (
                         m1 = m - one;
                         nzeromrparams = {m = m1, n = one};

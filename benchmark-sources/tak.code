@@ -14,9 +14,6 @@
 #
 # (tak 32 15 8) ; => 15
 
-true = {};
-false = 0;
-
 one = 1;
 thirtytwo = 32;
 fifteen = 15;
@@ -29,17 +26,10 @@ takp = fun takpr -> (
   z = takprparams.z;
   yx = y < x;
 
-  # notyx = not yx;
-  notyx = yx ~ {}
-             ? fun notm -> (
-               notmr = false;
-             )
-             : fun nota -> (
-               notar = true;
-             );
+  notyx = not yx;
 
   takr = takpr takpr;
-  zr = notyx ~ {}
+  zr = notyx ~ true
              ? fun notyxm -> (
                notyxmr = z;
              )

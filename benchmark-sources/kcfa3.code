@@ -1,6 +1,6 @@
 # EXPECT-WELL-FORMED
 # EXPECT-ANALYSIS-STACK-IS 1ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END r {{}, int}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {false, true}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 # Reference: https://bitbucket.org/ucombinator/p4f-prototype/src/8f1c1c20ed02945d2855e25abef3b445d80a77eb/benchmarks/gcfa2/kcfa3.scm?at=master&fileviewer=file-view-default
@@ -17,24 +17,24 @@
 #          (let ((c (f3 #t)))
 #            (f3 #f))) (lambda (x3) ((lambda (z) (z x1 x2 x3)) (lambda (y1 y2 y3) y1)))))))) ; => #f
 
-true = {};
-false = 0;
+tru = true;
+fals = false;
 
 ff1 = fun f1 -> (
-  a = f1 true;
-  ff1r = f1 false;
+  a = f1 tru;
+  ff1r = f1 fals;
 );
 
 fx1 = fun x1 -> (
   ff2 = fun f2 -> (
-    b = f2 true;
-    ff2r = f2 false;
+    b = f2 tru;
+    ff2r = f2 fals;
   );
 
   fx2 = fun x2 -> (
     ff3 = fun f3 -> (
-      c = f3 true;
-      ff3r = f3 false;
+      c = f3 tru;
+      ff3r = f3 fals;
     );
 
     fx3 = fun x3 -> (
@@ -60,4 +60,4 @@ fx1 = fun x1 -> (
   fx1r = ff2 fx2;
 );
 
-r = ff1 fx1; # => 0
+r = ff1 fx1; # => false

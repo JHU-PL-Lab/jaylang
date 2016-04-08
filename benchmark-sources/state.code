@@ -1,6 +1,6 @@
 # EXPECT-WELL-FORMED
 # EXPECT-ANALYSIS-STACK-IS 1ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END r {{}}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {true}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 # Reference: Single and loving it: must-alias analysis for higher-order languages, page 330.
@@ -35,7 +35,7 @@
 #         y = ref x;
 #         fy = f y;
 #         x10 = x < ten;
-#         if = x10 ~ {}
+#         if = x10 ~ true
 #                ? fun xm -> (
 #                  x1 = x + one;
 #                  gr = gpr gpr;
@@ -66,21 +66,21 @@
 #     in
 #     g false (* => true *)
 
-true = {};
-false = 0;
+tru = true;
+fals = false;
 
 f = fun z -> (
-  fr = z <- true;
+  fr = z <- tru;
 );
 
 gp = fun gpr -> (
   gprr = fun x -> (
     y = ref x;
     fy = f y;
-    if = x ~ {}
+    if = x ~ true
            ? fun xm -> (
              gr = gpr gpr;
-             xmr = gr true;
+             xmr = gr tru;
            )
            : fun xa -> (
              noop = {};
@@ -91,4 +91,4 @@ gp = fun gpr -> (
 
 g = gp gp;
 
-r = g false; # => {}
+r = g fals; # => true

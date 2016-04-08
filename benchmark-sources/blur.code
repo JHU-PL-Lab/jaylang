@@ -1,6 +1,6 @@
 # EXPECT-WELL-FORMED
 # EXPECT-ANALYSIS-STACK-IS 1ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END re {{}, int}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END re {false, true}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 # Reference: https://bitbucket.org/ucombinator/p4f-prototype/src/8f1c1c20ed02945d2855e25abef3b445d80a77eb/benchmarks/gcfa2/blur.scm?at=master&fileviewer=file-view-default
@@ -17,8 +17,8 @@
 #                      (not ((blur lp) s (- n 1))))))))
 #   (lp #f 2)) ; => #t
 
-true = {};
-false = 0;
+tru = true;
+fals = false;
 
 one = 1;
 two = 2;
@@ -36,33 +36,26 @@ lpp = fun lppr -> (
     a = lpprparams.a;
     n = lpprparams.n;
     nl = n <= one;
-    nr = nl ~ {}
+    nr = nl ~ true
             ? fun nlm -> (
               nlmr = id a;
             )
             : fun nla -> (
               rf = blur id;
-              r = rf true;
+              r = rf tru;
               sf = blur id;
-              s = sf false;
+              s = sf fals;
               lpr = lppr lppr;
               blurlp = blur lpr;
               n1 = n - one;
               blurlpsn1params = {a = s, n = n1};
               blurlpsn1 = blurlp blurlpsn1params;
-              # nlar = not blurlpsn1;
-              nlar = blurlpsn1 ~ {}
-                               ? fun notm -> (
-                                 notmr = false;
-                               )
-                               : fun nota -> (
-                                 notar = true;
-                               );
+              nlar = not blurlpsn1;
             );
   );
 );
 
 lp = lpp lpp;
 
-lpparams = {a = false, n = two};
-re = lp lpparams; # => {}
+lpparams = {a = fals, n = two};
+re = lp lpparams; # => true

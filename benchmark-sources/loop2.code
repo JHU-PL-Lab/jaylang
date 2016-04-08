@@ -24,7 +24,7 @@ lp1p = fun lp1pr -> (
     i = lp1prparams.i;
     x = lp1prparams.x;
     izero = zero == i;
-    xr = izero ~ {}
+    xr = izero ~ true
          ? fun izerom -> (
            izeromr = x;
          )
@@ -35,7 +35,7 @@ lp1p = fun lp1pr -> (
                f = lp2prparams.f;
                y = lp2prparams.y;
                jzero = zero == j;
-               yr = jzero ~ {}
+               yr = jzero ~ true
                           ? fun yrm -> (
                             i1 = i - one;
                             lp1rparams = {i = i1, x = y};

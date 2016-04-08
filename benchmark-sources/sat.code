@@ -1,6 +1,6 @@
 # EXPECT-WELL-FORMED
 # EXPECT-ANALYSIS-STACK-IS 1ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END r {{}, int}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {false, true}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 # Reference: https://bitbucket.org/ucombinator/p4f-prototype/src/8f1c1c20ed02945d2855e25abef3b445d80a77eb/benchmarks/gcfa2/sat.scm?at=master&fileviewer=file-view-default
@@ -22,8 +22,8 @@
 #
 # (sat-solve-4 phi) ; => #t
 
-true = {};
-false = 0;
+tru = true;
+fals = false;
 
 phi = fun phiparams -> (
   x1 = phiparams.x1;
@@ -31,138 +31,30 @@ phi = fun phiparams -> (
   x3 = phiparams.x3;
   x4 = phiparams.x4;
 
-  # notx2 = not x2;
-  notx2 = x2 ~ {}
-             ? fun notx2m -> (
-               notx2mr = false;
-             )
-             : fun notx2a -> (
-               notx2ar = true;
-             );
+  notx2 = not x2;
 
-  # notx3 = not x3;
-  notx3 = x3 ~ {}
-             ? fun notx3m -> (
-               notx3mr = false;
-             )
-             : fun notx3a -> (
-               notx3ar = true;
-             );
+  notx3 = not x3;
 
-  # or3x1notx2notx3params = {a = x1, b = notx2, c = notx3};
-  # or3x1notx2notx3 = or3 or3x1notx2notx3params;
-  or3x1notx2notx3 = x1 ~ {}
-                       ? fun or3am -> (
-                         or3amr = true;
-                       )
-                       : fun or3aa -> (
-                         or3aar = notx2 ~ {}
-                                     ? fun or3bm -> (
-                                       or3bmr = true;
-                                     )
-                                     : fun or3ba -> (
-                                       or3bar = notx3 ~ {}
-                                                   ? fun or3cm -> (
-                                                     or3cmr = true;
-                                                   )
-                                                   : fun or3ca -> (
-                                                     or3car = false;
-                                                   );
-                                     );
-                       );
+  orx1notx2 = x1 or notx2;
+  or3x1notx2notx3 = orx1notx2 or notx3;
 
-  # notx22 = not x2;
-  notx22 = x2 ~ {}
-              ? fun notx22m -> (
-                notx22mr = false;
-              )
-              : fun notx22a -> (
-                notx22ar = true;
-              );
+  notx22 = not x2;
 
-  # notx32 = not x3;
-  notx32 = x3 ~ {}
-              ? fun notx32m -> (
-                notx32mr = false;
-              )
-              : fun notx32a -> (
-                notx32ar = true;
-              );
+  notx32 = not x3;
 
-  # or2notx2notx3params = {a = notx22, b = notx32};
-  # or2notx2notx3 = or2 or2notx2notx3params;
-  or2notx2notx3 = notx22 ~ {}
-             ? fun or2notx2notx3am -> (
-               or2notx2notx3amr = true;
-             )
-             : fun or2notx2notx3aa -> (
-               or2notx2notx3aar = notx32 ~ {}
-                           ? fun or2notx2notx3bm -> (
-                             or2notx2notx3bmr = true;
-                           )
-                           : fun or2notx2notx3ba -> (
-                             or2notx2notx3bar = false;
-                           );
-             );
+  or2notx2notx3 = notx22 or notx32;
 
-  # or2x4x2params = {a = x4, b = x2};
-  # or2x4x2 = or2 or2x4x2params;
-  or2x4x2 = x4 ~ {}
-             ? fun or2x4x2am -> (
-               or2x4x2amr = true;
-             )
-             : fun or2x4x2aa -> (
-               or2x4x2aar = x2 ~ {}
-                           ? fun or2x4x2bm -> (
-                             or2x4x2bmr = true;
-                           )
-                           : fun or2x4x2ba -> (
-                             or2x4x2bar = false;
-                           );
-             );
+  or2x4x2 = x4 or x2;
 
-  # and3or3x1notx2notx3or2notx2notx3or2x4x2params = {a = or3x1notx2notx3, b = or2notx2notx3, c = or2x4x2};
-  # and3or3x1notx2notx3or2notx2notx3or2x4x2 = and3 and3or3x1notx2notx3or2notx2notx3or2x4x2params;
-  and3or3x1notx2notx3or2notx2notx3or2x4x2 = or3x1notx2notx3 ~ {}
-                                                            ? fun and3am -> (
-                                                              and3amr = or2notx2notx3 ~ {}
-                                                                                      ? fun and3bm -> (
-                                                                                        and3bmr = or2x4x2 ~ {}
-                                                                                                          ? fun and3cm -> (
-                                                                                                            and3cmr = true;
-                                                                                                          )
-                                                                                                          : fun and3ca -> (
-                                                                                                            and3car = false;
-                                                                                                          );
-                                                                                      )
-                                                                                      : fun and3ba -> (
-                                                                                        and3bar = false;
-                                                                                      );
-                                                            )
-                                                            : fun and3aa -> (
-                                                              and3aar = false;
-                                                            );
+  andor3x1notx2notx3or2notx2notx3 = or3x1notx2notx3 and or2notx2notx3;
+  and3or3x1notx2notx3or2notx2notx3or2x4x2 = andor3x1notx2notx3or2notx2notx3 and or2x4x2;
 );
 
 try = fun f -> (
-  ft = f true;
-  ff = f false;
+  ft = f tru;
+  ff = f fals;
 
-  # or2ftffparams = {a = ft, b = ff};
-  # or2ftff = or2 or2ftffparams;
-  or2ftff = ft ~ {}
-             ? fun or2ftffam -> (
-               or2ftffamr = true;
-             )
-             : fun or2ftffaa -> (
-               or2ftffaar = ff ~ {}
-                           ? fun or2ftffbm -> (
-                             or2ftffbmr = true;
-                           )
-                           : fun or2ftffba -> (
-                             or2ftffbar = false;
-                           );
-             );
+  or2ftff = ft or ff;
 );
 
 satsolve4 = fun p -> (
@@ -182,4 +74,4 @@ satsolve4 = fun p -> (
   tryfn1 = try fn1;
 );
 
-r = satsolve4 phi; # => {}
+r = satsolve4 phi; # => true

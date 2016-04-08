@@ -28,9 +28,6 @@
 #
 # (cpstak 32 15 8) ; => 15
 
-true = {};
-false = 0;
-
 one = 1;
 thirtytwo = 32;
 fifteen = 15;
@@ -50,17 +47,10 @@ cpstak = fun cpstakparams -> (
 
       yx = y < x;
 
-      # notyx = not yx;
-      notyx = yx ~ {}
-              ? fun notm -> (
-                notmr = false;
-              )
-              : fun nota -> (
-                notar = true;
-              );
+      notyx = not yx;
 
       takr = takpr takpr;
-      kr = notyx ~ {}
+      kr = notyx ~ true
                  ? fun notyxm -> (
                    notyxmr = k z;
                  )
