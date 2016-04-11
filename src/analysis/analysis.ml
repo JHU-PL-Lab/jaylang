@@ -1448,7 +1448,7 @@ struct
       | Binary_operator_resolution_2_of_4(x1,op) ->
         begin
           match op with
-          | Binary_operator_int_plus
+          | Binary_operator_plus
           | Binary_operator_int_minus
           | Binary_operator_int_less_than
           | Binary_operator_int_less_than_or_equal_to ->
@@ -1489,7 +1489,7 @@ struct
       | Binary_operator_resolution_3_of_4(x1,op,abstract_value_option) ->
         begin
           match op with
-          | Binary_operator_int_plus
+          | Binary_operator_plus
           | Binary_operator_int_minus ->
             let%orzero
               Continuation_value(Abs_filtered_value(Abs_value_int,patsp,patsn)) =
@@ -1583,7 +1583,7 @@ struct
         [%guard (equal_var x1 x1') ];
         begin
           match op with
-          | Binary_operator_int_plus
+          | Binary_operator_plus
           | Binary_operator_int_minus ->
             [%guard (Pattern_set.subset
                         patsp (Pattern_set.singleton Int_pattern)) ];

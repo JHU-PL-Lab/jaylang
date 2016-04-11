@@ -17,6 +17,7 @@ let rec pattern_of_nested_pattern p =
     Ast.Record_pattern (Ident_map.map pattern_of_nested_pattern elements)
   | Nested_ast.Int_pattern -> Ast.Int_pattern
   | Nested_ast.Bool_pattern(b) -> Ast.Bool_pattern(b)
+  | Nested_ast.String_pattern -> Ast.String_pattern
 ;;
 
 let rec function_value_of_nested_function_value
@@ -50,6 +51,8 @@ and clauses_and_var_of_nested_expr e =
       ([], Ast.Value_body(Ast.Value_int(n)))
     | Nested_ast.Bool_expr(b) ->
       ([], Ast.Value_body(Ast.Value_bool(b)))
+    | Nested_ast.String_expr(s) ->
+      ([], Ast.Value_body(Ast.Value_string(s)))
     | Nested_ast.Ref_expr(e') ->
       let (cls0,x') = clauses_and_var_of_nested_expr e' in
       (cls0, Ast.Value_body(Ast.Value_ref(Ast.Ref_value(x'))))
@@ -85,6 +88,12 @@ and clauses_and_var_of_nested_expr e =
     | Nested_ast.Unary_operation_expr(op,e1) ->
       let (cls1,x1) = clauses_and_var_of_nested_expr e1 in
       (cls1, Ast.Unary_operation_body(op,x1))
+    | Nested_ast.Indexing_expr(e1,e2) ->
+      let (cls1,x1) = clauses_and_var_of_nested_expr e1 in
+      let (cls2,x2) = clauses_and_var_of_nested_expr e2 in
+      ( cls1 @ cls2
+      , Ast.Indexing_body(x1,x2)
+      )
     | Nested_ast.Let_expr(x',e1,e2) ->
       let (cls1,x1) = clauses_and_var_of_nested_expr e1 in
       let (cls2,x2) = clauses_and_var_of_nested_expr e2 in

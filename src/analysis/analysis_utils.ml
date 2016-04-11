@@ -14,6 +14,7 @@ let find_all_vars e =
         (fun (Clause(x,r)) ->
           (* FIXME: extract x from below and concatenate it to reduce
              redundancy *)
+
           match r with
             | Value_body(v) ->
               begin
@@ -36,6 +37,7 @@ let find_all_vars e =
             | Update_body(x',x'') -> List.enum [x;x';x'']
             | Binary_operation_body(x1,_,x2) -> List.enum [x;x1;x2]
             | Unary_operation_body(_,x1) -> List.enum [x;x1]
+            | Indexing_body(x1,x2) -> List.enum [x;x1;x2]
         )
     |> Enum.concat
   and find_all_vars_in_fn (Function_value(x,e)) =
@@ -70,6 +72,7 @@ let rec find_all_projection_labels (Expr cls) =
           | Update_body _ -> None
           | Binary_operation_body _ -> None
           | Unary_operation_body _ -> None
+          | Indexing_body _ -> None
       )
   |> Enum.concat
 

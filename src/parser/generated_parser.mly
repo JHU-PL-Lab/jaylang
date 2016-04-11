@@ -5,9 +5,12 @@ module List = BatList;;
 
 %token <string> IDENTIFIER
 %token <int> INT_LITERAL
+%token <string> STRING_LITERAL
 %token EOF 
 %token OPEN_BRACE 
 %token CLOSE_BRACE 
+%token OPEN_BRACKET 
+%token CLOSE_BRACKET 
 %token OPEN_PAREN 
 %token CLOSE_PAREN 
 %token SEMICOLON
@@ -28,6 +31,7 @@ module List = BatList;;
 %token KEYWORD_AND
 %token KEYWORD_OR
 %token KEYWORD_NOT
+%token KEYWORD_STRING
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
@@ -90,7 +94,7 @@ clause_body:
   | variable LEFT_ARROW variable
       { Update_body($1,$3) }
   | variable BINOP_PLUS variable
-      { Binary_operation_body($1,Binary_operator_int_plus,$3) }
+      { Binary_operation_body($1,Binary_operator_plus,$3) }
   | variable BINOP_MINUS variable
       { Binary_operation_body($1,Binary_operator_int_minus,$3) }
   | variable BINOP_LESS variable
@@ -105,6 +109,8 @@ clause_body:
       { Binary_operation_body($1,Binary_operator_bool_or,$3) }
   | KEYWORD_NOT variable
       { Unary_operation_body(Unary_operator_bool_not,$2) }
+  | variable OPEN_BRACKET variable CLOSE_BRACKET
+      { Indexing_body($1,$3) }
   ;
 
 value:
@@ -116,6 +122,8 @@ value:
       { Value_ref($1) }
   | int_value
       { Value_int($1) }
+  | string_value
+      { Value_string($1) }
   | bool_value
       { Value_bool($1) }
   ;
@@ -147,6 +155,11 @@ int_value:
       { $1 }
   ;
 
+string_value:
+  | STRING_LITERAL
+      { $1 }
+  ;
+
 bool_value:
   | KEYWORD_TRUE
       { true }
@@ -161,6 +174,8 @@ pattern:
       { Int_pattern }
   | bool_pattern
       { Bool_pattern($1) }
+  | KEYWORD_STRING
+      { String_pattern }
   ;
 
 record_pattern:

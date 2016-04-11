@@ -7,8 +7,11 @@ module List = BatList;;
 
 %token <string> IDENTIFIER
 %token <int> INT_LITERAL
+%token <string> STRING_LITERAL
 %token OPEN_BRACE
 %token CLOSE_BRACE
+%token OPEN_BRACKET
+%token CLOSE_BRACKET
 %token OPEN_PAREN
 %token CLOSE_PAREN
 %token COMMA
@@ -30,6 +33,7 @@ module List = BatList;;
 %token KEYWORD_AND
 %token KEYWORD_OR
 %token KEYWORD_NOT
+%token KEYWORD_STRING
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
@@ -42,7 +46,7 @@ module List = BatList;;
 %right KEYWORD_IN
 %nonassoc TILDE
 %left LEFT_ARROW
-%nonassoc BINOP_LESS BINOP_LESS_EQUAL BINOP_EQUAL KEYWORD_OR KEYWORD_AND KEYWORD_NOT
+%nonassoc BINOP_LESS BINOP_LESS_EQUAL BINOP_EQUAL KEYWORD_OR KEYWORD_AND KEYWORD_NOT OPEN_BRACKET
 %left BINOP_PLUS BINOP_MINUS
 %right BANG
 %left DOT
@@ -75,7 +79,7 @@ expr:
   | expr LEFT_ARROW expr
       { Update_expr($1,$3) }
   | expr BINOP_PLUS expr
-      { Binary_operation_expr($1,Binary_operator_int_plus,$3) }
+      { Binary_operation_expr($1,Binary_operator_plus,$3) }
   | expr BINOP_MINUS expr
       { Binary_operation_expr($1,Binary_operator_int_minus,$3) }
   | expr BINOP_LESS expr
@@ -90,6 +94,8 @@ expr:
       { Binary_operation_expr($1,Binary_operator_bool_or,$3) }
   | KEYWORD_NOT expr
       { Unary_operation_expr(Unary_operator_bool_not,$2) }
+  | expr OPEN_BRACKET expr CLOSE_BRACKET
+      { Indexing_expr($1,$3) }
   | application_expr
       { $1 }
   ;
@@ -114,6 +120,8 @@ primary_expr:
       { Int_expr($1) }
   | bool_value
       { Bool_expr($1) }
+  | string_value
+      { String_expr($1) }
   | variable
       { Var_expr($1) }
   | KEYWORD_REF primary_expr
@@ -138,6 +146,8 @@ pattern:
       { Nested_ast.Int_pattern }
   | bool_pattern
       { Nested_ast.Bool_pattern($1) }
+  | KEYWORD_STRING
+      { Nested_ast.String_pattern }
   ;
   
 record_pattern_element:
@@ -167,6 +177,11 @@ bool_value:
       { true }
   | KEYWORD_FALSE
       { false }
+  ;
+
+string_value:
+  | STRING_LITERAL
+      { $1 }
   ;
 
 variable:

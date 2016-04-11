@@ -17,6 +17,7 @@ let alpha = ['a'-'z'] | ['A'-'Z']
 let whitespace = [' ' '\t']
 let newline = '\n'
 let comment = '#' [^'\n']* '\n'
+let string_contents = [^'"']*
 
 let ident_start = alpha
 let ident_cont = alpha | digit
@@ -28,6 +29,8 @@ rule token = parse
   | newline                          { incr_lineno lexbuf; token lexbuf }
   | "{"                              { OPEN_BRACE }
   | "}"                              { CLOSE_BRACE }
+  | "["                              { OPEN_BRACKET }
+  | "]"                              { CLOSE_BRACKET }
   | "("                              { OPEN_PAREN }
   | ")"                              { CLOSE_PAREN }
   | ","                              { COMMA }
@@ -49,7 +52,9 @@ rule token = parse
   | "and"                            { KEYWORD_AND }
   | "or"                             { KEYWORD_OR }
   | "not"                            { KEYWORD_NOT }
+  | "string"                         { KEYWORD_STRING }
   | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) } 
+  | "\"" (string_contents as s) "\"" { STRING_LITERAL s }
   | "+"                              { BINOP_PLUS }
   | "-"                              { BINOP_MINUS }
   | "<"                              { BINOP_LESS }

@@ -21,7 +21,7 @@ let pp_var (Var(i, mfs)) =
 
 let pp_binary_operator binop =
   match binop with
-  | Binary_operator_int_plus -> "+"
+  | Binary_operator_plus -> "+"
   | Binary_operator_int_minus -> "-"
   | Binary_operator_int_less_than -> "<"
   | Binary_operator_int_less_than_or_equal_to -> "<="
@@ -54,6 +54,7 @@ and pp_value v =
   | Value_ref(r) -> pp_ref_value r
   | Value_int(n) -> string_of_int n
   | Value_bool(b) -> string_of_bool b
+  | Value_string(s) -> "\"" ^ s ^ "\""
 
 and pp_clause_body b =
   match b with
@@ -70,6 +71,8 @@ and pp_clause_body b =
     Printf.sprintf "%s %s %s" (pp_var x1) (pp_binary_operator op) (pp_var x2)
   | Unary_operation_body(op,x1) ->
     Printf.sprintf "%s %s" (pp_unary_operator op) (pp_var x1)
+  | Indexing_body(x1,x2) ->
+    Printf.sprintf "%s[%s]" (pp_var x1) (pp_var x2)
 
 and pp_clause c =
   match c with
@@ -87,6 +90,7 @@ and pp_pattern p =
       Ident_map.enum els
   | Int_pattern -> "int"
   | Bool_pattern(b) -> string_of_bool b
+  | String_pattern -> "string"
 ;;
 
 let brief_pp_clause (Clause(x,_)) = pp_var x;;

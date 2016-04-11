@@ -83,6 +83,7 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
             | Value_ref(Ref_value(x')) -> Var_set.singleton x'
             | Value_int _ -> Var_set.empty
             | Value_bool _ -> Var_set.empty
+            | Value_string _ -> Var_set.empty
           end
         | Appl_body(x1',x2') -> Var_set.of_list [x1';x2']
         | Conditional_body(x',_,f1,f2) ->
@@ -96,6 +97,7 @@ let rec vars_free_in_expr (Expr(cls_initial)) =
         | Update_body(x1',x2') -> Var_set.of_list [x1';x2']
         | Binary_operation_body(x1',_,x2') -> Var_set.of_list [x1';x2']
         | Unary_operation_body(_,x1') -> Var_set.singleton x1'
+        | Indexing_body(x1',x2') -> Var_set.of_list [x1';x2']
       in
       Var_set.union free_h (Var_set.remove x free_t)
   and walk_fn (Function_value(x',e)) =

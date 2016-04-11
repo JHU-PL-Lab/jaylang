@@ -69,7 +69,7 @@ module Var_hashtbl = Hashtbl.Make(
   );;
 
 type binary_operator =
-  | Binary_operator_int_plus
+  | Binary_operator_plus
   | Binary_operator_int_minus
   | Binary_operator_int_less_than
   | Binary_operator_int_less_than_or_equal_to
@@ -100,6 +100,7 @@ and value =
   | Value_ref of ref_value
   | Value_int of int
   | Value_bool of bool
+  | Value_string of string
   [@@deriving eq, ord]
 
 (** A type to represent the bodies of clauses. *)
@@ -113,6 +114,7 @@ and clause_body =
   | Update_body of var * var
   | Binary_operation_body of var * binary_operator * var
   | Unary_operation_body of unary_operator * var
+  | Indexing_body of var * var
   [@@deriving eq, ord]
 
 (** A type to represent clauses. *)
@@ -128,6 +130,7 @@ and pattern =
   | Record_pattern of pattern Ident_map.t
   | Int_pattern
   | Bool_pattern of bool
+  | String_pattern
   [@@deriving eq, ord]
 ;;
 
