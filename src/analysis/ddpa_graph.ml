@@ -27,6 +27,7 @@ type abstract_value =
   | Abs_value_ref of ref_value
   | Abs_value_int
   | Abs_value_bool of bool
+  | Abs_value_string
   [@@deriving eq, ord]
 
 and abstract_function_value =
@@ -45,6 +46,7 @@ and abstract_clause_body =
   | Abs_update_body of var * var
   | Abs_binary_operation_body of var * binary_operator * var
   | Abs_unary_operation_body of unary_operator * var
+  | Abs_indexing_body of var * var
   [@@deriving eq, ord]
 
 (** A type to represent abstract clauses. *)
@@ -66,6 +68,7 @@ and pp_abstract_value v =
   | Abs_value_ref r -> pp_ref_value r
   | Abs_value_int -> "int"
   | Abs_value_bool b -> if b then "true" else "false"
+  | Abs_value_string -> "string"
 
 and pp_abstract_clause_body b =
   match b with
@@ -82,6 +85,8 @@ and pp_abstract_clause_body b =
     Printf.sprintf "%s %s %s" (pp_var x1) (pp_binary_operator op) (pp_var x2)
   | Abs_unary_operation_body(op,x1) ->
     Printf.sprintf "%s %s" (pp_unary_operator op) (pp_var x1)
+  | Abs_indexing_body(x1,x2) ->
+    Printf.sprintf "%s[%s]" (pp_var x1) (pp_var x2)
 
 and pp_abstract_clause (Abs_clause(x,b)) =
   Printf.sprintf "%s = %s" (pp_var x) (pp_abstract_clause_body b)
@@ -95,7 +100,8 @@ let ppa_abstract_clause (Abs_clause(x,_)) = pp_var x;;
 let is_abstract_clause_immediate (Abs_clause(_,b)) =
   match b with
   | Abs_var_body _ | Abs_value_body _ | Abs_projection_body _ | Abs_deref_body _
-  | Abs_update_body _ | Abs_binary_operation_body _ | Abs_unary_operation_body _ -> true
+  | Abs_update_body _ | Abs_binary_operation_body _ | Abs_unary_operation_body _
+  | Abs_indexing_body _ -> true
   | Abs_appl_body _ | Abs_conditional_body _ -> false
 ;;
 
