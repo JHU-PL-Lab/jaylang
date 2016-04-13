@@ -303,7 +303,7 @@ and lift_clause_body b =
   | Update_body(x,x') -> Abs_update_body(x,x')
   | Binary_operation_body(x1,op,x2) -> Abs_binary_operation_body(x1,op,x2)
   | Unary_operation_body(op,x1) -> Abs_unary_operation_body(op,x1)
-  | Indexing_body(_,_) -> failwith "Not implemented yet."
+  | Indexing_body(x1,x2) -> Abs_indexing_body(x1,x2)
 
 and lift_value v =
   match v with
@@ -312,7 +312,7 @@ and lift_value v =
   | Value_ref r -> Abs_value_ref r
   | Value_int _ -> Abs_value_int
   | Value_bool b -> Abs_value_bool b
-  | Value_string _ -> failwith "Not implemented yet."
+  | Value_string _ -> Abs_value_string
 
 and lift_function_value (Function_value(x,e)) =
   Abs_function_value(x, lift_expr e)
