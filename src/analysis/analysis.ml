@@ -234,6 +234,7 @@ struct
         var * Pattern_set.t * Pattern_set.t * annotated_clause * C.t
     | Binary_operation
     | Unary_operation
+    | Indexing
     [@@deriving ord]
   ;;
 
@@ -270,6 +271,7 @@ struct
         (pp_annotated_clause acl) (C.pp ctx)
     | Binary_operation -> "Binary_operation"
     | Unary_operation -> "Unary_operation"
+    | Indexing -> "Indexing"
   ;;
 
   let ppa_pds_continuation = function
@@ -303,6 +305,7 @@ struct
         (pp_annotated_clause acl) (C.pp ctx)
     | Binary_operation -> "BinOp"
     | Unary_operation -> "UnOp"
+    | Indexing -> "Idx"
   ;;
 
   type pds_state =
