@@ -2,12 +2,12 @@
 # EXPECT-EVALUATE
 # EXPECT-ANALYSIS-STACK-IS 0ddpa
 # EXPECT-ANALYSIS-LOOKUP-FROM-END spatternmatch {int}
-# EXPECT-ANALYSIS-LOOKUP-FROM-END s0cpatternmatch {int}
-# EXPECT-ANALYSIS-LOOKUP-FROM-END s0spacepatternmatch {int}
-# EXPECT-ANALYSIS-LOOKUP-FROM-END s6spacepatternmatch {int}
-# EXPECT-ANALYSIS-LOOKUP-FROM-END s12hpatternmatch {int}
-# EXPECT-ANALYSIS-LOOKUP-FROM-END s13emptypatternmatch {int}
-# EXPECT-ANALYSIS-LOOKUP-FROM-END schunckytempehpatternmatch {int}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END s0cpatternmatch {int, false}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END s0spacepatternmatch {int, false}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END s6spacepatternmatch {int, false}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END s12hpatternmatch {int, false}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END s13emptypatternmatch {int, false}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END schunckytempehpatternmatch {int, false}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 # String pattern match.
@@ -42,13 +42,13 @@ s0cpatternmatch = s0c ~ true
                       s0cmatchreturn = 0;
                     )
                     : fun s0cantimatch -> (
-                      s0cantimatchreturn = s s;
+                      s0cantimatchreturn = false;
                     );
 
 s0space = s0 == space;
 s0spacepatternmatch = s0space ~ true
                     ? fun s0spacematch -> (
-                      s0spaceantimatchreturn = s s;
+                      s0spaceantimatchreturn = false;
                     )
                     : fun s0spaceantimatch -> (
                       s0spacematchreturn = 0;
@@ -61,7 +61,7 @@ s6spacepatternmatch = s6space ~ true
                       s6spacematchreturn = 0;
                     )
                     : fun s6spaceantimatch -> (
-                      s6spaceantimatchreturn = s s;
+                      s6spaceantimatchreturn = false;
                     );
 
 s12 = s[twelve];
@@ -71,7 +71,7 @@ s12hpatternmatch = s12h ~ true
                       s12hmatchreturn = 0;
                     )
                     : fun s12hantimatch -> (
-                      s12hantimatchreturn = s s;
+                      s12hantimatchreturn = false;
                     );
 
 s13 = s[thirteen];
@@ -81,7 +81,7 @@ s13emptypatternmatch = s13empty ~ true
                       s13emptymatchreturn = 0;
                     )
                     : fun s13emptyantimatch -> (
-                      s13emptyantimatchreturn = s s;
+                      s13emptyantimatchreturn = false;
                     );
 
 # String concatenation.
@@ -95,7 +95,7 @@ chunckytempeh = chunckyspace + tempeh;
 schunckytempeh = s == chunckytempeh;
 schunckytempehpatternmatch = schunckytempeh ~ true
                     ? fun schunckytempehmatch -> (
-                      schunckytempehantimatchreturn = s s;
+                      schunckytempehantimatchreturn = false;
                     )
                     : fun schunckytempehantimatch -> (
                       schunckytempehmatchreturn = 0;
