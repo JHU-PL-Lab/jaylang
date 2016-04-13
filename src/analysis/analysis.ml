@@ -464,6 +464,11 @@ struct
           the variable matches our lookup variable, only the `true'/`false' filter on the
           positive set is admissible and anything but `true'/`false' in the negative
           filters is admissible and can be erased. *)
+    | String_filter_validation of var
+      (** Represents the validation of filters for String values under lookup.  If
+          the variable matches our lookup variable, only the `string' filter on the
+          positive set is admissible and anything but `string' in the negative
+          filters is admissible and can be erased. *)
     | Empty_record_value_discovery of var
       (** Represents the discovery of an empty record value assuming that the
           current lookup variable matches the one provided here. *) 
@@ -686,6 +691,9 @@ struct
     | Bool_filter_validation(x,b) ->
       Printf.sprintf "Bool_filter_validation(%s,%s)"
         (pp_var x) (string_of_bool b)
+    | String_filter_validation(x) ->
+      Printf.sprintf "String_filter_validation(%s)"
+        (pp_var x)
     | Empty_record_value_discovery(x) ->
       Printf.sprintf "Empty_record_value_discovery(%s)" (pp_var x)
     | Dereference_lookup(x,x') ->
@@ -861,6 +869,9 @@ struct
     | Bool_filter_validation(x,b) ->
       Printf.sprintf "BoolFilVal(%s,%s)"
         (pp_var x) (string_of_bool b)
+    | String_filter_validation(x) ->
+      Printf.sprintf "StringFilVal(%s)"
+        (pp_var x)
     | Empty_record_value_discovery(x) ->
       Printf.sprintf "ERValDisc(%s)" (pp_var x)
     | Dereference_lookup(x,x') ->
@@ -1217,6 +1228,15 @@ struct
         [% guard (not @@ Pattern_set.mem (Bool_pattern(b)) patsn) ];
         let abs_filtered_value =
           Abs_filtered_value(Abs_value_bool(b),Pattern_set.empty,Pattern_set.empty)
+        in
+        return [ Push(Continuation_value abs_filtered_value) ]
+      | String_filter_validation(x) ->
+        let%orzero (Lookup_var(x0,patsp,patsn)) = element in
+        [% guard (equal_var x x0) ];
+        [% guard (Pattern_set.subset patsp (Pattern_set.singleton (String_pattern))) ];
+        [% guard (not @@ Pattern_set.mem (String_pattern) patsn) ];
+        let abs_filtered_value =
+          Abs_filtered_value(Abs_value_string,Pattern_set.empty,Pattern_set.empty)
         in
         return [ Push(Continuation_value abs_filtered_value) ]
       | Empty_record_value_discovery(x) ->
@@ -1996,6 +2016,18 @@ struct
                 in
                 (* x = true OR x = false *)
                 return ( Bool_filter_validation(x,b)
+                       , Program_point_state(acl1,ctx)
+                       )
+              end
+            ;
+              (* 7f. String filter validation *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(
+                      x,Abs_value_body(Abs_value_string)))) = acl1
+                in
+                (* x = <string> *)
+                return ( String_filter_validation(x)
                        , Program_point_state(acl1,ctx)
                        )
               end
