@@ -442,8 +442,9 @@ struct
       (** The second step of handling record projection. *)
     | Function_filter_validation of var * abstract_function_value
       (** Represents the validation of filters for a function under lookup.  If
-          the variable matches our lookup variable, any negative filters are
-          admissible and can be erased (although positive filters cannot). *)
+          the variable matches our lookup variable, only the `fun' filter on the
+          positive set is admissible and anything but `fun' in the negative
+          filters is admissible and can be erased. *)
     | Record_filter_validation of
         var * record_value * annotated_clause * C.t
       (** Represents the validation of filters for a record under lookup.  If
@@ -1224,9 +1225,10 @@ struct
                         pattern_set_projection patsn2 l in
         return @@ [ Push(Lookup_var(x',patsp',patsn')) ]
       | Function_filter_validation(x,v) ->
-        let%orzero (Lookup_var(x0,patsp,_)) = element in
+        let%orzero (Lookup_var(x0,patsp,patsn)) = element in
         [% guard (equal_var x x0) ];
-        [% guard (Pattern_set.is_empty patsp) ];
+        [% guard (Pattern_set.subset patsp (Pattern_set.singleton Fun_pattern)) ];
+        [% guard (not @@ Pattern_set.mem Fun_pattern patsn) ];
         let value = Abs_value_function(v) in
         let abs_filtered_value =
           Abs_filtered_value(value,Pattern_set.empty,Pattern_set.empty)
@@ -1311,9 +1313,10 @@ struct
                ; Push(Lookup_var(x', Pattern_set.empty, Pattern_set.empty))
                ]
       | Cell_filter_validation(x,cell) ->
-        let%orzero (Lookup_var(x0,patsp,_)) = element in
+        let%orzero (Lookup_var(x0,patsp,patsn)) = element in
         [% guard (equal_var x x0) ];
-        [% guard (Pattern_set.is_empty patsp) ];
+        [% guard (Pattern_set.subset patsp (Pattern_set.singleton Ref_pattern)) ];
+        [% guard (not @@ Pattern_set.mem Ref_pattern patsn) ];
         let value = Abs_value_ref(cell) in
         return [ Push(Continuation_value(Abs_filtered_value(
                         value,Pattern_set.empty,Pattern_set.empty))) ]

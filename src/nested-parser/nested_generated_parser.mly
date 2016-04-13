@@ -142,6 +142,10 @@ pattern:
       { Nested_ast.Record_pattern(Ident_map.of_enum @@ List.enum $2) }
   | OPEN_BRACE CLOSE_BRACE
       { Nested_ast.Record_pattern(Ident_map.empty) }
+  | KEYWORD_FUN
+      { Nested_ast.Fun_pattern }
+  | KEYWORD_REF
+      { Nested_ast.Ref_pattern }
   | KEYWORD_INT
       { Nested_ast.Int_pattern }
   | bool_pattern

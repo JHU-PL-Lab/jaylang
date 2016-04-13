@@ -113,43 +113,25 @@ let fresh_wire (Function_value(param_x, Expr(body))) arg_x call_site_x =
 
 let rec matches env x p =
   let v = lookup env x in
-  match v with
-  | Value_record(Record_value(els)) ->
-    begin
-      match p with
-      | Record_pattern(els') ->
-        els'
-        |> Ident_map.enum
-        |> Enum.for_all
-          (fun (i,p') ->
-             try
-               matches env (Ident_map.find i els) p'
-             with
-             | Not_found -> false
-          )
-      | _ -> false
-    end
-  | Value_function(Function_value(_)) -> false
-  | Value_ref(Ref_value(_)) -> false
-  | Value_int _ ->
-    begin
-      match p with
-      | Int_pattern -> true
-      | _ -> false
-    end
-  | Value_bool actual_boolean ->
-    begin
-      match p with
-      | Bool_pattern pattern_boolean ->
-        actual_boolean = pattern_boolean
-      | _ -> false
-    end
-  | Value_string _ ->
-    begin
-      match p with
-      | String_pattern -> true
-      | _ -> false
-    end
+  match v,p with
+  | Value_record(Record_value(els)),Record_pattern(els') ->
+    els'
+    |> Ident_map.enum
+    |> Enum.for_all
+      (fun (i,p') ->
+         try
+           matches env (Ident_map.find i els) p'
+         with
+         | Not_found -> false
+      )
+  | Value_function(Function_value(_)),Fun_pattern
+  | Value_ref(Ref_value(_)),Ref_pattern
+  | Value_int _,Int_pattern
+  | Value_string _,String_pattern ->
+    true
+  | Value_bool actual_boolean,Bool_pattern pattern_boolean ->
+    actual_boolean = pattern_boolean
+  | _ -> false
 ;;
 
 let rec evaluate env lastvar cls =

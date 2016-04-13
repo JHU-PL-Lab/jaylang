@@ -88,6 +88,8 @@ and pp_pattern p =
       let pp_element = pp_tuple pp_ident pp_pattern in
       concat_sep_delim "{" "}" ", " @@ Enum.map pp_element @@
       Ident_map.enum els
+  | Fun_pattern -> "fun"
+  | Ref_pattern -> "ref"
   | Int_pattern -> "int"
   | Bool_pattern(b) -> string_of_bool b
   | String_pattern -> "string"

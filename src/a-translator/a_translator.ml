@@ -15,6 +15,8 @@ let rec pattern_of_nested_pattern p =
   match p with
   | Nested_ast.Record_pattern elements ->
     Ast.Record_pattern (Ident_map.map pattern_of_nested_pattern elements)
+  | Nested_ast.Fun_pattern -> Ast.Fun_pattern
+  | Nested_ast.Ref_pattern -> Ast.Ref_pattern
   | Nested_ast.Int_pattern -> Ast.Int_pattern
   | Nested_ast.Bool_pattern(b) -> Ast.Bool_pattern(b)
   | Nested_ast.String_pattern -> Ast.String_pattern

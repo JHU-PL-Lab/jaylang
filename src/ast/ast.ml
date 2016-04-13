@@ -128,6 +128,8 @@ and expr = Expr of clause list [@@deriving eq, ord]
 (** A type representing conditional patterns. *)
 and pattern =
   | Record_pattern of pattern Ident_map.t
+  | Fun_pattern
+  | Ref_pattern
   | Int_pattern
   | Bool_pattern of bool
   | String_pattern

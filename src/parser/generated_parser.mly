@@ -170,6 +170,10 @@ bool_value:
 pattern:
   | record_pattern
       { $1 }
+  | KEYWORD_FUN
+      { Fun_pattern }
+  | KEYWORD_REF
+      { Ref_pattern }
   | KEYWORD_INT
       { Int_pattern }
   | bool_pattern
