@@ -636,6 +636,19 @@ struct
     | Unary_operator_resolution_3_of_3 of var * unary_operator * abstract_value
       (** The third step of binary operator resolution.  This step
           collects and checks the lookup variable. *)
+    | Indexing_resolution_1_of_4 of var
+      (** Represents the start of the resolution of indexing after its
+          operands have been found.  The variable here is the one under
+          lookup. *)
+    | Indexing_resolution_2_of_4 of var
+      (** The second step of binary operator resolution.  This step
+          collects the index. *)
+    | Indexing_resolution_3_of_4 of var
+      (** The third step of binary operator resolution.  This step
+          collects the suject. *)
+    | Indexing_resolution_4_of_4 of var * abstract_value
+      (** The forth step of binary operator resolution.  This step
+          collects and checks the lookup variable. *)
     [@@deriving ord]
   ;;
   
@@ -820,6 +833,18 @@ struct
     | Unary_operator_resolution_3_of_3(x1,op,abstract_value) ->
       Printf.sprintf "Unary_operator_resolution_3_of_3(%s,%s,%s)"
         (pp_var x1) (pp_unary_operator op) (pp_abstract_value abstract_value)
+    | Indexing_resolution_1_of_4(x1) ->
+      Printf.sprintf "Indexing_resolution_1_of_4(%s)"
+        (pp_var x1)
+    | Indexing_resolution_2_of_4(x1) ->
+      Printf.sprintf "Indexing_resolution_2_of_4(%s)"
+        (pp_var x1)
+    | Indexing_resolution_3_of_4(x1) ->
+      Printf.sprintf "Indexing_resolution_3_of_4(%s)"
+        (pp_var x1)
+    | Indexing_resolution_4_of_4(x1,abstract_value) ->
+      Printf.sprintf "Indexing_resolution_4_of_4(%s,%s)"
+        (pp_var x1) (pp_abstract_value abstract_value)
   ;;
 
   let ppa_pds_targeted_dynamic_pop_action action =
@@ -983,6 +1008,15 @@ struct
       Printf.sprintf "UnOpRes2(%s,%s)" (pp_var x1) (pp_unary_operator op)
     | Unary_operator_resolution_3_of_3(x1,op,abstract_value) ->
       Printf.sprintf "UnOpRes3(%s,%s,%s)" (pp_var x1) (pp_unary_operator op)
+        (pp_abstract_value abstract_value)
+    | Indexing_resolution_1_of_4(x1) ->
+      Printf.sprintf "BinOpRes1(%s)" (pp_var x1)
+    | Indexing_resolution_2_of_4(x1) ->
+      Printf.sprintf "BinOpRes2(%s)" (pp_var x1)
+    | Indexing_resolution_3_of_4(x1) ->
+      Printf.sprintf "BinOpRes3(%s)" (pp_var x1)
+    | Indexing_resolution_4_of_4(x1,abstract_value) ->
+      Printf.sprintf "BinOpRes4(%s,%s)" (pp_var x1)
         (pp_abstract_value abstract_value)
   ;;
 
@@ -1699,7 +1733,37 @@ struct
                 raise @@ Utils.Invariant_failure "Accumulated wrong binary operation result."
             end
         end
-    ;;
+      | Indexing_resolution_1_of_4(x1) ->
+        let%orzero Indexing = element in
+        return [ Pop_dynamic_targeted(
+                    Indexing_resolution_2_of_4(x1)) ]
+      | Indexing_resolution_2_of_4(x1) ->
+        let%orzero
+          Continuation_value(Abs_filtered_value(Abs_value_int,patsp,patsn)) =
+          element
+        in
+        [%guard (Pattern_set.is_empty patsp) ];
+        [%guard (Pattern_set.is_empty patsn) ];
+        return [ Pop_dynamic_targeted(
+            Indexing_resolution_3_of_4(x1)) ]
+      | Indexing_resolution_3_of_4(x1) ->
+        let%orzero
+          Continuation_value(Abs_filtered_value(Abs_value_string,patsp,patsn)) =
+          element
+        in
+        [%guard (Pattern_set.is_empty patsp) ];
+        [%guard (Pattern_set.is_empty patsn) ];
+        return [ Pop_dynamic_targeted(
+            Indexing_resolution_4_of_4(x1,Abs_value_string)) ]
+      | Indexing_resolution_4_of_4(x1,abstract_value) ->
+        let%orzero Lookup_var(x1',patsp,patsn) = element in
+        [%guard (equal_var x1 x1') ];
+        [%guard (Pattern_set.subset
+                   patsp (Pattern_set.singleton String_pattern)) ];
+        [%guard (not @@ Pattern_set.mem String_pattern patsn) ];
+        return [ Push (Continuation_value(Abs_filtered_value(
+            abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
+  ;;
       
     let perform_untargeted_dynamic_pop element action =
       Nondeterminism_monad.enum @@
@@ -2281,6 +2345,17 @@ struct
                 in
                 (* x1 = op x2 *)
                 return ( Unary_operator_resolution_1_of_3(x1,op)
+                       , Program_point_state(acl1,ctx)
+                       )
+              end
+            ; (* 14d. Indexing resolution *)
+              begin
+                let%orzero
+                  (Unannotated_clause(Abs_clause(x1,
+                            Abs_indexing_body(_,_)))) = acl1
+                in
+                (* x1 = x2[x3] *)
+                return ( Indexing_resolution_1_of_4(x1)
                        , Program_point_state(acl1,ctx)
                        )
               end
