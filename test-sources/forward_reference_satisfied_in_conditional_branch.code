@@ -1,0 +1,14 @@
+# EXPECT-ILL-FORMED
+
+f = fun x -> (
+  b = a; # ILL-FORMEDNESS
+);
+c = 0;
+r = c ~ {} ?
+    fun fm -> (
+      a = 0;
+      e = f f;
+    ) : fun fa -> (
+      d = 0;
+    );
+

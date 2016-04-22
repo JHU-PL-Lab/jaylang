@@ -1,0 +1,33 @@
+# EXPECT-ILL-FORMED
+
+tru = true;
+fals = false;
+
+h = fun g -> (
+  f = fun b -> (
+    fr = b ~ true
+         ? fun bm -> (
+           gg = re.g;
+           ggfals = gg fals;
+           ggfalstru = ggfals tru;
+           ffi = re.f;
+           bmr = ffi ggfalstru;
+         )
+         : fun ba -> (
+           bar = ba;
+         );
+  );
+  re = { f = f, g = g }; # => ILL-FORMED
+);
+
+first = fun firsta -> (
+  firstar = fun firstb -> (
+    firstbr = firsta;
+  );
+);
+
+hfirst = h first;
+
+ff = hfirst.f;
+
+r = ff tru; # => false

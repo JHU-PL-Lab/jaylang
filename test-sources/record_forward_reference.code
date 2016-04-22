@@ -1,0 +1,4 @@
+# EXPECT-ILL-FORMED
+
+r = { l = r };
+rr = r.l;

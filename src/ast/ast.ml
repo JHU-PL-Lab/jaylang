@@ -48,6 +48,10 @@ module Var_set = Set.Make(Var_order);;
 
 module Var_map = Map.Make(Var_order);;
 
+let var_map_union m1 m2 =
+  Var_map.fold Var_map.add m2 m1
+;;
+
 module Var_hashtbl = Hashtbl.Make(
   struct
     type t = var

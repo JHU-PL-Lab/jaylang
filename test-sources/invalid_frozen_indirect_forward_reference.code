@@ -1,0 +1,13 @@
+# EXPECT-ILL-FORMED
+
+f = fun fp -> (
+  fr = a;
+);
+g = fun gp -> (
+  gr = fun grp -> (
+    grr = f gp;
+  );
+);
+gg = g g; # ILL-FORMED
+r = gg g;
+a = 0;

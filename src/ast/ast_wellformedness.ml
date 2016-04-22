@@ -7,153 +7,51 @@ open Batteries;;
 
 open Ast;;
 open Ast_pp;;
+open Ast_tools;;
 
 type illformedness =
-  | Filter_cycle of var list
-  | Open_filter_variable of var
   | Duplicate_variable_binding of var
-  | Open_expression_variable of var
-  | Non_assignment_terminated_expression of clause
-  [@@deriving show]
+  | Variable_not_in_scope of var * var
+  [@@deriving show, eq, ord]
 ;;
+
+module Illformedness_order =
+struct
+  type t = illformedness
+  let compare = compare_illformedness
+end;;
+
+module Illformedness_set = Set.Make(Illformedness_order);;
 
 exception Illformedness_found of illformedness list;;
 
-let merge_illformedness xs =
-  let ills =
-    xs
-    |> List.enum
-    |> Enum.map
-      (fun f ->
-         try
-           f (); []
-         with
-         | Illformedness_found(ills) -> ills)
-    |> Enum.map List.enum
-    |> Enum.concat
-    |> List.of_enum
-  in
-  if not @@ List.is_empty ills
-  then raise (Illformedness_found(ills))
-;;
-
-(**
-   Determines the variables bound by an expression.
-*)
-let vars_bound_by_expr (Expr(cls)) =
-  cls
-  |> List.map (fun (Clause(x,_)) -> x)
-  |> Var_set.of_list
-;;
-
-(**
-   Determines the variables free in an expression.
-*)
-let rec vars_free_in_expr (Expr(cls_initial)) =
-  let rec walk cls =
-    match cls with
-    | [] -> Var_set.empty
-    | (Clause(x,b))::t ->
-      let free_t = walk t in
-      let free_h =
-        match b with
-        | Var_body x'  -> Var_set.singleton x'
-        | Value_body(v) ->
-          begin
-            match v with
-            | Value_function(f) -> walk_fn f
-            | Value_record(Record_value(els)) ->
-              els |> Ident_map.enum |> Enum.map snd |> Var_set.of_enum
-            | Value_ref(Ref_value(x')) -> Var_set.singleton x'
-            | Value_int _ -> Var_set.empty
-            | Value_bool _ -> Var_set.empty
-            | Value_string _ -> Var_set.empty
-          end
-        | Appl_body(x1',x2') -> Var_set.of_list [x1';x2']
-        | Conditional_body(x',_,f1,f2) ->
-          List.fold_left Var_set.union Var_set.empty
-            [ Var_set.singleton x'
-            ; walk_fn f1
-            ; walk_fn f2
-            ]
-        | Projection_body(x',_) -> Var_set.singleton x'
-        | Deref_body x' -> Var_set.singleton x'
-        | Update_body(x1',x2') -> Var_set.of_list [x1';x2']
-        | Binary_operation_body(x1',_,x2') -> Var_set.of_list [x1';x2']
-        | Unary_operation_body(_,x1') -> Var_set.singleton x1'
-        | Indexing_body(x1',x2') -> Var_set.of_list [x1';x2']
-      in
-      Var_set.union free_h (Var_set.remove x free_t)
-  and walk_fn (Function_value(x',e)) =
-    Var_set.remove x' @@ vars_free_in_expr e
-  in
-  walk cls_initial
-;;
-
 (**
    Determines if an expression is well-formed.
+
+   Raises `Illformedness_found' with list of illformednesses found, if given
+   expression is not well-formed.
 *)
-let check_wellformed_expr e_initial : unit =
-  let check_closed e =
-    let free = vars_free_in_expr e in
-    if Var_set.cardinal free > 0
-    then raise (Illformedness_found(
-        free |> Var_set.enum |> Enum.map (fun x -> Open_expression_variable(x))
-        |> List.of_enum))
-  in
-  let check_unique_bindings (Expr(cls_initial)) =
-    let merge_count_maps m1 m2 =
-      let merge_fn _ n1o n2o =
-        match (n1o,n2o) with
-        | (Some n1, None) -> Some n1
-        | (None, Some n2) -> Some n2
-        | (Some n1, Some n2) -> Some (n1 + n2)
-        | (None, None) -> None
+let check_wellformed_expr expression : unit =
+  begin
+    let expression_non_unique_bindings = non_unique_bindings expression in
+    if not (Var_set.is_empty expression_non_unique_bindings) then
+      let illformednesses =
+        expression_non_unique_bindings
+        |> Var_set.enum
+        |> Enum.map (fun non_unique_binding -> Duplicate_variable_binding non_unique_binding)
+        |> List.of_enum
       in
-      Var_map.merge merge_fn m1 m2
-    in
-    let rec count_clause_bindings cls =
-      cls
-      |> List.enum
-      |> Enum.map
-        (fun (Clause(x,b)) ->
-            let extras =
-              match b with
-              | Value_body(Value_function(Function_value(x',(Expr(cls'))))) ->
-                let pat_map = Var_map.singleton x' 1 in
-                let body_map = count_clause_bindings cls' in
-                merge_count_maps pat_map body_map
-              | Conditional_body(
-                  _,
-                  _,
-                  Function_value(x',(Expr(cls'))),
-                  Function_value(x'',(Expr(cls'')))) ->
-                let pat_map' = Var_map.singleton x' 1 in
-                let body_map' = count_clause_bindings cls' in
-                let complete_map' = merge_count_maps pat_map' body_map' in
-                let pat_map'' = Var_map.singleton x'' 1 in
-                let body_map'' = count_clause_bindings cls'' in
-                let complete_map'' = merge_count_maps pat_map'' body_map'' in
-                merge_count_maps complete_map' complete_map''
-              | _ -> Var_map.empty
-            in
-            merge_count_maps extras @@ Var_map.singleton x 1
-        )
-      |> Enum.fold merge_count_maps Var_map.empty
-    in
-    let violations =
-      count_clause_bindings cls_initial
-      |> Var_map.enum
-      |> Enum.filter_map
-        (fun (x,n) -> if n > 1 then Some x else None)
-      |> List.of_enum
-    in
-    if not @@ List.is_empty violations
-    then raise (Illformedness_found(
-        List.map (fun x -> Duplicate_variable_binding(x)) violations))
-  in
-  (* These must be done sequentially to satisfy invariants of the validation
-     steps. *)
-  check_closed e_initial;
-  check_unique_bindings e_initial
+      raise @@ Illformedness_found illformednesses
+  end;
+  begin
+    let expression_scope_violations = scope_violations expression in
+    if not (List.is_empty expression_scope_violations) then
+      let illformednesses =
+        expression_scope_violations
+        |> List.enum
+        |> Enum.map (fun (program_point, dependency) -> Variable_not_in_scope (program_point, dependency))
+        |> List.of_enum
+      in
+      raise @@ Illformedness_found illformednesses
+  end
 ;;

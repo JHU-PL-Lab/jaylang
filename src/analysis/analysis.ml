@@ -234,6 +234,7 @@ struct
     | Lookup_var of var * pattern_set * pattern_set
     | Project of ident * pattern_set * pattern_set
     | Jump of annotated_clause * C.t
+    | Rewind
     | Deref of pattern_set * pattern_set
     | Capture of bounded_capture_size
     | Continuation_value of abs_filtered_value
@@ -271,6 +272,7 @@ struct
     | Jump(acl,ctx) ->
       Format.fprintf formatter "Jump(%a,%a)"
         ppa_annotated_clause acl C.ppa ctx
+    | Rewind -> Format.fprintf formatter "Rewind"
     | Deref(patsp,patsn) ->
       Format.fprintf formatter "!(%a,%a)"
         pp_pattern_set patsp pp_pattern_set patsn
@@ -369,6 +371,9 @@ struct
         collects other stack elements into a list until it has consumed as
         many as the original Capture stack element dictated.  It then pushes
         a value to the stack followed by all of the elements it collected. *)
+    | Rewind_step of annotated_clause * C.t
+    (** Represents the rewind step to the end of the current scope, to support
+        _natural recursion_. *)
     | Function_call_flow_validation of var * var * annotated_clause * C.t
                                        * annotated_clause * C.t * var
     (** Represents the validation of a function at a call site to ensure that
@@ -657,6 +662,10 @@ struct
         pp_abs_filtered_value v
         (pp_list ppa_pds_continuation) elements
         (int_of_bounded_capture_size size)
+    | Rewind_step(acl,ctx) ->
+      Format.fprintf formatter "Rwd(%a,%a)"
+        pp_annotated_clause acl
+        C.pp ctx
     | Function_call_flow_validation(x_func,x_arg,acl0,ctx0,c,ctxc,x_site) ->
       Format.fprintf formatter "FCFV(%a,%a,%a,%a,%a,%a,%a)"
         pp_var x_func
@@ -833,13 +842,13 @@ struct
       Format.fprintf formatter "UnOpRes3(%a,%a,%a)"
         pp_var x1 pp_unary_operator op pp_abstract_value abstract_value
     | Indexing_resolution_1_of_4(x1) ->
-      Format.fprintf formatter "BinOpRes1(%a)" pp_var x1
+      Format.fprintf formatter "IdxRes1(%a)" pp_var x1
     | Indexing_resolution_2_of_4(x1) ->
-      Format.fprintf formatter "BinOpRes2(%a)" pp_var x1
+      Format.fprintf formatter "IdxRes(%a)" pp_var x1
     | Indexing_resolution_3_of_4(x1) ->
-      Format.fprintf formatter "BinOpRes3(%a)" pp_var x1
+      Format.fprintf formatter "IdxRes(%a)" pp_var x1
     | Indexing_resolution_4_of_4(x1,abstract_value) ->
-      Format.fprintf formatter "BinOpRes4(%a,%a)"
+      Format.fprintf formatter "IdxRes(%a,%a)"
         pp_var x1 pp_abstract_value abstract_value
   ;;
 
@@ -959,6 +968,10 @@ struct
             in
             return @@ (Push (Continuation_value fv))::pushes
           end
+      | Rewind_step(acl,ctx0)->
+        let%orzero Rewind = element in
+
+        return [ Push(Jump(acl,ctx0)) ]
       | Function_call_flow_validation(x2'',x3'',acl0,ctx0,c,ctxc,x) ->
         let%orzero (Lookup_var(x',_,_)) = element in
         [%guard (equal_var x x')];
@@ -988,6 +1001,7 @@ struct
         (* We're looking for a non-local variable.  Push a lookup for the
            function. *)
         return [ Push(element)
+               ; Push(Rewind)
                ; Push(Lookup_var(xf,Pattern_set.empty,Pattern_set.empty))
                ]
       | Conditional_closure_lookup(x',x1,pat,positive_side) ->
@@ -1575,8 +1589,8 @@ struct
     ; pds_reachability : Ddpa_pds_reachability.analysis
     ; ddpa_active_nodes : Annotated_clause_set.t
           [@printer pp_annotated_clause_set]
-(** The active nodes in the DDPA graph.  This set is maintained
-        incrementally as edges are added. *)
+    (** The active nodes in the DDPA graph.  This set is maintained
+            incrementally as edges are added. *)
     ; ddpa_active_non_immediate_nodes : Annotated_clause_set.t
           [@printer pp_annotated_clause_set]
     (** A subset of [ddpa_active_nodes] which only contains the
@@ -1635,6 +1649,37 @@ struct
     | Some data ->
       let name = name_fn data in
       Ddpa_graph_logger.log level name analysis.ddpa_graph
+  ;;
+
+  let end_of_scope annotated_clause edges =
+    let rec step annotated_clause visited_annotated_clauses =
+      match annotated_clause with
+      | Exit_clause _
+      | End_clause -> annotated_clause
+      | _ ->
+        edges
+        |> Enum.clone
+        |> Enum.filter_map (
+          fun (Ddpa_edge(source, target)) ->
+            if (equal_annotated_clause annotated_clause source) &&
+               (not (Annotated_clause_set.mem target visited_annotated_clauses))
+            then
+              match target with
+              | Enter_clause _ -> None
+              | _ -> Some target
+            else
+              None
+        )
+        |> Enum.get
+        |> (
+          function
+          | Some successor ->
+            step successor (Annotated_clause_set.add annotated_clause visited_annotated_clauses)
+          | None ->
+            annotated_clause
+        )
+    in
+    step annotated_clause Annotated_clause_set.empty
   ;;
 
   let add_edges edges_in analysis =
@@ -1707,6 +1752,13 @@ struct
                 (* 3b. Value capture *)
                 begin
                   return ( Value_capture_1_of_3
+                         , Program_point_state(acl0, ctx)
+                         )
+                end
+                ;
+                (* 3c. Rewind *)
+                begin
+                  return ( Rewind_step(end_of_scope acl0 edges, ctx)
                          , Program_point_state(acl0, ctx)
                          )
                 end

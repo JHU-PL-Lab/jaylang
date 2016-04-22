@@ -95,10 +95,11 @@ let toploop_operate conf e =
                 (* We'll need a mapping from variable names to clauses. *)
                 let varname_to_clause_map =
                   e
-                  |> Ast_tools.find_all_clauses_in_expr
-                  |> Enum.map lift_clause
-                  |> Enum.map
+                  |> Ast_tools.flatten
+                  |> List.map lift_clause
+                  |> List.map
                     (fun (Abs_clause(Var(i,_),_) as c) -> (i, c))
+                  |> List.enum
                   |> Ident_map.of_enum
                 in
                 let lookup_clause_by_ident ident =

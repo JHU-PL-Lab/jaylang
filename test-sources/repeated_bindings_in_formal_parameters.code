@@ -1,0 +1,8 @@
+# EXPECT-ILL-FORMED
+
+f = fun x -> (
+  fr = 0
+);
+g = fun x -> ( # => ILL-FORMEDNESS
+  gr = 0;
+);

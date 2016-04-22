@@ -1,0 +1,19 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 0ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {false}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+tru = true;
+fals = false;
+
+f = fun b -> (
+  fr = b ~ true
+       ? fun bm -> (
+         bmr = f fals;
+       )
+       : fun ba -> (
+         bar = ba;
+       );
+);
+r = f tru; # => false

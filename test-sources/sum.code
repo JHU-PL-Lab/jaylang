@@ -1,0 +1,32 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 0ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {int}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+# let rec sum = fun number ->
+#   if number = 0 then
+#     0
+#   else
+#     (sum (number - 1)) + number
+# in
+# sum 5 (* => 15 *)
+
+zero = 0;
+one = 1;
+five = 5;
+
+sum = fun number -> (
+  numberequal0 = number == zero;
+  sumresult = numberequal0 ~ true
+                      ? fun numberequal0match -> (
+                        numberequal0matchresult = zero;
+                      )
+                      : fun numberequal0antimatch -> (
+                        numberminus1 = number - one;
+                        partialsum = sum numberminus1;
+                        numberequal0antimatchresult = partialsum + number;
+                      );
+);
+
+r = sum five; # => 15

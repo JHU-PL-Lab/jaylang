@@ -1,0 +1,31 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 0ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {false}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+tru = true;
+fals = false;
+
+freeze = fun freezeignoredparameter -> (
+  f = fun bf -> (
+    fr = bf ~ true
+         ? fun bfm -> (
+           bfmr = g fals;
+         )
+         : fun bfa -> (
+           bfar = bfa;
+         );
+  );
+  g = fun bg -> (
+    gr = bg ~ true
+         ? fun bgm -> (
+           bgmr = f tru;
+         )
+         : fun bga -> (
+           bgar = bga;
+         );
+  );
+);
+thawg = freeze tru;
+r = thawg tru; # => false
