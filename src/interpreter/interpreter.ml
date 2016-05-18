@@ -56,9 +56,9 @@ and var_replace_clause_body fn r =
   | Projection_body(x,i) -> Projection_body(fn x, i)
   | Deref_body(x) -> Deref_body(fn x)
   | Update_body(x1,x2) -> Update_body(fn x1, fn x2)
-  | Binary_operation_body(x1,op,x2) -> Binary_operation_body(fn x1, op, fn x2) 
-  | Unary_operation_body(op,x1) -> Unary_operation_body(op, fn x1) 
-  | Indexing_body(x1,x2) -> Indexing_body(fn x1, fn x2) 
+  | Binary_operation_body(x1,op,x2) -> Binary_operation_body(fn x1, op, fn x2)
+  | Unary_operation_body(op,x1) -> Unary_operation_body(op, fn x1)
+  | Indexing_body(x1,x2) -> Indexing_body(fn x1, fn x2)
 
 and var_replace_value fn v =
   match v with
@@ -88,7 +88,7 @@ let repl_fn_for clauses freshening_stack extra_bound =
     clauses
     |> List.map (fun (Clause(x,_)) -> x)
     |> Var_set.of_list
-    |> Var_set.union extra_bound 
+    |> Var_set.union extra_bound
   in
   let repl_fn (Var(i, _) as x) =
     if Var_set.mem x bound_variables
