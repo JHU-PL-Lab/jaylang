@@ -1,4 +1,6 @@
-PKG oasis batteries menhirLib oUnit
+PKG oasis batteries menhirLib oUnit ppx_deriving.std monadlib ocaml-monadic
 S src/**
+S test/**
 B _build/src/**
+B _build/test/**
 EXT ounit
