@@ -26,31 +26,6 @@ type toploop_configuration =
   }
 ;;
 
-(** Finds all of the call sites in the provided expression.  Returns an
-    enumeration of call sites as pairs between the function variable and the
-    clause representing the call site. *)
-let rec find_all_call_sites (Expr cls) =
-  let rec call_sites_from_function_value (Function_value(_, e)) =
-    find_all_call_sites e
-  in
-  let rec call_sites_from_clause cl =
-    match cl with
-    | Clause(_, Appl_body(x2, _)) ->
-      Some (Enum.singleton (x2, cl))
-    | Clause(_, Value_body(Value_function(f))) ->
-      Some (call_sites_from_function_value f)
-    | Clause(_, Conditional_body(_, _, f1, f2)) ->
-      Some (Enum.append (call_sites_from_function_value f1)
-                        (call_sites_from_function_value f2))
-    | _ -> None
-  in
-  cls
-  |> List.enum
-  |> Enum.filter_map
-    call_sites_from_clause
-  |> Enum.concat
-;;
-
 let toploop_operate conf e =
   print_string "\n";
   begin
@@ -224,43 +199,43 @@ let toploop_operate conf e =
   flush stdout
 ;;
 
-let command_line_parsing () = 
+let command_line_parsing () =
   let parser = BatOptParse.OptParser.make ~version:"version 0.3" () in
-  
+
   (* Add logging options *)
   BatOptParse.OptParser.add parser ~long_name:"log" logging_option;
-  
+
   (* Add ability to select the context stack. *)
   BatOptParse.OptParser.add parser ~long_name:"select-context-stack"
     ~short_name:'S' select_context_stack_option;
-    
+
   (* Add DDPA graph logging option. *)
   BatOptParse.OptParser.add parser ~long_name:"ddpa-logging"
     ddpa_logging_option;
-  
+
   (* Add PDS reachability graph logging option. *)
   BatOptParse.OptParser.add parser ~long_name:"pdr-logging" pdr_logging_option;
-  
+
   (* Add control over variables used in toploop analysis. *)
   BatOptParse.OptParser.add parser ~long_name:"analyze-variables"
     analyze_variables_option;
-  
+
   (* Add control over whether evaluation actually occurs. *)
   BatOptParse.OptParser.add parser ~long_name:"disable-evaluation"
     ~short_name:'E' disable_evaluation_option;
-  
+
   (* Add control over whether evaluation actually occurs. *)
   BatOptParse.OptParser.add parser ~long_name:"disable-inconsistency-check"
     ~short_name:'I' disable_inconsistency_check_option;
-  
+
   (* Add control over whether analysis actually occurs. *)
   BatOptParse.OptParser.add parser ~long_name:"disable-analisys"
     ~short_name:'A' disable_analysis_option;
-  
+
   (* Add ability to report sizes of generated graphs. *)
   BatOptParse.OptParser.add parser ~long_name:"report-sizes"
     report_sizes_option;
-  
+
   (* Handle arguments. *)
   let spare_args = BatOptParse.OptParser.parse_argv parser in
   match spare_args with
