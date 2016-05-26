@@ -27,7 +27,7 @@ type test_expectation =
   | Expect_well_formed
   | Expect_ill_formed
   | Expect_analysis_stack_is of
-    (module Analysis_context_stack.Context_stack) option
+      (module Analysis_context_stack.Context_stack) option
   | Expect_analysis_variable_lookup_from_end of ident * string
   | Expect_analysis_inconsistency_at of ident
   | Expect_analysis_no_inconsistencies
@@ -58,16 +58,16 @@ let parse_expectation str =
     | [x] -> x
     | _ ->
       raise @@
-        Expectation_parse_failure ("expected one argument; got " ^
-          string_of_int (List.length lst))
+      Expectation_parse_failure ("expected one argument; got " ^
+                                 string_of_int (List.length lst))
   in
   let assert_two_args lst =
     match lst with
     | [x;y] -> (x,y)
     | _ ->
       raise @@
-        Expectation_parse_failure ("expected two arguments; got " ^
-          string_of_int (List.length lst))
+      Expectation_parse_failure ("expected two arguments; got " ^
+                                 string_of_int (List.length lst))
   in
   try
     let expectation =
@@ -187,16 +187,23 @@ let observe_analysis_variable_lookup_from_end ident repr expectation =
 ;;
 
 let observe_inconsistency inconsistency expectation =
-  match inconsistency with
-  | Toploop_ddpa.Application_of_non_function(_,Clause(Var(ident,_),_),_) ->
-    begin
-      match expectation with
-      | Expect_analysis_inconsistency_at ident' ->
-        if ident = ident'
-        then None
-        else Some expectation
-      | _ -> Some expectation
-    end
+  let site_of_inconsistency =
+    match inconsistency with
+    | Toploop_ddpa.Application_of_non_function (Var(ident,_),_,_) -> ident
+    | Toploop_ddpa.Projection_of_non_record (Var(ident,_),_,_) -> ident
+    | Toploop_ddpa.Deref_of_non_ref (Var(ident,_),_,_) -> ident
+    | Toploop_ddpa.Update_of_non_ref (Var(ident,_),_,_) -> ident
+    | Toploop_ddpa.Invalid_binary_operation (Var(ident,_),_,_,_,_,_) -> ident
+    | Toploop_ddpa.Invalid_unary_operation (Var(ident,_),_,_,_) -> ident
+    | Toploop_ddpa.Invalid_indexing_subject (Var(ident,_),_,_) -> ident
+    | Toploop_ddpa.Invalid_indexing_argument (Var(ident,_),_,_) -> ident
+  in
+  match expectation with
+  | Expect_analysis_inconsistency_at expected_site ->
+    if site_of_inconsistency = expected_site
+    then None
+    else Some expectation
+  | _ -> Some expectation
 ;;
 
 let observe_no_inconsistency expectation =
@@ -266,7 +273,7 @@ let make_test filename expectations =
         match !module_choice with
         | Default_stack ->
           Some (module Analysis_single_element_stack.Stack :
-                  Analysis_context_stack.Context_stack)
+                 Analysis_context_stack.Context_stack)
         | Chosen_stack value -> value
       in
       (* If the test wants an analysis, build it and work through observations
@@ -298,7 +305,7 @@ let make_test filename expectations =
               inconsistencies
               |> Enum.iter
                 (fun inconsistency ->
-                  observation @@ observe_inconsistency inconsistency);
+                   observation @@ observe_inconsistency inconsistency);
               (* If there are any expectations of inconsistency left, they're
                  a problem. *)
               !expectations_left
@@ -306,7 +313,7 @@ let make_test filename expectations =
                 (function
                   | Expect_analysis_inconsistency_at ident ->
                     assert_failure @@ "Expected inconsistency at " ^
-                      show_ident ident ^ " which did not occur"
+                                      show_ident ident ^ " which did not occur"
                   | _ -> ()
                 )
             end
@@ -325,32 +332,32 @@ let make_test filename expectations =
           (* For each such variable, perform an appropriate observation. *)
           Enum.iter
             (fun ident ->
-              let var = Var(ident,None) in
-              let values =
-                TLA.values_of_variable_from var End_clause analysis
-              in
-              let repr = show_abs_filtered_value_set values in
-              observation (observe_analysis_variable_lookup_from_end ident repr)
+               let var = Var(ident,None) in
+               let values =
+                 TLA.values_of_variable_from var End_clause analysis
+               in
+               let repr = show_abs_filtered_value_set values in
+               observation (observe_analysis_variable_lookup_from_end ident repr)
             ) variable_idents
         end
-      ;
-      (* Evaluate, but only if an appropriate expectation exists. *)
-      if not @@ have_expectation
-                  (function
-                    | Expect_evaluate -> true
-                    | Expect_stuck -> true
-                    | _ -> false)
-      then ()
-      else
-        begin
-          try
-            ignore (eval expr);
-            observation observe_evaluated
-          with
-          | Evaluation_failure(failure) ->
-            observation (observe_stuck failure)
-        end
-      ;
+        ;
+        (* Evaluate, but only if an appropriate expectation exists. *)
+        if not @@ have_expectation
+            (function
+              | Expect_evaluate -> true
+              | Expect_stuck -> true
+              | _ -> false)
+        then ()
+        else
+          begin
+            try
+              ignore (eval expr);
+              observation observe_evaluated
+            with
+            | Evaluation_failure(failure) ->
+              observation (observe_stuck failure)
+          end
+        ;
     end;
     (* Now assert that every expectation has been addressed. *)
     match !expectations_left with
@@ -368,18 +375,18 @@ let make_test_from filename =
     |> File.lines_of
     |> Enum.filter_map
       (fun str ->
-        let str' = String.trim str in
-        if String.starts_with str' "#"
-        then
-          let str'' = String.trim @@ String.tail str' 1 in
-          match parse_expectation str'' with
-          | Some (Success expectation) -> Some(Success expectation)
-          | Some (Failure s) -> Some(Failure(
-            Printf.sprintf
-              "Error parsing expectation:\n        Error: %s\n        Text:  %s"
-              s str''))
-          | None -> None
-        else None
+         let str' = String.trim str in
+         if String.starts_with str' "#"
+         then
+           let str'' = String.trim @@ String.tail str' 1 in
+           match parse_expectation str'' with
+           | Some (Success expectation) -> Some(Success expectation)
+           | Some (Failure s) -> Some(Failure(
+               Printf.sprintf
+                 "Error parsing expectation:\n        Error: %s\n        Text:  %s"
+                 s str''))
+           | None -> None
+         else None
       )
     |> List.of_enum
   in
@@ -404,8 +411,8 @@ let make_test_from filename =
     begin
       match successes with
       | [] -> raise (File_test_creation_failure(
-        "Could not create test from file " ^ filename ^
-        ": no expectations found"))
+          "Could not create test from file " ^ filename ^
+          ": no expectations found"))
       | _ ->
         make_test filename successes
     end

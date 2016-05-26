@@ -176,16 +176,23 @@ let observe_analysis_variable_lookup_from_end ident repr expectation =
 ;;
 
 let observe_inconsistency inconsistency expectation =
-  match inconsistency with
-  | Toploop_ddpa.Application_of_non_function(_,Clause(Var(ident,_),_),_) ->
-    begin
-      match expectation with
-      | Expect_analysis_inconsistency_at ident' ->
-        if ident = ident'
-        then None
-        else Some expectation
-      | _ -> Some expectation
-    end
+  let site_of_inconsistency =
+    match inconsistency with
+    | Toploop_ddpa.Application_of_non_function (Var(ident,_),_,_) -> ident
+    | Toploop_ddpa.Projection_of_non_record (Var(ident,_),_,_) -> ident
+    | Toploop_ddpa.Deref_of_non_ref (Var(ident,_),_,_) -> ident
+    | Toploop_ddpa.Update_of_non_ref (Var(ident,_),_,_) -> ident
+    | Toploop_ddpa.Invalid_binary_operation (Var(ident,_),_,_,_,_,_) -> ident
+    | Toploop_ddpa.Invalid_unary_operation (Var(ident,_),_,_,_) -> ident
+    | Toploop_ddpa.Invalid_indexing_subject (Var(ident,_),_,_) -> ident
+    | Toploop_ddpa.Invalid_indexing_argument (Var(ident,_),_,_) -> ident
+  in
+  match expectation with
+  | Expect_analysis_inconsistency_at expected_site ->
+    if site_of_inconsistency = expected_site
+    then None
+    else Some expectation
+  | _ -> Some expectation
 ;;
 
 let observe_no_inconsistency expectation =

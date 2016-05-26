@@ -125,7 +125,9 @@ struct
            (fun (Abs_filtered_value(v,_,_)) ->
               match v with
               | Abs_value_function _ -> None
-              | _ -> Some (Application_of_non_function(x2, cl, v))
+              | _ ->
+                let (Clause(xc,_)) = cl in
+                Some (Application_of_non_function(xc, x2, v))
            )
       )
     |> Enum.concat
