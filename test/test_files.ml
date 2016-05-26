@@ -13,6 +13,7 @@ open Batteries;;
 open OUnit2;;
 
 open Ast;;
+open Ast_pp;;
 open Ast_wellformedness;;
 open Ddpa_graph;;
 open Interpreter;;
@@ -74,7 +75,7 @@ let parse_expectation str =
       | "EXPECT-EVALUATE"::args_part ->
         assert_no_args args_part;
         Expect_evaluate
-      | "EXPECT-STUCK"::args_part -> 
+      | "EXPECT-STUCK"::args_part ->
         assert_no_args args_part;
         Expect_stuck
       | "EXPECT-WELL-FORMED"::args_part ->
@@ -144,11 +145,11 @@ let observe_well_formed expectation =
 
 let observe_ill_formed illformednesses expectation =
   match expectation with
-  | Expect_well_formed -> 
+  | Expect_well_formed ->
     assert_failure @@ "Expression was unexpectedly ill-formed.  Causes:" ^
                       "\n    * " ^ concat_sep "\n    *"
                         (List.enum @@
-                         List.map pp_illformedness illformednesses)
+                         List.map show_illformedness illformednesses)
   | Expect_ill_formed -> None
   | _ -> Some expectation
 ;;
@@ -179,7 +180,7 @@ let observe_analysis_variable_lookup_from_end ident repr expectation =
         then None
         else assert_failure @@
           Printf.sprintf "for variable %s, expected %s but got %s"
-            (pp_ident ident) repr' repr
+            (show_ident ident) repr' repr
       end
     else Some expectation
   | _ -> Some expectation
@@ -222,14 +223,14 @@ let make_test filename expectations =
       in
       "should use analysis stack " ^ name
     | Expect_analysis_variable_lookup_from_end(ident,_) ->
-      "should have particular values for variable " ^ (pp_ident ident)
+      "should have particular values for variable " ^ (show_ident ident)
     | Expect_analysis_inconsistency_at ident ->
-      "should be inconsistent at " ^ pp_ident ident
+      "should be inconsistent at " ^ show_ident ident
     | Expect_analysis_no_inconsistencies ->
       "should be consistent"
   in
   let test_name = filename ^ ": (" ^
-                  pp_list name_of_expectation expectations ^ ")"
+                  string_of_list name_of_expectation expectations ^ ")"
   in
   (* Create the test in a thunk. *)
   test_name >::
@@ -287,7 +288,7 @@ let make_test filename expectations =
                 | Expect_analysis_inconsistency_at _ -> true
                 | _ -> false)
           then ()
-          else 
+          else
             begin
               let inconsistencies = TLA.check_inconsistencies analysis in
               (* Report the lack of inconsistencies, when appropriate. *)
@@ -305,7 +306,7 @@ let make_test filename expectations =
                 (function
                   | Expect_analysis_inconsistency_at ident ->
                     assert_failure @@ "Expected inconsistency at " ^
-                      pp_ident ident ^ " which did not occur"
+                      show_ident ident ^ " which did not occur"
                   | _ -> ()
                 )
             end
@@ -328,7 +329,7 @@ let make_test filename expectations =
               let values =
                 TLA.values_of_variable_from var End_clause analysis
               in
-              let repr = pp_abs_filtered_value_set values in
+              let repr = show_abs_filtered_value_set values in
               observation (observe_analysis_variable_lookup_from_end ident repr)
             ) variable_idents
         end

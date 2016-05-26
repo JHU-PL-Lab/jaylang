@@ -1,6 +1,7 @@
 open Batteries;;
 
 open Dot_file_logger_utils;;
+open Pp_utils;;
 
 include Pds_reachability_logger_utils_types;;
 
@@ -33,7 +34,7 @@ struct
     let compare_level = compare_pds_reachability_logger_level;;
     let pp_level = pp_pds_reachability_logger_level;;
     let default_level = Pds_reachability_log_nothing;;
-    
+
     type name = pds_reachability_logger_name;;
     let string_of_name (Pds_reachability_logger_name(pfx,major,minor)) =
       pfx ^ "_PDR_" ^ string_of_int major ^ "_" ^ string_of_int minor
@@ -42,15 +43,15 @@ struct
     type dot_node_id = Types.node;;
     let rec string_of_dot_node_id node =
       match node with
-      | Types.State_node state -> Basis.ppa_state state
+      | Types.State_node state -> pp_to_string Basis.ppa_state state
       | Types.Intermediate_node (node',actions) ->
         Printf.sprintf "InterNode(%s,%s)"
           (string_of_dot_node_id node')
-          (String_utils.pp_list Types.pp_stack_action actions)
+          (String_utils.string_of_list Types.show_stack_action actions)
     ;;
 
     type data = Structure.structure;;
-    let string_of_edge_action = Types.ppa_stack_action ;;
+    let string_of_edge_action = pp_to_string Types.ppa_stack_action ;;
     let graph_of structure =
       let nodes = Structure.enumerate_nodes structure in
       let edges = Structure.enumerate_edges structure in
@@ -66,7 +67,7 @@ struct
                 | Types.Intermediate_node _ -> Some "#ccaaff"
               end
             ; dot_node_text =
-              Some (Types.ppa_node node)
+              Some (pp_to_string Types.ppa_node node)
             }
           )
       in

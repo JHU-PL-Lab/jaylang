@@ -10,8 +10,6 @@ module Ast_uid_hashtbl = Ast_uid.Ast_uid_hashtbl;;
 (** A data type for identifiers in the toy language. *)
 type ident = Ident of string [@@deriving eq, ord];;
 
-let pp_ident (Ident i) = i;;
-
 module Ident_hash =
 struct
   type t = ident
@@ -32,13 +30,6 @@ end
 module Ident_set = Set.Make(Ident_order);;
 
 module Ident_map = Map.Make(Ident_order);;
-
-let pp_ident_map pp_value map =
-  Ident_map.enum map
-  |> Enum.map (fun (k,v) ->
-                Printf.sprintf "%s => %s" (pp_ident k) (pp_value v))
-  |> String_utils.concat_sep_delim "{\n    " "\n}" ",\n    "
-;;
 
 (** A freshening stack of identifiers for variables produced at runtime.  This
     tracks the invocation stack of these variables.  The first element in the

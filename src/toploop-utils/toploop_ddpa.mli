@@ -4,19 +4,20 @@
     - Analyses are stored behind a mutable reference, so these functions do not
       require the caller to track updated analysis values.
     - This module adds data structures and values which are relevant to the
-      application of the DDPA, such as detecting misuse of call sites. 
+      application of the DDPA, such as detecting misuse of call sites.
 *)
 
 open Analysis
 
 include module type of Toploop_ddpa_types;;
 
-val pp_inconsistency : inconsistency -> string;;
+val pp_inconsistency : Format.formatter -> inconsistency -> unit;;
+val show_inconsistency : inconsistency -> string;;
 
 module Make : functor (A : Analysis_sig) -> DDPA;;
 
 (** Finds an appropriate context stack from a given textual name.  Raises
-    [Not_found] if the name is invalid.  The string ["none"] produces 
+    [Not_found] if the name is invalid.  The string ["none"] produces
     [None] as the stack. *)
 val stack_from_name :
   string -> (module Analysis_context_stack.Context_stack) option

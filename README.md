@@ -25,7 +25,7 @@ There are three different ways to setup and run Odefa.
 2. Install the dependencies:
 
     $ opam install oasis batteries menhir ounit ppx_deriving ocaml-monadic monadlib
-   
+
    If your shell hashes binary locations, you may need to clear your hashes now.
    (In bash, `hash -r` does this.)
 
@@ -65,7 +65,7 @@ In order to interact with the toploop (sample programs can be found at
 `test-sources/`):
 
     $ docker-compose run --rm odefa './toploop.native'
-    
+
 ### Vagrant
 
 Having [VirtualBox][virtual-box] and [Vagrant][vagrant] installed, run:
@@ -78,7 +78,7 @@ In order to interact with the toploop (sample programs can be found at
 `test-sources/`):
 
     $ vagrant exec docker-compose run --rm odefa 'toploop.native'
-    
+
 Execution
 ---------
 
@@ -107,7 +107,7 @@ Generates a Graphviz DOT file of the DDPA CFG at the end of analysis.  These fil
     dot -Tpdf <_toploop_DDPA_final.dot >_toploop_DDPA_final.pdf
 
 Other options exist, including a setting to produce diagrams of the incremental PDR graphs.
-                    
+
 Benchmark
 ---------
 

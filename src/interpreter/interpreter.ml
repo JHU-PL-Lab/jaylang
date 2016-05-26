@@ -2,21 +2,21 @@ open Batteries;;
 
 open Ast;;
 open Ast_pp;;
+open Pp_utils;;
 
 let lazy_logger = Logger_utils.make_lazy_logger "Interpreter";;
 
 module Environment = Var_hashtbl;;
 
-let pp_env (env : value Environment.t) =
-  let inner =
-    env
-    |> Environment.enum
-    |> Enum.map (fun (x,v) -> pp_var x ^ " = " ^ pp_value v)
-    |> Enum.fold
-      (fun acc -> fun s -> if acc = "" then s else acc ^ ", " ^ s) ""
+let pp_env formatter (env : value Environment.t) =
+  let pp_item formatter (x,y) =
+    pp_var formatter x;
+    Format.pp_print_string formatter " = ";
+    pp_value formatter y;
   in
-  "{ " ^ inner ^ " }"
+  pp_concat_sep_delim "{" "}" "," pp_item formatter @@ Environment.enum env
 ;;
+let show_env = pp_to_string pp_env;;
 
 exception Evaluation_failure of string;;
 
@@ -26,7 +26,8 @@ let lookup env x =
   else
     raise (
       Evaluation_failure (
-        "cannot find variable `" ^ (pp_var x) ^ "' in environment `" ^ (pp_env env) ^ "'."
+        Printf.sprintf "cannot find variable %s in environment %s."
+          (show_var x) (show_env env)
       )
     )
 ;;
@@ -136,11 +137,11 @@ let rec matches env x p =
 
 let rec evaluate env lastvar cls =
   lazy_logger `debug (fun () ->
-    pp_env env ^ "\n" ^
-    (Option.default "?" (Option.map pp_var lastvar)) ^ "\n" ^
-    (cls
-     |> List.map pp_clause
-     |> List.fold_left (fun acc -> fun s -> acc ^ s ^ "; ") "") ^ "\n\n");
+      show_env env ^ "\n" ^
+      (Option.default "?" (Option.map show_var lastvar)) ^ "\n" ^
+      (cls
+       |> List.map show_clause
+       |> List.fold_left (fun acc -> fun s -> acc ^ s ^ "; ") "") ^ "\n\n");
   flush stdout;
   match cls with
   | [] ->
@@ -167,8 +168,9 @@ let rec evaluate env lastvar cls =
           | Value_function(f) ->
             evaluate env (Some x) @@ fresh_wire f x'' x @ t
           | r -> raise (Evaluation_failure
-                          ("cannot apply " ^ pp_var x' ^
-                           " as it contains non-function " ^ pp_value r))
+                          (Printf.sprintf
+                             "cannot apply %s as it contains non-function %s"
+                             (show_var x') (show_value r)))
         end
       | Conditional_body(x',p,f1,f2) ->
         let f_target = if matches env x' p then f1 else f2 in
@@ -185,12 +187,14 @@ let rec evaluate env lastvar cls =
                 evaluate env (Some x) t
               with
               | Not_found ->
-                raise @@ Evaluation_failure("cannot project " ^ pp_ident i ^
-                                  " from " ^ pp_value r ^ ": not present")
+                raise @@ Evaluation_failure(
+                  Printf.sprintf "cannot project %s from %s: not present"
+                    (show_ident i) (show_value r))
             end
           | v ->
-            raise @@ Evaluation_failure("cannot project " ^ pp_ident i ^
-                                " from non-record value " ^ pp_value v)
+            raise @@ Evaluation_failure(
+              Printf.sprintf "cannot project %s from non-record value %s"
+                (show_ident i) (show_value v))
         end
       | Deref_body(x') ->
         let v = lookup env x' in
@@ -200,9 +204,9 @@ let rec evaluate env lastvar cls =
             let v' = lookup env x'' in
             Environment.add env x v';
             evaluate env (Some x) t
-          | _ -> raise (Evaluation_failure
-                          ("cannot dereference " ^ pp_var x' ^
-                           " as it contains non-reference " ^ pp_value v))
+          | _ -> raise @@ Evaluation_failure(
+              Printf.sprintf "cannot dereference %s as it contains non-reference %s"
+                (show_var x') (show_value v))
         end
       | Update_body(x', x'') ->
         let v = lookup env x' in
@@ -213,10 +217,10 @@ let rec evaluate env lastvar cls =
             Environment.replace env x'' v';
             evaluate env (Some x)
               ((Clause(x,
-                  Value_body(Value_record(Record_value(Ident_map.empty)))))::t)
-          | _ -> raise (Evaluation_failure
-                          ("cannot update " ^ pp_var x' ^
-                           " as it contains non-reference " ^ pp_value v))
+                       Value_body(Value_record(Record_value(Ident_map.empty)))))::t)
+          | _ -> raise @@ Evaluation_failure(
+              Printf.sprintf "cannot update %s as it contains non-reference %s"
+                (show_var x') (show_value v))
         end
       | Binary_operation_body(x1,op,x2) ->
         let v1 = lookup env x1 in
@@ -250,7 +254,7 @@ let rec evaluate env lastvar cls =
             | v1,op,v2 ->
               raise @@ Evaluation_failure(
                 Printf.sprintf "Cannot complete binary operation: (%s) %s (%s)"
-                  (pp_value v1) (pp_binary_operator op) (pp_value v2))
+                  (show_value v1) (show_binary_operator op) (show_value v2))
           end
         in
         Environment.add env x result;
@@ -265,7 +269,7 @@ let rec evaluate env lastvar cls =
             | op,v1 ->
               raise @@ Evaluation_failure(
                 Printf.sprintf "Cannot complete unary operation: %s (%s)"
-                  (pp_unary_operator op) (pp_value v1))
+                  (show_unary_operator op) (show_value v1))
           end
         in
         Environment.add env x result;
@@ -284,7 +288,7 @@ let rec evaluate env lastvar cls =
             | v1,v2 ->
               raise @@ Evaluation_failure(
                 Printf.sprintf "Cannot complete indexing: %s[%s]"
-                  (pp_value v1) (pp_value v2))
+                  (show_value v1) (show_value v2))
           end
         in
         Environment.add env x result;

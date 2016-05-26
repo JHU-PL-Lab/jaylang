@@ -5,8 +5,8 @@ open String_utils;;
 let natural_compare_seq_returns_0_for_empty_list _ =
   assert_equal 0 (Utils.natural_compare_seq [])
 
-let pp_list_list pp lst =
-  pp_list (pp_list pp) lst
+let string_of_list_list pp lst =
+  string_of_list (string_of_list pp) lst
 ;;
 
 let cartesian_product_tests =
@@ -15,8 +15,8 @@ let cartesian_product_tests =
   in
   let make_test (lst1,lst2) =
     let test_name = "cartesian_product_of_list " ^
-                    pp_list_list string_of_int lst1 ^ " = " ^
-                    pp_list_list string_of_int lst2
+                    string_of_list_list string_of_int lst1 ^ " = " ^
+                    string_of_list_list string_of_int lst2
     in
     test_name >:: do_test lst1 lst2
   in

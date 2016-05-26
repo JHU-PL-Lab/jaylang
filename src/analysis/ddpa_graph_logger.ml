@@ -24,13 +24,13 @@ struct
   type dot_node_id = annotated_clause;;
   let string_of_dot_node_id acl =
     match acl with
-    | Unannotated_clause(Abs_clause(Var(i,_),_)) -> pp_ident i
+    | Unannotated_clause(Abs_clause(Var(i,_),_)) -> show_ident i
     | Enter_clause(Var(i1,_),Var(i2,_),(Abs_clause(Var(i,_),_))) ->
       Printf.sprintf "%s=%s@%s<"
-        (pp_ident i1) (pp_ident i2) (pp_ident i)
+        (show_ident i1) (show_ident i2) (show_ident i)
     | Exit_clause(Var(i1,_),Var(i2,_),(Abs_clause(Var(i,_),_))) ->
       Printf.sprintf "%s=%s@%s>"
-        (pp_ident i1) (pp_ident i2) (pp_ident i)
+        (show_ident i1) (show_ident i2) (show_ident i)
     | Start_clause -> "start"
     | End_clause -> "end"
   ;;

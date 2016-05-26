@@ -4,11 +4,9 @@
 *)
 
 open Batteries;;
-open Printf;;
 
 open Ast;;
 open Ast_pp;;
-open String_utils;;
 
 type illformedness =
   | Filter_cycle of var list
@@ -16,27 +14,13 @@ type illformedness =
   | Duplicate_variable_binding of var
   | Open_expression_variable of var
   | Non_assignment_terminated_expression of clause
+  [@@deriving show]
 ;;
 
 exception Illformedness_found of illformedness list;;
 
-let pp_illformedness ill =
-  match ill with
-  | Filter_cycle(xs) ->
-    sprintf "Pattern variable cycle detected: %s"
-      (pp_list pp_var xs)
-  | Open_filter_variable(x) ->
-    sprintf "Free variable detected in pattern: %s" (pp_var x)
-  | Duplicate_variable_binding(x) ->
-    sprintf "Variable %s bound twice" (pp_var x)
-  | Open_expression_variable(x) ->
-    sprintf "Variable %s is free in this expression" (pp_var x)
-  | Non_assignment_terminated_expression(c) ->
-    sprintf "Expression terminates in non-assignment clause %s" (pp_clause c)
-;;
-
 let merge_illformedness xs =
-  let ills = 
+  let ills =
     xs
     |> List.enum
     |> Enum.map

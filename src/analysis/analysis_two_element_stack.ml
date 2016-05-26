@@ -2,6 +2,7 @@ open Batteries;;
 
 open Analysis_context_stack;;
 open Ddpa_graph;;
+open Pp_utils;;
 
 module Stack : Context_stack =
 struct
@@ -23,18 +24,14 @@ struct
     | h::_ -> c = h
     | [] -> true
   ;;
-  let pp (S(lst)) =
-    let pfx =
-      List.fold_left (fun a c -> a ^ pp_abstract_clause c ^ "|") "" lst
-    in
-    pfx ^ "?"
+  let pp formatter (S(lst)) =
+    List.iter ((pp_suffix ppa_abstract_clause "|") formatter) lst;
+    Format.pp_print_string formatter "?"
   ;;
-  let ppa (S(lst)) =
-    match lst with
-    | [] -> "?"
-    | _ ->
-      String_utils.concat_sep "|" @@
-        Enum.map ppa_abstract_clause @@ List.enum lst
+  let ppa formatter (S(lst)) =
+    List.iter ((pp_suffix ppa_abstract_clause "|") formatter) lst;
+    Format.pp_print_string formatter "?"
   ;;
+  let show = pp_to_string pp;;
   let name = "2ddpa";;
 end;;

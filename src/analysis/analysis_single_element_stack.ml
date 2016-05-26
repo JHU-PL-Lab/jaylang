@@ -2,6 +2,7 @@ open Batteries;;
 
 open Analysis_context_stack;;
 open Ddpa_graph;;
+open Pp_utils;;
 
 module Stack : Context_stack =
 struct
@@ -15,13 +16,16 @@ struct
     | Some c' -> c = c'
     | None -> true
   ;;
-  let pp = function
-    | S(Some(c)) -> pp_abstract_clause c ^ "|?"
-    | S(None) -> "?"
+  let pp formatter x =
+    match x with
+    | S(Some(c)) -> (pp_suffix pp_abstract_clause "|?") formatter c
+    | S(None) -> Format.pp_print_string formatter "?"
   ;;
-  let ppa = function
-    | S(Some(c)) -> ppa_abstract_clause c
-    | S(None) -> "?"
+  let ppa formatter x =
+    match x with
+    | S(Some(c)) -> pp_abstract_clause formatter c
+    | S(None) -> Format.pp_print_string formatter "?"
   ;;
+  let show = pp_to_string pp;;
   let name = "1ddpa";;
 end;;

@@ -28,8 +28,8 @@ struct
   type stack_element = char
   module State_ord = Test_state_ord
   module Stack_element_ord = Test_stack_element_ord
-  let pp_state = string_of_int
-  let pp_stack_element = String.make 1
+  let pp_state = Format.pp_print_int;;
+  let pp_stack_element = Format.pp_print_char;;
   let ppa_state = pp_state
   let ppa_stack_element = pp_stack_element
 end;;
@@ -40,59 +40,41 @@ struct
   let compare_stack_element = Test_stack_element_ord.compare;;
   type state = Test_spec.state;;
   let compare_state = Test_state_ord.compare;;
+  open Test_spec;;
   type targeted_dynamic_pop_action =
     | Double_push
     | Consume_identical_1_of_2
     | Consume_identical_2_of_2 of stack_element
     | Chain_two_push_1_of_2 of stack_element * stack_element
     | Chain_two_push_2_of_2 of stack_element
-    [@@deriving ord]
+    [@@deriving ord, show]
   ;;
   type untargeted_dynamic_pop_action =
     | Target_condition_on_element_is_A of state * state
-    [@@deriving ord]
+    [@@deriving ord, show]
   ;;
   type stack_action =
     ( stack_element
     , targeted_dynamic_pop_action
     ) pds_stack_action
   ;;
-  let pp_targeted_dynamic_pop_action = function
-    | Double_push -> "Double_push"
-    | Consume_identical_1_of_2 -> "Consume_identical_1_of_2"
+  let ppa_targeted_dynamic_pop_action formatter = function
+    | Double_push -> Format.pp_print_string formatter "DP"
+    | Consume_identical_1_of_2 -> Format.pp_print_string formatter "CI1"
     | Consume_identical_2_of_2(k) ->
-      Printf.sprintf "Consume_identical_2_of_2(%s)"
-        (Test_spec.pp_stack_element k)
+      Format.fprintf formatter "CI2(%a)" Test_spec.ppa_stack_element k
     | Chain_two_push_1_of_2(k1,k2) ->
-      Printf.sprintf "Chain_two_push_1_of_2(%s,%s)"
-        (Test_spec.pp_stack_element k1) (Test_spec.pp_stack_element k2)
+      Format.fprintf formatter "CDP1(%a,%a)"
+        Test_spec.ppa_stack_element k1 Test_spec.ppa_stack_element k2
     | Chain_two_push_2_of_2(k) ->
-      Printf.sprintf "Chain_two_push_2_of_2(%s)"
-        (Test_spec.pp_stack_element k)
-  ;;
-  let ppa_targeted_dynamic_pop_action = function
-    | Double_push -> "DP"
-    | Consume_identical_1_of_2 -> "CI1"
-    | Consume_identical_2_of_2(k) ->
-      Printf.sprintf "CI2(%s)" (Test_spec.ppa_stack_element k)
-    | Chain_two_push_1_of_2(k1,k2) ->
-      Printf.sprintf "CDP1(%s,%s)"
-        (Test_spec.ppa_stack_element k1) (Test_spec.ppa_stack_element k2)
-    | Chain_two_push_2_of_2(k) ->
-      Printf.sprintf "CDP2(%s)" (Test_spec.ppa_stack_element k)
-  ;;
-      
-  let pp_untargeted_dynamic_pop_action = function
-    | Target_condition_on_element_is_A(s1,s2) ->
-      Printf.sprintf "Target_condition_on_element_is_A_pushing(%s,%s)"
-        (Test_spec.pp_state s1) (Test_spec.pp_state s2)
+      Format.fprintf formatter "CDP2(%a)" Test_spec.ppa_stack_element k
   ;;
 
-  let ppa_untargeted_dynamic_pop_action = function
+  let ppa_untargeted_dynamic_pop_action formatter = function
     | Target_condition_on_element_is_A(s1,s2) ->
-      Printf.sprintf "TCO_A(%s,%s)"
-        (Test_spec.ppa_state s1) (Test_spec.ppa_state s2)
-  ;;      
+      Format.fprintf formatter "TCO_A(%a,%a)"
+        Test_spec.ppa_state s1 Test_spec.ppa_state s2
+  ;;
 
   let perform_targeted_dynamic_pop element action =
     match action with
@@ -132,7 +114,7 @@ let immediate_reachability_test =
       |> Test_reachability.add_start_state 0 [Push 'a']
     in
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
-    assert_equal (List.of_enum states) [1] 
+    assert_equal (List.of_enum states) [1]
 ;;
 
 let immediate_non_reachable_test =
@@ -143,7 +125,7 @@ let immediate_non_reachable_test =
       |> Test_reachability.add_start_state 0 [Push 'a']
     in
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
-    assert_equal (List.of_enum states) [] 
+    assert_equal (List.of_enum states) []
 ;;
 
 let two_step_reachability_test =
@@ -156,9 +138,9 @@ let two_step_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
+        String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
-    assert_equal (List.of_enum states) [2] 
+    assert_equal (List.of_enum states) [2]
 ;;
 
 let cycle_reachability_test =
@@ -174,9 +156,9 @@ let cycle_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
+        String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
-    assert_equal (List.of_enum states) [2] 
+    assert_equal (List.of_enum states) [2]
 ;;
 
 let edge_function_reachability_test =
@@ -193,7 +175,7 @@ let edge_function_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
+        String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
     assert_equal (List.of_enum states) [51]
 ;;
@@ -208,7 +190,7 @@ let nondeterminism_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
+        String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
     assert_equal (List.sort compare @@ List.of_enum states) [1;2]
 ;;
@@ -226,7 +208,7 @@ let targeted_dynamic_pop_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
+        String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
     assert_equal (List.sort compare @@ List.of_enum states) [2]
 ;;
@@ -248,7 +230,7 @@ let targeted_dynamic_pop_nondeterminism_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
+        String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
     assert_equal (List.sort compare @@ List.of_enum states) [6;8]
 ;;
@@ -277,13 +259,13 @@ let untargeted_dynamic_pop_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
+        String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states =
       List.sort compare @@ List.of_enum @@
         Test_reachability.get_reachable_states 0 [Push 'q'] analysis
     in
     lazy_logger `trace
-      (fun () -> "states: " ^ String_utils.pp_list string_of_int states);
+      (fun () -> "states: " ^ String_utils.string_of_list string_of_int states);
     assert_equal states [8;19;28;29]
 ;;
 
@@ -298,9 +280,9 @@ let untargeted_dynamic_pop_function_reachability_test =
       6. (n) -- Pop 'a' --> (n+1)  for 1 <= n <= 7
       7. (n) -- Pop not 'a' --> (n+2) for 1 <= n <= 7
       8. (n) -- Pop 'q' --> (n+20) for 1 <= n <= 7
-      
+
       Given the above, we expect the following successful paths:
-      
+
       (S) ~1~> (0) ~2~> (1) ~7~> (3) ~7~> (5) ~6~> (6) ~7~> (8)
       (S) ~1~> (0) ~2~> (1) ~7~> (3) ~7~> (5) ~6~> (6) ~8~> (26)
       (S) ~1~> (0) ~3~> (1) ~6~> (2) ~6~> (3) ~6~> (4) ~7~> (6)
@@ -320,7 +302,7 @@ let untargeted_dynamic_pop_function_reachability_test =
       then Enum.singleton
             (Test_dph.Target_condition_on_element_is_A(state+1,state+2))
       else Enum.empty ()
-    in 
+    in
     let analysis =
       Test_reachability.empty ()
       |> Test_reachability.add_edge 0 [Push 'a'; Push 'b'; Push 'b'] 1
@@ -334,13 +316,13 @@ let untargeted_dynamic_pop_function_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
+        String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states =
       List.sort compare @@ List.of_enum @@
         Test_reachability.get_reachable_states 0 [Push 'q'] analysis
     in
     lazy_logger `trace
-      (fun () -> "states: " ^ String_utils.pp_list string_of_int states);
+      (fun () -> "states: " ^ String_utils.string_of_list string_of_int states);
     assert_equal states [3;6;7;8;21;24;25;26]
 ;;
 
@@ -356,7 +338,7 @@ let targeted_dynamic_pop_chain_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.pp_analysis analysis));
+        String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 [Push 'x'] analysis in
     assert_equal (List.sort compare @@ List.of_enum states) [2]
 ;;

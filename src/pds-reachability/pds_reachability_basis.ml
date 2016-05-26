@@ -1,9 +1,10 @@
 (**
    This module defines a module type signature used as the basis for the PDS
-   reachability functor. 
+   reachability functor.
 *)
 
 open Batteries;;
+open Pp_utils;;
 
 (**
    A module type which serves as the basis for the functor which builds the
@@ -17,9 +18,9 @@ sig
   module State_ord : Interfaces.OrderedType with type t = state
   module Stack_element_ord : Interfaces.OrderedType with type t = stack_element
 
-  val pp_state : state -> string
-  val pp_stack_element : stack_element -> string
-  
-  val ppa_state : state -> string
-  val ppa_stack_element : stack_element -> string
+  val pp_state : state pretty_printer
+  val pp_stack_element : stack_element pretty_printer
+
+  val ppa_state : state pretty_printer
+  val ppa_stack_element : stack_element pretty_printer
 end;;

@@ -26,6 +26,7 @@ Library "utils"
     Multimap_pp,
     Nondeterminism,
     Parser_support,
+    Pp_utils,
     Source_origin,
     String_utils,
     Utils
@@ -43,7 +44,7 @@ Library "ast"
     Ast_wellformedness
   BuildDepends:
     batteries,
-    ppx_deriving.std,
+    ppx_deriving.std (>= 3.2),
     utils
 
 Library "parser"
@@ -91,7 +92,7 @@ Library "nested-parser"
   BuildTools+:
     ocamllex,
     menhir
-    
+
 Library "a-translator"
   Path: src/a-translator
   Modules:
@@ -101,7 +102,7 @@ Library "a-translator"
     ast,
     nested-ast,
     utils
-    
+
 Library "pds-reachability"
   Path: src/pds-reachability
   Modules:
@@ -116,7 +117,7 @@ Library "pds-reachability"
   BuildDepends:
     utils,
     batteries,
-    ppx_deriving.std
+    ppx_deriving.std (>= 3.2)
 
 Library "analysis"
   Path: src/analysis
@@ -137,6 +138,7 @@ Library "analysis"
     ast,
     pds-reachability,
     batteries,
+    ppx_deriving.std (>= 3.2),
     monadlib,
     ocaml-monadic (>= 0.3.1)
 
@@ -148,8 +150,9 @@ Library "toploop-utils"
     Toploop_options
   BuildDepends:
     analysis,
-    utils,
-    batteries
+    batteries,
+    ppx_deriving.std (>= 3.2),
+    utils
 
 Executable "toploop"
   Path: src/toploop

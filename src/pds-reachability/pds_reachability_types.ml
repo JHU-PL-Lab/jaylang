@@ -4,6 +4,7 @@
 *)
 open Batteries;;
 open Pds_reachability_types_stack;;
+open Pp_utils;;
 
 module type Types =
 sig
@@ -12,24 +13,25 @@ sig
 
   (** The type of stack elements in the PDS. *)
   type stack_element
-  
+
   (** The type of targeted dynamic pop actions in the PDS. *)
   type targeted_dynamic_pop_action
-  
+
   (** The type of untargeted dynamic pop actions in the PDS. *)
   type untargeted_dynamic_pop_action
-  
+
   (** Stack actions which may be performed in the PDS. *)
   type stack_action =
     ( stack_element
     , targeted_dynamic_pop_action
     ) pds_stack_action
 
-  (** A pretty-printer for stack actions. *)  
-  val pp_stack_action : stack_action -> string
-  
+  (** A pretty-printer for stack actions. *)
+  val pp_stack_action : stack_action pretty_printer
+  val show_stack_action : stack_action -> string
+
   (** An abbreviated pretty-printer for stack actions. *)
-  val ppa_stack_action : stack_action -> string
+  val ppa_stack_action : stack_action pretty_printer
 
   (** The type of node used for reachability. *)
   type node =
@@ -40,10 +42,11 @@ sig
   val compare_node : node -> node -> int
 
   (** Pretty-printing for nodes. *)
-  val pp_node : node -> string
+  val pp_node : node pretty_printer
+  val show_node : node -> string
 
   (** Abbreviated pretty-printing for nodes. *)
-  val ppa_node : node -> string
+  val ppa_node : node pretty_printer
 
   (** The type of edge used in reachability. *)
   type edge =
@@ -53,10 +56,11 @@ sig
     };;
 
   (** Pretty-printing for edges. *)
-  val pp_edge : edge -> string
+  val pp_edge : edge pretty_printer
+  val show_edge : edge -> string
 
   (** Abstract pretty-printing for edges. *)
-  val ppa_edge : edge -> string
+  val ppa_edge : edge pretty_printer
 end;;
 
 module Make
@@ -80,72 +84,50 @@ struct
 
   let compare_state = Basis.State_ord.compare;;
   let compare_stack_element = Basis.Stack_element_ord.compare;;
-  let compare_targeted_dynamic_pop_action =
-    Dph.compare_targeted_dynamic_pop_action;;
-
+  open Basis;;
+  open Dph;;
   type stack_action =
     ( stack_element
     , targeted_dynamic_pop_action
     ) pds_stack_action
-    [@@deriving ord]
+    [@@deriving ord, show]
   ;;
 
-  let pp_stack_action action =
+  let ppa_stack_action formatter action =
     match action with
-    | Push x -> "push " ^ Basis.pp_stack_element x
-    | Pop x -> "pop " ^ Basis.pp_stack_element x
-    | Nop -> "nop"
+    | Push x -> Format.fprintf formatter "+%a" Basis.ppa_stack_element x
+    | Pop x -> Format.fprintf formatter "-%a" Basis.ppa_stack_element x
+    | Nop -> Format.pp_print_string formatter "nop"
     | Pop_dynamic_targeted action ->
-      "pop_dynamic_targeted " ^ Dph.pp_targeted_dynamic_pop_action action
-  ;;
-
-  let ppa_stack_action action =
-    match action with
-    | Push x -> "+" ^ Basis.ppa_stack_element x
-    | Pop x -> "-" ^ Basis.ppa_stack_element x
-    | Nop -> "nop"
-    | Pop_dynamic_targeted action ->
-      "pdyn " ^ Dph.ppa_targeted_dynamic_pop_action action
+      Format.fprintf formatter "/%a" Dph.ppa_targeted_dynamic_pop_action action
   ;;
 
   type node =
     | State_node of state
     | Intermediate_node of node * stack_action list
-    [@@deriving ord]
+    [@@deriving ord, show]
   ;;
 
-  let rec pp_node node =
+  let rec ppa_node formatter node =
     match node with
-    | State_node state -> Basis.pp_state state
+    | State_node state -> Basis.ppa_state formatter state
     | Intermediate_node (node,stack_actions) ->
-      "Intermediate_node" ^
-      String_utils.pp_tuple pp_node
-        (String_utils.pp_list pp_stack_action)
-        (node,stack_actions)
-  ;;
-
-  let rec ppa_node node =
-    match node with
-    | State_node state -> Basis.ppa_state state
-    | Intermediate_node (node,stack_actions) ->
-      "IN" ^
-      String_utils.pp_tuple ppa_node
-        (String_utils.pp_list ppa_stack_action) (node,stack_actions)
+      Format.fprintf formatter "IN(%a,%a)"
+        ppa_node node (pp_list ppa_stack_action) stack_actions
   ;;
 
   type edge =
     { source : node
     ; target : node
     ; edge_action : stack_action
-    };;
-
-  let pp_edge edge =
-    pp_node edge.source ^ " --[" ^ pp_stack_action edge.edge_action ^ "]--> " ^
-    pp_node edge.target
+    }
+    [@@deriving show]
   ;;
 
-  let ppa_edge edge =
-    ppa_node edge.source ^ " -[" ^ ppa_stack_action edge.edge_action ^ "]-> " ^
-    ppa_node edge.target
+  let ppa_edge formatter edge =
+    Format.fprintf formatter "%a@ -[%a]->@ %a"
+      ppa_node edge.source
+      ppa_stack_action edge.edge_action
+      ppa_node edge.target
   ;;
 end;;

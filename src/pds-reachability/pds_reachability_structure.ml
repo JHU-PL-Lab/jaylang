@@ -3,6 +3,7 @@
 *)
 open Batteries;;
 open Pds_reachability_types_stack;;
+open Pp_utils;;
 
 (**
    The type of the module which defines the data structure used within the
@@ -18,18 +19,19 @@ sig
 
   (** The edge type in the reachability structure. *)
   type edge
-  
+
   (** The type of targeted dynamic pop actions in this structure. *)
   type targeted_dynamic_pop_action
 
   (** The type of untargeted dynamic pop actions in this structure. *)
   type untargeted_dynamic_pop_action
-  
+
   (** The type of the PDS reachability data structure. *)
   type structure
 
   (** A pretty printer for the PDS reachability structure. *)
-  val pp_structure : structure -> string
+  val pp_structure : structure pretty_printer
+  val show_structure : structure -> string
 
   (** The empty PDS reachability structure. *)
   val empty : structure
@@ -39,7 +41,7 @@ sig
 
   (** Determines if a structure has a particular edge. *)
   val has_edge : edge -> structure -> bool
-  
+
   (** Adds an untargeted dynamic pop action to a reachability structure. *)
   val add_untargeted_dynamic_pop_action :
     node -> untargeted_dynamic_pop_action -> structure -> structure
@@ -75,12 +77,12 @@ sig
     : node -> stack_element -> structure -> node Enum.t
   val find_pop_edges_by_target_and_element
     : node -> stack_element -> structure -> node Enum.t
-    
+
   val enumerate_nodes : structure -> node Enum.t
   val enumerate_edges : structure -> edge Enum.t
-  
+
   (** {6 Submodules.} *)
-  
+
   module Node_ord : Interfaces.OrderedType with type t = node
   module Node_set : Set.S with type elt = node
 end;;
@@ -121,17 +123,13 @@ struct
   (********** Simple internal data structures. **********)
 
   type node_and_stack_element = node * stack_element [@@deriving ord];;
+  let pp_node_and_stack_element = pp_tuple pp_node pp_stack_element;;
 
   type node_and_targeted_dynamic_pop_action =
     node * targeted_dynamic_pop_action [@@deriving ord]
   ;;
-
-  let pp_node_and_stack_element x =
-    String_utils.pp_tuple Types.pp_node Basis.pp_stack_element x
-  ;;
-
-  let pp_node_and_targeted_dynamic_pop_action x =
-    String_utils.pp_tuple Types.pp_node Dph.pp_targeted_dynamic_pop_action x
+  let pp_node_and_targeted_dynamic_pop_action =
+    pp_tuple pp_node pp_targeted_dynamic_pop_action
   ;;
 
   (********** Substructure definitions. **********)
@@ -235,60 +233,31 @@ struct
 
   type structure =
     { push_edges_by_source : Node_to_node_and_stack_element_multimap.t
+          [@printer Node_to_node_and_stack_element_multimap_pp.pp]
     ; pop_edges_by_source : Node_to_node_and_stack_element_multimap.t
+          [@printer Node_to_node_and_stack_element_multimap_pp.pp]
     ; nop_edges_by_source : Node_to_node_multimap.t
+          [@printer Node_to_node_multimap_pp.pp]
     ; targeted_dynamic_pop_edges_by_source : Node_to_node_and_targeted_dynamic_pop_action_multimap.t
+          [@printer Node_to_node_and_targeted_dynamic_pop_action_multimap_pp.pp]
     ; untargeted_dynamic_pop_actions_by_source : Node_to_untargeted_dynamic_pop_action_multimap.t
+          [@printer Node_to_untargeted_dynamic_pop_action_multimap_pp.pp]
     ; push_edges_by_target : Node_to_node_and_stack_element_multimap.t
+          [@printer Node_to_node_and_stack_element_multimap_pp.pp]
     ; pop_edges_by_target : Node_to_node_and_stack_element_multimap.t
+          [@printer Node_to_node_and_stack_element_multimap_pp.pp]
     ; nop_edges_by_target : Node_to_node_multimap.t
+          [@printer Node_to_node_multimap_pp.pp]
     ; push_edges_by_source_and_element : Node_and_stack_element_to_node_multimap.t
+          [@printer Node_and_stack_element_to_node_multimap_pp.pp]
     ; pop_edges_by_source_and_element : Node_and_stack_element_to_node_multimap.t
+          [@printer Node_and_stack_element_to_node_multimap_pp.pp]
     ; push_edges_by_target_and_element : Node_and_stack_element_to_node_multimap.t
+          [@printer Node_and_stack_element_to_node_multimap_pp.pp]
     ; pop_edges_by_target_and_element : Node_and_stack_element_to_node_multimap.t
-    };;
-
-  let pp_structure structure =
-    let structure_str = String_utils.concat_sep "\n" @@ List.enum
-        [ "push_edges_by_source: " ^
-          Node_to_node_and_stack_element_multimap_pp.pp
-            structure.push_edges_by_source
-        ; "pop_edges_by_source: " ^
-          Node_to_node_and_stack_element_multimap_pp.pp
-            structure.pop_edges_by_source
-        ; "nop_edges_by_source: " ^
-          Node_to_node_multimap_pp.pp
-            structure.nop_edges_by_source
-        ; "targeted_dynamic_pop_edges_by_source: " ^
-          Node_to_node_and_targeted_dynamic_pop_action_multimap_pp.pp
-            structure.targeted_dynamic_pop_edges_by_source
-        ; "untargeted_dynamic_pop_actions_by_source: " ^
-          Node_to_untargeted_dynamic_pop_action_multimap_pp.pp
-            structure.untargeted_dynamic_pop_actions_by_source
-        ; "push_edges_by_target: " ^
-          Node_to_node_and_stack_element_multimap_pp.pp
-            structure.push_edges_by_target
-        ; "pop_edges_by_target: " ^
-          Node_to_node_and_stack_element_multimap_pp.pp
-            structure.pop_edges_by_target
-        ; "nop_edges_by_target: " ^
-          Node_to_node_multimap_pp.pp
-            structure.nop_edges_by_target
-        ; "push_edges_by_source_and_element: " ^
-          Node_and_stack_element_to_node_multimap_pp.pp
-            structure.push_edges_by_source_and_element
-        ; "pop_edges_by_source_and_element: " ^
-          Node_and_stack_element_to_node_multimap_pp.pp
-            structure.pop_edges_by_source_and_element
-        ; "push_edges_by_target_and_element: " ^
-          Node_and_stack_element_to_node_multimap_pp.pp
-            structure.push_edges_by_target_and_element
-        ; "pop_edges_by_target_and_element: " ^
-          Node_and_stack_element_to_node_multimap_pp.pp
-            structure.pop_edges_by_target_and_element
-        ]
-    in
-    "{\n" ^ String_utils.indent 2 structure_str ^ "\n}"
+          [@printer Node_and_stack_element_to_node_multimap_pp.pp]
+    }
+    [@@deriving show]
   ;;
 
   let empty =

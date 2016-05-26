@@ -2,6 +2,7 @@ open Batteries;;
 
 open Analysis_context_stack;;
 open Ddpa_graph;;
+open Pp_utils;;
 
 type 'a dq = 'a Deque.dq;;
 
@@ -31,13 +32,14 @@ struct
     | None -> true
     | Some(c',_) -> c = c'
   ;;
-  let pp x =
-    String_utils.concat_sep_delim "" "|?" "|" @@
-    Enum.map pp_abstract_clause @@ Deque.enum x
+  let pp formatter x =
+    pp_concat_sep_delim "" "|?" "|" pp_abstract_clause formatter @@
+    Deque.enum x
   ;;
-  let ppa x =
-    String_utils.concat_sep_delim "" "|?" "|" @@
-    Enum.map ppa_abstract_clause @@ Deque.enum x
+  let ppa formatter x =
+    pp_concat_sep_delim "" "|?" "|" ppa_abstract_clause formatter @@
+    Deque.enum x
   ;;
+  let show = pp_to_string pp;;
   let name = string_of_int S.size ^ "ddpa";;
 end;;

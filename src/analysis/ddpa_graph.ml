@@ -1,11 +1,12 @@
 (**
-  A module defining data structures and basic operations to form a DDPA graph.
+   A module defining data structures and basic operations to form a DDPA graph.
 *)
 
 open Batteries;;
 
 open Ast;;
 open Ast_pp;;
+open Pp_utils;;
 
 module Pattern_ord =
 struct
@@ -14,11 +15,14 @@ struct
 end;;
 
 module Pattern_set = Set.Make(Pattern_ord);;
+type pattern_set = Pattern_set.t;;
 
-let pp_pattern_set pats =
-  String_utils.concat_sep_delim "{" "}" ", " @@ Enum.map pp_pattern @@
-    Pattern_set.enum pats
+let pp_pattern_set formatter pats =
+  Pp_utils.pp_concat_sep_delim "{" "}" ", " pp_pattern formatter @@
+  Pattern_set.enum pats
 ;;
+let show_pattern_set = pp_to_string pp_pattern_set;;
+let compare_pattern_set = Pattern_set.compare;;
 
 (** A type to express abstract values. *)
 type abstract_value =
@@ -58,44 +62,56 @@ and abstract_clause =
 and abstract_expr = Abs_expr of abstract_clause list [@@deriving eq, ord]
 ;;
 
-let rec pp_abstract_function_value (Abs_function_value(x,e)) =
-  Printf.sprintf "%s -> ( %s )" (pp_var x) (pp_abstract_expr e)
+let rec pp_abstract_function_value formatter (Abs_function_value(x,e)) =
+  Format.fprintf formatter "%a -> (@ %a)" pp_var x pp_abstract_expr e
 
-and pp_abstract_value v =
+and pp_abstract_value formatter v =
   match v with
-  | Abs_value_record r -> pp_record_value r
-  | Abs_value_function f -> pp_abstract_function_value f
-  | Abs_value_ref r -> pp_ref_value r
-  | Abs_value_int -> "int"
-  | Abs_value_bool b -> if b then "true" else "false"
-  | Abs_value_string -> "string"
+  | Abs_value_record r -> pp_record_value formatter r
+  | Abs_value_function f -> pp_abstract_function_value formatter f
+  | Abs_value_ref r -> pp_ref_value formatter r
+  | Abs_value_int -> Format.pp_print_string formatter "int"
+  | Abs_value_bool b ->
+    Format.pp_print_string formatter @@ if b then "true" else "false"
+  | Abs_value_string -> Format.pp_print_string formatter "string"
 
-and pp_abstract_clause_body b =
+and pp_abstract_clause_body formatter b =
   match b with
-  | Abs_var_body(x) -> pp_var x
-  | Abs_value_body(v) -> pp_abstract_value v
-  | Abs_appl_body(x1,x2) -> pp_var x1 ^ " " ^ pp_var x2
+  | Abs_var_body(x) -> pp_var formatter x
+  | Abs_value_body(v) -> pp_abstract_value formatter v
+  | Abs_appl_body(x1,x2) -> Format.fprintf formatter "%a %a" pp_var x1 pp_var x2
   | Abs_conditional_body(x,p,f1,f2) ->
-    pp_var x ^ " ~ " ^ pp_pattern p ^ " ? " ^
-    pp_abstract_function_value f1 ^ " : " ^ pp_abstract_function_value f2
-  | Abs_projection_body(x,i) -> pp_var x ^ "." ^ pp_ident i
-  | Abs_deref_body(x) -> "!" ^ pp_var x
-  | Abs_update_body(x1,x2) -> pp_var x1 ^ " <- " ^ pp_var x2
+    Format.fprintf formatter
+      "%a ~ %a@[<4> ? @[<2>%a@] : @[<a>%a@]@]"
+      pp_var x
+      pp_pattern p
+      pp_abstract_function_value f1
+      pp_abstract_function_value f2
+  | Abs_projection_body(x,i) ->
+    Format.fprintf formatter "%a.%a" pp_var x pp_ident i
+  | Abs_deref_body(x) -> Format.fprintf formatter "!%a" pp_var x
+  | Abs_update_body(x1,x2) ->
+    Format.fprintf formatter "%a <- %a" pp_var x1 pp_var x2
   | Abs_binary_operation_body(x1,op,x2) ->
-    Printf.sprintf "%s %s %s" (pp_var x1) (pp_binary_operator op) (pp_var x2)
+    Format.fprintf formatter "%a %a %a"
+      pp_var x1 pp_binary_operator op pp_var x2
   | Abs_unary_operation_body(op,x1) ->
-    Printf.sprintf "%s %s" (pp_unary_operator op) (pp_var x1)
+    Format.fprintf formatter "%a %a"
+      pp_unary_operator op pp_var x1
   | Abs_indexing_body(x1,x2) ->
-    Printf.sprintf "%s[%s]" (pp_var x1) (pp_var x2)
+    Format.fprintf formatter "%a[%a]" pp_var x1 pp_var x2
 
-and pp_abstract_clause (Abs_clause(x,b)) =
-  Printf.sprintf "%s = %s" (pp_var x) (pp_abstract_clause_body b)
-  
-and pp_abstract_expr (Abs_expr(cls)) =
-  String_utils.concat_sep "; " @@ Enum.map pp_abstract_clause @@ List.enum cls
+and pp_abstract_clause formatter (Abs_clause(x,b)) =
+  Format.fprintf formatter "%a = @[<hv 2>%a@]"
+    pp_var x pp_abstract_clause_body b
+
+and pp_abstract_expr formatter (Abs_expr(cls)) =
+  pp_concat_sep ";" pp_abstract_clause formatter @@ List.enum cls
 ;;
 
-let ppa_abstract_clause (Abs_clause(x,_)) = pp_var x;;
+let ppa_abstract_clause formatter (Abs_clause(x,_)) = pp_var formatter x;;
+
+let show_abstract_clause = pp_to_string pp_abstract_clause;;
 
 let is_abstract_clause_immediate (Abs_clause(_,b)) =
   match b with
@@ -113,9 +129,9 @@ end;;
 
 module Abs_value_set = Set.Make(Abs_value_ord);;
 
-let pp_abs_value_set s =
-  String_utils.concat_sep_delim "{" "}" ", " @@
-    Enum.map pp_abstract_value @@ Abs_value_set.enum s
+let pp_abs_value_set formatter s =
+  pp_concat_sep_delim "{" "}" ", " pp_abstract_value formatter @@
+  Abs_value_set.enum s
 ;;
 
 type abs_filtered_value =
@@ -131,18 +147,20 @@ end;;
 
 module Abs_filtered_value_set = Set.Make(Abs_filtered_value_ord);;
 
-let pp_abs_filtered_value (Abs_filtered_value(v,patsp,patsn)) =
+let pp_abs_filtered_value formatter (Abs_filtered_value(v,patsp,patsn)) =
   if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
-  then pp_abstract_value v
+  then pp_abstract_value formatter v
   else
-    Printf.sprintf "%s:(+%s,-%s)"
-      (pp_abstract_value v) (pp_pattern_set patsp) (pp_pattern_set patsn)
+    Format.fprintf formatter "%a:(+%a,-%a)"
+      pp_abstract_value v pp_pattern_set patsp pp_pattern_set patsn
 ;;
+let show_abs_filtered_value = pp_to_string pp_abs_filtered_value;;
 
-let pp_abs_filtered_value_set s =
-  String_utils.concat_sep_delim "{" "}" ", " @@
-    Enum.map pp_abs_filtered_value @@ Abs_filtered_value_set.enum s
+let pp_abs_filtered_value_set formatter s =
+  pp_concat_sep_delim "{" "}" "," pp_abs_filtered_value formatter @@
+  Abs_filtered_value_set.enum s
 ;;
+let show_abs_filtered_value_set = pp_to_string pp_abs_filtered_value_set;;
 
 module Abs_clause_ord =
 struct
@@ -158,29 +176,20 @@ type annotated_clause =
   | Exit_clause of var * var * abstract_clause
   | Start_clause
   | End_clause
-  [@@deriving ord, eq]
+  [@@deriving ord, eq, show]
 ;;
 
-let pp_annotated_clause acl =
+let ppa_annotated_clause formatter acl =
   match acl with
-  | Unannotated_clause(cl) -> pp_abstract_clause cl
-  | Enter_clause(x,x',cl) -> Printf.sprintf "%s=%s@%s+"
-      (pp_var x) (pp_var x') (pp_abstract_clause cl)
-  | Exit_clause(x,x',cl) -> Printf.sprintf "%s=%s@%s+"
-      (pp_var x) (pp_var x') (pp_abstract_clause cl)
-  | Start_clause -> "Start"
-  | End_clause -> "End"
-;;
-
-let ppa_annotated_clause acl =
-  match acl with
-  | Unannotated_clause(cl) -> ppa_abstract_clause cl
-  | Enter_clause(x,x',cl) -> Printf.sprintf "%s=%s@%s+"
-      (pp_var x) (pp_var x') (ppa_abstract_clause cl)
-  | Exit_clause(x,x',cl) -> Printf.sprintf "%s=%s@%s+"
-      (pp_var x) (pp_var x') (ppa_abstract_clause cl)
-  | Start_clause -> "Start"
-  | End_clause -> "End"
+  | Unannotated_clause(cl) -> ppa_abstract_clause formatter cl
+  | Enter_clause(x,x',cl) ->
+    Format.fprintf formatter "%a=%a@@%a+"
+      pp_var x pp_var x' ppa_abstract_clause cl
+  | Exit_clause(x,x',cl) ->
+    Format.fprintf formatter "%a=%a@@%a-"
+      pp_var x pp_var x' ppa_abstract_clause cl
+  | Start_clause -> Format.pp_print_string formatter "Start"
+  | End_clause -> Format.pp_print_string formatter "End"
 ;;
 
 let is_annotated_clause_immediate acl =
@@ -197,19 +206,19 @@ end;;
 
 module Annotated_clause_set = Set.Make(Annotated_clause_ord);;
 
-let pp_annotated_clause_set s =
-  String_utils.concat_sep_delim "{" "}" ", " @@ Enum.map pp_annotated_clause @@
-    Annotated_clause_set.enum s
+let pp_annotated_clause_set formatter s =
+  pp_concat_sep_delim "{" "}" ", " pp_annotated_clause formatter @@
+  Annotated_clause_set.enum s
 ;;
 
 type ddpa_edge =
   | Ddpa_edge of annotated_clause * annotated_clause
-  [@@deriving ord]
+  [@@deriving ord, show]
 ;;
 
-let pp_ddpa_edge (Ddpa_edge(acl1,acl0)) =
-  Printf.sprintf "%s ==> %s"
-    (pp_annotated_clause acl1) (pp_annotated_clause acl0)
+let ppa_ddpa_edge formatter (Ddpa_edge(acl1,acl0)) =
+  Format.fprintf formatter "%a ==> %a"
+    ppa_annotated_clause acl1 ppa_annotated_clause acl0
 ;;
 
 module Ddpa_edge_ord =
@@ -226,21 +235,21 @@ end;;
 module type Graph_sig =
 sig
   type ddpa_graph
-  
+
   val empty : ddpa_graph
-  
+
   val add_edge : ddpa_edge -> ddpa_graph -> ddpa_graph
-  
+
   val edges_of : ddpa_graph -> ddpa_edge Enum.t
-  
+
   val has_edge : ddpa_edge -> ddpa_graph -> bool
-  
+
   val edges_from : annotated_clause -> ddpa_graph -> ddpa_edge Enum.t
 
   val edges_to : annotated_clause -> ddpa_graph -> ddpa_edge Enum.t
-  
+
   val preds : annotated_clause -> ddpa_graph -> annotated_clause Enum.t
-  
+
   val succs : annotated_clause -> ddpa_graph -> annotated_clause Enum.t
 end;;
 
@@ -248,7 +257,7 @@ end;;
 module Graph_impl : Graph_sig =
 struct
   module Ddpa_edge_set = Set.Make(Ddpa_edge_ord);;
-  
+
   type ddpa_graph = Graph of Ddpa_edge_set.t;;
 
   let empty = Graph(Ddpa_edge_set.empty);;
@@ -280,9 +289,8 @@ end;;
 
 include Graph_impl;;
 
-let pp_ddpa_graph g =
-  String_utils.concat_sep_delim "{" "}" ", " @@
-    Enum.map pp_ddpa_edge @@ edges_of g
+let pp_ddpa_graph formatter g =
+  pp_concat_sep_delim "{" "}" ", " pp_ddpa_edge formatter @@ edges_of g
 ;;
 
 let rec lift_expr (Expr(cls)) =

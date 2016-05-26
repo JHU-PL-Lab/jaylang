@@ -72,7 +72,9 @@ let toploop_operate conf e =
               inconsistencies
               |> Enum.iter
                 (fun inconsistency ->
-                   print_endline @@ Toploop_ddpa.pp_inconsistency inconsistency)
+                   (* TODO: Make this prettier. *)
+                   print_endline @@
+                   Toploop_ddpa.show_inconsistency inconsistency)
             else
               begin
                 (* Analyze the variables that the user requested.  If the user
@@ -104,8 +106,8 @@ let toploop_operate conf e =
                     Ident_map.find ident varname_to_clause_map
                   with
                   | Not_found -> raise @@
-                    Invalid_variable_analysis(Printf.sprintf
-                                                "No such variable: %s" (pp_ident ident))
+                    Invalid_variable_analysis(
+                      Printf.sprintf "No such variable: %s" (show_ident ident))
                 in
                 (* Determine the analyses to perform. *)
                 let analyses =
@@ -149,14 +151,14 @@ let toploop_operate conf e =
                          in
                          print_endline @@ Printf.sprintf
                            "    %s: %s"
-                           (pp_var var) (pp_abs_filtered_value_set values)
+                           (show_var var) (show_abs_filtered_value_set values)
                       );
                     print_endline "End variable analyses.";
                   end;
                 (* Dump the analysis to debugging. *)
                 lazy_logger `trace
                   (fun () -> Printf.sprintf "DDPA analysis: %s"
-                      (TLA.pp_analysis analysis));
+                      (TLA.show_analysis analysis));
                 if conf.topconf_report_sizes then
                   begin
                     let ddpa_number_of_active_nodes,
@@ -182,7 +184,7 @@ let toploop_operate conf e =
           else
             begin
               let v, env = eval e in
-              print_string (pp_var v ^ " where " ^ pp_env env ^ "\n")
+              print_string (show_var v ^ " where " ^ show_env env ^ "\n")
             end
         )
     with
@@ -190,7 +192,7 @@ let toploop_operate conf e =
       print_string "Provided expression is ill-formed:\n";
       List.iter
         (fun ill ->
-           print_string @@ "   " ^ pp_illformedness ill ^ "\n")
+           print_string @@ "   " ^ show_illformedness ill ^ "\n")
         ills
   end;
   print_string "\n";
@@ -241,7 +243,7 @@ let command_line_parsing () =
   match spare_args with
   | [] ->
     { topconf_context_stack =
-      Option.get @@ select_context_stack_option.BatOptParse.Opt.option_get ()
+        Option.get @@ select_context_stack_option.BatOptParse.Opt.option_get ()
     ; topconf_log_prefix = "_toploop"
     ; topconf_ddpa_log_level = ddpa_logging_option.BatOptParse.Opt.option_get ()
     ; topconf_pdr_log_level = pdr_logging_option.BatOptParse.Opt.option_get ()

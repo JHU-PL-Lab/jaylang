@@ -13,13 +13,13 @@ let toploop_operate () e =
       let e' = a_translate_nested_expr e in
       check_wellformed_expr e';
       let v,env = eval e' in
-      print_string (pp_var v ^ " where "  ^ pp_env env ^ "\n");
+      print_string (show_var v ^ " where "  ^ show_env env ^ "\n");
     with
     | Illformedness_found(ills) ->
       print_string "Provided expression is ill-formed:\n";
       List.iter
         (fun ill ->
-           print_string @@ "   " ^ pp_illformedness ill ^ "\n")
+           print_string @@ "   " ^ show_illformedness ill ^ "\n")
         ills
   end;
   print_string "\n";
@@ -28,7 +28,7 @@ let toploop_operate () e =
   flush stdout
 ;;
 
-let command_line_parsing () = 
+let command_line_parsing () =
   let parser = BatOptParse.OptParser.make ~version:"version 0.3" () in
   BatOptParse.OptParser.add parser ~long_name:"log" logging_option;
   let spare_args = BatOptParse.OptParser.parse_argv parser in

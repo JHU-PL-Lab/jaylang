@@ -8,23 +8,23 @@ sig
 
   module M : Map.S with type key = key
   module S : Set.S with type elt = value
-  
+
   val empty : t
 
   val is_empty : t -> bool
-  
+
   val num_keys : t -> int
-  
+
   val num_values : t -> int
-  
+
   val add : key -> value -> t -> t
-  
+
   val find : key -> t -> value Enum.t
-  
+
   val remove : key -> value -> t -> t
-  
+
   val remove_all : key -> t -> t
-  
+
   val mem : key -> value -> t -> bool
 
   val mem_any : key -> t -> bool
@@ -44,7 +44,7 @@ module Make(Key_ord : BatInterfaces.OrderedType)
 struct
   module M = Map.Make(Key_ord);;
   module S = Set.Make(Value_ord);;
-  
+
   type t = Multimap of S.t M.t;;
   type key = Key_ord.t;;
   type value = Value_ord.t;;
@@ -54,7 +54,7 @@ struct
   let is_empty (Multimap m) = M.is_empty m;;
 
   let num_keys (Multimap m) = M.cardinal m;;
-    
+
   let num_values (Multimap m) =
     M.enum m
     |> Enum.fold (fun a (_,v) -> a + S.cardinal v) 0
