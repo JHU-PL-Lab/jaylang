@@ -71,7 +71,7 @@ let pp_ref_value formatter (Ref_value(x)) =
 let show_ref_value = pp_to_string pp_record_value;;
 
 let rec pp_function_value formatter (Function_value(x,e)) =
-  Format.fprintf formatter "%a -> (@ @[<2>%a@]" pp_var x pp_expr e
+  Format.fprintf formatter "%a -> (@ @[<2>%a@])" pp_var x pp_expr e
 
 and pp_value formatter v =
   match v with
