@@ -12,6 +12,8 @@ module type Nondeterminism_monad_sig = sig
   val enum : 'a m -> 'a Enum.t
 
   val stop_unless : bool -> unit m
+  val empty : unit -> 'a m
+  val alternative : 'a m -> 'a m -> 'a m
 end;;
 
 module Nondeterminism_monad : Nondeterminism_monad_sig

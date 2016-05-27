@@ -12,6 +12,8 @@ module type Nondeterminism_monad_sig = sig
   val enum : 'a m -> 'a Enum.t
 
   val stop_unless : bool -> unit m
+  val empty : unit -> 'a m
+  val alternative : 'a m -> 'a m -> 'a m
 end;;
 
 module Nondeterminism_monad_base = struct
@@ -35,4 +37,8 @@ module Nondeterminism_monad : Nondeterminism_monad_sig = struct
   let enum = Nondeterminism_monad_base.enum;;
 
   let stop_unless x = if x then return () else zero ();;
+  let empty () = LazyList.nil
+  let alternative x y =
+    LazyList.concat @@ LazyList.of_list [x;y]
+  ;;
 end;;

@@ -12,27 +12,33 @@ open Ast_pp;;
 open Ddpa_graph;;
 
 type inconsistency =
-  | Application_of_non_function of var * var * abstract_value
+  | Application_of_non_function of var * var * abs_filtered_value
   (** Represents the application of a non-function value.  The arguments
       are the variable identifying the call site clause, the invoked variable,
       and the abstract non-function value which appeared at the call site. *)
-  | Projection_of_non_record of var * var * abstract_value
+  | Projection_of_non_record of var * var * abs_filtered_value
   (** Represents the projection of a label from a non-record value.  The
       arguments are the variable identifying the clause containing the
       projection, the record variable, and the abstract value from which the
       projection occurred. *)
-  | Deref_of_non_ref of var * var * abstract_value
+  | Projection_of_absent_label of var * var * abs_filtered_value * ident
+  (** Represents the projection of a label from a record value which does not
+      have that label.  The arguments are the variable identifying the clause
+      containing the projection, the record variable, the abstract value from
+      which the projection occurred, and the ident we failed to project. *)
+  | Deref_of_non_ref of var * var * abs_filtered_value
   (** Represents the dereference of a non-ref value.  The arguments are the
       variable identifying the clause where the assignment occurred, the
       dereferenced variable, and the abstract non-cell value which appeared
       there. *)
-  | Update_of_non_ref of var * var * abstract_value
+  | Update_of_non_ref of var * var * abs_filtered_value
   (** Represents the cell-set update of a non-ref value.  The arguments are
       the variable identifying the clause where the assignment occurred, the
       updated variable, and the abstract non-cell value which appeared
       there. *)
   | Invalid_binary_operation of
-      var * binary_operator * var * abstract_value * var * abstract_value
+      var * binary_operator * var * abs_filtered_value *
+      var * abs_filtered_value
   (** Represents invalid use of a binary operator.  The arguments are, in order,
       - The variable identifying the clause where the assignment occurred.
       - The binary operator appearing in the clause.
@@ -42,7 +48,7 @@ type inconsistency =
       - A possible value of the second operand.
   *)
   | Invalid_unary_operation of
-      var * unary_operator * var * abstract_value
+      var * unary_operator * var * abs_filtered_value
   (** Represents invalid use of a unary operator.  The arguments are, in order,
       - The variable identifying the clause where the assignment occurred.
       - The unary operator appearing in the clause.
@@ -50,12 +56,12 @@ type inconsistency =
       - A possible value of the operand.
   *)
   | Invalid_indexing_subject of
-      var * var * abstract_value
+      var * var * abs_filtered_value
   (** Represents the indexing of a non-indexable subject.  The arguments are
       the variable identifying the indexing clause, the variable of the indexing
       subject, and a possible value of the indexing subject. *)
   | Invalid_indexing_argument of
-      var * var * abstract_value
+      var * var * abs_filtered_value
   (** Represents an invalid indexing argument.  The arguments are the
       variable identifying the indexing clause, the variable of the index,
       and a possible value of the index. *)

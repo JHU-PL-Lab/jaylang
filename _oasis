@@ -151,6 +151,8 @@ Library "toploop-utils"
   BuildDepends:
     analysis,
     batteries,
+    monadlib,
+    ocaml-monadic (>= 0.3.1),
     ppx_deriving.std (>= 3.2),
     utils
 

@@ -191,6 +191,7 @@ let observe_inconsistency inconsistency expectation =
     match inconsistency with
     | Toploop_ddpa.Application_of_non_function (Var(ident,_),_,_) -> ident
     | Toploop_ddpa.Projection_of_non_record (Var(ident,_),_,_) -> ident
+    | Toploop_ddpa.Projection_of_absent_label (Var(ident,_),_,_,_) -> ident
     | Toploop_ddpa.Deref_of_non_ref (Var(ident,_),_,_) -> ident
     | Toploop_ddpa.Update_of_non_ref (Var(ident,_),_,_) -> ident
     | Toploop_ddpa.Invalid_binary_operation (Var(ident,_),_,_,_,_,_) -> ident
