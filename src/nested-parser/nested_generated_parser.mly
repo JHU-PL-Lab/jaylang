@@ -96,10 +96,12 @@ expr:
       { Unary_operation_expr(Unary_operator_bool_not,$2) }
   | expr OPEN_BRACKET expr CLOSE_BRACKET
       { Indexing_expr($1,$3) }
+  | function_value
+      { Function_expr($1) }
   | application_expr
       { $1 }
   ;
-  
+
 application_expr:
   | application_expr primary_expr
       { Appl_expr($1,$2) }
@@ -114,8 +116,6 @@ primary_expr:
       { Record_expr(Ident_map.of_enum @@ List.enum $2) }
   | OPEN_BRACE CLOSE_BRACE
       { Record_expr(Ident_map.empty) }
-  | function_value
-      { Function_expr($1) }
   | int_value
       { Int_expr($1) }
   | bool_value
@@ -136,7 +136,7 @@ record_element:
   | identifier EQUALS expr
       { ($1,$3) }
   ;
-  
+
 pattern:
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE
       { Nested_ast.Record_pattern(Ident_map.of_enum @@ List.enum $2) }
@@ -153,12 +153,12 @@ pattern:
   | KEYWORD_STRING
       { Nested_ast.String_pattern }
   ;
-  
+
 record_pattern_element:
   | identifier EQUALS pattern
       { ($1,$3) }
   ;
-  
+
 bool_pattern:
   | KEYWORD_TRUE
       { true }
@@ -167,8 +167,8 @@ bool_pattern:
   ;
 
 function_value:
-  | KEYWORD_FUN variable ARROW primary_expr %prec LAM
-      { Function($2,$4) } 
+  | KEYWORD_FUN variable ARROW expr %prec LAM
+      { Function($2,$4) }
   ;
 
 int_value:
