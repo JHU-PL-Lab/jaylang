@@ -4,9 +4,6 @@
 
 open Batteries;;
 
-(** A module for hashtables keyed by UIDs. *)
-module Ast_uid_hashtbl = Ast_uid.Ast_uid_hashtbl;;
-
 (** A data type for identifiers in the toy language. *)
 type ident = Ident of string [@@deriving eq, ord];;
 

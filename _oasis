@@ -17,7 +17,6 @@ BuildDepends: threads
 Library "utils"
   Path: src/utils
   Modules:
-    Ast_uid,
     Dot_file_logger_utils,
     Dot_file_logger_utils_types,
     Logger_utils,
@@ -29,11 +28,13 @@ Library "utils"
     Pp_utils,
     Source_origin,
     String_utils,
+    Uid,
     Utils
   BuildDepends:
     batteries,
     monadlib,
-    ocaml-monadic
+    ocaml-monadic,
+    ppx_deriving.std
 
 Library "ast"
   Path: src/ast
