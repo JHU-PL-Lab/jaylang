@@ -17,3 +17,5 @@
 /*.dot
 /*.pdf
 
+# Custom build configuration files
+/.local_prebuild

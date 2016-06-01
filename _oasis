@@ -14,6 +14,10 @@ AlphaFeatures: ocamlbuild_more_args
 XOCamlbuildExtraArgs: -use-menhir -use-ocamlfind
 BuildDepends: threads
 
+# The following allows individual developers to customize their environments
+# (e.g. reposition the _build directory via a symlink) on build.
+PreBuildCommand: ./.execute_local_prebuild
+
 Library "utils"
   Path: src/utils
   Modules:
