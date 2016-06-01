@@ -81,6 +81,16 @@ val pp_quintuple :
 *)
 val pp_list : 'a pretty_printer -> formatter -> 'a list -> unit
 
+(** Pretty-prints a dictionary data structure.  The arguments are:
+    - The pretty-printing function for the key.
+    - The pretty-printing function for the value.
+    - The enumeration function for the dictionary.
+    - The formatter to use.
+    - The dictionary.
+ *)
+val pp_map : 'k pretty_printer -> 'v pretty_printer ->
+  ('d -> ('k * 'v) Enum.t) -> formatter -> 'd -> unit
+
 (** Given a pretty printer and an object, generates a string for them. *)
 val pp_to_string : 'a pretty_printer -> 'a -> string
 
