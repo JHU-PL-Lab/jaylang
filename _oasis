@@ -16,7 +16,8 @@ BuildDepends: threads
 
 # The following allows individual developers to customize their environments
 # (e.g. reposition the _build directory via a symlink) on build.
-PreBuildCommand: ./.execute_local_prebuild
+PreBuildCommand: ./.execute_if_exists ./.local_prebuild
+PreCleanCommand: ./.execute_if_exists ./.local_preclean
 
 Library "utils"
   Path: src/utils

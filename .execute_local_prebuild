@@ -1,5 +1,0 @@
-#!/bin/sh
-
-if [ -e "./.local_prebuild" ]; then
-    ./.local_prebuild
-fi
