@@ -4,9 +4,14 @@
    directly.
 *)
 
-open Ast_uid;;
 open Source_origin;;
+open Uid;;
 
-val reset_ast_position_hash : unit -> unit
+(** Resets the contents of the global source origin mapping. *)
+val reset : unit -> unit
 
-val get_ast_position_hash : unit -> file_region Ast_uid_hashtbl.t
+(** Puts a new entry into the global source origin mapping. *)
+val put : uid -> file_region -> unit
+
+(** Retrieves all source origin mappings as an independent dictionary. *)
+val get_all : unit -> file_region Uid_map.t

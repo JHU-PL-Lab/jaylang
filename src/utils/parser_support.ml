@@ -1,14 +1,14 @@
-open Ast_uid;;
-open Source_origin;;
+open Uid;;
 
-let ast_position_hash : file_region Ast_uid_hashtbl.t ref
-  = ref (Ast_uid_hashtbl.create(10))
+let uid_table = ref @@ [];;
+
+let reset () = uid_table := [];;
+
+let put (uid : uid) file_region =
+  uid_table := (uid, file_region)::!uid_table
 ;;
 
-let reset_ast_position_hash () =
-  ast_position_hash := Ast_uid_hashtbl.create(10)
-;;
-
-let get_ast_position_hash () =
-  !ast_position_hash
+let get_all () =
+  List.fold_right
+    (fun (key,value) acc -> Uid_map.add key value acc) !uid_table Uid_map.empty
 ;;
