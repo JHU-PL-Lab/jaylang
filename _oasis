@@ -79,6 +79,16 @@ Library "nested-ast"
     ast,
     utils
 
+Library "swan-ast"
+  Path: src/swan-ast
+  Modules:
+    Swan_ast
+  BuildDepends:
+    batteries,
+    ast,
+    utils
+
+
 Library "nested-parser"
   Path: src/nested-parser
   Modules:
@@ -93,6 +103,21 @@ Library "nested-parser"
     ocamllex,
     menhir
 
+Library "swan-parser"
+  Path: src/swan-parser
+  Modules:
+    Swan_generated_lexer,
+    Swan_generated_parser,
+    Swan_parser
+  BuildDepends:
+    batteries,
+    swan-ast,
+    utils
+  BuildTools+:
+    ocamllex,
+    menhir
+
+
 Library "a-translator"
   Path: src/a-translator
   Modules:
@@ -101,6 +126,17 @@ Library "a-translator"
     batteries,
     ast,
     nested-ast,
+    utils
+
+Library "swan-translator"
+  Path: src/swan-translator
+  Modules:
+    Swan_translator
+  BuildDepends:
+    batteries,
+    ast,
+    nested-ast,
+    swan-ast,
     utils
 
 Library "pds-reachability"
@@ -178,6 +214,21 @@ Executable "nested-toploop"
     nested-ast,
     interpreter,
     nested-parser,
+    toploop-utils,
+    batteries
+
+Executable "swan-toploop"
+  Path: src/swan-toploop
+  MainIs: swan_toploop.ml
+  CompiledObject: native
+  BuildDepends:
+    a-translator,
+    ast,
+    interpreter,
+    nested-ast,
+    swan-ast,
+    swan-parser,
+    swan-translator,
     toploop-utils,
     batteries
 
