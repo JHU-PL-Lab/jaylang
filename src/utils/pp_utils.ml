@@ -49,6 +49,13 @@ let pp_list pp_item formatter lst =
   pp_concat_sep_delim "[" "]" "," pp_item formatter @@ List.enum lst
 ;;
 
+let pp_map pp_k pp_v enum formatter dict =
+  let pp_kv_pair formatter (k,v) =
+    Format.fprintf formatter "%a -> %a" pp_k k pp_v v
+  in
+  pp_concat_sep_delim "{" "}" "," pp_kv_pair formatter @@ enum dict
+;;
+
 let pp_to_string pp x =
   let buffer = Buffer.create 80 in
   let formatter = formatter_of_buffer buffer in
