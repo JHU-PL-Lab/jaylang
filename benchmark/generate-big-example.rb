@@ -11,6 +11,11 @@ when "odefa"
   KEYWORDS = %w[
     fun
     ref
+    or
+    and
+    not
+    false
+    true
   ]
   COMMENT = "#"
 when "scheme"
