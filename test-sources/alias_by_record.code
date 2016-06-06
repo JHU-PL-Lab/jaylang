@@ -1,0 +1,6 @@
+# EXPECT-ILL-FORMED
+
+f = fun fp -> (
+  fr = a;
+);
+re = { f = f }; # => ILL-FORMEDNESS

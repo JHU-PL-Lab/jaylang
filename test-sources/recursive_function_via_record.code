@@ -1,0 +1,17 @@
+# EXPECT-ILL-FORMED
+
+tru = true;
+fals = false;
+
+f = fun b -> (
+  fr = b ~ true
+       ? fun bm -> (
+         ff = re.f;
+         bmr = ff fals;
+       )
+       : fun ba -> (
+         bar = ba;
+       );
+);
+re = { f = f }; # => ILL-FORMED
+r = f tru; # => false

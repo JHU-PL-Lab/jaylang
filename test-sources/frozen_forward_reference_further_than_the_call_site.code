@@ -1,0 +1,11 @@
+# EXPECT-ILL-FORMED
+
+f = fun fp -> (
+  fr = a;
+);
+g = fun gp -> (
+  gr = f;
+);
+ff = g g; # => ILL-FORMED: `g' refers to `f', which refers to `a', but `a' isn't defined yet.
+r = ff ff;
+a = 1;

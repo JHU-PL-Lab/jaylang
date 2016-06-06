@@ -1,0 +1,7 @@
+# EXPECT-ILL-FORMED
+
+f = fun fp -> (
+  fr = a;
+);
+r = f f; # => ILL-FORMED: `f' refers to `a', but `a' isn't defined yet.
+a = 1;
