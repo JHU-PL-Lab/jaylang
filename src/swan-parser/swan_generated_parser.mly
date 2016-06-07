@@ -1,6 +1,7 @@
 %{
 open Ast;;
 open Swan_ast;;
+open Parser_support;;
 
 module List = BatList;;
 %}
@@ -80,65 +81,65 @@ delim_expr:
 
 expr:
   | KEYWORD_LET variable EQUALS expr KEYWORD_IN expr
-      { Let_expr($2,$4,$6) }
+      { Let_expr(next_uid $startpos $endpos,$2,$4,$6) }
   | expr TILDE pattern QUESTION_MARK function_value COLON function_value
-      { Conditional_expr($1,$3,$5,$7) }
+      { Conditional_expr(next_uid $startpos $endpos,$1,$3,$5,$7) }
   | KEYWORD_IF expr KEYWORD_THEN expr KEYWORD_ELSE expr KEYWORD_END
-      { If_expr($2, $4, $6)}
+      { If_expr(next_uid $startpos $endpos,$2, $4, $6)}
   | KEYWORD_MATCH expr KEYWORD_WITH list(match_pair) KEYWORD_END
-      { Match_expr($2, $4) }
+      { Match_expr(next_uid $startpos $endpos,$2, $4) }
   | expr LEFT_ARROW expr
-      { Update_expr($1,$3) }
+      { Update_expr(next_uid $startpos $endpos,$1,$3) }
   | expr BINOP_PLUS expr
-      { Binary_operation_expr($1,Binary_operator_plus,$3) }
+      { Binary_operation_expr(next_uid $startpos $endpos,$1,Binary_operator_plus,$3) }
   | expr BINOP_MINUS expr
-      { Binary_operation_expr($1,Binary_operator_int_minus,$3) }
+      { Binary_operation_expr(next_uid $startpos $endpos,$1,Binary_operator_int_minus,$3) }
   | expr BINOP_LESS expr
-      { Binary_operation_expr($1,Binary_operator_int_less_than,$3) }
+      { Binary_operation_expr(next_uid $startpos $endpos,$1,Binary_operator_int_less_than,$3) }
   | expr BINOP_LESS_EQUAL expr
-      { Binary_operation_expr($1,Binary_operator_int_less_than_or_equal_to,$3) }
+      { Binary_operation_expr(next_uid $startpos $endpos,$1,Binary_operator_int_less_than_or_equal_to,$3) }
   | expr BINOP_EQUAL expr
-      { Binary_operation_expr($1,Binary_operator_equal_to,$3) }
+      { Binary_operation_expr(next_uid $startpos $endpos,$1,Binary_operator_equal_to,$3) }
   | expr KEYWORD_AND expr
-      { Binary_operation_expr($1,Binary_operator_bool_and,$3) }
+      { Binary_operation_expr(next_uid $startpos $endpos,$1,Binary_operator_bool_and,$3) }
   | expr KEYWORD_OR expr
-      { Binary_operation_expr($1,Binary_operator_bool_or,$3) }
+      { Binary_operation_expr(next_uid $startpos $endpos,$1,Binary_operator_bool_or,$3) }
   | KEYWORD_NOT expr
-      { Unary_operation_expr(Unary_operator_bool_not,$2) }
+      { Unary_operation_expr(next_uid $startpos $endpos,Unary_operator_bool_not,$2) }
   | expr OPEN_BRACKET expr CLOSE_BRACKET
-      { Indexing_expr($1,$3) }
+      { Indexing_expr(next_uid $startpos $endpos,$1,$3) }
   | function_value
-      { Function_expr($1) }
+      { Function_expr(next_uid $startpos $endpos,$1) }
   | application_expr
       { $1 }
   ;
 
 application_expr:
   | application_expr primary_expr
-      { Appl_expr($1,$2) }
+      { Appl_expr(next_uid $startpos $endpos,$1,$2) }
   | primary_expr
       { $1 }
   ;
 
 primary_expr:
   | primary_expr DOT identifier
-      { Projection_expr($1, $3) }
+      { Projection_expr(next_uid $startpos $endpos,$1, $3) }
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_element) CLOSE_BRACE
-      { Record_expr(Ident_map.of_enum @@ List.enum $2) }
+      { Record_expr(next_uid $startpos $endpos,Ident_map.of_enum @@ List.enum $2) }
   | OPEN_BRACE CLOSE_BRACE
-      { Record_expr(Ident_map.empty) }
+      { Record_expr(next_uid $startpos $endpos,Ident_map.empty) }
   | int_value
-      { Int_expr($1) }
+      { Int_expr(next_uid $startpos $endpos,$1) }
   | bool_value
-      { Bool_expr($1) }
+      { Bool_expr(next_uid $startpos $endpos,$1) }
   | string_value
-      { String_expr($1) }
+      { String_expr(next_uid $startpos $endpos,$1) }
   | variable
-      { Var_expr($1) }
+      { Var_expr(next_uid $startpos $endpos,$1) }
   | KEYWORD_REF primary_expr
-      { Ref_expr($2) }
+      { Ref_expr(next_uid $startpos $endpos,$2) }
   | BANG primary_expr
-      { Deref_expr($2) }
+      { Deref_expr(next_uid $startpos $endpos,$2) }
   | OPEN_PAREN expr CLOSE_PAREN
       { $2 }
   ;
@@ -150,24 +151,24 @@ record_element:
 
 pattern:
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE
-      { Swan_ast.Record_pattern(Ident_map.of_enum @@ List.enum $2) }
+      { Swan_ast.Record_pattern(next_uid $startpos $endpos,Ident_map.of_enum @@ List.enum $2) }
   | OPEN_BRACE CLOSE_BRACE
-      { Swan_ast.Record_pattern(Ident_map.empty) }
+      { Swan_ast.Record_pattern(next_uid $startpos $endpos,Ident_map.empty) }
   | KEYWORD_FUN
-      { Swan_ast.Fun_pattern }
+      { Swan_ast.Fun_pattern(next_uid $startpos $endpos) }
   | KEYWORD_REF
-      { Swan_ast.Ref_pattern }
+      { Swan_ast.Ref_pattern(next_uid $startpos $endpos) }
   | KEYWORD_INT
-      { Swan_ast.Int_pattern }
+      { Swan_ast.Int_pattern(next_uid $startpos $endpos) }
   | bool_pattern
-      { Swan_ast.Bool_pattern($1) }
+      { Swan_ast.Bool_pattern(next_uid $startpos $endpos,$1) }
   | KEYWORD_STRING
-      { Swan_ast.String_pattern }
+      { Swan_ast.String_pattern(next_uid $startpos $endpos) }
   ;
 
 match_pair:
   | PIPE pattern ARROW expr
-      { Match_pair($2, $4) }
+      { Match_pair(next_uid $startpos $endpos,$2, $4) }
   ;
 
 record_pattern_element:
@@ -184,7 +185,7 @@ bool_pattern:
 
 function_value:
   | KEYWORD_FUN variable ARROW expr %prec LAM
-      { Function($2,$4) }
+      { Function(next_uid $startpos $endpos,$2,$4) }
   ;
 
 int_value:
