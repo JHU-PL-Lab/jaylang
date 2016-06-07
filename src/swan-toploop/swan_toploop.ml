@@ -7,10 +7,14 @@ open Interpreter;;
 open Swan_translator;;
 open Toploop_options;;
 
+let lazy_logger = Logger_utils.make_lazy_logger "Swan_toploop";;
+
 let toploop_operate () (e:Swan_ast.expr)=
   print_string "\n";
   begin
     try
+      lazy_logger `trace (fun () ->
+          Printf.sprintf "Parsed expression: %s" (Swan_ast.show_expr e));
       let e'' = translate_swan_expr_to_nested e in
       let e' = a_translate_nested_expr e'' in
       check_wellformed_expr e';

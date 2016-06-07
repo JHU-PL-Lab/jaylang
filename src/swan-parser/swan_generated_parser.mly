@@ -22,6 +22,7 @@ module List = BatList;;
 %token EQUALS
 %token DOT
 %token BANG
+%token PIPE
 %token LEFT_ARROW
 %token KEYWORD_FUN
 %token KEYWORD_LET
@@ -37,6 +38,9 @@ module List = BatList;;
 %token KEYWORD_IF
 %token KEYWORD_THEN
 %token KEYWORD_ELSE
+%token KEYWORD_MATCH
+%token KEYWORD_WITH
+%token KEYWORD_END
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
@@ -47,7 +51,6 @@ module List = BatList;;
 
 %left LAM
 %right KEYWORD_IN
-%nonassoc KEYWORD_ELSE
 %nonassoc TILDE
 %left LEFT_ARROW
 %nonassoc BINOP_LESS BINOP_LESS_EQUAL BINOP_EQUAL KEYWORD_OR KEYWORD_AND KEYWORD_NOT OPEN_BRACKET
@@ -80,8 +83,10 @@ expr:
       { Let_expr($2,$4,$6) }
   | expr TILDE pattern QUESTION_MARK function_value COLON function_value
       { Conditional_expr($1,$3,$5,$7) }
-  | KEYWORD_IF expr KEYWORD_THEN expr KEYWORD_ELSE expr
+  | KEYWORD_IF expr KEYWORD_THEN expr KEYWORD_ELSE expr KEYWORD_END
       { If_expr($2, $4, $6)}
+  | KEYWORD_MATCH expr KEYWORD_WITH list(match_pair) KEYWORD_END
+      { Match_expr($2, $4) }
   | expr LEFT_ARROW expr
       { Update_expr($1,$3) }
   | expr BINOP_PLUS expr
@@ -158,6 +163,11 @@ pattern:
       { Swan_ast.Bool_pattern($1) }
   | KEYWORD_STRING
       { Swan_ast.String_pattern }
+  ;
+
+match_pair:
+  | PIPE pattern ARROW expr
+      { Match_pair($2, $4) }
   ;
 
 record_pattern_element:

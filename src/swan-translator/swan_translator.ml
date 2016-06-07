@@ -2,6 +2,12 @@
 
 module Ident_map = Ast.Ident_map;;
 
+type translation_failure =
+  | No_match_clauses_in_match_expr of Swan_ast.expr
+  [@@ deriving eq, ord, show]
+
+exception Translation_failure_exception of translation_failure
+
 let fresh_var_counter = ref 0;;
 
 let fresh_var () =
@@ -84,6 +90,35 @@ and nested_expr_of_swan_expr e =
   | Swan_ast.Projection_expr(e',i) ->
     Nested_ast.Projection_expr(
       nested_expr_of_swan_expr e',i)
+  | Swan_ast.Match_expr(e, ms) ->
+    let x = fresh_var () in
+    let rec desugar_matches ms e =
+      match ms with
+      | Swan_ast.Match_pair(p,e')::ms' -> Nested_ast.Conditional_expr(
+         nested_expr_of_swan_expr e,
+         nested_pattern_of_swan_pattern p,
+         (Nested_ast.Function(fresh_var (), nested_expr_of_swan_expr e')),
+         (Nested_ast.Function(fresh_var (), desugar_matches ms' e)))
+      | _ -> Nested_ast.Appl_expr((Nested_ast.Record_expr(Ident_map.empty)), (Nested_ast.Record_expr(Ident_map.empty)))
+(* raise (Translation_failure_exception(No_match_clauses_in_match_expr(e))) *)
+    in let e' = desugar_matches ms e
+    in Nested_ast.Let_expr(x, nested_expr_of_swan_expr e, e')
+
+    (*Generate a fresh variable which we will refer to as x and has the value e
+     * Get the first match pair from ms, see if x matches its pattern
+     * If it does, return that match pair's expression
+     * Else, recursively do the same with the rest of ms
+     * If we get to an empty ms and still no match has been reached, fail
+    *)
+
+    (* Pseudocode:*
+     * let fresh_var() = x in
+       * let x = e' in
+        * match ms with
+          * | a:as ->
+              neated_expr_of Swan_ast.Conditional_expr(e',a.p, nested_expr_of a.e, nested_expr_of Match_expr(x, as))
+          * | [] -> fail
+     *)
 
 let translate_swan_expr_to_nested e =
   nested_expr_of_swan_expr e

@@ -3,10 +3,17 @@
 *)
 
 open Ast;;
+open Ast_pp;;
+open Pp_utils;;
 
 (** Expressions in the nested language. *)
 type expr =
   | Record_expr of expr Ident_map.t
+        [@printer
+          fun formatter map ->
+            Format.fprintf formatter "Swan_ast.Record_expr(\"%a\")"
+              (pp_map pp_ident pp_expr Ident_map.enum) map
+        ]
   | Function_expr of function_value
   | Int_expr of int
   | Bool_expr of bool
@@ -23,17 +30,32 @@ type expr =
   | Indexing_expr of expr * expr
   | Let_expr of var * expr * expr
   | Projection_expr of expr * ident
+  | Match_expr of expr * match_pair list
+  [@@deriving eq, ord, show]
 
 (** Function values in the nested language. *)
 and function_value =
   | Function of var * expr
+  [@@deriving eq, ord, show]
+
 
 (** Patterns in the nested language. *)
 and pattern =
   | Record_pattern of pattern Ident_map.t
+        [@printer
+          fun formatter map ->
+            Format.fprintf formatter "Swan_ast.Record_pattern(\"%a\")"
+              (pp_map pp_ident pp_pattern Ident_map.enum) map
+        ]
   | Fun_pattern
   | Ref_pattern
   | Int_pattern
   | Bool_pattern of bool
   | String_pattern
+  [@@deriving eq, ord, show]
+
+and match_pair =
+  | Match_pair of pattern * expr
+  [@@deriving eq, ord, show]
+
 ;;

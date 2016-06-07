@@ -5,6 +5,7 @@ let all_tests =
   [ Test_files.tests
   ; Test_utils.tests
   ; Test_reachability.tests
+  ; Test_swan.tests
   ];;
 
 let () =
@@ -21,7 +22,7 @@ let () =
           String.split logging_instructions ~by:"="
         in
         Logger_utils.set_logging_level_for module_name @@
-          parse_module_level module_level_str 
+          parse_module_level module_level_str
       else
         Logger_utils.set_default_logging_level @@
           parse_module_level logging_instructions

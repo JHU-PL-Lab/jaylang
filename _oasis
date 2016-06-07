@@ -251,7 +251,10 @@ Executable "test"
     oUnit,
     batteries,
     analysis,
-    toploop-utils
+    toploop-utils,
+    nested-ast,
+    swan-ast,
+    swan-translator
 
 Test test
   Command: $test
