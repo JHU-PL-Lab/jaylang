@@ -104,7 +104,12 @@ struct
   ;;
 end;;
 
-module Test_reachability = Pds_reachability.Make(Test_spec)(Test_dph);;
+module Test_reachability =
+  Pds_reachability.Make
+    (Test_spec)
+    (Test_dph)
+    (Pds_reachability_work_collection_templates.Work_stack)
+;;
 
 let immediate_reachability_test =
   "immediate_reachability_test" >:: fun _ ->

@@ -1572,7 +1572,10 @@ struct
   end;;
 
   module Ddpa_pds_reachability =
-    Pds_reachability.Make(Ddpa_pds_reachability_basis)(Dph)
+    Pds_reachability.Make
+      (Ddpa_pds_reachability_basis)
+      (Dph)
+      (Pds_reachability_work_collection_templates.Work_stack)
   ;;
 
   type ddpa_analysis_logging_data =

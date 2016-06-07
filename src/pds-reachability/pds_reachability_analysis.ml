@@ -100,6 +100,8 @@ module Make
     (Dph : Pds_reachability_types_stack.Dynamic_pop_handler
      with type stack_element = Basis.stack_element
       and type state = Basis.state)
+    (Work_collection_template_impl :
+       Pds_reachability_work_collection.Work_collection_template)
   : Analysis
     with type state = Basis.state
      and type stack_element = Basis.stack_element
@@ -110,6 +112,8 @@ struct
   (********** Create and wire in appropriate components. **********)
 
   module Types = Pds_reachability_types.Make(Basis)(Dph);;
+  module Work = Pds_reachability_work.Make(Basis)(Types);;
+  module Work_collection_impl = Work_collection_template_impl(Work);;
   module Structure = Pds_reachability_structure.Make(Basis)(Dph)(Types);;
   module Logger =
     Pds_reachability_logger_utils.Make(Basis)(Dph)(Types)(Structure)
@@ -161,6 +165,7 @@ struct
           [@printer fun formatter functions ->
                  Format.fprintf formatter "(length = %d)"
                    (List.length functions)]
+    ; work_collection : Work_collection_impl.work_collection
     ; logging_data : analysis_logging_data option
     }
     [@@deriving show]
@@ -226,13 +231,16 @@ struct
     ; edge_functions = []
     ; untargeted_dynamic_pop_action_functions = []
     ; logging_data =
-        match logging_prefix with
-        | None -> None
-        | Some pfx -> Some
-                        { analysis_logging_prefix = pfx
-                        ; major_log_index = 0
-                        ; minor_log_index = 0
-                        }
+        begin
+          match logging_prefix with
+          | None -> None
+          | Some pfx -> Some
+                          { analysis_logging_prefix = pfx
+                          ; major_log_index = 0
+                          ; minor_log_index = 0
+                          }
+        end
+    ; work_collection = Work_collection_impl.empty
     };;
 
   (** Adds a "real" edge (the PDS reachability structure's edge, not the
