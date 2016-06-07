@@ -80,8 +80,8 @@ delim_expr:
   ;
 
 expr:
-  | KEYWORD_LET variable EQUALS expr KEYWORD_IN expr
-      { Let_expr(next_uid $startpos $endpos,$2,$4,$6) }
+  | KEYWORD_LET identifier EQUALS expr KEYWORD_IN expr
+      { Let_expr(next_uid $startpos $endpos,Swan_var(next_uid $startpos $endpos,$2),$4,$6) }
   | expr TILDE pattern QUESTION_MARK function_value COLON function_value
       { Conditional_expr(next_uid $startpos $endpos,$1,$3,$5,$7) }
   | KEYWORD_IF expr KEYWORD_THEN expr KEYWORD_ELSE expr KEYWORD_END
@@ -134,8 +134,8 @@ primary_expr:
       { Bool_expr(next_uid $startpos $endpos,$1) }
   | string_value
       { String_expr(next_uid $startpos $endpos,$1) }
-  | variable
-      { Var_expr(next_uid $startpos $endpos,$1) }
+  | identifier
+      { Var_expr(next_uid $startpos $endpos,Swan_var(next_uid $startpos $endpos,$1)) }
   | KEYWORD_REF primary_expr
       { Ref_expr(next_uid $startpos $endpos,$2) }
   | BANG primary_expr
@@ -184,8 +184,8 @@ bool_pattern:
   ;
 
 function_value:
-  | KEYWORD_FUN variable ARROW expr %prec LAM
-      { Function(next_uid $startpos $endpos,$2,$4) }
+  | KEYWORD_FUN identifier ARROW expr %prec LAM
+      { Function(next_uid $startpos $endpos,Swan_var(next_uid $startpos $endpos,$2),$4) }
   ;
 
 int_value:
@@ -205,10 +205,10 @@ string_value:
       { $1 }
   ;
 
-variable:
+/*variable:
   | identifier
       { Var($1,None) }
-  ;
+  ;*/
 
 identifier:
   | IDENTIFIER

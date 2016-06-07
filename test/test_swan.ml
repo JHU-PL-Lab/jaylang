@@ -37,9 +37,9 @@ let if_in_if_test =
     | Nested_ast.Conditional_expr(_,Nested_ast.Bool_expr(_,true),
                                   Nested_ast.Bool_pattern(_,true),
                                   Nested_ast.Function(_, _, Nested_ast.Conditional_expr(_,Nested_ast.Bool_expr(_,false),
-                                                                                     Nested_ast.Bool_pattern(_,true),
-                                                                                     Nested_ast.Function(_, _, Nested_ast.Int_expr(_,0)),
-                                                                                     Nested_ast.Function(_,_, Nested_ast.Int_expr(_,1)))),
+                                                                                        Nested_ast.Bool_pattern(_,true),
+                                                                                        Nested_ast.Function(_, _, Nested_ast.Int_expr(_,0)),
+                                                                                        Nested_ast.Function(_,_, Nested_ast.Int_expr(_,1)))),
                                   Nested_ast.Function(_,_, Nested_ast.Int_expr(_,1))) -> assert_string("")
     | _ -> assert_failure("If in if test: Swan translation did not match Nested control")
 ;;
@@ -53,32 +53,32 @@ let match_test_1 =
     match expr with
     | Nested_ast.Let_expr(_,_, Nested_ast.Int_expr(_,0),
                           Nested_ast.Conditional_expr(_,
-                            Nested_ast.Int_expr(_,0),
-                            Nested_ast.Bool_pattern(_,true),
-                            (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,1))),
-                            (Nested_ast.Function(_, _,
-                                                 Nested_ast.Conditional_expr(_,
-                                                   Nested_ast.Int_expr(_,0),
-                                                                             Nested_ast.Fun_pattern(_),
-                                                   (Nested_ast.Function(_,_, Nested_ast.Int_expr(_,2))),
-                                                   (Nested_ast.Function(_,_,
-                                                                        Nested_ast.Conditional_expr(_,
-                                                                          Nested_ast.Int_expr(_,0),
-                                                                                                    Nested_ast.Int_pattern(_),
-                                                                          (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,0))),
-                                                                          (Nested_ast.Function(_, _, Nested_ast.Appl_expr(_,
-                                                                               Nested_ast.Record_expr(_,m1),
-                                                                               Nested_ast.Record_expr(_,m2)
-                                                                             )
-                                                                             )
+                                                      Nested_ast.Int_expr(_,0),
+                                                      Nested_ast.Bool_pattern(_,true),
+                                                      (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,1))),
+                                                      (Nested_ast.Function(_, _,
+                                                                           Nested_ast.Conditional_expr(_,
+                                                                                                       Nested_ast.Int_expr(_,0),
+                                                                                                       Nested_ast.Fun_pattern(_),
+                                                                                                       (Nested_ast.Function(_,_, Nested_ast.Int_expr(_,2))),
+                                                                                                       (Nested_ast.Function(_,_,
+                                                                                                                            Nested_ast.Conditional_expr(_,
+                                                                                                                                                        Nested_ast.Int_expr(_,0),
+                                                                                                                                                        Nested_ast.Int_pattern(_),
+                                                                                                                                                        (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,0))),
+                                                                                                                                                        (Nested_ast.Function(_, _, Nested_ast.Appl_expr(_,
+                                                                                                                                                                                                        Nested_ast.Record_expr(_,m1),
+                                                                                                                                                                                                        Nested_ast.Record_expr(_,m2)
+                                                                                                                                                                                                       )
+                                                                                                                                                                            )
+                                                                                                                                                        )
+                                                                                                                                                       )
+                                                                                                                           )
+                                                                                                       )
+                                                                                                      )
                                                                           )
-                                                                        )
-                                                                       )
-                                                   )
-                                                 )
-                                                )
-                            )
-                          )
+                                                      )
+                                                     )
                          ) when Ident_map.is_empty m1 && Ident_map.is_empty m2 -> ()
     | _ -> assert_failure("Match test 1: Swan translation did not match Nested control")
 
@@ -91,32 +91,32 @@ let match_test_2 =
     match expr with
     | Nested_ast.Let_expr(_, _, Nested_ast.Bool_expr(_,true),
                           Nested_ast.Conditional_expr(_,
-                            Nested_ast.Bool_expr(_,true),
-                            Nested_ast.Bool_pattern(_,true),
-                            (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,1))),
-                            (Nested_ast.Function(_,_,
-                                                 Nested_ast.Conditional_expr(_,
-                                                   Nested_ast.Bool_expr(_,true),
-                                                                             Nested_ast.Fun_pattern(_),
-                                                   (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,2))),
-                                                   (Nested_ast.Function(_, _,
-                                                                        Nested_ast.Conditional_expr(_,
-                                                                          Nested_ast.Bool_expr(_,true),
-                                                                                                    Nested_ast.Int_pattern(_),
-                                                                          (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,0))),
-                                                                          (Nested_ast.Function(_, _, Nested_ast.Appl_expr(_,
-                                                                               Nested_ast.Record_expr(_,m1),
-                                                                               Nested_ast.Record_expr(_,m2)
-                                                                             )
-                                                                             )
+                                                      Nested_ast.Bool_expr(_,true),
+                                                      Nested_ast.Bool_pattern(_,true),
+                                                      (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,1))),
+                                                      (Nested_ast.Function(_,_,
+                                                                           Nested_ast.Conditional_expr(_,
+                                                                                                       Nested_ast.Bool_expr(_,true),
+                                                                                                       Nested_ast.Fun_pattern(_),
+                                                                                                       (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,2))),
+                                                                                                       (Nested_ast.Function(_, _,
+                                                                                                                            Nested_ast.Conditional_expr(_,
+                                                                                                                                                        Nested_ast.Bool_expr(_,true),
+                                                                                                                                                        Nested_ast.Int_pattern(_),
+                                                                                                                                                        (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,0))),
+                                                                                                                                                        (Nested_ast.Function(_, _, Nested_ast.Appl_expr(_,
+                                                                                                                                                                                                        Nested_ast.Record_expr(_,m1),
+                                                                                                                                                                                                        Nested_ast.Record_expr(_,m2)
+                                                                                                                                                                                                       )
+                                                                                                                                                                            )
+                                                                                                                                                        )
+                                                                                                                                                       )
+                                                                                                                           )
+                                                                                                       )
+                                                                                                      )
                                                                           )
-                                                                        )
-                                                                       )
-                                                   )
-                                                 )
-                                                )
-                            )
-                          )
+                                                      )
+                                                     )
                          ) when Ident_map.is_empty m1 && Ident_map.is_empty m2 -> ()
     | _ -> assert_failure("Match test 2: Swan translation did not match Nested control")
 
@@ -129,32 +129,32 @@ let match_test_none =
     match expr with
     | Nested_ast.Let_expr(_, _, Nested_ast.String_expr(_,"test"),
                           Nested_ast.Conditional_expr(_,
-                            Nested_ast.String_expr(_,"test"),
-                            Nested_ast.Bool_pattern(_,true),
-                            (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,1))),
-                            (Nested_ast.Function(_,_,
-                                                 Nested_ast.Conditional_expr(_,
-                                                   Nested_ast.String_expr(_,"test"),
-                                                                             Nested_ast.Fun_pattern(_),
-                                                   (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,2))),
-                                                   (Nested_ast.Function(_, _,
-                                                                        Nested_ast.Conditional_expr(_,
-                                                                          Nested_ast.String_expr(_,"test"),
-                                                                                                    Nested_ast.Int_pattern(_),
-                                                                          (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,0))),
-                                                                          (Nested_ast.Function(_, _, Nested_ast.Appl_expr(_,
-                                                                               Nested_ast.Record_expr(_,m1),
-                                                                               Nested_ast.Record_expr(_,m2)
-                                                                             )
-                                                                             )
+                                                      Nested_ast.String_expr(_,"test"),
+                                                      Nested_ast.Bool_pattern(_,true),
+                                                      (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,1))),
+                                                      (Nested_ast.Function(_,_,
+                                                                           Nested_ast.Conditional_expr(_,
+                                                                                                       Nested_ast.String_expr(_,"test"),
+                                                                                                       Nested_ast.Fun_pattern(_),
+                                                                                                       (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,2))),
+                                                                                                       (Nested_ast.Function(_, _,
+                                                                                                                            Nested_ast.Conditional_expr(_,
+                                                                                                                                                        Nested_ast.String_expr(_,"test"),
+                                                                                                                                                        Nested_ast.Int_pattern(_),
+                                                                                                                                                        (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,0))),
+                                                                                                                                                        (Nested_ast.Function(_, _, Nested_ast.Appl_expr(_,
+                                                                                                                                                                                                        Nested_ast.Record_expr(_,m1),
+                                                                                                                                                                                                        Nested_ast.Record_expr(_,m2)
+                                                                                                                                                                                                       )
+                                                                                                                                                                            )
+                                                                                                                                                        )
+                                                                                                                                                       )
+                                                                                                                           )
+                                                                                                       )
+                                                                                                      )
                                                                           )
-                                                                        )
-                                                                       )
-                                                   )
-                                                 )
-                                                )
-                            )
-                          )
+                                                      )
+                                                     )
                          ) when Ident_map.is_empty m1 && Ident_map.is_empty m2 -> ()
     | _ -> assert_failure("Match test none: Swan translation did not match Nested control")
 
@@ -167,35 +167,35 @@ let if_in_match_test =
     match expr with
     | Nested_ast.Let_expr(_, _, Nested_ast.Int_expr(_,0),
                           Nested_ast.Conditional_expr(_,
-                            Nested_ast.Int_expr(_,0),
-                            Nested_ast.Bool_pattern(_,true),
-                            (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,1))),
-                            (Nested_ast.Function(_, _,
-                                                 Nested_ast.Conditional_expr(_,
-                                                   Nested_ast.Int_expr(_,0),
-                                                                             Nested_ast.Fun_pattern(_),
-                                                   (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,2))),
-                                                   (Nested_ast.Function(_, _,
-                                                                        Nested_ast.Conditional_expr(_,
-                                                                          Nested_ast.Int_expr(_,0),
-                                                                                                    Nested_ast.Int_pattern(_),
-                                                                          (Nested_ast.Function(_, _, Nested_ast.Conditional_expr(_,Nested_ast.Bool_expr(_,true),
-                                                                                                                              Nested_ast.Bool_pattern(_,true),
-                                                                                                                              Nested_ast.Function(_, _, Nested_ast.Int_expr(_,0)),
-                                                                                                                              Nested_ast.Function(_, _,Nested_ast.Int_expr(_,1))))),
-                                                                          (Nested_ast.Function(_, _, Nested_ast.Appl_expr(_,
-                                                                               Nested_ast.Record_expr(_,m1),
-                                                                               Nested_ast.Record_expr(_,m2)
-                                                                             )
-                                                                             )
+                                                      Nested_ast.Int_expr(_,0),
+                                                      Nested_ast.Bool_pattern(_,true),
+                                                      (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,1))),
+                                                      (Nested_ast.Function(_, _,
+                                                                           Nested_ast.Conditional_expr(_,
+                                                                                                       Nested_ast.Int_expr(_,0),
+                                                                                                       Nested_ast.Fun_pattern(_),
+                                                                                                       (Nested_ast.Function(_, _, Nested_ast.Int_expr(_,2))),
+                                                                                                       (Nested_ast.Function(_, _,
+                                                                                                                            Nested_ast.Conditional_expr(_,
+                                                                                                                                                        Nested_ast.Int_expr(_,0),
+                                                                                                                                                        Nested_ast.Int_pattern(_),
+                                                                                                                                                        (Nested_ast.Function(_, _, Nested_ast.Conditional_expr(_,Nested_ast.Bool_expr(_,true),
+                                                                                                                                                                                                               Nested_ast.Bool_pattern(_,true),
+                                                                                                                                                                                                               Nested_ast.Function(_, _, Nested_ast.Int_expr(_,0)),
+                                                                                                                                                                                                               Nested_ast.Function(_, _,Nested_ast.Int_expr(_,1))))),
+                                                                                                                                                        (Nested_ast.Function(_, _, Nested_ast.Appl_expr(_,
+                                                                                                                                                                                                        Nested_ast.Record_expr(_,m1),
+                                                                                                                                                                                                        Nested_ast.Record_expr(_,m2)
+                                                                                                                                                                                                       )
+                                                                                                                                                                            )
+                                                                                                                                                        )
+                                                                                                                                                       )
+                                                                                                                           )
+                                                                                                       )
+                                                                                                      )
                                                                           )
-                                                                        )
-                                                                       )
-                                                   )
-                                                 )
-                                                )
-                            )
-                          )
+                                                      )
+                                                     )
                          ) when Ident_map.is_empty m1 && Ident_map.is_empty m2 -> ()
     | _ -> assert_failure("If in match test: Swan translation did not match Nested control")
 

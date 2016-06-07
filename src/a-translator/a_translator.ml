@@ -23,9 +23,9 @@ let rec pattern_of_nested_pattern p =
 ;;
 
 let rec function_value_of_nested_function_value
-    (Nested_ast.Function(_,x',e')) =
+    (Nested_ast.Function(_,Nested_ast.Nested_var(_,x'),e')) =
   let (body,_) = clauses_and_var_of_nested_expr e' in
-  Ast.Function_value(x',Ast.Expr body)
+  Ast.Function_value(Ast.Var(x',None),Ast.Expr body)
 
 and clauses_and_var_of_nested_expr e =
   let x = fresh_var() in
@@ -58,8 +58,8 @@ and clauses_and_var_of_nested_expr e =
     | Nested_ast.Ref_expr(_,e') ->
       let (cls0,x') = clauses_and_var_of_nested_expr e' in
       (cls0, Ast.Value_body(Ast.Value_ref(Ast.Ref_value(x'))))
-    | Nested_ast.Var_expr(_,x') ->
-      ([], Ast.Var_body(x'))
+    | Nested_ast.Var_expr(_,Nested_ast.Nested_var(_,x')) ->
+      ([], Ast.Var_body(Ast.Var(x',None)))
     | Nested_ast.Appl_expr(_,e1,e2) ->
       let (cls1,x1) = clauses_and_var_of_nested_expr e1 in
       let (cls2,x2) = clauses_and_var_of_nested_expr e2 in
@@ -96,11 +96,11 @@ and clauses_and_var_of_nested_expr e =
       ( cls1 @ cls2
       , Ast.Indexing_body(x1,x2)
       )
-    | Nested_ast.Let_expr(_,x',e1,e2) ->
+    | Nested_ast.Let_expr(_,Nested_ast.Nested_var(_,x'),e1,e2) ->
       let (cls1,x1) = clauses_and_var_of_nested_expr e1 in
       let (cls2,x2) = clauses_and_var_of_nested_expr e2 in
       ( cls1 @
-        [ Ast.Clause(x', Ast.Var_body(x1)) ] @
+        [ Ast.Clause(Ast.Var(x',None), Ast.Var_body(x1)) ] @
         cls2
       , Ast.Var_body(x2)
       )
