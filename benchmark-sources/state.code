@@ -30,25 +30,20 @@
 #       fr = z <- minusthree;
 #     );
 #
-#     gp = fun gpr -> (
-#       gprr = fun x -> (
-#         y = ref x;
-#         fy = f y;
-#         x10 = x < ten;
-#         if = x10 ~ true
-#                ? fun xm -> (
-#                  x1 = x + one;
-#                  gr = gpr gpr;
-#                  xmr = gr x1;
-#                )
-#                : fun xa -> (
-#                  noop = {};
-#                );
-#         grr = !y;
-#       );
+#     g = fun x -> (
+#       y = ref x;
+#       fy = f y;
+#       x10 = x < ten;
+#       if = x10 ~ true
+#              ? fun xm -> (
+#                x1 = x + one;
+#                xmr = g x1;
+#              )
+#              : fun xa -> (
+#                noop = {};
+#              );
+#       grr = !y;
 #     );
-#
-#     g = gp gp;
 #
 #     r = g zero; # => -3
 #
@@ -73,22 +68,17 @@ f = fun z -> (
   fr = z <- tru;
 );
 
-gp = fun gpr -> (
-  gprr = fun x -> (
-    y = ref x;
-    fy = f y;
-    if = x ~ true
-           ? fun xm -> (
-             gr = gpr gpr;
-             xmr = gr tru;
-           )
-           : fun xa -> (
-             noop = {};
-           );
-    grr = !y;
-  );
+g = fun x -> (
+  y = ref x;
+  fy = f y;
+  if = x ~ true
+         ? fun xm -> (
+           xmr = g tru;
+         )
+         : fun xa -> (
+           noop = {};
+         );
+  grr = !y;
 );
-
-g = gp gp;
 
 r = g fals; # => true

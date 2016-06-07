@@ -19,8 +19,7 @@ thirtytwo = 32;
 fifteen = 15;
 eight = 8;
 
-takp = fun takpr -> (
-  takprr = fun takprparams -> (
+tak = fun takprparams -> (
   x = takprparams.x;
   y = takprparams.y;
   z = takprparams.z;
@@ -28,7 +27,6 @@ takp = fun takpr -> (
 
   notyx = not yx;
 
-  takr = takpr takpr;
   zr = notyx ~ true
              ? fun notyxm -> (
                notyxmr = z;
@@ -36,21 +34,18 @@ takp = fun takpr -> (
              : fun notyxa -> (
                x1 = x - one;
                takxparams = {x = x1, y = y, z = z};
-               takx = takr takxparams;
+               takx = tak takxparams;
                y1 = y - one;
                takyparams = {x = x, y = y1, z = z};
-               taky = takr takyparams;
+               taky = tak takyparams;
                z1 = z - one;
                takzparams = {x = x, y = y, z = z1};
-               takz = takr takzparams;
+               takz = tak takzparams;
 
                takrparams = {x = takx, y = taky, z = takz};
-               notyxar = takr takrparams;
+               notyxar = tak takrparams;
              );
-  );
 );
-
-tak = takp takp;
 
 takparams = {x = thirtytwo, y = fifteen, z = eight};
 r = tak takparams; # => 15
