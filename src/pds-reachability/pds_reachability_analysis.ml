@@ -4,7 +4,6 @@
 
 open Batteries;;
 
-open Pds_reachability_logger_utils;;
 open Pds_reachability_types_stack;;
 open Pp_utils;;
 
@@ -29,7 +28,7 @@ sig
 
   (** The empty analysis.  This analysis has no states, edges, or edge
       functions. *)
-  val empty : ?logging_prefix:string option -> unit -> analysis
+  val empty : analysis
 
   (** Adds a single edge to a reachability analysis. *)
   val add_edge
@@ -66,9 +65,20 @@ sig
     -> analysis
     -> analysis
 
+  (** Determines whether the reachability analysis is closed. *)
+  val is_closed : analysis -> bool
+
+  (** Takes a step toward closing a given reachability analysis.  If the
+      analysis is already closed, it is returned unchanged. *)
+  val closure_step : analysis -> analysis
+
+  (** Fully closes the provided analysis. *)
+  val fully_close : analysis -> analysis
+
   (** Determines the states which are reachable from a given state and initial
       stack element.  This state must have been added to the analysis
-      previously. *)
+      previously.  If the analysis is not fully closed, then the enumeration of
+      reachable states may be incomplete.  *)
   val get_reachable_states
     : state
     -> stack_action list
@@ -82,13 +92,6 @@ sig
   (** An exception raised when a reachable state query occurs before the state
       is added as a start state. *)
   exception Reachability_request_for_non_start_state of state;;
-
-  (** Configures the logging level for the analyses produced by this module.
-      This affects all such analyses, not just future analyses. *)
-  val set_logging_level : pds_reachability_logger_level -> unit
-
-  (** Retrieves the logging level used by analyses produced by this module. *)
-  val get_logging_level : unit -> pds_reachability_logger_level
 
   (** Determines the size of the provided analysis in terms of both node and
       edge count (respectively). *)
@@ -115,9 +118,6 @@ struct
   module Work = Pds_reachability_work.Make(Basis)(Types);;
   module Work_collection_impl = Work_collection_template_impl(Work);;
   module Structure = Pds_reachability_structure.Make(Basis)(Dph)(Types);;
-  module Logger =
-    Pds_reachability_logger_utils.Make(Basis)(Dph)(Types)(Structure)
-  ;;
 
   include Types;;
 
@@ -166,57 +166,11 @@ struct
                  Format.fprintf formatter "(length = %d)"
                    (List.length functions)]
     ; work_collection : Work_collection_impl.work_collection
-    ; logging_data : analysis_logging_data option
     }
     [@@deriving show]
   ;;
 
   (********** Define analysis operations. **********)
-
-  let log_analysis level analysis =
-    match analysis.logging_data with
-    | None -> ()
-    | Some data ->
-      let name = Pds_reachability_logger_name(
-          data.analysis_logging_prefix,
-          data.major_log_index,
-          data.minor_log_index)
-      in
-      Logger.log level name analysis.reachability
-  ;;
-
-  let log_step inc_fn level analysis =
-    match analysis.logging_data with
-    | None -> analysis
-    | Some data ->
-      log_analysis level analysis;
-      lazy_logger `trace
-        (fun () ->
-           let name = Pds_reachability_logger_name(
-               data.analysis_logging_prefix,
-               data.major_log_index,
-               data.minor_log_index)
-           in
-           Printf.sprintf "Logging graph %s" @@ Logger.string_of_name name
-        );
-      let data' = inc_fn data in
-      { analysis with logging_data = Some data' }
-  ;;
-
-  let log_major =
-    log_step (fun data ->
-        { data with
-          major_log_index = data.major_log_index + 1; minor_log_index = 0 })
-  ;;
-
-  let log_minor =
-    log_step (fun data ->
-        { data with minor_log_index = data.minor_log_index + 1 })
-  ;;
-
-  let get_logging_level () = Logger.get_level ();;
-
-  let set_logging_level level = Logger.set_level level;;
 
   let get_size analysis =
     let reachability = analysis.reachability in
@@ -225,21 +179,11 @@ struct
     (node_count, edge_count)
   ;;
 
-  let empty ?logging_prefix:(logging_prefix=None) () =
+  let empty =
     { known_nodes = Node_set.empty
     ; reachability = Structure.empty
     ; edge_functions = []
     ; untargeted_dynamic_pop_action_functions = []
-    ; logging_data =
-        begin
-          match logging_prefix with
-          | None -> None
-          | Some pfx -> Some
-                          { analysis_logging_prefix = pfx
-                          ; major_log_index = 0
-                          ; minor_log_index = 0
-                          }
-        end
     ; work_collection = Work_collection_impl.empty
     };;
 
@@ -255,7 +199,6 @@ struct
        get an infinite loop (resulting in stack overflow) if we allow the
        closure to proceed. *)
     if Structure.has_edge edge analysis.reachability then analysis else
-      log_minor Pds_reachability_log_each_edge @@
       (* First, add this edge to the lookup structures. *)
       let analysis' =
         { analysis with
@@ -482,10 +425,7 @@ struct
   and add_edge source_state stack_action_list target_state analysis =
     let source_node = State_node(source_state) in
     let target_node = State_node(target_state) in
-    let analysis' =
-      add_edges_between_nodes source_node target_node stack_action_list analysis
-    in
-    log_major Pds_reachability_log_each_call analysis'
+    add_edges_between_nodes source_node target_node stack_action_list analysis
 
   and add_untargeted_dynamic_pop_action source_state action analysis =
     let source_node = State_node source_state in
@@ -582,7 +522,6 @@ struct
       (fun analysis'' (source_state,(action_list,target_state)) ->
          add_edge source_state action_list target_state analysis'')
       analysis'
-    |> log_major Pds_reachability_log_each_call
   ;;
 
   let add_untargeted_dynamic_pop_action_function fn analysis =
@@ -613,7 +552,6 @@ struct
       (fun analysis'' (source_state, action) ->
          add_untargeted_dynamic_pop_action source_state action analysis'')
       analysis'
-    |> log_major Pds_reachability_log_each_call
   ;;
 
   let add_start_state state stack_actions analysis =
@@ -627,7 +565,21 @@ struct
       (Intermediate_node(State_node(state), stack_actions))
       (State_node(state))
       stack_actions
-    |> log_major Pds_reachability_log_each_call
+  ;;
+
+  let is_closed analysis =
+    Work_collection_impl.is_empty analysis.work_collection
+  ;;
+
+  let closure_step analysis =
+    ignore analysis;
+    raise @@ Utils.Not_yet_implemented "closure_step"
+  ;;
+
+  let rec fully_close analysis =
+    if is_closed analysis
+    then analysis
+    else fully_close @@ closure_step analysis
   ;;
 
   let get_reachable_states state stack_actions analysis =

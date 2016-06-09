@@ -27,8 +27,7 @@ sig
   module C : Context_stack;;
 
   (** The initial, unclosed analysis derived from an expression. *)
-  val create_initial_analysis :
-    ?logging_prefix:string option -> expr -> ddpa_analysis
+  val create_initial_analysis : expr -> ddpa_analysis
 
   (** Pretty-prints a DDPA structure. *)
   val pp_ddpa_analysis : ddpa_analysis pretty_printer
@@ -1626,14 +1625,11 @@ struct
     pds_edge_count
   ;;
 
-  let empty_analysis logging_prefix_opt =
+  let empty_analysis =
     (* The initial reachability analysis should include an edge function which
        always allows discarding the bottom-of-stack marker. *)
-    let empty_reachability =
-      Ddpa_pds_reachability.empty ~logging_prefix:logging_prefix_opt ()
-    in
     let initial_reachability =
-      empty_reachability
+      Ddpa_pds_reachability.empty
       |> Ddpa_pds_reachability.add_edge_function
         (fun state -> Enum.singleton ([Pop Bottom_of_stack], state))
     in
@@ -2293,7 +2289,7 @@ struct
       )
   ;;
 
-  let create_initial_analysis ?logging_prefix:(logging_prefix=None) e =
+  let create_initial_analysis e =
     let Abs_expr(cls) = lift_expr e in
     (* Put the annotated clauses together. *)
     let acls =
@@ -2313,18 +2309,7 @@ struct
           Ddpa_edge(acl1,acl2) :: mk_edges acls'
     in
     let edges = List.enum @@ mk_edges acls in
-    let empty_analysis' =
-      match logging_prefix with
-      | None -> empty_analysis None
-      | Some prefix ->
-        { (empty_analysis @@ Some prefix) with
-          ddpa_logging_data = Some
-              { ddpa_closure_steps = 0
-              ; ddpa_logging_prefix = prefix
-              }
-        }
-    in
-    let analysis = fst @@ add_edges edges empty_analysis' in
+    let analysis = fst @@ add_edges edges empty_analysis in
     logger `trace "Created initial analysis";
     log_ddpa_graph Ddpa_graph_logger.Ddpa_log_all analysis
       (fun data ->
@@ -2538,10 +2523,12 @@ struct
   ;;
 
   let set_pdr_logger_level level =
-    Ddpa_pds_reachability.set_logging_level level
+    (* TODO: rewrite logging mechanism for PDR *)
+    ignore level; raise @@ Utils.Not_yet_implemented "set_pdr_logger_level"
   ;;
 
   let get_pdr_logger_level () =
-    Ddpa_pds_reachability.get_logging_level ()
+    (* TODO: rewrite logging mechanism for PDR *)
+    raise @@ Utils.Not_yet_implemented "get_pdr_logger_level"
   ;;
 end;;

@@ -67,8 +67,8 @@ struct
 
   module C = A.C;;
 
-  let create_analysis ?logging_prefix:(pfx=None) expr =
-    let a = A.create_initial_analysis ~logging_prefix:pfx expr in
+  let create_analysis expr =
+    let a = A.create_initial_analysis expr in
     { aref = ref @@ A.perform_full_closure a
     ; expression = expr
     }

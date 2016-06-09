@@ -57,9 +57,7 @@ let toploop_operate conf e =
               | None -> ();
             end;
             (* Create the analysis.  The wrapper performs full closure on it. *)
-            let analysis =
-              TLA.create_analysis ~logging_prefix: (Some "_toploop") e
-            in
+            let analysis = TLA.create_analysis e in
             (* Determine if it is consistent. *)
             let inconsistencies =
               if conf.topconf_disable_inconsistency_check

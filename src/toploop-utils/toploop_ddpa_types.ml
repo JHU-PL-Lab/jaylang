@@ -73,7 +73,7 @@ module type DDPA = sig
 
   module C : Context_stack;;
 
-  val create_analysis : ?logging_prefix:string option -> expr -> analysis
+  val create_analysis : expr -> analysis
 
   val values_of_variable_from :
     var -> annotated_clause -> analysis -> Abs_filtered_value_set.t
