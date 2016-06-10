@@ -250,13 +250,17 @@ struct
     };;
 
   let add_edge from_state stack_action_list to_state analysis =
-    let edge =
-      next_edge_in_sequence
-        (State_node from_state)
-        stack_action_list
-        (State_node to_state)
-    in
-    analysis |> add_work (Work.Introduce_edge edge)
+    let from_node = State_node from_state in
+    let to_node = State_node to_state in
+    let edge = next_edge_in_sequence from_node stack_action_list to_node in
+    analysis
+    |> add_work (Work.Expand_node from_node)
+    |> Option.apply
+      (match edge.edge_action with
+       | Pop _
+       | Pop_dynamic_targeted _ -> None
+       | _ -> Some (add_work (Work.Expand_node to_node)))
+    |> add_work (Work.Introduce_edge edge)
   ;;
 
   let add_edge_function edge_function analysis =
@@ -294,6 +298,7 @@ struct
   let add_untargeted_dynamic_pop_action from_state pop_action analysis =
     let from_node = State_node from_state in
     analysis
+    |> add_work (Work.Expand_node from_node)
     |> add_work (Work.Introduce_untargeted_dynamic_pop(from_node, pop_action))
   ;;
 
@@ -334,6 +339,7 @@ struct
     Work_collection_impl.is_empty analysis.work_collection
   ;;
 
+  (* FIXME: we used to do some amount of nop composition... *)
   let closure_step analysis =
     let (new_work_collection, work_opt) =
       Work_collection_impl.take analysis.work_collection
@@ -344,6 +350,9 @@ struct
       let analysis = { analysis with work_collection = new_work_collection } in
       (* A utility function to add a node to a set *only if* it needs to be
          expanded. *)
+      (* TODO: consider - do we want to do this filtering in add_work or
+         something?  The advantage here is that we don't build up a big set...
+      *)
       let expand_add node nodes_to_expand =
         let entry =
           Node_map.Exceptionless.find node analysis.node_awareness_map
