@@ -2348,6 +2348,7 @@ struct
     let analysis' = { analysis with pds_reachability = reachability' } in
     let values =
       reachability'
+      |> Ddpa_pds_reachability.fully_close
       |> Ddpa_pds_reachability.get_reachable_states start_state start_actions
       |> Enum.filter_map
         (function

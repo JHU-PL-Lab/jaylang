@@ -27,6 +27,13 @@ sig
   (** The type of untargeted dynamic pop actions in the PDS. *)
   type untargeted_dynamic_pop_action
 
+  val equal_untargeted_dynamic_pop_action :
+    untargeted_dynamic_pop_action -> untargeted_dynamic_pop_action -> bool;;
+  val compare_untargeted_dynamic_pop_action :
+    untargeted_dynamic_pop_action -> untargeted_dynamic_pop_action -> int;;
+  val pp_untargeted_dynamic_pop_action :
+    Format.formatter -> untargeted_dynamic_pop_action -> unit;;
+
   (** Stack actions which may be performed in the PDS. *)
   type stack_action =
     ( stack_element
@@ -47,6 +54,7 @@ sig
 
   (** A comparison for nodes. *)
   val compare_node : node -> node -> int
+  val equal_node : node -> node -> bool
 
   (** Pretty-printing for nodes. *)
   val pp_node : node pretty_printer
@@ -100,6 +108,15 @@ struct
   ;;
   let equal_targeted_dynamic_pop_action a a' =
     Dph.compare_targeted_dynamic_pop_action a a' = 0
+  ;;
+  let equal_untargeted_dynamic_pop_action a a' =
+    Dph.compare_untargeted_dynamic_pop_action a a' = 0
+  ;;
+  let compare_untargeted_dynamic_pop_action =
+    Dph.compare_untargeted_dynamic_pop_action
+  ;;
+  let pp_untargeted_dynamic_pop_action =
+    Dph.pp_untargeted_dynamic_pop_action
   ;;
   let equal_stack_action =
     Pds_reachability_types_stack.equal_pds_stack_action

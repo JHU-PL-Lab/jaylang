@@ -15,8 +15,10 @@ sig
 
   (** The type of a work unit. *)
   type work =
-    | Expand_state of T.state
+    | Expand_node of T.node
     | Introduce_edge of T.edge
+    | Introduce_untargeted_dynamic_pop of
+        T.node * T.untargeted_dynamic_pop_action
   ;;
 
   (** An equality test for work unit. *)
@@ -42,17 +44,19 @@ module Make
 struct
   module B = B;;
   module T = T;;
-  type t_state = T.state;;
+  type t_node = T.node;;
   type t_edge = T.edge;;
-  let equal_t_state = T.equal_state;;
+  let equal_t_node = T.equal_node;;
   let equal_t_edge = T.equal_edge;;
-  let compare_t_state = B.State_ord.compare;;
+  let compare_t_node = T.compare_node;;
   let compare_t_edge = T.compare_edge;;
-  let pp_t_state = B.pp_state;;
+  let pp_t_node = T.pp_node;;
   let pp_t_edge = T.pp_edge;;
   type work =
-    | Expand_state of t_state
+    | Expand_node of t_node
     | Introduce_edge of t_edge
+    | Introduce_untargeted_dynamic_pop of
+        T.node * T.untargeted_dynamic_pop_action
     [@@deriving eq, ord, show]
   ;;
 end;;

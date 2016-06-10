@@ -117,6 +117,7 @@ let immediate_reachability_test =
       Test_reachability.empty
       |> Test_reachability.add_edge 0 [Pop 'a'] 1
       |> Test_reachability.add_start_state 0 [Push 'a']
+      |> Test_reachability.fully_close
     in
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
     assert_equal (List.of_enum states) [1]
@@ -128,6 +129,7 @@ let immediate_non_reachable_test =
       Test_reachability.empty
       |> Test_reachability.add_edge 0 [Pop 'b'] 1
       |> Test_reachability.add_start_state 0 [Push 'a']
+      |> Test_reachability.fully_close
     in
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
     assert_equal (List.of_enum states) []
@@ -140,6 +142,7 @@ let two_step_reachability_test =
       |> Test_reachability.add_edge 0 [Pop 'a'; Push 'b'] 1
       |> Test_reachability.add_edge 1 [Pop 'b'] 2
       |> Test_reachability.add_start_state 0 [Push 'a']
+      |> Test_reachability.fully_close
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
@@ -158,6 +161,7 @@ let cycle_reachability_test =
       |> Test_reachability.add_edge 1 [Pop 'b'] 1
       |> Test_reachability.add_edge 1 [Pop 'a'] 2
       |> Test_reachability.add_start_state 0 [Push 'a']
+      |> Test_reachability.fully_close
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
@@ -177,6 +181,7 @@ let edge_function_reachability_test =
       |> Test_reachability.add_edge 50 [Pop 'b'] 50
       |> Test_reachability.add_edge 50 [Pop 'a'] 51
       |> Test_reachability.add_start_state 0 [Push 'a']
+      |> Test_reachability.fully_close
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
@@ -192,6 +197,7 @@ let nondeterminism_reachability_test =
       |> Test_reachability.add_edge 0 [Pop 'a'] 1
       |> Test_reachability.add_edge 0 [Pop 'a'] 2
       |> Test_reachability.add_start_state 0 [Push 'a']
+      |> Test_reachability.fully_close
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
@@ -210,6 +216,7 @@ let targeted_dynamic_pop_reachability_test =
       |> Test_reachability.add_edge 1 [Pop 'a'; Pop 'a'] 2
       |> Test_reachability.add_edge 1 [Pop 'a'] 3
       |> Test_reachability.add_start_state 0 [Push 'a']
+      |> Test_reachability.fully_close
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
@@ -232,6 +239,7 @@ let targeted_dynamic_pop_nondeterminism_reachability_test =
       |> Test_reachability.add_edge 0 [Push 'y'; Push 'y'] 7
       |> Test_reachability.add_edge 7 [dyn; Pop 'a'] 8
       |> Test_reachability.add_start_state 0 [Push 'a']
+      |> Test_reachability.fully_close
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
@@ -261,6 +269,7 @@ let untargeted_dynamic_pop_reachability_test =
       |> Test_reachability.add_edge 22 [Pop 'q'] 28
       |> Test_reachability.add_edge 23 [Pop 'q'] 29
       |> Test_reachability.add_start_state 0 [Push 'q']
+      |> Test_reachability.fully_close
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
@@ -318,6 +327,7 @@ let untargeted_dynamic_pop_function_reachability_test =
       |> Test_reachability.add_untargeted_dynamic_pop_action_function
           untargeted_dynamic_pop_action_fn
       |> Test_reachability.add_start_state 0 [Push 'q']
+      |> Test_reachability.fully_close
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
@@ -340,6 +350,7 @@ let targeted_dynamic_pop_chain_test =
             Test_dph.Chain_two_push_1_of_2('a','b')); Push 'c'] 1
       |> Test_reachability.add_edge 1 [Pop 'c'; Pop 'b'; Pop 'a'; Pop 'x'] 2
       |> Test_reachability.add_start_state 0 [Push 'x']
+      |> Test_reachability.fully_close
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
