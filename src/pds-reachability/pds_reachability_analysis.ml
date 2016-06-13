@@ -441,9 +441,9 @@ struct
               | [] -> {source=node;target=target;edge_action=Nop}
               | [action] -> {source=node;target=target;edge_action=action}
               | action::actions' ->
-                    { source=node
-                    ; target=Intermediate_node(target, actions')
-                    ; edge_action=action}
+                { source=node
+                ; target=Intermediate_node(target, actions')
+                ; edge_action=action}
             in
             (* We now have some work based upon the node to introduce.  We must
                also mark the node as present. *)
@@ -523,18 +523,18 @@ struct
                 then (Enum.empty(), Node_set.empty)
                 else
                   let work_list, nodes =
-                  analysis.reachability
-                  |> Structure.find_nop_edges_by_source to_node
-                  |> Enum.fold
-                    (fun (work_list,nodes) to_node' ->
-                       let work = Work.Introduce_edge(
-                         { source = from_node
-                         ; target = to_node'
-                         ; edge_action = Nop
-                         })
-                       in
-                       (work::work_list, expand_add to_node' nodes)
-                    ) ([],Node_set.empty)
+                    analysis.reachability
+                    |> Structure.find_nop_edges_by_source to_node
+                    |> Enum.fold
+                      (fun (work_list,nodes) to_node' ->
+                         let work = Work.Introduce_edge(
+                             { source = from_node
+                             ; target = to_node'
+                             ; edge_action = Nop
+                             })
+                         in
+                         (work::work_list, expand_add to_node' nodes)
+                      ) ([],Node_set.empty)
                   in (List.enum work_list, nodes)
               in
               (* Now put it all together. *)
@@ -585,7 +585,7 @@ struct
                   )
                   ([], Node_set.empty)
               in
-              let popdyn_work_list, popdyn_expand_set =
+              let popdynt_work_list, popdynt_expand_set =
                 analysis.reachability
                 |> Structure.find_targeted_dynamic_pop_edges_by_source to_node
                 |> Enum.fold
@@ -602,14 +602,35 @@ struct
                        ) (work_list,expand_set)
                   ) ([],Node_set.empty)
               in
+              let popdynu_work_list, popdynu_expand_set =
+                analysis.reachability
+                |> Structure.find_untargeted_dynamic_pop_actions_by_source
+                  to_node
+                |> Enum.fold
+                  (fun (work_list, expand_set) action ->
+                     Dph.perform_untargeted_dynamic_pop k action
+                     |> Enum.fold
+                       (fun (work_list, expand_set) (stack_actions, to_state) ->
+                          let to_node' = State_node to_state in
+                          let edge =
+                            next_edge_in_sequence
+                              from_node stack_actions to_node'
+                          in
+                          let work = Work.Introduce_edge edge in
+                          (work::work_list, expand_add to_node' expand_set)
+                       ) (work_list, expand_set)
+                  ) ([], Node_set.empty)
+              in
               ( Enum.concat @@ List.enum
                   [ List.enum nop_work_list
                   ; List.enum pop_work_list
-                  ; List.enum popdyn_work_list
+                  ; List.enum popdynt_work_list
+                  ; List.enum popdynu_work_list
                   ]
               , nop_expand_set
                 |> Node_set.union pop_expand_set
-                |> Node_set.union popdyn_expand_set
+                |> Node_set.union popdynt_expand_set
+                |> Node_set.union popdynu_expand_set
                 |> expand_add to_node
               )
             | Pop k ->
