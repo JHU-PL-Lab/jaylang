@@ -738,6 +738,11 @@ struct
   ;;
 
   let get_reachable_states state stack_actions analysis =
+    lazy_logger `debug (fun () ->
+        let (nodes,edges) = get_size analysis in
+        Printf.sprintf "get_reachable_states: analysis has %d nodes and %d edges"
+          nodes edges
+      );
     let node = Intermediate_node(State_node(state), stack_actions) in
     if Node_set.mem node analysis.start_nodes
     then
