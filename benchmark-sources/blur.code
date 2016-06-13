@@ -31,31 +31,26 @@ blur = fun y -> (
   blurr = y;
 );
 
-lpp = fun lppr -> (
-  lpprr = fun lpprparams -> (
-    a = lpprparams.a;
-    n = lpprparams.n;
-    nl = n <= one;
-    nr = nl ~ true
-            ? fun nlm -> (
-              nlmr = id a;
-            )
-            : fun nla -> (
-              rf = blur id;
-              r = rf tru;
-              sf = blur id;
-              s = sf fals;
-              lpr = lppr lppr;
-              blurlp = blur lpr;
-              n1 = n - one;
-              blurlpsn1params = {a = s, n = n1};
-              blurlpsn1 = blurlp blurlpsn1params;
-              nlar = not blurlpsn1;
-            );
-  );
+lp = fun lpprparams -> (
+  a = lpprparams.a;
+  n = lpprparams.n;
+  nl = n <= one;
+  nr = nl ~ true
+          ? fun nlm -> (
+            nlmr = id a;
+          )
+          : fun nla -> (
+            rf = blur id;
+            r = rf tru;
+            sf = blur id;
+            s = sf fals;
+            blurlp = blur lp;
+            n1 = n - one;
+            blurlpsn1params = {a = s, n = n1};
+            blurlpsn1 = blurlp blurlpsn1params;
+            nlar = not blurlpsn1;
+          );
 );
-
-lp = lpp lpp;
 
 lpparams = {a = fals, n = two};
 re = lp lpparams; # => true

@@ -19,49 +19,41 @@ zero = 0;
 one = 1;
 ten = 10;
 
-lp1p = fun lp1pr -> (
-  lp1prr = fun lp1prparams -> (
-    i = lp1prparams.i;
-    x = lp1prparams.x;
-    izero = zero == i;
-    xr = izero ~ true
-         ? fun izerom -> (
-           izeromr = x;
-         )
-         : fun izeroa -> (
-           lp2p = fun lp2pr -> (
-             lp2prr = fun lp2prparams -> (
-               j = lp2prparams.j;
-               f = lp2prparams.f;
-               y = lp2prparams.y;
-               jzero = zero == j;
-               yr = jzero ~ true
-                          ? fun yrm -> (
-                            i1 = i - one;
-                            lp1rparams = {i = i1, x = y};
-                            lp1r = lp1pr lp1pr;
-                            yrmr = lp1r lp1rparams;
-                          )
-                          : fun yra -> (
-                            j1 = j - one;
-                            fy = f y;
-                            lp2rparams = {j = j1, f = f, y = fy};
-                            lp2r = lp2pr lp2pr;
-                            yrar = lp2r lp2rparams;
-                          );
-             );
-           );
-           lp2 = lp2p lp2p;
-           fn = fun n -> (
-             ni = n + i;
-           );
-           lp2finalparams = {j = ten, f = fn, y = x};
-           izeroar = lp2 lp2finalparams;
+lp1 = fun lp1prparams -> (
+  i = lp1prparams.i;
+  x = lp1prparams.x;
+  izero = zero == i;
+  xr = izero ~ true
+       ? fun izerom -> (
+         izeromr = x;
+       )
+       : fun izeroa -> (
+         lp1atlp2 = lp1;
+         lp2 = fun lp2prparams -> (
+           j = lp2prparams.j;
+           f = lp2prparams.f;
+           y = lp2prparams.y;
+           jzero = zero == j;
+           yr = jzero ~ true
+                      ? fun yrm -> (
+                        i1 = i - one;
+                        lp1rparams = {i = i1, x = y};
+                        yrmr = lp1atlp2 lp1rparams;
+                      )
+                      : fun yra -> (
+                        j1 = j - one;
+                        fy = f y;
+                        lp2rparams = {j = j1, f = f, y = fy};
+                        yrar = lp2 lp2rparams;
+                      );
          );
-  );
+         fn = fun n -> (
+           ni = n + i;
+         );
+         lp2finalparams = {j = ten, f = fn, y = x};
+         izeroar = lp2 lp2finalparams;
+       );
 );
-
-lp1 = lp1p lp1p;
 
 lp1params = {i = ten, x = zero};
 r = lp1 lp1params; # => 550

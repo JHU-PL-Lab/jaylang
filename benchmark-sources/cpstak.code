@@ -38,45 +38,43 @@ cpstak = fun cpstakparams -> (
   cpstaky = cpstakparams.y;
   cpstakz = cpstakparams.z;
 
-  takp = fun takpr -> (
-    takprr = fun takprparams -> (
-      x = takprparams.x;
-      y = takprparams.y;
-      z = takprparams.z;
-      k = takprparams.k;
+  tak = fun takprparams -> (
+    x = takprparams.x;
+    y = takprparams.y;
+    z = takprparams.z;
+    k = takprparams.k;
 
-      yx = y < x;
+    yx = y < x;
 
-      notyx = not yx;
+    notyx = not yx;
 
-      takr = takpr takpr;
-      kr = notyx ~ true
-                 ? fun notyxm -> (
-                   notyxmr = k z;
-                 )
-                 : fun notyxa -> (
-                   x1 = x - one;
-                   fv1 = fun v1 -> (
-                     y1 = y - one;
-                     fv2 = fun v2 -> (
-                       z1 = z - one;
-                       fv3 = fun v3 -> (
-                         takfinalparams = {x = v1, y = v2, z = v3, k = k};
-                         fv3r = takr takfinalparams;
-                       );
-                       takzparams = {x = z1, y = x, z = y, k = fv3};
-                       fv2r = takr takzparams;
+    kr = notyx ~ true
+               ? fun notyxm -> (
+                 notyxmr = k z;
+               )
+               : fun notyxa -> (
+                 x1 = x - one;
+                 takatfv1 = tak;
+                 fv1 = fun v1 -> (
+                   takatfv2 = takatfv1;
+                   y1 = y - one;
+                   fv2 = fun v2 -> (
+                     takatfv3 = takatfv2;
+                     z1 = z - one;
+                     fv3 = fun v3 -> (
+                       takfinalparams = {x = v1, y = v2, z = v3, k = k};
+                       fv3r = takatfv3 takfinalparams;
                      );
-                     takyparams = {x = y1, y = z, z = x, k = fv2};
-                     fv1r = takr takyparams;
+                     takzparams = {x = z1, y = x, z = y, k = fv3};
+                     fv2r = takatfv2 takzparams;
                    );
-                   takxparams = {x = x1, y = y, z = z, k = fv1};
-                   notyxar = takr takxparams;
+                   takyparams = {x = y1, y = z, z = x, k = fv2};
+                   fv1r = takatfv1 takyparams;
                  );
-    );
+                 takxparams = {x = x1, y = y, z = z, k = fv1};
+                 notyxar = tak takxparams;
+               );
   );
-  
-  tak = takp takp;
   
   takid = fun a -> (
     takidr = a;
