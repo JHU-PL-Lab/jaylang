@@ -411,7 +411,7 @@ struct
           | State_node(state) ->
             (* We just need to introduce this node to all of the edge functions
                that we have accumulated so far. *)
-            let work =
+            let edge_work =
               analysis.edge_functions
               |> List.enum
               |> Enum.map (fun f -> f state)
@@ -427,7 +427,17 @@ struct
                   Work.Introduce_edge edge
                 )
             in
-            { (add_works work analysis) with
+            let popdynu_work =
+              analysis.untargeted_dynamic_pop_action_functions
+              |> List.enum
+              |> Enum.map (fun f -> f state)
+              |> Enum.concat
+              |> Enum.map
+                (fun action ->
+                  Work.Introduce_untargeted_dynamic_pop(node, action)
+                )
+            in
+            { (analysis |> add_works edge_work |> add_works popdynu_work) with
               known_states = analysis.known_states |> State_set.add state
             ; node_awareness_map =
                 analysis.node_awareness_map
