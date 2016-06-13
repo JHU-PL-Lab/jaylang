@@ -1,6 +1,6 @@
 (**
-  This test module performs a series of operations to test the PDA reachability
-  functionality in the Odefa analysis library.
+   This test module performs a series of operations to test the PDA reachability
+   functionality in the Odefa analysis library.
 *)
 
 open Batteries;;
@@ -80,20 +80,20 @@ struct
     match action with
     | Double_push -> Enum.singleton [Push(element);Push(element)]
     | Consume_identical_1_of_2 -> Enum.singleton
-        [Pop_dynamic_targeted(Consume_identical_2_of_2 element)]
+                                    [Pop_dynamic_targeted(Consume_identical_2_of_2 element)]
     | Consume_identical_2_of_2 element' ->
-        if Test_stack_element_ord.compare element element' == 0
-        then Enum.singleton []
-        else Enum.empty ()
+      if Test_stack_element_ord.compare element element' == 0
+      then Enum.singleton []
+      else Enum.empty ()
     | Chain_two_push_1_of_2(k1,k2) ->
-        Enum.singleton
-          [ Pop_dynamic_targeted(Chain_two_push_2_of_2(k2))
-          ; Push(k1)
-          ; Push(element) ]
+      Enum.singleton
+        [ Pop_dynamic_targeted(Chain_two_push_2_of_2(k2))
+        ; Push(k1)
+        ; Push(element) ]
     | Chain_two_push_2_of_2 k ->
-        Enum.singleton
-          [ Push(k)
-          ; Push(element) ]
+      Enum.singleton
+        [ Push(k)
+        ; Push(element) ]
   ;;
   let perform_untargeted_dynamic_pop element action =
     match action with
@@ -146,7 +146,7 @@ let two_step_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.show_analysis analysis));
+                 String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
     assert_equal (List.of_enum states) [2]
 ;;
@@ -165,7 +165,7 @@ let cycle_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.show_analysis analysis));
+                 String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
     assert_equal (List.of_enum states) [2]
 ;;
@@ -175,9 +175,9 @@ let edge_function_reachability_test =
     let analysis =
       Test_reachability.empty
       |> Test_reachability.add_edge_function
-          (fun state ->
-            if state >= 50 then Enum.empty () else
-              Enum.singleton @@ ([Push 'b'], state + 1))
+        (fun state ->
+           if state >= 50 then Enum.empty () else
+             Enum.singleton @@ ([Push 'b'], state + 1))
       |> Test_reachability.add_edge 50 [Pop 'b'] 50
       |> Test_reachability.add_edge 50 [Pop 'a'] 51
       |> Test_reachability.add_start_state 0 [Push 'a']
@@ -185,7 +185,7 @@ let edge_function_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.show_analysis analysis));
+                 String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
     assert_equal (List.of_enum states) [51]
 ;;
@@ -201,7 +201,7 @@ let nondeterminism_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.show_analysis analysis));
+                 String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
     assert_equal (List.sort compare @@ List.of_enum states) [1;2]
 ;;
@@ -212,7 +212,7 @@ let targeted_dynamic_pop_reachability_test =
     let analysis =
       Test_reachability.empty
       |> Test_reachability.add_edge 0
-          [Pop_dynamic_targeted Test_dph.Double_push] 1
+        [Pop_dynamic_targeted Test_dph.Double_push] 1
       |> Test_reachability.add_edge 1 [Pop 'a'; Pop 'a'] 2
       |> Test_reachability.add_edge 1 [Pop 'a'] 3
       |> Test_reachability.add_start_state 0 [Push 'a']
@@ -220,7 +220,7 @@ let targeted_dynamic_pop_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.show_analysis analysis));
+                 String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
     assert_equal (List.sort compare @@ List.of_enum states) [2]
 ;;
@@ -243,7 +243,7 @@ let targeted_dynamic_pop_nondeterminism_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.show_analysis analysis));
+                 String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
     assert_equal (List.sort compare @@ List.of_enum states) [6;8]
 ;;
@@ -254,18 +254,18 @@ let untargeted_dynamic_pop_reachability_test =
       Test_reachability.empty
       |> Test_reachability.add_edge 0 [Push 'a'] 1
       |> Test_reachability.add_untargeted_dynamic_pop_action
-          1 (Test_dph.Target_condition_on_element_is_A(2,3))
+        1 (Test_dph.Target_condition_on_element_is_A(2,3))
       |> Test_reachability.add_edge 2 [Pop 'q'] 8
       |> Test_reachability.add_edge 3 [Pop 'q'] 9
       |> Test_reachability.add_edge 0 [Push 'b'] 11
       |> Test_reachability.add_untargeted_dynamic_pop_action
-          11 (Test_dph.Target_condition_on_element_is_A(12,13))
+        11 (Test_dph.Target_condition_on_element_is_A(12,13))
       |> Test_reachability.add_edge 12 [Pop 'q'] 18
       |> Test_reachability.add_edge 13 [Pop 'q'] 19
       |> Test_reachability.add_edge 0 [Push 'a'] 21
       |> Test_reachability.add_edge 0 [Push 'b'] 21
       |> Test_reachability.add_untargeted_dynamic_pop_action
-          21 (Test_dph.Target_condition_on_element_is_A(22,23))
+        21 (Test_dph.Target_condition_on_element_is_A(22,23))
       |> Test_reachability.add_edge 22 [Pop 'q'] 28
       |> Test_reachability.add_edge 23 [Pop 'q'] 29
       |> Test_reachability.add_start_state 0 [Push 'q']
@@ -273,10 +273,10 @@ let untargeted_dynamic_pop_reachability_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.show_analysis analysis));
+                 String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states =
       List.sort compare @@ List.of_enum @@
-        Test_reachability.get_reachable_states 0 [Push 'q'] analysis
+      Test_reachability.get_reachable_states 0 [Push 'q'] analysis
     in
     lazy_logger `trace
       (fun () -> "states: " ^ String_utils.string_of_list string_of_int states);
@@ -286,25 +286,25 @@ let untargeted_dynamic_pop_reachability_test =
 let untargeted_dynamic_pop_function_reachability_test =
   "untargeted_dynamic_pop_function_reachability_test" >:: fun _ ->
     (* We're building this:
-      1. (S) -- Push 'q' --> (0)
-      2. (0) -- Push 'a', Push 'b', Push 'b' --> (1)
-      3. (0) -- Push 'a', Push 'a', Push 'a' --> (1)
-      4. (0) -- Push 'b', Push 'b' --> (1)
-      5. (0) -- Nop --> (1)
-      6. (n) -- Pop 'a' --> (n+1)  for 1 <= n <= 7
-      7. (n) -- Pop not 'a' --> (n+2) for 1 <= n <= 7
-      8. (n) -- Pop 'q' --> (n+20) for 1 <= n <= 7
+       1. (S) -- Push 'q' --> (0)
+       2. (0) -- Push 'a', Push 'b', Push 'b' --> (1)
+       3. (0) -- Push 'a', Push 'a', Push 'a' --> (1)
+       4. (0) -- Push 'b', Push 'b' --> (1)
+       5. (0) -- Nop --> (1)
+       6. (n) -- Pop 'a' --> (n+1)  for 1 <= n <= 7
+       7. (n) -- Pop not 'a' --> (n+2) for 1 <= n <= 7
+       8. (n) -- Pop 'q' --> (n+20) for 1 <= n <= 7
 
-      Given the above, we expect the following successful paths:
+       Given the above, we expect the following successful paths:
 
-      (S) ~1~> (0) ~2~> (1) ~7~> (3) ~7~> (5) ~6~> (6) ~7~> (8)
-      (S) ~1~> (0) ~2~> (1) ~7~> (3) ~7~> (5) ~6~> (6) ~8~> (26)
-      (S) ~1~> (0) ~3~> (1) ~6~> (2) ~6~> (3) ~6~> (4) ~7~> (6)
-      (S) ~1~> (0) ~3~> (1) ~6~> (2) ~6~> (3) ~6~> (4) ~8~> (24)
-      (S) ~1~> (0) ~4~> (1) ~7~> (3) ~7~> (5) ~7~> (7)
-      (S) ~1~> (0) ~4~> (1) ~7~> (3) ~7~> (5) ~8~> (25)
-      (S) ~1~> (0) ~5~> (1) ~7~> (3)
-      (S) ~1~> (0) ~5~> (1) ~8~> (21)
+       (S) ~1~> (0) ~2~> (1) ~7~> (3) ~7~> (5) ~6~> (6) ~7~> (8)
+       (S) ~1~> (0) ~2~> (1) ~7~> (3) ~7~> (5) ~6~> (6) ~8~> (26)
+       (S) ~1~> (0) ~3~> (1) ~6~> (2) ~6~> (3) ~6~> (4) ~7~> (6)
+       (S) ~1~> (0) ~3~> (1) ~6~> (2) ~6~> (3) ~6~> (4) ~8~> (24)
+       (S) ~1~> (0) ~4~> (1) ~7~> (3) ~7~> (5) ~7~> (7)
+       (S) ~1~> (0) ~4~> (1) ~7~> (3) ~7~> (5) ~8~> (25)
+       (S) ~1~> (0) ~5~> (1) ~7~> (3)
+       (S) ~1~> (0) ~5~> (1) ~8~> (21)
     *)
     let edge_function state =
       if state >= 1 && state < 8
@@ -314,7 +314,7 @@ let untargeted_dynamic_pop_function_reachability_test =
     let untargeted_dynamic_pop_action_fn state =
       if state >= 1 && state < 8
       then Enum.singleton
-            (Test_dph.Target_condition_on_element_is_A(state+1,state+2))
+          (Test_dph.Target_condition_on_element_is_A(state+1,state+2))
       else Enum.empty ()
     in
     let analysis =
@@ -325,16 +325,16 @@ let untargeted_dynamic_pop_function_reachability_test =
       |> Test_reachability.add_edge 0 [] 1
       |> Test_reachability.add_edge_function edge_function
       |> Test_reachability.add_untargeted_dynamic_pop_action_function
-          untargeted_dynamic_pop_action_fn
+        untargeted_dynamic_pop_action_fn
       |> Test_reachability.add_start_state 0 [Push 'q']
       |> Test_reachability.fully_close
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.show_analysis analysis));
+                 String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states =
       List.sort compare @@ List.of_enum @@
-        Test_reachability.get_reachable_states 0 [Push 'q'] analysis
+      Test_reachability.get_reachable_states 0 [Push 'q'] analysis
     in
     lazy_logger `trace
       (fun () -> "states: " ^ String_utils.string_of_list string_of_int states);
@@ -346,7 +346,7 @@ let targeted_dynamic_pop_chain_test =
     let analysis =
       Test_reachability.empty
       |> Test_reachability.add_edge 0
-          [Pop_dynamic_targeted(
+        [Pop_dynamic_targeted(
             Test_dph.Chain_two_push_1_of_2('a','b')); Push 'c'] 1
       |> Test_reachability.add_edge 1 [Pop 'c'; Pop 'b'; Pop 'a'; Pop 'x'] 2
       |> Test_reachability.add_start_state 0 [Push 'x']
@@ -354,21 +354,52 @@ let targeted_dynamic_pop_chain_test =
     in
     lazy_logger `trace
       (fun () -> "analysis:\n" ^
-        String_utils.indent 2 (Test_reachability.show_analysis analysis));
+                 String_utils.indent 2 (Test_reachability.show_analysis analysis));
     let states = Test_reachability.get_reachable_states 0 [Push 'x'] analysis in
     assert_equal (List.sort compare @@ List.of_enum states) [2]
 ;;
 
+let lazy_edge_function_test =
+  "lazy_edge_function_test" >:: fun _ ->
+    let analysis =
+      Test_reachability.empty
+      |> Test_reachability.add_edge_function
+        (fun state ->
+           if state < 10 || state > 99999998 then Enum.empty () else
+             List.enum [ ( [ Pop 'a' ]
+                         , state + 1
+                         )
+                       ; ( [ Pop 'b' ]
+                         , state + 2
+                         )
+                       ]
+        )
+      |> Test_reachability.add_start_state 0 [Push 'a']
+      |> Test_reachability.add_edge 0 [Push 'a'; Push 'a'; Push 'a'] 10
+      |> Test_reachability.add_edge 0 [Push 'b'; Push 'b'] 11
+      |> Test_reachability.fully_close
+    in
+    lazy_logger `trace
+      (fun () -> "analysis:\n" ^
+                 String_utils.indent 2 (Test_reachability.show_analysis analysis));
+    let states = Test_reachability.get_reachable_states 0 [Push 'a'] analysis in
+    assert_equal (List.sort compare @@ List.of_enum states) [14; 16];
+    let (nodes, edges) = Test_reachability.get_size analysis in
+    assert_bool "too many nodes" (nodes < 20);
+    assert_bool "too many edges" (edges < 100)
+;;
+
 let tests = "Test_reachability" >:::
-  [ immediate_reachability_test
-  ; immediate_non_reachable_test
-  ; two_step_reachability_test
-  ; cycle_reachability_test
-  ; edge_function_reachability_test
-  ; nondeterminism_reachability_test
-  ; targeted_dynamic_pop_reachability_test
-  ; targeted_dynamic_pop_nondeterminism_reachability_test
-  ; untargeted_dynamic_pop_reachability_test
-  ; untargeted_dynamic_pop_function_reachability_test
-  ]
+            [ immediate_reachability_test
+            ; immediate_non_reachable_test
+            ; two_step_reachability_test
+            ; cycle_reachability_test
+            ; edge_function_reachability_test
+            ; nondeterminism_reachability_test
+            ; targeted_dynamic_pop_reachability_test
+            ; targeted_dynamic_pop_nondeterminism_reachability_test
+            ; untargeted_dynamic_pop_reachability_test
+            ; untargeted_dynamic_pop_function_reachability_test
+            ; lazy_edge_function_test
+            ]
 ;;
