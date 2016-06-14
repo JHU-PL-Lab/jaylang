@@ -56,6 +56,10 @@ let pp_map pp_k pp_v enum formatter dict =
   pp_concat_sep_delim "{" "}" "," pp_kv_pair formatter @@ enum dict
 ;;
 
+let pp_set pp_el enum formatter set =
+  pp_concat_sep_delim "{" "}" "," pp_el formatter @@ enum set
+;;
+
 let pp_to_string pp x =
   let buffer = Buffer.create 80 in
   let formatter = formatter_of_buffer buffer in

@@ -20,7 +20,7 @@ type ( 'stack_element
       fixed; they vary depending upon the stack element which is provided.
       This operation may also be non-deterministic, providing several
       chains of operations to the same target. *)
-  [@@deriving ord, show]
+  [@@deriving eq, ord, show]
 ;;
 
 (** The type of a module which resolves dynamic pops. *)

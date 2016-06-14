@@ -97,7 +97,7 @@ module Make
       and type stack_element = Basis.stack_element
       and type targeted_dynamic_pop_action = Dph.targeted_dynamic_pop_action
       and type untargeted_dynamic_pop_action = Dph.untargeted_dynamic_pop_action
-      )
+    )
   : Structure
     with type stack_element = Basis.stack_element
      and type edge = Types.edge

@@ -4,7 +4,6 @@
 
 open Batteries;;
 
-open Pds_reachability_logger_utils;;
 open Pds_reachability_types_stack;;
 open Pp_utils;;
 
@@ -29,7 +28,7 @@ sig
 
   (** The empty analysis.  This analysis has no states, edges, or edge
       functions. *)
-  val empty : ?logging_prefix:string option -> unit -> analysis
+  val empty : analysis
 
   (** Adds a single edge to a reachability analysis. *)
   val add_edge
@@ -66,9 +65,20 @@ sig
     -> analysis
     -> analysis
 
+  (** Determines whether the reachability analysis is closed. *)
+  val is_closed : analysis -> bool
+
+  (** Takes a step toward closing a given reachability analysis.  If the
+      analysis is already closed, it is returned unchanged. *)
+  val closure_step : analysis -> analysis
+
+  (** Fully closes the provided analysis. *)
+  val fully_close : analysis -> analysis
+
   (** Determines the states which are reachable from a given state and initial
       stack element.  This state must have been added to the analysis
-      previously. *)
+      previously.  If the analysis is not fully closed, then the enumeration of
+      reachable states may be incomplete.  *)
   val get_reachable_states
     : state
     -> stack_action list
@@ -83,13 +93,6 @@ sig
       is added as a start state. *)
   exception Reachability_request_for_non_start_state of state;;
 
-  (** Configures the logging level for the analyses produced by this module.
-      This affects all such analyses, not just future analyses. *)
-  val set_logging_level : pds_reachability_logger_level -> unit
-
-  (** Retrieves the logging level used by analyses produced by this module. *)
-  val get_logging_level : unit -> pds_reachability_logger_level
-
   (** Determines the size of the provided analysis in terms of both node and
       edge count (respectively). *)
   val get_size : analysis -> int * int
@@ -100,6 +103,8 @@ module Make
     (Dph : Pds_reachability_types_stack.Dynamic_pop_handler
      with type stack_element = Basis.stack_element
       and type state = Basis.state)
+    (Work_collection_template_impl :
+       Pds_reachability_work_collection.Work_collection_template)
   : Analysis
     with type state = Basis.state
      and type stack_element = Basis.stack_element
@@ -110,10 +115,9 @@ struct
   (********** Create and wire in appropriate components. **********)
 
   module Types = Pds_reachability_types.Make(Basis)(Dph);;
+  module Work = Pds_reachability_work.Make(Basis)(Types);;
+  module Work_collection_impl = Work_collection_template_impl(Work);;
   module Structure = Pds_reachability_structure.Make(Basis)(Dph)(Types);;
-  module Logger =
-    Pds_reachability_logger_utils.Make(Basis)(Dph)(Types)(Structure)
-  ;;
 
   include Types;;
 
@@ -134,84 +138,105 @@ struct
   end;;
 
   module Node_set = Set.Make(Node_ord);;
+  module Node_map = Map.Make(Node_ord);;
 
   (********** Define analysis structure. **********)
 
-  type analysis_logging_data =
-    { analysis_logging_prefix : string
-    ; major_log_index : int
-    ; minor_log_index : int
-    }
+  type node_awareness =
+    | Seen
+    (* Indicates that this node exists somewhere in the work queue but not in
+       the analysis structure. *)
+    | Expanded
+    (* Indicates that this node exists somewhere in the analysis structure and
+       has already been expanded.  An expanded node responds to edge functions,
+       for instance. *)
     [@@deriving show]
-  ;;
-  let _show_analysis_logging_data = show_analysis_logging_data;;
+  let _ = show_node_awareness;; (* To ignore an unused generated function. *)
 
   type analysis =
-    { known_nodes : Node_set.t
-          [@printer fun formatter nodes ->
-                 pp_concat_sep_delim "{" "}" "," pp_node formatter @@
-                 Node_set.enum nodes]
+    { node_awareness_map : node_awareness Node_map.t
+          [@printer Pp_utils.pp_map pp_node pp_node_awareness Node_map.enum]
+    (* A mapping from each node to whether the analysis is aware of it.  Any node
+       not in this map has not been seen in any fashion.  Every node that has been
+       seen will be mapped to an appropriate [node_awareness] value. *)
+    ; known_states : State_set.t
+          [@printer Pp_utils.pp_set Basis.pp_state State_set.enum]
+    (* A collection of all states appearing somewhere within the reachability
+       structure (whether they have been expanded or not). *)
+    ; start_nodes : Node_set.t
+          [@printer Pp_utils.pp_set Types.pp_node Node_set.enum]
+    (* A collection of the nodes which are recognized starting points.  Nop
+       closure is only valid when sourced from these nodes, so these are the
+       only nodes from which reachability questions are appropriate. *)
     ; reachability : Structure.structure
+    (* The underlying structure maintaining the nodes and edges in the graph. *)
     ; edge_functions : edge_function list
           [@printer fun formatter functions ->
                  Format.fprintf formatter "(length = %d)"
                    (List.length functions)]
+    (* The list of all edge functions for this analysis. *)
     ; untargeted_dynamic_pop_action_functions :
         untargeted_dynamic_pop_action_function list
           [@printer fun formatter functions ->
                  Format.fprintf formatter "(length = %d)"
                    (List.length functions)]
-    ; logging_data : analysis_logging_data option
+    (* The list of all untargeted dynamic pop action functions. *)
+    ; work_collection : Work_collection_impl.work_collection
+    (* The collection of work which has not yet been performed. *)
     }
     [@@deriving show]
   ;;
 
+  (********** Analysis utility functions. **********)
+
+  let add_work work analysis =
+    match work with
+    | Work.Expand_node node ->
+      if Node_map.mem node analysis.node_awareness_map
+      then analysis
+      else
+        { analysis with
+          work_collection =
+            Work_collection_impl.offer work analysis.work_collection
+        ; node_awareness_map =
+            Node_map.add node Seen analysis.node_awareness_map
+        }
+    | Work.Introduce_edge edge ->
+      (* TODO: We might want to filter duplicate introduce-edge steps from the
+         work collection. *)
+      if Structure.has_edge edge analysis.reachability
+      then analysis
+      else
+        { analysis with
+          work_collection =
+            Work_collection_impl.offer work analysis.work_collection
+        }
+    | Work.Introduce_untargeted_dynamic_pop(from_node,action) ->
+      (* TODO: We might want to filter duplicate introduce-udynpop steps from
+         the work collection. *)
+      if Structure.has_untargeted_dynamic_pop_action
+          from_node action analysis.reachability
+      then analysis
+      else
+        { analysis with
+          work_collection =
+            Work_collection_impl.offer work analysis.work_collection
+        }
+  ;;
+
+  let add_works works analysis = Enum.fold (flip add_work) analysis works;;
+
+  let next_edge_in_sequence from_node actions to_node =
+    let next_node,action =
+      match actions with
+      | [] -> to_node,Nop
+      | [x] -> to_node,x
+      | x::xs -> Intermediate_node(to_node,xs),x
+    in
+    {source=from_node;target=next_node;edge_action=action}
+  ;;
+
   (********** Define analysis operations. **********)
-
-  let log_analysis level analysis =
-    match analysis.logging_data with
-    | None -> ()
-    | Some data ->
-      let name = Pds_reachability_logger_name(
-          data.analysis_logging_prefix,
-          data.major_log_index,
-          data.minor_log_index)
-      in
-      Logger.log level name analysis.reachability
-  ;;
-
-  let log_step inc_fn level analysis =
-    match analysis.logging_data with
-    | None -> analysis
-    | Some data ->
-      log_analysis level analysis;
-      lazy_logger `trace
-        (fun () ->
-           let name = Pds_reachability_logger_name(
-               data.analysis_logging_prefix,
-               data.major_log_index,
-               data.minor_log_index)
-           in
-           Printf.sprintf "Logging graph %s" @@ Logger.string_of_name name
-        );
-      let data' = inc_fn data in
-      { analysis with logging_data = Some data' }
-  ;;
-
-  let log_major =
-    log_step (fun data ->
-        { data with
-          major_log_index = data.major_log_index + 1; minor_log_index = 0 })
-  ;;
-
-  let log_minor =
-    log_step (fun data ->
-        { data with minor_log_index = data.minor_log_index + 1 })
-  ;;
-
-  let get_logging_level () = Logger.get_level ();;
-
-  let set_logging_level level = Logger.set_level level;;
 
   let get_size analysis =
     let reachability = analysis.reachability in
@@ -220,406 +245,496 @@ struct
     (node_count, edge_count)
   ;;
 
-  let empty ?logging_prefix:(logging_prefix=None) () =
-    { known_nodes = Node_set.empty
+  let empty =
+    { node_awareness_map = Node_map.empty
+    ; known_states = State_set.empty
+    ; start_nodes = Node_set.empty
     ; reachability = Structure.empty
     ; edge_functions = []
     ; untargeted_dynamic_pop_action_functions = []
-    ; logging_data =
-        match logging_prefix with
-        | None -> None
-        | Some pfx -> Some
-                        { analysis_logging_prefix = pfx
-                        ; major_log_index = 0
-                        ; minor_log_index = 0
-                        }
+    ; work_collection = Work_collection_impl.empty
     };;
 
-  (** Adds a "real" edge (the PDS reachability structure's edge, not the
-      analysis interface's presentation of an edge) to an analysis.  Then,
-      performs edge closure on the analysis. *)
-  let rec add_real_edge_and_close edge analysis =
-    Logger_utils.lazy_bracket_log (lazy_logger `trace)
-      (fun () -> "add_real_edge_and_close " ^ show_edge edge)
-      (fun _ -> "Finished") @@
-    fun () ->
-    (* If we already have this edge, ignore the addition.  In particular, we can
-       get an infinite loop (resulting in stack overflow) if we allow the
-       closure to proceed. *)
-    if Structure.has_edge edge analysis.reachability then analysis else
-      log_minor Pds_reachability_log_each_edge @@
-      (* First, add this edge to the lookup structures. *)
-      let analysis' =
-        { analysis with
-          reachability = Structure.add_edge edge analysis.reachability
-        }
-      in
-      (* Now that this edge is added, we need to consider other edges which may
-         arise directly from its presence.  This edge introduces a target node;
-         if we have not yet seen that target, we have not executed the edge
-         functions on it.  We should do this for nodes of push and nop edges
-         because they are "alive": there is necessarily a path from a starting
-         node to reach them due to how edges are added to the analysis.  We do
-         not do this for pop edges, instead waiting until the pop is canceled by
-         a push during closure (see below). *)
-      let analysis'' =
-        match edge.edge_action with
-        | Nop | Push _ -> add_node edge.source @@ add_node edge.target analysis'
-        | Pop _ | Pop_dynamic_targeted _ -> analysis'
-      in
-      (* Next, we need to perform edge closure.  The particular action depends
-         on this new edge's action.  The closure rules are summarized below.
-          1. (a) -- push a --> (b) -- pop a --> (c) ==> (a) -- nop --> (c)
-          2. (a) -- push a --> (b) -- nop --> (c) ==> (a) -- push a --> (c)
-          3. (a) -- nop --> (b) -- nop --> (c) ==> (a) -- nop --> (c)
-          4. (a) -- push a --> (b) -- targeted_dynamic_pop f --> (c) ==>
-              (a) -- action_1 --> ... -- action_n --> (c)
-             for each [action_1,...,action_n] in f a
-          5. (a) -- push a --> (b) -- untargeted_dynamic_pop f ==>
-              (a) -- action_1 --> ... -- action_n --> (c)
-             for each ([action_1,...,action_n],c) in f a
-      *)
-      (* more_edges is an enumeration containing edges which are immediately
-         known *)
-      let more_edges =
-        match edge.edge_action with
-        | Nop ->
-          let push_into_source =
-            analysis''.reachability
-            |> Structure.find_push_edges_by_target edge.source
-            |> Enum.map
-              (fun (source',element) ->
-                 { source = source'; target = edge.target
-                 ; edge_action = Push element
-                 })
-          in
-          let nop_into_source =
-            analysis''.reachability
-            |> Structure.find_nop_edges_by_target edge.source
-            |> Enum.map
-              (fun source' ->
-                 { source = source'; target = edge.target; edge_action = Nop })
-          in
-          let nop_out_of_target =
-            analysis''.reachability
-            |> Structure.find_nop_edges_by_source edge.target
-            |> Enum.map
-              (fun target' ->
-                 { source = edge.source; target = target'; edge_action = Nop })
-          in
-          Enum.concat @@ List.enum
-            [ push_into_source; nop_into_source; nop_out_of_target ]
-        | Push element as act ->
-          let nop_out_of_target =
-            analysis''.reachability
-            |> Structure.find_nop_edges_by_source edge.target
-            |> Enum.map
-              (fun target' ->
-                 { source = edge.source; target = target'; edge_action = act })
-          in
-          let pop_out_of_target =
-            analysis''.reachability
-            |> Structure.find_pop_edges_by_source_and_element
-              edge.target element
-            |> Enum.map
-              (fun target' ->
-                 { source = edge.source; target = target'; edge_action = Nop })
-          in
-          Enum.append nop_out_of_target pop_out_of_target
-        | Pop element ->
-          let push_into_source =
-            analysis''.reachability
-            |> Structure.find_push_edges_by_target_and_element
-              edge.source element
-            |> Enum.map
-              (fun source' ->
-                 { source = source'; target = edge.target; edge_action = Nop })
-          in
-          push_into_source
-        | Pop_dynamic_targeted _ -> Enum.empty ()
-      in
-      (* analysis_updates is an enumeration of functions which will update the
-         analysis by adding edges.  This is appropriate when e.g. new
-         intermediate nodes must be created. *)
-      let analysis_updates =
-        match edge.edge_action with
-        | Nop -> Enum.empty ()
-        | Push element ->
-          let targeted_dynamic_pop_out_of_target =
-            analysis''.reachability
-            |> Structure.find_targeted_dynamic_pop_edges_by_source edge.target
-            |> Enum.map
-              (fun (target', action) ->
-                 fun (analysis : analysis) ->
-                   Dph.perform_targeted_dynamic_pop element action
-                   |> Enum.fold
-                     (fun analysis' actions ->
-                        add_edges_between_nodes
-                          edge.source target' actions analysis')
-                     analysis
-              )
-          in
-          let untargeted_dynamic_pop_out_of_target =
-            analysis''.reachability
-            |> Structure.find_untargeted_dynamic_pop_actions_by_source
-              edge.target
-            |> Enum.map (Dph.perform_untargeted_dynamic_pop element)
-            |> Enum.concat
-            |> Enum.map
-              (fun (path, target) ->
-                 let target_node = State_node target in
-                 add_edges_between_nodes edge.source target_node path)
-          in
-          Enum.append
-            untargeted_dynamic_pop_out_of_target
-            targeted_dynamic_pop_out_of_target
-        | Pop _ -> Enum.empty ()
-        | Pop_dynamic_targeted action ->
-          let push_into_source =
-            analysis''.reachability
-            |> Structure.find_push_edges_by_target edge.source
-            |> Enum.map
-              (fun (source, element) ->
-                 fun analysis ->
-                   Dph.perform_targeted_dynamic_pop element action
-                   |> Enum.fold
-                     (fun analysis' actions ->
-                        add_edges_between_nodes
-                          source edge.target actions analysis')
-                     analysis
-              )
-          in
-          push_into_source
-      in
-      let analysis_after_edges =
-        more_edges
-        |> Enum.fold (flip add_real_edge_and_close) analysis''
-      in
-      let analysis_after_updates =
-        analysis_updates
-        |> Enum.fold (fun a f -> f a) analysis_after_edges
-      in
-      analysis_after_updates
-
-  (**
-     Adds a sequence of edges between two nodes in the analysis.  This is
-     accomplished by introducing intermediate nodes as necessary.
-  *)
-  and add_edges_between_nodes source_node target_node stack_actions analysis =
-    Logger_utils.lazy_bracket_log (lazy_logger `trace)
-      (fun () ->
-         Printf.sprintf "add_edges_between_nodes(%s,%s,%s)"
-           (Types.show_node source_node) (Types.show_node target_node)
-           (String_utils.string_of_list (Types.show_stack_action) stack_actions)
-      )
-      (fun _ -> "Finished") @@
-    fun () ->
-    (* This recursive function creates the chain of single stack action edges
-       from the provided list of stack actions.  It consumes intermediate node
-       numbers as necessary to generate the edges, so it takes and returns this
-       value. *)
-    let rec mk_real_edges actions next_source =
-      match actions with
-      | [] ->
-        let edge =
-          { source = next_source
-          ; target = target_node
-          ; edge_action = Nop
-          }
-        in
-        [edge]
-      | [action] ->
-        let edge =
-          { source = next_source
-          ; target = target_node
-          ; edge_action = action
-          }
-        in
-        [edge]
-      | action::actions' ->
-        let target = Intermediate_node(target_node, actions') in
-        let edge =
-          { source = next_source
-          ; target = target
-          ; edge_action = action
-          }
-        in
-        let real_edges = mk_real_edges actions' target in
-        edge :: real_edges
-    in
-    (* Let's figure out which new single-action edges we will be adding. *)
-    let real_edges = mk_real_edges stack_actions source_node in
-    let analysis' =
-      add_node source_node @@ add_node target_node analysis
-    in
-    (* Log the result. *)
-    lazy_logger `trace @@
-    (fun () ->
-       Printf.sprintf "In add_edges_between_nodes(%s,%s,%s), generated edges: %s"
-         (Types.show_node source_node) (Types.show_node target_node)
-         (String_utils.string_of_list (Types.show_stack_action) stack_actions)
-         (String_utils.string_of_list Types.show_edge real_edges)
-    );
-    (* Now, let's add them. *)
-    real_edges
-    |> List.fold_left
-      (fun analysis'' real_edge ->
-         add_real_edge_and_close real_edge analysis'')
-      analysis'
-
-  (**
-     Adds an edge to this analysis.  Here, "edge" refers to the interface's
-     presentation of an edge structure.
-  *)
-  and add_edge source_state stack_action_list target_state analysis =
-    let source_node = State_node(source_state) in
-    let target_node = State_node(target_state) in
-    let analysis' =
-      add_edges_between_nodes source_node target_node stack_action_list analysis
-    in
-    log_major Pds_reachability_log_each_call analysis'
-
-  and add_untargeted_dynamic_pop_action source_state action analysis =
-    let source_node = State_node source_state in
-    if Structure.has_untargeted_dynamic_pop_action source_node action
-        analysis.reachability
-    then analysis
-    else
-      let analysis' =
-        { analysis with
-          reachability =
-            Structure.add_untargeted_dynamic_pop_action source_node action
-              analysis.reachability
-        }
-      in
-      (* Any existing pushes into the source of this pop action may generate
-         new edges.  Collect and add them. *)
-      analysis'.reachability
-      |> Structure.find_push_edges_by_target source_node
-      |> Enum.map
-        (fun (push_source_node, element) ->
-           Dph.perform_untargeted_dynamic_pop element action
-           |> Enum.map (fun x -> (push_source_node,x))
-        )
-      |> Enum.concat
-      |> Enum.fold
-        (fun analysis'' (push_source_node, (path, target_state)) ->
-           let target_node = State_node target_state in
-           add_edges_between_nodes push_source_node target_node path analysis'')
-        analysis'
-
-  (**
-     Adds a node to the analysis.  Specifically, adds all edges with that node
-     as a source that are returned by the analysis's edge functions.
-  *)
-  and add_node node analysis =
-    Logger_utils.lazy_bracket_log (lazy_logger `trace)
-      (fun _ ->
-         "add_node (" ^ show_node node ^ ")")
-      (fun _ -> "Finished") @@
-    fun () ->
-    if Node_set.mem node analysis.known_nodes then analysis else
-      let analysis' =
-        { analysis with
-          known_nodes = Node_set.add node analysis.known_nodes }
-      in
-      match node with
-      | Intermediate_node _ -> analysis'
-      | State_node state ->
-        let analysis'' =
-          analysis.edge_functions
-          |> List.enum
-          |> Enum.map (fun f -> f state)
-          |> Enum.concat
-          |> Enum.fold
-            (fun analysis_so_far (actions,target_state) ->
-               add_edge state actions target_state analysis_so_far)
-            analysis'
-        in
-        let analysis''' =
-          analysis.untargeted_dynamic_pop_action_functions
-          |> List.enum
-          |> Enum.map (fun f -> f state)
-          |> Enum.concat
-          |> Enum.fold
-            (fun analysis_so_far action ->
-               add_untargeted_dynamic_pop_action state action analysis_so_far)
-            analysis''
-        in
-        analysis'''
+  let add_edge from_state stack_action_list to_state analysis =
+    let from_node = State_node from_state in
+    let to_node = State_node to_state in
+    let edge = next_edge_in_sequence from_node stack_action_list to_node in
+    analysis
+    |> add_work (Work.Expand_node from_node)
+    |> Option.apply
+      (match edge.edge_action with
+       | Pop _
+       | Pop_dynamic_targeted _ -> None
+       | _ -> Some (add_work (Work.Expand_node to_node)))
+    |> add_work (Work.Introduce_edge edge)
   ;;
 
   let add_edge_function edge_function analysis =
-    Logger_utils.lazy_bracket_log (lazy_logger `trace)
-      (fun _ -> "add_edge_function (...)")
-      (fun _ -> "Finished") @@
-    fun () ->
-    let analysis' =
-      { analysis with edge_functions = edge_function::analysis.edge_functions }
+    (* First, we have to catch up on this edge function by calling it with every
+       state present in the analysis. *)
+    let work =
+      analysis.known_states
+      |> State_set.enum
+      |> Enum.map
+        (fun from_state ->
+           from_state
+           |> edge_function
+           |> Enum.map
+             (fun (actions,to_state) ->
+                let edge =
+                  next_edge_in_sequence
+                    (State_node from_state)
+                    actions
+                    (State_node to_state)
+                in
+                (* We know that the from_node has already been introduced. *)
+                Work.Introduce_edge edge
+             )
+        )
+      |> Enum.concat
     in
-    (* Of course, there may be nodes already in the graph which will respond to
-       this function.  Make sure to get edges for them. *)
-    analysis'.known_nodes
-    |> Node_set.enum
-    |> Enum.filter_map
-      (fun node ->
-         match node with
-         | State_node state -> Some state
-         | Intermediate_node _ -> None)
-    |> Enum.map
-      (fun source_state ->
-         edge_function source_state |> Enum.map (fun x -> (source_state, x)))
-    |> Enum.concat
-    |> Enum.fold
-      (fun analysis'' (source_state,(action_list,target_state)) ->
-         add_edge source_state action_list target_state analysis'')
-      analysis'
-    |> log_major Pds_reachability_log_each_call
+    (* Now we add both the catch-up work (so the analysis is as if the edge
+       function was present all along) and the edge function (so it'll stay
+       in sync in the future). *)
+    { (add_works work analysis) with
+      edge_functions = edge_function :: analysis.edge_functions
+    }
   ;;
 
-  let add_untargeted_dynamic_pop_action_function fn analysis =
-    Logger_utils.lazy_bracket_log (lazy_logger `trace)
-      (fun _ -> "add_untargeted_dynamic_pop_action_function(...)")
-      (fun _ -> "Finished") @@
-    fun () ->
-    let analysis' =
-      { analysis with
-        untargeted_dynamic_pop_action_functions =
-          fn::analysis.untargeted_dynamic_pop_action_functions
-      }
+  let add_untargeted_dynamic_pop_action from_state pop_action analysis =
+    let from_node = State_node from_state in
+    analysis
+    |> add_work (Work.Expand_node from_node)
+    |> add_work (Work.Introduce_untargeted_dynamic_pop(from_node, pop_action))
+  ;;
+
+  let add_untargeted_dynamic_pop_action_function pop_action_fn analysis =
+    (* First, we have to catch up on this function by calling it with every
+       state we know about. *)
+    let work =
+      analysis.known_states
+      |> State_set.enum
+      |> Enum.map
+        (fun from_state ->
+           from_state
+           |> pop_action_fn
+           |> Enum.map
+             (fun action ->
+                let from_node = State_node from_state in
+                Work.Introduce_untargeted_dynamic_pop(from_node, action)
+             )
+        )
+      |> Enum.concat
     in
-    (* There may be nodes already in the graph which need the pop actions from
-       this function.  Find them and add those actions. *)
-    analysis'.known_nodes
-    |> Node_set.enum
-    |> Enum.filter_map
-      (fun node ->
-         match node with
-         | State_node state -> Some state
-         | Intermediate_node _ -> None)
-    |> Enum.map
-      (fun source_state ->
-         fn source_state |> Enum.map (fun x -> (source_state, x)))
-    |> Enum.concat
-    |> Enum.fold
-      (fun analysis'' (source_state, action) ->
-         add_untargeted_dynamic_pop_action source_state action analysis'')
-      analysis'
-    |> log_major Pds_reachability_log_each_call
+    (* Now we add both the catch-up work (so the analysis is as if the function
+       was present all along) and the function (so it'll stay in sync in the
+       future). *)
+    { (add_works work analysis) with
+      untargeted_dynamic_pop_action_functions =
+        pop_action_fn :: analysis.untargeted_dynamic_pop_action_functions
+    }
   ;;
 
   let add_start_state state stack_actions analysis =
-    Logger_utils.lazy_bracket_log (lazy_logger `trace)
-      (fun _ -> Printf.sprintf "add_start_state(%s,...)"
-          (pp_to_string Basis.pp_state state))
-      (fun _ -> "Finished") @@
-    fun () ->
-    analysis
-    |> add_edges_between_nodes
-      (Intermediate_node(State_node(state), stack_actions))
-      (State_node(state))
-      stack_actions
-    |> log_major Pds_reachability_log_each_call
+    let start_node = Intermediate_node(State_node(state), stack_actions) in
+    (* If we've not seen this state before, then we need to expand it.
+       If we have, we need to consider nop closure for it to catch it up. *)
+    let entry =
+      Node_map.Exceptionless.find start_node analysis.node_awareness_map
+    in
+    if entry <> Some Expanded
+    then
+      (* This node isn't in our structure, so we just need to add it.  Nop
+         expansion, edge generation, and so on will occur when the expansion
+         work is actually done. *)
+      { (analysis |> add_work (Work.Expand_node(start_node))) with
+        start_nodes = analysis.start_nodes |> Node_set.add start_node
+      }
+    else
+      (* We've seen this node before but it didn't used to be a start node.
+         We need to perform nop closure on it now to maintain the invariant
+         that start nodes are nop-closed.  We only need to perform one frontier
+         of nop closure; the insertion of those new nop edges will begin the
+         cascade of nop closure to re-establish the invariant. *)
+      let edge_work =
+        analysis.reachability
+        |> Structure.find_nop_edges_by_source start_node
+        |> Enum.map
+          (fun middle_node ->
+             analysis.reachability
+             |> Structure.find_nop_edges_by_source middle_node
+             |> Enum.map
+               (fun target_node ->
+                  Work.Introduce_edge
+                    ({source=start_node;target=target_node;edge_action=Nop}))
+          )
+        |> Enum.concat
+      in
+      add_works edge_work analysis
+  ;;
+
+  let is_closed analysis =
+    Work_collection_impl.is_empty analysis.work_collection
+  ;;
+
+  let closure_step analysis =
+    let (new_work_collection, work_opt) =
+      Work_collection_impl.take analysis.work_collection
+    in
+    match work_opt with
+    | None -> analysis
+    | Some work ->
+      lazy_logger `trace
+        (fun () ->
+           Printf.sprintf "PDS reachability closure step: %s"
+             (Work.show_work work)
+        );
+      let analysis = { analysis with work_collection = new_work_collection } in
+      (* A utility function to add a node to a set *only if* it needs to be
+         expanded. *)
+      (* TODO: consider - do we want to do this filtering in add_work or
+         something?  The advantage here is that we don't build up a big set...
+      *)
+      let expand_add node nodes_to_expand =
+        let entry =
+          Node_map.Exceptionless.find node analysis.node_awareness_map
+        in
+        if entry <> Some Expanded
+        then Node_set.add node nodes_to_expand
+        else nodes_to_expand
+      in
+      match work with
+      | Work.Expand_node node ->
+        begin
+          (* We're adding to the analysis a node that it does not contain. *)
+          match node with
+          | State_node(state) ->
+            (* We just need to introduce this node to all of the edge functions
+               that we have accumulated so far. *)
+            let edge_work =
+              analysis.edge_functions
+              |> List.enum
+              |> Enum.map (fun f -> f state)
+              |> Enum.concat
+              |> Enum.map (fun (actions,to_state) ->
+                  let edge =
+                    next_edge_in_sequence
+                      (State_node state)
+                      actions
+                      (State_node to_state)
+                  in
+                  (* We know that the from_node has already been introduced. *)
+                  Work.Introduce_edge edge
+                )
+            in
+            let popdynu_work =
+              analysis.untargeted_dynamic_pop_action_functions
+              |> List.enum
+              |> Enum.map (fun f -> f state)
+              |> Enum.concat
+              |> Enum.map
+                (fun action ->
+                  Work.Introduce_untargeted_dynamic_pop(node, action)
+                )
+            in
+            { (analysis |> add_works edge_work |> add_works popdynu_work) with
+              known_states = analysis.known_states |> State_set.add state
+            ; node_awareness_map =
+                analysis.node_awareness_map
+                |> Node_map.add node Expanded
+            }
+          | Intermediate_node(target, actions) ->
+            (* The only edge implied by an intermediate node is the one that
+               moves along the action chain. *)
+            let edge =
+              match actions with
+              | [] -> {source=node;target=target;edge_action=Nop}
+              | [action] -> {source=node;target=target;edge_action=action}
+              | action::actions' ->
+                { source=node
+                ; target=Intermediate_node(target, actions')
+                ; edge_action=action}
+            in
+            (* We now have some work based upon the node to introduce.  We must
+               also mark the node as present. *)
+            { (analysis
+               |> add_work (Work.Introduce_edge edge)
+               |> add_work (Work.Expand_node edge.target)
+              ) with
+              node_awareness_map =
+                Node_map.add node Expanded analysis.node_awareness_map
+            }
+        end
+      | Work.Introduce_edge edge ->
+        let { source = from_node
+            ; target = to_node
+            ; edge_action = action
+            } = edge
+        in
+        let analysis' =
+          (* When an edge is introduced, all of the edges connecting to it should
+             be closed with it.  These new edges are introduced to the work queue
+             and drive the gradual expansion of closure.  It may also be necessary
+             to expand some nodes which have not yet been expanded. *)
+          let edge_work, nodes_to_expand =
+            match action with
+            | Nop ->
+              (* The primary closure for nop edges is to find all pushes that
+                 lead into them and route them through the nop.  As this creates
+                 new push edges, the target should be expanded when at least one
+                 edge is created. *)
+              let push_closure_work, push_closure_nodes =
+                let work =
+                  analysis.reachability
+                  |> Structure.find_push_edges_by_target from_node
+                  |> Enum.map
+                    (fun (from_node', element) ->
+                       Work.Introduce_edge(
+                         { source = from_node'
+                         ; target = to_node
+                         ; edge_action = Push element
+                         })
+                    )
+                in
+                if Enum.is_empty work
+                then (work, Node_set.empty)
+                else (work, expand_add to_node Node_set.empty)
+              in
+              (* A further closure for nop edges occurs when two nop edges are
+                 adjacent *AND* the source of the first edge is a start node.
+                 In that case, we perform nop closure.  Since the new edge is
+                 effectively "live" -- there are no pops between its target and
+                 a start node -- we should treat the targets of these new edges
+                 as expansion candidates as well.  As with other closure
+                 processes, this is done in two steps: from the perspective of
+                 the left edge (where a right edge is added) and vice versa. *)
+              let left_nop_work, left_nop_nodes =
+                let work =
+                  analysis.reachability
+                  |> Structure.find_nop_edges_by_target from_node
+                  |> Enum.filter_map
+                    (fun from_node' ->
+                       if Node_set.mem from_node' analysis.start_nodes
+                       then Some (
+                           Work.Introduce_edge(
+                             { source = from_node'
+                             ; target = to_node
+                             ; edge_action = Nop
+                             }))
+                       else None
+                    )
+                in
+                if Enum.is_empty work
+                then (work, Node_set.empty)
+                else (work, expand_add to_node Node_set.empty)
+              in
+              let right_nop_work, right_nop_nodes =
+                if not @@ Node_set.mem from_node analysis.start_nodes
+                then (Enum.empty(), Node_set.empty)
+                else
+                  let work_list, nodes =
+                    analysis.reachability
+                    |> Structure.find_nop_edges_by_source to_node
+                    |> Enum.fold
+                      (fun (work_list,nodes) to_node' ->
+                         let work = Work.Introduce_edge(
+                             { source = from_node
+                             ; target = to_node'
+                             ; edge_action = Nop
+                             })
+                         in
+                         (work::work_list, expand_add to_node' nodes)
+                      ) ([],Node_set.empty)
+                  in (List.enum work_list, nodes)
+              in
+              (* Now put it all together. *)
+              ( Enum.concat @@ List.enum
+                  [ push_closure_work
+                  ; left_nop_work
+                  ; right_nop_work
+                  ]
+              , push_closure_nodes
+                |> Node_set.union left_nop_nodes
+                |> Node_set.union right_nop_nodes
+                |> expand_add to_node
+              )
+            | Push k ->
+              (* Any nop, pop, or popdyn edges at the target of this push can be
+                 closed.  Any new targets are candidates for expansion. *)
+              let nop_work_list, nop_expand_set =
+                analysis.reachability
+                |> Structure.find_nop_edges_by_source to_node
+                |> Enum.fold
+                  (fun (work_list, expand_set) to_node' ->
+                     let work =
+                       Work.Introduce_edge(
+                         { source = from_node
+                         ; target = to_node'
+                         ; edge_action = Push k
+                         })
+                     in
+                     (work::work_list, expand_add to_node' expand_set)
+                  )
+                  ([], Node_set.empty)
+              in
+              let pop_work_list, pop_expand_set =
+                analysis.reachability
+                |> Structure.find_pop_edges_by_source to_node
+                |> Enum.filter
+                  (fun (_, element) -> equal_stack_element k element)
+                |> Enum.fold
+                  (fun (work_list, expand_set) (to_node', _) ->
+                     let work =
+                       Work.Introduce_edge(
+                         { source = from_node
+                         ; target = to_node'
+                         ; edge_action = Nop
+                         })
+                     in
+                     (work::work_list, expand_add to_node' expand_set)
+                  )
+                  ([], Node_set.empty)
+              in
+              let popdynt_work_list, popdynt_expand_set =
+                analysis.reachability
+                |> Structure.find_targeted_dynamic_pop_edges_by_source to_node
+                |> Enum.fold
+                  (fun (work_list, expand_set) (to_node', action) ->
+                     Dph.perform_targeted_dynamic_pop k action
+                     |> Enum.fold
+                       (fun (work_list, expand_set) stack_actions ->
+                          let edge =
+                            next_edge_in_sequence
+                              from_node stack_actions to_node'
+                          in
+                          let work = Work.Introduce_edge edge in
+                          (work::work_list, expand_add to_node' expand_set)
+                       ) (work_list,expand_set)
+                  ) ([],Node_set.empty)
+              in
+              let popdynu_work_list, popdynu_expand_set =
+                analysis.reachability
+                |> Structure.find_untargeted_dynamic_pop_actions_by_source
+                  to_node
+                |> Enum.fold
+                  (fun (work_list, expand_set) action ->
+                     Dph.perform_untargeted_dynamic_pop k action
+                     |> Enum.fold
+                       (fun (work_list, expand_set) (stack_actions, to_state) ->
+                          let to_node' = State_node to_state in
+                          let edge =
+                            next_edge_in_sequence
+                              from_node stack_actions to_node'
+                          in
+                          let work = Work.Introduce_edge edge in
+                          (work::work_list, expand_add to_node' expand_set)
+                       ) (work_list, expand_set)
+                  ) ([], Node_set.empty)
+              in
+              ( Enum.concat @@ List.enum
+                  [ List.enum nop_work_list
+                  ; List.enum pop_work_list
+                  ; List.enum popdynt_work_list
+                  ; List.enum popdynu_work_list
+                  ]
+              , nop_expand_set
+                |> Node_set.union pop_expand_set
+                |> Node_set.union popdynt_expand_set
+                |> Node_set.union popdynu_expand_set
+                |> expand_add to_node
+              )
+            | Pop k ->
+              (* Pop edges can only close with the push edges that precede them.
+                 The target of these new edges is a candidate for expansion. *)
+              let work =
+                analysis.reachability
+                |> Structure.find_push_edges_by_target from_node
+                |> Enum.filter_map
+                  (fun (from_node', element) ->
+                     if equal_stack_element element k
+                     then Some(
+                         Work.Introduce_edge(
+                           { source = from_node'
+                           ; target = to_node
+                           ; edge_action = Nop
+                           }))
+                     else None
+                  )
+              in
+              if Enum.is_empty work
+              then (work, Node_set.empty)
+              else (work, expand_add to_node Node_set.empty)
+            | Pop_dynamic_targeted action ->
+              (* Dynamic pop edges can only close with push edges that precede
+                 them.  The target of these new edges is a candidate for
+                 expansion. *)
+              let (work_list, to_expand) =
+                analysis.reachability
+                |> Structure.find_push_edges_by_target from_node
+                |> Enum.fold
+                  (fun (work_list, expand_set) (from_node', element) ->
+                     Dph.perform_targeted_dynamic_pop element action
+                     |> Enum.fold
+                       (fun (work_list, expand_set) stack_actions ->
+                          let edge =
+                            next_edge_in_sequence
+                              from_node' stack_actions to_node
+                          in
+                          let work = Work.Introduce_edge edge in
+                          (work::work_list, expand_add to_node expand_set)
+                       ) (work_list,expand_set)
+                  ) ([],Node_set.empty)
+              in (List.enum work_list, to_expand)
+          in
+          let expand_work = nodes_to_expand
+                            |> Node_set.enum
+                            |> Enum.map (fun node -> Work.Expand_node node)
+          in
+          add_works (Enum.append edge_work expand_work) analysis
+        in
+        { analysis' with
+          reachability = analysis'.reachability |> Structure.add_edge edge
+        }
+      | Work.Introduce_untargeted_dynamic_pop(from_node,action) ->
+        (* Untargeted dynamic pops can only close with the push edges that
+           reach them.  Any targets of the resulting edges are candidates for
+           expansion. *)
+        let analysis' =
+          let (work_list, nodes_to_expand) =
+            analysis.reachability
+            |> Structure.find_push_edges_by_target from_node
+            |> Enum.fold
+              (fun (work_list, expand_set) (from_node', element) ->
+                 Dph.perform_untargeted_dynamic_pop element action
+                 |> Enum.fold
+                   (fun (work_list, expand_set) (stack_action_list, to_state) ->
+                      let to_node = State_node(to_state) in
+                      let edge =
+                        next_edge_in_sequence
+                          from_node' stack_action_list to_node
+                      in
+                      let work = Work.Introduce_edge edge in
+                      (work::work_list, expand_add to_node expand_set)
+                   ) (work_list, expand_set)
+              ) ([],Node_set.empty)
+          in
+          let expand_work = nodes_to_expand
+                            |> Node_set.enum
+                            |> Enum.map (fun node -> Work.Expand_node node)
+          in
+          add_works (Enum.append (List.enum work_list) expand_work) analysis
+        in
+        { analysis' with
+          reachability = analysis'.reachability
+                         |> Structure.add_untargeted_dynamic_pop_action
+                           from_node action
+        }
+  ;;
+
+  let rec fully_close analysis =
+    if is_closed analysis
+    then analysis
+    else fully_close @@ closure_step analysis
   ;;
 
   let get_reachable_states state stack_actions analysis =
@@ -629,11 +744,12 @@ struct
           nodes edges
       );
     let node = Intermediate_node(State_node(state), stack_actions) in
-    if Node_set.mem node analysis.known_nodes
+    if Node_set.mem node analysis.start_nodes
     then
       (*
         If a state is reachable by empty stack from the given starting state,
-        then there will be a nop edge to it.  It's that simple by this point.
+        then there will be a nop edge to it.  It's that simple once closure
+        is finished.
       *)
       analysis.reachability
       |> Structure.find_nop_edges_by_source node
