@@ -126,8 +126,6 @@ struct
 
   (********** Substructure definitions. **********)
 
-  module State_set = Set.Make(Basis.State_ord);;
-
   module Node_ord =
   struct
     type t = node
@@ -135,8 +133,6 @@ struct
   end;;
 
   module Node_set = Set.Make(Node_ord);;
-
-  module Node_map = Map.Make(Node_ord);;
 
   module Node_and_stack_element_ord =
   struct
