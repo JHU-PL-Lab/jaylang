@@ -44,9 +44,6 @@ sig
   val pp_stack_action : stack_action pretty_printer
   val show_stack_action : stack_action -> string
 
-  (** An abbreviated pretty-printer for stack actions. *)
-  val ppa_stack_action : stack_action pretty_printer
-
   (** The type of node used for reachability. *)
   type node =
     | State_node of state
@@ -59,9 +56,6 @@ sig
   (** Pretty-printing for nodes. *)
   val pp_node : node pretty_printer
   val show_node : node -> string
-
-  (** Abbreviated pretty-printing for nodes. *)
-  val ppa_node : node pretty_printer
 
   (** The type of edge used in reachability. *)
   type edge =
@@ -76,9 +70,6 @@ sig
   (** Pretty-printing for edges. *)
   val pp_edge : edge pretty_printer
   val show_edge : edge -> string
-
-  (** Abstract pretty-printing for edges. *)
-  val ppa_edge : edge pretty_printer
 end;;
 
 module Make
@@ -131,27 +122,10 @@ struct
     [@@deriving ord, show]
   ;;
 
-  let ppa_stack_action formatter action =
-    match action with
-    | Push x -> Format.fprintf formatter "+%a" Basis.ppa_stack_element x
-    | Pop x -> Format.fprintf formatter "-%a" Basis.ppa_stack_element x
-    | Nop -> Format.pp_print_string formatter "nop"
-    | Pop_dynamic_targeted action ->
-      Format.fprintf formatter "/%a" Dph.ppa_targeted_dynamic_pop_action action
-  ;;
-
   type node =
     | State_node of state
     | Intermediate_node of node * stack_action list
     [@@deriving eq, ord, show]
-  ;;
-
-  let rec ppa_node formatter node =
-    match node with
-    | State_node state -> Basis.ppa_state formatter state
-    | Intermediate_node (node,stack_actions) ->
-      Format.fprintf formatter "IN(%a,%a)"
-        ppa_node node (pp_list ppa_stack_action) stack_actions
   ;;
 
   type edge =
@@ -160,12 +134,5 @@ struct
     ; edge_action : stack_action
     }
     [@@deriving eq, ord, show]
-  ;;
-
-  let ppa_edge formatter edge =
-    Format.fprintf formatter "%a@ -[%a]->@ %a"
-      ppa_node edge.source
-      ppa_stack_action edge.edge_action
-      ppa_node edge.target
   ;;
 end;;

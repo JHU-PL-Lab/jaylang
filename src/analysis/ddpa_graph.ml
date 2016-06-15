@@ -109,9 +109,12 @@ and pp_abstract_expr formatter (Abs_expr(cls)) =
   pp_concat_sep ";" pp_abstract_clause formatter @@ List.enum cls
 ;;
 
-let ppa_abstract_clause formatter (Abs_clause(x,_)) = pp_var formatter x;;
-
 let show_abstract_clause = pp_to_string pp_abstract_clause;;
+
+let var_of_abstract_clause (Abs_clause(x,_)) = x;;
+let pp_var_of_abstract_clause formatter acl =
+  pp_var formatter (var_of_abstract_clause acl)
+;;
 
 let is_abstract_clause_immediate (Abs_clause(_,b)) =
   match b with
@@ -179,19 +182,6 @@ type annotated_clause =
   [@@deriving ord, eq, show]
 ;;
 
-let ppa_annotated_clause formatter acl =
-  match acl with
-  | Unannotated_clause(cl) -> ppa_abstract_clause formatter cl
-  | Enter_clause(x,x',cl) ->
-    Format.fprintf formatter "%a=%a@@%a+"
-      pp_var x pp_var x' ppa_abstract_clause cl
-  | Exit_clause(x,x',cl) ->
-    Format.fprintf formatter "%a=%a@@%a-"
-      pp_var x pp_var x' ppa_abstract_clause cl
-  | Start_clause -> Format.pp_print_string formatter "Start"
-  | End_clause -> Format.pp_print_string formatter "End"
-;;
-
 let is_annotated_clause_immediate acl =
   match acl with
   | Unannotated_clause(cl) -> is_abstract_clause_immediate cl
@@ -206,19 +196,13 @@ end;;
 
 module Annotated_clause_set = Set.Make(Annotated_clause_ord);;
 
-let pp_annotated_clause_set formatter s =
-  pp_concat_sep_delim "{" "}" ", " pp_annotated_clause formatter @@
-  Annotated_clause_set.enum s
+let pp_annotated_clause_set =
+  Pp_utils.pp_set pp_annotated_clause Annotated_clause_set.enum
 ;;
 
 type ddpa_edge =
   | Ddpa_edge of annotated_clause * annotated_clause
   [@@deriving ord, show]
-;;
-
-let ppa_ddpa_edge formatter (Ddpa_edge(acl1,acl0)) =
-  Format.fprintf formatter "%a ==> %a"
-    ppa_annotated_clause acl1 ppa_annotated_clause acl0
 ;;
 
 module Ddpa_edge_ord =

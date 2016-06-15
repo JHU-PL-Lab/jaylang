@@ -20,7 +20,4 @@ sig
 
   val pp_state : state pretty_printer
   val pp_stack_element : stack_element pretty_printer
-
-  val ppa_state : state pretty_printer
-  val ppa_stack_element : stack_element pretty_printer
 end;;

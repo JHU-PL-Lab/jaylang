@@ -27,10 +27,9 @@ struct
   ;;
   let pp formatter (S(c_list,_)) =
     c_list
-    |> List.iter ((pp_suffix ppa_abstract_clause "|") formatter);
+    |> List.iter ((pp_suffix pp_var_of_abstract_clause "|") formatter);
     Format.pp_print_string formatter "?"
   ;;
-  let ppa = pp;;
   let show = pp_to_string pp;;
   let name = "ddpaNR";;
 end;;

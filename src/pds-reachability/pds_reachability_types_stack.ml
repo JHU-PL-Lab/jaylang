@@ -52,20 +52,12 @@ sig
   val pp_targeted_dynamic_pop_action :
     targeted_dynamic_pop_action pretty_printer
 
-  (** A pretty-printing function for targeted dynamic pop actions. *)
-  val ppa_targeted_dynamic_pop_action :
-    targeted_dynamic_pop_action pretty_printer
-
   (** A comparator for dynamic pop actions. *)
   val compare_untargeted_dynamic_pop_action :
     untargeted_dynamic_pop_action -> untargeted_dynamic_pop_action -> int
 
   (** A pretty-printing function for targeted dynamic pop actions. *)
   val pp_untargeted_dynamic_pop_action :
-    untargeted_dynamic_pop_action pretty_printer
-
-  (** A pretty-printing function for targeted dynamic pop actions. *)
-  val ppa_untargeted_dynamic_pop_action :
     untargeted_dynamic_pop_action pretty_printer
 
   (** The resolution function for targeted dynamic pops.  This function takes a
@@ -108,16 +100,10 @@ struct
   let pp_targeted_dynamic_pop_action formatter Null_targeted_action =
     Format.pp_print_string formatter "_"
   ;;
-  let ppa_targeted_dynamic_pop_action formatter Null_targeted_action =
-    Format.pp_print_string formatter "_"
-  ;;
   let compare_untargeted_dynamic_pop_action
       Null_untargeted_action Null_untargeted_action = 0
   ;;
   let pp_untargeted_dynamic_pop_action formatter Null_untargeted_action =
-    Format.pp_print_string formatter "_"
-  ;;
-  let ppa_untargeted_dynamic_pop_action formatter Null_untargeted_action =
     Format.pp_print_string formatter "_"
   ;;
   let perform_targeted_dynamic_pop _ Null_targeted_action = Enum.empty ();;

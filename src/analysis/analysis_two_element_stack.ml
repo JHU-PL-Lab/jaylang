@@ -25,11 +25,7 @@ struct
     | [] -> true
   ;;
   let pp formatter (S(lst)) =
-    List.iter ((pp_suffix ppa_abstract_clause "|") formatter) lst;
-    Format.pp_print_string formatter "?"
-  ;;
-  let ppa formatter (S(lst)) =
-    List.iter ((pp_suffix ppa_abstract_clause "|") formatter) lst;
+    List.iter ((pp_suffix pp_var_of_abstract_clause "|") formatter) lst;
     Format.pp_print_string formatter "?"
   ;;
   let show = pp_to_string pp;;

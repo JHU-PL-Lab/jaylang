@@ -12,7 +12,6 @@ struct
   let pop () = ();;
   let is_top _ () = true;;
   let pp formatter () = Format.pp_print_string formatter "-";;
-  let ppa = pp;;
   let show = pp_to_string pp;;
   let name = "0ddpa";;
 end;;

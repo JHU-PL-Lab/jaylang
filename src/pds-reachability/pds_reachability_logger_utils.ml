@@ -43,7 +43,7 @@ struct
     type dot_node_id = Types.node;;
     let rec string_of_dot_node_id node =
       match node with
-      | Types.State_node state -> pp_to_string Basis.ppa_state state
+      | Types.State_node state -> pp_to_string Basis.pp_state state
       | Types.Intermediate_node (node',actions) ->
         Printf.sprintf "InterNode(%s,%s)"
           (string_of_dot_node_id node')
@@ -51,7 +51,7 @@ struct
     ;;
 
     type data = Structure.structure;;
-    let string_of_edge_action = pp_to_string Types.ppa_stack_action ;;
+    let string_of_edge_action = pp_to_string Types.pp_stack_action ;;
     let graph_of structure =
       let nodes = Structure.enumerate_nodes structure in
       let edges = Structure.enumerate_edges structure in
@@ -67,7 +67,7 @@ struct
                 | Types.Intermediate_node _ -> Some "#ccaaff"
               end
             ; dot_node_text =
-              Some (pp_to_string Types.ppa_node node)
+              Some (pp_to_string Types.pp_node node)
             }
           )
       in

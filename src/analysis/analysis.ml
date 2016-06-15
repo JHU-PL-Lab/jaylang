@@ -255,46 +255,6 @@ struct
     let compare = compare_pds_continuation
   end;;
 
-  let ppa_pds_continuation formatter k =
-    match k with
-    | Bottom_of_stack -> Format.pp_print_string formatter "Bot"
-    | Lookup_var(x,patsp,patsn) ->
-      if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
-      then pp_var formatter x
-      else Format.fprintf formatter "%a(%a/%a)"
-          pp_var x pp_pattern_set patsp pp_pattern_set patsn
-    | Project(i,patsp,patsn) ->
-      if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
-      then Format.fprintf formatter ".%a" pp_ident i
-      else Format.fprintf formatter ".%a(%a/%a)"
-          pp_ident i pp_pattern_set patsp pp_pattern_set patsn
-    | Jump(acl,ctx) ->
-      Format.fprintf formatter "Jump(%a,%a)"
-        ppa_annotated_clause acl C.ppa ctx
-    | Rewind -> Format.fprintf formatter "Rewind"
-    | Deref(patsp,patsn) ->
-      Format.fprintf formatter "!(%a,%a)"
-        pp_pattern_set patsp pp_pattern_set patsn
-    | Capture(size) ->
-      Format.fprintf formatter "Capture(%d)" @@ int_of_bounded_capture_size size
-    | Continuation_value(fv) -> pp_abs_filtered_value formatter fv
-    | Real_flow_huh -> Format.pp_print_string formatter "RealFlow?"
-    | Alias_huh -> Format.pp_print_string formatter "Alias?"
-    | Side_effect_search_start -> Format.pp_print_string formatter "SEStart"
-    | Side_effect_search_escape x ->
-      Format.fprintf formatter "SEEsc(%a)" pp_var x
-    | Side_effect_lookup_var(x,patsp,patsn,acl,ctx) ->
-      Format.fprintf formatter "SEVar(%a,%a,%a,%a,%a)"
-        pp_var x
-        pp_pattern_set patsp
-        pp_pattern_set patsn
-        pp_annotated_clause acl
-        C.pp ctx
-    | Binary_operation -> Format.pp_print_string formatter "BinOp"
-    | Unary_operation -> Format.pp_print_string formatter "UnOp"
-    | Indexing -> Format.pp_print_string formatter "Idx"
-  ;;
-
   type pds_state =
     | Program_point_state of annotated_clause * C.t
     (** A state in the PDS representing a specific program point and
@@ -302,15 +262,6 @@ struct
     | Result_state of abs_filtered_value
     (** A state in the PDS representing a value result. *)
     [@@deriving ord, show]
-  ;;
-
-  let ppa_pds_state formatter state =
-    match state with
-    | Program_point_state(acl,ctx) ->
-      Format.fprintf formatter "(%a @ %a)" ppa_annotated_clause acl C.ppa ctx
-    | Result_state(Abs_filtered_value(v,patsp,patsn)) ->
-      Format.fprintf formatter "(%a(%a/%a))"
-        pp_abstract_value v pp_pattern_set patsp pp_pattern_set patsn
   ;;
 
   module Program_point_state_ord =
@@ -327,8 +278,6 @@ struct
     module Stack_element_ord = Pds_continuation_ord
     let pp_state = pp_pds_state
     let pp_stack_element = pp_pds_continuation
-    let ppa_state = ppa_pds_state
-    let ppa_stack_element = ppa_pds_continuation
   end
 
   type pds_targeted_dynamic_pop_action =
@@ -643,214 +592,6 @@ struct
     [@@deriving ord, show]
   ;;
 
-  let ppa_pds_targeted_dynamic_pop_action formatter action =
-    match action with
-    | Value_drop -> Format.pp_print_string formatter "ValDrop"
-    | Value_discovery_2_of_2 -> Format.pp_print_string formatter "ValDisc2"
-    | Variable_aliasing(x,x') ->
-      Format.fprintf formatter "VAlias(%a,%a)" pp_var x pp_var x'
-    | Stateless_nonmatching_clause_skip_1_of_2(x) ->
-      Format.fprintf formatter "SNMCS1(%a)" pp_var x
-    | Stateless_nonmatching_clause_skip_2_of_2(k) ->
-      Format.fprintf formatter "SNMCS2(%a)" ppa_pds_continuation k
-    | Value_capture_1_of_3 -> Format.pp_print_string formatter "VCap1"
-    | Value_capture_2_of_3(v) ->
-      Format.fprintf formatter "VCap2(%a)" pp_abs_filtered_value v
-    | Value_capture_3_of_3(v,elements,size) ->
-      Format.fprintf formatter "VCap3(%a,%a,%d)"
-        pp_abs_filtered_value v
-        (pp_list ppa_pds_continuation) elements
-        (int_of_bounded_capture_size size)
-    | Rewind_step(acl,ctx) ->
-      Format.fprintf formatter "Rwd(%a,%a)"
-        pp_annotated_clause acl
-        C.pp ctx
-    | Function_call_flow_validation(x_func,x_arg,acl0,ctx0,c,ctxc,x_site) ->
-      Format.fprintf formatter "FCFV(%a,%a,%a,%a,%a,%a,%a)"
-        pp_var x_func
-        pp_var x_arg
-        pp_annotated_clause acl0
-        C.pp ctx0
-        pp_annotated_clause c
-        C.pp ctxc
-        pp_var x_site
-    | Function_call_flow_validation_resolution_1_of_2(x,x') ->
-      Format.fprintf formatter "FCFVR1(%a,%a)" pp_var x pp_var x'
-    | Function_call_flow_validation_resolution_2_of_2(x,x') ->
-      Format.fprintf formatter "FCFVR2(%a,%a)" pp_var x pp_var x'
-    | Function_closure_lookup(x'',xf) ->
-      Format.fprintf formatter "FunCL(%a,%a)" pp_var x'' pp_var xf
-    | Conditional_closure_lookup(x'',x1,p,b) ->
-      Format.fprintf formatter "CondCL(%a,%a,%a,%b)"
-        pp_var x''
-        pp_var x1
-        pp_pattern p
-        b
-    | Conditional_subject_validation(x,x',x1,pat,then_branch,acl1,ctx) ->
-      Format.fprintf formatter "CondSV(%a,%a,%a,%a,%b,%a,%a)"
-        pp_var x
-        pp_var x'
-        pp_var x1
-        pp_pattern pat
-        then_branch
-        ppa_annotated_clause acl1
-        C.pp ctx
-    | Record_projection_lookup(x,x',l) ->
-      Format.fprintf formatter "RProjL(%a,%a,%a)" pp_var x pp_var x' pp_ident l
-    | Record_projection_1_of_2 -> Format.pp_print_string formatter "RProj1"
-    | Record_projection_2_of_2(r,patsp,patsn) ->
-      Format.fprintf formatter "RProj2(%a,%a,%a)"
-        pp_record_value r pp_pattern_set patsp pp_pattern_set patsn
-    | Function_filter_validation(x,f) ->
-      Format.fprintf formatter "FunFilVal(%a,%a)"
-        pp_var x pp_abstract_function_value f
-    | Record_filter_validation(x,r,acl1,ctx1) ->
-      Format.fprintf formatter "RecFilVal(%a,%a,%a,%a)"
-        pp_var x
-        pp_record_value r
-        pp_annotated_clause acl1
-        C.pp ctx1
-    | Int_filter_validation(x) ->
-      Format.fprintf formatter "IntFilVal(%a)" pp_var x
-    | Bool_filter_validation(x,b) ->
-      Format.fprintf formatter "BoolFilVal(%a,%b)" pp_var x b
-    | String_filter_validation(x) ->
-      Format.fprintf formatter "StringFilVal(%a)" pp_var x
-    | Empty_record_value_discovery(x) ->
-      Format.fprintf formatter "ERValDisc(%a)" pp_var x
-    | Dereference_lookup(x,x') ->
-      Format.fprintf formatter "Deref(%a,%a)" pp_var x pp_var x'
-    | Cell_filter_validation(x,cell) ->
-      Format.fprintf formatter "CellFilVal(%a,%a)" pp_var x pp_ref_value cell
-    | Cell_dereference_1_of_2 -> Format.pp_print_string formatter "CDr1"
-    | Cell_dereference_2_of_2(cell) ->
-      Format.fprintf formatter "CDr2(%a)" pp_ref_value cell
-    | Cell_update_alias_analysis_init_1_of_2(x',s1,s2) ->
-      Format.fprintf formatter "CUAA1(%a,%a,%a)"
-        pp_var x' pp_pds_state s1 pp_pds_state s2
-    | Cell_update_alias_analysis_init_2_of_2(x',s1,s2,x,patsp,patsn) ->
-      Format.fprintf formatter "CUAA2(%a,%a,%a,%a,%a,%a)"
-        pp_var x'
-        pp_pds_state s1
-        pp_pds_state s2
-        pp_var x
-        pp_pattern_set patsp
-        pp_pattern_set patsn
-    | Alias_analysis_resolution_1_of_5(x'') ->
-      Format.fprintf formatter "AAR1(%a)" pp_var x''
-    | Alias_analysis_resolution_2_of_5(x'') ->
-      Format.fprintf formatter "AAR2(%a)" pp_var x''
-    | Alias_analysis_resolution_3_of_5(x'',v) ->
-      Format.fprintf formatter "AAR3(%a,%a)" pp_var x'' pp_abstract_value v
-    | Alias_analysis_resolution_4_of_5(x'',b) ->
-      Format.fprintf formatter "AAR4(%a,%b)" pp_var x'' b
-    | Alias_analysis_resolution_5_of_5(x'',b,x,patsp,patsn) ->
-      Format.fprintf formatter "AAR5(%a,%b,%a,%a,%a)"
-        pp_var x''
-        b
-        pp_var x
-        pp_pattern_set patsp
-        pp_pattern_set patsn
-    | Nonsideeffecting_nonmatching_clause_skip(x'') ->
-      Format.fprintf formatter "NNCS(%a)" pp_var x''
-    | Side_effect_search_init_1_of_2(x,acl0,ctx) ->
-      Format.fprintf formatter "SESI1(%a,%a,%a)"
-        pp_var x ppa_annotated_clause acl0 C.pp ctx
-    | Side_effect_search_init_2_of_2(x,patsp,patsn,acl0,ctx) ->
-      Format.fprintf formatter "SESI2(%a,%a,%a,%a,%a)"
-        pp_var x
-        pp_pattern_set patsp
-        pp_pattern_set patsn
-        ppa_annotated_clause acl0
-        C.pp ctx
-    | Side_effect_search_nonmatching_clause_skip ->
-      Format.pp_print_string formatter "SESNCS"
-    | Side_effect_search_exit_wiring -> Format.pp_print_string formatter "SESXW"
-    | Side_effect_search_enter_wiring ->
-      Format.pp_print_string formatter "SESEW"
-    | Side_effect_search_without_discovery ->
-      Format.pp_print_string formatter "SESWD"
-    | Side_effect_search_alias_analysis_init(x',acl,ctx) ->
-      Format.fprintf formatter "SESAAI(%a,%a,%a)"
-        pp_var x'
-        pp_annotated_clause acl
-        C.pp ctx
-    | Side_effect_search_alias_analysis_resolution_1_of_4 x'' ->
-      Format.fprintf formatter "SESAAR1(%a)" pp_var x''
-    | Side_effect_search_alias_analysis_resolution_2_of_4(x'') ->
-      Format.fprintf formatter "SESAAR2(%a)" pp_var x''
-    | Side_effect_search_alias_analysis_resolution_3_of_4(x'',v) ->
-      Format.fprintf formatter "SESAAR3(%a,%a)" pp_var x'' pp_abstract_value v
-    | Side_effect_search_alias_analysis_resolution_4_of_4(x'',is_alias) ->
-      Format.fprintf formatter "SESAAR4(%a,%b)" pp_var x'' is_alias
-    | Side_effect_search_escape_1_of_2 ->
-      Format.pp_print_string formatter "SESE1"
-    | Side_effect_search_escape_2_of_2 x'' ->
-      Format.fprintf formatter "SESE2(%a)" pp_var x''
-    | Side_effect_search_escape_completion_1_of_4 ->
-      Format.pp_print_string formatter "SESEC1"
-    | Side_effect_search_escape_completion_2_of_4 x ->
-      Format.fprintf formatter "SESEC2(%a)" pp_var x
-    | Side_effect_search_escape_completion_3_of_4 x ->
-      Format.fprintf formatter "SESEC3(%a)" pp_var x
-    | Side_effect_search_escape_completion_4_of_4 x ->
-      Format.fprintf formatter "SESEC4(%a)" pp_var x
-    | Binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
-      Format.fprintf formatter "BinOpInit(%a,%a,%a,%a,%a,%a,%a)"
-        pp_var x1
-        pp_var x2
-        pp_var x3
-        ppa_annotated_clause acl1
-        C.pp ctx1
-        ppa_annotated_clause acl0
-        C.pp ctx0
-    | Unary_operator_lookup_init(x1,x2,acl0,ctx0) ->
-      Format.fprintf formatter "UnOpInit(%a,%a,%a,%a)"
-        pp_var x1
-        pp_var x2
-        ppa_annotated_clause acl0
-        C.pp ctx0
-    | Indexing_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
-      Format.fprintf formatter "IdxOpInit(%a,%a,%a,%a,%a,%a,%a)"
-        pp_var x1
-        pp_var x2
-        pp_var x3
-        ppa_annotated_clause acl1
-        C.pp ctx1
-        ppa_annotated_clause acl0
-        C.pp ctx0
-    | Binary_operator_resolution_1_of_4(x1,op) ->
-      Format.fprintf formatter "BinOpRes1(%a,%a)"
-        pp_var x1 pp_binary_operator op
-    | Binary_operator_resolution_2_of_4(x1,op) ->
-      Format.fprintf formatter "BinOpRes2(%a,%a)"
-        pp_var x1 pp_binary_operator op
-    | Binary_operator_resolution_3_of_4(x1,op,abstract_value) ->
-      Format.fprintf formatter "BinOpRes3(%a,%a,%a)"
-        pp_var x1 pp_binary_operator op pp_abstract_value abstract_value
-    | Binary_operator_resolution_4_of_4(x1,op,abstract_value) ->
-      Format.fprintf formatter "BinOpRes4(%a,%a,%a)"
-        pp_var x1 pp_binary_operator op pp_abstract_value abstract_value
-    | Unary_operator_resolution_1_of_3(x1,op) ->
-      Format.fprintf formatter "UnOpRes1(%a,%a)"
-        pp_var x1 pp_unary_operator op
-    | Unary_operator_resolution_2_of_3(x1,op) ->
-      Format.fprintf formatter "UnOpRes2(%a,%a)"
-        pp_var x1 pp_unary_operator op
-    | Unary_operator_resolution_3_of_3(x1,op,abstract_value) ->
-      Format.fprintf formatter "UnOpRes3(%a,%a,%a)"
-        pp_var x1 pp_unary_operator op pp_abstract_value abstract_value
-    | Indexing_resolution_1_of_4(x1) ->
-      Format.fprintf formatter "IdxRes1(%a)" pp_var x1
-    | Indexing_resolution_2_of_4(x1) ->
-      Format.fprintf formatter "IdxRes(%a)" pp_var x1
-    | Indexing_resolution_3_of_4(x1) ->
-      Format.fprintf formatter "IdxRes(%a)" pp_var x1
-    | Indexing_resolution_4_of_4(x1,abstract_value) ->
-      Format.fprintf formatter "IdxRes(%a,%a)"
-        pp_var x1 pp_abstract_value abstract_value
-  ;;
-
   type pds_untargeted_dynamic_pop_action =
     | Do_jump
     (** The action for performing basic jump operations. *)
@@ -864,12 +605,6 @@ struct
     [@@deriving ord, show]
   ;;
   let _ = show_pds_untargeted_dynamic_pop_action;;
-
-  let ppa_pds_untargeted_dynamic_pop_action formatter action =
-    match action with
-    | Do_jump -> Format.pp_print_string formatter "Do_jump"
-    | Value_discovery_1_of_2 -> Format.pp_print_string formatter "VDisc1"
-  ;;
 
   module Dph =
   struct
@@ -885,13 +620,10 @@ struct
     let compare_targeted_dynamic_pop_action =
       compare_pds_targeted_dynamic_pop_action;;
     let pp_targeted_dynamic_pop_action = pp_pds_targeted_dynamic_pop_action;;
-    let ppa_targeted_dynamic_pop_action = ppa_pds_targeted_dynamic_pop_action;;
     let compare_untargeted_dynamic_pop_action =
       compare_pds_untargeted_dynamic_pop_action;;
     let pp_untargeted_dynamic_pop_action =
       pp_pds_untargeted_dynamic_pop_action;;
-    let ppa_untargeted_dynamic_pop_action =
-      ppa_pds_untargeted_dynamic_pop_action;;
     let perform_targeted_dynamic_pop element action =
       Logger_utils.lazy_bracket_log (lazy_logger `trace)
         (fun () ->

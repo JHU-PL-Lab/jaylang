@@ -33,11 +33,7 @@ struct
     | Some(c',_) -> c = c'
   ;;
   let pp formatter x =
-    pp_concat_sep_delim "" "|?" "|" pp_abstract_clause formatter @@
-    Deque.enum x
-  ;;
-  let ppa formatter x =
-    pp_concat_sep_delim "" "|?" "|" ppa_abstract_clause formatter @@
+    pp_concat_sep_delim "" "|?" "|" pp_var_of_abstract_clause formatter @@
     Deque.enum x
   ;;
   let show = pp_to_string pp;;
