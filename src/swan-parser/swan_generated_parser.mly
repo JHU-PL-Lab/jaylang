@@ -1,6 +1,6 @@
 %{
 open Ast;;
-open Nested_ast;;
+open Swan_ast;;
 open Parser_support;;
 
 module List = BatList;;
@@ -23,6 +23,7 @@ module List = BatList;;
 %token EQUALS
 %token DOT
 %token BANG
+%token PIPE
 %token LEFT_ARROW
 %token KEYWORD_FUN
 %token KEYWORD_LET
@@ -35,6 +36,12 @@ module List = BatList;;
 %token KEYWORD_OR
 %token KEYWORD_NOT
 %token KEYWORD_STRING
+%token KEYWORD_IF
+%token KEYWORD_THEN
+%token KEYWORD_ELSE
+%token KEYWORD_MATCH
+%token KEYWORD_WITH
+%token KEYWORD_END
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
@@ -53,8 +60,8 @@ module List = BatList;;
 %left DOT
 %right KEYWORD_REF
 
-%start <Nested_ast.expr> prog
-%start <Nested_ast.expr option> delim_expr
+%start <Swan_ast.expr> prog
+%start <Swan_ast.expr option> delim_expr
 
 %%
 
@@ -74,9 +81,13 @@ delim_expr:
 
 expr:
   | KEYWORD_LET identifier EQUALS expr KEYWORD_IN expr
-      { Let_expr(next_uid $startpos $endpos,Nested_var(next_uid $startpos $endpos,$2),$4,$6) }
+      { Let_expr(next_uid $startpos $endpos,Swan_var(next_uid $startpos $endpos,$2),$4,$6) }
   | expr TILDE pattern QUESTION_MARK function_value COLON function_value
       { Conditional_expr(next_uid $startpos $endpos,$1,$3,$5,$7) }
+  | KEYWORD_IF expr KEYWORD_THEN expr KEYWORD_ELSE expr KEYWORD_END
+      { If_expr(next_uid $startpos $endpos,$2, $4, $6)}
+  | KEYWORD_MATCH expr KEYWORD_WITH list(match_pair) KEYWORD_END
+      { Match_expr(next_uid $startpos $endpos,$2, $4) }
   | expr LEFT_ARROW expr
       { Update_expr(next_uid $startpos $endpos,$1,$3) }
   | expr BINOP_PLUS expr
@@ -124,7 +135,7 @@ primary_expr:
   | string_value
       { String_expr(next_uid $startpos $endpos,$1) }
   | identifier
-      { Var_expr(next_uid $startpos $endpos, Nested_var(next_uid $startpos $endpos, $1)) }
+      { Var_expr(next_uid $startpos $endpos,Swan_var(next_uid $startpos $endpos,$1)) }
   | KEYWORD_REF primary_expr
       { Ref_expr(next_uid $startpos $endpos,$2) }
   | BANG primary_expr
@@ -140,19 +151,24 @@ record_element:
 
 pattern:
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE
-      { Nested_ast.Record_pattern(next_uid $startpos $endpos,Ident_map.of_enum @@ List.enum $2) }
+      { Swan_ast.Record_pattern(next_uid $startpos $endpos,Ident_map.of_enum @@ List.enum $2) }
   | OPEN_BRACE CLOSE_BRACE
-      { Nested_ast.Record_pattern(next_uid $startpos $endpos,Ident_map.empty) }
+      { Swan_ast.Record_pattern(next_uid $startpos $endpos,Ident_map.empty) }
   | KEYWORD_FUN
-      { Nested_ast.Fun_pattern(next_uid $startpos $endpos) }
+      { Swan_ast.Fun_pattern(next_uid $startpos $endpos) }
   | KEYWORD_REF
-      { Nested_ast.Ref_pattern(next_uid $startpos $endpos) }
+      { Swan_ast.Ref_pattern(next_uid $startpos $endpos) }
   | KEYWORD_INT
-      { Nested_ast.Int_pattern(next_uid $startpos $endpos) }
+      { Swan_ast.Int_pattern(next_uid $startpos $endpos) }
   | bool_pattern
-      { Nested_ast.Bool_pattern(next_uid $startpos $endpos,$1) }
+      { Swan_ast.Bool_pattern(next_uid $startpos $endpos,$1) }
   | KEYWORD_STRING
-      { Nested_ast.String_pattern(next_uid $startpos $endpos) }
+      { Swan_ast.String_pattern(next_uid $startpos $endpos) }
+  ;
+
+match_pair:
+  | PIPE pattern ARROW expr
+      { Match_pair(next_uid $startpos $endpos,$2, $4) }
   ;
 
 record_pattern_element:
@@ -169,7 +185,7 @@ bool_pattern:
 
 function_value:
   | KEYWORD_FUN identifier ARROW expr %prec LAM
-      { Function(next_uid $startpos $endpos, Nested_var(next_uid $startpos $endpos, $2),$4) }
+      { Function(next_uid $startpos $endpos,Swan_var(next_uid $startpos $endpos,$2),$4) }
   ;
 
 int_value:
@@ -196,7 +212,7 @@ string_value:
 
 identifier:
   | IDENTIFIER
-      { Ident($1) }
+      { Ident $1 }
   ;
 
 separated_nonempty_trailing_list(separator, rule):
