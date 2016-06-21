@@ -11,8 +11,6 @@ module List = BatList;;
 %token <string> STRING_LITERAL
 %token OPEN_BRACE
 %token CLOSE_BRACE
-%token OPEN_BRACKET
-%token CLOSE_BRACKET
 %token OPEN_PAREN
 %token CLOSE_PAREN
 %token COMMA
@@ -47,7 +45,7 @@ module List = BatList;;
 %right KEYWORD_IN
 %nonassoc TILDE
 %left LEFT_ARROW
-%nonassoc BINOP_LESS BINOP_LESS_EQUAL BINOP_EQUAL KEYWORD_OR KEYWORD_AND KEYWORD_NOT OPEN_BRACKET
+%nonassoc BINOP_LESS BINOP_LESS_EQUAL BINOP_EQUAL KEYWORD_OR KEYWORD_AND KEYWORD_NOT
 %left BINOP_PLUS BINOP_MINUS
 %right BANG
 %left DOT
@@ -95,8 +93,6 @@ expr:
       { Binary_operation_expr(next_uid $startpos $endpos,$1,Binary_operator_bool_or,$3) }
   | KEYWORD_NOT expr
       { Unary_operation_expr(next_uid $startpos $endpos,Unary_operator_bool_not,$2) }
-  | expr OPEN_BRACKET expr CLOSE_BRACKET
-      { Indexing_expr(next_uid $startpos $endpos,$1,$3) }
   | function_value
       { Function_expr(next_uid $startpos $endpos,$1) }
   | application_expr
@@ -113,6 +109,8 @@ application_expr:
 primary_expr:
   | primary_expr DOT identifier
       { Projection_expr(next_uid $startpos $endpos,$1, $3) }
+  | primary_expr DOT OPEN_PAREN expr CLOSE_PAREN
+      { Indexing_expr(next_uid $startpos $endpos,$1,$4) }
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_element) CLOSE_BRACE
       { Record_expr(next_uid $startpos $endpos,Ident_map.of_enum @@ List.enum $2) }
   | OPEN_BRACE CLOSE_BRACE

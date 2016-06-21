@@ -35,7 +35,7 @@ h = "h";
 space = " ";
 empty = "";
 
-s0 = s[zero];
+s0 = s.(zero);
 s0c = s0 == c;
 s0cpatternmatch = s0c ~ true
                     ? fun s0cmatch -> (
@@ -54,7 +54,7 @@ s0spacepatternmatch = s0space ~ true
                       s0spacematchreturn = 0;
                     );
 
-s6 = s[six];
+s6 = s.(six);
 s6space = s6 == space;
 s6spacepatternmatch = s6space ~ true
                     ? fun s6spacematch -> (
@@ -64,7 +64,7 @@ s6spacepatternmatch = s6space ~ true
                       s6spaceantimatchreturn = false;
                     );
 
-s12 = s[twelve];
+s12 = s.(twelve);
 s12h = s12 == h;
 s12hpatternmatch = s12h ~ true
                     ? fun s12hmatch -> (
@@ -74,7 +74,7 @@ s12hpatternmatch = s12h ~ true
                       s12hantimatchreturn = false;
                     );
 
-s13 = s[thirteen];
+s13 = s.(thirteen);
 s13empty = s13 == empty;
 s13emptypatternmatch = s13empty ~ true
                     ? fun s13emptymatch -> (
