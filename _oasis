@@ -257,7 +257,9 @@ Executable "test"
     toploop-utils,
     nested-ast,
     swan-ast,
-    swan-translator
+    swan-translator,
+    a-translator,
+    ocaml-monadic
 
 Test test
   Command: $test

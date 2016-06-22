@@ -10,7 +10,7 @@ let toploop_operate () e =
   print_string "\n";
   begin
     try
-      let e' = a_translate_nested_expr e in
+      let (e',_) = a_translate_nested_expr e in
       check_wellformed_expr e';
       let v,env = eval e' in
       print_string (show_var v ^ " where "  ^ show_env env ^ "\n");
