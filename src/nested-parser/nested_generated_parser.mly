@@ -21,6 +21,7 @@ module List = BatList;;
 %token EQUALS
 %token DOT
 %token BANG
+%token UNDERSCORE
 %token LEFT_ARROW
 %token KEYWORD_FUN
 %token KEYWORD_LET
@@ -33,6 +34,7 @@ module List = BatList;;
 %token KEYWORD_OR
 %token KEYWORD_NOT
 %token KEYWORD_STRING
+%token KEYWORD_ANY
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
@@ -151,6 +153,10 @@ pattern:
       { Nested_ast.Bool_pattern(next_uid $startpos $endpos,$1) }
   | KEYWORD_STRING
       { Nested_ast.String_pattern(next_uid $startpos $endpos) }
+  | UNDERSCORE
+      { Nested_ast.Any_pattern(next_uid $startpos $endpos) }
+  | KEYWORD_ANY
+      { Nested_ast.Any_pattern(next_uid $startpos $endpos) }
   ;
 
 record_pattern_element:

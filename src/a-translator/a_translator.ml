@@ -20,6 +20,7 @@ let rec pattern_of_nested_pattern p =
   | Nested_ast.Int_pattern(_) -> Ast.Int_pattern
   | Nested_ast.Bool_pattern(_,b) -> Ast.Bool_pattern(b)
   | Nested_ast.String_pattern(_) -> Ast.String_pattern
+  | Nested_ast.Any_pattern(_) -> Ast.Any_pattern
 ;;
 
 let rec function_value_of_nested_function_value
