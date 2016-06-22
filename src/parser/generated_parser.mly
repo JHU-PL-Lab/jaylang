@@ -30,6 +30,8 @@ module List = BatList;;
 %token KEYWORD_OR
 %token KEYWORD_NOT
 %token KEYWORD_STRING
+%token KEYWORD_ANY
+%token UNDERSCORE
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
@@ -178,6 +180,10 @@ pattern:
       { Bool_pattern($1) }
   | KEYWORD_STRING
       { String_pattern }
+  | KEYWORD_ANY
+      { Any_pattern }
+  | UNDERSCORE
+      { Any_pattern }
   ;
 
 record_pattern:

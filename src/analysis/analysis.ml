@@ -87,12 +87,6 @@ struct
     | _ -> let Abs_clause(x,_) = List.last body in x
   ;;
 
-  (* FIXME: the following restriction isn't in the spec, but maybe it should be... just here to test things for now *)
-  (* The `pattern_set' passed into this function must not contain the empty record pattern. Use the following guard to test:
-      (* FIXME: the following isn't in the spec, but maybe it should be... just here to test things for now *)
-      [% guard (not @@
-                    Pattern_set.mem (Record_pattern Ident_map.empty) pattern_set) ];
-  *)
   let negative_pattern_set_selection record_type pattern_set =
     let (Record_value m) = record_type in
     let record_labels = Ident_set.of_enum @@ Ident_map.keys m in
@@ -136,6 +130,7 @@ struct
         with
         | Not_found -> None
       end
+    | Any_pattern -> None
     | _ -> raise @@ Non_record_projection (
         Printf.sprintf "Tried to project out of a non-record pattern `%s' in `analysis.ml:pattern_projection'."
           (show_pattern pattern))
@@ -156,7 +151,7 @@ struct
       (
         fun pattern ->
           match pattern with
-          | Record_pattern _ -> true
+          | Record_pattern _ | Any_pattern -> true
           | _ -> false
       )
   ;;
@@ -171,6 +166,8 @@ struct
     match pattern with
     | Record_pattern m ->
       Ident_set.of_enum @@ Ident_map.keys m
+    | Any_pattern ->
+      Ident_set.empty
     | _ -> raise @@ Non_record_projection (
         Printf.sprintf "Tried to enumerate labels out of a non-record pattern `%s' in `analysis.ml:labels_in_pattern'."
           (show_pattern pattern))
@@ -785,8 +782,8 @@ struct
       | Function_filter_validation(x,v) ->
         let%orzero (Lookup_var(x0,patsp,patsn)) = element in
         [% guard (equal_var x x0) ];
-        [% guard (Pattern_set.subset patsp (Pattern_set.singleton Fun_pattern)) ];
-        [% guard (not @@ Pattern_set.mem Fun_pattern patsn) ];
+        [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Fun_pattern; Any_pattern])) ];
+        [% guard [Fun_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
         let value = Abs_value_function(v) in
         let abs_filtered_value =
           Abs_filtered_value(value,Pattern_set.empty,Pattern_set.empty)
@@ -797,9 +794,7 @@ struct
         let%orzero (Lookup_var(x0,patsp0,patsn0)) = element in
         [% guard (equal_var x x0) ];
         [% guard (is_record_pattern_set patsp0)];
-        (* FIXME: the following isn't in the spec, but maybe it should be... just here to test things for now *)
-        [% guard (not @@
-                  Pattern_set.mem (Record_pattern Ident_map.empty) patsn0) ];
+        [% guard [Record_pattern Ident_map.empty; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn0)) ];
         let%bind patsn2 = negative_pattern_set_selection r patsn0 in
         let pattern_set_labels = labels_in_pattern_set patsp0 in
         let record_labels = labels_in_record r in
@@ -830,8 +825,8 @@ struct
       | Int_filter_validation(x) ->
         let%orzero (Lookup_var(x0,patsp,patsn)) = element in
         [% guard (equal_var x x0) ];
-        [% guard (Pattern_set.subset patsp (Pattern_set.singleton Int_pattern)) ];
-        [% guard (not @@ Pattern_set.mem Int_pattern patsn) ];
+        [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Int_pattern; Any_pattern])) ];
+        [% guard [Int_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
         let abs_filtered_value =
           Abs_filtered_value(Abs_value_int,Pattern_set.empty,Pattern_set.empty)
         in
@@ -839,8 +834,8 @@ struct
       | Bool_filter_validation(x,b) ->
         let%orzero (Lookup_var(x0,patsp,patsn)) = element in
         [% guard (equal_var x x0) ];
-        [% guard (Pattern_set.subset patsp (Pattern_set.singleton (Bool_pattern(b)))) ];
-        [% guard (not @@ Pattern_set.mem (Bool_pattern(b)) patsn) ];
+        [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Bool_pattern(b); Any_pattern])) ];
+        [% guard [Bool_pattern(b); Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
         let abs_filtered_value =
           Abs_filtered_value(Abs_value_bool(b),Pattern_set.empty,Pattern_set.empty)
         in
@@ -848,8 +843,8 @@ struct
       | String_filter_validation(x) ->
         let%orzero (Lookup_var(x0,patsp,patsn)) = element in
         [% guard (equal_var x x0) ];
-        [% guard (Pattern_set.subset patsp (Pattern_set.singleton (String_pattern))) ];
-        [% guard (not @@ Pattern_set.mem (String_pattern) patsn) ];
+        [% guard (Pattern_set.subset patsp (Pattern_set.of_list [String_pattern; Any_pattern])) ];
+        [% guard [String_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
         let abs_filtered_value =
           Abs_filtered_value(Abs_value_string,Pattern_set.empty,Pattern_set.empty)
         in
@@ -859,9 +854,8 @@ struct
         [%guard (equal_var x x0)];
         let empty_record = Abs_value_record(Record_value Ident_map.empty) in
         let empty_record_pattern = Record_pattern Ident_map.empty in
-        [% guard (Pattern_set.subset
-                    patsp (Pattern_set.singleton empty_record_pattern)) ];
-        [% guard (not @@ Pattern_set.mem empty_record_pattern patsn) ];
+        [% guard (Pattern_set.subset patsp (Pattern_set.of_list [empty_record_pattern; Any_pattern])) ];
+        [% guard [empty_record_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
         return [ Push(Continuation_value(Abs_filtered_value(
             empty_record,Pattern_set.empty,Pattern_set.empty))) ]
       | Dereference_lookup(x,x') ->
@@ -873,8 +867,8 @@ struct
       | Cell_filter_validation(x,cell) ->
         let%orzero (Lookup_var(x0,patsp,patsn)) = element in
         [% guard (equal_var x x0) ];
-        [% guard (Pattern_set.subset patsp (Pattern_set.singleton Ref_pattern)) ];
-        [% guard (not @@ Pattern_set.mem Ref_pattern patsn) ];
+        [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Ref_pattern; Any_pattern])) ];
+        [% guard [Ref_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
         let value = Abs_value_ref(cell) in
         return [ Push(Continuation_value(Abs_filtered_value(
             value,Pattern_set.empty,Pattern_set.empty))) ]
@@ -1200,9 +1194,8 @@ struct
           match op,abstract_value with
           | Binary_operator_plus,Abs_value_int
           | Binary_operator_int_minus,Abs_value_int ->
-            [%guard (Pattern_set.subset
-                       patsp (Pattern_set.singleton Int_pattern)) ];
-            [%guard (not @@ Pattern_set.mem Int_pattern patsn) ];
+            [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Int_pattern; Any_pattern])) ];
+            [% guard [Int_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
             return [ Push (Continuation_value(Abs_filtered_value(
                 abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
           | Binary_operator_int_less_than,Abs_value_bool result_bool
@@ -1210,15 +1203,13 @@ struct
           | Binary_operator_equal_to,Abs_value_bool result_bool
           | Binary_operator_bool_and,Abs_value_bool result_bool
           | Binary_operator_bool_or,Abs_value_bool result_bool ->
-            [% guard (Pattern_set.subset
-                        patsp (Pattern_set.singleton (Bool_pattern(result_bool)))) ];
-            [% guard (not @@ Pattern_set.mem (Bool_pattern(result_bool)) patsn) ];
+            [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Bool_pattern(result_bool); Any_pattern])) ];
+            [% guard [Bool_pattern(result_bool); Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
             return [ Push (Continuation_value(Abs_filtered_value(
                 abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
           | Binary_operator_plus,Abs_value_string ->
-            [%guard (Pattern_set.subset
-                       patsp (Pattern_set.singleton String_pattern)) ];
-            [%guard (not @@ Pattern_set.mem String_pattern patsn) ];
+            [% guard (Pattern_set.subset patsp (Pattern_set.of_list [String_pattern; Any_pattern])) ];
+            [% guard [String_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
             return [ Push (Continuation_value(Abs_filtered_value(
                 abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
           | _ -> raise @@ Utils.Invariant_failure "Invalid result of binary operation."
@@ -1243,9 +1234,8 @@ struct
         begin
           match op,abstract_value with
           | Unary_operator_bool_not, Abs_value_bool result_bool ->
-            [% guard (Pattern_set.subset
-                        patsp (Pattern_set.singleton (Bool_pattern(result_bool)))) ];
-            [% guard (not @@ Pattern_set.mem (Bool_pattern(result_bool)) patsn) ];
+            [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Bool_pattern(result_bool); Any_pattern])) ];
+            [% guard [Bool_pattern(result_bool); Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
             return [ Push (Continuation_value(Abs_filtered_value(
                 abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
           | _ -> raise @@ Utils.Invariant_failure "Invalid result of unary operation."
@@ -1278,9 +1268,8 @@ struct
         begin
           match abstract_value with
           | Abs_value_string ->
-            [%guard (Pattern_set.subset
-                       patsp (Pattern_set.singleton String_pattern)) ];
-            [%guard (not @@ Pattern_set.mem String_pattern patsn) ];
+            [% guard (Pattern_set.subset patsp (Pattern_set.of_list [String_pattern; Any_pattern])) ];
+            [% guard [String_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
             return [ Push (Continuation_value(Abs_filtered_value(
                 abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
           | _ -> raise @@ Utils.Invariant_failure "Invalid result of indexing."

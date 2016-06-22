@@ -49,6 +49,8 @@ rule token = parse
   | "and"                            { KEYWORD_AND }
   | "or"                             { KEYWORD_OR }
   | "not"                            { KEYWORD_NOT }
+  | "any"                            { KEYWORD_ANY }
+  | "_"                              { UNDERSCORE }
   | "string"                         { KEYWORD_STRING }
   | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) } 
   | "\"" (string_contents as s) "\"" { STRING_LITERAL s }
