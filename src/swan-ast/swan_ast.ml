@@ -53,6 +53,7 @@ and pattern =
   | Int_pattern of uid
   | Bool_pattern of uid * bool
   | String_pattern of uid
+  | Any_pattern of uid
   [@@deriving eq, ord]
 
 and match_pair =

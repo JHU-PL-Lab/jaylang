@@ -24,6 +24,7 @@ module List = BatList;;
 %token DOT
 %token BANG
 %token PIPE
+%token UNDERSCORE
 %token LEFT_ARROW
 %token KEYWORD_FUN
 %token KEYWORD_LET
@@ -42,6 +43,7 @@ module List = BatList;;
 %token KEYWORD_MATCH
 %token KEYWORD_WITH
 %token KEYWORD_END
+%token KEYWORD_ANY
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
@@ -164,6 +166,10 @@ pattern:
       { Swan_ast.Bool_pattern(next_uid $startpos $endpos,$1) }
   | KEYWORD_STRING
       { Swan_ast.String_pattern(next_uid $startpos $endpos) }
+  | KEYWORD_ANY
+      { Swan_ast.Any_pattern(next_uid $startpos $endpos) }
+  | UNDERSCORE
+      { Swan_ast.Any_pattern(next_uid $startpos $endpos) }
   ;
 
 match_pair:

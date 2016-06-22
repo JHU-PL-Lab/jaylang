@@ -42,6 +42,7 @@ rule token = parse
   | "."                              { DOT }
   | "!"                              { BANG }
   | "|"                              { PIPE }
+  | "_"                              { UNDERSCORE }
   | "<-"                             { LEFT_ARROW }
   | "fun"                            { KEYWORD_FUN }
   | "let"                            { KEYWORD_LET }
@@ -60,6 +61,7 @@ rule token = parse
   | "match"                          { KEYWORD_MATCH }
   | "with"                           { KEYWORD_WITH }
   | "end"                            { KEYWORD_END }
+  | "any"                            { KEYWORD_ANY }
   | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) }
   | "\"" (string_contents as s) "\"" { STRING_LITERAL s }
   | "+"                              { BINOP_PLUS }
