@@ -1,5 +1,5 @@
 (**
-   Contains data type definitions for the AST of the *nested* toy language.
+   Contains data type definitions for the AST of the Swam language.
 *)
 
 open Ast;;
@@ -53,6 +53,7 @@ and pattern =
   | Int_pattern of uid
   | Bool_pattern of uid * bool
   | String_pattern of uid
+  | Any_pattern of uid
   [@@deriving eq, ord]
 
 and match_pair =

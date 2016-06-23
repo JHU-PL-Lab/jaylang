@@ -115,6 +115,7 @@ let fresh_wire (Function_value(param_x, Expr(body))) arg_x call_site_x =
 let rec matches env x p =
   let v = lookup env x in
   match v,p with
+  | _,Any_pattern -> true
   | Value_record(Record_value(els)),Record_pattern(els') ->
     els'
     |> Ident_map.enum

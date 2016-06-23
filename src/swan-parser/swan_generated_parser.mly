@@ -24,6 +24,7 @@ module List = BatList;;
 %token DOT
 %token BANG
 %token PIPE
+%token UNDERSCORE
 %token LEFT_ARROW
 %token KEYWORD_FUN
 %token KEYWORD_LET
@@ -42,6 +43,7 @@ module List = BatList;;
 %token KEYWORD_MATCH
 %token KEYWORD_WITH
 %token KEYWORD_END
+%token KEYWORD_ANY
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
@@ -54,7 +56,7 @@ module List = BatList;;
 %right KEYWORD_IN
 %nonassoc TILDE
 %left LEFT_ARROW
-%nonassoc BINOP_LESS BINOP_LESS_EQUAL BINOP_EQUAL KEYWORD_OR KEYWORD_AND KEYWORD_NOT OPEN_BRACKET
+%nonassoc BINOP_LESS BINOP_LESS_EQUAL BINOP_EQUAL KEYWORD_OR KEYWORD_AND KEYWORD_NOT
 %left BINOP_PLUS BINOP_MINUS
 %right BANG
 %left DOT
@@ -106,8 +108,6 @@ expr:
       { Binary_operation_expr(next_uid $startpos $endpos,$1,Binary_operator_bool_or,$3) }
   | KEYWORD_NOT expr
       { Unary_operation_expr(next_uid $startpos $endpos,Unary_operator_bool_not,$2) }
-  | expr OPEN_BRACKET expr CLOSE_BRACKET
-      { Indexing_expr(next_uid $startpos $endpos,$1,$3) }
   | function_value
       { Function_expr(next_uid $startpos $endpos,$1) }
   | application_expr
@@ -124,6 +124,8 @@ application_expr:
 primary_expr:
   | primary_expr DOT identifier
       { Projection_expr(next_uid $startpos $endpos,$1, $3) }
+  | primary_expr DOT OPEN_PAREN expr CLOSE_PAREN
+      { Indexing_expr(next_uid $startpos $endpos,$1,$4) }
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_element) CLOSE_BRACE
       { Record_expr(next_uid $startpos $endpos,Ident_map.of_enum @@ List.enum $2) }
   | OPEN_BRACE CLOSE_BRACE
@@ -164,6 +166,10 @@ pattern:
       { Swan_ast.Bool_pattern(next_uid $startpos $endpos,$1) }
   | KEYWORD_STRING
       { Swan_ast.String_pattern(next_uid $startpos $endpos) }
+  | KEYWORD_ANY
+      { Swan_ast.Any_pattern(next_uid $startpos $endpos) }
+  | UNDERSCORE
+      { Swan_ast.Any_pattern(next_uid $startpos $endpos) }
   ;
 
 match_pair:

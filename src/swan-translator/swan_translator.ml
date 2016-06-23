@@ -18,6 +18,7 @@ type proof =
   | Int_pattern_rule of uid * uid
   | Bool_pattern_rule of uid * uid
   | String_pattern_rule of uid * uid
+  | Any_pattern_rule of uid * uid
   | Match_pair_rule of uid * uid * uid * uid
   | Record_expr_rule of uid * uid
   | Function_expr_rule of uid * uid
@@ -76,6 +77,8 @@ let rec nested_pattern_of_swan_pattern p =
     (Nested_ast.Bool_pattern(nu,b), Uid_map.singleton nu (Bool_pattern_rule(nu,u)))
   | Swan_ast.String_pattern u ->
     (Nested_ast.String_pattern nu, Uid_map.singleton nu (String_pattern_rule(nu,u)))
+  | Swan_ast.Any_pattern u ->
+    (Nested_ast.Any_pattern nu, Uid_map.singleton nu (Any_pattern_rule(nu,u)))
   | Swan_ast.Record_pattern (u,elements) ->
     let enum = Ident_map.enum elements in
     let (keys, values) = Enum.uncombine enum in

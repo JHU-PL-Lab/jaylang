@@ -124,6 +124,7 @@ and pp_pattern formatter p =
   | Bool_pattern(b) ->
     Format.pp_print_string formatter @@ if b then "true" else "false"
   | String_pattern -> Format.pp_print_string formatter "string"
+  | Any_pattern -> Format.pp_print_string formatter "any"
 ;;
 
 let show_value = pp_to_string pp_value;;

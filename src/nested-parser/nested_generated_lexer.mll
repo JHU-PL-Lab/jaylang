@@ -29,8 +29,6 @@ rule token = parse
   | newline                          { incr_lineno lexbuf; token lexbuf }
   | "{"                              { OPEN_BRACE }
   | "}"                              { CLOSE_BRACE }
-  | "["                              { OPEN_BRACKET }
-  | "]"                              { CLOSE_BRACKET }
   | "("                              { OPEN_PAREN }
   | ")"                              { CLOSE_PAREN }
   | ","                              { COMMA }
@@ -42,6 +40,7 @@ rule token = parse
   | "."                              { DOT }
   | "!"                              { BANG }
   | "<-"                             { LEFT_ARROW }
+  | "_"                              { UNDERSCORE }
   | "fun"                            { KEYWORD_FUN }
   | "let"                            { KEYWORD_LET }
   | "in"                             { KEYWORD_IN }
@@ -53,6 +52,7 @@ rule token = parse
   | "or"                             { KEYWORD_OR }
   | "not"                            { KEYWORD_NOT }
   | "string"                         { KEYWORD_STRING }
+  | "any"                            { KEYWORD_ANY }
   | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) } 
   | "\"" (string_contents as s) "\"" { STRING_LITERAL s }
   | "+"                              { BINOP_PLUS }

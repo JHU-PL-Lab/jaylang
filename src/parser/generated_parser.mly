@@ -9,8 +9,6 @@ module List = BatList;;
 %token EOF 
 %token OPEN_BRACE 
 %token CLOSE_BRACE 
-%token OPEN_BRACKET 
-%token CLOSE_BRACKET 
 %token OPEN_PAREN 
 %token CLOSE_PAREN 
 %token SEMICOLON
@@ -32,6 +30,8 @@ module List = BatList;;
 %token KEYWORD_OR
 %token KEYWORD_NOT
 %token KEYWORD_STRING
+%token KEYWORD_ANY
+%token UNDERSCORE
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
@@ -109,8 +109,8 @@ clause_body:
       { Binary_operation_body($1,Binary_operator_bool_or,$3) }
   | KEYWORD_NOT variable
       { Unary_operation_body(Unary_operator_bool_not,$2) }
-  | variable OPEN_BRACKET variable CLOSE_BRACKET
-      { Indexing_body($1,$3) }
+  | variable DOT OPEN_PAREN variable CLOSE_PAREN
+      { Indexing_body($1,$4) }
   ;
 
 value:
@@ -180,6 +180,10 @@ pattern:
       { Bool_pattern($1) }
   | KEYWORD_STRING
       { String_pattern }
+  | KEYWORD_ANY
+      { Any_pattern }
+  | UNDERSCORE
+      { Any_pattern }
   ;
 
 record_pattern:

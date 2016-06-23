@@ -125,6 +125,7 @@ and pattern =
   | Int_pattern
   | Bool_pattern of bool
   | String_pattern
+  | Any_pattern
   [@@deriving eq, ord]
 ;;
 
