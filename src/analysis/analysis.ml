@@ -98,6 +98,8 @@ struct
                                  | Record_pattern m' ->
                                    Ident_set.subset (Ident_set.of_enum @@ Ident_map.keys m')
                                      record_labels
+                                 | Any_pattern ->
+                                   raise @@ Utils.Invariant_failure "Shouldn't call `negative_pattern_set_selection' with a pattern set that contains `any' patterns."
                                  | _ -> false)
     in
     (* This function selects a single label from a given pattern and constructs
