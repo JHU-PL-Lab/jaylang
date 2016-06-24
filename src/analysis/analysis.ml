@@ -768,12 +768,13 @@ struct
         let%orzero (Abs_filtered_value(Abs_value_record(r),patsp,patsn)) = fv in
         return [ Pop_dynamic_targeted(Record_projection_2_of_2(r,patsp,patsn)) ]
       | Record_projection_2_of_2(Record_value(m) as r,patsp0,patsn0) ->
-        [%guard (is_record_pattern_set patsp0)];
         let%orzero (Project(l,patsp1,patsn1)) = element in
         [%guard (Ident_map.mem l m)];
-        (* FIXME: the following isn't in the spec, but maybe it should be... just here to test things for now *)
-        [% guard (not @@
-                  Pattern_set.mem (Record_pattern Ident_map.empty) patsn0) ];
+        if (not
+              ((is_record_pattern_set patsp0) &&
+               [Record_pattern Ident_map.empty; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn0))))
+        then
+          raise @@ Utils.Invariant_failure "Record projection received a value that doesn't satisfy to the record pattern. This might be an error in the record-value-filter-validation rule (7b at the time of this writing).";
         let%bind patsn2 = negative_pattern_set_selection r patsn0 in
         let x' = Ident_map.find l m in
         let patsp' = Pattern_set.union patsp1 @@
