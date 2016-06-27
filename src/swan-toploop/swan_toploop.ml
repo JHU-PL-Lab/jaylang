@@ -15,7 +15,7 @@ let toploop_operate () (e:Swan_ast.expr)=
     try
       lazy_logger `trace (fun () ->
           Printf.sprintf "Parsed expression: %s" (Swan_ast.show_expr e));
-      let (e'',_) = translate_swan_expr_to_nested e in
+      let (e'', _) = swan_to_nested_translation e in
       let (e',_) = a_translate_nested_expr e'' in
       check_wellformed_expr e';
       let v,env = eval e' in

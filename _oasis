@@ -137,7 +137,8 @@ Library "a-translator"
 Library "swan-translator"
   Path: src/swan-translator
   Modules:
-    Swan_translator
+    Swan_translator,
+    Egg_ast
   BuildDepends:
     batteries,
     ast,
