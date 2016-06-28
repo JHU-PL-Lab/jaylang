@@ -5,31 +5,7 @@ open Uid;;
 module Ident_map = Core_ast.Ident_map;;
 
 type proof =
-  | Var_rule of ident * uid
-  | Record_expr_rule of ident * uid
-  | Function_expr_rule of ident * uid
-  | Int_expr_rule of ident * uid
-  | Bool_expr_rule of ident * uid
-  | String_expr_rule of ident * uid
-  | Ref_expr_rule of ident * uid
-  | Var_expr_rule of ident * uid
-  | Appl_expr_rule of ident * uid
-  | Conditional_expr_rule of ident * uid
-  | Deref_expr_rule of ident * uid
-  | Update_expr_rule of ident * uid
-  | Binary_operation_expr_rule of ident * uid
-  | Unary_operation_expr_rule of ident * uid
-  | Indexing_expr_rule of ident * uid
-  | Let_expr_rule of ident * uid
-  | Projection_expr_rule of ident * uid
-  | Function_rule of ident * uid
-  | Record_pattern_rule of ident * uid
-  | Fun_pattern_rule of ident * uid
-  | Ref_pattern_rule of ident * uid
-  | Int_pattern_rule of ident * uid
-  | Bool_pattern_rule of ident * uid
-  | String_pattern_rule of ident * uid
-  | Nested_var_rule of ident * uid
+  | Proof_rule of ident * uid
 
 let first(x,_,_) = x;;
 let second(_,x,_) = x;;
@@ -69,7 +45,7 @@ let rec pattern_of_nested_pattern p =
 let rec function_value_of_nested_function_value
     (Nested_ast.Function(uid,Nested_ast.Nested_var(_,x'),e')) =
   let (body,_,orig_map) = clauses_and_var_of_nested_expr e' in
-  let this_map = disjoint_union orig_map (Ident_map.singleton x' (Function_rule(x',uid))) in
+  let this_map = disjoint_union orig_map (Ident_map.singleton x' (Proof_rule(x',uid))) in
   (Core_ast.Function_value(Core_ast.Var(x',None),Core_ast.Expr body), this_map)
 
 and clauses_and_var_of_nested_expr e =
@@ -89,7 +65,7 @@ and clauses_and_var_of_nested_expr e =
           |> List.of_enum
           |> List.concat
         in
-        let singleton = Ident_map.singleton id (Record_expr_rule(id,u)) in
+        let singleton = Ident_map.singleton id (Proof_rule(id,u)) in
         let combined_map =
           elements'
           |> Ident_map.enum
@@ -103,27 +79,27 @@ and clauses_and_var_of_nested_expr e =
         let (fv,fvmap) = function_value_of_nested_function_value f in
         ([], Core_ast.Value_body(
             Core_ast.Value_function(
-              fv)), disjoint_union fvmap (Ident_map.singleton id (Function_expr_rule(id,u))))
+              fv)), disjoint_union fvmap (Ident_map.singleton id (Proof_rule(id,u))))
       | Nested_ast.Int_expr(u,n) ->
-        ([], Core_ast.Value_body(Core_ast.Value_int(n)), (Ident_map.singleton id (Int_expr_rule(id,u))))
+        ([], Core_ast.Value_body(Core_ast.Value_int(n)), (Ident_map.singleton id (Proof_rule(id,u))))
       | Nested_ast.Bool_expr(u,b) ->
-        ([], Core_ast.Value_body(Core_ast.Value_bool(b)), Ident_map.singleton id (Bool_expr_rule(id,u)))
+        ([], Core_ast.Value_body(Core_ast.Value_bool(b)), Ident_map.singleton id (Proof_rule(id,u)))
       | Nested_ast.String_expr(u,s) ->
-        ([], Core_ast.Value_body(Core_ast.Value_string(s)), Ident_map.singleton id (String_expr_rule(id,u)))
+        ([], Core_ast.Value_body(Core_ast.Value_string(s)), Ident_map.singleton id (Proof_rule(id,u)))
       | Nested_ast.Ref_expr(u,e') ->
         let (cls0,x',orig_map) = clauses_and_var_of_nested_expr e' in
-        let this_map = Ident_map.singleton id (Ref_expr_rule(id,u)) in
+        let this_map = Ident_map.singleton id (Proof_rule(id,u)) in
         (cls0, Core_ast.Value_body(Core_ast.Value_ref(Core_ast.Ref_value(x'))), disjoint_union this_map orig_map)
       | Nested_ast.Var_expr(u,Nested_ast.Nested_var(_,x')) ->
-        ([], Core_ast.Var_body(Core_ast.Var(x',None)), Ident_map.singleton id (Var_expr_rule(id,u)))
+        ([], Core_ast.Var_body(Core_ast.Var(x',None)), Ident_map.singleton id (Proof_rule(id,u)))
       | Nested_ast.Appl_expr(u,e1,e2) ->
-        let this_map = Ident_map.singleton id (Appl_expr_rule(id,u)) in
+        let this_map = Ident_map.singleton id (Proof_rule(id,u)) in
         let (cls1,x1,map1) = clauses_and_var_of_nested_expr e1 in
         let (cls2,x2,map2) = clauses_and_var_of_nested_expr e2 in
         let first_union = disjoint_union map1 map2 in
         (cls1 @ cls2, Core_ast.Appl_body(x1,x2), disjoint_union this_map first_union)
       | Nested_ast.Conditional_expr(u,e',p,f1,f2) ->
-        let this_map = Ident_map.singleton id (Conditional_expr_rule(id,u)) in
+        let this_map = Ident_map.singleton id (Proof_rule(id,u)) in
         let (fv1, fvmap1) = function_value_of_nested_function_value f1 in
         let (fv2, fvmap2) = function_value_of_nested_function_value f2 in
         let fvmap = disjoint_union fvmap1 fvmap2 in
@@ -136,13 +112,13 @@ and clauses_and_var_of_nested_expr e =
             fv2)
         , disjoint_union (disjoint_union this_map orig_map) fvmap)
       | Nested_ast.Deref_expr(u,e') ->
-        let this_map = Ident_map.singleton id (Deref_expr_rule(id,u)) in
+        let this_map = Ident_map.singleton id (Proof_rule(id,u)) in
         let (cls0,x',orig_map) = clauses_and_var_of_nested_expr e' in
         ( cls0
         , Core_ast.Deref_body(x')
         , disjoint_union this_map orig_map)
       | Nested_ast.Update_expr(u,e1,e2) ->
-        let this_map = Ident_map.singleton id (Update_expr_rule(id,u)) in
+        let this_map = Ident_map.singleton id (Proof_rule(id,u)) in
         let (cls1,x1,map1) = clauses_and_var_of_nested_expr e1 in
         let (cls2,x2,map2) = clauses_and_var_of_nested_expr e2 in
         let first_union = disjoint_union map1 map2 in
@@ -151,7 +127,7 @@ and clauses_and_var_of_nested_expr e =
         , disjoint_union this_map first_union
         )
       | Nested_ast.Binary_operation_expr(u,e1,op,e2) ->
-        let this_map = Ident_map.singleton id (Binary_operation_expr_rule(id,u)) in
+        let this_map = Ident_map.singleton id (Proof_rule(id,u)) in
         let (cls1,x1,map1) = clauses_and_var_of_nested_expr e1 in
         let (cls2,x2,map2) = clauses_and_var_of_nested_expr e2 in
         let first_union = disjoint_union map1 map2 in
@@ -160,11 +136,11 @@ and clauses_and_var_of_nested_expr e =
         , disjoint_union this_map first_union
         )
       | Nested_ast.Unary_operation_expr(u,op,e1) ->
-        let this_map = Ident_map.singleton id (Unary_operation_expr_rule(id,u)) in
+        let this_map = Ident_map.singleton id (Proof_rule(id,u)) in
         let (cls1,x1,map1) = clauses_and_var_of_nested_expr e1 in
         (cls1, Core_ast.Unary_operation_body(op,x1),disjoint_union map1 this_map)
       | Nested_ast.Indexing_expr(u,e1,e2) ->
-          let this_map = Ident_map.singleton id (Indexing_expr_rule(id,u)) in
+          let this_map = Ident_map.singleton id (Proof_rule(id,u)) in
         let (cls1,x1,map1) = clauses_and_var_of_nested_expr e1 in
         let (cls2,x2,map2) = clauses_and_var_of_nested_expr e2 in
         let first_union = disjoint_union map1 map2 in
@@ -173,7 +149,7 @@ and clauses_and_var_of_nested_expr e =
         , disjoint_union this_map first_union
         )
       | Nested_ast.Let_expr(u,Nested_ast.Nested_var(_,x'),e1,e2) ->
-        let this_map = Ident_map.singleton id (Let_expr_rule(id,u)) in
+        let this_map = Ident_map.singleton id (Proof_rule(id,u)) in
         let (cls1,x1,map1) = clauses_and_var_of_nested_expr e1 in
         let (cls2,x2,map2) = clauses_and_var_of_nested_expr e2 in
         let first_union = disjoint_union map1 map2 in
@@ -184,7 +160,7 @@ and clauses_and_var_of_nested_expr e =
         , disjoint_union this_map first_union
         )
       | Nested_ast.Projection_expr(u,e',i) ->
-        let this_map = Ident_map.singleton id (Projection_expr_rule(id,u)) in
+        let this_map = Ident_map.singleton id (Proof_rule(id,u)) in
         let (cls0,x',orig_map) = clauses_and_var_of_nested_expr e' in
         ( cls0
         , Core_ast.Projection_body(x', i)

@@ -15,7 +15,7 @@ let basic_test =
     let expr, ids = a_translate_nested_expr nested in
     match expr with
     | Core_ast.Expr([Core_ast.Clause(Core_ast.Var(int_id,_), Core_ast.Value_body(Core_ast.Value_int(1)))]) ->
-      let%orzero Some (Int_expr_rule(_,mapped_int_uid)) =
+      let%orzero Some (Proof_rule(_,mapped_int_uid)) =
         Ident_map.Exceptionless.find int_id ids
       in
       assert_bool "Int_uid matches proof_rule" (equal_uid int_uid mapped_int_uid)
@@ -53,16 +53,16 @@ let conditional_test =
               Core_ast.Function_value(Core_ast.Var(func2_id,_), _)
             ))
         ]) ->
-      let%orzero Some (Int_expr_rule(_,mapped_expr_uid)) =
+      let%orzero Some (Proof_rule(_,mapped_expr_uid)) =
         Ident_map.Exceptionless.find expr_id ids
       in
-      let%orzero Some (Conditional_expr_rule(_,mapped_cond_uid)) =
+      let%orzero Some (Proof_rule(_,mapped_cond_uid)) =
         Ident_map.Exceptionless.find cond_id ids
       in
-      let%orzero Some (Function_rule(_,mapped_func1_uid)) =
+      let%orzero Some (Proof_rule(_,mapped_func1_uid)) =
         Ident_map.Exceptionless.find func1_id ids
       in
-      let%orzero Some (Function_rule(_,mapped_func2_uid)) =
+      let%orzero Some (Proof_rule(_,mapped_func2_uid)) =
         Ident_map.Exceptionless.find func2_id ids
       in
       assert_bool "Expr_uid matches proof_rule" (equal_uid expr_uid mapped_expr_uid);
@@ -95,13 +95,13 @@ let appl_test =
           Core_ast.Clause(Core_ast.Var(int_id,_), Core_ast.Value_body(Core_ast.Value_int(0)));
           Core_ast.Clause(Core_ast.Var(appl_id,_), Core_ast.Appl_body(_,_))
         ]) ->
-      let%orzero Some (Appl_expr_rule(_,mapped_appl_uid)) =
+      let%orzero Some (Proof_rule(_,mapped_appl_uid)) =
         Ident_map.Exceptionless.find appl_id ids
       in
-      let%orzero Some (Int_expr_rule(_,mapped_int_uid)) =
+      let%orzero Some (Proof_rule(_,mapped_int_uid)) =
         Ident_map.Exceptionless.find int_id ids
       in
-      let%orzero Some (Function_expr_rule(_,mapped_func_uid)) =
+      let%orzero Some (Proof_rule(_,mapped_func_uid)) =
         Ident_map.Exceptionless.find func_id ids
       in
       assert_bool "Appl_uid matches proof_rule" (equal_uid appl_uid mapped_appl_uid);
