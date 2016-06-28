@@ -24,12 +24,12 @@ let parse_expressions (input : IO.input) =
   let buf = Lexing.from_input input in
   let read_expr () =
     handle_parse_error buf @@ fun () ->
-    Generated_parser.delim_expr Generated_lexer.token buf
+    Core_generated_parser.delim_expr Core_generated_lexer.token buf
   in
   LazyList.from_while read_expr;;
 
 let parse_program (input : IO.input) =
   let buf = Lexing.from_input input in
   handle_parse_error buf @@ fun () ->
-  Generated_parser.prog Generated_lexer.token buf
+  Core_generated_parser.prog Core_generated_lexer.token buf
 ;;

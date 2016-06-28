@@ -1,7 +1,7 @@
 (*open Batteries;;*)
 open Uid;;
 
-module Ident_map = Ast.Ident_map;;
+module Ident_map = Core_ast.Ident_map;;
 
 type translation_failure =
   | No_match_clauses_in_match_expr of Swan_ast.expr
@@ -15,7 +15,7 @@ let fresh_var () =
   let index = !fresh_var_counter in
   fresh_var_counter := !fresh_var_counter + 1;
   let name = "s__" ^ (string_of_int index) in
-  Ast.Ident(name)
+  Core_ast.Ident(name)
 ;;
 
 let rec nested_pattern_of_swan_pattern p =

@@ -15,11 +15,11 @@ let logging_option:unit BatOptParse.Opt.t =
          in
          (match args with
           |[arg] ->
-            (let (module_name_option,module_level) = 
+            (let (module_name_option,module_level) =
                if BatString.exists arg "=" then
                  let (module_name,module_level) =
                    String.split ~by:arg "="
-                 in (Some module_name,module_level) 
+                 in (Some module_name,module_level)
                else
                  (None,arg)
              in
@@ -44,13 +44,13 @@ let logging_option:unit BatOptParse.Opt.t =
     ;
   };;
 
-module type Stack = Analysis_context_stack.Context_stack;;
+module type Stack = Ddpa_context_stack.Context_stack;;
 
 let select_context_stack_option =
   (* This ref contains a module option.  If the option is None, no analysis is
      to be performed. *)
   let analysis_module_ref =
-    ref (Some (module Analysis_single_element_stack.Stack : Stack))
+    ref (Some (module Ddpa_single_element_stack.Stack : Stack))
   in
   {
     option_set = (fun option_name args ->
@@ -109,7 +109,7 @@ let ddpa_logging_option =
     option_metavars = ["DDPA_LEVEL"]
     ;
     option_defhelp = Some("Selects a DDPA logging level (none,result,all).")
-    ;       
+    ;
   }
 ;;
 
@@ -144,7 +144,7 @@ let pdr_logging_option =
     ;
     option_defhelp =
       Some("Selects a PDR logging level (nothing,each-call,each-edge).")
-    ;       
+    ;
   }
 ;;
 
@@ -230,7 +230,7 @@ let analyze_variables_option =
 let disable_evaluation_option =
   BatOptParse.StdOpt.store_true ()
 ;;
-  
+
 let disable_inconsistency_check_option =
   BatOptParse.StdOpt.store_true ()
 ;;

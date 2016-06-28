@@ -7,7 +7,7 @@
       application of the DDPA, such as detecting misuse of call sites.
 *)
 
-open Analysis
+open Ddpa_analysis
 
 include module type of Toploop_ddpa_types;;
 
@@ -20,4 +20,4 @@ module Make : functor (A : Analysis_sig) -> DDPA;;
     [Not_found] if the name is invalid.  The string ["none"] produces
     [None] as the stack. *)
 val stack_from_name :
-  string -> (module Analysis_context_stack.Context_stack) option
+  string -> (module Ddpa_context_stack.Context_stack) option

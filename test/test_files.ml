@@ -12,11 +12,11 @@
 open Batteries;;
 open OUnit2;;
 
-open Ast;;
-open Ast_pp;;
-open Ast_wellformedness;;
+open Core_ast;;
+open Core_ast_pp;;
+open Core_ast_wellformedness;;
+open Core_interpreter;;
 open Ddpa_graph;;
-open Interpreter;;
 open String_utils;;
 
 exception File_test_creation_failure of string;;
@@ -27,7 +27,7 @@ type test_expectation =
   | Expect_well_formed
   | Expect_ill_formed
   | Expect_analysis_stack_is of
-      (module Analysis_context_stack.Context_stack) option
+      (module Ddpa_context_stack.Context_stack) option
   | Expect_analysis_variable_lookup_from_end of ident * string
   | Expect_analysis_inconsistency_at of ident
   | Expect_analysis_no_inconsistencies
@@ -44,7 +44,7 @@ exception Expectation_not_found;;
 
 type expectation_stack_decision =
   | Default_stack
-  | Chosen_stack of (module Analysis_context_stack.Context_stack) option
+  | Chosen_stack of (module Ddpa_context_stack.Context_stack) option
 ;;
 
 let parse_expectation str =
@@ -224,7 +224,7 @@ let make_test filename expectations =
         match stack_option with
         | Some stack ->
           let module Stack =
-            (val stack : Analysis_context_stack.Context_stack)
+            (val stack : Ddpa_context_stack.Context_stack)
           in
           Stack.name
         | None -> "none"
@@ -257,7 +257,7 @@ let make_test filename expectations =
        satisfied.  This addresses nonsense cases such as expecting an ill-formed
        expression to evaluate. *)
     begin
-      let expr = File.with_file_in filename Parser.parse_program in
+      let expr = File.with_file_in filename Core_parser.parse_program in
       (* Confirm well-formedness. *)
       begin
         try
@@ -273,8 +273,8 @@ let make_test filename expectations =
       let chosen_module_option =
         match !module_choice with
         | Default_stack ->
-          Some (module Analysis_single_element_stack.Stack :
-                 Analysis_context_stack.Context_stack)
+          Some (module Ddpa_single_element_stack.Stack :
+                 Ddpa_context_stack.Context_stack)
         | Chosen_stack value -> value
       in
       (* If the test wants an analysis, build it and work through observations
@@ -284,7 +284,7 @@ let make_test filename expectations =
       | Some chosen_module ->
         begin
           let module Stack = (val chosen_module) in
-          let module A = Analysis.Make(Stack) in
+          let module A = Ddpa_analysis.Make(Stack) in
           let module TLA = Toploop_ddpa.Make(A) in
           (* Create the analysis now. *)
           let analysis = TLA.create_analysis expr in

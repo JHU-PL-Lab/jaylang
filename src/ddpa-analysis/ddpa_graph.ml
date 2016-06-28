@@ -4,8 +4,8 @@
 
 open Batteries;;
 
-open Ast;;
-open Ast_pp;;
+open Core_ast;;
+open Core_ast_pp;;
 open Pp_utils;;
 
 module Pattern_ord =

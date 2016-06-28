@@ -1,6 +1,6 @@
 open Batteries;;
 
-open Ast;;
+open Core_ast;;
 
 (** Returns a list of all clauses that occur in expression, deeply traversing
     the syntax tree. *)

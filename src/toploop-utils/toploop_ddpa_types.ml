@@ -6,9 +6,9 @@
 
 open Batteries;;
 
-open Analysis_context_stack;;
-open Ast;;
-open Ast_pp;;
+open Core_ast;;
+open Core_ast_pp;;
+open Ddpa_context_stack;;
 open Ddpa_graph;;
 
 type inconsistency =

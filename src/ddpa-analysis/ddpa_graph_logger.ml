@@ -2,10 +2,14 @@
    A logger module for DDPA graphs.
 *)
 
+(* FIXME: this module is not currently interacting in a meaningful sense with
+   the analysis; it should be rewritten to produce e.g. a JSON dump of the
+   graph *)
+
 open Batteries;;
 
-open Ast;;
-open Ast_pp;;
+open Core_ast;;
+open Core_ast_pp;;
 open Ddpa_graph;;
 open Dot_file_logger_utils;;
 

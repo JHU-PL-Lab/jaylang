@@ -2,7 +2,7 @@
 
 open Batteries;;
 
-open Ast;;
+open Core_ast;;
 open Ddpa_graph;;
 open Utils;;
 

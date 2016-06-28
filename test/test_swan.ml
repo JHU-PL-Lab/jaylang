@@ -3,7 +3,7 @@
 (* open Batteries;; *)
 open OUnit2;;
 open Uid;;
-module Ident_map = Ast.Ident_map
+module Ident_map = Core_ast.Ident_map
 
 let if_then_else_test_1 =
   "if_then_else_test" >:: fun _ ->

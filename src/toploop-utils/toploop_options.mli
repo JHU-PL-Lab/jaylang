@@ -5,7 +5,7 @@ val logging_option : unit BatOptParse.Opt.t
 
 (** This logging option selects a particular DDPA analysis to perform. *)
 val select_context_stack_option :
-  (module Analysis_context_stack.Context_stack) option BatOptParse.Opt.t
+  (module Ddpa_context_stack.Context_stack) option BatOptParse.Opt.t
 
 (** This logging option configures how DDPA DOT graphs are logged. *)
 val ddpa_logging_option :
@@ -15,7 +15,7 @@ val ddpa_logging_option :
     logged. *)
 val pdr_logging_option :
   Pds_reachability_logger_utils.pds_reachability_logger_level BatOptParse.Opt.t
-  
+
 (** A data type used by the [analyze_variables_option] to express the user's
     selection. **)
 type analyze_variables_selection =

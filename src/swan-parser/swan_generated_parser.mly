@@ -1,5 +1,5 @@
 %{
-open Ast;;
+open Core_ast;;
 open Swan_ast;;
 open Parser_support;;
 
