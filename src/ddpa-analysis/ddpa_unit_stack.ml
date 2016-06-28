@@ -1,6 +1,6 @@
 (** A "context stack" which performs no actions. *)
 
-open Analysis_context_stack;;
+open Ddpa_context_stack;;
 open Pp_utils;;
 
 module Stack : Context_stack =

@@ -1,9 +1,9 @@
 open Batteries;;
 
 open A_translator;;
-open Ast_pp;;
-open Ast_wellformedness;;
-open Interpreter;;
+open Core_ast_pp;;
+open Core_ast_wellformedness;;
+open Core_interpreter;;
 open Swan_translator;;
 open Toploop_options;;
 

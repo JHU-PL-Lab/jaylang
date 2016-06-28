@@ -1,6 +1,6 @@
 open Batteries;;
 
-open Ast;;
+open Core_ast;;
 open Pp_utils;;
 
 let pp_ident formatter (Ident(s)) = Format.pp_print_string formatter s;;

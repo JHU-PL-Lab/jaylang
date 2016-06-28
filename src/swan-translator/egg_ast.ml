@@ -2,12 +2,12 @@
    Contains data type definitions for the AST of the Swam language.
 *)
 
-open Ast;;
+open Core_ast;;
 open Uid;;
 
-let pp_ident = Ast_pp.pp_ident;;
-let pp_unary_operator = Ast_pp.pp_unary_operator;;
-let pp_binary_operator = Ast_pp.pp_binary_operator;;
+let pp_ident = Core_ast_pp.pp_ident;;
+let pp_unary_operator = Core_ast_pp.pp_unary_operator;;
+let pp_binary_operator = Core_ast_pp.pp_binary_operator;;
 
 
 (** Expressions in the nested language. *)
@@ -16,7 +16,7 @@ type expr =
   [@printer
      fun formatter map ->
       Format.fprintf formatter "Swan_ast.Record_expr(\"%a\")"
-        (Pp_utils.pp_map Ast_pp.pp_ident pp_expr Ident_map.enum) map
+        (Pp_utils.pp_map Core_ast_pp.pp_ident pp_expr Ident_map.enum) map
      ]
   | Function_expr of uid * function_value
   | Int_expr of uid * int
@@ -120,7 +120,7 @@ let rec pp_expr : Format.formatter -> expr -> Ppx_deriving_runtime.unit=
       fun (uid, map)  ->
         Format.fprintf formatter "Swan_ast.Record_expr(\"%a, %a\")"
           (Uid.pp_uid) uid
-          (Pp_utils.pp_map Ast_pp.pp_ident pp_expr Ident_map.enum) map)
+          (Pp_utils.pp_map Core_ast_pp.pp_ident pp_expr Ident_map.enum) map)
        [@ocaml.warning "-26"]) in
   ((let open! Ppx_deriving_runtime in
      fun fmt  ->
@@ -286,7 +286,7 @@ and pp_pattern : Format.formatter -> pattern -> Ppx_deriving_runtime.unit=
   and __5 () = pp_uid
   and __4 () = pp_uid
   and __3 () = pp_uid
-  and __2 () = Pp_utils.pp_map Ast_pp.pp_ident pp_pattern Ident_map.enum
+  and __2 () = Pp_utils.pp_map Core_ast_pp.pp_ident pp_pattern Ident_map.enum
   and __1 () = pp_pattern
   and __0 () = pp_uid in
   ((let open! Ppx_deriving_runtime in

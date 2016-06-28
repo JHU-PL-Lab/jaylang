@@ -1,7 +1,7 @@
 open Batteries;;
 open Uid;;
 
-module Ident_map = Ast.Ident_map;;
+module Ident_map = Core_ast.Ident_map;;
 
 (* type translation_failure =
    | No_match_clauses_in_match_expr of Swan_ast.expr
@@ -67,14 +67,14 @@ let egg_fresh_var () =
   let index = !fresh_var_counter in
   fresh_var_counter := !fresh_var_counter + 1;
   let name = "s__" ^ (string_of_int index) in
-  Egg_ast.Egg_var(next_uid (), Ast.Ident(name))
+  Egg_ast.Egg_var(next_uid (), Core_ast.Ident(name))
 ;;
 
 let nested_fresh_var () =
   let index = !fresh_var_counter in
   fresh_var_counter := !fresh_var_counter + 1;
   let name = "s__" ^ (string_of_int index) in
-  Nested_ast.Nested_var(next_uid (), Ast.Ident(name))
+  Nested_ast.Nested_var(next_uid (), Core_ast.Ident(name))
 ;;
 
 let disjoint_union m1 m2 =

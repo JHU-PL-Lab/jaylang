@@ -2,8 +2,8 @@
    Contains data type definitions for the AST of the *nested* toy language.
 *)
 
-open Ast;;
-open Ast_pp;;
+open Core_ast;;
+open Core_ast_pp;;
 open Pp_utils;;
 open Uid;;
 

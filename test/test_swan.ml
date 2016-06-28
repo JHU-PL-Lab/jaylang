@@ -5,7 +5,7 @@ open OUnit2;;
 open Uid;;
 open Swan_translator;;
 (* open Pp_utils;; *)
-module Ident_map = Ast.Ident_map
+module Ident_map = Core_ast.Ident_map
 
 let zero () = assert_failure("Expected UID not found in map, or proof of the wrong form.")
 

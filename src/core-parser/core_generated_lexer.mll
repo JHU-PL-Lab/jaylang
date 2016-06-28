@@ -1,5 +1,5 @@
 {
-  open Generated_parser;;
+  open Core_generated_parser;;
 
   (* ocamllex is a slave to tradition, so we have to handle line breaks
      ourselves. *)
@@ -52,7 +52,7 @@ rule token = parse
   | "any"                            { KEYWORD_ANY }
   | "_"                              { UNDERSCORE }
   | "string"                         { KEYWORD_STRING }
-  | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) } 
+  | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) }
   | "\"" (string_contents as s) "\"" { STRING_LITERAL s }
   | "+"                              { BINOP_PLUS }
   | "-"                              { BINOP_MINUS }

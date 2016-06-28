@@ -41,39 +41,39 @@ Library "utils"
     ocaml-monadic,
     ppx_deriving.std
 
-Library "ast"
-  Path: src/ast
+Library "core-ast"
+  Path: src/core-ast
   Modules:
-    Ast,
-    Ast_pp,
-    Ast_tools,
-    Ast_wellformedness
+    Core_ast,
+    Core_ast_pp,
+    Core_ast_tools,
+    Core_ast_wellformedness
   BuildDepends:
     batteries,
     ppx_deriving.std (>= 3.2),
     utils
 
-Library "parser"
-  Path: src/parser
+Library "core-parser"
+  Path: src/core-parser
   Modules:
-    Generated_lexer,
-    Generated_parser,
-    Parser
+    Core_generated_lexer,
+    Core_generated_parser,
+    Core_parser
   BuildDepends:
     batteries,
-    ast,
+    core-ast,
     utils
   BuildTools+:
     ocamllex,
     menhir
 
-Library "interpreter"
-  Path: src/interpreter
+Library "core-interpreter"
+  Path: src/core-interpreter
   Modules:
-    Interpreter
+    Core_interpreter
   BuildDepends:
     batteries,
-    ast,
+    core-ast,
     utils
 
 Library "nested-ast"
@@ -82,7 +82,7 @@ Library "nested-ast"
     Nested_ast
   BuildDepends:
     batteries,
-    ast,
+    core-ast,
     utils
 
 Library "swan-ast"
@@ -91,9 +91,8 @@ Library "swan-ast"
     Swan_ast
   BuildDepends:
     batteries,
-    ast,
+    core-ast,
     utils
-
 
 Library "nested-parser"
   Path: src/nested-parser
@@ -123,14 +122,13 @@ Library "swan-parser"
     ocamllex,
     menhir
 
-
 Library "a-translator"
   Path: src/a-translator
   Modules:
     A_translator
   BuildDepends:
     batteries,
-    ast,
+    core-ast,
     nested-ast,
     utils
 
@@ -141,7 +139,7 @@ Library "swan-translator"
     Egg_ast
   BuildDepends:
     batteries,
-    ast,
+    core-ast,
     nested-ast,
     swan-ast,
     utils
@@ -165,23 +163,23 @@ Library "pds-reachability"
     batteries,
     ppx_deriving.std (>= 3.2)
 
-Library "analysis"
-  Path: src/analysis
+Library "ddpa-analysis"
+  Path: src/ddpa-analysis
   Modules:
-    Analysis,
-    Analysis_context_stack,
-    Analysis_data_structures,
-    Analysis_nonrepeating_stack,
-    Analysis_n_element_stack,
-    Analysis_single_element_stack,
-    Analysis_two_element_stack,
-    Analysis_unit_stack,
-    Analysis_utils,
+    Ddpa_analysis,
+    Ddpa_context_stack,
+    Ddpa_data_structures,
     Ddpa_graph,
     Ddpa_graph_logger,
-    Ddpa_graph_logger_types
+    Ddpa_graph_logger_types,
+    Ddpa_nonrepeating_stack,
+    Ddpa_n_element_stack,
+    Ddpa_single_element_stack,
+    Ddpa_two_element_stack,
+    Ddpa_unit_stack,
+    Ddpa_utils
   BuildDepends:
-    ast,
+    core-ast,
     pds-reachability,
     batteries,
     ppx_deriving.std (>= 3.2),
@@ -195,22 +193,23 @@ Library "toploop-utils"
     Toploop_ddpa_types,
     Toploop_options
   BuildDepends:
-    analysis,
+    core-ast,
+    ddpa-analysis,
     batteries,
     monadlib,
     ocaml-monadic (>= 0.3.1),
     ppx_deriving.std (>= 3.2),
     utils
 
-Executable "toploop"
-  Path: src/toploop
-  MainIs: toploop.ml
+Executable "core-toploop"
+  Path: src/core-toploop
+  MainIs: core_toploop.ml
   CompiledObject: native
   BuildDepends:
-    ast,
-    analysis,
-    interpreter,
-    parser,
+    core-ast,
+    ddpa-analysis,
+    core-interpreter,
+    core-parser,
     toploop-utils,
     batteries
 
@@ -220,9 +219,9 @@ Executable "nested-toploop"
   CompiledObject: native
   BuildDepends:
     a-translator,
-    ast,
+    core-ast,
     nested-ast,
-    interpreter,
+    core-interpreter,
     nested-parser,
     toploop-utils,
     batteries
@@ -233,8 +232,8 @@ Executable "swan-toploop"
   CompiledObject: native
   BuildDepends:
     a-translator,
-    ast,
-    interpreter,
+    core-ast,
+    core-interpreter,
     nested-ast,
     swan-ast,
     swan-parser,
@@ -249,12 +248,12 @@ Executable "test"
   BuildDepends:
     utils,
     pds-reachability,
-    interpreter,
-    parser,
+    core-interpreter,
+    core-parser,
     ppx_deriving.std,
     oUnit,
     batteries,
-    analysis,
+    ddpa-analysis,
     toploop-utils,
     nested-ast,
     swan-ast,
@@ -272,10 +271,10 @@ Executable "benchmark"
   BuildDepends:
     utils,
     pds-reachability,
-    interpreter,
-    parser,
+    core-interpreter,
+    core-parser,
     ppx_deriving.std,
     oUnit,
     batteries,
-    analysis,
+    ddpa-analysis,
     toploop-utils

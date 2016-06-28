@@ -3,7 +3,7 @@
 open OUnit2;;
 open Uid;;
 open A_translator;;
-(* open Ast.Ident_map;; *)
+(* open Core_ast.Ident_map;; *)
 (* open Pp_utils;; *)
 
 let zero () = assert_failure("Expected Ident not found in map, or proof of the wrong form.")
@@ -14,7 +14,7 @@ let basic_test =
     let nested = Nested_ast.Int_expr(int_uid, 1) in
     let expr, ids = a_translate_nested_expr nested in
     match expr with
-    | Ast.Expr([Ast.Clause(Ast.Var(int_id,_), Ast.Value_body(Ast.Value_int(1)))]) ->
+    | Core_ast.Expr([Core_ast.Clause(Core_ast.Var(int_id,_), Core_ast.Value_body(Core_ast.Value_int(1)))]) ->
       let%orzero Some (Int_expr_rule(_,mapped_int_uid)) =
         Ident_map.Exceptionless.find int_id ids
       in
@@ -32,8 +32,8 @@ let conditional_test =
         cond_uid,
         Nested_ast.Int_expr(expr_uid,1),
         Nested_ast.Int_pattern(next_uid ()),
-        Nested_ast.Function(func1_uid, Nested_ast.Nested_var(next_uid(), Ast.Ident("testv1")), Nested_ast.Int_expr(next_uid(), 1)),
-        Nested_ast.Function(func2_uid, Nested_ast.Nested_var(next_uid(), Ast.Ident("testv2")), Nested_ast.Int_expr(next_uid(), 0))
+        Nested_ast.Function(func1_uid, Nested_ast.Nested_var(next_uid(), Core_ast.Ident("testv1")), Nested_ast.Int_expr(next_uid(), 1)),
+        Nested_ast.Function(func2_uid, Nested_ast.Nested_var(next_uid(), Core_ast.Ident("testv2")), Nested_ast.Int_expr(next_uid(), 0))
       )
     in
     let expr, ids = a_translate_nested_expr nested in
@@ -41,16 +41,16 @@ let conditional_test =
     (* print_newline();
        print_endline(
        expr
-       |> pp_to_string Ast_pp.pp_expr
+       |> pp_to_string Core_ast_pp.pp_expr
        );
        print_newline() *)
-    | Ast.Expr(
-        [ Ast.Clause(Ast.Var(expr_id,_), Ast.Value_body(Ast.Value_int(1)));
-          Ast.Clause(Ast.Var(cond_id,_), Ast.Conditional_body(
-              Ast.Var(expr2_id,_),
+    | Core_ast.Expr(
+        [ Core_ast.Clause(Core_ast.Var(expr_id,_), Core_ast.Value_body(Core_ast.Value_int(1)));
+          Core_ast.Clause(Core_ast.Var(cond_id,_), Core_ast.Conditional_body(
+              Core_ast.Var(expr2_id,_),
               _,
-              Ast.Function_value(Ast.Var(func1_id,_), _),
-              Ast.Function_value(Ast.Var(func2_id,_), _)
+              Core_ast.Function_value(Core_ast.Var(func1_id,_), _),
+              Core_ast.Function_value(Core_ast.Var(func2_id,_), _)
             ))
         ]) ->
       let%orzero Some (Int_expr_rule(_,mapped_expr_uid)) =
@@ -67,7 +67,7 @@ let conditional_test =
       in
       assert_bool "Expr_uid matches proof_rule" (equal_uid expr_uid mapped_expr_uid);
       assert_bool "Cond_uid matches proof_rule" (equal_uid cond_uid mapped_cond_uid);
-      assert_bool "Cond uses correct expr" (Ast.equal_ident expr_id expr2_id);
+      assert_bool "Cond uses correct expr" (Core_ast.equal_ident expr_id expr2_id);
       assert_bool "Func1_uid matches proof_rule" (equal_uid func1_uid mapped_func1_uid);
       assert_bool "Func2_uid matches proof_rule" (equal_uid func2_uid mapped_func2_uid);
     | _ -> assert_failure("Conditional Test: Nested translation did not match AST control")
@@ -84,16 +84,16 @@ let appl_test =
           func_uid,
           Nested_ast.Function(
             next_uid (),
-            Nested_ast.Nested_var(next_uid (), Ast.Ident("testv")),
+            Nested_ast.Nested_var(next_uid (), Core_ast.Ident("testv")),
             Nested_ast.Int_expr(next_uid(), 1))),
         Nested_ast.Int_expr(int_uid, 0)
       ) in
     let expr, ids = a_translate_nested_expr nested in
     match expr with
-    | Ast.Expr(
-        [ Ast.Clause(Ast.Var(func_id,_), _);
-          Ast.Clause(Ast.Var(int_id,_), Ast.Value_body(Ast.Value_int(0)));
-          Ast.Clause(Ast.Var(appl_id,_), Ast.Appl_body(_,_))
+    | Core_ast.Expr(
+        [ Core_ast.Clause(Core_ast.Var(func_id,_), _);
+          Core_ast.Clause(Core_ast.Var(int_id,_), Core_ast.Value_body(Core_ast.Value_int(0)));
+          Core_ast.Clause(Core_ast.Var(appl_id,_), Core_ast.Appl_body(_,_))
         ]) ->
       let%orzero Some (Appl_expr_rule(_,mapped_appl_uid)) =
         Ident_map.Exceptionless.find appl_id ids

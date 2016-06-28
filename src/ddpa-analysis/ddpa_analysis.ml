@@ -5,16 +5,16 @@
 
 open Batteries;;
 
-open Analysis_context_stack;;
-open Ast;;
-open Ast_pp;;
+open Core_ast;;
+open Core_ast_pp;;
+open Ddpa_context_stack;;
 open Ddpa_graph;;
 open Nondeterminism;;
 open Pds_reachability_types_stack;;
 open Pp_utils;;
 
-let logger = Logger_utils.make_logger "Analysis";;
-let lazy_logger = Logger_utils.make_lazy_logger "Analysis";;
+let logger = Logger_utils.make_logger "Ddpa_analysis";;
+let lazy_logger = Logger_utils.make_lazy_logger "Ddpa_analysis";;
 
 exception Non_record_projection of string;;
 
