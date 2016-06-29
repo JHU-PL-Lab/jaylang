@@ -97,18 +97,22 @@ type translation_result =
 type translator = Egg_ast.expr -> translation_result
 ;;
 
-(** First translator is continuation translator, second is top-level translator *)
+type translator_configuration =
+  { continuation_translator : translator;
+    top_level_translator : translator;
+  }
+;;
+
 type translator_fragment =
-  translator -> translator -> translator
+  translator_configuration -> translator
 ;;
 
 let translator_compose
     (t1:translator_fragment)
     (t2:translator_fragment)
-    (cont_t:translator)
-    (top_t:translator)
+    (tc:translator_configuration)
     (e:Egg_ast.expr) =
-  t1 (t2 cont_t top_t) top_t e
+  t1 { tc with continuation_translator = (t2 tc) } e
 ;;
 
 let rec translator_compose_many ts =
@@ -116,7 +120,7 @@ let rec translator_compose_many ts =
 ;;
 
 let translation_close (t:translator_fragment) : translator =
-  let rec top_t e = t do_trans top_t e
+  let rec top_t e = t {continuation_translator = do_trans; top_level_translator = top_t} e
   and do_trans (e:Egg_ast.expr) =
     match e with
     | Egg_ast.Record_expr(uid,fields) ->
@@ -208,16 +212,15 @@ let translation_close (t:translator_fragment) : translator =
 ;;
 
 let rec translate_ifthenelse
-    (cont:translator)
-    (top:translator)
+    (tc:translator_configuration)
     (e:Egg_ast.expr) =
   match e with
   | Egg_ast.If_expr(uid, cond, f1, f2) ->
     let var1 = egg_fresh_var () in
     let var2 = egg_fresh_var () in
-    let (cond_trans, cond_map) = top cond in
-    let (f1_trans, f1_map) = top f1 in
-    let (f2_trans, f2_map) = top f2 in
+    let (cond_trans, cond_map) = tc.top_level_translator cond in
+    let (f1_trans, f1_map) = tc.top_level_translator f1 in
+    let (f2_trans, f2_map) = tc.top_level_translator f2 in
     let new_uid = next_uid () in
     let f1_uid = next_uid () in
     let f2_uid = next_uid () in
@@ -249,23 +252,22 @@ let rec translate_ifthenelse
               final_map )
       );
     (desugared_expr, final_map)
-  | _ -> cont e
+  | _ -> tc.continuation_translator e
 ;;
 
 let rec translate_match
-    (cont:translator)
-    (top:translator)
+    (tc:translator_configuration)
     (e:Egg_ast.expr) =
   match e with
   | Egg_ast.Match_expr(uid, e, ms) ->
     let x = egg_fresh_var () in
-    let (trans_e, map_e) = top e in
+    let (trans_e, map_e) = tc.top_level_translator e in
     let rec desugar_matches ms =
       let nu1 = next_uid () in
       let nu2 = next_uid () in
       match ms with
       | (Egg_ast.Match_pair(mu,p,e') as m)::ms' ->
-        let (trans_e', map_e') = top e' in
+        let (trans_e', map_e') = tc.top_level_translator e' in
         let (desugared_expr, desugared_map) = desugar_matches ms' in
         let f1 = Egg_ast.Function(nu1, egg_fresh_var (), trans_e') in
         let f2 = Egg_ast.Function(nu2, egg_fresh_var (), desugared_expr) in
@@ -285,7 +287,7 @@ let rec translate_match
          this_map)
     in let (e', map) = desugar_matches ms in
     (Egg_ast.Let_expr(uid, x, trans_e, e'), map)
-  | _ -> cont e
+  | _ -> tc.continuation_translator e
 ;;
 
 let translators : translator_fragment list =
