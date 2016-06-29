@@ -119,10 +119,22 @@ let translation_close (t:translator_fragment) : translator =
   let rec top_t e = t do_trans top_t e
   and do_trans (e:Egg_ast.expr) =
     match e with
-    | Egg_ast.Record_expr(_,_) ->
-      raise @@Utils.Not_yet_implemented "Record_expr"
-    | Egg_ast.Function_expr(_,_) ->
-      raise @@Utils.Not_yet_implemented "Function_expr"
+    | Egg_ast.Record_expr(uid,fields) ->
+      let (trans_fields, unioned_map) =
+        fields
+        |> Ident_map.enum
+        |> Enum.fold (
+          fun (trans_fields, unioned_map) (ident, value_expr) ->
+            let (trans_expr, map_expr) = top_t value_expr in
+            (Ident_map.add ident trans_expr trans_fields, disjoint_union unioned_map map_expr)
+        ) (Ident_map.empty, Uid_map.empty)
+      in
+      (Egg_ast.Record_expr(uid, trans_fields), unioned_map)
+    | Egg_ast.Function_expr(uid_e,Egg_ast.Function (uid_f, x,e')) ->
+      let (trans_e, map_e) =
+        top_t e'
+      in
+      (Egg_ast.Function_expr(uid_e,Egg_ast.Function (uid_f, x,trans_e)), map_e)
     | Egg_ast.Int_expr _ -> (e, Uid_map.empty)
     | Egg_ast.Bool_expr _ -> (e, Uid_map.empty)
     | Egg_ast.String_expr _ -> (e, Uid_map.empty)
