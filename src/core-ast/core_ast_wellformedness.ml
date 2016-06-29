@@ -5,9 +5,9 @@
 
 open Batteries;;
 
-open Ast;;
-open Ast_pp;;
-open Ast_tools;;
+open Core_ast;;
+open Core_ast_pp;;
+open Core_ast_tools;;
 
 type illformedness =
   | Duplicate_variable_binding of var

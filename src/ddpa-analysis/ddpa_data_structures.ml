@@ -6,7 +6,7 @@
 
 open Batteries;;
 
-open Ast;;
+open Core_ast;;
 
 module Clause_ord =
 struct

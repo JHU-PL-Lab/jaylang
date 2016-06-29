@@ -1,9 +1,9 @@
 open Batteries;;
 
 open A_translator;;
-open Ast_pp;;
-open Ast_wellformedness;;
-open Interpreter;;
+open Core_ast_pp;;
+open Core_ast_wellformedness;;
+open Core_interpreter;;
 open Swan_translator;;
 open Toploop_options;;
 
@@ -15,8 +15,8 @@ let toploop_operate () (e:Swan_ast.expr)=
     try
       lazy_logger `trace (fun () ->
           Printf.sprintf "Parsed expression: %s" (Swan_ast.show_expr e));
-      let e'' = fst (translate_swan_expr_to_nested e) in
-      let e' = a_translate_nested_expr e'' in
+      let (e'', _) = swan_to_nested_translation e in
+      let (e',_) = a_translate_nested_expr e'' in
       check_wellformed_expr e';
       let v,env = eval e' in
       print_string (show_var v ^ " where "  ^ show_env env ^ "\n");

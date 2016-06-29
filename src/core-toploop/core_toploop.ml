@@ -1,10 +1,10 @@
 open Batteries;;
 
-open Ast;;
-open Ast_pp;;
-open Ast_wellformedness;;
+open Core_ast;;
+open Core_ast_pp;;
+open Core_ast_wellformedness;;
+open Core_interpreter;;
 open Ddpa_graph;;
-open Interpreter;;
 open Toploop_options;;
 
 let logger = Logger_utils.make_logger "Toploop";;
@@ -13,7 +13,7 @@ let lazy_logger = Logger_utils.make_lazy_logger "Toploop";;
 exception Invalid_variable_analysis of string;;
 
 type toploop_configuration =
-  { topconf_context_stack : (module Analysis_context_stack.Context_stack) option
+  { topconf_context_stack : (module Ddpa_context_stack.Context_stack) option
   ; topconf_log_prefix : string
   ; topconf_ddpa_log_level : Ddpa_graph_logger.ddpa_graph_logger_level option
   ; topconf_pdr_log_level :
@@ -42,7 +42,7 @@ let toploop_operate conf e =
           else
             let module Context_stack = (val context_stack) in
             (* Define the analysis module. *)
-            let module A = Analysis.Make(Context_stack) in
+            let module A = Ddpa_analysis.Make(Context_stack) in
             (* Use the toploop wrapper on it. *)
             let module TLA = Toploop_ddpa.Make(A) in
             (* Set logging configuration. *)
@@ -93,7 +93,7 @@ let toploop_operate conf e =
                 (* We'll need a mapping from variable names to clauses. *)
                 let varname_to_clause_map =
                   e
-                  |> Ast_tools.flatten
+                  |> Core_ast_tools.flatten
                   |> List.map lift_clause
                   |> List.map
                     (fun (Abs_clause(Var(i,_),_) as c) -> (i, c))
@@ -269,6 +269,6 @@ let () =
   print_string "Please enter an expression to evaluate followed by \";;\".\n";
   print_string "\n";
   flush stdout;
-  Parser.parse_expressions IO.stdin
+  Core_parser.parse_expressions IO.stdin
   |> LazyList.iter (toploop_operate toploop_configuration)
 ;;

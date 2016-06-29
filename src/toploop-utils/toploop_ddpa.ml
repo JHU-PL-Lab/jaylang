@@ -1,27 +1,27 @@
 open Batteries;;
 
-open Analysis;;
-open Analysis_utils;;
-open Ast;;
+open Core_ast;;
+open Ddpa_analysis;;
 open Ddpa_graph;;
+open Ddpa_utils;;
 
 include Toploop_ddpa_types;;
 
 (* TODO: the "none" should be handled elsewhere as a special case *)
-module type Stack = Analysis_context_stack.Context_stack;;
+module type Stack = Ddpa_context_stack.Context_stack;;
 let name_parsing_functions =
   [
     (* A function for the literally-named modules. *)
     (fun name ->
        match name with
        | "0ddpa" ->
-         Some (module Analysis_unit_stack.Stack : Stack)
+         Some (module Ddpa_unit_stack.Stack : Stack)
        | "1ddpa" ->
-         Some (module Analysis_single_element_stack.Stack : Stack)
+         Some (module Ddpa_single_element_stack.Stack : Stack)
        | "2ddpa" ->
-         Some (module Analysis_two_element_stack.Stack : Stack)
+         Some (module Ddpa_two_element_stack.Stack : Stack)
        | "ddpaNR" ->
-         Some (module Analysis_nonrepeating_stack.Stack : Stack)
+         Some (module Ddpa_nonrepeating_stack.Stack : Stack)
        | "none" -> None
        | _ -> raise Not_found
     )
@@ -32,12 +32,12 @@ let name_parsing_functions =
        let num_str = String.sub name 0 @@ String.length name - 4 in
        try
          let num = int_of_string num_str in
-         let module Spec : Analysis_n_element_stack.Spec =
+         let module Spec : Ddpa_n_element_stack.Spec =
          struct
            let size = num
          end
          in
-         let module NStack = Analysis_n_element_stack.Make(Spec) in
+         let module NStack = Ddpa_n_element_stack.Make(Spec) in
          Some (module NStack : Stack)
        with
        | Failure _ -> raise Not_found
