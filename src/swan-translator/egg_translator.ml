@@ -112,10 +112,8 @@ let translator_compose
 ;;
 
 let rec translator_compose_many ts =
-  match ts with
-  | [] -> raise @@Utils.Invariant_failure "Empty list given to compose_many"
-  | h::[] -> h
-  | h::t -> translator_compose h @@ translator_compose_many t
+  List.reduce translator_compose ts
+;;
 
 let translation_close (t:translator_fragment) : translator =
   let rec top_t e = t do_trans top_t e
