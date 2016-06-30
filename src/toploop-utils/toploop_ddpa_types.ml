@@ -11,8 +11,14 @@ open Core_ast_pp;;
 open Ddpa_context_stack;;
 open Ddpa_graph;;
 
+type abs_filtered_value_set = Abs_filtered_value_set.t;;
+let pp_abs_filtered_value_set =
+  Pp_utils.pp_set pp_abs_filtered_value Abs_filtered_value_set.enum
+;;
+
 type inconsistency =
-  | Application_of_non_function of var * var * abs_filtered_value
+  | Application_of_non_function of
+      var * var * abs_filtered_value * abs_filtered_value_set
   (** Represents the application of a non-function value.  The arguments
       are the variable identifying the call site clause, the invoked variable,
       and the abstract non-function value which appeared at the call site. *)
