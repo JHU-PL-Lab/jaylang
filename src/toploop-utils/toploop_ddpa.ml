@@ -112,12 +112,19 @@ struct
     | Abs_conditional_body _ ->
       (* There's nothing this body that can be inconsistent. *)
       zero ()
-    | Abs_appl_body(xf,_) ->
+    | Abs_appl_body(xf,xa) ->
       let%bind (v,filtv) = lookup xf in
       begin
         match v with
         | Abs_value_function _ -> zero ()
-        | _ -> return @@ Application_of_non_function(x_clause,xf,filtv)
+        | _ ->
+          let filtvs =
+            lookup xa
+            |> Nondeterminism.Nondeterminism_monad.enum
+            |> Enum.map snd
+            |> Ddpa_graph.Abs_filtered_value_set.of_enum
+          in
+          return @@ Application_of_non_function(x_clause,xf,filtv,filtvs)
       end
     | Abs_projection_body(x,i) ->
       let%bind (v,filtv) = lookup x in
