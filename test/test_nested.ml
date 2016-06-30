@@ -1,4 +1,4 @@
-(* These tests test the desugaring of the Nested ASTS into basic ASTs*)
+(** These tests test the desugaring of the Nested ASTS into basic ASTs *)
 
 open OUnit2;;
 open Uid;;

@@ -65,7 +65,7 @@ type inconsistency =
   (** Represents an invalid indexing argument.  The arguments are the
       variable identifying the indexing clause, the variable of the index,
       and a possible value of the index. *)
-  [@@deriving show]
+  [@@deriving show,ord]
 ;;
 
 module type DDPA = sig

@@ -201,6 +201,17 @@ Library "toploop-utils"
     ppx_deriving.std (>= 3.2),
     utils
 
+Library "nested-sugaring"
+  Path: src/nested-sugaring
+  Modules: Nested_sugaring
+  BuildDepends:
+    a-translator,
+    batteries,
+    core-ast,
+    ddpa-analysis,
+    nested-ast,
+    toploop-utils
+
 Executable "core-toploop"
   Path: src/core-toploop
   MainIs: core_toploop.ml
@@ -256,6 +267,7 @@ Executable "test"
     ddpa-analysis,
     toploop-utils,
     nested-ast,
+    nested-sugaring,
     swan-ast,
     swan-translator,
     a-translator,
