@@ -4,6 +4,7 @@
 open OUnit2;;
 open Uid;;
 open Swan_translator;;
+open Egg_translator;;
 (* open Pp_utils;; *)
 module Ident_map = Core_ast.Ident_map
 
