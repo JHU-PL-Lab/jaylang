@@ -8,15 +8,10 @@ let lazy_logger = Logger_utils.make_lazy_logger "Interpreter";;
 
 module Environment = Var_hashtbl;;
 
-let pp_env formatter (env : value Environment.t) =
-  let pp_item formatter (x,y) =
-    pp_var formatter x;
-    Format.pp_print_string formatter " = ";
-    pp_value formatter y;
-  in
-  pp_concat_sep_delim "{" "}" "," pp_item formatter @@ Environment.enum env
-;;
-let show_env = pp_to_string pp_env;;
+type evaluation_environment = value Environment.t;;
+
+let pp_evaluation_environment = pp_map pp_var pp_value Environment.enum;;
+let show_evaluation_environment = pp_to_string pp_evaluation_environment;;
 
 exception Evaluation_failure of string;;
 
@@ -27,7 +22,7 @@ let lookup env x =
     raise (
       Evaluation_failure (
         Printf.sprintf "cannot find variable %s in environment %s."
-          (show_var x) (show_env env)
+          (show_var x) (show_evaluation_environment env)
       )
     )
 ;;
@@ -137,7 +132,7 @@ let rec matches env x p =
 
 let rec evaluate env lastvar cls =
   lazy_logger `debug (fun () ->
-      show_env env ^ "\n" ^
+      show_evaluation_environment env ^ "\n" ^
       (Option.default "?" (Option.map show_var lastvar)) ^ "\n" ^
       (cls
        |> List.map show_clause

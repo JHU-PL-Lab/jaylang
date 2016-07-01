@@ -185,59 +185,76 @@ Library "ddpa-analysis"
     monadlib,
     ocaml-monadic (>= 0.3.1)
 
-Library "toploop-utils"
-  Path: src/toploop-utils
-  Modules:
-    Toploop_ddpa,
-    Toploop_ddpa_types,
-    Toploop_options
-  BuildDepends:
-    core-ast,
-    ddpa-analysis,
-    batteries,
-    monadlib,
-    ocaml-monadic (>= 0.3.1),
-    ppx_deriving.std (>= 3.2),
-    utils
-
-Executable "core-toploop"
+Library "core-toploop"
   Path: src/core-toploop
-  MainIs: core_toploop.ml
-  CompiledObject: native
+  Modules:
+    Core_toploop,
+    Core_toploop_analysis,
+    Core_toploop_ddpa_wrapper,
+    Core_toploop_option_parsers,
+    Core_toploop_options,
+    Core_toploop_utils
   BuildDepends:
+    ppx_import,
     core-ast,
-    ddpa-analysis,
     core-interpreter,
     core-parser,
-    toploop-utils,
+    ddpa-analysis,
     batteries
 
-Executable "nested-toploop"
+Library "nested-toploop"
   Path: src/nested-toploop
-  MainIs: nested_toploop.ml
-  CompiledObject: native
+  Modules:
+    Nested_toploop
   BuildDepends:
     a-translator,
     core-ast,
+    core-toploop,
     nested-ast,
-    core-interpreter,
     nested-parser,
-    toploop-utils,
     batteries
 
-Executable "swan-toploop"
+Library "swan-toploop"
   Path: src/swan-toploop
-  MainIs: swan_toploop.ml
-  CompiledObject: native
+  Modules:
+    Swan_toploop
   BuildDepends:
     a-translator,
-    core-ast,
-    core-interpreter,
     nested-ast,
+    nested-toploop,
     swan-ast,
     swan-parser,
     swan-translator,
-    toploop-utils,
+    batteries
+
+Executable "core_toploop"
+  Path: src/core-toploop-main
+  MainIs: core_toploop_main.ml
+  CompiledObject: native
+  BuildDepends:
+    core-ast,
+    core-parser,
+    core-toploop,
+    batteries
+
+Executable "nested-toploop"
+  Path: src/nested-toploop-main
+  MainIs: nested_toploop_main.ml
+  CompiledObject: native
+  BuildDepends:
+    nested-ast,
+    nested-parser,
+    nested-toploop,
+    batteries
+
+Executable "swan-toploop"
+  Path: src/swan-toploop-main
+  MainIs: swan_toploop_main.ml
+  CompiledObject: native
+  BuildDepends:
+    swan-ast,
+    swan-parser,
+    swan-toploop,
     batteries
 
 Executable "test"
@@ -245,18 +262,18 @@ Executable "test"
   MainIs: test.ml
   CompiledObject: native
   BuildDepends:
-    utils,
-    pds-reachability,
     core-interpreter,
     core-parser,
-    ppx_deriving.std,
-    oUnit,
-    batteries,
+    core-toploop,
     ddpa-analysis,
-    toploop-utils,
     nested-ast,
+    pds-reachability,
+    ppx_deriving.std,
     swan-ast,
-    swan-translator
+    swan-translator,
+    utils,
+    batteries,
+    oUnit
 
 Test test
   Command: $test
@@ -266,12 +283,15 @@ Executable "benchmark"
   MainIs: benchmark.ml
   CompiledObject: native
   BuildDepends:
-    utils,
-    pds-reachability,
     core-interpreter,
     core-parser,
-    ppx_deriving.std,
-    oUnit,
-    batteries,
+    core-toploop,
     ddpa-analysis,
-    toploop-utils
+    nested-ast,
+    pds-reachability,
+    ppx_deriving.std,
+    swan-ast,
+    swan-translator,
+    utils,
+    batteries,
+    oUnit

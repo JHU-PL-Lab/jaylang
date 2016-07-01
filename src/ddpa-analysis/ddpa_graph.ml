@@ -139,7 +139,7 @@ let pp_abs_value_set formatter s =
 
 type abs_filtered_value =
   | Abs_filtered_value of abstract_value * Pattern_set.t * Pattern_set.t
-  [@@deriving ord]
+  [@@deriving eq, ord]
 ;;
 
 module Abs_filtered_value_ord =

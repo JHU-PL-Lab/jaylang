@@ -14,7 +14,7 @@ type 'a pretty_printer = (formatter -> 'a -> unit);;
     - The item enumeration.
 *)
 val pp_concat_sep :
-  string -> 'a pretty_printer -> formatter -> 'a Enum.t -> unit
+  string -> 'a pretty_printer -> 'a Enum.t pretty_printer
 
 (** A function to pretty-print an enumeration of items bracketed by specific
     start and stop symbols.  The arguments are:
@@ -26,8 +26,7 @@ val pp_concat_sep :
     - The item enumeration.
 *)
 val pp_concat_sep_delim :
-  string -> string ->
-  string -> 'a pretty_printer -> formatter -> 'a Enum.t -> unit
+  string -> string -> string -> 'a pretty_printer -> 'a Enum.t pretty_printer
 
 (** Pretty-prints a tuple.  The arguments are:
     - A pretty-printing function for the first element.
@@ -36,7 +35,7 @@ val pp_concat_sep_delim :
     - The tuple.
 *)
 val pp_tuple :
-  'a pretty_printer -> 'b pretty_printer -> formatter -> 'a * 'b -> unit
+  'a pretty_printer -> 'b pretty_printer -> ('a * 'b) pretty_printer
 
 (** Pretty-prints a triple.  The arguments are:
     - A pretty-printing function for the first element.
@@ -46,8 +45,8 @@ val pp_tuple :
     - The triple.
 *)
 val pp_triple :
-  'a pretty_printer -> 'b pretty_printer -> 'c pretty_printer -> formatter ->
-  'a * 'b * 'c -> unit
+  'a pretty_printer -> 'b pretty_printer -> 'c pretty_printer ->
+  ('a * 'b * 'c) pretty_printer
 
 (** Pretty-prints a quadruple.  The arguments are:
     - A pretty-printing function for the first element.
@@ -59,7 +58,7 @@ val pp_triple :
 *)
 val pp_quadruple :
   'a pretty_printer -> 'b pretty_printer -> 'c pretty_printer ->
-  'd pretty_printer -> formatter -> 'a * 'b * 'c * 'd -> unit
+  'd pretty_printer -> ('a * 'b * 'c * 'd) pretty_printer
 
 (** Pretty-prints a quintuple.  The arguments are:
     - A pretty-printing function for the first element.
@@ -71,15 +70,15 @@ val pp_quadruple :
 *)
 val pp_quintuple :
   'a pretty_printer -> 'b pretty_printer -> 'c pretty_printer ->
-  'd pretty_printer -> 'e pretty_printer -> formatter ->
-  'a * 'b * 'c * 'd * 'e -> unit
+  'd pretty_printer -> 'e pretty_printer ->
+  ('a * 'b * 'c * 'd * 'e) pretty_printer
 
 (** Pretty-prints a list.  The arguments are:
     - The pretty-printing function for the list.
     - The formatter to use.
     - The list.
 *)
-val pp_list : 'a pretty_printer -> formatter -> 'a list -> unit
+val pp_list : 'a pretty_printer -> 'a list pretty_printer
 
 (** Pretty-prints a dictionary data structure.  The arguments are:
     - The pretty-printing function for the key.
@@ -89,7 +88,7 @@ val pp_list : 'a pretty_printer -> formatter -> 'a list -> unit
     - The dictionary.
 *)
 val pp_map : 'k pretty_printer -> 'v pretty_printer ->
-  ('d -> ('k * 'v) Enum.t) -> formatter -> 'd -> unit
+  ('d -> ('k * 'v) Enum.t) -> 'd pretty_printer
 
 (** Pretty-prints a set data structure.  The arguments are:
     - The pretty-printing function for a value.
@@ -97,7 +96,10 @@ val pp_map : 'k pretty_printer -> 'v pretty_printer ->
     - The formatter to use.
     - The dictionary.
 *)
-val pp_set : 'a pretty_printer -> ('s -> 'a Enum.t) -> formatter -> 's -> unit
+val pp_set : 'a pretty_printer -> ('s -> 'a Enum.t) -> 's pretty_printer
+
+(** Pretty-prints an option value. *)
+val pp_option : 'a pretty_printer -> 'a option pretty_printer
 
 (** Given a pretty printer and an object, generates a string for them. *)
 val pp_to_string : 'a pretty_printer -> 'a -> string

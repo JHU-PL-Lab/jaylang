@@ -58,7 +58,7 @@ let select_context_stack_option =
       | [analysis_name] ->
         let analysis_module =
           try
-            Toploop_ddpa.stack_from_name analysis_name
+            Core_toploop_utils.stack_from_name analysis_name
           with
           | Not_found ->
             raise @@ Option_error (option_name,
@@ -153,6 +153,7 @@ type analyze_variables_selection =
   | Analyze_toplevel_variables
   | Analyze_specific_variables of
       (string * string option * string list option) list
+  [@@deriving eq, ord, show]
 ;;
 
 let analyze_variables_option =
