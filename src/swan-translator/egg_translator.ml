@@ -21,6 +21,9 @@ type log_entry =
   | If_false_branch_to_function of uid * uid
   (** First uid is the function for the false branch of If_expr, second is the If_expr itself *)
 
+  | Bad_if_branch_to_function of uid * uid
+  (** First uid is the function, second is the If_expr itself *)
+
   | Inexhaustive_match_branch of uid * uid
   (** First uid is the empty application expr, second is the match expr itself *)
 
@@ -227,42 +230,60 @@ let rec translate_ifthenelse
     (e:Egg_ast.expr) =
   match e with
   | Egg_ast.If_expr(uid, cond, f1, f2) ->
+    let x = egg_fresh_var () in
     let var1 = egg_fresh_var () in
     let var2 = egg_fresh_var () in
+    let var3 = egg_fresh_var () in
+    let var4 = egg_fresh_var () in
+    let appl_uid = next_uid () in
     let (cond_trans, cond_map) = tc.top_level_translator cond in
     let (f1_trans, f1_map) = tc.top_level_translator f1 in
     let (f2_trans, f2_map) = tc.top_level_translator f2 in
-    let new_uid = next_uid () in
-    let f1_uid = next_uid () in
-    let f2_uid = next_uid () in
-    let desugared_expr =
-      Egg_ast.Conditional_expr(
-        new_uid,
-        cond_trans,
-        Egg_ast.Bool_pattern(next_uid (), true),
-        Egg_ast.Function(f1_uid, var1, f1_trans),
-        Egg_ast.Function(f2_uid, var2, f2_trans)
-      )
-    in
-    let new_map =
-      Uid_map.of_enum @@ List.enum @@
-      [ (new_uid, If_to_conditional(new_uid,uid))
-      ; (f1_uid, If_true_branch_to_function(f1_uid, uid))
-      ; (f2_uid, If_false_branch_to_function(f2_uid, uid))
-      ]
-    in
-    let final_map =
-      disjoint_unions [new_map; cond_map; f1_map; f2_map]
-    in
-    lazy_logger `trace (fun () ->
-        Printf.sprintf "Translation of if rule sends \n %s \n to \n %s \n with uid map \n %s"
-          (Pp_utils.pp_to_string Egg_ast.pp_expr e)
-          (Pp_utils.pp_to_string Egg_ast.pp_expr desugared_expr)
-          (Pp_utils.pp_to_string
-             (Pp_utils.pp_map Uid.pp_uid pp_log_entry Uid_map.enum)
-              final_map )
-      );
-    (desugared_expr, final_map)
+    let bad_if_branch = Egg_ast.Appl_expr(appl_uid, Egg_ast.String_expr(next_uid (), "{}"), cond_trans) in
+    let (bad_trans, bad_map) = tc.top_level_translator bad_if_branch in
+    let rec desugar_if cond_trans f1_trans f2_trans =
+      let new_uid = next_uid () in
+      let f1_uid = next_uid () in
+      let f2_uid = next_uid () in
+      let desugared_expr =
+        Egg_ast.Conditional_expr(
+          new_uid,
+          cond_trans,
+          Egg_ast.Bool_pattern(next_uid (), true),
+          Egg_ast.Function(f1_uid, var1, f1_trans),
+          Egg_ast.Function(
+            next_uid (),
+            var2,
+            Egg_ast.Conditional_expr(
+              next_uid (),
+              cond_trans,
+              Egg_ast.Bool_pattern(next_uid (), false),
+              Egg_ast.Function(
+                next_uid (),
+                var3,
+                f2_trans),
+              Egg_ast.Function(
+                next_uid (),
+                var4,
+                bad_trans
+              )
+            )
+          )
+        )
+      in
+      let new_map =
+        Uid_map.of_enum @@ List.enum @@
+        [ (new_uid, If_to_conditional(new_uid,uid))
+        ; (f1_uid, If_true_branch_to_function(f1_uid, uid))
+        ; (f2_uid, If_false_branch_to_function(f2_uid, uid))
+        ; (appl_uid, Bad_if_branch_to_function(appl_uid, uid))
+        ]
+        in
+      let final_map =
+        disjoint_unions [new_map; cond_map; f1_map; f2_map; bad_map]
+        in (desugared_expr, final_map)
+    in let (e', map) = desugar_if cond_trans f1_trans f2_trans in
+    (Egg_ast.Let_expr(uid, x, cond_trans, e'), map)
   | _ -> tc.continuation_translator e
 ;;
 
@@ -294,7 +315,7 @@ let rec translate_match
       | [] ->
         let appl_u = next_uid () in
         let this_map = (Uid_map.singleton appl_u (Inexhaustive_match_branch(appl_u,uid))) in
-        (Egg_ast.Appl_expr(appl_u,(Egg_ast.Record_expr(nu1,Ident_map.empty)), (Egg_ast.Record_expr(nu2,Ident_map.empty))),
+        (Egg_ast.Appl_expr(appl_u,(Egg_ast.Record_expr(nu1,Ident_map.empty)), trans_e),
          this_map)
     in let (e', map) = desugar_matches ms in
     (Egg_ast.Let_expr(uid, x, trans_e, e'), map)

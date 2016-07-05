@@ -14,6 +14,10 @@ open Ddpa_graph;;
 type abs_filtered_value_set = Abs_filtered_value_set.t;;
 let pp_abs_filtered_value_set =
   Pp_utils.pp_set pp_abs_filtered_value Abs_filtered_value_set.enum
+and compare_abs_filtered_value_set =
+  Abs_filtered_value_set.compare
+and equal_abs_filtered_value_set =
+  Abs_filtered_value_set.equal
 ;;
 
 type inconsistency =

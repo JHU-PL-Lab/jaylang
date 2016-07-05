@@ -213,6 +213,20 @@ Library "nested-sugaring"
     nested-ast,
     toploop-utils
 
+Library "swan-sugaring"
+  Path: src/swan-sugaring
+  Modules: Swan_sugaring
+  BuildDepends:
+    a-translator,
+    swan-translator,
+    batteries,
+    core-ast,
+    ddpa-analysis,
+    nested-ast,
+    nested-sugaring,
+    swan-ast,
+    toploop-utils
+
 Executable "core-toploop"
   Path: src/core-toploop
   MainIs: core_toploop.ml
@@ -269,6 +283,7 @@ Executable "test"
     toploop-utils,
     nested-ast,
     nested-sugaring,
+    swan-sugaring,
     swan-ast,
     swan-translator,
     a-translator,
