@@ -1,14 +1,11 @@
-(** Two parts - type inconsistencies, and then taking a given core inconsistency and translating it to its nested version *)
-
-open Batteries;;
-open A_translator;;
-open Core_ast;;
-open Core_ast_pp;;
 open Uid;;
 open Ddpa_graph;;
+open Core_toploop_analysis_types;;
+open Core_ast;;
+open Core_ast_pp;;
 
-type inconsistency =
-  | Application_of_non_function of uid * uid * abs_filtered_value * Toploop_ddpa_types.abs_filtered_value_set
+type error =
+  | Application_of_non_function of uid * uid * abs_filtered_value * abs_filtered_value_set
   (** Represents the application of a non-function value.  The arguments
       are the uid identifying the call site clause, the invoked uid,
       the abstract non-function value which appeared at the call site,
@@ -63,58 +60,4 @@ type inconsistency =
       uid identifying the indexing clause, the uid of the index,
       and a possible value of the index. *)
   [@@deriving ord,show,eq]
-;;
-
-let core_to_nested map core =
-  match core with
-  | Toploop_ddpa.Application_of_non_function
-      (Core_ast.Var(v1,_), Core_ast.Var(v2,_), fv1, fv2) ->
-    let Proof_rule(_, uid1) = Ident_map.find v1 map in
-    let Proof_rule(_, uid2) = Ident_map.find v2 map in
-    Application_of_non_function(uid1, uid2, fv1, fv2)
-  | Toploop_ddpa.Projection_of_non_record
-      (Core_ast.Var(v1,_), Core_ast.Var(v2,_), fv) ->
-    let Proof_rule(_, uid1) = Ident_map.find v1 map in
-    let Proof_rule(_, uid2) = Ident_map.find v2 map in
-    Projection_of_non_record(uid1, uid2, fv)
-  | Toploop_ddpa.Projection_of_absent_label
-      (Core_ast.Var(v1,_), Core_ast.Var(v2,_), fv, i) ->
-    let Proof_rule(_, uid1) = Ident_map.find v1 map in
-    let Proof_rule(_, uid2) = Ident_map.find v2 map in
-    Projection_of_absent_label(uid1, uid2, fv, i)
-  | Toploop_ddpa.Deref_of_non_ref
-      (Core_ast.Var(v1,_), Core_ast.Var(v2,_), fv) ->
-    let Proof_rule(_, uid1) = Ident_map.find v1 map in
-    let Proof_rule(_, uid2) = Ident_map.find v2 map in
-    Deref_of_non_ref(uid1, uid2, fv)
-  | Toploop_ddpa.Update_of_non_ref
-      (Core_ast.Var(v1,_), Core_ast.Var(v2,_), fv) ->
-    let Proof_rule(_, uid1) = Ident_map.find v1 map in
-    let Proof_rule(_, uid2) = Ident_map.find v2 map in
-    Update_of_non_ref(uid1, uid2, fv)
-  | Toploop_ddpa.Invalid_binary_operation
-      (Core_ast.Var(v1,_), op, Core_ast.Var(v2,_), fv1, Core_ast.Var(v3,_), fv2) ->
-    let Proof_rule(_, uid1) = Ident_map.find v1 map in
-    let Proof_rule(_, uid2) = Ident_map.find v2 map in
-    let Proof_rule(_, uid3) = Ident_map.find v3 map in
-    Invalid_binary_operation(uid1, op, uid2, fv1, uid3, fv2)
-  | Toploop_ddpa.Invalid_unary_operation
-      (Core_ast.Var(v1,_), op, Core_ast.Var(v2,_), fv) ->
-    let Proof_rule(_, uid1) = Ident_map.find v1 map in
-    let Proof_rule(_, uid2) = Ident_map.find v2 map in
-    Invalid_unary_operation(uid1, op, uid2, fv)
-  | Toploop_ddpa.Invalid_indexing_subject
-      (Core_ast.Var(v1,_), Core_ast.Var(v2,_), fv) ->
-    let Proof_rule(_, uid1) = Ident_map.find v1 map in
-    let Proof_rule(_, uid2) = Ident_map.find v2 map in
-    Invalid_indexing_subject(uid1, uid2, fv)
-  | Toploop_ddpa.Invalid_indexing_argument
-      (Core_ast.Var(v1,_), Core_ast.Var(v2,_), fv) ->
-    let Proof_rule(_, uid1) = Ident_map.find v1 map in
-    let Proof_rule(_, uid2) = Ident_map.find v2 map in
-    Invalid_indexing_argument(uid1, uid2, fv)
-;;
-
-let batch_translation map cores =
-  Enum.map (core_to_nested map) cores
 ;;

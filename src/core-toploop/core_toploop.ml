@@ -4,271 +4,294 @@ open Core_ast;;
 open Core_ast_pp;;
 open Core_ast_wellformedness;;
 open Core_interpreter;;
+open Core_toploop_option_parsers;;
+open Core_toploop_options;;
+open Core_toploop_types;;
 open Ddpa_graph;;
-open Toploop_options;;
-
-let logger = Logger_utils.make_logger "Toploop";;
-let lazy_logger = Logger_utils.make_lazy_logger "Toploop";;
 
 exception Invalid_variable_analysis of string;;
 
-type toploop_configuration =
-  { topconf_context_stack : (module Ddpa_context_stack.Context_stack) option
-  ; topconf_log_prefix : string
-  ; topconf_ddpa_log_level : Ddpa_graph_logger.ddpa_graph_logger_level option
-  ; topconf_pdr_log_level :
-      Pds_reachability_logger_utils.pds_reachability_logger_level option
-  ; topconf_analyze_vars : analyze_variables_selection
-  ; topconf_disable_evaluation : bool
-  ; topconf_disable_inconsistency_check : bool
-  ; topconf_disable_analysis : bool
-  ; topconf_report_sizes : bool
+let stdout_illformednesses_callback ills =
+  print_string "Provided expression is ill-formed:\n";
+  List.iter
+    (fun ill -> print_string @@ "   " ^ show_illformedness ill ^ "\n")
+    ills
+;;
+
+let stdout_variable_analysis_callback
+    var_name site_name_opt context_opt values =
+  print_string "Lookup of variable ";
+  print_string var_name;
+  begin
+    match site_name_opt with
+    | Some site_name ->
+      print_string " from clause ";
+      print_string site_name;
+    | None -> ()
+  end;
+  begin
+    match context_opt with
+    | Some context ->
+      print_string " in context ";
+      let rec loop ss =
+        match ss with
+        | [] -> print_string "[]"
+        | s::[] -> print_string s
+        | s::ss' ->
+          print_string s;
+          print_string "|";
+          loop ss'
+      in
+      loop context
+    | None -> ()
+  end;
+  print_endline " yields values:";
+  print_string "    ";
+  print_string @@ show_abs_filtered_value_set values
+;;
+
+let stdout_errors_callback errors =
+  errors
+  |> List.iter
+    (fun error ->
+       print_string @@ Core_toploop_analysis_types.show_error error
+    )
+;;
+
+let stdout_evaluation_result_callback v env =
+  print_string (show_var v ^ " where " ^ show_evaluation_environment env ^ "\n")
+;;
+
+let stdout_evaluation_failed_callback msg =
+  print_endline @@ "Evaluation failed: " ^ msg
+;;
+
+let stdout_evaluation_disabled_callback () =
+  print_string "Evaluation disabled"
+;;
+
+let stdout_size_report_callback
+    ( ddpa_number_of_active_nodes
+    , ddpa_number_of_active_non_immediate_nodes
+    , ddpa_number_of_edges
+    , pds_number_of_nodes
+    , pds_number_of_edges
+    ) =
+  Printf.printf "DDPA number of active nodes (excluding enter and exit nodes that can be inferred): %n.\nDDPA number of active non immediate nodes (excluding enter and exit nodes that can be inferred): %n.\nDDPA number of edges: %n.\nPDS number of nodes: %n.\nPDS number of edges: %n.\n"
+    ddpa_number_of_active_nodes
+    ddpa_number_of_active_non_immediate_nodes
+    ddpa_number_of_edges
+    pds_number_of_nodes
+    pds_number_of_edges
+;;
+
+let no_op_callbacks =
+  { cb_illformednesses = (fun _ -> ())
+  ; cb_variable_analysis = (fun _ _ _ _ -> ())
+  ; cb_errors = (fun _ -> ())
+  ; cb_evaluation_result = (fun _ _ -> ())
+  ; cb_evaluation_failed = (fun _ -> ())
+  ; cb_evaluation_disabled = (fun _ -> ())
+  ; cb_size_report_callback = (fun _ -> ())
   }
 ;;
 
-let toploop_operate conf e =
-  print_string "\n";
-  begin
-    try
-      check_wellformed_expr e;
-      let context_stack_opt = conf.topconf_context_stack in
-      let toploop_action evaluation_step =
-        match context_stack_opt with
-        | None ->
-          evaluation_step ()
-        | Some context_stack ->
-          if conf.topconf_disable_analysis then
-            evaluation_step ()
-          else
-            let module Context_stack = (val context_stack) in
-            (* Define the analysis module. *)
-            let module A = Ddpa_analysis.Make(Context_stack) in
-            (* Use the toploop wrapper on it. *)
-            let module TLA = Toploop_ddpa.Make(A) in
-            (* Set logging configuration. *)
-            begin
-              match conf.topconf_ddpa_log_level with
-              | Some level -> Ddpa_graph_logger.set_level level
-              | None -> ();
-            end;
-            begin
-              match conf.topconf_pdr_log_level with
-              | Some level -> A.set_pdr_logger_level level
-              | None -> ();
-            end;
-            (* Create the analysis.  The wrapper performs full closure on it. *)
-            let analysis = TLA.create_analysis e in
-            (* Determine if it is consistent. *)
-            let inconsistencies =
-              if conf.topconf_disable_inconsistency_check
-              then Enum.empty ()
-              else TLA.check_inconsistencies analysis
-            in
-            (* If there are inconsistencies, report them. *)
-            if not @@ Enum.is_empty inconsistencies
-            then
-              inconsistencies
-              |> Enum.iter
-                (fun inconsistency ->
-                   (* TODO: Make this prettier. *)
-                   print_endline @@
-                   Toploop_ddpa.show_inconsistency inconsistency)
-            else
-              begin
-                (* Analyze the variables that the user requested.  If the user
-                   requested non-existent variables, they are ignored. *)
-                let analyses_desc =
-                  match conf.topconf_analyze_vars with
-                  | Analyze_no_variables -> []
-                  | Analyze_toplevel_variables ->
-                    e
-                    |> (fun (Expr(cls)) -> cls)
-                    |> List.enum
-                    |> Enum.map lift_clause
-                    |> Enum.map (fun (Abs_clause(Var(i,_), _)) -> (i, None, None))
-                    |> List.of_enum
-                  | Analyze_specific_variables lst ->
-                    lst |> List.map (fun (x,y,z) -> (Ident(x),y,z))
-                in
-                (* We'll need a mapping from variable names to clauses. *)
-                let varname_to_clause_map =
-                  e
-                  |> Core_ast_tools.flatten
-                  |> List.map lift_clause
-                  |> List.map
-                    (fun (Abs_clause(Var(i,_),_) as c) -> (i, c))
-                  |> List.enum
-                  |> Ident_map.of_enum
-                in
-                let lookup_clause_by_ident ident =
-                  try
-                    Ident_map.find ident varname_to_clause_map
-                  with
-                  | Not_found -> raise @@
-                    Invalid_variable_analysis(
-                      Printf.sprintf "No such variable: %s" (show_ident ident))
-                in
-                (* Determine the analyses to perform. *)
-                let analyses =
-                  analyses_desc
-                  |> List.enum
-                  |> Enum.map
-                    (fun (var_ident,site_name_opt,context_opt) ->
-                       let site =
-                         match site_name_opt with
-                         | None -> End_clause
-                         | Some site_name ->
-                           Unannotated_clause(
-                             lookup_clause_by_ident (Ident site_name))
-                       in
-                       let context_stack =
-                         match context_opt with
-                         | None -> TLA.C.empty
-                         | Some context_vars ->
-                           context_vars
-                           |> List.enum
-                           |> Enum.fold
-                             (fun a e ->
-                                let c = lookup_clause_by_ident (Ident e) in
-                                TLA.C.push c a
-                             )
-                             TLA.C.empty
-                       in
-                       (Var(var_ident,None),site,context_stack)
-                    )
-                in
-                (* Perform and render the analyses. *)
-                if not @@ Enum.is_empty analyses then
-                  begin
-                    print_endline "Variable analyses:";
-                    analyses
-                    |> Enum.iter
-                      (fun (var, site, context) ->
-                         let values =
-                           TLA.contextual_values_of_variable_from
-                             var site context analysis
-                         in
-                         print_endline @@ Printf.sprintf
-                           "    %s: %s"
-                           (show_var var) (show_abs_filtered_value_set values)
-                      );
-                    print_endline "End variable analyses.";
-                  end;
-                (* Dump the analysis to debugging. *)
-                lazy_logger `trace
-                  (fun () -> Printf.sprintf "DDPA analysis: %s"
-                      (TLA.show_analysis analysis));
-                if conf.topconf_report_sizes then
-                  begin
-                    let ddpa_number_of_active_nodes,
-                        ddpa_number_of_active_non_immediate_nodes,
-                        ddpa_number_of_edges,
-                        pds_number_of_nodes,
-                        pds_number_of_edges
-                      = TLA.get_size analysis in
-                    Printf.printf "DDPA number of active nodes (excluding enter and exit nodes that can be inferred): %n.\nDDPA number of active non immediate nodes (excluding enter and exit nodes that can be inferred): %n.\nDDPA number of edges: %n.\nPDS number of nodes: %n.\nPDS number of edges: %n.\n"
-                      ddpa_number_of_active_nodes
-                      ddpa_number_of_active_non_immediate_nodes
-                      ddpa_number_of_edges
-                      pds_number_of_nodes
-                      pds_number_of_edges
-                  end;
-                (* Now run the actual program. *)
-                evaluation_step ()
-              end
+let stdout_callbacks =
+  { cb_illformednesses = stdout_illformednesses_callback
+  ; cb_variable_analysis = stdout_variable_analysis_callback
+  ; cb_errors = stdout_errors_callback
+  ; cb_evaluation_result = stdout_evaluation_result_callback
+  ; cb_evaluation_failed = stdout_evaluation_failed_callback
+  ; cb_evaluation_disabled = stdout_evaluation_disabled_callback
+  ; cb_size_report_callback = stdout_size_report_callback
+  }
+;;
+
+let do_analysis_steps callbacks conf e =
+  (* If no one wants an analysis, don't waste the effort. *)
+  if conf.topconf_disable_inconsistency_check &&
+     conf.topconf_analyze_vars ==
+     Analyze_no_variables &&
+     not conf.topconf_report_sizes
+  then ([], [])
+  else
+    match conf.topconf_context_stack with
+    | None -> ([], []) (* Nothing can be done without a context stack. *)
+    | Some context_stack ->
+      (* We're finally ready to perform some analyses.  Unpack the context
+         stack. *)
+      let module Context_stack = (val context_stack) in
+      (* Define the analysis module. *)
+      let module Analysis = Ddpa_analysis.Make(Context_stack) in
+      (* Define the convenience wrapper. *)
+      let module DDPA_wrapper = Core_toploop_ddpa_wrapper.Make(Analysis) in
+      (* Set up the logging configuration for the analysis. *)
+      begin
+        match conf.topconf_ddpa_log_level with
+        | Some level -> Ddpa_graph_logger.set_level level
+        | None -> ();
+      end;
+      begin
+        match conf.topconf_pdr_log_level with
+        | Some level -> Analysis.set_pdr_logger_level level
+        | None -> ();
+      end;
+      (* Create the analysis.  The wrapper performs full closure on it. *)
+      let analysis = DDPA_wrapper.create_analysis e in
+      (* We'll now define a couple of functions to perform the analysis-related
+         tasks and then call them below. *)
+      (* This function performs a simple error check. *)
+      let check_for_errors () =
+        if conf.topconf_disable_inconsistency_check
+        then []
+        else
+          let module Error_analysis =
+            Core_toploop_analysis.Make(DDPA_wrapper)
+          in
+          let errors = List.of_enum @@ Error_analysis.find_errors analysis in
+          callbacks.cb_errors errors;
+          errors
       in
-      toploop_action (fun () ->
-          if conf.topconf_disable_evaluation
-          then print_string "Evaluation disabled"
-          else
-            begin
-              let v, env = eval e in
-              print_string (show_var v ^ " where " ^ show_env env ^ "\n")
-            end
-        )
-    with
-    | Illformedness_found(ills) ->
-      print_string "Provided expression is ill-formed:\n";
-      List.iter
-        (fun ill ->
-           print_string @@ "   " ^ show_illformedness ill ^ "\n")
-        ills
-  end;
-  print_string "\n";
-  print_string "Please enter an expression to evaluate followed by \";;\".\n";
-  print_string "\n";
-  flush stdout
+      (* This function takes the configuration option describing the variable
+         analysis requested on the command line and standardizes the form of
+         the request. *)
+      let standardize_variable_analysis_request () =
+        match conf.topconf_analyze_vars with
+        | Analyze_no_variables -> None
+        | Analyze_toplevel_variables ->
+          Some(
+            e
+            |> (fun (Expr(cls)) -> cls)
+            |> List.enum
+            |> Enum.map lift_clause
+            |> Enum.map (fun (Abs_clause(Var(Ident i,_), _)) -> (i, None, None))
+            |> List.of_enum
+          )
+        | Analyze_specific_variables lst -> Some lst
+      in
+      (* Given a set of variable analysis requests, this function performs
+         them. *)
+      let analyze_variable_values requests =
+        (* We'll need a mapping from variable names to clauses. *)
+        let varname_to_clause_map =
+          e
+          |> Core_ast_tools.flatten
+          |> List.map lift_clause
+          |> List.map
+            (fun (Abs_clause(Var(i,_),_) as c) -> (i, c))
+          |> List.enum
+          |> Ident_map.of_enum
+        in
+        (* This utility function helps us use the mapping. *)
+        let lookup_clause_by_ident ident =
+          try
+            Ident_map.find ident varname_to_clause_map
+          with
+          | Not_found -> raise @@
+            Invalid_variable_analysis(
+              Printf.sprintf "No such variable: %s" (show_ident ident))
+        in
+        (* Perform each of the requested analyses. *)
+        requests
+        |> List.enum
+        |> Enum.map
+          (fun (var_name,site_name_opt,context_opt) ->
+             let var_ident = Ident var_name in
+             let lookup_var = Var(var_ident,None) in
+             let site =
+               match site_name_opt with
+               | None -> End_clause
+               | Some site_name ->
+                 Unannotated_clause(
+                   lookup_clause_by_ident (Ident site_name))
+             in
+             let context_stack =
+               match context_opt with
+               | None -> DDPA_wrapper.C.empty
+               | Some context_vars ->
+                 context_vars
+                 |> List.enum
+                 |> Enum.fold
+                   (fun a e ->
+                      let c = lookup_clause_by_ident (Ident e) in
+                      DDPA_wrapper.C.push c a
+                   )
+                   DDPA_wrapper.C.empty
+             in
+             let values =
+               DDPA_wrapper.contextual_values_of_variable_from
+                 lookup_var site context_stack analysis
+             in
+             callbacks.cb_variable_analysis
+               var_name site_name_opt context_opt values;
+             ((var_name,site_name_opt,context_opt),values)
+          )
+        |> List.of_enum
+      in
+      (* At this point, dump the analysis to debugging if appropriate. *)
+      lazy_logger `trace
+        (fun () -> Printf.sprintf "DDPA analysis: %s"
+            (DDPA_wrapper.show_analysis analysis));
+      (* If size reporting has been requested, do that too. *)
+      if conf.topconf_report_sizes
+      then callbacks.cb_size_report_callback @@ DDPA_wrapper.get_size analysis;
+      (* Now we'll call the above routines. *)
+      let errors = check_for_errors () in
+      let analyses =
+        match standardize_variable_analysis_request () with
+        | None -> []
+        | Some requests -> analyze_variable_values requests
+      in
+      (analyses, errors)
 ;;
 
-let command_line_parsing () =
-  let parser = BatOptParse.OptParser.make ~version:"version 0.3" () in
+let do_evaluation callbacks conf e =
+  if conf.topconf_disable_evaluation
+  then
+    begin
+      callbacks.cb_evaluation_disabled ();
+      Core_toploop_types.Evaluation_disabled
+    end
+  else
+    begin
+      try
+        let v, env = Core_interpreter.eval e in
+        callbacks.cb_evaluation_result v env;
+        Core_toploop_types.Evaluation_completed(v,env)
+      with
+      | Core_interpreter.Evaluation_failure s ->
+        Core_toploop_types.Evaluation_failure s
+    end
+;;
 
-  (* Add logging options *)
-  BatOptParse.OptParser.add parser ~long_name:"log" logging_option;
-
-  (* Add ability to select the context stack. *)
-  BatOptParse.OptParser.add parser ~long_name:"select-context-stack"
-    ~short_name:'S' select_context_stack_option;
-
-  (* Add DDPA graph logging option. *)
-  BatOptParse.OptParser.add parser ~long_name:"ddpa-logging"
-    ddpa_logging_option;
-
-  (* Add PDS reachability graph logging option. *)
-  BatOptParse.OptParser.add parser ~long_name:"pdr-logging" pdr_logging_option;
-
-  (* Add control over variables used in toploop analysis. *)
-  BatOptParse.OptParser.add parser ~long_name:"analyze-variables"
-    analyze_variables_option;
-
-  (* Add control over whether evaluation actually occurs. *)
-  BatOptParse.OptParser.add parser ~long_name:"disable-evaluation"
-    ~short_name:'E' disable_evaluation_option;
-
-  (* Add control over whether evaluation actually occurs. *)
-  BatOptParse.OptParser.add parser ~long_name:"disable-inconsistency-check"
-    ~short_name:'I' disable_inconsistency_check_option;
-
-  (* Add control over whether analysis actually occurs. *)
-  BatOptParse.OptParser.add parser ~long_name:"disable-analisys"
-    ~short_name:'A' disable_analysis_option;
-
-  (* Add ability to report sizes of generated graphs. *)
-  BatOptParse.OptParser.add parser ~long_name:"report-sizes"
-    report_sizes_option;
-
-  (* Handle arguments. *)
-  let spare_args = BatOptParse.OptParser.parse_argv parser in
-  match spare_args with
-  | [] ->
-    { topconf_context_stack =
-        Option.get @@ select_context_stack_option.BatOptParse.Opt.option_get ()
-    ; topconf_log_prefix = "_toploop"
-    ; topconf_ddpa_log_level = ddpa_logging_option.BatOptParse.Opt.option_get ()
-    ; topconf_pdr_log_level = pdr_logging_option.BatOptParse.Opt.option_get ()
-    ; topconf_analyze_vars = Option.get @@
-        analyze_variables_option.BatOptParse.Opt.option_get ()
-    ; topconf_disable_evaluation = Option.get @@
-        disable_evaluation_option.BatOptParse.Opt.option_get ()
-    ; topconf_disable_inconsistency_check = Option.get @@
-        disable_inconsistency_check_option.BatOptParse.Opt.option_get ()
-    ; topconf_disable_analysis = Option.get @@
-        disable_analysis_option.BatOptParse.Opt.option_get ()
-    ; topconf_report_sizes = Option.get @@
-        report_sizes_option.BatOptParse.Opt.option_get ()
+let handle_expression
+    ?callbacks:(callbacks=no_op_callbacks)
+    conf
+    e =
+  try
+    (* Step 1: check for inconsistencies! *)
+    check_wellformed_expr e;
+    (* Step 2: perform analyses.  This covers both variable analyses and
+       error checking. *)
+    let analyses, errors = do_analysis_steps callbacks conf e in
+    (* Step 3: perform evaluation. *)
+    let evaluation_result =
+      if errors = []
+      then do_evaluation callbacks conf e
+      else Evaluation_invalidated
+    in
+    (* Generate answer. *)
+    { illformednesses = []
+    ; analyses = analyses
+    ; errors = errors
+    ; evaluation_result = evaluation_result
     }
-  | _ -> failwith "Unexpected command-line arguments."
-;;
-
-let () =
-  let toploop_configuration = command_line_parsing () in
-
-  print_string "Toy Toploop\n";
-  print_string "-----------\n";
-  print_string "\n";
-  print_string "Please enter an expression to evaluate followed by \";;\".\n";
-  print_string "\n";
-  flush stdout;
-  Core_parser.parse_expressions IO.stdin
-  |> LazyList.iter (toploop_operate toploop_configuration)
+  with
+  | Illformedness_found(ills) ->
+    callbacks.cb_illformednesses ills;
+    { illformednesses = ills
+    ; analyses = []
+    ; errors = []
+    ; evaluation_result = Evaluation_invalidated
+    }
 ;;

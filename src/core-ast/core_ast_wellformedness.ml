@@ -12,7 +12,7 @@ open Core_ast_tools;;
 type illformedness =
   | Duplicate_variable_binding of var
   | Variable_not_in_scope of var * var
-  [@@deriving show, eq, ord]
+  [@@deriving eq, ord, show]
 ;;
 
 module Illformedness_order =

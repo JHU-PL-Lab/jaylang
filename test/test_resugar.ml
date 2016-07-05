@@ -1,8 +1,19 @@
 (** Testing to see if inconsistencies are translated from core to nested properly *)
 open Batteries;;
+open Core_toploop_options;;
 open OUnit2;;
 
-module TLA = Toploop_ddpa.Make(Ddpa_analysis.Make(Ddpa_single_element_stack.Stack))
+let tests_config =
+  { topconf_context_stack = (Some (module Ddpa_single_element_stack.Stack : Ddpa_context_stack.Context_stack))
+  ; topconf_log_prefix = "resugaring tests"
+  ; topconf_ddpa_log_level = None
+  ; topconf_pdr_log_level = None
+  ; topconf_analyze_vars = Core_toploop_option_parsers.Analyze_no_variables
+  ; topconf_disable_evaluation = true
+  ; topconf_disable_inconsistency_check = false
+  ; topconf_disable_analysis = false
+  ; topconf_report_sizes = false
+}
 ;;
 
 let placeholder_fv = Ddpa_graph.Abs_filtered_value(Ddpa_graph.Abs_value_int, Ddpa_graph.Pattern_set.empty, Ddpa_graph.Pattern_set.empty)
@@ -19,49 +30,49 @@ let rec nested_inconsistencies_check generated expected =
     | gh::gt ->
       let inconsistency_check generated expected =
         match (generated, expected) with
-        | (Nested_sugaring.Application_of_non_function(guid1, guid2, _, _),
-           Nested_sugaring.Application_of_non_function(euid1, euid2, _, _)) ->
+        | (Nested_toploop_analysis_types.Application_of_non_function(guid1, guid2, _, _),
+           Nested_toploop_analysis_types.Application_of_non_function(euid1, euid2, _, _)) ->
           assert_bool "Appl_of_non_function check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Nested_sugaring.Projection_of_non_record(guid1, guid2, _),
-           Nested_sugaring.Projection_of_non_record(euid1, euid2, _)) ->
+        | (Nested_toploop_analysis_types.Projection_of_non_record(guid1, guid2, _),
+           Nested_toploop_analysis_types.Projection_of_non_record(euid1, euid2, _)) ->
           assert_bool "Projection_of_non_record check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Nested_sugaring.Projection_of_absent_label(guid1, guid2, _, _),
-           Nested_sugaring.Projection_of_absent_label(euid1, euid2, _, _)) ->
+        | (Nested_toploop_analysis_types.Projection_of_absent_label(guid1, guid2, _, _),
+           Nested_toploop_analysis_types.Projection_of_absent_label(euid1, euid2, _, _)) ->
           assert_bool "Projection_of_absent_label check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Nested_sugaring.Deref_of_non_ref(guid1, guid2, _),
-           Nested_sugaring.Deref_of_non_ref(euid1, euid2, _)) ->
+        | (Nested_toploop_analysis_types.Deref_of_non_ref(guid1, guid2, _),
+           Nested_toploop_analysis_types.Deref_of_non_ref(euid1, euid2, _)) ->
           assert_bool "Deref_of_non_ref check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Nested_sugaring.Update_of_non_ref(guid1, guid2, _),
-           Nested_sugaring.Update_of_non_ref(euid1, euid2, _)) ->
+        | (Nested_toploop_analysis_types.Update_of_non_ref(guid1, guid2, _),
+           Nested_toploop_analysis_types.Update_of_non_ref(euid1, euid2, _)) ->
           assert_bool "Update_of_non_ref check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Nested_sugaring.Invalid_binary_operation(guid1, _, guid2, _, guid3, _),
-           Nested_sugaring.Invalid_binary_operation(euid1, _, euid2, _, euid3, _)) ->
+        | (Nested_toploop_analysis_types.Invalid_binary_operation(guid1, _, guid2, _, guid3, _),
+           Nested_toploop_analysis_types.Invalid_binary_operation(euid1, _, euid2, _, euid3, _)) ->
           assert_bool "Invalid_binary_operation check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2)
              && (Uid.equal_uid guid3 euid3))
-        | (Nested_sugaring.Invalid_unary_operation(guid1, _, guid2, _),
-           Nested_sugaring.Invalid_unary_operation(euid1, _, euid2, _)) ->
+        | (Nested_toploop_analysis_types.Invalid_unary_operation(guid1, _, guid2, _),
+           Nested_toploop_analysis_types.Invalid_unary_operation(euid1, _, euid2, _)) ->
           assert_bool "Invalid_unary_operation check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Nested_sugaring.Invalid_indexing_subject(guid1, guid2, _),
-           Nested_sugaring.Invalid_indexing_subject(euid1, euid2, _)) ->
+        | (Nested_toploop_analysis_types.Invalid_indexing_subject(guid1, guid2, _),
+           Nested_toploop_analysis_types.Invalid_indexing_subject(euid1, euid2, _)) ->
           assert_bool "Invalid_indexing_subject check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Nested_sugaring.Invalid_indexing_argument(guid1, guid2, _),
-           Nested_sugaring.Invalid_indexing_argument(euid1, euid2, _)) ->
+        | (Nested_toploop_analysis_types.Invalid_indexing_argument(guid1, guid2, _),
+           Nested_toploop_analysis_types.Invalid_indexing_argument(euid1, euid2, _)) ->
           assert_bool "Invalid_indexing_argument check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
@@ -80,58 +91,58 @@ let rec swan_inconsistencies_check generated expected =
     | gh::gt ->
       let inconsistency_check generated expected =
         match (generated, expected) with
-        | (Swan_sugaring.Application_of_non_function(guid1, guid2, _, _),
-           Swan_sugaring.Application_of_non_function(euid1, euid2, _, _)) ->
+        | (Swan_toploop_analysis_types.Application_of_non_function(guid1, guid2, _, _),
+           Swan_toploop_analysis_types.Application_of_non_function(euid1, euid2, _, _)) ->
           assert_bool "Appl_of_non_function check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Swan_sugaring.Projection_of_non_record(guid1, guid2, _),
-           Swan_sugaring.Projection_of_non_record(euid1, euid2, _)) ->
+        | (Swan_toploop_analysis_types.Projection_of_non_record(guid1, guid2, _),
+           Swan_toploop_analysis_types.Projection_of_non_record(euid1, euid2, _)) ->
           assert_bool "Projection_of_non_record check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Swan_sugaring.Projection_of_absent_label(guid1, guid2, _, _),
-           Swan_sugaring.Projection_of_absent_label(euid1, euid2, _, _)) ->
+        | (Swan_toploop_analysis_types.Projection_of_absent_label(guid1, guid2, _, _),
+           Swan_toploop_analysis_types.Projection_of_absent_label(euid1, euid2, _, _)) ->
           assert_bool "Projection_of_absent_label check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Swan_sugaring.Deref_of_non_ref(guid1, guid2, _),
-           Swan_sugaring.Deref_of_non_ref(euid1, euid2, _)) ->
+        | (Swan_toploop_analysis_types.Deref_of_non_ref(guid1, guid2, _),
+           Swan_toploop_analysis_types.Deref_of_non_ref(euid1, euid2, _)) ->
           assert_bool "Deref_of_non_ref check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Swan_sugaring.Update_of_non_ref(guid1, guid2, _),
-           Swan_sugaring.Update_of_non_ref(euid1, euid2, _)) ->
+        | (Swan_toploop_analysis_types.Update_of_non_ref(guid1, guid2, _),
+           Swan_toploop_analysis_types.Update_of_non_ref(euid1, euid2, _)) ->
           assert_bool "Update_of_non_ref check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Swan_sugaring.Invalid_binary_operation(guid1, _, guid2, _, guid3, _),
-           Swan_sugaring.Invalid_binary_operation(euid1, _, euid2, _, euid3, _)) ->
+        | (Swan_toploop_analysis_types.Invalid_binary_operation(guid1, _, guid2, _, guid3, _),
+           Swan_toploop_analysis_types.Invalid_binary_operation(euid1, _, euid2, _, euid3, _)) ->
           assert_bool "Invalid_binary_operation check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2)
              && (Uid.equal_uid guid3 euid3))
-        | (Swan_sugaring.Invalid_unary_operation(guid1, _, guid2, _),
-           Swan_sugaring.Invalid_unary_operation(euid1, _, euid2, _)) ->
+        | (Swan_toploop_analysis_types.Invalid_unary_operation(guid1, _, guid2, _),
+           Swan_toploop_analysis_types.Invalid_unary_operation(euid1, _, euid2, _)) ->
           assert_bool "Invalid_unary_operation check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Swan_sugaring.Invalid_indexing_subject(guid1, guid2, _),
-           Swan_sugaring.Invalid_indexing_subject(euid1, euid2, _)) ->
+        | (Swan_toploop_analysis_types.Invalid_indexing_subject(guid1, guid2, _),
+           Swan_toploop_analysis_types.Invalid_indexing_subject(euid1, euid2, _)) ->
           assert_bool "Invalid_indexing_subject check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Swan_sugaring.Invalid_indexing_argument(guid1, guid2, _),
-           Swan_sugaring.Invalid_indexing_argument(euid1, euid2, _)) ->
+        | (Swan_toploop_analysis_types.Invalid_indexing_argument(guid1, guid2, _),
+           Swan_toploop_analysis_types.Invalid_indexing_argument(euid1, euid2, _)) ->
           assert_bool "Invalid_indexing_argument check"
             ((Uid.equal_uid guid1 euid1)
              && (Uid.equal_uid guid2 euid2))
-        | (Swan_sugaring.Inexhaustive_match(guid1, _),
-           Swan_sugaring.Inexhaustive_match(euid1, _)) ->
+        | (Swan_toploop_analysis_types.Inexhaustive_match(guid1, _),
+           Swan_toploop_analysis_types.Inexhaustive_match(euid1, _)) ->
           assert_bool "Inexhaustive_match check"
             (Uid.equal_uid guid1 euid1)
-        | (Swan_sugaring.If_depends_on_non_bool(guid1, _),
-           Swan_sugaring.If_depends_on_non_bool(euid1, _)) ->
+        | (Swan_toploop_analysis_types.If_depends_on_non_bool(guid1, _),
+           Swan_toploop_analysis_types.If_depends_on_non_bool(euid1, _)) ->
           assert_bool "If_depends_on_non_bool check"
             (Uid.equal_uid guid1 euid1)
         | _ -> assert_failure("Generated head != Expected head")
@@ -150,13 +161,10 @@ let update_test =
         Nested_ast.Int_expr(int0_uid, 0),
         Nested_ast.Int_expr(int1_uid, 1))
     in
-    let (core_e, map) = A_translator.a_translate_nested_expr e in
-    let analysis = TLA.create_analysis core_e in
-    let core_inconsistencies = TLA.check_inconsistencies analysis in
-    let nested_inconsistencies = Nested_sugaring.batch_translation map core_inconsistencies in
-    let generated = List.of_enum nested_inconsistencies in
+    let result = Nested_toploop.handle_expression tests_config e in
+    let generated = result.Nested_toploop_types.errors in
     let expected = [
-      Nested_sugaring.Update_of_non_ref(
+      Nested_toploop_analysis_types.Update_of_non_ref(
         update_uid,
         int0_uid,
         placeholder_fv)
@@ -188,18 +196,15 @@ let deref_appl_test =
         )
       )
     in
-    let (core_e, map) = A_translator.a_translate_nested_expr e in
-    let analysis = TLA.create_analysis core_e in
-    let core_inconsistencies = TLA.check_inconsistencies analysis in
-    let nested_inconsistencies = Nested_sugaring.batch_translation map core_inconsistencies in
-    let generated = List.of_enum nested_inconsistencies in
+    let result = Nested_toploop.handle_expression tests_config e in
+    let generated = result.Nested_toploop_types.errors in
     let expected = [
-      Nested_sugaring.Deref_of_non_ref(
+      Nested_toploop_analysis_types.Deref_of_non_ref(
         deref_uid,
         int_uid,
         placeholder_fv
       );
-      Nested_sugaring.Application_of_non_function(
+      Nested_toploop_analysis_types.Application_of_non_function(
         appl_uid,
         string1_uid,
         placeholder_fv,
@@ -208,8 +213,8 @@ let deref_appl_test =
     ]
     in
     nested_inconsistencies_check
-      (List.sort Nested_sugaring.compare_inconsistency generated)
-      (List.sort Nested_sugaring.compare_inconsistency expected)
+      (List.sort Nested_toploop_analysis_types.compare_error generated)
+      (List.sort Nested_toploop_analysis_types.compare_error expected)
 ;;
 
 let projection_non_record_test =
@@ -223,13 +228,10 @@ let projection_non_record_test =
         Core_ast.Ident("none")
       )
     in
-    let (core_e, map) = A_translator.a_translate_nested_expr e in
-    let analysis = TLA.create_analysis core_e in
-    let core_inconsistencies = TLA.check_inconsistencies analysis in
-    let nested_inconsistencies = Nested_sugaring.batch_translation map core_inconsistencies in
-    let generated = List.of_enum nested_inconsistencies in
+    let result = Nested_toploop.handle_expression tests_config e in
+    let generated = result.Nested_toploop_types.errors in
     let expected = [
-      Nested_sugaring.Projection_of_non_record(
+      Nested_toploop_analysis_types.Projection_of_non_record(
         proj_uid,
         int_uid,
         placeholder_fv
@@ -251,13 +253,10 @@ let projection_bad_label_test =
         id
       )
     in
-    let (core_e, map) = A_translator.a_translate_nested_expr e in
-    let analysis = TLA.create_analysis core_e in
-    let core_inconsistencies = TLA.check_inconsistencies analysis in
-    let nested_inconsistencies = Nested_sugaring.batch_translation map core_inconsistencies in
-    let generated = List.of_enum nested_inconsistencies in
+    let result = Nested_toploop.handle_expression tests_config e in
+    let generated = result.Nested_toploop_types.errors in
     let expected = [
-      Nested_sugaring.Projection_of_absent_label(
+      Nested_toploop_analysis_types.Projection_of_absent_label(
         proj_uid,
         rec_uid,
         placeholder_fv,
@@ -281,13 +280,10 @@ let bin_op_test =
         Nested_ast.String_expr(string_uid, "0")
       )
     in
-    let (core_e, map) = A_translator.a_translate_nested_expr e in
-    let analysis = TLA.create_analysis core_e in
-    let core_inconsistencies = TLA.check_inconsistencies analysis in
-    let nested_inconsistencies = Nested_sugaring.batch_translation map core_inconsistencies in
-    let generated = List.of_enum nested_inconsistencies in
+    let result = Nested_toploop.handle_expression tests_config e in
+    let generated = result.Nested_toploop_types.errors in
     let expected = [
-      Nested_sugaring.Invalid_binary_operation(
+      Nested_toploop_analysis_types.Invalid_binary_operation(
         bin_op_uid,
         Core_ast.Binary_operator_int_minus,
         int_uid,
@@ -311,13 +307,10 @@ let un_op_test =
         Nested_ast.String_expr(string_uid, "0")
       )
     in
-    let (core_e, map) = A_translator.a_translate_nested_expr e in
-    let analysis = TLA.create_analysis core_e in
-    let core_inconsistencies = TLA.check_inconsistencies analysis in
-    let nested_inconsistencies = Nested_sugaring.batch_translation map core_inconsistencies in
-    let generated = List.of_enum nested_inconsistencies in
+    let result = Nested_toploop.handle_expression tests_config e in
+    let generated = result.Nested_toploop_types.errors in
     let expected = [
-      Nested_sugaring.Invalid_unary_operation(
+      Nested_toploop_analysis_types.Invalid_unary_operation(
         un_op_uid,
         Core_ast.Unary_operator_bool_not,
         string_uid,
@@ -340,15 +333,10 @@ let basic_nts_test =
       Swan_ast.String_expr(string_uid, "0")
     )
   in
-  let (nested_e, nested_map) = Swan_translator.swan_to_nested_translation e in
-  let (core_e, core_map) = A_translator.a_translate_nested_expr nested_e in
-  let analysis = TLA.create_analysis core_e in
-  let core_inconsistencies = TLA.check_inconsistencies analysis in
-  let nested_inconsistencies = Nested_sugaring.batch_translation core_map core_inconsistencies in
-  let swan_inconsistencies = Swan_sugaring.batch_translation nested_map nested_inconsistencies in
-  let generated = List.of_enum swan_inconsistencies in
+  let result = Swan_toploop.handle_expression tests_config e in
+  let generated = result.Swan_toploop_types.errors in
   let expected = [
-    Swan_sugaring.Invalid_unary_operation(
+    Swan_toploop_analysis_types.Invalid_unary_operation(
       un_op_uid,
       Core_ast.Unary_operator_bool_not,
       string_uid,
@@ -370,15 +358,10 @@ let bad_match_test =
         [Swan_ast.Match_pair(Uid.next_uid (), Swan_ast.Bool_pattern(Uid.next_uid(), true), Swan_ast.Bool_expr(Uid.next_uid (), true))]
       )
     in
-    let (nested_e, nested_map) = Swan_translator.swan_to_nested_translation e in
-    let (core_e, core_map) = A_translator.a_translate_nested_expr nested_e in
-    let analysis = TLA.create_analysis core_e in
-    let core_inconsistencies = TLA.check_inconsistencies analysis in
-    let nested_inconsistencies = Nested_sugaring.batch_translation core_map core_inconsistencies in
-    let swan_inconsistencies = Swan_sugaring.batch_translation nested_map nested_inconsistencies in
-    let generated = List.of_enum swan_inconsistencies in
+    let result = Swan_toploop.handle_expression tests_config e in
+    let generated = result.Swan_toploop_types.errors in
     let expected = [
-      Swan_sugaring.Inexhaustive_match(match_uid, placeholder_fv_set)
+      Swan_toploop_analysis_types.Inexhaustive_match(match_uid, placeholder_fv_set)
     ]
     in
     swan_inconsistencies_check generated expected
@@ -395,15 +378,10 @@ let bad_if_test =
         Swan_ast.Bool_expr(Uid.next_uid (), false)
       )
       in
-      let (nested_e, nested_map) = Swan_translator.swan_to_nested_translation e in
-      let (core_e, core_map) = A_translator.a_translate_nested_expr nested_e in
-      let analysis = TLA.create_analysis core_e in
-      let core_inconsistencies = TLA.check_inconsistencies analysis in
-      let nested_inconsistencies = Nested_sugaring.batch_translation core_map core_inconsistencies in
-      let swan_inconsistencies = Swan_sugaring.batch_translation nested_map nested_inconsistencies in
-      let generated = List.of_enum swan_inconsistencies in
+      let result = Swan_toploop.handle_expression tests_config e in
+      let generated = result.Swan_toploop_types.errors in
       let expected = [
-        Swan_sugaring.If_depends_on_non_bool(if_uid, placeholder_fv_set)
+        Swan_toploop_analysis_types.If_depends_on_non_bool(if_uid, placeholder_fv_set)
       ]
       in
       swan_inconsistencies_check generated expected
