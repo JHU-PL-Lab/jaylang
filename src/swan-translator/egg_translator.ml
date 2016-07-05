@@ -155,9 +155,12 @@ let translation_close (t:translator_fragment) : translator =
       in
       let unioned_map = disjoint_union map_e1 map_e2 in
       (Egg_ast.Appl_expr(uid, trans_e1, trans_e2), unioned_map)
-    | Egg_ast.Conditional_expr(uid, e, p, fv1, fv2) ->
+    | Egg_ast.Conditional_expr(uid, e, p, Egg_ast.Function (uid_f1,x1,e1), Egg_ast.Function (uid_f2,x2,e2)) ->
       let (trans_e, map_e) = top_t e in
-      (Egg_ast.Conditional_expr(uid, trans_e, p, fv1, fv2), map_e)
+      let (trans_e1, map_e1) = top_t e1 in
+      let (trans_e2, map_e2) = top_t e2 in
+      let unioned_map = disjoint_unions [map_e;map_e1;map_e2] in
+      (Egg_ast.Conditional_expr(uid, trans_e, p, Egg_ast.Function (uid_f1,x1,trans_e1), Egg_ast.Function (uid_f2,x2,trans_e2)), unioned_map)
     | Egg_ast.If_expr(uid, e, e1, e2) ->
       let (trans_e, map_e) = top_t e
       in
@@ -206,7 +209,15 @@ let translation_close (t:translator_fragment) : translator =
       (Egg_ast.Projection_expr(uid, trans_e, i), map_e)
     | Egg_ast.Match_expr(uid, e, ms) ->
       let (trans_e, map_e) = top_t e in
-      (Egg_ast.Match_expr(uid, trans_e, ms), map_e)
+      let (trans_ms, unioned_map) =
+        List.fold_right (
+          fun (Egg_ast.Match_pair (uid, p, me)) (trans_ms, unioned_map) ->
+            let (trans_me, map_me) = top_t me in
+            let unioned_map = disjoint_union unioned_map map_me in
+            (Egg_ast.Match_pair (uid, p, trans_me) :: trans_ms, unioned_map)
+        ) ms ([], map_e)
+      in
+      (Egg_ast.Match_expr(uid, trans_e, trans_ms), unioned_map)
   in
   top_t
 ;;
