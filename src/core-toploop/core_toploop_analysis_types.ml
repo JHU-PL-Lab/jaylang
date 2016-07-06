@@ -1,18 +1,27 @@
 (**
-   A type-only declaration module.  This module is intended to be re-exported
-   from the Toploop_ddpa module interface and implementation; it should not be
-   used directly.
+   A type utility declaration module.  This module is declared separately so
+   its types need not be redeclared in an interface.
 *)
 
 open Batteries;;
 
 open Core_ast;;
 open Core_ast_pp;;
-open Ddpa_context_stack;;
+open Core_toploop_ddpa_wrapper_types;;
 open Ddpa_graph;;
 
-type inconsistency =
-  | Application_of_non_function of var * var * abs_filtered_value
+type abs_filtered_value_set = Abs_filtered_value_set.t;;
+let pp_abs_filtered_value_set =
+  Pp_utils.pp_set pp_abs_filtered_value Abs_filtered_value_set.enum
+and compare_abs_filtered_value_set =
+  Abs_filtered_value_set.compare
+and equal_abs_filtered_value_set =
+  Abs_filtered_value_set.equal
+;;
+
+type error =
+  | Application_of_non_function of
+      var * var * abs_filtered_value * abs_filtered_value_set
   (** Represents the application of a non-function value.  The arguments
       are the variable identifying the call site clause, the invoked variable,
       and the abstract non-function value which appeared at the call site. *)
@@ -65,26 +74,18 @@ type inconsistency =
   (** Represents an invalid indexing argument.  The arguments are the
       variable identifying the indexing clause, the variable of the index,
       and a possible value of the index. *)
-  [@@deriving show]
+  [@@deriving eq, ord, show]
 ;;
 
-module type DDPA = sig
-  type analysis
+module Error_ord =
+struct
+  type t = error
+  let compare = compare_error
+end;;
 
-  module C : Context_stack;;
+module Error_set = Set.Make(Error_ord);;
 
-  val create_analysis : expr -> analysis
-
-  val values_of_variable_from :
-    var -> annotated_clause -> analysis -> Abs_filtered_value_set.t
-
-  val contextual_values_of_variable_from :
-    var -> annotated_clause -> C.t -> analysis -> Abs_filtered_value_set.t
-
-  val check_inconsistencies : analysis -> inconsistency Enum.t
-
-  val pp_analysis : Format.formatter -> analysis -> unit
-  val show_analysis : analysis -> string
-
-  val get_size : analysis -> int * int * int * int * int
+module type Analysis_sig = sig
+  module DDPA_wrapper : DDPA_wrapper
+  val find_errors : DDPA_wrapper.analysis -> error Enum.t
 end;;

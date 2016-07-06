@@ -1,51 +1,26 @@
-open Batteries;;
-
 open A_translator;;
-open Core_ast_pp;;
-open Core_ast_wellformedness;;
-open Core_interpreter;;
-open Toploop_options;;
+open Batteries;;
+open Nested_toploop_types;;
 
-let toploop_operate () e =
-  print_string "\n";
-  begin
-    try
-      let (e',_) = a_translate_nested_expr e in
-      check_wellformed_expr e';
-      let v,env = eval e' in
-      print_string (show_var v ^ " where "  ^ show_env env ^ "\n");
-    with
-    | Illformedness_found(ills) ->
-      print_string "Provided expression is ill-formed:\n";
-      List.iter
-        (fun ill ->
-           print_string @@ "   " ^ show_illformedness ill ^ "\n")
-        ills
-  end;
-  print_string "\n";
-  print_string "Please enter an expression to evaluate followed by \";;\".\n";
-  print_string "\n";
-  flush stdout
-;;
-
-let command_line_parsing () =
-  let parser = BatOptParse.OptParser.make ~version:"version 0.3" () in
-  BatOptParse.OptParser.add parser ~long_name:"log" logging_option;
-  let spare_args = BatOptParse.OptParser.parse_argv parser in
-  match spare_args with
-  | [] -> ()
-  | _ -> failwith "Unexpected command-line arguments."
-;;
-
-let () =
-  let toploop_options = command_line_parsing () in
-
-  print_string "Toy Nested Toploop\n";
-  print_string "------------------\n";
-  print_string "\n";
-  print_string "Please enter an expression to evaluate followed by \";;\".\n";
-  print_string "\n";
-  flush stdout;
-  Nested_parser.parse_expressions IO.stdin
-  |> LazyList.iter (toploop_operate toploop_options)
+let handle_expression
+    ?core_callbacks:(core_callbacks=Core_toploop.no_op_callbacks)
+    (conf : Core_toploop_options.configuration)
+    (nested_expr : Nested_ast.expr)
+  =
+  let (core_expr, core_map) = a_translate_nested_expr nested_expr in
+  let result =
+    Core_toploop.handle_expression
+      ~callbacks:core_callbacks
+      conf core_expr
+  in
+  let nested_errors =
+    List.of_enum @@
+    Nested_toploop_analysis.batch_translation
+      core_map @@ List.enum result.Core_toploop_types.errors
+  in
+  { illformednesses = result.Core_toploop_types.illformednesses
+  ; analyses = result.Core_toploop_types.analyses
+  ; errors = nested_errors
+  ; evaluation_result = result.Core_toploop_types.evaluation_result
+  }
 ;;

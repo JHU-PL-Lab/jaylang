@@ -1,11 +1,11 @@
 open Batteries;;
-open OUnit2
+open OUnit2;;
 
 open Core_ast;;
 open Core_ast_pp;;
 open Core_ast_wellformedness;;
-open Core_interpreter;;
-open Ddpa_graph;;
+open Core_toploop_options;;
+open Core_toploop_types;;
 open String_utils;;
 
 exception File_test_creation_failure of string;;
@@ -79,7 +79,7 @@ let parse_expectation str =
         let name = assert_one_arg args in
         begin
           try
-            let stack_module = Toploop_ddpa.stack_from_name name in
+            let stack_module = Core_toploop_utils.stack_from_name name in
             Expect_analysis_stack_is stack_module
           with
           | Not_found ->
@@ -177,16 +177,17 @@ let observe_analysis_variable_lookup_from_end ident repr expectation =
 
 let observe_inconsistency inconsistency expectation =
   let site_of_inconsistency =
+    let open Core_toploop_analysis_types in
     match inconsistency with
-    | Toploop_ddpa.Application_of_non_function (Var(ident,_),_,_) -> ident
-    | Toploop_ddpa.Projection_of_non_record (Var(ident,_),_,_) -> ident
-    | Toploop_ddpa.Projection_of_absent_label (Var(ident,_),_,_,_) -> ident
-    | Toploop_ddpa.Deref_of_non_ref (Var(ident,_),_,_) -> ident
-    | Toploop_ddpa.Update_of_non_ref (Var(ident,_),_,_) -> ident
-    | Toploop_ddpa.Invalid_binary_operation (Var(ident,_),_,_,_,_,_) -> ident
-    | Toploop_ddpa.Invalid_unary_operation (Var(ident,_),_,_,_) -> ident
-    | Toploop_ddpa.Invalid_indexing_subject (Var(ident,_),_,_) -> ident
-    | Toploop_ddpa.Invalid_indexing_argument (Var(ident,_),_,_) -> ident
+    | Application_of_non_function (Var(ident,_),_,_,_) -> ident
+    | Projection_of_non_record (Var(ident,_),_,_) -> ident
+    | Projection_of_absent_label (Var(ident,_),_,_,_) -> ident
+    | Deref_of_non_ref (Var(ident,_),_,_) -> ident
+    | Update_of_non_ref (Var(ident,_),_,_) -> ident
+    | Invalid_binary_operation (Var(ident,_),_,_,_,_,_) -> ident
+    | Invalid_unary_operation (Var(ident,_),_,_,_) -> ident
+    | Invalid_indexing_subject (Var(ident,_),_,_) -> ident
+    | Invalid_indexing_argument (Var(ident,_),_,_) -> ident
   in
   match expectation with
   | Expect_analysis_inconsistency_at expected_site ->
@@ -247,15 +248,6 @@ let make_test filename expectations =
        expression to evaluate. *)
     begin
       let expr = File.with_file_in filename Core_parser.parse_program in
-      (* Confirm well-formedness. *)
-      begin
-        try
-          check_wellformed_expr expr;
-          observation observe_well_formed
-        with
-        | Illformedness_found(illformednesses) ->
-          observation (observe_ill_formed illformednesses)
-      end;
       (* Decide what kind of analysis to perform. *)
       let module_choice = ref Default_stack in
       observation (observe_analysis_stack_selection module_choice);
@@ -266,95 +258,79 @@ let make_test filename expectations =
                  Ddpa_context_stack.Context_stack)
         | Chosen_stack value -> value
       in
-      (* If the test wants an analysis, build it and work through observations
-         now. *)
-      match chosen_module_option with
-      | None -> ()
-      | Some chosen_module ->
-        begin
-          let module Stack = (val chosen_module) in
-          let module A = Ddpa_analysis.Make(Stack) in
-          let module TLA = Toploop_ddpa.Make(A) in
-          (* Create the analysis now. *)
-          let analysis = TLA.create_analysis expr in
-          (* If we have any expectations about inconsistency, we should observe
-             them now. *)
-          if not @@ have_expectation
+      (* Configure the toploop *)
+      let variables_to_analyze =
+        !expectations_left
+        |> List.enum
+        |> Enum.filter_map
+          (function
+            | Expect_analysis_variable_lookup_from_end(ident,_) ->
+              Some ident
+            | _ -> None)
+        |> List.of_enum
+      in
+      let configuration =
+        { topconf_context_stack = chosen_module_option
+        ; topconf_log_prefix = filename ^ "_"
+        ; topconf_ddpa_log_level = None
+        ; topconf_pdr_log_level = None
+        ; topconf_analyze_vars =
+            if variables_to_analyze = []
+            then Core_toploop_option_parsers.Analyze_no_variables
+            else
+              Core_toploop_option_parsers.Analyze_specific_variables
+                (variables_to_analyze
+                 |> List.map (fun (Ident s) -> (s, None, None)))
+        ; topconf_disable_evaluation =
+            not @@ have_expectation
+              (function
+                | Expect_evaluate -> true
+                | Expect_stuck -> true
+                | _ -> false)
+        ; topconf_disable_inconsistency_check =
+            not @@ have_expectation
               (function
                 | Expect_analysis_no_inconsistencies -> true
                 | Expect_analysis_inconsistency_at _ -> true
                 | _ -> false)
-          then ()
-          else
-            begin
-              let inconsistencies = TLA.check_inconsistencies analysis in
-              (* Report the lack of inconsistencies, when appropriate. *)
-              if Enum.is_empty inconsistencies
-              then observation observe_no_inconsistency;
-              (* Report each inconsistency. *)
-              inconsistencies
-              |> Enum.iter
-                (fun inconsistency ->
-                   observation @@ observe_inconsistency inconsistency);
-              (* If there are any expectations of inconsistency left, they're
-                 a problem. *)
-              !expectations_left
-              |> List.iter
-                (function
-                  | Expect_analysis_inconsistency_at ident ->
-                    assert_failure @@ "Expected inconsistency at " ^
-                                      show_ident ident ^ " which did not occur"
-                  | _ -> ()
-                )
-            end
-          ;
-          (* We only want to observe variable values for which there is an
-             expectation. *)
-          let variable_idents =
-            !expectations_left
-            |> List.enum
-            |> Enum.filter_map
-              (function
-                | Expect_analysis_variable_lookup_from_end(ident,_) ->
-                  Some ident
-                | _ -> None)
-          in
-          (* For each such variable, perform an appropriate observation. *)
-          Enum.iter
-            (fun ident ->
-               let var = Var(ident,None) in
-               let values =
-                 TLA.values_of_variable_from var End_clause analysis
-               in
-               let repr = show_abs_filtered_value_set values in
-               observation (observe_analysis_variable_lookup_from_end ident repr)
-            ) variable_idents
-        end
-        ;
-        (* Evaluate, but only if an appropriate expectation exists. *)
-        if not @@ have_expectation
-            (function
-              | Expect_evaluate -> true
-              | Expect_stuck -> true
-              | _ -> false)
-        then ()
-        else
-          begin
-            try
-              ignore (eval expr);
-              observation observe_evaluated
-            with
-            | Evaluation_failure(failure) ->
-              observation (observe_stuck failure)
-          end
-        ;
+        ; topconf_disable_analysis = false
+        ; topconf_report_sizes = false
+        }
+      in
+      (* Run the toploop *)
+      let result =
+        Core_toploop.handle_expression
+          configuration
+          expr
+      in
+      (* Report each discovered error *)
+      result.errors
+      |> List.iter
+        (fun error -> observation @@ observe_inconsistency error);
+      (* Now report the result of evaluation. *)
+      begin
+        match result.evaluation_result with
+        | Evaluation_completed _ -> observation observe_evaluated
+        | Evaluation_failure failure -> observation (observe_stuck failure)
+        | Evaluation_invalidated -> ()
+        | Evaluation_disabled -> ()
+      end;
+      (* If there are any expectations of errors left, they're a problem. *)
+      !expectations_left
+      |> List.iter
+        (function
+          | Expect_analysis_inconsistency_at ident ->
+            assert_failure @@ "Expected error at " ^
+                              show_ident ident ^ " which did not occur"
+          | _ -> ()
+        );
     end;
     (* Now assert that every expectation has been addressed. *)
     match !expectations_left with
     | [] -> ()
     | expectations' ->
       assert_failure @@ "The following expectations could not be met:" ^
-                        "\n    * " ^ concat_sep "\n    *"
+                        "\n    * " ^ concat_sep "\n    * "
                           (List.enum @@
                            List.map name_of_expectation expectations')
 ;;

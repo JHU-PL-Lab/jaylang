@@ -1,12 +1,13 @@
 open Batteries;;
-open OUnit2
+open OUnit2;;
 
 let all_tests =
   [ Test_files.tests
   ; Test_utils.tests
   ; Test_reachability.tests
-  ; Test_swan.tests
+  (* ; Test_swan.tests *)
   ; Test_nested.tests
+  ; Test_resugar.tests
   ];;
 
 let () =

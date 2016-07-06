@@ -1,98 +1,20 @@
 open Batteries;;
-
 open Core_ast;;
-open Ddpa_analysis;;
+open Core_toploop_analysis_types;;
+open Core_toploop_ddpa_wrapper_types;;
 open Ddpa_graph;;
 open Ddpa_utils;;
 
-include Toploop_ddpa_types;;
-
-(* TODO: the "none" should be handled elsewhere as a special case *)
-module type Stack = Ddpa_context_stack.Context_stack;;
-let name_parsing_functions =
-  [
-    (* A function for the literally-named modules. *)
-    (fun name ->
-       match name with
-       | "0ddpa" ->
-         Some (module Ddpa_unit_stack.Stack : Stack)
-       | "1ddpa" ->
-         Some (module Ddpa_single_element_stack.Stack : Stack)
-       | "2ddpa" ->
-         Some (module Ddpa_two_element_stack.Stack : Stack)
-       | "ddpaNR" ->
-         Some (module Ddpa_nonrepeating_stack.Stack : Stack)
-       | "none" -> None
-       | _ -> raise Not_found
-    )
-    ;
-    (* A function for parsing kddpa *)
-    (fun name ->
-       if not @@ String.ends_with name "ddpa" then raise Not_found;
-       let num_str = String.sub name 0 @@ String.length name - 4 in
-       try
-         let num = int_of_string num_str in
-         let module Spec : Ddpa_n_element_stack.Spec =
-         struct
-           let size = num
-         end
-         in
-         let module NStack = Ddpa_n_element_stack.Make(Spec) in
-         Some (module NStack : Stack)
-       with
-       | Failure _ -> raise Not_found
-    )
-  ];;
-let stack_from_name name =
-  let rec loop fns =
-    match fns with
-    | [] -> raise Not_found
-    | fn::fns' ->
-      begin
-        try
-          fn name
-        with
-        | Not_found -> loop fns'
-      end
-  in
-  loop name_parsing_functions
-;;
-
-module Make(A : Analysis_sig) : DDPA with module C = A.C =
+module Make(DDPA_wrapper : DDPA_wrapper) =
 struct
-  type analysis =
-    { aref : A.ddpa_analysis ref
-    ; expression : expr
-    };;
+  module DDPA_wrapper = DDPA_wrapper;;
 
-  module C = A.C;;
-
-  let create_analysis expr =
-    let a = A.create_initial_analysis expr in
-    { aref = ref @@ A.perform_full_closure a
-    ; expression = expr
-    }
-  ;;
-
-  let values_of_variable_from x acl analysis =
-    let a = !(analysis.aref) in
-    let (values,a') = A.values_of_variable x acl a in
-    analysis.aref := a';
-    values
-  ;;
-
-  let contextual_values_of_variable_from x acl ctx analysis =
-    let a = !(analysis.aref) in
-    let (values,a') = A.contextual_values_of_variable x acl ctx a in
-    analysis.aref := a';
-    values
-  ;;
-
-  let check_inconsistencies analysis =
+  let find_errors analysis =
     let open Nondeterminism.Nondeterminism_monad in
     enum @@
     let%bind acl =
-      analysis.expression
+      analysis
+      |> DDPA_wrapper.expression_of
       |> lift_expr
       |> iterate_abstract_clauses
       |> pick_enum
@@ -100,7 +22,7 @@ struct
     let Abs_clause(x_clause,b) = acl in
     let lookup x =
       analysis
-      |> values_of_variable_from x (Unannotated_clause(acl))
+      |> DDPA_wrapper.values_of_variable_from x (Unannotated_clause(acl))
       |> Abs_filtered_value_set.enum
       |> Enum.map
         (fun ((Abs_filtered_value(v,_,_)) as filtv) -> v,filtv)
@@ -112,12 +34,19 @@ struct
     | Abs_conditional_body _ ->
       (* There's nothing this body that can be inconsistent. *)
       zero ()
-    | Abs_appl_body(xf,_) ->
+    | Abs_appl_body(xf,xa) ->
       let%bind (v,filtv) = lookup xf in
       begin
         match v with
         | Abs_value_function _ -> zero ()
-        | _ -> return @@ Application_of_non_function(x_clause,xf,filtv)
+        | _ ->
+          let filtvs =
+            lookup xa
+            |> Nondeterminism.Nondeterminism_monad.enum
+            |> Enum.map snd
+            |> Ddpa_graph.Abs_filtered_value_set.of_enum
+          in
+          return @@ Application_of_non_function(x_clause,xf,filtv,filtvs)
       end
     | Abs_projection_body(x,i) ->
       let%bind (v,filtv) = lookup x in
@@ -205,16 +134,5 @@ struct
           | Abs_value_int -> zero ()
           | _ -> return @@ Invalid_indexing_argument(x_clause,xi,filtv)
         end
-  ;;
-
-  let pp_analysis formatter analysis =
-    A.pp_ddpa_analysis formatter !(analysis.aref)
-  ;;
-  let show_analysis analysis =
-    A.show_ddpa_analysis !(analysis.aref)
-  ;;
-
-  let get_size analysis =
-    A.get_size !(analysis.aref)
   ;;
 end;;

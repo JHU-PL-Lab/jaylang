@@ -60,6 +60,12 @@ let pp_set pp_el enum formatter set =
   pp_concat_sep_delim "{" "}" "," pp_el formatter @@ enum set
 ;;
 
+let pp_option pp_el formatter el =
+  match el with
+  | Some x -> Format.fprintf formatter "Some(@[%a@])" pp_el x;
+  | None -> Format.pp_print_string formatter "None"
+;;
+
 let pp_to_string pp x =
   let buffer = Buffer.create 80 in
   let formatter = formatter_of_buffer buffer in
