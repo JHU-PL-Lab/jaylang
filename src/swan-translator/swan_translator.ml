@@ -227,6 +227,11 @@ and egg_to_nested_expr e =
 
 let swan_to_nested_translation e =
   let egg_expr = swan_to_egg_expr e in
-  let (egg_trans, map) = translation_close (translator_compose_many translators) egg_expr in
+  let (translator, _) =
+    translation_close
+      (expression_translator_compose_many expression_translators)
+      (pattern_translator_compose_many pattern_translators)
+  in
+  let (egg_trans, map) = translator egg_expr in
   ((egg_to_nested_expr egg_trans), map)
 ;;
