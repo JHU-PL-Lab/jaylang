@@ -15,7 +15,8 @@ let stdout_illformednesses_callback ills =
   print_string "Provided expression is ill-formed:\n";
   List.iter
     (fun ill -> print_string @@ "   " ^ show_illformedness ill ^ "\n")
-    ills
+    ills;
+  flush stdout
 ;;
 
 let stdout_variable_analysis_callback
@@ -47,7 +48,8 @@ let stdout_variable_analysis_callback
   end;
   print_endline " yields values:";
   print_string "    ";
-  print_string @@ show_abs_filtered_value_set values
+  print_string @@ show_abs_filtered_value_set values;
+  flush stdout
 ;;
 
 let stdout_errors_callback errors =
@@ -55,19 +57,23 @@ let stdout_errors_callback errors =
   |> List.iter
     (fun error ->
        print_string @@ Core_toploop_analysis_types.show_error error
-    )
+    );
+  flush stdout
 ;;
 
 let stdout_evaluation_result_callback v env =
-  print_string (show_var v ^ " where " ^ show_evaluation_environment env ^ "\n")
+  print_endline (show_var v ^ " where " ^ show_evaluation_environment env ^ "\n");
+  flush stdout
 ;;
 
 let stdout_evaluation_failed_callback msg =
-  print_endline @@ "Evaluation failed: " ^ msg
+  print_endline @@ "Evaluation failed: " ^ msg;
+  flush stdout
 ;;
 
 let stdout_evaluation_disabled_callback () =
-  print_string "Evaluation disabled"
+  print_endline "Evaluation disabled";
+  flush stdout
 ;;
 
 let stdout_size_report_callback
@@ -82,7 +88,8 @@ let stdout_size_report_callback
     ddpa_number_of_active_non_immediate_nodes
     ddpa_number_of_edges
     pds_number_of_nodes
-    pds_number_of_edges
+    pds_number_of_edges;
+  flush stdout
 ;;
 
 let no_op_callbacks =
