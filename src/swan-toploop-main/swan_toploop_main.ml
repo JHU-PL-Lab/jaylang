@@ -27,7 +27,7 @@ let () =
        print_newline ();
        ignore @@
        Swan_toploop.handle_expression
-         ~core_callbacks:Core_toploop.stdout_callbacks
+         ~callbacks:Swan_toploop.stdout_callbacks
          toploop_configuration
          swan_expr;
        print_string "\n";

@@ -27,7 +27,7 @@ let () =
        print_newline ();
        ignore @@
        Nested_toploop.handle_expression
-         ~core_callbacks:Core_toploop.stdout_callbacks
+         ~callbacks:Nested_toploop.stdout_callbacks
          toploop_configuration
          nested_expr;
        print_string "\n";
