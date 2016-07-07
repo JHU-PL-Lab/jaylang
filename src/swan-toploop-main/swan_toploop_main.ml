@@ -33,5 +33,6 @@ let () =
        print_string "\n";
        print_string "Please enter an expression to evaluate followed by \";;\".\n";
        print_string "\n";
+       flush stdout
     )
 ;;
