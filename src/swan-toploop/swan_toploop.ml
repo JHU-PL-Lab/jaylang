@@ -17,7 +17,8 @@ let stdout_errors_callback errors =
   |> List.iter
     (fun error ->
        print_string @@ Swan_toploop_analysis_types.show_error error
-    )
+    );
+    flush stdout
 ;;
 
 let stdout_callbacks =
