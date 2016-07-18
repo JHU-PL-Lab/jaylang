@@ -301,63 +301,53 @@ let translate_ifthenelse
     (tc:translator_configuration)
     (e:Egg_ast.expr) =
   match e with
-  | Egg_ast.If_expr(uid, cond, f1, f2) ->
-    let x = egg_fresh_var () in
-    let var1 = egg_fresh_var () in
-    let var2 = egg_fresh_var () in
-    let var3 = egg_fresh_var () in
-    let var4 = egg_fresh_var () in
-    let appl_uid = next_uid () in
-    let (cond_trans, cond_map) = tc.top_level_expression_translator cond in
-    let (f1_trans, f1_map) = tc.top_level_expression_translator f1 in
-    let (f2_trans, f2_map) = tc.top_level_expression_translator f2 in
-    let bad_if_branch = Egg_ast.Appl_expr(appl_uid, Egg_ast.String_expr(next_uid (), "{}"), cond_trans) in
-    let (bad_trans, bad_map) = tc.top_level_expression_translator bad_if_branch in
-    let (true_pattern, true_map) = tc.top_level_pattern_translator (Egg_ast.Bool_pattern(next_uid (), true)) in
-    let (false_pattern, false_map) = tc.top_level_pattern_translator (Egg_ast.Bool_pattern(next_uid (), false)) in
-    let desugar_if cond_trans f1_trans f2_trans =
-      let new_uid = next_uid () in
-      let f1_uid = next_uid () in
-      let f2_uid = next_uid () in
-      let desugared_expr =
+  | Egg_ast.If_expr(uid_if, e_condition, e_then, e_else) ->
+    let x_condition = egg_fresh_var () in
+    let x_conditional_true_match = egg_fresh_var () in
+    let x_conditional_true_antimatch = egg_fresh_var () in
+    let x_conditional_false_match = egg_fresh_var () in
+    let x_conditional_false_antimatch = egg_fresh_var () in
+    let uid_let = next_uid () in
+    let uid_conditional_true = next_uid () in
+    let uid_conditional_true_x_condition = next_uid () in
+    let uid_conditional_true_pattern = next_uid () in
+    let uid_conditional_true_match = next_uid () in
+    let uid_conditional_true_antimatch = next_uid () in
+    let uid_conditional_false = next_uid () in
+    let uid_conditional_false_x_condition = next_uid () in
+    let uid_conditional_false_pattern = next_uid () in
+    let uid_conditional_false_match = next_uid () in
+    let uid_conditional_false_antimatch = next_uid () in
+    let uid_bogus_application = next_uid () in
+    let uid_bogus_function = next_uid () in
+    let (e_trans, map_e) =
+      tc.continuation_expression_translator @@
+      Egg_ast.Let_expr(
+        uid_let, x_condition, e_condition,
         Egg_ast.Conditional_expr(
-          new_uid,
-          cond_trans,
-          true_pattern,
-          Egg_ast.Function(f1_uid, var1, f1_trans),
+          uid_conditional_true,
+          Egg_ast.Var_expr(uid_conditional_true_x_condition, x_condition),
+          Egg_ast.Bool_pattern(uid_conditional_true_pattern, true),
+          Egg_ast.Function(uid_conditional_true_match, x_conditional_true_match, e_then),
           Egg_ast.Function(
-            next_uid (),
-            var2,
+            uid_conditional_true_antimatch, x_conditional_true_antimatch,
             Egg_ast.Conditional_expr(
-              next_uid (),
-              cond_trans,
-              false_pattern,
+              uid_conditional_false,
+              Egg_ast.Var_expr(uid_conditional_false_x_condition, x_condition),
+              Egg_ast.Bool_pattern(uid_conditional_false_pattern, false),
+              Egg_ast.Function(uid_conditional_false_match, x_conditional_false_match, e_else),
               Egg_ast.Function(
-                next_uid (),
-                var3,
-                f2_trans),
-              Egg_ast.Function(
-                next_uid (),
-                var4,
-                bad_trans
-              )
-            )
-          )
-        )
-      in
-      let new_map =
-        Uid_map.of_enum @@ List.enum @@
-        [ (new_uid, If_to_conditional(new_uid,uid))
-        ; (f1_uid, If_true_branch_to_function(f1_uid, uid))
-        ; (f2_uid, If_false_branch_to_function(f2_uid, uid))
-        ; (appl_uid, Bad_if_branch_to_function(appl_uid, uid))
-        ]
-      in
-      let final_map =
-        disjoint_unions [new_map; cond_map; f1_map; f2_map; bad_map; true_map; false_map]
-      in (desugared_expr, final_map)
-    in let (e', map) = desugar_if cond_trans f1_trans f2_trans in
-    (Egg_ast.Let_expr(uid, x, cond_trans, e'), map)
+                uid_conditional_false_antimatch, x_conditional_false_antimatch,
+                  Egg_ast.Appl_expr(
+                  uid_bogus_application, Egg_ast.String_expr(uid_bogus_function, "non-function"),
+                  e_condition))))))
+    in
+    let map_new =
+      ignore uid_if;
+      Uid_map.of_enum @@ List.enum @@
+      [ (* TODO: FILL ME IN. *)]
+    in
+    (e_trans, disjoint_union map_e map_new)
   | _ -> tc.continuation_expression_translator e
 ;;
 
