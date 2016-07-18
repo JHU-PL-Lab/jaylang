@@ -383,7 +383,7 @@ let translate_match
         (Egg_ast.Appl_expr(appl_u,(Egg_ast.Record_expr(nu1,Ident_map.empty)), trans_e),
          this_map)
     in let (e', map) = desugar_matches ms in
-    (Egg_ast.Let_expr(uid, x, trans_e, e'), map)
+    (Egg_ast.Let_expr(Uid.next_uid (), x, trans_e, e'), map)
   | _ -> tc.continuation_expression_translator e
 ;;
 

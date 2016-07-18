@@ -225,6 +225,8 @@ Library "nested-toploop"
 Library "swan-toploop"
   Path: src/swan-toploop
   Modules:
+    Egg_toploop_analysis,
+    Egg_toploop_analysis_types,
     Swan_toploop,
     Swan_toploop_analysis,
     Swan_toploop_analysis_types,

@@ -3,7 +3,9 @@
    its types need not be redeclared in an interface.
 *)
 
+open Core_ast;;
 open Core_ast_wellformedness;;
+open Core_interpreter;;
 open Ddpa_graph;;
 
 (* TODO: new form of result type *)
@@ -33,4 +35,18 @@ type result =
   }
 ;;
 
-(* TODO: Swan-specific callbacks? *)
+(** A record containing the callbacks that the toploop calls during evaluation.
+    This allows for a more interactive experience than if the caller waits for
+    the entire result to be produced. *)
+type callbacks =
+  { cb_illformednesses : Core_ast_wellformedness.illformedness list -> unit
+  ; cb_variable_analysis :
+      string -> string option -> string list option ->
+      Abs_filtered_value_set.t -> unit
+  ; cb_errors : Swan_toploop_analysis_types.error list -> unit
+  ; cb_evaluation_result : var -> value Environment.t -> unit
+  ; cb_evaluation_failed : string -> unit
+  ; cb_evaluation_disabled : unit -> unit
+  ; cb_size_report_callback : int * int * int * int * int -> unit
+  }
+;;

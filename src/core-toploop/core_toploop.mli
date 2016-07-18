@@ -38,6 +38,12 @@ val stdout_errors_callback : error list -> unit
 (** An evaluation callback which prints messages to stdout. *)
 val stdout_evaluation_result_callback : var -> value Environment.t -> unit
 
+(** An evaluation callback which prints failure messages to stdout *)
+val stdout_evaluation_failed_callback : string -> unit
+
 (** A callback for the event in which evaluation is disabled which prints a
     message to stdout. *)
 val stdout_evaluation_disabled_callback : unit -> unit
+
+(** A routine that determines the PDA behind the analysis is *)
+val stdout_size_report_callback : int * int * int * int * int -> unit
