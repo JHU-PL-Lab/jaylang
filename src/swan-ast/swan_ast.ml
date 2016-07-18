@@ -54,6 +54,7 @@ and pattern =
   | Bool_pattern of uid * bool
   | String_pattern of uid
   | Any_pattern of uid
+  | Var_pattern of uid * swan_var
   [@@deriving eq, ord]
 
 and match_pair =

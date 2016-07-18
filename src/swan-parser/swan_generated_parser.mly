@@ -11,8 +11,8 @@ module List = BatList;;
 %token <string> STRING_LITERAL
 %token OPEN_BRACE
 %token CLOSE_BRACE
-%token OPEN_BRACKET
-%token CLOSE_BRACKET
+(* %token OPEN_BRACKET *)
+(* %token CLOSE_BRACKET *)
 %token OPEN_PAREN
 %token CLOSE_PAREN
 %token COMMA
@@ -170,6 +170,8 @@ pattern:
       { Swan_ast.Any_pattern(next_uid $startpos $endpos) }
   | UNDERSCORE
       { Swan_ast.Any_pattern(next_uid $startpos $endpos) }
+  | identifier
+      { Swan_ast.Var_pattern(next_uid $startpos $endpos,Swan_var(next_uid $startpos $endpos,$1)) }
   ;
 
 match_pair:
