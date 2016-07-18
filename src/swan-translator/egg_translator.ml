@@ -13,7 +13,13 @@ let lazy_logger = Logger_utils.make_lazy_logger "Swan_translator";;
 
 type log_entry =
   | If_to_match of uid * uid
-  (** First uid is the resulting `match' and second uid is the `if'  where it came from. *)
+  (** First uid is the resulting `match' and second uid is the `if' where it came from. *)
+
+  | Match_to_application of uid * uid
+  (** First uid is the resulting application and second uid is the `match' where it came from. *)
+
+  | Match_to_let of uid * uid
+  (** First uid is the resulting `let' and second uid is the `match' where it came from. *)
 
   | Inexhaustive_match_branch of uid * uid
   (** First uid is the empty application expr, second is the match expr itself *)
@@ -298,15 +304,12 @@ let translate_ifthenelse
       tc.continuation_expression_translator @@
       Egg_ast.Match_expr (
         uid_match, e_condition,
-        [Egg_ast.Match_pair (next_uid (), Egg_ast.Bool_pattern (next_uid (), true), e_then);
-         Egg_ast.Match_pair (next_uid (), Egg_ast.Bool_pattern (next_uid (), false), e_else);
+        [ Egg_ast.Match_pair (next_uid (), Egg_ast.Bool_pattern (next_uid (), true), e_then);
+          Egg_ast.Match_pair (next_uid (), Egg_ast.Bool_pattern (next_uid (), false), e_else);
         ]
       )
     in
-    let map_new =
-      Uid_map.of_enum @@ List.enum @@
-      [(uid_match, If_to_match(uid_match, uid_if));]
-    in
+    let map_new = Uid_map.singleton uid_match (If_to_match(uid_match, uid_if)) in
     (e_trans, disjoint_union map_e map_new)
   | _ -> tc.continuation_expression_translator e
 ;;
@@ -315,49 +318,71 @@ let translate_match
     (tc:translator_configuration)
     (e:Egg_ast.expr) =
   match e with
-  | Egg_ast.Match_expr(uid, e, ms) ->
-    let x = egg_fresh_var () in
-    let (trans_e, map_e) = tc.top_level_expression_translator e in
-    let rec desugar_matches ms =
-      let nu1 = next_uid () in
-      let nu2 = next_uid () in
-      match ms with
-      | (Egg_ast.Match_pair(mu,p,e') as m)::ms' ->
-        let (trans_e', map_e') = tc.top_level_expression_translator e' in
-        let (trans_p, map_p) = tc.top_level_pattern_translator p in
-        let (desugared_expr, desugared_map) = desugar_matches ms' in
-        let f1 = Egg_ast.Function(nu1, egg_fresh_var (), trans_e') in
-        let f2 = Egg_ast.Function(nu2, egg_fresh_var (), desugared_expr) in
-        lazy_logger `trace (fun () ->
-            Printf.sprintf "Translated match pair \n %s \n into \n %s \n and \n %s \n"
-              (Pp_utils.pp_to_string Egg_ast.pp_match_pair m)
-              (Pp_utils.pp_to_string Egg_ast.pp_function_value f1)
-              (Pp_utils.pp_to_string Egg_ast.pp_function_value f2)
-          );
-        (Egg_ast.Conditional_expr(mu,trans_e,trans_p,f1,f2),
-         (disjoint_unions [desugared_map; map_e; map_e'; map_p
-                          ; Uid_map.singleton mu (Match_branch(mu, uid))]))
-      | [] ->
-        let appl_u = next_uid () in
-        let this_map = (Uid_map.singleton appl_u (Inexhaustive_match_branch(appl_u,uid))) in
-        (Egg_ast.Appl_expr(appl_u,(Egg_ast.Record_expr(nu1,Ident_map.empty)), trans_e),
-         this_map)
-    in let (e', map) = desugar_matches ms in
-    (Egg_ast.Let_expr(Uid.next_uid (), x, trans_e, e'), map)
+  (* TODO: Abstract this. | Egg_ast.Match_expr(uid_match, e_subject, branches) -> *)
+  | Egg_ast.Match_expr(uid_match, ((Egg_ast.Var_expr _) as e_subject), []) ->
+    let uid_application = next_uid () in
+    let (e_trans, map_e) =
+      tc.continuation_expression_translator @@
+      Egg_ast.Appl_expr (uid_application, Egg_ast.String_expr (next_uid (), "non-function"), e_subject)
+    in
+    let map_new = Uid_map.singleton uid_application (Match_to_application(uid_application, uid_match)) in
+    (e_trans, disjoint_union map_e map_new)
+  | Egg_ast.Match_expr(uid_match, e_subject, []) ->
+    let uid_let = next_uid () in
+    let x_let = egg_fresh_var () in
+    let (e_trans, map_e) =
+      tc.continuation_expression_translator @@
+      Egg_ast.Let_expr (
+        uid_let, x_let, e_subject,
+        Egg_ast.Appl_expr (
+          next_uid (), Egg_ast.String_expr (next_uid (), "non-function"),
+          Egg_ast.Var_expr (next_uid (), x_let)))
+    in
+    let map_new = Uid_map.singleton uid_let (Match_to_application(uid_let, uid_match)) in
+    (e_trans, disjoint_union map_e map_new)
+  | Egg_ast.Match_expr(uid_match, ((Egg_ast.Var_expr _) as e_subject),
+                       Egg_ast.Match_pair (_, pattern, e_branch) :: rest_branches) ->
+    let uid_conditional = next_uid () in
+    let (e_trans, map_e) =
+      tc.continuation_expression_translator @@
+      Egg_ast.Conditional_expr (
+        uid_conditional, e_subject, pattern,
+        Egg_ast.Function (next_uid (), egg_fresh_var (), e_branch),
+        Egg_ast.Function (next_uid (), egg_fresh_var (),
+                         Egg_ast.Match_expr (next_uid (), e_subject, rest_branches)))
+    in
+    let map_new = Uid_map.singleton uid_conditional (Match_to_application(uid_conditional, uid_match)) in
+    (e_trans, disjoint_union map_e map_new)
+  | Egg_ast.Match_expr(uid_match, e_subject,
+                       Egg_ast.Match_pair (_, pattern, e_branch) :: rest_branches) ->
+    let uid_let = next_uid () in
+    let x_let = egg_fresh_var () in
+    let (e_trans, map_e) =
+      tc.continuation_expression_translator @@
+      Egg_ast.Let_expr (
+        uid_let, x_let, e_subject,
+        Egg_ast.Conditional_expr (
+          next_uid (), Egg_ast.Var_expr (next_uid (), x_let), pattern,
+          Egg_ast.Function (next_uid (), egg_fresh_var (), e_branch),
+          Egg_ast.Function (next_uid (), egg_fresh_var (),
+                            Egg_ast.Match_expr (next_uid (), Egg_ast.Var_expr (next_uid (), x_let), rest_branches))))
+    in
+    let map_new = Uid_map.singleton uid_let (Match_to_application(uid_let, uid_match)) in
+    (e_trans, disjoint_union map_e map_new)
   | _ -> tc.continuation_expression_translator e
 ;;
 
-let translate_pattern_variables
-    (tc:translator_configuration)
-    (p:Egg_ast.pattern) =
-  match p with
-  | Egg_ast.Var_pattern (uid, _) ->
-    let any_pattern_uid = next_uid () in
-    (Egg_ast.Any_pattern(any_pattern_uid),
-     Uid_map.singleton any_pattern_uid
-       (Pattern_variable_to_any_pattern (any_pattern_uid, uid)))
-  | _ -> tc.continuation_pattern_translator p
-;;
+(* let translate_pattern_variables *)
+(*     (tc:translator_configuration) *)
+(*     (p:Egg_ast.pattern) = *)
+(*   match p with *)
+(*   | Egg_ast.Var_pattern (uid, _) -> *)
+(*     let any_pattern_uid = next_uid () in *)
+(*     (Egg_ast.Any_pattern(any_pattern_uid), *)
+(*      Uid_map.singleton any_pattern_uid *)
+(*        (Pattern_variable_to_any_pattern (any_pattern_uid, uid))) *)
+(*   | _ -> tc.continuation_pattern_translator p *)
+(* ;; *)
 
 (* let translate_conditional_with_pattern_variable *)
 (*     (tc:translator_configuration) *)
