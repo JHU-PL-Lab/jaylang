@@ -56,9 +56,10 @@ let handle_expression
         (fun es ->
            callbacks.cb_errors
              (List.of_enum
-              @@ Swan_toploop_analysis.batch_translation
+             (Swan_toploop_analysis.batch_translation
+              @@ Egg_toploop_analysis.batch_translation
                 nested_map
-                (List.enum es)))
+                (List.enum es))))
     ; Nested_toploop_types.cb_evaluation_result =
         (fun x env -> (callbacks.cb_evaluation_result x env))
     ; Nested_toploop_types.cb_evaluation_failed =
@@ -74,14 +75,16 @@ let handle_expression
       ~callbacks:nested_callbacks
       conf nested_expr
   in
-  let swan_errors =
+  let egg_errors =
     List.of_enum @@
-    Swan_toploop_analysis.batch_translation
+    Egg_toploop_analysis.batch_translation
       nested_map @@ List.enum result.Nested_toploop_types.errors
+  in
+  let swan_errors = Swan_toploop_analysis.batch_translation (List.enum egg_errors)
   in
   { illformednesses = result.Nested_toploop_types.illformednesses
   ; analyses = result.Nested_toploop_types.analyses
-  ; errors = swan_errors
+  ; errors = List.of_enum swan_errors
   ; evaluation_result = result.Nested_toploop_types.evaluation_result
   }
 ;;

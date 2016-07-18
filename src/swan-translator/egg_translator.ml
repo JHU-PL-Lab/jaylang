@@ -329,7 +329,7 @@ let rec translate_ifthenelse
         disjoint_unions [new_map; cond_map; f1_map; f2_map; bad_map; true_map; false_map]
         in (desugared_expr, final_map)
     in let (e', map) = desugar_if cond_trans f1_trans f2_trans in
-    (Egg_ast.Let_expr(uid, x, cond_trans, e'), map)
+    (Egg_ast.Let_expr(Uid.next_uid (), x, cond_trans, e'), map)
   | _ -> tc.continuation_expression_translator e
 ;;
 
@@ -365,7 +365,7 @@ let rec translate_match
         (Egg_ast.Appl_expr(appl_u,(Egg_ast.Record_expr(nu1,Ident_map.empty)), trans_e),
          this_map)
     in let (e', map) = desugar_matches ms in
-    (Egg_ast.Let_expr(uid, x, trans_e, e'), map)
+    (Egg_ast.Let_expr(Uid.next_uid (), x, trans_e, e'), map)
   | _ -> tc.continuation_expression_translator e
 ;;
 
