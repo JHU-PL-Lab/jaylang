@@ -24,33 +24,6 @@ type log_entry =
   | Match_to_let of uid * uid
   (** First uid is the resulting `let' and second uid is the `match' where it came from. *)
 
-  | Inexhaustive_match_branch of uid * uid
-  (** First uid is the empty application expr, second is the match expr itself *)
-
-  | Match_branch of uid * uid
-  (** First uid is the resulting conditional, second is the match expr itself *)
-
-  | Pattern_variable_to_any_pattern of uid * uid
-  (** First uid is the resulting `any' pattern, second is the pattern variable itself *)
-
-  | Conditional_with_pattern_variables_to_let_assignments_of_projection_chains of uid * uid
-  (** First uid is the resulting let, second is the original conditional *)
-
-  | Conditional_with_pattern_variables_to_variable_assignments_of_projection_chains of uid * uid
-  (** First uid is the resulting assigned variable, second is the original conditional *)
-
-  | Conditional_with_pattern_variables_to_conditional_assignments_of_projection_chains of uid * uid
-  (** First uid is the resulting conditional, second is the original conditional *)
-
-  | Projection_let_in_conditional_with_pattern_variables of uid * uid
-  (** First uid is the resulting let, second is the original conditional *)
-
-  | Projection_var_in_conditional_with_pattern_variables of uid * uid
-  (** First uid is the resulting var, second is the original conditional *)
-
-  | Branch_of_conditional_with_pattern_variables of uid * uid
-  (** First uid is the resulting branch -- function value --, second is the original conditional *)
-
   [@@deriving eq, show]
 
 (* type proof =
