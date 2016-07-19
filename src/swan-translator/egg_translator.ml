@@ -13,19 +13,28 @@ let lazy_logger = Logger_utils.make_lazy_logger "Swan_translator";;
 
 type log_entry =
   | If_to_match of uid * uid
-  (** First uid is the resulting `match' and second uid is the `if' where it came from. *)
+  (** First uid is the resulting `match' and second uid is the `if' where it
+      came from. *)
 
   | Match_to_application of uid * uid
-  (** First uid is the resulting application and second uid is the `match' where it came from. *)
+  (** First uid is the resulting application and second uid is the `match' where
+      it came from. *)
 
   | Match_to_conditional of uid * uid
-  (** First uid is the resulting conditional and second uid is the `match' where it came from. *)
+  (** First uid is the resulting conditional and second uid is the `match' where
+      it came from. *)
 
   | Match_to_let of uid * uid
-  (** First uid is the resulting `let' and second uid is the `match' where it came from. *)
+  (** First uid is the resulting `let' and second uid is the `match' where it
+      came from. *)
 
   | Var_pattern_to_any_pattern of uid * uid
-  (** First uid is the resulting `any' pattern and second uid is the `var' pattern where it came from. *)
+  (** First uid is the resulting `any' pattern and second uid is the `var'
+      pattern where it came from. *)
+
+  | Conditional_with_pattern_variable_to_conditional of uid * uid
+  (** First uid is the resulting conditional with no pattern variables and
+      second uid is the conditional with pattern variables where it came from. *)
 
   [@@deriving eq, show]
 
@@ -334,7 +343,7 @@ let translate_match
   | _ -> tc.continuation_expression_translator e
 ;;
 
-let translate_pattern_variables
+let translate_pattern_variable
     (tc:translator_configuration)
     (p:Egg_ast.pattern) =
   match p with
@@ -349,16 +358,29 @@ let translate_pattern_variables
   | _ -> tc.continuation_pattern_translator p
 ;;
 
-(* let translate_conditional_with_pattern_variables *)
-(*     (tc:translator_configuration) *)
-(*     (e:Egg_ast.expr) = *)
-(*   match e with *)
-(*   | Egg_ast.Conditional_expr (uid, e, p, *)
-(*                               (Egg_ast.Function (uid_1, x1, e1)), *)
-(*                               (Egg_ast.Function (uid_2, x2, e2))) -> *)
-(*     let (_, pattern_variables_translator) = *)
-(*       translation_close identity_translator_fragment translate_pattern_variables *)
-(*     in *)
+let translate_conditional_with_pattern_variable
+    (tc:translator_configuration)
+    (e:Egg_ast.expr) =
+  match e with
+  | Egg_ast.Conditional_expr (uid_conditional, e_subject, p,
+                              (Egg_ast.Function (uid_f1, x1, e1)),
+                              f2)
+    when Egg_ast.contain_pattern_variable p ->
+    let (_, pattern_variables_translator) = translation_close identity_translator_fragment translate_pattern_variable in
+    let uid_conditional_new = next_uid () in
+    let (p_trans, map_p) = pattern_variables_translator p in
+    let (e_trans, map_e) =
+      tc.continuation_expression_translator @@
+      Egg_ast.Conditional_expr (uid_conditional_new, e_subject, p_trans,
+                                (Egg_ast.Function (uid_f1, x1, e1)),
+                                f2)
+    in
+    let map_new = Uid_map.singleton uid_conditional_new
+        (Conditional_with_pattern_variable_to_conditional (uid_conditional_new, uid_conditional)) in
+    (e_trans, disjoint_unions [map_p;map_e;map_new])
+  | _ -> tc.continuation_expression_translator e
+;;
+
 
 (*     (\* TODO: Detect whether _there are pattern variables_ and only create the `let' and all else if necessary. *\) *)
 (*     (\* TODO: If the pattern is just a variable, skip the `let' *\) *)
@@ -439,7 +461,7 @@ let translate_pattern_variables
 let expression_translators : Egg_ast.expr translator_fragment list =
   [ translate_ifthenelse;
     translate_match;
-    (* TODO: Enable this: translate_conditional_with_pattern_variables; *)
+    translate_conditional_with_pattern_variable;
   ]
 ;;
 

@@ -2,6 +2,7 @@
    Contains data type definitions for the AST of the Swam language.
 *)
 
+open Batteries;;
 open Core_ast;;
 open Uid;;
 
@@ -67,6 +68,20 @@ and match_pair =
 and egg_var =
   | Egg_var of uid * ident
   [@@deriving eq, ord]
+;;
+
+let rec contain_pattern_variable p =
+  match p with
+  | Var_pattern (_,_) -> true
+  | Record_pattern (_,fields) ->
+    fields |> Ident_map.values |> Enum.exists contain_pattern_variable
+  | Fun_pattern _
+  | Ref_pattern _
+  | Int_pattern _
+  | Bool_pattern (_,_)
+  | String_pattern _
+  | Any_pattern _ -> false
+;;
 
 let rec pp_expr : Format.formatter -> expr -> Ppx_deriving_runtime.unit=
   let __46 () = pp_match_pair
