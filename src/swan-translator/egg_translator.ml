@@ -24,6 +24,9 @@ type log_entry =
   | Match_to_let of uid * uid
   (** First uid is the resulting `let' and second uid is the `match' where it came from. *)
 
+  | Var_pattern_to_any_pattern of uid * uid
+  (** First uid is the resulting `any' pattern and second uid is the `var' pattern where it came from. *)
+
   [@@deriving eq, show]
 
 (* type proof =
@@ -331,19 +334,22 @@ let translate_match
   | _ -> tc.continuation_expression_translator e
 ;;
 
-(* let translate_pattern_variables *)
-(*     (tc:translator_configuration) *)
-(*     (p:Egg_ast.pattern) = *)
-(*   match p with *)
-(*   | Egg_ast.Var_pattern (uid, _) -> *)
-(*     let any_pattern_uid = next_uid () in *)
-(*     (Egg_ast.Any_pattern(any_pattern_uid), *)
-(*      Uid_map.singleton any_pattern_uid *)
-(*        (Pattern_variable_to_any_pattern (any_pattern_uid, uid))) *)
-(*   | _ -> tc.continuation_pattern_translator p *)
-(* ;; *)
+let translate_pattern_variables
+    (tc:translator_configuration)
+    (p:Egg_ast.pattern) =
+  match p with
+  | Egg_ast.Var_pattern (uid_var, _) ->
+    let uid_any = next_uid () in
+    let (p_trans, map_p) =
+      tc.continuation_pattern_translator @@
+      Egg_ast.Any_pattern (uid_any)
+    in
+    let map_new = Uid_map.singleton uid_any (Var_pattern_to_any_pattern(uid_any, uid_var)) in
+    (p_trans, disjoint_union map_p map_new)
+  | _ -> tc.continuation_pattern_translator p
+;;
 
-(* let translate_conditional_with_pattern_variable *)
+(* let translate_conditional_with_pattern_variables *)
 (*     (tc:translator_configuration) *)
 (*     (e:Egg_ast.expr) = *)
 (*   match e with *)
@@ -433,7 +439,7 @@ let translate_match
 let expression_translators : Egg_ast.expr translator_fragment list =
   [ translate_ifthenelse;
     translate_match;
-    (* TODO: Enable this: translate_conditional_with_pattern_variable; *)
+    (* TODO: Enable this: translate_conditional_with_pattern_variables; *)
   ]
 ;;
 
