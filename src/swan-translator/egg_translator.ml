@@ -36,6 +36,10 @@ type log_entry =
   (** First uid is the resulting conditional with no pattern variables and
       second uid is the conditional with pattern variables where it came from. *)
 
+  | Conditional_with_pattern_variable_to_let of uid * uid
+  (** First uid is the resulting `let' and second uid is the conditional with
+      pattern variables where it came from. *)
+
   [@@deriving eq, show]
 
 (* type proof =
@@ -362,28 +366,41 @@ let translate_conditional_with_pattern_variable
     (tc:translator_configuration)
     (e:Egg_ast.expr) =
   match e with
-  | Egg_ast.Conditional_expr (uid_conditional, e_subject, p,
+  | Egg_ast.Conditional_expr (uid_conditional, _, p,
                               (Egg_ast.Function (uid_f1, x1, e1)),
-                              f2)
-    when Egg_ast.contain_pattern_variable p ->
-    let (_, pattern_variables_translator) = translation_close identity_translator_fragment translate_pattern_variable in
-    let uid_conditional_new = next_uid () in
-    let (p_trans, map_p) = pattern_variables_translator p in
-    let (e_trans, map_e) =
-      tc.continuation_expression_translator @@
-      Egg_ast.Conditional_expr (uid_conditional_new, e_subject, p_trans,
-                                (Egg_ast.Function (uid_f1, x1, e1)),
-                                f2)
+                              f2) when Egg_ast.contain_pattern_variable p ->
+    let base_translation x_subject =
+      let uid_conditional_new = next_uid () in
+      let (_, pattern_variables_translator) = translation_close identity_translator_fragment translate_pattern_variable in
+      let (p_trans, map_p) = pattern_variables_translator p in
+
+      (Egg_ast.Conditional_expr (uid_conditional_new, Egg_ast.Var_expr (next_uid (), x_subject), p_trans,
+                                 (Egg_ast.Function (uid_f1, x1, e1)),
+                                 f2),
+       uid_conditional_new, map_p,
+       Uid_map.singleton uid_conditional_new
+         (Conditional_with_pattern_variable_to_conditional (uid_conditional_new, uid_conditional)))
     in
-    let map_new = Uid_map.singleton uid_conditional_new
-        (Conditional_with_pattern_variable_to_conditional (uid_conditional_new, uid_conditional)) in
-    (e_trans, disjoint_unions [map_p;map_e;map_new])
+
+    begin
+      match e with
+      | Egg_ast.Conditional_expr (_, Egg_ast.Var_expr (_, x_subject), _, _, _) ->
+        let (e_base, _, map_p, map_new) = base_translation x_subject in
+        let (e_trans, map_e) = tc.continuation_expression_translator e_base in
+        (e_trans, disjoint_unions [map_e;map_p;map_new])
+      | Egg_ast.Conditional_expr (uid_conditional, e_subject, _, _, _) ->
+        let x_subject = egg_fresh_var () in
+        let (e_base, uid_new, map_p, _) = base_translation x_subject in
+        let e_wrapped = (Egg_ast.Let_expr (next_uid (), x_subject, e_subject, e_base)) in
+        let (e_trans, map_e) = tc.continuation_expression_translator e_wrapped in
+        let map_new = Uid_map.singleton uid_new (Conditional_with_pattern_variable_to_let (uid_new, uid_conditional)) in
+        (e_trans, disjoint_unions [map_e;map_p;map_new])
+      | _ -> raise @@ Utils.Invariant_failure "`translate_conditional_with_pattern_variable' let wrapper called with something other than `Match_expr'."
+    end
   | _ -> tc.continuation_expression_translator e
 ;;
 
-
-(*     (\* TODO: Detect whether _there are pattern variables_ and only create the `let' and all else if necessary. *\) *)
-(*     (\* TODO: If the pattern is just a variable, skip the `let' *\) *)
+(*     (\* TODO: Add projection chains to f1 *\) *)
 
 (*     ignore uid_1; ignore uid_2; *)
 (*     (\* let rec pattern_variable_bindings subject pattern map = *\) *)
