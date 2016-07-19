@@ -366,16 +366,40 @@ let translate_conditional_with_pattern_variable
     (tc:translator_configuration)
     (e:Egg_ast.expr) =
   match e with
-  | Egg_ast.Conditional_expr (uid_conditional, _, p,
-                              (Egg_ast.Function (uid_f1, x1, e1)),
-                              f2) when Egg_ast.contain_pattern_variable p ->
+  | Egg_ast.Conditional_expr (uid_conditional, _, p, f1, f2) when Egg_ast.contain_pattern_variable p ->
+
+    let rec pattern_variable_bindings pattern subject =
+      match pattern with
+      | Egg_ast.Var_pattern (_, Egg_ast.Egg_var (_, x)) ->
+        [(Egg_ast.Egg_var (next_uid (), x), subject)]
+      | Egg_ast.Record_pattern (_, fields) ->
+        Ident_map.fold (
+          fun label subpattern result ->
+            List.append result @@
+            pattern_variable_bindings subpattern
+              (Egg_ast.Projection_expr (next_uid (), subject, label))
+        ) fields []
+      | _ -> []
+    in
+
+    let preprend_pattern_variable_bindings pattern subject (Egg_ast.Function (_, formal_parameter, body)) =
+      Egg_ast.Function (
+        next_uid (), formal_parameter,
+        pattern_variable_bindings pattern subject
+        |> List.fold_left (
+          fun body (bound_variable, projection_chain) ->
+            Egg_ast.Let_expr (next_uid (), bound_variable, projection_chain, body)
+        ) body
+      )
+    in
+
     let base_translation x_subject =
       let uid_conditional_new = next_uid () in
       let (_, pattern_variables_translator) = translation_close identity_translator_fragment translate_pattern_variable in
       let (p_trans, map_p) = pattern_variables_translator p in
 
       (Egg_ast.Conditional_expr (uid_conditional_new, Egg_ast.Var_expr (next_uid (), x_subject), p_trans,
-                                 (Egg_ast.Function (uid_f1, x1, e1)),
+                                 preprend_pattern_variable_bindings p (Egg_ast.Var_expr (next_uid (), x_subject)) f1,
                                  f2),
        uid_conditional_new, map_p,
        Uid_map.singleton uid_conditional_new
@@ -399,81 +423,6 @@ let translate_conditional_with_pattern_variable
     end
   | _ -> tc.continuation_expression_translator e
 ;;
-
-(*     (\* TODO: Add projection chains to f1 *\) *)
-
-(*     ignore uid_1; ignore uid_2; *)
-(*     (\* let rec pattern_variable_bindings subject pattern map = *\) *)
-(*     (\*   match pattern with *\) *)
-(*     (\*   | Swan_ast.Var_pattern (_, ident) -> *\) *)
-(*     (\*     ([(ident, subject)], map) *\) *)
-(*     (\*   | Swan_ast.Record_pattern (_, fields) -> *\) *)
-(*     (\*     Ident_map.fold ( *\) *)
-(*     (\*       fun label subpattern result -> *\) *)
-(*     (\*         List.append result @@ *\) *)
-(*     (\*         pattern_variable_bindings *\) *)
-(*     (\*           (Swan_ast.Projection_expr (next_uid (), subject, label)) *\) *)
-(*     (\*           subpattern *\) *)
-(*     (\*     ) fields [] *\) *)
-(*     (\*   | _ -> [] *\) *)
-(*     (\* in *\) *)
-
-(*     (\* let prepend_variable_bindings e subject pattern map = *\) *)
-(*     (\*   let (bindings, map) = pattern_variable_bindings subject pattern map in *\) *)
-(*     (\*   match bindings with *\) *)
-(*     (\*   | [] -> (e, map) *\) *)
-(*     (\*   | bindings -> *\) *)
-(*     (\*     List.fold_right ( *\) *)
-(*     (\*       fun (ident, projection) (e, map) -> *\) *)
-(*     (\*         let let_new_uid = next_uid () in *\) *)
-(*     (\*         let var_new_uid = next_uid () in *\) *)
-(*     (\*         (Swan_ast.Let_expr ( *\) *)
-(*     (\*             let_new_uid, *\) *)
-(*     (\*             Swan_ast.Swan_var (var_new_uid, ident), *\) *)
-(*     (\*             projection, *\) *)
-(*     (\*             e *\) *)
-(*     (\*           ), *\) *)
-(*     (\*          disjoint_union map @@ *\) *)
-(*     (\*          Uid_map.of_enum @@ List.enum [ *\) *)
-(*     (\*            (let_new_uid, Projection_let_in_conditional_with_pattern_variables (let_new_uid, uid)); *\) *)
-(*     (\*            (var_new_uid, Projection_var_in_conditional_with_pattern_variables (var_new_uid, uid)); *\) *)
-(*     (\*          ]) *\) *)
-(*     (\*     ) bindings (e, map) *\) *)
-(*     (\* in *\) *)
-
-(*     let x = egg_fresh_var () in *)
-(*     let new_let_uid = next_uid () in *)
-(*     let new_x_uid = next_uid () in *)
-(*     let new_conditional_uid = next_uid () in *)
-(*     let new_match_uid = next_uid () in *)
-(*     let new_antimatch_uid = next_uid () in *)
-(*     let x_var = Egg_ast.Var_expr(new_x_uid, x) in *)
-(*     let (e_trans, e_map) = tc.top_level_expression_translator e in *)
-(*     let (p_with_variables_trans, p_with_variables_map) = tc.top_level_pattern_translator p in *)
-(*     let (p_trans, p_map) = pattern_variables_translator p_with_variables_trans in *)
-(*     let (e1_augmented, e1_augmented_map) = (e1, Uid_map.empty) in (\* TODO: I'm a placeholder, REMOVE ME. *\) *)
-(*     (\* let (e1_augmented, e1_augmented_map) = prepend_variable_bindings e1 x_var p_trans Uid_map.empty in *\) *)
-(*     let (e1_trans, e1_map) = tc.top_level_expression_translator e1_augmented in *)
-(*     let (e2_trans, e2_map) = tc.top_level_expression_translator e2 in *)
-(*     let this_map = *)
-(*       Uid_map.of_enum @@ List.enum [ *)
-(*         (new_let_uid, (Conditional_with_pattern_variables_to_let_assignments_of_projection_chains (new_let_uid, uid))); *)
-(*         (new_x_uid, (Conditional_with_pattern_variables_to_variable_assignments_of_projection_chains (new_x_uid, uid))); *)
-(*         (new_conditional_uid, (Conditional_with_pattern_variables_to_conditional_assignments_of_projection_chains (new_conditional_uid, uid))); *)
-(*         (new_match_uid, (Branch_of_conditional_with_pattern_variables (new_match_uid, uid))); *)
-(*         (new_antimatch_uid, (Branch_of_conditional_with_pattern_variables (new_antimatch_uid, uid))); *)
-(*       ] *)
-(*     in *)
-(*     let map = *)
-(*       disjoint_unions [ this_map; e_map; p_with_variables_map; p_map; e1_augmented_map; e1_map; e2_map; ] *)
-(*     in *)
-(*     (Egg_ast.Let_expr (new_let_uid, x, e_trans, *)
-(*                        Egg_ast.Conditional_expr (new_conditional_uid, x_var, p_trans, *)
-(*                                                  (Egg_ast.Function (new_match_uid, x1, e1_trans)), *)
-(*                                                  (Egg_ast.Function (new_antimatch_uid, x2, e2_trans)))), *)
-(*      map) *)
-(*   | _ -> tc.continuation_expression_translator e *)
-(* ;; *)
 
 let expression_translators : Egg_ast.expr translator_fragment list =
   [ translate_ifthenelse;
