@@ -629,7 +629,7 @@ let translate_ifthenelse
       )
     in
     let map_new = Uid_map.of_enum @@ List.enum [
-        (uid_match, If_to_match(uid_match, uid_if));
+        (uid_match, If_to_match (uid_match, uid_if));
         (uid_true_branch_in_match, If_to_true_branch_in_match (uid_true_branch_in_match, uid_if));
         (uid_false_branch_in_match, If_to_false_branch_in_match (uid_false_branch_in_match, uid_if));
         (uid_pattern_in_true_branch_in_match, If_to_pattern_in_true_branch_in_match (uid_pattern_in_true_branch_in_match, uid_if));
