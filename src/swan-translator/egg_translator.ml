@@ -12,22 +12,6 @@ module Ident_map = Core_ast.Ident_map;;
 let lazy_logger = Logger_utils.make_lazy_logger "Swan_translator";;
 
 type log_entry =
-  | If_to_match of uid * uid
-  (** First uid is the resulting `match' and second uid is the `if' where it
-      came from. *)
-
-  | Match_to_application of uid * uid
-  (** First uid is the resulting application and second uid is the `match' where
-      it came from. *)
-
-  | Match_to_conditional of uid * uid
-  (** First uid is the resulting conditional and second uid is the `match' where
-      it came from. *)
-
-  | Match_to_let of uid * uid
-  (** First uid is the resulting `let' and second uid is the `match' where it
-      came from. *)
-
   | Var_pattern_to_any_pattern of uid * uid
   (** First uid is the resulting `any' pattern and second uid is the `var'
       pattern where it came from. *)
@@ -36,9 +20,135 @@ type log_entry =
   (** First uid is the resulting conditional with no pattern variables and
       second uid is the conditional with pattern variables where it came from. *)
 
+  | Conditional_with_pattern_variable_to_match_branch_in_conditional of uid * uid
+  (** First uid is the resulting match branch in the resulting conditional with
+      no pattern variables and second uid is the conditional with pattern
+      variables where it came from. *)
+
+  | Conditional_with_pattern_variable_to_formal_parameter_in_match_branch_in_conditional of uid * uid
+  (** First uid is the resulting formal parameter in the resulting match branch
+      in the resulting conditional with no pattern variables and second uid is
+      the conditional with pattern variables where it came from. *)
+
+  | Conditional_with_pattern_variable_to_projection_in_binding_in_match_branch_in_conditional of uid * uid
+  (** First uid is the resulting projection in the resulting binding in the resulting match branch in the resulting conditional with
+      no pattern variables and second uid is the conditional with pattern
+      variables where it came from. *)
+
+  | Conditional_with_pattern_variable_to_variable_in_projection_chain_in_binding_in_match_branch_in_conditional of uid * uid
+  (** First uid is the resulting variable in the resulting projection chain in
+      the resulting binding in the resulting match branch in the resulting
+      conditional with no pattern variables and second uid is the conditional
+      with pattern variables where it came from. *)
+
+  | Conditional_with_pattern_variable_to_identifier_variable_in_projection_chain_in_binding_in_match_branch_in_conditional of uid * uid
+  (** First uid is the resulting identifier in the resulting variable in the
+      resulting projection chain in the resulting binding in the resulting match
+      branch in the resulting conditional with no pattern variables and second
+      uid is the conditional with pattern variables where it came from. *)
+
+  | Conditional_with_pattern_variable_to_binding_in_match_branch_in_conditional of uid * uid
+  (** First uid is the resulting binding in the resulting match branch in the
+      resulting conditional with no pattern variables and second uid is the
+      conditional with pattern variables where it came from. *)
+
+  | Conditional_with_pattern_variable_to_variable_in_binding_in_match_branch_in_conditional of uid * uid
+  (** First uid is the resulting variable in the resulting binding in the
+      resulting match branch in the resulting conditional with no pattern
+      variables and second uid is the conditional with pattern variables where
+      it came from. *)
+
+  | Conditional_with_pattern_variable_to_variable_in_conditional of uid * uid
+  (** First uid is the resulting variable in the resulting conditional with no
+      pattern variables and second uid is the conditional with pattern variables
+      where it came from. *)
+
+  | Conditional_with_pattern_variable_to_identifier_in_variable_in_conditional of uid * uid
+  (** First uid is the resulting identifier in the resulting variable in the
+      resulting conditional with no pattern variables and second uid is the
+      conditional with pattern variables where it came from. *)
+
   | Conditional_with_pattern_variable_to_let of uid * uid
   (** First uid is the resulting `let' and second uid is the conditional with
       pattern variables where it came from. *)
+
+  | Conditional_with_pattern_variable_to_conditional_in_let of uid * uid
+  (** First uid is the resulting conditional in the resulting `let' and second
+      uid is the conditional with pattern variables where it came from. *)
+
+  | Conditional_with_pattern_variable_to_variable_in_conditional_in_let of uid * uid
+  (** First uid is the resulting variable in the resulting conditional in the
+      resulting `let' and second uid is the conditional with pattern variables
+      where it came from. *)
+
+  | Match_to_application of uid * uid
+  (** First uid is the resulting application and second uid is the `match' where
+      it came from. *)
+
+  | Match_to_non_function_in_application of uid * uid
+  (** First uid is the resulting non-function in the resulting application and
+      second uid is the `match' where it came from. *)
+
+  | Match_to_variable_in_application of uid * uid
+  (** First uid is the resulting variable in the resulting application and
+      second uid is the `match' where it came from. *)
+
+  | Match_to_conditional of uid * uid
+  (** First uid is the resulting conditional and second uid is the `match' where
+      it came from. *)
+
+  | Match_to_variable_in_conditional of uid * uid
+  (** First uid is the resulting variable in the resulting conditional and
+      second uid is the `match' where it came from. *)
+
+  | Match_to_match_branch_in_conditional of uid * uid
+  (** First uid is the resulting match branch in the resulting conditional and
+      second uid is the `match' where it came from. *)
+
+  | Match_to_antimatch_branch_in_conditional of uid * uid
+  (** First uid is the resulting antimatch branch in the resulting conditional and
+      second uid is the `match' where it came from. *)
+
+  | Match_to_match_in_antimatch_branch_in_conditional of uid * uid
+  (** First uid is the resulting match in the resulting antimatch branch in the
+      resulting conditional and second uid is the `match' where it came from. *)
+
+  | Match_to_variable_in_match_in_antimatch_branch_in_conditional of uid * uid
+  (** First uid is the resulting variable in the resulting match in the
+      resulting antimatch branch in the resulting conditional and second uid is
+      the `match' where it came from. *)
+
+  | Match_to_let of uid * uid
+  (** First uid is the resulting `let' and second uid is the `match' where it
+      came from. *)
+
+  | Match_to_match_in_let of uid * uid
+  (** First uid is the resulting `match' in the resulting `let' and second uid
+      is the `match' where it came from. *)
+
+  | Match_to_variable_in_match_in_let of uid * uid
+  (** First uid is the resulting variable in the resulting `match' in the
+      resulting `let' and second uid is the `match' where it came from. *)
+
+  | If_to_match of uid * uid
+  (** First uid is the resulting `match' and second uid is the `if' where it
+      came from. *)
+
+  | If_to_true_branch_in_match of uid * uid
+  (** First uid is the resulting true branch in the resulting match and second
+      uid is the `if' where it came from. *)
+
+  | If_to_false_branch_in_match of uid * uid
+  (** First uid is the resulting false branch in the resulting match and second
+      uid is the `if' where it came from. *)
+
+  | If_to_pattern_in_true_branch_in_match of uid * uid
+  (** First uid is the resulting pattern in the resulting true branch in the
+      resulting match and second uid is the `if' where it came from. *)
+
+  | If_to_pattern_in_false_branch_in_match of uid * uid
+  (** First uid is the resulting pattern in the resulting false branch in the
+      resulting match and second uid is the `if' where it came from. *)
 
   [@@deriving eq, show]
 
@@ -299,8 +409,11 @@ let translate_pattern_variable
       tc.continuation_pattern_translator @@
       Egg_ast.Any_pattern (uid_any)
     in
-    let map_new = Uid_map.singleton uid_any (Var_pattern_to_any_pattern(uid_any, uid_var)) in
-    (p_trans, disjoint_union map_p map_new)
+    let map_new = Uid_map.of_enum @@ List.enum [
+        (uid_any, Var_pattern_to_any_pattern (uid_any, uid_var));
+      ]
+    in
+    (p_trans, disjoint_unions [map_p;map_new])
 
   | _ -> tc.continuation_pattern_translator p
 ;;
@@ -309,54 +422,116 @@ let translate_conditional_with_pattern_variable
     (tc:translator_configuration)
     (e:Egg_ast.expr) =
   match e with
-  | Egg_ast.Conditional_expr (uid_conditional, Egg_ast.Var_expr (_, x_subject), p, f1, f2) when Egg_ast.contain_pattern_variable p ->
+  | Egg_ast.Conditional_expr (uid_conditional, Egg_ast.Var_expr (_, Egg_ast.Egg_var(_, x_subject)), p, f1, f2) when Egg_ast.contain_pattern_variable p ->
 
-    let rec pattern_variable_bindings pattern subject =
+    let pattern_variable_bindings pattern =
+      let rec step pattern accumulated_bindings partial_projection_chain_labels =
       match pattern with
       | Egg_ast.Var_pattern (_, Egg_ast.Egg_var (_, x)) ->
-        [(Egg_ast.Egg_var (next_uid (), x), subject)]
+        (x, List.rev partial_projection_chain_labels) :: accumulated_bindings
       | Egg_ast.Record_pattern (_, fields) ->
         Ident_map.fold (
-          fun label subpattern result ->
-            List.append result @@
-            pattern_variable_bindings subpattern
-              (Egg_ast.Projection_expr (next_uid (), subject, label))
-        ) fields []
-      | _ -> []
+          fun label subpattern accumulated_bindings ->
+            step subpattern accumulated_bindings (label :: partial_projection_chain_labels)
+        ) fields accumulated_bindings
+      | _ -> accumulated_bindings
+      in
+      step pattern [] []
     in
 
-    let preprend_pattern_variable_bindings pattern subject (Egg_ast.Function (_, formal_parameter, body)) =
-      Egg_ast.Function (
-        next_uid (), formal_parameter,
-        pattern_variable_bindings pattern subject
-        |> List.fold_left (
-          fun body (bound_variable, projection_chain) ->
-            Egg_ast.Let_expr (next_uid (), bound_variable, projection_chain, body)
-        ) body
-      )
+    let rec build_projection_chain e_subject projection_chain_labels =
+      match projection_chain_labels with
+      | [] -> (e_subject, Uid_map.empty)
+      | projection_chain_label :: rest_projection_chain_labels ->
+        let uid_projection_in_binding_in_match_branch_in_conditional' = next_uid () in
+        let e' =
+          Egg_ast.Projection_expr (uid_projection_in_binding_in_match_branch_in_conditional', e_subject, projection_chain_label)
+        in
+        let (e'_augmented, map_e'_augmented) = build_projection_chain e' rest_projection_chain_labels in
+        let map_new = Uid_map.of_enum @@ List.enum [
+            (uid_projection_in_binding_in_match_branch_in_conditional', Conditional_with_pattern_variable_to_projection_in_binding_in_match_branch_in_conditional (uid_projection_in_binding_in_match_branch_in_conditional', uid_conditional));
+          ]
+        in
+        (e'_augmented, disjoint_unions [map_e'_augmented;map_new])
     in
 
-    let uid_conditional_new = next_uid () in
+    let rec build_pattern_variable_bindings x_subject e_body pattern_variable_bindings =
+      match pattern_variable_bindings with
+      | [] -> (e_body, Uid_map.empty)
+      | (bound_variable, projection_chain_labels) :: rest_pattern_variable_bindings ->
+        let uid_variable_in_projection_chain_in_binding_in_match_branch_in_conditional' = next_uid () in
+        let uid_identifier_in_variable_in_projection_chain_in_binding_in_match_branch_in_conditional' = next_uid () in
+        let uid_binding_in_match_branch_in_conditional' = next_uid () in
+        let uid_variable_in_binding_in_match_branch_in_conditional' = next_uid () in
+        let (projection_chain, map_projection_chain) =
+          build_projection_chain
+            (Egg_ast.Var_expr (uid_variable_in_projection_chain_in_binding_in_match_branch_in_conditional', Egg_ast.Egg_var (uid_identifier_in_variable_in_projection_chain_in_binding_in_match_branch_in_conditional', x_subject)))
+            projection_chain_labels
+        in
+        let e' = Egg_ast.Let_expr (uid_binding_in_match_branch_in_conditional', Egg_ast.Egg_var (uid_variable_in_binding_in_match_branch_in_conditional', bound_variable), projection_chain, e_body) in
+        let (e'_augmented, map_e'_augmented) = build_pattern_variable_bindings x_subject e' rest_pattern_variable_bindings in
+        let map_new = Uid_map.of_enum @@ List.enum [
+            (uid_variable_in_projection_chain_in_binding_in_match_branch_in_conditional', Conditional_with_pattern_variable_to_variable_in_projection_chain_in_binding_in_match_branch_in_conditional (uid_variable_in_projection_chain_in_binding_in_match_branch_in_conditional', uid_conditional));
+            (uid_identifier_in_variable_in_projection_chain_in_binding_in_match_branch_in_conditional', Conditional_with_pattern_variable_to_identifier_variable_in_projection_chain_in_binding_in_match_branch_in_conditional (uid_identifier_in_variable_in_projection_chain_in_binding_in_match_branch_in_conditional', uid_conditional));
+            (uid_binding_in_match_branch_in_conditional', Conditional_with_pattern_variable_to_binding_in_match_branch_in_conditional (uid_binding_in_match_branch_in_conditional', uid_conditional));
+            (uid_variable_in_binding_in_match_branch_in_conditional', Conditional_with_pattern_variable_to_variable_in_binding_in_match_branch_in_conditional (uid_variable_in_binding_in_match_branch_in_conditional', uid_conditional));
+          ]
+        in
+        (e'_augmented, disjoint_unions [map_projection_chain;map_e'_augmented;map_new])
+    in
+
+    let preprend_pattern_variable_bindings pattern x_subject (Egg_ast.Function (_, Egg_ast.Egg_var (_, x_formal_parameter), e_body)) =
+      let uid_match_branch_in_conditional' = next_uid () in
+      let uid_formal_parameter_in_match_branch_in_conditional' = next_uid () in
+      let (e_body', map_e_body') = build_pattern_variable_bindings x_subject e_body (pattern_variable_bindings pattern) in
+      let e' =
+        Egg_ast.Function (uid_match_branch_in_conditional',
+                          Egg_ast.Egg_var (uid_formal_parameter_in_match_branch_in_conditional', x_formal_parameter),
+                          e_body')
+      in
+      let map_new = Uid_map.of_enum @@ List.enum [
+          (uid_match_branch_in_conditional', Conditional_with_pattern_variable_to_match_branch_in_conditional (uid_match_branch_in_conditional', uid_conditional));
+          (uid_formal_parameter_in_match_branch_in_conditional', Conditional_with_pattern_variable_to_formal_parameter_in_match_branch_in_conditional (uid_formal_parameter_in_match_branch_in_conditional', uid_conditional));
+        ]
+      in
+      (e', disjoint_unions [map_e_body';map_new])
+    in
+
+    let uid_conditional' = next_uid () in
+    let uid_variable_in_conditional' = next_uid () in
+    let uid_identifier_in_variable_in_conditional' = next_uid () in
     let (_, pattern_variables_translator) = translation_close identity_translator_fragment translate_pattern_variable in
     let (p_trans, map_p) = pattern_variables_translator p in
+    let (f1_trans, map_f1) = preprend_pattern_variable_bindings p x_subject f1 in
     let (e_trans, map_e) =
       tc.continuation_expression_translator @@
-      Egg_ast.Conditional_expr (uid_conditional_new, Egg_ast.Var_expr (next_uid (), x_subject), p_trans,
-                                 preprend_pattern_variable_bindings p (Egg_ast.Var_expr (next_uid (), x_subject)) f1,
-                                 f2)
+      Egg_ast.Conditional_expr (uid_conditional', Egg_ast.Var_expr (uid_variable_in_conditional', Egg_ast.Egg_var (uid_identifier_in_variable_in_conditional', x_subject)),
+                                p_trans, f1_trans, f2)
     in
-    let map_new = Uid_map.singleton uid_conditional (Conditional_with_pattern_variable_to_conditional(uid_conditional, uid_conditional)) in
-    (e_trans, disjoint_unions [map_e;map_p;map_new])
+    let map_new = Uid_map.of_enum @@ List.enum [
+        (uid_conditional', Conditional_with_pattern_variable_to_conditional (uid_conditional', uid_conditional));
+        (uid_variable_in_conditional', Conditional_with_pattern_variable_to_variable_in_conditional (uid_variable_in_conditional', uid_conditional));
+        (uid_identifier_in_variable_in_conditional', Conditional_with_pattern_variable_to_identifier_in_variable_in_conditional (uid_identifier_in_variable_in_conditional', uid_conditional));
+      ]
+    in
+    (e_trans, disjoint_unions [map_p;map_f1;map_e;map_new])
 
   | Egg_ast.Conditional_expr (uid_conditional, e_subject, p, f1, f2) when Egg_ast.contain_pattern_variable p ->
     let uid_let = next_uid () in
+    let uid_conditional_in_let = next_uid () in
+    let uid_variable_in_conditional_in_let = next_uid () in
     let x_subject = egg_fresh_var () in
     let (e_trans, map_e) =
       tc.continuation_expression_translator @@
       Egg_ast.Let_expr (uid_let, x_subject, e_subject,
-                        Egg_ast.Conditional_expr (next_uid (), Egg_ast.Var_expr (next_uid (), x_subject), p, f1, f2))
+                        Egg_ast.Conditional_expr (uid_conditional_in_let, Egg_ast.Var_expr (uid_variable_in_conditional_in_let, x_subject), p, f1, f2))
     in
-    let map_new = Uid_map.singleton uid_let (Conditional_with_pattern_variable_to_let(uid_let, uid_conditional)) in
+    let map_new = Uid_map.of_enum @@ List.enum [
+        (uid_let, Conditional_with_pattern_variable_to_let (uid_let, uid_conditional));
+        (uid_conditional_in_let, Conditional_with_pattern_variable_to_conditional_in_let (uid_conditional_in_let, uid_conditional));
+        (uid_variable_in_conditional_in_let, Conditional_with_pattern_variable_to_variable_in_conditional_in_let (uid_variable_in_conditional_in_let, uid_conditional));
+      ]
+    in
     (e_trans, disjoint_union map_e map_new)
 
   | _ -> tc.continuation_expression_translator e
@@ -369,37 +544,65 @@ let translate_match
   match e with
   | Egg_ast.Match_expr(uid_match, Egg_ast.Var_expr (_, x_subject), []) ->
     let uid_application = next_uid () in
+    let uid_non_function_in_application = next_uid () in
+    let uid_variable_in_application = next_uid () in
     let (e_trans, map_e) =
       tc.continuation_expression_translator @@
-      Egg_ast.Appl_expr (uid_application, Egg_ast.String_expr (next_uid (), "non-function"),
-                         Egg_ast.Var_expr (next_uid (), x_subject))
+      Egg_ast.Appl_expr (uid_application, Egg_ast.String_expr (uid_non_function_in_application, "non-function"),
+                         Egg_ast.Var_expr (uid_variable_in_application, x_subject))
     in
-    let map_new = Uid_map.singleton uid_application (Match_to_application(uid_application, uid_match)) in
+    let map_new = Uid_map.of_enum @@ List.enum [
+        (uid_application, Match_to_application (uid_application, uid_match));
+        (uid_non_function_in_application, Match_to_non_function_in_application (uid_non_function_in_application, uid_match));
+        (uid_variable_in_application, Match_to_variable_in_application (uid_variable_in_application, uid_match));
+      ]
+    in
     (e_trans, disjoint_union map_e map_new)
 
   | Egg_ast.Match_expr(uid_match, Egg_ast.Var_expr (_, x_subject), Egg_ast.Match_pair (_, pattern, e_branch) :: rest_branches) ->
     let uid_conditional = next_uid () in
+    let uid_variable_in_conditional = next_uid () in
+    let uid_match_branch_in_conditional = next_uid () in
+    let uid_antimatch_branch_in_conditional = next_uid () in
+    let uid_match_in_antimatch_branch_in_conditional = next_uid () in
+    let uid_variable_in_match_in_antimatch_branch_in_conditional = next_uid () in
     let (e_trans, map_e) =
       tc.continuation_expression_translator @@
       Egg_ast.Conditional_expr (
-        uid_conditional, Egg_ast.Var_expr (next_uid (), x_subject), pattern,
-        Egg_ast.Function (next_uid (), egg_fresh_var (), e_branch),
-        Egg_ast.Function (next_uid (), egg_fresh_var (),
-                          Egg_ast.Match_expr (next_uid (), Egg_ast.Var_expr (next_uid (), x_subject),
+        uid_conditional, Egg_ast.Var_expr (uid_variable_in_conditional, x_subject), pattern,
+        Egg_ast.Function (uid_match_branch_in_conditional, egg_fresh_var (), e_branch),
+        Egg_ast.Function (uid_antimatch_branch_in_conditional, egg_fresh_var (),
+                          Egg_ast.Match_expr (uid_match_in_antimatch_branch_in_conditional,
+                                              Egg_ast.Var_expr (uid_variable_in_match_in_antimatch_branch_in_conditional, x_subject),
                                               rest_branches)))
     in
-    let map_new = Uid_map.singleton uid_conditional (Match_to_conditional(uid_conditional, uid_match)) in
+    let map_new = Uid_map.of_enum @@ List.enum [
+        (uid_conditional, Match_to_conditional (uid_conditional, uid_match));
+        (uid_variable_in_conditional, Match_to_variable_in_conditional (uid_variable_in_conditional, uid_match));
+        (uid_match_branch_in_conditional, Match_to_match_branch_in_conditional (uid_match_branch_in_conditional, uid_match));
+        (uid_antimatch_branch_in_conditional, Match_to_antimatch_branch_in_conditional (uid_antimatch_branch_in_conditional, uid_match));
+        (uid_match_in_antimatch_branch_in_conditional, Match_to_match_in_antimatch_branch_in_conditional (uid_match_in_antimatch_branch_in_conditional, uid_match));
+        (uid_variable_in_match_in_antimatch_branch_in_conditional, Match_to_variable_in_match_in_antimatch_branch_in_conditional (uid_variable_in_match_in_antimatch_branch_in_conditional, uid_match));
+      ]
+    in
     (e_trans, disjoint_union map_e map_new)
 
   | Egg_ast.Match_expr(uid_match, e_subject, branches) ->
     let uid_let = next_uid () in
+    let uid_match_in_let = next_uid () in
+    let uid_variable_in_match_in_let = next_uid () in
     let x_subject = egg_fresh_var () in
     let (e_trans, map_e) =
       tc.continuation_expression_translator @@
       Egg_ast.Let_expr (uid_let, x_subject, e_subject,
-                        Egg_ast.Match_expr (next_uid (), Egg_ast.Var_expr (next_uid (), x_subject), branches))
+                        Egg_ast.Match_expr (uid_match_in_let, Egg_ast.Var_expr (uid_variable_in_match_in_let, x_subject), branches))
     in
-    let map_new = Uid_map.singleton uid_let (Match_to_let(uid_let, uid_match)) in
+    let map_new = Uid_map.of_enum @@ List.enum [
+        (uid_let, Match_to_let (uid_let, uid_match));
+        (uid_match_in_let, Match_to_match_in_let (uid_match_in_let, uid_match));
+        (uid_variable_in_match_in_let, Match_to_variable_in_match_in_let (uid_variable_in_match_in_let, uid_match));
+      ]
+    in
     (e_trans, disjoint_union map_e map_new)
 
   | _ -> tc.continuation_expression_translator e
@@ -412,16 +615,27 @@ let translate_ifthenelse
   match e with
   | Egg_ast.If_expr(uid_if, e_condition, e_then, e_else) ->
     let uid_match = next_uid () in
+    let uid_true_branch_in_match = next_uid () in
+    let uid_false_branch_in_match = next_uid () in
+    let uid_pattern_in_true_branch_in_match = next_uid () in
+    let uid_pattern_in_false_branch_in_match = next_uid () in
     let (e_trans, map_e) =
       tc.continuation_expression_translator @@
       Egg_ast.Match_expr (
         uid_match, e_condition,
-        [ Egg_ast.Match_pair (next_uid (), Egg_ast.Bool_pattern (next_uid (), true), e_then);
-          Egg_ast.Match_pair (next_uid (), Egg_ast.Bool_pattern (next_uid (), false), e_else);
+        [ Egg_ast.Match_pair (uid_true_branch_in_match, Egg_ast.Bool_pattern (uid_pattern_in_true_branch_in_match, true), e_then);
+          Egg_ast.Match_pair (uid_false_branch_in_match, Egg_ast.Bool_pattern (uid_pattern_in_false_branch_in_match, false), e_else);
         ]
       )
     in
-    let map_new = Uid_map.singleton uid_match (If_to_match(uid_match, uid_if)) in
+    let map_new = Uid_map.of_enum @@ List.enum [
+        (uid_match, If_to_match(uid_match, uid_if));
+        (uid_true_branch_in_match, If_to_true_branch_in_match (uid_true_branch_in_match, uid_if));
+        (uid_false_branch_in_match, If_to_false_branch_in_match (uid_false_branch_in_match, uid_if));
+        (uid_pattern_in_true_branch_in_match, If_to_pattern_in_true_branch_in_match (uid_pattern_in_true_branch_in_match, uid_if));
+        (uid_pattern_in_false_branch_in_match, If_to_pattern_in_false_branch_in_match (uid_pattern_in_false_branch_in_match, uid_if));
+      ]
+    in
     (e_trans, disjoint_union map_e map_new)
 
   | _ -> tc.continuation_expression_translator e
