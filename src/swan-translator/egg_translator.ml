@@ -3,12 +3,6 @@ open Uid;;
 
 module Ident_map = Core_ast.Ident_map;;
 
-(* type translation_failure =
-   | No_match_clauses_in_match_expr of Swan_ast.expr
-   [@@ deriving eq, ord, show]
-
-   exception Translation_failure_exception of translation_failure *)
-
 let lazy_logger = Logger_utils.make_lazy_logger "Swan_translator";;
 
 type log_entry =
@@ -151,38 +145,6 @@ type log_entry =
       resulting match and second uid is the `if' where it came from. *)
 
   [@@deriving eq, show]
-
-(* type proof =
-   | Var_rule of uid * uid
-   | Function_rule of uid * uid
-   | Record_pattern_rule of uid * uid
-   | Fun_pattern_rule of uid * uid
-   | Ref_pattern_rule of uid * uid
-   | Int_pattern_rule of uid * uid
-   | Bool_pattern_rule of uid * uid
-   | String_pattern_rule of uid * uid
-   | Any_pattern_rule of uid * uid
-   | Match_pair_rule of uid * uid * uid * uid
-   | Record_expr_rule of uid * uid
-   | Function_expr_rule of uid * uid
-   | Int_expr_rule of uid * uid
-   | Bool_expr_rule of uid * uid
-   | String_expr_rule of uid * uid
-   | Ref_expr_rule of uid * uid
-   | Var_expr_rule of uid * uid
-   | Appl_expr_rule of uid * uid
-   | Conditional_expr_rule of uid * uid
-   | If_expr_rule of uid * uid
-   | Deref_expr_rule of uid * uid
-   | Update_expr_rule of uid * uid
-   | Binary_operation_expr_rule of uid * uid
-   | Unary_operation_expr_rule of uid * uid
-   | Indexing_expr_rule of uid * uid
-   | Let_expr_rule of uid * uid
-   | Projection_expr_rule of uid * uid
-   | Match_expr_rule of uid * uid
-   [@@deriving show] *)
-(* uid of Swan_ast * uid of Nested_ast * uid of Appl_expr * list of Match pair rules*)
 
 let fresh_var_counter = ref 0;;
 
