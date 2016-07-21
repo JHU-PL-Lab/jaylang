@@ -17,15 +17,20 @@ IMPLEMENTATION NOTES
   translation. (Old nodes being rearranged into new contexts don't need new
   `uid's.)
 
-  2. `uid's must be used only once.
+  2. `uid's must be used only once. (I.e., a subexpression can not be plugged
+  into multiple holes in the resulting translation without refreshing---and
+  mapping---`uid's.)
 
-  3. All generated `uid's must be in the mapping. (I.e., every call to `next_uid
+  3. Old nodes being destructed must be included in the mapping as auxiliary
+  pointers---third position in the `log_entry' data type.
+
+  4. All generated `uid's must be in the mapping. (I.e., every call to `next_uid
   ()' must have a corresponding `log_entry'.)
 
-  4. All mappings from subordinate steps must be unioned. (I.e., every call to
+  5. All mappings from subordinate steps must be unioned. (I.e., every call to
   subordinate translators must have a corresponding `disjoint_union'.)
 
-  5. Each /kind/ of mapping must have its own variant on the `log_entry' data
+  6. Each /kind/ of mapping must have its own variant on the `log_entry' data
   type.
 
 - Structure of mappings: A valid mapping is one in which the key is the `uid'
@@ -61,21 +66,25 @@ type log_entry =
       the conditional with pattern variables where it came from. *)
 
   | Conditional_with_pattern_variable_to_projection_in_binding_in_match_branch_in_conditional of uid * uid
-  (** First uid is the resulting projection in the resulting binding in the resulting match branch in the resulting conditional with
-      no pattern variables and second uid is the conditional with pattern
-      variables where it came from. *)
+  (** First uid is the resulting projection in the resulting binding in the
+      resulting match branch in the resulting conditional with no pattern
+      variables and second uid is the conditional with pattern variables where
+      it came from. *)
 
-  | Conditional_with_pattern_variable_to_variable_in_projection_chain_in_binding_in_match_branch_in_conditional of uid * uid
+  | Conditional_with_pattern_variable_to_variable_in_projection_chain_in_binding_in_match_branch_in_conditional of uid * uid * uid
   (** First uid is the resulting variable in the resulting projection chain in
       the resulting binding in the resulting match branch in the resulting
-      conditional with no pattern variables and second uid is the conditional
-      with pattern variables where it came from. *)
+      conditional with no pattern variables, second uid is the conditional with
+      pattern variables where it came from and third uid is the variable in the
+      conditional where it came from. *)
 
-  | Conditional_with_pattern_variable_to_identifier_variable_in_projection_chain_in_binding_in_match_branch_in_conditional of uid * uid
+  | Conditional_with_pattern_variable_to_identifier_variable_in_projection_chain_in_binding_in_match_branch_in_conditional of uid * uid * uid
   (** First uid is the resulting identifier in the resulting variable in the
       resulting projection chain in the resulting binding in the resulting match
-      branch in the resulting conditional with no pattern variables and second
-      uid is the conditional with pattern variables where it came from. *)
+      branch in the resulting conditional with no pattern variables, second uid
+      is the conditional with pattern variables where it came from and third uid
+      is the identifier in the variable in the conditional where it came
+      from. *)
 
   | Conditional_with_pattern_variable_to_binding_in_match_branch_in_conditional of uid * uid
   (** First uid is the resulting binding in the resulting match branch in the
@@ -88,15 +97,17 @@ type log_entry =
       variables and second uid is the conditional with pattern variables where
       it came from. *)
 
-  | Conditional_with_pattern_variable_to_variable_in_conditional of uid * uid
+  | Conditional_with_pattern_variable_to_variable_in_conditional of uid * uid * uid
   (** First uid is the resulting variable in the resulting conditional with no
-      pattern variables and second uid is the conditional with pattern variables
-      where it came from. *)
+      pattern variables, second uid is the conditional with pattern variables
+      where it came from and third uid is the variable in the conditional where
+      it came from. *)
 
-  | Conditional_with_pattern_variable_to_identifier_in_variable_in_conditional of uid * uid
+  | Conditional_with_pattern_variable_to_identifier_in_variable_in_conditional of uid * uid * uid
   (** First uid is the resulting identifier in the resulting variable in the
-      resulting conditional with no pattern variables and second uid is the
-      conditional with pattern variables where it came from. *)
+      resulting conditional with no pattern variables, second uid is the
+      conditional with pattern variables where it came from and third uid is the
+      identifier in the variable in the conditional where it came from. *)
 
   | Conditional_with_pattern_variable_to_let of uid * uid
   (** First uid is the resulting `let' and second uid is the conditional with
@@ -128,25 +139,35 @@ type log_entry =
   (** First uid is the resulting non-function in the resulting application and
       second uid is the `match' where it came from. *)
 
-  | Match_to_variable_in_application of uid * uid
-  (** First uid is the resulting variable in the resulting application and
-      second uid is the `match' where it came from. *)
+  | Match_to_variable_in_application of uid * uid * uid
+  (** First uid is the resulting variable in the resulting application, second
+      uid is the `match' where it came from and third uid is the variable in the
+      `match' where it came from. *)
 
-  | Match_to_identifier_in_variable_in_application of uid * uid
+  | Match_to_identifier_in_variable_in_application of uid * uid * uid
   (** First uid is the resulting identifier in the resulting variable in the
-      resulting application and second uid is the `match' where it came from. *)
+      resulting application, second uid is the `match' where it came from and
+      third uid is the identifier in the variable in the `match' where it came
+      from. *)
 
   | Match_to_conditional of uid * uid
   (** First uid is the resulting conditional and second uid is the `match' where
       it came from. *)
 
-  | Match_to_variable_in_conditional of uid * uid
-  (** First uid is the resulting variable in the resulting conditional and
-      second uid is the `match' where it came from. *)
+  | Match_to_variable_in_conditional of uid * uid * uid
+  (** First uid is the resulting variable in the resulting conditional, second
+      uid is the `match' where it came from and third uid is the variable in the
+      `match' where it came from. *)
 
-  | Match_to_match_branch_in_conditional of uid * uid
-  (** First uid is the resulting match branch in the resulting conditional and
-      second uid is the `match' where it came from. *)
+  | Match_to_identifier_in_variable_in_conditional of uid * uid * uid
+  (** First uid is the resulting variable in the resulting conditional, second
+      uid is the `match' where it came from and third is the identifier in the
+      variable in the `match' where it came from. *)
+
+  | Match_to_match_branch_in_conditional of uid * uid * uid
+  (** First uid is the resulting match branch in the resulting conditional,
+      second uid is the `match' where it came from and third is the match pair
+      in the `match' where it came from. *)
 
   | Match_to_identifier_in_match_branch_in_conditional of uid * uid
   (** First uid is the resulting identifier in the resulting match branch in the
@@ -164,10 +185,17 @@ type log_entry =
   (** First uid is the resulting match in the resulting antimatch branch in the
       resulting conditional and second uid is the `match' where it came from. *)
 
-  | Match_to_variable_in_match_in_antimatch_branch_in_conditional of uid * uid
+  | Match_to_variable_in_match_in_antimatch_branch_in_conditional of uid * uid * uid
   (** First uid is the resulting variable in the resulting match in the
-      resulting antimatch branch in the resulting conditional and second uid is
-      the `match' where it came from. *)
+      resulting antimatch branch in the resulting conditional, second uid is the
+      `match' where it came from and third uid is the variable from the `match'
+      where it came from. *)
+
+  | Match_to_identifier_in_variable_in_match_in_antimatch_branch_in_conditional of uid * uid * uid
+  (** First uid is the resulting identifier in the resulting variable in the
+      resulting match in the resulting antimatch branch in the resulting
+      conditional, second uid is the `match' where it came from and third uid is
+      the identifier in the variable in the `match' where it came from. *)
 
   | Match_to_let of uid * uid
   (** First uid is the resulting `let' and second uid is the `match' where it
@@ -450,7 +478,7 @@ let translate_conditional_with_pattern_variable
     (tc:translator_configuration)
     (e:Egg_ast.expr) =
   match e with
-  | Egg_ast.Conditional_expr (uid_conditional, Egg_ast.Var_expr (_, Egg_ast.Egg_var(_, x_subject)), p, f1, f2) when Egg_ast.contain_pattern_variable p ->
+  | Egg_ast.Conditional_expr (uid_conditional, Egg_ast.Var_expr (uid_variable_in_conditional, Egg_ast.Egg_var(uid_identifier_in_variable_in_conditional, x_subject)), p, f1, f2) when Egg_ast.contain_pattern_variable p ->
 
     let pattern_variable_bindings pattern =
       let rec step pattern accumulated_bindings partial_projection_chain_labels =
@@ -499,8 +527,8 @@ let translate_conditional_with_pattern_variable
         let e' = Egg_ast.Let_expr (uid_binding_in_match_branch_in_conditional', Egg_ast.Egg_var (uid_variable_in_binding_in_match_branch_in_conditional', bound_variable), projection_chain, e_body) in
         let (e'_augmented, map_e'_augmented) = build_pattern_variable_bindings x_subject e' rest_pattern_variable_bindings in
         let map_new = Uid_map.of_enum @@ List.enum [
-            (uid_variable_in_projection_chain_in_binding_in_match_branch_in_conditional', Conditional_with_pattern_variable_to_variable_in_projection_chain_in_binding_in_match_branch_in_conditional (uid_variable_in_projection_chain_in_binding_in_match_branch_in_conditional', uid_conditional));
-            (uid_identifier_in_variable_in_projection_chain_in_binding_in_match_branch_in_conditional', Conditional_with_pattern_variable_to_identifier_variable_in_projection_chain_in_binding_in_match_branch_in_conditional (uid_identifier_in_variable_in_projection_chain_in_binding_in_match_branch_in_conditional', uid_conditional));
+            (uid_variable_in_projection_chain_in_binding_in_match_branch_in_conditional', Conditional_with_pattern_variable_to_variable_in_projection_chain_in_binding_in_match_branch_in_conditional (uid_variable_in_projection_chain_in_binding_in_match_branch_in_conditional', uid_conditional, uid_variable_in_conditional));
+            (uid_identifier_in_variable_in_projection_chain_in_binding_in_match_branch_in_conditional', Conditional_with_pattern_variable_to_identifier_variable_in_projection_chain_in_binding_in_match_branch_in_conditional (uid_identifier_in_variable_in_projection_chain_in_binding_in_match_branch_in_conditional', uid_conditional, uid_identifier_in_variable_in_conditional));
             (uid_binding_in_match_branch_in_conditional', Conditional_with_pattern_variable_to_binding_in_match_branch_in_conditional (uid_binding_in_match_branch_in_conditional', uid_conditional));
             (uid_variable_in_binding_in_match_branch_in_conditional', Conditional_with_pattern_variable_to_variable_in_binding_in_match_branch_in_conditional (uid_variable_in_binding_in_match_branch_in_conditional', uid_conditional));
           ]
@@ -538,8 +566,8 @@ let translate_conditional_with_pattern_variable
     in
     let map_new = Uid_map.of_enum @@ List.enum [
         (uid_conditional', Conditional_with_pattern_variable_to_conditional (uid_conditional', uid_conditional));
-        (uid_variable_in_conditional', Conditional_with_pattern_variable_to_variable_in_conditional (uid_variable_in_conditional', uid_conditional));
-        (uid_identifier_in_variable_in_conditional', Conditional_with_pattern_variable_to_identifier_in_variable_in_conditional (uid_identifier_in_variable_in_conditional', uid_conditional));
+        (uid_variable_in_conditional', Conditional_with_pattern_variable_to_variable_in_conditional (uid_variable_in_conditional', uid_conditional, uid_variable_in_conditional));
+        (uid_identifier_in_variable_in_conditional', Conditional_with_pattern_variable_to_identifier_in_variable_in_conditional (uid_identifier_in_variable_in_conditional', uid_conditional, uid_identifier_in_variable_in_conditional));
       ]
     in
     (e_trans, disjoint_unions [map_p;map_f1;map_e;map_new])
@@ -575,7 +603,7 @@ let translate_match
     (e:Egg_ast.expr) =
 
   match e with
-  | Egg_ast.Match_expr(uid_match, Egg_ast.Var_expr (_, Egg_ast.Egg_var (_, x_subject)), []) ->
+  | Egg_ast.Match_expr(uid_match, Egg_ast.Var_expr (uid_variable_in_match, Egg_ast.Egg_var (uid_identifier_in_variable_in_match, x_subject)), []) ->
     let uid_application = next_uid () in
     let uid_non_function_in_application = next_uid () in
     let uid_variable_in_application = next_uid () in
@@ -588,42 +616,49 @@ let translate_match
     let map_new = Uid_map.of_enum @@ List.enum [
         (uid_application, Match_to_application (uid_application, uid_match));
         (uid_non_function_in_application, Match_to_non_function_in_application (uid_non_function_in_application, uid_match));
-        (uid_variable_in_application, Match_to_variable_in_application (uid_variable_in_application, uid_match));
-        (uid_identifier_in_variable_in_application, Match_to_identifier_in_variable_in_application (uid_identifier_in_variable_in_application, uid_match));
+        (uid_variable_in_application, Match_to_variable_in_application (uid_variable_in_application, uid_match, uid_variable_in_match));
+        (uid_identifier_in_variable_in_application, Match_to_identifier_in_variable_in_application (uid_identifier_in_variable_in_application, uid_match, uid_identifier_in_variable_in_match));
       ]
     in
     (e_trans, disjoint_union map_e map_new)
 
-  | Egg_ast.Match_expr(uid_match, Egg_ast.Var_expr (_, Egg_ast.Egg_var (_, x_subject)), Egg_ast.Match_pair (_, pattern, e_branch) :: rest_branches) ->
+  | Egg_ast.Match_expr(
+      uid_match, Egg_ast.Var_expr (uid_variable_in_match, Egg_ast.Egg_var (uid_identifier_in_variable_in_match, x_subject)),
+      Egg_ast.Match_pair (uid_match_pair_in_match, pattern, e_branch) :: rest_branches) ->
     let uid_conditional = next_uid () in
     let uid_variable_in_conditional = next_uid () in
+    let uid_identifier_in_variable_in_conditional = next_uid () in
     let uid_match_branch_in_conditional = next_uid () in
     let uid_identifier_in_match_branch_in_conditional = next_uid () in
     let uid_antimatch_branch_in_conditional = next_uid () in
     let uid_identifier_in_antimatch_branch_in_conditional = next_uid () in
     let uid_match_in_antimatch_branch_in_conditional = next_uid () in
     let uid_variable_in_match_in_antimatch_branch_in_conditional = next_uid () in
+    let uid_identifier_in_variable_in_match_in_antimatch_branch_in_conditional = next_uid () in
     let x_match_branch = egg_fresh_var () in
     let x_antimatch_branch = egg_fresh_var () in
     let (e_trans, map_e) =
       tc.continuation_expression_translator @@
       Egg_ast.Conditional_expr (
-        uid_conditional, Egg_ast.Var_expr (uid_variable_in_conditional, Egg_ast.Egg_var (next_uid (), x_subject)), pattern,
+        uid_conditional, Egg_ast.Var_expr (uid_variable_in_conditional, Egg_ast.Egg_var (uid_identifier_in_variable_in_conditional, x_subject)), pattern,
         Egg_ast.Function (uid_match_branch_in_conditional, Egg_ast.Egg_var (uid_identifier_in_match_branch_in_conditional, x_match_branch), e_branch),
         Egg_ast.Function (uid_antimatch_branch_in_conditional, Egg_ast.Egg_var (uid_identifier_in_antimatch_branch_in_conditional, x_antimatch_branch),
                           Egg_ast.Match_expr (uid_match_in_antimatch_branch_in_conditional,
-                                              Egg_ast.Var_expr (uid_variable_in_match_in_antimatch_branch_in_conditional, Egg_ast.Egg_var (next_uid (), x_subject)),
+                                              Egg_ast.Var_expr (uid_variable_in_match_in_antimatch_branch_in_conditional,
+                                                                Egg_ast.Egg_var (uid_identifier_in_variable_in_match_in_antimatch_branch_in_conditional, x_subject)),
                                               rest_branches)))
     in
     let map_new = Uid_map.of_enum @@ List.enum [
         (uid_conditional, Match_to_conditional (uid_conditional, uid_match));
-        (uid_variable_in_conditional, Match_to_variable_in_conditional (uid_variable_in_conditional, uid_match));
-        (uid_match_branch_in_conditional, Match_to_match_branch_in_conditional (uid_match_branch_in_conditional, uid_match));
+        (uid_variable_in_conditional, Match_to_variable_in_conditional (uid_variable_in_conditional, uid_match, uid_variable_in_match));
+        (uid_identifier_in_variable_in_conditional, Match_to_identifier_in_variable_in_conditional (uid_identifier_in_variable_in_conditional, uid_match, uid_identifier_in_variable_in_match));
+        (uid_match_branch_in_conditional, Match_to_match_branch_in_conditional (uid_match_branch_in_conditional, uid_match, uid_match_pair_in_match));
         (uid_identifier_in_match_branch_in_conditional, Match_to_identifier_in_match_branch_in_conditional (uid_identifier_in_match_branch_in_conditional, uid_match));
         (uid_antimatch_branch_in_conditional, Match_to_antimatch_branch_in_conditional (uid_antimatch_branch_in_conditional, uid_match));
         (uid_identifier_in_antimatch_branch_in_conditional, Match_to_identifier_in_antimatch_branch_in_conditional (uid_identifier_in_antimatch_branch_in_conditional, uid_match));
         (uid_match_in_antimatch_branch_in_conditional, Match_to_match_in_antimatch_branch_in_conditional (uid_match_in_antimatch_branch_in_conditional, uid_match));
-        (uid_variable_in_match_in_antimatch_branch_in_conditional, Match_to_variable_in_match_in_antimatch_branch_in_conditional (uid_variable_in_match_in_antimatch_branch_in_conditional, uid_match));
+        (uid_variable_in_match_in_antimatch_branch_in_conditional, Match_to_variable_in_match_in_antimatch_branch_in_conditional (uid_variable_in_match_in_antimatch_branch_in_conditional, uid_match, uid_variable_in_match));
+        (uid_identifier_in_variable_in_match_in_antimatch_branch_in_conditional, Match_to_identifier_in_variable_in_match_in_antimatch_branch_in_conditional (uid_identifier_in_variable_in_match_in_antimatch_branch_in_conditional, uid_match, uid_identifier_in_variable_in_match));
       ]
     in
     (e_trans, disjoint_union map_e map_new)
