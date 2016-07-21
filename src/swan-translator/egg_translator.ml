@@ -25,6 +25,9 @@ IMPLEMENTATION NOTES
   4. All mappings from subordinate steps must be unioned. (I.e., every call to
   subordinate translators must have a corresponding `disjoint_union'.)
 
+  5. Each /kind/ of mapping must have its own variant on the `log_entry' data
+  type.
+
 - Structure of mappings: A valid mapping is one in which the key is the `uid'
   for the newly generated piece of syntax, and the value is a pair---tagged with
   a `log_entry' variant---`(new_uid, original_uid)'.
@@ -128,6 +131,10 @@ type log_entry =
   | Match_to_variable_in_application of uid * uid
   (** First uid is the resulting variable in the resulting application and
       second uid is the `match' where it came from. *)
+
+  | Match_to_identifier_in_variable_in_application of uid * uid
+  (** First uid is the resulting identifier in the resulting variable in the
+      resulting application and second uid is the `match' where it came from. *)
 
   | Match_to_conditional of uid * uid
   (** First uid is the resulting conditional and second uid is the `match' where
@@ -568,19 +575,21 @@ let translate_match
     (e:Egg_ast.expr) =
 
   match e with
-  | Egg_ast.Match_expr(uid_match, Egg_ast.Var_expr (_, x_subject), []) ->
+  | Egg_ast.Match_expr(uid_match, Egg_ast.Var_expr (_, Egg_ast.Egg_var (_, x_subject)), []) ->
     let uid_application = next_uid () in
     let uid_non_function_in_application = next_uid () in
     let uid_variable_in_application = next_uid () in
+    let uid_identifier_in_variable_in_application = next_uid () in
     let (e_trans, map_e) =
       tc.continuation_expression_translator @@
       Egg_ast.Appl_expr (uid_application, Egg_ast.String_expr (uid_non_function_in_application, "non-function"),
-                         Egg_ast.Var_expr (uid_variable_in_application, x_subject))
+                         Egg_ast.Var_expr (uid_variable_in_application, Egg_ast.Egg_var (uid_identifier_in_variable_in_application, x_subject)))
     in
     let map_new = Uid_map.of_enum @@ List.enum [
         (uid_application, Match_to_application (uid_application, uid_match));
         (uid_non_function_in_application, Match_to_non_function_in_application (uid_non_function_in_application, uid_match));
         (uid_variable_in_application, Match_to_variable_in_application (uid_variable_in_application, uid_match));
+        (uid_identifier_in_variable_in_application, Match_to_identifier_in_variable_in_application (uid_identifier_in_variable_in_application, uid_match));
       ]
     in
     (e_trans, disjoint_union map_e map_new)
