@@ -1,3 +1,30 @@
+(*
+
+IMPLEMENTATION NOTES
+
+- Progress: To guarantee that the translation process proceeds, the translation
+  fragments must call the continuation translator on its results---whether it
+  made progress or not.
+
+- Correctness: To guarantee that the translation process fully executes, the
+  translation fragments must only refer to other fragments are already
+  defined---i.e., that come /before/ it.
+
+- Completeness of mappings: To guarantee that the resugaring process will have
+  all the information it needs, the following must hold:
+
+  1. All generated `uid's must be in the mapping. (I.e., every call to `next_uid
+  ()' must have a corresponding `log_entry'.)
+
+  2. All mappings from subordinate steps must be unioned. (I.e., every call to
+  subordinate translators must have a corresponding `disjoint_union'.)
+
+- Structure of mappings: A valid mapping is one in which the key is the `uid'
+  for the newly generated piece of syntax, and the value is a pair---tagged with
+  a `log_entry' variant---`(new_uid, original_uid)'.
+
+*)
+
 open Batteries;;
 open Uid;;
 
