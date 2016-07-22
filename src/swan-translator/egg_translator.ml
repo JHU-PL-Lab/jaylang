@@ -513,11 +513,17 @@ let translation_close
   (top_level_expression_translator, top_level_pattern_translator)
 ;;
 
-let identity_translator (a : 'a) : 'a translation_result =
-  (a, Uid_map.empty)
+let identity_expression_translator_fragment
+    (tc:translator_configuration)
+    (e:Egg_ast.expr) =
+  tc.continuation_expression_translator e
 ;;
 
-let identity_translator_fragment _ = identity_translator;;
+let identity_pattern_translator_fragment
+    (tc:translator_configuration)
+    (p:Egg_ast.pattern) =
+  tc.continuation_pattern_translator p
+;;
 
 let translate_pattern_variable
     (tc:translator_configuration)
@@ -609,7 +615,7 @@ let translate_conditional_with_pattern_variable
     let uid_conditional' = next_uid () in
     let uid_variable_in_conditional' = next_uid () in
     let uid_identifier_in_variable_in_conditional' = next_uid () in
-    let (_, pattern_variables_translator) = translation_close identity_translator_fragment translate_pattern_variable in
+    let (_, pattern_variables_translator) = translation_close identity_expression_translator_fragment translate_pattern_variable in
     let (p_trans, map_p) = pattern_variables_translator p in
     let (f1_trans, map_f1) = preprend_pattern_variable_bindings p x_subject f1 in
     expression_continuation_with_mappings tc
@@ -641,7 +647,54 @@ let translate_conditional_with_pattern_variable
   | _ -> tc.continuation_expression_translator e
 ;;
 
-let translate_cons
+let translate_pattern_cons
+    (tc:translator_configuration)
+    (p:Egg_ast.pattern) =
+
+  match p with
+  | Egg_ast.Cons_pattern(uid_cons, p_element, p_list) ->
+    let uid_record = next_uid () in
+    pattern_continuation_with_mappings tc
+      (Egg_ast.Record_pattern (
+          uid_record, Core_ast.Ident_map.of_enum (
+            List.enum [((Core_ast.Ident "head"), p_element);
+                       ((Core_ast.Ident "tail"), p_list);])))
+      []
+      [(uid_record, Cons_to_record (uid_record, uid_cons));]
+
+  | _ -> tc.continuation_pattern_translator p
+;;
+
+let translate_pattern_list
+    (tc:translator_configuration)
+    (p:Egg_ast.pattern) =
+
+  match p with
+  | Egg_ast.List_pattern(uid_list, []) ->
+    let uid_record = next_uid () in
+    let uid_record_in_record = next_uid () in
+    pattern_continuation_with_mappings tc
+      (Egg_ast.Record_pattern (
+          uid_record, Core_ast.Ident_map.singleton (Core_ast.Ident "null")
+            (Egg_ast.Record_pattern (uid_record_in_record, Core_ast.Ident_map.empty))))
+      []
+      [(uid_record, Empty_list_to_record (uid_record, uid_list));
+       (uid_record_in_record, Empty_list_to_record_in_record (uid_record_in_record, uid_list));]
+
+  | Egg_ast.List_pattern(uid_list, p_head :: p_tail) ->
+    let uid_cons = next_uid () in
+    let uid_list_in_cons = next_uid () in
+    pattern_continuation_with_mappings tc
+      (Egg_ast.Cons_pattern (
+          uid_cons, p_head, (Egg_ast.List_pattern (uid_list_in_cons, p_tail))))
+      []
+      [(uid_cons, List_to_cons (uid_cons, uid_list));
+       (uid_list_in_cons, List_to_list_in_cons (uid_list_in_cons, uid_list));]
+
+  | _ -> tc.continuation_pattern_translator p
+;;
+
+let translate_expression_cons
     (tc:translator_configuration)
     (e:Egg_ast.expr) =
 
@@ -659,7 +712,7 @@ let translate_cons
   | _ -> tc.continuation_expression_translator e
 ;;
 
-let translate_list
+let translate_expression_list
     (tc:translator_configuration)
     (e:Egg_ast.expr) =
 
@@ -792,15 +845,30 @@ let translate_ifthenelse
   | _ -> tc.continuation_expression_translator e
 ;;
 
+let pattern_translators_depending_on_pattern_variable : Egg_ast.pattern translator_fragment list =
+  [translate_pattern_list;translate_pattern_cons;]
+;;
+
+let translate_all_patterns_depending_on_pattern_variable
+    (tc:translator_configuration)
+    (e:Egg_ast.expr) =
+  let (pattern_translator_depending_on_pattern_variable, _) =
+    translation_close identity_expression_translator_fragment
+      (pattern_translator_compose_many pattern_translators_depending_on_pattern_variable)
+  in
+  let (p_trans, map_p) = pattern_translator_depending_on_pattern_variable e in
+  expression_continuation_with_mappings tc p_trans [map_p] []
+;;
 let expression_translators : Egg_ast.expr translator_fragment list =
   [ translate_ifthenelse;
     translate_match;
-    translate_list;
-    translate_cons;
+    translate_expression_list;
+    translate_expression_cons;
+    translate_all_patterns_depending_on_pattern_variable;
     translate_conditional_with_pattern_variable;
   ]
 ;;
 
 let pattern_translators : Egg_ast.pattern translator_fragment list =
-  [ identity_translator_fragment; ]
+  [ identity_pattern_translator_fragment; ]
 ;;
