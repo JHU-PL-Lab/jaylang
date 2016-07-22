@@ -350,6 +350,23 @@ let translation_close
         ) (Ident_map.empty, Uid_map.empty)
       in
       (Egg_ast.Record_expr(uid, trans_fields), unioned_map)
+    | Egg_ast.List_expr(uid,elements) ->
+      let (trans_elements, map_result) =
+        elements
+        |> List.fold_left (
+          fun (trans_elements, map_partial) element ->
+            let (e_trans, e_map) = top_level_expression_translator element in
+            (e_trans :: trans_elements, disjoint_union map_partial e_map)
+        ) ([], Uid_map.empty)
+      in
+      (Egg_ast.List_expr(uid, List.rev trans_elements), map_result)
+    | Egg_ast.Cons_expr (uid, e_element, e_list) ->
+      let (trans_e_element, map_e_element) = top_level_expression_translator e_element
+      in
+      let (trans_e_list, map_e_list) = top_level_expression_translator e_list
+      in
+      let unioned_map = disjoint_union map_e_element map_e_list in
+      (Egg_ast.Cons_expr(uid, trans_e_element, trans_e_list), unioned_map)
     | Egg_ast.Function_expr(uid_e,Egg_ast.Function (uid_f, x,e')) ->
       let (trans_e, map_e) =
         top_level_expression_translator e'
@@ -450,6 +467,21 @@ let translation_close
         ) (Ident_map.empty, Uid_map.empty)
       in
       (Egg_ast.Record_pattern(uid, trans_fields), unioned_map)
+    | Egg_ast.List_pattern(uid,elements) ->
+      let (trans_elements, map_result) =
+        elements
+        |> List.fold_left (
+          fun (trans_elements, map_partial) element ->
+            let (e_trans, e_map) = top_level_pattern_translator element in
+            (e_trans :: trans_elements, disjoint_union map_partial e_map)
+        ) ([], Uid_map.empty)
+      in
+      (Egg_ast.List_pattern(uid, List.rev trans_elements), map_result)
+    | Egg_ast.Cons_pattern(uid, p_element, p_list) ->
+      let (p_element_trans, map_p_element) = top_level_pattern_translator p_element in
+      let (p_list_trans, map_p_list) = top_level_pattern_translator p_list in
+      let map_result = disjoint_unions [map_p_element;map_p_list] in
+      (Egg_ast.Cons_pattern(uid, p_element_trans, p_list_trans), map_result)
     | Egg_ast.Fun_pattern _
     | Egg_ast.Ref_pattern _
     | Egg_ast.Int_pattern _

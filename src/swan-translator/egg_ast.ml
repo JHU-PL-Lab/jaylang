@@ -19,6 +19,8 @@ type expr =
       Format.fprintf formatter "Swan_ast.Record_expr(\"%a\")"
         (Pp_utils.pp_map Core_ast_pp.pp_ident pp_expr Ident_map.enum) map
      ]
+  | List_expr of uid * expr list
+  | Cons_expr of uid * expr * expr
   | Function_expr of uid * function_value
   | Int_expr of uid * int
   | Bool_expr of uid * bool
@@ -52,6 +54,9 @@ and pattern =
       Format.fprintf formatter "Swan_ast.Record_pattern(\"%a\")"
         (pp_map pp_ident pp_pattern Ident_map.enum) map
      ] *)
+
+  | List_pattern of uid * pattern list
+  | Cons_pattern of uid * pattern * pattern
   | Fun_pattern of uid
   | Ref_pattern of uid
   | Int_pattern of uid
@@ -75,12 +80,7 @@ let rec contain_pattern_variable p =
   | Var_pattern (_,_) -> true
   | Record_pattern (_,fields) ->
     fields |> Ident_map.values |> Enum.exists contain_pattern_variable
-  | Fun_pattern _
-  | Ref_pattern _
-  | Int_pattern _
-  | Bool_pattern (_,_)
-  | String_pattern _
-  | Any_pattern _ -> false
+  | _ -> false
 ;;
 
 let rec pp_expr : Format.formatter -> expr -> Ppx_deriving_runtime.unit=

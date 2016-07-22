@@ -11,8 +11,8 @@ module List = BatList;;
 %token <string> STRING_LITERAL
 %token OPEN_BRACE
 %token CLOSE_BRACE
-(* %token OPEN_BRACKET *)
-(* %token CLOSE_BRACKET *)
+%token OPEN_BRACKET
+%token CLOSE_BRACKET
 %token OPEN_PAREN
 %token CLOSE_PAREN
 %token COMMA
@@ -20,6 +20,7 @@ module List = BatList;;
 %token QUESTION_MARK
 %token TILDE
 %token COLON
+%token DOUBLE_COLON
 %token EQUALS
 %token DOT
 %token BANG
@@ -60,7 +61,7 @@ module List = BatList;;
 %left BINOP_PLUS BINOP_MINUS
 %right BANG
 %left DOT
-%right KEYWORD_REF
+%right KEYWORD_REF DOUBLE_COLON
 
 %start <Swan_ast.expr> prog
 %start <Swan_ast.expr option> delim_expr
@@ -130,6 +131,12 @@ primary_expr:
       { Record_expr(next_uid $startpos $endpos,Ident_map.of_enum @@ List.enum $2) }
   | OPEN_BRACE CLOSE_BRACE
       { Record_expr(next_uid $startpos $endpos,Ident_map.empty) }
+  | OPEN_BRACKET separated_nonempty_trailing_list(COMMA, expr) CLOSE_BRACKET
+      { List_expr(next_uid $startpos $endpos,$2) }
+  | OPEN_BRACKET CLOSE_BRACKET
+      { List_expr(next_uid $startpos $endpos,[]) }
+  | primary_expr DOUBLE_COLON primary_expr
+      { Cons_expr(next_uid $startpos $endpos,$1,$3) }
   | int_value
       { Int_expr(next_uid $startpos $endpos,$1) }
   | bool_value
@@ -156,6 +163,12 @@ pattern:
       { Swan_ast.Record_pattern(next_uid $startpos $endpos,Ident_map.of_enum @@ List.enum $2) }
   | OPEN_BRACE CLOSE_BRACE
       { Swan_ast.Record_pattern(next_uid $startpos $endpos,Ident_map.empty) }
+  | OPEN_BRACKET separated_nonempty_trailing_list(COMMA, pattern) CLOSE_BRACKET
+      { List_pattern(next_uid $startpos $endpos,$2) }
+  | OPEN_BRACKET CLOSE_BRACKET
+      { Swan_ast.List_pattern(next_uid $startpos $endpos,[]) }
+  | pattern DOUBLE_COLON pattern
+      { Swan_ast.Cons_pattern(next_uid $startpos $endpos,$1,$3) }
   | KEYWORD_FUN
       { Swan_ast.Fun_pattern(next_uid $startpos $endpos) }
   | KEYWORD_REF
