@@ -131,6 +131,26 @@ type log_entry =
       resulting conditional in the resulting `let' and second uid is the
       conditional with pattern variables where it came from. *)
 
+  | Cons_pattern_to_record of uid * uid
+  (** First uid is the resulting record and second uid is the `cons' where it
+      came from. *)
+
+  | Empty_list_pattern_to_record of uid * uid
+  (** First uid is the resulting record and second uid is the empty list where
+      it came from. *)
+
+  | Empty_list_pattern_to_record_in_record of uid * uid
+  (** First uid is the resulting in record the resulting record and second uid
+      is the empty list where it came from. *)
+
+  | List_pattern_to_cons of uid * uid
+  (** First uid is the resulting `cons' and second uid is the list where it came
+      from. *)
+
+  | List_pattern_to_list_in_cons of uid * uid
+  (** First uid is the resulting list in the resulting `cons' and second uid is
+      the list where it came from. *)
+
   | Variant_pattern_to_record of uid * uid
   (** First uid is the resulting record and second uid is the variant where it
       came from. *)
@@ -139,23 +159,23 @@ type log_entry =
   (** First uid is the resulting list in the resulting record and second uid is
       the variant where it came from. *)
 
-  | Cons_to_record of uid * uid
+  | Cons_expression_to_record of uid * uid
   (** First uid is the resulting record and second uid is the `cons' where it
       came from. *)
 
-  | Empty_list_to_record of uid * uid
+  | Empty_list_expression_to_record of uid * uid
   (** First uid is the resulting record and second uid is the empty list where
       it came from. *)
 
-  | Empty_list_to_record_in_record of uid * uid
+  | Empty_list_expression_to_record_in_record of uid * uid
   (** First uid is the resulting in record the resulting record and second uid
       is the empty list where it came from. *)
 
-  | List_to_cons of uid * uid
+  | List_expression_to_cons of uid * uid
   (** First uid is the resulting `cons' and second uid is the list where it came
       from. *)
 
-  | List_to_list_in_cons of uid * uid
+  | List_expression_to_list_in_cons of uid * uid
   (** First uid is the resulting list in the resulting `cons' and second uid is
       the list where it came from. *)
 
@@ -696,7 +716,7 @@ let translate_pattern_cons
             List.enum [((Core_ast.Ident "head"), p_element);
                        ((Core_ast.Ident "tail"), p_list);])))
       []
-      [(uid_record, Cons_to_record (uid_record, uid_cons));]
+      [(uid_record, Cons_pattern_to_record (uid_record, uid_cons));]
 
   | _ -> tc.continuation_pattern_translator p
 ;;
@@ -714,8 +734,8 @@ let translate_pattern_list
           uid_record, Core_ast.Ident_map.singleton (Core_ast.Ident "null")
             (Egg_ast.Record_pattern (uid_record_in_record, Core_ast.Ident_map.empty))))
       []
-      [(uid_record, Empty_list_to_record (uid_record, uid_list));
-       (uid_record_in_record, Empty_list_to_record_in_record (uid_record_in_record, uid_list));]
+      [(uid_record, Empty_list_pattern_to_record (uid_record, uid_list));
+       (uid_record_in_record, Empty_list_pattern_to_record_in_record (uid_record_in_record, uid_list));]
 
   | Egg_ast.List_pattern(uid_list, p_head :: p_tail) ->
     let uid_cons = next_uid () in
@@ -724,8 +744,8 @@ let translate_pattern_list
       (Egg_ast.Cons_pattern (
           uid_cons, p_head, (Egg_ast.List_pattern (uid_list_in_cons, p_tail))))
       []
-      [(uid_cons, List_to_cons (uid_cons, uid_list));
-       (uid_list_in_cons, List_to_list_in_cons (uid_list_in_cons, uid_list));]
+      [(uid_cons, List_pattern_to_cons (uid_cons, uid_list));
+       (uid_list_in_cons, List_pattern_to_list_in_cons (uid_list_in_cons, uid_list));]
 
   | _ -> tc.continuation_pattern_translator p
 ;;
@@ -761,7 +781,7 @@ let translate_expression_cons
             List.enum [((Core_ast.Ident "head"), e_element);
                        ((Core_ast.Ident "tail"), e_list);])))
       []
-      [(uid_record, Cons_to_record (uid_record, uid_cons));]
+      [(uid_record, Cons_expression_to_record (uid_record, uid_cons));]
 
   | _ -> tc.continuation_expression_translator e
 ;;
@@ -779,8 +799,8 @@ let translate_expression_list
           uid_record, Core_ast.Ident_map.singleton (Core_ast.Ident "null")
             (Egg_ast.Record_expr (uid_record_in_record, Core_ast.Ident_map.empty))))
       []
-      [(uid_record, Empty_list_to_record (uid_record, uid_list));
-       (uid_record_in_record, Empty_list_to_record_in_record (uid_record_in_record, uid_list));]
+      [(uid_record, Empty_list_expression_to_record (uid_record, uid_list));
+       (uid_record_in_record, Empty_list_expression_to_record_in_record (uid_record_in_record, uid_list));]
 
   | Egg_ast.List_expr(uid_list, e_head :: e_tail) ->
     let uid_cons = next_uid () in
@@ -789,8 +809,8 @@ let translate_expression_list
       (Egg_ast.Cons_expr (
           uid_cons, e_head, (Egg_ast.List_expr (uid_list_in_cons, e_tail))))
       []
-      [(uid_cons, List_to_cons (uid_cons, uid_list));
-       (uid_list_in_cons, List_to_list_in_cons (uid_list_in_cons, uid_list));]
+      [(uid_cons, List_expression_to_cons (uid_cons, uid_list));
+       (uid_list_in_cons, List_expression_to_list_in_cons (uid_list_in_cons, uid_list));]
 
   | _ -> tc.continuation_expression_translator e
 ;;
