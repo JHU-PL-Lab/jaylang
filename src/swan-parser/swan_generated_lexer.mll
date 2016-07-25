@@ -19,8 +19,10 @@ let newline = '\n'
 let comment = '#' [^'\n']* '\n'
 let string_contents = [^'"']*
 
-let ident_start = alpha
+let ident_start = ['a'-'z']
 let ident_cont = alpha | digit
+
+let variant_start = ['A'-'Z']
 
 rule token = parse
   | eof                              { EOF }
@@ -71,4 +73,5 @@ rule token = parse
   | "<="                             { BINOP_LESS_EQUAL }
   | "=="                             { BINOP_EQUAL }
   | ident_start ident_cont* as s     { IDENTIFIER s }
+  | variant_start ident_cont* as s   { VARIANT s }
   | ";;"                             { DOUBLE_SEMICOLON }

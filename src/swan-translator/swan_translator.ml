@@ -36,6 +36,9 @@ let rec swan_to_egg_pattern p =
     Egg_ast.Cons_pattern(u,swan_to_egg_pattern p_element,swan_to_egg_pattern p_list)
   | Swan_ast.Var_pattern(u1,Swan_ast.Swan_var(u2, identifier)) ->
     Egg_ast.Var_pattern(u1,Egg_ast.Egg_var(u2, identifier))
+  | Swan_ast.Variant_pattern(u1,Swan_ast.Variant(variant_name),elements) ->
+    Egg_ast.Variant_pattern(u1,Egg_ast.Variant(variant_name),
+                                elements |> List.map swan_to_egg_pattern)
 ;;
 
 let rec swan_to_egg_expr e =
@@ -117,6 +120,9 @@ let rec swan_to_egg_expr e =
     let enum = Enum.map swan_to_egg_match_pair swan_mps in
     let egg_mps = List.of_enum enum in
     Egg_ast.Match_expr(uid, swan_to_egg_expr e, egg_mps)
+  | Swan_ast.Variant_expr(u1,Swan_ast.Variant(variant_name),elements) ->
+    Egg_ast.Variant_expr(u1,Egg_ast.Variant(variant_name),
+                                elements |> List.map swan_to_egg_expr)
 
 and swan_to_egg_function_value
     (Swan_ast.Function(u,v,e')) =
@@ -157,6 +163,7 @@ let rec egg_to_nested_pattern p =
     Nested_ast.Record_pattern(u, nested_elts)
   | Egg_ast.List_pattern(_,_)
   | Egg_ast.Cons_pattern(_,_,_)
+  | Egg_ast.Variant_pattern(_,_,_)
   | Egg_ast.Var_pattern(_,_) ->
     raise @@ Utils.Invariant_failure "An egg pattern that was not fully translated has been passed into egg_to_nested"
 
@@ -237,6 +244,7 @@ and egg_to_nested_expr e =
   | Egg_ast.Match_expr _
   | Egg_ast.List_expr _
   | Egg_ast.Cons_expr _
+  | Egg_ast.Variant_expr _
   | Egg_ast.If_expr _ ->
     raise @@ Utils.Invariant_failure "An egg expression that was not fully translated has been passed into egg_to_nested"
 ;;

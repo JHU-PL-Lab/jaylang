@@ -10,6 +10,7 @@ let pp_ident = Core_ast_pp.pp_ident;;
 let pp_unary_operator = Core_ast_pp.pp_unary_operator;;
 let pp_binary_operator = Core_ast_pp.pp_binary_operator;;
 
+type variant = Variant of string [@@deriving eq, ord];;
 
 (** Expressions in the nested language. *)
 type expr =
@@ -21,6 +22,7 @@ type expr =
      ]
   | List_expr of uid * expr list
   | Cons_expr of uid * expr * expr
+  | Variant_expr of uid * variant * expr list
   | Function_expr of uid * function_value
   | Int_expr of uid * int
   | Bool_expr of uid * bool
@@ -57,6 +59,7 @@ and pattern =
 
   | List_pattern of uid * pattern list
   | Cons_pattern of uid * pattern * pattern
+  | Variant_pattern of uid * variant * pattern list
   | Fun_pattern of uid
   | Ref_pattern of uid
   | Int_pattern of uid

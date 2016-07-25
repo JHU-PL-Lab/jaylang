@@ -131,6 +131,14 @@ type log_entry =
       resulting conditional in the resulting `let' and second uid is the
       conditional with pattern variables where it came from. *)
 
+  | Variant_pattern_to_record of uid * uid
+  (** First uid is the resulting record and second uid is the variant where it
+      came from. *)
+
+  | Variant_pattern_to_list_in_record of uid * uid
+  (** First uid is the resulting list in the resulting record and second uid is
+      the variant where it came from. *)
+
   | Cons_to_record of uid * uid
   (** First uid is the resulting record and second uid is the `cons' where it
       came from. *)
@@ -150,6 +158,14 @@ type log_entry =
   | List_to_list_in_cons of uid * uid
   (** First uid is the resulting list in the resulting `cons' and second uid is
       the list where it came from. *)
+
+  | Variant_expression_to_record of uid * uid
+  (** First uid is the resulting record and second uid is the variant where it
+      came from. *)
+
+  | Variant_expression_to_list_in_record of uid * uid
+  (** First uid is the resulting list in the resulting record and second uid is
+      the variant where it came from. *)
 
   | Match_to_application of uid * uid
   (** First uid is the resulting application and second uid is the `match' where
@@ -473,6 +489,16 @@ let translation_close
         ) ms ([], map_e)
       in
       (Egg_ast.Match_expr(uid, trans_e, trans_ms), unioned_map)
+    | Egg_ast.Variant_expr(uid, variant, elements) ->
+      let (trans_elements, map_elements) =
+        List.fold_right (
+          fun element (trans_elements, map_elements) ->
+            let (trans_element, map_element) = top_level_expression_translator element in
+            let map_elements = disjoint_union map_elements map_element in
+            (trans_element :: trans_elements, map_elements)
+        ) elements ([], Uid_map.empty)
+      in
+      (Egg_ast.Variant_expr(uid, variant, trans_elements), map_elements)
 
   and transitive_pattern_translator (p:Egg_ast.pattern) =
     match p with
@@ -502,6 +528,16 @@ let translation_close
       let (p_list_trans, map_p_list) = top_level_pattern_translator p_list in
       let map_result = disjoint_unions [map_p_element;map_p_list] in
       (Egg_ast.Cons_pattern(uid, p_element_trans, p_list_trans), map_result)
+    | Egg_ast.Variant_pattern(uid, variant, elements) ->
+      let (trans_elements, map_elements) =
+        List.fold_right (
+          fun element (trans_elements, map_elements) ->
+            let (trans_element, map_element) = top_level_pattern_translator element in
+            let map_elements = disjoint_union map_elements map_element in
+            (trans_element :: trans_elements, map_elements)
+        ) elements ([], Uid_map.empty)
+      in
+      (Egg_ast.Variant_pattern(uid, variant, trans_elements), map_elements)
     | Egg_ast.Fun_pattern _
     | Egg_ast.Ref_pattern _
     | Egg_ast.Int_pattern _
@@ -694,6 +730,24 @@ let translate_pattern_list
   | _ -> tc.continuation_pattern_translator p
 ;;
 
+let translate_pattern_variant
+    (tc:translator_configuration)
+    (p:Egg_ast.pattern) =
+
+  match p with
+  | Egg_ast.Variant_pattern(uid_variant, Egg_ast.Variant variant, elements) ->
+    let uid_record = next_uid () in
+    let uid_list_in_record = next_uid () in
+    pattern_continuation_with_mappings tc
+      (Egg_ast.Record_pattern (
+          uid_record, Ident_map.singleton (Core_ast.Ident variant) (Egg_ast.List_pattern (uid_list_in_record, elements))))
+      []
+      [(uid_record, Variant_pattern_to_record (uid_record, uid_variant));
+       (uid_list_in_record, Variant_pattern_to_list_in_record (uid_list_in_record, uid_variant));]
+
+  | _ -> tc.continuation_pattern_translator p
+;;
+
 let translate_expression_cons
     (tc:translator_configuration)
     (e:Egg_ast.expr) =
@@ -737,6 +791,24 @@ let translate_expression_list
       []
       [(uid_cons, List_to_cons (uid_cons, uid_list));
        (uid_list_in_cons, List_to_list_in_cons (uid_list_in_cons, uid_list));]
+
+  | _ -> tc.continuation_expression_translator e
+;;
+
+let translate_expression_variant
+    (tc:translator_configuration)
+    (e:Egg_ast.expr) =
+
+  match e with
+  | Egg_ast.Variant_expr(uid_variant, Egg_ast.Variant variant, elements) ->
+    let uid_record = next_uid () in
+    let uid_list_in_record = next_uid () in
+    expression_continuation_with_mappings tc
+      (Egg_ast.Record_expr (
+          uid_record, Ident_map.singleton (Core_ast.Ident variant) (Egg_ast.List_expr (uid_list_in_record, elements))))
+      []
+      [(uid_record, Variant_expression_to_record (uid_record, uid_variant));
+       (uid_list_in_record, Variant_expression_to_list_in_record (uid_list_in_record, uid_variant));]
 
   | _ -> tc.continuation_expression_translator e
 ;;
@@ -846,7 +918,10 @@ let translate_ifthenelse
 ;;
 
 let pattern_translators_depending_on_pattern_variable : Egg_ast.pattern translator_fragment list =
-  [translate_pattern_list;translate_pattern_cons;]
+  [ translate_pattern_variant;
+    translate_pattern_list;
+    translate_pattern_cons;
+  ]
 ;;
 
 let translate_all_patterns_depending_on_pattern_variable
@@ -862,6 +937,7 @@ let translate_all_patterns_depending_on_pattern_variable
 let expression_translators : Egg_ast.expr translator_fragment list =
   [ translate_ifthenelse;
     translate_match;
+    translate_expression_variant;
     translate_expression_list;
     translate_expression_cons;
     translate_all_patterns_depending_on_pattern_variable;

@@ -7,6 +7,7 @@ module List = BatList;;
 %}
 
 %token <string> IDENTIFIER
+%token <string> VARIANT
 %token <int> INT_LITERAL
 %token <string> STRING_LITERAL
 %token OPEN_BRACE
@@ -145,6 +146,10 @@ primary_expr:
       { String_expr(next_uid $startpos $endpos,$1) }
   | identifier
       { Var_expr(next_uid $startpos $endpos,Swan_var(next_uid $startpos $endpos,$1)) }
+  | variant OPEN_PAREN separated_nonempty_trailing_list(COMMA, expr) CLOSE_PAREN
+      { Variant_expr(next_uid $startpos $endpos,$1,$3) }
+  | variant OPEN_PAREN CLOSE_PAREN
+      { Variant_expr(next_uid $startpos $endpos,$1,[]) }
   | KEYWORD_REF primary_expr
       { Ref_expr(next_uid $startpos $endpos,$2) }
   | BANG primary_expr
@@ -160,31 +165,35 @@ record_element:
 
 pattern:
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE
-      { Swan_ast.Record_pattern(next_uid $startpos $endpos,Ident_map.of_enum @@ List.enum $2) }
+      { Record_pattern(next_uid $startpos $endpos,Ident_map.of_enum @@ List.enum $2) }
   | OPEN_BRACE CLOSE_BRACE
-      { Swan_ast.Record_pattern(next_uid $startpos $endpos,Ident_map.empty) }
+      { Record_pattern(next_uid $startpos $endpos,Ident_map.empty) }
   | OPEN_BRACKET separated_nonempty_trailing_list(COMMA, pattern) CLOSE_BRACKET
       { List_pattern(next_uid $startpos $endpos,$2) }
   | OPEN_BRACKET CLOSE_BRACKET
-      { Swan_ast.List_pattern(next_uid $startpos $endpos,[]) }
+      { List_pattern(next_uid $startpos $endpos,[]) }
   | pattern DOUBLE_COLON pattern
-      { Swan_ast.Cons_pattern(next_uid $startpos $endpos,$1,$3) }
+      { Cons_pattern(next_uid $startpos $endpos,$1,$3) }
   | KEYWORD_FUN
-      { Swan_ast.Fun_pattern(next_uid $startpos $endpos) }
+      { Fun_pattern(next_uid $startpos $endpos) }
   | KEYWORD_REF
-      { Swan_ast.Ref_pattern(next_uid $startpos $endpos) }
+      { Ref_pattern(next_uid $startpos $endpos) }
   | KEYWORD_INT
-      { Swan_ast.Int_pattern(next_uid $startpos $endpos) }
+      { Int_pattern(next_uid $startpos $endpos) }
   | bool_pattern
-      { Swan_ast.Bool_pattern(next_uid $startpos $endpos,$1) }
+      { Bool_pattern(next_uid $startpos $endpos,$1) }
   | KEYWORD_STRING
-      { Swan_ast.String_pattern(next_uid $startpos $endpos) }
+      { String_pattern(next_uid $startpos $endpos) }
   | KEYWORD_ANY
-      { Swan_ast.Any_pattern(next_uid $startpos $endpos) }
+      { Any_pattern(next_uid $startpos $endpos) }
   | UNDERSCORE
-      { Swan_ast.Any_pattern(next_uid $startpos $endpos) }
+      { Any_pattern(next_uid $startpos $endpos) }
   | identifier
-      { Swan_ast.Var_pattern(next_uid $startpos $endpos,Swan_var(next_uid $startpos $endpos,$1)) }
+      { Var_pattern(next_uid $startpos $endpos,Swan_var(next_uid $startpos $endpos,$1)) }
+  | variant OPEN_PAREN separated_nonempty_trailing_list(COMMA, pattern) CLOSE_PAREN
+      { Variant_pattern(next_uid $startpos $endpos,$1,$3) }
+  | variant OPEN_PAREN CLOSE_PAREN
+      { Variant_pattern(next_uid $startpos $endpos,$1,[]) }
   ;
 
 match_pair:
@@ -234,6 +243,11 @@ string_value:
 identifier:
   | IDENTIFIER
       { Ident $1 }
+  ;
+
+variant:
+  | VARIANT
+      { Variant $1 }
   ;
 
 separated_nonempty_trailing_list(separator, rule):
