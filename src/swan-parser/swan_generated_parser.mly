@@ -114,13 +114,13 @@ expr:
       { Function_expr(next_uid $startpos $endpos,$1) }
   | application_expr
       { $1 }
+  | primary_expr
+      { $1 }
   ;
 
 application_expr:
-  | application_expr primary_expr
+  | primary_expr nonempty_list(primary_expr)
       { Appl_expr(next_uid $startpos $endpos,$1,$2) }
-  | primary_expr
-      { $1 }
   ;
 
 primary_expr:
@@ -214,8 +214,8 @@ bool_pattern:
   ;
 
 function_value:
-  | KEYWORD_FUN identifier ARROW expr %prec LAM
-      { Function(next_uid $startpos $endpos,Swan_var(next_uid $startpos $endpos,$2),$4) }
+  | KEYWORD_FUN nonempty_list(variable) ARROW expr %prec LAM
+      { Function(next_uid $startpos $endpos,$2,$4) }
   ;
 
 int_value:
@@ -235,10 +235,10 @@ string_value:
       { $1 }
   ;
 
-/*variable:
+variable:
   | identifier
-      { Var($1,None) }
-  ;*/
+      { Swan_var(next_uid $startpos $endpos,$1) }
+  ;
 
 identifier:
   | IDENTIFIER

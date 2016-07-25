@@ -66,8 +66,8 @@ let rec swan_to_egg_expr e =
     Egg_ast.Ref_expr(uid, swan_to_egg_expr e)
   | Swan_ast.Var_expr(uid, x) ->
     Egg_ast.Var_expr(uid, swan_to_egg_var x)
-  | Swan_ast.Appl_expr(uid, e1, e2) ->
-    Egg_ast.Appl_expr(uid, swan_to_egg_expr e1, swan_to_egg_expr e2)
+  | Swan_ast.Appl_expr(uid, e1, es2) ->
+    Egg_ast.Appl_expr(uid, swan_to_egg_expr e1, es2 |> List.map swan_to_egg_expr)
   | Swan_ast.Conditional_expr(uid, e, p, fv1, fv2) ->
     Egg_ast.Conditional_expr(
       uid
@@ -125,9 +125,9 @@ let rec swan_to_egg_expr e =
                                 elements |> List.map swan_to_egg_expr)
 
 and swan_to_egg_function_value
-    (Swan_ast.Function(u,v,e')) =
+    (Swan_ast.Function(u,vs,e')) =
   let body = swan_to_egg_expr e' in
-  Egg_ast.Function(u, swan_to_egg_var v, body)
+  Egg_ast.Function(u, vs |> List.map swan_to_egg_var, body)
 
 and swan_to_egg_match_pair
     (Swan_ast.Match_pair(u, p, e)) =
@@ -168,9 +168,13 @@ let rec egg_to_nested_pattern p =
     raise @@ Utils.Invariant_failure "An egg pattern that was not fully translated has been passed into egg_to_nested"
 
 let rec egg_to_nested_function_value
-    (Egg_ast.Function(u,v,e')) =
-  let body = egg_to_nested_expr e' in
-  Nested_ast.Function(u, egg_to_nested_var v, body)
+    (Egg_ast.Function(u,vs,e')) =
+  match vs with
+  | [v] ->
+    let body = egg_to_nested_expr e' in
+    Nested_ast.Function(u, egg_to_nested_var v, body)
+  | _ ->
+    raise @@ Utils.Invariant_failure "An egg function value that was not fully translated has been passed into egg_to_nested"
 
 and egg_to_nested_expr e =
   match e with
@@ -190,10 +194,16 @@ and egg_to_nested_expr e =
     Nested_ast.Ref_expr(u, e_nested)
   | Egg_ast.Var_expr(u,v) ->
     Nested_ast.Var_expr(u, egg_to_nested_var v)
-  | Egg_ast.Appl_expr(u,e1,e2) ->
-    let e1_trans = egg_to_nested_expr e1 in
-    let e2_trans = egg_to_nested_expr e2 in
-    Nested_ast.Appl_expr(u, e1_trans, e2_trans)
+  | Egg_ast.Appl_expr(u,e1,es2) ->
+    begin
+      match es2 with
+      | [e2] ->
+        let e1_trans = egg_to_nested_expr e1 in
+        let e2_trans = egg_to_nested_expr e2 in
+        Nested_ast.Appl_expr(u, e1_trans, e2_trans)
+      | _ ->
+        raise @@ Utils.Invariant_failure "An egg function application that was not fully translated has been passed into egg_to_nested"
+    end
   | Egg_ast.Conditional_expr(u,e',p,f1,f2) ->
     let e_trans = egg_to_nested_expr e' in
     let p_trans = egg_to_nested_pattern p in
