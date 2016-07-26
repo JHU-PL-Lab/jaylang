@@ -2,7 +2,7 @@ open Batteries;;
 open Uid;;
 
 let nested_to_egg map nested =
-  ignore @@ next_uid (); ignore map; ignore nested; failwith "TODO: Fix this according to new desugarers."
+  ignore @@ next_uid (); ignore map; ignore nested; failwith ("TODO: Fix this according to new desugarers. `nested = " ^ Nested_toploop_analysis_types.show_error nested ^ "'.")
   (* match nested with *)
   (* | Nested_toploop_analysis_types.Projection_of_non_record *)
   (*     (nuid1, nuid2, fv) -> *)
