@@ -104,6 +104,12 @@ and clauses_and_var_of_nested_expr e =
         let (fv2, fvmap2) = function_value_of_nested_function_value f2 in
         let fvmap = disjoint_union fvmap1 fvmap2 in
         let (cls0,x',orig_map) = clauses_and_var_of_nested_expr e' in
+        (* TODO: Fix mappings in light of this corner case. *)
+        let x' =
+          match List.last cls0 with
+          | Core_ast.Clause(Core_ast.Var(_,_), Core_ast.Var_body(x')) -> x'
+          | _ -> x'
+        in
         ( cls0
         , Core_ast.Conditional_body(
             x',
@@ -150,12 +156,18 @@ and clauses_and_var_of_nested_expr e =
         )
       | Nested_ast.Let_expr(u,Nested_ast.Nested_var(_,x'),e1,e2) ->
         let this_map = Ident_map.singleton id (Proof_rule(id,u)) in
-        let (cls1,x1,map1) = clauses_and_var_of_nested_expr e1 in
+        (* TODO: Fix mappings in light of this corner case. *)
+        let (cls1,_,map1) = clauses_and_var_of_nested_expr e1 in
+        let cls1' =
+          cls1
+          |> List.modify_at ((List.length cls1) - 1) (
+            fun (Core_ast.Clause(_, clause_body)) ->
+              Core_ast.Clause(Core_ast.Var(x',None), clause_body)
+          )
+        in
         let (cls2,x2,map2) = clauses_and_var_of_nested_expr e2 in
         let first_union = disjoint_union map1 map2 in
-        ( cls1 @
-          [ Core_ast.Clause(Core_ast.Var(x',None), Core_ast.Var_body(x1)) ] @
-          cls2
+        ( cls1' @ cls2
         , Core_ast.Var_body(x2)
         , disjoint_union this_map first_union
         )
