@@ -88,8 +88,8 @@ delim_expr:
 expr:
   | expr SEMICOLON expr
       { Sequencing_expr(next_uid $startpos $endpos,$1,$3) }
-  | KEYWORD_LET identifier EQUALS expr KEYWORD_IN expr
-      { Let_expr(next_uid $startpos $endpos,Swan_var(next_uid $startpos $endpos,$2),$4,$6) }
+  | KEYWORD_LET variable EQUALS expr KEYWORD_IN expr
+      { Let_expr(next_uid $startpos $endpos,$2,$4,$6) }
   | expr TILDE pattern QUESTION_MARK function_value COLON function_value
       { Conditional_expr(next_uid $startpos $endpos,$1,$3,$5,$7) }
   | KEYWORD_IF expr KEYWORD_THEN expr KEYWORD_ELSE expr KEYWORD_END
@@ -148,8 +148,8 @@ primary_expr:
       { Bool_expr(next_uid $startpos $endpos,$1) }
   | string_value
       { String_expr(next_uid $startpos $endpos,$1) }
-  | identifier
-      { Var_expr(next_uid $startpos $endpos,Swan_var(next_uid $startpos $endpos,$1)) }
+  | variable
+      { Var_expr(next_uid $startpos $endpos,$1) }
   | variant OPEN_PAREN separated_nonempty_trailing_list(COMMA, expr) CLOSE_PAREN
       { Variant_expr(next_uid $startpos $endpos,$1,$3) }
   | variant OPEN_PAREN CLOSE_PAREN
@@ -192,8 +192,8 @@ pattern:
       { Any_pattern(next_uid $startpos $endpos) }
   | UNDERSCORE
       { Any_pattern(next_uid $startpos $endpos) }
-  | identifier
-      { Var_pattern(next_uid $startpos $endpos,Swan_var(next_uid $startpos $endpos,$1)) }
+  | variable
+      { Var_pattern(next_uid $startpos $endpos,$1) }
   | variant OPEN_PAREN separated_nonempty_trailing_list(COMMA, pattern) CLOSE_PAREN
       { Variant_pattern(next_uid $startpos $endpos,$1,$3) }
   | variant OPEN_PAREN CLOSE_PAREN
