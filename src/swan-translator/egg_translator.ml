@@ -354,6 +354,14 @@ type log_entry =
   (** First uid is the resulting pattern in the resulting false branch in the
       resulting match and second uid is the `if' where it came from. *)
 
+  | Sequencing_to_let of uid * uid
+  (** First uid is the resulting `let' and second uid is the sequencing where it
+      came from. *)
+
+  | Sequencing_to_variable_in_let of uid * uid
+  (** First uid is the resulting variable in the resulting `let' and second uid
+      is the sequencing where it came from. *)
+
   [@@deriving eq, show]
 
 let fresh_var_counter = ref 0;;
@@ -542,6 +550,13 @@ let translation_close
       in
       let unioned_map = disjoint_union map_e1 map_e2 in
       (Egg_ast.Binary_operation_expr(uid, trans_e1, op, trans_e2), unioned_map)
+    | Egg_ast.Sequencing_expr(uid, e_left, e_right) ->
+      let (trans_e_left, map_e_left) = top_level_expression_translator e_left
+      in
+      let (trans_e_right, map_e_right) = top_level_expression_translator e_right
+      in
+      let unioned_map = disjoint_union map_e_left map_e_right in
+      (Egg_ast.Sequencing_expr(uid, trans_e_left, trans_e_right), unioned_map)
     | Egg_ast.Unary_operation_expr(uid, op, e) ->
       let (trans_e, map_e) = top_level_expression_translator e in
       (Egg_ast.Unary_operation_expr(uid, op, trans_e), map_e)
@@ -1120,6 +1135,25 @@ let translate_ifthenelse
   | _ -> tc.continuation_expression_translator e
 ;;
 
+let translate_sequencing
+    (tc:translator_configuration)
+    (e:Egg_ast.expr) =
+
+  match e with
+  | Egg_ast.Sequencing_expr(uid_sequencing, e_left, e_right) ->
+    let uid_let = next_uid () in
+    let uid_variable_in_let = next_uid () in
+    let x = egg_fresh_var () in
+    expression_continuation_with_mappings tc
+      (Egg_ast.Let_expr (
+          uid_let, Egg_ast.Egg_var (uid_variable_in_let, x), e_left, e_right))
+      []
+      [(uid_let, Sequencing_to_let (uid_let, uid_sequencing));
+       (uid_variable_in_let, Sequencing_to_variable_in_let (uid_variable_in_let, uid_sequencing));]
+
+  | _ -> tc.continuation_expression_translator e
+;;
+
 let pattern_translators_depending_on_pattern_variable : Egg_ast.pattern translator_fragment list =
   [ translate_pattern_variant;
     translate_pattern_list;
@@ -1139,7 +1173,8 @@ let translate_all_patterns_depending_on_pattern_variable
 ;;
 
 let expression_translators : Egg_ast.expr translator_fragment list =
-  [ translate_ifthenelse;
+  [ translate_sequencing;
+    translate_ifthenelse;
     translate_function_with_multiple_parameters;
     translate_function_value_in_conditionals;
     translate_application_with_multiple_parameters;

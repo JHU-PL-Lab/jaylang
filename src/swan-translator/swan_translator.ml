@@ -50,6 +50,8 @@ let rec swan_to_egg_expr e =
     let values = Enum.combine (keys, rec_result) in
     let egg_elts = Ident_map.of_enum values in
     Egg_ast.Record_expr(uid, egg_elts)
+  | Swan_ast.Sequencing_expr(u,e_left,e_right) ->
+    Egg_ast.Sequencing_expr(u,swan_to_egg_expr e_left,swan_to_egg_expr e_right)
   | Swan_ast.List_expr(u,elements) ->
     Egg_ast.List_expr(u, List.map swan_to_egg_expr elements)
   | Swan_ast.Cons_expr(u,e_element,e_list) ->
@@ -251,6 +253,7 @@ and egg_to_nested_expr e =
     let values = Enum.combine (keys, rec_result) in
     let nested_elts = Ident_map.of_enum values in
     Nested_ast.Record_expr(u, nested_elts)
+  | Egg_ast.Sequencing_expr _
   | Egg_ast.Match_expr _
   | Egg_ast.List_expr _
   | Egg_ast.Cons_expr _

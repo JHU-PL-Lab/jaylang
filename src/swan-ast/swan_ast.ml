@@ -16,6 +16,7 @@ type expr =
               (pp_map pp_ident pp_expr Ident_map.enum) map
         ] *)
   | List_expr of uid * expr list
+  | Sequencing_expr of uid * expr * expr
   | Cons_expr of uid * expr * expr
   | Variant_expr of uid * variant * expr list
   | Function_expr of uid * function_value

@@ -35,6 +35,7 @@ rule token = parse
   | "]"                              { CLOSE_BRACKET }
   | "("                              { OPEN_PAREN }
   | ")"                              { CLOSE_PAREN }
+  | ";"                              { SEMICOLON }
   | ","                              { COMMA }
   | "->"                             { ARROW }
   | "?"                              { QUESTION_MARK }
