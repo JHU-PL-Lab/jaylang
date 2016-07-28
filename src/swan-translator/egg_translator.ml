@@ -362,6 +362,19 @@ type log_entry =
   (** First uid is the resulting variable in the resulting `let' and second uid
       is the sequencing where it came from. *)
 
+  | Let_function_to_let of uid * uid
+  (** First uid is the resulting `let' and second uid is the `let function' where it
+      came from. *)
+
+  | Let_function_to_function_expr_in_let of uid * uid
+  (** First uid is the resulting function expression in the resulting `let' and
+      second uid is the `let function' where it came from. *)
+
+  | Let_function_to_function_in_function_expr_in_let of uid * uid
+  (** First uid is the resulting function in the resulting function expression
+      in the resulting `let' and second uid is the `let function' where it came
+      from. *)
+
   [@@deriving eq, show]
 
 let fresh_var_counter = ref 0;;
@@ -574,6 +587,13 @@ let translation_close
       in
       let unioned_map = disjoint_union map_e1 map_e2 in
       (Egg_ast.Let_expr(uid, x, trans_e1, trans_e2), unioned_map)
+    | Egg_ast.Let_function_expr(uid, x, xs, e1, e2) ->
+      let (trans_e1, map_e1) = top_level_expression_translator e1
+      in
+      let (trans_e2, map_e2) = top_level_expression_translator e2
+      in
+      let unioned_map = disjoint_union map_e1 map_e2 in
+      (Egg_ast.Let_function_expr(uid, x, xs, trans_e1, trans_e2), unioned_map)
     | Egg_ast.Projection_expr(uid, e, i) ->
       let (trans_e, map_e) = top_level_expression_translator e in
       (Egg_ast.Projection_expr(uid, trans_e, i), map_e)
@@ -1154,6 +1174,26 @@ let translate_sequencing
   | _ -> tc.continuation_expression_translator e
 ;;
 
+let translate_let_function
+    (tc:translator_configuration)
+    (e:Egg_ast.expr) =
+
+  match e with
+  | Egg_ast.Let_function_expr(uid_let_function, x, xs, e_f, e_body) ->
+    let uid_let = next_uid () in
+    let uid_function_expr_in_let = next_uid () in
+    let uid_function_in_function_expr_in_let = next_uid () in
+    expression_continuation_with_mappings tc
+      (Egg_ast.Let_expr (
+          uid_let, x, Egg_ast.Function_expr (uid_function_expr_in_let, Egg_ast.Function (uid_function_in_function_expr_in_let, xs, e_f)), e_body))
+      []
+      [(uid_let, Let_function_to_let (uid_let, uid_let_function));
+       (uid_function_expr_in_let, Let_function_to_function_expr_in_let (uid_function_expr_in_let, uid_let_function));
+       uid_function_in_function_expr_in_let, Let_function_to_function_in_function_expr_in_let (uid_function_in_function_expr_in_let, uid_let_function);]
+
+  | _ -> tc.continuation_expression_translator e
+;;
+
 let pattern_translators_depending_on_pattern_variable : Egg_ast.pattern translator_fragment list =
   [ translate_pattern_variant;
     translate_pattern_list;
@@ -1173,7 +1213,8 @@ let translate_all_patterns_depending_on_pattern_variable
 ;;
 
 let expression_translators : Egg_ast.expr translator_fragment list =
-  [ translate_sequencing;
+  [ translate_let_function;
+    translate_sequencing;
     translate_ifthenelse;
     translate_function_with_multiple_parameters;
     translate_function_value_in_conditionals;

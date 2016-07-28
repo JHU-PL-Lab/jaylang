@@ -115,6 +115,14 @@ let rec swan_to_egg_expr e =
     , swan_to_egg_expr e1
     , swan_to_egg_expr e2
     )
+  | Swan_ast.Let_function_expr(uid, x, xs, e1, e2) ->
+    Egg_ast.Let_function_expr(
+      uid
+    , swan_to_egg_var x
+    , xs |> List.map swan_to_egg_var
+    , swan_to_egg_expr e1
+    , swan_to_egg_expr e2
+    )
   | Swan_ast.Projection_expr(uid, e, i) ->
     Egg_ast.Projection_expr(uid, swan_to_egg_expr e, i)
   | Swan_ast.Match_expr(uid, e, mps) ->
@@ -258,6 +266,7 @@ and egg_to_nested_expr e =
   | Egg_ast.List_expr _
   | Egg_ast.Cons_expr _
   | Egg_ast.Variant_expr _
+  | Egg_ast.Let_function_expr _
   | Egg_ast.If_expr _ ->
     raise @@ Utils.Invariant_failure "An egg expression that was not fully translated has been passed into egg_to_nested"
 ;;

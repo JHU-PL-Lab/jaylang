@@ -90,6 +90,8 @@ expr:
       { Sequencing_expr(next_uid $startpos $endpos,$1,$3) }
   | KEYWORD_LET variable EQUALS expr KEYWORD_IN expr
       { Let_expr(next_uid $startpos $endpos,$2,$4,$6) }
+  | KEYWORD_LET variable nonempty_list(variable) EQUALS expr KEYWORD_IN expr
+      { Let_function_expr(next_uid $startpos $endpos,$2,$3,$5,$7) }
   | expr TILDE pattern QUESTION_MARK function_value COLON function_value
       { Conditional_expr(next_uid $startpos $endpos,$1,$3,$5,$7) }
   | KEYWORD_IF expr KEYWORD_THEN expr KEYWORD_ELSE expr KEYWORD_END

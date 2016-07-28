@@ -34,6 +34,7 @@ type expr =
   | Unary_operation_expr of uid * unary_operator * expr
   | Indexing_expr of uid * expr * expr
   | Let_expr of uid * swan_var * expr * expr
+  | Let_function_expr of uid * swan_var * swan_var list * expr * expr
   | Projection_expr of uid * expr * ident
   | Match_expr of uid * expr * match_pair list
   [@@deriving eq, ord]
