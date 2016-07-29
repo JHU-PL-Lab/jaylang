@@ -1,0 +1,15 @@
+let h b =
+  let g z = z in
+  let f k =
+    if b then
+      k 1
+    else
+      k 2
+    end
+  in
+  let y = f (fun x -> x) in
+  g y
+in
+let a = h true in
+let c = h false in
+c;;

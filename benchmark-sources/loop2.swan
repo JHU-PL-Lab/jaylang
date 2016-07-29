@@ -1,0 +1,16 @@
+let lp1 i x =
+  if 0 == i then
+    x
+  else
+    let lp12 = lp1 in
+    let lp2 j f y =
+      if 0 == j then
+        lp12 (i - 1) y
+      else
+        lp2 (j - 1) f (f y)
+      end
+    in
+    lp2 10 (fun n -> n + i) x
+  end
+in
+lp1 10 0;;

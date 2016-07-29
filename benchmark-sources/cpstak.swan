@@ -1,0 +1,23 @@
+let cpstak x y z =
+  let tak xx yy zz k =
+    if not (yy < xx) then
+      k zz
+    else
+      tak (xx - 1) yy zz (
+        let tak1 = tak in
+        fun v1 ->
+          let tak2 = tak1 in
+          tak2 (yy - 1) zz xx (
+            fun v2 ->
+              let tak3 = tak2 in
+              tak3 (zz - 1) xx yy (
+                fun v3 ->
+                  tak3 v1 v2 v3 k
+              )
+          )
+      )
+    end
+  in
+  tak x y z (fun a -> a)
+in
+cpstak 32 15 8;;
