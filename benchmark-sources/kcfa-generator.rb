@@ -4,6 +4,8 @@ k = k.to_i
 
 if k <= 0
   abort <<-USAGE
+Generate kCFA stress tests.
+
 Usage:
 
   $ ruby #{__FILE__} <k>
@@ -14,7 +16,7 @@ Parameters:
 
 Examples:
 
-  $ ruby benchmark-sources/kcfa-generator.rb 1 | ./swan_toploop_main.native
+  $ ruby #{__FILE__} 1 | ./swan_toploop_main.native
 USAGE
 end
 
