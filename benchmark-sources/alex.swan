@@ -1,0 +1,21 @@
+let head headl =
+  match headl with
+  | headhd :: _ -> headhd
+  end
+in
+
+let map mapf mapl =
+  match mapl with
+  | [] -> []
+  | maphd :: maptl -> (mapf maphd) :: map mapf maptl
+  end
+in
+
+let double doublex =
+  match doublex with
+  | int -> doublex - doublex
+  | string -> doublex + doublex
+  end
+in
+
+1 + head (map double [1, "1"]);;
