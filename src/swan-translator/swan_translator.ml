@@ -134,6 +134,8 @@ let rec swan_to_egg_expr e =
     Egg_ast.Variant_expr(u1,Egg_ast.Variant(variant_name),
                                 elements |> List.map swan_to_egg_expr)
 
+  | Swan_ast.Fail_expr(u1,e) -> Egg_ast.Fail_expr(u1, swan_to_egg_expr e)
+
 and swan_to_egg_function_value
     (Swan_ast.Function(u,vs,e')) =
   let body = swan_to_egg_expr e' in
@@ -267,6 +269,7 @@ and egg_to_nested_expr e =
   | Egg_ast.Cons_expr _
   | Egg_ast.Variant_expr _
   | Egg_ast.Let_function_expr _
+  | Egg_ast.Fail_expr _
   | Egg_ast.If_expr _ ->
     raise @@ Utils.Invariant_failure "An egg expression that was not fully translated has been passed into egg_to_nested"
 ;;

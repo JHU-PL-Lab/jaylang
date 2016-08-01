@@ -66,6 +66,7 @@ rule token = parse
   | "with"                           { KEYWORD_WITH }
   | "end"                            { KEYWORD_END }
   | "any"                            { KEYWORD_ANY }
+  | "fail"                           { KEYWORD_FAIL }
   | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) }
   | "\"" (string_contents as s) "\"" { STRING_LITERAL s }
   | "+"                              { BINOP_PLUS }
