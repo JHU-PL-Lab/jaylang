@@ -28,6 +28,7 @@ Library "utils"
     Monad_utils,
     Multimap,
     Multimap_pp,
+    Multimap_to_yojson,
     Nondeterminism,
     Parser_support,
     Pp_utils,
@@ -156,6 +157,7 @@ Library "pds-reachability"
     Pds_reachability_structure,
     Pds_reachability_types,
     Pds_reachability_types_stack,
+    Pds_reachability_utils,
     Pds_reachability_work,
     Pds_reachability_work_collection,
     Pds_reachability_work_collection_templates,
@@ -164,7 +166,8 @@ Library "pds-reachability"
     utils,
     batteries,
     yojson,
-    ppx_deriving.std (>= 3.2)
+    ppx_deriving.std (>= 3.2),
+    ppx_deriving_yojson
 
 Library "ddpa-analysis"
   Path: src/ddpa-analysis

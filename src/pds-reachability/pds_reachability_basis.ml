@@ -3,9 +3,7 @@
    reachability functor.
 *)
 
-open Batteries;;
-open Pp_utils;;
-open Yojson.Safe;;
+open Pds_reachability_utils;;
 
 (**
    A module type which serves as the basis for the functor which builds the
@@ -13,15 +11,6 @@ open Yojson.Safe;;
 *)
 module type Basis =
 sig
-  type state
-  type stack_element
-
-  module State_ord : Interfaces.OrderedType with type t = state
-  module Stack_element_ord : Interfaces.OrderedType with type t = stack_element
-
-  val pp_state : state pretty_printer
-  val pp_stack_element : stack_element pretty_printer
-
-  val state_to_yojson : state -> json
-  val stack_element_to_yojson : stack_element -> json
+  module State : Decorated_type
+  module Stack_element : Decorated_type
 end;;

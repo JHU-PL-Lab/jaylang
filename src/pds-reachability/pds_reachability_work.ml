@@ -1,5 +1,6 @@
 open Pds_reachability_basis;;
 open Pds_reachability_types;;
+open Pds_reachability_utils;;
 
 (** This module specifies the type used to describe work in a PDS reachability
     analysis as well as the interface for managing a pending work collection. *)
@@ -10,53 +11,33 @@ sig
 
   (** The types module for the PDS reachability analysis. *)
   module T : Types
-    with type state = B.state
-     and type stack_element = B.stack_element;;
+    with module State = B.State
+     and module Stack_element = B.Stack_element;;
 
-  (** The type of a work unit. *)
-  type work =
-    | Expand_node of T.node
-    | Introduce_edge of T.edge
+  type t =
+    | Expand_node of T.Node.t
+    | Introduce_edge of T.Edge.t
     | Introduce_untargeted_dynamic_pop of
-        T.node * T.untargeted_dynamic_pop_action
+        T.Node.t * T.Untargeted_dynamic_pop_action.t
   ;;
-
-  (** An equality test for work unit. *)
-  val equal_work : work -> work -> bool
-
-  (** A comparator for work units. *)
-  val compare_work : work -> work -> int
-
-  (** A pretty-printer for work units. *)
-  val pp_work : Format.formatter -> work -> unit
-
-  (** A conversion from work units to strings. *)
-  val show_work : work -> string
+  include Decorated_type with type t := t;;
 end;;
 
 module Make
     (B : Basis)
-    (T : Types with type state = B.state
-                and type stack_element = B.stack_element)
+    (T : Types with module State = B.State
+                and module Stack_element = B.Stack_element)
   : Work_type with module B = B
                and module T = T
 =
 struct
   module B = B;;
   module T = T;;
-  type t_node = T.node;;
-  type t_edge = T.edge;;
-  let equal_t_node = T.equal_node;;
-  let equal_t_edge = T.equal_edge;;
-  let compare_t_node = T.compare_node;;
-  let compare_t_edge = T.compare_edge;;
-  let pp_t_node = T.pp_node;;
-  let pp_t_edge = T.pp_edge;;
-  type work =
-    | Expand_node of t_node
-    | Introduce_edge of t_edge
+  type t =
+    | Expand_node of T.Node.t
+    | Introduce_edge of T.Edge.t
     | Introduce_untargeted_dynamic_pop of
-        T.node * T.untargeted_dynamic_pop_action
-    [@@deriving eq, ord, show]
+        T.Node.t * T.Untargeted_dynamic_pop_action.t
+    [@@deriving eq, ord, show, to_yojson]
   ;;
 end;;

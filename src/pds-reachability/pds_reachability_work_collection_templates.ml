@@ -6,7 +6,7 @@ open Pds_reachability_work_collection;;
 module Work_stack : Work_collection_template = functor(W : Work_type) ->
 struct
   module W = W;;
-  type work_collection = W.work list
+  type work_collection = W.t list
     [@@deriving eq, ord, show]
   ;;
   let empty = [];;

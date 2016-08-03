@@ -36,10 +36,16 @@ sig
   val enum : t -> (key * value) Enum.t
 
   val of_enum : (key * value) Enum.t -> t
+
+  val enum_by_key : t -> (key * S.t) Enum.t
+
+  val equal : t -> t -> bool
+
+  val compare : t -> t -> int
 end;;
 
 module Make(Key_ord : BatInterfaces.OrderedType)
-           (Value_ord : BatInterfaces.OrderedType)
+    (Value_ord : BatInterfaces.OrderedType)
   : Multimap_sig with type key = Key_ord.t and type value = Value_ord.t =
 struct
   module M = Map.Make(Key_ord);;
@@ -62,8 +68,8 @@ struct
 
   let find_internal k m =
     match M.Exceptionless.find k m with
-      | None -> S.empty
-      | Some v -> v
+    | None -> S.empty
+    | Some v -> v
   ;;
 
   let add k v (Multimap m) =
@@ -74,8 +80,8 @@ struct
 
   let find k (Multimap m) =
     match M.Exceptionless.find k m with
-      | None -> Enum.empty ()
-      | Some v -> S.enum v
+    | None -> Enum.empty ()
+    | Some v -> S.enum v
   ;;
 
   let remove k v (Multimap m) =
@@ -105,13 +111,21 @@ struct
   let enum (Multimap m) =
     M.enum m
     |> Enum.map
-        (fun (k,vs) ->
-          S.enum vs |> Enum.map (fun v -> (k,v))
-        )
+      (fun (k,vs) ->
+         S.enum vs |> Enum.map (fun v -> (k,v))
+      )
     |> Enum.concat
   ;;
 
   let of_enum =
     Enum.fold (fun a (k,v) -> add k v a) empty
   ;;
+
+  let enum_by_key (Multimap m) =
+    M.enum m
+  ;;
+
+  let compare (Multimap x) (Multimap y) = M.compare S.compare x y;;
+
+  let equal x y = compare x y == 0;;
 end;;

@@ -6,27 +6,27 @@ open Pp_utils;;
 include Pds_reachability_logger_utils_types;;
 
 module Make(Basis : Pds_reachability_basis.Basis)
-           (Dph : Pds_reachability_types_stack.Dynamic_pop_handler
-              with type stack_element = Basis.stack_element
-               and type state = Basis.state
-           )
-           (Types : Pds_reachability_types.Types
-              with type stack_element = Basis.stack_element
-               and type state = Basis.state
-               and type targeted_dynamic_pop_action =
-                          Dph.targeted_dynamic_pop_action
-               and type untargeted_dynamic_pop_action =
-                          Dph.untargeted_dynamic_pop_action
-           )
-           (Structure : Pds_reachability_structure.Structure
-              with type stack_element = Basis.stack_element
-               and type edge = Types.edge
-               and type node = Types.node
-               and type targeted_dynamic_pop_action =
-                          Types.targeted_dynamic_pop_action
-               and type untargeted_dynamic_pop_action =
-                          Types.untargeted_dynamic_pop_action
-           ) =
+    (Dph : Pds_reachability_types_stack.Dynamic_pop_handler
+     with module Stack_element = Basis.Stack_element
+      and module State = Basis.State
+    )
+    (Types : Pds_reachability_types.Types
+     with module Stack_element = Basis.Stack_element
+      and module State = Basis.State
+      and module Targeted_dynamic_pop_action =
+            Dph.Targeted_dynamic_pop_action
+      and module Untargeted_dynamic_pop_action =
+            Dph.Untargeted_dynamic_pop_action
+    )
+    (Structure : Pds_reachability_structure.Structure
+     with module Stack_element = Basis.Stack_element
+      and module Edge = Types.Edge
+      and module Node = Types.Node
+      and module Targeted_dynamic_pop_action =
+            Types.Targeted_dynamic_pop_action
+      and module Untargeted_dynamic_pop_action =
+            Types.Untargeted_dynamic_pop_action
+    ) =
 struct
   module Logger_basis =
   struct
@@ -43,14 +43,14 @@ struct
     type dot_node_id = Types.node;;
     let rec string_of_dot_node_id node =
       match node with
-      | Types.State_node state -> pp_to_string Basis.pp_state state
+      | Types.State_node state -> pp_to_string Basis.State.pp state
       | Types.Intermediate_node (node',actions) ->
         Printf.sprintf "InterNode(%s,%s)"
           (string_of_dot_node_id node')
           (String_utils.string_of_list Types.show_stack_action actions)
     ;;
 
-    type data = Structure.structure;;
+    type data = Structure.t;;
     let string_of_edge_action = pp_to_string Types.pp_stack_action ;;
     let graph_of structure =
       let nodes = Structure.enumerate_nodes structure in
@@ -59,27 +59,27 @@ struct
         nodes
         |> Enum.map
           (fun node ->
-            { dot_node_id = node
-            ; dot_node_color =
-              begin
-                match node with
-                | Types.State_node _ -> Some "#aaccff"
-                | Types.Intermediate_node _ -> Some "#ccaaff"
-              end
-            ; dot_node_text =
-              Some (pp_to_string Types.pp_node node)
-            }
+             { dot_node_id = node
+             ; dot_node_color =
+                 begin
+                   match node with
+                   | Types.State_node _ -> Some "#aaccff"
+                   | Types.Intermediate_node _ -> Some "#ccaaff"
+                 end
+             ; dot_node_text =
+                 Some (pp_to_string Types.Node.pp node)
+             }
           )
       in
       let edges' =
         edges
         |> Enum.map
           (fun edge ->
-            { dot_edge_source = edge.Types.source
-            ; dot_edge_target = edge.Types.target
-            ; dot_edge_text =
-              Some (string_of_edge_action edge.Types.edge_action)
-            }
+             { dot_edge_source = edge.Types.source
+             ; dot_edge_target = edge.Types.target
+             ; dot_edge_text =
+                 Some (string_of_edge_action edge.Types.edge_action)
+             }
           )
       in
       (nodes',edges')

@@ -5,6 +5,7 @@ open Ddpa_graph;;
 module type Context_stack =
 sig
   type t
+  val equal : t -> t -> bool
   val compare : t -> t -> int
   val empty : t
   val push : abstract_clause -> t -> t

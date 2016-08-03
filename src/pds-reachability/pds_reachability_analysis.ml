@@ -6,6 +6,7 @@ open Batteries;;
 
 open Pds_reachability_types_stack;;
 open Pp_utils;;
+open Yojson_utils;;
 
 let lazy_logger = Logger_utils.make_lazy_logger "Pds_reachability_analysis";;
 
@@ -14,14 +15,12 @@ sig
   include Pds_reachability_types.Types;;
 
   (** The type of edge-generating functions used in this analysis. *)
-  type edge_function = state -> (stack_action list * state) Enum.t
+  type edge_function = State.t -> (stack_action list * State.t) Enum.t
 
   (** The type of functions to generate untargeted dynamic pop actions in this
       analysis. *)
   type untargeted_dynamic_pop_action_function =
-    state -> untargeted_dynamic_pop_action Enum.t
-
-  exception Reachability_request_for_non_start_state of state;;
+    State.t -> Untargeted_dynamic_pop_action.t Enum.t
 
   (** The type of a reachability analysis in this module. *)
   type analysis
@@ -32,7 +31,7 @@ sig
 
   (** Adds a single edge to a reachability analysis. *)
   val add_edge
-    : state -> stack_action list -> state -> analysis -> analysis
+    : State.t -> stack_action list -> State.t -> analysis -> analysis
 
   (** Adds a function to generate edges for a reachability analysis.  Given a
       source node, the function generates edges from that source node.  The
@@ -46,7 +45,7 @@ sig
       some way by the pushed element that the untargeted dynamic pop is
       consuming. *)
   val add_untargeted_dynamic_pop_action
-    : state -> untargeted_dynamic_pop_action -> analysis -> analysis
+    : State.t -> Untargeted_dynamic_pop_action.t -> analysis -> analysis
 
   (** Adds a function to generate untargeted dynamic pop ations for a
       reachability analysis.  Given a source node, the function generates
@@ -60,7 +59,7 @@ sig
       state to be used as the source state of a call to [get_reachable_states].
   *)
   val add_start_state
-    : state
+    : State.t
     -> stack_action list
     -> analysis
     -> analysis
@@ -80,10 +79,10 @@ sig
       previously.  If the analysis is not fully closed, then the enumeration of
       reachable states may be incomplete.  *)
   val get_reachable_states
-    : state
+    : State.t
     -> stack_action list
     -> analysis
-    -> state Enum.t
+    -> State.t Enum.t
 
   (** Pretty-printing function for the analysis. *)
   val pp_analysis : analysis pretty_printer
@@ -91,7 +90,7 @@ sig
 
   (** An exception raised when a reachable state query occurs before the state
       is added as a start state. *)
-  exception Reachability_request_for_non_start_state of state;;
+  exception Reachability_request_for_non_start_state of State.t;;
 
   (** Determines the size of the provided analysis in terms of both node and
       edge count (respectively). *)
@@ -101,15 +100,15 @@ end;;
 module Make
     (Basis : Pds_reachability_basis.Basis)
     (Dph : Pds_reachability_types_stack.Dynamic_pop_handler
-     with type stack_element = Basis.stack_element
-      and type state = Basis.state)
+     with module Stack_element = Basis.Stack_element
+      and module State = Basis.State)
     (Work_collection_template_impl :
        Pds_reachability_work_collection.Work_collection_template)
   : Analysis
-    with type state = Basis.state
-     and type stack_element = Basis.stack_element
-     and type targeted_dynamic_pop_action = Dph.targeted_dynamic_pop_action
-     and type untargeted_dynamic_pop_action = Dph.untargeted_dynamic_pop_action
+    with module State = Basis.State
+     and module Stack_element = Basis.Stack_element
+     and module Targeted_dynamic_pop_action = Dph.Targeted_dynamic_pop_action
+     and module Untargeted_dynamic_pop_action = Dph.Untargeted_dynamic_pop_action
 =
 struct
   (********** Create and wire in appropriate components. **********)
@@ -121,24 +120,34 @@ struct
 
   include Types;;
 
-  type edge_function = state -> (stack_action list * state) Enum.t;;
+  type edge_function = State.t -> (stack_action list * State.t) Enum.t;;
   type untargeted_dynamic_pop_action_function =
-    state -> untargeted_dynamic_pop_action Enum.t;;
+    State.t -> Untargeted_dynamic_pop_action.t Enum.t;;
 
   (********** Define utility data structures. **********)
 
-  exception Reachability_request_for_non_start_state of state;;
+  exception Reachability_request_for_non_start_state of State.t;;
 
-  module State_set = Set.Make(Basis.State_ord);;
-
-  module Node_ord =
-  struct
-    type t = Types.node
-    let compare = Types.compare_node
+  module State_set = struct
+    module Impl = Set.Make(Basis.State);;
+    include Impl;;
+    include Set_pp(Impl)(Basis.State);;
+    include Set_to_yojson(Impl)(Basis.State);;
   end;;
 
-  module Node_set = Set.Make(Node_ord);;
-  module Node_map = Map.Make(Node_ord);;
+  module Node_set = struct
+    module Impl = Set.Make(Node);;
+    include Impl;;
+    include Set_pp(Impl)(Node);;
+    include Set_to_yojson(Impl)(Node);;
+  end;;
+
+  module Node_map = struct
+    module Impl = Map.Make(Node);;
+    include Impl;;
+    include Map_pp(Impl)(Node);;
+    include Map_to_yojson(Impl)(Node);;
+  end;;
 
   (********** Define analysis structure. **********)
 
@@ -155,20 +164,17 @@ struct
 
   type analysis =
     { node_awareness_map : node_awareness Node_map.t
-          [@printer Pp_utils.pp_map pp_node pp_node_awareness Node_map.enum]
     (* A mapping from each node to whether the analysis is aware of it.  Any node
        not in this map has not been seen in any fashion.  Every node that has been
        seen will be mapped to an appropriate [node_awareness] value. *)
     ; known_states : State_set.t
-          [@printer Pp_utils.pp_set Basis.pp_state State_set.enum]
     (* A collection of all states appearing somewhere within the reachability
        structure (whether they have been expanded or not). *)
     ; start_nodes : Node_set.t
-          [@printer Pp_utils.pp_set Types.pp_node Node_set.enum]
     (* A collection of the nodes which are recognized starting points.  Nop
        closure is only valid when sourced from these nodes, so these are the
        only nodes from which reachability questions are appropriate. *)
-    ; reachability : Structure.structure
+    ; reachability : Structure.t
     (* The underlying structure maintaining the nodes and edges in the graph. *)
     ; edge_functions : edge_function list
           [@printer fun formatter functions ->
@@ -387,7 +393,7 @@ struct
       lazy_logger `trace
         (fun () ->
            Printf.sprintf "PDS reachability closure step: %s"
-             (Work.show_work work)
+             (Work.show work)
         );
       let analysis = { analysis with work_collection = new_work_collection } in
       (* A utility function to add a node to a set *only if* it needs to be
@@ -434,7 +440,7 @@ struct
               |> Enum.concat
               |> Enum.map
                 (fun action ->
-                  Work.Introduce_untargeted_dynamic_pop(node, action)
+                   Work.Introduce_untargeted_dynamic_pop(node, action)
                 )
             in
             { (analysis |> add_works edge_work |> add_works popdynu_work) with
@@ -581,7 +587,7 @@ struct
                 analysis.reachability
                 |> Structure.find_pop_edges_by_source to_node
                 |> Enum.filter
-                  (fun (_, element) -> equal_stack_element k element)
+                  (fun (_, element) -> Stack_element.equal k element)
                 |> Enum.fold
                   (fun (work_list, expand_set) (to_node', _) ->
                      let work =
@@ -651,7 +657,7 @@ struct
                 |> Structure.find_push_edges_by_target from_node
                 |> Enum.filter_map
                   (fun (from_node', element) ->
-                     if equal_stack_element element k
+                     if Stack_element.equal element k
                      then Some(
                          Work.Introduce_edge(
                            { source = from_node'

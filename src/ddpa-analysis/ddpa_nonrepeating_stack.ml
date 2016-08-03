@@ -7,6 +7,7 @@ open Pp_utils;;
 module Stack : Context_stack =
 struct
   type t = S of (abstract_clause list * Abs_clause_set.t);;
+  let equal x y = compare x y == 0;;
   let compare = compare;;
   let empty = S([],Abs_clause_set.empty);;
   let push c (S(c_list,c_set)) =

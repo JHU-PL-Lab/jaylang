@@ -14,6 +14,7 @@ end;;
 module Make(S : Spec) : Context_stack =
 struct
   type t = abstract_clause dq;;
+  let equal x y = compare x y == 0;;
   let compare x y = Enum.compare compare (Deque.enum x) (Deque.enum y);;
   let empty = Deque.empty;;
   let push c x =

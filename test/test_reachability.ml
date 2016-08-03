@@ -10,52 +10,69 @@ let lazy_logger = Logger_utils.make_lazy_logger "Test_reachability";;
 
 open Pds_reachability_types_stack;;
 
-module Test_state_ord =
+module Test_state =
 struct
   type t = int
+  let equal = (==)
   let compare = compare
+  let pp = Format.pp_print_int
+  let show = string_of_int
+  let to_yojson n = `Int n
 end;;
 
-module Test_stack_element_ord =
+module Test_stack_element =
 struct
   type t = char
+  let equal = (==)
   let compare = compare
+  let pp fmt c = Format.pp_print_string fmt (String.make 1 c)
+  let show c = String.make 1 c
+  let to_yojson c = `String (String.make 1 c)
 end;;
 
 module Test_spec =
 struct
-  type state = int
-  type stack_element = char
-  module State_ord = Test_state_ord
-  module Stack_element_ord = Test_stack_element_ord
-  let pp_state = Format.pp_print_int;;
-  let pp_stack_element = Format.pp_print_char;;
-  let state_to_yojson n = `Int n;;
-  let stack_element_to_yojson c = `String (String.make 1 c);;
+  module State = Test_state
+  module Stack_element = Test_stack_element
 end;;
 
 module Test_dph =
 struct
-  type stack_element = Test_spec.stack_element;;
-  let compare_stack_element = Test_stack_element_ord.compare;;
-  type state = Test_spec.state;;
-  let compare_state = Test_state_ord.compare;;
-  open Test_spec;;
+  module State = Test_state
+  module Stack_element = Test_stack_element
   type targeted_dynamic_pop_action =
     | Double_push
     | Consume_identical_1_of_2
-    | Consume_identical_2_of_2 of stack_element
-    | Chain_two_push_1_of_2 of stack_element * stack_element
-    | Chain_two_push_2_of_2 of stack_element
-    [@@deriving ord, show]
+    | Consume_identical_2_of_2 of Stack_element.t
+    | Chain_two_push_1_of_2 of Stack_element.t * Stack_element.t
+    | Chain_two_push_2_of_2 of Stack_element.t
+    [@@deriving eq, ord, show, to_yojson]
   ;;
+  module Targeted_dynamic_pop_action =
+  struct
+    type t = targeted_dynamic_pop_action;;
+    let equal = equal_targeted_dynamic_pop_action;;
+    let compare = compare_targeted_dynamic_pop_action;;
+    let pp = pp_targeted_dynamic_pop_action;;
+    let show = show_targeted_dynamic_pop_action;;
+    let to_yojson = targeted_dynamic_pop_action_to_yojson;;
+  end;;
   type untargeted_dynamic_pop_action =
-    | Target_condition_on_element_is_A of state * state
-    [@@deriving ord, show]
+    | Target_condition_on_element_is_A of State.t * State.t
+    [@@deriving eq, ord, show, to_yojson]
   ;;
+  module Untargeted_dynamic_pop_action =
+  struct
+    type t = untargeted_dynamic_pop_action;;
+    let equal = equal_untargeted_dynamic_pop_action;;
+    let compare = compare_untargeted_dynamic_pop_action;;
+    let pp = pp_untargeted_dynamic_pop_action;;
+    let show = show_untargeted_dynamic_pop_action;;
+    let to_yojson = untargeted_dynamic_pop_action_to_yojson;;
+  end;;
   type stack_action =
-    ( stack_element
-    , targeted_dynamic_pop_action
+    ( Stack_element.t
+    , Targeted_dynamic_pop_action.t
     ) pds_stack_action
   ;;
 
@@ -65,7 +82,7 @@ struct
     | Consume_identical_1_of_2 -> Enum.singleton
                                     [Pop_dynamic_targeted(Consume_identical_2_of_2 element)]
     | Consume_identical_2_of_2 element' ->
-      if Test_stack_element_ord.compare element element' == 0
+      if Test_stack_element.compare element element' == 0
       then Enum.singleton []
       else Enum.empty ()
     | Chain_two_push_1_of_2(k1,k2) ->

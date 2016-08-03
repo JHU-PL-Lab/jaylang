@@ -120,6 +120,7 @@ module Set_pp :
   functor(S : Set.S)(P : Pp with type t = S.elt) ->
   sig
     val pp : S.t pretty_printer
+    val show : S.t -> string
   end
 
 (** A functor which generates a pretty printer for an existing functorized
@@ -128,4 +129,5 @@ module Map_pp :
   functor(M : Map.S)(P : Pp with type t = M.key) ->
   sig
     val pp : 'v pretty_printer -> 'v M.t pretty_printer
+    val show : 'v pretty_printer -> 'v M.t -> string
   end

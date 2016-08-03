@@ -6,6 +6,7 @@ open Pp_utils;;
 module Stack : Context_stack =
 struct
   type t = unit;;
+  let equal () () = true;;
   let compare () () = 0;;
   let empty = ();;
   let push _ () = ();;

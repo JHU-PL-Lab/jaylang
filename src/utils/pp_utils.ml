@@ -88,9 +88,11 @@ end
 module Set_pp(S : Set.S)(P : Pp with type t = S.elt) =
 struct
   let pp = pp_set P.pp S.enum;;
+  let show = pp_to_string pp;;
 end;;
 
 module Map_pp(M : Map.S)(P : Pp with type t = M.key) =
 struct
   let pp pp_value = pp_map P.pp pp_value M.enum;;
+  let show pp_value = pp_to_string @@ pp pp_value;;
 end;;

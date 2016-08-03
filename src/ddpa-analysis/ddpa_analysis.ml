@@ -200,6 +200,7 @@ struct
   module Bounded_capture_size :
   sig
     type t;;
+    val equal : t -> t -> bool
     val compare : t -> t -> int
     val of_int : int -> t
     val to_int : t -> int
@@ -208,7 +209,7 @@ struct
   end =
   struct
     type t = Bounded_capture_size of int
-      [@@deriving ord]
+      [@@deriving eq, ord]
     ;;
     let max_capture_size = 5;;
     let of_int n =
@@ -244,13 +245,17 @@ struct
     | Binary_operation
     | Unary_operation
     | Indexing
-    [@@deriving ord, show, to_yojson]
+    [@@deriving eq, ord, show, to_yojson]
   ;;
 
-  module Pds_continuation_ord =
+  module Pds_continuation =
   struct
-    type t = pds_continuation
-    let compare = compare_pds_continuation
+    type t = pds_continuation;;
+    let equal = equal_pds_continuation;;
+    let compare = compare_pds_continuation;;
+    let pp = pp_pds_continuation;;
+    let show = show_pds_continuation;;
+    let to_yojson = pds_continuation_to_yojson;;
   end;;
 
   type pds_state =
@@ -259,25 +264,23 @@ struct
         context. *)
     | Result_state of abs_filtered_value
     (** A state in the PDS representing a value result. *)
-    [@@deriving ord, show, to_yojson]
+    [@@deriving eq, ord, show, to_yojson]
   ;;
 
-  module Program_point_state_ord =
+  module Pds_state =
   struct
-    type t = pds_state
-    let compare = compare_pds_state
+    type t = pds_state;;
+    let equal = equal_pds_state;;
+    let compare = compare_pds_state;;
+    let pp = pp_pds_state;;
+    let show = show_pds_state;;
+    let to_yojson = pds_state_to_yojson;;
   end;;
 
   module Ddpa_pds_reachability_basis =
   struct
-    type state = pds_state
-    type stack_element = pds_continuation
-    module State_ord = Program_point_state_ord
-    module Stack_element_ord = Pds_continuation_ord
-    let pp_state = pp_pds_state
-    let pp_stack_element = pp_pds_continuation
-    let state_to_yojson = pds_state_to_yojson
-    let stack_element_to_yojson = pds_continuation_to_yojson
+    module State = Pds_state;;
+    module Stack_element = Pds_continuation;;
   end
 
   type pds_targeted_dynamic_pop_action =
@@ -304,7 +307,7 @@ struct
         the variable which we should *not* match.  The second step carries
         the variable continuation and confirms the absence of a dereference
         continuation. *)
-    | Stateless_nonmatching_clause_skip_2_of_2 of pds_continuation
+    | Stateless_nonmatching_clause_skip_2_of_2 of Pds_continuation.t
     (** The second step of skipping a non-matching clause while stateless. *)
     | Value_capture_1_of_3
     (** Represents the first step of the value capture action.  This step
@@ -314,7 +317,7 @@ struct
         extracts the number of other stack elements to gather up before
         capturing the value. *)
     | Value_capture_3_of_3 of
-        abs_filtered_value * pds_continuation list * Bounded_capture_size.t
+        abs_filtered_value * Pds_continuation.t list * Bounded_capture_size.t
     (** Represents the third step of the value capture action.  This action
         collects other stack elements into a list until it has consumed as
         many as the original Capture stack element dictated.  It then pushes
@@ -417,14 +420,14 @@ struct
     | Cell_dereference_2_of_2 of ref_value
     (** Represents the second step of dereferencing a located cell.  The
         provided value is the cell in question. *)
-    | Cell_update_alias_analysis_init_1_of_2 of var * pds_state * pds_state
+    | Cell_update_alias_analysis_init_1_of_2 of var * Pds_state.t * Pds_state.t
     (** Represents the initialization of alias analysis for a given cell
         update.  This is used to determine if the update in question is
         modifying a cell for which we are looking via a different name.  The
         variable here is the cell being updated; the states are the source and
         target state of the original transition, respectively. *)
     | Cell_update_alias_analysis_init_2_of_2 of
-        var * pds_state * pds_state * var * Pattern_set.t * Pattern_set.t
+        var * Pds_state.t * Pds_state.t * var * Pattern_set.t * Pattern_set.t
     (** Represents the second step of alias analysis initialization for a cell
         update.  The additional parameters are the contents of the
         continuation found during the first step. *)
@@ -589,8 +592,18 @@ struct
         collects and checks the lookup variable. The `abstract_value' is
         the result of the operation. A check guarantees that the given result
         is valid for the given operation. *)
-    [@@deriving ord, show]
+    [@@deriving eq, ord, show, to_yojson]
   ;;
+
+  module Pds_targeted_dynamic_pop_action =
+  struct
+    type t = pds_targeted_dynamic_pop_action
+    let equal = equal_pds_targeted_dynamic_pop_action
+    let compare = compare_pds_targeted_dynamic_pop_action
+    let pp = pp_pds_targeted_dynamic_pop_action
+    let show = show_pds_targeted_dynamic_pop_action
+    let to_yojson = pds_targeted_dynamic_pop_action_to_yojson
+  end;;
 
   type pds_untargeted_dynamic_pop_action =
     | Do_jump
@@ -602,33 +615,35 @@ struct
         stack element, so this is the first step of the process (which pops
         the value).  Because the value dictates the target of the second
         step, this is an untargeted action.  The second step is targeted. *)
-    [@@deriving ord, show]
+    [@@deriving eq, ord, show, to_yojson]
   ;;
-  let _ = show_pds_untargeted_dynamic_pop_action;;
+
+  module Pds_untargeted_dynamic_pop_action =
+  struct
+    type t = pds_untargeted_dynamic_pop_action
+    let equal = equal_pds_untargeted_dynamic_pop_action
+    let compare = compare_pds_untargeted_dynamic_pop_action
+    let pp = pp_pds_untargeted_dynamic_pop_action
+    let show = show_pds_untargeted_dynamic_pop_action
+    let to_yojson = pds_untargeted_dynamic_pop_action_to_yojson
+  end;;
 
   module Dph =
   struct
-    type stack_element = pds_continuation;;
-    type state = pds_state;;
-    type targeted_dynamic_pop_action = pds_targeted_dynamic_pop_action;;
-    type untargeted_dynamic_pop_action = pds_untargeted_dynamic_pop_action;;
+    module Stack_element = Pds_continuation;;
+    module State = Pds_state;;
+    module Targeted_dynamic_pop_action = Pds_targeted_dynamic_pop_action;;
+    module Untargeted_dynamic_pop_action = Pds_untargeted_dynamic_pop_action;;
     type stack_action =
-      ( stack_element
-      , targeted_dynamic_pop_action
+      ( Stack_element.t
+      , Targeted_dynamic_pop_action.t
       ) pds_stack_action
     ;;
-    let compare_targeted_dynamic_pop_action =
-      compare_pds_targeted_dynamic_pop_action;;
-    let pp_targeted_dynamic_pop_action = pp_pds_targeted_dynamic_pop_action;;
-    let compare_untargeted_dynamic_pop_action =
-      compare_pds_untargeted_dynamic_pop_action;;
-    let pp_untargeted_dynamic_pop_action =
-      pp_pds_untargeted_dynamic_pop_action;;
     let perform_targeted_dynamic_pop element action =
       Logger_utils.lazy_bracket_log (lazy_logger `trace)
         (fun () ->
            Printf.sprintf "perform_targeted_dynamic_pop (%s) (%s)"
-             (show_pds_continuation element)
+             (Pds_continuation.show element)
              (show_pds_targeted_dynamic_pop_action action))
         (fun results ->
            String_utils.concat_sep_delim "[" "]" ", "
@@ -636,7 +651,7 @@ struct
                results
                |> Enum.clone
                |> Enum.map (String_utils.string_of_list @@
-                            show_pds_stack_action pp_pds_continuation
+                            show_pds_stack_action Pds_continuation.pp
                               pp_pds_targeted_dynamic_pop_action)
              )
         )
@@ -1432,13 +1447,13 @@ struct
         let edge_function state =
           Logger_utils.lazy_bracket_log (lazy_logger `trace)
             (fun () -> Printf.sprintf "DDPA %s edge function at state %s"
-                (show_ddpa_edge edge) (show_pds_state state))
+                (show_ddpa_edge edge) (Pds_state.show state))
             (fun edges ->
                let string_of_output (actions,target) =
                  String_utils.string_of_tuple
                    (String_utils.string_of_list
                       Ddpa_pds_reachability.show_stack_action)
-                   show_pds_state
+                   Pds_state.show
                    (actions,target)
                in
                Printf.sprintf "Generates edges: %s"

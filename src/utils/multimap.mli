@@ -36,10 +36,16 @@ sig
   val enum : t -> (key * value) Enum.t
 
   val of_enum : (key * value) Enum.t -> t
+
+  val enum_by_key : t -> (key * S.t) Enum.t
+
+  val equal : t -> t -> bool
+
+  val compare : t -> t -> int
 end;;
 
 module Make(Key_ord : BatInterfaces.OrderedType)
-           (Value_ord : BatInterfaces.OrderedType) :
+    (Value_ord : BatInterfaces.OrderedType) :
 sig
   include Multimap_sig with type key = Key_ord.t and type value = Value_ord.t
 end;;
