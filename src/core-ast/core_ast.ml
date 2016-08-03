@@ -7,35 +7,31 @@ open Batteries;;
 (** A data type for identifiers in the toy language. *)
 type ident = Ident of string [@@deriving eq, ord, show, to_yojson];;
 
-module Ident_hash =
+module Ident =
 struct
-  type t = ident
-  let equal = equal_ident
+  type t = ident;;
+  let equal = equal_ident;;
+  let compare = compare_ident;;
+  let pp = pp_ident;;
+  let show = show_ident;;
+  let to_yojson = ident_to_yojson;;
   let hash = Hashtbl.hash
-end
-;;
+end;;
 
-module Ident_hashtbl = Hashtbl.Make(Ident_hash);;
-
-module Ident_order =
-struct
-  type t = ident
-  let compare = compare_ident
-end
-;;
+module Ident_hashtbl = Hashtbl.Make(Ident);;
 
 module Ident_set = struct
-  include Set.Make(Ident_order);;
-  let pp = Pp_utils.pp_set pp_ident enum;;
-  let to_yojson = Yojson_utils.set_to_yojson ident_to_yojson enum;;
+  module S = Set.Make(Ident);;
+  include S;;
+  include Pp_utils.Set_pp(S)(Ident);;
+  include Yojson_utils.Set_to_yojson(S)(Ident);;
 end;;
 
 module Ident_map = struct
-  include Map.Make(Ident_order);;
-  let pp pp_value = Pp_utils.pp_map pp_ident pp_value enum;;
-  let to_yojson value_to_yojson =
-    Yojson_utils.map_to_yojson ident_to_yojson value_to_yojson enum
-  ;;
+  module M = Map.Make(Ident);;
+  include M;;
+  include Pp_utils.Map_pp(M)(Ident);;
+  include Yojson_utils.Map_to_yojson(M)(Ident);;
 end;;
 
 (** A freshening stack of identifiers for variables produced at runtime.  This
@@ -54,27 +50,34 @@ type var =
   [@@deriving eq, ord, to_yojson]
 ;;
 
-module Var_order =
+module Var =
 struct
-  type t = var
-  let compare = compare_var
+  type t = var;;
+  let equal = equal_var;;
+  let compare = compare_var;;
+  let to_yojson = var_to_yojson;;
+  let hash = Hashtbl.hash;;
 end;;
 
-module Var_set = Set.Make(Var_order);;
+module Var_set =
+struct
+  module S = Set.Make(Var);;
+  include S;;
+  include Yojson_utils.Set_to_yojson(S)(Var);;
+end;;
 
-module Var_map = Map.Make(Var_order);;
+module Var_map =
+struct
+  module M = Map.Make(Var);;
+  include M;;
+  include Yojson_utils.Map_to_yojson(M)(Var);;
+end;;
 
 let var_map_union m1 m2 =
   Var_map.fold Var_map.add m2 m1
 ;;
 
-module Var_hashtbl = Hashtbl.Make(
-  struct
-    type t = var
-    let equal = equal_var
-    let hash = Hashtbl.hash
-  end
-  );;
+module Var_hashtbl = Hashtbl.Make(Var);;
 
 type binary_operator =
   | Binary_operator_plus
@@ -165,8 +168,10 @@ and pattern =
   [@@deriving eq, ord, yojson]
 ;;
 
-module Value_order =
+module Value =
 struct
   type t = value
-  let compare = compare_value
+  let equal = equal_value;;
+  let compare = compare_value;;
+  let to_yojson = value_to_yojson;;
 end;;

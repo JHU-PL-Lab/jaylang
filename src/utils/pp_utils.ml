@@ -78,3 +78,19 @@ let pp_suffix pp str formatter x =
   pp formatter x;
   Format.pp_print_string formatter str
 ;;
+
+module type Pp =
+sig
+  type t
+  val pp : t pretty_printer
+end
+
+module Set_pp(S : Set.S)(P : Pp with type t = S.elt) =
+struct
+  let pp = pp_set P.pp S.enum;;
+end;;
+
+module Map_pp(M : Map.S)(P : Pp with type t = M.key) =
+struct
+  let pp pp_value = pp_map P.pp pp_value M.enum;;
+end;;

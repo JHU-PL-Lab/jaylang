@@ -106,3 +106,26 @@ val pp_to_string : 'a pretty_printer -> 'a -> string
 
 (** Suffixes a pretty printer with a fixed string. *)
 val pp_suffix : 'a pretty_printer -> string -> 'a pretty_printer
+
+(** The type of modules which give a pretty printer. *)
+module type Pp =
+sig
+  type t
+  val pp : t pretty_printer
+end
+
+(** A functor which generates a pretty printer for an existing functorized set
+    module. *)
+module Set_pp :
+  functor(S : Set.S)(P : Pp with type t = S.elt) ->
+  sig
+    val pp : S.t pretty_printer
+  end
+
+(** A functor which generates a pretty printer for an existing functorized
+    map module. *)
+module Map_pp :
+  functor(M : Map.S)(P : Pp with type t = M.key) ->
+  sig
+    val pp : 'v pretty_printer -> 'v M.t pretty_printer
+  end

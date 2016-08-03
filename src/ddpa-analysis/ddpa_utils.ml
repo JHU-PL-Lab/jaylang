@@ -44,7 +44,7 @@ let find_all_vars e =
   and find_all_vars_in_fn (Function_value(x,e)) =
     Enum.append (Enum.singleton x) @@ find_all_vars' e
   in
-  uniq_enum Var_order.compare @@ find_all_vars' e
+  uniq_enum Var.compare @@ find_all_vars' e
 ;;
 
 (** Obtain the set of all record projection labels appearing within an
