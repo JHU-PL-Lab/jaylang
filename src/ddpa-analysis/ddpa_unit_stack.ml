@@ -13,5 +13,6 @@ struct
   let is_top _ () = true;;
   let pp formatter () = Format.pp_print_string formatter "-";;
   let show = pp_to_string pp;;
+  let to_yojson _ = `List [];;
   let name = "0ddpa";;
 end;;

@@ -12,6 +12,7 @@ open Ddpa_graph;;
 open Nondeterminism;;
 open Pds_reachability_types_stack;;
 open Pp_utils;;
+open Yojson.Safe;;
 
 let logger = Logger_utils.make_logger "Ddpa_analysis";;
 let lazy_logger = Logger_utils.make_lazy_logger "Ddpa_analysis";;
@@ -198,55 +199,52 @@ struct
   *)
   module Bounded_capture_size :
   sig
-    type bounded_capture_size;;
-    val compare_bounded_capture_size :
-      bounded_capture_size -> bounded_capture_size -> int
-    (*val equal_bounded_capture_size :
-      bounded_capture_size -> bounded_capture_size -> bool*)
-    val make_bounded_capture_size : int -> bounded_capture_size
-    val int_of_bounded_capture_size : bounded_capture_size -> int
-    val pp_bounded_capture_size : bounded_capture_size pretty_printer
+    type t;;
+    val compare : t -> t -> int
+    val of_int : int -> t
+    val to_int : t -> int
+    val pp : t pretty_printer
+    val to_yojson : t -> json
   end =
   struct
-    type bounded_capture_size =
-      | Bounded_capture_size of int
+    type t = Bounded_capture_size of int
       [@@deriving ord]
     ;;
     let max_capture_size = 5;;
-    let make_bounded_capture_size n =
+    let of_int n =
       if n >= 1 && n <= max_capture_size
       then Bounded_capture_size(n)
       else raise @@ Utils.Invariant_failure(
           Printf.sprintf "Invalid size %d provided for bounded capture" n);;
-    let int_of_bounded_capture_size (Bounded_capture_size(n)) = n;;
-    let pp_bounded_capture_size formatter (Bounded_capture_size(n)) =
+    let to_int (Bounded_capture_size(n)) = n;;
+    let pp formatter (Bounded_capture_size(n)) =
       Format.pp_print_int formatter n
     ;;
+    let to_yojson (Bounded_capture_size n) = `Int n;;
   end;;
-  open Bounded_capture_size;;
 
   type pds_continuation =
     | Bottom_of_stack
     (** The bottom of stack element is necessary as a sentinel. It's pushed as
         the initial element on the continuation stack so we don't need to check
         for empty continuation stacks. *)
-    | Lookup_var of var * pattern_set * pattern_set
-    | Project of ident * pattern_set * pattern_set
+    | Lookup_var of var * Pattern_set.t * Pattern_set.t
+    | Project of ident * Pattern_set.t * Pattern_set.t
     | Jump of annotated_clause * C.t
     | Rewind
-    | Deref of pattern_set * pattern_set
-    | Capture of bounded_capture_size
+    | Deref of Pattern_set.t * Pattern_set.t
+    | Capture of Bounded_capture_size.t
     | Continuation_value of abs_filtered_value
     | Real_flow_huh
     | Alias_huh
     | Side_effect_search_start
     | Side_effect_search_escape of var
     | Side_effect_lookup_var of
-        var * pattern_set * pattern_set * annotated_clause * C.t
+        var * Pattern_set.t * Pattern_set.t * annotated_clause * C.t
     | Binary_operation
     | Unary_operation
     | Indexing
-    [@@deriving ord, show]
+    [@@deriving ord, show, to_yojson]
   ;;
 
   module Pds_continuation_ord =
@@ -261,7 +259,7 @@ struct
         context. *)
     | Result_state of abs_filtered_value
     (** A state in the PDS representing a value result. *)
-    [@@deriving ord, show]
+    [@@deriving ord, show, to_yojson]
   ;;
 
   module Program_point_state_ord =
@@ -278,6 +276,8 @@ struct
     module Stack_element_ord = Pds_continuation_ord
     let pp_state = pp_pds_state
     let pp_stack_element = pp_pds_continuation
+    let state_to_yojson = pds_state_to_yojson
+    let stack_element_to_yojson = pds_continuation_to_yojson
   end
 
   type pds_targeted_dynamic_pop_action =
@@ -314,7 +314,7 @@ struct
         extracts the number of other stack elements to gather up before
         capturing the value. *)
     | Value_capture_3_of_3 of
-        abs_filtered_value * pds_continuation list * bounded_capture_size
+        abs_filtered_value * pds_continuation list * Bounded_capture_size.t
     (** Represents the third step of the value capture action.  This action
         collects other stack elements into a list until it has consumed as
         many as the original Capture stack element dictated.  It then pushes
@@ -368,7 +368,7 @@ struct
     (** Represents the processing of a record projection on the stack.  This
         action requires two steps: one to grab the record and one to grab the
         value. *)
-    | Record_projection_2_of_2 of record_value * pattern_set * pattern_set
+    | Record_projection_2_of_2 of record_value * Pattern_set.t * Pattern_set.t
     (** The second step of handling record projection. *)
     | Function_filter_validation of var * abstract_function_value
     (** Represents the validation of filters for a function under lookup.  If
@@ -424,7 +424,7 @@ struct
         variable here is the cell being updated; the states are the source and
         target state of the original transition, respectively. *)
     | Cell_update_alias_analysis_init_2_of_2 of
-        var * pds_state * pds_state * var * pattern_set * pattern_set
+        var * pds_state * pds_state * var * Pattern_set.t * Pattern_set.t
     (** Represents the second step of alias analysis initialization for a cell
         update.  The additional parameters are the contents of the
         continuation found during the first step. *)
@@ -444,7 +444,7 @@ struct
         from the stack.  The boolean indicates whether the two abstract values
         were equal. *)
     | Alias_analysis_resolution_5_of_5 of
-        var * bool * var * pattern_set * pattern_set
+        var * bool * var * Pattern_set.t * Pattern_set.t
     (** Alias analysis resolution after consuming the lookup variable from the
         stack.  The additional elements here are the components of the lookup
         continuation. *)
@@ -464,7 +464,7 @@ struct
         looking for an immediate definition in that case).  The clause and
         context represent the starting point of the side-effect search. *)
     | Side_effect_search_init_2_of_2 of
-        var * pattern_set * pattern_set * annotated_clause * C.t
+        var * Pattern_set.t * Pattern_set.t * annotated_clause * C.t
     (** Represents the initialization of a search for side effects.  At this
         point, all work has been performed except (1) validating the presence
         of a deref and (2) pushing the appropriate lookup continuations onto
@@ -683,11 +683,11 @@ struct
         let%orzero Capture(size) = element in
         return [ Pop_dynamic_targeted(Value_capture_3_of_3(fv,[],size)) ]
       | Value_capture_3_of_3(fv,collected_elements,size) ->
-        let n = int_of_bounded_capture_size size in
+        let n = Bounded_capture_size.to_int size in
         if n > 1
         then
           begin
-            let size' = make_bounded_capture_size (n-1) in
+            let size' = Bounded_capture_size.of_int (n-1) in
             return
               [Pop_dynamic_targeted
                  (Value_capture_3_of_3(fv,element::collected_elements,size'))]
@@ -709,7 +709,7 @@ struct
         return [ Push(element)
                ; Push(Real_flow_huh)
                ; Push(Jump(acl0,ctx0))
-               ; Push(Capture(make_bounded_capture_size 2))
+               ; Push(Capture(Bounded_capture_size.of_int 2))
                ; Push(Lookup_var(x2'',Pattern_set.empty,Pattern_set.empty))
                ; Push(Jump(c,ctxc))
                ; Push(Lookup_var(x3'',Pattern_set.empty,Pattern_set.empty))
@@ -905,8 +905,8 @@ struct
         (* The lists below are in reverse order of their presentation in the
            formal rules because we are not directly modifying the stack;
            instead, we are pushing stack elements one at a time. *)
-        let capture_size_5 = make_bounded_capture_size 5 in
-        let capture_size_2 = make_bounded_capture_size 2 in
+        let capture_size_5 = Bounded_capture_size.of_int 5 in
+        let capture_size_2 = Bounded_capture_size.of_int 2 in
         let k1'' = [ Capture capture_size_5 ; Lookup_var(x,patsp0,patsn0) ] in
         let k2'' = [ Capture capture_size_2
                    ; Lookup_var(x',Pattern_set.empty,Pattern_set.empty)
@@ -983,8 +983,8 @@ struct
         (* The following stack elements are "backwards" because they appear in
            the order in which they are pushed (similar to the other case of
            alias analysis initialization). *)
-        let capture_size_5 = make_bounded_capture_size 5 in
-        let capture_size_2 = make_bounded_capture_size 2 in
+        let capture_size_5 = Bounded_capture_size.of_int 5 in
+        let capture_size_2 = Bounded_capture_size.of_int 2 in
         let k1'' =
           [ Capture(capture_size_5)
           ; Lookup_var(x',Pattern_set.empty,Pattern_set.empty) ]
@@ -1056,8 +1056,8 @@ struct
         (* The lists below are in reverse order of their presentation in the
            formal rules because we are not directly modifying the stack;
            instead, we are pushing stack elements one at a time. *)
-        let capture_size_5 = make_bounded_capture_size 5 in
-        let capture_size_2 = make_bounded_capture_size 2 in
+        let capture_size_5 = Bounded_capture_size.of_int 5 in
+        let capture_size_2 = Bounded_capture_size.of_int 2 in
         let k1'' = [ Capture capture_size_5
                    ; Lookup_var(x2,Pattern_set.empty,Pattern_set.empty)
                    ] in
@@ -1073,7 +1073,7 @@ struct
         (* The lists below are in reverse order of their presentation in the
            formal rules because we are not directly modifying the stack;
            instead, we are pushing stack elements one at a time. *)
-        let capture_size_2 = make_bounded_capture_size 2 in
+        let capture_size_2 = Bounded_capture_size.of_int 2 in
         let k1'' = [ Capture capture_size_2
                    ; Lookup_var(x2,Pattern_set.empty,Pattern_set.empty)
                    ] in
@@ -1086,8 +1086,8 @@ struct
         (* The lists below are in reverse order of their presentation in the
            formal rules because we are not directly modifying the stack;
            instead, we are pushing stack elements one at a time. *)
-        let capture_size_5 = make_bounded_capture_size 5 in
-        let capture_size_2 = make_bounded_capture_size 2 in
+        let capture_size_5 = Bounded_capture_size.of_int 5 in
+        let capture_size_2 = Bounded_capture_size.of_int 2 in
         let k1'' = [ Capture capture_size_5
                    ; Lookup_var(x2,Pattern_set.empty,Pattern_set.empty)
                    ] in
@@ -2058,7 +2058,7 @@ struct
          then ""
          else
            Printf.sprintf " with pattern sets %s and %s"
-             (show_pattern_set patsp) (show_pattern_set patsn)
+             (Pattern_set.show patsp) (Pattern_set.show patsn)
       )
       (fun (values, _) ->
          let pp formatter values =

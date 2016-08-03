@@ -29,5 +29,8 @@ struct
     Format.pp_print_string formatter "?"
   ;;
   let show = pp_to_string pp;;
+  let to_yojson (S(lst)) =
+    `List (List.map abstract_clause_to_yojson lst)
+  ;;
   let name = "2ddpa";;
 end;;

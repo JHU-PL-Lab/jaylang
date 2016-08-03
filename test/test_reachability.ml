@@ -30,8 +30,8 @@ struct
   module Stack_element_ord = Test_stack_element_ord
   let pp_state = Format.pp_print_int;;
   let pp_stack_element = Format.pp_print_char;;
-  let ppa_state = pp_state
-  let ppa_stack_element = pp_stack_element
+  let state_to_yojson n = `Int n;;
+  let stack_element_to_yojson c = `String (String.make 1 c);;
 end;;
 
 module Test_dph =
@@ -57,23 +57,6 @@ struct
     ( stack_element
     , targeted_dynamic_pop_action
     ) pds_stack_action
-  ;;
-  let ppa_targeted_dynamic_pop_action formatter = function
-    | Double_push -> Format.pp_print_string formatter "DP"
-    | Consume_identical_1_of_2 -> Format.pp_print_string formatter "CI1"
-    | Consume_identical_2_of_2(k) ->
-      Format.fprintf formatter "CI2(%a)" Test_spec.ppa_stack_element k
-    | Chain_two_push_1_of_2(k1,k2) ->
-      Format.fprintf formatter "CDP1(%a,%a)"
-        Test_spec.ppa_stack_element k1 Test_spec.ppa_stack_element k2
-    | Chain_two_push_2_of_2(k) ->
-      Format.fprintf formatter "CDP2(%a)" Test_spec.ppa_stack_element k
-  ;;
-
-  let ppa_untargeted_dynamic_pop_action formatter = function
-    | Target_condition_on_element_is_A(s1,s2) ->
-      Format.fprintf formatter "TCO_A(%a,%a)"
-        Test_spec.ppa_state s1 Test_spec.ppa_state s2
   ;;
 
   let perform_targeted_dynamic_pop element action =

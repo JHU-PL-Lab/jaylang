@@ -37,5 +37,8 @@ struct
     Deque.enum x
   ;;
   let show = pp_to_string pp;;
+  let to_yojson c =
+    `List (List.map abstract_clause_to_yojson @@ Deque.to_list c)
+  ;;
   let name = string_of_int S.size ^ "ddpa";;
 end;;

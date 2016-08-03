@@ -5,6 +5,7 @@
 
 open Batteries;;
 open Pp_utils;;
+open Yojson.Safe;;
 
 (**
    A module type which serves as the basis for the functor which builds the
@@ -20,4 +21,7 @@ sig
 
   val pp_state : state pretty_printer
   val pp_stack_element : stack_element pretty_printer
+
+  val state_to_yojson : state -> json
+  val stack_element_to_yojson : stack_element -> json
 end;;

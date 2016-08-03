@@ -11,6 +11,7 @@ sig
   val pop : t -> t (* TODO: Shouldn't this be able to signal failure? *)
   val is_top : abstract_clause -> t -> bool
   val pp : Format.formatter -> t -> unit
+  val to_yojson : t -> Yojson.Safe.json
   val show : t -> string
   val name : string
 end;;

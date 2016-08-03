@@ -34,12 +34,14 @@ Library "utils"
     Source_origin,
     String_utils,
     Uid,
-    Utils
+    Utils,
+    Yojson_utils
   BuildDepends:
     batteries,
     monadlib,
     ocaml-monadic,
-    ppx_deriving.std
+    ppx_deriving.std,
+    yojson
 
 Library "core-ast"
   Path: src/core-ast
@@ -51,6 +53,7 @@ Library "core-ast"
   BuildDepends:
     batteries,
     ppx_deriving.std (>= 3.2),
+    ppx_deriving_yojson,
     utils
 
 Library "core-parser"
@@ -160,6 +163,7 @@ Library "pds-reachability"
   BuildDepends:
     utils,
     batteries,
+    yojson,
     ppx_deriving.std (>= 3.2)
 
 Library "ddpa-analysis"
@@ -182,6 +186,7 @@ Library "ddpa-analysis"
     pds-reachability,
     batteries,
     ppx_deriving.std (>= 3.2),
+    ppx_deriving_yojson,
     monadlib,
     ocaml-monadic (>= 0.3.1)
 

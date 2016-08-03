@@ -31,5 +31,8 @@ struct
     Format.pp_print_string formatter "?"
   ;;
   let show = pp_to_string pp;;
+  let to_yojson (S(c_list,_)) =
+    `List (List.map abstract_clause_to_yojson c_list)
+  ;;
   let name = "ddpaNR";;
 end;;

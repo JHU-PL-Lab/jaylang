@@ -22,5 +22,12 @@ struct
     | S(None) -> Format.pp_print_string formatter "?"
   ;;
   let show = pp_to_string pp;;
+  let to_yojson c =
+    `List (
+      match c with
+      | S(Some(c)) -> [abstract_clause_to_yojson c]
+      | S(None) -> []
+    )
+  ;;
   let name = "1ddpa";;
 end;;

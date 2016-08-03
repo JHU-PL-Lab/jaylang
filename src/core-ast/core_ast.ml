@@ -5,7 +5,7 @@
 open Batteries;;
 
 (** A data type for identifiers in the toy language. *)
-type ident = Ident of string [@@deriving eq, ord];;
+type ident = Ident of string [@@deriving eq, ord, show, to_yojson];;
 
 module Ident_hash =
 struct
@@ -24,19 +24,35 @@ struct
 end
 ;;
 
-module Ident_set = Set.Make(Ident_order);;
+module Ident_set = struct
+  include Set.Make(Ident_order);;
+  let pp = Pp_utils.pp_set pp_ident enum;;
+  let to_yojson = Yojson_utils.set_to_yojson ident_to_yojson enum;;
+end;;
 
-module Ident_map = Map.Make(Ident_order);;
+module Ident_map = struct
+  include Map.Make(Ident_order);;
+  let pp pp_value = Pp_utils.pp_map pp_ident pp_value enum;;
+  let to_yojson value_to_yojson =
+    Yojson_utils.map_to_yojson ident_to_yojson value_to_yojson enum
+  ;;
+end;;
 
 (** A freshening stack of identifiers for variables produced at runtime.  This
     tracks the invocation stack of these variables.  The first element in the
     list is the topmost element in the stack.  If this stack is absent, then
     the variable in question has not been instantiated (and remains within the
     body of a function). *)
-type freshening_stack = Freshening_stack of ident list [@@deriving eq, ord];;
+type freshening_stack =
+  | Freshening_stack of ident list
+  [@@deriving eq, ord, to_yojson]
+;;
 
 (** Variables in the AST. *)
-type var = Var of ident * freshening_stack option [@@deriving eq, ord];;
+type var =
+  | Var of ident * freshening_stack option
+  [@@deriving eq, ord, to_yojson]
+;;
 
 module Var_order =
 struct
@@ -71,19 +87,39 @@ type binary_operator =
   [@@deriving eq, ord]
 ;;
 
+let binary_operator_to_yojson = function
+  | Binary_operator_plus -> `String "+"
+  | Binary_operator_int_minus -> `String "-"
+  | Binary_operator_int_less_than -> `String "<"
+  | Binary_operator_int_less_than_or_equal_to -> `String "<="
+  | Binary_operator_equal_to -> `String "=="
+  | Binary_operator_bool_and -> `String "and"
+  | Binary_operator_bool_or -> `String "or"
+;;
+
 type unary_operator =
   | Unary_operator_bool_not
   [@@deriving eq, ord]
 ;;
 
+let unary_operator_to_yojson = function
+  | Unary_operator_bool_not ->  `String "not"
+;;
+
 (** A type to express record values. *)
-type record_value = Record_value of var Ident_map.t [@@deriving eq, ord]
+type record_value =
+  | Record_value of var Ident_map.t
+  [@@deriving eq, ord, to_yojson]
 
 (** A type to express function values. *)
-and function_value = Function_value of var * expr [@@deriving eq, ord]
+and function_value =
+  | Function_value of var * expr
+  [@@deriving eq, ord, to_yojson]
 
 (** A type to express reference values. *)
-and ref_value = Ref_value of var [@@deriving eq, ord]
+and ref_value =
+  | Ref_value of var
+  [@@deriving eq, ord, to_yojson]
 
 (** A type to represent values. *)
 and value =
@@ -93,7 +129,7 @@ and value =
   | Value_int of int
   | Value_bool of bool
   | Value_string of string
-  [@@deriving eq, ord]
+  [@@deriving eq, ord, to_yojson]
 
 (** A type to represent the bodies of clauses. *)
 and clause_body =
@@ -107,15 +143,15 @@ and clause_body =
   | Binary_operation_body of var * binary_operator * var
   | Unary_operation_body of unary_operator * var
   | Indexing_body of var * var
-  [@@deriving eq, ord]
+  [@@deriving eq, ord, to_yojson]
 
 (** A type to represent clauses. *)
 and clause =
   | Clause of var * clause_body
-  [@@deriving eq, ord]
+  [@@deriving eq, ord, to_yojson]
 
 (** A type to represent expressions. *)
-and expr = Expr of clause list [@@deriving eq, ord]
+and expr = Expr of clause list [@@deriving eq, ord, to_yojson]
 
 (** A type representing conditional patterns. *)
 and pattern =
@@ -126,7 +162,7 @@ and pattern =
   | Bool_pattern of bool
   | String_pattern
   | Any_pattern
-  [@@deriving eq, ord]
+  [@@deriving eq, ord, yojson]
 ;;
 
 module Value_order =
