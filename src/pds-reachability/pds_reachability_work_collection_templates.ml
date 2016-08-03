@@ -18,4 +18,5 @@ struct
   ;;
   let is_empty coll = (List.is_empty coll);;
   let size = List.length;;
+  let to_yojson coll = `List (List.map W.to_yojson coll);;
 end;;

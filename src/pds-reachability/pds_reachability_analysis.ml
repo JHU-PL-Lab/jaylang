@@ -95,6 +95,11 @@ sig
   (** Determines the size of the provided analysis in terms of both node and
       edge count (respectively). *)
   val get_size : analysis -> int * int
+
+  (** Extracts a subset of information about an analysis state as JSON data.
+      Some parts of the analysis state (such as edge functions) will be
+      elided as they cannot be represented. *)
+  val dump_yojson : analysis -> Yojson.Safe.json
 end;;
 
 module Make
@@ -159,7 +164,7 @@ struct
     (* Indicates that this node exists somewhere in the analysis structure and
        has already been expanded.  An expanded node responds to edge functions,
        for instance. *)
-    [@@deriving show]
+    [@@deriving show, to_yojson]
   let _ = show_node_awareness;; (* To ignore an unused generated function. *)
 
   type analysis =
@@ -767,5 +772,33 @@ struct
         )
     else
       raise @@ Reachability_request_for_non_start_state state
+  ;;
+
+  let dump_yojson analysis =
+    `Assoc
+      [ ( "node_awareness_map"
+        , Node_map.to_yojson
+            node_awareness_to_yojson
+            analysis.node_awareness_map
+        )
+      ; ( "known_states"
+        , State_set.to_yojson analysis.known_states
+        )
+      ; ( "start_nodes"
+        , Node_set.to_yojson analysis.start_nodes
+        )
+      ; ( "reachability"
+        , Structure.to_yojson analysis.reachability
+        )
+      ; ( "edge_function_count"
+        , `Int (List.length analysis.edge_functions)
+        )
+      ; ( "untargeted_dynamic_pop_action_function_count"
+        , `Int (List.length analysis.untargeted_dynamic_pop_action_functions)
+        )
+      ; ( "work_collection"
+        , Work_collection_impl.to_yojson analysis.work_collection
+        )
+      ]
   ;;
 end;;

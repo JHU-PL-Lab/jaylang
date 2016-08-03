@@ -45,6 +45,9 @@ sig
   (** Determines the number of elements to be taken from a given work
       collection. *)
   val size : work_collection -> int
+
+(** Exports a work collection as JSON. *)
+  val to_yojson : work_collection -> Yojson.Safe.json
 end;;
 
 (** This module type describes a work collection implementation.  Such an
