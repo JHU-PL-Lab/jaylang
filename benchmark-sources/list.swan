@@ -1,0 +1,512 @@
+let head headlist =
+  match headlist with
+  | headhead :: _ -> headhead
+  end
+in
+
+let tail taillist =
+  match taillist with
+  | _ :: tailtail -> tailtail
+  end
+in
+
+let length lengthlist =
+  match lengthlist with
+  | [] -> 0
+  | _ :: lengthtail -> 1 + length lengthtail
+  end
+in
+
+let listref listreflist listrefn =
+  match listreflist with
+  | listrefhead :: listreftail ->
+    if listrefn == 0 then
+      listrefhead
+    else
+      listref listreftail (listrefn - 1)
+    end
+  end
+in
+
+let listtail listtaillist listtailn =
+  match listtaillist with
+  | listtailhead :: listtailtail ->
+    if listtailn == 0 then
+      listtailtail
+    else
+      listtail listtailtail (listtailn - 1)
+    end
+  end
+in
+
+let listappend listappendlist1 listappendlist2 =
+  match listappendlist1 with
+  | [] -> listappendlist2
+  | listappendlist1head :: listappendlist1tail ->
+    listappendlist1head :: listappend listappendlist1tail listappendlist2
+  end
+in
+
+let reverse reverselist =
+  match reverselist with
+  | [] -> []
+  | reverselisthead :: reverselisttail ->
+    listappend (reverse reverselisttail) [reverselisthead]
+  end
+in
+
+let map mapfunction maplist =
+  match maplist with
+  | [] -> []
+  | maplisthead :: maplisttail ->
+    mapfunction maplisthead :: map mapfunction maplisttail
+  end
+in
+
+let andmap andmapfunction andmaplist =
+  match andmaplist with
+  | [] -> true
+  | andmaplisthead :: andmaplisttail ->
+    (andmapfunction andmaplisthead) and (andmap andmapfunction andmaplisttail)
+  end
+in
+
+let ormap ormapfunction ormaplist =
+  match ormaplist with
+  | [] -> true
+  | ormaplisthead :: ormaplisttail ->
+    (ormapfunction ormaplisthead) or (ormap ormapfunction ormaplisttail)
+  end
+in
+
+let foreach foreachfunction foreachlist =
+  match foreachlist with
+  | [] -> {}
+  | foreachlisthead :: foreachlisttail ->
+    foreachfunction foreachlisthead;
+    foreach foreachfunction foreachlisttail
+  end
+in
+
+let foldl foldlfunction foldlinitialvalue foldllist =
+  match foldllist with
+  | [] -> foldlinitialvalue
+  | foldllisthead :: foldllisttail ->
+    foldl foldlfunction (foldlfunction foldllisthead foldlinitialvalue) foldllisttail
+  end
+in
+
+let foldr foldrfunction foldrinitialvalue foldrlist =
+  foldl foldrfunction foldrinitialvalue (reverse foldrlist)
+in
+
+let filter filterpredicate filterlist =
+  foldr (
+    fun filterelement filteraccumulatedelements ->
+      if filterpredicate filterelement then
+        filterelement :: filteraccumulatedelements
+      else
+        filteraccumulatedelements
+      end
+  ) [] filterlist
+in
+
+let remove removevalue removelist =
+  match removelist with
+  | [] -> []
+  | removelisthead :: removelisttail ->
+    if removelisthead == removevalue then
+      removelisttail
+    else
+      remove removevalue removelisttail
+    end
+  end
+in
+
+let include includeelement includelist =
+  ormap (fun includecandidate -> includecandidate == includeelement) includelist
+in
+
+let removestar removestarvalues removestarlist =
+  filter (fun removestarelement -> not (include removestarelement removestarvalues)) removestarlist
+in
+
+let partition partitionpredicate partitionlist =
+  foldl (
+    fun partitionelement partitionpartitions ->
+      match partitionpartitions with
+      | [partitionpartitionshead, partitionpartitionstail] ->
+        if partitionpredicate partitionelement then
+          [partitionelement :: partitionpartitionshead, partitionpartitionstail]
+        else
+          [partitionpartitionshead, partitionelement :: partitionpartitionstail]
+        end
+      end
+  ) [[], []] partitionlist
+in
+
+let sort sortlist sortlessthan =
+  match sortlist with
+  | [] -> []
+  | sortpivot :: sortlistrest ->
+    match partition (fun sortelement -> sortlessthan sortelement sortpivot) sortlistrest with
+    | [sortelessthanpivot, sortmorethanpivot] ->
+      listappend (listappend sortelessthanpivot [sortpivot]) sortmorethanpivot
+    end
+  end
+in
+
+let member membervalue memberlist =
+  match memberlist with
+  | [] -> false
+  | memberlisthead :: memberlisttail ->
+    if memberlisthead == membervalue then
+      memberlist
+    else
+      member membervalue memberlisttail
+    end
+  end
+in
+
+let memf memffunction memflist =
+  match memflist with
+  | [] -> false
+  | memflisthead :: memflisttail ->
+    if memffunction memflisthead then
+      memflist
+    else
+      memf memffunction memflisttail
+    end
+  end
+in
+
+let findf findffunction findflist =
+  match memf findffunction findflist with
+  | false -> false
+  | findffoundelement :: _ -> findffoundelement
+  end
+in
+
+let assoc assocvalue assoclist =
+  findf (
+    fun assoccandidate ->
+      match assoccandidate with
+      | [assoccandidatekey, _] -> assoccandidatekey == assocvalue
+      end
+  ) assoclist
+in
+
+let assf assffunction assflist =
+  findf (
+    fun assfcandidate ->
+      match assfcandidate with
+      | [assfcandidatekey,_] -> assffunction assfcandidatekey
+      end
+  ) assflist
+in
+
+let last lastlist =
+  listref lastlist ((length lastlist) - 1)
+in
+
+let take takelist takeposition =
+  if takeposition == 0 then
+    []
+  else
+    match takelist with
+    | [] -> []
+    | takelisthead :: takelisttail ->
+      takelisthead :: take takelisttail (takeposition - 1)
+    end
+  end
+in
+
+let drop droplist dropposition =
+  if dropposition == 0 then
+    droplist
+  else
+    match droplist with
+    | [] -> []
+    | _ :: droplisttail ->
+      drop droplisttail (dropposition - 1)
+    end
+  end
+in
+
+let takef takeflist takeffunction =
+  match takeflist with
+  | [] -> []
+  | takeflisthead :: takeflisttail ->
+    if takeffunction takeflisthead then
+      takeflisthead :: takef takeflisttail takeffunction
+    else
+      []
+    end
+  end
+in
+
+let dropf dropflist dropffunction =
+  match dropflist with
+  | [] -> []
+  | dropflisthead :: dropflisttail ->
+    if dropffunction dropflisthead then
+      dropf dropflisttail dropffunction
+    else
+      dropflist
+    end
+  end
+in
+
+let takeright takerightlist takerightposition =
+  reverse (take (reverse takerightlist) takerightposition)
+in
+
+let dropright droprightlist droprightposition =
+  reverse (drop (reverse droprightlist) droprightposition)
+in
+
+let takefright takefrightlist takefrightfunction =
+  reverse (takef (reverse takefrightlist) takefrightfunction)
+in
+
+let dropfright dropfrightlist dropfrightfunction =
+  reverse (dropf (reverse dropfrightlist) dropfrightfunction)
+in
+
+let listprefix listprefixprefixcandidate listprefixlist =
+  match [listprefixprefixcandidate, listprefixlist] with
+  | [[], _] -> true
+  | [_ :: _, []] -> false
+  | [listprefixprefixcandidatehead :: listprefixprefixcandidatetail,
+     listprefixlisthead :: listprefixlisttail] ->
+     (listprefixprefixcandidatehead == listprefixlisthead) and
+     (listprefix listprefixprefixcandidatetail listprefixlisttail)
+  end
+in
+
+let takecommonprefix takecommonprefixlist1 takecommonprefixlist2 =
+  match [takecommonprefixlist1, takecommonprefixlist2] with
+  | [[], _] -> []
+  | [_, []] -> []
+  | [takecommonprefixlist1head :: takecommonprefixlist1tail,
+     takecommonprefixlist2head :: takecommonprefixlist2tail] ->
+     if takecommonprefixlist1head == takecommonprefixlist2head then
+       takecommonprefixlist1head :: takecommonprefix takecommonprefixlist1tail takecommonprefixlist2tail
+     else
+       []
+     end
+  end
+in
+
+let addbetween addbetweenlist addbetweenvalue =
+  match addbetweenlist with
+  | [] -> addbetweenlist
+  | [_] -> addbetweenlist
+  | addbetweenlisthead :: addbetweenlisttail ->
+    addbetweenlisthead :: addbetweenvalue :: addbetween addbetweenlisttail addbetweenvalue
+  end
+in
+
+let flatten flattenlist =
+  match flattenlist with
+  | _ :: _ -> foldr listappend [] (map flatten flattenlist)
+  | [] -> []
+  | _ -> [flattenlist]
+  end
+in
+
+let checkduplicates checkduplicateslist =
+  let checkduplicatesstep checkduplicatesstepvisited checkduplicatessteprest =
+    match checkduplicatessteprest with
+    | [] -> false
+    | checkduplicatesstepresthead :: checkduplicatesstepresttail ->
+      if include checkduplicatesstepresthead checkduplicatesstepvisited then
+        checkduplicatesstepresthead
+      else
+        checkduplicatesstep (checkduplicatesstepresthead :: checkduplicatesstepvisited) checkduplicatesstepresttail
+      end
+    end
+  in
+  checkduplicatesstep [] checkduplicateslist
+in
+
+let removeduplicates removeduplicateslist =
+  let removeduplicatesstep removeduplicatesstepresult removeduplicatessteprest =
+    match removeduplicatessteprest with
+    | [] -> removeduplicatesstepresult
+    | removeduplicatesstepresthead :: removeduplicatesstepresttail ->
+      if include removeduplicatesstepresthead removeduplicatesstepresult then
+        removeduplicatesstep removeduplicatesstepresult removeduplicatesstepresttail
+      else
+        removeduplicatesstep (listappend removeduplicatesstepresult [removeduplicatesstepresthead]) removeduplicatesstepresttail
+      end
+    end
+  in
+  removeduplicatesstep [] removeduplicateslist
+in
+
+let count countpredicate countlist =
+  length (filter countpredicate countlist)
+in
+
+let range rangestart rangeend =
+  if rangestart == rangeend then
+    []
+  else
+    rangestart :: range (rangestart + 1) rangeend
+  end
+in
+
+let filternot filternotpredicate filternotlist =
+  filter (fun filternotelement -> not (filternotpredicate filternotelement)) filternotlist
+in
+
+let interspersions interspersionselement interspersionslist =
+  let interspersionsstep interspersionssteplistsofar interspersionssteplistrest =
+    let interspersionsstepelement =
+      listappend (listappend interspersionssteplistsofar [interspersionselement]) interspersionssteplistrest
+    in
+    match interspersionssteplistrest with
+    | [] -> [interspersionsstepelement]
+    | interspersionssteplistresthead :: interspersionssteplistresttail ->
+      interspersionsstepelement ::
+        interspersionsstep (listappend interspersionssteplistsofar [interspersionssteplistresthead])
+                           interspersionssteplistresttail
+    end
+  in
+  interspersionsstep [] interspersionslist
+in
+
+let combinations combinationslist =
+  match combinationslist with
+  | [] -> [[]]
+  | combinationslisthead :: combinationslisttail ->
+    let combinationslisttailcombinations = combinations combinationslisttail in
+    let combinationslisttailcombinationsinterspersionslist =
+      map (
+        fun combinationscombination ->
+          interspersions combinationslisthead combinationscombination
+      ) combinationslisttailcombinations
+    in
+    let combinationslisttailcombinationsinterspersions =
+      foldl listappend [] combinationslisttailcombinationsinterspersionslist
+    in
+    listappend combinationslisttailcombinations combinationslisttailcombinationsinterspersions
+  end
+in
+
+let permutations permutationslist =
+  match permutationslist with
+  | [] -> [[]]
+  | permutationslisthead :: permutationslisttail ->
+    let permutationslisttailpermutations = permutations permutationslisttail in
+    let permutationslisttailpermutationsinterspersionslist =
+      map (
+        fun permutationscombination ->
+          interspersions permutationslisthead permutationscombination
+      ) permutationslisttailpermutations
+    in
+    foldl listappend [] permutationslisttailpermutationsinterspersionslist
+  end
+in
+
+let argmin argminfunction argminlist =
+  let argminstep argminstepargmin argminstepmin argminsteprest =
+    match argminsteprest with
+    | [] -> argminstepargmin
+    | argminstepresthead :: argminstepresttail ->
+      let argminsteprestheadresult = argminfunction argminstepresthead in
+      if argminsteprestheadresult < argminstepmin then
+        argminstep argminstepresthead argminsteprestheadresult argminstepresttail
+      else
+        argminstep argminstepargmin argminstepmin argminstepresttail
+      end
+    end
+  in
+  match argminlist with
+  | argminlisthead :: argminlisttail ->
+    argminstep argminlisthead (argminfunction argminlisthead) argminlisttail
+  end
+in
+
+let argmax argmaxfunction argmaxlist =
+  let argmaxstep argmaxstepargmax argmaxstepmax argmaxsteprest =
+    match argmaxsteprest with
+    | [] -> argmaxstepargmax
+    | argmaxstepresthead :: argmaxstepresttail ->
+      let argmaxsteprestheadresult = argmaxfunction argmaxstepresthead in
+      if argmaxstepmax < argmaxsteprestheadresult then
+        argmaxstep argmaxstepresthead argmaxsteprestheadresult argmaxstepresttail
+      else
+        argmaxstep argmaxstepargmax argmaxstepmax argmaxstepresttail
+      end
+    end
+  in
+  match argmaxlist with
+  | argmaxlisthead :: argmaxlisttail ->
+    argmaxstep argmaxlisthead (argmaxfunction argmaxlisthead) argmaxlisttail
+  end
+in
+
+let assocvalues assocvalueslist =
+  map (
+    fun assocvalueselement ->
+      match assocvalueselement with
+      | [_, assocvalueselementvalue] -> assocvalueselementvalue
+      end
+  ) assocvalueslist
+in
+
+let groupby groupbyfunction groupbylist =
+  let groupbygroups =
+    foldr (
+      fun groupbyelement groupbygroupspartial ->
+        let groupbyelementkey = groupbyfunction groupbyelement in
+        match assoc groupbyelementkey groupbygroupspartial with
+        | false ->
+          [groupbyelementkey, [groupbyelement]] :: groupbygroupspartial
+        | [_, groupbygroup] ->
+          [groupbyelementkey, groupbyelement :: groupbygroup] :: groupbygroupspartial
+        end
+    ) [] groupbylist
+  in
+  assocvalues groupbygroups
+in
+
+let cartesianproduct cartesianproductlist1 cartesianproductlist2 =
+  foldl listappend (
+    map (
+      fun cartesianproductlist1element ->
+        map (
+          fun cartesianproductlist2element ->
+            [cartesianproductlist1element, cartesianproductlist2element]
+        ) cartesianproductlist2
+    ) cartesianproductlist1
+  )
+in
+
+let remf remfpredicate remflist =
+  match remflist with
+  | [] -> []
+  | remflisthead :: remflisttail ->
+    if remfpredicate remflisthead then
+      remflisttail
+    else
+      remflisthead :: remf remfpredicate remflisttail
+    end
+  end
+in
+
+let remfstar remfstarpredicate remfstarlist =
+  match remfstarlist with
+  | [] -> []
+  | remfstarlisthead :: remfstarlisttail ->
+    if remfstarpredicate remfstarlisthead then
+      remfstar remfstarpredicate remfstarlisttail
+    else
+      remfstarlisthead :: remfstar remfstarpredicate remfstarlisttail
+    end
+  end
+in
+
+0;;
