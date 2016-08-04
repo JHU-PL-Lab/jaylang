@@ -13,7 +13,7 @@
 }
 
 let digit = ['0'-'9']
-let alpha = ['a'-'z'] | ['A'-'Z']
+let alpha = ['a'-'z'] | ['A'-'Z'] | '_'
 let whitespace = [' ' '\t']
 let newline = '\n'
 let comment = '#' [^'\n']* '\n'
@@ -53,7 +53,7 @@ rule token = parse
   | "not"                            { KEYWORD_NOT }
   | "string"                         { KEYWORD_STRING }
   | "any"                            { KEYWORD_ANY }
-  | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) } 
+  | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) }
   | "\"" (string_contents as s) "\"" { STRING_LITERAL s }
   | "+"                              { BINOP_PLUS }
   | "-"                              { BINOP_MINUS }

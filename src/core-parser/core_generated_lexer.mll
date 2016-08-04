@@ -20,7 +20,7 @@ let comment = '#' [^'\n']* '\n'
 let string_contents = [^'"']*
 
 let ident_start = alpha
-let ident_cont = alpha | digit
+let ident_cont = alpha | digit | '_'
 
 rule token = parse
   | eof                              { EOF }
