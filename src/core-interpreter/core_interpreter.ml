@@ -133,11 +133,11 @@ let rec matches env x p =
 
 let rec evaluate env lastvar cls =
   lazy_logger `debug (fun () ->
-      show_evaluation_environment env ^ "\n" ^
-      (Option.default "?" (Option.map show_var lastvar)) ^ "\n" ^
-      (cls
-       |> List.map show_clause
-       |> List.fold_left (fun acc -> fun s -> acc ^ s ^ "; ") "") ^ "\n\n");
+      Format.asprintf
+        "\nEnvironment: @[%a@]\nLast var:    @[%a@]\nClauses:     @[%a@]\n"
+        pp_evaluation_environment env
+        (Pp_utils.pp_option pp_var) lastvar
+        pp_expr (Expr(cls)));
   flush stdout;
   match cls with
   | [] ->
