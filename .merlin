@@ -1,4 +1,4 @@
-PKG oasis batteries menhirLib oUnit ppx_deriving.std monadlib ocaml-monadic
+PKG oasis batteries menhirLib oUnit ppx_deriving.std ppx_deriving_yojson monadlib ocaml-monadic
 S src/**
 S test/**
 B _build/src/**
