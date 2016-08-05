@@ -54,24 +54,24 @@ let select_context_stack_option =
   in
   {
     option_set = (fun option_name args ->
-      match args with
-      | [analysis_name] ->
-        let analysis_module =
-          try
-            Core_toploop_utils.stack_from_name analysis_name
-          with
-          | Not_found ->
-            raise @@ Option_error (option_name,
-              Printf.sprintf "Invalid analysis name: %s" analysis_name)
-        in
-        analysis_module_ref := analysis_module
-      | _ ->
-        raise @@ Option_error (option_name,
-          Printf.sprintf "Invalid argument count: %d" (List.length args))
+        match args with
+        | [analysis_name] ->
+          let analysis_module =
+            try
+              Core_toploop_utils.stack_from_name analysis_name
+            with
+            | Not_found ->
+              raise @@ Option_error (option_name,
+                                     Printf.sprintf "Invalid analysis name: %s" analysis_name)
+          in
+          analysis_module_ref := analysis_module
+        | _ ->
+          raise @@ Option_error (option_name,
+                                 Printf.sprintf "Invalid argument count: %d" (List.length args))
       )
     ;
     option_set_value = (fun analysis_module_option ->
-      analysis_module_ref := analysis_module_option
+        analysis_module_ref := analysis_module_option
       )
     ;
     option_get = (fun () -> Some (!analysis_module_ref))
@@ -82,69 +82,47 @@ let select_context_stack_option =
     ;
   };;
 
-let ddpa_logging_option =
+let ddpa_logging_level_option name =
   let logging_level = ref None in
   {
     option_set = (fun option_name args ->
-      match args with
-      | [level_name] ->
-        let level =
-          match level_name with
-          | "none" -> Ddpa_graph_logger.Ddpa_log_none
-          | "result" -> Ddpa_graph_logger.Ddpa_log_result
-          | "all" -> Ddpa_graph_logger.Ddpa_log_all
-          | _ -> raise @@ Option_error(option_name,
-                    Printf.sprintf "Invalid DDPA logging level: %s" level_name)
-        in
-        logging_level := Some level
-      | _ ->
-        raise @@ Option_error (option_name,
-          Printf.sprintf "Invalid argument count: %d" (List.length args))
+        match args with
+        | [level_name] ->
+          let level =
+            match level_name with
+            | "none" -> Ddpa_analysis_logging.Log_nothing
+            | "result" -> Ddpa_analysis_logging.Log_result
+            | "all" -> Ddpa_analysis_logging.Log_everything
+            | _ -> raise @@ Option_error(
+                option_name,
+                Printf.sprintf "Invalid %s logging level: %s" name level_name)
+          in
+          logging_level := Some level
+        | _ ->
+          raise @@ Option_error (
+            option_name,
+            Printf.sprintf "Invalid argument count: %d" (List.length args))
       )
     ;
     option_set_value = (fun level -> logging_level := Some level)
     ;
     option_get = (fun () -> !logging_level)
     ;
-    option_metavars = ["DDPA_LEVEL"]
+    option_metavars = ["LOG_LEVEL"]
     ;
-    option_defhelp = Some("Selects a DDPA logging level (none,result,all).")
+    option_defhelp = Some("Selects a " ^ name ^ " logging level (none,result,all).")
     ;
   }
 ;;
 
-let pdr_logging_option =
-  let logging_level = ref None in
-  {
-    option_set = (fun option_name args ->
-      match args with
-      | [level_name] ->
-        let level =
-          match level_name with
-          | "each-edge" ->
-            Pds_reachability_logger_utils.Pds_reachability_log_each_edge
-          | "each-call" ->
-            Pds_reachability_logger_utils.Pds_reachability_log_each_call
-          | "nothing" ->
-            Pds_reachability_logger_utils.Pds_reachability_log_nothing
-          | _ -> raise @@ Option_error(option_name,
-                    Printf.sprintf "Invalid PDR logging level: %s" level_name)
-        in
-        logging_level := Some level
-      | _ ->
-        raise @@ Option_error (option_name,
-          Printf.sprintf "Invalid argument count: %d" (List.length args))
-      )
-    ;
-    option_set_value = (fun level -> logging_level := Some level)
-    ;
-    option_get = (fun () -> !logging_level)
-    ;
-    option_metavars = ["PDR_LEVEL"]
-    ;
-    option_defhelp =
-      Some("Selects a PDR logging level (nothing,each-call,each-edge).")
-    ;
+let ddpa_logging_option = ddpa_logging_level_option "DDPA CFG";;
+let pdr_logging_option = ddpa_logging_level_option "DDPA PDS";;
+
+let graph_log_file_option =
+  { (BatOptParse.StdOpt.str_option
+       ~default:"ddpa_graphs.log.json" ~metavar:"GRAPH_LOG_FILE" ())
+    with option_defhelp =
+           Some("Specifies the name for the DDPA graph log file.")
   }
 ;;
 
@@ -160,52 +138,52 @@ let analyze_variables_option =
   let variables_to_analyze = ref Analyze_no_variables in
   {
     option_set = (fun option_name args ->
-      match args with
-      | [analyze_string] ->
-        let new_selection =
-          match analyze_string with
-          | "none" -> Analyze_no_variables
-          | "all" -> Analyze_toplevel_variables
-          | _ ->
-            if String.starts_with analyze_string "only:"
-            then
-              let components =
-                analyze_string
-                |> String.lchop ~n:5
-                |> (fun x -> String.nsplit x ~by:",")
-              in
-              let parse_component component =
-                begin
-                  match String.nsplit component ~by:"@" with
-                  | [name] -> (name, None, None)
-                  | [name;rest] ->
-                    begin
-                      match String.nsplit rest ~by:":" with
-                      | [loc] -> (name, Some loc, None)
-                      | [loc;stack] ->
-                        begin
-                          let stack_elements = String.nsplit stack ~by:"|" in
-                          (name, Some loc, Some stack_elements)
-                        end
-                      | _ -> raise @@ Option_error (option_name,
-                                Printf.sprintf "Invalid component string: %s"
-                                  component)
-                    end
-                  | _ -> raise @@ Option_error (option_name,
-                            Printf.sprintf "Invalid component string: %s"
-                              component)
-                end
-              in
-              Analyze_specific_variables(List.map parse_component components)
-            else
-              raise @@ Option_error (option_name,
-                Printf.sprintf "Unrecognized variable analysis mode: %s"
-                  analyze_string)
-        in
-        variables_to_analyze := new_selection
-      | _ ->
-        raise @@ Option_error (option_name,
-          Printf.sprintf "Invalid argument count: %d" (List.length args))
+        match args with
+        | [analyze_string] ->
+          let new_selection =
+            match analyze_string with
+            | "none" -> Analyze_no_variables
+            | "all" -> Analyze_toplevel_variables
+            | _ ->
+              if String.starts_with analyze_string "only:"
+              then
+                let components =
+                  analyze_string
+                  |> String.lchop ~n:5
+                  |> (fun x -> String.nsplit x ~by:",")
+                in
+                let parse_component component =
+                  begin
+                    match String.nsplit component ~by:"@" with
+                    | [name] -> (name, None, None)
+                    | [name;rest] ->
+                      begin
+                        match String.nsplit rest ~by:":" with
+                        | [loc] -> (name, Some loc, None)
+                        | [loc;stack] ->
+                          begin
+                            let stack_elements = String.nsplit stack ~by:"|" in
+                            (name, Some loc, Some stack_elements)
+                          end
+                        | _ -> raise @@ Option_error (option_name,
+                                                      Printf.sprintf "Invalid component string: %s"
+                                                        component)
+                      end
+                    | _ -> raise @@ Option_error (option_name,
+                                                  Printf.sprintf "Invalid component string: %s"
+                                                    component)
+                  end
+                in
+                Analyze_specific_variables(List.map parse_component components)
+              else
+                raise @@ Option_error (option_name,
+                                       Printf.sprintf "Unrecognized variable analysis mode: %s"
+                                         analyze_string)
+          in
+          variables_to_analyze := new_selection
+        | _ ->
+          raise @@ Option_error (option_name,
+                                 Printf.sprintf "Invalid argument count: %d" (List.length args))
       )
     ;
     option_set_value = (fun selection -> variables_to_analyze := selection)

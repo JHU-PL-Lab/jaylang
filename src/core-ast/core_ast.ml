@@ -175,3 +175,11 @@ struct
   let compare = compare_value;;
   let to_yojson = value_to_yojson;;
 end;;
+
+module Pattern =
+struct
+  type t = pattern
+  let equal = equal_pattern;;
+  let compare = compare_pattern;;
+  let to_yojson = pattern_to_yojson;;
+end;;

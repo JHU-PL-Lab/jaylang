@@ -7,6 +7,7 @@ open Batteries;;
 
 open Core_ast;;
 open Core_ast_pp;;
+open Ddpa_analysis_logging;;
 open Ddpa_context_stack;;
 open Ddpa_graph;;
 open Nondeterminism;;
@@ -28,7 +29,9 @@ sig
   module C : Context_stack;;
 
   (** The initial, unclosed analysis derived from an expression. *)
-  val create_initial_analysis : expr -> ddpa_analysis
+  val create_initial_analysis :
+    ?ddpa_logging_config:(ddpa_analysis_logging_config option) ->
+    expr -> ddpa_analysis
 
   (** Pretty-prints a DDPA structure. *)
   val pp_ddpa_analysis : ddpa_analysis pretty_printer
@@ -60,17 +63,6 @@ sig
   val contextual_values_of_variable :
     var -> annotated_clause -> C.t -> ddpa_analysis ->
     Abs_filtered_value_set.t * ddpa_analysis
-
-  (** Sets the logging level for the PDS reachability analysis used by this
-      module. *)
-  val set_pdr_logger_level :
-    Pds_reachability_logger_utils.pds_reachability_logger_level -> unit
-
-  (** Gets the logging level for the PDS reachability analysis used by this
-      module. *)
-  val get_pdr_logger_level :
-    unit -> Pds_reachability_logger_utils.pds_reachability_logger_level
-
 end;;
 
 (**
@@ -1325,7 +1317,7 @@ struct
   ;;
 
   type ddpa_analysis_logging_data =
-    { ddpa_logging_prefix : string
+    { ddpa_logging_config : ddpa_analysis_logging_config
     ; ddpa_closure_steps : int
     }
     [@@deriving show]
@@ -1337,11 +1329,9 @@ struct
     ; ddpa_graph_fully_closed : bool
     ; pds_reachability : Ddpa_pds_reachability.analysis
     ; ddpa_active_nodes : Annotated_clause_set.t
-          [@printer pp_annotated_clause_set]
     (** The active nodes in the DDPA graph.  This set is maintained
             incrementally as edges are added. *)
     ; ddpa_active_non_immediate_nodes : Annotated_clause_set.t
-          [@printer pp_annotated_clause_set]
     (** A subset of [ddpa_active_nodes] which only contains the
         non-immediate nodes.  This is useful during closure. *)
     ; ddpa_logging_data : ddpa_analysis_logging_data option
@@ -1350,8 +1340,88 @@ struct
     [@@deriving show]
   ;;
 
+  let dump_yojson analysis =
+    `Assoc
+      [ ( "ddpa_graph"
+        , Ddpa_graph.to_yojson analysis.ddpa_graph
+        )
+      ; ( "ddpa_graph_fully_closed"
+        , `Bool analysis.ddpa_graph_fully_closed
+        )
+      ; ( "ddpa_active_nodes"
+        , Annotated_clause_set.to_yojson analysis.ddpa_active_nodes
+        )
+      ; ("ddpa_active_non_immediate_nodes"
+        , Annotated_clause_set.to_yojson
+            analysis.ddpa_active_non_immediate_nodes
+        )
+      ]
+  ;;
+
+  (** Logs a given PDS reachability graph.  This only occurs if the logging
+      level of the analysis is at least as high as the one provided in this
+      call.  The graph to be logged defaults to the analysis but can be
+      overridden (e.g. in the logger given to that analysis). *)
+  let log_pdr level ddpa_logging_data_opt reachability =
+    match ddpa_logging_data_opt with
+    | None -> ()
+    | Some data ->
+      if compare_ddpa_logging_level
+          data.ddpa_logging_config.ddpa_pdr_logging_level
+          level >= 0
+      then
+        begin
+          let json =
+            `Assoc
+              [ ( "element_type"
+                , `String "pds_reachability_graph"
+                )
+              ; ( "work_count"
+                , `Int (Ddpa_pds_reachability.get_work_count reachability)
+                )
+              ; ( "graph"
+                , Ddpa_pds_reachability.dump_yojson reachability
+                )
+              ]
+          in
+          data.ddpa_logging_config.ddpa_json_logger json
+        end
+  ;;
+
+  (** Logs a given DDPA control flow graph.  This only occurs if the logging
+      level of the analysis is at least as high as the one provided in this
+      call. *)
+  let log_cfg level analysis =
+    match analysis.ddpa_logging_data with
+    | None -> ()
+    | Some data ->
+      if compare_ddpa_logging_level
+          data.ddpa_logging_config.ddpa_cfg_logging_level
+          level >= 0
+      then
+        begin
+          let json =
+            `Assoc
+              [ ( "element_type"
+                , `String "ddpa_graph"
+                )
+              ; ( "work_count"
+                , `Int (Ddpa_pds_reachability.get_work_count
+                          analysis.pds_reachability)
+                )
+              ; ( "graph"
+                , dump_yojson analysis
+                )
+              ]
+          in
+          data.ddpa_logging_config.ddpa_json_logger json
+        end
+  ;;
+
   let get_size analysis =
-    let pds_node_count, pds_edge_count = Ddpa_pds_reachability.get_size analysis.pds_reachability in
+    let pds_node_count, pds_edge_count =
+      Ddpa_pds_reachability.get_size analysis.pds_reachability
+    in
     let filter_inferrable_nodes nodes =
       nodes
       |> Annotated_clause_set.filter (
@@ -1372,11 +1442,23 @@ struct
     pds_edge_count
   ;;
 
-  let empty_analysis =
+  let empty_analysis ?ddpa_logging_data_opt:(ddpa_logging_data_opt=None) () =
+    (* Make sure to log PDR closure too if appropriate. *)
+    let pdr_log_fn_opt =
+      match ddpa_logging_data_opt with
+      | None -> None
+      | Some ddpa_logging_data ->
+        if ddpa_logging_data.ddpa_logging_config.ddpa_pdr_logging_level
+           = Log_nothing
+        then None
+        else Some
+            (fun reachability ->
+               log_pdr Log_everything ddpa_logging_data_opt reachability)
+    in
     (* The initial reachability analysis should include an edge function which
        always allows discarding the bottom-of-stack marker. *)
     let initial_reachability =
-      Ddpa_pds_reachability.empty
+      Ddpa_pds_reachability.empty ~logging_function:pdr_log_fn_opt ()
       |> Ddpa_pds_reachability.add_edge_function
         (fun state -> Enum.singleton ([Pop Bottom_of_stack], state))
     in
@@ -1385,16 +1467,8 @@ struct
     ; pds_reachability = initial_reachability
     ; ddpa_active_nodes = Annotated_clause_set.singleton Start_clause
     ; ddpa_active_non_immediate_nodes = Annotated_clause_set.empty
-    ; ddpa_logging_data = None
+    ; ddpa_logging_data = ddpa_logging_data_opt
     }
-  ;;
-
-  let log_ddpa_graph level analysis name_fn =
-    match analysis.ddpa_logging_data with
-    | None -> ()
-    | Some data ->
-      let name = name_fn data in
-      Ddpa_graph_logger.log level name analysis.ddpa_graph
   ;;
 
   let end_of_scope annotated_clause edges =
@@ -2036,7 +2110,17 @@ struct
       )
   ;;
 
-  let create_initial_analysis e =
+  let create_initial_analysis
+      ?ddpa_logging_config:(ddpa_logging_config_opt=None)
+      e =
+    let logging_data =
+      match ddpa_logging_config_opt with
+      | None -> None
+      | Some config ->
+        Some { ddpa_logging_config = config
+             ; ddpa_closure_steps = 0 (* FIXME: this number never changes or gets reported! *)
+             }
+    in
     let Abs_expr(cls) = lift_expr e in
     (* Put the annotated clauses together. *)
     let acls =
@@ -2056,11 +2140,13 @@ struct
           Ddpa_edge(acl1,acl2) :: mk_edges acls'
     in
     let edges = List.enum @@ mk_edges acls in
-    let analysis = fst @@ add_edges edges empty_analysis in
+    let analysis =
+      fst @@ add_edges edges @@
+      empty_analysis ~ddpa_logging_data_opt:logging_data ()
+    in
     logger `trace "Created initial analysis";
-    log_ddpa_graph Ddpa_graph_logger.Ddpa_log_all analysis
-      (fun data ->
-         Ddpa_graph_logger.Ddpa_graph_name_initial data.ddpa_logging_prefix);
+    log_cfg Log_everything analysis;
+    log_pdr Log_everything analysis.ddpa_logging_data analysis.pds_reachability;
     analysis
   ;;
 
@@ -2246,9 +2332,7 @@ struct
                        (fun () -> Printf.sprintf "Completed closure step %d"
                            (data.ddpa_closure_steps));
     end;
-    log_ddpa_graph Ddpa_graph_logger.Ddpa_log_all analysis
-      (fun data -> Ddpa_graph_logger.Ddpa_graph_name_intermediate(
-           data.ddpa_logging_prefix, data.ddpa_closure_steps));
+    log_cfg Log_everything analysis;
     result
   ;;
 
@@ -2259,24 +2343,13 @@ struct
     then
       begin
         logger `trace "Closure complete.";
-        log_ddpa_graph Ddpa_graph_logger.Ddpa_log_result analysis
-          (fun data ->
-             Ddpa_graph_logger.Ddpa_graph_name_closed(data.ddpa_logging_prefix));
+        log_pdr Log_result analysis.ddpa_logging_data analysis.pds_reachability;
+        log_cfg Log_result analysis;
         analysis
       end
     else
       begin
         perform_full_closure @@ perform_closure_steps analysis
       end
-  ;;
-
-  let set_pdr_logger_level level =
-    (* TODO: rewrite logging mechanism for PDR *)
-    ignore level; raise @@ Utils.Not_yet_implemented "set_pdr_logger_level"
-  ;;
-
-  let get_pdr_logger_level () =
-    (* TODO: rewrite logging mechanism for PDR *)
-    raise @@ Utils.Not_yet_implemented "get_pdr_logger_level"
   ;;
 end;;

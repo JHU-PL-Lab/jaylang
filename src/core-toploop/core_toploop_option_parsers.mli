@@ -9,12 +9,15 @@ val select_context_stack_option :
 
 (** This logging option configures how DDPA DOT graphs are logged. *)
 val ddpa_logging_option :
-  Ddpa_graph_logger.ddpa_graph_logger_level BatOptParse.Opt.t
+  Ddpa_analysis_logging.ddpa_logging_level BatOptParse.Opt.t
 
 (** This logging option configures how PDS reachability DOT graphs are
     logged. *)
 val pdr_logging_option :
-  Pds_reachability_logger_utils.pds_reachability_logger_level BatOptParse.Opt.t
+  Ddpa_analysis_logging.ddpa_logging_level BatOptParse.Opt.t
+
+(** This logging option sets the name for the graph log file. *)
+val graph_log_file_option : string BatOptParse.Opt.t
 
 (** A data type used by the [analyze_variables_option] to express the user's
     selection. **)

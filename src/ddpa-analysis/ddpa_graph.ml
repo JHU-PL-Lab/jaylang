@@ -124,13 +124,22 @@ let is_abstract_clause_immediate (Abs_clause(_,b)) =
   | Abs_appl_body _ | Abs_conditional_body _ -> false
 ;;
 
-module Abs_value_ord =
+module Abs_value =
 struct
   type t = abstract_value
+  let equal = equal_abstract_value
   let compare = compare_abstract_value
+  let pp = pp_abstract_value
+  let to_yojson = abstract_value_to_yojson
 end;;
 
-module Abs_value_set = Set.Make(Abs_value_ord);;
+module Abs_value_set =
+struct
+  module Impl = Set.Make(Abs_value);;
+  include Impl;;
+  include Pp_utils.Set_pp(Impl)(Abs_value);;
+  include Yojson_utils.Set_to_yojson(Impl)(Abs_value);;
+end;;
 
 let pp_abs_value_set formatter s =
   pp_concat_sep_delim "{" "}" ", " pp_abstract_value formatter @@
@@ -143,19 +152,6 @@ type abs_filtered_value =
 ;;
 let _ = show_abs_filtered_value;;
 
-module Abs_filtered_value_ord =
-struct
-  type t = abs_filtered_value
-  let compare = compare_abs_filtered_value
-end;;
-
-module Abs_filtered_value_set =
-struct
-  include Set.Make(Abs_filtered_value_ord);;
-  let pp = Pp_utils.pp_set pp_abs_filtered_value enum;;
-  let to_yojson = Yojson_utils.set_to_yojson abs_filtered_value_to_yojson enum;;
-end;;
-
 let pp_abs_filtered_value formatter (Abs_filtered_value(v,patsp,patsn)) =
   if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
   then pp_abstract_value formatter v
@@ -165,19 +161,37 @@ let pp_abs_filtered_value formatter (Abs_filtered_value(v,patsp,patsn)) =
 ;;
 let show_abs_filtered_value = pp_to_string pp_abs_filtered_value;;
 
-let pp_abs_filtered_value_set formatter s =
-  pp_concat_sep_delim "{" "}" "," pp_abs_filtered_value formatter @@
-  Abs_filtered_value_set.enum s
-;;
-let show_abs_filtered_value_set = pp_to_string pp_abs_filtered_value_set;;
+module Abs_filtered_value =
+struct
+  type t = abs_filtered_value
+  let compare = compare_abs_filtered_value
+  let pp = pp_abs_filtered_value
+  let to_yojson = abs_filtered_value_to_yojson
+end;;
 
-module Abs_clause_ord =
+module Abs_filtered_value_set =
+struct
+  module Impl = Set.Make(Abs_filtered_value);;
+  include Impl;;
+  include Pp_utils.Set_pp(Impl)(Abs_filtered_value);;
+  include Yojson_utils.Set_to_yojson(Impl)(Abs_filtered_value);;
+end;;
+
+module Abs_clause =
 struct
   type t = abstract_clause
   let compare = compare_abstract_clause
+  let pp = pp_abstract_clause
+  let to_yojson = abstract_clause_to_yojson
 end;;
 
-module Abs_clause_set = Set.Make(Abs_clause_ord);;
+module Abs_clause_set =
+struct
+  module Impl = Set.Make(Abs_clause);;
+  include Impl;;
+  include Pp_utils.Set_pp(Impl)(Abs_clause);;
+  include Yojson_utils.Set_to_yojson(Impl)(Abs_clause);;
+end;;
 
 type annotated_clause =
   | Unannotated_clause of abstract_clause
@@ -194,13 +208,21 @@ let is_annotated_clause_immediate acl =
   | Enter_clause _ | Exit_clause _ | Start_clause | End_clause -> true
 ;;
 
-module Annotated_clause_ord =
+module Annotated_clause =
 struct
   type t = annotated_clause
   let compare = compare_annotated_clause
+  let pp = pp_annotated_clause
+  let to_yojson = annotated_clause_to_yojson
 end;;
 
-module Annotated_clause_set = Set.Make(Annotated_clause_ord);;
+module Annotated_clause_set =
+struct
+  module Impl = Set.Make(Annotated_clause);;
+  include Impl;;
+  include Pp_utils.Set_pp(Impl)(Annotated_clause);;
+  include Yojson_utils.Set_to_yojson(Impl)(Annotated_clause);;
+end;;
 
 let pp_annotated_clause_set =
   Pp_utils.pp_set pp_annotated_clause Annotated_clause_set.enum
@@ -208,13 +230,15 @@ let pp_annotated_clause_set =
 
 type ddpa_edge =
   | Ddpa_edge of annotated_clause * annotated_clause
-  [@@deriving ord, show]
+  [@@deriving ord, show, to_yojson]
 ;;
 
-module Ddpa_edge_ord =
+module Ddpa_edge =
 struct
   type t = ddpa_edge
   let compare = compare_ddpa_edge
+  let pp = pp_ddpa_edge
+  let to_yojson = ddpa_edge_to_yojson
 end;;
 
 (*
@@ -241,14 +265,22 @@ sig
   val preds : annotated_clause -> ddpa_graph -> annotated_clause Enum.t
 
   val succs : annotated_clause -> ddpa_graph -> annotated_clause Enum.t
+
+  val to_yojson : ddpa_graph -> Yojson.Safe.json
 end;;
 
 (* TODO: improve the performance of this implementation! *)
 module Graph_impl : Graph_sig =
 struct
-  module Ddpa_edge_set = Set.Make(Ddpa_edge_ord);;
+  module Ddpa_edge_set =
+  struct
+    module Impl = Set.Make(Ddpa_edge);;
+    include Impl;;
+    include Pp_utils.Set_pp(Impl)(Ddpa_edge);;
+    include Yojson_utils.Set_to_yojson(Impl)(Ddpa_edge);;
+  end;;
 
-  type ddpa_graph = Graph of Ddpa_edge_set.t;;
+  type ddpa_graph = Graph of Ddpa_edge_set.t [@@deriving to_yojson];;
 
   let empty = Graph(Ddpa_edge_set.empty);;
 
@@ -275,6 +307,8 @@ struct
   let preds acl g =
     edges_to acl g |> Enum.map (fun (Ddpa_edge(acl,_)) -> acl)
   ;;
+
+  let to_yojson = ddpa_graph_to_yojson;;
 end;;
 
 include Graph_impl;;

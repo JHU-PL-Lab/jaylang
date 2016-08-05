@@ -114,7 +114,7 @@ module Test_reachability =
 let immediate_reachability_test =
   "immediate_reachability_test" >:: fun _ ->
     let analysis =
-      Test_reachability.empty
+      Test_reachability.empty ()
       |> Test_reachability.add_edge 0 [Pop 'a'] 1
       |> Test_reachability.add_start_state 0 [Push 'a']
       |> Test_reachability.fully_close
@@ -126,7 +126,7 @@ let immediate_reachability_test =
 let immediate_non_reachable_test =
   "immediate_non_reachable_test" >:: fun _ ->
     let analysis =
-      Test_reachability.empty
+      Test_reachability.empty ()
       |> Test_reachability.add_edge 0 [Pop 'b'] 1
       |> Test_reachability.add_start_state 0 [Push 'a']
       |> Test_reachability.fully_close
@@ -138,7 +138,7 @@ let immediate_non_reachable_test =
 let two_step_reachability_test =
   "two_step_reachability_test" >:: fun _ ->
     let analysis =
-      Test_reachability.empty
+      Test_reachability.empty ()
       |> Test_reachability.add_edge 0 [Pop 'a'; Push 'b'] 1
       |> Test_reachability.add_edge 1 [Pop 'b'] 2
       |> Test_reachability.add_start_state 0 [Push 'a']
@@ -154,7 +154,7 @@ let two_step_reachability_test =
 let cycle_reachability_test =
   "cycle_reachability_test" >:: fun _ ->
     let analysis =
-      Test_reachability.empty
+      Test_reachability.empty ()
       |> Test_reachability.add_edge 0 [Push 'b'] 0
       |> Test_reachability.add_edge 0 [Push 'c'] 1
       |> Test_reachability.add_edge 1 [Pop 'c'] 1
@@ -173,7 +173,7 @@ let cycle_reachability_test =
 let edge_function_reachability_test =
   "edge_function_reachability_test" >:: fun _ ->
     let analysis =
-      Test_reachability.empty
+      Test_reachability.empty ()
       |> Test_reachability.add_edge_function
         (fun state ->
            if state >= 50 then Enum.empty () else
@@ -193,7 +193,7 @@ let edge_function_reachability_test =
 let nondeterminism_reachability_test =
   "nondeterminism_reachability_test" >:: fun _ ->
     let analysis =
-      Test_reachability.empty
+      Test_reachability.empty ()
       |> Test_reachability.add_edge 0 [Pop 'a'] 1
       |> Test_reachability.add_edge 0 [Pop 'a'] 2
       |> Test_reachability.add_start_state 0 [Push 'a']
@@ -210,7 +210,7 @@ let targeted_dynamic_pop_reachability_test =
   "targeted_dynamic_pop_reachability_test" >:: fun _ ->
     (* The following function dynamically duplicates an element on the stack. *)
     let analysis =
-      Test_reachability.empty
+      Test_reachability.empty ()
       |> Test_reachability.add_edge 0
         [Pop_dynamic_targeted Test_dph.Double_push] 1
       |> Test_reachability.add_edge 1 [Pop 'a'; Pop 'a'] 2
@@ -229,7 +229,7 @@ let targeted_dynamic_pop_nondeterminism_reachability_test =
   "targeted_dynamic_pop_nondeterminism_reachability_test" >:: fun _ ->
     let dyn = Pop_dynamic_targeted Test_dph.Consume_identical_1_of_2 in
     let analysis =
-      Test_reachability.empty
+      Test_reachability.empty ()
       |> Test_reachability.add_edge 0 [Push 'b'; Push 'c'] 1
       |> Test_reachability.add_edge 1 [dyn] 2
       |> Test_reachability.add_edge 2 [Pop 'a'] 3
@@ -251,7 +251,7 @@ let targeted_dynamic_pop_nondeterminism_reachability_test =
 let untargeted_dynamic_pop_reachability_test =
   "untargeted_dynamic_pop_reachability_test" >:: fun _ ->
     let analysis =
-      Test_reachability.empty
+      Test_reachability.empty ()
       |> Test_reachability.add_edge 0 [Push 'a'] 1
       |> Test_reachability.add_untargeted_dynamic_pop_action
         1 (Test_dph.Target_condition_on_element_is_A(2,3))
@@ -318,7 +318,7 @@ let untargeted_dynamic_pop_function_reachability_test =
       else Enum.empty ()
     in
     let analysis =
-      Test_reachability.empty
+      Test_reachability.empty ()
       |> Test_reachability.add_edge 0 [Push 'a'; Push 'b'; Push 'b'] 1
       |> Test_reachability.add_edge 0 [Push 'a'; Push 'a'; Push 'a'] 1
       |> Test_reachability.add_edge 0 [Push 'b'; Push 'b'] 1
@@ -344,7 +344,7 @@ let untargeted_dynamic_pop_function_reachability_test =
 let targeted_dynamic_pop_chain_test =
   "targeted_dynamic_pop_chain_test" >:: fun _ ->
     let analysis =
-      Test_reachability.empty
+      Test_reachability.empty ()
       |> Test_reachability.add_edge 0
         [Pop_dynamic_targeted(
             Test_dph.Chain_two_push_1_of_2('a','b')); Push 'c'] 1
@@ -362,7 +362,7 @@ let targeted_dynamic_pop_chain_test =
 let lazy_edge_function_test =
   "lazy_edge_function_test" >:: fun _ ->
     let analysis =
-      Test_reachability.empty
+      Test_reachability.empty ()
       |> Test_reachability.add_edge_function
         (fun state ->
            if state < 10 || state > 99999998 then Enum.empty () else
