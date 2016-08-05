@@ -13,9 +13,10 @@
 # Execution temp files
 /*.log
 
-# Generated DOT files
+# Generated graph files
 /*.dot
 /*.pdf
+/*.log.json
 
 # Custom build configuration files
 /.local_*
