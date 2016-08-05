@@ -2366,7 +2366,7 @@ struct
                        (fun () -> Printf.sprintf "Completed closure step %d"
                            (data.ddpa_closure_steps));
     end;
-    log_cfg Log_everything analysis;
+    log_cfg Log_everything result;
     result
   ;;
 

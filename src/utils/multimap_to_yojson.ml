@@ -10,19 +10,28 @@ module Make
 =
 struct
   let to_yojson m =
-    `List
-      (
-        M.enum_by_key m
-        |> Enum.map
-          (fun (k,v) ->
-             `List [ K_yojson.to_yojson k
-                   ; `List ( M.S.enum v
-                             |> Enum.map V_yojson.to_yojson
-                             |> List.of_enum
-                           )
-                   ]
-          )
-        |> List.of_enum
-      )
+    `Assoc
+      [ ( "type"
+        , `String "multimap"
+        )
+      ; ( "mappings"
+        , `List
+            (M.enum_by_key m
+             |> Enum.map
+               (fun (k,vs) ->
+                  `Assoc
+                    [ ( "key", K_yojson.to_yojson k )
+                    ; ( "values"
+                      , `List ( M.S.enum vs
+                                |> Enum.map V_yojson.to_yojson
+                                |> List.of_enum
+                              )
+                      )
+                    ]
+               )
+             |> List.of_enum
+            )
+        )
+      ]
   ;;
 end;;

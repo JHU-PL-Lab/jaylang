@@ -6,24 +6,43 @@ open Batteries;;
 open Yojson.Safe;;
 
 let set_to_yojson element_to_yojson enumerator set =
-  `List
-    (
-      set
-      |> enumerator
-      |> Enum.map element_to_yojson
-      |> List.of_enum
-    )
+  `Assoc
+    [ ( "type"
+      , `String "set"
+      )
+    ; ( "elements"
+      , `List
+          (
+            set
+            |> enumerator
+            |> Enum.map element_to_yojson
+            |> List.of_enum
+          )
+      )
+    ]
 ;;
 
 let map_to_yojson key_to_yojson value_to_yojson enumerator map =
-  `List
-    (
-      map
-      |> enumerator
-      |> Enum.map
-        (fun (k,v) -> `List [key_to_yojson k; value_to_yojson v])
-      |> List.of_enum
-    )
+  `Assoc
+    [ ( "type"
+      , `String "map"
+      )
+    ; ( "mappings"
+      , `List
+        (
+          map
+          |> enumerator
+          |> Enum.map
+            (fun (k,v) ->
+               `Assoc
+                 [ ( "key" , key_to_yojson k )
+                 ; ( "value", value_to_yojson v )
+                 ]
+            )
+          |> List.of_enum
+        )
+      )
+    ]
 ;;
 
 module type To_yojson_type =
