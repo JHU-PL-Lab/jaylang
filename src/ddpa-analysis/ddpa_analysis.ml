@@ -1388,6 +1388,35 @@ struct
         end
   ;;
 
+  (** As log_pdr, but logs a delta of the reachability graph. *)
+  let log_pdr_delta
+      level ddpa_logging_data_opt old_reachability new_reachability =
+    match ddpa_logging_data_opt with
+    | None -> ()
+    | Some data ->
+      if compare_ddpa_logging_level
+          data.ddpa_logging_config.ddpa_pdr_logging_level
+          level >= 0
+      then
+        begin
+          let json =
+            `Assoc
+              [ ( "element_type"
+                , `String "pds_reachability_graph_delta"
+                )
+              ; ( "work_count"
+                , `Int (Ddpa_pds_reachability.get_work_count new_reachability)
+                )
+              ; ( "graph"
+                , Ddpa_pds_reachability.dump_yojson_delta
+                    old_reachability new_reachability
+                )
+              ]
+          in
+          data.ddpa_logging_config.ddpa_json_logger json
+        end
+  ;;
+
   (** Logs a given DDPA control flow graph.  This only occurs if the logging
       level of the analysis is at least as high as the one provided in this
       call. *)
@@ -1452,8 +1481,13 @@ struct
            = Log_nothing
         then None
         else Some
-            (fun reachability ->
-               log_pdr Log_everything ddpa_logging_data_opt reachability)
+            (fun old_reachability new_reachability ->
+               if ddpa_logging_data.ddpa_logging_config.ddpa_pdr_deltas
+               then
+                 log_pdr_delta Log_everything ddpa_logging_data_opt
+                   old_reachability new_reachability
+               else
+                 log_pdr Log_everything ddpa_logging_data_opt new_reachability)
     in
     (* The initial reachability analysis should include an edge function which
        always allows discarding the bottom-of-stack marker. *)

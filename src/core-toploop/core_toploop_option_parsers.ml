@@ -118,6 +118,13 @@ let ddpa_logging_level_option name =
 let ddpa_logging_option = ddpa_logging_level_option "DDPA CFG";;
 let pdr_logging_option = ddpa_logging_level_option "DDPA PDS";;
 
+let pdr_logging_deltas_option =
+  { (BatOptParse.StdOpt.store_true ())
+    with option_defhelp =
+           Some("Logs reachability graphs as deltas to save space.")
+  }
+;;
+
 let graph_log_file_option =
   { (BatOptParse.StdOpt.str_option
        ~default:"ddpa_graphs.log.json" ~metavar:"GRAPH_LOG_FILE" ())

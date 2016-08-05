@@ -1,3 +1,4 @@
+open Batteries;;
 open Pds_reachability_work;;
 
 (** This module type describes the interface for a work collection. *)
@@ -45,6 +46,10 @@ sig
   (** Determines the number of elements to be taken from a given work
       collection. *)
   val size : work_collection -> int
+
+(** Enumerates the elements in a work collection in the order in which they
+    would be taken. *)
+  val enum : work_collection -> W.t Enum.t
 
 (** Exports a work collection as JSON. *)
   val to_yojson : work_collection -> Yojson.Safe.json

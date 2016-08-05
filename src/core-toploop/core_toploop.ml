@@ -157,6 +157,7 @@ let do_analysis_steps callbacks conf e =
       let ddpa_logging_config =
         { ddpa_pdr_logging_level = ddpa_pdr_logging_level
         ; ddpa_cfg_logging_level = ddpa_cfg_logging_level
+        ; ddpa_pdr_deltas = conf.topconf_pdr_log_deltas
         ; ddpa_json_logger =
             match ddpa_cfg_logging_level, ddpa_pdr_logging_level with
             | Log_nothing, Log_nothing -> (fun _ -> ())
@@ -175,7 +176,9 @@ let do_analysis_steps callbacks conf e =
                        file
                    end
                  in
-                 let json_string = Yojson.Safe.to_string ~std:true json in
+                 let json_string =
+                   Yojson.Safe.pretty_to_string ~std:true json
+                 in
                  IO.nwrite file json_string
               )
         }

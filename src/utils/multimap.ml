@@ -51,17 +51,17 @@ struct
   module M = Map.Make(Key_ord);;
   module S = Set.Make(Value_ord);;
 
-  type t = Multimap of S.t M.t;;
+  type t = S.t M.t;;
   type key = Key_ord.t;;
   type value = Value_ord.t;;
 
-  let empty = Multimap(M.empty);;
+  let empty = M.empty;;
 
-  let is_empty (Multimap m) = M.is_empty m;;
+  let is_empty m = M.is_empty m;;
 
-  let num_keys (Multimap m) = M.cardinal m;;
+  let num_keys m = M.cardinal m;;
 
-  let num_values (Multimap m) =
+  let num_values m =
     M.enum m
     |> Enum.fold (fun a (_,v) -> a + S.cardinal v) 0
   ;;
@@ -72,43 +72,43 @@ struct
     | Some v -> v
   ;;
 
-  let add k v (Multimap m) =
+  let add k v m =
     let old_set = find_internal k m in
     let new_set = S.add v old_set in
-    Multimap(M.add k new_set m)
+    M.add k new_set m
   ;;
 
-  let find k (Multimap m) =
+  let find k m =
     match M.Exceptionless.find k m with
     | None -> Enum.empty ()
     | Some v -> S.enum v
   ;;
 
-  let remove k v (Multimap m) =
+  let remove k v m =
     let old_set = find_internal k m in
     let new_set = S.remove v old_set in
     if S.is_empty new_set
-    then Multimap(M.remove k m)
-    else Multimap(M.add k new_set m)
+    then M.remove k m
+    else M.add k new_set m
   ;;
 
-  let remove_all k (Multimap m) =
-    Multimap(M.remove k m)
+  let remove_all k m =
+    M.remove k m
   ;;
 
-  let mem k v (Multimap m) =
+  let mem k v m =
     find_internal k m |> S.mem v
   ;;
 
-  let mem_any k (Multimap m) =
+  let mem_any k m =
     M.mem k m
   ;;
 
-  let singleton k v = Multimap(M.add k (S.singleton v) M.empty);;
+  let singleton k v = M.add k (S.singleton v) M.empty;;
 
-  let keys (Multimap m) = M.keys m;;
+  let keys m = M.keys m;;
 
-  let enum (Multimap m) =
+  let enum m =
     M.enum m
     |> Enum.map
       (fun (k,vs) ->
@@ -121,11 +121,11 @@ struct
     Enum.fold (fun a (k,v) -> add k v a) empty
   ;;
 
-  let enum_by_key (Multimap m) =
+  let enum_by_key m =
     M.enum m
   ;;
 
-  let compare (Multimap x) (Multimap y) = M.compare S.compare x y;;
+  let compare x y = M.compare S.compare x y;;
 
   let equal x y = compare x y == 0;;
 end;;

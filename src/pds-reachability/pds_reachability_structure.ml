@@ -29,6 +29,12 @@ sig
   (** The type of the PDS reachability data structure. *)
   include Decorated_type
 
+  (**
+     Produces a Yojson structure representing the contents of a latter analysis
+     which do not appear in the former.
+  *)
+  val to_yojson_delta : t -> t -> Yojson.Safe.json
+
   (** The empty PDS reachability structure. *)
   val empty : t
 
@@ -227,6 +233,7 @@ struct
             else 0
   ;;
   let equal x y = compare x y == 0;;
+
   let to_yojson x =
     `Assoc
       [ ( "push_edges_by_source"
@@ -249,6 +256,67 @@ struct
             x.untargeted_dynamic_pop_actions_by_source
         )
       ]
+  ;;
+
+  let to_yojson_delta x y =
+    let multimap_delta enum of_enum mem x y =
+      y
+      |> enum
+      |> Enum.filter
+        (fun (k,v) -> not @@ mem k v x)
+      |> of_enum
+    in
+    `Assoc
+      (List.filter
+         (fun (_,v) ->
+            match v with
+            | `List n -> not @@ List.is_empty n
+            | _ -> true
+         )
+         [ ( "push_edges_by_source"
+           , Node_to_node_and_stack_element_multimap.to_yojson @@
+             multimap_delta
+               Node_to_node_and_stack_element_multimap.enum
+               Node_to_node_and_stack_element_multimap.of_enum
+               Node_to_node_and_stack_element_multimap.mem
+               x.push_edges_by_source y.push_edges_by_source
+           )
+         ; ( "pop_edges_by_source"
+           , Node_to_node_and_stack_element_multimap.to_yojson @@
+             multimap_delta
+               Node_to_node_and_stack_element_multimap.enum
+               Node_to_node_and_stack_element_multimap.of_enum
+               Node_to_node_and_stack_element_multimap.mem
+               x.pop_edges_by_source y.pop_edges_by_source
+           )
+         ; ( "nop_edges_by_source"
+           , Node_to_node_multimap.to_yojson @@
+             multimap_delta
+               Node_to_node_multimap.enum
+               Node_to_node_multimap.of_enum
+               Node_to_node_multimap.mem
+               x.nop_edges_by_source y.nop_edges_by_source
+           )
+         ; ( "targeted_dynamic_pop_edges_by_source"
+           , Node_to_node_and_targeted_dynamic_pop_action_multimap.to_yojson @@
+             multimap_delta
+               Node_to_node_and_targeted_dynamic_pop_action_multimap.enum
+               Node_to_node_and_targeted_dynamic_pop_action_multimap.of_enum
+               Node_to_node_and_targeted_dynamic_pop_action_multimap.mem
+               x.targeted_dynamic_pop_edges_by_source
+               y.targeted_dynamic_pop_edges_by_source
+           )
+         ; ( "untargeted_dynamic_pop_actions_by_source"
+           , Node_to_untargeted_dynamic_pop_action_multimap.to_yojson @@
+             multimap_delta
+               Node_to_untargeted_dynamic_pop_action_multimap.enum
+               Node_to_untargeted_dynamic_pop_action_multimap.of_enum
+               Node_to_untargeted_dynamic_pop_action_multimap.mem
+               x.untargeted_dynamic_pop_actions_by_source
+               y.untargeted_dynamic_pop_actions_by_source
+           )
+         ]
+      )
   ;;
 
   let empty =

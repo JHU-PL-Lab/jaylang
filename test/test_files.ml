@@ -322,6 +322,7 @@ let make_test filename expectations =
         ; topconf_log_prefix = filename ^ "_"
         ; topconf_ddpa_log_level = None
         ; topconf_pdr_log_level = None
+        ; topconf_pdr_log_deltas = false
         ; topconf_graph_log_file_name = "ddpa_test.log.yojson"
         ; topconf_analyze_vars =
             if variables_to_analyze = []

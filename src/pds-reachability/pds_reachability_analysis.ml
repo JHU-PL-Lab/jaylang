@@ -26,8 +26,9 @@ sig
   type analysis
 
   (** The type of reachability analysis logging functions.  These functions
-      are called whenever the associated analysis is stepped. *)
-  type analysis_logging_function = analysis -> unit
+      are called whenever the associated analysis is stepped.  The two arguments
+      are the analysis before stepping and the analysis after. *)
+  type analysis_logging_function = analysis -> analysis -> unit
 
   (** The empty analysis.  This analysis has no states, edges, or edge
       functions. *)
@@ -95,13 +96,21 @@ sig
       edge count (respectively). *)
   val get_size : analysis -> int * int
 
-(** Determines the amount of work done on a particular analysis. *)
+  (** Determines the amount of work done on a particular analysis. *)
   val get_work_count : analysis -> int
 
   (** Extracts a subset of information about an analysis state as JSON data.
       Some parts of the analysis state (such as edge functions) will be
       elided as they cannot be represented. *)
   val dump_yojson : analysis -> Yojson.Safe.json
+
+  (** Extracts a subset of information about an analysis state as JSON data.
+      This extraction generates a /difference/ between two reachability analyses,
+      giving values appearing in the latter but not the former.  This function
+      assumes the latter is a strict superset of the former; any values appearing
+      in the former and not the latter are ignored.  The format of this dump is
+      identical to that given by [dump_yojson]. *)
+  val dump_yojson_delta : analysis -> analysis -> Yojson.Safe.json
 end;;
 
 module Make
@@ -166,7 +175,7 @@ struct
     (* Indicates that this node exists somewhere in the analysis structure and
        has already been expanded.  An expanded node responds to edge functions,
        for instance. *)
-    [@@deriving show, to_yojson]
+    [@@deriving eq, show, to_yojson]
   let _ = show_node_awareness;; (* To ignore an unused generated function. *)
 
   type analysis =
@@ -205,7 +214,7 @@ struct
           (* The logging function to use when work is done on this analysis. *)
     }
     [@@deriving show]
-  and analysis_logging_function = analysis -> unit
+  and analysis_logging_function = analysis -> analysis -> unit
   ;;
 
   let _ = pp_analysis_logging_function;;
@@ -764,7 +773,7 @@ struct
     in
     begin
       match logged_analysis.logging_function with
-      | Some f -> f logged_analysis
+      | Some f -> f analysis logged_analysis
       | None -> ()
     end;
     logged_analysis
@@ -836,5 +845,102 @@ struct
         , `Bool (Option.is_some analysis.logging_function)
         )
       ]
+  ;;
+
+  let dump_yojson_delta a1 a2 =
+    `Assoc
+      (List.filter_map identity
+         [
+           begin
+             let enum_new_mappings _ =
+               a2.node_awareness_map
+               |> Node_map.enum
+               |> Enum.filter
+                 (fun (k,v) ->
+                    match Node_map.Exceptionless.find
+                            k a1.node_awareness_map with
+                    | Some(v') -> not @@ equal_node_awareness v v'
+                    | None -> true
+                 )
+             in
+             if Enum.is_empty @@ enum_new_mappings ()
+             then None
+             else Some
+                 ( "node_awareness_map"
+                 , Yojson_utils.map_to_yojson Node.to_yojson node_awareness_to_yojson
+                     enum_new_mappings a2
+                 )
+           end
+           ;
+           begin
+             let new_known_states =
+               State_set.diff a2.known_states a1.known_states
+             in
+             if State_set.is_empty new_known_states
+             then None
+             else Some
+                 ( "known_states"
+                 , State_set.to_yojson new_known_states
+                 )
+           end
+           ;
+           begin
+             let new_start_nodes =
+               Node_set.diff a2.start_nodes a1.start_nodes
+             in
+             if Node_set.is_empty new_start_nodes
+             then None
+             else Some
+                 ( "start_nodes"
+                 , Node_set.to_yojson new_start_nodes
+                 )
+           end
+           ;
+           begin
+             let reachability_json =
+               Structure.to_yojson_delta a1.reachability a2.reachability
+             in
+             match reachability_json with
+             | `Assoc [] -> None
+             | _ -> Some ( "reachability", reachability_json )
+           end
+           ;
+           begin
+             let a1_edge_function_count = List.length a1.edge_functions in
+             let a2_edge_function_count = List.length a2.edge_functions in
+             if a1_edge_function_count = a2_edge_function_count
+             then None
+             else Some ("edge_function_count", `Int a2_edge_function_count)
+           end
+           ;
+           begin
+             let a1_udpa_count =
+               List.length a1.untargeted_dynamic_pop_action_functions
+             in
+             let a2_udpa_count =
+               List.length a2.untargeted_dynamic_pop_action_functions
+             in
+             if a1_udpa_count = a2_udpa_count
+             then None
+             else Some ("untargeted_dynamic_pop_action_function_count",
+                        `Int a2_udpa_count)
+           end
+           ;
+           begin
+             if Enum.equal Work.equal
+                 (Work_collection_impl.enum a1.work_collection)
+                 (Work_collection_impl.enum a2.work_collection)
+             then None
+             else
+               Some
+                 ( "work_collection"
+                 , Work_collection_impl.to_yojson a2.work_collection
+                 )
+           end
+           ; Some ( "work_count"
+                  , `Int a2.work_count
+                  )
+         ]
+      )
   ;;
 end;;
