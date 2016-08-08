@@ -144,6 +144,8 @@ primary_expr:
       { List_expr(next_uid $startpos $endpos,$2) }
   | OPEN_BRACKET CLOSE_BRACKET
       { List_expr(next_uid $startpos $endpos,[]) }
+  | OPEN_PAREN expr COMMA separated_nonempty_trailing_list(COMMA, expr) CLOSE_PAREN
+      { List_expr(next_uid $startpos $endpos,$2::$4) }
   | primary_expr DOUBLE_COLON primary_expr
       { Cons_expr(next_uid $startpos $endpos,$1,$3) }
   | int_value
@@ -182,6 +184,8 @@ pattern:
       { List_pattern(next_uid $startpos $endpos,$2) }
   | OPEN_BRACKET CLOSE_BRACKET
       { List_pattern(next_uid $startpos $endpos,[]) }
+  | OPEN_PAREN pattern COMMA separated_nonempty_trailing_list(COMMA, pattern) CLOSE_PAREN
+      { List_pattern(next_uid $startpos $endpos,$2::$4) }
   | pattern DOUBLE_COLON pattern
       { Cons_pattern(next_uid $startpos $endpos,$1,$3) }
   | KEYWORD_FUN
@@ -204,6 +208,8 @@ pattern:
       { Variant_pattern(next_uid $startpos $endpos,$1,$3) }
   | variant OPEN_PAREN CLOSE_PAREN
       { Variant_pattern(next_uid $startpos $endpos,$1,[]) }
+  | OPEN_PAREN pattern CLOSE_PAREN
+      { $2 }
   ;
 
 match_pair:
