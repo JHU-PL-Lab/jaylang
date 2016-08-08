@@ -22,19 +22,15 @@ The subsections below walk through these processes.
 1. Make sure you have [OCaml][ocaml] and [OPAM][opam] installed on the latest
    version:
 
-    ```
-    opam init               # necessary for freshly-installed OPAM instances
-    eval `opam config env`  # if you do not have OPAM's environment configured
-    opam update
-    opam upgrade
-    opam switch 4.02.3  # this may take a while
-    ```
+        opam init               # necessary for freshly-installed OPAM instances
+        eval `opam config env`  # if you do not have OPAM's environment configured
+        opam update
+        opam upgrade
+        opam switch 4.02.3  # this may take a while
 
 2. Install the dependencies:
 
-    ```
-    opam install oasis batteries menhir ounit ppx_deriving ocaml-monadic monadlib
-    ```
+        opam install oasis batteries menhir ounit ppx_deriving ocaml-monadic monadlib
 
    If your shell hashes binary locations, you may need to clear your hashes now.
    (In bash, `hash -r` does this.)
@@ -48,10 +44,8 @@ for the dependency and then pin that repository as an OPAM package.
 
 1. Install `jhupllib`:
 
-   ```
-   git clone https://github.com/JHU-PL-Lab/jhu-pl-lib.git ../jhu-pl-lib
-   opam pin add jhupllib ../jhu-pl-lib
-   ```
+        git clone https://github.com/JHU-PL-Lab/jhu-pl-lib.git ../jhu-pl-lib
+        opam pin add jhupllib ../jhu-pl-lib
 
 You will need to re-run an appropriate `opam pin` command each time one of these
 libraries is changed.
@@ -62,27 +56,27 @@ With the above configuration, it is now possible to build Odefa.
 
 1. Generate configuration:
 
-    $ oasis setup -setup-update dynamic
+        oasis setup -setup-update dynamic
 
 2. Configure:
 
-    $ ./configure
+        ./configure
 
 3. Enable tests:
 
-    $ ocaml setup.ml -configure --enable-tests
+        ocaml setup.ml -configure --enable-tests
 
 4. Build:
 
-    $ make
+        make
 
 5. Interact with the toploop (sample programs can be found at `test-sources/`):
 
-    $ ./toploop.native
+        ./toploop.native
 
 6. Run the tests:
 
-    $ make test
+        make test
 
 Execution
 ---------
@@ -90,18 +84,18 @@ Execution
 The Odefa toploop accepts command-line arguments.  Brief help for these
 arguments may be obtained by passing `--help`.  Notable options are:
 
-### `--log=trace`
+#### `--log=trace`
 
 Enables quite verbose logging.
 
-### `--disable-inconsistency-check`
+#### `--disable-inconsistency-check`
 
 By default, the toploop checks programs for a form of inconsistency: lookup on
 call sites should return only functions.  This causes several variable lookups
 and is not suitable for benchmarking.  This flag disables the inconsistency
 check.
 
-### `--select-context-stack=0ddpa`
+#### `--select-context-stack=0ddpa`
 
 Uses DDPA with a 0-level context stack (which is a monovariant analysis).  Any positive integer value is admitted here (e.g. `7ddpa`).
 
