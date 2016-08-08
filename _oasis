@@ -22,8 +22,6 @@ PreCleanCommand: ./.execute_if_exists ./.local_preclean
 Library "utils"
   Path: src/utils
   Modules:
-    Dot_file_logger_utils,
-    Dot_file_logger_utils_types,
     Logger_utils,
     Monad_utils,
     Multimap,
