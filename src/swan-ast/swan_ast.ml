@@ -37,7 +37,7 @@ type expr =
   | Let_function_expr of uid * swan_var * swan_var list * expr * expr
   | Projection_expr of uid * expr * ident
   | Match_expr of uid * expr * match_pair list
-  | Static_fail_expr of uid * expr
+  | Invariant_failure_expr of uid * expr
   [@@deriving eq, ord]
 
 (** Function values in the nested language. *)

@@ -47,7 +47,7 @@ module List = BatList;;
 %token KEYWORD_WITH
 %token KEYWORD_END
 %token KEYWORD_ANY
-%token KEYWORD_STATIC_FAIL
+%token KEYWORD_INVARIANT_FAILURE
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
@@ -61,7 +61,7 @@ module List = BatList;;
 %nonassoc TILDE
 %left LEFT_ARROW
 %left SEMICOLON
-%nonassoc KEYWORD_STATIC_FAIL
+%nonassoc KEYWORD_INVARIANT_FAILURE
 %nonassoc BINOP_LESS BINOP_LESS_EQUAL BINOP_EQUAL KEYWORD_OR KEYWORD_AND KEYWORD_NOT
 %left BINOP_PLUS BINOP_MINUS
 %right BANG
@@ -164,8 +164,8 @@ primary_expr:
       { Deref_expr(next_uid $startpos $endpos,$2) }
   | OPEN_PAREN expr CLOSE_PAREN
       { $2 }
-  | KEYWORD_STATIC_FAIL primary_expr
-      { Static_fail_expr (next_uid $startpos $endpos,$2) }
+  | KEYWORD_INVARIANT_FAILURE primary_expr
+      { Invariant_failure_expr (next_uid $startpos $endpos,$2) }
   ;
 
 record_element:

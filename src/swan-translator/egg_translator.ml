@@ -154,13 +154,13 @@ type log_entry =
   (** First uid is the resulting list in the resulting record and second uid is
       the variant where it came from. *)
 
-  | Static_fail_to_application of uid * uid
-  (** First uid is the resulting application and second uid is the `staticfail'
-      where it came from. *)
+  | Invariant_failure_to_application of uid * uid
+  (** First uid is the resulting application and second uid is the
+      `invariant_failure' where it came from. *)
 
-  | Static_fail_to_non_function_in_application of uid * uid
+  | Invariant_failure_to_non_function_in_application of uid * uid
   (** First uid is the resulting non-function in the resulting application and
-      second uid is the `staticfail' where it came from. *)
+      second uid is the `invariant_failure' where it came from. *)
 
   | Cons_expression_to_record of uid * uid
   (** First uid is the resulting record and second uid is the `cons' where it
@@ -190,16 +190,16 @@ type log_entry =
   (** First uid is the resulting list in the resulting record and second uid is
       the variant where it came from. *)
 
-  | Match_to_static_fail of uid * uid
+  | Match_to_invariant_failure of uid * uid
   (** First uid is the resulting `staticfail', second uid is the `match' where
       it came from. *)
 
-  | Match_to_variable_in_static_fail of uid * uid * uid
+  | Match_to_variable_in_invariant_failure of uid * uid * uid
   (** First uid is the resulting variable in the resulting `staticfail', second
       uid is the `match' where it came from and third uid is the variable in the
       `match' where it came from. *)
 
-  | Match_to_identifier_in_variable_in_static_fail of uid * uid * uid
+  | Match_to_identifier_in_variable_in_invariant_failure of uid * uid * uid
   (** First uid is the resulting identifier in the resulting variable in the
       resulting `staticfail', second uid is the `match' where it came from and
       third uid is the identifier in the variable in the `match' where it came
@@ -623,7 +623,7 @@ let translation_close
     | Egg_ast.Int_expr _
     | Egg_ast.Bool_expr _
     | Egg_ast.String_expr _
-    | Egg_ast.Static_fail_expr _ -> (e, Uid_map.empty)
+    | Egg_ast.Invariant_failure_expr _ -> (e, Uid_map.empty)
 
   and transitive_pattern_translator (p:Egg_ast.pattern) =
     match p with
@@ -871,19 +871,19 @@ let translate_pattern_variant
   | _ -> tc.continuation_pattern_translator p
 ;;
 
-let translate_static_fail
+let translate_invariant_failure
     (tc:translator_configuration)
     (e:Egg_ast.expr) =
 
   match e with
-  | Egg_ast.Static_fail_expr(uid_static_fail, e) ->
+  | Egg_ast.Invariant_failure_expr(uid_invariant_failure, e) ->
     let uid_application = next_uid () in
     let uid_non_function_in_application = next_uid () in
     expression_continuation_with_mappings tc
       (Egg_ast.Appl_expr (uid_application, Egg_ast.String_expr (uid_non_function_in_application, "non-function"), [e]))
       []
-      [(uid_application, Static_fail_to_application (uid_application, uid_static_fail));
-       (uid_non_function_in_application, Static_fail_to_non_function_in_application (uid_non_function_in_application, uid_static_fail));]
+      [(uid_application, Invariant_failure_to_application (uid_application, uid_invariant_failure));
+       (uid_non_function_in_application, Invariant_failure_to_non_function_in_application (uid_non_function_in_application, uid_invariant_failure));]
 
   | _ -> tc.continuation_expression_translator e
 ;;
@@ -959,15 +959,15 @@ let translate_match
 
   match e with
   | Egg_ast.Match_expr(uid_match, Egg_ast.Var_expr (uid_variable_in_match, Egg_ast.Egg_var (uid_identifier_in_variable_in_match, x_subject)), []) ->
-    let uid_static_fail = next_uid () in
-    let uid_variable_in_static_fail = next_uid () in
-    let uid_identifier_in_variable_in_static_fail = next_uid () in
+    let uid_invariant_failure = next_uid () in
+    let uid_variable_in_invariant_failure = next_uid () in
+    let uid_identifier_in_variable_in_invariant_failure = next_uid () in
     expression_continuation_with_mappings tc
-      (Egg_ast.Static_fail_expr (uid_static_fail, Egg_ast.Var_expr (uid_variable_in_static_fail, Egg_ast.Egg_var (uid_identifier_in_variable_in_static_fail, x_subject))))
+      (Egg_ast.Invariant_failure_expr (uid_invariant_failure, Egg_ast.Var_expr (uid_variable_in_invariant_failure, Egg_ast.Egg_var (uid_identifier_in_variable_in_invariant_failure, x_subject))))
       []
-      [(uid_static_fail, Match_to_static_fail (uid_static_fail, uid_match));
-       (uid_variable_in_static_fail, Match_to_variable_in_static_fail (uid_variable_in_static_fail, uid_match, uid_variable_in_match));
-       (uid_identifier_in_variable_in_static_fail, Match_to_identifier_in_variable_in_static_fail (uid_identifier_in_variable_in_static_fail, uid_match, uid_identifier_in_variable_in_match));]
+      [(uid_invariant_failure, Match_to_invariant_failure (uid_invariant_failure, uid_match));
+       (uid_variable_in_invariant_failure, Match_to_variable_in_invariant_failure (uid_variable_in_invariant_failure, uid_match, uid_variable_in_match));
+       (uid_identifier_in_variable_in_invariant_failure, Match_to_identifier_in_variable_in_invariant_failure (uid_identifier_in_variable_in_invariant_failure, uid_match, uid_identifier_in_variable_in_match));]
 
   | Egg_ast.Match_expr(
       uid_match, Egg_ast.Var_expr (uid_variable_in_match, Egg_ast.Egg_var (uid_identifier_in_variable_in_match, x_subject)),
@@ -1242,7 +1242,7 @@ let expression_translators : Egg_ast.expr translator_fragment list =
     translate_expression_variant;
     translate_expression_list;
     translate_expression_cons;
-    translate_static_fail;
+    translate_invariant_failure;
     translate_all_patterns_depending_on_pattern_variable;
     translate_conditional_with_pattern_variable;
   ]
