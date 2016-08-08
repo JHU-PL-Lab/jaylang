@@ -155,28 +155,6 @@ Library "swan-translator"
     odefa.swan-ast,
     odefa.utils
 
-Library "pds-reachability"
-  FindlibParent: odefa
-  Path: src/pds-reachability
-  Modules:
-    Pds_reachability_analysis,
-    Pds_reachability_basis,
-    Pds_reachability_structure,
-    Pds_reachability_types,
-    Pds_reachability_types_stack,
-    Pds_reachability_utils,
-    Pds_reachability_work,
-    Pds_reachability_work_collection,
-    Pds_reachability_work_collection_templates,
-    Pds_reachability
-  BuildDepends:
-    batteries,
-    jhupllib,
-    ppx_deriving.std (>= 3.2),
-    ppx_deriving_yojson,
-    yojson,
-    odefa.utils
-
 Library "ddpa-analysis"
   FindlibParent: odefa
   Path: src/ddpa-analysis
@@ -197,10 +175,10 @@ Library "ddpa-analysis"
     jhupllib,
     monadlib,
     ocaml-monadic (>= 0.3.1),
+    pds-reachability,
     ppx_deriving.std (>= 3.2),
     ppx_deriving_yojson,
-    odefa.core-ast,
-    odefa.pds-reachability
+    odefa.core-ast
 
 Library "core-toploop"
   FindlibParent: odefa
@@ -288,6 +266,7 @@ Executable "test"
   BuildDepends:
     batteries,
     jhupllib,
+    pds-reachability,
     oUnit,
     ppx_deriving.std,
     odefa.core-interpreter,
@@ -295,7 +274,6 @@ Executable "test"
     odefa.core-toploop,
     odefa.ddpa-analysis,
     odefa.nested-ast,
-    odefa.pds-reachability,
     odefa.swan-ast,
     odefa.swan-translator,
     odefa.utils
@@ -311,13 +289,13 @@ Executable "benchmark"
     batteries,
     jhupllib,
     oUnit,
+    pds-reachability,
     ppx_deriving.std,
     odefa.core-interpreter,
     odefa.core-parser,
     odefa.core-toploop,
     odefa.ddpa-analysis,
     odefa.nested-ast,
-    odefa.pds-reachability,
     odefa.swan-ast,
     odefa.swan-translator,
     odefa.utils

@@ -47,6 +47,11 @@ for the dependency and then pin that repository as an OPAM package.
         git clone https://github.com/JHU-PL-Lab/jhu-pl-lib.git ../jhu-pl-lib
         opam pin add jhupllib ../jhu-pl-lib
 
+2. Install `pds-reachability`:
+
+        git clone https://github.com/JHU-PL-Lab/pds-reachability.git ../pds-reachability
+        opam pin add pds-reachability ../pds-reachability
+
 You will need to re-run an appropriate `opam pin` command each time one of these
 libraries is changed.
 
