@@ -19,6 +19,26 @@ BuildDepends: threads
 PreBuildCommand: ./.execute_if_exists ./.local_prebuild
 PreCleanCommand: ./.execute_if_exists ./.local_preclean
 
+Library "jhupllib"
+  Path: src/jhupllib
+  Modules:
+    Logger_utils,
+    Monad_utils,
+    Multimap,
+    Multimap_pp,
+    Multimap_to_yojson,
+    Nondeterminism,
+    Pp_utils,
+    String_utils,
+    Utils,
+    Yojson_utils
+  BuildDepends:
+    batteries,
+    monadlib,
+    ocaml-monadic,
+    ppx_deriving.std,
+    yojson
+
 Library "odefa"
   Path: src
   Modules:
@@ -28,25 +48,12 @@ Library "utils"
   FindlibParent: odefa
   Path: src/utils
   Modules:
-    Logger_utils,
-    Monad_utils,
-    Multimap,
-    Multimap_pp,
-    Multimap_to_yojson,
-    Nondeterminism,
     Parser_support,
-    Pp_utils,
     Source_origin,
-    String_utils,
-    Uid,
-    Utils,
-    Yojson_utils
+    Uid
   BuildDepends:
     batteries,
-    monadlib,
-    ocaml-monadic,
-    ppx_deriving.std,
-    yojson
+    ppx_deriving.std
 
 Library "core-ast"
   FindlibParent: odefa
@@ -58,6 +65,7 @@ Library "core-ast"
     Core_ast_wellformedness
   BuildDepends:
     batteries,
+    jhupllib,
     ppx_deriving.std (>= 3.2),
     ppx_deriving_yojson,
     odefa.utils
@@ -71,6 +79,7 @@ Library "core-parser"
     Core_parser
   BuildDepends:
     batteries,
+    jhupllib,
     odefa.core-ast,
     odefa.utils
   BuildTools+:
@@ -84,6 +93,7 @@ Library "core-interpreter"
     Core_interpreter
   BuildDepends:
     batteries,
+    jhupllib,
     odefa.core-ast,
     odefa.utils
 
@@ -94,6 +104,7 @@ Library "nested-ast"
     Nested_ast
   BuildDepends:
     batteries,
+    jhupllib,
     odefa.core-ast,
     odefa.utils
 
@@ -116,6 +127,7 @@ Library "nested-parser"
     Nested_parser
   BuildDepends:
     batteries,
+    jhupllib,
     odefa.nested-ast,
     odefa.utils
   BuildTools+:
@@ -131,6 +143,7 @@ Library "swan-parser"
     Swan_parser
   BuildDepends:
     batteries,
+    jhupllib,
     odefa.swan-ast,
     odefa.utils
   BuildTools+:
@@ -144,6 +157,7 @@ Library "a-translator"
     A_translator
   BuildDepends:
     batteries,
+    jhupllib,
     odefa.core-ast,
     odefa.nested-ast,
     odefa.utils
@@ -155,6 +169,7 @@ Library "swan-translator"
     Swan_translator
   BuildDepends:
     batteries,
+    jhupllib,
     odefa.core-ast,
     odefa.nested-ast,
     odefa.swan-ast,
@@ -176,9 +191,10 @@ Library "pds-reachability"
     Pds_reachability
   BuildDepends:
     batteries,
-    yojson,
+    jhupllib,
     ppx_deriving.std (>= 3.2),
     ppx_deriving_yojson,
+    yojson,
     odefa.utils
 
 Library "ddpa-analysis"
@@ -198,6 +214,7 @@ Library "ddpa-analysis"
     Ddpa_utils
   BuildDepends:
     batteries,
+    jhupllib,
     monadlib,
     ocaml-monadic (>= 0.3.1),
     ppx_deriving.std (>= 3.2),
@@ -217,6 +234,7 @@ Library "core-toploop"
     Core_toploop_utils
   BuildDepends:
     batteries,
+    jhupllib,
     odefa.core-ast,
     odefa.core-interpreter,
     odefa.core-parser,
@@ -229,6 +247,7 @@ Library "nested-toploop"
     Nested_toploop
   BuildDepends:
     batteries,
+    jhupllib,
     odefa.a-translator,
     odefa.core-ast,
     odefa.core-toploop,
@@ -242,6 +261,7 @@ Library "swan-toploop"
     Swan_toploop
   BuildDepends:
     batteries,
+    jhupllib,
     odefa.a-translator,
     odefa.nested-ast,
     odefa.nested-toploop,
@@ -255,9 +275,10 @@ Executable "core_toploop"
   CompiledObject: native
   BuildDepends:
     batteries,
+    jhupllib,
     odefa.core-ast,
     odefa.core-parser,
-    odefa.core-toploop,
+    odefa.core-toploop
 
 Executable "nested-toploop"
   Path: src/nested-toploop-main
@@ -265,9 +286,10 @@ Executable "nested-toploop"
   CompiledObject: native
   BuildDepends:
     batteries,
+    jhupllib,
     odefa.nested-ast,
     odefa.nested-parser,
-    odefa.nested-toploop,
+    odefa.nested-toploop
 
 Executable "swan-toploop"
   Path: src/swan-toploop-main
@@ -277,7 +299,7 @@ Executable "swan-toploop"
     batteries,
     odefa.swan-ast,
     odefa.swan-parser,
-    odefa.swan-toploop,
+    odefa.swan-toploop
 
 Executable "test"
   Path: test/
@@ -285,6 +307,7 @@ Executable "test"
   CompiledObject: native
   BuildDepends:
     batteries,
+    jhupllib,
     oUnit,
     ppx_deriving.std,
     odefa.core-interpreter,
@@ -306,6 +329,7 @@ Executable "benchmark"
   CompiledObject: native
   BuildDepends:
     batteries,
+    jhupllib,
     oUnit,
     ppx_deriving.std,
     odefa.core-interpreter,
