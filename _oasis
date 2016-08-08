@@ -19,7 +19,13 @@ BuildDepends: threads
 PreBuildCommand: ./.execute_if_exists ./.local_prebuild
 PreCleanCommand: ./.execute_if_exists ./.local_preclean
 
+Library "odefa"
+  Path: src
+  Modules:
+    Odefa
+
 Library "utils"
+  FindlibParent: odefa
   Path: src/utils
   Modules:
     Logger_utils,
@@ -43,6 +49,7 @@ Library "utils"
     yojson
 
 Library "core-ast"
+  FindlibParent: odefa
   Path: src/core-ast
   Modules:
     Core_ast,
@@ -53,9 +60,10 @@ Library "core-ast"
     batteries,
     ppx_deriving.std (>= 3.2),
     ppx_deriving_yojson,
-    utils
+    odefa.utils
 
 Library "core-parser"
+  FindlibParent: odefa
   Path: src/core-parser
   Modules:
     Core_generated_lexer,
@@ -63,40 +71,44 @@ Library "core-parser"
     Core_parser
   BuildDepends:
     batteries,
-    core-ast,
-    utils
+    odefa.core-ast,
+    odefa.utils
   BuildTools+:
     ocamllex,
     menhir
 
 Library "core-interpreter"
+  FindlibParent: odefa
   Path: src/core-interpreter
   Modules:
     Core_interpreter
   BuildDepends:
     batteries,
-    core-ast,
-    utils
+    odefa.core-ast,
+    odefa.utils
 
 Library "nested-ast"
+  FindlibParent: odefa
   Path: src/nested-ast
   Modules:
     Nested_ast
   BuildDepends:
     batteries,
-    core-ast,
-    utils
+    odefa.core-ast,
+    odefa.utils
 
 Library "swan-ast"
+  FindlibParent: odefa
   Path: src/swan-ast
   Modules:
     Swan_ast
   BuildDepends:
     batteries,
-    core-ast,
-    utils
+    odefa.core-ast,
+    odefa.utils
 
 Library "nested-parser"
+  FindlibParent: odefa
   Path: src/nested-parser
   Modules:
     Nested_generated_lexer,
@@ -104,13 +116,14 @@ Library "nested-parser"
     Nested_parser
   BuildDepends:
     batteries,
-    nested-ast,
-    utils
+    odefa.nested-ast,
+    odefa.utils
   BuildTools+:
     ocamllex,
     menhir
 
 Library "swan-parser"
+  FindlibParent: odefa
   Path: src/swan-parser
   Modules:
     Swan_generated_lexer,
@@ -118,34 +131,37 @@ Library "swan-parser"
     Swan_parser
   BuildDepends:
     batteries,
-    swan-ast,
-    utils
+    odefa.swan-ast,
+    odefa.utils
   BuildTools+:
     ocamllex,
     menhir
 
 Library "a-translator"
+  FindlibParent: odefa
   Path: src/a-translator
   Modules:
     A_translator
   BuildDepends:
     batteries,
-    core-ast,
-    nested-ast,
-    utils
+    odefa.core-ast,
+    odefa.nested-ast,
+    odefa.utils
 
 Library "swan-translator"
+  FindlibParent: odefa
   Path: src/swan-translator
   Modules:
     Swan_translator
   BuildDepends:
     batteries,
-    core-ast,
-    nested-ast,
-    swan-ast,
-    utils
+    odefa.core-ast,
+    odefa.nested-ast,
+    odefa.swan-ast,
+    odefa.utils
 
 Library "pds-reachability"
+  FindlibParent: odefa
   Path: src/pds-reachability
   Modules:
     Pds_reachability_analysis,
@@ -159,13 +175,14 @@ Library "pds-reachability"
     Pds_reachability_work_collection_templates,
     Pds_reachability
   BuildDepends:
-    utils,
     batteries,
     yojson,
     ppx_deriving.std (>= 3.2),
-    ppx_deriving_yojson
+    ppx_deriving_yojson,
+    odefa.utils
 
 Library "ddpa-analysis"
+  FindlibParent: odefa
   Path: src/ddpa-analysis
   Modules:
     Ddpa_analysis_logging,
@@ -180,15 +197,16 @@ Library "ddpa-analysis"
     Ddpa_unit_stack,
     Ddpa_utils
   BuildDepends:
-    core-ast,
-    pds-reachability,
     batteries,
+    monadlib,
+    ocaml-monadic (>= 0.3.1),
     ppx_deriving.std (>= 3.2),
     ppx_deriving_yojson,
-    monadlib,
-    ocaml-monadic (>= 0.3.1)
+    odefa.core-ast,
+    odefa.pds-reachability
 
 Library "core-toploop"
+  FindlibParent: odefa
   Path: src/core-toploop
   Modules:
     Core_toploop,
@@ -198,85 +216,86 @@ Library "core-toploop"
     Core_toploop_options,
     Core_toploop_utils
   BuildDepends:
-    ppx_import,
-    core-ast,
-    core-interpreter,
-    core-parser,
-    ddpa-analysis,
-    batteries
+    batteries,
+    odefa.core-ast,
+    odefa.core-interpreter,
+    odefa.core-parser,
+    odefa.ddpa-analysis
 
 Library "nested-toploop"
+  FindlibParent: odefa
   Path: src/nested-toploop
   Modules:
     Nested_toploop
   BuildDepends:
-    a-translator,
-    core-ast,
-    core-toploop,
-    nested-ast,
-    nested-parser,
-    batteries
+    batteries,
+    odefa.a-translator,
+    odefa.core-ast,
+    odefa.core-toploop,
+    odefa.nested-ast,
+    odefa.nested-parser
 
 Library "swan-toploop"
+  FindlibParent: odefa
   Path: src/swan-toploop
   Modules:
     Swan_toploop
   BuildDepends:
-    a-translator,
-    nested-ast,
-    nested-toploop,
-    swan-ast,
-    swan-parser,
-    swan-translator,
-    batteries
+    batteries,
+    odefa.a-translator,
+    odefa.nested-ast,
+    odefa.nested-toploop,
+    odefa.swan-ast,
+    odefa.swan-parser,
+    odefa.swan-translator
 
 Executable "core_toploop"
   Path: src/core-toploop-main
   MainIs: core_toploop_main.ml
   CompiledObject: native
   BuildDepends:
-    core-ast,
-    core-parser,
-    core-toploop,
-    batteries
+    batteries,
+    odefa.core-ast,
+    odefa.core-parser,
+    odefa.core-toploop,
 
 Executable "nested-toploop"
   Path: src/nested-toploop-main
   MainIs: nested_toploop_main.ml
   CompiledObject: native
   BuildDepends:
-    nested-ast,
-    nested-parser,
-    nested-toploop,
-    batteries
+    batteries,
+    odefa.nested-ast,
+    odefa.nested-parser,
+    odefa.nested-toploop,
 
 Executable "swan-toploop"
   Path: src/swan-toploop-main
   MainIs: swan_toploop_main.ml
   CompiledObject: native
   BuildDepends:
-    swan-ast,
-    swan-parser,
-    swan-toploop,
-    batteries
+    batteries,
+    odefa.swan-ast,
+    odefa.swan-parser,
+    odefa.swan-toploop,
 
 Executable "test"
   Path: test/
   MainIs: test.ml
   CompiledObject: native
   BuildDepends:
-    core-interpreter,
-    core-parser,
-    core-toploop,
-    ddpa-analysis,
-    nested-ast,
-    pds-reachability,
-    ppx_deriving.std,
-    swan-ast,
-    swan-translator,
-    utils,
     batteries,
-    oUnit
+    oUnit,
+    ppx_deriving.std,
+    odefa.core-interpreter,
+    odefa.core-parser,
+    odefa.core-toploop,
+    odefa.ddpa-analysis,
+    odefa.nested-ast,
+    odefa.pds-reachability,
+    odefa.swan-ast,
+    odefa.swan-translator,
+    odefa.utils
 
 Test test
   Command: $test
@@ -286,15 +305,15 @@ Executable "benchmark"
   MainIs: benchmark.ml
   CompiledObject: native
   BuildDepends:
-    core-interpreter,
-    core-parser,
-    core-toploop,
-    ddpa-analysis,
-    nested-ast,
-    pds-reachability,
-    ppx_deriving.std,
-    swan-ast,
-    swan-translator,
-    utils,
     batteries,
-    oUnit
+    oUnit,
+    ppx_deriving.std,
+    odefa.core-interpreter,
+    odefa.core-parser,
+    odefa.core-toploop,
+    odefa.ddpa-analysis,
+    odefa.nested-ast,
+    odefa.pds-reachability,
+    odefa.swan-ast,
+    odefa.swan-translator,
+    odefa.utils
