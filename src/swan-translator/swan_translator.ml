@@ -68,8 +68,8 @@ let rec swan_to_egg_expr e =
     Egg_ast.Ref_expr(uid, swan_to_egg_expr e)
   | Swan_ast.Var_expr(uid, x) ->
     Egg_ast.Var_expr(uid, swan_to_egg_var x)
-  | Swan_ast.Appl_expr(uid, e1, es2) ->
-    Egg_ast.Appl_expr(uid, swan_to_egg_expr e1, es2 |> List.map swan_to_egg_expr)
+  | Swan_ast.Appl_expr(uid, e1, e2) ->
+    Egg_ast.Appl_expr(uid, swan_to_egg_expr e1, swan_to_egg_expr e2)
   | Swan_ast.Conditional_expr(uid, e, p, fv1, fv2) ->
     Egg_ast.Conditional_expr(
       uid
@@ -108,18 +108,18 @@ let rec swan_to_egg_expr e =
     , swan_to_egg_expr e1
     , swan_to_egg_expr e2
     )
-  | Swan_ast.Let_expr(uid, x, e1, e2) ->
-    Egg_ast.Let_expr(
+  | Swan_ast.Let_pattern_expr(uid, p, e1, e2) ->
+    Egg_ast.Let_pattern_expr(
       uid
-    , swan_to_egg_var x
+    , swan_to_egg_pattern p
     , swan_to_egg_expr e1
     , swan_to_egg_expr e2
     )
-  | Swan_ast.Let_function_expr(uid, x, xs, e1, e2) ->
+  | Swan_ast.Let_function_expr(uid, x, ps, e1, e2) ->
     Egg_ast.Let_function_expr(
       uid
     , swan_to_egg_var x
-    , xs |> List.map swan_to_egg_var
+    , ps |> List.map swan_to_egg_pattern
     , swan_to_egg_expr e1
     , swan_to_egg_expr e2
     )
@@ -137,9 +137,9 @@ let rec swan_to_egg_expr e =
   | Swan_ast.Invariant_failure_expr(u1,e) -> Egg_ast.Invariant_failure_expr(u1, swan_to_egg_expr e)
 
 and swan_to_egg_function_value
-    (Swan_ast.Function(u,vs,e')) =
+    (Swan_ast.Function_with_multiple_arguments(u,ps,e')) =
   let body = swan_to_egg_expr e' in
-  Egg_ast.Function(u, vs |> List.map swan_to_egg_var, body)
+  Egg_ast.Function_with_multiple_arguments(u, ps |> List.map swan_to_egg_pattern, body)
 
 and swan_to_egg_match_pair
     (Swan_ast.Match_pair(u, p, e)) =
@@ -180,12 +180,13 @@ let rec egg_to_nested_pattern p =
     raise @@ Utils.Invariant_failure "An egg pattern that was not fully translated has been passed into egg_to_nested"
 
 let rec egg_to_nested_function_value
-    (Egg_ast.Function(u,vs,e')) =
-  match vs with
-  | [v] ->
+    function_value =
+  match function_value with
+  | Egg_ast.Function(u,v,e') ->
     let body = egg_to_nested_expr e' in
     Nested_ast.Function(u, egg_to_nested_var v, body)
-  | _ ->
+  | Egg_ast.Function_with_pattern_argument _
+  | Egg_ast.Function_with_multiple_arguments _ ->
     raise @@ Utils.Invariant_failure "An egg function value that was not fully translated has been passed into egg_to_nested"
 
 and egg_to_nested_expr e =
@@ -206,16 +207,10 @@ and egg_to_nested_expr e =
     Nested_ast.Ref_expr(u, e_nested)
   | Egg_ast.Var_expr(u,v) ->
     Nested_ast.Var_expr(u, egg_to_nested_var v)
-  | Egg_ast.Appl_expr(u,e1,es2) ->
-    begin
-      match es2 with
-      | [e2] ->
-        let e1_trans = egg_to_nested_expr e1 in
-        let e2_trans = egg_to_nested_expr e2 in
-        Nested_ast.Appl_expr(u, e1_trans, e2_trans)
-      | _ ->
-        raise @@ Utils.Invariant_failure "An egg function application that was not fully translated has been passed into egg_to_nested"
-    end
+  | Egg_ast.Appl_expr(u,e1,e2) ->
+    let e1_trans = egg_to_nested_expr e1 in
+    let e2_trans = egg_to_nested_expr e2 in
+    Nested_ast.Appl_expr(u, e1_trans, e2_trans)
   | Egg_ast.Conditional_expr(u,e',p,f1,f2) ->
     let e_trans = egg_to_nested_expr e' in
     let p_trans = egg_to_nested_pattern p in
@@ -268,6 +263,7 @@ and egg_to_nested_expr e =
   | Egg_ast.List_expr _
   | Egg_ast.Cons_expr _
   | Egg_ast.Variant_expr _
+  | Egg_ast.Let_pattern_expr _
   | Egg_ast.Let_function_expr _
   | Egg_ast.Invariant_failure_expr _
   | Egg_ast.If_expr _ ->
@@ -276,10 +272,11 @@ and egg_to_nested_expr e =
 
 let swan_to_nested_translation e =
   let egg_expr = swan_to_egg_expr e in
-  let (translator, _) =
+  let (translator, _, _) =
     translation_close
       (expression_translator_compose_many expression_translators)
       (pattern_translator_compose_many pattern_translators)
+      (function_value_translator_compose_many function_value_translators)
   in
   let (egg_trans, map) = translator egg_expr in
   ((egg_to_nested_expr egg_trans), map)

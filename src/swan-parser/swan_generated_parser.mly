@@ -90,9 +90,9 @@ delim_expr:
 expr:
   | expr SEMICOLON expr
       { Sequencing_expr(next_uid $startpos $endpos,$1,$3) }
-  | KEYWORD_LET variable EQUALS expr KEYWORD_IN expr
-      { Let_expr(next_uid $startpos $endpos,$2,$4,$6) }
-  | KEYWORD_LET variable nonempty_list(variable) EQUALS expr KEYWORD_IN expr
+  | KEYWORD_LET pattern EQUALS expr KEYWORD_IN expr
+      { Let_pattern_expr(next_uid $startpos $endpos,$2,$4,$6) }
+  | KEYWORD_LET variable nonempty_list(pattern) EQUALS expr KEYWORD_IN expr
       { Let_function_expr(next_uid $startpos $endpos,$2,$3,$5,$7) }
   | expr TILDE pattern QUESTION_MARK function_value COLON function_value
       { Conditional_expr(next_uid $startpos $endpos,$1,$3,$5,$7) }
@@ -122,13 +122,13 @@ expr:
       { Function_expr(next_uid $startpos $endpos,$1) }
   | application_expr
       { $1 }
-  | primary_expr
-      { $1 }
   ;
 
 application_expr:
-  | primary_expr nonempty_list(primary_expr)
+  | application_expr primary_expr
       { Appl_expr(next_uid $startpos $endpos,$1,$2) }
+  | primary_expr
+      { $1 }
   ;
 
 primary_expr:
@@ -224,8 +224,8 @@ bool_pattern:
   ;
 
 function_value:
-  | KEYWORD_FUN nonempty_list(variable) ARROW expr %prec LAM
-      { Function(next_uid $startpos $endpos,$2,$4) }
+  | KEYWORD_FUN nonempty_list(pattern) ARROW expr %prec LAM
+      { Function_with_multiple_arguments(next_uid $startpos $endpos,$2,$4) }
   ;
 
 int_value:

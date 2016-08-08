@@ -273,71 +273,6 @@ type log_entry =
       resulting `match' in the resulting `let' and second uid is the `match'
       where it came from. *)
 
-  | Application_with_multiple_parameters_to_application of uid * uid
-  (** First uid is the resulting application and second uid is the application
-      with multiple parameters where it came from. *)
-
-  | Application_with_multiple_parameters_to_list_in_application of uid * uid
-  (** First uid is the resulting list in the resulting application and second
-      uid is the application with multiple parameters where it came from. *)
-
-  | Function_with_multiple_parameters_to_variable_in_pattern_in_match_pair_in_match_in_function of uid * uid
-  (** First uid is the resulting variable in the resulting pattern in the
-      resulting match pair in the resulting match in the resulting function in
-      the resulting function expression and second uid is the function with
-      multiple parameters where it came from. *)
-
-  | Function_with_multiple_parameters_to_function_expr of uid * uid
-  (** First uid is the resulting function expression and second uid is the
-      function with multiple parameters where it came from. *)
-
-  | Function_with_multiple_parameters_to_function of uid * uid * uid
-  (** First uid is the resulting function in the resulting function expression,
-      second uid is the function with multiple parameters where it came from and
-      third uid is the function in the function with multiple parameters where
-      it came from. *)
-
-  | Function_with_multiple_parameters_to_variable_in_function of uid * uid
-  (** First uid is the resulting variable in the resulting function in the
-      resulting function expression and second uid is the function with multiple
-      parameters where it came from. *)
-
-  | Function_with_multiple_parameters_to_identifier_in_variable_in_function of uid * uid
-  (** First uid is the resulting identifier in the resulting variable in the
-      resulting function in the resulting function expression and second uid is
-      the function with multiple parameters where it came from. *)
-
-  | Function_with_multiple_parameters_to_match_in_function of uid * uid
-  (** First uid is the resulting match in the resulting function in the
-      resulting function expression and second uid is the function with multiple
-      parameters where it came from. *)
-
-  | Function_with_multiple_parameters_to_variable_in_match_in_function of uid * uid
-  (** First uid is the resulting variable in the resulting match in the
-      resulting function in the resulting function expression and second uid is
-      the function with multiple parameters where it came from. *)
-
-  | Function_with_multiple_parameters_to_identifier_in_variable_in_match_in_function of uid * uid
-  (** First uid is the resulting identifier in the resulting variable in the
-      resulting match in the resulting function in the resulting function
-      expression and second uid is the function with multiple parameters where
-      it came from. *)
-
-  | Function_with_multiple_parameters_to_match_pair_in_match_in_function of uid * uid
-  (** First uid is the resulting match pair in the resulting match in the
-      resulting function in the resulting function expression and second uid is
-      the function with multiple parameters where it came from. *)
-
-  | Function_with_multiple_parameters_to_list_pattern_in_match_pair_in_match_in_function of uid * uid
-  (** First uid is the resulting list pattern in the resulting match pair in the
-      resulting match in the resulting function in the resulting function
-      expression and second uid is the function with multiple parameters where
-      it came from. *)
-
-  | Conditional_with_multiple_parameters_to_conditional of uid * uid
-  (** First uid is the resulting conditional and second uid is the conditional
-      with multiple parameters where it came from. *)
-
   | If_to_match of uid * uid
   (** First uid is the resulting `match' and second uid is the `if' where it
       came from. *)
@@ -365,6 +300,73 @@ type log_entry =
   | Sequencing_to_variable_in_let of uid * uid
   (** First uid is the resulting variable in the resulting `let' and second uid
       is the sequencing where it came from. *)
+
+  | Function_with_variable_pattern_argument_to_function of uid * uid
+  (** First uid is the resulting function and second uid
+      is the function with pattern argument where it came from. *)
+
+  | Function_with_pattern_argument_to_function of uid * uid
+  (** First uid is the resulting function and second uid
+      is the function with pattern argument where it came from. *)
+
+  | Function_with_pattern_argument_to_variable_in_function of uid * uid
+  (** First uid is the resulting variable in the resulting function and second
+      uid is the function with pattern argument where it came from. *)
+
+  | Function_with_pattern_argument_to_identifier_in_variable_in_function of uid * uid
+  (** First uid is the resulting identifier in the resulting variable in the
+      resulting function and second uid is the function with pattern argument
+      where it came from. *)
+
+  | Function_with_pattern_argument_to_match_in_function of uid * uid
+  (** First uid is the resulting `match' in the resulting function and second
+      uid is the function with pattern argument where it came from. *)
+
+  | Function_with_pattern_argument_to_variable_in_match_in_function of uid * uid
+  (** First uid is the resulting variable in the resulting `match' in the
+      resulting function and second uid is the function with pattern argument
+      where it came from. *)
+
+  | Function_with_pattern_argument_to_identifier_in_variable_in_match_in_function of uid * uid
+  (** First uid is the resulting identifier in the resulting variable in the
+      resulting `match' in the resulting function and second uid is the function
+      with pattern argument where it came from. *)
+
+  | Function_with_pattern_argument_to_match_pair_in_match_in_function of uid * uid
+  (** First uid is the resulting `match' pair in the resulting `match' in the
+      resulting function and second uid is the function with pattern argument
+      where it came from. *)
+
+  | Function_with_single_multiple_arguments_to_function_with_pattern_argument of uid * uid
+  (** First uid is the resulting function with pattern argument and second uid
+      is the function with single multiple arguments where it came from. *)
+
+  | Function_with_multiple_arguments_to_function_with_pattern_argument of uid * uid
+  (** First uid is the resulting function with pattern argument and second uid
+      is the function with multiple arguments where it came from. *)
+
+  | Function_with_multiple_arguments_to_function_expression_in_function_with_pattern_argument of uid * uid
+  (** First uid is the resulting function expression in the resulting function
+      with pattern argument and second uid is the function with multiple
+      arguments where it came from. *)
+
+  | Function_with_multiple_arguments_to_function_with_multiple_arguments_in_function_expression_in_function_with_pattern_argument of uid * uid
+  (** First uid is the resulting function with multiple arguments in the
+      resulting function expression in the resulting function with pattern
+      argument and second uid is the function with multiple arguments where it
+      came from. *)
+
+  | Let_pattern_to_let of uid * uid
+  (** First uid is the resulting `let' and second uid is the `let pattern' where
+      it came from. *)
+
+  | Let_pattern_to_match of uid * uid
+  (** First uid is the resulting `match' and second uid is the `let pattern' where it
+      came from. *)
+
+  | Let_pattern_to_match_pair_in_match of uid * uid
+  (** First uid is the resulting `match' pair in the resulting `match' and
+      second uid is the `let pattern' where it came from. *)
 
   | Let_function_to_let of uid * uid
   (** First uid is the resulting `let' and second uid is the `let function' where it
@@ -422,6 +424,8 @@ type translator_configuration =
     top_level_expression_translator : Egg_ast.expr translator;
     continuation_pattern_translator : Egg_ast.pattern translator;
     top_level_pattern_translator : Egg_ast.pattern translator;
+    continuation_function_value_translator : Egg_ast.function_value translator;
+    top_level_function_value_translator : Egg_ast.function_value translator;
   }
 ;;
 
@@ -442,6 +446,10 @@ let pattern_continuation_with_mappings tc p maps_extra map_entries_new =
   result_with_mappings (tc.continuation_pattern_translator p) maps_extra map_entries_new
 ;;
 
+let function_value_continuation_with_mappings tc fv maps_extra map_entries_new =
+  result_with_mappings (tc.continuation_function_value_translator fv) maps_extra map_entries_new
+;;
+
 let expression_translator_compose
     (t1:Egg_ast.expr translator_fragment)
     (t2:Egg_ast.expr translator_fragment)
@@ -458,6 +466,14 @@ let pattern_translator_compose
   t1 { tc with continuation_pattern_translator = (t2 tc) } p
 ;;
 
+let function_value_translator_compose
+    (t1:Egg_ast.function_value translator_fragment)
+    (t2:Egg_ast.function_value translator_fragment)
+    (tc:translator_configuration)
+    (fv:Egg_ast.function_value) =
+  t1 { tc with continuation_function_value_translator = (t2 tc) } fv
+;;
+
 let expression_translator_compose_many ts =
   List.reduce expression_translator_compose ts
 ;;
@@ -466,18 +482,26 @@ let pattern_translator_compose_many ts =
   List.reduce pattern_translator_compose ts
 ;;
 
+let function_value_translator_compose_many ts =
+  List.reduce function_value_translator_compose ts
+;;
+
 let translation_close
     (t:Egg_ast.expr translator_fragment)
     (pt:Egg_ast.pattern translator_fragment)
-  : (Egg_ast.expr translator * Egg_ast.pattern translator) =
+    (fvt:Egg_ast.function_value translator_fragment)
+  : (Egg_ast.expr translator * Egg_ast.pattern translator * Egg_ast.function_value translator) =
   let rec translator_configuration = {
     continuation_expression_translator = transitive_expression_translator;
     top_level_expression_translator = top_level_expression_translator;
     continuation_pattern_translator = transitive_pattern_translator;
     top_level_pattern_translator = top_level_pattern_translator;
+    continuation_function_value_translator = transitive_function_value_translator;
+    top_level_function_value_translator = top_level_function_value_translator;
   }
   and top_level_expression_translator e = t translator_configuration e
   and top_level_pattern_translator p = pt translator_configuration p
+  and top_level_function_value_translator fv = fvt translator_configuration fv
   and transitive_expression_translator (e:Egg_ast.expr) =
     match e with
     | Egg_ast.Record_expr(uid,fields) ->
@@ -508,35 +532,26 @@ let translation_close
       in
       let unioned_map = disjoint_union map_e_element map_e_list in
       (Egg_ast.Cons_expr(uid, trans_e_element, trans_e_list), unioned_map)
-    | Egg_ast.Function_expr(uid_e,Egg_ast.Function (uid_f, xs,e')) ->
-      let (trans_e, map_e) =
-        top_level_expression_translator e'
-      in
-      (Egg_ast.Function_expr(uid_e,Egg_ast.Function (uid_f, xs,trans_e)), map_e)
+    | Egg_ast.Function_expr(uid,fv) ->
+      let (trans_fv, map_fv) = top_level_function_value_translator fv in
+      (Egg_ast.Function_expr(uid,trans_fv), map_fv)
     | Egg_ast.Ref_expr(uid, e') ->
       let (trans_e, map_e) =
         top_level_expression_translator e'
       in
       (Egg_ast.Ref_expr(uid, trans_e), map_e)
-    | Egg_ast.Appl_expr (uid, e1, es2) ->
-      let (trans_e1, map_e1) = top_level_expression_translator e1
-      in
-      let (trans_es2, unioned_map) =
-        List.fold_right (
-          fun e2 (trans_es2, unioned_map) ->
-            let (trans_e2, map_e2) = top_level_expression_translator e2 in
-            let unioned_map = disjoint_union unioned_map map_e2 in
-            (trans_e2 :: trans_es2, unioned_map)
-        ) es2 ([], map_e1)
-      in
-      (Egg_ast.Appl_expr(uid, trans_e1, trans_es2), unioned_map)
-    | Egg_ast.Conditional_expr(uid, e, p, Egg_ast.Function (uid_f1,x1,e1), Egg_ast.Function (uid_f2,x2,e2)) ->
-      let (trans_e, map_e) = top_level_expression_translator e in
-      let (trans_p, map_p) = top_level_pattern_translator p in
+    | Egg_ast.Appl_expr (uid, e1, e2) ->
       let (trans_e1, map_e1) = top_level_expression_translator e1 in
       let (trans_e2, map_e2) = top_level_expression_translator e2 in
-      let unioned_map = disjoint_unions [map_e;map_p;map_e1;map_e2] in
-      (Egg_ast.Conditional_expr(uid, trans_e, trans_p, Egg_ast.Function (uid_f1,x1,trans_e1), Egg_ast.Function (uid_f2,x2,trans_e2)), unioned_map)
+      let unioned_map = disjoint_union map_e1 map_e2 in
+      (Egg_ast.Appl_expr(uid, trans_e1, trans_e2), unioned_map)
+    | Egg_ast.Conditional_expr(uid, e, p, fv1, fv2) ->
+      let (trans_e, map_e) = top_level_expression_translator e in
+      let (trans_p, map_p) = top_level_pattern_translator p in
+      let (trans_fv1, map_fv1) = top_level_function_value_translator fv1 in
+      let (trans_fv2, map_fv2) = top_level_function_value_translator fv2 in
+      let unioned_map = disjoint_unions [map_e;map_p;map_fv1;map_fv2] in
+      (Egg_ast.Conditional_expr(uid, trans_e, trans_p, trans_fv1, trans_fv2), unioned_map)
     | Egg_ast.If_expr(uid, e, e1, e2) ->
       let (trans_e, map_e) = top_level_expression_translator e
       in
@@ -587,13 +602,29 @@ let translation_close
       in
       let unioned_map = disjoint_union map_e1 map_e2 in
       (Egg_ast.Let_expr(uid, x, trans_e1, trans_e2), unioned_map)
-    | Egg_ast.Let_function_expr(uid, x, xs, e1, e2) ->
+    | Egg_ast.Let_pattern_expr(uid, p, e1, e2) ->
       let (trans_e1, map_e1) = top_level_expression_translator e1
       in
       let (trans_e2, map_e2) = top_level_expression_translator e2
       in
-      let unioned_map = disjoint_union map_e1 map_e2 in
-      (Egg_ast.Let_function_expr(uid, x, xs, trans_e1, trans_e2), unioned_map)
+      let (trans_p, map_p) = top_level_pattern_translator p
+      in
+      let unioned_map = disjoint_unions [map_e1;map_e2;map_p] in
+      (Egg_ast.Let_pattern_expr(uid, trans_p, trans_e1, trans_e2), unioned_map)
+    | Egg_ast.Let_function_expr(uid, x, ps, e1, e2) ->
+      let (trans_e1, map_e1) = top_level_expression_translator e1
+      in
+      let (trans_e2, map_e2) = top_level_expression_translator e2
+      in
+      let (ps_trans, map_ps) =
+        List.fold_right (
+          fun p (ps_trans, map_ps) ->
+            let (p_trans, map_p) = top_level_pattern_translator p in
+            (p_trans :: ps_trans, disjoint_union map_ps map_p)
+        ) ps ([], Uid_map.empty)
+      in
+      let unioned_map = disjoint_unions [map_e1;map_e2;map_ps] in
+      (Egg_ast.Let_function_expr(uid, x, ps_trans, trans_e1, trans_e2), unioned_map)
     | Egg_ast.Projection_expr(uid, e, i) ->
       let (trans_e, map_e) = top_level_expression_translator e in
       (Egg_ast.Projection_expr(uid, trans_e, i), map_e)
@@ -640,14 +671,13 @@ let translation_close
       (Egg_ast.Record_pattern(uid, trans_fields), unioned_map)
     | Egg_ast.List_pattern(uid,elements) ->
       let (trans_elements, map_result) =
-        elements
-        |> List.fold_left (
-          fun (trans_elements, map_partial) element ->
+        List.fold_right (
+          fun element (trans_elements, map_partial) ->
             let (e_trans, e_map) = top_level_pattern_translator element in
             (e_trans :: trans_elements, disjoint_union map_partial e_map)
-        ) ([], Uid_map.empty)
+        ) elements ([], Uid_map.empty)
       in
-      (Egg_ast.List_pattern(uid, List.rev trans_elements), map_result)
+      (Egg_ast.List_pattern(uid, trans_elements), map_result)
     | Egg_ast.Cons_pattern(uid, p_element, p_list) ->
       let (p_element_trans, map_p_element) = top_level_pattern_translator p_element in
       let (p_list_trans, map_p_list) = top_level_pattern_translator p_list in
@@ -670,8 +700,32 @@ let translation_close
     | Egg_ast.String_pattern _
     | Egg_ast.Var_pattern (_,_)
     | Egg_ast.Any_pattern _ -> (p, Uid_map.empty)
+
+  and transitive_function_value_translator (fv:Egg_ast.function_value) =
+    match fv with
+    | Egg_ast.Function (uid,v,e) ->
+      let (e_trans, map_e) = top_level_expression_translator e in
+      (Egg_ast.Function (uid,v,e_trans), map_e)
+
+    | Egg_ast.Function_with_pattern_argument (uid,p,e) ->
+      let (p_trans, map_p) = top_level_pattern_translator p in
+      let (e_trans, map_e) = top_level_expression_translator e in
+      (Egg_ast.Function_with_pattern_argument (uid,p_trans,e_trans), disjoint_union map_p map_e)
+
+    | Egg_ast.Function_with_multiple_arguments (uid,ps,e) ->
+      let (ps_trans, map_ps) =
+        List.fold_right (
+          fun p (ps_trans, map_ps) ->
+            let (p_trans, map_p) = top_level_pattern_translator p in
+            (p_trans :: ps_trans, disjoint_union map_ps map_p)
+        ) ps ([], Uid_map.empty)
+      in
+      let (e_trans, map_e) = top_level_expression_translator e in
+      let unioned_map = disjoint_union map_e map_ps in
+      (Egg_ast.Function_with_multiple_arguments (uid,ps_trans,e_trans), unioned_map)
   in
-  (top_level_expression_translator, top_level_pattern_translator)
+
+  (top_level_expression_translator, top_level_pattern_translator, top_level_function_value_translator)
 ;;
 
 let identity_expression_translator_fragment
@@ -684,6 +738,12 @@ let identity_pattern_translator_fragment
     (tc:translator_configuration)
     (p:Egg_ast.pattern) =
   tc.continuation_pattern_translator p
+;;
+
+let identity_function_value_translator_fragment
+    (tc:translator_configuration)
+    (fv:Egg_ast.function_value) =
+  tc.continuation_function_value_translator fv
 ;;
 
 let translate_pattern_variable
@@ -759,22 +819,23 @@ let translate_conditional_with_pattern_variable
            (uid_variable_in_binding_in_match_branch_in_conditional', Conditional_with_pattern_variable_to_variable_in_binding_in_match_branch_in_conditional (uid_variable_in_binding_in_match_branch_in_conditional', uid_conditional));]
     in
 
-    let preprend_pattern_variable_bindings pattern x_subject (Egg_ast.Function (_, x_formal_parameters, e_body)) =
-      let uid_match_branch_in_conditional' = next_uid () in
-      let (e_body', map_e_body') = build_pattern_variable_bindings x_subject e_body (pattern_variable_bindings pattern) in
-      (Egg_ast.Function (uid_match_branch_in_conditional',
-                         x_formal_parameters,
-                         e_body'),
-       disjoint_unions
-         [map_e_body';
-          Uid_map.of_enum @@ List.enum
-            [(uid_match_branch_in_conditional', Conditional_with_pattern_variable_to_match_branch_in_conditional (uid_match_branch_in_conditional', uid_conditional));]])
+    let preprend_pattern_variable_bindings pattern x_subject fv =
+      match fv with
+      | (Egg_ast.Function (_, x_formal_parameter, e_body)) ->
+        let uid_match_branch_in_conditional' = next_uid () in
+        let (e_body', map_e_body') = build_pattern_variable_bindings x_subject e_body (pattern_variable_bindings pattern) in
+        (Egg_ast.Function (uid_match_branch_in_conditional', x_formal_parameter, e_body'),
+         disjoint_unions
+           [map_e_body';
+            Uid_map.of_enum @@ List.enum
+              [(uid_match_branch_in_conditional', Conditional_with_pattern_variable_to_match_branch_in_conditional (uid_match_branch_in_conditional', uid_conditional));]])
+      | _ -> raise @@ Utils.Invariant_failure "Tried to prepend pattern variable bindings to something other than a regular `Function'."
     in
 
     let uid_conditional' = next_uid () in
     let uid_variable_in_conditional' = next_uid () in
     let uid_identifier_in_variable_in_conditional' = next_uid () in
-    let (_, pattern_variables_translator) = translation_close identity_expression_translator_fragment translate_pattern_variable in
+    let (_, pattern_variables_translator, _) = translation_close identity_expression_translator_fragment translate_pattern_variable identity_function_value_translator_fragment in
     let (p_trans, map_p) = pattern_variables_translator p in
     let (f1_trans, map_f1) = preprend_pattern_variable_bindings p x_subject f1 in
     expression_continuation_with_mappings tc
@@ -871,6 +932,25 @@ let translate_pattern_variant
   | _ -> tc.continuation_pattern_translator p
 ;;
 
+let pattern_translators_depending_on_pattern_variable : Egg_ast.pattern translator_fragment list =
+  [ translate_pattern_variant;
+    translate_pattern_list;
+    translate_pattern_cons;
+  ]
+;;
+
+let translate_all_patterns_depending_on_pattern_variable
+    (tc:translator_configuration)
+    (e:Egg_ast.expr) =
+  let (pattern_translator_depending_on_pattern_variable, _, _) =
+    translation_close identity_expression_translator_fragment
+      (pattern_translator_compose_many pattern_translators_depending_on_pattern_variable)
+      identity_function_value_translator_fragment
+  in
+  let (p_trans, map_p) = pattern_translator_depending_on_pattern_variable e in
+  expression_continuation_with_mappings tc p_trans [map_p] []
+;;
+
 let translate_invariant_failure
     (tc:translator_configuration)
     (e:Egg_ast.expr) =
@@ -880,7 +960,7 @@ let translate_invariant_failure
     let uid_application = next_uid () in
     let uid_non_function_in_application = next_uid () in
     expression_continuation_with_mappings tc
-      (Egg_ast.Appl_expr (uid_application, Egg_ast.String_expr (uid_non_function_in_application, "non-function"), [e]))
+      (Egg_ast.Appl_expr (uid_application, Egg_ast.String_expr (uid_non_function_in_application, "non-function"), e))
       []
       [(uid_application, Invariant_failure_to_application (uid_application, uid_invariant_failure));
        (uid_non_function_in_application, Invariant_failure_to_non_function_in_application (uid_non_function_in_application, uid_invariant_failure));]
@@ -987,8 +1067,8 @@ let translate_match
     expression_continuation_with_mappings tc
       (Egg_ast.Conditional_expr (
           uid_conditional, Egg_ast.Var_expr (uid_variable_in_conditional, Egg_ast.Egg_var (uid_identifier_in_variable_in_conditional, x_subject)), pattern,
-          Egg_ast.Function (uid_match_branch_in_conditional, [Egg_ast.Egg_var (uid_identifier_in_match_branch_in_conditional, x_match_branch)], e_branch),
-          Egg_ast.Function (uid_antimatch_branch_in_conditional, [Egg_ast.Egg_var (uid_identifier_in_antimatch_branch_in_conditional, x_antimatch_branch)],
+          Egg_ast.Function (uid_match_branch_in_conditional, Egg_ast.Egg_var (uid_identifier_in_match_branch_in_conditional, x_match_branch), e_branch),
+          Egg_ast.Function (uid_antimatch_branch_in_conditional, Egg_ast.Egg_var (uid_identifier_in_antimatch_branch_in_conditional, x_antimatch_branch),
                             Egg_ast.Match_expr (uid_match_in_antimatch_branch_in_conditional,
                                                 Egg_ast.Var_expr (uid_variable_in_match_in_antimatch_branch_in_conditional,
                                                                   Egg_ast.Egg_var (uid_identifier_in_variable_in_match_in_antimatch_branch_in_conditional, x_subject)),
@@ -1024,126 +1104,6 @@ let translate_match
        (uid_match_in_let, Match_to_match_in_let (uid_match_in_let, uid_match));
        (uid_variable_in_match_in_let, Match_to_variable_in_match_in_let (uid_variable_in_match_in_let, uid_match));
        (uid_identifier_in_variable_in_match_in_let, Match_to_identifier_in_variable_in_match_in_let (uid_identifier_in_variable_in_match_in_let, uid_match));]
-
-  | _ -> tc.continuation_expression_translator e
-;;
-
-let translate_application_with_multiple_parameters
-    (tc:translator_configuration)
-    (e:Egg_ast.expr) =
-
-  match e with
-  | Egg_ast.Appl_expr(uid_application, e_function, es_actual_parameters) when List.length es_actual_parameters > 1 ->
-    let uid_application' = next_uid () in
-    let uid_list_in_application' = next_uid () in
-    expression_continuation_with_mappings tc
-      (Egg_ast.Appl_expr (
-          uid_application', e_function, [Egg_ast.List_expr (uid_list_in_application', es_actual_parameters)]))
-      []
-      [(uid_application', Application_with_multiple_parameters_to_application (uid_application', uid_application));
-       (uid_list_in_application', Application_with_multiple_parameters_to_list_in_application (uid_list_in_application', uid_application));]
-
-  | _ -> tc.continuation_expression_translator e
-;;
-
-let translate_function_value_with_multiple_parameters
-    (Egg_ast.Function (uid_function, xs, e_body))
-    uid_outer =
-  let (ps, map_ps)=
-    List.fold_right (
-      fun x (ps, map_ps) ->
-        let uid_x = next_uid () in
-        (Egg_ast.Var_pattern (uid_x, x) :: ps,
-         disjoint_union map_ps (Uid_map.singleton uid_x (Function_with_multiple_parameters_to_variable_in_pattern_in_match_pair_in_match_in_function (uid_x, uid_outer))))
-    ) xs ([], Uid_map.empty)
-  in
-
-  let uid_function' = next_uid () in
-  let uid_variable_in_function' = next_uid () in
-  let uid_match_in_function' = next_uid () in
-  let uid_variable_in_match_in_function' = next_uid () in
-  let uid_identifier_in_variable_in_match_in_function' = next_uid () in
-  let uid_match_pair_in_match_in_function' = next_uid () in
-  let uid_list_pattern_in_match_pair_in_match_in_function' = next_uid () in
-  let x = egg_fresh_var () in
-  ((Egg_ast.Function (
-       uid_function, [Egg_ast.Egg_var (uid_variable_in_function', x)],
-       Egg_ast.Match_expr (uid_match_in_function', Egg_ast.Var_expr (uid_variable_in_match_in_function',
-                                                                    Egg_ast.Egg_var (uid_identifier_in_variable_in_match_in_function', x)),
-                           [Egg_ast.Match_pair (
-                               uid_match_pair_in_match_in_function',
-                               Egg_ast.List_pattern (uid_list_pattern_in_match_pair_in_match_in_function', ps),
-                               e_body)]))),
-   disjoint_union map_ps @@
-   Uid_map.of_enum @@ List.enum
-     [(uid_function', Function_with_multiple_parameters_to_function (uid_function', uid_outer, uid_function));
-      (uid_variable_in_function', Function_with_multiple_parameters_to_variable_in_function (uid_variable_in_function', uid_outer));
-      (uid_match_in_function', Function_with_multiple_parameters_to_match_in_function (uid_match_in_function', uid_outer));
-      (uid_variable_in_match_in_function', Function_with_multiple_parameters_to_variable_in_match_in_function (uid_variable_in_match_in_function', uid_outer));
-      (uid_identifier_in_variable_in_match_in_function', Function_with_multiple_parameters_to_identifier_in_variable_in_match_in_function (uid_identifier_in_variable_in_match_in_function', uid_outer));
-      (uid_match_pair_in_match_in_function', Function_with_multiple_parameters_to_match_pair_in_match_in_function (uid_match_pair_in_match_in_function', uid_outer));
-      (uid_list_pattern_in_match_pair_in_match_in_function', Function_with_multiple_parameters_to_list_pattern_in_match_pair_in_match_in_function (uid_list_pattern_in_match_pair_in_match_in_function', uid_outer));])
-;;
-
-let translate_function_value_in_conditionals
-    (tc:translator_configuration)
-    (e:Egg_ast.expr) =
-
-  match e with
-  | Egg_ast.Conditional_expr(uid_conditional, e_subject, e_pattern, ((Egg_ast.Function (_, xs, _)) as f1), ((Egg_ast.Function (_, ys, _)) as f2)) when List.length xs > 1 && List.length ys > 1 ->
-    let uid_conditional' = next_uid () in
-    let (f1_trans, map_f1) =
-      translate_function_value_with_multiple_parameters f1 uid_conditional
-    in
-    let (f2_trans, map_f2) =
-      translate_function_value_with_multiple_parameters f2 uid_conditional
-    in
-
-    expression_continuation_with_mappings tc
-      (Egg_ast.Conditional_expr (uid_conditional', e_subject, e_pattern, f1_trans, f2_trans))
-      [map_f1;map_f2]
-      [(uid_conditional', Conditional_with_multiple_parameters_to_conditional (uid_conditional', uid_conditional));]
-
-  | Egg_ast.Conditional_expr(uid_conditional, e_subject, e_pattern, ((Egg_ast.Function (_, xs, _)) as f1), f2) when List.length xs > 1 ->
-    let uid_conditional' = next_uid () in
-    let (f1_trans, map_f1) =
-      translate_function_value_with_multiple_parameters f1 uid_conditional
-    in
-
-    expression_continuation_with_mappings tc
-      (Egg_ast.Conditional_expr (uid_conditional', e_subject, e_pattern, f1_trans, f2))
-      [map_f1]
-      [(uid_conditional', Conditional_with_multiple_parameters_to_conditional (uid_conditional', uid_conditional));]
-
-  | Egg_ast.Conditional_expr(uid_conditional, e_subject, e_pattern, f1, ((Egg_ast.Function (_, xs, _)) as f2)) when List.length xs > 1 ->
-    let uid_conditional' = next_uid () in
-    let (f2_trans, map_f2) =
-      translate_function_value_with_multiple_parameters f2 uid_conditional
-    in
-
-    expression_continuation_with_mappings tc
-      (Egg_ast.Conditional_expr (uid_conditional', e_subject, e_pattern, f1, f2_trans))
-      [map_f2]
-      [(uid_conditional', Conditional_with_multiple_parameters_to_conditional (uid_conditional', uid_conditional));]
-
-  | _ -> tc.continuation_expression_translator e
-;;
-
-let translate_function_with_multiple_parameters
-    (tc:translator_configuration)
-    (e:Egg_ast.expr) =
-
-  match e with
-  | Egg_ast.Function_expr(uid_function_expr, ((Egg_ast.Function (_, xs, _)) as f)) when List.length xs > 1 ->
-    let uid_function_expr' = next_uid () in
-    let (f_trans, map_f) =
-      translate_function_value_with_multiple_parameters f uid_function_expr
-    in
-
-    expression_continuation_with_mappings tc
-      (Egg_ast.Function_expr (uid_function_expr', f_trans))
-      [map_f]
-      [(uid_function_expr', Function_with_multiple_parameters_to_function_expr (uid_function_expr', uid_function_expr));]
 
   | _ -> tc.continuation_expression_translator e
 ;;
@@ -1193,18 +1153,131 @@ let translate_sequencing
   | _ -> tc.continuation_expression_translator e
 ;;
 
+let translate_function_with_pattern_argument
+    (tc:translator_configuration)
+    (fv:Egg_ast.function_value) =
+
+  match fv with
+  | Egg_ast.Function_with_pattern_argument(uid_function_with_pattern_argument, Egg_ast.Var_pattern (_, v), e) ->
+    let uid_function = next_uid () in
+    function_value_continuation_with_mappings tc
+      (Egg_ast.Function(uid_function, v, e))
+      []
+      [(uid_function, Function_with_variable_pattern_argument_to_function (uid_function, uid_function_with_pattern_argument));]
+
+  | Egg_ast.Function_with_pattern_argument(uid_function_with_pattern_argument, p, e) ->
+    let uid_function = next_uid () in
+    let uid_variable_in_function = next_uid () in
+    let uid_match_in_function = next_uid () in
+    let uid_variable_in_match_in_function = next_uid () in
+    let uid_identifier_in_variable_in_match_in_function = next_uid () in
+    let uid_match_pair_in_match_in_function = next_uid () in
+    let x = egg_fresh_var () in
+    function_value_continuation_with_mappings tc
+      (Egg_ast.Function(
+          uid_function, Egg_ast.Egg_var (uid_variable_in_function, x),
+          Egg_ast.Match_expr (
+            uid_match_in_function, Egg_ast.Var_expr(
+              uid_variable_in_match_in_function, Egg_ast.Egg_var (uid_identifier_in_variable_in_match_in_function, x)),
+            [Egg_ast.Match_pair (uid_match_pair_in_match_in_function, p, e)])))
+      []
+      [(uid_function, Function_with_pattern_argument_to_function (uid_function, uid_function_with_pattern_argument));
+       (uid_variable_in_function, Function_with_pattern_argument_to_variable_in_function (uid_variable_in_function, uid_function_with_pattern_argument));
+       (uid_match_in_function, Function_with_pattern_argument_to_match_in_function (uid_match_in_function, uid_function_with_pattern_argument));
+       (uid_variable_in_match_in_function, Function_with_pattern_argument_to_variable_in_match_in_function (uid_variable_in_match_in_function, uid_function_with_pattern_argument));
+       (uid_identifier_in_variable_in_match_in_function, Function_with_pattern_argument_to_identifier_in_variable_in_match_in_function (uid_identifier_in_variable_in_match_in_function, uid_function_with_pattern_argument));
+       (uid_match_pair_in_match_in_function, Function_with_pattern_argument_to_match_pair_in_match_in_function (uid_match_pair_in_match_in_function, uid_function_with_pattern_argument));]
+
+  | _ -> tc.continuation_function_value_translator fv
+;;
+
+let translate_function_with_multiple_arguments
+    (tc:translator_configuration)
+    (fv:Egg_ast.function_value) =
+
+  match fv with
+  | Egg_ast.Function_with_multiple_arguments(uid_function_with_multiple_arguments, [p], e) ->
+    let uid_function_with_pattern_argument = next_uid () in
+    function_value_continuation_with_mappings tc
+      (Egg_ast.Function_with_pattern_argument(uid_function_with_pattern_argument, p, e))
+      []
+      [(uid_function_with_pattern_argument, Function_with_single_multiple_arguments_to_function_with_pattern_argument (uid_function_with_pattern_argument, uid_function_with_multiple_arguments));]
+
+  | Egg_ast.Function_with_multiple_arguments(uid_function_with_multiple_arguments, p :: ps, e) ->
+    let uid_function_with_pattern_argument = next_uid () in
+    let uid_function_expression_in_function_with_pattern_argument = next_uid () in
+    let uid_function_with_multiple_arguments_in_function_expression_in_function_with_pattern_argument = next_uid () in
+    function_value_continuation_with_mappings tc
+      (Egg_ast.Function_with_pattern_argument(
+          uid_function_with_pattern_argument, p,
+          Egg_ast.Function_expr (
+            uid_function_expression_in_function_with_pattern_argument,
+            Egg_ast.Function_with_multiple_arguments (
+              uid_function_with_multiple_arguments_in_function_expression_in_function_with_pattern_argument, ps, e))))
+      []
+      [(uid_function_with_pattern_argument, Function_with_multiple_arguments_to_function_with_pattern_argument (uid_function_with_pattern_argument, uid_function_with_multiple_arguments));
+       (uid_function_expression_in_function_with_pattern_argument, Function_with_multiple_arguments_to_function_expression_in_function_with_pattern_argument (uid_function_expression_in_function_with_pattern_argument, uid_function_with_multiple_arguments));
+       (uid_function_with_multiple_arguments_in_function_expression_in_function_with_pattern_argument, Function_with_multiple_arguments_to_function_with_multiple_arguments_in_function_expression_in_function_with_pattern_argument (uid_function_with_multiple_arguments_in_function_expression_in_function_with_pattern_argument, uid_function_with_multiple_arguments));]
+
+  | _ -> tc.continuation_function_value_translator fv
+;;
+
+let complex_function_value_translators : Egg_ast.function_value translator_fragment list =
+  [ translate_function_with_multiple_arguments;
+    translate_function_with_pattern_argument;
+  ]
+;;
+
+let translate_all_complex_function_values
+    (tc:translator_configuration)
+    (e:Egg_ast.expr) =
+  let (complex_function_value_translator, _, _) =
+    translation_close identity_expression_translator_fragment
+      identity_pattern_translator_fragment
+      (function_value_translator_compose_many complex_function_value_translators)
+  in
+  let (e_trans, map_e) = complex_function_value_translator e in
+  expression_continuation_with_mappings tc e_trans [map_e] []
+;;
+
+let translate_let_pattern
+    (tc:translator_configuration)
+    (e:Egg_ast.expr) =
+
+  match e with
+  | Egg_ast.Let_pattern_expr(uid_let_pattern, (Egg_ast.Var_pattern (_, x)), e_p, e_body) ->
+    let uid_let = next_uid () in
+    expression_continuation_with_mappings tc
+      (Egg_ast.Let_expr (uid_let, x, e_p, e_body))
+      []
+      [(uid_let, Let_pattern_to_match (uid_let, uid_let_pattern));]
+
+  | Egg_ast.Let_pattern_expr(uid_let_pattern, p, e_p, e_body) ->
+    let uid_match = next_uid () in
+    let uid_match_pair_in_match = next_uid () in
+    expression_continuation_with_mappings tc
+      (Egg_ast.Match_expr (
+          uid_match, e_p,
+          [Egg_ast.Match_pair (uid_match_pair_in_match, p, e_body)]))
+      []
+      [(uid_match, Let_pattern_to_match (uid_match, uid_let_pattern));
+       (uid_match_pair_in_match, Let_pattern_to_match_pair_in_match (uid_match_pair_in_match, uid_let_pattern));]
+
+  | _ -> tc.continuation_expression_translator e
+;;
+
 let translate_let_function
     (tc:translator_configuration)
     (e:Egg_ast.expr) =
 
   match e with
-  | Egg_ast.Let_function_expr(uid_let_function, x, xs, e_f, e_body) ->
+  | Egg_ast.Let_function_expr(uid_let_function, x, ps, e_f, e_body) ->
     let uid_let = next_uid () in
     let uid_function_expr_in_let = next_uid () in
     let uid_function_in_function_expr_in_let = next_uid () in
     expression_continuation_with_mappings tc
       (Egg_ast.Let_expr (
-          uid_let, x, Egg_ast.Function_expr (uid_function_expr_in_let, Egg_ast.Function (uid_function_in_function_expr_in_let, xs, e_f)), e_body))
+          uid_let, x, Egg_ast.Function_expr (uid_function_expr_in_let, Egg_ast.Function_with_multiple_arguments (uid_function_in_function_expr_in_let, ps, e_f)), e_body))
       []
       [(uid_let, Let_function_to_let (uid_let, uid_let_function));
        (uid_function_expr_in_let, Let_function_to_function_expr_in_let (uid_function_expr_in_let, uid_let_function));
@@ -1213,31 +1286,12 @@ let translate_let_function
   | _ -> tc.continuation_expression_translator e
 ;;
 
-let pattern_translators_depending_on_pattern_variable : Egg_ast.pattern translator_fragment list =
-  [ translate_pattern_variant;
-    translate_pattern_list;
-    translate_pattern_cons;
-  ]
-;;
-
-let translate_all_patterns_depending_on_pattern_variable
-    (tc:translator_configuration)
-    (e:Egg_ast.expr) =
-  let (pattern_translator_depending_on_pattern_variable, _) =
-    translation_close identity_expression_translator_fragment
-      (pattern_translator_compose_many pattern_translators_depending_on_pattern_variable)
-  in
-  let (p_trans, map_p) = pattern_translator_depending_on_pattern_variable e in
-  expression_continuation_with_mappings tc p_trans [map_p] []
-;;
-
 let expression_translators : Egg_ast.expr translator_fragment list =
   [ translate_let_function;
+    translate_let_pattern;
+    translate_all_complex_function_values;
     translate_sequencing;
     translate_ifthenelse;
-    translate_function_with_multiple_parameters;
-    translate_function_value_in_conditionals;
-    translate_application_with_multiple_parameters;
     translate_match;
     translate_expression_variant;
     translate_expression_list;
@@ -1250,4 +1304,8 @@ let expression_translators : Egg_ast.expr translator_fragment list =
 
 let pattern_translators : Egg_ast.pattern translator_fragment list =
   [ identity_pattern_translator_fragment; ]
+;;
+
+let function_value_translators : Egg_ast.function_value translator_fragment list =
+  [ identity_function_value_translator_fragment; ]
 ;;

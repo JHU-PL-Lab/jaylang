@@ -30,7 +30,7 @@ type expr =
   | String_expr of uid * string
   | Ref_expr of uid * expr
   | Var_expr of uid * egg_var
-  | Appl_expr of uid * expr * expr list
+  | Appl_expr of uid * expr * expr
   | Conditional_expr of uid * expr * pattern * function_value * function_value
   | If_expr of uid * expr * expr * expr
   | Deref_expr of uid * expr
@@ -39,7 +39,8 @@ type expr =
   | Unary_operation_expr of uid * unary_operator * expr
   | Indexing_expr of uid * expr * expr
   | Let_expr of uid * egg_var * expr * expr
-  | Let_function_expr of uid * egg_var * egg_var list * expr * expr
+  | Let_pattern_expr of uid * pattern * expr * expr
+  | Let_function_expr of uid * egg_var * pattern list * expr * expr
   | Projection_expr of uid * expr * ident
   | Match_expr of uid * expr * match_pair list
   | Invariant_failure_expr of uid * expr
@@ -47,7 +48,9 @@ type expr =
 
 (** Function values in the nested language. *)
 and function_value =
-  | Function of uid * egg_var list * expr
+  | Function of uid * egg_var * expr
+  | Function_with_pattern_argument of uid * pattern * expr
+  | Function_with_multiple_arguments of uid * pattern list * expr
   [@@deriving eq, ord]
 
 

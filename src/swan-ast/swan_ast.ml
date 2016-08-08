@@ -25,7 +25,7 @@ type expr =
   | String_expr of uid * string
   | Ref_expr of uid * expr
   | Var_expr of uid * swan_var
-  | Appl_expr of uid * expr * expr list
+  | Appl_expr of uid * expr * expr
   | Conditional_expr of uid * expr * pattern * function_value * function_value
   | If_expr of uid * expr * expr * expr
   | Deref_expr of uid * expr
@@ -33,8 +33,8 @@ type expr =
   | Binary_operation_expr of uid * expr * binary_operator * expr
   | Unary_operation_expr of uid * unary_operator * expr
   | Indexing_expr of uid * expr * expr
-  | Let_expr of uid * swan_var * expr * expr
-  | Let_function_expr of uid * swan_var * swan_var list * expr * expr
+  | Let_pattern_expr of uid * pattern * expr * expr
+  | Let_function_expr of uid * swan_var * pattern list * expr * expr
   | Projection_expr of uid * expr * ident
   | Match_expr of uid * expr * match_pair list
   | Invariant_failure_expr of uid * expr
@@ -42,7 +42,7 @@ type expr =
 
 (** Function values in the nested language. *)
 and function_value =
-  | Function of uid * swan_var list * expr
+  | Function_with_multiple_arguments of uid * pattern list * expr
   [@@deriving eq, ord]
 
 
