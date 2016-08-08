@@ -4,6 +4,7 @@
 *)
 
 open Batteries;;
+open Jhupllib;;
 open OUnit2;;
 
 let lazy_logger = Logger_utils.make_lazy_logger "Test_reachability";;

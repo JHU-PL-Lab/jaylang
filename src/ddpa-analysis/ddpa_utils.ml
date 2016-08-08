@@ -1,6 +1,7 @@
 (** A module containing utility functions for analyses. *)
 
 open Batteries;;
+open Jhupllib;;
 
 open Core_ast;;
 open Ddpa_graph;;

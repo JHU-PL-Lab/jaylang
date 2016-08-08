@@ -2,6 +2,7 @@
    This module defines a data structure used in a PDS reachability analysis.
 *)
 open Batteries;;
+open Jhupllib;;
 open Pds_reachability_types_stack;;
 open Pds_reachability_utils;;
 

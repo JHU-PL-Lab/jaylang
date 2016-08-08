@@ -3,6 +3,8 @@
    of this library.
 *)
 
+open Jhupllib;;
+
 (**
    A type for modules which carry a value type along with a few common
    operations on that type.

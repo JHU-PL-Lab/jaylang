@@ -3,6 +3,7 @@
 *)
 
 open Batteries;;
+open Jhupllib;;
 
 (** A data type for identifiers in the toy language. *)
 type ident = Ident of string [@@deriving eq, ord, show, to_yojson];;

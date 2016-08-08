@@ -3,6 +3,8 @@
    types need not be re-declared on in an interface.
 *)
 
+open Jhupllib;;
+
 open Core_ast;;
 open Core_ast_pp;;
 open Core_interpreter;;

@@ -1,4 +1,5 @@
 open Batteries;;
+open Jhupllib;;
 open BatOptParse.Opt;;
 
 open Logger_utils;;

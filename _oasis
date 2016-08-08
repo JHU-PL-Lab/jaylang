@@ -22,16 +22,17 @@ PreCleanCommand: ./.execute_if_exists ./.local_preclean
 Library "jhupllib"
   Path: src/jhupllib
   Modules:
-    Logger_utils,
-    Monad_utils,
-    Multimap,
-    Multimap_pp,
-    Multimap_to_yojson,
-    Nondeterminism,
-    Pp_utils,
-    String_utils,
-    Utils,
-    Yojson_utils
+    Jhupllib,
+    Jhupllib_logger_utils,
+    Jhupllib_monad_utils,
+    Jhupllib_multimap,
+    Jhupllib_multimap_pp,
+    Jhupllib_multimap_to_yojson,
+    Jhupllib_nondeterminism,
+    Jhupllib_pp_utils,
+    Jhupllib_string_utils,
+    Jhupllib_utils,
+    Jhupllib_yojson_utils
   BuildDepends:
     batteries,
     monadlib,

@@ -3,6 +3,7 @@
    and utility functions for them.
 *)
 open Batteries;;
+open Jhupllib;;
 open Pds_reachability_types_stack;;
 open Pp_utils;;
 open Pds_reachability_utils;;

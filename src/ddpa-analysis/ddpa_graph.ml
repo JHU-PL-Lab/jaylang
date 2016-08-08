@@ -3,6 +3,7 @@
 *)
 
 open Batteries;;
+open Jhupllib;;
 
 open Core_ast;;
 open Core_ast_pp;;

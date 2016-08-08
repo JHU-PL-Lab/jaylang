@@ -7,7 +7,7 @@ module Enum = Batteries.Enum;;
 module type Nondeterminism_monad_sig = sig
   type 'a m
   include Monad.LazyPlus with type 'a m := 'a m
-  include Monad_utils.Utils with type 'a m := 'a m
+  include Jhupllib_monad_utils.Utils with type 'a m := 'a m
   val pick_enum : 'a Enum.t -> 'a m
   val enum : 'a m -> 'a Enum.t
 
@@ -24,7 +24,7 @@ end;;
 module Nondeterminism_monad : Nondeterminism_monad_sig = struct
   module M = Monad.MakeLazyPlus(Nondeterminism_monad_base);;
   include M;;
-  module U = Monad_utils.Make(Nondeterminism_monad_base);;
+  module U = Jhupllib_monad_utils.Make(Nondeterminism_monad_base);;
   let sequence = U.sequence;;
   let mapM = U.mapM;;
   let pick_enum e =
