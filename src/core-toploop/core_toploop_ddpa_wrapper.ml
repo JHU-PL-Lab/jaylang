@@ -11,8 +11,12 @@ struct
 
   module C = A.C;;
 
-  let create_analysis expr =
-    let a = A.create_initial_analysis expr in
+  let create_analysis ?logging_config:(logging_config=None) expr =
+    let a =
+      A.create_initial_analysis
+        ~ddpa_logging_config:logging_config
+        expr
+    in
     { aref = ref @@ A.perform_full_closure a
     ; expression = expr
     }

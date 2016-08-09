@@ -1,4 +1,5 @@
 open Batteries;;
+open Jhupllib;;
 
 open Ddpa_context_stack;;
 open Ddpa_graph;;
@@ -14,6 +15,7 @@ end;;
 module Make(S : Spec) : Context_stack =
 struct
   type t = abstract_clause dq;;
+  let equal x y = compare x y == 0;;
   let compare x y = Enum.compare compare (Deque.enum x) (Deque.enum y);;
   let empty = Deque.empty;;
   let push c x =
@@ -37,5 +39,8 @@ struct
     Deque.enum x
   ;;
   let show = pp_to_string pp;;
+  let to_yojson c =
+    `List (List.map abstract_clause_to_yojson @@ Deque.to_list c)
+  ;;
   let name = string_of_int S.size ^ "ddpa";;
 end;;

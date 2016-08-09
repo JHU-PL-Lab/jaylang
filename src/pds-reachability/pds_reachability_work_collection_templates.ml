@@ -6,7 +6,7 @@ open Pds_reachability_work_collection;;
 module Work_stack : Work_collection_template = functor(W : Work_type) ->
 struct
   module W = W;;
-  type work_collection = W.work list
+  type work_collection = W.t list
     [@@deriving eq, ord, show]
   ;;
   let empty = [];;
@@ -18,4 +18,6 @@ struct
   ;;
   let is_empty coll = (List.is_empty coll);;
   let size = List.length;;
+  let enum = List.enum;;
+  let to_yojson coll = `List (List.map W.to_yojson coll);;
 end;;

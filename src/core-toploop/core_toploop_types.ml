@@ -3,6 +3,8 @@
    types need not be re-declared on in an interface.
 *)
 
+open Jhupllib;;
+
 open Core_ast;;
 open Core_ast_pp;;
 open Core_interpreter;;
@@ -36,7 +38,7 @@ let pp_variable_analysis =
        Format.pp_print_string
        (Pp_utils.pp_option Format.pp_print_string)
        (Pp_utils.pp_option @@ Pp_utils.pp_list Format.pp_print_string))
-    Ddpa_graph.pp_abs_filtered_value_set
+    Ddpa_graph.Abs_filtered_value_set.pp
 ;;
 
 (** Represents the result of processing an expression in the toploop. *)

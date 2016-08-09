@@ -1,4 +1,5 @@
 open Batteries;;
+open Jhupllib;;
 
 open Core_toploop_options;;
 

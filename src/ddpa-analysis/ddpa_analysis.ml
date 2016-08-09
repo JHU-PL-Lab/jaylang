@@ -4,14 +4,17 @@
 *)
 
 open Batteries;;
+open Jhupllib;;
 
 open Core_ast;;
 open Core_ast_pp;;
+open Ddpa_analysis_logging;;
 open Ddpa_context_stack;;
 open Ddpa_graph;;
 open Nondeterminism;;
 open Pds_reachability_types_stack;;
 open Pp_utils;;
+open Yojson.Safe;;
 
 let logger = Logger_utils.make_logger "Ddpa_analysis";;
 let lazy_logger = Logger_utils.make_lazy_logger "Ddpa_analysis";;
@@ -27,7 +30,9 @@ sig
   module C : Context_stack;;
 
   (** The initial, unclosed analysis derived from an expression. *)
-  val create_initial_analysis : expr -> ddpa_analysis
+  val create_initial_analysis :
+    ?ddpa_logging_config:(ddpa_analysis_logging_config option) ->
+    expr -> ddpa_analysis
 
   (** Pretty-prints a DDPA structure. *)
   val pp_ddpa_analysis : ddpa_analysis pretty_printer
@@ -59,17 +64,6 @@ sig
   val contextual_values_of_variable :
     var -> annotated_clause -> C.t -> ddpa_analysis ->
     Abs_filtered_value_set.t * ddpa_analysis
-
-  (** Sets the logging level for the PDS reachability analysis used by this
-      module. *)
-  val set_pdr_logger_level :
-    Pds_reachability_logger_utils.pds_reachability_logger_level -> unit
-
-  (** Gets the logging level for the PDS reachability analysis used by this
-      module. *)
-  val get_pdr_logger_level :
-    unit -> Pds_reachability_logger_utils.pds_reachability_logger_level
-
 end;;
 
 (**
@@ -197,61 +191,63 @@ struct
   *)
   module Bounded_capture_size :
   sig
-    type bounded_capture_size;;
-    val compare_bounded_capture_size :
-      bounded_capture_size -> bounded_capture_size -> int
-    (*val equal_bounded_capture_size :
-      bounded_capture_size -> bounded_capture_size -> bool*)
-    val make_bounded_capture_size : int -> bounded_capture_size
-    val int_of_bounded_capture_size : bounded_capture_size -> int
-    val pp_bounded_capture_size : bounded_capture_size pretty_printer
+    type t;;
+    val equal : t -> t -> bool
+    val compare : t -> t -> int
+    val of_int : int -> t
+    val to_int : t -> int
+    val pp : t pretty_printer
+    val to_yojson : t -> json
   end =
   struct
-    type bounded_capture_size =
-      | Bounded_capture_size of int
-      [@@deriving ord]
+    type t = Bounded_capture_size of int
+      [@@deriving eq, ord]
     ;;
     let max_capture_size = 5;;
-    let make_bounded_capture_size n =
+    let of_int n =
       if n >= 1 && n <= max_capture_size
       then Bounded_capture_size(n)
       else raise @@ Utils.Invariant_failure(
           Printf.sprintf "Invalid size %d provided for bounded capture" n);;
-    let int_of_bounded_capture_size (Bounded_capture_size(n)) = n;;
-    let pp_bounded_capture_size formatter (Bounded_capture_size(n)) =
+    let to_int (Bounded_capture_size(n)) = n;;
+    let pp formatter (Bounded_capture_size(n)) =
       Format.pp_print_int formatter n
     ;;
+    let to_yojson (Bounded_capture_size n) = `Int n;;
   end;;
-  open Bounded_capture_size;;
 
   type pds_continuation =
     | Bottom_of_stack
     (** The bottom of stack element is necessary as a sentinel. It's pushed as
         the initial element on the continuation stack so we don't need to check
         for empty continuation stacks. *)
-    | Lookup_var of var * pattern_set * pattern_set
-    | Project of ident * pattern_set * pattern_set
+    | Lookup_var of var * Pattern_set.t * Pattern_set.t
+    | Project of ident * Pattern_set.t * Pattern_set.t
     | Jump of annotated_clause * C.t
     | Rewind
-    | Deref of pattern_set * pattern_set
-    | Capture of bounded_capture_size
+    | Deref of Pattern_set.t * Pattern_set.t
+    | Capture of Bounded_capture_size.t
     | Continuation_value of abs_filtered_value
     | Real_flow_huh
     | Alias_huh
     | Side_effect_search_start
     | Side_effect_search_escape of var
     | Side_effect_lookup_var of
-        var * pattern_set * pattern_set * annotated_clause * C.t
+        var * Pattern_set.t * Pattern_set.t * annotated_clause * C.t
     | Binary_operation
     | Unary_operation
     | Indexing
-    [@@deriving ord, show]
+    [@@deriving eq, ord, show, to_yojson]
   ;;
 
-  module Pds_continuation_ord =
+  module Pds_continuation =
   struct
-    type t = pds_continuation
-    let compare = compare_pds_continuation
+    type t = pds_continuation;;
+    let equal = equal_pds_continuation;;
+    let compare = compare_pds_continuation;;
+    let pp = pp_pds_continuation;;
+    let show = show_pds_continuation;;
+    let to_yojson = pds_continuation_to_yojson;;
   end;;
 
   type pds_state =
@@ -260,23 +256,23 @@ struct
         context. *)
     | Result_state of abs_filtered_value
     (** A state in the PDS representing a value result. *)
-    [@@deriving ord, show]
+    [@@deriving eq, ord, show, to_yojson]
   ;;
 
-  module Program_point_state_ord =
+  module Pds_state =
   struct
-    type t = pds_state
-    let compare = compare_pds_state
+    type t = pds_state;;
+    let equal = equal_pds_state;;
+    let compare = compare_pds_state;;
+    let pp = pp_pds_state;;
+    let show = show_pds_state;;
+    let to_yojson = pds_state_to_yojson;;
   end;;
 
   module Ddpa_pds_reachability_basis =
   struct
-    type state = pds_state
-    type stack_element = pds_continuation
-    module State_ord = Program_point_state_ord
-    module Stack_element_ord = Pds_continuation_ord
-    let pp_state = pp_pds_state
-    let pp_stack_element = pp_pds_continuation
+    module State = Pds_state;;
+    module Stack_element = Pds_continuation;;
   end
 
   type pds_targeted_dynamic_pop_action =
@@ -303,7 +299,7 @@ struct
         the variable which we should *not* match.  The second step carries
         the variable continuation and confirms the absence of a dereference
         continuation. *)
-    | Stateless_nonmatching_clause_skip_2_of_2 of pds_continuation
+    | Stateless_nonmatching_clause_skip_2_of_2 of Pds_continuation.t
     (** The second step of skipping a non-matching clause while stateless. *)
     | Value_capture_1_of_3
     (** Represents the first step of the value capture action.  This step
@@ -313,7 +309,7 @@ struct
         extracts the number of other stack elements to gather up before
         capturing the value. *)
     | Value_capture_3_of_3 of
-        abs_filtered_value * pds_continuation list * bounded_capture_size
+        abs_filtered_value * Pds_continuation.t list * Bounded_capture_size.t
     (** Represents the third step of the value capture action.  This action
         collects other stack elements into a list until it has consumed as
         many as the original Capture stack element dictated.  It then pushes
@@ -367,7 +363,7 @@ struct
     (** Represents the processing of a record projection on the stack.  This
         action requires two steps: one to grab the record and one to grab the
         value. *)
-    | Record_projection_2_of_2 of record_value * pattern_set * pattern_set
+    | Record_projection_2_of_2 of record_value * Pattern_set.t * Pattern_set.t
     (** The second step of handling record projection. *)
     | Function_filter_validation of var * abstract_function_value
     (** Represents the validation of filters for a function under lookup.  If
@@ -416,14 +412,14 @@ struct
     | Cell_dereference_2_of_2 of ref_value
     (** Represents the second step of dereferencing a located cell.  The
         provided value is the cell in question. *)
-    | Cell_update_alias_analysis_init_1_of_2 of var * pds_state * pds_state
+    | Cell_update_alias_analysis_init_1_of_2 of var * Pds_state.t * Pds_state.t
     (** Represents the initialization of alias analysis for a given cell
         update.  This is used to determine if the update in question is
         modifying a cell for which we are looking via a different name.  The
         variable here is the cell being updated; the states are the source and
         target state of the original transition, respectively. *)
     | Cell_update_alias_analysis_init_2_of_2 of
-        var * pds_state * pds_state * var * pattern_set * pattern_set
+        var * Pds_state.t * Pds_state.t * var * Pattern_set.t * Pattern_set.t
     (** Represents the second step of alias analysis initialization for a cell
         update.  The additional parameters are the contents of the
         continuation found during the first step. *)
@@ -443,7 +439,7 @@ struct
         from the stack.  The boolean indicates whether the two abstract values
         were equal. *)
     | Alias_analysis_resolution_5_of_5 of
-        var * bool * var * pattern_set * pattern_set
+        var * bool * var * Pattern_set.t * Pattern_set.t
     (** Alias analysis resolution after consuming the lookup variable from the
         stack.  The additional elements here are the components of the lookup
         continuation. *)
@@ -463,7 +459,7 @@ struct
         looking for an immediate definition in that case).  The clause and
         context represent the starting point of the side-effect search. *)
     | Side_effect_search_init_2_of_2 of
-        var * pattern_set * pattern_set * annotated_clause * C.t
+        var * Pattern_set.t * Pattern_set.t * annotated_clause * C.t
     (** Represents the initialization of a search for side effects.  At this
         point, all work has been performed except (1) validating the presence
         of a deref and (2) pushing the appropriate lookup continuations onto
@@ -588,8 +584,18 @@ struct
         collects and checks the lookup variable. The `abstract_value' is
         the result of the operation. A check guarantees that the given result
         is valid for the given operation. *)
-    [@@deriving ord, show]
+    [@@deriving eq, ord, show, to_yojson]
   ;;
+
+  module Pds_targeted_dynamic_pop_action =
+  struct
+    type t = pds_targeted_dynamic_pop_action
+    let equal = equal_pds_targeted_dynamic_pop_action
+    let compare = compare_pds_targeted_dynamic_pop_action
+    let pp = pp_pds_targeted_dynamic_pop_action
+    let show = show_pds_targeted_dynamic_pop_action
+    let to_yojson = pds_targeted_dynamic_pop_action_to_yojson
+  end;;
 
   type pds_untargeted_dynamic_pop_action =
     | Do_jump
@@ -601,33 +607,35 @@ struct
         stack element, so this is the first step of the process (which pops
         the value).  Because the value dictates the target of the second
         step, this is an untargeted action.  The second step is targeted. *)
-    [@@deriving ord, show]
+    [@@deriving eq, ord, show, to_yojson]
   ;;
-  let _ = show_pds_untargeted_dynamic_pop_action;;
+
+  module Pds_untargeted_dynamic_pop_action =
+  struct
+    type t = pds_untargeted_dynamic_pop_action
+    let equal = equal_pds_untargeted_dynamic_pop_action
+    let compare = compare_pds_untargeted_dynamic_pop_action
+    let pp = pp_pds_untargeted_dynamic_pop_action
+    let show = show_pds_untargeted_dynamic_pop_action
+    let to_yojson = pds_untargeted_dynamic_pop_action_to_yojson
+  end;;
 
   module Dph =
   struct
-    type stack_element = pds_continuation;;
-    type state = pds_state;;
-    type targeted_dynamic_pop_action = pds_targeted_dynamic_pop_action;;
-    type untargeted_dynamic_pop_action = pds_untargeted_dynamic_pop_action;;
+    module Stack_element = Pds_continuation;;
+    module State = Pds_state;;
+    module Targeted_dynamic_pop_action = Pds_targeted_dynamic_pop_action;;
+    module Untargeted_dynamic_pop_action = Pds_untargeted_dynamic_pop_action;;
     type stack_action =
-      ( stack_element
-      , targeted_dynamic_pop_action
+      ( Stack_element.t
+      , Targeted_dynamic_pop_action.t
       ) pds_stack_action
     ;;
-    let compare_targeted_dynamic_pop_action =
-      compare_pds_targeted_dynamic_pop_action;;
-    let pp_targeted_dynamic_pop_action = pp_pds_targeted_dynamic_pop_action;;
-    let compare_untargeted_dynamic_pop_action =
-      compare_pds_untargeted_dynamic_pop_action;;
-    let pp_untargeted_dynamic_pop_action =
-      pp_pds_untargeted_dynamic_pop_action;;
     let perform_targeted_dynamic_pop element action =
       Logger_utils.lazy_bracket_log (lazy_logger `trace)
         (fun () ->
            Printf.sprintf "perform_targeted_dynamic_pop (%s) (%s)"
-             (show_pds_continuation element)
+             (Pds_continuation.show element)
              (show_pds_targeted_dynamic_pop_action action))
         (fun results ->
            String_utils.concat_sep_delim "[" "]" ", "
@@ -635,7 +643,7 @@ struct
                results
                |> Enum.clone
                |> Enum.map (String_utils.string_of_list @@
-                            show_pds_stack_action pp_pds_continuation
+                            show_pds_stack_action Pds_continuation.pp
                               pp_pds_targeted_dynamic_pop_action)
              )
         )
@@ -682,11 +690,11 @@ struct
         let%orzero Capture(size) = element in
         return [ Pop_dynamic_targeted(Value_capture_3_of_3(fv,[],size)) ]
       | Value_capture_3_of_3(fv,collected_elements,size) ->
-        let n = int_of_bounded_capture_size size in
+        let n = Bounded_capture_size.to_int size in
         if n > 1
         then
           begin
-            let size' = make_bounded_capture_size (n-1) in
+            let size' = Bounded_capture_size.of_int (n-1) in
             return
               [Pop_dynamic_targeted
                  (Value_capture_3_of_3(fv,element::collected_elements,size'))]
@@ -708,7 +716,7 @@ struct
         return [ Push(element)
                ; Push(Real_flow_huh)
                ; Push(Jump(acl0,ctx0))
-               ; Push(Capture(make_bounded_capture_size 2))
+               ; Push(Capture(Bounded_capture_size.of_int 2))
                ; Push(Lookup_var(x2'',Pattern_set.empty,Pattern_set.empty))
                ; Push(Jump(c,ctxc))
                ; Push(Lookup_var(x3'',Pattern_set.empty,Pattern_set.empty))
@@ -902,8 +910,8 @@ struct
         (* The lists below are in reverse order of their presentation in the
            formal rules because we are not directly modifying the stack;
            instead, we are pushing stack elements one at a time. *)
-        let capture_size_5 = make_bounded_capture_size 5 in
-        let capture_size_2 = make_bounded_capture_size 2 in
+        let capture_size_5 = Bounded_capture_size.of_int 5 in
+        let capture_size_2 = Bounded_capture_size.of_int 2 in
         let k1'' = [ Capture capture_size_5 ; Lookup_var(x,patsp0,patsn0) ] in
         let k2'' = [ Capture capture_size_2
                    ; Lookup_var(x',Pattern_set.empty,Pattern_set.empty)
@@ -980,8 +988,8 @@ struct
         (* The following stack elements are "backwards" because they appear in
            the order in which they are pushed (similar to the other case of
            alias analysis initialization). *)
-        let capture_size_5 = make_bounded_capture_size 5 in
-        let capture_size_2 = make_bounded_capture_size 2 in
+        let capture_size_5 = Bounded_capture_size.of_int 5 in
+        let capture_size_2 = Bounded_capture_size.of_int 2 in
         let k1'' =
           [ Capture(capture_size_5)
           ; Lookup_var(x',Pattern_set.empty,Pattern_set.empty) ]
@@ -1053,8 +1061,8 @@ struct
         (* The lists below are in reverse order of their presentation in the
            formal rules because we are not directly modifying the stack;
            instead, we are pushing stack elements one at a time. *)
-        let capture_size_5 = make_bounded_capture_size 5 in
-        let capture_size_2 = make_bounded_capture_size 2 in
+        let capture_size_5 = Bounded_capture_size.of_int 5 in
+        let capture_size_2 = Bounded_capture_size.of_int 2 in
         let k1'' = [ Capture capture_size_5
                    ; Lookup_var(x2,Pattern_set.empty,Pattern_set.empty)
                    ] in
@@ -1070,7 +1078,7 @@ struct
         (* The lists below are in reverse order of their presentation in the
            formal rules because we are not directly modifying the stack;
            instead, we are pushing stack elements one at a time. *)
-        let capture_size_2 = make_bounded_capture_size 2 in
+        let capture_size_2 = Bounded_capture_size.of_int 2 in
         let k1'' = [ Capture capture_size_2
                    ; Lookup_var(x2,Pattern_set.empty,Pattern_set.empty)
                    ] in
@@ -1083,8 +1091,8 @@ struct
         (* The lists below are in reverse order of their presentation in the
            formal rules because we are not directly modifying the stack;
            instead, we are pushing stack elements one at a time. *)
-        let capture_size_5 = make_bounded_capture_size 5 in
-        let capture_size_2 = make_bounded_capture_size 2 in
+        let capture_size_5 = Bounded_capture_size.of_int 5 in
+        let capture_size_2 = Bounded_capture_size.of_int 2 in
         let k1'' = [ Capture capture_size_5
                    ; Lookup_var(x2,Pattern_set.empty,Pattern_set.empty)
                    ] in
@@ -1302,7 +1310,7 @@ struct
   ;;
 
   type ddpa_analysis_logging_data =
-    { ddpa_logging_prefix : string
+    { ddpa_logging_config : ddpa_analysis_logging_config
     ; ddpa_closure_steps : int
     }
     [@@deriving show]
@@ -1314,11 +1322,9 @@ struct
     ; ddpa_graph_fully_closed : bool
     ; pds_reachability : Ddpa_pds_reachability.analysis
     ; ddpa_active_nodes : Annotated_clause_set.t
-          [@printer pp_annotated_clause_set]
     (** The active nodes in the DDPA graph.  This set is maintained
             incrementally as edges are added. *)
     ; ddpa_active_non_immediate_nodes : Annotated_clause_set.t
-          [@printer pp_annotated_clause_set]
     (** A subset of [ddpa_active_nodes] which only contains the
         non-immediate nodes.  This is useful during closure. *)
     ; ddpa_logging_data : ddpa_analysis_logging_data option
@@ -1327,8 +1333,117 @@ struct
     [@@deriving show]
   ;;
 
+  let dump_yojson analysis =
+    `Assoc
+      [ ( "ddpa_graph"
+        , Ddpa_graph.to_yojson analysis.ddpa_graph
+        )
+      ; ( "ddpa_graph_fully_closed"
+        , `Bool analysis.ddpa_graph_fully_closed
+        )
+      ; ( "ddpa_active_nodes"
+        , Annotated_clause_set.to_yojson analysis.ddpa_active_nodes
+        )
+      ; ("ddpa_active_non_immediate_nodes"
+        , Annotated_clause_set.to_yojson
+            analysis.ddpa_active_non_immediate_nodes
+        )
+      ]
+  ;;
+
+  (** Logs a given PDS reachability graph.  This only occurs if the logging
+      level of the analysis is at least as high as the one provided in this
+      call.  The graph to be logged defaults to the analysis but can be
+      overridden (e.g. in the logger given to that analysis). *)
+  let log_pdr level ddpa_logging_data_opt reachability =
+    match ddpa_logging_data_opt with
+    | None -> ()
+    | Some data ->
+      if compare_ddpa_logging_level
+          data.ddpa_logging_config.ddpa_pdr_logging_level
+          level >= 0
+      then
+        begin
+          let json =
+            `Assoc
+              [ ( "element_type"
+                , `String "pds_reachability_graph"
+                )
+              ; ( "work_count"
+                , `Int (Ddpa_pds_reachability.get_work_count reachability)
+                )
+              ; ( "graph"
+                , Ddpa_pds_reachability.dump_yojson reachability
+                )
+              ]
+          in
+          data.ddpa_logging_config.ddpa_json_logger json
+        end
+  ;;
+
+  (** As log_pdr, but logs a delta of the reachability graph. *)
+  let log_pdr_delta
+      level ddpa_logging_data_opt old_reachability new_reachability =
+    match ddpa_logging_data_opt with
+    | None -> ()
+    | Some data ->
+      if compare_ddpa_logging_level
+          data.ddpa_logging_config.ddpa_pdr_logging_level
+          level >= 0
+      then
+        begin
+          let json =
+            `Assoc
+              [ ( "element_type"
+                , `String "pds_reachability_graph_delta"
+                )
+              ; ( "work_count"
+                , `Int (Ddpa_pds_reachability.get_work_count new_reachability)
+                )
+              ; ( "graph"
+                , Ddpa_pds_reachability.dump_yojson_delta
+                    old_reachability new_reachability
+                )
+              ]
+          in
+          data.ddpa_logging_config.ddpa_json_logger json
+        end
+  ;;
+
+  (** Logs a given DDPA control flow graph.  This only occurs if the logging
+      level of the analysis is at least as high as the one provided in this
+      call. *)
+  let log_cfg level analysis =
+    match analysis.ddpa_logging_data with
+    | None -> ()
+    | Some data ->
+      if compare_ddpa_logging_level
+          data.ddpa_logging_config.ddpa_cfg_logging_level
+          level >= 0
+      then
+        begin
+          let json =
+            `Assoc
+              [ ( "element_type"
+                , `String "ddpa_graph"
+                )
+              ; ( "work_count"
+                , `Int (Ddpa_pds_reachability.get_work_count
+                          analysis.pds_reachability)
+                )
+              ; ( "graph"
+                , dump_yojson analysis
+                )
+              ]
+          in
+          data.ddpa_logging_config.ddpa_json_logger json
+        end
+  ;;
+
   let get_size analysis =
-    let pds_node_count, pds_edge_count = Ddpa_pds_reachability.get_size analysis.pds_reachability in
+    let pds_node_count, pds_edge_count =
+      Ddpa_pds_reachability.get_size analysis.pds_reachability
+    in
     let filter_inferrable_nodes nodes =
       nodes
       |> Annotated_clause_set.filter (
@@ -1349,11 +1464,28 @@ struct
     pds_edge_count
   ;;
 
-  let empty_analysis =
+  let empty_analysis ?ddpa_logging_data_opt:(ddpa_logging_data_opt=None) () =
+    (* Make sure to log PDR closure too if appropriate. *)
+    let pdr_log_fn_opt =
+      match ddpa_logging_data_opt with
+      | None -> None
+      | Some ddpa_logging_data ->
+        if ddpa_logging_data.ddpa_logging_config.ddpa_pdr_logging_level
+           = Log_nothing
+        then None
+        else Some
+            (fun old_reachability new_reachability ->
+               if ddpa_logging_data.ddpa_logging_config.ddpa_pdr_deltas
+               then
+                 log_pdr_delta Log_everything ddpa_logging_data_opt
+                   old_reachability new_reachability
+               else
+                 log_pdr Log_everything ddpa_logging_data_opt new_reachability)
+    in
     (* The initial reachability analysis should include an edge function which
        always allows discarding the bottom-of-stack marker. *)
     let initial_reachability =
-      Ddpa_pds_reachability.empty
+      Ddpa_pds_reachability.empty ~logging_function:pdr_log_fn_opt ()
       |> Ddpa_pds_reachability.add_edge_function
         (fun state -> Enum.singleton ([Pop Bottom_of_stack], state))
     in
@@ -1362,16 +1494,8 @@ struct
     ; pds_reachability = initial_reachability
     ; ddpa_active_nodes = Annotated_clause_set.singleton Start_clause
     ; ddpa_active_non_immediate_nodes = Annotated_clause_set.empty
-    ; ddpa_logging_data = None
+    ; ddpa_logging_data = ddpa_logging_data_opt
     }
-  ;;
-
-  let log_ddpa_graph level analysis name_fn =
-    match analysis.ddpa_logging_data with
-    | None -> ()
-    | Some data ->
-      let name = name_fn data in
-      Ddpa_graph_logger.log level name analysis.ddpa_graph
   ;;
 
   let end_of_scope annotated_clause edges =
@@ -1424,13 +1548,13 @@ struct
         let edge_function state =
           Logger_utils.lazy_bracket_log (lazy_logger `trace)
             (fun () -> Printf.sprintf "DDPA %s edge function at state %s"
-                (show_ddpa_edge edge) (show_pds_state state))
+                (show_ddpa_edge edge) (Pds_state.show state))
             (fun edges ->
                let string_of_output (actions,target) =
                  String_utils.string_of_tuple
                    (String_utils.string_of_list
                       Ddpa_pds_reachability.show_stack_action)
-                   show_pds_state
+                   Pds_state.show
                    (actions,target)
                in
                Printf.sprintf "Generates edges: %s"
@@ -2013,7 +2137,17 @@ struct
       )
   ;;
 
-  let create_initial_analysis e =
+  let create_initial_analysis
+      ?ddpa_logging_config:(ddpa_logging_config_opt=None)
+      e =
+    let logging_data =
+      match ddpa_logging_config_opt with
+      | None -> None
+      | Some config ->
+        Some { ddpa_logging_config = config
+             ; ddpa_closure_steps = 0 (* FIXME: this number never changes or gets reported! *)
+             }
+    in
     let Abs_expr(cls) = lift_expr e in
     (* Put the annotated clauses together. *)
     let acls =
@@ -2033,11 +2167,13 @@ struct
           Ddpa_edge(acl1,acl2) :: mk_edges acls'
     in
     let edges = List.enum @@ mk_edges acls in
-    let analysis = fst @@ add_edges edges empty_analysis in
+    let analysis =
+      fst @@ add_edges edges @@
+      empty_analysis ~ddpa_logging_data_opt:logging_data ()
+    in
     logger `trace "Created initial analysis";
-    log_ddpa_graph Ddpa_graph_logger.Ddpa_log_all analysis
-      (fun data ->
-         Ddpa_graph_logger.Ddpa_graph_name_initial data.ddpa_logging_prefix);
+    log_cfg Log_everything analysis;
+    log_pdr Log_everything analysis.ddpa_logging_data analysis.pds_reachability;
     analysis
   ;;
 
@@ -2050,7 +2186,7 @@ struct
          then ""
          else
            Printf.sprintf " with pattern sets %s and %s"
-             (show_pattern_set patsp) (show_pattern_set patsn)
+             (Pattern_set.show patsp) (Pattern_set.show patsn)
       )
       (fun (values, _) ->
          let pp formatter values =
@@ -2223,9 +2359,7 @@ struct
                        (fun () -> Printf.sprintf "Completed closure step %d"
                            (data.ddpa_closure_steps));
     end;
-    log_ddpa_graph Ddpa_graph_logger.Ddpa_log_all analysis
-      (fun data -> Ddpa_graph_logger.Ddpa_graph_name_intermediate(
-           data.ddpa_logging_prefix, data.ddpa_closure_steps));
+    log_cfg Log_everything result;
     result
   ;;
 
@@ -2236,24 +2370,13 @@ struct
     then
       begin
         logger `trace "Closure complete.";
-        log_ddpa_graph Ddpa_graph_logger.Ddpa_log_result analysis
-          (fun data ->
-             Ddpa_graph_logger.Ddpa_graph_name_closed(data.ddpa_logging_prefix));
+        log_pdr Log_result analysis.ddpa_logging_data analysis.pds_reachability;
+        log_cfg Log_result analysis;
         analysis
       end
     else
       begin
         perform_full_closure @@ perform_closure_steps analysis
       end
-  ;;
-
-  let set_pdr_logger_level level =
-    (* TODO: rewrite logging mechanism for PDR *)
-    ignore level; raise @@ Utils.Not_yet_implemented "set_pdr_logger_level"
-  ;;
-
-  let get_pdr_logger_level () =
-    (* TODO: rewrite logging mechanism for PDR *)
-    raise @@ Utils.Not_yet_implemented "get_pdr_logger_level"
   ;;
 end;;

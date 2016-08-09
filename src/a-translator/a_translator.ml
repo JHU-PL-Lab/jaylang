@@ -1,5 +1,6 @@
 open Batteries;;
 open Core_ast;;
+open Jhupllib;;
 open Uid;;
 
 module Ident_map = Core_ast.Ident_map;;

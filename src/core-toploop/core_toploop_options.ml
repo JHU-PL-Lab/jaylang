@@ -6,9 +6,10 @@ open Core_toploop_option_parsers;;
 type configuration =
   { topconf_context_stack : (module Ddpa_context_stack.Context_stack) option
   ; topconf_log_prefix : string
-  ; topconf_ddpa_log_level : Ddpa_graph_logger.ddpa_graph_logger_level option
-  ; topconf_pdr_log_level :
-      Pds_reachability_logger_utils.pds_reachability_logger_level option
+  ; topconf_ddpa_log_level : Ddpa_analysis_logging.ddpa_logging_level option
+  ; topconf_pdr_log_level : Ddpa_analysis_logging.ddpa_logging_level option
+  ; topconf_pdr_log_deltas : bool
+  ; topconf_graph_log_file_name : string
   ; topconf_analyze_vars : analyze_variables_selection
   ; topconf_disable_evaluation : bool
   ; topconf_disable_inconsistency_check : bool
@@ -30,6 +31,12 @@ let add_core_toploop_option_parsers parser=
     ddpa_logging_option;
   (* Add PDS reachability graph logging option. *)
   BatOptParse.OptParser.add parser ~long_name:"pdr-logging" pdr_logging_option;
+  (* Add option to log PDS reachability graphs as deltas. *)
+  BatOptParse.OptParser.add parser
+    ~long_name:"pdr-deltas" pdr_logging_deltas_option;
+  (* Adds control over graph log file name. *)
+  BatOptParse.OptParser.add parser
+    ~long_name:"graph-log-file" graph_log_file_option;
   (* Add control over variables used in toploop analysis. *)
   BatOptParse.OptParser.add parser ~long_name:"analyze-variables"
     analyze_variables_option;
@@ -53,6 +60,12 @@ let read_parsed_core_toploop_configuration () =
   ; topconf_log_prefix = "_toploop"
   ; topconf_ddpa_log_level = ddpa_logging_option.BatOptParse.Opt.option_get ()
   ; topconf_pdr_log_level = pdr_logging_option.BatOptParse.Opt.option_get ()
+  ; topconf_pdr_log_deltas =
+      (match pdr_logging_deltas_option.BatOptParse.Opt.option_get () with
+       | Some b -> b
+       | None -> false)
+  ; topconf_graph_log_file_name =
+      Option.get @@ graph_log_file_option.BatOptParse.Opt.option_get ()
   ; topconf_analyze_vars = Option.get @@
       analyze_variables_option.BatOptParse.Opt.option_get ()
   ; topconf_disable_evaluation = Option.get @@

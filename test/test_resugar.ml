@@ -6,8 +6,10 @@ open OUnit2;;
 let tests_config =
   { topconf_context_stack = (Some (module Ddpa_single_element_stack.Stack : Ddpa_context_stack.Context_stack))
   ; topconf_log_prefix = "resugaring tests"
+  ; topconf_graph_log_file_name = "ddpa_graph.log.json"
   ; topconf_ddpa_log_level = None
   ; topconf_pdr_log_level = None
+  ; topconf_pdr_log_deltas = false
   ; topconf_analyze_vars = Core_toploop_option_parsers.Analyze_no_variables
   ; topconf_disable_evaluation = true
   ; topconf_disable_inconsistency_check = false

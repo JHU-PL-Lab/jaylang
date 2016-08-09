@@ -2,7 +2,7 @@
    This module defines basic data types for the stack of a PDS.
 *)
 open Batteries;;
-open Pp_utils;;
+open Pds_reachability_utils;;
 
 (** The type of stack actions which may be performed in a PDS. *)
 type ( 'stack_element
@@ -20,45 +20,29 @@ type ( 'stack_element
       fixed; they vary depending upon the stack element which is provided.
       This operation may also be non-deterministic, providing several
       chains of operations to the same target. *)
-  [@@deriving eq, ord, show]
+  [@@deriving eq, ord, show, to_yojson]
 ;;
 
 (** The type of a module which resolves dynamic pops. *)
 module type Dynamic_pop_handler =
 sig
-  (** The type of stack element in the PDS. *)
-  type stack_element
+  (** The decorated type of stack elements in the PDS. *)
+  module Stack_element : Decorated_type
 
-  (** The type of states in the PDS. *)
-  type state
+  (** The decorated type of states in the PDS. *)
+  module State : Decorated_type
 
-  (** The type of targeted dynamic pop actions in the PDS. *)
-  type targeted_dynamic_pop_action
+  (** The decorated type of targeted dynamic pop actions in the PDS. *)
+  module Targeted_dynamic_pop_action : Decorated_type
 
-  (** The type of untargeted dynamic pop actions in the PDS. *)
-  type untargeted_dynamic_pop_action
+  (** The decoreated type of untargeted dynamic pop actions in the PDS. *)
+  module Untargeted_dynamic_pop_action : Decorated_type
 
   (** A type alias for stack actions in this handler. *)
   type stack_action =
-    ( stack_element
-    , targeted_dynamic_pop_action
+    ( Stack_element.t
+    , Targeted_dynamic_pop_action.t
     ) pds_stack_action
-
-  (** A comparator for dynamic pop actions. *)
-  val compare_targeted_dynamic_pop_action :
-    targeted_dynamic_pop_action -> targeted_dynamic_pop_action -> int
-
-  (** A pretty-printing function for targeted dynamic pop actions. *)
-  val pp_targeted_dynamic_pop_action :
-    targeted_dynamic_pop_action pretty_printer
-
-  (** A comparator for dynamic pop actions. *)
-  val compare_untargeted_dynamic_pop_action :
-    untargeted_dynamic_pop_action -> untargeted_dynamic_pop_action -> int
-
-  (** A pretty-printing function for targeted dynamic pop actions. *)
-  val pp_untargeted_dynamic_pop_action :
-    untargeted_dynamic_pop_action pretty_printer
 
   (** The resolution function for targeted dynamic pops.  This function takes a
       stack element which was pushed and the associated dynamic pop action.  The
@@ -66,7 +50,7 @@ sig
       added to the PDS such that it starts at the source of the push and ends
       at the target of the dynamic pop. *)
   val perform_targeted_dynamic_pop :
-    stack_element -> targeted_dynamic_pop_action ->
+    Stack_element.t -> Targeted_dynamic_pop_action.t ->
     stack_action list Enum.t
 
   (** The resolution function for untargeted dynamic pops.  This function takes
@@ -74,38 +58,36 @@ sig
       The result is an enumeration of pairs between stack action sequences and
       their eventual target. *)
   val perform_untargeted_dynamic_pop :
-    stack_element -> untargeted_dynamic_pop_action ->
-    (stack_action list * state) Enum.t
+    Stack_element.t -> Untargeted_dynamic_pop_action.t ->
+    (stack_action list * State.t) Enum.t
 end;;
 
 (** A module which serves as a dummy dynamic pop handler.  This handler should
     be used when no dynamic pops are required of the PDS. *)
 module Null_dynamic_pop_hanlder(Basis : Pds_reachability_basis.Basis)
   : Dynamic_pop_handler
-    with type stack_element = Basis.stack_element
-     and type state = Basis.state
+    with module Stack_element = Basis.Stack_element
+     and module State = Basis.State
 =
 struct
-  type stack_element = Basis.stack_element;;
-  type state = Basis.state;;
-  type targeted_dynamic_pop_action = Null_targeted_action;;
-  type untargeted_dynamic_pop_action = Null_untargeted_action;;
+  module Stack_element = Basis.Stack_element;;
+  module State = Basis.State;;
+  module Targeted_dynamic_pop_action =
+  struct
+    type t = Null [@@deriving eq, ord, show, to_yojson]
+  end;;
+  module Untargeted_dynamic_pop_action =
+  struct
+    type t = Null [@@deriving eq, ord, show, to_yojson]
+  end;;
   type stack_action =
-    ( stack_element
-    , targeted_dynamic_pop_action
+    ( Stack_element.t
+    , Targeted_dynamic_pop_action.t
     ) pds_stack_action
-  let compare_targeted_dynamic_pop_action
-      Null_targeted_action Null_targeted_action = 0
+  let perform_targeted_dynamic_pop _ Targeted_dynamic_pop_action.Null =
+    Enum.empty ()
   ;;
-  let pp_targeted_dynamic_pop_action formatter Null_targeted_action =
-    Format.pp_print_string formatter "_"
+  let perform_untargeted_dynamic_pop _ Untargeted_dynamic_pop_action.Null =
+    Enum.empty ()
   ;;
-  let compare_untargeted_dynamic_pop_action
-      Null_untargeted_action Null_untargeted_action = 0
-  ;;
-  let pp_untargeted_dynamic_pop_action formatter Null_untargeted_action =
-    Format.pp_print_string formatter "_"
-  ;;
-  let perform_targeted_dynamic_pop _ Null_targeted_action = Enum.empty ();;
-  let perform_untargeted_dynamic_pop _ Null_untargeted_action = Enum.empty ();;
 end;;

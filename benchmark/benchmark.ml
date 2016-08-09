@@ -1,4 +1,5 @@
 open Batteries;;
+open Jhupllib;;
 open OUnit2;;
 
 open Core_ast;;
@@ -274,6 +275,8 @@ let make_test filename expectations =
         ; topconf_log_prefix = filename ^ "_"
         ; topconf_ddpa_log_level = None
         ; topconf_pdr_log_level = None
+        ; topconf_pdr_log_deltas = false
+        ; topconf_graph_log_file_name = "ddpa_benchmark.log.json"
         ; topconf_analyze_vars =
             if variables_to_analyze = []
             then Core_toploop_option_parsers.Analyze_no_variables

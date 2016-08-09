@@ -1,3 +1,4 @@
+open Batteries;;
 open Pds_reachability_work;;
 
 (** This module type describes the interface for a work collection. *)
@@ -26,7 +27,7 @@ sig
   val empty : work_collection
 
   (** Adds a work unit to a work collection. *)
-  val offer : W.work -> work_collection -> work_collection
+  val offer : W.t -> work_collection -> work_collection
 
   (** Extracts a work unit from a work collection.  The only guaratees made by
       this routine are as follows:
@@ -37,7 +38,7 @@ sig
       In particular, there are no guarantees made about the order in which the
       offered elements are taken.
   *)
-  val take : work_collection -> work_collection * W.work option
+  val take : work_collection -> work_collection * W.t option
 
   (** Determines if a work collection is empty. *)
   val is_empty : work_collection -> bool
@@ -45,6 +46,13 @@ sig
   (** Determines the number of elements to be taken from a given work
       collection. *)
   val size : work_collection -> int
+
+(** Enumerates the elements in a work collection in the order in which they
+    would be taken. *)
+  val enum : work_collection -> W.t Enum.t
+
+(** Exports a work collection as JSON. *)
+  val to_yojson : work_collection -> Yojson.Safe.json
 end;;
 
 (** This module type describes a work collection implementation.  Such an

@@ -3,136 +3,115 @@
    and utility functions for them.
 *)
 open Batteries;;
+open Jhupllib;;
 open Pds_reachability_types_stack;;
 open Pp_utils;;
+open Pds_reachability_utils;;
 
 module type Types =
 sig
-  (** The type of states in the PDS. *)
-  type state
+  (** The decorated type of states in the PDS. *)
+  module State : Decorated_type
 
-  val equal_state : state -> state -> bool;;
+  (** The decorated type of stack elements in the PDS. *)
+  module Stack_element : Decorated_type
 
-  (** The type of stack elements in the PDS. *)
-  type stack_element
+  (** The decorated type of targeted dynamic pop actions in the PDS. *)
+  module Targeted_dynamic_pop_action : Decorated_type
 
-  val equal_stack_element : stack_element -> stack_element -> bool;;
-
-  (** The type of targeted dynamic pop actions in the PDS. *)
-  type targeted_dynamic_pop_action
-
-  val equal_targeted_dynamic_pop_action :
-    targeted_dynamic_pop_action -> targeted_dynamic_pop_action -> bool;;
-
-  (** The type of untargeted dynamic pop actions in the PDS. *)
-  type untargeted_dynamic_pop_action
-
-  val equal_untargeted_dynamic_pop_action :
-    untargeted_dynamic_pop_action -> untargeted_dynamic_pop_action -> bool;;
-  val compare_untargeted_dynamic_pop_action :
-    untargeted_dynamic_pop_action -> untargeted_dynamic_pop_action -> int;;
-  val pp_untargeted_dynamic_pop_action :
-    Format.formatter -> untargeted_dynamic_pop_action -> unit;;
+  (** The decorated type of untargeted dynamic pop actions in the PDS. *)
+  module Untargeted_dynamic_pop_action : Decorated_type
 
   (** Stack actions which may be performed in the PDS. *)
   type stack_action =
-    ( stack_element
-    , targeted_dynamic_pop_action
+    ( Stack_element.t
+    , Targeted_dynamic_pop_action.t
     ) pds_stack_action
 
-  (** A pretty-printer for stack actions. *)
   val pp_stack_action : stack_action pretty_printer
   val show_stack_action : stack_action -> string
+  val stack_action_to_yojson : stack_action -> Yojson.Safe.json
 
-  (** The type of node used for reachability. *)
   type node =
-    | State_node of state
+    | State_node of State.t
     | Intermediate_node of node * stack_action list
 
-  (** A comparison for nodes. *)
-  val compare_node : node -> node -> int
-  val equal_node : node -> node -> bool
+  (** The decorated type of node used for reachability. *)
+  module Node : Decorated_type
+    with type t = node
 
-  (** Pretty-printing for nodes. *)
-  val pp_node : node pretty_printer
-  val show_node : node -> string
-
-  (** The type of edge used in reachability. *)
   type edge =
-    { source : node
-    ; target : node
+    { source : Node.t
+    ; target : Node.t
     ; edge_action : stack_action
     };;
 
-  val equal_edge : edge -> edge -> bool
-  val compare_edge : edge -> edge -> int
-
-  (** Pretty-printing for edges. *)
-  val pp_edge : edge pretty_printer
-  val show_edge : edge -> string
+  (** The decorated type of edge used in reachability. *)
+  module Edge : Decorated_type
+    with type t = edge
 end;;
 
 module Make
     (Basis : Pds_reachability_basis.Basis)
     (Dph : Pds_reachability_types_stack.Dynamic_pop_handler
-     with type stack_element = Basis.stack_element
-      and type state = Basis.state
+     with module Stack_element = Basis.Stack_element
+      and module State = Basis.State
     )
-  : Types with type stack_element = Basis.stack_element
-           and type state = Basis.state
-           and type targeted_dynamic_pop_action =
-                 Dph.targeted_dynamic_pop_action
-           and type untargeted_dynamic_pop_action =
-                 Dph.untargeted_dynamic_pop_action
+  : Types with module Stack_element = Basis.Stack_element
+           and module State = Basis.State
+           and module Targeted_dynamic_pop_action =
+                 Dph.Targeted_dynamic_pop_action
+           and module Untargeted_dynamic_pop_action =
+                 Dph.Untargeted_dynamic_pop_action
 =
 struct
-  type state = Basis.state;;
-  type stack_element = Basis.stack_element;;
-  type targeted_dynamic_pop_action = Dph.targeted_dynamic_pop_action;;
-  type untargeted_dynamic_pop_action = Dph.untargeted_dynamic_pop_action;;
+  module State = Basis.State;;
+  module Stack_element = Basis.Stack_element;;
+  module Targeted_dynamic_pop_action = Dph.Targeted_dynamic_pop_action;;
+  module Untargeted_dynamic_pop_action = Dph.Untargeted_dynamic_pop_action;;
 
-  let compare_state = Basis.State_ord.compare;;
-  let compare_stack_element = Basis.Stack_element_ord.compare;;
-  let equal_state s s' = Basis.State_ord.compare s s' = 0;;
-  let equal_stack_element e e' =
-    Basis.Stack_element_ord.compare e e' = 0
-  ;;
-  let equal_targeted_dynamic_pop_action a a' =
-    Dph.compare_targeted_dynamic_pop_action a a' = 0
-  ;;
-  let equal_untargeted_dynamic_pop_action a a' =
-    Dph.compare_untargeted_dynamic_pop_action a a' = 0
-  ;;
-  let compare_untargeted_dynamic_pop_action =
-    Dph.compare_untargeted_dynamic_pop_action
-  ;;
-  let pp_untargeted_dynamic_pop_action =
-    Dph.pp_untargeted_dynamic_pop_action
-  ;;
   let equal_stack_action =
     Pds_reachability_types_stack.equal_pds_stack_action
-      equal_stack_element equal_targeted_dynamic_pop_action
+      Stack_element.equal Targeted_dynamic_pop_action.equal
   ;;
-  open Basis;;
-  open Dph;;
   type stack_action =
-    ( stack_element
-    , targeted_dynamic_pop_action
+    ( Stack_element.t
+    , Targeted_dynamic_pop_action.t
     ) pds_stack_action
-    [@@deriving ord, show]
+    [@@deriving ord, show, to_yojson]
   ;;
 
   type node =
-    | State_node of state
+    | State_node of State.t
     | Intermediate_node of node * stack_action list
-    [@@deriving eq, ord, show]
+    [@@deriving eq, ord, show, to_yojson]
   ;;
+
+  module Node =
+  struct
+    type t = node
+    let equal = equal_node
+    let compare = compare_node
+    let pp = pp_node
+    let show = show_node
+    let to_yojson = node_to_yojson
+  end;;
 
   type edge =
     { source : node
     ; target : node
     ; edge_action : stack_action
     }
-    [@@deriving eq, ord, show]
+    [@@deriving eq, ord, show, to_yojson]
   ;;
+
+  module Edge =
+  struct
+    type t = edge
+    let equal = equal_edge
+    let compare = compare_edge
+    let pp = pp_edge
+    let show = show_edge
+    let to_yojson = edge_to_yojson
+  end;;
 end;;

@@ -3,6 +3,7 @@
 *)
 
 open Batteries;;
+open Jhupllib;;
 
 open Core_ast;;
 open Core_ast_pp;;
@@ -14,15 +15,13 @@ struct
   let compare = compare_pattern
 end;;
 
-module Pattern_set = Set.Make(Pattern_ord);;
-type pattern_set = Pattern_set.t;;
-
-let pp_pattern_set formatter pats =
-  Pp_utils.pp_concat_sep_delim "{" "}" ", " pp_pattern formatter @@
-  Pattern_set.enum pats
-;;
-let show_pattern_set = pp_to_string pp_pattern_set;;
-let compare_pattern_set = Pattern_set.compare;;
+module Pattern_set =
+struct
+  include Set.Make(Pattern_ord);;
+  let pp = Pp_utils.pp_set pp_pattern enum;;
+  let show = Pp_utils.pp_to_string pp;;
+  let to_yojson = Yojson_utils.set_to_yojson pattern_to_yojson enum;;
+end;;
 
 (** A type to express abstract values. *)
 type abstract_value =
@@ -32,11 +31,11 @@ type abstract_value =
   | Abs_value_int
   | Abs_value_bool of bool
   | Abs_value_string
-  [@@deriving eq, ord]
+  [@@deriving eq, ord, to_yojson]
 
 and abstract_function_value =
   | Abs_function_value of var * abstract_expr
-  [@@deriving eq, ord]
+  [@@deriving eq, ord, to_yojson]
 
 (** A type to represent the bodies of abstract clauses. *)
 and abstract_clause_body =
@@ -51,15 +50,17 @@ and abstract_clause_body =
   | Abs_binary_operation_body of var * binary_operator * var
   | Abs_unary_operation_body of unary_operator * var
   | Abs_indexing_body of var * var
-  [@@deriving eq, ord]
+  [@@deriving eq, ord, to_yojson]
 
 (** A type to represent abstract clauses. *)
 and abstract_clause =
   | Abs_clause of var * abstract_clause_body
-  [@@deriving eq, ord]
+  [@@deriving eq, ord, to_yojson]
 
 (** A type to represent abstract expressions. *)
-and abstract_expr = Abs_expr of abstract_clause list [@@deriving eq, ord]
+and abstract_expr =
+  | Abs_expr of abstract_clause list
+  [@@deriving eq, ord, to_yojson]
 ;;
 
 let rec pp_abstract_function_value formatter (Abs_function_value(x,e)) =
@@ -124,13 +125,22 @@ let is_abstract_clause_immediate (Abs_clause(_,b)) =
   | Abs_appl_body _ | Abs_conditional_body _ -> false
 ;;
 
-module Abs_value_ord =
+module Abs_value =
 struct
   type t = abstract_value
+  let equal = equal_abstract_value
   let compare = compare_abstract_value
+  let pp = pp_abstract_value
+  let to_yojson = abstract_value_to_yojson
 end;;
 
-module Abs_value_set = Set.Make(Abs_value_ord);;
+module Abs_value_set =
+struct
+  module Impl = Set.Make(Abs_value);;
+  include Impl;;
+  include Pp_utils.Set_pp(Impl)(Abs_value);;
+  include Yojson_utils.Set_to_yojson(Impl)(Abs_value);;
+end;;
 
 let pp_abs_value_set formatter s =
   pp_concat_sep_delim "{" "}" ", " pp_abstract_value formatter @@
@@ -139,39 +149,50 @@ let pp_abs_value_set formatter s =
 
 type abs_filtered_value =
   | Abs_filtered_value of abstract_value * Pattern_set.t * Pattern_set.t
-  [@@deriving eq, ord]
+  [@@deriving eq, ord, show, to_yojson]
 ;;
-
-module Abs_filtered_value_ord =
-struct
-  type t = abs_filtered_value
-  let compare = compare_abs_filtered_value
-end;;
-
-module Abs_filtered_value_set = Set.Make(Abs_filtered_value_ord);;
+let _ = show_abs_filtered_value;;
 
 let pp_abs_filtered_value formatter (Abs_filtered_value(v,patsp,patsn)) =
   if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
   then pp_abstract_value formatter v
   else
     Format.fprintf formatter "%a:(+%a,-%a)"
-      pp_abstract_value v pp_pattern_set patsp pp_pattern_set patsn
+      pp_abstract_value v Pattern_set.pp patsp Pattern_set.pp patsn
 ;;
 let show_abs_filtered_value = pp_to_string pp_abs_filtered_value;;
 
-let pp_abs_filtered_value_set formatter s =
-  pp_concat_sep_delim "{" "}" "," pp_abs_filtered_value formatter @@
-  Abs_filtered_value_set.enum s
-;;
-let show_abs_filtered_value_set = pp_to_string pp_abs_filtered_value_set;;
+module Abs_filtered_value =
+struct
+  type t = abs_filtered_value
+  let compare = compare_abs_filtered_value
+  let pp = pp_abs_filtered_value
+  let to_yojson = abs_filtered_value_to_yojson
+end;;
 
-module Abs_clause_ord =
+module Abs_filtered_value_set =
+struct
+  module Impl = Set.Make(Abs_filtered_value);;
+  include Impl;;
+  include Pp_utils.Set_pp(Impl)(Abs_filtered_value);;
+  include Yojson_utils.Set_to_yojson(Impl)(Abs_filtered_value);;
+end;;
+
+module Abs_clause =
 struct
   type t = abstract_clause
   let compare = compare_abstract_clause
+  let pp = pp_abstract_clause
+  let to_yojson = abstract_clause_to_yojson
 end;;
 
-module Abs_clause_set = Set.Make(Abs_clause_ord);;
+module Abs_clause_set =
+struct
+  module Impl = Set.Make(Abs_clause);;
+  include Impl;;
+  include Pp_utils.Set_pp(Impl)(Abs_clause);;
+  include Yojson_utils.Set_to_yojson(Impl)(Abs_clause);;
+end;;
 
 type annotated_clause =
   | Unannotated_clause of abstract_clause
@@ -179,7 +200,7 @@ type annotated_clause =
   | Exit_clause of var * var * abstract_clause
   | Start_clause
   | End_clause
-  [@@deriving ord, eq, show]
+  [@@deriving ord, eq, show, to_yojson]
 ;;
 
 let is_annotated_clause_immediate acl =
@@ -188,13 +209,21 @@ let is_annotated_clause_immediate acl =
   | Enter_clause _ | Exit_clause _ | Start_clause | End_clause -> true
 ;;
 
-module Annotated_clause_ord =
+module Annotated_clause =
 struct
   type t = annotated_clause
   let compare = compare_annotated_clause
+  let pp = pp_annotated_clause
+  let to_yojson = annotated_clause_to_yojson
 end;;
 
-module Annotated_clause_set = Set.Make(Annotated_clause_ord);;
+module Annotated_clause_set =
+struct
+  module Impl = Set.Make(Annotated_clause);;
+  include Impl;;
+  include Pp_utils.Set_pp(Impl)(Annotated_clause);;
+  include Yojson_utils.Set_to_yojson(Impl)(Annotated_clause);;
+end;;
 
 let pp_annotated_clause_set =
   Pp_utils.pp_set pp_annotated_clause Annotated_clause_set.enum
@@ -202,13 +231,15 @@ let pp_annotated_clause_set =
 
 type ddpa_edge =
   | Ddpa_edge of annotated_clause * annotated_clause
-  [@@deriving ord, show]
+  [@@deriving ord, show, to_yojson]
 ;;
 
-module Ddpa_edge_ord =
+module Ddpa_edge =
 struct
   type t = ddpa_edge
   let compare = compare_ddpa_edge
+  let pp = pp_ddpa_edge
+  let to_yojson = ddpa_edge_to_yojson
 end;;
 
 (*
@@ -235,14 +266,22 @@ sig
   val preds : annotated_clause -> ddpa_graph -> annotated_clause Enum.t
 
   val succs : annotated_clause -> ddpa_graph -> annotated_clause Enum.t
+
+  val to_yojson : ddpa_graph -> Yojson.Safe.json
 end;;
 
 (* TODO: improve the performance of this implementation! *)
 module Graph_impl : Graph_sig =
 struct
-  module Ddpa_edge_set = Set.Make(Ddpa_edge_ord);;
+  module Ddpa_edge_set =
+  struct
+    module Impl = Set.Make(Ddpa_edge);;
+    include Impl;;
+    include Pp_utils.Set_pp(Impl)(Ddpa_edge);;
+    include Yojson_utils.Set_to_yojson(Impl)(Ddpa_edge);;
+  end;;
 
-  type ddpa_graph = Graph of Ddpa_edge_set.t;;
+  type ddpa_graph = Graph of Ddpa_edge_set.t [@@deriving to_yojson];;
 
   let empty = Graph(Ddpa_edge_set.empty);;
 
@@ -269,6 +308,8 @@ struct
   let preds acl g =
     edges_to acl g |> Enum.map (fun (Ddpa_edge(acl,_)) -> acl)
   ;;
+
+  let to_yojson = ddpa_graph_to_yojson;;
 end;;
 
 include Graph_impl;;

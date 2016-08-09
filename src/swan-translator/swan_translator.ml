@@ -1,5 +1,6 @@
 open Batteries;;
 open Egg_translator;;
+open Jhupllib;;
 
 module Ident_map = Core_ast.Ident_map;;
 

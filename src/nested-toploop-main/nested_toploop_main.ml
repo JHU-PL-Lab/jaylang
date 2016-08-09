@@ -1,4 +1,5 @@
 open Batteries;;
+open Jhupllib;;
 
 let logger = Logger_utils.make_logger "Nested_toploop_main";;
 let lazy_logger = Logger_utils.make_lazy_logger "Nested_toploop_main";;

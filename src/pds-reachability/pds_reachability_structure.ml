@@ -2,8 +2,9 @@
    This module defines a data structure used in a PDS reachability analysis.
 *)
 open Batteries;;
+open Jhupllib;;
 open Pds_reachability_types_stack;;
-open Pp_utils;;
+open Pds_reachability_utils;;
 
 (**
    The type of the module which defines the data structure used within the
@@ -11,237 +12,312 @@ open Pp_utils;;
 *)
 module type Structure =
 sig
-  (** The stack element type used by the PDS. *)
-  type stack_element
+  (** The decorated stack element type used by the PDS. *)
+  module Stack_element : Decorated_type
 
-  (** The node type in the reachability structure. *)
-  type node
+  (** The decorated node type in the reachability structure. *)
+  module Node : Decorated_type
 
-  (** The edge type in the reachability structure. *)
-  type edge
+  (** The decorated edge type in the reachability structure. *)
+  module Edge : Decorated_type
 
-  (** The type of targeted dynamic pop actions in this structure. *)
-  type targeted_dynamic_pop_action
+  (** The decorated type of targeted dynamic pop actions in this structure. *)
+  module Targeted_dynamic_pop_action : Decorated_type
 
-  (** The type of untargeted dynamic pop actions in this structure. *)
-  type untargeted_dynamic_pop_action
+  (** The decorated type of untargeted dynamic pop actions in this structure. *)
+  module Untargeted_dynamic_pop_action : Decorated_type
 
   (** The type of the PDS reachability data structure. *)
-  type structure
+  include Decorated_type
 
-  (** A pretty printer for the PDS reachability structure. *)
-  val pp_structure : structure pretty_printer
-  val show_structure : structure -> string
+  (**
+     Produces a Yojson structure representing the contents of a latter analysis
+     which do not appear in the former.
+  *)
+  val to_yojson_delta : t -> t -> Yojson.Safe.json
 
   (** The empty PDS reachability structure. *)
-  val empty : structure
+  val empty : t
 
   (** Adds an edge to a reachability structure. *)
-  val add_edge : edge -> structure -> structure
+  val add_edge : Edge.t -> t -> t
 
   (** Determines if a structure has a particular edge. *)
-  val has_edge : edge -> structure -> bool
+  val has_edge : Edge.t -> t -> bool
 
   (** Adds an untargeted dynamic pop action to a reachability structure. *)
   val add_untargeted_dynamic_pop_action :
-    node -> untargeted_dynamic_pop_action -> structure -> structure
+    Node.t -> Untargeted_dynamic_pop_action.t -> t -> t
 
   (** Determines if a given untargeted dynamic pop action is present in a
       reachability structure. *)
   val has_untargeted_dynamic_pop_action :
-    node -> untargeted_dynamic_pop_action -> structure -> bool
+    Node.t -> Untargeted_dynamic_pop_action.t -> t -> bool
 
   (** {6 Query functions.} *)
 
   val find_push_edges_by_source
-    : node -> structure -> (node * stack_element) Enum.t
+    : Node.t -> t -> (Node.t * Stack_element.t) Enum.t
   val find_pop_edges_by_source
-    : node -> structure -> (node * stack_element) Enum.t
+    : Node.t -> t -> (Node.t * Stack_element.t) Enum.t
   val find_nop_edges_by_source
-    : node -> structure -> node Enum.t
+    : Node.t -> t -> Node.t Enum.t
   val find_targeted_dynamic_pop_edges_by_source
-    : node -> structure -> (node * targeted_dynamic_pop_action) Enum.t
+    : Node.t -> t -> (Node.t * Targeted_dynamic_pop_action.t) Enum.t
   val find_untargeted_dynamic_pop_actions_by_source
-    : node -> structure -> untargeted_dynamic_pop_action Enum.t
+    : Node.t -> t -> Untargeted_dynamic_pop_action.t Enum.t
   val find_push_edges_by_target
-    : node -> structure -> (node * stack_element) Enum.t
+    : Node.t -> t -> (Node.t * Stack_element.t) Enum.t
   val find_pop_edges_by_target
-    : node -> structure -> (node * stack_element) Enum.t
+    : Node.t -> t -> (Node.t * Stack_element.t) Enum.t
   val find_nop_edges_by_target
-    : node -> structure -> node Enum.t
+    : Node.t -> t -> Node.t Enum.t
 
-  val enumerate_nodes : structure -> node Enum.t
-  val enumerate_edges : structure -> edge Enum.t
+  val enumerate_nodes : t -> Node.t Enum.t
+  val enumerate_edges : t -> Edge.t Enum.t
 
   (** {6 Submodules.} *)
 
-  module Node_ord : Interfaces.OrderedType with type t = node
-  module Node_set : Set.S with type elt = node
+  module Node_set : Set.S with type elt = Node.t
 end;;
 
 module Make
     (Basis : Pds_reachability_basis.Basis)
     (Dph : Pds_reachability_types_stack.Dynamic_pop_handler
-      with type stack_element = Basis.stack_element
-      and type state = Basis.state)
+     with module Stack_element = Basis.Stack_element
+      and module State = Basis.State)
     (Types : Pds_reachability_types.Types
-      with type state = Basis.state
-      and type stack_element = Basis.stack_element
-      and type targeted_dynamic_pop_action = Dph.targeted_dynamic_pop_action
-      and type untargeted_dynamic_pop_action = Dph.untargeted_dynamic_pop_action
+     with module State = Basis.State
+      and module Stack_element = Basis.Stack_element
+      and module Targeted_dynamic_pop_action = Dph.Targeted_dynamic_pop_action
+      and module Untargeted_dynamic_pop_action = Dph.Untargeted_dynamic_pop_action
     )
   : Structure
-    with type stack_element = Basis.stack_element
-     and type edge = Types.edge
-     and type node = Types.node
-     and type targeted_dynamic_pop_action = Types.targeted_dynamic_pop_action
-     and type untargeted_dynamic_pop_action =
-      Types.untargeted_dynamic_pop_action
+    with module Stack_element = Basis.Stack_element
+     and module Edge = Types.Edge
+     and module Node = Types.Node
+     and module Targeted_dynamic_pop_action = Types.Targeted_dynamic_pop_action
+     and module Untargeted_dynamic_pop_action =
+           Types.Untargeted_dynamic_pop_action
 =
 struct
-  (********** Wiring in the arguments. **********)
-  open Basis;;
-  open Dph;;
+  module State = Basis.State;;
+  module Stack_element = Basis.Stack_element;;
+  module Edge = Types.Edge;;
+  module Node = Types.Node;;
+  module Targeted_dynamic_pop_action = Types.Targeted_dynamic_pop_action
+  module Untargeted_dynamic_pop_action =
+    Types.Untargeted_dynamic_pop_action
+
   open Types;;
-
-  let compare_stack_element = Stack_element_ord.compare;;
-
-  type stack_element = Basis.stack_element;;
-  type node = Types.node;;
-  type edge = Types.edge;;
-  type targeted_dynamic_pop_action = Types.targeted_dynamic_pop_action;;
-  type untargeted_dynamic_pop_action = Types.untargeted_dynamic_pop_action;;
 
   (********** Simple internal data structures. **********)
 
-  type node_and_stack_element = node * stack_element [@@deriving ord];;
-  let pp_node_and_stack_element = pp_tuple pp_node pp_stack_element;;
+  type node_and_stack_element =
+    Node.t * Stack_element.t
+    [@@deriving eq, ord, show, to_yojson]
+  ;;
 
   type node_and_targeted_dynamic_pop_action =
-    node * targeted_dynamic_pop_action [@@deriving ord]
-  ;;
-  let pp_node_and_targeted_dynamic_pop_action =
-    pp_tuple pp_node pp_targeted_dynamic_pop_action
+    Node.t * Targeted_dynamic_pop_action.t
+    [@@deriving eq, ord, show, to_yojson]
   ;;
 
   (********** Substructure definitions. **********)
 
-  module Node_ord =
+  module Node_set = Set.Make(Node);;
+
+  module Node_and_stack_element =
   struct
-    type t = node
-    let compare = compare_node
+    type t = node_and_stack_element;;
+    let equal = equal_node_and_stack_element;;
+    let compare = compare_node_and_stack_element;;
+    let pp = pp_node_and_stack_element;;
+    let show = show_node_and_stack_element;;
+    let to_yojson = node_and_stack_element_to_yojson;;
   end;;
 
-  module Node_set = Set.Make(Node_ord);;
-
-  module Node_and_stack_element_ord =
+  module Node_and_targeted_dynamic_pop_action =
   struct
-    type t = node_and_stack_element
-    let compare = compare_node_and_stack_element
+    type t = node_and_targeted_dynamic_pop_action;;
+    let equal = equal_node_and_targeted_dynamic_pop_action;;
+    let compare = compare_node_and_targeted_dynamic_pop_action;;
+    let pp = pp_node_and_targeted_dynamic_pop_action;;
+    let show = show_node_and_targeted_dynamic_pop_action;;
+    let to_yojson = node_and_targeted_dynamic_pop_action_to_yojson;;
   end;;
 
-  module Node_and_targeted_dynamic_pop_action_ord =
+  module Make_nice_multimap(K : Decorated_type)(V : Decorated_type) =
   struct
-    type t = node_and_targeted_dynamic_pop_action
-    let compare = compare_node_and_targeted_dynamic_pop_action
-  end;;
-
-  module Untargeted_dynamic_pop_action_ord =
-  struct
-    type t = untargeted_dynamic_pop_action
-    let compare = compare_untargeted_dynamic_pop_action
+    module Impl = Multimap.Make(K)(V);;
+    include Impl;;
+    include Multimap_pp.Make(Impl)(K)(V);;
+    include Multimap_to_yojson.Make(Impl)(K)(V);;
   end;;
 
   module Node_to_node_and_stack_element_multimap =
-    Multimap.Make(Node_ord)(Node_and_stack_element_ord)
+    Make_nice_multimap(Node)(Node_and_stack_element)
   ;;
 
   module Node_and_stack_element_to_node_multimap =
-    Multimap.Make(Node_and_stack_element_ord)(Node_ord)
+    Make_nice_multimap(Node_and_stack_element)(Node)
   ;;
 
   module Node_to_node_and_targeted_dynamic_pop_action_multimap =
-    Multimap.Make(Node_ord)(Node_and_targeted_dynamic_pop_action_ord)
+    Make_nice_multimap(Node)(Node_and_targeted_dynamic_pop_action)
   ;;
 
   module Node_to_untargeted_dynamic_pop_action_multimap =
-    Multimap.Make(Node_ord)(Untargeted_dynamic_pop_action_ord)
+    Make_nice_multimap(Node)(Untargeted_dynamic_pop_action)
   ;;
 
   module Node_and_targeted_dynamic_pop_action_to_node_multimap =
-    Multimap.Make(Node_and_targeted_dynamic_pop_action_ord)(Node_ord)
+    Make_nice_multimap(Node_and_targeted_dynamic_pop_action)(Node)
   ;;
 
   module Node_to_node_multimap =
-    Multimap.Make(Node_ord)(Node_ord)
+    Make_nice_multimap(Node)(Node)
   ;;
-
-  module Node_to_node_and_stack_element_multimap_pp = Multimap_pp.Make(
-    struct
-      module M = Node_to_node_and_stack_element_multimap
-      let pp_key = Types.pp_node
-      let pp_value = pp_node_and_stack_element
-    end
-    );;
-
-  module Node_and_stack_element_to_node_multimap_pp = Multimap_pp.Make(
-    struct
-      module M = Node_and_stack_element_to_node_multimap
-      let pp_key = pp_node_and_stack_element
-      let pp_value = Types.pp_node
-    end
-    );;
-
-  module Node_to_node_and_targeted_dynamic_pop_action_multimap_pp =
-    Multimap_pp.Make(
-    struct
-      module M = Node_to_node_and_targeted_dynamic_pop_action_multimap
-      let pp_key = Types.pp_node
-      let pp_value = pp_node_and_targeted_dynamic_pop_action
-    end
-    );;
-
-  module Node_to_untargeted_dynamic_pop_action_multimap_pp = Multimap_pp.Make(
-    struct
-      module M = Node_to_untargeted_dynamic_pop_action_multimap
-      let pp_key = Types.pp_node
-      let pp_value = Dph.pp_untargeted_dynamic_pop_action
-    end
-    );;
-
-  module Node_to_node_multimap_pp = Multimap_pp.Make(
-    struct
-      module M = Node_to_node_multimap
-      let pp_key = Types.pp_node
-      let pp_value = Types.pp_node
-    end
-    );;
 
   (********** The data structure itself. **********)
 
-  type structure =
+  (** The type of the PDS reachability graph data structure. *)
+  type t =
     { push_edges_by_source : Node_to_node_and_stack_element_multimap.t
-          [@printer Node_to_node_and_stack_element_multimap_pp.pp]
     ; pop_edges_by_source : Node_to_node_and_stack_element_multimap.t
-          [@printer Node_to_node_and_stack_element_multimap_pp.pp]
     ; nop_edges_by_source : Node_to_node_multimap.t
-          [@printer Node_to_node_multimap_pp.pp]
     ; targeted_dynamic_pop_edges_by_source : Node_to_node_and_targeted_dynamic_pop_action_multimap.t
-          [@printer Node_to_node_and_targeted_dynamic_pop_action_multimap_pp.pp]
     ; untargeted_dynamic_pop_actions_by_source : Node_to_untargeted_dynamic_pop_action_multimap.t
-          [@printer Node_to_untargeted_dynamic_pop_action_multimap_pp.pp]
     ; push_edges_by_target : Node_to_node_and_stack_element_multimap.t
-          [@printer Node_to_node_and_stack_element_multimap_pp.pp]
     ; pop_edges_by_target : Node_to_node_and_stack_element_multimap.t
-          [@printer Node_to_node_and_stack_element_multimap_pp.pp]
     ; nop_edges_by_target : Node_to_node_multimap.t
-          [@printer Node_to_node_multimap_pp.pp]
     ; push_edges_by_source_and_element : Node_and_stack_element_to_node_multimap.t
-          [@printer Node_and_stack_element_to_node_multimap_pp.pp]
     ; pop_edges_by_source_and_element : Node_and_stack_element_to_node_multimap.t
-          [@printer Node_and_stack_element_to_node_multimap_pp.pp]
     }
     [@@deriving show]
+  ;;
+
+  let compare x y =
+    let c1 = Node_to_node_and_stack_element_multimap.compare
+        x.push_edges_by_source y.push_edges_by_source
+    in
+    if c1 <> 0
+    then c1
+    else
+      let c2 = Node_to_node_and_stack_element_multimap.compare
+          x.pop_edges_by_source y.pop_edges_by_source
+      in
+      if c2 <> 0
+      then c2
+      else
+        let c3 = Node_to_node_multimap.compare
+            x.nop_edges_by_source y.nop_edges_by_source
+        in
+        if c3 <> 0
+        then c3
+        else
+          let c4 =
+            Node_to_node_and_targeted_dynamic_pop_action_multimap.compare
+              x.targeted_dynamic_pop_edges_by_source
+              y.targeted_dynamic_pop_edges_by_source
+          in
+          if c4 <> 0
+          then c4
+          else
+            let c5 =
+              Node_to_untargeted_dynamic_pop_action_multimap.compare
+                x.untargeted_dynamic_pop_actions_by_source
+                y.untargeted_dynamic_pop_actions_by_source
+            in
+            if c5 <> 0
+            then c5
+            else 0
+  ;;
+  let equal x y = compare x y == 0;;
+
+  let to_yojson x =
+    `Assoc
+      [ ( "push_edges_by_source"
+        , Node_to_node_and_stack_element_multimap.to_yojson
+            x.push_edges_by_source
+        )
+      ; ( "pop_edges_by_source"
+        , Node_to_node_and_stack_element_multimap.to_yojson
+            x.pop_edges_by_source
+        )
+      ; ( "nop_edges_by_source"
+        , Node_to_node_multimap.to_yojson x.nop_edges_by_source
+        )
+      ; ( "targeted_dynamic_pop_edges_by_source"
+        , Node_to_node_and_targeted_dynamic_pop_action_multimap.to_yojson
+            x.targeted_dynamic_pop_edges_by_source
+        )
+      ; ( "untargeted_dynamic_pop_actions_by_source"
+        , Node_to_untargeted_dynamic_pop_action_multimap.to_yojson
+            x.untargeted_dynamic_pop_actions_by_source
+        )
+      ]
+  ;;
+
+  let to_yojson_delta x y =
+    let multimap_delta enum of_enum mem x y =
+      y
+      |> enum
+      |> Enum.filter
+        (fun (k,v) -> not @@ mem k v x)
+      |> of_enum
+    in
+    `Assoc
+      (List.filter
+         (fun (_,v) ->
+            match v with
+            | `List n -> not @@ List.is_empty n
+            | _ -> true
+         )
+         [ ( "push_edges_by_source"
+           , Node_to_node_and_stack_element_multimap.to_yojson @@
+             multimap_delta
+               Node_to_node_and_stack_element_multimap.enum
+               Node_to_node_and_stack_element_multimap.of_enum
+               Node_to_node_and_stack_element_multimap.mem
+               x.push_edges_by_source y.push_edges_by_source
+           )
+         ; ( "pop_edges_by_source"
+           , Node_to_node_and_stack_element_multimap.to_yojson @@
+             multimap_delta
+               Node_to_node_and_stack_element_multimap.enum
+               Node_to_node_and_stack_element_multimap.of_enum
+               Node_to_node_and_stack_element_multimap.mem
+               x.pop_edges_by_source y.pop_edges_by_source
+           )
+         ; ( "nop_edges_by_source"
+           , Node_to_node_multimap.to_yojson @@
+             multimap_delta
+               Node_to_node_multimap.enum
+               Node_to_node_multimap.of_enum
+               Node_to_node_multimap.mem
+               x.nop_edges_by_source y.nop_edges_by_source
+           )
+         ; ( "targeted_dynamic_pop_edges_by_source"
+           , Node_to_node_and_targeted_dynamic_pop_action_multimap.to_yojson @@
+             multimap_delta
+               Node_to_node_and_targeted_dynamic_pop_action_multimap.enum
+               Node_to_node_and_targeted_dynamic_pop_action_multimap.of_enum
+               Node_to_node_and_targeted_dynamic_pop_action_multimap.mem
+               x.targeted_dynamic_pop_edges_by_source
+               y.targeted_dynamic_pop_edges_by_source
+           )
+         ; ( "untargeted_dynamic_pop_actions_by_source"
+           , Node_to_untargeted_dynamic_pop_action_multimap.to_yojson @@
+             multimap_delta
+               Node_to_untargeted_dynamic_pop_action_multimap.enum
+               Node_to_untargeted_dynamic_pop_action_multimap.of_enum
+               Node_to_untargeted_dynamic_pop_action_multimap.mem
+               x.untargeted_dynamic_pop_actions_by_source
+               y.untargeted_dynamic_pop_actions_by_source
+           )
+         ]
+      )
   ;;
 
   let empty =
@@ -400,7 +476,7 @@ struct
           structure.nop_edges_by_target
       ; Enum.map (fst % snd)
           (Node_to_node_and_targeted_dynamic_pop_action_multimap.enum
-            structure.targeted_dynamic_pop_edges_by_source)
+             structure.targeted_dynamic_pop_edges_by_source)
       ]
   ;;
 
@@ -409,35 +485,35 @@ struct
       [ Node_to_node_and_stack_element_multimap.enum
           structure.push_edges_by_source
         |> Enum.map
-            (fun (source,(target,element)) ->
-              { source = source
-              ; target = target
-              ; edge_action = Push element
-              })
+          (fun (source,(target,element)) ->
+             { source = source
+             ; target = target
+             ; edge_action = Push element
+             })
       ; Node_to_node_and_stack_element_multimap.enum
           structure.pop_edges_by_source
         |> Enum.map
-            (fun (source,(target,element)) ->
-              { source = source
-              ; target = target
-              ; edge_action = Pop element
-              })
+          (fun (source,(target,element)) ->
+             { source = source
+             ; target = target
+             ; edge_action = Pop element
+             })
       ; Node_to_node_multimap.enum
           structure.nop_edges_by_source
         |> Enum.map
-            (fun (source,target) ->
-              { source = source
-              ; target = target
-              ; edge_action = Nop
-              })
+          (fun (source,target) ->
+             { source = source
+             ; target = target
+             ; edge_action = Nop
+             })
       ; Node_to_node_and_targeted_dynamic_pop_action_multimap.enum
           structure.targeted_dynamic_pop_edges_by_source
         |> Enum.map
-            (fun (source,(target,dynamic_pop)) ->
-              { source = source
-              ; target = target
-              ; edge_action = Pop_dynamic_targeted dynamic_pop
-              })
+          (fun (source,(target,dynamic_pop)) ->
+             { source = source
+             ; target = target
+             ; edge_action = Pop_dynamic_targeted dynamic_pop
+             })
       ]
   ;;
 end;;
