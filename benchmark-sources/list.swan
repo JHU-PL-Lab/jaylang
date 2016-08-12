@@ -24,6 +24,10 @@ let range (rangeStart, rangeEnd) =
   end
 in
 
+let buildList (buildListSize, buildListFunction) =
+  map (buildListFunction, range (0, buildListSize))
+in
+
 #############
 # ACCESSORS #
 #############
@@ -184,6 +188,17 @@ let remfStar (remfStarPredicate, remfStarList) =
   else
     remfStar (remfStarPredicate, remfStarListPartial)
   end
+in
+
+let listUpdate (listUpdateList, listUpdatePosition, listUpdateUpdater) =
+  let (listUpdateBefore, listUpdateElement, listUpdateAfter) =
+    contextAt (listUpdateList, listUpdatePosition)
+  in
+  listAppend (append (listUpdateBefore, listUpdateUpdater listUpdateElement), listUpdateAfter)
+in
+
+let listSet (listSetList, listSetPosition, listSetValue) =
+  listUpdate (listSetList, listSetPosition, const listSetValue)
 in
 
 ##############
@@ -456,10 +471,9 @@ let assocValues assocValuesList =
 in
 
 let assocUpdate (assocUpdateList, assocUpdateKey, assocUpdateFunction) =
-  let (assocUpdateBefore, assocUpdateElement, assocUpdateAfter) =
-    context (assocUpdateList, assoc (assocUpdateKey, assocUpdateList))
-  in
-  listAppend (append (assocUpdateBefore, assocUpdateFunction assocUpdateElement), assocUpdateAfter)
+  listUpdate (assocUpdateList,
+              index (assoc (assocUpdateKey, assocUpdateList), assocUpdateList),
+              assocUpdateFunction)
 in
 
 let groupBy (groupByFunction, groupByList) =
@@ -499,6 +513,8 @@ in
 ###########
 # HELPERS #
 ###########
+
+let const constValue _ = constValue in
 
 let equalFunction (equalFunctionLeft, equalFunctionRight) = equalFunctionLeft == equalFunctionRight in
 
