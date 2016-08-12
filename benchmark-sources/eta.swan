@@ -3,5 +3,5 @@ let id y =
   dosomething {};
   y
 in
-(id (fun a -> a)) true;
-(id (fun b -> b)) false;;
+id (fun a -> a) true;
+id (fun b -> b) false;;

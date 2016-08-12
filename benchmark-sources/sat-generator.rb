@@ -26,17 +26,17 @@ end
 
 def sat k, i = 1
   if k < i
-    ns = (1..k).map { |n| "n#{n}" }.join " "
-    "p #{ns}"
+    ns = (1..k).map { |n| "n#{n}" }.join ", "
+    "p (#{ns})"
   else
     n = "n#{i}"
     "try (fun #{n} -> #{sat k, (i + 1)})"
   end
 end
 
-xs = (1..k).map { |n| "x#{n}" }.join " "
+xs = (1..k).map { |n| "x#{n}" }.join ", "
 puts <<-SAT
-let phi #{xs} =
+let phi (#{xs}) =
   #{STDIN.read}
 in
 let try f =

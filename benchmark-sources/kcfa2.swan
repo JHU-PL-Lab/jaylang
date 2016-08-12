@@ -7,5 +7,5 @@
      let c = f2 false in
      f2 true)
   (fun x2 ->
-    (fun z -> z x1 x2)
-    (fun y1 y2 -> y1)));;
+    (fun z -> z (x1, x2))
+    (fun (y1, y2) -> y1)));;

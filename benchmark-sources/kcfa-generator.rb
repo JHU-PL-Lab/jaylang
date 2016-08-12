@@ -22,9 +22,9 @@ end
 
 def kcfa k, i = 1
   if k < i
-    xs = (1..k).map { |n| "x#{n}" }.join " "
-    ys = (1..k).map { |n| "y#{n}" }.join " "
-    "(fun z -> z #{xs}) (fun #{ys} -> y1)"
+    xs = (1..k).map { |n| "x#{n}" }.join ", "
+    ys = (1..k).map { |n| "y#{n}" }.join ", "
+    "(fun z -> z (#{xs})) (fun (#{ys}) -> y1)"
   else
     f = "f#{i}"
     a = "a#{i}"

@@ -1,13 +1,9 @@
-let head headl =
-  match headl with
-  | headhd :: _ -> headhd
-  end
-in
+let head (headhd :: _) = headhd in
 
-let map mapf mapl =
+let map (mapf, mapl) =
   match mapl with
   | [] -> []
-  | maphd :: maptl -> (mapf maphd) :: map mapf maptl
+  | maphd :: maptl -> (mapf maphd) :: map (mapf, maptl)
   end
 in
 
@@ -18,4 +14,4 @@ let double doublex =
   end
 in
 
-1 + head (map double [1, "1"]);;
+1 + head (map (double, [1, "1"]));;

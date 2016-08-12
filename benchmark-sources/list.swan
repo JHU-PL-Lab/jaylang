@@ -1,512 +1,515 @@
-let head headlist =
-  match headlist with
-  | headhead :: _ -> headhead
-  end
-in
+# LIST LIBRARY
+#
+# Reference: http://docs.racket-lang.org/reference/pairs.html
+#
+# Optimized for readability, not performance.
 
-let tail taillist =
-  match taillist with
-  | _ :: tailtail -> tailtail
-  end
-in
+############################
+# CONSTRUCTORS/DESTRUCTORS #
+############################
 
-let length lengthlist =
-  match lengthlist with
-  | [] -> 0
-  | _ :: lengthtail -> 1 + length lengthtail
-  end
-in
+let cons (consHead, consTail) = consHead :: consTail in
 
-let listref listreflist listrefn =
-  match listreflist with
-  | listrefhead :: listreftail ->
-    if listrefn == 0 then
-      listrefhead
-    else
-      listref listreftail (listrefn - 1)
-    end
-  end
-in
+let consCurried consCurriedHead consCurriedTail = consCurriedHead :: consCurriedTail in
 
-let listtail listtaillist listtailn =
-  match listtaillist with
-  | listtailhead :: listtailtail ->
-    if listtailn == 0 then
-      listtailtail
-    else
-      listtail listtailtail (listtailn - 1)
-    end
-  end
-in
+let head (headHead :: _) = headHead in
 
-let listappend listappendlist1 listappendlist2 =
-  match listappendlist1 with
-  | [] -> listappendlist2
-  | listappendlist1head :: listappendlist1tail ->
-    listappendlist1head :: listappend listappendlist1tail listappendlist2
-  end
-in
+let tail (_ :: tailTail) = tailTail in
 
-let reverse reverselist =
-  match reverselist with
-  | [] -> []
-  | reverselisthead :: reverselisttail ->
-    listappend (reverse reverselisttail) [reverselisthead]
-  end
-in
-
-let map mapfunction maplist =
-  match maplist with
-  | [] -> []
-  | maplisthead :: maplisttail ->
-    mapfunction maplisthead :: map mapfunction maplisttail
-  end
-in
-
-let andmap andmapfunction andmaplist =
-  match andmaplist with
-  | [] -> true
-  | andmaplisthead :: andmaplisttail ->
-    (andmapfunction andmaplisthead) and (andmap andmapfunction andmaplisttail)
-  end
-in
-
-let ormap ormapfunction ormaplist =
-  match ormaplist with
-  | [] -> true
-  | ormaplisthead :: ormaplisttail ->
-    (ormapfunction ormaplisthead) or (ormap ormapfunction ormaplisttail)
-  end
-in
-
-let foreach foreachfunction foreachlist =
-  match foreachlist with
-  | [] -> {}
-  | foreachlisthead :: foreachlisttail ->
-    foreachfunction foreachlisthead;
-    foreach foreachfunction foreachlisttail
-  end
-in
-
-let foldl foldlfunction foldlinitialvalue foldllist =
-  match foldllist with
-  | [] -> foldlinitialvalue
-  | foldllisthead :: foldllisttail ->
-    foldl foldlfunction (foldlfunction foldllisthead foldlinitialvalue) foldllisttail
-  end
-in
-
-let foldr foldrfunction foldrinitialvalue foldrlist =
-  foldl foldrfunction foldrinitialvalue (reverse foldrlist)
-in
-
-let filter filterpredicate filterlist =
-  foldr (
-    fun filterelement filteraccumulatedelements ->
-      if filterpredicate filterelement then
-        filterelement :: filteraccumulatedelements
-      else
-        filteraccumulatedelements
-      end
-  ) [] filterlist
-in
-
-let remove removevalue removelist =
-  match removelist with
-  | [] -> []
-  | removelisthead :: removelisttail ->
-    if removelisthead == removevalue then
-      removelisttail
-    else
-      remove removevalue removelisttail
-    end
-  end
-in
-
-let include includeelement includelist =
-  ormap (fun includecandidate -> includecandidate == includeelement) includelist
-in
-
-let removestar removestarvalues removestarlist =
-  filter (fun removestarelement -> not (include removestarelement removestarvalues)) removestarlist
-in
-
-let partition partitionpredicate partitionlist =
-  foldl (
-    fun partitionelement partitionpartitions ->
-      match partitionpartitions with
-      | [partitionpartitionshead, partitionpartitionstail] ->
-        if partitionpredicate partitionelement then
-          [partitionelement :: partitionpartitionshead, partitionpartitionstail]
-        else
-          [partitionpartitionshead, partitionelement :: partitionpartitionstail]
-        end
-      end
-  ) [[], []] partitionlist
-in
-
-let sort sortlist sortlessthan =
-  match sortlist with
-  | [] -> []
-  | sortpivot :: sortlistrest ->
-    match partition (fun sortelement -> sortlessthan sortelement sortpivot) sortlistrest with
-    | [sortelessthanpivot, sortmorethanpivot] ->
-      listappend (listappend sortelessthanpivot [sortpivot]) sortmorethanpivot
-    end
-  end
-in
-
-let member membervalue memberlist =
-  match memberlist with
-  | [] -> false
-  | memberlisthead :: memberlisttail ->
-    if memberlisthead == membervalue then
-      memberlist
-    else
-      member membervalue memberlisttail
-    end
-  end
-in
-
-let memf memffunction memflist =
-  match memflist with
-  | [] -> false
-  | memflisthead :: memflisttail ->
-    if memffunction memflisthead then
-      memflist
-    else
-      memf memffunction memflisttail
-    end
-  end
-in
-
-let findf findffunction findflist =
-  match memf findffunction findflist with
-  | false -> false
-  | findffoundelement :: _ -> findffoundelement
-  end
-in
-
-let assoc assocvalue assoclist =
-  findf (
-    fun assoccandidate ->
-      match assoccandidate with
-      | [assoccandidatekey, _] -> assoccandidatekey == assocvalue
-      end
-  ) assoclist
-in
-
-let assf assffunction assflist =
-  findf (
-    fun assfcandidate ->
-      match assfcandidate with
-      | [assfcandidatekey,_] -> assffunction assfcandidatekey
-      end
-  ) assflist
-in
-
-let last lastlist =
-  listref lastlist ((length lastlist) - 1)
-in
-
-let take takelist takeposition =
-  if takeposition == 0 then
+let range (rangeStart, rangeEnd) =
+  if rangeStart == rangeEnd then
     []
   else
-    match takelist with
-    | [] -> []
-    | takelisthead :: takelisttail ->
-      takelisthead :: take takelisttail (takeposition - 1)
-    end
+    rangeStart :: range ((rangeStart + 1), rangeEnd)
   end
 in
 
-let drop droplist dropposition =
-  if dropposition == 0 then
-    droplist
+#############
+# ACCESSORS #
+#############
+
+let listRef ((listRefHead :: listRefTail), listRefN) =
+  if listRefN == 0 then
+    listRefHead
   else
-    match droplist with
-    | [] -> []
-    | _ :: droplisttail ->
-      drop droplisttail (dropposition - 1)
-    end
+    listRef (listRefTail, (listRefN - 1))
   end
 in
 
-let takef takeflist takeffunction =
-  match takeflist with
+let listTail ((_ :: listTailTail), listTailN) =
+  if listTailN == 0 then
+    listTailTail
+  else
+    listTail (listTailTail, (listTailN - 1))
+  end
+in
+
+let last lastList =
+  listRef (lastList, ((length lastList) - 1))
+in
+
+let index (indexValue, indexList) =
+  match findf ((fun (_, indexElement) -> indexValue == indexElement), withIndex indexList) with
+  | false -> false
+  | (indexIndex, _) -> indexIndex
+  end
+in
+
+let take (takeList, takePosition) =
+  map ((fun takeIndex -> listRef (takeList, takeIndex)), range (0, (takePosition - 1)))
+in
+
+let drop = listTail in
+
+let takef (takefList, takefFunction) =
+  match takefList with
   | [] -> []
-  | takeflisthead :: takeflisttail ->
-    if takeffunction takeflisthead then
-      takeflisthead :: takef takeflisttail takeffunction
+  | takefListHead :: takefListTail ->
+    if takefFunction takefListHead then
+      takefListHead :: takef (takefListTail, takefFunction)
     else
       []
     end
   end
 in
 
-let dropf dropflist dropffunction =
-  match dropflist with
+let dropf (dropfList, dropfFunction) =
+  match dropfList with
   | [] -> []
-  | dropflisthead :: dropflisttail ->
-    if dropffunction dropflisthead then
-      dropf dropflisttail dropffunction
+  | dropfListHead :: dropfListTail ->
+    if dropfFunction dropfListHead then
+      dropf (dropfListTail, dropfFunction)
     else
-      dropflist
+      dropfList
     end
   end
 in
 
-let takeright takerightlist takerightposition =
-  reverse (take (reverse takerightlist) takerightposition)
+let takeRight (takeRightList, takeRightPosition) =
+  reverse (take ((reverse takeRightList), takeRightPosition))
 in
 
-let dropright droprightlist droprightposition =
-  reverse (drop (reverse droprightlist) droprightposition)
+let dropRight (dropRightList, dropRightPosition) =
+  reverse (drop ((reverse dropRightList), dropRightPosition))
 in
 
-let takefright takefrightlist takefrightfunction =
-  reverse (takef (reverse takefrightlist) takefrightfunction)
+let takefRight (takefRightList, takefRightFunction) =
+  reverse (takef ((reverse takefRightList), takefRightFunction))
 in
 
-let dropfright dropfrightlist dropfrightfunction =
-  reverse (dropf (reverse dropfrightlist) dropfrightfunction)
+let dropfRight (dropfRightList, dropfRightFunction) =
+  reverse (dropf ((reverse dropfRightList), dropfRightFunction))
 in
 
-let listprefix listprefixprefixcandidate listprefixlist =
-  match [listprefixprefixcandidate, listprefixlist] with
-  | [[], _] -> true
-  | [_ :: _, []] -> false
-  | [listprefixprefixcandidatehead :: listprefixprefixcandidatetail,
-     listprefixlisthead :: listprefixlisttail] ->
-     (listprefixprefixcandidatehead == listprefixlisthead) and
-     (listprefix listprefixprefixcandidatetail listprefixlisttail)
+let duplicates duplicatesList =
+  removeDuplicates (
+    map ((fun (_, duplicatesMapElement, _) -> duplicatesMapElement),
+      filter ((let duplicatesInclude = include in
+        fun (duplicatesElementBefore, duplicatesFilterElement, _) ->
+          duplicatesInclude (duplicatesFilterElement, duplicatesElementBefore)
+        ), contexts duplicatesList)))
+in
+
+let checkDuplicates checkDuplicatesList =
+  match duplicates checkDuplicatesList with
+  | [] -> false
+  | checkDuplicatesHead :: _ -> checkDuplicatesHead
   end
 in
 
-let takecommonprefix takecommonprefixlist1 takecommonprefixlist2 =
-  match [takecommonprefixlist1, takecommonprefixlist2] with
-  | [[], _] -> []
-  | [_, []] -> []
-  | [takecommonprefixlist1head :: takecommonprefixlist1tail,
-     takecommonprefixlist2head :: takecommonprefixlist2tail] ->
-     if takecommonprefixlist1head == takecommonprefixlist2head then
-       takecommonprefixlist1head :: takecommonprefix takecommonprefixlist1tail takecommonprefixlist2tail
-     else
-       []
-     end
+let removeDuplicates removeDuplicatesList =
+  map ((fun (_, removeDuplicatesMapElement, _) -> removeDuplicatesMapElement),
+      filterNot ((let removeDuplicatesInclude = include in
+        fun (removeDuplicatesElementBefore, removeDuplicatesFilterElement, _) ->
+          removeDuplicatesInclude (removeDuplicatesFilterElement, removeDuplicatesElementBefore)
+        ), contexts removeDuplicatesList))
+in
+
+let findf (findfFunction, findfList) =
+  match memf (findfFunction, findfList) with
+  | false -> false
+  | findfFoundElement :: _ -> findfFoundElement
   end
 in
 
-let addbetween addbetweenlist addbetweenvalue =
-  match addbetweenlist with
-  | [] -> addbetweenlist
-  | [_] -> addbetweenlist
-  | addbetweenlisthead :: addbetweenlisttail ->
-    addbetweenlisthead :: addbetweenvalue :: addbetween addbetweenlisttail addbetweenvalue
+let argmin (argminFunction, argminList) =
+  head (decorateSortUndecorate (argminList, argminFunction, lessThan))
+in
+
+let argmax (argmaxFunction, argmaxList) =
+  head (decorateSortUndecorate (argmaxList, argmaxFunction, greaterThan))
+in
+
+######################
+# INSERTING/REMOVING #
+######################
+
+let append (appendList, appendElement) =
+  appendList (appendList, [appendElement])
+in
+
+let insertAt (insertAtList, insertAtPosition, insertAtElement) =
+  let (insertAtBefore, insertAtAfter) = splitAt (insertAtList, insertAtPosition) in
+  listAppend ((append (insertAtBefore, insertAtElement)), insertAtAfter)
+in
+
+let addBetween (addBetweenList, addBetweenValue) =
+  match addBetweenList with
+  | [] -> addBetweenList
+  | [_] -> addBetweenList
+  | addBetweenListHead :: addBetweenListTail ->
+    addBetweenListHead :: addBetweenValue :: addBetween (addBetweenListTail, addBetweenValue)
   end
 in
 
-let flatten flattenlist =
-  match flattenlist with
-  | _ :: _ -> foldr listappend [] (map flatten flattenlist)
-  | [] -> []
-  | _ -> [flattenlist]
-  end
-in
-
-let checkduplicates checkduplicateslist =
-  let checkduplicatesstep checkduplicatesstepvisited checkduplicatessteprest =
-    match checkduplicatessteprest with
-    | [] -> false
-    | checkduplicatesstepresthead :: checkduplicatesstepresttail ->
-      if include checkduplicatesstepresthead checkduplicatesstepvisited then
-        checkduplicatesstepresthead
-      else
-        checkduplicatesstep (checkduplicatesstepresthead :: checkduplicatesstepvisited) checkduplicatesstepresttail
-      end
-    end
-  in
-  checkduplicatesstep [] checkduplicateslist
-in
-
-let removeduplicates removeduplicateslist =
-  let removeduplicatesstep removeduplicatesstepresult removeduplicatessteprest =
-    match removeduplicatessteprest with
-    | [] -> removeduplicatesstepresult
-    | removeduplicatesstepresthead :: removeduplicatesstepresttail ->
-      if include removeduplicatesstepresthead removeduplicatesstepresult then
-        removeduplicatesstep removeduplicatesstepresult removeduplicatesstepresttail
-      else
-        removeduplicatesstep (listappend removeduplicatesstepresult [removeduplicatesstepresthead]) removeduplicatesstepresttail
-      end
-    end
-  in
-  removeduplicatesstep [] removeduplicateslist
-in
-
-let count countpredicate countlist =
-  length (filter countpredicate countlist)
-in
-
-let range rangestart rangeend =
-  if rangestart == rangeend then
-    []
-  else
-    rangestart :: range (rangestart + 1) rangeend
-  end
-in
-
-let filternot filternotpredicate filternotlist =
-  filter (fun filternotelement -> not (filternotpredicate filternotelement)) filternotlist
-in
-
-let interspersions interspersionselement interspersionslist =
-  let interspersionsstep interspersionssteplistsofar interspersionssteplistrest =
-    let interspersionsstepelement =
-      listappend (listappend interspersionssteplistsofar [interspersionselement]) interspersionssteplistrest
-    in
-    match interspersionssteplistrest with
-    | [] -> [interspersionsstepelement]
-    | interspersionssteplistresthead :: interspersionssteplistresttail ->
-      interspersionsstepelement ::
-        interspersionsstep (listappend interspersionssteplistsofar [interspersionssteplistresthead])
-                           interspersionssteplistresttail
-    end
-  in
-  interspersionsstep [] interspersionslist
-in
-
-let combinations combinationslist =
-  match combinationslist with
-  | [] -> [[]]
-  | combinationslisthead :: combinationslisttail ->
-    let combinationslisttailcombinations = combinations combinationslisttail in
-    let combinationslisttailcombinationsinterspersionslist =
-      map (
-        fun combinationscombination ->
-          interspersions combinationslisthead combinationscombination
-      ) combinationslisttailcombinations
-    in
-    let combinationslisttailcombinationsinterspersions =
-      foldl listappend [] combinationslisttailcombinationsinterspersionslist
-    in
-    listappend combinationslisttailcombinations combinationslisttailcombinationsinterspersions
-  end
-in
-
-let permutations permutationslist =
-  match permutationslist with
-  | [] -> [[]]
-  | permutationslisthead :: permutationslisttail ->
-    let permutationslisttailpermutations = permutations permutationslisttail in
-    let permutationslisttailpermutationsinterspersionslist =
-      map (
-        fun permutationscombination ->
-          interspersions permutationslisthead permutationscombination
-      ) permutationslisttailpermutations
-    in
-    foldl listappend [] permutationslisttailpermutationsinterspersionslist
-  end
-in
-
-let argmin argminfunction argminlist =
-  let argminstep argminstepargmin argminstepmin argminsteprest =
-    match argminsteprest with
-    | [] -> argminstepargmin
-    | argminstepresthead :: argminstepresttail ->
-      let argminsteprestheadresult = argminfunction argminstepresthead in
-      if argminsteprestheadresult < argminstepmin then
-        argminstep argminstepresthead argminsteprestheadresult argminstepresttail
-      else
-        argminstep argminstepargmin argminstepmin argminstepresttail
-      end
-    end
-  in
-  match argminlist with
-  | argminlisthead :: argminlisttail ->
-    argminstep argminlisthead (argminfunction argminlisthead) argminlisttail
-  end
-in
-
-let argmax argmaxfunction argmaxlist =
-  let argmaxstep argmaxstepargmax argmaxstepmax argmaxsteprest =
-    match argmaxsteprest with
-    | [] -> argmaxstepargmax
-    | argmaxstepresthead :: argmaxstepresttail ->
-      let argmaxsteprestheadresult = argmaxfunction argmaxstepresthead in
-      if argmaxstepmax < argmaxsteprestheadresult then
-        argmaxstep argmaxstepresthead argmaxsteprestheadresult argmaxstepresttail
-      else
-        argmaxstep argmaxstepargmax argmaxstepmax argmaxstepresttail
-      end
-    end
-  in
-  match argmaxlist with
-  | argmaxlisthead :: argmaxlisttail ->
-    argmaxstep argmaxlisthead (argmaxfunction argmaxlisthead) argmaxlisttail
-  end
-in
-
-let assocvalues assocvalueslist =
+let interspersions (interspersionsList, interspersionsElement) =
   map (
-    fun assocvalueselement ->
-      match assocvalueselement with
-      | [_, assocvalueselementvalue] -> assocvalueselementvalue
-      end
-  ) assocvalueslist
+    (fun interspersionsIndex ->
+      insertAt (interspersionsList, interspersionsIndex, interspersionsElement)),
+    range (0, (length interspersionsList) + 1))
 in
 
-let groupby groupbyfunction groupbylist =
-  let groupbygroups =
-    foldr (
-      fun groupbyelement groupbygroupspartial ->
-        let groupbyelementkey = groupbyfunction groupbyelement in
-        match assoc groupbyelementkey groupbygroupspartial with
-        | false ->
-          [groupbyelementkey, [groupbyelement]] :: groupbygroupspartial
-        | [_, groupbygroup] ->
-          [groupbyelementkey, groupbyelement :: groupbygroup] :: groupbygroupspartial
+let remf (remfPredicate, remfList) =
+  match splitf (remfList, remfPredicate) with
+  | (remfListBefore, _ :: remfListAfter) ->
+    listAppend (remfListBefore, remfListAfter)
+  | _ -> remfList
+  end
+in
+
+let remfStar (remfStarPredicate, remfStarList) =
+  let remfStarListPartial = remf (remfStarPredicate, remfStarList) in
+  if listEqual (remfStarList, remfStarListPartial) then
+    remfStarList
+  else
+    remfStar (remfStarPredicate, remfStarListPartial)
+  end
+in
+
+##############
+# PREDICATES #
+##############
+
+let memf (memfFunction, memfList) =
+  match memfList with
+  | [] -> false
+  | memfListHead :: memfListTail ->
+    if memfFunction memfListHead then
+      memfList
+    else
+      memf (memfFunction, memfListTail)
+    end
+  end
+in
+
+let member (memberValue, memberList) =
+  memf (equalCurried memberValue, memberList)
+in
+
+let include (includeValue, includeList) =
+  match member (includeValue, includeList) with
+  | false -> false
+  | _ :: _ -> true
+  end
+in
+
+let listEqual (listEqualLeft, listEqualRight) =
+  ((length listEqualLeft) == (length listEqualRight)) and
+  listPrefix (listEqualLeft, listEqualRight)
+in
+
+let listPrefix (listPrefixPrefixCandidate, listPrefixList) =
+  andMap equalFunction (zip (listPrefixPrefixCandidate, listPrefixList))
+in
+
+###########
+# FOLDING #
+###########
+
+let foldl (foldlFunction, foldlInitialValue, foldlList) =
+  match foldlList with
+  | [] -> foldlInitialValue
+  | foldlListHead :: foldlListTail ->
+    foldl (foldlFunction, (foldlFunction (foldlListHead, foldlInitialValue)), foldlListTail)
+  end
+in
+
+let foldr (foldrFunction, foldrInitialValue, foldrList) =
+  foldl (foldrFunction, foldrInitialValue, (reverse foldrList))
+in
+
+let map (mapFunction, mapList) =
+  foldl (let mapAppend = append in
+         (fun (mapElement, mapAccumulator) -> mapAppend (mapAccumulator, mapFunction mapElement)),
+         [], mapList)
+in
+
+let andMap (andMapFunction, andMapList) =
+  foldl ((fun (andMapElement, andMapAccumulator) -> andMapAccumulator and (andMapFunction andMapElement)),
+         true, andMapList)
+in
+
+let orMap (orMapFunction, orMapList) =
+  foldl ((fun (orMapElement, orMapAccumulator) -> orMapAccumulator or (orMapFunction orMapElement)),
+         false, orMapList)
+in
+
+let forEach (forEachFunction, forEachList) =
+  foldl ((fun (forEachElement, _) -> forEachFunction forEachElement),
+         {}, forEachList);
+  {}
+in
+
+###############
+# COMBINATING #
+###############
+
+let listAppend (listAppendListLeft, listAppendListRigth) =
+  foldr (cons, listAppendListRigth, listAppendListLeft)
+in
+
+let zip (zipLeft, zipRight) =
+  match (zipLeft, zipRight) with
+  | (zipLeftHead :: zipLeftTail, zipRightHead :: zipRightTail) ->
+    (zipLeftHead, zipRightHead) :: zip (zipLeftTail, zipRightTail)
+  | _ -> []
+  end
+in
+
+let withIndex withIndexList =
+  zip (range (0, length withIndexList), withIndexList)
+in
+
+let cartesianProduct (cartesianProductLeft, cartesianProductRight) =
+  foldl (listAppend, [],
+    map ((
+      let cartesianProductMap = map in
+      fun cartesianProductLeftElement ->
+        cartesianProductMap ((
+          fun cartesianProductRightElement ->
+            (cartesianProductLeftElement, cartesianProductRightElement)
+        ), cartesianProductRight)),
+      cartesianProductLeft))
+in
+
+################
+# PARTITIONING #
+################
+
+let filter (filterPredicate, filterList) =
+  foldl (let filterAppend = append in (
+      fun (filterElement, filterAccumulatedElements) ->
+        if filterPredicate filterElement then
+          filterAppend (filterAccumulatedElements, filterElement)
+        else
+          filterAccumulatedElements
         end
-    ) [] groupbylist
+    ), [], filterList)
+in
+
+let filterNot (filterNotPredicate, filterNotList) =
+  filter ((fun filterNotElement -> not (filterNotPredicate filterNotElement)), filterNotList)
+in
+
+let remove (removeValue, removeList) =
+  match removeList with
+  | [] -> []
+  | removeListHead :: removeListTail ->
+    if removeListHead == removeValue then
+      removeListTail
+    else
+      remove (removeValue, removeListTail)
+    end
+  end
+in
+
+let removeStar (removeStarValues, removeStarList) =
+  filterNot ((fun removeStarElement -> include (removeStarElement, removeStarValues)), removeStarList)
+in
+
+let partition (partitionPredicate, partitionList) =
+  (filter (partitionPredicate, partitionList), filterNot (partitionPredicate, partitionList))
+in
+
+let takeCommonPrefix (takeCommonPrefixLeft, takeCommonPrefixRight) =
+  takef equalFunction (zip (takeCommonPrefixLeft, takeCommonPrefixRight))
+in
+
+let splitAt (splitAtList, splitAtPosition) =
+  (take (splitAtList, splitAtPosition), drop (splitAtList, splitAtPosition))
+in
+
+let splitf (splitfList, splitfFunction) =
+  (takef (splitfList, splitfFunction), dropf (splitfList, splitfFunction))
+in
+
+let splitAtRight (splitAtRightList, splitAtRightPosition) =
+  reverse (map reverse (reverse splitAtRightList))
+in
+
+let context (contextList, contextValue) =
+  contextf (contextList, equalCurried contextValue)
+in
+
+let contextAt (contextAtList, contextAtPosition) =
+  let (contextAtListBefore, contextAtElement :: contextAtListAfter) =
+    splitAt (contextAtList, contextAtPosition)
   in
-  assocvalues groupbygroups
+  (contextAtListBefore, contextAtElement, contextAtListAfter)
 in
 
-let cartesianproduct cartesianproductlist1 cartesianproductlist2 =
-  foldl listappend (
-    map (
-      fun cartesianproductlist1element ->
-        map (
-          fun cartesianproductlist2element ->
-            [cartesianproductlist1element, cartesianproductlist2element]
-        ) cartesianproductlist2
-    ) cartesianproductlist1
-  )
+let contexts contextsList =
+  map ((fun contextsIndex -> contextAt (contextsList, contextsIndex)),
+       range (0, length contextsList))
 in
 
-let remf remfpredicate remflist =
-  match remflist with
+let contextf (contextfList, contextfFunction) =
+  let (contextfListBefore, contextfElement :: contextfListAfter) =
+    splitf (contextfList, contextfFunction)
+  in
+  (contextfListBefore, contextfElement, contextfListAfter)
+in
+
+##############
+# REORDERING #
+##############
+
+let reverse reverseList = foldl (cons, [], reverseList) in
+
+# QuickSort
+let sort (sortList, sortLessThan) =
+  match sortList with
   | [] -> []
-  | remflisthead :: remflisttail ->
-    if remfpredicate remflisthead then
-      remflisttail
-    else
-      remflisthead :: remf remfpredicate remflisttail
-    end
+  | sortPivot :: sortListRest ->
+    let (sortLessThanPivot, sortMoreThanPivot) =
+      partition ((fun sortElement -> sortLessThan (sortElement, sortPivot)), sortListRest)
+    in
+    foldl (listAppend, [],
+      [sort (sortLessThanPivot, sortLessThan), [sortPivot], sort (sortMoreThanPivot, sortLessThan)])
   end
 in
 
-let remfstar remfstarpredicate remfstarlist =
-  match remfstarlist with
-  | [] -> []
-  | remfstarlisthead :: remfstarlisttail ->
-    if remfstarpredicate remfstarlisthead then
-      remfstar remfstarpredicate remfstarlisttail
-    else
-      remfstarlisthead :: remfstar remfstarpredicate remfstarlisttail
-    end
+let decorateSortUndecorate (
+  decorateSortUndecorateList, decorateSortUndecorateDecorator, decorateSortUndecorateComparator) =
+  map (head,
+    sort (zip (decorateSortUndecorateList, map (decorateSortUndecorateDecorator, decorateSortUndecorateList)),
+          (fun ((_, decorateSortUndecorateDecoratedLeft), (_, decorateSortUndecorateDecoratedRight)) ->
+             decorateSortUndecorateComparator (
+               decorateSortUndecorateDecoratedLeft, decorateSortUndecorateDecoratedRight))))
+in
+
+#################
+# COMBINATORICS #
+#################
+
+let combinations combinationsList =
+  foldl (
+    (let combinationsMap = map in
+     let combinationsInterspersions = interspersions in
+     let combinationsListAppend = listAppend in
+     fun (combinationsElement, combinationsCombinations) ->
+       foldl (combinationsListAppend, [],
+         combinationsCombinations :: (
+           combinationsMap (
+             (let combinationsMapInterspersions = combinationsInterspersions in
+              fun combinationsCombination ->
+                combinationsMapInterspersions (combinationsCombination, combinationsElement)),
+              combinationsCombinations))))
+    [[]], combinationsList)
+in
+
+let permutations permutationsList =
+  let permutationsListLength = length permutationsList in
+  filter (
+    (let permutationsLenght = length in
+     fun permutationsCombination ->
+       (permutationsLenght permutationsCombination) == permutationsListLength),
+    combinations permutationsList)
+in
+
+##############
+# STATISTICS #
+##############
+
+let length lengthList =
+  foldl ((fun (_, lengthPartial) -> lengthPartial + 1), 0, lengthList)
+in
+
+let count (countPredicate, countList) =
+  length (filter (countPredicate, countList))
+in
+
+#####################
+# ASSOCIATION LISTS #
+#####################
+
+let assf (assfFunction, assfList) =
+  findf ((fun (assfCandidateKey, _) -> assfFunction assfCandidateKey), assfList)
+in
+
+let assoc (assocValue, assocList) =
+  assf (equalCurried assocValue, assocList)
+in
+
+let assocValues assocValuesList =
+  map ((fun (_, assocValuesElement) -> assocValuesElement), assocValuesList)
+in
+
+let assocUpdate (assocUpdateList, assocUpdateKey, assocUpdateFunction) =
+  let (assocUpdateBefore, assocUpdateElement, assocUpdateAfter) =
+    context (assocUpdateList, assoc (assocUpdateKey, assocUpdateList))
+  in
+  listAppend (append (assocUpdateBefore, assocUpdateFunction assocUpdateElement), assocUpdateAfter)
+in
+
+let groupBy (groupByFunction, groupByList) =
+  assocValues (
+    foldl (
+      (let groupByMultimapAdd = multimapAdd in
+       fun (groupByElement, groupByGroupsMultimap) ->
+         groupByMultimapAdd (groupByFunction groupByElement, groupByElement, groupByGroupsMultimap)),
+      [], groupByList))
+in
+
+#############
+# MULTIMAPS #
+#############
+
+let multimapAdd (multimapAddKey, multimapAddValue, multimapAddMultimap) =
+  match assoc (multimapAddKey, multimapAddMultimap) with
+  | false ->
+    (multimapAddKey, [multimapAddValue]) :: multimapAddMultimap
+  | _ ->
+    assocUpdate (multimapAddMultimap, multimapAddKey, consCurried multimapAddValue)
   end
 in
+
+#######################
+# OTHER MANIPULATIONS #
+#######################
+
+let flatten flattenList =
+  match flattenList with
+  | _ :: _ -> foldl (listAppend, [], (map (flatten, flattenList)))
+  | [] -> []
+  | _ -> [flattenList]
+  end
+in
+
+###########
+# HELPERS #
+###########
+
+let equalFunction (equalFunctionLeft, equalFunctionRight) = equalFunctionLeft == equalFunctionRight in
+
+let equalCurried equalCurriedLeft equalCurriedRight =
+  equalFunction (equalCurriedLeft, equalCurriedRight)
+in
+
+let lessThan (lessThanLeft, lessThanRight) = lessThanLeft < lessThanRight in
+
+let greaterThan (greaterThanLeft, greaterThanRight) = greaterThanRight < greaterThanLeft in
+
+######################################################################################################
 
 0;;

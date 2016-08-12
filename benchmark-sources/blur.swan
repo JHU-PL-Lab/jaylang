@@ -1,12 +1,12 @@
 let id x = x in
 let blur y = y in
-let lp a n =
+let lp (a, n) =
   if n <= 1 then
     id a
   else
     let r = (blur id) true in
     let s = (blur id) false in
-    not ((blur lp) s (n - 1))
+    not ((blur lp) (s, (n - 1)))
   end
 in
-lp false 2;;
+lp (false, 2);;
