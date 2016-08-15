@@ -23,9 +23,9 @@ pred = fun n -> (
   );
 );
 
-church0 = fun f0 -> (
-  f0r = fun x0 -> (
-    x0r = f0 x0;
+church1 = fun f1 -> (
+  f1r = fun x1 -> (
+    x1r = f1 x1;
   );
 );
 
@@ -68,5 +68,5 @@ churchEqualHuh = fun e1 -> (
   );
 );
 
-churchEqualHuhchurch0 = churchEqualHuh church0;
-churchEqualHuhchurch0church0 = churchEqualHuhchurch0 church0;
+churchEqualHuhchurch1 = churchEqualHuh church1;
+churchEqualHuhchurch1church1 = churchEqualHuhchurch1 church1;

@@ -2,7 +2,7 @@ let pred n rf rx =
   n (fun g h -> h (g rf)) (fun ignored -> rx) (fun id -> id)
 in
 
-let church0 f0 x0 = f0 x0 in
+let church1 f1 x1 = f1 x1 in
 let church0huh z = z (fun zx -> false) true in
 
 let churchequalhuh = fun e1 -> let churchequalhuh2 = churchequalhuh in fun e2 ->
@@ -17,4 +17,4 @@ let churchequalhuh = fun e1 -> let churchequalhuh2 = churchequalhuh in fun e2 ->
   end
 in
 
-churchequalhuh church0 church0;;
+churchequalhuh church1 church1;;
