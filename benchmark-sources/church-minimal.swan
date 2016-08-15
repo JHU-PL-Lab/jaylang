@@ -1,0 +1,20 @@
+let pred n rf rx =
+  n (fun g h -> h (g rf)) (fun ignored -> rx) (fun id -> id)
+in
+
+let church0 f0 x0 = f0 x0 in
+let church0huh z = z (fun zx -> false) true in
+
+let churchequalhuh = fun e1 -> let churchequalhuh2 = churchequalhuh in fun e2 ->
+  if church0huh e1 then
+    church0huh e2
+  else
+    if church0huh e2 then
+      false
+    else
+      churchequalhuh2 (pred e1) (pred e2)
+    end
+  end
+in
+
+churchequalhuh church0 church0;;
