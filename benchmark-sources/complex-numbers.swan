@@ -1,0 +1,28 @@
+##############
+# DEPENDENTS #
+##############
+
+# mbrotZ.swan
+
+################
+# LIBRARY CODE #
+################
+
+let complexNumber (complexNumberRealPart, complexNumberImaginaryPart) =
+  (complexNumberRealPart, complexNumberImaginaryPart)
+in
+
+let realPart (realPartRealPart, _) = realPartRealPart in
+
+let imaginaryPart (_, imaginaryPartImaginaryPart) = imaginaryPartImaginaryPart in
+
+#########
+# TESTS #
+#########
+
+let testComplexNumber = complexNumber (2, 3) in
+
+let assertRealPart = realPart testComplexNumber == 2 in
+let assertImaginaryPart = imaginaryPart testComplexNumber == 3 in
+
+"FINISH";;
