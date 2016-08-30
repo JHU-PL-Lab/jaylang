@@ -60,9 +60,16 @@ let complexNumberAdd (complexNumberAddLeft, complexNumberAddRight) =
                  imaginaryPart complexNumberAddLeft + imaginaryPart complexNumberAddRight)
 in
 
+# Source: https://en.wikipedia.org/wiki/Complex_number#Multiplication_and_division
 let complexNumberMultiply (complexNumberMultiplyLeft, complexNumberMultiplyRight) =
-  complexNumber (multiply (realPart complexNumberMultiplyLeft, realPart complexNumberMultiplyRight),
-                 multiply (imaginaryPart complexNumberMultiplyLeft, imaginaryPart complexNumberMultiplyRight))
+  let complexNumberMultiplyA = realPart complexNumberMultiplyLeft in
+  let complexNumberMultiplyB = imaginaryPart complexNumberMultiplyLeft in
+  let complexNumberMultiplyC = realPart complexNumberMultiplyRight in
+  let complexNumberMultiplyD = imaginaryPart complexNumberMultiplyRight in
+  complexNumber (multiply (complexNumberMultiplyA, complexNumberMultiplyC) -
+                 multiply (complexNumberMultiplyB, complexNumberMultiplyD),
+                 multiply (complexNumberMultiplyB, complexNumberMultiplyC) +
+                 multiply (complexNumberMultiplyA, complexNumberMultiplyD))
 in
 
 #########
@@ -93,7 +100,7 @@ let assertAdditionResultImaginaryPart = imaginaryPart testComplexNumberAdditionR
 
 let testComplexNumberMultiplicationResult = complexNumberMultiply (testComplexNumber, testComplexNumberOther) in
 
-let assertMultiplicationResultRealPart = realPart testComplexNumberMultiplicationResult == 10 in
-let assertMultiplicationResultImaginaryPart = imaginaryPart testComplexNumberMultiplicationResult == 18 in
+let assertMultiplicationResultRealPart = realPart testComplexNumberMultiplicationResult == 0 - 8 in
+let assertMultiplicationResultImaginaryPart = imaginaryPart testComplexNumberMultiplicationResult == 27 in
 
 "FINISH";;
