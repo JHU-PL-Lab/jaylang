@@ -55,6 +55,33 @@ let realPart (realPartRealPart, _) = realPartRealPart in
 
 let imaginaryPart (_, imaginaryPartImaginaryPart) = imaginaryPartImaginaryPart in
 
+let complexNumberAddScalar (complexNumberAddScalarNumber, complexNumberAddScalarFactor) =
+  complexNumber (realPart complexNumberAddScalarNumber + complexNumberAddScalarFactor,
+                 imaginaryPart complexNumberAddScalarNumber + complexNumberAddScalarFactor)
+in
+
+let complexNumberMultiplyScalar (complexNumberMultiplyScalarNumber, complexNumberMultiplyScalarFactor) =
+  complexNumber (multiply (realPart complexNumberMultiplyScalarNumber, complexNumberMultiplyScalarFactor),
+                 multiply (imaginaryPart complexNumberMultiplyScalarNumber, complexNumberMultiplyScalarFactor))
+in
+
+let complexNumberAdd (complexNumberAddLeft, complexNumberAddRight) =
+  complexNumber (realPart complexNumberAddLeft + realPart complexNumberAddRight,
+                 imaginaryPart complexNumberAddLeft + imaginaryPart complexNumberAddRight)
+in
+
+# Source: https://en.wikipedia.org/wiki/Complex_number#Multiplication_and_division
+let complexNumberMultiply (complexNumberMultiplyLeft, complexNumberMultiplyRight) =
+  let complexNumberMultiplyA = realPart complexNumberMultiplyLeft in
+  let complexNumberMultiplyB = imaginaryPart complexNumberMultiplyLeft in
+  let complexNumberMultiplyC = realPart complexNumberMultiplyRight in
+  let complexNumberMultiplyD = imaginaryPart complexNumberMultiplyRight in
+  complexNumber (multiply (complexNumberMultiplyA, complexNumberMultiplyC) -
+                 multiply (complexNumberMultiplyB, complexNumberMultiplyD),
+                 multiply (complexNumberMultiplyB, complexNumberMultiplyC) +
+                 multiply (complexNumberMultiplyA, complexNumberMultiplyD))
+in
+
 ####################
 # mathematics.swan #
 ####################
@@ -92,7 +119,7 @@ let count (countZ0, countStep, countZ) =
   let countMaxCount = 64 in
   let countRadius = 4 in
   let countRadiusSquared = multiply (countRadius, countRadius) in
-  let countZ02 = countZ0 + multiply (countZ, countStep) in
+  let countZ02 = complexNumberAdd (countZ0, complexNumberMultiplyScalar (countZ, countStep)) in
   let countLoop (countZ2, countC) =
     if countC == countMaxCount then
       countC
@@ -104,7 +131,7 @@ let count (countZ0, countStep, countZ) =
       if greaterThan (countZrSquared + countZiSquared, countRadiusSquared) then
         countC
       else
-        countLoop (multiply (countZ2, countZ2) + countZ02, countC + 1)
+        countLoop (complexNumberAdd (complexNumberMultiply (countZ2, countZ2), countZ02), countC + 1)
       end
     end
   in
