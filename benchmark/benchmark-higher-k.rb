@@ -20,7 +20,7 @@ require "benchmark"
 TESTS.each_pair do |test_name, k|
   file = "#{CURRENT_DIRECTORY}/../benchmark-sources/#{test_name}.code"
 
-  command_line = "#{CURRENT_DIRECTORY}/../toploop.native --select-context-stack=#{k}ddpa --analyze-variables=all --disable-evaluation --disable-inconsistency-check --report-sizes < #{file}"
+  command_line = "#{CURRENT_DIRECTORY}/../core_toploop_main.native --select-context-stack=#{k}ddpa --analyze-variables=all --disable-evaluation --disable-inconsistency-check --report-sizes < #{file}"
   puts RULER
   puts "Test: `#{File.basename(file, ".*")}'."
   puts "k: `#{k}'."
