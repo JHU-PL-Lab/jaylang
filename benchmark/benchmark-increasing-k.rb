@@ -4,11 +4,8 @@
 # This script times the execution and reports numbers.
 
 TESTS = {
-  "eta" => [10, 100],
   "tak" => [5, 1],
-  "sat" => [5, 1],
 }
-TEST_ON_KS = [0]
 
 RULER = "==========================================="
 CURRENT_DIRECTORY = File.expand_path("..", __FILE__)
@@ -16,7 +13,7 @@ CURRENT_DIRECTORY = File.expand_path("..", __FILE__)
 require "benchmark"
 
 TESTS.each_pair do |test_name, (maximum_k, repetitions)|
-  (0..maximum_k).each do |k|
+  (1..maximum_k).each do |k|
     file = "#{CURRENT_DIRECTORY}/../benchmark-sources/#{test_name}.code"
 
     command_line = "#{CURRENT_DIRECTORY}/../core_toploop_main.native --select-context-stack=#{k}ddpa --analyze-variables=all --disable-evaluation --disable-inconsistency-check --report-sizes < #{file}"
