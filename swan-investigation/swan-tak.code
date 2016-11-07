@@ -1,16 +1,13 @@
 tak = fun s__0 -> (
   a__74 = s__0;
-  a__2 = s__0 ~ {head=any, tail={head=any,  tail={head=any,  tail={null={}}}}}
+  a__2 = s__0 ~ {x=any, y=any, z=any}
    ? fun s__1 -> (
        a__5 = s__0;
-         x = a__5.head;
+         x = a__5.x;
          a__9 = s__0;
-         a__8 = a__9.tail;
-         y = a__8.head;
+         y = a__5.y;
          a__14 = s__0;
-         a__13 = a__14.tail;
-         a__12 = a__13.tail;
-         z = a__12.head;
+         z = a__5.z;
          a__18 = y;
          a__19 = x;
          a__17 = a__18 < a__19;
@@ -43,8 +40,9 @@ tak = fun s__0 -> (
                                                                   tail=a__34};
                                                                   a__28 = 
                                                                   {
-                                                                  head=a__29,
-                                                                  tail=a__32};
+                                                                  x=a__29,
+                                                                  y=a__33,
+                                                                  z=a__35};
                                                                   a__26 = a__27 a__28;
                                                                   a__40 = tak;
                                                                   a__43 = y;
@@ -68,8 +66,9 @@ tak = fun s__0 -> (
                                                                   tail=a__47};
                                                                   a__41 = 
                                                                   {
-                                                                  head=a__42,
-                                                                  tail=a__45};
+                                                                  x=a__42,
+                                                                  y=a__46,
+                                                                  z=a__48};
                                                                   a__39 = a__40 a__41;
                                                                   a__53 = tak;
                                                                   a__56 = z;
@@ -93,8 +92,9 @@ tak = fun s__0 -> (
                                                                   tail=a__60};
                                                                   a__54 = 
                                                                   {
-                                                                  head=a__55,
-                                                                  tail=a__58};
+                                                                  x=a__55,
+                                                                  y=a__59,
+                                                                  z=a__61};
                                                                   a__52 = a__53 a__54;
                                                                   a__65 = 
                                                                   {
@@ -112,8 +112,9 @@ tak = fun s__0 -> (
                                                                   tail=a__51};
                                                                   a__25 = 
                                                                   {
-                                                                  head=a__26,
-                                                                  tail=a__38};
+                                                                  x=a__26,
+                                                                  y=a__39,
+                                                                  z=a__52};
                                                                   a__23 = a__24 a__25) : 
                                                                   fun s__7 -> (
                                                                   a__67 = "non-function";
@@ -134,6 +135,6 @@ a__84 = {};
 a__83 = {null=a__84};
 a__81 = {head=a__82, tail=a__83};
 a__79 = {head=a__80, tail=a__81};
-a__77 = {head=a__78, tail=a__79};
+a__77 = {x=a__78, y=a__80, z=a__82};
 a__75 = a__76 a__77;
 a__0 = a__75
