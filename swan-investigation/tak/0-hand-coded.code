@@ -1,0 +1,51 @@
+# EXPECT-WELL-FORMED
+# EXPECT-ANALYSIS-STACK-IS 1ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {int}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+# Reference: https://bitbucket.org/ucombinator/p4f-prototype/src/8f1c1c20ed02945d2855e25abef3b445d80a77eb/benchmarks/larceny/tak.sch?at=master&fileviewer=file-view-default
+#
+# (define (tak x y z)
+#   (if (not (< y x))
+#       z
+#       (tak (tak (- x 1) y z)
+#            (tak (- y 1) z x)
+#            (tak (- z 1) x y))))
+#
+# (tak 32 15 8) ; => 15
+
+one = 1;
+thirtytwo = 32;
+fifteen = 15;
+eight = 8;
+
+tak = fun takprparams -> (
+  x = takprparams.x;
+  y = takprparams.y;
+  z = takprparams.z;
+  yx = y < x;
+
+  notyx = not yx;
+
+  zr = notyx ~ true
+             ? fun notyxm -> (
+               notyxmr = z;
+             )
+             : fun notyxa -> (
+               x1 = x - one;
+               takxparams = {x = x1, y = y, z = z};
+               takx = tak takxparams;
+               y1 = y - one;
+               takyparams = {x = x, y = y1, z = z};
+               taky = tak takyparams;
+               z1 = z - one;
+               takzparams = {x = x, y = y, z = z1};
+               takz = tak takzparams;
+
+               takrparams = {x = takx, y = taky, z = takz};
+               notyxar = tak takrparams;
+             );
+);
+
+takparams = {x = thirtytwo, y = fifteen, z = eight};
+r = tak takparams; # => 15
