@@ -8,7 +8,7 @@ open Jhupllib;;
 open Core_ast;;
 open Core_ast_pp;;
 open Core_interpreter;;
-open Ddpa_graph;;
+open Ddpa_abstract_ast;;
 
 (** Represents the result of evaluating an expression.  This data type also
     captures exceptional cases and toploop configuration properties. *)
@@ -38,7 +38,7 @@ let pp_variable_analysis =
        Format.pp_print_string
        (Pp_utils.pp_option Format.pp_print_string)
        (Pp_utils.pp_option @@ Pp_utils.pp_list Format.pp_print_string))
-    Ddpa_graph.Abs_filtered_value_set.pp
+    Ddpa_abstract_ast.Abs_filtered_value_set.pp
 ;;
 
 (** Represents the result of processing an expression in the toploop. *)

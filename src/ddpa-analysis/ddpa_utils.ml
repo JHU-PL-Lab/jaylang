@@ -4,7 +4,7 @@ open Batteries;;
 open Jhupllib;;
 
 open Core_ast;;
-open Ddpa_graph;;
+open Ddpa_abstract_ast;;
 open Utils;;
 
 (** Obtain the set of all variables appearing within an expression. *)

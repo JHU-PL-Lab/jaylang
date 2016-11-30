@@ -1,9 +1,8 @@
 open Uid;;
-open Core_toploop_analysis_types;;
-open Ddpa_graph;;
 open Core_ast;;
 open Core_ast_pp;;
-
+open Core_toploop_analysis_types;;
+open Ddpa_abstract_ast;;
 
 type error =
   | Inexhaustive_match of uid * abs_filtered_value_set

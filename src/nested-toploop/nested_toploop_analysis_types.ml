@@ -1,8 +1,8 @@
 open Uid;;
-open Ddpa_graph;;
 open Core_toploop_analysis_types;;
 open Core_ast;;
 open Core_ast_pp;;
+open Ddpa_abstract_ast
 
 type error =
   | Application_of_non_function of uid * uid * abs_filtered_value * abs_filtered_value_set

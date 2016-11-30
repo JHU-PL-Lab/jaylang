@@ -3,6 +3,7 @@ open Jhupllib;;
 open Core_ast;;
 open Core_toploop_analysis_types;;
 open Core_toploop_ddpa_wrapper_types;;
+open Ddpa_abstract_ast;;
 open Ddpa_graph;;
 open Ddpa_utils;;
 
@@ -45,7 +46,7 @@ struct
             lookup xa
             |> Nondeterminism.Nondeterminism_monad.enum
             |> Enum.map snd
-            |> Ddpa_graph.Abs_filtered_value_set.of_enum
+            |> Ddpa_abstract_ast.Abs_filtered_value_set.of_enum
           in
           return @@ Application_of_non_function(x_clause,xf,filtv,filtvs)
       end

@@ -1,8 +1,8 @@
 open Batteries;;
 open Jhupllib;;
 
+open Ddpa_abstract_ast;;
 open Ddpa_context_stack;;
-open Ddpa_graph;;
 open Pp_utils;;
 
 type 'a dq = 'a Deque.dq;;

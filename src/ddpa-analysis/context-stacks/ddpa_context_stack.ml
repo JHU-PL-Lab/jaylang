@@ -1,6 +1,6 @@
 (** A module defining the interface of a context stack. *)
 
-open Ddpa_graph;;
+open Ddpa_abstract_ast;;
 
 module type Context_stack =
 sig

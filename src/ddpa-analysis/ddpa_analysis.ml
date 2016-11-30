@@ -8,6 +8,7 @@ open Jhupllib;;
 
 open Core_ast;;
 open Core_ast_pp;;
+open Ddpa_abstract_ast;;
 open Ddpa_analysis_logging;;
 open Ddpa_context_stack;;
 open Ddpa_graph;;

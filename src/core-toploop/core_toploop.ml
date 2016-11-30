@@ -7,6 +7,7 @@ open Core_interpreter;;
 open Core_toploop_option_parsers;;
 open Core_toploop_options;;
 open Core_toploop_types;;
+open Ddpa_abstract_ast;;
 open Ddpa_analysis_logging;;
 open Ddpa_graph;;
 

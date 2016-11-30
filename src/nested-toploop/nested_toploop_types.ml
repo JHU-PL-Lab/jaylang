@@ -6,7 +6,7 @@
 open Core_ast;;
 open Core_ast_wellformedness;;
 open Core_interpreter;;
-open Ddpa_graph;;
+open Ddpa_abstract_ast;;
 
 (* TODO: new form of result type *)
 (** Represents the result of processing an expression in the toploop. *)

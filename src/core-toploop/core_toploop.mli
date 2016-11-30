@@ -6,7 +6,7 @@ open Core_ast;;
 open Core_interpreter;;
 open Core_toploop_analysis_types;;
 open Core_toploop_types;;
-open Ddpa_graph;;
+open Ddpa_abstract_ast;;
 
 (** This function processes a core AST expression.  This function accepts
     callback functions which are invoked when various steps of the expression

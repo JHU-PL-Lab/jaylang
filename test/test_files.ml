@@ -377,7 +377,7 @@ let make_test filename expectations =
       |> List.iter
         (fun ((varname,_,_),values) ->
            let repr =
-             Pp_utils.pp_to_string Ddpa_graph.Abs_filtered_value_set.pp values
+             Pp_utils.pp_to_string Ddpa_abstract_ast.Abs_filtered_value_set.pp values
            in
            observation @@ observe_analysis_variable_lookup_from_end
              (Ident varname) repr

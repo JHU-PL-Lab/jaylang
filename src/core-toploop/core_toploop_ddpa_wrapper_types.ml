@@ -6,7 +6,7 @@
 open Core_ast;;
 open Ddpa_analysis_logging;;
 open Ddpa_context_stack;;
-open Ddpa_graph;;
+open Ddpa_abstract_ast;;
 
 module type DDPA_wrapper = sig
   type analysis

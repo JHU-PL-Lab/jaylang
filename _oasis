@@ -157,20 +157,48 @@ Library "swan-translator"
     odefa.swan-ast,
     odefa.utils
 
+Library "ddpa-analysis_types"
+  FindlibName: types
+  FindlibParent: ddpa-analysis
+  Path: src/ddpa-analysis/types
+  Modules:
+    Ddpa_abstract_ast,
+    Ddpa_graph
+  BuildDepends:
+    batteries,
+    jhupllib,
+    odefa.core-ast,
+    odefa.nested-ast,
+    odefa.swan-ast,
+    odefa.utils
+
+Library "ddpa-analysis_context-stacks"
+  FindlibName: context-stacks
+  FindlibParent: ddpa-analysis
+  Path: src/ddpa-analysis/context-stacks
+  Modules:
+    Ddpa_context_stack,
+    Ddpa_nonrepeating_stack,
+    Ddpa_n_element_stack,
+    Ddpa_single_element_stack,
+    Ddpa_two_element_stack,
+    Ddpa_unit_stack
+  BuildDepends:
+    batteries,
+    jhupllib,
+    ppx_deriving.std (>= 3.2),
+    ppx_deriving_yojson,
+    odefa.core-ast,
+    odefa.ddpa-analysis.types
+
 Library "ddpa-analysis"
+  FindlibName: ddpa-analysis
   FindlibParent: odefa
   Path: src/ddpa-analysis
   Modules:
     Ddpa_analysis_logging,
     Ddpa_analysis,
-    Ddpa_context_stack,
     Ddpa_data_structures,
-    Ddpa_graph,
-    Ddpa_nonrepeating_stack,
-    Ddpa_n_element_stack,
-    Ddpa_single_element_stack,
-    Ddpa_two_element_stack,
-    Ddpa_unit_stack,
     Ddpa_utils
   BuildDepends:
     batteries,
@@ -180,7 +208,9 @@ Library "ddpa-analysis"
     pds-reachability,
     ppx_deriving.std (>= 3.2),
     ppx_deriving_yojson,
-    odefa.core-ast
+    odefa.core-ast,
+    odefa.ddpa-analysis.context-stacks,
+    odefa.ddpa-analysis.types
 
 Library "core-toploop"
   FindlibParent: odefa
@@ -318,6 +348,8 @@ Executable "benchmark"
     odefa.core-parser,
     odefa.core-toploop,
     odefa.ddpa-analysis,
+    odefa.ddpa-analysis.context-stacks,
+    odefa.ddpa-analysis.types,
     odefa.nested-ast,
     odefa.swan-ast,
     odefa.swan-translator,
