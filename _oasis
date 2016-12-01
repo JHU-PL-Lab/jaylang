@@ -198,7 +198,8 @@ Library "ddpa-analysis"
   Modules:
     Ddpa_analysis_logging,
     Ddpa_analysis,
-    Ddpa_data_structures
+    Ddpa_data_structures,
+    Ddpa_utils
   BuildDepends:
     batteries,
     jhupllib,
