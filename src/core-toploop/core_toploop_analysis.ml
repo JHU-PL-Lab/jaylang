@@ -3,9 +3,9 @@ open Jhupllib;;
 open Core_ast;;
 open Core_toploop_analysis_types;;
 open Core_toploop_ddpa_wrapper_types;;
+open Core_toploop_utils;;
 open Ddpa_abstract_ast;;
 open Ddpa_graph;;
-open Ddpa_utils;;
 
 module Make(DDPA_wrapper : DDPA_wrapper) =
 struct
