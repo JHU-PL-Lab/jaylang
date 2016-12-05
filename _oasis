@@ -28,11 +28,13 @@ Library "utils"
   FindlibParent: odefa
   Path: src/utils
   Modules:
+    Interface_utils,
     Parser_support,
     Source_origin,
     Uid
   BuildDepends:
     batteries,
+    jhupllib,
     ppx_deriving.std
 
 Library "core-ast"
@@ -169,7 +171,19 @@ Library "ddpa-analysis_types"
     jhupllib,
     odefa.core-ast,
     odefa.nested-ast,
-    odefa.swan-ast,
+    odefa.swan-ast
+
+Library "ddpa-analysis_utils"
+  FindlibName: utils
+  FindlibParent: ddpa-analysis
+  Path: src/ddpa-analysis/utils
+  Modules:
+    Ddpa_utils
+  BuildDepends:
+    batteries,
+    jhupllib,
+    odefa.core-ast,
+    odefa.ddpa-analysis.types,
     odefa.utils
 
 Library "ddpa-analysis_context-stacks"
@@ -189,7 +203,28 @@ Library "ddpa-analysis_context-stacks"
     ppx_deriving.std (>= 3.2),
     ppx_deriving_yojson,
     odefa.core-ast,
-    odefa.ddpa-analysis.types
+    odefa.ddpa-analysis.types,
+    odefa.ddpa-analysis.utils
+
+Library "ddpa-analysis_pds"
+  FindlibName: pds
+  FindlibParent: ddpa-analysis
+  Path: src/ddpa-analysis/pds
+  Modules:
+    Ddpa_pds_dynamic_pop_handler,
+    Ddpa_pds_dynamic_pop_types,
+    Ddpa_pds_structure_types
+  BuildDepends:
+    batteries,
+    jhupllib,
+    pds-reachability,
+    odefa.core-ast,
+    odefa.nested-ast,
+    odefa.swan-ast,
+    odefa.utils,
+    odefa.ddpa-analysis.context-stacks,
+    odefa.ddpa-analysis.types,
+    odefa.ddpa-analysis.utils
 
 Library "ddpa-analysis"
   FindlibName: ddpa-analysis
@@ -198,8 +233,7 @@ Library "ddpa-analysis"
   Modules:
     Ddpa_analysis_logging,
     Ddpa_analysis,
-    Ddpa_data_structures,
-    Ddpa_utils
+    Ddpa_data_structures
   BuildDepends:
     batteries,
     jhupllib,
@@ -210,7 +244,9 @@ Library "ddpa-analysis"
     ppx_deriving_yojson,
     odefa.core-ast,
     odefa.ddpa-analysis.context-stacks,
-    odefa.ddpa-analysis.types
+    odefa.ddpa-analysis.pds,
+    odefa.ddpa-analysis.types,
+    odefa.ddpa-analysis.utils
 
 Library "core-toploop"
   FindlibParent: odefa

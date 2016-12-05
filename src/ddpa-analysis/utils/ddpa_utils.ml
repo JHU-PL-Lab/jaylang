@@ -4,6 +4,7 @@ open Jhupllib;;
 open Core_ast;;
 open Core_ast_pp;;
 open Ddpa_abstract_ast;;
+(* open Ddpa_graph;; *)
 open Nondeterminism;;
 
 exception Non_record_projection of string;;
@@ -118,3 +119,100 @@ let is_immediate acl =
   | Start_clause
   | End_clause -> false
 ;;
+
+(*
+let rec create_end_of_scope_map acls =
+  if List.length acls = 0
+  then
+    raise (Utils.Invariant_failure "attempted to create EoS map for empty list")
+  else
+    let last_clause = List.last acls in
+    let clause_map =
+      acls
+      |> List.enum
+      |> Enum.map (fun acl -> (acl,last_clause))
+      |> Annotated_clause_map.of_enum
+    in
+    (* Collect EoS maps recursively. *)
+    let recursive_maps =
+      acls
+      |> List.enum
+      |> Enum.map _create_end_of_scope_map_for_annotated_clause
+    in
+    (* Merge all maps *)
+    recursive_maps
+    |> Enum.fold _merge_maps clause_map
+
+and _merge_maps m1 m2 =
+  let join _ opt1 opt2 =
+    match opt1, opt2 with
+    | None, None -> None
+    | _, Some _ -> opt2 (* prefers second value when both are present *)
+    | Some _ , _ -> opt1
+  in Annotated_clause_map.merge join m1 m2
+
+and _create_end_of_scope_map_for_annotated_clause (acl : annotated_clause) =
+  match acl with
+  | Unannotated_clause cl -> _create_end_of_scope_map_for_abstract_clause cl
+  | Enter_clause (_,_,_) -> Annotated_clause_map.empty
+  | Exit_clause (_,_,_) -> Annotated_clause_map.empty
+  | Start_clause -> Annotated_clause_map.empty
+  | End_clause -> Annotated_clause_map.empty
+
+and _create_end_of_scope_map_for_abstract_clause_list
+    (cls : abstract_clause list) =
+  if List.length cls = 0
+  then
+    raise (Utils.Invariant_failure "attempted to create EoS map for empty list")
+  else
+    let last_clause = Unannotated_clause (List.last cls) in
+    let clause_map =
+      cls
+      |> List.enum
+      |> Enum.map (fun acl -> (Unannotated_clause acl,last_clause))
+      |> Annotated_clause_map.of_enum
+    in
+    (* Collect EoS maps recursively. *)
+    let recursive_maps =
+      cls
+      |> List.enum
+      |> Enum.map _create_end_of_scope_map_for_abstract_clause
+    in
+    (* Merge all maps *)
+    recursive_maps
+    |> Enum.fold _merge_maps clause_map
+
+and _create_end_of_scope_map_for_abstract_clause (cl : abstract_clause) =
+  let Abs_clause(_, b) = cl in
+  _create_end_of_scope_map_for_body b
+
+and _create_end_of_scope_map_for_body (b : abstract_clause_body) =
+  match b with
+  | Abs_value_body v ->
+    begin
+      match v with
+      | Abs_value_record _ -> Annotated_clause_map.empty
+      | Abs_value_function f -> _create_end_of_scope_map_for_function f
+      | Abs_value_ref _ -> Annotated_clause_map.empty
+      | Abs_value_int -> Annotated_clause_map.empty
+      | Abs_value_bool _ -> Annotated_clause_map.empty
+      | Abs_value_string -> Annotated_clause_map.empty
+    end
+  | Abs_var_body _ -> Annotated_clause_map.empty
+  | Abs_appl_body (_,_) -> Annotated_clause_map.empty
+  | Abs_conditional_body (_,_,f1,f2) ->
+    _merge_maps
+      (_create_end_of_scope_map_for_function f1)
+      (_create_end_of_scope_map_for_function f2)
+  | Abs_projection_body (_,_) -> Annotated_clause_map.empty
+  | Abs_deref_body _ -> Annotated_clause_map.empty
+  | Abs_update_body (_,_) -> Annotated_clause_map.empty
+  | Abs_binary_operation_body (_,_,_) -> Annotated_clause_map.empty
+  | Abs_unary_operation_body (_,_) -> Annotated_clause_map.empty
+  | Abs_indexing_body (_,_) -> Annotated_clause_map.empty
+
+and _create_end_of_scope_map_for_function (f : abstract_function_value) =
+  let Abs_function_value(_, Abs_expr(body)) = f in
+  _create_end_of_scope_map_for_abstract_clause_list body
+;;\
+*)

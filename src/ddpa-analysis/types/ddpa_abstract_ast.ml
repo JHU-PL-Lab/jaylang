@@ -221,6 +221,14 @@ struct
   include Yojson_utils.Set_to_yojson(Impl)(Annotated_clause);;
 end;;
 
+module Annotated_clause_map =
+struct
+  module Impl = Map.Make(Annotated_clause);;
+  include Impl;;
+  include Pp_utils.Map_pp(Impl)(Annotated_clause);;
+  include Yojson_utils.Map_to_yojson(Impl)(Annotated_clause);;
+end;;
+
 let pp_annotated_clause_set =
   Pp_utils.pp_set pp_annotated_clause Annotated_clause_set.enum
 ;;
