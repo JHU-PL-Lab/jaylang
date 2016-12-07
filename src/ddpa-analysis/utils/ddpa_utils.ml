@@ -4,15 +4,14 @@ open Jhupllib;;
 open Core_ast;;
 open Core_ast_pp;;
 open Ddpa_abstract_ast;;
-(* open Ddpa_graph;; *)
+open Ddpa_graph;;
 open Nondeterminism;;
 
 exception Non_record_projection of string;;
 
 let rv body =
   match body with
-  | [] -> raise @@
-    Utils.Invariant_failure "empty function body provided to rv"
+  | [] -> raise @@ Utils.Invariant_failure "empty function body provided to rv"
   | _ -> let Abs_clause(x,_) = List.last body in x
 ;;
 
@@ -115,29 +114,81 @@ let is_immediate acl =
   match acl with
   | Unannotated_clause(abs_clause) -> is_abstract_clause_immediate abs_clause
   | Enter_clause _
-  | Exit_clause _ -> true
-  | Start_clause
-  | End_clause -> false
+  | Exit_clause _
+  | Start_clause _
+  | End_clause _ -> true
 ;;
 
-(*
-let rec create_end_of_scope_map acls =
+let wire site_cl func x1 x2 graph =
+  let site_acl = Unannotated_clause(site_cl) in
+  let Abs_function_value(x0, Abs_expr(body)) = func in
+  let wire_in_acl = Enter_clause(x0,x1,site_cl) in
+  let start_acl = Start_clause (rv body) in
+  let end_acl = End_clause (rv body) in
+  let wire_out_acl = Exit_clause(x2,rv body,site_cl) in
+  let pred_edges =
+    Ddpa_graph.preds site_acl graph
+    |> Enum.map (fun acl' -> Ddpa_edge(acl',wire_in_acl))
+  in
+  let succ_edges =
+    Ddpa_graph.succs site_acl graph
+    |> Enum.map (fun acl' -> Ddpa_edge(wire_out_acl,acl'))
+  in
+  let inner_edges =
+    List.enum body
+    |> Enum.map (fun cl -> Unannotated_clause(cl))
+    |> Enum.append (Enum.singleton start_acl)
+    |> Enum.append (Enum.singleton wire_in_acl)
+    |> flip Enum.append (Enum.singleton end_acl)
+    |> flip Enum.append (Enum.singleton wire_out_acl)
+    |> Utils.pairwise_enum_fold
+      (fun acl1 acl2 -> Ddpa_edge(acl1,acl2))
+  in
+  Enum.append pred_edges @@ Enum.append inner_edges succ_edges
+;;
+
+module End_of_block_map =
+struct
+  type t = annotated_clause Annotated_clause_map.t
+  let pp = Annotated_clause_map.pp pp_annotated_clause
+end;;
+
+
+(**
+   This function generates a dictionary mapping each annotated clause to the
+   end of its block.
+*)
+let rec create_end_of_block_map (acls : abstract_clause list)
+  : End_of_block_map.t =
+  (* This primary function produces a dictionary containing a mapping for each
+     clause in the provided list.  The recursively-defined helper functions
+     (starting with underscores) are used to find recursive blocks on which the
+     primary function is invoked.  This is why e.g. the function
+     _create_end_of_block_map_for_annotated_clause frequently returns empty
+     dictionaries: the clause itself has already been mapped in a dictionary
+     in the primary function. *)
   if List.length acls = 0
   then
     raise (Utils.Invariant_failure "attempted to create EoS map for empty list")
   else
-    let last_clause = List.last acls in
+    let last_var = rv acls in
     let clause_map =
       acls
       |> List.enum
-      |> Enum.map (fun acl -> (acl,last_clause))
+      |> Enum.map (fun acl -> (Unannotated_clause(acl), End_clause last_var))
+      |> Enum.append
+        (List.enum
+           [ (End_clause last_var, End_clause last_var)
+           ; (Start_clause last_var, End_clause last_var)
+           ]
+        )
       |> Annotated_clause_map.of_enum
     in
     (* Collect EoS maps recursively. *)
     let recursive_maps =
       acls
       |> List.enum
-      |> Enum.map _create_end_of_scope_map_for_annotated_clause
+      |> Enum.map _create_end_of_block_map_for_abstract_clause
     in
     (* Merge all maps *)
     recursive_maps
@@ -151,48 +202,17 @@ and _merge_maps m1 m2 =
     | Some _ , _ -> opt1
   in Annotated_clause_map.merge join m1 m2
 
-and _create_end_of_scope_map_for_annotated_clause (acl : annotated_clause) =
-  match acl with
-  | Unannotated_clause cl -> _create_end_of_scope_map_for_abstract_clause cl
-  | Enter_clause (_,_,_) -> Annotated_clause_map.empty
-  | Exit_clause (_,_,_) -> Annotated_clause_map.empty
-  | Start_clause -> Annotated_clause_map.empty
-  | End_clause -> Annotated_clause_map.empty
-
-and _create_end_of_scope_map_for_abstract_clause_list
-    (cls : abstract_clause list) =
-  if List.length cls = 0
-  then
-    raise (Utils.Invariant_failure "attempted to create EoS map for empty list")
-  else
-    let last_clause = Unannotated_clause (List.last cls) in
-    let clause_map =
-      cls
-      |> List.enum
-      |> Enum.map (fun acl -> (Unannotated_clause acl,last_clause))
-      |> Annotated_clause_map.of_enum
-    in
-    (* Collect EoS maps recursively. *)
-    let recursive_maps =
-      cls
-      |> List.enum
-      |> Enum.map _create_end_of_scope_map_for_abstract_clause
-    in
-    (* Merge all maps *)
-    recursive_maps
-    |> Enum.fold _merge_maps clause_map
-
-and _create_end_of_scope_map_for_abstract_clause (cl : abstract_clause) =
+and _create_end_of_block_map_for_abstract_clause (cl : abstract_clause) =
   let Abs_clause(_, b) = cl in
-  _create_end_of_scope_map_for_body b
+  _create_end_of_block_map_for_body b
 
-and _create_end_of_scope_map_for_body (b : abstract_clause_body) =
+and _create_end_of_block_map_for_body (b : abstract_clause_body) =
   match b with
   | Abs_value_body v ->
     begin
       match v with
       | Abs_value_record _ -> Annotated_clause_map.empty
-      | Abs_value_function f -> _create_end_of_scope_map_for_function f
+      | Abs_value_function f -> _create_end_of_block_map_for_function f
       | Abs_value_ref _ -> Annotated_clause_map.empty
       | Abs_value_int -> Annotated_clause_map.empty
       | Abs_value_bool _ -> Annotated_clause_map.empty
@@ -202,8 +222,8 @@ and _create_end_of_scope_map_for_body (b : abstract_clause_body) =
   | Abs_appl_body (_,_) -> Annotated_clause_map.empty
   | Abs_conditional_body (_,_,f1,f2) ->
     _merge_maps
-      (_create_end_of_scope_map_for_function f1)
-      (_create_end_of_scope_map_for_function f2)
+      (_create_end_of_block_map_for_function f1)
+      (_create_end_of_block_map_for_function f2)
   | Abs_projection_body (_,_) -> Annotated_clause_map.empty
   | Abs_deref_body _ -> Annotated_clause_map.empty
   | Abs_update_body (_,_) -> Annotated_clause_map.empty
@@ -211,8 +231,7 @@ and _create_end_of_scope_map_for_body (b : abstract_clause_body) =
   | Abs_unary_operation_body (_,_) -> Annotated_clause_map.empty
   | Abs_indexing_body (_,_) -> Annotated_clause_map.empty
 
-and _create_end_of_scope_map_for_function (f : abstract_function_value) =
+and _create_end_of_block_map_for_function (f : abstract_function_value) =
   let Abs_function_value(_, Abs_expr(body)) = f in
-  _create_end_of_scope_map_for_abstract_clause_list body
-;;\
-*)
+  create_end_of_block_map body
+;;

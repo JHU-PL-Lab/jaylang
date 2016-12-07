@@ -213,6 +213,7 @@ Library "ddpa-analysis_pds"
   Modules:
     Ddpa_pds_dynamic_pop_handler,
     Ddpa_pds_dynamic_pop_types,
+    Ddpa_pds_edge_functions,
     Ddpa_pds_structure_types
   BuildDepends:
     batteries,

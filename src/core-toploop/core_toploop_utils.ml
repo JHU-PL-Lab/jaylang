@@ -1,5 +1,6 @@
 open Batteries;;
 
+open Core_ast;;
 open Ddpa_abstract_ast;;
 
 module type Stack = Ddpa_context_stack.Context_stack;;
@@ -79,4 +80,8 @@ and _abs_exprs_of_value v =
   | Abs_value_function(Abs_function_value(_,e)) -> Enum.singleton e
   | Abs_value_record _ | Abs_value_ref _ | Abs_value_int | Abs_value_bool _
   | Abs_value_string -> Enum.empty ()
+;;
+
+let last_var_of (Expr(cls)) =
+  let Clause(x,_) = List.last cls in x
 ;;

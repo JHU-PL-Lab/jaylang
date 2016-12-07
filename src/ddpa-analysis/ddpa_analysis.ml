@@ -93,14 +93,20 @@ struct
       (Pds_reachability_work_collection_templates.Work_stack)
   ;;
 
-  open Structure_types;;
-  open Dynamic_pop_types;;
+  module Edge_functions =
+    Ddpa_pds_edge_functions.Make
+      (C)
+      (Structure_types)
+      (Dynamic_pop_types)
+      (Ddpa_pds_reachability_basis)
+      (Ddpa_pds_reachability)
+  ;;
 
   type ddpa_analysis_logging_data =
     { ddpa_logging_config : ddpa_analysis_logging_config
     ; ddpa_closure_steps : int
     }
-    [@@deriving show]
+  [@@deriving show]
   ;;
   let _ = show_ddpa_analysis_logging_data;;
 
@@ -116,8 +122,10 @@ struct
         non-immediate nodes.  This is useful during closure. *)
     ; ddpa_logging_data : ddpa_analysis_logging_data option
     (** Data associated with logging, if appropriate. *)
+    ; ddpa_end_of_block_map : End_of_block_map.t
+    (** A dictionary mapping each clause to its end-of-block clause. *)
     }
-    [@@deriving show]
+  [@@deriving show]
   ;;
 
   let dump_yojson analysis =
@@ -251,73 +259,11 @@ struct
     pds_edge_count
   ;;
 
-  let empty_analysis ?ddpa_logging_data_opt:(ddpa_logging_data_opt=None) () =
-    (* Make sure to log PDR closure too if appropriate. *)
-    let pdr_log_fn_opt =
-      match ddpa_logging_data_opt with
-      | None -> None
-      | Some ddpa_logging_data ->
-        if ddpa_logging_data.ddpa_logging_config.ddpa_pdr_logging_level
-           = Log_nothing
-        then None
-        else Some
-            (fun old_reachability new_reachability ->
-               if ddpa_logging_data.ddpa_logging_config.ddpa_pdr_deltas
-               then
-                 log_pdr_delta Log_everything ddpa_logging_data_opt
-                   old_reachability new_reachability
-               else
-                 log_pdr Log_everything ddpa_logging_data_opt new_reachability)
-    in
-    (* The initial reachability analysis should include an edge function which
-       always allows discarding the bottom-of-stack marker. *)
-    let initial_reachability =
-      Ddpa_pds_reachability.empty ~logging_function:pdr_log_fn_opt ()
-      |> Ddpa_pds_reachability.add_edge_function
-        (fun state ->
-           Enum.singleton ([Pop Structure_types.Bottom_of_stack], state)
-        )
-    in
-    { ddpa_graph = Ddpa_graph.empty
-    ; ddpa_graph_fully_closed = true
-    ; pds_reachability = initial_reachability
-    ; ddpa_active_nodes = Annotated_clause_set.singleton Start_clause
-    ; ddpa_active_non_immediate_nodes = Annotated_clause_set.empty
-    ; ddpa_logging_data = ddpa_logging_data_opt
-    }
-  ;;
-
-  let end_of_scope annotated_clause edges =
-    let rec step annotated_clause visited_annotated_clauses =
-      match annotated_clause with
-      | Exit_clause _
-      | End_clause -> annotated_clause
-      | _ ->
-        edges
-        |> Enum.clone
-        |> Enum.filter_map (
-          fun (Ddpa_edge(source, target)) ->
-            if (equal_annotated_clause annotated_clause source) &&
-               (not (Annotated_clause_set.mem target visited_annotated_clauses))
-            then
-              match target with
-              | Enter_clause _ -> None
-              | _ -> Some target
-            else
-              None
-        )
-        |> Enum.get
-        |> (
-          function
-          | Some successor ->
-            step successor (Annotated_clause_set.add annotated_clause visited_annotated_clauses)
-          | None ->
-            annotated_clause
-        )
-    in
-    step annotated_clause Annotated_clause_set.empty
-  ;;
-
+  (**
+     Adds a set of edges to the DDPA graph.  This implicitly adds the vertices
+     involved in those edges.  Note that this does not affect the end-of-block
+     map.
+  *)
   let add_edges edges_in analysis =
     let edges =
       edges_in
@@ -331,504 +277,17 @@ struct
       *)
       let add_edge_for_reachability edge reachability =
         (* Unpack the edge *)
-        let (Ddpa_edge(acl1,acl0)) = edge in
+        let (Ddpa_edge(_,acl0)) = edge in
         (* Create an edge function to generate targeted dynamic pops for each
            edge. *)
-        let edge_function state =
-          Logger_utils.lazy_bracket_log (lazy_logger `trace)
-            (fun () -> Printf.sprintf "DDPA %s edge function at state %s"
-                (show_ddpa_edge edge) (Pds_state.show state))
-            (fun edges ->
-               let string_of_output (actions,target) =
-                 String_utils.string_of_tuple
-                   (String_utils.string_of_list
-                      Ddpa_pds_reachability.show_stack_action)
-                   Pds_state.show
-                   (actions,target)
-               in
-               Printf.sprintf "Generates edges: %s"
-                 (String_utils.string_of_list string_of_output @@
-                  List.of_enum @@ Enum.clone edges)) @@
-          fun () ->
-          let zero = Enum.empty in
-          let%orzero Program_point_state(acl0',ctx) = state in
-          (* TODO: There should be a way to associate each edge function with
-                   its corresponding acl0 rather than using this guard. *)
-          [%guard (compare_annotated_clause acl0 acl0' == 0) ];
-          let open Option.Monad in
-          let zero () = None in
-          (* TODO: It'd be nice if we had a terser way to represent stack
-                   processing operations (those that simply reorder the stack
-                   without transitioning to a different node). *)
-          let targeted_dynamic_pops = Enum.filter_map identity @@ List.enum
-              [
-                (* 1b. Value drop *)
-                begin
-                  return (Value_drop, Program_point_state(acl0,ctx))
-                end
-                ;
-                (* 2a. Transitivity *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(x, Abs_var_body x'))) = acl1
-                  in
-                  (* x = x' *)
-                  return (Variable_aliasing(x,x'),Program_point_state(acl1,ctx))
-                end
-                ;
-                (* 2b. Stateless non-matching clause skip *)
-                begin
-                  let%orzero (Unannotated_clause(Abs_clause(x,_))) = acl1 in
-                  (* x' = b *)
-                  return ( Stateless_nonmatching_clause_skip_1_of_2 x
-                         , Program_point_state(acl1,ctx)
-                         )
-                end
-                ;
-                (* 3b. Value capture *)
-                begin
-                  return ( Value_capture_1_of_3
-                         , Program_point_state(acl0, ctx)
-                         )
-                end
-                ;
-                (* 3c. Rewind *)
-                begin
-                  return ( Rewind_step(end_of_scope acl0 edges, ctx)
-                         , Program_point_state(acl0, ctx)
-                         )
-                end
-                ;
-                (* 4a. Function parameter wiring *)
-                begin
-                  let%orzero (Enter_clause(x,x',c)) = acl1 in
-                  let%orzero (Abs_clause(_,Abs_appl_body (_,x3''))) = c in
-                  begin
-                    if not (equal_var x' x3'') then
-                      raise @@ Utils.Invariant_failure "Ill-formed wiring node."
-                    else
-                      ()
-                  end;
-                  (* x =(down)c x' *)
-                  [%guard C.is_top c ctx];
-                  let ctx' = C.pop ctx in
-                  return (Variable_aliasing(x,x'),Program_point_state(acl1,ctx'))
-                end
-                ;
-                (* 4b. Function return wiring start *)
-                begin
-                  let%orzero (Exit_clause(x,_,c)) = acl1 in
-                  let%orzero (Abs_clause(x1'',Abs_appl_body(x2'',x3''))) = c in
-                  begin
-                    if not (equal_var x x1'') then
-                      raise @@ Utils.Invariant_failure "Ill-formed wiring node."
-                    else
-                      ()
-                  end;
-                  (* x =(up)c _ (for functions) *)
-                  return ( Function_call_flow_validation(x2'',x3'',acl0,ctx,Unannotated_clause(c),ctx,x)
-                         , Program_point_state(Unannotated_clause(c),ctx)
-                         )
-                end
-                ;
-                (* 4c. Function return wiring finish *)
-                begin
-                  let%orzero (Exit_clause(x,x',c)) = acl1 in
-                  let%orzero (Abs_clause(x1'',Abs_appl_body _)) = c in
-                  begin
-                    if not (equal_var x x1'') then
-                      raise @@ Utils.Invariant_failure "Ill-formed wiring node."
-                    else
-                      ()
-                  end;
-                  (* x =(up)c x' *)
-                  let ctx' = C.push c ctx in
-                  return ( Function_call_flow_validation_resolution_1_of_2(x,x')
-                         , Program_point_state(acl1,ctx')
-                         )
-                end
-                ;
-                (* 4d. Function non-local wiring *)
-                begin
-                  let%orzero (Enter_clause(x'',x',c)) = acl1 in
-                  let%orzero (Abs_clause(_,Abs_appl_body(x2'',x3''))) = c in
-                  begin
-                    if not (equal_var x' x3'') then
-                      raise @@ Utils.Invariant_failure "Ill-formed wiring node."
-                    else
-                      ()
-                  end;
-                  (* x'' =(down)c x' *)
-                  [%guard C.is_top c ctx];
-                  let ctx' = C.pop ctx in
-                  return ( Function_closure_lookup(x'',x2'')
-                         , Program_point_state(acl1,ctx')
-                         )
-                end
-                ;
-                (* 5a, 5b, and 5e. Conditional entrance wiring *)
-                begin
-                  (* This block represents *all* conditional closure handling on
-                     the entering side. *)
-                  let%orzero (Enter_clause(x',x1,c)) = acl1 in
-                  let%orzero
-                    (Abs_clause(_,Abs_conditional_body(x1',p,f1,_))) = c
-                  in
-                  begin
-                    if not (equal_var x1 x1') then
-                      raise @@ Utils.Invariant_failure "Ill-formed wiring node."
-                    else
-                      ()
-                  end;
-                  let Abs_function_value(f1x,_) = f1 in
-                  (* x'' =(down)c x' for conditionals *)
-                  let closure_for_positive_path = equal_var f1x x' in
-                  return ( Conditional_closure_lookup
-                             (x',x1,p,closure_for_positive_path)
-                         , Program_point_state(acl1,ctx)
-                         )
-                end
-                ;
-                (* 5c, 5d. Conditional return wiring *)
-                begin
-                  let%orzero (Exit_clause(x,x',c)) = acl1 in
-                  let%orzero
-                    (Abs_clause(x2,Abs_conditional_body(x1,pat,f1,_))) = c
-                  in
-                  begin
-                    if not (equal_var x x2) then
-                      raise @@ Utils.Invariant_failure "Ill-formed wiring node."
-                    else
-                      ()
-                  end;
-                  (* x =(up) x' for conditionals *)
-                  let Abs_function_value(_,Abs_expr(cls)) = f1 in
-                  let f1ret = rv cls in
-                  let then_branch = equal_var f1ret x' in
-                  return ( Conditional_subject_validation(
-                      x,x',x1,pat,then_branch,acl1,ctx)
-                         , Program_point_state(Unannotated_clause(c),ctx)
-                    )
-                end
-                ;
-                (* 6a. Record destruction *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(
-                        Abs_clause(x,Abs_projection_body(x',l)))) = acl1
-                  in
-                  (* x = x'.l *)
-                  return ( Record_projection_lookup(x,x',l)
-                         , Program_point_state(acl1,ctx)
-                         )
-                end
-                ;
-                (* 6b. Record projection *)
-                begin
-                  return ( Record_projection_1_of_2
-                         , Program_point_state(acl0,ctx)
-                         )
-                end
-                ;
-                (* 7a. Function filter validation *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(
-                         x,Abs_value_body(Abs_value_function(v))))) = acl1
-                  in
-                  (* x = f *)
-                  return ( Function_filter_validation(x,v)
-                         , Program_point_state(acl1,ctx)
-                         )
-                end
-                ;
-                (* 7b. Record validation *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(
-                        Abs_clause(x,Abs_value_body(Abs_value_record(r))))) = acl1
-                  in
-                  (* x = r *)
-                  let target_state = Program_point_state(acl1,ctx) in
-                  return ( Record_filter_validation(
-                      x,r,acl1,ctx)
-                         , target_state
-                    )
-                end
-                ;
-                (* 7c. Integer filter validation *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(
-                         x,Abs_value_body(Abs_value_int)))) = acl1
-                  in
-                  (* x = int *)
-                  return ( Int_filter_validation(x)
-                         , Program_point_state(acl1,ctx)
-                         )
-                end
-                ;
-                (* 7d, 7e. Boolean filter validation *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(
-                         x,Abs_value_body(Abs_value_bool(b))))) = acl1
-                  in
-                  (* x = true OR x = false *)
-                  return ( Bool_filter_validation(x,b)
-                         , Program_point_state(acl1,ctx)
-                         )
-                end
-                ;
-                (* 7f. String filter validation *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(
-                         x,Abs_value_body(Abs_value_string)))) = acl1
-                  in
-                  (* x = <string> *)
-                  return ( String_filter_validation(x)
-                         , Program_point_state(acl1,ctx)
-                         )
-                end
-                ;
-                (* 8a. Assignment result *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(x, Abs_update_body _))) = acl1
-                  in
-                  (* x = x' <- x'' -- produce {} for x *)
-                  return ( Empty_record_value_discovery x
-                         , Program_point_state(acl1,ctx)
-                         )
-                end
-                ;
-                (* 8b. Dereference lookup *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(x, Abs_deref_body(x')))) = acl1
-                  in
-                  (* x = !x' *)
-                  return ( Dereference_lookup(x,x')
-                         , Program_point_state(acl1,ctx)
-                         )
-                end
-                ;
-                (* 8c. Cell validation *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(
-                         x,Abs_value_body(Abs_value_ref(cell))))) = acl1
-                  in
-                  (* x = ref x' *)
-                  return ( Cell_filter_validation(x,cell)
-                         , Program_point_state(acl1,ctx)
-                         )
-                end
-                ;
-                (* 8d. Cell dereference *)
-                begin
-                  return ( Cell_dereference_1_of_2
-                         , Program_point_state(acl0, ctx) )
-                end
-                ;
-                (* 9a. Cell update alias analysis initialization *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(
-                         _, Abs_update_body(x',_)))) = acl1
-                  in
-                  (* x''' = x' <- x'' *)
-                  let source_state = Program_point_state(acl1,ctx) in
-                  let target_state = Program_point_state(acl0,ctx) in
-                  return ( Cell_update_alias_analysis_init_1_of_2(
-                      x',source_state,target_state)
-                         , Program_point_state(acl0, ctx) )
-                end
-                ; (* 9b,9c. Alias resolution *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(
-                         _, Abs_update_body(_,x'')))) = acl1
-                  in
-                  (* x''' = x' <- x'' *)
-                  return ( Alias_analysis_resolution_1_of_5(x'')
-                         , Program_point_state(acl1, ctx) )
-                end
-                ; (* 10a. Stateful non-side-effecting clause skip *)
-                begin
-                  let%orzero (Unannotated_clause(Abs_clause(x,b))) = acl1 in
-                  [% guard (is_immediate acl1) ];
-                  [% guard (b |>
-                            (function
-                              | Abs_update_body _ -> false
-                              | _ -> true)) ];
-                  (* x' = b *)
-                  return ( Nonsideeffecting_nonmatching_clause_skip x
-                         , Program_point_state(acl1,ctx)
-                         )
-                end
-                ; (* 10b. Side-effect search initialization *)
-                begin
-                  let%orzero (Exit_clause(x'',_,c)) = acl1 in
-                  (* x'' =(up)c x' *)
-                  let%bind ctx' =
-                    match c with
-                    | Abs_clause(_,Abs_appl_body _) -> return @@ C.push c ctx
-                    | Abs_clause(_,Abs_conditional_body _) -> return ctx
-                    | _ -> zero ()
-                  in
-                  return ( Side_effect_search_init_1_of_2(x'',acl0,ctx)
-                         , Program_point_state(acl1,ctx') )
-                end
-                ; (* 10c. Side-effect search non-matching clause skip *)
-                begin
-                  let%orzero (Unannotated_clause(Abs_clause(_,b))) = acl1 in
-                  [% guard (is_immediate acl1) ];
-                  [% guard (b |>
-                            (function
-                              | Abs_update_body _ -> false
-                              | _ -> true)) ];
-                  (* x' = b *)
-                  return ( Side_effect_search_nonmatching_clause_skip
-                         , Program_point_state(acl1,ctx) )
-                end
-                ; (* 10d. Side-effect search exit wiring node *)
-                begin
-                  let%orzero (Exit_clause(_,_,c)) = acl1 in
-                  (* x'' =(up)c x' *)
-                  let%bind ctx' =
-                    match c with
-                    | Abs_clause(_,Abs_appl_body _) -> return @@ C.push c ctx
-                    | Abs_clause(_,Abs_conditional_body _) -> return ctx
-                    | _ -> zero ()
-                  in
-                  return ( Side_effect_search_exit_wiring
-                         , Program_point_state(acl1,ctx') )
-                end
-                ; (* 10e. Side-effect search enter wiring node *)
-                begin
-                  let%orzero (Enter_clause(_,_,c)) = acl1 in
-                  (* x'' =(down)c x' *)
-                  let%bind ctx' =
-                    match c with
-                    | Abs_clause(_,Abs_appl_body _) -> return @@ C.pop ctx
-                    | Abs_clause(_,Abs_conditional_body _) -> return ctx
-                    | _ -> zero ()
-                  in
-                  return ( Side_effect_search_enter_wiring
-                         , Program_point_state(acl1,ctx') )
-                end
-                (* FIXME: why does this clause kill performance? *)
-                ; (* 10f. Side-effect search without discovery *)
-                begin
-                  return ( Side_effect_search_without_discovery
-                         , Program_point_state(acl0,ctx) )
-                end
-                ; (* 10g. Side-effect search alias analysis initialization *)
-                begin
-                  let%orzero (Unannotated_clause(
-                      Abs_clause(_,Abs_update_body(x',_)))) = acl1
-                  in
-                  return ( Side_effect_search_alias_analysis_init(x',acl0,ctx)
-                         , Program_point_state(acl1,ctx) )
-                end
-                ; (* 10h,10i. Side-effect search alias analysis resolution *)
-                begin
-                  let%orzero (Unannotated_clause(
-                      Abs_clause(_,Abs_update_body(_,x'')))) = acl1
-                  in
-                  return ( Side_effect_search_alias_analysis_resolution_1_of_4(
-                      x'')
-                         , Program_point_state(acl1,ctx) )
-                end
-                ; (* 10j. Side-effect search escape *)
-                begin
-                  return ( Side_effect_search_escape_1_of_2
-                         , Program_point_state(acl0,ctx) )
-                end
-                ; (* 10k. Side-effect search escape completion *)
-                begin
-                  return ( Side_effect_search_escape_completion_1_of_4
-                         , Program_point_state(acl0,ctx) )
-                end
-                ; (* 11a. Binary operation operand lookup *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(x1,
-                                                   Abs_binary_operation_body(x2,_,x3)))) = acl1
-                  in
-                  (* x1 = x2 op x3 *)
-                  return ( Binary_operator_lookup_init(
-                      x1,x2,x3,acl1,ctx,acl0,ctx)
-                         , Program_point_state(acl1,ctx)
-                    )
-                end
-                ; (* 11b. Unary operation operand lookup *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(x1,
-                                                   Abs_unary_operation_body(_,x2)))) = acl1
-                  in
-                  (* x1 = op x2 *)
-                  return ( Unary_operator_lookup_init(
-                      x1,x2,acl0,ctx)
-                         , Program_point_state(acl1,ctx)
-                    )
-                end
-                ; (* 11c. Indexing lookup *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(x1,
-                                                   Abs_indexing_body(x2,x3)))) = acl1
-                  in
-                  (* x1 = x2[x3] *)
-                  return ( Indexing_lookup_init(
-                      x1,x2,x3,acl1,ctx,acl0,ctx)
-                         , Program_point_state(acl1,ctx)
-                    )
-                end
-                ; (* 12a,12b,12c,13a,13b,13c,13d,13e,13f,13g,13h,13i,13j,13k,13l,14a,14b,14c. Binary operator resolution *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(x1,
-                                                   Abs_binary_operation_body(_,op,_)))) = acl1
-                  in
-                  (* x1 = x2 op x3 *)
-                  return ( Binary_operator_resolution_1_of_4(x1,op)
-                         , Program_point_state(acl1,ctx)
-                         )
-                end
-                ; (* 13m,13n. Unary operator resolution *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(x1,
-                                                   Abs_unary_operation_body(op,_)))) = acl1
-                  in
-                  (* x1 = op x2 *)
-                  return ( Unary_operator_resolution_1_of_3(x1,op)
-                         , Program_point_state(acl1,ctx)
-                         )
-                end
-                ; (* 14d. Indexing resolution *)
-                begin
-                  let%orzero
-                    (Unannotated_clause(Abs_clause(x1,
-                                                   Abs_indexing_body(_,_)))) = acl1
-                  in
-                  (* x1 = x2[x3] *)
-                  return ( Indexing_resolution_1_of_4(x1)
-                         , Program_point_state(acl1,ctx)
-                         )
-                end
-              ]
-          in
-          targeted_dynamic_pops
-          |> Enum.map
-            (fun (action,state) -> ([Pop_dynamic_targeted(action)], state))
+        let edge_function =
+          Edge_functions.create_edge_function
+            analysis.ddpa_end_of_block_map edge
         in
         (* Create another function to handle the untargeted dynamic pops. *)
         let untargeted_dynamic_pop_action_function state =
+          let open Structure_types in
+          let open Dynamic_pop_types in
           let zero = Enum.empty in
           let%orzero Program_point_state(acl0',_) = state in
           (* TODO: There should be a way to associate each action function with
@@ -921,6 +380,7 @@ struct
         ; ddpa_active_nodes = ddpa_active_nodes'
         ; ddpa_active_non_immediate_nodes = ddpa_active_non_immediate_nodes'
         ; ddpa_logging_data = analysis.ddpa_logging_data
+        ; ddpa_end_of_block_map = analysis.ddpa_end_of_block_map
         }
       , true
       )
@@ -929,7 +389,8 @@ struct
   let create_initial_analysis
       ?ddpa_logging_config:(ddpa_logging_config_opt=None)
       e =
-    let logging_data =
+    (* Begin by constructing a logging structure. *)
+    let logging_data_opt =
       match ddpa_logging_config_opt with
       | None -> None
       | Some config ->
@@ -937,13 +398,15 @@ struct
              ; ddpa_closure_steps = 0 (* FIXME: this number never changes or gets reported! *)
              }
     in
+    (* Lift the expression. *)
     let Abs_expr(cls) = lift_expr e in
     (* Put the annotated clauses together. *)
+    let rx = rv cls in
     let acls =
       List.enum cls
       |> Enum.map (fun x -> Unannotated_clause x)
-      |> Enum.append (Enum.singleton Start_clause)
-      |> flip Enum.append (Enum.singleton End_clause)
+      |> Enum.append (Enum.singleton (Start_clause rx))
+      |> flip Enum.append (Enum.singleton (End_clause rx))
     in
     (* For each pair, produce a DDPA edge. *)
     let rec mk_edges acls' =
@@ -956,10 +419,45 @@ struct
           Ddpa_edge(acl1,acl2) :: mk_edges acls'
     in
     let edges = List.enum @@ mk_edges acls in
-    let analysis =
-      fst @@ add_edges edges @@
-      empty_analysis ~ddpa_logging_data_opt:logging_data ()
+    (* Construct an empty analysis. *)
+    let pdr_log_fn_opt =
+      match logging_data_opt with
+      | None -> None
+      | Some logging_data ->
+        if logging_data.ddpa_logging_config.ddpa_pdr_logging_level
+           = Log_nothing
+        then None
+        else Some
+            (fun old_reachability new_reachability ->
+               if logging_data.ddpa_logging_config.ddpa_pdr_deltas
+               then
+                 log_pdr_delta Log_everything logging_data_opt
+                   old_reachability new_reachability
+               else
+                 log_pdr Log_everything logging_data_opt new_reachability)
     in
+    (* The initial reachability analysis should include an edge function which
+       always allows discarding the bottom-of-stack marker. *)
+    let initial_reachability =
+      Ddpa_pds_reachability.empty ~logging_function:pdr_log_fn_opt ()
+      |> Ddpa_pds_reachability.add_edge_function
+        (fun state ->
+           Enum.singleton ([Pop Structure_types.Bottom_of_stack], state)
+        )
+    in
+    let empty_analysis =
+      { ddpa_graph = Ddpa_graph.empty
+      ; ddpa_graph_fully_closed = true
+      ; pds_reachability = initial_reachability
+      ; ddpa_active_nodes =
+          Annotated_clause_set.singleton (Start_clause rx)
+      ; ddpa_active_non_immediate_nodes = Annotated_clause_set.empty
+      ; ddpa_logging_data = logging_data_opt
+      ; ddpa_end_of_block_map = create_end_of_block_map cls
+      }
+    in
+    (* Put the edges into the empty analysis. *)
+    let analysis = fst @@ add_edges edges empty_analysis in
     logger `trace "Created initial analysis";
     log_cfg Log_everything analysis;
     log_pdr Log_everything analysis.ddpa_logging_data analysis.pds_reachability;
@@ -985,6 +483,7 @@ struct
          pp_to_string pp values
       )
     @@ fun () ->
+    let open Structure_types in
     let start_state = Program_point_state(acl,ctx) in
     let start_actions =
       [Push Bottom_of_stack; Push (Lookup_var(x,patsp,patsn))]
@@ -1021,30 +520,6 @@ struct
         Pattern_set.empty Pattern_set.empty analysis
     in
     (Abs_filtered_value_set.of_enum values, analysis')
-  ;;
-
-  let wire site_cl func x1 x2 graph =
-    let site_acl = Unannotated_clause(site_cl) in
-    let Abs_function_value(x0, Abs_expr(body)) = func in
-    let wire_in_acl = Enter_clause(x0,x1,site_cl) in
-    let wire_out_acl = Exit_clause(x2,rv body,site_cl) in
-    let pred_edges =
-      Ddpa_graph.preds site_acl graph
-      |> Enum.map (fun acl' -> Ddpa_edge(acl',wire_in_acl))
-    in
-    let succ_edges =
-      Ddpa_graph.succs site_acl graph
-      |> Enum.map (fun acl' -> Ddpa_edge(wire_out_acl,acl'))
-    in
-    let inner_edges =
-      List.enum body
-      |> Enum.map (fun cl -> Unannotated_clause(cl))
-      |> Enum.append (Enum.singleton wire_in_acl)
-      |> flip Enum.append (Enum.singleton wire_out_acl)
-      |> Utils.pairwise_enum_fold
-        (fun acl1 acl2 -> Ddpa_edge(acl1,acl2))
-    in
-    Enum.append pred_edges @@ Enum.append inner_edges succ_edges
   ;;
 
   let perform_closure_steps analysis =

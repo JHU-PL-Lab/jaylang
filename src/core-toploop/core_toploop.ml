@@ -7,6 +7,7 @@ open Core_interpreter;;
 open Core_toploop_option_parsers;;
 open Core_toploop_options;;
 open Core_toploop_types;;
+open Core_toploop_utils;;
 open Ddpa_abstract_ast;;
 open Ddpa_analysis_logging;;
 open Ddpa_graph;;
@@ -268,7 +269,7 @@ let do_analysis_steps callbacks conf e =
                   let lookup_var = Var(var_ident,None) in
                   let site =
                     match site_name_opt with
-                    | None -> End_clause
+                    | None -> End_clause (last_var_of e)
                     | Some site_name ->
                       Unannotated_clause(
                         lookup_clause_by_ident (Ident site_name))

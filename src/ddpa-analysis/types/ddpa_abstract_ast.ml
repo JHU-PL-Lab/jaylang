@@ -194,15 +194,19 @@ type annotated_clause =
   | Unannotated_clause of abstract_clause
   | Enter_clause of var * var * abstract_clause
   | Exit_clause of var * var * abstract_clause
-  | Start_clause
-  | End_clause
+  | Start_clause of var
+  (** This variable is the return variable of the block that this clause
+      starts. *)
+  | End_clause of var
+  (** This variable is the return variable of the block that this clause
+      ends. *)
 [@@deriving ord, eq, show, to_yojson]
 ;;
 
 let is_annotated_clause_immediate acl =
   match acl with
   | Unannotated_clause(cl) -> is_abstract_clause_immediate cl
-  | Enter_clause _ | Exit_clause _ | Start_clause | End_clause -> true
+  | Enter_clause _ | Exit_clause _ | Start_clause _ | End_clause _ -> true
 ;;
 
 module Annotated_clause =
