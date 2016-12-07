@@ -569,4 +569,30 @@ struct
        |> Enum.map
          (fun state -> ([], state)))
   ;;
+
+  let create_untargeted_dynamic_pop_action_function
+      (edge : ddpa_edge) (state : R.State.t) =
+    let Ddpa_edge(_, acl0) = edge in
+    let zero = Enum.empty in
+    let%orzero Program_point_state(acl0',_) = state in
+    (* TODO: There should be a way to associate each action function with
+             its corresponding acl0 rather than using this guard. *)
+    [%guard (compare_annotated_clause acl0 acl0' == 0)];
+    let open Option.Monad in
+    let untargeted_dynamic_pops = Enum.filter_map identity @@ List.enum
+        [
+          (* 1a. Value discovery. *)
+          begin
+            return @@ Value_discovery_1_of_2
+          end
+          ;
+          (* 3a. Jump. *)
+          begin
+            return @@ Do_jump
+          end
+        ]
+    in
+    untargeted_dynamic_pops
+  ;;
+
 end;;

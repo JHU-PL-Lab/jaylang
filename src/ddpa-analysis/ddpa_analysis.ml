@@ -276,45 +276,12 @@ struct
          information.
       *)
       let add_edge_for_reachability edge reachability =
-        (* Unpack the edge *)
-        let (Ddpa_edge(_,acl0)) = edge in
-        (* Create an edge function to generate targeted dynamic pops for each
-           edge. *)
-        let edge_function =
-          Edge_functions.create_edge_function
-            analysis.ddpa_end_of_block_map edge
-        in
-        (* Create another function to handle the untargeted dynamic pops. *)
-        let untargeted_dynamic_pop_action_function state =
-          let open Structure_types in
-          let open Dynamic_pop_types in
-          let zero = Enum.empty in
-          let%orzero Program_point_state(acl0',_) = state in
-          (* TODO: There should be a way to associate each action function with
-                   its corresponding acl0 rather than using this guard. *)
-          [%guard (compare_annotated_clause acl0 acl0' == 0)];
-          let open Option.Monad in
-          let untargeted_dynamic_pops = Enum.filter_map identity @@ List.enum
-              [
-                (* 1a. Value discovery. *)
-                begin
-                  return @@ Value_discovery_1_of_2
-                end
-                ;
-                (* 3a. Jump. *)
-                begin
-                  return @@ Do_jump
-                end
-              ]
-          in
-          untargeted_dynamic_pops
-        in
-        (* Put it all together with the reachability parameter to produce the
-           new reachability structure. *)
         reachability
-        |> Ddpa_pds_reachability.add_edge_function edge_function
+        |> Ddpa_pds_reachability.add_edge_function
+          (Edge_functions.create_edge_function
+             analysis.ddpa_end_of_block_map edge)
         |> Ddpa_pds_reachability.add_untargeted_dynamic_pop_action_function
-          untargeted_dynamic_pop_action_function
+          (Edge_functions.create_untargeted_dynamic_pop_action_function edge)
       in
       let pds_reachability' =
         Enum.clone edges
