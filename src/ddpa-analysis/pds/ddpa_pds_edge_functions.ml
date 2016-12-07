@@ -98,12 +98,36 @@ struct
           ;
           (* 3c. Rewind *)
           begin
-            match Annotated_clause_map.Exceptionless.find acl0 eobm with
-            | Some end_of_block ->
-              return ( Rewind_step(end_of_block, ctx)
-                     , Program_point_state(acl0, ctx)
-                     )
-            | None ->
+            (*
+              To rewind, we need to know the "end-of-block" for the node we are
+              considering.  We have a dictionary mapping all of the *abstract*
+              clauses in the program to their end-of-block clauses, but we don't
+              have such mappings for e.g. wiring nodes or block start/end nodes.
+              This code runs for *every* edge, so we need to skip those cases
+              for which our mappings don't exist.  It's safe to skip all
+              non-abstract-clause nodes, since we only rewind after looking up
+              a function to access its closure and the only nodes that can
+              complete a lookup are abstract clause nodes.
+            *)
+            match acl0 with
+            | Unannotated_clause cl0 ->
+              begin
+                match Annotated_clause_map.Exceptionless.find acl0 eobm with
+                | Some end_of_block ->
+                  return ( Rewind_step(end_of_block, ctx)
+                         , Program_point_state(acl0, ctx)
+                         )
+                | None ->
+                  raise @@ Utils.Invariant_failure(
+                    Printf.sprintf
+                      "Abstract clause lacks end-of-block mapping: %s"
+                      (show_abstract_clause cl0))
+              end
+            | Start_clause _ | End_clause _ | Enter_clause _ | Exit_clause _ ->
+              (*
+                These clauses can be safely ignored because they never complete
+                a lookup and so won't ever be the subject of a rewind.
+              *)
               zero ()
           end
           ;
