@@ -1,7 +1,7 @@
 # EXPECT-WELL-FORMED
 # EXPECT-EVALUATE
 # EXPECT-ANALYSIS-STACK-IS 2ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END s2 {{b=empty$}}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END s2 {{b=empty}}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 f = fun x -> ( ident = fun y -> ( r1 = y ); r0 = ident x; );

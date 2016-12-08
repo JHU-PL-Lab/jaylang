@@ -19,38 +19,56 @@ struct
   let to_yojson = Yojson_utils.set_to_yojson pattern_to_yojson enum;;
 end;;
 
+(** A type to express abstract variables. *)
+type abstract_var =
+  | Abs_var of ident
+[@@deriving eq, ord, to_yojson, show]
+;;
+
+(** A type to expression abstract record values. *)
+type abstract_record_value =
+  | Abs_record_value of abstract_var Ident_map.t
+[@@deriving eq, ord, to_yojson]
+;;
+
+(** A type to expression abstract reference values. *)
+type abstract_ref_value =
+  | Abs_ref_value of abstract_var
+[@@deriving eq, ord, to_yojson]
+;;
+
 (** A type to express abstract values. *)
 type abstract_value =
-  | Abs_value_record of record_value
+  | Abs_value_record of abstract_record_value
   | Abs_value_function of abstract_function_value
-  | Abs_value_ref of ref_value
+  | Abs_value_ref of abstract_ref_value
   | Abs_value_int
   | Abs_value_bool of bool
   | Abs_value_string
 [@@deriving eq, ord, to_yojson]
 
 and abstract_function_value =
-    | Abs_function_value of var * abstract_expr
+    | Abs_function_value of abstract_var * abstract_expr
 [@@deriving eq, ord, to_yojson]
 
 (** A type to represent the bodies of abstract clauses. *)
 and abstract_clause_body =
     | Abs_value_body of abstract_value
-  | Abs_var_body of var
-  | Abs_appl_body of var * var
+  | Abs_var_body of abstract_var
+  | Abs_appl_body of abstract_var * abstract_var
   | Abs_conditional_body of
-      var * pattern * abstract_function_value * abstract_function_value
-  | Abs_projection_body of var * ident
-  | Abs_deref_body of var
-  | Abs_update_body of var * var
-  | Abs_binary_operation_body of var * binary_operator * var
-  | Abs_unary_operation_body of unary_operator * var
-  | Abs_indexing_body of var * var
+      abstract_var * pattern * abstract_function_value * abstract_function_value
+  | Abs_projection_body of abstract_var * ident
+  | Abs_deref_body of abstract_var
+  | Abs_update_body of abstract_var * abstract_var
+  | Abs_binary_operation_body of abstract_var * binary_operator * abstract_var
+  | Abs_unary_operation_body of unary_operator * abstract_var
+  | Abs_indexing_body of abstract_var * abstract_var
 [@@deriving eq, ord, to_yojson]
 
 (** A type to represent abstract clauses. *)
 and abstract_clause =
-    | Abs_clause of var * abstract_clause_body
+    | Abs_clause of abstract_var * abstract_clause_body
 [@@deriving eq, ord, to_yojson]
 
 (** A type to represent abstract expressions. *)
@@ -59,48 +77,61 @@ and abstract_expr =
 [@@deriving eq, ord, to_yojson]
 ;;
 
+let pp_abstract_var formatter (Abs_var(i)) = pp_ident formatter i;;
+
 let rec pp_abstract_function_value formatter (Abs_function_value(x,e)) =
-  Format.fprintf formatter "%a -> (@ %a)" pp_var x pp_abstract_expr e
+  Format.fprintf formatter "%a -> (@ %a)"
+    pp_abstract_var x pp_abstract_expr e
 
 and pp_abstract_value formatter v =
   match v with
-  | Abs_value_record r -> pp_record_value formatter r
+  | Abs_value_record r -> pp_abstract_record_value formatter r
   | Abs_value_function f -> pp_abstract_function_value formatter f
-  | Abs_value_ref r -> pp_ref_value formatter r
+  | Abs_value_ref r -> pp_abstract_ref_value formatter r
   | Abs_value_int -> Format.pp_print_string formatter "int"
   | Abs_value_bool b ->
     Format.pp_print_string formatter @@ if b then "true" else "false"
   | Abs_value_string -> Format.pp_print_string formatter "string"
 
+and pp_abstract_record_value formatter (Abs_record_value els) =
+  let pp_element formatter (k,v) =
+    Format.fprintf formatter "%a=%a" pp_ident k pp_abstract_var v
+  in
+  pp_concat_sep_delim "{" "}" "," pp_element formatter @@ Ident_map.enum els
+
+and pp_abstract_ref_value formatter (Abs_ref_value x) =
+  Format.fprintf formatter "ref %a" pp_abstract_var x
+
 and pp_abstract_clause_body formatter b =
   match b with
-  | Abs_var_body(x) -> pp_var formatter x
+  | Abs_var_body(x) -> pp_abstract_var formatter x
   | Abs_value_body(v) -> pp_abstract_value formatter v
-  | Abs_appl_body(x1,x2) -> Format.fprintf formatter "%a %a" pp_var x1 pp_var x2
+  | Abs_appl_body(x1,x2) ->
+    Format.fprintf formatter "%a %a" pp_abstract_var x1 pp_abstract_var x2
   | Abs_conditional_body(x,p,f1,f2) ->
     Format.fprintf formatter
       "%a ~ %a@[<4> ? @[<2>%a@] : @[<2>%a@]@]"
-      pp_var x
+      pp_abstract_var x
       pp_pattern p
       pp_abstract_function_value f1
       pp_abstract_function_value f2
   | Abs_projection_body(x,i) ->
-    Format.fprintf formatter "%a.%a" pp_var x pp_ident i
-  | Abs_deref_body(x) -> Format.fprintf formatter "!%a" pp_var x
+    Format.fprintf formatter "%a.%a" pp_abstract_var x pp_ident i
+  | Abs_deref_body(x) -> Format.fprintf formatter "!%a" pp_abstract_var x
   | Abs_update_body(x1,x2) ->
-    Format.fprintf formatter "%a <- %a" pp_var x1 pp_var x2
+    Format.fprintf formatter "%a <- %a" pp_abstract_var x1 pp_abstract_var x2
   | Abs_binary_operation_body(x1,op,x2) ->
     Format.fprintf formatter "%a %a %a"
-      pp_var x1 pp_binary_operator op pp_var x2
+      pp_abstract_var x1 pp_binary_operator op pp_abstract_var x2
   | Abs_unary_operation_body(op,x1) ->
     Format.fprintf formatter "%a %a"
-      pp_unary_operator op pp_var x1
+      pp_unary_operator op pp_abstract_var x1
   | Abs_indexing_body(x1,x2) ->
-    Format.fprintf formatter "%a[%a]" pp_var x1 pp_var x2
+    Format.fprintf formatter "%a[%a]" pp_abstract_var x1 pp_abstract_var x2
 
 and pp_abstract_clause formatter (Abs_clause(x,b)) =
   Format.fprintf formatter "%a = @[<hv 2>%a@]"
-    pp_var x pp_abstract_clause_body b
+    pp_abstract_var x pp_abstract_clause_body b
 
 and pp_abstract_expr formatter (Abs_expr(cls)) =
   pp_concat_sep ";" pp_abstract_clause formatter @@ List.enum cls
@@ -110,7 +141,7 @@ let show_abstract_clause = pp_to_string pp_abstract_clause;;
 
 let var_of_abstract_clause (Abs_clause(x,_)) = x;;
 let pp_var_of_abstract_clause formatter acl =
-  pp_var formatter (var_of_abstract_clause acl)
+  pp_abstract_var formatter (var_of_abstract_clause acl)
 ;;
 
 let is_abstract_clause_immediate (Abs_clause(_,b)) =
@@ -192,12 +223,12 @@ end;;
 
 type annotated_clause =
   | Unannotated_clause of abstract_clause
-  | Enter_clause of var * var * abstract_clause
-  | Exit_clause of var * var * abstract_clause
-  | Start_clause of var
+  | Enter_clause of abstract_var * abstract_var * abstract_clause
+  | Exit_clause of abstract_var * abstract_var * abstract_clause
+  | Start_clause of abstract_var
   (** This variable is the return variable of the block that this clause
       starts. *)
-  | End_clause of var
+  | End_clause of abstract_var
   (** This variable is the return variable of the block that this clause
       ends. *)
 [@@deriving ord, eq, show, to_yojson]

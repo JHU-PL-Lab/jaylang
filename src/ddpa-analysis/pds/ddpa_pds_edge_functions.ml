@@ -1,7 +1,6 @@
 open Batteries;;
 open Jhupllib;;
 
-open Core_ast;;
 open Ddpa_abstract_ast;;
 open Ddpa_context_stack;;
 open Ddpa_graph;;
@@ -136,7 +135,7 @@ struct
             let%orzero (Enter_clause(x,x',c)) = acl1 in
             let%orzero (Abs_clause(_,Abs_appl_body (_,x3''))) = c in
             begin
-              if not (equal_var x' x3'') then
+              if not (equal_abstract_var x' x3'') then
                 raise @@ Utils.Invariant_failure "Ill-formed wiring node."
               else
                 ()
@@ -152,7 +151,7 @@ struct
             let%orzero (Exit_clause(x,_,c)) = acl1 in
             let%orzero (Abs_clause(x1'',Abs_appl_body(x2'',x3''))) = c in
             begin
-              if not (equal_var x x1'') then
+              if not (equal_abstract_var x x1'') then
                 raise @@ Utils.Invariant_failure "Ill-formed wiring node."
               else
                 ()
@@ -168,7 +167,7 @@ struct
             let%orzero (Exit_clause(x,x',c)) = acl1 in
             let%orzero (Abs_clause(x1'',Abs_appl_body _)) = c in
             begin
-              if not (equal_var x x1'') then
+              if not (equal_abstract_var x x1'') then
                 raise @@ Utils.Invariant_failure "Ill-formed wiring node."
               else
                 ()
@@ -185,7 +184,7 @@ struct
             let%orzero (Enter_clause(x'',x',c)) = acl1 in
             let%orzero (Abs_clause(_,Abs_appl_body(x2'',x3''))) = c in
             begin
-              if not (equal_var x' x3'') then
+              if not (equal_abstract_var x' x3'') then
                 raise @@ Utils.Invariant_failure "Ill-formed wiring node."
               else
                 ()
@@ -207,14 +206,14 @@ struct
               (Abs_clause(_,Abs_conditional_body(x1',p,f1,_))) = c
             in
             begin
-              if not (equal_var x1 x1') then
+              if not (equal_abstract_var x1 x1') then
                 raise @@ Utils.Invariant_failure "Ill-formed wiring node."
               else
                 ()
             end;
             let Abs_function_value(f1x,_) = f1 in
             (* x'' =(down)c x' for conditionals *)
-            let closure_for_positive_path = equal_var f1x x' in
+            let closure_for_positive_path = equal_abstract_var f1x x' in
             return ( Conditional_closure_lookup
                        (x',x1,p,closure_for_positive_path)
                    , Program_point_state(acl1,ctx)
@@ -228,7 +227,7 @@ struct
               (Abs_clause(x2,Abs_conditional_body(x1,pat,f1,_))) = c
             in
             begin
-              if not (equal_var x x2) then
+              if not (equal_abstract_var x x2) then
                 raise @@ Utils.Invariant_failure "Ill-formed wiring node."
               else
                 ()
@@ -236,7 +235,7 @@ struct
             (* x =(up) x' for conditionals *)
             let Abs_function_value(_,Abs_expr(cls)) = f1 in
             let f1ret = rv cls in
-            let then_branch = equal_var f1ret x' in
+            let then_branch = equal_abstract_var f1ret x' in
             return ( Conditional_subject_validation(
                 x,x',x1,pat,then_branch,acl1,ctx)
                    , Program_point_state(Unannotated_clause(c),ctx)

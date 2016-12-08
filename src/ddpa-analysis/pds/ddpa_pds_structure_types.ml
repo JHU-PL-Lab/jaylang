@@ -43,7 +43,7 @@ struct
     (** The bottom of stack element is necessary as a sentinel. It's pushed as
         the initial element on the continuation stack so we don't need to check
         for empty continuation stacks. *)
-    | Lookup_var of var * Pattern_set.t * Pattern_set.t
+    | Lookup_var of abstract_var * Pattern_set.t * Pattern_set.t
     | Project of ident * Pattern_set.t * Pattern_set.t
     | Jump of annotated_clause * C.t
     | Rewind
@@ -53,9 +53,9 @@ struct
     | Real_flow_huh
     | Alias_huh
     | Side_effect_search_start
-    | Side_effect_search_escape of var
+    | Side_effect_search_escape of abstract_var
     | Side_effect_lookup_var of
-        var * Pattern_set.t * Pattern_set.t * annotated_clause * C.t
+        abstract_var * Pattern_set.t * Pattern_set.t * annotated_clause * C.t
     | Binary_operation
     | Unary_operation
     | Indexing

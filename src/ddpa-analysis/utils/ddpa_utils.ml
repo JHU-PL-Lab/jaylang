@@ -16,7 +16,7 @@ let rv body =
 ;;
 
 let negative_pattern_set_selection record_type pattern_set =
-  let (Record_value m) = record_type in
+  let (Abs_record_value m) = record_type in
   let record_labels = Ident_set.of_enum @@ Ident_map.keys m in
   let relevant_patterns = pattern_set
                           |> Pattern_set.enum
@@ -24,10 +24,12 @@ let negative_pattern_set_selection record_type pattern_set =
                             (fun pattern ->
                                match pattern with
                                | Record_pattern m' ->
-                                 Ident_set.subset (Ident_set.of_enum @@ Ident_map.keys m')
+                                 Ident_set.subset (Ident_set.of_enum @@
+                                                   Ident_map.keys m')
                                    record_labels
                                | Any_pattern ->
-                                 raise @@ Utils.Invariant_failure "Shouldn't call `negative_pattern_set_selection' with a pattern set that contains `any' patterns."
+                                 raise @@ Utils.Invariant_failure
+                                   "Shouldn't call `negative_pattern_set_selection' with a pattern set that contains `any' patterns."
                                | _ -> false)
   in
   (* This function selects a single label from a given pattern and constructs
@@ -86,7 +88,7 @@ let is_record_pattern_set set =
     )
 ;;
 
-let labels_in_record (Record_value m) =
+let labels_in_record (Abs_record_value m) =
   Ident_set.of_enum @@ Ident_map.keys m
 ;;
 

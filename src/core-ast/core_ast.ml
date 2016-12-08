@@ -42,13 +42,13 @@ end;;
     body of a function). *)
 type freshening_stack =
   | Freshening_stack of ident list
-  [@@deriving eq, ord, to_yojson]
+[@@deriving eq, ord, to_yojson]
 ;;
 
 (** Variables in the AST. *)
 type var =
   | Var of ident * freshening_stack option
-  [@@deriving eq, ord, to_yojson]
+[@@deriving eq, ord, to_yojson]
 ;;
 
 module Var =
@@ -88,7 +88,7 @@ type binary_operator =
   | Binary_operator_equal_to
   | Binary_operator_bool_and
   | Binary_operator_bool_or
-  [@@deriving eq, ord]
+[@@deriving eq, ord]
 ;;
 
 let binary_operator_to_yojson = function
@@ -103,7 +103,7 @@ let binary_operator_to_yojson = function
 
 type unary_operator =
   | Unary_operator_bool_not
-  [@@deriving eq, ord]
+[@@deriving eq, ord]
 ;;
 
 let unary_operator_to_yojson = function
@@ -113,31 +113,31 @@ let unary_operator_to_yojson = function
 (** A type to express record values. *)
 type record_value =
   | Record_value of var Ident_map.t
-  [@@deriving eq, ord, to_yojson]
+[@@deriving eq, ord, to_yojson]
 
 (** A type to express function values. *)
 and function_value =
-  | Function_value of var * expr
-  [@@deriving eq, ord, to_yojson]
+    | Function_value of var * expr
+[@@deriving eq, ord, to_yojson]
 
 (** A type to express reference values. *)
 and ref_value =
-  | Ref_value of var
-  [@@deriving eq, ord, to_yojson]
+    | Ref_value of var
+[@@deriving eq, ord, to_yojson]
 
 (** A type to represent values. *)
 and value =
-  | Value_record of record_value
+    | Value_record of record_value
   | Value_function of function_value
   | Value_ref of ref_value
   | Value_int of int
   | Value_bool of bool
   | Value_string of string
-  [@@deriving eq, ord, to_yojson]
+[@@deriving eq, ord, to_yojson]
 
 (** A type to represent the bodies of clauses. *)
 and clause_body =
-  | Value_body of value
+    | Value_body of value
   | Var_body of var
   | Appl_body of var * var
   | Conditional_body of var * pattern * function_value * function_value
@@ -147,26 +147,26 @@ and clause_body =
   | Binary_operation_body of var * binary_operator * var
   | Unary_operation_body of unary_operator * var
   | Indexing_body of var * var
-  [@@deriving eq, ord, to_yojson]
+[@@deriving eq, ord, to_yojson]
 
 (** A type to represent clauses. *)
 and clause =
-  | Clause of var * clause_body
-  [@@deriving eq, ord, to_yojson]
+    | Clause of var * clause_body
+[@@deriving eq, ord, to_yojson]
 
 (** A type to represent expressions. *)
 and expr = Expr of clause list [@@deriving eq, ord, to_yojson]
 
 (** A type representing conditional patterns. *)
 and pattern =
-  | Record_pattern of pattern Ident_map.t
+    | Record_pattern of pattern Ident_map.t
   | Fun_pattern
   | Ref_pattern
   | Int_pattern
   | Bool_pattern of bool
   | String_pattern
   | Any_pattern
-  [@@deriving eq, ord, yojson]
+[@@deriving eq, ord, yojson]
 ;;
 
 module Value =

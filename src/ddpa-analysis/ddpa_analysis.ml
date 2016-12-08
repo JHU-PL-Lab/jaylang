@@ -7,7 +7,6 @@ open Batteries;;
 open Jhupllib;;
 
 open Core_ast;;
-open Core_ast_pp;;
 open Ddpa_abstract_ast;;
 open Ddpa_analysis_logging;;
 open Ddpa_context_stack;;
@@ -57,11 +56,11 @@ sig
       The returned analysis contains a cache structure to accelerate answering
       of this question in the future. *)
   val values_of_variable :
-    var -> annotated_clause -> ddpa_analysis ->
+    abstract_var -> annotated_clause -> ddpa_analysis ->
     Abs_filtered_value_set.t * ddpa_analysis
 
   val contextual_values_of_variable :
-    var -> annotated_clause -> C.t -> ddpa_analysis ->
+    abstract_var -> annotated_clause -> C.t -> ddpa_analysis ->
     Abs_filtered_value_set.t * ddpa_analysis
 end;;
 
@@ -435,7 +434,7 @@ struct
     Logger_utils.lazy_bracket_log (lazy_logger `trace)
       (fun () ->
          Printf.sprintf "Determining values of variable %s at position %s%s"
-           (show_var x) (show_annotated_clause acl) @@
+           (show_abstract_var x) (show_annotated_clause acl) @@
          if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
          then ""
          else

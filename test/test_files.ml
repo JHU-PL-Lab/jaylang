@@ -21,6 +21,7 @@ open Core_ast_pp;;
 open Core_ast_wellformedness;;
 open Core_toploop_options;;
 open Core_toploop_types;;
+open Ddpa_abstract_ast;;
 open String_utils;;
 
 let lazy_logger = Logger_utils.make_lazy_logger "Test_files";;
@@ -216,15 +217,15 @@ let observe_inconsistency inconsistency expectation =
   let site_of_inconsistency =
     let open Core_toploop_analysis_types in
     match inconsistency with
-    | Application_of_non_function (Var(ident,_),_,_,_) -> ident
-    | Projection_of_non_record (Var(ident,_),_,_) -> ident
-    | Projection_of_absent_label (Var(ident,_),_,_,_) -> ident
-    | Deref_of_non_ref (Var(ident,_),_,_) -> ident
-    | Update_of_non_ref (Var(ident,_),_,_) -> ident
-    | Invalid_binary_operation (Var(ident,_),_,_,_,_,_) -> ident
-    | Invalid_unary_operation (Var(ident,_),_,_,_) -> ident
-    | Invalid_indexing_subject (Var(ident,_),_,_) -> ident
-    | Invalid_indexing_argument (Var(ident,_),_,_) -> ident
+    | Application_of_non_function (Abs_var ident,_,_,_) -> ident
+    | Projection_of_non_record (Abs_var ident,_,_) -> ident
+    | Projection_of_absent_label (Abs_var ident,_,_,_) -> ident
+    | Deref_of_non_ref (Abs_var ident,_,_) -> ident
+    | Update_of_non_ref (Abs_var ident,_,_) -> ident
+    | Invalid_binary_operation (Abs_var ident,_,_,_,_,_) -> ident
+    | Invalid_unary_operation (Abs_var ident,_,_,_) -> ident
+    | Invalid_indexing_subject (Abs_var ident,_,_) -> ident
+    | Invalid_indexing_argument (Abs_var ident,_,_) -> ident
   in
   match expectation with
   | Expect_analysis_inconsistency_at expected_site ->

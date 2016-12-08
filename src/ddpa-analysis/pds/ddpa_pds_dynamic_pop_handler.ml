@@ -59,13 +59,13 @@ struct
       return []
     | Variable_aliasing(x2,x1) ->
       let%orzero (Lookup_var(x',patsp,patsn)) = element in
-      [%guard equal_var x' x2];
+      [%guard equal_abstract_var x' x2];
       (* We're looking for x2 and we've discovered here that it's aliased to
          x1. *)
       return [Push(Lookup_var(x1,patsp,patsn))]
     | Stateless_nonmatching_clause_skip_1_of_2 x'' ->
       let%orzero (Lookup_var(x,_,_)) = element in
-      [%guard (not @@ equal_var x x'')];
+      [%guard (not @@ equal_abstract_var x x'')];
       (* We're looking for a variable which does not match the one in this
          clause.  If we're stateless, that'll be fine. *)
       return [Pop_dynamic_targeted(
@@ -112,7 +112,7 @@ struct
       return [ Push(Jump(acl,ctx0)) ]
     | Function_call_flow_validation(x2'',x3'',acl0,ctx0,c,ctxc,x) ->
       let%orzero (Lookup_var(x',_,_)) = element in
-      [%guard (equal_var x x')];
+      [%guard (equal_abstract_var x x')];
       return [ Push(element)
              ; Push(Real_flow_huh)
              ; Push(Jump(acl0,ctx0))
@@ -131,11 +131,11 @@ struct
       let%orzero
         Abs_value_function(Abs_function_value(_,Abs_expr(acls))) = v'
       in
-      [%guard (equal_var x' @@ rv acls)];
+      [%guard (equal_abstract_var x' @@ rv acls)];
       return [ Pop_dynamic_targeted(Variable_aliasing(x,x')) ]
     | Function_closure_lookup(x'',xf) ->
       let%orzero (Lookup_var(x,_,_)) = element in
-      [%guard (not @@ equal_var x x'')];
+      [%guard (not @@ equal_abstract_var x x'')];
       (* We're looking for a non-local variable.  Push a lookup for the
          function. *)
       return [ Push(element)
@@ -144,7 +144,7 @@ struct
              ]
     | Conditional_closure_lookup(x',x1,pat,positive_side) ->
       let%orzero (Lookup_var(x,patsp,patsn)) = element in
-      if not @@ (equal_var x x' || equal_var x x1)
+      if not @@ (equal_abstract_var x x' || equal_abstract_var x x1)
       then return [Push(element)]
       else
         let (patsp',patsn') =
@@ -155,7 +155,7 @@ struct
         return [Push(Lookup_var(x1,patsp',patsn'))]
     | Conditional_subject_validation(x,x',x1,pat,then_branch,acl1,ctx) ->
       let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-      [%guard (equal_var x0 x)];
+      [%guard (equal_abstract_var x0 x)];
       let patsp',patsn' =
         if then_branch
         then (Pattern_set.singleton pat, Pattern_set.empty)
@@ -167,7 +167,7 @@ struct
              ]
     | Record_projection_lookup(x,x',l) ->
       let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-      [%guard (equal_var x0 x)];
+      [%guard (equal_abstract_var x0 x)];
       return [ Push(Project(l,patsp,patsn))
              ; Push(Lookup_var(x',Pattern_set.empty,Pattern_set.empty))
              ]
@@ -175,7 +175,7 @@ struct
       let%orzero (Continuation_value fv) = element in
       let%orzero (Abs_filtered_value(Abs_value_record(r),patsp,patsn)) = fv in
       return [ Pop_dynamic_targeted(Record_projection_2_of_2(r,patsp,patsn)) ]
-    | Record_projection_2_of_2(Record_value(m) as r,patsp0,patsn0) ->
+    | Record_projection_2_of_2(Abs_record_value(m) as r,patsp0,patsn0) ->
       let%orzero (Project(l,patsp1,patsn1)) = element in
       [%guard (Ident_map.mem l m)];
       if (not
@@ -192,7 +192,7 @@ struct
       return @@ [ Push(Lookup_var(x',patsp',patsn')) ]
     | Function_filter_validation(x,v) ->
       let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-      [% guard (equal_var x x0) ];
+      [% guard (equal_abstract_var x x0) ];
       [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Fun_pattern; Any_pattern])) ];
       [% guard [Fun_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
       let value = Abs_value_function(v) in
@@ -203,13 +203,13 @@ struct
     | Record_filter_validation(x,r,acl1,ctx1) ->
       (* Make sure we're looking for this variable. *)
       let%orzero (Lookup_var(x0,patsp0,patsn0)) = element in
-      [% guard (equal_var x x0) ];
+      [% guard (equal_abstract_var x x0) ];
       [% guard (is_record_pattern_set patsp0)];
       [% guard [Record_pattern Ident_map.empty; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn0)) ];
       let%bind patsn2 = negative_pattern_set_selection r patsn0 in
       let pattern_set_labels = labels_in_pattern_set patsp0 in
       let record_labels = labels_in_record r in
-      let Record_value(m) = r in
+      let Abs_record_value(m) = r in
       [%guard (Ident_set.subset pattern_set_labels record_labels) ];
       let make_k'' l =
         let x'' = Ident_map.find l m in
@@ -235,7 +235,7 @@ struct
       return @@ List.of_enum all_pushes
     | Int_filter_validation(x) ->
       let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-      [% guard (equal_var x x0) ];
+      [% guard (equal_abstract_var x x0) ];
       [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Int_pattern; Any_pattern])) ];
       [% guard [Int_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
       let abs_filtered_value =
@@ -244,7 +244,7 @@ struct
       return [ Push(Continuation_value abs_filtered_value) ]
     | Bool_filter_validation(x,b) ->
       let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-      [% guard (equal_var x x0) ];
+      [% guard (equal_abstract_var x x0) ];
       [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Bool_pattern(b); Any_pattern])) ];
       [% guard [Bool_pattern(b); Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
       let abs_filtered_value =
@@ -253,7 +253,7 @@ struct
       return [ Push(Continuation_value abs_filtered_value) ]
     | String_filter_validation(x) ->
       let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-      [% guard (equal_var x x0) ];
+      [% guard (equal_abstract_var x x0) ];
       [% guard (Pattern_set.subset patsp (Pattern_set.of_list [String_pattern; Any_pattern])) ];
       [% guard [String_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
       let abs_filtered_value =
@@ -262,8 +262,8 @@ struct
       return [ Push(Continuation_value abs_filtered_value) ]
     | Empty_record_value_discovery(x) ->
       let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-      [%guard (equal_var x x0)];
-      let empty_record = Abs_value_record(Record_value Ident_map.empty) in
+      [%guard (equal_abstract_var x x0)];
+      let empty_record = Abs_value_record(Abs_record_value Ident_map.empty) in
       let empty_record_pattern = Record_pattern Ident_map.empty in
       [% guard (Pattern_set.subset patsp (Pattern_set.of_list [empty_record_pattern; Any_pattern])) ];
       [% guard [empty_record_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
@@ -271,13 +271,13 @@ struct
           empty_record,Pattern_set.empty,Pattern_set.empty))) ]
     | Dereference_lookup(x,x') ->
       let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-      [% guard (equal_var x x0) ];
+      [% guard (equal_abstract_var x x0) ];
       return [ Push(Deref(patsp, patsn))
              ; Push(Lookup_var(x', Pattern_set.empty, Pattern_set.empty))
              ]
     | Cell_filter_validation(x,cell) ->
       let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-      [% guard (equal_var x x0) ];
+      [% guard (equal_abstract_var x x0) ];
       [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Ref_pattern; Any_pattern])) ];
       [% guard [Ref_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
       let value = Abs_value_ref(cell) in
@@ -295,7 +295,7 @@ struct
       return [ Pop_dynamic_targeted(Cell_dereference_2_of_2(cell)) ]
     | Cell_dereference_2_of_2(cell) ->
       let%orzero (Deref(patsp,patsn)) = element in
-      let Ref_value(x') = cell in
+      let Abs_ref_value(x') = cell in
       return [ Push(Lookup_var(x', patsp, patsn)) ]
     | Cell_update_alias_analysis_init_1_of_2(x',source_state,target_state) ->
       let%orzero (Lookup_var(x,patsp,patsn)) = element in
@@ -356,11 +356,11 @@ struct
                ; Push(Lookup_var(x,patsp0,patsn0)) ]
     | Nonsideeffecting_nonmatching_clause_skip(x'') ->
       let%orzero Lookup_var(x,_,_) = element in
-      [%guard (not @@ equal_var x x'')];
+      [%guard (not @@ equal_abstract_var x x'')];
       return [Push element]
     | Side_effect_search_init_1_of_2(x'',acl0,ctx) ->
       let%orzero Lookup_var(x,patsp,patsn) = element in
-      [%guard (not @@ equal_var x x'')];
+      [%guard (not @@ equal_abstract_var x x'')];
       return [ Pop_dynamic_targeted(
           Side_effect_search_init_2_of_2(x,patsp,patsn,acl0,ctx)) ]
     | Side_effect_search_init_2_of_2(x,patsp,patsn,acl0,ctx) ->
@@ -457,7 +457,7 @@ struct
       return [ Push (Lookup_var(x,patsp,patsn)) ]
     | Binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
       let%orzero Lookup_var(x1',_,_) = element in
-      [%guard (equal_var x1 x1') ];
+      [%guard (equal_abstract_var x1 x1') ];
       (* The lists below are in reverse order of their presentation in the
          formal rules because we are not directly modifying the stack;
          instead, we are pushing stack elements one at a time. *)
@@ -474,7 +474,7 @@ struct
       return @@ List.map (fun x -> Push x) @@ k0 @ k3'' @ k2'' @ k1''
     | Unary_operator_lookup_init(x1,x2,acl0,ctx0) ->
       let%orzero Lookup_var(x1',_,_) = element in
-      [%guard (equal_var x1 x1') ];
+      [%guard (equal_abstract_var x1 x1') ];
       (* The lists below are in reverse order of their presentation in the
          formal rules because we are not directly modifying the stack;
          instead, we are pushing stack elements one at a time. *)
@@ -487,7 +487,7 @@ struct
       return @@ List.map (fun x -> Push x) @@ k0 @ k2'' @ k1''
     | Indexing_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
       let%orzero Lookup_var(x1',_,_) = element in
-      [%guard (equal_var x1 x1') ];
+      [%guard (equal_abstract_var x1 x1') ];
       (* The lists below are in reverse order of their presentation in the
          formal rules because we are not directly modifying the stack;
          instead, we are pushing stack elements one at a time. *)
@@ -600,7 +600,7 @@ struct
       end
     | Binary_operator_resolution_4_of_4(x1,op,abstract_value) ->
       let%orzero Lookup_var(x1',patsp,patsn) = element in
-      [%guard (equal_var x1 x1') ];
+      [%guard (equal_abstract_var x1 x1') ];
       begin
         match op,abstract_value with
         | Binary_operator_plus,Abs_value_int
@@ -641,7 +641,7 @@ struct
       end
     | Unary_operator_resolution_3_of_3(x1,op,abstract_value) ->
       let%orzero Lookup_var(x1',patsp,patsn) = element in
-      [%guard (equal_var x1 x1') ];
+      [%guard (equal_abstract_var x1 x1') ];
       begin
         match op,abstract_value with
         | Unary_operator_bool_not, Abs_value_bool result_bool ->
@@ -675,7 +675,7 @@ struct
           Indexing_resolution_4_of_4(x1,Abs_value_string)) ]
     | Indexing_resolution_4_of_4(x1,abstract_value) ->
       let%orzero Lookup_var(x1',patsp,patsn) = element in
-      [%guard (equal_var x1 x1') ];
+      [%guard (equal_abstract_var x1 x1') ];
       begin
         match abstract_value with
         | Abs_value_string ->

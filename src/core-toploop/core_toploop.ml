@@ -233,7 +233,7 @@ let do_analysis_steps callbacks conf e =
                  |> List.enum
                  |> Enum.map lift_clause
                  |> Enum.map
-                   (fun (Abs_clause(Var(Ident i,_), _)) -> (i, None, None))
+                   (fun (Abs_clause(Abs_var(Ident i), _)) -> (i, None, None))
                  |> List.of_enum
                )
              | Analyze_specific_variables lst -> Some lst
@@ -247,7 +247,7 @@ let do_analysis_steps callbacks conf e =
                |> Core_ast_tools.flatten
                |> List.map lift_clause
                |> List.map
-                 (fun (Abs_clause(Var(i,_),_) as c) -> (i, c))
+                 (fun (Abs_clause(Abs_var i,_) as c) -> (i, c))
                |> List.enum
                |> Ident_map.of_enum
              in
@@ -266,10 +266,10 @@ let do_analysis_steps callbacks conf e =
              |> Enum.map
                (fun (var_name,site_name_opt,context_opt) ->
                   let var_ident = Ident var_name in
-                  let lookup_var = Var(var_ident,None) in
+                  let lookup_var = Abs_var var_ident in
                   let site =
                     match site_name_opt with
-                    | None -> End_clause (last_var_of e)
+                    | None -> End_clause (lift_var @@ last_var_of e)
                     | Some site_name ->
                       Unannotated_clause(
                         lookup_clause_by_ident (Ident site_name))

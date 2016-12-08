@@ -54,7 +54,7 @@ struct
       let%bind (v,filtv) = lookup x in
       begin
         match v with
-        | Abs_value_record(Record_value(m)) ->
+        | Abs_value_record(Abs_record_value(m)) ->
           if Ident_map.mem i m
           then zero ()
           else return @@ Projection_of_absent_label(x_clause,x,filtv,i)
