@@ -58,7 +58,6 @@ struct
         abstract_var * Pattern_set.t * Pattern_set.t * annotated_clause * C.t
     | Binary_operation
     | Unary_operation
-    | Indexing
   [@@deriving eq, ord, show, to_yojson]
   ;;
 

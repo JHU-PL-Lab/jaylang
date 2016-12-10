@@ -55,7 +55,6 @@ and var_replace_clause_body fn r =
   | Update_body(x1,x2) -> Update_body(fn x1, fn x2)
   | Binary_operation_body(x1,op,x2) -> Binary_operation_body(fn x1, op, fn x2)
   | Unary_operation_body(op,x1) -> Unary_operation_body(op, fn x1)
-  | Indexing_body(x1,x2) -> Indexing_body(fn x1, fn x2)
 
 and var_replace_value fn v =
   match v with
@@ -248,6 +247,11 @@ let rec evaluate env lastvar cls =
               Value_string(s1 ^ s2)
             | (Value_string(s1),Binary_operator_equal_to,Value_string(s2)) ->
               Value_bool(s1 = s2)
+            | (Value_string(s),Binary_operator_index,Value_int(i)) ->
+              if i < String.length(s) then
+                Value_string (String.make 1 (String.get s i))
+              else
+                Value_string ""
             | v1,op,v2 ->
               raise @@ Evaluation_failure(
                 Printf.sprintf "Cannot complete binary operation: (%s) %s (%s)"
@@ -267,25 +271,6 @@ let rec evaluate env lastvar cls =
               raise @@ Evaluation_failure(
                 Printf.sprintf "Cannot complete unary operation: %s (%s)"
                   (show_unary_operator op) (show_value v1))
-          end
-        in
-        Environment.add env x result;
-        evaluate env (Some x) t
-      | Indexing_body(x1,x2) ->
-        let v1 = lookup env x1 in
-        let v2 = lookup env x2 in
-        let result =
-          begin
-            match v1,v2 with
-            | (Value_string(s),Value_int(i)) ->
-              if i < String.length(s) then
-                Value_string (String.make 1 (String.get s i))
-              else
-                Value_string ""
-            | v1,v2 ->
-              raise @@ Evaluation_failure(
-                Printf.sprintf "Cannot complete indexing: %s[%s]"
-                  (show_value v1) (show_value v2))
           end
         in
         Environment.add env x result;

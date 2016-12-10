@@ -44,6 +44,7 @@ let pp_binary_operator formatter binop =
     | Binary_operator_equal_to -> "=="
     | Binary_operator_bool_and -> "and"
     | Binary_operator_bool_or -> "or"
+    | Binary_operator_index -> "@"
   in
   Format.pp_print_string formatter s
 ;;
@@ -102,8 +103,6 @@ and pp_clause_body formatter b =
       pp_var x1 pp_binary_operator op pp_var x2
   | Unary_operation_body(op,x1) ->
     Format.fprintf formatter "%a %a" pp_unary_operator op pp_var x1
-  | Indexing_body(x1,x2) ->
-    Format.fprintf formatter "%a[%a]" pp_var x1 pp_var x2
 
 and pp_clause formatter c =
   match c with

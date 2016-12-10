@@ -152,7 +152,7 @@ and clauses_and_var_of_nested_expr e =
         let (cls2,x2,map2) = clauses_and_var_of_nested_expr e2 in
         let first_union = disjoint_union map1 map2 in
         ( cls1 @ cls2
-        , Core_ast.Indexing_body(x1,x2)
+        , Core_ast.Binary_operation_body(x1,Binary_operator_index,x2)
         , disjoint_union this_map first_union
         )
       | Nested_ast.Let_expr(u,Nested_ast.Nested_var(_,x'),e1,e2) ->

@@ -37,6 +37,7 @@ module List = BatList;;
 %token BINOP_LESS
 %token BINOP_LESS_EQUAL
 %token BINOP_EQUAL
+%token BINOP_AT
 %token DOUBLE_SEMICOLON
 
 %start <Core_ast.expr> prog
@@ -107,10 +108,10 @@ clause_body:
       { Binary_operation_body($1,Binary_operator_bool_and,$3) }
   | variable KEYWORD_OR variable
       { Binary_operation_body($1,Binary_operator_bool_or,$3) }
+  | variable BINOP_AT variable
+      { Binary_operation_body($1,Binary_operator_index,$3) }
   | KEYWORD_NOT variable
       { Unary_operation_body(Unary_operator_bool_not,$2) }
-  | variable DOT OPEN_PAREN variable CLOSE_PAREN
-      { Indexing_body($1,$4) }
   ;
 
 value:

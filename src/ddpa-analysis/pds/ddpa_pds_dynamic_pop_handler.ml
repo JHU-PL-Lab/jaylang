@@ -190,14 +190,14 @@ struct
       let patsn' = Pattern_set.union patsn1 @@
         pattern_set_projection patsn2 l in
       return @@ [ Push(Lookup_var(x',patsp',patsn')) ]
-    | Function_filter_validation(x,v) ->
+    | Immediate_filter_validation(x,pats_legal,v) ->
       let%orzero (Lookup_var(x0,patsp,patsn)) = element in
       [% guard (equal_abstract_var x x0) ];
-      [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Fun_pattern; Any_pattern])) ];
+      [% guard (Pattern_set.subset patsp pats_legal) ];
+      [% guard (Pattern_set.is_empty @@ Pattern_set.inter patsn pats_legal) ];
       [% guard [Fun_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
-      let value = Abs_value_function(v) in
       let abs_filtered_value =
-        Abs_filtered_value(value,Pattern_set.empty,Pattern_set.empty)
+        Abs_filtered_value(v,Pattern_set.empty,Pattern_set.empty)
       in
       return [ Push(Continuation_value abs_filtered_value) ]
     | Record_filter_validation(x,r,acl1,ctx1) ->
@@ -233,33 +233,6 @@ struct
         |> Enum.append first_pushes
       in
       return @@ List.of_enum all_pushes
-    | Int_filter_validation(x) ->
-      let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-      [% guard (equal_abstract_var x x0) ];
-      [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Int_pattern; Any_pattern])) ];
-      [% guard [Int_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
-      let abs_filtered_value =
-        Abs_filtered_value(Abs_value_int,Pattern_set.empty,Pattern_set.empty)
-      in
-      return [ Push(Continuation_value abs_filtered_value) ]
-    | Bool_filter_validation(x,b) ->
-      let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-      [% guard (equal_abstract_var x x0) ];
-      [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Bool_pattern(b); Any_pattern])) ];
-      [% guard [Bool_pattern(b); Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
-      let abs_filtered_value =
-        Abs_filtered_value(Abs_value_bool(b),Pattern_set.empty,Pattern_set.empty)
-      in
-      return [ Push(Continuation_value abs_filtered_value) ]
-    | String_filter_validation(x) ->
-      let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-      [% guard (equal_abstract_var x x0) ];
-      [% guard (Pattern_set.subset patsp (Pattern_set.of_list [String_pattern; Any_pattern])) ];
-      [% guard [String_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
-      let abs_filtered_value =
-        Abs_filtered_value(Abs_value_string,Pattern_set.empty,Pattern_set.empty)
-      in
-      return [ Push(Continuation_value abs_filtered_value) ]
     | Empty_record_value_discovery(x) ->
       let%orzero (Lookup_var(x0,patsp,patsn)) = element in
       [%guard (equal_abstract_var x x0)];
@@ -275,14 +248,6 @@ struct
       return [ Push(Deref(patsp, patsn))
              ; Push(Lookup_var(x', Pattern_set.empty, Pattern_set.empty))
              ]
-    | Cell_filter_validation(x,cell) ->
-      let%orzero (Lookup_var(x0,patsp,patsn)) = element in
-      [% guard (equal_abstract_var x x0) ];
-      [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Ref_pattern; Any_pattern])) ];
-      [% guard [Ref_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
-      let value = Abs_value_ref(cell) in
-      return [ Push(Continuation_value(Abs_filtered_value(
-          value,Pattern_set.empty,Pattern_set.empty))) ]
     | Cell_dereference_1_of_2 ->
       let%orzero
         (Continuation_value(Abs_filtered_value(
@@ -485,206 +450,74 @@ struct
       let k2'' = [ Unary_operation ; Jump(acl0,ctx0) ] in
       let k0 = [ element ] in
       return @@ List.map (fun x -> Push x) @@ k0 @ k2'' @ k1''
-    | Indexing_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
-      let%orzero Lookup_var(x1',_,_) = element in
-      [%guard (equal_abstract_var x1 x1') ];
-      (* The lists below are in reverse order of their presentation in the
-         formal rules because we are not directly modifying the stack;
-         instead, we are pushing stack elements one at a time. *)
-      let capture_size_5 = Bounded_capture_size.of_int 5 in
-      let capture_size_2 = Bounded_capture_size.of_int 2 in
-      let k1'' = [ Capture capture_size_5
-                 ; Lookup_var(x2,Pattern_set.empty,Pattern_set.empty)
-                 ] in
-      let k2'' = [ Capture capture_size_2
-                 ; Lookup_var(x3,Pattern_set.empty,Pattern_set.empty)
-                 ; Jump(acl1, ctx1) ] in
-      let k3'' = [ Indexing ; Jump(acl0,ctx0) ] in
-      let k0 = [ element ] in
-      return @@ List.map (fun x -> Push x) @@ k0 @ k3'' @ k2'' @ k1''
     | Binary_operator_resolution_1_of_4(x1,op) ->
       let%orzero Binary_operation = element in
       return [ Pop_dynamic_targeted(
           Binary_operator_resolution_2_of_4(x1,op)) ]
     | Binary_operator_resolution_2_of_4(x1,op) ->
-      begin
-        match op,element with
-        | Binary_operator_plus,Continuation_value(Abs_filtered_value(Abs_value_int as abstract_value,patsp,patsn))
-        | Binary_operator_int_minus,Continuation_value(Abs_filtered_value(Abs_value_int as abstract_value,patsp,patsn))
-        | Binary_operator_int_less_than,Continuation_value(Abs_filtered_value(Abs_value_int as abstract_value,patsp,patsn))
-        | Binary_operator_int_less_than_or_equal_to,Continuation_value(Abs_filtered_value(Abs_value_int as abstract_value,patsp,patsn))
-        | Binary_operator_equal_to,Continuation_value(Abs_filtered_value(Abs_value_int as abstract_value,patsp,patsn))
-        | Binary_operator_equal_to,Continuation_value(Abs_filtered_value((Abs_value_bool _) as abstract_value,patsp,patsn))
-        | Binary_operator_bool_and,Continuation_value(Abs_filtered_value((Abs_value_bool _) as abstract_value,patsp,patsn))
-        | Binary_operator_bool_or,Continuation_value(Abs_filtered_value((Abs_value_bool _) as abstract_value,patsp,patsn))
-        | Binary_operator_plus,Continuation_value(Abs_filtered_value(Abs_value_string as abstract_value,patsp,patsn))
-        | Binary_operator_equal_to,Continuation_value(Abs_filtered_value(Abs_value_string as abstract_value,patsp,patsn)) ->
-          [%guard (Pattern_set.is_empty patsp) ];
-          [%guard (Pattern_set.is_empty patsn) ];
-          return [ Pop_dynamic_targeted(
-              Binary_operator_resolution_3_of_4(x1,op,abstract_value)) ]
-        | _ -> zero ()
-      end
-    | Binary_operator_resolution_3_of_4(x1,op,abstract_value) ->
-      begin
-        match op,abstract_value with
-        | Binary_operator_plus,Abs_value_int
-        | Binary_operator_int_minus,Abs_value_int ->
-          let%orzero
-            Continuation_value(Abs_filtered_value(Abs_value_int,patsp,patsn)) =
-            element
-          in
-          [%guard (Pattern_set.is_empty patsp) ];
-          [%guard (Pattern_set.is_empty patsn) ];
-          return [ Pop_dynamic_targeted(
-              Binary_operator_resolution_4_of_4(x1,op,Abs_value_int)) ]
-        | Binary_operator_int_less_than,Abs_value_int
-        | Binary_operator_int_less_than_or_equal_to,Abs_value_int
-        | Binary_operator_equal_to,Abs_value_int ->
-          let%orzero
-            Continuation_value(Abs_filtered_value(Abs_value_int,patsp,patsn)) =
-            element
-          in
-          [%guard (Pattern_set.is_empty patsp) ];
-          [%guard (Pattern_set.is_empty patsn) ];
-          let%bind v = pick_enum @@ List.enum [Abs_value_bool(true); Abs_value_bool(false)] in
-          return [ Pop_dynamic_targeted(
-              Binary_operator_resolution_4_of_4(x1,op,v)) ]
-        | Binary_operator_equal_to,Abs_value_bool op1bool ->
-          let%orzero
-            Continuation_value(Abs_filtered_value(Abs_value_bool op2bool,patsp,patsn)) =
-            element
-          in
-          [%guard (Pattern_set.is_empty patsp) ];
-          [%guard (Pattern_set.is_empty patsn) ];
-          return [ Pop_dynamic_targeted(
-              Binary_operator_resolution_4_of_4(x1,op,Abs_value_bool(op1bool = op2bool))) ]
-        | Binary_operator_bool_and,Abs_value_bool op1bool ->
-          let%orzero
-            Continuation_value(Abs_filtered_value(Abs_value_bool op2bool,patsp,patsn)) =
-            element
-          in
-          [%guard (Pattern_set.is_empty patsp) ];
-          [%guard (Pattern_set.is_empty patsn) ];
-          return [ Pop_dynamic_targeted(
-              Binary_operator_resolution_4_of_4(x1,op,Abs_value_bool(op1bool && op2bool))) ]
-        | Binary_operator_bool_or,Abs_value_bool op1bool ->
-          let%orzero
-            Continuation_value(Abs_filtered_value(Abs_value_bool op2bool,patsp,patsn)) =
-            element
-          in
-          [%guard (Pattern_set.is_empty patsp) ];
-          [%guard (Pattern_set.is_empty patsn) ];
-          return [ Pop_dynamic_targeted(
-              Binary_operator_resolution_4_of_4(x1,op,Abs_value_bool(op1bool || op2bool))) ]
-        | Binary_operator_plus,Abs_value_string ->
-          let%orzero
-            Continuation_value(Abs_filtered_value(Abs_value_string,patsp,patsn)) =
-            element
-          in
-          [%guard (Pattern_set.is_empty patsp) ];
-          [%guard (Pattern_set.is_empty patsn) ];
-          return [ Pop_dynamic_targeted(
-              Binary_operator_resolution_4_of_4(x1,op,Abs_value_string)) ]
-        | Binary_operator_equal_to,Abs_value_string ->
-          let%orzero
-            Continuation_value(Abs_filtered_value(Abs_value_string,patsp,patsn)) =
-            element
-          in
-          [%guard (Pattern_set.is_empty patsp) ];
-          [%guard (Pattern_set.is_empty patsn) ];
-          let%bind v = pick_enum @@ List.enum [Abs_value_bool(true); Abs_value_bool(false)] in
-          return [ Pop_dynamic_targeted(
-              Binary_operator_resolution_4_of_4(x1,op,v)) ]
-        | _ -> raise @@ Utils.Invariant_failure "Accumulated wrong binary operand."
-      end
-    | Binary_operator_resolution_4_of_4(x1,op,abstract_value) ->
+      (* TODO: Filter out invalid operands.  We did this before, but Zach
+         removed it because (a) the logic was messy to embed here and (b) this
+         all gets much easier to write once we have the assumption that all
+         operators are monomorphic.  So for now, we'll just validate once we
+         have the second operand.  This optimization isn't significant anyway.
+      *)
+      let%orzero
+        Continuation_value(Abs_filtered_value(v2,patsp,patsn)) = element
+      in
+      [%guard (Pattern_set.is_empty patsp) ];
+      [%guard (Pattern_set.is_empty patsn) ];
+      return [ Pop_dynamic_targeted(
+          Binary_operator_resolution_3_of_4(x1,op,v2)) ]
+    | Binary_operator_resolution_3_of_4(x1,op,v2) ->
+      let%orzero
+        Continuation_value(Abs_filtered_value(v1,patsp,patsn)) = element
+      in
+      [%guard (Pattern_set.is_empty patsp) ];
+      [%guard (Pattern_set.is_empty patsn) ];
+      let%orzero Some result_values = abstract_binary_operation op v1 v2 in
+      let%bind result_value = pick_enum result_values in
+      return [ Pop_dynamic_targeted(
+          Binary_operator_resolution_4_of_4(x1, result_value)) ]
+    | Binary_operator_resolution_4_of_4(x1, result_value) ->
       let%orzero Lookup_var(x1',patsp,patsn) = element in
       [%guard (equal_abstract_var x1 x1') ];
-      begin
-        match op,abstract_value with
-        | Binary_operator_plus,Abs_value_int
-        | Binary_operator_int_minus,Abs_value_int ->
-          [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Int_pattern; Any_pattern])) ];
-          [% guard [Int_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
-          return [ Push (Continuation_value(Abs_filtered_value(
-              abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
-        | Binary_operator_int_less_than,Abs_value_bool result_bool
-        | Binary_operator_int_less_than_or_equal_to,Abs_value_bool result_bool
-        | Binary_operator_equal_to,Abs_value_bool result_bool
-        | Binary_operator_bool_and,Abs_value_bool result_bool
-        | Binary_operator_bool_or,Abs_value_bool result_bool ->
-          [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Bool_pattern(result_bool); Any_pattern])) ];
-          [% guard [Bool_pattern(result_bool); Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
-          return [ Push (Continuation_value(Abs_filtered_value(
-              abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
-        | Binary_operator_plus,Abs_value_string ->
-          [% guard (Pattern_set.subset patsp (Pattern_set.of_list [String_pattern; Any_pattern])) ];
-          [% guard [String_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
-          return [ Push (Continuation_value(Abs_filtered_value(
-              abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
-        | _ -> raise @@ Utils.Invariant_failure "Invalid result of binary operation."
-      end
+      (* NOTE: For types that are not immediate (e.g. binary operations on
+         records), we'll need a different handler for pattern matching.  It
+         seems that our current theory for handling binary operators only works
+         for operations that return immediately matchable types. *)
+      let%orzero Some immediate_patterns = immediately_matched_by result_value in
+      [%guard Pattern_set.subset patsp immediate_patterns];
+      [%guard
+        Pattern_set.is_empty @@ Pattern_set.inter immediate_patterns patsn ];
+      return [ Push (Continuation_value(Abs_filtered_value(
+          result_value, Pattern_set.empty, Pattern_set.empty))) ]
     | Unary_operator_resolution_1_of_3(x1,op) ->
       let%orzero Unary_operation = element in
       return [ Pop_dynamic_targeted(
           Unary_operator_resolution_2_of_3(x1,op)) ]
     | Unary_operator_resolution_2_of_3(x1,op) ->
-      begin
-        match op,element with
-        | Unary_operator_bool_not,Continuation_value(Abs_filtered_value(Abs_value_bool opbool,patsp,patsn)) ->
-          [%guard (Pattern_set.is_empty patsp) ];
-          [%guard (Pattern_set.is_empty patsn) ];
-          return [ Pop_dynamic_targeted(
-              Unary_operator_resolution_3_of_3(x1,op,Abs_value_bool (not opbool))) ]
-        | _ -> zero ()
-      end
-    | Unary_operator_resolution_3_of_3(x1,op,abstract_value) ->
-      let%orzero Lookup_var(x1',patsp,patsn) = element in
-      [%guard (equal_abstract_var x1 x1') ];
-      begin
-        match op,abstract_value with
-        | Unary_operator_bool_not, Abs_value_bool result_bool ->
-          [% guard (Pattern_set.subset patsp (Pattern_set.of_list [Bool_pattern(result_bool); Any_pattern])) ];
-          [% guard [Bool_pattern(result_bool); Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
-          return [ Push (Continuation_value(Abs_filtered_value(
-              abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
-        | _ -> raise @@ Utils.Invariant_failure "Invalid result of unary operation."
-      end
-    | Indexing_resolution_1_of_4(x1) ->
-      let%orzero Indexing = element in
-      return [ Pop_dynamic_targeted(
-          Indexing_resolution_2_of_4(x1)) ]
-    | Indexing_resolution_2_of_4(x1) ->
       let%orzero
-        Continuation_value(Abs_filtered_value(Abs_value_int,patsp,patsn)) =
-        element
+        Continuation_value(Abs_filtered_value(v,patsp,patsn)) = element
       in
       [%guard (Pattern_set.is_empty patsp) ];
       [%guard (Pattern_set.is_empty patsn) ];
+      let%orzero Some result_values = abstract_unary_operation op v in
+      let%bind result_value = pick_enum result_values in
       return [ Pop_dynamic_targeted(
-          Indexing_resolution_3_of_4(x1)) ]
-    | Indexing_resolution_3_of_4(x1) ->
-      let%orzero
-        Continuation_value(Abs_filtered_value(Abs_value_string,patsp,patsn)) =
-        element
-      in
-      [%guard (Pattern_set.is_empty patsp) ];
-      [%guard (Pattern_set.is_empty patsn) ];
-      return [ Pop_dynamic_targeted(
-          Indexing_resolution_4_of_4(x1,Abs_value_string)) ]
-    | Indexing_resolution_4_of_4(x1,abstract_value) ->
+          Unary_operator_resolution_3_of_3(x1, result_value)) ]
+    | Unary_operator_resolution_3_of_3(x1, result_value) ->
       let%orzero Lookup_var(x1',patsp,patsn) = element in
       [%guard (equal_abstract_var x1 x1') ];
-      begin
-        match abstract_value with
-        | Abs_value_string ->
-          [% guard (Pattern_set.subset patsp (Pattern_set.of_list [String_pattern; Any_pattern])) ];
-          [% guard [String_pattern; Any_pattern] |> List.for_all (fun pattern -> (not @@ Pattern_set.mem pattern patsn)) ];
-          return [ Push (Continuation_value(Abs_filtered_value(
-              abstract_value,Pattern_set.empty,Pattern_set.empty))) ]
-        | _ -> raise @@ Utils.Invariant_failure "Invalid result of indexing."
-      end
+      (* NOTE: For types that are not immediate (e.g. unary operations on
+         records), we'll need a different handler for pattern matching.  It
+         seems that our current theory for handling unary operators only works
+         for operations that return immediately matchable types. *)
+      let%orzero Some immediate_patterns = immediately_matched_by result_value in
+      [%guard Pattern_set.subset patsp immediate_patterns];
+      [%guard
+        Pattern_set.is_empty @@ Pattern_set.inter immediate_patterns patsn ];
+      return [ Push (Continuation_value(Abs_filtered_value(
+          result_value, Pattern_set.empty, Pattern_set.empty))) ]
   ;;
 
   let perform_untargeted_dynamic_pop element action =

@@ -72,8 +72,8 @@ and _abs_exprs_of_clause (Abs_clause(_,b)) =
   | Abs_value_body(v) ->
     _abs_exprs_of_value v
   | Abs_var_body _ | Abs_appl_body _ | Abs_projection_body _ | Abs_deref_body _
-  | Abs_update_body _ | Abs_binary_operation_body _ | Abs_unary_operation_body _
-  | Abs_indexing_body _ -> Enum.empty ()
+  | Abs_update_body _ | Abs_binary_operation_body _
+  | Abs_unary_operation_body _ -> Enum.empty ()
 
 and _abs_exprs_of_value v =
   match v with

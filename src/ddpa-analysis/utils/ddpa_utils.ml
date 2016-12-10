@@ -155,7 +155,6 @@ struct
   let pp = Annotated_clause_map.pp pp_annotated_clause
 end;;
 
-
 (**
    This function generates a dictionary mapping each annotated clause to the
    end of its block.
@@ -231,9 +230,75 @@ and _create_end_of_block_map_for_body (b : abstract_clause_body) =
   | Abs_update_body (_,_) -> Annotated_clause_map.empty
   | Abs_binary_operation_body (_,_,_) -> Annotated_clause_map.empty
   | Abs_unary_operation_body (_,_) -> Annotated_clause_map.empty
-  | Abs_indexing_body (_,_) -> Annotated_clause_map.empty
 
 and _create_end_of_block_map_for_function (f : abstract_function_value) =
   let Abs_function_value(_, Abs_expr(body)) = f in
   create_end_of_block_map body
+;;
+
+(**
+   Defines immediate pattern matching.
+*)
+let immediately_matched_by (v : abstract_value) : Pattern_set.t option =
+  match v with
+  | Abs_value_function _ ->
+    Some (Pattern_set.of_list [ Any_pattern ; Fun_pattern ])
+  | Abs_value_int ->
+    Some (Pattern_set.of_list [ Any_pattern ; Int_pattern ])
+  | Abs_value_bool b ->
+    Some (Pattern_set.of_list [ Any_pattern ; Bool_pattern b ])
+  | Abs_value_string ->
+    Some (Pattern_set.of_list [ Any_pattern ; String_pattern ])
+  | Abs_value_ref _ ->
+    Some (Pattern_set.of_list [ Any_pattern ; Ref_pattern ])
+  | Abs_value_record _ ->
+    None
+;;
+
+(**
+   Defines the behavior of binary operations in abstract evaluation.
+*)
+let abstract_binary_operation
+    (binop : binary_operator)
+    (arg1 : abstract_value)
+    (arg2 : abstract_value)
+  : abstract_value Enum.t option =
+  let singleton x = Some(Enum.singleton x) in
+  match binop,arg1,arg2 with
+  | ( Binary_operator_plus
+    | Binary_operator_int_minus
+    ), Abs_value_int, Abs_value_int ->
+    singleton Abs_value_int
+  | ( Binary_operator_int_less_than
+    | Binary_operator_int_less_than_or_equal_to
+    | Binary_operator_equal_to
+    ), Abs_value_int, Abs_value_int ->
+    Some (List.enum [Abs_value_bool(true); Abs_value_bool(false)])
+  | Binary_operator_equal_to, Abs_value_bool b1, Abs_value_bool b2 ->
+    singleton @@ Abs_value_bool(b1 = b2)
+  | Binary_operator_bool_and, Abs_value_bool b1, Abs_value_bool b2 ->
+    singleton @@ Abs_value_bool(b1 && b2)
+  | Binary_operator_bool_or, Abs_value_bool b1, Abs_value_bool b2 ->
+    singleton @@ Abs_value_bool(b1 || b2)
+  | Binary_operator_equal_to, Abs_value_string, Abs_value_string ->
+    Some (List.enum [Abs_value_bool(true); Abs_value_bool(false)])
+  | Binary_operator_plus, Abs_value_string, Abs_value_string ->
+    singleton @@ Abs_value_string
+  | Binary_operator_index, Abs_value_string, Abs_value_int ->
+    singleton @@ Abs_value_string
+  | _ -> None
+;;
+
+(**
+   Defines the behavior of unary operations in abstract evaluation.
+*)
+let abstract_unary_operation
+    (unop : unary_operator)
+    (arg : abstract_value)
+  : abstract_value Enum.t option =
+  let singleton x = Some(Enum.singleton x) in
+  match unop,arg with
+  | Unary_operator_bool_not, Abs_value_bool b ->
+    singleton @@ Abs_value_bool(not b)
+  | _ -> None
 ;;

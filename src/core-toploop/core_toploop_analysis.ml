@@ -6,6 +6,7 @@ open Core_toploop_ddpa_wrapper_types;;
 open Core_toploop_utils;;
 open Ddpa_abstract_ast;;
 open Ddpa_graph;;
+open Ddpa_utils;;
 
 module Make(DDPA_wrapper : DDPA_wrapper) =
 struct
@@ -77,40 +78,7 @@ struct
     | Abs_binary_operation_body(x1,op,x2) ->
       let%bind (v1,filtv1) = lookup x1 in
       let%bind (v2,filtv2) = lookup x2 in
-      let is_valid =
-        match (v1,v2) with
-        | (Abs_value_int, Abs_value_int) ->
-          begin
-            match op with
-            | Binary_operator_plus
-            | Binary_operator_int_minus
-            | Binary_operator_int_less_than
-            | Binary_operator_int_less_than_or_equal_to
-            | Binary_operator_equal_to -> true
-            | Binary_operator_bool_or | Binary_operator_bool_and -> false
-          end
-        | (Abs_value_bool _, Abs_value_bool _) ->
-          begin
-            match op with
-            | Binary_operator_equal_to
-            | Binary_operator_bool_or | Binary_operator_bool_and -> true
-            | Binary_operator_plus
-            | Binary_operator_int_minus
-            | Binary_operator_int_less_than
-            | Binary_operator_int_less_than_or_equal_to -> false
-          end
-        | (Abs_value_string, Abs_value_string) ->
-          begin
-            match op with
-            | Binary_operator_equal_to
-            | Binary_operator_plus -> true
-            | Binary_operator_int_minus
-            | Binary_operator_int_less_than
-            | Binary_operator_int_less_than_or_equal_to
-            | Binary_operator_bool_or | Binary_operator_bool_and -> false
-          end
-        | _ -> false
-      in
+      let is_valid = Option.is_some (abstract_binary_operation op v1 v2) in
       if is_valid
       then zero ()
       else return @@
@@ -122,19 +90,4 @@ struct
         | (Unary_operator_bool_not, Abs_value_bool _) -> zero ()
         | _ -> return @@ Invalid_unary_operation(x_clause, op, x, filtv)
       end
-    | Abs_indexing_body(xa,xi) ->
-      alternative
-        begin
-          let%bind (v,filtv) = lookup xa in
-          match v with
-          | Abs_value_string -> zero ()
-          | _ -> return @@ Invalid_indexing_subject(x_clause,xa,filtv)
-        end
-        begin
-          let%bind (v,filtv) = lookup xi in
-          match v with
-          | Abs_value_int -> zero ()
-          | _ -> return @@ Invalid_indexing_argument(x_clause,xi,filtv)
-        end
-  ;;
 end;;

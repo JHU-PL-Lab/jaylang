@@ -59,5 +59,6 @@ rule token = parse
   | "<"                              { BINOP_LESS }
   | "<="                             { BINOP_LESS_EQUAL }
   | "=="                             { BINOP_EQUAL }
+  | "@"                              { BINOP_AT }
   | ident_start ident_cont* as s     { IDENTIFIER s }
   | ";;"                             { DOUBLE_SEMICOLON }

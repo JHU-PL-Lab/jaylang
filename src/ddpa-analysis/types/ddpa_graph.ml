@@ -117,7 +117,6 @@ and lift_clause_body b =
   | Binary_operation_body(x1,op,x2) ->
     Abs_binary_operation_body(lift_var x1, op, lift_var x2)
   | Unary_operation_body(op,x1) -> Abs_unary_operation_body(op, lift_var x1)
-  | Indexing_body(x1,x2) -> Abs_indexing_body(lift_var x1, lift_var x2)
 
 and lift_value v =
   match v with

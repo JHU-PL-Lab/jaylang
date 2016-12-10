@@ -108,11 +108,13 @@ struct
     | Record_projection_2_of_2 of
         abstract_record_value * Pattern_set.t * Pattern_set.t
     (** The second step of handling record projection. *)
-    | Function_filter_validation of abstract_var * abstract_function_value
-    (** Represents the validation of filters for a function under lookup.  If
-        the variable matches our lookup variable, only the `fun' filter on the
-        positive set is admissible and anything but `fun' in the negative
-        filters is admissible and can be erased. *)
+    | Immediate_filter_validation of
+        abstract_var * Pattern_set.t * abstract_value
+    (** The second step of handling immediate filter validation.  If the
+        variable matches our lookup variable, only the provided set of filters
+        is permitted on the positive side.  On the negative side, none of this
+        set of filters may be present.  If this is successful, the result will
+        be the specified abstract value with no filters. *)
     | Record_filter_validation of
         abstract_var * abstract_record_value * annotated_clause * C.t
     (** Represents the validation of filters for a record under lookup.  If
@@ -123,28 +125,10 @@ struct
         PDS state given here is the source node (which follows the record
         assignment node in control flow); it is used to construct the
         subordinate lookups used in filter validation. *)
-    | Int_filter_validation of abstract_var
-    (** Represents the validation of filters for an integer under lookup.  If
-        the variable matches our lookup variable, only the `int' filter on the
-        positive set is admissible and anything but `int' in the negative
-        filters is admissible and can be erased. *)
-    | Bool_filter_validation of abstract_var * bool
-    (** Represents the validation of filters for Boolean values under lookup.
-        If the variable matches our lookup variable, only the `true'/`false'
-        filter on the positive set is admissible and anything but `true'/`false'
-        in the negative filters is admissible and can be erased. *)
-    | String_filter_validation of abstract_var
-    (** Represents the validation of filters for String values under lookup.  If
-        the variable matches our lookup variable, only the `string' filter on
-        the positive set is admissible and anything but `string' in the negative
-        filters is admissible and can be erased. *)
     | Empty_record_value_discovery of abstract_var
     (** Represents the discovery of an empty record value assuming that the
         current lookup variable matches the one provided here. *)
     | Dereference_lookup of abstract_var * abstract_var
-    (** Represents a dereferencing action.  The first variable is the lookup
-        variable; the second variable is the variable it dereferences. *)
-    | Cell_filter_validation of abstract_var * abstract_ref_value
     (** Represents the validation of filters for a cell under lookup.  If
         the variable matches our lookup variable, the cell (provided as the
         given abstract value) is pushed in its place. *)
@@ -279,29 +263,24 @@ struct
         unary operation.  The first variable above must be the
         current target of lookup.  The second variable is the operand
         of the operation.  The state is the source states of the DDPA edge. *)
-    | Indexing_lookup_init of
-        abstract_var * abstract_var * abstract_var *
-        annotated_clause * C.t * annotated_clause * C.t
-    (** Represents the kickstart of a process which looks up values for
-        indexing.  The first variable above must be the
-        current target of lookup.  The next two variables are the subject
-        and the index, respectively.  The remaining two pairs of values
-        represent the source and target states of the DDPA edge. *)
     | Binary_operator_resolution_1_of_4 of abstract_var * binary_operator
     (** Represents the start of the resolution of a binary operator after its
-        operands have been found.  The variable here is the one under
-        lookup. *)
+        operands have been found.  The variable is the one defined by the
+        operation; the operands are on the stack.  This action simply pops the
+        Binary_operation header from the stack. *)
     | Binary_operator_resolution_2_of_4 of abstract_var * binary_operator
     (** The second step of binary operator resolution.  This step collects the
-        first operand if it is a valid operand for the given kind of
-        operation. *)
+        SECOND operand if it is a valid operand for the given kind of
+        operation.  (The operands are produced in opposite order on the
+        stack.) *)
     | Binary_operator_resolution_3_of_4 of
         abstract_var * binary_operator * abstract_value
-    (** The third step of binary operator resolution.  This step
-        collects the second operand.  The `abstract_value' is the first operand
-        accumulated on the previous step. *)
+    (** The third step of binary operator resolution.  The variable is the one
+        assigned by the operation; the value is the operation's second operand.
+        This step collects the FIRST operand and transforms the operands into
+        a result value.*)
     | Binary_operator_resolution_4_of_4 of
-        abstract_var * binary_operator * abstract_value
+        abstract_var * abstract_value
     (** The forth step of binary operator resolution.  This step
         collects and checks the lookup variable. The `abstract_value' is
         the result of the operation. A check guarantees that the given result
@@ -315,23 +294,8 @@ struct
         operand if it is a valid operand for the given kind of
         operation. *)
     | Unary_operator_resolution_3_of_3 of
-        abstract_var * unary_operator * abstract_value
+        abstract_var * abstract_value
     (** The third step of binary operator resolution.  This step
-        collects and checks the lookup variable. The `abstract_value' is
-        the result of the operation. A check guarantees that the given result
-        is valid for the given operation. *)
-    | Indexing_resolution_1_of_4 of abstract_var
-    (** Represents the start of the resolution of indexing after its
-        operands have been found.  The variable here is the one under
-        lookup. *)
-    | Indexing_resolution_2_of_4 of abstract_var
-    (** The second step of binary operator resolution.  This step
-        collects the index. *)
-    | Indexing_resolution_3_of_4 of abstract_var
-    (** The third step of binary operator resolution.  This step
-        collects the subject. *)
-    | Indexing_resolution_4_of_4 of abstract_var * abstract_value
-    (** The forth step of binary operator resolution.  This step
         collects and checks the lookup variable. The `abstract_value' is
         the result of the operation. A check guarantees that the given result
         is valid for the given operation. *)

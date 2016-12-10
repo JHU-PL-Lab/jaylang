@@ -63,12 +63,14 @@ struct
              without transitioning to a different node). *)
     let targeted_dynamic_pops = Enum.filter_map identity @@ List.enum
         [
-          (* 1b. Value drop *)
+          (* ********** Variable Discovery ********** *)
+          (* Intermediate Value *)
           begin
             return (Value_drop, Program_point_state(acl0,ctx))
           end
           ;
-          (* 2a. Transitivity *)
+          (* ********** Variable Search ********** *)
+          (* Value Alias *)
           begin
             let%orzero
               (Unannotated_clause(Abs_clause(x, Abs_var_body x'))) = acl1
@@ -77,7 +79,7 @@ struct
             return (Variable_aliasing(x,x'),Program_point_state(acl1,ctx))
           end
           ;
-          (* 2b. Stateless non-matching clause skip *)
+          (* Stateless Clause Skip *)
           begin
             let%orzero (Unannotated_clause(Abs_clause(x,_))) = acl1 in
             (* x' = b *)
@@ -86,16 +88,18 @@ struct
                    )
           end
           ;
-          (* 2c. Skip block start and end: this is handled below as a
-                 special case because it does not involve a pop. *)
-          (* 3b. Value capture *)
+          (* Block Marker Skip *)
+          (* This is handled below as a special case because it does not involve
+             a pop. *)
+          (* ********** Navigation ********** *)
+          (* Capture *)
           begin
             return ( Value_capture_1_of_3
                    , Program_point_state(acl0, ctx)
                    )
           end
           ;
-          (* 3c. Rewind *)
+          (* Rewind *)
           begin
             (*
               To rewind, we need to know the "end-of-block" for the node we are
@@ -130,7 +134,8 @@ struct
               zero ()
           end
           ;
-          (* 4a. Function parameter wiring *)
+          (* ********** Function Wiring ********** *)
+          (* Function Top: Parameter Variable *)
           begin
             let%orzero (Enter_clause(x,x',c)) = acl1 in
             let%orzero (Abs_clause(_,Abs_appl_body (_,x3''))) = c in
@@ -146,7 +151,7 @@ struct
             return (Variable_aliasing(x,x'),Program_point_state(acl1,ctx'))
           end
           ;
-          (* 4b. Function return wiring start *)
+          (* Function Bottom: Flow Check *)
           begin
             let%orzero (Exit_clause(x,_,c)) = acl1 in
             let%orzero (Abs_clause(x1'',Abs_appl_body(x2'',x3''))) = c in
@@ -162,7 +167,7 @@ struct
                    )
           end
           ;
-          (* 4c. Function return wiring finish *)
+          (* Function Bottom: Return Variable *)
           begin
             let%orzero (Exit_clause(x,x',c)) = acl1 in
             let%orzero (Abs_clause(x1'',Abs_appl_body _)) = c in
@@ -179,7 +184,7 @@ struct
                    )
           end
           ;
-          (* 4d. Function non-local wiring *)
+          (* Function Top: Non-Local Variable *)
           begin
             let%orzero (Enter_clause(x'',x',c)) = acl1 in
             let%orzero (Abs_clause(_,Abs_appl_body(x2'',x3''))) = c in
@@ -197,7 +202,10 @@ struct
                    )
           end
           ;
-          (* 5a, 5b, and 5e. Conditional entrance wiring *)
+          (* ********** Conditional Wiring ********** *)
+          (* Conditional Top: Subject Positive
+             Conditional Top: Subject Negative
+             Conditional Top: Non-Subject Variable *)
           begin
             (* This block represents *all* conditional closure handling on
                the entering side. *)
@@ -220,7 +228,8 @@ struct
                    )
           end
           ;
-          (* 5c, 5d. Conditional return wiring *)
+          (* Conditional Bottom: Return Positive
+             Conditional Bottom: Return Negative *)
           begin
             let%orzero (Exit_clause(x,x',c)) = acl1 in
             let%orzero
@@ -242,7 +251,8 @@ struct
               )
           end
           ;
-          (* 6a. Record destruction *)
+          (* ********** Record Construction/Destruction ********** *)
+          (* Record Projection Start *)
           begin
             let%orzero
               (Unannotated_clause(
@@ -254,26 +264,27 @@ struct
                    )
           end
           ;
-          (* 6b. Record projection *)
+          (* Record Projection Stop *)
           begin
             return ( Record_projection_1_of_2
                    , Program_point_state(acl0,ctx)
                    )
           end
           ;
-          (* 7a. Function filter validation *)
+          (* ********** Filter Validation ********** *)
+          (* Filter Immediate *)
           begin
             let%orzero
-              (Unannotated_clause(Abs_clause(
-                   x,Abs_value_body(Abs_value_function(v))))) = acl1
+              (Unannotated_clause(Abs_clause(x,Abs_value_body v))) = acl1
             in
-            (* x = f *)
-            return ( Function_filter_validation(x,v)
-                   , Program_point_state(acl1,ctx)
+            (* x = v *)
+            let%orzero (Some immediate_patterns) = immediately_matched_by v in
+            return ( Immediate_filter_validation(x, immediate_patterns, v)
+                   , Program_point_state(acl1, ctx)
                    )
           end
           ;
-          (* 7b. Record validation *)
+          (* Filter Record *)
           begin
             let%orzero
               (Unannotated_clause(
@@ -281,49 +292,11 @@ struct
             in
             (* x = r *)
             let target_state = Program_point_state(acl1,ctx) in
-            return ( Record_filter_validation(
-                x,r,acl1,ctx)
-                   , target_state
-              )
+            return ( Record_filter_validation(x,r,acl1,ctx), target_state )
           end
           ;
-          (* 7c. Integer filter validation *)
-          begin
-            let%orzero
-              (Unannotated_clause(Abs_clause(
-                   x,Abs_value_body(Abs_value_int)))) = acl1
-            in
-            (* x = int *)
-            return ( Int_filter_validation(x)
-                   , Program_point_state(acl1,ctx)
-                   )
-          end
-          ;
-          (* 7d, 7e. Boolean filter validation *)
-          begin
-            let%orzero
-              (Unannotated_clause(Abs_clause(
-                   x,Abs_value_body(Abs_value_bool(b))))) = acl1
-            in
-            (* x = true OR x = false *)
-            return ( Bool_filter_validation(x,b)
-                   , Program_point_state(acl1,ctx)
-                   )
-          end
-          ;
-          (* 7f. String filter validation *)
-          begin
-            let%orzero
-              (Unannotated_clause(Abs_clause(
-                   x,Abs_value_body(Abs_value_string)))) = acl1
-            in
-            (* x = <string> *)
-            return ( String_filter_validation(x)
-                   , Program_point_state(acl1,ctx)
-                   )
-          end
-          ;
-          (* 8a. Assignment result *)
+          (* ********** State ********** *)
+          (* Update Is Empty Record *)
           begin
             let%orzero
               (Unannotated_clause(Abs_clause(x, Abs_update_body _))) = acl1
@@ -334,7 +307,7 @@ struct
                    )
           end
           ;
-          (* 8b. Dereference lookup *)
+          (* Dereference Start *)
           begin
             let%orzero
               (Unannotated_clause(Abs_clause(x, Abs_deref_body(x')))) = acl1
@@ -345,25 +318,14 @@ struct
                    )
           end
           ;
-          (* 8c. Cell validation *)
-          begin
-            let%orzero
-              (Unannotated_clause(Abs_clause(
-                   x,Abs_value_body(Abs_value_ref(cell))))) = acl1
-            in
-            (* x = ref x' *)
-            return ( Cell_filter_validation(x,cell)
-                   , Program_point_state(acl1,ctx)
-                   )
-          end
-          ;
-          (* 8d. Cell dereference *)
+          (* Dereference Stop *)
           begin
             return ( Cell_dereference_1_of_2
                    , Program_point_state(acl0, ctx) )
           end
           ;
-          (* 9a. Cell update alias analysis initialization *)
+          (* ********** Alias Analysis (State) ********** *)
+          (* Alias Analysis Start *)
           begin
             let%orzero
               (Unannotated_clause(Abs_clause(
@@ -376,7 +338,8 @@ struct
                 x',source_state,target_state)
                    , Program_point_state(acl0, ctx) )
           end
-          ; (* 9b,9c. Alias resolution *)
+          ;
+          (* Alias Analysis Stop *)
           begin
             let%orzero
               (Unannotated_clause(Abs_clause(
@@ -386,7 +349,9 @@ struct
             return ( Alias_analysis_resolution_1_of_5(x'')
                    , Program_point_state(acl1, ctx) )
           end
-          ; (* 10a. Stateful non-side-effecting clause skip *)
+          ;
+          (* FIXME: update implementation for side effect rules! *)
+          (* 10a. Stateful non-side-effecting clause skip *)
           begin
             let%orzero (Unannotated_clause(Abs_clause(x,b))) = acl1 in
             [% guard (is_immediate acl1) ];
@@ -483,7 +448,9 @@ struct
             return ( Side_effect_search_escape_completion_1_of_4
                    , Program_point_state(acl0,ctx) )
           end
-          ; (* 11a. Binary operation operand lookup *)
+          ;
+          (* ********** Operations ********** *)
+          (* Binary Operation Start *)
           begin
             let%orzero
               (Unannotated_clause(Abs_clause(x1,
@@ -495,7 +462,20 @@ struct
                    , Program_point_state(acl1,ctx)
               )
           end
-          ; (* 11b. Unary operation operand lookup *)
+          ;
+          (* Binary Operation Evaluation *)
+          begin
+            let%orzero
+              (Unannotated_clause(Abs_clause(x1,
+                                             Abs_binary_operation_body(_,op,_)))) = acl1
+            in
+            (* x1 = x2 op x3 *)
+            return ( Binary_operator_resolution_1_of_4(x1,op)
+                   , Program_point_state(acl1,ctx)
+                   )
+          end
+          ;
+          (* Unary Operation Start *)
           begin
             let%orzero
               (Unannotated_clause(Abs_clause(x1,
@@ -507,30 +487,8 @@ struct
                    , Program_point_state(acl1,ctx)
               )
           end
-          ; (* 11c. Indexing lookup *)
-          begin
-            let%orzero
-              (Unannotated_clause(Abs_clause(x1,
-                                             Abs_indexing_body(x2,x3)))) = acl1
-            in
-            (* x1 = x2[x3] *)
-            return ( Indexing_lookup_init(
-                x1,x2,x3,acl1,ctx,acl0,ctx)
-                   , Program_point_state(acl1,ctx)
-              )
-          end
-          ; (* 12a,12b,12c,13a,13b,13c,13d,13e,13f,13g,13h,13i,13j,13k,13l,14a,14b,14c. Binary operator resolution *)
-          begin
-            let%orzero
-              (Unannotated_clause(Abs_clause(x1,
-                                             Abs_binary_operation_body(_,op,_)))) = acl1
-            in
-            (* x1 = x2 op x3 *)
-            return ( Binary_operator_resolution_1_of_4(x1,op)
-                   , Program_point_state(acl1,ctx)
-                   )
-          end
-          ; (* 13m,13n. Unary operator resolution *)
+          ;
+          (* Unary Operation Evaluation *)
           begin
             let%orzero
               (Unannotated_clause(Abs_clause(x1,
@@ -538,17 +496,6 @@ struct
             in
             (* x1 = op x2 *)
             return ( Unary_operator_resolution_1_of_3(x1,op)
-                   , Program_point_state(acl1,ctx)
-                   )
-          end
-          ; (* 14d. Indexing resolution *)
-          begin
-            let%orzero
-              (Unannotated_clause(Abs_clause(x1,
-                                             Abs_indexing_body(_,_)))) = acl1
-            in
-            (* x1 = x2[x3] *)
-            return ( Indexing_resolution_1_of_4(x1)
                    , Program_point_state(acl1,ctx)
                    )
           end
@@ -573,7 +520,7 @@ struct
       (edge : ddpa_edge) (state : R.State.t) =
     let Ddpa_edge(_, acl0) = edge in
     let zero = Enum.empty in
-    let%orzero Program_point_state(acl0',_) = state in
+    let%orzero (Program_point_state(acl0',_)) = state in
     (* TODO: There should be a way to associate each action function with
              its corresponding acl0 rather than using this guard. *)
     [%guard (compare_annotated_clause acl0 acl0' == 0)];

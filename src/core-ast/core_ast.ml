@@ -88,6 +88,7 @@ type binary_operator =
   | Binary_operator_equal_to
   | Binary_operator_bool_and
   | Binary_operator_bool_or
+  | Binary_operator_index
 [@@deriving eq, ord]
 ;;
 
@@ -99,6 +100,7 @@ let binary_operator_to_yojson = function
   | Binary_operator_equal_to -> `String "=="
   | Binary_operator_bool_and -> `String "and"
   | Binary_operator_bool_or -> `String "or"
+  | Binary_operator_index -> `String "@"
 ;;
 
 type unary_operator =
@@ -146,7 +148,6 @@ and clause_body =
   | Update_body of var * var
   | Binary_operation_body of var * binary_operator * var
   | Unary_operation_body of unary_operator * var
-  | Indexing_body of var * var
 [@@deriving eq, ord, to_yojson]
 
 (** A type to represent clauses. *)

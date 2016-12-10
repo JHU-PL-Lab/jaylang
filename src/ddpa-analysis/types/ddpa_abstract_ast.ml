@@ -63,7 +63,6 @@ and abstract_clause_body =
   | Abs_update_body of abstract_var * abstract_var
   | Abs_binary_operation_body of abstract_var * binary_operator * abstract_var
   | Abs_unary_operation_body of unary_operator * abstract_var
-  | Abs_indexing_body of abstract_var * abstract_var
 [@@deriving eq, ord, to_yojson]
 
 (** A type to represent abstract clauses. *)
@@ -126,8 +125,6 @@ and pp_abstract_clause_body formatter b =
   | Abs_unary_operation_body(op,x1) ->
     Format.fprintf formatter "%a %a"
       pp_unary_operator op pp_abstract_var x1
-  | Abs_indexing_body(x1,x2) ->
-    Format.fprintf formatter "%a[%a]" pp_abstract_var x1 pp_abstract_var x2
 
 and pp_abstract_clause formatter (Abs_clause(x,b)) =
   Format.fprintf formatter "%a = @[<hv 2>%a@]"
@@ -147,8 +144,8 @@ let pp_var_of_abstract_clause formatter acl =
 let is_abstract_clause_immediate (Abs_clause(_,b)) =
   match b with
   | Abs_var_body _ | Abs_value_body _ | Abs_projection_body _ | Abs_deref_body _
-  | Abs_update_body _ | Abs_binary_operation_body _ | Abs_unary_operation_body _
-  | Abs_indexing_body _ -> true
+  | Abs_update_body _ | Abs_binary_operation_body _
+  | Abs_unary_operation_body _ -> true
   | Abs_appl_body _ | Abs_conditional_body _ -> false
 ;;
 
