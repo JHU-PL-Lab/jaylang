@@ -233,8 +233,7 @@ Library "ddpa-analysis"
   Path: src/ddpa-analysis
   Modules:
     Ddpa_analysis_logging,
-    Ddpa_analysis,
-    Ddpa_data_structures
+    Ddpa_analysis
   BuildDepends:
     batteries,
     jhupllib,
