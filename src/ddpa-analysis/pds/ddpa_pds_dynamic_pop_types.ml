@@ -51,9 +51,6 @@ struct
         collects other stack elements into a list until it has consumed as
         many as the original Capture stack element dictated.  It then pushes
         a value to the stack followed by all of the elements it collected. *)
-    | Rewind_step of annotated_clause * C.t
-    (** Represents the rewind step to the end of the current scope, to support
-        _natural recursion_. *)
     | Function_call_flow_validation of
         abstract_var * abstract_var * annotated_clause * C.t *
         annotated_clause * C.t * abstract_var
@@ -322,6 +319,9 @@ struct
         stack element, so this is the first step of the process (which pops
         the value).  Because the value dictates the target of the second
         step, this is an untargeted action.  The second step is targeted. *)
+    | Rewind_step of annotated_clause * C.t
+    (** Represents the rewind step to the end of the current scope, to support
+        _natural recursion_. *)
   [@@deriving eq, ord, show, to_yojson]
   ;;
 

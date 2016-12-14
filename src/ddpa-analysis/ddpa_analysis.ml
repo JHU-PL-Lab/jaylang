@@ -277,10 +277,10 @@ struct
       let add_edge_for_reachability edge reachability =
         reachability
         |> Ddpa_pds_reachability.add_edge_function
-          (Edge_functions.create_edge_function
-             analysis.ddpa_end_of_block_map edge)
+          (Edge_functions.create_edge_function edge)
         |> Ddpa_pds_reachability.add_untargeted_dynamic_pop_action_function
-          (Edge_functions.create_untargeted_dynamic_pop_action_function edge)
+          (Edge_functions.create_untargeted_dynamic_pop_action_function
+             analysis.ddpa_end_of_block_map edge)
       in
       let pds_reachability' =
         Enum.clone edges

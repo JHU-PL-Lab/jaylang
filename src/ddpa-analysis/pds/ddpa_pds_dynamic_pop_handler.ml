@@ -106,10 +106,6 @@ struct
           in
           return @@ (Push (Continuation_value fv))::pushes
         end
-    | Rewind_step(acl,ctx0)->
-      let%orzero Rewind = element in
-
-      return [ Push(Jump(acl,ctx0)) ]
     | Function_call_flow_validation(x2'',x3'',acl0,ctx0,c,ctxc,x) ->
       let%orzero (Lookup_var(x',_,_)) = element in
       [%guard (equal_abstract_var x x')];
@@ -532,5 +528,8 @@ struct
       return ( [ Pop_dynamic_targeted(Value_discovery_2_of_2) ]
              , Result_state abs_filtered_value
              )
+    | Rewind_step(acl,ctx0)->
+      let%orzero Rewind = element in
+      return ([], Program_point_state(acl,ctx0))
   ;;
 end;;
