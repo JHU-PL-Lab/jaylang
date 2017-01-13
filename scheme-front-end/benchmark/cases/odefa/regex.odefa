@@ -1,0 +1,600 @@
+variable0 = fun variable21 -> (
+  variable23 = "do-nothing";
+  variable22 = {
+    symbol = variable23
+  };
+);
+variable1 = fun variable24 -> (
+  variable26 = variable24.tail;
+  variable25 = variable26.head;
+);
+variable2 = fun variable27 -> (
+  variable30 = variable27.tail;
+  variable29 = variable30.tail;
+  variable28 = variable29.head;
+);
+variable3 = false;
+variable4 = true;
+variable5 = fun variable31 -> (
+  variable33 = variable31 ~ {
+    head = _,
+    tail = _
+  }
+  ? fun variable34 -> (
+    variable35 = true;
+  ) : fun variable36 -> (
+    variable37 = false;
+  );
+  variable32 = variable33 ~ false
+  ? fun variable38 -> (
+    variable39 = false;
+  ) : fun variable40 -> (
+    variable42 = variable31.head;
+    variable44 = "alt";
+    variable43 = {
+      symbol = variable44
+    };
+    variable45 = 0;
+    variable46 = 0;
+    variable41 = variable45 == variable46;
+  );
+);
+variable6 = fun variable47 -> (
+  variable49 = variable47 ~ {
+    head = _,
+    tail = _
+  }
+  ? fun variable50 -> (
+    variable51 = true;
+  ) : fun variable52 -> (
+    variable53 = false;
+  );
+  variable48 = variable49 ~ false
+  ? fun variable54 -> (
+    variable55 = false;
+  ) : fun variable56 -> (
+    variable58 = variable47.head;
+    variable60 = "seq";
+    variable59 = {
+      symbol = variable60
+    };
+    variable61 = 0;
+    variable62 = 0;
+    variable57 = variable61 == variable62;
+  );
+);
+variable7 = fun variable63 -> (
+  variable65 = variable63 ~ {
+    head = _,
+    tail = _
+  }
+  ? fun variable66 -> (
+    variable67 = true;
+  ) : fun variable68 -> (
+    variable69 = false;
+  );
+  variable64 = variable65 ~ false
+  ? fun variable70 -> (
+    variable71 = false;
+  ) : fun variable72 -> (
+    variable74 = variable63.head;
+    variable76 = "rep";
+    variable75 = {
+      symbol = variable76
+    };
+    variable77 = 0;
+    variable78 = 0;
+    variable73 = variable77 == variable78;
+  );
+);
+variable8 = fun variable79 -> (
+  variable81 = variable79;
+  variable82 = false;
+  variable83 = 0;
+  variable84 = 0;
+  variable80 = variable83 == variable84;
+);
+variable9 = fun variable85 -> (
+  variable87 = variable85;
+  variable88 = true;
+  variable89 = 0;
+  variable90 = 0;
+  variable86 = variable89 == variable90;
+);
+variable10 = fun variable91 -> (
+  variable94 = variable91;
+  variable95 = 0;
+  variable96 = 0;
+  variable93 = variable95 == variable96;
+  variable92 = variable93 ~ false
+  ? fun variable97 -> (
+    variable99 = variable91;
+    variable100 = 0;
+    variable101 = 0;
+    variable98 = variable100 == variable101;
+  ) : fun variable102 -> (
+    variable103 = variable93;
+  );
+);
+variable11 = fun variable104 -> (
+  variable105 = variable104.argument0;
+  variable106 = variable104.argument1;
+  variable108 = variable6 variable105;
+  variable107 = variable108 ~ false
+  ? fun variable109 -> (
+    variable110 = false;
+  ) : fun variable111 -> (
+    variable115 = variable105.tail;
+    variable114 = variable115.head;
+    variable118 = variable105.tail;
+    variable117 = variable118.tail;
+    variable116 = variable117.head;
+    variable113 = {
+      argument0 = variable114,
+      argument1 = variable116
+    };
+    variable112 = variable106 variable113;
+  );
+);
+variable12 = fun variable119 -> (
+  variable120 = variable119.argument0;
+  variable121 = variable119.argument1;
+  variable123 = variable5 variable120;
+  variable122 = variable123 ~ false
+  ? fun variable124 -> (
+    variable125 = false;
+  ) : fun variable126 -> (
+    variable130 = variable120.tail;
+    variable129 = variable130.head;
+    variable133 = variable120.tail;
+    variable132 = variable133.tail;
+    variable131 = variable132.head;
+    variable128 = {
+      argument0 = variable129,
+      argument1 = variable131
+    };
+    variable127 = variable121 variable128;
+  );
+);
+variable13 = fun variable134 -> (
+  variable135 = variable134.argument0;
+  variable136 = variable134.argument1;
+  variable138 = variable7 variable135;
+  variable137 = variable138 ~ false
+  ? fun variable139 -> (
+    variable140 = false;
+  ) : fun variable141 -> (
+    variable144 = variable135.tail;
+    variable143 = variable144.head;
+    variable142 = variable136 variable143;
+  );
+);
+variable14 = fun variable145 -> (
+  variable146 = variable145.argument0;
+  variable147 = variable145.argument1;
+  variable149 = variable8 variable146;
+  variable148 = variable149 ~ false
+  ? fun variable150 -> (
+    variable152 = variable8 variable147;
+    variable151 = variable152 ~ false
+    ? fun variable153 -> (
+      variable155 = variable9 variable146;
+      variable154 = variable155 ~ false
+      ? fun variable156 -> (
+        variable158 = variable9 variable147;
+        variable157 = variable158 ~ false
+        ? fun variable159 -> (
+          variable162 = "seq";
+          variable161 = {
+            symbol = variable162
+          };
+          variable166 = {};
+          variable165 = {
+            null = variable166
+          };
+          variable164 = {
+            head = variable147,
+            tail = variable165
+          };
+          variable163 = {
+            head = variable146,
+            tail = variable164
+          };
+          variable160 = {
+            head = variable161,
+            tail = variable163
+          };
+        ) : fun variable167 -> (
+          variable168 = variable146;
+        );
+      ) : fun variable169 -> (
+        variable170 = variable147;
+      );
+    ) : fun variable171 -> (
+      variable172 = variable3;
+    );
+  ) : fun variable173 -> (
+    variable174 = variable3;
+  );
+);
+variable15 = fun variable175 -> (
+  variable176 = variable175.argument0;
+  variable177 = variable175.argument1;
+  variable179 = variable8 variable176;
+  variable178 = variable179 ~ false
+  ? fun variable180 -> (
+    variable182 = variable8 variable177;
+    variable181 = variable182 ~ false
+    ? fun variable183 -> (
+      variable186 = "alt";
+      variable185 = {
+        symbol = variable186
+      };
+      variable190 = {};
+      variable189 = {
+        null = variable190
+      };
+      variable188 = {
+        head = variable177,
+        tail = variable189
+      };
+      variable187 = {
+        head = variable176,
+        tail = variable188
+      };
+      variable184 = {
+        head = variable185,
+        tail = variable187
+      };
+    ) : fun variable191 -> (
+      variable192 = variable176;
+    );
+  ) : fun variable193 -> (
+    variable194 = variable177;
+  );
+);
+variable16 = fun variable195 -> (
+  variable197 = variable8 variable195;
+  variable196 = variable197 ~ false
+  ? fun variable198 -> (
+    variable200 = variable9 variable195;
+    variable199 = variable200 ~ false
+    ? fun variable201 -> (
+      variable204 = "rep";
+      variable203 = {
+        symbol = variable204
+      };
+      variable207 = {};
+      variable206 = {
+        null = variable207
+      };
+      variable205 = {
+        head = variable195,
+        tail = variable206
+      };
+      variable202 = {
+        head = variable203,
+        tail = variable205
+      };
+    ) : fun variable208 -> (
+      variable209 = variable4;
+    );
+  ) : fun variable210 -> (
+    variable211 = variable4;
+  );
+);
+variable17 = fun variable212 -> (
+  variable214 = variable9 variable212;
+  variable213 = variable214 ~ false
+  ? fun variable215 -> (
+    variable217 = variable8 variable212;
+    variable216 = variable217 ~ false
+    ? fun variable218 -> (
+      variable220 = variable10 variable212;
+      variable219 = variable220 ~ false
+      ? fun variable221 -> (
+        variable232 = variable17;
+        variable225 = fun variable226 -> (
+          variable227 = variable226.argument0;
+          variable228 = variable226.argument1;
+          variable231 = variable232 variable227;
+          variable233 = variable232 variable228;
+          variable230 = {
+            argument0 = variable231,
+            argument1 = variable233
+          };
+          variable229 = variable14 variable230;
+        );
+        variable224 = {
+          argument0 = variable212,
+          argument1 = variable225
+        };
+        variable223 = variable11 variable224;
+        variable222 = variable223 ~ false
+        ? fun variable234 -> (
+          variable245 = variable17;
+          variable238 = fun variable239 -> (
+            variable240 = variable239.argument0;
+            variable241 = variable239.argument1;
+            variable244 = variable245 variable240;
+            variable246 = variable245 variable241;
+            variable243 = {
+              argument0 = variable244,
+              argument1 = variable246
+            };
+            variable242 = variable15 variable243;
+          );
+          variable237 = {
+            argument0 = variable212,
+            argument1 = variable238
+          };
+          variable236 = variable12 variable237;
+          variable235 = variable236 ~ false
+          ? fun variable247 -> (
+            variable249 = variable7 variable212;
+            variable248 = variable249 ~ false
+            ? fun variable250 -> (
+              variable251 = false;
+            ) : fun variable252 -> (
+              variable253 = true;
+            );
+          ) : fun variable254 -> (
+            variable255 = variable236;
+          );
+        ) : fun variable256 -> (
+          variable257 = variable223;
+        );
+      ) : fun variable258 -> (
+        variable259 = false;
+      );
+    ) : fun variable260 -> (
+      variable261 = false;
+    );
+  ) : fun variable262 -> (
+    variable263 = true;
+  );
+);
+variable18 = fun variable264 -> (
+  variable265 = variable264.argument0;
+  variable266 = variable264.argument1;
+  variable268 = {};
+  variable267 = variable0 variable268;
+  variable270 = variable9 variable265;
+  variable269 = variable270 ~ false
+  ? fun variable271 -> (
+    variable273 = variable8 variable265;
+    variable272 = variable273 ~ false
+    ? fun variable274 -> (
+      variable277 = variable266;
+      variable278 = variable265;
+      variable279 = 0;
+      variable280 = 0;
+      variable276 = variable279 == variable280;
+      variable275 = variable276 ~ false
+      ? fun variable281 -> (
+        variable283 = variable10 variable265;
+        variable282 = variable283 ~ false
+        ? fun variable284 -> (
+          variable298 = variable18;
+          variable288 = fun variable289 -> (
+            variable290 = variable289.argument0;
+            variable291 = variable289.argument1;
+            variable297 = {
+              argument0 = variable290,
+              argument1 = variable266
+            };
+            variable296 = variable298 variable297;
+            variable295 = {
+              argument0 = variable296,
+              argument1 = variable291
+            };
+            variable294 = variable14 variable295;
+            variable301 = variable17 variable290;
+            variable303 = {
+              argument0 = variable291,
+              argument1 = variable266
+            };
+            variable302 = variable298 variable303;
+            variable300 = {
+              argument0 = variable301,
+              argument1 = variable302
+            };
+            variable299 = variable14 variable300;
+            variable293 = {
+              argument0 = variable294,
+              argument1 = variable299
+            };
+            variable292 = variable15 variable293;
+          );
+          variable287 = {
+            argument0 = variable265,
+            argument1 = variable288
+          };
+          variable286 = variable11 variable287;
+          variable285 = variable286 ~ false
+          ? fun variable304 -> (
+            variable316 = variable18;
+            variable308 = fun variable309 -> (
+              variable310 = variable309.argument0;
+              variable311 = variable309.argument1;
+              variable315 = {
+                argument0 = variable310,
+                argument1 = variable266
+              };
+              variable314 = variable316 variable315;
+              variable318 = {
+                argument0 = variable311,
+                argument1 = variable266
+              };
+              variable317 = variable316 variable318;
+              variable313 = {
+                argument0 = variable314,
+                argument1 = variable317
+              };
+              variable312 = variable15 variable313;
+            );
+            variable307 = {
+              argument0 = variable265,
+              argument1 = variable308
+            };
+            variable306 = variable12 variable307;
+            variable305 = variable306 ~ false
+            ? fun variable319 -> (
+              variable329 = variable18;
+              variable323 = fun variable324 -> (
+                variable328 = {
+                  argument0 = variable324,
+                  argument1 = variable266
+                };
+                variable327 = variable329 variable328;
+                variable330 = variable16 variable324;
+                variable326 = {
+                  argument0 = variable327,
+                  argument1 = variable330
+                };
+                variable325 = variable14 variable326;
+              );
+              variable322 = {
+                argument0 = variable265,
+                argument1 = variable323
+              };
+              variable321 = variable13 variable322;
+              variable320 = variable321 ~ false
+              ? fun variable331 -> (
+                variable332 = variable3;
+              ) : fun variable333 -> (
+                variable334 = variable321;
+              );
+            ) : fun variable335 -> (
+              variable336 = variable306;
+            );
+          ) : fun variable337 -> (
+            variable338 = variable286;
+          );
+        ) : fun variable339 -> (
+          variable340 = variable3;
+        );
+      ) : fun variable341 -> (
+        variable342 = variable4;
+      );
+    ) : fun variable343 -> (
+      variable344 = variable3;
+    );
+  ) : fun variable345 -> (
+    variable346 = variable3;
+  );
+);
+variable19 = fun variable347 -> (
+  variable348 = variable347.argument0;
+  variable349 = variable347.argument1;
+  variable351 = variable349 ~ {
+    null = _
+  }
+  ? fun variable352 -> (
+    variable353 = true;
+  ) : fun variable354 -> (
+    variable355 = false;
+  );
+  variable350 = variable351 ~ false
+  ? fun variable356 -> (
+    variable361 = variable349.head;
+    variable360 = {
+      argument0 = variable348,
+      argument1 = variable361
+    };
+    variable359 = variable18 variable360;
+    variable362 = variable349.tail;
+    variable358 = {
+      argument0 = variable359,
+      argument1 = variable362
+    };
+    variable357 = variable19 variable358;
+  ) : fun variable363 -> (
+    variable365 = variable17 variable348;
+    variable364 = variable9 variable365;
+  );
+);
+variable20 = fun variable366 -> (
+  variable367 = variable366.argument0;
+  variable368 = variable366.argument1;
+  variable370 = variable367;
+  variable371 = variable368;
+  variable372 = 0;
+  variable373 = 0;
+  variable369 = variable372 == variable373;
+);
+variable380 = "seq";
+variable379 = {
+  symbol = variable380
+};
+variable383 = "foo";
+variable382 = {
+  symbol = variable383
+};
+variable387 = "rep";
+variable386 = {
+  symbol = variable387
+};
+variable390 = "bar";
+variable389 = {
+  symbol = variable390
+};
+variable392 = {};
+variable391 = {
+  null = variable392
+};
+variable388 = {
+  head = variable389,
+  tail = variable391
+};
+variable385 = {
+  head = variable386,
+  tail = variable388
+};
+variable394 = {};
+variable393 = {
+  null = variable394
+};
+variable384 = {
+  head = variable385,
+  tail = variable393
+};
+variable381 = {
+  head = variable382,
+  tail = variable384
+};
+variable378 = {
+  head = variable379,
+  tail = variable381
+};
+variable397 = "foo";
+variable396 = {
+  symbol = variable397
+};
+variable400 = "bar";
+variable399 = {
+  symbol = variable400
+};
+variable402 = {};
+variable401 = {
+  null = variable402
+};
+variable398 = {
+  head = variable399,
+  tail = variable401
+};
+variable395 = {
+  head = variable396,
+  tail = variable398
+};
+variable377 = {
+  argument0 = variable378,
+  argument1 = variable395
+};
+variable376 = variable19 variable377;
+variable403 = false;
+variable375 = {
+  argument0 = variable376,
+  argument1 = variable403
+};
+variable374 = variable20 variable375;

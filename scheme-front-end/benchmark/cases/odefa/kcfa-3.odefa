@@ -1,0 +1,42 @@
+variable1 = fun variable2 -> (
+  variable4 = true;
+  variable3 = variable2 variable4;
+  variable6 = false;
+  variable5 = variable2 variable6;
+);
+variable7 = fun variable8 -> (
+  variable10 = fun variable11 -> (
+    variable13 = true;
+    variable12 = variable11 variable13;
+    variable15 = false;
+    variable14 = variable11 variable15;
+  );
+  variable16 = fun variable17 -> (
+    variable19 = fun variable20 -> (
+      variable22 = true;
+      variable21 = variable20 variable22;
+      variable24 = false;
+      variable23 = variable20 variable24;
+    );
+    variable25 = fun variable26 -> (
+      variable28 = fun variable29 -> (
+        variable31 = {
+          argument0 = variable8,
+          argument1 = variable17,
+          argument2 = variable26
+        };
+        variable30 = variable29 variable31;
+      );
+      variable32 = fun variable33 -> (
+        variable34 = variable33.argument0;
+        variable35 = variable33.argument1;
+        variable36 = variable33.argument2;
+        variable37 = variable34;
+      );
+      variable27 = variable28 variable32;
+    );
+    variable18 = variable19 variable25;
+  );
+  variable9 = variable10 variable16;
+);
+variable0 = variable1 variable7;

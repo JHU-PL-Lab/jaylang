@@ -1,0 +1,6 @@
+/**/compiled/
+/scribblings/*
+!/scribblings/**/*.scrbl
+!/scribblings/**/*.gv
+!/scribblings/**/*.png
+/benchmark/results

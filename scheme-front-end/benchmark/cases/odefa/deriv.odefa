@@ -1,0 +1,449 @@
+variable0 = fun variable1 -> (
+  variable4 = variable1 ~ {
+    head = _,
+    tail = _
+  }
+  ? fun variable5 -> (
+    variable6 = true;
+  ) : fun variable7 -> (
+    variable8 = false;
+  );
+  variable3 = not variable4;
+  variable2 = variable3 ~ false
+  ? fun variable9 -> (
+    variable12 = variable1.head;
+    variable14 = "+";
+    variable13 = {
+      symbol = variable14
+    };
+    variable15 = 0;
+    variable16 = 0;
+    variable11 = variable15 == variable16;
+    variable10 = variable11 ~ false
+    ? fun variable17 -> (
+      variable20 = variable1.head;
+      variable22 = "-";
+      variable21 = {
+        symbol = variable22
+      };
+      variable23 = 0;
+      variable24 = 0;
+      variable19 = variable23 == variable24;
+      variable18 = variable19 ~ false
+      ? fun variable25 -> (
+        variable28 = variable1.head;
+        variable30 = "*";
+        variable29 = {
+          symbol = variable30
+        };
+        variable31 = 0;
+        variable32 = 0;
+        variable27 = variable31 == variable32;
+        variable26 = variable27 ~ false
+        ? fun variable33 -> (
+          variable36 = variable1.head;
+          variable38 = "/";
+          variable37 = {
+            symbol = variable38
+          };
+          variable39 = 0;
+          variable40 = 0;
+          variable35 = variable39 == variable40;
+          variable34 = variable35 ~ false
+          ? fun variable41 -> (
+            variable43 = false;
+            variable44 = "No derivation method available";
+            variable42 = "<ERROR>";
+          ) : fun variable45 -> (
+            variable48 = "-";
+            variable47 = {
+              symbol = variable48
+            };
+            variable52 = "/";
+            variable51 = {
+              symbol = variable52
+            };
+            variable56 = variable1.tail;
+            variable55 = variable56.head;
+            variable54 = variable0 variable55;
+            variable60 = variable1.tail;
+            variable59 = variable60.tail;
+            variable58 = variable59.head;
+            variable62 = {};
+            variable61 = {
+              null = variable62
+            };
+            variable57 = {
+              head = variable58,
+              tail = variable61
+            };
+            variable53 = {
+              head = variable54,
+              tail = variable57
+            };
+            variable50 = {
+              head = variable51,
+              tail = variable53
+            };
+            variable66 = "/";
+            variable65 = {
+              symbol = variable66
+            };
+            variable69 = variable1.tail;
+            variable68 = variable69.head;
+            variable73 = "*";
+            variable72 = {
+              symbol = variable73
+            };
+            variable77 = variable1.tail;
+            variable76 = variable77.tail;
+            variable75 = variable76.head;
+            variable81 = variable1.tail;
+            variable80 = variable81.tail;
+            variable79 = variable80.head;
+            variable86 = variable1.tail;
+            variable85 = variable86.tail;
+            variable84 = variable85.head;
+            variable83 = variable0 variable84;
+            variable88 = {};
+            variable87 = {
+              null = variable88
+            };
+            variable82 = {
+              head = variable83,
+              tail = variable87
+            };
+            variable78 = {
+              head = variable79,
+              tail = variable82
+            };
+            variable74 = {
+              head = variable75,
+              tail = variable78
+            };
+            variable71 = {
+              head = variable72,
+              tail = variable74
+            };
+            variable90 = {};
+            variable89 = {
+              null = variable90
+            };
+            variable70 = {
+              head = variable71,
+              tail = variable89
+            };
+            variable67 = {
+              head = variable68,
+              tail = variable70
+            };
+            variable64 = {
+              head = variable65,
+              tail = variable67
+            };
+            variable92 = {};
+            variable91 = {
+              null = variable92
+            };
+            variable63 = {
+              head = variable64,
+              tail = variable91
+            };
+            variable49 = {
+              head = variable50,
+              tail = variable63
+            };
+            variable46 = {
+              head = variable47,
+              tail = variable49
+            };
+          );
+        ) : fun variable93 -> (
+          variable96 = "*";
+          variable95 = {
+            symbol = variable96
+          };
+          variable101 = "+";
+          variable100 = {
+            symbol = variable101
+          };
+          variable110 = variable0;
+          variable103 = fun variable104 -> (
+            variable107 = "/";
+            variable106 = {
+              symbol = variable107
+            };
+            variable109 = variable110 variable104;
+            variable113 = {};
+            variable112 = {
+              null = variable113
+            };
+            variable111 = {
+              head = variable104,
+              tail = variable112
+            };
+            variable108 = {
+              head = variable109,
+              tail = variable111
+            };
+            variable105 = {
+              head = variable106,
+              tail = variable108
+            };
+          );
+          variable114 = variable1.tail;
+          variable115 = fun variable116 -> (
+            variable122 = variable116 ~ {
+              head = _,
+              tail = _
+            }
+            ? fun variable117 -> (
+              variable118 = variable117.head;
+              variable119 = variable117.tail;
+              variable120 = variable103 variable118;
+              variable121 = variable115 variable119;
+              variable123 = {
+                head = variable120,
+                tail = variable121
+              };
+            ) : fun variable124 -> (
+              variable126 = {};
+              variable125 = {
+                null = variable126
+              };
+            );
+          );
+          variable102 = variable115 variable114;
+          variable99 = {
+            head = variable100,
+            tail = variable102
+          };
+          variable128 = {};
+          variable127 = {
+            null = variable128
+          };
+          variable98 = {
+            head = variable99,
+            tail = variable127
+          };
+          variable97 = {
+            head = variable1,
+            tail = variable98
+          };
+          variable94 = {
+            head = variable95,
+            tail = variable97
+          };
+        );
+      ) : fun variable129 -> (
+        variable132 = "-";
+        variable131 = {
+          symbol = variable132
+        };
+        variable134 = variable0;
+        variable135 = variable1.tail;
+        variable136 = fun variable137 -> (
+          variable143 = variable137 ~ {
+            head = _,
+            tail = _
+          }
+          ? fun variable138 -> (
+            variable139 = variable138.head;
+            variable140 = variable138.tail;
+            variable141 = variable134 variable139;
+            variable142 = variable136 variable140;
+            variable144 = {
+              head = variable141,
+              tail = variable142
+            };
+          ) : fun variable145 -> (
+            variable147 = {};
+            variable146 = {
+              null = variable147
+            };
+          );
+        );
+        variable133 = variable136 variable135;
+        variable130 = {
+          head = variable131,
+          tail = variable133
+        };
+      );
+    ) : fun variable148 -> (
+      variable151 = "+";
+      variable150 = {
+        symbol = variable151
+      };
+      variable153 = variable0;
+      variable154 = variable1.tail;
+      variable155 = fun variable156 -> (
+        variable162 = variable156 ~ {
+          head = _,
+          tail = _
+        }
+        ? fun variable157 -> (
+          variable158 = variable157.head;
+          variable159 = variable157.tail;
+          variable160 = variable153 variable158;
+          variable161 = variable155 variable159;
+          variable163 = {
+            head = variable160,
+            tail = variable161
+          };
+        ) : fun variable164 -> (
+          variable166 = {};
+          variable165 = {
+            null = variable166
+          };
+        );
+      );
+      variable152 = variable155 variable154;
+      variable149 = {
+        head = variable150,
+        tail = variable152
+      };
+    );
+  ) : fun variable167 -> (
+    variable170 = variable1;
+    variable172 = "x";
+    variable171 = {
+      symbol = variable172
+    };
+    variable173 = 0;
+    variable174 = 0;
+    variable169 = variable173 == variable174;
+    variable168 = variable169 ~ false
+    ? fun variable175 -> (
+      variable176 = 0;
+    ) : fun variable177 -> (
+      variable178 = 1;
+    );
+  );
+);
+variable182 = "+";
+variable181 = {
+  symbol = variable182
+};
+variable186 = "*";
+variable185 = {
+  symbol = variable186
+};
+variable188 = 3;
+variable191 = "x";
+variable190 = {
+  symbol = variable191
+};
+variable194 = "x";
+variable193 = {
+  symbol = variable194
+};
+variable196 = {};
+variable195 = {
+  null = variable196
+};
+variable192 = {
+  head = variable193,
+  tail = variable195
+};
+variable189 = {
+  head = variable190,
+  tail = variable192
+};
+variable187 = {
+  head = variable188,
+  tail = variable189
+};
+variable184 = {
+  head = variable185,
+  tail = variable187
+};
+variable200 = "*";
+variable199 = {
+  symbol = variable200
+};
+variable203 = "a";
+variable202 = {
+  symbol = variable203
+};
+variable206 = "x";
+variable205 = {
+  symbol = variable206
+};
+variable209 = "x";
+variable208 = {
+  symbol = variable209
+};
+variable211 = {};
+variable210 = {
+  null = variable211
+};
+variable207 = {
+  head = variable208,
+  tail = variable210
+};
+variable204 = {
+  head = variable205,
+  tail = variable207
+};
+variable201 = {
+  head = variable202,
+  tail = variable204
+};
+variable198 = {
+  head = variable199,
+  tail = variable201
+};
+variable215 = "*";
+variable214 = {
+  symbol = variable215
+};
+variable218 = "b";
+variable217 = {
+  symbol = variable218
+};
+variable221 = "x";
+variable220 = {
+  symbol = variable221
+};
+variable223 = {};
+variable222 = {
+  null = variable223
+};
+variable219 = {
+  head = variable220,
+  tail = variable222
+};
+variable216 = {
+  head = variable217,
+  tail = variable219
+};
+variable213 = {
+  head = variable214,
+  tail = variable216
+};
+variable225 = 5;
+variable227 = {};
+variable226 = {
+  null = variable227
+};
+variable224 = {
+  head = variable225,
+  tail = variable226
+};
+variable212 = {
+  head = variable213,
+  tail = variable224
+};
+variable197 = {
+  head = variable198,
+  tail = variable212
+};
+variable183 = {
+  head = variable184,
+  tail = variable197
+};
+variable180 = {
+  head = variable181,
+  tail = variable183
+};
+variable179 = variable0 variable180;

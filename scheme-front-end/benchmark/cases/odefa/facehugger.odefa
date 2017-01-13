@@ -1,0 +1,36 @@
+variable0 = fun variable3 -> (
+  variable4 = variable3;
+);
+variable1 = fun variable5 -> (
+  variable8 = 1;
+  variable7 = variable5 <= variable8;
+  variable6 = variable7 ~ false
+  ? fun variable9 -> (
+    variable13 = 1;
+    variable12 = variable5 - variable13;
+    variable11 = variable1 variable12;
+    variable10 = variable5 + variable11;
+  ) : fun variable14 -> (
+    variable15 = 1;
+  );
+);
+variable2 = fun variable16 -> (
+  variable19 = 1;
+  variable18 = variable16 <= variable19;
+  variable17 = variable18 ~ false
+  ? fun variable20 -> (
+    variable24 = 1;
+    variable23 = variable16 - variable24;
+    variable22 = variable2 variable23;
+    variable21 = variable16 + variable22;
+  ) : fun variable25 -> (
+    variable26 = 1;
+  );
+);
+variable29 = variable0 variable1;
+variable30 = 3;
+variable28 = variable29 variable30;
+variable32 = variable0 variable2;
+variable33 = 4;
+variable31 = variable32 variable33;
+variable27 = variable28 + variable31;
