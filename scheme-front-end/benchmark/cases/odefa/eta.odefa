@@ -1,0 +1,20 @@
+variable0 = fun variable2 -> (
+  variable3 = 10;
+);
+variable1 = fun variable4 -> (
+  variable6 = {};
+  variable5 = variable0 variable6;
+  variable7 = variable4;
+);
+variable10 = fun variable11 -> (
+  variable12 = variable11;
+);
+variable9 = variable1 variable10;
+variable13 = true;
+variable8 = variable9 variable13;
+variable16 = fun variable17 -> (
+  variable18 = variable17;
+);
+variable15 = variable1 variable16;
+variable19 = false;
+variable14 = variable15 variable19;

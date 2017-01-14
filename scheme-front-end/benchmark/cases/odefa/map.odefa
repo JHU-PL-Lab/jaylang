@@ -1,0 +1,102 @@
+variable0 = fun variable5 -> (
+  variable6 = false;
+);
+variable1 = fun variable7 -> (
+  variable9 = {};
+  variable8 = variable0 variable9;
+  variable10 = variable7;
+);
+variable2 = fun variable11 -> (
+  variable12 = variable11.argument0;
+  variable13 = variable11.argument1;
+  variable15 = {};
+  variable14 = variable0 variable15;
+  variable17 = fun variable18 -> (
+    variable21 = variable18 ~ {
+      head = _,
+      tail = _
+    }
+    ? fun variable22 -> (
+      variable23 = true;
+    ) : fun variable24 -> (
+      variable25 = false;
+    );
+    variable20 = not variable21;
+    variable19 = variable20 ~ false
+    ? fun variable26 -> (
+      variable29 = variable1 variable12;
+      variable30 = variable18.head;
+      variable28 = variable29 variable30;
+      variable32 = variable18.tail;
+      variable31 = variable17 variable32;
+      variable27 = {
+        head = variable28,
+        tail = variable31
+      };
+    ) : fun variable33 -> (
+      variable35 = {};
+      variable34 = {
+        null = variable35
+      };
+    );
+  );
+  variable16 = variable17 variable13;
+);
+variable38 = fun variable39 -> (
+  variable41 = 1;
+  variable40 = variable41 + variable39;
+);
+variable37 = variable1 variable38;
+variable43 = 1;
+variable45 = 2;
+variable47 = 3;
+variable49 = {};
+variable48 = {
+  null = variable49
+};
+variable46 = {
+  head = variable47,
+  tail = variable48
+};
+variable44 = {
+  head = variable45,
+  tail = variable46
+};
+variable42 = {
+  head = variable43,
+  tail = variable44
+};
+variable36 = {
+  argument0 = variable37,
+  argument1 = variable42
+};
+variable3 = variable2 variable36;
+variable52 = fun variable53 -> (
+  variable55 = 1;
+  variable54 = variable55 + variable53;
+);
+variable51 = variable1 variable52;
+variable57 = 7;
+variable59 = 8;
+variable61 = 9;
+variable63 = {};
+variable62 = {
+  null = variable63
+};
+variable60 = {
+  head = variable61,
+  tail = variable62
+};
+variable58 = {
+  head = variable59,
+  tail = variable60
+};
+variable56 = {
+  head = variable57,
+  tail = variable58
+};
+variable50 = {
+  argument0 = variable51,
+  argument1 = variable56
+};
+variable4 = variable2 variable50;
