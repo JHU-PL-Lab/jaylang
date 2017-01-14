@@ -133,11 +133,12 @@ Authors
 -------
 
 - Leandro Facchinetti <lfacchi2@jhu.edu>.
-- Zachary Palmer <zachary.palmer@jhu.edu>.
+- Zachary Palmer <zachary.palmer@swarthmore.edu>.
 - Scott F. Smith <scott@jhu.edu>.
 - Clare Hanlon <chanlon1@swarthmore.edu>
 
 The Johns Hopkins University
+Swarthmore College
 
 
 [ocaml]: https://ocaml.org/
