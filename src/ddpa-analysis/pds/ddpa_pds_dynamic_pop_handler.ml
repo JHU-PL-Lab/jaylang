@@ -319,103 +319,202 @@ struct
       let%orzero Lookup_var(x,_,_) = element in
       [%guard (not @@ equal_abstract_var x x'')];
       return [Push element]
-    | Side_effect_search_init_1_of_2(x'',acl0,ctx) ->
-      let%orzero Lookup_var(x,patsp,patsn) = element in
-      [%guard (not @@ equal_abstract_var x x'')];
+    | Side_effect_search_start_function_flow_check_1_of_2(ctx,acl0,c,x0'') ->
+      let%orzero Lookup_var(x,_,_) = element in
+      [%guard (not @@ equal_abstract_var x x0'')];
       return [ Pop_dynamic_targeted(
-          Side_effect_search_init_2_of_2(x,patsp,patsn,acl0,ctx)) ]
-    | Side_effect_search_init_2_of_2(x,patsp,patsn,acl0,ctx) ->
+          Side_effect_search_start_function_flow_check_2_of_2(ctx,acl0,c,element)
+        )]
+    | Side_effect_search_start_function_flow_check_2_of_2(ctx,acl0,c,xel) ->
+      let%orzero Deref(_,_) = element in
+      let%orzero Abs_clause(_,Abs_appl_body(x2'',x3'')) = c in
+      let capture_size_2 = Bounded_capture_size.of_int 2 in
+      return [ Push element
+             ; Push xel
+             ; Push Real_flow_huh
+             ; Push (Jump(acl0,ctx))
+             ; Push (Capture capture_size_2)
+             ; Push (Lookup_var(x2'',Pattern_set.empty,Pattern_set.empty))
+             ; Push (Jump(Unannotated_clause(c),ctx))
+             ; Push (Lookup_var(x3'',Pattern_set.empty,Pattern_set.empty))
+             ]
+    | Side_effect_search_start_function_flow_validated_1_of_4(
+        acl0,ctx,x0'',x') ->
+      let%orzero Real_flow_huh = element in
+      return [ Pop_dynamic_targeted(
+          Side_effect_search_start_function_flow_validated_2_of_4(
+            acl0,ctx,x0'',x')
+        )]
+    | Side_effect_search_start_function_flow_validated_2_of_4(
+        acl0,ctx,x0'',x') ->
+      let%orzero Continuation_value fv = element in
+      let Abs_filtered_value(v,_,_) = fv in
+      let%orzero Abs_value_function(Abs_function_value(_,e)) = v in
+      let Abs_expr cls = e in
+      [%guard equal_abstract_var x' (rv cls)];
+      return [ Pop_dynamic_targeted(
+          Side_effect_search_start_function_flow_validated_3_of_4(acl0,ctx,x0'')
+        )]
+    | Side_effect_search_start_function_flow_validated_3_of_4(acl0,ctx,x0'') ->
+      let%orzero Lookup_var(x,_,_)  = element in
+      [%guard (not @@ equal_abstract_var x0'' x)];
+      return [ Pop_dynamic_targeted(
+          Side_effect_search_start_function_flow_validated_4_of_4(
+            acl0,ctx,element
+          )
+        )]
+    | Side_effect_search_start_function_flow_validated_4_of_4(acl0,ctx,xel) ->
       let%orzero Deref _ = element in
-      return [ Push element ; Push (Lookup_var(x,patsp,patsn))
+      let%orzero Lookup_var(x,patsp,patsn) = xel in
+      return [ Push element
+             ; Push xel
              ; Push Side_effect_search_start
              ; Push (Side_effect_lookup_var(x,patsp,patsn,acl0,ctx))
+             ]
+    | Side_effect_search_start_conditional_1_of_2(acl0,acl1,ctx) ->
+      let%orzero Lookup_var(x,_,_) = element in
+      let%orzero Exit_clause(x0'',_,_) = acl1 in
+      [%guard (not @@ equal_abstract_var x0'' x)];
+      return [ Pop_dynamic_targeted(
+          Side_effect_search_start_conditional_2_of_2(acl0,acl1,ctx,element)) ]
+    | Side_effect_search_start_conditional_2_of_2(acl0,acl1,ctx,xel) ->
+      let%orzero Lookup_var(x,patsp0,patsn0) = xel in
+      let%orzero Deref(_,_) = element in
+      let%orzero Exit_clause(_,x',c) = acl1 in
+      let%orzero Abs_clause(_,Abs_conditional_body(x2'',p,f1,f2)) = c in
+      let Abs_function_value(_,Abs_expr f1cls) = f1 in
+      let Abs_function_value(_,Abs_expr f2cls) = f2 in
+      let%bind (patsp',patsn') =
+        if equal_abstract_var x' (rv f1cls) then
+          return (Pattern_set.singleton p, Pattern_set.empty)
+        else if equal_abstract_var x' (rv f2cls) then
+          return (Pattern_set.empty, Pattern_set.singleton p)
+        else
+          zero ()
+      in
+      return [ Push element
+             ; Push xel
+             ; Push Side_effect_search_start
+             ; Push (Side_effect_lookup_var(x,patsp0,patsn0,acl0,ctx))
+             ; Push (Jump(Unannotated_clause c, ctx))
+             ; Push (Lookup_var(x2'',patsp',patsn'))
              ]
     | Side_effect_search_nonmatching_clause_skip ->
       let%orzero (Side_effect_lookup_var _) = element in
       return [ Push element ]
-    | Side_effect_search_exit_wiring ->
-      let%orzero (Side_effect_lookup_var _) = element in
-      return [ Push element ; Push element ]
-    | Side_effect_search_enter_wiring ->
-      let%orzero (Side_effect_lookup_var _) = element in
-      return []
-    | Side_effect_search_without_discovery ->
-      let%orzero Side_effect_search_start = element in
-      return []
-    | Side_effect_search_alias_analysis_init(x',acl0,ctx) ->
-      let%orzero (Side_effect_lookup_var(x,patsp,patsn,acl',ctx')) =
-        element
-      in
-      (* The following stack elements are "backwards" because they appear in
-         the order in which they are pushed (similar to the other case of
-         alias analysis initialization). *)
-      let capture_size_5 = Bounded_capture_size.of_int 5 in
-      let capture_size_2 = Bounded_capture_size.of_int 2 in
-      let k1'' =
-        [ Capture(capture_size_5)
-        ; Lookup_var(x',Pattern_set.empty,Pattern_set.empty) ]
-      in
-      let k2'' =
-        [ Capture(capture_size_2)
-        ; Lookup_var(x,patsp,patsn)
-        ; Jump(acl',ctx') ]
-      in
-      let k3'' =
-        [ Alias_huh ; Jump(acl0, ctx) ]
-      in
-      return @@ List.map (fun x -> Push x) @@ [element] @ k3'' @ k2'' @ k1''
-    | Side_effect_search_alias_analysis_resolution_1_of_4(x'') ->
-      let%orzero Alias_huh = element in
-      return [ Pop_dynamic_targeted (
-          Side_effect_search_alias_analysis_resolution_2_of_4(x'')) ]
-    | Side_effect_search_alias_analysis_resolution_2_of_4(x'') ->
-      let%orzero
-        Continuation_value(Abs_filtered_value(v,patsp,patsn)) = element
-      in
-      [%guard (Pattern_set.is_empty patsp) ];
-      [%guard (Pattern_set.is_empty patsn) ];
-      return [ Pop_dynamic_targeted (
-          Side_effect_search_alias_analysis_resolution_3_of_4(x'',v)) ]
-    | Side_effect_search_alias_analysis_resolution_3_of_4(x'',v1) ->
-      let%orzero
-        Continuation_value(Abs_filtered_value(v2,patsp,patsn)) = element
-      in
-      [%guard (Pattern_set.is_empty patsp) ];
-      [%guard (Pattern_set.is_empty patsn) ];
-      let is_alias = equal_abstract_value v1 v2 in
-      return [ Pop_dynamic_targeted (
-          Side_effect_search_alias_analysis_resolution_4_of_4(
-            x'',is_alias)) ]
-    | Side_effect_search_alias_analysis_resolution_4_of_4(x'',is_alias) ->
-      let%orzero (Side_effect_lookup_var _) = element in
-      if is_alias then
-        (* 7g.ix *)
-        return [ Push (Side_effect_search_escape x'') ]
-      else
-        (* 7g.viii *)
-        return [ Push element ]
-    | Side_effect_search_escape_1_of_2 ->
-      let%orzero Side_effect_search_escape x'' = element in
-      return [ Pop_dynamic_targeted (
-          Side_effect_search_escape_2_of_2 x'') ]
-    | Side_effect_search_escape_2_of_2 x'' ->
+    | Side_effect_search_function_bottom_flow_check(acl1,acl0,ctx) ->
       let%orzero Side_effect_lookup_var _ = element in
-      return [ Push (Side_effect_search_escape x'') ]
-    | Side_effect_search_escape_completion_1_of_4 ->
-      let%orzero Side_effect_search_escape x = element in
-      return [ Pop_dynamic_targeted (
-          Side_effect_search_escape_completion_2_of_4 x) ]
-    | Side_effect_search_escape_completion_2_of_4 x ->
+      let%orzero Exit_clause(_,_,c) = acl1 in
+      let%orzero Abs_clause(_,Abs_appl_body(x2'',x3'')) = c in
+      let capture_size_2 = Bounded_capture_size.of_int 2 in
+      return [ Push element
+             ; Push Real_flow_huh
+             ; Push (Jump(acl0,ctx))
+             ; Push (Capture capture_size_2)
+             ; Push (Lookup_var(x2'',Pattern_set.empty,Pattern_set.empty))
+             ; Push (Jump(Unannotated_clause(c),ctx))
+             ; Push (Lookup_var(x3'',Pattern_set.empty,Pattern_set.empty))
+             ]
+    | Side_effect_search_function_bottom_flow_validated_1_of_3(x') ->
+      let%orzero Real_flow_huh = element in
+      return [ Pop_dynamic_targeted(
+          Side_effect_search_function_bottom_flow_validated_2_of_3(x')) ]
+    | Side_effect_search_function_bottom_flow_validated_2_of_3(x') ->
+      let%orzero Continuation_value(Abs_filtered_value(v,_,_)) = element in
+      let%orzero Abs_value_function(Abs_function_value(_,Abs_expr(cls))) = v in
+      [%guard equal_abstract_var x' (rv cls)];
+      return [ Pop_dynamic_targeted
+                 Side_effect_search_function_bottom_flow_validated_3_of_3 ]
+    | Side_effect_search_function_bottom_flow_validated_3_of_3 ->
+      let%orzero Side_effect_lookup_var _ = element in
+      return [ Push element
+             ; Push element
+             ]
+    | Side_effect_search_conditional(acl1,ctx) ->
+      let%orzero Side_effect_lookup_var _ = element in
+      let%orzero Exit_clause(_,x',c) = acl1 in
+      let%orzero Abs_clause(_,Abs_conditional_body(x1,p,f1,f2)) = c in
+      let Abs_function_value(_,Abs_expr f1cls) = f1 in
+      let Abs_function_value(_,Abs_expr f2cls) = f2 in
+      let%bind (patsp',patsn') =
+        if equal_abstract_var x' (rv f1cls) then
+          return (Pattern_set.singleton p, Pattern_set.empty)
+        else if equal_abstract_var x' (rv f2cls) then
+          return (Pattern_set.empty, Pattern_set.singleton p)
+        else
+          zero ()
+      in
+      return [ Push element
+             ; Push (Jump(acl1,ctx))
+             ; Push (Lookup_var(x1,patsp',patsn'))
+             ]
+    | Side_effect_search_top ->
+      let%orzero Side_effect_lookup_var _ = element in
+      return []
+    | Side_effect_search_complete_none_found ->
       let%orzero Side_effect_search_start = element in
-      return [ Pop_dynamic_targeted (
-          Side_effect_search_escape_completion_3_of_4 x) ]
-    | Side_effect_search_escape_completion_3_of_4 x ->
+      return []
+    | Side_effect_search_alias_analysis_start(acl0,ctx,x') ->
+      let%orzero Side_effect_lookup_var(x,patsp,patsn,acl',ctx') = element in
+      let capture_size_2 = Bounded_capture_size.of_int 2 in
+      let capture_size_5 = Bounded_capture_size.of_int 5 in
+      return [ Push element
+             ; Push Alias_huh
+             ; Push (Jump(acl0,ctx))
+             ; Push (Capture capture_size_2)
+             ; Push (Lookup_var(x,patsp,patsn))
+             ; Push (Jump(acl',ctx'))
+             ; Push (Capture capture_size_5)
+             ; Push (Lookup_var(x',Pattern_set.empty,Pattern_set.empty))
+             ]
+    | Side_effect_search_may_not_alias_1_of_4 ->
+      let%orzero Alias_huh = element in
+      return [ Pop_dynamic_targeted Side_effect_search_may_not_alias_2_of_4 ]
+    | Side_effect_search_may_not_alias_2_of_4 ->
+      let%orzero Continuation_value _ = element in
+      return [ Pop_dynamic_targeted Side_effect_search_may_not_alias_3_of_4 ]
+    | Side_effect_search_may_not_alias_3_of_4 ->
+      let%orzero Continuation_value _ = element in
+      return [ Pop_dynamic_targeted Side_effect_search_may_not_alias_4_of_4 ]
+    | Side_effect_search_may_not_alias_4_of_4 ->
+      let%orzero Side_effect_lookup_var _ = element in
+      return [ Push element ]
+    | Side_effect_search_may_alias_1_of_4 x' ->
+      let%orzero Alias_huh = element in
+      return [ Pop_dynamic_targeted (Side_effect_search_may_alias_2_of_4 x')]
+    | Side_effect_search_may_alias_2_of_4 x' ->
+      let%orzero Continuation_value(Abs_filtered_value(v,_,_)) = element in
+      return [ Pop_dynamic_targeted(
+          Side_effect_search_may_alias_3_of_4 (x',v))]
+    | Side_effect_search_may_alias_3_of_4(x',v) ->
+      let%orzero Continuation_value(Abs_filtered_value(v',_,_)) = element in
+      [%guard equal_abstract_value v v'];
+      return [ Pop_dynamic_targeted (Side_effect_search_may_alias_4_of_4 x')]
+    | Side_effect_search_may_alias_4_of_4 x' ->
+      let%orzero Side_effect_lookup_var _ = element in
+      return [ Push (Side_effect_search_escape x') ]
+    | Side_effect_search_escape_incremental_1_of_2 ->
+      let%orzero Side_effect_search_escape _ = element in
+      return [ Pop_dynamic_targeted(
+          Side_effect_search_escape_incremental_2_of_2 element) ]
+    | Side_effect_search_escape_incremental_2_of_2 element' ->
+      let%orzero Side_effect_lookup_var _ = element in
+      return [ Push element' ]
+    | Side_effect_search_escape_base_1_of_4 ->
+      let%orzero Side_effect_search_escape x' = element in
+      return [ Pop_dynamic_targeted(
+          Side_effect_search_escape_base_2_of_4(x')) ]
+    | Side_effect_search_escape_base_2_of_4(x') ->
+      let%orzero Side_effect_search_start = element in
+      return [ Pop_dynamic_targeted(
+          Side_effect_search_escape_base_3_of_4(x')) ]
+    | Side_effect_search_escape_base_3_of_4(x') ->
       let%orzero Lookup_var _ = element in
-      return [ Pop_dynamic_targeted (
-          Side_effect_search_escape_completion_4_of_4 x) ]
-    | Side_effect_search_escape_completion_4_of_4 x ->
+      return [ Pop_dynamic_targeted(
+          Side_effect_search_escape_base_4_of_4(x')) ]
+    | Side_effect_search_escape_base_4_of_4(x') ->
       let%orzero Deref(patsp,patsn) = element in
-      return [ Push (Lookup_var(x,patsp,patsn)) ]
+      return [ Push (Lookup_var(x',patsp,patsn)) ]
     | Binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
       let%orzero Lookup_var(x1',_,_) = element in
       [%guard (equal_abstract_var x1 x1') ];

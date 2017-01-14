@@ -178,74 +178,131 @@ struct
         a problem and it reduces the number of steps involved in performing
         this task.  The associated variable is the variable that a lookup must
         *not* match to be able to skip the clause. *)
-    | Side_effect_search_init_1_of_2 of
-        abstract_var * annotated_clause * C.t
-    (** Represents the initialization of a search for side effects.  The
-        provided variable must *not* be the lookup variable (since we'd be
-        looking for an immediate definition in that case).  The clause and
-        context represent the starting point of the side-effect search. *)
-    | Side_effect_search_init_2_of_2 of
-        abstract_var * Pattern_set.t * Pattern_set.t * annotated_clause * C.t
-    (** Represents the initialization of a search for side effects.  At this
-        point, all work has been performed except (1) validating the presence
-        of a deref and (2) pushing the appropriate lookup continuations onto
-        the stack. *)
+    | Side_effect_search_start_function_flow_check_1_of_2 of
+        C.t * annotated_clause * abstract_clause * abstract_var
+    (** Represents the start of a function flow check for a side effect search.
+        The provided variable must *not* be the lookup variable (as that would
+        indicate that we're looking for the return of the function and other
+        rules would apply).  The given annotated clause is the return point
+        (acl0) while the abstract clause is the call site. *)
+    | Side_effect_search_start_function_flow_check_2_of_2 of
+        C.t * annotated_clause * abstract_clause * Pds_continuation.t
+    (** Represents the second part of a function flow check for a side effect
+        search.  This step pops the deref instruction from the stack to ensure
+        that it is there.  As opposed to the first step, the abstract variable
+        for which we must *not* be looking has been replaced by the stack
+        element representing the variable for which we *are* looking, as we will
+        need to re-push it. *)
+    | Side_effect_search_start_function_flow_validated_1_of_4 of
+        annotated_clause * C.t * abstract_var * abstract_var
+    (** The first step of starting a side-effect search after the called
+        function has been validated.  This step merely pops the RealFlow?
+        marker.  The arguments are the return clause (acl0) and context, the
+        variable which we must *not* be seeking, and the required return
+        variable of the function. *)
+    | Side_effect_search_start_function_flow_validated_2_of_4 of
+        annotated_clause * C.t * abstract_var * abstract_var
+    (** The second step of starting a side-effect search after the called
+        function has been validated.  This step pops the function value and
+        confirms that it has the correct return variable. *)
+    | Side_effect_search_start_function_flow_validated_3_of_4 of
+        annotated_clause * C.t * abstract_var
+    (** The third step of starting a side-effect search after the called
+        function has been validated.  This step ensures that we're not looking
+        for the return flow of the function. *)
+    | Side_effect_search_start_function_flow_validated_4_of_4 of
+        annotated_clause * C.t * Pds_continuation.t
+    (** The fourth step of starting a side-effect search after the called
+        function has been validated.  This step confirms the existence of a
+        deref element.  The third argument has been replaced with the variable
+        lookup element which we must repush. *)
+    | Side_effect_search_start_conditional_1_of_2 of
+        annotated_clause * annotated_clause * C.t
+    (** The first step of starting a side-effect search with a conditional.
+        The arguments are the exit wiring node, the return node (acl0), and the
+        context in which the search is occurring. *)
+    | Side_effect_search_start_conditional_2_of_2 of
+        annotated_clause * annotated_clause * C.t * Pds_continuation.t
+    (** The second step of starting a side-effect search with a conditional.
+        The provided argument is the additional stack element which represents
+        the variable lookup which we must repush. *)
     | Side_effect_search_nonmatching_clause_skip
     (** Represents the action of skipping any immediate, unannotated,
         non-update clause while searching for side effects. *)
-    | Side_effect_search_exit_wiring
-    (** Represents the action of moving into an exit wiring node during a
-        side-effect search. *)
-    | Side_effect_search_enter_wiring
-    (** Represents the action of moving into an entrance wiring node during a
-        side-effect search. *)
-    | Side_effect_search_without_discovery
-    (** Represents the end of a side-effect search which did not discover any
-        relevant side effects. *)
-    | Side_effect_search_alias_analysis_init of
-        abstract_var * annotated_clause * C.t
-    (** Represents the initialization of alias analysis for a cell update
-        while in a side-effect search.  The variable is the cell being
-        updated; the clause and context designate the state at which the
-        alias analysis began. *)
-    | Side_effect_search_alias_analysis_resolution_1_of_4 of abstract_var
-    (** Represents the resolution of an alias analysis within a side-effect
-        lookup.  The variable is the one being assigned to the cell. *)
-    | Side_effect_search_alias_analysis_resolution_2_of_4 of abstract_var
-    (** The second step of alias analysis resolution in a side-effect search.
-        This step has consumed the "Alias?" question. *)
-    | Side_effect_search_alias_analysis_resolution_3_of_4 of
-        abstract_var * abstract_value
-    (** The third step of alias analysis resolution in a side-effect search.
-        The first abstract value has been consumed. *)
-    | Side_effect_search_alias_analysis_resolution_4_of_4 of abstract_var * bool
-    (** The last step of alias analysis resolution in a side-effect search.
-        The variable is the one being assigned to a cell; the boolean
-        indicates whether the particular value pair discovered here indicates
-        aliasing or not. *)
-    | Side_effect_search_escape_1_of_2
-    (** The first step of processing a side-effect search escape.  This is
-        used when the alias analysis of a cell update during a side-effect
-        search successfully identifies a possible aliasing of the cell we are
-        attempting to dereference.  This process is used to eliminate the
-        stack frames which represent the side-effect search portion of the
-        overall analysis so that lookup can proceed from the point at which
-        the alias update is found. *)
-    | Side_effect_search_escape_2_of_2 of abstract_var
-    (** The second step of processing a side-effect search escape.  The
-        variable is the one which was found to be the new value of the cell
-        being dereferenced. *)
-    | Side_effect_search_escape_completion_1_of_4
-    (** Represents the completion of a side-effect search escape. *)
-    | Side_effect_search_escape_completion_2_of_4 of abstract_var
-    (** Represents the completion of a side-effect search escape.  The given
-        variable is the one to which the aliased cell is being assigned. *)
-    | Side_effect_search_escape_completion_3_of_4 of abstract_var
-    (** Represents the completion of a side-effect search escape.  The given
-        variable is the one to which the aliased cell is being assigned. *)
-    | Side_effect_search_escape_completion_4_of_4 of abstract_var
-    (** Represents the completion of a side-effect search escape.  The given
-        variable is the one to which the aliased cell is being assigned. *)
+    | Side_effect_search_function_bottom_flow_check of
+        annotated_clause * annotated_clause * C.t
+    (** Handles a function wiring exit during a side-effect search.  The
+        arguments are the exit wiring node, the return node (acl0), and the
+        context in which the search is occurring. *)
+    | Side_effect_search_function_bottom_flow_validated_1_of_3 of abstract_var
+    (** Handles a function wiring exit during a side-effect search.  This step
+        simply pops the RealFlow? symbol.  The argument is the function's return
+        variable from the wiring node (used to validate the flow). *)
+    | Side_effect_search_function_bottom_flow_validated_2_of_3 of abstract_var
+    (** Handles a function wiring exit during a side-effect search.  This step
+        verifies the function flow.  The argument is the function's return
+        variable from the wiring node (used to validate the flow). *)
+    | Side_effect_search_function_bottom_flow_validated_3_of_3
+    (** Handles a function wiring exit during a side-effect search.  This step
+        verifies that we are performing a side-effect search. *)
+    | Side_effect_search_conditional of annotated_clause * C.t
+    (** Handles conditionals during a side-effect search.  The arguments are the
+        wiring node and search context. *)
+    | Side_effect_search_top
+    (** Handles a wiring entrance node for side-effect search. *)
+    | Side_effect_search_complete_none_found
+    (** Handles the termination of an unsuccessful side-effect search. *)
+    | Side_effect_search_alias_analysis_start of
+        annotated_clause * C.t * abstract_var
+    (** Starts alias analysis within a side-effect search.  The provided
+        arguments are the return clause (acl0) and context as well as the
+        variable describing the cell being updated. *)
+    | Side_effect_search_may_not_alias_1_of_4
+    (** Handles the case in which an alias analysis during a side-effect search
+        concludes that the alias may not hold. *)
+    | Side_effect_search_may_not_alias_2_of_4
+    (** Handles the case in which an alias analysis during a side-effect search
+        concludes that the alias may not hold. *)
+    | Side_effect_search_may_not_alias_3_of_4
+    (** Handles the case in which an alias analysis during a side-effect search
+        concludes that the alias may not hold. *)
+    | Side_effect_search_may_not_alias_4_of_4
+    (** Handles the case in which an alias analysis during a side-effect search
+        concludes that the alias may not hold. *)
+    | Side_effect_search_may_alias_1_of_4 of abstract_var
+    (** Handles the case in which an alias analysis during a side-effect search
+        concludes that the alias may hold.  This step pops the Alias? symbol.
+        The argument is the variable which replaces the lookup value. *)
+    | Side_effect_search_may_alias_2_of_4 of abstract_var
+    (** Handles the case in which an alias analysis during a side-effect search
+        concludes that the alias may hold.  This step pops the first value.
+        The argument is the variable which replaces the lookup value. *)
+    | Side_effect_search_may_alias_3_of_4 of abstract_var * abstract_value
+    (** Handles the case in which an alias analysis during a side-effect search
+        concludes that the alias may hold.  This step pops the second value and
+        confirms that it is equal to the first.  The arguments are the variable
+        which replaces the lookup value and the first cell value. *)
+    | Side_effect_search_may_alias_4_of_4 of abstract_var
+    (** Handles the case in which an alias analysis during a side-effect search
+        concludes that the alias may hold.  This step pops the side-effect
+        search symbol and replaces it with an escape symbol. *)
+    | Side_effect_search_escape_incremental_1_of_2
+    (** Handles the incremental case of escaping from side-effect search. *)
+    | Side_effect_search_escape_incremental_2_of_2 of Pds_continuation.t
+    (** Handles the incremental case of escaping from side-effect search.  The
+        argument is the escape symbol. *)
+    | Side_effect_search_escape_base_1_of_4
+    (* Handles the base case of escaping from side-effect search. *)
+    | Side_effect_search_escape_base_2_of_4 of abstract_var
+    (* Handles the base case of escaping from side-effect search.  The argument
+       is the escape variable. *)
+    | Side_effect_search_escape_base_3_of_4 of abstract_var
+    (* Handles the base case of escaping from side-effect search.  The argument
+       is the escape variable. *)
+    | Side_effect_search_escape_base_4_of_4 of abstract_var
+    (* Handles the base case of escaping from side-effect search.  The argument
+       is the escape variable. *)
+
     | Binary_operator_lookup_init of
         abstract_var * abstract_var * abstract_var *
         annotated_clause * C.t * annotated_clause * C.t

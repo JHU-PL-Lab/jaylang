@@ -317,8 +317,8 @@ struct
                    , Program_point_state(acl1, ctx) )
           end
           ;
-          (* FIXME: update implementation for side effect rules! *)
-          (* 10a. Stateful non-side-effecting clause skip *)
+          (* ********** Side Effect Search (State) ********** *)
+          (* Stateful Immediate Clause Skip *)
           begin
             let%orzero (Unannotated_clause(Abs_clause(x,b))) = acl1 in
             [% guard (is_immediate acl1) ];
@@ -331,20 +331,39 @@ struct
                    , Program_point_state(acl1,ctx)
                    )
           end
-          ; (* 10b. Side-effect search initialization *)
+          ;
+          (* Side Effect Search Start: Function Flow Check *)
           begin
-            let%orzero (Exit_clause(x'',_,c)) = acl1 in
-            (* x'' =(up)c x' *)
-            let%bind ctx' =
-              match c with
-              | Abs_clause(_,Abs_appl_body _) -> return @@ C.push c ctx
-              | Abs_clause(_,Abs_conditional_body _) -> return ctx
-              | _ -> zero ()
-            in
-            return ( Side_effect_search_init_1_of_2(x'',acl0,ctx)
-                   , Program_point_state(acl1,ctx') )
+            let%orzero (Exit_clause(x0'',_,c)) = acl1 in
+            let%orzero (Abs_clause(_,Abs_appl_body(_,_))) = c in
+            return ( Side_effect_search_start_function_flow_check_1_of_2(
+                ctx,acl0,c,x0'')
+                   , Program_point_state(Unannotated_clause(c),ctx)
+              )
           end
-          ; (* 10c. Side-effect search non-matching clause skip *)
+          ;
+          (* Side Effect Search Start: Function Flow Validated *)
+          begin
+            let%orzero (Exit_clause(x0'',x',c)) = acl1 in
+            let%orzero (Abs_clause(_,Abs_appl_body(_,_))) = c in
+            return ( Side_effect_search_start_function_flow_validated_1_of_4(
+                acl0,ctx,x0'',x'
+              )
+                   , Program_point_state(acl1,C.push c ctx)
+              )
+          end
+          ;
+          (* Side Effect Search Start: Conditional Positive *)
+          (* Side Effect Search Start: Conditional Negative *)
+          begin
+            let%orzero (Exit_clause(_,_,c)) = acl1 in
+            let%orzero (Abs_clause(_,Abs_conditional_body _)) = c in
+            return ( Side_effect_search_start_conditional_1_of_2(acl0,acl1,ctx)
+                   , Program_point_state(acl1,ctx)
+                   )
+          end
+          ;
+          (* Side Effect Search Immediate Clause Skip *)
           begin
             let%orzero (Unannotated_clause(Abs_clause(_,b))) = acl1 in
             [% guard (is_immediate acl1) ];
@@ -356,64 +375,100 @@ struct
             return ( Side_effect_search_nonmatching_clause_skip
                    , Program_point_state(acl1,ctx) )
           end
-          ; (* 10d. Side-effect search exit wiring node *)
+          ;
+          (* Side Effect Search: Function Bottom: Flow Check *)
           begin
-            let%orzero (Exit_clause(_,_,c)) = acl1 in
-            (* x'' =(up)c x' *)
-            let%bind ctx' =
-              match c with
-              | Abs_clause(_,Abs_appl_body _) -> return @@ C.push c ctx
-              | Abs_clause(_,Abs_conditional_body _) -> return ctx
-              | _ -> zero ()
-            in
-            return ( Side_effect_search_exit_wiring
-                   , Program_point_state(acl1,ctx') )
+            let%orzero Exit_clause(_,_,c) = acl1 in
+            let%orzero Abs_clause(_,Abs_appl_body _) = c in
+            return ( Side_effect_search_function_bottom_flow_check(
+                acl1,acl0,ctx)
+                   , Program_point_state(Unannotated_clause(c),ctx)
+              )
           end
-          ; (* 10e. Side-effect search enter wiring node *)
+          ;
+          (* Side Effect Search: Function Bottom: Flow Validated *)
           begin
-            let%orzero (Enter_clause(_,_,c)) = acl1 in
-            (* x'' =(down)c x' *)
+            let%orzero Exit_clause(_,x',c) = acl1 in
+            let%orzero Abs_clause(_,Abs_appl_body _) = c in
+            return ( Side_effect_search_function_bottom_flow_validated_1_of_3(
+                x')
+                   , Program_point_state(Unannotated_clause(c),C.push c ctx)
+              )
+          end
+          ;
+          (* Side Effect Search: Conditional Positive *)
+          (* Side Effect Search: Conditional Negative *)
+          begin
+            let%orzero Exit_clause(_,_,c) = acl1 in
+            let%orzero Abs_clause(_,Abs_conditional_body _) = c in
+            return ( Side_effect_search_conditional(acl1,ctx)
+                   , Program_point_state(Unannotated_clause(c),ctx)
+                   )
+          end
+          ;
+          (* Side Effect Search: Top *)
+          begin
+            let%orzero Enter_clause(_,_,c) = acl1 in
             let%bind ctx' =
               match c with
               | Abs_clause(_,Abs_appl_body _) -> return @@ C.pop ctx
               | Abs_clause(_,Abs_conditional_body _) -> return ctx
               | _ -> zero ()
             in
-            return ( Side_effect_search_enter_wiring
-                   , Program_point_state(acl1,ctx') )
+            return ( Side_effect_search_top
+                   , Program_point_state(acl1,ctx')
+                   )
           end
-          (* FIXME: why does this clause kill performance? *)
-          ; (* 10f. Side-effect search without discovery *)
+          ;
+          (* Side Effect Search: Complete, None Found *)
           begin
-            return ( Side_effect_search_without_discovery
-                   , Program_point_state(acl0,ctx) )
+            return ( Side_effect_search_complete_none_found
+                   , Program_point_state(acl0, ctx)
+                   )
           end
-          ; (* 10g. Side-effect search alias analysis initialization *)
+          ;
+          (* Side Effect Search: Alias Analysis Start *)
           begin
-            let%orzero (Unannotated_clause(
-                Abs_clause(_,Abs_update_body(x',_)))) = acl1
+            let%orzero
+              Unannotated_clause(Abs_clause(_,Abs_update_body(x',_))) = acl1
             in
-            return ( Side_effect_search_alias_analysis_init(x',acl0,ctx)
-                   , Program_point_state(acl1,ctx) )
+            return ( Side_effect_search_alias_analysis_start(acl0,ctx,x')
+                   , Program_point_state(acl1,ctx)
+                   )
           end
-          ; (* 10h,10i. Side-effect search alias analysis resolution *)
+          ;
+          (* Side Effect Search: May Not Alias *)
           begin
-            let%orzero (Unannotated_clause(
-                Abs_clause(_,Abs_update_body(_,x'')))) = acl1
+            let%orzero
+              Unannotated_clause(Abs_clause(_,Abs_update_body(_,_))) = acl1
             in
-            return ( Side_effect_search_alias_analysis_resolution_1_of_4(
-                x'')
-                   , Program_point_state(acl1,ctx) )
+            return ( Side_effect_search_may_not_alias_1_of_4
+                   , Program_point_state(acl1,ctx)
+                   )
           end
-          ; (* 10j. Side-effect search escape *)
+          ;
+          (* Side Effect Search: May Alias *)
           begin
-            return ( Side_effect_search_escape_1_of_2
-                   , Program_point_state(acl0,ctx) )
+            let%orzero
+              Unannotated_clause(Abs_clause(_,Abs_update_body(_,x''))) = acl1
+            in
+            return ( Side_effect_search_may_alias_1_of_4 x''
+                   , Program_point_state(acl1,ctx)
+                   )
           end
-          ; (* 10k. Side-effect search escape completion *)
+          ;
+          (* Side Effect Search: Escape: Incremental *)
           begin
-            return ( Side_effect_search_escape_completion_1_of_4
-                   , Program_point_state(acl0,ctx) )
+            return ( Side_effect_search_escape_incremental_1_of_2
+                   , Program_point_state(acl0,ctx)
+                   )
+          end
+          ;
+          (* Side Effect Search Escape: Base *)
+          begin
+            return ( Side_effect_search_escape_base_1_of_4
+                   , Program_point_state(acl0,ctx)
+                   )
           end
           ;
           (* ********** Operations ********** *)
