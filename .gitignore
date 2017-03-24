@@ -3,9 +3,7 @@
 /.paths
 
 # OASIS temp files
-/Makefile
 /_build
-/configure
 /*.byte
 /*.native
 /setup.*
