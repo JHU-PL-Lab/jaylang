@@ -29,7 +29,11 @@ struct
   module Stack_action =
     Stack_action_constructor(Stack_element)(Targeted_dynamic_pop_action)
   ;;
+  module Terminus =
+    Terminus_constructor(State)(Untargeted_dynamic_pop_action)
+  ;;
   open Stack_action.T;;
+  open Terminus.T;;
   let perform_targeted_dynamic_pop element action =
     Logger_utils.lazy_bracket_log (lazy_logger `trace)
       (fun () ->
@@ -618,14 +622,14 @@ struct
     match action with
     | Do_jump ->
       let%orzero (Jump(acl1,ctx)) = element in
-      return ([], Program_point_state(acl1,ctx))
+      return ([], Static_terminus(Program_point_state(acl1,ctx)))
     | Value_discovery_1_of_2 ->
       let%orzero (Continuation_value abs_filtered_value) = element in
       return ( [ Pop_dynamic_targeted(Value_discovery_2_of_2) ]
-             , Result_state abs_filtered_value
+             , Static_terminus(Result_state abs_filtered_value)
              )
     | Rewind_step(acl,ctx0)->
       let%orzero Rewind = element in
-      return ([], Program_point_state(acl,ctx0))
+      return ([], Static_terminus(Program_point_state(acl,ctx0)))
   ;;
 end;;

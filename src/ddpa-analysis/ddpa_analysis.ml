@@ -92,6 +92,7 @@ struct
   ;;
 
   open Ddpa_pds_reachability.Stack_action.T;;
+  open Ddpa_pds_reachability.Terminus.T;;
 
   module Edge_functions =
     Ddpa_pds_edge_functions.Make
@@ -409,7 +410,8 @@ struct
       Ddpa_pds_reachability.empty ~logging_function:pdr_log_fn_opt ()
       |> Ddpa_pds_reachability.add_edge_function
         (fun state ->
-           Enum.singleton ([Pop Structure_types.Bottom_of_stack], state)
+           Enum.singleton ([Pop Structure_types.Bottom_of_stack],
+                           Static_terminus state)
         )
     in
     let empty_analysis =
