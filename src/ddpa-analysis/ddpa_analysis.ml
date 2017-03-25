@@ -13,7 +13,6 @@ open Ddpa_context_stack;;
 open Ddpa_graph;;
 open Ddpa_utils;;
 open Nondeterminism;;
-open Pds_reachability_types_stack;;
 open Pp_utils;;
 
 let logger = Logger_utils.make_logger "Ddpa_analysis";;
@@ -91,6 +90,8 @@ struct
       (Dynamic_pop_handler)
       (Pds_reachability_work_collection_templates.Work_stack)
   ;;
+
+  open Ddpa_pds_reachability.Stack_action.T;;
 
   module Edge_functions =
     Ddpa_pds_edge_functions.Make

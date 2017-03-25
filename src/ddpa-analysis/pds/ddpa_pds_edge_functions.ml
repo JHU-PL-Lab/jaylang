@@ -5,7 +5,6 @@ open Ddpa_abstract_ast;;
 open Ddpa_context_stack;;
 open Ddpa_graph;;
 open Ddpa_utils;;
-open Pds_reachability_types_stack;;
 
 let logger = Logger_utils.make_logger "Ddpa_pds_edge_functions";;
 let lazy_logger = Logger_utils.make_lazy_logger "Ddpa_pds_edge_functions";;
@@ -24,6 +23,7 @@ module Make
 struct
   open S;;
   open T;;
+  open R.Stack_action.T;;
 
   (**
      Creates a PDS edge function for a particular DDPA graph edge.  The
@@ -43,7 +43,7 @@ struct
       (fun edges ->
          let string_of_output (actions,target) =
            String_utils.string_of_tuple
-             (String_utils.string_of_list R.show_stack_action)
+             (String_utils.string_of_list R.Stack_action.show)
              Pds_state.show
              (actions,target)
          in

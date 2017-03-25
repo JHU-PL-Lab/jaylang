@@ -26,11 +26,10 @@ struct
   module State = Pds_state;;
   module Targeted_dynamic_pop_action = Pds_targeted_dynamic_pop_action;;
   module Untargeted_dynamic_pop_action = Pds_untargeted_dynamic_pop_action;;
-  type stack_action =
-    ( Stack_element.t
-    , Targeted_dynamic_pop_action.t
-    ) pds_stack_action
+  module Stack_action =
+    Stack_action_constructor(Stack_element)(Targeted_dynamic_pop_action)
   ;;
+  open Stack_action.T;;
   let perform_targeted_dynamic_pop element action =
     Logger_utils.lazy_bracket_log (lazy_logger `trace)
       (fun () ->
@@ -42,9 +41,7 @@ struct
            (
              results
              |> Enum.clone
-             |> Enum.map (String_utils.string_of_list @@
-                          show_pds_stack_action Pds_continuation.pp
-                            pp_pds_targeted_dynamic_pop_action)
+             |> Enum.map (String_utils.string_of_list Stack_action.show)
            )
       )
     @@ fun () ->
