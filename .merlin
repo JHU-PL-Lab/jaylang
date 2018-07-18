@@ -1,4 +1,4 @@
-PKG oasis batteries menhirLib oUnit ppx_deriving.std ppx_deriving_yojson monadlib ocaml-monadic jhupllib pds-reachability
+PKG oasis batteries menhirLib oUnit ppx_deriving.std ppx_deriving_yojson ocaml-monadic monadlib jhupllib pds-reachability
 S src/**
 S test/**
 B _build/src/**
