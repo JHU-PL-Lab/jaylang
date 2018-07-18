@@ -38,7 +38,7 @@ Build
 4. Switch to the appropriate compiler version:
 
    ```console
-   $ opam switch 4.07.0
+   $ opam switch 4.06.1
    $ eval `opam config env`
    ```
 
@@ -48,14 +48,14 @@ Build
    Either
 
    ```console
-   $ opam switch 4.07.0+mingw64
+   $ opam switch 4.06.1+mingw64
    $ eval `opam config env`
    ```
 
    or
 
    ```console
-   $ opam switch 4.07.0+mingw32
+   $ opam switch 4.06.1+mingw32
    $ eval `opam config env`
    ```
 
