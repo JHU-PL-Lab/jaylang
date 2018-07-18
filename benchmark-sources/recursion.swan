@@ -1,9 +1,0 @@
-let recursion x =
-  if x == 0 then
-    x
-  else
-    recursion (x - 1);
-    x
-  end
-in
-recursion 10;;

@@ -1,3 +1,0 @@
-(x1 or ((not x2) or (not x3))) and
-(((not x2) or (not x3)) and
- (x4 or x2))

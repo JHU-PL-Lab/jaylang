@@ -79,86 +79,6 @@ Library "core-interpreter"
     odefa.core-ast,
     odefa.utils
 
-Library "nested-ast"
-  FindlibParent: odefa
-  Path: src/nested-ast
-  Modules:
-    Nested_ast
-  BuildDepends:
-    batteries,
-    jhupllib,
-    odefa.core-ast,
-    odefa.utils
-
-Library "swan-ast"
-  FindlibParent: odefa
-  Path: src/swan-ast
-  Modules:
-    Swan_ast
-  BuildDepends:
-    batteries,
-    odefa.core-ast,
-    odefa.utils
-
-Library "nested-parser"
-  FindlibParent: odefa
-  Path: src/nested-parser
-  Modules:
-    Nested_generated_lexer,
-    Nested_generated_parser,
-    Nested_parser
-  BuildDepends:
-    batteries,
-    jhupllib,
-    odefa.nested-ast,
-    odefa.utils
-  BuildTools+:
-    ocamllex,
-    menhir
-
-Library "swan-parser"
-  FindlibParent: odefa
-  Path: src/swan-parser
-  Modules:
-    Swan_generated_lexer,
-    Swan_generated_parser,
-    Swan_parser
-  BuildDepends:
-    batteries,
-    jhupllib,
-    odefa.swan-ast,
-    odefa.utils
-  BuildTools+:
-    ocamllex,
-    menhir
-
-Library "a-translator"
-  FindlibParent: odefa
-  Path: src/a-translator
-  Modules:
-    A_translator
-  BuildDepends:
-    batteries,
-    jhupllib,
-    odefa.core-ast,
-    odefa.nested-ast,
-    odefa.utils
-
-Library "swan-translator"
-  FindlibParent: odefa
-  Path: src/swan-translator
-  Modules:
-    Swan_translator,
-    Egg_ast,
-    Egg_translator
-  BuildDepends:
-    batteries,
-    jhupllib,
-    odefa.core-ast,
-    odefa.nested-ast,
-    odefa.swan-ast,
-    odefa.utils
-
 Library "ddpa-analysis_types"
   FindlibName: types
   FindlibParent: ddpa-analysis
@@ -169,9 +89,7 @@ Library "ddpa-analysis_types"
   BuildDepends:
     batteries,
     jhupllib,
-    odefa.core-ast,
-    odefa.nested-ast,
-    odefa.swan-ast
+    odefa.core-ast
 
 Library "ddpa-analysis_utils"
   FindlibName: utils
@@ -220,8 +138,6 @@ Library "ddpa-analysis_pds"
     jhupllib,
     pds-reachability,
     odefa.core-ast,
-    odefa.nested-ast,
-    odefa.swan-ast,
     odefa.utils,
     odefa.ddpa-analysis.context-stacks,
     odefa.ddpa-analysis.types,
@@ -269,47 +185,6 @@ Library "core-toploop"
     odefa.core-parser,
     odefa.ddpa-analysis
 
-Library "nested-toploop"
-  FindlibParent: odefa
-  Path: src/nested-toploop
-  Modules:
-    Nested_toploop,
-    Nested_toploop_analysis,
-    Nested_toploop_analysis_types,
-    Nested_toploop_types
-  BuildDepends:
-    batteries,
-    jhupllib,
-    odefa.a-translator,
-    odefa.core-ast,
-    odefa.core-toploop,
-    odefa.ddpa-analysis,
-    odefa.nested-ast,
-    odefa.nested-parser
-
-Library "swan-toploop"
-  FindlibParent: odefa
-  Path: src/swan-toploop
-  Modules:
-    Egg_toploop_analysis,
-    Egg_toploop_analysis_types,
-    Swan_toploop,
-    Swan_toploop_analysis,
-    Swan_toploop_analysis_types,
-    Swan_toploop_types
-  BuildDepends:
-    batteries,
-    jhupllib,
-    odefa.a-translator,
-    odefa.core-ast,
-    odefa.core-toploop,
-    odefa.ddpa-analysis,
-    odefa.nested-ast,
-    odefa.nested-toploop,
-    odefa.swan-ast,
-    odefa.swan-parser,
-    odefa.swan-translator
-
 Executable "core_toploop"
   Path: src/core-toploop-main
   MainIs: core_toploop_main.ml
@@ -320,29 +195,6 @@ Executable "core_toploop"
     odefa.core-ast,
     odefa.core-parser,
     odefa.core-toploop
-
-Executable "nested-toploop"
-  Path: src/nested-toploop-main
-  MainIs: nested_toploop_main.ml
-  CompiledObject: native
-  BuildDepends:
-    batteries,
-    jhupllib,
-    odefa.a-translator,
-    odefa.nested-ast,
-    odefa.nested-parser,
-    odefa.nested-toploop
-
-Executable "swan-toploop"
-  Path: src/swan-toploop-main
-  MainIs: swan_toploop_main.ml
-  CompiledObject: native
-  BuildDepends:
-    batteries,
-    odefa.swan-ast,
-    odefa.swan-parser,
-    odefa.swan-toploop,
-    odefa.swan-translator
 
 Executable "test"
   Path: test/
@@ -355,38 +207,11 @@ Executable "test"
     oUnit,
     pds-reachability,
     ppx_deriving.std,
-    odefa.a-translator,
     odefa.core-interpreter,
     odefa.core-parser,
     odefa.core-toploop,
     odefa.ddpa-analysis,
-    odefa.nested-ast,
-    odefa.nested-toploop,
-    odefa.swan-ast,
-    odefa.swan-translator,
-    odefa.swan-toploop,
     odefa.utils
 
 Test test
   Command: $test
-
-Executable "benchmark"
-  Path: benchmark/
-  MainIs: benchmark.ml
-  CompiledObject: native
-  BuildDepends:
-    batteries,
-    jhupllib,
-    oUnit,
-    pds-reachability,
-    ppx_deriving.std,
-    odefa.core-interpreter,
-    odefa.core-parser,
-    odefa.core-toploop,
-    odefa.ddpa-analysis,
-    odefa.ddpa-analysis.context-stacks,
-    odefa.ddpa-analysis.types,
-    odefa.nested-ast,
-    odefa.swan-ast,
-    odefa.swan-translator,
-    odefa.utils
