@@ -39,6 +39,7 @@ Build
 
    ```console
    $ opam switch 4.07.0
+   $ eval `opam config env`
    ```
 
    <details>
@@ -48,12 +49,14 @@ Build
 
    ```console
    $ opam switch 4.07.0+mingw64
+   $ eval `opam config env`
    ```
 
    or
 
    ```console
    $ opam switch 4.07.0+mingw32
+   $ eval `opam config env`
    ```
 
    depending on the system.
