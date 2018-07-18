@@ -130,9 +130,8 @@ Other options exist, including a setting to produce diagrams of the incremental 
 Authors
 -------
 
-- Leandro Facchinetti <lfacchi2@jhu.edu>.
-- Zachary Palmer <zachary.palmer@swarthmore.edu>.
-- Scott F. Smith <scott@jhu.edu>.
-
-The Johns Hopkins University
-Swarthmore College
+| | | |
+|-|-|-|
+| Leandro Facchinetti | <lfacchi2@jhu.edu> | The Johns Hopkins University |
+| Zachary Palmer | <zachary.palmer@swarthmore.edu> | Swarthmore College |
+| Scott F. Smith | <scott@jhu.edu> | The Johns Hopkins University |
