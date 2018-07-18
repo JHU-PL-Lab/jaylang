@@ -1,7 +1,40 @@
 Odefa
 =====
 
-This directory contains an implementation of the language discussed in the paper **Higher-Order Demand-Driven Program Analysis**. This document contains information about compiling and running the Odefa toploop as well as information about the contents of this directory.
+Artifact for the paper **Higher-Order Demand-Driven Program Analysis**.
+
+Build
+-----
+
+1. Install [OCaml](https://ocaml.org/) and [OPAM](https://opam.ocaml.org/).
+
+   <details><summary>Windows Instructions</summary>
+   Install [OCaml for Windows](http://fdopen.github.io/opam-repository-mingw/installation/), which includes the Cygwin shell with OCaml and OPAM preinstalled.
+   </details>
+
+2. installed on the latest version:
+
+   ```console
+   $ opam init               # necessary for freshly-installed OPAM instances
+   $ eval `opam config env`  # if you do not have OPAM's environment configured
+   $ opam update
+   $ opam upgrade
+   $ opam switch 4.02.3      # this may take a while
+   ```
+
+   On Windows,  The `opam switch` line will need to be changed to either
+
+   ```console
+   $ opam switch 4.02.3+mingw64
+   ```
+
+   or
+
+   ```console
+   $ opam switch 4.02.3+mingw32
+   ```
+
+   depending on the system.
 
 Building
 --------
@@ -16,34 +49,12 @@ The subsections below walk through these processes.
 
 ### OPAM
 
-1. Make sure you have [OCaml](https://ocaml.org/) and [OPAM](https://opam.ocaml.org/) installed on the latest version:
 
-   ```console
-   $ opam init               # necessary for freshly-installed OPAM instances
-   $ eval `opam config env`  # if you do not have OPAM's environment configured
-   $ opam update
-   $ opam upgrade
-   $ opam switch 4.02.3      # this may take a while
-   ```
-
-   On Windows, install [OCaml for Windows](http://fdopen.github.io/opam-repository-mingw/installation/), which includes the Cygwin shell with OCaml and OPAM preinstalled. The `opam switch` line will need to be changed to either
-
-   ```console
-   $ opam switch 4.02.3+mingw64
-   ```
-
-   or
-
-   ```console
-   $ opam switch 4.02.3+mingw32
-   ```
-
-   depending on the system.
 
 2. Install the dependencies:
 
    ```console
-   $ opam install oasis batteries menhir ounit ppx_deriving ppx_deriving_yojson ocaml-monadic monadlib
+   $ opam install oasis batteries menhir ounit ppx_deriving ppx_deriving_yojson ocaml-monadic monadlib jhupllib pds-reachability
    ```
 
    If your shell hashes binary locations, you may need to clear your hashes. (In bash, `hash -r` does this.)
