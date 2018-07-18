@@ -121,7 +121,7 @@ Build
 ---------------------------------------
 
 - `--log=trace`: Enable verbose logging.
-- `--disable-inconsistency-check`: By default, the toploop checks programs for a form of inconsistency: lookup on call sites should return only functions. This causes several variable lookups and is not suitable for benchmarking. This flag disables the inconsistency check.
+- `--disable-inconsistency-check`: By default, the toploop checks programs for inconsistencies. For example, it checks that only functions appear in the operator position of a function call, and that only records appear in the subject position of a record projection. This inconsistency check forces variable lookups that interfere with benchmarking, and this flag disables it.
 - `--select-context-stack=0ddpa`: Uses DDPA with a 0-level context stack (which is a monovariant analysis). Any positive integer value is admitted here (e.g. `7ddpa`).
 
 Run the following for extended help (including options to produce diagrams of the incremental PDR graphs):
@@ -133,20 +133,20 @@ $ ./toploop.native --help
 Developer Setup
 ---------------
 
-Odefa depends on libraries which tend to develop at the same time as it does (but which are functionally independent and are designed to be used by other projects). To configure this environment, you must first clone the repository for the dependency and then pin that repository as an OPAM package.
+Odefa depends on libraries which tend to develop at the same time as it does, but which are functionally independent and are designed to be used by other projects. Configure these libraries for local development by pinning them:
 
-1. Install `jhupllib`:
+1. `jhupllib`:
 
    ```console
    $ git clone https://github.com/JHU-PL-Lab/jhu-pl-lib.git ../jhu-pl-lib
    $ opam pin add jhupllib ../jhu-pl-lib
    ```
 
-2. Install `pds-reachability`:
+2. `pds-reachability`:
 
    ```console
    $ git clone https://github.com/JHU-PL-Lab/pds-reachability.git ../pds-reachability
    $ opam pin add pds-reachability ../pds-reachability
    ```
 
-You will need to re-run an appropriate `opam pin` command each time one of these libraries is changed.
+Re-run `opam pin` when these libraries change.
