@@ -3,7 +3,7 @@
    its types need not be redeclared in an interface.
 *)
 
-open Core_ast;;
+open Ast;;
 open Ddpa_analysis_logging;;
 open Ddpa_context_stack;;
 open Ddpa_abstract_ast;;

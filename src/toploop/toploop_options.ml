@@ -1,7 +1,7 @@
 open Batteries;;
-open Core_toploop_option_parsers;;
+open Toploop_option_parsers;;
 
-(** This type defines the configuration required by the core toploop to evaluate
+(** This type defines the configuration required by the toploop to evaluate
     an expression. *)
 type configuration =
   { topconf_context_stack : (module Ddpa_context_stack.Context_stack) option
@@ -19,8 +19,8 @@ type configuration =
 ;;
 
 (** This function adds to a [BatOptParse.OptParser] a collection of option
-    parsers which accept arguments for the core toploop. *)
-let add_core_toploop_option_parsers parser=
+    parsers which accept arguments for the toploop. *)
+let add_toploop_option_parsers parser=
   (* Add logging options *)
   BatOptParse.OptParser.add parser ~long_name:"log" logging_option;
   (* Add ability to select the context stack. *)
@@ -54,7 +54,7 @@ let add_core_toploop_option_parsers parser=
     report_sizes_option;
 ;;
 
-let read_parsed_core_toploop_configuration () =
+let read_parsed_toploop_configuration () =
   { topconf_context_stack =
       Option.get @@ select_context_stack_option.BatOptParse.Opt.option_get ()
   ; topconf_log_prefix = "_toploop"

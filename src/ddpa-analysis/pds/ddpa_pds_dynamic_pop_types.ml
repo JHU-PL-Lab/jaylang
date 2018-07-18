@@ -1,7 +1,7 @@
 open Batteries;;
 
-open Core_ast;;
-open Core_ast_pp;;
+open Ast;;
+open Ast_pp;;
 open Ddpa_abstract_ast;;
 open Ddpa_context_stack;;
 

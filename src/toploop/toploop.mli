@@ -1,20 +1,20 @@
 (**
-   This module defines the primary functions for the core toploop.
+   This module defines the primary functions for the toploop.
 *)
 
-open Core_ast;;
-open Core_interpreter;;
-open Core_toploop_analysis_types;;
-open Core_toploop_types;;
+open Ast;;
+open Interpreter;;
+open Toploop_analysis_types;;
+open Toploop_types;;
 open Ddpa_abstract_ast;;
 
-(** This function processes a core AST expression.  This function accepts
+(** This function processes a AST expression.  This function accepts
     callback functions which are invoked when various steps of the expression
     handler are completed.  If unspecified, the callbacks do nothing. *)
 val handle_expression :
   ?callbacks:callbacks ->
-  Core_toploop_options.configuration ->
-  Core_ast.expr ->
+  Toploop_options.configuration ->
+  Ast.expr ->
   result
 
 (** These callbacks perform no operation when called. *)
@@ -25,7 +25,7 @@ val stdout_callbacks : callbacks
 
 (** An illformedness callback which prints messages to stdout. *)
 val stdout_illformednesses_callback :
-  Core_ast_wellformedness.illformedness list -> unit
+  Ast_wellformedness.illformedness list -> unit
 
 (** A variable analysis callback which prints messages to stdout. *)
 val stdout_variable_analysis_callback :

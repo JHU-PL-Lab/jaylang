@@ -1,8 +1,8 @@
 open Batteries;;
 open Jhupllib;;
 
-open Core_ast;;
-open Core_ast_pp;;
+open Ast;;
+open Ast_pp;;
 open Pp_utils;;
 
 let lazy_logger = Logger_utils.make_lazy_logger "Interpreter";;

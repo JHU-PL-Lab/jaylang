@@ -59,7 +59,7 @@ let select_context_stack_option =
         | [analysis_name] ->
           let analysis_module =
             try
-              Core_toploop_utils.stack_from_name analysis_name
+              Toploop_utils.stack_from_name analysis_name
             with
             | Not_found ->
               raise @@ Option_error (option_name,

@@ -2,8 +2,8 @@
    DDPA to find problems such as non-function application, non-record
    projection, etc. *)
 
-open Core_toploop_analysis_types;;
-open Core_toploop_ddpa_wrapper_types;;
+open Toploop_analysis_types;;
+open Toploop_ddpa_wrapper_types;;
 
 module Make :
   functor (DDPA_wrapper : DDPA_wrapper) ->

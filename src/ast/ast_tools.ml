@@ -1,7 +1,7 @@
 open Batteries;;
 open Jhupllib;;
 
-open Core_ast;;
+open Ast;;
 
 (** Returns a list of all clauses that occur in expression, deeply traversing
     the syntax tree. *)

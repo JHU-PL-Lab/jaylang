@@ -5,9 +5,9 @@
 
 open Jhupllib;;
 
-open Core_ast;;
-open Core_ast_pp;;
-open Core_interpreter;;
+open Ast;;
+open Ast_pp;;
+open Interpreter;;
 open Ddpa_abstract_ast;;
 
 (** Represents the result of evaluating an expression.  This data type also
@@ -44,7 +44,7 @@ let pp_variable_analysis =
 (** Represents the result of processing an expression in the toploop. *)
 type result =
   {
-    illformednesses : Core_ast_wellformedness.illformedness list;
+    illformednesses : Ast_wellformedness.illformedness list;
     (** A set of ill-formednesses discovered in the expression.  If this set is
         non-empty, then the remaining components of the result will be empty. *)
 
@@ -54,9 +54,9 @@ type result =
         analyses were requested or if the expression was ill-formed, this
         list will be empty. *)
 
-    errors : Core_toploop_analysis_types.error list;
+    errors : Toploop_analysis_types.error list;
     (** A list of the errors discovered in the provided expression by the
-        core toploop analysis.  If no error checking was requested or if the
+        toploop analysis.  If no error checking was requested or if the
         expression was ill-formed, this list will be empty. *)
 
     evaluation_result : evaluation_result
@@ -71,11 +71,11 @@ type result =
     This allows for a more interactive experience than if the caller waits for
     the entire result to be produced. *)
 type callbacks =
-  { cb_illformednesses : Core_ast_wellformedness.illformedness list -> unit
+  { cb_illformednesses : Ast_wellformedness.illformedness list -> unit
   ; cb_variable_analysis :
       string -> string option -> string list option ->
       Abs_filtered_value_set.t -> unit
-  ; cb_errors : Core_toploop_analysis_types.error list -> unit
+  ; cb_errors : Toploop_analysis_types.error list -> unit
   ; cb_evaluation_result : var -> value Environment.t -> unit
   ; cb_evaluation_failed : string -> unit
   ; cb_evaluation_disabled : unit -> unit

@@ -1,13 +1,13 @@
 open Batteries;;
 
-open Core_ast;;
-open Core_ast_pp;;
-open Core_ast_wellformedness;;
-open Core_interpreter;;
-open Core_toploop_option_parsers;;
-open Core_toploop_options;;
-open Core_toploop_types;;
-open Core_toploop_utils;;
+open Ast;;
+open Ast_pp;;
+open Ast_wellformedness;;
+open Interpreter;;
+open Toploop_option_parsers;;
+open Toploop_options;;
+open Toploop_types;;
+open Toploop_utils;;
 open Ddpa_abstract_ast;;
 open Ddpa_analysis_logging;;
 open Ddpa_graph;;
@@ -59,7 +59,7 @@ let stdout_errors_callback errors =
   errors
   |> List.iter
     (fun error ->
-       print_string @@ Core_toploop_analysis_types.show_error error
+       print_string @@ Toploop_analysis_types.show_error error
     );
   flush stdout
 ;;
@@ -134,7 +134,7 @@ let do_analysis_steps callbacks conf e =
       (* Define the analysis module. *)
       let module Analysis = Ddpa_analysis.Make(Context_stack) in
       (* Define the convenience wrapper. *)
-      let module DDPA_wrapper = Core_toploop_ddpa_wrapper.Make(Analysis) in
+      let module DDPA_wrapper = Toploop_ddpa_wrapper.Make(Analysis) in
       (* Set up the logging configuration for the analysis. *)
       let ddpa_cfg_logging_level =
         begin
@@ -212,7 +212,7 @@ let do_analysis_steps callbacks conf e =
              then []
              else
                let module Error_analysis =
-                 Core_toploop_analysis.Make(DDPA_wrapper)
+                 Toploop_analysis.Make(DDPA_wrapper)
                in
                let errors =
                  List.of_enum @@ Error_analysis.find_errors analysis
@@ -244,7 +244,7 @@ let do_analysis_steps callbacks conf e =
              (* We'll need a mapping from variable names to clauses. *)
              let varname_to_clause_map =
                e
-               |> Core_ast_tools.flatten
+               |> Ast_tools.flatten
                |> List.map lift_clause
                |> List.map
                  (fun (Abs_clause(Abs_var i,_) as c) -> (i, c))
@@ -321,17 +321,17 @@ let do_evaluation callbacks conf e =
   then
     begin
       callbacks.cb_evaluation_disabled ();
-      Core_toploop_types.Evaluation_disabled
+      Toploop_types.Evaluation_disabled
     end
   else
     begin
       try
-        let v, env = Core_interpreter.eval e in
+        let v, env = Interpreter.eval e in
         callbacks.cb_evaluation_result v env;
-        Core_toploop_types.Evaluation_completed(v,env)
+        Toploop_types.Evaluation_completed(v,env)
       with
-      | Core_interpreter.Evaluation_failure s ->
-        Core_toploop_types.Evaluation_failure s
+      | Interpreter.Evaluation_failure s ->
+        Toploop_types.Evaluation_failure s
     end
 ;;
 

@@ -4,6 +4,6 @@
    bothering the caller with tracking the changes to the analysis as it grows.
 *)
 
-open Core_toploop_ddpa_wrapper_types;;
+open Toploop_ddpa_wrapper_types;;
 
 module Make : functor (A : Ddpa_analysis.Analysis_sig) -> DDPA_wrapper;;

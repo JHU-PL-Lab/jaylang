@@ -37,14 +37,14 @@ Library "utils"
     jhupllib,
     ppx_deriving.std
 
-Library "core-ast"
+Library "ast"
   FindlibParent: odefa
-  Path: src/core-ast
+  Path: src/ast
   Modules:
-    Core_ast,
-    Core_ast_pp,
-    Core_ast_tools,
-    Core_ast_wellformedness
+    Ast,
+    Ast_pp,
+    Ast_tools,
+    Ast_wellformedness
   BuildDepends:
     batteries,
     jhupllib,
@@ -52,31 +52,31 @@ Library "core-ast"
     ppx_deriving_yojson,
     odefa.utils
 
-Library "core-parser"
+Library "parser"
   FindlibParent: odefa
-  Path: src/core-parser
+  Path: src/parser
   Modules:
-    Core_generated_lexer,
-    Core_generated_parser,
-    Core_parser
+    Generated_lexer,
+    Generated_parser,
+    Parser
   BuildDepends:
     batteries,
     jhupllib,
-    odefa.core-ast,
+    odefa.ast,
     odefa.utils
   BuildTools+:
     ocamllex,
     menhir
 
-Library "core-interpreter"
+Library "interpreter"
   FindlibParent: odefa
-  Path: src/core-interpreter
+  Path: src/interpreter
   Modules:
-    Core_interpreter
+    Interpreter
   BuildDepends:
     batteries,
     jhupllib,
-    odefa.core-ast,
+    odefa.ast,
     odefa.utils
 
 Library "ddpa-analysis_types"
@@ -89,7 +89,7 @@ Library "ddpa-analysis_types"
   BuildDepends:
     batteries,
     jhupllib,
-    odefa.core-ast
+    odefa.ast
 
 Library "ddpa-analysis_utils"
   FindlibName: utils
@@ -100,7 +100,7 @@ Library "ddpa-analysis_utils"
   BuildDepends:
     batteries,
     jhupllib,
-    odefa.core-ast,
+    odefa.ast,
     odefa.ddpa-analysis.types,
     odefa.utils
 
@@ -120,7 +120,7 @@ Library "ddpa-analysis_context-stacks"
     jhupllib,
     ppx_deriving.std (>= 3.2),
     ppx_deriving_yojson,
-    odefa.core-ast,
+    odefa.ast,
     odefa.ddpa-analysis.types,
     odefa.ddpa-analysis.utils
 
@@ -137,7 +137,7 @@ Library "ddpa-analysis_pds"
     batteries,
     jhupllib,
     pds-reachability,
-    odefa.core-ast,
+    odefa.ast,
     odefa.utils,
     odefa.ddpa-analysis.context-stacks,
     odefa.ddpa-analysis.types,
@@ -158,43 +158,43 @@ Library "ddpa-analysis"
     pds-reachability,
     ppx_deriving.std (>= 3.2),
     ppx_deriving_yojson,
-    odefa.core-ast,
+    odefa.ast,
     odefa.ddpa-analysis.context-stacks,
     odefa.ddpa-analysis.pds,
     odefa.ddpa-analysis.types,
     odefa.ddpa-analysis.utils
 
-Library "core-toploop"
+Library "toploop"
   FindlibParent: odefa
-  Path: src/core-toploop
+  Path: src/toploop
   Modules:
-    Core_toploop,
-    Core_toploop_analysis,
-    Core_toploop_analysis_types,
-    Core_toploop_ddpa_wrapper,
-    Core_toploop_ddpa_wrapper_types,
-    Core_toploop_option_parsers,
-    Core_toploop_options,
-    Core_toploop_types,
-    Core_toploop_utils
+    Toploop,
+    Toploop_analysis,
+    Toploop_analysis_types,
+    Toploop_ddpa_wrapper,
+    Toploop_ddpa_wrapper_types,
+    Toploop_option_parsers,
+    Toploop_options,
+    Toploop_types,
+    Toploop_utils
   BuildDepends:
     batteries,
     jhupllib,
-    odefa.core-ast,
-    odefa.core-interpreter,
-    odefa.core-parser,
+    odefa.ast,
+    odefa.interpreter,
+    odefa.parser,
     odefa.ddpa-analysis
 
-Executable "core_toploop"
-  Path: src/core-toploop-main
-  MainIs: core_toploop_main.ml
+Executable "toploop"
+  Path: src/toploop-main
+  MainIs: toploop_main.ml
   CompiledObject: native
   BuildDepends:
     batteries,
     jhupllib,
-    odefa.core-ast,
-    odefa.core-parser,
-    odefa.core-toploop
+    odefa.ast,
+    odefa.parser,
+    odefa.toploop
 
 Executable "test"
   Path: test/
@@ -207,9 +207,9 @@ Executable "test"
     oUnit,
     pds-reachability,
     ppx_deriving.std,
-    odefa.core-interpreter,
-    odefa.core-parser,
-    odefa.core-toploop,
+    odefa.interpreter,
+    odefa.parser,
+    odefa.toploop,
     odefa.ddpa-analysis,
     odefa.utils
 

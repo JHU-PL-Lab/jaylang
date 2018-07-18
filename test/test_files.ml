@@ -16,11 +16,11 @@ open Batteries;;
 open Jhupllib;;
 open OUnit2;;
 
-open Core_ast;;
-open Core_ast_pp;;
-open Core_ast_wellformedness;;
-open Core_toploop_options;;
-open Core_toploop_types;;
+open Ast;;
+open Ast_pp;;
+open Ast_wellformedness;;
+open Toploop_options;;
+open Toploop_types;;
 open Ddpa_abstract_ast;;
 open String_utils;;
 
@@ -117,7 +117,7 @@ let parse_expectation str =
         let name = assert_one_arg args in
         begin
           try
-            let stack_module = Core_toploop_utils.stack_from_name name in
+            let stack_module = Toploop_utils.stack_from_name name in
             Expect_analysis_stack_is stack_module
           with
           | Not_found ->
@@ -215,7 +215,7 @@ let observe_analysis_variable_lookup_from_end ident repr expectation =
 
 let observe_inconsistency inconsistency expectation =
   let site_of_inconsistency =
-    let open Core_toploop_analysis_types in
+    let open Toploop_analysis_types in
     match inconsistency with
     | Application_of_non_function (Abs_var ident,_,_,_) -> ident
     | Projection_of_non_record (Abs_var ident,_,_) -> ident
@@ -297,7 +297,7 @@ let make_test filename expectations =
        satisfied.  This addresses nonsense cases such as expecting an ill-formed
        expression to evaluate. *)
     begin
-      let expr = File.with_file_in filename Core_parser.parse_program in
+      let expr = File.with_file_in filename Parser.parse_program in
       (* Decide what kind of analysis to perform. *)
       let module_choice = ref Default_stack in
       observation (observe_analysis_stack_selection module_choice);
@@ -328,9 +328,9 @@ let make_test filename expectations =
         ; topconf_graph_log_file_name = "ddpa_test.log.yojson"
         ; topconf_analyze_vars =
             if variables_to_analyze = []
-            then Core_toploop_option_parsers.Analyze_no_variables
+            then Toploop_option_parsers.Analyze_no_variables
             else
-              Core_toploop_option_parsers.Analyze_specific_variables
+              Toploop_option_parsers.Analyze_specific_variables
                 (variables_to_analyze
                  |> List.map (fun (Ident s, _) -> (s, None, None)))
         ; topconf_disable_evaluation =
@@ -355,7 +355,7 @@ let make_test filename expectations =
         );
       (* Run the toploop *)
       let result =
-        Core_toploop.handle_expression
+        Toploop.handle_expression
           configuration
           expr
       in

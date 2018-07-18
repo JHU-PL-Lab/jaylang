@@ -1,5 +1,5 @@
 {
-  open Core_generated_parser;;
+  open Generated_parser;;
 
   (* ocamllex is a slave to tradition, so we have to handle line breaks
      ourselves. *)

@@ -1,6 +1,6 @@
 open Batteries;;
 
-open Core_ast;;
+open Ast;;
 open Ddpa_abstract_ast;;
 
 module type Stack = Ddpa_context_stack.Context_stack;;

@@ -1,6 +1,6 @@
-open Core_ast;;
+open Ast;;
 open Ddpa_analysis;;
-open Core_toploop_ddpa_wrapper_types;;
+open Toploop_ddpa_wrapper_types;;
 
 module Make(A : Analysis_sig) : DDPA_wrapper with module C = A.C =
 struct

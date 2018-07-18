@@ -111,7 +111,7 @@ Build
 11. Interact with the toploop (find sample programs at `test-sources/`):
 
     ```console
-    $ ./toploop.native
+    $ ./toploop_main.native
     ```
 
 12. Run the tests:
@@ -120,8 +120,8 @@ Build
     $ make test
     ```
 
-`toploop.native` Command-Line Arguments
----------------------------------------
+`toploop_main.native` Command-Line Arguments
+--------------------------------------------
 
 - `--log=trace`: Enable verbose logging.
 - `--disable-inconsistency-check`: By default, the toploop checks programs for inconsistencies. For example, it checks that only functions appear in the operator position of a function call, and that only records appear in the subject position of a record projection. This inconsistency check forces variable lookups that interfere with benchmarking, and this flag disables it.
@@ -130,7 +130,7 @@ Build
 Run the following for extended help (including options to produce diagrams of the incremental PDR graphs):
 
 ```console
-$ ./toploop.native --help
+$ ./toploop_main.native --help
 ```
 
 Developer Setup

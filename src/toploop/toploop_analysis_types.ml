@@ -6,9 +6,9 @@
 open Batteries;;
 open Jhupllib;;
 
-open Core_ast;;
-open Core_ast_pp;;
-open Core_toploop_ddpa_wrapper_types;;
+open Ast;;
+open Ast_pp;;
+open Toploop_ddpa_wrapper_types;;
 open Ddpa_abstract_ast;;
 
 type abs_filtered_value_set = Abs_filtered_value_set.t;;

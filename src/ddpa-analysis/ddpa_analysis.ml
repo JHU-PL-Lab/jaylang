@@ -6,7 +6,7 @@
 open Batteries;;
 open Jhupllib;;
 
-open Core_ast;;
+open Ast;;
 open Ddpa_abstract_ast;;
 open Ddpa_analysis_logging;;
 open Ddpa_context_stack;;

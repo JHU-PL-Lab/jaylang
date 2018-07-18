@@ -1,5 +1,5 @@
 %{
-open Core_ast;;
+open Ast;;
 module List = BatList;;
 %}
 
@@ -40,8 +40,8 @@ module List = BatList;;
 %token BINOP_AT
 %token DOUBLE_SEMICOLON
 
-%start <Core_ast.expr> prog
-%start <Core_ast.expr option> delim_expr
+%start <Ast.expr> prog
+%start <Ast.expr option> delim_expr
 
 %%
 
