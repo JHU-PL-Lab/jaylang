@@ -8,7 +8,7 @@ Build
 
 1. Install [OCaml](https://ocaml.org/) and [OPAM](https://opam.ocaml.org/).
 
-   <details markdown="1">
+   <details>
    <summary>Windows Instructions</summary>
 
    Install [OCaml for Windows](http://fdopen.github.io/opam-repository-mingw/installation/), which includes the Cygwin shell with OCaml and OPAM preinstalled.
