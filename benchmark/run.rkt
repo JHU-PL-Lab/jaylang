@@ -155,7 +155,7 @@
               (~a "cd " (path/p4f/working-directory) " && "
                   "rm -rf '" path/statistics/directory "' && "
                   "time -p "
-                  (path/p4f/sbt) " 'run-main org.ucombinator.cfa.RunCFA "
+                  (path/p4f/sbt) " 'runMain org.ucombinator.cfa.RunCFA "
                   "--k " k " "
                   "--kalloc p4f --gc --dump-statistics --pdcfa "
                   path/source "' "
