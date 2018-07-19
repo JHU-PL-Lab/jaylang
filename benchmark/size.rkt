@@ -7,7 +7,7 @@
 
   ;; PARAMETERS
 
-  (define path/odefa/cases (make-parameter "benchmark/cases/odefa"))
+  (define path/odefa/cases (make-parameter "cases/odefa"))
 
   (command-line
    #:once-each

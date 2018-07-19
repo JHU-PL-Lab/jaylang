@@ -9,15 +9,15 @@
 
   (define timeout (make-parameter "30m"))
 
-  (define path/benchmark/results (make-parameter "benchmark/results"))
+  (define path/results (make-parameter "results"))
 
-  (define path/ddpa/cases (make-parameter "benchmark/cases/odefa"))
+  (define path/ddpa/cases (make-parameter "cases/odefa"))
   (define path/ddpa/analysis (make-parameter "../ddpa/core_toploop_main.native"))
 
-  (define path/little-store/cases (make-parameter "benchmark/cases/odefa"))
+  (define path/little-store/cases (make-parameter "cases/odefa"))
   (define path/little-store/analysis (make-parameter "../little-store/core_toploop_main.native"))
 
-  (define path/p4f/cases (make-parameter "benchmark/cases/scheme"))
+  (define path/p4f/cases (make-parameter "cases/scheme"))
   (define path/p4f/sbt (make-parameter "../sbt/bin/sbt"))
   (define path/p4f/working-directory (make-parameter "../p4f-prototype"))
 
@@ -29,8 +29,8 @@
     (timeout a-timeout)]
    ["--path-benchmark-results"
     path
-    ((~a "Path in which to store benchmark results (default: “" (path/benchmark/results) "”)"))
-    (path/benchmark/results path)]
+    ((~a "Path in which to store benchmark results (default: “" (path/results) "”)"))
+    (path/results path)]
    ["--path-ddpa-cases"
     path
     ((~a "Path to DDPA test cases (default: “" (path/ddpa/cases) "”)"))
@@ -102,7 +102,7 @@
 
   ;; MAIN
 
-  (make-directory* (path/benchmark/results))
+  (make-directory* (path/results))
 
   (for ([experiment experiments])
     (match-define (Experiment name/experiment tests) experiment)
@@ -110,59 +110,59 @@
       (match-define (Test name/test cases) test)
       (for ([a-case cases])
         (match-define (Case source (Subject analysis k) result) a-case)
-        (define path/benchmark/result
-          (~a (path/benchmark/results) "/"
+        (define path/result
+          (~a (path/results) "/"
               (moment->iso8601 (now/moment))
               "--experiment=" name/experiment
               "--analysis=" analysis
               "--test=" name/test
               "--k=" k
               ".txt"))
-        (define-values (path/benchmark/source command)
+        (define-values (path/source command)
           (case analysis
             [(ddpa)
-             (define path/benchmark/source (~a (path/ddpa/cases) "/" source ".odefa"))
+             (define path/source (~a (path/ddpa/cases) "/" source ".odefa"))
              (values
-              path/benchmark/source
+              path/source
               (~a "time -p "
                   "timeout " (timeout) " "
                   (path/ddpa/analysis) " "
                   "--select-context-stack=" k "ddpa "
                   "--analyze-variables=all --report-sizes --disable-evaluation "
                   "--disable-inconsistency-check "
-                  "< " path/benchmark/source " "
-                  ">> " path/benchmark/result " "
+                  "< " path/source " "
+                  ">> " path/result " "
                   "2>&1"))]
             [(little-store)
-             (define path/benchmark/source (~a (path/little-store/cases) "/" source ".odefa"))
+             (define path/source (~a (path/little-store/cases) "/" source ".odefa"))
              (values
-              path/benchmark/source
+              path/source
               (~a "time -p "
                   "timeout " (timeout) " "
                   (path/little-store/analysis) " "
                   "--stack-delta-size=" k " "
                   "--analyze-variables=all --report-sizes --disable-evaluation "
                   "--disable-inconsistency-check "
-                  "< " path/benchmark/source " "
-                  ">> " path/benchmark/result " "
+                  "< " path/source " "
+                  ">> " path/result " "
                   "2>&1"))]
             [(p4f)
-             (define path/benchmark/source (~a (path/p4f/cases) "/" source ".scm"))
+             (define path/source (~a (path/p4f/cases) "/" source ".scm"))
              (define path/statistics/directory (~a "statistics/" source))
              (define path/statistics/file (~a path/statistics/directory "/stat-" k "-pdcfa-gc.txt"))
              (values
-              path/benchmark/source
+              path/source
               (~a "cd " (path/p4f/working-directory) " && "
                   "rm -rf '" path/statistics/directory "' && "
                   "time -p "
                   (path/p4f/sbt) " 'run-main org.ucombinator.cfa.RunCFA "
                   "--k " k " "
                   "--kalloc p4f --gc --dump-statistics --pdcfa "
-                  path/benchmark/source "' "
-                  ">> " path/benchmark/result " "
+                  path/source "' "
+                  ">> " path/result " "
                   "2>&1 && "
                   "cat " path/statistics/file " "
-                  ">> " path/benchmark/result " "
+                  ">> " path/result " "
                   "2>&1"))]
             [else
              (raise-user-error
@@ -171,13 +171,13 @@
                   " Test: " test "\n"
                   " Experiment: " experiment))]))
         (cond
-          [(file-exists? path/benchmark/source)
+          [(file-exists? path/source)
            (display (~a command "..."))
            (flush-output)
-           (with-output-to-file path/benchmark/result (λ () (displayln (~a "$ " command))))
+           (with-output-to-file path/result (λ () (displayln (~a "$ " command))))
            (system command)
            (displayln " done")
            (flush-output)]
           [else
            (displayln
-            (~a "Cannot find test case at “" path/benchmark/source "”.") (current-error-port))])))))
+            (~a "Cannot find test case at “" path/source "”.") (current-error-port))])))))

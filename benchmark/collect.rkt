@@ -7,7 +7,7 @@
 
   ;; PARAMETERS
 
-  (define path/benchmark/results (make-parameter "benchmark/results"))
+  (define path/results (make-parameter "results"))
 
   (define timeout (make-parameter 1800))
   (define test-case/width (make-parameter 50))
@@ -20,16 +20,16 @@
     (timeout a-timeout)]
    ["--path-benchmark-results"
     path
-    ((~a "Path in which to find stored benchmark results (default: “" (path/benchmark/results) "”)"))
-    (path/benchmark/results path)]
+    ((~a "Path in which to find stored benchmark results (default: “" (path/results) "”)"))
+    (path/results path)]
    ["--width"
     width
     ((~a "Width of the columns in the plotted graph (default: “" (test-case/width) "”)"))
     (test-case/width width)])
 
-  (unless (directory-exists? (path/benchmark/results))
+  (unless (directory-exists? (path/results))
     (raise-user-error
-     (~a "Cannot find path to benchmark results at “" (path/benchmark/results) "”.")))
+     (~a "Cannot find path to benchmark results at “" (path/results) "”.")))
 
   ;; -------------------------------------------------------------------------------------------------
 
@@ -46,8 +46,8 @@
           name/test
           (for/list ([a-case (in-list cases)])
             (match-define (Case source (Subject analysis k) result) a-case)
-            (define path/benchmark/result
-              (~a (path/benchmark/results) "/"
+            (define path/result
+              (~a (path/results) "/"
                   "*"
                   "--experiment=" name/experiment
                   "--analysis=" analysis
@@ -55,7 +55,7 @@
                   "--k=" k
                   ".txt"))
             (define results/files
-              (sort (map path->string (glob path/benchmark/result)) string<?))
+              (sort (map path->string (glob path/result)) string<?))
             (when (empty? results/files)
               (raise-user-error
                (~a "Cannot find result;\n"
@@ -86,7 +86,7 @@
   (for ([experiment (in-list experiments/with-results)])
     (match-define (Experiment name/experiment tests) experiment)
     (define path/base
-      (~a (path/benchmark/results) "/"
+      (~a (path/results) "/"
           (moment->iso8601 (now/moment)) "--"
           name/experiment))
     (define path/text (~a path/base ".txt"))
