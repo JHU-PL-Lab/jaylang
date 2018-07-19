@@ -7,9 +7,9 @@
 
   ;; PARAMETERS
 
-  (define path/scheme-to-odefa (make-parameter "scheme-to-odefa.rkt"))
-  (define path/odefa/cases (make-parameter "benchmark/cases/odefa"))
-  (define path/scheme/cases (make-parameter "benchmark/cases/scheme"))
+  (define path/scheme-to-odefa (make-parameter "../scheme-front-end/scheme-to-odefa.rkt"))
+  (define path/odefa/cases (make-parameter "cases/odefa"))
+  (define path/scheme/cases (make-parameter "cases/scheme"))
 
   (command-line
    #:once-each
