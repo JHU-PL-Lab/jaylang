@@ -16,7 +16,7 @@
   (define path/ddpa/cases (make-parameter "cases/odefa"))
   (define path/ddpa/analysis (make-parameter "../toploop_main.native"))
 
-  (define path/p4f/cases (make-parameter "cases/scheme"))
+  (define path/p4f/cases (make-parameter "../odefa/benchmark/cases/scheme"))
   (define path/p4f/analysis (make-parameter "../../p4f/"))
 
   (command-line
