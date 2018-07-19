@@ -117,7 +117,7 @@
                     ">> " path/result " "
                     "2>&1"))]
               ['p4f
-               (define path/source (~a (path/p4f/cases) "/" source ".scm"))
+               (define path/source (~a (path/p4f/analysis) (path/p4f/cases) "/" source ".scm"))
                (define path/statistics/directory (~a "statistics/" source))
                (define path/statistics/file (~a path/statistics/directory "/stat-" k "-pdcfa-gc.txt"))
                (values
