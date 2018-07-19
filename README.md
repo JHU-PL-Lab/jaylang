@@ -137,7 +137,7 @@ Benchmarks
 ----------
 
 ```console
-$ raco pkg install gregor extensible-functions
+$ raco pkg install gregor
 ```
 
 Developer Setup
