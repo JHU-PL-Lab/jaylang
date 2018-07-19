@@ -95,6 +95,7 @@
           (define path/result
             (~a (path/results) "/"
                 (moment->iso8601 (now/moment))
+                "--repetition=" repetition
                 "--experiment=" name/experiment
                 "--analysis=" analysis
                 "--test=" name/test
