@@ -71,9 +71,9 @@
        (~a "Cannot find path to DDPA analysis at “" (path/ddpa/analysis) "”."))))
 
   (when (member 'p4f analyses)
-    (unless (directory-exists? (path/p4f/cases))
+    (unless (directory-exists? (~a (path/p4f/analysis) (path/p4f/cases)))
       (raise-user-error
-       (~a "Cannot find path to P4F test cases at “" (path/p4f/cases) "”.")))
+       (~a "Cannot find path to P4F test cases at “" (~a (path/p4f/analysis) (path/p4f/cases)) "”.")))
     (unless (directory-exists? (path/p4f/analysis))
       (raise-user-error
        (~a "Cannot find path to P4F’s analysis at “" (path/p4f/analysis) "”."))))
