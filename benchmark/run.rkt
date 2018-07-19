@@ -10,15 +10,15 @@
 
   (define timeout (make-parameter "30m"))
 
-  (define-runtime-path path/benchmark "./")
+  (define-runtime-path path/benchmark ".")
 
   (define path/results (~a path/benchmark "/results"))
 
   (define path/ddpa/cases (~a path/benchmark "/cases/odefa"))
-  (define path/ddpa/analysis (make-parameter (~a path/benchmark "../toploop_main.native")))
+  (define path/ddpa/analysis (make-parameter (~a path/benchmark "/../toploop_main.native")))
 
   (define path/p4f/cases (~a path/benchmark "/cases/scheme"))
-  (define path/p4f/analysis (make-parameter (~a path/benchmark "../../p4f/")))
+  (define path/p4f/analysis (make-parameter (~a path/benchmark "/../../p4f/")))
 
   (command-line
    #:once-each
