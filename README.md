@@ -133,6 +133,13 @@ Run the following for extended help (including options to produce diagrams of th
 $ ./toploop_main.native --help
 ```
 
+Benchmarks
+----------
+
+```console
+$ raco pkg install gregor extensible-functions
+```
+
 Developer Setup
 ---------------
 
