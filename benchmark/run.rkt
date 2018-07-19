@@ -1,23 +1,24 @@
 #lang racket
-(require "experiments.rkt" gregor)
+(require racket/runtime-path "experiments.rkt" gregor)
 
 (module+ main
 
   ;; -------------------------------------------------------------------------------------------------
-
-  ;; PARAMETERS
+  ;; CONFIGURATION
 
   (define repetitions (make-parameter 5))
 
   (define timeout (make-parameter "30m"))
 
-  (define path/results (make-parameter "results"))
+  (define-runtime-path path/benchmark "./")
 
-  (define path/ddpa/cases (make-parameter "cases/odefa"))
-  (define path/ddpa/analysis (make-parameter "../toploop_main.native"))
+  (define path/results (~a path/benchmark "/results"))
 
-  (define path/p4f/cases (make-parameter "../odefa/benchmark/cases/scheme"))
-  (define path/p4f/analysis (make-parameter "../../p4f/"))
+  (define path/ddpa/cases (~a path/benchmark "/cases/odefa"))
+  (define path/ddpa/analysis (make-parameter (~a path/benchmark "../toploop_main.native")))
+
+  (define path/p4f/cases (~a path/benchmark "/cases/scheme"))
+  (define path/p4f/analysis (make-parameter (~a path/benchmark "../../p4f/")))
 
   (command-line
    #:once-each
@@ -30,25 +31,13 @@
     a-timeout
     ((~a "Timeout (as understood by “timeout(1)”) (default: “" (timeout) "”)"))
     (timeout a-timeout)]
-   ["--path-results"
-    path
-    ((~a "Path in which to store results (default: “" (path/results) "”)"))
-    (path/results path)]
-   ["--path-ddpa-cases"
-    path
-    ((~a "Path to DDPA test cases (default: “" (path/ddpa/cases) "”)"))
-    (path/ddpa/cases path)]
-   ["--path-ddpa-analysis"
+   ["--ddpa"
     path
     ((~a "Path to DDPA program (default: “" (path/ddpa/analysis) "”)"))
     (path/ddpa/analysis path)]
-   ["--path-p4f-cases"
+   ["--p4f"
     path
-    ((~a "Path to P4F test cases (default: “" (path/p4f/cases) "”)"))
-    (path/p4f/cases path)]
-   ["--path-p4f-analysis"
-    path
-    ((~a "Path to P4F’s working directory (default: “" (path/p4f/analysis) "”)"))
+    ((~a "Path to P4F’s analysis (default: “" (path/p4f/analysis) "”)"))
     (path/p4f/analysis path)])
 
   (define analyses
@@ -63,26 +52,19 @@
             analysis))))))
 
   (when (member 'ddpa analyses)
-    (unless (directory-exists? (path/ddpa/cases))
-      (raise-user-error
-       (~a "Cannot find path to DDPA test cases at “" (path/ddpa/cases) "”.")))
     (unless (file-exists? (path/ddpa/analysis))
       (raise-user-error
        (~a "Cannot find path to DDPA analysis at “" (path/ddpa/analysis) "”."))))
 
   (when (member 'p4f analyses)
-    (unless (directory-exists? (~a (path/p4f/analysis) (path/p4f/cases)))
-      (raise-user-error
-       (~a "Cannot find path to P4F test cases at “" (~a (path/p4f/analysis) (path/p4f/cases)) "”.")))
     (unless (directory-exists? (path/p4f/analysis))
       (raise-user-error
        (~a "Cannot find path to P4F’s analysis at “" (path/p4f/analysis) "”."))))
 
   ;; -------------------------------------------------------------------------------------------------
-
   ;; MAIN
 
-  (make-directory* (path/results))
+  (make-directory* path/results)
 
   (for ([repetition (in-range (repetitions))])
     (displayln (~a "Repetition " repetition " of " (repetitions)))
@@ -93,7 +75,7 @@
         (for ([a-case cases])
           (match-define (Case source (Subject analysis k) result) a-case)
           (define path/result
-            (~a (path/results) "/"
+            (~a path/results "/"
                 (moment->iso8601 (now/moment))
                 "--repetition=" repetition
                 "--experiment=" name/experiment
@@ -104,7 +86,7 @@
           (define-values (path/source command)
             (match analysis
               ['ddpa
-               (define path/source (~a (path/ddpa/cases) "/" source ".odefa"))
+               (define path/source (~a path/ddpa/cases "/" source ".odefa"))
                (values
                 path/source
                 (~a "/usr/bin/time -v "
@@ -117,7 +99,7 @@
                     ">> " path/result " "
                     "2>&1"))]
               ['p4f
-               (define path/source (~a (path/p4f/analysis) (path/p4f/cases) "/" source ".scm"))
+               (define path/source (~a path/p4f/cases "/" source ".scm"))
                (define path/statistics/directory (~a "statistics/" source))
                (define path/statistics/file (~a path/statistics/directory "/stat-" k "-pdcfa-gc.txt"))
                (values
