@@ -34,7 +34,6 @@ mkdir $HERE/results
 
 for TRIAL in $(seq 1 $TRIALS)
 do
-  echo "Trial $TRIAL of $TRIALS"
   for TEST in "${!TESTS[@]}"
   do
     SOURCE=$HERE/cases/$TEST.scm
@@ -47,6 +46,18 @@ do
     cat $SOURCE | racket $SCHEME_TO_ODEFA | /usr/bin/timeout $TIMEOUT /usr/bin/time -v $DDPA --select-context-stack=${K}ddpa --analyze-variables=all --report-sizes --disable-evaluation --disable-inconsistency-check &>> $RESULT
 
     ANALYSIS=p4f
+    RESULT=$HERE/results/$(date --iso-8601=seconds)--experiment=$EXPERIMENT--analysis=$ANALYSIS--test=$TEST--k=$K.txt
+    (cd $P4F && rm -rf statistics/ && /usr/bin/timeout $TIMEOUT /usr/bin/time -v sbt "runMain org.ucombinator.cfa.RunCFA --k $K --kalloc p4f --gc --dump-statistics --pdcfa $SOURCE" &>> $RESULT && cat statistics/$TEST/stat-$K-pdcfa-gc.txt &>> RESULT)
+
+    EXPERIMENT=polyvariance
+
+    ANALYSIS=ddpa
+    K=${TESTS[$TEST]}
+    RESULT=$HERE/results/$(date --iso-8601=seconds)--experiment=$EXPERIMENT--analysis=$ANALYSIS--test=$TEST--k=$K.txt
+    cat $SOURCE | racket $SCHEME_TO_ODEFA | /usr/bin/timeout $TIMEOUT /usr/bin/time -v $DDPA --select-context-stack=${K}ddpa --analyze-variables=all --report-sizes --disable-evaluation --disable-inconsistency-check &>> $RESULT
+
+    ANALYSIS=p4f
+    K=1
     RESULT=$HERE/results/$(date --iso-8601=seconds)--experiment=$EXPERIMENT--analysis=$ANALYSIS--test=$TEST--k=$K.txt
     (cd $P4F && rm -rf statistics/ && /usr/bin/timeout $TIMEOUT /usr/bin/time -v sbt "runMain org.ucombinator.cfa.RunCFA --k $K --kalloc p4f --gc --dump-statistics --pdcfa $SOURCE" &>> $RESULT && cat statistics/$TEST/stat-$K-pdcfa-gc.txt &>> RESULT)
   done
