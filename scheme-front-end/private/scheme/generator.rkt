@@ -231,7 +231,7 @@
            (match arguments
              [(list pattern ...) body ...]
              ...
-             [_ (raise-user-error (~a "Unsupported use of primitive “" 'primitive "”."))]))))
+             [_ (raise-user-error (~a "Unsupported use of primitive ‘" 'primitive "’."))]))))
     (current-primitives))))
 
 (define-syntax-parameter return
@@ -432,7 +432,7 @@
 (define/primitive/binary-operator/inverted >=
   Core:Operation-Binary-Operator-Primitive-Integer-LessThanOrEqualTo)
 (define/primitive/binary-operator = Core:Operation-Binary-Operator-Primitive-Integer-Equal)
-;; “and” and “or” are short-circuiting. So they are macros, not functions.
+;; ‘and’ and ‘or’ are short-circuiting. So they are macros, not functions.
 ;; The parser expands them away.
 (define/primitive/binary-operator string-append
   Core:Operation-Binary-Operator-Primitive-String-Concatenation)

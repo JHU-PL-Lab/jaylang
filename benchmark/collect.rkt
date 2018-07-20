@@ -16,20 +16,20 @@
    #:once-each
    ["--timeout"
     a-timeout
-    ((~a "Timeout (in seconds) (default: “" (timeout) "”)"))
+    ((~a "Timeout (in seconds) (default: ‘" (timeout) "’)"))
     (timeout a-timeout)]
    ["--path-benchmark-results"
     path
-    ((~a "Path in which to find stored benchmark results (default: “" (path/results) "”)"))
+    ((~a "Path in which to find stored benchmark results (default: ‘" (path/results) "’)"))
     (path/results path)]
    ["--width"
     width
-    ((~a "Width of the columns in the plotted graph (default: “" (test-case/width) "”)"))
+    ((~a "Width of the columns in the plotted graph (default: ‘" (test-case/width) "’)"))
     (test-case/width width)])
 
   (unless (directory-exists? (path/results))
     (raise-user-error
-     (~a "Cannot find path to benchmark results at “" (path/results) "”.")))
+     (~a "Cannot find path to benchmark results at ‘" (path/results) "’.")))
 
   ;; -------------------------------------------------------------------------------------------------
 

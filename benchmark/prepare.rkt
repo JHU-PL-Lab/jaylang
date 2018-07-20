@@ -11,13 +11,13 @@
   (remove-duplicates
    (for*/list ([experiment (in-list experiments)]
                [test (in-list (Experiment-tests experiment))]
-               [test-case (in-list (Test-test-cases test))]
-               #:when (equal? (Subject-analysis (Case-subject test-case)) 'ddpa))
-     (Case-source test-case))))
+               [case (in-list (Test-cases test))]
+               #:when (equal? (Subject-analysis (Case-subject case)) 'ddpa))
+     (Case-source case))))
 
 (module+ main
 
-  (command-line #:program "Prepare Odefa test cases by translating Scheme program.")
+  (command-line)
 
   (void (system (~a "raco make " path/scheme-to-odefa)))
 
@@ -34,4 +34,4 @@
        (displayln " done")
        (flush-output)]
       [else
-       (displayln (~a "Cannot find test case at “" path/scheme/source "”.") (current-error-port))])))
+       (displayln (~a "Cannot find test case at ‘" path/scheme/source "’.") (current-error-port))])))

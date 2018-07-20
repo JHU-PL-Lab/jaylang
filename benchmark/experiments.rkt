@@ -3,7 +3,7 @@
 (provide (all-defined-out))
 
 (struct Experiment (name tests) #:transparent)
-(struct Test (name test-cases) #:transparent)
+(struct Test (name cases) #:transparent)
 (struct Case (source subject result) #:transparent)
 (struct Subject (analysis k) #:transparent)
 (struct Result (running-time) #:transparent)
