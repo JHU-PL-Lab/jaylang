@@ -1,9 +1,9 @@
 #lang racket
-(require racket/runtime-path "experiments.rkt" gregor)
+(require racket/runtime-path racket/sandbox "experiments.rkt" gregor)
 
 (define repetitions (make-parameter 5))
 
-(define timeout (make-parameter "30m"))
+(define timeout (make-parameter 1800))
 
 (define-runtime-path path/benchmark "./")
 
@@ -26,8 +26,9 @@
                      (raise-user-error (~a "Given ‘repetitions’ not a number: " a-repetitions))))]
    ["--timeout"
     a-timeout
-    ((~a "Timeout (as understood by ‘timeout(1)’) (default: ‘" (timeout) "’)"))
-    (timeout a-timeout)]
+    ((~a "Timeout (seconds) (default: ‘" (timeout) "’)"))
+    (timeout (or (string->number a-timeout)
+                 (raise-user-error (~a "Given ‘timeout’ not a number: " a-timeout))))]
    ["--ddpa"
     path
     ((~a "Path to DDPA program (default: ‘" (path/ddpa/analysis) "’)"))
@@ -63,7 +64,6 @@
          (values
           path/source
           (~a "/usr/bin/time -v "
-              "/usr/bin/timeout " (timeout) " "
               (path/ddpa/analysis) " "
               "--select-context-stack=" k "ddpa "
               "--analyze-variables=all --report-sizes --disable-evaluation "
@@ -80,7 +80,6 @@
           (~a "cd " (path/p4f/analysis) " && "
               "rm -rf '" path/statistics/directory "' && "
               "/usr/bin/time -v "
-              "/usr/bin/timeout " (timeout) " "
               "sbt 'runMain org.ucombinator.cfa.RunCFA "
               "--k " k " "
               "--kalloc p4f --gc --dump-statistics --pdcfa "
@@ -95,7 +94,11 @@
        (display (~a command "..."))
        (flush-output)
        (with-output-to-file path/result (thunk (system "uptime") (displayln (~a "$ " command))))
-       (system command)
+       (with-handlers ([exn:fail:resource?
+                        (λ (e)
+                          (with-output-to-file path/result
+                            (thunk (displayln "Timed out after ~a seconds" (timeout)))))])
+         (with-limits (timeout) #f (system command)))
        (displayln " done")
        (flush-output)]
       [else (displayln (~a "Cannot find test case at ‘" path/source "’.") (current-error-port))])))
