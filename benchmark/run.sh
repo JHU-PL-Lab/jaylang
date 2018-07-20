@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+# ack
+# blur
+# church
+# cpstak
+# deriv
+# eta
+# facehugger
+# flatten
+# kcfa
+# kcfa
+# loop2
+# map
+# mj09
+# primtest
+# regex
+# rsa
+# sat
+# sat
+# sat
+# state
+# tak

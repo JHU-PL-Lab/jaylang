@@ -133,19 +133,6 @@ Run the following for extended help (including options to produce diagrams of th
 $ ./toploop_main.native --help
 ```
 
-Benchmarks
-----------
-
-Racket 6.12
-
-```console
-$ raco pkg install gregor
-```
-
-```console
-$ cd benchmark && racket run.rkt
-```
-
 Developer Setup
 ---------------
 
