@@ -72,11 +72,13 @@ Build
                   ounit \
                   ppx_deriving \
                   ppx_deriving_yojson \
-                  ocaml-monadic \
+                  "ocaml-monadic=0.4.0" \
                   monadlib \
-                  jhupllib \
-                  pds-reachability
+                  "jhupllib=0.1.1" \
+                  "pds-reachability=0.2.1"
    ```
+
+   Note that newer versions of some of the constrained packages above may work, but the above-listed versions were tested with this project.
 
 6. If your shell hashes binary locations, you may need to clear your hashes, for example (in Bash):
 
