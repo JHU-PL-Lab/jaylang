@@ -25,7 +25,7 @@ declare -A TESTS=(
 )
 TRIALS=5
 TIMEOUT=30m
-HERE=(cd $(dirname $0) && pwd)
+HERE=$(cd $(dirname $0) && pwd)
 DDPA=$HERE/../toploop_main.native
 SCHEME_TO_ODEFA=$HERE/../scheme-front-end/scheme-to-odefa.rkt
 P4F=$HERE/../../p4f
