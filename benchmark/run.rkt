@@ -84,7 +84,7 @@
               "sbt 'runMain org.ucombinator.cfa.RunCFA "
               "--k " k " "
               "--kalloc p4f --gc --dump-statistics --pdcfa "
-              path/source "' "
+              (simplify-path path/source) "' "
               ">> " path/result " "
               "2>&1 && "
               "cat " path/statistics/file " "
