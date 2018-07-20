@@ -62,8 +62,8 @@
          (define path/source (~a path/ddpa/cases "/" source ".odefa"))
          (values
           path/source
-          (~a "timeout " (timeout) " "
-              "/usr/bin/time -v "
+          (~a "/usr/bin/time -v "
+              "/usr/bin/timeout " (timeout) " "
               (path/ddpa/analysis) " "
               "--select-context-stack=" k "ddpa "
               "--analyze-variables=all --report-sizes --disable-evaluation "
@@ -79,8 +79,8 @@
           path/source
           (~a "cd " (path/p4f/analysis) " && "
               "rm -rf '" path/statistics/directory "' && "
-              "timeout " (timeout) " "
               "/usr/bin/time -v "
+              "/usr/bin/timeout " (timeout) " "
               "sbt 'runMain org.ucombinator.cfa.RunCFA "
               "--k " k " "
               "--kalloc p4f --gc --dump-statistics --pdcfa "
