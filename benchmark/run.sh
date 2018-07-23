@@ -30,7 +30,7 @@ DDPA=$HERE/../toploop_main.native
 SCHEME_TO_ODEFA=$HERE/../scheme-front-end/scheme-to-odefa.rkt
 P4F=$HERE/../../p4f
 
-( cd $HERE && git rev-parse HEAD)
+(cd $HERE && git rev-parse HEAD)
 ocaml -version
 opam --version
 racket --version
