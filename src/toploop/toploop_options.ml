@@ -15,6 +15,7 @@ type configuration =
   ; topconf_disable_inconsistency_check : bool
   ; topconf_disable_analysis : bool
   ; topconf_report_sizes : bool
+  ; topconf_report_source_statistics : bool
   }
 ;;
 
@@ -52,6 +53,9 @@ let add_toploop_option_parsers parser=
   (* Add ability to report sizes of generated graphs. *)
   BatOptParse.OptParser.add parser ~long_name:"report-sizes"
     report_sizes_option;
+  (* Add ability to report statistics about analyzed source code. *)
+  BatOptParse.OptParser.add parser ~long_name:"report-source-statistics"
+    report_source_statistics_option;
 ;;
 
 let read_parsed_toploop_configuration () =
@@ -76,5 +80,7 @@ let read_parsed_toploop_configuration () =
       disable_analysis_option.BatOptParse.Opt.option_get ()
   ; topconf_report_sizes = Option.get @@
       report_sizes_option.BatOptParse.Opt.option_get ()
+  ; topconf_report_source_statistics = Option.get @@
+      report_source_statistics_option.BatOptParse.Opt.option_get ()
   }
 ;;

@@ -7,8 +7,9 @@ open Jhupllib;;
 
 open Ast;;
 open Ast_pp;;
-open Interpreter;;
 open Ddpa_abstract_ast;;
+open Interpreter;;
+open Source_statistics;;
 
 (** Represents the result of evaluating an expression.  This data type also
     captures exceptional cases and toploop configuration properties. *)
@@ -25,7 +26,7 @@ type evaluation_result =
 
   | Evaluation_disabled
   (** The case in which the user specifically disabled evaluation. *)
-  [@@deriving show]
+[@@deriving show]
 ;;
 
 (** Represents the information produced by a variable analysis. *)
@@ -64,7 +65,7 @@ type result =
         if evaluation was disabled, if error checking was enabled and discovered
         errors, or if the expression was ill-formed. *)
   }
-  [@@deriving show]
+[@@deriving show]
 ;;
 
 (** A record containing the callbacks that the toploop calls during evaluation.
@@ -80,5 +81,6 @@ type callbacks =
   ; cb_evaluation_failed : string -> unit
   ; cb_evaluation_disabled : unit -> unit
   ; cb_size_report_callback : int * int * int * int * int -> unit
+  ; cb_source_statistics_callback : source_statistics -> unit
   }
 ;;

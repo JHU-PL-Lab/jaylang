@@ -347,6 +347,7 @@ let make_test filename expectations =
                 | _ -> false)
         ; topconf_disable_analysis = false
         ; topconf_report_sizes = false
+        ; topconf_report_source_statistics = false
         }
       in
       lazy_logger `trace (fun () ->

@@ -7,7 +7,7 @@ let logger = Logger_utils.make_logger "Toploop_main";;
 let lazy_logger = Logger_utils.make_lazy_logger "Toploop_main";;
 
 let command_line_parsing () =
-  let parser = BatOptParse.OptParser.make ~version:"version 0.3" () in
+  let parser = BatOptParse.OptParser.make ~version:"version 0.3.1" () in
   add_toploop_option_parsers parser;
   let spare_args = BatOptParse.OptParser.parse_argv parser in
   match spare_args with

@@ -4,13 +4,14 @@ open Ast;;
 open Ast_pp;;
 open Ast_wellformedness;;
 open Interpreter;;
+open Ddpa_abstract_ast;;
+open Ddpa_analysis_logging;;
+open Ddpa_graph;;
+open Source_statistics;;
 open Toploop_option_parsers;;
 open Toploop_options;;
 open Toploop_types;;
 open Toploop_utils;;
-open Ddpa_abstract_ast;;
-open Ddpa_analysis_logging;;
-open Ddpa_graph;;
 
 exception Invalid_variable_analysis of string;;
 
@@ -95,6 +96,33 @@ let stdout_size_report_callback
   flush stdout
 ;;
 
+let stdout_source_statistics_callback stats =
+  let { ss_num_program_points = num_program_points;
+        ss_num_function_definitions = num_function_definitions;
+        ss_num_function_calls = num_function_calls;
+        ss_num_variable_references = num_variable_references;
+        ss_num_non_local_variable_references =
+          num_non_local_variable_references;
+        ss_num_non_local_variable_references_by_depth =
+          num_non_local_variable_references_by_depth;
+        ss_max_lexical_depth = max_lexical_depth;
+      } = stats in
+  Printf.printf "source file program points: %d\nsource file function definitions: %d\nsource file function calls: %d\nsource file variable references: %d\nsource file non-local variable references: %d\nsource file maximum lexical depth: %d\n"
+    num_program_points
+    num_function_definitions
+    num_function_calls
+    num_variable_references
+    num_non_local_variable_references
+    max_lexical_depth;
+  Int_map.iter
+    (fun depth count ->
+       Printf.printf
+         "source file non-local variable references at depth %d: %d\n"
+         depth count
+    )
+    num_non_local_variable_references_by_depth
+;;
+
 let no_op_callbacks =
   { cb_illformednesses = (fun _ -> ())
   ; cb_variable_analysis = (fun _ _ _ _ -> ())
@@ -103,6 +131,7 @@ let no_op_callbacks =
   ; cb_evaluation_failed = (fun _ -> ())
   ; cb_evaluation_disabled = (fun _ -> ())
   ; cb_size_report_callback = (fun _ -> ())
+  ; cb_source_statistics_callback = (fun _ -> ())
   }
 ;;
 
@@ -114,6 +143,7 @@ let stdout_callbacks =
   ; cb_evaluation_failed = stdout_evaluation_failed_callback
   ; cb_evaluation_disabled = stdout_evaluation_disabled_callback
   ; cb_size_report_callback = stdout_size_report_callback
+  ; cb_source_statistics_callback = stdout_source_statistics_callback
   }
 ;;
 
@@ -301,7 +331,7 @@ let do_analysis_steps callbacks conf e =
            lazy_logger `trace
              (fun () -> Printf.sprintf "DDPA analysis: %s"
                  (DDPA_wrapper.show_analysis analysis));
-           (* If size reporting has been requested, do that too. *)
+           (* If reporting has been requested, do that too. *)
            if conf.topconf_report_sizes
            then callbacks.cb_size_report_callback @@
              DDPA_wrapper.get_size analysis;
@@ -351,6 +381,10 @@ let handle_expression
       then do_evaluation callbacks conf e
       else Evaluation_invalidated
     in
+    (* Step 4: perform source statistics counting if requested. *)
+    if conf.topconf_report_source_statistics
+    then callbacks.cb_source_statistics_callback @@
+      Source_statistics.calculate_statistics e;
     (* Generate answer. *)
     { illformednesses = []
     ; analyses = analyses

@@ -47,6 +47,18 @@ Library "ast"
     ppx_deriving_yojson,
     odefa.utils
 
+Library "statistics"
+  FindlibParent: odefa
+  Path: src/statistics
+  Modules:
+    Source_statistics
+  BuildDepends:
+    batteries,
+    jhupllib,
+    ppx_deriving.std(>= 3.2),
+    odefa.ast,
+    odefa.utils
+
 Library "parser"
   FindlibParent: odefa
   Path: src/parser
@@ -149,7 +161,7 @@ Library "ddpa-analysis"
     batteries,
     jhupllib,
     monadlib,
-    ocaml-monadic (>= 0.3.1),
+    ocaml-monadic,
     pds-reachability,
     ppx_deriving.std (>= 3.2),
     ppx_deriving_yojson,
@@ -178,12 +190,13 @@ Library "toploop"
     odefa.ast,
     odefa.interpreter,
     odefa.parser,
+    odefa.statistics,
     odefa.ddpa-analysis
 
 Executable "toploop"
   Path: src/toploop-main
   MainIs: toploop_main.ml
-  CompiledObject: native
+  CompiledObject: byte
   BuildDepends:
     batteries,
     jhupllib,

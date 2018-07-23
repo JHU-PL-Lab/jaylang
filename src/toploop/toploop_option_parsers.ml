@@ -229,3 +229,7 @@ let disable_analysis_option =
 let report_sizes_option =
   BatOptParse.StdOpt.store_true ()
 ;;
+
+let report_source_statistics_option =
+  BatOptParse.StdOpt.store_true ()
+;;
