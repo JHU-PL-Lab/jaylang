@@ -196,7 +196,7 @@ Library "toploop"
 Executable "toploop"
   Path: src/toploop-main
   MainIs: toploop_main.ml
-  CompiledObject: byte
+  CompiledObject: native
   BuildDepends:
     batteries,
     jhupllib,
