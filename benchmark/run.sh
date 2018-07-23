@@ -51,7 +51,7 @@ scala -version
 function ddpa {
   ANALYSIS=ddpa
   result
-  cat $SOURCE | racket $SCHEME_TO_ODEFA | /usr/bin/time -v /usr/bin/timeout --foreground $TIMEOUT $DDPA_TOPLOOP --select-context-stack=${K}ddpa --analyze-variables=all --report-sizes --disable-evaluation --disable-inconsistency-check &>> $RESULT
+  cat $SOURCE | racket $SCHEME_TO_ODEFA | /usr/bin/time -v /usr/bin/timeout --foreground $TIMEOUT $DDPA_TOPLOOP --select-context-stack=${K}ddpa --analyze-variables=all --report-sizes --report-source-statistics --disable-evaluation --disable-inconsistency-check &>> $RESULT
 }
 
 function p4f {
