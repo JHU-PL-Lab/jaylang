@@ -53,6 +53,7 @@ let stdout_variable_analysis_callback
   print_endline " yields values:";
   print_string "    ";
   print_string @@ Abs_filtered_value_set.show values;
+  print_endline "";
   flush stdout
 ;;
 
