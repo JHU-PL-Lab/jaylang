@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env bash -x
 
 declare -A TESTS=(
   [ack]=1
@@ -29,6 +29,15 @@ HERE=$(cd $(dirname $0) && pwd)
 DDPA=$HERE/../toploop_main.native
 SCHEME_TO_ODEFA=$HERE/../scheme-front-end/scheme-to-odefa.rkt
 P4F=$HERE/../../p4f
+
+( cd $HERE && git rev-parse HEAD)
+ocaml -version
+opam --version
+racket --version
+(cd $P4F && git rev-parse HEAD)
+java -version
+sbt sbtVersion
+scala -version
 
 mkdir $HERE/results
 
