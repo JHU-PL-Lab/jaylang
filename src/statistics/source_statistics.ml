@@ -97,7 +97,19 @@ let ss_vars_ref (xs : var list) (db : depth_bindings) (ss : source_statistics)
 ;;
 
 let rec calc_expr (Expr cs : expr) (db : depth_bindings) : source_statistics =
-  calc_clauses cs db
+  (* Note: we're just binding *every* variable in the expression simultaneously.
+     This is akin to variable lifting in languages such as Python.  Odefa does
+     not have precisely those semantics, but the well-formedness check is
+     responsible for discarding those cases where forward references are
+     invalid. *)
+  let db' =
+    List.fold_left
+      (fun dbacc (Clause(x,_)) ->
+         db_add x dbacc
+      )
+      db cs
+  in
+  calc_clauses cs db'
 
 and calc_clauses (cs : clause list) (db : depth_bindings) =
   match cs with
@@ -106,8 +118,7 @@ and calc_clauses (cs : clause list) (db : depth_bindings) =
     calc_clause c db
   | c :: cs' ->
     let ss = calc_clause c db in
-    let Clause(x,_) = c in
-    ss_join ss @@ calc_clauses cs' @@ db_add x db
+    ss_join ss @@ calc_clauses cs' db
 
 and calc_clause (Clause(_,b) : clause) (db : depth_bindings)
   : source_statistics =
