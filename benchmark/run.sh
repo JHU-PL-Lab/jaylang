@@ -25,12 +25,16 @@ declare -A TESTS=(
 )
 TRIALS=5
 TIMEOUT=30m
-HERE=$(cd $(dirname $0) && pwd)
-DDPA=$HERE/../toploop_main.native
-SCHEME_TO_ODEFA=$HERE/../scheme-front-end/scheme-to-odefa.rkt
-P4F=$HERE/../../p4f
 
-(cd $HERE && git rev-parse HEAD)
+HERE=$(cd $(dirname $0) && pwd)
+DDPA=$HERE/..
+DDPA_TOPLOOP=$DDPA/toploop_main.native
+SCHEME_TO_ODEFA=$DDPA/../scheme-front-end/scheme-to-odefa.rkt
+P4F=$DDPA/../../p4f
+P4F_CLASSPATH=$P4F/target/scala-2.11/classes
+P4F_STATISTICS=$P4F/statistics
+
+(cd $DDPA && git rev-parse HEAD)
 ocaml -version
 opam --version
 racket --version
@@ -41,33 +45,42 @@ scala -version
 
 mkdir $HERE/results
 
+function result {
+  RESULT=$HERE/results/$(date --iso-8601=seconds)--experiment=$EXPERIMENT--analysis=$ANALYSIS--test=$TEST--k=$K.txt
+}
+
+function ddpa {
+  ANALYSIS=ddpa
+  result
+  cat $SOURCE | racket $SCHEME_TO_ODEFA | /usr/bin/time -v /usr/bin/timeout --foreground $TIMEOUT $DDPA_TOPLOOP --select-context-stack=${K}ddpa --analyze-variables=all --report-sizes --disable-evaluation --disable-inconsistency-check &>> $RESULT
+}
+
+function p4f {
+  ANALYSIS=p4f
+  result
+  rm -rf $P4F_STATISTICS
+  /usr/bin/time -v /usr/bin/timeout --foreground $TIMEOUT scala -cp $P4F_CLASSPATH org.ucombinator.cfa.RunCFA --k $K --kalloc p4f --gc --dump-statistics --pdcfa $SOURCE &>> $RESULT
+  if $?
+  then
+    cat $P4F_STATISTICS/$TEST/stat-$K-pdcfa-gc.txt &>> RESULT
+  else
+    pkill java
+  fi
+}
+
 for TRIAL in $(seq 1 $TRIALS)
 do
   for TEST in "${!TESTS[@]}"
   do
     SOURCE=$HERE/cases/$TEST.scm
-
     EXPERIMENT=baseline
     K=0
-
-    ANALYSIS=ddpa
-    RESULT=$HERE/results/$(date --iso-8601=seconds)--experiment=$EXPERIMENT--analysis=$ANALYSIS--test=$TEST--k=$K.txt
-    cat $SOURCE | racket $SCHEME_TO_ODEFA | /usr/bin/timeout $TIMEOUT /usr/bin/time -v $DDPA --select-context-stack=${K}ddpa --analyze-variables=all --report-sizes --disable-evaluation --disable-inconsistency-check &>> $RESULT
-
-    ANALYSIS=p4f
-    RESULT=$HERE/results/$(date --iso-8601=seconds)--experiment=$EXPERIMENT--analysis=$ANALYSIS--test=$TEST--k=$K.txt
-    (cd $P4F && rm -rf statistics/ && /usr/bin/timeout $TIMEOUT /usr/bin/time -v sbt "runMain org.ucombinator.cfa.RunCFA --k $K --kalloc p4f --gc --dump-statistics --pdcfa $SOURCE" &>> $RESULT && cat statistics/$TEST/stat-$K-pdcfa-gc.txt &>> RESULT)
-
+    ddpa
+    p4f
     EXPERIMENT=polyvariance
-
-    ANALYSIS=ddpa
     K=${TESTS[$TEST]}
-    RESULT=$HERE/results/$(date --iso-8601=seconds)--experiment=$EXPERIMENT--analysis=$ANALYSIS--test=$TEST--k=$K.txt
-    cat $SOURCE | racket $SCHEME_TO_ODEFA | /usr/bin/timeout $TIMEOUT /usr/bin/time -v $DDPA --select-context-stack=${K}ddpa --analyze-variables=all --report-sizes --disable-evaluation --disable-inconsistency-check &>> $RESULT
-
-    ANALYSIS=p4f
+    ddpa
     K=1
-    RESULT=$HERE/results/$(date --iso-8601=seconds)--experiment=$EXPERIMENT--analysis=$ANALYSIS--test=$TEST--k=$K.txt
-    (cd $P4F && rm -rf statistics/ && /usr/bin/timeout $TIMEOUT /usr/bin/time -v sbt "runMain org.ucombinator.cfa.RunCFA --k $K --kalloc p4f --gc --dump-statistics --pdcfa $SOURCE" &>> $RESULT && cat statistics/$TEST/stat-$K-pdcfa-gc.txt &>> RESULT)
+    p4f
   done
 done
