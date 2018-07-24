@@ -78,7 +78,7 @@ function p4f {
   fi
 }
 
-mkdir "${RESULTS_PATH}"
+mkdir -p "${RESULTS_PATH}"
 (cd "${DDPA}" && make)
 (cd "${P4F}" && sbt compile)
 
