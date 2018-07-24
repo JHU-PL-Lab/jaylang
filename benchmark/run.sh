@@ -6,7 +6,7 @@ set -o nounset
 set -o xtrace
 
 TRIALS=1 # TODO: INCREASE ME!
-TIMEOUT=10s # TODO: INCREASE ME!
+TIMEOUT=2s # TODO: INCREASE ME!
 declare -A CASES=(
   # [ack]=1
   # [blur]=1
