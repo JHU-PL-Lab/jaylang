@@ -6,7 +6,7 @@ set -o nounset
 set -o xtrace
 
 TRIALS=5
-TIMEOUT=30m
+TIMEOUT=2h
 declare -A CASES=(
   [ack]=1
   [blur]=1
