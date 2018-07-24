@@ -5,30 +5,30 @@ set -o pipefail
 set -o nounset
 set -o xtrace
 
-TRIALS=1 # TODO: INCREASE ME!
-TIMEOUT=2s # TODO: INCREASE ME!
+TRIALS=5
+TIMEOUT=30m
 declare -A CASES=(
-  # [ack]=1
-  # [blur]=1
+  [ack]=1
+  [blur]=1
   [church]=1
-  # [cpstak]=1
-  # [deriv]=1
-  # [eta]=1
-  # [facehugger]=1
-  # [flatten]=1
-  # [kcfa-2]=5
-  # [kcfa-3]=7
-  # [loop2]=1
-  # [map]=1
-  # [mj09]=1
-  # [primtest]=1
-  # [regex]=1
-  # [rsa]=1
-  # [sat-1]=4
-  # [sat-2]=4
-  # [sat-3]=4
-  # [state]=1
-  # [tak]=1
+  [cpstak]=1
+  [deriv]=1
+  [eta]=1
+  [facehugger]=1
+  [flatten]=1
+  [kcfa-2]=5
+  [kcfa-3]=7
+  [loop2]=1
+  [map]=1
+  [mj09]=1
+  [primtest]=1
+  [regex]=1
+  [rsa]=1
+  [sat-1]=4
+  [sat-2]=4
+  [sat-3]=4
+  [state]=1
+  [tak]=1
 )
 
 HERE="$(cd "$(dirname $0)" && pwd)"
