@@ -1,5 +1,7 @@
 #!/usr/bin/env bash -x
 
+TRIALS=5
+TIMEOUT=30m
 declare -A CASES=(
   [ack]=1
   [blur]=1
@@ -23,8 +25,6 @@ declare -A CASES=(
   [state]=1
   [tak]=1
 )
-TRIALS=5
-TIMEOUT=30m
 
 HERE=$(cd $(dirname $0) && pwd)
 CASES_PATH=$HERE/cases
@@ -37,8 +37,15 @@ P4F_CLASSPATH=$P4F/target/scala-2.11/classes
 P4F_STATISTICS=$P4F/statistics
 function result {
   RESULT=$RESULTS_PATH/experiment=$EXPERIMENT--case=$CASE--analysis=$ANALYSIS--k=$K--$(date --iso-8601=seconds).txt
+  uptime &>> $RESULT
 }
 
+lscpu
+cat /proc/cpuinfo
+free -m
+cat /proc/meminfo
+uname -a
+lsb_release -a
 (cd $DDPA && git rev-parse HEAD)
 ocaml -version
 opam --version
