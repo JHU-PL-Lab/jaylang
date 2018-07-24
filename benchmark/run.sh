@@ -63,7 +63,7 @@ scala -version
 function ddpa {
   ANALYSIS=ddpa
   result
-  cat "${SOURCE}" | racket "${SCHEME_TO_ODEFA}" | /usr/bin/time -v /usr/bin/timeout --foreground "${TIMEOUT}" "${DDPA_TOPLOOP}" --select-context-stack="${K}"ddpa --analyze-variables=all --report-sizes --report-source-statistics --disable-evaluation --disable-inconsistency-check &>> "${RESULT}"
+  cat "${SOURCE}" | racket "${SCHEME_TO_ODEFA}" | /usr/bin/time -v /usr/bin/timeout --foreground "${TIMEOUT}" "${DDPA_TOPLOOP}" --select-context-stack="${K}"ddpa --analyze-variables=all --report-sizes --report-source-statistics --disable-evaluation --disable-inconsistency-check &>> "${RESULT}" || true
 }
 
 function p4f {
@@ -79,6 +79,8 @@ function p4f {
 }
 
 mkdir "${RESULTS_PATH}"
+(cd "${DDPA}" && make)
+(cd "${P4F}" && sbt compile)
 
 for TRIAL in "$(seq 1 "${TRIALS}")"
 do
