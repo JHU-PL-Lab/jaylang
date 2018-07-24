@@ -135,6 +135,14 @@ Run the following for extended help (including options to produce diagrams of th
 $ ./toploop_main.native --help
 ```
 
+Benchmarks
+----------
+
+1. Install [Odefa](#build).
+2. Install [Racket](https://racket-lang.org) 6.12 or newer.
+3. Install [P4F](https://bitbucket.org/ucombinator/p4f-prototype).
+4. Run `benchmark/run.sh`.
+
 Developer Setup
 ---------------
 
