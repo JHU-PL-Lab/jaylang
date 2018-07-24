@@ -1,7 +1,12 @@
-#!/bin/bash -x
+#!/usr/bin/env bash
 
-TRIALS=5
-TIMEOUT=30m
+set -o errexit
+set -o pipefail
+set -o nounset
+set -o xtrace
+
+TRIALS=1 # TODO: INCREASE ME!
+TIMEOUT=10s # TODO: INCREASE ME!
 declare -A CASES=(
   [ack]=1
   # [blur]=1
@@ -26,18 +31,18 @@ declare -A CASES=(
   # [tak]=1
 )
 
-HERE=$(cd $(dirname $0) && pwd)
-CASES_PATH=$HERE/cases
-RESULTS_PATH=$HERE/results
-DDPA=$HERE/..
-DDPA_TOPLOOP=$DDPA/toploop_main.native
-SCHEME_TO_ODEFA=$DDPA/scheme-front-end/scheme-to-odefa.rkt
-P4F=$DDPA/../p4f
-P4F_CLASSPATH=$P4F/target/scala-2.11/classes
-P4F_STATISTICS=$P4F/statistics
+HERE="$(cd "$(dirname $0)" && pwd)"
+CASES_PATH="${HERE}/cases"
+RESULTS_PATH="${HERE}/results"
+DDPA="${HERE}/.."
+DDPA_TOPLOOP="${DDPA}/toploop_main.native"
+SCHEME_TO_ODEFA="${DDPA}/scheme-front-end/scheme-to-odefa.rkt"
+P4F="${DDPA}/../p4f"
+P4F_CLASSPATH="${P4F}/target/scala-2.11/classes"
+P4F_STATISTICS="${P4F}/statistics"
 function result {
-  RESULT=$RESULTS_PATH/experiment=$EXPERIMENT--case=$CASE--analysis=$ANALYSIS--k=$K--$(date --iso-8601=seconds).txt
-  uptime &>> $RESULT
+  RESULT="${RESULTS_PATH}/experiment=${EXPERIMENT}--case=${CASE}--analysis=${ANALYSIS}--k=${K}--$(date --iso-8601=seconds).txt"
+  uptime &>> "${RESULT}"
 }
 
 lscpu
@@ -46,11 +51,11 @@ free -m
 cat /proc/meminfo
 uname -a
 lsb_release -a
-(cd $DDPA && git rev-parse HEAD)
+(cd "${DDPA}" && git rev-parse HEAD)
 ocaml -version
 opam --version
 racket --version
-(cd $P4F && git rev-parse HEAD)
+(cd "${P4F}" && git rev-parse HEAD)
 java -version
 sbt sbtVersion
 scala -version
@@ -58,35 +63,34 @@ scala -version
 function ddpa {
   ANALYSIS=ddpa
   result
-  cat $SOURCE | racket $SCHEME_TO_ODEFA | /usr/bin/time -v /usr/bin/timeout --foreground $TIMEOUT $DDPA_TOPLOOP --select-context-stack=${K}ddpa --analyze-variables=all --report-sizes --report-source-statistics --disable-evaluation --disable-inconsistency-check &>> $RESULT
+  cat "${SOURCE}" | racket "${SCHEME_TO_ODEFA}" | /usr/bin/time -v /usr/bin/timeout --foreground "${TIMEOUT}" "${DDPA_TOPLOOP}" --select-context-stack="${K}"ddpa --analyze-variables=all --report-sizes --report-source-statistics --disable-evaluation --disable-inconsistency-check &>> "${RESULT}"
 }
 
 function p4f {
   ANALYSIS=p4f
   result
-  rm -rf $P4F_STATISTICS
-  (cd $PF4 && /usr/bin/time -v /usr/bin/timeout --foreground $TIMEOUT scala -cp $P4F_CLASSPATH org.ucombinator.cfa.RunCFA --k $K --kalloc p4f --gc --dump-statistics --pdcfa $SOURCE &>> $RESULT)
-  if [[ $? ]]
+  rm -rf "${P4F_STATISTICS}"
+  if [[ (cd "${P4F}" && /usr/bin/time -v /usr/bin/timeout --foreground "${TIMEOUT}" scala -cp "${P4F_CLASSPATH}" org.ucombinator.cfa.RunCFA --k "${K}" --kalloc p4f --gc --dump-statistics --pdcfa "${SOURCE}" &>> "${RESULT}") ]]
   then
-    cat $P4F_STATISTICS/$CASE/stat-$K-pdcfa-gc.txt &>> $RESULT
+    cat "${P4F_STATISTICS}/${CASE}/stat-${K}-pdcfa-gc.txt" &>> "${RESULT}"
   else
     pkill java
   fi
 }
 
-mkdir $RESULTS_PATH
+mkdir "${RESULTS_PATH}"
 
-for TRIAL in $(seq 1 $TRIALS)
+for TRIAL in "$(seq 1 "${TRIALS}")"
 do
   for CASE in "${!CASES[@]}"
   do
-    SOURCE=$CASES_PATH/$CASE.scm
+    SOURCE="${CASES_PATH}/${CASE}.scm"
     EXPERIMENT=baseline
     K=0
     ddpa
     p4f
     EXPERIMENT=polyvariance
-    K=${CASES[$CASE]}
+    K="${CASES[${CASE}]}"
     ddpa
     K=1
     p4f
