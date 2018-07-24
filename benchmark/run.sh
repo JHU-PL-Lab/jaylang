@@ -80,6 +80,7 @@ function p4f {
 
 mkdir -p "${RESULTS_PATH}"
 (cd "${DDPA}" && make)
+raco make "${SCHEME_TO_ODEFA}"
 (cd "${P4F}" && sbt compile)
 
 for TRIAL in "$(seq 1 "${TRIALS}")"
