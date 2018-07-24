@@ -27,7 +27,7 @@ declare -A CASES=(
   [sat-1]=4
   [sat-2]=4
   [sat-3]=4
-  [state]=1
+  # [state]=1 Unsupported by P4F
   [tak]=1
 )
 
