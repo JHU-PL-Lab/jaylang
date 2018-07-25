@@ -76,7 +76,7 @@ function p4f {
   then
     cat "${P4F_STATISTICS}/${CASE}/stat-${K}-pdcfa-gc.txt" &>> "${RESULT}"
   else
-    pkill java
+    pkill sbt scala java || true
   fi
 }
 
