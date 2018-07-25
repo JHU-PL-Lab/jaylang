@@ -7,7 +7,7 @@ set -o xtrace
 
 echo "START"
 
-TRIALS=5
+TRIALS=10
 TIMEOUT=2h
 declare -A CASES=(
   [ack]=1
