@@ -85,7 +85,7 @@ mkdir -p "${RESULTS_PATH}"
 raco make "${SCHEME_TO_ODEFA}"
 (cd "${P4F}" && sbt compile)
 
-for TRIAL in "$(seq 1 "${TRIALS}")"
+for TRIAL in $(seq 1 "${TRIALS}")
 do
   for CASE in "${!CASES[@]}"
   do
