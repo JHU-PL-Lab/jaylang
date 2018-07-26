@@ -72,7 +72,7 @@ function p4f {
   ANALYSIS=p4f
   result
   rm -rf "${P4F_STATISTICS}"
-  if (cd "${P4F}" && /usr/bin/time -v /usr/bin/timeout --foreground "${TIMEOUT}" scala -J-Xmx7g -J-Xss256m -cp "${P4F_CLASSPATH}" org.ucombinator.cfa.RunCFA --k "${K}" --kalloc p4f --gc --dump-statistics --pdcfa "${SOURCE}" &>> "${RESULT}")
+  if (cd "${P4F}" && /usr/bin/time -v /usr/bin/timeout --foreground "${TIMEOUT}" scala -J-Xmx7g -J-Xss256m -cp "${P4F_CLASSPATH}" org.ucombinator.cfa.RunCFA --kcfa --k "${K}" --kalloc p4f --dump-statistics "${SOURCE}" &>> "${RESULT}")
   then
     cat "${P4F_STATISTICS}/${CASE}/stat-${K}-pdcfa-gc.txt" &>> "${RESULT}"
   else
