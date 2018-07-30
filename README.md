@@ -140,8 +140,19 @@ Benchmarks
 
 1. Install [Odefa](#build).
 2. Install [Racket](https://racket-lang.org) 6.12 or newer.
-3. Install [P4F](https://bitbucket.org/ucombinator/p4f-prototype).
-4. Run `benchmark/run.sh`.
+3. Install Racket dependencies:
+   ```console
+   $ raco pkg install gregor
+   ```
+4. Install [P4F](https://bitbucket.org/ucombinator/p4f-prototype).
+5. Run `benchmark/run.sh`:
+   ```console
+   $ bash benchmark/run.sh
+   ```
+6. Run `benchmark/collect-results.rkt`:
+   ```console
+   $ racket benchmark/collect-results.rkt
+   ```
 
 Developer Setup
 ---------------
