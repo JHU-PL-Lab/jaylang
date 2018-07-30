@@ -25,7 +25,7 @@ let stdout_illformednesses_callback ills =
 
 let stdout_variable_analysis_callback
     var_name site_name_opt context_opt values =
-  print_string "Lookup of variable ";
+  print_string "\nLookup of variable ";
   print_string var_name;
   begin
     match site_name_opt with
@@ -53,7 +53,6 @@ let stdout_variable_analysis_callback
   print_endline " yields values:";
   print_string "    ";
   print_string @@ Abs_filtered_value_set.show values;
-  print_endline "";
   flush stdout
 ;;
 
