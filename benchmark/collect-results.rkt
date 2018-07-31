@@ -33,13 +33,20 @@
   #:transparent)
 
 ;; ---------------------------------------------------------------------------------------------------
-;; REGULAR EXPRESSION HELPER
+;; HELPERS
 
 (define (extract pattern input [converter values] [default 'undefined])
   (define match-result (regexp-match* pattern input #:match-select second))
   (match match-result
     ['() default]
     [_ (converter (first match-result))]))
+
+(define (time->milliseconds time)
+  (for/sum ([(accessor multiplier) (in-dict `((,->hours . ,(* 60 60 1000))
+                                              (,->minutes . ,(* 60 1000))
+                                              (,->seconds . 1000)
+                                              (,->milliseconds . 1)))])
+    (* (accessor time) multiplier)))
 
 ;; ---------------------------------------------------------------------------------------------------
 ;; COLLECT RESULTS
@@ -58,7 +65,7 @@
 
      (extract #px"Elapsed \\(wall clock\\) time \\(h:mm:ss or m:ss\\): (.*?)\n" output
               (λ (time)
-                (->milliseconds
+                (time->milliseconds
                  (with-handlers ([exn:gregor:parse? (λ _ (parse-time time "m:s.S"))])
                    (parse-time time "h:m:s.S")))))
      (extract #px"Maximum resident set size \\(kbytes\\): (.*?)\n" output string->number)
