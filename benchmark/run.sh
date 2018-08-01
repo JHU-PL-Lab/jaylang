@@ -12,7 +12,7 @@ TIMEOUT=2h
 declare -A CASES=(
   [ack]=1
   [blur]=1
-  # [church]=1 Unsupported by P4F due to imprecision. See ‘((if (< 1 2) (lambda () 'anything) #t))’.
+  # [church]=1 # Triggers P4F implementation bug. P4F throws exception if non-function appears as operator. Minimal working example: ‘((if (< 1 2) (lambda () 'anything) #t))’.
   [cpstak]=1
   [deriv]=1
   [eta]=1
@@ -29,7 +29,7 @@ declare -A CASES=(
   [sat-1]=4
   [sat-2]=4
   [sat-3]=4
-  # [state]=1 Unsupported by P4F
+  # [state]=1 # Boxes aren’t supported by P4F.
   [tak]=1
 )
 
