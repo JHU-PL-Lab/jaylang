@@ -95,7 +95,7 @@
                                   result-lexical-depth))])
     (display (~a "," (selector a-ddpa-result))))
 
-  (for ([experiment (in-list '(baseline polyvariance))])
+  (for ([experiment (in-list '(monovariant polyvariant))])
     (define results/experiment
       (filter (λ (result) (equal? experiment (result-experiment result))) results/case))
     (define results/p4f

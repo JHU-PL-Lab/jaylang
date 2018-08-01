@@ -90,11 +90,11 @@ do
   for CASE in "${!CASES[@]}"
   do
     SOURCE="${CASES_PATH}/${CASE}.scm"
-    EXPERIMENT=baseline
+    EXPERIMENT=monovariant
     K=0
     ddpa
     p4f
-    EXPERIMENT=polyvariance
+    EXPERIMENT=polyvariant
     K="${CASES[${CASE}]}"
     ddpa
     K=1
