@@ -81,7 +81,7 @@
 ;; RENDER TABLE
 
 (for ([case (in-list (remove-duplicates (map result-case results)))])
-  (display (~a case ",,"))
+  (display case)
 
   (define results/case (filter (λ (result) (equal? case (result-case result))) results))
 
