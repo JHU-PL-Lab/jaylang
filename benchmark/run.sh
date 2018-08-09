@@ -27,8 +27,8 @@ declare -A CASES=(
   [regex]=1
   [rsa]=1
   [sat-1]=4
-  [sat-2]=15
-  [sat-3]=15
+  [sat-2]=14
+  [sat-3]=14
   # [state]=1 # Boxes aren’t supported by P4F.
   [tak]=1
 )
