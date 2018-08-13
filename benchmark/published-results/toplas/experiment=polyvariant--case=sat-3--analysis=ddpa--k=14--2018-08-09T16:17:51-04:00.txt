@@ -1,0 +1,209 @@
+ 16:17:51 up 387 days, 19 min,  1 user,  load average: 1.22, 1.15, 0.85
+Toploop
+-------
+
+Please enter an expression to evaluate followed by ";;".
+
+
+DDPA number of active nodes (excluding enter and exit nodes that can be inferred): 154.
+DDPA number of active non immediate nodes (excluding enter and exit nodes that can be inferred): 25.
+DDPA number of edges: 350.
+PDS number of nodes: 38167.
+PDS number of edges: 449461.
+
+Lookup of variable variable0 yields values:
+    {variable4 -> (
+   variable6 = variable4; variable5 = string; variable7 = string)}
+
+Lookup of variable variable1 yields values:
+    {variable8 -> (
+   variable9 = variable8.argument0;
+     variable10 = variable8.argument1;
+     variable11 = variable8.argument2;
+     variable12 = variable8.argument3;
+     variable13 = variable8.argument4;
+     variable14 = variable8.argument5;
+     variable15 = variable8.argument6;
+     variable18 = variable9;
+     variable17 = variable18 ~ false ? variable19 -> (
+                                         variable20 = variable10) : variable21 -> (
+                                                                    variable22 = 
+                                                                    variable18);
+     variable16 = variable17 ~ false ? variable23 -> ( variable24 = false) : 
+                                        variable25 -> (
+                                          variable28 = variable9;
+                                            variable27 = variable28 ~ false
+                                                            ? variable29 -> (
+                                                                variable31 = 
+                                                                  not variable10;
+                                                                  variable30 = 
+                                                                  variable31 ~ false
+                                                                     ? variable32 -> (
+                                                                    variable33 = 
+                                                                    not variable11) : 
+                                                                    variable34 -> (
+                                                                    variable35 = 
+                                                                    variable31)) : 
+                                                               variable36 -> (
+                                                                 variable37 = 
+                                                                   variable28);
+                                            variable26 = variable27 ~ false
+                                                            ? variable38 -> (
+                                                                variable39 = 
+                                                                  false) : 
+                                                               variable40 -> (
+                                                                 variable43 = 
+                                                                   variable11;
+                                                                   variable42 = 
+                                                                   variable43 ~ false
+                                                                     ? variable44 -> (
+                                                                    variable45 = 
+                                                                    variable12) : 
+                                                                    variable46 -> (
+                                                                    variable47 = 
+                                                                    variable43);
+                                                                   variable41 = 
+                                                                   variable42 ~ false
+                                                                     ? variable48 -> (
+                                                                    variable49 = 
+                                                                    false) : 
+                                                                    variable50 -> (
+                                                                    variable53 = 
+                                                                    not variable12;
+                                                                    variable52 = 
+                                                                    variable53 ~ false
+                                                                     ? variable54 -> (
+                                                                    variable55 = 
+                                                                    variable9) : 
+                                                                    variable56 -> (
+                                                                    variable57 = 
+                                                                    variable53);
+                                                                    variable51 = 
+                                                                    variable52 ~ false
+                                                                     ? variable58 -> (
+                                                                    variable59 = 
+                                                                    false) : 
+                                                                    variable60 -> (
+                                                                    variable63 = 
+                                                                    not variable10;
+                                                                    variable62 = 
+                                                                    variable63 ~ false
+                                                                     ? variable64 -> (
+                                                                    variable65 = 
+                                                                    not variable11) : 
+                                                                    variable66 -> (
+                                                                    variable67 = 
+                                                                    variable63);
+                                                                    variable61 = 
+                                                                    variable62 ~ false
+                                                                     ? variable68 -> (
+                                                                    variable69 = 
+                                                                    false) : 
+                                                                    variable70 -> (
+                                                                    variable72 = 
+                                                                    variable12;
+                                                                    variable71 = 
+                                                                    variable72 ~ false
+                                                                     ? variable73 -> (
+                                                                    variable74 = 
+                                                                    variable10) : 
+                                                                    variable75 -> (
+                                                                    variable76 = 
+                                                                    variable72)))))))}
+
+Lookup of variable variable2 yields values:
+    {variable77 -> (
+   variable79 = string;
+     variable78 = variable0 variable79;
+     variable82 = true;
+     variable81 = variable77 variable82;
+     variable80 = variable81 ~ false ? variable83 -> (
+                                         variable85 = false;
+                                           variable84 = variable77 variable85) : 
+                                        variable86 -> (
+                                          variable87 = variable81))}
+
+Lookup of variable variable3 yields values:
+    {variable88 -> (
+   variable90 = variable91 -> (
+                  variable93 = variable94 -> (
+                                 variable96 = variable97 -> (
+                                                variable99 = variable100 -> (
+                                                               variable102 = 
+                                                                 variable103 -> (
+                                                                   variable105 = 
+                                                                    variable106 -> (
+                                                                    variable108 = 
+                                                                    variable109 -> (
+                                                                    variable111 = 
+                                                                    {
+                                                                    argument0=variable91,
+                                                                    argument1=variable94,
+                                                                    argument2=variable97,
+                                                                    argument3=variable100,
+                                                                    argument4=variable103,
+                                                                    argument5=variable106,
+                                                                    argument6=variable109};
+                                                                    variable110 = 
+                                                                    variable88 variable111);
+                                                                    variable107 = 
+                                                                    variable2 variable108);
+                                                                    variable104 = 
+                                                                    variable2 variable105);
+                                                                 variable101 = 
+                                                                 variable2 variable102);
+                                                  variable98 = variable2 variable99);
+                                   variable95 = variable2 variable96);
+                    variable92 = variable2 variable93);
+     variable89 = variable2 variable90)}
+
+Lookup of variable variable113 yields values:
+    {true}
+
+Lookup of variable variable112 yields values:
+    {string}
+
+Lookup of variable variable114 yields values:
+    {string}
+Evaluation disabled
+source file program points: 78
+source file function definitions: 11
+source file function calls: 12
+source file variable references: 73
+source file non-local variable references: 36
+source file maximum lexical depth: 8
+source file non-local variable references at depth 1: 14
+source file non-local variable references at depth 2: 4
+source file non-local variable references at depth 3: 5
+source file non-local variable references at depth 4: 4
+source file non-local variable references at depth 5: 4
+source file non-local variable references at depth 6: 3
+source file non-local variable references at depth 7: 2
+
+Please enter an expression to evaluate followed by ";;".
+
+Fatal error: exception Parser.Parse_error(_, 137, 0, "")
+Command exited with non-zero status 2
+	Command being timed: "/usr/bin/timeout --foreground 2h /home/lfacchi2/odefa/benchmark/../toploop_main.native --select-context-stack=14ddpa --analyze-variables=all --report-sizes --report-source-statistics --disable-evaluation --disable-inconsistency-check"
+	User time (seconds): 52.60
+	System time (seconds): 0.09
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:53.22
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 196208
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 47937
+	Voluntary context switches: 5
+	Involuntary context switches: 808
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 24
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 2

@@ -1,0 +1,107 @@
+ 16:44:32 up 387 days, 46 min,  1 user,  load average: 1.61, 1.22, 1.09
+Toploop
+-------
+
+Please enter an expression to evaluate followed by ";;".
+
+
+DDPA number of active nodes (excluding enter and exit nodes that can be inferred): 40.
+DDPA number of active non immediate nodes (excluding enter and exit nodes that can be inferred): 6.
+DDPA number of edges: 66.
+PDS number of nodes: 1025.
+PDS number of edges: 10959.
+
+Lookup of variable variable0 yields values:
+    {variable1 -> (
+   variable2 = variable1.argument0;
+     variable3 = variable1.argument1;
+     variable6 = int;
+     variable5 = variable2 == variable6;
+     variable4 = variable5 ~ false ? variable7 -> (
+                                       variable10 = int;
+                                         variable9 = variable3 == variable10;
+                                         variable8 = variable9 ~ false
+                                                        ? variable11 -> (
+                                                            variable15 = 
+                                                              int;
+                                                              variable14 = 
+                                                              variable2 - variable15;
+                                                              variable19 = 
+                                                              int;
+                                                              variable18 = 
+                                                              variable3 - variable19;
+                                                              variable17 = 
+                                                              {argument0=variable2,
+                                                                 argument1=variable18};
+                                                              variable16 = 
+                                                              variable0 variable17;
+                                                              variable13 = 
+                                                              {argument0=variable14,
+                                                                 argument1=variable16};
+                                                              variable12 = 
+                                                              variable0 variable13) : 
+                                                           variable20 -> (
+                                                             variable24 = 
+                                                               int;
+                                                               variable23 = 
+                                                               variable2 - variable24;
+                                                               variable25 = 
+                                                               int;
+                                                               variable22 = 
+                                                               {argument0=variable23,
+                                                                  argument1=variable25};
+                                                               variable21 = 
+                                                               variable0 variable22)) : 
+                                      variable26 -> (
+                                        variable28 = int;
+                                          variable27 = variable3 + variable28))}
+
+Lookup of variable variable31 yields values:
+    {int}
+
+Lookup of variable variable32 yields values:
+    {int}
+
+Lookup of variable variable30 yields values:
+    {{argument0=variable31, argument1=variable32}}
+
+Lookup of variable variable29 yields values:
+    {int}
+Evaluation disabled
+source file program points: 28
+source file function definitions: 1
+source file function calls: 4
+source file variable references: 32
+source file non-local variable references: 9
+source file maximum lexical depth: 3
+source file non-local variable references at depth 1: 2
+source file non-local variable references at depth 2: 4
+source file non-local variable references at depth 3: 3
+
+Please enter an expression to evaluate followed by ";;".
+
+Fatal error: exception Parser.Parse_error(_, 48, 0, "")
+Command exited with non-zero status 2
+	Command being timed: "/usr/bin/timeout --foreground 2h /home/lfacchi2/odefa/benchmark/../toploop_main.native --select-context-stack=1ddpa --analyze-variables=all --report-sizes --report-source-statistics --disable-evaluation --disable-inconsistency-check"
+	User time (seconds): 0.27
+	System time (seconds): 0.00
+	Percent of CPU this job got: 39%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.70
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 15732
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 2611
+	Voluntary context switches: 5
+	Involuntary context switches: 6
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 8
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 2

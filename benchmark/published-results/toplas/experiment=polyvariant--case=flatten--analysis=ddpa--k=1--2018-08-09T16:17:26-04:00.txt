@@ -1,0 +1,175 @@
+ 16:17:26 up 387 days, 19 min,  1 user,  load average: 1.33, 1.17, 0.84
+Toploop
+-------
+
+Please enter an expression to evaluate followed by ";;".
+
+
+DDPA number of active nodes (excluding enter and exit nodes that can be inferred): 76.
+DDPA number of active non immediate nodes (excluding enter and exit nodes that can be inferred): 10.
+DDPA number of edges: 131.
+PDS number of nodes: 1128.
+PDS number of edges: 17726.
+
+Lookup of variable variable0 yields values:
+    {variable1 -> (
+   variable3 = variable1 ~ {head=any,  tail=any} ? variable4 -> (
+                                                     variable5 = true) : 
+                                                    variable6 -> (
+                                                      variable7 = false);
+     variable2 = variable3 ~ false ? variable8 -> (
+                                       variable10 = variable1 ~ {null=any}
+                                                       ? variable11 -> (
+                                                           variable12 = true) : 
+                                                          variable13 -> (
+                                                            variable14 = 
+                                                              false);
+                                         variable9 = variable10 ~ false
+                                                        ? variable15 -> (
+                                                            variable18 = 
+                                                              {};
+                                                              variable17 = 
+                                                              {null=variable18};
+                                                              variable16 = 
+                                                              {head=variable1,
+                                                                 tail=variable17}) : 
+                                                           variable19 -> (
+                                                             variable20 = 
+                                                               variable1)) : 
+                                      variable21 -> (
+                                        variable24 = variable1.head;
+                                          variable23 = variable0 variable24;
+                                          variable26 = variable1.tail;
+                                          variable25 = variable0 variable26;
+                                          variable27 = variable28 -> (
+                                                         variable34 = 
+                                                           variable28 ~ 
+                                                             {head=any, 
+                                                                tail=any}
+                                                              ? variable29 -> (
+                                                                  variable30 = 
+                                                                    variable29.head;
+                                                                    variable31 = 
+                                                                    variable29.tail;
+                                                                    variable33 = 
+                                                                    variable27 variable31;
+                                                                    variable35 = 
+                                                                    {
+                                                                    head=variable30,
+                                                                    tail=variable33}) : 
+                                                                 variable36 -> (
+                                                                   variable37 = 
+                                                                    variable25));
+                                          variable22 = variable27 variable23))}
+
+Lookup of variable variable41 yields values:
+    {int}
+
+Lookup of variable variable43 yields values:
+    {int}
+
+Lookup of variable variable45 yields values:
+    {{}}
+
+Lookup of variable variable44 yields values:
+    {{null=variable45}}
+
+Lookup of variable variable42 yields values:
+    {{head=variable43, tail=variable44}}
+
+Lookup of variable variable40 yields values:
+    {{head=variable41, tail=variable42}}
+
+Lookup of variable variable50 yields values:
+    {int}
+
+Lookup of variable variable52 yields values:
+    {int}
+
+Lookup of variable variable54 yields values:
+    {int}
+
+Lookup of variable variable56 yields values:
+    {{}}
+
+Lookup of variable variable55 yields values:
+    {{null=variable56}}
+
+Lookup of variable variable53 yields values:
+    {{head=variable54, tail=variable55}}
+
+Lookup of variable variable51 yields values:
+    {{head=variable52, tail=variable53}}
+
+Lookup of variable variable49 yields values:
+    {{head=variable50, tail=variable51}}
+
+Lookup of variable variable58 yields values:
+    {{}}
+
+Lookup of variable variable57 yields values:
+    {{null=variable58}}
+
+Lookup of variable variable48 yields values:
+    {{head=variable49, tail=variable57}}
+
+Lookup of variable variable60 yields values:
+    {{}}
+
+Lookup of variable variable59 yields values:
+    {{null=variable60}}
+
+Lookup of variable variable47 yields values:
+    {{head=variable48, tail=variable59}}
+
+Lookup of variable variable62 yields values:
+    {{}}
+
+Lookup of variable variable61 yields values:
+    {{null=variable62}}
+
+Lookup of variable variable46 yields values:
+    {{head=variable47, tail=variable61}}
+
+Lookup of variable variable39 yields values:
+    {{head=variable40, tail=variable46}}
+
+Lookup of variable variable38 yields values:
+    {{head=variable30, tail=variable33}}
+Evaluation disabled
+source file program points: 50
+source file function definitions: 2
+source file function calls: 5
+source file variable references: 49
+source file non-local variable references: 9
+source file maximum lexical depth: 4
+source file non-local variable references at depth 1: 3
+source file non-local variable references at depth 2: 6
+
+Please enter an expression to evaluate followed by ";;".
+
+Fatal error: exception Parser.Parse_error(_, 121, 0, "")
+Command exited with non-zero status 2
+	Command being timed: "/usr/bin/timeout --foreground 2h /home/lfacchi2/odefa/benchmark/../toploop_main.native --select-context-stack=1ddpa --analyze-variables=all --report-sizes --report-source-statistics --disable-evaluation --disable-inconsistency-check"
+	User time (seconds): 0.71
+	System time (seconds): 0.00
+	Percent of CPU this job got: 63%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.12
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 19368
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 3565
+	Voluntary context switches: 5
+	Involuntary context switches: 10
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 8
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 2

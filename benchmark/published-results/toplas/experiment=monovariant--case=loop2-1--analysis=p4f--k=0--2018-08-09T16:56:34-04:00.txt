@@ -1,0 +1,34 @@
+ 16:56:34 up 387 days, 58 min,  1 user,  load average: 1.12, 1.07, 1.04
+Configurations explored: 14
+States explored: 25
+Statistics dumped into: statistics/loop2-1/stat-0-p4f.txt
+	Command being timed: "/usr/bin/timeout --foreground 2h scala -J-Xmx7g -J-Xss256m -cp /home/lfacchi2/odefa/benchmark/../../p4f/target/scala-2.11/classes org.ucombinator.cfa.RunCFA --kcfa --k 0 --kalloc p4f --dump-statistics /home/lfacchi2/odefa/benchmark/cases/loop2-1.scm"
+	User time (seconds): 0.63
+	System time (seconds): 0.04
+	Percent of CPU this job got: 151%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.44
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 56664
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 13314
+	Voluntary context switches: 1450
+	Involuntary context switches: 433
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 72
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+Expressions: 36
+Visited states: 25
+Control states: 14
+Transitions / DSG edges: 15
+Total amount of variables: 9
+Singletons: 6
+Analysis run for: 45 milliseconds

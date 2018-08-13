@@ -1,0 +1,706 @@
+ 16:09:56 up 387 days, 11 min,  1 user,  load average: 1.02, 0.96, 0.60
+Toploop
+-------
+
+Please enter an expression to evaluate followed by ";;".
+
+
+DDPA number of active nodes (excluding enter and exit nodes that can be inferred): 487.
+DDPA number of active non immediate nodes (excluding enter and exit nodes that can be inferred): 84.
+DDPA number of edges: 942.
+PDS number of nodes: 12032.
+PDS number of edges: 435991.
+
+Lookup of variable variable0 yields values:
+    {variable21 -> ( variable23 = string; variable22 = {symbol=variable23})}
+
+Lookup of variable variable1 yields values:
+    {variable24 -> ( variable26 = variable24.tail; variable25 = variable26.head)}
+
+Lookup of variable variable2 yields values:
+    {variable27 -> (
+   variable30 = variable27.tail;
+     variable29 = variable30.tail;
+     variable28 = variable29.head)}
+
+Lookup of variable variable3 yields values:
+    {false}
+
+Lookup of variable variable4 yields values:
+    {true}
+
+Lookup of variable variable5 yields values:
+    {variable31 -> (
+   variable33 = variable31 ~ {head=any,  tail=any} ? variable34 -> (
+                                                       variable35 = true) : 
+                                                      variable36 -> (
+                                                        variable37 = false);
+     variable32 = variable33 ~ false ? variable38 -> ( variable39 = false) : 
+                                        variable40 -> (
+                                          variable42 = variable31.head;
+                                            variable44 = string;
+                                            variable43 = {symbol=variable44};
+                                            variable45 = int;
+                                            variable46 = int;
+                                            variable41 = variable45 == variable46))}
+
+Lookup of variable variable6 yields values:
+    {variable47 -> (
+   variable49 = variable47 ~ {head=any,  tail=any} ? variable50 -> (
+                                                       variable51 = true) : 
+                                                      variable52 -> (
+                                                        variable53 = false);
+     variable48 = variable49 ~ false ? variable54 -> ( variable55 = false) : 
+                                        variable56 -> (
+                                          variable58 = variable47.head;
+                                            variable60 = string;
+                                            variable59 = {symbol=variable60};
+                                            variable61 = int;
+                                            variable62 = int;
+                                            variable57 = variable61 == variable62))}
+
+Lookup of variable variable7 yields values:
+    {variable63 -> (
+   variable65 = variable63 ~ {head=any,  tail=any} ? variable66 -> (
+                                                       variable67 = true) : 
+                                                      variable68 -> (
+                                                        variable69 = false);
+     variable64 = variable65 ~ false ? variable70 -> ( variable71 = false) : 
+                                        variable72 -> (
+                                          variable74 = variable63.head;
+                                            variable76 = string;
+                                            variable75 = {symbol=variable76};
+                                            variable77 = int;
+                                            variable78 = int;
+                                            variable73 = variable77 == variable78))}
+
+Lookup of variable variable8 yields values:
+    {variable79 -> (
+   variable81 = variable79;
+     variable82 = false;
+     variable83 = int;
+     variable84 = int;
+     variable80 = variable83 == variable84)}
+
+Lookup of variable variable9 yields values:
+    {variable85 -> (
+   variable87 = variable85;
+     variable88 = true;
+     variable89 = int;
+     variable90 = int;
+     variable86 = variable89 == variable90)}
+
+Lookup of variable variable10 yields values:
+    {variable91 -> (
+   variable94 = variable91;
+     variable95 = int;
+     variable96 = int;
+     variable93 = variable95 == variable96;
+     variable92 = variable93 ~ false ? variable97 -> (
+                                         variable99 = variable91;
+                                           variable100 = int;
+                                           variable101 = int;
+                                           variable98 = variable100 == variable101) : 
+                                        variable102 -> (
+                                          variable103 = variable93))}
+
+Lookup of variable variable11 yields values:
+    {variable104 -> (
+   variable105 = variable104.argument0;
+     variable106 = variable104.argument1;
+     variable108 = variable6 variable105;
+     variable107 = variable108 ~ false ? variable109 -> (
+                                           variable110 = false) : variable111 -> (
+                                                                    variable115 = 
+                                                                    variable105.tail;
+                                                                    variable114 = 
+                                                                    variable115.head;
+                                                                    variable118 = 
+                                                                    variable105.tail;
+                                                                    variable117 = 
+                                                                    variable118.tail;
+                                                                    variable116 = 
+                                                                    variable117.head;
+                                                                    variable113 = 
+                                                                    {
+                                                                    argument0=variable114,
+                                                                    argument1=variable116};
+                                                                    variable112 = 
+                                                                    variable106 variable113))}
+
+Lookup of variable variable12 yields values:
+    {variable119 -> (
+   variable120 = variable119.argument0;
+     variable121 = variable119.argument1;
+     variable123 = variable5 variable120;
+     variable122 = variable123 ~ false ? variable124 -> (
+                                           variable125 = false) : variable126 -> (
+                                                                    variable130 = 
+                                                                    variable120.tail;
+                                                                    variable129 = 
+                                                                    variable130.head;
+                                                                    variable133 = 
+                                                                    variable120.tail;
+                                                                    variable132 = 
+                                                                    variable133.tail;
+                                                                    variable131 = 
+                                                                    variable132.head;
+                                                                    variable128 = 
+                                                                    {
+                                                                    argument0=variable129,
+                                                                    argument1=variable131};
+                                                                    variable127 = 
+                                                                    variable121 variable128))}
+
+Lookup of variable variable13 yields values:
+    {variable134 -> (
+   variable135 = variable134.argument0;
+     variable136 = variable134.argument1;
+     variable138 = variable7 variable135;
+     variable137 = variable138 ~ false ? variable139 -> (
+                                           variable140 = false) : variable141 -> (
+                                                                    variable144 = 
+                                                                    variable135.tail;
+                                                                    variable143 = 
+                                                                    variable144.head;
+                                                                    variable142 = 
+                                                                    variable136 variable143))}
+
+Lookup of variable variable14 yields values:
+    {variable145 -> (
+   variable146 = variable145.argument0;
+     variable147 = variable145.argument1;
+     variable149 = variable8 variable146;
+     variable148 = variable149 ~ false ? variable150 -> (
+                                           variable152 = variable8 variable147;
+                                             variable151 = variable152 ~ false
+                                                              ? variable153 -> (
+                                                                  variable155 = 
+                                                                    variable9 variable146;
+                                                                    variable154 = 
+                                                                    variable155 ~ false
+                                                                     ? variable156 -> (
+                                                                    variable158 = 
+                                                                    variable9 variable147;
+                                                                    variable157 = 
+                                                                    variable158 ~ false
+                                                                     ? variable159 -> (
+                                                                    variable162 = 
+                                                                    string;
+                                                                    variable161 = 
+                                                                    {
+                                                                    symbol=variable162};
+                                                                    variable166 = 
+                                                                    {};
+                                                                    variable165 = 
+                                                                    {
+                                                                    null=variable166};
+                                                                    variable164 = 
+                                                                    {
+                                                                    head=variable147,
+                                                                    tail=variable165};
+                                                                    variable163 = 
+                                                                    {
+                                                                    head=variable146,
+                                                                    tail=variable164};
+                                                                    variable160 = 
+                                                                    {
+                                                                    head=variable161,
+                                                                    tail=variable163}) : 
+                                                                    variable167 -> (
+                                                                    variable168 = 
+                                                                    variable146)) : 
+                                                                    variable169 -> (
+                                                                    variable170 = 
+                                                                    variable147)) : 
+                                                                 variable171 -> (
+                                                                   variable172 = 
+                                                                    variable3)) : 
+                                          variable173 -> (
+                                            variable174 = variable3))}
+
+Lookup of variable variable15 yields values:
+    {variable175 -> (
+   variable176 = variable175.argument0;
+     variable177 = variable175.argument1;
+     variable179 = variable8 variable176;
+     variable178 = variable179 ~ false ? variable180 -> (
+                                           variable182 = variable8 variable177;
+                                             variable181 = variable182 ~ false
+                                                              ? variable183 -> (
+                                                                  variable186 = 
+                                                                    string;
+                                                                    variable185 = 
+                                                                    {
+                                                                    symbol=variable186};
+                                                                    variable190 = 
+                                                                    {};
+                                                                    variable189 = 
+                                                                    {
+                                                                    null=variable190};
+                                                                    variable188 = 
+                                                                    {
+                                                                    head=variable177,
+                                                                    tail=variable189};
+                                                                    variable187 = 
+                                                                    {
+                                                                    head=variable176,
+                                                                    tail=variable188};
+                                                                    variable184 = 
+                                                                    {
+                                                                    head=variable185,
+                                                                    tail=variable187}) : 
+                                                                 variable191 -> (
+                                                                   variable192 = 
+                                                                    variable176)) : 
+                                          variable193 -> (
+                                            variable194 = variable177))}
+
+Lookup of variable variable16 yields values:
+    {variable195 -> (
+   variable197 = variable8 variable195;
+     variable196 = variable197 ~ false ? variable198 -> (
+                                           variable200 = variable9 variable195;
+                                             variable199 = variable200 ~ false
+                                                              ? variable201 -> (
+                                                                  variable204 = 
+                                                                    string;
+                                                                    variable203 = 
+                                                                    {
+                                                                    symbol=variable204};
+                                                                    variable207 = 
+                                                                    {};
+                                                                    variable206 = 
+                                                                    {
+                                                                    null=variable207};
+                                                                    variable205 = 
+                                                                    {
+                                                                    head=variable195,
+                                                                    tail=variable206};
+                                                                    variable202 = 
+                                                                    {
+                                                                    head=variable203,
+                                                                    tail=variable205}) : 
+                                                                 variable208 -> (
+                                                                   variable209 = 
+                                                                    variable4)) : 
+                                          variable210 -> (
+                                            variable211 = variable4))}
+
+Lookup of variable variable17 yields values:
+    {variable212 -> (
+   variable214 = variable9 variable212;
+     variable213 = variable214 ~ false ? variable215 -> (
+                                           variable217 = variable8 variable212;
+                                             variable216 = variable217 ~ false
+                                                              ? variable218 -> (
+                                                                  variable220 = 
+                                                                    variable10 variable212;
+                                                                    variable219 = 
+                                                                    variable220 ~ false
+                                                                     ? variable221 -> (
+                                                                    variable232 = 
+                                                                    variable17;
+                                                                    variable225 = 
+                                                                    variable226 -> (
+                                                                    variable227 = 
+                                                                    variable226.argument0;
+                                                                    variable228 = 
+                                                                    variable226.argument1;
+                                                                    variable231 = 
+                                                                    variable232 variable227;
+                                                                    variable233 = 
+                                                                    variable232 variable228;
+                                                                    variable230 = 
+                                                                    {
+                                                                    argument0=variable231,
+                                                                    argument1=variable233};
+                                                                    variable229 = 
+                                                                    variable14 variable230);
+                                                                    variable224 = 
+                                                                    {
+                                                                    argument0=variable212,
+                                                                    argument1=variable225};
+                                                                    variable223 = 
+                                                                    variable11 variable224;
+                                                                    variable222 = 
+                                                                    variable223 ~ false
+                                                                     ? variable234 -> (
+                                                                    variable245 = 
+                                                                    variable17;
+                                                                    variable238 = 
+                                                                    variable239 -> (
+                                                                    variable240 = 
+                                                                    variable239.argument0;
+                                                                    variable241 = 
+                                                                    variable239.argument1;
+                                                                    variable244 = 
+                                                                    variable245 variable240;
+                                                                    variable246 = 
+                                                                    variable245 variable241;
+                                                                    variable243 = 
+                                                                    {
+                                                                    argument0=variable244,
+                                                                    argument1=variable246};
+                                                                    variable242 = 
+                                                                    variable15 variable243);
+                                                                    variable237 = 
+                                                                    {
+                                                                    argument0=variable212,
+                                                                    argument1=variable238};
+                                                                    variable236 = 
+                                                                    variable12 variable237;
+                                                                    variable235 = 
+                                                                    variable236 ~ false
+                                                                     ? variable247 -> (
+                                                                    variable249 = 
+                                                                    variable7 variable212;
+                                                                    variable248 = 
+                                                                    variable249 ~ false
+                                                                     ? variable250 -> (
+                                                                    variable251 = 
+                                                                    false) : 
+                                                                    variable252 -> (
+                                                                    variable253 = 
+                                                                    true)) : 
+                                                                    variable254 -> (
+                                                                    variable255 = 
+                                                                    variable236)) : 
+                                                                    variable256 -> (
+                                                                    variable257 = 
+                                                                    variable223)) : 
+                                                                    variable258 -> (
+                                                                    variable259 = 
+                                                                    false)) : 
+                                                                 variable260 -> (
+                                                                   variable261 = 
+                                                                    false)) : 
+                                          variable262 -> (
+                                            variable263 = true))}
+
+Lookup of variable variable18 yields values:
+    {variable264 -> (
+   variable265 = variable264.argument0;
+     variable266 = variable264.argument1;
+     variable268 = {};
+     variable267 = variable0 variable268;
+     variable270 = variable9 variable265;
+     variable269 = variable270 ~ false ? variable271 -> (
+                                           variable273 = variable8 variable265;
+                                             variable272 = variable273 ~ false
+                                                              ? variable274 -> (
+                                                                  variable277 = 
+                                                                    variable266;
+                                                                    variable278 = 
+                                                                    variable265;
+                                                                    variable279 = 
+                                                                    int;
+                                                                    variable280 = 
+                                                                    int;
+                                                                    variable276 = 
+                                                                    variable279 == variable280;
+                                                                    variable275 = 
+                                                                    variable276 ~ false
+                                                                     ? variable281 -> (
+                                                                    variable283 = 
+                                                                    variable10 variable265;
+                                                                    variable282 = 
+                                                                    variable283 ~ false
+                                                                     ? variable284 -> (
+                                                                    variable298 = 
+                                                                    variable18;
+                                                                    variable288 = 
+                                                                    variable289 -> (
+                                                                    variable290 = 
+                                                                    variable289.argument0;
+                                                                    variable291 = 
+                                                                    variable289.argument1;
+                                                                    variable297 = 
+                                                                    {
+                                                                    argument0=variable290,
+                                                                    argument1=variable266};
+                                                                    variable296 = 
+                                                                    variable298 variable297;
+                                                                    variable295 = 
+                                                                    {
+                                                                    argument0=variable296,
+                                                                    argument1=variable291};
+                                                                    variable294 = 
+                                                                    variable14 variable295;
+                                                                    variable301 = 
+                                                                    variable17 variable290;
+                                                                    variable303 = 
+                                                                    {
+                                                                    argument0=variable291,
+                                                                    argument1=variable266};
+                                                                    variable302 = 
+                                                                    variable298 variable303;
+                                                                    variable300 = 
+                                                                    {
+                                                                    argument0=variable301,
+                                                                    argument1=variable302};
+                                                                    variable299 = 
+                                                                    variable14 variable300;
+                                                                    variable293 = 
+                                                                    {
+                                                                    argument0=variable294,
+                                                                    argument1=variable299};
+                                                                    variable292 = 
+                                                                    variable15 variable293);
+                                                                    variable287 = 
+                                                                    {
+                                                                    argument0=variable265,
+                                                                    argument1=variable288};
+                                                                    variable286 = 
+                                                                    variable11 variable287;
+                                                                    variable285 = 
+                                                                    variable286 ~ false
+                                                                     ? variable304 -> (
+                                                                    variable316 = 
+                                                                    variable18;
+                                                                    variable308 = 
+                                                                    variable309 -> (
+                                                                    variable310 = 
+                                                                    variable309.argument0;
+                                                                    variable311 = 
+                                                                    variable309.argument1;
+                                                                    variable315 = 
+                                                                    {
+                                                                    argument0=variable310,
+                                                                    argument1=variable266};
+                                                                    variable314 = 
+                                                                    variable316 variable315;
+                                                                    variable318 = 
+                                                                    {
+                                                                    argument0=variable311,
+                                                                    argument1=variable266};
+                                                                    variable317 = 
+                                                                    variable316 variable318;
+                                                                    variable313 = 
+                                                                    {
+                                                                    argument0=variable314,
+                                                                    argument1=variable317};
+                                                                    variable312 = 
+                                                                    variable15 variable313);
+                                                                    variable307 = 
+                                                                    {
+                                                                    argument0=variable265,
+                                                                    argument1=variable308};
+                                                                    variable306 = 
+                                                                    variable12 variable307;
+                                                                    variable305 = 
+                                                                    variable306 ~ false
+                                                                     ? variable319 -> (
+                                                                    variable329 = 
+                                                                    variable18;
+                                                                    variable323 = 
+                                                                    variable324 -> (
+                                                                    variable328 = 
+                                                                    {
+                                                                    argument0=variable324,
+                                                                    argument1=variable266};
+                                                                    variable327 = 
+                                                                    variable329 variable328;
+                                                                    variable330 = 
+                                                                    variable16 variable324;
+                                                                    variable326 = 
+                                                                    {
+                                                                    argument0=variable327,
+                                                                    argument1=variable330};
+                                                                    variable325 = 
+                                                                    variable14 variable326);
+                                                                    variable322 = 
+                                                                    {
+                                                                    argument0=variable265,
+                                                                    argument1=variable323};
+                                                                    variable321 = 
+                                                                    variable13 variable322;
+                                                                    variable320 = 
+                                                                    variable321 ~ false
+                                                                     ? variable331 -> (
+                                                                    variable332 = 
+                                                                    variable3) : 
+                                                                    variable333 -> (
+                                                                    variable334 = 
+                                                                    variable321)) : 
+                                                                    variable335 -> (
+                                                                    variable336 = 
+                                                                    variable306)) : 
+                                                                    variable337 -> (
+                                                                    variable338 = 
+                                                                    variable286)) : 
+                                                                    variable339 -> (
+                                                                    variable340 = 
+                                                                    variable3)) : 
+                                                                    variable341 -> (
+                                                                    variable342 = 
+                                                                    variable4)) : 
+                                                                 variable343 -> (
+                                                                   variable344 = 
+                                                                    variable3)) : 
+                                          variable345 -> (
+                                            variable346 = variable3))}
+
+Lookup of variable variable19 yields values:
+    {variable347 -> (
+   variable348 = variable347.argument0;
+     variable349 = variable347.argument1;
+     variable351 = variable349 ~ {null=any} ? variable352 -> (
+                                                variable353 = true) : 
+                                               variable354 -> (
+                                                 variable355 = false);
+     variable350 = variable351 ~ false ? variable356 -> (
+                                           variable361 = variable349.head;
+                                             variable360 = {argument0=variable348,
+                                                              argument1=variable361};
+                                             variable359 = variable18 variable360;
+                                             variable362 = variable349.tail;
+                                             variable358 = {argument0=variable359,
+                                                              argument1=variable362};
+                                             variable357 = variable19 variable358) : 
+                                          variable363 -> (
+                                            variable365 = variable17 variable348;
+                                              variable364 = variable9 variable365))}
+
+Lookup of variable variable20 yields values:
+    {variable366 -> (
+   variable367 = variable366.argument0;
+     variable368 = variable366.argument1;
+     variable370 = variable367;
+     variable371 = variable368;
+     variable372 = int;
+     variable373 = int;
+     variable369 = variable372 == variable373)}
+
+Lookup of variable variable380 yields values:
+    {string}
+
+Lookup of variable variable379 yields values:
+    {{symbol=variable380}}
+
+Lookup of variable variable383 yields values:
+    {string}
+
+Lookup of variable variable382 yields values:
+    {{symbol=variable383}}
+
+Lookup of variable variable387 yields values:
+    {string}
+
+Lookup of variable variable386 yields values:
+    {{symbol=variable387}}
+
+Lookup of variable variable390 yields values:
+    {string}
+
+Lookup of variable variable389 yields values:
+    {{symbol=variable390}}
+
+Lookup of variable variable392 yields values:
+    {{}}
+
+Lookup of variable variable391 yields values:
+    {{null=variable392}}
+
+Lookup of variable variable388 yields values:
+    {{head=variable389, tail=variable391}}
+
+Lookup of variable variable385 yields values:
+    {{head=variable386, tail=variable388}}
+
+Lookup of variable variable394 yields values:
+    {{}}
+
+Lookup of variable variable393 yields values:
+    {{null=variable394}}
+
+Lookup of variable variable384 yields values:
+    {{head=variable385, tail=variable393}}
+
+Lookup of variable variable381 yields values:
+    {{head=variable382, tail=variable384}}
+
+Lookup of variable variable378 yields values:
+    {{head=variable379, tail=variable381}}
+
+Lookup of variable variable397 yields values:
+    {string}
+
+Lookup of variable variable396 yields values:
+    {{symbol=variable397}}
+
+Lookup of variable variable400 yields values:
+    {string}
+
+Lookup of variable variable399 yields values:
+    {{symbol=variable400}}
+
+Lookup of variable variable402 yields values:
+    {{}}
+
+Lookup of variable variable401 yields values:
+    {{null=variable402}}
+
+Lookup of variable variable398 yields values:
+    {{head=variable399, tail=variable401}}
+
+Lookup of variable variable395 yields values:
+    {{head=variable396, tail=variable398}}
+
+Lookup of variable variable377 yields values:
+    {{argument0=variable378, argument1=variable395}}
+
+Lookup of variable variable376 yields values:
+    {false, true}
+
+Lookup of variable variable403 yields values:
+    {false}
+
+Lookup of variable variable375 yields values:
+    {{argument0=variable376, argument1=variable403}}
+
+Lookup of variable variable374 yields values:
+    {false, true}
+Evaluation disabled
+source file program points: 314
+source file function definitions: 24
+source file function calls: 51
+source file variable references: 326
+source file non-local variable references: 113
+source file maximum lexical depth: 8
+source file non-local variable references at depth 1: 46
+source file non-local variable references at depth 2: 20
+source file non-local variable references at depth 3: 9
+source file non-local variable references at depth 4: 10
+source file non-local variable references at depth 5: 10
+source file non-local variable references at depth 6: 11
+source file non-local variable references at depth 7: 4
+source file non-local variable references at depth 8: 3
+
+Please enter an expression to evaluate followed by ";;".
+
+Fatal error: exception Parser.Parse_error(_, 601, 0, "")
+Command exited with non-zero status 2
+	Command being timed: "/usr/bin/timeout --foreground 2h /home/lfacchi2/odefa/benchmark/../toploop_main.native --select-context-stack=1ddpa --analyze-variables=all --report-sizes --report-source-statistics --disable-evaluation --disable-inconsistency-check"
+	User time (seconds): 83.67
+	System time (seconds): 0.11
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:24.45
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 203780
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 49829
+	Voluntary context switches: 5
+	Involuntary context switches: 780
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 88
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 2

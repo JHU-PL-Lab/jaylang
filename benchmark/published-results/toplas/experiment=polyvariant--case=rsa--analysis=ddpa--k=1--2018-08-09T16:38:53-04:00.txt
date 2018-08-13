@@ -1,0 +1,259 @@
+ 16:38:53 up 387 days, 40 min,  1 user,  load average: 1.27, 1.11, 1.02
+Toploop
+-------
+
+Please enter an expression to evaluate followed by ";;".
+
+
+DDPA number of active nodes (excluding enter and exit nodes that can be inferred): 178.
+DDPA number of active non immediate nodes (excluding enter and exit nodes that can be inferred): 23.
+DDPA number of edges: 279.
+PDS number of nodes: 3384.
+PDS number of edges: 41756.
+
+Lookup of variable variable0 yields values:
+    {variable17 -> (
+   variable18 = variable17.argument0;
+     variable19 = variable17.argument1;
+     variable22 = variable18 + variable19;
+     variable23 = int;
+     variable21 = variable22 == variable23;
+     variable20 = variable21 ~ false ? variable24 -> (
+                                         variable28 = variable18 + variable19;
+                                           variable27 = {argument0=variable19,
+                                                           argument1=variable28};
+                                           variable26 = variable0 variable27;
+                                           variable29 = variable26.head;
+                                           variable30 = variable26.tail;
+                                           variable33 = variable18 + variable19;
+                                           variable32 = variable30 + variable33;
+                                           variable31 = variable29 - variable32;
+                                           variable25 = {head=variable30,
+                                                           tail=variable31}) : 
+                                        variable34 -> (
+                                          variable36 = int;
+                                            variable37 = int;
+                                            variable35 = {head=variable36,
+                                                            tail=variable37}))}
+
+Lookup of variable variable1 yields values:
+    {variable38 -> (
+   variable39 = variable38.argument0;
+     variable40 = variable38.argument1;
+     variable44 = {argument0=variable39, argument1=variable40};
+     variable43 = variable0 variable44;
+     variable42 = variable43.head;
+     variable41 = variable42 + variable40)}
+
+Lookup of variable variable2 yields values:
+    {variable45 -> (
+   variable46 = variable45.argument0;
+     variable47 = variable45.argument1;
+     variable50 = int;
+     variable49 = variable46 - variable50;
+     variable52 = int;
+     variable51 = variable47 - variable52;
+     variable48 = variable49 + variable51)}
+
+Lookup of variable variable3 yields values:
+    {variable53 -> ( variable54 = variable53 + variable53)}
+
+Lookup of variable variable4 yields values:
+    {variable55 -> (
+   variable56 = variable55.argument0;
+     variable57 = variable55.argument1;
+     variable58 = variable55.argument2;
+     variable61 = int;
+     variable60 = variable57 == variable61;
+     variable59 = variable60 ~ false ? variable62 -> (
+                                         variable66 = int;
+                                           variable65 = variable57 + variable66;
+                                           variable67 = int;
+                                           variable64 = variable65 == variable67;
+                                           variable63 = variable64 ~ false
+                                                           ? variable68 -> (
+                                                               variable74 = 
+                                                                 int;
+                                                                 variable73 = 
+                                                                 variable57 + variable74;
+                                                                 variable72 = 
+                                                                 {argument0=variable56,
+                                                                    argument1=variable73,
+                                                                    argument2=variable58};
+                                                                 variable71 = 
+                                                                 variable4 variable72;
+                                                                 variable70 = 
+                                                                 variable3 variable71;
+                                                                 variable69 = 
+                                                                 variable70 + variable58) : 
+                                                              variable75 -> (
+                                                                variable81 = 
+                                                                  int;
+                                                                  variable80 = 
+                                                                  variable57 - variable81;
+                                                                  variable79 = 
+                                                                  {argument0=variable56,
+                                                                    argument1=variable80,
+                                                                    argument2=variable58};
+                                                                  variable78 = 
+                                                                  variable4 variable79;
+                                                                  variable77 = 
+                                                                  variable56 + variable78;
+                                                                  variable76 = 
+                                                                  variable77 + variable58)) : 
+                                        variable82 -> ( variable83 = int))}
+
+Lookup of variable variable5 yields values:
+    {variable84 -> (
+   variable85 = variable84.argument0;
+     variable86 = variable84.argument1;
+     variable87 = variable84.argument2;
+     variable90 = int;
+     variable89 = variable90 < variable85;
+     variable88 = variable89 ~ false ? variable91 -> ( variable92 = false) : 
+                                        variable93 -> (
+                                          variable97 = {argument0=variable86,
+                                                          argument1=variable87};
+                                            variable96 = variable2 variable97;
+                                            variable95 = variable85 < variable96;
+                                            variable94 = variable95 ~ false
+                                                            ? variable98 -> (
+                                                                variable99 = 
+                                                                  false) : 
+                                                               variable100 -> (
+                                                                 variable102 = 
+                                                                   int;
+                                                                   variable105 = 
+                                                                   {argument0=variable86,
+                                                                    argument1=variable87};
+                                                                   variable104 = 
+                                                                   variable2 variable105;
+                                                                   variable103 = 
+                                                                   variable85 + variable104;
+                                                                   variable101 = 
+                                                                   variable102 == variable103)))}
+
+Lookup of variable variable6 yields values:
+    {variable106 -> (
+   variable107 = variable106.argument0;
+     variable108 = variable106.argument1;
+     variable109 = variable106.argument2;
+     variable112 = {argument0=variable107,
+                      argument1=variable108,
+                      argument2=variable109};
+     variable111 = variable5 variable112;
+     variable110 = variable111 ~ false ? variable113 -> (
+                                           variable115 = string;
+                                             variable114 = string) : 
+                                          variable116 -> (
+                                            variable120 = {argument0=variable108,
+                                                             argument1=variable109};
+                                              variable119 = variable2 variable120;
+                                              variable118 = {argument0=variable107,
+                                                               argument1=variable119};
+                                              variable117 = variable1 variable118))}
+
+Lookup of variable variable7 yields values:
+    {variable121 -> (
+   variable122 = variable121.argument0;
+     variable123 = variable121.argument1;
+     variable124 = variable121.argument2;
+     variable126 = variable124 < variable122;
+     variable125 = variable126 ~ false ? variable127 -> (
+                                           variable129 = {argument0=variable122,
+                                                            argument1=variable123,
+                                                            argument2=variable124};
+                                             variable128 = variable4 variable129) : 
+                                          variable130 -> (
+                                            variable132 = string;
+                                              variable131 = string))}
+
+Lookup of variable variable8 yields values:
+    {variable133 -> (
+   variable134 = variable133.argument0;
+     variable135 = variable133.argument1;
+     variable136 = variable133.argument2;
+     variable138 = {argument0=variable134,
+                      argument1=variable135,
+                      argument2=variable136};
+     variable137 = variable4 variable138)}
+
+Lookup of variable variable9 yields values:
+    {int}
+
+Lookup of variable variable10 yields values:
+    {int}
+
+Lookup of variable variable11 yields values:
+    {int}
+
+Lookup of variable variable12 yields values:
+    {int}
+
+Lookup of variable variable139 yields values:
+    {{argument0=variable12, argument1=variable9, argument2=variable10}}
+
+Lookup of variable variable13 yields values:
+    {int, string}
+
+Lookup of variable variable14 yields values:
+    {int}
+
+Lookup of variable variable140 yields values:
+    {{argument0=variable14, argument1=variable12, argument2=variable11}}
+
+Lookup of variable variable15 yields values:
+    {int, string}
+
+Lookup of variable variable141 yields values:
+    {{argument0=variable15, argument1=variable13, argument2=variable11}}
+
+Lookup of variable variable16 yields values:
+    {int}
+
+Lookup of variable variable144 yields values:
+    {false, true}
+
+Lookup of variable variable143 yields values:
+    {false, true}
+
+Lookup of variable variable142 yields values:
+    {string}
+Evaluation disabled
+source file program points: 126
+source file function definitions: 9
+source file function calls: 15
+source file variable references: 155
+source file non-local variable references: 39
+source file maximum lexical depth: 3
+source file non-local variable references at depth 1: 18
+source file non-local variable references at depth 2: 17
+source file non-local variable references at depth 3: 4
+
+Please enter an expression to evaluate followed by ";;".
+
+Fatal error: exception Parser.Parse_error(_, 216, 0, "")
+Command exited with non-zero status 2
+	Command being timed: "/usr/bin/timeout --foreground 2h /home/lfacchi2/odefa/benchmark/../toploop_main.native --select-context-stack=1ddpa --analyze-variables=all --report-sizes --report-source-statistics --disable-evaluation --disable-inconsistency-check"
+	User time (seconds): 1.20
+	System time (seconds): 0.00
+	Percent of CPU this job got: 72%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.67
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 26756
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 5815
+	Voluntary context switches: 5
+	Involuntary context switches: 25
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 24
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 2

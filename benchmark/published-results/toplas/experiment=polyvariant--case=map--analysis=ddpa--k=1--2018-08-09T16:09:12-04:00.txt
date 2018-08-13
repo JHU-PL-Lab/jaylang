@@ -1,0 +1,164 @@
+ 16:09:12 up 387 days, 11 min,  1 user,  load average: 0.88, 0.92, 0.57
+Toploop
+-------
+
+Please enter an expression to evaluate followed by ";;".
+
+
+DDPA number of active nodes (excluding enter and exit nodes that can be inferred): 76.
+DDPA number of active non immediate nodes (excluding enter and exit nodes that can be inferred): 12.
+DDPA number of edges: 125.
+PDS number of nodes: 549.
+PDS number of edges: 5027.
+
+Lookup of variable variable0 yields values:
+    {variable5 -> ( variable6 = false)}
+
+Lookup of variable variable1 yields values:
+    {variable7 -> (
+   variable9 = {}; variable8 = variable0 variable9; variable10 = variable7)}
+
+Lookup of variable variable2 yields values:
+    {variable11 -> (
+   variable12 = variable11.argument0;
+     variable13 = variable11.argument1;
+     variable15 = {};
+     variable14 = variable0 variable15;
+     variable17 = variable18 -> (
+                    variable21 = variable18 ~ {head=any,  tail=any} ? variable22 -> (
+                                                                    variable23 = 
+                                                                    true) : 
+                                                                    variable24 -> (
+                                                                    variable25 = 
+                                                                    false);
+                      variable20 = not variable21;
+                      variable19 = variable20 ~ false ? variable26 -> (
+                                                          variable29 = 
+                                                            variable1 variable12;
+                                                            variable30 = 
+                                                            variable18.head;
+                                                            variable28 = 
+                                                            variable29 variable30;
+                                                            variable32 = 
+                                                            variable18.tail;
+                                                            variable31 = 
+                                                            variable17 variable32;
+                                                            variable27 = 
+                                                            {head=variable28,
+                                                               tail=variable31}) : 
+                                                         variable33 -> (
+                                                           variable35 = 
+                                                             {};
+                                                             variable34 = 
+                                                             {null=variable35}));
+     variable16 = variable17 variable13)}
+
+Lookup of variable variable38 yields values:
+    {variable39 -> ( variable41 = int; variable40 = variable41 + variable39)}
+
+Lookup of variable variable37 yields values:
+    {variable39 -> ( variable41 = int; variable40 = variable41 + variable39)}
+
+Lookup of variable variable43 yields values:
+    {int}
+
+Lookup of variable variable45 yields values:
+    {int}
+
+Lookup of variable variable47 yields values:
+    {int}
+
+Lookup of variable variable49 yields values:
+    {{}}
+
+Lookup of variable variable48 yields values:
+    {{null=variable49}}
+
+Lookup of variable variable46 yields values:
+    {{head=variable47, tail=variable48}}
+
+Lookup of variable variable44 yields values:
+    {{head=variable45, tail=variable46}}
+
+Lookup of variable variable42 yields values:
+    {{head=variable43, tail=variable44}}
+
+Lookup of variable variable36 yields values:
+    {{argument0=variable37, argument1=variable42}}
+
+Lookup of variable variable3 yields values:
+    {{head=variable28, tail=variable31}}
+
+Lookup of variable variable52 yields values:
+    {variable53 -> ( variable55 = int; variable54 = variable55 + variable53)}
+
+Lookup of variable variable51 yields values:
+    {variable53 -> ( variable55 = int; variable54 = variable55 + variable53)}
+
+Lookup of variable variable57 yields values:
+    {int}
+
+Lookup of variable variable59 yields values:
+    {int}
+
+Lookup of variable variable61 yields values:
+    {int}
+
+Lookup of variable variable63 yields values:
+    {{}}
+
+Lookup of variable variable62 yields values:
+    {{null=variable63}}
+
+Lookup of variable variable60 yields values:
+    {{head=variable61, tail=variable62}}
+
+Lookup of variable variable58 yields values:
+    {{head=variable59, tail=variable60}}
+
+Lookup of variable variable56 yields values:
+    {{head=variable57, tail=variable58}}
+
+Lookup of variable variable50 yields values:
+    {{argument0=variable51, argument1=variable56}}
+
+Lookup of variable variable4 yields values:
+    {{head=variable28, tail=variable31}}
+Evaluation disabled
+source file program points: 54
+source file function definitions: 6
+source file function calls: 10
+source file variable references: 53
+source file non-local variable references: 7
+source file maximum lexical depth: 3
+source file non-local variable references at depth 1: 4
+source file non-local variable references at depth 2: 2
+source file non-local variable references at depth 3: 1
+
+Please enter an expression to evaluate followed by ";;".
+
+Fatal error: exception Parser.Parse_error(_, 103, 0, "")
+Command exited with non-zero status 2
+	Command being timed: "/usr/bin/timeout --foreground 2h /home/lfacchi2/odefa/benchmark/../toploop_main.native --select-context-stack=1ddpa --analyze-variables=all --report-sizes --report-source-statistics --disable-evaluation --disable-inconsistency-check"
+	User time (seconds): 0.22
+	System time (seconds): 0.00
+	Percent of CPU this job got: 34%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.66
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 14632
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 2329
+	Voluntary context switches: 5
+	Involuntary context switches: 6
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 8
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 2

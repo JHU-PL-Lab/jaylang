@@ -1,0 +1,589 @@
+ 16:53:09 up 387 days, 54 min,  1 user,  load average: 1.02, 1.05, 1.04
+Toploop
+-------
+
+Please enter an expression to evaluate followed by ";;".
+
+
+DDPA number of active nodes (excluding enter and exit nodes that can be inferred): 255.
+DDPA number of active non immediate nodes (excluding enter and exit nodes that can be inferred): 23.
+DDPA number of edges: 364.
+PDS number of nodes: 1926.
+PDS number of edges: 50807.
+
+Lookup of variable variable0 yields values:
+    {variable1 -> (
+   variable4 = variable1 ~ {head=any,  tail=any} ? variable5 -> (
+                                                     variable6 = true) : 
+                                                    variable7 -> (
+                                                      variable8 = false);
+     variable3 = not variable4;
+     variable2 = variable3 ~ false ? variable9 -> (
+                                       variable12 = variable1.head;
+                                         variable14 = string;
+                                         variable13 = {symbol=variable14};
+                                         variable15 = int;
+                                         variable16 = int;
+                                         variable11 = variable15 == variable16;
+                                         variable10 = variable11 ~ false
+                                                         ? variable17 -> (
+                                                             variable20 = 
+                                                               variable1.head;
+                                                               variable22 = 
+                                                               string;
+                                                               variable21 = 
+                                                               {symbol=variable22};
+                                                               variable23 = 
+                                                               int;
+                                                               variable24 = 
+                                                               int;
+                                                               variable19 = 
+                                                               variable23 == variable24;
+                                                               variable18 = 
+                                                               variable19 ~ false
+                                                                  ? variable25 -> (
+                                                                    variable28 = 
+                                                                    variable1.head;
+                                                                    variable30 = 
+                                                                    string;
+                                                                    variable29 = 
+                                                                    {
+                                                                    symbol=variable30};
+                                                                    variable31 = 
+                                                                    int;
+                                                                    variable32 = 
+                                                                    int;
+                                                                    variable27 = 
+                                                                    variable31 == variable32;
+                                                                    variable26 = 
+                                                                    variable27 ~ false
+                                                                     ? variable33 -> (
+                                                                    variable36 = 
+                                                                    variable1.head;
+                                                                    variable38 = 
+                                                                    string;
+                                                                    variable37 = 
+                                                                    {
+                                                                    symbol=variable38};
+                                                                    variable39 = 
+                                                                    int;
+                                                                    variable40 = 
+                                                                    int;
+                                                                    variable35 = 
+                                                                    variable39 == variable40;
+                                                                    variable34 = 
+                                                                    variable35 ~ false
+                                                                     ? variable41 -> (
+                                                                    variable43 = 
+                                                                    false;
+                                                                    variable44 = 
+                                                                    string;
+                                                                    variable42 = 
+                                                                    string) : 
+                                                                    variable45 -> (
+                                                                    variable48 = 
+                                                                    string;
+                                                                    variable47 = 
+                                                                    {
+                                                                    symbol=variable48};
+                                                                    variable52 = 
+                                                                    string;
+                                                                    variable51 = 
+                                                                    {
+                                                                    symbol=variable52};
+                                                                    variable56 = 
+                                                                    variable1.tail;
+                                                                    variable55 = 
+                                                                    variable56.head;
+                                                                    variable54 = 
+                                                                    variable0 variable55;
+                                                                    variable60 = 
+                                                                    variable1.tail;
+                                                                    variable59 = 
+                                                                    variable60.tail;
+                                                                    variable58 = 
+                                                                    variable59.head;
+                                                                    variable62 = 
+                                                                    {};
+                                                                    variable61 = 
+                                                                    {
+                                                                    null=variable62};
+                                                                    variable57 = 
+                                                                    {
+                                                                    head=variable58,
+                                                                    tail=variable61};
+                                                                    variable53 = 
+                                                                    {
+                                                                    head=variable54,
+                                                                    tail=variable57};
+                                                                    variable50 = 
+                                                                    {
+                                                                    head=variable51,
+                                                                    tail=variable53};
+                                                                    variable66 = 
+                                                                    string;
+                                                                    variable65 = 
+                                                                    {
+                                                                    symbol=variable66};
+                                                                    variable69 = 
+                                                                    variable1.tail;
+                                                                    variable68 = 
+                                                                    variable69.head;
+                                                                    variable73 = 
+                                                                    string;
+                                                                    variable72 = 
+                                                                    {
+                                                                    symbol=variable73};
+                                                                    variable77 = 
+                                                                    variable1.tail;
+                                                                    variable76 = 
+                                                                    variable77.tail;
+                                                                    variable75 = 
+                                                                    variable76.head;
+                                                                    variable81 = 
+                                                                    variable1.tail;
+                                                                    variable80 = 
+                                                                    variable81.tail;
+                                                                    variable79 = 
+                                                                    variable80.head;
+                                                                    variable86 = 
+                                                                    variable1.tail;
+                                                                    variable85 = 
+                                                                    variable86.tail;
+                                                                    variable84 = 
+                                                                    variable85.head;
+                                                                    variable83 = 
+                                                                    variable0 variable84;
+                                                                    variable88 = 
+                                                                    {};
+                                                                    variable87 = 
+                                                                    {
+                                                                    null=variable88};
+                                                                    variable82 = 
+                                                                    {
+                                                                    head=variable83,
+                                                                    tail=variable87};
+                                                                    variable78 = 
+                                                                    {
+                                                                    head=variable79,
+                                                                    tail=variable82};
+                                                                    variable74 = 
+                                                                    {
+                                                                    head=variable75,
+                                                                    tail=variable78};
+                                                                    variable71 = 
+                                                                    {
+                                                                    head=variable72,
+                                                                    tail=variable74};
+                                                                    variable90 = 
+                                                                    {};
+                                                                    variable89 = 
+                                                                    {
+                                                                    null=variable90};
+                                                                    variable70 = 
+                                                                    {
+                                                                    head=variable71,
+                                                                    tail=variable89};
+                                                                    variable67 = 
+                                                                    {
+                                                                    head=variable68,
+                                                                    tail=variable70};
+                                                                    variable64 = 
+                                                                    {
+                                                                    head=variable65,
+                                                                    tail=variable67};
+                                                                    variable92 = 
+                                                                    {};
+                                                                    variable91 = 
+                                                                    {
+                                                                    null=variable92};
+                                                                    variable63 = 
+                                                                    {
+                                                                    head=variable64,
+                                                                    tail=variable91};
+                                                                    variable49 = 
+                                                                    {
+                                                                    head=variable50,
+                                                                    tail=variable63};
+                                                                    variable46 = 
+                                                                    {
+                                                                    head=variable47,
+                                                                    tail=variable49})) : 
+                                                                    variable93 -> (
+                                                                    variable96 = 
+                                                                    string;
+                                                                    variable95 = 
+                                                                    {
+                                                                    symbol=variable96};
+                                                                    variable101 = 
+                                                                    string;
+                                                                    variable100 = 
+                                                                    {
+                                                                    symbol=variable101};
+                                                                    variable110 = 
+                                                                    variable0;
+                                                                    variable103 = 
+                                                                    variable104 -> (
+                                                                    variable107 = 
+                                                                    string;
+                                                                    variable106 = 
+                                                                    {
+                                                                    symbol=variable107};
+                                                                    variable109 = 
+                                                                    variable110 variable104;
+                                                                    variable113 = 
+                                                                    {};
+                                                                    variable112 = 
+                                                                    {
+                                                                    null=variable113};
+                                                                    variable111 = 
+                                                                    {
+                                                                    head=variable104,
+                                                                    tail=variable112};
+                                                                    variable108 = 
+                                                                    {
+                                                                    head=variable109,
+                                                                    tail=variable111};
+                                                                    variable105 = 
+                                                                    {
+                                                                    head=variable106,
+                                                                    tail=variable108});
+                                                                    variable114 = 
+                                                                    variable1.tail;
+                                                                    variable115 = 
+                                                                    variable116 -> (
+                                                                    variable122 = 
+                                                                    variable116 ~ 
+                                                                    {
+                                                                    head=any, 
+                                                                    tail=any}
+                                                                     ? variable117 -> (
+                                                                    variable118 = 
+                                                                    variable117.head;
+                                                                    variable119 = 
+                                                                    variable117.tail;
+                                                                    variable120 = 
+                                                                    variable103 variable118;
+                                                                    variable121 = 
+                                                                    variable115 variable119;
+                                                                    variable123 = 
+                                                                    {
+                                                                    head=variable120,
+                                                                    tail=variable121}) : 
+                                                                    variable124 -> (
+                                                                    variable126 = 
+                                                                    {};
+                                                                    variable125 = 
+                                                                    {
+                                                                    null=variable126}));
+                                                                    variable102 = 
+                                                                    variable115 variable114;
+                                                                    variable99 = 
+                                                                    {
+                                                                    head=variable100,
+                                                                    tail=variable102};
+                                                                    variable128 = 
+                                                                    {};
+                                                                    variable127 = 
+                                                                    {
+                                                                    null=variable128};
+                                                                    variable98 = 
+                                                                    {
+                                                                    head=variable99,
+                                                                    tail=variable127};
+                                                                    variable97 = 
+                                                                    {
+                                                                    head=variable1,
+                                                                    tail=variable98};
+                                                                    variable94 = 
+                                                                    {
+                                                                    head=variable95,
+                                                                    tail=variable97})) : 
+                                                                    variable129 -> (
+                                                                    variable132 = 
+                                                                    string;
+                                                                    variable131 = 
+                                                                    {
+                                                                    symbol=variable132};
+                                                                    variable134 = 
+                                                                    variable0;
+                                                                    variable135 = 
+                                                                    variable1.tail;
+                                                                    variable136 = 
+                                                                    variable137 -> (
+                                                                    variable143 = 
+                                                                    variable137 ~ 
+                                                                    {
+                                                                    head=any, 
+                                                                    tail=any}
+                                                                     ? variable138 -> (
+                                                                    variable139 = 
+                                                                    variable138.head;
+                                                                    variable140 = 
+                                                                    variable138.tail;
+                                                                    variable141 = 
+                                                                    variable134 variable139;
+                                                                    variable142 = 
+                                                                    variable136 variable140;
+                                                                    variable144 = 
+                                                                    {
+                                                                    head=variable141,
+                                                                    tail=variable142}) : 
+                                                                    variable145 -> (
+                                                                    variable147 = 
+                                                                    {};
+                                                                    variable146 = 
+                                                                    {
+                                                                    null=variable147}));
+                                                                    variable133 = 
+                                                                    variable136 variable135;
+                                                                    variable130 = 
+                                                                    {
+                                                                    head=variable131,
+                                                                    tail=variable133})) : 
+                                                            variable148 -> (
+                                                              variable151 = 
+                                                                string;
+                                                                variable150 = 
+                                                                {symbol=variable151};
+                                                                variable153 = 
+                                                                variable0;
+                                                                variable154 = 
+                                                                variable1.tail;
+                                                                variable155 = 
+                                                                variable156 -> (
+                                                                  variable162 = 
+                                                                    variable156 ~ 
+                                                                    {
+                                                                    head=any, 
+                                                                    tail=any}
+                                                                     ? variable157 -> (
+                                                                    variable158 = 
+                                                                    variable157.head;
+                                                                    variable159 = 
+                                                                    variable157.tail;
+                                                                    variable160 = 
+                                                                    variable153 variable158;
+                                                                    variable161 = 
+                                                                    variable155 variable159;
+                                                                    variable163 = 
+                                                                    {
+                                                                    head=variable160,
+                                                                    tail=variable161}) : 
+                                                                    variable164 -> (
+                                                                    variable166 = 
+                                                                    {};
+                                                                    variable165 = 
+                                                                    {
+                                                                    null=variable166}));
+                                                                variable152 = 
+                                                                variable155 variable154;
+                                                                variable149 = 
+                                                                {head=variable150,
+                                                                   tail=variable152})) : 
+                                      variable167 -> (
+                                        variable170 = variable1;
+                                          variable172 = string;
+                                          variable171 = {symbol=variable172};
+                                          variable173 = int;
+                                          variable174 = int;
+                                          variable169 = variable173 == variable174;
+                                          variable168 = variable169 ~ false
+                                                           ? variable175 -> (
+                                                               variable176 = 
+                                                                 int) : 
+                                                              variable177 -> (
+                                                                variable178 = 
+                                                                  int)))}
+
+Lookup of variable variable182 yields values:
+    {string}
+
+Lookup of variable variable181 yields values:
+    {{symbol=variable182}}
+
+Lookup of variable variable186 yields values:
+    {string}
+
+Lookup of variable variable185 yields values:
+    {{symbol=variable186}}
+
+Lookup of variable variable188 yields values:
+    {int}
+
+Lookup of variable variable191 yields values:
+    {string}
+
+Lookup of variable variable190 yields values:
+    {{symbol=variable191}}
+
+Lookup of variable variable194 yields values:
+    {string}
+
+Lookup of variable variable193 yields values:
+    {{symbol=variable194}}
+
+Lookup of variable variable196 yields values:
+    {{}}
+
+Lookup of variable variable195 yields values:
+    {{null=variable196}}
+
+Lookup of variable variable192 yields values:
+    {{head=variable193, tail=variable195}}
+
+Lookup of variable variable189 yields values:
+    {{head=variable190, tail=variable192}}
+
+Lookup of variable variable187 yields values:
+    {{head=variable188, tail=variable189}}
+
+Lookup of variable variable184 yields values:
+    {{head=variable185, tail=variable187}}
+
+Lookup of variable variable200 yields values:
+    {string}
+
+Lookup of variable variable199 yields values:
+    {{symbol=variable200}}
+
+Lookup of variable variable203 yields values:
+    {string}
+
+Lookup of variable variable202 yields values:
+    {{symbol=variable203}}
+
+Lookup of variable variable206 yields values:
+    {string}
+
+Lookup of variable variable205 yields values:
+    {{symbol=variable206}}
+
+Lookup of variable variable209 yields values:
+    {string}
+
+Lookup of variable variable208 yields values:
+    {{symbol=variable209}}
+
+Lookup of variable variable211 yields values:
+    {{}}
+
+Lookup of variable variable210 yields values:
+    {{null=variable211}}
+
+Lookup of variable variable207 yields values:
+    {{head=variable208, tail=variable210}}
+
+Lookup of variable variable204 yields values:
+    {{head=variable205, tail=variable207}}
+
+Lookup of variable variable201 yields values:
+    {{head=variable202, tail=variable204}}
+
+Lookup of variable variable198 yields values:
+    {{head=variable199, tail=variable201}}
+
+Lookup of variable variable215 yields values:
+    {string}
+
+Lookup of variable variable214 yields values:
+    {{symbol=variable215}}
+
+Lookup of variable variable218 yields values:
+    {string}
+
+Lookup of variable variable217 yields values:
+    {{symbol=variable218}}
+
+Lookup of variable variable221 yields values:
+    {string}
+
+Lookup of variable variable220 yields values:
+    {{symbol=variable221}}
+
+Lookup of variable variable223 yields values:
+    {{}}
+
+Lookup of variable variable222 yields values:
+    {{null=variable223}}
+
+Lookup of variable variable219 yields values:
+    {{head=variable220, tail=variable222}}
+
+Lookup of variable variable216 yields values:
+    {{head=variable217, tail=variable219}}
+
+Lookup of variable variable213 yields values:
+    {{head=variable214, tail=variable216}}
+
+Lookup of variable variable225 yields values:
+    {int}
+
+Lookup of variable variable227 yields values:
+    {{}}
+
+Lookup of variable variable226 yields values:
+    {{null=variable227}}
+
+Lookup of variable variable224 yields values:
+    {{head=variable225, tail=variable226}}
+
+Lookup of variable variable212 yields values:
+    {{head=variable213, tail=variable224}}
+
+Lookup of variable variable197 yields values:
+    {{head=variable198, tail=variable212}}
+
+Lookup of variable variable183 yields values:
+    {{head=variable184, tail=variable197}}
+
+Lookup of variable variable180 yields values:
+    {{head=variable181, tail=variable183}}
+
+Lookup of variable variable179 yields values:
+    {{head=variable131, tail=variable133},
+   {head=variable150, tail=variable152},
+   {head=variable47, tail=variable49},
+   {head=variable95, tail=variable97},
+   string}
+Evaluation disabled
+source file program points: 203
+source file function definitions: 5
+source file function calls: 13
+source file variable references: 200
+source file non-local variable references: 27
+source file maximum lexical depth: 7
+source file non-local variable references at depth 1: 3
+source file non-local variable references at depth 2: 8
+source file non-local variable references at depth 3: 3
+source file non-local variable references at depth 4: 4
+source file non-local variable references at depth 5: 7
+source file non-local variable references at depth 6: 2
+
+Please enter an expression to evaluate followed by ";;".
+
+Fatal error: exception Parser.Parse_error(_, 450, 0, "")
+Command exited with non-zero status 2
+	Command being timed: "/usr/bin/timeout --foreground 2h /home/lfacchi2/odefa/benchmark/../toploop_main.native --select-context-stack=1ddpa --analyze-variables=all --report-sizes --report-source-statistics --disable-evaluation --disable-inconsistency-check"
+	User time (seconds): 8.94
+	System time (seconds): 0.02
+	Percent of CPU this job got: 94%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:09.45
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 69188
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 16683
+	Voluntary context switches: 5
+	Involuntary context switches: 122
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 80
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 2

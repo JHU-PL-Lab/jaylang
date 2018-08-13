@@ -1,0 +1,78 @@
+ 16:35:15 up 387 days, 37 min,  1 user,  load average: 1.07, 1.09, 1.01
+Toploop
+-------
+
+Please enter an expression to evaluate followed by ";;".
+
+
+DDPA number of active nodes (excluding enter and exit nodes that can be inferred): 36.
+DDPA number of active non immediate nodes (excluding enter and exit nodes that can be inferred): 8.
+DDPA number of edges: 61.
+PDS number of nodes: 107.
+PDS number of edges: 859.
+
+Lookup of variable variable1 yields values:
+    {variable2 -> (
+   variable4 = true;
+     variable3 = variable2 variable4;
+     variable6 = false;
+     variable5 = variable2 variable6)}
+
+Lookup of variable variable7 yields values:
+    {variable8 -> (
+   variable10 = variable11 -> (
+                  variable13 = true;
+                    variable12 = variable11 variable13;
+                    variable15 = false;
+                    variable14 = variable11 variable15);
+     variable16 = variable17 -> (
+                    variable19 = variable20 -> (
+                                   variable22 = {argument0=variable8,
+                                                   argument1=variable17};
+                                     variable21 = variable20 variable22);
+                      variable23 = variable24 -> (
+                                     variable25 = variable24.argument0;
+                                       variable26 = variable24.argument1;
+                                       variable27 = variable25);
+                      variable18 = variable19 variable23);
+     variable9 = variable10 variable16)}
+
+Lookup of variable variable0 yields values:
+    {false, true}
+Evaluation disabled
+source file program points: 22
+source file function definitions: 6
+source file function calls: 8
+source file variable references: 21
+source file non-local variable references: 2
+source file maximum lexical depth: 3
+source file non-local variable references at depth 1: 1
+source file non-local variable references at depth 2: 1
+
+Please enter an expression to evaluate followed by ";;".
+
+Fatal error: exception Parser.Parse_error(_, 32, 0, "")
+Command exited with non-zero status 2
+	Command being timed: "/usr/bin/timeout --foreground 2h /home/lfacchi2/odefa/benchmark/../toploop_main.native --select-context-stack=0ddpa --analyze-variables=all --report-sizes --report-source-statistics --disable-evaluation --disable-inconsistency-check"
+	User time (seconds): 0.03
+	System time (seconds): 0.00
+	Percent of CPU this job got: 7%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.43
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 11324
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 1539
+	Voluntary context switches: 5
+	Involuntary context switches: 2
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 2
