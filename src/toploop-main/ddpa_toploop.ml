@@ -26,7 +26,7 @@ let () =
   print_string "Please enter an expression to evaluate followed by \";;\".\n";
   print_string "\n";
   flush stdout;
-  Parser.parse_expressions IO.stdin
+  Odefa_parser.Parser.parse_expressions IO.stdin
   |> LazyList.iter
     (fun e ->
        print_newline ();
