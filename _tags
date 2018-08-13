@@ -1,8 +1,0 @@
-# OASIS_START
-# OASIS_STOP
-
-true: explain
-<src/pds-reachability/pds_reachability_types_stack.*>: warn(-37)
-# The following is temporary for development and should be removed.
-<src/analysis/analysis.*>: warn(-37)
-true: warn(@A-4-39-44-45)

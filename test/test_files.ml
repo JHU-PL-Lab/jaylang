@@ -16,6 +16,11 @@ open Batteries;;
 open Jhupllib;;
 open OUnit2;;
 
+open Odefa_ast;;
+open Odefa_ddpa;;
+open Odefa_parser;;
+open Odefa_toploop;;
+
 open Ast;;
 open Ast_pp;;
 open Ast_wellformedness;;

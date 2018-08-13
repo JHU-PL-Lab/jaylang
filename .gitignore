@@ -18,3 +18,9 @@
 
 # Custom build configuration files
 /.local_*
+
+# Dune creates its own .merlin files
+.merlin
+
+# Dune intermediates
+/*.install

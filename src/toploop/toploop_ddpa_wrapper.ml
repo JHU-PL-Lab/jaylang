@@ -1,3 +1,6 @@
+open Odefa_ast;;
+open Odefa_ddpa;;
+
 open Ast;;
 open Ddpa_analysis;;
 open Toploop_ddpa_wrapper_types;;

@@ -1,4 +1,5 @@
 %{
+open Odefa_ast;;
 open Ast;;
 module List = BatList;;
 %}
@@ -40,8 +41,8 @@ module List = BatList;;
 %token BINOP_AT
 %token DOUBLE_SEMICOLON
 
-%start <Ast.expr> prog
-%start <Ast.expr option> delim_expr
+%start <Odefa_ast.Ast.expr> prog
+%start <Odefa_ast.Ast.expr option> delim_expr
 
 %%
 

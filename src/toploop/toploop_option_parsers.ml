@@ -2,6 +2,8 @@ open Batteries;;
 open Jhupllib;;
 open BatOptParse.Opt;;
 
+open Odefa_ddpa;;
+
 open Logger_utils;;
 
 let logging_option:unit BatOptParse.Opt.t =

@@ -1,0 +1,26 @@
+(alias
+  (name runtest)
+  (deps test.exe)
+  (action (run ./test.exe))
+)
+
+(executable
+  (name test)
+  (libraries
+    batteries
+    jhupllib
+    odefa.ast
+    odefa.ddpa
+    odefa.parser
+    odefa.toploop
+    oUnit
+    ppx_deriving_yojson
+    yojson
+  )
+  (preprocess
+    (pps
+      ppx_deriving.std
+      ppx_deriving_yojson
+    )
+  )
+)

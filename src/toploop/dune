@@ -1,0 +1,21 @@
+(library
+  (name odefa_toploop)
+  (public_name odefa.toploop)
+  (synopsis "Odefa toploop")
+  (libraries
+    batteries
+    jhupllib
+    odefa.ast
+    odefa.ddpa
+    odefa.interpreter
+    odefa.parser
+    odefa.statistics
+    odefa.utils
+  )
+  (preprocess
+    (pps
+      ocaml-monadic
+      ppx_deriving.std
+    )
+  )
+)

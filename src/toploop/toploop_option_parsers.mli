@@ -1,3 +1,5 @@
+open Odefa_ddpa;;
+
 (** This logging option sets the global logging state of the application.  It
     "produces" a unit but, as each argument is parsed, has the side effect of
     configuring the logger. *)

@@ -1,6 +1,8 @@
 open Batteries;;
 open Jhupllib;;
 
+open Odefa_toploop;;
+
 open Toploop_options;;
 
 let logger = Logger_utils.make_logger "Toploop_main";;

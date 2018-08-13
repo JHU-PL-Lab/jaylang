@@ -1,5 +1,10 @@
 open Batteries;;
 
+open Odefa_ast;;
+open Odefa_ddpa;;
+open Odefa_interpreter;;
+open Odefa_statistics;;
+
 open Ast;;
 open Ast_pp;;
 open Ast_wellformedness;;

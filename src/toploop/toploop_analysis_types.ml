@@ -6,6 +6,9 @@
 open Batteries;;
 open Jhupllib;;
 
+open Odefa_ast;;
+open Odefa_ddpa;;
+
 open Ast;;
 open Ast_pp;;
 open Toploop_ddpa_wrapper_types;;
