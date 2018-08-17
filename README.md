@@ -66,7 +66,7 @@ Build
 5. Install the dependencies:
 
    ```console
-   $ opam install oasis \
+   $ opam install dune \
                   batteries \
                   menhir \
                   ounit \
@@ -86,41 +86,23 @@ Build
    $ hash -r
    ```
 
-7. Generate configuration:
+7. Build:
 
    ```console
-   $ oasis setup -setup-update dynamic
+   $ make
    ```
 
-8. Configure:
+8. Interact with the toploop (find sample programs at `test-sources/`):
 
    ```console
-   $ ./configure
+   $ ./ddpa_toploop
    ```
 
-9. Enable tests:
+9. Run the tests:
 
    ```console
-   $ ocaml setup.ml -configure --enable-tests
+   $ make test
    ```
-
-10. Build:
-
-    ```console
-    $ make
-    ```
-
-11. Interact with the toploop (find sample programs at `test-sources/`):
-
-    ```console
-    $ ./toploop_main.native
-    ```
-
-12. Run the tests:
-
-    ```console
-    $ make test
-    ```
 
 `toploop_main.native` Command-Line Arguments
 --------------------------------------------
@@ -154,4 +136,8 @@ Odefa depends on libraries which tend to develop at the same time as it does, bu
    $ opam pin add pds-reachability ../pds-reachability
    ```
 
-Re-run `opam pin` when these libraries change.
+When these libraries change, run
+
+   ```console
+   $ opam upgrade jhupllib pds-reachability
+   ```
