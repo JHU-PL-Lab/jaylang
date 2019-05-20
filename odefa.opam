@@ -1,20 +1,22 @@
-opam-version: "1.2"
+opam-version: "2.0"
 name: "odefa"
-version: "0.4+dev"
+version: "0.4.1+dev"
+synopsis: "Artifact for Higher-Order Demand-Driven Program Analysis"
 maintainer: "JHU PL Lab <pl.cs@jhu.edu>"
 authors: [ "JHU PL Lab <pl.cs@jhu.edu>" ]
 license: "Apache"
 homepage: "https://github.com/JHU-PL-Lab/odefa"
-dev-repo: "https://github.com/JHU-PL-Lab/odefa.git"
+dev-repo: "git+https://github.com/JHU-PL-Lab/odefa.git"
 bug-reports: "https://github.com/JHU-PL-Lab/odefa/issues"
-build: [ "jbuilder" "build" "-p" name "-j" jobs ]
-build-test: [ "jbuilder" "runtest" "-p" name "-j" jobs ]
+build: [ "dune" "build" "-p" name "-j" jobs ]
+build-test: [ "dune" "runtest" "-p" name "-j" jobs ]
 depends: [
+  "ocaml" {>= "4.04.0"}
   "base-threads"
   "batteries"
   "dune" {build & >= "1.0"}
   "jhupllib" {>= "0.1.1"}
-  "ocaml-monadic"
+  "ocaml-monadic" {>= "0.4.1"}
   "ocamlbuild" {build}
   "ocamlfind" {build}
   "ounit" {build}
