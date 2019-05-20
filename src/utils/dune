@@ -1,0 +1,14 @@
+(library
+  (name odefa_utils)
+  (public_name odefa.utils)
+  (synopsis "General utilities for Odefa")
+  (libraries
+    batteries
+    jhupllib
+  )
+  (preprocess
+    (pps
+      ppx_deriving.std
+    )
+  )
+)

@@ -1,6 +1,0 @@
-PKG oasis batteries menhirLib oUnit ppx_deriving.std ppx_deriving_yojson ocaml-monadic monadlib jhupllib pds-reachability
-S src/**
-S test/**
-B _build/src/**
-B _build/test/**
-EXT ounit

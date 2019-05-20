@@ -32,6 +32,17 @@ declare -A CASES=(
   # [state]=1 # Boxes aren’t supported by P4F.
   [tak]=1
 )
+<<<<<<< HEAD
+=======
+TRIALS=5
+TIMEOUT=30m
+HERE=$(cd $(dirname $0) && pwd)
+DDPA=$HERE/../ddpa_toploop
+SCHEME_TO_ODEFA=$HERE/../scheme-front-end/scheme-to-odefa.rkt
+P4F=$HERE/../../p4f
+
+mkdir $HERE/results
+>>>>>>> ddpa-dune
 
 HERE="$(cd "$(dirname $0)" && pwd)"
 CASES_PATH="${HERE}/cases"

@@ -1,6 +1,8 @@
 open Batteries;;
 open Toploop_option_parsers;;
 
+open Odefa_ddpa;;
+
 (** This type defines the configuration required by the toploop to evaluate
     an expression. *)
 type configuration =

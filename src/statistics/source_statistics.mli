@@ -1,3 +1,5 @@
+open Odefa_ast;;
+
 module Int_map : BatMap.S with type key = int;;
 
 type source_statistics =

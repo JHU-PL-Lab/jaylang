@@ -1,5 +1,7 @@
 open Batteries;;
 
+open Odefa_ast;;
+
 open Ast;;
 open Ast_pp;;
 open Ddpa_abstract_ast;;

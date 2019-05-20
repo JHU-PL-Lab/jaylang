@@ -1,0 +1,11 @@
+(library
+  (name odefa_interpreter)
+  (public_name odefa.interpreter)
+  (synopsis "Interpreter for Odefa")
+  (libraries
+    batteries
+    jhupllib
+    odefa.ast
+    odefa.utils
+  )
+)

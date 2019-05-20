@@ -3,6 +3,9 @@
    its types need not be redeclared in an interface.
 *)
 
+open Odefa_ast;;
+open Odefa_ddpa;;
+
 open Ast;;
 open Ddpa_analysis_logging;;
 open Ddpa_context_stack;;

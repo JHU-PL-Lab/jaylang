@@ -6,6 +6,8 @@
 open Batteries;;
 open Jhupllib;;
 
+open Odefa_ast;;
+
 open Ast;;
 open Ddpa_abstract_ast;;
 open Ddpa_analysis_logging;;

@@ -2,6 +2,10 @@
    This module defines the primary functions for the toploop.
 *)
 
+open Odefa_ast;;
+open Odefa_ddpa;;
+open Odefa_interpreter;;
+
 open Ast;;
 open Interpreter;;
 open Toploop_analysis_types;;
