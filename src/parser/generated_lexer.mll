@@ -30,7 +30,6 @@ rule token = parse
   | "("                              { OPEN_PAREN }
   | ")"                              { CLOSE_PAREN }
   | ";"                              { SEMICOLON }
-  | ","                              { COMMA }
   | "="                              { EQUALS }
   | "->"                             { ARROW }
   | "?"                              { QUESTION_MARK }

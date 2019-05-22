@@ -51,15 +51,19 @@ struct
     Nondeterminism_monad.enum @@
     let open Nondeterminism_monad in
     match action with
+    | Value_lookup(x,v) ->
+      let%orzero Lookup_var x' = element in
+      [%guard equal_abstract_var x x'];
+      return [Push(Continuation_value v)]
     | Value_drop ->
       let%orzero Continuation_value _ = element in
+      return []
+    | Value_discovery_2_of_2 ->
+      let%orzero Bottom_of_stack = element in
       return []
     | Require_value_1_of_2 ->
       let%orzero Require_value v = element in
       return [Pop_dynamic_targeted(Require_value_2_of_2 v)]
-    | Value_discovery_2_of_2 ->
-      let%orzero Bottom_of_stack = element in
-      return []
     | Require_value_2_of_2(v) ->
       let%orzero Continuation_value(v') = element in
       [%guard equal_abstract_value v v'];
@@ -132,18 +136,18 @@ struct
     | Conditional_subject_evaluation(x,x',x1,then_branch,acl1,ctx) ->
       let%orzero (Lookup_var(x0)) = element in
       [%guard (equal_abstract_var x0 x)];
-      let capture_size_2 = Bounded_capture_size.of_int 2 in
+      let capture_size_1 = Bounded_capture_size.of_int 1 in
       return [ Push(Lookup_var(x'))
-             ; Push(Capture capture_size_2)
              ; Push(Jump(acl1,ctx))
              ; Push(Require_value (Abs_value_bool then_branch))
+             ; Push(Capture capture_size_1)
              ; Push(Lookup_var(x1))
              ]
     | Pattern_matching_lookup(x2,x1,p) ->
       let%orzero Lookup_var x2' = element in
       [%guard (equal_abstract_var x2 x2') ];
-      return [ Push(Lookup_var(x1));
-               Push(Continuation_pattern(p));
+      return [ Push(Continuation_pattern(p));
+               Push(Lookup_var(x1));
              ]
     | Pattern_match_1_of_2 ->
       let%orzero Continuation_value v = element in
@@ -203,9 +207,9 @@ struct
       let%orzero (Jump(acl1,ctx)) = element in
       return ([], Static_terminus(Program_point_state(acl1,ctx)))
     | Value_discovery_1_of_2 ->
-      let%orzero (Continuation_value abs_filtered_value) = element in
+      let%orzero (Continuation_value v) = element in
       return ( [ Pop_dynamic_targeted(Value_discovery_2_of_2) ]
-             , Static_terminus(Result_state abs_filtered_value)
+             , Static_terminus(Result_state v)
              )
   ;;
 end;;

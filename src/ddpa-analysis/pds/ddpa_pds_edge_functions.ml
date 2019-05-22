@@ -65,7 +65,16 @@ struct
              without transitioning to a different node). *)
     let targeted_dynamic_pops = Enum.filter_map identity @@ List.enum
         [
-          (* ********** Variable Discovery ********** *)
+          (* ********** Value Discovery ********** *)
+          (* Variable Lookup Complete *)
+          begin
+            let%orzero
+              (Unannotated_clause(Abs_clause(x,Abs_value_body v))) = acl1
+            in
+            (* x = v *)
+            return (Value_lookup(x, v), Program_point_state(acl1, ctx))
+          end
+          ;
           (* Intermediate Value *)
           begin
             return (Value_drop, Program_point_state(acl0,ctx))
@@ -269,29 +278,8 @@ struct
   ;;
 
   let create_untargeted_dynamic_pop_action_function
-      (_ : End_of_block_map.t) (edge : ddpa_edge) (state : R.State.t) =
-    let Ddpa_edge(_, acl0) = edge in
-    let zero = Enum.empty in
-    let%orzero (Program_point_state(acl0',_)) = state in
-    (* TODO: There should be a way to associate each action function with
-             its corresponding acl0 rather than using this guard. *)
-    [%guard (compare_annotated_clause acl0 acl0' == 0)];
-    let open Option.Monad in
-    let untargeted_dynamic_pops = Enum.filter_map identity @@ List.enum
-        [
-          (* Value discovery. *)
-          begin
-            return @@ Value_discovery_1_of_2
-          end
-          ;
-          (* Jump. *)
-          begin
-            return @@ Do_jump
-          end
-          ;
-        ]
-    in
-    untargeted_dynamic_pops
+      (_ : End_of_block_map.t) (_ : ddpa_edge) (_ : R.State.t) =
+    List.enum [ Value_discovery_1_of_2; Do_jump ]
   ;;
 
 end;;

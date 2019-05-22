@@ -15,6 +15,9 @@ struct
   module S = S;;
   open S;;
   type pds_targeted_dynamic_pop_action =
+    | Value_lookup of abstract_var * abstract_value
+    (** An action which represents the discovery of an immediate value
+        assignment to a variable. *)
     | Value_drop
     (** An action to drop values from the top of the stack.  This is necessary
         for actions such as non-local lookup which perform a subordinate

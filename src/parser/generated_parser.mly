@@ -10,7 +10,6 @@ module List = BatList;;
 %token OPEN_PAREN
 %token CLOSE_PAREN
 %token SEMICOLON
-%token COMMA
 %token EQUALS
 %token ARROW
 %token QUESTION_MARK
@@ -98,6 +97,8 @@ clause_body:
       { Binary_operation_body($1,Binary_operator_or,$3) }
   | variable KEYWORD_XOR variable
       { Binary_operation_body($1,Binary_operator_xor,$3) }
+  | variable TILDE pattern
+      { Pattern_match_body($1,$3) }
   ;
 
 value:

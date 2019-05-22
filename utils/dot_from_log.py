@@ -250,7 +250,7 @@ class ClauseType:
     def of_clause(clause):
         if clause[0] == "Start_clause" or clause[0] == "End_clause":
             return ClauseTypes.atomic
-        elif clause[0] == "Enter_clause" or clause[0] == "Exit_clause":
+        elif "enter_clause" in clause[0] or "exit_clause" in clause[0]:
             return ClauseTypes.wiring
         elif clause[0] == "Unannotated_clause":
             body_type = clause[1][2][0]
@@ -283,8 +283,8 @@ def abbrv_clause(clause):
         return "start(%s)" % clause[1]
     elif clause[0] == "End_clause":
         return "end(%s)" % clause[1]
-    elif clause[0] == "Enter_clause" or clause[0] == "Exit_clause":
-        form = "+" if clause[0] == "Enter_caluse" else "-"
+    elif "enter_clause" in clause[0] or "exit_clause" in clause[0]:
+        form = "+" if "enter_clause" in clause[0] else "-"
         return "%s=%s@%s%s" % (clause[1], clause[2], form, clause[3][1])
     else:
         raise InvariantFailure("Unrecognized clause for abbreviation: %s" %
@@ -338,7 +338,7 @@ def abbrv_pdr_state(state):
     if state[0] == "Program_point_state":
         return abbrv_clause(state[1])
     elif state[0] == "Result_state":
-        return abbrv_filtered_value(state[1])
+        return abbrv_value(state[1])
     else:
         raise NotImplementedError(state)
 
@@ -354,6 +354,8 @@ def abbrv_pdr_node(node):
             acc += action
         acc = "[" + acc + "]"
         return "{} ↦ {}".format(acc, abbrv_pdr_node(node[1]))
+    elif node[0] == "Static_destination":
+        return abbrv_pdr_node(node[1])
     else:
         raise NotImplementedError(node)
 
@@ -369,6 +371,8 @@ def abbrv_trace_part(tp):
 def abbrv_pattern(p):
     if p[0] == "Any_pattern":
         return "any"
+    if p[0] == "Int_pattern":
+        return "int"
     if p[0] == "Record_pattern":
         acc = ""
         for lbl,pp in p[1].items():
@@ -382,7 +386,9 @@ def abbrv_pdr_stack_element(el):
     if el[0] == "Lookup_var":
         return el[1]
     elif el[0] == "Continuation_value":
-        return abbrv_filtered_value(el[1])
+        return abbrv_value(el[1])
+    elif el[0] == "Continuation_pattern":
+        return abbrv_pattern(el[1])
     elif el[0] == "Bottom_of_stack":
         return u"⊥"
     elif el[0] == "Binary_operation":
@@ -419,21 +425,30 @@ def abbrv_pdr_stack_element(el):
         return u"★{}".format(el[1])
     elif el[0] == "Side_effect_search_start":
         return "SEStart({})".format(abbrv_clause(el[1]))
+    elif el[0] == "Require_value":
+        return "RV({})".format(abbrv_value(el[1]))
     raise NotImplementedError(el)
 
 def abbrv_pdr_dynamic_pop_argument(x):
     if type(x) in [type(""),type(u""),type(0)]:
         return u"{}".format(x)
+    if type(x) == type(True):
+        return str(x)
     if type(x) == type(()) and len(x) > 0 and \
             x[0] in [ "Unannotated_clause"
-                    , "Enter_clause"
-                    , "Exit_clause"
+                    , "Binding_enter_clause"
+                    , "Binding_exit_clause"
+                    , "Nonbinding_enter_clause"
                     , "Start_clause"
                     , "End_clause"
                     ]:
         return abbrv_clause(x)
     if type(x) == type(()) and len(x) > 0 and x[0] == "Abs_clause":
         return x[1]
+    if type(x) == type(()) and len(x) > 0 and x[0].startswith("Abs_value"):
+        return abbrv_value(x)
+    if type(x) == type(()) and len(x) > 0 and x[0].endswith("pattern"):
+        return abbrv_pattern(x)
     if type(x) in [type({}),ImmutableDict] and "abstract_store_root" in x:
         return abbrv_filtered_value(x)
     if type(x) in [type(frozenset())]:
