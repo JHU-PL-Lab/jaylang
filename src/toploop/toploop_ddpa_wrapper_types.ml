@@ -20,10 +20,10 @@ module type DDPA_wrapper = sig
     ?logging_config:(ddpa_analysis_logging_config option) -> expr -> analysis
 
   val values_of_variable_from :
-    abstract_var -> annotated_clause -> analysis -> Abs_filtered_value_set.t
+    abstract_var -> annotated_clause -> analysis -> Abs_value_set.t
 
   val contextual_values_of_variable_from :
-    abstract_var -> annotated_clause -> C.t -> analysis -> Abs_filtered_value_set.t
+    abstract_var -> annotated_clause -> C.t -> analysis -> Abs_value_set.t
 
   val expression_of : analysis -> expr
 

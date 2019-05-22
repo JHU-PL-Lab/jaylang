@@ -58,11 +58,11 @@ sig
       of this question in the future. *)
   val values_of_variable :
     abstract_var -> annotated_clause -> ddpa_analysis ->
-    Abs_filtered_value_set.t * ddpa_analysis
+    Abs_value_set.t * ddpa_analysis
 
   val contextual_values_of_variable :
     abstract_var -> annotated_clause -> C.t -> ddpa_analysis ->
-    Abs_filtered_value_set.t * ddpa_analysis
+    Abs_value_set.t * ddpa_analysis
 end;;
 
 (**
@@ -247,8 +247,9 @@ struct
       |> Annotated_clause_set.filter (
         fun node ->
           match node with
-          | Enter_clause _
-          | Exit_clause _ -> false
+          | Binding_enter_clause _
+          | Binding_exit_clause _
+          | Nonbinding_enter_clause _ -> false
           | _ -> true
       )
     in
@@ -435,20 +436,15 @@ struct
     analysis
   ;;
 
-  let restricted_values_of_variable x acl ctx patsp patsn analysis =
+  let restricted_values_of_variable x acl ctx analysis =
     Logger_utils.lazy_bracket_log (lazy_logger `trace)
       (fun () ->
-         Printf.sprintf "Determining values of variable %s at position %s%s"
-           (show_abstract_var x) (show_annotated_clause acl) @@
-         if Pattern_set.is_empty patsp && Pattern_set.is_empty patsn
-         then ""
-         else
-           Printf.sprintf " with pattern sets %s and %s"
-             (Pattern_set.show patsp) (Pattern_set.show patsn)
+         Printf.sprintf "Determining values of variable %s at position %s"
+           (show_abstract_var x) (show_annotated_clause acl)
       )
       (fun (values, _) ->
          let pp formatter values =
-           pp_concat_sep_delim "{" "}" ", " pp_abs_filtered_value formatter @@
+           pp_concat_sep_delim "{" "}" ", " pp_abstract_value formatter @@
            Enum.clone values
          in
          pp_to_string pp values
@@ -457,7 +453,7 @@ struct
     let open Structure_types in
     let start_state = Program_point_state(acl,ctx) in
     let start_actions =
-      [Push Bottom_of_stack; Push (Lookup_var(x,patsp,patsn))]
+      [Push Bottom_of_stack; Push (Lookup_var(x))]
     in
     let reachability = analysis.pds_reachability in
     let reachability' =
@@ -479,18 +475,16 @@ struct
 
   let values_of_variable x acl analysis =
     let (values, analysis') =
-      restricted_values_of_variable x acl C.empty
-        Pattern_set.empty Pattern_set.empty analysis
+      restricted_values_of_variable x acl C.empty analysis
     in
-    (Abs_filtered_value_set.of_enum values, analysis')
+    (Abs_value_set.of_enum values, analysis')
   ;;
 
   let contextual_values_of_variable x acl ctx analysis =
     let (values, analysis') =
-      restricted_values_of_variable x acl ctx
-        Pattern_set.empty Pattern_set.empty analysis
+      restricted_values_of_variable x acl ctx analysis
     in
-    (Abs_filtered_value_set.of_enum values, analysis')
+    (Abs_value_set.of_enum values, analysis')
   ;;
 
   let perform_closure_steps analysis =
@@ -514,13 +508,12 @@ struct
             pick_enum @@
             Annotated_clause_set.enum analysis.ddpa_active_non_immediate_nodes
           in
-          let has_values x patsp patsn =
+          let has_values x pred =
             let (values,analysis') =
-              restricted_values_of_variable
-                x acl C.empty patsp patsn !analysis_ref
+              restricted_values_of_variable x acl C.empty !analysis_ref
             in
             analysis_ref := analysis';
-            not @@ Enum.is_empty values
+            Enum.exists pred values
           in
           match acl with
           | Unannotated_clause(Abs_clause(x1,Abs_appl_body(x2,x3)) as cl) ->
@@ -529,21 +522,18 @@ struct
                  Printf.sprintf "Considering application closure for clause %s"
                    (show_abstract_clause cl));
             (* Make sure that a value shows up to the argument. *)
-            [%guard has_values x3 Pattern_set.empty Pattern_set.empty];
+            [%guard has_values x3 (fun _ -> true)];
             (* Get each of the function values. *)
             let (x2_values,analysis_2) =
-              restricted_values_of_variable
-                x2 acl C.empty Pattern_set.empty Pattern_set.empty !analysis_ref
+              restricted_values_of_variable x2 acl C.empty !analysis_ref
             in
             analysis_ref := analysis_2;
             let%bind x2_value = pick_enum x2_values in
-            let%orzero
-              Abs_filtered_value(Abs_value_function(fn),_,_) = x2_value
-            in
+            let%orzero Abs_value_function(fn) = x2_value in
             (* Wire each one in. *)
-            return @@ wire cl fn x3 x1 analysis_2.ddpa_graph
+            return @@ wire_function cl fn x3 x1 analysis_2.ddpa_graph
           | Unannotated_clause(
-              Abs_clause(x1,Abs_conditional_body(x2,p,f1,f2)) as cl) ->
+              Abs_clause(x1,Abs_conditional_body(x2,e1,e2)) as cl) ->
             lazy_logger `trace
               (fun () ->
                  Printf.sprintf "Considering conditional closure for clause %s"
@@ -551,14 +541,21 @@ struct
             (* We have two functions we may wish to wire: f1 (if x2 has values
                which match the pattern) and f2 (if x2 has values which antimatch
                the pattern). *)
-            [ (Pattern_set.singleton p, Pattern_set.empty, f1)
-            ; (Pattern_set.empty, Pattern_set.singleton p, f2)
+            [ (true, e1);
+              (false, e2);
             ]
             |> List.enum
             |> Enum.filter_map
-              (fun (patsp,patsn,f) ->
-                 if has_values x2 patsp patsn then Some f else None)
-            |> Enum.map (fun f -> wire cl f x2 x1 (!analysis_ref).ddpa_graph)
+              (fun (then_branch, body_expr) ->
+                 let pred = function
+                   | Abs_value_bool n -> n = then_branch
+                   | _ -> false
+                 in
+                 if has_values x2 pred then Some body_expr else None
+              )
+            |> Enum.map (fun (Abs_expr(body)) ->
+                wire_conditional cl body x1 (!analysis_ref).ddpa_graph
+              )
             |> Nondeterminism_monad.pick_enum
           | _ ->
             raise @@ Utils.Invariant_failure

@@ -48,25 +48,18 @@ and var_replace_clause_body fn r =
   match r with
   | Value_body(v) -> Value_body(var_replace_value fn v)
   | Var_body(x) -> Var_body(fn x)
+  | Input_body -> Input_body
   | Appl_body(x1, x2) -> Appl_body(fn x1, fn x2)
-  | Conditional_body(x,p,f1,f2) ->
-    Conditional_body(fn x, p, var_replace_function_value fn f1,
-                     var_replace_function_value fn f2)
-  | Projection_body(x,i) -> Projection_body(fn x, i)
-  | Deref_body(x) -> Deref_body(fn x)
-  | Update_body(x1,x2) -> Update_body(fn x1, fn x2)
+  | Conditional_body(x,e1,e2) ->
+    Conditional_body(fn x, var_replace_expr fn e1, var_replace_expr fn e2)
+  | Pattern_match_body(x,p) -> Pattern_match_body(fn x, p)
   | Binary_operation_body(x1,op,x2) -> Binary_operation_body(fn x1, op, fn x2)
-  | Unary_operation_body(op,x1) -> Unary_operation_body(op, fn x1)
 
 and var_replace_value fn v =
   match v with
-  | Value_record(Record_value(es)) ->
-    Value_record(Record_value(Ident_map.map fn es))
   | Value_function(f) -> Value_function(var_replace_function_value fn f)
-  | Value_ref(Ref_value(x)) -> Value_ref(Ref_value(fn x))
   | Value_int n -> Value_int n
   | Value_bool b -> Value_bool b
-  | Value_string s -> Value_string s
 
 and var_replace_function_value fn (Function_value(x, e)) =
   Function_value(fn x, var_replace_expr fn e)
@@ -96,7 +89,7 @@ let repl_fn_for clauses freshening_stack extra_bound =
   repl_fn
 ;;
 
-let fresh_wire (Function_value(param_x, Expr(body))) arg_x call_site_x =
+let fun_wire (Function_value(param_x, Expr(body))) arg_x call_site_x =
   (* Build the variable freshening function. *)
   let freshening_stack = freshening_stack_from_var call_site_x in
   let repl_fn =
@@ -109,24 +102,18 @@ let fresh_wire (Function_value(param_x, Expr(body))) arg_x call_site_x =
   [head_clause] @ freshened_body @ [tail_clause]
 ;;
 
-let rec matches env x p =
+let cond_wire (conditional_site_x : var) (Expr(body)) =
+  let Clause(last_var, _) = List.last body in
+  let tail_clause = Clause(conditional_site_x, Var_body(last_var)) in
+  body @ [tail_clause]
+;;
+
+let matches env x p =
   let v = lookup env x in
   match v,p with
   | _,Any_pattern -> true
-  | Value_record(Record_value(els)),Record_pattern(els') ->
-    els'
-    |> Ident_map.enum
-    |> Enum.for_all
-      (fun (i,p') ->
-         try
-           matches env (Ident_map.find i els) p'
-         with
-         | Not_found -> false
-      )
   | Value_function(Function_value(_)),Fun_pattern
-  | Value_ref(Ref_value(_)),Ref_pattern
-  | Value_int _,Int_pattern
-  | Value_string _,String_pattern ->
+  | Value_int _,Int_pattern ->
     true
   | Value_bool actual_boolean,Bool_pattern pattern_boolean ->
     actual_boolean = pattern_boolean
@@ -160,66 +147,33 @@ let rec evaluate env lastvar cls =
         let v = lookup env x' in
         Environment.add env x v;
         evaluate env (Some x) t
+      | Input_body ->
+        failwith "TODO"
       | Appl_body(x', x'') ->
         begin
           match lookup env x' with
           | Value_function(f) ->
-            evaluate env (Some x) @@ fresh_wire f x'' x @ t
+            evaluate env (Some x) @@ fun_wire f x'' x @ t
           | r -> raise (Evaluation_failure
                           (Printf.sprintf
                              "cannot apply %s as it contains non-function %s"
                              (show_var x') (show_value r)))
         end
-      | Conditional_body(x',p,f1,f2) ->
-        let f_target = if matches env x' p then f1 else f2 in
-        evaluate env (Some x) @@ fresh_wire f_target x' x @ t
-      | Projection_body(x', i) ->
-        begin
-          match lookup env x' with
-          | Value_record(Record_value(els)) as r ->
-            begin
-              try
-                let x'' = Ident_map.find i els in
-                let v = lookup env x'' in
-                Environment.add env x v;
-                evaluate env (Some x) t
-              with
-              | Not_found ->
-                raise @@ Evaluation_failure(
-                  Printf.sprintf "cannot project %s from %s: not present"
-                    (show_ident i) (show_value r))
-            end
-          | v ->
-            raise @@ Evaluation_failure(
-              Printf.sprintf "cannot project %s from non-record value %s"
-                (show_ident i) (show_value v))
-        end
-      | Deref_body(x') ->
+      | Conditional_body(x',e1,e2) ->
         let v = lookup env x' in
-        begin
+        let e_target =
           match v with
-          | Value_ref(Ref_value(x'')) ->
-            let v' = lookup env x'' in
-            Environment.add env x v';
-            evaluate env (Some x) t
-          | _ -> raise @@ Evaluation_failure(
-              Printf.sprintf "cannot dereference %s as it contains non-reference %s"
-                (show_var x') (show_value v))
-        end
-      | Update_body(x', x'') ->
-        let v = lookup env x' in
-        let v' = lookup env x'' in
-        begin
-          match v with
-          | Value_ref(Ref_value(x'')) ->
-            Environment.replace env x'' v';
-            evaluate env (Some x)
-              ((Clause(x,
-                       Value_body(Value_record(Record_value(Ident_map.empty)))))::t)
-          | _ -> raise @@ Evaluation_failure(
-              Printf.sprintf "cannot update %s as it contains non-reference %s"
-                (show_var x') (show_value v))
-        end
+          | Value_bool b -> if b then e1 else e2
+          | _ ->
+            raise (Evaluation_failure
+                     (Printf.sprintf
+                        "cannot condition on non-boolean value %s"
+                        (show_value v)))
+        in
+        evaluate env (Some x) @@ cond_wire x e_target @ t
+      | Pattern_match_body(x', p) ->
+        Environment.add env x (Value_bool(matches env x' p));
+        evaluate env (Some x) t
       | Binary_operation_body(x1,op,x2) ->
         let v1 = lookup env x1 in
         let v2 = lookup env x2 in
@@ -228,51 +182,27 @@ let rec evaluate env lastvar cls =
             match v1,op,v2 with
             | (Value_int(n1),Binary_operator_plus,Value_int(n2)) ->
               Value_int(n1+n2)
-            | (Value_int(n1),Binary_operator_int_minus,Value_int(n2)) ->
+            | (Value_int(n1),Binary_operator_minus,Value_int(n2)) ->
               Value_int(n1-n2)
-            | (Value_int(n1),Binary_operator_int_less_than,Value_int(n2)) ->
+            | (Value_int(n1),Binary_operator_less_than,Value_int(n2)) ->
               Value_bool (n1 < n2)
-            | ( Value_int(n1)
-              , Binary_operator_int_less_than_or_equal_to
-              , Value_int(n2)
+            | ( Value_int(n1),
+                Binary_operator_less_than_or_equal_to,
+                Value_int(n2)
               ) ->
               Value_bool (n1 <= n2)
             | (Value_int(n1),Binary_operator_equal_to,Value_int(n2)) ->
               Value_bool (n1 = n2)
             | (Value_bool(b1),Binary_operator_equal_to,Value_bool(b2)) ->
               Value_bool (b1 = b2)
-            | (Value_bool(b1),Binary_operator_bool_and,Value_bool(b2)) ->
+            | (Value_bool(b1),Binary_operator_and,Value_bool(b2)) ->
               Value_bool (b1 && b2)
-            | (Value_bool(b1),Binary_operator_bool_or,Value_bool(b2)) ->
+            | (Value_bool(b1),Binary_operator_or,Value_bool(b2)) ->
               Value_bool (b1 || b2)
-            | (Value_string(s1),Binary_operator_plus,Value_string(s2)) ->
-              Value_string(s1 ^ s2)
-            | (Value_string(s1),Binary_operator_equal_to,Value_string(s2)) ->
-              Value_bool(s1 = s2)
-            | (Value_string(s),Binary_operator_index,Value_int(i)) ->
-              if i < String.length(s) then
-                Value_string (String.make 1 (String.get s i))
-              else
-                Value_string ""
             | v1,op,v2 ->
               raise @@ Evaluation_failure(
                 Printf.sprintf "Cannot complete binary operation: (%s) %s (%s)"
                   (show_value v1) (show_binary_operator op) (show_value v2))
-          end
-        in
-        Environment.add env x result;
-        evaluate env (Some x) t
-      | Unary_operation_body(op,x1) ->
-        let v1 = lookup env x1 in
-        let result =
-          begin
-            match op,v1 with
-            | (Unary_operator_bool_not,Value_bool(b1)) ->
-              Value_bool (not b1)
-            | op,v1 ->
-              raise @@ Evaluation_failure(
-                Printf.sprintf "Cannot complete unary operation: %s (%s)"
-                  (show_unary_operator op) (show_value v1))
           end
         in
         Environment.add env x result;

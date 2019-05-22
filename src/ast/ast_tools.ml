@@ -9,12 +9,15 @@ let rec flatten (Expr clauses) =
   match clauses with
   | [] ->
     []
-  | ((Clause (_, Value_body (Value_function (Function_value (_, function_body))))) as clause) :: rest_clauses ->
+  | ((Clause(_, Value_body(Value_function(Function_value(_, function_body)))))
+     as clause) :: rest_clauses ->
     clause :: flatten function_body @ flatten (Expr rest_clauses)
-  | ((Clause (_, Conditional_body(_, _,
-                                  Function_value (_, match_body),
-                                  Function_value (_, antimatch_body)))) as clause) :: rest_clauses ->
-    clause :: flatten match_body @ flatten antimatch_body @ flatten (Expr rest_clauses)
+  | ((Clause(_, Conditional_body(_, match_body, antimatch_body)))
+     as clause) :: rest_clauses ->
+    clause ::
+    flatten match_body @
+    flatten antimatch_body @
+    flatten (Expr rest_clauses)
   | clause :: rest_clauses ->
     clause :: flatten (Expr rest_clauses)
 ;;
@@ -25,9 +28,8 @@ let rec flatten_immediate_block (Expr clauses) =
   match clauses with
   | [] ->
     []
-  | ((Clause (_, Conditional_body(_, _,
-                                  Function_value (_, match_body),
-                                  Function_value (_, antimatch_body)))) as clause) :: rest_clauses ->
+  | ((Clause (_, Conditional_body(_, match_body, antimatch_body)))
+     as clause) :: rest_clauses ->
     clause :: flatten_immediate_block match_body @ flatten_immediate_block antimatch_body @ flatten_immediate_block (Expr rest_clauses)
   | clause :: rest_clauses ->
     clause :: flatten_immediate_block (Expr rest_clauses)
@@ -48,12 +50,10 @@ let bindings_with_repetition expression =
   |> List.map
     (
       function
-      | Clause (bound_variable, Value_body (Value_function (Function_value (formal_parameter, _)))) ->
+      | Clause (bound_variable,
+                Value_body (Value_function (Function_value (
+                    formal_parameter, _)))) ->
         [bound_variable; formal_parameter]
-      | Clause (bound_variable, Conditional_body(_, _,
-                                                 Function_value (match_formal_parameter, _),
-                                                 Function_value (antimatch_formal_parameter, _))) ->
-        [bound_variable; match_formal_parameter; antimatch_formal_parameter]
       | Clause (bound_variable, _) ->
         [bound_variable]
     )
@@ -73,36 +73,19 @@ let use_occurrences expression =
   |> List.map (
     fun (Clause (_, clause_body)) ->
       match clause_body with
-      | Value_body value ->
-        begin
-          match value with
-          | Value_record (Record_value fields) ->
-            Ident_map.values fields
-            |> Var_set.of_enum
-          | Value_ref (Ref_value variable) ->
-            Var_set.singleton variable
-          | Value_function _
-          | Value_int _
-          | Value_bool _
-          | Value_string _ ->
-            Var_set.empty
-        end
+      | Value_body _
+      | Input_body ->
+        Var_set.empty
       | Var_body variable ->
         Var_set.singleton variable
       | Appl_body (function_, actual_parameter) ->
         Var_set.of_list [function_; actual_parameter]
-      | Conditional_body (subject, _, _, _) ->
+      | Conditional_body (subject, _, _) ->
         Var_set.singleton subject
-      | Projection_body (subject, _) ->
+      | Pattern_match_body (subject, _) ->
         Var_set.singleton subject
-      | Deref_body cell ->
-        Var_set.singleton cell
-      | Update_body (cell, value) ->
-        Var_set.of_list [cell; value]
       | Binary_operation_body (left_operand, _, right_operand) ->
         Var_set.of_list [left_operand; right_operand]
-      | Unary_operation_body (_, operand) ->
-        Var_set.singleton operand
   )
   |> List.fold_left Var_set.union Var_set.empty
 ;;
@@ -271,15 +254,13 @@ let analyze_availability_for_requirement expression dependency_analysis =
         Var_set.union
           (defined_variables (Expr (clauses_up_to_first_dependent bound_variable clauses dependency_analysis)))
           (variables_available_for_requirement_at clause function_body)
-      | Clause (_, Conditional_body(_, _, Function_value (formal_parameter, branch_body), _))
+      | Clause (_, Conditional_body(_, branch_body, _))
         when List.mem clause (flatten branch_body) ->
-        Var_set.add formal_parameter @@
         Var_set.union
           (defined_variables (Expr (clauses_up_to containing_clause clauses)))
           (variables_available_for_requirement_at clause branch_body)
-      | Clause (_, Conditional_body(_, _, _, Function_value (formal_parameter, branch_body)))
+      | Clause (_, Conditional_body(_, _, branch_body))
         when List.mem clause (flatten branch_body) ->
-        Var_set.add formal_parameter @@
         Var_set.union
           (defined_variables (Expr (clauses_up_to containing_clause clauses)))
           (variables_available_for_requirement_at clause branch_body)
@@ -328,15 +309,13 @@ let analyze_availability_for_dependency expression dependency_analysis =
         Var_set.union
           (defined_variables (Expr (clauses_up_to_first_dependent bound_variable clauses dependency_analysis)))
           (variables_available_for_dependency_at clause function_body)
-      | Clause (_, Conditional_body(_, _, Function_value (formal_parameter, branch_body), _))
+      | Clause (_, Conditional_body(_, branch_body, _))
         when List.mem clause (flatten branch_body) ->
-        Var_set.add formal_parameter @@
         Var_set.union
           (defined_variables (Expr (clauses_up_to containing_clause clauses)))
           (variables_available_for_dependency_at clause branch_body)
-      | Clause (_, Conditional_body(_, _, _, Function_value (formal_parameter, branch_body)))
+      | Clause (_, Conditional_body(_, _, branch_body))
         when List.mem clause (flatten branch_body) ->
-        Var_set.add formal_parameter @@
         Var_set.union
           (defined_variables (Expr (clauses_up_to containing_clause clauses)))
           (variables_available_for_dependency_at clause branch_body)

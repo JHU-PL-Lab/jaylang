@@ -133,53 +133,36 @@ and calc_clause_body (b : clause_body) (db : depth_bindings)
   match b with
   | Value_body v -> calc_value v db
   | Var_body x -> ss_var_ref x db empty
+  | Input_body -> empty
   | Appl_body (x1, x2) ->
     let ss = ss_vars_ref [x1;x2] db empty in
     { ss with
       ss_num_function_calls = ss.ss_num_function_calls + 1
     }
-  | Conditional_body (x, _, f1, f2) ->
+  | Conditional_body (x, e1, e2) ->
     ss_var_ref x db @@
-    ss_join (calc_function_value f1 db) (calc_function_value f2 db)
-  | Projection_body (x, _) ->
+    ss_join (calc_expr e1 db) (calc_expr e2 db)
+  | Pattern_match_body (x, _) ->
     ss_var_ref x db empty
-  | Deref_body x ->
-    ss_var_ref x db empty
-  | Update_body (x1, x2) ->
-    ss_vars_ref [x1; x2] db empty
   | Binary_operation_body (x1, _, x2) ->
     ss_vars_ref [x1; x2] db empty
-  | Unary_operation_body (_, x) ->
-    ss_var_ref x db empty
 
 and calc_value (v : value) (db : depth_bindings) : source_statistics =
   match v with
-  | Value_record r -> calc_record_value r db
   | Value_function f ->
     let ss = calc_function_value f db in
     { ss with
       ss_num_function_definitions = ss.ss_num_function_definitions + 1
     }
-  | Value_ref r -> calc_ref_value r db
   | Value_int _
-  | Value_bool _
-  | Value_string _ -> empty
-
-and calc_record_value (r : record_value) (db : depth_bindings)
-  : source_statistics =
-  let Record_value(fields) = r in
-  ss_vars_ref (List.of_enum @@ Ident_map.values fields) db empty
+  | Value_bool _ ->
+    empty
 
 and calc_function_value (f : function_value) (db : depth_bindings)
   : source_statistics =
   let Function_value(x, e) = f in
   let db' = db_add x @@ db_deeper db in
   ss_higher @@ calc_expr e db'
-
-and calc_ref_value (r : ref_value) (db : depth_bindings)
-  : source_statistics =
-  let Ref_value x = r in
-  ss_var_ref x db empty
 ;;
 
 let calculate_statistics (e : expr) : source_statistics =

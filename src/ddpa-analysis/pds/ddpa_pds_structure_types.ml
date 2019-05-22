@@ -46,21 +46,14 @@ struct
     (** The bottom of stack element is necessary as a sentinel. It's pushed as
         the initial element on the continuation stack so we don't need to check
         for empty continuation stacks. *)
-    | Lookup_var of abstract_var * Pattern_set.t * Pattern_set.t
-    | Project of ident * Pattern_set.t * Pattern_set.t
+    | Lookup_var of abstract_var
     | Jump of annotated_clause * C.t
-    | Rewind
-    | Deref of Pattern_set.t * Pattern_set.t
     | Capture of Bounded_capture_size.t
-    | Continuation_value of abs_filtered_value
+    | Continuation_value of abstract_value
+    | Continuation_pattern of pattern
     | Real_flow_huh
-    | Alias_huh
-    | Side_effect_search_start
-    | Side_effect_search_escape of abstract_var
-    | Side_effect_lookup_var of
-        abstract_var * Pattern_set.t * Pattern_set.t * annotated_clause * C.t
+    | Require_value of abstract_value
     | Binary_operation
-    | Unary_operation
   [@@deriving eq, ord, show, to_yojson]
   ;;
 
@@ -78,7 +71,7 @@ struct
     | Program_point_state of annotated_clause * C.t
     (** A state in the PDS representing a specific program point and
         context. *)
-    | Result_state of abs_filtered_value
+    | Result_state of abstract_value
     (** A state in the PDS representing a value result. *)
   [@@deriving eq, ord, show, to_yojson]
   ;;

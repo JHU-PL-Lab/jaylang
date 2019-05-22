@@ -110,34 +110,24 @@ and lift_clause_body b =
   match b with
   | Value_body v -> Abs_value_body(lift_value v)
   | Var_body x -> Abs_var_body(lift_var x)
+  | Input_body -> Abs_input_body
   | Appl_body(x,x') -> Abs_appl_body(lift_var x, lift_var x')
-  | Conditional_body(x,p,f1,f2) ->
-    Abs_conditional_body(lift_var x,p,lift_function_value f1,lift_function_value f2)
-  | Projection_body(x,i) -> Abs_projection_body(lift_var x,i)
-  | Deref_body(x) -> Abs_deref_body(lift_var x)
-  | Update_body(x,x') -> Abs_update_body(lift_var x, lift_var x')
+  | Conditional_body(x,e1,e2) ->
+    Abs_conditional_body(lift_var x,lift_expr e1,lift_expr e2)
+  | Pattern_match_body(x,p) ->
+    Abs_pattern_match_body(lift_var x,p)
   | Binary_operation_body(x1,op,x2) ->
     Abs_binary_operation_body(lift_var x1, op, lift_var x2)
-  | Unary_operation_body(op,x1) -> Abs_unary_operation_body(op, lift_var x1)
 
 and lift_value v =
   match v with
-  | Value_record r -> Abs_value_record (lift_record_value r)
   | Value_function f -> Abs_value_function(lift_function_value f)
-  | Value_ref r -> Abs_value_ref (lift_ref_value r)
   | Value_int _ -> Abs_value_int
   | Value_bool b -> Abs_value_bool b
-  | Value_string _ -> Abs_value_string
 
 and lift_var (Var(i,_)) =
   Abs_var i
 
 and lift_function_value (Function_value(x,e)) =
   Abs_function_value(lift_var x, lift_expr e)
-
-and lift_ref_value (Ref_value x) =
-  Abs_ref_value(lift_var x)
-
-and lift_record_value (Record_value els) =
-  Abs_record_value(Ident_map.map lift_var els)
 ;;

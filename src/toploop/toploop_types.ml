@@ -36,7 +36,7 @@ type evaluation_result =
 
 (** Represents the information produced by a variable analysis. *)
 type variable_analysis =
-  (string * string option * string list option) * Abs_filtered_value_set.t
+  (string * string option * string list option) * Abs_value_set.t
 ;;
 let pp_variable_analysis =
   Pp_utils.pp_tuple
@@ -44,7 +44,7 @@ let pp_variable_analysis =
        Format.pp_print_string
        (Pp_utils.pp_option Format.pp_print_string)
        (Pp_utils.pp_option @@ Pp_utils.pp_list Format.pp_print_string))
-    Ddpa_abstract_ast.Abs_filtered_value_set.pp
+    Ddpa_abstract_ast.Abs_value_set.pp
 ;;
 
 (** Represents the result of processing an expression in the toploop. *)
@@ -80,7 +80,7 @@ type callbacks =
   { cb_illformednesses : Ast_wellformedness.illformedness list -> unit
   ; cb_variable_analysis :
       string -> string option -> string list option ->
-      Abs_filtered_value_set.t -> unit
+      Abs_value_set.t -> unit
   ; cb_errors : Toploop_analysis_types.error list -> unit
   ; cb_evaluation_result : var -> value Environment.t -> unit
   ; cb_evaluation_failed : string -> unit

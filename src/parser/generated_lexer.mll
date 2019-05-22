@@ -27,8 +27,6 @@ rule token = parse
   | comment                          { incr_lineno lexbuf; token lexbuf }
   | whitespace                       { token lexbuf }
   | newline                          { incr_lineno lexbuf; token lexbuf }
-  | "{"                              { OPEN_BRACE }
-  | "}"                              { CLOSE_BRACE }
   | "("                              { OPEN_PAREN }
   | ")"                              { CLOSE_PAREN }
   | ";"                              { SEMICOLON }
@@ -38,27 +36,20 @@ rule token = parse
   | "?"                              { QUESTION_MARK }
   | "~"                              { TILDE }
   | ":"                              { COLON }
-  | "."                              { DOT }
-  | "<-"                             { LEFT_ARROW }
-  | "!"                              { BANG }
   | "fun"                            { KEYWORD_FUN }
-  | "ref"                            { KEYWORD_REF }
   | "int"                            { KEYWORD_INT }
   | "true"                           { KEYWORD_TRUE }
   | "false"                          { KEYWORD_FALSE }
   | "and"                            { KEYWORD_AND }
   | "or"                             { KEYWORD_OR }
-  | "not"                            { KEYWORD_NOT }
+  | "xor"                            { KEYWORD_XOR }
   | "any"                            { KEYWORD_ANY }
   | "_"                              { UNDERSCORE }
-  | "string"                         { KEYWORD_STRING }
   | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) }
-  | "\"" (string_contents as s) "\"" { STRING_LITERAL s }
   | "+"                              { BINOP_PLUS }
   | "-"                              { BINOP_MINUS }
   | "<"                              { BINOP_LESS }
   | "<="                             { BINOP_LESS_EQUAL }
   | "=="                             { BINOP_EQUAL }
-  | "@"                              { BINOP_AT }
   | ident_start ident_cont* as s     { IDENTIFIER s }
   | ";;"                             { DOUBLE_SEMICOLON }
