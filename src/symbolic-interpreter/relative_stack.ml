@@ -6,7 +6,7 @@ open Ast_pp;;
 (** The type of relative stacks in the symbolic interpreter. *)
 type relative_stack =
   | Relative_stack of clause list * clause list
-[@@deriving eq, ord, show]
+[@@deriving eq, ord, show, to_yojson]
 ;;
 
 (** FIXME: This does not match the spec in the paper, but the spec seems silly.
