@@ -1,0 +1,19 @@
+(copy_files# sat/*.{ml,mli})
+(library
+  (name odefa_symbolic_interpreter)
+  (public_name odefa.symbolic-interpreter)
+  (synopsis "Symbolic interpreter for Odefa")
+  (libraries
+    batteries
+    jhupllib
+    odefa.ast
+    odefa.utils
+  )
+  (preprocess
+    (pps
+      ocaml-monadic
+      ppx_deriving.std
+      ppx_deriving_yojson
+    )
+  )
+)
