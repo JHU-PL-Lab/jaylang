@@ -33,17 +33,13 @@ rule token = parse
   | "="                              { EQUALS }
   | "->"                             { ARROW }
   | "?"                              { QUESTION_MARK }
-  | "~"                              { TILDE }
   | ":"                              { COLON }
   | "fun"                            { KEYWORD_FUN }
-  | "int"                            { KEYWORD_INT }
   | "true"                           { KEYWORD_TRUE }
   | "false"                          { KEYWORD_FALSE }
   | "and"                            { KEYWORD_AND }
   | "or"                             { KEYWORD_OR }
   | "xor"                            { KEYWORD_XOR }
-  | "any"                            { KEYWORD_ANY }
-  | "_"                              { UNDERSCORE }
   | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) }
   | "+"                              { BINOP_PLUS }
   | "-"                              { BINOP_MINUS }

@@ -13,17 +13,13 @@ module List = BatList;;
 %token EQUALS
 %token ARROW
 %token QUESTION_MARK
-%token TILDE
 %token COLON
 %token KEYWORD_FUN
-%token KEYWORD_INT
 %token KEYWORD_TRUE
 %token KEYWORD_FALSE
 %token KEYWORD_AND
 %token KEYWORD_OR
 %token KEYWORD_XOR
-%token KEYWORD_ANY
-%token UNDERSCORE
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
@@ -97,8 +93,6 @@ clause_body:
       { Binary_operation_body($1,Binary_operator_or,$3) }
   | variable KEYWORD_XOR variable
       { Binary_operation_body($1,Binary_operator_xor,$3) }
-  | variable TILDE pattern
-      { Pattern_match_body($1,$3) }
   ;
 
 value:
@@ -121,26 +115,6 @@ int_value:
   ;
 
 bool_value:
-  | KEYWORD_TRUE
-      { true }
-  | KEYWORD_FALSE
-      { false }
-  ;
-
-pattern:
-  | KEYWORD_INT
-      { Int_pattern }
-  | KEYWORD_FUN
-      { Fun_pattern }
-  | bool_pattern
-      { Bool_pattern($1) }
-  | KEYWORD_ANY
-      { Any_pattern }
-  | UNDERSCORE
-      { Any_pattern }
-  ;
-
-bool_pattern:
   | KEYWORD_TRUE
       { true }
   | KEYWORD_FALSE

@@ -6,10 +6,9 @@
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 f = fun b -> (
-        x = b ~ true;
-        r = x ? ( Tr = false ) : ( Fr = 0 )
+        r = b ? ( Tr = false ) : ( Fr = 0 )
     );
 T = true;
-F = 0;
+F = false;
 ra = f T;
 rb = f F;

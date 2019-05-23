@@ -81,8 +81,6 @@ let use_occurrences expression =
         Var_set.of_list [function_; actual_parameter]
       | Conditional_body (subject, _, _) ->
         Var_set.singleton subject
-      | Pattern_match_body (subject, _) ->
-        Var_set.singleton subject
       | Binary_operation_body (left_operand, _, right_operand) ->
         Var_set.of_list [left_operand; right_operand]
   )
@@ -150,7 +148,6 @@ and check_scope_clause_body
     _bind_filt bound site_x [x] @
     check_scope_expr bound e1 @
     check_scope_expr bound e2
-  | Pattern_match_body (Var(x,_), _) -> _bind_filt bound site_x [x]
   | Binary_operation_body (Var(x1,_), _, Var(x2,_)) ->
     _bind_filt bound site_x [x1;x2]
 ;;

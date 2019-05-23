@@ -92,17 +92,6 @@ struct
         "then" branch (true) or the "else" branch (false).  The state and
         context refer to this wiring clause so a jump can be issued after the
         subject is checked in this branch. *)
-    | Pattern_matching_lookup of abstract_var * abstract_var * pattern
-    (** Represents the handling of a pattern match.  If the current lookup
-        variable matches the first variable, its value is decided by looking up
-        the second variable and then matching the result to the provided
-        pattern. *)
-    | Pattern_match_1_of_2
-    (** Performs pattern matching.  This continuation expects a variable on the
-        top of the stack. *)
-    | Pattern_match_2_of_2 of abstract_value
-    (** Performs pattern matching.  This continuation expects a pattern on the
-        top of the stack. *)
     | Binary_operator_lookup_init of
         abstract_var * abstract_var * abstract_var *
         annotated_clause * C.t * annotated_clause * C.t

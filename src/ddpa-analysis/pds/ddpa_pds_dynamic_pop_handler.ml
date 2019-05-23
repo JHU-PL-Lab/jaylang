@@ -143,19 +143,6 @@ struct
              ; Push(Capture capture_size_1)
              ; Push(Lookup_var(x1))
              ]
-    | Pattern_matching_lookup(x2,x1,p) ->
-      let%orzero Lookup_var x2' = element in
-      [%guard (equal_abstract_var x2 x2') ];
-      return [ Push(Continuation_pattern(p));
-               Push(Lookup_var(x1));
-             ]
-    | Pattern_match_1_of_2 ->
-      let%orzero Continuation_value v = element in
-      return [ Pop_dynamic_targeted(Pattern_match_2_of_2 v) ]
-    | Pattern_match_2_of_2 v ->
-      let%orzero Continuation_pattern p = element in
-      let v = Abs_value_bool(abstract_matches v p) in
-      return [ Push(Continuation_value v) ]
     | Binary_operator_lookup_init(x1,x2,x3,acl1,ctx1,acl0,ctx0) ->
       let%orzero Lookup_var(x1') = element in
       [%guard (equal_abstract_var x1 x1') ];

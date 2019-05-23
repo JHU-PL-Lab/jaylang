@@ -1,8 +1,5 @@
 # EXPECT-EVALUATE
-e = 0;
-# Match 0 with int
-b1 = e ~ int;
-c = b1 ? ( ra = 1 ) : ( rb = false );
-# Now get stuck if we got false
-b2 = c ~ false;
-t = b2 ? ( r = e e ) : ( rj = e ) ;
+e = true;
+b = true;
+c = b ? ( ra = false ) : ( rb = true );
+t = c ? ( r = e e ) : ( rj = e ) ;

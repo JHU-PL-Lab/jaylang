@@ -127,7 +127,6 @@ and clause_body =
   | Input_body
   | Appl_body of var * var
   | Conditional_body of var * expr * expr
-  | Pattern_match_body of var * pattern
   | Binary_operation_body of var * binary_operator * var
 [@@deriving eq, ord, to_yojson]
 
@@ -138,14 +137,6 @@ and clause =
 
 (** A type to represent expressions. *)
 and expr = Expr of clause list [@@deriving eq, ord, to_yojson]
-
-(** A type representing conditional patterns. *)
-and pattern =
-  | Fun_pattern
-  | Int_pattern
-  | Bool_pattern of bool
-  | Any_pattern
-[@@deriving eq, ord, yojson]
 ;;
 
 module Value =
@@ -154,12 +145,4 @@ struct
   let equal = equal_value;;
   let compare = compare_value;;
   let to_yojson = value_to_yojson;;
-end;;
-
-module Pattern =
-struct
-  type t = pattern
-  let equal = equal_pattern;;
-  let compare = compare_pattern;;
-  let to_yojson = pattern_to_yojson;;
 end;;

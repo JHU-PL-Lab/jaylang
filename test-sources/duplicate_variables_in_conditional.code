@@ -1,5 +1,4 @@
 # EXPECT-ILL-FORMED
 
 x = true;
-b = x ~ int;
-c = b ? ( x = 0 ) : ( rb = 1 );
+c = x ? ( x = 0 ) : ( rb = 1 );

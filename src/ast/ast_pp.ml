@@ -69,8 +69,6 @@ and pp_clause_body formatter b =
     Format.fprintf formatter
       "%a @[<4> ? @[<2>(%a)@] : @[<2>(%a)@]@]"
       pp_var x pp_expr e1 pp_expr e2
-  | Pattern_match_body(x,p) ->
-    Format.fprintf formatter "%a ~ %a" pp_var x pp_pattern p
   | Binary_operation_body(x1,op,x2) ->
     Format.fprintf formatter "%a %a %a"
       pp_var x1 pp_binary_operator op pp_var x2
@@ -81,17 +79,8 @@ and pp_clause formatter c =
 
 and pp_expr formatter (Expr(cls)) =
   pp_concat_sep ";" pp_clause formatter @@ List.enum cls
-
-and pp_pattern formatter p =
-  match p with
-  | Fun_pattern -> Format.pp_print_string formatter "fun"
-  | Int_pattern -> Format.pp_print_string formatter "int"
-  | Bool_pattern(b) ->
-    Format.pp_print_string formatter @@ if b then "true" else "false"
-  | Any_pattern -> Format.pp_print_string formatter "any"
 ;;
 
 let show_value = pp_to_string pp_value;;
 let show_clause = pp_to_string pp_clause;;
-let show_pattern = pp_to_string pp_pattern;;
 let show_brief_clause formatter (Clause(x,_)) = pp_var formatter x;;

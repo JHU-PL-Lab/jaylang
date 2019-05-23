@@ -142,8 +142,6 @@ and calc_clause_body (b : clause_body) (db : depth_bindings)
   | Conditional_body (x, e1, e2) ->
     ss_var_ref x db @@
     ss_join (calc_expr e1 db) (calc_expr e2 db)
-  | Pattern_match_body (x, _) ->
-    ss_var_ref x db empty
   | Binary_operation_body (x1, _, x2) ->
     ss_vars_ref [x1; x2] db empty
 

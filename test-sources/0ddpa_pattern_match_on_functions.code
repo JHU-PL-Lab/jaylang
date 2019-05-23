@@ -1,9 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-EVALUATE
-# EXPECT-ANALYSIS-STACK-IS 0ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END rr {int}
-# EXPECT-ANALYSIS-NO-INCONSISTENCIES
-
-r = fun i -> ( ir = i; );
-b = r ~ fun;
-rr = b ? ( smatchreturn = 0; ) : ( x = 0; santimatchreturn = x x; );

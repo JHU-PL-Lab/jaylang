@@ -35,7 +35,6 @@ struct
     | Abs_value_body _
     | Abs_var_body _
     | Abs_input_body
-    | Abs_pattern_match_body _
     | Abs_conditional_body _ ->
       (* There's nothing this body that can be inconsistent. *)
       zero ()

@@ -114,8 +114,6 @@ and lift_clause_body b =
   | Appl_body(x,x') -> Abs_appl_body(lift_var x, lift_var x')
   | Conditional_body(x,e1,e2) ->
     Abs_conditional_body(lift_var x,lift_expr e1,lift_expr e2)
-  | Pattern_match_body(x,p) ->
-    Abs_pattern_match_body(lift_var x,p)
   | Binary_operation_body(x1,op,x2) ->
     Abs_binary_operation_body(lift_var x1, op, lift_var x2)
 

@@ -1,16 +1,14 @@
 # EXPECT-WELL-FORMED
 # EXPECT-EVALUATE
 # EXPECT-ANALYSIS-STACK-IS 1ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END ia {int}
-# EXPECT-ANALYSIS-LOOKUP-FROM-END ib {false}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END ia {false}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END ib {true}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
-e = 0;
 i = fun ip -> (
-  z = ip ~ int;
-  ir = z ? ( ipmr = ip; ) : ( ipar = ip; );
+  ir = ip ? ( ipmr = false; ) : ( ipar = true; );
 );
-a = 4;
+a = true;
 ia = i a;
 b = false;
 ib = i b;

@@ -154,24 +154,11 @@ and _create_end_of_block_map_for_body (b : abstract_clause_body) =
     _merge_maps
       (create_end_of_block_map acls1)
       (create_end_of_block_map acls2)
-  | Abs_pattern_match_body(_,_) -> Annotated_clause_map.empty
   | Abs_binary_operation_body (_,_,_) -> Annotated_clause_map.empty
 
 and _create_end_of_block_map_for_function (f : abstract_function_value) =
   let Abs_function_value(_, Abs_expr(body)) = f in
   create_end_of_block_map body
-;;
-
-(**
-   Defines immediate pattern matching.
-*)
-let abstract_matches (v : abstract_value) (p : pattern) : bool =
-  match v, p with
-  | (_, Any_pattern) -> true
-  | (Abs_value_function _, Fun_pattern) -> true
-  | (Abs_value_int, Int_pattern) -> true
-  | (Abs_value_bool b, Bool_pattern b') when b = b' -> true
-  | _ -> false
 ;;
 
 (**

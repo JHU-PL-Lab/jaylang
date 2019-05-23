@@ -7,20 +7,6 @@ open Ast;;
 open Ast_pp;;
 open Pp_utils;;
 
-module Pattern_ord =
-struct
-  type t = pattern
-  let compare = compare_pattern
-end;;
-
-module Pattern_set =
-struct
-  include Set.Make(Pattern_ord);;
-  let pp = Pp_utils.pp_set pp_pattern enum;;
-  let show = Pp_utils.pp_to_string pp;;
-  let to_yojson = Yojson_utils.set_to_yojson pattern_to_yojson enum;;
-end;;
-
 (** A type to express abstract variables. *)
 type abstract_var =
   | Abs_var of ident
@@ -57,7 +43,6 @@ and abstract_clause_body =
   | Abs_input_body
   | Abs_appl_body of abstract_var * abstract_var
   | Abs_conditional_body of abstract_var * abstract_expr * abstract_expr
-  | Abs_pattern_match_body of abstract_var * pattern
   | Abs_binary_operation_body of abstract_var * binary_operator * abstract_var
 [@@deriving eq, ord, to_yojson]
 
@@ -107,8 +92,6 @@ and pp_abstract_clause_body formatter b =
       pp_abstract_var x
       pp_abstract_expr e1
       pp_abstract_expr e2
-  | Abs_pattern_match_body(x,p) ->
-    Format.fprintf formatter "%a ~ %a" pp_abstract_var x pp_pattern p
   | Abs_binary_operation_body(x1,op,x2) ->
     Format.fprintf formatter "%a %a %a"
       pp_abstract_var x1 pp_binary_operator op pp_abstract_var x2
@@ -133,7 +116,6 @@ let is_abstract_clause_immediate (Abs_clause(_,b)) =
   | Abs_var_body _
   | Abs_value_body _
   | Abs_input_body
-  | Abs_pattern_match_body _
   | Abs_binary_operation_body _ -> true
   | Abs_appl_body _
   | Abs_conditional_body _ -> false

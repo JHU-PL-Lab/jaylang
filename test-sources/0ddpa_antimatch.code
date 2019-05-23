@@ -6,7 +6,7 @@
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 e = 0;
-b1 = e ~ true;
-b2 = e ~ true;
+b1 = false;
+b2 = false;
 r1 = b1 ? ( ar = false ) : ( br = 0 );
 r2 = b2 ? ( cr = 0 ) : ( dr = false );

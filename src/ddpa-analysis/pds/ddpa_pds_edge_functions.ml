@@ -213,26 +213,6 @@ struct
               )
           end
           ;
-          (* ********** Pattern Matching ********** *)
-          (* Pattern Matching Start *)
-          begin
-            let%orzero (Unannotated_clause(
-                Abs_clause(x2,Abs_pattern_match_body(x1,p)))) = acl1
-            in
-            (* x2 = x1 ~ p *)
-            return
-              ( Pattern_matching_lookup(x2,x1,p),
-                Program_point_state(acl1,ctx)
-              )
-          end
-          ;
-          (* Pattern Matching Stop *)
-          begin
-            return ( Pattern_match_1_of_2,
-                     Program_point_state(acl0,ctx)
-                   )
-          end
-          ;
           (* ********** Operations ********** *)
           (* Binary Operation Start *)
           begin

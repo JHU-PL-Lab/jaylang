@@ -8,5 +8,4 @@
 x = 1;
 y = 2;
 z = x == y;
-b = z ~ true;
-r = b ? ( ar = false ) : ( br = 0 )
+r = z ? ( ar = false ) : ( br = 0 )

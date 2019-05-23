@@ -44,11 +44,7 @@ tequalfpatternmatch = tequalf
                       tequalfmatchreturn = 0;
                     );
 
-# Pattern match on numbers.
-
-number = 0;
-
-b = number ~ int;
+b = true;
 numberpatternmatch = b
                      ? (
                        numbermatchreturn = 0;

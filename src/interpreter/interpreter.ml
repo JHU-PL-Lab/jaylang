@@ -59,7 +59,6 @@ and var_replace_clause_body fn r =
   | Appl_body(x1, x2) -> Appl_body(fn x1, fn x2)
   | Conditional_body(x,e1,e2) ->
     Conditional_body(fn x, var_replace_expr fn e1, var_replace_expr fn e2)
-  | Pattern_match_body(x,p) -> Pattern_match_body(fn x, p)
   | Binary_operation_body(x1,op,x2) -> Binary_operation_body(fn x1, op, fn x2)
 
 and var_replace_value fn v =
@@ -109,18 +108,6 @@ let cond_wire (conditional_site_x : var) (Expr(body)) =
   let Clause(last_var, _) = List.last body in
   let tail_clause = Clause(conditional_site_x, Var_body(last_var)) in
   body @ [tail_clause]
-;;
-
-let matches env x p =
-  let v = lookup env x in
-  match v,p with
-  | _,Any_pattern -> true
-  | Value_function(Function_value(_)),Fun_pattern
-  | Value_int _,Int_pattern ->
-    true
-  | Value_bool actual_boolean,Bool_pattern pattern_boolean ->
-    actual_boolean = pattern_boolean
-  | _ -> false
 ;;
 
 let rec evaluate env lastvar cls =
@@ -174,9 +161,6 @@ let rec evaluate env lastvar cls =
                         (show_value v)))
         in
         evaluate env (Some x) @@ cond_wire x e_target @ t
-      | Pattern_match_body(x', p) ->
-        Environment.add env x (Value_bool(matches env x' p));
-        evaluate env (Some x) t
       | Binary_operation_body(x1,op,x2) ->
         let v1 = lookup env x1 in
         let v2 = lookup env x2 in
