@@ -1,3 +1,0 @@
-# EXPECT-ILL-FORMED
-
-r = {r = r};

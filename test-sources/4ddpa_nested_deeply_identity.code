@@ -1,7 +1,7 @@
 # EXPECT-WELL-FORMED
 # EXPECT-EVALUATE
 # EXPECT-ANALYSIS-STACK-IS 4ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END s2 {{a=empty}, {b=empty}}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END s2 {int, true}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 f = fun x -> (
@@ -19,8 +19,7 @@ f = fun x -> (
     );
     r = f1 x;
 );
-empty = {};
-a = {a=empty};
+a = 0;
 s1 = f a;
-b = {b=empty};
+b = true;
 s2 = f b;

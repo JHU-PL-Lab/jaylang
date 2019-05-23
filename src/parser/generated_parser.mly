@@ -130,6 +130,8 @@ bool_value:
 pattern:
   | KEYWORD_INT
       { Int_pattern }
+  | KEYWORD_FUN
+      { Fun_pattern }
   | bool_pattern
       { Bool_pattern($1) }
   | KEYWORD_ANY

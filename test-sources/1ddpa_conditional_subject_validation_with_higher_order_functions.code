@@ -6,16 +6,16 @@
 
 zero = 0;
 f = fun g -> (
-        nop0f = {};
+        nop0f = 0;
         gresult = g zero;
         nop1f = gresult;
-        fret = gresult ~ {} ? fun gresultT -> (gresultTret = 0)
-                            : fun gresultF -> (gresultFret = {});
+        cond = gresult ~ int;
+        fret = cond ? (gresultTret = 0) : (gresultFret = false);
         nop2f = fret;
     );
 h1 = fun h1param -> ( h1ret = h1param );
 h2 = fun h2param -> (
-        nop0h2 = {};
+        nop0h2 = 0;
         h2ret = f h1;
         nop1h2 = h2ret;
     );

@@ -1,0 +1,12 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 0ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r1 {int}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r2 {false}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+e = 0;
+b1 = e ~ true;
+b2 = e ~ true;
+r1 = b1 ? ( ar = false ) : ( br = 0 );
+r2 = b2 ? ( cr = 0 ) : ( dr = false );

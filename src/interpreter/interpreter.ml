@@ -32,10 +32,17 @@ let lookup env x =
 
 (* FIXME: this functionality is duplicated in ast_wellformedness.
    (Needs fixed upstream.) *)
-let bound_vars_of_expr (Expr(cls)) =
+let rec bound_vars_of_expr (Expr(cls)) =
   cls
-  |> List.map (fun (Clause(x, _)) -> x)
-  |> Var_set.of_list
+  |> List.map
+    (fun (Clause(x, b)) ->
+       Var_set.add x @@
+       match b with
+       | Conditional_body(_,e1,e2) ->
+         Var_set.union (bound_vars_of_expr e1) (bound_vars_of_expr e2)
+       | _ -> Var_set.empty
+    )
+  |> List.fold_left Var_set.union Var_set.empty
 ;;
 
 let rec var_replace_expr fn (Expr(cls)) =
@@ -74,11 +81,7 @@ let freshening_stack_from_var x =
 
 let repl_fn_for clauses freshening_stack extra_bound =
   let bound_variables =
-    (* FIXME: this functionality is duplicated above in bound_vars_of_expr; this
-       needs to be fixed upstream. *)
-    clauses
-    |> List.map (fun (Clause(x,_)) -> x)
-    |> Var_set.of_list
+    bound_vars_of_expr clauses
     |> Var_set.union extra_bound
   in
   let repl_fn (Var(i, _) as x) =
@@ -89,13 +92,13 @@ let repl_fn_for clauses freshening_stack extra_bound =
   repl_fn
 ;;
 
-let fun_wire (Function_value(param_x, Expr(body))) arg_x call_site_x =
+let fun_wire (Function_value(param_x, body_expr)) arg_x call_site_x =
   (* Build the variable freshening function. *)
   let freshening_stack = freshening_stack_from_var call_site_x in
   let repl_fn =
-    repl_fn_for body freshening_stack @@ Var_set.singleton param_x in
+    repl_fn_for body_expr freshening_stack @@ Var_set.singleton param_x in
   (* Create the freshened, wired body. *)
-  let freshened_body = List.map (var_replace_clause repl_fn) body in
+  let Expr(freshened_body) = var_replace_expr repl_fn body_expr in
   let head_clause = Clause(repl_fn param_x, Var_body(arg_x)) in
   let Clause(last_var,_) = List.last freshened_body in
   let tail_clause = Clause(call_site_x, Var_body(last_var)) in
@@ -210,9 +213,9 @@ let rec evaluate env lastvar cls =
     end
 ;;
 
-let eval (Expr(cls)) =
+let eval e =
   let env = Environment.create(20) in
-  let repl_fn = repl_fn_for cls (Freshening_stack []) Var_set.empty in
-  let cls' = List.map (var_replace_clause repl_fn) cls in
-  evaluate env None cls'
+  let repl_fn = repl_fn_for e (Freshening_stack []) Var_set.empty in
+  let Expr(cls) = var_replace_expr repl_fn e in
+  evaluate env None cls
 ;;

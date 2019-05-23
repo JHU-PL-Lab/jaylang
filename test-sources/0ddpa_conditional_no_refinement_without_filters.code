@@ -1,0 +1,16 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 0ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END z {int, true}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+i = fun ip -> ( ir = ip );
+a = 0;
+b = true;
+u1 = i a;
+u2 = i b;
+y = u1 ~ int;
+z = y ? ( ztr = a ) :
+        ( zfb = u1 ~ int;
+          zfr = zfb ? ( zftr = b ) : ( zffr = a )
+        );

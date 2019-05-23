@@ -1,4 +1,5 @@
 # EXPECT-ILL-FORMED
 
-x = {};
-c = x ~ {l={}} ? fun a -> ( x = {} ) : fun b -> ( rb = {n = x} );
+x = true;
+b = x ~ int;
+c = b ? ( x = 0 ) : ( rb = 1 );

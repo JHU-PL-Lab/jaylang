@@ -6,9 +6,5 @@
 
 a = 0;
 
-r = a ~ any ? fun am -> (
-              ra = 0;
-            ) : fun aa -> (
-              br = {};
-              aar = br br;
-            );
+b = a ~ any;
+r = b ? ( ra = 0; ) : ( br = false; aar = br br; );

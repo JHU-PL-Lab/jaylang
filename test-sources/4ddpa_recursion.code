@@ -1,22 +1,23 @@
 # EXPECT-WELL-FORMED
 # EXPECT-EVALUATE
 # EXPECT-ANALYSIS-STACK-IS 4ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END z {{}:(+{{}},-{})}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END z {int}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
+one = 1;
 f = fun s -> (
     f0 = fun a -> (
-        r = a ~ {l={}}
-            ? fun a1 -> (
+        b = a <= one;
+        r = b ? (
+                r1 = a
+            ) : (
                 ss = s s;
-                v = a1.l;
-                r1 = ss v; )
-            : fun a2 -> ( r2 = a2 );
+                v = a - one;
+                r2 = ss v;
+            );
         n1 = r;
     );
 );
 ff = f f;
-x1 = {};
-x2 = {l=x1};
-x3 = {l=x2};
+x3 = 3;
 z = ff x3;

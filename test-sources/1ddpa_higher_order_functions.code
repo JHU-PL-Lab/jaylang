@@ -2,18 +2,18 @@
 # EXPECT-EVALUATE
 # EXPECT-ANALYSIS-STACK-IS 1ddpa
 # EXPECT-ANALYSIS-LOOKUP-FROM-END ra {int}
-# EXPECT-ANALYSIS-LOOKUP-FROM-END rb {{}}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END rb {false}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 h = fun f -> (
-    e = {};
+    e = true;
     hr = f e;
     n0 = hr;
 );
 
 fa = fun ia -> ( a = 0; );
-fb = fun ib -> ( b = {}; );
+fb = fun ib -> ( b = false; );
 
 ra = h fa;
-n1 = {};
+n1 = 0;
 rb = h fb;

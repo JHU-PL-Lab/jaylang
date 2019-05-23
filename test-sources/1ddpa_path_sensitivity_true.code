@@ -1,12 +1,9 @@
 # EXPECT-WELL-FORMED
 # EXPECT-EVALUATE
 # EXPECT-ANALYSIS-STACK-IS 1ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END z {{}}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END z {true}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
-empty = {};
-x = {a=empty};
-z = x ~ {a={}} ?
-        fun j1 -> ( r1 = {} ) :
-        fun j2 -> ( r2 = {b=empty} );
-
+zero = 0;
+b = true;
+z = b ? ( r1 = true ) : ( r2 = false );

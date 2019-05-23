@@ -1,12 +1,11 @@
 # EXPECT-WELL-FORMED
 # EXPECT-EVALUATE
 # EXPECT-ANALYSIS-STACK-IS 1ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END s2 {{a=empty}, {b=empty}}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END s2 {false, true}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 f = fun x -> ( ident = fun y -> ( r1 = y ); r0 = ident x; );
-empty = {};
-a = {a=empty};
+a = true;
 s1 = f a;
-b = {b=empty};
+b = false;
 s2 = f b;

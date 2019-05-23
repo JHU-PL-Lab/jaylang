@@ -1,7 +1,8 @@
 # EXPECT-EVALUATE
-e = {};
-# Fail to match {} with {l={}}
-c = e ~ {l={}} ? fun a -> ( ra = {y=e} ) : fun b -> ( rb = {n=e} );
-# Now get stuck if we got a {y={}}
-t = c ~ {y={}} ? fun k -> ( r = e e ) : fun j -> ( rj = e ) ;
-
+e = true;
+# Fail to match true with int
+b1 = e ~ int;
+c = b1 ? ( ra = 1 ) : ( rb = false );
+# Now get stuck if we got an int
+b2 = c ~ int;
+t = b2 ? ( r = e e ) : ( rj = e ) ;

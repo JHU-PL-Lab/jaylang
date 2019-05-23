@@ -1,4 +1,4 @@
 # EXPECT-EVALUATE
-x = {};
-f = fun a -> ( r = {} );
+x = true;
+f = fun a -> ( r = false );
 z = f x

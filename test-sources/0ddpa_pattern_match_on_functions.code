@@ -5,12 +5,5 @@
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
 r = fun i -> ( ir = i; );
-
-rr = r ~ fun
-                    ? fun smatch -> (
-                      smatchreturn = 0;
-                    )
-                    : fun santimatch -> (
-                      x = 0;
-                      santimatchreturn = x x;
-                    );
+b = r ~ fun;
+rr = b ? ( smatchreturn = 0; ) : ( x = 0; santimatchreturn = x x; );

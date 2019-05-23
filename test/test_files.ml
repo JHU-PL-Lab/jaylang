@@ -223,14 +223,7 @@ let observe_inconsistency inconsistency expectation =
     let open Toploop_analysis_types in
     match inconsistency with
     | Application_of_non_function (Abs_var ident,_,_,_) -> ident
-    | Projection_of_non_record (Abs_var ident,_,_) -> ident
-    | Projection_of_absent_label (Abs_var ident,_,_,_) -> ident
-    | Deref_of_non_ref (Abs_var ident,_,_) -> ident
-    | Update_of_non_ref (Abs_var ident,_,_) -> ident
     | Invalid_binary_operation (Abs_var ident,_,_,_,_,_) -> ident
-    | Invalid_unary_operation (Abs_var ident,_,_,_) -> ident
-    | Invalid_indexing_subject (Abs_var ident,_,_) -> ident
-    | Invalid_indexing_argument (Abs_var ident,_,_) -> ident
   in
   match expectation with
   | Expect_analysis_inconsistency_at expected_site ->
@@ -384,7 +377,7 @@ let make_test filename expectations =
       |> List.iter
         (fun ((varname,_,_),values) ->
            let repr =
-             Pp_utils.pp_to_string Ddpa_abstract_ast.Abs_filtered_value_set.pp values
+             Pp_utils.pp_to_string Ddpa_abstract_ast.Abs_value_set.pp values
            in
            observation @@ observe_analysis_variable_lookup_from_end
              (Ident varname) repr

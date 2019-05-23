@@ -2,12 +2,11 @@
 # EXPECT-EVALUATE
 # EXPECT-ANALYSIS-STACK-IS 0ddpa
 # EXPECT-ANALYSIS-LOOKUP-FROM-END z {false, true}
-# EXPECT-ANALYSIS-LOOKUP-FROM-END r {{no=empty}, {yes=empty}}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {int, false}
 # EXPECT-ANALYSIS-NO-INCONSISTENCIES
 
-empty = {};
 x = 1;
 y = 2;
 z = x == y;
-r = z ~ true ? fun ap -> ( ar = {yes=empty} )
-           : fun bp -> ( br = {no=empty} )
+b = z ~ true;
+r = b ? ( ar = false ) : ( br = 0 )
