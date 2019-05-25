@@ -22,7 +22,7 @@ val handle_expression :
   result
 
 (** These callbacks perform no operation when called. *)
-val no_op_callbacks : callbacks
+val default_callbacks : callbacks
 
 (** These callbacks print messages to stdout when called. *)
 val stdout_callbacks : callbacks

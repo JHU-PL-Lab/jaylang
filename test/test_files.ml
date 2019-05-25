@@ -5,9 +5,9 @@
    Each file is expected to contain a comment describing the expected test
    result.  The comment should be of one of the following forms:
 
-    - [EXPECT-EVALUATE] (which requires that the code evaluates to completion)
-    - [EXPECT-STUCK] (which requires that the code gets stuck)
-   FIXME: update this documentation
+   - [EXPECT-EVALUATE] (which requires that the code evaluates to completion)
+   - [EXPECT-STUCK] (which requires that the code gets stuck)
+     FIXME: update this documentation
 *)
 
 (* FIXME: purge the term "inconsistency" *)
@@ -38,8 +38,8 @@ type test_expectation =
   | Expect_stuck
   | Expect_well_formed
   | Expect_ill_formed
-  | Expect_analysis_stack_is of
-      (module Ddpa_context_stack.Context_stack) option
+  | Expect_analysis_stack_is of (module Ddpa_context_stack.Context_stack) option
+  | Expect_input_is of int list
   | Expect_analysis_variable_lookup_from_end of ident * string
   | Expect_analysis_inconsistency_at of ident
   | Expect_analysis_no_inconsistencies
@@ -53,6 +53,9 @@ let pp_test_expectation formatter expectation =
   | Expect_ill_formed -> Format.pp_print_string formatter "Expect_ill_formed"
   | Expect_analysis_stack_is _ ->
     Format.pp_print_string formatter "Expect_analysis_stack_is(...)"
+  | Expect_input_is inputs ->
+    Format.fprintf formatter "Expect_int_is [%s]"
+      (String.join ", " @@ List.map string_of_int inputs)
   | Expect_analysis_variable_lookup_from_end(x,expected) ->
     Format.fprintf formatter
       "Expect_analysis_variable_lookup_from_end(%a,\"%s\")"
@@ -128,6 +131,22 @@ let parse_expectation str =
           | Not_found ->
             raise @@ Expectation_parse_failure "invalid stack name"
         end
+      | "EXPECT-INPUT-IS"::args_part ->
+        let args_str = String.join "" args_part in
+        let args = whitespace_split args_str in
+        let inputs =
+          args
+          |> List.map
+            (fun s ->
+               try
+                 int_of_string s
+               with
+               | Failure _ ->
+                 raise @@ Expectation_parse_failure
+                   ("Could not parse input: " ^ s)
+            )
+        in
+        Expect_input_is inputs
       | "EXPECT-ANALYSIS-LOOKUP-FROM-END"::args_part ->
         let args_str = String.join "" args_part in
         let args = whitespace_split ~max:2 args_str in
@@ -202,6 +221,22 @@ let observe_analysis_stack_selection chosen_stack_ref expectation =
   | _ -> Some expectation
 ;;
 
+let observe_input_selection input_ref expectation =
+  match expectation with
+  | Expect_input_is inputs ->
+    begin
+      input_ref :=
+        begin
+          match !input_ref with
+          | None -> Some inputs
+          | Some _ ->
+            assert_failure @@ "multiple expectations of input"
+        end;
+      None
+    end
+  | _ -> Some expectation
+;;
+
 let observe_analysis_variable_lookup_from_end ident repr expectation =
   match expectation with
   | Expect_analysis_variable_lookup_from_end(ident',repr') ->
@@ -256,6 +291,9 @@ let make_test filename expectations =
         | None -> "none"
       in
       "should use analysis stack " ^ name
+    | Expect_input_is inputs ->
+      "should have input [" ^
+      (String.join ", " @@ List.map string_of_int inputs) ^ "]"
     | Expect_analysis_variable_lookup_from_end(ident,_) ->
       "should have particular values for variable " ^ (show_ident ident)
     | Expect_analysis_inconsistency_at ident ->
@@ -348,6 +386,24 @@ let make_test filename expectations =
         ; topconf_report_source_statistics = false
         }
       in
+      let input_ref = ref None in
+      observation (observe_input_selection input_ref);
+      let input_callback =
+        match !input_ref with
+        | Some inputs ->
+          (let buffer = ref inputs in
+           fun () ->
+             match !buffer with
+             | [] -> failwith "Out of input"
+             | h::t -> buffer := t; h
+          )
+        | None -> Toploop.default_callbacks.cb_input
+      in
+      let callbacks =
+        { Toploop.default_callbacks with
+          cb_input = input_callback
+        }
+      in
       lazy_logger `trace (fun () ->
           Printf.sprintf "Test for %s: executing toploop handler"
             filename
@@ -355,6 +411,7 @@ let make_test filename expectations =
       (* Run the toploop *)
       let result =
         Toploop.handle_expression
+          ~callbacks:callbacks
           configuration
           expr
       in

@@ -14,6 +14,7 @@ module List = BatList;;
 %token ARROW
 %token QUESTION_MARK
 %token COLON
+%token KEYWORD_INPUT
 %token KEYWORD_FUN
 %token KEYWORD_TRUE
 %token KEYWORD_FALSE
@@ -69,6 +70,8 @@ identifier:
 clause_body:
   | value
       { Value_body($1) }
+  | KEYWORD_INPUT
+      { Input_body }
   | variable
       { Var_body($1) }
   | variable variable

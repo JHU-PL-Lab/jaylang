@@ -110,7 +110,11 @@ let cond_wire (conditional_site_x : var) (Expr(body)) =
   body @ [tail_clause]
 ;;
 
-let rec evaluate env lastvar cls =
+let rec evaluate
+    ?input_source:(input_source=read_int)
+    env
+    lastvar
+    cls =
   lazy_logger `debug (fun () ->
       Format.asprintf
         "\nEnvironment: @[%a@]\nLast var:    @[%a@]\nClauses:     @[%a@]\n"
@@ -129,21 +133,24 @@ let rec evaluate env lastvar cls =
     end
   | (Clause(x, b)):: t ->
     begin
+      let recurse = evaluate ~input_source:input_source env (Some x) in
       match b with
       | Value_body(v) ->
         Environment.add env x v;
-        evaluate env (Some x) t
+        recurse t
       | Var_body(x') ->
         let v = lookup env x' in
         Environment.add env x v;
-        evaluate env (Some x) t
+        recurse t
       | Input_body ->
-        failwith "TODO"
+        let v = Value_int (input_source ()) in
+        Environment.add env x v;
+        recurse t
       | Appl_body(x', x'') ->
         begin
           match lookup env x' with
           | Value_function(f) ->
-            evaluate env (Some x) @@ fun_wire f x'' x @ t
+            recurse @@ fun_wire f x'' x @ t
           | r -> raise (Evaluation_failure
                           (Printf.sprintf
                              "cannot apply %s as it contains non-function %s"
@@ -160,7 +167,7 @@ let rec evaluate env lastvar cls =
                         "cannot condition on non-boolean value %s"
                         (show_value v)))
         in
-        evaluate env (Some x) @@ cond_wire x e_target @ t
+        recurse @@ cond_wire x e_target @ t
       | Binary_operation_body(x1,op,x2) ->
         let v1 = lookup env x1 in
         let v2 = lookup env x2 in
@@ -193,13 +200,13 @@ let rec evaluate env lastvar cls =
           end
         in
         Environment.add env x result;
-        evaluate env (Some x) t
+        recurse t
     end
 ;;
 
-let eval e =
+let eval ?input_source:(input_source=read_int) e =
   let env = Environment.create(20) in
   let repl_fn = repl_fn_for e (Freshening_stack []) Var_set.empty in
   let Expr(cls) = var_replace_expr repl_fn e in
-  evaluate env None cls
+  evaluate ~input_source:input_source env None cls
 ;;

@@ -129,7 +129,7 @@ let stdout_source_statistics_callback stats =
     num_non_local_variable_references_by_depth
 ;;
 
-let no_op_callbacks =
+let default_callbacks =
   { cb_illformednesses = (fun _ -> ())
   ; cb_variable_analysis = (fun _ _ _ _ -> ())
   ; cb_errors = (fun _ -> ())
@@ -138,6 +138,7 @@ let no_op_callbacks =
   ; cb_evaluation_disabled = (fun _ -> ())
   ; cb_size_report_callback = (fun _ -> ())
   ; cb_source_statistics_callback = (fun _ -> ())
+  ; cb_input = read_int
   }
 ;;
 
@@ -150,6 +151,7 @@ let stdout_callbacks =
   ; cb_evaluation_disabled = stdout_evaluation_disabled_callback
   ; cb_size_report_callback = stdout_size_report_callback
   ; cb_source_statistics_callback = stdout_source_statistics_callback
+  ; cb_input = read_int
   }
 ;;
 
@@ -372,7 +374,7 @@ let do_evaluation callbacks conf e =
 ;;
 
 let handle_expression
-    ?callbacks:(callbacks=no_op_callbacks)
+    ?callbacks:(callbacks=default_callbacks)
     conf
     e =
   try

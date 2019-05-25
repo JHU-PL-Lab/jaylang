@@ -66,13 +66,23 @@ struct
     let targeted_dynamic_pops = Enum.filter_map identity @@ List.enum
         [
           (* ********** Value Discovery ********** *)
-          (* Variable Lookup Complete *)
+          (* Variable Lookup Discovers Value *)
           begin
             let%orzero
               (Unannotated_clause(Abs_clause(x,Abs_value_body v))) = acl1
             in
             (* x = v *)
             return (Value_lookup(x, v), Program_point_state(acl1, ctx))
+          end
+          ;
+          (* Variable Lookup Discovers Input *)
+          begin
+            let%orzero
+              (Unannotated_clause(Abs_clause(x,Abs_input_body))) = acl1
+            in
+            (* x = input *)
+            return (Value_lookup(x, Abs_value_int),
+                    Program_point_state(acl1, ctx))
           end
           ;
           (* Intermediate Value *)

@@ -34,6 +34,7 @@ rule token = parse
   | "->"                             { ARROW }
   | "?"                              { QUESTION_MARK }
   | ":"                              { COLON }
+  | "input"                          { KEYWORD_INPUT }
   | "fun"                            { KEYWORD_FUN }
   | "true"                           { KEYWORD_TRUE }
   | "false"                          { KEYWORD_FALSE }
