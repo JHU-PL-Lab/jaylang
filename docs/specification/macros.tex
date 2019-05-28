@@ -1,0 +1,425 @@
+\usepackage{jhupllab}
+\usepackage{amsmath}
+\usepackage{amssymb}
+%\usepackage[T1]{fontenc}
+\usepackage{mathpartir}
+\usepackage{accents}
+\usepackage{wasysym}
+\usepackage{stmaryrd}
+\usepackage{mathtools}
+\usepackage{amsthm}
+\usepackage{thmtools}
+\usepackage{ifthenx}
+\usepackage{enumitem}
+\usepackage{tabto}
+
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+\usetikzlibrary{calc}
+\usetikzlibrary{decorations.markings}
+\usetikzlibrary{shapes}
+\usetikzlibrary{positioning}
+
+% Create a background layer
+\pgfdeclarelayer{background}
+\pgfsetlayers{background,main}
+
+\let\oldrmdefault\rmdefault
+\let\oldsfdefault\sfdefault
+\usepackage{lmodern}
+\let\rmdefault\oldrmdefault
+\let\sfdefault\oldsfdefault
+
+\newcommand{\bbrule}[4][]{\inferrule*[lab={\sc #2},#1]{#3}{#4}}
+% Definition to use \arcr in lieu of \\ for arrays inside of mathpars
+\makeatletter
+\def\arcr{\@arraycr}
+\makeatother
+
+\declaretheorem[within=section]{lemma}
+\declaretheorem[name=Definition,numberlike=lemma]{definition}
+\declaretheorem[name=Notation,numberlike=lemma]{notation}
+\declaretheorem[name=Theorem,numberlike=lemma]{theorem}
+
+\numberwithin{figure}{section}
+
+\newcommand{\fnstyle}[1]{\text{\textsmaller{\sc{#1}}}}
+\newcommand{\deffn}[2]{%
+    \expandafter\newcommand\expandafter{\csname #1\endcsname}[1][]{\fnstyle{#2}\ifthenelse{\isempty{##1}}{}{(##1)}}%
+}
+
+\newcommand{\formalRuleLine}{\\ \hspace*{1.5em}}
+
+\newcommand{\ggc}{g}
+
+\renewcommand{\setof}[2][]{{\color{red}\textrm{\bfseries We are not using \texttt{\char`\\setof} in this document!}}}
+
+\newsavebox{\codeBoxA}
+\newsavebox{\codeBoxB}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Expression grammar
+
+\newcommand{\tttilde}{{\raisebox{-0.25em}{\texttt{\char`\~}}}}
+\newcommand{\codetilde}{\tttilde}
+
+% edited these to get rid of italics in definitions etc.  surely not optimal defns but working - SS
+\defgt[gtcolon]{\texttt{\upshape :}}
+\defgt[gttilde]{\texttt{\upshape \codetilde}}
+\defgt[gtquestion]{\texttt{\upshape ?}}
+\defgt[gtarrow]{\texttt{\upshape ->}}
+\newcommand{\gtdot}{\texttt{.}}
+\defgt[gtob]{\upshape \char`\{}
+\defgt[gtcb]{\upshape \char`\}}
+\defgt[gtop]{\upshape (}
+\defgt[gtcp]{\upshape )}
+\defgt[gtis]{\texttt{\upshape =}}
+\defgt[gtfun]{\upshape fun}
+\defgt[gtref]{\upshape ref}
+\defgt[gtset]{\upshape <-}
+\defgt[gtlbrack]{\upshape \lbrack}
+\defgt[gtrbrack]{\upshape \rbrack}
+\defgt[gtdoublequote]{\upshape "}
+\defgt[gttrue]{\upshape true}
+\defgt[gtfalse]{\upshape false}
+\defgt[gtstring]{\upshape string}
+\defgt[gtany]{\upshape any}
+
+\defgn[binop]{\odot}
+\defgn[unop]{\Box}
+
+\defgt[gtplus]{\texttt{\upshape +}}
+\defgt[gtminus]{\texttt{\upshape -}}
+\defgt[gtless]{\texttt{\upshape <}}
+\defgt[gtand]{\texttt{\upshape and}}
+\defgt[gtor]{\texttt{\upshape or}}
+\defgt[gtleq]{\texttt{\upshape <=}}
+\defgt[gteq]{\texttt{\upshape ==}}
+\defgt[gtat]{\texttt{\upshape @}}
+
+\defgn[expr]{e}
+\defgn[env]{E}
+\defgn[ecl]{c}
+\defgn[elb]{b}
+\defgn[eval]{v}
+\defgn[elbl]{\ell}
+\defgn[efunc]{f}
+\defgn[erec]{r}
+\defgn[epat]{p}
+\defgn[ev]{x}
+\defgn[eint]{\mathbb{Z}}
+\defgn[ebool]{\mathbb{B}}
+\defgn[estring]{\mathbb{S}}
+
+\newcommand{\conditional}[4]{#1 \gttilde #2 \gtquestion #3 \gtcolon #4}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Operational semantics
+
+\newcommand{\smallstep}{\nobreak\longrightarrow^1\nobreak}
+\newcommand{\smallsteps}{\nobreak\longrightarrow^*\nobreak}
+\newcommand{\nsmallstep}{\nobreak\longarrownot\longrightarrow^1}
+
+\newcommand{\efreshen}[2]{\mbox{\textsc{fr}}(#1,#2)}
+
+\deffn{rv}{RV}
+\newcommand{\wire}[3]{\text{\textsmaller{\textsc{Wire}}}\ifthenelse{\isempty{#1}}{}{(#1,#2,#3)}}
+
+\newcommand{\fnIntOp}[3]{\text{\textsmaller{\textsc{IntOp}}}\ifthenelse{\isempty{#1}}{}{(#1,#2,#3)}}
+\newcommand{\fnBoolBinOp}[3]{\text{\textsmaller{\textsc{BoolBinOp}}}\ifthenelse{\isempty{#1}}{}{(#1,#2,#3)}}
+\newcommand{\fnBoolUnOp}[2]{\text{\textsmaller{\textsc{BoolUnOp}}}\ifthenelse{\isempty{#1}}{}{(#1,#2)}}
+\newcommand{\fnStringBinOp}[3]{\text{\textsmaller{\textsc{StringBinOp}}}\ifthenelse{\isempty{#1}}{}{(#1,#2,#3)}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Graph-based operational semanitcs
+
+\defgn[gdep]{d}
+\defgn[gdeps]{D}
+\defgn[gacl]{a}
+
+\newcommand{\annotated}[4]{#3 \stackrel{#1 #2}{\gtis} #4}
+
+\defgn[gacls]{\toDeprecate{A}}
+\defgn[evals]{V}
+\defgn[gxstack]{X}
+\defgn[gcstack]{C}
+
+\newcommand{\gstart}[1]{\textrm{\textsmaller{\sc Start}}\ifthenelse{\isempty{#1}}{}{\ensuremath{(#1)}}}
+\newcommand{\gend}[1]{\textrm{\textsmaller{\sc End}}\ifthenelse{\isempty{#1}}{}{\ensuremath{(#1)}}}
+
+\newcommand{\before}{\mathrel{\mathrlap{<}{\ <}}}
+\newcommand{\isbefore}{\ensuremath{\mathrel{\mathrlap{<}{\ \mathnormal{\lhd}}}}}
+
+\newcommand{\gmodeEnter}{\mathnormal{\Leftcircle\!\!}}
+\newcommand{\gmodeExit}{\mathnormal{\!\!\Rightcircle}}
+
+\deffn{embed}{Embed}
+
+\deffn{succs}{Succs}
+\deffn{preds}{Preds}
+\newcommand{\activenode}[2]{\fnstyle{Active}\ifthenelse{\isempty{#1}}{}{(#1\ifthenelse{\isempty{#2}}{}{,#2})}}
+
+\newcommand{\glookupOld}[4][\gdeps]{\toDeprecate{#1(#2,#3\ifthenelse{\isempty{#4}}{}{,#4})}}
+\newcommand{\glookup}[5][\gdeps]{#1(#2,#3\ifthenelse{\isempty{#4}}{}{,#4,#5})}
+
+\newcommand{\gwire}[4]{\text{\textsmaller{\textsc{Wire}}}(#1,#2,#3,#4)}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Type system grammar
+
+\newcommand{\typeannot}{\hat}
+
+\defgn[texpr]{\typeannot e}
+\defgn[tcl]{\typeannot c}
+\defgn[tlb]{\typeannot b}
+\defgn[tval]{\typeannot v}
+\defgn[tlbl]{\ell}
+\defgn[tfunc]{\typeannot f}
+\defgn[trec]{\typeannot r}
+\defgn[tpat]{\typeannot p}
+\defgn[tv]{\typeannot x}
+\defgt[gtint]{\upshape int}
+
+\defgn[tgdep]{\typeannot d}
+\defgn[tgdeps]{\typeannot D}
+\defgn[tgacl]{\typeannot a}
+
+\defgn[tgacls]{\typeannot A} % used in proof discussion
+\defgn[tvals]{\typeannot V}
+\defgn[tgxstack]{\typeannot X}
+\defgn[tgcstack]{\typeannot C}
+\defgn[tgcstacks]{\boldsymbol{\typeannot C}}
+
+\newcommand{\tgcstackmodel}{\Sigma}
+\newcommand{\tgcemptystack}{\epsilon}
+
+\deffn{stpop}{Pop}
+\makeatletter
+\newcommand{\stpush@}[1][]{
+    \ifthenelse{\isempty{#1}}{}{,#1})
+}
+\newcommand{\stpush}[1][]{
+    \fnstyle{Push}\ifthenelse{\isempty{#1}}{}{(#1\stpush@}
+}
+\newcommand{\stistop@}[1][]{
+    \ifthenelse{\isempty{#1}}{}{,#1})
+}
+\newcommand{\stistop}[1][]{
+    \fnstyle{IsTop}\ifthenelse{\isempty{#1}}{}{(#1\stistop@}
+}
+\makeatother
+\deffn{stisprecise}{\toDeprecate{IsPrecise}}
+\deffn{stscratch}{\toDeprecate{Scratch}}
+\deffn{stendofblock}{EndOfBlock}
+
+\newcommand{\tglookup}[5][\tgdeps]{#1(#2,#3\ifthenelse{\isempty{#4}}{}{,#4,#5})}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Soundness notation
+
+\newcommand{\bsim}{\cong}
+
+\newcommand{\graphsimby}{\preccurlyeq}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Extensions
+
+\defgt[gtderef]{\upshape !}
+\defgt[gtnot]{\upshape not}
+\newcommand{\matches}[3]{{\text{\textsmaller{\sc Matches}}}\ifthenelse{\isempty{#1}}{}{(#1,#2,#3)}}
+\newcommand{\unique}[1]{{\text{\textsmaller{\sc Unique}}}\ifthenelse{\isempty{#1}}{}{(#1)}}
+\newcommand{\bindings}[1]{{\text{\textsmaller{\sc Bindings}}}\ifthenelse{\isempty{#1}}{}{(#1)}}
+\newcommand{\bindingsp}[1]{{\text{\textsmaller{\sc Bindings}}'}\ifthenelse{\isempty{#1}}{}{(#1)}}
+\newcommand{\defines}[1]{{\text{\textsmaller{\sc Defines}}}\ifthenelse{\isempty{#1}}{}{(#1)}}
+\newcommand{\uses}[1]{{\text{\textsmaller{\sc Uses}}}\ifthenelse{\isempty{#1}}{}{(#1)}}
+\newcommand{\usesp}[1]{{\text{\textsmaller{\sc Uses}}'}\ifthenelse{\isempty{#1}}{}{(#1)}}
+\newcommand{\immediatelyrequires}[3]{\ifthenelse{\isempty{#1}}{\prec}{#2 \prec_{#1} #3}}
+\newcommand{\requires}[3]{\ifthenelse{\isempty{#1}}{\prec\!\!\!\prec}{#2 \prec\!\!\!\prec_{#1} #3}}
+\newcommand{\availd}[2]{{\text{\textsmaller{\sc Avail}}^d}\ifthenelse{\isempty{#1}}{}{\!\!_{#1}(#2)}}
+\newcommand{\availr}[2]{{\text{\textsmaller{\sc Avail}}^r}\ifthenelse{\isempty{#1}}{}{\!\!_{#1}(#2)}}
+\newcommand{\inscope}[3]{{\text{\textsmaller{\sc InScope}}}\ifthenelse{\isempty{#1}}{}{_{#1}(#2,#3)}}
+\newcommand{\wellformed}[1]{{\text{\textsmaller{\sc WellFormed}}}\ifthenelse{\isempty{#1}}{}{(#1)}}
+\newcommand{\flatten}[1]{{\text{\textsmaller{\sc Ft}}}\ifthenelse{\isempty{#1}}{}{(#1)}}
+\newcommand{\flatteni}[1]{{\text{\textsmaller{\sc Ft}}^i}\ifthenelse{\isempty{#1}}{}{(#1)}}
+\newcommand{\deps}[2]{{\text{\textsmaller{\sc Deps}}}\ifthenelse{\isempty{#1}}{}{_{#1}(#2)}}
+\newcommand{\uptofirstdependent}[2]{{\text{\textsmaller{\sc UFD}}}\ifthenelse{\isempty{#1}}{}{_{#1}(#2)}}
+
+\newcommand{\negativePatternSelectCase}[3]{#1 \Vdash #2 \rightslice #3}
+
+\newcommand{\tglookupSugar}[3][\tgdeps]{#1(#2,#3)}
+\newcommand{\tglookupPSM}[4][\tgdeps]{#1(#2\ifthenelse{\isempty{#3}}{}{,#3,#4})}
+\newcommand{\tState}[4]{\langle #1, #2, #3, #4 \rangle}
+\defgn[tstates]{\typeannot S}
+\defgn[tpats]{\Pi}
+\defgn[tpatsp]{\Pi^+}
+\defgn[tpatsn]{\Pi^-}
+\defgn[tgkcapturesize]{\kappa}
+\defgn[tgk]{\typeannot k}
+\defgn[tfval]{\typeannot \varphi}
+\defgn[tfvals]{\typeannot \Phi}
+\defgn[tgkstack]{\typeannot K}
+
+\newcommand{\filtered}[3]{#1^{#2}_{#3}}
+
+\newcommand{\kvar}[3]{{#1{}^{#2}_{#3}}}
+\newcommand{\kproject}[3]{{.#1{}^{#2}_{#3}}}
+\newcommand{\kjump}[2]{{\text{\textsmaller{\sc Jump}}}(#1,#2)}
+\newcommand{\kderef}[2]{{{\gtderef}{}^{#1}_{#2}}}
+\newcommand{\kcapture}[1]{\text{\textsmaller{\sc Capture}}^{#1}}
+\newcommand{\kvalueOld}[3]{\toDeprecate{{#1{}^{#2}_{#3}}}}
+\newcommand{\krealflowhuh}{\text{\textsmaller{\sc RealFlow?}}}
+\newcommand{\kaliashuh}{\text{\textsmaller{\sc Alias?}}}
+\newcommand{\krewind}{\text{\textsmaller{\sc Rewind}}}
+\newcommand{\kunop}{\text{\textsmaller{\sc UnOp}}}
+\newcommand{\kbinop}{\text{\textsmaller{\sc BinOp}}}
+\newcommand{\ksideeffectstart}{\text{\textsmaller{\sc SEStart}}}
+\newcommand{\ksideeffectvar}[5]{{#1{}^{#2}_{#3}}@(#4,#5)}
+\newcommand{\ksideeffectescape}[1]{\text{\textsmaller{\sc SEEscape}}(#1)}
+
+\newcommand{\mayaliasAbs}[4]{\text{\textsc{\textsmaller{may-alias}}}\ifthenelse{\isempty{#1}}{}{(#1,#2,#3,#4)}}
+\newcommand{\mustaliasAbs}[4]{\text{\textsc{\textsmaller{must-alias}}}\ifthenelse{\isempty{#1}}{}{(#1,#2,#3,#4)}}
+
+\newcommand{\immediatelyMatchedBy}[1]{{%
+    \text{\textsc{\textsmaller{ImmediatelyMatchedBy}}}\ifthenelse{\isempty{#1}}{}{(#1)}%
+}}
+\newcommand{\abstractBinaryOperation}[3]{{%
+    \text{\textsmaller{\sc AbstractBinaryOperation}}\ifthenelse{\isempty{#1}}{}{(#1,#2,#3)}%
+}}
+\newcommand{\abstractUnaryOperation}[2]{{%
+    \text{\textsmaller{\sc AbstractUnaryOperation}}\ifthenelse{\isempty{#1}}{}{(#1,#2)}%
+}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Rule macros
+
+\newcommand{\rulename}[1]{%
+    \begingroup%
+        \setlength{\fboxsep}{1.5pt}%
+        \fcolorbox{black}{gray!15!white}{%
+            \textsc{\textsmaller{#1}}%
+        }%
+        \vspace*{1pt}%
+    \endgroup%
+    \\%
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Listings code
+
+\usepackage{listings}
+
+\newcommand{\plangbasicstyle}{\ttfamily}
+\newcommand{\plangkeywordstyle}{\plangbasicstyle \color{NavyBlue}}
+\newcommand{\plangsymbolstyle}{\plangbasicstyle \color{RoyalPurple}}
+\newcommand{\plangcommentstyle}{\plangbasicstyle \color{ForestGreen}}
+
+\newcommand{\ttob}{\text{\upshape\ttfamily\char`\{}}
+\newcommand{\ttcb}{\text{\upshape\ttfamily\char`\}}}
+\newcommand{\ttop}{\text{\upshape\ttfamily(}}
+\newcommand{\ttcp}{\text{\upshape\ttfamily)}}
+
+\catcode`\#=11%
+\newcommand{\es}{} % consumes whitespace
+\newcommand{\plangset}{%
+    \lstset{%
+        basicstyle=\plangbasicstyle,
+        fontadjust=false,
+        showspaces=false,
+        showtabs=false,
+        numberstyle=\tiny\color{gray},
+        stepnumber=1,
+        numbers=left,
+        numbersep=5pt,
+        escapeinside={$}{$},
+        escapebegin=$,
+        escapeend=$,
+        keywordstyle=\plangkeywordstyle,
+        keywords={fun},
+        commentstyle=\plangcommentstyle,
+        morecomment=[l]{#},
+        literate=%
+            {\{}{\begingroup    \plangsymbolstyle   \ttob       \endgroup}{1}%
+            {\}}{\begingroup    \plangsymbolstyle   \ttcb       \endgroup}{1}%
+            {(}{\begingroup     \plangsymbolstyle   \ttop       \endgroup}{1}%
+            {)}{\begingroup     \plangsymbolstyle   \ttcp       \endgroup}{1}%
+            {=}{\begingroup     \plangsymbolstyle   =\es        \endgroup}{1}%
+            {?}{\begingroup     \plangsymbolstyle   ?\es        \endgroup}{1}%
+            {:}{\begingroup     \plangsymbolstyle   :\es        \endgroup}{1}%
+            {~}{\begingroup     \plangsymbolstyle   \tttilde    \endgroup}{1}%
+            {->}{\begingroup    \plangsymbolstyle   ->\es       \endgroup}{2}%
+            {@\{}{\begingroup   \plangcommentstyle  \ttob       \endgroup}{1}%
+            {@\}}{\begingroup   \plangcommentstyle  \ttcb       \endgroup}{1}%
+            {@:}{\begingroup    \plangcommentstyle  :\es        \endgroup}{1}%
+            {@=}{\begingroup    \plangcommentstyle  =\es        \endgroup}{1}%
+    }%
+}
+\catcode`\#=6%
+
+\plangset % just run it once to make things consistent
+\lstnewenvironment{plang}[1][]{\begingroup\renewcommand{\plangbasicstyle}{\small\ttfamily} #1}{\endgroup}
+\newcommand{\plangil}[1][]{\plangset{}#1\lstinline[mathescape]}
+
+\newcommand{\camlset}{\lstset{language=caml,basicstyle=\ttfamily,escapeinside={$}{$},escapebegin=$,escapeend=$,morekeywords=case}}
+\lstnewenvironment{caml}{\begingroup \camlset}{\endgroup}
+\newcommand{\camlil}[1][]{\camlset{}#1\lstinline[mathescape]}
+
+% Brace yourself.  The following terrible, glorious hack will squeeze the characters in listings closer together, since the
+% existing spacing is more than a little too wasteful.
+\makeatletter
+\lst@Key{basewidth}{0.5em,0.35em}{\lstKV@CSTwoArg{#1}% was 0.6 and 0.45em resp - SS
+    {\def\lst@widthfixed{##1}\def\lst@widthflexible{##2}%
+     \ifx\lst@widthflexible\@empty
+         \let\lst@widthflexible\lst@widthfixed
+     \fi
+     \def\lst@temp{\PackageError{Listings}%
+                                {Negative value(s) treated as zero}%
+                                \@ehc}%
+     \let\lst@error\@empty
+     \ifdim \lst@widthfixed<\z@
+         \let\lst@error\lst@temp \let\lst@widthfixed\z@
+     \fi
+     \ifdim \lst@widthflexible<\z@
+         \let\lst@error\lst@temp \let\lst@widthflexible\z@
+     \fi
+     \lst@error}}
+\makeatother
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TikZ Diagrams
+
+\tikzstyle{clause}=[draw,ellipse,minimum width=4mm,minimum height=4mm,font=\small\ttfamily,inner sep=0.5mm,fill=green!20]
+\tikzstyle{applclause}=[clause,thick,fill=gray!30]
+\tikzstyle{wireclause}=[draw,rectangle,rounded corners,minimum width=4mm,minimum height=4mm,font=\small\ttfamily,inner sep=0.5mm,fill=orange!30]
+\tikzstyle{flow}=[->]
+\tikzstyle{wireflow}=[flow,densely dotted]
+\tikzstyle{skippedflow}=[flow,dashed,gray!50]
+
+% An example: the command \flowpath{a}{b}{c}{} generates the output
+%   \draw[flow] (a) -- (b); \draw[flow] (b) -- (c);
+% Note that the last empty group is necessary to stop the chain.
+\newcommand{\flowpath}[2]{
+    \ifthenelse{\isempty{#2}}{}{%
+        \draw[flow] (#1) -- (#2);%
+        \flowpath{#2}%
+    }%
+}
+
+% Macros for diagrams
+\newcommand{\subvar}[2]{%
+    {\ttfamily #1\raisebox{-0.2em}{\hbox{\tiny\ttfamily #2}}}%
+}
+
+\newcommand{\calleq}[2]{\raisebox{-0.15em}{\hbox{\ensuremath{\stackrel{\scalebox{0.85}{\ensuremath{\text{\texttt{\tiny #1}}\scriptscriptstyle #2}}}{\text{\texttt{=}}}}}}}
+
+\newcommand{\drawwireflow}[5]{%
+    \draw[wireflow] (#4) to[#1] node[#2] {\scalebox{0.8}{\footnotesize\color{purple!60!blue!70} #3}} (#5);
+}
+
+\newcommand{\examplearrow}[1]{%
+    \raisebox{0.25em}{\begin{tikzpicture}\draw[#1] (0,0) to (0.4,0);\end{tikzpicture}}%
+}
+
+%%% Local Variables:
+%%% mode: plain-tex
+%%% TeX-master: t
+%%% End:

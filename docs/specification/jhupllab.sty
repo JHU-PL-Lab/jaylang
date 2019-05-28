@@ -1,0 +1,508 @@
+%% This LaTeX package is used for JHU PL lab projects.
+%%
+%% Copyright (C) 2013 by the PL lab at The Johns Hopkins University
+%%
+%% This file may be distributed and/or modified under the
+%% conditions of the LaTeX Project Public License, either
+%% version 1.2 of this license or (at your option) any later
+%% version. The latest version of this license is in:
+%% http://www.latex-project.org/lppl.txt
+%% and version 1.2 or later is part of all distributions of
+%% LaTeX version 1999/12/01 or later.
+
+\def\xcoloropts{usenames,dvipsnames}
+\DeclareOption{noxcoloropts}{\def\xcoloropts{}}
+\DeclareOption*{\PackageWarning{jhupllab}{Unknown option: \CurrentOption}}
+\ProcessOptions\relax
+
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{ifthen}
+\usepackage{xifthen}
+\usepackage{relsize}
+\usepackage{stmaryrd}
+\usepackage[\xcoloropts]{xcolor}
+\usepackage{graphicx}
+\usepackage{forloop}
+\usepackage{pgfkeys}
+\usepackage{etoolbox}
+
+% hyperref is commented out here because it must be specified for the first
+% time *after* certain packages are loaded (e.g. thmtools).  This is because
+% hyperref patches up certain commands defined by those packages to avoid
+% duplicate warning messages.  If hyperref is loaded here, it becomes
+% impossible to fix the problem elsewhere.
+%\usepackage{hyperref} \hypersetup{pdfborder={0 0 0}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Low-level token hackery
+
+\makeatletter
+
+\def\Z@eatchar#1#2{#1}
+\def\removeifnextchar#1#2#3{%
+    \@ifnextchar#1{%
+        \Z@eatchar{#2}%
+    }{%
+        #3%
+    }%
+}
+
+\def\takenextgroup@#1#2{%
+    \def\thetakengroup@{#2}%
+    #1%
+}
+
+\newcounter{gatheredprimescntr@}
+\newcounter{gatheredprimesloopcntr@}
+\def\gatherprimes#1{%
+    \setcounter{gatheredprimescntr@}{0}%
+    \gatherprimes@{#1}%
+}
+\def\gatherprimes@#1{%
+    \removeifnextchar'{%
+        \addtocounter{gatheredprimescntr@}{1}%
+        \gatherprimes@{#1}%
+    }{%
+        #1%
+    }%
+}
+\def\gatheredprimes{%
+    \setcounter{gatheredprimesloopcntr@}{\value{gatheredprimescntr@}}%
+    \gatheredprimes@%
+}
+\def\gatheredprimes@{%
+    \ifthenelse{\equal{\value{gatheredprimesloopcntr@}}{0}}{}{%
+    \ifthenelse{\equal{\value{gatheredprimesloopcntr@}}{1}}{'}{%
+    \ifthenelse{\equal{\value{gatheredprimesloopcntr@}}{2}}{''}{%
+    \ifthenelse{\equal{\value{gatheredprimesloopcntr@}}{3}}{'''}{%
+    \ifthenelse{\equal{\value{gatheredprimesloopcntr@}}{4}}{''''}{%
+    \ifthenelse{\equal{\value{gatheredprimesloopcntr@}}{5}}{'''''}{%
+    \ifthenelse{\equal{\value{gatheredprimesloopcntr@}}{6}}{''''''}{%
+    \ifthenelse{\equal{\value{gatheredprimesloopcntr@}}{7}}{'''''''}{%
+    \ifthenelse{\equal{\value{gatheredprimesloopcntr@}}{8}}{''''''''}{%
+    \addtocounter{gatheredprimesloopcntr@}{-8}''''''''\gatheredprimes@%
+    }}}}}}}}}%
+}
+
+\def\thesubscript{}
+\def\grabsubscript#1{%
+    \removeifnextchar_{%
+        \takenextgroup@{%
+            \let\thesubscript@\thetakengroup@%
+            \def\thesubscript{_\thesubscript@}%
+            #1%
+        }%
+    }{%
+        \def\thesubscript{}%
+        #1%
+    }%
+}
+
+\makeatother
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Quick & simple keyword arguments
+
+\makeatletter
+\newcommand{\@makeKeywordArgs@keywordLoop}[3]{%
+        , #2/.estore in = \csname #1#2\endcsname%
+        \ifblank{#3}{}{\@makeKeywordArgs@keywordLoop{#1}{#3}}%
+    }
+% Defines a new set of keyword arguments for use.
+% #1 - The name of the keyword family
+% #2 - A list of all of the keywords (as a sequence of groups).
+% Example: \makeKeywordArgs{cmd}{{foo}{bar}}
+\newcommand{\makeKeywordArgs}[2]{%
+    \edef\@makeKeywordArgs@pgfkeysArgs{%
+        /#1/.is family, /#1 %
+        \@makeKeywordArgs@keywordLoop{#1}#2{}
+    }
+    \let\@makeKeywordArgs@keywordLoop\undefined
+    \expandafter\pgfkeys\expandafter{\@makeKeywordArgs@pgfkeysArgs}
+}
+% Parses a keyword argument string and assigns its contents to the appropriate
+% variables.
+% #1 - The name of the keyword family.
+% #2 - The keyword arguments.
+% Example: \parseKeywordArgs{cmd}{foo=1,bar=2}
+%   This will define commands \cmdfoo and \cmdbar to 1 and 2, respectively, as
+%   long as \makeKeywordArgs{cmd}{{foo}{bar}} has been previously executed.
+\newcommand{\parseKeywordArgs}[2]{%
+    \edef\@parseKeywordArgs@pgfkeysArgs{/#1, #2}%
+    \expandafter\pgfkeys\expandafter{\@parseKeywordArgs@pgfkeysArgs}%
+}
+\makeatother
+
+% example usage:
+% \makeKeywordArgs{cmd}{{foo}{bar}}
+% \newcommand{\cmd}[1]{
+%     \parseKeywordArgs{cmd}{#1}%
+%     foo=\cmdfoo, bar=\cmdbar
+% }
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Control routines
+
+% Generates a warning.  Useful for document refactoring.  The \GenericWarning
+% command is used with the string "LaTeX Warning" to ensure that IDEs and the
+% like will notice the warning and relay it to the user.
+\newcommand{\warn}[1]{{\GenericWarning{}{LaTeX Warning: #1 (input line \the\inputlineno)}}}
+
+% Generates an error.  Useful for document refactoring.  The \GenericWarning
+% command is used with the string "LaTeX Warning" to ensure that IDEs and the
+% like will notice the warning and relay it to the user.
+\newcommand{\error}[1]{{\GenericError{}{! #1 (input line \the\inputlineno)}{}{}}}
+
+% Marks the contents as slated for deprecation.  This generates a warning and
+% produces a visible effect.
+\newcommand{\toDeprecate}[1]{{\warn{Deprecated command used}\color{red} #1}}
+
+% A generic tool for marking an existing command deprecated.  This lacks the
+% highlighting that the more first-order approach of using \toDeprecate (above)
+% will yield, but it has the advantage of not requiring a command edit; one can
+% merely write: \deprecate{theCommmand}
+\makeatletter
+\newcommand{\deprecate}[1]{%
+    \expandafter\let\csname Deprecated@#1\expandafter\endcsname\csname#1\endcsname%
+    \expandafter\renewcommand\expandafter{\csname #1\endcsname}{\warn{Deprecated command used}\csname Deprecated@#1\endcsname}%
+}
+\makeatother
+
+% Commenting without the %'s
+\long\def\ignoreme#1{}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Document mode routines
+
+\makeatletter
+\def\documentmode@{draft}
+\newcommand{\documentModeFinal}{\def\documentmode@{final}}
+\newcommand{\documentModeDraft}{\def\documentmode@{draft}}
+\newcommand{\isdraft}{\equal{\documentmode@}{draft}}
+\newcommand{\isfinal}{\equal{\documentmode@}{final}}
+\newcommand{\draftonly}[1]{\ifthenelse{\isdraft}{#1}{}}
+\makeatother
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Debugging tools
+
+\newsavebox{\justboxbox}
+\newenvironment{justbox}{%
+    \begin{lrbox}{\justboxbox}%
+}{%
+    \end{lrbox}%
+    \usebox{\justboxbox}%
+}
+
+\newsavebox{\dboxbox}
+\newenvironment{dbox}{%
+    \begin{lrbox}{\dboxbox}%
+}{%
+    \end{lrbox}%
+    \setlength{\fboxsep}{0pt}%
+    \fbox{\usebox{\dboxbox}}%
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Inline notes
+
+% Defines a textual style for inline notes.
+\newcommand{\notestyle}[1]{\textnormal{\scriptsize \itshape #1}}
+
+% Determines whether notes are enabled for the document.
+\newif\ifnotes
+\notestrue % notes default to enabled
+\newcommand{\nonotes}{\notesfalse} % disables notes
+
+% Defines a command to create new note commands.  This command can be run once
+% for each contributor to define the command prefix, contributor initials, and
+% color of the note text.
+\makeatletter
+\newcommand{\defnote}[3]{%
+    \expandafter\newcommand\expandafter{\csname #1note\endcsname}[1]{%
+        % See http://tex.stackexchange.com/questions/294693/multiple-space-hacks-generate-more-space
+        % for an explanation of this spooky whitespace-handling code.
+        \@bsphack
+        %=== instead of \@esphack: ===
+        \relax
+        \ifhmode
+            \spacefactor\@savsf
+            \ifdim\@savsk>\z@
+            \nobreak
+            \hskip\z@skip
+            % The previous action will change \lastskip, so:
+            \hskip-\@savsk
+            \hskip\@savsk      
+            % now \lastskip is almost \@savsk again.
+            \ignorespaces
+            \fi
+        \fi
+        %===========================
+        \ifnotes%
+            \draftonly{\notestyle{\color{#3}(##1 -- #2)}}%
+        \fi
+    }%
+}
+\makeatother
+
+% Define note commands for the members of the JHU PL lab.
+\definecolor{goldenrod}{rgb}{0.85, 0.65, 0.13}
+\defnote{s}{SS}{goldenrod} % Scott Smith
+\defnote{z}{ZP}{ForestGreen} % Zachary Palmer
+\defnote{a}{AR}{Periwinkle} % Alex Rozenstheyn
+\defnote{h}{HM}{RawSienna} % Hari Menon
+\defnote{l}{LF}{VioletRed} % Leandro Facchinetti
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Font loading operations
+
+% This section loads several fonts manually.  This is done to allow symbols
+% from those fonts to be used without implicitly overriding the standard
+% mathematical symbols with those new fonts.
+
+\newcommand{\defineMnSymbolFont}[1]{
+    \DeclareFontFamily{U}  {MnSymbol#1}{}
+    \DeclareSymbolFont{MnSy#1}         {U}  {MnSymbol#1}{m}{n}
+    \SetSymbolFont{MnSy#1}       {bold}{U}  {MnSymbol#1}{b}{n}
+    \DeclareFontShape{U}{MnSymbol#1}{m}{n}{
+        <-6>  MnSymbol#15
+    <6-7>  MnSymbol#16
+    <7-8>  MnSymbol#17
+    <8-9>  MnSymbol#18
+    <9-10> MnSymbol#19
+    <10-12> MnSymbol#110
+    <12->   MnSymbol#112}{}
+    \DeclareFontShape{U}{MnSymbol#1}{b}{n}{
+        <-6>  MnSymbol#1-Bold5
+    <6-7>  MnSymbol#1-Bold6
+    <7-8>  MnSymbol#1-Bold7
+    <8-9>  MnSymbol#1-Bold8
+    <9-10> MnSymbol#1-Bold9
+    <10-12> MnSymbol#1-Bold10
+    <12->   MnSymbol#1-Bold12}{}
+}
+\defineMnSymbolFont{A}
+\defineMnSymbolFont{B}
+\defineMnSymbolFont{C}
+\defineMnSymbolFont{D}
+
+% We now give names to a number of symbols that we want from the above fonts.
+\DeclareMathSymbol{\lessapprox}{\mathrel}{MnSyD}{112}
+\DeclareMathSymbol{\leftT}{\mathbin}{MnSyC}{182}
+\DeclareMathSymbol{\rightT}{\mathbin}{MnSyC}{181}
+\DeclareMathSymbol{\mnbar}{\mathbin}{MnSyC}{16}
+\DeclareMathSymbol{\leftharpup}{\mathbin}{MnSyA}{74}
+\DeclareMathSymbol{\rightharpup}{\mathbin}{MnSyA}{64}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Math mode scaling and kerning operations
+
+\newcommand{\scalemathbox}[2]{
+    \mathchoice%
+        {\scalebox{#1}{\ensuremath{\displaystyle{#2}}}}%
+        {\scalebox{#1}{\ensuremath{\textstyle{#2}}}}%
+        {\scalebox{#1}{\ensuremath{\scriptstyle{#2}}}}%
+        {\scalebox{#1}{\ensuremath{\scriptscriptstyle{#2}}}}%
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Convenient abbreviations
+
+% Defines a centered math array.
+\makeatletter%
+\newenvironment{cmarray}[1]{%
+    \begin{center}\begin{math}\begin{array}{#1}%
+}{%
+    \end{array}\end{math}\end{center}%
+}
+
+% Produces the contents of the second argument only if the first argument is empty.
+\newcommand{\ifnotempty}[2]{\ifthenelse{\isempty{#1}}{}{#2}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Figure placement
+
+% This command can be used for the body of a single "figure" environment when
+% we want two visible figures placed within the same environment (e.g. to
+% save space in single-column paper formats).  For each of the two figures,
+% the arguments are: width (fraction of text width), content, caption, and
+% label.  (For instance, argument 5 is the percentage of the text width for
+% the second figure.)  As an optional argument, a gutter width (as a fraction
+% of text width) can be specified; it defaults to 0.05.
+\newcommand{\splitfigure}[9][0.05]{%
+    \begingroup%
+    \centering%
+    \setlength{\abovecaptionskip}{0mm}%
+    \begin{tabular}{@{} p{#2\textwidth} @{\hspace{#1\textwidth}} p{#6\textwidth} @{}}%
+        \parbox[c]{#2\textwidth}{\hrule height 0pt width 0pt%%
+            #3%
+        }%
+        &
+        \parbox[c]{#6\textwidth}{\hrule height 0pt width 0pt%%
+            #7%
+        }%
+        \\
+        \caption{#4}\label{#5} &
+        \caption{#8}\label{#9} \\%
+    \end{tabular}%
+    \endgroup%
+}
+        
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Algebraic structure notation
+
+\makeatletter
+\def\rightharpoonfill@{\arrowfill@\mnbar\mnbar\rightharpup}
+\newcommand{\overrightharpoon}[1]{\mathpalette{\overarrow@{\raise 0.2em\hbox{\ensuremath{\mathsmaller{#1}}}\rightharpoonfill@}}}
+% TODO: the following is a bit hacky.  Rather than using \mkern, can we just shrink the relbar itself and eliminate the spacing around it?
+\def\vbracketfill@{\arrowfill@{\leftT\mkern-6mu\mnbar}\mnbar{\mnbar\mkern-6mu\rightT}}
+\newcommand{\overvbracket}[1]{\mathpalette{\overarrow@{\raise 0.2em\hbox{\ensuremath{\mathsmaller{#1}}}\vbracketfill@}}}
+\makeatother
+
+\providecommand{\listof}{}
+\renewcommand{\listof}[2][]{\overrightharpoon{\mathsmaller{#1\ifnotempty{#1}{\hspace{1pt}}}}{#2}}
+\newcommand{\setof}[2][]{\overvbracket{\mathsmaller{#1}}{#2}}
+\newcommand{\lidxph}{{\ensuremath{\scalemathbox{0.5}{\boxempty}}}} % list index placeholder
+\newcommand{\listConcat}{\ensuremath{\mathop{||}}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Utilities for language grammars
+
+% Defines an environment for displaying language grammars.
+% Within this environment, some commands are defined:
+%   \grule[description]{non-terminal}{productions}
+%   \gor (a symbol for separating productions)
+%   \gline (a symbol for breaking a line of productions if more space is needed)
+%   \setGrammarVertAdjustment{length} (which sets the vertical adjustment for
+%                                      the next grammar newline)
+\newcommand{\grammarNoteSpace}{\hspace{4mm}}
+\newcounter{grammarnote}
+\setcounter{grammarnote}{0}
+\newcommand{\grammarDefs}{%
+    \global\def\grammarVertAdjustment{0mm}%
+    \newcommand{\gcomment}[1]{\hfill%
+        \ifnum\value{grammarnote}=0
+            \stepcounter{grammarnote}
+            \grammarNoteSpace \textrm{\textsmaller{\itshape ##1}}
+        \fi
+    }%
+    \newcommand{\grule}[3][]{%
+        \setcounter{grammarnote}{0}
+        ##2 & \ifnotempty{##3}{::=} & \newcommand{\gcommenttext}{##1} ##3 \hfill \gcomment{##1} \endgrule
+    }%
+    \newcommand{\gskip}{&&\endgrule}%
+    \def\endgrule{\\[\grammarVertAdjustment]}%
+    \newcommand{\gor}{\mathrel{\vert}}%
+    \newcommand{\gline}{%
+        \hfill \gcomment{\gcommenttext} \\[\grammarVertAdjustment] &&
+    }%
+}
+\def\grammarColPad{\quad}%
+\newenvironment{grammar}{%
+    \begingroup%
+    \grammarDefs%
+    \begin{math}\begin{array}{@{}r@{\grammarColPad}c@{\grammarColPad}l@{}}%
+}{%
+    \end{array}\end{math}%
+    \endgroup%
+}
+\newcounter{grammarrulecount}%
+\newenvironment{grammarTwoCol}{%
+    \begingroup%
+    \grammarDefs%
+    \setcounter{grammarrulecount}{0}%
+    \renewcommand{\endgrule}{%
+        \stepcounter{grammarrulecount}%
+        \ifnum\value{grammarrulecount}=2%
+            \setcounter{grammarrulecount}{0}%
+            \\[\grammarVertAdjustment]%
+        \else%
+            &%
+        \fi%
+    }%
+    \begin{cmarray}{@{}r c l @{\qquad} r c l@{}}%
+}{
+    \end{cmarray}%
+    \endgroup%
+}
+
+% Defines a command for creating grammar terminal macros.  Grammar terminal macros always display their contents in true-type font.
+% The second argument defines the text of the command while the first (optional) argument defines the command's name.  If the name is
+% not specified, it is equal to the text as processed by the \defgtname command.  By default, this command will produce its input
+% prefixed with a lower-case "gt" (for "grammar terminal"); for instance, \defgt{x} defines a command \gtx which prints an x.
+\newcommand{\defgt}[2][]{%
+    \ifthenelse{\isempty{#2}}{%
+        \warn{Ignoring empty argument to \char`\\defgt}%
+    }{%
+        \ifthenelse{\isempty{#1}}{\defgt[\defgtname{#2}]{#2}}{%
+            \expandafter\newcommand\expandafter{\csname #1\endcsname}{\mathinner{\texttt{\gttext{#2}}}}
+        }%
+    }%
+}
+\newcommand{\defgtname}[1]{gt#1}
+\newcommand{\gttext}[1]{#1}
+
+% Defines a command for creating grammar non-terminal macros.  Grammar non-terminal macros display their contents in math font.
+% As above, the command name is derived by default from the text; in this case, the command is \defgnname, the default implementation
+% for which prefixes the text with "gn".
+\newcommand{\defgn}[2][]{%
+    \ifthenelse{\isempty{#2}}{%
+        \warn{Ignoring empty argument to \char`\\defgn}%
+    }{%
+        \ifthenelse{\isempty{#1}}{\defgn[\defgnname{#2}]{#2}}{%
+            \expandafter\newcommand\expandafter{\csname #1\endcsname}{\ensuremath{#2}}
+        }%
+    }%
+}
+\newcommand{\defgnname}[1]{gn#1}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% .aux file manipulation
+
+%%% Begin .aux ignore code
+% The following snippet defines a set of macros which allow pieces of the
+% document to be flagged as "ignoring" the .aux file.  The command
+% "\BeginIgnoreAux" takes an argument (entirely user-supplied) which nominally
+% identifies a region of the .aux file; "\EndIgnoreAux" terminates that region.
+% If that region has already been encountered, writing to the .aux file is
+% disabled.  This is largely intended to allow theorems and other LaTeX code
+% containing labels to be stored in a box and used multiple times; if the box
+% is bracketed by appropriate "\BeginIgnoreAux" and "\EndIgnoreAux", then the
+% labels will only be reported the first time the content is written (instead
+% of every time they appear).
+%
+% This fragment was originally obtained from:
+%     http://tex.stackexchange.com/questions/158984/multiply-defined-labels-with-usebox
+\makeatletter
+\global\let\AuxResetIgnoreStuff\@empty
+\usepackage{auxhook}
+\AddLineBeginAux{\string\AuxResetIgnoreStuff}
+
+% Macros inside the `.aux' file
+\newcommand*{\AuxBeginIgnore}[1]{%
+  \@ifundefined{ignore@#1}{%
+    \global\expandafter\let\csname ignore@#1\endcsname\@empty
+    \expandafter\g@addto@macro\expandafter\AuxResetIgnoreStuff
+    \expandafter{%
+      \expandafter\global\expandafter\let\csname ignore@#1\endcsname\relax
+    }%
+  }\AuxSkip
+}
+\def\AuxSkip#1\AuxEndIgnore{}
+\let\AuxEndIgnore\relax
+
+% User commands
+\newcommand*{\BeginIgnoreAux}[1]{%
+  \protected@write\@auxout{}{%
+    \string\AuxBeginIgnore{#1}%
+  }%
+}   
+\newcommand*{\EndIgnoreAux}{%
+  \protected@write\@auxout{}{%  
+    \string\AuxEndIgnore
+  }%
+}   
+\makeatother

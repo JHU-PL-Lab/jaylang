@@ -1,0 +1,1597 @@
+\documentclass[nocopyright]{sigplanconf}
+
+\input{macros}
+
+\begin{document}
+
+\title{Language and Analysis Full Specification}
+\subtitle{Supplement to ``Higher-Order Demand-Driven Program Analysis''}
+\authorinfo{\ }{\ }{\ }
+\nonotes
+\permission{}
+\toappear{}
+
+\maketitle
+\section{Extended Operational Semantics}
+
+This section formally extends the presentation language of ``Higher-Order Demand-Driven Program Analysis'' to include deep pattern matching and state.  The next sections will extend the DDPA analysis accordingly.
+
+We must freshen variables as they are introduced to the expression to preserve the invariant that each variable is uniquely defined and no shadowing occurs.  We give a somewhat nonstandard definition of freshening which is deterministic, so as to make alignments easier.  We take $\efreshen{\ev'}{\ev}$ to yield another variable $\ev''$; we require that $\efreshen{-}{-}$ is injective and that its codomain does not include variables appearing in the initial program.  Here, $\ev$ is the variable to be freshened and $\ev'$ is the point in the program at which it is freshened.  For informal illustration, one concrete freshening function could be $\efreshen{\ev'}{\ev}=\ev^{\ev'}$.  We overload $\efreshen{\ev'}{\eval}$ to indicate the freshening of all variables bound in $\eval$.
+
+\begin{definition}
+    \label{def_wire}\ \\
+    Let $\wire{\gtfun \ev \gtarrow \gtop \expr \gtcp}{\eval}{\ev'}$ = $[\ev \gtis \eval] \listConcat \expr \listConcat [\ev' \gtis \rv[\expr]]$.
+\end{definition}
+
+Our language grammar extensions are depicted in Figure~\ref{fig_grammarModifications}.\lnote{Missing a grammar specification for $\elbl$.}  The pattern grammar is no longer identical to the record value grammar due to the depth of records; we thus respecify the pattern grammar here.  Note that patterns are deeply structured and non-recursive.  Observe that this is not a strict grammar extension; we have eliminated shallow records for simplicity of presentation.
+
+\begin{figure}
+    \begin{grammar}
+        \grule[values]{\eval}{
+                    \ldots
+            \gor    \gtref\ \ev
+            \gor    \eint
+            \gor    \ebool
+            \gor    \estring
+        }
+%        \grule[records]{\erec}{
+%                    \{\elbl \gtis \ev, \ldots\}
+%        }
+        \grule[patterns]{\epat}{
+                    \{\elbl \gtis \epat, \ldots\}
+            \gor    \gtfun
+            \gor    \gtref
+            \gor    \gtint
+            \gor    \gttrue
+            \gor
+            \gline  \gtfalse
+            \gor    \gtstring
+            \gor    \gtany
+        }
+        \grule[clause bodies]{\elb}{
+                    \ldots
+            \gor    \ev \gtset \ev
+            \gor    \gtderef \ev
+            \gor    \Box \ev
+            \gor    \ev \binop \ev
+        }
+        \grule[binary operators]{\binop}{
+                    \gtplus
+            \gor    \gtminus
+            \gor    \gtless
+            \gor    \gtleq
+            \gor    \gteq
+            \gor    \gtand
+            \gor    \gtor
+            \gor    \gtat
+        }
+        \grule[unary operators]{\unop}{
+                    \gtnot
+        }
+    \end{grammar}
+    \caption{Expression Grammar Modifications}
+    \label{fig_grammarModifications}
+\end{figure}
+
+Reference cells are initialized using the value form $\gtref \eval$ and updated using the clause $\ev_1 \gtset \ev_2$.  In the case of the latter, both $\ev_1$ and $\ev_2$ are free in that clause.
+
+The \activenode{}{} predicate in the original specification holds for any clauses which are reachable from the start through a path of nodes which are guaranteed to be accessible in the control flow of the program.  The only nodes which may not participate in such a path are application and conditional nodes because they induce control flow which is not initially evident from the structure of the graph.  The cell update and cell dereference clauses do not induce such control flow; their execution is linear in nature.  This is also true of the integer operations.  For that reason, we allow such clauses in these paths.  To formalize this, we first introduce a new term:
+
+\begin{definition}
+    \label{def_immediate}
+    The following forms of clauses are \emph{immediate} clauses:
+    \begin{itemize}
+        \item $\annotated{\tcl}{\gmodeEnter}{\tv}{\tv'}$
+        \item $\annotated{\tcl}{\gmodeExit}{\tv}{\tv'}$
+        \item $\gstart{\tv}$
+        \item $\gend{\tv}$
+        \item $\tv \gtis \tlb$ for $\tlb$ not application or conditional
+    \end{itemize}
+    All other clauses are \emph{non-immediate} clauses.
+\end{definition}
+
+We then redefine the $\activenode{}{}$ predicate as follows:
+
+\begin{definition}
+    \label{def_revised_active}
+    $\activenode{\tgacl'}{\tgdeps}$ iff path $\gstart{} \before \tgacl_1 \before \ldots \before \tgacl_n \before \tgacl'$ appears in $\tgdeps$ such that each $\tgacl_i$ is an immediate clause.
+\end{definition}
+
+As patterns are deep, the process of pattern matching must now be defined recursively.  We define the following function to determine whether a value matches a pattern or not.  This function has two cases: the base case (which allows the empty record pattern to match any record) and the inductive case (which matches and eliminates an arbitrary label from the pattern).
+
+\begin{definition}
+    \label{def_valueMatches}
+    Let $\matches{}{}{}$ be the least predicate satisfying the following assertions:
+    \begin{itemize}
+        \item $\matches{\eval}{\env}{\gtany}$;
+        \item $\matches{\erec}{\env}{\emptyset}$;
+        \item $\matches{\{\elbl \gtis \ev\} \cup \erec}{\env}{\{\elbl \gtis \epat\} \cup \erec'}$ if $\matches{\erec}{\env}{\erec'}$, $\ev \gtis \eval \in \env$, and $\matches{\eval}{\env}{\epat}$;
+        \item $\matches{\eval}{\env}{\gtint}$ if $\eval \in \eint$;
+        \item $\matches{\gttrue}{\env}{\gttrue}$;
+        \item $\matches{\gtfalse}{\env}{\gtfalse}$;
+        \item $\matches{\eval}{\env}{\gtstring}$ if $\eval \in \estring$;
+        \item $\matches{\efunc}{\env}{\gtfun}$;
+        \item $\matches{\gtref\,\ev}{\env}{\gtref}$.
+    \end{itemize}
+\end{definition}
+
+Finally, we provide a simple function for evaluating operations on integers.  To reduce the number of language constructs necessary at this time, we opt to encode the boolean value ``true'' as the empty record $\ttob\ttcb$ and to encode the boolean value ``false'' as the zero integer \plangil!0!.  This way, if-then-else expressions may be encoded via pattern matching the boolean with the empty record (since integers do not match record patterns).  With this encoding in mind, we define a function for the semantics of integer operations:
+
+\begin{definition}
+    Let $\fnIntOp{}{}{}$ be defined as follows:
+    \begin{center}
+        \begin{math}
+            \fnIntOp{\eval_1}{\binop}{\eval_2} =
+                \begin{cases}
+                    \eval_1 + \eval_2 & \text{when } \binop = \gtplus \\
+                    \eval_1 - \eval_2 & \text{when } \binop = \gtminus \\
+                    \gttrue & \text{when } \binop = (\gteq) \text{ and } \eval_1 = \eval_2 \\
+                    \gtfalse & \text{when } \binop = (\gteq) \text{ and } \eval_1 \neq \eval_2 \\
+                    \gttrue & \text{when } \binop = (\gtleq) \text{ and } \eval_1 \leq \eval_2 \\
+                    \gtfalse & \text{when } \binop = (\gtleq) \text{ and } \eval_1 > \eval_2 \\
+                    \gttrue & \text{when } \binop = (\gtless) \text{ and } \eval_1 < \eval_2 \\
+                    \gtfalse & \text{when } \binop = (\gtless) \text{ and } \eval_1 \geq \eval_2 \\
+                \end{cases}
+        \end{math}
+    \end{center}
+\end{definition}
+
+\begin{definition}
+    Let $\fnBoolBinOp{}{}{}$ and $\fnBoolUnOp{}{}{}$ be defined as follows:
+    \begin{center}
+        \begin{math}
+            \fnBoolBinOp{\eval_1}{\binop}{\eval_2} =
+                \begin{cases}
+                    \gttrue & \text{when } \binop = (\gteq) \text{ and } \eval_1 = \eval_2 \\
+                    \gtfalse & \text{when } \binop = (\gteq) \text{ and } \eval_1 \neq \eval_2 \\
+                    \gttrue & \text{when } \binop = (\gtand) \text{ and } \eval_1 = \gttrue \text{ and } \eval_2 = \gttrue \\
+                    \gtfalse & \text{when } \binop = (\gtand) \text{ and either } \eval_1 = \gtfalse \text{ or } \eval_2 = \gtfalse \\
+                    \gttrue & \text{when } \binop = (\gtor) \text{ and either } \eval_1 = \gttrue \text{ or } \eval_2 = \gttrue \\
+                    \gtfalse & \text{when } \binop = (\gtor) \text{ and } \eval_1 = \gtfalse \text{ and } \eval_2 = \gtfalse
+                \end{cases}
+        \end{math}
+        \begin{math}
+            \fnBoolUnOp{\unop}{\eval_1} =
+                \begin{cases}
+                    \gttrue & \text{when } \unop = (\gtnot) \text{ and } \eval_1 = \gtfalse \\
+                    \gtfalse & \text{when } \unop = (\gtnot) \text{ and } \eval_1 = \gttrue
+                \end{cases}
+        \end{math}
+    \end{center}
+\end{definition}
+
+\begin{definition}
+    Let $\fnStringBinOp{}{}{}$ be defined as follows:
+    \begin{center}
+        \begin{math}
+            \fnStringBinOp{\eval_1}{\binop}{\eval_2} =
+                \begin{cases}
+                    \gttrue & \text{when } \binop = (\gteq) \text{ and } \eval_1 = \eval_2 \\
+                    \gtfalse & \text{when } \binop = (\gteq) \text{ and } \eval_1 \neq \eval_2 \\
+                    \eval_3 & \text{when } \binop = (\gtplus) \text{ where } \eval_3 \text{ is the concatenation of } \eval_1 \text{ and } \eval_2
+                \end{cases}
+        \end{math}
+    \end{center}
+\end{definition}
+
+
+Given the above, we redefine the operational semantics of the language are extended using the new rules in Figure~\ref{fig_operationalSemanticsModified}.\lnote{The operational semantics is missing the \emph{Record Projection} rule.}  Note that this redefinition is necessary only due to the elimination of shallow records; the Lookup and Application rules are restated purely for convenience.
+
+\begin{figure}
+    \begin{mathpar}
+        \bbrule{Lookup}{
+            \ev_2 \gtis \eval \in \env
+        }{
+            \env \listConcat [\ev_1 \gtis \ev_2] \listConcat \expr \smallstep \env \listConcat [\ev_1 \gtis \eval] \listConcat \expr
+        }
+
+        \bbrule{Application}{
+            \ev_2 \gtis \efunc \in \env \\
+            \ev_3 \gtis \eval \in \env \\
+            \efunc' = \efreshen{\ev_1}{\efunc}
+        }{
+            \env \listConcat [\ev_1 \gtis \ev_2\ \ev_3] \listConcat \expr \smallstep \env \listConcat \wire{\efunc'}{\eval}{\ev_1} \listConcat \expr
+        }
+
+        \bbrule{Conditional True}{
+            \ev_2 \gtis \eval \in \env \\
+            \matches{\eval}{\env}{\epat} \\
+            \efunc_1' = \efreshen{\ev_1}{\efunc_1} \\
+        }{
+            \env \listConcat [\ev_1 \gtis \conditional{\ev_2}{\epat}{\efunc_1}{\efunc_2}] \listConcat \expr \smallstep
+                \env \listConcat \wire{\efunc_1'}{\eval}{\ev_1} \listConcat \expr
+        }
+
+        \bbrule{Conditional False}{
+            \ev_2 \gtis \eval \in \env \\
+            \neg\matches{\eval}{\env}{\epat} \\
+            \efunc_2' = \efreshen{\ev_1}{\efunc_2} \\
+        }{
+            \env \listConcat [\ev_1 \gtis \conditional{\ev_2}{\epat}{\efunc_1}{\efunc_2}] \listConcat \expr \smallstep
+                \env \listConcat \wire{\efunc_2'}{\eval}{\ev_1} \listConcat \expr
+        }
+
+        \bbrule{Cell Get}{
+            \ev_2 \gtis \gtref\ \ev_3 \in \env
+        }{
+            \env \listConcat [\ev_1 \gtis \gtderef \ev_2] \listConcat \expr \smallstep \env \listConcat [\ev_1 \gtis \ev_3] \listConcat \expr
+        }
+
+        \bbrule{Cell Update}{
+            \ev_1 \gtis \gtref\ \ev_3 \in \env \\
+            \ev_2 \gtis \eval_2 \in \env \\
+            \env = \env_1 \listConcat [\ev_3 \gtis \eval_3] \listConcat \env_2 \\
+        }{
+            \env \listConcat [\ev_0 \gtis \ev_1 \gtset \ev_2] \listConcat \expr \smallstep \env_1 \listConcat [\ev_3 \gtis \eval_2, \ev_0 \gtis \gtob\gtcb] \listConcat \env_2 \listConcat \expr
+        }
+
+        \bbrule{Integer Binary Operation}{
+            \ev_2 \gtis \eval_2 \in \env \\
+            \ev_3 \gtis \eval_3 \in \env \\
+            \{\eval_2,\eval_3\} \subseteq \eint \\
+            \eval_1 = \fnIntOp{\eval_2}{\binop}{\eval_3}
+        }{
+            \env \listConcat [\ev_1 \gtis \ev_2 \binop \ev_3] \listConcat \expr \smallstep \env \listConcat [\ev_1 \gtis \eval_1] \listConcat \expr
+        }
+
+        \bbrule{Boolean Binary Operation}{
+            \ev_2 \gtis \eval_2 \in \env \\
+            \ev_3 \gtis \eval_3 \in \env \\
+            \{\eval_2,\eval_3\} \subseteq \ebool \\
+            \eval_1 = \fnBoolBinOp{\eval_2}{\binop}{\eval_3}
+        }{
+            \env \listConcat [\ev_1 \gtis \ev_2 \binop \ev_3] \listConcat \expr \smallstep \env \listConcat [\ev_1 \gtis \eval_1] \listConcat \expr
+        }
+
+        \bbrule{Boolean Unary Operation}{
+            \ev_2 \gtis \eval_2 \in \env \\
+            \{\eval_2\} \subseteq \ebool \\
+            \eval_1 = \fnBoolUnOp{\unop}{\eval_2}
+        }{
+            \env \listConcat [\ev_1 \gtis \unop \ev_2] \listConcat \expr \smallstep \env \listConcat [\ev_1 \gtis \eval_1] \listConcat \expr
+        }
+
+        \bbrule{String Binary Operation}{
+            \ev_2 \gtis \eval_2 \in \env \\
+            \ev_3 \gtis \eval_3 \in \env \\
+            \{\eval_2,\eval_3\} \subseteq \estring \\
+            \eval_1 = \fnStringBinOp{\eval_2}{\binop}{\eval_3}
+        }{
+            \env \listConcat [\ev_1 \gtis \ev_2 \binop \ev_3] \listConcat \expr \smallstep \env \listConcat [\ev_1 \gtis \eval_1] \listConcat \expr
+        }
+
+        \bbrule{String Indexing Operation (In Bounds)}{
+            \ev_2 \gtis \eval_2 \in \env \\
+            \ev_3 \gtis \eval_3 \in \env \\
+            \{\eval_2\} \subseteq \estring \\
+            \{\eval_3\} \subseteq \eint \\
+            \eval_2 \text{ is at least } \eval_3 + 1 \text{ characters long} \\
+            \eval_1 \text{ is character at position } \eval_3 \text{ (zero-indexed) in } \eval_2
+        }{
+            \env \listConcat [\ev_1 \gtis \ev_2 \gtat \ev_3 ] \listConcat \expr \smallstep \env \listConcat [\ev_1 \gtis \eval_1] \listConcat \expr
+        }
+
+        \bbrule{String Indexing Operation (Out of Bounds)}{
+            \ev_2 \gtis \eval_2 \in \env \\
+            \ev_3 \gtis \eval_3 \in \env \\
+            \{\eval_2\} \subseteq \estring \\
+            \{\eval_3\} \subseteq \eint \\
+            \eval_2 \text{ is shorter than } \eval_3 + 1 \text{ characters long} \\
+        }{
+            \env \listConcat [\ev_1 \gtis \ev_2 \gtat \ev_3 ] \listConcat \expr \smallstep \env \listConcat [\ev_1 \gtis \gtdoublequote \gtdoublequote] \listConcat \expr
+        }
+    \end{mathpar}
+    \caption{Modified Operational Semantics}
+    \label{fig_operationalSemanticsModified}
+\end{figure}
+
+Note that cell update is modifying the existing environment rather than adding to it.  Although $\env$ is represented as a list here for notational convenience, it is treated by these operational semantics more like a set: element ordering is irrelevant.  Due to the manner in which update works, our concept of bound and free variables must respect this policy: $\env$ is closed if every variable in its elements' right-hand sides appear somewhere in its elements' left-hand sides regardless of element ordering within $\env$.
+
+
+\section{Well-formedness condition}
+\label{sec_wellformedness}
+
+The interpreter and the analysis are only defined for well-formed programs.  The notion of well-formedness is non-standard\footnote{Non-standard in the sense that it is neither lexical scoping nor dynamic scoping, but somewhere in between.  The closest analogy is the treatment of the \emph{variable hoisting} feature in languages like JavaScript.} to support limited forms of references to identifiers before their definitions.  This allows for programs with recursive functions -- including mutually recursive function -- without the need for self-passing or other encoding.  The present section starts with an intuition for what it means for a program to be well-formed, then formalizes it to define a full specification.
+
+\subsection{Intuition}
+
+Valid programs are those that do not bind the same variable more than once and are \emph{closed}.  That means variables must be in scope before use, but the notion of scoping is not the usual lexical scoping.  The variations are explained by example, starting with the following program:
+
+\begin{plang}
+f = fun x -> (
+  r = f x;
+);
+j = f f;
+\end{plang}
+
+The binding of the variable \plangil!f! occurs after considering the function body \plangil!fun x -> (...)!, which uses \plangil!f!.  Nevertheless, the program is considered well-formed.  The interpreter and the analysis do not have a problem with that because they process function calls by \emph{inlining} the function body at the call site.  In the example above, it means the program point \plangil!r! is \emph{inlined} at the call site \plangil!j!, and \plangil!f! is already in the environment by then.
+
+Furthermore, references to variables that occur further down in the program are also considered well-formed, as depicted by the following program:
+
+\begin{plang}
+f = fun x -> (
+  b = a;
+);
+a = 0;
+r = f f;
+\end{plang}
+
+At the program point \plangil!b!, there is a reference to the variable \plangil!a!, which is defined after the function itself.  Again, this works because at the call site \plangil!r! the value for \plangil!a! is already in the environment.  A slight variation in this program makes it ill-formed, though:
+
+\begin{plang}
+f = fun x -> (
+  b = a;
+);
+r = f f; # ILL-FORMEDNESS
+a = 0;
+\end{plang}
+
+Here, the function \plangil!f! is called at the program point \plangil!r!, but \plangil!f! refers to \plangil!a!, whose value is so far undefined.  In order to call a function, all its external dependencies must already be defined.  This restriction extends to any use of the function, not only calling it, as the code below shows\footnote{This is considered an ill-formed program even though the interpreter and the analysis would work on it.  To detect that this case is fine requires data-flow analysis and, even though DDPA is a such an analysis, for simplicity we decided not use it for this purpose.  With this restriction in place, the treatment of external dependencies can be purely syntactical and, for all interesting uses -- for example, defining mutually recursive functions and closure encoding of objects --, it is not a limiting restriction.}:
+
+\begin{plang}
+f = fun x -> (
+  b = a;
+);
+g = f; # ILL-FORMEDNESS
+a = 0;
+\end{plang}
+
+Note that variables defined in conditional branches are not available during scope resolution, so the following code is ill-formed:
+
+\begin{plang}
+f = fun x -> (
+  b = a; # ILL-FORMEDNESS
+);
+c = 0;
+r = c ~ {} ?
+    fun fm -> (
+      a = 0;
+      e = f f;
+    ) : fun fa -> (
+      d = 0;
+    );
+\end{plang}
+
+The program above would evaluate and work well under the analysis, because \plangil!a! is defined when \plangil!f! is called at the program point \plangil!e!.  But if \plangil!f! were used anywhere outside that conditional branch, it may be possible that \plangil!a! is undefined, so the program is considered ill-formed.
+
+A reference to a function that still has unsatisfied external dependencies is only possible if itself happens \emph{frozen} in another function body. The code below exemplifies such case:
+
+\begin{plang}
+f = fun x -> (
+  b = a;
+);
+g = fun y -> (
+  c = f y;
+);
+a = 0;
+r = g g;
+\end{plang}
+
+In the program above, note how \plangil!g! can refer to \plangil!f! even before \plangil!a! is defined.  But this binds \plangil!g! to the same obligations \plangil!f! had -- namely, \plangil!g! can not be used before \plangil!f!'s external dependency, \plangil!a!, is satisfied.  The following program is ill-formed because it does not respect that condition:
+
+\begin{plang}
+f = fun x -> (
+  b = a;
+);
+g = fun y -> (
+  c = f y;
+);
+r = g g; # => ILL-FORMEDNESS
+a = 0;
+\end{plang}
+
+Finally, the last condition is that external dependencies are not allowed for variables outside the enclosing immediate block\footnote{Or, in other words, hoisting only works one lexical level deep.  This is an artificial restriction in place to simplify the analysis -- the $\krewind$ operation is guaranteed to only need to jump as far as the end of the immediate block.  It also simplifies the implementation, in which edges are added incrementally, and the target of the jump is not guaranteed to be immediately available.  For most interesting examples, this is not a limiting restriction.}. See the example:
+
+\begin{plang}
+f = fun x -> (
+  g = fun y -> (
+    b = a; # => ILL-FORMED
+  );
+);
+a = 0;
+\end{plang}
+
+The program is ill-formed because, at the point \plangil!b!, the reference to the variable \plangil!a! is outside \plangil!g!'s enclosing immediate block -- i.e., \plangil!f!'s body.  Note the implication this has in $\eta$-conversion: refactoring a program by enclosing a block with an immediately invoked function does not work if the block has an unsatisfied external dependency.
+
+This restriction only applies to direct external dependency.  The kind of indirect external dependency made by using a variable that itself has unsatisfied external dependencies is allowed regardless of the nesting level, respecting the notion of non-locals in lexical scoping.  The following well-formed program exemplifies this case:
+
+\begin{plang}
+f = fun x -> (
+  b = a;
+);
+g = fun y -> (
+  h = fun z -> (
+    c = f f;
+  );
+);
+a = 0;
+r = g g;
+\end{plang}
+
+With all this in place, programs with recursive functions are natural to write, without the need for self-passing or other encoding.  See the following real-world examples, the first is a recursive summation function and the second finds out if a number is even or odd with mutually recursive functions:
+
+\begin{plang}
+# let rec sum = fun number ->
+#   if number = 0 then
+#     0
+#   else
+#     (sum (number - 1)) + number
+# in
+# sum 5 (* => 15 *)
+
+zero = 0;
+one = 1;
+five = 5;
+
+sum = fun number -> (
+  numberequal0 = number == zero;
+  sumresult = numberequal0 ~ true
+    ? fun numberequal0match -> (
+      numberequal0matchresult = zero;
+    )
+    : fun numberequal0antimatch -> (
+      numberminus1 = number - one;
+      partialsum = sum numberminus1;
+      numberequal0antimatchresult = partialsum + number;
+    );
+);
+
+r = sum five; # => 15
+\end{plang}
+
+\begin{plang}
+# let rec even n =
+#   if n = 0 then true
+#   else odd (n - 1)
+# and odd n =
+#   if n = 0 then false
+#   else even (n - 1)
+# ;;
+#
+# even 0;; (* => true *)
+# odd 0;; (* => false *)
+#
+# even 3;; (* => false *)
+# odd 3;; (* => true *)
+#
+# even 6;; (* => true *)
+# odd 6;; (* => false *)
+
+zero = 0;
+one = 1;
+three = 3;
+six = 6;
+
+even = fun evennumber -> (
+  evennumberiszero = evennumber == zero;
+  evenresult = evennumberiszero ~ true ?
+    fun evennumberiszeromatch -> (
+      evennumberiszeromatchreturn = true;
+    ) :
+    fun evennumberiszeroantimatch -> (
+      evennumberminusone = evennumber - one;
+      evennumberiszeroantimatchreturn = odd evennumberminusone;
+    );
+);
+
+odd = fun oddnumber -> (
+  oddnumberiszero = oddnumber == zero;
+  oddresult = oddnumberiszero ~ true ?
+    fun oddnumberiszeromatch -> (
+      oddnumberiszeromatchreturn = false;
+    ) :
+    fun oddnumberiszeroantimatch -> (
+      oddnumberminusone = oddnumber - one;
+      oddnumberiszeroantimatchreturn = even oddnumberminusone;
+    );
+);
+
+evenzero = even zero; # => true
+oddzero = odd zero; # => false
+
+eventhree = even three; # => false
+oddthree = odd three; # => true
+
+evensix = even six; # => true
+oddsix = odd six; # => false
+\end{plang}
+
+The next subsection formalizes the introduced intuitions.
+
+\subsection{Formalization}
+
+The approach to formalize the notion of well-formedness is dividing the problem in two independent parts: the first is checking whether all variable bindings are unique, the second is checking whether the program respects the modified notion of lexical scoping introduced in the previous subsection.
+
+To accomplish the first part, we build a list of all the bindings introduced by the program and check for duplicates in the list.  The second part is further subdivided in two responsibilities: build a relation of external dependencies and its requirements for each clause in the program, and check that all the external dependencies' requirements are satisfied at each variable use occurrence.
+
+The presentation of the formalization is bottom-up, starting with some useful notation, then defining auxiliary definitions that collection information by traversing the syntax tree, finally building up to well-formedness predicate.
+
+\begin{notation}
+  Let $\listof{\ev} = [\ev, \dots]$ be a list of variables. Let $\ev \in \listof{\ev}$ iff $\listof{\ev} = [\dots, \ev, \dots]$. Similarly, let $\ecl \in \expr$ iff $\expr = [\dots, \ecl, \dots]$.
+\end{notation}
+
+The $\flatten{}$ -- ``flatten'' -- function \emph{linearizes} the expression, \emph{pulling} the clauses nested within function bodies and conditionals to the top level:
+
+\begin{definition}
+  Let $\flatten{}$ be the least function such that:
+
+  \begin{itemize}
+    \item $\flatten{[]} = []$;
+    \item $\flatten{\ecl \listConcat \expr} =
+      \begin{cases}
+        \ecl \listConcat \flatten{\expr' \listConcat \expr} & \text{if } \ecl = (\ev \gtis \gtfun \ev' \gtarrow \gtop \expr' \gtcp) \\
+        \ecl \listConcat \flatten{\expr_1 \listConcat \expr_2 \listConcat \expr} & \text{if } \ecl = (\ev \gtis \conditional{\ev'}{\epat}{\efunc_1}{\efunc_2})), \\
+        & \text{where} \\
+        & \efunc_1 = \gtfun\ \ev_1 \gtarrow \gtop \expr_1 \gtcp \text{, and} \\
+        & \efunc_2 = \gtfun\ \ev_2 \gtarrow \gtop \expr_2 \gtcp \\
+        \ecl \listConcat \flatten{\expr} & \text{otherwise}
+      \end{cases}
+      $.
+  \end{itemize}
+\end{definition}
+
+The $\flatteni{}$ -- ``flatten immediate block'' -- function \emph{linearizes} the immediate block expression, \emph{pulling} the clauses nested within conditionals -- but not functions -- to the top level\footnote{Note that $\flatteni{\expr} \subseteq \flatten{\expr}$.}:
+
+\begin{definition}
+  Let $\flatteni{}$ be the least function such that:
+
+  \begin{itemize}
+    \item $\flatteni{[]} = []$;
+    \item $\flatteni{\ecl \listConcat \expr} =
+      \begin{cases}
+        \ecl \listConcat \flatteni{\expr_1 \listConcat \expr_2 \listConcat \expr} & \text{if } \ecl = (\ev \gtis \conditional{\ev'}{\epat}{\efunc_1}{\efunc_2})), \\
+        & \text{where} \\
+        & \efunc_1 = \gtfun\ \ev_1 \gtarrow \gtop \expr_1 \gtcp \text{, and} \\
+        & \efunc_2 = \gtfun\ \ev_2 \gtarrow \gtop \expr_2 \gtcp \\
+        \ecl \listConcat \flatteni{\expr} & \text{otherwise}
+      \end{cases}
+      $.
+  \end{itemize}
+\end{definition}
+
+The $\defines{}$ function returns the variables immediately bound by an expression, shallowly traversing its list of clauses:
+
+\begin{definition}
+  Let $\defines{}$ be the least function such that:
+
+  \begin{itemize}
+    \item $\defines{[]} = []$;
+    \item $\defines{(\ev \gtis \elb) \listConcat \expr} = \ev \listConcat \defines{\expr}$.
+  \end{itemize}
+\end{definition}
+
+The $\bindings{}$ function returns all variables bound by an expression, deeply traversing its syntax tree\footnote{Note that $\defines{\expr} \subseteq \bindings{\expr}$.}:
+
+\begin{definition}
+  \sloppy
+  Let $\bindings{\expr} = \defines{\expr'} \listConcat \bindingsp{\expr'}$, where $\expr' = \flatten{\expr}$ and $\bindingsp{}$ is the least function such that:
+
+  \begin{itemize}
+    \item $\bindingsp{[]} = []$;
+    \item $\bindingsp{(\ev \gtis \gtfun \ev' \gtarrow \gtop \expr' \gtcp) \listConcat \expr} = \ev' \listConcat \bindingsp{\expr}$;
+    \item $\bindingsp{(\ev \gtis \conditional{\ev'}{\epat}{\gtfun\ \ev_1 \gtarrow \gtop \expr_1 \gtcp}{\gtfun\ \ev_2 \gtarrow \gtop \expr_2 \gtcp}) \listConcat \expr} = [\ev_1, \ev_2] \listConcat \bindingsp{\expr}$;
+    \item $\bindingsp{\ecl \listConcat \expr} = \bindingsp{\expr}$, otherwise.
+  \end{itemize}
+\end{definition}
+
+The $\uses{}$ function returns all variables used by an expression, deeply traversing its syntax tree:
+
+\begin{definition}
+  \sloppy
+  Let $\uses{\expr} = \usesp{\flatten{\expr}}$, where $\usesp{}$ is the least function such that:
+
+  \begin{itemize}
+    \item $\usesp{[]} = []$;
+    \item $\usesp{(\ev' \gtis \{\elbl_1 \gtis \ev_1, \ldots, \elbl_n \gtis \ev_n\}) \listConcat \expr} = [\ev_1, \ldots, \ev_n] \listConcat \usesp{\expr}$;
+    \item $\usesp{(\ev' \gtis \gtfun\ \ev \gtarrow \gtop \expr' \gtcp) \listConcat \expr} = \usesp{\expr}$;
+    \item $\usesp{(\ev' \gtis \gtref \ev) \listConcat \expr} = \ev \listConcat \usesp{\expr}$;
+    \item $\usesp{(\ev' \gtis \ev) \listConcat \expr} = \ev \listConcat \usesp{\expr}$;
+    \item $\usesp{(\ev' \gtis \ev_1\ \ev_2) \listConcat \expr} = [\ev_1, \ev_2] \listConcat \usesp{\expr}$;
+    \item $\usesp{(\ev' \gtis \conditional{\ev}{\epat}{\efunc_1}{\efunc_2}) \listConcat \expr} = \ev \listConcat \usesp{\expr}$;
+    \item $\usesp{(\ev' \gtis \ev_1 \gtset \ev_2) \listConcat \expr} = [\ev_1, \ev_2] \listConcat \usesp{\expr}$;
+    \item $\usesp{(\ev' \gtis \gtderef \ev) \listConcat \expr} = \ev \listConcat \usesp{\expr}$;
+    \item $\usesp{(\ev' \gtis \unop \ev) \listConcat \expr} = \ev \listConcat \usesp{\expr}$;
+    \item $\usesp{(\ev' \gtis \ev_1 \binop \ev_2) \listConcat \expr} = [\ev_1, \ev_2] \listConcat \usesp{\expr}$;
+  \end{itemize}
+\end{definition}
+
+The $\unique{}$ predicate holds when there are no repetitions among the variables:
+
+\begin{definition}
+  Let $\unique{}$ be the least predicate satisfying the following assertions:
+
+  \begin{itemize}
+    \item $\unique{[]}$;
+    \item $\unique{\ev \listConcat \listof{\ev}}$ iff $\ev \notin \listof{\ev}$, and $\unique{\listof{\ev}}$.
+  \end{itemize}
+\end{definition}
+
+The definitions that follow all assume that $\unique{\bindings{\expr}}$ hold and that, when an expression $\expr$ and a clause $\ecl$ are given, then the clause occurs in the expression: $\ecl \in \flatten{\expr}$.
+
+The $\immediatelyrequires{\expr}{\ev_d}{\ev_r}$ -- ``$\ev_d$ immediately requires $\ev_r$ in $\expr$'' -- relation holds if the $\ev_r$ variable occurs but is not bound in the body of $\ev_d$ declaration.  Note that a variable can require itself if it is used in its own definition, in the case of \emph{immediate} recursion.
+
+\begin{definition}
+  Let the $\immediatelyrequires{\expr}{\ev_d}{\ev_r}$ relation hold iff $\ecl \in \flatten{\expr}$, $\ecl = (\ev_d \gtis \elb)$, $\ev_r \in \uses{[\ecl]}$, and either $\ev_d = \ev_r$ or $\ev_r \notin \bindings{[\ecl]}$.
+\end{definition}
+
+The $\requires{}{}{}$ relation is the transitive closure of $\immediatelyrequires{}{}{}$:
+
+\begin{definition}
+  Let $\requires{\expr}{\ev_1}{\ev_2}$ hold iff $\immediatelyrequires{\expr}{\ev_1}{\immediatelyrequires{\expr}{\dots}{\ev_2}}$.
+\end{definition}
+
+The $\deps{}{}$ -- ``dependencies'' -- function returns the variables upon which a clause depends.  Those are the variables that \emph{must} be in scope for the clause to be considered well-formed; the variables that are immediate requirements and are not \emph{frozen}\footnote{Note that $\deps{}{} \subseteq \immediatelyrequires{}{}{}$.}.  Note that the only construct capable of \emph{freezing} variable uses is a function declaration.
+
+\begin{definition}
+  Let $\deps{}{}$ be a function such that:
+
+  \begin{equation*}
+    \deps{\expr}{\ecl} = \begin{cases}
+      [] & \text{if } \ecl = (\ev \gtis \gtfun\ \ev \gtarrow \gtop \expr \gtcp) \\
+      [\ev_1, \dots, \ev_n] & \text{for all } \ev_i \\
+      & \text{ such that } \ecl = (\ev \gtis \elb) \text{,} \\
+      & \immediatelyrequires{\expr}{\ev}{\ev_i} \text{, } \\
+      & i \in \{1, \dots, n\} \text{,} \\
+      & \text{otherwise}
+    \end{cases}
+  \end{equation*}
+\end{definition}
+
+The $\uptofirstdependent{}{}$ -- ``up to first dependent'' -- function returns the clauses up to (before) the first clause that depends on a given variable (not inclusive).
+
+\begin{definition}
+  Let $\uptofirstdependent{}{}$ be a function such that:
+
+  \begin{equation*}
+    \uptofirstdependent{\expr}{\ev} = \begin{cases}
+      \expr & \text{if there does not exist } \ecl \in \expr \\
+      & \text{such that } \ev \in \deps{\expr}{\ecl} \\
+      \expr_1 & \text{where } \expr = \expr_1 \listConcat \ecl \listConcat \expr_2 \text{,} \\
+      & \ev \in \deps{\expr}{\ecl} \text{, and} \\
+      & \text{there does not exist } \ecl_1 \in \expr_1 \\
+      & \text{such that } \ev \in \deps{\expr}{\ecl_1}
+    \end{cases}
+  \end{equation*}
+\end{definition}
+
+The $\availr{}{}$ -- ``available for requirement'' -- function returns the variables available -- i.e., already defined -- at a given clause to satisfy requirements.
+
+\begin{definition}
+  Let $\availr{\expr}{\ecl}$ be the least function such that:
+
+  \begin{equation*}
+    \availr{\expr}{\ecl} = \begin{cases}
+      \defines{\expr_1} & \text{if } \expr = \expr_1 \listConcat \ecl \listConcat \expr_2 \\
+      \ev' \listConcat \listof{\ev}_1 \listConcat \listof{\ev}_2 & \text{where } \\
+      & \listof{\ev}_1 = \defines{\uptofirstdependent{\expr}{\ev}} \text{, and} \\
+      & \listof{\ev}_2 = \availr{\expr'}{\ecl} \text{, if} \\
+      & \expr = \expr_1 \listConcat \ecl' \listConcat \expr_2 \text{,} \\
+      & \ecl' = (\ev \gtis \gtfun\ \ev' \gtarrow \gtop \expr' \gtcp) \text{,} \\
+      & \text{and } \ecl \in \flatten{\expr'} \\
+      \ev' \listConcat \listof{\ev}_1 \listConcat \listof{\ev}_2 & \text{where } \\
+      & \listof{\ev}_1 = \defines{\expr_1} \text{, and} \\
+      & \listof{\ev}_2 = \availr{\expr'}{\ecl} \text{, if} \\
+      & \expr = \expr_1 \listConcat \ecl' \listConcat \expr_2 \text{,} \\
+      & \ecl' = (\ev_1 \gtis \conditional{\ev_2}{\epat}{\efunc_1}{\efunc_2}) \text{,} \\
+      & \gtfun\ \ev' \gtarrow \gtop \expr' \gtcp \in \{\efunc_1, \efunc_2\} \text{,} \\
+      & \text{and } \ecl \in \flatten{\expr'}
+    \end{cases}
+  \end{equation*}
+\end{definition}
+
+The $\availd{}{}$ -- ``available for dependency'' -- function returns the variables available -- i.e., already defined -- at a given clause to satisfy dependencies.  Note that, in order to support the artificial restriction that external dependencies are not allowed for variables outside the enclosing immediate block, there is a special case on the treatment of function bodies\footnote{If we were to remove this artificial restriction, the notions of $\availd{}{}$ and $\availr{}{}$ would converge: $\availd{\expr}{\ecl} = \availr{\expr}{\ecl}$.  But, as it is, neither $\availd{\expr}{\ecl} \subseteq \availr{\expr}{\ecl}$ nor $\availd{\expr}{\ecl} \supseteq \availr{\expr}{\ecl}$.}\footnote{The special case uses $\flatteni{}{}$ so that forward external dependencies within conditional bodies work.}:
+
+\begin{definition}
+  Let $\availd{\expr}{\ecl}$ be the least function such that:
+
+  \begin{equation*}
+    \availd{\expr}{\ecl} = \begin{cases}
+      \defines{\expr_1} & \text{if } \expr = \expr_1 \listConcat \ecl \listConcat \expr_2 \\
+      \ev' \listConcat \listof{\ev}_1 \listConcat \listof{\ev}_2 & \text{where } \\
+      & \listof{\ev}_1 = \defines{\uptofirstdependent{\expr}{\ev}} \text{, and} \\
+      & \listof{\ev}_2 = \availd{\expr'}{\ecl} \text{, if} \\
+      & \expr = \expr_1 \listConcat \ecl' \listConcat \expr_2 \text{,} \\
+      & \ecl' = (\ev \gtis \gtfun\ \ev' \gtarrow \gtop \expr' \gtcp) \text{,} \\
+      & \text{and } \ecl \in \flatteni{\expr'} \\
+      \ev' \listConcat \listof{\ev}_1 \listConcat \listof{\ev}_2 & \text{where } \\
+      & \listof{\ev}_1 = \defines{\expr_1} \text{, and} \\
+      & \listof{\ev}_2 = \availd{\expr'}{\ecl} \text{, if} \\
+      & \expr = \expr_1 \listConcat \ecl' \listConcat \expr_2 \text{,} \\
+      & \ecl' = (\ev \gtis \gtfun\ \ev' \gtarrow \gtop \expr' \gtcp) \text{,} \\
+      & \ecl \in \flatten{\expr'} \\
+      & \text{and } \ecl \notin \flatteni{\expr'} \\
+      \ev' \listConcat \listof{\ev}_1 \listConcat \listof{\ev}_2 & \text{where } \\
+      & \listof{\ev}_1 = \defines{\expr_1} \text{, and} \\
+      & \listof{\ev}_2 = \availd{\expr'}{\ecl} \text{, if} \\
+      & \expr = \expr_1 \listConcat \ecl' \listConcat \expr_2 \text{,} \\
+      & \ecl' = (\ev_1 \gtis \conditional{\ev_2}{\epat}{\efunc_1}{\efunc_2}) \text{,} \\
+      & \gtfun\ \ev' \gtarrow \gtop \expr' \gtcp \in \{\efunc_1, \efunc_2\} \text{,} \\
+      & \text{and } \ecl \in \flatten{\expr'}
+    \end{cases}
+  \end{equation*}
+\end{definition}
+
+The $\inscope{}{}{}$ predicate holds when the given variable dependency and all its requirements are available at the particular clause in the expression.
+
+\begin{definition}
+  Let $\inscope{\expr}{\ecl}{\ev_d}$ hold iff $\ev_d \in \availd{\expr}{\ecl}$, and for all $\ev_r$ such that $\requires{\expr}{\ev_d}{\ev_r}$, $\ev_r \in \availr{\expr}{\ecl}$.
+\end{definition}
+
+Finally, the $\wellformed{}$ predicate holds when the bindings are unique and the external dependencies of every clause are in scope.
+
+\begin{definition}
+  Let $\wellformed{\expr}$ hold iff $\unique{\bindings{\expr}}$, and for all $\ecl$ and $\ev$ such that $\ecl \in \flatten{\expr}$ and $\ev \in \deps{\expr}{\ecl}$, $\inscope{\expr}{\ecl}{\ev}$.
+\end{definition}
+
+Given this definition of well-formed programs, there is a guarantee that evaluation does not get stuck due to looking for a variable that is not in the environment\footnote{In other words, no JavaScript-like \plangil!undefined! values show up during evaluation.}:
+
+\begin{lemma}
+  If $\wellformed{\expr}$, then $\expr \smallsteps \expr'$ will not get stuck as a result of a failed predicate of the form $\ev \gtis \eval \in \env$.
+\end{lemma}
+
+\lnote{TODO: Prove the above lemma.}
+
+
+\section{Extended Analysis}
+
+We now begin the process of extending DDPA to cover both the operational semantics presented above and path-sensitivity properties.  DDPA relies heavily upon its lookup function; the form of this function in the original specification is selected to ensure that its translation into a PDA is obvious.  The resulting function is readable due to the simplicity of the original presentation language.  Here, due to the extension of the presentation language, such an approach is no longer appropriate: the PDA-friendly lookup function includes a number of implementation details which obfuscate the intention of its definition.  Instead, we present two equivalent versions of the lookup function: one in this section which is semantically illustrative and another in the next section which is easily encoded into a PDA.  Each definition also includes their corresponding graph closure rules, which are nearly identical.
+
+\begin{figure}
+    \begin{grammar}
+        \grule[abstract expressions]{\texpr}{
+                    [\tcl, \ldots]
+        }
+        \grule[abs. annotated clauses]{\tgacl}{
+                    \tcl
+            \gor    \annotated{\tcl}{\gmodeEnter}{\tv}{\tv}
+            \gor    \annotated{\tcl}{\gmodeExit}{\tv}{\tv}
+            \gor
+            \gline  \gstart{\tv}
+            \gor    \gend{\tv}
+        }
+        \grule[abstract clauses]{\tcl}{
+                    \tv \gtis \tlb
+        }
+        \grule[abstract clause bodies]{\tlb}{
+                    \tval
+            \gor    \tv
+            \gor    \tv\ \tv
+            \gor    \conditional{\tv}{\tpat}{\tfunc}{\tfunc}
+            \gor
+            \gline  \tv \gtset \tv
+            \gor    \gtderef \tv
+            \gor    \unop \tv
+            \gor    \tv \binop \tv
+        }
+        \grule[abstract values]{\tval}{
+                    \trec
+            \gor    \tfunc
+            \gor    \gtref\ \tv
+            \gor    \gtint
+            \gor
+            \gline  \gttrue
+            \gor    \gtfalse
+            \gor    \gtstring
+        }
+        \grule[abstract records]{\trec}{
+                    \{\tlbl \gtis \tv, \ldots\}
+        }
+        \grule[abstract functions]{\tfunc}{
+                    \gtfun\ \tv \gtarrow \gtop \texpr \gtcp
+        }
+        \grule[abstract patterns]{\tpat}{
+                    \{\tlbl \gtis \tpat, \ldots\}
+            \gor    \gtfun
+            \gor    \gtref
+            \gor    \gtint
+            \gor
+            \gline  \gttrue
+            \gor    \gtfalse
+            \gor    \gtstring
+            \gor    \gtany
+        }
+        \grule[abstract variables]{\tv}{
+                    \ev
+        }
+        \grule[abstract value sets]{\tvals}{
+                    \{\tval, \ldots\}
+        }
+        \grule[abstract pattern sets]{\tpats,\tpatsp,\tpatsn}{
+                    \{\tpat, \ldots\}
+        }
+    \end{grammar}
+    \caption{Analysis Grammar}
+    \label{fig_analysisGrammar}
+\end{figure}
+
+We begin by extending the grammar of the analysis as in Figure~\ref{fig_analysisGrammar}.  In addition to the abstract forms of the clauses given above, we have sets of patterns $\tpats$ which will be used to model path-sensitivity by filtering value lookups.  Although their grammars are identical, we use positive pattern sets $\tpatsp$ to indicate the set of patterns a looked-up value must match in order to be included; negative pattern sets $\tpatsn$ indicate the patterns a looked-up value \emph{must not} match.  We will learn these filters by analyzing our flow control path and determining which pattern matches our value must have reached.
+
+\subsection{Notation and Supporting Definitions}
+
+We give here some notation and definitions which improve the legibility of the lookup function below.
+
+\subsubsection{Pattern Sets}
+
+To work with the aforementioned sets of patterns, a projection notation is helpful:
+
+\begin{notation}
+    We define notation for pattern projection:
+    \begin{itemize}
+        \item $\tpat.\tlbl$ is taken to mean $\tpat'$ where $\tlbl \gtis \tpat' \in \tpat$.
+        \item We define projection on pattern sets functorally: $\tpats.\tlbl$ is taken to mean $\{\tpat' \mid \exists \tpat \in \tpats.\, (\tlbl \gtis \tpat') \in \tpat\}$.  This notation is not defined for pattern sets that contain at least one non-record, non-$\gtany$ pattern.
+        \item For convenience, we write $\tlbl \in \tpats$ when $\tpats.\tlbl \neq \emptyset$ and $\tlbl \in \trec$ when $\tlbl \gtis \tv \in \trec$ for some $\tv$.
+    \end{itemize}
+\end{notation}
+
+The legibility of the lookup function is also improved by a function to reduce negative record patterns.  When considering a record $\trec$ and the set $\tpatsn$, the record should only be accepted by lookup if \emph{none} of the patterns in $\tpatsn$ match the record.  A pattern fails to match $\trec$ if \emph{any} of its label clauses don't match; for instance, a record \plangil!{a=5,b='z'}! (in a system with integers and characters) should fail to match \plangil!{a=int,b=int}! because the \plangil!b! component does not match.  The disjunctive nature of negative record pattern terms presents something of a problem.  Positive record patterns must match every term; thus, they are conjunctive in nature and can be projected pointwise.  This is not true for negative record patterns.
+
+We address this problem by relying on the nondeterministic form of our lookup function.  When presented with a negative pattern that has more than one element, one of them is nondeterministically selected.  Since every possibility must be explored to compute the full set of values produced by lookup, this yields the appropriate result.  For illustration, consider that any value $\tval$ which fails to match the pattern \plangil!{a=int,b=int}! must fail to match at least one of \plangil!{a=int}! or \plangil!{b=int}!.  Then to find the subset of a set of values $\tvals$ which fail to match \plangil!{a=int,b=int}!, it suffices to union the subset of $\tvals$ which does not match \plangil!{a=int}! with the subset which does not match \plangil!{b=int}!.
+
+To capture this reasoning, as well as the understanding that a record always fails to match a pattern if the pattern includes a label that the record does not, we define the following relation:
+
+\begin{definition}
+    We let $\negativePatternSelectCase{\trec}{\tpatsn_1}{\tpatsn_2}$ be the least relation satisfying the rules in Figure~\ref{fig_selectCase}.
+\end{definition}
+
+\begin{figure}
+    \begin{mathpar}
+        \bbrule{Base}{
+            \forall \tpat \in \tpatsn.\, |\tpat| = 1 \\
+            \forall \tlbl \in \tpatsn.\, \tlbl \in \trec
+        }{
+            \negativePatternSelectCase{\trec}{\tpatsn}{\tpatsn}
+        }
+
+        \bbrule{Non-Record Pattern Elim.}{
+            \tpat \neq \{\tlbl' \gtis \tpat', \ldots\} \\
+            \tpat \neq \gtany \\
+            \negativePatternSelectCase{\trec}{\tpatsn_1}{\tpatsn_2}
+        }{
+            \negativePatternSelectCase{\trec}{\tpatsn_1 \cup \{\tpat\}}{\tpatsn_2}
+        }
+
+        \bbrule{Record Pattern Elim.}{
+            \tlbl \in \tpat \\
+            \tlbl \notin \trec \\
+            \negativePatternSelectCase{\trec}{\tpatsn_1}{\tpatsn_2}
+        }{
+            \negativePatternSelectCase{\trec}{\tpatsn_1 \cup \{\tpat\}}{\tpatsn_2}
+        }
+
+        \bbrule{Field Choice}{
+            \tlbl \in \trec \\
+            (\tlbl \gtis \tpat'') \in \tpat \\
+            \negativePatternSelectCase{\trec}{\tpatsn_1 \cup \{\{\tlbl \gtis \tpat''\}\}}{\tpatsn_2}
+        }{
+            \negativePatternSelectCase{\trec}{\tpatsn_1 \cup \{\tpat\}}{\tpatsn_2}
+        }
+    \end{mathpar}
+    \caption{Negative Pattern Set Selection}
+    \label{fig_selectCase}
+\end{figure}
+
+\subsubsection{Context Stacks}
+
+The context stacks in the base system are defined in terms of three functions: $\stpush$, $\stpop$, and $\stistop$.  Below is the presentation of that model as given in the original definition of DDPA for reference:
+
+\begin{definition}
+    \label{def_stackModel}
+    \sloppy
+    A \emph{context stack model} $\tgcstackmodel = \langle \tgcstacks, \tgcemptystack, \stpush, \stpop, \stistop \rangle$ obeys the following laws:
+    \begin{enumerate}
+        \item $\tgcstacks$ is a set.  We use $\tgcstack$ to range over elements of $\tgcstacks$ and refer to such $\tgcstack$ as \emph{context stacks}.
+        \item $\tgcemptystack \in \tgcstacks$.
+        \item $\stpush[\tcl][\tgcstack]$ and $\stpop[\tgcstack]$ are total functions returning stacks.
+        \item $\stistop[\tcl][\tgcstack]$ is a predicate over clauses and stacks.
+        \item For any $\tcl$, $\stistop[\tcl][{\stpush[\tcl][\tgcstack]}]$ and $\stistop[\tcl][{\tgcemptystack}]$ hold.
+        \item If $\stistop[\tcl][\tgcstack]$ then $\stistop[\tcl][{\stpop[{\stpush[\tcl'][\tgcstack]}]}]$.
+    \end{enumerate}
+\end{definition}
+
+\subsection{Lookup Function}
+
+This section gives a definition of lookup for the full system.  We begin by defining the grammar in Figure~\ref{fig_analysisGrammarExtensionsPDS}.
+
+\begin{figure}
+    \begin{grammar}
+        \grule[filtered values]{\tfval}{
+                    \filtered{\tval}{\tpatsp}{\tpatsn}
+        }
+        \grule[capture bound]{\tgkcapturesize}{
+                    1 \gor \ldots \gor 5
+        }
+        \grule[continuations]{\tgk}{
+                    \kvar{\tv}{\tpatsp}{\tpatsn}
+            \gor    \kproject{\tlbl}{\tpatsp}{\tpatsn}
+            \gor    \kderef{\tpatsp}{\tpatsn}
+            \gor    \tfval
+            \gor    \krealflowhuh
+            \gor
+            \gline  \kjump{\tgacl}{\tgcstack}
+            \gor    \kcapture{\tgkcapturesize}
+            \gor    \kaliashuh
+            \gor    \kunop
+            \gor    \kbinop
+            \gor
+            \gline  \krewind
+            \gor    \ksideeffectstart
+            \gor    \ksideeffectescape{\tv}
+            \gor
+            \gline  \ksideeffectvar{\tv}{\tpatsp}{\tpatsn}{\tgacl}{\tgcstack}
+        }
+        \grule[continuation stacks]{\tgkstack}{
+                    [\tgk,\ldots]
+        }
+        \grule[abs. dependency graphs]{\tgdeps}{
+                    \{\tgdep, \ldots\}
+        }
+    \end{grammar}
+    \caption{PDS-Friendly Analysis Grammar Extensions}
+    \label{fig_analysisGrammarExtensionsPDS}
+\end{figure}
+
+\subsubsection{Natural Recursion}
+
+Section~\ref{sec_wellformedness} defines the well-formedness of an expression and provides a somewhat unusual notion of scope.  This scope is designed to support a natural recursion model: one in which recursion is an in-build part of the language semantics and does not require encoding (e.g. via a Y-combinator).
+
+The analysis reflects this behavior by annotating each block with $\gstart{\tv}$ and $\gend{\tv}$ nodes.  The variable appearing in the node is the return variable for the block; as variable bindings are unique in a well-formed program, this uniquely identifies the start and end of each block.  These nodes have no semantic impact -- the lookup process simply circumvents them -- but they act as anchors to the beginning and end of a particular block.  In the case of natural recursion, the $\gend{\tv}$ node is used to jump to the end of the block in an attempt to find a forward reference.
+
+To accomplish this, we first overload the $\gwire$ function to operate on the abstract grammar as follows:
+
+\begin{definition}
+    \label{def_gwire}
+    Let $\gwire{\tcl'}{\gtfun\ \tv_0 \gtarrow \gtop[\tcl_1, \ldots, \tcl_n]\gtcp}{\tv_1}{\tv_2} = \formalRuleLine
+            \preds[\tcl'] \before
+            (\annotated{\tcl'}{\gmodeEnter}{\tv_0}{\tv_1}) \before
+            \gstart{\tv'} \before
+            \tcl_1 \before \ldots \before \tcl_n \before
+            \gend{\tv'} \before
+            (\annotated{\tcl'}{\gmodeExit}{\tv_2}{\tv'}) \before
+            \succs[\tcl']$ where $\tv' = \rv[{[\tcl_n]}]$.
+\end{definition}
+
+We then define function to locate the end of block for a given clause.  This routine relies on the assumption that a particular clause $\tcl$ appears uniquely in the program we are analyzing, which holds true for well-formed programs.
+
+\begin{definition}
+    \label{def_endOfBlock}
+    Let $\stendofblock[\tcl] = \gend{\tv}$ where $\tcl \in \texpr$ for some $\texpr$ and $\rv[\texpr] = \tv$.
+\end{definition}
+
+\subsubsection{Immediate Pattern Matching}
+
+Pattern matching in the operational semantics is defined by the $\matches{}{}{}$ predicate.  This predicate relies upon the ability to immediately inspect the value and recurse as necessary; this immediate inspection is not possible during analysis.  We define here a parallel to the $\matches{}{}{}$ function: a function which, given a value, produces the set of patterns which will match it.
+
+\begin{definition}
+    \label{def_immediatelyMatchedBy}
+    Let $\immediatelyMatchedBy{\tval}$ be defined as follows:
+    \begin{itemize}
+        \item $\immediatelyMatchedBy{\tfunc} = \{\gtfun, \gtany\}$
+        \item $\immediatelyMatchedBy{\gtint} = \{\gtint, \gtany\}$
+        \item $\immediatelyMatchedBy{\gttrue} = \{\gttrue, \gtany\}$
+        \item $\immediatelyMatchedBy{\gtfalse} = \{\gtfalse, \gtany\}$
+        \item $\immediatelyMatchedBy{\gtstring} = \{\gtstring, \gtany\}$
+        \item $\immediatelyMatchedBy{\gtref\ \tv} = \{\gtref, \gtany\}$
+    \end{itemize}
+    For all other values, $\immediatelyMatchedBy{}$ is undefined.
+\end{definition}
+
+
+Note that $\immediatelyMatchedBy{}$ function is partial; in the cases in which immediate matching cannot be determined (such as for records), it is undefined and a specialized rule takes effect.  The immediate pattern matching function primarily serves to remove redundancy from the lookup function definition.
+
+\subsubsection{Operator Type Maps}
+
+Unary and binary operations are fairly uniform in behavior.  We define a lookup table here to specify that uniformity.
+
+\begin{definition}
+    \label{def_abstractBinaryOperation}
+    Let $\abstractBinaryOperation{\binop}{\tval_1}{\tval_2} = \tvals$ for each of the rows in the following table.  For all other inputs, $\abstractBinaryOperation{}{}{}$ is undefined.
+\end{definition}
+
+\begin{center}
+    \begin{math}
+        \begin{array}{@{}c c c | c}
+            \binop & \tval_1 & \tval_2 & \tvals
+            \\\hline
+            \gtplus, \gtminus &         \gtint & \gtint &       \{\gtint\}                      \\
+            \gtless, \gtleq, \gteq &    \gtint & \gtint &       \{\gttrue, \gtfalse\}           \\
+            \gteq &                     \gttrue & \gttrue &     \{\gttrue\}                     \\
+            \gteq &                     \gttrue & \gtfalse &    \{\gtfalse\}                    \\
+            \gteq &                     \gtfalse & \gttrue &    \{\gtfalse\}                    \\
+            \gteq &                     \gtfalse & \gtfalse &   \{\gttrue\}                     \\
+            \gtand &                    \gttrue & \gttrue &     \{\gttrue\}                     \\
+            \gtand &                    \gttrue & \gtfalse &    \{\gtfalse\}                    \\
+            \gtand &                    \gtfalse & \gttrue &    \{\gtfalse\}                    \\
+            \gtand &                    \gtfalse & \gtfalse &   \{\gtfalse\}                    \\
+            \gtor &                     \gttrue & \gttrue &     \{\gttrue\}                     \\
+            \gtor &                     \gttrue & \gtfalse &    \{\gttrue\}                     \\
+            \gtor &                     \gtfalse & \gttrue &    \{\gttrue\}                     \\
+            \gtor &                     \gtfalse & \gtfalse &   \{\gtfalse\}                    \\
+            \gteq &                     \gtstring & \gtstring & \{\gttrue, \gtfalse\}           \\
+            \gtplus &                   \gtstring & \gtstring & \{\gtstring\}                   \\
+            \gtat &                     \gtstring & \gtint &    \{\gtstring\}                   \\
+        \end{array}
+    \end{math}
+\end{center}
+
+\begin{definition}
+    \label{def_abstractUnaryOperation}
+    Let $\abstractUnaryOperation{\binop}{\tval} = \tvals$ for each of the rows in the following table.  For all other inputs, $\abstractUnaryOperation{}{}$ is undefined.
+\end{definition}
+
+\begin{center}
+    \begin{math}
+        \begin{array}{@{}c c | c}
+            \unop & \tval & \tvals
+            \\\hline
+            \gtnot &                    \gttrue &               \{\gtfalse\}                    \\
+            \gtnot &                    \gtfalse &              \{\gttrue\}                     \\
+        \end{array}
+    \end{math}
+\end{center}
+
+These function is used in the lookup rules below to reduce redundancy.
+
+\subsubsection{Lookup}
+
+We write the lookup function as $\tglookupPSM{\tgacl}{\tgkstack}{\tgcstack}$.  This lookup function differs from the original ECOOP '16 lookup function in the following ways:
+
+\begin{enumerate}
+    \item The lookup variable $\tv$ is not a parameter.  Instead, it is the top element of the lookup stack $\tgkstack$.
+    \item The lookup stack $\tgkstack$ contains several elements that do not directly concern variable lookup.  This allows us to perform at most one recursive invocation of the lookup function at each rule.
+    \item The result, $\tfvals$, is a set of \emph{filtered values}.  These filtered values are comprised of values and the filters which have been applied to them.
+\end{enumerate}
+
+\znote{TODO: somewhere, describe this invariant: values never get pushed onto the stack until after we have verified that they exist -- that is, values filtered to nothing (e.g. $\filtered{(\ttob\ttcb)}{\{\texttt{\ttob a=\ttob\ttcb\ttcb}\}}{\emptyset}$) never appear in the stack.}
+
+The above properties have the advantage of making this lookup function suitable for direct encoding as a PDS reachability problem.  We now define the lookup function.
+
+\begingroup
+\newenvironment{enumerateClauses}{\begin{enumerate}[label=(\alph*),ref=\arabic{enumi}\alph*]}{\end{enumerate}}
+\newenvironment{enumerateSubclauses}{\begin{enumerate}[label=\roman*.,ref=\arabic{enumi}\alph{enumi}\roman*]}{\end{enumerate}}
+
+\newcommand{\clauseSectionTitle}[1]{\textbf{#1}}
+\newcommand{\clauseSubsectionTitle}[1]{\underline{\smash{#1}}}
+
+\begin{definition}
+    \label{def_pdsFriendlyLookup}
+    Given dependency graph $\tgdeps$, $\tglookupPSM[\tgdeps]{\tgacl_0}{\tgkstack}{\tgcstack}$ is the function returning the least set of values $\tvals$ satisfying the following conditions:
+    \begin{enumerate}
+        \item \clauseSectionTitle{Variable discovery} \label{pds_lookup_variableDiscovery}
+        \begin{enumerateClauses}
+            \item
+                \rulename{Discovered Value}
+                If $\tgkstack = [\tfval]$,
+                   then
+                        \formalRuleLine $\tfval \in \tfvals$.
+            \item
+                \rulename{Intermediate Value}
+                \znote{CONSIDER: This rule seems a bit crude.  It feels like we want to do something to mark the lookup of values we want to ignore, similar to how $\kcapture{}$ works.}
+                If $\tgkstack = [\tfval] \listConcat \tgkstack'$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_0}{\tgkstack'}{\tgcstack} \subseteq \tvals$.
+        \end{enumerateClauses}
+        \item \clauseSectionTitle{Variable search} \label{pds_lookup_variableSearch}
+        \begin{enumerateClauses}
+            \item
+                \rulename{Value Alias}
+                If $\tgacl_1 = (\tv \gtis \tv')$,
+                   $\tgacl_1 \isbefore \tgacl_0$, and
+                   $\tgkstack = [\kvar{\tv}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{[\kvar{\tv'}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \item
+                \rulename{Stateless Clause Skip}
+                If $\tgacl_1 = (\tv' \gtis \elb)$,
+                   $\tgacl_1 \isbefore \tgacl_0$,
+                   $\tgkstack = [\kvar{\tv}{\tpatsp_0}{\tpatsn_0}] \listConcat \tgkstack'$,
+                   $\tgkstack' \neq [\kderef{\tpatsp_1}{\tpatsn_1}, ...]$, and
+                   $\tv' \neq \tv$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack}{\tgcstack} \subseteq \tvals$.
+            \item \label{pds_lookup_blockMarkers}
+                \rulename{Block Marker Skip}
+                If $\tgacl_1 \isbefore \tgacl_0$ and $\tgacl_1 \in \{\gstart{\tv'}, \gend{\tv'}\}$,
+                then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack}{\tgcstack} \subseteq \tvals$.
+        \end{enumerateClauses}
+        \item \clauseSectionTitle{Navigation} \label{pds_lookup_navigation}
+        \begin{enumerateClauses}
+            \item \label{pds_lookup_jump}
+                \rulename{Jump}
+                If $\tgkstack = [\kjump{\tgacl_1}{\tgcstack'}] \listConcat \tgkstack'$, then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack'}{\tgcstack'} \subseteq \tvals$.
+            \item \label{pds_lookup_capture}
+                \rulename{Capture}
+                If $\tgkstack = [\tfval, \kcapture{n}, \tgk_1, \ldots, \tgk_n] \listConcat \tgkstack'$
+                then
+                        \formalRuleLine $\tglookupPSM{\tgacl_0}{[\tgk_1, \ldots, \tgk_n, \tfval] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \item \label{pds_lookup_rewind}
+                \rulename{Rewind}
+                If $\tgkstack = [\krewind] \listConcat \tgkstack'$
+                then
+                        \formalRuleLine $\tglookupPSM{\stendofblock[\tgacl_0]}{\tgkstack'}{\tgcstack} \subseteq \tvals$.
+        \end{enumerateClauses}
+        \item \clauseSectionTitle{Function wiring} \label{pds_lookup_functionWiring}
+        \begin{enumerateClauses}
+            \item
+                \rulename{Function Top: Parameter Variable}
+                If $\tgacl_1 = (\annotated{\tcl}{\gmodeEnter}{\tv}{\tv'})$,
+                   $\tgacl_1 \isbefore \tgacl_0$,
+                   $\tcl = (\tv''_1 \gtis \tv''_2\ \tv')$,
+                   $\tgkstack = [\kvar{\tv}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$, and
+                   $\stistop[\tcl][\tgcstack]$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{[\kvar{\tv'}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'}{\stpop[\tgcstack]} \subseteq \tvals$.
+            \item
+                \rulename{Function Bottom: Flow Check}
+                \sloppy
+                If $\tgacl_1 = (\annotated{\tcl}{\gmodeExit}{\tv}{\tv'})$,
+                   $\tgacl_1 \isbefore \tgacl_0$,
+                   $\tcl = (\tv \gtis \tv''_2\ \tv''_3)$,
+                   $\tgkstack = [\kvar{\tv}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$, and
+                   $\tgkstack'' = [\kvar{\tv_3''}{\emptyset}{\emptyset},\kjump{\tcl}{\tgcstack},\kvar{\tv_2''}{\emptyset}{\emptyset},\kcapture{2}, \kjump{\tgacl_0}{\tgcstack}, \krealflowhuh]$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tcl}{\tgkstack'' \listConcat \tgkstack}{\tgcstack} \subseteq \tvals$.
+            \item
+                \rulename{Function Bottom: Return Variable}
+                If $\tgacl_1 = (\annotated{\tcl}{\gmodeExit}{\tv}{\tv'})$,
+                   $\tgacl_1 \isbefore \tgacl_0$,
+                   $\tcl = (\tv \gtis \tv''_2\ \tv''_3)$,
+                   $\tgkstack = [\krealflowhuh, \filtered{\tval}{\tpatsp_0}{\tpatsn_0}, \kvar{\tv}{\tpatsp_1}{\tpatsn_1}] \listConcat \tgkstack'$,
+                   $\tval = \gtfun\ \tv''_4 \gtarrow \gtop \texpr \gtcp$, and
+                   $\rv[\texpr] = \tv'$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{[\kvar{\tv'}{\tpatsp_1}{\tpatsn_1}] \listConcat \tgkstack'}{\stpush[\tcl][\tgcstack]} \subseteq \tvals$.
+            \item
+                \rulename{Function Top: Non-Local Variable}
+                If $\tgacl_1 = (\annotated{\tcl}{\gmodeEnter}{\tv''}{\tv'})$,
+                   $\tgacl_1 \isbefore \tgacl_0$,
+                   $\tcl = (\tv''_1 \gtis \tv''_2\ \tv')$,
+                   $\tgkstack = [\kvar{\tv}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$,
+                   $\tv'' \neq \tv$, and
+                   $\stistop[\tcl][\tgcstack]$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{[\kvar{\tv''_2}{\emptyset}{\emptyset}, \krewind] \listConcat \tgkstack}{\stpop[\tgcstack]} \subseteq \tvals$.
+        \end{enumerateClauses}
+        \item \clauseSectionTitle{Conditional wiring} \label{pds_lookup_conditionalWiring}
+        \begin{enumerateClauses}
+            \item \label{pds_lookup_conditionalWiring_positive}
+                \rulename{Conditional Top: Subject Positive}
+                If $\tgacl_1 = (\annotated{\tcl}{\gmodeEnter}{\tv'}{\tv_1})$,
+                   $\tgacl_1 \isbefore \tgacl_0$,
+                   $\tcl = (\tv_2 \gtis \conditional{\tv_1}{\tpat}{\tfunc_1}{\tfunc_2})$,
+                   $\tgkstack = [\kvar{\tv}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$,
+                   $\tfunc_1 = \gtfun \tv' \gtarrow \gtop \texpr \gtcp$, and
+                   $\tv \in \{\tv', \tv_1\}$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{[\kvar{\tv_1}{\tpatsp \cup \{\tpat\}}{\tpatsn}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \item \label{pds_lookup_conditionalWiring_negative}
+                \rulename{Conditional Top: Subject Negative}
+                If $\tgacl_1 = (\annotated{\tcl}{\gmodeEnter}{\tv'}{\tv_1})$,
+                   $\tgacl_1 \isbefore \tgacl_0$,
+                   $\tcl = (\tv_2 \gtis \conditional{\tv_1}{\tpat}{\tfunc_1}{\tfunc_2})$,
+                   $\tgkstack = [\kvar{\tv}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$,
+                   $\tfunc_2 = \gtfun \tv' \gtarrow \gtop \texpr \gtcp$, and
+                   $\tv \in \{\tv', \tv_1\}$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{[\kvar{\tv_1}{\tpatsp}{\tpatsn \cup \{\tpat\}}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \item \label{pds_lookup_conditionalWiring_return_positiveInit}
+                \rulename{Conditional Bottom: Return Positive}
+                If $\tgacl_1 = (\annotated{\tcl}{\gmodeExit}{\tv}{\tv'})$,
+                   $\tgacl_1 \isbefore \tgacl_0$,
+                   $\tcl = (\tv \gtis \conditional{\tv_1}{\tpat}{\tfunc_1}{\tfunc_2})$,
+                   $\tgkstack = [\kvar{\tv}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$,
+                   $\tfunc_1 = \gtfun \tv'' \gtarrow \gtop \texpr \gtcp$, and
+                   $\rv[\texpr] = \tv'$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tcl}{[\kvar{\tv_1}{\{\tpat\}}{\emptyset}, \kjump{\tgacl_1}{\tgcstack}, \kvar{\tv'}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \item \label{pds_lookup_conditionalWiring_return_negativeInit}
+                \rulename{Conditional Bottom: Return Negative}
+                If $\tgacl_1 = (\annotated{\tcl}{\gmodeExit}{\tv}{\tv'})$,
+                   $\tgacl_1 \isbefore \tgacl_0$,
+                   $\tcl = (\tv \gtis \conditional{\tv_1}{\tpat}{\tfunc_1}{\tfunc_2})$,
+                   $\tgkstack = [\kvar{\tv}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$,
+                   $\tfunc_2 = \gtfun \tv'' \gtarrow \gtop \texpr \gtcp$, and
+                   $\rv[\texpr] = \tv'$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tcl}{[\kvar{\tv_1}{\emptyset}{\{\tpat\}}, \kjump{\tgacl_1}{\tgcstack}, \kvar{\tv'}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \item \label{pds_lookup_conditionalWiring_unrelated}
+                \rulename{Conditional Top: Non-Subject Variable}
+                If $\tgacl_1 = (\annotated{\tcl}{\gmodeEnter}{\tv'}{\tv_1})$,
+                   $\tgacl_1 \isbefore \tgacl_0$,
+                   $\tcl = (\tv_2 \gtis \conditional{\tv_1}{\tpat}{\tfunc_1}{\tfunc_2})$,
+                   $\tgkstack = [\kvar{\tv}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$, and
+                   $\tv \notin \{\tv_1, \tv'\}$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack}{\tgcstack} \subseteq \tvals$.
+        \end{enumerateClauses}
+        \item \clauseSectionTitle{Record construction/destruction}
+        \begin{enumerateClauses}
+            \item \label{pds_lookup_recordProjection_start}
+                \rulename{Record Projection Start}
+                If $\tgacl_1 = (\tv \gtis \tv' \gtdot \tlbl)$,
+                   $\tgacl_1 \isbefore \tgacl_0$, and
+                   $\tgkstack = [\kvar{\tv}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{[\kvar{\tv'}{\emptyset}{\emptyset},\kproject{\tlbl}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \item \label{pds_lookup_recordProjection_stop}
+                \rulename{Record Projection Stop}
+                If $\tgkstack = [\filtered{\trec}{\tpatsp_0}{\tpatsn_0},\kproject{\tlbl}{\tpatsp_1}{\tpatsn_1}] \listConcat \tgkstack'$,
+                   $(\tlbl \gtis \tv') \in \trec$, and
+                   $\negativePatternSelectCase{\trec}{\tpatsn_0}{\tpatsn_2}$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_0}{[\kvar{\tv'}{\tpatsp_1 \cup (\tpatsp_0.\tlbl)}{\tpatsn_1 \cup (\tpatsn_2.\tlbl)}] \listConcat \tgkstack'}{\tgcstack'} \subseteq \tvals$.\footnote{This rule does not need to verify that $\trec$ satisfies the filters in $\tpatsp_0$ and $\tpatsn_0$ because Clause~\ref{pds_lookup_filter_record} already does that.}
+        \end{enumerateClauses}
+        \item \clauseSectionTitle{Filter validation} \label{pds_lookup_filter}
+        \begin{enumerateClauses}
+            \item \label{pds_lookup_filter_function}
+                \rulename{Filter Immediate}
+                If $\tgacl_1 = (\tv \gtis \tval)$,
+                   $\tgacl_1 \isbefore \tgacl_0$,
+                   $\tgkstack = [\kvar{\tv}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$,
+                   $\tpatsp \subseteq \immediatelyMatchedBy{\tval}$, and
+                   $\immediatelyMatchedBy{\tval} \cap \tpatsn = \emptyset$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{[\filtered{\tval}{\emptyset}{\emptyset}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \item \label{pds_lookup_filter_record}
+                \rulename{Filter Record}
+                If $\tgacl_1 = (\tv \gtis \trec)$,
+                   $\tgacl_1 \isbefore \tgacl_0$,
+                   $\tgkstack = [\kvar{\tv}{\tpatsp_0}{\tpatsn_0}] \listConcat \tgkstack'$,
+                   $\{\}, \gtany \notin \tpatsn_0$,
+                   $\negativePatternSelectCase{\trec}{\tpatsn_0}{\tpatsn_2}$, and
+                   $\forall \tlbl \in \tpatsp_0.\, \tlbl \in \trec$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack''_1 \listConcat \ldots \listConcat \tgkstack''_n \listConcat [\kjump{\tgacl_1}{\tgcstack}, \tfval] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$,
+                        \formalRuleLine where $\trec = \{\tlbl_1 \gtis \tv_1, \ldots, \tlbl_n \gtis \tv_n\}$
+                        \formalRuleLine and $\tgkstack''_i = [\kjump{\tgacl_1}{\tgcstack},\kvar{\tv_i}{\tpatsp_0.\tlbl}{\tpatsn_2.\tlbl}]$
+                        \formalRuleLine and $\tfval = \filtered{\trec}{\tpatsp_0}{\tpatsn_2}$.
+        \end{enumerateClauses}
+        \item \clauseSectionTitle{State} \label{pds_lookup_state}
+        \begin{enumerateClauses}
+            \item \label{pds_lookup_updateIsEmptyRecord}
+                \rulename{Update Is Empty Record}
+                If $\tgacl_1 = (\tv \gtis \tv' \gtset \tv'')$,
+                   $\tgacl_1 \isbefore \tgacl_0$,
+                   $\tgkstack = [\kvar{\tv}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$,
+                   $\tpatsp \subseteq \{\gtob\gtcb, \gtany\}$, and
+                   $\gtob\gtcb, \gtany \notin \tpatsn$,
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{[\filtered{(\gtob\gtcb)}{\emptyset}{\emptyset}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \item \label{pds_lookup_deref_start}
+                \rulename{Dereference Start}
+                If $\tgacl_1 = (\tv \gtis \gtderef \tv')$,
+                   $\tgacl_1 \isbefore \tgacl_0$, and
+                   $\tgkstack = [\kvar{\tv}{\tpatsp_0}{\tpatsn_0}] \listConcat \tgkstack'$ then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{[\kvar{\tv'}{\emptyset}{\emptyset}, \kderef{\tpatsp_0}{\tpatsn_0}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \item \label{pds_lookup_deref_stop}
+                \rulename{Dereference Stop}
+                If $\tgkstack = [\filtered{(\gtref \tv')}{\emptyset}{\emptyset}, \kderef{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$
+                   then
+                        \formalRuleLine $\tglookupPSM{\tgacl_0}{[\kvar{\tv'}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+        \end{enumerateClauses}
+        \item \clauseSectionTitle{Alias Analysis (State)} \label{pds_lookup_refAliasCheck}
+        \begin{enumerateClauses}
+            \item \label{pds_lookup_refAliasCheck_start}
+                \rulename{Alias Analaysis Start}
+                If $\tgacl_1 = (\tv''' \gtis \tv' \gtset \tv'')$,
+                $\tgacl_1 \isbefore \tgacl_0$, and
+                $\tgkstack = [\kvar{\tv}{\tpatsp_0}{\tpatsn_0},\kderef{\tpatsp_1}{\tpatsn_1}] \listConcat \tgkstack'$,
+                then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack''_1 \listConcat \tgkstack''_2 \listConcat \tgkstack''_3 \listConcat \tgkstack}{\tgcstack} \subseteq \tvals$
+                        \formalRuleLine where $\tgkstack''_1 = [\kvar{\tv}{\tpatsp_0}{\tpatsn_0}, \kcapture{5}]$
+                        \formalRuleLine and $\tgkstack''_2 = [\kjump{\tgacl_1}{\tgcemptystack}, \kvar{\tv'}{\emptyset}{\emptyset}, \kcapture{2}]$
+                        \formalRuleLine and $\tgkstack''_3 = [\kjump{\tgacl_0}{\tgcemptystack}, \kaliashuh]$
+            \item \label{pds_lookup_refAliasCheck_stop_no}
+                \rulename{May Not Alias}
+                \sloppy
+                If $\tgacl_1 = (\tv''' \gtis \tv' \gtset \tv'')$,
+                $\tgacl_1 \isbefore \tgacl_0$,
+                $\tgkstack = [\kaliashuh, \filtered{{\tval_1}}{\emptyset}{\emptyset}, \filtered{{\tval_2}}{\emptyset}{\emptyset}, \kvar{\tv}{\tpatsp_0}{\tpatsn_0}, \kderef{\tpatsp_1}{\tpatsn_1}] \listConcat \tgkstack'$, and
+                    \znote{TODO: may-not-alias.  Right now, this rule is assuming it's always possible ('cause of tricky context stuff).},
+                then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{[\kvar{\tv}{\tpatsp_0}{\tpatsn_0}, \kderef{\tpatsp_1}{\tpatsn_1}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \item \label{pds_lookup_refAliasCheck_stop_yes}
+                \rulename{May Alias}
+                \sloppy
+                If $\tgacl_1 = (\tv''' \gtis \tv' \gtset \tv'')$,
+                $\tgacl_1 \isbefore \tgacl_0$,
+                $\tgkstack = [\kaliashuh, \filtered{\tval}{\emptyset}{\emptyset}, \filtered{\tval}{\emptyset}{\emptyset}, \kvar{\tv}{\tpatsp_0}{\tpatsn_0}, \kderef{\tpatsp_1}{\tpatsn_1}] \listConcat \tgkstack'$, and
+                    \znote{TODO: extended may-alias condition}
+                then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{[\kvar{\tv''}{\tpatsp_1}{\tpatsn_1}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+        \end{enumerateClauses}
+        \item \clauseSectionTitle{Side Effect Search (State)} \label{pds_lookup_sideEffectSearch}
+        \begin{enumerateClauses}
+            \item \label{pds_lookup_stateful_skipImmediate}
+                \rulename{Stateful Immediate Clause Skip}
+                If $\tgacl_1 = (\tv'' \gtis \elb)$,
+                $\tgacl_1$ is immediate,
+                $\tgacl_1$ is not of the form $\tv_1' \gtis \tv_2' \gtset \tv_3'$,
+                $\tgacl_1 \isbefore \tgacl_0$,
+                $\tgkstack = [\kvar{\tv}{\tpatsp_0}{\tpatsn_0}, \kderef{\tpatsp_1}{\tpatsn_1}] \listConcat \tgkstack'$,
+                $\tv'' \neq \tv$,
+                then
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack}{\tgcstack} \subseteq \tvals$.
+            \item \clauseSubsectionTitle{Side Effect Search Start Rules}
+            \begin{enumerateSubclauses}
+                \item \label{pds_lookup_stateful_search_start_function_startFlowCheck}
+                    \rulename{Side Effect Search Start: Function Flow Check}
+                    \sloppy
+                    If $\tgacl_1 = (\annotated{\tcl}{\gmodeExit}{\tv''_0}{\tv'})$,
+                    $\tgacl_1 \isbefore \tgacl_0$,
+                    $\tcl = (\tv''_1 \gtis \tv''_2\ \tv''_3)$,
+                    $\tgkstack = [\kvar{\tv}{\tpatsp_0}{\tpatsn_1}, \kderef{\tpatsp_1}{\tpatsn_1}] \listConcat \tgkstack'$,
+                    $\tv''_0 \neq \tv$, and
+                    $\tgkstack'' = [\kvar{\tv_3''}{\emptyset}{\emptyset},\kjump{\tcl}{\tgcstack},\kvar{\tv_2''}{\emptyset}{\emptyset},\kcapture{2}, \kjump{\tgacl_0}{\tgcstack}, \krealflowhuh]$,
+                    then
+                            \formalRuleLine $\tglookupPSM{\tcl}{\tgkstack'' \listConcat \tgkstack}{\tgcstack} \subseteq \tvals$.
+                \item \label{pds_lookup_stateful_search_start_function_finishFlowCheck}
+                    \rulename{Side Effect Search Start: Function Flow Validated}
+                    If $\tgacl_1 = (\annotated{\tcl}{\gmodeExit}{\tv''_0}{\tv'})$,
+                    $\tgacl_1 \isbefore \tgacl_0$,
+                    $\tcl = (\tv''_1 \gtis \tv''_2\ \tv''_3)$,
+                    $\tgkstack = [\krealflowhuh, \filtered{\tval}{\tpatsp_0}{\tpatsn_0}, \kvar{\tv}{\tpatsp_1}{\tpatsn_1}, \kderef{\tpatsp_2}{\tpatsn_2}] \listConcat \tgkstack'$,
+                    $\tv''_0 \neq \tv$,
+                    $\tval = \gtfun\ \tv''_4 \gtarrow \gtop \texpr \gtcp$,
+                    $\rv[\texpr] = \tv'$, and
+                    $\tgkstack'' = [\ksideeffectvar{\tv}{\tpatsp_1}{\tpatsn_1}{\tgacl_0}{\tgcstack}, \ksideeffectstart, \kvar{\tv}{\tpatsp_1}{\tpatsn_1}, \kderef{\tpatsp_2}{\tpatsn_2}] \listConcat \tgkstack'$,
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack''}{\stpush[\tcl][\tgcstack]} \subseteq \tvals$.
+                \item \label{pds_lookup_stateful_search_start_conditional_true}
+                    \rulename{Side Effect Search Start: Conditional Positive}
+                    \sloppy
+                    If $\tgacl_1 = (\annotated{\tcl}{\gmodeExit}{\tv''_0}{\tv'})$,
+                    $\tgacl_1 \isbefore \tgacl_0$,
+                    $\tcl = (\tv''_1 \gtis \conditional{\tv''_2}{\tpat}{\tfunc_1}{\tfunc_2}$,
+                    $\tgkstack = [\kvar{\tv}{\tpatsp_0}{\tpatsn_0}, \kderef{\tpatsp_1}{\tpatsn_1}] \listConcat \tgkstack'$,
+                    $\tv''_0 \neq \tv$,
+                    $\tfunc_1 = \gtfun \tv_3'' \gtarrow \ttop \texpr \ttcp$,
+                    $\rv[\texpr] = \tv'$, and
+                    $\tgkstack'' = [\kvar{\tv''_2}{\{\tpat\}}{\emptyset},\kjump{\tcl}{\tgcstack},\ksideeffectvar{\tv}{\tpatsp_0}{\tpatsn_0}{\tgacl_0}{\tgcstack}, \ksideeffectstart]$,
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack'' \listConcat \tgkstack}{\tgcstack} \subseteq \tvals$.
+                \item \label{pds_lookup_stateful_search_start_conditional_false}
+                    \rulename{Side Effect Search Start: Conditional Negative}
+                    \sloppy
+                    If $\tgacl_1 = (\annotated{\tcl}{\gmodeExit}{\tv''_0}{\tv'})$,
+                    $\tgacl_1 \isbefore \tgacl_0$,
+                    $\tcl = (\tv''_1 \gtis \conditional{\tv''_2}{\tpat}{\tfunc_1}{\tfunc_2}$,
+                    $\tgkstack = [\kvar{\tv}{\tpatsp_0}{\tpatsn_0}, \kderef{\tpatsp_1}{\tpatsn_1}] \listConcat \tgkstack'$,
+                    $\tv''_0 \neq \tv$,
+                    $\tfunc_2 = \gtfun \tv_3'' \gtarrow \ttop \texpr \ttcp$,
+                    $\rv[\texpr] = \tv'$, and
+                    $\tgkstack'' = [\kvar{\tv''_2}{\emptyset}{\{\tpat\}},\kjump{\tcl}{\tgcstack},\ksideeffectvar{\tv}{\tpatsp_0}{\tpatsn_0}{\tgacl_0}{\tgcstack}, \ksideeffectstart]$,
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack'' \listConcat \tgkstack}{\tgcstack} \subseteq \tvals$.
+            \end{enumerateSubclauses}
+            \item \clauseSubsectionTitle{Side Effect Search Control Flow}
+            \begin{enumerateSubclauses}
+                \item \label{pds_lookup_stateful_search_skipImmmediate}
+                    \rulename{Side Effect Search Immediate Clause Skip}
+                    If $\tgacl_1 = (\tv'' \gtis \elb)$,
+                    $\tgacl_1$ is immediate,
+                    $\tgacl_1$ not of the form $\tv''' \gtis \tv' \gtset \tv''$,
+                    $\tgacl_1 \isbefore \tgacl_0$, and
+                    $\tgkstack = [\ksideeffectvar{\tv}{\tpatsp_0}{\tpatsn_0}{\tgacl'}{\tgcstack'}] \listConcat \tgkstack'$
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack}{\tgcstack} \subseteq \tvals$.
+                \item \label{pds_lookup_stateful_search_pushFrame_function_startFlowCheck}
+                    \rulename{Side Effect Search: Function Bottom: Flow Check} 
+                    \sloppy
+                    If $\tgacl_1 = (\annotated{\tcl}{\gmodeExit}{\tv''_0}{\tv'})$,
+                    $\tgacl_1 \isbefore \tgacl_0$,
+                    $\tcl = (\tv''_1 \gtis \tv''_2\ \tv''_3)$,
+                    $\tgkstack = [\tgk] \listConcat \tgkstack'$,
+                    $\tgk = \ksideeffectvar{\tv}{\tpatsp_0}{\tpatsn_0}{\tgacl''}{\tgcstack''}$, and
+                    $\tgkstack'' = [\kvar{\tv_3''}{\emptyset}{\emptyset},\kjump{\tcl}{\tgcstack},\kvar{\tv_2''}{\emptyset}{\emptyset},\kcapture{2}, \kjump{\tgacl_0}{\tgcstack}, \krealflowhuh]$,
+                    then
+                            \formalRuleLine $\tglookupPSM{\tcl}{\tgkstack'' \listConcat \tgkstack}{\tgcstack} \subseteq \tvals$.
+                \item \label{pds_lookup_stateful_search_pushFrame_function_finishFlowCheck}
+                    \rulename{Side Effect Search: Function Bottom: Flow Validated}
+                    If $\tgacl_1 = (\annotated{\tcl}{\gmodeExit}{\tv''_0}{\tv'})$,
+                    $\tgacl_1 \isbefore \tgacl_0$,
+                    $\tcl = (\tv''_1 \gtis \tv''_2\ \tv''_3)$,
+                    $\tgk = \ksideeffectvar{\tv}{\tpatsp_0}{\tpatsn_0}{\tgacl''}{\tgcstack''}$,
+                    $\tgkstack = [\krealflowhuh, \filtered{\tval}{\tpatsp_1}{\tpatsn_1}, \tgk] \listConcat \tgkstack'$,
+                    $\tval = \gtfun\ \tv''_4 \gtarrow \gtop \texpr \gtcp$, and
+                    $\rv[\texpr] = \tv'$,
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_1}{[\tgk] \listConcat \tgkstack}{\stpush[\tcl][\tgcstack]} \subseteq \tvals$.
+                \item \label{pds_lookup_stateful_search_pushFrame_conditional_true}
+                    \rulename{Side Effect Search: Conditional Positive}
+                    If $\tgacl_1 = (\annotated{\tcl}{\gmodeExit}{\tv}{\tv'})$,
+                    $\tgacl_1 \isbefore \tgacl_0$,
+                    $\tcl = (\tv_2 \gtis \conditional{\tv_1}{\tpat}{\tfunc_1}{\tfunc_2})$,
+                    $\tgk = \ksideeffectvar{\tv}{\tpatsp_0}{\tpatsn_0}{\tgacl''}{\tgcstack''}$,
+                    $\tgkstack = [\tgk] \listConcat \tgkstack'$,
+                    $\tfunc_1 = \gtfun \tv'' \gtarrow \gtop \texpr \gtcp$, and
+                    $\rv[\texpr] = \tv'$,
+                    then
+                            \formalRuleLine $\tglookupPSM{\tcl}{[\kvar{\tv_1}{\{\tpat\}}{\emptyset}, \kjump{\tgacl_1}{\tgcstack}, \tgk] \listConcat \tgkstack}{\tgcstack} \subseteq \tvals$.
+                \item \label{pds_lookup_stateful_search_pushFrame_conditional_false}
+                    \rulename{Side Effect Search: Conditional Negative}
+                    If $\tgacl_1 = (\annotated{\tcl}{\gmodeExit}{\tv''_0}{\tv'})$,
+                    $\tgacl_1 \isbefore \tgacl_0$,
+                    $\tcl = (\tv_2 \gtis \conditional{\tv_1}{\tpat}{\tfunc_1}{\tfunc_2})$,
+                    $\tgk = \ksideeffectvar{\tv}{\tpatsp_0}{\tpatsn_0}{\tgacl''}{\tgcstack''}$,
+                    $\tgkstack = [\tgk] \listConcat \tgkstack'$,
+                    $\tfunc_2 = \gtfun \tv'' \gtarrow \gtop \texpr \gtcp$, and
+                    $\rv[\texpr] = \tv'$,
+                    then
+                            \formalRuleLine $\tglookupPSM{\tcl}{[\kvar{\tv_1}{\emptyset}{\{\tpat\}}, \kjump{\tgacl_1}{\tgcstack}, \tgk] \listConcat \tgkstack}{\tgcstack} \subseteq \tvals$.
+                \item \label{pds_lookup_stateful_search_popFrame}
+                    \rulename{Side Effect Search: Top}
+                    If $\tgacl_1 = \annotated{\tcl}{\gmodeEnter}{\tv''}{\tv'}$,
+                    $\tgacl_1 \isbefore \tgacl_0$,
+                    $\tgkstack = [\ksideeffectvar{\tv}{\tpatsp}{\tpatsn}{\tgacl''}{\tgcstack''}] \listConcat \tgkstack'$, and
+                    $\tgcstack' = \begin{cases}
+                                        \stpop[\tgcstack] & \text{if }\tcl\text{ is application} \\
+                                        \tgcstack & \text{if }\tcl\text{ is conditional} \\
+                                    \end{cases}$
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack'}{\tgcstack'} \subseteq \tvals$.
+            \end{enumerateSubclauses}
+            \item \clauseSubsectionTitle{Side Effect Search: Alias Analysis}
+            \begin{enumerateSubclauses}                
+                \item \label{pds_lookup_stateful_search_discardStart}
+                    \rulename{Side Effect Search: Complete, None Found}
+                    \znote{TODO: implementation comments: this used to be rule 10f} \\
+                    \znote{If we kept the $\tgcstack$ from the start of the search in the side effect start here and we restored it at this point, that might solve our problem with losing precision during a side effect lookup.  Would that break anything?} \\
+                    If $\tgkstack = [\ksideeffectstart] \listConcat \tgkstack'$,
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_0}{\tgkstack'}{\tgcstack} \subseteq \tvals$.
+                \item \label{pds_lookup_stateful_search_alias_start}
+                    \rulename{Side Effect Search: Alias Analysis Start}
+                    If $\tgacl_1 = (\tv''' \gtis \tv' \gtset \tv'')$,
+                    $\tgacl_1 \isbefore \tgacl_0$, and\\
+                    $\tgkstack = [\ksideeffectvar{\tv}{\tpatsp}{\tpatsn}{\tgacl'}{\tgcstack'}] \listConcat \tgkstack'$,
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack_1'' \listConcat \tgkstack_2'' \listConcat \tgkstack_3'' \listConcat \tgkstack}{\tgcstack} \subseteq \tvals$
+                            \formalRuleLine where $\tgkstack_1'' = [\kvar{\tv'}{\emptyset}{\emptyset},\kcapture{5}]$
+                            \formalRuleLine and $\tgkstack_2'' = [\kjump{\tgacl'}{\tgcstack'},\kvar{\tv}{\tpatsp}{\tpatsn},\kcapture{2}]$
+                            \formalRuleLine and $\tgkstack_3'' = [\kjump{\tgacl_0}{\tgcstack},\kaliashuh]$.
+                \item \label{pds_lookup_stateful_search_alias_stop_no}
+                    \rulename{Side Effect Search: May Not Alias}
+                    \sloppy
+                    If $\tgacl_1 = (\tv''' \gtis \tv' \gtset \tv'')$,
+                    $\tgacl_1 \isbefore \tgacl_0$, and
+                    $\tgkstack = [\kaliashuh, \filtered{{\tval_1}}{\emptyset}{\emptyset}, \filtered{{\tval_2}}{\emptyset}{\emptyset}, \ksideeffectvar{\tv}{\tpatsp}{\tpatsn}{\tgacl'}{\tgcstack'}] \listConcat \tgkstack'$ and
+                        \znote{TODO: may-not-alias.  Right now, this rule is assuming it's always possible ('cause of tricky context stuff).},
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_1}{[\ksideeffectvar{\tv}{\tpatsp}{\tpatsn}{\tgacl'}{\tgcstack'}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+                \item \label{pds_lookup_stateful_search_alias_stop_yes}
+                    \rulename{Side Effect Search: May Alias}
+                    \znote{Subtle point: this causes the deref's lookup to continue from \emph{within} the context that we were searching (instead of the original place that the side-effect search initialized).  This is \emph{necessary} since e.g. $\tv''$ here might be defined locally within the current function.  The next couple rules exist only to get rid of all of the stack elements that represent the side-effect search; they are not intended to move our reference point.} \\
+                    \sloppy
+                    If $\tgacl_1 = (\tv''' \gtis \tv' \gtset \tv'')$,
+                    $\tgacl_1 \isbefore \tgacl_0$,
+                    $\tgkstack = [\kaliashuh, \filtered{\tval}{\emptyset}{\emptyset}, \filtered{\tval}{\emptyset}{\emptyset}, \ksideeffectvar{\tv}{\tpatsp}{\tpatsn}{\tgacl'}{\tgcstack'}] \listConcat \tgkstack'$, and
+                        \znote{TODO: refined may-alias},
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_1}{[\ksideeffectescape{\tv''}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \end{enumerateSubclauses}
+            \item \clauseSubsectionTitle{Side Effect Search: Escape}
+                \begin{enumerateSubclauses}                
+                \item \label{pds_lookup_stateful_search_escape_incremental}
+                    \rulename{Side Effect Search: Escape: Incremental}
+                    If $\tgkstack = [\ksideeffectescape{\tv},\ksideeffectvar{\tv'}{\tpatsp}{\tpatsn}{\tgacl'}{\tgcstack'}] \listConcat \tgkstack'$
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_0}{[\ksideeffectescape{\tv}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+                \item \label{pds_lookup_stateful_search_escape_base}
+                    \rulename{Side Effect Search: Escape: Base}
+                    If $\tgkstack = [\ksideeffectescape{\tv},\ksideeffectstart,\kvar{\tv'}{\tpatsp_0}{\tpatsn_0},\kderef{\tpatsp_1}{\tpatsn_1}] \listConcat \tgkstack'$
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_0}{[\kvar{\tv}{\tpatsp_1}{\tpatsn_1}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \end{enumerateSubclauses}
+        \end{enumerateClauses}
+        \item \clauseSectionTitle{Operations} \label{pds_lookup_operations}
+        \begin{enumerateClauses}
+            \item \clauseSubsectionTitle{Binary Operations}
+            \begin{enumerateSubclauses}
+                \item \label{pds_lookup_binary_operations_start}
+                    \rulename{Binary Operation Start}
+                    \sloppy
+                    If $\tgacl_1 = (\tv_1 \gtis \tv_2 \binop \tv_3)$,
+                    $\tgacl_1 \isbefore \tgacl_0$, and
+                    $\tgkstack = [\kvar{\tv_1}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$,
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack''_1 \listConcat \tgkstack''_2 \listConcat \tgkstack''_3 \listConcat \tgkstack}{\tgcstack} \subseteq \tvals$
+                            \formalRuleLine where $\tgkstack''_1 = [\kvar{\tv_2}{\emptyset}{\emptyset}, \kcapture{5}]$
+                            \formalRuleLine and $\tgkstack''_2 = [\kjump{\tgacl_1}{\tgcstack}, \kvar{\tv_3}{\emptyset}{\emptyset}, \kcapture{2}]$
+                            \formalRuleLine and $\tgkstack''_3 = [\kjump{\tgacl_0}{\tgcstack}, \kbinop]$
+                \item \label{pds_lookup_binary_operations_stop}
+                    \rulename{Binary Operation Evaluation}
+                    \sloppy\raggedright
+                    If $\tgacl_1 = (\tv_1 \gtis \tv_2 \binop \tv_3)$,
+                    $\tgacl_1 \isbefore \tgacl_0$,
+                    $\tgkstack = [\kbinop, \filtered{{\tval_1}}{\emptyset}{\emptyset}, \filtered{{\tval_2}}{\emptyset}{\emptyset}, \kvar{\tv_1}{\tpatsp}{\tpatsn}] \listConcat \tgkstack']$,
+                    $\tval_3 \in \abstractBinaryOperation{\binop}{\tval_1}{\tval_2}$,
+                    $\tpatsp \subseteq \immediatelyMatchedBy{\tval_3}$, and
+                    $\immediatelyMatchedBy{\tval_3} \cap \tpatsn = \emptyset$,
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_1}{[\filtered{{\tval_3}}{\emptyset}{\emptyset}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \end{enumerateSubclauses}
+            \item \clauseSubsectionTitle{Unary Operations}
+            \begin{enumerateSubclauses}
+                \item \label{pds_lookup_unary_operations_start}
+                    \rulename{Unary Operation Start}
+                    If $\tgacl_1 = (\tv_1 \gtis \unop \tv_2)$,
+                    $\tgacl_1 \isbefore \tgacl_0$, and
+                    $\tgkstack = [\kvar{\tv_1}{\tpatsp}{\tpatsn}] \listConcat \tgkstack'$,
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack''_1 \listConcat \tgkstack''_2 \listConcat \tgkstack}{\tgcstack} \subseteq \tvals$
+                            \formalRuleLine where $\tgkstack''_1 = [\kvar{\tv_2}{\emptyset}{\emptyset}, \kcapture{2}]$
+                            \formalRuleLine and $\tgkstack''_2 = [\kjump{\tgacl_0}{\tgcstack}, \kunop]$
+                \item \label{pds_lookup_unary_operations_stop}
+                    \rulename{Unary Operation Evaluation}
+                    \sloppy\raggedright
+                    If $\tgacl_1 = (\tv_1 \gtis \unop \tv_2)$,
+                    $\tgacl_1 \isbefore \tgacl_0$,
+                    $\tgkstack = [\kunop, \filtered{\tval}{\emptyset}{\emptyset}, \kvar{\tv_1}{\tpatsp}{\tpatsn}] \listConcat \tgkstack']$,
+                    $\tval' \in \abstractUnaryOperation{\unop}{\tval}$,
+                    $\tpatsp \subseteq \immediatelyMatchedBy{\tval'}$, and
+                    $\immediatelyMatchedBy{\tval'} \cap \tpatsn = \emptyset$,
+                    then
+                            \formalRuleLine $\tglookupPSM{\tgacl_1}{[\filtered{\tval'}{\emptyset}{\emptyset}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
+            \end{enumerateSubclauses}
+        \end{enumerateClauses}
+    \end{enumerate}
+\end{definition}
+\endgroup
+
+With this extended definition of the lookup operation, we can define the graph closure which drives the analysis.  In a fashion similar to the original specification, we give notational sugar for lookup:
+
+\begin{definition}
+    \sloppy
+    We write $\tglookupSugar{\kvar{\tv}{\tpatsp}{\tpatsn}}{\tgacl}$ to denote the set $\tglookupPSM{\tgacl}{[\kvar{\tv}{\tpatsp}{\tpatsn}]}{\tgcemptystack}$.  We write $\tglookupSugar{\tv}{\tgacl}$ to denote $\tglookupPSM{\tgacl}{[\kvar{\tv}{\emptyset}{\emptyset}]}{\tgcemptystack}$
+\end{definition}
+
+\subsection{Extended DDPA Graph Closure}
+
+Having extended the lookup algorithm, we now extend the DDPA graph closure relation.  Our modified rules appear in Figure~\ref{fig_analysisSmallStep}.  Note that this is not a dramatic change from the previous set of rules; the primary difference is the handling of pattern matching, as the extended language has deep patterns.
+
+\begin{figure}
+    \begin{mathpar}
+        \bbrule{Application}{
+            \tcl = (\tv_1 \gtis \tv_2\ \tv_3) \\
+            \activenode{\tcl}{\tgdeps} \\
+            \tfunc \in \tglookup{\tv_2}{\tcl}{}{} \\
+            \tval \in \tglookup{\tv_3}{\tcl}{}{} \\
+        }{
+            \tgdeps \smallstep \tgdeps \cup \gwire{\tcl}{\tfunc}{\tv_3}{\tv_1}
+        }
+
+        \bbrule{Record Conditional True}{
+            \tcl = (\tv_1 \gtis \conditional{\tv_2}{\tpat}{\tfunc_1}{\tfunc_2}) \\
+            \activenode{\tcl}{\tgdeps} \\
+            \tval \in \tglookup{\kvar{\tv_2}{\{\tpat\}}{\emptyset}}{\tcl}{}{} \\
+        }{
+            \tgdeps \smallstep \tgdeps \cup \gwire{\tcl}{\tfunc_1}{\tv_2}{\tv_1}
+        }
+
+        \bbrule{Record Conditional False}{
+            \tcl = (\tv_1 \gtis \conditional{\tv_2}{\trec}{\tfunc_1}{\tfunc_2}) \\
+            \activenode{\tcl}{\tgdeps} \\
+            \tval \in \tglookup{\kvar{\tv_2}{\emptyset}{\{\tpat\}}}{\tcl}{}{} \\
+        }{
+            \tgdeps \smallstep \tgdeps \cup \gwire{\tcl}{\tfunc_2}{\tv_2}{\tv_1}
+        }
+    \end{mathpar}
+    \caption{Abstract Evaluation Rules}
+    \label{fig_analysisSmallStep}
+\end{figure}
+
+Next, we define the abstract small-step relation $\smallstep$ on graphs, see Figure \ref{fig_analysisSmallStep}.
+
+\begin{definition}
+    \label{def_analysisSmallstep}
+    We define the small step relation $\smallstep$ to hold if a proof exists in the system in Figure~\ref{fig_analysisSmallStep}.  We write $\tgdeps_0 \smallsteps \tgdeps_n$ to denote $\tgdeps_0 \smallstep \tgdeps_1 \smallstep \ldots \smallstep \tgdeps_n$.
+\end{definition}
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
