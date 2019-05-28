@@ -1,4 +1,5 @@
 (copy_files# sat/*.{ml,mli})
+(copy_files# symbolic-monad/*.{ml,mli})
 (library
   (name odefa_symbolic_interpreter)
   (public_name odefa.symbolic-interpreter)

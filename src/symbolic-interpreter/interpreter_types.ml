@@ -12,3 +12,7 @@ type symbol =
   | Symbol of Ident.t * relative_stack
 [@@deriving eq, ord, show, to_yojson]
 ;;
+
+module Symbol = struct
+  type t = symbol [@@deriving eq, ord, show, to_yojson];;
+end;;
