@@ -288,450 +288,6 @@ Given the above, we redefine the operational semantics of the language are exten
 Note that cell update is modifying the existing environment rather than adding to it.  Although $\env$ is represented as a list here for notational convenience, it is treated by these operational semantics more like a set: element ordering is irrelevant.  Due to the manner in which update works, our concept of bound and free variables must respect this policy: $\env$ is closed if every variable in its elements' right-hand sides appear somewhere in its elements' left-hand sides regardless of element ordering within $\env$.
 
 
-\section{Well-formedness condition}
-\label{sec_wellformedness}
-
-The interpreter and the analysis are only defined for well-formed programs.  The notion of well-formedness is non-standard\footnote{Non-standard in the sense that it is neither lexical scoping nor dynamic scoping, but somewhere in between.  The closest analogy is the treatment of the \emph{variable hoisting} feature in languages like JavaScript.} to support limited forms of references to identifiers before their definitions.  This allows for programs with recursive functions -- including mutually recursive function -- without the need for self-passing or other encoding.  The present section starts with an intuition for what it means for a program to be well-formed, then formalizes it to define a full specification.
-
-\subsection{Intuition}
-
-Valid programs are those that do not bind the same variable more than once and are \emph{closed}.  That means variables must be in scope before use, but the notion of scoping is not the usual lexical scoping.  The variations are explained by example, starting with the following program:
-
-\begin{plang}
-f = fun x -> (
-  r = f x;
-);
-j = f f;
-\end{plang}
-
-The binding of the variable \plangil!f! occurs after considering the function body \plangil!fun x -> (...)!, which uses \plangil!f!.  Nevertheless, the program is considered well-formed.  The interpreter and the analysis do not have a problem with that because they process function calls by \emph{inlining} the function body at the call site.  In the example above, it means the program point \plangil!r! is \emph{inlined} at the call site \plangil!j!, and \plangil!f! is already in the environment by then.
-
-Furthermore, references to variables that occur further down in the program are also considered well-formed, as depicted by the following program:
-
-\begin{plang}
-f = fun x -> (
-  b = a;
-);
-a = 0;
-r = f f;
-\end{plang}
-
-At the program point \plangil!b!, there is a reference to the variable \plangil!a!, which is defined after the function itself.  Again, this works because at the call site \plangil!r! the value for \plangil!a! is already in the environment.  A slight variation in this program makes it ill-formed, though:
-
-\begin{plang}
-f = fun x -> (
-  b = a;
-);
-r = f f; # ILL-FORMEDNESS
-a = 0;
-\end{plang}
-
-Here, the function \plangil!f! is called at the program point \plangil!r!, but \plangil!f! refers to \plangil!a!, whose value is so far undefined.  In order to call a function, all its external dependencies must already be defined.  This restriction extends to any use of the function, not only calling it, as the code below shows\footnote{This is considered an ill-formed program even though the interpreter and the analysis would work on it.  To detect that this case is fine requires data-flow analysis and, even though DDPA is a such an analysis, for simplicity we decided not use it for this purpose.  With this restriction in place, the treatment of external dependencies can be purely syntactical and, for all interesting uses -- for example, defining mutually recursive functions and closure encoding of objects --, it is not a limiting restriction.}:
-
-\begin{plang}
-f = fun x -> (
-  b = a;
-);
-g = f; # ILL-FORMEDNESS
-a = 0;
-\end{plang}
-
-Note that variables defined in conditional branches are not available during scope resolution, so the following code is ill-formed:
-
-\begin{plang}
-f = fun x -> (
-  b = a; # ILL-FORMEDNESS
-);
-c = 0;
-r = c ~ {} ?
-    fun fm -> (
-      a = 0;
-      e = f f;
-    ) : fun fa -> (
-      d = 0;
-    );
-\end{plang}
-
-The program above would evaluate and work well under the analysis, because \plangil!a! is defined when \plangil!f! is called at the program point \plangil!e!.  But if \plangil!f! were used anywhere outside that conditional branch, it may be possible that \plangil!a! is undefined, so the program is considered ill-formed.
-
-A reference to a function that still has unsatisfied external dependencies is only possible if itself happens \emph{frozen} in another function body. The code below exemplifies such case:
-
-\begin{plang}
-f = fun x -> (
-  b = a;
-);
-g = fun y -> (
-  c = f y;
-);
-a = 0;
-r = g g;
-\end{plang}
-
-In the program above, note how \plangil!g! can refer to \plangil!f! even before \plangil!a! is defined.  But this binds \plangil!g! to the same obligations \plangil!f! had -- namely, \plangil!g! can not be used before \plangil!f!'s external dependency, \plangil!a!, is satisfied.  The following program is ill-formed because it does not respect that condition:
-
-\begin{plang}
-f = fun x -> (
-  b = a;
-);
-g = fun y -> (
-  c = f y;
-);
-r = g g; # => ILL-FORMEDNESS
-a = 0;
-\end{plang}
-
-Finally, the last condition is that external dependencies are not allowed for variables outside the enclosing immediate block\footnote{Or, in other words, hoisting only works one lexical level deep.  This is an artificial restriction in place to simplify the analysis -- the $\krewind$ operation is guaranteed to only need to jump as far as the end of the immediate block.  It also simplifies the implementation, in which edges are added incrementally, and the target of the jump is not guaranteed to be immediately available.  For most interesting examples, this is not a limiting restriction.}. See the example:
-
-\begin{plang}
-f = fun x -> (
-  g = fun y -> (
-    b = a; # => ILL-FORMED
-  );
-);
-a = 0;
-\end{plang}
-
-The program is ill-formed because, at the point \plangil!b!, the reference to the variable \plangil!a! is outside \plangil!g!'s enclosing immediate block -- i.e., \plangil!f!'s body.  Note the implication this has in $\eta$-conversion: refactoring a program by enclosing a block with an immediately invoked function does not work if the block has an unsatisfied external dependency.
-
-This restriction only applies to direct external dependency.  The kind of indirect external dependency made by using a variable that itself has unsatisfied external dependencies is allowed regardless of the nesting level, respecting the notion of non-locals in lexical scoping.  The following well-formed program exemplifies this case:
-
-\begin{plang}
-f = fun x -> (
-  b = a;
-);
-g = fun y -> (
-  h = fun z -> (
-    c = f f;
-  );
-);
-a = 0;
-r = g g;
-\end{plang}
-
-With all this in place, programs with recursive functions are natural to write, without the need for self-passing or other encoding.  See the following real-world examples, the first is a recursive summation function and the second finds out if a number is even or odd with mutually recursive functions:
-
-\begin{plang}
-# let rec sum = fun number ->
-#   if number = 0 then
-#     0
-#   else
-#     (sum (number - 1)) + number
-# in
-# sum 5 (* => 15 *)
-
-zero = 0;
-one = 1;
-five = 5;
-
-sum = fun number -> (
-  numberequal0 = number == zero;
-  sumresult = numberequal0 ~ true
-    ? fun numberequal0match -> (
-      numberequal0matchresult = zero;
-    )
-    : fun numberequal0antimatch -> (
-      numberminus1 = number - one;
-      partialsum = sum numberminus1;
-      numberequal0antimatchresult = partialsum + number;
-    );
-);
-
-r = sum five; # => 15
-\end{plang}
-
-\begin{plang}
-# let rec even n =
-#   if n = 0 then true
-#   else odd (n - 1)
-# and odd n =
-#   if n = 0 then false
-#   else even (n - 1)
-# ;;
-#
-# even 0;; (* => true *)
-# odd 0;; (* => false *)
-#
-# even 3;; (* => false *)
-# odd 3;; (* => true *)
-#
-# even 6;; (* => true *)
-# odd 6;; (* => false *)
-
-zero = 0;
-one = 1;
-three = 3;
-six = 6;
-
-even = fun evennumber -> (
-  evennumberiszero = evennumber == zero;
-  evenresult = evennumberiszero ~ true ?
-    fun evennumberiszeromatch -> (
-      evennumberiszeromatchreturn = true;
-    ) :
-    fun evennumberiszeroantimatch -> (
-      evennumberminusone = evennumber - one;
-      evennumberiszeroantimatchreturn = odd evennumberminusone;
-    );
-);
-
-odd = fun oddnumber -> (
-  oddnumberiszero = oddnumber == zero;
-  oddresult = oddnumberiszero ~ true ?
-    fun oddnumberiszeromatch -> (
-      oddnumberiszeromatchreturn = false;
-    ) :
-    fun oddnumberiszeroantimatch -> (
-      oddnumberminusone = oddnumber - one;
-      oddnumberiszeroantimatchreturn = even oddnumberminusone;
-    );
-);
-
-evenzero = even zero; # => true
-oddzero = odd zero; # => false
-
-eventhree = even three; # => false
-oddthree = odd three; # => true
-
-evensix = even six; # => true
-oddsix = odd six; # => false
-\end{plang}
-
-The next subsection formalizes the introduced intuitions.
-
-\subsection{Formalization}
-
-The approach to formalize the notion of well-formedness is dividing the problem in two independent parts: the first is checking whether all variable bindings are unique, the second is checking whether the program respects the modified notion of lexical scoping introduced in the previous subsection.
-
-To accomplish the first part, we build a list of all the bindings introduced by the program and check for duplicates in the list.  The second part is further subdivided in two responsibilities: build a relation of external dependencies and its requirements for each clause in the program, and check that all the external dependencies' requirements are satisfied at each variable use occurrence.
-
-The presentation of the formalization is bottom-up, starting with some useful notation, then defining auxiliary definitions that collection information by traversing the syntax tree, finally building up to well-formedness predicate.
-
-\begin{notation}
-  Let $\listof{\ev} = [\ev, \dots]$ be a list of variables. Let $\ev \in \listof{\ev}$ iff $\listof{\ev} = [\dots, \ev, \dots]$. Similarly, let $\ecl \in \expr$ iff $\expr = [\dots, \ecl, \dots]$.
-\end{notation}
-
-The $\flatten{}$ -- ``flatten'' -- function \emph{linearizes} the expression, \emph{pulling} the clauses nested within function bodies and conditionals to the top level:
-
-\begin{definition}
-  Let $\flatten{}$ be the least function such that:
-
-  \begin{itemize}
-    \item $\flatten{[]} = []$;
-    \item $\flatten{\ecl \listConcat \expr} =
-      \begin{cases}
-        \ecl \listConcat \flatten{\expr' \listConcat \expr} & \text{if } \ecl = (\ev \gtis \gtfun \ev' \gtarrow \gtop \expr' \gtcp) \\
-        \ecl \listConcat \flatten{\expr_1 \listConcat \expr_2 \listConcat \expr} & \text{if } \ecl = (\ev \gtis \conditional{\ev'}{\epat}{\efunc_1}{\efunc_2})), \\
-        & \text{where} \\
-        & \efunc_1 = \gtfun\ \ev_1 \gtarrow \gtop \expr_1 \gtcp \text{, and} \\
-        & \efunc_2 = \gtfun\ \ev_2 \gtarrow \gtop \expr_2 \gtcp \\
-        \ecl \listConcat \flatten{\expr} & \text{otherwise}
-      \end{cases}
-      $.
-  \end{itemize}
-\end{definition}
-
-The $\flatteni{}$ -- ``flatten immediate block'' -- function \emph{linearizes} the immediate block expression, \emph{pulling} the clauses nested within conditionals -- but not functions -- to the top level\footnote{Note that $\flatteni{\expr} \subseteq \flatten{\expr}$.}:
-
-\begin{definition}
-  Let $\flatteni{}$ be the least function such that:
-
-  \begin{itemize}
-    \item $\flatteni{[]} = []$;
-    \item $\flatteni{\ecl \listConcat \expr} =
-      \begin{cases}
-        \ecl \listConcat \flatteni{\expr_1 \listConcat \expr_2 \listConcat \expr} & \text{if } \ecl = (\ev \gtis \conditional{\ev'}{\epat}{\efunc_1}{\efunc_2})), \\
-        & \text{where} \\
-        & \efunc_1 = \gtfun\ \ev_1 \gtarrow \gtop \expr_1 \gtcp \text{, and} \\
-        & \efunc_2 = \gtfun\ \ev_2 \gtarrow \gtop \expr_2 \gtcp \\
-        \ecl \listConcat \flatteni{\expr} & \text{otherwise}
-      \end{cases}
-      $.
-  \end{itemize}
-\end{definition}
-
-The $\defines{}$ function returns the variables immediately bound by an expression, shallowly traversing its list of clauses:
-
-\begin{definition}
-  Let $\defines{}$ be the least function such that:
-
-  \begin{itemize}
-    \item $\defines{[]} = []$;
-    \item $\defines{(\ev \gtis \elb) \listConcat \expr} = \ev \listConcat \defines{\expr}$.
-  \end{itemize}
-\end{definition}
-
-The $\bindings{}$ function returns all variables bound by an expression, deeply traversing its syntax tree\footnote{Note that $\defines{\expr} \subseteq \bindings{\expr}$.}:
-
-\begin{definition}
-  \sloppy
-  Let $\bindings{\expr} = \defines{\expr'} \listConcat \bindingsp{\expr'}$, where $\expr' = \flatten{\expr}$ and $\bindingsp{}$ is the least function such that:
-
-  \begin{itemize}
-    \item $\bindingsp{[]} = []$;
-    \item $\bindingsp{(\ev \gtis \gtfun \ev' \gtarrow \gtop \expr' \gtcp) \listConcat \expr} = \ev' \listConcat \bindingsp{\expr}$;
-    \item $\bindingsp{(\ev \gtis \conditional{\ev'}{\epat}{\gtfun\ \ev_1 \gtarrow \gtop \expr_1 \gtcp}{\gtfun\ \ev_2 \gtarrow \gtop \expr_2 \gtcp}) \listConcat \expr} = [\ev_1, \ev_2] \listConcat \bindingsp{\expr}$;
-    \item $\bindingsp{\ecl \listConcat \expr} = \bindingsp{\expr}$, otherwise.
-  \end{itemize}
-\end{definition}
-
-The $\uses{}$ function returns all variables used by an expression, deeply traversing its syntax tree:
-
-\begin{definition}
-  \sloppy
-  Let $\uses{\expr} = \usesp{\flatten{\expr}}$, where $\usesp{}$ is the least function such that:
-
-  \begin{itemize}
-    \item $\usesp{[]} = []$;
-    \item $\usesp{(\ev' \gtis \{\elbl_1 \gtis \ev_1, \ldots, \elbl_n \gtis \ev_n\}) \listConcat \expr} = [\ev_1, \ldots, \ev_n] \listConcat \usesp{\expr}$;
-    \item $\usesp{(\ev' \gtis \gtfun\ \ev \gtarrow \gtop \expr' \gtcp) \listConcat \expr} = \usesp{\expr}$;
-    \item $\usesp{(\ev' \gtis \gtref \ev) \listConcat \expr} = \ev \listConcat \usesp{\expr}$;
-    \item $\usesp{(\ev' \gtis \ev) \listConcat \expr} = \ev \listConcat \usesp{\expr}$;
-    \item $\usesp{(\ev' \gtis \ev_1\ \ev_2) \listConcat \expr} = [\ev_1, \ev_2] \listConcat \usesp{\expr}$;
-    \item $\usesp{(\ev' \gtis \conditional{\ev}{\epat}{\efunc_1}{\efunc_2}) \listConcat \expr} = \ev \listConcat \usesp{\expr}$;
-    \item $\usesp{(\ev' \gtis \ev_1 \gtset \ev_2) \listConcat \expr} = [\ev_1, \ev_2] \listConcat \usesp{\expr}$;
-    \item $\usesp{(\ev' \gtis \gtderef \ev) \listConcat \expr} = \ev \listConcat \usesp{\expr}$;
-    \item $\usesp{(\ev' \gtis \unop \ev) \listConcat \expr} = \ev \listConcat \usesp{\expr}$;
-    \item $\usesp{(\ev' \gtis \ev_1 \binop \ev_2) \listConcat \expr} = [\ev_1, \ev_2] \listConcat \usesp{\expr}$;
-  \end{itemize}
-\end{definition}
-
-The $\unique{}$ predicate holds when there are no repetitions among the variables:
-
-\begin{definition}
-  Let $\unique{}$ be the least predicate satisfying the following assertions:
-
-  \begin{itemize}
-    \item $\unique{[]}$;
-    \item $\unique{\ev \listConcat \listof{\ev}}$ iff $\ev \notin \listof{\ev}$, and $\unique{\listof{\ev}}$.
-  \end{itemize}
-\end{definition}
-
-The definitions that follow all assume that $\unique{\bindings{\expr}}$ hold and that, when an expression $\expr$ and a clause $\ecl$ are given, then the clause occurs in the expression: $\ecl \in \flatten{\expr}$.
-
-The $\immediatelyrequires{\expr}{\ev_d}{\ev_r}$ -- ``$\ev_d$ immediately requires $\ev_r$ in $\expr$'' -- relation holds if the $\ev_r$ variable occurs but is not bound in the body of $\ev_d$ declaration.  Note that a variable can require itself if it is used in its own definition, in the case of \emph{immediate} recursion.
-
-\begin{definition}
-  Let the $\immediatelyrequires{\expr}{\ev_d}{\ev_r}$ relation hold iff $\ecl \in \flatten{\expr}$, $\ecl = (\ev_d \gtis \elb)$, $\ev_r \in \uses{[\ecl]}$, and either $\ev_d = \ev_r$ or $\ev_r \notin \bindings{[\ecl]}$.
-\end{definition}
-
-The $\requires{}{}{}$ relation is the transitive closure of $\immediatelyrequires{}{}{}$:
-
-\begin{definition}
-  Let $\requires{\expr}{\ev_1}{\ev_2}$ hold iff $\immediatelyrequires{\expr}{\ev_1}{\immediatelyrequires{\expr}{\dots}{\ev_2}}$.
-\end{definition}
-
-The $\deps{}{}$ -- ``dependencies'' -- function returns the variables upon which a clause depends.  Those are the variables that \emph{must} be in scope for the clause to be considered well-formed; the variables that are immediate requirements and are not \emph{frozen}\footnote{Note that $\deps{}{} \subseteq \immediatelyrequires{}{}{}$.}.  Note that the only construct capable of \emph{freezing} variable uses is a function declaration.
-
-\begin{definition}
-  Let $\deps{}{}$ be a function such that:
-
-  \begin{equation*}
-    \deps{\expr}{\ecl} = \begin{cases}
-      [] & \text{if } \ecl = (\ev \gtis \gtfun\ \ev \gtarrow \gtop \expr \gtcp) \\
-      [\ev_1, \dots, \ev_n] & \text{for all } \ev_i \\
-      & \text{ such that } \ecl = (\ev \gtis \elb) \text{,} \\
-      & \immediatelyrequires{\expr}{\ev}{\ev_i} \text{, } \\
-      & i \in \{1, \dots, n\} \text{,} \\
-      & \text{otherwise}
-    \end{cases}
-  \end{equation*}
-\end{definition}
-
-The $\uptofirstdependent{}{}$ -- ``up to first dependent'' -- function returns the clauses up to (before) the first clause that depends on a given variable (not inclusive).
-
-\begin{definition}
-  Let $\uptofirstdependent{}{}$ be a function such that:
-
-  \begin{equation*}
-    \uptofirstdependent{\expr}{\ev} = \begin{cases}
-      \expr & \text{if there does not exist } \ecl \in \expr \\
-      & \text{such that } \ev \in \deps{\expr}{\ecl} \\
-      \expr_1 & \text{where } \expr = \expr_1 \listConcat \ecl \listConcat \expr_2 \text{,} \\
-      & \ev \in \deps{\expr}{\ecl} \text{, and} \\
-      & \text{there does not exist } \ecl_1 \in \expr_1 \\
-      & \text{such that } \ev \in \deps{\expr}{\ecl_1}
-    \end{cases}
-  \end{equation*}
-\end{definition}
-
-The $\availr{}{}$ -- ``available for requirement'' -- function returns the variables available -- i.e., already defined -- at a given clause to satisfy requirements.
-
-\begin{definition}
-  Let $\availr{\expr}{\ecl}$ be the least function such that:
-
-  \begin{equation*}
-    \availr{\expr}{\ecl} = \begin{cases}
-      \defines{\expr_1} & \text{if } \expr = \expr_1 \listConcat \ecl \listConcat \expr_2 \\
-      \ev' \listConcat \listof{\ev}_1 \listConcat \listof{\ev}_2 & \text{where } \\
-      & \listof{\ev}_1 = \defines{\uptofirstdependent{\expr}{\ev}} \text{, and} \\
-      & \listof{\ev}_2 = \availr{\expr'}{\ecl} \text{, if} \\
-      & \expr = \expr_1 \listConcat \ecl' \listConcat \expr_2 \text{,} \\
-      & \ecl' = (\ev \gtis \gtfun\ \ev' \gtarrow \gtop \expr' \gtcp) \text{,} \\
-      & \text{and } \ecl \in \flatten{\expr'} \\
-      \ev' \listConcat \listof{\ev}_1 \listConcat \listof{\ev}_2 & \text{where } \\
-      & \listof{\ev}_1 = \defines{\expr_1} \text{, and} \\
-      & \listof{\ev}_2 = \availr{\expr'}{\ecl} \text{, if} \\
-      & \expr = \expr_1 \listConcat \ecl' \listConcat \expr_2 \text{,} \\
-      & \ecl' = (\ev_1 \gtis \conditional{\ev_2}{\epat}{\efunc_1}{\efunc_2}) \text{,} \\
-      & \gtfun\ \ev' \gtarrow \gtop \expr' \gtcp \in \{\efunc_1, \efunc_2\} \text{,} \\
-      & \text{and } \ecl \in \flatten{\expr'}
-    \end{cases}
-  \end{equation*}
-\end{definition}
-
-The $\availd{}{}$ -- ``available for dependency'' -- function returns the variables available -- i.e., already defined -- at a given clause to satisfy dependencies.  Note that, in order to support the artificial restriction that external dependencies are not allowed for variables outside the enclosing immediate block, there is a special case on the treatment of function bodies\footnote{If we were to remove this artificial restriction, the notions of $\availd{}{}$ and $\availr{}{}$ would converge: $\availd{\expr}{\ecl} = \availr{\expr}{\ecl}$.  But, as it is, neither $\availd{\expr}{\ecl} \subseteq \availr{\expr}{\ecl}$ nor $\availd{\expr}{\ecl} \supseteq \availr{\expr}{\ecl}$.}\footnote{The special case uses $\flatteni{}{}$ so that forward external dependencies within conditional bodies work.}:
-
-\begin{definition}
-  Let $\availd{\expr}{\ecl}$ be the least function such that:
-
-  \begin{equation*}
-    \availd{\expr}{\ecl} = \begin{cases}
-      \defines{\expr_1} & \text{if } \expr = \expr_1 \listConcat \ecl \listConcat \expr_2 \\
-      \ev' \listConcat \listof{\ev}_1 \listConcat \listof{\ev}_2 & \text{where } \\
-      & \listof{\ev}_1 = \defines{\uptofirstdependent{\expr}{\ev}} \text{, and} \\
-      & \listof{\ev}_2 = \availd{\expr'}{\ecl} \text{, if} \\
-      & \expr = \expr_1 \listConcat \ecl' \listConcat \expr_2 \text{,} \\
-      & \ecl' = (\ev \gtis \gtfun\ \ev' \gtarrow \gtop \expr' \gtcp) \text{,} \\
-      & \text{and } \ecl \in \flatteni{\expr'} \\
-      \ev' \listConcat \listof{\ev}_1 \listConcat \listof{\ev}_2 & \text{where } \\
-      & \listof{\ev}_1 = \defines{\expr_1} \text{, and} \\
-      & \listof{\ev}_2 = \availd{\expr'}{\ecl} \text{, if} \\
-      & \expr = \expr_1 \listConcat \ecl' \listConcat \expr_2 \text{,} \\
-      & \ecl' = (\ev \gtis \gtfun\ \ev' \gtarrow \gtop \expr' \gtcp) \text{,} \\
-      & \ecl \in \flatten{\expr'} \\
-      & \text{and } \ecl \notin \flatteni{\expr'} \\
-      \ev' \listConcat \listof{\ev}_1 \listConcat \listof{\ev}_2 & \text{where } \\
-      & \listof{\ev}_1 = \defines{\expr_1} \text{, and} \\
-      & \listof{\ev}_2 = \availd{\expr'}{\ecl} \text{, if} \\
-      & \expr = \expr_1 \listConcat \ecl' \listConcat \expr_2 \text{,} \\
-      & \ecl' = (\ev_1 \gtis \conditional{\ev_2}{\epat}{\efunc_1}{\efunc_2}) \text{,} \\
-      & \gtfun\ \ev' \gtarrow \gtop \expr' \gtcp \in \{\efunc_1, \efunc_2\} \text{,} \\
-      & \text{and } \ecl \in \flatten{\expr'}
-    \end{cases}
-  \end{equation*}
-\end{definition}
-
-The $\inscope{}{}{}$ predicate holds when the given variable dependency and all its requirements are available at the particular clause in the expression.
-
-\begin{definition}
-  Let $\inscope{\expr}{\ecl}{\ev_d}$ hold iff $\ev_d \in \availd{\expr}{\ecl}$, and for all $\ev_r$ such that $\requires{\expr}{\ev_d}{\ev_r}$, $\ev_r \in \availr{\expr}{\ecl}$.
-\end{definition}
-
-Finally, the $\wellformed{}$ predicate holds when the bindings are unique and the external dependencies of every clause are in scope.
-
-\begin{definition}
-  Let $\wellformed{\expr}$ hold iff $\unique{\bindings{\expr}}$, and for all $\ecl$ and $\ev$ such that $\ecl \in \flatten{\expr}$ and $\ev \in \deps{\expr}{\ecl}$, $\inscope{\expr}{\ecl}{\ev}$.
-\end{definition}
-
-Given this definition of well-formed programs, there is a guarantee that evaluation does not get stuck due to looking for a variable that is not in the environment\footnote{In other words, no JavaScript-like \plangil!undefined! values show up during evaluation.}:
-
-\begin{lemma}
-  If $\wellformed{\expr}$, then $\expr \smallsteps \expr'$ will not get stuck as a result of a failed predicate of the form $\ev \gtis \eval \in \env$.
-\end{lemma}
-
-\lnote{TODO: Prove the above lemma.}
-
-
 \section{Extended Analysis}
 
 We now begin the process of extending DDPA to cover both the operational semantics presented above and path-sensitivity properties.  DDPA relies heavily upon its lookup function; the form of this function in the original specification is selected to ensure that its translation into a PDA is obvious.  The resulting function is readable due to the simplicity of the original presentation language.  Here, due to the extension of the presentation language, such an approach is no longer appropriate: the PDA-friendly lookup function includes a number of implementation details which obfuscate the intention of its definition.  Instead, we present two equivalent versions of the lookup function: one in this section which is semantically illustrative and another in the next section which is easily encoded into a PDA.  Each definition also includes their corresponding graph closure rules, which are nearly identical.
@@ -913,8 +469,7 @@ This section gives a definition of lookup for the full system.  We begin by defi
             \gor    \kunop
             \gor    \kbinop
             \gor
-            \gline  \krewind
-            \gor    \ksideeffectstart
+            \gline  \ksideeffectstart
             \gor    \ksideeffectescape{\tv}
             \gor
             \gline  \ksideeffectvar{\tv}{\tpatsp}{\tpatsn}{\tgacl}{\tgcstack}
@@ -1105,11 +660,6 @@ The above properties have the advantage of making this lookup function suitable 
                 If $\tgkstack = [\tfval, \kcapture{n}, \tgk_1, \ldots, \tgk_n] \listConcat \tgkstack'$
                 then
                         \formalRuleLine $\tglookupPSM{\tgacl_0}{[\tgk_1, \ldots, \tgk_n, \tfval] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
-            \item \label{pds_lookup_rewind}
-                \rulename{Rewind}
-                If $\tgkstack = [\krewind] \listConcat \tgkstack'$
-                then
-                        \formalRuleLine $\tglookupPSM{\stendofblock[\tgacl_0]}{\tgkstack'}{\tgcstack} \subseteq \tvals$.
         \end{enumerateClauses}
         \item \clauseSectionTitle{Function wiring} \label{pds_lookup_functionWiring}
         \begin{enumerateClauses}
@@ -1151,7 +701,7 @@ The above properties have the advantage of making this lookup function suitable 
                    $\tv'' \neq \tv$, and
                    $\stistop[\tcl][\tgcstack]$,
                    then
-                        \formalRuleLine $\tglookupPSM{\tgacl_1}{[\kvar{\tv''_2}{\emptyset}{\emptyset}, \krewind] \listConcat \tgkstack}{\stpop[\tgcstack]} \subseteq \tvals$.
+                        \formalRuleLine $\tglookupPSM{\tgacl_1}{[\kvar{\tv''_2}{\emptyset}{\emptyset}] \listConcat \tgkstack}{\stpop[\tgcstack]} \subseteq \tvals$.
         \end{enumerateClauses}
         \item \clauseSectionTitle{Conditional wiring} \label{pds_lookup_conditionalWiring}
         \begin{enumerateClauses}
@@ -1377,7 +927,7 @@ The above properties have the advantage of making this lookup function suitable 
                     then
                             \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack}{\tgcstack} \subseteq \tvals$.
                 \item \label{pds_lookup_stateful_search_pushFrame_function_startFlowCheck}
-                    \rulename{Side Effect Search: Function Bottom: Flow Check} 
+                    \rulename{Side Effect Search: Function Bottom: Flow Check}
                     \sloppy
                     If $\tgacl_1 = (\annotated{\tcl}{\gmodeExit}{\tv''_0}{\tv'})$,
                     $\tgacl_1 \isbefore \tgacl_0$,
@@ -1433,7 +983,7 @@ The above properties have the advantage of making this lookup function suitable 
                             \formalRuleLine $\tglookupPSM{\tgacl_1}{\tgkstack'}{\tgcstack'} \subseteq \tvals$.
             \end{enumerateSubclauses}
             \item \clauseSubsectionTitle{Side Effect Search: Alias Analysis}
-            \begin{enumerateSubclauses}                
+            \begin{enumerateSubclauses}
                 \item \label{pds_lookup_stateful_search_discardStart}
                     \rulename{Side Effect Search: Complete, None Found}
                     \znote{TODO: implementation comments: this used to be rule 10f} \\
@@ -1472,7 +1022,7 @@ The above properties have the advantage of making this lookup function suitable 
                             \formalRuleLine $\tglookupPSM{\tgacl_1}{[\ksideeffectescape{\tv''}] \listConcat \tgkstack'}{\tgcstack} \subseteq \tvals$.
             \end{enumerateSubclauses}
             \item \clauseSubsectionTitle{Side Effect Search: Escape}
-                \begin{enumerateSubclauses}                
+                \begin{enumerateSubclauses}
                 \item \label{pds_lookup_stateful_search_escape_incremental}
                     \rulename{Side Effect Search: Escape: Incremental}
                     If $\tgkstack = [\ksideeffectescape{\tv},\ksideeffectvar{\tv'}{\tpatsp}{\tpatsn}{\tgacl'}{\tgcstack'}] \listConcat \tgkstack'$

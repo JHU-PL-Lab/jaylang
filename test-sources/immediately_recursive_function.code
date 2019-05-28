@@ -7,13 +7,17 @@
 tru = true;
 fals = false;
 
-f = fun b -> (
-  fr = b ~ true
-       ? fun bm -> (
-         bmr = f fals;
-       )
-       : fun ba -> (
-         bar = ba;
-       );
+f0 = fun self -> (
+  f0ret = fun b -> (
+    fr = b ~ true
+         ? fun bm -> (
+           ff = self self;
+           bmr = ff fals;
+         )
+         : fun ba -> (
+           bar = ba;
+         );
+  );
 );
+f = f0 f0;
 r = f tru; # => false

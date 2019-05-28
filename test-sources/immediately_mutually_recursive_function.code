@@ -7,22 +7,36 @@
 tru = true;
 fals = false;
 
-f = fun bf -> (
-  fr = bf ~ true
-       ? fun bfm -> (
-         bfmr = g tru;
-       )
-       : fun bfa -> (
-         bfar = bfa;
-       );
+f0 = fun fpf -> (
+  f1 = fun fpg -> (
+    f2 = fun bf -> (
+      fr = bf ~ true
+           ? fun bfm -> (
+             fg1 = fpg fpf;
+             fg2 = fg1 fpg;
+             bfmr = fg2 fals;
+           )
+           : fun bfa -> (
+             bfar = bfa;
+           );
+    );
+  );
 );
-g = fun bg -> (
-  gr = bg ~ true
-       ? fun bgm -> (
-         bgmr = f fals;
-       )
-       : fun bga -> (
-         bgar = bga;
-       );
+g0 = fun gpf -> (
+  g1 = fun gpg -> (
+    g2 = fun bg -> (
+      gr = bg ~ true
+           ? fun bgm -> (
+             gf1 = gpf gpf;
+             gf2 = gf1 gpg;
+             bgmr = gf2 tru;
+           )
+           : fun bga -> (
+             bgar = bga;
+           );
+    );
+  );
 );
-r = f tru; # => false
+gx = g0 f0;
+g = gx g0;
+r = g tru; # => false

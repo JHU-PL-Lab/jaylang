@@ -49,7 +49,6 @@ struct
     | Lookup_var of abstract_var * Pattern_set.t * Pattern_set.t
     | Project of ident * Pattern_set.t * Pattern_set.t
     | Jump of annotated_clause * C.t
-    | Rewind
     | Deref of Pattern_set.t * Pattern_set.t
     | Capture of Bounded_capture_size.t
     | Continuation_value of abs_filtered_value

@@ -16,17 +16,21 @@ zero = 0;
 one = 1;
 five = 5;
 
-sum = fun number -> (
-  numberequal0 = number == zero;
-  sumresult = numberequal0 ~ true
-                      ? fun numberequal0match -> (
-                        numberequal0matchresult = zero;
-                      )
-                      : fun numberequal0antimatch -> (
-                        numberminus1 = number - one;
-                        partialsum = sum numberminus1;
-                        numberequal0antimatchresult = partialsum + number;
-                      );
+sum0 = fun self -> (
+  sum0ret = fun number -> (
+    numberequal0 = number == zero;
+    sumresult = numberequal0 ~ true
+                        ? fun numberequal0match -> (
+                          numberequal0matchresult = zero;
+                        )
+                        : fun numberequal0antimatch -> (
+                          numberminus1 = number - one;
+                          sum1 = self self;
+                          partialsum = sum1 numberminus1;
+                          numberequal0antimatchresult = partialsum + number;
+                        );
+  );
 );
+sum = sum0 sum0;
 
 r = sum five; # => 15

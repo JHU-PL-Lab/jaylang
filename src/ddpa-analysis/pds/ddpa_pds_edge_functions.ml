@@ -542,10 +542,10 @@ struct
   ;;
 
   let create_untargeted_dynamic_pop_action_function
-      (eobm : End_of_block_map.t) (edge : ddpa_edge) (state : R.State.t) =
+      (edge : ddpa_edge) (state : R.State.t) =
     let Ddpa_edge(_, acl0) = edge in
     let zero = Enum.empty in
-    let%orzero (Program_point_state(acl0',ctx)) = state in
+    let%orzero (Program_point_state(acl0',_)) = state in
     (* TODO: There should be a way to associate each action function with
              its corresponding acl0 rather than using this guard. *)
     [%guard (compare_annotated_clause acl0 acl0' == 0)];
@@ -562,38 +562,6 @@ struct
             return @@ Do_jump
           end
           ;
-          (* Rewind *)
-          begin
-            (*
-              To rewind, we need to know the "end-of-block" for the node we are
-              considering.  We have a dictionary mapping all of the *abstract*
-              clauses in the program to their end-of-block clauses, but we don't
-              have such mappings for e.g. wiring nodes or block start/end nodes.
-              This code runs for *every* edge, so we need to skip those cases
-              for which our mappings don't exist.  It's safe to skip all
-              non-abstract-clause nodes, since we only rewind after looking up
-              a function to access its closure and the only nodes that can
-              complete a lookup are abstract clause nodes.
-            *)
-            match acl0 with
-            | Unannotated_clause cl0 ->
-              begin
-                match Annotated_clause_map.Exceptionless.find acl0 eobm with
-                | Some end_of_block ->
-                  return @@ Rewind_step(end_of_block, ctx)
-                | None ->
-                  raise @@ Utils.Invariant_failure(
-                    Printf.sprintf
-                      "Abstract clause lacks end-of-block mapping: %s"
-                      (show_abstract_clause cl0))
-              end
-            | Start_clause _ | End_clause _ | Enter_clause _ | Exit_clause _ ->
-              (*
-                These clauses can be safely ignored because they never complete
-                a lookup and so won't ever be the subject of a rewind.
-              *)
-              None
-          end
         ]
     in
     untargeted_dynamic_pops

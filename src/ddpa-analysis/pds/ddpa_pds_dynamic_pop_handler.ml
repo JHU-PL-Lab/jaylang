@@ -138,7 +138,6 @@ struct
       (* We're looking for a non-local variable.  Push a lookup for the
          function. *)
       return [ Push(element)
-             ; Push(Rewind)
              ; Push(Lookup_var(xf,Pattern_set.empty,Pattern_set.empty))
              ]
     | Conditional_closure_lookup(x',x1,pat,positive_side) ->
@@ -630,8 +629,5 @@ struct
       return ( [ Pop_dynamic_targeted(Value_discovery_2_of_2) ]
              , Static_terminus(Result_state abs_filtered_value)
              )
-    | Rewind_step(acl,ctx0)->
-      let%orzero Rewind = element in
-      return ([], Static_terminus(Program_point_state(acl,ctx0)))
   ;;
 end;;
