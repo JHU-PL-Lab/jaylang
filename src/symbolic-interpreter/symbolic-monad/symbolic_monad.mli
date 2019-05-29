@@ -16,10 +16,10 @@
 
 open Batteries;;
 
-(* open Odefa_ast;; *)
+open Odefa_ast;;
 
-(* open Ast;; *)
-(* open Interpreter_types;; *)
+open Ast;;
+open Interpreter_types;;
 (* open Relative_stack;; *)
 open Sat_types;;
 open Symbolic_monad_types;;
@@ -36,15 +36,18 @@ val return : 'a -> 'a m;;
 (** A bind operation.  Computation is suspended at each bind. *)
 val bind : 'a m -> ('a -> 'b m) -> 'b m;;
 
+(** A zero operation.  Produces an empty value containing no computations. *)
+val zero : unit -> 'a m;;
+
 (** A non-deterministic selection. *)
 val pick : 'a Enum.t -> 'a m;;
 
-(** Records a search path for the provided variable.  If the provided search
+(** Records a path decision for the provided variable.  If the provided search
     path is valid in this environment, unit is returned in the environment.  If
     the provided search path conflicts with a previous selection, the
     environment is destroyed.  The first symbol is the variable which is being
     mapped; the remaining arguments are the components of the wiring node. *)
-(* val record_search : Symbol.t -> Ident.t -> clause -> Ident.t -> unit m;; *)
+val record_decision : Symbol.t -> Ident.t -> clause -> Ident.t -> unit m;;
 
 (** Stores a formula in this environment's constraint set. *)
 val record_formula : Formula.t -> unit m;;

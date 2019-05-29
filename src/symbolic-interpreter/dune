@@ -9,6 +9,7 @@
     jhupllib
     z3
     odefa.ast
+    odefa.ddpa
     odefa.utils
   )
   (preprocess

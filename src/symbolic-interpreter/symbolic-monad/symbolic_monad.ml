@@ -9,22 +9,30 @@ outermost to innermost.
 *)
 
 open Batteries;;
+open Odefa_ast;;
 
-(* open Interpreter_types;; *)
+open Ast;;
+open Interpreter_types;;
 (* open Relative_stack;; *)
 open Sat_types;;
 open Symbolic_monad_types;;
 
 (* **** Supporting types **** *)
 
+type decision_map =
+  (Ident.t * clause * Ident.t) Symbol_map.t
+;;
+
 type state = {
   st_formulae : Formula_set.t;
+  st_decisions : decision_map;
 };;
 
 (* **** Initial values **** *)
 
 let initial_state = {
   st_formulae = Formula_set.empty;
+  st_decisions = Symbol_map.empty;
 };;
 
 let initial_metadata = {
@@ -71,26 +79,72 @@ let bind (type a) (type b) (x : a m) (f : a -> b m) : b m =
   Nondeterminism(universes')
 ;;
 
+let zero (type a) () : a m = Nondeterminism(Enum.empty ());;
+
 let pick (type a) (items : a Enum.t) : a m =
   let universes = Enum.map _return_universe items in
   Nondeterminism(universes)
 ;;
 
-let record_formula (formula : Formula.t) : unit m =
+let record_decision (s : Symbol.t) (x : Ident.t) (c : clause) (x' : Ident.t)
+  : unit m =
   Nondeterminism(
     Enum.singleton
-      { co_state = { st_formulae = Formula_set.singleton formula; };
+      { co_state = { st_formulae = Formula_set.empty;
+                     st_decisions = Symbol_map.singleton s (x,c,x')
+                   };
         co_metadata = initial_metadata;
         co_suspendable = Evaluated ();
       })
 ;;
 
-let merge_metadata md1 md2 =
+let record_formula (formula : Formula.t) : unit m =
+  Nondeterminism(
+    Enum.singleton
+      { co_state = { st_formulae = Formula_set.singleton formula;
+                     st_decisions = Symbol_map.empty;
+                   };
+        co_metadata = initial_metadata;
+        co_suspendable = Evaluated ();
+      })
+;;
+
+let merge_decisions (d1 : decision_map) (d2 : decision_map)
+  : decision_map option =
+  try
+    Some (Symbol_map.merge
+            (fun _ v1o v2o ->
+               match v1o,v2o with
+               | None, None -> None
+               | Some v1, None -> Some v1
+               | None, Some v2 -> Some v2
+               | Some v1, Some v2 ->
+                 let (x1,c1,x1') = v1 in
+                 let (x2,c2,x2') = v2 in
+                 if equal_ident x1 x2 &&
+                    equal_ident x1' x2' &&
+                    equal_clause c1 c2 then
+                   Some v1
+                 else
+                   raise (Failure "decision mismatch")
+            )
+            d1 d2)
+  with
+  | Failure _ -> None
+;;
+
+let merge_metadata (md1 : metadata) (md2 : metadata) : metadata =
   { md_steps = md1.md_steps + md2.md_steps }
 ;;
 
-let merge_state st1 st2 =
-  { st_formulae = Formula_set.union st1.st_formulae st2.st_formulae }
+let merge_state (st1 : state) (st2 : state) : state option =
+  match merge_decisions st1.st_decisions st2.st_decisions with
+  | Some merged_decisions ->
+    Some
+      { st_formulae = Formula_set.union st1.st_formulae st2.st_formulae;
+        st_decisions = merged_decisions;
+      }
+  | None -> None
 ;;
 
 let rec step_computation : 'a. 'a computation -> 'a computation Enum.t =
@@ -118,7 +172,7 @@ let rec step_computation : 'a. 'a computation -> 'a computation Enum.t =
            metadata that must be merged with the current context. *)
         let Nondeterminism(universes) = f v in
         universes
-        |> Enum.map
+        |> Enum.filter_map
           (fun universe ->
              let metadata' =
                merge_metadata universe.co_metadata computation.co_metadata
@@ -126,10 +180,14 @@ let rec step_computation : 'a. 'a computation -> 'a computation Enum.t =
              let metadata'' =
                { md_steps = metadata'.md_steps + 1 }
              in
-             { co_metadata = metadata'';
-               co_state = merge_state universe.co_state computation.co_state;
-               co_suspendable = universe.co_suspendable;
-             }
+             match merge_state universe.co_state computation.co_state with
+             | Some state'' ->
+               Some
+                 { co_metadata = metadata'';
+                   co_state = state'';
+                   co_suspendable = universe.co_suspendable;
+                 }
+             | None -> None
           )
     end
 ;;

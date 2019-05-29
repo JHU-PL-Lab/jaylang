@@ -1,5 +1,7 @@
 (** This module defines basic data types used by the symbolic interpreter. *)
 
+open Batteries;;
+open Jhupllib;;
 open Odefa_ast;;
 
 open Ast;;
@@ -15,4 +17,11 @@ type symbol =
 
 module Symbol = struct
   type t = symbol [@@deriving eq, ord, show, to_yojson];;
+end;;
+
+module Symbol_map = struct
+  module M = Map.Make(Symbol);;
+  include M;;
+  include Pp_utils.Map_pp(M)(Symbol);;
+  include Yojson_utils.Map_to_yojson(M)(Symbol);;
 end;;
