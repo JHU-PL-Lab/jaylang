@@ -12,7 +12,7 @@ open Interpreter_types
 open Relative_stack
 
 module Phi_set = struct
-  let eq_int id v = 
+  let eq_int id v =
     let stk = Relative_stack([], [])
     in let sid = Symbol(Ident(id), stk)
     in (Formula(sid, Formula_expression_value(Value_int(v))))
@@ -36,21 +36,22 @@ end
 exception Program_type_error of string
 
 let string_of_symbol (s : symbol) =
-  let Symbol(Ident id, _) = s in id
+  let Symbol(Ident name, relstack) = s in
+  name ^ symbol_suffix_of_relative_stack relstack
 
 type binop_type = Binop_int | Binop_bool
 
 let get_binop_type = function
   | Binary_operator_plus | Binary_operator_minus
   | Binary_operator_less_than
-  | Binary_operator_less_than_or_equal_to 
-  | Binary_operator_equal_to 
+  | Binary_operator_less_than_or_equal_to
+  | Binary_operator_equal_to
     -> Binop_int
-  | Binary_operator_and | Binary_operator_or | Binary_operator_xor 
+  | Binary_operator_and | Binary_operator_or | Binary_operator_xor
     -> Binop_bool
 
-let add_to_z3 ctx solver (phi : Formula_set.t) (symbol_map :  (Expr.expr Symbol_map.t) ref) : unit =
-  let rec add_to_z3_rec phi symbol_map = 
+let add_to_z3 ctx solver (phi : Formula_set.t) (expr_map : (Expr.expr Ident_map.t) ref) : unit =
+  let rec add_to_z3_rec phi expr_map =
     if Formula_set.is_empty phi
     then ()
     else begin
@@ -58,33 +59,33 @@ let add_to_z3 ctx solver (phi : Formula_set.t) (symbol_map :  (Expr.expr Symbol_
       (* condition on a formula,
          when x = 1, we know the type of x
           add this formula to z3,
-          and add the type of x to symbol_map
+          and add the type of x to expr_map
          when x = y, x = y bop z
           add this formula when the types of all symbols are define
           postpone this formula when either of the symbols are not defined yet
       *)
-      let add_now_or_later (formula : formula) = 
+      let add_now_or_later (formula : formula) =
         let Formula(fs, fexp) = formula
         in
         match fexp with
-        | Formula_expression_value (Value_int i) -> 
+        | Formula_expression_value (Value_int i) ->
           let Symbol(id, _) = fs
           in let zs = Integer.mk_const_s ctx @@ string_of_symbol fs
-          in symbol_map := Symbol_map.add id zs !symbol_map;
+          in expr_map := Ident_map.add id zs !expr_map;
           let ze = mk_eq ctx zs (Integer.mk_numeral_i ctx i)
           in Solver.add solver [ze]
-        | Formula_expression_value (Value_bool b) -> 
+        | Formula_expression_value (Value_bool b) ->
           let Symbol(id, _) = fs
           in let zs = Boolean.mk_const_s ctx @@ string_of_symbol fs
-          in symbol_map := Symbol_map.add id zs !symbol_map;
+          in expr_map := Ident_map.add id zs !expr_map;
           let ze = mk_eq ctx zs (Boolean.mk_val ctx b)
           in Solver.add solver [ze]
-        | Formula_expression_value (Value_function _) -> () 
+        | Formula_expression_value (Value_function _) -> ()
         | Formula_expression_alias s2 -> (
             try
               let Symbol(id2, _) = s2
-              in let zs2 = Symbol_map.find id2 !symbol_map
-              in let zs1 =  
+              in let zs2 = Ident_map.find id2 !expr_map
+              in let zs1 =
                    if is_int zs2
                    then Integer.mk_const_s ctx @@ string_of_symbol s2
                    else Boolean.mk_const_s ctx @@ string_of_symbol s2
@@ -93,7 +94,7 @@ let add_to_z3 ctx solver (phi : Formula_set.t) (symbol_map :  (Expr.expr Symbol_
             with Not_found ->
               later_phi := Formula_set.add formula !later_phi
           )
-        | Formula_expression_binop (s1, op, s2) -> 
+        | Formula_expression_binop (s1, op, s2) ->
           let zs1, zs2 =
             match get_binop_type op with
             | Binop_bool ->
@@ -107,17 +108,17 @@ let add_to_z3 ctx solver (phi : Formula_set.t) (symbol_map :  (Expr.expr Symbol_
               | _ -> failwith "for commit"
           in Solver.add solver [e_right]
       in Formula_set.iter add_now_or_later phi;
-      add_to_z3_rec !later_phi symbol_map
+      add_to_z3_rec !later_phi expr_map
     end
-  in 
-  add_to_z3_rec phi symbol_map
+  in
+  add_to_z3_rec phi expr_map
 ;;
 
-let solve (phi : Formula_set.t) = 
+let solve (phi : Formula_set.t) =
   let _ = Formula_set.show phi
   in let ctx = Z3.mk_context []
   in let solver = Solver.mk_solver ctx None
-  in let _ = add_to_z3 ctx solver phi (ref Symbol_map.empty)
+  in let _ = add_to_z3 ctx solver phi (ref Ident_map.empty)
   in match Solver.check solver [] with
   | Solver.SATISFIABLE -> (
       match Solver.get_model solver with
@@ -132,4 +133,6 @@ let solve (phi : Formula_set.t) =
       print_endline (Solver.get_reason_unknown solver);
       failwith "failure: unknown in solve.check"
     )
+
+(* TODO: remove this; make a few unit tests instead *)
 let main () = solve Phi_set.s1
