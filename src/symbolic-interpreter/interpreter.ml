@@ -1,4 +1,3 @@
-(*
 (**
    This module contains a definition of the DDSE symbolic interpreter.
 *)
@@ -27,7 +26,7 @@ let rec lookup
     (lookup_stack : Ident.t list)
     (cl0 : clause)
     (relstack : relative_stack)
-  : Ident.t m =
+  : Symbol.t m =
   (* *** Main lookup logic ***)
   let acl0 = lift_clause cl0 in
   let%bind acl1 = pick @@ preds (Unannotated_clause acl0) env.le_cfg in
@@ -52,32 +51,40 @@ let rec lookup
               (* ## Value Discovery rule ## *)
               let%bind _ =
                 if equal_ident lookup_var env.le_first_var then
-                  return env.le_first_var
+                  return @@ Symbol(env.le_first_var, relstack)
                 else
                   lookup env [env.le_first_var] cl1 relstack
               in
               let symbol = Symbol(lookup_var, relstack) in
               let formula = Formula(symbol, Formula_expression_value(v)) in
               let%bind () = record_formula formula in
-              return lookup_var
+              return symbol
             else
               (* ## Value Discard rule ## *)
               lookup env lookup_stack' cl1 relstack
-          | Var_body _ ->
-            failwith "TODO"
+          | Var_body(Var(x',_)) ->
+            let%bind found_symbol =
+              lookup env (x' :: lookup_stack') cl1 relstack
+            in
+            let symbol = Symbol(lookup_var, relstack) in
+            let formula =
+              Formula(symbol, Formula_expression_alias(found_symbol))
+            in
+            let%bind () = record_formula formula in
+            return symbol
           | Input_body ->
             if List.is_empty lookup_stack' then
               (* ## Value Discovery rule ## *)
               let%bind _ =
                 if equal_ident lookup_var env.le_first_var then
-                  return env.le_first_var
+                  return @@ Symbol(env.le_first_var, relstack)
                 else
                   lookup env [env.le_first_var] cl1 relstack
               in
               let symbol = Symbol(lookup_var, relstack) in
               let formula = Formula(symbol, Formula_expression_alias(symbol)) in
               let%bind () = record_formula formula in
-              return lookup_var
+              return symbol
             else
               (* ## Value Discard rule ## *)
               lookup env lookup_stack' cl1 relstack
@@ -100,4 +107,3 @@ let rec lookup
         failwith "TODO"
     end
 ;;
-*)

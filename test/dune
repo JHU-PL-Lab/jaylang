@@ -12,6 +12,7 @@
     odefa.ast
     odefa.ddpa
     odefa.parser
+    odefa.symbolic-interpreter
     odefa.toploop
     oUnit
     ppx_deriving_yojson

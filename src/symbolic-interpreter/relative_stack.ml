@@ -10,19 +10,7 @@ type relative_stack =
 [@@deriving eq, ord, show, to_yojson]
 ;;
 
-(** Generates a symbol suffix for this relative stack.  The suffix is unique to
-    the stack; that is, two suffixes are equal if and only if their stacks are
-    equal.  This serialization mechanism is useful to produce a canonical,
-    textual name for the stack in e.g. a SAT solver. *)
-let symbol_suffix_of_relative_stack (Relative_stack(costk,stk)) : string =
-  let costk_name =
-    String.join "$" @@ List.map (fun (Clause(Var(Ident(s),_),_)) -> s) costk
-  in
-  let stk_name =
-    String.join "$" @@ List.map (fun (Clause(Var(Ident(s),_),_)) -> s) stk
-  in
-  Printf.sprintf "$$%s$$%s" costk_name stk_name
-;;
+let empty = Relative_stack([],[]);;
 
 (** FIXME: This does not match the spec in the paper, but the spec seems silly.
     Discuss and then resolve. *)

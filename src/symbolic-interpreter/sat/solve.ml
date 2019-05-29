@@ -1,138 +1,111 @@
-(* for testing when developping
-   it will be moved to a separate test target for symbolic interpreter
-*)
+open Odefa_ast;;
 
-open Z3
-open Z3.Arithmetic
-open Z3.Boolean
-open Sat_types
-open Odefa_ast
-open Ast
-open Interpreter_types
-open Relative_stack
+open Z3;;
+open Z3.Arithmetic;;
+open Z3.Boolean;;
 
-module Phi_set = struct
-  let eq_int id v =
-    let stk = Relative_stack([], [])
-    in let sid = Symbol(Ident(id), stk)
-    in (Formula(sid, Formula_expression_value(Value_int(v))))
+open Ast;;
+open Formula_typer;;
+open Interpreter_types;;
+open Sat_types;;
+open Symbol_cache;;
 
-  let eq_symbol id1 id2 =
-    let stk = Relative_stack([], [])
-    in let sid1 = Symbol(Ident(id1), stk)
-    and sid2 = Symbol(Ident(id2), stk)
-    in (Formula(sid1, Formula_expression_alias(sid2)))
-
-  let s1 = Formula_set.empty
-           |> Formula_set.add @@ eq_int "a" 4
-
-  let s2 = s1
-           |> Formula_set.add @@ eq_int "b" 5
-
-  let s3 = s2
-           |> Formula_set.add @@ eq_symbol "a" "b"
-end
-
-exception Program_type_error of string
-
-let string_of_symbol (s : symbol) =
-  let Symbol(Ident name, relstack) = s in
-  name ^ symbol_suffix_of_relative_stack relstack
-
-type binop_type = Binop_int | Binop_bool
-
-let get_binop_type = function
-  | Binary_operator_plus | Binary_operator_minus
-  | Binary_operator_less_than
-  | Binary_operator_less_than_or_equal_to
-  | Binary_operator_equal_to
-    -> Binop_int
-  | Binary_operator_and | Binary_operator_or | Binary_operator_xor
-    -> Binop_bool
-
-let add_to_z3 ctx solver (phi : Formula_set.t) (expr_map : (Expr.expr Ident_map.t) ref) : unit =
-  let rec add_to_z3_rec phi expr_map =
-    if Formula_set.is_empty phi
-    then ()
-    else begin
-      let later_phi = ref Formula_set.empty in
-      (* condition on a formula,
-         when x = 1, we know the type of x
-          add this formula to z3,
-          and add the type of x to expr_map
-         when x = y, x = y bop z
-          add this formula when the types of all symbols are define
-          postpone this formula when either of the symbols are not defined yet
-      *)
-      let add_now_or_later (formula : formula) =
-        let Formula(fs, fexp) = formula
-        in
-        match fexp with
-        | Formula_expression_value (Value_int i) ->
-          let Symbol(id, _) = fs
-          in let zs = Integer.mk_const_s ctx @@ string_of_symbol fs
-          in expr_map := Ident_map.add id zs !expr_map;
-          let ze = mk_eq ctx zs (Integer.mk_numeral_i ctx i)
-          in Solver.add solver [ze]
-        | Formula_expression_value (Value_bool b) ->
-          let Symbol(id, _) = fs
-          in let zs = Boolean.mk_const_s ctx @@ string_of_symbol fs
-          in expr_map := Ident_map.add id zs !expr_map;
-          let ze = mk_eq ctx zs (Boolean.mk_val ctx b)
-          in Solver.add solver [ze]
-        | Formula_expression_value (Value_function _) -> ()
-        | Formula_expression_alias s2 -> (
-            try
-              let Symbol(id2, _) = s2
-              in let zs2 = Ident_map.find id2 !expr_map
-              in let zs1 =
-                   if is_int zs2
-                   then Integer.mk_const_s ctx @@ string_of_symbol s2
-                   else Boolean.mk_const_s ctx @@ string_of_symbol s2
-              in let ze = mk_eq ctx zs1 zs2
-              in Solver.add solver [ze]
-            with Not_found ->
-              later_phi := Formula_set.add formula !later_phi
-          )
-        | Formula_expression_binop (s1, op, s2) ->
-          let zs1, zs2 =
-            match get_binop_type op with
-            | Binop_bool ->
-              Boolean.mk_const_s ctx @@ string_of_symbol s1,
-              Boolean.mk_const_s ctx @@ string_of_symbol s2
-            | Binop_int ->
-              Integer.mk_const_s ctx @@ string_of_symbol s1,
-              Integer.mk_const_s ctx @@ string_of_symbol s2
-          in let e_right = match op with
-              | Binary_operator_plus -> mk_add ctx [zs1; zs2]
-              | _ -> failwith "for commit"
-          in Solver.add solver [e_right]
-      in Formula_set.iter add_now_or_later phi;
-      add_to_z3_rec !later_phi expr_map
-    end
+let add_formula
+    (ctx : Z3.context)
+    (solver : Z3.Solver.solver)
+    (symbol_cache : symbol_cache)
+    (symbol_types : symbol_type Symbol_map.t)
+    (formula : Formula.t)
+  : unit =
+  let translate (symbol : Symbol.t) : Expr.expr =
+    let symbol_type = Symbol_map.find symbol symbol_types in
+    let z3symbol = define_symbol symbol_cache symbol in
+    match symbol_type with
+    | IntSymbol -> Integer.mk_const ctx z3symbol
+    | BoolSymbol -> Boolean.mk_const ctx z3symbol
   in
-  add_to_z3_rec phi expr_map
+  try
+    let Formula(symbol0, expr) = formula in
+    let e0 = translate symbol0 in
+    match expr with
+    | Formula_expression_value v ->
+      let e1o =
+        match v with
+        | Value_function _ ->
+          None
+        | Value_int n ->
+          Some (Integer.mk_numeral_i ctx n)
+        | Value_bool b ->
+          Some (Boolean.mk_val ctx b)
+      in
+      begin
+        match e1o with
+        | None -> ()
+        | Some e1 ->
+          let c = mk_eq ctx e0 e1 in
+          Solver.add solver [c]
+      end
+    | Formula_expression_alias symbol1 ->
+      let e1 = translate symbol1 in
+      let c = mk_eq ctx e0 e1 in
+      Solver.add solver [c]
+    | Formula_expression_binop (symbol1, op, symbol2) ->
+      let e1 = translate symbol1 in
+      let e2 = translate symbol2 in
+      let mk_op =
+        match op with
+        | Binary_operator_plus -> mk_add ctx
+        | Binary_operator_minus -> failwith "unimplemented"
+        | Binary_operator_less_than -> failwith "unimplemented"
+        | Binary_operator_less_than_or_equal_to -> failwith "unimplemented"
+        | Binary_operator_equal_to -> failwith "unimplemented"
+        | Binary_operator_and -> failwith "unimplemented"
+        | Binary_operator_or -> failwith "unimplemented"
+        | Binary_operator_xor -> failwith "unimplemented"
+      in
+      let c = mk_eq ctx e0 (mk_op [e1; e2]) in
+      Solver.add solver [c]
+  with
+  | Not_found ->
+    (* Someone's type wasn't found in the type map.  This means either that the
+       symbol was unconstrained or the type was something the solver can't
+       reason about.  Ignore this case. *)
+    ()
 ;;
 
-let solve (phi : Formula_set.t) =
-  let _ = Formula_set.show phi
-  in let ctx = Z3.mk_context []
-  in let solver = Solver.mk_solver ctx None
-  in let _ = add_to_z3 ctx solver phi (ref Ident_map.empty)
-  in match Solver.check solver [] with
-  | Solver.SATISFIABLE -> (
-      match Solver.get_model solver with
-      | None -> failwith "failure: impossible none model"
-      | Some model ->
-        Printf.printf "!!! %s\n"
-          (Model.to_string model))
-  | Solver.UNSATISFIABLE -> (
-      failwith "failure: unsat in solve.check"
-    )
-  | Solver.UNKNOWN -> (
-      print_endline (Solver.get_reason_unknown solver);
-      failwith "failure: unknown in solve.check"
-    )
+let add_formulae
+    (ctx : Z3.context)
+    (solver : Z3.Solver.solver)
+    (symbol_cache : symbol_cache)
+    (symbol_types : symbol_type Symbol_map.t)
+    (formulae : Formula_set.t)
+  : unit =
+  formulae
+  |> Formula_set.iter (add_formula ctx solver symbol_cache symbol_types)
+;;
 
-(* TODO: remove this; make a few unit tests instead *)
-let main () = solve Phi_set.s1
+(**
+   Determines whether a set of formulae is solvable.
+*)
+let solve (formulae : Formula_set.t) : bool =
+  let ctx = Z3.mk_context [] in
+  let solver = Solver.mk_solver ctx None in
+  let symbol_cache = new_symbol_cache ctx in
+  let symbol_types = infer_types formulae in
+  add_formulae ctx solver symbol_cache symbol_types formulae;
+  match Solver.check solver [] with
+  | Solver.SATISFIABLE ->
+    true
+  (* (
+     match Solver.get_model solver with
+     | None -> failwith "failure: impossible none model"
+     | Some model ->
+      Printf.printf "!!! %s\n"
+        (Model.to_string model)
+     ) *)
+  | Solver.UNSATISFIABLE ->
+    false
+  | Solver.UNKNOWN ->
+    failwith @@ Printf.sprintf "Unknown result in solve.check: %s"
+      (Solver.get_reason_unknown solver)
+;;

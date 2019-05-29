@@ -35,3 +35,5 @@ When these libraries change, run
    ```console
    $ opam upgrade jhupllib pds-reachability
    ```
+
+**TODO: discuss adding ~/.opam/$SWITCH/lib/z3 to LD_LIBRARY_PATH**
