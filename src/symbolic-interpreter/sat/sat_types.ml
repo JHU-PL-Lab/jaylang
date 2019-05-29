@@ -39,3 +39,10 @@ module Formula_set = struct
   include Pp_utils.Set_pp(S)(Formula);;
   include Yojson_utils.Set_to_yojson(S)(Formula);;
 end;;
+
+module Symbol_map = struct
+  module Impl = Map.Make(Ident)
+  include Impl
+  include Pp_utils.Map_pp(Impl)(Ident)
+  include Yojson_utils.Map_to_yojson(Impl)(Ident)
+end

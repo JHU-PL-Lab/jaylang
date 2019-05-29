@@ -7,6 +7,7 @@
   (libraries
     batteries
     jhupllib
+    z3
     odefa.ast
     odefa.utils
   )
