@@ -42,6 +42,7 @@ let rec lookup
         let cl1 = Ident_map.find x env.le_clause_mapping in
         let Clause(_,b) = cl1 in
         if not @@ equal_ident lookup_var x then
+          (* ## Skip rule ## *)
           let%bind _ = lookup env [x] cl1 relstack in
           lookup env lookup_stack cl1 relstack
         else begin
