@@ -551,10 +551,14 @@ struct
                    | Abs_value_bool n -> n = then_branch
                    | _ -> false
                  in
-                 if has_values x2 pred then Some body_expr else None
+                 if has_values x2 pred then
+                   Some (body_expr, then_branch)
+                 else
+                   None
               )
-            |> Enum.map (fun (Abs_expr(body)) ->
-                wire_conditional cl body x1 (!analysis_ref).ddpa_graph
+            |> Enum.map (fun (Abs_expr(body), then_branch) ->
+                wire_conditional
+                  cl then_branch body x1 (!analysis_ref).ddpa_graph
               )
             |> Nondeterminism_monad.pick_enum
           | _ ->

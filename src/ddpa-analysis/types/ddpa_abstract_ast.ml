@@ -163,7 +163,7 @@ type annotated_clause =
   | Unannotated_clause of abstract_clause
   | Binding_enter_clause of abstract_var * abstract_var * abstract_clause
   | Binding_exit_clause of abstract_var * abstract_var * abstract_clause
-  | Nonbinding_enter_clause of abstract_clause
+  | Nonbinding_enter_clause of abstract_value * abstract_clause
   | Start_clause of abstract_var
   (** This variable is the return variable of the block that this clause
       starts. *)

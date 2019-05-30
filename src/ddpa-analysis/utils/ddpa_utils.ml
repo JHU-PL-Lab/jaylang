@@ -15,6 +15,8 @@ let rv body =
   | _ -> let Abs_clause(x,_) = List.last body in x
 ;;
 
+let retv (Abs_expr(body)) = rv body;;
+
 let is_immediate acl =
   match acl with
   | Unannotated_clause(abs_clause) -> is_abstract_clause_immediate abs_clause
@@ -53,9 +55,11 @@ let wire_function site_cl func x1 x2 graph =
   Enum.append pred_edges @@ Enum.append inner_edges succ_edges
 ;;
 
-let wire_conditional site_cl body x2 graph =
+let wire_conditional site_cl true_branch body x2 graph =
   let site_acl = Unannotated_clause(site_cl) in
-  let wire_in_acl = Nonbinding_enter_clause(site_cl) in
+  let wire_in_acl =
+    Nonbinding_enter_clause(Abs_value_bool true_branch, site_cl)
+  in
   let start_acl = Start_clause (rv body) in
   let end_acl = End_clause (rv body) in
   let wire_out_acl = Binding_exit_clause(x2,rv body,site_cl) in
