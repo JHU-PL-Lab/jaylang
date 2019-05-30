@@ -5,24 +5,27 @@ open Z3.Arithmetic;;
 open Z3.Boolean;;
 
 open Ast;;
-open Formula_typer;;
 open Interpreter_types;;
 open Sat_types;;
 open Symbol_cache;;
+
+exception Non_solver_type;;
 
 let add_formula
     (ctx : Z3.context)
     (solver : Z3.Solver.solver)
     (symbol_cache : symbol_cache)
-    (symbol_types : symbol_type Symbol_map.t)
+    (get_type : symbol -> Formulae.symbol_type option)
     (formula : Formula.t)
   : unit =
   let translate (symbol : Symbol.t) : Expr.expr =
-    let symbol_type = Symbol_map.find symbol symbol_types in
+    let symbol_type_opt = get_type symbol in
     let z3symbol = define_symbol symbol_cache symbol in
-    match symbol_type with
-    | IntSymbol -> Integer.mk_const ctx z3symbol
-    | BoolSymbol -> Boolean.mk_const ctx z3symbol
+    match symbol_type_opt with
+    | Some IntSymbol -> Integer.mk_const ctx z3symbol
+    | Some BoolSymbol -> Boolean.mk_const ctx z3symbol
+    | Some (FunctionSymbol _) -> raise Non_solver_type
+    | None -> raise Non_solver_type
   in
   try
     let Formula(symbol0, expr) = formula in
@@ -66,7 +69,7 @@ let add_formula
       let c = mk_eq ctx e0 (mk_op [e1; e2]) in
       Solver.add solver [c]
   with
-  | Not_found ->
+  | Non_solver_type ->
     (* Someone's type wasn't found in the type map.  This means either that the
        symbol was unconstrained or the type was something the solver can't
        reason about.  Ignore this case. *)
@@ -77,22 +80,21 @@ let add_formulae
     (ctx : Z3.context)
     (solver : Z3.Solver.solver)
     (symbol_cache : symbol_cache)
-    (symbol_types : symbol_type Symbol_map.t)
-    (formulae : Formula_set.t)
+    (formulae : Formulae.t)
   : unit =
+  let get_type s = Formulae.type_of s formulae in
   formulae
-  |> Formula_set.iter (add_formula ctx solver symbol_cache symbol_types)
+  |> Formulae.iter (add_formula ctx solver symbol_cache get_type)
 ;;
 
 (**
    Determines whether a set of formulae is solvable.
 *)
-let solve (formulae : Formula_set.t) : bool =
+let solve (formulae : Formulae.t) : bool =
   let ctx = Z3.mk_context [] in
   let solver = Solver.mk_solver ctx None in
   let symbol_cache = new_symbol_cache ctx in
-  let symbol_types = infer_types formulae in
-  add_formulae ctx solver symbol_cache symbol_types formulae;
+  add_formulae ctx solver symbol_cache formulae;
   match Solver.check solver [] with
   | Solver.SATISFIABLE ->
     true

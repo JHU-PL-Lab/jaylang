@@ -2,6 +2,7 @@
    This module contains a definition of the DDSE symbolic interpreter.
 *)
 
+(*
 open Batteries;;
 open Odefa_ast;;
 open Odefa_ddpa;;
@@ -164,6 +165,7 @@ let rec lookup
         let%orzero Abs_clause(Abs_var x,
                               Abs_conditional_body(Abs_var x1, e1, e2)) = c
         in
+
         failwith "TODO"
       | Start_clause _
       | End_clause _ ->
@@ -173,3 +175,4 @@ let rec lookup
         lookup env lookup_stack acl1 relstack
     end
 ;;
+*)

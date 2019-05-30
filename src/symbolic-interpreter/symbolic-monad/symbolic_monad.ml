@@ -24,14 +24,14 @@ type decision_map =
 ;;
 
 type state = {
-  st_formulae : Formula_set.t;
+  st_formulae : Formulae.t;
   st_decisions : decision_map;
 };;
 
 (* **** Initial values **** *)
 
 let initial_state = {
-  st_formulae = Formula_set.empty;
+  st_formulae = Formulae.empty;
   st_decisions = Symbol_map.empty;
 };;
 
@@ -90,7 +90,7 @@ let record_decision (s : Symbol.t) (x : Ident.t) (c : clause) (x' : Ident.t)
   : unit m =
   Nondeterminism(
     Enum.singleton
-      { co_state = { st_formulae = Formula_set.empty;
+      { co_state = { st_formulae = Formulae.empty;
                      st_decisions = Symbol_map.singleton s (x,c,x')
                    };
         co_metadata = initial_metadata;
@@ -101,7 +101,7 @@ let record_decision (s : Symbol.t) (x : Ident.t) (c : clause) (x' : Ident.t)
 let record_formula (formula : Formula.t) : unit m =
   Nondeterminism(
     Enum.singleton
-      { co_state = { st_formulae = Formula_set.singleton formula;
+      { co_state = { st_formulae = Formulae.singleton formula;
                      st_decisions = Symbol_map.empty;
                    };
         co_metadata = initial_metadata;
@@ -141,7 +141,7 @@ let merge_state (st1 : state) (st2 : state) : state option =
   match merge_decisions st1.st_decisions st2.st_decisions with
   | Some merged_decisions ->
     Some
-      { st_formulae = Formula_set.union st1.st_formulae st2.st_formulae;
+      { st_formulae = Formulae.union st1.st_formulae st2.st_formulae;
         st_decisions = merged_decisions;
       }
   | None -> None

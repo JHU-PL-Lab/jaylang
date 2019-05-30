@@ -1,8 +1,6 @@
 (** This module contains public type definitions for the symbolic monad.  This
     prevents duplication of these types between interface and implementation. *)
 
-open Sat_types;;
-
 (** A type representing the metadata tracked about each non-deterministic
     computation. *)
 type metadata = {
@@ -14,7 +12,7 @@ type metadata = {
 type 'a result = {
   rs_value : 'a;
   rs_metadata : metadata;
-  rs_formulae : Formula_set.t;
+  rs_formulae : Formulae.t;
 };;
 
 (** A type representing the state of a computation. *)
