@@ -194,6 +194,13 @@ let enum (collection : t) : formula Enum.t =
   Formula_set.enum collection.formulae
 ;;
 
+let of_enum (enum : formula Enum.t) : t =
+  enum
+  |> Enum.fold
+    (fun a e -> add e a)
+    empty
+;;
+
 let iter (fn : formula -> unit) (collection : t) : unit =
   Enum.iter fn @@ enum collection
 ;;

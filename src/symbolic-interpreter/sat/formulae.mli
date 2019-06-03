@@ -43,6 +43,9 @@ val union : t -> t -> t
 (** Enumerates the formulae in a collection. *)
 val enum : t -> formula Enum.t;;
 
+(** Creates a formulae collection from an enumeration of formulae. *)
+val of_enum : formula Enum.t -> t;;
+
 (** Processes each formula in a collection. *)
 val iter : (formula -> unit) -> t -> unit;;
 
