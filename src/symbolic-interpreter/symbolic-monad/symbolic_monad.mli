@@ -22,25 +22,28 @@ open Ast;;
 open Interpreter_types;;
 (* open Relative_stack;; *)
 open Sat_types;;
-open Symbolic_monad_types;;
 
 (* **** Monadic interface **** *)
 
-(** The type describing values in this monad.  A single value of this type may
-    represent multiple non-deterministic computations. *)
+(** The type describing a computation in this monad.  This type does not include
+    a state; it is waiting to be run. *)
 type 'a m;;
 
-(** A return operation. *)
+(** The return operation. *)
 val return : 'a -> 'a m;;
 
-(** A bind operation.  Computation is suspended at each bind. *)
+(** The bind operation. *)
 val bind : 'a m -> ('a -> 'b m) -> 'b m;;
 
 (** A zero operation.  Produces an empty value containing no computations. *)
 val zero : unit -> 'a m;;
 
-(** A non-deterministic selection. *)
+(** Non-deterministic selection. *)
 val pick : 'a Enum.t -> 'a m;;
+
+(** Computational suspension.  When stepping the evaluation of a monadic value,
+    invocations of this function will mark the completion of a step. *)
+val pause : unit -> unit m
 
 (** Records a path decision for the provided variable.  If the provided search
     path is valid in this environment, unit is returned in the environment.  If
@@ -52,29 +55,27 @@ val record_decision : Symbol.t -> Ident.t -> clause -> Ident.t -> unit m;;
 (** Stores a formula in this environment's constraint set. *)
 val record_formula : Formula.t -> unit m;;
 
-(* TODO: support functions from the notation in Section 5.3 *)
+(* **** Evaluation interface **** *)
 
-(* **** Execution interface **** *)
+(** The type describing a running evaluation of a computation in this monad.
+    This evaluation is either completed (in which case it is simply a value and
+    its associated state) or it is suspended (in which case it is a monadic
+    computation and its associated state). *)
+type 'a evaluation;;
 
-(** Performs the next step of evaluation on all computations appearing within
-    the provided monadic value.  Computations which are complete are unaffected.
-    To determine if a computation is complete, use the [unpack] and [examine]
-    functions. *)
-val step : 'a m -> 'a m
+(** Initializes a computation in this monad.  This is similar to the "run"
+    routines of standard monads except that it does not run to completion; it
+    runs to the first pause. *)
+val start : 'a m -> 'a evaluation;;
 
-(* **** Inspection interface **** *)
+(** Performs one step of evaluation.  As evaluation is non-deterministic,
+    multiple evaluations (either suspended or completed) may be returned.
+    Stepping a completed evaluation is a no-op. *)
+val step : 'a evaluation -> 'a evaluation Enum.t;;
 
-(** The type describing individual computations in this monad.  A single value
-    of this type represents exactly one non-deterministic computation: it is in
-    a single state, but it's next step of execution may produce multiple
-    states. *)
-type 'a computation;;
+(** Retrieves the current formulae from an evaluation. *)
+val get_formulae : 'a evaluation -> Formulae.t;;
 
-(** Transforms a monadic value into a collection of computations. *)
-val unpack : 'a m -> 'a computation Enum.t;;
-
-(** Transforms a collection of computations into a monadic value. *)
-val pack : 'a computation Enum.t -> 'a m;;
-
-(** Given a computation, determines its state. *)
-val examine : 'a computation -> 'a computation_state;;
+(** Retrieves the result of an evaluation.  If the evaluation is suspended and
+    still requires stepping to complete, None is returned. *)
+val get_result : 'a evaluation -> 'a option;;
