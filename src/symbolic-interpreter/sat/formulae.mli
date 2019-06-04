@@ -14,6 +14,8 @@ open Sat_types;;
 type symbol_type =
   | IntSymbol
   | BoolSymbol
+  | TrueSymbol
+  | FalseSymbol
   | FunctionSymbol of function_value
 ;;
 
@@ -21,7 +23,7 @@ type symbol_type =
     collection.  This is not guaranteed to be thrown in all contradictory
     circumstances; it is thrown when the intersection of types assigned to a
     symbol produces the empty set. *)
-exception SymbolTypeContradiction of string * symbol * symbol_type list;;
+exception SymbolTypeContradiction of symbol * symbol_type * symbol_type;;
 
 (** A type representing a collection of formulae. *)
 type t;;

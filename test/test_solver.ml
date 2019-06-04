@@ -49,5 +49,19 @@ F.assert_solvable
   ]
 ;;
 
+_add_test "immediate boolean contradiction" @@ fun _ ->
+F.assert_immediately_unsolvable
+  [ F.set_bool F.x true;
+    F.set_bool F.x false;
+  ]
+;;
+
+_add_test "boolean non-contradiction" @@ fun _ ->
+F.assert_solvable
+  [ F.set_bool F.x true;
+    F.set_binop F.y F.y Binary_operator_and F.y;
+    F.alias F.x F.y;
+  ]
+;;
 
 let tests = "solver tests" >::: List.rev !_tests_acc;;

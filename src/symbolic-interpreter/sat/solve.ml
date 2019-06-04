@@ -23,7 +23,7 @@ let add_formula
     let z3symbol = define_symbol symbol_cache symbol in
     match symbol_type_opt with
     | Some IntSymbol -> Integer.mk_const ctx z3symbol
-    | Some BoolSymbol -> Boolean.mk_const ctx z3symbol
+    | Some(BoolSymbol|TrueSymbol|FalseSymbol) -> Boolean.mk_const ctx z3symbol
     | Some (FunctionSymbol _) -> raise Non_solver_type
     | None -> raise Non_solver_type
   in
@@ -62,7 +62,7 @@ let add_formula
         | Binary_operator_less_than -> failwith "unimplemented"
         | Binary_operator_less_than_or_equal_to -> failwith "unimplemented"
         | Binary_operator_equal_to -> failwith "unimplemented"
-        | Binary_operator_and -> failwith "unimplemented"
+        | Binary_operator_and -> mk_and ctx
         | Binary_operator_or -> failwith "unimplemented"
         | Binary_operator_xor -> failwith "unimplemented"
       in
