@@ -22,6 +22,7 @@
     (pps
       ppx_deriving.std
       ppx_deriving_yojson
+      ocaml-monadic
     )
   )
 )

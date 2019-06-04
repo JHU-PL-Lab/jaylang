@@ -153,6 +153,15 @@ let record_formula (formula : Formula.t) : unit m =
   _update_state state_fn
 ;;
 
+let check_formulae () : unit m =
+  M(Enum.singleton(fun state ->
+      if Solve.solve state.st_formulae then
+        Enum.singleton(Completed((), state))
+      else
+        Enum.empty ()
+    ))
+;;
+
 (* **** Evaluation types **** *)
 
 (**

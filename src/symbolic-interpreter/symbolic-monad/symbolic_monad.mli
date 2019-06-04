@@ -55,6 +55,9 @@ val record_decision : Symbol.t -> Ident.t -> clause -> Ident.t -> unit m;;
 (** Stores a formula in this environment's constraint set. *)
 val record_formula : Formula.t -> unit m;;
 
+(** Verifies that the formulae in this environment are solvable. *)
+val check_formulae : unit -> unit m;;
+
 (* **** Evaluation interface **** *)
 
 (** The type describing a running evaluation of a computation in this monad.
