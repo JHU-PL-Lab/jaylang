@@ -2,6 +2,7 @@
    This module contains a definition of the DDSE symbolic interpreter.
 *)
 
+(*
 open Batteries;;
 open Odefa_ast;;
 open Odefa_ddpa;;
@@ -29,7 +30,6 @@ let rec lookup
     (relstack : relative_stack)
   : Symbol.t m =
   let%bind acl1 = pick @@ preds acl0 env.le_cfg in
-  let%bind () = pause () in
   match lookup_stack with
   | [] ->
     (* No rule handles an empty variable stack. *)

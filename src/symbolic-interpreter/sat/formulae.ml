@@ -9,46 +9,14 @@ open Sat_types;;
    provides to the rest of the system should be immutable; the mutation here is
    only for performance. *)
 
-(** The type of symbols in a collection of formulae.  This is used to define
-    symbols for the solver and also to detect errors outside of the solver when
-    possible.  Note that these types include an intersection operation below. *)
 type symbol_type =
   | IntSymbol
   | BoolSymbol
-  | TrueSymbol
-  | FalseSymbol
   | FunctionSymbol of function_value
 [@@deriving eq]
 ;;
 
-let intersect_symbol_types (t1 : symbol_type) (t2 : symbol_type)
-  : symbol_type option =
-  match t1,t2 with
-  | IntSymbol,IntSymbol -> Some IntSymbol
-  | IntSymbol,(BoolSymbol|TrueSymbol|FalseSymbol|FunctionSymbol _) -> None
-  | BoolSymbol,BoolSymbol -> Some BoolSymbol
-  | BoolSymbol,(TrueSymbol|FalseSymbol) -> Some t2
-  | BoolSymbol,(IntSymbol|FunctionSymbol _) -> None
-  | TrueSymbol,(TrueSymbol|BoolSymbol) -> Some TrueSymbol
-  | TrueSymbol,(IntSymbol|FalseSymbol|FunctionSymbol _) -> None
-  | FalseSymbol,(FalseSymbol|BoolSymbol) -> Some FalseSymbol
-  | FalseSymbol,(IntSymbol|TrueSymbol|FunctionSymbol _) -> None
-  | FunctionSymbol fv1,FunctionSymbol fv2 ->
-    if equal_function_value fv1 fv2 then Some t1 else None
-  | FunctionSymbol _,(IntSymbol|BoolSymbol|TrueSymbol|FalseSymbol) -> None
-;;
-
-exception SymbolTypeContradiction of
-    symbol * symbol_type * symbol_type
-;;
-
-let force_intersect_symbol_types
-    (s : symbol) (t1 : symbol_type) (t2 : symbol_type)
-  : symbol_type =
-  match intersect_symbol_types t1 t2 with
-  | None -> raise @@ SymbolTypeContradiction(s,t1,t2)
-  | Some t -> t
-;;
+exception SymbolTypeContradiction of string * symbol * symbol_type list;;
 
 (** Describes the type inference state of a symbol in a collection.  The
     InferredType state indicates that all values assigned to this symbol in any
@@ -91,6 +59,18 @@ let _infer_binop_signature (binop : binary_operator)
   | Binary_operator_xor -> (BoolSymbol, BoolSymbol, BoolSymbol)
 ;;
 
+(** Asserts that two types, both given to the same symbol, are equal. *)
+let _assert_equal_types
+    (symbol : Symbol.t) (t1 : symbol_type) (t2 : symbol_type)
+  : unit =
+  if equal_symbol_type t1 t2 then () else begin
+    raise @@ SymbolTypeContradiction(
+      Printf.sprintf "Multiple inferred types for symbol %s"
+        (Symbol.show symbol),
+      symbol, [t1;t2])
+  end
+;;
+
 (** Flattens symbols during inference.  This procedure starts at a symbol and
     follows its chain of indirections until reaching either an alias or a
     type.  It then remaps each variable in the chain to the end of that
@@ -128,12 +108,8 @@ let _unify (symbol1 : Symbol.t) (symbol2 : Symbol.t) (collection : t) : unit =
   | Some _, None ->
     _set_state symbol2 (InferredAlias symbol1) collection
   | Some (InferredType t1), Some (InferredType t2) ->
-    (* Refine the symbol types to map to the same type. *)
-    if equal_symbol_type t1 t2 then () else begin
-      let t' = force_intersect_symbol_types symbol1 t1 t2 in
-      _set_state symbol1 (InferredType t') collection;
-      _set_state symbol2 (InferredType t') collection;
-    end
+    (* Make sure both symbols map to the same type. *)
+    _assert_equal_types symbol1 t1 t2
   | Some (InferredType _), Some (InferredAlias symbol2') ->
     (* Make symbol2', which can't exist (due to flattening), point to
        symbol1. *)
@@ -154,11 +130,7 @@ let _assign (symbol : Symbol.t) (t : symbol_type) (collection : t) : unit =
   _flatten symbol collection;
   match _get_state symbol collection with
   | None -> _set_state symbol (InferredType t) collection
-  | Some (InferredType t') ->
-    if equal_symbol_type t t' then () else begin
-      let t'' = force_intersect_symbol_types symbol t t' in
-      _set_state symbol (InferredType t'') collection
-    end
+  | Some (InferredType t') -> _assert_equal_types symbol t t'
   | Some (InferredAlias symbol') ->
     _set_state symbol' (InferredType t) collection;
     _set_state symbol (InferredType t) collection;
@@ -185,7 +157,7 @@ let add (formula : formula) (collection : t) : t =
         match v with
         | Value_function f -> FunctionSymbol f
         | Value_int _ -> IntSymbol
-        | Value_bool b -> if b then TrueSymbol else FalseSymbol
+        | Value_bool _ -> BoolSymbol
       in
       _assign symbol typ collection';
     | Formula_expression_alias symbol' ->
