@@ -1,4 +1,3 @@
-(*
 (**
    This module contains a definition of the DDSE symbolic interpreter.
 *)
@@ -115,6 +114,7 @@ let rec lookup
             return symbol
         end
       | Binding_enter_clause (Abs_var x, Abs_var x', c) ->
+        [%guard equal_ident x lookup_var];
         (* The only rules which apply to binding enter clauses are Function
            Enter Parameter and Function Enter Non-Local.  They have a lot in
            common, so let's do that part first. *)
@@ -141,6 +141,7 @@ let rec lookup
           failwith "TODO"
         end
       | Binding_exit_clause (Abs_var x, Abs_var x', c) ->
+        [%guard equal_ident x lookup_var];
         (* The rules applying to binding exit clauses are the Function Bottom
            and Conditional Bottom rules. *)
         begin
@@ -148,16 +149,19 @@ let rec lookup
           | Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, Abs_var xa)) ->
             (* ## Function Exit rule ## *)
             failwith "TODO"
-          | Abs_clause(Abs_var x, Abs_conditional_body(Abs_var x1, e1, e2)) ->
-            (* Start by determining which branch this wiring node is for. *)
-            let Abs_var e1rx = retv e1 in
-            if equal_ident e1rx x' then begin
-              (* ## Conditional Bottom - True ## *)
-              failwith "TODO"
-            end else begin
-              (* ## Conditional Bottom - False ## *)
-              failwith "TODO"
-            end
+          | Abs_clause(Abs_var x_, Abs_conditional_body(Abs_var x1, e1, e2)) ->
+            (* ## Conditional Bottom - True AND Conditional Bottom - False ## *)
+            [%guard equal_ident x x_];
+            (* These rules have exactly the same preconditions with two
+               exceptions: whether the return variable of e1 or e2 is used and
+               whether true or false is used.  Decide that immediately and then
+               generalize the rest of the code. *)
+            let target_value =
+              let Abs_var rve1 = retv e1 in
+              if equal_ident rve1 x' then true else false
+            in
+            (*
+            failwith "TODO"
           | _ ->
             failwith "Non-application, non-conditional body found in binding exit clause!"
         end
@@ -166,8 +170,24 @@ let rec lookup
         let%orzero Abs_clause(Abs_var x,
                               Abs_conditional_body(Abs_var x1, e1, e2)) = c
         in
-
-        failwith "TODO"
+        (* We're obliged to do a subordinate lookup here to determine if the
+           value from the non-binding enter clause (a boolean) is in the set of
+           values returned.  Rather than actually inspecting the formulae,
+           though, we can just *require* that this holds after the lookup.  If
+           it's not true, we should get an immediate failure to add the formulae
+           leading the computation to zero itself (since it's a boolean). *)
+        let%bind symbol_x' = lookup env [x1] (Unannotated_clause c) relstack in
+        let v' =
+          match v with
+          | Abs_value_bool(b) -> Value_bool b
+          | _ -> raise @@ Jhupllib.Utils.Invariant_failure
+              "non-boolean in non-binding enter clause"
+        in
+        let formula =
+          Formula(symbol_x', Formula_expression_value v')
+        in
+        let%bind () = record_formula formula in
+        lookup env lookup_stack acl1 relstack
       | Start_clause _
       | End_clause _ ->
         (* Although the formal specification does not list these clauses, they
@@ -176,4 +196,3 @@ let rec lookup
         lookup env lookup_stack acl1 relstack
     end
 ;;
-*)
