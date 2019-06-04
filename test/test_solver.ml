@@ -24,4 +24,30 @@ F.assert_unsolvable
   ]
 ;;
 
+_add_test "solvable transitivity" @@ fun _ ->
+F.assert_solvable
+  [ F.alias F.x F.y;
+    F.alias F.y F.z;
+    F.set_int F.x 5;
+    F.set_int F.z 5;
+  ]
+;;
+
+_add_test "unsolvable transitivity" @@ fun _ ->
+F.assert_unsolvable
+  [ F.alias F.x F.y;
+    F.alias F.y F.z;
+    F.set_int F.x 5;
+    F.set_int F.z 6;
+  ]
+;;
+
+_add_test "variables distinguished by stack" @@ fun _ ->
+F.assert_solvable
+  [ F.set_int F.x 5;
+    F.set_int F.xa 8;
+  ]
+;;
+
+
 let tests = "solver tests" >::: List.rev !_tests_acc;;
