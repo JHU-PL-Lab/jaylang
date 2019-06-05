@@ -34,26 +34,37 @@ let xa = symbol_with_stack "x" ["a"];;
 let alias s1 s2 = Formula(s1, Formula_expression_alias s2);;
 let set_int s n = Formula(s, Formula_expression_value(Value_int n));;
 
+let string_of_formula_list formula_list =
+  String.join "\n" @@ List.map show_formula formula_list
+;;
+
+let indent str =
+  String.nreplace ~str:str ~sub:"\n" ~by:"\n  "
+;;
+
 let assert_solvable formula_list =
   let formulae = Formulae.of_enum @@ List.enum formula_list in
   if not @@ Solve.solve formulae then
     assert_failure @@
-    let msg =
-      String.join "\n" @@ List.map show_formula @@
-      List.of_enum @@ Formulae.enum formulae
-    in
-    let indented = String.nreplace ~str:msg ~sub:"\n" ~by:"\n  " in
-    Printf.sprintf "Should be able to solve formula set:\n%s" indented
+    let msg = indent @@ string_of_formula_list formula_list in
+    Printf.sprintf "Should be able to solve formula set:\n%s" msg
 ;;
 
 let assert_unsolvable formula_list =
   let formulae = Formulae.of_enum @@ List.enum formula_list in
   if Solve.solve formulae then
     assert_failure @@
-    let msg =
-      String.join "\n" @@ List.map show_formula @@
-      List.of_enum @@ Formulae.enum formulae
-    in
-    let indented = String.nreplace ~str:msg ~sub:"\n" ~by:"\n  " in
-    Printf.sprintf "Should NOT be able to solve formula set:\n%s" indented
+    let msg = indent @@ string_of_formula_list formula_list in
+    Printf.sprintf "Should NOT be able to solve formula set:\n%s" msg
+;;
+
+let assert_symbol_type_error formula_list =
+  try
+    let _ = Formulae.of_enum @@ List.enum formula_list in
+    assert_failure @@
+    let msg = indent @@ string_of_formula_list formula_list in
+    Printf.sprintf "Should receive symbol type error from formula set:\n%s" msg
+  with
+  | Formulae.SymbolTypeContradiction _ ->
+    ()
 ;;

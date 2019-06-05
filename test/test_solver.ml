@@ -49,5 +49,12 @@ F.assert_solvable
   ]
 ;;
 
+_add_test "immediate type error: int,bool" @@ fun _ ->
+F.assert_symbol_type_error
+  [ F.set_int F.x 5;
+    F.set_bool F.y true;
+    F.alias F.x F.y;
+  ]
+;;
 
 let tests = "solver tests" >::: List.rev !_tests_acc;;
