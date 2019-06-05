@@ -2,7 +2,6 @@
    This module contains a definition of the DDSE symbolic interpreter.
 *)
 
-(*
 open Batteries;;
 open Odefa_ast;;
 open Odefa_ddpa;;
@@ -17,10 +16,25 @@ open Sat_types;;
 open Symbolic_monad;;
 (* open Symbolic_monad_types;; *)
 
+(** This type describes the information which must be in context during lookup. *)
 type lookup_environment = {
   le_cfg : ddpa_graph;
+  (** The DDPA CFG to use during lookup. *)
+
   le_clause_mapping : clause Ident_map.t;
+  (** A mapping from identifiers to the concrete clauses which define them. *)
+
+  le_function_parameter_mapping : function_value Ident_map.t;
+  (** A mapping from function parameter variables to the functions which declare
+      them. *)
+
+  le_function_return_mapping : function_value Ident_map.t;
+  (** A mapping from function return variables to the functions which declare
+      them. *)
+
   le_first_var : Ident.t;
+  (** The identifier which represents the first defined variable in the
+      program. *)
 };;
 
 let rec lookup
@@ -119,7 +133,7 @@ let rec lookup
            Enter Parameter and Function Enter Non-Local.  They have a lot in
            common, so let's do that part first. *)
         let%orzero Abs_clause(Abs_var xr,
-                              Abs_appl_body(Abs_var xf, Abs_var xa)) = c in
+                              Abs_appl_body(Abs_var xf, Abs_var _)) = c in
         (* Find the concrete clause corresponding to c.*)
         let cc = Ident_map.find xr env.le_clause_mapping in
         (* MayBeTop check *)
@@ -128,17 +142,35 @@ let rec lookup
         let symbol = Symbol(x, relstack) in
         let%bind () = record_decision symbol x cc x' in
         (* Real function check *)
-        (* TODO: find the functions corresponding to xf and ensure one of them
-           is the function with parameter x. *)
+        (* Rather than trying to find the functions which could reach xf, we'll
+           just find the function to which this wiring node corresponds and
+           require it to equal xf in the formulae. *)
+        let fnval = Ident_map.find x env.le_function_parameter_mapping in
+        let lookup_symbol = Symbol(lookup_var, relstack) in
+        let fun_symbol = Symbol(xf, relstack) in
+        let%bind fun_definition_symbol = lookup env [xf] acl1 relstack in
+        let%bind () = record_formula @@
+          Formula(fun_definition_symbol,
+                  Formula_expression_value(Value_function(fnval)))
+        in
+        (* NOTE: we probably don't actually need this formula? *)
+        let%bind () = record_formula @@
+          Formula(fun_definition_symbol,
+                  Formula_expression_alias(fun_symbol))
+        in
+        (* Record our decision to use this wiring node. *)
+        let cc = Ident_map.find xr env.le_clause_mapping in
+        let%bind () = record_decision lookup_symbol x cc x' in
         (* The only difference in the rules is the stack that we use to continue
            lookup, which varies based upon whether we're looking for a parameter
            or a non-local. *)
+        let%orzero Some popped_stack = pop relstack cc in
         if equal_ident lookup_var x then begin
           (* ## Function Enter Parameter rule ## *)
-          failwith "TODO"
+          lookup env (x' :: lookup_stack') acl1 popped_stack
         end else begin
           (* ## Function Enter Non-Local rule ## *)
-          failwith "TODO"
+          lookup env (xf :: lookup_var :: lookup_stack') acl1 popped_stack
         end
       | Binding_exit_clause (Abs_var x, Abs_var x', c) ->
         [%guard equal_ident x lookup_var];
@@ -146,10 +178,29 @@ let rec lookup
            and Conditional Bottom rules. *)
         begin
           match c with
-          | Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, Abs_var xa)) ->
+          | Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, Abs_var _)) ->
             (* ## Function Exit rule ## *)
-            failwith "TODO"
-          | Abs_clause(Abs_var x_, Abs_conditional_body(Abs_var x1, e1, e2)) ->
+            [%guard may_be_top relstack @@
+              Ident_map.find xr env.le_clause_mapping];
+            (* Based upon the exit clause, we can figure out which function
+               would have to have been called for us to use it. *)
+            let fnval = Ident_map.find x' env.le_function_return_mapping in
+            (* Rather than try to find the functions that may appear in xf, we
+               can just look up xf (to induce equations) and then insist that
+               xf is equal to this function value. *)
+            let fun_symbol = Symbol(xf, relstack) in
+            let%bind fun_definition_symbol = lookup env [xf] acl1 relstack in
+            let%bind () = record_formula @@
+              Formula(fun_definition_symbol,
+                      Formula_expression_value(Value_function(fnval)))
+            in
+            (* NOTE: we probably don't actually need this formula? *)
+            let%bind () = record_formula @@
+              Formula(fun_definition_symbol,
+                      Formula_expression_alias(fun_symbol))
+            in
+            lookup env (x' :: lookup_stack') acl1 relstack
+          | Abs_clause(Abs_var x_, Abs_conditional_body(Abs_var x1, e1, _)) ->
             (* ## Conditional Bottom - True AND Conditional Bottom - False ## *)
             [%guard equal_ident x x_];
             (* These rules have exactly the same preconditions with two
@@ -160,22 +211,35 @@ let rec lookup
               let Abs_var rve1 = retv e1 in
               if equal_ident rve1 x' then true else false
             in
-            (*
-            failwith "TODO"
+            let subject_symbol = Symbol(x1, relstack) in
+            let%bind subject_definition_symbol =
+              lookup env [x1] acl1 relstack
+            in
+            let%bind () = record_formula @@
+              Formula(subject_definition_symbol,
+                      Formula_expression_value(Value_bool target_value))
+            in
+            (* NOTE: We probably don't actually need this formula. *)
+            let%bind () = record_formula @@
+              Formula(subject_symbol,
+                      Formula_expression_alias(subject_definition_symbol))
+            in
+            lookup env (x' :: lookup_stack) acl1 relstack
           | _ ->
-            failwith "Non-application, non-conditional body found in binding exit clause!"
+            raise @@ Jhupllib.Utils.Invariant_failure
+              "Non-application, non-conditional body found in binding exit clause!"
         end
       | Nonbinding_enter_clause(v,c) ->
         (* ## Conditional Top rule ## *)
         let%orzero Abs_clause(Abs_var x,
-                              Abs_conditional_body(Abs_var x1, e1, e2)) = c
+                              Abs_conditional_body(Abs_var x1, _, _)) = c
         in
-        (* We're obliged to do a subordinate lookup here to determine if the
-           value from the non-binding enter clause (a boolean) is in the set of
-           values returned.  Rather than actually inspecting the formulae,
-           though, we can just *require* that this holds after the lookup.  If
-           it's not true, we should get an immediate failure to add the formulae
-           leading the computation to zero itself (since it's a boolean). *)
+        [%guard equal_ident x lookup_var];
+        (* We have to verify that any lookups of the subject variable match the
+           value of the non-binding enter clause.  This can be accomplished by
+           looking up the *variable* and then adding a formula to the set which
+           constrains it.  This won't stop computation until the solver is
+           called, but it will guarantee that bad universes are halted. *)
         let%bind symbol_x' = lookup env [x1] (Unannotated_clause c) relstack in
         let v' =
           match v with
