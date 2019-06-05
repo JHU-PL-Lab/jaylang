@@ -37,6 +37,75 @@ type lookup_environment = {
       program. *)
 };;
 
+(**
+   Given a program and its corresponding CFG, constructs an appropriate lookup
+   environment.
+*)
+let prepare_environment (e : expr) (cfg : ddpa_graph)
+  : lookup_environment =
+  let rec enum_all_functions_in_expr expr : function_value Enum.t =
+    let Expr(clauses) = expr in
+    Enum.concat @@ Enum.map enum_all_functions_in_clause @@ List.enum clauses
+  and enum_all_functions_in_clause clause : function_value Enum.t =
+    let Clause(_,body) = clause in
+    enum_all_functions_in_body body
+  and enum_all_functions_in_body body : function_value Enum.t =
+    match body with
+    | Value_body v ->
+      enum_all_functions_in_value v
+    | Var_body _
+    | Input_body
+    | Appl_body _
+    | Binary_operation_body (_, _, _) ->
+      Enum.empty ()
+    | Conditional_body (_, e1, e2) ->
+      Enum.append
+        (enum_all_functions_in_expr e1) (enum_all_functions_in_expr e2)
+  and enum_all_functions_in_value value : function_value Enum.t =
+    match value with
+    | Value_function(Function_value(_,e) as f) ->
+      Enum.append (Enum.singleton f) @@ enum_all_functions_in_expr e
+    | Value_int _
+    | Value_bool _ -> Enum.empty ()
+  in
+  let function_parameter_mapping, function_return_mapping =
+    enum_all_functions_in_expr e
+    |> Enum.fold
+      (fun (pm,rm) (Function_value(Var(p,_),Expr(clss)) as f) ->
+         let pm' = Ident_map.add p f pm in
+         let retvar =
+           clss
+           |> List.last
+           |> (fun (Clause(Var(r,_),_)) -> r)
+         in
+         let rm' = Ident_map.add retvar f rm in
+         (pm', rm')
+      )
+      (Ident_map.empty, Ident_map.empty)
+  in
+  let clause_mapping =
+    Ast_tools.flatten e
+    |> List.enum
+    |> Enum.fold
+      (fun map (Clause(Var(x,_),_) as c) ->
+         Ident_map.add x c map
+      )
+      Ident_map.empty
+  in
+  let first_var =
+    e
+    |> (fun (Expr cls) -> cls)
+    |> List.first
+    |> (fun (Clause(Var(x,_),_)) -> x)
+  in
+  { le_cfg = cfg;
+    le_clause_mapping = clause_mapping;
+    le_function_parameter_mapping = function_parameter_mapping;
+    le_function_return_mapping = function_return_mapping;
+    le_first_var = first_var;
+  }
+;;
+
 let rec lookup
     (env : lookup_environment)
     (lookup_stack : Ident.t list)
