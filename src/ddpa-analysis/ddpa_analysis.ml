@@ -63,6 +63,9 @@ sig
   val contextual_values_of_variable :
     abstract_var -> annotated_clause -> C.t -> ddpa_analysis ->
     Abs_value_set.t * ddpa_analysis
+
+  (** Retrieves from an analysis the CFG it has constructed. *)
+  val cfg_of_analysis : ddpa_analysis -> ddpa_graph
 end;;
 
 (**
@@ -614,5 +617,9 @@ struct
       begin
         perform_full_closure @@ perform_closure_steps analysis
       end
+  ;;
+
+  let cfg_of_analysis analysis =
+    analysis.ddpa_graph
   ;;
 end;;

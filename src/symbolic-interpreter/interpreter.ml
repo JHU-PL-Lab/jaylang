@@ -1,7 +1,3 @@
-(**
-   This module contains a definition of the DDSE symbolic interpreter.
-*)
-
 open Batteries;;
 open Odefa_ast;;
 open Odefa_ddpa;;
@@ -328,4 +324,66 @@ let rec lookup
            graphs.  They can be ignored. *)
         lookup env lookup_stack acl1 relstack
     end
+;;
+
+type evaluation = Evaluation of symbol Symbolic_monad.evaluation Deque.t;;
+
+type evaluation_result = {
+  er_formulae : Formulae.t;
+};;
+
+let start (cfg : ddpa_graph) (e : expr) (program_point : Ident.t) : evaluation =
+  let initial_lookup_var =
+    raise @@ Jhupllib.Utils.Not_yet_implemented "start"
+  in
+  let env = prepare_environment e cfg in
+  let acl =
+    Unannotated_clause(
+      lift_clause @@ Ident_map.find program_point env.le_clause_mapping)
+  in
+  let m = lookup env [initial_lookup_var] acl Relative_stack.empty in
+  let m_eval = start m in
+  Evaluation(Deque.cons m_eval Deque.empty)
+;;
+
+let step (x : evaluation) : evaluation_result list * evaluation option =
+  let Evaluation(evals) = x in
+  match Deque.front evals with
+  | None ->
+    (* There are no symbolic universes left; everything that can produce an
+       answer already has. *)
+    ([],None)
+  | Some(eval,evals') ->
+    (* Let's do some work on this computation. *)
+    let stepped_evals = Symbolic_monad.step eval in
+    (* Separate them into complete formula sets and incomplete computations. *)
+    let complete, incomplete =
+      stepped_evals
+      |> Enum.fold
+        (fun (complete,incomplete) x ->
+           match Symbolic_monad.get_result x with
+           | Some _ ->
+             (* We have a result!  We don't really care about the variable that
+                gets returned; the formulae are much more valuable. *)
+             (Symbolic_monad.get_formulae x :: complete, incomplete)
+           | None ->
+             (complete, x :: incomplete)
+        )
+        ([], [])
+    in
+    let results =
+      complete
+      |> List.filter_map
+        (fun formulae ->
+           if Solve.solve formulae then
+             Some({er_formulae = formulae})
+           else
+             None)
+    in
+    let evals'' =
+      Deque.append evals' @@ Deque.of_enum @@ List.enum incomplete
+    in
+    (results,
+     if Deque.is_empty evals'' then None else Some(Evaluation(evals''))
+    )
 ;;

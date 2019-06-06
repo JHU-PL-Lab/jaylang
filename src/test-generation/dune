@@ -1,0 +1,22 @@
+(library
+  (name odefa_test_generation)
+  (public_name odefa.test-generation)
+  (synopsis "Odefa test generation library")
+  (libraries
+    batteries
+    jhupllib
+    odefa.ast
+    odefa.ddpa
+    odefa.interpreter
+    odefa.parser
+    odefa.statistics
+    odefa.symbolic-interpreter
+    odefa.utils
+  )
+  (preprocess
+    (pps
+      ocaml-monadic
+      ppx_deriving.std
+    )
+  )
+)

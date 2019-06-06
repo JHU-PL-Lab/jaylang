@@ -1,0 +1,10 @@
+(executable
+  (name test_generator)
+  (libraries
+    batteries
+    jhupllib
+    odefa.ast
+    odefa.parser
+    odefa.test-generation
+  )
+)
