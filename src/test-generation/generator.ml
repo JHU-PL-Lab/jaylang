@@ -32,7 +32,6 @@ let rec take_steps
     if step_count = max_steps then
       { tgr_inputs = None;
         tgr_steps = step_count;
-        tgr_total_steps = raise @@ Jhupllib.Utils.Not_yet_implemented "take_steps";
         tgr_generator =
           { tg_program = e;
             tg_target = x;
@@ -52,7 +51,6 @@ let rec take_steps
              result indicating as much. *)
           { tgr_inputs = None;
             tgr_steps = step_count;
-            tgr_total_steps = raise @@ Jhupllib.Utils.Not_yet_implemented "take_steps";
             tgr_generator =
               { tg_program = e;
                 tg_target = x;
@@ -78,7 +76,6 @@ let rec take_steps
             let formulae = result.er_formulae in
             { tgr_inputs = Some(input_sequence_from_formulae formulae e x);
               tgr_steps = steps_for_this_result;
-              tgr_total_steps = raise @@ Jhupllib.Utils.Not_yet_implemented "take_steps";
               tgr_generator =
                 { tg_program = e;
                   tg_target = x;
@@ -89,7 +86,6 @@ let rec take_steps
             let formulae = result.er_formulae in
             { tgr_inputs = Some(input_sequence_from_formulae formulae e x);
               tgr_steps = steps_for_this_result;
-              tgr_total_steps = raise @@ Jhupllib.Utils.Not_yet_implemented "take_steps";
               tgr_generator =
                 { tg_program = e;
                   tg_target = x;

@@ -20,6 +20,11 @@ type lookup_environment = {
   le_clause_mapping : clause Ident_map.t;
   (** A mapping from identifiers to the concrete clauses which define them. *)
 
+  le_clause_predecessor_mapping : clause Ident_map.t;
+  (** A mapping from clauses (represented by the identifier they define) to the
+      concrete clauses which appear immediately *before* them.  The first clause
+      in each expression does not appear in this map. *)
+
   le_function_parameter_mapping : function_value Ident_map.t;
   (** A mapping from function parameter variables to the functions which declare
       them. *)
@@ -88,6 +93,39 @@ let prepare_environment (e : expr) (cfg : ddpa_graph)
       )
       Ident_map.empty
   in
+  let rec expr_flatten ((Expr clauses) as expr) : expr list =
+    expr ::
+    (clauses
+     |>
+     List.map
+       (fun (Clause(_,b)) ->
+          match b with
+          | Value_body _
+          | Var_body _
+          | Input_body
+          | Appl_body (_, _)
+          | Binary_operation_body (_, _, _) -> []
+          | Conditional_body (_, e1, e2) ->
+            e1 :: e2 :: expr_flatten e1 @ expr_flatten e2
+       )
+     |> List.concat
+    )
+  in
+  let clause_predecessor_mapping =
+    expr_flatten e
+    |> List.enum
+    |> Enum.map
+      (fun (Expr clauses) ->
+         let c1 = List.enum clauses in
+         let c2 = List.enum clauses in
+         Enum.drop 1 c1;
+         Enum.combine (c1,c2)
+         |> Enum.map
+           (fun (Clause(Var(x,_),_),clause) -> (x,clause))
+      )
+    |> Enum.concat
+    |> Ident_map.of_enum
+  in
   let first_var =
     e
     |> (fun (Expr cls) -> cls)
@@ -96,6 +134,7 @@ let prepare_environment (e : expr) (cfg : ddpa_graph)
   in
   { le_cfg = cfg;
     le_clause_mapping = clause_mapping;
+    le_clause_predecessor_mapping = clause_predecessor_mapping;
     le_function_parameter_mapping = function_parameter_mapping;
     le_function_return_mapping = function_return_mapping;
     le_first_var = first_var;
@@ -334,10 +373,14 @@ type evaluation_result = {
 };;
 
 let start (cfg : ddpa_graph) (e : expr) (program_point : Ident.t) : evaluation =
-  let initial_lookup_var =
-    raise @@ Jhupllib.Utils.Not_yet_implemented "start"
-  in
   let env = prepare_environment e cfg in
+  let initial_lookup_var =
+    let clause =
+      Ident_map.find program_point env.le_clause_predecessor_mapping
+    in
+    let Clause(Var(ident,_),_) = clause in
+    ident
+  in
   let acl =
     Unannotated_clause(
       lift_clause @@ Ident_map.find program_point env.le_clause_mapping)

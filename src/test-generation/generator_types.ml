@@ -47,11 +47,6 @@ and test_generation_result =
     (** The number of steps which were taken from the called test generator to
         reach this result. *)
 
-    tgr_total_steps : int;
-    (** The total number of steps taken to reach this result.  This includes the
-        most recent call to the test generator and the total steps required to
-        produce that test generator. *)
-
     tgr_generator : test_generator;
     (** A test generator which will only produce results for paths not
         previously discovered in this result's ancestry.  If it is known that no
