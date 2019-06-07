@@ -7,13 +7,17 @@ open Odefa_ddpa;;
 
 open Ast;;
 open Ddpa_graph;;
+open Interpreter_types;;
 
 (** This type represents an in-progress demand-driven evaluation of an
     expression. *)
 type evaluation;;
 
 (** The result of an evaluation. *)
-type evaluation_result = Evaluation_result of Formulae.t;;
+type evaluation_result = {
+  er_formulae : Formulae.t;
+  er_solution : (symbol -> value option);
+};;
 
 (** Starts a demand-driven evaluation of an expression at the provided program
     point (described by a variable).  The provided CFG must be complete with

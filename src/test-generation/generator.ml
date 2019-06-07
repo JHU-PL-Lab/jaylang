@@ -15,6 +15,7 @@ let input_sequence_from_formulae
     (e : expr)
     (x : Ident.t)
   : int list =
+  ignore formulae; ignore e; ignore x;
   raise @@ Jhupllib.Utils.Not_yet_implemented "input_sequence_from_formulae"
 ;;
 
@@ -74,7 +75,7 @@ let rec take_steps
           | [] -> raise @@
             Jhupllib.Utils.Invariant_failure "delayed_results with empty list"
           | [result] ->
-            let Evaluation_result(formulae) = result in
+            let formulae = result.er_formulae in
             { tgr_inputs = Some(input_sequence_from_formulae formulae e x);
               tgr_steps = steps_for_this_result;
               tgr_total_steps = raise @@ Jhupllib.Utils.Not_yet_implemented "take_steps";
@@ -85,7 +86,7 @@ let rec take_steps
                 };
             }
           | result::results' ->
-            let Evaluation_result(formulae) = result in
+            let formulae = result.er_formulae in
             { tgr_inputs = Some(input_sequence_from_formulae formulae e x);
               tgr_steps = steps_for_this_result;
               tgr_total_steps = raise @@ Jhupllib.Utils.Not_yet_implemented "take_steps";
@@ -93,7 +94,7 @@ let rec take_steps
                 { tg_program = e;
                   tg_target = x;
                   tg_generator_fn =
-                    (Some(fun n -> delayed_results 1 results' evaluation_opt))
+                    (Some(fun _ -> delayed_results 1 results' evaluation_opt))
                 };
             }
         in

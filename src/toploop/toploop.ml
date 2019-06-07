@@ -1,4 +1,5 @@
 open Batteries;;
+open Jhupllib;;
 
 open Odefa_ast;;
 open Odefa_ddpa;;
@@ -19,6 +20,8 @@ open Toploop_types;;
 open Toploop_utils;;
 
 exception Invalid_variable_analysis of string;;
+
+let lazy_logger = Logger_utils.make_lazy_logger "Toploop";;
 
 let stdout_illformednesses_callback ills =
   print_string "Provided expression is ill-formed:\n";

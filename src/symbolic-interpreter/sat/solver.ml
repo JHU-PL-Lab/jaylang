@@ -1,3 +1,5 @@
+open Batteries;;
+
 open Odefa_ast;;
 
 open Z3;;
@@ -11,20 +13,29 @@ open Symbol_cache;;
 
 exception Non_solver_type;;
 
+let z3_expr_of_symbol
+    (ctx : Z3.context)
+    (symbol_cache : symbol_cache)
+    (formulae : Formulae.t)
+    (symbol : symbol)
+  : Expr.expr option =
+  let z3symbol = define_symbol symbol_cache symbol in
+  match Formulae.type_of symbol formulae with
+  | Some IntSymbol -> Some(Integer.mk_const ctx z3symbol)
+  | Some BoolSymbol -> Some(Boolean.mk_const ctx z3symbol)
+  | Some (FunctionSymbol _) -> None
+  | None -> None
+;;
+
 let add_formula
     (ctx : Z3.context)
     (solver : Z3.Solver.solver)
-    (symbol_cache : symbol_cache)
-    (get_type : symbol -> Formulae.symbol_type option)
+    (expr_of_symbol : symbol -> Expr.expr option)
     (formula : Formula.t)
   : unit =
   let translate (symbol : Symbol.t) : Expr.expr =
-    let symbol_type_opt = get_type symbol in
-    let z3symbol = define_symbol symbol_cache symbol in
-    match symbol_type_opt with
-    | Some IntSymbol -> Integer.mk_const ctx z3symbol
-    | Some BoolSymbol -> Boolean.mk_const ctx z3symbol
-    | Some (FunctionSymbol _) -> raise Non_solver_type
+    match expr_of_symbol symbol with
+    | Some expr -> expr
     | None -> raise Non_solver_type
   in
   try
@@ -82,32 +93,68 @@ let add_formulae
     (symbol_cache : symbol_cache)
     (formulae : Formulae.t)
   : unit =
-  let get_type s = Formulae.type_of s formulae in
+  let expr_of_symbol = z3_expr_of_symbol ctx symbol_cache formulae in
   formulae
-  |> Formulae.iter (add_formula ctx solver symbol_cache get_type)
+  |> Formulae.iter (add_formula ctx solver expr_of_symbol)
 ;;
 
-(**
-   Determines whether a set of formulae is solvable.
-*)
-let solve (formulae : Formulae.t) : bool =
+let solve (formulae : Formulae.t) :
+  (Interpreter_types.symbol -> value option) option =
   let ctx = Z3.mk_context [] in
   let solver = Solver.mk_solver ctx None in
   let symbol_cache = new_symbol_cache ctx in
   add_formulae ctx solver symbol_cache formulae;
   match Solver.check solver [] with
   | Solver.SATISFIABLE ->
-    true
-  (* (
-     match Solver.get_model solver with
-     | None -> failwith "failure: impossible none model"
-     | Some model ->
-      Printf.printf "!!! %s\n"
-        (Model.to_string model)
-     ) *)
+    begin
+      match Solver.get_model solver with
+      | None ->
+        raise @@ Jhupllib.Utils.Invariant_failure
+          "Z3 reports no model for a checked formula set"
+      | Some model ->
+        let get_value symbol =
+          match z3_expr_of_symbol ctx symbol_cache formulae symbol with
+          | None -> None
+          | Some expr ->
+            begin
+              match Formulae.type_of symbol formulae with
+              | Some IntSymbol ->
+                begin
+                  match Model.eval model expr true with
+                  | None -> None
+                  | Some expr' ->
+                    (* Z3 documents a get_int function, but the latest on OPAM
+                       doesn't seem to have it defined. *)
+                    let n = Z3.Arithmetic.Integer.get_big_int expr' in
+                    Some(Value_int(Big_int.int_of_big_int n))
+                end
+              | Some BoolSymbol ->
+                begin
+                  match Model.eval model expr true with
+                  | None -> None
+                  | Some expr' ->
+                    begin
+                      match Boolean.get_bool_value expr' with
+                      | Z3enums.L_TRUE -> Some(Value_bool true)
+                      | Z3enums.L_FALSE -> Some(Value_bool false)
+                      | Z3enums.L_UNDEF ->
+                        raise @@ Jhupllib.Utils.Not_yet_implemented "L_UNDEF"
+                    end
+                end
+              | Some (FunctionSymbol _) -> None
+              | None -> None
+            end
+        in
+        Some get_value
+    end
   | Solver.UNSATISFIABLE ->
-    false
+    (* Return no dictionary. *)
+    None
   | Solver.UNKNOWN ->
     failwith @@ Printf.sprintf "Unknown result in solve.check: %s"
       (Solver.get_reason_unknown solver)
+;;
+
+let solvable (formulae : Formulae.t) : bool =
+  Option.is_some @@ solve formulae
 ;;

@@ -26,6 +26,13 @@ module Symbol = struct
   type t = symbol [@@deriving eq, ord, show, to_yojson];;
 end;;
 
+module Symbol_set = struct
+  module M = Set.Make(Symbol);;
+  include M;;
+  include Pp_utils.Set_pp(M)(Symbol);;
+  include Yojson_utils.Set_to_yojson(M)(Symbol);;
+end;;
+
 module Symbol_map = struct
   module M = Map.Make(Symbol);;
   include M;;

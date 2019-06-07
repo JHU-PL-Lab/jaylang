@@ -111,7 +111,7 @@ let cond_wire (conditional_site_x : var) (Expr(body)) =
 ;;
 
 let rec evaluate
-    ?input_source:(input_source=read_int)
+    ?input_source:(input_source=fun (_:var) -> read_int ())
     env
     lastvar
     cls =
@@ -143,7 +143,7 @@ let rec evaluate
         Environment.add env x v;
         recurse t
       | Input_body ->
-        let v = Value_int (input_source ()) in
+        let v = Value_int (input_source x) in
         Environment.add env x v;
         recurse t
       | Appl_body(x', x'') ->
@@ -204,7 +204,7 @@ let rec evaluate
     end
 ;;
 
-let eval ?input_source:(input_source=read_int) e =
+let eval ?input_source:(input_source=fun (_:var) -> read_int ()) e =
   let env = Environment.create(20) in
   let repl_fn = repl_fn_for e (Freshening_stack []) Var_set.empty in
   let Expr(cls) = var_replace_expr repl_fn e in

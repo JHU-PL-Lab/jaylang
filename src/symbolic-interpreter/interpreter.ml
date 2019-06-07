@@ -330,6 +330,7 @@ type evaluation = Evaluation of symbol Symbolic_monad.evaluation Deque.t;;
 
 type evaluation_result = {
   er_formulae : Formulae.t;
+  er_solution : (symbol -> value option);
 };;
 
 let start (cfg : ddpa_graph) (e : expr) (program_point : Ident.t) : evaluation =
@@ -375,10 +376,14 @@ let step (x : evaluation) : evaluation_result list * evaluation option =
       complete
       |> List.filter_map
         (fun formulae ->
-           if Solve.solve formulae then
-             Some({er_formulae = formulae})
-           else
-             None)
+           match Solver.solve formulae with
+           | Some f ->
+             Some {er_formulae = formulae;
+                   er_solution = f
+                  }
+           | None ->
+             None
+        )
     in
     let evals'' =
       Deque.append evals' @@ Deque.of_enum @@ List.enum incomplete

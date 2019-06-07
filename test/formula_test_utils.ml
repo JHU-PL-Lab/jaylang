@@ -9,6 +9,7 @@ open Odefa_ast;;
 open Odefa_symbolic_interpreter;;
 
 open Ast;;
+open Ast_pp;;
 open Interpreter_types;;
 open Sat_types;;
 
@@ -45,7 +46,7 @@ let indent str =
 
 let assert_solvable formula_list =
   let formulae = Formulae.of_enum @@ List.enum formula_list in
-  if not @@ Solve.solve formulae then
+  if not @@ Solver.solvable formulae then
     assert_failure @@
     let msg = indent @@ string_of_formula_list formula_list in
     Printf.sprintf "Should be able to solve formula set:\n%s" msg
@@ -53,10 +54,34 @@ let assert_solvable formula_list =
 
 let assert_unsolvable formula_list =
   let formulae = Formulae.of_enum @@ List.enum formula_list in
-  if Solve.solve formulae then
+  if Solver.solvable formulae then
     assert_failure @@
     let msg = indent @@ string_of_formula_list formula_list in
     Printf.sprintf "Should NOT be able to solve formula set:\n%s" msg
+;;
+
+let assert_solutions formula_list solutions =
+  let formulae = Formulae.of_enum @@ List.enum formula_list in
+  match Solver.solve formulae with
+  | None ->
+    assert_failure @@
+    let msg = indent @@ string_of_formula_list formula_list in
+    Printf.sprintf "Should NOT be able to solve formula set:\n%s" msg
+  | Some model ->
+    solutions
+    |> List.iter
+      (fun (symbol, expected_answer) ->
+         let actual_answer = model symbol in
+         if not @@ Option.eq ~eq:equal_value expected_answer actual_answer then
+           assert_failure @@
+           let set_msg = indent @@ string_of_formula_list formula_list in
+           Printf.sprintf
+             "Expected %s but got %s for symbol %s in formula set:\n%s"
+             (Option.default "<none>" @@ Option.map show_value expected_answer)
+             (Option.default "<none>" @@ Option.map show_value actual_answer)
+             (show_symbol symbol)
+             set_msg;
+      )
 ;;
 
 let assert_symbol_type_error formula_list =

@@ -7,7 +7,19 @@
    to have no solutions.
 *)
 
+open Odefa_ast;;
+
+open Interpreter_types;;
+
 (**
    Given a collection of formulae, determines whether or not a solution exists.
 *)
-val solve : Formulae.t -> bool
+val solvable : Formulae.t -> bool
+
+(**
+   Given a collection of formulae, determines a solution for them.  If no
+   solution can be found, None is returned.  Otherwise, the returned function
+   maps symbols to their concrete values in the solution.  If a symbol is not
+   assigned in the solution, the returned function produces None.
+*)
+val solve : Formulae.t -> (symbol -> Ast.value option) option
