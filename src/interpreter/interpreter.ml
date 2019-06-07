@@ -112,6 +112,7 @@ let cond_wire (conditional_site_x : var) (Expr(body)) =
 
 let rec evaluate
     ?input_source:(input_source=fun (_:var) -> read_int ())
+    ?clause_callback:(clause_callback=fun (_:clause) -> ())
     env
     lastvar
     cls =
@@ -131,9 +132,16 @@ let rec evaluate
         (* TODO: different exception? *)
         raise (Failure "evaluation of empty expression!")
     end
-  | (Clause(x, b)):: t ->
+  | (Clause(x, b) as c):: t ->
     begin
-      let recurse = evaluate ~input_source:input_source env (Some x) in
+      let recurse =
+        evaluate
+          ~input_source:input_source
+          ~clause_callback:clause_callback
+          env
+          (Some x)
+      in
+      clause_callback c;
       match b with
       | Value_body(v) ->
         Environment.add env x v;
@@ -204,9 +212,18 @@ let rec evaluate
     end
 ;;
 
-let eval ?input_source:(input_source=fun (_:var) -> read_int ()) e =
+let eval
+    ?input_source:(input_source=fun (_:var) -> read_int ())
+    ?clause_callback:(clause_callback=fun (_:clause) -> ())
+    e
+  =
   let env = Environment.create(20) in
   let repl_fn = repl_fn_for e (Freshening_stack []) Var_set.empty in
   let Expr(cls) = var_replace_expr repl_fn e in
-  evaluate ~input_source:input_source env None cls
+  evaluate
+    ~input_source:input_source
+    ~clause_callback:clause_callback
+    env
+    None
+    cls
 ;;
