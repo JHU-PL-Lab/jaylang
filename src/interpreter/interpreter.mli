@@ -30,7 +30,7 @@ exception Evaluation_failure of string;;
    meaning that each clause will only be presented once per evaluation.
 *)
 val eval :
-  ?input_source:(var -> int) ->
+  ?input_source:(var -> value) ->
   ?clause_callback:(clause -> unit) ->
   expr ->
   var * evaluation_environment;;

@@ -26,8 +26,17 @@ let () =
       (String.join ", " @@ List.map string_of_int inputs) steps;
     flush stdout;
   in
-  ignore @@ Generator.generate_inputs
-    ~generation_callback:generation_callback
-    args.ga_maximum_steps
-    generator
+  let answers, generator_opt =
+    Generator.generate_inputs
+      ~generation_callback:generation_callback
+      args.ga_maximum_steps
+      generator
+  in
+  let answer_count = List.length answers in
+  Printf.printf "%d answer%s generated\n"
+    answer_count (if answer_count = 1 then "" else "s");
+  if Option.is_none generator_opt then
+    print_endline "No further answers exist."
+  else
+    print_endline "Further answers may exist."
 ;;

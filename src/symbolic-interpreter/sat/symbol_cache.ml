@@ -11,10 +11,10 @@ let new_symbol_cache ctx = (ctx, ref Symbol_map.empty);;
 
 let symbol_suffix_of_relative_stack (Relative_stack(costk,stk)) : string =
   let costk_name =
-    String.join "$" @@ List.map (fun (Clause(Var(Ident(s),_),_)) -> s) costk
+    String.join "$" @@ List.map (fun (Ident(s)) -> s) costk
   in
   let stk_name =
-    String.join "$" @@ List.map (fun (Clause(Var(Ident(s),_),_)) -> s) stk
+    String.join "$" @@ List.map (fun (Ident(s)) -> s) stk
   in
   Printf.sprintf "$$%s$$%s" costk_name stk_name
 ;;

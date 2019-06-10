@@ -241,7 +241,7 @@ let rec lookup
         (* Find the concrete clause corresponding to c.*)
         let cc = Ident_map.find xr env.le_clause_mapping in
         (* MayBeTop check *)
-        let%orzero true = may_be_top relstack cc in
+        let%orzero true = may_be_top relstack xr in
         (* Decision check *)
         let symbol = Symbol(x, relstack) in
         let%bind () = record_decision symbol x cc x' in
@@ -268,7 +268,7 @@ let rec lookup
         (* The only difference in the rules is the stack that we use to continue
            lookup, which varies based upon whether we're looking for a parameter
            or a non-local. *)
-        let%orzero Some popped_stack = pop relstack cc in
+        let%orzero Some popped_stack = pop relstack xr in
         if equal_ident lookup_var x then begin
           (* ## Function Enter Parameter rule ## *)
           lookup env (x' :: lookup_stack') acl1 popped_stack
@@ -284,8 +284,7 @@ let rec lookup
           match c with
           | Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, Abs_var _)) ->
             (* ## Function Exit rule ## *)
-            [%guard may_be_top relstack @@
-              Ident_map.find xr env.le_clause_mapping];
+            [%guard may_be_top relstack xr];
             (* Based upon the exit clause, we can figure out which function
                would have to have been called for us to use it. *)
             let fnval = Ident_map.find x' env.le_function_return_mapping in
@@ -369,6 +368,7 @@ type evaluation = Evaluation of symbol Symbolic_monad.evaluation Deque.t;;
 
 type evaluation_result = {
   er_formulae : Formulae.t;
+  er_stack : Ident.t list;
   er_solution : (symbol -> value option);
 };;
 
@@ -406,10 +406,19 @@ let step (x : evaluation) : evaluation_result list * evaluation option =
       |> Enum.fold
         (fun (complete,incomplete) x ->
            match Symbolic_monad.get_result x with
-           | Some _ ->
+           | Some symbol ->
              (* We have a result!  We don't really care about the variable that
-                gets returned; the formulae are much more valuable. *)
-             (Symbolic_monad.get_formulae x :: complete, incomplete)
+                gets returned, but we need the formulae and the relative stack
+                so we can establish an input sequence. *)
+             let relstack =
+               match symbol with
+               | Symbol(_,relstack) -> relstack
+               | SpecialSymbol SSymTrue ->
+                 raise @@ Jhupllib.Utils.Invariant_failure
+                   "lookup returned special symbol"
+             in
+             let stack = stackize relstack in
+             ((Symbolic_monad.get_formulae x, stack) :: complete, incomplete)
            | None ->
              (complete, x :: incomplete)
         )
@@ -418,10 +427,11 @@ let step (x : evaluation) : evaluation_result list * evaluation option =
     let results =
       complete
       |> List.filter_map
-        (fun formulae ->
+        (fun (formulae, stack) ->
            match Solver.solve formulae with
            | Some f ->
              Some {er_formulae = formulae;
+                   er_stack = stack;
                    er_solution = f
                   }
            | None ->

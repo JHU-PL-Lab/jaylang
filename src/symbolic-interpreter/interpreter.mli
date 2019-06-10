@@ -16,7 +16,13 @@ type evaluation;;
 (** The result of an evaluation. *)
 type evaluation_result = {
   er_formulae : Formulae.t;
+  (** The formulae established during symbolic evaluation. *)
+
+  er_stack : Ident.t list;
+  (** The stack for the target variable in this evaluation. *)
+
   er_solution : (symbol -> value option);
+  (** The solution to the formulae found by this evaluation. *)
 };;
 
 (** Starts a demand-driven evaluation of an expression at the provided program

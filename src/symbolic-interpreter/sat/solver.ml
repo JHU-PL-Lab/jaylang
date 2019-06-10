@@ -11,6 +11,8 @@ open Interpreter_types;;
 open Sat_types;;
 open Symbol_cache;;
 
+type solution = symbol -> Ast.value option;;
+
 exception Non_solver_type;;
 
 let z3_expr_of_symbol

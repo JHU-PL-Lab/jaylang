@@ -53,10 +53,55 @@ let single_value_parser
   }
 ;;
 
+let logging_option_parser : unit BatOptParse.Opt.t =
+  {
+    (* Called whenever e.g. "--log debug" appears in the argument list *)
+    option_set =
+      (let open Jhupllib.Logger_utils in
+       fun option_name args ->
+         let match_string_with_level level_str =
+           match level_of_string level_str with
+           | Some level -> level
+           | None -> failwith ("Invalid log level \"" ^ level_str ^ "\".")
+         in
+         (match args with
+          |[arg] ->
+            (let (module_name_option,module_level) =
+               if BatString.exists arg "=" then
+                 let (module_name,module_level) =
+                   String.split ~by:arg "="
+                 in (Some module_name,module_level)
+               else
+                 (None,arg)
+             in
+             let level' = match_string_with_level module_level in
+             match module_name_option with
+             |Some(module_name) ->
+               set_logging_level_for module_name level'
+             |None ->
+               set_default_logging_level level'
+            )
+          | _ -> raise @@ BatOptParse.Opt.Option_error
+              (option_name,"Invalid argument")
+         )
+      )
+    ;
+    option_set_value = (fun _ -> ())
+    ;
+    option_get = (fun () -> Some())
+    ;
+    option_metavars = ["LOG_INSTR"]
+    ;
+    option_defhelp = Some("Sets the logging level.")
+    ;
+  }
+;;
+
 type parsers =
   { parse_context_stack : (module Context_stack) BatOptParse.Opt.t;
     parse_target_point : string BatOptParse.Opt.t;
     parse_max_steps : int BatOptParse.Opt.t;
+    parse_logging : unit BatOptParse.Opt.t;
   }
 ;;
 
@@ -100,6 +145,7 @@ let make_parsers () : parsers =
                "computation."))
         None
         (fun x -> try Some(int_of_string x) with | Failure _ -> None);
+    parse_logging = logging_option_parser;
   }
 ;;
 
@@ -133,6 +179,11 @@ let parse_args () : generator_args =
     ~short_name:'m'
     ~long_name:"maximum-steps"
     parsers.parse_max_steps;
+  BatOptParse.OptParser.add
+    cli_parser
+    ~short_name:'l'
+    ~long_name:"log"
+    parsers.parse_logging;
   (* **** Perform parse **** *)
   let positional_args = BatOptParse.OptParser.parse_argv cli_parser in
   try

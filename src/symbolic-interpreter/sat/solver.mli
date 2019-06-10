@@ -12,6 +12,11 @@ open Odefa_ast;;
 open Interpreter_types;;
 
 (**
+   The type of a solution to a set of formulae.
+*)
+type solution = (symbol -> Ast.value option);;
+
+(**
    Given a collection of formulae, determines whether or not a solution exists.
 *)
 val solvable : Formulae.t -> bool
@@ -22,4 +27,4 @@ val solvable : Formulae.t -> bool
    maps symbols to their concrete values in the solution.  If a symbol is not
    assigned in the solution, the returned function produces None.
 *)
-val solve : Formulae.t -> (symbol -> Ast.value option) option
+val solve : Formulae.t -> solution option

@@ -110,8 +110,10 @@ let cond_wire (conditional_site_x : var) (Expr(body)) =
   body @ [tail_clause]
 ;;
 
+let stdin_input_source (_:var) = Value_int(read_int());;
+
 let rec evaluate
-    ?input_source:(input_source=fun (_:var) -> read_int ())
+    ?input_source:(input_source=stdin_input_source)
     ?clause_callback:(clause_callback=fun (_:clause) -> ())
     env
     lastvar
@@ -151,7 +153,7 @@ let rec evaluate
         Environment.add env x v;
         recurse t
       | Input_body ->
-        let v = Value_int (input_source x) in
+        let v = input_source x in
         Environment.add env x v;
         recurse t
       | Appl_body(x', x'') ->
@@ -213,7 +215,7 @@ let rec evaluate
 ;;
 
 let eval
-    ?input_source:(input_source=fun (_:var) -> read_int ())
+    ?input_source:(input_source=stdin_input_source)
     ?clause_callback:(clause_callback=fun (_:clause) -> ())
     e
   =

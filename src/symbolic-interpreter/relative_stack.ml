@@ -2,36 +2,51 @@ open Batteries;;
 open Odefa_ast;;
 
 open Ast;;
-open Ast_pp;;
 
 (** The type of relative stacks in the symbolic interpreter. *)
 type relative_stack =
-  | Relative_stack of clause list * clause list
+  | Relative_stack of Ident.t list * Ident.t list
 [@@deriving eq, ord, show, to_yojson]
 ;;
 
 let empty = Relative_stack([],[]);;
 
-(** FIXME: This does not match the spec in the paper, but the spec seems silly.
-    Discuss and then resolve. *)
-let push (Relative_stack(costk,stk)) (c : clause) : relative_stack option =
+(* NOTE: this implementation canonicalizes the stack in a way that the
+   specification does not: push(pop(C,x),x) = C.  This should be fine, as this
+   should never actually happen during the reverse evaluation of a program.  The
+   specification picks its form to ease its proof burden.  Here, we select the
+   canonicalizing version as it makes it easier to derive relative stacks from
+   two absolute stacks. *)
+let push (Relative_stack(costk,stk)) (x : Ident.t) : relative_stack option =
   match costk with
   | [] ->
-    Some(Relative_stack(costk, c :: stk))
-  | c' :: costk' ->
-    if equal_clause c c' then Some(Relative_stack(costk', stk)) else None
+    Some(Relative_stack(costk, x :: stk))
+  | x' :: costk' ->
+    if equal_ident x x' then Some(Relative_stack(costk', stk)) else None
 ;;
 
-let pop (Relative_stack(costk,stk)) (c : clause) : relative_stack option =
+let pop (Relative_stack(costk,stk)) (x : Ident.t) : relative_stack option =
   match stk with
   | [] ->
-    Some(Relative_stack(c :: costk, stk))
-  | c' :: stk' ->
-    if equal_clause c c' then Some(Relative_stack(costk, stk')) else None
+    Some(Relative_stack(x :: costk, stk))
+  | x' :: stk' ->
+    if equal_ident x x' then Some(Relative_stack(costk, stk')) else None
 ;;
 
-let may_be_top (Relative_stack(_,stk)) (c : clause) : bool =
+let may_be_top (Relative_stack(_,stk)) (x : Ident.t) : bool =
   match stk with
   | [] -> true (* because we have no idea what's on top of the stack now *)
-  | c' :: _ -> equal_clause c c' (* because c' is definitely on top *)
+  | x' :: _ -> equal_ident x x' (* because x' is definitely on top *)
+;;
+
+(** This is an implementation of the Stackize function from the paper.  It
+    assumes that the stack is relative to a point within the program *and* that
+    the relative stack describes a top-level context.  It produces a concrete
+    stack from those assumptions. *)
+let stackize (Relative_stack(costk,stk)) : Ident.t list =
+  if not @@ List.is_empty stk then begin
+    raise @@ Jhupllib.Utils.Invariant_failure
+      "Non-empty positive stack in Stackize!";
+  end;
+  List.rev costk
 ;;
