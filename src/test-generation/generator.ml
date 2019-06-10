@@ -16,7 +16,7 @@ module Formulae = Symbolic_interpreter.Formulae;;
 module Relative_stack = Symbolic_interpreter.Relative_stack;;
 module Solver = Symbolic_interpreter.Solver;;
 
-let lazy_logger = Logger_utils.make_lazy_logger "Interpreter";;
+let lazy_logger = Logger_utils.make_lazy_logger "Generator";;
 
 let relativize_stack (start : Ident.t list) (finish : Ident.t list)
   : Relative_stack.relative_stack =

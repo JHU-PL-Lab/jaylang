@@ -6,7 +6,7 @@ open Ast;;
 open Interpreter_types;;
 open Sat_types;;
 
-let lazy_logger = Logger_utils.make_lazy_logger "Interpreter";;
+let lazy_logger = Logger_utils.make_lazy_logger "Formulae";;
 
 (* NOTE: this implementation makes use of mutation, but the interface it
    provides to the rest of the system should be immutable; the mutation here is
