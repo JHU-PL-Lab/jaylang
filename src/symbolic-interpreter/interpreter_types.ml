@@ -5,6 +5,7 @@ open Jhupllib;;
 open Odefa_ast;;
 
 open Ast;;
+open Pp_utils;;
 open Relative_stack;;
 
 (** An enumeration of special symbols used throughout the interpreter. *)
@@ -19,8 +20,22 @@ type special_symbol =
 type symbol =
   | Symbol of Ident.t * relative_stack
   | SpecialSymbol of special_symbol
-[@@deriving eq, ord, show, to_yojson]
+[@@deriving eq, ord, to_yojson]
 ;;
+
+let pp_symbol : symbol pretty_printer =
+  fun formatter symbol ->
+  match symbol with
+  | Symbol(x,relstack) ->
+    pp_ident formatter x;
+    pp_relative_stack formatter relstack;
+  | SpecialSymbol ss ->
+    begin
+      match ss with
+      | SSymTrue -> Format.pp_print_string formatter "#true#"
+    end
+;;
+let show_symbol = pp_to_string pp_symbol;;
 
 module Symbol = struct
   type t = symbol [@@deriving eq, ord, show, to_yojson];;

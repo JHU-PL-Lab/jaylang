@@ -1,13 +1,26 @@
 open Batteries;;
+open Jhupllib;;
 open Odefa_ast;;
 
 open Ast;;
+open Pp_utils;;
 
 (** The type of relative stacks in the symbolic interpreter. *)
 type relative_stack =
   | Relative_stack of Ident.t list * Ident.t list
-[@@deriving eq, ord, show, to_yojson]
+[@@deriving eq, ord, to_yojson]
 ;;
+
+let pp_relative_stack : relative_stack pretty_printer =
+  fun formatter (Relative_stack(costk,stk)) ->
+  Format.pp_print_char formatter '[';
+  costk |> List.iter
+    (fun i -> Format.pp_print_char formatter '-'; pp_ident formatter i);
+  stk |> List.iter
+    (fun i -> Format.pp_print_char formatter '+'; pp_ident formatter i);
+  Format.pp_print_char formatter ']';
+;;
+let show_relative_stack = pp_to_string pp_relative_stack;;
 
 let empty = Relative_stack([],[]);;
 

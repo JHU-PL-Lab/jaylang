@@ -11,7 +11,11 @@ open Generator_types;;
 
 (** Creates a test generator.  Given a configuration, this generator will look
     for paths in the provided expression for reaching the variable with the
-    provided identifier. *)
+    provided identifier.
+
+    If the query is invalid (e.g. the target variable does not appear in the
+    expression), an exception is raised from the symbolic intepreter of type
+    [Odefa_symbolic_interpreter.Interpreter.Invalid_query]. *)
 val create : configuration -> expr -> Ident.t -> test_generator;;
 
 (** A convenience routine for running test generation with a generator.  The

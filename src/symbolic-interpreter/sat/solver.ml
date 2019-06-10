@@ -69,17 +69,20 @@ let add_formula
       let e1 = translate symbol1 in
       let e2 = translate symbol2 in
       let mk_op =
+        let z3_listop_to_binop f =
+          fun context arg1 arg2 -> f context [arg1;arg2]
+        in
         match op with
-        | Binary_operator_plus -> mk_add ctx
+        | Binary_operator_plus -> z3_listop_to_binop mk_add ctx
         | Binary_operator_minus -> failwith "unimplemented"
         | Binary_operator_less_than -> failwith "unimplemented"
         | Binary_operator_less_than_or_equal_to -> failwith "unimplemented"
-        | Binary_operator_equal_to -> failwith "unimplemented"
+        | Binary_operator_equal_to -> mk_eq ctx
         | Binary_operator_and -> failwith "unimplemented"
         | Binary_operator_or -> failwith "unimplemented"
         | Binary_operator_xor -> failwith "unimplemented"
       in
-      let c = mk_eq ctx e0 (mk_op [e1; e2]) in
+      let c = mk_eq ctx e0 (mk_op e1 e2) in
       Solver.add solver [c]
   with
   | Non_solver_type ->

@@ -18,6 +18,7 @@ let () =
       prerr_endline err;
       exit 1
   in
+  try
   let generator =
     Generator.create args.ga_generator_configuration ast args.ga_target_point
   in
@@ -39,4 +40,7 @@ let () =
     print_endline "No further answers exist."
   else
     print_endline "Further answers may exist."
+  with
+  | Odefa_symbolic_interpreter.Interpreter.Invalid_query msg ->
+    prerr_endline msg
 ;;

@@ -1,9 +1,12 @@
 open Batteries;;
+open Jhupllib;;
 open Odefa_ast;;
 
 open Ast;;
 open Interpreter_types;;
 open Sat_types;;
+
+let lazy_logger = Logger_utils.make_lazy_logger "Interpreter";;
 
 (* NOTE: this implementation makes use of mutation, but the interface it
    provides to the rest of the system should be immutable; the mutation here is
@@ -145,6 +148,11 @@ let empty : t =
 ;;
 
 let add (formula : formula) (collection : t) : t =
+  lazy_logger `trace (fun () ->
+      Printf.sprintf "Adding %s to %s"
+        (Formula.show formula)
+        (Formula_set.show collection.formulae)
+    );
   (* Derive a set containing the new formula. *)
   let formulae' = Formula_set.add formula collection.formulae in
   let collection' = { collection with formulae = formulae' } in

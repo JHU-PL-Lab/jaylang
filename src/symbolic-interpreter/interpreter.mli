@@ -25,6 +25,11 @@ type evaluation_result = {
   (** The solution to the formulae found by this evaluation. *)
 };;
 
+(** Raised if a query is invalid (e.g. a variable is requested for an expression
+    which does not contain it.  The payload of this exception is a
+    human-readable message explaining the problem. *)
+exception Invalid_query of string;;
+
 (** Starts a demand-driven evaluation of an expression at the provided program
     point (described by a variable).  The provided CFG must be complete with
     respect to the expression. *)

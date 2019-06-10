@@ -3,6 +3,7 @@ open Odefa_ast;;
 open Odefa_ddpa;;
 
 open Ast;;
+open Ast_pp;;
 open Ddpa_abstract_ast;;
 open Ddpa_graph;;
 open Ddpa_utils;;
@@ -204,7 +205,11 @@ let rec lookup
                   lookup env [env.le_first_var] acl1 relstack
               in
               let symbol = Symbol(lookup_var, relstack) in
-              let formula = Formula(symbol, Formula_expression_alias(symbol)) in
+              let formula =
+                Formula(SpecialSymbol SSymTrue,
+                        Formula_expression_binop(
+                          symbol, Binary_operator_equal_to, symbol))
+              in
               let%bind () = record_formula formula in
               return symbol
             else
@@ -372,11 +377,18 @@ type evaluation_result = {
   er_solution : (symbol -> value option);
 };;
 
-let start (cfg : ddpa_graph) (e : expr) (program_point : Ident.t) : evaluation =
+exception Invalid_query of string;;
+
+let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
   let env = prepare_environment e cfg in
   let initial_lookup_var =
     let clause =
-      Ident_map.find program_point env.le_clause_predecessor_mapping
+      match Ident_map.Exceptionless.find
+              program_point env.le_clause_predecessor_mapping with
+      | None ->
+        raise @@ Invalid_query("Variable " ^ show_ident program_point ^
+                               " is not defined")
+      | Some cl -> cl
     in
     let Clause(Var(ident,_),_) = clause in
     ident
