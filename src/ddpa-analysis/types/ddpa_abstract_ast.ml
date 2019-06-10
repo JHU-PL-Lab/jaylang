@@ -88,7 +88,7 @@ and pp_abstract_clause_body formatter b =
     Format.fprintf formatter "%a %a" pp_abstract_var x1 pp_abstract_var x2
   | Abs_conditional_body(x,e1,e2) ->
     Format.fprintf formatter
-      "%a @[<4> ? @[<2>%a@] : @[<2>%a@]@]"
+      "%a @[<4>? @[<2>(%a)@] : @[<2>(%a)@]@]"
       pp_abstract_var x
       pp_abstract_expr e1
       pp_abstract_expr e2

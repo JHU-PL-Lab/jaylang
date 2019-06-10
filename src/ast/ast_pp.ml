@@ -67,7 +67,7 @@ and pp_clause_body formatter b =
   | Appl_body(x1,x2) -> Format.fprintf formatter "%a %a" pp_var x1 pp_var x2
   | Conditional_body(x,e1,e2) ->
     Format.fprintf formatter
-      "%a @[<4> ? @[<2>(%a)@] : @[<2>(%a)@]@]"
+      "%a @[<4>? @[<2>(%a)@] : @[<2>(%a)@]@]"
       pp_var x pp_expr e1 pp_expr e2
   | Binary_operation_body(x1,op,x2) ->
     Format.fprintf formatter "%a %a %a"
