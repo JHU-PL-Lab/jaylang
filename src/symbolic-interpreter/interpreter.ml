@@ -161,6 +161,7 @@ let rec lookup
         if not @@ equal_ident lookup_var x then
           (* ## Skip rule ## *)
           let%bind _ = lookup env [x] acl1 relstack in
+          print_endline @@ "SKIP " ^ show_ident x;
           lookup env lookup_stack acl1 relstack
         else begin
           (* In all cases of this match, we already know that the top variable

@@ -21,7 +21,7 @@ let logging_option:unit BatOptParse.Opt.t =
             (let (module_name_option,module_level) =
                if BatString.exists arg "=" then
                  let (module_name,module_level) =
-                   String.split ~by:arg "="
+                   String.split ~by:"=" arg
                  in (Some module_name,module_level)
                else
                  (None,arg)
