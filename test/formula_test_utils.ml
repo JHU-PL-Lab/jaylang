@@ -19,8 +19,7 @@ let symbol_with_stack x s =
   Symbol(Ident(x),
          s
          |> List.map
-           (fun name ->
-              Clause(Var(Ident(name),None),Value_body(Value_int 0)))
+           (fun name -> Ident(name))
          |> List.fold_left
            (fun a e -> Option.get @@ Relative_stack.push a e)
            Relative_stack.empty
@@ -37,7 +36,7 @@ let set_int s n = Formula(s, Formula_expression_value(Value_int n));;
 let set_bool s n = Formula(s, Formula_expression_value(Value_bool n));;
 
 let string_of_formula_list formula_list =
-  String.join "\n" @@ List.map show_formula formula_list
+  String.join "\n" @@ List.map Formula.show formula_list
 ;;
 
 let indent str =
