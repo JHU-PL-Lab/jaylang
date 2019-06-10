@@ -160,8 +160,7 @@ let rec lookup
         let Abs_clause(Abs_var x,ab) = uacl1 in
         if not @@ equal_ident lookup_var x then
           (* ## Skip rule ## *)
-          let%bind _ = lookup env [x] acl1 relstack in
-          print_endline @@ "SKIP " ^ show_ident x;
+          let%bind _ = lookup env [x] acl0 relstack in
           lookup env lookup_stack acl1 relstack
         else begin
           (* In all cases of this match, we already know that the top variable
@@ -228,9 +227,13 @@ let rec lookup
             zero ()
           | Abs_binary_operation_body (Abs_var(x1), op, Abs_var(x2)) ->
             (* ## Binop rule ## *)
-            let%bind symbol1 = lookup env (x1 :: lookup_stack) acl1 relstack in
-            let%bind symbol2 = lookup env (x2 :: lookup_stack) acl1 relstack in
+            let%bind symbol1 = lookup env [x1] acl1 relstack in
+            let%bind symbol2 = lookup env [x2] acl1 relstack in
             let symbol = Symbol(lookup_var, relstack) in
+            let%bind _ =
+              if List.is_empty lookup_stack' then return symbol else
+                lookup env lookup_stack' acl1 relstack
+            in
             let formula =
               Formula(symbol, Formula_expression_binop(symbol1, op, symbol2))
             in

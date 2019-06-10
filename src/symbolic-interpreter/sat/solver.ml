@@ -75,7 +75,7 @@ let add_formula
         match op with
         | Binary_operator_plus -> z3_listop_to_binop mk_add ctx
         | Binary_operator_minus -> failwith "unimplemented"
-        | Binary_operator_less_than -> failwith "unimplemented"
+        | Binary_operator_less_than -> mk_lt ctx
         | Binary_operator_less_than_or_equal_to -> failwith "unimplemented"
         | Binary_operator_equal_to -> mk_eq ctx
         | Binary_operator_and -> failwith "unimplemented"
