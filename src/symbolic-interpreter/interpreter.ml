@@ -1,4 +1,5 @@
 open Batteries;;
+open Jhupllib;;
 open Odefa_ast;;
 open Odefa_ddpa;;
 
@@ -11,7 +12,10 @@ open Interpreter_types;;
 open Relative_stack;;
 open Sat_types;;
 open Symbolic_monad;;
-(* open Symbolic_monad_types;; *)
+
+let lazy_logger =
+  Logger_utils.make_lazy_logger "Symbolic_interpreter.Interpreter"
+;;
 
 (** This type describes the information which must be in context during lookup. *)
 type lookup_environment = {
@@ -149,6 +153,15 @@ let rec lookup
     (relstack : relative_stack)
   : Symbol.t m =
   let%bind acl1 = pick @@ preds acl0 env.le_cfg in
+  lazy_logger `trace
+    (fun () ->
+       Printf.sprintf
+         "Lookup up\n  %s\n  at %s\n  after %s"
+         (Jhupllib.Pp_utils.pp_to_string
+            (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack)
+         (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl0)
+         (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl1)
+    );
   match lookup_stack with
   | [] ->
     (* No rule handles an empty variable stack. *)
@@ -343,10 +356,8 @@ let rec lookup
         end
       | Nonbinding_enter_clause(v,c) ->
         (* ## Conditional Top rule ## *)
-        let%orzero Abs_clause(Abs_var x,
-                              Abs_conditional_body(Abs_var x1, _, _)) = c
+        let%orzero Abs_clause(_, Abs_conditional_body(Abs_var x1, _, _)) = c
         in
-        [%guard equal_ident x lookup_var];
         (* We have to verify that any lookups of the subject variable match the
            value of the non-binding enter clause.  This can be accomplished by
            looking up the *variable* and then adding a formula to the set which
