@@ -3,6 +3,7 @@ open Jhupllib;;
 open Odefa_ast;;
 
 open Ast;;
+open Ast_pp;;
 open Pp_utils;;
 
 (** The type of relative stacks in the symbolic interpreter. *)

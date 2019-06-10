@@ -5,6 +5,7 @@ open Jhupllib;;
 open Odefa_ast;;
 
 open Ast;;
+open Ast_pp;;
 open Pp_utils;;
 open Relative_stack;;
 

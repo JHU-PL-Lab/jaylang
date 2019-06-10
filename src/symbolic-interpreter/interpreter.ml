@@ -156,7 +156,7 @@ let rec lookup
   lazy_logger `trace
     (fun () ->
        Printf.sprintf
-         "Lookup up\n  %s\n  at %s\n  after %s"
+         "Looking up\n  %s\n  at %s\n  after %s"
          (Jhupllib.Pp_utils.pp_to_string
             (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack)
          (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl0)
@@ -254,7 +254,6 @@ let rec lookup
             return symbol
         end
       | Binding_enter_clause (Abs_var x, Abs_var x', c) ->
-        [%guard equal_ident x lookup_var];
         (* The only rules which apply to binding enter clauses are Function
            Enter Parameter and Function Enter Non-Local.  They have a lot in
            common, so let's do that part first. *)
@@ -274,7 +273,9 @@ let rec lookup
         let fnval = Ident_map.find x env.le_function_parameter_mapping in
         let lookup_symbol = Symbol(lookup_var, relstack) in
         let fun_symbol = Symbol(xf, relstack) in
-        let%bind fun_definition_symbol = lookup env [xf] acl1 relstack in
+        let%bind fun_definition_symbol =
+          lookup env [xf] (Unannotated_clause c) relstack
+        in
         let%bind () = record_formula @@
           Formula(fun_definition_symbol,
                   Formula_expression_value(Value_function(fnval)))
@@ -314,7 +315,9 @@ let rec lookup
                can just look up xf (to induce equations) and then insist that
                xf is equal to this function value. *)
             let fun_symbol = Symbol(xf, relstack) in
-            let%bind fun_definition_symbol = lookup env [xf] acl1 relstack in
+            let%bind fun_definition_symbol =
+              lookup env [xf] (Unannotated_clause c) relstack
+            in
             let%bind () = record_formula @@
               Formula(fun_definition_symbol,
                       Formula_expression_value(Value_function(fnval)))
