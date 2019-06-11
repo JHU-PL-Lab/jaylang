@@ -22,20 +22,22 @@ let () =
       exit 1
   in
   (* Check well-formedness of AST *)
-  try
-    Ast_wellformedness.check_wellformed_expr ast;
-  with
-  | Ast_wellformedness.Illformedness_found ills ->
-    begin
-      print_endline "Program is ill-formed.";
-      ills
-      |> List.iter
-        (fun ill ->
-           print_string "* ";
-           print_endline @@ Ast_wellformedness.show_illformedness ill;
-        );
-      ignore @@ Pervasives.exit 1
-    end;
+  begin
+    try
+      Ast_wellformedness.check_wellformed_expr ast;
+    with
+    | Ast_wellformedness.Illformedness_found ills ->
+      begin
+        print_endline "Program is ill-formed.";
+        ills
+        |> List.iter
+          (fun ill ->
+             print_string "* ";
+             print_endline @@ Ast_wellformedness.show_illformedness ill;
+          );
+        ignore @@ Pervasives.exit 1
+      end;
+  end;
   (* Generate tests *)
   try
     let generator =
