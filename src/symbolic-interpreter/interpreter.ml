@@ -105,6 +105,7 @@ let prepare_environment (e : expr) (cfg : ddpa_graph)
      List.map
        (fun (Clause(_,b)) ->
           match b with
+          | Value_body (Value_function(Function_value(_,e))) -> expr_flatten e
           | Value_body _
           | Var_body _
           | Input_body
@@ -156,9 +157,10 @@ let rec lookup
   lazy_logger `trace
     (fun () ->
        Printf.sprintf
-         "Looking up\n  %s\n  at %s\n  after %s"
+         "Looking up\n  %s\n  with stack %s\n  at %s\n  after %s"
          (Jhupllib.Pp_utils.pp_to_string
             (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack)
+         (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack)
          (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl0)
          (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl1)
     );
@@ -279,7 +281,7 @@ let rec lookup
         let symbol = Symbol(x, relstack) in
         let%bind () = record_decision symbol x cc x' in
         (* Function lookup *)
-        let%bind _ = lookup env [xf] (Unannotated_clause c) relstack in
+        let%bind _ = lookup env [xf] (Unannotated_clause c) relstack' in
         (* Record our decision to use this wiring node. *)
         let%bind () = record_decision (Symbol(x,relstack)) x cc x' in
         (* Real function check *)
@@ -327,6 +329,9 @@ let rec lookup
               Formula(Symbol(x, relstack),
                       Formula_expression_alias(Symbol(x', relstack')))
             in
+            (* Look up function *)
+            let%bind _ = lookup env [xf] (Unannotated_clause c) relstack in
+            (* Produce result *)
             lookup env (x' :: lookup_stack') acl1 relstack'
           | Abs_clause(Abs_var x_, Abs_conditional_body(Abs_var x1, e1, _)) ->
             (* ## Conditional Bottom - True AND Conditional Bottom - False ## *)
@@ -398,6 +403,7 @@ let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
       match Ident_map.Exceptionless.find
               program_point env.le_clause_predecessor_mapping with
       | None ->
+        print_endline @@ Ident_map.show pp_clause env.le_clause_predecessor_mapping;
         raise @@ Invalid_query("Variable " ^ show_ident program_point ^
                                " is not defined")
       | Some cl -> cl
