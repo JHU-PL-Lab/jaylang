@@ -6,6 +6,13 @@ open Ast;;
 open Ast_pp;;
 open Pp_utils;;
 
+(** The type of concrete stacks in the symbolic interpreter. *)
+type concrete_stack =
+    Concrete_stack of Ident.t list
+[@@ocaml.unboxed]
+[@@deriving eq, ord, show]
+;;
+
 (** The type of relative stacks in the symbolic interpreter. *)
 type relative_stack =
   | Relative_stack of Ident.t list * Ident.t list
@@ -57,10 +64,10 @@ let may_be_top (Relative_stack(_,stk)) (x : Ident.t) : bool =
     assumes that the stack is relative to a point within the program *and* that
     the relative stack describes a top-level context.  It produces a concrete
     stack from those assumptions. *)
-let stackize (Relative_stack(costk,stk)) : Ident.t list =
+let stackize (Relative_stack(costk,stk)) : concrete_stack =
   if not @@ List.is_empty stk then begin
     raise @@ Jhupllib.Utils.Invariant_failure
       "Non-empty positive stack in Stackize!";
   end;
-  List.rev costk
+  Concrete_stack(List.rev costk)
 ;;

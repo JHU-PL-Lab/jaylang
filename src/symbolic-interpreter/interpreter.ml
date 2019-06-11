@@ -151,7 +151,7 @@ let rec lookup
     (lookup_stack : Ident.t list)
     (acl0 : annotated_clause)
     (relstack : relative_stack)
-  : Symbol.t m =
+  : concrete_stack m =
   let%bind acl1 = pick @@ preds acl0 env.le_cfg in
   lazy_logger `trace
     (fun () ->
@@ -178,56 +178,60 @@ let rec lookup
         else begin
           (* In all cases of this match, we already know that the top variable
              of the lookup stack is the variable defined by this clause. *)
+          let lookup_symbol = Symbol(lookup_var, relstack) in
           match ab with
           | Abs_value_body _ ->
             let cl1 = Ident_map.find x env.le_clause_mapping in
             let%orzero Clause(_,Value_body(v)) = cl1 in
             if List.is_empty lookup_stack' then
               (* ## Value Discovery rule ## *)
-              let%bind _ =
-                if equal_ident lookup_var env.le_first_var then
-                  return @@ Symbol(env.le_first_var, relstack)
-                else
-                  lookup env [env.le_first_var] acl1 relstack
+              let formula =
+                Formula(lookup_symbol, Formula_expression_value(v))
               in
-              let symbol = Symbol(lookup_var, relstack) in
-              let formula = Formula(symbol, Formula_expression_value(v)) in
               let%bind () = record_formula formula in
-              return symbol
+              if equal_ident lookup_var env.le_first_var then
+                (* Then we've found the start of the program!  Build an
+                   appropriate concrete stack. *)
+                return @@ stackize relstack
+              else
+                lookup env [env.le_first_var] acl1 relstack
             else
               (* ## Value Discard rule ## *)
+              let%bind () = record_formula
+                  (Formula(lookup_symbol, Formula_expression_value(v)))
+              in
               lookup env lookup_stack' acl1 relstack
           | Abs_var_body(Abs_var(x')) ->
             (* ## Alias rule ## *)
-            let%bind found_symbol =
-              lookup env (x' :: lookup_stack') acl1 relstack
-            in
-            let symbol = Symbol(lookup_var, relstack) in
+            let alias_symbol = Symbol(x', relstack) in
             let formula =
-              Formula(symbol, Formula_expression_alias(found_symbol))
+              Formula(lookup_symbol, Formula_expression_alias(alias_symbol))
             in
             let%bind () = record_formula formula in
-            return symbol
+            lookup env (x' :: lookup_stack') acl1 relstack
           | Abs_input_body ->
-            if List.is_empty lookup_stack' then
-              (* ## Value Discovery rule ## *)
-              let%bind _ =
-                if equal_ident lookup_var env.le_first_var then
-                  return @@ Symbol(env.le_first_var, relstack)
-                else
-                  lookup env [env.le_first_var] acl1 relstack
-              in
-              let symbol = Symbol(lookup_var, relstack) in
-              let formula =
-                Formula(SpecialSymbol SSymTrue,
-                        Formula_expression_binop(
-                          symbol, Binary_operator_equal_to, symbol))
-              in
-              let%bind () = record_formula formula in
-              return symbol
+            (* ## Input rule ## *)
+            let formula =
+              Formula(SpecialSymbol SSymTrue,
+                      Formula_expression_binop(
+                        lookup_symbol, Binary_operator_equal_to,
+                        lookup_symbol))
+            in
+            let%bind () = record_formula formula in
+            (* The lookup definition would technically imply that a
+               non-singleton lookup stack is okay here, but we made that
+               decision because we believed it was impossible for a
+               non-singleton to appear.  Defensive programming FTW. *)
+            if not @@ List.is_empty lookup_stack' then begin
+              raise @@ Jhupllib.Utils.Invariant_failure
+                "Non-singleton lookup stack in Input rule!"
+            end;
+            if equal_ident lookup_var env.le_first_var then
+              (* Then we've found the start of the program!  Get the concrete
+                 stack together. *)
+              return @@ stackize relstack
             else
-              (* ## Value Discard rule ## *)
-              lookup env lookup_stack' acl1 relstack
+              lookup env [env.le_first_var] acl1 relstack
           | Abs_appl_body (_, _) ->
             (* No rules apply to Appl_body when the lookup variable matches.
                (The function rules apply to wiring nodes and the skip rule
@@ -240,18 +244,25 @@ let rec lookup
             zero ()
           | Abs_binary_operation_body (Abs_var(x1), op, Abs_var(x2)) ->
             (* ## Binop rule ## *)
-            let%bind symbol1 = lookup env [x1] acl1 relstack in
-            let%bind symbol2 = lookup env [x2] acl1 relstack in
-            let symbol = Symbol(lookup_var, relstack) in
-            let%bind _ =
-              if List.is_empty lookup_stack' then return symbol else
-                lookup env lookup_stack' acl1 relstack
-            in
+            let%bind _ = lookup env [x1] acl1 relstack in
+            let%bind _ = lookup env [x2] acl1 relstack in
             let formula =
-              Formula(symbol, Formula_expression_binop(symbol1, op, symbol2))
+              Formula(lookup_symbol,
+                      Formula_expression_binop(
+                        Symbol(x1, relstack), op, Symbol(x2, relstack)))
             in
             let%bind () = record_formula formula in
-            return symbol
+            (* The "further" clause in the Binop rule says that, if the lookup
+               stack is non-empty, we have to look that stuff up too.  That
+               should never happen because none of our operators operate on
+               functions and functions are the only non-bottom elements in the
+               lookup stack.  So instead, we'll just skip the check here and
+               play defensively; it saves us a bind. *)
+            if not @@ List.is_empty lookup_stack' then begin
+              raise @@ Jhupllib.Utils.Not_yet_implemented
+                "Non-singleton lookup stack in Binop rule!"
+            end;
+            lookup env [env.le_first_var] acl1 relstack
         end
       | Binding_enter_clause (Abs_var x, Abs_var x', c) ->
         (* The only rules which apply to binding enter clauses are Function
@@ -261,43 +272,38 @@ let rec lookup
                               Abs_appl_body(Abs_var xf, Abs_var _)) = c in
         (* Find the concrete clause corresponding to c.*)
         let cc = Ident_map.find xr env.le_clause_mapping in
+        let%orzero Some relstack' = pop relstack xr in
         (* MayBeTop check *)
         let%orzero true = may_be_top relstack xr in
         (* Decision check *)
         let symbol = Symbol(x, relstack) in
         let%bind () = record_decision symbol x cc x' in
+        (* Function lookup *)
+        let%bind _ = lookup env [xf] (Unannotated_clause c) relstack in
+        (* Record our decision to use this wiring node. *)
+        let%bind () = record_decision (Symbol(x,relstack)) x cc x' in
         (* Real function check *)
         (* Rather than trying to find the functions which could reach xf, we'll
            just find the function to which this wiring node corresponds and
            require it to equal xf in the formulae. *)
         let fnval = Ident_map.find x env.le_function_parameter_mapping in
-        let lookup_symbol = Symbol(lookup_var, relstack) in
-        let fun_symbol = Symbol(xf, relstack) in
-        let%bind fun_definition_symbol =
-          lookup env [xf] (Unannotated_clause c) relstack
-        in
         let%bind () = record_formula @@
-          Formula(fun_definition_symbol,
+          Formula(Symbol(xf,relstack'),
                   Formula_expression_value(Value_function(fnval)))
         in
-        (* NOTE: we probably don't actually need this formula? *)
-        let%bind () = record_formula @@
-          Formula(fun_definition_symbol,
-                  Formula_expression_alias(fun_symbol))
-        in
-        (* Record our decision to use this wiring node. *)
-        let cc = Ident_map.find xr env.le_clause_mapping in
-        let%bind () = record_decision lookup_symbol x cc x' in
         (* The only difference in the rules is the stack that we use to continue
            lookup, which varies based upon whether we're looking for a parameter
            or a non-local. *)
-        let%orzero Some popped_stack = pop relstack xr in
         if equal_ident lookup_var x then begin
           (* ## Function Enter Parameter rule ## *)
-          lookup env (x' :: lookup_stack') acl1 popped_stack
+          let%bind () = record_formula @@
+            Formula(Symbol(x,relstack),
+                    Formula_expression_alias(Symbol(x', relstack')))
+          in
+          lookup env (x' :: lookup_stack') acl1 relstack'
         end else begin
           (* ## Function Enter Non-Local rule ## *)
-          lookup env (xf :: lookup_var :: lookup_stack') acl1 popped_stack
+          lookup env (xf :: lookup_var :: lookup_stack') acl1 relstack'
         end
       | Binding_exit_clause (Abs_var x, Abs_var x', c) ->
         [%guard equal_ident x lookup_var];
@@ -311,23 +317,17 @@ let rec lookup
             (* Based upon the exit clause, we can figure out which function
                would have to have been called for us to use it. *)
             let fnval = Ident_map.find x' env.le_function_return_mapping in
-            (* Rather than try to find the functions that may appear in xf, we
-               can just look up xf (to induce equations) and then insist that
-               xf is equal to this function value. *)
-            let fun_symbol = Symbol(xf, relstack) in
-            let%bind fun_definition_symbol =
-              lookup env [xf] (Unannotated_clause c) relstack
-            in
+            (* Induce formulae *)
             let%bind () = record_formula @@
-              Formula(fun_definition_symbol,
+              Formula(Symbol(xf, relstack),
                       Formula_expression_value(Value_function(fnval)))
             in
-            (* NOTE: we probably don't actually need this formula? *)
+            let%orzero Some relstack' = push relstack xr in
             let%bind () = record_formula @@
-              Formula(fun_definition_symbol,
-                      Formula_expression_alias(fun_symbol))
+              Formula(Symbol(x, relstack),
+                      Formula_expression_alias(Symbol(x', relstack')))
             in
-            lookup env (x' :: lookup_stack') acl1 relstack
+            lookup env (x' :: lookup_stack') acl1 relstack'
           | Abs_clause(Abs_var x_, Abs_conditional_body(Abs_var x1, e1, _)) ->
             (* ## Conditional Bottom - True AND Conditional Bottom - False ## *)
             [%guard equal_ident x x_];
@@ -339,44 +339,38 @@ let rec lookup
               let Abs_var rve1 = retv e1 in
               if equal_ident rve1 x' then true else false
             in
-            let subject_symbol = Symbol(x1, relstack) in
-            let%bind subject_definition_symbol =
-              lookup env [x1] acl1 relstack
-            in
+            (* Induce formulae *)
             let%bind () = record_formula @@
-              Formula(subject_definition_symbol,
+              Formula(Symbol(x1, relstack),
                       Formula_expression_value(Value_bool target_value))
             in
-            (* NOTE: We probably don't actually need this formula. *)
             let%bind () = record_formula @@
-              Formula(subject_symbol,
-                      Formula_expression_alias(subject_definition_symbol))
+              Formula(Symbol(x, relstack),
+                      Formula_expression_alias(Symbol(x', relstack)))
             in
-            lookup env (x' :: lookup_stack) acl1 relstack
+            (* Acquire subject formulae *)
+            let%bind _ = lookup env [x1] (Unannotated_clause(c)) relstack in
+            (* Produce result. *)
+            lookup env (x' :: lookup_stack') acl1 relstack
           | _ ->
             raise @@ Jhupllib.Utils.Invariant_failure
               "Non-application, non-conditional body found in binding exit clause!"
         end
       | Nonbinding_enter_clause(v,c) ->
         (* ## Conditional Top rule ## *)
-        let%orzero Abs_clause(_, Abs_conditional_body(Abs_var x1, _, _)) = c
+        let%orzero Abs_clause(_, Abs_conditional_body(Abs_var x1, _, _)) = c in
+        (* Since conditionals are the only kind of thing we see here, we can
+           insist that the value is a boolean.  This is important, since we have
+           to be able to map the abstract value from the AST into a concrete
+           value form for the solver. *)
+        let%orzero Abs_value_bool b = v in
+        (* Induce formula *)
+        let%bind () = record_formula @@
+          Formula(Symbol(x1, relstack), Formula_expression_value(Value_bool b))
         in
-        (* We have to verify that any lookups of the subject variable match the
-           value of the non-binding enter clause.  This can be accomplished by
-           looking up the *variable* and then adding a formula to the set which
-           constrains it.  This won't stop computation until the solver is
-           called, but it will guarantee that bad universes are halted. *)
-        let%bind symbol_x' = lookup env [x1] (Unannotated_clause c) relstack in
-        let v' =
-          match v with
-          | Abs_value_bool(b) -> Value_bool b
-          | _ -> raise @@ Jhupllib.Utils.Invariant_failure
-              "non-boolean in non-binding enter clause"
-        in
-        let formula =
-          Formula(symbol_x', Formula_expression_value v')
-        in
-        let%bind () = record_formula formula in
+        (* Learn about subject *)
+        let%bind _ = lookup env [x1] (Unannotated_clause c) relstack in
+        (* Produce result *)
         lookup env lookup_stack acl1 relstack
       | Start_clause _
       | End_clause _ ->
@@ -387,11 +381,11 @@ let rec lookup
     end
 ;;
 
-type evaluation = Evaluation of symbol Symbolic_monad.evaluation Deque.t;;
+type evaluation = Evaluation of concrete_stack Symbolic_monad.evaluation Deque.t;;
 
 type evaluation_result = {
   er_formulae : Formulae.t;
-  er_stack : Ident.t list;
+  er_stack : concrete_stack;
   er_solution : (symbol -> value option);
 };;
 
@@ -415,7 +409,9 @@ let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
     Unannotated_clause(
       lift_clause @@ Ident_map.find program_point env.le_clause_mapping)
   in
-  let m = lookup env [initial_lookup_var] acl Relative_stack.empty in
+  let m : concrete_stack m =
+    lookup env [initial_lookup_var] acl Relative_stack.empty
+  in
   let m_eval = start m in
   Evaluation(Deque.cons m_eval Deque.empty)
 ;;
@@ -436,18 +432,7 @@ let step (x : evaluation) : evaluation_result list * evaluation option =
       |> Enum.fold
         (fun (complete,incomplete) x ->
            match Symbolic_monad.get_result x with
-           | Some symbol ->
-             (* We have a result!  We don't really care about the variable that
-                gets returned, but we need the formulae and the relative stack
-                so we can establish an input sequence. *)
-             let relstack =
-               match symbol with
-               | Symbol(_,relstack) -> relstack
-               | SpecialSymbol SSymTrue ->
-                 raise @@ Jhupllib.Utils.Invariant_failure
-                   "lookup returned special symbol"
-             in
-             let stack = stackize relstack in
+           | Some stack ->
              ((Symbolic_monad.get_formulae x, stack) :: complete, incomplete)
            | None ->
              (complete, x :: incomplete)

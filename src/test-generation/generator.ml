@@ -172,7 +172,7 @@ let rec take_steps
               raise @@ Jhupllib_utils.Not_yet_implemented
                 "take_steps (no solution)"
             | Some solution ->
-              let stack =
+              let Concrete_stack stack =
                 result.Symbolic_interpreter.Interpreter.er_stack
               in
               let stop_var = Var(x,Some(Freshening_stack(stack))) in
