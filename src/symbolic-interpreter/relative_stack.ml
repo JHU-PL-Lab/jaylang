@@ -54,12 +54,6 @@ let pop (Relative_stack(costk,stk)) (x : Ident.t) : relative_stack option =
     if equal_ident x x' then Some(Relative_stack(costk, stk')) else None
 ;;
 
-let may_be_top (Relative_stack(_,stk)) (x : Ident.t) : bool =
-  match stk with
-  | [] -> true (* because we have no idea what's on top of the stack now *)
-  | x' :: _ -> equal_ident x x' (* because x' is definitely on top *)
-;;
-
 (** This is an implementation of the Stackize function from the paper.  It
     assumes that the stack is relative to a point within the program *and* that
     the relative stack describes a top-level context.  It produces a concrete

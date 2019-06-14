@@ -290,8 +290,6 @@ let rec lookup
         (* Find the concrete clause corresponding to c.*)
         let cc = Ident_map.find xr env.le_clause_mapping in
         let%orzero Some relstack' = pop relstack xr in
-        (* MayBeTop check *)
-        let%orzero true = may_be_top relstack xr in
         (* Decision check *)
         let symbol = Symbol(x, relstack) in
         let%bind () = record_decision symbol x cc x' in
@@ -330,7 +328,6 @@ let rec lookup
           match c with
           | Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, Abs_var _)) ->
             (* ## Function Exit rule ## *)
-            [%guard may_be_top relstack xr];
             (* Based upon the exit clause, we can figure out which function
                would have to have been called for us to use it. *)
             let fnval = Ident_map.find x' env.le_function_return_mapping in
