@@ -19,11 +19,13 @@ open OUnit2;;
 open Odefa_ast;;
 open Odefa_ddpa;;
 open Odefa_parser;;
+open Odefa_test_generation;;
 open Odefa_toploop;;
 
 open Ast;;
 open Ast_pp;;
 open Ast_wellformedness;;
+open Generator_configuration;;
 open Toploop_options;;
 open Toploop_types;;
 open Ddpa_abstract_ast;;
@@ -32,6 +34,18 @@ open String_utils;;
 let lazy_logger = Logger_utils.make_lazy_logger "Test_files";;
 
 exception File_test_creation_failure of string;;
+
+(** Thrown internally when an input generation test can halt generation as all
+    sequences have been generated. *)
+exception Input_generation_complete;;
+
+let string_of_input_sequence input_sequence =
+  "[" ^ (String.join "," @@ List.map string_of_int input_sequence) ^ "]"
+;;
+
+let string_of_input_sequences input_sequences =
+  String.join ", " @@ List.map string_of_input_sequence input_sequences
+;;
 
 type test_expectation =
   | Expect_evaluate
@@ -43,6 +57,10 @@ type test_expectation =
   | Expect_analysis_variable_lookup_from_end of ident * string
   | Expect_analysis_inconsistency_at of ident
   | Expect_analysis_no_inconsistencies
+  | Expect_input_sequences_reach of
+      string * (* the variable *)
+      int list list * (* the expected input sequences *)
+      bool (* true if we should be certain that generation is complete *)
 ;;
 
 let pp_test_expectation formatter expectation =
@@ -66,6 +84,11 @@ let pp_test_expectation formatter expectation =
       pp_ident x
   | Expect_analysis_no_inconsistencies ->
     Format.pp_print_string formatter "Expect_analysis_no_inconsistencies"
+  | Expect_input_sequences_reach(x,inputs,complete) ->
+    Format.fprintf formatter "Expect input sequences reach %s: %s%s"
+      x
+      (string_of_input_sequences inputs)
+      (if complete then " (and no others)" else "")
 ;;
 
 type expectation_parse =
@@ -161,6 +184,73 @@ let parse_expectation str =
       | "EXPECT-ANALYSIS-NO-INCONSISTENCIES"::args_part ->
         assert_no_args args_part;
         Expect_analysis_no_inconsistencies
+      | "EXPECT-INPUT-SEQUENCES-REACH"::args_part ->
+        begin
+          match String_utils.whitespace_split ~max:2
+                  (String.join "" args_part) with
+          | [] ->
+            raise @@ Expectation_parse_failure
+              "Missing input sequence variable name"
+          | variable_name :: rest_args ->
+            let parse_rest_args chs =
+              let parse_int chs : int * char list =
+                let ns = List.take_while Char.is_digit chs in
+                if List.is_empty ns then begin
+                  raise @@ Expectation_parse_failure(
+                    "In input sequence expectation, expected integer at: " ^
+                    (String.of_list chs))
+                end else begin
+                  let chs' = List.drop_while Char.is_digit chs in
+                  (int_of_string @@ String.of_list ns, chs')
+                end
+              in
+              let parse_input_sequence chs : int list option * char list =
+                match chs with
+                | '[' :: chs' ->
+                  let first, chs'' = parse_int chs' in
+                  let rec loop loop_chs : int list * char list =
+                    match loop_chs with
+                    | ',' :: loop_chs' ->
+                      let num, loop_chs'' = parse_int loop_chs' in
+                      let nums, loop_chs''' = loop loop_chs'' in
+                      (num :: nums, loop_chs''')
+                    | ']' :: loop_chs' ->
+                      ([], loop_chs')
+                    | _ ->
+                      raise @@ Expectation_parse_failure(
+                        "In input sequence expectation, expected comma at: " ^
+                        (String.of_list chs))
+                  in
+                  let rest, chs''' = loop chs'' in
+                  (Some (first :: rest), chs''')
+                | _ ->
+                  (None, chs)
+              in
+              let rec parse_input_sequences chs : int list list * char list =
+                let (seq_opt, chs') = parse_input_sequence chs in
+                match seq_opt with
+                | Some seq ->
+                  let (rest, chs'') = parse_input_sequences chs' in
+                  (seq :: rest, chs'')
+                | None ->
+                  ([], chs')
+              in
+              let nums, chs' = parse_input_sequences chs in
+              match chs' with
+              | [] -> (nums, false)
+              | ['!'] -> (nums, true)
+              | _ ->
+                raise @@ Expectation_parse_failure(
+                  "In input sequence expectation, unexpected trailing characters: " ^
+                  (String.of_list chs'))
+            in
+            let (input_sequences, complete) =
+              parse_rest_args @@ List.filter (not % Char.is_whitespace) @@
+              String.to_list @@ String.join "" rest_args
+            in
+            Expect_input_sequences_reach(
+              variable_name, input_sequences, complete)
+        end
       | _ ->
         raise @@ Expectation_not_found
     in
@@ -292,14 +382,18 @@ let make_test filename expectations =
       in
       "should use analysis stack " ^ name
     | Expect_input_is inputs ->
-      "should have input [" ^
-      (String.join ", " @@ List.map string_of_int inputs) ^ "]"
+      "should have input " ^ (string_of_input_sequence inputs)
     | Expect_analysis_variable_lookup_from_end(ident,_) ->
       "should have particular values for variable " ^ (show_ident ident)
     | Expect_analysis_inconsistency_at ident ->
       "should be inconsistent at " ^ show_ident ident
     | Expect_analysis_no_inconsistencies ->
       "should be consistent"
+    | Expect_input_sequences_reach(var,sequences,complete) ->
+      Printf.sprintf "should reach variable %s with inputs %s%s"
+        var
+        (string_of_input_sequences sequences)
+        (if complete then " (and no others)" else "")
   in
   let test_name = filename ^ ": (" ^
                   string_of_list name_of_expectation expectations ^ ")"
@@ -447,6 +541,99 @@ let make_test filename expectations =
         | Evaluation_invalidated -> ()
         | Evaluation_disabled -> ()
       end;
+      (* Next, we'll handle input sequence generation.  This requires a
+         different approach because we have no guarantee of termination.  We'll
+         remove all of the expectations of this form from the list and process
+         them individually.  (This is kind of gross and indicates that we're
+         bolting onto an abstraction which is no longer suitable for what we're
+         doing here, but we can live with this for now.) *)
+      let input_generation_expectations =
+        let (a,b) =
+          !expectations_left
+          |> List.fold_left (fun (iges,niges) expectation ->
+              match expectation with
+              | Expect_input_sequences_reach(x,inputs,complete) ->
+                ((x, inputs, complete) :: iges, niges)
+              | _ -> (iges, expectation :: niges)
+            )
+            ([],[])
+        in
+        expectations_left := List.rev b;
+        List.rev a
+      in
+      let input_generation_complaints =
+        input_generation_expectations
+        |> List.map
+          (fun (x, inputs, complete) ->
+             let configuration =
+               match chosen_module_option with
+               | Some context_model ->
+                 { conf_context_model = context_model; }
+               | None ->
+                 assert_failure
+                   "Test specified input sequence requirement without context model."
+             in
+             let generator = Generator.create configuration expr (Ident x) in
+             let remaining_input_sequences = ref inputs in
+             let callback sequence _steps =
+               if List.mem sequence !remaining_input_sequences then begin
+                 remaining_input_sequences :=
+                   List.remove !remaining_input_sequences sequence;
+                 if List.is_empty !remaining_input_sequences && not complete then
+                   (* We're not looking for a complete input generation and we've
+                      found everything we wanted to find.  We're finished! *)
+                   raise Input_generation_complete;
+               end else begin
+                 (* An input sequence was generated which we didn't expect. *)
+                 if complete then
+                   (* If the input sequences in the test are expected to be
+                      complete, this one represents a problem. *)
+                   assert_failure
+                     (Printf.sprintf
+                        "Unexpected input sequence generated: %s"
+                        (string_of_input_sequence sequence)
+                     )
+                 else
+                   (* If the input sequences in the test are not expected to be
+                      complete, maybe this is just one which we didn't explicitly
+                      call out. *)
+                   ()
+               end
+             in
+             (* Setting an arbitrary generation limit for unit tests. *)
+             (* TODO: parameterize this in the test itself? *)
+             let maximum_steps = 10000 in
+             let (_, generator') =
+               Generator.generate_inputs
+                 ~generation_callback:callback (Some maximum_steps) generator
+             in
+             let complaints =
+               (
+                 (* First, verify that all input sequences were discovered. *)
+                 !remaining_input_sequences
+                 |> List.map
+                   (fun input_sequence ->
+                      Printf.sprintf
+                        "Did not generate input sequence %s for variable %s."
+                        (string_of_input_sequence input_sequence) x
+                   )
+               ) @
+               (
+                 (* If we expected a complete input sequence and didn't get that
+                    guarantee, complain. *)
+                 if complete && Option.is_some generator' then
+                   [Printf.sprintf
+                      "Test generation did not complete in %d steps."
+                      maximum_steps
+                   ]
+                 else
+                   []
+               )
+             in
+             complaints
+          )
+        |> List.concat
+      in
       (* If there are any expectations of errors left, they're a problem. *)
       !expectations_left
       |> List.iter
@@ -456,6 +643,17 @@ let make_test filename expectations =
                               show_ident ident ^ " which did not occur"
           | _ -> ()
         );
+      (* If there are any complaints about input generation, announce them
+         now. *)
+      if not @@ List.is_empty input_generation_complaints then begin
+        assert_failure (
+          input_generation_complaints
+          |> List.map (fun s -> "* " ^ s)
+          |> String.join "\n"
+          |> (fun s ->
+              "Input generation test failed to meet expectations:\n" ^ s)
+        )
+      end;
     end;
     (* Now assert that every expectation has been addressed. *)
     match !expectations_left with

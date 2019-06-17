@@ -1,0 +1,8 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH a1 [ 3 ] !
+# EXPECT-INPUT-SEQUENCES-REACH a2 [ 4 ] !
+x = input;
+four = 4;
+b = x < four;
+f = fun p -> ( r = b ? ( dummy1 = 0; a1 = 0 ) : ( dummy2 = 0; a2 = 1 ) );
+y = f x;

@@ -1,0 +1,7 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH k [ 0 ] !
+
+x = input;
+f = fun p -> ( dummy1 = 0; r = x );
+z = 0;
+k = f z;

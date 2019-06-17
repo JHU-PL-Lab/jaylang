@@ -1,0 +1,8 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH a [ 3 ] !
+# EXPECT-INPUT-SEQUENCES-REACH b [ 4 ] !
+
+x = input;
+four = 4;
+y = x < four;
+z = y ? ( dummy1 = 0; a = 5 ) : ( dummy2 = 0; b = 8 );

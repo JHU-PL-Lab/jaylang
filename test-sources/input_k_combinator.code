@@ -1,0 +1,15 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-IS 0 0
+# EXPECT-EVALUATES
+# EXPECT-INPUT-SEQUENCES-REACH z [ 0, 0 ] !
+
+f = fun pf -> (
+  g = fun pg -> (
+    rg = pf;
+  );
+  rf = g;
+);
+a = input;
+b = input;
+q = f a;
+z = q b;
