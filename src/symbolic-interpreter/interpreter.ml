@@ -166,11 +166,39 @@ let rec lookup
     (acl0 : annotated_clause)
     (relstack : relative_stack)
   : (symbol * concrete_stack) m =
+  let zero () =
+    lazy_logger `trace
+      (fun () ->
+         Printf.sprintf "ZERO for %s with stack %s at %s"
+           (Jhupllib.Pp_utils.pp_to_string
+              (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack)
+           (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack)
+           (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl0)
+      );
+    zero ()
+  in
   let%bind acl1 = pick @@ preds acl0 env.le_cfg in
+  let recurse lookup_stack' acl0' relstack' =
+    lazy_logger `trace
+      (fun () ->
+         Printf.sprintf
+           "From lookup of\n  %s\n  with stack %s\n  at %s\n  after %s\nRecursively looking up\n  %s\n  with stack %s\n  at %s\n"
+           (Jhupllib.Pp_utils.pp_to_string
+              (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack)
+           (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack)
+           (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl0)
+           (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl1)
+           (Jhupllib.Pp_utils.pp_to_string
+              (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack')
+           (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack')
+           (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl0')
+      );
+    lookup env lookup_stack' acl0' relstack'
+  in
   lazy_logger `trace
     (fun () ->
        Printf.sprintf
-         "Looking up\n  %s\n  with stack %s\n  at %s\n  after %s"
+         "Looking up\n  %s\n  with stack %s\n  at %s\n  after %s\n"
          (Jhupllib.Pp_utils.pp_to_string
             (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack)
          (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack)
@@ -188,8 +216,8 @@ let rec lookup
         let Abs_clause(Abs_var x,ab) = uacl1 in
         if not @@ equal_ident lookup_var x then
           (* ## Skip rule ## *)
-          let%bind _ = lookup env [x] acl0 relstack in
-          lookup env lookup_stack acl1 relstack
+          let%bind _ = recurse [x] acl0 relstack in
+          recurse lookup_stack acl1 relstack
         else begin
           (* In all cases of this match, we already know that the top variable
              of the lookup stack is the variable defined by this clause. *)
@@ -197,27 +225,35 @@ let rec lookup
           | Abs_value_body _ ->
             let cl1 = Ident_map.find x env.le_clause_mapping in
             let%orzero Clause(_,Value_body(v)) = cl1 in
+            lazy_logger `trace
+              (fun () -> "Discovered value: " ^ show_value v);
             if List.is_empty lookup_stack' then
               (* ## Value Discovery rule ## *)
               let lookup_symbol = Symbol(lookup_var, relstack) in
               let%bind () = record_formula @@
                 Formula(lookup_symbol, Formula_expression_value(v))
               in
-              if equal_ident lookup_var env.le_first_var then
+              if equal_ident lookup_var env.le_first_var then begin
                 (* Then we've found the start of the program!  Build an
                    appropriate concrete stack. *)
+                lazy_logger `trace
+                  (fun () -> "This lookup complete; top of program reached.");
                 return (lookup_symbol, stackize relstack)
-              else
+              end else begin
+                lazy_logger `trace
+                  (fun () ->
+                     "This lookup complete; resuming to top of program.");
                 let%bind (_, stack) =
-                  lookup env [env.le_first_var] acl1 relstack
+                  recurse [env.le_first_var] acl1 relstack
                 in
                 return (lookup_symbol, stack)
+              end
             else
               (* ## Value Discard rule ## *)
-              lookup env lookup_stack' acl1 relstack
+              recurse lookup_stack' acl1 relstack
           | Abs_var_body(Abs_var(x')) ->
             (* ## Alias rule ## *)
-            lookup env (x' :: lookup_stack') acl1 relstack
+            recurse (x' :: lookup_stack') acl1 relstack
           | Abs_input_body ->
             (* ## Input rule ## *)
             let lookup_symbol = Symbol(lookup_var, relstack) in
@@ -243,7 +279,7 @@ let rec lookup
               return (lookup_symbol, stackize relstack)
             else
               let%bind (_, stack) =
-                lookup env [env.le_first_var] acl1 relstack
+                recurse [env.le_first_var] acl1 relstack
               in
               return (lookup_symbol, stack)
           | Abs_appl_body (_, _) ->
@@ -259,8 +295,8 @@ let rec lookup
           | Abs_binary_operation_body (Abs_var(x1), op, Abs_var(x2)) ->
             (* ## Binop rule ## *)
             (* We ignore the stacks here intentionally; see note 1 above. *)
-            let%bind (symbol1, _) = lookup env [x1] acl1 relstack in
-            let%bind (symbol2, _) = lookup env [x2] acl1 relstack in
+            let%bind (symbol1, _) = recurse [x1] acl1 relstack in
+            let%bind (symbol2, _) = recurse [x2] acl1 relstack in
             let lookup_symbol = Symbol(lookup_var, relstack) in
             let%bind () = record_formula @@
               Formula(lookup_symbol,
@@ -277,7 +313,7 @@ let rec lookup
                 "Non-singleton lookup stack in Binop rule!"
             end;
             let%bind (_, stack) =
-              lookup env [env.le_first_var] acl1 relstack
+              recurse [env.le_first_var] acl1 relstack
             in
             return (lookup_symbol, stack)
         end
@@ -296,7 +332,7 @@ let rec lookup
         (* Function lookup *)
         (* We ignore the stack here intentionally; see note 1 above. *)
         let%bind (function_symbol, _) =
-          lookup env [xf] (Unannotated_clause c) relstack'
+          recurse [xf] (Unannotated_clause c) relstack'
         in
         (* Record our decision to use this wiring node. *)
         let%bind () = record_decision (Symbol(x,relstack)) x cc x' in
@@ -314,10 +350,10 @@ let rec lookup
            or a non-local. *)
         if equal_ident lookup_var x then begin
           (* ## Function Enter Parameter rule ## *)
-          lookup env (x' :: lookup_stack') acl1 relstack'
+          recurse (x' :: lookup_stack') acl1 relstack'
         end else begin
           (* ## Function Enter Non-Local rule ## *)
-          lookup env (xf :: lookup_var :: lookup_stack') acl1 relstack'
+          recurse (xf :: lookup_var :: lookup_stack') acl1 relstack'
         end
       | Binding_exit_clause (Abs_var x, Abs_var x', c) ->
         (* The rules applying to binding exit clauses are the Function Bottom
@@ -333,16 +369,18 @@ let rec lookup
             let fnval = Ident_map.find x' env.le_function_return_mapping in
             (* Look up function *)
             let%bind (formula_symbol, _) =
-              lookup env [xf] (Unannotated_clause c) relstack
+              recurse [xf] (Unannotated_clause c) relstack
             in
             (* Induce formula *)
             let%bind () = record_formula @@
               Formula(formula_symbol,
                       Formula_expression_value(Value_function(fnval)))
             in
+            lazy_logger `trace (fun () -> "BAAAAAR! " ^ show_ident xr);
             (* Produce result *)
             let%orzero Some relstack' = push relstack xr in
-            lookup env (x' :: lookup_stack') acl1 relstack'
+            lazy_logger `trace (fun () -> "FOOOOOO!");
+            recurse (x' :: lookup_stack') acl1 relstack'
           | Abs_clause(Abs_var x_, Abs_conditional_body(Abs_var x1, e1, _)) ->
             (* ## Conditional Bottom - True AND Conditional Bottom - False ## *)
             [%guard equal_ident x x_];
@@ -357,7 +395,7 @@ let rec lookup
             (* Acquire subject formulae *)
             (* We ignore the returned stack here; see note 1 above. *)
             let%bind (subject_symbol, _) =
-              lookup env [x1] (Unannotated_clause(c)) relstack
+              recurse [x1] (Unannotated_clause(c)) relstack
             in
             (* Induce formulae *)
             let%bind () = record_formula @@
@@ -365,7 +403,7 @@ let rec lookup
                       Formula_expression_value(Value_bool target_value))
             in
             (* Produce result. *)
-            lookup env (x' :: lookup_stack') acl1 relstack
+            recurse (x' :: lookup_stack') acl1 relstack
           | _ ->
             raise @@ Jhupllib.Utils.Invariant_failure
               "Non-application, non-conditional body found in binding exit clause!"
@@ -381,20 +419,20 @@ let rec lookup
         (* Learn about subject *)
         (* Intentionally ignoring stack; see note 1 above for details. *)
         let%bind (subject_symbol, _) =
-          lookup env [x1] (Unannotated_clause c) relstack
+          recurse [x1] (Unannotated_clause c) relstack
         in
         (* Induce formula *)
         let%bind () = record_formula @@
           Formula(subject_symbol, Formula_expression_value(Value_bool b))
         in
         (* Produce result *)
-        lookup env lookup_stack acl1 relstack
+        recurse lookup_stack acl1 relstack
       | Start_clause _
       | End_clause _ ->
         (* Although the formal specification does not list these clauses, they
            exist in the implementation to produce more readable and meaningful
            graphs.  They can be ignored. *)
-        lookup env lookup_stack acl1 relstack
+        recurse lookup_stack acl1 relstack
     end
 ;;
 
@@ -463,6 +501,13 @@ let step (x : evaluation) : evaluation_result list * evaluation option =
         )
         ([], [])
     in
+    lazy_logger `trace
+      (fun () ->
+         Printf.sprintf
+           "Evaluation stepping produced %d continuations(s): %d complete, %d incomplete"
+           (List.length complete + List.length incomplete)
+           (List.length complete) (List.length incomplete)
+      );
     let results =
       complete
       |> List.filter_map
