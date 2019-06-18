@@ -74,13 +74,13 @@ let add_formula
         in
         match op with
         | Binary_operator_plus -> z3_listop_to_binop mk_add ctx
-        | Binary_operator_minus -> failwith "unimplemented"
+        | Binary_operator_minus -> z3_listop_to_binop mk_sub ctx
         | Binary_operator_less_than -> mk_lt ctx
-        | Binary_operator_less_than_or_equal_to -> failwith "unimplemented"
+        | Binary_operator_less_than_or_equal_to -> mk_le ctx
         | Binary_operator_equal_to -> mk_eq ctx
-        | Binary_operator_and -> failwith "unimplemented"
-        | Binary_operator_or -> failwith "unimplemented"
-        | Binary_operator_xor -> failwith "unimplemented"
+        | Binary_operator_and -> failwith "Unimplemented binary operator in solver"
+        | Binary_operator_or -> failwith "Unimplemented binary operator in solver"
+        | Binary_operator_xor -> failwith "Unimplemented binary operator in solver"
       in
       let c = mk_eq ctx e0 (mk_op e1 e2) in
       Solver.add solver [c]
