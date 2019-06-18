@@ -43,7 +43,10 @@ let push (Relative_stack(costk,stk)) (x : Ident.t) : relative_stack option =
   | [] ->
     Some(Relative_stack(costk, x :: stk))
   | x' :: costk' ->
-    if equal_ident x x' then Some(Relative_stack(costk', stk)) else None
+    if equal_ident x x' then
+      Some(Relative_stack(costk', stk))
+    else
+      Some(Relative_stack(costk, x :: stk))
 ;;
 
 let pop (Relative_stack(costk,stk)) (x : Ident.t) : relative_stack option =
