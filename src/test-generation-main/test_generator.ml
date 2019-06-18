@@ -58,9 +58,9 @@ let () =
     Printf.printf "%d answer%s generated\n"
       answer_count (if answer_count = 1 then "" else "s");
     if Option.is_none generator_opt then
-      print_endline "No further answers exist."
+      print_endline "No further control flows exist."
     else
-      print_endline "Further answers may exist."
+      print_endline "Further control flows may exist."
   with
   | Odefa_symbolic_interpreter.Interpreter.Invalid_query msg ->
     prerr_endline msg
