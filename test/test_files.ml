@@ -37,7 +37,7 @@ exception File_test_creation_failure of string;;
 
 (** Thrown internally when an input generation test can halt generation as all
     sequences have been generated. *)
-exception Input_generation_complete;;
+exception Input_generation_complete of Generator_types.test_generator;;
 
 let string_of_input_sequence input_sequence =
   "[" ^ (String.join "," @@ List.map string_of_int input_sequence) ^ "]"
@@ -582,7 +582,7 @@ let make_test filename expectations =
                  if List.is_empty !remaining_input_sequences && not complete then
                    (* We're not looking for a complete input generation and we've
                       found everything we wanted to find.  We're finished! *)
-                   raise Input_generation_complete;
+                   raise @@ Input_generation_complete(generator);
                end else begin
                  (* An input sequence was generated which we didn't expect. *)
                  if complete then
@@ -604,8 +604,12 @@ let make_test filename expectations =
              (* TODO: parameterize this in the test itself? *)
              let maximum_steps = 10000 in
              let (_, generator') =
-               Generator.generate_inputs
-                 ~generation_callback:callback (Some maximum_steps) generator
+               try
+                 Generator.generate_inputs
+                   ~generation_callback:callback (Some maximum_steps) generator
+               with
+               | Input_generation_complete generator ->
+                 ([], Some generator)
              in
              let complaints =
                (
