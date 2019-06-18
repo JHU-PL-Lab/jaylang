@@ -55,8 +55,11 @@ val record_decision : Symbol.t -> Ident.t -> clause -> Ident.t -> unit m;;
 (** Stores a formula in this environment's constraint set. *)
 val record_formula : Formula.t -> unit m;;
 
-(** Verifies that the formulae in this environment are solvable. *)
-val check_formulae : unit -> unit m;;
+(** Checks that a monadic value's formulae are solvable.  For each
+    non-deterministic path in the provided monadic value, a solution is
+    attempted for the formulae.  Any paths with unsolvable formulae are zeroed
+    out; the remaining paths exist in the returned monadic value (if any). *)
+val check_formulae : 'a m -> 'a m;;
 
 (* **** Evaluation interface **** *)
 

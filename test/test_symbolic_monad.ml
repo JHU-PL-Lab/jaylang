@@ -97,11 +97,11 @@ test_complete_values_with_steps Format.pp_print_int (=) computation
 
 _add_test "nondeterminism and state" @@ fun _ ->
 let computation =
+  check_formulae @@
   let%bind () = record_formula @@ F.set_int F.x 2 in
   let%bind () = record_formula @@ F.alias F.x F.y in
   let%bind n = pick @@ List.enum [1;2;3] in
   let%bind () = record_formula @@ F.set_int F.y n in
-  let%bind () = check_formulae () in
   return n
 in
 test_complete_values_with_steps Format.pp_print_int (=) computation
