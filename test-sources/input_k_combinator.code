@@ -3,7 +3,9 @@
 # EXPECT-EVALUATES
 # EXPECT-INPUT-SEQUENCES-REACH z [ 0, 0 ] !
 
+dummy1 = 0;
 f = fun pf -> (
+  dummy2 = 0;
   g = fun pg -> (
     rg = pf;
   );

@@ -10,7 +10,11 @@ one = 1;
 four = 4;
 b = x < four;
 f = fun fp -> (
-  fr = fun gp -> ( r = b ? ( dummy1 = 0; a1 = 0 ) : ( dummy2 = 0; a2 = fp ) );
+  dummyf = 0;
+  fr = fun gp -> (
+    dummyfr = 0;
+    r = b ? ( dummyrT = 0; a1 = 0 ) : ( dummyrF = 0; a2 = fp )
+  );
 );
 g = f one;
 y = g x;
