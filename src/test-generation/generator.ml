@@ -122,8 +122,7 @@ let rec take_steps
         tgr_generator =
           { tg_program = e;
             tg_target = x;
-            tg_generator_fn =
-              Some(fun n -> take_steps e x n ev)
+            tg_generator_fn = Some(fun n -> take_steps e x n ev)
           };
       }
     end else begin
