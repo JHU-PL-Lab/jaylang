@@ -166,18 +166,20 @@ let rec lookup
     (acl0 : annotated_clause)
     (relstack : relative_stack)
   : (symbol * concrete_stack) m =
+  let%bind acl1 = pick @@ preds acl0 env.le_cfg in
   let zero () =
     lazy_logger `trace
       (fun () ->
-         Printf.sprintf "ZERO for %s with stack %s at %s"
+         Printf.sprintf "ZERO for lookup of\n  %s\n  with stack %s\n  at %s\n  after %s\n"
            (Jhupllib.Pp_utils.pp_to_string
               (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack)
            (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack)
            (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl0)
+           (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl1)
       );
     zero ()
   in
-  let%bind acl1 = pick @@ preds acl0 env.le_cfg in
+  let%bind () = pause () in
   let recurse lookup_stack' acl0' relstack' =
     lazy_logger `trace
       (fun () ->
@@ -376,10 +378,8 @@ let rec lookup
               Formula(formula_symbol,
                       Formula_expression_value(Value_function(fnval)))
             in
-            lazy_logger `trace (fun () -> "BAAAAAR! " ^ show_ident xr);
             (* Produce result *)
             let%orzero Some relstack' = push relstack xr in
-            lazy_logger `trace (fun () -> "FOOOOOO!");
             recurse (x' :: lookup_stack') acl1 relstack'
           | Abs_clause(Abs_var x_, Abs_conditional_body(Abs_var x1, e1, _)) ->
             (* ## Conditional Bottom - True AND Conditional Bottom - False ## *)
@@ -453,7 +453,6 @@ let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
       match Ident_map.Exceptionless.find
               program_point env.le_clause_predecessor_mapping with
       | None ->
-        print_endline @@ Ident_map.show pp_clause env.le_clause_predecessor_mapping;
         raise @@ Invalid_query("Variable " ^ show_ident program_point ^
                                " is not defined")
       | Some cl -> cl
@@ -480,6 +479,11 @@ let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
 
 let step (x : evaluation) : evaluation_result list * evaluation option =
   let Evaluation(evals) = x in
+  lazy_logger `trace
+    (fun () ->
+       Printf.sprintf "Stepping evaluation with %d alternative%s."
+         (Deque.size evals) (if Deque.size evals = 1 then "" else "s")
+    );
   match Deque.front evals with
   | None ->
     (* There are no symbolic universes left; everything that can produce an
