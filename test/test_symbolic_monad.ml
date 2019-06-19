@@ -7,8 +7,6 @@ open OUnit2;;
 
 open Odefa_symbolic_interpreter;;
 
-open Symbolic_monad;;
-
 module F = Formula_test_utils;;
 
 (* **** Scaffolding ***** *)
@@ -16,21 +14,35 @@ module F = Formula_test_utils;;
 let _tests_acc = ref [];;
 let _add_test name testfn = _tests_acc := (name >:: testfn) :: !_tests_acc;;
 
+(* Experimental monad *)
+
+module Cache_key = struct
+  type t = int;;
+  let compare = Int.compare;;
+end;;
+
+module M = Symbolic_monad.Make(struct
+    module Cache_key = Cache_key;;
+  end);;
+
+open M;;
+
 (* **** Utils **** *)
 
 let complete_with_count (x : 'a m) : ('a * Formulae.t * int) Enum.t =
-  let rec loop (xs : ('a evaluation * int) Enum.t)
+  let rec loop evaluation steps_so_far
     : ('a * Formulae.t * int) Enum.t =
-    xs
-    |> Enum.map
-      (fun (x,steps) ->
-         match get_result x with
-         | None -> loop @@ Enum.map (fun z -> (z, steps+1)) @@ step x
-         | Some v -> Enum.singleton (v, get_formulae x, steps)
-      )
-    |> Enum.concat
+    let results, evaluation' = step evaluation in
+    let new_steps_so_far = steps_so_far + 1 in
+    let tagged_results =
+      results
+      |> Enum.map (fun (value,formulae) -> (value,formulae,new_steps_so_far))
+    in
+    Enum.append tagged_results @@
+    if is_complete evaluation' then Enum.empty () else
+      loop evaluation' new_steps_so_far
   in
-  loop @@ Enum.singleton @@ (start x, 0)
+  loop (start x) 0
 ;;
 
 let complete (x : 'a m) : ('a * Formulae.t) Enum.t =
@@ -124,7 +136,7 @@ let computation =
   return n
 in
 test_complete_values_with_steps Format.pp_print_int (=) computation
-  [(1,2); (2,2); (3,2)]
+  [(1,2); (2,3); (3,4)]
 ;;
 
 _add_test "nondeterministic pause" @@ fun _ ->
@@ -134,7 +146,7 @@ let computation =
   return n
 in
 test_complete_values_with_steps Format.pp_print_int (=) computation
-  [(1,1); (2,2); (3,1); (4,2); (5,1)]
+  [(1,1); (3,1); (5,1); (2,2); (4,3)]
 ;;
 
 (* **** Packaging up tests for main test module ***** *)

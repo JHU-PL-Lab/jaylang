@@ -20,68 +20,81 @@ open Odefa_ast;;
 
 open Ast;;
 open Interpreter_types;;
-(* open Relative_stack;; *)
 open Sat_types;;
 
-(* **** Monadic interface **** *)
+(** The specification of a symbolic monad. *)
+module type Spec = sig
+  (* A definition of the type used as a caching key. *)
+  module Cache_key : Interfaces.OrderedType;;
+end;;
 
-(** The type describing a computation in this monad.  This type does not include
-    a state; it is waiting to be run. *)
-type 'a m;;
+(** The interface of a symbolic monad. *)
+module type S = sig
+  (** The specification for this symbolic monad. *)
+  module Spec : Spec;;
 
-(** The return operation. *)
-val return : 'a -> 'a m;;
+  (** The type describing a computation in this monad.  This type does not include
+      a state; it is waiting to be run. *)
+  type 'a m;;
 
-(** The bind operation. *)
-val bind : 'a m -> ('a -> 'b m) -> 'b m;;
+  (** The return operation. *)
+  val return : 'a -> 'a m;;
 
-(** A zero operation.  Produces an empty value containing no computations. *)
-val zero : unit -> 'a m;;
+  (** The bind operation. *)
+  val bind : 'a m -> ('a -> 'b m) -> 'b m;;
 
-(** Non-deterministic selection. *)
-val pick : 'a Enum.t -> 'a m;;
+  (** A zero operation.  Produces an empty value containing no computations. *)
+  val zero : unit -> 'a m;;
 
-(** Computational suspension.  When stepping the evaluation of a monadic value,
-    invocations of this function will mark the completion of a step. *)
-val pause : unit -> unit m
+  (** Non-deterministic selection. *)
+  val pick : 'a Enum.t -> 'a m;;
 
-(** Records a path decision for the provided variable.  If the provided search
-    path is valid in this environment, unit is returned in the environment.  If
-    the provided search path conflicts with a previous selection, the
-    environment is destroyed.  The first symbol is the variable which is being
-    mapped; the remaining arguments are the components of the wiring node. *)
-val record_decision : Symbol.t -> Ident.t -> clause -> Ident.t -> unit m;;
+  (** Computational suspension.  When stepping the evaluation of a monadic value,
+      invocations of this function will mark the completion of a step. *)
+  val pause : unit -> unit m
 
-(** Stores a formula in this environment's constraint set. *)
-val record_formula : Formula.t -> unit m;;
+  (** Records a path decision for the provided variable.  If the provided search
+      path is valid in this environment, unit is returned in the environment.  If
+      the provided search path conflicts with a previous selection, the
+      environment is destroyed.  The first symbol is the variable which is being
+      mapped; the remaining arguments are the components of the wiring node. *)
+  val record_decision : Symbol.t -> Ident.t -> clause -> Ident.t -> unit m;;
 
-(** Checks that a monadic value's formulae are solvable.  For each
-    non-deterministic path in the provided monadic value, a solution is
-    attempted for the formulae.  Any paths with unsolvable formulae are zeroed
-    out; the remaining paths exist in the returned monadic value (if any). *)
-val check_formulae : 'a m -> 'a m;;
+  (** Stores a formula in this environment's constraint set. *)
+  val record_formula : Formula.t -> unit m;;
 
-(* **** Evaluation interface **** *)
+  (** Checks that a monadic value's formulae are solvable.  For each
+      non-deterministic path in the provided monadic value, a solution is
+      attempted for the formulae.  Any paths with unsolvable formulae are zeroed
+      out; the remaining paths exist in the returned monadic value (if any). *)
+  val check_formulae : 'a m -> 'a m;;
 
-(** The type describing a running evaluation of a computation in this monad.
-    This evaluation is either completed (in which case it is simply a value and
-    its associated state) or it is suspended (in which case it is a monadic
-    computation and its associated state). *)
-type 'a evaluation;;
+  (* **** Evaluation interface **** *)
 
-(** Initializes a computation in this monad.  This is similar to the "run"
-    routines of standard monads except that it does not run to completion; it
-    runs to the first pause. *)
-val start : 'a m -> 'a evaluation;;
+  (** The type describing a running evaluation of a computation in this monad.
+      This value represents all non-deterministic outcomes of a monadic value.
+      As an evaluation is stepped, it produces completed values and may or may
+      not terminate. *)
+  type 'a evaluation;;
 
-(** Performs one step of evaluation.  As evaluation is non-deterministic,
-    multiple evaluations (either suspended or completed) may be returned.
-    Stepping a completed evaluation is a no-op. *)
-val step : 'a evaluation -> 'a evaluation Enum.t;;
+  (** Initializes a computation in this monad.  This is similar to the "run"
+      routines of standard monads except that it does not run to completion; it
+      runs to the first pause. *)
+  val start : 'a m -> 'a evaluation;;
 
-(** Retrieves the current formulae from an evaluation. *)
-val get_formulae : 'a evaluation -> Formulae.t;;
+  (** Performs one step of evaluation.  Evaluation continues until all
+      non-deterministic outcomes are paused; these paused outcomes are
+      represented by the returned evaluation.  The returned enumeration contains
+      all completed values discovered in this step together with the formulae
+      they induced. *)
+  val step : 'a evaluation -> ('a * Formulae.t) Enum.t * 'a evaluation;;
 
-(** Retrieves the result of an evaluation.  If the evaluation is suspended and
-    still requires stepping to complete, None is returned. *)
-val get_result : 'a evaluation -> 'a option;;
+  (** Determines whether a particular evaluation has completed.  If so,
+      stepping the evaluation will never produce additional results.  Note that
+      false does not guarantee that further values exist to be produced; it
+      only indicates that evaluation is not yet finished. *)
+  val is_complete : 'a evaluation -> bool;;
+end;;
+
+(** The interface of the functor producing symbolic monads. *)
+module Make(Spec : Spec) : S with module Spec = Spec;;

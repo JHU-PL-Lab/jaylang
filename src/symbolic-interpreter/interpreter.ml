@@ -11,11 +11,32 @@ open Ddpa_utils;;
 open Interpreter_types;;
 open Relative_stack;;
 open Sat_types;;
-open Symbolic_monad;;
 
 let lazy_logger =
   Logger_utils.make_lazy_logger "Symbolic_interpreter.Interpreter"
 ;;
+
+module Cache_key = struct
+  type t =
+    { ck_lookup_stack : Ident.t list;
+      ck_acl0 : annotated_clause;
+      ck_relstack : relative_stack;
+    };;
+  let compare k1 k2 =
+    let c = List.compare Ident.compare k1.ck_lookup_stack k2.ck_lookup_stack in
+    if c <> 0 then c else
+      let c = Annotated_clause.compare k1.ck_acl0 k2.ck_acl0 in
+      if c <> 0 then c else
+        Relative_stack.compare_relative_stack k1.ck_relstack k2.ck_relstack
+  ;;
+end;;
+
+module M = Symbolic_monad.Make(
+  struct
+    module Cache_key = Cache_key;;
+  end);;
+
+open M;;
 
 (** This type describes the information which must be in context during lookup. *)
 type lookup_environment = {
@@ -436,7 +457,7 @@ let rec lookup
     end
 ;;
 
-type evaluation = Evaluation of concrete_stack Symbolic_monad.evaluation Deque.t;;
+type evaluation = Evaluation of concrete_stack M.evaluation;;
 
 type evaluation_result = {
   er_formulae : Formulae.t;
@@ -474,62 +495,27 @@ let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
     return stack
   in
   let m_eval = start m in
-  Evaluation(Deque.cons m_eval Deque.empty)
+  Evaluation(m_eval)
 ;;
 
 let step (x : evaluation) : evaluation_result list * evaluation option =
-  let Evaluation(evals) = x in
-  lazy_logger `trace
-    (fun () ->
-       Printf.sprintf "Stepping evaluation with %d alternative%s."
-         (Deque.size evals) (if Deque.size evals = 1 then "" else "s")
-    );
-  match Deque.front evals with
-  | None ->
-    (* There are no symbolic universes left; everything that can produce an
-       answer already has. *)
-    ([],None)
-  | Some(eval,evals') ->
-    (* Let's do some work on this computation. *)
-    let stepped_evals = Symbolic_monad.step eval in
-    (* Separate them into complete formula sets and incomplete computations. *)
-    let complete, incomplete =
-      stepped_evals
-      |> Enum.fold
-        (fun (complete,incomplete) x ->
-           match Symbolic_monad.get_result x with
-           | Some stack ->
-             ((Symbolic_monad.get_formulae x, stack) :: complete, incomplete)
-           | None ->
-             (complete, x :: incomplete)
-        )
-        ([], [])
-    in
-    lazy_logger `trace
-      (fun () ->
-         Printf.sprintf
-           "Evaluation stepping produced %d continuations(s): %d complete, %d incomplete"
-           (List.length complete + List.length incomplete)
-           (List.length complete) (List.length incomplete)
-      );
-    let results =
-      complete
-      |> List.filter_map
-        (fun (formulae, stack) ->
-           match Solver.solve formulae with
-           | Some f ->
-             Some {er_formulae = formulae;
-                   er_stack = stack;
-                   er_solution = f
-                  }
-           | None ->
-             None
-        )
-    in
-    let evals'' =
-      Deque.append evals' @@ Deque.of_enum @@ List.enum incomplete
-    in
-    (results,
-     if Deque.is_empty evals'' then None else Some(Evaluation(evals''))
-    )
+  let Evaluation(evaluation) = x in
+  let results, evaluation' = M.step evaluation in
+  let results' =
+    results
+    |> Enum.filter_map
+      (fun (stack, formulae) ->
+         match Solver.solve formulae with
+         | Some f ->
+           Some {er_formulae = formulae;
+                 er_stack = stack;
+                 er_solution = f
+                }
+         | None ->
+           None
+      )
+  in
+  (List.of_enum results',
+   if M.is_complete evaluation' then None else Some(Evaluation(evaluation'))
+  )
 ;;
