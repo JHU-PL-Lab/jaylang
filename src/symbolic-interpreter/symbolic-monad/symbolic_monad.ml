@@ -20,6 +20,7 @@ open Jhupllib;;
 open Odefa_ast;;
 
 open Ast;;
+open Ast_pp;;
 open Interpreter_types;;
 (* open Relative_stack;; *)
 open Sat_types;;
@@ -48,8 +49,14 @@ module type S = sig
 
   type 'a evaluation;;
 
+  type 'a evaluation_result =
+    { er_value : 'a;
+      er_formulae : Formulae.t;
+      er_steps : int;
+    };;
+
   val start : 'a m -> 'a evaluation;;
-  val step : 'a evaluation -> ('a * Formulae.t) Enum.t * 'a evaluation;;
+  val step : 'a evaluation -> 'a evaluation_result Enum.t * 'a evaluation;;
   val is_complete : 'a evaluation -> bool;;
 end;;
 
@@ -63,16 +70,21 @@ struct
 
   type decision_map =
     (Ident.t * clause * Ident.t) Symbol_map.t
+  [@@deriving show]
   ;;
+  let _ = show_decision_map;;
 
   type log = {
     log_formulae : Formulae.t;
     log_decisions : decision_map;
-  };;
+    log_steps : int;
+  } [@@deriving show];;
+  let _ = show_log;;
 
-  type cache = {
-    (* TODO: actually useful cache info *)
-    cache_unit : unit;
+  type evaluation_state = {
+    evst_steps : int;
+    (* TODO: add actual caching *)
+    evst_cache : unit;
   };;
 
   (* **** Log utilities **** *)
@@ -80,6 +92,7 @@ struct
   let empty_log = {
     log_formulae = Formulae.empty;
     log_decisions = Symbol_map.empty;
+    log_steps = 0;
   };;
 
   exception MergeFailure;;
@@ -109,16 +122,19 @@ struct
       with
       | MergeFailure -> None
     in
-    return
+    let new_log =
       { log_formulae = merged_formulae;
         log_decisions = merged_decisions;
+        log_steps = log1.log_steps + log2.log_steps;
       }
+    in
+    return new_log
   ;;
 
   (* **** Monad types **** *)
 
   type 'a m =
-    | M of (cache -> 'a result list * cache)
+    | M of (evaluation_state -> 'a result list * evaluation_state)
 
   (** A result is either a completed expression (with its resulting state) or a
       suspended function which, when invoked, will step to the next result.  The
@@ -159,9 +175,9 @@ struct
         end
     in
     let rec bind_worlds_fn
-        (worlds_fn : cache -> a result list * cache)
-        (cache : cache)
-      : b result list * cache =
+        (worlds_fn : evaluation_state -> a result list * evaluation_state)
+        (cache : evaluation_state)
+      : b result list * evaluation_state =
       let worlds, cache' = worlds_fn cache in
       let bound_worlds, cache'' =
         worlds
@@ -200,7 +216,8 @@ struct
 
   let pause () : unit m =
     M(fun cache ->
-       [Suspended(M(fun cache -> ([Completed((), empty_log)], cache)),
+       let single_step_log = {empty_log with log_steps = 1} in
+       [Suspended(M(fun cache -> ([Completed((), single_step_log)], cache)),
                   empty_log)
        ],
        cache
@@ -213,6 +230,7 @@ struct
        [Completed((),
                   { log_formulae = Formulae.empty;
                     log_decisions = Symbol_map.singleton s (x,c,x');
+                    log_steps = 0;
                   }
                  )
        ],
@@ -225,6 +243,7 @@ struct
        [Completed((),
                   { log_formulae = Formulae.singleton formula;
                     log_decisions = Symbol_map.empty;
+                    log_steps = 0;
                   }
                  )
        ],
@@ -261,17 +280,23 @@ struct
      being performed as well as all metadata (such as caching).
   *)
   type 'a evaluation =
-    { ev_cache : cache;
+    { ev_state : evaluation_state;
       ev_remaining : 'a m Deque.t;
     }
   ;;
 
+  type 'a evaluation_result =
+    { er_value : 'a;
+      er_formulae : Formulae.t;
+      er_steps : int;
+    };;
+
   (* **** Evaluation operations **** *)
 
-  let _step_m (type a) (cache : cache) (x : a m)
-    : (a * log) list * a m list * cache =
+  let _step_m (type a) (state : evaluation_state) (x : a m)
+    : (a * log) list * a m list * evaluation_state =
     let M(world_fn) = x in
-    let (results, cache') = world_fn cache in
+    let (results, cache') = world_fn state in
     let complete, incomplete =
       List.fold_left
         (fun (complete,incomplete) result ->
@@ -287,15 +312,17 @@ struct
 
   let start (type a) (x : a m) : a evaluation =
     let initial_cache =
-      { cache_unit = () }
+      { evst_steps = 0;
+        evst_cache = ();
+      }
     in
-    { ev_cache = initial_cache;
+    { ev_state = initial_cache;
       ev_remaining = Deque.of_list [ x ]
     };
   ;;
 
   let step (type a) (e : a evaluation)
-    : (a * Formulae.t) Enum.t * a evaluation =
+    : a evaluation_result Enum.t * a evaluation =
     (* TODO: parameterize queuing strategy *)
     lazy_logger `trace
       (fun () ->
@@ -306,7 +333,10 @@ struct
     match Deque.front e.ev_remaining with
     | None -> (Enum.empty (), e)
     | Some(m, ms) ->
-      let (results, ms', new_cache) = _step_m e.ev_cache m in
+      let (results, ms', new_state) = _step_m e.ev_state m in
+      let new_state' =
+        { new_state with evst_steps = new_state.evst_steps + 1 }
+      in
       lazy_logger `trace
         (fun () ->
            Printf.sprintf
@@ -317,11 +347,22 @@ struct
       let results' =
         results
         |> List.enum
-        |> Enum.map (fun (value,log) -> (value,log.log_formulae))
+        |> Enum.map
+          (fun (value,log) ->
+             { er_value = value;
+               er_formulae = log.log_formulae;
+               er_steps =
+                 (* The +1 accounts for the initial "start" operation.  This
+                    makes the number of steps equal to one more than the number
+                    of pauses, or equal to the number of times "step" must be
+                    called in order to produce a result. *)
+                 log.log_steps + 1;
+             }
+          )
       in
       let all_threads = Deque.append ms @@ Deque.of_list ms' in
       ( results',
-        { ev_cache = new_cache;
+        { ev_state = new_state';
           ev_remaining = all_threads;
         }
       )

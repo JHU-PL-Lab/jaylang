@@ -220,3 +220,7 @@ let type_of (symbol : symbol) (collection : t) : symbol_type option =
   | Some(InferredType t) -> Some t
   | Some(InferredAlias _) -> None
 ;;
+
+let pp formatter collection =
+  Formula_set.pp formatter collection.formulae
+;;

@@ -29,14 +29,28 @@ open M;;
 
 (* **** Utils **** *)
 
-let complete_with_count (x : 'a m) : ('a * Formulae.t * int) Enum.t =
-  let rec loop evaluation steps_so_far
-    : ('a * Formulae.t * int) Enum.t =
+type 'a test_result =
+  { tr_value : 'a;
+    tr_formulae : Formulae.t;
+    tr_total_steps : int;
+    tr_result_steps : int;
+  }
+;;
+
+let complete (x : 'a m) : 'a test_result Enum.t =
+  let rec loop evaluation steps_so_far : 'a test_result Enum.t =
     let results, evaluation' = step evaluation in
     let new_steps_so_far = steps_so_far + 1 in
     let tagged_results =
       results
-      |> Enum.map (fun (value,formulae) -> (value,formulae,new_steps_so_far))
+      |> Enum.map
+        (fun er ->
+           { tr_value = er.er_value;
+             tr_formulae = er.er_formulae;
+             tr_total_steps = new_steps_so_far;
+             tr_result_steps = er.er_steps;
+           }
+        )
     in
     Enum.append tagged_results @@
     if is_complete evaluation' then Enum.empty () else
@@ -45,21 +59,15 @@ let complete_with_count (x : 'a m) : ('a * Formulae.t * int) Enum.t =
   loop (start x) 0
 ;;
 
-let complete (x : 'a m) : ('a * Formulae.t) Enum.t =
-  Enum.map (fun (x,y,_) -> (x,y)) @@ complete_with_count x
-;;
-
 let test_complete_values
     (type a)
     (printer : a Pp_utils.pretty_printer)
     (equal : a -> a -> bool)
     (computation : a m)
     (expected : a list) : unit =
-  let results : (a * Formulae.t * int) Enum.t =
-    complete_with_count computation
-  in
+  let results : a test_result Enum.t = complete computation in
   let actual : a list =
-    List.of_enum @@ Enum.map (fun (x,_,_) -> x) results
+    List.of_enum @@ Enum.map (fun tr -> tr.tr_value) results
   in
   assert_equal
     ~printer:(Pp_utils.pp_to_string @@ Pp_utils.pp_list printer)
@@ -74,11 +82,10 @@ let test_complete_values_with_steps
     (equal : a -> a -> bool)
     (computation : a m)
     (expected : (a * int) list) : unit =
-  let results : (a * Formulae.t * int) Enum.t =
-    complete_with_count computation
-  in
+  let results : a test_result Enum.t = complete computation in
   let actual : (a * int) list =
-    List.of_enum @@ Enum.map (fun (x,_,y) -> (x,y)) results
+    List.of_enum @@
+    Enum.map (fun tr -> (tr.tr_value,tr.tr_result_steps)) results
   in
   assert_equal
     ~printer:(Pp_utils.pp_to_string @@
@@ -136,7 +143,7 @@ let computation =
   return n
 in
 test_complete_values_with_steps Format.pp_print_int (=) computation
-  [(1,2); (2,3); (3,4)]
+  [(1,2); (2,2); (3,2)]
 ;;
 
 _add_test "nondeterministic pause" @@ fun _ ->
@@ -146,7 +153,7 @@ let computation =
   return n
 in
 test_complete_values_with_steps Format.pp_print_int (=) computation
-  [(1,1); (3,1); (5,1); (2,2); (4,3)]
+  [(1,1); (3,1); (5,1); (2,2); (4,2)]
 ;;
 
 (* **** Packaging up tests for main test module ***** *)

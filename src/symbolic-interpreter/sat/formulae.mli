@@ -4,7 +4,10 @@
 *)
 
 open Batteries;;
+open Jhupllib;;
+
 open Odefa_ast;;
+open Pp_utils;;
 
 open Ast;;
 open Interpreter_types;;
@@ -54,3 +57,6 @@ val iter : (formula -> unit) -> t -> unit;;
     introduced via a formula but has never been constrained.  Raises Not_found
     if the symbol has never been introduced. *)
 val type_of : symbol -> t -> symbol_type option;;
+
+(** Pretty-prints a set of formulae. *)
+val pp : t pretty_printer;;

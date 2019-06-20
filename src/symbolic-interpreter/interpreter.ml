@@ -504,11 +504,11 @@ let step (x : evaluation) : evaluation_result list * evaluation option =
   let results' =
     results
     |> Enum.filter_map
-      (fun (stack, formulae) ->
-         match Solver.solve formulae with
+      (fun evaluation_result ->
+         match Solver.solve evaluation_result.M.er_formulae with
          | Some f ->
-           Some {er_formulae = formulae;
-                 er_stack = stack;
+           Some {er_formulae = evaluation_result.M.er_formulae;
+                 er_stack = evaluation_result.M.er_value;
                  er_solution = f
                 }
          | None ->

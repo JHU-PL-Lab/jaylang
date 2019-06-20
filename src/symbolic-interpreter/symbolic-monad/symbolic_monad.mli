@@ -77,6 +77,13 @@ module type S = sig
       not terminate. *)
   type 'a evaluation;;
 
+  (** A type describing a single evaluation result. *)
+  type 'a evaluation_result =
+    { er_value : 'a;
+      er_formulae : Formulae.t;
+      er_steps : int;
+    };;
+
   (** Initializes a computation in this monad.  This is similar to the "run"
       routines of standard monads except that it does not run to completion; it
       runs to the first pause. *)
@@ -87,7 +94,7 @@ module type S = sig
       represented by the returned evaluation.  The returned enumeration contains
       all completed values discovered in this step together with the formulae
       they induced. *)
-  val step : 'a evaluation -> ('a * Formulae.t) Enum.t * 'a evaluation;;
+  val step : 'a evaluation -> 'a evaluation_result Enum.t * 'a evaluation;;
 
   (** Determines whether a particular evaluation has completed.  If so,
       stepping the evaluation will never produce additional results.  Note that
