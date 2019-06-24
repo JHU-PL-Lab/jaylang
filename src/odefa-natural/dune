@@ -1,0 +1,21 @@
+(library
+  (name odefa_natural)
+  (public_name odefa.natural)
+  (synopsis "Odefa Natural")
+  (libraries
+    batteries
+    jhupllib
+    odefa.ast
+    odefa.ddpa
+    odefa.interpreter
+    odefa.parser
+    odefa.statistics
+    odefa.utils
+  )
+  (preprocess
+    (pps
+      ocaml-monadic
+      ppx_deriving.std
+    )
+  )
+)
