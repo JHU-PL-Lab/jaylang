@@ -1,6 +1,6 @@
 open Batteries;;
 open Jhupllib;;
-(* open Odefa_ast;; *)
+open Odefa_ast;;
 
 (** This module contains utilities for picking fresh names.
     Plucked from Compiler labs. Will change if necessary. *)
@@ -23,8 +23,6 @@ let flatten_expr (e : On_ast.expr) : (Odefa_ast.Ast.clause list * Odefa_ast.Ast.
 ;;
 
 let translate (e : On_ast.expr) : Odefa_ast.Ast.expr =
-  (* let (c_list, _) = flatten_expr e in
-     Ast.Expr(c_list) *)
-  ignore e;
-  Expr([Clause(Var(Ident("x"), None), Value_body(Value_int(4)))])
+  let (c_list, _) = flatten_expr e in
+     Ast.Expr(c_list)
 ;;
