@@ -1,7 +1,5 @@
 open Batteries;;
 open Jhupllib;;
-open Odefa_natural;;
-open Odefa;;
 open Odefa_ast;;
 
 (** This module contains utilities for picking fresh names.
@@ -19,39 +17,39 @@ let fresh_name (prefix : string) : string =
 ;;
 
 
-let translator (e : On_ast.expr) : (expr * var) =
+let translator (e : On_ast.expr) : (Odefa_ast.expr * Odefa_ast.var) =
   match e with
   | Var (id) ->
-    raise NotImplementedError
+    raise (Failure "")
   | Function (id, e) ->
-    raise NotImplementedError
+    raise (Failure "")
   | Appl (e1, e2) ->
-    raise NotImplementedError
+    raise (Failure "")
   | Let (varname, e1, e2) ->
-    raise NotImplementedError
+    raise (Failure "")
   | LetRec (ident, ident_list, expr, expr) ->
-raise NotImplementedError
-
+    raise (Failure "")
   | Plus (e1, e2) ->
-    raise NotImplementedError
+    raise (Failure "")
   | Minus (e1, e2) ->
-    raise NotImplementedError
+    raise (Failure "")
   | Equal (e1, e2) ->
-    raise NotImplementedError
+    raise (Failure "")
   | And (e1, e2) ->
-    raise NotImplementedError
+    raise (Failure "")
   | Or (e1, e2) ->
-    raise NotImplementedError
+    raise (Failure "")
   | Not (e) ->
-    raise NotImplementedError
+    raise (Failure "")
   | If (e1, e2, e3) ->
-raise NotImplementedError
+    raise (Failure "")
   | Int (n) ->
-raise NotImplementedError
+    raise (Failure "")
   | Bool (b) ->
-raise NotImplementedError
+    raise (Failure "")
   | Record (rlist) ->
-raise NotImplementedError
+    raise (Failure "")
+  | _ -> raise (Failure "")
     (* TODO: add record projection (RecProj) !!!*)
 
 
