@@ -15,6 +15,7 @@
   (libraries
     batteries
     jhupllib
+    odefa.ast
   )
   (preprocess
     (pps

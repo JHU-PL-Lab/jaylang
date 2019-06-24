@@ -1,6 +1,7 @@
 %{
 open On_ast;;
 module List = BatList;;
+exception On_Parse_error of string;;
 %}
 
 %token <string> IDENTIFIER
@@ -115,16 +116,26 @@ simple_expr:
   | OPEN_BRACE record_body CLOSE_BRACE
       { Record $2 }
   | OPEN_BRACE CLOSE_BRACE
-      { Record [] }
+      { Record (Ident_map.empty) }
   | OPEN_PAREN expr CLOSE_PAREN
       { $2 }
 ;
 
 record_body:
   | label EQUALS expr
-      { [($1, $3)] }
+      { let (Label k) = $1 in
+        let key = Ident k in
+        Ident_map.singleton key $3 }
   | label EQUALS expr COMMA record_body
-      { ($1, $3)::$5 }
+      { let (Label k) = $1 in
+        let key = Ident k in
+        let old_map = $5 in
+        let dup_check = Ident_map.mem key old_map in
+        if dup_check then raise (On_Parse_error "Duplicate label names in record!")
+        else
+        let new_map = Ident_map.add key $3 old_map in
+        new_map
+      }
 ;
 
 param_list:
