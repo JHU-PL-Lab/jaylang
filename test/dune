@@ -13,6 +13,7 @@
     odefa.ddpa
     odefa.parser
     odefa.toploop
+    odefa.natural
     oUnit
     ppx_deriving_yojson
     yojson
