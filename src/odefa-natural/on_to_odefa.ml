@@ -1,6 +1,6 @@
 open Batteries;;
-(* open Jhupllib;; *)
-(* open Odefa_ast;; *)
+open Jhupllib;;
+open Odefa_ast;;
 
 (** This module contains utilities for picking fresh names.
     Plucked from Compiler labs. Will change if necessary. *)
@@ -17,10 +17,12 @@ let fresh_name (prefix : string) : string =
 ;;
 
 
-let translator (e : On_ast.expr) : (Odefa_ast.Ast.expr * Odefa_ast.Ast.var) =
-  match e with
-  | _ -> raise (Failure "")
-    (* TODO: add record projection (RecProj) !!!*)
+let flatten_expr (e : On_ast.expr) : (Odefa_ast.Ast.clause list * Odefa_ast.Ast.var) =
+  raise @@ Utils.Not_yet_implemented "translator"
 
+;;
 
+let translate (e : On_ast.expr) : Odefa_ast.Ast.expr =
+  let (c_list, _) = flatten_expr e in
+  Ast.Expr(c_list)
 ;;
