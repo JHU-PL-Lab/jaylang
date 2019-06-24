@@ -197,5 +197,5 @@ flatten_expr (e : On_ast.expr) : (Ast.clause list * Ast.var) =
 
 let translate (e : On_ast.expr) : Odefa_ast.Ast.expr =
   let (c_list, _) = flatten_expr e in
-  Ast.Expr(c_list)
+     Ast.Expr(c_list)
 ;;

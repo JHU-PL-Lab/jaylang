@@ -72,8 +72,8 @@ expr:
       { Or($1, $3) }
   | expr BINOP_EQUAL expr
       { Equal($1, $3) }
-  | FUNCTION ident_decl ARROW expr %prec prec_fun
-      { Function([$2], $4) }
+  | FUNCTION param_list ARROW expr %prec prec_fun
+      { Function($2, $4) }
   | LET REC fun_sig_list IN expr %prec prec_fun
       { LetRecFun($3, $5) }
   | IF expr THEN expr ELSE expr %prec prec_if

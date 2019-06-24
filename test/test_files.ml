@@ -21,6 +21,8 @@ open Odefa_ddpa;;
 open Odefa_parser;;
 open Odefa_toploop;;
 
+open Odefa_natural;;
+
 open Ast;;
 open Ast_pp;;
 open Ast_wellformedness;;
@@ -302,7 +304,13 @@ let make_test filename expectations =
        satisfied.  This addresses nonsense cases such as expecting an ill-formed
        expression to evaluate. *)
     begin
-      let expr = File.with_file_in filename Parser.parse_program in
+      let is_nato = String.ends_with ".natodefa" filename in
+      let expr =
+        if is_nato then
+          let on_expr = File.with_file_in filename On_parse.parse_program in
+          On_to_odefa.translate on_expr
+        else
+          File.with_file_in filename Parser.parse_program in
       (* Decide what kind of analysis to perform. *)
       let module_choice = ref Default_stack in
       observation (observe_analysis_stack_selection module_choice);
@@ -483,12 +491,16 @@ let wrap_make_test_from filename =
 ;;
 
 let make_all_tests pathname =
+  let legal_exts = [".odefa"; ".natodefa"] in
   if Sys.file_exists pathname && Sys.is_directory pathname
   then
     Sys.files_of pathname
     |> Enum.map (fun f -> pathname ^ Filename.dir_sep ^ f)
     |> Enum.filter (fun f -> not @@ Sys.is_directory f)
-    |> Enum.filter (fun f -> String.ends_with f ".code")
+    |> Enum.filter (fun f ->
+        (List.fold_left
+           (fun acc -> fun legal_ext -> acc || (String.ends_with f legal_ext))
+           false legal_exts))
     |> Enum.map wrap_make_test_from
     |> List.of_enum
   else
