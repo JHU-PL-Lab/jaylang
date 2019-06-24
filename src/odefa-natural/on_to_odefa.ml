@@ -21,34 +21,6 @@ let translator (e : On_ast.expr) : (Odefa_ast.Ast.expr * Odefa_ast.Ast.var) =
   match e with
   | Var (id) ->
     raise (Failure "")
-  | Function (id, e) ->
-    raise (Failure "")
-  | Appl (e1, e2) ->
-    raise (Failure "")
-  | Let (varname, e1, e2) ->
-    raise (Failure "")
-  | LetRec (ident, ident_list, expr, expr) ->
-    raise (Failure "")
-  | Plus (e1, e2) ->
-    raise (Failure "")
-  | Minus (e1, e2) ->
-    raise (Failure "")
-  | Equal (e1, e2) ->
-    raise (Failure "")
-  | And (e1, e2) ->
-    raise (Failure "")
-  | Or (e1, e2) ->
-    raise (Failure "")
-  | Not (e) ->
-    raise (Failure "")
-  | If (e1, e2, e3) ->
-    raise (Failure "")
-  | Int (n) ->
-    raise (Failure "")
-  | Bool (b) ->
-    raise (Failure "")
-  | Record (rlist) ->
-    raise (Failure "")
   | _ -> raise (Failure "")
     (* TODO: add record projection (RecProj) !!!*)
 
