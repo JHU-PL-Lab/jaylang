@@ -1,5 +1,12 @@
 {
-  open Onparser;;
+  open On_parser;;
+  open Lexing
+  let incr_lineno lexbuf =
+    let pos = lexbuf.lex_curr_p in
+    lexbuf.lex_curr_p <- { pos with
+      pos_lnum = pos.pos_lnum + 1;
+      pos_bol = pos.pos_cnum;
+    }
 }
 
 let digit = ['0'-'9']
@@ -17,30 +24,31 @@ rule token = parse
 | comment              { incr_lineno lexbuf; token lexbuf }
 | whitespace           { token lexbuf }
 | newline              { incr_lineno lexbuf; token lexbuf }
-| blank+               { token lexbuf }
 | "{"                  { OPEN_BRACE }
 | "}"                  { CLOSE_BRACE }
 | "("                  { OPEN_PAREN }
 | ")"                  { CLOSE_PAREN }
 | ","                  { COMMA }
 | "="                  { EQUALS }
+| "."                  { DOT }
 | "and"                { AND }
 | "or"                 { OR }
 | "not"                { NOT }
 | "fun"                { FUNCTION }
 | "function"           { FUNCTION }
+| "with"               { WITH }
 | "if"                 { IF }
 | "then"               { THEN }
 | "else"               { ELSE }
 | "let"                { LET }
 | "rec"                { REC }
 | "in"                 { IN }
-| "->"                 { GOESTO }
+| "->"                 { ARROW }
 | "false"              { BOOL false }
 | "true"               { BOOL true }
-| ";;"                 { EOEX }
-| "+"                  { PLUS }
-| "-"                  { MINUS }
+| "+"                  { BINOP_PLUS }
+| "-"                  { BINOP_MINUS }
+| "="                  { BINOP_EQUAL }
 | "<"                  { BINOP_LESS }
 | "<="                 { BINOP_LESS_EQUAL }
 | "-"? digit+ as n     { INT_LITERAL (int_of_string n) }

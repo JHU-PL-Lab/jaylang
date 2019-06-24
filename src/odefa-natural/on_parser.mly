@@ -1,48 +1,51 @@
 %{
-open Odefa_ast;;
-open Ast;;
+open On_ast;;
 module List = BatList;;
 %}
 
 %token <string> IDENTIFIER
 %token <int> INT_LITERAL
 %token <string> STRING_LITERAL
+%token <bool> BOOL
 %token EOF
 %token OPEN_BRACE
 %token CLOSE_BRACE
 %token OPEN_PAREN
 %token CLOSE_PAREN
-%token SEMICOLON
 %token COMMA
 %token EQUALS
 %token ARROW
-%token QUESTION_MARK
-%token TILDE
-%token COLON
-%token LEFT_ARROW
-%token BANG
 %token DOT
-%token KEYWORD_FUN
-%token KEYWORD_INT
-%token KEYWORD_REF
-%token KEYWORD_TRUE
-%token KEYWORD_FALSE
-%token KEYWORD_AND
-%token KEYWORD_OR
-%token KEYWORD_NOT
-%token KEYWORD_STRING
-%token KEYWORD_ANY
-%token UNDERSCORE
+%token FUNCTION
+%token WITH
+%token LET
+%token IN
+%token REC
+%token IF
+%token THEN
+%token ELSE
+%token AND
+%token OR
+%token NOT
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
 %token BINOP_LESS_EQUAL
 %token BINOP_EQUAL
-%token BINOP_AT
-%token DOUBLE_SEMICOLON
 
-%start <Odefa_ast.Ast.expr> prog
-%start <Odefa_ast.Ast.expr option> delim_expr
+/*
+ * Precedences and associativities.  Lower precedences come first.
+ */
+%right prec_let                         /* Let ... In ... */
+%right prec_fun                         /* function declaration */
+%right prec_if                          /* If ... Then ... Else */
+%right OR                               /* Or */
+%right AND                              /* And */
+%left BINOP_EQUAL BINOP_LESS BINOP_LESS_EQUAL  /* = */
+%left BINOP_PLUS BINOP_MINUS            /* + - */
+%left DOT                               /* record access */
+
+%start <On_ast.expr> prog
 
 %%
 
@@ -51,165 +54,92 @@ prog:
       { $1 }
   ;
 
-delim_expr:
-  | EOF
-      { None }
-  | expr DOUBLE_SEMICOLON
-      { Some($1) }
-  | expr EOF
-      { Some($1) }
-  ;
-
 expr:
-  | separated_nonempty_trailing_list(SEMICOLON, clause)
-      { Expr($1) }
-  ;
+  | unary_expr
+      { $1 }
+  | expr BINOP_PLUS expr
+      { Plus($1, $3) }
+  | expr BINOP_MINUS expr
+      { Minus($1, $3) }
+  | expr BINOP_LESS expr
+      { LessThan($1, $3) }
+  | expr BINOP_LESS_EQUAL expr
+      { Leq($1, $3) }
+  | expr AND expr
+      { And($1, $3) }
+  | expr OR expr
+      { Or($1, $3) }
+  | expr BINOP_EQUAL expr
+      { Equal($1, $3) }
+  | FUNCTION ident_decl ARROW expr %prec prec_fun
+      { Function([$2], $4) }
+  | LET REC fun_sig_list IN expr %prec prec_fun
+      { LetRecFun($3, $5) }
+  | IF expr THEN expr ELSE expr %prec prec_if
+      { If($2, $4, $6) }
+  | LET ident_decl EQUALS expr IN expr %prec prec_let
+      { Let($2, $4, $6) }
+  | LET fun_sig IN expr %prec prec_fun
+      { LetFun($2, $4)}
+  | expr DOT label
+      { RecordProj($1, $3) }
+;
 
-clause:
-  | variable EQUALS clause_body
-      { Clause($1,$3) }
-  ;
+fun_sig:
+  | ident_decl param_list EQUALS expr
+    { Funsig ($1, $2, $4) }
 
-variable:
-  | identifier
-      { Var($1,None) }
-  ;
+fun_sig_list:
+  | fun_sig { [$1] }
+  | fun_sig WITH fun_sig_list { $1 :: $3 }
 
-identifier:
-  | IDENTIFIER
-      { Ident $1 }
-  ;
+unary_expr:
+  | NOT simple_expr { Not($2) }
+  | appl_expr { $1 }
 
-clause_body:
-  | value
-      { Value_body($1) }
-  | variable
-      { Var_body($1) }
-  | variable variable
-      { Appl_body($1,$2) }
-  | variable TILDE pattern QUESTION_MARK function_value COLON function_value
-      { Conditional_body($1,$3,$5,$7) }
-  | variable DOT identifier
-      { Projection_body($1,$3) }
-  | BANG variable
-      { Deref_body($2) }
-  | variable LEFT_ARROW variable
-      { Update_body($1,$3) }
-  | variable BINOP_PLUS variable
-      { Binary_operation_body($1,Binary_operator_plus,$3) }
-  | variable BINOP_MINUS variable
-      { Binary_operation_body($1,Binary_operator_int_minus,$3) }
-  | variable BINOP_LESS variable
-      { Binary_operation_body($1,Binary_operator_int_less_than,$3) }
-  | variable BINOP_LESS_EQUAL variable
-      { Binary_operation_body($1,Binary_operator_int_less_than_or_equal_to,$3) }
-  | variable BINOP_EQUAL variable
-      { Binary_operation_body($1,Binary_operator_equal_to,$3) }
-  | variable KEYWORD_AND variable
-      { Binary_operation_body($1,Binary_operator_bool_and,$3) }
-  | variable KEYWORD_OR variable
-      { Binary_operation_body($1,Binary_operator_bool_or,$3) }
-  | variable BINOP_AT variable
-      { Binary_operation_body($1,Binary_operator_index,$3) }
-  | KEYWORD_NOT variable
-      { Unary_operation_body(Unary_operator_bool_not,$2) }
-  ;
+appl_expr:
+  | appl_expr simple_expr
+    { Appl($1, $2) }
+  | simple_expr { $1 }
+;
 
-value:
-  | record_value
-      { Value_record($1) }
-  | function_value
-      { Value_function($1) }
-  | ref_value
-      { Value_ref($1) }
-  | int_value
-      { Value_int($1) }
-  | string_value
-      { Value_string($1) }
-  | bool_value
-      { Value_bool($1) }
-  ;
-
-record_value:
-  | OPEN_BRACE CLOSE_BRACE
-      { Record_value(Ident_map.empty) }
-  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_element) CLOSE_BRACE
-      { Record_value(Ident_map.of_enum @@ List.enum $2) }
-  ;
-
-record_element:
-  | identifier EQUALS variable
-      { ($1,$3) }
-  ;
-
-function_value:
-  | KEYWORD_FUN variable ARROW OPEN_PAREN expr CLOSE_PAREN
-      { Function_value($2,$5) }
-  ;
-
-ref_value:
-  | KEYWORD_REF variable
-      { Ref_value($2) }
-  ;
-
-int_value:
+simple_expr:
   | INT_LITERAL
-      { $1 }
-  ;
-
-string_value:
+      { Int $1 }
   | STRING_LITERAL
+      { String $1 }
+  | BOOL
+      { Bool $1 }
+  | ident_usage
       { $1 }
-  ;
-
-bool_value:
-  | KEYWORD_TRUE
-      { true }
-  | KEYWORD_FALSE
-      { false }
-  ;
-
-pattern:
-  | record_pattern
-      { $1 }
-  | KEYWORD_FUN
-      { Fun_pattern }
-  | KEYWORD_REF
-      { Ref_pattern }
-  | KEYWORD_INT
-      { Int_pattern }
-  | bool_pattern
-      { Bool_pattern($1) }
-  | KEYWORD_STRING
-      { String_pattern }
-  | KEYWORD_ANY
-      { Any_pattern }
-  | UNDERSCORE
-      { Any_pattern }
-  ;
-
-record_pattern:
+  | OPEN_BRACE record_body CLOSE_BRACE
+      { Record $2 }
   | OPEN_BRACE CLOSE_BRACE
-      { Record_pattern(Ident_map.empty) }
-  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE
-      { Record_pattern(Ident_map.of_enum @@ List.enum $2) }
-  ;
+      { Record [] }
+  | OPEN_PAREN expr CLOSE_PAREN
+      { $2 }
+;
 
-record_pattern_element:
-  | identifier EQUALS pattern
-      { ($1,$3) }
-  ;
+record_body:
+  | label EQUALS expr
+      { [($1, $3)] }
+  | label EQUALS expr COMMA record_body
+      { ($1, $3)::$5 }
+;
 
-bool_pattern:
-  | KEYWORD_TRUE
-      { true }
-  | KEYWORD_FALSE
-      { false }
-  ;
+param_list:
+  | ident_decl param_list { $1 :: $2 }
+  | ident_decl { [$1] }
+;
 
-separated_nonempty_trailing_list(separator, rule):
-  | nonempty_list(terminated(rule, separator))
-      { $1 }
-  | separated_nonempty_list(separator,rule)
-      { $1 }
-  ;
+label:
+  | IDENTIFIER { Label $1 }
+;
+
+ident_usage:
+  | ident_decl { Var $1 }
+;
+
+ident_decl:
+  | IDENTIFIER { Ident $1 }
+;

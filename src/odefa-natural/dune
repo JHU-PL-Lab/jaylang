@@ -1,9 +1,10 @@
 (ocamllex
-  generated_lexer
+  on_lexer
 )
 (menhir
+  (flags --explain)
   (modules
-    generated_parser
+    on_parser
   )
 )
 
@@ -14,8 +15,6 @@
   (libraries
     batteries
     jhupllib
-    odefa.ast
-    odefa.utils
   )
   (preprocess
     (pps
