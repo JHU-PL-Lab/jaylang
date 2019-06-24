@@ -18,8 +18,8 @@ let fresh_name (prefix : string) : string =
 
 
 let flatten_expr (e : On_ast.expr) : (Odefa_ast.Ast.clause list * Odefa_ast.Ast.var) =
+  ignore e;
   raise @@ Utils.Not_yet_implemented "translator"
-
 ;;
 
 let translate (e : On_ast.expr) : Odefa_ast.Ast.expr =

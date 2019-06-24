@@ -29,6 +29,5 @@ let parse_program (input : IO.input) =
 ;;
 
 let translate_program (on_expr : On_ast.expr) =
-  let (res, _) = On_to_odefa.translator on_expr in
-  res
+  On_to_odefa.translate on_expr
 ;;
