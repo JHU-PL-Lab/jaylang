@@ -17,7 +17,7 @@ let fresh_name (prefix : string) : string =
 ;;
 
 
-let translator (e : On_ast.expr) : (Odefa_ast.expr * Odefa_ast.var) =
+let translator (e : On_ast.expr) : (Odefa_ast.Ast.expr * Odefa_ast.Ast.var) =
   match e with
   | Var (id) ->
     raise (Failure "")
