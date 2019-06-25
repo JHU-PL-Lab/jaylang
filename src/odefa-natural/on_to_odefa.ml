@@ -130,6 +130,235 @@ let rec rec_transform (e1 : On_ast.expr) : (On_ast.expr) =
     Not (transformed_expr)
 ;;
 
+(* Function that removes duplicate naming so that we adhere to Odefa's naming
+   rules. Is called when we detect a duplicate naming.
+   NOTE: We should stop when we encounter a LET statement
+   (or frankly a function) that rewrites the var???
+*)
+let rec replace_duplicate_naming
+    (e : On_ast.expr)
+    (old_name : On_ast.ident)
+    (new_name : On_ast.ident)
+  : On_ast.expr =
+  match e with
+  | Int _ | Bool _ | String _ -> e
+  | Var (id) ->
+    if id = old_name then Var(new_name) else Var(id)
+  | Function (id_list, e') ->
+    if (List.mem old_name id_list) then e
+    else
+      let new_e' = replace_duplicate_naming e' old_name new_name in
+      Function(id_list, new_e')
+  | Appl (e1, e2) ->
+    let new_e1 = replace_duplicate_naming e1 old_name new_name in
+    let new_e2 = replace_duplicate_naming e2 old_name new_name in
+    Appl(new_e1, new_e2)
+  | Let (id, e1, e2) ->
+    if id = old_name then e
+    else
+      let new_e1 = replace_duplicate_naming e1 old_name new_name in
+      let new_e2 = replace_duplicate_naming e2 old_name new_name in
+      Let(id, new_e1, new_e2)
+  | LetRecFun (_, _) ->
+    raise (Failure "rec functions should have been taken care of")
+  | LetFun (f_sig, e') ->
+    let (On_ast.Funsig(id, id_list, fun_e)) = f_sig in
+    (* If the old_name is same as the function name, then we don't want
+       to change anything. *)
+    if id = old_name then e
+    else
+      (
+        (* If the old_name is same as one of the names of the params, then
+           we only want to change the code outside of the function.
+        *)
+        if List.mem old_name id_list then
+          (
+            let new_e' = replace_duplicate_naming e' old_name new_name in
+            LetFun (f_sig, new_e')
+          )
+        else (* change both the inside and the outside expressions *)
+          (
+            let new_inner_e = replace_duplicate_naming fun_e old_name new_name in
+            let new_outer_e = replace_duplicate_naming e' old_name new_name in
+            let new_funsig = On_ast.Funsig(id, id_list, new_inner_e) in
+            LetFun(new_funsig, new_outer_e)
+          )
+      )
+  | Plus (e1, e2) ->
+    let new_e1 = replace_duplicate_naming e1 old_name new_name in
+    let new_e2 = replace_duplicate_naming e2 old_name new_name in
+    Plus (new_e1, new_e2)
+  | Minus (e1, e2) ->
+    let new_e1 = replace_duplicate_naming e1 old_name new_name in
+    let new_e2 = replace_duplicate_naming e2 old_name new_name in
+    Minus (new_e1, new_e2)
+  | Equal (e1, e2) ->
+    let new_e1 = replace_duplicate_naming e1 old_name new_name in
+    let new_e2 = replace_duplicate_naming e2 old_name new_name in
+    Equal (new_e1, new_e2)
+  | LessThan (e1, e2) ->
+    let new_e1 = replace_duplicate_naming e1 old_name new_name in
+    let new_e2 = replace_duplicate_naming e2 old_name new_name in
+    LessThan (new_e1, new_e2)
+  | Leq (e1, e2) ->
+    let new_e1 = replace_duplicate_naming e1 old_name new_name in
+    let new_e2 = replace_duplicate_naming e2 old_name new_name in
+    Leq (new_e1, new_e2)
+  | And (e1, e2) ->
+    let new_e1 = replace_duplicate_naming e1 old_name new_name in
+    let new_e2 = replace_duplicate_naming e2 old_name new_name in
+    And (new_e1, new_e2)
+  | Or (e1, e2) ->
+    let new_e1 = replace_duplicate_naming e1 old_name new_name in
+    let new_e2 = replace_duplicate_naming e2 old_name new_name in
+    Or (new_e1, new_e2)
+  | Not (e') ->
+    let new_e' = replace_duplicate_naming e' old_name new_name in
+    Not (new_e')
+  | If (e1, e2, e3) ->
+    let new_e1 = replace_duplicate_naming e1 old_name new_name in
+    let new_e2 = replace_duplicate_naming e2 old_name new_name in
+    let new_e3 = replace_duplicate_naming e3 old_name new_name in
+    If (new_e1, new_e2, new_e3)
+  | Record (r_map) ->
+    let map_changing_fun =
+      (fun mexpr ->
+         replace_duplicate_naming mexpr old_name new_name
+      )
+    in
+    let new_rmap = On_ast.Ident_map.map map_changing_fun r_map in
+    Record (new_rmap)
+  | RecordProj (e', lab) ->
+    let new_e' = replace_duplicate_naming e' old_name new_name in
+    RecordProj (new_e', lab)
+;;
+let fold_on_fun = fun acc -> fun curr_id ->
+  let (curr_e, curr_id_list, fun_id_list) = acc in
+  if List.mem curr_id curr_id_list then
+    (
+      let On_ast.Ident(name_string) = curr_id in
+      let new_name = On_ast.Ident(fresh_name name_string) in
+      let new_e = replace_duplicate_naming curr_e curr_id new_name in
+      let new_list = new_name :: curr_id_list in
+      let new_fun_list = new_name :: fun_id_list in
+      (new_e, new_list, new_fun_list)
+    )
+  else
+    (
+      let new_list = curr_id :: curr_id_list in
+      let new_fun_list = curr_id :: fun_id_list in
+      (curr_e, new_list, new_fun_list)
+    )
+;;
+
+(* A function that finds all of the duplicate naming that happens for a given
+   expression, and then calls replace_duplicate_naming to change the latter
+   naming.
+*)
+let rec find_replace_duplicate_naming
+    (e : On_ast.expr)
+    (ident_list : On_ast.ident list)
+  : (On_ast.expr * On_ast.ident list) =
+  match e with
+  | Int _ | Bool _ | String _ | Var _ -> (e , ident_list)
+  | Function (id_list, e') ->
+    let (init_e, init_id_list) = find_replace_duplicate_naming e' ident_list in
+    (* EXTREMELY BAD CODING PRACTICE IS BAD and we are good programmers *)
+    let (final_e, final_id_list, final_fun_id_list) =
+      List.fold_left fold_on_fun (init_e, init_id_list, []) id_list in
+    (Function (final_fun_id_list, final_e), final_id_list)
+  | Appl (e1, e2) ->
+    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
+    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
+    (Appl(new_e1, new_e2), e2_id_list)
+  | Let (id, e1, e2) ->
+    let (init_e2, init_e2_id_list) =
+      find_replace_duplicate_naming e2 ident_list in
+    let (init_e1, init_e1_id_list) =
+      find_replace_duplicate_naming e1 init_e2_id_list in
+    if List.mem id init_e1_id_list then
+      (
+        let On_ast.Ident(name_string) = id in
+        let new_name = On_ast.Ident(fresh_name name_string) in
+        (* let new_e1 = replace_duplicate_naming init_e1 id new_name in *)
+        let new_e2 = replace_duplicate_naming init_e2 id new_name in
+        let new_list = new_name :: init_e1_id_list in
+        (Let(new_name, init_e1, new_e2), new_list)
+      )
+    else
+      (
+        let new_list = id :: init_e1_id_list in
+        (Let(id, init_e1, init_e2), new_list)
+      )
+  | LetRecFun _ -> raise (Failure "no let rec")
+  | LetFun (f_sig, e') ->
+    let Funsig(f_name, id_list, f_e) = f_sig in
+    let (outer_e', outer_e_list) = find_replace_duplicate_naming e' ident_list in
+    let (inner_e', init_list) =
+      find_replace_duplicate_naming f_e outer_e_list in
+    let (final_e, final_id_list, final_fun_id_list) =
+      List.fold_left fold_on_fun (inner_e', init_list, []) id_list in
+    if List.mem f_name final_id_list then
+      (
+        let On_ast.Ident(name_string) = f_name in
+        let new_name = On_ast.Ident(fresh_name name_string) in
+        (* let new_e1 = replace_duplicate_naming init_e1 id new_name in *)
+        let new_e2 = replace_duplicate_naming outer_e' f_name new_name in
+        let new_list = new_name :: final_fun_id_list in
+        let new_funsig = On_ast.Funsig(new_name, final_fun_id_list, final_e) in
+        (LetFun(new_funsig, new_e2), new_list)
+      )
+    else
+      (
+        let new_list = f_name :: final_id_list in
+        let new_funsig = On_ast.Funsig(f_name, final_fun_id_list, final_e) in
+        (LetFun(new_funsig, outer_e'), new_list)
+      )
+  | Plus (e1, e2) ->
+    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
+    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
+    (Plus(new_e1, new_e2), e2_id_list)
+  | Minus (e1, e2) ->
+    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
+    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
+    (Minus(new_e1, new_e2), e2_id_list)
+  | Equal (e1, e2) ->
+    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
+    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
+    (Equal(new_e1, new_e2), e2_id_list)
+  | LessThan (e1, e2) ->
+    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
+    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
+    (LessThan(new_e1, new_e2), e2_id_list)
+  | Leq (e1, e2) ->
+    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
+    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
+    (Leq(new_e1, new_e2), e2_id_list)
+  | And (e1, e2) ->
+    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
+    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
+    (And(new_e1, new_e2), e2_id_list)
+  | Or (e1, e2) ->
+    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
+    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
+    (Or(new_e1, new_e2), e2_id_list)
+  | Not (e') ->
+    let (new_e', e1_id_list) = find_replace_duplicate_naming e' ident_list in
+    (Not(new_e'), e1_id_list)
+  | If (e1, e2, e3) ->
+    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
+    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
+    let (new_e3, e3_id_list) = find_replace_duplicate_naming e3 e2_id_list in
+    (If(new_e1, new_e2, new_e3), e3_id_list)
+  | Record (_) ->
+    raise (Utils.Not_yet_implemented "woops")
+  | RecordProj (e', lab) ->
+    let (new_e', e1_id_list) = find_replace_duplicate_naming e' ident_list in
+    (RecordProj(new_e', lab), e1_id_list)
+  
+
+;;
+
 let rec flatten_binop
     (e1 : On_ast.expr)
     (e2 : On_ast.expr)
@@ -146,7 +375,9 @@ let rec flatten_binop
     )
   in
   (e1_clist @ e2_clist @ [new_clause], new_var)
+
 and
+
   flatten_expr (e : On_ast.expr) : (Ast.clause list * Ast.var) =
   match e with
   | Var (id) ->
@@ -294,6 +525,7 @@ and
 ;;
 
 let translate (e : On_ast.expr) : Odefa_ast.Ast.expr =
-  let (c_list, _) = flatten_expr e in
+  let e_transformed = rec_transform e in
+  let (c_list, _) = flatten_expr e_transformed in
   Ast.Expr(c_list)
 ;;
