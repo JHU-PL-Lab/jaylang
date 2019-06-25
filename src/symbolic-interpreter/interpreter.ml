@@ -17,23 +17,36 @@ let lazy_logger =
 ;;
 
 module Cache_key = struct
-  type t =
-    { ck_lookup_stack : Ident.t list;
-      ck_acl0 : annotated_clause;
-      ck_relstack : relative_stack;
-    };;
-  let compare k1 k2 =
-    let c = List.compare Ident.compare k1.ck_lookup_stack k2.ck_lookup_stack in
-    if c <> 0 then c else
-      let c = Annotated_clause.compare k1.ck_acl0 k2.ck_acl0 in
-      if c <> 0 then c else
-        Relative_stack.compare_relative_stack k1.ck_relstack k2.ck_relstack
+  type 'a t =
+    | Cache_lookup :
+        Ident.t list * annotated_clause * relative_stack ->
+        (symbol * concrete_stack) t
+  ;;
+
+  let compare : type a b. a t -> b t -> (a, b) Gmap.Order.t = fun k1 k2 ->
+    match k1, k2 with
+    | Cache_lookup(lookup_stack_1, acl1, relative_stack_1),
+      Cache_lookup(lookup_stack_2, acl2, relative_stack_2) ->
+      let c = List.compare Ident.compare lookup_stack_1 lookup_stack_2 in
+      if c < 0 then Lt else
+      if c > 0 then Gt else
+        let c = Annotated_clause.compare acl1 acl2 in
+        if c < 0 then Lt else
+        if c > 0 then Gt else
+          let c =
+            Relative_stack.compare_relative_stack
+              relative_stack_1 relative_stack_2
+          in
+          if c < 0 then Lt else
+          if c > 0 then Gt else
+            Eq
   ;;
 end;;
 
 module M = Symbolic_monad.Make(
   struct
     module Cache_key = Cache_key;;
+    module Work_collection = Symbolic_monad.QueueWorkCollection;;
   end);;
 
 open M;;
@@ -216,6 +229,7 @@ let rec lookup
            (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack')
            (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl0')
       );
+    cache (Cache_lookup(lookup_stack', acl0', relstack')) @@
     lookup env lookup_stack' acl0' relstack'
   in
   lazy_logger `trace

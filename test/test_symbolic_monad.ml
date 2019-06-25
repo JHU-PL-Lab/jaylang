@@ -17,13 +17,22 @@ let _add_test name testfn = _tests_acc := (name >:: testfn) :: !_tests_acc;;
 (* Experimental monad *)
 
 module Cache_key = struct
-  type t = int;;
-  let compare = Int.compare;;
+  type 'a t = K : int -> unit t;;
+  let compare (type a b) (x : a t) (y : b t) : (a,b) Gmap.Order.t =
+    let K(x) = x in
+    let K(y) = y in
+    if x < y then Gmap.Order.Lt else
+    if x > y then Gmap.Order.Gt else
+      Gmap.Order.Eq
+  ;;
 end;;
 
-module M = Symbolic_monad.Make(struct
-    module Cache_key = Cache_key;;
-  end);;
+module Spec = struct
+  module Cache_key = Cache_key;;
+  module Work_collection = Symbolic_monad.QueueWorkCollection;;
+end;;
+
+module M = Symbolic_monad.Make(Spec);;
 
 open M;;
 
@@ -48,7 +57,7 @@ let complete (x : 'a m) : 'a test_result Enum.t =
            { tr_value = er.er_value;
              tr_formulae = er.er_formulae;
              tr_total_steps = new_steps_so_far;
-             tr_result_steps = er.er_steps;
+             tr_result_steps = er.er_result_steps;
            }
         )
     in

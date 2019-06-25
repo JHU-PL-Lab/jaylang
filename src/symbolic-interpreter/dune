@@ -6,6 +6,7 @@
   (synopsis "Symbolic interpreter for Odefa")
   (libraries
     batteries
+    gmap
     jhupllib
     z3
     odefa.ast

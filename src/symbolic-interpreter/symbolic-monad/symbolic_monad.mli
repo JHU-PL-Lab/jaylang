@@ -22,10 +22,31 @@ open Ast;;
 open Interpreter_types;;
 open Sat_types;;
 
+(** The information pertinent to a single element of work in a symbolic monad
+    computation. *)
+type 'a work_info = {
+  work_item : 'a;
+};;
+
+(** The signature of a work collection module used to order how a symbolic monad
+    takes computational steps. *)
+module type WorkCollection = sig
+  type 'a t;;
+  val empty : 'a t;;
+  val is_empty : 'a t -> bool;;
+  val size : 'a t -> int;;
+  val offer : 'a work_info -> 'a t -> 'a t;;
+  val take : 'a t -> ('a work_info * 'a t) option;;
+end;;
+
+module QueueWorkCollection : WorkCollection;;
+
 (** The specification of a symbolic monad. *)
 module type Spec = sig
-  (* A definition of the type used as a caching key. *)
-  module Cache_key : Interfaces.OrderedType;;
+  (** A definition of the type used as a caching key. *)
+  module Cache_key : Gmap.KEY;;
+  (** The work collection to use during computation. *)
+  module Work_collection : WorkCollection;;
 end;;
 
 (** The interface of a symbolic monad. *)
@@ -51,7 +72,19 @@ module type S = sig
 
   (** Computational suspension.  When stepping the evaluation of a monadic value,
       invocations of this function will mark the completion of a step. *)
-  val pause : unit -> unit m
+  val pause : unit -> unit m;;
+
+  (** Caches the value produced by the provided monadic computation using a
+      particular key.  The first call to this routine will register the
+      evaluation of the provided monadic computation in the work queue and, once
+      it has been stepped to completion, will store the resulting value in a
+      cache and resume this computation with that value.  Further calls to this
+      routine with the same cache key will ignore the provided monadic
+      computation and simply use any previously computed value.  If a cached
+      value is being computed, all computations which depend upon it will block.
+      This cache is shared among all threads of non-deterministic computation in
+      this monad. *)
+  val cache : 'a Spec.Cache_key.t -> 'a m -> 'a m;;
 
   (** Records a path decision for the provided variable.  If the provided search
       path is valid in this environment, unit is returned in the environment.  If
@@ -81,7 +114,8 @@ module type S = sig
   type 'a evaluation_result =
     { er_value : 'a;
       er_formulae : Formulae.t;
-      er_steps : int;
+      er_evaluation_steps : int;
+      er_result_steps : int;
     };;
 
   (** Initializes a computation in this monad.  This is similar to the "run"
