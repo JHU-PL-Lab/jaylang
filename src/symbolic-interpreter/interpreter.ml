@@ -41,6 +41,18 @@ module Cache_key = struct
           if c > 0 then Gt else
             Eq
   ;;
+
+  let pp (type a) formatter (key : a t) =
+    match key with
+    | Cache_lookup(lookup_stack, acl, relative_stack) ->
+      Format.fprintf formatter "lookup(%s,%s,%s)"
+        (Jhupllib.Pp_utils.pp_to_string (Jhupllib.Pp_utils.pp_list pp_ident)
+           lookup_stack)
+        (show_brief_annotated_clause acl)
+        (Relative_stack.show_relative_stack relative_stack)
+  ;;
+
+  let show key = Jhupllib.Pp_utils.pp_to_string pp key;;
 end;;
 
 module M = Symbolic_monad.Make(

@@ -269,6 +269,9 @@ let pp_brief_annotated_clause formatter annotated_clause =
     Format.pp_print_string formatter "start ";
     pp_abstract_var formatter x;
 ;;
+let show_brief_annotated_clause =
+  Jhupllib.Pp_utils.pp_to_string pp_brief_annotated_clause
+;;
 
 let is_annotated_clause_immediate acl =
   match acl with

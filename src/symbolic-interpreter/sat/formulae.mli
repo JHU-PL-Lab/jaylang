@@ -20,6 +20,8 @@ type symbol_type =
   | FunctionSymbol of function_value
 ;;
 
+val pp_symbol_type : symbol_type pretty_printer;;
+
 (** An exception which is raised if an inconsistent formula is added to a
     collection.  This is not guaranteed to be thrown in all contradictory
     circumstances; it is thrown when the intersection of types assigned to a

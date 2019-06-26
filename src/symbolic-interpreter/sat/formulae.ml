@@ -19,6 +19,13 @@ type symbol_type =
 [@@deriving eq]
 ;;
 
+let pp_symbol_type formatter t =
+  match t with
+  | IntSymbol -> Format.pp_print_string formatter "int"
+  | BoolSymbol -> Format.pp_print_string formatter "bool"
+  | FunctionSymbol fv -> Ast_pp_brief.pp_function_value formatter fv
+;;
+
 exception SymbolTypeContradiction of string * symbol * symbol_type list;;
 
 (** Describes the type inference state of a symbol in a collection.  The

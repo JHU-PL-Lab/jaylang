@@ -41,10 +41,16 @@ end;;
 
 module QueueWorkCollection : WorkCollection;;
 
+module type Cache_key = sig
+  include Gmap.KEY;;
+  val pp : 'a t Jhupllib.Pp_utils.pretty_printer;;
+  val show : 'a t -> string;;
+end;;
+
 (** The specification of a symbolic monad. *)
 module type Spec = sig
   (** A definition of the type used as a caching key. *)
-  module Cache_key : Gmap.KEY;;
+  module Cache_key : Cache_key;;
   (** The work collection to use during computation. *)
   module Work_collection : WorkCollection;;
 end;;

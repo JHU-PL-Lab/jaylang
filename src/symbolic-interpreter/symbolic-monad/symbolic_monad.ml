@@ -52,8 +52,14 @@ module QueueWorkCollection = struct
   let take dq = Deque.front dq;;
 end;;
 
+module type Cache_key = sig
+  include Gmap.KEY;;
+  val pp : 'a t Jhupllib.Pp_utils.pretty_printer;;
+  val show : 'a t -> string;;
+end;;
+
 module type Spec = sig
-  module Cache_key : Gmap.KEY;;
+  module Cache_key : Cache_key;;
   module Work_collection : WorkCollection;;
 end;;
 
@@ -159,7 +165,16 @@ struct
       try
         Some(Formulae.union log1.log_formulae log2.log_formulae)
       with
-      | Formulae.SymbolTypeContradiction _ -> None
+      | Formulae.SymbolTypeContradiction(_,symbol,types) ->
+        (lazy_logger `trace @@ fun () ->
+         Printf.sprintf
+           "Immediate contradiction at symbol %s with types %s while merging two formula sets.\nSet 1:\n%s\nSet 2:\n%s\n"
+           (show_symbol symbol)
+           (Jhupllib.Pp_utils.pp_to_string (Jhupllib.Pp_utils.pp_list Formulae.pp_symbol_type) types)
+           (Formulae.show log1.log_formulae)
+           (Formulae.show log2.log_formulae)
+        );
+        None
     in
     let merge_fn _key a b =
       match a,b with
@@ -653,6 +668,16 @@ struct
          values.  We'll push what we can into local functions to limit code
          duplication.
       *)
+      lazy_logger `trace (fun () ->
+          let task_descr =
+            match task with
+            | Some_task(Cache_task(key, _)) ->
+              "cache key " ^ Cache_key.show key
+            | Some_task(Result_task _) ->
+              "result"
+          in
+          "Stepping task for " ^ task_descr
+        );
       let handle_computation
           (type t)
           (mk_task : t m -> a some_task)
