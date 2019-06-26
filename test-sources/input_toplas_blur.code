@@ -1,0 +1,65 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH c [ 0 ]
+##
+## * Did not generate input sequence [2] for variable c.
+## It should reach c for any input
+
+# countdown on n,
+#   return (id a) if n >= 1
+#   otherwise
+#      blur(which is id) the previous function and the false, with (n-1)
+# It's equivalent to
+# lp #t _ = #t
+# lt #f n = not . not . not ... (n-1 times) #f
+#
+
+id = fun x_id -> (
+  r_0 = x_id;
+);
+
+blur = fun blur_x -> (
+  r_3 = blur_x;
+);
+
+lp = fun lp_clone -> (
+  dummy_0 = 0;
+  r_5 = fun a -> (
+    dummy_1 = 0;
+    r_2 = fun n -> (
+      dummy_2 = 0;
+      one = 1;
+      c = n <= one;
+      r_6 = c
+      ? (
+        dummy_3 = 0;
+        r_1 = id a;
+      ) : (
+        dummy_4 = 0;
+        blurred_id1 = blur id;
+        tt = true;
+        r = blurred_id1 tt;
+
+        blurred_id2 = blur id;
+        ff = false;
+        s = blurred_id2 ff;
+
+        blurred_lp = blur lp_clone;
+        one_c = 1;
+        n_pred = n - one_c;
+
+        i_0 = blurred_lp s;
+        i_1 = i_0 n_pred;
+        # not i_1
+        r_4 = i_1 xor tt;
+      );
+    );
+  );
+);
+
+fff = false;
+two = 2;
+x = two;
+# x = input;
+lplp = lp lp;
+i_2 = lplp fff;
+result = i_2 x;
