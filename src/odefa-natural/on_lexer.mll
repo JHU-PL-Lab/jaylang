@@ -51,7 +51,7 @@ rule token = parse
 | "=="                  { BINOP_EQUAL }
 | "<"                  { BINOP_LESS }
 | "<="                 { BINOP_LESS_EQUAL }
-| "-"? digit+ as n     { INT_LITERAL (int_of_string n) }
+| digit+ as n         { INT_LITERAL (int_of_string n) }
 | "\"" (string_contents as s) "\"" { STRING_LITERAL s }
 | ident_start ident_cont* as s     { IDENTIFIER s }
 

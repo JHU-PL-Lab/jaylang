@@ -233,7 +233,7 @@ let rec replace_duplicate_naming
 ;;
 
 
-let find_replace_on_fun_params = fun acc -> fun curr_id ->
+let find_replace_on_fun_params = fun curr_id -> fun acc ->
   let (curr_e, curr_id_list, fun_id_list) = acc in
   if List.mem curr_id curr_id_list then
     (
@@ -272,7 +272,7 @@ let rec find_replace_duplicate_naming
     (* TODO: clean up the naming of id_list *)
     let (init_e, init_id_list) = find_replace_duplicate_naming e' ident_list in
     let (final_e, final_id_list, final_fun_id_list) =
-      List.fold_left find_replace_on_fun_params (init_e, init_id_list, []) id_list in
+      List.fold_right find_replace_on_fun_params id_list (init_e, init_id_list, []) in
     (Function (final_fun_id_list, final_e), final_id_list)
   | Appl (e1, e2) ->
     let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
@@ -305,7 +305,7 @@ let rec find_replace_duplicate_naming
       find_replace_duplicate_naming f_e outer_e_list in
     (* taking care of the funsig part*)
     let (final_inner_e, ident_list', param_list') =
-      List.fold_left find_replace_on_fun_params (init_inner_e, init_list, []) param_list in
+      List.fold_right find_replace_on_fun_params param_list (init_inner_e, init_list, []) in
     (* checking if the let part has conflicts *)
     if List.mem f_name ident_list' then
       (
@@ -405,8 +405,9 @@ and
   match e with
   | Var (id) ->
     let Ident(i_string) = id in
+    let new_var = Ast.Var(Ast.Ident (fresh_name i_string), None) in
     let return_var = Ast.Var(Ast.Ident(i_string), None) in
-    ([], return_var)
+    ([Clause(new_var, Var_body(return_var))], new_var)
   | Function (id_list, e) ->
     let (fun_c_list, fun_var) = flatten_expr e in
     let body_expr = Ast.Expr(fun_c_list) in
