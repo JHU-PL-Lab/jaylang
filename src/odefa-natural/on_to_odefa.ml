@@ -232,7 +232,9 @@ let rec replace_duplicate_naming
     let new_e' = replace_duplicate_naming e' old_name new_name in
     RecordProj (new_e', lab)
 ;;
-let fold_on_fun = fun acc -> fun curr_id ->
+
+
+let find_replace_on_fun_params = fun acc -> fun curr_id ->
   let (curr_e, curr_id_list, fun_id_list) = acc in
   if List.mem curr_id curr_id_list then
     (
@@ -262,10 +264,10 @@ let rec find_replace_duplicate_naming
   match e with
   | Int _ | Bool _ | String _ | Var _ -> (e , ident_list)
   | Function (id_list, e') ->
-    let (init_e, init_id_list) = find_replace_duplicate_naming e' ident_list in
     (* EXTREMELY BAD CODING PRACTICE IS BAD and we are good programmers *)
+    let (init_e, init_id_list) = find_replace_duplicate_naming e' ident_list in
     let (final_e, final_id_list, final_fun_id_list) =
-      List.fold_left fold_on_fun (init_e, init_id_list, []) id_list in
+      List.fold_left find_replace_on_fun_params (init_e, init_id_list, []) id_list in
     (Function (final_fun_id_list, final_e), final_id_list)
   | Appl (e1, e2) ->
     let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
@@ -292,27 +294,31 @@ let rec find_replace_duplicate_naming
       )
   | LetRecFun _ -> raise (Failure "no let rec")
   | LetFun (f_sig, e') ->
-    let Funsig(f_name, id_list, f_e) = f_sig in
-    let (outer_e', outer_e_list) = find_replace_duplicate_naming e' ident_list in
-    let (inner_e', init_list) =
+    let Funsig(f_name, param_list, f_e) = f_sig in
+    let (outer_e, outer_e_list) = find_replace_duplicate_naming e' ident_list in
+    let (init_inner_e, init_list) =
       find_replace_duplicate_naming f_e outer_e_list in
-    let (final_e, final_id_list, final_fun_id_list) =
-      List.fold_left fold_on_fun (inner_e', init_list, []) id_list in
-    if List.mem f_name final_id_list then
+    (* taking care of the funsig part*)
+    let (final_inner_e, ident_list', param_list') =
+      List.fold_left find_replace_on_fun_params (init_inner_e, init_list, []) param_list in
+    (* checking if the let part has conflicts *)
+    if List.mem f_name ident_list' then
       (
+        (* if there are conflicts, we need to change the id in the let binding,
+           and accomodate on the outer expression
+        *)
         let On_ast.Ident(name_string) = f_name in
         let new_name = On_ast.Ident(fresh_name name_string) in
-        (* let new_e1 = replace_duplicate_naming init_e1 id new_name in *)
-        let new_e2 = replace_duplicate_naming outer_e' f_name new_name in
-        let new_list = new_name :: final_fun_id_list in
-        let new_funsig = On_ast.Funsig(new_name, final_fun_id_list, final_e) in
-        (LetFun(new_funsig, new_e2), new_list)
+        let new_outer_e = replace_duplicate_naming outer_e f_name new_name in
+        let new_list = new_name :: ident_list' in
+        let new_funsig = On_ast.Funsig(new_name, param_list', final_inner_e) in
+        (LetFun(new_funsig, new_outer_e), new_list)
       )
     else
       (
-        let new_list = f_name :: final_id_list in
-        let new_funsig = On_ast.Funsig(f_name, final_fun_id_list, final_e) in
-        (LetFun(new_funsig, outer_e'), new_list)
+        let new_list = f_name :: ident_list' in
+        let new_funsig = On_ast.Funsig(f_name, param_list', final_inner_e) in
+        (LetFun(new_funsig, outer_e), new_list)
       )
   | Plus (e1, e2) ->
     let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
@@ -350,12 +356,24 @@ let rec find_replace_duplicate_naming
     let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
     let (new_e3, e3_id_list) = find_replace_duplicate_naming e3 e2_id_list in
     (If(new_e1, new_e2, new_e3), e3_id_list)
-  | Record (_) ->
-    raise (Utils.Not_yet_implemented "woops")
+  | Record (recmap) ->
+    (* We need to traverse the map and check for each one. *)
+    let find_replace_on_records = fun key -> fun entry -> fun acc ->
+      (* the accumulator is a pair between the new dictionary and the new
+         ident list *)
+      let (curr_map, curr_ident_list) = acc in
+      let (new_entry, new_ident_list) =
+        find_replace_duplicate_naming entry curr_ident_list in
+      let new_map = On_ast.Ident_map.add key new_entry curr_map in
+      (new_map, new_ident_list)
+    in
+    let base_pair = (On_ast.Ident_map.empty, ident_list) in
+    let (res_map, res_ident_list) =
+      On_ast.Ident_map.fold find_replace_on_records recmap base_pair in
+    (Record (res_map), res_ident_list)
   | RecordProj (e', lab) ->
     let (new_e', e1_id_list) = find_replace_duplicate_naming e' ident_list in
     (RecordProj(new_e', lab), e1_id_list)
-  
 
 ;;
 
