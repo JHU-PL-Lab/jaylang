@@ -48,7 +48,7 @@ rule token = parse
 | "true"               { BOOL true }
 | "+"                  { BINOP_PLUS }
 | "-"                  { BINOP_MINUS }
-| "="                  { BINOP_EQUAL }
+| "=="                  { BINOP_EQUAL }
 | "<"                  { BINOP_LESS }
 | "<="                 { BINOP_LESS_EQUAL }
 | "-"? digit+ as n     { INT_LITERAL (int_of_string n) }

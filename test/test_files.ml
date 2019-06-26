@@ -304,7 +304,7 @@ let make_test filename expectations =
        satisfied.  This addresses nonsense cases such as expecting an ill-formed
        expression to evaluate. *)
     begin
-      let is_nato = String.ends_with ".natodefa" filename in
+      let is_nato = String.ends_with filename "natodefa" in
       let expr =
         if is_nato then
           let on_expr = File.with_file_in filename On_parse.parse_program in
