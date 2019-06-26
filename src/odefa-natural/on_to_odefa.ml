@@ -268,7 +268,8 @@ let rec find_replace_duplicate_naming
   match e with
   | Int _ | Bool _ | String _ | Var _ -> (e , ident_list)
   | Function (id_list, e') ->
-    (* EXTREMELY BAD CODING PRACTICE IS BAD and we are good programmers *)
+    (* we assume that the id_list of this function consists of unique elements *)
+    (* TODO: clean up the naming of id_list *)
     let (init_e, init_id_list) = find_replace_duplicate_naming e' ident_list in
     let (final_e, final_id_list, final_fun_id_list) =
       List.fold_left find_replace_on_fun_params (init_e, init_id_list, []) id_list in
@@ -552,6 +553,6 @@ let translate (e : On_ast.expr) : Odefa_ast.Ast.expr =
   let (c_list, _) = flatten_expr e_remove_duplicates in
   let Clause(last_var, _) = List.last c_list in
   let res_var = Ast.Var(Ident("~result"), None) in
-  let res_clause = Ast.Clause(res_var, Ast.Var_body(last_var)) in 
+  let res_clause = Ast.Clause(res_var, Ast.Var_body(last_var)) in
   Ast.Expr(c_list @ [res_clause])
 ;;
