@@ -2,8 +2,7 @@ open Batteries;;
 open Jhupllib;;
 open Odefa_ast;;
 
-(** This module contains utilities for picking fresh names.
-    Plucked from Compiler labs. Will change if necessary. *)
+let lazy_logger = Logger_utils.make_lazy_logger "On_to_odefa";;
 
 (** This creates a fresh name counter so we can easily get fresh names during
     the A-normalization process. *)
@@ -261,6 +260,11 @@ let rec find_replace_duplicate_naming
     (e : On_ast.expr)
     (ident_list : On_ast.ident list)
   : (On_ast.expr * On_ast.ident list) =
+  Logger_utils.lazy_bracket_log
+    (lazy_logger `trace)
+    (fun () -> "enter")
+    (fun _ -> "exit")
+  @@ fun () ->
   match e with
   | Int _ | Bool _ | String _ | Var _ -> (e , ident_list)
   | Function (id_list, e') ->
@@ -544,6 +548,10 @@ and
 
 let translate (e : On_ast.expr) : Odefa_ast.Ast.expr =
   let e_transformed = rec_transform e in
-  let (c_list, _) = flatten_expr e_transformed in
-  Ast.Expr(c_list)
+  let (e_remove_duplicates, _) = find_replace_duplicate_naming e_transformed [] in
+  let (c_list, _) = flatten_expr e_remove_duplicates in
+  let Clause(last_var, _) = List.last c_list in
+  let res_var = Ast.Var(Ident("~result"), None) in
+  let res_clause = Ast.Clause(res_var, Ast.Var_body(last_var)) in 
+  Ast.Expr(c_list @ [res_clause])
 ;;
