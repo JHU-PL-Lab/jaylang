@@ -104,6 +104,48 @@ and pp_abstract_expr formatter (Abs_expr(cls)) =
   pp_concat_sep ";" pp_abstract_clause formatter @@ List.enum cls
 ;;
 
+let rec pp_brief_abstract_function_value formatter (Abs_function_value(x,_)) =
+  Format.fprintf formatter "%a -> ..." pp_abstract_var x
+
+and pp_brief_abstract_value formatter v =
+  match v with
+  | Abs_value_function f -> pp_brief_abstract_function_value formatter f
+  | Abs_value_int -> Format.pp_print_string formatter "int"
+  | Abs_value_bool b ->
+    Format.pp_print_string formatter @@ if b then "true" else "false"
+
+and pp_brief_abstract_record_value formatter (Abs_record_value els) =
+  let pp_brief_element formatter (k,v) =
+    Format.fprintf formatter "%a=%a" pp_ident k pp_abstract_var v
+  in
+  pp_concat_sep_delim "{" "}" "," pp_brief_element formatter @@ Ident_map.enum els
+
+and pp_brief_abstract_ref_value formatter (Abs_ref_value x) =
+  Format.fprintf formatter "ref %a" pp_abstract_var x
+
+and pp_brief_abstract_clause_body formatter b =
+  match b with
+  | Abs_var_body(x) -> pp_abstract_var formatter x
+  | Abs_value_body(v) -> pp_brief_abstract_value formatter v
+  | Abs_input_body -> Format.pp_print_string formatter "input"
+  | Abs_appl_body(x1,x2) ->
+    Format.fprintf formatter "%a %a" pp_abstract_var x1 pp_abstract_var x2
+  | Abs_conditional_body(x,_,_) ->
+    Format.fprintf formatter
+      "%a @[<4>? ...@]"
+      pp_abstract_var x
+  | Abs_binary_operation_body(x1,op,x2) ->
+    Format.fprintf formatter "%a %a %a"
+      pp_abstract_var x1 pp_binary_operator op pp_abstract_var x2
+
+and pp_brief_abstract_clause formatter (Abs_clause(x,b)) =
+  Format.fprintf formatter "%a = @[<hv 2>%a@]"
+    pp_abstract_var x pp_brief_abstract_clause_body b
+
+and pp_brief_abstract_expr formatter (Abs_expr(cls)) =
+  pp_concat_sep ";" pp_brief_abstract_clause formatter @@ List.enum cls
+;;
+
 let show_abstract_clause = pp_to_string pp_abstract_clause;;
 
 let var_of_abstract_clause (Abs_clause(x,_)) = x;;
@@ -170,7 +212,62 @@ type annotated_clause =
   | End_clause of abstract_var
   (** This variable is the return variable of the block that this clause
       ends. *)
-[@@deriving ord, eq, show, to_yojson]
+[@@deriving ord, eq, to_yojson]
+;;
+
+let pp_annotated_clause formatter annotated_clause =
+  match annotated_clause with
+  | Unannotated_clause acl -> pp_abstract_clause formatter acl
+  | Binding_enter_clause(x,x',c) ->
+    pp_abstract_var formatter x;
+    Format.pp_print_string formatter " = ";
+    pp_abstract_var formatter x';
+    Format.pp_print_string formatter " @+ ";
+    pp_abstract_clause formatter c;
+  | Binding_exit_clause(x,x',c) ->
+    pp_abstract_var formatter x;
+    Format.pp_print_string formatter " = ";
+    pp_abstract_var formatter x';
+    Format.pp_print_string formatter " @- ";
+    pp_abstract_clause formatter c;
+  | Nonbinding_enter_clause(v,c) ->
+    pp_abstract_value formatter v;
+    Format.pp_print_string formatter " @+ ";
+    pp_abstract_clause formatter c;
+  | Start_clause(x) ->
+    Format.pp_print_string formatter "start ";
+    pp_abstract_var formatter x;
+  | End_clause(x) ->
+    Format.pp_print_string formatter "start ";
+    pp_abstract_var formatter x;
+;;
+let show_annotated_clause = Jhupllib.Pp_utils.pp_to_string pp_annotated_clause;;
+
+let pp_brief_annotated_clause formatter annotated_clause =
+  match annotated_clause with
+  | Unannotated_clause acl -> pp_brief_abstract_clause formatter acl
+  | Binding_enter_clause(x,x',Abs_clause(x'',_)) ->
+    pp_abstract_var formatter x;
+    Format.pp_print_string formatter " = ";
+    pp_abstract_var formatter x';
+    Format.pp_print_string formatter " @+ ";
+    pp_abstract_var formatter x'';
+  | Binding_exit_clause(x,x',Abs_clause(x'',_)) ->
+    pp_abstract_var formatter x;
+    Format.pp_print_string formatter " = ";
+    pp_abstract_var formatter x';
+    Format.pp_print_string formatter " @- ";
+    pp_abstract_var formatter x'';
+  | Nonbinding_enter_clause(v,Abs_clause(x'',_)) ->
+    pp_abstract_value formatter v;
+    Format.pp_print_string formatter " @+ ";
+    pp_abstract_var formatter x'';
+  | Start_clause(x) ->
+    Format.pp_print_string formatter "start ";
+    pp_abstract_var formatter x;
+  | End_clause(x) ->
+    Format.pp_print_string formatter "start ";
+    pp_abstract_var formatter x;
 ;;
 
 let is_annotated_clause_immediate acl =

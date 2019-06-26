@@ -201,15 +201,18 @@ let rec lookup
     (relstack : relative_stack)
   : (symbol * concrete_stack) m =
   let%bind acl1 = pick @@ preds acl0 env.le_cfg in
-  let zero () =
+  let zeromsg msg () =
     lazy_logger `trace
       (fun () ->
-         Printf.sprintf "ZERO for lookup of\n  %s\n  with stack %s\n  at %s\n  after %s\n"
+         Printf.sprintf "ZERO (%s) for lookup of\n  %s\n  with stack %s\n  at %s\n  after %s\n"
+           msg
            (Jhupllib.Pp_utils.pp_to_string
               (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack)
            (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack)
-           (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl0)
-           (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl1)
+           (Jhupllib.Pp_utils.pp_to_string
+              pp_brief_annotated_clause acl0)
+           (Jhupllib.Pp_utils.pp_to_string
+              pp_brief_annotated_clause acl1)
       );
     zero ()
   in
@@ -222,12 +225,15 @@ let rec lookup
            (Jhupllib.Pp_utils.pp_to_string
               (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack)
            (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack)
-           (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl0)
-           (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl1)
+           (Jhupllib.Pp_utils.pp_to_string
+              pp_brief_annotated_clause acl0)
+           (Jhupllib.Pp_utils.pp_to_string
+              pp_brief_annotated_clause acl1)
            (Jhupllib.Pp_utils.pp_to_string
               (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack')
            (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack')
-           (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl0')
+           (Jhupllib.Pp_utils.pp_to_string
+              pp_brief_annotated_clause acl0')
       );
     cache (Cache_lookup(lookup_stack', acl0', relstack')) @@
     lookup env lookup_stack' acl0' relstack'
@@ -239,13 +245,13 @@ let rec lookup
          (Jhupllib.Pp_utils.pp_to_string
             (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack)
          (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack)
-         (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl0)
-         (Jhupllib.Pp_utils.pp_to_string pp_annotated_clause acl1)
+         (Jhupllib.Pp_utils.pp_to_string pp_brief_annotated_clause acl0)
+         (Jhupllib.Pp_utils.pp_to_string pp_brief_annotated_clause acl1)
     );
   match lookup_stack with
   | [] ->
     (* No rule handles an empty variable stack. *)
-    zero ()
+    zeromsg "empty variable stack" ()
   | lookup_var :: lookup_stack' ->
     begin
       match acl1 with
@@ -260,10 +266,11 @@ let rec lookup
              of the lookup stack is the variable defined by this clause. *)
           match ab with
           | Abs_value_body _ ->
+            let zero = zeromsg "Abs_value_body" in
             let cl1 = Ident_map.find x env.le_clause_mapping in
             let%orzero Clause(_,Value_body(v)) = cl1 in
             lazy_logger `trace
-              (fun () -> "Discovered value: " ^ show_value v);
+              (fun () -> "Discovered value: " ^ Ast_pp_brief.show_value v);
             if List.is_empty lookup_stack' then
               (* ## Value Discovery rule ## *)
               let lookup_symbol = Symbol(lookup_var, relstack) in
@@ -362,7 +369,14 @@ let rec lookup
                               Abs_appl_body(Abs_var xf, Abs_var _)) = c in
         (* Find the concrete clause corresponding to c.*)
         let cc = Ident_map.find xr env.le_clause_mapping in
+        let zero = zeromsg "Binding_enter_clause" in
+        lazy_logger `trace(fun () ->
+            Printf.sprintf "BEC: relstack = %s, xr = %s"
+              (Relative_stack.show_relative_stack relstack) (show_ident xr));
         let%orzero Some relstack' = pop relstack xr in
+        lazy_logger `trace(fun () ->
+            "BEC: relstack' = " ^
+            Relative_stack.show_relative_stack relstack');
         (* Decision check *)
         let symbol = Symbol(x, relstack) in
         let%bind () = record_decision symbol x cc x' in
@@ -397,6 +411,7 @@ let rec lookup
            and Conditional Bottom rules.  These rules all require that the
            exit clause binds the variable we are looking up. *)
         [%guard equal_ident x lookup_var];
+        let zero = zeromsg "Binding_exit_clause" in
         begin
           match c with
           | Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, Abs_var _)) ->
@@ -445,6 +460,7 @@ let rec lookup
         end
       | Nonbinding_enter_clause(v,c) ->
         (* ## Conditional Top rule ## *)
+        let zero = zeromsg "Nonbinding_enter_clause" in
         let%orzero Abs_clause(_, Abs_conditional_body(Abs_var x1, _, _)) = c in
         (* Since conditionals are the only kind of thing we see here, we can
            insist that the value is a boolean.  This is important, since we have
@@ -489,7 +505,7 @@ let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
               program_point env.le_clause_predecessor_mapping with
       | None ->
         raise @@ Invalid_query("Variable " ^ show_ident program_point ^
-                               " is not defined")
+                               " is not defined or is first in its expression")
       | Some cl -> cl
     in
     let Clause(Var(ident,_),_) = clause in
@@ -521,11 +537,27 @@ let step (x : evaluation) : evaluation_result list * evaluation option =
       (fun evaluation_result ->
          match Solver.solve evaluation_result.M.er_formulae with
          | Some f ->
+           begin
+             lazy_logger `trace (fun () ->
+                 Printf.sprintf
+                   "Discovered answer of stack %s and formulae:\n%s"
+                   (show_concrete_stack evaluation_result.M.er_value)
+                   (Formulae.show evaluation_result.M.er_formulae)
+               )
+           end;
            Some {er_formulae = evaluation_result.M.er_formulae;
                  er_stack = evaluation_result.M.er_value;
                  er_solution = f
                 }
          | None ->
+           begin
+             lazy_logger `trace (fun () ->
+                 Printf.sprintf
+                   "Dismissed answer of stack %s with unsolvable formulae:\n%s"
+                   (show_concrete_stack evaluation_result.M.er_value)
+                   (Formulae.show evaluation_result.M.er_formulae)
+               )
+           end;
            None
       )
   in

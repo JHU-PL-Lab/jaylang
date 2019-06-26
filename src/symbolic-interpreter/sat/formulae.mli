@@ -60,3 +60,12 @@ val type_of : symbol -> t -> symbol_type option;;
 
 (** Pretty-prints a set of formulae. *)
 val pp : t pretty_printer;;
+
+(** Shows a set of formulae. *)
+val show : t -> string;;
+
+(** Briefly pretty-prints a set of formulae. *)
+val pp_brief : t pretty_printer;;
+
+(** Briefly shows a set of formulae. *)
+val show_brief : t -> string;;

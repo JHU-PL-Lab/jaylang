@@ -150,8 +150,8 @@ let empty : t =
 let add (formula : formula) (collection : t) : t =
   lazy_logger `trace (fun () ->
       Printf.sprintf "Adding %s to %s"
-        (Formula.show formula)
-        (Formula_set.show collection.formulae)
+        (Formula.show_brief formula)
+        (Formula_set.Pp_brief.show collection.formulae)
     );
   (* Derive a set containing the new formula. *)
   let formulae' = Formula_set.add formula collection.formulae in
@@ -224,3 +224,11 @@ let type_of (symbol : symbol) (collection : t) : symbol_type option =
 let pp formatter collection =
   Formula_set.pp formatter collection.formulae
 ;;
+
+let show = Jhupllib.Pp_utils.pp_to_string pp;;
+
+let pp_brief formatter collection =
+  Formula_set.Pp_brief.pp formatter collection.formulae
+;;
+
+let show_brief = Jhupllib.Pp_utils.pp_to_string pp_brief;;
