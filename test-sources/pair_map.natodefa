@@ -1,0 +1,27 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 100ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END ~result {false}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+
+let pair_first p =
+  p.first
+in
+let pair_second p =
+  p.second
+in
+let pair = {first = {first = true, second = false}, second = {first = false, second = true}}
+in
+let pair_map f p =
+  let new_first = f (p.first) in
+  let new_second = f (p.second) in
+  {first = new_first, second = new_second}
+in
+let inc n =
+  if (n == true) then false
+  else true
+in
+let res_nested_pair = pair_map (pair_map inc) pair in
+let res_pair = res_nested_pair.first in
+let res = pair.first in
+res.second

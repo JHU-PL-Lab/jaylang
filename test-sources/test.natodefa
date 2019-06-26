@@ -1,4 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-EVALUATE
-
-let x = 4 in x
