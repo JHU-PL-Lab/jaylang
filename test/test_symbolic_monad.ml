@@ -17,10 +17,10 @@ let _add_test name testfn = _tests_acc := (name >:: testfn) :: !_tests_acc;;
 (* Experimental monad *)
 
 module Cache_key = struct
-  type 'a t = K : int -> unit t;;
+  type 'a t = KInt : int -> int t;;
   let compare (type a b) (x : a t) (y : b t) : (a,b) Gmap.Order.t =
-    let K(x) = x in
-    let K(y) = y in
+    let KInt(x) = x in
+    let KInt(y) = y in
     if x < y then Gmap.Order.Lt else
     if x > y then Gmap.Order.Gt else
       Gmap.Order.Eq
@@ -35,6 +35,7 @@ end;;
 module M = Symbolic_monad.Make(Spec);;
 
 open M;;
+open Cache_key;;
 
 (* **** Utils **** *)
 
@@ -42,8 +43,11 @@ type 'a test_result =
   { tr_value : 'a;
     tr_formulae : Formulae.t;
     tr_total_steps : int;
+    tr_evaluation_steps : int;
     tr_result_steps : int;
   }
+  (* NOTE: total steps (computed by test framework) and evaluation steps
+     (computed by monadic evaluation engine) should always match. *)
 ;;
 
 let complete (x : 'a m) : 'a test_result Enum.t =
@@ -57,6 +61,7 @@ let complete (x : 'a m) : 'a test_result Enum.t =
            { tr_value = er.er_value;
              tr_formulae = er.er_formulae;
              tr_total_steps = new_steps_so_far;
+             tr_evaluation_steps = er.er_evaluation_steps;
              tr_result_steps = er.er_result_steps;
            }
         )
@@ -85,7 +90,7 @@ let test_complete_values
     actual
 ;;
 
-let test_complete_values_with_steps
+let test_complete_values_with_result_steps
     (type a)
     (printer : a Pp_utils.pretty_printer)
     (equal : a -> a -> bool)
@@ -104,13 +109,40 @@ let test_complete_values_with_steps
     actual
 ;;
 
+let test_complete_values_with_all_steps
+    (type a)
+    (printer : a Pp_utils.pretty_printer)
+    (equal : a -> a -> bool)
+    (computation : a m)
+    (expected : (a * int * int) list) : unit =
+  let results : a test_result Enum.t = complete computation in
+  let actual : (a * int * int) list =
+    List.of_enum @@
+    Enum.map
+      (fun tr ->
+         (tr.tr_value, tr.tr_result_steps, tr.tr_evaluation_steps)
+      )
+      results
+  in
+  assert_equal
+    ~printer:(Pp_utils.pp_to_string @@
+              Pp_utils.pp_list @@
+              Pp_utils.pp_triple
+                printer
+                Format.pp_print_int
+                Format.pp_print_int)
+    ~cmp:(List.eq (fun (x,y,z) (x',y',z') -> equal x x' && y = y' && z = z'))
+    expected
+    actual
+;;
+
 (* **** Tests **** *)
 
 _add_test "pure 4" @@ fun _ ->
 let computation =
   return 4
 in
-test_complete_values_with_steps Format.pp_print_int (=) computation
+test_complete_values_with_result_steps Format.pp_print_int (=) computation
   [(4,1)]
 ;;
 
@@ -119,7 +151,7 @@ let computation =
   let%bind z = pick @@ List.enum [1;2;3;4] in
   return z
 in
-test_complete_values_with_steps Format.pp_print_int (=) computation
+test_complete_values_with_result_steps Format.pp_print_int (=) computation
   [(1,1); (2,1); (3,1); (4,1)]
 ;;
 
@@ -132,7 +164,7 @@ let computation =
   let%bind () = record_formula @@ F.set_int F.y n in
   return n
 in
-test_complete_values_with_steps Format.pp_print_int (=) computation
+test_complete_values_with_result_steps Format.pp_print_int (=) computation
   [(2,1)]
 ;;
 
@@ -141,7 +173,7 @@ let computation =
   let%bind () = pause () in
   return 5
 in
-test_complete_values_with_steps Format.pp_print_int (=) computation
+test_complete_values_with_result_steps Format.pp_print_int (=) computation
   [(5,2)]
 ;;
 
@@ -151,7 +183,7 @@ let computation =
   let%bind () = pause () in
   return n
 in
-test_complete_values_with_steps Format.pp_print_int (=) computation
+test_complete_values_with_result_steps Format.pp_print_int (=) computation
   [(1,2); (2,2); (3,2)]
 ;;
 
@@ -161,8 +193,31 @@ let computation =
   let%bind () = if n mod 2 = 0 then pause () else return () in
   return n
 in
-test_complete_values_with_steps Format.pp_print_int (=) computation
+test_complete_values_with_result_steps Format.pp_print_int (=) computation
   [(1,1); (3,1); (5,1); (2,2); (4,2)]
+;;
+
+_add_test "caching" @@ fun _ ->
+let computation =
+  let computation_to_cache =
+    let%bind () = pause () in
+    let%bind () = pause () in
+    let%bind () = pause () in
+    let%bind () = pause () in
+    let%bind () = pause () in
+    let%bind () = pause () in
+    let%bind () = pause () in
+    let%bind () = pause () in
+    let%bind () = pause () in
+    let%bind () = pause () in
+    return 5
+  in
+  let%bind x = cache (KInt 1) computation_to_cache in
+  let%bind y = cache (KInt 1) computation_to_cache in
+  return @@ x + y
+in
+test_complete_values_with_all_steps Format.pp_print_int (=) computation
+  [(10,21,14)]
 ;;
 
 (* **** Packaging up tests for main test module ***** *)
