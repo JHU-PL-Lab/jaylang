@@ -23,7 +23,15 @@ module Ident_map = struct
   include Yojson_utils.Map_to_yojson(M)(Ident);;
 end;;
 
+type variant_label = Variant_label of string
+
 type funsig = Funsig of ident * ident list * expr
+
+and variant_content = Variant of variant_label * pattern
+
+and pattern = AnyPat | IntPat | TruePat | FalsePat | RecPat of pattern Ident_map.t
+            | VariantPat of variant_content | VarPat of ident
+            | FunPat | StringPat
 
 and expr =
   | Var of ident | Function of ident list * expr | Appl of expr * expr
@@ -35,3 +43,4 @@ and expr =
   | If of expr * expr * expr | Int of int | Bool of bool
   | String of string
   | Record of expr Ident_map.t | RecordProj of expr * label
+  | Match of expr * (pattern * expr) list

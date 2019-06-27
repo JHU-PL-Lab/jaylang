@@ -546,6 +546,61 @@ and
                                 Ast.Projection_body(e_var, l_ident)
                                ) in
     (e_clist @ [new_clause], new_var)
+  | Match (subject, pat_expr_list) ->
+    (* We need to convert the subject first *)
+    let (subject_clause_list, subject_var) = flatten_expr subject in
+    (* List.fold_right routine that deeply nests the contents of the match
+       into a series of odefa conditionals *)
+    (* the type of the accumulator would be the entire expression that goes into
+       the "else" case of the next conditional *)
+    let match_converter curr acc =
+      (
+        let (curr_pat, curr_pat_expr) = curr in
+        let cond_var_name = fresh_name "cond~" in
+        let cond_var = Ast.Var(Ast.Ident(cond_var_name), None) in
+        let ast_pat =
+          (match curr_pat with
+           | AnyPat -> Ast.Any_pattern
+           | IntPat -> Ast.Int_pattern
+           | TruePat -> Ast.Bool_pattern(true)
+           | FalsePat -> Ast.Bool_pattern(false)
+           | FunPat -> Ast.Fun_pattern
+           | StringPat -> Ast.String_pattern
+           | RecPat (patmap) -> (* Thank you Earl *)
+           | VariantPat (var_content) -> raise (Failure "variants would be encoded")
+           | VarPat (id) -> raise (Failure "var would be encoded???")
+          )
+        in
+        let (flat_pat_expr, flat_pat_var) = flatten_expr curr_pat_expr in
+        let pat_fun = Function_value (flat_pat_var, Expr(flat_pat_expr)) in
+        let antimatch_var = fresh_name "var~" in
+        let antimatch_fun = Function_value (antimatch_var, acc) in
+        let match_clause =
+          Ast.Clause(cond_var,
+                     Ast.Conditional_body(subject_var, ast_pat,
+                                          pat_fun, antimatch_fun)
+                    )
+        in
+        Expr(match_clause)
+      )
+    in
+    let explode_expr =
+      let zero_varname = fresh_name "zero~" in
+      let zero_var = Ast.Var(Ast.Ident(zero_varname), None) in
+      let zero_clause = Ast.Clause(zero_var, Ast.Value_body(Ast.Value_int(0))) in
+      let zero_appl_varname = fresh_name "explode~" in
+      let zero_appl_var = Ast.Var(Ast.Ident(zero_appl_varname), None) in
+      let zero_appl_clause = Ast.Clause(zero_appl_var, Ast.Appl_body(zero_var, zero_var))
+      in
+      Ast.Expr([zero_clause; zero_appl_clause])
+    in
+    let match_expr = List.fold_right match_converter pat_expr_list explode_expr in
+    let Ast.Expr(match_clauses) = match_expr in 
+    let match_last_clause = List.last match_clauses in
+    let Ast.Clause(match_last_clause_var, _) = match_last_clause in
+    (match_clauses, match_last_clause_var)
+
+    (* The base case is our EXPLODING clause *)
 ;;
 
 let translate (e : On_ast.expr) : Odefa_ast.Ast.expr =

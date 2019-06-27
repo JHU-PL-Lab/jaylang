@@ -1,0 +1,30 @@
+# EXPECT-WELL-FORMED
+# EXPECT-ANALYSIS-STACK-IS 4ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END ~result {int}
+# EXPECT-ANALYSIS-INCONSISTENCY-AT var~_61
+
+let rec list_maker num_deep element =
+  if (num_deep == 1) then {head = element, tail = {}, next = 0}
+  else
+    let rest = list_maker (num_deep - 1) element in
+    {head = element, tail = rest, next = 1}
+in
+
+let rec list_fold_left f acc curr =
+  let next_number = curr.next in
+  if next_number == 1 then
+  (
+    let curr_head = curr.head in
+    let next_acc = f acc curr_head in
+    list_fold_left f next_acc curr.tail
+  )
+  else acc
+
+in
+
+let increment acc curr =
+  acc + curr
+in
+
+let our_list = list_maker 3 1 in
+list_fold_left increment 5 our_list

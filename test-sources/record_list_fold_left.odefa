@@ -1,0 +1,121 @@
+# EXPECT-WELL-FORMED
+# EXPECT-ANALYSIS-STACK-IS 4ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END result {int}
+# EXPECT-ANALYSIS-INCONSISTENCY-AT var____61
+
+  var____35 = fun list_maker_2 -> (
+
+    var____34 = fun num_deep -> (
+
+      var____33 = fun element -> (
+
+        list_maker_2_9 = list_maker_2;
+        list_maker_2_10 = list_maker_2;
+        var____11 = list_maker_2_9 list_maker_2_10;
+        list_maker_7 = var____11;
+        num_deep_12 = num_deep;
+        int____13 = 1;
+        var____14 = num_deep_12 == int____13;
+        var____32 = var____14 ~ true ? fun var____19 -> (
+
+                                         element_15 = element;
+                                         int____16 = 0;
+                                         record____17 = {};
+                                         record____18 = {
+                                                          head=element_15,
+                                                          next=int____16,
+                                                          tail=record____17
+                                                       }
+                                         ) : fun var____31 -> (
+
+                                                 list_maker_7_20 = list_maker_7;
+                                                 num_deep_21 = num_deep;
+                                                 int____22 = 1;
+                                                 var____23 = num_deep_21 - int____22;
+                                                 var____24 = list_maker_7_20 var____23;
+                                                 element_25 = element;
+                                                 var____26 = var____24 element_25;
+                                                 rest = var____26;
+                                                 element_27 = element;
+                                                 int____28 = 1;
+                                                 rest_29 = rest;
+                                                 record____30 = {
+                                                                  head=element_27,
+                                                                  next=int____28,
+                                                                  tail=rest_29
+                                                               }
+                                                 )
+        )
+      )
+    );
+  list_maker_2_8 = var____35;
+  list_maker_2_8_36 = list_maker_2_8;
+  list_maker_2_8_37 = list_maker_2_8;
+  var____38 = list_maker_2_8_36 list_maker_2_8_37;
+  list_maker = var____38;
+  var____69 = fun list_fold_left_1 -> (
+
+    var____68 = fun f -> (
+
+      var____67 = fun acc_5 -> (
+
+        var____66 = fun curr_4 -> (
+
+          list_fold_left_1_39 = list_fold_left_1;
+          list_fold_left_1_40 = list_fold_left_1;
+          var____41 = list_fold_left_1_39 list_fold_left_1_40;
+          list_fold_left_3 = var____41;
+          curr_4_42 = curr_4;
+          var____43 = curr_4_42.next;
+          next_number = var____43;
+          next_number_44 = next_number;
+          int____45 = 1;
+          var____46 = next_number_44 == int____45;
+          var____65 = var____46 ~ true ? fun var____62 -> (
+
+                                           curr_4_47 = curr_4;
+                                           var____48 = curr_4_47.head;
+                                           curr_head = var____48;
+                                           f_49 = f;
+                                           acc_5_50 = acc_5;
+                                           var____51 = f_49 acc_5_50;
+                                           curr_head_52 = curr_head;
+                                           var____53 = var____51 curr_head_52;
+                                           next_acc = var____53;
+                                           list_fold_left_3_54 = list_fold_left_3;
+                                           f_55 = f;
+                                           var____56 = list_fold_left_3_54 f_55;
+                                           next_acc_57 = next_acc;
+                                           var____58 = var____56 next_acc_57;
+                                           curr_4_59 = curr_4;
+                                           var____60 = var____58 curr_4_59;
+                                           var____61 = var____60.tail) :
+                                        fun var____64 -> ( acc_5_63 = acc_5)
+          )
+        )
+      )
+    );
+  list_fold_left_1_6 = var____69;
+  list_fold_left_1_6_70 = list_fold_left_1_6;
+  list_fold_left_1_6_71 = list_fold_left_1_6;
+  var____72 = list_fold_left_1_6_70 list_fold_left_1_6_71;
+  list_fold_left = var____72;
+  var____77 = fun acc -> (
+
+    var____76 = fun curr -> (
+    acc_73 = acc; curr_74 = curr; var____75 = acc_73 + curr_74));
+  increment = var____77;
+  list_maker_78 = list_maker;
+  int____79 = 3;
+  var____80 = list_maker_78 int____79;
+  int____81 = 1;
+  var____82 = var____80 int____81;
+  our_list = var____82;
+  list_fold_left_83 = list_fold_left;
+  increment_84 = increment;
+  var____85 = list_fold_left_83 increment_84;
+  int____86 = 5;
+  var____87 = var____85 int____86;
+  our_list_88 = our_list;
+  var____89 = var____87 our_list_88;
+  result = var____89
