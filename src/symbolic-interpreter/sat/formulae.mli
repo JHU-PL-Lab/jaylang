@@ -28,6 +28,13 @@ val pp_symbol_type : symbol_type pretty_printer;;
     symbol produces the empty set. *)
 exception SymbolTypeContradiction of string * symbol * symbol_type list;;
 
+(** An exception which is raised if an inconsistent pair if immediate
+    assignments is added to a collection.  This is not guaranteed to be thrown
+    in all contradictory circumstances; it is only thrown when two immediately
+    contradictory value assignments (e.g. x = 4 and x = 6) attempt to
+    coexist. *)
+exception SymbolValueContradiction of string * symbol * value * value;;
+
 (** A type representing a collection of formulae. *)
 type t;;
 

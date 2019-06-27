@@ -27,6 +27,7 @@ let pp_symbol_type formatter t =
 ;;
 
 exception SymbolTypeContradiction of string * symbol * symbol_type list;;
+exception SymbolValueContradiction of string * symbol * value * value;;
 
 (** Describes the type inference state of a symbol in a collection.  The
     InferredType state indicates that all values assigned to this symbol in any
@@ -40,7 +41,8 @@ type inference_state =
 
 type t =
   { formulae : Formula_set.t;
-    mutable inference_map : inference_state Symbol_map.t
+    value_formulae_map : value Symbol_map.t;
+    mutable inference_map : inference_state Symbol_map.t;
   }
 ;;
 
@@ -150,40 +152,71 @@ let _assign (symbol : Symbol.t) (t : symbol_type) (collection : t) : unit =
 
 let empty : t =
   { formulae = Formula_set.empty;
+    value_formulae_map = Symbol_map.empty;
     inference_map = Symbol_map.empty;
   }
 ;;
 
 let add (formula : formula) (collection : t) : t =
-  lazy_logger `trace (fun () ->
-      Printf.sprintf "Adding %s to %s"
-        (Formula.show_brief formula)
-        (Formula_set.Pp_brief.show collection.formulae)
-    );
-  (* Derive a set containing the new formula. *)
-  let formulae' = Formula_set.add formula collection.formulae in
-  let collection' = { collection with formulae = formulae' } in
-  (* Update that set to infer type information. *)
-  let Formula(symbol, expr) = formula in
-  begin
-    match expr with
-    | Formula_expression_value v ->
-      let typ =
-        match v with
-        | Value_function f -> FunctionSymbol f
-        | Value_int _ -> IntSymbol
-        | Value_bool _ -> BoolSymbol
+  if Formula_set.mem formula collection.formulae then collection else
+    begin
+      lazy_logger `trace (fun () ->
+          Printf.sprintf "Adding %s to %s"
+            (Formula.show_brief formula)
+            (Formula_set.Pp_brief.show collection.formulae)
+        );
+      (* Derive a set containing the new formula. *)
+      let formulae' = Formula_set.add formula collection.formulae in
+      (* Derive a map containing new value formulae if necessary. *)
+      let value_formulae_map' =
+        match formula with
+        | Formula(symbol,Formula_expression_value(v)) ->
+          begin
+            match Symbol_map.Exceptionless.find
+                    symbol collection.value_formulae_map with
+            | None ->
+              Symbol_map.add symbol v collection.value_formulae_map
+            | Some v' ->
+              if equal_value v v' then
+                collection.value_formulae_map
+              else
+                raise @@ SymbolValueContradiction
+                  (Printf.sprintf
+                     "Immediately contradictory value assignments: %s = %s and %s = %s"
+                     (show_symbol symbol) (Ast_pp.show_value v)
+                     (show_symbol symbol) (Ast_pp.show_value v'),
+                   symbol, v, v')
+          end
+        | _ -> collection.value_formulae_map
       in
-      _assign symbol typ collection';
-    | Formula_expression_alias symbol' ->
-      _unify symbol symbol' collection'
-    | Formula_expression_binop (symbol1, op, symbol2) ->
-      let (tin1,tin2,tout) = _infer_binop_signature op in
-      _assign symbol1 tin1 collection';
-      _assign symbol2 tin2 collection';
-      _assign symbol tout collection';
-  end;
-  collection'
+      let collection' =
+        { collection with
+          formulae = formulae';
+          value_formulae_map = value_formulae_map';
+        }
+      in
+      (* Infer type information. *)
+      let Formula(symbol, expr) = formula in
+      begin
+        match expr with
+        | Formula_expression_value v ->
+          let typ =
+            match v with
+            | Value_function f -> FunctionSymbol f
+            | Value_int _ -> IntSymbol
+            | Value_bool _ -> BoolSymbol
+          in
+          _assign symbol typ collection';
+        | Formula_expression_alias symbol' ->
+          _unify symbol symbol' collection'
+        | Formula_expression_binop (symbol1, op, symbol2) ->
+          let (tin1,tin2,tout) = _infer_binop_signature op in
+          _assign symbol1 tin1 collection';
+          _assign symbol2 tin2 collection';
+          _assign symbol tout collection';
+      end;
+      collection'
+    end
 ;;
 
 let singleton (formula : formula) : t =

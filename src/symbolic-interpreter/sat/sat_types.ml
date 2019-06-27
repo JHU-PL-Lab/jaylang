@@ -93,3 +93,15 @@ module Formula_set = struct
       let pp = pp_brief_formula;;
     end);;
 end;;
+
+module Formula_map = struct
+  module S = Map.Make(Formula);;
+  include S;;
+  include Pp_utils.Map_pp(S)(Formula);;
+  include Yojson_utils.Map_to_yojson(S)(Formula);;
+  module Pp_brief = Pp_utils.Map_pp(S)(
+    struct
+      type t = Formula.t;;
+      let pp = pp_brief_formula;;
+    end);;
+end;;

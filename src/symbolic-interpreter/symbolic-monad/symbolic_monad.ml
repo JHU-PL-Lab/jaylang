@@ -175,6 +175,16 @@ struct
            (Formulae.show log2.log_formulae)
         );
         None
+      | Formulae.SymbolValueContradiction(_,symbol,v1,v2) ->
+        (lazy_logger `trace @@ fun () ->
+         Printf.sprintf
+           "Immediate contradiction at symbol %s with values %s and %s while merging two formula sets.\nSet 1:\n%s\nSet 2:\n%s\n"
+           (show_symbol symbol)
+           (show_value v1) (show_value v2)
+           (Formulae.show log1.log_formulae)
+           (Formulae.show log2.log_formulae)
+        );
+        None
     in
     let merge_fn _key a b =
       match a,b with
