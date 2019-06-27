@@ -1,0 +1,210 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH failure_in_while [ 0, 0, 0 ] !
+
+dummy_0 = 0;
+failure = -1;
+unreachable = -2;
+
+# main
+# symbolic(&m, sizeof(m), "m");
+m = input;
+
+# symbolic(&n, sizeof(n), "n");
+n = input;
+
+## I feel like this `i` is totally ignored
+# i = input;
+
+## 
+# int work(int w) { 
+#    int i,j=0;
+#    for(i=0;i<w;i++) j++;
+#    return 0; 
+# }
+work = fun w -> (
+  r_1 = 1;
+  wi = 0;
+  wj = 0;
+
+  work_loop = fun work_loop_clone -> (
+    dl_1 = 0;
+    dl_2 = fun work_i -> (
+      dl_35 = fun work_j -> (
+        dl_3 = 0;
+
+        work_done = work_i == w;
+        dl_4 = work_done ? (
+          dl_5 = 0;
+          work_result = 0;
+        ) : (
+          dl_26 = 0;
+          one = 1;
+          work_i_next = work_i + one;
+          work_j_next = work_j + one;
+          work_loop_recur = work_loop_clone work_loop_clone;
+
+          r_13 = work_loop_recur work_i_next;
+          r_14 = r_13 work_j_next;
+        );
+      );
+    );
+  );
+
+  r15 = work_loop work_loop;
+  r16 = r15 wi;
+  work_loop_result = r16 wj;
+  work_result_zerp = 0;
+);
+
+#void f(int m, int n) {
+#    int i, a, sum=0;
+#    for (i=0;i<6;i++) {
+#        a = n%2;
+#        if (a) sum += a+1;
+#        n/=2;
+#    }
+#    while (1) {
+#        if (sum==0 && m==43) failure();
+#    }
+#}
+f = fun mf -> (
+  d_0 = 0;
+  r_2 = fun nf -> (
+    d_14 = 0;
+    
+    f_loop_start = 0;
+    f_loop_end = 6;
+    
+    f_loop_inline = fun fi_clone -> (
+      dl_16 = 0;
+      dl_17 = fun f_loop_i -> (
+        dl_18 = fun f_n -> (
+          dl_19 = fun f_sum -> (
+            dl_20 = 0;
+            f_loop_done = f_loop_i == f_loop_end;
+            dl_21 = f_loop_done ? (
+              dl_22 = 0;
+              f_loop_done_result = f_sum;
+            ) : (
+              dl_23 = 0;
+              f_one = 1;
+              f_two = 2;
+
+              # TODO: a = n % 2;
+              f_a = f_n - f_two;
+
+              f_zero = 0;
+              f_check_a = f_a == f_zero;
+              f_sum_next = f_check_a ? (
+                dl_25 = 0;
+                r_10 = f_sum + f_a;
+                r_15 = r_10 + f_one;
+              ) : (
+                dl_24 = f_sum;
+              );
+
+              # TODO: n /= 2
+              f_n_next = f_n - f_two;
+
+              f_loop_i_next = f_loop_i + f_one;
+              f_loop_inline_recur = fi_clone fi_clone;
+              r17 = f_loop_inline_recur f_loop_i_next;
+              r18 = r17 f_n_next;
+              f_loop_result = r18 f_sum_next;
+            );
+          );
+        );
+      );
+    );
+
+    f_loop = f_loop_inline f_loop_inline;
+    f_loop_with_i = f_loop f_loop_start;
+    f_loop_i_n = f_loop_with_i nf;
+    f_sum_zero = 0;
+    f_sum_result = f_loop_i_n f_sum_zero;
+
+    f_while = fun fw_clone -> (
+      dl_27 = 0;
+      dl_33 = fun f_while_dummy -> (
+        dl_28 = 0;
+        f_w_true = true;
+        dl_34 = f_w_true ? (
+          dl_29 = 0;
+
+          f_n1 = 0;
+          f_c1 = f_sum_result == f_n1;
+          f_n2 = 43;
+          f_c2 = mf == f_n2;
+          f_w_cond = f_c1 and f_c2;
+          r_12 = f_w_cond ? (
+            dl_30 = 0;
+            failure_in_while = failure;
+          ) : (
+            dl_31 = 0;
+            dl_32 = 0;
+          );
+        ) : (
+          r_11 = unreachable;
+        );
+      );
+    );
+
+    r19 = f_while f_while;
+    d_15 = 0;
+    r20 = r19 d_15;
+  )
+);
+
+#void g(int m, int n) {
+#    int i;
+#    for (i=0;i<1000;i++)  {
+#        work(1);
+#        if (m == i) f(m, n);
+#    }
+#}
+g = fun mg -> (
+  d_2 = 0;
+  r_4 = fun ng -> (
+    d_3 = 0;
+
+    g_loop_start = 0;
+    g_loop_end = 1000;
+    
+    g_loop_inline = fun gi_clone -> (
+      dl_6 = 0;
+      dl_7 = fun g_loop_i -> (
+        dl_8 = 0;
+        g_loop_done = g_loop_i == g_loop_end;
+        dl_9 = g_loop_done ? (
+          dl_10 = 0;
+          g_loop_done_result = 0;
+        ) : (
+          dl_13 = 0;
+          g_one = 1;
+
+          r_5 = work g_one;
+
+          g_check_m = mg == g_loop_i;
+          r_6 = g_check_m ? (
+            dl_12 = 0;
+            g_f_m = f mg;
+            g_f = g_f_m ng;
+          ) : (
+            dl_11 = 0;
+          );
+
+          g_loop_i_next = g_loop_i + g_one;
+          g_loop_inline_recur = gi_clone gi_clone;
+          g_loop_result = g_loop_inline_recur g_loop_i_next;
+        );
+      );
+    );
+
+    g_loop = g_loop_inline g_loop_inline;
+    g_result = g_loop g_loop_start;
+    g_result_dummy = 0;
+  )
+);
+
+three = 3;
+rw = work three;
