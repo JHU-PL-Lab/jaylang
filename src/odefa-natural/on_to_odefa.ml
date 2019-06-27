@@ -418,27 +418,114 @@ let rec find_replace_duplicate_naming
 let rec encode_var_pat
     (proj_subj : On_ast.expr)
     (pat : On_ast.pattern)
-    (path_list : (On_ast.ident * On_ast.expr) list)
   : (On_ast.pattern * ((On_ast.ident * On_ast.expr) list))
   =
   match pat with
   | AnyPat | IntPat | TruePat | FalsePat | FunPat | StringPat ->
     (pat, [])
   | RecPat (pat_map) ->
+    (* This routine accumulates the new map (that does not have any variable
+       patterns), and the return list. *)
     let (res_pat_map, res_path_list) = On_ast.Ident_map.fold
         (fun key -> fun pat -> fun acc ->
            let (old_pat_map, old_path_list) = acc in
            let (On_ast.Ident key_str) = key in
            let cur_label = On_ast.Label key_str in
-           let (new_pat, res_list) = (encode_var_pat (RecordProj(proj_subj, cur_label)) pat path_list)
+           let (new_pat, res_list) = (encode_var_pat (RecordProj(proj_subj, cur_label)) pat)
            in
            let new_pat_map = On_ast.Ident_map.add key new_pat old_pat_map in
            (new_pat_map, old_path_list @ res_list)
-        ) pat_map (On_ast.Ident_map.empty, path_list)
+        ) pat_map (On_ast.Ident_map.empty, [])
     in (RecPat(res_pat_map), res_path_list)
-  | VariantPat (_) -> raise (Failure "Why you here")
+  | VariantPat (_) ->
+    raise (Failure "Variant pattern should have been desugared by now")
   | VarPat (id) ->
     (AnyPat, [(id, proj_subj)])
+;;
+
+(* Sub-routine that replaces all of the vars that are in the map. *)
+let rec var_replacer
+    (e : On_ast.expr)
+    (p_map : On_ast.expr On_ast.Ident_map.t)
+  : On_ast.expr =
+  match e with
+  | Var (id) ->
+    if (On_ast.Ident_map.mem id p_map) then
+      On_ast.Ident_map.find id p_map
+    else e
+  | Function (id_list, e') ->
+    let replaced_e' = var_replacer e' p_map in
+    Function (id_list, replaced_e')
+  | Appl (e1, e2) ->
+    let replaced_e1 = var_replacer e1 p_map in
+    let replaced_e2 = var_replacer e2 p_map in
+    Appl (replaced_e1, replaced_e2)
+  | Let (id, e1, e2) ->
+    let replaced_e1 = var_replacer e1 p_map in
+    let replaced_e2 = var_replacer e2 p_map in
+    Let (id, replaced_e1, replaced_e2)
+  | LetRecFun (_) ->
+    raise @@ Failure "LetRecFun should have been desugared by now"
+  | LetFun (f_sig, outer_expr) ->
+    let Funsig(name, param_list, f_expr) = f_sig in
+    let replaced_f_expr = var_replacer f_expr p_map in
+    let replaced_outer_expr = var_replacer outer_expr p_map in
+    LetFun(Funsig(name, param_list, replaced_f_expr), replaced_outer_expr)
+  | Plus (e1, e2) ->
+    let replaced_e1 = var_replacer e1 p_map in
+    let replaced_e2 = var_replacer e2 p_map in
+    Plus (replaced_e1, replaced_e2)
+  | Minus (e1, e2) ->
+    let replaced_e1 = var_replacer e1 p_map in
+    let replaced_e2 = var_replacer e2 p_map in
+    Minus (replaced_e1, replaced_e2)
+  | Equal (e1, e2) ->
+    let replaced_e1 = var_replacer e1 p_map in
+    let replaced_e2 = var_replacer e2 p_map in
+    Equal (replaced_e1, replaced_e2)
+  | LessThan (e1, e2) ->
+    let replaced_e1 = var_replacer e1 p_map in
+    let replaced_e2 = var_replacer e2 p_map in
+    LessThan (replaced_e1, replaced_e2)
+  | Leq (e1, e2) ->
+    let replaced_e1 = var_replacer e1 p_map in
+    let replaced_e2 = var_replacer e2 p_map in
+    Leq (replaced_e1, replaced_e2)
+  | And (e1, e2) ->
+    let replaced_e1 = var_replacer e1 p_map in
+    let replaced_e2 = var_replacer e2 p_map in
+    And (replaced_e1, replaced_e2)
+  | Or (e1, e2) ->
+    let replaced_e1 = var_replacer e1 p_map in
+    let replaced_e2 = var_replacer e2 p_map in
+    Or (replaced_e1, replaced_e2)
+  | Not (e') ->
+    let replaced_e' = var_replacer e' p_map in
+    Not (replaced_e')
+  | If (e1, e2, e3) ->
+    let replaced_e1 = var_replacer e1 p_map in
+    let replaced_e2 = var_replacer e2 p_map in
+    let replaced_e3 = var_replacer e3 p_map in
+    If (replaced_e1, replaced_e2, replaced_e3)
+  | Record (recmap) ->
+    let new_recmap = On_ast.Ident_map.map (fun expr ->
+        var_replacer expr p_map) recmap
+    in
+    Record (new_recmap)
+  | RecordProj (e', lab) ->
+    let replaced_e' = var_replacer e' p_map in
+    RecordProj(replaced_e', lab)
+  | Match (e1, p_e_list) ->
+    let replaced_e1 = var_replacer e1 p_map in
+    let new_p_e_list =
+      List.map (fun curr_p_e_pair ->
+          let (curr_pat, curr_expr) = curr_p_e_pair in
+          let new_expr = var_replacer curr_expr p_map in
+          (curr_pat, new_expr)
+        ) p_e_list
+    in
+    Match (replaced_e1, new_p_e_list)
+  | Int _ | Bool _ | String _ -> e
 ;;
 
 
@@ -511,15 +598,27 @@ let rec eliminate_var_pat (e : On_ast.expr): On_ast.expr =
   | RecordProj (expr, lab) ->
     let clean_expr = eliminate_var_pat expr in
     RecordProj (clean_expr, lab)
-(* | Match (subject, pat_expr_list) -> *)
-  | _ ->
-    (* let subj_bind = On_ast.Ident (fresh_name "match_subject~") in
+  | Match (subject, pat_expr_list) ->
+    let subj_bind = On_ast.Ident (fresh_name "match_subject~") in
+    let new_subj = On_ast.Var (subj_bind) in
     let clean_subject = eliminate_var_pat subject in
-    let half_clean_pat_expr_list =
-      List.map (fun (pat, expr) -> let half_clean_expr = eliminate_var_pat expr in
-                 (pat, half_clean_expr))
-       in *)
-    raise (Jhupllib.Utils.Not_yet_implemented "Match not implemented")
+    (* routine to pass into List.map with the pat_expr_list *)
+    let pat_expr_var_changer curr =
+      let (curr_pat, curr_expr) = curr in
+      (* NOTE: here we clean out the inner expression before we
+        erase variable patterns. *)
+      let half_clean_expr = eliminate_var_pat curr_expr in
+      let (res_pat, path_list) = encode_var_pat new_subj curr_pat in
+      let path_enum = List.enum path_list in
+      let path_map = On_ast.Ident_map.of_enum path_enum in
+      (* replace vars that are in the path_map... *)
+      let new_expr = var_replacer half_clean_expr path_map in
+      (res_pat, new_expr)
+    in
+    let new_path_expr_list = List.map pat_expr_var_changer pat_expr_list in
+    let let_e2 = On_ast.Match(new_subj, new_path_expr_list) in
+    On_ast.Let(subj_bind, clean_subject, let_e2)
+
 ;;
 
 let rec flatten_binop
