@@ -15,12 +15,16 @@ let fresh_name (prefix : string) : string =
   prefix ^ "_" ^ string_of_int n
 ;;
 
+let ast_var_from_string (name : string) : Ast.var =
+  let new_ident = Ast.Ident (fresh_name name) in
+  Ast.Var(new_ident, None)
+;;
+
 let fun_curry ident acc =
   let On_ast.Ident(id_string) = ident in
   let ast_ident = Ast.Ident(id_string) in
   let (acc_expr, _) = acc in
-  let new_varname = fresh_name "var~" in
-  let new_var = Ast.Var(Ast.Ident(new_varname), None) in
+  let new_var = ast_var_from_string "var~" in
   let new_clause =
     Ast.Clause(new_var,
                Ast.Value_body(Ast.Value_function(
@@ -127,6 +131,16 @@ let rec rec_transform (e1 : On_ast.expr) : (On_ast.expr) =
   | Not (note) ->
     let transformed_expr = rec_transform note in
     Not (transformed_expr)
+  | Match (subject, pat_expr_list) ->
+    let transformed_subject = rec_transform subject in
+    let transformed_list =
+      List.map
+        (fun (pat, expr) ->
+           let transformed_pat_expr = rec_transform expr in
+           (pat, transformed_pat_expr)
+        ) pat_expr_list
+    in
+    Match(transformed_subject, transformed_list)
 ;;
 
 (* Function that removes duplicate naming so that we adhere to Odefa's naming
@@ -230,8 +244,17 @@ let rec replace_duplicate_naming
   | RecordProj (e', lab) ->
     let new_e' = replace_duplicate_naming e' old_name new_name in
     RecordProj (new_e', lab)
+  | Match (subject, pat_expr_list) ->
+    let new_subj = replace_duplicate_naming subject old_name new_name in
+    let new_pat_expr_list =
+      List.map
+        (fun (pat, expr) ->
+           let new_expr = replace_duplicate_naming expr old_name new_name in
+           (pat, new_expr)
+        ) pat_expr_list
+    in
+    Match(new_subj, new_pat_expr_list)
 ;;
-
 
 let find_replace_on_fun_params = fun curr_id -> fun acc ->
   let (curr_e, curr_id_list, fun_id_list) = acc in
@@ -379,7 +402,124 @@ let rec find_replace_duplicate_naming
   | RecordProj (e', lab) ->
     let (new_e', e1_id_list) = find_replace_duplicate_naming e' ident_list in
     (RecordProj(new_e', lab), e1_id_list)
+  | Match (subject, pat_expr_list) ->
+    let (new_subj, subj_id_list) = find_replace_duplicate_naming subject ident_list in
+    let (new_list, final_id_list) =
+      List.fold_right
+        (fun (pat, expr) -> fun (acc_list, prev_id_list) ->
+           let (new_expr, updated_id_list) =
+             find_replace_duplicate_naming expr prev_id_list in
+           ((pat, new_expr) :: acc_list, updated_id_list)
+        ) pat_expr_list ([], subj_id_list)
+    in
+    (Match(new_subj, new_list), final_id_list)
+;;
 
+let rec encode_var_pat
+    (proj_subj : On_ast.expr)
+    (pat : On_ast.pattern)
+    (path_list : (On_ast.ident * On_ast.expr) list)
+  : (On_ast.pattern * ((On_ast.ident * On_ast.expr) list))
+  =
+  match pat with
+  | AnyPat | IntPat | TruePat | FalsePat | FunPat | StringPat ->
+    (pat, [])
+  | RecPat (pat_map) ->
+    let (res_pat_map, res_path_list) = On_ast.Ident_map.fold
+        (fun key -> fun pat -> fun acc ->
+           let (old_pat_map, old_path_list) = acc in
+           let (On_ast.Ident key_str) = key in
+           let cur_label = On_ast.Label key_str in
+           let (new_pat, res_list) = (encode_var_pat (RecordProj(proj_subj, cur_label)) pat path_list)
+           in
+           let new_pat_map = On_ast.Ident_map.add key new_pat old_pat_map in
+           (new_pat_map, old_path_list @ res_list)
+        ) pat_map (On_ast.Ident_map.empty, path_list)
+    in (RecPat(res_pat_map), res_path_list)
+  | VariantPat (_) -> raise (Failure "Why you here")
+  | VarPat (id) ->
+    (AnyPat, [(id, proj_subj)])
+;;
+
+
+(* This function will find match statements and go into the patterns to replace
+   any variable pattern.
+*)
+let rec eliminate_var_pat (e : On_ast.expr): On_ast.expr =
+  match e with
+  | Int _ | Bool _ | String _ | Var _ -> e
+  | Function (id_list, expr) ->
+    let clean_expr = eliminate_var_pat expr in
+    Function (id_list, clean_expr)
+  | Appl (e1, e2) ->
+    let clean_e1 = eliminate_var_pat e1 in
+    let clean_e2 = eliminate_var_pat e2 in
+    Appl (clean_e1, clean_e2)
+  | Let (id, e1, e2) ->
+    let clean_e1 = eliminate_var_pat e1 in
+    let clean_e2 = eliminate_var_pat e2 in
+    Let (id, clean_e1, clean_e2)
+  | LetRecFun (_, _) ->
+    raise (Failure "rec functions should have been taken care of")
+  | LetFun (f_sig, expr) ->
+    let (On_ast.Funsig (f_name, param_list, fun_e)) = f_sig in
+    let clean_fun_e = eliminate_var_pat fun_e in
+    let clean_expr = eliminate_var_pat expr in
+    let new_funsig = On_ast.Funsig (f_name, param_list, clean_fun_e) in
+    LetFun (new_funsig, clean_expr)
+  | Plus (e1, e2) ->
+    let clean_e1 = eliminate_var_pat e1 in
+    let clean_e2 = eliminate_var_pat e2 in
+    Plus (clean_e1, clean_e2)
+  | Minus (e1, e2) ->
+    let clean_e1 = eliminate_var_pat e1 in
+    let clean_e2 = eliminate_var_pat e2 in
+    Minus (clean_e1, clean_e2)
+  | Equal (e1, e2) ->
+    let clean_e1 = eliminate_var_pat e1 in
+    let clean_e2 = eliminate_var_pat e2 in
+    Equal (clean_e1, clean_e2)
+  | LessThan (e1, e2) ->
+    let clean_e1 = eliminate_var_pat e1 in
+    let clean_e2 = eliminate_var_pat e2 in
+    LessThan (clean_e1, clean_e2)
+  | Leq (e1, e2) ->
+    let clean_e1 = eliminate_var_pat e1 in
+    let clean_e2 = eliminate_var_pat e2 in
+    Leq (clean_e1, clean_e2)
+  | And (e1, e2) ->
+    let clean_e1 = eliminate_var_pat e1 in
+    let clean_e2 = eliminate_var_pat e2 in
+    And (clean_e1, clean_e2)
+  | Or (e1, e2) ->
+    let clean_e1 = eliminate_var_pat e1 in
+    let clean_e2 = eliminate_var_pat e2 in
+    Or (clean_e1, clean_e2)
+  | Not (expr) ->
+    let clean_expr = eliminate_var_pat expr in
+    Not (clean_expr)
+  | If (e1, e2, e3) ->
+    let clean_e1 = eliminate_var_pat e1 in
+    let clean_e2 = eliminate_var_pat e2 in
+    let clean_e3 = eliminate_var_pat e3 in
+    If (clean_e1, clean_e2, clean_e3)
+  | Record (r_map) ->
+    let clean_map = On_ast.Ident_map.map
+        (fun expr -> eliminate_var_pat expr) r_map
+    in
+    Record (clean_map)
+  | RecordProj (expr, lab) ->
+    let clean_expr = eliminate_var_pat expr in
+    RecordProj (clean_expr, lab)
+(* | Match (subject, pat_expr_list) -> *)
+  | _ ->
+    (* let subj_bind = On_ast.Ident (fresh_name "match_subject~") in
+    let clean_subject = eliminate_var_pat subject in
+    let half_clean_pat_expr_list =
+      List.map (fun (pat, expr) -> let half_clean_expr = eliminate_var_pat expr in
+                 (pat, half_clean_expr))
+       in *)
+    raise (Jhupllib.Utils.Not_yet_implemented "Match not implemented")
 ;;
 
 let rec flatten_binop
@@ -389,8 +529,7 @@ let rec flatten_binop
   : (Ast.clause list * Ast.var) =
   let (e1_clist, e1_var) = flatten_expr e1 in
   let (e2_clist, e2_var) = flatten_expr e2 in
-  let new_varname = fresh_name "var~" in
-  let new_var = Ast.Var(Ast.Ident(new_varname), None) in
+  let new_var = ast_var_from_string "var~" in
   let new_clause =
     Ast.Clause (
       new_var,
@@ -405,7 +544,7 @@ and
   match e with
   | Var (id) ->
     let Ident(i_string) = id in
-    let new_var = Ast.Var(Ast.Ident (fresh_name i_string), None) in
+    let new_var = ast_var_from_string i_string in
     let return_var = Ast.Var(Ast.Ident(i_string), None) in
     ([Clause(new_var, Var_body(return_var))], new_var)
   | Function (id_list, e) ->
@@ -418,8 +557,7 @@ and
   | Appl (e1, e2) ->
     let (e1_clist, e1_var) = flatten_expr e1 in
     let (e2_clist, e2_var) = flatten_expr e2 in
-    let new_varname = fresh_name "var~" in
-    let new_var = Ast.Var(Ast.Ident(new_varname), None) in
+    let new_var = ast_var_from_string "var~" in
     let new_clause =
       Ast.Clause (
         new_var,
@@ -468,8 +606,7 @@ and
     flatten_binop e1 e2 Ast.Binary_operator_bool_or
   | Not (e) ->
     let (e_clist, e_var) = flatten_expr e in
-    let new_varname = fresh_name "var~" in
-    let new_var = Ast.Var(Ast.Ident(new_varname), None) in
+    let new_var = ast_var_from_string "var~" in
     let new_clause =
       Ast.Clause(new_var,
                  Ast.Unary_operation_body(Ast.Unary_operator_bool_not, e_var))
@@ -482,33 +619,27 @@ and
        matched with true. *)
     let (e1_clist, e1_var) = flatten_expr e1 in
     let (e2_clist, _) = flatten_expr e2 in
-    let e2_varname = Ast.Ident(fresh_name "var~") in
-    let e2_var = Ast.Var(e2_varname, None) in
+    let e2_var = ast_var_from_string "var~" in
     let e2_funval = Ast.Function_value(e2_var, Expr(e2_clist)) in
     let (e3_clist, _) = flatten_expr e3 in
-    let e3_varname = Ast.Ident(fresh_name "var~") in
-    let e3_var = Ast.Var(e3_varname, None) in
+    let e3_var =  ast_var_from_string "var~" in
     let e3_funval = Ast.Function_value(e3_var, Expr(e3_clist)) in
-    let new_clausename = Ast.Ident(fresh_name "var~") in
-    let new_clausevar = Ast.Var(new_clausename, None) in
+    let new_clausevar = ast_var_from_string "var~" in
     let new_clause =
       Ast.Clause(new_clausevar,
                  Ast.Conditional_body(e1_var, Ast.Bool_pattern(true),
                                       e2_funval, e3_funval)) in
     (e1_clist @ [new_clause], new_clausevar)
   | Int (n) ->
-    let int_varname = fresh_name "int~" in
-    let int_var = Ast.Var(Ast.Ident(int_varname), None) in
+    let int_var = ast_var_from_string "int" in
     let new_clause = Ast.Clause(int_var, Ast.Value_body(Ast.Value_int(n))) in
     ([new_clause], int_var)
   | Bool (b) ->
-    let bool_varname = fresh_name "bool~" in
-    let bool_var = Ast.Var(Ast.Ident(bool_varname), None) in
+    let bool_var = ast_var_from_string "bool~" in
     let new_clause = Ast.Clause(bool_var, Ast.Value_body(Ast.Value_bool(b))) in
     ([new_clause], bool_var)
   | String (s) ->
-    let string_varname = fresh_name "string~" in
-    let string_var = Ast.Var(Ast.Ident(string_varname), None) in
+    let string_var =  ast_var_from_string "string~" in
     let new_clause = Ast.Clause(string_var, Ast.Value_body(Ast.Value_string(s)))
     in
     ([new_clause], string_var)
@@ -529,8 +660,7 @@ and
     in
     let empty_acc = ([], Ast.Ident_map.empty) in
     let (clist, map) = Enum.fold flatten_and_map empty_acc record_enum in
-    let rec_varname = fresh_name "record~" in
-    let rec_var = Ast.Var(Ast.Ident(rec_varname), None) in
+    let rec_var =  ast_var_from_string "record~" in
     let new_clause = Ast.Clause(rec_var,
                                 Ast.Value_body(Ast.Value_record(
                                     Ast.Record_value (map)
@@ -540,8 +670,7 @@ and
     let (e_clist, e_var) = flatten_expr e in
     let On_ast.Label(l_string) = lab in
     let l_ident = Ast.Ident(l_string) in
-    let new_varname = fresh_name "var~" in
-    let new_var = Ast.Var(Ast.Ident(new_varname), None) in
+    let new_var = ast_var_from_string "var~" in
     let new_clause = Ast.Clause(new_var,
                                 Ast.Projection_body(e_var, l_ident)
                                ) in
@@ -556,51 +685,59 @@ and
     let match_converter curr acc =
       (
         let (curr_pat, curr_pat_expr) = curr in
-        let cond_var_name = fresh_name "cond~" in
-        let cond_var = Ast.Var(Ast.Ident(cond_var_name), None) in
-        let ast_pat =
-          (match curr_pat with
-           | AnyPat -> Ast.Any_pattern
-           | IntPat -> Ast.Int_pattern
-           | TruePat -> Ast.Bool_pattern(true)
-           | FalsePat -> Ast.Bool_pattern(false)
-           | FunPat -> Ast.Fun_pattern
-           | StringPat -> Ast.String_pattern
-           | RecPat (patmap) -> (* Thank you Earl *)
-           | VariantPat (var_content) -> raise (Failure "variants would be encoded")
-           | VarPat (id) -> raise (Failure "var would be encoded???")
+        let cond_var =  ast_var_from_string "cond~" in
+        let rec pat_conversion = fun pat ->
+          (match pat with
+           | On_ast.AnyPat -> Ast.Any_pattern
+           | On_ast.IntPat -> Ast.Int_pattern
+           | On_ast.TruePat -> Ast.Bool_pattern(true)
+           | On_ast.FalsePat -> Ast.Bool_pattern(false)
+           | On_ast.FunPat -> Ast.Fun_pattern
+           | On_ast.StringPat -> Ast.String_pattern
+           | On_ast.RecPat (patmap) ->
+             let rec_conversion =
+               fun key -> fun entry -> fun acc ->
+                 let (On_ast.Ident key_str) = key in
+                 let new_key = Ast.Ident key_str in
+                 let new_entry = pat_conversion entry in
+                 Ast.Ident_map.add new_key new_entry acc
+             in
+             let new_pat_map =
+               On_ast.Ident_map.fold rec_conversion patmap Ast.Ident_map.empty
+             in (Record_pattern new_pat_map)
+           | On_ast.VariantPat (_) -> raise (Failure "variants would be encoded")
+           | On_ast.VarPat (_) -> raise (Failure "var would be encoded???")
           )
         in
+        let ast_pat = pat_conversion curr_pat in
         let (flat_pat_expr, flat_pat_var) = flatten_expr curr_pat_expr in
-        let pat_fun = Function_value (flat_pat_var, Expr(flat_pat_expr)) in
-        let antimatch_var = fresh_name "var~" in
-        let antimatch_fun = Function_value (antimatch_var, acc) in
+        let pat_fun = Ast.Function_value (flat_pat_var, Expr(flat_pat_expr)) in
+        let antimatch_var = ast_var_from_string "var~" in
+        let antimatch_fun = Ast.Function_value (antimatch_var, acc) in
         let match_clause =
           Ast.Clause(cond_var,
                      Ast.Conditional_body(subject_var, ast_pat,
                                           pat_fun, antimatch_fun)
                     )
         in
-        Expr(match_clause)
+        Ast.Expr([match_clause])
       )
     in
+    (* The base case is our EXPLODING clause *)
     let explode_expr =
-      let zero_varname = fresh_name "zero~" in
-      let zero_var = Ast.Var(Ast.Ident(zero_varname), None) in
+      let zero_var = ast_var_from_string "zero~" in
       let zero_clause = Ast.Clause(zero_var, Ast.Value_body(Ast.Value_int(0))) in
-      let zero_appl_varname = fresh_name "explode~" in
-      let zero_appl_var = Ast.Var(Ast.Ident(zero_appl_varname), None) in
+      let zero_appl_var = ast_var_from_string "explode~" in
       let zero_appl_clause = Ast.Clause(zero_appl_var, Ast.Appl_body(zero_var, zero_var))
       in
       Ast.Expr([zero_clause; zero_appl_clause])
     in
     let match_expr = List.fold_right match_converter pat_expr_list explode_expr in
-    let Ast.Expr(match_clauses) = match_expr in 
+    let Ast.Expr(match_clauses) = match_expr in
     let match_last_clause = List.last match_clauses in
     let Ast.Clause(match_last_clause_var, _) = match_last_clause in
-    (match_clauses, match_last_clause_var)
-
-    (* The base case is our EXPLODING clause *)
+    let all_clauses = subject_clause_list @ match_clauses in
+    (all_clauses, match_last_clause_var)
 ;;
 
 let translate (e : On_ast.expr) : Odefa_ast.Ast.expr =
