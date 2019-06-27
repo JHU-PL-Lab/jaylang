@@ -38,10 +38,10 @@ type test_generator =
 *)
 and test_generation_result =
   {
-    tgr_inputs : int list option;
-    (** The input sequence which will lead to the point in question.  If None,
-        then this result did not find an input sequence within the provided
-        number of steps. *)
+    tgr_input_sequences : int list list;
+    (** Input sequences which will lead to the point in question.  These are
+        sequences which have been recently discovered.  If empty, then no
+        input sequences were discovered in the provided number of steps. *)
 
     tgr_steps : int;
     (** The number of steps which were taken from the called test generator to

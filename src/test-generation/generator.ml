@@ -117,7 +117,7 @@ let rec take_steps
     if step_count = max_steps then begin
       lazy_logger `trace (fun () ->
           "Pass reached max step count; returning suspended generator.");
-      { tgr_inputs = None;
+      { tgr_input_sequences = [];
         tgr_steps = step_count;
         tgr_generator =
           { tg_program = e;
@@ -141,7 +141,7 @@ let rec take_steps
              result indicating as much. *)
           lazy_logger `trace (fun () ->
               "Interpreter evaluation complete; stopping.");
-          { tgr_inputs = None;
+          { tgr_input_sequences = [];
             tgr_steps = step_count + 1;
             tgr_generator =
               { tg_program = e;
@@ -150,68 +150,44 @@ let rec take_steps
               };
           }
       end else begin
+        (* We have results! *)
         lazy_logger `trace (fun () -> "Found input sequences!");
-        (* We have results!  We want to report them, but the interface only
-           allows one to be reported at a time... so it's time we hack this up.
-           We'll just build a routine that, for each step, generates one
-           additional result from our list. *)
-        let rec delayed_results
-            (steps_for_this_result : int)
-            (results :
-               Symbolic_interpreter.Interpreter.evaluation_result list)
-            (evaluation_opt :
-               Symbolic_interpreter.Interpreter.evaluation option)
-          : test_generation_result =
-          let input_sequence_from_result result =
-            let formulae =
-              result.Symbolic_interpreter.Interpreter.er_formulae
-            in
-            match Solver.solve formulae with
-            | None ->
-              raise @@ Jhupllib_utils.Not_yet_implemented
-                "take_steps (no solution)"
-            | Some solution ->
-              let Concrete_stack stack =
-                result.Symbolic_interpreter.Interpreter.er_stack
-              in
-              let stop_var = Var(x,Some(Freshening_stack(stack))) in
-              let input_sequence =
-                input_sequence_from_solution solution e stop_var
-              in
-              lazy_logger `trace (fun () ->
-                  Printf.sprintf "Yielding input sequence: %s"
-                    (String.join "," @@ List.map string_of_int input_sequence)
-                );
-              input_sequence
+        let input_sequence_from_result result =
+          let formulae =
+            result.Symbolic_interpreter.Interpreter.er_formulae
           in
-          match results with
-          | [] -> raise @@
-            Jhupllib.Utils.Invariant_failure "delayed_results with empty list"
-          | [result] ->
-            let input_sequence = input_sequence_from_result result in
-            { tgr_inputs = Some(input_sequence);
-              tgr_steps = steps_for_this_result;
-              tgr_generator =
-                { tg_program = e;
-                  tg_target = x;
-                  tg_generator_fn = None;
-                };
-            }
-          | result::results' ->
-            let input_sequence = input_sequence_from_result result in
-            { tgr_inputs = Some(input_sequence);
-              tgr_steps = steps_for_this_result;
-              tgr_generator =
-                { tg_program = e;
-                  tg_target = x;
-                  tg_generator_fn =
-                    (Some(fun _ ->
-                         delayed_results
-                           (steps_for_this_result + 1) results' evaluation_opt))
-                };
-            }
+          match Solver.solve formulae with
+          | None ->
+            raise @@ Jhupllib_utils.Not_yet_implemented
+              "take_steps (no solution)"
+          | Some solution ->
+            let Concrete_stack stack =
+              result.Symbolic_interpreter.Interpreter.er_stack
+            in
+            let stop_var = Var(x,Some(Freshening_stack(stack))) in
+            let input_sequence =
+              input_sequence_from_solution solution e stop_var
+            in
+            lazy_logger `trace (fun () ->
+                Printf.sprintf "Yielding input sequence: %s"
+                  (String.join "," @@ List.map string_of_int input_sequence)
+              );
+            input_sequence
         in
-        delayed_results (step_count + 1) results ev'_opt
+        let input_sequences = List.map input_sequence_from_result results in
+        let generator_fn =
+          match ev'_opt with
+          | None -> None
+          | Some ev' -> Some(fun n -> take_steps e x n ev')
+        in
+        { tgr_input_sequences = input_sequences;
+          tgr_steps = step_count + 1;
+          tgr_generator =
+            { tg_program = e;
+              tg_target = x;
+              tg_generator_fn = generator_fn;
+            };
+        }
       end
     end
   in
@@ -279,19 +255,26 @@ let generate_inputs
               result.tgr_steps
               (if result.tgr_steps = 1 then "" else "s")
               steps_taken');
-        let results' =
-          match result.tgr_inputs with
-          | Some input_sequence ->
-            lazy_logger `trace
-              (fun () -> Printf.sprintf "Found an input sequence: [%s]"
-                  (String.join ", " @@ List.map string_of_int input_sequence));
-            generation_callback input_sequence steps_taken';
-            (input_sequence, steps_taken') :: results
-          | None ->
+        begin
+          match result.tgr_input_sequences with
+          | _ :: _ ->
+            result.tgr_input_sequences
+            |> List.iter
+              (fun input_sequence ->
+                 lazy_logger `trace
+                   (fun () -> Printf.sprintf "Found an input sequence: [%s]"
+                       (String.join ", " @@
+                        List.map string_of_int input_sequence));
+                 generation_callback input_sequence steps_taken';
+              );
+          | [] ->
             lazy_logger `trace
               (fun () ->
                  "No further input sequence discovered in this iteration.");
-            results
+        end;
+        let results' =
+          List.map (fun seq -> (seq, steps_taken')) result.tgr_input_sequences @
+          results
         in
         let steps_left_opt' =
           Option.map (fun n -> max 0 @@ n - result.tgr_steps) steps_left_opt
