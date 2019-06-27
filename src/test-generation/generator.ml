@@ -18,17 +18,34 @@ module Solver = Symbolic_interpreter.Solver;;
 
 let lazy_logger = Logger_utils.make_lazy_logger "Generator";;
 
-let relativize_stack (start : Ident.t list) (finish : Ident.t list)
+(** Calculates the difference between two stacks.  Given a reference point at
+    which to start, this function computes the relative stack which will produce
+    the goal.
+*)
+let relativize_stack
+    (reference_point : Ident.t list)
+    (goal : Ident.t list)
   : Relative_stack.relative_stack =
   let insist f x s =
     match f x s with
     | None -> raise @@ Jhupllib.Utils.Invariant_failure "insist got None stack"
     | Some s' -> s'
   in
+  (* Start by throwing away everything they have in common. *)
+  let rec discard_common start finish =
+    match start, finish with
+    | x :: start', y :: finish' when equal_ident x y ->
+      discard_common start' finish'
+    | _ -> start, finish
+  in
+  let start, finish = discard_common reference_point goal in
+  (* To get from the start stack to the finish stack, we'll first have to pop
+     everything from the start stack and then push everything from the finish
+     stack. *)
   let relstack =
     Relative_stack.empty
     |> List.fold_right (flip @@ insist Relative_stack.pop) start
-    |> (flip @@ List.fold_left (insist Relative_stack.push)) finish
+    |> (flip @@ List.fold_left (insist Relative_stack.push)) (List.rev finish)
   in
   relstack
 ;;
@@ -158,8 +175,8 @@ let rec take_steps
           in
           match Solver.solve formulae with
           | None ->
-            raise @@ Jhupllib_utils.Not_yet_implemented
-              "take_steps (no solution)"
+            raise @@ Jhupllib_utils.Invariant_failure
+              "input_sequence_from_result (no solution)"
           | Some solution ->
             let Concrete_stack stack =
               result.Symbolic_interpreter.Interpreter.er_stack

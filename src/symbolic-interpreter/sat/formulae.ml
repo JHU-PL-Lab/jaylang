@@ -37,7 +37,9 @@ exception SymbolValueContradiction of string * symbol * value * value;;
 type inference_state =
   | InferredType of symbol_type
   | InferredAlias of symbol
+[@@deriving show]
 ;;
+let _ = show_inference_state;;
 
 type t =
   { formulae : Formula_set.t;
