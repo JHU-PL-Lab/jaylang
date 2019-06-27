@@ -25,6 +25,11 @@ module Cache_key = struct
     if x > y then Gmap.Order.Gt else
       Gmap.Order.Eq
   ;;
+  let pp (type a) formatter (x : a t) : unit =
+    let KInt(n) = x in
+    Format.pp_print_int formatter n
+  ;;
+  let show x = Jhupllib.Pp_utils.pp_to_string pp x;;
 end;;
 
 module Spec = struct

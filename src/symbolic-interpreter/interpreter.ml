@@ -228,6 +228,7 @@ let rec lookup
       );
     zero ()
   in
+  let _ = zeromsg in
   let%bind () = pause () in
   let recurse lookup_stack' acl0' relstack' =
     lazy_logger `trace
@@ -260,243 +261,292 @@ let rec lookup
          (Jhupllib.Pp_utils.pp_to_string pp_brief_annotated_clause acl0)
          (Jhupllib.Pp_utils.pp_to_string pp_brief_annotated_clause acl1)
     );
-  match lookup_stack with
-  | [] ->
-    (* No rule handles an empty variable stack. *)
-    zeromsg "empty variable stack" ()
-  | lookup_var :: lookup_stack' ->
-    begin
-      match acl1 with
-      | Unannotated_clause uacl1 ->
-        let Abs_clause(Abs_var x,ab) = uacl1 in
-        if not @@ equal_ident lookup_var x then
-          (* ## Skip rule ## *)
-          let%bind _ = recurse [x] acl0 relstack in
-          recurse lookup_stack acl1 relstack
-        else begin
-          (* In all cases of this match, we already know that the top variable
-             of the lookup stack is the variable defined by this clause. *)
-          match ab with
-          | Abs_value_body _ ->
-            let zero = zeromsg "Abs_value_body" in
-            let cl1 = Ident_map.find x env.le_clause_mapping in
-            let%orzero Clause(_,Value_body(v)) = cl1 in
-            lazy_logger `trace
-              (fun () -> "Discovered value: " ^ Ast_pp_brief.show_value v);
-            if List.is_empty lookup_stack' then
-              (* ## Value Discovery rule ## *)
-              let lookup_symbol = Symbol(lookup_var, relstack) in
-              let%bind () = record_formula @@
-                Formula(lookup_symbol, Formula_expression_value(v))
-              in
-              if equal_ident lookup_var env.le_first_var then begin
-                (* Then we've found the start of the program!  Build an
-                   appropriate concrete stack. *)
-                lazy_logger `trace
-                  (fun () -> "This lookup complete; top of program reached.");
-                return (lookup_symbol, stackize relstack)
-              end else begin
-                lazy_logger `trace
-                  (fun () ->
-                     "This lookup complete; resuming to top of program.");
-                let%bind (_, stack) =
-                  recurse [env.le_first_var] acl1 relstack
-                in
-                return (lookup_symbol, stack)
-              end
-            else
-              (* ## Value Discard rule ## *)
-              recurse lookup_stack' acl1 relstack
-          | Abs_var_body(Abs_var(x')) ->
-            (* ## Alias rule ## *)
-            recurse (x' :: lookup_stack') acl1 relstack
-          | Abs_input_body ->
-            (* ## Input rule ## *)
-            let lookup_symbol = Symbol(lookup_var, relstack) in
-            let formula =
-              Formula(SpecialSymbol SSymTrue,
-                      Formula_expression_binop(
-                        lookup_symbol,
-                        Binary_operator_equal_to,
-                        lookup_symbol))
-            in
-            let%bind () = record_formula formula in
-            (* The lookup definition would technically imply that a
-               non-singleton lookup stack is okay here, but we made that
-               decision because we believed it was impossible for a
-               non-singleton to appear.  Defensive programming FTW. *)
-            if not @@ List.is_empty lookup_stack' then begin
-              raise @@ Jhupllib.Utils.Invariant_failure
-                "Non-singleton lookup stack in Input rule!"
-            end;
-            if equal_ident lookup_var env.le_first_var then
-              (* Then we've found the start of the program!  Get the concrete
-                 stack together. *)
-              return (lookup_symbol, stackize relstack)
-            else
-              let%bind (_, stack) =
-                recurse [env.le_first_var] acl1 relstack
-              in
-              return (lookup_symbol, stack)
-          | Abs_appl_body (_, _) ->
-            (* No rules apply to Appl_body when the lookup variable matches.
-               (The function rules apply to wiring nodes and the skip rule
-               applies when the lookup variable does not match. *)
-            zero ()
-          | Abs_conditional_body (_, _, _) ->
-            (* No rules apply to Conditional_body when the lookup variable
-               matches.  (The conditional rules apply to wiring nodes and the
-               skip rule applies when the lookup variable does not match. *)
-            zero ()
-          | Abs_binary_operation_body (Abs_var(x1), op, Abs_var(x2)) ->
-            (* ## Binop rule ## *)
-            (* We ignore the stacks here intentionally; see note 1 above. *)
-            let%bind (symbol1, _) = recurse [x1] acl1 relstack in
-            let%bind (symbol2, _) = recurse [x2] acl1 relstack in
-            let lookup_symbol = Symbol(lookup_var, relstack) in
-            let%bind () = record_formula @@
-              Formula(lookup_symbol,
-                      Formula_expression_binop(symbol1, op, symbol2))
-            in
-            (* The "further" clause in the Binop rule says that, if the lookup
-               stack is non-empty, we have to look that stuff up too.  That
-               should never happen because none of our operators operate on
-               functions and functions are the only non-bottom elements in the
-               lookup stack.  So instead, we'll just skip the check here and
-               play defensively; it saves us a bind. *)
-            if not @@ List.is_empty lookup_stack' then begin
-              raise @@ Jhupllib.Utils.Not_yet_implemented
-                "Non-singleton lookup stack in Binop rule!"
-            end;
-            let%bind (_, stack) =
-              recurse [env.le_first_var] acl1 relstack
-            in
-            return (lookup_symbol, stack)
-        end
-      | Binding_enter_clause (Abs_var x, Abs_var x', c) ->
-        (* The only rules which apply to binding enter clauses are Function
-           Enter Parameter and Function Enter Non-Local.  They have a lot in
-           common, so let's do that part first. *)
-        let%orzero Abs_clause(Abs_var xr,
-                              Abs_appl_body(Abs_var xf, Abs_var _)) = c in
-        (* Find the concrete clause corresponding to c.*)
-        let cc = Ident_map.find xr env.le_clause_mapping in
-        let zero = zeromsg "Binding_enter_clause" in
-        lazy_logger `trace(fun () ->
-            Printf.sprintf "BEC: relstack = %s, xr = %s"
-              (Relative_stack.show_relative_stack relstack) (show_ident xr));
-        let%orzero Some relstack' = pop relstack xr in
-        lazy_logger `trace(fun () ->
-            "BEC: relstack' = " ^
-            Relative_stack.show_relative_stack relstack');
-        (* Decision check *)
-        let symbol = Symbol(x, relstack) in
-        let%bind () = record_decision symbol x cc x' in
-        (* Function lookup *)
-        (* We ignore the stack here intentionally; see note 1 above. *)
-        let%bind (function_symbol, _) =
-          recurse [xf] (Unannotated_clause c) relstack'
+  let rule_computations =
+    [
+      (* ### Value Discovery rule ### *)
+      begin
+        (* Lookup stack must be a singleton *)
+        let%orzero [lookup_var] = lookup_stack in
+        (* This must be a value assignment clause defining that variable. *)
+        let%orzero Unannotated_clause(
+            Abs_clause(Abs_var x,Abs_value_body _)) = acl1
         in
-        (* Record our decision to use this wiring node. *)
-        let%bind () = record_decision (Symbol(x,relstack)) x cc x' in
-        (* Real function check *)
-        (* Rather than trying to find the functions which could reach xf, we'll
-           just find the function to which this wiring node corresponds and
-           require it to equal xf in the formulae. *)
-        let fnval = Ident_map.find x env.le_function_parameter_mapping in
-        let%bind () = record_formula @@
-          Formula(function_symbol,
-                  Formula_expression_value(Value_function(fnval)))
-        in
-        (* The only difference in the rules is the stack that we use to continue
-           lookup, which varies based upon whether we're looking for a parameter
-           or a non-local. *)
-        if equal_ident lookup_var x then begin
-          (* ## Function Enter Parameter rule ## *)
-          recurse (x' :: lookup_stack') acl1 relstack'
-        end else begin
-          (* ## Function Enter Non-Local rule ## *)
-          recurse (xf :: lookup_var :: lookup_stack') acl1 relstack'
-        end
-      | Binding_exit_clause (Abs_var x, Abs_var x', c) ->
-        (* The rules applying to binding exit clauses are the Function Bottom
-           and Conditional Bottom rules.  These rules all require that the
-           exit clause binds the variable we are looking up. *)
         [%guard equal_ident x lookup_var];
-        let zero = zeromsg "Binding_exit_clause" in
-        begin
-          match c with
-          | Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, Abs_var _)) ->
-            (* ## Function Exit rule ## *)
-            (* Based upon the exit clause, we can figure out which function
-               would have to have been called for us to use it. *)
-            let fnval = Ident_map.find x' env.le_function_return_mapping in
-            (* Look up function *)
-            let%bind (formula_symbol, _) =
-              recurse [xf] (Unannotated_clause c) relstack
-            in
-            (* Induce formula *)
-            let%bind () = record_formula @@
-              Formula(formula_symbol,
-                      Formula_expression_value(Value_function(fnval)))
-            in
-            (* Produce result *)
-            let%orzero Some relstack' = push relstack xr in
-            recurse (x' :: lookup_stack') acl1 relstack'
-          | Abs_clause(Abs_var x_, Abs_conditional_body(Abs_var x1, e1, _)) ->
-            (* ## Conditional Bottom - True AND Conditional Bottom - False ## *)
-            [%guard equal_ident x x_];
-            (* These rules have exactly the same preconditions with two
-               exceptions: whether the return variable of e1 or e2 is used and
-               whether true or false is used.  Decide that immediately and then
-               generalize the rest of the code. *)
-            let target_value =
-              let Abs_var rve1 = retv e1 in
-              if equal_ident rve1 x' then true else false
-            in
-            (* Acquire subject formulae *)
-            (* We ignore the returned stack here; see note 1 above. *)
-            let%bind (subject_symbol, _) =
-              recurse [x1] (Unannotated_clause(c)) relstack
-            in
-            (* Induce formulae *)
-            let%bind () = record_formula @@
-              Formula(subject_symbol,
-                      Formula_expression_value(Value_bool target_value))
-            in
-            (* Produce result. *)
-            recurse (x' :: lookup_stack') acl1 relstack
-          | _ ->
-            raise @@ Jhupllib.Utils.Invariant_failure
-              "Non-application, non-conditional body found in binding exit clause!"
+        (* Get the value v assigned here. *)
+        let%orzero (Clause(_,Value_body(v))) =
+          Ident_map.find x env.le_clause_mapping
+        in
+        (* Induce the resulting formula *)
+        let lookup_symbol = Symbol(lookup_var, relstack) in
+        let%bind () = record_formula @@
+          Formula(lookup_symbol, Formula_expression_value(v))
+        in
+        (* If we're at the top of the program, we're finished.  Otherwise, start
+           a search for the first variable. *)
+        if equal_ident lookup_var env.le_first_var then begin
+          (* Then we've found the start of the program!  Build an
+             appropriate concrete stack. *)
+          lazy_logger `trace
+            (fun () -> "This lookup complete; top of program reached.");
+          return (lookup_symbol, stackize relstack)
+        end else begin
+          lazy_logger `trace
+            (fun () ->
+               "This lookup complete; resuming to top of program.");
+          let%bind (_, stack) =
+            recurse [env.le_first_var] acl1 relstack
+          in
+          return (lookup_symbol, stack)
         end
-      | Nonbinding_enter_clause(v,c) ->
-        (* ## Conditional Top rule ## *)
-        let zero = zeromsg "Nonbinding_enter_clause" in
+      end;
+      (* ### Input rule ### *)
+      begin
+        (* Lookup stack must be a singleton *)
+        let%orzero [lookup_var] = lookup_stack in
+        (* This must be an input clause defining that variable. *)
+        let%orzero Unannotated_clause(
+            Abs_clause(Abs_var x,Abs_input_body)) = acl1
+        in
+        [%guard equal_ident x lookup_var];
+        (* Induce the resulting formula *)
+        let lookup_symbol = Symbol(lookup_var, relstack) in
+        let%bind () = record_formula @@
+          Formula(SpecialSymbol SSymTrue,
+                  Formula_expression_binop(
+                    lookup_symbol,
+                    Binary_operator_equal_to,
+                    lookup_symbol))
+        in
+        (* If we're at the top of the program, we're finished.  Otherwise, start
+           a search for the first variable. *)
+        if equal_ident lookup_var env.le_first_var then begin
+          (* Then we've found the start of the program!  Build an
+             appropriate concrete stack. *)
+          lazy_logger `trace
+            (fun () -> "This lookup complete; top of program reached.");
+          return (lookup_symbol, stackize relstack)
+        end else begin
+          lazy_logger `trace
+            (fun () ->
+               "This lookup complete; resuming to top of program.");
+          let%bind (_, stack) =
+            recurse [env.le_first_var] acl1 relstack
+          in
+          return (lookup_symbol, stack)
+        end
+      end;
+      (* ### Value Discard rule ### *)
+      begin
+        (* Lookup stack must NOT be a singleton *)
+        let%orzero lookup_var :: lookup_var' :: lookup_stack' = lookup_stack in
+        (* This must be a value assignment clause defining that variable. *)
+        let%orzero Unannotated_clause(
+            Abs_clause(Abs_var x,Abs_value_body _)) = acl1
+        in
+        [%guard equal_ident x lookup_var];
+        (* We found the variable, so toss it and keep going. *)
+        recurse (lookup_var' :: lookup_stack') acl1 relstack
+      end;
+      (* ### Alias rule ### *)
+      begin
+        (* Grab variable from lookup stack *)
+        let%orzero lookup_var :: lookup_stack' = lookup_stack in
+        (* This must be an alias clause defining that variable. *)
+        let%orzero Unannotated_clause(
+            Abs_clause(Abs_var x,Abs_var_body(Abs_var x'))) =
+          acl1
+        in
+        [%guard equal_ident x lookup_var];
+        (* Look for the alias now. *)
+        recurse (x' :: lookup_stack') acl1 relstack
+      end;
+      (* ### Binop rule ### *)
+      begin
+        (* Grab variable from lookup stack *)
+        let%orzero lookup_var :: lookup_stack' = lookup_stack in
+        (* This must be a binary operator clause assigning to that variable. *)
+        let%orzero Unannotated_clause(
+            Abs_clause(Abs_var x, Abs_binary_operation_body(
+                Abs_var x', op, Abs_var x''))) =
+          acl1
+        in
+        [%guard equal_ident x lookup_var];
+        (* We ignore the stacks here intentionally; see note 1 above. *)
+        let%bind (symbol1, _) = recurse [x'] acl1 relstack in
+        let%bind (symbol2, _) = recurse [x''] acl1 relstack in
+        let lookup_symbol = Symbol(lookup_var, relstack) in
+        let%bind () = record_formula @@
+          Formula(lookup_symbol,
+                  Formula_expression_binop(symbol1, op, symbol2))
+        in
+        (* The "further" clause in the Binop rule says that, if the lookup
+           stack is non-empty, we have to look that stuff up too.  That
+           should never happen because none of our operators operate on
+           functions and functions are the only non-bottom elements in the
+           lookup stack.  So instead, we'll just skip the check here and
+           play defensively; it saves us a bind. *)
+        if not @@ List.is_empty lookup_stack' then begin
+          raise @@ Jhupllib.Utils.Not_yet_implemented
+            "Non-singleton lookup stack in Binop rule!"
+        end;
+        let%bind (_, stack) =
+          recurse [env.le_first_var] acl1 relstack
+        in
+        return (lookup_symbol, stack)
+      end;
+      (* ### Function Enter Parameter rule ### *)
+      begin
+        (* Grab variable from lookup stack *)
+        let%orzero lookup_var :: lookup_stack' = lookup_stack in
+        (* This must be a binding enter clause which defines our lookup
+           variable. *)
+        let%orzero Binding_enter_clause(Abs_var x,Abs_var x',c) = acl1 in
+        [%guard equal_ident lookup_var x];
+        (* Build the popped relative stack. *)
+        let%orzero Abs_clause(Abs_var xr,Abs_appl_body(Abs_var xf,_)) = c in
+        let%orzero Some relstack' = Relative_stack.pop relstack xr in
+        (* Record this wiring decision. *)
+        let cc = Ident_map.find xr env.le_clause_mapping in
+        let%bind () = record_decision (Symbol(x,relstack)) x cc x' in
+        (* Look up the definition of the function. *)
+        let%bind (function_symbol, _) = recurse [xf] acl1 relstack' in
+        (* Require this function be assigned to that variable. *)
+        let fv = Ident_map.find x env.le_function_parameter_mapping in
+        let%bind () = record_formula @@
+          Formula(function_symbol, Formula_expression_value(Value_function fv))
+        in
+        (* Proceed to look up the argument in the calling context. *)
+        recurse (x' :: lookup_stack') acl1 relstack'
+      end;
+      (* ### Function Enter Non-Local rule ### *)
+      begin
+        (* Grab variable from lookup stack *)
+        let%orzero x :: lookup_stack' = lookup_stack in
+        (* This must be a binding enter clause which DOES NOT define our lookup
+           variable. *)
+        let%orzero Binding_enter_clause(Abs_var x'',Abs_var x',c) = acl1 in
+        [%guard not @@ equal_ident x x''];
+        (* Build the popped relative stack. *)
+        let%orzero Abs_clause(Abs_var xr,Abs_appl_body(Abs_var xf,_)) = c in
+        let%orzero Some relstack' = Relative_stack.pop relstack xr in
+        (* Record this wiring decision. *)
+        let cc = Ident_map.find xr env.le_clause_mapping in
+        let%bind () = record_decision (Symbol(x,relstack)) x cc x' in
+        (* Look up the definition of the function. *)
+        let%bind (function_symbol, _) = recurse [xf] acl1 relstack' in
+        (* Require this function be assigned to that variable. *)
+        let fv = Ident_map.find x'' env.le_function_parameter_mapping in
+        let%bind () = record_formula @@
+          Formula(function_symbol, Formula_expression_value(Value_function fv))
+        in
+        (* Proceed to look up the variable in the context of the function's
+           definition. *)
+        recurse (xf :: x :: lookup_stack') acl1 relstack'
+      end;
+      (* ### Function Exit rule ### *)
+      begin
+        (* Grab variable from lookup stack *)
+        let%orzero lookup_var :: lookup_stack' = lookup_stack in
+        (* This must be a binding exit clause which defines our lookup
+           variable. *)
+        let%orzero Binding_exit_clause(Abs_var x, Abs_var x', c) = acl1 in
+        [%guard equal_ident x lookup_var];
+        (* Look up the definition point of the function. *)
+        let%orzero Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, _)) = c in
+        let%bind (function_symbol, _) =
+          recurse [xf] (Unannotated_clause(c)) relstack
+        in
+        (* Require this function be assigned to that variable. *)
+        let fv = Ident_map.find x' env.le_function_return_mapping in
+        let%bind () = record_formula @@
+          Formula(function_symbol, Formula_expression_value(Value_function fv))
+        in
+        (* Proceed to look up the value returned by the function. *)
+        let%orzero Some relstack' = Relative_stack.push relstack xr in
+        recurse (x' :: lookup_stack') acl1 relstack'
+      end;
+      (* ### Skip rule ### *)
+      begin
+        (* Grab variable from lookup stack *)
+        let%orzero lookup_var :: _ = lookup_stack in
+        (* This must be a variable we AREN'T looking for. *)
+        let%orzero Unannotated_clause(Abs_clause(Abs_var x'', _)) = acl1 in
+        [%guard not @@ equal_ident x'' lookup_var ];
+        (* Even if we're not looking for it, it has to be defined! *)
+        let%bind _ = recurse [x''] acl0 relstack in
+        recurse lookup_stack acl1 relstack
+      end;
+      (* ### Conditional Top rule ### *)
+      begin
+        (* This must be a non-binding enter wiring node for a conditional. *)
+        let%orzero Nonbinding_enter_clause(av,c) = acl1 in
         let%orzero Abs_clause(_, Abs_conditional_body(Abs_var x1, _, _)) = c in
-        (* Since conditionals are the only kind of thing we see here, we can
-           insist that the value is a boolean.  This is important, since we have
-           to be able to map the abstract value from the AST into a concrete
-           value form for the solver. *)
-        let%orzero Abs_value_bool b = v in
-        (* Learn about subject *)
-        (* Intentionally ignoring stack; see note 1 above for details. *)
+        (* Look up the subject symbol. *)
         let%bind (subject_symbol, _) =
           recurse [x1] (Unannotated_clause c) relstack
         in
-        (* Induce formula *)
+        (* Require that it has the same value as the wiring node. *)
+        let%orzero Abs_value_bool b = av in
         let%bind () = record_formula @@
           Formula(subject_symbol, Formula_expression_value(Value_bool b))
         in
-        (* Produce result *)
+        (* Proceed by moving through the wiring node. *)
         recurse lookup_stack acl1 relstack
-      | Start_clause _
-      | End_clause _ ->
-        (* Although the formal specification does not list these clauses, they
-           exist in the implementation to produce more readable and meaningful
-           graphs.  They can be ignored. *)
+      end;
+      (* ### Conditional Bottom - True rule ### *)
+      begin
+        (* Grab variable from lookup stack *)
+        let%orzero lookup_var :: lookup_stack' = lookup_stack in
+        (* This must be a binding exit clause which defines our lookup
+           variable. *)
+        let%orzero Binding_exit_clause(Abs_var x, Abs_var x', c) = acl1 in
+        [%guard equal_ident x lookup_var];
+        (* Ensure that we're considering the true branch *)
+        let%orzero Abs_clause(_, Abs_conditional_body(Abs_var x1, e1, _)) = c in
+        let Abs_var e1ret = retv e1 in
+        [%guard equal_ident x' e1ret];
+        (* Look up the subject symbol. *)
+        let%bind (subject_symbol, _) =
+          recurse [x1] (Unannotated_clause c) relstack
+        in
+        (* Require that its value matches this conditional branch. *)
+        let%bind () = record_formula @@
+          Formula(subject_symbol, Formula_expression_value(Value_bool true))
+        in
+        (* Proceed to look up the value returned by this branch. *)
+        recurse (x' :: lookup_stack') acl1 relstack
+      end;
+      (* ### Conditional Bottom - False rule ### *)
+      begin
+        (* Grab variable from lookup stack *)
+        let%orzero lookup_var :: lookup_stack' = lookup_stack in
+        (* This must be a binding exit clause which defines our lookup
+           variable. *)
+        let%orzero Binding_exit_clause(Abs_var x, Abs_var x', c) = acl1 in
+        [%guard equal_ident x lookup_var];
+        (* Ensure that we're considering the false branch *)
+        let%orzero Abs_clause(_, Abs_conditional_body(Abs_var x1, _, e2)) = c in
+        let Abs_var e2ret = retv e2 in
+        [%guard equal_ident x' e2ret];
+        (* Look up the subject symbol. *)
+        let%bind (subject_symbol, _) =
+          recurse [x1] (Unannotated_clause c) relstack
+        in
+        (* Require that its value matches this conditional branch. *)
+        let%bind () = record_formula @@
+          Formula(subject_symbol, Formula_expression_value(Value_bool false))
+        in
+        (* Proceed to look up the value returned by this branch. *)
+        recurse (x' :: lookup_stack') acl1 relstack
+      end;
+      (* Start-of-block and end-of-block handling (not actually a rule) *)
+      begin
+        let%orzero (Start_clause _ | End_clause _) = acl1 in
         recurse lookup_stack acl1 relstack
-    end
+      end;
+    ]
+  in
+  let%bind m = pick @@ List.enum rule_computations in m
 ;;
 
 type evaluation = Evaluation of concrete_stack M.evaluation;;
