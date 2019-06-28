@@ -38,8 +38,6 @@ exception On_Parse_error of string;;
 %token ANY
 %token INT
 %token STRING
-%token TRUE
-%token FALSE
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
@@ -116,8 +114,7 @@ expr_list:
 pattern:
   | ANY { AnyPat }
   | INT { IntPat }
-  | TRUE { TruePat }
-  | FALSE { FalsePat }
+  | BOOL { if $1 then TruePat else FalsePat}
   | FUNCTION { FunPat }
   | STRING { StringPat }
   | OPEN_BRACE record_pattern_body CLOSE_BRACE { RecPat($2) }

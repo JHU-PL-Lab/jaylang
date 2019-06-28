@@ -55,8 +55,6 @@ rule token = parse
 | "string"             { STRING }
 | "any"                { ANY }
 | "false"              { BOOL false }
-| "false"              { FALSE }
-| "true"               { TRUE }
 | "true"               { BOOL true }
 | "+"                  { BINOP_PLUS }
 | "-"                  { BINOP_MINUS }

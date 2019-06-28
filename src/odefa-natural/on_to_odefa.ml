@@ -489,11 +489,11 @@ and
     (e1_clist @ e2_clist @ [new_clause], new_var)
   | Let (var_ident, e1, e2) ->
     let (e1_clist, e1_var) = flatten_expr e1 in
-    let (e2_clist, _) = flatten_expr e2 in
+    let (e2_clist, e2_var) = flatten_expr e2 in
     let Ident(var_name) = var_ident in
     let letvar = Ast.Var(Ast.Ident(var_name), None) in
     let assignment_clause = Ast.Clause(letvar, Ast.Var_body(e1_var)) in
-    (e1_clist @ [assignment_clause] @ e2_clist, letvar)
+    (e1_clist @ [assignment_clause] @ e2_clist, e2_var)
   | LetFun (sign, e) ->
     (* TODO: check for bugs!!! *)
     (* Translating the function signature... *)
