@@ -152,6 +152,13 @@ match_expr:
   | PIPE pattern ARROW expr
     { ($2, $4) }
 
+/* Match expressions in Odefa-natural are syntax-ed similarly to OCaml's
+   match expressions, except for having an "end" keyword at the end.
+   ex) match x with
+       | int -> ...
+       | string -> ...
+       end
+*/
 match_expr_list:
   | match_expr { [$1] }
   | match_expr match_expr_list { $1 :: $2 }
@@ -160,6 +167,11 @@ fun_sig:
   | ident_decl param_list EQUALS expr
     { Funsig ($1, $2, $4) }
 
+/* Let Rec statements in Odefa-natural are separated by "with".
+   ex) let rec foo x y = ...
+       with bar a b = ...
+       in
+*/
 fun_sig_list:
   | fun_sig { [$1] }
   | fun_sig WITH fun_sig_list { $1 :: $3 }
@@ -191,6 +203,9 @@ simple_expr:
       { $2 }
 ;
 
+/* Records Expressions in Odefa-natural are delimited by commas and
+   their values are set using "=".
+   ex) {x = 1, y = 2, z = 3} */
 record_body:
   | label EQUALS expr
       { let (Label k) = $1 in
