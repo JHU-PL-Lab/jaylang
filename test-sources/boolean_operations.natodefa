@@ -1,0 +1,6 @@
+# EXPECT-WELL-FORMED
+
+let t = true in
+let f = false in
+let idk = (let n_t = not t in f or n_t) in
+if idk then 1 else 2

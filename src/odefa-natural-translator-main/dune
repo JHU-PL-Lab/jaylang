@@ -1,0 +1,8 @@
+(executable
+  (name translator)
+  (libraries
+    batteries
+    jhupllib
+    odefa.natural
+  )
+)

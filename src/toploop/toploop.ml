@@ -69,7 +69,7 @@ let stdout_errors_callback errors =
   errors
   |> List.iter
     (fun error ->
-       print_string @@ Toploop_analysis_types.show_error error
+       print_endline @@ Toploop_analysis_types.show_error error
     );
   flush stdout
 ;;

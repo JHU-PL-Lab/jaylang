@@ -28,3 +28,4 @@
 # Makefile temporaries
 /ddpa_toploop
 /test_generator
+/translator

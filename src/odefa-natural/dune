@@ -1,0 +1,29 @@
+(ocamllex
+  on_lexer
+)
+(menhir
+  (flags --explain)
+  (modules
+    on_parser
+  )
+)
+
+(library
+  (name odefa_natural)
+  (public_name odefa.natural)
+  (synopsis "Translator for Odefa Natural")
+  (libraries
+    batteries
+    jhupllib
+    odefa.ast
+  )
+  (preprocess
+    (pps
+      ppx_deriving.std
+      ppx_deriving_yojson
+    )
+  )
+  (flags
+    (:standard -w -39) ;for ppx_deriving_yojson, which generates extra rec flags
+  )
+)

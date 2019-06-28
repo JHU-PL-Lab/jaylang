@@ -15,6 +15,7 @@
     odefa.symbolic-interpreter
     odefa.test-generation
     odefa.toploop
+    odefa.natural
     oUnit
     ppx_deriving_yojson
     yojson
