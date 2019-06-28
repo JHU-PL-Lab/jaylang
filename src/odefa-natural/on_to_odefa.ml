@@ -1,24 +1,25 @@
 open Batteries;;
 open Jhupllib;;
+
 open Odefa_ast;;
 
+open Pattern_conversion;;
+open Translator_utils;;
+
+(** In this module we will translate from odefa-natural to odefa in the
+    following order:
+
+    * Desugar Let Rec
+    * Ensure that program has unique var names
+    * Desugar variants
+    * Desugar pattern vars
+    * Desugar pattern matching
+    * FIXME: we should make sure that at this point the program has no
+      duplicate namings
+
+*)
 let lazy_logger = Logger_utils.make_lazy_logger "On_to_odefa";;
 
-(** This creates a fresh name counter so we can easily get fresh names during
-    the A-normalization process. *)
-let _fresh_name_counter = ref 0;;
-
-(** This function generates a fresh name with the provided prefix. *)
-let fresh_name (prefix : string) : string =
-  let n = !_fresh_name_counter + 1 in
-  _fresh_name_counter := n;
-  prefix ^ "_" ^ string_of_int n
-;;
-
-let ast_var_from_string (name : string) : Ast.var =
-  let new_ident = Ast.Ident (fresh_name name) in
-  Ast.Var(new_ident, None)
-;;
 
 let fun_curry ident acc =
   let On_ast.Ident(id_string) = ident in
@@ -141,6 +142,10 @@ let rec rec_transform (e1 : On_ast.expr) : (On_ast.expr) =
         ) pat_expr_list
     in
     Match(transformed_subject, transformed_list)
+  | VariantExpr (_, _) ->
+    (* TODO: This is probably not true. we will figure out the ordering *)
+    raise @@ Failure
+      "rec_transform: VariantExpr expressions should have been desugared."
 ;;
 
 (* Function that removes duplicate naming so that we adhere to Odefa's naming
@@ -254,6 +259,9 @@ let rec replace_duplicate_naming
         ) pat_expr_list
     in
     Match(new_subj, new_pat_expr_list)
+  | VariantExpr (_, _) ->
+    raise @@ Failure
+      "replace_duplicate_naming: VariantExpr expressions should have been desugared."
 ;;
 
 let find_replace_on_fun_params = fun curr_id -> fun acc ->
@@ -279,347 +287,148 @@ let find_replace_on_fun_params = fun curr_id -> fun acc ->
    expression, and then calls replace_duplicate_naming to change the latter
    naming.
 *)
-let rec find_replace_duplicate_naming
-    (e : On_ast.expr)
-    (ident_list : On_ast.ident list)
-  : (On_ast.expr * On_ast.ident list) =
-  Logger_utils.lazy_bracket_log
-    (lazy_logger `trace)
-    (fun () -> "enter")
-    (fun _ -> "exit")
-  @@ fun () ->
-  match e with
-  | Int _ | Bool _ | String _ | Var _ -> (e , ident_list)
-  | Function (id_list, e') ->
-    (* we assume that the id_list of this function consists of unique elements *)
-    (* TODO: clean up the naming of id_list *)
-    let (init_e, init_id_list) = find_replace_duplicate_naming e' ident_list in
-    let (final_e, final_id_list, final_fun_id_list) =
-      List.fold_right find_replace_on_fun_params id_list (init_e, init_id_list, []) in
-    (Function (final_fun_id_list, final_e), final_id_list)
-  | Appl (e1, e2) ->
-    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
-    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
-    (Appl(new_e1, new_e2), e2_id_list)
-  | Let (id, e1, e2) ->
-    let (init_e2, init_e2_id_list) =
-      find_replace_duplicate_naming e2 ident_list in
-    let (init_e1, init_e1_id_list) =
-      find_replace_duplicate_naming e1 init_e2_id_list in
-    if List.mem id init_e1_id_list then
-      (
-        let On_ast.Ident(name_string) = id in
-        let new_name = On_ast.Ident(fresh_name name_string) in
-        (* let new_e1 = replace_duplicate_naming init_e1 id new_name in *)
-        let new_e2 = replace_duplicate_naming init_e2 id new_name in
-        let new_list = new_name :: init_e1_id_list in
-        (Let(new_name, init_e1, new_e2), new_list)
-      )
-    else
-      (
-        let new_list = id :: init_e1_id_list in
-        (Let(id, init_e1, init_e2), new_list)
-      )
-  | LetRecFun _ -> raise (Failure "no let rec")
-  | LetFun (f_sig, e') ->
-    let Funsig(f_name, param_list, f_e) = f_sig in
-    let (outer_e, outer_e_list) = find_replace_duplicate_naming e' ident_list in
-    let (init_inner_e, init_list) =
-      find_replace_duplicate_naming f_e outer_e_list in
-    (* taking care of the funsig part*)
-    let (final_inner_e, ident_list', param_list') =
-      List.fold_right find_replace_on_fun_params param_list (init_inner_e, init_list, []) in
-    (* checking if the let part has conflicts *)
-    if List.mem f_name ident_list' then
-      (
-        (* if there are conflicts, we need to change the id in the let binding,
-           and accomodate on the outer expression
-        *)
-        let On_ast.Ident(name_string) = f_name in
-        let new_name = On_ast.Ident(fresh_name name_string) in
-        let new_outer_e = replace_duplicate_naming outer_e f_name new_name in
-        let new_list = new_name :: ident_list' in
-        let new_funsig = On_ast.Funsig(new_name, param_list', final_inner_e) in
-        (LetFun(new_funsig, new_outer_e), new_list)
-      )
-    else
-      (
-        let new_list = f_name :: ident_list' in
-        let new_funsig = On_ast.Funsig(f_name, param_list', final_inner_e) in
-        (LetFun(new_funsig, outer_e), new_list)
-      )
-  | Plus (e1, e2) ->
-    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
-    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
-    (Plus(new_e1, new_e2), e2_id_list)
-  | Minus (e1, e2) ->
-    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
-    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
-    (Minus(new_e1, new_e2), e2_id_list)
-  | Equal (e1, e2) ->
-    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
-    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
-    (Equal(new_e1, new_e2), e2_id_list)
-  | LessThan (e1, e2) ->
-    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
-    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
-    (LessThan(new_e1, new_e2), e2_id_list)
-  | Leq (e1, e2) ->
-    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
-    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
-    (Leq(new_e1, new_e2), e2_id_list)
-  | And (e1, e2) ->
-    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
-    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
-    (And(new_e1, new_e2), e2_id_list)
-  | Or (e1, e2) ->
-    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
-    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
-    (Or(new_e1, new_e2), e2_id_list)
-  | Not (e') ->
-    let (new_e', e1_id_list) = find_replace_duplicate_naming e' ident_list in
-    (Not(new_e'), e1_id_list)
-  | If (e1, e2, e3) ->
-    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
-    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
-    let (new_e3, e3_id_list) = find_replace_duplicate_naming e3 e2_id_list in
-    (If(new_e1, new_e2, new_e3), e3_id_list)
-  | Record (recmap) ->
-    (* We need to traverse the map and check for each one. *)
-    let find_replace_on_records = fun key -> fun entry -> fun acc ->
-      (* the accumulator is a pair between the new dictionary and the new
-         ident list *)
-      let (curr_map, curr_ident_list) = acc in
-      let (new_entry, new_ident_list) =
-        find_replace_duplicate_naming entry curr_ident_list in
-      let new_map = On_ast.Ident_map.add key new_entry curr_map in
-      (new_map, new_ident_list)
-    in
-    let base_pair = (On_ast.Ident_map.empty, ident_list) in
-    let (res_map, res_ident_list) =
-      On_ast.Ident_map.fold find_replace_on_records recmap base_pair in
-    (Record (res_map), res_ident_list)
-  | RecordProj (e', lab) ->
-    let (new_e', e1_id_list) = find_replace_duplicate_naming e' ident_list in
-    (RecordProj(new_e', lab), e1_id_list)
-  | Match (subject, pat_expr_list) ->
-    let (new_subj, subj_id_list) = find_replace_duplicate_naming subject ident_list in
-    let (new_list, final_id_list) =
-      List.fold_right
-        (fun (pat, expr) -> fun (acc_list, prev_id_list) ->
-           let (new_expr, updated_id_list) =
-             find_replace_duplicate_naming expr prev_id_list in
-           ((pat, new_expr) :: acc_list, updated_id_list)
-        ) pat_expr_list ([], subj_id_list)
-    in
-    (Match(new_subj, new_list), final_id_list)
+let find_replace_duplicate_naming (e : On_ast.expr) : On_ast.expr =
+  let rec recurse
+      (e : On_ast.expr)
+      (ident_list : On_ast.ident list)
+    : (On_ast.expr * On_ast.ident list) =
+    Logger_utils.lazy_bracket_log
+      (lazy_logger `trace)
+      (fun () -> "enter")
+      (fun _ -> "exit")
+    @@ fun () ->
+    match e with
+    | Int _ | Bool _ | String _ | Var _ -> (e , ident_list)
+    | Function (id_list, e') ->
+      (* we assume that the id_list of this function consists of unique elements *)
+      (* TODO: clean up the naming of id_list *)
+      let (init_e, init_id_list) = recurse e' ident_list in
+      let (final_e, final_id_list, final_fun_id_list) =
+        List.fold_right find_replace_on_fun_params id_list (init_e, init_id_list, []) in
+      (Function (final_fun_id_list, final_e), final_id_list)
+    | Appl (e1, e2) ->
+      let (new_e1, e1_id_list) = recurse e1 ident_list in
+      let (new_e2, e2_id_list) = recurse e2 e1_id_list in
+      (Appl(new_e1, new_e2), e2_id_list)
+    | Let (id, e1, e2) ->
+      let (init_e2, init_e2_id_list) =
+        recurse e2 ident_list in
+      let (init_e1, init_e1_id_list) =
+        recurse e1 init_e2_id_list in
+      if List.mem id init_e1_id_list then
+        (
+          let On_ast.Ident(name_string) = id in
+          let new_name = On_ast.Ident(fresh_name name_string) in
+          (* let new_e1 = replace_duplicate_naming init_e1 id new_name in *)
+          let new_e2 = replace_duplicate_naming init_e2 id new_name in
+          let new_list = new_name :: init_e1_id_list in
+          (Let(new_name, init_e1, new_e2), new_list)
+        )
+      else
+        (
+          let new_list = id :: init_e1_id_list in
+          (Let(id, init_e1, init_e2), new_list)
+        )
+    | LetRecFun _ -> raise (Failure "no let rec")
+    | LetFun (f_sig, e') ->
+      let Funsig(f_name, param_list, f_e) = f_sig in
+      let (outer_e, outer_e_list) = recurse e' ident_list in
+      let (init_inner_e, init_list) =
+        recurse f_e outer_e_list in
+      (* taking care of the funsig part*)
+      let (final_inner_e, ident_list', param_list') =
+        List.fold_right find_replace_on_fun_params param_list (init_inner_e, init_list, []) in
+      (* checking if the let part has conflicts *)
+      if List.mem f_name ident_list' then
+        (
+          (* if there are conflicts, we need to change the id in the let binding,
+             and accomodate on the outer expression
+          *)
+          let On_ast.Ident(name_string) = f_name in
+          let new_name = On_ast.Ident(fresh_name name_string) in
+          let new_outer_e = replace_duplicate_naming outer_e f_name new_name in
+          let new_list = new_name :: ident_list' in
+          let new_funsig = On_ast.Funsig(new_name, param_list', final_inner_e) in
+          (LetFun(new_funsig, new_outer_e), new_list)
+        )
+      else
+        (
+          let new_list = f_name :: ident_list' in
+          let new_funsig = On_ast.Funsig(f_name, param_list', final_inner_e) in
+          (LetFun(new_funsig, outer_e), new_list)
+        )
+    | Plus (e1, e2) ->
+      let (new_e1, e1_id_list) = recurse e1 ident_list in
+      let (new_e2, e2_id_list) = recurse e2 e1_id_list in
+      (Plus(new_e1, new_e2), e2_id_list)
+    | Minus (e1, e2) ->
+      let (new_e1, e1_id_list) = recurse e1 ident_list in
+      let (new_e2, e2_id_list) = recurse e2 e1_id_list in
+      (Minus(new_e1, new_e2), e2_id_list)
+    | Equal (e1, e2) ->
+      let (new_e1, e1_id_list) = recurse e1 ident_list in
+      let (new_e2, e2_id_list) = recurse e2 e1_id_list in
+      (Equal(new_e1, new_e2), e2_id_list)
+    | LessThan (e1, e2) ->
+      let (new_e1, e1_id_list) = recurse e1 ident_list in
+      let (new_e2, e2_id_list) = recurse e2 e1_id_list in
+      (LessThan(new_e1, new_e2), e2_id_list)
+    | Leq (e1, e2) ->
+      let (new_e1, e1_id_list) = recurse e1 ident_list in
+      let (new_e2, e2_id_list) = recurse e2 e1_id_list in
+      (Leq(new_e1, new_e2), e2_id_list)
+    | And (e1, e2) ->
+      let (new_e1, e1_id_list) = recurse e1 ident_list in
+      let (new_e2, e2_id_list) = recurse e2 e1_id_list in
+      (And(new_e1, new_e2), e2_id_list)
+    | Or (e1, e2) ->
+      let (new_e1, e1_id_list) = recurse e1 ident_list in
+      let (new_e2, e2_id_list) = recurse e2 e1_id_list in
+      (Or(new_e1, new_e2), e2_id_list)
+    | Not (e') ->
+      let (new_e', e1_id_list) = recurse e' ident_list in
+      (Not(new_e'), e1_id_list)
+    | If (e1, e2, e3) ->
+      let (new_e1, e1_id_list) = recurse e1 ident_list in
+      let (new_e2, e2_id_list) = recurse e2 e1_id_list in
+      let (new_e3, e3_id_list) = recurse e3 e2_id_list in
+      (If(new_e1, new_e2, new_e3), e3_id_list)
+    | Record (recmap) ->
+      (* We need to traverse the map and check for each one. *)
+      let find_replace_on_records = fun key -> fun entry -> fun acc ->
+        (* the accumulator is a pair between the new dictionary and the new
+           ident list *)
+        let (curr_map, curr_ident_list) = acc in
+        let (new_entry, new_ident_list) =
+          recurse entry curr_ident_list in
+        let new_map = On_ast.Ident_map.add key new_entry curr_map in
+        (new_map, new_ident_list)
+      in
+      let base_pair = (On_ast.Ident_map.empty, ident_list) in
+      let (res_map, res_ident_list) =
+        On_ast.Ident_map.fold find_replace_on_records recmap base_pair in
+      (Record (res_map), res_ident_list)
+    | RecordProj (e', lab) ->
+      let (new_e', e1_id_list) = recurse e' ident_list in
+      (RecordProj(new_e', lab), e1_id_list)
+    | Match (subject, pat_expr_list) ->
+      let (new_subj, subj_id_list) = recurse subject ident_list in
+      let (new_list, final_id_list) =
+        List.fold_right
+          (fun (pat, expr) -> fun (acc_list, prev_id_list) ->
+             let (new_expr, updated_id_list) =
+               recurse expr prev_id_list in
+             ((pat, new_expr) :: acc_list, updated_id_list)
+          ) pat_expr_list ([], subj_id_list)
+      in
+      (Match(new_subj, new_list), final_id_list)
+    | VariantExpr (_, _) ->
+      raise @@ Failure
+        "find_replace_duplicate_naming: VariantExpr expressions should have been desugared."
+  in
+  fst @@ recurse e []
 ;;
 
-let rec encode_var_pat
-    (proj_subj : On_ast.expr)
-    (pat : On_ast.pattern)
-  : (On_ast.pattern * ((On_ast.ident * On_ast.expr) list))
-  =
-  match pat with
-  | AnyPat | IntPat | TruePat | FalsePat | FunPat | StringPat ->
-    (pat, [])
-  | RecPat (pat_map) ->
-    (* This routine accumulates the new map (that does not have any variable
-       patterns), and the return list. *)
-    let (res_pat_map, res_path_list) = On_ast.Ident_map.fold
-        (fun key -> fun pat -> fun acc ->
-           let (old_pat_map, old_path_list) = acc in
-           let (On_ast.Ident key_str) = key in
-           let cur_label = On_ast.Label key_str in
-           let (new_pat, res_list) = (encode_var_pat (RecordProj(proj_subj, cur_label)) pat)
-           in
-           let new_pat_map = On_ast.Ident_map.add key new_pat old_pat_map in
-           (new_pat_map, old_path_list @ res_list)
-        ) pat_map (On_ast.Ident_map.empty, [])
-    in (RecPat(res_pat_map), res_path_list)
-  | VariantPat (_) ->
-    raise (Failure "Variant pattern should have been desugared by now")
-  | VarPat (id) ->
-    (AnyPat, [(id, proj_subj)])
-;;
-
-(* Sub-routine that replaces all of the vars that are in the map. *)
-let rec var_replacer
-    (e : On_ast.expr)
-    (p_map : On_ast.expr On_ast.Ident_map.t)
-  : On_ast.expr =
-  match e with
-  | Var (id) ->
-    if (On_ast.Ident_map.mem id p_map) then
-      On_ast.Ident_map.find id p_map
-    else e
-  | Function (id_list, e') ->
-    let replaced_e' = var_replacer e' p_map in
-    Function (id_list, replaced_e')
-  | Appl (e1, e2) ->
-    let replaced_e1 = var_replacer e1 p_map in
-    let replaced_e2 = var_replacer e2 p_map in
-    Appl (replaced_e1, replaced_e2)
-  | Let (id, e1, e2) ->
-    let replaced_e1 = var_replacer e1 p_map in
-    let replaced_e2 = var_replacer e2 p_map in
-    Let (id, replaced_e1, replaced_e2)
-  | LetRecFun (_) ->
-    raise @@ Failure "LetRecFun should have been desugared by now"
-  | LetFun (f_sig, outer_expr) ->
-    let Funsig(name, param_list, f_expr) = f_sig in
-    let replaced_f_expr = var_replacer f_expr p_map in
-    let replaced_outer_expr = var_replacer outer_expr p_map in
-    LetFun(Funsig(name, param_list, replaced_f_expr), replaced_outer_expr)
-  | Plus (e1, e2) ->
-    let replaced_e1 = var_replacer e1 p_map in
-    let replaced_e2 = var_replacer e2 p_map in
-    Plus (replaced_e1, replaced_e2)
-  | Minus (e1, e2) ->
-    let replaced_e1 = var_replacer e1 p_map in
-    let replaced_e2 = var_replacer e2 p_map in
-    Minus (replaced_e1, replaced_e2)
-  | Equal (e1, e2) ->
-    let replaced_e1 = var_replacer e1 p_map in
-    let replaced_e2 = var_replacer e2 p_map in
-    Equal (replaced_e1, replaced_e2)
-  | LessThan (e1, e2) ->
-    let replaced_e1 = var_replacer e1 p_map in
-    let replaced_e2 = var_replacer e2 p_map in
-    LessThan (replaced_e1, replaced_e2)
-  | Leq (e1, e2) ->
-    let replaced_e1 = var_replacer e1 p_map in
-    let replaced_e2 = var_replacer e2 p_map in
-    Leq (replaced_e1, replaced_e2)
-  | And (e1, e2) ->
-    let replaced_e1 = var_replacer e1 p_map in
-    let replaced_e2 = var_replacer e2 p_map in
-    And (replaced_e1, replaced_e2)
-  | Or (e1, e2) ->
-    let replaced_e1 = var_replacer e1 p_map in
-    let replaced_e2 = var_replacer e2 p_map in
-    Or (replaced_e1, replaced_e2)
-  | Not (e') ->
-    let replaced_e' = var_replacer e' p_map in
-    Not (replaced_e')
-  | If (e1, e2, e3) ->
-    let replaced_e1 = var_replacer e1 p_map in
-    let replaced_e2 = var_replacer e2 p_map in
-    let replaced_e3 = var_replacer e3 p_map in
-    If (replaced_e1, replaced_e2, replaced_e3)
-  | Record (recmap) ->
-    let new_recmap = On_ast.Ident_map.map (fun expr ->
-        var_replacer expr p_map) recmap
-    in
-    Record (new_recmap)
-  | RecordProj (e', lab) ->
-    let replaced_e' = var_replacer e' p_map in
-    RecordProj(replaced_e', lab)
-  | Match (e1, p_e_list) ->
-    let replaced_e1 = var_replacer e1 p_map in
-    let new_p_e_list =
-      List.map (fun curr_p_e_pair ->
-          let (curr_pat, curr_expr) = curr_p_e_pair in
-          let new_expr = var_replacer curr_expr p_map in
-          (curr_pat, new_expr)
-        ) p_e_list
-    in
-    Match (replaced_e1, new_p_e_list)
-  | Int _ | Bool _ | String _ -> e
-;;
-
-
-(* This function will find match statements and go into the patterns to replace
-   any variable pattern.
-*)
-let rec eliminate_var_pat (e : On_ast.expr): On_ast.expr =
-  match e with
-  | Int _ | Bool _ | String _ | Var _ -> e
-  | Function (id_list, expr) ->
-    let clean_expr = eliminate_var_pat expr in
-    Function (id_list, clean_expr)
-  | Appl (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    Appl (clean_e1, clean_e2)
-  | Let (id, e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    Let (id, clean_e1, clean_e2)
-  | LetRecFun (_, _) ->
-    raise (Failure "rec functions should have been taken care of")
-  | LetFun (f_sig, expr) ->
-    let (On_ast.Funsig (f_name, param_list, fun_e)) = f_sig in
-    let clean_fun_e = eliminate_var_pat fun_e in
-    let clean_expr = eliminate_var_pat expr in
-    let new_funsig = On_ast.Funsig (f_name, param_list, clean_fun_e) in
-    LetFun (new_funsig, clean_expr)
-  | Plus (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    Plus (clean_e1, clean_e2)
-  | Minus (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    Minus (clean_e1, clean_e2)
-  | Equal (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    Equal (clean_e1, clean_e2)
-  | LessThan (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    LessThan (clean_e1, clean_e2)
-  | Leq (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    Leq (clean_e1, clean_e2)
-  | And (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    And (clean_e1, clean_e2)
-  | Or (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    Or (clean_e1, clean_e2)
-  | Not (expr) ->
-    let clean_expr = eliminate_var_pat expr in
-    Not (clean_expr)
-  | If (e1, e2, e3) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    let clean_e3 = eliminate_var_pat e3 in
-    If (clean_e1, clean_e2, clean_e3)
-  | Record (r_map) ->
-    let clean_map = On_ast.Ident_map.map
-        (fun expr -> eliminate_var_pat expr) r_map
-    in
-    Record (clean_map)
-  | RecordProj (expr, lab) ->
-    let clean_expr = eliminate_var_pat expr in
-    RecordProj (clean_expr, lab)
-  | Match (subject, pat_expr_list) ->
-    let subj_bind = On_ast.Ident (fresh_name "match_subject~") in
-    let new_subj = On_ast.Var (subj_bind) in
-    let clean_subject = eliminate_var_pat subject in
-    (* routine to pass into List.map with the pat_expr_list *)
-    let pat_expr_var_changer curr =
-      let (curr_pat, curr_expr) = curr in
-      (* NOTE: here we clean out the inner expression before we
-        erase variable patterns. *)
-      let half_clean_expr = eliminate_var_pat curr_expr in
-      let (res_pat, path_list) = encode_var_pat new_subj curr_pat in
-      let path_enum = List.enum path_list in
-      let path_map = On_ast.Ident_map.of_enum path_enum in
-      (* replace vars that are in the path_map... *)
-      let new_expr = var_replacer half_clean_expr path_map in
-      (res_pat, new_expr)
-    in
-    let new_path_expr_list = List.map pat_expr_var_changer pat_expr_list in
-    let let_e2 = On_ast.Match(new_subj, new_path_expr_list) in
-    On_ast.Let(subj_bind, clean_subject, let_e2)
-
-;;
 
 let rec flatten_binop
     (e1 : On_ast.expr)
@@ -837,12 +646,20 @@ and
     let Ast.Clause(match_last_clause_var, _) = match_last_clause in
     let all_clauses = subject_clause_list @ match_clauses in
     (all_clauses, match_last_clause_var)
+  | VariantExpr (_, _) ->
+    raise @@ Failure
+      "flatten_expr: VariantExpr expressions should have been desugared."
 ;;
 
 let translate (e : On_ast.expr) : Odefa_ast.Ast.expr =
-  let e_transformed = rec_transform e in
-  let (e_remove_duplicates, _) = find_replace_duplicate_naming e_transformed [] in
-  let (c_list, _) = flatten_expr e_remove_duplicates in
+  let transformed_e =
+    e
+    |> rec_transform
+    |> encode_variant
+    |> eliminate_var_pat
+    |> find_replace_duplicate_naming
+  in
+  let (c_list, _) = flatten_expr transformed_e in
   let Clause(last_var, _) = List.last c_list in
   let res_var = Ast.Var(Ident("~result"), None) in
   let res_clause = Ast.Clause(res_var, Ast.Var_body(last_var)) in

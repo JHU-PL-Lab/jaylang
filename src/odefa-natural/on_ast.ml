@@ -44,3 +44,4 @@ and expr =
   | String of string
   | Record of expr Ident_map.t | RecordProj of expr * label
   | Match of expr * (pattern * expr) list
+  | VariantExpr of variant_label * expr 
