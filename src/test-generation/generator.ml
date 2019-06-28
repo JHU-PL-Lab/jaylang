@@ -44,7 +44,7 @@ let relativize_stack
      stack. *)
   let relstack =
     Relative_stack.empty
-    |> List.fold_right (flip @@ insist Relative_stack.pop) start
+    |> List.fold_right (flip @@ insist Relative_stack.pop) (List.rev start)
     |> (flip @@ List.fold_left (insist Relative_stack.push)) (List.rev finish)
   in
   relstack
