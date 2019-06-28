@@ -75,6 +75,9 @@ let add_formula
         match op with
         | Binary_operator_plus -> z3_listop_to_binop mk_add ctx
         | Binary_operator_minus -> z3_listop_to_binop mk_sub ctx
+        | Binary_operator_times -> z3_listop_to_binop mk_mul ctx
+        | Binary_operator_divide -> mk_div ctx
+        | Binary_operator_modulus -> Z3.Arithmetic.Integer.mk_mod ctx
         | Binary_operator_less_than -> mk_lt ctx
         | Binary_operator_less_than_or_equal_to -> mk_le ctx
         | Binary_operator_equal_to -> mk_eq ctx

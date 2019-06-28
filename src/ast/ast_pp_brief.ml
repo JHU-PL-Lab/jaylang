@@ -44,6 +44,9 @@ let pp_binary_operator formatter binop =
     match binop with
     | Binary_operator_plus -> "+"
     | Binary_operator_minus -> "-"
+    | Binary_operator_times -> "*"
+    | Binary_operator_divide -> "/"
+    | Binary_operator_modulus -> "%"
     | Binary_operator_less_than -> "<"
     | Binary_operator_less_than_or_equal_to -> "<="
     | Binary_operator_equal_to -> "=="

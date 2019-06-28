@@ -21,11 +21,14 @@ module List = BatList;;
 %token KEYWORD_AND
 %token KEYWORD_OR
 %token KEYWORD_XOR
-%token BINOP_PLUS
-%token BINOP_MINUS
-%token BINOP_LESS
-%token BINOP_LESS_EQUAL
-%token BINOP_EQUAL
+%token PLUS
+%token MINUS
+%token ASTERISK
+%token SLASH
+%token PERCENT
+%token LESS
+%token LESS_EQUAL
+%token EQUAL_EQUAL
 %token DOUBLE_SEMICOLON
 
 %start <Odefa_ast.Ast.expr> prog
@@ -80,15 +83,21 @@ clause_body:
         OPEN_PAREN expr CLOSE_PAREN COLON
         OPEN_PAREN expr CLOSE_PAREN
       { Conditional_body($1,$4,$8) }
-  | variable BINOP_PLUS variable
+  | variable PLUS variable
       { Binary_operation_body($1,Binary_operator_plus,$3) }
-  | variable BINOP_MINUS variable
+  | variable MINUS variable
       { Binary_operation_body($1,Binary_operator_minus,$3) }
-  | variable BINOP_LESS variable
+  | variable ASTERISK variable
+      { Binary_operation_body($1,Binary_operator_times,$3) }
+  | variable SLASH variable
+      { Binary_operation_body($1,Binary_operator_divide,$3) }
+  | variable PERCENT variable
+      { Binary_operation_body($1,Binary_operator_modulus,$3) }
+  | variable LESS variable
       { Binary_operation_body($1,Binary_operator_less_than,$3) }
-  | variable BINOP_LESS_EQUAL variable
+  | variable LESS_EQUAL variable
       { Binary_operation_body($1,Binary_operator_less_than_or_equal_to,$3) }
-  | variable BINOP_EQUAL variable
+  | variable EQUAL_EQUAL variable
       { Binary_operation_body($1,Binary_operator_equal_to,$3) }
   | variable KEYWORD_AND variable
       { Binary_operation_body($1,Binary_operator_and,$3) }

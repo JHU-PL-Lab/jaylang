@@ -177,6 +177,9 @@ let abstract_binary_operation
   match binop,arg1,arg2 with
   | ( Binary_operator_plus
     | Binary_operator_minus
+    | Binary_operator_times
+    | Binary_operator_divide
+    | Binary_operator_modulus
     ), Abs_value_int, Abs_value_int ->
     singleton Abs_value_int
   | ( Binary_operator_less_than

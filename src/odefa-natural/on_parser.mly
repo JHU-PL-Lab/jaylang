@@ -22,11 +22,14 @@ module List = BatList;;
 %token AND
 %token OR
 %token NOT
-%token BINOP_PLUS
-%token BINOP_MINUS
-%token BINOP_LESS
-%token BINOP_LESS_EQUAL
-%token BINOP_EQUAL
+%token PLUS
+%token MINUS
+%token ASTERISK
+%token SLASH
+%token PERCENT
+%token LESS
+%token LESS_EQUAL
+%token EQUAL_EQUAL
 
 /*
  * Precedences and associativities.  Lower precedences come first.
@@ -36,8 +39,8 @@ module List = BatList;;
 %right prec_if                          /* If ... Then ... Else */
 %right OR                               /* Or */
 %right AND                              /* And */
-%left BINOP_EQUAL BINOP_LESS BINOP_LESS_EQUAL  /* = */
-%left BINOP_PLUS BINOP_MINUS            /* + - */
+%left EQUAL_EQUAL LESS LESS_EQUAL       /* = < <= */
+%left PLUS MINUS ASTERISK SLASH PERCENT /* + - * / % */
 
 %start <On_ast.expr> prog
 
@@ -51,19 +54,25 @@ prog:
 expr:
   | unary_expr
       { $1 }
-  | expr BINOP_PLUS expr
+  | expr PLUS expr
       { Plus($1, $3) }
-  | expr BINOP_MINUS expr
+  | expr MINUS expr
       { Minus($1, $3) }
-  | expr BINOP_LESS expr
+  | expr ASTERISK expr
+      { Times($1, $3) }
+  | expr SLASH expr
+      { Divide($1, $3) }
+  | expr PERCENT expr
+      { Modulus($1, $3) }
+  | expr LESS expr
       { LessThan($1, $3) }
-  | expr BINOP_LESS_EQUAL expr
+  | expr LESS_EQUAL expr
       { Leq($1, $3) }
   | expr AND expr
       { And($1, $3) }
   | expr OR expr
       { Or($1, $3) }
-  | expr BINOP_EQUAL expr
+  | expr EQUAL_EQUAL expr
       { Equal($1, $3) }
   | FUNCTION param_list ARROW expr %prec prec_fun
       { Function($2, $4) }

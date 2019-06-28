@@ -188,6 +188,16 @@ let rec evaluate
               Value_int(n1+n2)
             | (Value_int(n1),Binary_operator_minus,Value_int(n2)) ->
               Value_int(n1-n2)
+            | (Value_int(n1),Binary_operator_times,Value_int(n2)) ->
+              Value_int(n1*n2)
+            | (Value_int(n1),Binary_operator_divide,Value_int(n2)) ->
+              if n2 <> 0 then Value_int(n1/n2) else
+                raise @@ Evaluation_failure(
+                  "Divide by zero at " ^ show_var x)
+            | (Value_int(n1),Binary_operator_modulus,Value_int(n2)) ->
+              if n2 <> 0 then Value_int(n1 mod n2) else
+                raise @@ Evaluation_failure(
+                  "Modulus by zero at " ^ show_var x)
             | (Value_int(n1),Binary_operator_less_than,Value_int(n2)) ->
               Value_bool (n1 < n2)
             | ( Value_int(n1),

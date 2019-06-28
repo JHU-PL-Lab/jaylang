@@ -100,6 +100,18 @@ let rec rec_transform (e1 : On_ast.expr) : (On_ast.expr) =
     let transformed_expr1 = rec_transform me1 in
     let transformed_expr2 = rec_transform me2 in
     Minus (transformed_expr1, transformed_expr2)
+  | Times (me1, me2) ->
+    let transformed_expr1 = rec_transform me1 in
+    let transformed_expr2 = rec_transform me2 in
+    Times (transformed_expr1, transformed_expr2)
+  | Divide (me1, me2) ->
+    let transformed_expr1 = rec_transform me1 in
+    let transformed_expr2 = rec_transform me2 in
+    Divide (transformed_expr1, transformed_expr2)
+  | Modulus (me1, me2) ->
+    let transformed_expr1 = rec_transform me1 in
+    let transformed_expr2 = rec_transform me2 in
+    Modulus (transformed_expr1, transformed_expr2)
   | Equal (eqe1, eqe2) ->
     let transformed_expr1 = rec_transform eqe1 in
     let transformed_expr2 = rec_transform eqe2 in
@@ -189,6 +201,18 @@ let rec replace_duplicate_naming
     let new_e1 = replace_duplicate_naming e1 old_name new_name in
     let new_e2 = replace_duplicate_naming e2 old_name new_name in
     Minus (new_e1, new_e2)
+  | Times (e1, e2) ->
+    let new_e1 = replace_duplicate_naming e1 old_name new_name in
+    let new_e2 = replace_duplicate_naming e2 old_name new_name in
+    Times (new_e1, new_e2)
+  | Divide (e1, e2) ->
+    let new_e1 = replace_duplicate_naming e1 old_name new_name in
+    let new_e2 = replace_duplicate_naming e2 old_name new_name in
+    Divide (new_e1, new_e2)
+  | Modulus (e1, e2) ->
+    let new_e1 = replace_duplicate_naming e1 old_name new_name in
+    let new_e2 = replace_duplicate_naming e2 old_name new_name in
+    Modulus (new_e1, new_e2)
   | Equal (e1, e2) ->
     let new_e1 = replace_duplicate_naming e1 old_name new_name in
     let new_e2 = replace_duplicate_naming e2 old_name new_name in
@@ -319,6 +343,18 @@ let rec find_replace_duplicate_naming
     let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
     let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
     (Minus(new_e1, new_e2), e2_id_list)
+  | Times (e1, e2) ->
+    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
+    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
+    (Times(new_e1, new_e2), e2_id_list)
+  | Divide (e1, e2) ->
+    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
+    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
+    (Divide(new_e1, new_e2), e2_id_list)
+  | Modulus (e1, e2) ->
+    let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
+    let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
+    (Modulus(new_e1, new_e2), e2_id_list)
   | Equal (e1, e2) ->
     let (new_e1, e1_id_list) = find_replace_duplicate_naming e1 ident_list in
     let (new_e2, e2_id_list) = find_replace_duplicate_naming e2 e1_id_list in
@@ -389,6 +425,18 @@ let rec var_replacer
     let replaced_e1 = var_replacer e1 p_map in
     let replaced_e2 = var_replacer e2 p_map in
     Minus (replaced_e1, replaced_e2)
+  | Times (e1, e2) ->
+    let replaced_e1 = var_replacer e1 p_map in
+    let replaced_e2 = var_replacer e2 p_map in
+    Times (replaced_e1, replaced_e2)
+  | Divide (e1, e2) ->
+    let replaced_e1 = var_replacer e1 p_map in
+    let replaced_e2 = var_replacer e2 p_map in
+    Divide (replaced_e1, replaced_e2)
+  | Modulus (e1, e2) ->
+    let replaced_e1 = var_replacer e1 p_map in
+    let replaced_e2 = var_replacer e2 p_map in
+    Modulus (replaced_e1, replaced_e2)
   | Equal (e1, e2) ->
     let replaced_e1 = var_replacer e1 p_map in
     let replaced_e2 = var_replacer e2 p_map in
@@ -450,6 +498,18 @@ let rec eliminate_var_pat (e : On_ast.expr): On_ast.expr =
     let clean_e1 = eliminate_var_pat e1 in
     let clean_e2 = eliminate_var_pat e2 in
     Minus (clean_e1, clean_e2)
+  | Times(e1, e2) ->
+    let clean_e1 = eliminate_var_pat e1 in
+    let clean_e2 = eliminate_var_pat e2 in
+    Times(clean_e1, clean_e2)
+  | Divide(e1, e2) ->
+    let clean_e1 = eliminate_var_pat e1 in
+    let clean_e2 = eliminate_var_pat e2 in
+    Divide(clean_e1, clean_e2)
+  | Modulus(e1, e2) ->
+    let clean_e1 = eliminate_var_pat e1 in
+    let clean_e2 = eliminate_var_pat e2 in
+    Modulus(clean_e1, clean_e2)
   | Equal (e1, e2) ->
     let clean_e1 = eliminate_var_pat e1 in
     let clean_e2 = eliminate_var_pat e2 in
@@ -552,6 +612,12 @@ and
     flatten_binop e1 e2 Ast.Binary_operator_plus
   | Minus (e1, e2) ->
     flatten_binop e1 e2 Ast.Binary_operator_minus
+  | Times (e1, e2) ->
+    flatten_binop e1 e2 Ast.Binary_operator_times
+  | Divide (e1, e2) ->
+    flatten_binop e1 e2 Ast.Binary_operator_divide
+  | Modulus (e1, e2) ->
+    flatten_binop e1 e2 Ast.Binary_operator_modulus
   | Equal (e1, e2) ->
     flatten_binop e1 e2 Ast.Binary_operator_equal_to
   | LessThan (e1, e2) ->

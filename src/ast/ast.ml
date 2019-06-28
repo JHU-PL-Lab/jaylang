@@ -83,6 +83,9 @@ module Var_hashtbl = Hashtbl.Make(Var);;
 type binary_operator =
   | Binary_operator_plus
   | Binary_operator_minus
+  | Binary_operator_times
+  | Binary_operator_divide
+  | Binary_operator_modulus
   | Binary_operator_less_than
   | Binary_operator_less_than_or_equal_to
   | Binary_operator_equal_to
@@ -95,6 +98,9 @@ type binary_operator =
 let binary_operator_to_yojson = function
   | Binary_operator_plus -> `String "+"
   | Binary_operator_minus -> `String "-"
+  | Binary_operator_times -> `String "*"
+  | Binary_operator_divide -> `String "/"
+  | Binary_operator_modulus -> `String "%"
   | Binary_operator_less_than -> `String "<"
   | Binary_operator_less_than_or_equal_to -> `String "<="
   | Binary_operator_equal_to -> `String "="

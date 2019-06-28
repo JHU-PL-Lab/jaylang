@@ -42,10 +42,13 @@ rule token = parse
   | "or"                             { KEYWORD_OR }
   | "xor"                            { KEYWORD_XOR }
   | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) }
-  | "+"                              { BINOP_PLUS }
-  | "-"                              { BINOP_MINUS }
-  | "<"                              { BINOP_LESS }
-  | "<="                             { BINOP_LESS_EQUAL }
-  | "=="                             { BINOP_EQUAL }
+  | "+"                              { PLUS }
+  | "-"                              { MINUS }
+  | "*"                              { ASTERISK }
+  | "/"                              { SLASH }
+  | "%"                              { PERCENT }
+  | "<"                              { LESS }
+  | "<="                             { LESS_EQUAL }
+  | "=="                             { EQUAL_EQUAL }
   | ident_start ident_cont* as s     { IDENTIFIER s }
   | ";;"                             { DOUBLE_SEMICOLON }

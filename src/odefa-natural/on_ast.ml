@@ -37,7 +37,8 @@ and expr =
   | Var of ident | Function of ident list * expr | Appl of expr * expr
   | Let of ident * expr * expr | LetRecFun of funsig list * expr
   | LetFun of funsig * expr
-  | Plus of expr * expr | Minus of expr * expr | Equal of expr * expr
-  | LessThan of expr * expr | Leq of expr * expr
+  | Plus of expr * expr | Minus of expr * expr | Times of expr * expr
+  | Divide of expr * expr | Modulus of expr * expr
+  | Equal of expr * expr | LessThan of expr * expr | Leq of expr * expr
   | And of expr * expr| Or of expr * expr | Not of expr
   | If of expr * expr * expr | Int of int | Bool of bool

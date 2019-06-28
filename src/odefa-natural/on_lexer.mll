@@ -42,11 +42,14 @@ rule token = parse
 | "->"                 { ARROW }
 | "false"              { BOOL false }
 | "true"               { BOOL true }
-| "+"                  { BINOP_PLUS }
-| "-"                  { BINOP_MINUS }
-| "=="                  { BINOP_EQUAL }
-| "<"                  { BINOP_LESS }
-| "<="                 { BINOP_LESS_EQUAL }
+| "+"                  { PLUS }
+| "-"                  { MINUS }
+| "*"                  { ASTERISK }
+| "/"                  { SLASH }
+| "%"                  { PERCENT }
+| "=="                 { EQUAL_EQUAL }
+| "<"                  { LESS }
+| "<="                 { LESS_EQUAL }
 | digit+ as n         { INT_LITERAL (int_of_string n) }
 | ident_start ident_cont* as s     { IDENTIFIER s }
 
