@@ -4,6 +4,7 @@ open Batteries;;
 open On_ast;;
 open Translator_utils;;
 
+(* This function encodes all list-related patterns with record patterns *)
 let rec encode_list_pattern (pat : pattern) : pattern =
   match pat with
   | AnyPat | IntPat | TruePat | FalsePat | FunPat | StringPat | VarPat _ ->
@@ -15,6 +16,7 @@ let rec encode_list_pattern (pat : pattern) : pattern =
     let new_v_content = Variant (v_label, encode_list_pattern v_pat) in
     VariantPat new_v_content
   | EmptyLstPat ->
+    (* The empty list is encoded as {~empty = {}} *)
     let empty_rec =
       Ident_map.add (Ident "~empty") (RecPat (Ident_map.empty)) Ident_map.empty
     in
