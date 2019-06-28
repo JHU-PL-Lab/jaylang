@@ -5,6 +5,9 @@ all:
 	dune build src/toploop-main/ddpa_toploop.exe
 	rm -f ddpa_toploop
 	ln -s _build/default/src/toploop-main/ddpa_toploop.exe ddpa_toploop
+	dune build src/odefa-natural-translator-main/translator.exe
+	rm -f translator
+	ln -s _build/default/src/odefa-natural-translator-main/translator.exe translator
 	dune build src/test-generation-main/test_generator.exe
 	rm -f test_generator
 	ln -s _build/default/src/test-generation-main/test_generator.exe test_generator

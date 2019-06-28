@@ -84,3 +84,4 @@ and pp_expr formatter (Expr(cls)) =
 let show_value = pp_to_string pp_value;;
 let show_clause = pp_to_string pp_clause;;
 let show_brief_clause formatter (Clause(x,_)) = pp_var formatter x;;
+let show_expr = pp_to_string pp_expr;;
