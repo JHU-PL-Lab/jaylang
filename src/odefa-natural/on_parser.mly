@@ -22,6 +22,7 @@ module List = BatList;;
 %token AND
 %token OR
 %token NOT
+%token INPUT
 %token PLUS
 %token MINUS
 %token ASTERISK
@@ -84,6 +85,8 @@ expr:
       { Let($2, $4, $6) }
   | LET fun_sig IN expr %prec prec_fun
       { LetFun($2, $4)}
+  | INPUT
+      { Input }
 ;
 
 fun_sig:

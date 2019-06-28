@@ -35,7 +35,7 @@ let fun_curry ident acc =
 
 let rec rec_transform (e1 : On_ast.expr) : (On_ast.expr) =
   match e1 with
-  | Var _ | Int _ | Bool _ -> e1
+  | Var _ | Int _ | Bool _ | Input -> e1
   | Function (id_list, fe) ->
     let transformed_expr = rec_transform fe in Function (id_list, transformed_expr)
   | Appl (apple1, apple2) ->
@@ -150,7 +150,7 @@ let rec replace_duplicate_naming
     (new_name : On_ast.ident)
   : On_ast.expr =
   match e with
-  | Int _ | Bool _ -> e
+  | Int _ | Bool _ | Input -> e
   | Var (id) ->
     if id = old_name then Var(new_name) else Var(id)
   | Function (id_list, e') ->
@@ -276,7 +276,7 @@ let rec find_replace_duplicate_naming
     (fun _ -> "exit")
   @@ fun () ->
   match e with
-  | Int _ | Bool _ | Var _ -> (e , ident_list)
+  | Int _ | Bool _ | Var _ | Input -> (e , ident_list)
   | Function (id_list, e') ->
     (* we assume that the id_list of this function consists of unique elements *)
     (* TODO: clean up the naming of id_list *)
@@ -391,7 +391,7 @@ let rec var_replacer
     (p_map : On_ast.expr On_ast.Ident_map.t)
   : On_ast.expr =
   match e with
-  | Int _ | Bool _ -> e
+  | Int _ | Bool _ | Input -> e
   | Var (id) ->
     if (On_ast.Ident_map.mem id p_map) then
       On_ast.Ident_map.find id p_map
@@ -470,7 +470,7 @@ let rec var_replacer
 *)
 let rec eliminate_var_pat (e : On_ast.expr): On_ast.expr =
   match e with
-  | Int _ | Bool _ | Var _ -> e
+  | Int _ | Bool _ | Var _ | Input -> e
   | Function (id_list, expr) ->
     let clean_expr = eliminate_var_pat expr in
     Function (id_list, clean_expr)
@@ -565,6 +565,9 @@ and
     let new_var = ast_var_from_string i_string in
     let return_var = Ast.Var(Ast.Ident(i_string), None) in
     ([Clause(new_var, Var_body(return_var))], new_var)
+  | Input ->
+    let new_var = ast_var_from_string "~input" in
+    ([Clause(new_var, Input_body)], new_var)
   | Function (id_list, e) ->
     let (fun_c_list, fun_var) = flatten_expr e in
     let body_expr = Ast.Expr(fun_c_list) in

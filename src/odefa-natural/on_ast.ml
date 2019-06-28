@@ -42,3 +42,4 @@ and expr =
   | Equal of expr * expr | LessThan of expr * expr | Leq of expr * expr
   | And of expr * expr| Or of expr * expr | Not of expr
   | If of expr * expr * expr | Int of int | Bool of bool
+  | Input

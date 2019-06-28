@@ -42,6 +42,7 @@ rule token = parse
 | "->"                 { ARROW }
 | "false"              { BOOL false }
 | "true"               { BOOL true }
+| "input"              { INPUT }
 | "+"                  { PLUS }
 | "-"                  { MINUS }
 | "*"                  { ASTERISK }
