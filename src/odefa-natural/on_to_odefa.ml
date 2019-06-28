@@ -3,19 +3,18 @@ open Jhupllib;;
 
 open Odefa_ast;;
 
-open Pattern_conversion;;
+open Preliminary_conversion;;
 open Translator_utils;;
 
 (** In this module we will translate from odefa-natural to odefa in the
     following order:
 
     * Desugar Let Rec
-    * Ensure that program has unique var names
+    * Desugar lists
     * Desugar variants
     * Desugar pattern vars
     * Desugar pattern matching
-    * FIXME: we should make sure that at this point the program has no
-      duplicate namings
+    * Ensure that program has unique var names
 
 *)
 let lazy_logger = Logger_utils.make_lazy_logger "On_to_odefa";;
@@ -142,10 +141,9 @@ let rec rec_transform (e1 : On_ast.expr) : (On_ast.expr) =
         ) pat_expr_list
     in
     Match(transformed_subject, transformed_list)
-  | VariantExpr (_, _) ->
-    (* TODO: This is probably not true. we will figure out the ordering *)
-    raise @@ Failure
-      "rec_transform: VariantExpr expressions should have been desugared."
+  | VariantExpr (v_label, e') ->
+    let transformed_e' = rec_transform e' in
+    VariantExpr(v_label, transformed_e')
   | List expr_list ->
     let clean_expr_list =
       List.map rec_transform expr_list

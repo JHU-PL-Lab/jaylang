@@ -107,11 +107,14 @@ expr:
       { ListCons($1, $3) }
 ;
 
+/* Lists in Odefa-natural are delimited by commas.
+   ex) [1, 1, 1] */
 expr_list:
   | expr { [$1] }
   | expr COMMA expr_list { $1 :: $3 }
 
 pattern:
+  | OPEN_PAREN pattern CLOSE_PAREN { $2 }
   | ANY { AnyPat }
   | INT { IntPat }
   | BOOL { if $1 then TruePat else FalsePat}
@@ -126,6 +129,8 @@ pattern:
   | pattern DOUBLE_COLON pattern { LstDestructPat($1, $3) }
 ;
 
+/* Record Patterns in Odefa-natural are delimited by commas and use equals.
+   ex) {x = int, y = true, z = any} */
 record_pattern_body:
   | label EQUALS pattern
       { let (Label k) = $1 in
