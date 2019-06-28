@@ -58,8 +58,7 @@ lp = fun lp_clone -> (
 
 fff = false;
 two = 2;
-x = two;
-# x = input;
+x = input;
 lplp = lp lp;
 i_2 = lplp fff;
 result = i_2 x;
