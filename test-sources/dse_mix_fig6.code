@@ -67,26 +67,26 @@ work = fun w -> (
 #        if (sum==0 && m==43) failure();
 #    }
 #}
-f = fun mf -> (
-  d_0 = 0;
-  r_2 = fun nf -> (
-    d_14 = 0;
+f = fun f_m -> (
+  f_d_0 = 0;
+  f_r_0 = fun f_n -> (
+    f_d_1 = 0;
     
-    f_loop_start = 0;
-    f_loop_end = 6;
+    f_start = 0;
+    f_end = 6;
     
     f_loop_inline = fun fi_clone -> (
-      dl_16 = 0;
-      dl_17 = fun f_loop_i -> (
-        dl_18 = fun f_n -> (
-          dl_19 = fun f_sum -> (
-            dl_20 = 0;
-            f_loop_done = f_loop_i == f_loop_end;
-            dl_21 = f_loop_done ? (
-              dl_22 = 0;
+      f_d_2 = 0;
+      f_r_1 = fun f_loop_n -> (
+        f_r_2 = fun f_sum -> (
+          f_r_3 = fun f_i -> (
+            f_d_3 = 0;
+            f_loop_done = f_i == f_end;
+            f_r_4 = f_loop_done ? (
+              f_d_4 = 0;
               f_loop_done_result = f_sum;
             ) : (
-              dl_23 = 0;
+              f_d_5 = 0;
               f_one = 1;
               f_two = 2;
 
@@ -96,21 +96,20 @@ f = fun mf -> (
               f_zero = 0;
               f_check_a = f_a == f_zero;
               f_sum_next = f_check_a ? (
-                dl_25 = 0;
-                r_10 = f_sum + f_a;
-                r_15 = r_10 + f_one;
+                f_d_6 = 0;
+                f_r_5 = f_sum + f_a;
+                f_r_6 = f_r_5 + f_one;
               ) : (
-                dl_24 = f_sum;
+                f_r_7 = f_sum;
               );
 
               # TODO: n /= 2
-              f_n_next = f_n - f_two;
-
-              f_loop_i_next = f_loop_i + f_one;
+              f_loop_n_next = f_loop_n - f_two;
+              f_i_next = f_i + f_one;
               f_loop_inline_recur = fi_clone fi_clone;
-              r17 = f_loop_inline_recur f_loop_i_next;
-              r18 = r17 f_n_next;
-              f_loop_result = r18 f_sum_next;
+              f_r_8 = f_loop_inline_recur f_loop_n_next;
+              f_r_9 = f_r_8 f_sum_next;
+              f_loop_result = f_r_9 f_i_next;
             );
           );
         );
@@ -118,10 +117,10 @@ f = fun mf -> (
     );
 
     f_loop = f_loop_inline f_loop_inline;
-    f_loop_with_i = f_loop f_loop_start;
-    f_loop_i_n = f_loop_with_i nf;
-    f_sum_zero = 0;
-    f_sum_result = f_loop_i_n f_sum_zero;
+    f_r_10 = f_loop f_n;
+    f_sum_init = 0;
+    f_r_11 = f_r_10 f_sum_init;
+    f_sum_result = f_r_11 f_start;
 
     f_while = fun fw_clone -> (
       dl_27 = 0;
@@ -134,7 +133,7 @@ f = fun mf -> (
           f_n1 = 0;
           f_c1 = f_sum_result == f_n1;
           f_n2 = 43;
-          f_c2 = mf == f_n2;
+          f_c2 = f_m == f_n2;
           f_w_cond = f_c1 and f_c2;
           r_12 = f_w_cond ? (
             dl_30 = 0;
