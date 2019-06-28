@@ -104,6 +104,7 @@ expr:
       { VariantExpr($2, $3)  }
   | OPEN_BRACKET expr_list CLOSE_BRACKET
       { List ($2) }
+  | OPEN_BRACKET CLOSE_BRACKET { List ([]) }
   | expr DOUBLE_COLON expr
       { ListCons($1, $3) }
 ;
