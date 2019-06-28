@@ -128,8 +128,6 @@ struct
         non-immediate nodes.  This is useful during closure. *)
     ; ddpa_logging_data : ddpa_analysis_logging_data option
     (** Data associated with logging, if appropriate. *)
-    ; ddpa_end_of_block_map : End_of_block_map.t
-    (** A dictionary mapping each clause to its end-of-block clause. *)
     }
   [@@deriving show]
   ;;
@@ -287,8 +285,7 @@ struct
         |> Ddpa_pds_reachability.add_edge_function
           (Edge_functions.create_edge_function edge)
         |> Ddpa_pds_reachability.add_untargeted_dynamic_pop_action_function
-          (Edge_functions.create_untargeted_dynamic_pop_action_function
-             analysis.ddpa_end_of_block_map edge)
+          (Edge_functions.create_untargeted_dynamic_pop_action_function edge)
       in
       let pds_reachability' =
         Enum.clone edges
@@ -354,7 +351,6 @@ struct
         ; ddpa_active_nodes = ddpa_active_nodes'
         ; ddpa_active_non_immediate_nodes = ddpa_active_non_immediate_nodes'
         ; ddpa_logging_data = analysis.ddpa_logging_data
-        ; ddpa_end_of_block_map = analysis.ddpa_end_of_block_map
         }
       , true
       )
@@ -428,7 +424,6 @@ struct
           Annotated_clause_set.singleton (Start_clause rx)
       ; ddpa_active_non_immediate_nodes = Annotated_clause_set.empty
       ; ddpa_logging_data = logging_data_opt
-      ; ddpa_end_of_block_map = create_end_of_block_map cls
       }
     in
     (* Put the edges into the empty analysis. *)

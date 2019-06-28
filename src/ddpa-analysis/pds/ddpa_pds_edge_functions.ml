@@ -268,7 +268,7 @@ struct
   ;;
 
   let create_untargeted_dynamic_pop_action_function
-      (_ : End_of_block_map.t) (_ : ddpa_edge) (_ : R.State.t) =
+      (_ : ddpa_edge) (_ : R.State.t) =
     List.enum [ Value_discovery_1_of_2; Do_jump ]
   ;;
 
