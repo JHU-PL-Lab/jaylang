@@ -28,6 +28,8 @@ rule token = parse
 | "}"                  { CLOSE_BRACE }
 | "("                  { OPEN_PAREN }
 | ")"                  { CLOSE_PAREN }
+| "["                  { OPEN_BRACKET }
+| "]"                  { CLOSE_BRACKET }
 | ","                  { COMMA }
 | "="                  { EQUALS }
 | "."                  { DOT }
@@ -44,7 +46,17 @@ rule token = parse
 | "rec"                { REC }
 | "in"                 { IN }
 | "->"                 { ARROW }
+| "match"              { MATCH }
+| "|"                  { PIPE }
+| "end"                { END }
+| "`"                  { BACKTICK }
+| "::"                 { DOUBLE_COLON }
+| "int"                { INT }
+| "string"             { STRING }
+| "any"                { ANY }
 | "false"              { BOOL false }
+| "false"              { FALSE }
+| "true"               { TRUE }
 | "true"               { BOOL true }
 | "+"                  { BINOP_PLUS }
 | "-"                  { BINOP_MINUS }

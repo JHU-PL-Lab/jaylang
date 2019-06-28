@@ -13,6 +13,8 @@ exception On_Parse_error of string;;
 %token CLOSE_BRACE
 %token OPEN_PAREN
 %token CLOSE_PAREN
+%token OPEN_BRACKET
+%token CLOSE_BRACKET
 %token COMMA
 %token EQUALS
 %token ARROW
@@ -22,12 +24,22 @@ exception On_Parse_error of string;;
 %token LET
 %token IN
 %token REC
+%token MATCH
+%token PIPE
+%token END
+%token BACKTICK
+%token DOUBLE_COLON
 %token IF
 %token THEN
 %token ELSE
 %token AND
 %token OR
 %token NOT
+%token ANY
+%token INT
+%token STRING
+%token TRUE
+%token FALSE
 %token BINOP_PLUS
 %token BINOP_MINUS
 %token BINOP_LESS
@@ -40,10 +52,12 @@ exception On_Parse_error of string;;
 %right prec_let                         /* Let ... In ... */
 %right prec_fun                         /* function declaration */
 %right prec_if                          /* If ... Then ... Else */
+%right DOUBLE_COLON                     /* head :: tail */
 %right OR                               /* Or */
 %right AND                              /* And */
 %left BINOP_EQUAL BINOP_LESS BINOP_LESS_EQUAL  /* = */
 %left BINOP_PLUS BINOP_MINUS            /* + - */
+%right prec_label                       /* `A expr */
 %left DOT                               /* record access */
 
 %start <On_ast.expr> prog
@@ -84,7 +98,60 @@ expr:
       { LetFun($2, $4)}
   | expr DOT label
       { RecordProj($1, $3) }
+  | MATCH expr WITH match_expr_list END
+      { Match($2, $4) }
+  | BACKTICK variant_label expr %prec prec_label
+      { VariantExpr($2, $3)  }
+  | OPEN_BRACKET expr_list CLOSE_BRACKET
+      { List ($2) }
+  | expr DOUBLE_COLON expr
+      { ListCons($1, $3) }
 ;
+
+expr_list:
+  | expr { [$1] }
+  | expr COMMA expr_list { $1 :: $3 }
+
+pattern:
+  | ANY { AnyPat }
+  | INT { IntPat }
+  | TRUE { TruePat }
+  | FALSE { FalsePat }
+  | FUNCTION { FunPat }
+  | STRING { StringPat }
+  | OPEN_BRACE record_pattern_body CLOSE_BRACE { RecPat($2) }
+  | OPEN_BRACE CLOSE_BRACE { RecPat (Ident_map.empty) }
+  | BACKTICK variant_label pattern
+    { VariantPat (Variant($2,$3)) } %prec prec_label
+  | IDENTIFIER { VarPat (Ident($1)) }
+  | OPEN_BRACKET CLOSE_BRACKET { EmptyLstPat }
+  | pattern DOUBLE_COLON pattern { LstDestructPat($1, $3) }
+;
+
+record_pattern_body:
+  | label EQUALS pattern
+      { let (Label k) = $1 in
+        let key = Ident k in
+        Ident_map.singleton key $3 }
+  | label EQUALS pattern COMMA record_pattern_body
+      { let (Label k) = $1 in
+        let key = Ident k in
+        let old_map = $5 in
+        let dup_check = Ident_map.mem key old_map in
+        if dup_check then raise (On_Parse_error "Duplicate label names in record!")
+        else
+        let new_map = Ident_map.add key $3 old_map in
+        new_map
+      }
+;
+
+match_expr:
+  | PIPE pattern ARROW expr
+    { ($2, $4) }
+
+match_expr_list:
+  | match_expr { [$1] }
+  | match_expr match_expr_list { $1 :: $2 }
 
 fun_sig:
   | ident_decl param_list EQUALS expr
@@ -141,6 +208,10 @@ record_body:
 param_list:
   | ident_decl param_list { $1 :: $2 }
   | ident_decl { [$1] }
+;
+
+variant_label:
+  | IDENTIFIER { Variant_label $1 }
 ;
 
 label:
