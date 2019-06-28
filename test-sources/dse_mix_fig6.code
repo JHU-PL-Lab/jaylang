@@ -1,5 +1,5 @@
 # EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH failure_in_while [ 0, 0, 0 ] !
+# EXPECT-INPUT-SEQUENCES-REACH failure_in_while [ 0, 0 ] !
 
 dummy_0 = 0;
 failure = -1;
