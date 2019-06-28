@@ -4,6 +4,139 @@ open Batteries;;
 open On_ast;;
 open Translator_utils;;
 
+let rec encode_list_pattern (pat : pattern) : pattern =
+  match pat with
+  | AnyPat | IntPat | TruePat | FalsePat | FunPat | StringPat | VarPat _ ->
+    pat
+  | RecPat (rec_map) ->
+    RecPat (Ident_map.map (fun pat -> encode_list_pattern pat) rec_map)
+  | VariantPat v_content ->
+    let Variant (v_label, v_pat) = v_content in
+    let new_v_content = Variant (v_label, encode_list_pattern v_pat) in
+    VariantPat new_v_content
+  | EmptyLstPat ->
+    let empty_rec =
+      Ident_map.add (Ident "~empty") (RecPat (Ident_map.empty)) Ident_map.empty
+    in
+    RecPat (empty_rec)
+  | LstDestructPat (hd_pat, tl_pat) ->
+    let clean_hd_pat = encode_list_pattern hd_pat in
+    let clean_tl_pat = encode_list_pattern tl_pat in
+    let pat_rec_with_head =
+      Ident_map.add (Ident "~head") (clean_hd_pat) (Ident_map.empty)
+    in
+    let pat_rec_with_tail =
+      Ident_map.add (Ident "~tail") (clean_tl_pat) (pat_rec_with_head)
+    in
+    RecPat (pat_rec_with_tail)
+;;
+
+let rec list_transform (e : On_ast.expr) : (On_ast.expr) =
+  match e with
+  | Var _ | Int _ | Bool _ | String _ -> e
+  | Function (param_list, e') ->
+    let new_e' = list_transform e' in
+    Function (param_list, new_e')
+  | Appl (e1, e2) ->
+    let new_e1 = list_transform e1 in
+    let new_e2 = list_transform e2 in
+    Appl (new_e1, new_e2)
+  | Let (id, e1, e2) ->
+    let new_e1 = list_transform e1 in
+    let new_e2 = list_transform e2 in
+    Let (id, new_e1, new_e2)
+  | LetRecFun _ ->
+    raise @@
+    Failure "encode_variant: LetRecFun should have been desugared by now"
+  | LetFun (f_sig, outer_e) ->
+    let Funsig(f_name, param_list, inner_e) = f_sig in
+    let new_inner_e = list_transform inner_e in
+    let new_outer_e = list_transform outer_e in
+    let new_funsig = Funsig(f_name, param_list, new_inner_e) in
+    LetFun(new_funsig, new_outer_e)
+  | Plus (e1, e2) ->
+    let new_e1 = list_transform e1 in
+    let new_e2 = list_transform e2 in
+    Plus (new_e1, new_e2)
+  | Minus (e1, e2) ->
+    let new_e1 = list_transform e1 in
+    let new_e2 = list_transform e2 in
+    Minus (new_e1, new_e2)
+  | Equal (e1, e2) ->
+    let new_e1 = list_transform e1 in
+    let new_e2 = list_transform e2 in
+    Equal (new_e1, new_e2)
+  | LessThan (e1, e2) ->
+    let new_e1 = list_transform e1 in
+    let new_e2 = list_transform e2 in
+    LessThan (new_e1, new_e2)
+  | Leq (e1, e2) ->
+    let new_e1 = list_transform e1 in
+    let new_e2 = list_transform e2 in
+    Leq (new_e1, new_e2)
+  | And (e1, e2) ->
+    let new_e1 = list_transform e1 in
+    let new_e2 = list_transform e2 in
+    And (new_e1, new_e2)
+  | Or (e1, e2) ->
+    let new_e1 = list_transform e1 in
+    let new_e2 = list_transform e2 in
+    Or (new_e1, new_e2)
+  | Not (e') ->
+    let new_e' = list_transform e' in
+    Not (new_e')
+  | If (e1, e2, e3) ->
+    let new_e1 = list_transform e1 in
+    let new_e2 = list_transform e2 in
+    let new_e3 = list_transform e3 in
+    If (new_e1, new_e2, new_e3)
+  | Record (rec_map) ->
+    let new_map = Ident_map.map
+        (fun map_e -> list_transform map_e) rec_map
+    in
+    Record (new_map)
+  | RecordProj (rec_e, lab) ->
+    let new_rec_e = list_transform rec_e in
+    RecordProj (new_rec_e, lab)
+  | VariantExpr (v_name, v_expr) ->
+    VariantExpr (v_name, list_transform v_expr)
+  | Match (match_e, pat_expr_list) ->
+    let new_match_e = list_transform match_e in
+    (* routine to pass into List.map... *)
+    let pat_expr_list_changer pat_expr_tuple =
+      let (curr_pat, curr_expr) = pat_expr_tuple in
+      let new_pat = encode_list_pattern curr_pat in
+      let new_expr = list_transform curr_expr in
+      (new_pat, new_expr)
+    in
+    let new_pat_expr_list = List.map pat_expr_list_changer pat_expr_list in
+    Match (new_match_e, new_pat_expr_list)
+  | List (expr_list) ->
+    let list_maker = fun element -> fun acc ->
+      let clean_elm = list_transform element in
+      let new_map_init =
+        Ident_map.add (Ident "~head") (clean_elm) Ident_map.empty in
+      let new_map_final =
+        Ident_map.add (Ident "~tail") (acc) new_map_init in
+      Record (new_map_final)
+    in
+    let empty_rec =
+      Record (Ident_map.add
+                (Ident "~empty")
+                (Record (Ident_map.empty))
+                Ident_map.empty)
+    in
+    let record_equivalent = List.fold_right list_maker expr_list empty_rec
+    in
+    record_equivalent
+  | ListCons (hd_expr, tl_expr) ->
+    let clean_hd_expr = list_transform hd_expr in
+    let clean_tl_expr = list_transform tl_expr in
+    let rec_with_hd = Ident_map.add (Ident "~head") (clean_hd_expr) (Ident_map.empty) in
+    let rec_with_tl = Ident_map.add (Ident "~tail") (clean_tl_expr) (rec_with_hd) in
+    Record (rec_with_tl)
+;;
+
 let rec variant_expr_to_record (e : On_ast.expr) : (On_ast.expr) =
   match e with
   | VariantExpr (v_label, v_expr) ->
@@ -50,6 +183,8 @@ and encode_variant_pattern (p : pattern) : pattern =
   | RecPat (rec_map) ->
     RecPat (Ident_map.map (fun pat -> encode_variant_pattern pat) rec_map)
   | VariantPat _ -> variant_pattern_to_record p
+  | EmptyLstPat | LstDestructPat _ ->
+    raise @@ Failure "encode_variant: list patterns should be transformed by now"
 
 and encode_variant (e : expr) : expr =
   match e with
@@ -131,7 +266,9 @@ and encode_variant (e : expr) : expr =
     in
     let new_pat_expr_list = List.map pat_expr_list_changer pat_expr_list in
     Match (new_match_e, new_pat_expr_list)
-
+  | List _ | ListCons _ ->
+    raise @@
+    Failure "encode_variant: Lists should have been transformed at this point"
 ;;
 
 let rec encode_var_pat
@@ -157,9 +294,12 @@ let rec encode_var_pat
         ) pat_map (On_ast.Ident_map.empty, [])
     in (RecPat(res_pat_map), res_path_list)
   | VariantPat (_) ->
-    raise (Failure "Variant pattern should have been desugared by now")
+    raise
+    @@ Failure "encode_var_pat : Variant pattern should have been desugared by now"
   | VarPat (id) ->
     (AnyPat, [(id, proj_subj)])
+  | EmptyLstPat | LstDestructPat _ ->
+    raise @@ Failure "encode_var_pat: List patterns should have been transformed by now"
 ;;
 
 (* Sub-routine that replaces all of the vars that are in the map. *)
@@ -268,7 +408,8 @@ let rec eliminate_var_pat (e : On_ast.expr): On_ast.expr =
     let clean_e2 = eliminate_var_pat e2 in
     Let (id, clean_e1, clean_e2)
   | LetRecFun (_, _) ->
-    raise (Failure "rec functions should have been taken care of")
+    raise
+    @@ Failure "rec functions should have been taken care of"
   | LetFun (f_sig, expr) ->
     let (On_ast.Funsig (f_name, param_list, fun_e)) = f_sig in
     let clean_fun_e = eliminate_var_pat fun_e in
@@ -345,5 +486,7 @@ let rec eliminate_var_pat (e : On_ast.expr): On_ast.expr =
   | VariantExpr (_, _) ->
     raise @@ Failure
       "eliminate_var_pat: VariantExpr expressions should have been desugared."
-
+  | List _ | ListCons _ ->
+    raise @@ Failure
+      "eliminate_var_pat: List expressions should have been handled!"
 ;;

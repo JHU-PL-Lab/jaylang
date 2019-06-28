@@ -146,6 +146,14 @@ let rec rec_transform (e1 : On_ast.expr) : (On_ast.expr) =
     (* TODO: This is probably not true. we will figure out the ordering *)
     raise @@ Failure
       "rec_transform: VariantExpr expressions should have been desugared."
+  | List expr_list ->
+    let clean_expr_list =
+      List.map rec_transform expr_list
+    in List clean_expr_list
+  | ListCons (hd_expr, tl_expr) ->
+    let clean_hd_expr = rec_transform hd_expr in
+    let clean_tl_expr = rec_transform tl_expr in
+    ListCons (clean_hd_expr, clean_tl_expr)
 ;;
 
 (* Function that removes duplicate naming so that we adhere to Odefa's naming
@@ -262,6 +270,9 @@ let rec replace_duplicate_naming
   | VariantExpr (_, _) ->
     raise @@ Failure
       "replace_duplicate_naming: VariantExpr expressions should have been desugared."
+  | List _ | ListCons _ ->
+    raise @@ Failure
+      "replace_duplicate_naming: List expressions should have been handled!"
 ;;
 
 let find_replace_on_fun_params = fun curr_id -> fun acc ->
@@ -425,6 +436,9 @@ let find_replace_duplicate_naming (e : On_ast.expr) : On_ast.expr =
     | VariantExpr (_, _) ->
       raise @@ Failure
         "find_replace_duplicate_naming: VariantExpr expressions should have been desugared."
+    | List _ | ListCons _ ->
+      raise @@ Failure
+        "find_replace_duplicate_naming: List expressions should have been handled!"
   in
   fst @@ recurse e []
 ;;
@@ -613,8 +627,12 @@ and
              let new_pat_map =
                On_ast.Ident_map.fold rec_conversion patmap Ast.Ident_map.empty
              in (Record_pattern new_pat_map)
-           | On_ast.VariantPat (_) -> raise (Failure "variants would be encoded")
-           | On_ast.VarPat (_) -> raise (Failure "var would be encoded???")
+           | On_ast.VariantPat (_) ->
+             raise (Failure "match_converter: Variants patterns should have been encoded!")
+           | On_ast.VarPat (_) ->
+             raise (Failure "match_converter: Var patterns should have been encoded!")
+           | On_ast.EmptyLstPat | On_ast.LstDestructPat _ ->
+             raise @@ Failure "match_converter: List patterns should have been encoded!"
           )
         in
         let ast_pat = pat_conversion curr_pat in
@@ -649,12 +667,16 @@ and
   | VariantExpr (_, _) ->
     raise @@ Failure
       "flatten_expr: VariantExpr expressions should have been desugared."
+  | List _ | ListCons _ ->
+    raise @@ Failure
+      "flatten_expr: List expressions should have been handled!"
 ;;
 
 let translate (e : On_ast.expr) : Odefa_ast.Ast.expr =
   let transformed_e =
     e
     |> rec_transform
+    |> list_transform
     |> encode_variant
     |> eliminate_var_pat
     |> find_replace_duplicate_naming

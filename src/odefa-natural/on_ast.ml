@@ -31,7 +31,7 @@ and variant_content = Variant of variant_label * pattern
 
 and pattern = AnyPat | IntPat | TruePat | FalsePat | RecPat of pattern Ident_map.t
             | VariantPat of variant_content | VarPat of ident
-            | FunPat | StringPat
+            | FunPat | StringPat | EmptyLstPat | LstDestructPat of pattern * pattern
 
 and expr =
   | Var of ident | Function of ident list * expr | Appl of expr * expr
@@ -44,4 +44,5 @@ and expr =
   | String of string
   | Record of expr Ident_map.t | RecordProj of expr * label
   | Match of expr * (pattern * expr) list
-  | VariantExpr of variant_label * expr 
+  | VariantExpr of variant_label * expr
+  | List of expr list | ListCons of expr * expr
