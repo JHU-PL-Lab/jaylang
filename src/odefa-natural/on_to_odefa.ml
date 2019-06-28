@@ -636,8 +636,9 @@ and
           )
         in
         let ast_pat = pat_conversion curr_pat in
-        let (flat_pat_expr, flat_pat_var) = flatten_expr curr_pat_expr in
-        let pat_fun = Ast.Function_value (flat_pat_var, Expr(flat_pat_expr)) in
+        let (flat_pat_expr, _) = flatten_expr curr_pat_expr in
+        let match_var = ast_var_from_string "var~" in
+        let pat_fun = Ast.Function_value (match_var, Expr(flat_pat_expr)) in
         let antimatch_var = ast_var_from_string "var~" in
         let antimatch_fun = Ast.Function_value (antimatch_var, acc) in
         let match_clause =
