@@ -14,12 +14,28 @@ let () =
   let args = Generator_configuration_parser.parse_args () in
   (* Read the AST *)
   let ast =
-    try
-      File.with_file_in args.ga_filename Odefa_parser.Parser.parse_program
-    with
-    | Sys_error err ->
-      prerr_endline err;
-      exit 1
+    let is_natodefa =
+      Filename.extension args.ga_filename = ".natodefa"
+    in
+    if is_natodefa then begin
+      try
+        let natast =
+          File.with_file_in args.ga_filename
+            Odefa_natural.On_parse.parse_program
+        in
+        Odefa_natural.On_to_odefa.translate natast
+      with
+      | Sys_error err ->
+        prerr_endline err;
+        exit 1
+    end else begin
+      try
+        File.with_file_in args.ga_filename Odefa_parser.Parser.parse_program
+      with
+      | Sys_error err ->
+        prerr_endline err;
+        exit 1
+    end
   in
   (* Check well-formedness of AST *)
   begin
