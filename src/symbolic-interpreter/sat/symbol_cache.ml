@@ -3,13 +3,13 @@ open Odefa_ast;;
 
 open Ast;;
 open Interpreter_types;;
-open Relative_stack;;
 
 type symbol_cache = Z3.context * Z3.Symbol.symbol Symbol_map.t ref;;
 
 let new_symbol_cache ctx = (ctx, ref Symbol_map.empty);;
 
-let symbol_suffix_of_relative_stack (Relative_stack(costk,stk)) : string =
+let symbol_suffix_of_relative_stack
+    (Relative_stack.Relative_stack(costk,stk)) : string =
   let costk_name =
     String.join "$" @@ List.map (fun (Ident(s)) -> s) costk
   in

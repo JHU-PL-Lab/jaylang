@@ -8,7 +8,6 @@ open Odefa_ddpa;;
 open Ast;;
 open Ddpa_graph;;
 open Interpreter_types;;
-open Relative_stack;;
 
 (** This type represents an in-progress demand-driven evaluation of an
     expression. *)
@@ -19,7 +18,7 @@ type evaluation_result = {
   er_formulae : Formulae.t;
   (** The formulae established during symbolic evaluation. *)
 
-  er_stack : concrete_stack;
+  er_stack : Relative_stack.concrete_stack;
   (** The stack for the target variable in this evaluation. *)
 
   er_solution : (symbol -> value option);

@@ -22,7 +22,6 @@ open Odefa_ast;;
 open Ast;;
 open Ast_pp;;
 open Interpreter_types;;
-(* open Relative_stack;; *)
 open Sat_types;;
 
 let lazy_logger =
@@ -74,7 +73,8 @@ module type S = sig
   val pick : 'a Enum.t -> 'a m;;
   val pause : unit -> unit m;;
   val cache : 'a Spec.Cache_key.t -> 'a m -> 'a m;;
-  val record_decision : Symbol.t -> Ident.t -> clause -> Ident.t -> unit m;;
+  val record_decision :
+    Relative_stack.t -> Ident.t -> clause -> Ident.t -> unit m;;
   val record_formula : Formula.t -> unit m;;
   val check_formulae : 'a m -> 'a m;;
 
@@ -88,7 +88,10 @@ module type S = sig
     };;
 
   val start : 'a m -> 'a evaluation;;
-  val step : 'a evaluation -> 'a evaluation_result Enum.t * 'a evaluation;;
+  val step :
+    ?show_value:('a -> string) ->
+    'a evaluation ->
+    'a evaluation_result Enum.t * 'a evaluation;;
   val is_complete : 'a evaluation -> bool;;
 end;;
 
@@ -101,8 +104,11 @@ struct
 
   (* **** Supporting types **** *)
 
+  type decision = Ident.t * clause * Ident.t [@@deriving show];;
+  let _ = show_decision;;
+
   type decision_map =
-    (Ident.t * clause * Ident.t) Symbol_map.t
+    (Ident.t * clause * Ident.t) Relative_stack.Map.t
   [@@deriving show]
   ;;
   let _ = show_decision_map;;
@@ -153,11 +159,12 @@ struct
 
   let empty_log = {
     log_formulae = Formulae.empty;
-    log_decisions = Symbol_map.empty;
+    log_decisions = Relative_stack.Map.empty;
     log_steps = 0;
   };;
 
-  exception MergeFailure;;
+  exception MergeFailure of
+      Relative_stack.t * (ident * clause * ident) * (ident * clause * ident);;
 
   let merge_logs (log1 : log) (log2 : log) : log option =
     let open Option.Monad in
@@ -186,22 +193,35 @@ struct
         );
         None
     in
-    let merge_fn _key a b =
+    let merge_fn key a b =
       match a,b with
       | None,None -> None
       | Some x,None -> Some x
       | None,Some x -> Some x
-      | Some(x1,c1,x1'),Some(x2,c2,x2') ->
+      | Some((x1,c1,x1') as v1),Some((x2,c2,x2') as v2) ->
         if equal_ident x1 x2 && equal_ident x1' x2' && equal_clause c1 c2 then
           Some(x1,c1,x1')
         else
-          raise MergeFailure
+          raise @@ MergeFailure(key, v1, v2)
     in
     let%bind merged_decisions =
       try
-        Some(Symbol_map.merge merge_fn log1.log_decisions log2.log_decisions)
+        Some(Relative_stack.Map.merge
+               merge_fn log1.log_decisions log2.log_decisions)
       with
-      | MergeFailure -> None
+      | MergeFailure(key, v1, v2) ->
+        begin
+          let show_v =
+            Pp_utils.pp_to_string
+              (Pp_utils.pp_triple pp_ident Ast_pp_brief.pp_clause pp_ident)
+          in
+          lazy_logger `trace (fun () ->
+              Printf.sprintf
+                "Contradiction while merging %s decisions: %s and %s"
+                (Relative_stack.show key) (show_v v1) (show_v v2)
+            );
+          None
+        end
     in
     let new_log =
       { log_formulae = merged_formulae;
@@ -335,11 +355,12 @@ struct
      )
   ;;
 
-  let record_decision (s : Symbol.t) (x : Ident.t) (c : clause) (x' : Ident.t)
+  let record_decision
+      (s : Relative_stack.t) (x : Ident.t) (c : clause) (x' : Ident.t)
     : unit m =
     _record_log @@
     { log_formulae = Formulae.empty;
-      log_decisions = Symbol_map.singleton s (x,c,x');
+      log_decisions = Relative_stack.Map.singleton s (x,c,x');
       log_steps = 0;
     }
   ;;
@@ -347,7 +368,7 @@ struct
   let record_formula (formula : Formula.t) : unit m =
     _record_log @@
     { log_formulae = Formulae.singleton formula;
-      log_decisions = Symbol_map.empty;
+      log_decisions = Relative_stack.Map.empty;
       log_steps = 0;
     }
   ;;
@@ -658,7 +679,10 @@ struct
     _add_task (Some_task(Result_task x)) empty_evaluation
   ;;
 
-  let step (type a) (ev : a evaluation)
+  let step
+      (type a)
+      ?show_value:(show_value=fun _ -> "<no printer>")
+      (ev : a evaluation)
     : (a evaluation_result Enum.t * a evaluation) =
     match Work_collection.take ev.ev_tasks with
     | None ->
@@ -806,6 +830,21 @@ struct
         completed
         |> Enum.map
           (fun (value, log) ->
+             lazy_logger `trace (fun () ->
+                 Printf.sprintf
+                   ("Symbolic monad evaluation produced a result:\n" ^^
+                    "  Value:\n    %s\n" ^^
+                    "  Formulae:\n    %s\n" ^^
+                    "  Decisions:\n    %s\n" ^^
+                    "  Result steps: %d\n"
+                   )
+                   (show_value value)
+                   (Formulae.show log.log_formulae)
+                   (Relative_stack.Map.show
+                      pp_decision
+                      log.log_decisions)
+                   (log.log_steps + 1)
+               );
              { er_value = value;
                er_formulae = log.log_formulae;
                er_evaluation_steps = final_ev.ev_evaluation_steps;

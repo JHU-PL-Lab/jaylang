@@ -19,7 +19,6 @@ open Batteries;;
 open Odefa_ast;;
 
 open Ast;;
-open Interpreter_types;;
 open Sat_types;;
 
 (** The information pertinent to a single element of work in a symbolic monad
@@ -93,11 +92,12 @@ module type S = sig
   val cache : 'a Spec.Cache_key.t -> 'a m -> 'a m;;
 
   (** Records a path decision for the provided variable.  If the provided search
-      path is valid in this environment, unit is returned in the environment.  If
-      the provided search path conflicts with a previous selection, the
+      path is valid in this environment, unit is returned in the environment.
+      If the provided search path conflicts with a previous selection, the
       environment is destroyed.  The first symbol is the variable which is being
       mapped; the remaining arguments are the components of the wiring node. *)
-  val record_decision : Symbol.t -> Ident.t -> clause -> Ident.t -> unit m;;
+  val record_decision :
+    Relative_stack.t -> Ident.t -> clause -> Ident.t -> unit m;;
 
   (** Stores a formula in this environment's constraint set. *)
   val record_formula : Formula.t -> unit m;;
@@ -134,7 +134,10 @@ module type S = sig
       represented by the returned evaluation.  The returned enumeration contains
       all completed values discovered in this step together with the formulae
       they induced. *)
-  val step : 'a evaluation -> 'a evaluation_result Enum.t * 'a evaluation;;
+  val step :
+    ?show_value:('a -> string) ->
+    'a evaluation ->
+    'a evaluation_result Enum.t * 'a evaluation;;
 
   (** Determines whether a particular evaluation has completed.  If so,
       stepping the evaluation will never produce additional results.  Note that

@@ -25,7 +25,7 @@ let lazy_logger = Logger_utils.make_lazy_logger "Generator";;
 let relativize_stack
     (reference_point : Ident.t list)
     (goal : Ident.t list)
-  : Relative_stack.relative_stack =
+  : Relative_stack.t =
   let insist f x s =
     match f x s with
     | None -> raise @@ Jhupllib.Utils.Invariant_failure "insist got None stack"

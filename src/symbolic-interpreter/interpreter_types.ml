@@ -7,7 +7,6 @@ open Odefa_ast;;
 open Ast;;
 open Ast_pp;;
 open Pp_utils;;
-open Relative_stack;;
 
 (** An enumeration of special symbols used throughout the interpreter. *)
 type special_symbol =
@@ -19,7 +18,7 @@ type special_symbol =
     type of a variable using a stack-costack pair rather than a freshening
     stack. *)
 type symbol =
-  | Symbol of Ident.t * relative_stack
+  | Symbol of Ident.t * Relative_stack.t
   | SpecialSymbol of special_symbol
 [@@deriving eq, ord, to_yojson]
 ;;
@@ -29,7 +28,7 @@ let pp_symbol : symbol pretty_printer =
   match symbol with
   | Symbol(x,relstack) ->
     pp_ident formatter x;
-    pp_relative_stack formatter relstack;
+    Relative_stack.pp formatter relstack;
   | SpecialSymbol ss ->
     begin
       match ss with

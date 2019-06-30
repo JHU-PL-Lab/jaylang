@@ -9,7 +9,6 @@ open Ddpa_abstract_ast;;
 open Ddpa_graph;;
 open Ddpa_utils;;
 open Interpreter_types;;
-open Relative_stack;;
 open Sat_types;;
 
 let lazy_logger =
@@ -19,8 +18,8 @@ let lazy_logger =
 module Cache_key = struct
   type 'a t =
     | Cache_lookup :
-        Ident.t list * annotated_clause * relative_stack ->
-        (symbol * concrete_stack) t
+        Ident.t list * annotated_clause * Relative_stack.t ->
+        (symbol * Relative_stack.concrete_stack) t
   ;;
 
   let compare : type a b. a t -> b t -> (a, b) Gmap.Order.t = fun k1 k2 ->
@@ -34,8 +33,7 @@ module Cache_key = struct
         if c < 0 then Lt else
         if c > 0 then Gt else
           let c =
-            Relative_stack.compare_relative_stack
-              relative_stack_1 relative_stack_2
+            Relative_stack.compare relative_stack_1 relative_stack_2
           in
           if c < 0 then Lt else
           if c > 0 then Gt else
@@ -49,7 +47,7 @@ module Cache_key = struct
         (Jhupllib.Pp_utils.pp_to_string (Jhupllib.Pp_utils.pp_list pp_ident)
            lookup_stack)
         (show_brief_annotated_clause acl)
-        (Relative_stack.show_relative_stack relative_stack)
+        (Relative_stack.show relative_stack)
   ;;
 
   let show key = Jhupllib.Pp_utils.pp_to_string pp key;;
@@ -210,8 +208,8 @@ let rec lookup
     (env : lookup_environment)
     (lookup_stack : Ident.t list)
     (acl0 : annotated_clause)
-    (relstack : relative_stack)
-  : (symbol * concrete_stack) m =
+    (relstack : Relative_stack.t)
+  : (symbol * Relative_stack.concrete_stack) m =
   let%bind acl1 = pick @@ preds acl0 env.le_cfg in
   let zeromsg msg () =
     lazy_logger `trace
@@ -220,7 +218,7 @@ let rec lookup
            msg
            (Jhupllib.Pp_utils.pp_to_string
               (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack)
-           (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack)
+           (Jhupllib.Pp_utils.pp_to_string Relative_stack.pp relstack)
            (Jhupllib.Pp_utils.pp_to_string
               pp_brief_annotated_clause acl0)
            (Jhupllib.Pp_utils.pp_to_string
@@ -237,14 +235,14 @@ let rec lookup
            "From lookup of\n  %s\n  with stack %s\n  at %s\n  after %s\nRecursively looking up\n  %s\n  with stack %s\n  at %s\n"
            (Jhupllib.Pp_utils.pp_to_string
               (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack)
-           (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack)
+           (Jhupllib.Pp_utils.pp_to_string Relative_stack.pp relstack)
            (Jhupllib.Pp_utils.pp_to_string
               pp_brief_annotated_clause acl0)
            (Jhupllib.Pp_utils.pp_to_string
               pp_brief_annotated_clause acl1)
            (Jhupllib.Pp_utils.pp_to_string
               (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack')
-           (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack')
+           (Jhupllib.Pp_utils.pp_to_string Relative_stack.pp relstack')
            (Jhupllib.Pp_utils.pp_to_string
               pp_brief_annotated_clause acl0')
       );
@@ -257,7 +255,7 @@ let rec lookup
          "Looking up\n  %s\n  with stack %s\n  at %s\n  after %s\n"
          (Jhupllib.Pp_utils.pp_to_string
             (Jhupllib.Pp_utils.pp_list pp_ident) lookup_stack)
-         (Jhupllib.Pp_utils.pp_to_string pp_relative_stack relstack)
+         (Jhupllib.Pp_utils.pp_to_string Relative_stack.pp relstack)
          (Jhupllib.Pp_utils.pp_to_string pp_brief_annotated_clause acl0)
          (Jhupllib.Pp_utils.pp_to_string pp_brief_annotated_clause acl1)
     );
@@ -288,7 +286,7 @@ let rec lookup
              appropriate concrete stack. *)
           lazy_logger `trace
             (fun () -> "This lookup complete; top of program reached.");
-          return (lookup_symbol, stackize relstack)
+          return (lookup_symbol, Relative_stack.stackize relstack)
         end else begin
           lazy_logger `trace
             (fun () ->
@@ -324,7 +322,7 @@ let rec lookup
              appropriate concrete stack. *)
           lazy_logger `trace
             (fun () -> "This lookup complete; top of program reached.");
-          return (lookup_symbol, stackize relstack)
+          return (lookup_symbol, Relative_stack.stackize relstack)
         end else begin
           lazy_logger `trace
             (fun () ->
@@ -407,7 +405,7 @@ let rec lookup
         let%orzero Some relstack' = Relative_stack.pop relstack xr in
         (* Record this wiring decision. *)
         let cc = Ident_map.find xr env.le_clause_mapping in
-        let%bind () = record_decision (Symbol(x,relstack)) x cc x' in
+        let%bind () = record_decision relstack x cc x' in
         (* Look up the definition of the function. *)
         let%bind (function_symbol, _) = recurse [xf] acl1 relstack' in
         (* Require this function be assigned to that variable. *)
@@ -431,7 +429,7 @@ let rec lookup
         let%orzero Some relstack' = Relative_stack.pop relstack xr in
         (* Record this wiring decision. *)
         let cc = Ident_map.find xr env.le_clause_mapping in
-        let%bind () = record_decision (Symbol(x,relstack)) x cc x' in
+        let%bind () = record_decision relstack x'' cc x' in
         (* Look up the definition of the function. *)
         let%bind (function_symbol, _) = recurse [xf] acl1 relstack' in
         (* Require this function be assigned to that variable. *)
@@ -549,11 +547,11 @@ let rec lookup
   let%bind m = pick @@ List.enum rule_computations in m
 ;;
 
-type evaluation = Evaluation of concrete_stack M.evaluation;;
+type evaluation = Evaluation of Relative_stack.concrete_stack M.evaluation;;
 
 type evaluation_result = {
   er_formulae : Formulae.t;
-  er_stack : concrete_stack;
+  er_stack : Relative_stack.concrete_stack;
   er_solution : (symbol -> value option);
 };;
 
@@ -577,7 +575,7 @@ let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
     Unannotated_clause(
       lift_clause @@ Ident_map.find program_point env.le_clause_mapping)
   in
-  let m : concrete_stack m =
+  let m : Relative_stack.concrete_stack m =
     (* At top level, we don't actually need the returned symbol; we just want
        the concrete stack it produces.  The symbol is only used to generate
        formulae, which we'll get from the completed computations. *)
@@ -603,7 +601,7 @@ let step (x : evaluation) : evaluation_result list * evaluation option =
              lazy_logger `trace (fun () ->
                  Printf.sprintf
                    "Discovered answer of stack %s and formulae:\n%s"
-                   (show_concrete_stack evaluation_result.M.er_value)
+                   (Relative_stack.show_concrete_stack evaluation_result.M.er_value)
                    (Formulae.show evaluation_result.M.er_formulae)
                )
            end;
@@ -616,7 +614,7 @@ let step (x : evaluation) : evaluation_result list * evaluation option =
              lazy_logger `trace (fun () ->
                  Printf.sprintf
                    "Dismissed answer of stack %s with unsolvable formulae:\n%s"
-                   (show_concrete_stack evaluation_result.M.er_value)
+                   (Relative_stack.show_concrete_stack evaluation_result.M.er_value)
                    (Formulae.show evaluation_result.M.er_formulae)
                )
            end;
