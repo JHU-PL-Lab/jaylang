@@ -238,7 +238,7 @@ let pp_annotated_clause formatter annotated_clause =
     Format.pp_print_string formatter "start ";
     pp_abstract_var formatter x;
   | End_clause(x) ->
-    Format.pp_print_string formatter "start ";
+    Format.pp_print_string formatter "end ";
     pp_abstract_var formatter x;
 ;;
 let show_annotated_clause = Jhupllib.Pp_utils.pp_to_string pp_annotated_clause;;
@@ -266,7 +266,7 @@ let pp_brief_annotated_clause formatter annotated_clause =
     Format.pp_print_string formatter "start ";
     pp_abstract_var formatter x;
   | End_clause(x) ->
-    Format.pp_print_string formatter "start ";
+    Format.pp_print_string formatter "end ";
     pp_abstract_var formatter x;
 ;;
 let show_brief_annotated_clause =
