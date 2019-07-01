@@ -196,14 +196,19 @@ let parse_expectation str =
           | variable_name :: rest_args ->
             let parse_rest_args chs =
               let parse_int chs : int * char list =
-                let ns = List.take_while Char.is_digit chs in
-                if List.is_empty ns then begin
-                  raise @@ Expectation_parse_failure(
+                let is_digit_char c = (Char.is_digit c) || c == '-' in
+                let ns = List.take_while is_digit_char chs in
+                let parse_exception = Expectation_parse_failure(
                     "In input sequence expectation, expected integer at: " ^
-                    (String.of_list chs))
+                    (String.of_list chs)) in
+                if List.is_empty ns then begin
+                  raise parse_exception
                 end else begin
-                  let chs' = List.drop_while Char.is_digit chs in
-                  (int_of_string @@ String.of_list ns, chs')
+                  let chs' = List.drop_while is_digit_char chs in
+                  let to_int_result = int_of_string_opt @@ String.of_list ns in
+                  match to_int_result with
+                  | Some i -> (i, chs')
+                  | None -> raise parse_exception
                 end
               in
               let parse_input_sequence chs : int list option * char list =
