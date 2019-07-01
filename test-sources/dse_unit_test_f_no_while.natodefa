@@ -1,5 +1,6 @@
 # EXPECT-WELL-FORMED
 # EXPECT-INPUT-SEQUENCES-REACH target_true [ 43, 16 ] !
+## It takes 103493 steps in current implementation
 
 ##
 #void f(int m, int n) {
@@ -29,11 +30,8 @@ in let f m n =
 in let m = input
 in let n = input
 in let r = f m n
-in if r == 0
+in if r == 0 and m == 43
   then (
-    if m == 43 
-    then
-      let target_true = true in target_true
-    else false
+    let target_true = true in target_true
   )
   else false
