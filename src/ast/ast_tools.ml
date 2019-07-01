@@ -188,3 +188,51 @@ let scope_violations expression =
   check_scope_expr Ident_set.empty expression
   |> List.map (fun (i1,i2) -> (Var(i1,None)),Var(i2,None))
 ;;
+
+(** Returns the last defined variable in a list of clauses. *)
+let rv (cs : clause list) : Var.t =
+  let Clause(x,_) = List.last cs in x
+;;
+
+(** Returns the last defined variable in an expression. *)
+let retv (e : expr) : Var.t =
+  let Expr(cs) = e in rv cs
+;;
+
+(** Homomorphically maps all variables in an expression. *)
+let rec map_expr_vars (fn : Var.t -> Var.t) (e : expr) : expr =
+  let Expr(cls) = e in Expr(List.map (map_clause_vars fn) cls)
+
+and map_clause_vars (fn : Var.t -> Var.t) (c : clause) : clause =
+  let Clause(x,b) = c in Clause(fn x, map_clause_body_vars fn b)
+
+and map_clause_body_vars (fn : Var.t -> Var.t) (b : clause_body) : clause_body =
+  match (b : clause_body) with
+  | Value_body v -> Value_body (map_value_vars fn v)
+  | Var_body x -> Var_body (fn x)
+  | Appl_body (x1,x2) -> Appl_body(fn x1, fn x2)
+  | Conditional_body (x, p, f1, f2) ->
+    Conditional_body (fn x, p, map_function_vars fn f1, map_function_vars fn f2)
+  | Projection_body (x, l) -> Projection_body(fn x, l)
+  | Deref_body x -> Deref_body (fn x)
+  | Update_body (x1, x2) -> Update_body (fn x1, fn x2)
+  | Binary_operation_body (x1, op, x2) ->
+    Binary_operation_body (fn x1, op, fn x2)
+  | Unary_operation_body (op, x) ->
+    Unary_operation_body (op, fn x)
+
+and map_value_vars (fn : Var.t -> Var.t) (v : value) : value =
+  match (v : value) with
+  | Value_record(Record_value(m)) ->
+    Value_record(Record_value(Ident_map.map fn m))
+  | Value_function f -> Value_function(map_function_vars fn f)
+  | Value_ref(Ref_value x) -> Value_ref (Ref_value(fn x))
+  | Value_int _ -> v
+  | Value_bool _ -> v
+  | Value_string _ -> v
+
+and map_function_vars (fn : Var.t -> Var.t) (f : function_value)
+  : function_value =
+  let Function_value(x,e) = f in
+  Function_value(fn x, map_expr_vars fn e)
+;;

@@ -4,6 +4,8 @@ open Batteries;;
 open On_ast;;
 open Translator_utils;;
 
+open TranslationMonad;;
+
 (* This function encodes all list-related patterns with record patterns *)
 let rec encode_list_pattern (pat : pattern) : pattern =
   match pat with
@@ -423,83 +425,90 @@ let rec encode_var_pat
 (* Function that finds match statements and go into the patterns to replace
    any variable pattern.
 *)
-let rec eliminate_var_pat (e : expr): expr =
+let rec eliminate_var_pat (e : expr): expr m =
   match e with
-  | Int _ | Bool _ | String _ | Var _ -> e
+  | Int _ | Bool _ | String _ | Var _ -> return @@ e
   | Function (id_list, expr) ->
-    let clean_expr = eliminate_var_pat expr in
-    Function (id_list, clean_expr)
+    let%bind clean_expr = eliminate_var_pat expr in
+    return @@ Function (id_list, clean_expr)
   | Appl (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    Appl (clean_e1, clean_e2)
+    let%bind clean_e1 = eliminate_var_pat e1 in
+    let%bind clean_e2 = eliminate_var_pat e2 in
+    return @@ Appl (clean_e1, clean_e2)
   | Let (id, e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    Let (id, clean_e1, clean_e2)
+    let%bind clean_e1 = eliminate_var_pat e1 in
+    let%bind clean_e2 = eliminate_var_pat e2 in
+    return @@ Let (id, clean_e1, clean_e2)
   | LetRecFun (_, _) ->
     raise
     @@ Failure "rec functions should have been taken care of"
   | LetFun (f_sig, expr) ->
     let (Funsig (f_name, param_list, fun_e)) = f_sig in
-    let clean_fun_e = eliminate_var_pat fun_e in
-    let clean_expr = eliminate_var_pat expr in
+    let%bind clean_fun_e = eliminate_var_pat fun_e in
+    let%bind clean_expr = eliminate_var_pat expr in
     let new_funsig = Funsig (f_name, param_list, clean_fun_e) in
-    LetFun (new_funsig, clean_expr)
+    return @@ LetFun (new_funsig, clean_expr)
   | Plus (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    Plus (clean_e1, clean_e2)
+    let%bind clean_e1 = eliminate_var_pat e1 in
+    let%bind clean_e2 = eliminate_var_pat e2 in
+    return @@ Plus (clean_e1, clean_e2)
   | Minus (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    Minus (clean_e1, clean_e2)
+    let%bind clean_e1 = eliminate_var_pat e1 in
+    let%bind clean_e2 = eliminate_var_pat e2 in
+    return @@ Minus (clean_e1, clean_e2)
   | Equal (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    Equal (clean_e1, clean_e2)
+    let%bind clean_e1 = eliminate_var_pat e1 in
+    let%bind clean_e2 = eliminate_var_pat e2 in
+    return @@ Equal (clean_e1, clean_e2)
   | LessThan (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    LessThan (clean_e1, clean_e2)
+    let%bind clean_e1 = eliminate_var_pat e1 in
+    let%bind clean_e2 = eliminate_var_pat e2 in
+    return @@ LessThan (clean_e1, clean_e2)
   | Leq (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    Leq (clean_e1, clean_e2)
+    let%bind clean_e1 = eliminate_var_pat e1 in
+    let%bind clean_e2 = eliminate_var_pat e2 in
+    return @@ Leq (clean_e1, clean_e2)
   | And (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    And (clean_e1, clean_e2)
+    let%bind clean_e1 = eliminate_var_pat e1 in
+    let%bind clean_e2 = eliminate_var_pat e2 in
+    return @@ And (clean_e1, clean_e2)
   | Or (e1, e2) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    Or (clean_e1, clean_e2)
+    let%bind clean_e1 = eliminate_var_pat e1 in
+    let%bind clean_e2 = eliminate_var_pat e2 in
+    return @@ Or (clean_e1, clean_e2)
   | Not (expr) ->
-    let clean_expr = eliminate_var_pat expr in
-    Not (clean_expr)
+    let%bind clean_expr = eliminate_var_pat expr in
+    return @@ Not (clean_expr)
   | If (e1, e2, e3) ->
-    let clean_e1 = eliminate_var_pat e1 in
-    let clean_e2 = eliminate_var_pat e2 in
-    let clean_e3 = eliminate_var_pat e3 in
-    If (clean_e1, clean_e2, clean_e3)
+    let%bind clean_e1 = eliminate_var_pat e1 in
+    let%bind clean_e2 = eliminate_var_pat e2 in
+    let%bind clean_e3 = eliminate_var_pat e3 in
+    return @@ If (clean_e1, clean_e2, clean_e3)
   | Record (r_map) ->
-    let clean_map = Ident_map.map
-        (fun expr -> eliminate_var_pat expr) r_map
+    let%bind clean_map =
+      r_map
+      |> Ident_map.enum
+      |> Enum.map
+        (fun (k,v) -> let%bind v' = eliminate_var_pat v in return (k,v'))
+      |> List.of_enum
+      |> sequence
+      |> lift1 List.enum
+      |> lift1 Ident_map.of_enum
     in
-    Record (clean_map)
+    return @@ Record (clean_map)
   | RecordProj (expr, lab) ->
-    let clean_expr = eliminate_var_pat expr in
-    RecordProj (clean_expr, lab)
+    let%bind clean_expr = eliminate_var_pat expr in
+    return @@ RecordProj (clean_expr, lab)
   | Match (subject, pat_expr_list) ->
-    let subj_bind = Ident (fresh_name "match_subject~") in
-    let new_subj = Var (subj_bind) in
-    let clean_subject = eliminate_var_pat subject in
+    let%bind new_subj_name = fresh_name "match_subject" in
+    let new_subj = Var(Ident new_subj_name) in
+    let%bind clean_subject = eliminate_var_pat subject in
     (* routine to pass into List.map with the pat_expr_list *)
     let pat_expr_var_changer curr =
       let (curr_pat, curr_expr) = curr in
       (* NOTE: here we clean out the inner expression before we
          erase variable patterns. *)
-      let half_clean_expr = eliminate_var_pat curr_expr in
+      let%bind half_clean_expr = eliminate_var_pat curr_expr in
       let (res_pat, path_list) = encode_var_pat new_subj curr_pat in
       let path_enum = List.enum path_list in
       let path_map = Ident_map.of_enum path_enum in
@@ -508,11 +517,13 @@ let rec eliminate_var_pat (e : expr): expr =
             fun acc_e -> Let (curr_id, curr_path, acc_e) )
           path_map half_clean_expr
       in
-      (res_pat, new_expr)
+      return (res_pat, new_expr)
     in
-    let new_path_expr_list = List.map pat_expr_var_changer pat_expr_list in
+    let%bind new_path_expr_list =
+      sequence @@ List.map pat_expr_var_changer pat_expr_list
+    in
     let let_e2 = Match(new_subj, new_path_expr_list) in
-    Let(subj_bind, clean_subject, let_e2)
+    return @@ Let(Ident new_subj_name, clean_subject, let_e2)
   | VariantExpr (_, _) ->
     raise @@ Failure
       "eliminate_var_pat: VariantExpr expressions should have been desugared."

@@ -1,7 +1,7 @@
 # EXPECT-EVALUATE
 # EXPECT-WELL-FORMED
 # EXPECT-ANALYSIS-STACK-IS 0ddpa
-# EXPECT-ANALYSIS-LOOKUP-FROM-END ~result {{~empty=record~_79}, int}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END ~result {{~empty=record~55}, int}
 
 let x = [1, 2, 3, 4, 5] in
 let rec list_filter f lst =

@@ -1,7 +1,7 @@
 # EXPECT-WELL-FORMED
 # EXPECT-ANALYSIS-STACK-IS 4ddpa
 # EXPECT-ANALYSIS-LOOKUP-FROM-END ~result {int}
-# EXPECT-ANALYSIS-INCONSISTENCY-AT var~_61
+# EXPECT-ANALYSIS-INCONSISTENCY-AT record_proj~37
 
 let rec list_maker num_deep element =
   if (num_deep == 1) then {head = element, tail = {}, next = 0}

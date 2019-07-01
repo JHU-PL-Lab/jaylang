@@ -50,12 +50,12 @@ type abstract_value =
 [@@deriving eq, ord, to_yojson]
 
 and abstract_function_value =
-    | Abs_function_value of abstract_var * abstract_expr
+  | Abs_function_value of abstract_var * abstract_expr
 [@@deriving eq, ord, to_yojson]
 
 (** A type to represent the bodies of abstract clauses. *)
 and abstract_clause_body =
-    | Abs_value_body of abstract_value
+  | Abs_value_body of abstract_value
   | Abs_var_body of abstract_var
   | Abs_appl_body of abstract_var * abstract_var
   | Abs_conditional_body of
@@ -69,12 +69,12 @@ and abstract_clause_body =
 
 (** A type to represent abstract clauses. *)
 and abstract_clause =
-    | Abs_clause of abstract_var * abstract_clause_body
+  | Abs_clause of abstract_var * abstract_clause_body
 [@@deriving eq, ord, to_yojson]
 
 (** A type to represent abstract expressions. *)
 and abstract_expr =
-    | Abs_expr of abstract_clause list
+  | Abs_expr of abstract_clause list
 [@@deriving eq, ord, to_yojson]
 ;;
 
