@@ -81,9 +81,9 @@ let add_formula
         | Binary_operator_less_than -> mk_lt ctx
         | Binary_operator_less_than_or_equal_to -> mk_le ctx
         | Binary_operator_equal_to -> mk_eq ctx
-        | Binary_operator_and -> failwith "Unimplemented binary operator in solver"
-        | Binary_operator_or -> failwith "Unimplemented binary operator in solver"
-        | Binary_operator_xor -> failwith "Unimplemented binary operator in solver"
+        | Binary_operator_and -> z3_listop_to_binop mk_and ctx
+        | Binary_operator_or -> z3_listop_to_binop mk_or ctx
+        | Binary_operator_xor -> mk_xor ctx
       in
       let c = mk_eq ctx e0 (mk_op e1 e2) in
       Solver.add solver [c]
