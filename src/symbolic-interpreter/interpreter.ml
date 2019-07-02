@@ -559,21 +559,15 @@ exception Invalid_query of string;;
 
 let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
   let env = prepare_environment e cfg in
-  let initial_lookup_var =
-    let clause =
-      match Ident_map.Exceptionless.find
-              program_point env.le_clause_predecessor_mapping with
-      | None ->
-        raise @@ Invalid_query("Variable " ^ show_ident program_point ^
-                               " is not defined or is first in its expression")
-      | Some cl -> cl
-    in
-    let Clause(Var(ident,_),_) = clause in
-    ident
-  in
+  let initial_lookup_var = env.le_first_var in
   let acl =
-    Unannotated_clause(
-      lift_clause @@ Ident_map.find program_point env.le_clause_mapping)
+    try
+      Unannotated_clause(
+        lift_clause @@ Ident_map.find program_point env.le_clause_mapping)
+    with
+    | Not_found ->
+      raise @@ Invalid_query(
+        Printf.sprintf "Variable %s is not defined" (show_ident program_point))
   in
   let m : Relative_stack.concrete_stack m =
     (* At top level, we don't actually need the returned symbol; we just want
