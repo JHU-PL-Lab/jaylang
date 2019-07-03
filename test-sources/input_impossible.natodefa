@@ -8,5 +8,6 @@ in let rec loop i =
   if i == 2
   then let result = complete in result
   else loop (i+1)
+in let r = loop 3
 in let impossible = 42
-in loop 3
+in impossible
