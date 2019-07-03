@@ -1,0 +1,18 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [ 28 ]
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 120000
+
+let complete = 42
+in let x = input
+in let rec loop sum i =
+  if i == 8
+  then 
+    if sum == x
+    then let target = complete in 1
+    else 0
+  else 
+    # loop (sum+i) (i+1)
+    # loop (sum+i+i+1) (i+2)
+    loop (sum+i+i+i+i+6) (i+4)
+    # loop (sum+i+i+i+i+i+i+i+i+28) (i+8)
+in loop 0 0
