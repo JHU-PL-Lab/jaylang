@@ -51,6 +51,11 @@ end;;
 module QueueWorkCollection :
   functor (C : Cache_key) -> WorkCollection with module Work_cache_key = C;;
 
+module CacheKeyPriorityQueueWorkCollection
+    (Cache_key : Cache_key)
+    (Priority : Interfaces.OrderedType with type t = Cache_key.some_key option)
+  : WorkCollection with module Work_cache_key = Cache_key;;
+
 (** The specification of a symbolic monad. *)
 module type Spec = sig
   (** A definition of the type used as a caching key. *)

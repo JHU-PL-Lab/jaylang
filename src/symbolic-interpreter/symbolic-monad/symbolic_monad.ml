@@ -63,6 +63,26 @@ struct
   let take dq = Deque.front dq;;
 end;;
 
+module CacheKeyPriorityQueueWorkCollection
+    (Cache_key : Cache_key)
+    (Priority : Interfaces.OrderedType with type t = Cache_key.some_key option)
+  : WorkCollection with module Work_cache_key = Cache_key =
+struct
+  module Work_cache_key = Cache_key;;
+  module KPQ = Priority_queue.Make(Priority);;
+  type 'a t = (Work_cache_key.some_key, 'a) work_info KPQ.t;;
+  let empty = KPQ.empty;;
+  let is_empty pq = KPQ.size pq = 0;;
+  let size = KPQ.size;;
+  let offer info pq = KPQ.enqueue info.work_cache_key info pq;;
+  let take pq =
+    if KPQ.is_empty pq then None else
+      match KPQ.dequeue pq with
+      | None -> None
+      | Some(_,v,pq') -> Some(v,pq')
+  ;;
+end;;
+
 module type Spec = sig
   module Cache_key : Cache_key;;
   module Work_collection

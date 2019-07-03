@@ -54,6 +54,28 @@ module Interpreter_cache_key = struct
   let show key = Jhupllib.Pp_utils.pp_to_string pp key;;
 end;;
 
+module Interpreter_cache_key_ordering = struct
+  open Interpreter_cache_key;;
+  type t = some_key option;;
+  let compare (a : t) (b : t) : int =
+    match a, b with
+    | None, None -> 0
+    | Some _, None -> 1
+    | None, Some _ -> 1
+    | Some(Some_key(Cache_lookup(_, _, relative_stack_1))),
+      Some(Some_key(Cache_lookup(_, _, relative_stack_2))) ->
+      Pervasives.compare
+        (Relative_stack.length relative_stack_1)
+        (Relative_stack.length relative_stack_2)
+  ;;
+end;;
+
+module Interpreter_work_collection =
+  Symbolic_monad.CacheKeyPriorityQueueWorkCollection
+    (Interpreter_cache_key)
+    (Interpreter_cache_key_ordering)
+;;
+
 module M = Symbolic_monad.Make(
   struct
     module Cache_key = Interpreter_cache_key;;

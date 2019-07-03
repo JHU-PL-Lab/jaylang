@@ -69,6 +69,10 @@ let stackize (Relative_stack(costk,stk)) : concrete_stack =
   Concrete_stack(List.rev costk)
 ;;
 
+let length (Relative_stack(costk, stk)) : int =
+  List.length costk + List.length stk
+;;
+
 (** Dictionaries with relative stacks as keys. *)
 module Map = struct
   module RS = struct
