@@ -401,72 +401,54 @@ struct
       M(fn)
   ;;
 
-  (* **** Evaluation types **** *)
+  (* **** Evaluation module **** *)
 
-  (** A task is a pairing between a monadic value and the destination to which
-      its value should be sent upon completion. *)
-  type ('out, _) task =
-    | Cache_task : 'a Cache_key.t * 'a m -> ('out, 'a) task
-    | Result_task : 'out m -> ('out, 'out) task
-  ;;
+  type 'out evaluation_result =
+    { er_value : 'out;
+      er_formulae : Formulae.t;
+      er_evaluation_steps : int;
+      er_result_steps : int;
+    };;
 
-  type 'out some_task = Some_task : ('out, 'a) task -> 'out some_task;;
+  module type Type = sig type t;; end;;
 
-  (** A sink is a single location into which produced values may be consumed.
-      When a value is consumed, it produces a computation together with the
-      destination of that computation's work. *)
-  type ('out, 'a) consumer =
-    | Consumer : ('a * log -> 'out some_task) -> ('out, 'a) consumer
-  ;;
-
-  (** A destination contains information about how completed values are to be
-      consumed.  A destination of type t consumes values of type t.  A
-      destination also retains its previously-dispatched values; new consumers
-      can (and should) be provided these values immediately upon
-      registration. *)
-  type ('out, 'a) destination =
-    { dest_consumers : ('out, 'a) consumer list;
-      dest_values : ('a * log) list;
-    }
-  ;;
-
-  (* **** BEGIN GADT NIGHTMARE CODE **** *)
-  (* So we have a problem.  The Gmap module creates polymorphic dictionaries
-     based on GADT keys (yay!) but quite reasonably demands that the keys have
-     only a single type parameter (boo anyway!).  As a result, our destination
-     key isn't suitable.  This is a problem, since the destination key *needs*
-     the 'out parameter to ensure that the consumers produce the right kind of
-     Result_task values.  To solve this, we're going to
-        1. Wrap the result of a Gmap.Make inside of another module.
-        2. Provide the minimal subset of functionality required here in the
-           wrapper.
-        3. Bundle the module as a first-class value along with the dictionary
-           it manipulates.
-     This effectively embeds the 'out parameter as a fixture of the module, so
-     the wrapper module can define its own key type to provide to Gmap and then
-     translate back and forth as necessary.  Oh, the things I do for types!
-  *)
-
-  module type Type = sig
-    type t;;
-  end;;
-
-  module type Destination_map_sig = sig
+  module type Evaluation_sig = sig
     type out;;
-    type t;;
-    type 'a value = (out, 'a) destination;;
-    val empty : t;;
-    val add : 'a Cache_key.t -> 'a value -> t -> t;;
-    val find : 'a Cache_key.t  -> t -> 'a value option;;
+    type evaluation;;
+    val start : out m -> evaluation;;
+    val step :
+      ?show_value:(out -> string) -> evaluation ->
+      (out evaluation_result Enum.t * evaluation);;
+    val is_complete : evaluation -> bool;;
   end;;
 
-  module Make_destination_map(Out : Type)
-    : Destination_map_sig with type out = Out.t =
-  struct
+  (** The evaluation process is primarily defined within a functor to permit
+      the output type of the monadic value being evaluated to be fixed.  This
+      functor is invoked dynamically and the black block evaluation state given
+      to the user contains a reference to the appropriate first-class module. *)
+  module Evaluation(Out : Type) : Evaluation_sig with type out = Out.t = struct
+    (* **** Evaluation types **** *)
+
     type out = Out.t;;
-    type 'a value = (out, 'a) destination;;
+
+    (** A task is a pairing between a monadic value and the destination to which
+        its value should be sent upon completion. *)
+    type _ task =
+      | Cache_task : 'a Cache_key.t * 'a m -> 'a task
+      | Result_task : out m -> out task
+    ;;
+
+    type some_task = Some_task : 'a task -> some_task;;
+
+    type 'a consumer = Consumer of ('a * log -> some_task);;
+
+    type 'a destination =
+      { dest_consumers : 'a consumer list;
+        dest_values : ('a * log) list;
+      };;
+
     module Key = struct
-      type 'a t = K : 'a Cache_key.t -> (out, 'a) destination t;;
+      type 'a t = K : 'a Cache_key.t -> 'a destination t;;
       let compare : type a b. a t -> b t -> (a, b) Gmap.Order.t = fun k k' ->
         match k, k' with
         | K(ck), K(ck') ->
@@ -478,33 +460,339 @@ struct
           end
       ;;
     end;;
-    module M = Gmap.Make(Key);;
-    type t = M.t;;
-    let _push
+
+    module Destination_map = Gmap.Make(Key);;
+
+    type evaluation =
+      { ev_state : state;
+        ev_tasks : some_task Work_collection.t;
+        ev_destinations : Destination_map.t;
+        ev_evaluation_steps : int;
+      }
+    ;;
+
+    type 'a some_blocked = Some_blocked : ('z,'a) blocked -> 'a some_blocked;;
+
+    (* **** Evaluation operations **** *)
+    let _step_m (state : state) (x : 'a m) :
+      ('a * log) Enum.t *     (* Completed results *)
+      'a m list *             (* Suspended computations *)
+      'a some_blocked list *  (* Blocking computations *)
+      state                   (* Resulting state *)
+      =
+      let M(world_fn) = x in
+      let (worlds, state') = world_fn state in
+      let (complete,suspended,blocked) =
+        worlds
+        |> List.fold_left
+          (fun (complete,suspended,blocked) world ->
+             match world with
+             | Unblocked(Completed(value,log)) ->
+               ((value,log)::complete,suspended,blocked)
+             | Unblocked(Suspended(m,_)) ->
+               (complete,m::suspended,blocked)
+             | Blocked(x) ->
+               (complete,suspended,(Some_blocked(x))::blocked)
+          )
+          ([],[],[])
+      in
+      (List.enum complete, suspended, blocked, state')
+    ;;
+
+    (** Adds a task to an evaluation's queue. *)
+    let _add_task (task : some_task) (ev : evaluation) : evaluation =
+      let item = { work_item = task; } in
+      { ev with ev_tasks = Work_collection.offer item ev.ev_tasks }
+    ;;
+
+    (** Adds many tasks to an evaluation's queue. *)
+    let _add_tasks (tasks : some_task Enum.t) (ev : evaluation) : evaluation =
+      Enum.fold (flip _add_task) ev tasks
+    ;;
+
+    (** Processes the production of a value at a cache destination.  This adds the
+        value to the destination and calls any consumers listening to it. *)
+    let _produce_at
         (type a)
-        (k : a Cache_key.t)
-      : (out, a) destination Key.t =
-      Key.K(k)
+        (key : a Cache_key.t)
+        (value : a)
+        (log : log)
+        (ev : evaluation)
+      : evaluation =
+      match Destination_map.find (K(key)) ev.ev_destinations with
+      | None ->
+        (* This should never happen:
+           1. _produce_at is only called when a cache task produces a value
+           2. A cache task can only produce a value if it has been started
+           3. Cache tasks are only started by blocked computations
+           4. Blocked computations create a destination for their keys
+        *)
+        raise @@ Utils.Invariant_failure
+          "Destination not established by the time it was produced!"
+      | Some destination ->
+        (* Start by adding the new value. *)
+        let destination' =
+          { destination with
+            dest_values = (value, log) :: destination.dest_values;
+          }
+        in
+        let destination_map' =
+          Destination_map.add (K(key)) destination' ev.ev_destinations
+        in
+        let ev' = { ev with ev_destinations = destination_map' } in
+        (* Now create the tasks from the consumers. *)
+        let new_tasks =
+          destination.dest_consumers
+          |> List.enum
+          |> Enum.map
+            (fun consumer ->
+               let Consumer fn = consumer in
+               fn (value, log)
+            )
+        in
+        (* Add the tasks to the evaluation environment. *)
+        _add_tasks new_tasks ev'
     ;;
-    (* let _pull (k : 'a Key.t) : (out, 'a) destination_key =
-       let Key.K(cache_key) = k in Destination_key cache_key
-       ;; *)
-    let empty : M.t = M.empty;;
-    let add (type a) (k : a Cache_key.t) (v : a value) (m : M.t) : M.t =
-      M.add (_push k) v m
+
+    (** Registers a consumer to a cache destination.  This adds the consumer to
+        the destination and processes the "catch-up" of the consumer on all
+        previously produced values. *)
+    let _register_consumer
+        (type a)
+        (key : a Cache_key.t)
+        (consumer : a consumer)
+        (ev : evaluation)
+      : evaluation =
+      match Destination_map.find (K(key)) ev.ev_destinations with
+      | None ->
+        (* This should never happen:
+           1. _register_consumer is only called when a blocked computation is
+              discovered
+           2. That code immediately adds a destination to the evaluation
+              environment under this key
+        *)
+        raise @@ Utils.Invariant_failure
+          "Destination not established by the time it was produced!"
+      | Some destination ->
+        (* Start by registering the consumer. *)
+        let destination' =
+          { destination with
+            dest_consumers = consumer :: destination.dest_consumers;
+          }
+        in
+        let destination_map' =
+          Destination_map.add (K(key)) destination' ev.ev_destinations
+        in
+        let ev' = { ev with ev_destinations = destination_map' } in
+        (* Now catch the consumer up on all of the previous values. *)
+        let Consumer fn = consumer in
+        let new_tasks =
+          destination.dest_values
+          |> List.enum
+          |> Enum.map fn
+        in
+        (* Add the new tasks to the evaluation environment *)
+        _add_tasks new_tasks ev'
     ;;
-    let find (type a) (k : a Cache_key.t) (m : M.t) =
-      M.find (_push k) m
+
+    let start (x : out m) : evaluation =
+      let initial_state = () in
+      let empty_evaluation =
+        { ev_state = initial_state;
+          ev_tasks = Work_collection.empty;
+          ev_destinations = Destination_map.empty;
+          ev_evaluation_steps = 0;
+        }
+      in
+      _add_task (Some_task(Result_task x)) empty_evaluation
+    ;;
+
+    let step
+        ?show_value:(show_value=fun _ -> "<no printer>")
+        (ev : evaluation)
+      : (out evaluation_result Enum.t * evaluation) =
+      match Work_collection.take ev.ev_tasks with
+      | None ->
+        (* There is no work left to do.  Don't step. *)
+        (Enum.empty(), ev)
+      | Some({work_item = task}, tasks') ->
+        (* The overall strategy of the algorithm below is:
+              1. Get a task and do the work
+              2. If the task is for a cached result, dispatch any new values to
+                 the registered consumers.
+              3. If the task is for a final result, communicate any new values to
+                 the caller.
+              4. Add all suspended computations as future tasks.
+              5. Add all blocked computations as consumers.
+           Because of how type variables are scoped, however, steps 1, 2, and 3
+           must be within the respective match branches which destructed the task
+           values.  We'll push what we can into local functions to limit code
+           duplication.
+        *)
+        lazy_logger `trace (fun () ->
+            let task_descr =
+              match task with
+              | Some_task(Cache_task(key, _)) ->
+                "cache key " ^ Cache_key.show key
+              | Some_task(Result_task _) ->
+                "result"
+            in
+            "Stepping task for " ^ task_descr
+          );
+        let handle_computation
+            (type t)
+            (mk_task : t m -> some_task)
+            (computation : t m) (ev' : evaluation)
+          : ((t * log) Enum.t * evaluation) =
+          (* Do the work that is asked. *)
+          let (complete, suspended, blocked, state') =
+            _step_m ev.ev_state computation
+          in
+          (* Update our evaluation to reflect the state change and the step. *)
+          let ev_after_step =
+            { ev_state = state';
+              ev_tasks = tasks';
+              ev_destinations = ev'.ev_destinations;
+              ev_evaluation_steps = ev'.ev_evaluation_steps + 1;
+            }
+          in
+          (* From the completed task, any suspended computations get added to the
+             task list with the same destination. *)
+          let ev_after_processing_suspended =
+            suspended
+            |> List.enum
+            |> Enum.map mk_task
+            |> flip _add_tasks ev_after_step
+          in
+          (* From the completed task, all blocked computations should be added as
+             consumers of the cache key on which they are blocking.  If the cache
+             key has not been seen previously, then its computation should be
+             started. *)
+          let ev_after_processing_blocked =
+            blocked
+            |> List.enum
+            |> Enum.fold
+              (fun (ev : evaluation) some_blocked ->
+                 let Some_blocked(blocked) = some_blocked in
+                 (* Ensure that the destination for this computation exists. *)
+                 let key = blocked.blocked_key in
+                 let computation = blocked.blocked_computation in
+                 let ev' : evaluation =
+                   match Destination_map.find (K(key)) ev.ev_destinations with
+                   | None ->
+                     (* We've never heard of this destination before.  That means
+                        this is the first cache request on this key, so we should
+                        create it and then start computing for it. *)
+                     let dest = { dest_consumers = []; dest_values = []; } in
+                     let task = Some_task(Cache_task(key, computation)) in
+                     let destination_map' =
+                       ev.ev_destinations
+                       |> Destination_map.add (K(key)) dest
+                     in
+                     let ev' =
+                       { ev with
+                         ev_destinations = destination_map';
+                       }
+                     in
+                     let (ev'' : evaluation) = _add_task task ev' in
+                     ev''
+                   | Some _ ->
+                     (* This destination already exists.  We don't need to do
+                        anything to make it ready for the consumer to be
+                        registered. *)
+                     ev
+                 in
+                 (* Create the new consumer from the blocked evaluation.  Once it
+                    receives a value, the blocked evaluation will produce a new
+                    computation intended for the same destination, just as with a
+                    suspended computation. *)
+                 let consumer = Consumer(
+                     fun (value,log) ->
+                       let computation = blocked.blocked_consumer (value, log) in
+                       mk_task computation
+                   )
+                 in
+                 let ev'' = _register_consumer key consumer ev' in
+                 ev''
+              )
+              ev_after_processing_suspended
+          in
+          (complete, ev_after_processing_blocked)
+        in
+        let ((completed : (out * log) Enum.t), ev') =
+          match task with
+          | Some_task(Cache_task(key, computation)) ->
+            (* Do computation and update state. *)
+            let (complete, ev_after_computation) =
+              handle_computation
+                (fun computation -> Some_task(Cache_task(key, computation)))
+                computation ev
+            in
+            (* Every value in the completed sequence should be reported to the
+               destination specified by this key. *)
+            let ev_after_completed =
+              complete
+              |> Enum.fold
+                (fun ev'' (value, log) -> _produce_at key value log ev'')
+                ev_after_computation
+            in
+            (Enum.empty(), ev_after_completed)
+          | Some_task(Result_task(computation)) ->
+            (* Do computation and update state. *)
+            let (complete, ev_after_computation) =
+              handle_computation
+                (fun computation -> Some_task(Result_task(computation)))
+                computation ev
+            in
+            (* Every value in the completed sequence should be returned to the
+               caller. *)
+            (complete, ev_after_computation)
+        in
+        (* Alias for clarity *)
+        let final_ev = ev' in
+        (* Process the output to make it presentable to the caller. *)
+        let output : out evaluation_result Enum.t =
+          completed
+          |> Enum.map
+            (fun (value, log) ->
+               lazy_logger `trace (fun () ->
+                   Printf.sprintf
+                     ("Symbolic monad evaluation produced a result:\n" ^^
+                      "  Value:\n    %s\n" ^^
+                      "  Formulae:\n    %s\n" ^^
+                      "  Decisions:\n    %s\n" ^^
+                      "  Result steps: %d\n"
+                     )
+                     (show_value value)
+                     (Formulae.show log.log_formulae)
+                     (Relative_stack.Map.show
+                        pp_decision
+                        log.log_decisions)
+                     (log.log_steps + 1)
+                 );
+               { er_value = value;
+                 er_formulae = log.log_formulae;
+                 er_evaluation_steps = final_ev.ev_evaluation_steps;
+                 er_result_steps = log.log_steps + 1;
+                 (* The +1 here is to ensure that the number of steps reported is
+                    equal to the number of times the "step" function has been
+                    called.  For a given result, the "step" function must be
+                    called once for each "pause" (which is handled inductively
+                    when the "pause" monadic function modifies the log) plus once
+                    because the "start" routine implicitly pauses computation.
+                    This +1 addresses what the "start" routine does. *)
+               }
+            )
+        in
+        (output, final_ev)
+    ;;
+
+    let is_complete (ev : evaluation) : bool =
+      Work_collection.is_empty ev.ev_tasks
     ;;
   end;;
 
-  type 'out destination_map =
-      Destination_map :
-        ((module Destination_map_sig with type out = 'out and type t = 't) * 't)
-        -> 'out destination_map
-  ;;
-
-  (* **** END GADT NIGHTMARE CODE **** *)
+  (* **** Evaluation module wrapper **** *)
 
   (**
      An evaluation is a monadic value for which evaluation has started.  It is
@@ -512,171 +800,16 @@ struct
      being performed as well as all metadata (such as caching).
   *)
   type 'out evaluation =
-    { ev_state : state;
-      ev_tasks : 'out some_task Work_collection.t;
-      ev_destinations : 'out destination_map;
-      ev_evaluation_steps : int;
-    }
+      Evaluation :
+        (module Evaluation_sig with type out = 'out
+                                and type evaluation = 'e) *
+        'e
+        -> 'out evaluation
   ;;
 
-  type 'out evaluation_result =
-    { er_value : 'out;
-      er_formulae : Formulae.t;
-      er_evaluation_steps : int;
-      er_result_steps : int;
-    };;
-
-  (* **** Evaluation operations **** *)
-
-  type 'a some_blocked = Some_blocked : ('z,'a) blocked -> 'a some_blocked;;
-
-  let _step_m (state : state) (x : 'a m) :
-    ('a * log) Enum.t *     (* Completed results *)
-    'a m list *             (* Suspended computations *)
-    'a some_blocked list *  (* Blocking computations *)
-    state                   (* Resulting state *)
-    =
-    let M(world_fn) = x in
-    let (worlds, state') = world_fn state in
-    let (complete,suspended,blocked) =
-      worlds
-      |> List.fold_left
-        (fun (complete,suspended,blocked) world ->
-           match world with
-           | Unblocked(Completed(value,log)) ->
-             ((value,log)::complete,suspended,blocked)
-           | Unblocked(Suspended(m,_)) ->
-             (complete,m::suspended,blocked)
-           | Blocked(x) ->
-             (complete,suspended,(Some_blocked(x))::blocked)
-        )
-        ([],[],[])
-    in
-    (List.enum complete, suspended, blocked, state')
-  ;;
-
-  (** Adds a task to an evaluation's queue. *)
-  let _add_task
-      (type out) (task : out some_task) (ev : out evaluation)
-    : out evaluation =
-    let item = { work_item = task; } in
-    { ev with ev_tasks = Work_collection.offer item ev.ev_tasks }
-  ;;
-
-  (** Adds many tasks to an evaluation's queue. *)
-  let _add_tasks
-      (type out) (tasks : out some_task Enum.t) (ev : out evaluation)
-    : out evaluation =
-    Enum.fold (flip _add_task) ev tasks
-  ;;
-
-  (** Processes the production of a value at a cache destination.  This adds the
-      value to the destination and calls any consumers listening to it. *)
-  let _produce_at
-      (type a) (type out)
-      (key : a Cache_key.t)
-      (value : a)
-      (log : log)
-      (ev : out evaluation)
-    : out evaluation =
-    let Destination_map(dm,destination_map) = ev.ev_destinations in
-    let (module Destination_map) = dm in
-    match Destination_map.find key destination_map with
-    | None ->
-      (* This should never happen:
-         1. _produce_at is only called when a cache task produces a value
-         2. A cache task can only produce a value if it has been started
-         3. Cache tasks are only started by blocked computations
-         4. Blocked computations create a destination for their keys
-      *)
-      raise @@ Utils.Invariant_failure
-        "Destination not established by the time it was produced!"
-    | Some destination ->
-      (* Start by adding the new value. *)
-      let destination' =
-        { destination with
-          dest_values = (value, log) :: destination.dest_values;
-        }
-      in
-      let destination_map' =
-        Destination_map.add key destination' destination_map
-      in
-      let dm' = Destination_map(dm, destination_map') in
-      let ev' = { ev with ev_destinations = dm' } in
-      (* Now create the tasks from the consumers. *)
-      let new_tasks =
-        destination.dest_consumers
-        |> List.enum
-        |> Enum.map
-          (fun consumer ->
-             let Consumer fn = consumer in
-             fn (value, log)
-          )
-      in
-      (* Add the tasks to the evaluation environment. *)
-      _add_tasks new_tasks ev'
-  ;;
-
-  (** Registers a consumer to a cache destination.  This adds the consumer to
-      the destination and processes the "catch-up" of the consumer on all
-      previously produced values. *)
-  let _register_consumer
-      (type a) (type out)
-      (key : a Cache_key.t)
-      (consumer : (out, a) consumer)
-      (ev : out evaluation)
-    : out evaluation =
-    let Destination_map(dm,destination_map) = ev.ev_destinations in
-    let (module Destination_map) = dm in
-    match Destination_map.find key destination_map with
-    | None ->
-      (* This should never happen:
-         1. _register_consumer is only called when a blocked computation is
-            discovered
-         2. That code immediately adds a destination to the evaluation
-            environment under this key
-      *)
-      raise @@ Utils.Invariant_failure
-        "Destination not established by the time it was produced!"
-    | Some destination ->
-      (* Start by registering the consumer. *)
-      let destination' =
-        { destination with
-          dest_consumers = consumer :: destination.dest_consumers;
-        }
-      in
-      let destination_map' =
-        Destination_map.add key destination' destination_map
-      in
-      let dm' = Destination_map(dm, destination_map') in
-      let ev' = { ev with ev_destinations = dm' } in
-      (* Now catch the consumer up on all of the previous values. *)
-      let Consumer fn = consumer in
-      let new_tasks =
-        destination.dest_values
-        |> List.enum
-        |> Enum.map fn
-      in
-      (* Add the new tasks to the evaluation environment *)
-      _add_tasks new_tasks ev'
-  ;;
-
-  let start (type out) (x : out m) : out evaluation =
-    let initial_state = () in
-    let module Destination_map =
-      Make_destination_map(struct type t = out end)
-    in
-    let destination_map =
-      Destination_map((module Destination_map), Destination_map.empty)
-    in
-    let empty_evaluation =
-      { ev_state = initial_state;
-        ev_tasks = Work_collection.empty;
-        ev_destinations = destination_map;
-        ev_evaluation_steps = 0;
-      }
-    in
-    _add_task (Some_task(Result_task x)) empty_evaluation
+  let start (type a) (x : a m) : a evaluation =
+    let module E = Evaluation(struct type t = a end) in
+    Evaluation((module E), E.start x)
   ;;
 
   let step
@@ -684,185 +817,15 @@ struct
       ?show_value:(show_value=fun _ -> "<no printer>")
       (ev : a evaluation)
     : (a evaluation_result Enum.t * a evaluation) =
-    match Work_collection.take ev.ev_tasks with
-    | None ->
-      (* There is no work left to do.  Don't step. *)
-      (Enum.empty(), ev)
-    | Some({work_item = task}, tasks') ->
-      (* The overall strategy of the algorithm below is:
-            1. Get a task and do the work
-            2. If the task is for a cached result, dispatch any new values to
-               the registered consumers.
-            3. If the task is for a final result, communicate any new values to
-               the caller.
-            4. Add all suspended computations as future tasks.
-            5. Add all blocked computations as consumers.
-         Because of how type variables are scoped, however, steps 1, 2, and 3
-         must be within the respective match branches which destructed the task
-         values.  We'll push what we can into local functions to limit code
-         duplication.
-      *)
-      lazy_logger `trace (fun () ->
-          let task_descr =
-            match task with
-            | Some_task(Cache_task(key, _)) ->
-              "cache key " ^ Cache_key.show key
-            | Some_task(Result_task _) ->
-              "result"
-          in
-          "Stepping task for " ^ task_descr
-        );
-      let handle_computation
-          (type t)
-          (mk_task : t m -> a some_task)
-          (computation : t m) (ev' : a evaluation)
-        : ((t * log) Enum.t * a evaluation) =
-        (* Do the work that is asked. *)
-        let (complete, suspended, blocked, state') =
-          _step_m ev.ev_state computation
-        in
-        (* Update our evaluation to reflect the state change and the step. *)
-        let ev_after_step =
-          { ev_state = state';
-            ev_tasks = tasks';
-            ev_destinations = ev'.ev_destinations;
-            ev_evaluation_steps = ev'.ev_evaluation_steps + 1;
-          }
-        in
-        (* From the completed task, any suspended computations get added to the
-           task list with the same destination. *)
-        let ev_after_processing_suspended =
-          suspended
-          |> List.enum
-          |> Enum.map mk_task
-          |> flip _add_tasks ev_after_step
-        in
-        (* From the completed task, all blocked computations should be added as
-           consumers of the cache key on which they are blocking.  If the cache
-           key has not been seen previously, then its computation should be
-           started. *)
-        let ev_after_processing_blocked =
-          blocked
-          |> List.enum
-          |> Enum.fold
-            (fun (ev : a evaluation) some_blocked ->
-               let Destination_map(dm,destination_map) = ev.ev_destinations in
-               let (module Destination_map) = dm in
-               let Some_blocked(blocked) = some_blocked in
-               (* Ensure that the destination for this computation exists. *)
-               let key = blocked.blocked_key in
-               let computation = blocked.blocked_computation in
-               let ev' : a evaluation =
-                 match Destination_map.find key destination_map with
-                 | None ->
-                   (* We've never heard of this destination before.  That means
-                      this is the first cache request on this key, so we should
-                      create it and then start computing for it. *)
-                   let dest = { dest_consumers = []; dest_values = []; } in
-                   let task = Some_task(Cache_task(key, computation)) in
-                   let destination_map' =
-                     destination_map
-                     |> Destination_map.add key dest
-                   in
-                   let ev' =
-                     { ev with
-                       ev_destinations = Destination_map(dm,destination_map');
-                     }
-                   in
-                   let (ev'' : a evaluation) = _add_task task ev' in
-                   ev''
-                 | Some _ ->
-                   (* This destination already exists.  We don't need to do
-                      anything to make it ready for the consumer to be
-                      registered. *)
-                   ev
-               in
-               (* Create the new consumer from the blocked evaluation.  Once it
-                  receives a value, the blocked evaluation will produce a new
-                  computation intended for the same destination, just as with a
-                  suspended computation. *)
-               let consumer = Consumer(
-                   fun (value,log) ->
-                     let computation = blocked.blocked_consumer (value, log) in
-                     mk_task computation
-                 )
-               in
-               let ev'' = _register_consumer key consumer ev' in
-               ev''
-            )
-            ev_after_processing_suspended
-        in
-        (complete, ev_after_processing_blocked)
-      in
-      let ((completed : (a * log) Enum.t), ev') =
-        match task with
-        | Some_task(Cache_task(key, computation)) ->
-          (* Do computation and update state. *)
-          let (complete, ev_after_computation) =
-            handle_computation
-              (fun computation -> Some_task(Cache_task(key, computation)))
-              computation ev
-          in
-          (* Every value in the completed sequence should be reported to the
-             destination specified by this key. *)
-          let ev_after_completed =
-            complete
-            |> Enum.fold
-              (fun ev'' (value, log) -> _produce_at key value log ev'')
-              ev_after_computation
-          in
-          (Enum.empty(), ev_after_completed)
-        | Some_task(Result_task(computation)) ->
-          (* Do computation and update state. *)
-          let (complete, ev_after_computation) =
-            handle_computation
-              (fun computation -> Some_task(Result_task(computation)))
-              computation ev
-          in
-          (* Every value in the completed sequence should be returned to the
-             caller. *)
-          (complete, ev_after_computation)
-      in
-      (* Alias for clarity *)
-      let final_ev = ev' in
-      (* Process the output to make it presentable to the caller. *)
-      let output : a evaluation_result Enum.t =
-        completed
-        |> Enum.map
-          (fun (value, log) ->
-             lazy_logger `trace (fun () ->
-                 Printf.sprintf
-                   ("Symbolic monad evaluation produced a result:\n" ^^
-                    "  Value:\n    %s\n" ^^
-                    "  Formulae:\n    %s\n" ^^
-                    "  Decisions:\n    %s\n" ^^
-                    "  Result steps: %d\n"
-                   )
-                   (show_value value)
-                   (Formulae.show log.log_formulae)
-                   (Relative_stack.Map.show
-                      pp_decision
-                      log.log_decisions)
-                   (log.log_steps + 1)
-               );
-             { er_value = value;
-               er_formulae = log.log_formulae;
-               er_evaluation_steps = final_ev.ev_evaluation_steps;
-               er_result_steps = log.log_steps + 1;
-               (* The +1 here is to ensure that the number of steps reported is
-                  equal to the number of times the "step" function has been
-                  called.  For a given result, the "step" function must be
-                  called once for each "pause" (which is handled inductively
-                  when the "pause" monadic function modifies the log) plus once
-                  because the "start" routine implicitly pauses computation.
-                  This +1 addresses what the "start" routine does. *)
-             }
-          )
-      in
-      (output, final_ev)
+    let Evaluation(m,e) = ev in
+    let (module E) = m in
+    let (answers, e') = E.step ~show_value:show_value e in
+    (answers, Evaluation(m,e'))
   ;;
 
-  let is_complete (ev : 'a evaluation) : bool =
-    Work_collection.is_empty ev.ev_tasks
+  let is_complete (type a) (ev : a evaluation) : bool =
+    let Evaluation(m,e) = ev in
+    let (module E) = m in
+    E.is_complete e
   ;;
 end;;
