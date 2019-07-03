@@ -16,8 +16,9 @@ let _add_test name testfn = _tests_acc := (name >:: testfn) :: !_tests_acc;;
 
 (* Experimental monad *)
 
-module Cache_key = struct
+module Test_cache_key = struct
   type 'a t = KInt : int -> int t;;
+  type some_key = Some_key : 'a t -> some_key;;
   let compare (type a b) (x : a t) (y : b t) : (a,b) Gmap.Order.t =
     let KInt(x) = x in
     let KInt(y) = y in
@@ -33,14 +34,14 @@ module Cache_key = struct
 end;;
 
 module Spec = struct
-  module Cache_key = Cache_key;;
-  module Work_collection = Symbolic_monad.QueueWorkCollection;;
+  module Cache_key = Test_cache_key;;
+  module Work_collection = Symbolic_monad.QueueWorkCollection(Test_cache_key);;
 end;;
 
 module M = Symbolic_monad.Make(Spec);;
 
 open M;;
-open Cache_key;;
+open Test_cache_key;;
 
 (* **** Utils **** *)
 

@@ -29,21 +29,33 @@ let lazy_logger =
 ;;
 let _ = lazy_logger;; (* to suppress unused warning *)
 
-type 'a work_info = {
-  work_item : 'a;
+type ('cache_key, 'work) work_info = {
+  work_item : 'work;
+  work_cache_key : 'cache_key option;
 };;
 
+module type Cache_key = sig
+  include Gmap.KEY;;
+  type some_key = Some_key : 'a t -> some_key;;
+  val pp : 'a t Jhupllib.Pp_utils.pretty_printer;;
+  val show : 'a t -> string;;
+end;;
+
 module type WorkCollection = sig
+  module Work_cache_key : Cache_key;;
   type 'a t;;
   val empty : 'a t;;
   val is_empty : 'a t -> bool;;
   val size : 'a t -> int;;
-  val offer : 'a work_info -> 'a t -> 'a t;;
-  val take : 'a t -> ('a work_info * 'a t) option;;
+  val offer : (Work_cache_key.some_key, 'a) work_info -> 'a t -> 'a t;;
+  val take : 'a t -> ((Work_cache_key.some_key, 'a) work_info * 'a t) option;;
 end;;
 
-module QueueWorkCollection = struct
-  type 'a t = 'a work_info Deque.t;;
+module QueueWorkCollection(Cache_key : Cache_key)
+  : WorkCollection with module Work_cache_key = Cache_key =
+struct
+  module Work_cache_key = Cache_key;;
+  type 'a t = (Cache_key.some_key, 'a) work_info Deque.t;;
   let empty = Deque.empty;;
   let is_empty = Deque.is_empty;;
   let size = Deque.size;;
@@ -51,15 +63,10 @@ module QueueWorkCollection = struct
   let take dq = Deque.front dq;;
 end;;
 
-module type Cache_key = sig
-  include Gmap.KEY;;
-  val pp : 'a t Jhupllib.Pp_utils.pretty_printer;;
-  val show : 'a t -> string;;
-end;;
-
 module type Spec = sig
   module Cache_key : Cache_key;;
-  module Work_collection : WorkCollection;;
+  module Work_collection
+    : WorkCollection with module Work_cache_key = Cache_key;;
 end;;
 
 module type S = sig
@@ -501,7 +508,16 @@ struct
 
     (** Adds a task to an evaluation's queue. *)
     let _add_task (task : some_task) (ev : evaluation) : evaluation =
-      let item = { work_item = task; } in
+      let cache_key_opt =
+        match task with
+        | Some_task(Result_task _) -> None
+        | Some_task(Cache_task(key,_)) -> Some(Cache_key.Some_key key)
+      in
+      let item =
+        { work_item = task;
+          work_cache_key = cache_key_opt;
+        }
+      in
       { ev with ev_tasks = Work_collection.offer item ev.ev_tasks }
     ;;
 
@@ -615,7 +631,9 @@ struct
       | None ->
         (* There is no work left to do.  Don't step. *)
         (Enum.empty(), ev)
-      | Some({work_item = task}, tasks') ->
+      | Some({work_item = task;
+              work_cache_key = _},
+             tasks') ->
         (* The overall strategy of the algorithm below is:
               1. Get a task and do the work
               2. If the task is for a cached result, dispatch any new values to

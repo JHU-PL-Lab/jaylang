@@ -15,12 +15,13 @@ let lazy_logger =
   Logger_utils.make_lazy_logger "Symbolic_interpreter.Interpreter"
 ;;
 
-module Cache_key = struct
+module Interpreter_cache_key = struct
   type 'a t =
     | Cache_lookup :
         Ident.t list * annotated_clause * Relative_stack.t ->
         (symbol * Relative_stack.concrete_stack) t
   ;;
+  type some_key = Some_key : 'a t -> some_key;;
 
   let compare : type a b. a t -> b t -> (a, b) Gmap.Order.t = fun k1 k2 ->
     match k1, k2 with
@@ -55,8 +56,10 @@ end;;
 
 module M = Symbolic_monad.Make(
   struct
-    module Cache_key = Cache_key;;
-    module Work_collection = Symbolic_monad.QueueWorkCollection;;
+    module Cache_key = Interpreter_cache_key;;
+    module Work_collection =
+      Symbolic_monad.QueueWorkCollection(Interpreter_cache_key)
+    ;;
   end);;
 
 open M;;

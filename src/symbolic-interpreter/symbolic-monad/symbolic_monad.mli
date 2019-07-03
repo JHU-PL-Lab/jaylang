@@ -23,35 +23,41 @@ open Sat_types;;
 
 (** The information pertinent to a single element of work in a symbolic monad
     computation. *)
-type 'a work_info = {
-  work_item : 'a;
+type ('cache_key, 'work) work_info = {
+  work_item : 'work;
+  work_cache_key : 'cache_key option;
 };;
+
+(** The signature of a type used for caching operations in this monad. *)
+module type Cache_key = sig
+  include Gmap.KEY;;
+  type some_key = Some_key : 'a t -> some_key;;
+  val pp : 'a t Jhupllib.Pp_utils.pretty_printer;;
+  val show : 'a t -> string;;
+end;;
 
 (** The signature of a work collection module used to order how a symbolic monad
     takes computational steps. *)
 module type WorkCollection = sig
+  module Work_cache_key : Cache_key;;
   type 'a t;;
   val empty : 'a t;;
   val is_empty : 'a t -> bool;;
   val size : 'a t -> int;;
-  val offer : 'a work_info -> 'a t -> 'a t;;
-  val take : 'a t -> ('a work_info * 'a t) option;;
+  val offer : (Work_cache_key.some_key, 'a) work_info -> 'a t -> 'a t;;
+  val take : 'a t -> ((Work_cache_key.some_key, 'a) work_info * 'a t) option;;
 end;;
 
-module QueueWorkCollection : WorkCollection;;
-
-module type Cache_key = sig
-  include Gmap.KEY;;
-  val pp : 'a t Jhupllib.Pp_utils.pretty_printer;;
-  val show : 'a t -> string;;
-end;;
+module QueueWorkCollection :
+  functor (C : Cache_key) -> WorkCollection with module Work_cache_key = C;;
 
 (** The specification of a symbolic monad. *)
 module type Spec = sig
   (** A definition of the type used as a caching key. *)
   module Cache_key : Cache_key;;
   (** The work collection to use during computation. *)
-  module Work_collection : WorkCollection;;
+  module Work_collection
+    : WorkCollection with module Work_cache_key = Cache_key;;
 end;;
 
 (** The interface of a symbolic monad. *)
