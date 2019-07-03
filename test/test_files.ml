@@ -63,6 +63,7 @@ type test_expectation =
       string * (* the variable *)
       int list list * (* the expected input sequences *)
       bool (* true if we should be certain that generation is complete *)
+  | Expect_required_input_sequence_generation_steps of int
 ;;
 
 let pp_test_expectation formatter expectation =
@@ -91,6 +92,8 @@ let pp_test_expectation formatter expectation =
       x
       (string_of_input_sequences inputs)
       (if complete then " (and no others)" else "")
+  | Expect_required_input_sequence_generation_steps(n) ->
+    Format.fprintf formatter "Expect input sequence generation steps = %d" n
 ;;
 
 type expectation_parse =
@@ -258,6 +261,18 @@ let parse_expectation str =
             Expect_input_sequences_reach(
               variable_name, input_sequences, complete)
         end
+      | "EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS"::args ->
+        let nstr = assert_one_arg args in
+        begin
+          try
+            Expect_required_input_sequence_generation_steps(int_of_string nstr)
+          with
+          | Failure _ ->
+            raise @@ Expectation_parse_failure
+              (Printf.sprintf
+                 "Could not parse number of expected input generation steps: %s"
+                 nstr)
+        end
       | _ ->
         raise @@ Expectation_not_found
     in
@@ -334,6 +349,23 @@ let observe_input_selection input_ref expectation =
   | _ -> Some expectation
 ;;
 
+let observe_input_generation_steps input_ref expectation =
+  match expectation with
+  | Expect_required_input_sequence_generation_steps inputs ->
+    begin
+      input_ref :=
+        begin
+          match !input_ref with
+          | None -> Some inputs
+          | Some _ ->
+            assert_failure @@
+            "multiple expectations of input generation step count"
+        end;
+      None
+    end
+  | _ -> Some expectation
+;;
+
 let observe_analysis_variable_lookup_from_end ident repr expectation =
   match expectation with
   | Expect_analysis_variable_lookup_from_end(ident',repr') ->
@@ -401,6 +433,8 @@ let make_test filename expectations =
         var
         (string_of_input_sequences sequences)
         (if complete then " (and no others)" else "")
+    | Expect_required_input_sequence_generation_steps(n) ->
+      Printf.sprintf "should only require %d steps to discover inputs" n
   in
   let test_name = filename ^ ": (" ^
                   string_of_list name_of_expectation expectations ^ ")"
@@ -560,6 +594,11 @@ let make_test filename expectations =
          them individually.  (This is kind of gross and indicates that we're
          bolting onto an abstraction which is no longer suitable for what we're
          doing here, but we can live with this for now.) *)
+      let input_generation_steps_ref = ref None in
+      observation @@ observe_input_generation_steps input_generation_steps_ref;
+      let input_generation_steps =
+        Option.default 10000 !input_generation_steps_ref
+      in
       let input_generation_expectations =
         let (a,b) =
           !expectations_left
@@ -614,12 +653,11 @@ let make_test filename expectations =
                end
              in
              (* Setting an arbitrary generation limit for unit tests. *)
-             (* TODO: parameterize this in the test itself? *)
-             let maximum_steps = 10000 in
              let (_, generator') =
                try
                  Generator.generate_inputs
-                   ~generation_callback:callback (Some maximum_steps) generator
+                   ~generation_callback:callback
+                   (Some input_generation_steps) generator
                with
                | Input_generation_complete generator ->
                  ([], Some generator)
@@ -641,7 +679,7 @@ let make_test filename expectations =
                  if complete && Option.is_some generator' then
                    [Printf.sprintf
                       "Test generation did not complete in %d steps."
-                      maximum_steps
+                      input_generation_steps
                    ]
                  else
                    []

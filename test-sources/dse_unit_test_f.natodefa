@@ -1,10 +1,10 @@
 # EXPECT-WELL-FORMED
 # EXPECT-INPUT-SEQUENCES-REACH target [ 43, 2 ]
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 250000
 ## It takes 102399 steps to compute when i at line 25 is 1.
 ## Changing first input value 43 (the value for m), the step number remains the same.
 ## However, increasing i at line 25 will make the steps to generate the first input grow very fast (over 1000000 for i = 2).
 
-##
 #void f(int m, int n) {
 #    int i, a, sum=0;
 #    for (i=0;i<6;i++) {
