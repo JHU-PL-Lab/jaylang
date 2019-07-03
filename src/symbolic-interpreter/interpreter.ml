@@ -79,9 +79,7 @@ module Interpreter_work_collection =
 module M = Symbolic_monad.Make(
   struct
     module Cache_key = Interpreter_cache_key;;
-    module Work_collection =
-      Symbolic_monad.QueueWorkCollection(Interpreter_cache_key)
-    ;;
+    module Work_collection = Interpreter_work_collection;;
   end);;
 
 open M;;

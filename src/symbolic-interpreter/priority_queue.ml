@@ -34,52 +34,30 @@ module Make(Priority : Interfaces.OrderedType)
   : PQ with module Priority = Priority =
 struct
   module Priority = Priority;;
-  type 'a tree = Empty | Node of Priority.t * 'a * 'a tree * 'a tree;;
-  type 'a t =
-    { pq_size : int;
-      pq_tree : 'a tree;
-    }
-  ;;
-  let empty = { pq_size = 0; pq_tree = Empty };;
-  let is_empty pq = pq.pq_size = 0;;
-  let size pq = pq.pq_size;;
+  module M = Map.Make(Priority);;
+  type 'a t = 'a Deque.t M.t;;
+  let empty = M.empty;;
+  let is_empty = M.is_empty;;
+  let size = M.cardinal;;
   let enqueue prio elt pq =
-    let rec add prio elt tree =
-      match tree with
-      | Empty  -> Node(prio, elt, Empty, Empty)
-      | Node(prio', elt', left, right) ->
-        if Priority.compare prio prio' < 0 then
-          Node(prio, elt, add prio' elt' right, left)
-        else
-          Node(prio', elt', add prio elt right, left)
-    in
-    { pq_size = pq.pq_size + 1;
-      pq_tree = add prio elt pq.pq_tree
-    }
+    match M.Exceptionless.find prio pq with
+    | None -> M.add prio (Deque.of_list [elt]) pq
+    | Some dq -> M.add prio (Deque.cons elt dq) pq
   ;;
   let dequeue (pq : 'a t) : (Priority.t * 'a * 'a t) option =
-    let rec remove (x : 'a tree) : 'a tree =
-      match x with
-      | Empty -> raise @@ Jhupllib.Utils.Invariant_failure "remove from empty pq"
-      | Node(_, _, Empty, Empty) -> Empty
-      | Node(_, _, left, Empty) -> left
-      | Node(_, _, Empty, right) -> right
-      | Node(_, _,
-             ((Node(lprio, lelt, _, _)) as left),
-             ((Node(rprio, relt, _, _)) as right)) ->
-        if Priority.compare lprio rprio < 0 then
-          Node(lprio, lelt, remove left, right)
-        else
-          Node(rprio, relt, left, remove right)
-    in
-    match pq.pq_tree with
-    | Empty -> None
-    | Node(prio, elt, _, _) ->
-      let pq' =
-        { pq_size = pq.pq_size + 1;
-          pq_tree = remove pq.pq_tree;
-        }
-      in
-      Some(prio, elt, pq')
+    if M.is_empty pq then None else
+      let (smallest_key, smallest_value) = M.min_binding pq in
+      match Deque.rear smallest_value with
+      | None ->
+        raise @@ Jhupllib.Utils.Invariant_failure
+          "priority entry in PQ with no values"
+      | Some(dq', result) ->
+        let pq' =
+          if Deque.is_empty dq' then
+            M.remove smallest_key pq
+          else
+            M.add smallest_key dq' pq
+        in
+        Some(smallest_key, result, pq')
   ;;
 end;;
