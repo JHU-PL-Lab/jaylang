@@ -48,8 +48,8 @@ module type WorkCollection = sig
   val take : 'a t -> ((Work_cache_key.some_key, 'a) work_info * 'a t) option;;
 end;;
 
-module QueueWorkCollection :
-  functor (C : Cache_key) -> WorkCollection with module Work_cache_key = C;;
+module QueueWorkCollection(Cache_key : Cache_key)
+  : WorkCollection with module Work_cache_key = Cache_key;;
 
 module CacheKeyPriorityQueueWorkCollection
     (Cache_key : Cache_key)

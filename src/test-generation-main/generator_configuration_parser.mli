@@ -13,6 +13,8 @@ type generator_args = {
   ga_filename : string;
   ga_target_point : Ident.t;
   ga_maximum_steps : int option;
+  ga_exploration_policy :
+    Odefa_symbolic_interpreter.Interpreter.exploration_policy;
 };;
 
 (** Parses the command line arguments.  If a parse error occurs, this function

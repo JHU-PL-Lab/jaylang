@@ -55,7 +55,7 @@ module QueueWorkCollection(Cache_key : Cache_key)
   : WorkCollection with module Work_cache_key = Cache_key =
 struct
   module Work_cache_key = Cache_key;;
-  type 'a t = (Cache_key.some_key, 'a) work_info Deque.t;;
+  type 'a t = (Work_cache_key.some_key, 'a) work_info Deque.t;;
   let empty = Deque.empty;;
   let is_empty = Deque.is_empty;;
   let size = Deque.size;;

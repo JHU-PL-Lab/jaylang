@@ -8,12 +8,21 @@ open Ast;;
 open Ddpa_context_stack;;
 open Generator_configuration;;
 
+open Odefa_symbolic_interpreter.Interpreter;;
+
 type generator_args = {
   ga_generator_configuration : Generator_configuration.configuration;
   ga_filename : string;
   ga_target_point : Ident.t;
   ga_maximum_steps : int option;
+  ga_exploration_policy : exploration_policy;
 };;
+
+let named_exploration_policies =
+  [ (Explore_breadth_first, "bfs");
+    (Explore_smallest_relative_stack_length, "relstack");
+  ]
+;;
 
 let single_value_parser
     (type a)
@@ -101,9 +110,12 @@ type parsers =
   { parse_context_stack : (module Context_stack) BatOptParse.Opt.t;
     parse_target_point : string BatOptParse.Opt.t;
     parse_max_steps : int BatOptParse.Opt.t;
+    parse_exploration_policy : exploration_policy BatOptParse.Opt.t;
     parse_logging : unit BatOptParse.Opt.t;
   }
 ;;
+
+exception Argument_parse_failure;;
 
 let make_parsers () : parsers =
   { parse_context_stack =
@@ -145,6 +157,24 @@ let make_parsers () : parsers =
                "computation."))
         None
         (fun x -> try Some(int_of_string x) with | Failure _ -> None);
+    parse_exploration_policy =
+      BatOptParse.Opt.value_option
+        "POLICY" (Some(Explore_breadth_first))
+        (fun s ->
+           try
+             List.assoc_inv s named_exploration_policies
+           with
+           | Not_found -> raise Argument_parse_failure
+        )
+        (fun _ arg ->
+           "Could not understand exploration policy: " ^ arg ^ "\n" ^
+           "Valid policies are:\n  " ^
+           ( named_exploration_policies
+             |> List.map snd
+             |> List.map (fun s -> "* " ^ s)
+             |> String.concat "\n  "
+           )
+        );
     parse_logging = logging_option_parser;
   }
 ;;
@@ -184,6 +214,11 @@ let parse_args () : generator_args =
     ~short_name:'l'
     ~long_name:"log"
     parsers.parse_logging;
+  BatOptParse.OptParser.add
+    cli_parser
+    ~short_name:'e'
+    ~long_name:"exploration-policy"
+    parsers.parse_exploration_policy;
   (* **** Perform parse **** *)
   let positional_args = BatOptParse.OptParser.parse_argv cli_parser in
   try
@@ -200,7 +235,10 @@ let parse_args () : generator_args =
         ga_filename = filename;
         ga_target_point =
           Ident(insist "Target point" parsers.parse_target_point);
-        ga_maximum_steps = parsers.parse_max_steps.BatOptParse.Opt.option_get ();
+        ga_maximum_steps =
+          parsers.parse_max_steps.BatOptParse.Opt.option_get ();
+        ga_exploration_policy =
+          insist "Exploration policy" parsers.parse_exploration_policy;
       }
     | _::extras ->
       raise @@ ParseFailure(

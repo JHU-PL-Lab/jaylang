@@ -16,7 +16,13 @@ open Generator_types;;
     If the query is invalid (e.g. the target variable does not appear in the
     expression), an exception is raised from the symbolic intepreter of type
     [Odefa_symbolic_interpreter.Interpreter.Invalid_query]. *)
-val create : configuration -> expr -> Ident.t -> test_generator;;
+val create :
+  ?exploration_policy:
+    Odefa_symbolic_interpreter.Interpreter.exploration_policy ->
+  configuration ->
+  expr ->
+  Ident.t ->
+  test_generator;;
 
 (** A convenience routine for running test generation with a generator.  The
     given optional integer is the maximum number of steps to take.  This

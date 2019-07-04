@@ -211,7 +211,13 @@ let rec take_steps
   loop 0 evaluation
 ;;
 
-let create (conf : configuration) (e : expr) (x : Ident.t) : test_generator =
+let create
+    ?exploration_policy:(exploration_policy=
+                         Symbolic_interpreter.Interpreter.Explore_breadth_first)
+    (conf : configuration)
+    (e : expr)
+    (x : Ident.t)
+  : test_generator =
   let module Stack = (val conf.conf_context_model) in
   let module Analysis = Ddpa_analysis.Make(Stack) in
   let cfg =
@@ -220,7 +226,11 @@ let create (conf : configuration) (e : expr) (x : Ident.t) : test_generator =
     |> Analysis.perform_full_closure
     |> Analysis.cfg_of_analysis
   in
-  let evaluation = Odefa_symbolic_interpreter.Interpreter.start cfg e x in
+  let evaluation =
+    Odefa_symbolic_interpreter.Interpreter.start
+      ~exploration_policy:exploration_policy
+      cfg e x
+  in
   { tg_program = e;
     tg_target = x;
     tg_generator_fn = Some(fun n -> take_steps e x n evaluation)

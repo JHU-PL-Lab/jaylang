@@ -9,6 +9,12 @@ open Ast;;
 open Ddpa_graph;;
 open Interpreter_types;;
 
+(** This type indicates how work is prioritized during interpretation. *)
+type exploration_policy =
+  | Explore_breadth_first
+  | Explore_smallest_relative_stack_length
+;;
+
 (** This type represents an in-progress demand-driven evaluation of an
     expression. *)
 type evaluation;;
@@ -33,7 +39,9 @@ exception Invalid_query of string;;
 (** Starts a demand-driven evaluation of an expression at the provided program
     point (described by a variable).  The provided CFG must be complete with
     respect to the expression. *)
-val start : ddpa_graph -> expr -> Ident.t -> evaluation;;
+val start :
+  ?exploration_policy:exploration_policy -> ddpa_graph -> expr -> Ident.t ->
+  evaluation;;
 
 (** Takes a step of demand-driven evaluation.  This routine returns any
     evaluation results it encounters in this step (as nondeterminism may lead to

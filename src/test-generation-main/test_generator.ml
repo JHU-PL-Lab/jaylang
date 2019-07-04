@@ -57,7 +57,11 @@ let () =
   (* Generate tests *)
   try
     let generator =
-      Generator.create args.ga_generator_configuration ast args.ga_target_point
+      Generator.create
+        ~exploration_policy:args.ga_exploration_policy
+        args.ga_generator_configuration
+        ast
+        args.ga_target_point
     in
     let generation_callback (inputs : int list) (steps : int) : unit =
       Printf.printf "Input sequence: [%s]\nGenerated in %d steps.\n\n"
