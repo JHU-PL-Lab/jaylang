@@ -1,4 +1,4 @@
-.PHONY: all clean repl test
+.PHONY: all clean repl test benchmark
 
 all:
 	dune build
@@ -25,3 +25,6 @@ clean:
 	dune clean
 	rm -f ddpa_toploop
 	rm -f translator
+
+benchmark:
+	ocaml bench/benchmark.ml
