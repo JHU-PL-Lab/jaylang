@@ -205,8 +205,8 @@ struct
            "Immediate contradiction at symbol %s with types %s while merging two formula sets.\nSet 1:\n%s\nSet 2:\n%s\n"
            (show_symbol symbol)
            (Jhupllib.Pp_utils.pp_to_string (Jhupllib.Pp_utils.pp_list Formulae.pp_symbol_type) types)
-           (Formulae.show log1.log_formulae)
-           (Formulae.show log2.log_formulae)
+           (Formulae.show_brief log1.log_formulae)
+           (Formulae.show_brief log2.log_formulae)
         );
         None
       | Formulae.SymbolValueContradiction(_,symbol,v1,v2) ->
@@ -215,8 +215,8 @@ struct
            "Immediate contradiction at symbol %s with values %s and %s while merging two formula sets.\nSet 1:\n%s\nSet 2:\n%s\n"
            (show_symbol symbol)
            (show_value v1) (show_value v2)
-           (Formulae.show log1.log_formulae)
-           (Formulae.show log2.log_formulae)
+           (Formulae.show_brief log1.log_formulae)
+           (Formulae.show_brief log2.log_formulae)
         );
         None
     in
@@ -408,8 +408,14 @@ struct
           | Unblocked(Completed(_,log)) ->
             if Solver.solvable log.log_formulae then
               Some(blockable)
-            else
+            else begin
+              (lazy_logger `trace @@ fun () ->
+               Printf.sprintf
+                 "SAT contradiction at formulae check in:\n%s\n"
+                 (Formulae.show_brief log.log_formulae)
+              );
               None
+            end
           | Unblocked(Suspended(m,log)) ->
             Some(Unblocked(Suspended(check_formulae m, log)))
           | Blocked(blocked) ->
@@ -647,6 +653,27 @@ struct
         ?show_value:(show_value=fun _ -> "<no printer>")
         (ev : evaluation)
       : (out evaluation_result Enum.t * evaluation) =
+      lazy_logger `trace
+        (fun () ->
+           Printf.sprintf
+             ("Stepping monadic evaluation with %d work items.\n" ^^
+              "Messaging state:\n%s\n"
+             )
+             (Work_collection.size ev.ev_tasks)
+             (
+               ev.ev_destinations
+               |> Destination_map.bindings
+               |> List.map
+                 (fun (Destination_map.B(K(key), value)) ->
+                    let key_str = Cache_key.show key in
+                    let consumer_count = List.length value.dest_consumers in
+                    let value_count = List.length value.dest_values in
+                    Printf.sprintf "* %s --> %d values, %d consumers"
+                      key_str consumer_count value_count
+                 )
+               |> String.join "\n"
+             )
+        );
       match Work_collection.take ev.ev_tasks with
       | None ->
         (* There is no work left to do.  Don't step. *)

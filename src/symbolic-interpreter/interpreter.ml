@@ -9,11 +9,10 @@ open Ddpa_abstract_ast;;
 open Ddpa_graph;;
 open Ddpa_utils;;
 open Interpreter_types;;
+open Logger_utils;;
 open Sat_types;;
 
-let lazy_logger =
-  Logger_utils.make_lazy_logger "Symbolic_interpreter.Interpreter"
-;;
+let lazy_logger = make_lazy_logger "Symbolic_interpreter.Interpreter";;
 
 type exploration_policy =
   | Explore_breadth_first
@@ -292,6 +291,7 @@ struct
                 pp_brief_annotated_clause acl0')
         );
       cache (Cache_lookup(lookup_stack', acl0', relstack')) @@
+      (* check_formulae @@ *)
       lookup env lookup_stack' acl0' relstack'
     in
     lazy_logger `trace
