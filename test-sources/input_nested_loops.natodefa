@@ -3,17 +3,20 @@
 # EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 65000
 
 
-let complete = 42
-in let x = input
-in let rec inner_loop j =
+let complete = 42 in
+let x = input in
+let rec inner_loop j =
   if j == 1
   then 0
   else 
-    let target = j in inner_loop (j+1)
-in let rec outer_loop i =
+    let target = j in
+    inner_loop (j+1)
+in
+let rec outer_loop i =
   if i == 1
   then 0
   else 
     let ignored = inner_loop 0
     in outer_loop (i+1)
-in outer_loop 0
+in
+outer_loop 0
