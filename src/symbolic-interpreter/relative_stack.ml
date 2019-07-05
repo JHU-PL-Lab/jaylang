@@ -73,6 +73,10 @@ let length (Relative_stack(costk, stk)) : int =
   List.length costk + List.length stk
 ;;
 
+let to_lists (Relative_stack(costk, stk)) : Ident.t list * Ident.t list =
+  costk, stk
+;;
+
 (** Dictionaries with relative stacks as keys. *)
 module Map = struct
   module RS = struct

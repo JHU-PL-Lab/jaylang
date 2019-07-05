@@ -13,6 +13,7 @@ open Interpreter_types;;
 type exploration_policy =
   | Explore_breadth_first
   | Explore_smallest_relative_stack_length
+  | Explore_least_relative_stack_repetition
 ;;
 
 (** This type represents an in-progress demand-driven evaluation of an

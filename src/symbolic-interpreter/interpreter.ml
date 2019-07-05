@@ -17,6 +17,7 @@ let lazy_logger = make_lazy_logger "Symbolic_interpreter.Interpreter";;
 type exploration_policy =
   | Explore_breadth_first
   | Explore_smallest_relative_stack_length
+  | Explore_least_relative_stack_repetition
 ;;
 
 (** This type describes the information which must be in context during lookup. *)
@@ -192,19 +193,46 @@ struct
   let show key = Jhupllib.Pp_utils.pp_to_string pp key;;
 end;;
 
-module Interpreter_cache_key_ordering = struct
+module Interpreter_cache_key_smallest_relative_stack_length_ordering = struct
   open Interpreter_cache_key;;
   type t = some_key option;;
   let compare (a : t) (b : t) : int =
     match a, b with
     | None, None -> 0
     | Some _, None -> 1
-    | None, Some _ -> 1
+    | None, Some _ -> -1
     | Some(Some_key(Cache_lookup(_, _, relative_stack_1))),
       Some(Some_key(Cache_lookup(_, _, relative_stack_2))) ->
       Pervasives.compare
         (Relative_stack.length relative_stack_1)
         (Relative_stack.length relative_stack_2)
+  ;;
+end;;
+
+module Interpreter_cache_key_least_relative_stack_repetition_ordering = struct
+  open Interpreter_cache_key;;
+  type t = some_key option;;
+  let reps (a : t) =
+    match a with
+    | None -> -1
+    | Some(Some_key(Cache_lookup(_, _, relstack))) ->
+      let (costk, stk) = Relative_stack.to_lists relstack in
+      let occurrences =
+        (costk @ stk)
+        |> List.fold_left
+          (fun a e -> Ident_map.modify_def 0 e (fun n -> n + 1) a)
+          Ident_map.empty
+      in
+      let repetitions =
+        occurrences
+        |> Ident_map.enum
+        |> Enum.map (fun (_,v) -> if v < 2 then 0 else v - 1)
+        |> Enum.sum
+      in
+      repetitions
+  ;;
+  let compare (a : t) (b : t) : int =
+    Pervasives.compare (reps a) (reps b)
   ;;
 end;;
 
@@ -669,7 +697,14 @@ module QueueInterpreter =
 
 module SmallestRelativeStackLengthInterpreter =
   Make(Symbolic_monad.CacheKeyPriorityQueueWorkCollection
-         (Interpreter_cache_key)(Interpreter_cache_key_ordering))
+         (Interpreter_cache_key)
+         (Interpreter_cache_key_smallest_relative_stack_length_ordering))
+;;
+
+module LeastRelativeStackRepetitionInterpreter =
+  Make(Symbolic_monad.CacheKeyPriorityQueueWorkCollection
+         (Interpreter_cache_key)
+         (Interpreter_cache_key_least_relative_stack_repetition_ordering))
 ;;
 
 let start
@@ -682,6 +717,9 @@ let start
   | Explore_smallest_relative_stack_length ->
     let e = SmallestRelativeStackLengthInterpreter.start cfg e x in
     Evaluation(SmallestRelativeStackLengthInterpreter.step, e)
+  | Explore_least_relative_stack_repetition ->
+    let e = LeastRelativeStackRepetitionInterpreter.start cfg e x in
+    Evaluation(LeastRelativeStackRepetitionInterpreter.step, e)
 ;;
 
 let step (x : evaluation) : evaluation_result list * evaluation option =

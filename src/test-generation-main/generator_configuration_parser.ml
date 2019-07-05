@@ -21,7 +21,8 @@ type generator_args = {
 
 let named_exploration_policies =
   [ (Explore_breadth_first, "bfs");
-    (Explore_smallest_relative_stack_length, "relstack");
+    (Explore_smallest_relative_stack_length, "relstack-len");
+    (Explore_least_relative_stack_repetition, "relstack-rep");
   ]
 ;;
 
