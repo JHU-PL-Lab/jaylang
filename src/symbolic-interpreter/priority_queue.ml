@@ -36,33 +36,45 @@ module Make(Priority : Interfaces.OrderedType)
 struct
   module Priority = Priority;;
   module M = Map.Make(Priority);;
-  type 'a t = 'a Deque.t M.t;;
-  let empty = M.empty;;
-  let is_empty = M.is_empty;;
-  let size = M.cardinal;;
+  type 'a t =
+    { pq_map : 'a Deque.t M.t;
+      pq_size : int
+    }
+  ;;
+  let empty = { pq_map = M.empty; pq_size = 0 };;
+  let is_empty pq = M.is_empty pq.pq_map;;
+  let size pq = pq.pq_size;;
   let enqueue prio elt pq =
-    match M.Exceptionless.find prio pq with
-    | None -> M.add prio (Deque.of_list [elt]) pq
-    | Some dq -> M.add prio (Deque.cons elt dq) pq
+    match M.Exceptionless.find prio pq.pq_map with
+    | None ->
+      { pq_map = M.add prio (Deque.of_list [elt]) pq.pq_map;
+        pq_size = pq.pq_size + 1
+      }
+    | Some dq ->
+      { pq_map = M.add prio (Deque.cons elt dq) pq.pq_map;
+        pq_size = pq.pq_size + 1
+      }
   ;;
   let dequeue (pq : 'a t) : (Priority.t * 'a * 'a t) option =
-    if M.is_empty pq then None else
-      let (smallest_key, smallest_value) = M.min_binding pq in
+    if is_empty pq then None else
+      let (smallest_key, smallest_value) = M.min_binding pq.pq_map in
       match Deque.rear smallest_value with
       | None ->
         raise @@ Jhupllib.Utils.Invariant_failure
           "priority entry in PQ with no values"
       | Some(dq', result) ->
-        let pq' =
+        let pq_map' =
           if Deque.is_empty dq' then
-            M.remove smallest_key pq
+            M.remove smallest_key pq.pq_map
           else
-            M.add smallest_key dq' pq
+            M.add smallest_key dq' pq.pq_map
         in
-        Some(smallest_key, result, pq')
+        Some(smallest_key, result,
+             { pq_map = pq_map'; pq_size = pq.pq_size - 1 }
+            )
   ;;
   let enum (pq : 'a t) : 'a Enum.t =
-    pq
+    pq.pq_map
     |> M.enum
     |> Enum.map snd
     |> Enum.map Deque.enum
