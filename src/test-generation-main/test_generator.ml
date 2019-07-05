@@ -8,6 +8,7 @@ let logger = Logger_utils.make_logger "Test_generator";;
 let lazy_logger = Logger_utils.make_lazy_logger "Test_generator";;
 
 exception CommandLineParseFailure of string;;
+exception GenerationComplete;;
 
 let () =
   (* Parse CLI args *)
@@ -56,6 +57,7 @@ let () =
   end;
   (* Generate tests *)
   try
+    let results_remaining = ref args.ga_maximum_results in
     let generator =
       Generator.create
         ~exploration_policy:args.ga_exploration_policy
@@ -67,20 +69,30 @@ let () =
       Printf.printf "Input sequence: [%s]\nGenerated in %d steps.\n\n"
         (String.join ", " @@ List.map string_of_int inputs) steps;
       flush stdout;
+      results_remaining := (Option.map (fun n -> n - 1) !results_remaining);
+      if !results_remaining = Some 0 then begin
+        raise GenerationComplete
+      end;
     in
-    let answers, generator_opt =
-      Generator.generate_inputs
-        ~generation_callback:generation_callback
-        args.ga_maximum_steps
-        generator
-    in
-    let answer_count = List.length answers in
-    Printf.printf "%d answer%s generated\n"
-      answer_count (if answer_count = 1 then "" else "s");
-    if Option.is_none generator_opt then
-      print_endline "No further control flows exist."
-    else
-      print_endline "Further control flows may exist."
+    begin
+      try
+        let answers, generator_opt =
+          Generator.generate_inputs
+            ~generation_callback:generation_callback
+            args.ga_maximum_steps
+            generator
+        in
+        let answer_count = List.length answers in
+        Printf.printf "%d answer%s generated\n"
+          answer_count (if answer_count = 1 then "" else "s");
+        if Option.is_none generator_opt then
+          print_endline "No further control flows exist."
+        else
+          print_endline "Further control flows may exist."
+      with
+      | GenerationComplete ->
+        print_endline "Requested input sequences found; terminating.";
+    end
   with
   | Odefa_symbolic_interpreter.Interpreter.Invalid_query msg ->
     prerr_endline msg

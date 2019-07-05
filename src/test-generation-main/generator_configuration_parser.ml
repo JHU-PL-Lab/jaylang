@@ -15,6 +15,7 @@ type generator_args = {
   ga_filename : string;
   ga_target_point : Ident.t;
   ga_maximum_steps : int option;
+  ga_maximum_results : int option;
   ga_exploration_policy : exploration_policy;
 };;
 
@@ -110,6 +111,7 @@ type parsers =
   { parse_context_stack : (module Context_stack) BatOptParse.Opt.t;
     parse_target_point : string BatOptParse.Opt.t;
     parse_max_steps : int BatOptParse.Opt.t;
+    parse_max_results : int BatOptParse.Opt.t;
     parse_exploration_policy : exploration_policy BatOptParse.Opt.t;
     parse_logging : unit BatOptParse.Opt.t;
   }
@@ -154,6 +156,13 @@ let make_parsers () : parsers =
       single_value_parser
         "MAX_STEPS"
         (Some ("Specifies the maximum number of steps to take during " ^
+               "computation."))
+        None
+        (fun x -> try Some(int_of_string x) with | Failure _ -> None);
+    parse_max_results =
+      single_value_parser
+        "MAX_RESULTS"
+        (Some ("Specifies the maximum number of results to find during " ^
                "computation."))
         None
         (fun x -> try Some(int_of_string x) with | Failure _ -> None);
@@ -211,6 +220,11 @@ let parse_args () : generator_args =
     parsers.parse_max_steps;
   BatOptParse.OptParser.add
     cli_parser
+    ~short_name:'r'
+    ~long_name:"maximum-results"
+    parsers.parse_max_results;
+  BatOptParse.OptParser.add
+    cli_parser
     ~short_name:'l'
     ~long_name:"log"
     parsers.parse_logging;
@@ -237,6 +251,8 @@ let parse_args () : generator_args =
           Ident(insist "Target point" parsers.parse_target_point);
         ga_maximum_steps =
           parsers.parse_max_steps.BatOptParse.Opt.option_get ();
+        ga_maximum_results =
+          parsers.parse_max_results.BatOptParse.Opt.option_get ();
         ga_exploration_policy =
           insist "Exploration policy" parsers.parse_exploration_policy;
       }
