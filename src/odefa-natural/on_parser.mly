@@ -93,6 +93,11 @@ fun_sig:
   | ident_decl param_list EQUALS expr
     { Funsig ($1, $2, $4) }
 
+/* Let Rec statements in Odefa-natural are separated by "with".
+   ex) let rec foo x y = ...
+       with bar a b = ...
+       in
+*/
 fun_sig_list:
   | fun_sig { [$1] }
   | fun_sig WITH fun_sig_list { $1 :: $3 }
