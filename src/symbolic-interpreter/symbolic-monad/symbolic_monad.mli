@@ -46,6 +46,7 @@ module type WorkCollection = sig
   val size : 'a t -> int;;
   val offer : (Work_cache_key.some_key, 'a) work_info -> 'a t -> 'a t;;
   val take : 'a t -> ((Work_cache_key.some_key, 'a) work_info * 'a t) option;;
+  val enum : 'a t -> 'a Enum.t
 end;;
 
 module QueueWorkCollection(Cache_key : Cache_key)

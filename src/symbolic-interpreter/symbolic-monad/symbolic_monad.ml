@@ -49,6 +49,7 @@ module type WorkCollection = sig
   val size : 'a t -> int;;
   val offer : (Work_cache_key.some_key, 'a) work_info -> 'a t -> 'a t;;
   val take : 'a t -> ((Work_cache_key.some_key, 'a) work_info * 'a t) option;;
+  val enum : 'a t -> 'a Enum.t
 end;;
 
 module QueueWorkCollection(Cache_key : Cache_key)
@@ -61,6 +62,7 @@ struct
   let size = Deque.size;;
   let offer info dq = Deque.snoc dq info;;
   let take dq = Deque.front dq;;
+  let enum dq = Enum.map (fun w -> w.work_item) @@ Deque.enum dq;;
 end;;
 
 module CacheKeyPriorityQueueWorkCollection
@@ -81,6 +83,7 @@ struct
       | None -> None
       | Some(_,v,pq') -> Some(v,pq')
   ;;
+  let enum pq = Enum.map (fun w -> w.work_item) @@ KPQ.enum pq;;
 end;;
 
 module type Spec = sig
@@ -473,6 +476,12 @@ struct
 
     type some_task = Some_task : 'a task -> some_task;;
 
+    let string_of_some_task (Some_task(task)) =
+      match task with
+      | Cache_task(key,_) -> "Task for destination " ^ Cache_key.show key
+      | Result_task _ -> "Task for result"
+    ;;
+
     type 'a consumer = Consumer of ('a * log -> some_task);;
 
     type 'a destination =
@@ -649,17 +658,21 @@ struct
       _add_task (Some_task(Result_task x)) empty_evaluation
     ;;
 
-    let step
-        ?show_value:(show_value=fun _ -> "<no printer>")
-        (ev : evaluation)
-      : (out evaluation_result Enum.t * evaluation) =
+    let _debug_log_evaluation_state (ev : evaluation) : unit =
       lazy_logger `trace
         (fun () ->
            Printf.sprintf
-             ("Stepping monadic evaluation with %d work items.\n" ^^
+             ("Stepping monadic evaluation.\n" ^^
+              "Work collection has %d items:\n%s\n" ^^
               "Messaging state:\n%s\n"
              )
              (Work_collection.size ev.ev_tasks)
+             (Work_collection.enum ev.ev_tasks
+              |> Enum.map string_of_some_task
+              |> Enum.map (fun s -> "* " ^ s)
+              |> List.of_enum
+              |> String.join "\n"
+             )
              (
                ev.ev_destinations
                |> Destination_map.bindings
@@ -669,11 +682,19 @@ struct
                     let consumer_count = List.length value.dest_consumers in
                     let value_count = List.length value.dest_values in
                     Printf.sprintf "* %s --> %d values, %d consumers"
-                      key_str consumer_count value_count
+                      key_str value_count consumer_count
                  )
                |> String.join "\n"
              )
         );
+    ;;
+
+    let step
+        ?show_value:(show_value=fun _ -> "<no printer>")
+        (ev : evaluation)
+      : (out evaluation_result Enum.t * evaluation) =
+      lazy_logger `trace (fun () -> "Stepping monadic evaluation.");
+      _debug_log_evaluation_state ev;
       match Work_collection.take ev.ev_tasks with
       | None ->
         (* There is no work left to do.  Don't step. *)
@@ -694,6 +715,7 @@ struct
            values.  We'll push what we can into local functions to limit code
            duplication.
         *)
+        let ev_with_task_removed = { ev with ev_tasks = tasks' } in
         lazy_logger `trace (fun () ->
             let task_descr =
               match task with
@@ -716,7 +738,7 @@ struct
           (* Update our evaluation to reflect the state change and the step. *)
           let ev_after_step =
             { ev_state = state';
-              ev_tasks = tasks';
+              ev_tasks = ev'.ev_tasks;
               ev_destinations = ev'.ev_destinations;
               ev_evaluation_steps = ev'.ev_evaluation_steps + 1;
             }
@@ -791,7 +813,8 @@ struct
             let (complete, ev_after_computation) =
               handle_computation
                 (fun computation -> Some_task(Cache_task(key, computation)))
-                computation ev
+                computation
+                ev_with_task_removed
             in
             (* Every value in the completed sequence should be reported to the
                destination specified by this key. *)
@@ -807,7 +830,8 @@ struct
             let (complete, ev_after_computation) =
               handle_computation
                 (fun computation -> Some_task(Result_task(computation)))
-                computation ev
+                computation
+                ev_with_task_removed
             in
             (* Every value in the completed sequence should be returned to the
                caller. *)
@@ -849,6 +873,18 @@ struct
                }
             )
         in
+        lazy_logger `trace (fun () -> "Finished stepping monadic evaluation.");
+        _debug_log_evaluation_state final_ev;
+        let sanity_check e =
+          e.ev_destinations
+          |> Destination_map.bindings
+          |> List.iter
+            (fun (Destination_map.B(K(key), value)) ->
+               if List.is_empty value.dest_consumers then
+                 failwith @@ Printf.sprintf "WTFROFLCOPTER: %s" (Cache_key.show key)
+            )
+        in
+        sanity_check final_ev;
         (output, final_ev)
     ;;
 

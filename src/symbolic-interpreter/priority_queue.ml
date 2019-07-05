@@ -28,6 +28,7 @@ module type PQ = sig
   val size : 'a t -> int;;
   val enqueue : Priority.t -> 'a -> 'a t -> 'a t;;
   val dequeue : 'a t -> (Priority.t * 'a * 'a t) option
+  val enum : 'a t -> 'a Enum.t
 end;;
 
 module Make(Priority : Interfaces.OrderedType)
@@ -59,5 +60,12 @@ struct
             M.add smallest_key dq' pq
         in
         Some(smallest_key, result, pq')
+  ;;
+  let enum (pq : 'a t) : 'a Enum.t =
+    pq
+    |> M.enum
+    |> Enum.map snd
+    |> Enum.map Deque.enum
+    |> Enum.concat
   ;;
 end;;
