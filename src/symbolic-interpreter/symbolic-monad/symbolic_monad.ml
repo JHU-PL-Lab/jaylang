@@ -662,8 +662,7 @@ struct
       lazy_logger `trace
         (fun () ->
            Printf.sprintf
-             ("Stepping monadic evaluation.\n" ^^
-              "Work collection has %d items:\n%s\n" ^^
+             ("Work collection has %d items:\n%s\n" ^^
               "Messaging state:\n%s\n"
              )
              (Work_collection.size ev.ev_tasks)
