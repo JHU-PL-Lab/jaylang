@@ -1,7 +1,5 @@
 # EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH target [ 2 ]
-## `main_loop` is a heavy task to generate a result.
-## If we remove the main_loop and check i at line 24 for 1, it can generate [2] in 91505 steps.
+# EXPECT-INPUT-SEQUENCES-REACH target [ 7, 2 ]
 
 ##
 #void f(int m, int n) {
@@ -40,20 +38,20 @@ in let f m n =
     )
   in f_while true
 
-in let m = 7
+in let m = input
 in let n = input
 ##
 # for (i=0;i<1000;i++)
 #     if (m == i) f(m, n);
 ##
 in let rec main_loop i = 
-    if i == 2
-    then 0
-    else (
-      let ignored = 
-        if m == i
-        then f m n
-        else 0
-      in main_loop (i+1)
-    )
+  if i == 3
+  then 0
+  else (
+    let ignored = 
+      if m == i
+      then f m n
+      else 0
+    in main_loop (i+1)
+  )
 in main_loop 0
