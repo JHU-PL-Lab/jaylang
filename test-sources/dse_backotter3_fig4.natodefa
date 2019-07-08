@@ -1,5 +1,6 @@
 # EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH target [ 7, 2 ]
+# EXPECT-INPUT-SEQUENCES-REACH target [ 1, 2 ]
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 30091
 
 ##
 #void f(int m, int n) {
@@ -29,7 +30,7 @@ in let f m n =
   )
   in let loop_result = f_loop n 0 0
   in let rec f_while c =
-    if (loop_result == 0) and (m == 7)
+    if (loop_result == 0) and (m == 1)
     then let target = assert_false in target
     else (
       if c
@@ -45,7 +46,7 @@ in let n = input
 #     if (m == i) f(m, n);
 ##
 in let rec main_loop i = 
-  if i == 3
+  if i == 1000
   then 0
   else (
     let ignored = 

@@ -1,19 +1,20 @@
 # EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH target [ 0 ]
+# EXPECT-INPUT-SEQUENCES-REACH target [ 0 ] !
 # EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 65000
 
 
 let complete = 42 in
 let x = input in
 let rec inner_loop j =
-  if j == 1
-  then 0
+  if j == 3
+  then (
+    let target = 1 in target
+  )
   else 
-    let target = j in
     inner_loop (j+1)
 in
 let rec outer_loop i =
-  if i == 1
+  if i == 100
   then 0
   else 
     let ignored = inner_loop 0

@@ -1,6 +1,6 @@
 # EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH target [ 43, 16 ] !
-# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 150000
+# EXPECT-INPUT-SEQUENCES-REACH target [ 43, 16 ]
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 70000
 ## It takes 103493 steps in current implementation
 
 ##
@@ -31,7 +31,7 @@ in let f m n =
 in let m = input
 in let n = input
 in let r = f m n
-in if r == 0 and m == 43
+in if r == 0 and m == 10
   then (
     let target = true in 1
   )
