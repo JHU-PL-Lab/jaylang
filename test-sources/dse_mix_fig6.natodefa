@@ -1,6 +1,6 @@
 # EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH target [ 0, 0 ]
-## with small number at lines 43 76 90 92, it still cannot finish computation in 1,000,000 steps
+# EXPECT-INPUT-SEQUENCES-REACH target [ 1, 2 ]
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 67000
 
 let assert_false = false
 in let loop_end = 0

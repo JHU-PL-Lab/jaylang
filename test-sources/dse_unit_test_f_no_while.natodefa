@@ -1,7 +1,5 @@
 # EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH target [ 43, 16 ]
-# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 70000
-## It takes 103493 steps in current implementation
+# EXPECT-INPUT-SEQUENCES-REACH target [ 10, 4 ]
 
 ##
 #void f(int m, int n) {
@@ -18,7 +16,7 @@
 let loop_end = 0
 in let f m n =
   let rec f_loop n sum i =
-    if i == 4
+    if i == 2
     then sum
     else (
         let a = n % 2

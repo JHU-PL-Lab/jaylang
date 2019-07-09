@@ -625,7 +625,9 @@ let make_test filename expectations =
                  assert_failure
                    "Test specified input sequence requirement without context model."
              in
-             let generator = Generator.create configuration expr (Ident x) in
+             let generator = Generator.create 
+                 ?exploration_policy:(Some (Odefa_symbolic_interpreter.Interpreter.Explore_least_relative_stack_repetition))
+                 configuration expr (Ident x) in
              let remaining_input_sequences = ref inputs in
              let callback sequence _steps =
                if List.mem sequence !remaining_input_sequences then begin

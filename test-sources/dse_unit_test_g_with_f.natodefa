@@ -1,6 +1,6 @@
 # EXPECT-WELL-FORMED
 # EXPECT-INPUT-SEQUENCES-REACH target [ -1, 0 ]
-## It takes 7318 steps to compute. The number is mainly controlled by two loop count (line 8 and line 20 )mak
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 80000
 
 let loop_end = 0
 in let f m n =

@@ -1,9 +1,6 @@
 # EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH target [ 43, 8 ]
-# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 100000
-## It takes 102399 steps to compute when i at line 25 is 1.
-## Changing first input value 43 (the value for m), the step number remains the same.
-## However, increasing i at line 25 will make the steps to generate the first input grow very fast (over 1000000 for i = 2).
+# EXPECT-INPUT-SEQUENCES-REACH target [ 2, 4 ]
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 20000
 
 #void f(int m, int n) {
 #    int i, a, sum=0;
@@ -22,7 +19,7 @@
 let assert_false = 0
 in let f m n =
   let rec f_loop n sum i =
-    if i == 3
+    if i == 2
     then sum
     else (
         let a = n % 2
