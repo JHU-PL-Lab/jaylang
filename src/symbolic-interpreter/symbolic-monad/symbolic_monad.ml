@@ -769,6 +769,10 @@ struct
                      (* We've never heard of this destination before.  That means
                         this is the first cache request on this key, so we should
                         create it and then start computing for it. *)
+                     lazy_logger `trace
+                       (fun () ->
+                          "Cache miss for key " ^
+                          Cache_key.show blocked.blocked_key);
                      let dest = { dest_consumers = []; dest_values = []; } in
                      let task = Some_task(Cache_task(key, computation)) in
                      let destination_map' =
@@ -786,6 +790,10 @@ struct
                      (* This destination already exists.  We don't need to do
                         anything to make it ready for the consumer to be
                         registered. *)
+                     lazy_logger `trace
+                       (fun () ->
+                          "Cache hit for key "
+                          ^ Cache_key.show blocked.blocked_key);
                      ev
                  in
                  (* Create the new consumer from the blocked evaluation.  Once it
