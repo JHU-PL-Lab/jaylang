@@ -11,7 +11,8 @@ TRIALS=3
 TIMEOUT=10m
 
 CASES=(
-  "input_ack"
+  "input_ack_a"
+  "input_ack_b"
   "input_tak"
   "input_cptak"
   "fig4_1_1"
@@ -21,10 +22,11 @@ CASES=(
   "fig4_3_1"
   "fig4_3_2"
 # the followings will timeout  
+  "fig4_1_3"
   "fig4_3_3"
   "fig4_4_1"
 #  "fig6_1_1"
-#  "fig6_1_2"
+#  "fig6_2_1"
 )
 
 HERE="$(cd "$(dirname $0)" && pwd)"
@@ -50,7 +52,7 @@ ocaml -version
 opam --version
 
 function result {
-  RESULT=${RESULTS_PATH}/case=${CASE}--strategy=${STRATEGY}--$(date -u +"%Y-%m-%dT%H:%M:%SZ").txt
+  RESULT=${RESULTS_PATH}/${CASE}-$(date -u +"%Y-%m-%dT%H:%M:%SZ").txt
   echo &> ${RESULT}
   uptime &> ${RESULT}
 }

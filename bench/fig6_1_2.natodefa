@@ -32,7 +32,7 @@ in let f m n =
 in let g m n =
   let rec g_loop i =
     if i == 1000
-    then loop_end
+    then 0
     else (
       let ignored =
         if m == i
