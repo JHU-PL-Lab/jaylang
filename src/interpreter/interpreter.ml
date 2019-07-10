@@ -213,6 +213,8 @@ let rec evaluate
               Value_bool (b1 && b2)
             | (Value_bool(b1),Binary_operator_or,Value_bool(b2)) ->
               Value_bool (b1 || b2)
+            | (Value_bool(b1),Binary_operator_xor,Value_bool(b2)) ->
+              Value_bool (b1 <> b2)
             | v1,op,v2 ->
               raise @@ Evaluation_failure(
                 Printf.sprintf "Cannot complete binary operation: (%s) %s (%s)"

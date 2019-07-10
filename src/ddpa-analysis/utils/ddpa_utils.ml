@@ -193,5 +193,7 @@ let abstract_binary_operation
     singleton @@ Abs_value_bool(b1 && b2)
   | Binary_operator_or, Abs_value_bool b1, Abs_value_bool b2 ->
     singleton @@ Abs_value_bool(b1 || b2)
+  | Binary_operator_xor, Abs_value_bool b1, Abs_value_bool b2 ->
+    singleton @@ Abs_value_bool(b1 <> b2)
   | _ -> None
 ;;
