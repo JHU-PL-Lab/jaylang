@@ -8,17 +8,23 @@ set -o xtrace
 echo "START"
 
 TRIALS=3
-TIMEOUT=30m
+TIMEOUT=10m
 
 CASES=(
+  "input_ack"
+  "input_tak"
+  "input_cptak"
   "fig4_1_1"
   "fig4_1_2"
   "fig4_2_1"
   "fig4_2_2"
   "fig4_3_1"
   "fig4_3_2"
-  "fig6_1_1"
-  "fig6_1_2"
+# the followings will timeout  
+  "fig4_3_3"
+  "fig4_4_1"
+#  "fig6_1_1"
+#  "fig6_1_2"
 )
 
 HERE="$(cd "$(dirname $0)" && pwd)"
@@ -44,14 +50,14 @@ ocaml -version
 opam --version
 
 function result {
-  RESULT="${RESULTS_PATH}/case=${CASE}--strategy=${STRATEGY}--$(date -u +"%Y-%m-%dT%H:%M:%SZ").txt"
-  echo &> "${RESULT}"
-  uptime &> "${RESULT}"
+  RESULT=${RESULTS_PATH}/case=${CASE}--strategy=${STRATEGY}--$(date -u +"%Y-%m-%dT%H:%M:%SZ").txt
+  echo &> ${RESULT}
+  uptime &> ${RESULT}
 }
 
 function ddse {
   result
-  /usr/bin/time "${DDSE_TOPLOOP}" -r 1 -e "${STRATEGY}" -t target "${SOURCE}" &> "${RESULT}" || true
+  /usr/bin/time /usr/bin/timeout --foreground "${TIMEOUT}" "${DDSE_TOPLOOP}" -r 1 -e "${STRATEGY}" -t target "${SOURCE}" 1>>${RESULT} 2>&1 || true
 }
 
 # function ddse {
