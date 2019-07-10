@@ -5,14 +5,16 @@ in let zi = input
 in let rec tak x y z =
   if (y < x)
   then (
-    let nx = tak (x-1) y z
+    let target = 0
+    in let nx = tak (x-1) y z
     in let ny = tak (y-1) z x
     in let nz = tak (z-1) x y
-    in let ignored =
-      if nz == 1
-      then let target = 0 in 0
-      else 0
     in tak nx ny nz
   )
   else z
-in tak xi yi zi
+in
+  if 0 <= xi and 0 <= yi and 0 <= zi
+  then
+    tak xi yi zi
+  else
+    0

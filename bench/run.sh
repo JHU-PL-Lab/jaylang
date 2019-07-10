@@ -15,6 +15,7 @@ CASES=(
   "input_ack_b"
   "input_tak"
   "input_cptak"
+  "input_blur"
   "fig4_1_1"
   "fig4_1_2"
   "fig4_2_1"

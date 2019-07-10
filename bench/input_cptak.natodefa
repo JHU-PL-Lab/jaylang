@@ -10,10 +10,7 @@ in let rec tak x y z k =
         let f3 v3 = 
           tak v1 v2 v3 k
         in let r = tak (z-1) x y f3
-        in let ignored =
-          if r == 1
-          then let target = 0 in 0
-          else 0
+        in let target = 0
         in r
       )
       in tak (y-1) z x f2
@@ -23,4 +20,8 @@ in let rec tak x y z k =
     k z
 in let id x = x
 in 
-  tak xi yi zi id
+  if 0 <= xi and 0 <= yi and 0 <= zi
+  then
+    tak xi yi zi id
+  else
+    0
