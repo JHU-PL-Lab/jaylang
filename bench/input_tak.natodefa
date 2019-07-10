@@ -1,0 +1,13 @@
+let dummy = 1
+in let xi = input
+in let yi = input
+in let rec tak x y z =
+  if (y < x)
+  then (
+    let nx = tak (x-1) y z
+    in let ny = tak (y-1) z x
+    in let nz = tak (z-1) x y
+    in tak nx ny nz
+  )
+  else z
+in tak xi 2 3

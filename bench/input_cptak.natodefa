@@ -1,0 +1,25 @@
+let dummy = 1
+in let xi = input
+in let yi = input
+in let zi = input
+in let rec tak x y z k =
+  if (y < x)
+  then
+    let f1 v1 = (
+      let f2 v2 = (
+        let f3 v3 = 
+          tak v1 v2 v3 k
+        in tak (z-1) x y f3
+      )
+      in tak (y-1) z x f2
+    )
+    in tak (x-1) y z f1
+  else
+    k z
+in let id x = x
+in 
+  if (yi < zi) and (5 <= xi)
+  then
+    tak xi yi zi id
+  else
+    1
