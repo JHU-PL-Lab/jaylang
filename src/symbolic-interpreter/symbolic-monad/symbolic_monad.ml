@@ -851,13 +851,14 @@ struct
           completed
           |> Enum.map
             (fun (value, log) ->
-               lazy_logger `trace (fun () ->
+               lazy_logger `debug (fun () ->
                    Printf.sprintf
                      ("Symbolic monad evaluation produced a result:\n" ^^
                       "  Value:\n    %s\n" ^^
                       "  Formulae:\n    %s\n" ^^
                       "  Decisions:\n    %s\n" ^^
-                      "  Result steps: %d\n"
+                      "  Result steps: %d\n" ^^
+                      "  Cache size: %d\n"
                      )
                      (show_value value)
                      (Formulae.show log.log_formulae)
@@ -865,6 +866,7 @@ struct
                         pp_decision
                         log.log_decisions)
                      (log.log_steps + 1)
+                     (Destination_map.cardinal final_ev.ev_destinations)
                  );
                { er_value = value;
                  er_formulae = log.log_formulae;
