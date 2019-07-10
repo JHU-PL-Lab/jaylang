@@ -1,0 +1,19 @@
+let dummy = 1
+in let id x = x
+in let rec f n =
+    if n <= 1
+    then 1
+    else n * (f (n-1))
+in let rec g n =
+    if n <= 1
+    then 1
+    else 
+      let r = n * (g (n-1))
+      in let target = 1
+      in r
+in let x = input
+in let y = input
+in 
+  if 6 <= y
+  then ((id f) x) + ((id g) y)
+  else 0

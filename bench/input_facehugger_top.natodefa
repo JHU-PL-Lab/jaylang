@@ -6,11 +6,13 @@ in let rec f n =
     else n * (f (n-1))
 in let rec g n =
     if n <= 1
-    then (
-      let target = 1 in 1
-    )
-    else n * (g (n-1))
+    then 1
+    else 
+      let target = 1
+      in n * (g (n-1))
 in let x = input
 in let y = input
-in let r = ((id f) x) + ((id g) y)
-in 1
+in 
+  if 6 <= y
+  then ((id f) x) + ((id g) y)
+  else 0
