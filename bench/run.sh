@@ -7,7 +7,7 @@ set -o xtrace
 
 echo "START"
 
-TRIALS=2
+TRIALS=3
 TIMEOUT=30m
 
 CASES=(
@@ -30,28 +30,28 @@ STRATEGY="relstack-rep"
 
 # date --iso-8601=seconds
 
-function result {
-  RESULT="${RESULTS_PATH}/case=${CASE}--strategy=${STRATEGY}--$(date -u +"%Y-%m-%dT%H:%M:%SZ"
-).txt"
-  uptime &> "${RESULT}"
-}
-
 mkdir -p $HERE/results
 
-# lscpu
-# cat /proc/cpuinfo
-# free -m
-# cat /proc/meminfo
-# uname -a
-# lsb_release -a
+lscpu
+cat /proc/cpuinfo
+free -m
+cat /proc/meminfo
+uname -a
+lsb_release -a
 
 (cd "${DDSE}" && git rev-parse HEAD)
 ocaml -version
 opam --version
 
+function result {
+  RESULT="${RESULTS_PATH}/case=${CASE}--strategy=${STRATEGY}--$(date -u +"%Y-%m-%dT%H:%M:%SZ").txt"
+  echo &> "${RESULT}"
+  uptime &> "${RESULT}"
+}
+
 function ddse {
   result
-  /usr/bin/time "${DDSE_TOPLOOP}" -r 1 -e "${STRATEGY}" -t target "${SOURCE}" &> "${RESULT}"
+  /usr/bin/time "${DDSE_TOPLOOP}" -r 1 -e "${STRATEGY}" -t target "${SOURCE}" &> "${RESULT}" || true
 }
 
 # function ddse {
@@ -63,7 +63,7 @@ function ddse {
 mkdir -p "${RESULTS_PATH}"
 (cd "${DDSE}" && make)
 
-for TRIAL in $(seq 1 "${TRIALS}")
+for TRIAL in $(seq 1 "${TRIALS}");
 do
   for CASE in "${CASES[@]}";
   do
