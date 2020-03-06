@@ -43,6 +43,8 @@ type lookup_environment = {
   le_first_var : Ident.t;
   (** The identifier which represents the first defined variable in the
       program. *)
+
+  le_hybrid_lookup_table : value Ident_map.t;
 };;
 
 (**
@@ -152,6 +154,7 @@ let prepare_environment (e : expr) (cfg : ddpa_graph)
     le_function_parameter_mapping = function_parameter_mapping;
     le_function_return_mapping = function_return_mapping;
     le_first_var = first_var;
+    le_hybrid_lookup_table = Hybrid_table.env_table e;
   }
 ;;
 
@@ -285,6 +288,7 @@ struct
      needn't verify, which is good because it'd make the code quite a lot
      sloppier.
   *)
+
   let rec lookup
       (env : lookup_environment)
       (lookup_stack : Ident.t list)
@@ -292,6 +296,22 @@ struct
       (relstack : Relative_stack.t)
     : symbol M.m =
     let open M in
+
+     (* where hybrid lookup happens *)
+    let x = List.hd lookup_stack in
+    let lookup_symbol = Symbol(x, relstack) in
+    match Ident_map.Exceptionless.find x env.le_hybrid_lookup_table with
+    | Some (Value_int n) ->
+      let%bind () = record_constraint @@
+      Constraint.Constraint_value(lookup_symbol, Constraint.Int n) in
+      return lookup_symbol
+    | Some (Value_bool b) -> 
+      let%bind () = record_constraint @@
+      Constraint.Constraint_value(lookup_symbol, Constraint.Bool b) in
+      return lookup_symbol
+    | _ -> 
+begin
+
     let%bind acl1 = pick @@ preds acl0 env.le_cfg in
     let zeromsg msg () =
       lazy_logger `trace
@@ -332,9 +352,24 @@ struct
              (Jhupllib.Pp_utils.pp_to_string
                 pp_brief_annotated_clause acl0')
         );
-      cache (Cache_lookup(lookup_stack', acl0', relstack')) @@
-      (* check_formulae @@ *)
-      lookup env lookup_stack' acl0' relstack'
+
+      (* where hybrid lookup happens *)
+      let x = List.hd lookup_stack' in
+      let lookup_symbol = Symbol(x, relstack') in
+      match Ident_map.Exceptionless.find x env.le_hybrid_lookup_table with
+      | Some (Value_int n) ->
+        let%bind () = record_constraint @@
+        Constraint.Constraint_value(lookup_symbol, Constraint.Int n) in
+        return lookup_symbol
+      | Some (Value_bool b) -> 
+        let%bind () = record_constraint @@
+        Constraint.Constraint_value(lookup_symbol, Constraint.Bool b) in
+        return lookup_symbol
+      | _ -> (
+        cache (Cache_lookup(lookup_stack', acl0', relstack')) @@
+        (* check_formulae @@ *)
+        lookup env lookup_stack' acl0' relstack'
+      )
     in
     lazy_logger `trace
       (fun () ->
@@ -469,7 +504,19 @@ struct
           in
           [%guard equal_ident x lookup_var];
           (* Look for the alias now. *)
-          recurse (x' :: lookup_stack') acl1 relstack
+          let lookup_symbol = Symbol(x, relstack) in
+
+          (* where hybrid lookup happens *)
+          match Ident_map.Exceptionless.find x' env.le_hybrid_lookup_table with
+          | Some (Value_int n) ->
+            let%bind () = record_constraint @@
+            Constraint.Constraint_value(lookup_symbol, Constraint.Int n) in
+            return lookup_symbol
+          | Some (Value_bool b) -> 
+            let%bind () = record_constraint @@
+            Constraint.Constraint_value(lookup_symbol, Constraint.Bool b) in
+            return lookup_symbol
+          | _ -> recurse (x' :: lookup_stack') acl1 relstack
         end;
         (* ### Binop rule ### *)
         begin
@@ -691,6 +738,7 @@ struct
       ]
     in
     let%bind m = pick @@ List.enum rule_computations in m
+  end
   ;;
 
   type evaluation = Evaluation of unit M.evaluation;;
