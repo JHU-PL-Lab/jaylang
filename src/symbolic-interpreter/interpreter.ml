@@ -296,22 +296,6 @@ struct
       (relstack : Relative_stack.t)
     : symbol M.m =
     let open M in
-
-     (* where hybrid lookup happens *)
-    let x = List.hd lookup_stack in
-    let lookup_symbol = Symbol(x, relstack) in
-    match Ident_map.Exceptionless.find x env.le_hybrid_lookup_table with
-    | Some (Value_int n) ->
-      let%bind () = record_constraint @@
-      Constraint.Constraint_value(lookup_symbol, Constraint.Int n) in
-      return lookup_symbol
-    | Some (Value_bool b) -> 
-      let%bind () = record_constraint @@
-      Constraint.Constraint_value(lookup_symbol, Constraint.Bool b) in
-      return lookup_symbol
-    | _ -> 
-begin
-
     let%bind acl1 = pick @@ preds acl0 env.le_cfg in
     let zeromsg msg () =
       lazy_logger `trace
@@ -352,24 +336,9 @@ begin
              (Jhupllib.Pp_utils.pp_to_string
                 pp_brief_annotated_clause acl0')
         );
-
-      (* where hybrid lookup happens *)
-      let x = List.hd lookup_stack' in
-      let lookup_symbol = Symbol(x, relstack') in
-      match Ident_map.Exceptionless.find x env.le_hybrid_lookup_table with
-      | Some (Value_int n) ->
-        let%bind () = record_constraint @@
-        Constraint.Constraint_value(lookup_symbol, Constraint.Int n) in
-        return lookup_symbol
-      | Some (Value_bool b) -> 
-        let%bind () = record_constraint @@
-        Constraint.Constraint_value(lookup_symbol, Constraint.Bool b) in
-        return lookup_symbol
-      | _ -> (
-        cache (Cache_lookup(lookup_stack', acl0', relstack')) @@
-        (* check_formulae @@ *)
-        lookup env lookup_stack' acl0' relstack'
-      )
+      cache (Cache_lookup(lookup_stack', acl0', relstack')) @@
+      (* check_formulae @@ *)
+      lookup env lookup_stack' acl0' relstack'
     in
     lazy_logger `trace
       (fun () ->
@@ -386,6 +355,7 @@ begin
         (* ### Value Discovery rule ### *)
         begin
           (* Lookup stack must be a singleton *)
+          (* ignore @@ failwith "This rule is bypassed"; *)
           let%orzero [lookup_var] = lookup_stack in
           (* This must be a value assignment clause defining that variable. *)
           let%orzero Unannotated_clause(
@@ -510,11 +480,11 @@ begin
           match Ident_map.Exceptionless.find x' env.le_hybrid_lookup_table with
           | Some (Value_int n) ->
             let%bind () = record_constraint @@
-            Constraint.Constraint_value(lookup_symbol, Constraint.Int n) in
+              Constraint.Constraint_value(lookup_symbol, Constraint.Int n) in
             return lookup_symbol
           | Some (Value_bool b) -> 
             let%bind () = record_constraint @@
-            Constraint.Constraint_value(lookup_symbol, Constraint.Bool b) in
+              Constraint.Constraint_value(lookup_symbol, Constraint.Bool b) in
             return lookup_symbol
           | _ -> recurse (x' :: lookup_stack') acl1 relstack
         end;
@@ -737,8 +707,53 @@ begin
         end;
       ]
     in
-    let%bind m = pick @@ List.enum rule_computations in m
-  end
+    (* where hybrid lookup happens *)
+    if List.length lookup_stack == 1 then
+      let x = List.hd lookup_stack in
+      let lookup_symbol = Symbol(x, relstack) in
+      let%bind cv = 
+        match Ident_map.Exceptionless.find x env.le_hybrid_lookup_table with
+        | Some (Value_int n) -> return (Some (Constraint.Int n))
+        | Some (Value_bool b) -> return (Some (Constraint.Bool b))
+        | Some (Value_function f) -> return (Some (Constraint.Function f))
+        (* | Some (Value_record (Record_value m)) -> (
+            let mappings =
+              m
+              |> Ident_map.enum
+              |> Enum.map
+                (fun (lbl, Var(x,_)) ->
+                   let%bind symbol = recurse [x] acl1 relstack in
+                   return (lbl, symbol)
+                )
+              |> List.of_enum
+            in
+            let rec loop mappings map =
+              match mappings with
+              | [] -> return map
+              | h::t ->
+                let%bind (k,v) = h in
+                loop t (Ident_map.add k v map)
+            in
+            let%bind record_map = loop mappings Ident_map.empty in
+            return (Some (Constraint.Record(record_map)))
+           ) *)
+        | _ -> return None
+      in
+      match cv with
+      | Some constraint_value -> (
+          let%bind () = record_constraint @@
+            Constraint.Constraint_value(lookup_symbol, constraint_value)
+          in
+          let%bind () =
+            if equal_ident x env.le_first_var then begin
+              record_constraint @@ Constraint.Constraint_stack(
+                Relative_stack.stackize relstack)
+            end else return ()
+          in return lookup_symbol
+        )
+      | None -> let%bind m = pick @@ List.enum rule_computations in m
+    else
+      let%bind m = pick @@ List.enum rule_computations in m
   ;;
 
   type evaluation = Evaluation of unit M.evaluation;;
