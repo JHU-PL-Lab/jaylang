@@ -57,8 +57,6 @@ struct
       | Value_body (Value_record r) -> (
           let map2 = Ident_map.add id (Value_record r) map in
           (), map2)
-
-
       | Var_body (Var (id2, _fstack2)) -> (
           match Ident_map.Exceptionless.find id2 map with
           | Some v -> (
@@ -69,7 +67,6 @@ struct
         )
 
       | Conditional_body (_, _, _) 
-
       | Input_body 
       | Appl_body (_, _)
       | Match_body (_, _)
