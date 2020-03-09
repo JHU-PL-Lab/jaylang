@@ -289,6 +289,55 @@ struct
      sloppier.
   *)
 
+  let hybrid_lookup env x : Constraint.value option =
+    (* where hybrid lookup happens *)
+    (* if List.length lookup_stack == 1 then  
+       let x = List.hd lookup_stack in
+       let _lookup_symbol = Symbol(x, relstack) in *)
+    match Ident_map.Exceptionless.find x env.le_hybrid_lookup_table with
+    | Some (Value_int n) -> (Some (Constraint.Int n))
+    | Some (Value_bool b) -> (Some (Constraint.Bool b))
+    | Some (Value_function f) -> (Some (Constraint.Function f))
+    | _ -> None
+
+  (* | Some (Value_record (Record_value m)) -> (
+      let mappings =
+        m
+        |> Ident_map.enum
+        |> Enum.map
+          (fun (lbl, Var(x,_)) ->
+             let%bind symbol = recurse [x] acl1 relstack in
+             return (lbl, symbol)
+          )
+        |> List.of_enum
+      in
+      let rec loop mappings map =
+        match mappings with
+        | [] -> return map
+        | h::t ->
+          let%bind (k,v) = h in
+          loop t (Ident_map.add k v map)
+      in
+      let%bind record_map = loop mappings Ident_map.empty in
+      return (Some (Constraint.Record(record_map)))
+     ) *)
+  (* in
+     match cv with *)
+  (* | Some constraint_value -> (
+      let%bind () = record_constraint @@
+        Constraint.Constraint_value(lookup_symbol, constraint_value)
+      in
+      let%bind () =
+        if equal_ident x env.le_first_var then begin
+          record_constraint @@ Constraint.Constraint_stack(
+            Relative_stack.stackize relstack)
+        end else return ()
+      in return lookup_symbol
+     ) *)
+  (* | _ -> let%bind m = pick @@ List.enum rule_computations in m *)
+  (* else
+     None *)
+
   let rec lookup
       (env : lookup_environment)
       (lookup_stack : Ident.t list)
@@ -463,6 +512,21 @@ struct
           (* We found the variable, so toss it and keep going. *)
           recurse (query_element :: lookup_stack') acl1 relstack
         end;
+        (* ### Skip rule ### *)
+        begin
+          (* Grab variable from lookup stack *)
+          let%orzero lookup_var :: _ = lookup_stack in
+          (* This must be a variable we AREN'T looking for. *)
+          let%orzero Unannotated_clause(Abs_clause(Abs_var x'', _)) = acl1 in
+          [%guard not @@ equal_ident x'' lookup_var ];
+          (* Even if we're not looking for it, it has to be defined! *)
+          let%bind _ = 
+            match hybrid_lookup env x'' with
+            | Some _ -> return (Symbol(x'', relstack))
+            | _ -> recurse [x''] acl0 relstack
+          in
+          recurse lookup_stack acl1 relstack
+        end;
         (* ### Alias rule ### *)
         begin
           (* Grab variable from lookup stack *)
@@ -591,17 +655,6 @@ struct
           let%orzero Some relstack' = Relative_stack.push relstack xr in
           recurse (x' :: lookup_stack') acl1 relstack'
         end;
-        (* ### Skip rule ### *)
-        begin
-          (* Grab variable from lookup stack *)
-          let%orzero lookup_var :: _ = lookup_stack in
-          (* This must be a variable we AREN'T looking for. *)
-          let%orzero Unannotated_clause(Abs_clause(Abs_var x'', _)) = acl1 in
-          [%guard not @@ equal_ident x'' lookup_var ];
-          (* Even if we're not looking for it, it has to be defined! *)
-          let%bind _ = recurse [x''] acl0 relstack in
-          recurse lookup_stack acl1 relstack
-        end;
         (* ### Conditional Top rule ### *)
         begin
           (* This must be a non-binding enter wiring node for a conditional. *)
@@ -707,53 +760,11 @@ struct
         end;
       ]
     in
-    (* where hybrid lookup happens *)
-    if List.length lookup_stack == 1 then
-      let x = List.hd lookup_stack in
-      let lookup_symbol = Symbol(x, relstack) in
-      let%bind cv = 
-        match Ident_map.Exceptionless.find x env.le_hybrid_lookup_table with
-        | Some (Value_int n) -> return (Some (Constraint.Int n))
-        | Some (Value_bool b) -> return (Some (Constraint.Bool b))
-        | Some (Value_function f) -> return (Some (Constraint.Function f))
-        (* | Some (Value_record (Record_value m)) -> (
-            let mappings =
-              m
-              |> Ident_map.enum
-              |> Enum.map
-                (fun (lbl, Var(x,_)) ->
-                   let%bind symbol = recurse [x] acl1 relstack in
-                   return (lbl, symbol)
-                )
-              |> List.of_enum
-            in
-            let rec loop mappings map =
-              match mappings with
-              | [] -> return map
-              | h::t ->
-                let%bind (k,v) = h in
-                loop t (Ident_map.add k v map)
-            in
-            let%bind record_map = loop mappings Ident_map.empty in
-            return (Some (Constraint.Record(record_map)))
-           ) *)
-        | _ -> return None
-      in
-      match cv with
-      | Some constraint_value -> (
-          let%bind () = record_constraint @@
-            Constraint.Constraint_value(lookup_symbol, constraint_value)
-          in
-          let%bind () =
-            if equal_ident x env.le_first_var then begin
-              record_constraint @@ Constraint.Constraint_stack(
-                Relative_stack.stackize relstack)
-            end else return ()
-          in return lookup_symbol
-        )
-      | None -> let%bind m = pick @@ List.enum rule_computations in m
-    else
-      let%bind m = pick @@ List.enum rule_computations in m
+    let%bind m = pick @@ List.enum rule_computations in m
+    (* if List.length lookup_stack > 1 then
+       let%bind m = pick @@ List.enum rule_computations in m
+       else
+       let%bind m = pick @@ List.enum rule_computations in m *)
   ;;
 
   type evaluation = Evaluation of unit M.evaluation;;
