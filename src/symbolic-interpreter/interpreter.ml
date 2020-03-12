@@ -373,7 +373,6 @@ struct
         (* ### Value Discovery rule ### *)
         begin
           (* Lookup stack must be a singleton *)
-          (* ignore @@ failwith "This rule is bypassed"; *)
           let%orzero [lookup_var] = lookup_stack in
           (* This must be a value assignment clause defining that variable. *)
           let%orzero Unannotated_clause(
@@ -433,6 +432,42 @@ struct
           in
           return lookup_symbol
         end;
+        `Discard,
+        (* ### Value Discard rule ### *)
+        begin
+          (* Lookup stack must NOT be a singleton *)
+          (* TODO: verify that this still has the desired intent.  What if
+             query_element isn't a variable? *)
+          let%orzero lookup_var :: query_element :: lookup_stack' =
+            lookup_stack
+          in
+          (* This must be a value assignment clause defining that variable. *)
+          let%orzero Unannotated_clause(
+              Abs_clause(Abs_var x,Abs_value_body _)) = acl1
+          in
+          [%guard equal_ident x lookup_var];
+          (* We found the variable, so toss it and keep going. *)
+          recurse (query_element :: lookup_stack') acl1 relstack
+        end;
+        `Skip,
+        (* ### Skip rule ### *)
+        begin
+          (* Grab variable from lookup stack *)
+          let%orzero lookup_var :: _ = lookup_stack in
+          (* This must be a variable we AREN'T looking for. *)
+          let%orzero Unannotated_clause(Abs_clause(Abs_var x'', _)) = acl1 in
+          [%guard not @@ equal_ident x'' lookup_var ];
+          (* Even if we're not looking for it, it has to be defined! *)
+          if is_scout then
+            recurse ~is_scout:true lookup_stack acl1 relstack
+          else
+            let%bind _ = 
+              match hybrid_lookup env x'' with
+              | Some _ -> return (Symbol(x'', relstack))
+              | _ -> recurse ~is_scout:true [x''] acl0 relstack
+            in
+            recurse lookup_stack acl1 relstack
+        end;
         `Input,
         (* ### Input rule ### *)
         begin
@@ -465,42 +500,6 @@ struct
             end else return ()
           in
           return lookup_symbol
-        end;
-        `Discard,
-        (* ### Value Discard rule ### *)
-        begin
-          (* Lookup stack must NOT be a singleton *)
-          (* TODO: verify that this still has the desired intent.  What if
-             query_element isn't a variable? *)
-          let%orzero lookup_var :: query_element :: lookup_stack' =
-            lookup_stack
-          in
-          (* This must be a value assignment clause defining that variable. *)
-          let%orzero Unannotated_clause(
-              Abs_clause(Abs_var x,Abs_value_body _)) = acl1
-          in
-          [%guard equal_ident x lookup_var];
-          (* We found the variable, so toss it and keep going. *)
-          recurse (query_element :: lookup_stack') acl1 relstack
-        end;
-        `Skip,
-        (* ### Skip rule ### *)
-        begin
-          (* Grab variable from lookup stack *)
-          let%orzero lookup_var :: _ = lookup_stack in
-          (* This must be a variable we AREN'T looking for. *)
-          let%orzero Unannotated_clause(Abs_clause(Abs_var x'', _)) = acl1 in
-          [%guard not @@ equal_ident x'' lookup_var ];
-          (* Even if we're not looking for it, it has to be defined! *)
-          if is_scout then
-            recurse lookup_stack acl1 relstack
-          else
-            let%bind _ = 
-              match hybrid_lookup env x'' with
-              | Some _ -> return (Symbol(x'', relstack))
-              | _ -> recurse ~is_scout:true [x''] acl0 relstack
-            in
-            recurse lookup_stack acl1 relstack
         end;
         `Alias,
         (* ### Alias rule ### *)
@@ -749,18 +748,30 @@ struct
         end;
       ]
     in
-    let rulename_to_rule name = List.assoc name rule_computations in
-    let singleton_lookup_rules = List.map rulename_to_rule [`Discovery; `Skip;`Input; `Binop; `Projection; `Block;
-                                                            `Alias;
-                                                            `FunEnter; `FunEnterNonLocal; `FunExit;
-                                                            `CondTop; `CondBtmTrue; `CondBtmFalse;
-                                                           ] 
-    and multiple_lookup_rules = List.map rulename_to_rule [`Discard; `Skip; `Alias; `FunEnter; `FunEnterNonLocal; `FunExit; `CondTop; `CondBtmTrue; `CondBtmFalse; `Block] 
-    in
-    if List.length lookup_stack == 1 then
-      let%bind m = pick @@ List.enum singleton_lookup_rules in m
-    else
-      let%bind m = pick @@ List.enum multiple_lookup_rules in m
+    let is_singleton_stack = List.length lookup_stack == 1 
+    and is_target_var = 
+      match lookup_stack, acl1 with
+      | lookup_var :: _, Unannotated_clause(Abs_clause(Abs_var x, _)) ->
+        equal_ident lookup_var x
+      | _ ->
+        false in
+    let rule_names = 
+      (if is_singleton_stack then
+        [`Discovery; `Input; `Binop; `Projection]
+      else
+        [`Discard]
+      )@
+      (if is_target_var then
+        [`Alias]
+      else
+        [`Skip; `Block;
+         `FunEnter; `FunEnterNonLocal; `FunExit;
+         `CondTop; `CondBtmTrue; `CondBtmFalse]) 
+      in
+    let rules = List.map (fun name -> List.assoc name rule_computations) rule_names in
+  
+    let%bind m = pick @@ List.enum rules in m
+
 
   type evaluation = Evaluation of unit M.evaluation;;
 
