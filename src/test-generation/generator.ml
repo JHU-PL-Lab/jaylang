@@ -309,5 +309,9 @@ let generate_inputs
         loop result.tgr_generator steps_left_opt' steps_taken' results'
     end
   in
-  loop original_generator max_steps_opt 0 []
+  let _loop = loop
+  and _m = max_steps_opt in
+  [[1], 1], None
+
+  (* loop original_generator max_steps_opt 0 [] *)
 ;;

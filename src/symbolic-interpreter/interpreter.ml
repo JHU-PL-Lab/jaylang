@@ -760,7 +760,7 @@ struct
         [`Discovery; `Input; `Binop; `Projection]
       else
         [`Discard]
-      )@
+      ) @
       (if is_target_var then
         [`Alias]
       else
@@ -774,6 +774,24 @@ struct
 
 
   type evaluation = Evaluation of unit M.evaluation;;
+
+  let _lookup = lookup;;
+
+  type cconstraint = Fake_c of Relative_stack.t;;
+  type decision = Fake_d of Relative_stack.t;;
+  
+  let empty_relstk = Relative_stack.empty;;
+  
+  let search (env : lookup_environment)
+      (lookup_stack : Ident.t list)
+      (c : annotated_clause)
+      (* (relstack : Relative_stack.t) *)
+    : (symbol * annotated_clause * cconstraint * decision) list =
+    let x = List.hd lookup_stack in
+    let pre_clauses = preds c env.le_cfg in 
+    let pre_c = Enum.get_exn pre_clauses in
+    let result = Symbol(x, empty_relstk), pre_c, Fake_c(empty_relstk), Fake_d(empty_relstk) in
+    [result]
 
   let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
     let open M in
@@ -792,8 +810,14 @@ struct
       (* At top level, we don't actually need the returned symbol; we just want
          the concrete stack it produces.  The symbol is only used to generate
          formulae, which we'll get from the completed computations. *)
+         (* Relative_stack.empty *)
+      let search_result = search env [initial_lookup_var] acl in
+      let sym, _clause, _c, _d = List.hd search_result in
+      (* let c1, c2, c3 = choice.value in *)
+      (* let%bind () = record_decision choice.key c1 c2 c3 in *)
       let%bind _ =
-        lookup env [initial_lookup_var] acl Relative_stack.empty
+        (* lookup env [initial_lookup_var] acl Relative_stack.empty *)
+        return sym
       in
       return ()
     in
