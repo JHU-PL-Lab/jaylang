@@ -302,7 +302,7 @@ struct
     | Some (Value_bool b) -> (Some (Constraint.Bool b))
     (* | Some (Value_record r) -> (Some (Constraint.Record r)) *)
     | Some (Value_function f) -> (Some (Constraint.Function f))
-    | _ -> None
+    | _ -> failwith "SpecialSymbol"
 
   let rec lookup
       ?(is_scout=false)
@@ -777,21 +777,100 @@ struct
 
   let _lookup = lookup;;
 
-  type cconstraint = Fake_c of Relative_stack.t;;
-  type decision = Fake_d of Relative_stack.t;;
+  type constraints = Fake_c of Relative_stack.t;;
+  type decisions = Fake_d of Relative_stack.t;;
+
+  type search_result = {
+    result_sym : symbol;
+    result_clause : annotated_clause;
+    constraints : constraints;
+    decisions : decisions;
+  }
   
   let empty_relstk = Relative_stack.empty;;
-  
+
   let search (env : lookup_environment)
-      (lookup_stack : Ident.t list)
+      (x_target : Ident.t)
       (c : annotated_clause)
       (* (relstack : Relative_stack.t) *)
-    : (symbol * annotated_clause * cconstraint * decision) list =
-    let x = List.hd lookup_stack in
+    : search_result list =
+    lazy_logger `trace (fun () ->
+      Printf.sprintf "x: %s\nedge: %s\n"
+        (Jhupllib.Pp_utils.pp_to_string
+          pp_ident x_target)
+        (Jhupllib.Pp_utils.pp_to_string
+                  pp_brief_annotated_clause c)
+        );
     let pre_clauses = preds c env.le_cfg in 
-    let pre_c = Enum.get_exn pre_clauses in
-    let result = Symbol(x, empty_relstk), pre_c, Fake_c(empty_relstk), Fake_d(empty_relstk) in
+    let pre_clause = Enum.get_exn pre_clauses in
+    (* we will never be interested in _pre_x. We will use pre_clause *)
+    let _pre_x = 
+      match pre_clause with
+      (* Input *)
+      | Unannotated_clause(Abs_clause(Abs_var _x, Abs_input_body)) -> 
+        (* x == input *)
+        x_target
+      (* Alias *)
+      | Unannotated_clause(Abs_clause(Abs_var _x, Abs_var_body(Abs_var _x'))) -> 
+        (* x == x', no search since the rhs is just a READ *)
+        x_target
+      (* Binop *)
+      | Unannotated_clause(Abs_clause(Abs_var _x, Abs_binary_operation_body(Abs_var _x', _op, Abs_var _x''))) ->
+        (* x = x' op x'' *)
+        x_target
+      (* Discard / Discovery *)
+      | Unannotated_clause(Abs_clause(Abs_var _x, Abs_value_body _)) ->
+        x_target
+      (* FunEnter / FunEnterNonLocal *)
+      | Binding_enter_clause(Abs_var para, Abs_var arg, Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, _))) ->
+        if equal_ident para x_target then
+          (* FunEnter *)
+          (* xf (for constraits) *)
+          (* relstack pop *)
+          arg
+        else
+          (* FunEnterNonLocal : *)
+          (* c <- xf *)
+          x_target
+      (* FunExit *)
+      | Binding_exit_clause(Abs_var para, Abs_var ret_var, Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, _))) ->
+        (* equal_ident para x *)
+        ret_var
+      (* CondTop *)
+      | Nonbinding_enter_clause(Abs_value_bool b, Abs_clause(_, Abs_conditional_body(Abs_var x1, _, _))) ->
+        (* record b *)
+        x_target
+      (* CondBtmTrue / CondBtmFalse *)
+      | Binding_exit_clause(Abs_var para, Abs_var ret_var, Abs_clause(_, Abs_conditional_body(Abs_var x1, e1, e2))) ->
+        (*  *)
+        ret_var
+    in
+    let result = {
+      result_sym = Symbol(x_target, empty_relstk);
+      result_clause = pre_clause;
+      constraints = Fake_c(empty_relstk);
+      decisions = Fake_d(empty_relstk);
+     } in
     [result]
+
+  let fill_stack_in_symbol ?(is_strict=false) stk = function
+    | Symbol(x, _) -> Symbol(x, stk)
+    | SpecialSymbol t -> 
+      if is_strict then 
+        failwith "SpecialSymbol"
+      else
+        SpecialSymbol t
+
+  let fill_stack stk result = 
+    let new_sym = fill_stack_in_symbol stk result.result_sym
+    and new_constraints = result.constraints
+    and new_decisions = result.decisions in
+    {
+      result_sym = new_sym;
+      result_clause = result.result_clause;
+      constraints = new_constraints;
+      decisions = new_decisions;
+    }
 
   let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
     let open M in
@@ -810,14 +889,14 @@ struct
       (* At top level, we don't actually need the returned symbol; we just want
          the concrete stack it produces.  The symbol is only used to generate
          formulae, which we'll get from the completed computations. *)
-         (* Relative_stack.empty *)
-      let search_result = search env [initial_lookup_var] acl in
-      let sym, _clause, _c, _d = List.hd search_result in
+      let search_result = search env initial_lookup_var acl in
+      let one_result_no_stk = List.hd search_result in
+      let one_result = fill_stack Relative_stack.empty one_result_no_stk in
       (* let c1, c2, c3 = choice.value in *)
       (* let%bind () = record_decision choice.key c1 c2 c3 in *)
       let%bind _ =
         (* lookup env [initial_lookup_var] acl Relative_stack.empty *)
-        return sym
+        return one_result.result_sym
       in
       return ()
     in
