@@ -777,83 +777,18 @@ struct
 
   let _lookup = lookup;;
 
-  type constraints = Fake_c of Relative_stack.t;;
   type decisions = Fake_d of Relative_stack.t;;
 
   type search_result = {
     result_sym : symbol;
     result_clause : annotated_clause;
-    constraints : constraints;
+    constraints : Constraint.t list;
     decisions : decisions;
   }
   
   let empty_relstk = Relative_stack.empty;;
-
-  let search (env : lookup_environment)
-      (x_target : Ident.t)
-      (c : annotated_clause)
-      (* (relstack : Relative_stack.t) *)
-    : search_result list =
-    lazy_logger `trace (fun () ->
-      Printf.sprintf "x: %s\nedge: %s\n"
-        (Jhupllib.Pp_utils.pp_to_string
-          pp_ident x_target)
-        (Jhupllib.Pp_utils.pp_to_string
-                  pp_brief_annotated_clause c)
-        );
-    let pre_clauses = preds c env.le_cfg in 
-    let pre_clause = Enum.get_exn pre_clauses in
-    (* we will never be interested in _pre_x. We will use pre_clause *)
-    let _pre_x = 
-      match pre_clause with
-      (* Input *)
-      | Unannotated_clause(Abs_clause(Abs_var _x, Abs_input_body)) -> 
-        (* x == input *)
-        x_target
-      (* Alias *)
-      | Unannotated_clause(Abs_clause(Abs_var _x, Abs_var_body(Abs_var _x'))) -> 
-        (* x == x', no search since the rhs is just a READ *)
-        x_target
-      (* Binop *)
-      | Unannotated_clause(Abs_clause(Abs_var _x, Abs_binary_operation_body(Abs_var _x', _op, Abs_var _x''))) ->
-        (* x = x' op x'' *)
-        x_target
-      (* Discard / Discovery *)
-      | Unannotated_clause(Abs_clause(Abs_var _x, Abs_value_body _)) ->
-        x_target
-      (* FunEnter / FunEnterNonLocal *)
-      | Binding_enter_clause(Abs_var para, Abs_var arg, Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, _))) ->
-        if equal_ident para x_target then
-          (* FunEnter *)
-          (* xf (for constraits) *)
-          (* relstack pop *)
-          arg
-        else
-          (* FunEnterNonLocal : *)
-          (* c <- xf *)
-          x_target
-      (* FunExit *)
-      | Binding_exit_clause(Abs_var para, Abs_var ret_var, Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, _))) ->
-        (* equal_ident para x *)
-        ret_var
-      (* CondTop *)
-      | Nonbinding_enter_clause(Abs_value_bool b, Abs_clause(_, Abs_conditional_body(Abs_var x1, _, _))) ->
-        (* record b *)
-        x_target
-      (* CondBtmTrue / CondBtmFalse *)
-      | Binding_exit_clause(Abs_var para, Abs_var ret_var, Abs_clause(_, Abs_conditional_body(Abs_var x1, e1, e2))) ->
-        (*  *)
-        ret_var
-    in
-    let result = {
-      result_sym = Symbol(x_target, empty_relstk);
-      result_clause = pre_clause;
-      constraints = Fake_c(empty_relstk);
-      decisions = Fake_d(empty_relstk);
-     } in
-    [result]
-
-  let fill_stack_in_symbol ?(is_strict=false) stk = function
+  
+  let lift_stack_in_symbol ?(is_strict=false) stk = function
     | Symbol(x, _) -> Symbol(x, stk)
     | SpecialSymbol t -> 
       if is_strict then 
@@ -861,19 +796,130 @@ struct
       else
         SpecialSymbol t
 
-  let fill_stack stk result = 
-    let new_sym = fill_stack_in_symbol stk result.result_sym
-    and new_constraints = result.constraints
+  let lift_stack_in_constraints stk constraints =
+    let open Constraint in 
+    let lift_stack = function
+    | Constraint_value(s, v) -> Constraint_value(lift_stack_in_symbol stk s, v) 
+    | Constraint_alias(s1, s2) -> Constraint_alias(lift_stack_in_symbol stk s1, lift_stack_in_symbol stk s2)
+    | Constraint_binop(s1, s2, op, s3) -> Constraint_binop(lift_stack_in_symbol stk s1, 
+                                                            lift_stack_in_symbol stk s2, op, lift_stack_in_symbol stk s3)
+    | Constraint_projection(s1, s2, id) -> Constraint_projection(lift_stack_in_symbol stk s1, lift_stack_in_symbol stk s2, id)
+    | Constraint_type(s, t) -> Constraint_type(lift_stack_in_symbol stk s, t)
+    | Constraint_stack(cstk) -> Constraint_stack(cstk)
+    in
+    List.map lift_stack constraints
+
+  let lift_stack stk result = 
+    let new_sym = lift_stack_in_symbol stk result.result_sym
     and new_decisions = result.decisions in
     {
       result_sym = new_sym;
       result_clause = result.result_clause;
-      constraints = new_constraints;
+      constraints = lift_stack_in_constraints stk result.constraints;
       decisions = new_decisions;
     }
+  
+  let get_value (x : Ident.t) (env : lookup_environment) =
+    match Ident_map.find x env.le_clause_mapping with
+    | Clause(_, Value_body(v)) -> v
+    | _ -> failwith "get_value"
+
+  let constraint_of_value (x : Ident.t) (env : lookup_environment) =
+    let x_sym = Symbol(x, empty_relstk) in
+    let rhs = match get_value x env with
+    | Value_function f -> Constraint.Function f
+    | Value_int n -> Constraint.Int n
+    | Value_bool b -> Constraint.Bool b
+    | Value_record(Record_value _m) -> failwith "record"
+    in
+    Constraint.Constraint_value(x_sym, rhs)
+
+  let consraint_of_input (x : Ident.t) =
+    let x_sym = Symbol(x, empty_relstk) in
+    Constraint.Constraint_binop(
+      SpecialSymbol SSymTrue, x_sym, Binary_operator_equal_to, x_sym)
+
+  let rec search 
+      (env : lookup_environment)
+      (x_target : Ident.t)
+      (c : annotated_clause)
+      (* (relstack : Relative_stack.t) *)
+    : search_result list =
+    let pre_clauses = List.of_enum @@ preds c env.le_cfg in 
+    lazy_logger `trace (fun () ->
+      Printf.sprintf "x: %s\nedge: %s\nprev: %s\n"
+        (Jhupllib.Pp_utils.pp_to_string
+          pp_ident x_target)
+        (Jhupllib.Pp_utils.pp_to_string
+                  pp_brief_annotated_clause c)
+        (Jhupllib.Pp_utils.pp_to_string
+                (Jhupllib.Pp_utils.pp_list pp_brief_annotated_clause) pre_clauses)
+        );
+    let pre_clause = List.hd pre_clauses in
+    (* we will never be interested in _pre_x. We will use pre_clause *)
+    let next_x, phis = 
+      match c with
+      (* Input *)
+      | Unannotated_clause(Abs_clause(Abs_var x, Abs_input_body)) -> 
+        (* x == input *)
+        x, [consraint_of_input x]
+      (* Alias *)
+      | Unannotated_clause(Abs_clause(Abs_var _x, Abs_var_body(Abs_var _x'))) -> 
+        (* x == x', no search since the rhs is just a READ *)
+        x_target, []
+      (* Binop *)
+      | Unannotated_clause(Abs_clause(Abs_var _x, Abs_binary_operation_body(Abs_var _x', _op, Abs_var _x''))) ->
+        (* x = x' op x'' *)
+        x_target, []
+      (* Discard / Discovery *)
+      | Unannotated_clause(Abs_clause(Abs_var x, Abs_value_body _)) ->
+        let phi = constraint_of_value x env in
+        x, [phi]
+      (* FunEnter / FunEnterNonLocal *)
+      | Binding_enter_clause(Abs_var para, Abs_var arg, Abs_clause(Abs_var _xr, Abs_appl_body(Abs_var _xf, _))) ->
+        if equal_ident para x_target then
+          (* FunEnter *)
+          (* xf (for constraits) *)
+          (* relstack pop *)
+          arg, []
+        else
+          (* FunEnterNonLocal : *)
+          (* c <- xf *)
+          x_target, []
+      (* FunExit *)
+      | Binding_exit_clause(Abs_var _para, Abs_var ret_var, Abs_clause(Abs_var _xr, Abs_appl_body(Abs_var _xf, _))) ->
+        (* equal_ident para x *)
+        ret_var, []
+      (* CondTop *)
+      | Nonbinding_enter_clause(Abs_value_bool _b, Abs_clause(_, Abs_conditional_body(Abs_var _x1, _, _))) ->
+        (* record b *)
+        x_target, []
+      (* CondBtmTrue / CondBtmFalse *)
+      | Binding_exit_clause(Abs_var _para, Abs_var ret_var, Abs_clause(_, Abs_conditional_body(Abs_var _x1, _e1, _e2))) ->
+        ret_var, []
+      | _ ->
+        failwith "missed clauses"
+    in
+      if equal_ident next_x x_target then
+        let result = {
+          result_sym = Symbol(x_target, empty_relstk);
+          result_clause = pre_clause;
+          constraints = phis;
+          decisions = Fake_d(empty_relstk);
+        } in
+        [result]
+      else
+        search env x_target pre_clause 
 
   let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
     let open M in
+    let rec record_constaints phis =
+      match phis with
+      | [] -> return ()
+      | p :: ps -> (
+        let%bind () = record_constraint p in
+        record_constaints ps
+      ) in
     let env = prepare_environment e cfg in
     let initial_lookup_var = env.le_first_var in
     let acl =
@@ -891,9 +937,8 @@ struct
          formulae, which we'll get from the completed computations. *)
       let search_result = search env initial_lookup_var acl in
       let one_result_no_stk = List.hd search_result in
-      let one_result = fill_stack Relative_stack.empty one_result_no_stk in
-      (* let c1, c2, c3 = choice.value in *)
-      (* let%bind () = record_decision choice.key c1 c2 c3 in *)
+      let one_result = lift_stack Relative_stack.empty one_result_no_stk in
+      let%bind () = record_constaints one_result.constraints in
       let%bind _ =
         (* lookup env [initial_lookup_var] acl Relative_stack.empty *)
         return one_result.result_sym
