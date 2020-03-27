@@ -785,7 +785,9 @@ struct
     constraints : Constraint.t list;
     decisions : decisions;
   }
-  
+
+  (*  *)
+
   let empty_relstk = Relative_stack.empty;;
   
   let lift_stack_in_symbol ?(is_strict=false) stk = function
@@ -834,43 +836,61 @@ struct
     in
     Constraint.Constraint_value(x_sym, rhs)
 
+  let constraint_of_stack stk =
+    Constraint.Constraint_stack(Relative_stack.stackize stk)
+
   let consraint_of_input (x : Ident.t) =
     let x_sym = Symbol(x, empty_relstk) in
     Constraint.Constraint_binop(
       SpecialSymbol SSymTrue, x_sym, Binary_operator_equal_to, x_sym)
 
+  let constraint_of_alias (x : Ident.t) (y : Ident.t) =
+    let x_sym = Symbol(x, empty_relstk) 
+    and y_sym = Symbol(y, empty_relstk) in
+      Constraint.Constraint_alias(x_sym, y_sym)
+
+  let constraint_of_binop (x : Ident.t) (x' : Ident.t) op (x'' : Ident.t) =
+    let x_sym = Symbol(x, empty_relstk)
+    and x'_sym = Symbol(x', empty_relstk)
+    and x''_sym = Symbol(x'', empty_relstk) in
+      Constraint.Constraint_binop(x_sym, x'_sym, op, x''_sym)
+
+  let log_constraints constraints =
+    lazy_logger `info (fun () ->
+      Printf.sprintf "phis: %s\n"
+        (Jhupllib.Pp_utils.pp_to_string
+            (Jhupllib.Pp_utils.pp_list Constraint.pp) constraints)
+    )
+
   let rec search 
       (env : lookup_environment)
       (x_target : Ident.t)
-      (c : annotated_clause)
+      (clause : annotated_clause)
       (* (relstack : Relative_stack.t) *)
     : search_result list =
-    let pre_clauses = List.of_enum @@ preds c env.le_cfg in 
-    lazy_logger `trace (fun () ->
+    let pre_clauses = List.of_enum @@ preds clause env.le_cfg in 
+    lazy_logger `info (fun () ->
       Printf.sprintf "x: %s\nedge: %s\nprev: %s\n"
         (Jhupllib.Pp_utils.pp_to_string
           pp_ident x_target)
         (Jhupllib.Pp_utils.pp_to_string
-                  pp_brief_annotated_clause c)
+                  pp_brief_annotated_clause clause)
         (Jhupllib.Pp_utils.pp_to_string
                 (Jhupllib.Pp_utils.pp_list pp_brief_annotated_clause) pre_clauses)
         );
     let pre_clause = List.hd pre_clauses in
     (* we will never be interested in _pre_x. We will use pre_clause *)
-    let next_x, phis = 
-      match c with
-      (* Input *)
+    let _next_x, phis = 
+      match clause with
+      (* Input : x == input *)
       | Unannotated_clause(Abs_clause(Abs_var x, Abs_input_body)) -> 
-        (* x == input *)
         x, [consraint_of_input x]
-      (* Alias *)
-      | Unannotated_clause(Abs_clause(Abs_var _x, Abs_var_body(Abs_var _x'))) -> 
-        (* x == x', no search since the rhs is just a READ *)
-        x_target, []
-      (* Binop *)
-      | Unannotated_clause(Abs_clause(Abs_var _x, Abs_binary_operation_body(Abs_var _x', _op, Abs_var _x''))) ->
-        (* x = x' op x'' *)
-        x_target, []
+      (* Alias : x == x' *)
+      | Unannotated_clause(Abs_clause(Abs_var x, Abs_var_body(Abs_var x'))) -> 
+        x_target, [constraint_of_alias x x']
+      (* Binop : x = x' op x'' *)
+      | Unannotated_clause(Abs_clause(Abs_var x, Abs_binary_operation_body(Abs_var x', op, Abs_var x''))) ->
+        x_target, [constraint_of_binop x x' op x'']
       (* Discard / Discovery *)
       | Unannotated_clause(Abs_clause(Abs_var x, Abs_value_body _)) ->
         let phi = constraint_of_value x env in
@@ -900,11 +920,12 @@ struct
       | _ ->
         failwith "missed clauses"
     in
-      if equal_ident next_x x_target then
+      log_constraints phis;
+      if equal_ident x_target x_target then
         let result = {
           result_sym = Symbol(x_target, empty_relstk);
           result_clause = pre_clause;
-          constraints = phis;
+          constraints = (constraint_of_stack empty_relstk) :: phis;
           decisions = Fake_d(empty_relstk);
         } in
         [result]

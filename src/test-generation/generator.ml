@@ -311,7 +311,6 @@ let generate_inputs
   in
   let _loop = loop
   and _m = max_steps_opt in
-  [[1], 1], None
-
-  (* loop original_generator max_steps_opt 0 [] *)
+  (* [[1], 1], None *)
+  loop original_generator max_steps_opt 0 []
 ;;

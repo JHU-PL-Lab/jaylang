@@ -1,0 +1,5 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [0]
+
+x = input;
+target = 1;
