@@ -1,0 +1,8 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [0]
+
+x = input;
+one = 1;
+y = x < one;
+z = y ? ( a = 2 ) : ( b = 3 );
+target = 1
