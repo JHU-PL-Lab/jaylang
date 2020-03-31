@@ -786,9 +786,7 @@ struct
     decisions : decisions;
   }
 
-  (*  *)
-
-  let empty_relstk = Relative_stack.empty;;
+  let empty_relstk = Relative_stack.empty
   
   let lift_stack_in_symbol ?(is_strict=false) stk = function
     | Symbol(x, _) -> Symbol(x, stk)
@@ -821,6 +819,16 @@ struct
       decisions = new_decisions;
     }
   
+  let lift_constraints cond_constraints rs =
+    List.map (fun r -> { r with constraints = 
+      r.constraints @ cond_constraints}) rs
+
+  let join_results rs1 rs2 = 
+    List.cartesian_product rs1 rs2
+    |> List.map (fun (r1, r2) -> 
+      {r2 with
+      constraints = r2.constraints @ r1.constraints})
+
   let get_value (x : Ident.t) (env : lookup_environment) =
     match Ident_map.find x env.le_clause_mapping with
     | Clause(_, Value_body(v)) -> v
@@ -855,6 +863,10 @@ struct
     and x''_sym = Symbol(x'', empty_relstk) in
       Constraint.Constraint_binop(x_sym, x'_sym, op, x''_sym)
 
+  let constraint_of_bool (x : Ident.t) (b : bool) =
+    let x_sym = Symbol(x, empty_relstk) in
+    Constraint.Constraint_value(x_sym, Constraint.Bool b)
+
   let log_constraints constraints =
     lazy_logger `info (fun () ->
       Printf.sprintf "phis: %s\n"
@@ -862,75 +874,179 @@ struct
             (Jhupllib.Pp_utils.pp_list Constraint.pp) constraints)
     )
 
+  (* let id_of_retv_of_e e =
+    match retv e with
+    | Abs_var x -> x *)
+
+  let constraint_of_clause_with_env env = 
+    fun ?(negation=false) -> function
+    (* Input : x == input *)
+    | Unannotated_clause(Abs_clause(Abs_var x, Abs_input_body)) -> 
+      [consraint_of_input x]
+    (* Alias : x == x' *)
+    | Unannotated_clause(Abs_clause(Abs_var x, Abs_var_body(Abs_var x'))) -> 
+      [constraint_of_alias x x']
+    (* Binop : x = x' op x'' *)
+    | Unannotated_clause(Abs_clause(Abs_var x, Abs_binary_operation_body(Abs_var x', op, Abs_var x''))) ->
+      [constraint_of_binop x x' op x'']
+    (* Discard / Discovery *)
+    | Unannotated_clause(Abs_clause(Abs_var x, Abs_value_body _)) ->
+      let phi = constraint_of_value x env in
+      [phi]
+    (* CondTop *)
+    | Unannotated_clause(Abs_clause(Abs_var x, Abs_conditional_body (Abs_var x1, _e_then, _e_else))) ->
+      (* [constraint_of_bool x1 (not negation)] *)
+      []
+    | Nonbinding_enter_clause(Abs_value_bool b, Abs_clause(_, Abs_conditional_body(Abs_var x1, _e_then, _e_else))) ->
+      (* record b *)
+      (* ignore @@ failwith "where"; *)
+      [constraint_of_bool x1 b]
+    (* CondBtmTrue / CondBtmFalse *)
+    | Binding_exit_clause(Abs_var outer_var, Abs_var ret_var, Abs_clause(_, Abs_conditional_body(Abs_var x1, e_then, e_else))) ->
+      let Abs_var x1ret = retv e_then
+      and Abs_var x2ret = retv e_else in
+      if equal_ident ret_var x1ret then
+        [constraint_of_bool x1 true ; constraint_of_alias x1ret outer_var]
+      else if equal_ident ret_var x2ret then
+        [constraint_of_bool x1 false; constraint_of_alias x2ret outer_var]
+      else
+        assert false
+    (* FunEnter / FunEnterNonLocal *)
+    | Binding_enter_clause(Abs_var para, Abs_var arg, Abs_clause(Abs_var _xr, Abs_appl_body(Abs_var _xf, _))) ->
+      []
+      (* if equal_ident para x_target then
+        (* FunEnter *)
+        (* xf (for constraits) *)
+        (* relstack pop *)
+        []
+      else
+        (* FunEnterNonLocal : *)
+        (* c <- xf *)
+        [] *)
+    (* FunExit *)
+    | Binding_exit_clause(Abs_var _para, Abs_var ret_var, Abs_clause(Abs_var _xr, Abs_appl_body(Abs_var _xf, _))) ->
+      (* equal_ident para x *)
+      []
+    | Start_clause _ | End_clause _ ->
+      []
+    | _ ->
+      failwith "else in constraint"
+
+  let has_condition_clauses clauses =
+    List.exists (function 
+    | Nonbinding_enter_clause(_av, _c) -> true
+    | Binding_exit_clause(_, _, _) -> true
+    | _ -> false
+    ) clauses
+
+  let log_search x phis clause clauses =
+    lazy_logger `info (fun () ->
+      Printf.sprintf "x: %s\nphi:%s\nedge: %s\nprevs: %s\n"
+      (* prev: %s\n *)
+        (Jhupllib.Pp_utils.pp_to_string
+          pp_ident x)
+        (Jhupllib.Pp_utils.pp_to_string
+            (Jhupllib.Pp_utils.pp_list Constraint.pp) phis)
+        (Jhupllib.Pp_utils.pp_to_string
+                  pp_brief_annotated_clause clause)
+        (Jhupllib.Pp_utils.pp_to_string
+                (Jhupllib.Pp_utils.pp_list pp_brief_annotated_clause) clauses)
+        (* (Jhupllib.Pp_utils.pp_to_string
+                pp_brief_annotated_clause pre_clause) *)
+        )
+
   let rec search 
       (env : lookup_environment)
       (x_target : Ident.t)
       (clause : annotated_clause)
       (* (relstack : Relative_stack.t) *)
     : search_result list =
+    let constraint_of_clause = constraint_of_clause_with_env env in
     let pre_clauses = List.of_enum @@ preds clause env.le_cfg in 
-    lazy_logger `info (fun () ->
-      Printf.sprintf "x: %s\nedge: %s\nprev: %s\n"
-        (Jhupllib.Pp_utils.pp_to_string
-          pp_ident x_target)
-        (Jhupllib.Pp_utils.pp_to_string
-                  pp_brief_annotated_clause clause)
-        (Jhupllib.Pp_utils.pp_to_string
-                (Jhupllib.Pp_utils.pp_list pp_brief_annotated_clause) pre_clauses)
-        );
-    let pre_clause = List.hd pre_clauses in
-    (* we will never be interested in _pre_x. We will use pre_clause *)
-    let _next_x, phis = 
-      match clause with
-      (* Input : x == input *)
-      | Unannotated_clause(Abs_clause(Abs_var x, Abs_input_body)) -> 
-        x, [consraint_of_input x]
-      (* Alias : x == x' *)
-      | Unannotated_clause(Abs_clause(Abs_var x, Abs_var_body(Abs_var x'))) -> 
-        x_target, [constraint_of_alias x x']
-      (* Binop : x = x' op x'' *)
-      | Unannotated_clause(Abs_clause(Abs_var x, Abs_binary_operation_body(Abs_var x', op, Abs_var x''))) ->
-        x_target, [constraint_of_binop x x' op x'']
-      (* Discard / Discovery *)
-      | Unannotated_clause(Abs_clause(Abs_var x, Abs_value_body _)) ->
-        let phi = constraint_of_value x env in
-        x, [phi]
-      (* FunEnter / FunEnterNonLocal *)
-      | Binding_enter_clause(Abs_var para, Abs_var arg, Abs_clause(Abs_var _xr, Abs_appl_body(Abs_var _xf, _))) ->
-        if equal_ident para x_target then
-          (* FunEnter *)
-          (* xf (for constraits) *)
-          (* relstack pop *)
-          arg, []
-        else
-          (* FunEnterNonLocal : *)
-          (* c <- xf *)
-          x_target, []
-      (* FunExit *)
-      | Binding_exit_clause(Abs_var _para, Abs_var ret_var, Abs_clause(Abs_var _xr, Abs_appl_body(Abs_var _xf, _))) ->
-        (* equal_ident para x *)
-        ret_var, []
-      (* CondTop *)
-      | Nonbinding_enter_clause(Abs_value_bool _b, Abs_clause(_, Abs_conditional_body(Abs_var _x1, _, _))) ->
-        (* record b *)
-        x_target, []
-      (* CondBtmTrue / CondBtmFalse *)
-      | Binding_exit_clause(Abs_var _para, Abs_var ret_var, Abs_clause(_, Abs_conditional_body(Abs_var _x1, _e1, _e2))) ->
-        ret_var, []
-      | _ ->
-        failwith "missed clauses"
-    in
-      log_constraints phis;
-      if equal_ident x_target x_target then
-        let result = {
-          result_sym = Symbol(x_target, empty_relstk);
-          result_clause = pre_clause;
-          constraints = (constraint_of_stack empty_relstk) :: phis;
-          decisions = Fake_d(empty_relstk);
-        } in
-        [result]
+    let phis = constraint_of_clause clause in
+    log_search x_target phis clause pre_clauses;
+
+    let previous_results = 
+      if List.length pre_clauses = 1 then
+        (* normal cases *)
+        let pre_clause = List.hd pre_clauses in
+        match clause with
+          (* Input : x == input *)
+          | Unannotated_clause(Abs_clause(Abs_var x, Abs_input_body))
+          (* Alias : x == x' *)
+          | Unannotated_clause(Abs_clause(Abs_var x, Abs_var_body(Abs_var _)))
+          (* Binop : x = x' op x'' *)
+          | Unannotated_clause(Abs_clause(Abs_var x, Abs_binary_operation_body(Abs_var _, _, Abs_var _)))
+          (* Discard / Discovery *)
+          | Unannotated_clause(Abs_clause(Abs_var x, Abs_value_body _))
+          (* Condition before CondTop *)
+          | Unannotated_clause(Abs_clause(Abs_var x, Abs_conditional_body(_, _, _))) ->
+            (* record b *)
+            if equal_ident x_target x then
+              let result = {
+                result_sym = Symbol(x_target, empty_relstk);
+                result_clause = pre_clause;
+                constraints = [(constraint_of_stack empty_relstk)];
+                decisions = Fake_d(empty_relstk);
+              } in
+              [result]
+            else
+              search env x_target pre_clause
+          (* CondTop *)
+          (* | Nonbinding_enter_clause(Abs_value_bool b, Abs_clause (_, _)) -> *)
+          | Nonbinding_enter_clause(Abs_value_bool b, Abs_clause(_, Abs_conditional_body(Abs_var x1, _e_then, _e_else))) ->
+            search env x_target pre_clause
+          (* CondBtmTrue / CondBtmFalse *)
+          | Binding_exit_clause(Abs_var _para, Abs_var ret_var, Abs_clause(t, Abs_conditional_body(Abs_var x1, e_then, e_else))) ->
+            search env ret_var pre_clause
+            (* let _ = search env x_target pre_clause in *)
+            (* search env x_target (Unannotated_clause (Abs_clause(t, Abs_conditional_body(Abs_var x1, e_then, e_else)))) *)
+          (* 
+          (* FunEnter / FunEnterNonLocal *)
+          | Binding_enter_clause(Abs_var para, Abs_var arg, Abs_clause(Abs_var _xr, Abs_appl_body(Abs_var _xf, _))) ->
+            if equal_ident para x_target then
+              (* FunEnter *)
+              (* xf (for constraits) *)
+              (* relstack pop *)
+              arg
+            else
+              (* FunEnterNonLocal : *)
+              (* c <- xf *)
+              x_target
+          (* FunExit *)
+          | Binding_exit_clause(Abs_var _para, Abs_var ret_var, Abs_clause(Abs_var _xr, Abs_appl_body(Abs_var _xf, _))) ->
+            (* equal_ident para x *)
+            ret_var
+            *)
+          | End_clause (Abs_var _x) ->
+            search env x_target pre_clause
+          | Start_clause (Abs_var x) ->
+            if equal_ident x x_target then
+              let result = {
+                result_sym = Symbol(x_target, empty_relstk);
+                result_clause = pre_clause;
+                constraints = [];
+                decisions = Fake_d(empty_relstk);
+              } in
+                [result]
+            else
+              search env x_target pre_clause
+          | _ ->
+            failwith "missed clauses"
+      else if has_condition_clauses pre_clauses then
+        match pre_clauses with
+        | cond_c :: then_c :: else_c :: [] ->
+          let then_results = search env x_target then_c
+          and else_results = search env x_target else_c in
+          let cond_results = search env x_target cond_c in
+          join_results (then_results @ else_results) cond_results
+        | _ -> failwith "wrong conds"
       else
-        search env x_target pre_clause 
+        failwith "more than one clause"
+    in
+      let final_result = lift_constraints phis previous_results in
+      List.iter (fun r -> log_constraints r.constraints) final_result;
+      final_result
 
   let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
     let open M in
