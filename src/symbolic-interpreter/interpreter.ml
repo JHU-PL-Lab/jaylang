@@ -899,6 +899,7 @@ struct
     | Unannotated_clause(Abs_clause(Abs_var x, Abs_value_body _)) ->
       let phi = constraint_of_value x env in
       (first_var_constraint x) @ [phi]
+    (* Callsite . ignored . *)
     | Unannotated_clause(Abs_clause(Abs_var x, Abs_appl_body _)) ->
       []
     (* CondTop *)
@@ -940,7 +941,6 @@ struct
         [] *)
     (* FunExit *)
     | Binding_exit_clause(Abs_var _para, Abs_var ret_var, Abs_clause(Abs_var er, Abs_appl_body(Abs_var _xf, _))) ->
-      (* equal_ident para x *)
       [constraint_of_alias er ret_var]
     | Start_clause _ | End_clause _ ->
       []
@@ -968,9 +968,9 @@ struct
       | _ -> false
     ) clauses
 
-  let log_search x phis clause clauses =
+  let log_search x phis clause clauses relstack =
     lazy_logger `info (fun () ->
-      Printf.sprintf "x: %s\nphi:%s\nedge: %s\nprevs: %s\n"
+      Printf.sprintf "\n?: %s\nphi: %s\nedge: %s\nprevs: %s\nstack:%s"
       (* prev: %s\n *)
         (Jhupllib.Pp_utils.pp_to_string
           pp_ident x)
@@ -980,8 +980,8 @@ struct
                   pp_brief_annotated_clause clause)
         (Jhupllib.Pp_utils.pp_to_string
                 (Jhupllib.Pp_utils.pp_list pp_brief_annotated_clause) clauses)
-        (* (Jhupllib.Pp_utils.pp_to_string
-                pp_brief_annotated_clause pre_clause) *)
+        (Jhupllib.Pp_utils.pp_to_string
+                (Jhupllib.Pp_utils.pp_list pp_ident) relstack)
         )
 
   let found_info x_target clause =
@@ -997,12 +997,28 @@ struct
       (env : lookup_environment)
       (x_target : Ident.t)
       (clause : annotated_clause)
-      (* (relstack : Relative_stack.t) *)
+      (relstack : Ident.t list)
     : search_result list =
+    let dangling_funtop_search pre_clause =
+      let missed_funbtm_phi = 
+        match clause, (List.hd (List.of_enum @@ succs clause env.le_cfg)) with
+        | Binding_enter_clause(Abs_var para, Abs_var arg, Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, Abs_var xa))), Start_clause (Abs_var ret_var) ->
+          constraint_of_alias xr ret_var
+        | _ -> failwith "must be funenter"
+        in
+      log_constraints [missed_funbtm_phi];
+      lift_constraints [missed_funbtm_phi] @@ search env x_target pre_clause relstack in
+    let funtop_search pre_clauses =
+      (* it's only possible when every fun_start is non-paired, every is possible *)
+      if List.is_empty relstack then
+        List.concat @@ List.map dangling_funtop_search pre_clauses
+      else
+        found_info x_target clause
+      in
     let constraint_of_clause = constraint_of_clause_with_env env in
     let pre_clauses = List.of_enum @@ preds clause env.le_cfg in 
     let phis = constraint_of_clause clause in
-    log_search x_target phis clause pre_clauses;
+    log_search x_target phis clause pre_clauses relstack;
 
     let previous_results = 
       if List.length pre_clauses = 1 then
@@ -1011,79 +1027,110 @@ struct
         match clause with
           (* Input : x == input *)
           | Unannotated_clause(Abs_clause(Abs_var x, Abs_input_body))
-          (* Alias : x == x' *)
+          (* Alias : x == x'; x = v *)
           | Unannotated_clause(Abs_clause(Abs_var x, Abs_var_body(Abs_var _)))
           (* Binop : x = x' op x'' *)
           | Unannotated_clause(Abs_clause(Abs_var x, Abs_binary_operation_body(Abs_var _, _, Abs_var _)))
-          (* Discard / Discovery *)
+          (* Discard / Discovery : x = x'; x = v *)
           | Unannotated_clause(Abs_clause(Abs_var x, Abs_value_body _))
-          (* Condition before CondTop *)
+          (* Condition before CondTop: x = x' < x'' *)
           | Unannotated_clause(Abs_clause(Abs_var x, Abs_conditional_body(_, _, _))) ->
             (* record b *)
             if equal_ident x_target x then
               found_info x_target clause
             else
-              search env x_target pre_clause
-          (* CondTop *)
-          (* | Nonbinding_enter_clause(Abs_value_bool b, Abs_clause (_, _)) -> *)
-          | Nonbinding_enter_clause(Abs_value_bool b, Abs_clause(_, Abs_conditional_body(Abs_var x1, _e_then, _e_else))) ->
-            search env x_target pre_clause
-          (* CondBtmTrue / CondBtmFalse *)
-          | Binding_exit_clause(Abs_var _para, Abs_var ret_var, Abs_clause(t, Abs_conditional_body(Abs_var x1, e_then, e_else))) ->
-            search env ret_var pre_clause
-            (* let _ = search env x_target pre_clause in *)
+              search env x_target pre_clause relstack
+          (* CondTop : x1 = b ? (e_then) ; (e_else) *)
+          | Nonbinding_enter_clause(Abs_value_bool _b, Abs_clause(_, Abs_conditional_body(Abs_var _x1, _e_then, _e_else))) ->
+            search env x_target pre_clause relstack
+          (* CondBtmTrue / CondBtmFalse : x1 = b ? (e_then) ; (e_else) *)
+          | Binding_exit_clause(Abs_var _, Abs_var ret_var, Abs_clause(_t, Abs_conditional_body(Abs_var x1, e_then, e_else))) ->
+            search env ret_var pre_clause relstack
             (* search env x_target (Unannotated_clause (Abs_clause(t, Abs_conditional_body(Abs_var x1, e_then, e_else)))) *)
-          (* 
-            if equal_ident para x_target then
-              (* FunEnter *)
-              (* xf (for constraits) *)
-              (* relstack pop *)
-              arg
-            else
-              (* FunEnterNonLocal : *)
-              (* c <- xf *)
-              x_target
-           *)
           (* FunEnter / FunEnterNonLocal *)
           | Binding_enter_clause(Abs_var para, Abs_var arg, Abs_clause(Abs_var _xr, Abs_appl_body(Abs_var _xf, _))) ->
-            found_info x_target clause
+            (* 
+              if equal_ident para x_target then
+                (* FunEnter *)
+                (* xf (for constraits) *)
+                (* relstack pop *)
+                arg
+              else
+                (* FunEnterNonLocal : *)
+                (* c <- xf *)
+                x_target
+            *)
+            funtop_search [pre_clause]
+            
             (* search env x_target pre_clause *)
           (* FunExit *)
-          | Binding_exit_clause(Abs_var para, Abs_var ret_var, Abs_clause(Abs_var _xr, Abs_appl_body(Abs_var xf, _))) ->
+          | Binding_exit_clause(Abs_var para, Abs_var ret_var, Abs_clause(Abs_var xr, Abs_appl_body(Abs_var _xf, _))) ->
             (* toplevel xr is the program point, a.k.a stack id *)
             (* equal_ident para x *)
-            search env para pre_clause
+            search env para pre_clause (xr :: relstack)
           (* FunCallsite *)
           | Unannotated_clause(Abs_clause(Abs_var x, Abs_appl_body _)) ->
-            search env x_target pre_clause
+            search env x_target pre_clause relstack
           | End_clause (Abs_var _x) ->
-            search env x_target pre_clause
+            search env x_target pre_clause relstack
           | Start_clause (Abs_var x) ->
             if equal_ident x x_target then
               found_info x_target clause
             else
-              search env x_target pre_clause
+              search env x_target pre_clause relstack
           | _ ->
             failwith "missed clauses"
       else if has_condition_clause pre_clauses then
         match pre_clauses with
         | cond_c :: then_c :: else_c :: [] ->
-          let then_results = search env x_target then_c
-          and else_results = search env x_target else_c in
-          let cond_results = search env x_target cond_c in
+          lazy_logger `info (fun () ->
+            Printf.sprintf "\n-> cond goal\n%s\n"
+              (Jhupllib.Pp_utils.pp_to_string
+                        pp_brief_annotated_clause clause));
+
+          let then_results = search env x_target then_c relstack
+          and else_results = search env x_target else_c relstack in
+
+          lazy_logger `info (fun () ->
+            Printf.sprintf "\n~~ cond goal\n%s\n"
+              (Jhupllib.Pp_utils.pp_to_string
+                        pp_brief_annotated_clause clause));
+
+          let cond_results = search env x_target cond_c relstack in
+
+          lazy_logger `info (fun () ->
+            Printf.sprintf "\n<- cond goal\n%s\n"
+              (Jhupllib.Pp_utils.pp_to_string
+                        pp_brief_annotated_clause clause));
+
           join_results (then_results @ else_results) cond_results
         | _ -> failwith "wrong conds"
       else if has_application_clause pre_clauses then
         match pre_clauses with
-        | app_c :: fend_c :: [] ->
-          (* let _ = search env x_target app_c in *)
-          let fstart = search env x_target fend_c in
-          let callsite_r = search env x_target app_c in
+        | callsite_c :: appl_c :: [] ->
+          lazy_logger `info (fun () ->
+            Printf.sprintf "\n-> appl goal\napp: %s\n"
+              (Jhupllib.Pp_utils.pp_to_string
+                        pp_brief_annotated_clause callsite_c));
+
+          let fstart = search env x_target appl_c relstack in
+
+          lazy_logger `info (fun () ->
+            Printf.sprintf "\n~~ appl goal\narg: %s\n"
+              (Jhupllib.Pp_utils.pp_to_string
+                        pp_brief_annotated_clause appl_c));
+
+          let callsite_r = search env x_target callsite_c relstack in
+
+          lazy_logger `info (fun () ->
+            Printf.sprintf "\n<- appl goal\napp: %s\n"
+              (Jhupllib.Pp_utils.pp_to_string
+                        pp_brief_annotated_clause callsite_c));
+
           join_results fstart callsite_r
-          (* failwith "fun enter" *)
         | _ -> failwith "wrong conds"
       else if all_fun_start_clauses pre_clauses then
-        found_info x_target clause
+        funtop_search pre_clauses
       else
         failwith "unmatched preclause"
     in
@@ -1115,13 +1162,13 @@ struct
       (* At top level, we don't actually need the returned symbol; we just want
          the concrete stack it produces.  The symbol is only used to generate
          formulae, which we'll get from the completed computations. *)
-      let search_result = search env initial_lookup_var acl in
+      let search_result = search env initial_lookup_var acl [] in
       let%bind one_result_no_stk = pick @@ List.enum search_result in
-      let one_result = lift_stack Relative_stack.empty one_result_no_stk in
-      let%bind () = record_constaints one_result.constraints in
+      let _one_result = lift_stack Relative_stack.empty one_result_no_stk in
+      let%bind () = record_constaints one_result_no_stk.constraints in
       let%bind _ =
         (* lookup env [initial_lookup_var] acl Relative_stack.empty *)
-        return one_result.result_sym
+        return one_result_no_stk.result_sym
       in
       return ()
     in
