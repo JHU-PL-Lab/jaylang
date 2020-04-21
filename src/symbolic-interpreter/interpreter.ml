@@ -852,7 +852,7 @@ struct
         Relative_stack(x :: co_stk, stk)
   end
   open Relstack
-  
+
   (* let lift_stack_in_symbol ?(is_strict=false) stk = function
     | Symbol(x, _) -> Symbol(x, stk)
     | SpecialSymbol t -> 
@@ -861,17 +861,26 @@ struct
       else
         SpecialSymbol t *)
 
-  (* let lift_stack_in_constraints f constraints =
+  let lift_use_symbol f phi =
     let open Constraint in 
-    let lift_stack = function
-    | Constraint_value(s, v) -> Constraint_value(f s, v) 
-    | Constraint_alias(s1, s2) -> Constraint_alias(f s1, f s2)
-    | Constraint_binop(s1, s2, op, s3) -> Constraint_binop(f s1,f s2, op, f s3)
-    | Constraint_projection(s1, s2, id) -> Constraint_projection(f s1, f s2, id)
-    | Constraint_type(s, t) -> Constraint_type(f s, t)
+    match phi with
+    | Constraint_value(s, v) -> Constraint_value(s, v)
+    | Constraint_alias(s1, s2) -> Constraint_alias(s1, f s2)
+    | Constraint_binop(s1, s2, op, s3) -> Constraint_binop(s1, f s2, op, f s3)
+    | Constraint_projection(s1, s2, id) -> Constraint_projection(s1, f s2, id)
+    | Constraint_type(s, t) -> failwith "not here"
     | Constraint_stack(cstk) -> Constraint_stack(cstk)
-    in
-    List.map lift_stack constraints *)
+
+  let lift_constraints_env env phis =
+    let update_use_symbol = function
+      | Symbol(x, stk) -> (
+        match Ident_map.Exceptionless.find x env with
+        | Some s' -> s'
+        | None -> Symbol(x, stk)
+      )
+      | SpecialSymbol t -> SpecialSymbol t
+      in
+    List.map (lift_use_symbol update_use_symbol) phis
 
   (* let lift_stack stk result = 
     let new_sym = lift_stack_in_symbol stk result.result_sym in
@@ -885,11 +894,14 @@ struct
     List.map (fun r -> { r with constraints = 
       r.constraints @ cond_constraints}) rs *)
 
-  let join_results ?(left_stack=false) rs1 rs2 = 
-    List.cartesian_product rs1 rs2
-    |> List.map (fun (r1, r2) -> 
-      {r2 with
-      constraints = r2.constraints @ r1.constraints})
+  let join_results ?(left_stack=false) main_rs sub_rs = 
+    List.cartesian_product main_rs sub_rs
+    |> List.map (fun (main_r, sub_r) -> 
+      let sub_phis = sub_r.constraints
+      and main_env = main_r.env in
+      let sub_phis' = lift_constraints_env main_env sub_phis in
+      {main_r with
+        constraints = main_r.constraints @ sub_phis'})
 
   let get_value x (env : lookup_environment) =
     match x with 
@@ -933,15 +945,6 @@ struct
 
   let constraint_of_bool x (b : bool) =
     Constraint.Constraint_value(x, Constraint.Bool b)
-
-  let def_var_of_clause = function
-  | Unannotated_clause(Abs_clause(Abs_var x, _)) -> Some x
-  | _ -> None
-
-  let def_var_of_clause_exn clause = 
-    match def_var_of_clause clause with
-    | Some x -> x
-    | None -> failwith "must have a var"
 
   let constraint_of_clause_with_cfg cfg =       
     fun ?(is_demo=false) clause stk env -> 
@@ -1030,6 +1033,17 @@ struct
       | _ ->
         failwith "else in constraint"
 
+  let heading_var_of_clause = function
+  | Unannotated_clause(Abs_clause(Abs_var x, _)) -> Some x
+  | Nonbinding_enter_clause(_, Abs_clause(Abs_var x, Abs_conditional_body(_, _, _))) -> Some x
+  | Binding_enter_clause(_, _, Abs_clause(Abs_var x, Abs_appl_body(Abs_var _, _))) -> Some x
+  | _ -> None
+
+  let heading_var_of_clause_exn clause = 
+    match heading_var_of_clause clause with
+    | Some x -> x
+    | None -> failwith "must have a var"
+
   let has_condition_clause clauses =
     List.exists (function 
       (* main condition exp *)
@@ -1069,8 +1083,205 @@ struct
                 (Jhupllib.Pp_utils.pp_list pp_ident) stk)
         )
 
-  (* let rec sum n = if n = 0 then 0 else n + sum(n-1)
-  let rec sum n acc = if n = 0 then acc else sum (n-1) (n+acc) *)
+  let merge cfg clause pre_r =
+    let constraint_of_clause = constraint_of_clause_with_cfg cfg in
+    let phis = constraint_of_clause ~is_demo:true clause pre_r.relstack pre_r.env in
+    let phis' = phis @ pre_r.constraints in
+    let env' = 
+      match clause with
+      | Unannotated_clause(Abs_clause(Abs_var x, _)) ->
+        let my_sym = (Symbol(x, pre_r.relstack)) in
+        (Ident_map.add x my_sym pre_r.env)
+      | _ -> pre_r.env
+    in
+    (* log_constraints phis'; *)
+    { result_sym = pre_r.result_sym;
+      constraints = phis';
+      relstack = pre_r.relstack;
+      env = env'}
+
+  module Memoized = struct
+    (* what is the key to the step?
+      for a full block, we could use End(x) or Start(x).
+      for a partial block (when returning from another block), the returning point is where 
+      we should use as a key.
+      ```
+        f = fun x -> ...target...
+        a = 1
+        t1 = f a
+        t2 = f a
+      ```
+
+      Admitted that
+      1. starting from cfg rather than ddpa_cfg may be better
+      2. there may be duplication e.g. `a=1`
+     *)
+
+    type mega_step = {
+      (* x = a *)
+      plain : Constraint.t list;
+      (* x = e1 e2 *)
+      cond_indirect : Ident.t list;
+      (* x = c ? e1 : e2 *)
+      fun_indirect : Ident.t list;
+      (* dangling CondTop/FunEnter *)
+      continue_indirect : Ident.t list;
+    }
+
+    (* a placeholder value which will be set immediately *)
+    let empty_id = Ident("_")
+
+    let empty_step_info = {
+      plain = [];
+      cond_indirect = [];
+      fun_indirect = [];
+      continue_indirect = [];
+    }
+
+    (* 
+    It's actually a new cfg with meta steps
+    Node: program point
+    - plain is the value in the Node
+    Edge: possible search move
+    - Cond_indirect: 
+    - Fun_indirect:
+    - Continue_inriect: 
+
+    Noting we can have soundness even with meta step.
+    ```
+      x = 1
+      y = +inf
+      target = x
+    ```
+    we will have sth like [x[]=1;target[]=x[]; y->Indirect].
+    Unless we can expand y to values without Indirect, we won't finish the constraint generation.
+     *)
+
+
+    (* 
+      key: start from this program point
+      value: immediate phis and other phis 
+      The whole map works as a mega_step for search.
+      *)
+    type meta_step_map = mega_step Ident_map.t
+  end
+  open Memoized
+
+  let naive_constraint_of_clause cfg clause =
+    let symi x = Symbol(x, empty_relstk) in
+    match clause with
+    | Unannotated_clause(Abs_clause(Abs_var x, Abs_input_body)) -> 
+      [(constraint_of_input (symi x))]
+    | Unannotated_clause(Abs_clause(Abs_var x, Abs_var_body(Abs_var x'))) -> 
+      [(constraint_of_alias (symi x) (symi x'))]
+    | Unannotated_clause(Abs_clause(Abs_var x, Abs_binary_operation_body(Abs_var x', op, Abs_var x''))) ->
+      [(Constraint.Constraint_binop((symi x), (symi x'), op, (symi x'')))]
+    | Unannotated_clause(Abs_clause(Abs_var x, Abs_value_body _)) ->
+      [(constraint_of_value (symi x) cfg)]
+    | Nonbinding_enter_clause(Abs_value_bool b, Abs_clause(_, Abs_conditional_body(Abs_var x1, _e_then, _e_else))) ->
+      [(constraint_of_bool (symi x1) b)]
+    | Binding_exit_clause(Abs_var outer_var, Abs_var ret_var, Abs_clause(_, Abs_conditional_body(Abs_var x1, e_then, e_else))) ->
+      let Abs_var x1ret = retv e_then
+      and Abs_var x2ret = retv e_else in
+      if equal_ident ret_var x1ret then
+        [(constraint_of_bool (symi x1) true); ((constraint_of_alias (symi outer_var) (symi x1ret)))]
+      else if equal_ident ret_var x2ret then
+        [(constraint_of_bool (symi x1) false); ((constraint_of_alias (symi outer_var) (symi x2ret)))]
+      else
+        assert false
+    | Binding_enter_clause(Abs_var para, Abs_var arg, Abs_clause(Abs_var er, Abs_appl_body(Abs_var e1, Abs_var e2))) ->
+      (* [(constraint_of_funenter para arg er empty_relstk)] *)
+      [constraint_of_alias (symi para) (symi arg)]
+    | Binding_exit_clause(Abs_var _para, Abs_var ret_var, Abs_clause(Abs_var er, Abs_appl_body(Abs_var _xf, _))) ->
+      (* [(constraint_of_funexit er ret_var empty_relstk)] *)
+      [constraint_of_alias (symi er) (symi ret_var)]
+    | Unannotated_clause(Abs_clause(Abs_var x, Abs_appl_body _)) ->
+      []
+    | Unannotated_clause(Abs_clause(Abs_var x, Abs_conditional_body _)) ->
+      []
+    | Start_clause _ | End_clause _ ->
+      []
+    | _ ->
+      failwith "else in constraint"
+
+  (* impure function to make a hybrid map to remember direct constraints and indirect ones
+   *)
+  let make_hybrid_map cfg x_target clause : meta_step_map =
+    let hybrid_map = ref Ident_map.empty in
+    let rec backtrace hybrid_map x_target clause step_key step_acc =
+      (* Step 1 - check for duplicate search
+        if step_key is searched, or if we find a circle dependency
+        however, circlar dependency can be checked when initializing a search
+       *)
+      match Ident_map.Exceptionless.find step_key (!hybrid_map) with
+      | Some _ -> (
+        assert (not (equal_ident x_target cfg.le_first_var));
+        ()
+      )
+      (* Step 2 - new search
+        check if found target.
+        
+        For un-dangling cases
+        x_target would be a call-site, a cond-site, or first_var
+        Coresponding, heading_var can be FunEnter, CondTop, or other normal clause
+        In any case, when `is_found_target` is true and the search ends.
+
+        For dangling cases
+        x_target is first_var but we can never found.
+        Noting dangling by nature means it's now in a 
+       *)
+      | None -> begin
+        let is_found_target =
+          match heading_var_of_clause clause with
+          | Some x_heading -> equal_ident x_heading x_target
+          | None -> false
+          in
+        let phi = naive_constraint_of_clause cfg clause in
+        if is_found_target then
+          let x_heading = heading_var_of_clause_exn clause in
+          let all_phis = {step_acc with plain = phi @ step_acc.plain} in
+          (hybrid_map := Ident_map.add x_heading all_phis !hybrid_map)
+        else
+        (* Step 3 - backtracing
+          When in intermediate states, it remember the initial key as `step_key` and 
+          the accumulated info in `step_acc`
+          The search is tail-recursion since the map can only be updated when found
+         *)
+          let pre_clauses = List.of_enum @@ preds clause cfg.le_cfg in 
+          if List.is_empty pre_clauses then
+            failwith "must have pre_clauses"
+
+          (* We need combined condition on current clause and the shape of previous clauses
+            However, the current clause is more determining 
+           *)
+          else
+            if List.length pre_clauses = 1 then
+              let pre_clause = List.hd pre_clauses in
+                match clause with
+                (* normal cases: accumulate phis and backtrace *)
+                | Unannotated_clause(Abs_clause(_, _))
+                | Start_clause _
+                | End_clause _ ->
+                  backtrace hybrid_map x_target pre_clause step_key {step_acc with plain = phi @ step_acc.plain}
+
+                (* or dangling CondTop *)
+                | Nonbinding_enter_clause(Abs_value_bool _, Abs_clause(_, Abs_conditional_body(_, _, _)))
+                (* or dangling FunTop *)
+                | Binding_enter_clause(Abs_var _, Abs_var _, Abs_clause(_, Abs_appl_body(_, _))) ->
+                  backtrace hybrid_map x_target pre_clause step_key {step_acc with plain = phi @ step_acc.plain}
+                | _ ->
+                  failwith "missed clauses"
+          else
+            let pre_clause = List.hd pre_clauses in
+              backtrace hybrid_map x_target pre_clause step_key {step_acc with plain = phi @ step_acc.plain}
+      end
+      in
+    hybrid_map := Ident_map.empty;
+    (* a placeholder to prevent recursive dependency *)
+    hybrid_map := Ident_map.add empty_id empty_step_info !hybrid_map;
+    (* every backtrace rewrites one placeholder value *)
+    backtrace hybrid_map x_target clause empty_id empty_step_info;
+    !hybrid_map
 
   let rec search 
       (cfg : lookup_environment)
@@ -1080,23 +1291,6 @@ struct
     : search_result list =
     (* helper functions *)
     let constraint_of_clause = constraint_of_clause_with_cfg cfg in
-
-    let merge clause pre_r =
-      let phis = constraint_of_clause clause pre_r.relstack pre_r.env in
-      let phis' = phis @ pre_r.constraints in
-      let env' = 
-        match clause with
-        | Unannotated_clause(Abs_clause(Abs_var x, _)) ->
-          let my_sym = (Symbol(x, pre_r.relstack)) in
-          (Ident_map.add x my_sym pre_r.env)
-        | _ -> pre_r.env
-      in
-      (* log_constraints phis'; *)
-      { result_sym = pre_r.result_sym;
-        constraints = phis';
-        relstack = pre_r.relstack;
-        env = env'}
-      in
     let dangling_funtop_search funenter_c =
       let callsite = 
         match funenter_c with
@@ -1119,20 +1313,11 @@ struct
       in
       
     let funtop_search funenter_cs =
-      (* it's only possible when every fun_start is non-paired, every is possible *)
       (* TODO: circular detection for even indirect *)
       if is_stack_empty relstack then
         List.concat @@ List.map dangling_funtop_search funenter_cs
       else
-        let x_clause = def_var_of_clause_exn clause in
-        let x_sym = Symbol(x_clause, relstack) in
-        let result = {
-          result_sym = x_sym;
-          constraints = [];
-          relstack = relstack;
-          env = Ident_map.add x_clause x_sym Ident_map.empty
-        } in
-        [result]
+        failwith "funtop: relstack not empty"
       in
 
     (* Step 0 - Log the current frame *)
@@ -1141,7 +1326,6 @@ struct
     log_search x_target demo_phis clause pre_clauses relstack;
 
     (* Step 1 - Base case, found target *)
-
     (* 
     first_var : x = ...
     x_target from CondBtm, need pass Start to reach CondTop. This CondTop has ONE pre_clause in main.
@@ -1149,26 +1333,46 @@ struct
     dangling x_target in cond, need pass both Start and CondTop. This CondTop has ONE pre_clause in main.
     dangling x_target in fun, need pass both Start and FunEnter. This FunEnter has many pre_clauses.
 
+    CondBtm and FunExit will set the corresponding x_target, which means
+    - In CondTop, if x_ret  = x_target, then return
+    - In CondTop, if x_ret != x_target, then continue
+    - In FunEnter, if x_ret = x_target, then return
+    - In FunEnter, if x_ret = x_target, then continue
+
+    Solution:
+    Given x_target, only check whether x_target equals x_heading.
+    x_heading includes cases of
+    1. normal clause x = _
+    2. CondTop
+    3. FunEnter
+
+    when any happens, the searching finishes. It's either
+    1. found first_var
+    2. found sub target set in CondBtm or FunExit
+
+    when none happens, the searching continues. It's either
+    1. normal clause x' = _
+    2. Dangling CondTop or FunEnter. In either cases, CFG with wire-in nodes handles the `prev` clauses.
+
     However, CondTop and FunEnter can not use as value binding, they are just unfinished computation.
     *)
 
-    (* Base Case 1, found the first_var. The search in main returns *)
     let is_found_target =
-      match def_var_of_clause clause with
-      | Some x_clause -> equal_ident x_clause x_target
+      match heading_var_of_clause clause with
+      | Some x_heading -> equal_ident x_heading x_target
       | None -> false
       in
 
     if is_found_target then
-      let x_clause = def_var_of_clause_exn clause in
-      let x_sym = Symbol(x_clause, relstack) in
-      (* Base Case 2, found the target but not the first_var. The search inside a function returns *)
+      let x_heading = heading_var_of_clause_exn clause in
+      let x_sym = Symbol(x_heading, relstack) in
+      (* first_var checked in it *)
       let phis = constraint_of_clause clause relstack Ident_map.empty in
       let result = {
         result_sym = x_sym;
         constraints = phis;
         relstack = relstack;
-        env = Ident_map.add x_clause x_sym Ident_map.empty
+        env = Ident_map.add x_heading x_sym Ident_map.empty
       } in
       [result]
     else
@@ -1205,7 +1409,7 @@ struct
             | Binding_exit_clause(Abs_var para, Abs_var ret_var, Abs_clause(Abs_var xr, Abs_appl_body(Abs_var _xf, _))) ->
               (* equal_ident para x *)
               let relstk' = push relstack xr in
-              search cfg ret_var pre_clause relstk'
+              search cfg xr pre_clause relstk'
             | _ ->
               failwith "missed clauses"
         (* cond-site *)
@@ -1218,7 +1422,7 @@ struct
             log_cond2 clause;
             let cond_results = search cfg x_target cond_c relstack in
             log_cond3 clause;
-            join_results (then_results @ else_results) cond_results
+            join_results cond_results (then_results @ else_results)
           | _ -> failwith "wrong conds"
         (* call-site *)
         else if has_application_clause pre_clauses then
@@ -1230,7 +1434,7 @@ struct
             log_appl2 appl_c;
             let callsite_r = search cfg x_target callsite_c relstack in
             log_appl3 callsite_c;
-            join_results fstart callsite_r
+            join_results callsite_r fstart
           | _ -> failwith "wrong conds"
         (* dangling funenter for callsite *)
         else if all_fun_start_clauses pre_clauses then
@@ -1243,7 +1447,7 @@ struct
         final_result *)
       in
       (* Step 3 - Merge previous results and this constraits from this clause *)
-        List.map (merge clause) previous_results
+        List.map (merge cfg clause) previous_results
     end
 
   let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
@@ -1271,6 +1475,7 @@ struct
          the concrete stack it produces.  The symbol is only used to generate
          formulae, which we'll get from the completed computations. *)
       let search_result = search env initial_lookup_var acl empty_relstk in
+      let _hybrid_map = make_hybrid_map env initial_lookup_var acl in
       let%bind one_result = pick @@ List.enum search_result in
       log_constraints one_result.constraints;
       let%bind () = record_constaints one_result.constraints in
