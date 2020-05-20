@@ -91,6 +91,10 @@ let input_sequence_from_solution
     value
   in
   let stop_at_stop_var (Clause(x,_)) =
+    lazy_logger `info (fun () ->
+      Printf.sprintf "\nx: %s ( - ) %s" 
+        (Jhupllib.Pp_utils.pp_to_string pp_var x)
+        (Jhupllib.Pp_utils.pp_to_string pp_var stop_var));
     if equal_var x stop_var then
       raise Halt_interpretation_as_input_sequence_is_complete
     else

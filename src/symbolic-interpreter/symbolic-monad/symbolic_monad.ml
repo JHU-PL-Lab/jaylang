@@ -920,7 +920,6 @@ struct
     ;;
   end;;
 
-  (* **** Evaluation module wrapper **** *)
 
   (**
      An evaluation is a monadic value for which evaluation has started.  It is
