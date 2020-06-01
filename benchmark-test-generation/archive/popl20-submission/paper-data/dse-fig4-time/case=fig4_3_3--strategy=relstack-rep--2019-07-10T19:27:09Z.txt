@@ -1,4 +1,0 @@
- 15:27:09 up 721 days, 23:28,  4 users,  load average: 1.22, 0.99, 0.93
-Command exited with non-zero status 124
-598.19user 0.25system 10:00.02elapsed 99%CPU (0avgtext+0avgdata 379592maxresident)k
-0inputs+0outputs (0major+89616minor)pagefaults 0swaps

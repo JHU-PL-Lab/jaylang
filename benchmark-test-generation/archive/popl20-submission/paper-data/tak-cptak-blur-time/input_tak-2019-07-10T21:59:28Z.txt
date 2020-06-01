@@ -1,7 +1,0 @@
- 17:59:28 up 722 days,  2:01,  4 users,  load average: 0.90, 0.40, 0.20
-Input sequence: [1, 0, 0]
-Generated in 51614 steps.
-
-Requested input sequences found; terminating.
-44.44user 0.04system 0:44.60elapsed 99%CPU (0avgtext+0avgdata 125896maxresident)k
-0inputs+8outputs (0major+25427minor)pagefaults 0swaps

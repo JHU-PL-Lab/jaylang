@@ -1,6 +1,0 @@
-Input sequence: [2, 2]
-Generated in 154988 steps.
-
-Requested input sequences found; terminating.
-33.58user 0.04system 0:33.71elapsed 99%CPU (0avgtext+0avgdata 153148maxresident)k
-0inputs+8outputs (0major+32024minor)pagefaults 0swaps
