@@ -1,0 +1,25 @@
+(alias
+  (name megatest)
+  ; (deps test.exe (glob_files ../../test-sources/*))
+  (action (run ./test.exe))
+)
+
+(executable
+  (name test)
+  (libraries
+    batteries
+    jhupllib
+    odefa.ast
+    odefa.ddpa
+    odefa.parser
+    odefa.symbolic-interpreter
+    odefa.test-generation
+    odefa.toploop
+    odefa.natural
+  )
+  (preprocess
+    (pps
+      ppx_deriving.std
+    )
+  )
+)
