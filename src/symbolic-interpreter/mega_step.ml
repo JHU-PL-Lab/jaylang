@@ -6,7 +6,7 @@ open Odefa_ddpa
 open Ast;;
 (* open Ast_pp *)
 open Ddpa_abstract_ast
-(* open Ddpa_graph *)
+open Ddpa_graph
 open Ddpa_utils
 open Interpreter_types;;
 (* open Logger_utils *)
@@ -358,6 +358,7 @@ let first_var e =
   |> List.first
   |> (fun (Clause(Var(x,_),_)) -> x)
 
+let first_id = first_var
 
 module Memoized = struct
   (* what is the key to the step?
@@ -432,81 +433,115 @@ end
 *)
 module Tracelet = struct
 
+  (* TODO:
+     we might get rid of map at all, by using tree (zipper)
+  *)
   let name_main = "0_main"
 
   let id_main = Ident name_main
 
+  (* duplicate for simplicity *)
   type trace_clause = 
     | App | Fun | Cond | Direct of clause
 
+  type id_with_dst = ident * ident list
+
   type block = {
     clauses : (ident * trace_clause) list;
-    app_ids : ident list;
-    cond_ids : ident list;
+    app_ids : id_with_dst list;
+    cond_ids : id_with_dst list;
   }
 
   let empty_block = {
     clauses = []; app_ids = []; cond_ids = []
   }
 
-  type blocks = 
-    | WholeFun of block
-    | PartialFun of block
-    | WholeCond of { 
-        cond : ident;
-        then_block : block;
-        else_block : block;
-      }
-    | PartialCond of block
-
-  type t = {
-    point : ident;
-    (* ret : ident *)
-    next : ident list;
-    blocks : blocks
+  type cond_source_block = { 
+    cond : ident;
+    then_block : block;
+    else_block : block;
   }
 
-  let iter_block tracelet f =
-    match tracelet with
-    | WholeFun b -> f b
-    | PartialFun b -> f b
-    | WholeCond cb -> (f cb.then_block); (f cb.else_block)
-    | PartialCond b -> f b
+  type cond_running_block = {
+    cond : ident;
+    choice : bool;
+    block : block;
+    other_block : block;
+  }
 
-  let either_block tracelet f =
-    match tracelet with
-    | WholeFun b -> f b
-    | PartialFun b -> f b
-    | WholeCond cb -> (f cb.then_block) || (f cb.else_block)
-    | PartialCond b -> f b
+  type block_node = 
+    | Main of block
+    | Fun of block
+    | CondSource of cond_source_block
+    | CondRunning of cond_running_block
 
-  let list_in_block blocks f =
-    match blocks with
-    | WholeFun b -> f b
-    | PartialFun b -> f b
-    | WholeCond cb -> (f cb.then_block) @ (f cb.else_block)
-    | PartialCond b -> f b
+  type source_tracelet = {
+    point : ident;
+    outer_point : ident;
+    source_block : block_node;
+  }
 
-  let cid_of_tracelet tl =
-    let cids_of_block block = 
-      List.map (fun (Ident id, _) -> id) block.clauses in
-    list_in_block tl.blocks cids_of_block
+  type t = source_tracelet
 
-  let direct_cid_of_tracelet tl =
-    let cids_of_block block = 
-      List.filter_map  (function
-          | (Ident id, Direct _) -> Some id
-          | _ -> None) 
-        block.clauses in
-    list_in_block tl.blocks cids_of_block
+  type block_cat = 
+    | Whole
+    | Partial of ident
 
-  let split_clauses (Expr clauses) : (ident * trace_clause) list * ident list * ident list =
+  (* type dynamic_frame = {
+     point : ident;
+     (* ret : ident *)
+     next : ident list;
+     block : dynamic_block;
+     } *)
+
+  let get_block tl =
+    match tl.source_block with
+    | Main b -> b
+    | Fun b -> b
+    | CondSource c -> 
+      {
+        clauses = c.then_block.clauses @ c.else_block.clauses;
+        app_ids = c.then_block.app_ids @ c.else_block.app_ids;
+        cond_ids = c.then_block.cond_ids @ c.else_block.cond_ids
+      }
+    | CondRunning c -> c.block
+
+  let running_cond choice (cb : cond_source_block) : cond_running_block =
+    { cond = cb.cond;
+      choice;
+      block = if choice then cb.then_block else cb.else_block;
+      other_block = if choice then cb.else_block else cb.then_block;
+    }
+
+  let cids_of tl =
+    tl
+    |> get_block
+    |> fun block -> List.map (fun (Ident id, _) -> id) block.clauses    
+
+  let direct_cids_of tl =
+    tl
+    |> get_block
+    |> fun block -> List.filter_map (function
+        | (Ident id, Direct _) -> Some id
+        | _ -> None) block.clauses
+
+  let app_ids_of tl =
+    tl
+    |> get_block
+    |> fun block -> List.map (fun (Ident id, _) -> id) block.app_ids   
+
+  let cond_ids_of tl =
+    tl
+    |> get_block
+    |> fun block -> List.map (fun (Ident id, _) -> id) block.cond_ids   
+
+  let split_clauses (Expr clauses) : (ident * trace_clause) list * id_with_dst list * id_with_dst list =
     List.fold_left (fun (cs, app_ids, cond_ids) (Clause(Var (cid, _), b) as c) ->
         match b with
         | Appl_body (_, _)
-          -> (cs @ [cid, App], app_ids @ [cid], cond_ids)
+          -> (cs @ [cid, App], app_ids @ [cid, []], cond_ids)
         | Conditional_body (Var (x, _), _, _)
-          -> (cs @ [cid, Cond], app_ids, cond_ids @ [cid])
+          -> (cs @ [cid, Cond], app_ids, cond_ids @ [cid, []])
         | Value_body (Value_function _)
           -> (cs @ [cid, Fun], app_ids, cond_ids)
         | _
@@ -518,82 +553,169 @@ module Tracelet = struct
     let clauses, app_ids, cond_ids = split_clauses e in
     { clauses; app_ids; cond_ids }
 
+  (* partial map
+     id |-> block defined by it *)
   let tracelet_map_of_expr e : t Ident_map.t =
     let map = ref Ident_map.empty in
-    (* add main block *)
-    let block = block_of_expr e in
-    let blocks = WholeFun block in
-    let tracelet = 
-      { point = id_main ; next = []; blocks } in
-    map := Ident_map.add id_main tracelet !map
+
+    let main_tracelet = 
+      let block = block_of_expr e in
+      let source_block = Main block in
+      { point = id_main; outer_point = id_main; source_block } in
+    map := Ident_map.add id_main main_tracelet !map
     ;
-    (* add nested blocks *)
-    e
-    |> Ast_tools.flatten
-    |> List.enum
-    |> Enum.iter (function 
+
+    let rec loop outer_point e =
+      let Expr clauses = e in
+      let handle_clause = function
         | Clause (Var (cid, _), Value_body (Value_function (Function_value (_arg, fbody)))) ->
           let block = block_of_expr fbody in
-          let blocks = WholeFun block in
+          let source_block = Fun block in
           let tracelet = 
-            { point = cid ; next = []; blocks } in
-          map := Ident_map.add cid tracelet !map
+            { point = cid ; outer_point; source_block } in
+          map := Ident_map.add cid tracelet !map;
+          loop cid fbody
         | Clause (Var (cid, _), Conditional_body (Var(cond, _), e1, e2)) ->
           let then_block = block_of_expr e1
           and else_block = block_of_expr e2 in
-          let blocks = 
-            WholeCond {cond; then_block; else_block} in
+          let source_block = 
+            CondSource {cond; then_block; else_block} in
           let tracelet = 
-            { point = cid ; next = []; blocks } in
-          map := Ident_map.add cid tracelet !map      
-        | _ -> ())
-    ;
+            { point = cid ; outer_point; source_block } in
+          map := Ident_map.add cid tracelet !map;
+          loop cid e1;
+          loop cid e2     
+        | _ -> ()
+      in
+      List.iter handle_clause clauses
+    in
+
+    loop id_main e;
     !map
 
-  let pred_ids_of_block (x : ident) block : (ident * trace_clause) list * ident list * ident list =
-    if List.exists (fun (cid, _c) -> cid = x) block.clauses then
-      List.fold_while 
-        (fun _acc (cid, _c) -> cid <> x)
-        (fun (cs, app_ids, cond_ids) (cid, c) ->
-           match c with
-           | App ->
-             (cs, app_ids @ [cid], cond_ids)
-           | Fun ->
-             (cs, app_ids, cond_ids)
-           | Cond ->
-             (cs, app_ids, cond_ids @ [cid])
-           | Direct c ->
-             (cs @ [cid, Direct c], app_ids, cond_ids)
-        )
-        ([], [], [])
-        block.clauses
-      |> fst
-    else
-      ([], [], [])
+  let cut_before x tl =
+    let cut_block block : block = 
+      let clauses, app_ids, cond_ids =
+        List.fold_while 
+          (fun _acc (cid, _c) -> cid <> x)
+          (fun (cs, app_ids, cond_ids) (cid, tc as cc) ->
+             (* TODO: bad design *)
+             match tc with
+             | App ->
+               let dst = List.assoc cid block.app_ids in
+               (cs @ [cc], app_ids @ [cid, dst], cond_ids)
+             | Cond ->
+               let dst = List.assoc cid block.cond_ids in
+               (cs @ [cc], app_ids, cond_ids @ [cid, dst])
+             | Fun ->
+               (cs @ [cc], app_ids, cond_ids)
+             | Direct cd ->
+               (cs @ [cc], app_ids, cond_ids)
+          )
+          ([], [], [])
+          block.clauses
+        |> fst
+      in
+      { clauses; app_ids; cond_ids }
+    in
+    let source_block = 
+      match tl.source_block with
+      | Main b -> Main (cut_block b)
+      | Fun b -> Fun (cut_block b)
+      | CondSource cond ->
+        (* TODO : 
+           Noting: cutting can only occur in one block of a cond, therefore
+           it's a hidden change from CondSource to CondRunning
+        *)
+        let choice = List.mem_assoc x cond.then_block.clauses in
+        let cond' = running_cond choice cond in
+        CondRunning { cond' with block = cut_block cond'.block }
+      | CondRunning cond -> 
+        CondRunning { cond with block = cut_block cond.block }
+    in
+    { tl with source_block }
 
-  let debug_pred_ids_of_block x block =
-    let direct_ids, app_ids, cond_ids = pred_ids_of_block x block in
-    let direct_names = List.map (fun (Ident name, _) -> name) direct_ids
-    and app_names = List.map (fun (Ident name) -> name) app_ids
-    and cond_names = List.map (fun (Ident name) -> name) cond_ids in
-    (direct_names, app_names, cond_names)
-
-  let debug_pred_ids_of_tracelet x tracelet =
-    match tracelet.blocks with
-    | WholeFun b -> debug_pred_ids_of_block x b
-    | PartialFun b -> debug_pred_ids_of_block x b
-    | WholeCond cb -> (
-        let d1, a1, c1 = debug_pred_ids_of_block x cb.then_block
-        and d2, a2, c2 = debug_pred_ids_of_block x cb.else_block
-        in
-        ( d1 @ d2, a1 @ a2, c1 @ c2 )
-      )
-    | PartialCond b -> debug_pred_ids_of_block x b
+  let search_id x tl_map =
+    tl_map
+    |> Ident_map.values
+    |> Enum.find (fun tl -> List.mem_assoc x @@ (get_block tl).clauses )
+    |> cut_before x
 
 end
 
 (* open Tracelet *)
 
+module Tunnel = struct
+  (* let clauses = Ast_tools.flatten e in
+     let (Clause (Var (_, id0), _)) = List.hd clauses in
+     List.fold_while
+     (fun (flag, prev) _ -> flag)
+     (fun (flag, prev) c -> match c with
+       | Clause (Var (_, id), Value_body(Value_function _))
+       | Clause (Var (_, id), Conditional_body(_, _, _)) ->
+         true, prev
+       | _ -> 
+         true, prev
+     )
+     (false, id0)
+     clauses *)
+  type callsite_tunnel = ident Ident_map.t
+
+  exception Invalid_query of string
+
+  let pred_map e cfg pt =
+    let map = ref BatMultiPMap.empty
+    (* and id_first = first_var e *)
+    and acl =
+      try
+        Unannotated_clause(
+          lift_clause @@ Ident_map.find pt (clause_mapping e))
+      with
+      | Not_found ->
+        raise @@ Invalid_query(
+          Printf.sprintf "Variable %s is not defined" (show_ident pt))
+    in
+
+    let rec loop acl id_start : unit = 
+      (* let (Unannotated_clause(Abs_clause (Abs_var id, _))) = acl in
+         if id = id_first
+         then
+         map := Ident_map.add id_start id !map
+         else  *)
+      (* 
+
+          *)
+      match acl with
+      | Unannotated_clause _
+      | Start_clause _ | End_clause _ ->
+        Enum.iter (fun acl -> loop acl id_start) (preds acl cfg)
+      | Binding_exit_clause (Abs_var __para, Abs_var _ret_var, Abs_clause(_, _site_clause)) -> 
+        (* can be ignored since 
+           exit occurs when it meets a *-site and *-site will be handled later 
+
+           a = f 1
+           <-
+        *)
+        map := BatMultiPMap.add id_start id_start !map;
+        let def_acls = List.of_enum @@ preds acl cfg in
+        assert (List.length def_acls = 1);
+        ()
+      | Nonbinding_enter_clause (_, _)
+      | Binding_enter_clause (_, _, _)
+        ->
+        ()
+    in
+
+    (* Enum.iter (fun _ac ->
+         let map' = Ident_map.add pt pt !map in
+         map := map' in
+         )  *)
+
+    loop acl pt;
+    !map
+
+
+end
 
 
 (* 
