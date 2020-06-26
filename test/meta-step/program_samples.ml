@@ -98,13 +98,13 @@ z2 = z;
 p = z2 u
 "
 
-(* let e8 = parse "
-   a1 = 1;
-   a2 = 2;
-   f = fun t -> (
-   x = 1;
-   rf = t
-   );
-   c1 = f a1;
-   c2 = f a2
-   " *)
+let e8 = parse "
+a1 = 1;
+a2 = 2;
+f = fun t -> (
+  x = 1;
+  rf = t
+);
+c1 = f a1;
+c2 = f a2
+"

@@ -277,11 +277,12 @@ end
 *)
 
 
-let log_acl (Ident id_start) acl = 
-  print_endline @@ Printf.sprintf "%s - %s"
-    id_start
+let log_acl acl prevs = 
+  print_endline @@ Printf.sprintf "%s \t\t[prev: %s]"
     (Jhupllib.Pp_utils.pp_to_string
        pp_brief_annotated_clause acl)
+    (Jhupllib.Pp_utils.pp_to_string
+       (Jhupllib.Pp_utils.pp_list pp_brief_annotated_clause) prevs)
 
 let log_id id = 
   print_endline @@ Printf.sprintf "%s"
@@ -544,10 +545,10 @@ module Tracelet = struct
       tl
 
   let add_id_dst site_x def_x tl_map =
-    log_id site_x;
-    log_id def_x;
+    (* log_id site_x; *)
+    (* log_id def_x; *)
     let tl = find_by_id site_x tl_map in
-    log_id tl.point;
+    (* log_id tl.point; *)
     let tl' = update_id_dst site_x def_x tl in
     Ident_map.add tl.point tl' tl_map
 
@@ -592,6 +593,7 @@ module Tunnel = struct
 
   let annotate e pt =
     let map = ref (Tracelet.tracelet_map_of_expr e)
+    (* and visited_pred_map = ref BatMultiPMap.empty *)
     and cfg = cfg_of e
     (* and id_first = first_var e *)
     and ret_to_fun_def_map =
@@ -607,22 +609,17 @@ module Tunnel = struct
         raise @@ Invalid_query(
           Printf.sprintf "Variable %s is not defined" (show_ident pt))
     in
-    (* let _assert_number_pred n acl =
-       let def_acls = List.of_enum @@ preds acl cfg in
-       assert (List.length def_acls = n);
-       in
-       let debug_bomb = ref 1000 in *)
-    let rec loop acl id_end0 : unit = 
-      (* log_acl id_end0 acl;
-         debug_bomb := !debug_bomb - 1;
+    (* let debug_bomb = ref 20 in *)
+    let rec loop acl dangling : unit = 
+      log_acl acl (List.of_enum @@ preds acl cfg);
+      (* debug_bomb := !debug_bomb - 1;
          (if !debug_bomb = 0 
          then
          failwith "bomb"
          else
          ())
          ; *)
-      let id_end = ref id_end0
-      and continue = ref true in
+      let pred_dangling = ref dangling in
       begin
         match acl with
         | Unannotated_clause _
@@ -636,17 +633,10 @@ module Tunnel = struct
           (* assert_number_pred 1 acl; *)
           let f_def = Ident_map.find ret_var ret_to_fun_def_map in
           map := Tracelet.add_id_dst site_r f_def !map;
-          id_end := site_r
+          pred_dangling := false
         | Binding_enter_clause (Abs_var para, _, Abs_clause(Abs_var site_r, Abs_appl_body _)) ->
-          if site_r = id_end0
-          then
-            (* non-dangling case *)
-            continue := false
-          else
-            (* dangling case *)
-            let f_def = Ident_map.find para para_to_fun_def_map in
-            map := Tracelet.add_id_dst site_r f_def !map;
-            ()
+          let f_def = Ident_map.find para para_to_fun_def_map in
+          map := Tracelet.add_id_dst site_r f_def !map
         | Nonbinding_enter_clause (_, _) ->
           ()
         | Binding_enter_clause (_, _, Abs_clause(Abs_var site_r, _)) ->
@@ -654,13 +644,13 @@ module Tunnel = struct
         | Binding_exit_clause (_, _, _) ->
           failwith "impossible binding exit for other clauses"
       end;
-      if !continue 
+      if !pred_dangling
       then
-        Enum.iter (fun acl -> loop acl !id_end) (preds acl cfg)
+        Enum.iter (fun acl -> loop acl !pred_dangling) (preds acl cfg)
       else
         ()
     in
-    loop acl pt;
+    loop acl true;
     !map
 end
 
