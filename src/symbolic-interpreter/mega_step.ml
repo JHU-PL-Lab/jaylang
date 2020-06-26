@@ -275,6 +275,18 @@ end
     we need a flow-sensitive mixture cond_block with condition, which helps to
     escape from impossible traces
 *)
+
+
+let log_acl (Ident id_start) acl = 
+  print_endline @@ Printf.sprintf "%s - %s"
+    id_start
+    (Jhupllib.Pp_utils.pp_to_string
+       pp_brief_annotated_clause acl)
+
+let log_id id = 
+  print_endline @@ Printf.sprintf "%s"
+    (Jhupllib.Pp_utils.pp_to_string pp_ident id)
+
 module Tracelet = struct
 
   (* TODO:
@@ -294,10 +306,17 @@ module Tracelet = struct
     clauses : (ident * trace_clause) list;
     app_ids : id_with_dst list;
     cond_ids : id_with_dst list;
+    (* first_v : id of the first clause *)
+    (* ret: id of the last clause *)
   }
 
   let empty_block = {
     clauses = []; app_ids = []; cond_ids = []
+  }
+
+  type fun_block = {
+    para: ident;
+    block: block;
   }
 
   type cond_source_block = { 
@@ -315,7 +334,7 @@ module Tracelet = struct
 
   type block_node = 
     | Main of block
-    | Fun of block
+    | Fun of fun_block
     | CondSource of cond_source_block
     | CondRunning of cond_running_block
 
@@ -331,17 +350,10 @@ module Tracelet = struct
     | Whole
     | Partial of ident
 
-  (* type dynamic_frame = {
-     point : ident;
-     (* ret : ident *)
-     next : ident list;
-     block : dynamic_block;
-     } *)
-
   let get_block tl =
     match tl.source_block with
     | Main b -> b
-    | Fun b -> b
+    | Fun b -> b.block
     | CondSource c -> 
       {
         clauses = c.then_block.clauses @ c.else_block.clauses;
@@ -349,6 +361,28 @@ module Tracelet = struct
         cond_ids = c.then_block.cond_ids @ c.else_block.cond_ids
       }
     | CondRunning c -> c.block
+
+  let update_block f tl =
+    let source_block = 
+      match tl.source_block with
+      | Main b -> Main (f b)
+      | Fun b -> Fun 
+                   {b with
+                    block = f b.block
+                   }
+      | CondSource c -> CondSource 
+                          {c with 
+                           then_block = f c.then_block;
+                           else_block = f c.else_block
+                          }
+      | CondRunning c -> CondRunning 
+                           {c with
+                            block = f c.block;
+                            other_block = f c.other_block
+                           }
+    in
+    {tl with source_block}
+
 
   let running_cond choice (cb : cond_source_block) : cond_running_block =
     { cond = cb.cond;
@@ -379,6 +413,14 @@ module Tracelet = struct
     |> get_block
     |> fun block -> List.map (fun (Ident id, _) -> id) block.cond_ids   
 
+  let debug_def_ids_of tl =
+    tl
+    |> get_block
+    |> fun block -> List.map (fun (Ident id, dsts) -> 
+        let dst_names = List.map (fun (Ident name) -> name) dsts in
+        id, dst_names)
+      (block.app_ids @ block.cond_ids)
+
   let split_clauses (Expr clauses) : (ident * trace_clause) list * id_with_dst list * id_with_dst list =
     List.fold_left (fun (cs, app_ids, cond_ids) (Clause(Var (cid, _), b) as c) ->
         match b with
@@ -397,8 +439,6 @@ module Tracelet = struct
     let clauses, app_ids, cond_ids = split_clauses e in
     { clauses; app_ids; cond_ids }
 
-  (* partial map
-     id |-> block defined by it *)
   let tracelet_map_of_expr e : t Ident_map.t =
     let map = ref Ident_map.empty in
 
@@ -412,9 +452,9 @@ module Tracelet = struct
     let rec loop outer_point e =
       let Expr clauses = e in
       let handle_clause = function
-        | Clause (Var (cid, _), Value_body (Value_function (Function_value (_arg, fbody)))) ->
+        | Clause (Var (cid, _), Value_body (Value_function (Function_value (Var (para, _), fbody)))) ->
           let block = block_of_expr fbody in
-          let source_block = Fun block in
+          let source_block = Fun { para; block } in
           let tracelet = 
             { point = cid ; outer_point; source_block } in
           map := Ident_map.add cid tracelet !map;
@@ -465,7 +505,7 @@ module Tracelet = struct
     let source_block = 
       match tl.source_block with
       | Main b -> Main (cut_block b)
-      | Fun b -> Fun (cut_block b)
+      | Fun b -> Fun { b with block = cut_block b.block }
       | CondSource cond ->
         (* TODO : 
            Noting: cutting can only occur in one block of a cond, therefore
@@ -479,11 +519,37 @@ module Tracelet = struct
     in
     { tl with source_block }
 
-  let search_id x tl_map =
+  let find_by_id x tl_map =
     tl_map
     |> Ident_map.values
     |> Enum.find (fun tl -> List.mem_assoc x @@ (get_block tl).clauses )
+
+  let cut_before_id x tl_map =
+    find_by_id x tl_map
     |> cut_before x
+
+  let update_id_dst id dst0 tl =
+    let add_dst = function
+      | Some dst -> 
+        Some (if List.mem dst0 dst then dst else dst0::dst)
+      | None -> None
+    in
+    update_block 
+      (fun block -> 
+         let app_ids = List.modify_opt id add_dst block.app_ids
+         and cond_ids = List.modify_opt id add_dst block.cond_ids
+         in
+         { block with app_ids; cond_ids }
+      )
+      tl
+
+  let add_id_dst site_x def_x tl_map =
+    log_id site_x;
+    log_id def_x;
+    let tl = find_by_id site_x tl_map in
+    log_id tl.point;
+    let tl' = update_id_dst site_x def_x tl in
+    Ident_map.add tl.point tl' tl_map
 
 end
 
@@ -507,9 +573,31 @@ module Tunnel = struct
 
   exception Invalid_query of string
 
-  let pred_map e cfg pt =
-    let map = ref BatMultiPMap.empty
+  (* ddpa adapter *)
+  let cfg_of e =
+    let open Odefa_ddpa in
+    let conf : (module Ddpa_context_stack.Context_stack) = 
+      (module Ddpa_single_element_stack.Stack) in
+    let module Stack = (val conf) in
+    let module Analysis = Ddpa_analysis.Make(Stack) in
+    e
+    |> Analysis.create_initial_analysis
+    |> Analysis.perform_full_closure
+    |> Analysis.cfg_of_analysis
+
+  (* let map = ref BatMultiPMap.empty
+     map := BatMultiPMap.add id_start id_start !map;
+     !map
+  *)
+
+  let annotate e pt =
+    let map = ref (Tracelet.tracelet_map_of_expr e)
+    and cfg = cfg_of e
     (* and id_first = first_var e *)
+    and ret_to_fun_def_map =
+      make_ret_to_fun_def_mapping e 
+    and para_to_fun_def_map = 
+      make_para_to_fun_def_mapping e
     and acl =
       try
         Unannotated_clause(
@@ -519,46 +607,61 @@ module Tunnel = struct
         raise @@ Invalid_query(
           Printf.sprintf "Variable %s is not defined" (show_ident pt))
     in
-
-    let rec loop acl id_start : unit = 
-      (* let (Unannotated_clause(Abs_clause (Abs_var id, _))) = acl in
-         if id = id_first
+    (* let _assert_number_pred n acl =
+       let def_acls = List.of_enum @@ preds acl cfg in
+       assert (List.length def_acls = n);
+       in
+       let debug_bomb = ref 1000 in *)
+    let rec loop acl id_end0 : unit = 
+      (* log_acl id_end0 acl;
+         debug_bomb := !debug_bomb - 1;
+         (if !debug_bomb = 0 
          then
-         map := Ident_map.add id_start id !map
-         else  *)
-      (* 
-
+         failwith "bomb"
+         else
+         ())
+         ; *)
+      let id_end = ref id_end0
+      and continue = ref true in
+      begin
+        match acl with
+        | Unannotated_clause _
+        | Start_clause _ | End_clause _ ->
+          ()
+        | Binding_exit_clause (Abs_var _para, Abs_var ret_var, Abs_clause(Abs_var site_r, Abs_appl_body _)) -> 
+          (* used in CondBtm FunExit  
+             para is not used in Cond
+             para can also be ignored in Fun since para is a property of a Fun block, defined in the source code
           *)
-      match acl with
-      | Unannotated_clause _
-      | Start_clause _ | End_clause _ ->
-        Enum.iter (fun acl -> loop acl id_start) (preds acl cfg)
-      | Binding_exit_clause (Abs_var __para, Abs_var _ret_var, Abs_clause(_, _site_clause)) -> 
-        (* can be ignored since 
-           exit occurs when it meets a *-site and *-site will be handled later 
-
-           a = f 1
-           <-
-        *)
-        map := BatMultiPMap.add id_start id_start !map;
-        let def_acls = List.of_enum @@ preds acl cfg in
-        assert (List.length def_acls = 1);
-        ()
-      | Nonbinding_enter_clause (_, _)
-      | Binding_enter_clause (_, _, _)
-        ->
+          (* assert_number_pred 1 acl; *)
+          let f_def = Ident_map.find ret_var ret_to_fun_def_map in
+          map := Tracelet.add_id_dst site_r f_def !map;
+          id_end := site_r
+        | Binding_enter_clause (Abs_var para, _, Abs_clause(Abs_var site_r, Abs_appl_body _)) ->
+          if site_r = id_end0
+          then
+            (* non-dangling case *)
+            continue := false
+          else
+            (* dangling case *)
+            let f_def = Ident_map.find para para_to_fun_def_map in
+            map := Tracelet.add_id_dst site_r f_def !map;
+            ()
+        | Nonbinding_enter_clause (_, _) ->
+          ()
+        | Binding_enter_clause (_, _, Abs_clause(Abs_var site_r, _)) ->
+          failwith "???"
+        | Binding_exit_clause (_, _, _) ->
+          failwith "impossible binding exit for other clauses"
+      end;
+      if !continue 
+      then
+        Enum.iter (fun acl -> loop acl !id_end) (preds acl cfg)
+      else
         ()
     in
-
-    (* Enum.iter (fun _ac ->
-         let map' = Ident_map.add pt pt !map in
-         map := map' in
-         )  *)
-
     loop acl pt;
     !map
-
-
 end
 
 

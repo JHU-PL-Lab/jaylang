@@ -73,3 +73,38 @@ f = fun a -> (
 b1 = f id;
 b2 = b1 id
 "
+
+let e6 = parse "
+t = 1;
+f = fun t -> (
+  rf = 1
+);
+g = f;
+a = g t;
+x = 1;
+"
+
+let e7 = parse "
+u = 1;
+z = fun w -> (
+  f = fun t -> (
+    rf = 1
+  );
+  g = f;
+  a = g u;
+  x = 1;
+);
+z2 = z;
+p = z2 u
+"
+
+(* let e8 = parse "
+   a1 = 1;
+   a2 = 2;
+   f = fun t -> (
+   x = 1;
+   rf = t
+   );
+   c1 = f a1;
+   c2 = f a2
+   " *)

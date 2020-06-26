@@ -47,117 +47,6 @@ type lookup_environment = {
   le_hybrid_lookup_table : value Ident_map.t;
 };;
 
-(**
-   Given a program and its corresponding CFG, constructs an appropriate lookup
-   environment.
-*)
-let prepare_environment (e : expr) (cfg : ddpa_graph)
-  : lookup_environment =
-  let rec enum_all_functions_in_expr expr : function_value Enum.t =
-    let Expr(clauses) = expr in
-    Enum.concat @@ Enum.map enum_all_functions_in_clause @@ List.enum clauses
-  and enum_all_functions_in_clause clause : function_value Enum.t =
-    let Clause(_,body) = clause in
-    enum_all_functions_in_body body
-  and enum_all_functions_in_body body : function_value Enum.t =
-    match body with
-    | Value_body v ->
-      enum_all_functions_in_value v
-    | Var_body _
-    | Input_body
-    | Appl_body _
-    | Binary_operation_body (_, _, _) ->
-      Enum.empty ()
-    | Conditional_body (_, e1, e2) ->
-      Enum.append
-        (enum_all_functions_in_expr e1) (enum_all_functions_in_expr e2)
-    | Match_body (_, _)
-    | Projection_body (_, _) ->
-      Enum.empty ()
-  and enum_all_functions_in_value value : function_value Enum.t =
-    match value with
-    | Value_record _ -> Enum.empty ()
-    | Value_function(Function_value(_,e) as f) ->
-      Enum.append (Enum.singleton f) @@ enum_all_functions_in_expr e
-    | Value_int _
-    | Value_bool _ -> Enum.empty ()
-  in
-  let function_parameter_mapping, function_return_mapping =
-    enum_all_functions_in_expr e
-    |> Enum.fold
-      (fun (pm,rm) (Function_value(Var(p,_),Expr(clss)) as f) ->
-         let pm' = Ident_map.add p f pm in
-         let retvar =
-           clss
-           |> List.last
-           |> (fun (Clause(Var(r,_),_)) -> r)
-         in
-         let rm' = Ident_map.add retvar f rm in
-         (pm', rm')
-      )
-      (Ident_map.empty, Ident_map.empty)
-  in
-  let clause_mapping =
-    Ast_tools.flatten e
-    |> List.enum
-    |> Enum.fold
-      (fun map (Clause(Var(x,_),_) as c) ->
-         Ident_map.add x c map
-      )
-      Ident_map.empty
-  in
-  let rec expr_flatten ((Expr clauses) as expr) : expr list =
-    expr ::
-    (clauses
-     |>
-     List.map
-       (fun (Clause(_,b)) ->
-          match b with
-          | Value_body (Value_function(Function_value(_,e))) -> expr_flatten e
-          | Value_body _
-          | Var_body _
-          | Input_body
-          | Appl_body (_, _)
-          | Match_body (_, _)
-          | Projection_body (_, _)
-          | Binary_operation_body (_, _, _) -> []
-          | Conditional_body (_, e1, e2) ->
-            e1 :: e2 :: expr_flatten e1 @ expr_flatten e2
-       )
-     |> List.concat
-    )
-  in
-  let clause_predecessor_mapping =
-    expr_flatten e
-    |> List.enum
-    |> Enum.map
-      (fun (Expr clauses) ->
-         let c1 = List.enum clauses in
-         let c2 = List.enum clauses in
-         Enum.drop 1 c1;
-         Enum.combine (c1,c2)
-         |> Enum.map
-           (fun (Clause(Var(x,_),_),clause) -> (x,clause))
-      )
-    |> Enum.concat
-    |> Ident_map.of_enum
-  in
-  let first_var =
-    e
-    |> (fun (Expr cls) -> cls)
-    |> List.first
-    |> (fun (Clause(Var(x,_),_)) -> x)
-  in
-  { le_cfg = cfg;
-    le_clause_mapping = clause_mapping;
-    le_clause_predecessor_mapping = clause_predecessor_mapping;
-    le_function_parameter_mapping = function_parameter_mapping;
-    le_function_return_mapping = function_return_mapping;
-    le_first_var = first_var;
-    le_hybrid_lookup_table = Hybrid_table.env_table e;
-  }
-;;
-
 (* The type of the symbolic interpreter's cache key.  The arguments are the
    lookup stack, the clause identifying the program point at which lookup is
    proceeding, and the relative call stack at this point.
@@ -559,6 +448,9 @@ struct
             raise @@ Jhupllib.Utils.Not_yet_implemented
               "Non-singleton lookup stack in Binop rule!"
           end;
+          let%bind _ =
+            recurse [env.le_first_var] acl1 relstack
+          in
           return lookup_symbol
         end;
         `FunEnter,
@@ -757,334 +649,113 @@ struct
         false in
     let rule_names = 
       (if is_singleton_stack then
-        [`Discovery; `Input; `Binop; `Projection]
-      else
-        [`Discard]
+         [`Discovery; `Input; `Binop; `Projection]
+       else
+         [`Discard]
       ) @
       (if is_target_var then
-        [`Alias]
-      else
-        [`Skip; `Block;
-         `FunEnter; `FunEnterNonLocal; `FunExit;
-         `CondTop; `CondBtmTrue; `CondBtmFalse]) 
-      in
+         [`Alias]
+       else
+         [`Skip; `Block;
+          `FunEnter; `FunEnterNonLocal; `FunExit;
+          `CondTop; `CondBtmTrue; `CondBtmFalse]) 
+    in
     let rules = List.map (fun name -> List.assoc name rule_computations) rule_names in
-  
+
     let%bind m = pick @@ List.enum rules in m
 
 
   let log_constraints constraints =
     lazy_logger `info (fun () ->
-      Printf.sprintf "phis: %s\n"
-        (Jhupllib.Pp_utils.pp_to_string
-            (Jhupllib.Pp_utils.pp_list Constraint.pp) constraints)
-    )
+        Printf.sprintf "phis: %s\n"
+          (Jhupllib.Pp_utils.pp_to_string
+             (Jhupllib.Pp_utils.pp_list Constraint.pp) constraints)
+      )
 
   let log_appl1 callsite_c = 
     lazy_logger `info (fun () ->
-            Printf.sprintf "\n-> appl goal\napp: %s\n"
-              (Jhupllib.Pp_utils.pp_to_string
-                        pp_brief_annotated_clause callsite_c))
+        Printf.sprintf "\n-> appl goal\napp: %s\n"
+          (Jhupllib.Pp_utils.pp_to_string
+             pp_brief_annotated_clause callsite_c))
 
   let log_appl2 appl_c = 
     lazy_logger `info (fun () ->
-            Printf.sprintf "\n~~ appl goal\narg: %s\n"
-              (Jhupllib.Pp_utils.pp_to_string
-                        pp_brief_annotated_clause appl_c))
+        Printf.sprintf "\n~~ appl goal\narg: %s\n"
+          (Jhupllib.Pp_utils.pp_to_string
+             pp_brief_annotated_clause appl_c))
 
   let log_appl3 callsite_c = 
     lazy_logger `info (fun () ->
-            Printf.sprintf "\n<- appl goal\napp: %s\n"
-              (Jhupllib.Pp_utils.pp_to_string
-                        pp_brief_annotated_clause callsite_c))
+        Printf.sprintf "\n<- appl goal\napp: %s\n"
+          (Jhupllib.Pp_utils.pp_to_string
+             pp_brief_annotated_clause callsite_c))
 
   let log_cond1 clause =
     lazy_logger `info (fun () ->
-      Printf.sprintf "\n-> cond goal\n%s\n"
-        (Jhupllib.Pp_utils.pp_to_string
-                  pp_brief_annotated_clause clause))
+        Printf.sprintf "\n-> cond goal\n%s\n"
+          (Jhupllib.Pp_utils.pp_to_string
+             pp_brief_annotated_clause clause))
 
   let log_cond2 clause =
     lazy_logger `info (fun () ->
-      Printf.sprintf "\n~~ cond goal\n%s\n"
-        (Jhupllib.Pp_utils.pp_to_string
-                  pp_brief_annotated_clause clause))
+        Printf.sprintf "\n~~ cond goal\n%s\n"
+          (Jhupllib.Pp_utils.pp_to_string
+             pp_brief_annotated_clause clause))
 
   let log_cond3 clause =
     lazy_logger `info (fun () ->
-      Printf.sprintf "\n<- cond goal\n%s\n"
-        (Jhupllib.Pp_utils.pp_to_string
-                  pp_brief_annotated_clause clause))
+        Printf.sprintf "\n<- cond goal\n%s\n"
+          (Jhupllib.Pp_utils.pp_to_string
+             pp_brief_annotated_clause clause))
 
   type evaluation = Evaluation of unit M.evaluation
 
   let _lookup = lookup;;
 
-  (* type decisions = Fake_d of Relative_stack.t *)
-
-  type search_result = {
-    result_sym : symbol;
-    constraints : Constraint.t list;
-    relstack : Relative_stack.t;
-    (* dynamic scoping *)
-    env: symbol Ident_map.t;
-  }
-
-  module Relstack = struct
-    let empty_relstk = Relative_stack.empty
-
-    open Relative_stack
-
-    let is_stack_empty (Relative_stack(_co_stk, stk)) = 
-      List.is_empty stk
-
-    let push (Relative_stack(co_stk, stk)) x : t =
-      Relative_stack(co_stk, x :: stk)
-
-    let co_pop (Relative_stack(co_stk, stk)) x : t =
-      match stk with
-      | x'::stk' ->
-        if equal_ident x x' then
-          Relative_stack(co_stk, stk')
-        else
-          failwith "dismatch"
-      | [] ->
-        Relative_stack(x :: co_stk, stk)
-  end
+  open Mega_step
   open Relstack
+  open Ast_helper
 
-  (* let lift_stack_in_symbol ?(is_strict=false) stk = function
-    | Symbol(x, _) -> Symbol(x, stk)
-    | SpecialSymbol t -> 
-      if is_strict then 
-        failwith "SpecialSymbol"
-      else
-        SpecialSymbol t *)
-
-  let lift_use_symbol f phi =
-    let open Constraint in 
-    match phi with
-    | Constraint_value(s, v) -> Constraint_value(s, v)
-    | Constraint_alias(s1, s2) -> Constraint_alias(s1, f s2)
-    | Constraint_binop(s1, s2, op, s3) -> Constraint_binop(s1, f s2, op, f s3)
-    | Constraint_projection(s1, s2, id) -> Constraint_projection(s1, f s2, id)
-    | Constraint_type(s, t) -> failwith "not here"
-    | Constraint_stack(cstk) -> Constraint_stack(cstk)
-
-  let lift_constraints_env env phis =
-    let update_use_symbol = function
-      | Symbol(x, stk) -> (
-        match Ident_map.Exceptionless.find x env with
-        | Some s' -> s'
-        | None -> Symbol(x, stk)
-      )
-      | SpecialSymbol t -> SpecialSymbol t
-      in
-    List.map (lift_use_symbol update_use_symbol) phis
-
-  (* let lift_stack stk result = 
-    let new_sym = lift_stack_in_symbol stk result.result_sym in
-    {
-      result_sym = new_sym;
-      result_clause = result.result_clause;
-      constraints = lift_stack_in_constraints (lift_stack_in_symbol stk) result.constraints;
-    } *)
-  
-  (* let lift_constraints cond_constraints rs =
-    List.map (fun r -> { r with constraints = 
-      r.constraints @ cond_constraints}) rs *)
-
-  let join_results ?(left_stack=false) main_rs sub_rs = 
-    List.cartesian_product main_rs sub_rs
-    |> List.map (fun (main_r, sub_r) -> 
-      let sub_phis = sub_r.constraints
-      and main_env = main_r.env in
-      let sub_phis' = lift_constraints_env main_env sub_phis in
-      {main_r with
-        constraints = main_r.constraints @ sub_phis'})
-
-  let get_value x (env : lookup_environment) =
-    match x with 
-    | Symbol(x_id, _) -> (
-      match Ident_map.find x_id env.le_clause_mapping with
-      | Clause(_, Value_body(v)) -> v
-      | _ -> failwith "get_value"
-    )
-    | _ -> failwith "special symbol"
-    
-  let constraint_of_value x (env : lookup_environment) =
-    let rhs = match get_value x env with
-    | Value_function f -> Constraint.Function f
-    | Value_int n -> Constraint.Int n
-    | Value_bool b -> Constraint.Bool b
-    | Value_record(Record_value _m) -> failwith "record"
+  (**
+     Given a program and its corresponding CFG, constructs an appropriate lookup
+     environment.
+  *)
+  let prepare_environment (e : expr) (cfg : ddpa_graph)
+    : lookup_environment =
+    let function_parameter_mapping, function_return_mapping, _ =
+      make_function_mapping e 
     in
-    Constraint.Constraint_value(x, rhs)
 
-  let constraint_of_stack stk =
-    Constraint.Constraint_stack(Relative_stack.stackize stk)
-
-  let constraint_of_input x =
-    Constraint.Constraint_binop(
-      SpecialSymbol SSymTrue, x, Binary_operator_equal_to, x)
-
-  let constraint_of_alias x y =
-    Constraint.Constraint_alias(x, y)
-
-  let constraint_of_funexit x_accept x_return stk =
-    let sym_return = Symbol(x_return, stk) in
-    let stk' = co_pop stk x_accept in
-    let sym_accept = Symbol(x_accept, stk') in
-    constraint_of_alias sym_accept sym_return
-
-  let constraint_of_funenter para arg callsite stk =
-    let sym_para = Symbol(para, stk) in
-    let stk' = co_pop stk callsite in
-    let sym_arg =  Symbol(arg, stk') in
-    constraint_of_alias sym_para sym_arg
-
-  let constraint_of_bool x (b : bool) =
-    Constraint.Constraint_value(x, Constraint.Bool b)
-
-  let constraint_of_clause_with_cfg cfg =       
-    fun ?(is_demo=false) clause stk env -> 
-      let first_var_constraint x = 
-        if equal_ident x cfg.le_first_var then
-          [constraint_of_stack stk]
-        else
-          []
-        in
-
-      let def_sym x = Symbol(x, stk)
-      and use_sym x = 
-        if is_demo then
-          Symbol(x, stk)
-        else
-          Ident_map.find x env in
-      match clause with
-      (* Input : x == input *)
-      | Unannotated_clause(Abs_clause(Abs_var x, Abs_input_body)) -> 
-        (first_var_constraint x) @ [constraint_of_input (def_sym x)]
-      (* Alias : x == x' *)
-      | Unannotated_clause(Abs_clause(Abs_var x, Abs_var_body(Abs_var x'))) -> 
-        [constraint_of_alias (def_sym x) (use_sym x')]
-      (* Binop : x = x' op x'' *)
-      | Unannotated_clause(Abs_clause(Abs_var x, Abs_binary_operation_body(Abs_var x', op, Abs_var x''))) ->
-        [Constraint.Constraint_binop((def_sym x), (use_sym x'), op, (use_sym x''))]
-      (* Discard / Discovery *)
-      | Unannotated_clause(Abs_clause(Abs_var x, Abs_value_body _)) ->
-        (first_var_constraint x) @ [constraint_of_value (def_sym x) cfg]
-      (* Callsite . ignored . *)
-      | Unannotated_clause(Abs_clause(Abs_var x, Abs_appl_body _)) ->
-        []
-      (* Cond_site . ignored . *)
-      | Unannotated_clause(Abs_clause(Abs_var x, Abs_conditional_body (Abs_var x1, _e_then, _e_else))) ->
-        []
-      (* CondTop *)
-      | Nonbinding_enter_clause(Abs_value_bool b, Abs_clause(_, Abs_conditional_body(Abs_var x1, _e_then, _e_else))) ->
-        (* record b *)
-        (* ignore @@ failwith "where"; *)
-        [constraint_of_bool (def_sym x1) b]
-      (* CondBtmTrue / CondBtmFalse *)
-      | Binding_exit_clause(Abs_var outer_var, Abs_var ret_var, Abs_clause(_, Abs_conditional_body(Abs_var x1, e_then, e_else))) ->
-        let Abs_var x1ret = retv e_then
-        and Abs_var x2ret = retv e_else in
-        if equal_ident ret_var x1ret then
-          [constraint_of_bool (def_sym x1) true ; (constraint_of_alias (def_sym outer_var) (def_sym x1ret))]
-        else if equal_ident ret_var x2ret then
-          [constraint_of_bool (def_sym x1) false; (constraint_of_alias (def_sym outer_var) (def_sym x2ret))]
-        else
-          assert false
-      (* FunEnter / FunEnterNonLocal *)
-      (* 
-        f = fun para -> ( 
-          r = 3
-        );
-        arg = 1;
-        er = f arg;
-      *)
-      (* 
-        if equal_ident para x_target then
-          (* FunEnter *)
-          (* xf (for constraits) *)
-          (* relstack pop *)
-          arg
-        else
-          (* FunEnterNonLocal : *)
-          (* c <- xf *)
-          x_target
-      *)
-      | Binding_enter_clause(Abs_var para, Abs_var arg, Abs_clause(Abs_var er, Abs_appl_body(Abs_var e1, Abs_var e2))) ->
-        [constraint_of_funenter para arg er stk]
-        (* if equal_ident para x_target then
-          (* FunEnter *)
-          (* xf (for constraits) *)
-          (* relstack pop *)
-          []
-        else
-          (* FunEnterNonLocal : *)
-          (* c <- xf *)
-          [] *)
-      (* FunExit *)
-      | Binding_exit_clause(Abs_var _para, Abs_var ret_var, Abs_clause(Abs_var er, Abs_appl_body(Abs_var _xf, _))) ->
-        [constraint_of_funexit er ret_var stk]
-      | Start_clause _ | End_clause _ ->
-        []
-      | _ ->
-        failwith "else in constraint"
-
-  let heading_var_of_clause = function
-  | Unannotated_clause(Abs_clause(Abs_var x, _)) -> Some x
-  | Nonbinding_enter_clause(_, Abs_clause(Abs_var x, Abs_conditional_body(_, _, _))) -> Some x
-  | Binding_enter_clause(_, _, Abs_clause(Abs_var x, Abs_appl_body(Abs_var _, _))) -> Some x
-  | _ -> None
-
-  let heading_var_of_clause_exn clause = 
-    match heading_var_of_clause clause with
-    | Some x -> x
-    | None -> failwith "must have a var"
-
-  let has_condition_clause clauses =
-    List.exists (function 
-      (* main condition exp *)
-      | Unannotated_clause(Abs_clause(Abs_var _, Abs_conditional_body _)) -> true
-      | _ -> false
-    ) clauses
-
-  let has_application_clause clauses =
-    List.exists (function 
-      (* callsite exp *)
-      | Unannotated_clause(Abs_clause(Abs_var _, Abs_appl_body _)) -> true
-      | _ -> false
-    ) clauses
-
-  let all_fun_start_clauses clauses =
-    (* FunTop exp *)
-    List.for_all (function
-      | Binding_enter_clause(Abs_var _, Abs_var _, _) -> true
-      | _ -> false
-    ) clauses
+    { le_cfg = cfg;
+      le_clause_mapping = clause_mapping e;
+      le_clause_predecessor_mapping = clause_predecessor_mapping e;
+      le_function_parameter_mapping = function_parameter_mapping;
+      le_function_return_mapping = function_return_mapping;
+      le_first_var = first_var e;
+      le_hybrid_lookup_table = Hybrid_table.env_table e;
+    }
+  ;;
 
   let log_search x phis clause clauses relstack =
     let (Relative_stack.Relative_stack(_co_stk, stk)) = relstack in
 
     lazy_logger `info (fun () ->
-      Printf.sprintf "\n?: %s\nphi: %s\nedge: %s\nprevs: %s\nstack:%s"
-      (* prev: %s\n *)
-        (Jhupllib.Pp_utils.pp_to_string
-          pp_ident x)
-        (Jhupllib.Pp_utils.pp_to_string
-            (Jhupllib.Pp_utils.pp_list Constraint.pp) phis)
-        (Jhupllib.Pp_utils.pp_to_string
-                  pp_brief_annotated_clause clause)
-        (Jhupllib.Pp_utils.pp_to_string
-                (Jhupllib.Pp_utils.pp_list pp_brief_annotated_clause) clauses)
-        (Jhupllib.Pp_utils.pp_to_string
-                (Jhupllib.Pp_utils.pp_list pp_ident) stk)
-        )
+        Printf.sprintf "\n?: %s\nphi: %s\nedge: %s\nprevs: %s\nstack:%s"
+          (* prev: %s\n *)
+          (Jhupllib.Pp_utils.pp_to_string
+             pp_ident x)
+          (Jhupllib.Pp_utils.pp_to_string
+             (Jhupllib.Pp_utils.pp_list Constraint.pp) phis)
+          (Jhupllib.Pp_utils.pp_to_string
+             pp_brief_annotated_clause clause)
+          (Jhupllib.Pp_utils.pp_to_string
+             (Jhupllib.Pp_utils.pp_list pp_brief_annotated_clause) clauses)
+          (Jhupllib.Pp_utils.pp_to_string
+             (Jhupllib.Pp_utils.pp_list pp_ident) stk)
+      )
 
   let merge cfg clause pre_r =
-    let constraint_of_clause = constraint_of_clause_with_cfg cfg in
+    let constraint_of_clause = constraint_of_clause cfg.le_clause_mapping cfg.le_first_var in
     let phis = constraint_of_clause ~is_demo:true clause pre_r.relstack pre_r.env in
     let phis' = phis @ pre_r.constraints in
     let env' = 
@@ -1100,71 +771,6 @@ struct
       relstack = pre_r.relstack;
       env = env'}
 
-  module Memoized = struct
-    (* what is the key to the step?
-      for a full block, we could use End(x) or Start(x).
-      for a partial block (when returning from another block), the returning point is where 
-      we should use as a key.
-      ```
-        f = fun x -> ...target...
-        a = 1
-        t1 = f a
-        t2 = f a
-      ```
-
-      Admitted that
-      1. starting from cfg rather than ddpa_cfg may be better
-      2. there may be duplication e.g. `a=1`
-     *)
-
-    type mega_step = {
-      (* x = a *)
-      plain : Constraint.t list;
-      (* x = e1 e2 *)
-      cond_indirect : Ident.t list;
-      (* x = c ? e1 : e2 *)
-      fun_indirect : Ident.t list;
-      (* dangling CondTop/FunEnter *)
-      continue_indirect : Ident.t list;
-    }
-
-    (* a placeholder value which will be set immediately *)
-    let empty_id = Ident("_")
-
-    let empty_step_info = {
-      plain = [];
-      cond_indirect = [];
-      fun_indirect = [];
-      continue_indirect = [];
-    }
-
-    (* 
-    It's actually a new cfg with meta steps
-    Node: program point
-    - plain is the value in the Node
-    Edge: possible search move
-    - Cond_indirect: 
-    - Fun_indirect:
-    - Continue_inriect: 
-
-    Noting we can have soundness even with meta step.
-    ```
-      x = 1
-      y = +inf
-      target = x
-    ```
-    we will have sth like [x[]=1;target[]=x[]; y->Indirect].
-    Unless we can expand y to values without Indirect, we won't finish the constraint generation.
-     *)
-
-
-    (* 
-      key: start from this program point
-      value: immediate phis and other phis 
-      The whole map works as a mega_step for search.
-      *)
-    type meta_step_map = mega_step Ident_map.t
-  end
   open Memoized
 
   let naive_constraint_of_clause cfg clause =
@@ -1177,7 +783,7 @@ struct
     | Unannotated_clause(Abs_clause(Abs_var x, Abs_binary_operation_body(Abs_var x', op, Abs_var x''))) ->
       [(Constraint.Constraint_binop((symi x), (symi x'), op, (symi x'')))]
     | Unannotated_clause(Abs_clause(Abs_var x, Abs_value_body _)) ->
-      [(constraint_of_value (symi x) cfg)]
+      [(constraint_of_value (symi x) cfg.le_clause_mapping)]
     | Nonbinding_enter_clause(Abs_value_bool b, Abs_clause(_, Abs_conditional_body(Abs_var x1, _e_then, _e_else))) ->
       [(constraint_of_bool (symi x1) b)]
     | Binding_exit_clause(Abs_var outer_var, Abs_var ret_var, Abs_clause(_, Abs_conditional_body(Abs_var x1, e_then, e_else))) ->
@@ -1205,77 +811,77 @@ struct
       failwith "else in constraint"
 
   (* impure function to make a hybrid map to remember direct constraints and indirect ones
-   *)
+  *)
   let make_hybrid_map cfg x_target clause : meta_step_map =
     let hybrid_map = ref Ident_map.empty in
     let rec backtrace hybrid_map x_target clause step_key step_acc =
       (* Step 1 - check for duplicate search
-        if step_key is searched, or if we find a circle dependency
-        however, circlar dependency can be checked when initializing a search
-       *)
+         if step_key is searched, or if we find a circle dependency
+         however, circlar dependency can be checked when initializing a search
+      *)
       match Ident_map.Exceptionless.find step_key (!hybrid_map) with
       | Some _ -> (
-        assert (not (equal_ident x_target cfg.le_first_var));
-        ()
-      )
+          assert (not (equal_ident x_target cfg.le_first_var));
+          ()
+        )
       (* Step 2 - new search
-        check if found target.
-        
-        For un-dangling cases
-        x_target would be a call-site, a cond-site, or first_var
-        Coresponding, heading_var can be FunEnter, CondTop, or other normal clause
-        In any case, when `is_found_target` is true and the search ends.
+         check if found target.
 
-        For dangling cases
-        x_target is first_var but we can never found.
-        Noting dangling by nature means it's now in a 
-       *)
+         For un-dangling cases
+         x_target would be a call-site, a cond-site, or first_var
+         Coresponding, heading_var can be FunEnter, CondTop, or other normal clause
+         In any case, when `is_found_target` is true and the search ends.
+
+         For dangling cases
+         x_target is first_var but we can never found.
+         Noting dangling by nature means it's now in a 
+      *)
       | None -> begin
-        let is_found_target =
-          match heading_var_of_clause clause with
-          | Some x_heading -> equal_ident x_heading x_target
-          | None -> false
+          let is_found_target =
+            match heading_var_of_clause clause with
+            | Some x_heading -> equal_ident x_heading x_target
+            | None -> false
           in
-        let phi = naive_constraint_of_clause cfg clause in
-        if is_found_target then
-          let x_heading = heading_var_of_clause_exn clause in
-          let all_phis = {step_acc with plain = phi @ step_acc.plain} in
-          (hybrid_map := Ident_map.add x_heading all_phis !hybrid_map)
-        else
-        (* Step 3 - backtracing
-          When in intermediate states, it remember the initial key as `step_key` and 
-          the accumulated info in `step_acc`
-          The search is tail-recursion since the map can only be updated when found
-         *)
-          let pre_clauses = List.of_enum @@ preds clause cfg.le_cfg in 
-          if List.is_empty pre_clauses then
-            failwith "must have pre_clauses"
-
-          (* We need combined condition on current clause and the shape of previous clauses
-            However, the current clause is more determining 
-           *)
+          let phi = naive_constraint_of_clause cfg clause in
+          if is_found_target then
+            let x_heading = heading_var_of_clause_exn clause in
+            let all_phis = {step_acc with plain = phi @ step_acc.plain} in
+            (hybrid_map := Ident_map.add x_heading all_phis !hybrid_map)
           else
+            (* Step 3 - backtracing
+               When in intermediate states, it remember the initial key as `step_key` and 
+               the accumulated info in `step_acc`
+               The search is tail-recursion since the map can only be updated when found
+            *)
+            let pre_clauses = List.of_enum @@ preds clause cfg.le_cfg in 
+            if List.is_empty pre_clauses then
+              failwith "must have pre_clauses"
+
+            (* We need combined condition on current clause and the shape of previous clauses
+               However, the current clause is more determining 
+            *)
+            else
             if List.length pre_clauses = 1 then
               let pre_clause = List.hd pre_clauses in
-                match clause with
-                (* normal cases: accumulate phis and backtrace *)
-                | Unannotated_clause(Abs_clause(_, _))
-                | Start_clause _
-                | End_clause _ ->
-                  backtrace hybrid_map x_target pre_clause step_key {step_acc with plain = phi @ step_acc.plain}
+              match clause with
+              (* normal cases: accumulate phis and backtrace *)
+              | Unannotated_clause(Abs_clause(_, _))
+              | Start_clause _
+              | End_clause _ ->
+                backtrace hybrid_map x_target pre_clause step_key {step_acc with plain = phi @ step_acc.plain}
 
-                (* or dangling CondTop *)
-                | Nonbinding_enter_clause(Abs_value_bool _, Abs_clause(_, Abs_conditional_body(_, _, _)))
-                (* or dangling FunTop *)
-                | Binding_enter_clause(Abs_var _, Abs_var _, Abs_clause(_, Abs_appl_body(_, _))) ->
-                  backtrace hybrid_map x_target pre_clause step_key {step_acc with plain = phi @ step_acc.plain}
-                | _ ->
-                  failwith "missed clauses"
-          else
-            let pre_clause = List.hd pre_clauses in
+              (* or dangling CondTop *)
+              | Nonbinding_enter_clause(Abs_value_bool _, Abs_clause(_, Abs_conditional_body(_, _, _)))
+              (* or dangling FunTop *)
+              | Binding_enter_clause(Abs_var _, Abs_var _, Abs_clause(_, Abs_appl_body(_, _))) ->
+                backtrace hybrid_map x_target pre_clause step_key {step_acc with plain = phi @ step_acc.plain}
+              | _ ->
+                failwith "missed clauses"
+            else
+              let pre_clause = List.hd pre_clauses in
               backtrace hybrid_map x_target pre_clause step_key {step_acc with plain = phi @ step_acc.plain}
-      end
-      in
+        end
+    in
     hybrid_map := Ident_map.empty;
     (* a placeholder to prevent recursive dependency *)
     hybrid_map := Ident_map.add empty_id empty_step_info !hybrid_map;
@@ -1290,35 +896,35 @@ struct
       (relstack : Relative_stack.t)
     : search_result list =
     (* helper functions *)
-    let constraint_of_clause = constraint_of_clause_with_cfg cfg in
+    let constraint_of_clause = constraint_of_clause cfg.le_clause_mapping cfg.le_first_var in
     let dangling_funtop_search funenter_c =
       let callsite = 
         match funenter_c with
         | Binding_enter_clause(Abs_var para, Abs_var arg, Abs_clause(Abs_var xr, Abs_appl_body(Abs_var xf, Abs_var xa))) ->
           xr
         | _ -> failwith "must be fun_enter"
-        in
+      in
       let pre_cs = List.of_enum @@ preds funenter_c cfg.le_cfg in
       (if List.length pre_cs > 1 then
-        failwith "have more than one pre_c"
-      else if List.length pre_cs = 0 then
-        failwith "have zero pre_c"
-      else 
-        ());
+         failwith "have more than one pre_c"
+       else if List.length pre_cs = 0 then
+         failwith "have zero pre_c"
+       else 
+         ());
       let pre_c = List.hd pre_cs in
       let pre_r = search cfg x_target pre_c relstack in
       List.map (fun r -> {
-        r with relstack = push r.relstack callsite
-      }) pre_r
-      in
-      
+            r with relstack = push r.relstack callsite
+          }) pre_r
+    in
+
     let funtop_search funenter_cs =
       (* TODO: circular detection for even indirect *)
       if is_stack_empty relstack then
         List.concat @@ List.map dangling_funtop_search funenter_cs
       else
         failwith "funtop: relstack not empty"
-      in
+    in
 
     (* Step 0 - Log the current frame *)
     let pre_clauses = List.of_enum @@ preds clause cfg.le_cfg in 
@@ -1361,7 +967,7 @@ struct
       match heading_var_of_clause clause with
       | Some x_heading -> equal_ident x_heading x_target
       | None -> false
-      in
+    in
 
     if is_found_target then
       let x_heading = heading_var_of_clause_exn clause in
@@ -1376,14 +982,14 @@ struct
       } in
       [result]
     else
-    begin
-      (* Step 2 - Recursive case, search for the previous clauses *)
-      let previous_results = 
-        if List.is_empty pre_clauses then
-          failwith "must have pre_clauses"
-        else if List.length pre_clauses = 1 then
-          let pre_clause = List.hd pre_clauses in
-          match clause with
+      begin
+        (* Step 2 - Recursive case, search for the previous clauses *)
+        let previous_results = 
+          if List.is_empty pre_clauses then
+            failwith "must have pre_clauses"
+          else if List.length pre_clauses = 1 then
+            let pre_clause = List.hd pre_clauses in
+            match clause with
             (* we check targe before but it doesn't match, so we directly search for pre_cluase *)
             | Unannotated_clause(Abs_clause(_, Abs_input_body))
             | Unannotated_clause(Abs_clause(_, Abs_var_body(Abs_var _)))
@@ -1412,43 +1018,43 @@ struct
               search cfg xr pre_clause relstk'
             | _ ->
               failwith "missed clauses"
-        (* cond-site *)
-        else if has_condition_clause pre_clauses then
-          match pre_clauses with
-          | cond_c :: then_c :: else_c :: [] ->
-            log_cond1 clause;
-            let then_results = search cfg x_target then_c relstack
-            and else_results = search cfg x_target else_c relstack in
-            log_cond2 clause;
-            let cond_results = search cfg x_target cond_c relstack in
-            log_cond3 clause;
-            join_results cond_results (then_results @ else_results)
-          | _ -> failwith "wrong conds"
-        (* call-site *)
-        else if has_application_clause pre_clauses then
-          match pre_clauses with
-          | callsite_c :: appl_cs ->
-            let appl_c = List.hd appl_cs in
-            log_appl1 callsite_c;
-            let fstart = search cfg x_target appl_c relstack in
-            log_appl2 appl_c;
-            let callsite_r = search cfg x_target callsite_c relstack in
-            log_appl3 callsite_c;
-            join_results callsite_r fstart
-          | _ -> failwith "wrong conds"
-        (* dangling funenter for callsite *)
-        else if all_fun_start_clauses pre_clauses then
-          (* this clause is Start(xr) *)
-          funtop_search pre_clauses
-        else
-          failwith "unmatched preclause"
-        (* let final_result = lift_constraints phis previous_results in
-        List.iter (fun r -> log_constraints r.constraints) final_result;
-        final_result *)
-      in
-      (* Step 3 - Merge previous results and this constraits from this clause *)
+              (* cond-site *)
+          else if has_condition_clause pre_clauses then
+            match pre_clauses with
+            | cond_c :: then_c :: else_c :: [] ->
+              log_cond1 clause;
+              let then_results = search cfg x_target then_c relstack
+              and else_results = search cfg x_target else_c relstack in
+              log_cond2 clause;
+              let cond_results = search cfg x_target cond_c relstack in
+              log_cond3 clause;
+              join_results cond_results (then_results @ else_results)
+            | _ -> failwith "wrong conds"
+            (* call-site *)
+          else if has_application_clause pre_clauses then
+            match pre_clauses with
+            | callsite_c :: appl_cs ->
+              let appl_c = List.hd appl_cs in
+              log_appl1 callsite_c;
+              let fstart = search cfg x_target appl_c relstack in
+              log_appl2 appl_c;
+              let callsite_r = search cfg x_target callsite_c relstack in
+              log_appl3 callsite_c;
+              join_results callsite_r fstart
+            | _ -> failwith "wrong conds"
+            (* dangling funenter for callsite *)
+          else if all_fun_start_clauses pre_clauses then
+            (* this clause is Start(xr) *)
+            funtop_search pre_clauses
+          else
+            failwith "unmatched preclause"
+            (* let final_result = lift_constraints phis previous_results in
+               List.iter (fun r -> log_constraints r.constraints) final_result;
+               final_result *)
+        in
+        (* Step 3 - Merge previous results and this constraits from this clause *)
         List.map (merge cfg clause) previous_results
-    end
+      end
 
   let start (cfg : ddpa_graph) (e : expr) (program_point : ident) : evaluation =
     let open M in
@@ -1456,9 +1062,9 @@ struct
       match phis with
       | [] -> return ()
       | p :: ps -> (
-        let%bind () = record_constraint p in
-        record_constaints ps
-      ) in
+          let%bind () = record_constraint p in
+          record_constaints ps
+        ) in
     let env = prepare_environment e cfg in
     let initial_lookup_var = env.le_first_var in
     let acl =

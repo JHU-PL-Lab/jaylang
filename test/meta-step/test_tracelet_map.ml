@@ -50,7 +50,7 @@ let check_ids map x expects =
 
 
 let check_partial map x expects =
-  let tracelet = search_id (Ident x) map in
+  let tracelet = cut_before_id (Ident x) map in
   check_tracelet tracelet expects
 
 let m1 = tracelet_map_of_expr e1

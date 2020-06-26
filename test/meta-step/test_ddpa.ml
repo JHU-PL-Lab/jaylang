@@ -3,34 +3,48 @@ open Batteries
 open Odefa_ast
 open Ast
 
-open Odefa_ddpa
 open Odefa_symbolic_interpreter.Mega_step
-(* open Tracelet *)
-open Tunnel
+open Tracelet
 
 open Program_samples
 
-let conf : (module Ddpa_context_stack.Context_stack) = 
-  (module Ddpa_single_element_stack.Stack)
+let print_info def_id_info = 
+  let entries = 
+    List.map (fun (id, dsts) -> 
+        let dst_s = String.concat ", " dsts in
+        id ^ ": " ^ dst_s)
+      def_id_info in
+  print_endline @@ String.concat "\n" entries
 
-let cfg_of e =
-  let module Stack = (val conf) in
-  let module Analysis = Ddpa_analysis.Make(Stack) in
-  e
-  |> Analysis.create_initial_analysis
-  |> Analysis.perform_full_closure
-  |> Analysis.cfg_of_analysis
+let eq_id_def def1 def2 =
+  List.for_all
+    (fun (id, dst1) -> 
+       match List.assoc_opt id def2 with
+       | Some dst2 -> List.for_all (fun dst -> List.mem dst dst2) dst1
+       | None -> List.is_empty dst1
+    )
+    def1
 
-let e1 = parse "
-b = fun t -> (
-  a = 1
-);
-t = 1
-"
+let debug_print_info tl_name map expected =
+  let id_dst = 
+    Ident_map.find (Ident tl_name) map
+    |> debug_def_ids_of
+  in 
+  print_info id_dst;
+  assert (eq_id_def id_dst expected)
 
-let g1 = cfg_of e1
+let m6 = Tunnel.annotate e6 (Ident "x")
+;;
+debug_print_info name_main m6 [("a", ["f"])];;
 
-let map1 = pred_map e1 g1 (Ident "t")
+let m7 = Tunnel.annotate e7 (Ident "x")
+;;
+debug_print_info name_main m7 [("p", ["z"])];;
+debug_print_info "z" m7 [("a", ["f"])];;
+
+(* let m8 = Tunnel.annotate e8 (Ident "rf") *)
+
+(* let map1 = pred_map e1 g1 (Ident "t") *)
 
 (* inner variant
    a `block` is for a single block
