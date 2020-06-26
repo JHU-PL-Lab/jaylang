@@ -33,16 +33,16 @@ let debug_print_info tl_name map expected =
   print_info id_dst;
   assert (eq_id_def id_dst expected)
 
-let m6 = Tunnel.annotate e6 (Ident "x")
-;;
-debug_print_info name_main m6 [("a", ["f"])];;
+(* let m6 = Tunnel.annotate e6 (Ident "x")
+   ;;
+   debug_print_info name_main m6 [("a", ["f"])];;
 
-let m7 = Tunnel.annotate e7 (Ident "x")
-;;
-debug_print_info name_main m7 [("p", ["z"])];;
-debug_print_info "z" m7 [("a", ["f"])];;
+   let m7 = Tunnel.annotate e7 (Ident "x")
+   ;;
+   debug_print_info name_main m7 [("p", ["z"])];;
+   debug_print_info "z" m7 [("a", ["f"])];; *)
 
-(* let m8 = Tunnel.annotate e8 (Ident "rf") *)
+let m8 = Tunnel.annotate e8 (Ident "rf")
 
 (* let map1 = pred_map e1 g1 (Ident "t") *)
 
