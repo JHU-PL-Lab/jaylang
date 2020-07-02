@@ -340,11 +340,6 @@ module Tunnel = struct
     |> Analysis.perform_full_closure
     |> Analysis.cfg_of_analysis
 
-  (* let map = ref BatMultiPMap.empty
-     map := BatMultiPMap.add id_start id_start !map;
-     !map
-  *)
-
   (* annotate tracelet from the ddpa cfg.
      for call-site `s = e1 e2`, annotate e1 with the real function def_var
      for cond-site `s = c ? e1 : e2`, replace s with 
@@ -368,53 +363,82 @@ module Tunnel = struct
         raise @@ Invalid_query(
           Printf.sprintf "Variable %s is not defined" (show_ident pt))
     in
+
     (* let debug_bomb = ref 20 in *)
+
+    (* let circleless_map = ref BatMultiPMap.empty in *)
+    let visited = ref Annotated_clause_set.empty in
+    (* map := BatMultiPMap.add id_start id_start !map;
+       !map *)
+
     let rec loop acl dangling : unit = 
-      let prev_acls = List.of_enum @@ preds acl cfg in
-      log_acl acl prev_acls;
-
-      (* process logic *)
-
-
-      (* step logic *)
-      let continue = ref true
-      and block_dangling = ref dangling in
-      begin
-        match acl with
-        | Unannotated_clause _
-        | Start_clause _ | End_clause _ ->
-          ()
-        (* into fbody *)
-        | Binding_exit_clause (Abs_var _para, Abs_var ret_var, Abs_clause(Abs_var site_r, Abs_appl_body _)) -> 
-          (* para can also be ignored in Fun since para is a property of a Fun block, defined in the source code
-          *)
-          let f_def = Ident_map.find ret_var ret_to_fun_def_map in
-          map := Tracelet.add_id_dst site_r f_def !map;
-          block_dangling := false
-        (* out of fbody *)
-        | Binding_enter_clause (Abs_var para, _, Abs_clause(Abs_var site_r, Abs_appl_body _)) ->
-          let f_def = Ident_map.find para para_to_fun_def_map in
-          map := Tracelet.add_id_dst site_r f_def !map;
-          continue := dangling
-        (* into cond-body *)
-        | Binding_exit_clause (_, Abs_var ret_var, Abs_clause(Abs_var site_r, Abs_conditional_body _)) -> 
-          block_dangling := false
-        (* out of cond-body *)
-        | Nonbinding_enter_clause (Abs_value_bool cond, 
-                                   Abs_clause(Abs_var site_r, Abs_conditional_body(Abs_var x1, _e_then, _e_else))) ->
-          continue := dangling
-        | Binding_exit_clause (_, _, _) ->
-          failwith "impossible binding exit for non-sites"
-        | Binding_enter_clause (_, _, _) ->
-          failwith "impossible binding enter for non callsites"
-        | Nonbinding_enter_clause (_, _) ->
-          failwith "impossible non-binding enter for non condsites"
-      end;
-      if !continue
-      then
-        Enum.iter (fun acl -> loop acl !block_dangling) (preds acl cfg)
+      if Annotated_clause_set.mem acl !visited
+      then ()
       else
-        ()
+        begin
+          visited := Annotated_clause_set.add acl !visited;
+
+          let prev_acls = List.of_enum @@ preds acl cfg in
+          log_acl acl prev_acls;
+
+          (* debug to prevent infinite loop *)
+          (* debug_bomb := !debug_bomb - 1;
+             if !debug_bomb = 0
+             then failwith "bomb"
+             else ()
+             ; *)
+
+          (* process logic *)
+          (* if cfg shows only one of then-block and else-block is possible,
+             we can change the tracelet accordingly.
+             e.g. [prev: [r = c ? ...; r = r1 @- r]]
+          *)
+          if List.length prev_acls = 2 && has_condition_clause prev_acls
+          then map := Tracelet.choose_cond_block prev_acls cfg !map
+          else ()
+          ;
+
+          (* step logic *)
+          let continue = ref true
+          and block_dangling = ref dangling in
+          begin
+            match acl with
+            | Unannotated_clause _
+            | Start_clause _ | End_clause _ ->
+              ()
+            (* into fbody *)
+            | Binding_exit_clause (Abs_var _para, Abs_var ret_var, Abs_clause(Abs_var site_r, Abs_appl_body _)) -> 
+              (* para can also be ignored in Fun since para is a property of a Fun block, defined in the source code
+              *)
+              let f_def = Ident_map.find ret_var ret_to_fun_def_map in
+              map := Tracelet.add_id_dst site_r f_def !map;
+              block_dangling := false
+            (* out of fbody *)
+            | Binding_enter_clause (Abs_var para, _, Abs_clause(Abs_var site_r, Abs_appl_body _)) ->
+              let f_def = Ident_map.find para para_to_fun_def_map in
+              map := Tracelet.add_id_dst site_r f_def !map;
+              continue := dangling
+            (* into cond-body *)
+            | Binding_exit_clause (_, Abs_var ret_var, Abs_clause(Abs_var site_r, Abs_conditional_body _)) -> 
+              block_dangling := false
+            (* out of cond-body *)
+            | Nonbinding_enter_clause (Abs_value_bool cond, 
+                                       Abs_clause(Abs_var site_r, Abs_conditional_body(Abs_var x1, _e_then, _e_else))) ->
+              continue := dangling
+            | Binding_exit_clause (_, _, _) ->
+              failwith "impossible binding exit for non-sites"
+            | Binding_enter_clause (_, _, _) ->
+              failwith "impossible binding enter for non callsites"
+            | Nonbinding_enter_clause (_, _) ->
+              failwith "impossible non-binding enter for non condsites"
+          end;
+          if !continue
+          then
+            Enum.iter (fun acl -> loop acl !block_dangling) (preds acl cfg)
+          else
+            ()
+
+        end
     in
     loop acl true;
     !map
