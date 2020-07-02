@@ -11,6 +11,7 @@ open Ddpa_graph
 (* open Logger_utils *)
 
 open Ast_helper
+open Ddpa_helper
 
 let log_acl acl prevs = 
   print_endline @@ Printf.sprintf "%s \t\t[prev: %s]"
@@ -285,6 +286,26 @@ module Tracelet = struct
     let tl' = update_id_dst site_x def_x tl in
     Ident_map.add tl.point tl' tl_map
 
+  let cond_set b tl =
+    let source_block = 
+      match tl.source_block with
+      | CondBoth c -> CondChosen (running_cond b c)
+      | _ -> failwith "it should called just once on CondBoth"
+    in
+    { tl with source_block }
+
+  let choose_cond_block acls cfg tl_map =
+    let cond_site, choice =
+      match acls with
+      | Unannotated_clause(Abs_clause(Abs_var cond_site, Abs_conditional_body _)) 
+        :: wire_cl
+        :: [] -> 
+        cond_site, find_cond_top wire_cl cfg
+      | _ -> failwith "wrong precondition to call"
+    in
+    let tracelet = Ident_map.find cond_site tl_map in
+    let tracelet' = cond_set choice tracelet in
+    Ident_map.add cond_site tracelet' tl_map
 end
 
 (* open Tracelet *)
