@@ -1,281 +1,16 @@
 open Batteries
 (* open Jhupllib *)
 open Odefa_ast
-open Odefa_ddpa
-
-open Ast;;
+open Ast
 (* open Ast_pp *)
+open Odefa_ddpa
 open Ddpa_abstract_ast
 open Ddpa_graph
-open Ddpa_utils
-open Interpreter_types;;
+(* open Ddpa_utils *)
+(* open Interpreter_types;; *)
 (* open Logger_utils *)
 
-type search_result = {
-  result_sym : symbol;
-  constraints : Constraint.t list;
-  relstack : Relative_stack.t;
-  (* dynamic scoping *)
-  env: symbol Ident_map.t;
-}
-
-module Relstack = struct
-  let empty_relstk = Relative_stack.empty
-
-  open Relative_stack
-
-  let is_stack_empty (Relative_stack(_co_stk, stk)) = 
-    List.is_empty stk
-
-  let push (Relative_stack(co_stk, stk)) x : t =
-    Relative_stack(co_stk, x :: stk)
-
-  let co_pop (Relative_stack(co_stk, stk)) x : t =
-    match stk with
-    | x'::stk' ->
-      if equal_ident x x' then
-        Relative_stack(co_stk, stk')
-      else
-        failwith "dismatch"
-    | [] ->
-      Relative_stack(x :: co_stk, stk)
-end
-open Relstack
-
-let lift_use_symbol f phi =
-  let open Constraint in 
-  match phi with
-  | Constraint_value(s, v) -> Constraint_value(s, v)
-  | Constraint_alias(s1, s2) -> Constraint_alias(s1, f s2)
-  | Constraint_binop(s1, s2, op, s3) -> Constraint_binop(s1, f s2, op, f s3)
-  | Constraint_projection(s1, s2, id) -> Constraint_projection(s1, f s2, id)
-  | Constraint_type(s, t) -> failwith "not here"
-  | Constraint_stack(cstk) -> Constraint_stack(cstk)
-
-let lift_constraints_env env phis =
-  let update_use_symbol = function
-    | Symbol(x, stk) -> (
-        match Ident_map.Exceptionless.find x env with
-        | Some s' -> s'
-        | None -> Symbol(x, stk)
-      )
-    | SpecialSymbol t -> SpecialSymbol t
-  in
-  List.map (lift_use_symbol update_use_symbol) phis
-
-let join_results ?(left_stack=false) main_rs sub_rs = 
-  List.cartesian_product main_rs sub_rs
-  |> List.map (fun (main_r, sub_r) -> 
-      let sub_phis = sub_r.constraints
-      and main_env = main_r.env in
-      let sub_phis' = lift_constraints_env main_env sub_phis in
-      {main_r with
-       constraints = main_r.constraints @ sub_phis'})
-
-let get_value x env =
-  match x with 
-  | Symbol(x_id, _) -> (
-      match Ident_map.find x_id env with
-      | Clause(_, Value_body(v)) -> v
-      | _ -> failwith "get_value"
-    )
-  | _ -> failwith "special symbol"
-
-let constraint_of_value x env =
-  let rhs = match get_value x env with
-    | Value_function f -> Constraint.Function f
-    | Value_int n -> Constraint.Int n
-    | Value_bool b -> Constraint.Bool b
-    | Value_record(Record_value _m) -> failwith "record"
-  in
-  Constraint.Constraint_value(x, rhs)
-
-let constraint_of_stack stk =
-  Constraint.Constraint_stack(Relative_stack.stackize stk)
-
-let constraint_of_input x =
-  Constraint.Constraint_binop(
-    SpecialSymbol SSymTrue, x, Binary_operator_equal_to, x)
-
-let constraint_of_alias x y =
-  Constraint.Constraint_alias(x, y)
-
-let constraint_of_funexit x_accept x_return stk =
-  let sym_return = Symbol(x_return, stk) in
-  let stk' = co_pop stk x_accept in
-  let sym_accept = Symbol(x_accept, stk') in
-  constraint_of_alias sym_accept sym_return
-
-let constraint_of_funenter para arg callsite stk =
-  let sym_para = Symbol(para, stk) in
-  let stk' = co_pop stk callsite in
-  let sym_arg =  Symbol(arg, stk') in
-  constraint_of_alias sym_para sym_arg
-
-let constraint_of_bool x (b : bool) =
-  Constraint.Constraint_value(x, Constraint.Bool b)
-
-let constraint_of_clause clause_mapping first_vav =       
-  fun ?(is_demo=false) clause stk env -> 
-  let first_var_constraint x = 
-    if equal_ident x first_vav then
-      [constraint_of_stack stk]
-    else
-      []
-  in
-
-  let def_sym x = Symbol(x, stk)
-  and use_sym x = 
-    if is_demo then
-      Symbol(x, stk)
-    else
-      Ident_map.find x env in
-  match clause with
-  (* Input : x == input *)
-  | Unannotated_clause(Abs_clause(Abs_var x, Abs_input_body)) -> 
-    (first_var_constraint x) @ [constraint_of_input (def_sym x)]
-  (* Alias : x == x' *)
-  | Unannotated_clause(Abs_clause(Abs_var x, Abs_var_body(Abs_var x'))) -> 
-    [constraint_of_alias (def_sym x) (use_sym x')]
-  (* Binop : x = x' op x'' *)
-  | Unannotated_clause(Abs_clause(Abs_var x, Abs_binary_operation_body(Abs_var x', op, Abs_var x''))) ->
-    [Constraint.Constraint_binop((def_sym x), (use_sym x'), op, (use_sym x''))]
-  (* Discard / Discovery *)
-  | Unannotated_clause(Abs_clause(Abs_var x, Abs_value_body _)) ->
-    (first_var_constraint x) @ [constraint_of_value (def_sym x) clause_mapping]
-  (* Callsite . ignored . *)
-  | Unannotated_clause(Abs_clause(Abs_var x, Abs_appl_body _)) ->
-    []
-  (* Cond_site . ignored . *)
-  | Unannotated_clause(Abs_clause(Abs_var x, Abs_conditional_body (Abs_var x1, _e_then, _e_else))) ->
-    []
-  (* CondTop *)
-  | Nonbinding_enter_clause(Abs_value_bool b, Abs_clause(_, Abs_conditional_body(Abs_var x1, _e_then, _e_else))) ->
-    (* record b *)
-    (* ignore @@ failwith "where"; *)
-    [constraint_of_bool (def_sym x1) b]
-  (* CondBtmTrue / CondBtmFalse *)
-  | Binding_exit_clause(Abs_var outer_var, Abs_var ret_var, Abs_clause(_, Abs_conditional_body(Abs_var x1, e_then, e_else))) ->
-    let Abs_var x1ret = retv e_then
-    and Abs_var x2ret = retv e_else in
-    if equal_ident ret_var x1ret then
-      [constraint_of_bool (def_sym x1) true ; (constraint_of_alias (def_sym outer_var) (def_sym x1ret))]
-    else if equal_ident ret_var x2ret then
-      [constraint_of_bool (def_sym x1) false; (constraint_of_alias (def_sym outer_var) (def_sym x2ret))]
-    else
-      assert false
-  (* FunEnter / FunEnterNonLocal *)
-  (* 
-        f = fun para -> ( 
-          r = 3
-        );
-        arg = 1;
-        er = f arg;
-      *)
-  (* 
-        if equal_ident para x_target then
-          (* FunEnter *)
-          (* xf (for constraits) *)
-          (* relstack pop *)
-          arg
-        else
-          (* FunEnterNonLocal : *)
-          (* c <- xf *)
-          x_target
-      *)
-  | Binding_enter_clause(Abs_var para, Abs_var arg, Abs_clause(Abs_var er, Abs_appl_body(Abs_var e1, Abs_var e2))) ->
-    [constraint_of_funenter para arg er stk]
-  (* if equal_ident para x_target then
-     (* FunEnter *)
-     (* xf (for constraits) *)
-     (* relstack pop *)
-     []
-     else
-     (* FunEnterNonLocal : *)
-     (* c <- xf *)
-     [] *)
-  (* FunExit *)
-  | Binding_exit_clause(Abs_var _para, Abs_var ret_var, Abs_clause(Abs_var er, Abs_appl_body(Abs_var _xf, _))) ->
-    [constraint_of_funexit er ret_var stk]
-  | Start_clause _ | End_clause _ ->
-    []
-  | _ ->
-    failwith "else in constraint"
-
 open Ast_helper
-
-module Memoized = struct
-  (* what is the key to the step?
-     for a full block, we could use End(x) or Start(x).
-     for a partial block (when returning from another block), the returning point is where 
-     we should use as a key.
-     ```
-      f = fun x -> ...target...
-      a = 1
-      t1 = f a
-      t2 = f a
-     ```
-
-     Admitted that
-     1. starting from cfg rather than ddpa_cfg may be better
-     2. there may be duplication e.g. `a=1`
-  *)
-
-  type mega_step = {
-    (* x = a *)
-    plain : Constraint.t list;
-    (* x = e1 e2 *)
-    cond_indirect : Ident.t list;
-    (* x = c ? e1 : e2 *)
-    fun_indirect : Ident.t list;
-    (* dangling CondTop/FunEnter *)
-    continue_indirect : Ident.t list;
-  }
-
-  (* a placeholder value which will be set immediately *)
-  let empty_id = Ident("_")
-
-  let empty_step_info = {
-    plain = [];
-    cond_indirect = [];
-    fun_indirect = [];
-    continue_indirect = [];
-  }
-
-  (* 
-    It's actually a new cfg with meta steps
-    Node: program point
-    - plain is the value in the Node
-    Edge: possible search move
-    - Cond_indirect: 
-    - Fun_indirect:
-    - Continue_inriect: 
-
-    Noting we can have soundness even with meta step.
-    ```
-      x = 1
-      y = +inf
-      target = x
-    ```
-    we will have sth like [x[]=1;target[]=x[]; y->Indirect].
-    Unless we can expand y to values without Indirect, we won't finish the constraint generation.
-     *)
-
-
-  (* 
-      key: start from this program point
-      value: immediate phis and other phis 
-      The whole map works as a mega_step for search.
-      *)
-  type meta_step_map = mega_step Ident_map.t
-end
-
-(* TODO: 
-    how may it allow optimization later.
-    we need a flow-sensitive mixture cond_block with condition, which helps to
-    escape from impossible traces
-*)
-
 
 let log_acl acl prevs = 
   print_endline @@ Printf.sprintf "%s \t\t[prev: %s]"
@@ -290,9 +25,7 @@ let log_id id =
 
 module Tracelet = struct
 
-  (* TODO:
-     we might get rid of map at all, by using tree (zipper)
-  *)
+  (* TODO: we might get rid of map at all, by using tree (zipper) *)
   let name_main = "0_main"
 
   let id_main = Ident name_main
@@ -336,8 +69,8 @@ module Tracelet = struct
   type block_node = 
     | Main of block
     | Fun of fun_block
-    | CondSource of cond_source_block
-    | CondRunning of cond_running_block
+    | CondBoth of cond_source_block
+    | CondChosen of cond_running_block
 
   type source_tracelet = {
     point : ident;
@@ -355,13 +88,13 @@ module Tracelet = struct
     match tl.source_block with
     | Main b -> b
     | Fun b -> b.block
-    | CondSource c -> 
+    | CondBoth c -> 
       {
         clauses = c.then_block.clauses @ c.else_block.clauses;
         app_ids = c.then_block.app_ids @ c.else_block.app_ids;
         cond_ids = c.then_block.cond_ids @ c.else_block.cond_ids
       }
-    | CondRunning c -> c.block
+    | CondChosen c -> c.block
 
   let update_block f tl =
     let source_block = 
@@ -371,16 +104,16 @@ module Tracelet = struct
                    {b with
                     block = f b.block
                    }
-      | CondSource c -> CondSource 
-                          {c with 
-                           then_block = f c.then_block;
-                           else_block = f c.else_block
+      | CondBoth c -> CondBoth 
+                        {c with 
+                         then_block = f c.then_block;
+                         else_block = f c.else_block
+                        }
+      | CondChosen c -> CondChosen 
+                          {c with
+                           block = f c.block;
+                           other_block = f c.other_block
                           }
-      | CondRunning c -> CondRunning 
-                           {c with
-                            block = f c.block;
-                            other_block = f c.other_block
-                           }
     in
     {tl with source_block}
 
@@ -464,7 +197,7 @@ module Tracelet = struct
           let then_block = block_of_expr e1
           and else_block = block_of_expr e2 in
           let source_block = 
-            CondSource {cond; then_block; else_block} in
+            CondBoth {cond; then_block; else_block} in
           let tracelet = 
             { point = cid ; outer_point; source_block } in
           map := Ident_map.add cid tracelet !map;
@@ -507,16 +240,16 @@ module Tracelet = struct
       match tl.source_block with
       | Main b -> Main (cut_block b)
       | Fun b -> Fun { b with block = cut_block b.block }
-      | CondSource cond ->
+      | CondBoth cond ->
         (* TODO : 
            Noting: cutting can only occur in one block of a cond, therefore
-           it's a hidden change from CondSource to CondRunning
+           it's a hidden change from CondBoth to CondChosen
         *)
         let choice = List.mem_assoc x cond.then_block.clauses in
         let cond' = running_cond choice cond in
-        CondRunning { cond' with block = cut_block cond'.block }
-      | CondRunning cond -> 
-        CondRunning { cond with block = cut_block cond.block }
+        CondChosen { cond' with block = cut_block cond'.block }
+      | CondChosen cond -> 
+        CondChosen { cond with block = cut_block cond.block }
     in
     { tl with source_block }
 
@@ -591,7 +324,12 @@ module Tunnel = struct
      !map
   *)
 
+  (* annotate tracelet from the ddpa cfg.
+     for call-site `s = e1 e2`, annotate e1 with the real function def_var
+     for cond-site `s = c ? e1 : e2`, replace s with 
+  *)
   let annotate e pt =
+    print_newline ();
     let map = ref (Tracelet.tracelet_map_of_expr e)
     (* and visited_pred_map = ref BatMultiPMap.empty *)
     and cfg = cfg_of e
@@ -611,42 +349,49 @@ module Tunnel = struct
     in
     (* let debug_bomb = ref 20 in *)
     let rec loop acl dangling : unit = 
-      log_acl acl (List.of_enum @@ preds acl cfg);
-      (* debug_bomb := !debug_bomb - 1;
-         (if !debug_bomb = 0 
-         then
-         failwith "bomb"
-         else
-         ())
-         ; *)
-      let pred_dangling = ref dangling in
+      let prev_acls = List.of_enum @@ preds acl cfg in
+      log_acl acl prev_acls;
+
+      (* process logic *)
+
+
+      (* step logic *)
+      let continue = ref true
+      and block_dangling = ref dangling in
       begin
         match acl with
         | Unannotated_clause _
         | Start_clause _ | End_clause _ ->
           ()
+        (* into fbody *)
         | Binding_exit_clause (Abs_var _para, Abs_var ret_var, Abs_clause(Abs_var site_r, Abs_appl_body _)) -> 
-          (* used in CondBtm FunExit  
-             para is not used in Cond
-             para can also be ignored in Fun since para is a property of a Fun block, defined in the source code
+          (* para can also be ignored in Fun since para is a property of a Fun block, defined in the source code
           *)
-          (* assert_number_pred 1 acl; *)
           let f_def = Ident_map.find ret_var ret_to_fun_def_map in
           map := Tracelet.add_id_dst site_r f_def !map;
-          pred_dangling := false
+          block_dangling := false
+        (* out of fbody *)
         | Binding_enter_clause (Abs_var para, _, Abs_clause(Abs_var site_r, Abs_appl_body _)) ->
           let f_def = Ident_map.find para para_to_fun_def_map in
-          map := Tracelet.add_id_dst site_r f_def !map
-        | Nonbinding_enter_clause (_, _) ->
-          ()
-        | Binding_enter_clause (_, _, Abs_clause(Abs_var site_r, _)) ->
-          failwith "???"
+          map := Tracelet.add_id_dst site_r f_def !map;
+          continue := dangling
+        (* into cond-body *)
+        | Binding_exit_clause (_, Abs_var ret_var, Abs_clause(Abs_var site_r, Abs_conditional_body _)) -> 
+          block_dangling := false
+        (* out of cond-body *)
+        | Nonbinding_enter_clause (Abs_value_bool cond, 
+                                   Abs_clause(Abs_var site_r, Abs_conditional_body(Abs_var x1, _e_then, _e_else))) ->
+          continue := dangling
         | Binding_exit_clause (_, _, _) ->
-          failwith "impossible binding exit for other clauses"
+          failwith "impossible binding exit for non-sites"
+        | Binding_enter_clause (_, _, _) ->
+          failwith "impossible binding enter for non callsites"
+        | Nonbinding_enter_clause (_, _) ->
+          failwith "impossible non-binding enter for non condsites"
       end;
-      if !pred_dangling
+      if !continue
       then
-        Enum.iter (fun acl -> loop acl !pred_dangling) (preds acl cfg)
+        Enum.iter (fun acl -> loop acl !block_dangling) (preds acl cfg)
       else
         ()
     in

@@ -712,7 +712,8 @@ struct
 
   let _lookup = lookup;;
 
-  open Mega_step
+  open Mega_constraint
+  (* open Mega_step *)
   open Relstack
   open Ast_helper
 

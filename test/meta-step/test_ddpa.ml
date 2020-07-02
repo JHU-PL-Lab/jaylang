@@ -46,6 +46,28 @@ let m8 = Tunnel.annotate e8 (Ident "rf")
 ;;
 debug_print_info name_main m8 [("c1", ["f"]); ("c2", ["f"])];;
 
+let m9 = Tunnel.annotate e9 (Ident "rf")
+;;
+debug_print_info name_main m9 [("c1", ["f"]); ("c2", ["f"]); ("c3", ["f"])];;
+
+let m10 = Tunnel.annotate e10 (Ident "target")
+
+let m11 = Tunnel.annotate e11 (Ident "target")
+
+let m11_2 = Tunnel.annotate e11_2 (Ident "target")
+
+let m12 = Tunnel.annotate e12 (Ident "target")
+
+let m13 = Tunnel.annotate e13 (Ident "target")
+
+(* let m14 = Tunnel.annotate e14 (Ident "target") *)
+
+let m15 = Tunnel.annotate e15 (Ident "target")
+
+let m16 = Tunnel.annotate e16 (Ident "target")
+
+let m17 = Tunnel.annotate e17 (Ident "target")
+
 (* inner variant
    a `block` is for a single block
    a tracelet may contains one or more blocks
@@ -62,7 +84,6 @@ debug_print_info name_main m8 [("c1", ["f"]); ("c2", ["f"])];;
 
    Whenever we first get a tracelet from an id and then ask for block info 
    of the tracelet, we lost the id, which means we don't know then/else.
-
 *)
 
 (* 
