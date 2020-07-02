@@ -3,7 +3,7 @@ open Batteries
 open Odefa_ast
 open Ast
 
-open Odefa_symbolic_interpreter.Mega_step
+open Odefa_symbolic_interpreter.Middle_step
 open Tracelet
 
 open Program_samples
