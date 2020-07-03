@@ -1,10 +1,5 @@
-open Batteries
-open Odefa_parser
-
-let parse s = 
-  s
-  |> IO.input_string
-  |> Parser.parse_program
+(* open Batteries *)
+open Utils
 
 let e1 = parse "
 b = fun t -> (
@@ -202,4 +197,24 @@ g = fun c -> (
 p = g t;
 pp = g f;
 target = p
+"
+
+let e18 = parse "
+one = 1;
+f = fun s -> (
+    f0 = fun a -> (
+        b = a <= one;
+        r = b ? (
+                r1 = a
+            ) : (
+                ss = s s;
+                v = a - one;
+                r2 = ss v;
+            );
+        n1 = r;
+    );
+);
+ff = f f;
+x3 = 3;
+z = ff x3;
 "

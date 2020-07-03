@@ -52,6 +52,7 @@ module Tracelet = struct
   type fun_block = {
     para: ident;
     block: block;
+    callsites: ident list;
   }
 
   type cond_source_block = { 
@@ -189,7 +190,7 @@ module Tracelet = struct
       let handle_clause = function
         | Clause (Var (cid, _), Value_body (Value_function (Function_value (Var (para, _), fbody)))) ->
           let block = block_of_expr fbody in
-          let source_block = Fun { para; block } in
+          let source_block = Fun { para; block; callsites = [] } in
           let tracelet = 
             { point = cid ; outer_point; source_block } in
           map := Ident_map.add cid tracelet !map;
@@ -306,16 +307,24 @@ module Tracelet = struct
     let tracelet = Ident_map.find cond_site tl_map in
     let tracelet' = cond_set choice tracelet in
     Ident_map.add cond_site tracelet' tl_map
+
+  let _add_callsite site tl =
+    let source_block = 
+      match tl.source_block with
+      | Fun b -> Fun { b with callsites = (site :: b.callsites) }
+      | _ -> failwith "wrong precondition to call add_callsite"
+    in
+    { tl with source_block }
+
+  let add_callsite f_def site tl_map =
+    let tl = Ident_map.find f_def tl_map in
+    let tl' = _add_callsite site tl in
+    Ident_map.add f_def tl' tl_map
 end
 
-(* open Tracelet *)
-
 module Tunnel = struct
-  type callsite_tunnel = ident Ident_map.t
-
   exception Invalid_query of string
 
-  (* ddpa adapter *)
   let cfg_of e =
     let open Odefa_ddpa in
     let conf : (module Ddpa_context_stack.Context_stack) = 
@@ -326,6 +335,22 @@ module Tunnel = struct
     |> Analysis.create_initial_analysis
     |> Analysis.perform_full_closure
     |> Analysis.cfg_of_analysis
+
+  (* dynamic stack or block map *)
+  (* type tunnel =
+     | Full of ident
+     | Partial of ident * ident
+
+     type tunnel_map = (ident, ident) BatMultiPMap.t
+
+     type callsite_tunnel = ident Ident_map.t *)
+
+  (* we cannot use tracelet map to represent the dynamic call graph/stack.
+     the point is for one block, we can have a full version and a partial version
+     at the same time.
+     For this, we may set the original or annotated source code as a (static) map
+     and use another data structure for dynamic
+  *)
 
   (* annotate tracelet from the ddpa cfg.
      for call-site `s = e1 e2`, annotate e1 with the real function def_var
@@ -358,6 +383,8 @@ module Tunnel = struct
     (* map := BatMultiPMap.add id_start id_start !map;
        !map *)
 
+    (* let tunnel_map = ref BatMultiPMap.empty in *)
+
     let rec loop acl dangling : unit = 
       if Annotated_clause_set.mem acl !visited
       then ()
@@ -366,7 +393,7 @@ module Tunnel = struct
           visited := Annotated_clause_set.add acl !visited;
 
           let prev_acls = List.of_enum @@ preds acl cfg in
-          log_acl acl prev_acls;
+          (* log_acl acl prev_acls; *)
 
           (* debug to prevent infinite loop *)
           (* debug_bomb := !debug_bomb - 1;
@@ -404,6 +431,9 @@ module Tunnel = struct
             | Binding_enter_clause (Abs_var para, _, Abs_clause(Abs_var site_r, Abs_appl_body _)) ->
               let f_def = Ident_map.find para para_to_fun_def_map in
               map := Tracelet.add_id_dst site_r f_def !map;
+
+              map := Tracelet.add_callsite f_def site_r !map;
+
               continue := dangling
             (* into cond-body *)
             | Binding_exit_clause (_, Abs_var ret_var, Abs_clause(Abs_var site_r, Abs_conditional_body _)) -> 
@@ -430,6 +460,54 @@ module Tunnel = struct
     loop acl true;
     !map
 
+
+  let run_shortest e pt : ident list =
+    let map = annotate e pt in
+    let rec loop pt acc =
+      let tl = Tracelet.find_by_id pt map in
+      match tl.source_block with
+      | Main _ -> tl.point :: pt :: acc
+      | Fun b -> (
+          let pt' = List.hd b.callsites in
+          loop pt' (tl.point :: pt :: acc)
+        )
+      | _ -> loop tl.point (pt :: acc)
+    in
+    loop pt []
+
+  type oracle =
+    | Oracle of (ident list -> ident * oracle)
+
+  let run_deterministic oracle e pt : ident list =
+    let map = annotate e pt in
+
+    let rec loop oracle pt acc =
+      let tl = Tracelet.find_by_id pt map in
+      match tl.source_block with
+      | Main _ -> tl.point :: pt :: acc
+      | Fun b -> (
+          match oracle with
+          | Oracle orl -> (
+              let pt', oracle' = orl b.callsites in
+              loop oracle' pt' (tl.point :: pt :: acc))
+        )
+      | _ -> loop oracle tl.point (pt :: acc)
+    in
+    loop oracle pt []
+
+  let make_list_oracle choices = 
+    let rec pick choices ids =
+      match choices with
+      | [] -> 
+        List.hd ids, Oracle (pick [])
+      | n :: ns -> 
+        if List.length ids > 1
+        then
+          List.nth ids n, Oracle (pick ns)
+        else
+          List.hd ids, Oracle (pick choices)
+    in
+    Oracle (pick choices)
 
 end
 
