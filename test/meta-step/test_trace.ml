@@ -9,21 +9,34 @@ open Tunnel
 
 open Program_samples
 
+let ident_list_of_trace trace map =
+  trace
+  |> List.fold_left (fun acc (Frame (tid, pt)) ->
+      let tl = Ident_map.find tid map in
+      match tl.source_block with
+      | Main _ -> pt :: tl.point :: acc
+      | Fun _ -> pt:: tl.point :: acc
+      | _ -> pt :: acc
+    ) []
+  |> List.rev
+
 let print_trace trace = 
   print_endline @@ Printf.sprintf "%s"
     (Jhupllib.Pp_utils.pp_to_string
        (Jhupllib.Pp_utils.pp_list pp_ident) trace)
 
 let test_shortest_trace e pt expected =
-  let trace = run_shortest e (Ident pt) in
-  print_trace trace;
+  let (map, trace) = run_shortest e (Ident pt) in
+  let trace = ident_list_of_trace trace map in
+  (* print_trace trace; *)
   let trace_name = List.map (fun (Ident name) -> name) trace in
   assert (trace_name = expected);;
 
 let test_chosen_trace e pt choices expected =
   let oracle = make_list_oracle choices in
-  let trace = run_deterministic oracle e (Ident pt) in
-  print_trace trace;
+  let (map, trace) = run_deterministic oracle e (Ident pt) in
+  let trace = ident_list_of_trace trace map in
+  (* print_trace trace; *)
   let trace_name = List.map (fun (Ident name) -> name) trace in
   assert (trace_name = expected);;
 
