@@ -213,3 +213,7 @@ let make_para_to_fun_def_mapping e =
   in
   loop e;
   !map
+
+let app_id2_of_clause = function
+  | Clause (_, Appl_body (_, Var (id2, _))) -> id2
+  | _ -> failwith "not app clause"

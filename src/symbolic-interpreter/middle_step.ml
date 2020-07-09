@@ -91,6 +91,11 @@ module Tracelet = struct
 
   type t = source_tracelet
 
+  let para_of tl =
+    match tl.source_block with
+    | Fun b -> b.para
+    | _ -> failwith "not fun block in tracelet"
+
   let get_block tl =
     match tl.source_block with
     | Main b -> b
@@ -219,27 +224,31 @@ module Tracelet = struct
     loop id_main e;
     !map
 
-  let cut_before x tl =
+  let cut_before with_end x tl =
     let cut_block block : block = 
-      let clauses, app_ids, cond_ids =
+      let clauses, app_ids, cond_ids, _ =
         List.fold_while 
-          (fun _acc tc -> tc.id <> x)
-          (fun (cs, app_ids, cond_ids) tc ->
-             let cid = tc.id in
+          (fun (_, _, _, find_x) tc -> 
+             if with_end
+             then find_x
+             else tc.id <> x)
+          (fun (cs, app_ids, cond_ids, find_x) tc ->
              (* TODO: bad design *)
+             let cid = tc.id in
+             let find_x = tc.id <> x in
              match tc.cat with
              | App _ ->
                let dst = List.assoc cid block.app_ids in
-               (cs @ [tc], app_ids @ [cid, dst], cond_ids)
+               (cs @ [tc], app_ids @ [cid, dst], cond_ids, find_x)
              | Cond _ ->
                let dst = List.assoc cid block.cond_ids in
-               (cs @ [tc], app_ids, cond_ids @ [cid, dst])
+               (cs @ [tc], app_ids, cond_ids @ [cid, dst], find_x)
              | Fun ->
-               (cs @ [tc], app_ids, cond_ids)
+               (cs @ [tc], app_ids, cond_ids, find_x)
              | Direct ->
-               (cs @ [tc], app_ids, cond_ids)
+               (cs @ [tc], app_ids, cond_ids, find_x)
           )
-          ([], [], [])
+          ([], [], [], true)
           block.clauses
         |> fst
       in
@@ -269,7 +278,11 @@ module Tracelet = struct
 
   let cut_before_id x tl_map =
     find_by_id x tl_map
-    |> cut_before x
+    |> cut_before false x
+
+  let take_until x tl_map =
+    find_by_id x tl_map
+    |> cut_before true x  
 
   let update_id_dst id dst0 tl =
     let add_dst = function
@@ -277,12 +290,27 @@ module Tracelet = struct
         Some (if List.mem dst0 dst then dst else dst0::dst)
       | None -> None
     in
+    let add_dsts dst0 dsts =
+      if List.mem dst0 dsts 
+      then dsts
+      else dst0 :: dsts
+    in
+    let add_dst_in_clause tc = 
+      if tc.id = id 
+      then { tc with cat = match tc.cat with
+          | App dsts -> App (add_dsts dst0 dsts)
+          | Cond dsts -> Cond (add_dsts dst0 dsts)
+          | other -> other
+        }
+      else tc
+    in
     update_block 
       (fun block -> 
-         let app_ids = List.modify_opt id add_dst block.app_ids
+         let clauses = List.map add_dst_in_clause block.clauses
+         and app_ids = List.modify_opt id add_dst block.app_ids
          and cond_ids = List.modify_opt id add_dst block.cond_ids
          in
-         { block with app_ids; cond_ids }
+         { clauses; app_ids; cond_ids }
       )
       tl
 
@@ -340,26 +368,52 @@ module Tracelet_constraint = struct
   let constraints_of_block_type tl stk = 
     match tl.source_block with
     | Main b -> [Constraint.Constraint_stack(Relative_stack.stackize Relative_stack.empty)]
-    | Fun b -> [Constraint.Constraint_value(Symbol(tl.point, stk), ast_value_of_fun_tl tl stk)]
+    (* | Fun b -> [Constraint.Constraint_value(Symbol(tl.point, stk), ast_value_of_fun_tl tl stk)] *)
+    | Fun _ -> []
     | CondBoth c -> [constraint_of_bool (Symbol(c.cond, stk)) true]
     | CondChosen c -> [constraint_of_bool (Symbol(c.cond, stk)) c.choice]
 
   let constraints_of_direct_clause stk tc = 
-    match tc.cat with
-    | Direct -> 
-      let x_sym = Symbol(tc.id, stk) in
-      Some (Constraint.Constraint_alias(x_sym, x_sym))
+    let x_sym = Symbol(tc.id, stk) in  
+    match tc.cat, tc.clause with
+    | Direct, Clause(_, Value_body(Value_int n)) -> 
+      Some (Constraint.Constraint_value(x_sym, Constraint.Int n))
+    | Direct, Clause(_, Value_body(Value_bool b)) -> 
+      Some (Constraint.Constraint_value(x_sym, Constraint.Bool b))
     | _ -> None
 
-  let rec constraints_of_callsite tl stk tc =
-    match tc.cat with
-    | App _ -> 
-      let _x_sym = Symbol(tc.id, stk) in
-      None
-    | _ -> None
+  let constraint_of_funenter arg stk para stk' =
+    let sym_arg =  Symbol(arg, stk) in
+    let sym_para = Symbol(para, stk') in
+    constraint_of_alias sym_arg sym_para
 
-  and constraints_of_tracelet tl stk = 
-    (* let block = tl.source_block in *)
+  let constraint_of_funexit ret_site stk ret_bodu stk' =
+    let sym_site =  Symbol(ret_site, stk) in
+    let sym_body = Symbol(ret_bodu, stk') in
+    constraint_of_alias sym_site sym_body
+
+  let rec constraints_of_callsite oracle tl_map tl stk tc =
+    match tc.cat with
+    | App dsts -> (
+        match oracle with
+        | Oracle orl ->
+          let dst, oracle' = orl dsts in
+          (* let dst = List.hd dsts 
+             in  *)
+          (* log_id dst; *)
+          let tl_dst = Ident_map.find dst tl_map
+          and stk' = Relstack.push stk tc.id
+          in
+          let c_call = constraint_of_funenter (app_id2_of_clause tc.clause) stk (para_of tl_dst) stk'
+          and oracle'', c_body = constraints_of_tracelet oracle' tl_map tl_dst stk'
+          and c_return = 
+            let ret_id = (List.last (get_block tl_dst).clauses).id in
+            constraint_of_funexit tc.id stk ret_id stk' 
+          in
+          oracle'', c_call :: c_return:: c_body )
+    | _ -> oracle, []
+
+  and constraints_of_tracelet oracle tl_map tl stk = 
     let clauses = match tl.source_block with
       | Main b -> b.clauses
       | Fun b -> b.block.clauses
