@@ -357,10 +357,30 @@ module Tracelet = struct
     Ident_map.add f_def tl' tl_map
 end
 
+module Oracle = struct
+  type oracle =
+    | Oracle of (ident list -> ident * oracle)
+
+  let make_list_oracle choices = 
+    let rec pick choices ids =
+      match choices with
+      | [] -> 
+        List.hd ids, Oracle (pick [])
+      | n :: ns -> 
+        if List.length ids > 1
+        then
+          List.nth ids n, Oracle (pick ns)
+        else
+          List.hd ids, Oracle (pick choices)
+    in
+    Oracle (pick choices)
+end
+
 module Tracelet_constraint = struct
   open Tracelet
   open Interpreter_types
   open Mega_constraint
+  open Oracle
 
   let ast_value_of_fun_tl tl stk =
     Constraint.Function (Function_value(Var(tl.point, None), Expr []))
@@ -422,11 +442,17 @@ module Tracelet_constraint = struct
     in
     let cds = List.filter_map (constraints_of_direct_clause stk) clauses in
     let c0 = constraints_of_block_type tl stk in
-    let ccs = List.filter_map (constraints_of_callsite tl stk) clauses in
-    c0 @ cds @ ccs
+    let oracle', ccs = List.fold_left 
+        (fun (oracle, acc) clause ->
+           let oracle', cs = constraints_of_callsite oracle tl_map tl stk clause in
+           oracle', acc @ cs) 
+        (oracle, []) clauses in
+    oracle', c0 @ cds @ ccs
 end
 
 module Tunnel = struct
+  open Oracle
+
   type frame = 
     | Frame of ident * ident
 
@@ -568,16 +594,13 @@ module Tunnel = struct
     loop acl true;
     !map
 
-  type oracle =
-    | Oracle of (ident list -> ident * oracle)
-
   let run_deterministic oracle e pt =
     let map = annotate e pt in
 
     let rec loop oracle pt acc =
       let tl = Tracelet.find_by_id pt map in
       match tl.source_block with
-      | Main _ -> (Frame (tl.point, pt)) :: acc
+      | Main _ -> oracle, ((Frame (tl.point, pt)) :: acc)
       | Fun b -> (
           match oracle with
           | Oracle orl -> (
@@ -587,44 +610,39 @@ module Tunnel = struct
       | _ -> loop oracle tl.point ((Frame (tl.point, pt)) :: acc)
     in
 
-    let trace = loop oracle pt [] in
+    let oracle', trace = loop oracle pt [] in
 
-    map, trace
-
-  let make_list_oracle choices = 
-    let rec pick choices ids =
-      match choices with
-      | [] -> 
-        List.hd ids, Oracle (pick [])
-      | n :: ns -> 
-        if List.length ids > 1
-        then
-          List.nth ids n, Oracle (pick ns)
-        else
-          List.hd ids, Oracle (pick choices)
-    in
-    Oracle (pick choices)
+    oracle', map, trace
 
   let run_shortest e pt = 
     let shortest_oracle = make_list_oracle [] in
-    run_deterministic shortest_oracle e pt
-
-  (* non-deterministic, non-terminating
-     e.g. 
-     let rec loop = .
-        let d = inf inf in
-        ... target
-  *)
+    let _, map, trace = run_deterministic shortest_oracle e pt in
+    map, trace
 
   open Tracelet_constraint
 
   let empty_relstk = Mega_constraint.Relstack.empty_relstk
 
-  let get_shortest_clauses map frames = 
-    List.fold_left (fun acc (Frame (tid, pt)) -> 
+  let gen_clauses_frames oracle map frames =
+    List.fold_lefti (fun (oracle0, acc) i (Frame (tid, pt)) -> 
         let tl_static = Ident_map.find tid map in
-        let tl = Tracelet.cut_before pt tl_static in
-        acc @ constraints_of_tracelet tl empty_relstk
-      ) [] frames
+        let tl = Tracelet.cut_before (i <> (List.length frames - 1)) pt tl_static in
+        let oracle1, cs = constraints_of_tracelet oracle0 map tl empty_relstk in
+        oracle1, acc @ cs
+      ) (oracle, []) frames 
+
+  let gen_clauses oracle e pt =
+    let oracle', map, frames = run_deterministic oracle e pt in
+    let _, clauses = gen_clauses_frames oracle' map frames in
+    clauses
+
+  let gen_shortest_clauses_frames map frames =
+    let shortest_oracle = make_list_oracle [] in
+    let _, clauses = gen_clauses_frames shortest_oracle map frames in
+    clauses
+
+  let gen_shortest_clauses e pt =
+    let shortest_oracle = make_list_oracle [] in
+    gen_clauses shortest_oracle e pt
 
 end
