@@ -3,6 +3,12 @@ open Odefa_ddpa
 open Ddpa_abstract_ast
 open Ddpa_graph
 
+open Odefa_ast.Ast_pp
+open Jhupllib
+open Logger_utils
+
+let lazy_logger = make_lazy_logger "Symbolic_interpreter.Interpreter"
+
 let find_cond_top cond_btm cfg =
   let rec loop c =
     match c with
@@ -18,3 +24,14 @@ let find_cond_top cond_btm cfg =
   in
   loop cond_btm
 
+let log_constraints constraints =
+  lazy_logger `info (fun () ->
+      Printf.sprintf "phis: %s\n"
+        (Jhupllib.Pp_utils.pp_to_string
+            (Jhupllib.Pp_utils.pp_list Constraint.pp) constraints)
+    )
+
+let log_clause c = 
+  print_endline @@ Printf.sprintf "%s\n"
+    (Jhupllib.Pp_utils.pp_to_string
+    pp_clause c)

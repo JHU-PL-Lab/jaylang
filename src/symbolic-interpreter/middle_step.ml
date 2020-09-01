@@ -77,6 +77,15 @@ module Tracelet = struct
     other_block : block;
   }
 
+  (* when running, we cannot be in a CondBoth.
+     Using a function call analogy, it's a function always with two fbodies.
+     When called, pick one.
+
+     The question gets down to a caller decision, or a callee decision.
+      We can only get the block after the decision.
+
+      Let's pick the caller decision
+  *)
   type block_node = 
     | Main of block
     | Fun of fun_block
@@ -91,12 +100,33 @@ module Tracelet = struct
 
   type t = source_tracelet
 
+  (* 
+  let return_id_of_tl tl = 
+    return_id_of_block (get_block tl)
+
+  let return_id_of_block =
+    List.last *)
+
+  let running_cond choice (cb : cond_source_block) : cond_running_block =
+    { cond = cb.cond;
+      choice;
+      block = if choice then cb.then_block else cb.else_block;
+      other_block = if choice then cb.else_block else cb.then_block;
+    }
+
   let para_of tl =
     match tl.source_block with
     | Fun b -> b.para
     | _ -> failwith "not fun block in tracelet"
 
-  let get_block tl =
+  let get_block ?choice:(choice=true) tl =
+    match tl.source_block with
+    | Main b -> b
+    | Fun b -> b.block
+    | CondBoth c -> failwith "CondBoth"
+    | CondChosen c -> c.block
+
+  let debug_get_block tl =
     match tl.source_block with
     | Main b -> b
     | Fun b -> b.block
@@ -129,22 +159,14 @@ module Tracelet = struct
     in
     {tl with source_block}
 
-
-  let running_cond choice (cb : cond_source_block) : cond_running_block =
-    { cond = cb.cond;
-      choice;
-      block = if choice then cb.then_block else cb.else_block;
-      other_block = if choice then cb.else_block else cb.then_block;
-    }
-
   let cids_of tl =
     tl
-    |> get_block
+    |> debug_get_block
     |> fun block -> List.map (fun tc -> let Ident n = tc.id in n) block.clauses    
 
   let direct_cids_of tl =
     tl
-    |> get_block
+    |> debug_get_block
     |> fun block -> List.filter_map (fun tc ->
         match tc.cat with
         | Direct -> let Ident n = tc.id in Some n
@@ -152,17 +174,17 @@ module Tracelet = struct
 
   let app_ids_of tl =
     tl
-    |> get_block
+    |> debug_get_block
     |> fun block -> List.map (fun (Ident id, _) -> id) block.app_ids   
 
   let cond_ids_of tl =
     tl
-    |> get_block
+    |> debug_get_block
     |> fun block -> List.map (fun (Ident id, _) -> id) block.cond_ids   
 
   let debug_def_ids_of tl =
     tl
-    |> get_block
+    |> debug_get_block
     |> fun block -> List.map (fun (Ident id, dsts) -> 
         let dst_names = List.map (fun (Ident name) -> name) dsts in
         id, dst_names)
@@ -274,7 +296,15 @@ module Tracelet = struct
   let find_by_id x tl_map =
     tl_map
     |> Ident_map.values
-    |> Enum.find (fun tl -> List.exists (fun tc -> tc.id = x) @@ (get_block tl).clauses )
+    |> Enum.find (fun tl -> List.exists (fun tc -> tc.id = x) @@ (debug_get_block tl).clauses )
+    |> (fun tl -> 
+        match tl.source_block with
+        | CondBoth cb ->
+          let choice = List.exists (fun tc -> tc.id = x) cb.then_block.clauses in
+          let cond = running_cond choice cb in
+          { tl with source_block = CondChosen cond }
+        | _ -> tl
+      )
 
   let cut_before_id x tl_map =
     find_by_id x tl_map
@@ -358,8 +388,8 @@ module Tracelet = struct
 end
 
 module Oracle = struct
-  type oracle =
-    | Oracle of (ident list -> ident * oracle)
+  type 'a oracle =
+    | Oracle of ('a list -> 'a * 'a oracle)
 
   let make_list_oracle choices = 
     let rec pick choices ids =
@@ -374,6 +404,11 @@ module Oracle = struct
           List.hd ids, Oracle (pick choices)
     in
     Oracle (pick choices)
+
+  let pick_bool = function
+    | Oracle orl ->
+      let ic, oracle' = orl [Ident "true"; Ident "false"] in
+      (ic = Ident "true"), oracle'
 end
 
 module Tracelet_constraint = struct
@@ -400,6 +435,9 @@ module Tracelet_constraint = struct
       Some (Constraint.Constraint_value(x_sym, Constraint.Int n))
     | Direct, Clause(_, Value_body(Value_bool b)) -> 
       Some (Constraint.Constraint_value(x_sym, Constraint.Bool b))
+    | Direct, Clause(_, Var_body(Var (y, _))) -> 
+      let y_sym = Symbol(y, stk) in
+      Some (constraint_of_alias x_sym y_sym)
     | _ -> None
 
   let constraint_of_funenter arg stk para stk' =
@@ -412,28 +450,38 @@ module Tracelet_constraint = struct
     let sym_body = Symbol(ret_bodu, stk') in
     constraint_of_alias sym_site sym_body
 
-  let rec constraints_of_callsite oracle tl_map tl stk tc =
-    match tc.cat with
-    | App dsts -> (
-        match oracle with
-        | Oracle orl ->
-          let dst, oracle' = orl dsts in
-          (* let dst = List.hd dsts 
-             in  *)
-          (* log_id dst; *)
-          let tl_dst = Ident_map.find dst tl_map
-          and stk' = Relstack.push stk tc.id
-          in
-          let c_call = constraint_of_funenter (app_id2_of_clause tc.clause) stk (para_of tl_dst) stk'
-          and oracle'', c_body = constraints_of_tracelet oracle' tl_map tl_dst stk'
-          and c_return = 
-            let ret_id = (List.last (get_block tl_dst).clauses).id in
-            constraint_of_funexit tc.id stk ret_id stk' 
-          in
-          oracle'', c_call :: c_return:: c_body )
+  let rec constraints_of_site oracle tl_map no_fun_return stk tc =
+    match tc.cat, oracle with
+    | App dsts, Oracle orl -> (
+        let dst, oracle' = orl dsts in
+        (* let dst = List.hd dsts in  *)
+        (* log_id dst; *)
+        let tl_dst = Ident_map.find dst tl_map
+        and stk' = Relstack.push stk tc.id
+        in
+        let c_call = constraint_of_funenter (app_id2_of_clause tc.clause) stk (para_of tl_dst) stk'
+        and oracle'', c_body = constraints_of_tracelet oracle' tl_map false tl_dst stk'
+        and c_return = 
+          let ret_id = (List.last (debug_get_block tl_dst).clauses).id in
+          constraint_of_funexit tc.id stk ret_id stk' 
+        in
+        oracle'', if no_fun_return then c_call :: c_body else c_call :: c_return :: c_body )
+    | Cond _, Oracle orl -> (
+        let tl = Ident_map.find tc.id tl_map in
+        match tl.source_block with
+        | CondBoth cond ->
+          let choice, oracle' = Oracle.pick_bool oracle in
+          let source_block = CondChosen (running_cond choice cond) in
+          let tl' = { tl with source_block } in
+          constraints_of_tracelet oracle' tl_map false tl' stk
+        | CondChosen cond ->
+          constraints_of_tracelet oracle tl_map false tl stk
+        | _ ->
+          failwith "non cond block in condsite"
+      )
     | _ -> oracle, []
 
-  and constraints_of_tracelet oracle tl_map tl stk = 
+  and constraints_of_tracelet oracle tl_map dangling tl stk = 
     let clauses = match tl.source_block with
       | Main b -> b.clauses
       | Fun b -> b.block.clauses
@@ -442,16 +490,25 @@ module Tracelet_constraint = struct
     in
     let cds = List.filter_map (constraints_of_direct_clause stk) clauses in
     let c0 = constraints_of_block_type tl stk in
-    let oracle', ccs = List.fold_left 
-        (fun (oracle, acc) clause ->
-           let oracle', cs = constraints_of_callsite oracle tl_map tl stk clause in
+    let oracle', ccs = List.fold_lefti 
+        (fun (oracle, acc) i clause ->
+           (* a tracelet has no returning constraint if
+              the tracelet is in the main trace and the clause is the last one
+           *)
+           let no_fun_return = dangling && i == List.length clauses - 1 in
+           let oracle', cs = constraints_of_site oracle tl_map no_fun_return stk clause in
            oracle', acc @ cs) 
         (oracle, []) clauses in
     oracle', c0 @ cds @ ccs
 end
 
 module Tunnel = struct
+  open Tracelet
   open Oracle
+  open Tracelet_constraint
+  open Mega_constraint
+  open Interpreter_types
+
 
   type frame = 
     | Frame of ident * ident
@@ -619,15 +676,14 @@ module Tunnel = struct
     let _, map, trace = run_deterministic shortest_oracle e pt in
     map, trace
 
-  open Tracelet_constraint
-
   let empty_relstk = Mega_constraint.Relstack.empty_relstk
 
   let gen_clauses_frames oracle map frames =
     List.fold_lefti (fun (oracle0, acc) i (Frame (tid, pt)) -> 
         let tl_static = Ident_map.find tid map in
-        let tl = Tracelet.cut_before (i <> (List.length frames - 1)) pt tl_static in
-        let oracle1, cs = constraints_of_tracelet oracle0 map tl empty_relstk in
+        let with_end = i <> List.length frames - 1 in
+        let tl = Tracelet.cut_before with_end pt tl_static in
+        let oracle1, cs = constraints_of_tracelet oracle0 map true tl empty_relstk in
         oracle1, acc @ cs
       ) (oracle, []) frames 
 
@@ -645,4 +701,186 @@ module Tunnel = struct
     let shortest_oracle = make_list_oracle [] in
     gen_clauses shortest_oracle e pt
 
+  let update_env env clauses stk =
+    List.fold_left (fun env tc ->
+        let (Clause (Var (cid, _), _)) = tc.clause in
+        Ident_map.add cid (Symbol (cid, stk)) env
+      ) env clauses
+
+  let constraint_of_direct_clause stk env (tc : Tracelet.tl_clause) = 
+    let x_sym = Symbol(tc.id, stk) in  
+    match tc.cat, tc.clause with
+    | Direct, Clause(_, Value_body(Value_int n)) -> 
+      Some (Constraint.Constraint_value(x_sym, Constraint.Int n))
+    | Direct, Clause(_, Value_body(Value_bool b)) -> 
+      Some (Constraint.Constraint_value(x_sym, Constraint.Bool b))
+    | Direct, Clause(_, Var_body (Var (id, _))) -> 
+      Some (constraint_of_alias x_sym (Ident_map.find id env))
+    | Direct, Clause(_, Binary_operation_body (Var (id1, _), op, Var (id2, _))  ) -> 
+      Some (Constraint.Constraint_binop (x_sym, (Ident_map.find id1 env), op, (Ident_map.find id2 env)))
+    | _ -> None
+
+  let rec eval_tracelet tl_map main_cf (tl : Tracelet.t) oracle env stk =
+    let clauses = match tl.source_block with
+      | Main b -> b.clauses
+      | Fun b -> b.block.clauses
+      | CondBoth c -> failwith "cut_before can only return CondChosen determinstically"
+      | CondChosen c -> c.block.clauses 
+    in
+    let env1 = update_env env clauses stk in
+    let c0 = constraints_of_block_type tl stk in
+    let cds = List.filter_map (constraint_of_direct_clause stk env1) clauses in
+    let oracle', ccs = List.fold_lefti
+        (fun (oracle, acc) i clause ->
+           let no_fun_return = main_cf && i == List.length clauses - 1 in
+           let oracle', cs = eval_site tl_map no_fun_return clause oracle env stk in
+           oracle', acc @ cs
+        ) 
+        (oracle, []) clauses in
+    oracle', env, stk, c0 @ cds @ ccs
+
+  and eval_site tl_map no_fun_return clause oracle env stk =
+    let Oracle orl = oracle in
+    match clause.cat with
+    | App dsts ->
+      oracle, []
+    | Cond _ ->
+      oracle, []
+    | _ ->
+      oracle, []
+
+  let naive_eval oracle map frames =
+    let _, _, _, cs = 
+      List.fold_lefti (fun (oracle, env, stk, acc) i (Frame (tid, pt)) -> 
+          let tl_static = Ident_map.find tid map in
+          let with_end = i <> List.length frames - 1 in
+          let tl = Tracelet.cut_before with_end pt tl_static in
+          let oracle', env', stk', constaints = eval_tracelet map true tl oracle env stk in
+          oracle', env', stk', acc @ constaints
+        ) (oracle, Ident_map.empty, empty_relstk, []) frames 
+    in
+    cs
+
+  (* two passes ? *)
+end
+
+module Naive = struct
+  (* the inner and outer should have similar structure,
+     when we use one_oracle for inner, it hints we should also use one_oracle for outer *)
+  type oracle = {
+    block_id : Ident.t;
+    x_to : Ident.t option;
+    path : path;
+    inner : oracle list;
+    outer : oracle option }
+  and path =
+    | Choice of bool
+    | Call of Ident.t * Ident.t
+    | Main
+
+  (* if the oracle is homomorphic to the frame actication (function call) 
+     an empty oracle is NOT the same as None
+
+     Todo:
+      where to put funenter funexit
+     Relusion:
+      caller_block: funenter
+      callee_block: funexit a.k.a. funexit bounds to the block
+     Reason:
+
+  *)
+  (* oracle api : split, join, reverse *)
+
+  (*  *)
+
+  let id_of_clause (Clause (Var (id, _), _)) = id
+
+  open Tracelet
+  open Tracelet_constraint
+  open Mega_constraint
+
+  let oracle_of_naive_call fname arg =
+    let x = Ident fname 
+    and a = Ident arg in
+    { block_id = x; 
+      path = Call (x, a);
+      x_to = None; 
+      inner = []; 
+      outer = None} 
+
+
+  let stack_of_x oracle stack x = stack
+
+  let walk oracle map program stack0 =
+    let all_cs = ref [] in
+
+    let rec loop (oracle : oracle) stack =
+      let tl = 
+        match oracle.x_to with
+        | Some pt -> 
+          let tl0 = Tracelet.find_by_id pt map in
+          Tracelet.cut_before false pt tl0
+        | None ->
+          Ident_map.find oracle.block_id map
+      in
+      let block = Tracelet.get_block tl in 
+      let cds = List.fold_left (fun acc tc ->
+          let c' = 
+            match tc.cat with
+            | Direct -> (
+                match constraints_of_direct_clause stack tc with
+                | Some c -> [c]
+                | _ -> []
+              )
+            | _ -> []
+          in
+          acc @ c'
+        ) [] block.clauses in
+      let _ = List.fold_left (fun choices tc ->
+          let choices' = 
+            match tc.cat with
+            | App _ -> (
+                let choice, choices'' = List.hd choices, List.tl choices in
+                (match choice.path with
+                 | Call(f, _arg) -> (
+                     let stack' = Relstack.push stack tc.id in
+                     loop choice stack'
+                   )
+                 | _ -> failwith "call oracle"
+                ) ;
+                choices'')
+            | _ -> choices
+          in choices'
+        ) oracle.inner block.clauses in
+
+      let cb = constraints_of_block_type tl stack in
+
+      let cs = cds @ cb in
+      all_cs := !all_cs @ cs;
+      match oracle.outer with
+      | Some oracle -> 
+        loop oracle stack
+      | None -> ()
+    in
+
+    loop oracle stack0;
+    !all_cs
+
+
+  (* let oracle_split oracle_block clauses =
+
+     let (cs, c, _), _ =
+      List.fold_while 
+        (fun (cs, c, found) clause ->
+           if oracle_block.last_block
+           then found
+           else id_of_clause clause <> oracle_block.x
+        )
+        (fun (cs, _, found) clause ->
+           cs @ [clause], clause, id_of_clause clause <> oracle_block.x
+        )
+        ([], (List.hd clauses), false)
+        clauses
+     in
+     cs, c *)
 end
