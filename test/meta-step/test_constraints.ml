@@ -31,18 +31,16 @@ let test_constraints oracle e pt =
 let test_shortest e pt =
   let shortest_oracle = make_list_oracle [] in
   test_constraints shortest_oracle e pt
-;;
 
 let test_choice choices e pt =
   let oracle = make_list_oracle choices in
   test_constraints oracle e pt
-;;
 
-(* 
-let test_shortest e pt =
-  let m, f = Tunnel.run_shortest e (Ident pt) in
+let test_naive choices e pt =
+  let oracle = make_list_oracle choices in
+  let oracle', m, f = Tunnel.run_deterministic oracle e (Ident pt) in
   print_trace @@ ident_list_of_trace f m;
-  let c = Tunnel.gen_shortest_clauses_frames m f in
+  let c = Tunnel.naive_eval oracle' m f in
   print_constraints c;
   try
     let s = List.fold_left (fun s c -> Solver.add c s) Solver.empty c in
@@ -51,17 +49,117 @@ let test_shortest e pt =
   with
   | _ ->
     print_endline "UNSAT"
+;;
+(* test_shortest e1 "t";;
 
-;; *)
-(* test_shortest e1 "t";; *)
+   test_shortest e3 "t";;
 
-test_shortest e3 "t";;
+   test_shortest e4 "z";;
 
-test_shortest e4 "z";;
+   test_shortest e6 "x";;
 
-test_shortest e6 "x";;
+   test_shortest e7 "x";;
+
+   test_shortest e8 "rf";;
+
+   test_choice [] e9 "rf";;
+
+   test_choice [1] e9 "rf";;
+
+   test_choice [2] e9 "rf";;
+
+   test_choice [] e10 "target";;
+
+   test_choice [0] e10_2 "target";;
+
+   test_choice [1] e10_2 "target";;
+
+*)
+
+(* test_choice [] e11 "target";;
+
+   test_choice [1] e11 "target";;
+
+   test_choice [] e12 "target";;
 
 
+
+   test_choice [0; 1] e19 "target";;
+
+   test_choice [1; 1] e19 "target";; *)
+
+(* test_naive [] e21 "target";; *)
+
+(* tf *)
+(* test_choice [2] e19_2 "target";;  *)
+
+(* th *)
+(* test_choice [1] e19_2 "target";; *)
+
+(* tg *)
+(* test_choice [0] e19_2 "target";; *)
+
+(* test_shortest e18 "r2";;
+
+   test_choice [1] e18 "r2";; *)
+
+;;
+open Naive
+
+let test_walk program oracle =
+  let pt = BatOption.get oracle.x_to in
+  let map = Tunnel.annotate program pt in
+  let cs = Naive.walk oracle map program Tunnel.empty_relstk in
+  print_constraints cs;
+  try
+    let s = List.fold_left (fun s c -> Solver.add c s) Solver.empty cs in
+    match Solver.solve s with
+    | _ -> print_endline "SAT"
+  with
+  | _ ->
+    print_endline "UNSAT"
+;;
+
+
+test_walk
+  e1 
+  ({block_id = Tracelet.id_main; 
+    x_to = Some (Ident "t"); 
+    path = Main;
+    inner = []; 
+    outer = None}) ;;
+
+test_walk
+  e3
+  ({block_id = Ident "w2"; 
+    x_to = Some (Ident "t");
+    path = Main;
+    inner = [];
+    outer = Some {block_id = Tracelet.id_main; 
+                  x_to = Some (Ident "w2"); 
+                  path = Choice false;
+                  inner = []; 
+                  outer = None}}) ;;
+
+test_walk
+  e3
+  ({block_id = Ident "w2"; 
+    x_to = Some (Ident "w1"); 
+    path = Main;
+    inner = [];
+    outer = Some {block_id = Tracelet.id_main; 
+                  x_to = Some (Ident "w2"); 
+                  path = Choice true;
+                  inner = []; 
+                  outer = None}}) ;;
+
+test_walk
+  e6 
+  ({block_id = Tracelet.id_main; 
+    x_to = Some (Ident "x"); 
+    path = Main;
+    inner = [ oracle_of_naive_call "f" "t"]; 
+    outer = None}) ;;
 
 let export = ()
 

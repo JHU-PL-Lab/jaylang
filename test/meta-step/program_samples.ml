@@ -70,12 +70,12 @@ b2 = b1 id
 "
 
 let e6 = parse "
-t = 1;
+p = 1;
 f = fun t -> (
   rf = 1
 );
 g = f;
-a = g t;
+a = g p;
 x = 1;
 "
 
@@ -120,6 +120,14 @@ c3 = f a3
 
 let e10 = parse "
 a = true;
+b = a ? (r1 = 1) : (r2 = 1);
+e = 1;
+c = b;
+target = 1
+"
+
+let e10_2 = parse "
+a = input;
 b = a ? (r1 = 1) : (r2 = 1);
 e = 1;
 c = b;
@@ -217,4 +225,135 @@ f = fun s -> (
 ff = f f;
 x3 = 3;
 z = ff x3;
+"
+
+let e19 = parse "
+one = 1;
+two = 2;
+f = fun fx -> (
+  f0 = fun fy -> (
+    f1 = fx
+  )
+);
+g = fun gx -> (
+  g0 = fun gy -> (
+    g1 = gx
+  )
+);
+app = fun pf -> (
+  rapp = fun px -> (
+    r = pf px;
+    target = 1;
+    rr = r;
+  )
+);
+tf1 = app f;
+tf = tf1 one;
+tg2 = app g;
+tg = tg2 two;
+"
+
+let e19_3 = parse "
+one = 1;
+two = 2;
+three = 3;
+f = fun fx -> (
+  f0 = fun fy -> (
+    f1 = fx
+  )
+);
+app = fun pf -> (
+  rapp = fun px -> (
+    r = pf px;
+    target = 1;
+    rr = r;
+  )
+);
+af1 = app f;
+tf1 = af1 one;
+af2 = app f;
+tf2 = af2 two;
+af3 = app f;
+tf3 = af3 three;
+"
+
+let e19_2 = parse "
+one = 1;
+two = 2;
+three = 3;
+f = fun fx -> (
+  f0 = fun fy -> (
+    f1 = fx
+  )
+);
+g = fun gx -> (
+  g0 = fun gy -> (
+    g1 = gx
+  )
+);
+h = fun hx -> (
+  h0 = fun hy -> (
+    h1 = hx
+  )
+);
+app = fun pf -> (
+  rapp = fun px -> (
+    r = pf px;
+    target = 1;
+    rr = r;
+  )
+);
+tf1 = app f;
+tf = tf1 one;
+tg1 = app g;
+tg = tg1 two;
+th1 = app g;
+th = th1 three;
+"
+
+let e20 = parse "
+n1 = 1;
+n2 = 2;
+n3 = 3;
+f1 = fun x1 -> (
+  rf1 = fun y1 -> (
+    rrf1 = x1
+  )
+);
+f2 = fun x2 -> (
+  rf2 = fun y2 -> (
+    rrf2 = x2
+  )
+);
+f3 = fun x3 -> (
+  rf3 = fun y3 -> (
+    rrf3 = x3
+  )
+);
+
+ap = fun f -> (
+  n0 = 0;
+  r = f n0;
+  target = r
+);
+
+tf1 = f1 n1;
+tf2 = f2 n2;
+tf3 = f3 n3;
+
+g1 = ap tf1;
+g2 = ap tf2;
+g3 = ap tf3
+"
+
+let e21 = parse "
+one = 1;
+single = one;
+two = one + one;
+f = fun x -> (
+  tf = 1;
+  rf = tf;
+);
+t = f one;
+target = 1;
 "
