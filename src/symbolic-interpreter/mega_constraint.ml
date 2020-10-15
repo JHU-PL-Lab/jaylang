@@ -199,7 +199,15 @@ let constraint_of_clause clause_mapping first_vav =
   | _ ->
     failwith "else in constraint"
 
+let constraint_of_funenter arg stk para stk' =
+  let sym_arg =  Symbol(arg, stk) in
+  let sym_para = Symbol(para, stk') in
+  constraint_of_alias sym_arg sym_para
 
+let constraint_of_funexit ret_site stk ret_bodu stk' =
+  let sym_site =  Symbol(ret_site, stk) in
+  let sym_body = Symbol(ret_bodu, stk') in
+  constraint_of_alias sym_site sym_body
 
 module Memoized = struct
   (* what is the key to the step?
@@ -257,8 +265,6 @@ module Memoized = struct
     we will have sth like [x[]=1;target[]=x[]; y->Indirect].
     Unless we can expand y to values without Indirect, we won't finish the constraint generation.
      *)
-
-
   (* 
       key: start from this program point
       value: immediate phis and other phis 

@@ -90,7 +90,8 @@ z = fun w -> (
   x = 1;
 );
 z2 = z;
-p = z2 u
+p = z2 u;
+p2 = p;
 "
 
 let e8 = parse "
@@ -356,4 +357,22 @@ f = fun x -> (
 );
 t = f one;
 target = 1;
+"
+
+let e22 = parse "
+one = 1;
+two = 2;
+three = 3;
+four = 4;
+f = fun x -> (
+  n = x;
+  g = fun y -> (
+    m = x;
+    target = one;
+  );
+);
+a1 = f one;
+a2 = f two;
+b1 = a1 three;
+b2 = a2 four;
 "

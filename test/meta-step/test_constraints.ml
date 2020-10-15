@@ -120,7 +120,32 @@ let test_walk program oracle =
     print_endline "UNSAT"
 ;;
 
+test_walk
+  e22
+  ({block_id = Ident "g"; 
+    x_to = Some (Ident "target"); 
+    path = CallOut (Ident "three");
+    inner = [];
+    outer = Some
+        {block_id = Tracelet.id_main;
+         x_to = Some (Ident "b1");
+         path = Main;
+         inner = [
+           {block_id = Ident "f";
+            x_to = None;
+            path = CallIn;
+            inner = [];
+            outer = None};
+           {block_id = Ident "f";
+            x_to = None;
+            path = CallIn;
+            inner = [];
+            outer = None}
+         ];
+         outer = None}
+   }) ;;
 
+(* 
 test_walk
   e1 
   ({block_id = Tracelet.id_main; 
@@ -158,8 +183,49 @@ test_walk
   ({block_id = Tracelet.id_main; 
     x_to = Some (Ident "x"); 
     path = Main;
-    inner = [ oracle_of_naive_call "f" "t"]; 
+    inner = [ oracle_of_naive_call "f" ]; 
     outer = None}) ;;
+
+test_walk
+  e7
+  ({block_id = Tracelet.id_main; 
+    x_to = Some (Ident "p2"); 
+    path = Main;
+    inner = [ 
+      {block_id = Ident "z";
+       x_to = None;
+       path = CallIn;
+       inner = [
+         {block_id = Ident "f";
+          x_to = None;
+          path = CallIn;
+          inner = [];
+          outer = None}
+       ];
+       outer = None
+      }
+    ]; 
+    outer = None}) ;;
+
+test_walk
+  e7
+  ({block_id = Ident "z"; 
+    x_to = Some (Ident "x"); 
+    path = CallOut (Ident "u");
+    inner = [ 
+      {block_id = Ident "f";
+       x_to = None;
+       path = CallIn;
+       inner = [];
+       outer = None}
+    ];
+    outer = Some
+        {block_id = Tracelet.id_main;
+         x_to = Some (Ident "p");
+         path = Main;
+         inner = [];
+         outer = None}
+   }) ;; *)
 
 let export = ()
 

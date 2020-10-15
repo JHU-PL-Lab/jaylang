@@ -2,13 +2,9 @@ open Batteries
 (* open Jhupllib *)
 open Odefa_ast
 open Ast
-(* open Ast_pp *)
 open Odefa_ddpa
 open Ddpa_abstract_ast
 open Ddpa_graph
-(* open Ddpa_utils *)
-(* open Interpreter_types;; *)
-(* open Logger_utils *)
 
 open Ast_helper
 open Ddpa_helper
@@ -25,13 +21,11 @@ let log_id id =
     (Jhupllib.Pp_utils.pp_to_string pp_ident id)
 
 module Tracelet = struct
-
   (* TODO: we might get rid of map at all, by using tree (zipper) *)
   let name_main = "0_main"
 
   let id_main = Ident name_main
 
-  (* duplicate for simplicity *)
   type clause_cat = 
     | Direct
     | Fun 
@@ -50,8 +44,6 @@ module Tracelet = struct
     clauses : tl_clause list;
     app_ids : id_with_dst list;
     cond_ids : id_with_dst list;
-    (* first_v : id of the first clause *)
-    (* ret: id of the last clause *)
   }
 
   let empty_block = {
@@ -100,13 +92,6 @@ module Tracelet = struct
 
   type t = source_tracelet
 
-  (* 
-  let return_id_of_tl tl = 
-    return_id_of_block (get_block tl)
-
-  let return_id_of_block =
-    List.last *)
-
   let running_cond choice (cb : cond_source_block) : cond_running_block =
     { cond = cb.cond;
       choice;
@@ -125,6 +110,54 @@ module Tracelet = struct
     | Fun b -> b.block
     | CondBoth c -> failwith "CondBoth"
     | CondChosen c -> c.block
+
+  let ids_of tl = 
+    let block = get_block tl in
+    List.map (fun tc -> tc.id) block.clauses
+
+  let fun_var_at_callsite s tl = 
+    let block = get_block tl in
+    let tc = List.find (fun cl -> cl.id = s) block.clauses in
+    app_id1_of_clause tc.clause
+
+  let ret_of tl = 
+    let block = get_block tl in
+    (List.last block.clauses).id
+
+  (* id can only be defined in two ways: as a parameter or in a block .
+     they are mostly the same since we can treat parameter the first variables defined in a block,
+     while it's value is determined by the callsite of the function.
+
+     subquestion: given a stack, can we find the lexical outer block for a variable?
+     yes.
+
+     subquestion: given a stack, can we index that outer block by another stack?
+     no. the reason is we use callsites in the stack.
+
+     subquestion: given a stack and an oracle, can we index the outer block?
+     yes, with an oracle, we can know everything.
+
+     subquestion: given a stack, can we invent a notation to index the outer block?
+     assume for relative stack, we record the callsite and the function
+
+
+     The symmetry problem comes for forward execution.
+     Assume we have
+     ```
+     f = fun x ->
+        ...
+        g = fun y ->
+          ...
+     ...
+     a = f 1
+     ...
+        b = a 2
+      ...
+     ```
+
+      x [...; (a,f); ]
+
+  *)
 
   let debug_get_block tl =
     match tl.source_block with
@@ -428,7 +461,9 @@ module Tracelet_constraint = struct
     | CondBoth c -> [constraint_of_bool (Symbol(c.cond, stk)) true]
     | CondChosen c -> [constraint_of_bool (Symbol(c.cond, stk)) c.choice]
 
-  let constraints_of_direct_clause stk tc = 
+
+  (* lagecy version *)
+  let constraints_of_direct_clause' stk tc = 
     let x_sym = Symbol(tc.id, stk) in  
     match tc.cat, tc.clause with
     | Direct, Clause(_, Value_body(Value_int n)) -> 
@@ -440,15 +475,18 @@ module Tracelet_constraint = struct
       Some (constraint_of_alias x_sym y_sym)
     | _ -> None
 
-  let constraint_of_funenter arg stk para stk' =
-    let sym_arg =  Symbol(arg, stk) in
-    let sym_para = Symbol(para, stk') in
-    constraint_of_alias sym_arg sym_para
-
-  let constraint_of_funexit ret_site stk ret_bodu stk' =
-    let sym_site =  Symbol(ret_site, stk) in
-    let sym_body = Symbol(ret_bodu, stk') in
-    constraint_of_alias sym_site sym_body
+  let constraints_of_direct_clause oracle_stk stk tc = 
+    let x_sym = Symbol(tc.id, stk) in  
+    match tc.cat, tc.clause with
+    | Direct, Clause(_, Value_body(Value_int n)) -> 
+      Some (Constraint.Constraint_value(x_sym, Constraint.Int n))
+    | Direct, Clause(_, Value_body(Value_bool b)) -> 
+      Some (Constraint.Constraint_value(x_sym, Constraint.Bool b))
+    | Direct, Clause(_, Var_body(Var (y, _))) -> 
+      let y_stk = oracle_stk stk y in
+      let y_sym = Symbol(y, y_stk) in
+      Some (constraint_of_alias x_sym y_sym)
+    | _ -> None
 
   let rec constraints_of_site oracle tl_map no_fun_return stk tc =
     match tc.cat, oracle with
@@ -488,7 +526,7 @@ module Tracelet_constraint = struct
       | CondBoth c -> c.then_block.clauses
       | CondChosen c -> c.block.clauses
     in
-    let cds = List.filter_map (constraints_of_direct_clause stk) clauses in
+    let cds = List.filter_map (constraints_of_direct_clause' stk) clauses in
     let c0 = constraints_of_block_type tl stk in
     let oracle', ccs = List.fold_lefti 
         (fun (oracle, acc) i clause ->
@@ -528,15 +566,6 @@ module Tunnel = struct
     |> Analysis.perform_full_closure
     |> Analysis.cfg_of_analysis
 
-  (* dynamic stack or block map *)
-  (* type tunnel =
-     | Full of ident
-     | Partial of ident * ident
-
-     type tunnel_map = (ident, ident) BatMultiPMap.t
-
-     type callsite_tunnel = ident Ident_map.t *)
-
   (* we cannot use tracelet map to represent the dynamic call graph/stack.
      the point is for one block, we can have a full version and a partial version
      at the same time.
@@ -568,14 +597,9 @@ module Tunnel = struct
     in
 
     (* let debug_bomb = ref 20 in *)
-
-    (* let circleless_map = ref BatMultiPMap.empty in *)
     let visited = ref Annotated_clause_set.empty in
     (* map := BatMultiPMap.add id_start id_start !map;
        !map *)
-
-    (* let tunnel_map = ref BatMultiPMap.empty in *)
-
     let rec loop acl dangling : unit = 
       if Annotated_clause_set.mem acl !visited
       then ()
@@ -760,13 +784,9 @@ module Tunnel = struct
         ) (oracle, Ident_map.empty, empty_relstk, []) frames 
     in
     cs
-
-  (* two passes ? *)
 end
 
 module Naive = struct
-  (* the inner and outer should have similar structure,
-     when we use one_oracle for inner, it hints we should also use one_oracle for outer *)
   type oracle = {
     block_id : Ident.t;
     x_to : Ident.t option;
@@ -775,7 +795,8 @@ module Naive = struct
     outer : oracle option }
   and path =
     | Choice of bool
-    | Call of Ident.t * Ident.t
+    | CallIn
+    | CallOut of Ident.t
     | Main
 
   (* if the oracle is homomorphic to the frame actication (function call) 
@@ -791,96 +812,120 @@ module Naive = struct
   *)
   (* oracle api : split, join, reverse *)
 
-  (*  *)
-
   let id_of_clause (Clause (Var (id, _), _)) = id
 
   open Tracelet
   open Tracelet_constraint
   open Mega_constraint
 
-  let oracle_of_naive_call fname arg =
-    let x = Ident fname 
-    and a = Ident arg in
-    { block_id = x; 
-      path = Call (x, a);
+  let oracle_of_naive_call fname  =
+    let f = Ident fname in
+    { block_id = f; 
+      path = CallIn;
       x_to = None; 
       inner = []; 
       outer = None} 
 
+  let tl_of_oracle oracle tl_map = 
+    match oracle.x_to with
+    | Some pt -> 
+      let tl0 = Tracelet.find_by_id pt tl_map in
+      Tracelet.cut_before false pt tl0
+    | None ->
+      Ident_map.find oracle.block_id tl_map
 
-  let stack_of_x oracle stack x = stack
+  let rec def_stack_of_x oracle tl_map stack x = 
+    let tl = Ident_map.find oracle.block_id tl_map in
+    log_id x;
+    let ids = Tracelet.ids_of tl in 
+    log_id (List.hd ids);
+    if List.mem x ids
+    then stack
+    else (
+      match oracle.outer with
+      | Some oracle -> (
+          match oracle.x_to with
+          | Some callsite -> (
+              let tlc = Ident_map.find oracle.block_id tl_map in
+              let fun_var = fun_var_at_callsite callsite tlc in
+              log_id fun_var;
+              let stack' = Relstack.co_pop stack tl.point in
+              def_stack_of_x oracle tl_map stack' fun_var)
+          | None -> failwith "stack_of_x none")
+      | _ -> failwith "stack_of_x"
+    )
 
   let walk oracle map program stack0 =
     let all_cs = ref [] in
 
-    let rec loop (oracle : oracle) stack =
-      let tl = 
-        match oracle.x_to with
-        | Some pt -> 
-          let tl0 = Tracelet.find_by_id pt map in
-          Tracelet.cut_before false pt tl0
-        | None ->
-          Ident_map.find oracle.block_id map
-      in
-      let block = Tracelet.get_block tl in 
-      let cds = List.fold_left (fun acc tc ->
+    let cds_of_block block stack =
+      List.fold_left (fun acc tc ->
           let c' = 
             match tc.cat with
             | Direct -> (
-                match constraints_of_direct_clause stack tc with
+                let oracle_stk = def_stack_of_x oracle map in
+                match constraints_of_direct_clause oracle_stk stack tc with
                 | Some c -> [c]
                 | _ -> []
               )
             | _ -> []
           in
           acc @ c'
-        ) [] block.clauses in
-      let _ = List.fold_left (fun choices tc ->
+        ) [] block.clauses 
+    in
+
+    let rec walk_inner (oracle : oracle list) clauses stack =
+      List.fold_left (fun choices tc ->
           let choices' = 
             match tc.cat with
             | App _ -> (
                 let choice, choices'' = List.hd choices, List.tl choices in
                 (match choice.path with
-                 | Call(f, _arg) -> (
+                 | CallIn -> (
+                     let f = choice.block_id in
                      let stack' = Relstack.push stack tc.id in
-                     loop choice stack'
+                     let ftl = Ident_map.find f map in
+                     let para = para_of ftl in
+                     let c_callin = constraint_of_funenter (app_id2_of_clause tc.clause) stack para stack' in
+                     let c_return = 
+                       let ret_id = ret_of ftl in
+                       constraint_of_funexit tc.id stack ret_id stack'
+                     in
+                     all_cs := !all_cs @ [c_callin; c_return];
+                     loop false choice stack'
                    )
                  | _ -> failwith "call oracle"
                 ) ;
                 choices'')
             | _ -> choices
           in choices'
-        ) oracle.inner block.clauses in
+        ) oracle clauses 
 
+    and loop is_walk_out (oracle : oracle) stack =
+      let tl = tl_of_oracle oracle map in
+      let block = Tracelet.get_block tl in 
+      let cds = cds_of_block block stack in
+      let _ = walk_inner oracle.inner block.clauses stack in
       let cb = constraints_of_block_type tl stack in
 
       let cs = cds @ cb in
       all_cs := !all_cs @ cs;
-      match oracle.outer with
-      | Some oracle -> 
-        loop oracle stack
-      | None -> ()
+
+      if is_walk_out
+      then 
+        match oracle.outer, oracle.path with
+        | Some oracle, CallOut arg -> 
+          let stack' = Relstack.co_pop stack tl.point in
+          let c_callin =
+            let para = para_of tl in 
+            constraint_of_funenter arg stack' para stack in
+          all_cs := !all_cs @ [c_callin];
+          loop true oracle stack'
+        | _, _ -> ()
+      else
+        ()
     in
 
-    loop oracle stack0;
+    loop true oracle stack0;
     !all_cs
-
-
-  (* let oracle_split oracle_block clauses =
-
-     let (cs, c, _), _ =
-      List.fold_while 
-        (fun (cs, c, found) clause ->
-           if oracle_block.last_block
-           then found
-           else id_of_clause clause <> oracle_block.x
-        )
-        (fun (cs, _, found) clause ->
-           cs @ [clause], clause, id_of_clause clause <> oracle_block.x
-        )
-        ([], (List.hd clauses), false)
-        clauses
-     in
-     cs, c *)
 end
