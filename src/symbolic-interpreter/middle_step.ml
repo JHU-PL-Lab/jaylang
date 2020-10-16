@@ -347,6 +347,19 @@ module Tracelet = struct
     find_by_id x tl_map
     |> cut_before true x  
 
+  let clauses_of_tl tl = 
+    let clauses = match tl.source_block with
+      | Main b -> b.clauses
+      | Fun b -> b.block.clauses
+      | CondBoth c -> failwith "cut_before can only return CondChosen determinstically"
+      | CondChosen c -> c.block.clauses 
+    in
+    clauses
+
+  let clause_of_x tl x =
+    let clauses = clauses_of_tl tl in
+    List.find_opt (fun tc -> tc.id = x) clauses
+
   let update_id_dst id dst0 tl =
     let add_dst = function
       | Some dst -> 

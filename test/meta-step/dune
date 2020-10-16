@@ -4,8 +4,13 @@
   (action (run ./test.exe))
 )
 
-(executable
-  (name test)
+(alias
+  (name test_dbmc)
+  (action (run ./test_dbmc.exe))
+)
+
+(executables
+  (names test test_dbmc)
   (libraries
     batteries
     jhupllib

@@ -376,3 +376,37 @@ a2 = f two;
 b1 = a1 three;
 b2 = a2 four;
 "
+
+let ep1 = parse "
+x = 1;
+y = 1
+"
+
+let ep2 = parse "
+x = 1;
+y = x
+"
+
+let ep3 = parse "
+x = 1;
+z = 2;
+y = x
+"
+
+let ep4 = parse "
+x = 1;
+z = 2;
+y = input
+"
+
+let ep5 = parse "
+x = 1;
+z = 2;
+y = x + z
+"
+
+let ep6 = parse "
+x = 1;
+z = input;
+y = x + z
+"
