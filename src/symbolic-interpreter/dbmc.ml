@@ -68,7 +68,7 @@ let lookup_main program x_target =
     match defined x block with
     | At_clause tc -> (
         begin
-          log_clause tc.clause;
+          (* log_clause tc.clause; *)
           let (Clause (Var _, rhs)) = tc.clause in
           match rhs with 
           (* Value Discovery Main *)
@@ -106,11 +106,11 @@ let lookup_main program x_target =
               lookup [xf] block rel_stack;
               match tc.cat with
               | App funs -> (
-                  (* print_int (List.length funs); *)
                   List.iter (fun fun_id ->
                       let fblock = Ident_map.find fun_id map in
                       let x' = Tracelet.ret_of fblock in
                       let rel_stack' = Relstack.push rel_stack x in
+                      add_phi (Bind_cid_cid(rel_stack, [x], rel_stack', [x']));
                       lookup [x'] fblock rel_stack' 
                     ) funs
                 )
@@ -130,15 +130,27 @@ let lookup_main program x_target =
             let rel_stack' = Relstack.co_pop rel_stack x' in
             add_phi (Bind_cid_cid (rel_stack, x::xs, rel_stack', x'''::xs));
             add_phi (Bind_this_fun (rel_stack, [x''], block.point));
-            lookup (x'' ::xs) callsite_block rel_stack';
+            lookup [x''] callsite_block rel_stack';
             lookup (x'''::xs) callsite_block rel_stack'
-          | _ -> failwith "incorrect callsite clause"
+          | _ -> failwith "incorrect callsite in fun para"
         )
         [List.hd fb.callsites]
 
     (* Fun Enter Non-Local *)
     | At_fun_para (false, fb) ->
-      failwith "def_at"
+      List.iter (fun callsite -> 
+          let callsite_block, tc = block_with_clause_of_id map callsite in
+          log_clause tc.clause;
+          match tc.clause with
+          | (Clause (Var (x', _), Appl_body (Var (x'', _), Var (x''', _)))) ->
+            let rel_stack' = Relstack.co_pop rel_stack x' in
+            add_phi (Bind_cid_cid (rel_stack, x::xs, rel_stack', x'''::xs));
+            add_phi (Bind_this_fun (rel_stack, [x''], block.point));
+            lookup [x''] callsite_block rel_stack';
+            lookup (x''::x::xs) callsite_block rel_stack'
+          | _ -> failwith "incorrect callsite in fun non-local"
+        )
+        [List.hd fb.callsites]
 
     (* Cond Top *)
 

@@ -10,14 +10,13 @@ let test program target =
        (Jhupllib.Pp_utils.pp_list Dbmc.Phi.pp_phi) phis)
 
 let () =
-  (* test ep1 "y";
-     test ep2 "y";
-     test ep3 "y";
-     test ep4 "y";
-     test ep5 "y";
-     test ep6 "y"; 
-  *)
+  test ep1 "x";
+  test ep2 "y";
+  test ep3 "y";
+  test ep4 "y";
+  test ep5 "y";
+  test ep6 "y"; 
   test ep7 "r";
-  ();
   test ep8 "target";
+  test ep9 "target";
   ()

@@ -377,6 +377,11 @@ b1 = a1 three;
 b2 = a2 four;
 "
 
+let ep0 = parse "
+x = 1;
+y = 1
+"
+
 let ep1 = parse "
 x = 1;
 y = 1
@@ -426,4 +431,17 @@ f = fun x -> (
 );
 y = f a;
 target = y
+"
+
+let ep9 = parse "
+a = 1;
+b = 2;
+f = fun x -> (
+  rf = fun y -> (
+    r = x + y
+  )
+);
+t1 = f a;
+t2 = t1 b;
+target = t2
 "
