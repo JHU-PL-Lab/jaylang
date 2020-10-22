@@ -1,5 +1,6 @@
 open Batteries
 open Odefa_ast
+open Odefa_ast.Ast_pp
 open Odefa_ddpa
 open Ast
 open Ddpa_abstract_ast
@@ -221,3 +222,8 @@ let app_id1_of_clause = function
 let app_id2_of_clause = function
   | Clause (_, Appl_body (_, Var (id2, _))) -> id2
   | _ -> failwith "not app clause"
+
+let log_clause c = 
+  print_endline @@ Printf.sprintf "%s\n"
+    (Jhupllib.Pp_utils.pp_to_string
+       pp_clause c)

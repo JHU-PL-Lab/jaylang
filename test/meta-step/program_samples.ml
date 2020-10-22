@@ -410,3 +410,20 @@ x = 1;
 z = input;
 y = x + z
 "
+
+let ep7 = parse "
+a = 1;
+f = fun x -> (
+  r = x
+);
+y = f a
+"
+
+let ep8 = parse "
+a = 1;
+f = fun x -> (
+  r = x
+);
+y = f a;
+target = y
+"

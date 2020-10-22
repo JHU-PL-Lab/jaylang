@@ -358,7 +358,12 @@ module Tracelet = struct
 
   let clause_of_x tl x =
     let clauses = clauses_of_tl tl in
-    List.find_opt (fun tc -> tc.id = x) clauses
+    List.find_opt (fun tc -> tc.id = x) clauses    
+
+  let block_with_clause_of_id tl_map x =
+    let tl = find_by_id x tl_map in
+    let c = BatOption.get @@ clause_of_x tl x in
+    (tl, c)
 
   let update_id_dst id dst0 tl =
     let add_dst = function
@@ -391,11 +396,12 @@ module Tracelet = struct
       tl
 
   let add_id_dst site_x def_x tl_map =
-    (* log_id site_x; *)
-    (* log_id def_x; *)
     let tl = find_by_id site_x tl_map in
-    (* log_id tl.point; *)
     let tl' = update_id_dst site_x def_x tl in
+    log_id site_x;
+    log_id def_x;
+    log_id tl.point;
+
     Ident_map.add tl.point tl' tl_map
 
   let cond_set b tl =
