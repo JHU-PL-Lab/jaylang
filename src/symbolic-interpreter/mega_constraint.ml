@@ -48,6 +48,7 @@ let lift_use_symbol f phi =
   | Constraint_projection(s1, s2, id) -> Constraint_projection(s1, f s2, id)
   | Constraint_type(s, t) -> failwith "not here"
   | Constraint_stack(cstk) -> Constraint_stack(cstk)
+  | _ -> failwith "no Constraints_ids here"
 
 let lift_constraints_env env phis =
   let update_use_symbol = function

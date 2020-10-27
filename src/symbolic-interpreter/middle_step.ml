@@ -398,9 +398,9 @@ module Tracelet = struct
   let add_id_dst site_x def_x tl_map =
     let tl = find_by_id site_x tl_map in
     let tl' = update_id_dst site_x def_x tl in
-    log_id site_x;
-    log_id def_x;
-    log_id tl.point;
+    (* log_id site_x;
+       log_id def_x;
+       log_id tl.point; *)
 
     Ident_map.add tl.point tl' tl_map
 

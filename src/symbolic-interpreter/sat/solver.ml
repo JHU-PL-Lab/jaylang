@@ -168,6 +168,10 @@ let rec _add_constraints_and_close
             constraints = Constraint.Set.add c solver.constraints;
             stack_constraint = Some s;
           }
+        | Constraint_ids _ ->
+          { solver with
+            constraints = Constraint.Set.add c solver.constraints;
+          }
       in
       let new_constraints : Constraint.Set.t =
         match c with
@@ -258,6 +262,8 @@ let rec _add_constraints_and_close
           |> Constraint.Set.of_enum
         | Constraint_stack _ ->
           Constraint.Set.empty
+        | Constraint_ids _ ->
+          Constraint.Set.empty
       in
       _add_constraints_and_close
         (Constraint.Set.union new_constraints constraints)
@@ -289,6 +295,34 @@ let z3_expr_of_symbol
   : Z3.Expr.expr option =
   let z3symbol = define_symbol symbol_cache symbol in
   match _get_type_of_symbol symbol solver with
+  | Some IntSymbol -> Some(Z3.Arithmetic.Integer.mk_const ctx z3symbol)
+  | Some BoolSymbol -> Some(Z3.Boolean.mk_const ctx z3symbol)
+  | Some (FunctionSymbol _) -> None
+  | Some RecordSymbol -> None
+  | None -> None
+;;
+
+let z3_expr_of_stk_ids
+    (ctx : Z3.context)
+    (symbol_cache : symbol_cache)
+    (solver : t)
+    stk
+    ids
+  : Z3.Expr.expr option =
+  let symbol0 = Symbol (List.hd ids, stk) in
+  let name = 
+    (String.concat ","
+     @@ List.map (fun (Ident name) -> name) ids
+    ) ^ symbol_suffix_of_relative_stack stk in
+  let (ctx,r) = symbol_cache in
+  let z3symbol = match Symbol_map.Exceptionless.find symbol0 !r with
+    | None ->
+      let z3sym = Z3.Symbol.mk_string ctx @@ name in
+      r := Symbol_map.add symbol0 z3sym !r;
+      z3sym
+    | Some z3sym -> z3sym
+  in
+  match _get_type_of_symbol symbol0 solver with
   | Some IntSymbol -> Some(Z3.Arithmetic.Integer.mk_const ctx z3symbol)
   | Some BoolSymbol -> Some(Z3.Boolean.mk_const ctx z3symbol)
   | Some (FunctionSymbol _) -> None
@@ -364,6 +398,11 @@ let z3_constraint_of_constraint
           let not_zero = Z3.Boolean.mk_not ctx is_zero in
           Some([binary_c; not_zero]))
       | _ -> Some ([binary_c]) )
+  | Constraint_ids(s1, xs1, s2, xs2) -> (
+      let%bind z3x1 = z3_expr_of_stk_ids ctx symbol_cache solver s1 xs1 in
+      let%bind z3x2 = z3_expr_of_stk_ids ctx symbol_cache solver s2 xs2 in
+      Some([Z3.Boolean.mk_eq ctx z3x1 z3x2])    
+    )
   | Constraint_projection _ ->
     None
   | Constraint_type _ ->

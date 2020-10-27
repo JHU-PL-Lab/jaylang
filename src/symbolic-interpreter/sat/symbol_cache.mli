@@ -7,7 +7,7 @@
 
 open Interpreter_types;;
 
-type symbol_cache
+type symbol_cache = Z3.context * Z3.Symbol.symbol Symbol_map.t ref;;
 
 (**
    Creates a new symbol cache with an embedded Z3 context.
@@ -18,3 +18,5 @@ val new_symbol_cache : Z3.context -> symbol_cache;;
    Defines a symbol to Z3 using the cache as appropriate.
 *)
 val define_symbol : symbol_cache -> Symbol.t -> Z3.Symbol.symbol;;
+
+val symbol_suffix_of_relative_stack : Relative_stack.t -> string

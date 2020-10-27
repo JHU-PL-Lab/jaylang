@@ -36,6 +36,7 @@ type t =
   | Constraint_projection of symbol * symbol * ident (* x = x.l *)
   | Constraint_type of symbol * symbol_type (* x : t *)
   | Constraint_stack of Relative_stack.concrete_stack (* stack = C *)
+  | Constraint_ids of Relative_stack.t * Ident.t list * Relative_stack.t * Ident.t list 
 [@@deriving eq, ord, show, to_yojson]
 ;;
 
