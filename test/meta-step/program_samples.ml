@@ -445,3 +445,19 @@ t1 = f a;
 t2 = t1 b;
 target = t2
 "
+
+let ep10 = parse "
+a = 1;
+b = 2;
+f = fun x -> (
+  r = x;
+  target = r;
+);
+t1 = f a;
+t2 = f b;
+"
+
+(* c[+ra] *)
+(* c[+ra] *)
+(* [b,f2][+ra] *)
+(* [a,f1,f2][+ra] *)

@@ -27,6 +27,7 @@ module Phi = struct
     | Bind_this_fun of Relative_stack.t * Ident.t * Ident.t
     | Bind_id_bop of Relative_stack.t * Ident.t * Ident.t * binary_operator * Ident.t
     | Bind_id_input of Relative_stack.t * Ident.t
+    | And of phi * phi
     | Concretize of Relative_stack.t 
     | Exclusive of phi list
   [@@deriving show {with_path = false}]
@@ -46,14 +47,17 @@ module SMT_Phi = struct
 
   let sym_of_id_stk x stk = Symbol(x, stk)
 
-  let smt_phi_of_phi = function
+  let rec smt_phi_of_phi = function
     | Bind_id_value (stk, x, v) -> Constraint_value (Symbol(x, stk), smt_value_of_value v)
     | Bind_id_input (stk, x) -> Constraint_alias (Symbol(x, stk), Symbol(x, stk))
     | Bind_id_bop (stk, y, x1, op, x2) -> Constraint_binop (Symbol(y, stk), Symbol(x1, stk), op, Symbol(x2, stk))
     | Bind_this_fun (stk, x, f) -> Constraint_alias (Symbol(x, stk), Symbol(f, Relative_stack.empty))
     | Bind_id_id (s1, xs1, s2, xs2) -> Constraint_ids (s1, xs1, s2, xs2)
+    | And (p1, p2) -> Constraint_and (smt_phi_of_phi p1, smt_phi_of_phi p2)
     | Concretize stk -> Constraint_stack (Relative_stack.stackize stk)
-    | Exclusive _ -> ground_true
+    | Exclusive phis -> Constraint_exclusive (List.map smt_phi_of_phi phis)
+
+  type choices = Ident_set.t list
 
 end
 
@@ -153,19 +157,18 @@ let lookup_main program x_target =
 
     (* Fun Enter Parameter *)
     | At_fun_para (true, fb) ->
-      List.iter (fun callsite -> 
+      let phis = List.map (fun callsite -> 
           let callsite_block, tc = block_with_clause_of_id map callsite in
-          (* log_clause tc.clause; *)
           match tc.clause with
           | (Clause (Var (x', _), Appl_body (Var (x'', _), Var (x''', _)))) ->
             let rel_stack' = Relstack.co_pop rel_stack x' in
-            add_phi (Bind_id_id (rel_stack, x::xs, rel_stack', x'''::xs));
-            add_phi (Bind_this_fun (rel_stack, x'', block.point));
-            lookup [x''] callsite_block rel_stack';
-            lookup (x'''::xs) callsite_block rel_stack'
+            And (
+              Bind_id_id (rel_stack, x::xs, rel_stack', x'''::xs),
+              Bind_this_fun (rel_stack, x'', block.point)
+            )
           | _ -> failwith "incorrect callsite in fun para"
-        )
-        [List.hd fb.callsites]
+        ) fb.callsites in
+      add_phi (Exclusive phis)
 
     (* Fun Enter Non-Local *)
     | At_fun_para (false, fb) ->
@@ -181,7 +184,7 @@ let lookup_main program x_target =
             lookup (x''::x::xs) callsite_block rel_stack'
           | _ -> failwith "incorrect callsite in fun non-local"
         )
-        [List.hd fb.callsites]
+        fb.callsites
 
     (* Cond Top *)
 

@@ -15,16 +15,17 @@ let test program target =
     | _ -> print_endline "SAT"
   with
   | _ ->
-    print_endline "UNSAT"
+    print_endline "ERROR"
 
 let () =
-  test ep1 "x";
-  test ep2 "y";
-  test ep3 "y";
-  test ep4 "y";
-  test ep5 "y";
-  test ep6 "y"; 
-  test ep7 "r";
-  test ep8 "target";
-  test ep9 "target";
+  (* test ep1 "x";
+     test ep2 "y";
+     test ep3 "y";
+     test ep4 "y";
+     test ep5 "y";
+     test ep6 "y"; 
+     test ep7 "r";
+     test ep8 "target";
+     test ep9 "target"; *)
+  test ep10 "target";
   ()

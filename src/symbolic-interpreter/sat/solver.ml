@@ -54,6 +54,10 @@ type t =
         stack constraint may appear in any particular solver because all stack
         constraints contradict with one another. *)
     stack_constraint : Relative_stack.concrete_stack option;
+
+    choice_total : int;
+    choices : Ident_set.t list;
+    choice_map : symbol_type Ident_map.t;
   }
 ;;
 
@@ -69,6 +73,10 @@ let empty =
       Symbol_to_symbol_and_ident_multimap.empty;
     type_constraints_by_symbol = Symbol_map.empty;
     stack_constraint = None;
+
+    choice_total = 0;
+    choices = [];
+    choice_map = Ident_map.empty;
   }
 ;;
 
@@ -172,6 +180,14 @@ let rec _add_constraints_and_close
           { solver with
             constraints = Constraint.Set.add c solver.constraints;
           }
+        | Constraint_and _ -> 
+          { solver with
+            constraints = Constraint.Set.add c solver.constraints;
+          }
+        | Constraint_exclusive _ ->
+          { solver with
+            constraints = Constraint.Set.add c solver.constraints;
+          }
       in
       let new_constraints : Constraint.Set.t =
         match c with
@@ -264,6 +280,10 @@ let rec _add_constraints_and_close
           Constraint.Set.empty
         | Constraint_ids _ ->
           Constraint.Set.empty
+        | Constraint_and _ ->
+          Constraint.Set.empty
+        | Constraint_exclusive _ ->
+          Constraint.Set.empty
       in
       _add_constraints_and_close
         (Constraint.Set.union new_constraints constraints)
@@ -297,10 +317,13 @@ let z3_expr_of_symbol
   match _get_type_of_symbol symbol solver with
   | Some IntSymbol -> Some(Z3.Arithmetic.Integer.mk_const ctx z3symbol)
   | Some BoolSymbol -> Some(Z3.Boolean.mk_const ctx z3symbol)
-  | Some (FunctionSymbol _) -> None
+  | Some (FunctionSymbol _) -> Some(Z3.Boolean.mk_const ctx z3symbol)
   | Some RecordSymbol -> None
-  | None -> None
+  | None -> Some(Z3.Boolean.mk_const ctx z3symbol)
 ;;
+
+let z3_symbol_of_counter ctx i =
+  Z3.Symbol.mk_string ctx @@ "$$$cv" ^ (string_of_int i)
 
 let z3_expr_of_stk_ids
     (ctx : Z3.context)
@@ -325,9 +348,9 @@ let z3_expr_of_stk_ids
   match _get_type_of_symbol symbol0 solver with
   | Some IntSymbol -> Some(Z3.Arithmetic.Integer.mk_const ctx z3symbol)
   | Some BoolSymbol -> Some(Z3.Boolean.mk_const ctx z3symbol)
-  | Some (FunctionSymbol _) -> None
+  | Some (FunctionSymbol _) -> Some(Z3.Boolean.mk_const ctx z3symbol)
   | Some RecordSymbol -> None
-  | None -> None
+  | None -> Some(Z3.Boolean.mk_const ctx z3symbol)
 ;;
 
 let z3_expr_of_value
@@ -362,12 +385,14 @@ let z3_fn_of_operator
   | Binary_operator_xor -> Some(Z3.Boolean.mk_xor ctx)
 ;;
 
-let z3_constraint_of_constraint
+let rec z3_constraint_of_constraint
     (ctx : Z3.context)
     (symbol_cache : symbol_cache)
     (solver : t)
     (c : Constraint.t)
-  : (Z3.Expr.expr list) option =
+  : Z3.Expr.expr option * t =
+  print_endline @@ Printf.sprintf "%s"
+    (Jhupllib.Pp_utils.pp_to_string Constraint.pp c);
   let open Option.Monad in
   let translate_symbol symbol =
     z3_expr_of_symbol ctx symbol_cache solver symbol
@@ -377,52 +402,123 @@ let z3_constraint_of_constraint
   in
   match c with
   | Constraint_value(x,v) ->
-    let%bind z3x = translate_symbol x in
-    let%bind z3v = translate_value v in
-    Some([Z3.Boolean.mk_eq ctx z3x z3v])
+    (let%bind z3x = translate_symbol x in
+     let%bind z3v = translate_value v in
+     Some(Z3.Boolean.mk_eq ctx z3x z3v)), solver
   | Constraint_alias(x1,x2) ->
-    let%bind z3x1 = translate_symbol x1 in
-    let%bind z3x2 = translate_symbol x2 in
-    Some([Z3.Boolean.mk_eq ctx z3x1 z3x2])
+    (* print_endline "a1"; *)
+    (let%bind z3x1 = translate_symbol x1 in
+     (* print_endline "a2"; *)
+     let%bind z3x2 = translate_symbol x2 in
+     (* print_endline "a3"; *)
+     Some(Z3.Boolean.mk_eq ctx z3x1 z3x2)), solver
   | Constraint_binop(x1,x2,op,x3) ->
-    let%bind fn = z3_fn_of_operator ctx op in
-    let%bind z3x1 = translate_symbol x1 in
-    let%bind z3x2 = translate_symbol x2 in
-    let%bind z3x3 = translate_symbol x3 in
-    let binary_c = Z3.Boolean.mk_eq ctx z3x1 (fn z3x2 z3x3) in
-    ( match op with
-      | Binary_operator_divide
-      | Binary_operator_modulus -> (
-          let%bind z3zero = translate_value (Int(0)) in
-          let is_zero = Z3.Boolean.mk_eq ctx z3x3 z3zero in
-          let not_zero = Z3.Boolean.mk_not ctx is_zero in
-          Some([binary_c; not_zero]))
-      | _ -> Some ([binary_c]) )
+    (let%bind fn = z3_fn_of_operator ctx op in
+     let%bind z3x1 = translate_symbol x1 in
+     let%bind z3x2 = translate_symbol x2 in
+     let%bind z3x3 = translate_symbol x3 in
+     let binary_c = Z3.Boolean.mk_eq ctx z3x1 (fn z3x2 z3x3) in
+     ( match op with
+       | Binary_operator_divide
+       | Binary_operator_modulus -> (
+           let%bind z3zero = translate_value (Int(0)) in
+           let is_zero = Z3.Boolean.mk_eq ctx z3x3 z3zero in
+           let not_zero = Z3.Boolean.mk_not ctx is_zero in
+           Some(Z3.Boolean.mk_and ctx [binary_c; not_zero]))
+       | _ -> Some binary_c)), solver
   | Constraint_ids(s1, xs1, s2, xs2) -> (
-      let%bind z3x1 = z3_expr_of_stk_ids ctx symbol_cache solver s1 xs1 in
-      let%bind z3x2 = z3_expr_of_stk_ids ctx symbol_cache solver s2 xs2 in
-      Some([Z3.Boolean.mk_eq ctx z3x1 z3x2])    
+      (* print_endline "c1"; *)
+      (let%bind z3x1 = z3_expr_of_stk_ids ctx symbol_cache solver s1 xs1 in
+       (* print_endline "c2"; *)
+       let%bind z3x2 = z3_expr_of_stk_ids ctx symbol_cache solver s2 xs2 in
+       (* print_endline "c3"; *)
+       Some(Z3.Boolean.mk_eq ctx z3x1 z3x2)), solver
     )
   | Constraint_projection _ ->
-    None
+    None, solver
   | Constraint_type _ ->
-    None
+    None, solver
   | Constraint_stack _ ->
-    None
+    None, solver
+  | Constraint_and (c1, c2) -> (
+      let z3c1, s1 = z3_constraint_of_constraint ctx symbol_cache solver c1 in
+      let z3c2, s2 =  z3_constraint_of_constraint ctx symbol_cache s1 c2 in
+      match z3c1, z3c2 with 
+      | Some p1, Some p2 -> (Some(Z3.Boolean.mk_and ctx [p1; p2]), s2)
+      | _ -> None, s2
+    )
+  | Constraint_exclusive phis -> 
+    (* print_endline "->"; *)
+    let payloads = List.map (fun phi -> 
+        let phi', _ = z3_constraint_of_constraint ctx symbol_cache solver phi in
+        match phi' with
+        | Some p -> p
+        | None -> failwith "ahaha"
+      ) phis in
+    (* print_endline "1"; *)
+    let choice_symbols = List.mapi (fun i _phi -> 
+        let ci = i + solver.choice_total in
+        z3_symbol_of_counter ctx ci
+      ) phis in
+    (* print_endline "2"; *)
+    let choice_consts = List.map (fun sym ->
+        Z3.Boolean.mk_const ctx sym
+      ) choice_symbols in
+    (* print_endline "3"; *)
+    let choice_with_payload_list =
+      List.map2i (fun i payload cv ->
+          let exclusion = 
+            List.remove_at i choice_consts 
+            |> Z3.Boolean.mk_or ctx
+            |> Z3.Boolean.mk_not ctx
+          in
+          let payload' = Z3.Boolean.mk_and ctx [payload; exclusion] in
+          Z3.Boolean.mk_implies ctx cv payload'
+        ) payloads choice_consts in
+    (* print_endline "4"; *)
+    let must_one_true = Z3.Boolean.mk_or ctx choice_consts in
+    (* print_endline "5"; *)
+    let z3all = Z3.Boolean.mk_and ctx @@ must_one_true::choice_with_payload_list in
+    (* print_endline "<-"; *)
+    Some z3all, 
+    { solver with
+      choice_total = solver.choice_total + (List.length phis) }
+
+
 ;;
+(* 
+(declare-const a Bool)
+(declare-const b Bool)
+(declare-const c Bool)
+(assert (=> a (and (not b) (not c))))
+(assert (=> b (and (not a) (not c))))
+(assert (=> c (and (not a) (not b))))
+(assert (or a (or b c)))
+      choice_total : int;
+    choices : Ident_set.t list;
+    choice_map : symbol_type Ident_map.t;
+     *)
 
 let solve (solver : t) : solution option =
   let ctx = Z3.mk_context [] in
   let z3 = Z3.Solver.mk_solver ctx None in
   let symbol_cache = new_symbol_cache ctx in
-  let z3constraints =
-    solver.constraints
-    |> Constraint.Set.enum
-    |> Enum.filter_map (z3_constraint_of_constraint ctx symbol_cache solver)
-    |> List.of_enum
-    |> List.concat
+
+  (* print_endline "aaaa"; *)
+
+  let z3constraints, _ =
+    Set.fold (fun phi (z3phis, solver) -> 
+        match z3_constraint_of_constraint ctx symbol_cache solver phi with
+        | (Some phi), solver -> (phi :: z3phis), solver
+        | None, solver -> z3phis, solver
+      ) solver.constraints ([], solver)
   in
   Z3.Solver.add z3 z3constraints;
+
+  (* print_endline "cccc"; *)
+  print_endline @@ Z3.Solver.to_string z3;
+  (* print_endline @@ String.concat "\n" @@ List.map Z3.Expr.to_string phis; *)
+
   match Z3.Solver.check z3 [] with
   | Z3.Solver.SATISFIABLE ->
     begin
