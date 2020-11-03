@@ -141,13 +141,17 @@ let lookup_main program x_target =
               lookup [xf] block rel_stack;
               match tc.cat with
               | App funs -> (
-                  List.iter (fun fun_id ->
+                  let phis = List.map (fun fun_id ->
                       let fblock = Ident_map.find fun_id map in
                       let x' = Tracelet.ret_of fblock in
                       let rel_stack' = Relstack.push rel_stack x in
-                      add_phi (Bind_id_id(rel_stack, [x], rel_stack', [x']));
-                      lookup [x'] fblock rel_stack' 
-                    ) funs
+                      lookup [x'] fblock rel_stack';
+                      And (
+                        Bind_id_id(rel_stack, [x], rel_stack', [x']),
+                        Bind_this_fun (rel_stack, xf, block.point)
+                      )
+                    ) funs in
+                  add_phi (Exclusive phis)
                 )
               | _ -> failwith "fun exit clauses"
             )
@@ -162,9 +166,11 @@ let lookup_main program x_target =
           match tc.clause with
           | (Clause (Var (x', _), Appl_body (Var (x'', _), Var (x''', _)))) ->
             let rel_stack' = Relstack.co_pop rel_stack x' in
+            lookup [x''] callsite_block rel_stack';
+            lookup (x'''::xs) callsite_block rel_stack';
             And (
               Bind_id_id (rel_stack, x::xs, rel_stack', x'''::xs),
-              Bind_this_fun (rel_stack, x'', block.point)
+              Bind_this_fun (rel_stack', x'', block.point)
             )
           | _ -> failwith "incorrect callsite in fun para"
         ) fb.callsites in
@@ -172,24 +178,26 @@ let lookup_main program x_target =
 
     (* Fun Enter Non-Local *)
     | At_fun_para (false, fb) ->
-      List.iter (fun callsite -> 
+      let phis = List.map (fun callsite -> 
           let callsite_block, tc = block_with_clause_of_id map callsite in
-          (* log_clause tc.clause; *)
           match tc.clause with
           | (Clause (Var (x', _), Appl_body (Var (x'', _), Var (x''', _)))) ->
             let rel_stack' = Relstack.co_pop rel_stack x' in
-            add_phi (Bind_id_id (rel_stack, x::xs, rel_stack', x'''::xs));
-            add_phi (Bind_this_fun (rel_stack, x'', block.point));
             lookup [x''] callsite_block rel_stack';
-            lookup (x''::x::xs) callsite_block rel_stack'
+            lookup (x''::x::xs) callsite_block rel_stack';
+            And (
+              Bind_id_id (rel_stack, x::xs, rel_stack', x'''::xs),
+              Bind_this_fun (rel_stack, x'', block.point)
+            )
           | _ -> failwith "incorrect callsite in fun non-local"
         )
-        fb.callsites
+          fb.callsites in
+      add_phi (Exclusive phis)
 
     (* Cond Top *)
-
     (* Cond Bottom *)
     | At_condition -> 
+
       failwith "def_at"
   in
   let block0 = Tracelet.take_until x_target map in
