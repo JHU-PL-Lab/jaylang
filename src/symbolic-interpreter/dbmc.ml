@@ -65,7 +65,7 @@ open Phi
 type def_site =
   | At_clause of tl_clause
   | At_fun_para of bool * fun_block
-  | At_condition
+  | At_condition of cond_running_block
 
 let lookup_main program x_target =
   let phi_set = ref [] in
@@ -79,7 +79,7 @@ let lookup_main program x_target =
     | Some tc, _ -> At_clause tc
     | None, Main mb -> failwith "no x in main block"
     | None, Fun fb -> At_fun_para (fb.para = x, fb)
-    | None, CondChosen cb -> At_condition
+    | None, CondChosen cb -> At_condition cb
     | _, _ -> failwith "defined"
   in
 
@@ -194,11 +194,16 @@ let lookup_main program x_target =
           fb.callsites in
       add_phi (Exclusive phis)
 
-    (* Cond Top *)
     (* Cond Bottom *)
-    | At_condition -> 
+
+    (* Cond Top *)
+    | At_condition cb -> 
+      (* let e_ret = (List.last cb.block.clauses).id in *)
 
       failwith "def_at"
+
+
+
   in
   let block0 = Tracelet.take_until x_target map in
   lookup [x_target] block0 Relstack.empty_relstk;

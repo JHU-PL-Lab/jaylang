@@ -161,17 +161,19 @@ let rec _add_constraints_and_close
               end;
           }
         | Constraint_stack(s) ->
-          begin
-            match solver.stack_constraint with
-            | Some s' ->
+          (* begin
+             match solver.stack_constraint with
+             | Some s' ->
               begin
                 if Relative_stack.equal_concrete_stack s s' then
                   ()
-                else
+                else (
+                  print_endline "I know it";
                   raise @@ Contradiction(StackContradiction(s,s'))
+                )
               end;
-            | None -> ()
-          end;
+             | None -> ()
+             end; *)
           { solver with
             constraints = Constraint.Set.add c solver.constraints;
             stack_constraint = Some s;
@@ -332,12 +334,14 @@ let z3_expr_of_stk_ids
     stk
     ids
   : Z3.Expr.expr option =
+  (* print_endline "g1"; *)
   let symbol0 = Symbol (List.hd ids, stk) in
   let name = 
     (String.concat ","
      @@ List.map (fun (Ident name) -> name) ids
     ) ^ symbol_suffix_of_relative_stack stk in
-  let (ctx,r) = symbol_cache in
+  let (_ctx, r) = symbol_cache in
+  (* print_endline "g2"; *)
   let z3symbol = match Symbol_map.Exceptionless.find symbol0 !r with
     | None ->
       let z3sym = Z3.Symbol.mk_string ctx @@ name in
@@ -345,12 +349,13 @@ let z3_expr_of_stk_ids
       z3sym
     | Some z3sym -> z3sym
   in
+  (* print_endline "g3"; *)
   match _get_type_of_symbol symbol0 solver with
   | Some IntSymbol -> Some(Z3.Arithmetic.Integer.mk_const ctx z3symbol)
   | Some BoolSymbol -> Some(Z3.Boolean.mk_const ctx z3symbol)
   | Some (FunctionSymbol _) -> Some(Z3.Boolean.mk_const ctx z3symbol)
   | Some RecordSymbol -> None
-  | None -> Some(Z3.Boolean.mk_const ctx z3symbol)
+  | None -> Some(Z3.Arithmetic.Integer.mk_const ctx z3symbol)
 ;;
 
 let z3_expr_of_value
@@ -427,12 +432,14 @@ let rec z3_constraint_of_constraint
            Some(Z3.Boolean.mk_and ctx [binary_c; not_zero]))
        | _ -> Some binary_c)), solver
   | Constraint_ids(s1, xs1, s2, xs2) -> (
-      (* print_endline "c1"; *)
+      print_endline "c1";
       (let%bind z3x1 = z3_expr_of_stk_ids ctx symbol_cache solver s1 xs1 in
-       (* print_endline "c2"; *)
+       print_endline "c2";
        let%bind z3x2 = z3_expr_of_stk_ids ctx symbol_cache solver s2 xs2 in
-       (* print_endline "c3"; *)
-       Some(Z3.Boolean.mk_eq ctx z3x1 z3x2)), solver
+       print_endline "c3";
+       let t = Z3.Boolean.mk_eq ctx z3x1 z3x2 in
+       print_endline "c4";
+       Some t), solver
     )
   | Constraint_projection _ ->
     None, solver
@@ -441,30 +448,33 @@ let rec z3_constraint_of_constraint
   | Constraint_stack _ ->
     None, solver
   | Constraint_and (c1, c2) -> (
+      print_endline "d1";
       let z3c1, s1 = z3_constraint_of_constraint ctx symbol_cache solver c1 in
+      print_endline "d2";
       let z3c2, s2 =  z3_constraint_of_constraint ctx symbol_cache s1 c2 in
+      print_endline "d3";
       match z3c1, z3c2 with 
       | Some p1, Some p2 -> (Some(Z3.Boolean.mk_and ctx [p1; p2]), s2)
       | _ -> None, s2
     )
   | Constraint_exclusive phis -> 
-    (* print_endline "->"; *)
+    print_endline "->";
     let payloads = List.map (fun phi -> 
         let phi', _ = z3_constraint_of_constraint ctx symbol_cache solver phi in
         match phi' with
         | Some p -> p
         | None -> failwith "ahaha"
       ) phis in
-    (* print_endline "1"; *)
+    print_endline "1";
     let choice_symbols = List.mapi (fun i _phi -> 
         let ci = i + solver.choice_total in
         z3_symbol_of_counter ctx ci
       ) phis in
-    (* print_endline "2"; *)
+    print_endline "2";
     let choice_consts = List.map (fun sym ->
         Z3.Boolean.mk_const ctx sym
       ) choice_symbols in
-    (* print_endline "3"; *)
+    print_endline "3";
     let choice_with_payload_list =
       List.map2i (fun i payload cv ->
           let exclusion = 
@@ -475,11 +485,11 @@ let rec z3_constraint_of_constraint
           let payload' = Z3.Boolean.mk_and ctx [payload; exclusion] in
           Z3.Boolean.mk_implies ctx cv payload'
         ) payloads choice_consts in
-    (* print_endline "4"; *)
+    print_endline "4";
     let must_one_true = Z3.Boolean.mk_or ctx choice_consts in
-    (* print_endline "5"; *)
+    print_endline "5";
     let z3all = Z3.Boolean.mk_and ctx @@ must_one_true::choice_with_payload_list in
-    (* print_endline "<-"; *)
+    print_endline "<-";
     Some z3all, 
     { solver with
       choice_total = solver.choice_total + (List.length phis) }

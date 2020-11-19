@@ -665,7 +665,6 @@ module Tunnel = struct
             | Binding_enter_clause (Abs_var para, _, Abs_clause(Abs_var site_r, Abs_appl_body _)) ->
               let f_def = Ident_map.find para para_to_fun_def_map in
               map := Tracelet.add_id_dst site_r f_def !map;
-
               map := Tracelet.add_callsite f_def site_r !map;
 
               continue := dangling
