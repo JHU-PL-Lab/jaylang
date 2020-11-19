@@ -1,0 +1,16 @@
+(library
+  (name odefa_solver)
+  (public_name odefa.solver)
+  (libraries
+    core sexplib z3
+    odefa.ast
+    odefa.symbolic-interpreter
+  )
+  (synopsis "the library demo")
+  (inline_tests)
+  (preprocess
+    (pps ppx_jane)) 
+  )
+(env
+  (dev
+    (flags (:standard -w -33 -w -26))))

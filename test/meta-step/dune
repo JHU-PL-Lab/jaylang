@@ -21,6 +21,7 @@
     odefa.test-generation
     odefa.toploop
     odefa.natural
+    odefa.solver
   )
   (preprocess
     (pps
