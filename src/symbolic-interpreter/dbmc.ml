@@ -148,7 +148,7 @@ let lookup_main program x_target =
                       lookup [x'] fblock rel_stack';
                       And (
                         Bind_id_id(rel_stack, [x], rel_stack', [x']),
-                        Bind_this_fun (rel_stack, xf, block.point)
+                        Bind_this_fun (rel_stack, xf, fblock.point)
                       )
                     ) funs in
                   add_phi (Exclusive phis)
