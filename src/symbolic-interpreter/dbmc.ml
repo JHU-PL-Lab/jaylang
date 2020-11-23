@@ -155,7 +155,41 @@ let lookup_main program x_target =
                 )
               | _ -> failwith "fun exit clauses"
             )
-          | _ -> failwith "error case for non-fun clauses"
+          (* Cond Bottom *)
+          | Conditional_body (Var (x', _), e1, e2) -> (
+              lookup [x'] block rel_stack;
+              let cond_tracelet = Ident_map.find x' map in
+              let cond_block = match cond_tracelet.source_block with
+                | CondChosen c -> c
+                | _ -> failwith "block in conditional_body"
+              in
+              let phis = List.map (fun beta ->
+                  let ctracelet = 
+                    if beta = cond_block.choice then
+                      cond_tracelet
+                    else
+                      let flipped_block : cond_running_block = 
+                        { cond_block with 
+                          choice = not cond_block.choice;
+                          block = cond_block.other_block;
+                          other_block = cond_block.block
+                        } in
+                      {
+                        cond_tracelet with
+                        source_block = CondChosen flipped_block
+                      } 
+                  in
+                  let x_ret = Tracelet.ret_of ctracelet in 
+                  lookup [x_ret] ctracelet rel_stack;
+                  And (
+                    Bind_id_value(rel_stack, x', Value_bool beta),
+                    Bind_id_id (rel_stack, [x], rel_stack, [x_ret])
+                  )
+                )
+                  [true; false] in
+              add_phi (Exclusive phis)
+            )
+          | _ -> failwith "error clause cases"
         end
       )
 
@@ -194,15 +228,13 @@ let lookup_main program x_target =
           fb.callsites in
       add_phi (Exclusive phis)
 
-    (* Cond Bottom *)
-
     (* Cond Top *)
     | At_condition cb -> 
-      (* let e_ret = (List.last cb.block.clauses).id in *)
-
-      failwith "def_at"
-
-
+      let condsite_block = Ident_map.find block.outer_point map in
+      let x2 = cb.cond in
+      add_phi (Bind_id_value(rel_stack, x2, Value_bool cb.choice));
+      lookup [x2] condsite_block rel_stack;
+      lookup (x::xs) condsite_block rel_stack
 
   in
   let block0 = Tracelet.take_until x_target map in
