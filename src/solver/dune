@@ -6,7 +6,7 @@
     odefa.ast
     odefa.symbolic-interpreter
   )
-  (synopsis "the library demo")
+  (synopsis "odefa solver based on Core")
   (inline_tests)
   (preprocess
     (pps ppx_jane)) 

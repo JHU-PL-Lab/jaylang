@@ -227,3 +227,14 @@ let log_clause c =
   print_endline @@ Printf.sprintf "%s\n"
     (Jhupllib.Pp_utils.pp_to_string
        pp_clause c)
+
+let log_acl acl prevs = 
+  print_endline @@ Printf.sprintf "%s \t\t[prev: %s]"
+    (Jhupllib.Pp_utils.pp_to_string
+       pp_brief_annotated_clause acl)
+    (Jhupllib.Pp_utils.pp_to_string
+       (Jhupllib.Pp_utils.pp_list pp_brief_annotated_clause) prevs)
+
+let log_id id = 
+  print_endline @@ Printf.sprintf "%s"
+    (Jhupllib.Pp_utils.pp_to_string pp_ident id)

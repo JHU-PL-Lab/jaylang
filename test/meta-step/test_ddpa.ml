@@ -1,23 +1,23 @@
-open Batteries
+(* open Batteries
 
-open Odefa_ast
-open Ast
+   open Odefa_ast
+   open Ast
 
-open Odefa_symbolic_interpreter.Middle_step
-open Tracelet
+   open Odefa_symbolic_interpreter.Middle_step
+   open Tracelet
 
-open Program_samples
+   open Program_samples
 
-let print_info def_id_info = 
-  let entries = 
+   let print_info def_id_info = 
+   let entries = 
     List.map (fun (id, dsts) -> 
         let dst_s = String.concat ", " dsts in
         id ^ ": " ^ dst_s)
       def_id_info in
-  print_endline @@ String.concat "\n" entries
+   print_endline @@ String.concat "\n" entries
 
-let eq_id_def def1 def2 =
-  List.for_all
+   let eq_id_def def1 def2 =
+   List.for_all
     (fun (id, dst1) -> 
        match List.assoc_opt id def2 with
        | Some dst2 -> List.for_all (fun dst -> List.mem dst dst2) dst1
@@ -25,49 +25,49 @@ let eq_id_def def1 def2 =
     )
     def1
 
-let debug_print_info tl_name map expected =
-  let id_dst = 
+   let debug_print_info tl_name map expected =
+   let id_dst = 
     Ident_map.find (Ident tl_name) map
     |> debug_def_ids_of
-  in 
-  (* print_info id_dst; *)
-  assert (eq_id_def id_dst expected)
+   in 
+   (* print_info id_dst; *)
+   assert (eq_id_def id_dst expected)
 
-let m6 = Tunnel.annotate e6 (Ident "x")
-;;
-debug_print_info name_main m6 [("a", ["f"])];;
+   let m6 = Tunnel.annotate e6 (Ident "x")
+   ;;
+   debug_print_info name_main m6 [("a", ["f"])];;
 
-let m7 = Tunnel.annotate e7 (Ident "x")
-;;
-debug_print_info name_main m7 [("p", ["z"])];;
-debug_print_info "z" m7 [("a", ["f"])];;
+   let m7 = Tunnel.annotate e7 (Ident "x")
+   ;;
+   debug_print_info name_main m7 [("p", ["z"])];;
+   debug_print_info "z" m7 [("a", ["f"])];;
 
-let m8 = Tunnel.annotate e8 (Ident "rf")
-;;
-debug_print_info name_main m8 [("c1", ["f"]); ("c2", ["f"])];;
+   let m8 = Tunnel.annotate e8 (Ident "rf")
+   ;;
+   debug_print_info name_main m8 [("c1", ["f"]); ("c2", ["f"])];;
 
-let m9 = Tunnel.annotate e9 (Ident "rf")
-;;
-debug_print_info name_main m9 [("c1", ["f"]); ("c2", ["f"]); ("c3", ["f"])];;
+   let m9 = Tunnel.annotate e9 (Ident "rf")
+   ;;
+   debug_print_info name_main m9 [("c1", ["f"]); ("c2", ["f"]); ("c3", ["f"])];;
 
-let m10 = Tunnel.annotate e10 (Ident "target")
-;;
+   let m10 = Tunnel.annotate e10 (Ident "target")
+   ;;
 
-let m11 = Tunnel.annotate e11 (Ident "target")
+   let m11 = Tunnel.annotate e11 (Ident "target")
 
-let m11_2 = Tunnel.annotate e11_2 (Ident "target")
+   let m11_2 = Tunnel.annotate e11_2 (Ident "target")
 
-let m12 = Tunnel.annotate e12 (Ident "target")
+   let m12 = Tunnel.annotate e12 (Ident "target")
 
-let m13 = Tunnel.annotate e13 (Ident "target")
+   let m13 = Tunnel.annotate e13 (Ident "target")
 
-let m14 = Tunnel.annotate e14 (Ident "target")
+   let m14 = Tunnel.annotate e14 (Ident "target")
 
-let m15 = Tunnel.annotate e15 (Ident "target")
+   let m15 = Tunnel.annotate e15 (Ident "target")
 
-let m16 = Tunnel.annotate e16 (Ident "target")
+   let m16 = Tunnel.annotate e16 (Ident "target")
 
-let m17 = Tunnel.annotate e17 (Ident "target")
+   let m17 = Tunnel.annotate e17 (Ident "target") *)
 
 (* inner variant
    a `block` is for a single block
