@@ -1,12 +1,11 @@
 (library
-  (name odefa_solver)
-  (public_name odefa.solver)
+  (name dbmc_lib)
+  (public_name odefa.dbmc_lib)
   (libraries
-    core sexplib z3
+    core sexplib
     odefa.ast
-    odefa.symbolic-interpreter
   )
-  (synopsis "odefa solver based on Core")
+  (synopsis "dbmc lib as a gradual replacement of odada lib")
   (inline_tests)
   (preprocess
     (pps ppx_jane)) 

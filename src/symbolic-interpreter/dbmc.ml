@@ -1,67 +1,10 @@
 open Batteries
-open Odefa_ast
-open Ast
-(* 
-open Ast_helper
-   open Odefa_ddpa
-   open Ddpa_abstract_ast
-   open Ddpa_graph
-
-   open Ddpa_helper
-
-*)
-
+open Odefa_ast.Ast
 open Middle_step
 open Tracelet
-module Relstack = Mega_constraint.Relstack
+open Dbmc_lib
+module C = Dbmc_lib.Constraint
 
-type lookup_stack = Ident.t list 
-[@@deriving show {with_path = false}]
-
-module Phi = struct
-  open Ast_pp
-
-  type phi =
-    | Bind_id_value of Relative_stack.t * Ident.t * value
-    | Bind_id_id of Relative_stack.t * lookup_stack * Relative_stack.t * lookup_stack
-    | Bind_this_fun of Relative_stack.t * Ident.t * Ident.t
-    | Bind_id_bop of Relative_stack.t * Ident.t * Ident.t * binary_operator * Ident.t
-    | Bind_id_input of Relative_stack.t * Ident.t
-    | And of phi * phi
-    | Concretize of Relative_stack.t 
-    | Exclusive of phi list
-  [@@deriving show {with_path = false}]
-end
-
-module SMT_Phi = struct
-  open Interpreter_types
-  open Constraint
-  open Phi
-  let ground_true = Constraint_value(SpecialSymbol SSymTrue, Bool true)
-
-  let smt_value_of_value = function
-    | Value_int n -> Constraint.Int n
-    | Value_bool b -> Constraint.Bool b
-    | Value_function _ 
-    | Value_record _ -> failwith "smt_value"
-
-  let sym_of_id_stk x stk = Symbol(x, stk)
-
-  let rec smt_phi_of_phi = function
-    | Bind_id_value (stk, x, v) -> Constraint_value (Symbol(x, stk), smt_value_of_value v)
-    | Bind_id_input (stk, x) -> Constraint_alias (Symbol(x, stk), Symbol(x, stk))
-    | Bind_id_bop (stk, y, x1, op, x2) -> Constraint_binop (Symbol(y, stk), Symbol(x1, stk), op, Symbol(x2, stk))
-    | Bind_this_fun (stk, x, f) -> Constraint_alias (Symbol(x, stk), Symbol(f, Relative_stack.empty))
-    | Bind_id_id (s1, xs1, s2, xs2) -> Constraint_ids (s1, xs1, s2, xs2)
-    | And (p1, p2) -> Constraint_and (smt_phi_of_phi p1, smt_phi_of_phi p2)
-    | Concretize stk -> Constraint_stack (Relative_stack.stackize stk)
-    | Exclusive phis -> Constraint_exclusive (List.map smt_phi_of_phi phis)
-
-  type choices = Ident_set.t list
-
-end
-
-open Phi
 type def_site =
   | At_clause of tl_clause
   | At_fun_para of bool * fun_block
@@ -74,7 +17,8 @@ let lookup_main program x_target =
   let map = Tunnel.annotate program x_target in
   let x_first = Ast_helper.first_var program in
 
-  let defined x block = 
+  let defined x' block = 
+    let x = Id.to_ast_id x' in
     match Tracelet.clause_of_x block x, block with
     | Some tc, _ -> At_clause tc
     | None, Main mb -> failwith "main block must have target"
@@ -82,9 +26,8 @@ let lookup_main program x_target =
     | None, Cond cb -> At_chosen cb
   in
 
-  let rec lookup xs0 block rel_stack =
-    (* print_endline @@ show_clause_list (get_clauses block);
-    *)
+  let rec lookup (xs0 : Lookup_stack.t) block rel_stack =
+    (* print_endline @@ show_clause_list (get_clauses block); *)
     let x, xs = List.hd xs0, List.tl xs0 in
 
     (* x can either be 
@@ -96,70 +39,75 @@ let lookup_main program x_target =
     match defined x block with
     | At_clause tc -> (
         begin
-          let (Clause (Var (x_def, _), rhs)) = tc.clause in
+          let (Clause (Var (x_def', _), rhs)) = tc.clause in
+          let x_def = Id.of_ast_id x_def' in
           let block_point = id_of_block block in
           match rhs with 
           (* Value Discovery Main *)
           | Value_body v when block_point = id_main -> 
             (match v with
              | Value_function vf -> ()
-             | _ -> add_phi (Bind_id_value(rel_stack, x, v))
+             | _ -> add_phi @@ C.bind_v x v rel_stack
             );
-            add_phi (Concretize rel_stack)
+            add_phi @@ C.concretize rel_stack
           | Input_body when block_point = id_main  ->
-            add_phi (Bind_id_input(rel_stack, x));
-            add_phi (Concretize rel_stack)
+            add_phi @@ C.bind_input x rel_stack;
+            add_phi @@ C.concretize rel_stack
 
           (* Value Discovery Non-Main *)
           | Value_body v when List.is_empty xs ->
             (match v with
-             | Value_function vf -> add_phi (Bind_this_fun(rel_stack, x, x_def))
-             | _ -> add_phi (Bind_id_value(rel_stack, x, v))
+             | Value_function vf -> add_phi @@ C.bind_fun x rel_stack x_def
+             | _ -> add_phi @@ C.bind_v x v rel_stack
             );
-            lookup [x_first] block rel_stack
+            lookup [Id.of_ast_id x_first] block rel_stack
           | Input_body ->
-            add_phi (Bind_id_input(rel_stack, x));
-            lookup [x_first] block rel_stack
+            add_phi @@ C.bind_input x rel_stack;
+            lookup [Id.of_ast_id x_first] block rel_stack
 
           (* Value Discard *)
           | Value_body(Value_function f) -> 
-            add_phi (Bind_id_id(rel_stack, x::xs, rel_stack, xs));
+            add_phi @@ C.eq_lookups (x::xs) rel_stack xs rel_stack;
             lookup xs block rel_stack
 
           (* Alias *)
           | Var_body (Var (x', _)) ->
-            add_phi (Bind_id_id(rel_stack, x::xs, rel_stack, x'::xs));
+            let x' = Id.of_ast_id x' in
+            add_phi @@ C.eq_lookups (x::xs) rel_stack (x'::xs) rel_stack;
             lookup (x'::xs) block rel_stack
 
           (* Binop *)
           | Binary_operation_body (Var (x1, _), bop, Var (x2, _)) ->
-            add_phi (Bind_id_bop(rel_stack, x, x1, bop, x2));
+            let x1, x2 = Id.of_ast_id x1, Id.of_ast_id x2 in
+            add_phi @@ C.bind_binop x x1 bop x2 rel_stack;
             lookup (x1::xs) block rel_stack;
             lookup (x2::xs) block rel_stack
 
           (* Fun Exit *)
           | Appl_body (Var (xf, _), Var (xv, _)) -> (
+              let xf, xv = Id.of_ast_id xf, Id.of_ast_id xv in
               lookup [xf] block rel_stack;
               match tc.cat with
               | App funs -> (
                   let phis = List.map (fun fun_id ->
                       let fblock = Ident_map.find fun_id map in
-                      let x' = Tracelet.ret_of fblock in
-                      let rel_stack' = Relstack.push rel_stack x in
+                      let x' = Tracelet.ret_of fblock |> Id.of_ast_id in
+                      let fun_id = Id.of_ast_id fun_id in
+                      let rel_stack' = Relative_stack.push rel_stack x fun_id in
                       lookup [x'] fblock rel_stack';
-                      And (
-                        Bind_id_id(rel_stack, [x], rel_stack', [x']),
-                        Bind_this_fun (rel_stack, xf, id_of_block fblock)
-                      )
+                      C.and_ 
+                        (C.eq_lookup x rel_stack x' rel_stack')
+                        (C.bind_fun xf rel_stack ((id_of_block fblock) |> Id.of_ast_id))
                     ) funs in
-                  add_phi (Exclusive phis)
+                  add_phi (C.only_one phis)
                 )
               | _ -> failwith "fun exit clauses"
             )
 
           (* Cond Bottom *)
           | Conditional_body (Var (x', _), e1, e2) -> (
-              lookup [x'] block rel_stack;
+
+              lookup [x' |> Id.of_ast_id] block rel_stack;
               let cond_tracelet = Ident_map.find x' map in
               let cond_block = match cond_tracelet with
                 | Cond c when c.choice = None -> c
@@ -170,15 +118,15 @@ let lookup_main program x_target =
                   let ctracelet = 
                     Cond { cond_block with choice = Some beta }
                   in
-                  let x_ret = Tracelet.ret_of ctracelet in 
+                  let x_ret = Tracelet.ret_of ctracelet |> Id.of_ast_id in 
                   lookup [x_ret] ctracelet rel_stack;
-                  And (
-                    Bind_id_value(rel_stack, x', Value_bool beta),
-                    Bind_id_id (rel_stack, [x], rel_stack, [x_ret])
-                  )
+                  let x' = Id.of_ast_id x' in
+                  C.and_ 
+                    (C.bind_v x' (Value_bool beta) rel_stack)
+                    (C.eq_lookup x rel_stack x_ret rel_stack)
                 )
                   [true; false] in
-              add_phi (Exclusive phis)
+              add_phi (C.only_one phis)
             )
           | _ -> failwith "error clause cases"
         end
@@ -191,16 +139,18 @@ let lookup_main program x_target =
           let tc = Tracelet.clause_of_x_exn callsite_block callsite in
           match tc.clause with
           | (Clause (Var (x', _), Appl_body (Var (x'', _), Var (x''', _)))) ->
-            let rel_stack' = Relstack.co_pop rel_stack x' in
+            let x' = Id.of_ast_id x' in
+            let x'' = Id.of_ast_id x'' in
+            let x''' = Id.of_ast_id x''' in
+            let rel_stack' = Relative_stack.pop rel_stack ~callsite:x' in
             lookup [x''] callsite_block rel_stack';
             lookup (x'''::xs) callsite_block rel_stack';
-            And (
-              Bind_id_id (rel_stack, x::xs, rel_stack', x'''::xs),
-              Bind_this_fun (rel_stack', x'', id_of_block block)
-            )
+            C.and_ 
+              (C.eq_lookups (x::xs) rel_stack (x'''::xs) rel_stack')
+              (C.bind_fun x'' rel_stack' (id_of_block block |> Id.of_ast_id))
           | _ -> failwith "incorrect callsite in fun para"
         ) fb.callsites in
-      add_phi (Exclusive phis)
+      add_phi (C.only_one phis)
 
     (* Fun Enter Non-Local *)
     | At_fun_para (false, fb) ->
@@ -209,31 +159,35 @@ let lookup_main program x_target =
           let tc = Tracelet.clause_of_x_exn callsite_block callsite in
           match tc.clause with
           | (Clause (Var (x', _), Appl_body (Var (x'', _), Var (x''', _)))) ->
-            let rel_stack' = Relstack.co_pop rel_stack x' in
+            let x' = Id.of_ast_id x' in
+            let x'' = Id.of_ast_id x'' in
+            let x''' = Id.of_ast_id x''' in
+            let rel_stack' = Relative_stack.pop rel_stack ~callsite:x' in
             lookup [x''] callsite_block rel_stack';
             lookup (x''::x::xs) callsite_block rel_stack';
-            And (
-              Bind_id_id (rel_stack, x::xs, rel_stack', x'''::xs),
-              Bind_this_fun (rel_stack, x'', id_of_block block)
-            )
+            C.and_ 
+              (C.eq_lookups (x::xs) rel_stack (x'''::xs) rel_stack')
+              (C.bind_fun x'' rel_stack (id_of_block block |> Id.of_ast_id))
           | _ -> failwith "incorrect callsite in fun non-local"
         )
           fb.callsites in
-      add_phi (Exclusive phis)
+      add_phi (C.only_one phis)
 
     (* Cond Top 
        must be inside a then_ or else_ block
     *)
     | At_chosen cb -> 
       let condsite_block = Ident_map.find (outer_id_of_block block) map in
-      let x2 = cb.cond in
+      let x2 = cb.cond |> Id.of_ast_id in
       let choice = BatOption.get cb.choice in
-      add_phi (Bind_id_value(rel_stack, x2, Value_bool choice));
+      add_phi (C.bind_v x2 (Value_bool choice) rel_stack);
       lookup [x2] condsite_block rel_stack;
       lookup (x::xs) condsite_block rel_stack
 
   in
   let block0 = Tracelet.find_by_id x_target map in
   (* let block0 = Tracelet.cut_before true x_target block in *)
-  lookup [x_target] block0 Relstack.empty_relstk;
+  let x_target' = Id.of_ast_id x_target in
+
+  lookup [x_target'] block0 Relative_stack.empty;
   !phi_set

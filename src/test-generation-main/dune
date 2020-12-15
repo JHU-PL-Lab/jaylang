@@ -2,10 +2,12 @@
   (name test_generator)
   (libraries
     batteries
+    core
     jhupllib
     odefa.ast
     odefa.natural
     odefa.parser
     odefa.test-generation
+    odefa.symbolic-interpreter
   )
 )

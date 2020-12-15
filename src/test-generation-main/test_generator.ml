@@ -57,6 +57,9 @@ let () =
   end;
   (* Generate tests *)
   try
+    ignore @@ Naive_generator.generate ast args.ga_target_point;
+    ignore @@ raise (Odefa_symbolic_interpreter.Interpreter.Invalid_query "bypassing");
+
     let results_remaining = ref args.ga_maximum_results in
     let generator =
       Generator.create

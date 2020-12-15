@@ -1,5 +1,6 @@
 open Core
 open Z3
+module Sym = Dbmc_lib.Symbol
 
 module type Context = sig
   val ctx : Z3.context
@@ -57,6 +58,8 @@ module Make (C : Context) () = struct
   let true_ = bool_ true
   let false_ = bool_ false
 
+  let string_ c = Seq.mk_string ctx c
+
   let var_ n = Expr.mk_const_s ctx n valS
 
   let eq e1 e2 = Boolean.mk_eq ctx e1 e2
@@ -98,77 +101,62 @@ module Make (C : Context) () = struct
 
   let ground_truth = eq true_ true_
 
-  open Odefa_symbolic_interpreter
-  open Constraint
-  open Interpreter_types
-  open Odefa_ast.Ast    
-  let symbol_suffix_of_relative_stack
-      (Relative_stack.Relative_stack(costk,stk)) : string =
-    let costk_name =
-      String.concat ~sep:"$" @@ List.map ~f:(fun (Ident(s)) -> s) costk
-    in
-    let stk_name =
-      String.concat ~sep:"$" @@ List.map ~f:(fun (Ident(s)) -> s) stk
-    in
-    Printf.sprintf "$$%s$$%s" costk_name stk_name
-  ;;
-
-  let name_of_csymbol = function
-    | SpecialSymbol SSymTrue -> "$$$true"
-    | Symbol (Ident id, relstk) -> 
-      id ^ symbol_suffix_of_relative_stack relstk
+  (* open Odefa_symbolic_interpreter *)
 
   let var_of_symbol sym = 
-    sym |> name_of_csymbol |> var_
+    sym |> Sym.to_string_mach |> var_
 
-  let name_of_ids ids =
-    String.concat ~sep:"," @@ List.map ~f:(fun (Ident(s)) -> s) ids
+  let name_of_lookup xs1 stk = 
+    let p1 = [%sexp_of: Dbmc_lib.Id.t list] xs1 |> Sexp.to_string_mach in
+    let p2 = Dbmc_lib.Relative_stack.sexp_of_t stk |> Sexp.to_string_mach in
+    p1 ^ p2
 
+  open Dbmc_lib
   let rec z3_phis_of_smt_phi = function
-    | Constraint_value (sx, cv) -> 
+    | Constraint.Eq_v (sx, cv) -> 
       let x = var_of_symbol sx in
       let v = match cv with
         | Int i -> int_ i
         | Bool b -> bool_ b
-        | Function _ -> fun_
-        | Record _ -> failwith "no record yet"
+        | Fun _ -> fun_
+        | Record -> failwith "no record yet"
       in
       eq x v
     (* [eq x v; not_ (eq x bottom_)] *)
-    | Constraint_alias (sx, sy) -> 
+    | Constraint.Eq_x (sx, sy) -> 
       let x = var_of_symbol sx in
       let y = var_of_symbol sy in
       eq x y
     (* [eq x y; not_ (eq x bottom_); not_ (eq y bottom_)] *)
-    | Constraint_binop (sy, sx1, op, sx2) ->
+    | Constraint.Eq_binop (sy, sx1, op, sx2) ->
       let y = var_of_symbol sy in
       let x1 = var_of_symbol sx1 in
       let x2 = var_of_symbol sx2 in
       let fop = match op with
-        | Binary_operator_plus -> fn_plus
-        | Binary_operator_minus -> fn_minus
-        | Binary_operator_times -> fn_times
-        | Binary_operator_divide -> fn_divide
-        | Binary_operator_modulus -> fn_modulus
-        | Binary_operator_less_than -> fn_le
-        | Binary_operator_less_than_or_equal_to -> fn_lt
-        | Binary_operator_equal_to -> fn_eq
-        | Binary_operator_and -> fn_and
-        | Binary_operator_or -> fn_or
-        | Binary_operator_xor -> fn_xor
+        | Add -> fn_plus
+        | Sub -> fn_minus
+        | Mul -> fn_times
+        | Div -> fn_divide
+        | Mod -> fn_modulus
+        | Le -> fn_le
+        | Leq -> fn_lt
+        | Eq -> fn_eq
+        | And -> fn_and
+        | Or -> fn_or
+        | Xor -> fn_xor
       in
       fop y x1 x2
     (* [eq y (fop x1 x2); not_ (eq y bottom_); not_ (eq x1 bottom_); not_ (eq x2 bottom_)] *)
-    | Constraint_ids (s1, xs1, s2, xs2) ->
-      let x = var_ @@ (name_of_ids xs1) ^ symbol_suffix_of_relative_stack s1 in
-      let y = var_ @@ (name_of_ids xs2) ^ symbol_suffix_of_relative_stack s2 in
+    | Constraint.Eq_lookup (xs1, s1, xs2, s2) ->
+      let x = var_ @@ name_of_lookup xs1 s1 in
+      let y = var_ @@ name_of_lookup xs2 s2 in
       eq x y
     (* [eq x y; not_ (eq x bottom_); not_ (eq y bottom_)] *)
-    | Constraint_and (c1, c2) ->
+    | Constraint.C_and (c1, c2) ->
       let e1 = z3_phis_of_smt_phi c1 in
       let e2 = z3_phis_of_smt_phi c2 in
       Boolean.mk_and ctx [e1; e2]
-    | Constraint_exclusive cs ->
+    | Constraint.C_exclusive cs ->
       let payloads = List.map cs ~f:z3_phis_of_smt_phi in
       let choice_vars = List.map payloads ~f:(fun _ -> Z3.Boolean.mk_const ctx (get_new_sym ())) in
       let chosen_payloads = List.mapi payloads ~f:(fun ci payload ->
@@ -184,10 +172,18 @@ module Make (C : Context) () = struct
         ) in
       let must_one_choice = Z3.Boolean.mk_or ctx choice_vars in
       join (must_one_choice::chosen_payloads)
-    | Constraint_projection _
-    | Constraint_type _ 
-    | Constraint_stack _
+    | Constraint.Target_stack _rels
       -> ground_truth
+    (* eq (var_ "!stack") (string_ "dummy") *)
+    | Constraint.Eq_projection (_, _, _)
+      -> failwith "no project yet"
+
+  let get_int_s model s =
+    let x = FuncDecl.apply getInt [var_ s] in
+    let r = Option.value_exn (Model.eval model x true) in
+    Z3.Arithmetic.Integer.get_big_int r
+    |> Big_int_Z.int_of_big_int
+
 
 end
 
