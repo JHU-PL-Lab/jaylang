@@ -58,7 +58,12 @@ module Make (C : Context) () = struct
   let true_ = bool_ true
   let false_ = bool_ false
 
-  let string_ c = Seq.mk_string ctx c
+  module StringSort = struct
+    let stringSort = Z3.Seq.mk_string_sort ctx
+    let string_ c = Seq.mk_string ctx c
+    let var_ n = Expr.mk_const_s ctx n stringSort
+
+  end
 
   let var_ n = Expr.mk_const_s ctx n valS
 
@@ -172,9 +177,10 @@ module Make (C : Context) () = struct
         ) in
       let must_one_choice = Z3.Boolean.mk_or ctx choice_vars in
       join (must_one_choice::chosen_payloads)
-    | Constraint.Target_stack _rels
-      -> ground_truth
-    (* eq (var_ "!stack") (string_ "dummy") *)
+    | Constraint.Target_stack stk
+      -> (let open StringSort in
+          eq (var_ "!stack") (string_ @@ (stk |> Relative_stack.to_string))
+         )
     | Constraint.Eq_projection (_, _, _)
       -> failwith "no project yet"
 

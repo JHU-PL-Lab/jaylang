@@ -24,7 +24,7 @@ let pp format v =
   v |> sexp_of_t |> Sexp.pp_hum format
 
 let to_string v = 
-  v |> sexp_of_t |> Sexp.to_string
+  v |> sexp_of_t |> Sexp.to_string_mach
 
 let of_string s =
   s |> Sexp.of_string |> t_of_sexp

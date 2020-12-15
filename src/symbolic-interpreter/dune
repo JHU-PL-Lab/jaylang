@@ -13,7 +13,6 @@
     odefa.ddpa
     odefa.utils
     odefa.dbmc_lib
-    odefa.solver_helper
   )
   (preprocess
     (pps
