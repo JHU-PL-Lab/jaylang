@@ -18,12 +18,15 @@ module Make (C : Context) () = struct
     Symbol.mk_string ctx name
   let intS = Arithmetic.Integer.mk_sort ctx
   let boolS = Boolean.mk_sort ctx
+
+  let strS = Seq.mk_string_sort ctx
+
   let intC = Datatype.mk_constructor_s ctx "Int"
       (Symbol.mk_string ctx "is-Int") [Symbol.mk_string ctx "i"] [Some intS] [1]
   let boolC = Datatype.mk_constructor_s ctx "Bool"
       (Symbol.mk_string ctx "is-Bool") [Symbol.mk_string ctx "b"] [Some boolS] [1]
   let funC = Datatype.mk_constructor_s ctx "Fun"
-      (Symbol.mk_string ctx "is-Fun") [] [] []
+      (Symbol.mk_string ctx "is-Fun") [Symbol.mk_string ctx "b"] [Some strS] [1]
 
   (* let bottomC = Datatype.mk_constructor_s ctx "Bottom"
       (Symbol.mk_string ctx "is-Bottom") [] [] [] *)
@@ -41,27 +44,28 @@ module Make (C : Context) () = struct
   let ifFun e = FuncDecl.apply funR [e]
 
 
-  let getInt, getBool = 
+  let getInt, getBool, getFid = 
     match Datatype.get_accessors valS with
-    | [a1]::[a2]::[]::[] -> a1, a2
+    | [a1]::[a2]::[a3]::[] -> a1, a2, a3
     | _ -> failwith "accessors mismatch"
   let intD = Datatype.Constructor.get_constructor_decl intC
   let boolD = Datatype.Constructor.get_constructor_decl boolC
   let funD = Datatype.Constructor.get_constructor_decl funC
+
   (* let bottomD = Datatype.Constructor.get_constructor_decl bottomC *)
 
   let int_ i = FuncDecl.apply intD [Arithmetic.Integer.mk_numeral_i ctx i]
   let bool_ b = FuncDecl.apply boolD [Boolean.mk_val ctx b]
-  let fun_ = FuncDecl.apply funD []
+  let fun_ s = FuncDecl.apply funD [Seq.mk_string ctx s]
   (* let bottom_ = FuncDecl.apply bottomD [] *)
 
   let true_ = bool_ true
   let false_ = bool_ false
 
   module StringSort = struct
-    let stringSort = Z3.Seq.mk_string_sort ctx
-    let string_ c = Seq.mk_string ctx c
-    let var_ n = Expr.mk_const_s ctx n stringSort
+    let strS = Z3.Seq.mk_string_sort ctx
+    let string_ s = Seq.mk_string ctx s
+    let var_ n = Expr.mk_const_s ctx n strS
 
   end
 
@@ -123,7 +127,7 @@ module Make (C : Context) () = struct
       let v = match cv with
         | Int i -> int_ i
         | Bool b -> bool_ b
-        | Fun _ -> fun_
+        | Fun fid -> fun_ (fid |> Dbmc_lib.Id.sexp_of_t |> Sexp.to_string_mach)
         | Record -> failwith "no record yet"
       in
       eq x v
