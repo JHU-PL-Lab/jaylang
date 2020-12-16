@@ -66,10 +66,13 @@ module Make (C : Context) () = struct
     let strS = Z3.Seq.mk_string_sort ctx
     let string_ s = Seq.mk_string ctx s
     let var_ n = Expr.mk_const_s ctx n strS
-
   end
 
   let var_ n = Expr.mk_const_s ctx n valS
+
+  let top_stack_name = "!stack"
+
+  let top_stack_var = StringSort.var_ top_stack_name
 
   let eq e1 e2 = Boolean.mk_eq ctx e1 e2
 
@@ -183,7 +186,7 @@ module Make (C : Context) () = struct
       join (must_one_choice::chosen_payloads)
     | Constraint.Target_stack stk
       -> (let open StringSort in
-          eq (var_ "!stack") (string_ @@ (stk |> Relative_stack.to_string))
+          eq (var_ top_stack_name) (string_ @@ (stk |> Relative_stack.to_string))
          )
     | Constraint.Eq_projection (_, _, _)
       -> failwith "no project yet"
@@ -194,41 +197,31 @@ module Make (C : Context) () = struct
     Z3.Arithmetic.Integer.get_big_int r
     |> Big_int_Z.int_of_big_int
 
+  let get_top_stack model =
+    let rel_stack_v = Option.value_exn (Model.eval model top_stack_var true) in
+    let rel_stack_str = Seq.get_string ctx rel_stack_v in
+    print_endline rel_stack_str;
+    let rel_stack = Relative_stack.of_string rel_stack_str in
+    rel_stack
+
+  let check_and_get_model (solver : Solver.solver) =
+    (* Model.model  *)
+    match Z3.Solver.check solver [] with
+    | Z3.Solver.SATISFIABLE ->
+      begin
+        match Z3.Solver.get_model solver with
+        | None -> 
+          print_endline "none";
+          None
+        | Some model -> 
+          print_endline @@ Z3.Model.to_string model;
+          Some model
+      end
+    | Z3.Solver.UNSATISFIABLE ->
+      print_endline "UNSAT";
+      None
+    | Z3.Solver.UNKNOWN ->
+      failwith @@ Printf.sprintf "Unknown result in solve: %s"
+        (Z3.Solver.get_reason_unknown solver)
 
 end
-
-(*
-let ctx = Z3.mk_context []
-
- module Z3API = Make (struct let ctx = ctx end) ()
-
-   let e1 = Z3API.int_ 3
-   let e2 = Z3API.bool_ true
-   let e3 = Z3API.fun_ ()
-   let x1 = Z3API.var_ "x1"
-   let x2 = Z3API.var_ "x2"
-   let x3 = Z3API.var_ "x3"
-   let eq1 = Z3API.eq x1 e1
-   let eq2 = Z3API.eq x2 e2
-   let eq3 = Z3API.eq x3 e3
-
-   let solver  = Solver.mk_solver ctx None
-
-   let () =
-   Solver.add solver [eq1; eq2; eq3];
-   print_endline @@ Solver.to_string solver;
-   match Solver.check solver [] with
-   | Solver.SATISFIABLE ->
-    begin
-      match Solver.get_model solver with
-      | None -> print_endline "none"
-      | Some model -> print_endline @@ Model.to_string model
-    end
-   | Solver.UNSATISFIABLE ->
-    print_endline "UNSAT"
-   | Solver.UNKNOWN ->
-    failwith @@ Printf.sprintf "Unknown result in solve: %s"
-      (Solver.get_reason_unknown solver) *)
-
-
-

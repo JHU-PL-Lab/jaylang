@@ -37,16 +37,8 @@ let generate program target =
   let z3_phis = List.map Z3API.z3_phis_of_smt_phi phis in
   Z3.Solver.add solver z3_phis;
   print_endline @@ Z3.Solver.to_string solver;
-
-  match Z3.Solver.check solver [] with
-  | Z3.Solver.SATISFIABLE ->
-    begin
-      match Z3.Solver.get_model solver with
-      | None -> print_endline "none"
-      | Some model -> print_endline @@ Z3.Model.to_string model
-    end
-  | Z3.Solver.UNSATISFIABLE ->
-    print_endline "UNSAT"
-  | Z3.Solver.UNKNOWN ->
-    failwith @@ Printf.sprintf "Unknown result in solve: %s"
-      (Z3.Solver.get_reason_unknown solver)
+  match Z3API.check_and_get_model solver with
+  | Some model ->
+    let _ : Relative_stack.t = Z3API.get_top_stack model in
+    ()
+  | None -> ()

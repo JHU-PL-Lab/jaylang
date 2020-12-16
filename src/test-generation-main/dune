@@ -9,5 +9,6 @@
     odefa.parser
     odefa.test-generation
     odefa.symbolic-interpreter
+    dmbc_solver
   )
 )
