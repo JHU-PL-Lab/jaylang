@@ -26,7 +26,7 @@ let lookup_main program x_target =
     | None, Cond cb -> At_chosen cb
   in
 
-  let rec lookup (xs0 : Lookup_stack.t) block rel_stack =
+  let rec lookup (xs0 : Concrete_stack.t) block rel_stack =
     (* print_endline @@ show_clause_list (get_clauses block); *)
     let x, xs = List.hd xs0, List.tl xs0 in
 
@@ -106,7 +106,6 @@ let lookup_main program x_target =
 
           (* Cond Bottom *)
           | Conditional_body (Var (x', _), e1, e2) -> (
-
               lookup [x' |> Id.of_ast_id] block rel_stack;
               let cond_tracelet = Ident_map.find x' map in
               let cond_block = match cond_tracelet with
@@ -142,7 +141,8 @@ let lookup_main program x_target =
             let x' = Id.of_ast_id x' in
             let x'' = Id.of_ast_id x'' in
             let x''' = Id.of_ast_id x''' in
-            let rel_stack' = Relative_stack.pop rel_stack ~callsite:x' in
+            let fid = Id.of_ast_id fb.point in
+            let rel_stack' = Relative_stack.pop rel_stack x' fid in
             lookup [x''] callsite_block rel_stack';
             lookup (x'''::xs) callsite_block rel_stack';
             C.and_ 
@@ -162,7 +162,8 @@ let lookup_main program x_target =
             let x' = Id.of_ast_id x' in
             let x'' = Id.of_ast_id x'' in
             let x''' = Id.of_ast_id x''' in
-            let rel_stack' = Relative_stack.pop rel_stack ~callsite:x' in
+            let fid = Id.of_ast_id fb.point in
+            let rel_stack' = Relative_stack.pop rel_stack x' fid in
             lookup [x''] callsite_block rel_stack';
             lookup (x''::x::xs) callsite_block rel_stack';
             C.and_ 

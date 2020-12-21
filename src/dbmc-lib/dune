@@ -2,7 +2,7 @@
   (name dbmc_lib)
   (public_name odefa.dbmc_lib)
   (libraries
-    core sexplib
+    core
     odefa.ast
   )
   (synopsis "dbmc lib as a gradual replacement of odada lib")

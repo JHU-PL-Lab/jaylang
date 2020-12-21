@@ -113,8 +113,6 @@ module Make (C : Context) () = struct
 
   let ground_truth = eq true_ true_
 
-  (* open Odefa_symbolic_interpreter *)
-
   let var_of_symbol sym = 
     sym |> Sym.to_string_mach |> var_
 
@@ -191,6 +189,7 @@ module Make (C : Context) () = struct
     | Constraint.Eq_projection (_, _, _)
       -> failwith "no project yet"
 
+  (* model and solution *)
   let get_int_s model s =
     let x = FuncDecl.apply getInt [var_ s] in
     let r = Option.value_exn (Model.eval model x true) in

@@ -76,7 +76,7 @@ let bind_binop x y1 op y2 stk =
 let bind_fun x stk f =
   Eq_x (Symbol.id x stk, Symbol.funid f)
 
-let concretize stk = Target_stack (Relative_stack.stackize stk)
+let concretize stk = Target_stack (Relative_stack.concretize stk)
 
 let and_ c1 c2 = C_and (c1, c2)
 

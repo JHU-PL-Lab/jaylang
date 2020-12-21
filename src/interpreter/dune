@@ -4,8 +4,10 @@
   (synopsis "Interpreter for Odefa")
   (libraries
     batteries
+    core
     jhupllib
     odefa.ast
     odefa.utils
+    odefa.dbmc_lib
   )
 )
