@@ -116,10 +116,15 @@ module Make (C : Context) () = struct
   let var_of_symbol sym = 
     sym |> Sym.to_string_mach |> var_
 
-  let name_of_lookup xs1 stk = 
-    let p1 = [%sexp_of: Dbmc_lib.Id.t list] xs1 |> Sexp.to_string_mach in
-    let p2 = Dbmc_lib.Relative_stack.sexp_of_t stk |> Sexp.to_string_mach in
-    p1 ^ p2
+  let name_of_lookup xs stk = 
+    match xs with
+    | [x] -> Sym.Id(x,stk) |> Sym.to_string_mach
+    | _::_ -> (
+        let p1 = [%sexp_of: Dbmc_lib.Id.t list] xs |> Sexp.to_string_mach in
+        let p2 = Dbmc_lib.Relative_stack.sexp_of_t stk |> Sexp.to_string_mach in
+        p1 ^ p2
+      )
+    | [] -> failwith "name_of_lookup empty"
 
   open Dbmc_lib
   let rec z3_phis_of_smt_phi = function

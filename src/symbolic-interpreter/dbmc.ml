@@ -67,13 +67,13 @@ let lookup_main program x_target =
 
           (* Value Discard *)
           | Value_body(Value_function f) -> 
-            add_phi @@ C.eq_lookups (x::xs) rel_stack xs rel_stack;
+            add_phi @@ C.eq_lookup (x::xs) rel_stack xs rel_stack;
             lookup xs block rel_stack
 
           (* Alias *)
           | Var_body (Var (x', _)) ->
             let x' = Id.of_ast_id x' in
-            add_phi @@ C.eq_lookups (x::xs) rel_stack (x'::xs) rel_stack;
+            add_phi @@ C.eq_lookup (x::xs) rel_stack (x'::xs) rel_stack;
             lookup (x'::xs) block rel_stack
 
           (* Binop *)
@@ -96,8 +96,8 @@ let lookup_main program x_target =
                       let rel_stack' = Relative_stack.push rel_stack x fun_id in
                       lookup [x'] fblock rel_stack';
                       C.and_ 
-                        (C.eq_lookup x rel_stack x' rel_stack')
                         (C.bind_fun xf rel_stack ((id_of_block fblock) |> Id.of_ast_id))
+                        (C.eq_lookup (x::xs) rel_stack (x'::xs) rel_stack')
                     ) funs in
                   add_phi (C.only_one phis)
                 )
@@ -122,7 +122,7 @@ let lookup_main program x_target =
                   let x' = Id.of_ast_id x' in
                   C.and_ 
                     (C.bind_v x' (Value_bool beta) rel_stack)
-                    (C.eq_lookup x rel_stack x_ret rel_stack)
+                    (C.eq_lookup [x] rel_stack [x_ret] rel_stack)
                 )
                   [true; false] in
               add_phi (C.only_one phis)
@@ -146,7 +146,7 @@ let lookup_main program x_target =
             lookup [x''] callsite_block rel_stack';
             lookup (x'''::xs) callsite_block rel_stack';
             C.and_ 
-              (C.eq_lookups (x::xs) rel_stack (x'''::xs) rel_stack')
+              (C.eq_lookup (x::xs) rel_stack (x'''::xs) rel_stack')
               (C.bind_fun x'' rel_stack' (id_of_block block |> Id.of_ast_id))
           | _ -> failwith "incorrect callsite in fun para"
         ) fb.callsites in
@@ -167,7 +167,7 @@ let lookup_main program x_target =
             lookup [x''] callsite_block rel_stack';
             lookup (x''::x::xs) callsite_block rel_stack';
             C.and_ 
-              (C.eq_lookups (x::xs) rel_stack (x'''::xs) rel_stack')
+              (C.eq_lookup (x::xs) rel_stack (x'''::xs) rel_stack')
               (C.bind_fun x'' rel_stack (id_of_block block |> Id.of_ast_id))
           | _ -> failwith "incorrect callsite in fun non-local"
         )

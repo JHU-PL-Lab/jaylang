@@ -63,10 +63,7 @@ let bind_v x v stk =
 let bind_input x stk = 
   Eq_x (Symbol.id x stk, Symbol.id x stk)
 
-let eq_lookup x1 stk1 x2 stk2 =
-  Eq_lookup ([x1], stk1, [x2], stk2)
-
-let eq_lookups xs1 stk1 xs2 stk2 =
+let eq_lookup xs1 stk1 xs2 stk2 =
   Eq_lookup (xs1, stk1, xs2, stk2)
 
 let bind_binop x y1 op y2 stk = 
