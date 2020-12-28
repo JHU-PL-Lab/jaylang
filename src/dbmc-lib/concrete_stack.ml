@@ -1,7 +1,8 @@
 open Core
-
 module T = struct
-  type t = Id.t list
+  type frame = Id.t * Id.t
+  [@@deriving sexp, compare, equal]
+  type t = frame list
   [@@deriving sexp, compare, equal]
 end
 

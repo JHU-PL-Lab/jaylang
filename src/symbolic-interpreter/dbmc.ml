@@ -26,7 +26,7 @@ let lookup_main program x_target =
     | None, Cond cb -> At_chosen cb
   in
 
-  let rec lookup (xs0 : Concrete_stack.t) block rel_stack =
+  let rec lookup (xs0 : Lookup_stack.t) block rel_stack =
     (* print_endline @@ show_clause_list (get_clauses block); *)
     let x, xs = List.hd xs0, List.tl xs0 in
 

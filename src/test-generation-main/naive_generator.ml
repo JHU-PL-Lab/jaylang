@@ -1,6 +1,4 @@
-(* open Core *)
-(* this file will be moved to a separate module *)
-
+open Core
 open Dbmc_lib
 
 let generate_inputs 
@@ -31,25 +29,32 @@ let build_input_sequence
   []
 
 let solution_input_feeder model target_stack =
-  fun (x,call_stack) : int ->
-  let x' = Id.of_ast_id x in
-  let stk' = Relative_stack.relativize target_stack call_stack in
-  let sym = Symbol.id x' stk' in
+  fun (x, call_stack) : int ->
+  let x = x |> Id.of_ast_id in
+  let stk = Relative_stack.relativize target_stack call_stack in
+  print_endline @@ (x |> Id.sexp_of_t |> Sexp.to_string);
+  print_endline @@ (stk |> Relative_stack.sexp_of_t |> Sexp.to_string);
+
+  let sym = Symbol.id x stk in
   Z3API.get_int_s model (Symbol.to_string_mach sym)
 
-let generate program target =
+let generate program target_x =
   let solver  = Z3.Solver.mk_solver ctx None in
-  let phis = Odefa_symbolic_interpreter.Dbmc.lookup_main program target in
-  print_endline @@ Constraint.list_to_string phis;
-  let z3_phis = List.map Z3API.z3_phis_of_smt_phi phis in
-  Z3.Solver.add solver z3_phis;
-  print_endline @@ Z3.Solver.to_string solver;
+  let phis = Odefa_symbolic_interpreter.Dbmc.lookup_main program target_x in
+
+  List.iter phis ~f:(fun phi ->
+      let z3_phi = Z3API.z3_phis_of_smt_phi phi in
+      Z3.Solver.add solver [z3_phi];
+      print_endline @@ Constraint.to_string phi;  
+      print_endline @@ Z3.Expr.to_string z3_phi;
+      Out_channel.newline stdout
+    );
   match Z3API.check_and_get_model solver with
   | Some model ->
     let target_stack = Z3API.get_top_stack model |> snd in
     let input_feeder = solution_input_feeder model target_stack in
-    let _ = Odefa_interpreter.Naive_interpreter.eval ~input_feeder program in
-    (*  *)
+    let target = (target_x, target_stack) in
+    let _ = Odefa_interpreter.Naive_interpreter.eval ~input_feeder ~target program in
     ()
   | None -> ()
 

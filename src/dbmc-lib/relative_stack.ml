@@ -60,7 +60,7 @@ let concretize (co_stk,stk) =
   [], List.rev co_stk
 
 let relativize target_stk call_stk : t =
-  let call_stk = List.map ~f:(fun (cs,fid) -> Id.of_ast_id cs, Id.of_ast_id fid) call_stk in
+  (* let call_stk = List.map ~f:(fun (cs,fid) -> Id.of_ast_id cs, Id.of_ast_id fid) call_stk in *)
   let rec discard_common ts cs =
     match ts,cs with
     | Caller(cs1,fid1)::target_stk', (cs2,fid2)::call_stk' ->
@@ -80,6 +80,14 @@ let relativize target_stk call_stk : t =
   let co_stk = List.rev target_stk' in
   let stk = List.map ~f:(fun (cs,fid) -> Call(cs,fid)) call_stk' in
   co_stk, stk
+
+let rec same_stack rstk (cstk : Concrete_stack.t) =
+  match rstk, cstk with
+  | Caller(cs1,fid1)::rs, (cs2,fid2)::cs ->
+    Id.equal cs1 cs2 && Id.equal fid1 fid2 &&
+    same_stack rs cs
+  | [], [] -> true
+  | _, _ -> false
 
 (* 
 when call_stk == target_stk
