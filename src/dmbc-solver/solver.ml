@@ -92,6 +92,10 @@ module Make (C : Context) () = struct
     let ey = bop getInt intD fop e1 e2 in
     join [eq y ey; ifInt e1; ifInt e2]
 
+  let fn_two_ints_to_bool fop y e1 e2 = 
+    let ey = bop getInt boolD fop e1 e2 in
+    join [eq y ey; ifInt e1; ifInt e2]
+
   let fn_two_bools fop y e1 e2 = 
     let ey = bop getBool boolD fop e1 e2 in
     join [eq y ey; ifBool e1; ifBool e2]
@@ -101,8 +105,9 @@ module Make (C : Context) () = struct
   let fn_times = fn_two_ints (fun e1 e2 -> Arithmetic.mk_mul ctx [e1; e2])
   let fn_divide = fn_two_ints (Arithmetic.mk_div ctx)
   let fn_modulus = fn_two_ints (Arithmetic.Integer.mk_mod ctx)
-  let fn_lt = fn_two_ints (Arithmetic.mk_lt ctx)
-  let fn_le = fn_two_ints (Arithmetic.mk_le ctx)
+
+  let fn_lt = fn_two_ints_to_bool (Arithmetic.mk_lt ctx)
+  let fn_le = fn_two_ints_to_bool (Arithmetic.mk_le ctx)
 
   let fn_and = fn_two_bools and_
   let fn_or = fn_two_bools (fun e1 e2 -> Boolean.mk_or ctx [e1; e2])
