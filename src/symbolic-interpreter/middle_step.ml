@@ -139,9 +139,9 @@ module Tracelet = struct
             None
         | Cond c -> 
           if List.exists (fun tc -> tc.id = x) c.then_ then
-            Some tl
+            Some (Cond {c with choice = Some true})
           else if List.exists (fun tc -> tc.id = x) c.else_ then
-            Some tl
+            Some (Cond {c with choice = Some false})
           else
             None
       )
