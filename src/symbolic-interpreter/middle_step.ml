@@ -443,8 +443,6 @@ module Tunnel = struct
 
   type t = frame list
 
-  exception Invalid_query of string
-
   let cfg_of e =
     let open Odefa_ddpa in
     let conf : (module Ddpa_context_stack.Context_stack) = 
@@ -482,7 +480,7 @@ module Tunnel = struct
           lift_clause @@ Ident_map.find pt (clause_mapping e))
       with
       | Not_found ->
-        raise @@ Invalid_query(
+        raise @@ Interpreter.Invalid_query(
           Printf.sprintf "Variable %s is not defined" (show_ident pt))
     in
 
