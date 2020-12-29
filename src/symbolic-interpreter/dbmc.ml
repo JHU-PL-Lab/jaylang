@@ -107,7 +107,7 @@ let lookup_main program x_target =
           (* Cond Bottom *)
           | Conditional_body (Var (x', _), e1, e2) -> (
               lookup [x' |> Id.of_ast_id] block rel_stack;
-              let cond_tracelet = Ident_map.find x' map in
+              let cond_tracelet = Ident_map.find tc.id map in
               let cond_block = match cond_tracelet with
                 | Cond c when c.choice = None -> c
                 | Cond _ -> failwith "conditional_body: not both"
