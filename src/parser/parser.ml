@@ -33,3 +33,8 @@ let parse_program (input : IO.input) =
   handle_parse_error buf @@ fun () ->
   Generated_parser.prog Generated_lexer.token buf
 ;;
+
+let parse_string s =
+  s
+  |> IO.input_string
+  |> parse_program
