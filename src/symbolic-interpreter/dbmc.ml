@@ -191,4 +191,6 @@ let lookup_main program x_target =
   let x_target' = Id.of_ast_id x_target in
 
   lookup [x_target'] block0 Relative_stack.empty;
-  !phi_set
+  let phis = !phi_set in
+  let phis' = Constraint.integrate_stack phis in
+  phis'

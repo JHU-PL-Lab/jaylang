@@ -79,3 +79,10 @@ let and_ c1 c2 = C_and (c1, c2)
 
 let only_one cs = C_exclusive cs
 
+let integrate_stack phis =
+  let non_stack_phis, stack_phis = List.partition_tf phis ~f:(function
+      | Target_stack _ -> false
+      | _ -> true
+    ) in
+  let integrated_stack_phi = C_exclusive stack_phis in
+  integrated_stack_phi :: non_stack_phis
