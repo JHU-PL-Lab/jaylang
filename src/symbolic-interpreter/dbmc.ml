@@ -27,24 +27,20 @@ let lookup_main program x_target =
   in
 
   let rec lookup (xs0 : Lookup_stack.t) block rel_stack =
-    (* print_endline @@ show_clause_list (get_clauses block); *)
     let x, xs = List.hd xs0, List.tl xs0 in
-
     (* x can either be 
        1. the id of the clause, while the stack is singleton or not
        2. the argument of this fun
        3. the argument of furthur funs *)
 
-    (* Inductive on definition site *)
     match defined x block with
     | At_clause tc -> (
         begin
-          let (Clause (Var (x_def', _), rhs)) = tc.clause in
-          let x_def = Id.of_ast_id x_def' in
+          let (Clause (_, rhs)) = tc.clause in
           let block_point = id_of_block block in
           match rhs with 
           (* Value Discovery Main *)
-          | Value_body v when block_point = id_main -> 
+          | Value_body v when block_point = id_main && List.is_empty xs -> 
             (match v with
              | Value_function vf -> ()
              | _ -> add_phi @@ C.bind_v x v rel_stack
@@ -57,7 +53,7 @@ let lookup_main program x_target =
           (* Value Discovery Non-Main *)
           | Value_body v when List.is_empty xs ->
             (match v with
-             | Value_function vf -> add_phi @@ C.bind_fun x rel_stack x_def
+             | Value_function vf -> add_phi @@ C.bind_fun x rel_stack x
              | _ -> add_phi @@ C.bind_v x v rel_stack
             );
             lookup [Id.of_ast_id x_first] block rel_stack
@@ -94,9 +90,9 @@ let lookup_main program x_target =
                       let x' = Tracelet.ret_of fblock |> Id.of_ast_id in
                       let fun_id = Id.of_ast_id fun_id in
                       let rel_stack' = Relative_stack.push rel_stack x fun_id in
-                      lookup [x'] fblock rel_stack';
+                      lookup (x'::xs) fblock rel_stack';
                       C.and_ 
-                        (C.bind_fun xf rel_stack ((id_of_block fblock) |> Id.of_ast_id))
+                        (C.bind_fun xf rel_stack fun_id)
                         (C.eq_lookup (x::xs) rel_stack (x'::xs) rel_stack')
                     ) funs in
                   add_phi (C.only_one phis)
@@ -142,12 +138,13 @@ let lookup_main program x_target =
             let x'' = Id.of_ast_id x'' in
             let x''' = Id.of_ast_id x''' in
             let fid = Id.of_ast_id fb.point in
-            let rel_stack' = Relative_stack.pop rel_stack x' fid in
-            lookup [x''] callsite_block rel_stack';
-            lookup (x'''::xs) callsite_block rel_stack';
-            C.and_ 
-              (C.eq_lookup (x::xs) rel_stack (x'''::xs) rel_stack')
-              (C.bind_fun x'' rel_stack' (id_of_block block |> Id.of_ast_id))
+            (* (id_of_block block |> Id.of_ast_id) *)
+            let callsite_stack = Relative_stack.pop rel_stack x' fid in
+            lookup [x''] callsite_block callsite_stack;
+            lookup (x'''::xs) callsite_block callsite_stack;
+            C.and_
+              (C.eq_lookup (x::xs) rel_stack (x'''::xs) callsite_stack)
+              (C.bind_fun x'' callsite_stack fid)
           | _ -> failwith "incorrect callsite in fun para"
         ) fb.callsites in
       add_phi (C.only_one phis)
@@ -161,14 +158,13 @@ let lookup_main program x_target =
           | (Clause (Var (x', _), Appl_body (Var (x'', _), Var (x''', _)))) ->
             let x' = Id.of_ast_id x' in
             let x'' = Id.of_ast_id x'' in
-            let x''' = Id.of_ast_id x''' in
             let fid = Id.of_ast_id fb.point in
             let rel_stack' = Relative_stack.pop rel_stack x' fid in
             lookup [x''] callsite_block rel_stack';
             lookup (x''::x::xs) callsite_block rel_stack';
             C.and_ 
-              (C.eq_lookup (x::xs) rel_stack (x'''::xs) rel_stack')
-              (C.bind_fun x'' rel_stack (id_of_block block |> Id.of_ast_id))
+              (C.eq_lookup (x::xs) rel_stack (x''::x::xs) rel_stack')
+              (C.bind_fun x'' rel_stack fid)
           | _ -> failwith "incorrect callsite in fun non-local"
         )
           fb.callsites in
