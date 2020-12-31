@@ -38,6 +38,13 @@ let solution_input_feeder model target_stack =
   let sym = Symbol.id x stk in
   Z3API.get_int_s model (Symbol.to_string_mach sym)
 
+let memorized_solution_input_feeder mem model target_stack =
+  let input_feeder = solution_input_feeder model target_stack in
+  fun query ->
+    let answer = input_feeder query in
+    mem := answer :: !mem;
+    answer
+
 let generate program target_x =
   let solver  = Z3.Solver.mk_solver ctx None in
   let phis = Odefa_symbolic_interpreter.Dbmc.lookup_main program target_x in
@@ -52,36 +59,9 @@ let generate program target_x =
   match Z3API.check_and_get_model solver with
   | Some model ->
     let target_stack = Z3API.get_top_stack model |> snd in
-    let input_feeder = solution_input_feeder model target_stack in
+    let input_history = ref [] in
+    let input_feeder = memorized_solution_input_feeder input_history model target_stack in
     let target = (target_x, target_stack) in
     let _ = Odefa_interpreter.Naive_interpreter.eval ~input_feeder ~target program in
-    ()
-  | None -> ()
-
-
-(* 
-previous step
-test_generator.ml 
--> Generator.generate_inputs
--> Generator.input_sequence_from_solution
--> Odefa_interpreter.Interpreter.eval : ()
-      with ~input_source:read_from_solver
-           ~clause_callback:stop_at_stop_var
-           e
-      where
-      -- read_from_solver (Var(x,stk)) : value = 
-        and mutate input_record
-      -- stop_at_stop_var clause = a callback fun to check whether stop
-
-Relative_stack
-  -- concretize stack
-  -- relativize
-
-input[a;b]
-
-input[-b,c]
-
-target = [a;c]
-
-
- *)
+    List.rev !input_history
+  | None -> []

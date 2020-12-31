@@ -8,6 +8,7 @@ let logger = Logger_utils.make_logger "Test_generator";;
 let lazy_logger = Logger_utils.make_lazy_logger "Test_generator";;
 
 exception CommandLineParseFailure of string;;
+exception GenComplete;;
 exception GenerationComplete;;
 
 let () =
@@ -57,8 +58,10 @@ let () =
   end;
   (* Generate tests *)
   try
-    ignore @@ Naive_generator.generate ast args.ga_target_point;
-    ignore @@ raise (Odefa_symbolic_interpreter.Interpreter.Invalid_query "bypassing");
+    let inputs = Naive_generator.generate ast args.ga_target_point in
+    Printf.printf "[%s]\n"
+      (String.join "," @@ List.map string_of_int inputs);
+    ignore @@ raise GenComplete;
 
     let results_remaining = ref args.ga_maximum_results in
     let generator =
@@ -110,6 +113,8 @@ let () =
         print_endline "Requested input sequences found; terminating.";
     end
   with
+  | GenComplete ->
+    ()
   | Odefa_symbolic_interpreter.Interpreter.Invalid_query msg ->
     prerr_endline msg
 ;;
