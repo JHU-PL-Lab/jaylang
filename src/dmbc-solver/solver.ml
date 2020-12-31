@@ -177,21 +177,24 @@ module Make (C : Context) () = struct
       let e2 = z3_phis_of_smt_phi c2 in
       Boolean.mk_and ctx [e1; e2]
     | Constraint.C_exclusive cs ->
-      let payloads = List.map cs ~f:z3_phis_of_smt_phi in
-      let choice_vars = List.map payloads ~f:(fun _ -> Z3.Boolean.mk_const ctx (get_new_sym ())) in
-      let chosen_payloads = List.mapi payloads ~f:(fun ci payload ->
-          let ci_var = List.nth_exn choice_vars ci in
-          let other_vars = List.filteri choice_vars ~f:(fun i _ -> Int.(ci <> i)) in
-          let exclusion = 
-            other_vars
-            |> Z3.Boolean.mk_or ctx
-            |> Z3.Boolean.mk_not ctx
-          in
-          let payload' = and_ payload exclusion in
-          Z3.Boolean.mk_implies ctx ci_var payload'
-        ) in
-      let must_one_choice = Z3.Boolean.mk_or ctx choice_vars in
-      join (must_one_choice::chosen_payloads)
+      if List.length cs = 1 then
+        z3_phis_of_smt_phi (List.hd_exn cs)
+      else
+        let payloads = List.map cs ~f:z3_phis_of_smt_phi in
+        let choice_vars = List.map payloads ~f:(fun _ -> Z3.Boolean.mk_const ctx (get_new_sym ())) in
+        let chosen_payloads = List.mapi payloads ~f:(fun ci payload ->
+            let ci_var = List.nth_exn choice_vars ci in
+            let other_vars = List.filteri choice_vars ~f:(fun i _ -> Int.(ci <> i)) in
+            let exclusion = 
+              other_vars
+              |> Z3.Boolean.mk_or ctx
+              |> Z3.Boolean.mk_not ctx
+            in
+            let payload' = and_ payload exclusion in
+            Z3.Boolean.mk_implies ctx ci_var payload'
+          ) in
+        let must_one_choice = Z3.Boolean.mk_or ctx choice_vars in
+        join (must_one_choice::chosen_payloads)
     | Constraint.Target_stack stk
       -> (let open StringSort in
           eq (var_ top_stack_name) (string_ @@ (stk |> Relative_stack.to_string))

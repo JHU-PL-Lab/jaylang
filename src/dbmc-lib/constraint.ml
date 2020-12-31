@@ -84,5 +84,6 @@ let integrate_stack phis =
       | Target_stack _ -> false
       | _ -> true
     ) in
-  let integrated_stack_phi = C_exclusive stack_phis in
+  let unique_stack_phis = List.dedup_and_sort ~compare stack_phis in
+  let integrated_stack_phi = C_exclusive unique_stack_phis in
   integrated_stack_phi :: non_stack_phis
