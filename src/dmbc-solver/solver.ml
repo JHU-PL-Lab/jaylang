@@ -108,14 +108,14 @@ module Make (C : Context) () = struct
 
   let fn_lt = fn_two_ints_to_bool (Arithmetic.mk_lt ctx)
   let fn_le = fn_two_ints_to_bool (Arithmetic.mk_le ctx)
+  let fn_eq = fn_two_ints_to_bool (Boolean.mk_eq ctx)
 
   let fn_and = fn_two_bools and_
   let fn_or = fn_two_bools (fun e1 e2 -> Boolean.mk_or ctx [e1; e2])
   let fn_xor = fn_two_bools (Boolean.mk_xor ctx)
 
-  let fn_eq y x1 x2 =
-    eq y (eq x1 x2)
-
+  (* let fn_eq y x1 x2 =
+     eq y (eq x1 x2) *)
   let ground_truth = eq true_ true_
 
   let var_of_symbol sym = 
