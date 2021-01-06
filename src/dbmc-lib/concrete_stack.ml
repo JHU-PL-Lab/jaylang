@@ -1,10 +1,11 @@
 open Core
 module T = struct
-  type frame = Id.t * Id.t
-  [@@deriving sexp, compare, equal]
-  type t = frame list
-  [@@deriving sexp, compare, equal]
+  type t = (Id.t * Id.t) list
+  [@@deriving sexp, compare, equal, show {with_path = false}]
 end
 
 include T
 include Comparator.Make(T)
+
+(* type show_t = (Id.t * Id.t) list 
+   [@@deriving show] *)

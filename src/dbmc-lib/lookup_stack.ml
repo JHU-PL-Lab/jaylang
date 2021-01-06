@@ -1,8 +1,7 @@
 open Core
 
 module T = struct
-  type frame = Id.t [@@deriving sexp, compare, equal]
-  type t = frame list [@@deriving sexp, compare, equal]
+  type t = Id.t list [@@deriving sexp, compare, equal, show {with_path = false}]
 end
 
 include T

@@ -3,12 +3,15 @@
   (public_name odefa.dbmc_lib)
   (libraries
     core
+    async
+    fmt
     odefa.ast
+    odefa.ddpa
   )
   (synopsis "dbmc lib as a gradual replacement of odada lib")
   (inline_tests)
   (preprocess
-    (pps ppx_jane)) 
+    (pps ppx_jane -allow-unannotated-ignores ppx_deriving.show)) 
   )
 (env
   (dev

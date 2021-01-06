@@ -50,15 +50,17 @@ let generate program target_x =
   let phis = Odefa_symbolic_interpreter.Dbmc.lookup_main program target_x in
 
   List.iter phis ~f:(fun phi ->
+      print_endline @@ Constraint.show phi;
       let z3_phi = Z3API.z3_phis_of_smt_phi phi in
       Z3.Solver.add solver [z3_phi];
-      print_endline @@ Constraint.to_string phi;  
-      print_endline @@ Z3.Expr.to_string z3_phi;
-      Out_channel.newline stdout
+      (* print_endline @@ Z3.Expr.to_string z3_phi; *)
+      (* Out_channel.newline stdout *)
     );
   match Z3API.check_and_get_model solver with
   | Some model ->
-    let target_stack = Z3API.get_top_stack model |> snd in
+    let raw_stack = Z3API.get_top_stack model in
+    print_endline @@ Relative_stack.show raw_stack;
+    let target_stack = snd raw_stack in
     let input_history = ref [] in
     let input_feeder = memorized_solution_input_feeder input_history model target_stack in
     let target = (target_x, target_stack) in

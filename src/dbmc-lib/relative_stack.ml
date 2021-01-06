@@ -2,10 +2,10 @@ open Core
 
 module T = struct
   type callsite = Id.t
-  [@@deriving sexp, compare, equal]
-  (* type caller = Id.t *)
+  [@@deriving sexp, compare, equal, show {with_path = false}]
+
   type fid = Id.t
-  [@@deriving sexp, compare, equal]
+  [@@deriving sexp, compare, equal, show {with_path = false}]
 
   type frame = 
     (* cancelable call-return stack op *)
@@ -18,15 +18,24 @@ module T = struct
     | Caller of callsite * fid
   [@@deriving sexp, compare, equal]
 
+  let pp_frame oc frame = 
+    let cf_pair = Fmt.Dump.pair pp_callsite pp_fid in
+    match frame with
+    | Call   (cs, fid) -> Fmt.(pf oc "-%a" cf_pair (cs,fid))
+    | Caller (cs, fid) -> Fmt.(pf oc "+%a" cf_pair (cs,fid))
+  let show_frame = Fmt.to_to_string pp_frame
+
   type t = frame list * frame list
   [@@deriving sexp, compare, equal]
+
+  let pp oc (s1,s2) = 
+    Fmt.(pf oc "%a" (Dump.list pp_frame) (s1 @ s2))
+
+  let show = Fmt.to_to_string pp
 end
 
 include T
 include Comparator.Make(T)
-
-let pp format v =
-  v |> sexp_of_t |> Sexp.pp_hum format
 
 let to_string v = 
   v |> sexp_of_t |> Sexp.to_string_mach

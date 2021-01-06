@@ -2,11 +2,11 @@ open Core
 
 module T = struct
   type value = 
-    | Int of int
-    | Bool of bool
+    | Int of int    [@printer Fmt.int]
+    | Bool of bool  [@printer Fmt.bool]
     | Fun of Id.t
     | Record
-  [@@deriving sexp, compare, equal]
+  [@@deriving sexp, compare, equal, show {with_path = false}]
 
   type binop =
     | Add | Sub | Mul | Div | Mod
@@ -24,10 +24,45 @@ module T = struct
     | C_and of t * t
     | C_exclusive of t list
   [@@deriving sexp, compare, equal]
+
 end
 
 include T
 include Comparator.Make(T)
+
+let show_binop = function
+  | Add -> "+"
+  | Sub -> "-"
+  | Mul -> "*"
+  | Div -> "/"
+  | Mod -> "%"
+  | Le  -> "<"
+  | Leq -> "<="
+  | Eq  -> "=="
+  | And -> "&&"
+  | Or -> "||"
+  | Xor  -> "!="
+(* | Not *)  
+
+let pp_binop = Fmt.of_to_string show_binop
+
+let rec pp oc t = 
+  let open Fmt in
+  match t with
+  | Eq_v (s,v) -> pf oc "%a =v= %a" Symbol.pp s pp_value v
+  | Eq_x (s1,s2) -> pf oc "%a === %a" Symbol.pp s1 Symbol.pp s2
+  | Eq_lookup (xs1, stk1, xs2, stk2) ->
+    pf oc "{%a} %a <=> {%a} %a"
+      (list ~sep:(any " -> ") Id.pp) xs1 Relative_stack.pp stk1
+      (list ~sep:(any " -> ") Id.pp) xs2 Relative_stack.pp stk2
+  | Eq_binop (s1, s2, op, s3) ->
+    pf oc "%a === %a %a %a" Symbol.pp s1 Symbol.pp s2 pp_binop op Symbol.pp s3
+  | Eq_projection (_, _, _) -> ()
+  | Target_stack stk -> pf oc "%a" Relative_stack.pp stk
+  | C_and (t1, t2) -> pf oc "and\n%a" (vbox ~indent:2 (pair (pp ++ (sps 1)) pp)) (t1,t2)
+  | C_exclusive ts -> pf oc "xor\n%a" (vbox ~indent:2 @@ list ~sep:(sps 1) pp) ts
+
+let show = Fmt.to_to_string pp
 
 let to_string c =
   c |> sexp_of_t |> Sexp.to_string_hum
@@ -87,3 +122,17 @@ let integrate_stack phis =
   let unique_stack_phis = List.dedup_and_sort ~compare stack_phis in
   let integrated_stack_phi = C_exclusive unique_stack_phis in
   integrated_stack_phi :: non_stack_phis
+
+let rec simplify_one = function
+  | C_and (p1, p2) ->
+    C_and (simplify_one p1, simplify_one p2)
+  | C_exclusive phis ->
+    let phis' = simplify phis in
+    if List.length phis' = 1 then
+      List.hd_exn phis'
+    else
+      C_exclusive phis'
+  | rest -> rest
+
+and simplify phis =
+  List.map phis ~f:simplify_one
