@@ -1,9 +1,9 @@
 open Batteries
 open Odefa_ast
 open Odefa_ast.Ast_pp
-open Odefa_ddpa
 open Ast
 open Ddpa_abstract_ast
+open Ddpa_graph
 
 let heading_var_of_clause = function
   | Unannotated_clause(Abs_clause(Abs_var x, _)) -> Some x
@@ -184,7 +184,7 @@ let make_ret_to_fun_def_mapping e =
       loop antimatch_body;
       loop (Expr rest_clauses);
       ()
-    | clause :: rest_clauses ->
+    | _clause :: rest_clauses ->
       loop (Expr rest_clauses);
       ()
   in
@@ -208,7 +208,7 @@ let make_para_to_fun_def_mapping e =
       loop antimatch_body;
       loop (Expr rest_clauses);
       ()
-    | clause :: rest_clauses ->
+    | _clause :: rest_clauses ->
       loop (Expr rest_clauses);
       ()
   in
@@ -238,3 +238,20 @@ let log_acl acl prevs =
 let log_id id = 
   print_endline @@ Printf.sprintf "%s"
     (Jhupllib.Pp_utils.pp_to_string pp_ident id)
+
+let find_cond_top cond_btm cfg =
+  let rec loop c =
+    match c with
+    | Nonbinding_enter_clause (Abs_value_bool cond, _) ->
+      cond
+    | _ ->
+      let principle_pred_acl = 
+        preds c cfg
+        |> List.of_enum 
+        |> List.hd
+      in
+      loop principle_pred_acl
+  in
+  loop cond_btm
+
+let bat_list_of_enum = List.of_enum

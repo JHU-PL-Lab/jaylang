@@ -13,7 +13,7 @@ open Pp_utils;;
 
 type ddpa_edge =
   | Ddpa_edge of annotated_clause * annotated_clause
-  [@@deriving ord, show, to_yojson]
+[@@deriving ord, show, to_yojson]
 ;;
 
 module Ddpa_edge =
@@ -46,6 +46,8 @@ sig
   val edges_to : annotated_clause -> ddpa_graph -> ddpa_edge Enum.t
 
   val preds : annotated_clause -> ddpa_graph -> annotated_clause Enum.t
+
+  val preds_l : annotated_clause -> ddpa_graph -> annotated_clause list
 
   val succs : annotated_clause -> ddpa_graph -> annotated_clause Enum.t
 
@@ -90,6 +92,8 @@ struct
   let preds acl g =
     edges_to acl g |> Enum.map (fun (Ddpa_edge(acl,_)) -> acl)
   ;;
+
+  let preds_l acl g  = preds acl g |> List.of_enum 
 
   let to_yojson = ddpa_graph_to_yojson;;
 end;;

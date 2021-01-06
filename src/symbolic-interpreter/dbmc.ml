@@ -1,9 +1,9 @@
 open Batteries
 open Odefa_ast.Ast
-open Middle_step
-open Tracelet
 open Dbmc_lib
+open Tracelet
 module C = Dbmc_lib.Constraint
+open Odefa_ddpa
 
 type def_site =
   | At_clause of tl_clause
@@ -14,8 +14,8 @@ let lookup_main program x_target =
   let phi_set = ref [] in
   let add_phi phi = 
     phi_set := phi :: !phi_set in
-  let map = Tunnel.annotate program x_target in
-  let x_first = Ast_helper.first_var program in
+  let map = Tracelet.annotate program x_target in
+  let x_first = Ddpa_helper.first_var program in
 
   let defined x' block = 
     let x = Id.to_ast_id x' in

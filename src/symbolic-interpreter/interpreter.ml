@@ -713,9 +713,8 @@ struct
   let _lookup = lookup;;
 
   open Mega_constraint
-  (* open Mega_step *)
   open Relstack
-  open Ast_helper
+  open Odefa_ddpa.Ddpa_helper
 
   (**
      Given a program and its corresponding CFG, constructs an appropriate lookup
