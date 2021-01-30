@@ -49,18 +49,18 @@ let pp_binop = Fmt.of_to_string show_binop
 let rec pp oc t = 
   let open Fmt in
   match t with
-  | Eq_v (s,v) -> pf oc "%a =v= %a" Symbol.pp s pp_value v
-  | Eq_x (s1,s2) -> pf oc "%a === %a" Symbol.pp s1 Symbol.pp s2
+  | Eq_v (s,v) -> pf oc "@[<v 2>%a == %a@]" Symbol.pp s pp_value v
+  | Eq_x (s1,s2) -> pf oc "@[<v 2>%a == %a@]" Symbol.pp s1 Symbol.pp s2
   | Eq_lookup (xs1, stk1, xs2, stk2) ->
-    pf oc "{%a} %a <=> {%a} %a"
-      (list ~sep:(any " -> ") Id.pp) xs1 Relative_stack.pp stk1
-      (list ~sep:(any " -> ") Id.pp) xs2 Relative_stack.pp stk2
+    pf oc "@[<v 2>{%a}%a == {%a}%a@]"
+      (list ~sep:(any "-> ") Id.pp) xs1 Relative_stack.pp stk1
+      (list ~sep:(any "-> ") Id.pp) xs2 Relative_stack.pp stk2
   | Eq_binop (s1, s2, op, s3) ->
-    pf oc "%a === %a %a %a" Symbol.pp s1 Symbol.pp s2 pp_binop op Symbol.pp s3
+    pf oc "@[<v 2>%a === %a %a %a@]" Symbol.pp s1 Symbol.pp s2 pp_binop op Symbol.pp s3
   | Eq_projection (_, _, _) -> ()
-  | Target_stack stk -> pf oc "%a" Relative_stack.pp stk
-  | C_and (t1, t2) -> pf oc "and\n%a" (vbox ~indent:2 (pair (pp ++ (sps 1)) pp)) (t1,t2)
-  | C_exclusive ts -> pf oc "xor\n%a" (vbox ~indent:2 @@ list ~sep:(sps 1) pp) ts
+  | Target_stack stk -> pf oc "@[<v 2>Top: %a@]" Relative_stack.pp stk
+  | C_and (t1, t2) -> pf oc "@[<v 2>And: @,%a@,%a@]" pp t1 pp t2
+  | C_exclusive ts -> pf oc "@[<v 2>Xor: @,%a@]" (list ~sep:sp pp) ts
 
 let show = Fmt.to_to_string pp
 

@@ -19,10 +19,16 @@ let lookup_main program x_target =
 
   let defined x' block = 
     let x = Id.to_ast_id x' in
+    (* print_endline ("defined " ^ (show_ident x)); *)
+    (* print_endline @@ Tracelet.show block; *)
     match Tracelet.clause_of_x block x, block with
-    | Some tc, _ -> At_clause tc
+    | Some tc, _ -> 
+      (* print_endline "found in clause"; *)
+      At_clause tc
     | None, Main mb -> failwith "main block must have target"
-    | None, Fun fb -> At_fun_para (fb.para = x, fb)
+    | None, Fun fb -> 
+      (* print_endline ("found in fun " ^ (if fb.para = x then "local" else "nonlocal")); *)
+      At_fun_para (fb.para = x, fb)
     | None, Cond cb -> At_chosen cb
   in
 
@@ -188,5 +194,6 @@ let lookup_main program x_target =
 
   lookup [x_target'] block0 Relative_stack.empty;
   let phis = !phi_set in
-  let phis' = Constraint.integrate_stack phis in
-  phis'
+  phis
+  |> Constraint.integrate_stack 
+  |> Constraint.simplify

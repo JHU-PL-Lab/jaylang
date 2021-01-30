@@ -54,7 +54,6 @@ let generate program target_x =
       let z3_phi = Z3API.z3_phis_of_smt_phi phi in
       Z3.Solver.add solver [z3_phi];
       (* print_endline @@ Z3.Expr.to_string z3_phi; *)
-      (* Out_channel.newline stdout *)
     );
   match Z3API.check_and_get_model solver with
   | Some model ->
