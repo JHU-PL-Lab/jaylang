@@ -23,13 +23,28 @@ let lookup_main program x_target =
     (* print_endline @@ Tracelet.show block; *)
     match Tracelet.clause_of_x block x, block with
     | Some tc, _ -> 
-      (* print_endline "found in clause"; *)
+      Fmt.(pr "found in clause\n");
       At_clause tc
     | None, Main mb -> failwith "main block must have target"
     | None, Fun fb -> 
-      (* print_endline ("found in fun " ^ (if fb.para = x then "local" else "nonlocal")); *)
+      Fmt.(pr ("found in fun %s\n"
+               ^^ "callsites %a\n"
+               ^^ "%a = fun %a ->\n")
+             (if fb.para = x then "local" else "nonlocal")
+             (Dump.list string) (List.map (fun id -> 
+                 let (Ident s) = id in s
+               ) fb.callsites)
+             Ast_pp.pp_ident fb.point
+             Ast_pp.pp_ident fb.para
+          );
       At_fun_para (fb.para = x, fb)
-    | None, Cond cb -> At_chosen cb
+    | None, Cond cb -> 
+      Fmt.(pr ("found in cond\n"
+               ^^ "%a = %a ? \n")
+             Ast_pp.pp_ident cb.point
+             Ast_pp.pp_ident cb.cond
+          );
+      At_chosen cb
   in
 
   let rec lookup (xs0 : Lookup_stack.t) block rel_stack =

@@ -104,9 +104,8 @@ let update_clauses f block =
     let else_ = f c.else_ in 
     Cond {c with then_ ; else_ }
 
-let find_by_id x block_map =
+let find_by_id ?(static=false) x block_map =
   block_map
-  (* |> Map.data *)
   |> Ident_map.values
   |> bat_list_of_enum
   |> List.find_map ~f:(fun tl -> match tl with
@@ -121,12 +120,22 @@ let find_by_id x block_map =
         else
           None
       | Cond c -> 
-        if List.exists ~f:(fun tc -> Ident.equal tc.id x) c.then_ then
-          Some (Cond {c with choice = Some true})
-        else if List.exists ~f:(fun tc -> Ident.equal tc.id x) c.else_ then
-          Some (Cond {c with choice = Some false})
-        else
-          None
+        let choice =
+          if List.exists ~f:(fun tc -> Ident.equal tc.id x) c.then_ then
+            Some true
+          else if List.exists ~f:(fun tc -> Ident.equal tc.id x) c.else_ then
+            Some false
+          else
+            None
+        in
+        match choice with
+        | Some _ -> (
+            if static then
+              Some (Cond c)
+            else
+              Some (Cond {c with choice})
+          )
+        | None -> None
     )
   |> Option.value_exn 
 
@@ -154,7 +163,7 @@ let update_id_dst id dst0 block =
   update_clauses (List.map ~f:add_dst_in_clause) block
 
 let add_id_dst site_x def_x tl_map =
-  let tl = find_by_id site_x tl_map in
+  let tl = find_by_id ~static:true site_x tl_map in
   let tl' = update_id_dst site_x def_x tl in
   (* Map.add ~key:(id_of_block tl) ~data:tl' tl_map *)
   Ident_map.add (id_of_block tl) tl' tl_map
