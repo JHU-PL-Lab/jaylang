@@ -135,7 +135,7 @@ let lookup_main program x_target =
 
     (* Fun Enter Parameter *)
     | At_fun_para (true, fb) ->
-      let phis = List.map (fun callsite -> 
+      let phis = List.filter_map (fun callsite -> 
           let callsite_block = Tracelet.find_by_id callsite map in
           let tc = Tracelet.clause_of_x_exn callsite_block callsite in
           match tc.clause with
@@ -143,34 +143,40 @@ let lookup_main program x_target =
             let x' = Id.of_ast_id x' in
             let x'' = Id.of_ast_id x'' in
             let x''' = Id.of_ast_id x''' in
-            let fid = Id.of_ast_id fb.point in
-            (* (id_of_block block |> Id.of_ast_id) *)
-            let callsite_stack = Relative_stack.pop rel_stack x' fid in
-            lookup [x''] callsite_block callsite_stack;
-            lookup (x'''::xs) callsite_block callsite_stack;
-            C.and_
-              (C.eq_lookup (x::xs) rel_stack (x'''::xs) callsite_stack)
-              (C.bind_fun x'' callsite_stack fid)
+            let fid = Id.of_ast_id fb.point in (
+              (* (id_of_block block |> Id.of_ast_id) *)
+              match Relative_stack.pop rel_stack x' fid with
+              | Some callsite_stack -> 
+                lookup [x''] callsite_block callsite_stack;
+                lookup (x'''::xs) callsite_block callsite_stack;
+                Some (C.and_
+                        (C.eq_lookup (x::xs) rel_stack (x'''::xs) callsite_stack)
+                        (C.bind_fun x'' callsite_stack fid)
+                     )
+              | None -> None)
           | _ -> failwith "incorrect callsite in fun para"
         ) fb.callsites in
       add_phi (C.only_one phis)
 
     (* Fun Enter Non-Local *)
     | At_fun_para (false, fb) ->
-      let phis = List.map (fun callsite -> 
+      let phis = List.filter_map (fun callsite -> 
           let callsite_block = Tracelet.find_by_id callsite map in
           let tc = Tracelet.clause_of_x_exn callsite_block callsite in
           match tc.clause with
           | (Clause (Var (x', _), Appl_body (Var (x'', _), Var (x''', _)))) ->
             let x' = Id.of_ast_id x' in
             let x'' = Id.of_ast_id x'' in
-            let fid = Id.of_ast_id fb.point in
-            let rel_stack' = Relative_stack.pop rel_stack x' fid in
-            lookup [x''] callsite_block rel_stack';
-            lookup (x''::x::xs) callsite_block rel_stack';
-            C.and_ 
-              (C.eq_lookup (x::xs) rel_stack (x''::x::xs) rel_stack')
-              (C.bind_fun x'' rel_stack fid)
+            let fid = Id.of_ast_id fb.point in (
+              match Relative_stack.pop rel_stack x' fid with
+              | Some rel_stack' -> 
+                lookup [x''] callsite_block rel_stack';
+                lookup (x''::x::xs) callsite_block rel_stack';
+                Some (C.and_ 
+                        (C.eq_lookup (x::xs) rel_stack (x''::x::xs) rel_stack')
+                        (C.bind_fun x'' rel_stack fid)
+                     )
+              | None -> None)
           | _ -> failwith "incorrect callsite in fun non-local"
         )
           fb.callsites in

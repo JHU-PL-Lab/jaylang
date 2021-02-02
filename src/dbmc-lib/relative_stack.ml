@@ -52,13 +52,14 @@ let pop (co_stk,stk) callsite fid =
   match stk with
   | Call(cs, _) ::stk' ->
     if Id.equal cs callsite then
-      co_stk, stk'
+      Some (co_stk, stk')
     else
-      failwith "dismatch"
+      (* failwith "dismatch" *)
+      None
   | _ :: _ ->
     failwith "frame mismatch"
   | [] ->
-    Caller(callsite,fid) ::co_stk, stk
+    Some (Caller(callsite,fid) ::co_stk, stk)
 
 let concretize (co_stk,stk) =
   if not @@ List.is_empty stk then
