@@ -12,7 +12,6 @@
     odefa.ast
     odefa.ddpa
     odefa.utils
-    odefa.dbmc_lib
   )
   (preprocess
     (pps

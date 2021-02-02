@@ -1,8 +1,9 @@
+module C = Constraint
+
 open Batteries
+open Odefa_ast
 open Odefa_ast.Ast
-open Dbmc_lib
 open Tracelet
-module C = Dbmc_lib.Constraint
 open Odefa_ddpa
 
 type def_site =
@@ -25,7 +26,7 @@ let lookup_main program x_target =
     | Some tc, _ -> 
       Fmt.(pr "found in clause\n");
       At_clause tc
-    | None, Main mb -> failwith "main block must have target"
+    | None, Main _mb -> failwith "main block must have target"
     | None, Fun fb -> 
       Fmt.(pr ("found in fun %s\n"
                ^^ "callsites %a\n"
@@ -63,7 +64,7 @@ let lookup_main program x_target =
           (* Value Discovery Main *)
           | Value_body v when block_point = id_main && List.is_empty xs -> 
             (match v with
-             | Value_function vf -> ()
+             | Value_function _ -> ()
              | _ -> add_phi @@ C.bind_v x v rel_stack
             );
             add_phi @@ C.concretize rel_stack
@@ -74,7 +75,7 @@ let lookup_main program x_target =
           (* Value Discovery Non-Main *)
           | Value_body v when List.is_empty xs ->
             (match v with
-             | Value_function vf -> add_phi @@ C.bind_fun x rel_stack x
+             | Value_function _vf -> add_phi @@ C.bind_fun x rel_stack x
              | _ -> add_phi @@ C.bind_v x v rel_stack
             );
             lookup [Id.of_ast_id x_first] block rel_stack
@@ -83,7 +84,7 @@ let lookup_main program x_target =
             lookup [Id.of_ast_id x_first] block rel_stack
 
           (* Value Discard *)
-          | Value_body(Value_function f) -> 
+          | Value_body(Value_function _f) -> 
             add_phi @@ C.eq_lookup (x::xs) rel_stack xs rel_stack;
             lookup xs block rel_stack
 
@@ -101,8 +102,8 @@ let lookup_main program x_target =
             lookup (x2::xs) block rel_stack
 
           (* Fun Exit *)
-          | Appl_body (Var (xf, _), Var (xv, _)) -> (
-              let xf, xv = Id.of_ast_id xf, Id.of_ast_id xv in
+          | Appl_body (Var (xf, _), Var (_xv, _)) -> (
+              let xf = Id.of_ast_id xf in
               lookup [xf] block rel_stack;
               match tc.cat with
               | App funs -> (
@@ -122,7 +123,7 @@ let lookup_main program x_target =
             )
 
           (* Cond Bottom *)
-          | Conditional_body (Var (x', _), e1, e2) -> (
+          | Conditional_body (Var (x', _), _e1, _e2) -> (
               lookup [x' |> Id.of_ast_id] block rel_stack;
               let cond_tracelet = Ident_map.find tc.id map in
               let cond_block = match cond_tracelet with
@@ -179,7 +180,7 @@ let lookup_main program x_target =
           let callsite_block = Tracelet.find_by_id callsite map in
           let tc = Tracelet.clause_of_x_exn callsite_block callsite in
           match tc.clause with
-          | (Clause (Var (x', _), Appl_body (Var (x'', _), Var (x''', _)))) ->
+          | (Clause (Var (x', _), Appl_body (Var (x'', _), Var (_x''', _)))) ->
             let x' = Id.of_ast_id x' in
             let x'' = Id.of_ast_id x'' in
             let fid = Id.of_ast_id fb.point in (

@@ -47,7 +47,7 @@ let memorized_solution_input_feeder mem model target_stack =
 
 let generate program target_x =
   let solver  = Z3.Solver.mk_solver ctx None in
-  let phis = Odefa_symbolic_interpreter.Dbmc.lookup_main program target_x in
+  let phis = Dbmc.lookup_main program target_x in
 
   List.iter phis ~f:(fun phi ->
       print_endline @@ Constraint.show phi;
