@@ -73,6 +73,10 @@ let get_clauses block =
     else
       cb.else_
 
+let cast_to_cond_block = function 
+  | Cond cb -> cb
+  | _ -> failwith "cast_to_cond_block"
+
 let id_of_block = function
   | Main b -> b.point
   | Fun fb -> fb.point
@@ -155,28 +159,22 @@ let add_id_dst site_x def_x tl_map =
   (* Map.add ~key:(id_of_block tl) ~data:tl' tl_map *)
   Ident_map.add (id_of_block tl) tl' tl_map
 
-let choose_cond_block acls cfg tl_map =
-  let cond_site, choice =
+let add_cond_block tl_map acls cfg =
+  let cond_site, possible = 
     match acls with
     | Unannotated_clause(Abs_clause(Abs_var cond_site, Abs_conditional_body _)) 
-      :: wire_cl
+      :: choice_clause
       :: [] -> 
-      cond_site, find_cond_top wire_cl cfg
-    | _ -> failwith "wrong precondition to call"
-  in
-  let tl = Ident_map.find cond_site tl_map in
-  let tracelet' = match tl with 
-    | Cond c -> (
-        let p' = match c.possible with
-          | Some p when Bool.equal p choice -> Some p
-          | Some _p (* p <> choice *)-> None
-          | None -> Some choice
-        in          
-        Cond { c with possible = p' }
-      )
-    | _ -> failwith "it should called just once on CondBoth"
-  in
-  Ident_map.add cond_site tracelet' tl_map
+      let choice = find_cond_choice choice_clause cfg in
+      cond_site, Some choice
+    | Unannotated_clause(Abs_clause(Abs_var cond_site, Abs_conditional_body _)) 
+      :: _clause1 :: _clause2
+      :: [] ->
+      cond_site, None
+    | _ -> failwith "wrong precondition to call" in
+  let cond_block = Ident_map.find cond_site !tl_map |> cast_to_cond_block in
+  let cond_block' = Cond { cond_block with possible } in
+  tl_map := Ident_map.add cond_site cond_block' !tl_map
 
 let _add_callsite site tl =
   match tl with
@@ -312,8 +310,12 @@ let annotate e pt : block Ident_map.t =
            we can change the tracelet accordingly.
            e.g. [prev: [r = c ? ...; r = r1 @- r]]
         *)
-        if List.length prev_acls = 2 && has_condition_clause prev_acls
-        then map := choose_cond_block prev_acls cfg !map
+        if List.length prev_acls > 1 && has_condition_clause prev_acls
+        then (
+          if List.length prev_acls = 1
+          then failwith "cond clause cannot appear along"
+          else add_cond_block map prev_acls cfg
+        )
         else ()
         ;
 

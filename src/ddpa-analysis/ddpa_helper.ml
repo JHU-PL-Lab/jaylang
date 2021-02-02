@@ -239,7 +239,7 @@ let log_id id =
   print_endline @@ Printf.sprintf "%s"
     (Jhupllib.Pp_utils.pp_to_string pp_ident id)
 
-let find_cond_top cond_btm cfg =
+let find_cond_choice cond_btm cfg =
   let rec loop c =
     match c with
     | Nonbinding_enter_clause (Abs_value_bool cond, _) ->
