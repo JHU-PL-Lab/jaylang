@@ -48,7 +48,18 @@ let lookup_top program x_target : _ Lwt.t =
   let map = Tracelet.annotate program x_target in
   let x_first = Ddpa_helper.first_var program in
 
-  let rec lookup (xs0 : Lookup_stack.t) block rel_stack =
+  let fun_info_of_callsite callsite map = 
+    let callsite_block = Tracelet.find_by_id callsite map in
+    let tc = Tracelet.clause_of_x_exn callsite_block callsite in
+    let x', x'', x''' = match tc.clause with
+      | (Clause (Var (x', _), Appl_body (Var (x'', _), Var (x''', _)))) ->
+        Id.of_ast_id x' ,Id.of_ast_id x'' ,Id.of_ast_id x'''
+      | _ -> failwith "incorrect clause for callsite"
+    in
+    callsite_block, x', x'', x'''
+  in
+
+  let rec lookup (xs0 : Lookup_stack.t) block rel_stack : _ Lwt.t =
     let x, xs = List.hd xs0, List.tl xs0 in
     (* x can either be 
        1. the id of the clause, while the stack is singleton or not
@@ -67,10 +78,12 @@ let lookup_top program x_target : _ Lwt.t =
              | Value_function _ -> ()
              | _ -> add_phi @@ C.bind_v x v rel_stack
             );
-            add_phi @@ C.concretize rel_stack
+            add_phi @@ C.concretize rel_stack;
+            Lwt.return_unit
           | Input_body when block_point = id_main  ->
             add_phi @@ C.bind_input x rel_stack;
-            add_phi @@ C.concretize rel_stack
+            add_phi @@ C.concretize rel_stack;
+            Lwt.return_unit
 
           (* Value Discovery Non-Main *)
           | Value_body v when List.is_empty xs ->
@@ -98,26 +111,35 @@ let lookup_top program x_target : _ Lwt.t =
           | Binary_operation_body (Var (x1, _), bop, Var (x2, _)) ->
             let x1, x2 = Id.of_ast_id x1, Id.of_ast_id x2 in
             add_phi @@ C.bind_binop x x1 bop x2 rel_stack;
-            lookup (x1::xs) block rel_stack;
-            lookup (x2::xs) block rel_stack
+
+            Lwt.both
+              (lookup (x1::xs) block rel_stack)
+              (lookup (x2::xs) block rel_stack)
+            >>= fun _ -> Lwt.return_unit
 
           (* Fun Exit *)
           | Appl_body (Var (xf, _), Var (_xv, _)) -> (
-              let xf = Id.of_ast_id xf in
-              lookup [xf] block rel_stack;
               match tc.cat with
-              | App funs -> (
-                  let phis = List.map (fun fun_id ->
-                      let fblock = Ident_map.find fun_id map in
+              | App fids -> (
+                  let xf = Id.of_ast_id xf in
+                  lookup [xf] block rel_stack >>= fun _ ->
+
+                  let phis, sub_lookups = List.fold_right (fun fid (phis, sub_lookups) -> 
+                      let fblock = Ident_map.find fid map in
                       let x' = Tracelet.ret_of fblock |> Id.of_ast_id in
-                      let fun_id = Id.of_ast_id fun_id in
-                      let rel_stack' = Relative_stack.push rel_stack x fun_id in
-                      lookup (x'::xs) fblock rel_stack';
-                      C.and_ 
-                        (C.bind_fun xf rel_stack fun_id)
-                        (C.eq_lookup (x::xs) rel_stack (x'::xs) rel_stack')
-                    ) funs in
-                  add_phi (C.only_one phis)
+                      let fid = Id.of_ast_id fid in
+                      let rel_stack' = Relative_stack.push rel_stack x fid in
+
+                      let phi = C.and_ 
+                          (C.bind_fun xf rel_stack fid)
+                          (C.eq_lookup (x::xs) rel_stack (x'::xs) rel_stack') in
+                      let sub_lookup = lookup (x'::xs) fblock rel_stack' in
+
+                      (phi::phis, sub_lookup::sub_lookups)
+                    ) fids ([], []) in
+
+                  add_phi (C.only_one phis);
+                  Lwt.join sub_lookups
                 )
               | _ -> failwith "fun exit clauses"
             )
@@ -125,8 +147,6 @@ let lookup_top program x_target : _ Lwt.t =
           (* Cond Bottom *)
           | Conditional_body (Var (x', _), _e1, _e2) -> (
               let x' = Id.of_ast_id x' in
-              lookup [x'] block rel_stack;
-
               let cond_block = 
                 Ident_map.find tc.id map
                 |> Tracelet.cast_to_cond_block in
@@ -135,18 +155,24 @@ let lookup_top program x_target : _ Lwt.t =
                   failwith "conditional_body: not both"
                 else ()
               );
-              let phis = List.map (fun beta ->
+
+              lookup [x'] block rel_stack >>= fun _ ->
+
+              let phis, sub_lookups = List.fold_right (fun beta (phis, sub_lookups) ->
                   let ctracelet = 
                     Cond { cond_block with choice = Some beta }
                   in
                   let x_ret = Tracelet.ret_of ctracelet |> Id.of_ast_id in 
-                  lookup [x_ret] ctracelet rel_stack;
-                  C.and_ 
-                    (C.bind_v x' (Value_bool beta) rel_stack)
-                    (C.eq_lookup [x] rel_stack [x_ret] rel_stack)
-                )
-                  [true; false] in
-              add_phi (C.only_one phis)
+
+                  let phi = C.and_ 
+                      (C.bind_v x' (Value_bool beta) rel_stack)
+                      (C.eq_lookup [x] rel_stack [x_ret] rel_stack) in
+                  let sub_lookup = lookup [x_ret] ctracelet rel_stack in
+
+                  (phi::phis, sub_lookup::sub_lookups)
+                ) [true; false] ([],[]) in
+              add_phi (C.only_one phis);
+              Lwt.join sub_lookups
             )
           | _ -> failwith "error clause cases"
         end
@@ -154,52 +180,46 @@ let lookup_top program x_target : _ Lwt.t =
 
     (* Fun Enter Parameter *)
     | At_fun_para (true, fb) ->
-      let phis = List.filter_map (fun callsite -> 
-          let callsite_block = Tracelet.find_by_id callsite map in
-          let tc = Tracelet.clause_of_x_exn callsite_block callsite in
-          match tc.clause with
-          | (Clause (Var (x', _), Appl_body (Var (x'', _), Var (x''', _)))) ->
-            let x' = Id.of_ast_id x' in
-            let x'' = Id.of_ast_id x'' in
-            let x''' = Id.of_ast_id x''' in
-            let fid = Id.of_ast_id fb.point in (
-              (* (id_of_block block |> Id.of_ast_id) *)
-              match Relative_stack.pop rel_stack x' fid with
-              | Some callsite_stack -> 
-                lookup [x''] callsite_block callsite_stack;
-                lookup (x'''::xs) callsite_block callsite_stack;
-                Some (C.and_
-                        (C.eq_lookup (x::xs) rel_stack (x'''::xs) callsite_stack)
-                        (C.bind_fun x'' callsite_stack fid)
-                     )
-              | None -> None)
-          | _ -> failwith "incorrect callsite in fun para"
-        ) fb.callsites in
-      add_phi (C.only_one phis)
+      let fid = Id.of_ast_id fb.point in
+
+      let phis, sub_lookups = List.fold_right (fun callsite (phis, sub_lookups) -> 
+          let callsite_block, x', x'', x''' = fun_info_of_callsite callsite map in
+          match Relative_stack.pop rel_stack x' fid with
+          | Some callsite_stack -> 
+            let phi = C.and_
+                (C.eq_lookup (x::xs) rel_stack (x'''::xs) callsite_stack)
+                (C.bind_fun x'' callsite_stack fid) in
+            let sub_lookup = 
+              lookup [x''] callsite_block callsite_stack >>= fun _ ->
+              lookup (x'''::xs) callsite_block callsite_stack
+            in
+            (phi::phis, sub_lookup::sub_lookups)
+
+          | None -> (phis, sub_lookups)
+        ) fb.callsites ([],[]) in
+      add_phi (C.only_one phis);
+      Lwt.join sub_lookups
 
     (* Fun Enter Non-Local *)
     | At_fun_para (false, fb) ->
-      let phis = List.filter_map (fun callsite -> 
-          let callsite_block = Tracelet.find_by_id callsite map in
-          let tc = Tracelet.clause_of_x_exn callsite_block callsite in
-          match tc.clause with
-          | (Clause (Var (x', _), Appl_body (Var (x'', _), Var (_x''', _)))) ->
-            let x' = Id.of_ast_id x' in
-            let x'' = Id.of_ast_id x'' in
-            let fid = Id.of_ast_id fb.point in (
-              match Relative_stack.pop rel_stack x' fid with
-              | Some rel_stack' -> 
-                lookup [x''] callsite_block rel_stack';
-                lookup (x''::x::xs) callsite_block rel_stack';
-                Some (C.and_ 
-                        (C.eq_lookup (x::xs) rel_stack (x''::x::xs) rel_stack')
-                        (C.bind_fun x'' rel_stack fid)
-                     )
-              | None -> None)
-          | _ -> failwith "incorrect callsite in fun non-local"
-        )
-          fb.callsites in
-      add_phi (C.only_one phis)
+      let fid = Id.of_ast_id fb.point in
+
+      let phis, sub_lookups = List.fold_right (fun callsite (phis, sub_lookups) -> 
+          let callsite_block, x', x'', _x''' = fun_info_of_callsite callsite map in
+          match Relative_stack.pop rel_stack x' fid with
+          | Some callsite_stack -> 
+            let phi = C.and_ 
+                (C.eq_lookup (x::xs) rel_stack (x''::x::xs) callsite_stack)
+                (C.bind_fun x'' callsite_stack fid) in 
+            let sub_lookup =
+              lookup [x''] callsite_block callsite_stack >>= fun _ ->
+              lookup (x''::x::xs) callsite_block callsite_stack in
+            (phi::phis, sub_lookup::sub_lookups)
+          | None -> (phis, sub_lookups)
+        ) fb.callsites ([],[]) in
+
+      add_phi (C.only_one phis);
+      Lwt.join sub_lookups
 
     (* Cond Top *)
     | At_chosen cb -> 
@@ -207,7 +227,7 @@ let lookup_top program x_target : _ Lwt.t =
       let x2 = cb.cond |> Id.of_ast_id in
       let choice = BatOption.get cb.choice in
       add_phi (C.bind_v x2 (Value_bool choice) rel_stack);
-      lookup [x2] condsite_block rel_stack;
+      lookup [x2] condsite_block rel_stack >>= fun _ ->
       lookup (x::xs) condsite_block rel_stack
 
   in
@@ -215,9 +235,8 @@ let lookup_top program x_target : _ Lwt.t =
   (* let block0 = Tracelet.cut_before true x_target block in *)
   let x_target' = Id.of_ast_id x_target in
 
-  lookup [x_target'] block0 Relative_stack.empty;
-  let phis = !phi_set in
-  phis
+  lookup [x_target'] block0 Relative_stack.empty >>= fun _  ->
+  (!phi_set)
   |> Constraint.integrate_stack 
   |> Constraint.simplify
   |> Lwt.return
