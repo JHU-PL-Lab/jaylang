@@ -11,42 +11,41 @@ type def_site =
   | At_fun_para of bool * fun_block
   | At_chosen of cond_block
 
+let defined x' block = 
+  let x = Id.to_ast_id x' in
+  (* print_endline ("defined " ^ (show_ident x)); *)
+  (* print_endline @@ Tracelet.show block; *)
+  match Tracelet.clause_of_x block x, block with
+  | Some tc, _ -> 
+    Fmt.(pr "found in clause\n");
+    At_clause tc
+  | None, Main _mb -> failwith "main block must have target"
+  | None, Fun fb -> 
+    Fmt.(pr ("found in fun %s\n"
+             ^^ "callsites %a\n"
+             ^^ "%a = fun %a ->\n")
+           (if fb.para = x then "local" else "nonlocal")
+           (Dump.list string) (List.map (fun id -> 
+               let (Ident s) = id in s
+             ) fb.callsites)
+           Ast_pp.pp_ident fb.point
+           Ast_pp.pp_ident fb.para
+        );
+    At_fun_para (fb.para = x, fb)
+  | None, Cond cb -> 
+    Fmt.(pr ("found in cond\n"
+             ^^ "%a = %a ? \n")
+           Ast_pp.pp_ident cb.point
+           Ast_pp.pp_ident cb.cond
+        );
+    At_chosen cb
+
 let lookup_main program x_target =
   let phi_set = ref [] in
   let add_phi phi = 
     phi_set := phi :: !phi_set in
   let map = Tracelet.annotate program x_target in
   let x_first = Ddpa_helper.first_var program in
-
-  let defined x' block = 
-    let x = Id.to_ast_id x' in
-    (* print_endline ("defined " ^ (show_ident x)); *)
-    (* print_endline @@ Tracelet.show block; *)
-    match Tracelet.clause_of_x block x, block with
-    | Some tc, _ -> 
-      Fmt.(pr "found in clause\n");
-      At_clause tc
-    | None, Main _mb -> failwith "main block must have target"
-    | None, Fun fb -> 
-      Fmt.(pr ("found in fun %s\n"
-               ^^ "callsites %a\n"
-               ^^ "%a = fun %a ->\n")
-             (if fb.para = x then "local" else "nonlocal")
-             (Dump.list string) (List.map (fun id -> 
-                 let (Ident s) = id in s
-               ) fb.callsites)
-             Ast_pp.pp_ident fb.point
-             Ast_pp.pp_ident fb.para
-          );
-      At_fun_para (fb.para = x, fb)
-    | None, Cond cb -> 
-      Fmt.(pr ("found in cond\n"
-               ^^ "%a = %a ? \n")
-             Ast_pp.pp_ident cb.point
-             Ast_pp.pp_ident cb.cond
-          );
-      At_chosen cb
-  in
 
   let rec lookup (xs0 : Lookup_stack.t) block rel_stack =
     let x, xs = List.hd xs0, List.tl xs0 in
@@ -124,20 +123,23 @@ let lookup_main program x_target =
 
           (* Cond Bottom *)
           | Conditional_body (Var (x', _), _e1, _e2) -> (
-              lookup [x' |> Id.of_ast_id] block rel_stack;
-              let cond_tracelet = Ident_map.find tc.id map in
-              let cond_block = match cond_tracelet with
-                | Cond c when c.choice = None -> c
-                | Cond _ -> failwith "conditional_body: not both"
-                | _ -> failwith "conditional_body: ?"
-              in
+              let x' = Id.of_ast_id x' in
+              lookup [x'] block rel_stack;
+
+              let cond_block = 
+                Ident_map.find tc.id map
+                |> Tracelet.cast_to_cond_block in
+              (
+                if cond_block.choice <> None then 
+                  failwith "conditional_body: not both"
+                else ()
+              );
               let phis = List.map (fun beta ->
                   let ctracelet = 
                     Cond { cond_block with choice = Some beta }
                   in
                   let x_ret = Tracelet.ret_of ctracelet |> Id.of_ast_id in 
                   lookup [x_ret] ctracelet rel_stack;
-                  let x' = Id.of_ast_id x' in
                   C.and_ 
                     (C.bind_v x' (Value_bool beta) rel_stack)
                     (C.eq_lookup [x] rel_stack [x_ret] rel_stack)
@@ -198,9 +200,7 @@ let lookup_main program x_target =
           fb.callsites in
       add_phi (C.only_one phis)
 
-    (* Cond Top 
-       must be inside a then_ or else_ block
-    *)
+    (* Cond Top *)
     | At_chosen cb -> 
       let condsite_block = Ident_map.find (outer_id_of_block block) map in
       let x2 = cb.cond |> Id.of_ast_id in

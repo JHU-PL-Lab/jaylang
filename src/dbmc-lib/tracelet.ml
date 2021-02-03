@@ -286,13 +286,6 @@ let annotate e pt : block Ident_map.t =
   and acl =
     Unannotated_clause(
       lift_clause @@ Ident_map.find pt (clause_mapping e))
-    (* try
-       Unannotated_clause(
-        lift_clause @@ Ident_map.find pt (clause_mapping e))
-       with
-       | Not_found ->
-       raise @@ Interpreter.Invalid_query(
-        Printf.sprintf "Variable %s is not defined" (show_ident pt)) *)
   in
 
   (* let debug_bomb = ref 20 in *)
