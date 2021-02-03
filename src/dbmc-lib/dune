@@ -2,9 +2,8 @@
   (name dbmc_lib)
   (public_name odefa.dbmc_lib)
   (libraries
-    core
-    fmt
-    lwt
+    core fmt
+    lwt lwt.unix
     odefa.ast
     odefa.ddpa
     odefa.utils

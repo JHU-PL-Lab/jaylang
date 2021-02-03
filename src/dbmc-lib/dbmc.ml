@@ -1,10 +1,11 @@
-module C = Constraint
-
 open Batteries
+open Lwt.Infix
+
 open Odefa_ast
 open Odefa_ast.Ast
 open Tracelet
 open Odefa_ddpa
+module C = Constraint
 
 type def_site =
   | At_clause of tl_clause
@@ -40,7 +41,7 @@ let defined x' block =
         );
     At_chosen cb
 
-let lookup_main program x_target =
+let lookup_top program x_target : _ Lwt.t =
   let phi_set = ref [] in
   let add_phi phi = 
     phi_set := phi :: !phi_set in
@@ -219,3 +220,7 @@ let lookup_main program x_target =
   phis
   |> Constraint.integrate_stack 
   |> Constraint.simplify
+  |> Lwt.return
+
+let lookup_main program x_target =
+  Lwt_main.run (lookup_top program x_target)
