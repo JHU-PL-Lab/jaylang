@@ -1,8 +1,10 @@
 (executable
   (name test_generator)
   (libraries
+    core fmt
+    lwt lwt.unix
+
     batteries
-    core
     jhupllib
     odefa.ast
     odefa.natural

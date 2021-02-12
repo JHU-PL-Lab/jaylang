@@ -22,6 +22,7 @@ module T = struct
     | Eq_projection of Symbol.t * Symbol.t * Id.t
     | Target_stack of Relative_stack.t
     | C_and of t * t
+    | C_exclusive_gate of int * t list
     | C_exclusive of t list
   [@@deriving sexp, compare, equal]
 
@@ -60,6 +61,7 @@ let rec pp oc t =
   | Eq_projection (_, _, _) -> ()
   | Target_stack stk -> pf oc "@[<v 2>Top: %a@]" Relative_stack.pp stk
   | C_and (t1, t2) -> pf oc "@[<v 2>And: @,%a@,%a@]" pp t1 pp t2
+  | C_exclusive_gate (gate_start, ts) -> pf oc "@[<v 2>Xor Gate(%d): @,%a@]" gate_start (list ~sep:sp pp) ts
   | C_exclusive ts -> pf oc "@[<v 2>Xor: @,%a@]" (list ~sep:sp pp) ts
 
 let show = Fmt.to_to_string pp
@@ -112,7 +114,7 @@ let concretize stk = Target_stack (Relative_stack.concretize stk)
 
 let and_ c1 c2 = C_and (c1, c2)
 
-let only_one cs = C_exclusive cs
+let only_one gate_start cs = C_exclusive_gate (gate_start, cs)
 
 let integrate_stack phis =
   let non_stack_phis, stack_phis = List.partition_tf phis ~f:(function
@@ -123,16 +125,16 @@ let integrate_stack phis =
   let integrated_stack_phi = C_exclusive unique_stack_phis in
   integrated_stack_phi :: non_stack_phis
 
-let rec simplify_one = function
-  | C_and (p1, p2) ->
+(* let rec simplify_one = function
+   | C_and (p1, p2) ->
     C_and (simplify_one p1, simplify_one p2)
-  | C_exclusive phis ->
+   | C_exclusive phis ->
     let phis' = simplify phis in
     if List.length phis' = 1 then
       List.hd_exn phis'
     else
       C_exclusive phis'
-  | rest -> rest
+   | rest -> rest
 
-and simplify phis =
-  List.map phis ~f:simplify_one
+   and simplify phis =
+   List.map phis ~f:simplify_one *)

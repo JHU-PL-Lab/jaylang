@@ -42,9 +42,15 @@ let defined x' block =
     At_chosen cb
 
 let lookup_top program x_target : _ Lwt.t =
+  (* lookup top-level _global_ state *)
   let phi_set = ref [] in
   let add_phi phi = 
     phi_set := phi :: !phi_set in
+  let gate_set = ref [] in
+  let add_gate gate = 
+    gate_set := gate :: !gate_set in
+  let gate_counter = ref 0 in
+
   let map = Tracelet.annotate program x_target in
   let x_first = Ddpa_helper.first_var program in
 
@@ -60,13 +66,23 @@ let lookup_top program x_target : _ Lwt.t =
   in
 
   let rec lookup (xs0 : Lookup_stack.t) block rel_stack : _ Lwt.t =
+    Lwt.pause () >>= fun _ ->
+    (* debug_count := !debug_count - 1;
+       if !debug_count <= 0 then failwith "debug_count" else (); *)
+    Lwt_fmt.(fprintf stdout "Lookup: %a, Relstack: %a, Block: %a \n" 
+               Lookup_stack.pp xs0
+               Relative_stack.pp rel_stack
+               Ast_pp.pp_ident (Tracelet.id_of_block block)) >>= fun _ ->
+    Lwt_unix.sleep 0.2 >>= fun _ ->
     let x, xs = List.hd xs0, List.tl xs0 in
     (* x can either be 
        1. the id of the clause, while the stack is singleton or not
        2. the argument of this fun
        3. the argument of furthur funs *)
+    defined x block >>= fun xdef ->
+    Lwt_fmt.(flush stdout) >>= fun _ ->
 
-    match defined x block with
+    match xdef with
     | At_clause tc -> (
         begin
           let (Clause (_, rhs)) = tc.clause in
@@ -124,7 +140,7 @@ let lookup_top program x_target : _ Lwt.t =
                   let xf = Id.of_ast_id xf in
                   lookup [xf] block rel_stack >>= fun _ ->
 
-                  let phis, sub_lookups = List.fold_right (fun fid (phis, sub_lookups) -> 
+                  let phis, sub_lookups = List.fold_left (fun (phis, sub_lookups) fid  -> 
                       let fblock = Ident_map.find fid map in
                       let x' = Tracelet.ret_of fblock |> Id.of_ast_id in
                       let fid = Id.of_ast_id fid in
@@ -135,11 +151,19 @@ let lookup_top program x_target : _ Lwt.t =
                           (C.eq_lookup (x::xs) rel_stack (x'::xs) rel_stack') in
                       let sub_lookup = lookup (x'::xs) fblock rel_stack' in
 
-                      (phi::phis, sub_lookup::sub_lookups)
-                    ) fids ([], []) in
+                      (phis @ [phi], sub_lookups @ [sub_lookup])
+                    ) ([], []) fids in
 
-                  add_phi (C.only_one phis);
-                  Lwt.join sub_lookups
+                  let sub_lookups_with_postp = List.map (fun job -> 
+                      let gate_i = ref false in
+                      add_gate gate_i;
+                      job >>= fun _ ->
+                      gate_i := true;
+                      Lwt.return_unit
+                    ) sub_lookups in
+                  add_phi (C.only_one !gate_counter phis);
+                  gate_counter := !gate_counter + List.length fids;
+                  Lwt.join sub_lookups_with_postp
                 )
               | _ -> failwith "fun exit clauses"
             )
@@ -158,7 +182,7 @@ let lookup_top program x_target : _ Lwt.t =
 
               lookup [x'] block rel_stack >>= fun _ ->
 
-              let phis, sub_lookups = List.fold_right (fun beta (phis, sub_lookups) ->
+              let phis, sub_lookups = List.fold_left (fun (phis, sub_lookups) beta ->
                   let ctracelet = 
                     Cond { cond_block with choice = Some beta }
                   in
@@ -169,10 +193,19 @@ let lookup_top program x_target : _ Lwt.t =
                       (C.eq_lookup [x] rel_stack [x_ret] rel_stack) in
                   let sub_lookup = lookup [x_ret] ctracelet rel_stack in
 
-                  (phi::phis, sub_lookup::sub_lookups)
-                ) [true; false] ([],[]) in
-              add_phi (C.only_one phis);
-              Lwt.join sub_lookups
+                  (phis @ [phi], sub_lookups @ [sub_lookup])
+                ) ([],[]) [true; false] in
+
+              let sub_lookups_with_postp = List.map (fun job -> 
+                  let gate_i = ref false in
+                  add_gate gate_i;
+                  job >>= fun _ ->
+                  gate_i := true;
+                  Lwt.return_unit
+                ) sub_lookups in
+              add_phi (C.only_one !gate_counter phis);
+              gate_counter := !gate_counter + 2;
+              Lwt.join sub_lookups_with_postp
             )
           | _ -> failwith "error clause cases"
         end
@@ -181,8 +214,12 @@ let lookup_top program x_target : _ Lwt.t =
     (* Fun Enter Parameter *)
     | At_fun_para (true, fb) ->
       let fid = Id.of_ast_id fb.point in
-
-      let phis, sub_lookups = List.fold_right (fun callsite (phis, sub_lookups) -> 
+      let callsites = 
+        match Relative_stack.paired_callsite rel_stack fid with
+        | Some callsite -> [callsite |> Id.to_ast_id]
+        | None -> fb.callsites
+      in
+      let phis, sub_lookups = List.fold_left (fun (phis, sub_lookups) callsite -> 
           let callsite_block, x', x'', x''' = fun_info_of_callsite callsite map in
           match Relative_stack.pop rel_stack x' fid with
           | Some callsite_stack -> 
@@ -193,18 +230,30 @@ let lookup_top program x_target : _ Lwt.t =
               lookup [x''] callsite_block callsite_stack >>= fun _ ->
               lookup (x'''::xs) callsite_block callsite_stack
             in
-            (phi::phis, sub_lookup::sub_lookups)
-
+            (phis @ [phi], sub_lookups @ [sub_lookup])
           | None -> (phis, sub_lookups)
-        ) fb.callsites ([],[]) in
-      add_phi (C.only_one phis);
-      Lwt.join sub_lookups
+        ) ([],[]) fb.callsites in
+
+      let sub_lookups_with_postp = List.map (fun job -> 
+          let gate_i = ref false in
+          add_gate gate_i;
+          job >>= fun _ ->
+          gate_i := true;
+          Lwt.return_unit
+        ) sub_lookups in
+      add_phi (C.only_one !gate_counter phis);
+      gate_counter := !gate_counter + List.length fb.callsites;
+      Lwt.join sub_lookups_with_postp
 
     (* Fun Enter Non-Local *)
     | At_fun_para (false, fb) ->
       let fid = Id.of_ast_id fb.point in
-
-      let phis, sub_lookups = List.fold_right (fun callsite (phis, sub_lookups) -> 
+      let callsites = 
+        match Relative_stack.paired_callsite rel_stack fid with
+        | Some callsite -> [callsite |> Id.to_ast_id]
+        | None -> fb.callsites
+      in
+      let phis, sub_lookups = List.fold_left (fun (phis, sub_lookups) callsite -> 
           let callsite_block, x', x'', _x''' = fun_info_of_callsite callsite map in
           match Relative_stack.pop rel_stack x' fid with
           | Some callsite_stack -> 
@@ -214,12 +263,20 @@ let lookup_top program x_target : _ Lwt.t =
             let sub_lookup =
               lookup [x''] callsite_block callsite_stack >>= fun _ ->
               lookup (x''::x::xs) callsite_block callsite_stack in
-            (phi::phis, sub_lookup::sub_lookups)
+            (phis @ [phi], sub_lookups @ [sub_lookup])
           | None -> (phis, sub_lookups)
-        ) fb.callsites ([],[]) in
+        ) ([],[]) callsites in
 
-      add_phi (C.only_one phis);
-      Lwt.join sub_lookups
+      let sub_lookups_with_postp = List.map (fun job -> 
+          let gate_i = ref false in
+          add_gate gate_i;
+          job >>= fun _ ->
+          gate_i := true;
+          Lwt.return_unit
+        ) sub_lookups in
+      add_phi (C.only_one !gate_counter phis);
+      gate_counter := !gate_counter + List.length fb.callsites;
+      Lwt.join sub_lookups_with_postp
 
     (* Cond Top *)
     | At_chosen cb -> 
@@ -235,11 +292,18 @@ let lookup_top program x_target : _ Lwt.t =
   (* let block0 = Tracelet.cut_before true x_target block in *)
   let x_target' = Id.of_ast_id x_target in
 
-  lookup [x_target'] block0 Relative_stack.empty >>= fun _  ->
-  (!phi_set)
-  |> Constraint.integrate_stack 
-  |> Constraint.simplify
-  |> Lwt.return
+  lookup [x_target'] block0 Relative_stack.empty >|= fun _  ->
+  (Constraint.integrate_stack !phi_set, !gate_set)
 
 let lookup_main program x_target =
-  Lwt_main.run (lookup_top program x_target)
+  let main_task = lookup_top program x_target in
+  (* let timeout_task = Lwt_unix.with_timeout 2. (fun () -> main_task) in *)
+  Lwt_main.run begin
+    try%lwt
+      main_task
+    with
+    | Lwt_unix.Timeout ->
+      prerr_endline "err";
+      Lwt.return ([],[])
+  end
+

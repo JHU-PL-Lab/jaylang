@@ -46,19 +46,32 @@ let memorized_solution_input_feeder mem model target_stack =
     answer
 
 let generate program target_x =
-  let solver  = Z3.Solver.mk_solver ctx None in
-  let phis = Dbmc.lookup_main program target_x in
+  let payload_phis, gates = Dbmc.lookup_main program target_x in
 
-  List.iter phis ~f:(fun phi ->
-      print_endline @@ Constraint.show phi;
+  let solver = Z3.Solver.mk_solver ctx None in
+
+  (* Z3.Solver.reset solver; *)
+  List.iter payload_phis ~f:(fun phi ->
       let z3_phi = Z3API.z3_phis_of_smt_phi phi in
-      Z3.Solver.add solver [z3_phi];
-      (* print_endline @@ Z3.Expr.to_string z3_phi; *)
+      Fmt.(pr "%a\n%s\n\n" Constraint.pp phi (Z3.Expr.to_string z3_phi));
+      Z3.Solver.add solver [z3_phi]
     );
+
+  let z3_gate_phis = Z3API.z3_gate_phis gates in
+  List.iter z3_gate_phis ~f:(fun phi ->
+      Fmt.(pr "%s\n" (Z3.Expr.to_string phi))
+    );
+
+  ignore @@ if Z3API.check_assumption solver z3_gate_phis then 
+    failwith "gate true"
+  else
+    failwith "gate false"
+  ;
+
   match Z3API.check_and_get_model solver with
   | Some model ->
     let raw_stack = Z3API.get_top_stack model in
-    print_endline @@ Relative_stack.show raw_stack;
+    Format.printf "Raw stack %s\n" (Relative_stack.show raw_stack);
     let target_stack = snd raw_stack in
     let input_history = ref [] in
     let input_feeder = memorized_solution_input_feeder input_history model target_stack in

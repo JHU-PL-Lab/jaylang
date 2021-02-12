@@ -48,6 +48,18 @@ let empty = ([], [])
 let push (co_stk,stk) callsite fid =
   co_stk, Call(callsite,fid) :: stk
 
+let paired_callsite (_co_stk,stk) this_f = 
+  match stk with
+  | Call(cs,fid) ::_ ->
+    if Id.equal fid this_f then
+      Some cs
+    else
+      failwith "paired_callsite 1"  
+  | [] ->
+    None
+  | _ :: _ ->
+    failwith "paired_callsite 2"  
+
 let pop (co_stk,stk) callsite fid = 
   match stk with
   | Call(cs, _) ::stk' ->

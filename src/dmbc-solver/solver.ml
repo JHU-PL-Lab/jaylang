@@ -16,6 +16,11 @@ module Make (C : Context) () = struct
     let name = "$c" ^ (string_of_int last) in
     Int.incr _counter;
     Symbol.mk_string ctx name
+
+  let choice_sym_of_counter i  =
+    let name = "$gc" ^ (string_of_int i) in
+    Symbol.mk_string ctx name
+
   let intS = Arithmetic.Integer.mk_sort ctx
   let boolS = Boolean.mk_sort ctx
 
@@ -132,6 +137,14 @@ module Make (C : Context) () = struct
     | [] -> failwith "name_of_lookup empty"
 
   open Dbmc_lib
+
+  let z3_gate_phis dones =
+    List.mapi dones ~f:(fun i done_state ->
+        Z3.Boolean.mk_or ctx [
+          Z3.Boolean.mk_val ctx !done_state;
+          Z3.Boolean.mk_not ctx (Z3.Boolean.mk_const ctx (choice_sym_of_counter i))
+        ])
+
   let rec z3_phis_of_smt_phi = function
     | Constraint.Eq_v (sx, cv) -> 
       let x = var_of_symbol sx in
@@ -176,13 +189,33 @@ module Make (C : Context) () = struct
       let e1 = z3_phis_of_smt_phi c1 in
       let e2 = z3_phis_of_smt_phi c2 in
       Boolean.mk_and ctx [e1; e2]
+    | Constraint.C_exclusive_gate (gate_start, cs) ->
+      let choice_vars = List.mapi cs ~f:(fun ci _ -> Z3.Boolean.mk_const ctx (choice_sym_of_counter (gate_start + ci))) in
+      make_exclusive choice_vars cs
+
     | Constraint.C_exclusive cs ->
-      if List.length cs = 1 then
-        z3_phis_of_smt_phi (List.hd_exn cs)
+      let choice_vars = List.map cs ~f:(fun _ -> Z3.Boolean.mk_const ctx (get_new_sym ())) in
+      make_exclusive choice_vars cs
+
+    | Constraint.Target_stack stk
+      -> (let open StringSort in
+          eq (var_ top_stack_name) (string_ @@ (stk |> Relative_stack.to_string))
+         )
+    | Constraint.Eq_projection (_, _, _)
+      -> failwith "no project yet"
+
+  and make_exclusive choice_vars phis =  
+    let payloads = List.map phis ~f:z3_phis_of_smt_phi in
+    let chosen_payloads = List.mapi payloads ~f:(fun ci payload ->
+        let ci_var = List.nth_exn choice_vars ci in
+        Z3.Boolean.mk_implies ctx ci_var payload
+      ) in
+
+    let exclusive_one =
+      if List.length payloads = 1 then
+        []
       else
-        let payloads = List.map cs ~f:z3_phis_of_smt_phi in
-        let choice_vars = List.map payloads ~f:(fun _ -> Z3.Boolean.mk_const ctx (get_new_sym ())) in
-        let chosen_payloads = List.mapi payloads ~f:(fun ci payload ->
+        let at_most_one = List.mapi payloads ~f:(fun ci _ ->
             let ci_var = List.nth_exn choice_vars ci in
             let other_vars = List.filteri choice_vars ~f:(fun i _ -> Int.(ci <> i)) in
             let exclusion = 
@@ -190,17 +223,12 @@ module Make (C : Context) () = struct
               |> Z3.Boolean.mk_or ctx
               |> Z3.Boolean.mk_not ctx
             in
-            let payload' = and_ payload exclusion in
-            Z3.Boolean.mk_implies ctx ci_var payload'
+            Z3.Boolean.mk_implies ctx ci_var exclusion
           ) in
-        let must_one_choice = Z3.Boolean.mk_or ctx choice_vars in
-        join (must_one_choice::chosen_payloads)
-    | Constraint.Target_stack stk
-      -> (let open StringSort in
-          eq (var_ top_stack_name) (string_ @@ (stk |> Relative_stack.to_string))
-         )
-    | Constraint.Eq_projection (_, _, _)
-      -> failwith "no project yet"
+        let at_least_one = Z3.Boolean.mk_or ctx choice_vars in
+        at_least_one :: at_most_one
+    in
+    join (exclusive_one @ chosen_payloads)
 
   (* model and solution *)
   let get_int_s model s =
@@ -233,7 +261,20 @@ module Make (C : Context) () = struct
       print_endline "UNSAT";
       None
     | Z3.Solver.UNKNOWN ->
-      failwith @@ Printf.sprintf "Unknown result in solve: %s"
+      failwith @@ Printf.sprintf "[check_and_get_model] Unknown result in solve: %s"
         (Z3.Solver.get_reason_unknown solver)
 
+  let check_assumption solver assumptions =
+    match Z3.Solver.check solver assumptions with
+    | Z3.Solver.SATISFIABLE ->
+      begin
+        match Z3.Solver.get_model solver with
+        | None -> false
+        | Some _ -> true
+      end
+    | Z3.Solver.UNSATISFIABLE ->
+      false
+    | Z3.Solver.UNKNOWN ->
+      failwith @@ Printf.sprintf "[check_assumption] Unknown result in solve: %s"
+        (Z3.Solver.get_reason_unknown solver)
 end
