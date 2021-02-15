@@ -195,10 +195,11 @@ module Make (C : Context) () = struct
       let choice_vars = List.map cs ~f:(fun _ -> Z3.Boolean.mk_const ctx (get_new_sym ())) in
       make_exclusive choice_vars cs
 
-    | Constraint.Target_stack stk
-      -> (let open StringSort in
+    | Constraint.Target_stack _stk
+      (* -> (let open StringSort in
           eq (var_ top_stack_name) (string_ @@ (stk |> Concrete_stack.to_string))
-         )
+         ) *)
+      -> ground_truth
     | Constraint.Eq_projection (_, _, _)
       -> failwith "no project yet"
 

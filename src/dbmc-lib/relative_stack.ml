@@ -61,16 +61,16 @@ let pop (co_stk,stk) callsite fid =
   | [] ->
     Some (Dangling(callsite,fid)::co_stk, stk)
 
-let concretize (co_stk,stk) : Concrete_stack.t =
+let concretize (co_stk,stk) : Concrete_stack.t option =
   if List.is_empty stk then
-    ()
-  else
-    failwith "non-empty stack in main block"
-  ;
-  List.map co_stk ~f:(function 
-      | Pairable(_,_) -> failwith "wrong stack frame"
-      | Dangling(callsite,fid) -> (callsite,fid)
+    Some (
+      List.map co_stk ~f:(function 
+          | Pairable(_,_) -> failwith "wrong stack frame"
+          | Dangling(callsite,fid) -> (callsite,fid)
+        )
     )
+  else
+    None
 
 let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t =
   let rec discard_common ts cs =
