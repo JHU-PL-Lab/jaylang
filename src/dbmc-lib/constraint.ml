@@ -20,7 +20,7 @@ module T = struct
     | Eq_lookup of Id.t list * Relative_stack.t * Id.t list * Relative_stack.t
     | Eq_binop of Symbol.t * Symbol.t * binop * Symbol.t
     | Eq_projection of Symbol.t * Symbol.t * Id.t
-    | Target_stack of Relative_stack.t
+    | Target_stack of Concrete_stack.t
     | C_and of t * t
     | C_exclusive_gate of int * t list
     | C_exclusive of t list
@@ -59,7 +59,7 @@ let rec pp oc t =
   | Eq_binop (s1, s2, op, s3) ->
     pf oc "@[<v 2>%a === %a %a %a@]" Symbol.pp s1 Symbol.pp s2 pp_binop op Symbol.pp s3
   | Eq_projection (_, _, _) -> ()
-  | Target_stack stk -> pf oc "@[<v 2>Top: %a@]" Relative_stack.pp stk
+  | Target_stack stk -> pf oc "@[<v 2>Top: %a@]" Concrete_stack.pp stk
   | C_and (t1, t2) -> pf oc "@[<v 2>And: @,%a@,%a@]" pp t1 pp t2
   | C_exclusive_gate (gate_start, ts) -> pf oc "@[<v 2>Xor Gate(%d): @,%a@]" gate_start (list ~sep:sp pp) ts
   | C_exclusive ts -> pf oc "@[<v 2>Xor: @,%a@]" (list ~sep:sp pp) ts

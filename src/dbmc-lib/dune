@@ -2,13 +2,15 @@
   (name dbmc_lib)
   (public_name odefa.dbmc_lib)
   (libraries
-    core fmt
-    lwt lwt.unix
+    core batteries
+    fmt lwt lwt.unix
+    z3
+
     odefa.ast
     odefa.ddpa
     odefa.utils
-
-    batteries
+    odefa.interpreter
+    odefa.symbolic-interpreter
   )
   (synopsis "dbmc lib as a gradual replacement of odada lib")
   (inline_tests)
