@@ -46,6 +46,16 @@ let value_of_dvalue = function
    | Value_int _ -> v
    | Value_bool _ -> v *)
 
+let rec same_stack s1 s2 =
+  match s1, s2 with
+  | (cs1,fid1)::ss1, (cs2,fid2)::ss2 ->
+    (Ident.equal cs1 cs2)
+    && (Ident.equal fid1 fid2)
+    && same_stack ss1 ss2
+  | [], [] -> true
+  | _, _ -> false
+
+
 let rec eval_exp ~input_feeder ~target stk env e : dvalue = 
   let Expr(clauses) = e in
   let _, vs' = List.fold_left_map (eval_clause ~input_feeder ~target stk) env clauses in
@@ -67,7 +77,7 @@ and eval_clause ~input_feeder ~target stk env clause : denv * dvalue =
         match eval_val env vx1 with
         | Closure (fid, Function_value (Var (arg,_), body), fenv) ->
           let v2 = eval_val env vx2 in
-          let stk2 = (x |> Dbmc_lib.Id.of_ast_id, fid |> Dbmc_lib.Id.of_ast_id) :: stk in
+          let stk2 = (x, fid) :: stk in
           let env2 = Ident_map.add arg v2 fenv in
           eval_exp ~input_feeder ~target stk2 env2 body
         | _ -> failwith "app to a non fun"
@@ -104,7 +114,7 @@ and eval_clause ~input_feeder ~target stk env clause : denv * dvalue =
       )
   in
   let target_x, target_stk = target in
-  if Ident.equal target_x x && Dbmc_lib.Relative_stack.same_stack target_stk stk then
+  if Ident.equal target_x x && same_stack target_stk stk then
     raise (Found_target (value_of_dvalue v))
   else
     (Ident_map.add x v env), v

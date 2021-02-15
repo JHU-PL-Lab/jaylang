@@ -50,7 +50,9 @@ let lookup_top program x_target : _ Lwt.t =
   let add_gate gate = 
     gate_set := gate :: !gate_set in
   let gate_counter = ref 0 in
+  Solver_helper.reset ();
 
+  (* program analysis *)
   let map = Tracelet.annotate program x_target in
   let x_first = Ddpa_helper.first_var program in
 
@@ -293,17 +295,20 @@ let lookup_top program x_target : _ Lwt.t =
   let x_target' = Id.of_ast_id x_target in
 
   lookup [x_target'] block0 Relative_stack.empty >|= fun _  ->
-  (Constraint.integrate_stack !phi_set, !gate_set)
+  Solver_helper.check phi_set !gate_set;
+  ()
 
 let lookup_main program x_target =
   let main_task = lookup_top program x_target in
   (* let timeout_task = Lwt_unix.with_timeout 2. (fun () -> main_task) in *)
   Lwt_main.run begin
     try%lwt
-      main_task
+      main_task >>= fun _ ->
+      Lwt.return [[]]
+
     with
     | Lwt_unix.Timeout ->
-      prerr_endline "err";
-      Lwt.return ([],[])
+      prerr_endline "timeout";
+      Lwt.return [[]]
   end
 

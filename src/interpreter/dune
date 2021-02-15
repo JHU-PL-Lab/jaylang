@@ -8,7 +8,6 @@
     jhupllib
     odefa.ast
     odefa.utils
-    odefa.dbmc_lib
   )
   (preprocess
     (pps ppx_here))

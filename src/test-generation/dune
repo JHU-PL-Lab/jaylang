@@ -12,7 +12,6 @@
     odefa.statistics
     odefa.symbolic-interpreter
     odefa.utils
-    odefa.dmbc_solver
     z3
   )
   (preprocess

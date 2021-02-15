@@ -1,6 +1,6 @@
 open Core
+module Sym = Symbol
 open Z3
-module Sym = Dbmc_lib.Symbol
 
 module type Context = sig
   val ctx : Z3.context
@@ -130,13 +130,11 @@ module Make (C : Context) () = struct
     match xs with
     | [x] -> Sym.Id(x,stk) |> Sym.to_string_mach
     | _::_ -> (
-        let p1 = [%sexp_of: Dbmc_lib.Id.t list] xs |> Sexp.to_string_mach in
-        let p2 = Dbmc_lib.Relative_stack.sexp_of_t stk |> Sexp.to_string_mach in
+        let p1 = [%sexp_of: Id.t list] xs |> Sexp.to_string_mach in
+        let p2 = Relative_stack.sexp_of_t stk |> Sexp.to_string_mach in
         p1 ^ p2
       )
     | [] -> failwith "name_of_lookup empty"
-
-  open Dbmc_lib
 
   let z3_gate_phis dones =
     List.mapi dones ~f:(fun i done_state ->
@@ -151,7 +149,7 @@ module Make (C : Context) () = struct
       let v = match cv with
         | Int i -> int_ i
         | Bool b -> bool_ b
-        | Fun fid -> fun_ (fid |> Dbmc_lib.Id.sexp_of_t |> Sexp.to_string_mach)
+        | Fun fid -> fun_ (fid |> Id.sexp_of_t |> Sexp.to_string_mach)
         | Record -> failwith "no record yet"
       in
       eq x v
@@ -199,7 +197,7 @@ module Make (C : Context) () = struct
 
     | Constraint.Target_stack stk
       -> (let open StringSort in
-          eq (var_ top_stack_name) (string_ @@ (stk |> Relative_stack.to_string))
+          eq (var_ top_stack_name) (string_ @@ (stk |> Concrete_stack.to_string))
          )
     | Constraint.Eq_projection (_, _, _)
       -> failwith "no project yet"
@@ -238,43 +236,25 @@ module Make (C : Context) () = struct
     |> Big_int_Z.int_of_big_int
 
   let get_top_stack model =
-    let rel_stack_v = Option.value_exn (Model.eval model top_stack_var true) in
-    let rel_stack_str = Seq.get_string ctx rel_stack_v in
-    print_endline rel_stack_str;
-    let rel_stack = Relative_stack.of_string rel_stack_str in
-    rel_stack
+    let stack_v = Option.value_exn (Model.eval model top_stack_var true) in
+    let stack_str = Seq.get_string ctx stack_v in
+    Concrete_stack.of_string stack_str
 
-  let check_and_get_model (solver : Solver.solver) =
-    (* Model.model  *)
-    match Z3.Solver.check solver [] with
-    | Z3.Solver.SATISFIABLE ->
-      begin
-        match Z3.Solver.get_model solver with
-        | None -> 
-          print_endline "none";
-          None
-        | Some model -> 
-          print_endline @@ Z3.Model.to_string model;
-          Some model
-      end
-    | Z3.Solver.UNSATISFIABLE ->
-      print_endline "UNSAT";
-      None
-    | Z3.Solver.UNKNOWN ->
-      failwith @@ Printf.sprintf "[check_and_get_model] Unknown result in solve: %s"
-        (Z3.Solver.get_reason_unknown solver)
-
-  let check_assumption solver assumptions =
+  let check_with_assumption solver assumptions =
     match Z3.Solver.check solver assumptions with
     | Z3.Solver.SATISFIABLE ->
       begin
         match Z3.Solver.get_model solver with
-        | None -> false
-        | Some _ -> true
+        | None -> 
+          failwith ("check is not invoked before; " 
+                    ^ "the result is not SAT; "
+                    ^ " the model production is not enabled")
+        | Some model -> 
+          Some model
       end
     | Z3.Solver.UNSATISFIABLE ->
-      false
+      None
     | Z3.Solver.UNKNOWN ->
-      failwith @@ Printf.sprintf "[check_assumption] Unknown result in solve: %s"
+      failwith @@ Printf.sprintf "[check_and_get_model] Unknown result in solve: %s"
         (Z3.Solver.get_reason_unknown solver)
 end
