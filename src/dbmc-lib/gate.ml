@@ -4,12 +4,12 @@ type t
 
 type node =
   | Pending
-  | Mismatch
-  | Done
-  | Pass of node ref 
-  | And of node ref list
-  | GuardedChoice of node ref list * node ref list
-  | Choice of node ref list
+  | Mismatch of Id.t
+  | Done of Id.t
+  | Pass of Id.t * node ref 
+  | And of Id.t * node ref list
+  | GuardedChoice of Id.t * node ref list * node ref list
+  | Choice of Id.t * node ref list
 [@@deriving show {with_path = false}]
 
 
@@ -25,13 +25,13 @@ let exists_refs f tree_refs =
 
 let rec check_valid_tree = function
   | Pending -> false
-  | Mismatch -> false
-  | Done -> true
-  | Pass child -> check_valid_tree !child
-  | And (childs) ->  for_all_refs check_valid_tree childs
-  | GuardedChoice (guards, choices) ->
+  | Mismatch _ -> false
+  | Done _ -> true
+  | Pass (_, child) -> check_valid_tree !child
+  | And (_, childs) ->  for_all_refs check_valid_tree childs
+  | GuardedChoice (_, guards, choices) ->
     (for_all_refs check_valid_tree guards)
     && (exists_refs check_valid_tree choices)
-  | Choice choices ->
+  | Choice (_, choices) ->
     exists_refs check_valid_tree choices
 

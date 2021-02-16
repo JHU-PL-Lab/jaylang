@@ -7,25 +7,14 @@ let reset () =
   Z3.Solver.reset solver
 
 let check phi_set gates =
-  List.iter !phi_set ~f:(fun phi ->
-      let z3_phi = Z3API.z3_phis_of_smt_phi phi in
-      Fmt.(pr "%a\n%s\n\n" Constraint.pp phi (Z3.Expr.to_string z3_phi));
-      Z3.Solver.add solver [z3_phi]
-    );
+  let z3_phis = List.map !phi_set ~f:Z3API.z3_phis_of_smt_phi in
+  Z3.Solver.add solver z3_phis;
   phi_set := [];
 
   let z3_gate_phis = Z3API.z3_gate_phis gates in
-  List.iter z3_gate_phis ~f:(fun phi ->
-      Fmt.(pr "%s\n" (Z3.Expr.to_string phi))
-    );
 
-  match Z3API.check_with_assumption solver z3_gate_phis with 
-  | Some model ->
-    print_endline @@ Z3.Model.to_string model;
-    ()
-  | None ->
-    print_endline "UNSAT";
-    ()
+  Z3API.check_with_assumption solver z3_gate_phis
+
 
 let solution_input_feeder model target_stack =
   fun (x, call_stack) : int ->

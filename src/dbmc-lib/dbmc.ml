@@ -95,24 +95,22 @@ let lookup_top program x_target : _ Lwt.t =
                   | _ -> add_phi @@ C.bind_v x v rel_stack
                  );
                  add_phi @@ C.Target_stack target_stk;
-                 gate_tree := Gate.Done;
-                 Lwt.return_unit
+                 gate_tree := Gate.Done x;
                | None ->
-                 gate_tree := Gate.Mismatch;
-                 Lwt.return_unit  
-              )
+                 gate_tree := Gate.Mismatch x;
+              );
+              Lwt.return_unit  
             | Input_body when block_point = id_main  ->
               (
                 match Relative_stack.concretize rel_stack with
                 | Some target_stk ->
                   add_phi @@ C.bind_input x rel_stack;
                   add_phi @@ C.Target_stack target_stk;
-                  gate_tree := Gate.Done;
-                  Lwt.return_unit  
+                  gate_tree := Gate.Done x;
                 | None ->
-                  gate_tree := Gate.Mismatch;
-                  Lwt.return_unit  
-              )
+                  gate_tree := Gate.Mismatch x;
+              );
+              Lwt.return_unit  
 
             (* Value Discovery Non-Main *)
             | Value_body v when List.is_empty xs ->
@@ -122,7 +120,7 @@ let lookup_top program x_target : _ Lwt.t =
               );
 
               let sub_tree = ref Gate.Pending in
-              gate_tree := Gate.Pass sub_tree;
+              gate_tree := Gate.Pass (x, sub_tree);
 
               lookup [Id.of_ast_id x_first] block rel_stack sub_tree
 
@@ -130,7 +128,7 @@ let lookup_top program x_target : _ Lwt.t =
               add_phi @@ C.bind_input x rel_stack;
 
               let sub_tree = ref Gate.Pending in
-              gate_tree := Gate.Pass sub_tree;
+              gate_tree := Gate.Pass (x, sub_tree);
 
               lookup [Id.of_ast_id x_first] block rel_stack sub_tree
 
@@ -139,7 +137,7 @@ let lookup_top program x_target : _ Lwt.t =
               add_phi @@ C.eq_lookup (x::xs) rel_stack xs rel_stack;
 
               let sub_tree = ref Gate.Pending in
-              gate_tree := Gate.Pass sub_tree;
+              gate_tree := Gate.Pass (x, sub_tree);
 
               lookup xs block rel_stack sub_tree
 
@@ -149,7 +147,7 @@ let lookup_top program x_target : _ Lwt.t =
               add_phi @@ C.eq_lookup (x::xs) rel_stack (x'::xs) rel_stack;
 
               let sub_tree = ref Gate.Pending in
-              gate_tree := Gate.Pass sub_tree;
+              gate_tree := Gate.Pass (x, sub_tree);
 
               lookup (x'::xs) block rel_stack sub_tree
 
@@ -160,7 +158,7 @@ let lookup_top program x_target : _ Lwt.t =
 
               let sub_tree1 = ref Gate.Pending in
               let sub_tree2 = ref Gate.Pending in
-              gate_tree := Gate.And ([sub_tree1; sub_tree2]);
+              gate_tree := Gate.And (x, [sub_tree1; sub_tree2]);
 
               Lwt.both
                 (lookup (x1::xs) block rel_stack sub_tree1)
@@ -193,7 +191,7 @@ let lookup_top program x_target : _ Lwt.t =
                         (phis @ [phi], sub_lookups @ [sub_lookup], sub_trees @ [sub_tree])
                       ) ([], [], []) fids in
 
-                    gate_tree := Gate.GuardedChoice ([fun_tree], sub_trees);
+                    gate_tree := Gate.GuardedChoice (x, [fun_tree], sub_trees);
 
                     let sub_lookups_with_postp = List.map (fun job -> 
                         let gate_i = ref false in
@@ -239,7 +237,7 @@ let lookup_top program x_target : _ Lwt.t =
                     (phis @ [phi], sub_lookups @ [sub_lookup], sub_trees @ [sub_tree])
                   ) ([],[], []) [true; false] in
 
-                gate_tree := Gate.GuardedChoice ([fun_tree], sub_trees);
+                gate_tree := Gate.GuardedChoice (x, [fun_tree], sub_trees);
 
                 let sub_lookups_with_postp = List.map (fun job -> 
                     let gate_i = ref false in
@@ -274,7 +272,7 @@ let lookup_top program x_target : _ Lwt.t =
 
               let sub_tree1 = ref Gate.Pending in
               let sub_tree2 = ref Gate.Pending in
-              let sub_tree = ref (Gate.And [sub_tree1; sub_tree2]) in
+              let sub_tree = ref (Gate.And (fid, [sub_tree1; sub_tree2])) in
               let sub_lookup = 
                 lookup [x''] callsite_block callsite_stack sub_tree1 >>= fun _ ->
                 lookup (x'''::xs) callsite_block callsite_stack sub_tree2
@@ -283,7 +281,7 @@ let lookup_top program x_target : _ Lwt.t =
             | None -> (phis, sub_lookups, sub_trees)
           ) ([],[],[]) fb.callsites in
 
-        gate_tree := Gate.Choice sub_trees;
+        gate_tree := Gate.Choice (x, sub_trees);
         let sub_lookups_with_postp = List.map (fun job -> 
             let gate_i = ref false in
             add_gate gate_i;
@@ -312,7 +310,7 @@ let lookup_top program x_target : _ Lwt.t =
                   (C.bind_fun x'' callsite_stack fid) in 
               let sub_tree1 = ref Gate.Pending in
               let sub_tree2 = ref Gate.Pending in
-              let sub_tree = ref (Gate.And [sub_tree1; sub_tree2]) in
+              let sub_tree = ref (Gate.And (fid, [sub_tree1; sub_tree2])) in
               let sub_lookup =
                 lookup [x''] callsite_block callsite_stack sub_tree1 >>= fun _ ->
                 lookup (x''::x::xs) callsite_block callsite_stack sub_tree2 in
@@ -320,7 +318,7 @@ let lookup_top program x_target : _ Lwt.t =
             | None -> (phis, sub_lookups, sub_trees)
           ) ([],[],[]) callsites in
 
-        gate_tree := Gate.Choice sub_trees;
+        gate_tree := Gate.Choice (x, sub_trees);
         let sub_lookups_with_postp = List.map (fun job -> 
             let gate_i = ref false in
             add_gate gate_i;
@@ -341,28 +339,39 @@ let lookup_top program x_target : _ Lwt.t =
 
         let sub_tree1 = ref Gate.Pending in
         let sub_tree2 = ref Gate.Pending in
-        gate_tree := Gate.And [sub_tree1; sub_tree2];
+        gate_tree := Gate.And (x, [sub_tree1; sub_tree2]);
 
         lookup [x2] condsite_block rel_stack sub_tree1 >>= fun _ ->
         lookup (x::xs) condsite_block rel_stack sub_tree2
     in 
     kont >>= fun _ ->
-    Lwt_io.printl @@ Gate.show_node !gate_tree_root >>= fun _ ->
-    if Gate.check_valid_tree !gate_tree_root then
-      Solver_helper.check phi_set !gate_set
+    if not (List.is_empty !phi_set) && Gate.check_valid_tree !gate_tree_root then
+      (* 
+      List.iter !phi_set ~f:(fun phi ->
+          let z3_phi = Z3API.z3_phis_of_smt_phi phi in
+          Fmt.(pr "%a\n%s\n\n" Constraint.pp phi (Z3.Expr.to_string z3_phi));
+          Z3.Solver.add solver [z3_phi]
+        );
+      List.iter z3_gate_phis ~f:(fun phi ->
+      Fmt.(pr "%s\n" (Z3.Expr.to_string phi))
+    );
+
+    *)
+      Lwt_io.printl @@ Gate.show_node !gate_tree_root >>= fun _ ->
+      let model = Solver_helper.check phi_set !gate_set in
+      let prompt = match model with
+        | Some model -> "SAT\n" ^ Z3.Model.to_string model
+        | None ->  "UNSAT" in
+      Lwt_io.printl @@ prompt
     else
-      ()
-    ;
-    Lwt.return_unit
+      Lwt.return_unit
 
   in
   let block0 = Tracelet.find_by_id x_target map in
   (* let block0 = Tracelet.cut_before true x_target block in *)
   let x_target' = Id.of_ast_id x_target in
 
-  lookup [x_target'] block0 Relative_stack.empty gate_tree_root >|= fun _  ->
-  Solver_helper.check phi_set !gate_set;
-  ()
+  lookup [x_target'] block0 Relative_stack.empty gate_tree_root
 
 let lookup_main program x_target =
   let main_task = lookup_top program x_target in
