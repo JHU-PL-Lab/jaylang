@@ -1,18 +1,17 @@
 (library
-  (name dbmc_lib)
-  (public_name odefa.dbmc_lib)
+  (name odefa_dbmc)
+  (public_name odefa.dbmc)
   (libraries
     core batteries
-    fmt lwt lwt.unix
+    fmt
+    lwt lwt.unix
     z3
 
     odefa.ast
     odefa.ddpa
-    odefa.utils
     odefa.interpreter
-    odefa.symbolic-interpreter
   )
-  (synopsis "dbmc lib as a gradual replacement of odada lib")
+  (synopsis "dbmc is demand-driven bounded model checking")
   (inline_tests)
   (preprocess
     (pps ppx_jane -allow-unannotated-ignores ppx_deriving.show lwt_ppx)) 

@@ -12,7 +12,6 @@ type node =
   | Choice of Id.t * node ref list
 [@@deriving show {with_path = false}]
 
-
 let for_all_refs f tree_refs = 
   List.for_all tree_refs ~f:(fun c ->
       f !c
@@ -35,3 +34,18 @@ let rec check_valid_tree = function
   | Choice (_, choices) ->
     exists_refs check_valid_tree choices
 
+let sum f childs = List.sum (module Int) childs ~f:(fun child -> f !child)
+
+let rec size = function
+  | Pending -> 1
+  | Mismatch _ -> 1
+  | Done _ -> 1
+  | Pass (_, child) -> 1 + size !child
+  | And (_, childs) -> 1 + sum size childs
+  | GuardedChoice (_, guards, choices) ->
+    1 
+    + sum size guards
+    + sum size choices
+  | Choice (_, choices) ->
+    1 
+    + sum size choices

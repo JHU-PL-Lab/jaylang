@@ -12,6 +12,6 @@
     odefa.test-generation
     odefa.symbolic-interpreter
 
-    odefa.dbmc_lib
+    odefa.dbmc
   )
 )

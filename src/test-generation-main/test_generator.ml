@@ -58,7 +58,7 @@ let () =
   end;
   (* Generate tests *)
   try
-    let inputs = Dbmc_lib.Dbmc.lookup_main ast args.ga_target_point in
+    let inputs = Dbmc.lookup_main ast args.ga_target_point in
     let inputs = List.hd inputs in
     Printf.printf "[%s]\n"
       (String.join "," @@ List.map string_of_int inputs);

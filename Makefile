@@ -1,4 +1,4 @@
-.PHONY: all clean repl sandbox test benchmark
+.PHONY: all clean repl sandbox test benchmark dbmc
 
 all:
 	dune build
@@ -11,6 +11,11 @@ all:
 	ln -s _build/default/src/toploop-main/ddpa_toploop.exe ddpa_toploop
 	ln -s _build/default/src/test-generation-main/test_generator.exe test_generator
 	ln -s _build/default/src/translator-main/translator.exe translator
+
+dbmc:
+	dune build src/test-generation-main/test_generator.exe
+	rm -f test_generator
+	ln -s _build/default/src/test-generation-main/test_generator.exe test_generator
 
 sandbox:
 	dune build test/sandbox/sandbox.exe
