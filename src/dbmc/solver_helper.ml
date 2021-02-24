@@ -6,15 +6,15 @@ let solver = Z3.Solver.mk_solver ctx None
 let reset () =
   Z3.Solver.reset solver
 
-let check phi_set gates =
+let check phi_set z3_gate_phis =
   let z3_phis = List.map !phi_set ~f:Z3API.z3_phis_of_smt_phi in
   Z3.Solver.add solver z3_phis;
   phi_set := [];
 
-  let z3_gate_phis = Z3API.z3_gate_phis gates in
-
   Z3API.check_with_assumption solver z3_gate_phis
 
+let string_of_solver () = 
+  Z3.Solver.to_string solver
 
 let solution_input_feeder model target_stack =
   fun (x, call_stack) : int ->
@@ -22,7 +22,7 @@ let solution_input_feeder model target_stack =
   let call_stk = call_stack |> Concrete_stack.of_ast_id in 
   let stk = Relative_stack.relativize target_stack call_stk in
   let sym = Symbol.id x stk in
-  Z3API.get_int_s model (Symbol.to_string_mach sym)
+  Z3API.get_int_s model (Symbol.show sym)
 
 let memorized_solution_input_feeder mem model target_stack =
   let input_feeder = solution_input_feeder model target_stack in

@@ -1,3 +1,13 @@
+(* 
+    Lwt_fmt.(fprintf stdout "Rule FunEnter%s: in %a, to %a\n"
+               (if fb.para = x then "Local" else "Nonlocal")
+               Ast_pp.pp_ident fb.point
+               Id.pp_old_list fb.callsites
+            ) >|= fun _ ->
+
+    Lwt_fmt.(fprintf stdout "Rule CondTop: in %a\n"
+               Ast_pp.pp_ident cb.point) >|= fun _ -> *)
+
 open Core
 
 module T = struct
@@ -13,17 +23,16 @@ module T = struct
   [@@deriving sexp, compare, equal]
 
   let pp_frame oc frame = 
-    let cf_pair = Fmt.Dump.pair pp_callsite pp_fid in
     match frame with
-    | Pairable (cs, fid) -> Fmt.(pf oc "-%a" cf_pair (cs,fid))
-    | Dangling (cs, fid) -> Fmt.(pf oc "+%a" cf_pair (cs,fid))
+    | Pairable (cs, fid) -> Fmt.(pf oc "-(%a,%a)" pp_callsite cs pp_callsite fid)
+    | Dangling (cs, fid) -> Fmt.(pf oc "+(%a,%a)" pp_callsite cs pp_callsite fid)
   let show_frame = Fmt.to_to_string pp_frame
 
   type t = frame list * frame list
   [@@deriving sexp, compare, equal]
 
   let pp oc (s1,s2) = 
-    Fmt.(pf oc "%a" (Dump.list pp_frame) (s1 @ s2))
+    Fmt.(pf oc "[%a]" (list ~sep:(any ";") pp_frame) (s1 @ s2))
 
   let show = Fmt.to_to_string pp
 end
@@ -61,16 +70,14 @@ let pop (co_stk,stk) callsite fid =
   | [] ->
     Some (Dangling(callsite,fid)::co_stk, stk)
 
-let concretize (co_stk,stk) : Concrete_stack.t option =
-  if List.is_empty stk then
-    Some (
-      List.map co_stk ~f:(function 
-          | Pairable(_,_) -> failwith "wrong stack frame"
-          | Dangling(callsite,fid) -> (callsite,fid)
-        )
-    )
+let concretize (co_stk,stk) : Concrete_stack.t =
+  if not @@ List.is_empty stk then
+    failwith "concretize: stack is not empty"
   else
-    None
+    List.map co_stk ~f:(function 
+        | Pairable(_,_) -> failwith "wrong stack frame"
+        | Dangling(callsite,fid) -> (callsite,fid)
+      )
 
 let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t =
   let rec discard_common ts cs =
@@ -92,12 +99,3 @@ let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t
                |> List.map ~f:(fun (cs,fid) -> Dangling(cs,fid)) in
   let stk = List.map ~f:(fun (cs,fid) -> Pairable(cs,fid)) call_stk' in
   co_stk, stk
-
-(* 
-let rec same_stack rstk (cstk : Concrete_stack.t) =
-  match rstk, cstk with
-  | Caller(cs1,fid1)::rs, (cs2,fid2)::cs ->
-    Id.equal cs1 cs2 && Id.equal fid1 fid2 &&
-    same_stack rs cs
-  | [], [] -> true
-  | _, _ -> false *)

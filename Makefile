@@ -17,6 +17,9 @@ dbmc:
 	rm -f test_generator
 	ln -s _build/default/src/test-generation-main/test_generator.exe test_generator
 
+dtest:
+	dune exec test/dbmc/test_dbmc.exe
+
 sandbox:
 	dune build test/sandbox/sandbox.exe
 	rm -f sandbox

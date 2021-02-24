@@ -32,10 +32,15 @@ type main_block = {
   clauses: clause_list;
 } [@@deriving show {with_path = false}]
 
+type outer_id = 
+  | Main_p
+  | Fun_p of ident
+  | Cond_p of ident * bool
+[@@deriving show {with_path = false}]
 
 type fun_block = {
   point : ident;
-  outer_point : ident;
+  outer_point : outer_id;
 
   para: ident;
   clauses: clause_list;
@@ -44,7 +49,7 @@ type fun_block = {
 
 type cond_block = { 
   point : ident;
-  outer_point : ident;
+  outer_point : outer_id;
 
   cond : ident;
   possible : bool option;
@@ -82,10 +87,20 @@ let id_of_block = function
   | Fun fb -> fb.point
   | Cond cb -> cb.point
 
-let outer_id_of_block = function
-  | Main _b -> failwith "no outer_point for main block"
-  | Fun fb -> fb.outer_point
-  | Cond cb -> cb.outer_point
+let outer_block block map = 
+  let outer_point = 
+    match block with
+    | Main _b -> failwith "no outer_point for main block"
+    | Fun fb -> fb.outer_point
+    | Cond cb -> cb.outer_point
+  in
+  match outer_point with
+  | Main_p -> Ident_map.find id_main map
+  | Fun_p fid -> Ident_map.find fid map
+  | Cond_p (cid, choice) ->
+    let cb = 
+      Ident_map.find cid map |> cast_to_cond_block in
+    Cond {cb with choice = Some choice}
 
 let ret_of block =
   let clauses = get_clauses block in
@@ -233,7 +248,7 @@ let tracelet_map_of_expr e : t Ident_map.t =
         let tracelet = 
           Fun { point = cid ; outer_point; para; callsites = []; clauses } in
         map := Ident_map.add cid tracelet !map;
-        loop cid fbody
+        loop (Fun_p cid) fbody
       | Clause (Var (cid, _), Conditional_body (Var(cond, _), e1, e2)) ->
         let then_ = clauses_of_expr e1
         and else_ = clauses_of_expr e2 
@@ -241,14 +256,14 @@ let tracelet_map_of_expr e : t Ident_map.t =
         let tracelet = 
           Cond { point = cid ; outer_point; cond; possible; then_; else_; choice = None } in
         map := Ident_map.add cid tracelet !map;
-        loop cid e1;
-        loop cid e2     
+        loop (Cond_p (cid,true)) e1;
+        loop (Cond_p (cid,false)) e2     
       | _ -> ()
     in
     List.iter clauses ~f:handle_clause
   in
 
-  loop id_main e;
+  loop Main_p e;
   !map
 
 let cfg_of e =

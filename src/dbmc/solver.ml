@@ -17,9 +17,13 @@ module Make (C : Context) () = struct
     Int.incr _counter;
     Symbol.mk_string ctx name
 
-  let choice_sym_of_counter i  =
-    let name = "$gc" ^ (string_of_int i) in
+  let gate_of_counter i =
+    let name = "$g" ^ (string_of_int i) in
     Symbol.mk_string ctx name
+
+  let choice_sym_of_counter i  =
+    let name = "$c" ^ (string_of_int i) in
+    Symbol.mk_string ctx name    
 
   let intS = Arithmetic.Integer.mk_sort ctx
   let boolS = Boolean.mk_sort ctx
@@ -70,14 +74,15 @@ module Make (C : Context) () = struct
   module StringSort = struct
     let strS = Z3.Seq.mk_string_sort ctx
     let string_ s = Seq.mk_string ctx s
-    let var_ n = Expr.mk_const_s ctx n strS
+    let var_s n = Expr.mk_const_s ctx n strS
   end
 
-  let var_ n = Expr.mk_const_s ctx n valS
+  let var_s n = Expr.mk_const_s ctx n valS
+  let var_ n = Expr.mk_const ctx n valS
 
   let top_stack_name = "!stack"
 
-  let top_stack_var = StringSort.var_ top_stack_name
+  let top_stack_var = StringSort.var_s top_stack_name
 
   let eq e1 e2 = Boolean.mk_eq ctx e1 e2
 
@@ -124,24 +129,32 @@ module Make (C : Context) () = struct
   let ground_truth = eq true_ true_
 
   let var_of_symbol sym = 
-    sym |> Sym.to_string_mach |> var_
+    sym |> Sym.show |> var_s
+
+  let path_var = var_s "path"
+
+  (* soft_tautology soft_contradiction *)
+  let soft bv = 
+    Z3.Boolean.mk_eq ctx
+      path_var
+      (bool_ bv)
 
   let name_of_lookup xs stk = 
     match xs with
-    | [x] -> Sym.Id(x,stk) |> Sym.to_string_mach
+    | [x] -> Sym.Id(x,stk) |> Sym.show
     | _::_ -> (
-        let p1 = [%sexp_of: Id.t list] xs |> Sexp.to_string_mach in
-        let p2 = Relative_stack.sexp_of_t stk |> Sexp.to_string_mach in
+        let p1 = Fmt.(str "%a" (list ~sep:(any ",") Id.pp) xs) in
+        let p2 = Relative_stack.show stk in
         p1 ^ p2
       )
     | [] -> failwith "name_of_lookup empty"
 
   let z3_gate_phis dones =
-    List.mapi dones ~f:(fun i done_state ->
-        Z3.Boolean.mk_or ctx [
-          Z3.Boolean.mk_val ctx !done_state;
-          Z3.Boolean.mk_not ctx (Z3.Boolean.mk_const ctx (choice_sym_of_counter i))
-        ])
+    List.map dones ~f:(fun (cid, is_done) ->
+        Z3.Boolean.mk_implies ctx 
+          (Z3.Boolean.mk_const ctx (choice_sym_of_counter cid))
+          (soft is_done)
+      )
 
   let rec z3_phis_of_smt_phi = function
     | Constraint.Eq_v (sx, cv) -> 
@@ -149,7 +162,7 @@ module Make (C : Context) () = struct
       let v = match cv with
         | Int i -> int_ i
         | Bool b -> bool_ b
-        | Fun fid -> fun_ (fid |> Id.sexp_of_t |> Sexp.to_string_mach)
+        | Fun fid -> fun_ (fid |> Id.show)
         | Record -> failwith "no record yet"
       in
       eq x v
@@ -179,31 +192,31 @@ module Make (C : Context) () = struct
       fop y x1 x2
     (* [eq y (fop x1 x2); not_ (eq y bottom_); not_ (eq x1 bottom_); not_ (eq x2 bottom_)] *)
     | Constraint.Eq_lookup (xs1, s1, xs2, s2) ->
-      let x = var_ @@ name_of_lookup xs1 s1 in
-      let y = var_ @@ name_of_lookup xs2 s2 in
+      let x = var_s @@ name_of_lookup xs1 s1 in
+      let y = var_s @@ name_of_lookup xs2 s2 in
       eq x y
     (* [eq x y; not_ (eq x bottom_); not_ (eq y bottom_)] *)
     | Constraint.C_and (c1, c2) ->
       let e1 = z3_phis_of_smt_phi c1 in
       let e2 = z3_phis_of_smt_phi c2 in
       Boolean.mk_and ctx [e1; e2]
-    | Constraint.C_exclusive_gate (gate_start, cs) ->
-      let choice_vars = List.mapi cs ~f:(fun ci _ -> Z3.Boolean.mk_const ctx (choice_sym_of_counter (gate_start + ci))) in
-      make_exclusive choice_vars cs
+    | Constraint.C_exclusive_gate (gid, cs) ->
+      let choice_vars = List.mapi cs ~f:(fun i _ -> Z3.Boolean.mk_const ctx (choice_sym_of_counter (gid + i))) in
+      make_exclusive gid choice_vars cs
 
     | Constraint.C_exclusive cs ->
       let choice_vars = List.map cs ~f:(fun _ -> Z3.Boolean.mk_const ctx (get_new_sym ())) in
-      make_exclusive choice_vars cs
+      failwith "no use of C_exclusive"
 
     | Constraint.Target_stack _stk
       (* -> (let open StringSort in
-          eq (var_ top_stack_name) (string_ @@ (stk |> Concrete_stack.to_string))
+          eq (var_s top_stack_name) (string_ @@ (stk |> Concrete_stack.to_string))
          ) *)
       -> ground_truth
     | Constraint.Eq_projection (_, _, _)
       -> failwith "no project yet"
 
-  and make_exclusive choice_vars phis =  
+  and make_exclusive _gid choice_vars phis =  
     let payloads = List.map phis ~f:z3_phis_of_smt_phi in
     let chosen_payloads = List.mapi payloads ~f:(fun ci payload ->
         let ci_var = List.nth_exn choice_vars ci in
@@ -211,30 +224,43 @@ module Make (C : Context) () = struct
       ) in
 
     let exclusive_one =
-      if List.length payloads = 1 then
-        []
-      else
-        let at_most_one = List.mapi payloads ~f:(fun ci _ ->
-            let ci_var = List.nth_exn choice_vars ci in
-            let other_vars = List.filteri choice_vars ~f:(fun i _ -> Int.(ci <> i)) in
-            let exclusion = 
-              other_vars
-              |> Z3.Boolean.mk_or ctx
-              |> Z3.Boolean.mk_not ctx
-            in
-            Z3.Boolean.mk_implies ctx ci_var exclusion
-          ) in
-        let at_least_one = Z3.Boolean.mk_or ctx choice_vars in
-        at_least_one :: at_most_one
+      let at_most_one = List.mapi payloads ~f:(fun ci _ ->
+          let ci_var = List.nth_exn choice_vars ci in
+          let other_vars = List.filteri choice_vars ~f:(fun i _ -> Int.(ci <> i)) in
+          let exclusion = 
+            other_vars
+            |> Z3.Boolean.mk_or ctx
+            |> Z3.Boolean.mk_not ctx
+          in
+          Z3.Boolean.mk_implies ctx ci_var exclusion
+        ) in
+      let at_least_one = 
+        Z3.Boolean.mk_or ctx choice_vars
+      in
+      (* let at_least_one_when_gated = 
+         Z3.Boolean.(mk_implies ctx
+                      (mk_or ctx choice_vars)
+                      (mk_const ctx (gate_of_counter gid))
+                   )
+         in *)
+      at_least_one :: at_most_one
     in
     join (exclusive_one @ chosen_payloads)
 
   (* model and solution *)
   let get_int_s model s =
-    let x = FuncDecl.apply getInt [var_ s] in
+    let x = FuncDecl.apply getInt [var_s s] in
     let r = Option.value_exn (Model.eval model x true) in
     Z3.Arithmetic.Integer.get_big_int r
     |> Big_int_Z.int_of_big_int
+
+  let get_bool model s =
+    let b = Z3.Boolean.mk_const ctx s in
+    let r = Option.value_exn (Model.eval model b false) in
+    match Z3.Boolean.get_bool_value r with
+    | L_TRUE -> true
+    | L_FALSE -> false
+    | L_UNDEF -> failwith "get_bool_s: undef"
 
   let get_top_stack model =
     let stack_v = Option.value_exn (Model.eval model top_stack_var true) in

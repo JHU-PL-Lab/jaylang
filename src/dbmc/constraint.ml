@@ -110,9 +110,14 @@ let bind_binop x y1 op y2 stk =
 let bind_fun x stk f =
   Eq_x (Symbol.id x stk, Symbol.funid f)
 
+let bind_funname f =
+  Eq_v (Symbol.funid f, Fun f)
+
 let and_ c1 c2 = C_and (c1, c2)
 
 let only_one gate_start cs = C_exclusive_gate (gate_start, cs)
+
+(* 
 
 let integrate_stack phis =
   let non_stack_phis, stack_phis = List.partition_tf phis ~f:(function
@@ -123,7 +128,7 @@ let integrate_stack phis =
   let integrated_stack_phi = C_exclusive unique_stack_phis in
   integrated_stack_phi :: non_stack_phis
 
-(* let rec simplify_one = function
+let rec simplify_one = function
    | C_and (p1, p2) ->
     C_and (simplify_one p1, simplify_one p2)
    | C_exclusive phis ->

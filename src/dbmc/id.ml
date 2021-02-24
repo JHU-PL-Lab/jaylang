@@ -9,7 +9,7 @@ include T
 include Comparator.Make(T)
 
 let show (Ident s) = s
-let pp = Fmt.of_to_string show
+let pp oc (Ident s) = Fmt.pf oc "%s" s
 
 let of_ast_id (x : Odefa_ast.Ast.Ident.t) : t = 
   match x with

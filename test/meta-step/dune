@@ -5,7 +5,7 @@
 )
 
 (alias
-  (name test_dbmc)
+  (name test_dbmc2)
   (action (run ./test_dbmc.exe))
 )
 

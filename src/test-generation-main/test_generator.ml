@@ -58,11 +58,17 @@ let () =
   end;
   (* Generate tests *)
   try
-    let inputs = Dbmc.lookup_main ast args.ga_target_point in
+    (* DBMC related code - start *)
+
+    Odefa_dbmc.Log.init ();
+    let inputs = Odefa_dbmc.Dbmc.lookup_main ast args.ga_target_point in
     let inputs = List.hd inputs in
     Printf.printf "[%s]\n"
       (String.join "," @@ List.map string_of_int inputs);
+    Odefa_dbmc.Log.close ();
     ignore @@ raise GenComplete;
+
+    (* DBMC related code - end *)
 
     let results_remaining = ref args.ga_maximum_results in
     let generator =

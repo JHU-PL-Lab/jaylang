@@ -1,6 +1,14 @@
 open Core
 
 let just_side_effect = ignore
+
+let default_target = Odefa_ast.Ast.Ident "target"
+
+let with_seq ?(start=0) xs = List.mapi xs ~f:(fun i x -> (i+start,x))
+
+let pp_with_seq ?(pp_int=Fmt.int) pp_x oc xps = 
+  Fmt.(pf oc "%a" (list ~sep:(any "@,") (pair ~sep:sp pp_int pp_x)) xps)
+
 let generate_inputs 
     test_generator
   : (int list * int) list * 'a option =
