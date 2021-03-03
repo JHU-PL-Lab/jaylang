@@ -19,6 +19,7 @@ module T = struct
 
   type frame = 
     | Pairable of callsite * fid
+
     | Dangling of callsite * fid
   [@@deriving sexp, compare, equal]
 

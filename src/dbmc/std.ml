@@ -9,6 +9,19 @@ let with_seq ?(start=0) xs = List.mapi xs ~f:(fun i x -> (i+start,x))
 let pp_with_seq ?(pp_int=Fmt.int) pp_x oc xps = 
   Fmt.(pf oc "%a" (list ~sep:(any "@,") (pair ~sep:sp pp_int pp_x)) xps)
 
+let to_indexed_list xps = 
+  let len = List.length xps in
+  if len = 0 then
+    []
+  else
+    let arr = Array.create ~len (snd (List.hd_exn xps)) in
+    List.iter xps ~f:(fun (i,x) ->
+        arr.(i) <- x
+      );
+    Array.to_list arr
+
+let wait_once f x _ = f x
+
 let generate_inputs 
     test_generator
   : (int list * int) list * 'a option =

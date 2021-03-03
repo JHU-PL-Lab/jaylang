@@ -14,6 +14,16 @@ module T = struct
     | And | Or (* | Not *) | Xor
   [@@deriving sexp, compare, equal]
 
+  type fc_phi = {
+    f_stk : Relative_stack.t;
+    xs_f : Id.t list;
+    callsite_stk : Relative_stack.t;
+    xs_callsite : Id.t list;
+    f_var : Id.t;
+    fid : Id.t;
+  }
+  [@@deriving sexp, compare, equal, show {with_path = false}]
+
   type t = 
     | Eq_v of Symbol.t * value
     | Eq_x of Symbol.t * Symbol.t
@@ -23,7 +33,7 @@ module T = struct
     | Target_stack of Concrete_stack.t
     | C_and of t * t
     | C_exclusive_gate of int * t list
-    | C_exclusive of t list
+    | Fbody_to_callsite of int * fc_phi list
   [@@deriving sexp, compare, equal]
 
 end
@@ -62,7 +72,7 @@ let rec pp oc t =
   | Target_stack stk -> pf oc "@[<v 2>Top: %a@]" Concrete_stack.pp stk
   | C_and (t1, t2) -> pf oc "@[<v 2>And: @,%a@,%a@]" pp t1 pp t2
   | C_exclusive_gate (gate_start, ts) -> pf oc "@[<v 2>Xor Gate(%d): @,%a@]" gate_start (list ~sep:sp pp) ts
-  | C_exclusive ts -> pf oc "@[<v 2>Xor: @,%a@]" (list ~sep:sp pp) ts
+  | Fbody_to_callsite (gid, fc_phis) -> pf oc "@[<v 2>Fbody_to_callsite(%d): @,%a@]" gid (list ~sep:sp pp_fc_phi) fc_phis
 
 let show = Fmt.to_to_string pp
 
@@ -108,10 +118,7 @@ let bind_binop x y1 op y2 stk =
             Symbol.id y1 stk, to_smt_op op, Symbol.id y2 stk)
 
 let bind_fun x stk f =
-  Eq_x (Symbol.id x stk, Symbol.funid f)
-
-let bind_funname f =
-  Eq_v (Symbol.funid f, Fun f)
+  Eq_v (Symbol.id x stk, Fun f)
 
 let and_ c1 c2 = C_and (c1, c2)
 
