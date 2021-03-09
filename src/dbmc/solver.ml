@@ -17,12 +17,15 @@ module Make (C : Context) () = struct
     Int.incr _counter;
     Symbol.mk_string ctx name
 
-  let choice_sym_of_counter i  =
-    let name = Fmt.str "$c%d" i in
+  let make_indexed_symbol pre i  =
+    let name = Fmt.str "$%s%03d" pre i in
     Symbol.mk_string ctx name    
 
-  let make_choice_exp i = 
-    Z3.Boolean.mk_const ctx (choice_sym_of_counter i)
+  let make_choice_picked_exp i = 
+    Z3.Boolean.mk_const ctx (make_indexed_symbol "cp" i)
+
+  let make_choice_complete_exp i = 
+    Z3.Boolean.mk_const ctx (make_indexed_symbol "cc" i)
 
   let intS = Arithmetic.Integer.mk_sort ctx
   let boolS = Boolean.mk_sort ctx
@@ -88,11 +91,15 @@ module Make (C : Context) () = struct
 
   let eq e1 e2 = Boolean.mk_eq ctx e1 e2
 
-  let and_ e1 e2 = Boolean.mk_and ctx [e1; e2]
-
-  let join = Boolean.mk_and ctx
-
+  let and2 e1 e2 = Boolean.mk_and ctx [e1; e2]
+  let and_ = Boolean.mk_and ctx
+  let join = and_
+  let all = and_
+  let or_ = Boolean.mk_or ctx
   let not_ = Boolean.mk_not ctx
+  let implies = Boolean.mk_implies ctx
+  let (@=>) = implies
+
 
   let bop case inj fn e1 e2 =
     let p1 = FuncDecl.apply case [e1] in
@@ -122,7 +129,7 @@ module Make (C : Context) () = struct
   let fn_le = fn_two_ints_to_bool (Arithmetic.mk_le ctx)
   let fn_eq = fn_two_ints_to_bool (Boolean.mk_eq ctx)
 
-  let fn_and = fn_two_bools and_
+  let fn_and = fn_two_bools and2
   let fn_or = fn_two_bools (fun e1 e2 -> Boolean.mk_or ctx [e1; e2])
   let fn_xor = fn_two_bools (Boolean.mk_xor ctx)
 
@@ -158,7 +165,7 @@ module Make (C : Context) () = struct
         else
           Some (Z3.Boolean.(
               mk_eq ctx 
-                (make_choice_exp cid)
+                (make_choice_picked_exp cid)
                 (Z3.Boolean.mk_false ctx)
             ))
       )
@@ -218,26 +225,66 @@ module Make (C : Context) () = struct
       join [e1; e2]
 
     | Constraint.C_exclusive_gate (gid, cs) ->
-      let choice_vars = List.mapi cs ~f:(fun i _ -> make_choice_exp (gid + i)) in
+      let choice_picked_vars = List.mapi cs ~f:(fun i _ -> make_choice_picked_exp (gid + i)) in
       let payloads = List.map cs ~f:z3_phis_of_smt_phi in
-      make_exclusive choice_vars payloads
+      make_exclusive choice_picked_vars payloads
 
-    | Constraint.Fbody_to_callsite (gid, fc_phis) ->
-      let choice_vars = List.mapi fc_phis ~f:(fun i _ -> make_choice_exp (gid + i)) in
+    | Constraint.Fbody_to_callsite (fc) ->
+      let gid = fc.gid in
+      let cs_picked = List.mapi fc.outs ~f:(fun i _ -> make_choice_picked_exp (gid + i)) in
+      let cs_complete  = List.mapi fc.outs ~f:(fun i _ -> make_choice_complete_exp (gid + i)) in
+      let eq_lookups = List.map fc.outs ~f:(fun out ->
+          Constraint.eq_lookup fc.xs_in fc.stk_in out.xs_out out.stk_out
+          |> z3_phis_of_smt_phi)
+      in
+      let eq_fids = List.map fc.outs ~f:(fun out ->
+          Constraint.bind_fun out.f_out out.stk_out fc.fun_in
+          |> z3_phis_of_smt_phi)
+      in
 
-      let payloads = List.map fc_phis ~f:(fun fc ->
-          let eq_lookup = Constraint.eq_lookup fc.xs_f fc.f_stk fc.xs_callsite fc.callsite_stk in
-          let eq_fid = Constraint.bind_fun fc.f_var fc.callsite_stk fc.fid in
-          join (List.map [eq_lookup; eq_fid;] ~f:z3_phis_of_smt_phi)
-        ) in
-      let exclusive_work = make_exclusive choice_vars payloads in
-      let exclusive_bypass = 
-        join @@ List.map2_exn choice_vars fc_phis ~f:(fun ci fc ->
-            let eq_fid = z3_phis_of_smt_phi @@ Constraint.bind_fun fc.f_var fc.callsite_stk fc.fid in
-            let not_fid = not_ eq_fid in
-            Z3.Boolean.mk_implies ctx ci not_fid
-          ) in
-      Z3.Boolean.mk_or ctx [exclusive_work; exclusive_bypass]
+      (* not(c1c)  AND  not(c2c) *)
+      let no_paths_complete = 
+        join (List.map cs_complete ~f:not_)
+      in
+
+      (* (c1c -> [𝑥1]!=ThisFun(𝐶))  AND  (c2c -> [𝑥2]!=ThisFun(𝐶)) *)
+      let all_complete_paths_invalid = 
+        List.mapi cs_complete ~f:(fun i cc_i -> 
+            let eq_fid = List.nth_exn eq_fids i in
+            cc_i @=> (not_ eq_fid)
+          ) 
+        |> join
+      in
+
+      let picked_a_complete_path = 
+        (* c1p  XORs  c2p *)
+        let exclusion = make_exclusion cs_picked in
+        (* c1p => c1c  AND  c2p => c2c *)
+        let only_pick_the_complete = 
+          List.map2_exn cs_picked cs_complete ~f:(@=>)
+          |> join
+        in
+        (* c1p  =>  [𝑥]||𝑋=[𝑥1,𝑥]||𝑋 ∧  [𝑥1]=ThisFun(𝐶) *)
+        let only_pick_the_valid = 
+          List.mapi cs_picked ~f:(fun i cp ->
+              let eq_fid = List.nth_exn eq_fids i in
+              let eq_lookup = List.nth_exn eq_lookups i in
+              cp @=> (and2 eq_fid eq_lookup)
+            )
+          |> join
+        in
+        join [
+          exclusion;
+          only_pick_the_complete;
+          only_pick_the_valid
+        ]
+      in
+      or_ [
+        no_paths_complete;
+        all_complete_paths_invalid;
+        picked_a_complete_path
+      ]
+
     (* exclusive_work *)
 
     | Constraint.Target_stack _stk
@@ -248,10 +295,41 @@ module Make (C : Context) () = struct
     | Constraint.Eq_projection (_, _, _)
       -> failwith "no project yet"
 
+  (*
+    the length of choices can never be 0
+
+    when the length of choices is 1:
+      at_least_one is true,
+      get_other_choices is [],
+      at_most_one is (c0 -> not (or []))
+        which is (c0 -> not false) => (c0 -> true), thus c0 must be true
+
+    when the length of choices is 2:
+      at_least_one is (c0 or c1)
+      get_other_choices is [c1] for c0,
+      at_most_one is [(c0 -> not (or [c1])) ; (c1 -> not (or [c0]))]
+        which is [c0 -> not c1; c1 -> not c0]
+
+    when the length of choices is >2:
+      it works similar to case=2
+   *)
+  and make_exclusion choices = 
+    let at_least_one = or_ choices in
+    let get_other_choices ci = List.filteri choices ~f:(fun i _ -> Int.(ci <> i)) in
+    let at_most_one = 
+      List.mapi choices ~f:(fun i c ->
+          c @=> (not_ (or_ (get_other_choices i))))
+      |> join
+    in
+    join [
+      at_least_one;
+      at_most_one;
+    ]
+
   and make_exclusive choice_vars payloads =  
     let chosen_payloads = List.mapi payloads ~f:(fun ci payload ->
         let ci_var = List.nth_exn choice_vars ci in
-        Z3.Boolean.mk_implies ctx ci_var payload
+        ci_var @=> payload
       ) in
 
     if List.length choice_vars = 1 then
@@ -269,7 +347,7 @@ module Make (C : Context) () = struct
             |> Z3.Boolean.mk_or ctx
             |> Z3.Boolean.mk_not ctx
           in
-          Z3.Boolean.mk_implies ctx ci_var exclusion
+          ci_var @=> exclusion
         ) in
       join (at_least_one :: at_most_one @ chosen_payloads)
 
@@ -280,14 +358,13 @@ module Make (C : Context) () = struct
     Z3.Arithmetic.Integer.get_big_int r
     |> Big_int_Z.int_of_big_int
 
-  let get_bool model s =
-    let b = Z3.Boolean.mk_const ctx s in
-    let r = Option.value_exn (Model.eval model b false) in
+  let get_bool model e =
+    let r = Option.value_exn (Model.eval model e false) in
     match Z3.Boolean.get_bool_value r with
     | L_TRUE -> Some true
     | L_FALSE -> Some false
     | L_UNDEF -> (
-        Logs.app (fun m -> m "[warning] %s L_UNDEF" (Z3.Symbol.to_string s));
+        Logs.app (fun m -> m "[warning] %s L_UNDEF" (Z3.Expr.to_string e));
         None
       )
 

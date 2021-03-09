@@ -221,23 +221,16 @@ let lookup_top program x_target : _ Lwt.t =
             | None -> fb.callsites
           in
           Logs.info (fun m -> m "FunEnter: %a -> %a" Id.pp fid Id.pp_old_list callsites);
-          let phis, sub_trees = List.fold_right (fun callsite (phis, sub_trees) -> 
+          let outs, sub_trees = List.fold_right (fun callsite (outs, sub_trees) -> 
               let callsite_block, x', x'', x''' = fun_info_of_callsite callsite map in
               match Relative_stack.pop rel_stack x' fid with
               | Some callsite_stack -> 
 
-                let phi = C.({
-                    xs_f = x::xs;
-                    f_stk = rel_stack;
-                    callsite_stk = callsite_stack;
-                    xs_callsite = x'''::xs;
-                    f_var = x'';
-                    fid;
+                let out = C.({
+                    stk_out = callsite_stack;
+                    xs_out = x'''::xs;
+                    f_out = x'';
                   }) in
-
-                (* let phi = C.and_
-                    (C.bind_fun x'' callsite_stack fid)
-                    (C.eq_lookup (x::xs) rel_stack (x'''::xs) callsite_stack) in *)
 
                 let sub_tree1 = ref Gate.pending_node in
                 push_job @@ lookup [x''] callsite_block callsite_stack sub_tree1;
@@ -246,11 +239,18 @@ let lookup_top program x_target : _ Lwt.t =
                 push_job @@ lookup (x'''::xs) callsite_block callsite_stack sub_tree2;
 
                 let sub_tree = sub_tree1, sub_tree2 in
-                (phis @ [phi], sub_trees @ [sub_tree])
-              | None -> (phis, sub_trees)
+                (outs @ [out], sub_trees @ [sub_tree])
+              | None -> (outs, sub_trees)
             ) fb.callsites ([],[]) in
 
-          add_phi (C.Fbody_to_callsite (!gate_counter, phis));
+          let fc = C.({
+              gid = !gate_counter;
+              xs_in = x::xs;                    
+              stk_in = rel_stack;
+              fun_in = fid;
+              outs;
+            }) in
+          add_phi (C.Fbody_to_callsite fc);
           gate_tree := Gate.para_local si !gate_counter sub_trees;
 
           gate_counter := !gate_counter + List.length callsites;
@@ -265,23 +265,16 @@ let lookup_top program x_target : _ Lwt.t =
             | None -> fb.callsites
           in
           Logs.info (fun m -> m "FunEnterNonlocal: %a -> %a" Id.pp fid Id.pp_old_list callsites);
-          let phis, sub_trees = List.fold_right (fun callsite (phis, sub_trees) -> 
+          let outs, sub_trees = List.fold_right (fun callsite (outs, sub_trees) -> 
               let callsite_block, x', x'', _x''' = fun_info_of_callsite callsite map in
               match Relative_stack.pop rel_stack x' fid with
               | Some callsite_stack -> 
 
-                let phi = C.({
-                    xs_f = x::xs;
-                    f_stk = rel_stack;
-                    callsite_stk = callsite_stack;
-                    xs_callsite = x''::x::xs;
-                    f_var = x'';
-                    fid;
+                let out = C.({
+                    stk_out = callsite_stack;
+                    xs_out = x''::x::xs;
+                    f_out = x'';
                   }) in
-
-                (* let phi = C.and_ 
-                    (C.eq_lookup (x::xs) rel_stack (x''::x::xs) callsite_stack)
-                    (C.bind_fun x'' callsite_stack fid) in  *)
 
                 let sub_tree = ref Gate.pending_node in
                 push_job @@ lookup (x''::x::xs) callsite_block callsite_stack sub_tree;
@@ -293,11 +286,18 @@ let lookup_top program x_target : _ Lwt.t =
                    push_job @@ lookup (x''::x::xs) callsite_block callsite_stack sub_tree2;
 
                    let sub_tree = sub_tree1, sub_tree2 in *)
-                (phis @ [phi], sub_trees @ [sub_tree])
-              | None -> (phis, sub_trees)
+                (outs @ [out], sub_trees @ [sub_tree])
+              | None -> (outs, sub_trees)
             ) callsites ([],[]) in
 
-          add_phi (C.Fbody_to_callsite (!gate_counter, phis));
+          let fc = C.({
+              gid = !gate_counter;
+              xs_in = x::xs;                    
+              stk_in = rel_stack;
+              fun_in = fid;
+              outs;
+            }) in
+          add_phi (C.Fbody_to_callsite fc);
           gate_tree := Gate.para_nonlocal si !gate_counter sub_trees;
 
           gate_counter := !gate_counter + List.length callsites;
@@ -338,7 +338,7 @@ let lookup_top program x_target : _ Lwt.t =
 
               if !gate_counter > 0 then
                 let choices_after = List.map (fun i ->
-                    let c_sym = Solver_helper.Z3API.choice_sym_of_counter i in
+                    let c_sym = Solver_helper.Z3API.make_choice_picked_exp i in
                     Gate.Post (Solver_helper.Z3API.get_bool model c_sym)
                   ) (List.range 0 `To (!gate_counter-1))
                 in

@@ -14,13 +14,19 @@ module T = struct
     | And | Or (* | Not *) | Xor
   [@@deriving sexp, compare, equal]
 
-  type fc_phi = {
-    f_stk : Relative_stack.t;
-    xs_f : Id.t list;
-    callsite_stk : Relative_stack.t;
-    xs_callsite : Id.t list;
-    f_var : Id.t;
-    fid : Id.t;
+  type fc_out = {
+    xs_out : Id.t list;
+    stk_out : Relative_stack.t;
+    f_out : Id.t;
+  }
+  [@@deriving sexp, compare, equal, show {with_path = false}]
+
+  type fc = {
+    gid : int;
+    xs_in : Id.t list;
+    stk_in : Relative_stack.t;
+    fun_in : Id.t;
+    outs: fc_out list;
   }
   [@@deriving sexp, compare, equal, show {with_path = false}]
 
@@ -33,7 +39,7 @@ module T = struct
     | Target_stack of Concrete_stack.t
     | C_and of t * t
     | C_exclusive_gate of int * t list
-    | Fbody_to_callsite of int * fc_phi list
+    | Fbody_to_callsite of fc
   [@@deriving sexp, compare, equal]
 
 end
@@ -72,7 +78,10 @@ let rec pp oc t =
   | Target_stack stk -> pf oc "@[<v 2>Top: %a@]" Concrete_stack.pp stk
   | C_and (t1, t2) -> pf oc "@[<v 2>And: @,%a@,%a@]" pp t1 pp t2
   | C_exclusive_gate (gate_start, ts) -> pf oc "@[<v 2>Xor Gate(%d): @,%a@]" gate_start (list ~sep:sp pp) ts
-  | Fbody_to_callsite (gid, fc_phis) -> pf oc "@[<v 2>Fbody_to_callsite(%d): @,%a@]" gid (list ~sep:sp pp_fc_phi) fc_phis
+  | Fbody_to_callsite fc -> (
+      let gid = fc.gid in
+      pf oc "@[<v 2>Fbody_to_callsite(%d): @,%a@]" gid (list ~sep:sp pp_fc_out) fc.outs
+    )
 
 let show = Fmt.to_to_string pp
 
