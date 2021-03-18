@@ -33,6 +33,7 @@ let lookup_top program x_target : _ Lwt.t =
     phi_set := phi :: !phi_set in
   let gate_counter = ref 0 in
   let search_tree = ref Gate.pending_node in
+  let lookup_task_map = ref (Core.Map.empty (module Lookup_task_key)) in
   Solver_helper.reset ();
 
   (* program analysis *)
@@ -50,46 +51,6 @@ let lookup_top program x_target : _ Lwt.t =
     callsite_block, x', x'', x'''
   in
 
-  let deal_with_value mv lookup x xs block rel_stack gate_tree = 
-    let si : Gate.search_info = (x, xs, rel_stack) in
-    let block_id = id_of_block block in
-
-    (* Discovery Main & Non-Main *)
-    if List.is_empty xs then (
-      (match mv with
-       | Some (Value_function _) -> add_phi @@ C.bind_fun x rel_stack x;
-       | Some v -> add_phi @@ C.bind_v x v rel_stack
-       | None -> add_phi @@ C.bind_input x rel_stack
-      );
-      if block_id = id_main then (
-        (* Discovery Main *)
-        let target_stk = Relative_stack.concretize rel_stack in
-        add_phi @@ C.Target_stack target_stk;
-        gate_tree := Gate.done_ si target_stk )
-
-      else (
-        (* Discovery Non-Main *)
-        let sub_tree = ref Gate.pending_node in
-        gate_tree := Gate.to_first si sub_tree;
-        push_job @@ lookup [Id.of_ast_id x_first] block rel_stack sub_tree
-      ))
-
-    else (
-      (* Discard *)
-      match mv with
-      | Some (Value_function _f) -> (
-          add_phi @@ C.eq_lookup (x::xs) rel_stack xs rel_stack;
-          add_phi @@ C.bind_fun x rel_stack x;
-          let sub_tree = ref Gate.pending_node in
-          gate_tree := Gate.discard si sub_tree;
-          push_job @@ lookup xs block rel_stack sub_tree;
-        )
-      | _ -> 
-        gate_tree := Gate.mismatch si
-    );
-    Lwt.return_unit
-  in
-
   let rec lookup (xs0 : Lookup_stack.t) block rel_stack gate_tree : unit -> _ Lwt.t =
     fun () ->
       let x, xs = List.hd xs0, List.tl xs0 in
@@ -100,23 +61,21 @@ let lookup_top program x_target : _ Lwt.t =
         | At_clause tc -> (
             begin
               let (Clause (_, rhs)) = tc.clause in
-              let block_point = id_of_block block in
               match rhs with 
 
               | Value_body v ->
-                deal_with_value (Some v) lookup x xs block rel_stack gate_tree
+                deal_with_value (Some v) x xs block rel_stack gate_tree
               | Input_body ->
-                deal_with_value None lookup x xs block rel_stack gate_tree
+                deal_with_value None x xs block rel_stack gate_tree
 
               (* Alias *)
               | Var_body (Var (x', _)) ->
                 let x' = Id.of_ast_id x' in
                 add_phi @@ C.eq_lookup (x::xs) rel_stack (x'::xs) rel_stack;
 
-                let sub_tree = ref Gate.pending_node in
+                let sub_tree = create_lookup_task (x'::xs) block rel_stack in        
                 gate_tree := Gate.alias si sub_tree;
 
-                push_job @@ lookup (x'::xs) block rel_stack sub_tree;
                 Lwt.return_unit
 
               (* Binop *)
@@ -124,12 +83,9 @@ let lookup_top program x_target : _ Lwt.t =
                 let x1, x2 = Id.of_ast_id x1, Id.of_ast_id x2 in
                 add_phi @@ C.bind_binop x x1 bop x2 rel_stack;
 
-                let sub_tree1 = ref Gate.pending_node in
-                let sub_tree2 = ref Gate.pending_node in
+                let sub_tree1 = create_lookup_task (x1::xs) block rel_stack in
+                let sub_tree2 = create_lookup_task (x2::xs) block rel_stack in
                 gate_tree := Gate.binop si sub_tree1 sub_tree2;
-
-                push_job @@ lookup (x1::xs) block rel_stack sub_tree1;
-                push_job @@ lookup (x2::xs) block rel_stack sub_tree2;
                 Lwt.return_unit
 
               (* Fun Exit *)
@@ -139,25 +95,35 @@ let lookup_top program x_target : _ Lwt.t =
                       let xf = Id.of_ast_id xf in
                       Logs.info (fun m -> m "FunExit: %a -> %a" Id.pp xf Id.pp_old_list fids);
 
-                      let fun_tree = ref Gate.pending_node in                
-                      push_job @@ lookup [xf] block rel_stack fun_tree;
+                      let fun_tree = create_lookup_task [xf] block rel_stack in
 
-                      let phis, sub_trees = List.fold_right (fun fid (phis, sub_trees)  -> 
+                      let ins, sub_trees = List.fold_right (fun fid (ins, sub_trees)  -> 
                           let fblock = Ident_map.find fid map in
                           let x' = Tracelet.ret_of fblock |> Id.of_ast_id in
                           let fid = Id.of_ast_id fid in
                           let rel_stack' = Relative_stack.push rel_stack x fid in
 
-                          let phi = C.and_ 
+                          (* let cf_in = C.and_ 
                               (C.bind_fun xf rel_stack fid)
-                              (C.eq_lookup (x::xs) rel_stack (x'::xs) rel_stack') in
-                          let sub_tree = ref Gate.pending_node in                
-                          push_job @@ lookup (x'::xs) fblock rel_stack' sub_tree;
+                              (C.eq_lookup (x::xs) rel_stack (x'::xs) rel_stack') in *)
+                          let cf_in = C.({
+                              stk_in = rel_stack';
+                              xs_in = x'::xs;
+                              fun_in = fid
+                            }) in
+                          let sub_tree = create_lookup_task (x'::xs) fblock rel_stack' in
 
-                          (phis @ [phi], sub_trees @ [sub_tree])
+                          (ins @ [cf_in], sub_trees @ [sub_tree])
                         ) fids ([],[]) in
 
-                      add_phi (C.only_one !gate_counter phis);
+                      let cf = C.({
+                          gid = !gate_counter;
+                          xs_out = x::xs;
+                          stk_out = rel_stack;
+                          f_out = xf;
+                          ins
+                        }) in
+                      add_phi (C.Callsite_to_fbody cf);
                       gate_tree := Gate.callsite si fun_tree !gate_counter sub_trees;
 
                       gate_counter := !gate_counter + List.length fids;
@@ -178,23 +144,21 @@ let lookup_top program x_target : _ Lwt.t =
                     else ()
                   );
 
-                  let cond_var_tree = ref Gate.pending_node in
-                  push_job @@ lookup [x'] block rel_stack cond_var_tree;
+                  let cond_var_tree = create_lookup_task [x'] block rel_stack in
 
                   let phis, sub_trees = List.fold_right (fun beta (phis, sub_trees) ->
                       let ctracelet = 
                         Cond { cond_block with choice = Some beta }
                       in
                       let x_ret = Tracelet.ret_of ctracelet |> Id.of_ast_id in
-                      let sub_tree = ref Gate.pending_node in
 
                       let cbody_stack = Relative_stack.push rel_stack x (Id.cond_fid beta) in
 
                       let phi = C.and_ 
-                          (C.bind_v x' (Value_bool beta) cbody_stack)
+                          (C.bind_v x' (Value_bool beta) rel_stack)
                           (C.eq_lookup [x] rel_stack [x_ret] cbody_stack) in
 
-                      push_job @@ lookup [x_ret] ctracelet cbody_stack sub_tree;
+                      let sub_tree = create_lookup_task [x_ret] ctracelet cbody_stack in
 
                       (phis @ [phi], sub_trees @ [sub_tree])
                     ) [true; false] ([],[]) in
@@ -232,13 +196,10 @@ let lookup_top program x_target : _ Lwt.t =
                     f_out = x'';
                   }) in
 
-                let sub_tree1 = ref Gate.pending_node in
-                push_job @@ lookup [x''] callsite_block callsite_stack sub_tree1;
-
-                let sub_tree2 = ref Gate.pending_node in
-                push_job @@ lookup (x'''::xs) callsite_block callsite_stack sub_tree2;
-
+                let sub_tree1 = create_lookup_task [x''] callsite_block callsite_stack in
+                let sub_tree2 = create_lookup_task (x'''::xs) callsite_block callsite_stack in              
                 let sub_tree = sub_tree1, sub_tree2 in
+
                 (outs @ [out], sub_trees @ [sub_tree])
               | None -> (outs, sub_trees)
             ) fb.callsites ([],[]) in
@@ -276,8 +237,7 @@ let lookup_top program x_target : _ Lwt.t =
                     f_out = x'';
                   }) in
 
-                let sub_tree = ref Gate.pending_node in
-                push_job @@ lookup (x''::x::xs) callsite_block callsite_stack sub_tree;
+                let sub_tree = create_lookup_task (x''::x::xs) callsite_block callsite_stack in
 
                 (* let sub_tree1 = ref Gate.pending_node in
                    push_job @@ lookup [x''] callsite_block callsite_stack sub_tree1; 
@@ -307,59 +267,57 @@ let lookup_top program x_target : _ Lwt.t =
         | At_chosen cb -> 
           let condsite_block = Tracelet.outer_block block map in
           let choice = BatOption.get cb.choice in
-          let condsite_stack = BatOption.get (Relative_stack.pop rel_stack (cb.point |> Id.of_ast_id) (Id.cond_fid choice)) in
+
+          let condsite_stack, paired = 
+            match (Relative_stack.pop_check_paired rel_stack (cb.point |> Id.of_ast_id) (Id.cond_fid choice)) with
+            | Some (stk, paired) -> stk, paired
+            | None -> failwith "impossible in CondTop"
+          in
           let x2 = cb.cond |> Id.of_ast_id in
-          add_phi (C.bind_v x2 (Value_bool choice) rel_stack);
 
-          let sub_tree1 = ref Gate.pending_node in
-          let sub_tree2 = ref Gate.pending_node in
+          (if paired then
+             ()
+           else
+             add_phi (C.bind_v x2 (Value_bool choice) condsite_stack)
+          );
+
+          let sub_tree1 = create_lookup_task [x2] condsite_block condsite_stack in
+          let sub_tree2 = create_lookup_task (x::xs) condsite_block condsite_stack in
           gate_tree := Gate.cond_choice si sub_tree1 sub_tree2;
-
-          push_job @@ lookup [x2] condsite_block condsite_stack sub_tree1;
-          push_job @@ lookup (x::xs) condsite_block condsite_stack sub_tree2;
           Lwt.return_unit
       in 
       kont >>= fun _ ->
-      let top_done, choices_out_done, _choices_in_done = Gate.gate_state !search_tree in
-      let choices_done = choices_out_done in
+      let (top_complete : bool), 
+          (choices_complete : bool list)
+        = Gate.gate_state !search_tree in
 
-      if top_done then
+      if top_complete then
         (
           Logs.app (fun m -> m "Search Tree Size:\t%d" (Gate.size !search_tree));
-          let z3_choice_phis = Solver_helper.Z3API.z3_gate_out_phis choices_done in
 
-          let choices_before = Std.to_indexed_list choices_done in
+          let choices_complete_z3 = Solver_helper.Z3API.z3_gate_out_phis choices_complete in
+          Logs.debug (fun m -> m "Z3_choices_complete: %a" (Fmt.(Dump.list string)) (List.map Z3.Expr.to_string choices_complete_z3));
 
-          match Solver_helper.check phi_set z3_choice_phis with
+          match Solver_helper.check phi_set choices_complete_z3 with
           | Core.Result.Ok model -> (
-              Logs.debug (fun m -> m "Solver Phis: %s" (Solver_helper.string_of_solver ()));
+              Logs.debug (fun m -> m "Solver Phis: %s" (Solver_helper.string_of_solver ()));              
               Logs.debug (fun m -> m "Model: %s" (Z3.Model.to_string model));
-              Logs.app   (fun m -> m "Model: %s" (Z3.Model.to_string model));
 
               if !gate_counter > 0 then
-                let choices_after = List.map (fun i ->
-                    let c_sym = Solver_helper.Z3API.make_choice_picked_exp i in
-                    Gate.Post (Solver_helper.Z3API.get_bool model c_sym)
+                let choices_picked = List.map (fun i ->
+                    let cp = Solver_helper.Z3API.make_choice_picked_exp i in
+                    Solver_helper.Z3API.get_bool model cp
                   ) (List.range 0 `To (!gate_counter-1))
                 in
-                let choices = choices_after in
 
-                List.iter2i (fun i cb ca ->
-                    match ca with
-                    | Gate.Post (Some true) ->
-                      if (not cb) then
-                        failwith @@ "pick a closed $c" ^ string_of_int i
-                      else
-                        ()
-                    | _ -> ()
-                  ) choices_before choices_after;
+                Logs.debug (fun m -> m "Choice (complete, picked): %a" 
+                               Fmt.Dump.(list (pair Fmt.int (pair Fmt.bool (option Fmt.bool))))
+                               (Std.with_seq (List.map2 (fun a b -> (a,b)) choices_complete choices_picked)));
 
-
-                Logs.debug (fun m -> m "Search Tree (SAT): @,%a]" (Gate.pp_compact ~choices ()) !search_tree);
-                Logs.app   (fun m -> m "Search Tree (SAT): @,%a]" (Gate.pp_compact ~choices ()) !search_tree);
-
-                let ca_with_seq = Std.with_seq choices in
-                Logs.app   (fun m -> m "Gates (SAT): %a" (Fmt.(Dump.list @@ Dump.pair int Gate.pp_choice_switch)) ca_with_seq);
+                Logs.debug (fun m -> m "Search Tree (SAT): @,%a]" 
+                               (Gate.pp_compact ~cc:choices_complete ~cp:choices_picked ()) !search_tree);
+                Logs.app   (fun m -> m "Search Tree (SAT): @,%a]"
+                               (Gate.pp_compact ~cc:choices_complete ~cp:choices_picked ()) !search_tree);
               else (
                 Logs.debug (fun m -> m "Search Tree (SAT): @,%a]" (Gate.pp_compact ()) !search_tree);
                 Logs.app   (fun m -> m "Search Tree (SAT): @,%a]" (Gate.pp_compact ()) !search_tree)
@@ -367,11 +325,9 @@ let lookup_top program x_target : _ Lwt.t =
               Lwt.fail @@ Model_result model
             ) 
           | Core.Result.Error exps -> (
-              Logs.debug (fun m -> m "Solver Phis: %s" (Solver_helper.string_of_solver ()));              
-              let choices = List.map (fun b -> Gate.Pre b) choices_before in
               Logs.debug (fun m -> m "Cores (UNSAT): %a" (Fmt.(Dump.list string)) (List.map Z3.Expr.to_string exps));
-              Logs.debug (fun m -> m "Search Tree (UNSAT): @;%a]" (Gate.pp_compact ~choices ()) !search_tree);
-              Logs.debug (fun m -> m "Gates (UNSAT): %a" (Fmt.(Dump.list string)) (List.map Z3.Expr.to_string z3_choice_phis));
+              Logs.debug (fun m -> m "Search Tree (UNSAT): @,%a]" 
+                             (Gate.pp_compact ~cc:choices_complete ()) !search_tree);
               Logs.app   (fun m -> m "UNSAT");
               Lwt.return_unit
             )
@@ -381,6 +337,67 @@ let lookup_top program x_target : _ Lwt.t =
         Logs.app   (fun m -> m "UNDONE");
         Lwt.return_unit
       )
+
+  and create_lookup_task xs block rel_stack = 
+    let block_id = (block |> Tracelet.id_of_block |> Id.of_ast_id) in
+    let lookup_key = xs, block_id, rel_stack in        
+
+    let sub_tree = ref Gate.pending_node in
+    push_job @@ lookup xs block rel_stack sub_tree;
+    sub_tree
+
+  (* 
+    match (Core.Map.find !lookup_task_map lookup_key) with
+    | Some tree -> ref (Gate.Proxy tree)
+    | None -> (
+        let sub_tree = ref Gate.pending_node in
+        lookup_task_map := Core.Map.add_exn !lookup_task_map ~key:lookup_key ~data:sub_tree;
+        push_job @@ lookup xs block rel_stack sub_tree;
+        sub_tree
+      ) 
+  *)                        
+
+  and deal_with_value mv x xs block rel_stack gate_tree = 
+    let si : Gate.search_info = (x, xs, rel_stack) in
+    let block_id = id_of_block block in
+
+    (* Discovery Main & Non-Main *)
+    if List.is_empty xs then (
+      (match mv with
+       | Some (Value_function _) -> add_phi @@ C.bind_fun x rel_stack x;
+       | Some v -> add_phi @@ C.bind_v x v rel_stack
+       | None -> add_phi @@ C.bind_input x rel_stack
+      );
+      if block_id = id_main then (
+        (* Discovery Main *)
+        let target_stk = Relative_stack.concretize rel_stack in
+        add_phi @@ C.Target_stack target_stk;
+        gate_tree := Gate.done_ si target_stk )
+
+      else (
+        (* Discovery Non-Main *)
+        let child_tree = create_lookup_task [Id.of_ast_id x_first] block rel_stack in
+        gate_tree := Gate.to_first si child_tree
+        (* 
+        let sub_tree = ref Gate.pending_node in
+        gate_tree := Gate.to_first si sub_tree;
+        push_job @@ lookup [Id.of_ast_id x_first] block rel_stack sub_tree 
+        *)
+      ))
+
+    else (
+      (* Discard *)
+      match mv with
+      | Some (Value_function _f) -> (
+          add_phi @@ C.eq_lookup (x::xs) rel_stack xs rel_stack;
+          add_phi @@ C.bind_fun x rel_stack x;
+          let sub_tree = create_lookup_task xs block rel_stack in
+          gate_tree := Gate.discard si sub_tree
+        )
+      | _ -> 
+        gate_tree := Gate.mismatch si
+    );
+    Lwt.return_unit
 
   in
   let block0 = Tracelet.find_by_id x_target map in

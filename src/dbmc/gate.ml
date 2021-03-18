@@ -7,6 +7,7 @@ type gate_id = int
 
 type node = 
   | Pending
+  | Proxy of node ref
   | Rule of search_info * rule_info
 and search_info = 
   Id.t * Lookup_stack.t * Relative_stack.t
@@ -50,27 +51,39 @@ let cond_choice si nc nr = Rule(si, Cond_choice(nc,nr))
 let deref_list nr = List.map nr ~f:Ref.(!)
 let deref_pair_list nr = List.map nr ~f:(fun (x,y) -> !x,!y)
 
-let pp_compact ?choices () fmter node =
+let pp_compact ?cc ?cp () fmter node =
   let open Fmt in 
   let pp_choice oc i = 
-    match choices with
-    | Some choices -> 
-      let state = 
-        match List.nth_exn choices i with
-        | Pre true -> " ~ done"
-        | Pre false -> " ~ undone"
-        | Post (Some false) -> " ~ f"
-        | Post (Some true) -> " ~ t"
-        | Post None -> " ~ n/a"
-      in
-      pf oc "{$c%04d%s}" i state
-    | None -> pf oc "{$c%d}" i
+    begin
+      match cc with
+      | Some cc -> 
+        let state = 
+          match List.nth_exn cc i with
+          | true -> " ~ done"
+          | false -> " ~ undone"
+        in
+        pf oc "{$cc%03d%s}" i state
+      | None -> ()
+    end;
+    begin
+      match cp with
+      | Some cp -> 
+        let state = 
+          match List.nth_exn cp i with
+          | Some true -> " - picked"
+          | Some false -> " - not picked"
+          | None -> " - "
+        in
+        pf oc "{$cp%03d%s}" i state
+      | None -> ()
+    end
   in
   let rec pp_this fmter node =
     let pp_nodes = Std.pp_with_seq ~pp_int:pp_choice pp_this in
     let pp_node_pairs = Std.pp_with_seq ~pp_int:pp_choice (pair ~sep:(cut ++ (any "& ")) pp_this pp_this) in
     match node with
     | Pending -> pf fmter "Pending"
+    | Proxy _ -> pf fmter "Proxy"
     | Rule ((x,xs,rstk), nd) ->
       pf fmter "@[<v 2>";
       begin
@@ -120,13 +133,14 @@ apparently, we have these two approaches to encode gates.
    2. the out-ports map to the control variables
 *)
 
-(* the in-port approach *)
+(* the out-port approach *)
 let rec gate_state = function
-  | Pending -> false, [], []
+  | Pending -> false, []
+  | Proxy tree -> gate_state !tree
   | Rule (_si, rule_info) -> begin
       match rule_info with
-      | Done _ -> true, [], []
-      | Mismatch -> false, [], []
+      | Done _ -> true, []
+      | Mismatch -> false, []
 
       | Discard nr
       | Alias nr
@@ -136,53 +150,50 @@ let rec gate_state = function
       | Cond_choice(nc,nr) -> fold true (&&) [nc;nr]
 
       | Callsite(nfun, gid, ncs) ->
-        let fun_done, fun_gates, fun_ins = gate_state !nfun in
-        let sub_done, sub_gates, sub_ins = fold_gid false (||) gid ncs in
+        let fun_done, fun_gates = gate_state !nfun in
+        let sub_done, sub_gates = fold_gid false (||) gid ncs in
         let this_done = fun_done && sub_done in
-        this_done, fun_gates @ sub_gates, (gid, this_done) :: fun_ins @ sub_ins
+        this_done, fun_gates @ sub_gates
       | Condsite(nc, gid, ncs) ->
-        let cv_done, cv_gates, cv_ins = gate_state !nc in
-        let cb_done, cb_gates, cb_ins = fold_gid false (||) gid ncs in
+        let cv_done, cv_gates = gate_state !nc in
+        let cb_done, cb_gates = fold_gid false (||) gid ncs in
         let this_done = cv_done && cb_done in
-        this_done, cv_gates @ cb_gates, (gid, this_done) :: cv_ins @ cb_ins
+        this_done, cv_gates @ cb_gates
 
       | Para_local(gid, ncs) ->
-        let this_done, this_outs, this_ins = 
-          List.foldi ncs ~init:(false, [], []) ~f:(fun i (acc_done, acc_xs, acc_ys) (fun_node, arg_node) ->
-              let fun_done, fun_gates, fun_ins = gate_state !fun_node in
-              let arg_done, arg_gates, arg_ins = gate_state !arg_node in
-              let this_done = fun_done && arg_done in
-              acc_done || this_done, (gid+i, this_done)::fun_gates @ arg_gates @ acc_xs, fun_ins @ arg_ins @ acc_ys
-            )
-        in
-        this_done, this_outs, (gid, this_done)::this_ins
-
-      | Para_nonlocal(gid, ncs) ->
-        let this_done, this_outs, this_ins = 
-          fold_gid false (||) gid ncs in
-        this_done, this_outs, (gid, this_done)::this_ins
-        (* | Para_nonlocal(gid, ncs) ->
-           List.foldi ncs ~init:(false, []) ~f:(fun i (acc_done, acc_xs) (fun_node, arg_node) ->
+        let this_done, this_outs = 
+          List.foldi ncs ~init:(false, []) ~f:(fun i (acc_done, acc_xs) (fun_node, arg_node) ->
               let fun_done, fun_gates = gate_state !fun_node in
               let arg_done, arg_gates = gate_state !arg_node in
               let this_done = fun_done && arg_done in
-              acc_done || this_done, (gid+i, this_done)::fun_gates @ arg_gates @ acc_xs
-            ) *)
+              acc_done || this_done, (gid+i, this_done) :: fun_gates @ arg_gates @ acc_xs
+            )
+        in
+        this_done, this_outs
+
+      | Para_nonlocal(gid, ncs) ->
+        fold_gid false (||) gid ncs
     end
 
 and fold linit lop ns = 
-  List.fold ns ~init:(linit, [], []) ~f:(fun (acc_done, acc_xs, acc_ys) child ->
-      let is_done, xs, ys = gate_state !child in
-      lop acc_done is_done, xs @ acc_xs, ys @ acc_ys
+  List.fold ns ~init:(linit, []) ~f:(fun (acc_done, acc_xs) child ->
+      let is_done, xs = gate_state !child in
+      lop acc_done is_done, xs @ acc_xs
     )
 and fold_gid linit lop gid ns = 
-  List.foldi ns ~init:(linit, [], []) ~f:(fun i (acc_done, acc_xs, acc_ys) child ->
-      let is_done, xs, ys = gate_state !child in
-      lop acc_done is_done, (gid+i, is_done)::xs @ acc_xs, ys @ acc_ys
+  List.foldi ns ~init:(linit, []) ~f:(fun i (acc_done, acc_xs) child ->
+      let is_done, xs = gate_state !child in
+      lop acc_done is_done, (gid+i, is_done)::xs @ acc_xs
     )
 
-let chosen_path gates tree = 
-  let rec loop = function
+let gate_state tree = 
+  let t, ccs = gate_state tree in
+  let ccs_indexed = Std.to_indexed_list ccs in
+  t, ccs_indexed
+
+
+(* let chosen_path gates tree = 
+   let rec loop = function
     | Pending -> None
     | Rule(_, ri) -> begin
         match ri with
@@ -235,13 +246,14 @@ let chosen_path gates tree =
                 None
             )
       end
-  in
-  loop tree |> Option.value_exn
+   in
+   loop tree |> Option.value_exn *)
 
 let sum f childs = List.sum (module Int) childs ~f:(fun child -> f !child)
 
 let rec size = function
   | Pending -> 1
+  | Proxy _ -> 1
   | Rule(_, ri) -> 
     begin
       match ri with

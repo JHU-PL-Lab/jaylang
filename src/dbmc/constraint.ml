@@ -30,6 +30,22 @@ module T = struct
   }
   [@@deriving sexp, compare, equal, show {with_path = false}]
 
+  type cf_in = {
+    xs_in : Id.t list;
+    stk_in : Relative_stack.t;
+    fun_in : Id.t;
+  }
+  [@@deriving sexp, compare, equal, show {with_path = false}]
+
+  type cf = {
+    gid : int;
+    xs_out : Id.t list;
+    stk_out : Relative_stack.t;
+    f_out : Id.t;
+    ins : cf_in list;
+  }
+  [@@deriving sexp, compare, equal, show {with_path = false}]
+
   type t = 
     | Eq_v of Symbol.t * value
     | Eq_x of Symbol.t * Symbol.t
@@ -40,6 +56,7 @@ module T = struct
     | C_and of t * t
     | C_exclusive_gate of int * t list
     | Fbody_to_callsite of fc
+    | Callsite_to_fbody of cf
   [@@deriving sexp, compare, equal]
 
 end
@@ -81,6 +98,10 @@ let rec pp oc t =
   | Fbody_to_callsite fc -> (
       let gid = fc.gid in
       pf oc "@[<v 2>Fbody_to_callsite(%d): @,%a@]" gid (list ~sep:sp pp_fc_out) fc.outs
+    )
+  | Callsite_to_fbody cf -> (
+      let gid = cf.gid in
+      pf oc "@[<v 2>Callsite_to_fbody(%d): @,%a@]" gid (list ~sep:sp pp_cf_in) cf.ins
     )
 
 let show = Fmt.to_to_string pp

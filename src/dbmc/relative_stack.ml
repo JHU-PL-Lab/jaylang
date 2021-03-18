@@ -25,8 +25,8 @@ module T = struct
 
   let pp_frame oc frame = 
     match frame with
-    | Pairable (cs, fid) -> Fmt.(pf oc "-(%a,%a)" pp_callsite cs pp_callsite fid)
-    | Dangling (cs, fid) -> Fmt.(pf oc "+(%a,%a)" pp_callsite cs pp_callsite fid)
+    | Pairable (cs, fid) -> Fmt.(pf oc "+(%a,%a)" pp_callsite cs pp_callsite fid)
+    | Dangling (cs, fid) -> Fmt.(pf oc "-(%a,%a)" pp_callsite cs pp_callsite fid)
   let show_frame = Fmt.to_to_string pp_frame
 
   type t = frame list * frame list
@@ -58,18 +58,23 @@ let paired_callsite (_co_stk,stk) this_f =
   | _ :: _ ->
     failwith "paired_callsite 2"  
 
-let pop (co_stk,stk) callsite fid = 
+let pop_check_paired (co_stk,stk) callsite fid = 
   match stk with
   | Pairable(cs, _) ::stk' ->
     if Id.equal cs callsite then
-      Some (co_stk, stk')
+      Some ((co_stk, stk'), true)
     else
       (* failwith "dismatch" *)
       None
   | _ :: _ ->
     failwith "frame mismatch"
   | [] ->
-    Some (Dangling(callsite,fid)::co_stk, stk)
+    Some ((Dangling(callsite,fid)::co_stk, stk), false)
+
+let pop rel_stack callsite fid =
+  match pop_check_paired rel_stack callsite fid with
+  | Some (stk, _ ) -> Some stk
+  | None -> None
 
 let concretize (co_stk,stk) : Concrete_stack.t =
   if not @@ List.is_empty stk then

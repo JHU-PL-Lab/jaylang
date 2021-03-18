@@ -13,7 +13,7 @@ module Make (C : Context) () = struct
 
   let get_new_sym () = 
     let last = !_counter in 
-    let name = Fmt.str "$s%04d" last in
+    let name = Fmt.str "$s%03d" last in
     Int.incr _counter;
     Symbol.mk_string ctx name
 
@@ -158,26 +158,24 @@ module Make (C : Context) () = struct
       )
     | [] -> failwith "name_of_lookup empty"
 
-  let z3_gate_out_phis dones =
-    List.filter_map dones ~f:(fun (cid, is_done) ->
+  let z3_gate_out_phis ccs =
+    (* List.filter_map dones ~f:(fun (cid, is_done) ->
         if is_done then
           None
         else
           Some (Z3.Boolean.(
               mk_eq ctx 
-                (make_choice_picked_exp cid)
-                (Z3.Boolean.mk_false ctx)
+                (make_choice_complete_exp cid)
+                (Z3.Boolean.mk_val ctx is_done)
             ))
-      )
-  (* 
-  let z3_gate_in_phis dones =
-    List.map dones ~f:(fun (gid, is_done) ->
+       ) *)
+    List.mapi ccs ~f:(fun i cc ->
         Z3.Boolean.(
           mk_eq ctx 
-            (Z3.Boolean.mk_const ctx (gate_of_counter gid))
-            (Z3.Boolean.mk_val ctx is_done)
+            (make_choice_complete_exp i)
+            (Z3.Boolean.mk_val ctx cc)
         )
-      ) *)
+      ) 
 
   let rec z3_phis_of_smt_phi = function
     | Constraint.Eq_v (sx, cv) -> 
@@ -225,9 +223,25 @@ module Make (C : Context) () = struct
       join [e1; e2]
 
     | Constraint.C_exclusive_gate (gid, cs) ->
-      let choice_picked_vars = List.mapi cs ~f:(fun i _ -> make_choice_picked_exp (gid + i)) in
+      let cs_picked = List.mapi cs ~f:(fun i _ -> make_choice_picked_exp (gid + i)) in
+      let cs_complete  = List.mapi cs ~f:(fun i _ -> make_choice_complete_exp (gid + i)) in
       let payloads = List.map cs ~f:z3_phis_of_smt_phi in
-      make_exclusive choice_picked_vars payloads
+
+      let only_pick_the_complete = 
+        List.map2_exn cs_picked cs_complete ~f:(@=>)
+        |> join
+      in
+      let exclusion = make_exclusive cs_picked payloads in
+      let no_paths_complete = join (List.map cs_complete ~f:not_) in
+
+      (* exclusion *)
+      or_ [
+        join [
+          only_pick_the_complete;
+          exclusion;
+        ];
+        no_paths_complete
+      ]
 
     | Constraint.Fbody_to_callsite (fc) ->
       let gid = fc.gid in
@@ -243,9 +257,7 @@ module Make (C : Context) () = struct
       in
 
       (* not(c1c)  AND  not(c2c) *)
-      let no_paths_complete = 
-        join (List.map cs_complete ~f:not_)
-      in
+      let no_paths_complete = join (List.map cs_complete ~f:not_) in
 
       (* (c1c -> [𝑥1]!=ThisFun(𝐶))  AND  (c2c -> [𝑥2]!=ThisFun(𝐶)) *)
       let all_complete_paths_invalid = 
@@ -267,9 +279,9 @@ module Make (C : Context) () = struct
         (* c1p  =>  [𝑥]||𝑋=[𝑥1,𝑥]||𝑋 ∧  [𝑥1]=ThisFun(𝐶) *)
         let only_pick_the_valid = 
           List.mapi cs_picked ~f:(fun i cp ->
-              let eq_fid = List.nth_exn eq_fids i in
               let eq_lookup = List.nth_exn eq_lookups i in
-              cp @=> (and2 eq_fid eq_lookup)
+              let eq_fid = List.nth_exn eq_fids i in
+              cp @=> (and2 eq_lookup eq_fid)
             )
           |> join
         in
@@ -279,13 +291,61 @@ module Make (C : Context) () = struct
           only_pick_the_valid
         ]
       in
+
       or_ [
         no_paths_complete;
         all_complete_paths_invalid;
         picked_a_complete_path
       ]
 
-    (* exclusive_work *)
+    | Constraint.Callsite_to_fbody (cf) ->
+      let gid = cf.gid in
+      let cs_picked = List.mapi cf.ins ~f:(fun i _ -> make_choice_picked_exp (gid + i)) in
+      let cs_complete  = List.mapi cf.ins ~f:(fun i _ -> make_choice_complete_exp (gid + i)) in
+      let eq_lookups = List.map cf.ins ~f:(fun in_ ->
+          Constraint.eq_lookup cf.xs_out cf.stk_out in_.xs_in in_.stk_in
+          |> z3_phis_of_smt_phi)
+      in
+      let eq_fids = List.map cf.ins ~f:(fun in_ ->
+          Constraint.bind_fun cf.f_out cf.stk_out in_.fun_in
+          |> z3_phis_of_smt_phi) in
+
+      (* cs_complete_i is determined by the L(x_f,C) and L(x'_i, C'_i),
+          in which L(x_f,C) is shared by each cs_complete_i
+      *)
+      let no_paths_complete = join (List.map cs_complete ~f:not_) in
+      let all_complete_paths_invalid = 
+        List.mapi cs_complete ~f:(fun i cc_i -> 
+            let eq_fid = List.nth_exn eq_fids i in
+            cc_i @=> (not_ eq_fid)
+          ) 
+        |> join in
+
+      let picked_a_complete_path = 
+        let exclusion = make_exclusion cs_picked in
+        let only_pick_the_complete = 
+          List.map2_exn cs_picked cs_complete ~f:(@=>)
+          |> join in
+        let only_pick_the_valid = 
+          List.mapi cs_picked ~f:(fun i cp ->
+              let eq_lookup = List.nth_exn eq_lookups i in
+              let eq_fid = List.nth_exn eq_fids i in
+              cp @=> (and2 eq_lookup eq_fid)
+            )
+          |> join in
+
+        join [
+          exclusion;
+          only_pick_the_complete;
+          only_pick_the_valid
+        ]
+      in
+
+      or_ [
+        no_paths_complete;
+        all_complete_paths_invalid;
+        picked_a_complete_path
+      ]
 
     | Constraint.Target_stack _stk
       (* -> (let open StringSort in
