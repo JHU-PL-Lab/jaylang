@@ -1,0 +1,4 @@
+version = 0.17.0
+# if-then-else={compact|fit-or-vertical|keyword-first|k-r}
+if-then-else = fit-or-vertical
+# profile = janestreet

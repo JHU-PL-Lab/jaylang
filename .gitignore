@@ -2,11 +2,10 @@
 # The following because OcaIDE changes the path file regularly...
 /.paths
 
-# OASIS temp files
-/_build
-/*.byte
-/*.native
-/setup.*
+# ocaml ecosystem
+_esy
+_opam
+_build
 
 # Execution temp files
 /*.log
