@@ -27,7 +27,6 @@ module T = struct
   [@@deriving sexp, compare, equal, show { with_path = false }]
 
   type fc = {
-    gid : int;
     xs_in : Id.t list;
     stk_in : Relative_stack.t;
     fun_in : Id.t;
@@ -39,7 +38,6 @@ module T = struct
   [@@deriving sexp, compare, equal, show { with_path = false }]
 
   type cf = {
-    gid : int;
     xs_out : Id.t list;
     stk_out : Relative_stack.t;
     site : Id.t;
@@ -116,13 +114,9 @@ let rec pp oc t =
   | C_cond_bottom (site, _, ts) ->
       pf oc "@[<v 2>Cond_bottom(%a): @,%a@]" Id.pp site (list ~sep:sp pp) ts
   | Fbody_to_callsite fc ->
-      let gid = fc.gid in
-      pf oc "@[<v 2>Fbody_to_callsite(%d): @,%a@]" gid (list ~sep:sp pp_fc_out)
-        fc.outs
+      pf oc "@[<v 2>Fbody_to_callsite: @,%a@]" (list ~sep:sp pp_fc_out) fc.outs
   | Callsite_to_fbody cf ->
-      let gid = cf.gid in
-      pf oc "@[<v 2>Callsite_to_fbody(%d): @,%a@]" gid (list ~sep:sp pp_cf_in)
-        cf.ins
+      pf oc "@[<v 2>Callsite_to_fbody: @,%a@]" (list ~sep:sp pp_cf_in) cf.ins
 
 let show = Fmt.to_to_string pp
 

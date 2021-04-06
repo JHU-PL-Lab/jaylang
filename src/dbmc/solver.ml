@@ -267,7 +267,6 @@ module Make (C : Context) () = struct
         (* exclusion *)
         or_ [ join [ only_pick_the_complete; exclusion ]; no_paths_complete ]
     | Constraint.Fbody_to_callsite fc ->
-        let gid = fc.gid in
         let cs_picked =
           List.map fc.outs ~f:(fun out ->
               Constraint.mk_cvar_core ~from_id:fc.fun_in ~to_id:out.f_out
@@ -323,7 +322,6 @@ module Make (C : Context) () = struct
             picked_a_complete_path;
           ]
     | Constraint.Callsite_to_fbody cf ->
-        let gid = cf.gid in
         let cs_picked =
           List.map cf.ins ~f:(fun in_ ->
               Constraint.mk_cvar_core ~from_id:cf.f_out ~to_id:in_.fun_in
