@@ -1,4 +1,6 @@
-version = 0.17.0
 # if-then-else={compact|fit-or-vertical|keyword-first|k-r}
 if-then-else = fit-or-vertical
-# profile = janestreet
+# break-cases={fit|nested|toplevel|fit-or-vertical|all}
+parse-docstrings = true
+sequence-blank-line = preserve-one
+# wrap-comments = true
