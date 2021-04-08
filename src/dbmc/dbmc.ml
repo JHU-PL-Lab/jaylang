@@ -306,21 +306,23 @@ let lookup_top program x_target : _ Lwt.t =
           Lwt.return_unit
     in
     kont >>= fun _ ->
-    let (top_complete : bool), (choices_complete : (string * bool) list) =
-      Gate.gate_state !search_tree
+    let ( (top_complete : bool),
+          (cvar_complete_map : (string, bool) Core.Hashtbl.t) ) =
+      Gate.get_c_vars_and_complete !search_tree
     in
 
     if top_complete then (
       Logs.app (fun m -> m "Search Tree Size:\t%d" (Gate.size !search_tree));
+      let choices_complete = Core.Hashtbl.to_alist cvar_complete_map in
 
       let choices_complete_z3 =
         Solver_helper.Z3API.z3_gate_out_phis choices_complete
       in
-      Logs.debug (fun m ->
+
+      (* Logs.debug (fun m ->
           m "Z3_choices_complete: %a"
             Fmt.(Dump.list string)
-            (List.map Z3.Expr.to_string choices_complete_z3));
-
+            (List.map Z3.Expr.to_string choices_complete_z3)); *)
       match Solver_helper.check phi_set choices_complete_z3 with
       | Core.Result.Ok model ->
           Logs.debug (fun m ->
@@ -332,21 +334,22 @@ let lookup_top program x_target : _ Lwt.t =
 
           if !gate_counter > 0 then
             let choices_complete_and_picked =
-              List.map
-                (fun (cname, cval) ->
+              Core.Hashtbl.mapi
+                ~f:(fun ~key:cname ~data:cc ->
                   let cp =
                     Constraint.mk_cvar_picked cname
                     |> Solver_helper.Z3API.boole_of_str
+                    |> Solver_helper.Z3API.get_bool model
                   in
-                  (cname, (cval, Solver_helper.Z3API.get_bool model cp)))
-                choices_complete
+                  (cc, cp))
+                cvar_complete_map
             in
 
             Logs.debug (fun m ->
                 m "Choice (complete, picked): %a"
                   Fmt.Dump.(
                     list (pair Fmt.string (pair Fmt.bool (option Fmt.bool))))
-                  choices_complete_and_picked)
+                  (Core.Hashtbl.to_alist choices_complete_and_picked))
           (* Logs.debug (fun m ->
                  m "Search Tree (SAT): @,%a]"
                    (Gate.pp_compact ~ccpp:choices_complete_and_picked ())

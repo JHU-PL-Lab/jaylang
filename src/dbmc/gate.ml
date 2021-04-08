@@ -78,7 +78,7 @@ let cvar_name_cores node =
       List.map fc.outs ~f:(fun out ->
           Constraint.mk_cvar_core ~from_id:fc.fun_in ~to_id:out.f_out ~site:None
             fc.stk_in)
-  | _ -> failwith "n/a"
+  | _ -> []
 
 (* 
 apparently, we have these two approaches to encode gates.
@@ -151,6 +151,75 @@ let gate_state tree =
       ccs
   in
   (t, ccs_unique)
+
+(* 
+cvars is actually some real or virtual out-edges of a node.
+In node-based-recursive function, it's OK to set the cvar for 
+the node associated with that edge
+
+visited_map works as memo for node via node.key
+cvar_map remembers all cvar_core
+
+Noting visited_map works for all nodes, while
+cvar_map just works for some edges.
+it's a workaround to put cvar as an optional argument,
+and that's why we first check visited_map and then check cvar_map
+
+*)
+let get_c_vars_and_complete node =
+  let post_and x y = x && y in
+  let post_or x y = x || y in
+  let visited_map = Hashtbl.create (module Lookup_key) in
+  let cvar_map = Hashtbl.create (module String) in
+  let rec loop ?cvar node =
+    let done_ =
+      match Hashtbl.find visited_map node.key with
+      | Some done_ -> done_
+      | None ->
+          let cvars = cvar_name_cores node in
+          let done_ =
+            match node.rule with
+            | Pending -> false
+            | Done _ -> true
+            | Mismatch -> false
+            | Proxy next | Discard next | Alias next | To_first next ->
+                loop !next
+            | Binop (nr1, nr2) ->
+                List.fold [ nr1; nr2 ] ~init:true ~f:(fun acc nr ->
+                    post_and (loop !nr) acc)
+            | Cond_choice (nc, nr) ->
+                List.fold [ nc; nr ] ~init:true ~f:(fun acc nr ->
+                    post_and (loop !nr) acc)
+            | Callsite (nf, ncs, _) ->
+                let sf = loop !nf in
+                post_and sf
+                  (List.fold2_exn ncs cvars ~init:false ~f:(fun acc nr cvar ->
+                       post_or (loop ~cvar !nr) acc))
+            | Condsite (nc, ncs) ->
+                post_and (loop !nc)
+                  (List.fold2_exn ncs cvars ~init:false ~f:(fun acc nr cvar ->
+                       post_or (loop ~cvar !nr) acc))
+            | Para_local (ncs, _) ->
+                List.fold2_exn ncs cvars ~init:false
+                  ~f:(fun acc (nf, na) cvar ->
+                    let this_done = post_and (loop !nf) (loop !na) in
+                    (* special case for cvar since this cvar is not a real edge *)
+                    ignore @@ Hashtbl.add cvar_map ~key:cvar ~data:this_done;
+                    post_or this_done acc)
+            | Para_nonlocal (ncs, _) ->
+                List.fold2_exn ncs cvars ~init:false ~f:(fun acc nr cvar ->
+                    post_or (loop ~cvar !nr) acc)
+          in
+          Hashtbl.add_exn visited_map ~key:node.key ~data:done_;
+          done_
+    in
+    (match cvar with
+    | Some cvar -> Hashtbl.add_exn cvar_map ~key:cvar ~data:done_
+    | None -> ());
+    done_
+  in
+  let top_done = loop node in
+  (top_done, cvar_map)
 
 let sum f childs = List.sum (module Int) childs ~f:(fun child -> f !child)
 
