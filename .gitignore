@@ -1,6 +1,3 @@
-# Eclipse config files
-# The following because OcaIDE changes the path file regularly...
-/.paths
 
 # ocaml ecosystem
 _esy
@@ -14,6 +11,7 @@ _build
 /*.dot
 /*.pdf
 /*.log.json
+dot
 
 # Custom build configuration files
 /.local_*
@@ -29,3 +27,4 @@ _build
 /test_generator
 /translator
 /sandbox
+.vscode/settings.json
