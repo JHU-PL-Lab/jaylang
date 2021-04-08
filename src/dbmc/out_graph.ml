@@ -64,21 +64,17 @@ module String_label = struct
 end
 
 module Palette = struct
-  (* #FFFFFF *)
-  let white = 16777215
+  let int_of_rgb r g b = (r * 256 * 256) + (g * 256) + b
 
-  (* #000000 *)
+  let white = int_of_rgb 255 255 255
 
-  let black = 0
+  let black = int_of_rgb 0 0 0
 
-  (* #FF0000 *)
-  let red = 16711680
+  let red = int_of_rgb 255 0 0
 
-  (* #0000FF *)
-  let blue = 255
+  let blue = int_of_rgb 0 0 255
 
-  (* #00FF00 *)
-  let lime = 65280
+  let lime = int_of_rgb 0 255 0
 end
 
 module G =
