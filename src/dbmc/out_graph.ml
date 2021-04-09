@@ -1,72 +1,29 @@
 open Core
 
-(* module Search_edge = struct
-  type t = Constraint.t list
-
-  let compare = List.compare Constraint.compare
-
-  let default = []
-end *)
-
-(* type node_type =
-      | Pending
-      | Proxy
-      | Done
-      | Mismatch
-      | Discard
-      | Alias
-      | To_first
-      | Binop
-      | Cond_choice
-      | Callsite
-      | Condsite
-      | Para_local
-      | Para_nonlocal
-    [@@deriving show { with_path = false }]
-
-    type node_key = { block_id : Id.t; key : Lookup_key.t; node_type : node_type }
-
-    type t = (node_key, string) Either.t
-
-    let of_gate_node (gnode : Gate.t) : t =
-      let block_id = gnode.block_id in
-      let key = gnode.key in
-      let node_type =
-        match gnode.rule with
-        | Gate.Pending -> Pending
-        | Gate.Proxy _ -> Proxy
-        | Gate.Done _ -> Done
-        | Gate.Mismatch -> Mismatch
-        | Gate.Discard _ -> Discard
-        | Gate.Alias _ -> Alias
-        | Gate.To_first _ -> To_first
-        | Gate.Binop _ -> Binop
-        | Gate.Cond_choice _ -> Cond_choice
-        | Gate.Callsite _ -> Callsite
-        | Gate.Condsite _ -> Condsite
-        | Gate.Para_local _ -> Para_local
-        | Gate.Para_nonlocal _ -> Para_nonlocal
-      in
-      { block_id; key; node_type } *)
-
-module Search_vertex = struct
+module Node_vertex = struct
   type t = (Gate.t, string) Either.t [@@deriving compare, equal]
 
   let hash = Hashtbl.hash
 end
 
-module String_label = struct
-  type t = string
+module Edge_label = struct
+  type edge_info = { cvar : string }
 
-  let compare = String.compare
+  and t = (edge_info, string) Either.t [@@deriving compare, equal]
 
-  let default = ""
+  (* let compare = String.compare *)
+
+  let default = Either.second ""
 end
 
 module Palette = struct
   let int_of_rgb r g b = (r * 256 * 256) + (g * 256) + b
 
   let white = int_of_rgb 255 255 255
+
+  let light = int_of_rgb 200 200 200
+
+  let dark = int_of_rgb 100 100 100
 
   let black = int_of_rgb 0 0 0
 
@@ -77,24 +34,38 @@ module Palette = struct
   let lime = int_of_rgb 0 255 0
 end
 
-module G =
-  Graph.Imperative.Digraph.ConcreteLabeled (Search_vertex) (String_label)
+module G = Graph.Imperative.Digraph.ConcreteLabeled (Node_vertex) (Edge_label)
 
 let node_rule_set = Hashtbl.create (module Lookup_key)
 
-let source_map = ref Odefa_ast.Ast.Ident_map.empty
+type graph_info_type = {
+  source_map : Odefa_ast.Ast.clause Odefa_ast.Ast.Ident_map.t;
+  block_map : Tracelet.t Odefa_ast.Ast.Ident_map.t;
+  cvar_complete_map : (string, bool) Hashtbl.t;
+  cvar_picked_map : (string, bool) Hashtbl.t;
+}
 
-let block_map : Tracelet.t Odefa_ast.Ast.Ident_map.t ref =
-  ref Odefa_ast.Ast.Ident_map.empty
+let graph_info =
+  ref
+    {
+      source_map = Odefa_ast.Ast.Ident_map.empty;
+      block_map = Odefa_ast.Ast.Ident_map.empty;
+      cvar_complete_map = Hashtbl.create (module String);
+      cvar_picked_map = Hashtbl.create (module String);
+    }
 
 let graph_of_gate_tree tree =
   let g = G.create () in
   let counter = ref 0 in
-  let add_node_edge prev this =
-    match prev with
-    | None -> G.add_vertex g (Either.first this)
-    | Some prev -> G.add_edge g (Either.first prev) (Either.first this)
-    (* G.add_edge_e g (G.E.create prev "" this) *)
+  let add_node_edge ~cvar prev this =
+    match (prev, cvar) with
+    | None, _ -> G.add_vertex g (Either.first this)
+    | Some prev, None -> G.add_edge g (Either.first prev) (Either.first this)
+    | Some prev, Some cvar ->
+        G.add_edge_e g
+          (G.E.create (Either.first prev)
+             (Either.first Edge_label.{ cvar })
+             (Either.first this))
   in
   let add_terminal node ending =
     match node with
@@ -104,66 +75,82 @@ let graph_of_gate_tree tree =
         G.add_edge g (Either.first node)
           (Either.second (Fmt.str "%s %d" ending !counter))
   in
-  let rec loop_tree ?(one_step = false) (prev : Gate.node option)
+  let rec loop_tree ?cvar ?(one_step = false) (prev : Gate.node option)
       (this : Gate.node) =
-    let loop prev this = if one_step then () else loop_tree prev this in
+    let loop ?cvar prev this =
+      if one_step then
+        ()
+      else
+        match cvar with
+        | Some cvar -> loop_tree ~cvar prev this
+        | None -> loop_tree prev this
+    in
     let add_node_rule ~key ~data =
       ignore @@ Hashtbl.add node_rule_set ~key ~data
     in
+    let rule_name = Gate.rule_name this.rule in
+    let data = rule_name in
     match this.rule with
     | Pending ->
         (* add_terminal prev "pending .." *)
-        add_node_rule ~key:this.key ~data:"Pending";
-        add_node_edge prev this
-    | Proxy _next ->
-        add_node_rule ~key:this.key ~data:"Proxy";
-        add_node_edge prev this (* loop_tree ~one_step:true (Some this) !next *)
+        add_node_rule ~key:this.key ~data;
+        add_node_edge ~cvar prev this
+    | Proxy next ->
+        (* add_node_rule ~key:this.key ~data; *)
+        add_node_edge ~cvar prev !next
+        (* loop_tree ~one_step:true (Some this) !next *)
     | Done _ ->
-        add_node_rule ~key:this.key ~data:"Done";
-        add_node_edge prev this
+        add_node_rule ~key:this.key ~data;
+        add_node_edge ~cvar prev this
     | Mismatch ->
-        add_node_rule ~key:this.key ~data:"Mismatch";
-        add_node_edge prev this
+        add_node_rule ~key:this.key ~data;
+        add_node_edge ~cvar prev this
     | Discard next ->
-        add_node_rule ~key:this.key ~data:"Discard";
-        add_node_edge prev this;
+        add_node_rule ~key:this.key ~data;
+        add_node_edge ~cvar prev this;
         loop (Some this) !next
     | Alias next ->
-        add_node_rule ~key:this.key ~data:"Alias";
-        add_node_edge prev this;
+        add_node_rule ~key:this.key ~data;
+        add_node_edge ~cvar prev this;
         loop (Some this) !next
     | To_first next ->
-        add_node_rule ~key:this.key ~data:"To_first";
-        add_node_edge prev this;
+        add_node_rule ~key:this.key ~data;
+        add_node_edge ~cvar prev this;
         loop (Some this) !next
     | Binop (n1, n2) ->
-        add_node_rule ~key:this.key ~data:"Binop";
-        add_node_edge prev this;
+        add_node_rule ~key:this.key ~data;
+        add_node_edge ~cvar prev this;
         List.iter ~f:(fun n -> loop (Some this) !n) [ n1; n2 ]
     | Cond_choice (n1, n2) ->
-        add_node_rule ~key:this.key ~data:"Cond_choice";
-        add_node_edge prev this;
+        add_node_rule ~key:this.key ~data;
+        add_node_edge ~cvar prev this;
         List.iter ~f:(fun n -> loop (Some this) !n) [ n1; n2 ]
     | Callsite (nf, nb, _) ->
-        add_node_rule ~key:this.key ~data:"Callsite";
-        add_node_edge prev this;
-        List.iter ~f:(fun n -> loop (Some this) !n) (nf :: nb)
-    | Condsite (nf, nb) ->
-        add_node_rule ~key:this.key ~data:"Condsite";
-        add_node_edge prev this;
-        List.iter ~f:(fun n -> loop (Some this) !n) (nf :: nb)
+        add_node_rule ~key:this.key ~data;
+        add_node_edge ~cvar prev this;
+        loop (Some this) !nf;
+        let cvars = Gate.cvar_name_cores this in
+        List.iter2_exn ~f:(fun n cvar -> loop ~cvar (Some this) !n) nb cvars
+    | Condsite (nc, ncs) ->
+        add_node_rule ~key:this.key ~data;
+        add_node_edge ~cvar prev this;
+        loop (Some this) !nc;
+        let cvars = Gate.cvar_name_cores this in
+        List.iter2_exn ~f:(fun n cvar -> loop ~cvar (Some this) !n) ncs cvars
     | Para_local (np, _) ->
-        add_node_rule ~key:this.key ~data:"Para_local";
-        add_node_edge prev this;
-        List.iter
-          ~f:(fun (n1, n2) ->
-            loop (Some this) !n1;
-            loop (Some this) !n2)
-          np
+        add_node_rule ~key:this.key ~data;
+        add_node_edge ~cvar prev this;
+        let cvars = Gate.cvar_name_cores this in
+        List.iter2_exn
+          ~f:(fun (n1, n2) cvar ->
+            loop ~cvar (Some this) !n1;
+            loop ~cvar (Some this) !n2)
+          np cvars
     | Para_nonlocal (np, _) ->
-        add_node_rule ~key:this.key ~data:"Para_nonlocal";
-        add_node_edge prev this;
-        List.iter ~f:(fun n -> loop (Some this) !n) np
+        add_node_rule ~key:this.key ~data;
+        add_node_edge ~cvar prev this;
+        let cvars = Gate.cvar_name_cores this in
+        List.iter2_exn ~f:(fun n cvar -> loop ~cvar (Some this) !n) np cvars
   in
   loop_tree None tree;
   g
@@ -184,20 +171,22 @@ module DotPrinter = Graph.Graphviz.Dot (struct
     let node_attr (node : Gate.t) =
       let open Gate in
       let rule = Hashtbl.find_exn node_rule_set node.key in
-      let x, _, _ = node.key in
+      let x, xs, r_stack = node.key in
+      Logs.app (fun m ->
+          m "lookup_key : %a \tblock_id : %a \trule_name : %a" Lookup_key.pp
+            node.key Id.pp node.block_id Gate.pp_rule_name node.rule);
       let clause =
         let c_id =
           match node.rule with
-          | Para_local _ | Para_nonlocal _ -> node.block_id
+          | Para_local _ | Para_nonlocal _ | Pending -> node.block_id
+          | Proxy _ -> failwith "no proxy node"
           | _ -> x
         in
-        Odefa_ast.Ast.Ident_map.Exceptionless.find (Id.to_ast_id c_id)
-          !source_map
+        Odefa_ast.Ast.Ident_map.find (Id.to_ast_id c_id) !graph_info.source_map
       in
       let content =
-        Fmt.str "{%a | %a | %s}" Lookup_key.pp node.key
-          (Fmt.option Odefa_ast.Ast_pp_graph.pp_clause)
-          clause rule
+        Fmt.str "{%a | %a | %a | %s}" (Fmt.Dump.list Id.pp) (x :: xs)
+          Relative_stack.pp r_stack Odefa_ast.Ast_pp_graph.pp_clause clause rule
       in
       let shape =
         match node.rule with
@@ -212,7 +201,20 @@ module DotPrinter = Graph.Graphviz.Dot (struct
 
   let default_edge_attributes _ = []
 
-  let edge_attributes e = [ `Label (E.label e) ]
+  let edge_attributes e =
+    let edge_label edge =
+      let cvar_core = edge.Edge_label.cvar in
+      let complete = Hashtbl.find_exn !graph_info.cvar_complete_map cvar_core in
+      let picked = Hashtbl.find_exn !graph_info.cvar_picked_map cvar_core in
+      match (complete, picked) with
+      | false, false -> [ `Arrowhead `Odot; `Color Palette.light ]
+      | false, true -> failwith "no complete but picked"
+      | true, false -> [ `Arrowhead `Dot ]
+      | true, true -> [ `Color Palette.black ]
+    in
+
+    let string_label s = [ `Label s ] in
+    Either.value_map (E.label e) ~first:edge_label ~second:string_label
 
   let get_subgraph _ = None
 end)

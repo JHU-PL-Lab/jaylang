@@ -29,7 +29,6 @@ let lookup_top program x_target : _ Lwt.t =
   (* lookup top-level _global_ state *)
   let phi_set = ref [] in
   let add_phi phi = phi_set := phi :: !phi_set in
-  let gate_counter = ref 0 in
   let search_tree = ref Gate.dummy_start in
   let lookup_task_map = ref (Core.Map.empty (module Lookup_key)) in
   Solver_helper.reset ();
@@ -319,45 +318,48 @@ let lookup_top program x_target : _ Lwt.t =
         Solver_helper.Z3API.z3_gate_out_phis choices_complete
       in
 
-      (* Logs.debug (fun m ->
+      Logs.debug (fun m ->
           m "Z3_choices_complete: %a"
             Fmt.(Dump.list string)
-            (List.map Z3.Expr.to_string choices_complete_z3)); *)
+            (List.map Z3.Expr.to_string choices_complete_z3));
       match Solver_helper.check phi_set choices_complete_z3 with
       | Core.Result.Ok model ->
           Logs.debug (fun m ->
               m "Solver Phis: %s" (Solver_helper.string_of_solver ()));
           Logs.debug (fun m -> m "Model: %s" (Z3.Model.to_string model));
-          Out_graph.source_map := Ddpa_helper.clause_mapping program;
-          Out_graph.block_map := map;
+
+          (* can we shrink bool optional to bool?
+             the answer should be yes since we are not interested in
+             any false or unpicked cvar
+          *)
+          let cvar_picked_map =
+            Core.Hashtbl.mapi
+              ~f:(fun ~key:cname ~data:_cc ->
+                Constraint.mk_cvar_picked cname
+                |> Solver_helper.Z3API.boole_of_str
+                |> Solver_helper.Z3API.get_bool model
+                |> Core.Option.value ~default:false)
+              cvar_complete_map
+          in
+
+          Logs.debug (fun m ->
+              m "Cvar Complete: %a"
+                Fmt.Dump.(list (pair Fmt.string Fmt.bool))
+                choices_complete);
+
+          Logs.debug (fun m ->
+              m "Cvar Picked: %a"
+                Fmt.Dump.(list (pair Fmt.string Fmt.bool))
+                (Core.Hashtbl.to_alist cvar_picked_map));
+
+          Out_graph.graph_info :=
+            {
+              source_map = Ddpa_helper.clause_mapping program;
+              block_map = map;
+              cvar_complete_map;
+              cvar_picked_map;
+            };
           Out_graph.(output_graph (graph_of_gate_tree !search_tree));
-
-          if !gate_counter > 0 then
-            let choices_complete_and_picked =
-              Core.Hashtbl.mapi
-                ~f:(fun ~key:cname ~data:cc ->
-                  let cp =
-                    Constraint.mk_cvar_picked cname
-                    |> Solver_helper.Z3API.boole_of_str
-                    |> Solver_helper.Z3API.get_bool model
-                  in
-                  (cc, cp))
-                cvar_complete_map
-            in
-
-            Logs.debug (fun m ->
-                m "Choice (complete, picked): %a"
-                  Fmt.Dump.(
-                    list (pair Fmt.string (pair Fmt.bool (option Fmt.bool))))
-                  (Core.Hashtbl.to_alist choices_complete_and_picked))
-          (* Logs.debug (fun m ->
-                 m "Search Tree (SAT): @,%a]"
-                   (Gate.pp_compact ~ccpp:choices_complete_and_picked ())
-                   !search_tree);*)
-          else
-            ()
-          (* Logs.debug (fun m ->
-                 m "Search Tree (SAT): @,%a]" (Gate.pp_compact ()) !search_tree);*);
           Lwt.fail @@ Model_result model
       | Core.Result.Error _exps ->
           (* Logs.debug (fun m ->

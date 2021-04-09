@@ -30,6 +30,23 @@ type node = t
 type choice_switch = Pre of bool | Post of bool option
 [@@deriving show { with_path = false }]
 
+let rule_name = function
+  | Pending -> "Pending"
+  | Proxy _ -> "Proxy"
+  | Done _ -> "Done"
+  | Mismatch -> "Mismatch"
+  | Discard _ -> "Discard"
+  | Alias _ -> "Alias"
+  | To_first _ -> "To_first"
+  | Binop _ -> "Binop"
+  | Cond_choice _ -> "Cond_choice"
+  | Callsite _ -> "Callsite"
+  | Condsite _ -> "Condsite"
+  | Para_local _ -> "Para_local"
+  | Para_nonlocal _ -> "Para_nonlocal"
+
+let pp_rule_name oc rule = Fmt.pf oc "%s" (rule_name rule)
+
 let dummy_start =
   let x = Id.(Ident "dummy") in
   { block_id = x; key = (x, [], Relative_stack.empty); rule = Pending }
@@ -182,8 +199,8 @@ let get_c_vars_and_complete node =
             | Pending -> false
             | Done _ -> true
             | Mismatch -> false
-            | Proxy next | Discard next | Alias next | To_first next ->
-                loop !next
+            | Proxy next -> loop !next
+            | Discard next | Alias next | To_first next -> loop !next
             | Binop (nr1, nr2) ->
                 List.fold [ nr1; nr2 ] ~init:true ~f:(fun acc nr ->
                     post_and (loop !nr) acc)
@@ -210,11 +227,30 @@ let get_c_vars_and_complete node =
                 List.fold2_exn ncs cvars ~init:false ~f:(fun acc nr cvar ->
                     post_or (loop ~cvar !nr) acc)
           in
-          Hashtbl.add_exn visited_map ~key:node.key ~data:done_;
+          (match Hashtbl.add visited_map ~key:node.key ~data:done_ with
+          | `Ok -> ()
+          | `Duplicate ->
+              Logs.app (fun m ->
+                  m
+                    "Search tree node_map circular dependency at\n\
+                     \tkey:%a\told_val:%B\tnew_val:%B\t"
+                    Lookup_key.pp node.key
+                    (Hashtbl.find_exn visited_map node.key)
+                    done_));
           done_
     in
     (match cvar with
-    | Some cvar -> Hashtbl.add_exn cvar_map ~key:cvar ~data:done_
+    | Some cvar -> (
+        match Hashtbl.add cvar_map ~key:cvar ~data:done_ with
+        | `Ok -> ()
+        | `Duplicate ->
+            Logs.app (fun m ->
+                m
+                  "Search tree cvar_map duplication at\n\
+                   \tkey(cvar):%s\told_val:%B\tnew_val:%B\t"
+                  cvar
+                  (Hashtbl.find_exn cvar_map cvar)
+                  done_))
     | None -> ());
     done_
   in
