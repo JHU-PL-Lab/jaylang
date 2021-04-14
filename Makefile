@@ -1,4 +1,4 @@
-.PHONY: all clean repl sandbox test benchmark dbmc
+.PHONY: all clean repl sandbox test benchmark dbmc logclean
 
 all:
 	dune build
@@ -37,6 +37,10 @@ clean:
 	rm -f ddpa_toploop
 	rm -f translator
 	rm -f sandbox
+
+logclean:
+	rm -f dot/*
+	rm -f logs/*
 
 benchmark:
 	dune exec benchmark-test-generation/benchmark.exe

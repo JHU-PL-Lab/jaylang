@@ -358,6 +358,8 @@ let lookup_top program x_target : _ Lwt.t =
               block_map = map;
               cvar_complete_map;
               cvar_picked_map;
+              vertex_info_map = Core.Hashtbl.create (module Lookup_key);
+              edge_info_map = Core.Hashtbl.create (module Core.String);
             };
           Out_graph.(output_graph (graph_of_gate_tree !search_tree));
           Lwt.fail @@ Model_result model
