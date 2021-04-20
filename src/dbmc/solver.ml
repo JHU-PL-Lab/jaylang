@@ -186,202 +186,194 @@ module Make (C : Context) () = struct
 
   let boole_of_str s = Z3.Boolean.mk_const_s ctx s
 
-  let name_of_lookup xs stk =
-    match xs with
-    | [ x ] -> Sym.Id (x, stk) |> Sym.show
-    | _ :: _ ->
-        let p1 = Fmt.(str "%a" (list ~sep:(any ",") Id.pp) xs) in
-        let p2 = Relative_stack.show stk in
-        p1 ^ p2
-    | [] -> failwith "name_of_lookup empty"
-
   let z3_gate_out_phis ccs =
     List.map ccs ~f:(fun (cname, cval) ->
         eq
           (boole_of_str (Constraint.mk_cvar_complete cname))
           (Z3.Boolean.mk_val ctx cval))
 
-  let rec z3_phis_of_smt_phi = function
-    | Constraint.Eq_v (sx, cv) ->
-        let x = var_of_symbol sx in
-        let v =
-          match cv with
-          | Int i -> int_ i
-          | Bool b -> bool_ b
-          | Fun fid -> fun_ (fid |> Id.show)
-          | Record -> failwith "no record yet"
-        in
-        eq x v
-    (* [eq x v; not_ (eq x bottom_)] *)
-    | Constraint.Eq_x (sx, sy) ->
-        let x = var_of_symbol sx in
-        let y = var_of_symbol sy in
-        eq x y
-    (* [eq x y; not_ (eq x bottom_); not_ (eq y bottom_)] *)
-    | Constraint.Eq_binop (sy, sx1, op, sx2) ->
-        let y = var_of_symbol sy in
-        let x1 = var_of_symbol sx1 in
-        let x2 = var_of_symbol sx2 in
-        let fop =
-          match op with
-          | Add -> fn_plus
-          | Sub -> fn_minus
-          | Mul -> fn_times
-          | Div -> fn_divide
-          | Mod -> fn_modulus
-          | Le -> fn_lt
-          | Leq -> fn_le
-          | Eq -> fn_eq
-          | And -> fn_and
-          | Or -> fn_or
-          | Xor -> fn_xor
-        in
-        fop y x1 x2
-    (* [eq y (fop x1 x2); not_ (eq y bottom_); not_ (eq x1 bottom_); not_ (eq x2 bottom_)] *)
-    | Constraint.Eq_lookup (xs1, s1, xs2, s2) ->
-        let x = var_s @@ name_of_lookup xs1 s1 in
-        let y = var_s @@ name_of_lookup xs2 s2 in
-        eq x y
-    (* [eq x y; not_ (eq x bottom_); not_ (eq y bottom_)] *)
-    | Constraint.C_and (c1, c2) ->
-        let e1 = z3_phis_of_smt_phi c1 in
-        let e2 = z3_phis_of_smt_phi c2 in
-        join [ e1; e2 ]
-    | Constraint.C_cond_bottom (site, rel_stk, cs) ->
-        let cs_picked =
-          List.map [ true; false ] ~f:(fun beta ->
-              Constraint.mk_cvar_cond_core ~site ~beta rel_stk
-              |> Constraint.mk_cvar_picked |> boole_of_str)
-        in
-        let cs_complete =
-          List.map [ true; false ] ~f:(fun beta ->
-              Constraint.mk_cvar_cond_core ~site ~beta rel_stk
-              |> Constraint.mk_cvar_complete |> boole_of_str)
-        in
-        let payloads = List.map cs ~f:z3_phis_of_smt_phi in
-        let only_pick_the_complete =
-          List.map2_exn cs_picked cs_complete ~f:( @=> ) |> join
-        in
-        let exclusion = make_exclusive cs_picked payloads in
-        let no_paths_complete = join (List.map cs_complete ~f:not_) in
-        (* exclusion *)
-        or_ [ join [ only_pick_the_complete; exclusion ]; no_paths_complete ]
-    | Constraint.Fbody_to_callsite fc ->
-        let cs_picked =
-          List.map fc.outs ~f:(fun out ->
-              Constraint.mk_cvar_core ~from_id:fc.fun_in ~to_id:out.f_out
-                ~site:None fc.stk_in
-              |> Constraint.mk_cvar_picked |> boole_of_str)
-        in
-        let cs_complete =
-          List.map fc.outs ~f:(fun out ->
-              Constraint.mk_cvar_core ~from_id:fc.fun_in ~to_id:out.f_out
-                ~site:None fc.stk_in
-              |> Constraint.mk_cvar_complete |> boole_of_str)
-        in
-        let eq_lookups =
-          List.map fc.outs ~f:(fun out ->
-              Constraint.eq_lookup fc.xs_in fc.stk_in out.xs_out out.stk_out
-              |> z3_phis_of_smt_phi)
-        in
-        let eq_fids =
-          List.map fc.outs ~f:(fun out ->
-              Constraint.bind_fun out.f_out out.stk_out fc.fun_in
-              |> z3_phis_of_smt_phi)
-        in
-        (* not(c1c)  AND  not(c2c) *)
-        let no_paths_complete = join (List.map cs_complete ~f:not_) in
-        (* (c1c -> [𝑥1]!=ThisFun(𝐶))  AND  (c2c -> [𝑥2]!=ThisFun(𝐶)) *)
-        let all_complete_paths_invalid =
-          List.mapi cs_complete ~f:(fun i cc_i ->
-              let eq_fid = List.nth_exn eq_fids i in
-              cc_i @=> not_ eq_fid)
-          |> join
-        in
-        let picked_a_complete_path =
-          (* c1p  XORs  c2p *)
-          let exclusion = make_exclusion cs_picked in
-          (* c1p => c1c  AND  c2p => c2c *)
+  let phi_z3_of_constraint ?(debug = false) ?debug_tool cs =
+    let log_noted_phi note phi =
+      let key, note_map = Option.value_exn debug_tool in
+      if debug then
+        Hashtbl.add_multi !note_map ~key ~data:(note, phi)
+      else
+        ()
+    in
+    let rec z3_phis_of_smt_phi = function
+      | Constraint.Eq_v (sx, cv) ->
+          let x = var_of_symbol sx in
+          let v =
+            match cv with
+            | Int i -> int_ i
+            | Bool b -> bool_ b
+            | Fun fid -> fun_ (fid |> Id.show)
+            | Record -> failwith "no record yet"
+          in
+          eq x v
+      (* [eq x v; not_ (eq x bottom_)] *)
+      | Constraint.Eq_x (sx, sy) ->
+          let x = var_of_symbol sx in
+          let y = var_of_symbol sy in
+          eq x y
+      (* [eq x y; not_ (eq x bottom_); not_ (eq y bottom_)] *)
+      | Constraint.Eq_binop (sy, sx1, op, sx2) ->
+          let y = var_of_symbol sy in
+          let x1 = var_of_symbol sx1 in
+          let x2 = var_of_symbol sx2 in
+          let fop =
+            match op with
+            | Add -> fn_plus
+            | Sub -> fn_minus
+            | Mul -> fn_times
+            | Div -> fn_divide
+            | Mod -> fn_modulus
+            | Le -> fn_lt
+            | Leq -> fn_le
+            | Eq -> fn_eq
+            | And -> fn_and
+            | Or -> fn_or
+            | Xor -> fn_xor
+          in
+          fop y x1 x2
+      (* [eq y (fop x1 x2); not_ (eq y bottom_); not_ (eq x1 bottom_); not_ (eq x2 bottom_)] *)
+      | Constraint.Eq_lookup (xs1, s1, xs2, s2) ->
+          let x = var_s @@ Constraint.name_of_lookup xs1 s1 in
+          let y = var_s @@ Constraint.name_of_lookup xs2 s2 in
+          eq x y
+      (* [eq x y; not_ (eq x bottom_); not_ (eq y bottom_)] *)
+      | Constraint.C_and (c1, c2) ->
+          let e1 = z3_phis_of_smt_phi c1 in
+          let e2 = z3_phis_of_smt_phi c2 in
+          join [ e1; e2 ]
+      | Constraint.C_cond_bottom (site, r_stk, cs) ->
+          let cvars = Constraint.cvars_of_condsite site r_stk in
+          let cvar_complete, cvar_picked =
+            Constraint.derive_complete_and_picked cvars
+          in
+          let cs_complete, cs_picked =
+            ( List.map ~f:boole_of_str cvar_complete,
+              List.map ~f:boole_of_str cvar_picked )
+          in
+          let payloads = List.map cs ~f:z3_phis_of_smt_phi in
           let only_pick_the_complete =
             List.map2_exn cs_picked cs_complete ~f:( @=> ) |> join
           in
-          (* c1p  =>  [𝑥]||𝑋=[𝑥1,𝑥]||𝑋 ∧  [𝑥1]=ThisFun(𝐶) *)
-          let only_pick_the_valid =
-            List.mapi cs_picked ~f:(fun i cp ->
-                let eq_lookup = List.nth_exn eq_lookups i in
+          let exclusion = make_exclusive cs_picked payloads in
+          let no_paths_complete = join (List.map cs_complete ~f:not_) in
+          (* exclusion *)
+          or_ [ join [ only_pick_the_complete; exclusion ]; no_paths_complete ]
+      | Constraint.Fbody_to_callsite fc ->
+          let cvars = Constraint.cvars_of_fc fc in
+          let cvar_complete, cvar_picked =
+            Constraint.derive_complete_and_picked cvars
+          in
+          let cs_complete, cs_picked =
+            ( List.map ~f:boole_of_str cvar_complete,
+              List.map ~f:boole_of_str cvar_picked )
+          in
+          let eq_lookups =
+            List.map fc.outs ~f:(fun out ->
+                Constraint.eq_lookup fc.xs_in fc.stk_in out.xs_out out.stk_out
+                |> z3_phis_of_smt_phi)
+          in
+          let eq_fids =
+            List.map fc.outs ~f:(fun out ->
+                Constraint.bind_fun out.f_out out.stk_out fc.fun_in
+                |> z3_phis_of_smt_phi)
+          in
+          (* not(c1c)  AND  not(c2c) *)
+          let no_paths_complete = join (List.map cs_complete ~f:not_) in
+          (* (c1c -> [𝑥1]!=ThisFun(𝐶))  AND  (c2c -> [𝑥2]!=ThisFun(𝐶)) *)
+          let all_complete_paths_invalid =
+            List.mapi cs_complete ~f:(fun i cc_i ->
                 let eq_fid = List.nth_exn eq_fids i in
-                cp @=> and2 eq_lookup eq_fid)
+                cc_i @=> not_ eq_fid)
             |> join
           in
-          join [ exclusion; only_pick_the_complete; only_pick_the_valid ]
-        in
-        or_
-          [
-            no_paths_complete;
-            all_complete_paths_invalid;
-            picked_a_complete_path;
-          ]
-    | Constraint.Callsite_to_fbody cf ->
-        let cs_picked =
-          List.map cf.ins ~f:(fun in_ ->
-              Constraint.mk_cvar_core ~from_id:cf.f_out ~to_id:in_.fun_in
-                ~site:(Some cf.site) cf.stk_out
-              |> Constraint.mk_cvar_picked |> boole_of_str)
-        in
-        let cs_complete =
-          List.map cf.ins ~f:(fun in_ ->
-              Constraint.mk_cvar_core ~from_id:cf.f_out ~to_id:in_.fun_in
-                ~site:(Some cf.site) cf.stk_out
-              |> Constraint.mk_cvar_complete |> boole_of_str)
-        in
-        let eq_lookups =
-          List.map cf.ins ~f:(fun in_ ->
-              Constraint.eq_lookup cf.xs_out cf.stk_out in_.xs_in in_.stk_in
-              |> z3_phis_of_smt_phi)
-        in
-        let eq_fids =
-          List.map cf.ins ~f:(fun in_ ->
-              Constraint.bind_fun cf.f_out cf.stk_out in_.fun_in
-              |> z3_phis_of_smt_phi)
-        in
-        (* cs_complete_i is determined by the L(x_f,C) and L(x'_i, C'_i),
-              in which L(x_f,C) is shared by each cs_complete_i
-        *)
-        let no_paths_complete = join (List.map cs_complete ~f:not_) in
-        let all_complete_paths_invalid =
-          List.mapi cs_complete ~f:(fun i cc_i ->
-              let eq_fid = List.nth_exn eq_fids i in
-              cc_i @=> not_ eq_fid)
-          |> join
-        in
-        let picked_a_complete_path =
-          let exclusion = make_exclusion cs_picked in
-          let only_pick_the_complete =
-            List.map2_exn cs_picked cs_complete ~f:( @=> ) |> join
+          let picked_a_complete_path =
+            (* c1p  XORs  c2p *)
+            let exclusion = make_exclusion cs_picked in
+            (* c1p => c1c  AND  c2p => c2c *)
+            let only_pick_the_complete =
+              List.map2_exn cs_picked cs_complete ~f:( @=> ) |> join
+            in
+            (* c1p  =>  [𝑥]||𝑋=[𝑥1,𝑥]||𝑋 ∧  [𝑥1]=ThisFun(𝐶) *)
+            let only_pick_the_valid =
+              List.mapi cs_picked ~f:(fun i cp ->
+                  let eq_lookup = List.nth_exn eq_lookups i in
+                  let eq_fid = List.nth_exn eq_fids i in
+                  cp @=> and2 eq_lookup eq_fid)
+              |> join
+            in
+            join [ exclusion; only_pick_the_complete; only_pick_the_valid ]
           in
-          let only_pick_the_valid =
-            List.mapi cs_picked ~f:(fun i cp ->
-                let eq_lookup = List.nth_exn eq_lookups i in
-                let eq_fid = List.nth_exn eq_fids i in
-                cp @=> and2 eq_lookup eq_fid)
-            |> join
-          in
-          join [ exclusion; only_pick_the_complete; only_pick_the_valid ]
-        in
-        or_
-          [
-            no_paths_complete;
-            all_complete_paths_invalid;
-            picked_a_complete_path;
-          ]
-    | Constraint.Target_stack _stk
-    (* -> (let open StringSort in
-        eq (var_s top_stack_name) (string_ @@ (stk |> Concrete_stack.to_string))
-       ) *) ->
-        ground_truth
-    | Constraint.Eq_projection (_, _, _) -> failwith "no project yet"
+          log_noted_phi "no_cc" no_paths_complete;
+          log_noted_phi "all_invld" all_complete_paths_invalid;
+          log_noted_phi "pick_one" picked_a_complete_path;
 
-  (*
+          or_
+            [
+              no_paths_complete;
+              all_complete_paths_invalid;
+              picked_a_complete_path;
+            ]
+      | Constraint.Callsite_to_fbody cf ->
+          let cvars = Constraint.cvars_of_cf cf in
+          let cvar_complete, cvar_picked =
+            Constraint.derive_complete_and_picked cvars
+          in
+          let cs_complete, cs_picked =
+            ( List.map ~f:boole_of_str cvar_complete,
+              List.map ~f:boole_of_str cvar_picked )
+          in
+          let eq_lookups =
+            List.map cf.ins ~f:(fun in_ ->
+                Constraint.eq_lookup cf.xs_out cf.stk_out in_.xs_in in_.stk_in
+                |> z3_phis_of_smt_phi)
+          in
+          let eq_fids =
+            List.map cf.ins ~f:(fun in_ ->
+                Constraint.bind_fun cf.f_out cf.stk_out in_.fun_in
+                |> z3_phis_of_smt_phi)
+          in
+          (* cs_complete_i is determined by the L(x_f,C) and L(x'_i, C'_i),
+                in which L(x_f,C) is shared by each cs_complete_i
+          *)
+          let no_paths_complete = join (List.map cs_complete ~f:not_) in
+          let all_complete_paths_invalid =
+            List.mapi cs_complete ~f:(fun i cc_i ->
+                let eq_fid = List.nth_exn eq_fids i in
+                cc_i @=> not_ eq_fid)
+            |> join
+          in
+          let picked_a_complete_path =
+            let exclusion = make_exclusion cs_picked in
+            let only_pick_the_complete =
+              List.map2_exn cs_picked cs_complete ~f:( @=> ) |> join
+            in
+            let only_pick_the_valid =
+              List.mapi cs_picked ~f:(fun i cp ->
+                  let eq_lookup = List.nth_exn eq_lookups i in
+                  let eq_fid = List.nth_exn eq_fids i in
+                  cp @=> and2 eq_lookup eq_fid)
+              |> join
+            in
+            join [ exclusion; only_pick_the_complete; only_pick_the_valid ]
+          in
+          or_
+            [
+              no_paths_complete;
+              all_complete_paths_invalid;
+              picked_a_complete_path;
+            ]
+      | Constraint.Target_stack _stk
+      (* -> (let open StringSort in
+           eq (var_s top_stack_name) (string_ @@ (stk |> Concrete_stack.to_string))
+         ) *) ->
+          ground_truth
+      | Constraint.Eq_projection (_, _, _) -> failwith "no project yet"
+    (*
     the length of choices can never be 0
 
     when the length of choices is 1:
@@ -399,42 +391,91 @@ module Make (C : Context) () = struct
     when the length of choices is >2:
       it works similar to case=2
    *)
-  and make_exclusion choices =
-    let at_least_one = or_ choices in
-    let get_other_choices ci =
-      List.filteri choices ~f:(fun i _ -> Int.(ci <> i))
-    in
-    let at_most_one =
-      List.mapi choices ~f:(fun i c -> c @=> not_ (or_ (get_other_choices i)))
-      |> join
-    in
-    join [ at_least_one; at_most_one ]
-
-  and make_exclusive choice_vars payloads =
-    let chosen_payloads =
-      List.mapi payloads ~f:(fun ci payload ->
-          let ci_var = List.nth_exn choice_vars ci in
-          ci_var @=> payload)
-    in
-    if List.length choice_vars = 1 then
-      let only_one = List.hd_exn choice_vars in
-      join (only_one :: chosen_payloads)
-    else
-      let at_least_one = Z3.Boolean.mk_or ctx choice_vars in
-      let at_most_one =
-        List.mapi payloads ~f:(fun ci _ ->
-            let ci_var = List.nth_exn choice_vars ci in
-            let other_vars =
-              List.filteri choice_vars ~f:(fun i _ -> Int.(ci <> i))
-            in
-            let exclusion =
-              other_vars |> Z3.Boolean.mk_or ctx |> Z3.Boolean.mk_not ctx
-            in
-            ci_var @=> exclusion)
+    and make_exclusion choices =
+      let at_least_one = or_ choices in
+      let get_other_choices ci =
+        List.filteri choices ~f:(fun i _ -> Int.(ci <> i))
       in
-      join (at_least_one :: at_most_one @ chosen_payloads)
+      let at_most_one =
+        List.mapi choices ~f:(fun i c -> c @=> not_ (or_ (get_other_choices i)))
+        |> join
+      in
+      join [ at_least_one; at_most_one ]
+    and make_exclusive choice_vars payloads =
+      let chosen_payloads =
+        List.mapi payloads ~f:(fun ci payload ->
+            let ci_var = List.nth_exn choice_vars ci in
+            ci_var @=> payload)
+      in
+      if List.length choice_vars = 1 then
+        let only_one = List.hd_exn choice_vars in
+        join (only_one :: chosen_payloads)
+      else
+        let at_least_one = Z3.Boolean.mk_or ctx choice_vars in
+        let at_most_one =
+          List.mapi payloads ~f:(fun ci _ ->
+              let ci_var = List.nth_exn choice_vars ci in
+              let other_vars =
+                List.filteri choice_vars ~f:(fun i _ -> Int.(ci <> i))
+              in
+              let exclusion =
+                other_vars |> Z3.Boolean.mk_or ctx |> Z3.Boolean.mk_not ctx
+              in
+              ci_var @=> exclusion)
+        in
+        join (at_least_one :: at_most_one @ chosen_payloads)
+    in
+    z3_phis_of_smt_phi cs
 
   (* model and solution *)
+  let bool_of_expr_exn v =
+    match Z3.Boolean.get_bool_value v with
+    | L_TRUE -> true
+    | L_FALSE -> false
+    | L_UNDEF -> failwith "pass_if_true"
+
+  let bool_of_expr v =
+    match Z3.Boolean.get_bool_value v with
+    | L_TRUE -> true
+    | L_FALSE -> false
+    | L_UNDEF -> false
+
+  let int_of_expr e =
+    e |> Z3.Arithmetic.Integer.get_big_int |> Big_int_Z.int_of_big_int
+
+  let string_of_expr e = e |> Seq.get_string ctx
+
+  let is_bool_from_model model e =
+    bool_of_expr (Option.value_exn (Model.eval model (ifBool e) false))
+
+  let is_int_from_model model e =
+    bool_of_expr (Option.value_exn (Model.eval model (ifInt e) false))
+
+  let is_fun_from_model model e =
+    bool_of_expr (Option.value_exn (Model.eval model (ifFun e) false))
+
+  let get_bool_expr model e =
+    Option.value_exn (Model.eval model (FuncDecl.apply getBool [ e ]) false)
+
+  let get_int_expr model e =
+    Option.value_exn (Model.eval model (FuncDecl.apply getInt [ e ]) false)
+
+  let get_fun_expr model e =
+    Option.value_exn (Model.eval model (FuncDecl.apply getFun [ e ]) false)
+
+  let get_value model e =
+    if is_int_from_model model e then
+      Some (Constraint.Int (get_int_expr model e |> int_of_expr))
+    else if is_bool_from_model model e then
+      Some (Constraint.Bool (get_bool_expr model e |> bool_of_expr))
+    else if is_fun_from_model model e then
+      let fid = get_fun_expr model e |> string_of_expr in
+      Some (Constraint.Fun (Id.Ident fid))
+    else
+      None
+  (* failwith "get_value" *)
+
+  (* TODO: using functions above *)
   let get_int_s model s =
     let x = FuncDecl.apply getInt [ var_s s ] in
     let r = Option.value_exn (Model.eval model x true) in
@@ -448,6 +489,8 @@ module Make (C : Context) () = struct
     | L_UNDEF ->
         Logs.app (fun m -> m "[warning] %s L_UNDEF" (Z3.Expr.to_string e));
         None
+
+  let eval_value model e = Option.value_exn (Model.eval model e false)
 
   let get_top_stack model =
     let stack_v = Option.value_exn (Model.eval model top_stack_var true) in

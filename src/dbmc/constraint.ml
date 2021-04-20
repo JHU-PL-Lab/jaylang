@@ -21,9 +21,14 @@ module T = struct
     | Or
     (* | Not *)
     | Xor
-  [@@deriving sexp, compare, equal]
+  [@@deriving sexp, compare, equal, show { with_path = false }]
 
-  type fc_out = { xs_out : Id.t list; stk_out : Relative_stack.t; f_out : Id.t }
+  type fc_out = {
+    xs_out : Id.t list;
+    site : Id.t;
+    stk_out : Relative_stack.t;
+    f_out : Id.t;
+  }
   [@@deriving sexp, compare, equal, show { with_path = false }]
 
   type fc = {
@@ -49,7 +54,8 @@ module T = struct
   type t =
     | Eq_v of Symbol.t * value
     | Eq_x of Symbol.t * Symbol.t
-    | Eq_lookup of Id.t list * Relative_stack.t * Id.t list * Relative_stack.t
+    | Eq_lookup of
+        Lookup_stack.t * Relative_stack.t * Lookup_stack.t * Relative_stack.t
     | Eq_binop of Symbol.t * Symbol.t * binop * Symbol.t
     | Eq_projection of Symbol.t * Symbol.t * Id.t
     | Target_stack of Concrete_stack.t
@@ -57,7 +63,7 @@ module T = struct
     | C_cond_bottom of Id.t * Relative_stack.t * t list
     | Fbody_to_callsite of fc
     | Callsite_to_fbody of cf
-  [@@deriving sexp, compare, equal]
+  [@@deriving sexp, compare, equal, show { with_path = false }]
 end
 
 include T
@@ -77,6 +83,23 @@ let mk_cvar_cond_core ~site ~beta rel_stk =
 let mk_cvar_complete core = Fmt.str "$%s_cc" core
 
 let mk_cvar_picked core = Fmt.str "$%s_pp" core
+
+let cvars_of_condsite x r_stk =
+  List.map [ true; false ] ~f:(fun beta ->
+      mk_cvar_cond_core ~site:x ~beta r_stk)
+
+let cvars_of_fc fc =
+  List.map fc.outs ~f:(fun out ->
+      mk_cvar_core ~from_id:fc.fun_in ~to_id:out.f_out ~site:(Some out.site)
+        fc.stk_in)
+
+let cvars_of_cf cf =
+  List.map cf.ins ~f:(fun in_ ->
+      mk_cvar_core ~from_id:cf.f_out ~to_id:in_.fun_in ~site:(Some cf.site)
+        cf.stk_out)
+
+let derive_complete_and_picked cvars =
+  (List.map ~f:mk_cvar_complete cvars, List.map ~f:mk_cvar_picked cvars)
 
 let show_binop = function
   | Add -> "+"
@@ -106,11 +129,11 @@ let rec pp oc t =
         (list ~sep:(any "-> ") Id.pp)
         xs2 Relative_stack.pp stk2
   | Eq_binop (s1, s2, op, s3) ->
-      pf oc "@[<v 2>%a === %a %a %a@]" Symbol.pp s1 Symbol.pp s2 pp_binop op
+      pf oc "@[<v 2>%a := %a %a %a@]" Symbol.pp s1 Symbol.pp s2 pp_binop op
         Symbol.pp s3
   | Eq_projection (_, _, _) -> ()
   | Target_stack stk -> pf oc "@[<v 2>Top: %a@]" Concrete_stack.pp stk
-  | C_and (t1, t2) -> pf oc "@[<v 2>And: @,%a@,%a@]" pp t1 pp t2
+  | C_and (t1, t2) -> pf oc "@[<v 2>%a@,%a@]" pp t1 pp t2
   | C_cond_bottom (site, _, ts) ->
       pf oc "@[<v 2>Cond_bottom(%a): @,%a@]" Id.pp site (list ~sep:sp pp) ts
   | Fbody_to_callsite fc ->
@@ -161,27 +184,11 @@ let and_ c1 c2 = C_and (c1, c2)
 
 let cond_bottom site rel_stack cs = C_cond_bottom (site, rel_stack, cs)
 
-(* 
-
-let integrate_stack phis =
-  let non_stack_phis, stack_phis = List.partition_tf phis ~f:(function
-      | Target_stack _ -> false
-      | _ -> true
-    ) in
-  let unique_stack_phis = List.dedup_and_sort ~compare stack_phis in
-  let integrated_stack_phi = C_exclusive unique_stack_phis in
-  integrated_stack_phi :: non_stack_phis
-
-let rec simplify_one = function
-   | C_and (p1, p2) ->
-    C_and (simplify_one p1, simplify_one p2)
-   | C_exclusive phis ->
-    let phis' = simplify phis in
-    if List.length phis' = 1 then
-      List.hd_exn phis'
-    else
-      C_exclusive phis'
-   | rest -> rest
-
-   and simplify phis =
-   List.map phis ~f:simplify_one *)
+let name_of_lookup xs stk =
+  match xs with
+  | [ x ] -> Symbol.Id (x, stk) |> Symbol.show
+  | _ :: _ ->
+      let p1 = Lookup_stack.mk_name xs in
+      let p2 = Relative_stack.show stk in
+      p1 ^ p2
+  | [] -> failwith "name_of_lookup empty"
