@@ -56,13 +56,10 @@ type t =
   | Constraint_projection of symbol * symbol * ident (* x = x.l *)
   | Constraint_type of symbol * symbol_type (* x : t *)
   | Constraint_stack of Relative_stack.concrete_stack (* stack = C *)
-  | Constraint_ids of Relative_stack.t * Ident.t list * Relative_stack.t * Ident.t list 
-  | Constraint_and of t * t
-  | Constraint_exclusive of t list
 [@@deriving eq, ord, to_yojson]
 ;;
 
-let rec pp formatter sc =
+let pp formatter sc =
   match sc with
   | Constraint_value(x,v) ->
     Format.fprintf formatter "%a = %a" pp_symbol x pp_value v
@@ -78,16 +75,6 @@ let rec pp formatter sc =
     Format.fprintf formatter "%a = %a" pp_symbol x pp_symbol_type t
   | Constraint_stack(s) ->
     Format.fprintf formatter "stack = %a" Relative_stack.pp_concrete_stack s
-  | Constraint_ids (s1, xs1, s2, xs2) ->
-    Format.fprintf formatter "%a%a = %a%a"
-      (Pp_utils.pp_list pp_ident) xs1
-      Relative_stack.pp s1
-      (Pp_utils.pp_list pp_ident) xs2
-      Relative_stack.pp s2
-  | Constraint_and (c1, c2) ->
-    Format.fprintf formatter "(%a and %a)" pp c1 pp c2
-  | Constraint_exclusive phis ->
-    Format.fprintf formatter "< %a >" (Pp_utils.pp_list pp) phis
 ;;
 
 let show = Pp_utils.pp_to_string pp;;

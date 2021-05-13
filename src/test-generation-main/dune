@@ -1,17 +1,17 @@
-(executable
-  (name test_generator)
-  (libraries
-    core fmt
-    lwt lwt.unix
-
-    batteries
-    jhupllib
-    odefa.ast
-    odefa.natural
-    odefa.parser
-    odefa.test-generation
-    odefa.symbolic-interpreter
-
-    odefa.dbmc
-  )
-)
+(executables
+ (names test_dbmc test_generator)
+ (libraries
+  core
+  fmt
+  lwt
+  lwt.unix
+  batteries
+  jhupllib
+  odefa.ast
+  odefa.natural
+  odefa.parser
+  odefa.test-generation
+  odefa.symbolic-interpreter
+  dbmc)
+ ;  (promote (until-clean))
+ )

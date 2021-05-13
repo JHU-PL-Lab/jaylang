@@ -3,19 +3,28 @@
 all:
 	dune build
 	dune build src/toploop-main/ddpa_toploop.exe
-	dune build src/test-generation-main/test_generator.exe
+	dune build src/test-generation-main/test_generator.exe src/test-generation-main/test_dbmc.exe
 	dune build src/translator-main/translator.exe
 	rm -f ddpa_toploop
 	rm -f translator
+	rm -f sandbox
 	rm -f test_generator
+	rm -f test_dbmc
+	rm -f dbmc_top
 	ln -s _build/default/src/toploop-main/ddpa_toploop.exe ddpa_toploop
 	ln -s _build/default/src/test-generation-main/test_generator.exe test_generator
 	ln -s _build/default/src/translator-main/translator.exe translator
+	ln -s _build/default/src/test-generation-main/test_dbmc.exe test_dbmc
+	ln -s _build/default/src/dbmc-top/dbmc_top.exe dbmc_top
 
 dbmc:
-	dune build src/test-generation-main/test_generator.exe
+	dune build src/test-generation-main src/dbmc-top
 	rm -f test_generator
+	rm -f test_dbmc
+	rm -f dbmc_top
 	ln -s _build/default/src/test-generation-main/test_generator.exe test_generator
+	ln -s _build/default/src/test-generation-main/test_dbmc.exe test_dbmc
+	ln -s _build/default/src/dbmc-top/dbmc_top.exe dbmc_top
 
 dtest:
 	dune exec test/dbmc/test_dbmc.exe
@@ -37,6 +46,9 @@ clean:
 	rm -f ddpa_toploop
 	rm -f translator
 	rm -f sandbox
+	rm -f test_dbmc
+	rm -f test_generator
+	rm -f dbmc_top
 
 logclean:
 	rm -f dot/*

@@ -1,14 +1,11 @@
 (alias
-  (name unittest)
-  (action (run ./interpreter.exe))
-)
+ (name unittest))
+
+(rule
+ (alias unittest)
+ (action
+  (run ./interpreter.exe)))
 
 (tests
-  (names interpreter)
-  (libraries 
-    core
-    alcotest
-    odefa_ast
-    odefa_interpreter
-    odefa_parser)
-)
+ (names interpreter)
+ (libraries core alcotest odefa_ast odefa_interpreter odefa_parser))

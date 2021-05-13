@@ -1,26 +1,24 @@
 (alias
-  (name test_dbmc)
-  (deps test_dbmc.exe
-    ; (glob_files ../../test2/loop/**)
-    )
-  (action (run ./test_dbmc.exe))
-)
+ (name test_dbmc)
+ (deps
+  test_dbmc.exe
+  ; (glob_files ../../test2/loop/**)
+  ))
+
+(rule
+ (alias test_dbmc)
+ (action
+  (run ./test_dbmc.exe)))
 
 (executables
-  (names test_dbmc)
-  (libraries
-    core
-    fmt
-    alcotest
-
-    odefa_ast
-    odefa_interpreter
-    odefa_parser
-    odefa.dbmc
-  )
-  (preprocess
-    (pps
-      ppx_deriving.std
-    )
-  )
-)
+ (names test_dbmc)
+ (libraries
+  core
+  fmt
+  alcotest
+  odefa_ast
+  odefa_interpreter
+  odefa_parser
+  odefa.dbmc)
+ (preprocess
+  (pps ppx_deriving.std)))

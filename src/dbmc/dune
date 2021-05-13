@@ -1,5 +1,5 @@
 (library
- (name odefa_dbmc)
+ (name dbmc)
  (public_name odefa.dbmc)
  (libraries
   core
