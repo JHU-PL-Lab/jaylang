@@ -97,5 +97,5 @@ let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t
   let co_stk =
     target_stk' |> List.rev |> List.map ~f:(fun (cs, fid) -> Dangling (cs, fid))
   in
-  let stk = List.map ~f:(fun (cs, fid) -> Pairable (cs, fid)) call_stk' in
+  let stk = List.rev_map ~f:(fun (cs, fid) -> Pairable (cs, fid)) call_stk' in
   (co_stk, stk)

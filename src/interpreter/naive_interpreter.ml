@@ -8,42 +8,11 @@ type dvalue = Direct of value | Closure of Ident.t * function_value * denv
 
 and denv = dvalue Ident_map.t
 
+let cond_fid b = if b then Ident "$tt" else Ident "$ff"
+
 let value_of_dvalue = function
   | Direct v -> v
   | Closure (_fid, fv, _env) -> Value_function fv
-
-(* let rec subst (Expr(clauses)) x1 v = 
-   let fn (Var(x,s)) = 
-    if Ident.equal x x1 then (Value_body v) else (Var(x,s)) in
-   let clauses' = List.map (fun (Clause (cx, cb)) -> 
-      let cb' = match cb with
-        | Value_body v -> Value_body (map_value_vars fn v x1 v)
-        | Var_body x -> Var_body (fn x)
-        | Input_body -> Input_body
-        | Appl_body (x1,x2) -> Appl_body(fn x1, fn x2)
-        | Conditional_body (x, e1, e2) ->
-          Conditional_body (fn x, subst e1 x1 v, subst e2 x1 v)
-        | Match_body(x, p) ->
-          Match_body(fn x, p)
-        | Projection_body(x, l) ->
-          Projection_body(fn x, l)
-        | Binary_operation_body (x1, op, x2) ->
-          Binary_operation_body (fn x1, op, fn x2)
-      in
-      Clause (cx, cb')
-    ) clauses in
-   Expr(clauses' )
-   and map_value_vars (fn : Var.t -> Var.t) (v : value) x1 x2 : value =
-   match v with
-   | Value_record(Record_value m) ->
-    Value_record(Record_value(Ident_map.map fn m))
-   | Value_function (Function_value(Var(x, xstk),e)) -> 
-    if Ident.equal x x1 then
-      Value_function(Function_value(Var(x, xstk),e))
-    else
-      Value_function(Function_value(Var(x, xstk),subst e x1 x2))
-   | Value_int _ -> v
-   | Value_bool _ -> v *)
 
 let rec same_stack s1 s2 =
   match (s1, s2) with
@@ -67,11 +36,16 @@ and eval_clause ~input_feeder ~target stk env clause : denv * dvalue =
     | Value_body v -> Direct v
     | Var_body vx -> eval_val env vx
     | Conditional_body (x2, e1, e2) ->
-      let e = if eval_val_to_bool env x2 then e1 else e2 in
-      eval_exp ~input_feeder ~target stk env e
+        let e, stk' =
+          if eval_val_to_bool env x2 then
+            (e1, (x, cond_fid true) :: stk)
+          else
+            (e2, (x, cond_fid false) :: stk)
+        in
+        eval_exp ~input_feeder ~target stk' env e
     | Input_body ->
-      let n = input_feeder (x,stk) in
-      Direct (Value_int n)
+        let n = input_feeder (x, stk) in
+        Direct (Value_int n)
     | Appl_body (vx1, vx2) -> (
         match eval_val env vx1 with
         | Closure (fid, Function_value (Var (arg, _), body), fenv) ->
