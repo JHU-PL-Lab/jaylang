@@ -255,13 +255,13 @@ module DotPrinter = Graph.Graphviz.Dot (struct
       in
       let rule = graph_vertex.rule_name in
       let x, xs, r_stack = node.key in
-      Logs.app (fun m ->
+      Logs.info (fun m ->
           m "lookup_key : %a \tblock_id : %a \trule_name : %a" Lookup_key.pp
             node.key Id.pp node.block_id Gate.pp_rule_name node.rule);
       let model = !(Option.value_exn !graph_info.model) in
       let key_value =
         let lookup_name = Constraint.name_of_lookup (x :: xs) r_stack in
-        Logs.app (fun m -> m "lookup (to model) : %s" lookup_name);
+        Logs.info (fun m -> m "lookup (to model) : %s" lookup_name);
         Solver_helper.Z3API.(get_value model (var_s lookup_name))
       in
       let clause =

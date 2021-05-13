@@ -156,7 +156,7 @@ let get_c_vars_and_complete node =
           (match Hashtbl.add visited_map ~key:node.key ~data:done_ with
           | `Ok -> ()
           | `Duplicate ->
-              Logs.app (fun m ->
+              Logs.warn (fun m ->
                   m
                     "Search tree node_map circular dependency at\n\
                      \tkey:%a\told_val:%B\tnew_val:%B\t"
@@ -170,7 +170,7 @@ let get_c_vars_and_complete node =
         match Hashtbl.add cvar_map ~key:cvar ~data:done_ with
         | `Ok -> ()
         | `Duplicate ->
-            Logs.app (fun m ->
+            Logs.warn (fun m ->
                 m
                   "Search tree cvar_map duplication at\n\
                    \tkey(cvar):%s\told_val:%B\tnew_val:%B\t"
