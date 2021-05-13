@@ -1,7 +1,7 @@
 open Core
 
 module T = struct
-  type t = Ident of string [@@deriving sexp, compare, equal]
+  type t = Ident of string [@@deriving sexp, compare, equal, hash]
 
   let hash = Hashtbl.hash
 end

@@ -1,11 +1,8 @@
+(* open Core *)
+
 open Batteries
-open Jhupllib
 open Odefa_ast
 open Odefa_test_generation
-
-let logger = Logger_utils.make_logger "Test_generator"
-
-let lazy_logger = Logger_utils.make_lazy_logger "Test_generator"
 
 exception CommandLineParseFailure of string
 
@@ -46,6 +43,17 @@ let () =
      ignore @@ Stdlib.exit 1);
   (* Generate tests *)
   try
+    (* DBMC related code - start *)
+    Dbmc.Log.init ~testname:args.ga_filename ~log_level:Logs.Debug ();
+    let inputs =
+      Dbmc.Main.lookup_main ~testname:args.ga_filename ast args.ga_target_point
+    in
+    let inputs = List.hd inputs in
+    Printf.printf "[%s]\n" (String.join "," @@ List.map string_of_int inputs);
+    Dbmc.Log.close ();
+    ignore @@ raise GenComplete;
+
+    (* DBMC related code - end *)
     let results_remaining = ref args.ga_maximum_results in
     let generator =
       Generator.create ~exploration_policy:args.ga_exploration_policy

@@ -104,6 +104,16 @@ let add_option xs y =
   | None -> xs
 
 let graph_of_gate_tree tree =
+  let done_c_stk_set = Core.Hash_set.create (module Concrete_stack) in
+  let add_done_c_stk picked_from_root (this : Gate.node) =
+    match this.rule with
+    | Done c_stk ->
+        if picked_from_root then
+          Core.Hash_set.add done_c_stk_set c_stk
+        else
+          ()
+    | _ -> ()
+  in
   let g = G.create () in
   let add_node_edge prev_info this =
     match (prev_info.prev_vertex, prev_info.prev_cvar) with
@@ -117,6 +127,7 @@ let graph_of_gate_tree tree =
               picked = true;
             }
         in
+        add_done_c_stk edge_info.picked_from_root this;
         G.add_edge_e g
           (G.E.create (Either.first prev) (Either.first edge_info)
              (Either.first this))
@@ -130,6 +141,7 @@ let graph_of_gate_tree tree =
               picked;
             }
         in
+        add_done_c_stk edge_info.picked_from_root this;
         G.add_edge_e g
           (G.E.create (Either.first prev) (Either.first edge_info)
              (Either.first this))
@@ -221,7 +233,7 @@ let graph_of_gate_tree tree =
     }
   in
   loop_tree init_passing_state tree;
-  g
+  (g, done_c_stk_set)
 
 let escape_gen_align_left =
   String.Escaping.escape_gen_exn

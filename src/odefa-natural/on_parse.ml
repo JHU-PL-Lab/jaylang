@@ -1,4 +1,5 @@
-open Batteries;;
+module OCaml_lexing = Lexing
+open Batteries
 open Lexing
 
 exception Parse_error of exn * int * int * string
@@ -16,3 +17,6 @@ let parse_program (input : IO.input) =
   let buf = Lexing.from_channel input in
   handle_parse_error buf @@ fun () -> On_parser.prog On_lexer.token buf
 
+let parse_program_raw (input : in_channel) =
+  let buf = OCaml_lexing.from_channel input in
+  handle_parse_error buf @@ fun () -> On_parser.prog On_lexer.token buf

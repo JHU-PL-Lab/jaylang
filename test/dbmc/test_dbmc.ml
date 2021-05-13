@@ -34,14 +34,14 @@ let test_one_file testname =
   let src_text = read_src testname in
   let src = parse src_text in
   (* print_endline @@ Odefa_ast.Ast_pp.show_expr src; *)
-  let inputs = Odefa_dbmc.Dbmc.lookup_main src Odefa_dbmc.Std.default_target in
+  let inputs = Dbmc.Main.lookup_main src Dbmc.Std.default_target in
   List.hd_exn inputs
 
 let test_unit testname () =
   Alcotest.(check (list int)) "equal" [] (test_one_file testname)
 
 let () =
-  Odefa_dbmc.Log.init ();
+  Dbmc.Log.init ();
 
   print_endline @@ Sys.getcwd ();
   (* let path = "../../../../test2" in *)

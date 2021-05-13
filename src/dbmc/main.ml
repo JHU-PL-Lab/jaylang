@@ -19,7 +19,9 @@ let defined x' block =
   | None, Fun fb -> At_fun_para (fb.para = x, fb)
   | None, Cond cb -> At_chosen cb
 
-exception Model_result of Z3.Model.model
+type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
+
+exception Found_solution of result_info
 
 let job_queue = Scheduler.empty ()
 
@@ -206,7 +208,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
 
               Lwt.return_unit
           | _ ->
-              Logs.app (fun m -> m "%a" Ast_pp.pp_clause tc.clause);
+              Logs.err (fun m -> m "%a" Ast_pp.pp_clause tc.clause);
               failwith "error clause cases")
       (* Fun Enter Parameter *)
       | At_fun_para (true, fb) ->
@@ -350,14 +352,14 @@ let lookup_top ?testname program x_target : _ Lwt.t =
     in
 
     if top_complete then (
-      Logs.app (fun m -> m "Search Tree Size:\t%d" (Gate.size !search_tree));
+      Logs.info (fun m -> m "Search Tree Size:\t%d" (Gate.size !search_tree));
       let choices_complete = Core.Hashtbl.to_alist cvar_complete_map in
 
       let choices_complete_z3 =
         Solver_helper.Z3API.z3_gate_out_phis choices_complete
       in
 
-      Logs.debug (fun m ->
+      Logs.info (fun m ->
           m "Z3_choices_complete: %a"
             Fmt.(Dump.list string)
             (List.map Z3.Expr.to_string choices_complete_z3));
@@ -417,24 +419,25 @@ let lookup_top ?testname program x_target : _ Lwt.t =
               model = Some (ref model);
               testname;
             };
-          Out_graph.(output_graph (graph_of_gate_tree !search_tree));
-          Lwt.fail @@ Model_result model
+          let graph, picked_c_stk_set =
+            Out_graph.graph_of_gate_tree !search_tree
+          in
+          let c_stk =
+            if Core.Hash_set.length picked_c_stk_set = 1 then
+              Core.List.hd_exn (Core.Hash_set.to_list picked_c_stk_set)
+            else
+              failwith "incorrect c_stk set"
+          in
+
+          Out_graph.output_graph graph;
+          let result_info = { model; c_stk } in
+          Lwt.fail (Found_solution result_info)
       | Core.Result.Error _exps ->
-          (* Logs.debug (fun m ->
-              m "UNSAT Phis: %s" (Solver_helper.string_of_solver ())); *)
-          (* Logs.debug (fun m ->
-              m "Cores (UNSAT): %a"
-                Fmt.(Dump.list string)
-                (List.map Z3.Expr.to_string exps)); *)
-          (* Logs.debug (fun m ->
-              m "Search Tree (UNSAT): @,%a]"
-                (Gate.pp_compact ~cc:choices_complete ())
-                !search_tree); *)
-          Logs.app (fun m -> m "UNSAT");
+          Logs.info (fun m -> m "UNSAT");
           Lwt.return_unit)
     else (
       (* Logs.debug (fun m -> m "Search Tree (UNDONE): @;%a]" (Gate.pp_compact ()) !search_tree); *)
-      Logs.app (fun m -> m "UNDONE");
+      Logs.info (fun m -> m "UNDONE");
       Lwt.return_unit)
   and create_lookup_task (task_key : Lookup_key.t) block =
     (* let sub_tree = ref Gate.pending_node in
@@ -518,13 +521,23 @@ let lookup_top ?testname program x_target : _ Lwt.t =
 
   lookup [ x_target' ] block0 Relative_stack.empty search_tree ()
 
-let lookup_main ?testname program x_target =
-  let main_task = lookup_top ?testname program x_target in
+let lookup_main ?testname ?timeout program x_target =
+  let main_task =
+    match timeout with
+    | Some ts ->
+        Lwt_unix.with_timeout (Core.Time.Span.to_sec ts) (fun () ->
+            lookup_top ?testname program x_target)
+    | None -> lookup_top ?testname program x_target
+  in
   push_job (fun () -> main_task);
-  (* let timeout_task = Lwt_unix.with_timeout 2. (fun () -> main_task) in *)
   Lwt_main.run
     (try%lwt Scheduler.run job_queue >>= fun _ -> Lwt.return [ [] ] with
-    | Model_result _model -> Lwt.return [ [] ]
+    | Found_solution ri ->
+        Fmt.(
+          pr "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident x_target
+            Concrete_stack.pp ri.c_stk);
+        Lwt.return
+          [ Solver_helper.get_input x_target ri.model ri.c_stk program ]
     | Lwt_unix.Timeout ->
         prerr_endline "timeout";
-        Lwt.return [ [] ])
+        Lwt.return [ [ -42 ] ])

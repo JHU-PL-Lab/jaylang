@@ -4,13 +4,16 @@ let saved_oc = ref None
 
 let filename_of_now () = Core.Time.(now () |> to_filename_string ~zone:Zone.utc)
 
-let init ?(suffix = "") () =
-  Logs.set_level (Some Logs.Debug);
+let init ?(testname = "") ?log_level () =
+  Logs.set_level log_level;
 
   (* Logs.set_reporter (Logs_fmt.reporter ()); *)
   (* Logs.set_reporter (reporter (Format.err_formatter)) *)
+  let suffix =
+    String.Search_pattern.(replace_all (create "/") ~in_:testname ~with_:"_")
+  in
   let log_file =
-    Filename.of_parts [ "logs"; filename_of_now () ^ suffix ^ ".log" ]
+    Filename.of_parts [ "logs"; filename_of_now () ^ "_" ^ suffix ^ ".log" ]
   in
   let oc = Out_channel.create log_file in
   saved_oc := Some oc;

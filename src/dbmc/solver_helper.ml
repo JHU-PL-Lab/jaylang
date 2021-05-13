@@ -33,13 +33,13 @@ let memorized_solution_input_feeder mem model target_stack =
     mem := answer :: !mem;
     answer
 
-let get_input target_x model program =
-  let target_stack = Z3API.get_top_stack model in
+let get_input target_x model (target_stack : Concrete_stack.t) program =
   let input_history = ref [] in
   let input_feeder =
     memorized_solution_input_feeder input_history model target_stack
   in
-  let target = (Id.to_ast_id target_x, Concrete_stack.to_ast_id target_stack) in
+  let target_stk = Concrete_stack.to_ast_id target_stack in
+  let target = (target_x, target_stk) in
   let _ =
     Odefa_interpreter.Naive_interpreter.eval ~input_feeder ~target program
   in

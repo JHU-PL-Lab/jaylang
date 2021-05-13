@@ -1,5 +1,6 @@
 (** A front-end for the parser library. *)
 
+module OCaml_Lexing = Lexing
 open Batteries
 open Lexing
 
@@ -27,5 +28,9 @@ let parse_program (input : IO.input) =
   handle_parse_error buf @@ fun () ->
   Generated_parser.prog Generated_lexer.token buf
 
+let parse_program_raw (input : in_channel) =
+  let buf = OCaml_Lexing.from_channel input in
+  handle_parse_error buf @@ fun () ->
+  Generated_parser.prog Generated_lexer.token buf
 
 let parse_string s = s |> IO.input_string |> parse_program
