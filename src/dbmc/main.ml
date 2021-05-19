@@ -405,29 +405,6 @@ let lookup_top ?testname program x_target : _ Lwt.t =
                 Fmt.Dump.(list (pair Fmt.string Fmt.bool))
                 (Core.Hashtbl.to_alist cvar_picked_map));
 
-          Out_graph.graph_info :=
-            {
-              source_map = Ddpa_helper.clause_mapping program;
-              block_map = map;
-              cvar_complete_map;
-              cvar_picked_map;
-              vertex_info_map = Core.Hashtbl.create (module Lookup_key);
-              edge_info_map = Core.Hashtbl.create (module Core.String);
-              phi_map = acc_phi_map;
-              phi_z3_map = Core.Hashtbl.create (module Lookup_key);
-              noted_phi_map = !noted_phi_map;
-              model = Some (ref model);
-              testname;
-            };
-          let graph, picked_c_stk_set =
-            Out_graph.graph_of_gate_tree !search_tree
-          in
-          let c_stk =
-            if Core.Hash_set.length picked_c_stk_set = 1 then
-              Core.List.hd_exn (Core.Hash_set.to_list picked_c_stk_set)
-            else
-              failwith "incorrect c_stk set"
-          in
 
           Out_graph.output_graph graph;
           let result_info = { model; c_stk } in
@@ -443,6 +420,31 @@ let lookup_top ?testname program x_target : _ Lwt.t =
     (* let sub_tree = ref Gate.pending_node in
        push_job @@ lookup xs block rel_stack sub_tree;
        sub_tree *)
+            let graph_info : Out_graph.graph_info_type =
+              {
+                phi_map = sts.phi_map;
+                noted_phi_map;
+                source_map = Ddpa_helper.clause_mapping program;
+                vertex_info_map = Core.Hashtbl.create (module Lookup_key);
+                edge_info_map = Core.Hashtbl.create (module Core.String);
+                model = Some (ref model);
+                testname;
+              }
+            in
+            let module GI = (val (module struct
+                                   let graph_info = graph_info
+                                 end) : Out_graph.Graph_info)
+            in
+            let module Graph_dot_printer = Out_graph.DotPrinter_Make (GI) in
+            let graph, picked_c_stk_set =
+              Graph_dot_printer.graph_of_gate_tree sts
+            in
+            let c_stk =
+              if Core.Hash_set.length picked_c_stk_set = 1 then
+                Core.List.hd_exn (Core.Hash_set.to_list picked_c_stk_set)
+              else
+                failwith "incorrect c_stk set"
+            in
     let block_id = block |> Tracelet.id_of_block |> Id.of_ast_id in
     let x, xs, rel_stack = task_key in
     match Core.Map.find !lookup_task_map task_key with
