@@ -1,4 +1,4 @@
-open Batteries
+open Core
 open Lwt.Infix
 open Odefa_ast
 open Odefa_ast.Ast
@@ -15,7 +15,7 @@ let defined x' block =
   let x = Id.to_ast_id x' in
   match (Tracelet.clause_of_x block x, block) with
   | Some tc, _ -> At_clause tc
-  | None, Fun fb -> At_fun_para (fb.para = x, fb)
+  | None, Fun fb -> At_fun_para (Ident.(equal fb.para x), fb)
   | None, Cond cb -> At_chosen cb
   | None, Main _mb -> failwith "main block must have target"
 
@@ -33,7 +33,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
   let add_phi ?debug_info key data =
     Search_tree.add_phi ~debug_info sts key data
   in
-  let lookup_task_map = ref (Core.Map.empty (module Lookup_key)) in
+  let lookup_task_map = ref (Map.empty (module Lookup_key)) in
   Solver_helper.reset ();
 
   (* program analysis *)
@@ -55,7 +55,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
   let[@landmark] rec lookup (xs0 : Lookup_stack.t) block rel_stack gate_tree
       parent : unit -> _ Lwt.t =
    fun () ->
-    let x, xs = (List.hd xs0, List.tl xs0) in
+    let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in
     let block_id = block |> Tracelet.id_of_block |> Id.of_ast_id in
     let this_key : Lookup_key.t = (x, xs, rel_stack) in
     let key = this_key in
@@ -133,7 +133,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           let cond_block =
             Ident_map.find tid map |> Tracelet.cast_to_cond_block
           in
-          if cond_block.choice <> None then
+          if Option.is_some cond_block.choice then
             failwith "conditional_body: not both"
           else
             ();
@@ -143,8 +143,8 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           in
 
           let phis, sub_trees =
-            List.fold_right
-              (fun beta (phis, sub_trees) ->
+            List.fold_right [ true; false ]
+              ~f:(fun beta (phis, sub_trees) ->
                 let ctracelet = Cond { cond_block with choice = Some beta } in
                 let x_ret = Tracelet.ret_of ctracelet |> Id.of_ast_id in
                 let cbody_stack =
@@ -159,7 +159,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
                   create_lookup_task (x_ret, xs, cbody_stack) ctracelet parent
                 in
                 (phis @ [ phi ], sub_trees @ [ sub_tree ]))
-              [ true; false ] ([], [])
+              ~init:([], [])
           in
           add_phi this_key (C.cond_bottom x rel_stack phis);
           gate_tree :=
@@ -176,8 +176,8 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           Logs.info (fun m ->
               m "FunEnter: %a -> %a" Id.pp fid Id.pp_old_list callsites);
           let outs, sub_trees =
-            List.fold_right
-              (fun callsite (outs, sub_trees) ->
+            List.fold_right fb.callsites
+              ~f:(fun callsite (outs, sub_trees) ->
                 let callsite_block, x', x'', x''' =
                   fun_info_of_callsite callsite map
                 in
@@ -203,7 +203,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
 
                     (outs @ [ out ], sub_trees @ [ sub_tree ])
                 | None -> (outs, sub_trees))
-              fb.callsites ([], [])
+              ~init:([], [])
           in
           let fc =
             C.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
@@ -222,8 +222,8 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           Logs.info (fun m ->
               m "FunEnterNonlocal: %a -> %a" Id.pp fid Id.pp_old_list callsites);
           let outs, sub_trees =
-            List.fold_right
-              (fun callsite (outs, sub_trees) ->
+            List.fold_right callsites
+              ~f:(fun callsite (outs, sub_trees) ->
                 let callsite_block, x', x'', _x''' =
                   fun_info_of_callsite callsite map
                 in
@@ -249,7 +249,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
                     let sub_tree = (sub_tree1, sub_tree2) in
                     (outs @ [ out ], sub_trees @ [ sub_tree ])
                 | None -> (outs, sub_trees))
-              callsites ([], [])
+              ~init:([], [])
           in
 
           let fc =
@@ -272,8 +272,8 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           let fun_tree = create_lookup_task (xf, [], rel_stack) block parent in
 
           let ins, sub_trees =
-            List.fold_right
-              (fun fid (ins, sub_trees) ->
+            List.fold_right fids
+              ~f:(fun fid (ins, sub_trees) ->
                 let fblock = Ident_map.find fid map in
                 let x' = Tracelet.ret_of fblock |> Id.of_ast_id in
                 let fid = Id.of_ast_id fid in
@@ -287,7 +287,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
                 in
 
                 (ins @ [ cf_in ], sub_trees @ [ sub_tree ]))
-              fids ([], [])
+              ~init:([], [])
           in
 
           let cf : C.cf =
@@ -302,14 +302,14 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           failwith "error lookup cases"
     in
 
-    let (top_complete : bool) =
+    let top_complete =
       Gate.get_c_vars_and_complete sts.cvar_complete_map !(sts.root_node)
     in
 
     if top_complete then (
       Logs.info (fun m ->
           m "Search Tree Size:\t%d" (Gate.size !(sts.root_node)));
-      let choices_complete = Core.Hashtbl.to_alist sts.cvar_complete_map in
+      let choices_complete = Hashtbl.to_alist sts.cvar_complete_map in
 
       let choices_complete_z3 =
         Solver_helper.Z3API.z3_gate_out_phis choices_complete
@@ -318,21 +318,19 @@ let lookup_top ?testname program x_target : _ Lwt.t =
       Logs.info (fun m ->
           m "Z3_choices_complete: %a"
             Fmt.(Dump.list string)
-            (List.map Z3.Expr.to_string choices_complete_z3));
-      let noted_phi_map = Core.Hashtbl.create (module Lookup_key) in
+            (List.map ~f:Z3.Expr.to_string choices_complete_z3));
+      let noted_phi_map = Hashtbl.create (module Lookup_key) in
       let phi_z3_map =
-        Core.Hashtbl.mapi sts.phi_map ~f:(fun ~key ~data ->
-            Core.List.map data
+        Hashtbl.mapi sts.phi_map ~f:(fun ~key ~data ->
+            List.map data
               ~f:
                 (Solver_helper.Z3API.phi_z3_of_constraint ~debug:true
                    ~debug_tool:(key, noted_phi_map)))
       in
-      let phi_z3_list = Core.Hashtbl.data phi_z3_map in
+      let phi_z3_list = Hashtbl.data phi_z3_map in
       Search_tree.merge_to_acc_phi_map sts ();
-      match
-        Solver_helper.check (Core.List.join phi_z3_list) choices_complete_z3
-      with
-      | Core.Result.Ok model ->
+      match Solver_helper.check (List.join phi_z3_list) choices_complete_z3 with
+      | Result.Ok model ->
           Logs.debug (fun m ->
               m "Solver Phis: %s" (Solver_helper.string_of_solver ()));
           Logs.debug (fun m -> m "Model: %s" (Z3.Model.to_string model));
@@ -342,12 +340,12 @@ let lookup_top ?testname program x_target : _ Lwt.t =
              any false or unpicked cvar
           *)
           sts.cvar_picked_map <-
-            Core.Hashtbl.mapi
+            Hashtbl.mapi
               ~f:(fun ~key:cname ~data:_cc ->
                 Constraint.mk_cvar_picked cname
                 |> Solver_helper.Z3API.boole_of_str
                 |> Solver_helper.Z3API.get_bool model
-                |> Core.Option.value ~default:false)
+                |> Option.value ~default:false)
               sts.cvar_complete_map;
 
           Logs.debug (fun m ->
@@ -358,15 +356,15 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           Logs.debug (fun m ->
               m "Cvar Picked: %a"
                 Fmt.Dump.(list (pair Fmt.string Fmt.bool))
-                (Core.Hashtbl.to_alist sts.cvar_picked_map));
+                (Hashtbl.to_alist sts.cvar_picked_map));
 
           let graph_info : Out_graph.graph_info_type =
             {
               phi_map = sts.phi_map;
               noted_phi_map;
               source_map = Ddpa_helper.clause_mapping program;
-              vertex_info_map = Core.Hashtbl.create (module Lookup_key);
-              edge_info_map = Core.Hashtbl.create (module Core.String);
+              vertex_info_map = Hashtbl.create (module Lookup_key);
+              edge_info_map = Hashtbl.create (module String);
               model = Some (ref model);
               testname;
             }
@@ -380,8 +378,8 @@ let lookup_top ?testname program x_target : _ Lwt.t =
             Graph_dot_printer.graph_of_gate_tree sts
           in
           let c_stk =
-            if Core.Hash_set.length picked_c_stk_set = 1 then
-              Core.List.hd_exn (Core.Hash_set.to_list picked_c_stk_set)
+            if Hash_set.length picked_c_stk_set = 1 then
+              List.hd_exn (Hash_set.to_list picked_c_stk_set)
             else
               failwith "incorrect c_stk set"
           in
@@ -389,7 +387,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           Graph_dot_printer.output_graph graph;
           let result_info = { model; c_stk } in
           Lwt.fail (Found_solution result_info)
-      | Core.Result.Error _exps ->
+      | Result.Error _exps ->
           Logs.info (fun m -> m "UNSAT");
           Lwt.return_unit)
     else
@@ -397,7 +395,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
   and create_lookup_task (key : Lookup_key.t) block parent =
     let block_id = block |> Tracelet.id_of_block |> Id.of_ast_id in
     let x, xs, rel_stack = key in
-    match Core.Map.find !lookup_task_map key with
+    match Map.find !lookup_task_map key with
     | Some existing_tree ->
         ref
           (Gate.mk_node ~block_id ~key ~parent
@@ -406,7 +404,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
         let sub_tree =
           ref (Gate.mk_node ~block_id ~key ~parent ~rule:Gate.pending_node)
         in
-        lookup_task_map := Core.Map.add_exn !lookup_task_map ~key ~data:sub_tree;
+        lookup_task_map := Map.add_exn !lookup_task_map ~key ~data:sub_tree;
         push_job @@ lookup (x :: xs) block rel_stack sub_tree parent;
         sub_tree
   and deal_with_value mv x xs block rel_stack gate_tree parent =
@@ -420,7 +418,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
       | Some (Value_function _) -> add_phi key @@ C.bind_fun x rel_stack x
       | Some v -> add_phi key @@ C.bind_v x v rel_stack
       | None -> add_phi key @@ C.bind_input x rel_stack);
-      if block_id_here = id_main then (
+      if Ident.equal block_id_here id_main then (
         (* Discovery Main *)
         let target_stk = Relative_stack.concretize rel_stack in
         add_phi ~debug_info:(x, xs, rel_stack) key @@ C.Target_stack target_stk;
@@ -438,7 +436,9 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           add_phi key @@ C.eq_lookup (x :: xs) rel_stack xs rel_stack;
           add_phi key @@ C.bind_fun x rel_stack x;
           let sub_tree =
-            create_lookup_task (List.hd xs, List.tl xs, rel_stack) block parent
+            create_lookup_task
+              (List.hd_exn xs, List.tl_exn xs, rel_stack)
+              block parent
           in
           gate_tree :=
             Gate.mk_node ~block_id ~key ~parent ~rule:Gate.(discard sub_tree)
@@ -457,7 +457,7 @@ let lookup_main ?testname ?timeout program x_target =
   let main_task =
     match timeout with
     | Some ts ->
-        Lwt_unix.with_timeout (Core.Time.Span.to_sec ts) (fun () ->
+        Lwt_unix.with_timeout (Time.Span.to_sec ts) (fun () ->
             lookup_top ?testname program x_target)
     | None -> lookup_top ?testname program x_target
   in
