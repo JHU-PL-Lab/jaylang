@@ -179,11 +179,6 @@ module Make (C : Context) () = struct
 
   let var_of_symbol sym = sym |> Sym.show |> var_s
 
-  let path_var = var_s "path"
-
-  (* soft_tautology soft_contradiction *)
-  let soft bv = Z3.Boolean.mk_eq ctx path_var (bool_ bv)
-
   let boole_of_str s = Z3.Boolean.mk_const_s ctx s
 
   let z3_gate_out_phis ccs =

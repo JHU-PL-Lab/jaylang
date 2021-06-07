@@ -9,5 +9,3 @@ end
 
 include T
 include Comparator.Make (T)
-
-let get_x_xs ((x, xs, _) : t) = (x, xs)

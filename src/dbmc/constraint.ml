@@ -69,9 +69,6 @@ end
 include T
 include Comparator.Make (T)
 
-(* type site = Callsite of Id.t | Condsite of Id.t | Parasite of Id.t
-[@@deriving show { with_path = false }] *)
-
 let mk_cvar_core ~from_id ~to_id ~site rel_stk =
   Fmt.str "%a_%s$%a_to_%a" Relative_stack.pp rel_stk
     (match site with None -> "" | Some s -> Id.show s)

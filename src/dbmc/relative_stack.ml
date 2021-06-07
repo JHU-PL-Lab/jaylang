@@ -1,13 +1,3 @@
-(* 
-    Lwt_fmt.(fprintf stdout "Rule FunEnter%s: in %a, to %a\n"
-               (if fb.para = x then "Local" else "Nonlocal")
-               Ast_pp.pp_ident fb.point
-               Id.pp_old_list fb.callsites
-            ) >|= fun _ ->
-
-    Lwt_fmt.(fprintf stdout "Rule CondTop: in %a\n"
-               Ast_pp.pp_ident cb.point) >|= fun _ -> *)
-
 open Core
 
 module T = struct
@@ -25,8 +15,6 @@ module T = struct
         Fmt.(pf oc "+(%a,%a)" pp_callsite cs pp_callsite fid)
     | Dangling (cs, fid) ->
         Fmt.(pf oc "-(%a,%a)" pp_callsite cs pp_callsite fid)
-
-  let show_frame = Fmt.to_to_string pp_frame
 
   type t = frame list * frame list [@@deriving sexp, compare, equal]
 
