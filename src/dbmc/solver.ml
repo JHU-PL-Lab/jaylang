@@ -191,7 +191,7 @@ module Make (C : Context) () = struct
     let log_noted_phi note phi =
       let key, note_map = Option.value_exn debug_tool in
       if debug then
-        Hashtbl.add_multi !note_map ~key ~data:(note, phi)
+        Hashtbl.add_multi note_map ~key ~data:(note, phi)
       else
         ()
     in

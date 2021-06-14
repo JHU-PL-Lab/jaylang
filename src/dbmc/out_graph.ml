@@ -23,7 +23,7 @@ module Palette = struct
 end
 
 module Graph_node = struct
-  type t = (Gate.t, string) Either.t [@@deriving compare, equal]
+  type t = (Gate.Node.t, string) Either.t [@@deriving compare, equal]
 
   let hash = Hashtbl.hash
 end
@@ -75,7 +75,7 @@ type graph_info_type = {
 type passing_state = {
   picked_from_root : bool;
   picked : bool;
-  prev_vertex : Gate.t option;
+  prev_vertex : Gate.Node.t option;
   prev_cvar : string option;
 }
 

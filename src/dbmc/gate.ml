@@ -1,7 +1,16 @@
 open Core
 
 module T = struct
-  type t = { key : Lookup_key.t; block_id : Id.t; rule : rule }
+  type t = {
+    key : Lookup_key.t;
+    block_id : Id.t;
+    rule : rule;
+    parent : t ref;
+    mutable cvars_coming : Cvar.t list;
+    mutable is_complete : bool;
+        (* mutable is_somewhat_complete : bool;
+           mutable is_fully_complete : bool; *)
+  }
 
   and rule =
     (* special rule *)
@@ -20,36 +29,99 @@ module T = struct
     | Para_local of (t ref * t ref) list * Constraint.fc
     | Para_nonlocal of (t ref * t ref) list * Constraint.fc
   [@@deriving sexp, compare, equal, show { with_path = false }]
+
+  let rule_name = function
+    | Pending -> "Pending"
+    | To_visited _ -> "To_visited"
+    | Done _ -> "Done"
+    | Mismatch -> "Mismatch"
+    | Discard _ -> "Discard"
+    | Alias _ -> "Alias"
+    | To_first _ -> "To_first"
+    | Binop _ -> "Binop"
+    | Cond_choice _ -> "Cond_choice"
+    | Callsite _ -> "Callsite"
+    | Condsite _ -> "Condsite"
+    | Para_local _ -> "Para_local"
+    | Para_nonlocal _ -> "Para_nonlocal"
+
+  let pp_rule_name oc rule = Fmt.pf oc "%s" (rule_name rule)
 end
 
-include T
-include Comparator.Make (T)
+module Node = struct
+  include T
+  include Comparator.Make (T)
+end
 
-type node = t
+module Node_ref = struct
+  module T = struct
+    type t = Node.t ref
+    [@@deriving sexp, compare, equal, show { with_path = false }]
 
-type choice_switch = Pre of bool | Post of bool option
-[@@deriving show { with_path = false }]
+    let hash = Hashtbl.hash
+  end
 
-let rule_name = function
-  | Pending -> "Pending"
-  | To_visited _ -> "To_visited"
-  | Done _ -> "Done"
-  | Mismatch -> "Mismatch"
-  | Discard _ -> "Discard"
-  | Alias _ -> "Alias"
-  | To_first _ -> "To_first"
-  | Binop _ -> "Binop"
-  | Cond_choice _ -> "Cond_choice"
-  | Callsite _ -> "Callsite"
-  | Condsite _ -> "Condsite"
-  | Para_local _ -> "Para_local"
-  | Para_nonlocal _ -> "Para_nonlocal"
+  include T
+  include Comparator.Make (T)
+end
 
-let pp_rule_name oc rule = Fmt.pf oc "%s" (rule_name rule)
+open Node
 
 let dummy_start =
   let x = Id.(Ident "dummy") in
-  { block_id = x; key = (x, [], Relative_stack.empty); rule = Pending }
+  let rec s =
+    {
+      block_id = x;
+      key = (x, [], Relative_stack.empty);
+      rule = Pending;
+      parent = ref s;
+      cvars_coming = [];
+      is_complete = false;
+    }
+  in
+  s
+
+let mk_node ~block_id ~key ~parent ~rule =
+  { block_id; key; rule; parent; cvars_coming = []; is_complete = false }
+
+let add_cvar_to_tree cvar tree =
+  if List.mem tree.cvars_coming cvar ~equal:Cvar.equal then
+    ()
+  else
+    tree.cvars_coming <- cvar :: tree.cvars_coming
+
+let add_cvars_to_trees cvars sub_trees =
+  List.iter2_exn sub_trees cvars ~f:(fun nr cvar -> add_cvar_to_tree cvar !nr)
+
+let add_cvars_to_treeps cvars sub_treeps =
+  List.iter2_exn sub_treeps cvars ~f:(fun (nf, na) cvar ->
+      add_cvar_to_tree cvar !nf;
+      add_cvar_to_tree cvar !na)
+
+let mk_callsite_node ~block_id ~key ~parent ~fun_tree ~sub_trees ~cf =
+  let cvars = Constraint.cvars_of_cf cf in
+  add_cvars_to_trees cvars sub_trees;
+  let rule = Callsite (fun_tree, sub_trees, cf) in
+  { block_id; key; rule; parent; cvars_coming = []; is_complete = false }
+
+let mk_condsite_node ~block_id ~key ~parent ~cond_var_tree ~sub_trees =
+  let x, _xs, r_stk = key in
+  let cvars = Constraint.cvars_of_condsite x r_stk in
+  add_cvars_to_trees cvars sub_trees;
+  let rule = Condsite (cond_var_tree, sub_trees) in
+  { block_id; key; rule; parent; cvars_coming = []; is_complete = false }
+
+let mk_para_local_node ~block_id ~key ~parent ~sub_trees ~fc =
+  let cvars = Constraint.cvars_of_fc fc in
+  add_cvars_to_treeps cvars sub_trees;
+  let rule = Para_local (sub_trees, fc) in
+  { block_id; key; rule; parent; cvars_coming = []; is_complete = false }
+
+let mk_para_nonlocal_node ~block_id ~key ~parent ~sub_trees ~fc =
+  let cvars = Constraint.cvars_of_fc fc in
+  add_cvars_to_treeps cvars sub_trees;
+  let rule = Para_nonlocal (sub_trees, fc) in
+  { block_id; key; rule; parent; cvars_coming = []; is_complete = false }
 
 let pending_node = Pending
 
@@ -66,14 +138,6 @@ let alias node = Alias node
 let to_first node = To_first node
 
 let binop n1 n2 = Binop (n1, n2)
-
-let callsite nf nrs cf = Callsite (nf, nrs, cf)
-
-let condsite nc nrs = Condsite (nc, nrs)
-
-let para_local ncs fc = Para_local (ncs, fc)
-
-let para_nonlocal ncs fc = Para_nonlocal (ncs, fc)
 
 let cond_choice nc nr = Cond_choice (nc, nr)
 
@@ -103,85 +167,121 @@ let cvar_cores_of_node node =
   | Para_local (_, fc) | Para_nonlocal (_, fc) -> Constraint.cvars_of_fc fc
   | _ -> []
 
-let get_c_vars_and_complete node =
-  let post_and x y = x && y in
-  let post_or x y = x || y in
+let get_c_vars_and_complete cvar_map node =
+  Hashtbl.clear cvar_map;
+  let local_cvar_map = Hashtbl.create (module String) in
+  (* let post_and x y = x && y in
+     let post_or x y = x || y in *)
+  let post_and x y =
+    match (x, y) with
+    | x, Std.Unknown -> x
+    | Std.Unknown, y -> y
+    | Std.True, Std.True -> Std.True
+    | _, _ -> Std.False
+  in
+  let post_or x y =
+    match (x, y) with
+    | x, Std.Unknown -> x
+    | Std.Unknown, y -> y
+    | Std.False, Std.False -> Std.False
+    | _, _ -> Std.True
+  in
   let visited_map = Hashtbl.create (module Lookup_key) in
-  let cvar_map = Hashtbl.create (module String) in
+  (* let visited_map_debug = Hashtbl.create (module Lookup_key) in *)
   let rec loop ?cvar node =
     let done_ =
       match Hashtbl.find visited_map node.key with
       | Some done_ -> done_
       | None ->
+          ignore @@ Hashtbl.add visited_map ~key:node.key ~data:Std.Unknown;
+
           let cvars = cvar_cores_of_node node in
           let done_ =
             match node.rule with
-            | Pending -> false
-            | Done _ -> true
-            | Mismatch -> false
+            | Pending -> Std.False
+            | Done _ -> Std.True
+            | Mismatch -> Std.False
             | To_visited next -> loop !next
             | Discard next | Alias next | To_first next -> loop !next
             | Binop (nr1, nr2) ->
-                List.fold [ nr1; nr2 ] ~init:true ~f:(fun acc nr ->
+                List.fold [ nr1; nr2 ] ~init:Std.True ~f:(fun acc nr ->
                     post_and (loop !nr) acc)
             | Cond_choice (nc, nr) ->
-                List.fold [ nc; nr ] ~init:true ~f:(fun acc nr ->
+                List.fold [ nc; nr ] ~init:Std.True ~f:(fun acc nr ->
                     post_and (loop !nr) acc)
             | Callsite (nf, ncs, _) ->
                 let sf = loop !nf in
                 post_and sf
-                  (List.fold2_exn ncs cvars ~init:false ~f:(fun acc nr cvar ->
-                       post_or (loop ~cvar !nr) acc))
+                  (List.fold2_exn ncs cvars ~init:Std.False
+                     ~f:(fun acc nr cvar -> post_or (loop ~cvar !nr) acc))
             | Condsite (nc, ncs) ->
                 post_and (loop !nc)
-                  (List.fold2_exn ncs cvars ~init:false ~f:(fun acc nr cvar ->
-                       post_or (loop ~cvar !nr) acc))
+                  (List.fold2_exn ncs cvars ~init:Std.False
+                     ~f:(fun acc nr cvar -> post_or (loop ~cvar !nr) acc))
             | Para_local (ncs, _) ->
-                List.fold2_exn ncs cvars ~init:false
+                List.fold2_exn ncs cvars ~init:Std.False
                   ~f:(fun acc (nf, na) cvar ->
                     let this_done = post_and (loop !nf) (loop !na) in
                     (* special case for cvar since this cvar is not a real edge *)
-                    ignore @@ Hashtbl.add cvar_map ~key:cvar ~data:this_done;
+                    ignore
+                    @@ Hashtbl.add_exn local_cvar_map ~key:cvar ~data:this_done;
                     post_or this_done acc)
             | Para_nonlocal (ncs, _) ->
-                (* List.fold2_exn ncs cvars ~init:false ~f:(fun acc nr cvar ->
-                    post_or (loop ~cvar !nr) acc) *)
-                List.fold2_exn ncs cvars ~init:false
+                List.fold2_exn ncs cvars ~init:Std.False
                   ~f:(fun acc (nf, na) cvar ->
                     let this_done = post_and (loop !nf) (loop !na) in
                     (* special case for cvar since this cvar is not a real edge *)
-                    ignore @@ Hashtbl.add cvar_map ~key:cvar ~data:this_done;
+                    ignore
+                    @@ Hashtbl.add_exn local_cvar_map ~key:cvar ~data:this_done;
                     post_or this_done acc)
           in
-          (match Hashtbl.add visited_map ~key:node.key ~data:done_ with
-          | `Ok -> ()
-          | `Duplicate ->
-              Logs.warn (fun m ->
-                  m
-                    "Search tree node_map circular dependency at\n\
-                     \tkey:%a\told_val:%B\tnew_val:%B\t"
-                    Lookup_key.pp node.key
-                    (Hashtbl.find_exn visited_map node.key)
-                    done_));
+          Hashtbl.change visited_map node.key ~f:(function
+            | Some Std.Unknown -> Some done_
+            | Some _ -> failwith "why not Unknown"
+            | None -> failwith "why None");
+          (* (match this_key with
+             | Some key -> Logs.app (fun m -> m "(%B)%a" done_ Lookup_key.pp key)
+             | None -> ()); *)
+          (* Hashtbl.set visited_map ~key:node.key ~data:done_; *)
+          (* (match Hashtbl.add visited_map ~key:node.key ~data:done_ with
+             | `Ok -> ()
+             | `Duplicate ->
+                 Logs.warn (fun m ->
+                     m
+                       "Search tree node_map circular dependency at\n\
+                        \tkey:%a\told_val:%B\tnew_val:%B\t"
+                       Lookup_key.pp node.key
+                       (Hashtbl.find_exn visited_map node.key)
+                       done_)); *)
           done_
     in
     (match cvar with
-    | Some cvar -> (
-        match Hashtbl.add cvar_map ~key:cvar ~data:done_ with
-        | `Ok -> ()
-        | `Duplicate ->
-            Logs.warn (fun m ->
-                m
-                  "Search tree cvar_map duplication at\n\
-                   \tkey(cvar):%s\told_val:%B\tnew_val:%B\t"
-                  cvar
-                  (Hashtbl.find_exn cvar_map cvar)
-                  done_))
+    | Some cvar ->
+        (* Hashtbl.set cvar_map ~key:cvar ~data:done_ *)
+        (* match Hashtbl.add cvar_map ~key:cvar ~data:done_ with
+           | `Ok -> ()
+           | `Duplicate ->
+               Logs.warn (fun m ->
+                   m
+                     "Search tree cvar_map duplication at\n\
+                      \tkey(cvar):%s\told_val:%a\tnew_val:%a\t"
+                     cvar Std.pp_ternary
+                     (Hashtbl.find_exn cvar_map cvar)
+                     Std.pp_ternary done_) *)
+        Hashtbl.change local_cvar_map cvar ~f:(function
+          | Some Std.Unknown | None -> Some done_
+          | Some v when Std.equal_ternary v done_ -> Some v
+          | _ -> failwith "must be either unknown or consistency")
     | None -> ());
+    (* List.iter node.cvars_coming ~f:(fun cvar ->
+        Hashtbl.update cvar_map cvar ~f:(fun old_v ->
+            match old_v with None -> done_ | Some ov -> ov || done_)); *)
     done_
   in
-  let top_done = loop node in
-  (top_done, cvar_map)
+  let tdone_ = loop node in
+  Hashtbl.iteri local_cvar_map ~f:(fun ~key ~data ->
+      Hashtbl.add_exn cvar_map ~key ~data:(Std.bool_of_ternary_exn data));
+  Std.bool_of_ternary_exn tdone_
 
 let sum f childs = List.sum (module Int) childs ~f:(fun child -> f !child)
 
