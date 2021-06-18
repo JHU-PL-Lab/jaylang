@@ -184,10 +184,10 @@ module Make (C : Context) () = struct
   let z3_gate_out_phis ccs =
     List.map ccs ~f:(fun (cname, cval) ->
         eq
-          (boole_of_str (Constraint.mk_cvar_complete cname))
+          (boole_of_str Cvar.(cname |> set_complete |> print))
           (Z3.Boolean.mk_val ctx cval))
 
-  let phi_z3_of_constraint ?(debug = false) ?debug_tool cs =
+  let[@landmark] phi_z3_of_constraint ?(debug = false) ?debug_tool cs =
     let log_noted_phi note phi =
       let key, note_map = Option.value_exn debug_tool in
       if debug then
@@ -242,13 +242,17 @@ module Make (C : Context) () = struct
           let e2 = z3_phis_of_smt_phi c2 in
           join [ e1; e2 ]
       | Constraint.C_cond_bottom (site, r_stk, cs) ->
-          let cvars = Constraint.cvars_of_condsite site r_stk in
+          let cvars = Cvar.mk_condsite site r_stk in
           let cvar_complete, cvar_picked =
-            Constraint.derive_complete_and_picked cvars
+            Cvar.derive_complete_and_picked cvars
           in
           let cs_complete, cs_picked =
-            ( List.map ~f:boole_of_str cvar_complete,
-              List.map ~f:boole_of_str cvar_picked )
+            ( List.map
+                ~f:(fun cvar -> cvar |> Cvar.print |> boole_of_str)
+                cvar_complete,
+              List.map
+                ~f:(fun cvar -> cvar |> Cvar.print |> boole_of_str)
+                cvar_picked )
           in
           let payloads = List.map cs ~f:z3_phis_of_smt_phi in
           let only_pick_the_complete =
@@ -259,13 +263,17 @@ module Make (C : Context) () = struct
           (* exclusion *)
           or_ [ join [ only_pick_the_complete; exclusion ]; no_paths_complete ]
       | Constraint.Fbody_to_callsite fc ->
-          let cvars = Constraint.cvars_of_fc fc in
+          let cvars = Cvar.mk_fun_to_callsite fc in
           let cvar_complete, cvar_picked =
-            Constraint.derive_complete_and_picked cvars
+            Cvar.derive_complete_and_picked cvars
           in
           let cs_complete, cs_picked =
-            ( List.map ~f:boole_of_str cvar_complete,
-              List.map ~f:boole_of_str cvar_picked )
+            ( List.map
+                ~f:(fun cvar -> cvar |> Cvar.print |> boole_of_str)
+                cvar_complete,
+              List.map
+                ~f:(fun cvar -> cvar |> Cvar.print |> boole_of_str)
+                cvar_picked )
           in
           let eq_lookups =
             List.map fc.outs ~f:(fun out ->
@@ -314,13 +322,17 @@ module Make (C : Context) () = struct
               picked_a_complete_path;
             ]
       | Constraint.Callsite_to_fbody cf ->
-          let cvars = Constraint.cvars_of_cf cf in
+          let cvars = Cvar.mk_callsite_to_fun cf in
           let cvar_complete, cvar_picked =
-            Constraint.derive_complete_and_picked cvars
+            Cvar.derive_complete_and_picked cvars
           in
           let cs_complete, cs_picked =
-            ( List.map ~f:boole_of_str cvar_complete,
-              List.map ~f:boole_of_str cvar_picked )
+            ( List.map
+                ~f:(fun cvar -> cvar |> Cvar.print |> boole_of_str)
+                cvar_complete,
+              List.map
+                ~f:(fun cvar -> cvar |> Cvar.print |> boole_of_str)
+                cvar_picked )
           in
           let eq_lookups =
             List.map cf.ins ~f:(fun in_ ->
@@ -492,7 +504,12 @@ module Make (C : Context) () = struct
     let stack_str = Seq.get_string ctx stack_v in
     Concrete_stack.of_string stack_str
 
-  let check_with_assumption solver assumptions =
+  let[@landmark] check_with_assumption solver assumptions =
+    (* for _ = 1 to 100 do
+         Z3.Solver.push solver;
+         ignore @@ Z3.Solver.check solver assumptions;
+         Z3.Solver.pop solver 1
+       done; *)
     match Z3.Solver.check solver assumptions with
     | Z3.Solver.SATISFIABLE -> (
         match Z3.Solver.get_model solver with

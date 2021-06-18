@@ -45,7 +45,7 @@ let dbmc_run program cfg =
 (* ignore @@ raise GenComplete *)
 
 let handle_config cfg =
-  Format.printf "%a\n" pp_top_config cfg;
+  (* Format.printf "%a\n" pp_top_config cfg; *)
   let program =
     if String.is_suffix cfg.filename ~suffix:"natodefa" then
       let natast =

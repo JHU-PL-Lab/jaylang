@@ -183,7 +183,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
                 in
                 match Relative_stack.pop rel_stack x' fid with
                 | Some callsite_stack ->
-                    let out : C.fc_out =
+                    let out : Helper.fc_out =
                       {
                         stk_out = callsite_stack;
                         xs_out = x''' :: xs;
@@ -206,7 +206,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
               ~init:([], [])
           in
           let fc =
-            C.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
+            Helper.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
           in
           add_phi this_key (C.Fbody_to_callsite fc);
           gate_tree :=
@@ -229,7 +229,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
                 in
                 match Relative_stack.pop rel_stack x' fid with
                 | Some callsite_stack ->
-                    let out : C.fc_out =
+                    let out : Helper.fc_out =
                       {
                         stk_out = callsite_stack;
                         xs_out = x'' :: x :: xs;
@@ -253,7 +253,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           in
 
           let fc =
-            C.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
+            Helper.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
           in
           add_phi this_key (C.Fbody_to_callsite fc);
           gate_tree :=
@@ -280,7 +280,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
                 let rel_stack' = Relative_stack.push rel_stack x fid in
 
                 let cf_in =
-                  C.{ stk_in = rel_stack'; xs_in = x' :: xs; fun_in = fid }
+                  Helper.{ stk_in = rel_stack'; xs_in = x' :: xs; fun_in = fid }
                 in
                 let sub_tree =
                   create_lookup_task (x', xs, rel_stack') fblock parent
@@ -290,7 +290,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
               ~init:([], [])
           in
 
-          let cf : C.cf =
+          let cf : Helper.cf =
             { xs_out = x :: xs; stk_out = rel_stack; site = x; f_out = xf; ins }
           in
           add_phi this_key (C.Callsite_to_fbody cf);
@@ -342,7 +342,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           sts.cvar_picked_map <-
             Hashtbl.mapi
               ~f:(fun ~key:cname ~data:_cc ->
-                Constraint.mk_cvar_picked cname
+                Cvar.set_picked cname |> Cvar.print
                 |> Solver_helper.Z3API.boole_of_str
                 |> Solver_helper.Z3API.get_bool model
                 |> Option.value ~default:false)
@@ -350,12 +350,12 @@ let lookup_top ?testname program x_target : _ Lwt.t =
 
           Logs.debug (fun m ->
               m "Cvar Complete: %a"
-                Fmt.Dump.(list (pair Fmt.string Fmt.bool))
+                Fmt.Dump.(list (pair Cvar.pp_print Fmt.bool))
                 choices_complete);
 
           Logs.debug (fun m ->
               m "Cvar Picked: %a"
-                Fmt.Dump.(list (pair Fmt.string Fmt.bool))
+                Fmt.Dump.(list (pair Cvar.pp_print Fmt.bool))
                 (Hashtbl.to_alist sts.cvar_picked_map));
 
           let graph_info : Out_graph.graph_info_type =

@@ -29,7 +29,7 @@ module Graph_node = struct
 end
 
 module Edge_label = struct
-  type edge = { cvar : string option; picked_from_root : bool; picked : bool }
+  type edge = { cvar : Cvar.t option; picked_from_root : bool; picked : bool }
 
   and t = (edge, string) Either.t [@@deriving compare, equal]
 
@@ -51,7 +51,7 @@ type vertex_info = {
   rule_name : string;
   picked_from_root : bool;
   picked : bool;
-  cvars_in : string list;
+  cvars_in : Cvar.t list;
 }
 
 type edge_info = {
@@ -76,12 +76,12 @@ type passing_state = {
   picked_from_root : bool;
   picked : bool;
   prev_vertex : Gate.Node.t option;
-  prev_cvar : string option;
+  prev_cvar : Cvar.t option;
 }
 
 let add_option xs y =
   match y with
-  | Some y -> if List.mem xs y ~equal:String.equal then xs else y :: xs
+  | Some y -> if List.mem xs y ~equal:Cvar.equal then xs else y :: xs
   | None -> xs
 
 let escape_gen_align_left =
@@ -336,7 +336,7 @@ module DotPrinter_Make (C : Graph_info) = struct
           | true, false -> [ `Arrowhead `Dot; `Color Palette.light ]
           | true, true -> [ `Color Palette.black ]
         in
-        let name = Fmt.(str "%a" (option string) edge.cvar) in
+        let name = Fmt.(str "%a" (option Cvar.pp_print) edge.cvar) in
         let labels = [ `Label name ] in
         styles @ labels
       in

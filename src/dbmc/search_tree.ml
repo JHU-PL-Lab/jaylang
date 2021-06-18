@@ -4,8 +4,8 @@ type t = {
   phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
   acc_phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
   current_pendings : Gate.Node.t ref Hash_set.t;
-  cvar_complete_map : (string, bool) Hashtbl.t;
-  mutable cvar_picked_map : (string, bool) Hashtbl.t;
+  cvar_complete_map : (Cvar.t, bool) Hashtbl.t;
+  mutable cvar_picked_map : (Cvar.t, bool) Hashtbl.t;
   root_node : Gate.Node.t ref;
 }
 
@@ -16,8 +16,8 @@ let create () =
       phi_map = Hashtbl.create (module Lookup_key);
       acc_phi_map = Hashtbl.create (module Lookup_key);
       current_pendings = Hash_set.create (module Gate.Node_ref);
-      cvar_complete_map = Hashtbl.create (module String);
-      cvar_picked_map = Hashtbl.create (module String);
+      cvar_complete_map = Hashtbl.create (module Cvar);
+      cvar_picked_map = Hashtbl.create (module Cvar);
       root_node;
     }
   in

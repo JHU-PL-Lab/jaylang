@@ -2,12 +2,13 @@ open Core
 
 module T = struct
   type callsite = Id.t
-  [@@deriving sexp, compare, equal, show { with_path = false }]
+  [@@deriving sexp, compare, equal, hash, show { with_path = false }]
 
-  type fid = Id.t [@@deriving sexp, compare, equal, show { with_path = false }]
+  type fid = Id.t
+  [@@deriving sexp, compare, equal, hash, show { with_path = false }]
 
   type frame = Pairable of callsite * fid | Dangling of callsite * fid
-  [@@deriving sexp, compare, equal]
+  [@@deriving sexp, compare, equal, hash]
 
   let pp_frame oc frame =
     match frame with
@@ -16,7 +17,7 @@ module T = struct
     | Dangling (cs, fid) ->
         Fmt.(pf oc "-(%a,%a)" pp_callsite cs pp_callsite fid)
 
-  type t = frame list * frame list [@@deriving sexp, compare, equal]
+  type t = frame list * frame list [@@deriving sexp, compare, equal, hash]
 
   let pp oc (s1, s2) =
     Fmt.(pf oc "[%a]" (list ~sep:(any ";") pp_frame) (s1 @ s2))

@@ -1,4 +1,5 @@
 open Core
+open Helper
 
 module T = struct
   type value =
@@ -23,34 +24,6 @@ module T = struct
     | Xor
   [@@deriving sexp, compare, equal, show { with_path = false }]
 
-  type fc_out = {
-    xs_out : Id.t list;
-    site : Id.t;
-    stk_out : Relative_stack.t;
-    f_out : Id.t;
-  }
-  [@@deriving sexp, compare, equal, show { with_path = false }]
-
-  type fc = {
-    xs_in : Id.t list;
-    stk_in : Relative_stack.t;
-    fun_in : Id.t;
-    outs : fc_out list;
-  }
-  [@@deriving sexp, compare, equal, show { with_path = false }]
-
-  type cf_in = { xs_in : Id.t list; stk_in : Relative_stack.t; fun_in : Id.t }
-  [@@deriving sexp, compare, equal, show { with_path = false }]
-
-  type cf = {
-    xs_out : Id.t list;
-    stk_out : Relative_stack.t;
-    site : Id.t;
-    f_out : Id.t;
-    ins : cf_in list;
-  }
-  [@@deriving sexp, compare, equal, show { with_path = false }]
-
   type t =
     | Eq_v of Symbol.t * value
     | Eq_x of Symbol.t * Symbol.t
@@ -68,35 +41,6 @@ end
 
 include T
 include Comparator.Make (T)
-
-let mk_cvar_core ~from_id ~to_id ~site rel_stk =
-  Fmt.str "%a_%s$%a_to_%a" Relative_stack.pp rel_stk
-    (match site with None -> "" | Some s -> Id.show s)
-    Id.pp to_id Id.pp from_id
-
-let mk_cvar_cond_core ~site ~beta rel_stk =
-  Fmt.str "%a_%a$%B" Relative_stack.pp rel_stk Id.pp site beta
-
-let mk_cvar_complete core = Fmt.str "$%s_cc" core
-
-let mk_cvar_picked core = Fmt.str "$%s_pp" core
-
-let cvars_of_condsite x r_stk =
-  List.map [ true; false ] ~f:(fun beta ->
-      mk_cvar_cond_core ~site:x ~beta r_stk)
-
-let cvars_of_fc fc =
-  List.map fc.outs ~f:(fun out ->
-      mk_cvar_core ~from_id:fc.fun_in ~to_id:out.f_out ~site:(Some out.site)
-        fc.stk_in)
-
-let cvars_of_cf cf =
-  List.map cf.ins ~f:(fun in_ ->
-      mk_cvar_core ~from_id:cf.f_out ~to_id:in_.fun_in ~site:(Some cf.site)
-        cf.stk_out)
-
-let derive_complete_and_picked cvars =
-  (List.map ~f:mk_cvar_complete cvars, List.map ~f:mk_cvar_picked cvars)
 
 let show_binop = function
   | Add -> "+"
