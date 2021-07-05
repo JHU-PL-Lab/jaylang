@@ -241,8 +241,8 @@ module Make (C : Context) () = struct
           let e1 = z3_phis_of_smt_phi c1 in
           let e2 = z3_phis_of_smt_phi c2 in
           join [ e1; e2 ]
-      | Constraint.C_cond_bottom (site, r_stk, cs) ->
-          let cvars = Cvar.mk_condsite site r_stk in
+      | Constraint.C_cond_bottom (lookups, site, r_stk, cs) ->
+          let cvars = Cvar.mk_condsite lookups site r_stk in
           let cvar_complete, cvar_picked =
             Cvar.derive_complete_and_picked cvars
           in
@@ -262,8 +262,8 @@ module Make (C : Context) () = struct
           let no_paths_complete = join (List.map cs_complete ~f:not_) in
           (* exclusion *)
           or_ [ join [ only_pick_the_complete; exclusion ]; no_paths_complete ]
-      | Constraint.Fbody_to_callsite fc ->
-          let cvars = Cvar.mk_fun_to_callsite fc in
+      | Constraint.Fbody_to_callsite (lookups, fc) ->
+          let cvars = Cvar.mk_fun_to_callsite lookups fc in
           let cvar_complete, cvar_picked =
             Cvar.derive_complete_and_picked cvars
           in
@@ -321,8 +321,8 @@ module Make (C : Context) () = struct
               all_complete_paths_invalid;
               picked_a_complete_path;
             ]
-      | Constraint.Callsite_to_fbody cf ->
-          let cvars = Cvar.mk_callsite_to_fun cf in
+      | Constraint.Callsite_to_fbody (lookups, cf) ->
+          let cvars = Cvar.mk_callsite_to_fun lookups cf in
           let cvar_complete, cvar_picked =
             Cvar.derive_complete_and_picked cvars
           in

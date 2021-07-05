@@ -1,5 +1,30 @@
 open Core
 
+type ternary = True | False | Unknown
+[@@deriving equal, show { with_path = false }]
+
+let bool_of_ternary_exn = function
+  | True -> true
+  | False -> false
+  | Unknown -> failwith "ternary unknown"
+
+let bool_of_ternary = function
+  | True -> Some true
+  | False -> Some false
+  | Unknown -> None
+
+let t_and tb1 tb2 =
+  match (tb1, tb2) with
+  | False, _ | _, False -> False
+  | True, True -> True
+  | _, _ -> Unknown
+
+let t_or tb1 tb2 =
+  match (tb1, tb2) with
+  | True, _ | _, True -> True
+  | False, False -> False
+  | _, _ -> Unknown
+
 let just_side_effect = ignore
 
 let default_target = Odefa_ast.Ast.Ident "target"

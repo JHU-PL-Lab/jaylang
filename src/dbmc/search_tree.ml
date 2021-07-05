@@ -10,7 +10,7 @@ type t = {
 }
 
 let create () =
-  let root_node = ref Gate.dummy_start in
+  let root_node = ref Gate.partial_node in
   let state =
     {
       phi_map = Hashtbl.create (module Lookup_key);
@@ -78,8 +78,8 @@ let march_frontiers state =
       match node.rule with
       | Pending -> true
       | Done _c_stk ->
-          if not node.is_complete then (
-            node.is_complete <- true;
+          if not node.all_path_complete then (
+            node.all_path_complete <- true;
             Hash_set.add new_dones node_ref)
           else
             ();

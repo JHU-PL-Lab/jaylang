@@ -13,13 +13,20 @@
   logs.lwt
   logs.fmt
   ocamlgraph
+  landmarks
   odefa.ast
   odefa.ddpa
   odefa.interpreter)
  (synopsis "dbmc is demand-driven bounded model checking")
  (inline_tests)
  (preprocess
-  (pps ppx_jane -allow-unannotated-ignores ppx_deriving.show lwt_ppx)))
+  (pps
+   ppx_jane
+   -allow-unannotated-ignores
+   ppx_deriving.show
+   lwt_ppx
+   landmarks.ppx
+   --auto)))
 
 (env
  (dev

@@ -2,7 +2,7 @@ open Core
 
 module T = struct
   type t = Id.t list
-  [@@deriving sexp, compare, equal, show { with_path = false }]
+  [@@deriving sexp, compare, equal, hash, show { with_path = false }]
 end
 
 include T

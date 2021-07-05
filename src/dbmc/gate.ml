@@ -5,12 +5,12 @@ module T = struct
     key : Lookup_key.t;
     block_id : Id.t;
     rule : rule;
-    parent : t ref;
-    mutable cvars_coming : Cvar.t list;
-    mutable is_complete : bool;
-        (* mutable is_somewhat_complete : bool;
-           mutable is_fully_complete : bool; *)
+    mutable preds : edge list;
+    mutable has_complete_path : bool;
+    mutable all_path_complete : bool;
   }
+
+  and edge = Direct of t ref | With_cvar of Cvar.t * t ref
 
   and rule =
     (* special rule *)
@@ -67,61 +67,36 @@ end
 
 open Node
 
-let dummy_start =
-  let x = Id.(Ident "dummy") in
-  let rec s =
-    {
-      block_id = x;
-      key = (x, [], Relative_stack.empty);
-      rule = Pending;
-      parent = ref s;
-      cvars_coming = [];
-      is_complete = false;
-    }
-  in
-  s
+let direct node : Node.edge = Direct node
+
+let with_cvar cvar node : Node.edge = With_cvar (cvar, node)
+
+let partial_node =
+  let x = Id.(Ident "void") in
+  {
+    block_id = x;
+    key = (x, [], Relative_stack.empty);
+    rule = Pending;
+    preds = [];
+    has_complete_path = false;
+    all_path_complete = false;
+  }
 
 let mk_node ~block_id ~key ~parent ~rule =
-  { block_id; key; rule; parent; cvars_coming = []; is_complete = false }
+  {
+    block_id;
+    key;
+    rule;
+    preds = [ parent ];
+    has_complete_path = false;
+    all_path_complete = false;
+  }
 
-let add_cvar_to_tree cvar tree =
-  if List.mem tree.cvars_coming cvar ~equal:Cvar.equal then
-    ()
-  else
-    tree.cvars_coming <- cvar :: tree.cvars_coming
+let mk_callsite ~fun_tree ~sub_trees ~cf = Callsite (fun_tree, sub_trees, cf)
 
-let add_cvars_to_trees cvars sub_trees =
-  List.iter2_exn sub_trees cvars ~f:(fun nr cvar -> add_cvar_to_tree cvar !nr)
+let mk_condsite ~cond_var_tree ~sub_trees = Condsite (cond_var_tree, sub_trees)
 
-let add_cvars_to_treeps cvars sub_treeps =
-  List.iter2_exn sub_treeps cvars ~f:(fun (nf, na) cvar ->
-      add_cvar_to_tree cvar !nf;
-      add_cvar_to_tree cvar !na)
-
-let mk_callsite_node ~block_id ~key ~parent ~fun_tree ~sub_trees ~cf =
-  let cvars = Cvar.mk_callsite_to_fun cf in
-  add_cvars_to_trees cvars sub_trees;
-  let rule = Callsite (fun_tree, sub_trees, cf) in
-  { block_id; key; rule; parent; cvars_coming = []; is_complete = false }
-
-let mk_condsite_node ~block_id ~key ~parent ~cond_var_tree ~sub_trees =
-  let x, _xs, r_stk = key in
-  let cvars = Cvar.mk_condsite x r_stk in
-  add_cvars_to_trees cvars sub_trees;
-  let rule = Condsite (cond_var_tree, sub_trees) in
-  { block_id; key; rule; parent; cvars_coming = []; is_complete = false }
-
-let mk_para_local_node ~block_id ~key ~parent ~sub_trees ~fc =
-  let cvars = Cvar.mk_fun_to_callsite fc in
-  add_cvars_to_treeps cvars sub_trees;
-  let rule = Para_local (sub_trees, fc) in
-  { block_id; key; rule; parent; cvars_coming = []; is_complete = false }
-
-let mk_para_nonlocal_node ~block_id ~key ~parent ~sub_trees ~fc =
-  let cvars = Cvar.mk_fun_to_callsite fc in
-  add_cvars_to_treeps cvars sub_trees;
-  let rule = Para_nonlocal (sub_trees, fc) in
-  { block_id; key; rule; parent; cvars_coming = []; is_complete = false }
+let mk_para ~sub_trees ~fc = Para_local (sub_trees, fc)
 
 let pending_node = Pending
 
@@ -160,14 +135,33 @@ and that's why we first check visited_map and then check cvar_map
 *)
 
 let cvar_cores_of_node node =
-  let x, _xs, r_stk = node.key in
+  let x, xs, r_stk = node.key in
+  let lookups = x :: xs in
   match node.rule with
-  | Callsite (_, _, cf) -> Cvar.mk_callsite_to_fun cf
-  | Condsite (_, _) -> Cvar.mk_condsite x r_stk
-  | Para_local (_, fc) | Para_nonlocal (_, fc) -> Cvar.mk_fun_to_callsite fc
+  | Callsite (_, _, cf) -> Cvar.mk_callsite_to_fun lookups cf
+  | Condsite (_, _) -> Cvar.mk_condsite lookups x r_stk
+  | Para_local (_, fc) | Para_nonlocal (_, fc) ->
+      Cvar.mk_fun_to_callsite lookups fc
   | _ -> []
 
-let get_c_vars_and_complete cvar_map node =
+(* 
+    visited_map:
+    true -> exist one done path 
+    false -> no done path
+
+
+    A -> B -> C -> A
+       \        -> D ([])
+         E -> F -> G (..)
+
+
+         
+    working
+
+    this fun 
+*)
+
+let get_c_vars_and_complete cvar_map node (* visited_list *) =
   Hashtbl.clear cvar_map;
   (* let local_cvar_map = Hashtbl.create (module String) in *)
   let post_and x y = x && y in
@@ -193,7 +187,7 @@ let get_c_vars_and_complete cvar_map node =
       match Hashtbl.find visited_map node.key with
       | Some done_ -> done_
       | None ->
-          (* ignore @@ Hashtbl.add visited_map ~key:node.key ~data:Std.Unknown; *)
+          (* ignore @@ Hashtbl.add_exn visited_map ~key:node.key ~data:false; *)
           let cvars = cvar_cores_of_node node in
           let done_ =
             match node.rule with
@@ -239,17 +233,17 @@ let get_c_vars_and_complete cvar_map node =
           (* (match this_key with
              | Some key -> Logs.app (fun m -> m "(%B)%a" done_ Lookup_key.pp key)
              | None -> ()); *)
-          (* Hashtbl.set visited_map ~key:node.key ~data:done_; *)
-          (match Hashtbl.add visited_map ~key:node.key ~data:done_ with
-          | `Ok -> ()
-          | `Duplicate ->
-              Logs.warn (fun m ->
-                  m
-                    "Search tree node_map circular dependency at\n\
-                     \tkey:%a\told_val:%B\tnew_val:%B\t"
-                    Lookup_key.pp node.key
-                    (Hashtbl.find_exn visited_map node.key)
-                    done_));
+          Hashtbl.set visited_map ~key:node.key ~data:done_;
+          (* (match Hashtbl.add visited_map ~key:node.key ~data:done_ with
+             | `Ok -> ()
+             | `Duplicate ->
+                 Logs.app (fun m ->
+                     m
+                       "Search tree node_map circular dependency at\n\
+                        \tkey:%a\told_val:%B\tnew_val:%B\t"
+                       Lookup_key.pp node.key
+                       (Hashtbl.find_exn visited_map node.key)
+                       done_)); *)
           done_
     in
     (match cvar with
@@ -298,3 +292,18 @@ let rec size node =
   | Para_nonlocal (ncs, _) ->
       1 + List.sum (module Int) ncs ~f:(fun (n1, n2) -> size !n1 + size !n2)
 (* | Para_nonlocal (ncs, _) -> 1 + sum size ncs *)
+
+(* let add_cvar_to_tree pred cvar tree =
+  if List.mem tree.preds cvar ~equal:Cvar.equal then
+    ()
+  else
+    tree.preds <- With_cvar (cvar, pred) :: tree.preds
+
+let add_cvars_to_trees pred cvars sub_trees =
+  List.iter2_exn sub_trees cvars ~f:(fun nr cvar ->
+      add_cvar_to_tree pred cvar !nr)
+
+let add_cvars_to_treeps pred cvars sub_treeps =
+  List.iter2_exn sub_treeps cvars ~f:(fun (nf, na) cvar ->
+      add_cvar_to_tree pred cvar !nf;
+      add_cvar_to_tree pred cvar !na) *)
