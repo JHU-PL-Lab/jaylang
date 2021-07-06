@@ -7,7 +7,7 @@ module T = struct
     rule : rule;
     mutable preds : edge list;
     mutable has_complete_path : bool;
-    mutable all_path_complete : bool;
+    mutable all_path_searched : bool;
   }
 
   and edge = Direct of t ref | With_cvar of Cvar.t * t ref
@@ -79,7 +79,7 @@ let partial_node =
     rule = Pending;
     preds = [];
     has_complete_path = false;
-    all_path_complete = false;
+    all_path_searched = false;
   }
 
 let mk_node ~block_id ~key ~parent ~rule =
@@ -89,8 +89,20 @@ let mk_node ~block_id ~key ~parent ~rule =
     rule;
     preds = [ parent ];
     has_complete_path = false;
-    all_path_complete = false;
+    all_path_searched = false;
   }
+
+let add_pred node pred =
+  if
+    List.mem !node.preds pred ~equal:(fun eg1 eg2 ->
+        match (eg1, eg2) with
+        | With_cvar (cvar1, _p1), With_cvar (cvar2, _p2) ->
+            Cvar.equal cvar1 cvar2
+        | _, _ -> false)
+  then
+    failwith "why duplicate cvars on edge"
+  else
+    !node.preds <- pred :: !node.preds
 
 let mk_callsite ~fun_tree ~sub_trees ~cf = Callsite (fun_tree, sub_trees, cf)
 
@@ -149,16 +161,9 @@ let cvar_cores_of_node node =
     true -> exist one done path 
     false -> no done path
 
-
     A -> B -> C -> A
        \        -> D ([])
          E -> F -> G (..)
-
-
-         
-    working
-
-    this fun 
 *)
 
 let get_c_vars_and_complete cvar_map node (* visited_list *) =
@@ -293,17 +298,32 @@ let rec size node =
       1 + List.sum (module Int) ncs ~f:(fun (n1, n2) -> size !n1 + size !n2)
 (* | Para_nonlocal (ncs, _) -> 1 + sum size ncs *)
 
-(* let add_cvar_to_tree pred cvar tree =
-  if List.mem tree.preds cvar ~equal:Cvar.equal then
-    ()
-  else
-    tree.preds <- With_cvar (cvar, pred) :: tree.preds
+(* 
+properties:
 
-let add_cvars_to_trees pred cvars sub_trees =
-  List.iter2_exn sub_trees cvars ~f:(fun nr cvar ->
-      add_cvar_to_tree pred cvar !nr)
 
-let add_cvars_to_treeps pred cvars sub_treeps =
-  List.iter2_exn sub_treeps cvars ~f:(fun (nf, na) cvar ->
-      add_cvar_to_tree pred cvar !nf;
-      add_cvar_to_tree pred cvar !na) *)
+ *)
+let bubble_up_complete cvar_map node =
+  let _visited = Hash_set.create (module Node_ref) in
+  let rec bubble_up coming_edge node =
+    (* bubble_down one step *)
+    let (match coming_edge with
+    | Direct _coming_node -> ()
+    | With_cvar (cvar, coming_node) ->
+        if Hashtbl.mem cvar_map cvar then
+          failwith "should not find duplicate cvar"
+        else
+          ());
+    (* bubble_up *)
+    (match !node.rule with
+    | Pending | To_visited _ | Mismatch -> failwith "should not be in bubble up"
+    | _ -> ());
+    if !node.has_complete_path then
+      ()
+    else (
+      !node.has_complete_path <- true;
+      List.iter !node.preds ~f:(function
+        | Direct pred -> bubble_up (Direct node) pred
+        | With_cvar (cvar, pred) -> bubble_up (With_cvar (cvar, node)) pred))
+  in
+  bubble_up node

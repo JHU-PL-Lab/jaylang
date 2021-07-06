@@ -1,6 +1,7 @@
 open Core
 
 type t = {
+  node_map : (Lookup_key.t, Gate.Node.t ref) Hashtbl.t;
   phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
   acc_phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
   current_pendings : Gate.Node.t ref Hash_set.t;
@@ -13,6 +14,7 @@ let create () =
   let root_node = ref Gate.partial_node in
   let state =
     {
+      node_map = Hashtbl.create (module Lookup_key);
       phi_map = Hashtbl.create (module Lookup_key);
       acc_phi_map = Hashtbl.create (module Lookup_key);
       current_pendings = Hash_set.create (module Gate.Node_ref);
@@ -78,8 +80,8 @@ let march_frontiers state =
       match node.rule with
       | Pending -> true
       | Done _c_stk ->
-          if not node.all_path_complete then (
-            node.all_path_complete <- true;
+          if not node.all_path_searched then (
+            node.all_path_searched <- true;
             Hash_set.add new_dones node_ref)
           else
             ();

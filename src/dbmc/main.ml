@@ -33,7 +33,6 @@ let lookup_top ?testname program x_target : _ Lwt.t =
   let add_phi ?debug_info key data =
     Search_tree.add_phi ~debug_info sts key data
   in
-  let lookup_task_map = ref (Map.empty (module Lookup_key)) in
   Solver_helper.reset ();
 
   (* program analysis *)
@@ -423,7 +422,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
   and create_lookup_task (key : Lookup_key.t) block parent =
     let block_id = block |> Tracelet.id_of_block |> Id.of_ast_id in
     let x, xs, rel_stack = key in
-    match Map.find !lookup_task_map key with
+    match Hashtbl.find sts.node_map key with
     | Some existing_tree ->
         ref
           (Gate.mk_node ~block_id ~key ~parent
@@ -432,7 +431,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
         let sub_tree =
           ref (Gate.mk_node ~block_id ~key ~parent ~rule:Gate.pending_node)
         in
-        lookup_task_map := Map.add_exn !lookup_task_map ~key ~data:sub_tree;
+        Hashtbl.add_exn sts.node_map ~key ~data:sub_tree;
         push_job @@ lookup (x :: xs) block rel_stack sub_tree parent;
         sub_tree
   and deal_with_value mv x xs block rel_stack (gate_tree : Gate.Node.t ref)
