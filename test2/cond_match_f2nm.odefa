@@ -1,0 +1,36 @@
+x = input;
+
+f = fun fx -> (
+  one = 1;
+  cx = fx == one;
+  y = input;
+  two = 2;
+  cy = y == two;
+  r1 = cx ? (
+    r2 = cy ? (
+      d8 = 8
+    ) : (
+      d7 = 7
+    )
+  ) : (
+    r3 = cy ? (
+      d6 = 6
+    ) : (
+      d5 = 5
+    )
+  )
+);
+
+c1 = f x;
+
+a6 = 6;
+a7 = 7;
+ct = c1 == a6;
+
+last = ct ?
+  (
+    target = 2
+  ) :
+  (
+    t3 = 3
+  )

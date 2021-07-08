@@ -1,0 +1,28 @@
+x = input;
+
+f = fun fx -> (
+  one = 1;
+  g = fun fy -> (
+    cx = fx == one;
+    rf = cx ? (
+      r1 = 6
+    ) : (
+      r2 = 7
+    )
+  )
+);
+
+c1 = f x;
+c2 = c1 x;
+
+a6 = 6;
+a7 = 7;
+ct = c2 == a6;
+
+target = ct ?
+  (
+    t2 = 2
+  ) :
+  (
+    t3 = 3
+  )

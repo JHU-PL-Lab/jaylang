@@ -1,0 +1,5 @@
+let pure = fun val -> {c_val = val} in
+let sp = ((pure) (fun x -> (pure) x)) in
+let t1 = (sp.c_val) in
+let t2 = t1 0 in
+t2

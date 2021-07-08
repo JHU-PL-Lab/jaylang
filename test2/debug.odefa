@@ -1,0 +1,24 @@
+x = input;
+  first = {};
+  flatten_fun_2 = fun val -> (
+  var_0 = val; record_1 = {c_val=var_0});
+  pure = flatten_fun_2;
+  var_3 = pure;
+  flatten_fun_7 = fun x -> (
+  
+    var_4 = pure;
+    var_5 = x;
+    m_13 = var_4 ~ fun;
+    appl_6 = m_13 ? (c_appl_14 = var_4 var_5) : (ab_15 = abort));
+  m_16 = var_3 ~ fun;
+  appl_8 = m_16 ? (c_appl_17 = var_3 flatten_fun_7) : (ab_18 = abort);
+  sp = appl_8;
+  var_9 = sp;
+  m_19 = var_9 ~ {c_val};
+  proj_10 = m_19 ? (c_proj_20 = var_9.c_val) : (ab_21 = abort);
+  int_11 = 0;
+  m_22 = proj_10 ~ fun;
+  appl_12 = m_22 ? (c_appl_23 = proj_10 int_11) : (ab_24 = abort);
+  result = appl_12
+
+

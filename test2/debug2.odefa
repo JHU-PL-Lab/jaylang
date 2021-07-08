@@ -1,0 +1,15 @@
+x = input;
+flatten_fun___2 = fun val -> (
+  var___0 = val; record___1 = {c_val=var___0}
+);
+pure = flatten_fun___2;
+var___3 = pure;
+flatten_fun___7 = fun x -> (
+var___4 = pure; var___5 = x; appl___6 = var___4 var___5);
+appl___8 = var___3 flatten_fun___7;
+sp = appl___8;
+var___9 = sp;
+record_proj___10 = var___9.c_val;
+int___11 = 0;
+appl___12 = record_proj___10 int___11;
+___result = appl___12

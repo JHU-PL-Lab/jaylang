@@ -1,0 +1,10 @@
+a1 = 1;
+a2 = 2;
+f = fun t -> (
+  g = fun s -> (
+    x = 1;
+    target = t
+  )
+);
+c1 = f a1;
+c2 = c1 a2

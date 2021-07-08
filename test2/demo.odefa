@@ -1,0 +1,49 @@
+f1 = fun a1 -> (
+  r1 = 1
+)
+
+f2 = fun a2 -> (
+  r2 = 1
+)
+
+g1 = fun a3 -> (
+  r3 = 1
+)
+
+g2 = fun a4 -> (
+  r4 = 1
+)
+
+g3 = fun a5 -> (
+  r5 = 1
+)
+
+p = fun _ -> (
+  t1 = f 0    # f -> {f1,f2}
+  t2 = g 0    # g -> {g1,g2,g3}
+  r = t1 + t2
+)
+target = p 0
+
+XOR [
+  [+(target,p)]_t1_to_f1_picked   ->   [+(target,p)]_f == f1
+  [+(target,p)]_t1_to_f2_picked   ->   [+(target,p)]_f == f2
+]
+XOR [
+  [+(target,p)]_t2_to_g1_picked   ->   [+(target,p)]_g == g1
+  [+(target,p)]_t2_to_g2_picked   ->   [+(target,p)]_g == g2
+  [+(target,p)]_t2_to_g3_picked   ->   [+(target,p)]_g == g3
+]
+
+XOR [
+  [+(target,p)]_t1[0]   ->   [+(target,p)]_f == f1
+  [+(target,p)]_t1[1]   ->   [+(target,p)]_f == f2
+]
+XOR [
+  [+(target,p)]_t2[0]   ->   [+(target,p)]_g == g1
+  [+(target,p)]_t2[1]   ->   [+(target,p)]_g == g2
+  [+(target,p)]_t2[2]   ->   [+(target,p)]_g == g3
+]
+
+where `get_fun_from_analysis callsite index` is deterministic.
+The benefit is to use an index, it's easier to match its search tree.
