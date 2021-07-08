@@ -12,6 +12,10 @@ module T = struct
 
   and edge = Direct of t ref | With_cvar of Cvar.t * t ref
 
+  and edge_with_cvar = Cvar.t * t ref
+
+  and edges_with_cvar = Cvar.t * t ref * t ref
+
   and rule =
     (* special rule *)
     | Pending
@@ -24,10 +28,10 @@ module T = struct
     | To_first of t ref
     | Binop of t ref * t ref
     | Cond_choice of t ref * t ref
-    | Callsite of t ref * t ref list * Helper.cf
-    | Condsite of t ref * t ref list
-    | Para_local of (t ref * t ref) list * Helper.fc
-    | Para_nonlocal of (t ref * t ref) list * Helper.fc
+    | Condsite of t ref * edge_with_cvar list
+    | Callsite of t ref * edge_with_cvar list * Helper.cf
+    | Para_local of edges_with_cvar list * Helper.fc
+    | Para_nonlocal of edges_with_cvar list * Helper.fc
   [@@deriving sexp, compare, equal, show { with_path = false }]
 
   let rule_name = function
@@ -146,7 +150,7 @@ it's a workaround to put cvar as an optional argument,
 and that's why we first check visited_map and then check cvar_map
 *)
 
-let cvar_cores_of_node node =
+(* let cvar_cores_of_node node =
   let x, xs, r_stk = node.key in
   let lookups = x :: xs in
   match node.rule with
@@ -154,7 +158,7 @@ let cvar_cores_of_node node =
   | Condsite (_, _) -> Cvar.mk_condsite lookups x r_stk
   | Para_local (_, fc) | Para_nonlocal (_, fc) ->
       Cvar.mk_fun_to_callsite lookups fc
-  | _ -> []
+  | _ -> [] *)
 
 (* 
     visited_map:
@@ -193,7 +197,7 @@ let get_c_vars_and_complete cvar_map node (* visited_list *) =
       | Some done_ -> done_
       | None ->
           (* ignore @@ Hashtbl.add_exn visited_map ~key:node.key ~data:false; *)
-          let cvars = cvar_cores_of_node node in
+          (* let cvars = cvar_cores_of_node node in *)
           let done_ =
             match node.rule with
             | Pending -> false
@@ -210,22 +214,25 @@ let get_c_vars_and_complete cvar_map node (* visited_list *) =
             | Callsite (nf, ncs, _) ->
                 let sf = loop !nf in
                 post_and sf
-                  (List.fold2_exn ncs cvars ~init:false ~f:(fun acc nr cvar ->
+                  (List.fold ncs ~init:false ~f:(fun acc (cvar, nr) ->
                        post_or (loop ~cvar !nr) acc))
             | Condsite (nc, ncs) ->
                 post_and (loop !nc)
-                  (List.fold2_exn ncs cvars ~init:false ~f:(fun acc nr cvar ->
+                  (List.fold ncs ~init:false ~f:(fun acc (cvar, nr) ->
+                       (* if not (Cvar.equal cvar0 cvar) then
+                            Logs.app (fun m ->
+                                m "[%a][%a]\n" Cvar.pp cvar0 Cvar.pp cvar)
+                          else
+                            (); *)
                        post_or (loop ~cvar !nr) acc))
             | Para_local (ncs, _) ->
-                List.fold2_exn ncs cvars ~init:false
-                  ~f:(fun acc (nf, na) cvar ->
+                List.fold ncs ~init:false ~f:(fun acc (cvar, nf, na) ->
                     let this_done = post_and (loop !nf) (loop !na) in
                     (* special case for cvar since this cvar is not a real edge *)
                     ignore @@ Hashtbl.add cvar_map ~key:cvar ~data:this_done;
                     post_or this_done acc)
             | Para_nonlocal (ncs, _) ->
-                List.fold2_exn ncs cvars ~init:false
-                  ~f:(fun acc (nf, na) cvar ->
+                List.fold ncs ~init:false ~f:(fun acc (cvar, nf, na) ->
                     let this_done = post_and (loop !nf) (loop !na) in
                     (* special case for cvar since this cvar is not a real edge *)
                     ignore @@ Hashtbl.add cvar_map ~key:cvar ~data:this_done;
@@ -290,40 +297,84 @@ let rec size node =
   | Done _ | Mismatch -> 1
   | Discard child | Alias child | To_first child -> 1 + size !child
   | Binop (n1, n2) | Cond_choice (n1, n2) -> 1 + size !n1 + size !n2
-  | Callsite (node, childs, _) | Condsite (node, childs) ->
+  | Callsite (node, child_edges, _) | Condsite (node, child_edges) ->
+      let childs = List.map child_edges ~f:snd in
       1 + size !node + sum size childs
   | Para_local (ncs, _) ->
-      1 + List.sum (module Int) ncs ~f:(fun (n1, n2) -> size !n1 + size !n2)
+      1 + List.sum (module Int) ncs ~f:(fun (_, n1, n2) -> size !n1 + size !n2)
   | Para_nonlocal (ncs, _) ->
-      1 + List.sum (module Int) ncs ~f:(fun (n1, n2) -> size !n1 + size !n2)
-(* | Para_nonlocal (ncs, _) -> 1 + sum size ncs *)
+      1 + List.sum (module Int) ncs ~f:(fun (_, n1, n2) -> size !n1 + size !n2)
 
-(* 
-properties:
-
-
- *)
 let bubble_up_complete cvar_map node =
   let _visited = Hash_set.create (module Node_ref) in
-  let rec bubble_up coming_edge node =
-    (* bubble_down one step *)
-    let (match coming_edge with
-    | Direct _coming_node -> ()
-    | With_cvar (cvar, coming_node) ->
-        if Hashtbl.mem cvar_map cvar then
-          failwith "should not find duplicate cvar"
-        else
-          ());
+  let rec bubble_up coming_edge (node : Node_ref.t) =
+    Logs.app (fun m -> m "B: %a" Lookup_key.pp !node.key);
+    let is_collect_cvar =
+      match coming_edge with
+      | Direct _coming_node -> false
+      | With_cvar (_cvar, _coming_node) ->
+          (* if Hashtbl.mem cvar_map cvar then (
+               Logs.app (fun m -> m "%a" Cvar.pp cvar);
+               failwith "should not find duplicate cvar")
+             else *)
+          true
+    in
     (* bubble_up *)
-    (match !node.rule with
-    | Pending | To_visited _ | Mismatch -> failwith "should not be in bubble up"
-    | _ -> ());
+    let collect_in_cvar_edges edges =
+      List.iter edges ~f:(fun (cvar, tree) ->
+          if !tree.has_complete_path then
+            Hashtbl.set cvar_map ~key:cvar ~data:true
+          else
+            ());
+      List.exists edges ~f:(fun (_, tree) -> !tree.has_complete_path)
+    in
+    let add_cvar () =
+      let cvar =
+        match coming_edge with
+        | With_cvar (cvar, _) -> cvar
+        | _ -> failwith "impossible case"
+      in
+      Hashtbl.set cvar_map ~key:cvar ~data:true
+    in
+    let can_bubble_up =
+      match !node.rule with
+      | Pending -> false
+      | To_visited _ | Mismatch -> failwith "should not be in bubble up"
+      | Done _ | Discard _ | Alias _ | To_first _ -> true
+      | Binop (t1, t2) -> !t1.has_complete_path && !t2.has_complete_path
+      | Cond_choice (t1, t2) -> !t1.has_complete_path && !t2.has_complete_path
+      | Condsite (nc, nbs) ->
+          if is_collect_cvar then
+            collect_in_cvar_edges nbs
+          else if !nc.has_complete_path then (
+            add_cvar ();
+            true)
+          else
+            false
+      | Callsite (nf, nts, _) ->
+          if is_collect_cvar then
+            collect_in_cvar_edges nts
+          else if !nf.has_complete_path then (
+            add_cvar ();
+            true)
+          else
+            false
+      | Para_local (nts, _) | Para_nonlocal (nts, _) -> (
+          match coming_edge with
+          | Direct _ -> failwith "should not be a direct edge"
+          | With_cvar (coming_cvar, _) ->
+              List.exists nts ~f:(fun (cvar, t1, t2) ->
+                  Cvar.equal coming_cvar cvar
+                  && !t1.has_complete_path && !t2.has_complete_path))
+    in
     if !node.has_complete_path then
       ()
-    else (
+    else if can_bubble_up then (
       !node.has_complete_path <- true;
       List.iter !node.preds ~f:(function
         | Direct pred -> bubble_up (Direct node) pred
         | With_cvar (cvar, pred) -> bubble_up (With_cvar (cvar, node)) pred))
+    else
+      ()
   in
-  bubble_up node
+  bubble_up (Direct node) node

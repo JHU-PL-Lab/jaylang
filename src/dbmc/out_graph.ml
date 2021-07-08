@@ -129,7 +129,9 @@ module DotPrinter_Make (C : Graph_info) = struct
             (G.E.create (Either.first prev) (Either.first edge_info)
                (Either.first this))
       | Some prev, Some cvar ->
-          let picked = Hashtbl.find_exn sts.cvar_picked_map cvar in
+          let picked =
+            Option.value (Hashtbl.find sts.cvar_picked_map cvar) ~default:false
+          in
           let edge_info =
             Edge_label.
               {
@@ -149,7 +151,8 @@ module DotPrinter_Make (C : Graph_info) = struct
       (* state from passing prev_info *)
       let picked_cvar =
         match prev_info.prev_cvar with
-        | Some cvar -> Hashtbl.find_exn sts.cvar_picked_map cvar
+        | Some cvar ->
+            Option.value (Hashtbl.find sts.cvar_picked_map cvar) ~default:false
         | None -> true
       in
       (* use && due to picked_from_root must be all true *)
@@ -192,7 +195,7 @@ module DotPrinter_Make (C : Graph_info) = struct
       | To_visited _ -> ()
       | _ -> add_or_update_graph_node this);
       (* looping next *)
-      let cvars = Gate.cvar_cores_of_node this in
+      (* let cvars = Gate.cvar_cores_of_node this in *)
       match this.rule with
       | Discard next | Alias next | To_first next -> loop ~this !next
       | Pending | Mismatch | Done _ -> ()
@@ -202,22 +205,22 @@ module DotPrinter_Make (C : Graph_info) = struct
       | Cond_choice (n1, n2) -> List.iter ~f:(fun n -> loop ~this !n) [ n1; n2 ]
       | Callsite (nf, nb, _) ->
           loop ~this !nf;
-          List.iter2_exn ~f:(fun n cvar -> loop ~cvar ~this !n) nb cvars
+          List.iter ~f:(fun (cvar, n) -> loop ~cvar ~this !n) nb
       | Condsite (nc, ncs) ->
           loop ~this !nc;
-          List.iter2_exn ~f:(fun n cvar -> loop ~cvar ~this !n) ncs cvars
+          List.iter ~f:(fun (cvar, n) -> loop ~cvar ~this !n) ncs
       | Para_local (np, _) ->
-          List.iter2_exn
-            ~f:(fun (n1, n2) cvar ->
+          List.iter
+            ~f:(fun (cvar, n1, n2) ->
               loop ~cvar ~this !n1;
               loop ~cvar ~this !n2)
-            np cvars
+            np
       | Para_nonlocal (np, _) ->
-          List.iter2_exn
-            ~f:(fun (n1, n2) cvar ->
+          List.iter
+            ~f:(fun (cvar, n1, n2) ->
               loop ~cvar ~this !n1;
               loop ~cvar ~this !n2)
-            np cvars
+            np
     in
 
     let init_passing_state =
@@ -258,11 +261,13 @@ module DotPrinter_Make (C : Graph_info) = struct
         Logs.info (fun m ->
             m "lookup_key : %a \tblock_id : %a \trule_name : %a" Lookup_key.pp
               node.key Id.pp node.block_id Gate.Node.pp_rule_name node.rule);
-        let model = !(Option.value_exn graph_info.model) in
         let key_value =
-          let lookup_name = Constraint.name_of_lookup (x :: xs) r_stack in
-          Logs.info (fun m -> m "lookup (to model) : %s" lookup_name);
-          Solver_helper.Z3API.(get_value model (var_s lookup_name))
+          match graph_info.model with
+          | None -> None
+          | Some model ->
+              let lookup_name = Constraint.name_of_lookup (x :: xs) r_stack in
+              Logs.info (fun m -> m "lookup (to model) : %s" lookup_name);
+              Solver_helper.Z3API.(get_value !model (var_s lookup_name))
         in
         let clause =
           let c_id =
@@ -286,19 +291,23 @@ module DotPrinter_Make (C : Graph_info) = struct
           let phi_status =
             match Hashtbl.find graph_info.noted_phi_map node.key with
             | Some [] -> ""
-            | Some noted_phis ->
-                let noted_vs =
-                  List.map noted_phis ~f:(fun (note, phi) ->
-                      let phi_v =
-                        Solver_helper.Z3API.(
-                          eval_value model phi |> bool_of_expr)
-                      in
-                      (note, phi_v))
-                in
-                Fmt.(
-                  str "| { %a }"
-                    (list ~sep:(any " | ") (pair ~sep:(any ": ") string bool))
-                    noted_vs)
+            | Some noted_phis -> (
+                match graph_info.model with
+                | Some model ->
+                    let noted_vs =
+                      List.map noted_phis ~f:(fun (note, phi) ->
+                          let phi_v =
+                            Solver_helper.Z3API.(
+                              eval_value !model phi |> bool_of_expr)
+                          in
+                          (note, phi_v))
+                    in
+                    Fmt.(
+                      str "| { %a }"
+                        (list ~sep:(any " | ")
+                           (pair ~sep:(any ": ") string bool))
+                        noted_vs)
+                | None -> "")
             | None -> ""
           in
           Fmt.str "{ {[%s] | %a} | %a | %a | {φ | { %s %s } } | %s}"

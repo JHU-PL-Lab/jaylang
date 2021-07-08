@@ -100,3 +100,7 @@ let set_picked cvar = { cvar with state = Picked }
 
 let derive_complete_and_picked cvars =
   (List.map ~f:set_complete cvars, List.map ~f:set_picked cvars)
+
+let pp_set oc set =
+  let plist = Hashtbl.to_alist set in
+  Fmt.(pf oc "%a" Dump.(list (pair pp Fmt.bool)) plist)

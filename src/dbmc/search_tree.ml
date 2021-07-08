@@ -6,6 +6,7 @@ type t = {
   acc_phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
   current_pendings : Gate.Node.t ref Hash_set.t;
   cvar_complete_map : (Cvar.t, bool) Hashtbl.t;
+  cvar_complete : (Cvar.t, bool) Hashtbl.t;
   mutable cvar_picked_map : (Cvar.t, bool) Hashtbl.t;
   root_node : Gate.Node.t ref;
 }
@@ -19,6 +20,7 @@ let create () =
       acc_phi_map = Hashtbl.create (module Lookup_key);
       current_pendings = Hash_set.create (module Gate.Node_ref);
       cvar_complete_map = Hashtbl.create (module Cvar);
+      cvar_complete = Hashtbl.create (module Cvar);
       cvar_picked_map = Hashtbl.create (module Cvar);
       root_node;
     }
@@ -76,7 +78,6 @@ let march_frontiers state =
   let new_dones = Hash_set.create (module Gate.Node_ref) in
   Hash_set.filter_inplace state.current_pendings ~f:(fun node_ref ->
       let node = !node_ref in
-      let cvars = Gate.cvar_cores_of_node node in
       match node.rule with
       | Pending -> true
       | Done _c_stk ->
@@ -90,14 +91,14 @@ let march_frontiers state =
           Hash_set.add new_pendings next;
           false
       | Mismatch -> false
-      | Binop (nr1, nr2) ->
-          List.iter [ nr1; nr2 ] ~f:(fun nr -> Hash_set.add new_pendings nr);
-          false
-      | Cond_choice (nc, nr) ->
-          List.iter [ nc; nr ] ~f:(fun nr -> Hash_set.add new_pendings nr);
-          false
-      | Callsite (nf, ncs, _) ->
-          List.iter (nf :: ncs) ~f:(fun nr -> Hash_set.add new_pendings nr);
-          false
+      (* | Binop (nr1, nr2) ->
+             List.iter [ nr1; nr2 ] ~f:(fun nr -> Hash_set.add new_pendings nr);
+             false
+         | Cond_choice (nc, nr) ->
+             List.iter [ nc; nr ] ~f:(fun nr -> Hash_set.add new_pendings nr);
+             false
+         | Callsite (nf, ncs, _) ->
+             List.iter (nf :: ncs) ~f:(fun nr -> Hash_set.add new_pendings nr);
+             false *)
       | _ -> true);
   true
