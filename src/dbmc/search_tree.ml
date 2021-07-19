@@ -11,8 +11,7 @@ type t = {
   root_node : Gate.Node.t ref;
 }
 
-let create () =
-  let root_node = ref Gate.partial_node in
+let create root_node =
   let state =
     {
       node_map = Hashtbl.create (module Lookup_key);

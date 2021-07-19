@@ -29,7 +29,12 @@ module Graph_node = struct
 end
 
 module Edge_label = struct
-  type edge = { cvar : Cvar.t option; picked_from_root : bool; picked : bool }
+  type edge = {
+    cvar : Cvar.t option;
+    picked_from_root : bool;
+    picked : bool;
+    complete : bool;
+  }
 
   and t = (edge, string) Either.t [@@deriving compare, equal]
 
@@ -50,23 +55,21 @@ type vertex_info = {
   block_id : Id.t;
   rule_name : string;
   picked_from_root : bool;
-  picked : bool;
-  cvars_in : Cvar.t list;
+  picked : bool; (* cvars_in : Cvar.t list; *)
 }
 
-type edge_info = {
+(* type edge_info = {
   (* the key is cvar : string *)
   picked : bool;
   picked_from_root : bool;
   complete : bool;
-}
+} *)
 
 type graph_info_type = {
   phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
   noted_phi_map : (Lookup_key.t, (string * Z3.Expr.expr) list) Hashtbl.t;
   source_map : Odefa_ast.Ast.clause Odefa_ast.Ast.Ident_map.t;
   vertex_info_map : (Lookup_key.t, vertex_info) Hashtbl.t;
-  edge_info_map : (string, edge_info) Hashtbl.t;
   (* search state *)
   model : Z3.Model.model ref option;
   testname : string option;
@@ -122,6 +125,7 @@ module DotPrinter_Make (C : Graph_info) = struct
                 cvar = None;
                 picked_from_root = prev_info.picked_from_root;
                 picked = true;
+                complete = true;
               }
           in
           add_done_c_stk edge_info.picked_from_root this;
@@ -132,12 +136,14 @@ module DotPrinter_Make (C : Graph_info) = struct
           let picked =
             Option.value (Hashtbl.find sts.cvar_picked_map cvar) ~default:false
           in
+          let complete = Hashtbl.find_exn sts.cvar_complete_map cvar in
           let edge_info =
             Edge_label.
               {
                 cvar = Some cvar;
                 picked_from_root = prev_info.picked_from_root && picked;
                 picked;
+                complete;
               }
           in
           add_done_c_stk edge_info.picked_from_root this;
@@ -178,28 +184,30 @@ module DotPrinter_Make (C : Graph_info) = struct
                 v with
                 (* use || due to it can be tree if there exists such a all-true path *)
                 picked_from_root = v.picked_from_root || picked_from_root;
-                picked = v.picked || picked_cvar;
-                cvars_in = add_option v.cvars_in prev_info.prev_cvar;
+                picked =
+                  v.picked || picked_cvar
+                  (* cvars_in = add_option v.cvars_in prev_info.prev_cvar; *);
               }
           | None ->
               {
                 block_id = this.block_id;
                 rule_name = Gate.Node.rule_name this.rule;
                 picked_from_root;
-                picked = picked_cvar;
-                cvars_in = add_option [] prev_info.prev_cvar;
+                picked =
+                  picked_cvar
+                  (* cvars_in = add_option [] prev_info.prev_cvar; *);
               });
         add_node_edge prev_info tree_node
       in
       (match this.rule with
-      | To_visited _ -> ()
+      | To_visited _ -> failwith "no to_visited anymore"
       | _ -> add_or_update_graph_node this);
       (* looping next *)
-      (* let cvars = Gate.cvar_cores_of_node this in *)
       match this.rule with
       | Discard next | Alias next | To_first next -> loop ~this !next
       | Pending | Mismatch | Done _ -> ()
-      | To_visited next -> loop_tree ~one_step:true prev_info !next
+      | To_visited _next -> failwith "no this node"
+      (* loop_tree ~one_step:true prev_info !next *)
       (* | Proxy next -> loop ~next_one_step:true ~this !next *)
       | Binop (n1, n2) -> List.iter ~f:(fun n -> loop ~this !n) [ n1; n2 ]
       | Cond_choice (n1, n2) -> List.iter ~f:(fun n -> loop ~this !n) [ n1; n2 ]
@@ -310,12 +318,13 @@ module DotPrinter_Make (C : Graph_info) = struct
                 | None -> "")
             | None -> ""
           in
-          Fmt.str "{ {[%s] | %a} | %a | %a | {φ | { %s %s } } | %s}"
+          Fmt.str "{ {[%s] | %a} | %a | %a | {φ | { %s %s } } | (%d) | %s}"
             (Lookup_stack.mk_name (x :: xs))
             (Fmt.option Constraint.pp_value)
             key_value
             (Fmt.option Odefa_ast.Ast_pp_graph.pp_clause)
-            clause Relative_stack.pp_chucked r_stack phis_string phi_status rule
+            clause Relative_stack.pp_chucked r_stack phis_string phi_status
+            (List.length node.preds) rule
         in
         let styles =
           match node.rule with
@@ -329,7 +338,10 @@ module DotPrinter_Make (C : Graph_info) = struct
               | true, false -> [ `Color Palette.light_red ]
               | false, false -> [ `Penwidth 0.5; `Color Palette.light ])
         in
-        [ `Label content ] @ styles
+        let line_styles =
+          if node.has_complete_path then [] else [ `Style `Dashed ]
+        in
+        [ `Label content ] @ styles @ line_styles
       in
       let string_attr s = [ `Label s; `Color 127 ] in
       Either.value_map v0 ~first:node_attr ~second:string_attr
@@ -339,11 +351,14 @@ module DotPrinter_Make (C : Graph_info) = struct
     let edge_attributes e =
       let edge_label (edge : Edge_label.edge) =
         let styles =
-          match (edge.picked, edge.picked_from_root) with
-          | false, false -> [ `Arrowhead `Odot; `Color Palette.light ]
-          | false, true -> failwith "no complete but picked"
-          | true, false -> [ `Arrowhead `Dot; `Color Palette.light ]
-          | true, true -> [ `Color Palette.black ]
+          if edge.complete then
+            match (edge.picked, edge.picked_from_root) with
+            | false, false -> [ `Arrowhead `Odot; `Color Palette.light ]
+            | false, true -> failwith "no complete but picked"
+            | true, false -> [ `Arrowhead `Dot; `Color Palette.light ]
+            | true, true -> [ `Color Palette.black ]
+          else
+            [ `Style `Dashed ]
         in
         let name = Fmt.(str "%a" (option Cvar.pp_print) edge.cvar) in
         let labels = [ `Label name ] in

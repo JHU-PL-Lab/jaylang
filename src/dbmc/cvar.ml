@@ -103,4 +103,4 @@ let derive_complete_and_picked cvars =
 
 let pp_set oc set =
   let plist = Hashtbl.to_alist set in
-  Fmt.(pf oc "%a" Dump.(list (pair pp Fmt.bool)) plist)
+  Fmt.(pf oc "%a" Dump.(list (pair pp_print Fmt.bool)) plist)

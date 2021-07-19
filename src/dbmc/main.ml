@@ -35,7 +35,6 @@ let print_dot_graph ~noted_phi_map ~model ~program ~testname
       noted_phi_map;
       source_map = Ddpa_helper.clause_mapping program;
       vertex_info_map = Hashtbl.create (module Lookup_key);
-      edge_info_map = Hashtbl.create (module String);
       model;
       testname;
     }
@@ -50,8 +49,19 @@ let print_dot_graph ~noted_phi_map ~model ~program ~testname
   (graph, picked_c_stk_set)
 
 let lookup_top ?testname program x_target : _ Lwt.t =
-  (* lookup top-level _global_ state *)
-  let sts = Search_tree.create () in
+  (* program analysis *)
+  let map = Tracelet.annotate program x_target in
+  let x_first = Ddpa_helper.first_var program in
+  let block0 = Tracelet.find_by_id x_target map in
+  (* let block0 = Tracelet.cut_before true x_target block in *)
+  let x_target' = Id.of_ast_id x_target in
+  let root_node =
+    ref
+      (Gate.root_node
+         (block0 |> Tracelet.id_of_block |> Id.of_ast_id)
+         x_target')
+  in
+  let sts = Search_tree.create root_node in
   let add_phi ?debug_info key data =
     Search_tree.add_phi ~debug_info sts key data
   in
@@ -60,10 +70,6 @@ let lookup_top ?testname program x_target : _ Lwt.t =
   let collect_cvar cvar =
     Hashtbl.add_exn sts.cvar_complete ~key:cvar ~data:false
   in
-
-  (* program analysis *)
-  let map = Tracelet.annotate program x_target in
-  let x_first = Ddpa_helper.first_var program in
 
   let fun_info_of_callsite callsite map =
     let callsite_block = Tracelet.find_by_id callsite map in
@@ -78,32 +84,31 @@ let lookup_top ?testname program x_target : _ Lwt.t =
   in
 
   let[@landmark] rec lookup (xs0 : Lookup_stack.t) block rel_stack
-      (gate_tree : Gate.Node.t ref) (parent : Gate.Node.edge) : unit -> _ Lwt.t
-      =
+      (gate_tree : Gate.Node.t ref) : unit -> _ Lwt.t =
    fun () ->
     let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in
     let block_id = block |> Tracelet.id_of_block |> Id.of_ast_id in
     let this_key : Lookup_key.t = (x, xs, rel_stack) in
-    let key = this_key in
-    Logs.info (fun m ->
+    (* Logs.info *)
+    Logs.app (fun m ->
         m "search begin: %a in block %a" Lookup_key.pp this_key Id.pp block_id);
     let () =
       match defined x block with
       | At_clause { clause = Clause (_, Value_body v); _ } ->
-          deal_with_value (Some v) x xs block rel_stack gate_tree parent
+          deal_with_value (Some v) x xs block rel_stack gate_tree
       (* Input *)
       | At_clause { clause = Clause (_, Input_body); _ } ->
-          deal_with_value None x xs block rel_stack gate_tree parent
+          deal_with_value None x xs block rel_stack gate_tree
       (* Alias *)
       | At_clause { clause = Clause (_, Var_body (Var (x', _))); _ } ->
           let x' = Id.of_ast_id x' in
           add_phi this_key
           @@ C.eq_lookup (x :: xs) rel_stack (x' :: xs) rel_stack;
-          let sub_tree =
-            create_lookup_task (x', xs, rel_stack) block (Gate.direct gate_tree)
+          let sub_tree, edge =
+            create_lookup_task (x', xs, rel_stack) block gate_tree
           in
-          gate_tree :=
-            Gate.(mk_node ~block_id ~key ~parent ~rule:(alias sub_tree))
+          gate_tree := { !gate_tree with rule = Gate.alias sub_tree };
+          bubble_up_edges [ edge ]
       (* Binop *)
       | At_clause
           {
@@ -114,15 +119,14 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           let x1, x2 = (Id.of_ast_id x1, Id.of_ast_id x2) in
           add_phi this_key @@ C.bind_binop x x1 bop x2 rel_stack;
 
-          let sub_tree1 =
-            create_lookup_task (x1, xs, rel_stack) block (Gate.direct gate_tree)
+          let sub_tree1, edge1 =
+            create_lookup_task (x1, xs, rel_stack) block gate_tree
           in
-          let sub_tree2 =
-            create_lookup_task (x2, xs, rel_stack) block (Gate.direct gate_tree)
+          let sub_tree2, edge2 =
+            create_lookup_task (x2, xs, rel_stack) block gate_tree
           in
-          gate_tree :=
-            Gate.(
-              mk_node ~block_id ~key ~parent ~rule:(binop sub_tree1 sub_tree2))
+          gate_tree := { !gate_tree with rule = Gate.binop sub_tree1 sub_tree2 };
+          bubble_up_edges [ edge1; edge2 ]
       (* Cond Top *)
       | At_chosen cb ->
           let condsite_block = Tracelet.outer_block block map in
@@ -145,18 +149,15 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           add_phi this_key
           @@ C.eq_lookup (x :: xs) rel_stack (x :: xs) condsite_stack;
 
-          let sub_tree1 =
-            create_lookup_task (x2, [], condsite_stack) condsite_block
-              (Gate.direct gate_tree)
+          let sub_tree1, edge1 =
+            create_lookup_task (x2, [], condsite_stack) condsite_block gate_tree
           in
-          let sub_tree2 =
-            create_lookup_task (x, xs, condsite_stack) condsite_block
-              (Gate.direct gate_tree)
+          let sub_tree2, edge2 =
+            create_lookup_task (x, xs, condsite_stack) condsite_block gate_tree
           in
           gate_tree :=
-            Gate.(
-              mk_node ~block_id ~key ~parent
-                ~rule:(cond_choice sub_tree1 sub_tree2))
+            { !gate_tree with rule = Gate.cond_choice sub_tree1 sub_tree2 };
+          bubble_up_edges [ edge1; edge2 ]
       (* Cond Bottom *)
       | At_clause
           {
@@ -173,13 +174,13 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           else
             ();
 
-          let cond_var_tree =
-            create_lookup_task (x', [], rel_stack) block (Gate.direct gate_tree)
+          let cond_var_tree, var_edge =
+            create_lookup_task (x', [], rel_stack) block gate_tree
           in
 
-          let phis, sub_trees =
+          let phis, sub_trees, edges =
             List.fold [ true; false ]
-              ~f:(fun (phis, sub_trees) beta ->
+              ~f:(fun (phis, sub_trees, edges) beta ->
                 let cvar = Cvar.mk_condsite_beta (x :: xs) x rel_stack beta in
                 collect_cvar cvar;
                 let ctracelet = Cond { cond_block with choice = Some beta } in
@@ -192,19 +193,22 @@ let lookup_top ?testname program x_target : _ Lwt.t =
                     (C.bind_v x' (Value_bool beta) rel_stack)
                     (C.eq_lookup [ x ] rel_stack [ x_ret ] cbody_stack)
                 in
-                let sub_tree =
-                  ( cvar,
-                    create_lookup_task (x_ret, xs, cbody_stack) ctracelet
-                      (Gate.with_cvar cvar gate_tree) )
+                let sub_tree, edge =
+                  create_lookup_task ~cvar (x_ret, xs, cbody_stack) ctracelet
+                    gate_tree
                 in
-                (phis @ [ phi ], sub_trees @ [ sub_tree ]))
-              ~init:([], [])
+                ( phis @ [ phi ],
+                  sub_trees @ [ (cvar, sub_tree) ],
+                  edges @ [ edge ] ))
+              ~init:([], [], [ var_edge ])
           in
           add_phi this_key (C.cond_bottom xs0 x rel_stack phis);
           gate_tree :=
-            Gate.(
-              mk_node ~block_id ~key ~parent
-                ~rule:(mk_condsite ~cond_var_tree ~sub_trees))
+            {
+              !gate_tree with
+              rule = Gate.mk_condsite ~cond_var_tree ~sub_trees;
+            };
+          bubble_up_edges edges
       (* Fun Enter Parameter *)
       | At_fun_para (true, fb) ->
           let fid = Id.of_ast_id fb.point in
@@ -215,9 +219,9 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           in
           Logs.info (fun m ->
               m "FunEnter: %a -> %a" Id.pp fid Id.pp_old_list callsites);
-          let outs, sub_trees =
+          let outs, sub_trees, edges =
             List.fold fb.callsites
-              ~f:(fun (outs, sub_trees) callsite ->
+              ~f:(fun (outs, sub_trees, edges) callsite ->
                 let callsite_block, x', x'', x''' =
                   fun_info_of_callsite callsite map
                 in
@@ -235,28 +239,28 @@ let lookup_top ?testname program x_target : _ Lwt.t =
                       Cvar.fun_to_callsite (x :: xs) rel_stack fid out
                     in
                     collect_cvar cvar;
-                    let sub_tree1 =
-                      create_lookup_task (x'', [], callsite_stack)
-                        callsite_block
-                        (Gate.with_cvar cvar gate_tree)
+                    let sub_tree1, edge1 =
+                      create_lookup_task ~cvar (x'', [], callsite_stack)
+                        callsite_block gate_tree
                     in
-                    let sub_tree2 =
-                      create_lookup_task (x''', xs, callsite_stack)
-                        callsite_block
-                        (Gate.with_cvar cvar gate_tree)
+                    let sub_tree2, edge2 =
+                      create_lookup_task ~cvar (x''', xs, callsite_stack)
+                        callsite_block gate_tree
                     in
                     let sub_tree = (cvar, sub_tree1, sub_tree2) in
 
-                    (outs @ [ out ], sub_trees @ [ sub_tree ])
-                | None -> (outs, sub_trees))
-              ~init:([], [])
+                    ( outs @ [ out ],
+                      sub_trees @ [ sub_tree ],
+                      edges @ [ edge1; edge2 ] )
+                | None -> (outs, sub_trees, edges))
+              ~init:([], [], [])
           in
           let fc =
             Helper.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
           in
           add_phi this_key (C.Fbody_to_callsite (x :: xs, fc));
-          gate_tree :=
-            Gate.(mk_node ~block_id ~key ~parent ~rule:(mk_para ~sub_trees ~fc))
+          gate_tree := { !gate_tree with rule = Gate.mk_para ~sub_trees ~fc };
+          bubble_up_edges edges
       (* Fun Enter Non-Local *)
       | At_fun_para (false, fb) ->
           let fid = Id.of_ast_id fb.point in
@@ -267,9 +271,9 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           in
           Logs.info (fun m ->
               m "FunEnterNonlocal: %a -> %a" Id.pp fid Id.pp_old_list callsites);
-          let outs, sub_trees =
+          let outs, sub_trees, edges =
             List.fold callsites
-              ~f:(fun (outs, sub_trees) callsite ->
+              ~f:(fun (outs, sub_trees, edges) callsite ->
                 let callsite_block, x', x'', _x''' =
                   fun_info_of_callsite callsite map
                 in
@@ -287,29 +291,29 @@ let lookup_top ?testname program x_target : _ Lwt.t =
                       Cvar.fun_to_callsite (x :: xs) rel_stack fid out
                     in
                     collect_cvar cvar;
-                    let sub_tree1 =
-                      create_lookup_task (x'', [], callsite_stack)
-                        callsite_block
-                        (Gate.with_cvar cvar gate_tree)
+                    let sub_tree1, edge1 =
+                      create_lookup_task ~cvar (x'', [], callsite_stack)
+                        callsite_block gate_tree
                     in
-                    let sub_tree2 =
-                      create_lookup_task
+                    let sub_tree2, edge2 =
+                      create_lookup_task ~cvar
                         (x'', x :: xs, callsite_stack)
-                        callsite_block
-                        (Gate.with_cvar cvar gate_tree)
+                        callsite_block gate_tree
                     in
                     let sub_tree = (cvar, sub_tree1, sub_tree2) in
-                    (outs @ [ out ], sub_trees @ [ sub_tree ])
-                | None -> (outs, sub_trees))
-              ~init:([], [])
+                    ( outs @ [ out ],
+                      sub_trees @ [ sub_tree ],
+                      edges @ [ edge1; edge2 ] )
+                | None -> (outs, sub_trees, edges))
+              ~init:([], [], [])
           in
 
           let fc =
             Helper.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
           in
           add_phi this_key (C.Fbody_to_callsite (x :: xs, fc));
-          gate_tree :=
-            Gate.(mk_node ~block_id ~key ~parent ~rule:(mk_para ~sub_trees ~fc))
+          gate_tree := { !gate_tree with rule = Gate.mk_para ~sub_trees ~fc };
+          bubble_up_edges edges
       (* Fun Exit *)
       | At_clause
           {
@@ -321,13 +325,13 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           Logs.info (fun m ->
               m "FunExit: %a -> %a" Id.pp xf Id.pp_old_list fids);
 
-          let fun_tree =
-            create_lookup_task (xf, [], rel_stack) block (Gate.direct gate_tree)
+          let fun_tree, fun_edge =
+            create_lookup_task (xf, [], rel_stack) block gate_tree
           in
 
-          let ins, sub_trees =
+          let ins, sub_trees, edges =
             List.fold fids
-              ~f:(fun (ins, sub_trees) fid ->
+              ~f:(fun (ins, sub_trees, edges) fid ->
                 let fblock = Ident_map.find fid map in
                 let x' = Tracelet.ret_of fblock |> Id.of_ast_id in
                 let fid = Id.of_ast_id fid in
@@ -339,13 +343,14 @@ let lookup_top ?testname program x_target : _ Lwt.t =
                   Cvar.callsite_to_fun (x :: xs) rel_stack x xf cf_in
                 in
                 collect_cvar cvar;
-                let sub_tree =
-                  create_lookup_task (x', xs, rel_stack') fblock
-                    (Gate.with_cvar cvar gate_tree)
+                let sub_tree, sub_edge =
+                  create_lookup_task ~cvar (x', xs, rel_stack') fblock gate_tree
                 in
 
-                (ins @ [ cf_in ], sub_trees @ [ (cvar, sub_tree) ]))
-              ~init:([], [])
+                ( ins @ [ cf_in ],
+                  sub_trees @ [ (cvar, sub_tree) ],
+                  edges @ [ sub_edge ] ))
+              ~init:([], [], [ fun_edge ])
           in
 
           let cf : Helper.cf =
@@ -353,9 +358,8 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           in
           add_phi this_key (C.Callsite_to_fbody (x :: xs, cf));
           gate_tree :=
-            Gate.(
-              mk_node ~block_id ~key ~parent
-                ~rule:(mk_callsite ~fun_tree ~sub_trees ~cf))
+            { !gate_tree with rule = Gate.mk_callsite ~fun_tree ~sub_trees ~cf };
+          bubble_up_edges edges
       | At_clause ({ clause = Clause (_, _); _ } as tc) ->
           Logs.err (fun m -> m "%a" Ast_pp.pp_clause tc.clause);
           failwith "error lookup cases"
@@ -368,7 +372,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
     if not (Hashtbl.equal Bool.equal sts.cvar_complete_map sts.cvar_complete)
     then (
       Logs.app (fun m ->
-          m "---\n[OLD]%a\n[new]%a\n" Cvar.pp_set sts.cvar_complete_map
+          m "---\n[OLD]%a\n[NEW]%a\n" Cvar.pp_set sts.cvar_complete_map
             Cvar.pp_set sts.cvar_complete);
       let noted_phi_map = Hashtbl.create (module Lookup_key) in
       let phi_z3_map =
@@ -434,26 +438,6 @@ let lookup_top ?testname program x_target : _ Lwt.t =
               m "Cvar Picked: %a"
                 Fmt.Dump.(list (pair Cvar.pp_print Fmt.bool))
                 (Hashtbl.to_alist sts.cvar_picked_map));
-
-          (* let graph_info : Out_graph.graph_info_type =
-               {
-                 phi_map = sts.phi_map;
-                 noted_phi_map;
-                 source_map = Ddpa_helper.clause_mapping program;
-                 vertex_info_map = Hashtbl.create (module Lookup_key);
-                 edge_info_map = Hashtbl.create (module String);
-                 model = Some (ref model);
-                 testname;
-               }
-             in
-             let module GI = (val (module struct
-                                    let graph_info = graph_info
-                                  end) : Out_graph.Graph_info)
-             in
-             let module Graph_dot_printer = Out_graph.DotPrinter_Make (GI) in
-             let graph, picked_c_stk_set =
-               Graph_dot_printer.graph_of_gate_tree sts
-             in *)
           let _graph, picked_c_stk_set =
             print_dot_graph ~noted_phi_map
               ~model:(Some (ref model))
@@ -474,26 +458,45 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           Lwt.return_unit)
     else
       Lwt.return_unit
-  and create_lookup_task (key : Lookup_key.t) block parent =
+  and bubble_up_edges (edges : Gate.Node.edge list) =
+    List.iter edges ~f:(fun edge ->
+        if !(edge.succ).has_complete_path then
+          Gate.bubble_up_complete sts.cvar_complete edge edge.pred)
+  and create_lookup_task ?cvar (key : Lookup_key.t) block parent_node =
     let block_id = block |> Tracelet.id_of_block |> Id.of_ast_id in
     let x, xs, rel_stack = key in
     match Hashtbl.find sts.node_map key with
-    | Some existing_tree ->
-        (* Gate.add_pred existing_tree parent; *)
-        (* Logs.app (fun m -> m ".1"); *)
-        (* Gate.bubble_up_complete sts.cvar_complete existing_tree; *)
-        ref
-          (Gate.mk_node ~block_id ~key ~parent
-             ~rule:(Gate.to_visited existing_tree))
+    | Some child_node ->
+        let edge = Gate.mk_edge ?cvar parent_node child_node in
+        Gate.add_pred child_node edge;
+        (child_node, edge)
+        (* if !existing_tree.has_complete_path then (
+             Logs.app (fun m -> m ".1");
+             let edge' =
+               match parent with
+               | Direct node -> Direct node
+               | With_cvar (cvar, parent) -> With_cvar (cvar, existing_tree)
+             in
+             (existing_tree, edge')
+             (* (, Gate.bubble_up_complete sts.cvar_complete edge' node);
+                Logs.app (fun m ->
+                    m "{%a: %B}\n[...]%a\n" Lookup_key.pp !existing_tree.key
+                      !existing_tree.has_complete_path Cvar.pp_set sts.cvar_complete)) *))
+           else
+             (existing_tree, []) *)
+        (* ref
+           (Gate.mk_node ~block_id ~key ~parent
+              ~rule:(Gate.to_visited existing_tree)) *)
     | None ->
-        let sub_tree =
-          ref (Gate.mk_node ~block_id ~key ~parent ~rule:Gate.pending_node)
+        let child_node =
+          ref (Gate.mk_node ~block_id ~key ~rule:Gate.pending_node)
         in
-        Hashtbl.add_exn sts.node_map ~key ~data:sub_tree;
-        push_job @@ lookup (x :: xs) block rel_stack sub_tree parent;
-        sub_tree
-  and deal_with_value mv x xs block rel_stack (gate_tree : Gate.Node.t ref)
-      (parent : Gate.Node.edge) =
+        let edge = Gate.mk_edge ?cvar parent_node child_node in
+        Gate.add_pred child_node edge;
+        Hashtbl.add_exn sts.node_map ~key ~data:child_node;
+        push_job @@ lookup (x :: xs) block rel_stack child_node;
+        (child_node, edge)
+  and deal_with_value mv x xs block rel_stack (gate_tree : Gate.Node.t ref) =
     let key : Lookup_key.t = (x, xs, rel_stack) in
     let block_id_here = id_of_block block in
     let block_id = block_id_here |> Id.of_ast_id in
@@ -508,41 +511,37 @@ let lookup_top ?testname program x_target : _ Lwt.t =
         (* Discovery Main *)
         let target_stk = Relative_stack.concretize rel_stack in
         add_phi ~debug_info:(x, xs, rel_stack) key @@ C.Target_stack target_stk;
-        gate_tree :=
-          Gate.(mk_node ~block_id ~key ~parent ~rule:(done_ target_stk))
-        (* Logs.app (fun m -> m ".2"); *)
-        (* Gate.bubble_up_complete sts.cvar_complete gate_tree) *))
+        gate_tree := { !gate_tree with rule = Gate.done_ target_stk };
+        let edge = Gate.mk_edge gate_tree gate_tree in
+        Logs.app (fun m -> m ".2");
+        Gate.bubble_up_complete sts.cvar_complete edge gate_tree;
+        Logs.app (fun m ->
+            m "{%a: %B}\n[...]%a\n" Lookup_key.pp !gate_tree.key
+              !gate_tree.has_complete_path Cvar.pp_set sts.cvar_complete))
       else (* Discovery Non-Main *)
-        let child_tree =
+        let child_tree, edge =
           create_lookup_task
             (Id.of_ast_id x_first, [], rel_stack)
-            block (Gate.direct gate_tree)
+            block gate_tree
         in
-        gate_tree :=
-          Gate.(mk_node ~block_id ~key ~parent ~rule:(to_first child_tree)))
+        gate_tree := { !gate_tree with rule = Gate.to_first child_tree };
+        bubble_up_edges [ edge ])
     else (* Discard *)
       match mv with
       | Some (Value_function _f) ->
           add_phi key @@ C.eq_lookup (x :: xs) rel_stack xs rel_stack;
           add_phi key @@ C.bind_fun x rel_stack x;
-          let sub_tree =
+          let sub_tree, edge =
             create_lookup_task
               (List.hd_exn xs, List.tl_exn xs, rel_stack)
-              block (Gate.direct gate_tree)
+              block gate_tree
           in
-          gate_tree :=
-            Gate.(mk_node ~block_id ~key ~parent ~rule:(discard sub_tree))
+          gate_tree := { !gate_tree with rule = Gate.discard sub_tree };
+          bubble_up_edges [ edge ]
       | _ -> failwith "why mismatch"
-    (* gate_tree := Gate.(mk_node ~block_id ~key ~parent ~rule:mismatch) *)
   in
 
-  let block0 = Tracelet.find_by_id x_target map in
-  (* let block0 = Tracelet.cut_before true x_target block in *)
-  let x_target' = Id.of_ast_id x_target in
-
-  lookup [ x_target' ] block0 Relative_stack.empty sts.root_node
-    (Gate.direct sts.root_node)
-    ()
+  lookup [ x_target' ] block0 Relative_stack.empty sts.root_node ()
 
 let lookup_main ?testname ?timeout program x_target =
   let main_task =

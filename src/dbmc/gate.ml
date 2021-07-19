@@ -10,7 +10,7 @@ module T = struct
     mutable all_path_searched : bool;
   }
 
-  and edge = Direct of t ref | With_cvar of Cvar.t * t ref
+  and edge = { pred : t ref; succ : t ref; label_cvar : Cvar.t option }
 
   and edge_with_cvar = Cvar.t * t ref
 
@@ -71,14 +71,15 @@ end
 
 open Node
 
-let direct node : Node.edge = Direct node
+(* let direct pred succ = { pred; succ; label_cvar = None }
 
-let with_cvar cvar node : Node.edge = With_cvar (cvar, node)
+let with_cvar cvar pred succ = { pred; succ; label_cvar = Some cvar } *)
 
-let partial_node =
-  let x = Id.(Ident "void") in
+let mk_edge ?cvar pred succ = { pred; succ; label_cvar = cvar }
+
+let root_node block_id x =
   {
-    block_id = x;
+    block_id;
     key = (x, [], Relative_stack.empty);
     rule = Pending;
     preds = [];
@@ -86,12 +87,12 @@ let partial_node =
     all_path_searched = false;
   }
 
-let mk_node ~block_id ~key ~parent ~rule =
+let mk_node ~block_id ~key ~rule =
   {
     block_id;
     key;
     rule;
-    preds = [ parent ];
+    preds = [];
     has_complete_path = false;
     all_path_searched = false;
   }
@@ -99,12 +100,14 @@ let mk_node ~block_id ~key ~parent ~rule =
 let add_pred node pred =
   if
     List.mem !node.preds pred ~equal:(fun eg1 eg2 ->
-        match (eg1, eg2) with
-        | With_cvar (cvar1, _p1), With_cvar (cvar2, _p2) ->
-            Cvar.equal cvar1 cvar2
-        | _, _ -> false)
+        phys_equal eg1.pred eg2.pred)
+    (* match (eg1, eg2) with
+       | With_cvar (cvar1, _p1), With_cvar (cvar2, _p2) ->
+           Cvar.equal cvar1 cvar2
+       | Direct n1, Direct n2 -> phys_equal n1 n2
+       | _, _ -> false) *)
   then
-    failwith "why duplicate cvars on edge"
+    () (* failwith "why duplicate cvars on edge" *)
   else
     !node.preds <- pred :: !node.preds
 
@@ -116,7 +119,7 @@ let mk_para ~sub_trees ~fc = Para_local (sub_trees, fc)
 
 let pending_node = Pending
 
-let to_visited node = To_visited node
+(* let to_visited node = To_visited node *)
 
 let done_ cstk = Done cstk
 
@@ -305,20 +308,16 @@ let rec size node =
   | Para_nonlocal (ncs, _) ->
       1 + List.sum (module Int) ncs ~f:(fun (_, n1, n2) -> size !n1 + size !n2)
 
-let bubble_up_complete cvar_map node =
-  let _visited = Hash_set.create (module Node_ref) in
+let bubble_up_complete cvar_map coming_edge node =
+  (* let _visited = Hash_set.create (module Node_ref) in *)
   let rec bubble_up coming_edge (node : Node_ref.t) =
-    Logs.app (fun m -> m "B: %a" Lookup_key.pp !node.key);
-    let is_collect_cvar =
-      match coming_edge with
-      | Direct _coming_node -> false
-      | With_cvar (_cvar, _coming_node) ->
-          (* if Hashtbl.mem cvar_map cvar then (
-               Logs.app (fun m -> m "%a" Cvar.pp cvar);
-               failwith "should not find duplicate cvar")
-             else *)
-          true
-    in
+    let coming_node = coming_edge.succ in
+    let coming_cvar = coming_edge.label_cvar in
+    Logs.app (fun m ->
+        m "B: %a [%a->%a]%a" Lookup_key.pp !node.key Lookup_key.pp
+          !(coming_edge.succ).key Lookup_key.pp !(coming_edge.pred).key
+          (Fmt.Dump.option Cvar.pp_print)
+          coming_cvar);
     (* bubble_up *)
     let collect_in_cvar_edges edges =
       List.iter edges ~f:(fun (cvar, tree) ->
@@ -328,53 +327,67 @@ let bubble_up_complete cvar_map node =
             ());
       List.exists edges ~f:(fun (_, tree) -> !tree.has_complete_path)
     in
-    let add_cvar () =
-      let cvar =
-        match coming_edge with
-        | With_cvar (cvar, _) -> cvar
-        | _ -> failwith "impossible case"
-      in
+    let collect_cvar cvar =
+      Logs.app (fun m -> m "collect %s" (Cvar.print cvar));
       Hashtbl.set cvar_map ~key:cvar ~data:true
     in
-    let can_bubble_up =
+    let can_mark_complete =
       match !node.rule with
       | Pending -> false
       | To_visited _ | Mismatch -> failwith "should not be in bubble up"
       | Done _ | Discard _ | Alias _ | To_first _ -> true
       | Binop (t1, t2) -> !t1.has_complete_path && !t2.has_complete_path
-      | Cond_choice (t1, t2) -> !t1.has_complete_path && !t2.has_complete_path
+      | Cond_choice (t1, t2) ->
+          Logs.app (fun m ->
+              m "[CC]%a:%B , %a:%B" Lookup_key.pp !t1.key !t1.has_complete_path
+                Lookup_key.pp !t2.key !t2.has_complete_path);
+          !t1.has_complete_path && !t2.has_complete_path
       | Condsite (nc, nbs) ->
-          if is_collect_cvar then
+          if phys_equal coming_node nc then
             collect_in_cvar_edges nbs
           else if !nc.has_complete_path then (
-            add_cvar ();
+            collect_cvar (Option.value_exn coming_cvar);
             true)
           else
             false
       | Callsite (nf, nts, _) ->
-          if is_collect_cvar then
+          if phys_equal coming_node nf then
             collect_in_cvar_edges nts
           else if !nf.has_complete_path then (
-            add_cvar ();
+            collect_cvar (Option.value_exn coming_cvar);
             true)
           else
             false
-      | Para_local (nts, _) | Para_nonlocal (nts, _) -> (
-          match coming_edge with
-          | Direct _ -> failwith "should not be a direct edge"
-          | With_cvar (coming_cvar, _) ->
-              List.exists nts ~f:(fun (cvar, t1, t2) ->
-                  Cvar.equal coming_cvar cvar
-                  && !t1.has_complete_path && !t2.has_complete_path))
+      | Para_local (nts, _) | Para_nonlocal (nts, _) ->
+          let coming_cvar = Option.value_exn coming_cvar in
+          let collect_this_cvar =
+            List.exists nts ~f:(fun (cvar, t1, t2) ->
+                Logs.app (fun m ->
+                    m "%B , %a:%B , %a:%B"
+                      (Cvar.equal coming_cvar cvar)
+                      Lookup_key.pp !t1.key !t1.has_complete_path Lookup_key.pp
+                      !t2.key !t2.has_complete_path);
+                Cvar.equal coming_cvar cvar
+                && !t1.has_complete_path && !t2.has_complete_path)
+          in
+          if collect_this_cvar then (
+            collect_cvar coming_cvar;
+            true)
+          else
+            false
     in
+    Logs.app (fun m ->
+        m "B: %B,%B,%d" !node.has_complete_path can_mark_complete
+          (List.length !node.preds));
     if !node.has_complete_path then
       ()
-    else if can_bubble_up then (
+    else if can_mark_complete then (
       !node.has_complete_path <- true;
-      List.iter !node.preds ~f:(function
-        | Direct pred -> bubble_up (Direct node) pred
-        | With_cvar (cvar, pred) -> bubble_up (With_cvar (cvar, node)) pred))
+      List.iter !node.preds ~f:(fun edge -> bubble_up edge edge.pred)
+      (* let pred_edge = { pred }
+         | Direct pred -> bubble_up (Direct node) pred
+         | With_cvar (cvar, pred) -> bubble_up (With_cvar (cvar, node)) pred)) *))
     else
       ()
   in
-  bubble_up (Direct node) node
+  bubble_up coming_edge node
