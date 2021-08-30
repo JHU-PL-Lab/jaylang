@@ -406,7 +406,7 @@ let solve (solver : t) : solution option =
                     (* Z3 documents a get_int function, but the latest on OPAM
                        doesn't seem to have it defined. *)
                     let n = Z3.Arithmetic.Integer.get_big_int expr' in
-                    Some(Value_int(Big_int.int_of_big_int n))
+                    Some(Value_int(Big_int_Z.int_of_big_int n))
                 end
               | Some BoolSymbol ->
                 begin
