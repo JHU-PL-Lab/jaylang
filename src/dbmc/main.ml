@@ -83,7 +83,7 @@ let lookup_top ?testname program x_target : _ Lwt.t =
     (callsite_block, x', x'', x''')
   in
 
-  let[@landmark] rec lookup (xs0 : Lookup_stack.t) block rel_stack
+  let rec lookup (xs0 : Lookup_stack.t) block rel_stack
       (gate_tree : Gate.Node.t ref) : unit -> _ Lwt.t =
    fun () ->
     let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in

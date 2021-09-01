@@ -7,13 +7,11 @@
   fmt
   lwt
   lwt.unix
-  printbox
   z3
   logs
   logs.lwt
   logs.fmt
   ocamlgraph
-  landmarks
   odefa.ast
   odefa.ddpa
   odefa.interpreter)
@@ -24,9 +22,8 @@
    ppx_jane
    -allow-unannotated-ignores
    ppx_deriving.show
-   lwt_ppx
-   landmarks.ppx
-   --auto)))
+   lwt_ppx))
+ )
 
 (env
  (dev

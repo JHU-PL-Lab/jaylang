@@ -187,7 +187,7 @@ module Make (C : Context) () = struct
           (boole_of_str Cvar.(cname |> set_complete |> print))
           (Z3.Boolean.mk_val ctx cval))
 
-  let[@landmark] phi_z3_of_constraint ?(debug = false) ?debug_tool cs =
+  let phi_z3_of_constraint ?(debug = false) ?debug_tool cs =
     let log_noted_phi note phi =
       let key, note_map = Option.value_exn debug_tool in
       if debug then
@@ -504,7 +504,7 @@ module Make (C : Context) () = struct
     let stack_str = Seq.get_string ctx stack_v in
     Concrete_stack.of_string stack_str
 
-  let[@landmark] check_with_assumption solver assumptions =
+  let check_with_assumption solver assumptions =
     (* for _ = 1 to 100 do
          Z3.Solver.push solver;
          ignore @@ Z3.Solver.check solver assumptions;
