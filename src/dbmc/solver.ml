@@ -430,7 +430,7 @@ module Make (C : Context) () = struct
               in
               ci_var @=> exclusion)
         in
-        join (at_least_one :: at_most_one @ chosen_payloads)
+        join ((at_least_one :: at_most_one) @ chosen_payloads)
     in
     z3_phis_of_smt_phi cs
 
