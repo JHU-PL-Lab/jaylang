@@ -11,24 +11,26 @@ let read_src file =
   |> List.filter ~f:(fun line -> not String.(prefix line 1 = "#"))
   |> String.concat ~sep:"\n"
 
-let all_files dir =
+(* treat the path as the group name and filename as the test name *)
+let group_all_files dir =
   let rec loop dir =
     let acc_f, acc_p =
       Sys.fold_dir ~init:([], [])
         ~f:(fun (acc_f, acc_p) path ->
           match String.get path 0 with
+          (* including "." ".." *)
           | '.' | '_' -> (acc_f, acc_p)
           | _ -> (
-              let path = Filename.concat dir path in
-              match Sys.is_directory path with
-              | `Yes -> (acc_f, loop path @ acc_p)
-              | `No -> (path :: acc_f, acc_p)
+              let fullpath = Filename.concat dir path in
+              match Sys.is_directory fullpath with
+              | `Yes -> (acc_f, loop fullpath @ acc_p)
+              | `No -> (fullpath :: acc_f, acc_p)
               | `Unknown -> (acc_f, acc_p)))
         dir
     in
-    acc_p @ acc_f
+    (dir, List.sort acc_f ~compare:String.compare) :: acc_p
   in
-  List.rev (loop dir)
+  loop dir
 
 let test_one_file testname =
   let src_text = read_src testname in
@@ -46,14 +48,15 @@ let () =
   print_endline @@ Sys.getcwd ();
   (* let path = "../../../../test2" in *)
   let path = "test2" in
-  let all_tests = all_files path in
-  Fmt.(pr "%a" (Dump.list string) all_tests);
+  let grouped_testfiles = group_all_files path in
+  (* Fmt.(pr "%a" Dump.(list (pair string (list string))) grouped_tests); *)
+  let grouped_tests =
+    List.map grouped_testfiles ~f:(fun (group_name, test_names) ->
+        ( group_name,
+          List.map test_names ~f:(fun testname ->
+              Alcotest.test_case testname `Quick @@ test_unit testname) ))
+  in
 
-  Alcotest.run "Test_file"
-    [
-      ( "dummy",
-        List.mapi all_tests ~f:(fun _i testname ->
-            Alcotest.test_case testname `Quick @@ test_unit testname) );
-    ];
+  Alcotest.run "DBMC" grouped_tests;
   Dbmc.Log.close ();
   ()
