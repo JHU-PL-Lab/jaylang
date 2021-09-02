@@ -22,9 +22,17 @@ dot
 # Dune intermediates
 /*.install
 
+# Edit related
+.vscode/settings.json
+
 # Makefile temporaries
 /ddpa_toploop
 /test_generator
+/test_dbmc
+/dbmc_top
+/dtest
 /translator
 /sandbox
-.vscode/settings.json
+
+logs
+/land*.json
