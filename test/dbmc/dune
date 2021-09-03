@@ -21,4 +21,4 @@
   odefa_parser
   odefa.dbmc)
  (preprocess
-  (pps ppx_deriving.std)))
+  (pps ppx_deriving.std ppx_jane)))

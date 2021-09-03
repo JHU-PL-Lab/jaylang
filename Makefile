@@ -1,4 +1,4 @@
-.PHONY: all clean repl sandbox test benchmark dbmc logclean
+.PHONY: all clean repl sandbox test benchmark dbmc logclean dtest
 
 all:
 	dune build
@@ -27,7 +27,9 @@ dbmc:
 	ln -s _build/default/src/dbmc-top/dbmc_top.exe dbmc_top
 
 dtest:
-	dune exec test/dbmc/test_dbmc.exe
+	rm -f dtest
+	dune build test/dbmc/test_dbmc.exe 
+	ln -s _build/default/test/dbmc/test_dbmc.exe dtest
 
 sandbox:
 	dune build test/sandbox/sandbox.exe

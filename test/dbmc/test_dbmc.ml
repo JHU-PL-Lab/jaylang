@@ -11,6 +11,10 @@ let read_src file =
   |> List.filter ~f:(fun line -> not String.(prefix line 1 = "#"))
   |> String.concat ~sep:"\n"
 
+let is_source_ext filename =
+  Filename.check_suffix filename "odefa"
+  (* || Filename.check_suffix filename "natodefa"  *)
+
 (* treat the path as the group name and filename as the test name *)
 let group_all_files dir =
   let rec loop dir =
@@ -18,13 +22,14 @@ let group_all_files dir =
       Sys.fold_dir ~init:([], [])
         ~f:(fun (acc_f, acc_p) path ->
           match String.get path 0 with
-          (* including "." ".." *)
-          | '.' | '_' -> (acc_f, acc_p)
+          | '.' (* including "." ".." *)
+          | '_' -> (acc_f, acc_p)
           | _ -> (
               let fullpath = Filename.concat dir path in
               match Sys.is_directory fullpath with
               | `Yes -> (acc_f, loop fullpath @ acc_p)
-              | `No -> (fullpath :: acc_f, acc_p)
+              | `No when is_source_ext fullpath -> (fullpath :: acc_f, acc_p)
+              | `No -> (acc_f, acc_p)
               | `Unknown -> (acc_f, acc_p)))
         dir
     in
