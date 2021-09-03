@@ -30,6 +30,7 @@ dtest:
 	rm -f dtest
 	dune build test/dbmc/test_dbmc.exe 
 	ln -s _build/default/test/dbmc/test_dbmc.exe dtest
+	./dtest
 
 sandbox:
 	dune build test/sandbox/sandbox.exe

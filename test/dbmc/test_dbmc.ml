@@ -11,9 +11,8 @@ let read_src file =
   |> List.filter ~f:(fun line -> not String.(prefix line 1 = "#"))
   |> String.concat ~sep:"\n"
 
-let is_source_ext filename =
-  Filename.check_suffix filename "odefa"
-  (* || Filename.check_suffix filename "natodefa"  *)
+let is_source_ext filename = Filename.check_suffix filename "odefa"
+(* || Filename.check_suffix filename "natodefa"  *)
 
 (* treat the path as the group name and filename as the test name *)
 let group_all_files dir =
@@ -22,8 +21,7 @@ let group_all_files dir =
       Sys.fold_dir ~init:([], [])
         ~f:(fun (acc_f, acc_p) path ->
           match String.get path 0 with
-          | '.' (* including "." ".." *)
-          | '_' -> (acc_f, acc_p)
+          | '.' (* including "." ".." *) | '_' -> (acc_f, acc_p)
           | _ -> (
               let fullpath = Filename.concat dir path in
               match Sys.is_directory fullpath with
@@ -41,6 +39,8 @@ let test_one_file testname =
   let src_text = read_src testname in
   let src = parse src_text in
   (* print_endline @@ Odefa_ast.Ast_pp.show_expr src; *)
+  let expectation = Test_expect.load_sexp_expectation_for testname in
+  (* Fmt.(pr "%a\n" Dump.(option Test_expect.pp) expectation); *)
   let inputs = Dbmc.Main.lookup_main src Dbmc.Std.default_target in
   List.hd_exn inputs
 
@@ -49,8 +49,7 @@ let test_unit testname () =
 
 let () =
   Dbmc.Log.init ();
-
-  print_endline @@ Sys.getcwd ();
+  (* print_endline @@ Sys.getcwd (); *)
   (* let path = "../../../../test2" in *)
   let path = "test2" in
   let grouped_testfiles = group_all_files path in
