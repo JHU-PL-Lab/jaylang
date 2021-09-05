@@ -5,13 +5,14 @@ _opam
 _build
 
 # Execution temp files
+/logs
 /*.log
 
 # Generated graph files
+/dot
 /*.dot
 /*.pdf
 /*.log.json
-dot
 
 # Custom build configuration files
 /.local_*
@@ -34,5 +35,9 @@ dot
 /translator
 /sandbox
 
-logs
+
 /land*.json
+
+# local files (ignored by default)
+/_notes
+/test2
