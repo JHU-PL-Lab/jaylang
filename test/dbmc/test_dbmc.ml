@@ -37,27 +37,25 @@ let group_all_files dir =
 
 let test_one_file testname () =
   let src_text = read_src testname in
-  (*** should be cleaned *)
   let src = parse src_text in
-  (* print_endline @@ Odefa_ast.Ast_pp.show_expr src; *)
-  let expectation = Test_expect.load_sexp_expectation_for testname in
-  Fmt.(pr "%a\n" Dump.(option Test_expect.pp) expectation);
   let inputss = Dbmc.Main.lookup_main src Dbmc.Std.default_target in
-  let inputs = List.hd_exn inputss in
-  Alcotest.(check (list int)) "equal" [] inputs
+  let expectation = Test_expect.load_sexp_expectation_for testname in
+  match expectation with
+  | None -> Alcotest.(check unit) "unit" () ()
+  | Some expectation ->
+      let inputs = List.hd_exn inputss in
+      let expected_inputs = List.hd_exn expectation.inputs in
+      Alcotest.(check (list int)) "equal" expected_inputs inputs
 
 let () =
   Dbmc.Log.init ();
-  (* print_endline @@ Sys.getcwd (); *)
-  (* let path = "../../../../test2" in *)
   let path = "test2" in
   let grouped_testfiles = group_all_files path in
-  (* Fmt.(pr "%a" Dump.(list (pair string (list string))) grouped_tests); *)
   let grouped_tests =
     List.map grouped_testfiles ~f:(fun (group_name, test_names) ->
         ( group_name,
           List.map test_names ~f:(fun testname ->
-              Alcotest.test_case testname `Quick @@ test_unit testname) ))
+              Alcotest.test_case testname `Quick @@ test_one_file testname) ))
   in
 
   Alcotest.run "DBMC" grouped_tests;
