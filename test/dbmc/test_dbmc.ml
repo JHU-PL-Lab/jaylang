@@ -35,17 +35,16 @@ let group_all_files dir =
   in
   loop dir
 
-let test_one_file testname =
+let test_one_file testname () =
   let src_text = read_src testname in
+  (*** should be cleaned *)
   let src = parse src_text in
   (* print_endline @@ Odefa_ast.Ast_pp.show_expr src; *)
   let expectation = Test_expect.load_sexp_expectation_for testname in
-  (* Fmt.(pr "%a\n" Dump.(option Test_expect.pp) expectation); *)
-  let inputs = Dbmc.Main.lookup_main src Dbmc.Std.default_target in
-  List.hd_exn inputs
-
-let test_unit testname () =
-  Alcotest.(check (list int)) "equal" [] (test_one_file testname)
+  Fmt.(pr "%a\n" Dump.(option Test_expect.pp) expectation);
+  let inputss = Dbmc.Main.lookup_main src Dbmc.Std.default_target in
+  let inputs = List.hd_exn inputss in
+  Alcotest.(check (list int)) "equal" [] inputs
 
 let () =
   Dbmc.Log.init ();
