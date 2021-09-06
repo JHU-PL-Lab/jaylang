@@ -1,0 +1,11 @@
+j = fun junk -> (
+  rj = junk
+);
+g = fun x -> (
+  target = x
+);
+f = fun z -> (
+  r = j z
+);
+zero = 0;
+y = g zero
