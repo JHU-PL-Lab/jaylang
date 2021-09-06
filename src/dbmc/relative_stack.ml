@@ -34,6 +34,7 @@ include Comparator.Make (T)
 
 let empty = ([], [])
 
+(* stack grows on headers: the toper (of the callstack/source), the header (of the list) *)
 let push (co_stk, stk) callsite fid = (co_stk, Pairable (callsite, fid) :: stk)
 
 let paired_callsite (_co_stk, stk) this_f =
@@ -46,6 +47,7 @@ let paired_callsite (_co_stk, stk) this_f =
   | [] -> None
   | _ :: _ -> failwith "paired_callsite 2"
 
+(* costack grows on headers: stack top ~ list head ~ source first *)
 let pop_check_paired (co_stk, stk) callsite fid =
   match stk with
   | Pairable (cs, _) :: stk' ->
@@ -61,6 +63,7 @@ let pop rel_stack callsite fid =
   | Some (stk, _) -> Some stk
   | None -> None
 
+(* concretize the costack: stack top ~ list head ~ source first *)
 let concretize (co_stk, stk) : Concrete_stack.t =
   if not @@ List.is_empty stk then
     failwith "concretize: stack is not empty"
@@ -69,8 +72,12 @@ let concretize (co_stk, stk) : Concrete_stack.t =
       | Pairable (_, _) -> failwith "wrong stack frame"
       | Dangling (callsite, fid) -> (callsite, fid))
 
-let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t
-    =
+(* the target stack is stack top ~ list head ~ source first ,
+   the call stack is stack top ~ list head ~ source last,
+   the constraint is in the former style, the result of `relativize`
+   also need to be in the former style.
+   *)
+let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t =
   let rec discard_common ts cs =
     match (ts, cs) with
     | (cs1, fid1) :: target_stk', (cs2, fid2) :: call_stk' ->
@@ -80,11 +87,11 @@ let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t
           (ts, cs)
     | _, [] | [], _ -> (ts, cs)
   in
-  (* target_stk is already _rev_ when `concretize` *)
+  (* Reverse the call stack to make it stack top ~ list head ~ source first *)
   let call_rev = List.rev call_stk in
   let target_stk', call_stk' = discard_common target_stk call_rev in
   let co_stk =
-    target_stk' |> List.rev |> List.map ~f:(fun (cs, fid) -> Dangling (cs, fid))
+    target_stk' |> List.map ~f:(fun (cs, fid) -> Dangling (cs, fid))
   in
   let stk = List.rev_map ~f:(fun (cs, fid) -> Pairable (cs, fid)) call_stk' in
   (co_stk, stk)

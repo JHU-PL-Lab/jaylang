@@ -96,7 +96,7 @@ and eval_clause ~input_feeder ~target stk env clause : denv * dvalue =
   in
   let target_x, target_stk = target in
   if Ident.equal target_x x then
-    if same_stack target_stk stk then
+    if same_stack (List.rev target_stk) stk then
       raise (Found_target (value_of_dvalue v))
     else
       (* Fmt.(
