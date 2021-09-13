@@ -40,7 +40,8 @@ let dbmc_run program cfg =
   in
   let inputs = List.hd_exn inputs in
   Format.printf "[%s]\n"
-    (String.concat ~sep:"," @@ List.map ~f:string_of_int inputs);
+    (String.concat ~sep:","
+    @@ List.map ~f:(function Some i -> string_of_int i | None -> "-") inputs);
   Dbmc.Log.close ()
 (* ignore @@ raise GenComplete *)
 

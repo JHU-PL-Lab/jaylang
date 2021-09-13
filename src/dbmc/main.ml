@@ -559,7 +559,7 @@ let lookup_main ?testname ?timeout program x_target =
             m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident x_target
               Concrete_stack.pp ri.c_stk);
         Lwt.return
-          [ Solver_helper.get_input x_target ri.model ri.c_stk program ]
+          [ Solver_helper.get_inputs x_target ri.model ri.c_stk program ]
     | Lwt_unix.Timeout ->
         prerr_endline "timeout";
-        Lwt.return [ [ -42 ] ])
+        Lwt.return [ [] ])

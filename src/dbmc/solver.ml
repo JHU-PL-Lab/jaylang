@@ -461,32 +461,40 @@ module Make (C : Context) () = struct
   let is_fun_from_model model e =
     bool_of_expr (Option.value_exn (Model.eval model (ifFun e) false))
 
-  let get_bool_expr model e =
+  let get_bool_expr_exn model e =
     Option.value_exn (Model.eval model (FuncDecl.apply getBool [ e ]) false)
 
-  let get_int_expr model e =
+  let get_int_expr_exn model e =
     Option.value_exn (Model.eval model (FuncDecl.apply getInt [ e ]) false)
 
-  let get_fun_expr model e =
+  let get_int_expr model e =
+    Option.( >>| )
+      (Model.eval model (FuncDecl.apply getInt [ e ]) false)
+      int_of_expr
+
+  let get_fun_expr_exn model e =
     Option.value_exn (Model.eval model (FuncDecl.apply getFun [ e ]) false)
 
+  (* The worker function get_<type>_expr_exn is with `_exn`,
+     the `_exn` is used under each if_<type> for asserting . *)
+  (* TODO: The function itself has no _exn *)
   let get_value model e =
     if is_int_from_model model e then
-      Some (Constraint.Int (get_int_expr model e |> int_of_expr))
+      Some (Constraint.Int (get_int_expr_exn model e |> int_of_expr))
     else if is_bool_from_model model e then
-      Some (Constraint.Bool (get_bool_expr model e |> bool_of_expr))
+      Some (Constraint.Bool (get_bool_expr_exn model e |> bool_of_expr))
     else if is_fun_from_model model e then
-      let fid = get_fun_expr model e |> string_of_expr in
+      let fid = get_fun_expr_exn model e |> string_of_expr in
       Some (Constraint.Fun (Id.Ident fid))
     else
       None
   (* failwith "get_value" *)
 
-  (* TODO: using functions above *)
   let get_int_s model s =
-    let x = FuncDecl.apply getInt [ var_s s ] in
-    let r = Option.value_exn (Model.eval model x true) in
-    Z3.Arithmetic.Integer.get_big_int r |> Big_int_Z.int_of_big_int
+    match get_value model (var_s s) with
+    | Some (Constraint.Int i) -> Some i
+    | Some _ -> failwith "must be an int or none as 0"
+    | None -> None
 
   let get_bool model e =
     let r = Option.value_exn (Model.eval model e false) in

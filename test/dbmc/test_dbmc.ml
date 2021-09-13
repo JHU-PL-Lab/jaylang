@@ -35,6 +35,15 @@ let group_all_files dir =
   in
   loop dir
 
+let int_option_checker : int option Alcotest.testable =
+  let eq ii jj =
+    match (ii, jj) with
+    | Some i, Some j -> i = j
+    | None, Some _ -> true
+    | _, _ -> failwith "impossible"
+  in
+  Alcotest.testable Fmt.(Dump.option int) eq
+
 let test_one_file testname () =
   let src_text = read_src testname in
   let src = parse src_text in
@@ -45,7 +54,9 @@ let test_one_file testname () =
   | Some expectation ->
       let inputs = List.hd_exn inputss in
       let expected_inputs = List.hd_exn expectation.inputs in
-      Alcotest.(check (list int)) "equal" expected_inputs inputs
+      let expected_inputs_ext = List.map ~f:Option.some expected_inputs in
+      Alcotest.(check (list int_option_checker))
+        "equal" inputs expected_inputs_ext
 
 let () =
   Dbmc.Log.init ();

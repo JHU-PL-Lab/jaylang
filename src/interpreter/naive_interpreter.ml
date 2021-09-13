@@ -44,7 +44,8 @@ and eval_clause ~input_feeder ~target stk env clause : denv * dvalue =
         in
         eval_exp ~input_feeder ~target stk' env e
     | Input_body ->
-        let n = input_feeder (x, stk) in
+        (* TODO: the interpreter may propagate the dummy value (through the value should never be used in any control flow)  *)
+        let n = Option.default 0 (input_feeder (x, stk)) in
         Direct (Value_int n)
     | Appl_body (vx1, vx2) -> (
         match eval_val env vx1 with

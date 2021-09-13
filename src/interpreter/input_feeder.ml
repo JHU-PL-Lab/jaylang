@@ -1,1 +1,1 @@
-let dummy0 _ = 0
+let dummy0 _ = None

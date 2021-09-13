@@ -11,6 +11,7 @@ all:
 	rm -f test_generator
 	rm -f test_dbmc
 	rm -f dbmc_top
+	rm -f dtest
 	ln -s _build/default/src/toploop-main/ddpa_toploop.exe ddpa_toploop
 	ln -s _build/default/src/test-generation-main/test_generator.exe test_generator
 	ln -s _build/default/src/translator-main/translator.exe translator
@@ -30,7 +31,6 @@ dtest:
 	rm -f dtest
 	dune build test/dbmc/test_dbmc.exe 
 	ln -s _build/default/test/dbmc/test_dbmc.exe dtest
-	./dtest
 
 sandbox:
 	dune build test/sandbox/sandbox.exe

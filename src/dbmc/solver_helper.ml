@@ -19,7 +19,7 @@ let check phi_z3_list z3_gate_phis =
 
 let string_of_solver () = Z3.Solver.to_string solver
 
-let solution_input_feeder model target_stack (x, call_stack) : int =
+let solution_input_feeder model target_stack (x, call_stack) : int option =
   let x = x |> Id.of_ast_id in
   let call_stk = call_stack |> Concrete_stack.of_ast_id in
   let stk = Relative_stack.relativize target_stack call_stk in
@@ -33,7 +33,7 @@ let memorized_solution_input_feeder mem model target_stack =
     mem := answer :: !mem;
     answer
 
-let get_input target_x model (target_stack : Concrete_stack.t) program =
+let get_inputs target_x model (target_stack : Concrete_stack.t) program =
   let input_history = ref [] in
   let input_feeder =
     memorized_solution_input_feeder input_history model target_stack

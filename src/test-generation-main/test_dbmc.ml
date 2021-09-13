@@ -49,7 +49,9 @@ let () =
       Dbmc.Main.lookup_main ~testname:args.ga_filename ast args.ga_target_point
     in
     let inputs = List.hd inputs in
-    Printf.printf "[%s]\n" (String.join "," @@ List.map string_of_int inputs);
+    Printf.printf "[%s]\n"
+      (String.join ","
+      @@ List.map (function Some i -> string_of_int i | None -> "_") inputs);
     Dbmc.Log.close ();
     ignore @@ raise GenComplete;
 
