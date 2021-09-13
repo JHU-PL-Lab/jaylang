@@ -1,0 +1,12 @@
+p = 0;
+a1 = input;
+a2 = 2;
+f = fun t -> (
+  target_in = input;
+  target_const = 42;
+  target_cond = target_in == target_const;
+  target_r = target_cond ?
+    (target = 84) :
+    (target_fail = 21)
+);
+s = f a1

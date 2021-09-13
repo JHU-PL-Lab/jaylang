@@ -1,0 +1,4 @@
+x = 3;
+t = input;
+y = 4;
+target = x + y

@@ -1,0 +1,7 @@
+p = 1;
+f = fun t -> (
+  target = 1
+);
+g = f;
+a = g p;
+x = 1;
