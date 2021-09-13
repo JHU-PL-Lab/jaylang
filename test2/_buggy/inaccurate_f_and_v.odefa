@@ -1,0 +1,14 @@
+a1 = 1;
+f1 = fun x1 -> (
+  f2 = fun x2 -> (
+    target = 1;
+  )
+);
+
+apply = fun g -> (
+  three = 3;
+  h = g three;
+);
+
+r1 = apply f1;
+r2 = apply r1
