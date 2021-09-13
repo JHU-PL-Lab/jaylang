@@ -20,3 +20,6 @@ let parse_program (input : IO.input) =
 let parse_program_raw (input : in_channel) =
   let buf = OCaml_lexing.from_channel input in
   handle_parse_error buf @@ fun () -> On_parser.prog On_lexer.token buf
+
+let parse_string s =
+  s |> IO.input_string |> parse_program |> On_to_odefa.translate

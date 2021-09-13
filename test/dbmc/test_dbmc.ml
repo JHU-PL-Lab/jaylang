@@ -2,7 +2,9 @@ open Core
 
 module To_test = struct end
 
-let parse = Odefa_parser.Parser.parse_string
+let parse_natodefa = Odefa_natural.On_parse.parse_string
+
+let parse_odefa = Odefa_parser.Parser.parse_string
 
 let read_lines file = file |> In_channel.create |> In_channel.input_lines
 
@@ -13,6 +15,8 @@ let read_src file =
 
 let is_source_ext filename = Filename.check_suffix filename "odefa"
 (* || Filename.check_suffix filename "natodefa"  *)
+
+let is_natodefa_source filename = Filename.check_suffix filename "natodefa"
 
 (* treat the path as the group name and filename as the test name *)
 let group_all_files dir =
@@ -46,7 +50,12 @@ let int_option_checker : int option Alcotest.testable =
 
 let test_one_file testname () =
   let src_text = read_src testname in
-  let src = parse src_text in
+  let src =
+    if is_natodefa_source testname then
+      parse_natodefa src_text
+    else
+      parse_odefa src_text
+  in
   let inputss = Dbmc.Main.lookup_main src Dbmc.Std.default_target in
   let expectation = Test_expect.load_sexp_expectation_for testname in
   match expectation with
