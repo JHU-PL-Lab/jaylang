@@ -44,10 +44,16 @@ let () =
   (* Generate tests *)
   try
     (* DBMC related code - start *)
-    Dbmc.Log.init ~testname:args.ga_filename ~log_level:Logs.Debug ();
-    let inputs =
-      Dbmc.Main.lookup_main ~testname:args.ga_filename ast args.ga_target_point
+    let config =
+      {
+        Dbmc.Top_config.default_config with
+        filename = args.ga_filename;
+        log_level = Some Logs.Debug;
+        output_dot = true;
+      }
     in
+    Dbmc.Log.init ~testname:args.ga_filename ~log_level:Logs.Debug ();
+    let inputs = Dbmc.Main.lookup_main ~config ast args.ga_target_point in
     let inputs = List.hd inputs in
     Printf.printf "[%s]\n"
       (String.join ","

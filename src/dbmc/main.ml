@@ -32,7 +32,7 @@ let print_dot_graph ~noted_phi_map ~model ~program ~testname
       source_map = Ddpa_helper.clause_mapping program;
       vertex_info_map = Hashtbl.create (module Lookup_key);
       model;
-      testname;
+      testname = Some testname;
     }
   in
   let module GI = (val (module struct
@@ -44,7 +44,7 @@ let print_dot_graph ~noted_phi_map ~model ~program ~testname
   Graph_dot_printer.output_graph graph;
   (graph, picked_c_stk_set)
 
-let lookup_top ?testname job_queue program x_target : _ Lwt.t =
+let lookup_top ~(config : Top_config.t) job_queue program x_target : _ Lwt.t =
   (* program analysis *)
   let map = Tracelet.annotate program x_target in
   let x_first = Ddpa_helper.first_var program in
@@ -374,7 +374,8 @@ let lookup_top ?testname job_queue program x_target : _ Lwt.t =
                    ~debug_tool:(key, noted_phi_map)))
       in
       let _, _ =
-        print_dot_graph ~noted_phi_map ~model:None ~program ~testname state
+        print_dot_graph ~noted_phi_map ~model:None ~program
+          ~testname:config.filename state
       in
       failwith "cvar_map should equal")
     else
@@ -433,7 +434,7 @@ let lookup_top ?testname job_queue program x_target : _ Lwt.t =
           let _graph, picked_c_stk_set =
             print_dot_graph ~noted_phi_map
               ~model:(Some (ref model))
-              ~program ~testname state
+              ~program ~testname:config.filename state
           in
 
           let c_stk =
@@ -535,14 +536,14 @@ let lookup_top ?testname job_queue program x_target : _ Lwt.t =
 
   lookup [ x_target' ] block0 Relative_stack.empty state.root_node ()
 
-let lookup_main ?testname ?timeout program x_target =
+let lookup_main ~(config : Top_config.t) program x_target =
   let job_queue = Scheduler.create () in
   let main_task =
-    match timeout with
+    match config.timeout with
     | Some ts ->
         Lwt_unix.with_timeout (Time.Span.to_sec ts) (fun () ->
-            lookup_top ?testname job_queue program x_target)
-    | None -> lookup_top ?testname job_queue program x_target
+            lookup_top ~config job_queue program x_target)
+    | None -> lookup_top ~config job_queue program x_target
   in
   Scheduler.push job_queue (fun () -> main_task);
   Lwt_main.run

@@ -56,7 +56,8 @@ let test_one_file testname () =
     else
       parse_odefa src_text
   in
-  let inputss = Dbmc.Main.lookup_main src Dbmc.Std.default_target in
+  let config = Dbmc.Top_config.default_config_with_filename testname in
+  let inputss = Dbmc.Main.lookup_main ~config src Dbmc.Std.default_target in
   let expectation = Test_expect.load_sexp_expectation_for testname in
   match expectation with
   | None -> Alcotest.(check unit) "unit" () ()
