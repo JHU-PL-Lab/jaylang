@@ -40,9 +40,8 @@ let print_dot_graph ~noted_phi_map ~model ~program ~testname
                        end) : Out_graph.Graph_info)
   in
   let module Graph_dot_printer = Out_graph.DotPrinter_Make (GI) in
-  let graph, picked_c_stk_set = Graph_dot_printer.graph_of_gate_tree state in
-  Graph_dot_printer.output_graph graph;
-  (graph, picked_c_stk_set)
+  let graph = Graph_dot_printer.graph_of_gate_tree state in
+  Graph_dot_printer.output_graph graph
 
 let lookup_top ~(config : Top_config.t) job_queue program x_target : _ Lwt.t =
   (* program analysis *)
@@ -359,27 +358,26 @@ let lookup_top ~(config : Top_config.t) job_queue program x_target : _ Lwt.t =
       Gate.get_c_vars_and_complete state.cvar_complete_map !(state.root_node)
     in
 
-    if
-      not (Hashtbl.equal Bool.equal state.cvar_complete_map state.cvar_complete)
-    then (
-      Logs.app (fun m ->
-          m "---\n[OLD]%a\n[NEW]%a\n" Cvar.pp_set state.cvar_complete_map
-            Cvar.pp_set state.cvar_complete);
-      let noted_phi_map = Hashtbl.create (module Lookup_key) in
-      let phi_z3_map =
-        Hashtbl.mapi state.phi_map ~f:(fun ~key ~data ->
-            List.map data
-              ~f:
-                (Solver_helper.Z3API.phi_z3_of_constraint ~debug:true
-                   ~debug_tool:(key, noted_phi_map)))
-      in
-      let _, _ =
-        print_dot_graph ~noted_phi_map ~model:None ~program
-          ~testname:config.filename state
-      in
-      failwith "cvar_map should equal")
-    else
-      ();
+    (* verify two implemenetation of cvar_map are equal *)
+    (* if
+         not (Hashtbl.equal Bool.equal state.cvar_complete_map state.cvar_complete)
+       then (
+         Logs.app (fun m ->
+             m "---\n[OLD]%a\n[NEW]%a\n" Cvar.pp_set state.cvar_complete_map
+               Cvar.pp_set state.cvar_complete);
+         let noted_phi_map = Hashtbl.create (module Lookup_key) in
+         let phi_z3_map =
+           Hashtbl.mapi state.phi_map ~f:(fun ~key ~data ->
+               List.map data
+                 ~f:
+                   (Solver_helper.Z3API.phi_z3_of_constraint ~debug:true
+                      ~debug_tool:(key, noted_phi_map)))
+         in
+           print_dot_graph ~noted_phi_map ~model:None ~program
+             ~testname:config.filename state;
+           failwith "cvar_map should equal")
+       else
+         (); *)
     if top_complete then (
       Logs.app (fun m ->
           m "Search Tree Size:\t%d" (Gate.size !(state.root_node)));
@@ -431,18 +429,12 @@ let lookup_top ~(config : Top_config.t) job_queue program x_target : _ Lwt.t =
               m "Cvar Picked: %a"
                 Fmt.Dump.(list (pair Cvar.pp_print Fmt.bool))
                 (Hashtbl.to_alist state.cvar_picked_map));
-          let _graph, picked_c_stk_set =
-            print_dot_graph ~noted_phi_map
-              ~model:(Some (ref model))
-              ~program ~testname:config.filename state
-          in
 
-          let c_stk =
-            if Hash_set.length picked_c_stk_set = 1 then
-              List.hd_exn (Hash_set.to_list picked_c_stk_set)
-            else
-              failwith "incorrect c_stk set"
-          in
+          print_dot_graph ~noted_phi_map
+            ~model:(Some (ref model))
+            ~program ~testname:config.filename state;
+
+          let c_stk = Search_tree.get_singleton_c_stk_exn state in
 
           let result_info = { model; c_stk } in
           Lwt.fail (Found_solution result_info)

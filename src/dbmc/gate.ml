@@ -73,7 +73,7 @@ open Node
 
 (* let direct pred succ = { pred; succ; label_cvar = None }
 
-let with_cvar cvar pred succ = { pred; succ; label_cvar = Some cvar } *)
+   let with_cvar cvar pred succ = { pred; succ; label_cvar = Some cvar } *)
 
 let mk_edge ?cvar pred succ = { pred; succ; label_cvar = cvar }
 
@@ -139,38 +139,38 @@ let deref_list nr = List.map nr ~f:Ref.( ! )
 
 let deref_pair_list nr = List.map nr ~f:(fun (x, y) -> (!x, !y))
 
-(* 
-cvars is actually some real or virtual out-edges of a node.
-In node-based-recursive function, it's OK to set the cvar for 
-the node associated with that edge
+(*
+   cvars is actually some real or virtual out-edges of a node.
+   In node-based-recursive function, it's OK to set the cvar for
+   the node associated with that edge
 
-visited_map works as memo for node via node.key
-cvar_map remembers all cvar_core
+   visited_map works as memo for node via node.key
+   cvar_map remembers all cvar_core
 
-Noting visited_map works for all nodes, while
-cvar_map just works for some edges.
-it's a workaround to put cvar as an optional argument,
-and that's why we first check visited_map and then check cvar_map
+   Noting visited_map works for all nodes, while
+   cvar_map just works for some edges.
+   it's a workaround to put cvar as an optional argument,
+   and that's why we first check visited_map and then check cvar_map
 *)
 
 (* let cvar_cores_of_node node =
-  let x, xs, r_stk = node.key in
-  let lookups = x :: xs in
-  match node.rule with
-  | Callsite (_, _, cf) -> Cvar.mk_callsite_to_fun lookups cf
-  | Condsite (_, _) -> Cvar.mk_condsite lookups x r_stk
-  | Para_local (_, fc) | Para_nonlocal (_, fc) ->
-      Cvar.mk_fun_to_callsite lookups fc
-  | _ -> [] *)
+   let x, xs, r_stk = node.key in
+   let lookups = x :: xs in
+   match node.rule with
+   | Callsite (_, _, cf) -> Cvar.mk_callsite_to_fun lookups cf
+   | Condsite (_, _) -> Cvar.mk_condsite lookups x r_stk
+   | Para_local (_, fc) | Para_nonlocal (_, fc) ->
+       Cvar.mk_fun_to_callsite lookups fc
+   | _ -> [] *)
 
-(* 
-    visited_map:
-    true -> exist one done path 
-    false -> no done path
+(*
+     visited_map:
+     true -> exist one done path
+     false -> no done path
 
-    A -> B -> C -> A
-       \        -> D ([])
-         E -> F -> G (..)
+     A -> B -> C -> A
+        \        -> D ([])
+          E -> F -> G (..)
 *)
 
 let get_c_vars_and_complete cvar_map node (* visited_list *) =
@@ -391,3 +391,24 @@ let bubble_up_complete cvar_map coming_edge node =
       ()
   in
   bubble_up coming_edge node
+
+let fold_graph ~at_node ~acc ~acc_f node =
+  let rec loop ~acc node =
+    (* visit this node *)
+    at_node node;
+    let acc = acc_f acc node in
+    (* traverse its children *)
+    match !node.rule with
+    | Pending | To_visited _ | Done _ | Mismatch -> ()
+    | Discard child | Alias child | To_first child -> loop ~acc child
+    | Binop (n1, n2) | Cond_choice (n1, n2) ->
+        List.iter ~f:(loop ~acc) [ n1; n2 ]
+    | Callsite (node, child_edges, _) | Condsite (node, child_edges) ->
+        loop ~acc node;
+        List.iter ~f:(fun (_, n) -> loop ~acc n) child_edges
+    | Para_local (ncs, _) | Para_nonlocal (ncs, _) ->
+        List.iter
+          ~f:(fun (_, n1, n2) -> List.iter ~f:(loop ~acc) [ n1; n2 ])
+          ncs
+  in
+  loop ~acc node

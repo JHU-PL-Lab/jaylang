@@ -49,7 +49,7 @@ module G = Graph.Imperative.Digraph.ConcreteLabeled (Graph_node) (Edge_label)
      If node A is added to the graph first, then node B is ignored (or B overrides A).
      There is unrealistic to think OCamlGraph.Dot can merge these two nodes.
      Therefore, we have to merge on our own, which occurs outside the module.
-  *)
+*)
 type vertex_info = {
   (* the key is Lookup_key.t *)
   block_id : Id.t;
@@ -59,11 +59,11 @@ type vertex_info = {
 }
 
 (* type edge_info = {
-  (* the key is cvar : string *)
-  picked : bool;
-  picked_from_root : bool;
-  complete : bool;
-} *)
+     (* the key is cvar : string *)
+     picked : bool;
+     picked_from_root : bool;
+     complete : bool;
+   } *)
 
 type graph_info_type = {
   phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
@@ -104,16 +104,6 @@ module DotPrinter_Make (C : Graph_info) = struct
 
   let graph_of_gate_tree (sts : Search_tree.t) =
     let tree = !(sts.root_node) in
-    let done_c_stk_set = Hash_set.create (module Concrete_stack) in
-    let add_done_c_stk picked_from_root (this : Gate.Node.t) =
-      match this.rule with
-      | Done c_stk ->
-          if picked_from_root then
-            Hash_set.add done_c_stk_set c_stk
-          else
-            ()
-      | _ -> ()
-    in
     let g = G.create () in
     let add_node_edge prev_info this =
       match (prev_info.prev_vertex, prev_info.prev_cvar) with
@@ -128,7 +118,7 @@ module DotPrinter_Make (C : Graph_info) = struct
                 complete = true;
               }
           in
-          add_done_c_stk edge_info.picked_from_root this;
+          (* add_done_c_stk edge_info.picked_from_root this; *)
           G.add_edge_e g
             (G.E.create (Either.first prev) (Either.first edge_info)
                (Either.first this))
@@ -146,7 +136,7 @@ module DotPrinter_Make (C : Graph_info) = struct
                 complete;
               }
           in
-          add_done_c_stk edge_info.picked_from_root this;
+          (* add_done_c_stk edge_info.picked_from_root this; *)
           G.add_edge_e g
             (G.E.create (Either.first prev) (Either.first edge_info)
                (Either.first this))
@@ -240,7 +230,7 @@ module DotPrinter_Make (C : Graph_info) = struct
       }
     in
     loop_tree init_passing_state tree;
-    (g, done_c_stk_set)
+    g
 
   module DotPrinter = Graph.Graphviz.Dot (struct
     include G

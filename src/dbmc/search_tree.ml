@@ -75,6 +75,22 @@ let merge_to_acc_phi_map state () =
     than once. We may directly use a field in the node, instead.
 *)
 
+let get_singleton_c_stk_exn _state =
+  let done_c_stk_set = Hash_set.create (module Concrete_stack) in
+  let add_done_c_stk picked_from_root (this : Gate.Node.t) =
+    match this.rule with
+    | Done c_stk ->
+        if picked_from_root then
+          Hash_set.add done_c_stk_set c_stk
+        else
+          ()
+    | _ -> ()
+  in
+  if Hash_set.length done_c_stk_set = 1 then
+    List.hd_exn (Hash_set.to_list done_c_stk_set)
+  else
+    failwith "incorrect c_stk set"
+
 let march_frontiers state =
   let new_pendings = Hash_set.create (module Gate.Node_ref) in
   let new_dones = Hash_set.create (module Gate.Node_ref) in
