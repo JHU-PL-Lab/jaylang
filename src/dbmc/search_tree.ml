@@ -11,7 +11,11 @@ type t = {
   root_node : Gate.Node.t ref;
 }
 
-let create root_node =
+let create block x_target =
+  let root_node =
+    ref
+      (Gate.root_node (block |> Tracelet.id_of_block |> Id.of_ast_id) x_target)
+  in
   let state =
     {
       node_map = Hashtbl.create (module Lookup_key);
@@ -54,7 +58,7 @@ let merge_to_acc_phi_map state () =
       | None -> Set_to a);
   Hashtbl.clear state.phi_map
 
-(* Frontiers are the line (a collection of nodes) on the DAG to seperated 
+(* Frontiers are the line (a collection of nodes) on the DAG to seperated
     the visited nodes and unvisited nodes.
     The initial fronter is the root.
 
@@ -67,10 +71,9 @@ let merge_to_acc_phi_map state () =
 
     If no frontiers reaches the leaf in this mark, it returns a false.
 
-    The map for visited_node is used to ensure each node won't be visited more 
+    The map for visited_node is used to ensure each node won't be visited more
     than once. We may directly use a field in the node, instead.
-
- *)
+*)
 
 let march_frontiers state =
   let new_pendings = Hash_set.create (module Gate.Node_ref) in

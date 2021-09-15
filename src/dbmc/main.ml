@@ -23,15 +23,11 @@ type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
 
 exception Found_solution of result_info
 
-let job_queue = Scheduler.empty ()
-
-let push_job job = Scheduler.push job_queue job
-
 let print_dot_graph ~noted_phi_map ~model ~program ~testname
-    (sts : Search_tree.t) =
+    (state : Search_tree.t) =
   let graph_info : Out_graph.graph_info_type =
     {
-      phi_map = sts.phi_map;
+      phi_map = state.phi_map;
       noted_phi_map;
       source_map = Ddpa_helper.clause_mapping program;
       vertex_info_map = Hashtbl.create (module Lookup_key);
@@ -44,31 +40,25 @@ let print_dot_graph ~noted_phi_map ~model ~program ~testname
                        end) : Out_graph.Graph_info)
   in
   let module Graph_dot_printer = Out_graph.DotPrinter_Make (GI) in
-  let graph, picked_c_stk_set = Graph_dot_printer.graph_of_gate_tree sts in
+  let graph, picked_c_stk_set = Graph_dot_printer.graph_of_gate_tree state in
   Graph_dot_printer.output_graph graph;
   (graph, picked_c_stk_set)
 
-let lookup_top ?testname program x_target : _ Lwt.t =
+let lookup_top ?testname job_queue program x_target : _ Lwt.t =
   (* program analysis *)
   let map = Tracelet.annotate program x_target in
   let x_first = Ddpa_helper.first_var program in
   let block0 = Tracelet.find_by_id x_target map in
   (* let block0 = Tracelet.cut_before true x_target block in *)
   let x_target' = Id.of_ast_id x_target in
-  let root_node =
-    ref
-      (Gate.root_node
-         (block0 |> Tracelet.id_of_block |> Id.of_ast_id)
-         x_target')
-  in
-  let sts = Search_tree.create root_node in
+  let state = Search_tree.create block0 x_target' in
   let add_phi ?debug_info key data =
-    Search_tree.add_phi ~debug_info sts key data
+    Search_tree.add_phi ~debug_info state key data
   in
   Solver_helper.reset ();
 
   let collect_cvar cvar =
-    Hashtbl.add_exn sts.cvar_complete ~key:cvar ~data:false
+    Hashtbl.add_exn state.cvar_complete ~key:cvar ~data:false
   in
 
   let fun_info_of_callsite callsite map =
@@ -366,31 +356,33 @@ let lookup_top ?testname program x_target : _ Lwt.t =
     in
 
     let top_complete =
-      Gate.get_c_vars_and_complete sts.cvar_complete_map !(sts.root_node)
+      Gate.get_c_vars_and_complete state.cvar_complete_map !(state.root_node)
     in
 
-    if not (Hashtbl.equal Bool.equal sts.cvar_complete_map sts.cvar_complete)
+    if
+      not (Hashtbl.equal Bool.equal state.cvar_complete_map state.cvar_complete)
     then (
       Logs.app (fun m ->
-          m "---\n[OLD]%a\n[NEW]%a\n" Cvar.pp_set sts.cvar_complete_map
-            Cvar.pp_set sts.cvar_complete);
+          m "---\n[OLD]%a\n[NEW]%a\n" Cvar.pp_set state.cvar_complete_map
+            Cvar.pp_set state.cvar_complete);
       let noted_phi_map = Hashtbl.create (module Lookup_key) in
       let phi_z3_map =
-        Hashtbl.mapi sts.phi_map ~f:(fun ~key ~data ->
+        Hashtbl.mapi state.phi_map ~f:(fun ~key ~data ->
             List.map data
               ~f:
                 (Solver_helper.Z3API.phi_z3_of_constraint ~debug:true
                    ~debug_tool:(key, noted_phi_map)))
       in
       let _, _ =
-        print_dot_graph ~noted_phi_map ~model:None ~program ~testname sts
+        print_dot_graph ~noted_phi_map ~model:None ~program ~testname state
       in
       failwith "cvar_map should equal")
     else
       ();
     if top_complete then (
-      Logs.app (fun m -> m "Search Tree Size:\t%d" (Gate.size !(sts.root_node)));
-      let choices_complete = Hashtbl.to_alist sts.cvar_complete_map in
+      Logs.app (fun m ->
+          m "Search Tree Size:\t%d" (Gate.size !(state.root_node)));
+      let choices_complete = Hashtbl.to_alist state.cvar_complete_map in
 
       let choices_complete_z3 =
         Solver_helper.Z3API.z3_gate_out_phis choices_complete
@@ -402,14 +394,14 @@ let lookup_top ?testname program x_target : _ Lwt.t =
             (List.map ~f:Z3.Expr.to_string choices_complete_z3));
       let noted_phi_map = Hashtbl.create (module Lookup_key) in
       let phi_z3_map =
-        Hashtbl.mapi sts.phi_map ~f:(fun ~key ~data ->
+        Hashtbl.mapi state.phi_map ~f:(fun ~key ~data ->
             List.map data
               ~f:
                 (Solver_helper.Z3API.phi_z3_of_constraint ~debug:true
                    ~debug_tool:(key, noted_phi_map)))
       in
       let phi_z3_list = Hashtbl.data phi_z3_map in
-      Search_tree.merge_to_acc_phi_map sts ();
+      Search_tree.merge_to_acc_phi_map state ();
       match Solver_helper.check (List.join phi_z3_list) choices_complete_z3 with
       | Result.Ok model ->
           Logs.debug (fun m ->
@@ -420,14 +412,14 @@ let lookup_top ?testname program x_target : _ Lwt.t =
              the answer should be yes since we are not interested in
              any false or unpicked cvar
           *)
-          sts.cvar_picked_map <-
+          state.cvar_picked_map <-
             Hashtbl.mapi
               ~f:(fun ~key:cname ~data:_cc ->
                 Cvar.set_picked cname |> Cvar.print
                 |> Solver_helper.Z3API.boole_of_str
                 |> Solver_helper.Z3API.get_bool model
                 |> Option.value ~default:false)
-              sts.cvar_complete_map;
+              state.cvar_complete_map;
 
           Logs.debug (fun m ->
               m "Cvar Complete: %a"
@@ -437,11 +429,11 @@ let lookup_top ?testname program x_target : _ Lwt.t =
           Logs.debug (fun m ->
               m "Cvar Picked: %a"
                 Fmt.Dump.(list (pair Cvar.pp_print Fmt.bool))
-                (Hashtbl.to_alist sts.cvar_picked_map));
+                (Hashtbl.to_alist state.cvar_picked_map));
           let _graph, picked_c_stk_set =
             print_dot_graph ~noted_phi_map
               ~model:(Some (ref model))
-              ~program ~testname sts
+              ~program ~testname state
           in
 
           let c_stk =
@@ -461,11 +453,11 @@ let lookup_top ?testname program x_target : _ Lwt.t =
   and bubble_up_edges (edges : Gate.Node.edge list) =
     List.iter edges ~f:(fun edge ->
         if !(edge.succ).has_complete_path then
-          Gate.bubble_up_complete sts.cvar_complete edge edge.pred)
+          Gate.bubble_up_complete state.cvar_complete edge edge.pred)
   and create_lookup_task ?cvar (key : Lookup_key.t) block parent_node =
     let block_id = block |> Tracelet.id_of_block |> Id.of_ast_id in
     let x, xs, rel_stack = key in
-    match Hashtbl.find sts.node_map key with
+    match Hashtbl.find state.node_map key with
     | Some child_node ->
         let edge = Gate.mk_edge ?cvar parent_node child_node in
         Gate.add_pred child_node edge;
@@ -478,10 +470,10 @@ let lookup_top ?testname program x_target : _ Lwt.t =
                | With_cvar (cvar, parent) -> With_cvar (cvar, existing_tree)
              in
              (existing_tree, edge')
-             (* (, Gate.bubble_up_complete sts.cvar_complete edge' node);
+             (* (, Gate.bubble_up_complete state.cvar_complete edge' node);
                 Logs.app (fun m ->
                     m "{%a: %B}\n[...]%a\n" Lookup_key.pp !existing_tree.key
-                      !existing_tree.has_complete_path Cvar.pp_set sts.cvar_complete)) *))
+                      !existing_tree.has_complete_path Cvar.pp_set state.cvar_complete)) *))
            else
              (existing_tree, []) *)
         (* ref
@@ -493,8 +485,8 @@ let lookup_top ?testname program x_target : _ Lwt.t =
         in
         let edge = Gate.mk_edge ?cvar parent_node child_node in
         Gate.add_pred child_node edge;
-        Hashtbl.add_exn sts.node_map ~key ~data:child_node;
-        push_job @@ lookup (x :: xs) block rel_stack child_node;
+        Hashtbl.add_exn state.node_map ~key ~data:child_node;
+        Scheduler.push job_queue @@ lookup (x :: xs) block rel_stack child_node;
         (child_node, edge)
   and deal_with_value mv x xs block rel_stack (gate_tree : Gate.Node.t ref) =
     let key : Lookup_key.t = (x, xs, rel_stack) in
@@ -514,10 +506,10 @@ let lookup_top ?testname program x_target : _ Lwt.t =
         gate_tree := { !gate_tree with rule = Gate.done_ target_stk };
         let edge = Gate.mk_edge gate_tree gate_tree in
         Logs.app (fun m -> m ".2");
-        Gate.bubble_up_complete sts.cvar_complete edge gate_tree;
+        Gate.bubble_up_complete state.cvar_complete edge gate_tree;
         Logs.app (fun m ->
             m "{%a: %B}\n[...]%a\n" Lookup_key.pp !gate_tree.key
-              !gate_tree.has_complete_path Cvar.pp_set sts.cvar_complete))
+              !gate_tree.has_complete_path Cvar.pp_set state.cvar_complete))
       else (* Discovery Non-Main *)
         let child_tree, edge =
           create_lookup_task
@@ -541,17 +533,18 @@ let lookup_top ?testname program x_target : _ Lwt.t =
       | _ -> failwith "why mismatch"
   in
 
-  lookup [ x_target' ] block0 Relative_stack.empty sts.root_node ()
+  lookup [ x_target' ] block0 Relative_stack.empty state.root_node ()
 
 let lookup_main ?testname ?timeout program x_target =
+  let job_queue = Scheduler.create () in
   let main_task =
     match timeout with
     | Some ts ->
         Lwt_unix.with_timeout (Time.Span.to_sec ts) (fun () ->
-            lookup_top ?testname program x_target)
-    | None -> lookup_top ?testname program x_target
+            lookup_top ?testname job_queue program x_target)
+    | None -> lookup_top ?testname job_queue program x_target
   in
-  push_job (fun () -> main_task);
+  Scheduler.push job_queue (fun () -> main_task);
   Lwt_main.run
     (try%lwt Scheduler.run job_queue >>= fun _ -> Lwt.return [ [] ] with
     | Found_solution ri ->
