@@ -58,38 +58,63 @@ let merge_to_acc_phi_map state () =
       | None -> Set_to a);
   Hashtbl.clear state.phi_map
 
-(* Frontiers are the line (a collection of nodes) on the DAG to seperated
-    the visited nodes and unvisited nodes.
-    The initial fronter is the root.
+(* Logs.app (fun m ->
+    m "Visiting: Node(%a) = %B, preds[%d]\n" Lookup_key.pp !node.key picked
+      (List.length !node.preds)); *)
 
-    Each invocation of this function is to march all frontiers towards the leaf.
-
-    If the any frontier reaches the leaf thus making a complete path, it's
-    the time to quit this march with true and check for a solution.
-
-    Any frontiers reaching the leaf will be removed, to avoid duplicate checking.
-
-    If no frontiers reaches the leaf in this mark, it returns a false.
-
-    The map for visited_node is used to ensure each node won't be visited more
-    than once. We may directly use a field in the node, instead.
-*)
-
-let get_singleton_c_stk_exn _state =
+let get_singleton_c_stk_exn state =
+  let stop (node : Gate.Node_ref.t) =
+    let picked =
+      if List.is_empty !node.preds then
+        true
+      else
+        List.fold !node.preds ~init:false ~f:(fun acc edge ->
+            let this =
+              Option.value_map edge.label_cvar ~default:true ~f:(fun cvar ->
+                  Option.value
+                    (Hashtbl.find state.cvar_picked_map cvar)
+                    ~default:false)
+            in
+            acc || this)
+    in
+    not picked
+  in
   let done_c_stk_set = Hash_set.create (module Concrete_stack) in
-  let add_done_c_stk picked_from_root (this : Gate.Node.t) =
-    match this.rule with
-    | Done c_stk ->
-        if picked_from_root then
-          Hash_set.add done_c_stk_set c_stk
-        else
-          ()
+  let at_node (node : Gate.Node_ref.t) =
+    match !node.rule with
+    | Done c_stk -> Hash_set.add done_c_stk_set c_stk
     | _ -> ()
   in
+  Gate.traverse_graph ~stop ~at_node ~init:()
+    ~acc_f:(fun _ _ -> ())
+    state.root_node;
+  Logs.app (fun m ->
+      m "C_stk: %a"
+        (Fmt.Dump.list Concrete_stack.pp)
+        (Hash_set.to_list done_c_stk_set));
   if Hash_set.length done_c_stk_set = 1 then
     List.hd_exn (Hash_set.to_list done_c_stk_set)
+  else if Hash_set.length done_c_stk_set = 0 then
+    Concrete_stack.empty
   else
-    failwith "incorrect c_stk set"
+    failwith "Incorrect c_stk set."
+
+(* Frontiers are the line (a collection of nodes) on the DAG to seperated
+   the visited nodes and unvisited nodes.
+   The initial fronter is the root.
+
+   Each invocation of this function is to march all frontiers towards the leaf.
+
+   If the any frontier reaches the leaf thus making a complete path, it's
+   the time to quit this march with true and check for a solution.
+
+   Any frontiers reaching the leaf will be removed, to avoid duplicate checking.
+
+   If no frontiers reaches the leaf in this mark, it returns a false.
+
+   The map for visited_node is used to ensure each node won't be visited more
+   than once. We may directly use a field in the node, instead.
+*)
 
 let march_frontiers state =
   let new_pendings = Hash_set.create (module Gate.Node_ref) in

@@ -430,9 +430,12 @@ let lookup_top ~(config : Top_config.t) job_queue program x_target : _ Lwt.t =
                 Fmt.Dump.(list (pair Cvar.pp_print Fmt.bool))
                 (Hashtbl.to_alist state.cvar_picked_map));
 
-          print_dot_graph ~noted_phi_map
-            ~model:(Some (ref model))
-            ~program ~testname:config.filename state;
+          if config.output_dot then
+            print_dot_graph ~noted_phi_map
+              ~model:(Some (ref model))
+              ~program ~testname:config.filename state
+          else
+            ();
 
           let c_stk = Search_tree.get_singleton_c_stk_exn state in
 

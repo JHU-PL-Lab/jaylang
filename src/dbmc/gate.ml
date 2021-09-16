@@ -392,23 +392,27 @@ let bubble_up_complete cvar_map coming_edge node =
   in
   bubble_up coming_edge node
 
-let fold_graph ~at_node ~acc ~acc_f node =
+let traverse_graph ?(stop = fun _ -> false) ~at_node ~init ~acc_f node =
   let rec loop ~acc node =
-    (* visit this node *)
-    at_node node;
-    let acc = acc_f acc node in
-    (* traverse its children *)
-    match !node.rule with
-    | Pending | To_visited _ | Done _ | Mismatch -> ()
-    | Discard child | Alias child | To_first child -> loop ~acc child
-    | Binop (n1, n2) | Cond_choice (n1, n2) ->
-        List.iter ~f:(loop ~acc) [ n1; n2 ]
-    | Callsite (node, child_edges, _) | Condsite (node, child_edges) ->
-        loop ~acc node;
-        List.iter ~f:(fun (_, n) -> loop ~acc n) child_edges
-    | Para_local (ncs, _) | Para_nonlocal (ncs, _) ->
-        List.iter
-          ~f:(fun (_, n1, n2) -> List.iter ~f:(loop ~acc) [ n1; n2 ])
-          ncs
+    let is_stop = stop node in
+    if is_stop then
+      ()
+    else (
+      (* visit this node *)
+      at_node node;
+      let acc = acc_f acc node in
+      (* traverse its children *)
+      match !node.rule with
+      | Pending | To_visited _ | Done _ | Mismatch -> ()
+      | Discard child | Alias child | To_first child -> loop ~acc child
+      | Binop (n1, n2) | Cond_choice (n1, n2) ->
+          List.iter ~f:(loop ~acc) [ n1; n2 ]
+      | Callsite (node, child_edges, _) | Condsite (node, child_edges) ->
+          loop ~acc node;
+          List.iter ~f:(fun (_, n) -> loop ~acc n) child_edges
+      | Para_local (ncs, _) | Para_nonlocal (ncs, _) ->
+          List.iter
+            ~f:(fun (_, n1, n2) -> List.iter ~f:(loop ~acc) [ n1; n2 ])
+            ncs)
   in
-  loop ~acc node
+  loop ~acc:init node
