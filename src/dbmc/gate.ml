@@ -19,7 +19,6 @@ module T = struct
   and rule =
     (* special rule *)
     | Pending
-    | To_visited of t ref
     (* value rule *)
     | Done of Concrete_stack.t
     | Mismatch
@@ -36,7 +35,6 @@ module T = struct
 
   let rule_name = function
     | Pending -> "Pending"
-    | To_visited _ -> "To_visited"
     | Done _ -> "Done"
     | Mismatch -> "Mismatch"
     | Discard _ -> "Discard"
@@ -118,8 +116,6 @@ let mk_condsite ~cond_var_tree ~sub_trees = Condsite (cond_var_tree, sub_trees)
 let mk_para ~sub_trees ~fc = Para_local (sub_trees, fc)
 
 let pending_node = Pending
-
-(* let to_visited node = To_visited node *)
 
 let done_ cstk = Done cstk
 
@@ -206,7 +202,6 @@ let get_c_vars_and_complete cvar_map node (* visited_list *) =
             | Pending -> false
             | Done _ -> true
             | Mismatch -> false
-            | To_visited next -> loop !next
             | Discard next | Alias next | To_first next -> loop !next
             | Binop (nr1, nr2) ->
                 List.fold [ nr1; nr2 ] ~init:true ~f:(fun acc nr ->
@@ -334,7 +329,7 @@ let bubble_up_complete cvar_map coming_edge node =
     let can_mark_complete =
       match !node.rule with
       | Pending -> false
-      | To_visited _ | Mismatch -> failwith "should not be in bubble up"
+      | Mismatch -> failwith "should not be in bubble up"
       | Done _ | Discard _ | Alias _ | To_first _ -> true
       | Binop (t1, t2) -> !t1.has_complete_path && !t2.has_complete_path
       | Cond_choice (t1, t2) ->
@@ -403,7 +398,7 @@ let traverse_graph ?(stop = fun _ -> false) ~at_node ~init ~acc_f node =
       let acc = acc_f acc node in
       (* traverse its children *)
       match !node.rule with
-      | Pending | To_visited _ | Done _ | Mismatch -> ()
+      | Pending | Done _ | Mismatch -> ()
       | Discard child | Alias child | To_first child -> loop ~acc child
       | Binop (n1, n2) | Cond_choice (n1, n2) ->
           List.iter ~f:(loop ~acc) [ n1; n2 ]

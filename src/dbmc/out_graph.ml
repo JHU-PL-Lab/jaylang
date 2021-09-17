@@ -189,14 +189,11 @@ module DotPrinter_Make (C : Graph_info) = struct
               });
         add_node_edge prev_info tree_node
       in
-      (match this.rule with
-      | To_visited _ -> failwith "no to_visited anymore"
-      | _ -> add_or_update_graph_node this);
+      (match this.rule with _ -> add_or_update_graph_node this);
       (* looping next *)
       match this.rule with
       | Discard next | Alias next | To_first next -> loop ~this !next
       | Pending | Mismatch | Done _ -> ()
-      | To_visited _next -> failwith "no this node"
       (* loop_tree ~one_step:true prev_info !next *)
       (* | Proxy next -> loop ~next_one_step:true ~this !next *)
       | Binop (n1, n2) -> List.iter ~f:(fun n -> loop ~this !n) [ n1; n2 ]
@@ -272,7 +269,6 @@ module DotPrinter_Make (C : Graph_info) = struct
             match node.rule with
             | Para_local _ | Para_nonlocal _ | Pending | Cond_choice _ ->
                 node.block_id
-            | To_visited _ -> failwith "no proxy node"
             | _ -> x
           in
           Odefa_ast.Ast.Ident_map.Exceptionless.find (Id.to_ast_id c_id)
