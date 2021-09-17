@@ -286,22 +286,21 @@ let get_c_vars_and_complete cvar_map node (* visited_list *) =
   (* Std.bool_of_ternary_exn tdone_ *)
   tdone_
 
-let sum f childs = List.sum (module Int) childs ~f:(fun child -> f !child)
+(* let sum f childs = List.sum (module Int) childs ~f:(fun child -> f !child) *)
 
-let rec size node =
-  match node.rule with
-  | Pending -> 1
-  | To_visited _ -> 1
-  | Done _ | Mismatch -> 1
-  | Discard child | Alias child | To_first child -> 1 + size !child
-  | Binop (n1, n2) | Cond_choice (n1, n2) -> 1 + size !n1 + size !n2
-  | Callsite (node, child_edges, _) | Condsite (node, child_edges) ->
-      let childs = List.map child_edges ~f:snd in
-      1 + size !node + sum size childs
-  | Para_local (ncs, _) ->
-      1 + List.sum (module Int) ncs ~f:(fun (_, n1, n2) -> size !n1 + size !n2)
-  | Para_nonlocal (ncs, _) ->
-      1 + List.sum (module Int) ncs ~f:(fun (_, n1, n2) -> size !n1 + size !n2)
+(* let rec size node =
+   match node.rule with
+   | Pending -> 1
+   | Done _ | Mismatch -> 1
+   | Discard child | Alias child | To_first child -> 1 + size !child
+   | Binop (n1, n2) | Cond_choice (n1, n2) -> 1 + size !n1 + size !n2
+   | Callsite (node, child_edges, _) | Condsite (node, child_edges) ->
+       let childs = List.map child_edges ~f:snd in
+       1 + size !node + sum size childs
+   | Para_local (ncs, _) ->
+       1 + List.sum (module Int) ncs ~f:(fun (_, n1, n2) -> size !n1 + size !n2)
+   | Para_nonlocal (ncs, _) ->
+       1 + List.sum (module Int) ncs ~f:(fun (_, n1, n2) -> size !n1 + size !n2) *)
 
 let bubble_up_complete cvar_map coming_edge node =
   (* let _visited = Hash_set.create (module Node_ref) in *)
@@ -378,7 +377,7 @@ let bubble_up_complete cvar_map coming_edge node =
   in
   bubble_up coming_edge node
 
-let traverse_graph ?(stop = fun _ -> false) ~at_node ~init ~acc_f node =
+let traverse_node ?(stop = fun _ -> false) ~at_node ~init ~acc_f node =
   let rec loop ~acc node =
     let is_stop = stop node in
     if is_stop then
@@ -402,3 +401,30 @@ let traverse_graph ?(stop = fun _ -> false) ~at_node ~init ~acc_f node =
             ncs)
   in
   loop ~acc:init node
+
+let fold_tree ?(stop = fun _ -> false) ~init ~sum node =
+  let rec loop ~acc node =
+    let is_stop = stop node in
+    if is_stop then
+      ()
+    else (* fold this node *)
+      let acc = sum acc node in
+      (* fold its children *)
+      match !node.rule with
+      | Pending | Done _ | Mismatch -> acc
+      | Discard child | Alias child | To_first child -> loop ~acc child
+      | Binop (n1, n2) | Cond_choice (n1, n2) ->
+          List.fold ~init:acc ~f:sum [ n1; n2 ]
+      | Callsite (node, child_edges, _) | Condsite (node, child_edges) ->
+          let acc = sum acc node in
+          List.fold ~init:acc ~f:(fun acc (_, n) -> sum acc n) child_edges
+      | Para_local (ncs, _) | Para_nonlocal (ncs, _) ->
+          List.fold ~init:acc
+            ~f:(fun acc (_, n1, n2) -> sum (sum acc n1) n2)
+            ncs
+  in
+  loop ~acc:init node
+
+let size node =
+  let sum acc _ = acc + 1 in
+  sum 0 node

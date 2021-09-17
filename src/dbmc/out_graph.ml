@@ -126,7 +126,7 @@ module DotPrinter_Make (C : Graph_info) = struct
           let picked =
             Option.value (Hashtbl.find sts.cvar_picked_map cvar) ~default:false
           in
-          let complete = Hashtbl.find_exn sts.cvar_complete_map cvar in
+          let complete = Hashtbl.find_exn sts.cvar_complete cvar in
           let edge_info =
             Edge_label.
               {

@@ -5,10 +5,10 @@ type t = {
   phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
   acc_phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
   current_pendings : Gate.Node.t ref Hash_set.t;
-  cvar_complete_map : (Cvar.t, bool) Hashtbl.t;
   cvar_complete : (Cvar.t, bool) Hashtbl.t;
   mutable cvar_picked_map : (Cvar.t, bool) Hashtbl.t;
   root_node : Gate.Node.t ref;
+  mutable tree_size : int;
 }
 
 let create block x_target =
@@ -22,10 +22,10 @@ let create block x_target =
       phi_map = Hashtbl.create (module Lookup_key);
       acc_phi_map = Hashtbl.create (module Lookup_key);
       current_pendings = Hash_set.create (module Gate.Node_ref);
-      cvar_complete_map = Hashtbl.create (module Cvar);
       cvar_complete = Hashtbl.create (module Cvar);
       cvar_picked_map = Hashtbl.create (module Cvar);
       root_node;
+      tree_size = 1;
     }
   in
   Hash_set.add state.current_pendings root_node;
@@ -58,11 +58,7 @@ let merge_to_acc_phi_map state () =
       | None -> Set_to a);
   Hashtbl.clear state.phi_map
 
-(* Logs.app (fun m ->
-    m "Visiting: Node(%a) = %B, preds[%d]\n" Lookup_key.pp !node.key picked
-      (List.length !node.preds)); *)
-
-let get_singleton_c_stk_exn state =
+let guarantee_singleton_c_stk_exn state =
   let stop (node : Gate.Node_ref.t) =
     let picked =
       if List.is_empty !node.preds then
@@ -85,7 +81,7 @@ let get_singleton_c_stk_exn state =
     | Done c_stk -> Hash_set.add done_c_stk_set c_stk
     | _ -> ()
   in
-  Gate.traverse_graph ~stop ~at_node ~init:()
+  Gate.traverse_node ~stop ~at_node ~init:()
     ~acc_f:(fun _ _ -> ())
     state.root_node;
   Logs.app (fun m ->
@@ -98,6 +94,40 @@ let get_singleton_c_stk_exn state =
     Concrete_stack.empty
   else
     failwith "Incorrect c_stk set."
+
+let find_c_stk state =
+  let found = ref false in
+  let result_c_stk = ref Concrete_stack.empty in
+  let stop (node : Gate.Node_ref.t) =
+    if !found then
+      true
+    else
+      let picked =
+        if List.is_empty !node.preds then
+          true
+        else
+          List.fold !node.preds ~init:false ~f:(fun acc edge ->
+              let this =
+                Option.value_map edge.label_cvar ~default:true ~f:(fun cvar ->
+                    Option.value
+                      (Hashtbl.find state.cvar_picked_map cvar)
+                      ~default:false)
+              in
+              acc || this)
+      in
+      not picked
+  in
+  let at_node (node : Gate.Node_ref.t) =
+    match !node.rule with
+    | Done c_stk ->
+        result_c_stk := c_stk;
+        found := true
+    | _ -> ()
+  in
+  Gate.traverse_node ~stop ~at_node ~init:()
+    ~acc_f:(fun _ _ -> ())
+    state.root_node;
+  !result_c_stk
 
 (* Frontiers are the line (a collection of nodes) on the DAG to seperated
    the visited nodes and unvisited nodes.

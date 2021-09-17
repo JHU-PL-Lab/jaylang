@@ -76,6 +76,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
   let[@landmark] rec lookup (xs0 : Lookup_stack.t) block rel_stack
       (gate_tree : Gate.Node.t ref) : unit -> _ Lwt.t =
    fun () ->
+    state.tree_size <- state.tree_size + 1;
     let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in
     let block_id = block |> Tracelet.id_of_block |> Id.of_ast_id in
     let this_key : Lookup_key.t = (x, xs, rel_stack) in
@@ -355,33 +356,11 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
     in
 
     let top_complete =
-      Gate.get_c_vars_and_complete state.cvar_complete_map !(state.root_node)
+      Gate.get_c_vars_and_complete state.cvar_complete !(state.root_node)
     in
-
-    (* verify two implemenetation of cvar_map are equal *)
-    (* if
-         not (Hashtbl.equal Bool.equal state.cvar_complete_map state.cvar_complete)
-       then (
-         Logs.app (fun m ->
-             m "---\n[OLD]%a\n[NEW]%a\n" Cvar.pp_set state.cvar_complete_map
-               Cvar.pp_set state.cvar_complete);
-         let noted_phi_map = Hashtbl.create (module Lookup_key) in
-         let phi_z3_map =
-           Hashtbl.mapi state.phi_map ~f:(fun ~key ~data ->
-               List.map data
-                 ~f:
-                   (Solver_helper.Z3API.phi_z3_of_constraint ~debug:true
-                      ~debug_tool:(key, noted_phi_map)))
-         in
-           print_dot_graph ~noted_phi_map ~model:None ~program
-             ~testname:config.filename state;
-           failwith "cvar_map should equal")
-       else
-         (); *)
     if top_complete then (
-      Logs.app (fun m ->
-          m "Search Tree Size:\t%d" (Gate.size !(state.root_node)));
-      let choices_complete = Hashtbl.to_alist state.cvar_complete_map in
+      Logs.app (fun m -> m "Search Tree Size:\t%d" state.tree_size);
+      let choices_complete = Hashtbl.to_alist state.cvar_complete in
 
       let choices_complete_z3 =
         Solver_helper.Z3API.z3_gate_out_phis choices_complete
@@ -418,7 +397,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
                 |> Solver_helper.Z3API.boole_of_str
                 |> Solver_helper.Z3API.get_bool model
                 |> Option.value ~default:false)
-              state.cvar_complete_map;
+              state.cvar_complete;
 
           Logs.debug (fun m ->
               m "Cvar Complete: %a"
@@ -437,7 +416,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
           else
             ();
 
-          let c_stk = Search_tree.get_singleton_c_stk_exn state in
+          let c_stk = Search_tree.find_c_stk state in
 
           let result_info = { model; c_stk } in
           Lwt.fail (Found_solution result_info)
