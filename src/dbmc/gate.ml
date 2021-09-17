@@ -323,7 +323,7 @@ let bubble_up_complete cvar_map coming_edge node =
       List.exists edges ~f:(fun (_, tree) -> !tree.has_complete_path)
     in
     let collect_cvar cvar =
-      Logs.app (fun m -> m "collect %s" (Cvar.print cvar));
+      Logs.info (fun m -> m "collect %s" (Cvar.print cvar));
       Hashtbl.set cvar_map ~key:cvar ~data:true
     in
     let can_mark_complete =
@@ -332,11 +332,7 @@ let bubble_up_complete cvar_map coming_edge node =
       | Mismatch -> failwith "should not be in bubble up"
       | Done _ | Discard _ | Alias _ | To_first _ -> true
       | Binop (t1, t2) -> !t1.has_complete_path && !t2.has_complete_path
-      | Cond_choice (t1, t2) ->
-          Logs.app (fun m ->
-              m "[CC]%a:%B , %a:%B" Lookup_key.pp !t1.key !t1.has_complete_path
-                Lookup_key.pp !t2.key !t2.has_complete_path);
-          !t1.has_complete_path && !t2.has_complete_path
+      | Cond_choice (t1, t2) -> !t1.has_complete_path && !t2.has_complete_path
       | Condsite (nc, nbs) ->
           if phys_equal coming_node nc then
             collect_in_cvar_edges nbs
@@ -357,11 +353,6 @@ let bubble_up_complete cvar_map coming_edge node =
           let coming_cvar = Option.value_exn coming_cvar in
           let collect_this_cvar =
             List.exists nts ~f:(fun (cvar, t1, t2) ->
-                Logs.app (fun m ->
-                    m "%B , %a:%B , %a:%B"
-                      (Cvar.equal coming_cvar cvar)
-                      Lookup_key.pp !t1.key !t1.has_complete_path Lookup_key.pp
-                      !t2.key !t2.has_complete_path);
                 Cvar.equal coming_cvar cvar
                 && !t1.has_complete_path && !t2.has_complete_path)
           in
@@ -371,7 +362,7 @@ let bubble_up_complete cvar_map coming_edge node =
           else
             false
     in
-    Logs.app (fun m ->
+    Logs.info (fun m ->
         m "B: %B,%B,%d" !node.has_complete_path can_mark_complete
           (List.length !node.preds));
     if !node.has_complete_path then

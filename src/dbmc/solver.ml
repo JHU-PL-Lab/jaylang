@@ -502,7 +502,7 @@ module Make (C : Context) () = struct
     | L_TRUE -> Some true
     | L_FALSE -> Some false
     | L_UNDEF ->
-        Logs.warn (fun m -> m "[warning] %s L_UNDEF" (Z3.Expr.to_string e));
+        Logs.warn (fun m -> m "%s L_UNDEF" (Z3.Expr.to_string e));
         None
 
   let eval_value model e = Option.value_exn (Model.eval model e false)

@@ -79,8 +79,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
     let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in
     let block_id = block |> Tracelet.id_of_block |> Id.of_ast_id in
     let this_key : Lookup_key.t = (x, xs, rel_stack) in
-    (* Logs.info *)
-    Logs.app (fun m ->
+    Logs.info (fun m ->
         m "search begin: %a in block %a" Lookup_key.pp this_key Id.pp block_id);
     let () =
       match defined x block with
@@ -502,11 +501,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
         add_phi ~debug_info:(x, xs, rel_stack) key @@ C.Target_stack target_stk;
         gate_tree := { !gate_tree with rule = Gate.done_ target_stk };
         let edge = Gate.mk_edge gate_tree gate_tree in
-        Logs.app (fun m -> m ".2");
-        Gate.bubble_up_complete state.cvar_complete edge gate_tree;
-        Logs.app (fun m ->
-            m "{%a: %B}\n[...]%a\n" Lookup_key.pp !gate_tree.key
-              !gate_tree.has_complete_path Cvar.pp_set state.cvar_complete))
+        Gate.bubble_up_complete state.cvar_complete edge gate_tree)
       else (* Discovery Non-Main *)
         let child_tree, edge =
           create_lookup_task
