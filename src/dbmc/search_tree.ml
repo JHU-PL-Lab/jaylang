@@ -130,7 +130,7 @@ let march_frontiers state =
           else
             ();
           false
-      | To_visited next | Discard next | Alias next ->
+      | Discard next | Alias next ->
           Hash_set.add new_pendings next;
           false
       | Mismatch -> false

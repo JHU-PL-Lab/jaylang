@@ -43,7 +43,8 @@ let print_dot_graph ~noted_phi_map ~model ~program ~testname
   let graph = Graph_dot_printer.graph_of_gate_tree state in
   Graph_dot_printer.output_graph graph
 
-let lookup_top ~(config : Top_config.t) job_queue program x_target : _ Lwt.t =
+let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
+    _ Lwt.t =
   (* program analysis *)
   let map = Tracelet.annotate program x_target in
   let x_first = Ddpa_helper.first_var program in
@@ -72,7 +73,7 @@ let lookup_top ~(config : Top_config.t) job_queue program x_target : _ Lwt.t =
     (callsite_block, x', x'', x''')
   in
 
-  let rec lookup (xs0 : Lookup_stack.t) block rel_stack
+  let[@landmark] rec lookup (xs0 : Lookup_stack.t) block rel_stack
       (gate_tree : Gate.Node.t ref) : unit -> _ Lwt.t =
    fun () ->
     let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in
@@ -531,7 +532,7 @@ let lookup_top ~(config : Top_config.t) job_queue program x_target : _ Lwt.t =
 
   lookup [ x_target' ] block0 Relative_stack.empty state.root_node ()
 
-let lookup_main ~(config : Top_config.t) program x_target =
+let[@landmark] lookup_main ~(config : Top_config.t) program x_target =
   let job_queue = Scheduler.create () in
   let main_task =
     match config.timeout with

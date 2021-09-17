@@ -8,6 +8,7 @@
   lwt
   lwt.unix
   z3
+  landmarks
   logs
   logs.lwt
   logs.fmt
@@ -22,8 +23,9 @@
    ppx_jane
    -allow-unannotated-ignores
    ppx_deriving.show
-   lwt_ppx))
- )
+   lwt_ppx
+   landmarks-ppx
+   --auto)))
 
 (env
  (dev
