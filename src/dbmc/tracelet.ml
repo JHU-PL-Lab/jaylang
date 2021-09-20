@@ -192,11 +192,6 @@ let _add_callsite site tl =
   | Fun b -> Fun { b with callsites = site :: b.callsites }
   | _ -> failwith "wrong precondition to call add_callsite"
 
-(* let add_callsite f_def site tl_map =
-   let tl = Map.find_exn tl_map f_def in
-   let tl' = _add_callsite site tl in
-   Map.add_exn ~key:f_def ~data:tl' tl_map *)
-
 let add_callsite f_def site tl_map =
   let tl = Ident_map.find f_def tl_map in
   let tl' = _add_callsite site tl in
@@ -283,7 +278,7 @@ let cfg_of e =
 
 (* annotate tracelet from the ddpa cfg.
    for call-site `s = e1 e2`, annotate e1 with the real function def_var
-   for cond-site `s = c ? e1 : e2`, replace s with 
+   for cond-site `s = c ? e1 : e2`, replace s with
 *)
 
 let annotate e pt : block Ident_map.t =

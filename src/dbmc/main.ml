@@ -479,23 +479,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
         let edge = Gate.mk_edge ?cvar parent_node child_node in
         Gate.add_pred child_node edge;
         (child_node, edge)
-        (* if !existing_tree.has_complete_path then (
-             Logs.app (fun m -> m ".1");
-             let edge' =
-               match parent with
-               | Direct node -> Direct node
-               | With_cvar (cvar, parent) -> With_cvar (cvar, existing_tree)
-             in
-             (existing_tree, edge')
-             (* (, Gate.bubble_up_complete state.cvar_complete edge' node);
-                Logs.app (fun m ->
-                    m "{%a: %B}\n[...]%a\n" Lookup_key.pp !existing_tree.key
-                      !existing_tree.has_complete_path Cvar.pp_set state.cvar_complete)) *))
-           else
-             (existing_tree, []) *)
-        (* ref
-           (Gate.mk_node ~block_id ~key ~parent
-              ~rule:(Gate.to_visited existing_tree)) *)
     | None ->
         let child_node =
           ref (Gate.mk_node ~block_id ~key ~rule:Gate.pending_node)

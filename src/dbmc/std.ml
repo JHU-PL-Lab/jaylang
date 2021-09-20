@@ -3,21 +3,6 @@ open Core
 type ternary = True | False | Unknown
 [@@deriving equal, show { with_path = false }]
 
-(* let post_and x y =
-     match (x, y) with
-     | x, Std.Unknown -> x
-     | Std.Unknown, y -> y
-     | Std.True, Std.True -> Std.True
-     | _, _ -> Std.False
-   in
-   let post_or x y =
-     match (x, y) with
-     | x, Std.Unknown -> x
-     | Std.Unknown, y -> y
-     | Std.False, Std.False -> Std.False
-     | _, _ -> Std.True
-   in *)
-
 let bool_of_ternary_exn = function
   | True -> true
   | False -> false

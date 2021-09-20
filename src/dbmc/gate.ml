@@ -69,10 +69,6 @@ end
 
 open Node
 
-(* let direct pred succ = { pred; succ; label_cvar = None }
-
-   let with_cvar cvar pred succ = { pred; succ; label_cvar = Some cvar } *)
-
 let mk_edge ?cvar pred succ = { pred; succ; label_cvar = cvar }
 
 let root_node block_id x =
@@ -148,141 +144,6 @@ let deref_pair_list nr = List.map nr ~f:(fun (x, y) -> (!x, !y))
    it's a workaround to put cvar as an optional argument,
    and that's why we first check visited_map and then check cvar_map
 *)
-
-(* let cvar_cores_of_node node =
-   let x, xs, r_stk = node.key in
-   let lookups = x :: xs in
-   match node.rule with
-   | Callsite (_, _, cf) -> Cvar.mk_callsite_to_fun lookups cf
-   | Condsite (_, _) -> Cvar.mk_condsite lookups x r_stk
-   | Para_local (_, fc) | Para_nonlocal (_, fc) ->
-       Cvar.mk_fun_to_callsite lookups fc
-   | _ -> [] *)
-
-(*
-     visited_map:
-     true -> exist one done path
-     false -> no done path
-
-     A -> B -> C -> A
-        \        -> D ([])
-          E -> F -> G (..)
-*)
-
-(* let get_c_vars_and_complete cvar_complete border_nodes (* visited_list *) =
-   let visited_map = Hashtbl.create (module Lookup_key) in
-   let rec loop ?cvar node =
-     let done_ =
-       match Hashtbl.find visited_map node.key with
-       | Some done_ -> done_
-       | None ->
-           (* ignore @@ Hashtbl.add_exn visited_map ~key:node.key ~data:false; *)
-           (* let cvars = cvar_cores_of_node node in *)
-           let done_ =
-             match node.rule with
-             | Pending -> false
-             | Done _ -> true
-             | Mismatch -> false
-             | Discard next | Alias next | To_first next -> loop !next
-             | Binop (nr1, nr2) ->
-                 List.fold [ nr1; nr2 ] ~init:true ~f:(fun acc nr ->
-                     loop !nr && acc)
-             | Cond_choice (nc, nr) ->
-                 List.fold [ nc; nr ] ~init:true ~f:(fun acc nr ->
-                     loop !nr && acc)
-             | Callsite (nf, ncs, _) ->
-                 loop !nf
-                 && List.fold ncs ~init:false ~f:(fun acc (cvar, nr) ->
-                        loop ~cvar !nr || acc)
-             | Condsite (nc, ncs) ->
-                 loop !nc
-                 && List.fold ncs ~init:false ~f:(fun acc (cvar, nr) ->
-                        (* if not (Cvar.equal cvar0 cvar) then
-                             Logs.app (fun m ->
-                                 m "[%a][%a]\n" Cvar.pp cvar0 Cvar.pp cvar)
-                           else
-                             (); *)
-                        loop ~cvar !nr || acc)
-             | Para_local (ncs, _) ->
-                 List.fold ncs ~init:false ~f:(fun acc (cvar, nf, na) ->
-                     let this_done = loop !nf && loop !na in
-                     (* special case for cvar since this cvar is not a real edge *)
-                     ignore
-                     @@ Hashtbl.add cvar_complete ~key:cvar ~data:this_done;
-                     this_done || acc)
-             | Para_nonlocal (ncs, _) ->
-                 List.fold ncs ~init:false ~f:(fun acc (cvar, nf, na) ->
-                     let this_done = loop !nf && loop !na in
-                     (* special case for cvar since this cvar is not a real edge *)
-                     ignore
-                     @@ Hashtbl.add cvar_complete ~key:cvar ~data:this_done;
-                     this_done || acc)
-           in
-           (* Hashtbl.change visited_map node.key ~f:(function
-              | Some Std.Unknown -> Some done_
-              | Some _ -> failwith "why not Unknown"
-              | None -> failwith "why None"); *)
-           (* (match this_key with
-              | Some key -> Logs.app (fun m -> m "(%B)%a" done_ Lookup_key.pp key)
-              | None -> ()); *)
-           Hashtbl.set visited_map ~key:node.key ~data:done_;
-           (* (match Hashtbl.add visited_map ~key:node.key ~data:done_ with
-              | `Ok -> ()
-              | `Duplicate ->
-                  Logs.app (fun m ->
-                      m
-                        "Search tree node_map circular dependency at\n\
-                         \tkey:%a\told_val:%B\tnew_val:%B\t"
-                        Lookup_key.pp node.key
-                        (Hashtbl.find_exn visited_map node.key)
-                        done_)); *)
-           done_
-     in
-     (match cvar with
-     | Some cvar -> (
-         (* Hashtbl.set cvar_map ~key:cvar ~data:done_ *)
-         match Hashtbl.add cvar_complete ~key:cvar ~data:done_ with
-         | `Ok -> ()
-         | `Duplicate ->
-             ()
-             (* Logs.warn (fun m ->
-                 m
-                   "Search tree cvar_map duplication at\n\
-                    \tkey(cvar):%s\told_val:%a\tnew_val:%a\t"
-                   cvar Std.pp_ternary
-                   (Hashtbl.find_exn cvar_map cvar)
-                   Std.pp_ternary done_ *)
-             (* Hashtbl.change cvar_map cvar ~f:(function
-                | Some Std.Unknown | None -> Some done_
-                | Some v when Std.equal_ternary v done_ -> Some v
-                | _ -> failwith "must be either unknown or consistency") *))
-     | None -> ());
-     (* List.iter node.cvars_coming ~f:(fun cvar ->
-         Hashtbl.update cvar_map cvar ~f:(fun old_v ->
-             match old_v with None -> done_ | Some ov -> ov || done_)); *)
-     done_
-   in
-   List.fold border_nodes ~init:false ~f:(fun acc node -> loop !node || acc) *)
-
-(* Hashtbl.iteri local_cvar_map ~f:(fun ~key ~data ->
-    Hashtbl.add_exn cvar_map ~key ~data:(Std.bool_of_ternary_exn data)); *)
-(* Std.bool_of_ternary_exn tdone_ *)
-
-(* let sum f childs = List.sum (module Int) childs ~f:(fun child -> f !child) *)
-
-(* let rec size node =
-   match node.rule with
-   | Pending -> 1
-   | Done _ | Mismatch -> 1
-   | Discard child | Alias child | To_first child -> 1 + size !child
-   | Binop (n1, n2) | Cond_choice (n1, n2) -> 1 + size !n1 + size !n2
-   | Callsite (node, child_edges, _) | Condsite (node, child_edges) ->
-       let childs = List.map child_edges ~f:snd in
-       1 + size !node + sum size childs
-   | Para_local (ncs, _) ->
-       1 + List.sum (module Int) ncs ~f:(fun (_, n1, n2) -> size !n1 + size !n2)
-   | Para_nonlocal (ncs, _) ->
-       1 + List.sum (module Int) ncs ~f:(fun (_, n1, n2) -> size !n1 + size !n2) *)
 
 let bubble_up_complete cvar_map coming_edge node =
   (* let _visited = Hash_set.create (module Node_ref) in *)
@@ -406,7 +267,3 @@ let fold_tree ?(stop = fun _ -> false) ~init ~sum node =
             ncs
   in
   loop ~acc:init node
-
-let size node =
-  let sum acc _ = acc + 1 in
-  sum 0 node
