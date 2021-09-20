@@ -37,6 +37,7 @@ _build
 
 
 /land*.json
+*.ansi
 
 # local files (ignored by default)
 /_notes

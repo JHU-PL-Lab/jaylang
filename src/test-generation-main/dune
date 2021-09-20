@@ -5,6 +5,7 @@
   fmt
   lwt
   lwt.unix
+  landmarks
   batteries
   jhupllib
   odefa.ast
@@ -13,5 +14,9 @@
   odefa.test-generation
   odefa.symbolic-interpreter
   dbmc)
+  (preprocess
+  (pps
+   landmarks-ppx
+   --auto))
  ;  (promote (until-clean))
  )

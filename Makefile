@@ -60,5 +60,8 @@ logclean:
 benchmark:
 	dune exec benchmark-test-generation/benchmark.exe
 
-land:
-	OCAML_LANDMARKS=on,output="callgraph.ansi" ./test_dbmc -t target test2/loop/sum3.odefa
+land3:
+	OCAML_LANDMARKS=on,output="callgraph3.ansi" ./test_dbmc -t target test2/loop/sum3.odefa
+
+land30:
+	OCAML_LANDMARKS=on,output="callgraph30.ansi" ./test_dbmc -t target test2/loop/sum30.odefa

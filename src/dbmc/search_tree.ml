@@ -1,13 +1,16 @@
 open Core
 
+(* Hashtbl.t is mutable by default.
+   Using explicit *mutable* is for replacing a new one easier.
+*)
 type t = {
+  root_node : Gate.Node.t ref;
   node_map : (Lookup_key.t, Gate.Node.t ref) Hashtbl.t;
   phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
   acc_phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
   current_pendings : Gate.Node.t ref Hash_set.t;
   cvar_complete : (Cvar.t, bool) Hashtbl.t;
   mutable cvar_picked_map : (Cvar.t, bool) Hashtbl.t;
-  root_node : Gate.Node.t ref;
   mutable tree_size : int;
 }
 
@@ -18,13 +21,13 @@ let create block x_target =
   in
   let state =
     {
+      root_node;
       node_map = Hashtbl.create (module Lookup_key);
       phi_map = Hashtbl.create (module Lookup_key);
       acc_phi_map = Hashtbl.create (module Lookup_key);
       current_pendings = Hash_set.create (module Gate.Node_ref);
       cvar_complete = Hashtbl.create (module Cvar);
       cvar_picked_map = Hashtbl.create (module Cvar);
-      root_node;
       tree_size = 1;
     }
   in
@@ -84,7 +87,7 @@ let guarantee_singleton_c_stk_exn state =
   Gate.traverse_node ~stop ~at_node ~init:()
     ~acc_f:(fun _ _ -> ())
     state.root_node;
-  Logs.app (fun m ->
+  Logs.info (fun m ->
       m "C_stk: %a"
         (Fmt.Dump.list Concrete_stack.pp)
         (Hash_set.to_list done_c_stk_set));
@@ -95,7 +98,7 @@ let guarantee_singleton_c_stk_exn state =
   else
     failwith "Incorrect c_stk set."
 
-let find_c_stk state =
+let[@landmark] find_c_stk state =
   let found = ref false in
   let result_c_stk = ref Concrete_stack.empty in
   let stop (node : Gate.Node_ref.t) =
@@ -146,32 +149,32 @@ let find_c_stk state =
    than once. We may directly use a field in the node, instead.
 *)
 
-let march_frontiers state =
-  let new_pendings = Hash_set.create (module Gate.Node_ref) in
-  let new_dones = Hash_set.create (module Gate.Node_ref) in
-  Hash_set.filter_inplace state.current_pendings ~f:(fun node_ref ->
-      let node = !node_ref in
-      match node.rule with
-      | Pending -> true
-      | Done _c_stk ->
-          if not node.all_path_searched then (
-            node.all_path_searched <- true;
-            Hash_set.add new_dones node_ref)
-          else
-            ();
-          false
-      | Discard next | Alias next ->
-          Hash_set.add new_pendings next;
-          false
-      | Mismatch -> false
-      (* | Binop (nr1, nr2) ->
-             List.iter [ nr1; nr2 ] ~f:(fun nr -> Hash_set.add new_pendings nr);
-             false
-         | Cond_choice (nc, nr) ->
-             List.iter [ nc; nr ] ~f:(fun nr -> Hash_set.add new_pendings nr);
-             false
-         | Callsite (nf, ncs, _) ->
-             List.iter (nf :: ncs) ~f:(fun nr -> Hash_set.add new_pendings nr);
-             false *)
-      | _ -> true);
-  true
+(* let march_frontiers state =
+   let new_pendings = Hash_set.create (module Gate.Node_ref) in
+   let new_dones = Hash_set.create (module Gate.Node_ref) in
+   Hash_set.filter_inplace state.current_pendings ~f:(fun node_ref ->
+       let node = !node_ref in
+       match node.rule with
+       | Pending -> true
+       | Done _c_stk ->
+           if not node.all_path_searched then (
+             node.all_path_searched <- true;
+             Hash_set.add new_dones node_ref)
+           else
+             ();
+           false
+       | Discard next | Alias next ->
+           Hash_set.add new_pendings next;
+           false
+       | Mismatch -> false
+       (* | Binop (nr1, nr2) ->
+              List.iter [ nr1; nr2 ] ~f:(fun nr -> Hash_set.add new_pendings nr);
+              false
+          | Cond_choice (nc, nr) ->
+              List.iter [ nc; nr ] ~f:(fun nr -> Hash_set.add new_pendings nr);
+              false
+          | Callsite (nf, ncs, _) ->
+              List.iter (nf :: ncs) ~f:(fun nr -> Hash_set.add new_pendings nr);
+              false *)
+       | _ -> true);
+   true *)
