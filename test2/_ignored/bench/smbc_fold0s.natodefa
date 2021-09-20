@@ -1,0 +1,45 @@
+# EXPECT-WELL-FORMED
+              # EXPECT-INPUT-SEQUENCES-REACH target [0, 1, 0, 0, 0] [1, 1, 1, 0, 0] [0, 1, 0, 0, 1] [1, 1, 1, 0, 1] ! 
+
+let ans1 = input == 0 in
+let ans2 = input == 0 in
+let ans3 = input == 0 in
+let ans4 = input == 0 in
+
+let f a elm =
+  if a then
+    if elm then ans1 else ans2
+  else
+  if elm then ans3 else ans4
+in
+
+let none = {last = true} in
+
+# l0 = [false; false; true; false]
+let a2 =  {last = false, elem = true,  next = none} in
+let a1 =  {last = false, elem = false, next = a2} in
+let l0 =  {last = false, elem = false, next = a1} in
+
+# l1 = [false; true; false; false]
+let b2 =  {last = false, elem = false, next = none} in
+let b1 =  {last = false, elem = true,  next = b2} in
+let l1 =  {last = false, elem = false, next = b1} in
+
+let rec fold acc lst =
+  if lst.last then
+    acc
+  else
+    (let acc2 = f acc (lst.elem) 
+     in
+     fold acc2 (lst.next))
+in
+
+let acc_init = input == 0 in
+
+let r0 = fold acc_init l0 in
+let r1 = fold acc_init l1 in
+
+if (r0 and (not r1)) or (r1 and (not r0)) then
+  let target = 1 in 1
+else
+  0

@@ -1,3 +1,5 @@
+let dummy = 1 in
+
 let rec count d = 
   let x = input in
   if x == 0 then
@@ -6,9 +8,10 @@ let rec count d =
     1 + (count d)
   in
 
+let ca = count 0 in
 let cb = count 0 in
 
-if 1 < cb then
+if ca == 2 * cb and 4 < cb then
   let target = 1 in 1
 else
   0

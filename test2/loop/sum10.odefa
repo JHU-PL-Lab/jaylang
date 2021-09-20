@@ -1,0 +1,26 @@
+
+x = input;
+f = fun s -> (
+    f0 = fun a -> (
+        one_a = 0;
+        b = a == one_a;
+        r = b ? (
+                r1 = 0
+            ) : (
+                ss = s s;
+                one_b = 1;
+                v = a - one_b;
+                v2 = ss v;
+                r2 = a + v2
+            );
+    );
+);
+ff = f f;
+x3 = 10;
+z = ff x3;
+c = x == z;
+e = c ? (
+    target = 42
+) : (
+    void = 0
+)
