@@ -271,8 +271,7 @@ module DotPrinter_Make (C : Graph_info) = struct
                 node.block_id
             | _ -> x
           in
-          Odefa_ast.Ast.Ident_map.Exceptionless.find (Id.to_ast_id c_id)
-            graph_info.source_map
+          Odefa_ast.Ast.Ident_map.Exceptionless.find c_id graph_info.source_map
         in
         let content =
           let phis =

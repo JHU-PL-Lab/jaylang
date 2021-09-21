@@ -127,10 +127,6 @@ let binop n1 n2 = Binop (n1, n2)
 
 let cond_choice nc nr = Cond_choice (nc, nr)
 
-let deref_list nr = List.map nr ~f:Ref.( ! )
-
-let deref_pair_list nr = List.map nr ~f:(fun (x, y) -> (!x, !y))
-
 (*
    cvars is actually some real or virtual out-edges of a node.
    In node-based-recursive function, it's OK to set the cvar for
@@ -146,7 +142,6 @@ let deref_pair_list nr = List.map nr ~f:(fun (x, y) -> (!x, !y))
 *)
 
 let bubble_up_complete cvar_map coming_edge node =
-  (* let _visited = Hash_set.create (module Node_ref) in *)
   let rec bubble_up coming_edge (node : Node_ref.t) =
     let coming_node = coming_edge.succ in
     let coming_cvar = coming_edge.label_cvar in

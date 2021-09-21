@@ -11,8 +11,7 @@ type def_site =
   | At_fun_para of bool * fun_block
   | At_chosen of cond_block
 
-let defined x' block =
-  let x = Id.to_ast_id x' in
+let defined x block =
   match (Tracelet.clause_of_x block x, block) with
   | Some tc, _ -> At_clause tc
   | None, Fun fb -> At_fun_para (Ident.(equal fb.para x), fb)
@@ -50,8 +49,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
   let x_first = Ddpa_helper.first_var program in
   let block0 = Tracelet.find_by_id x_target map in
   (* let block0 = Tracelet.cut_before true x_target block in *)
-  let x_target' = Id.of_ast_id x_target in
-  let state = Search_tree.create block0 x_target' in
+  let state = Search_tree.create block0 x_target in
   let add_phi ?debug_info key data =
     Search_tree.add_phi ~debug_info state key data
   in
@@ -67,7 +65,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
     let x', x'', x''' =
       match tc.clause with
       | Clause (Var (x', _), Appl_body (Var (x'', _), Var (x''', _))) ->
-          (Id.of_ast_id x', Id.of_ast_id x'', Id.of_ast_id x''')
+          (x', x'', x''')
       | _ -> failwith "incorrect clause for callsite"
     in
     (callsite_block, x', x'', x''')
@@ -78,7 +76,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
     let[@landmark] lookup_work () =
       state.tree_size <- state.tree_size + 1;
       let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in
-      let block_id = block |> Tracelet.id_of_block |> Id.of_ast_id in
+      let block_id = block |> Tracelet.id_of_block in
       let this_key : Lookup_key.t = (x, xs, rel_stack) in
       Logs.info (fun m ->
           m "search begin: %a in block %a" Lookup_key.pp this_key Id.pp block_id);
@@ -91,7 +89,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
             deal_with_value None x xs block rel_stack gate_tree
         (* Alias *)
         | At_clause { clause = Clause (_, Var_body (Var (x', _))); _ } ->
-            let x' = Id.of_ast_id x' in
             add_phi this_key
             @@ C.eq_lookup (x :: xs) rel_stack (x' :: xs) rel_stack;
             let sub_tree, edge =
@@ -106,7 +103,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
                 Clause (_, Binary_operation_body (Var (x1, _), bop, Var (x2, _)));
               _;
             } ->
-            let x1, x2 = (Id.of_ast_id x1, Id.of_ast_id x2) in
             add_phi this_key @@ C.bind_binop x x1 bop x2 rel_stack;
 
             let sub_tree1, edge1 =
@@ -125,13 +121,13 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
 
             let condsite_stack, paired =
               match
-                Relative_stack.pop_check_paired rel_stack
-                  (cb.point |> Id.of_ast_id) (Id.cond_fid choice)
+                Relative_stack.pop_check_paired rel_stack cb.point
+                  (Id.cond_fid choice)
               with
               | Some (stk, paired) -> (stk, paired)
               | None -> failwith "impossible in CondTop"
             in
-            let x2 = cb.cond |> Id.of_ast_id in
+            let x2 = cb.cond in
 
             if paired then
               ()
@@ -158,7 +154,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
               id = tid;
               _;
             } ->
-            let x' = Id.of_ast_id x' in
             let cond_block =
               Ident_map.find tid map |> Tracelet.cast_to_cond_block
             in
@@ -177,7 +172,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
                   let cvar = Cvar.mk_condsite_beta (x :: xs) x rel_stack beta in
                   collect_cvar cvar;
                   let ctracelet = Cond { cond_block with choice = Some beta } in
-                  let x_ret = Tracelet.ret_of ctracelet |> Id.of_ast_id in
+                  let x_ret = Tracelet.ret_of ctracelet in
                   let cbody_stack =
                     Relative_stack.push rel_stack x (Id.cond_fid beta)
                   in
@@ -204,10 +199,10 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
             bubble_up_edges edges
         (* Fun Enter Parameter *)
         | At_fun_para (true, fb) ->
-            let fid = Id.of_ast_id fb.point in
+            let fid = fb.point in
             let callsites =
               match Relative_stack.paired_callsite rel_stack fid with
-              | Some callsite -> [ callsite |> Id.to_ast_id ]
+              | Some callsite -> [ callsite ]
               | None -> fb.callsites
             in
             Logs.info (fun m ->
@@ -256,10 +251,10 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
             bubble_up_edges edges
         (* Fun Enter Non-Local *)
         | At_fun_para (false, fb) ->
-            let fid = Id.of_ast_id fb.point in
+            let fid = fb.point in
             let callsites =
               match Relative_stack.paired_callsite rel_stack fid with
-              | Some callsite -> [ callsite |> Id.to_ast_id ]
+              | Some callsite -> [ callsite ]
               | None -> fb.callsites
             in
             Logs.info (fun m ->
@@ -315,7 +310,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
               cat = App fids;
               _;
             } ->
-            let xf = Id.of_ast_id xf in
             Logs.info (fun m ->
                 m "FunExit: %a -> %a" Id.pp xf Id.pp_old_list fids);
 
@@ -327,8 +321,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
               List.fold fids
                 ~f:(fun (ins, sub_trees, edges) fid ->
                   let fblock = Ident_map.find fid map in
-                  let x' = Tracelet.ret_of fblock |> Id.of_ast_id in
-                  let fid = Id.of_ast_id fid in
+                  let x' = Tracelet.ret_of fblock in
                   let rel_stack' = Relative_stack.push rel_stack x fid in
                   let cf_in =
                     Helper.
@@ -472,7 +465,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
         if !(edge.succ).has_complete_path then
           Gate.bubble_up_complete state.cvar_complete edge edge.pred)
   and create_lookup_task ?cvar (key : Lookup_key.t) block parent_node =
-    let block_id = block |> Tracelet.id_of_block |> Id.of_ast_id in
+    let block_id = block |> Tracelet.id_of_block in
     let x, xs, rel_stack = key in
     match Hashtbl.find state.node_map key with
     | Some child_node ->
@@ -491,7 +484,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
   and deal_with_value mv x xs block rel_stack (gate_tree : Gate.Node.t ref) =
     let key : Lookup_key.t = (x, xs, rel_stack) in
     let block_id_here = id_of_block block in
-    let block_id = block_id_here |> Id.of_ast_id in
+    let block_id = block_id_here in
 
     (* Discovery Main & Non-Main *)
     if List.is_empty xs then (
@@ -508,9 +501,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
         Gate.bubble_up_complete state.cvar_complete edge gate_tree)
       else (* Discovery Non-Main *)
         let child_tree, edge =
-          create_lookup_task
-            (Id.of_ast_id x_first, [], rel_stack)
-            block gate_tree
+          create_lookup_task (x_first, [], rel_stack) block gate_tree
         in
         gate_tree := { !gate_tree with rule = Gate.to_first child_tree };
         bubble_up_edges [ edge ])
@@ -528,7 +519,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
           bubble_up_edges [ edge ]
       | _ -> failwith "why mismatch"
   in
-  lookup [ x_target' ] block0 Relative_stack.empty state.root_node ()
+  lookup [ x_target ] block0 Relative_stack.empty state.root_node ()
 
 let[@landmark] lookup_main ~(config : Top_config.t) program x_target =
   let job_queue = Scheduler.create () in

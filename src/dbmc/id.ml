@@ -1,7 +1,8 @@
 open Core
 
 module T = struct
-  type t = Ident of string [@@deriving sexp, compare, equal, hash]
+  type t = Odefa_ast.Ast.ident = Ident of string
+  [@@deriving sexp, compare, equal, hash]
 
   let hash = Hashtbl.hash
 end
@@ -12,11 +13,6 @@ include Comparator.Make (T)
 let show (Ident s) = s
 
 let pp oc (Ident s) = Fmt.pf oc "%s" s
-
-let of_ast_id (x : Odefa_ast.Ast.Ident.t) : t =
-  match x with Odefa_ast.Ast.Ident n -> Ident n
-
-let to_ast_id = function Ident n -> Odefa_ast.Ast.Ident n
 
 let pp_list oc ids = Fmt.(pf oc "%a" (Dump.list pp) ids)
 

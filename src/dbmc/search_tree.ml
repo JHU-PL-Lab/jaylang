@@ -16,8 +16,7 @@ type t = {
 
 let create block x_target =
   let root_node =
-    ref
-      (Gate.root_node (block |> Tracelet.id_of_block |> Id.of_ast_id) x_target)
+    ref (Gate.root_node (block |> Tracelet.id_of_block) x_target)
   in
   let state =
     {

@@ -45,10 +45,8 @@ let int_list_parser : int list Command.Arg_type.t =
 
 let dbmc_run program cfg =
   Dbmc.Log.init ~testname:cfg.filename ?log_level:cfg.log_level ();
-  let inputs =
-    Dbmc.Main.lookup_main ~config:cfg program (Dbmc.Id.to_ast_id cfg.target)
-  in
-  let inputs = List.hd_exn inputs in
+  let inputss = Dbmc.Main.lookup_main ~config:cfg program cfg.target in
+  let inputs = List.hd_exn inputss in
   Format.printf "[%s]\n"
     (String.concat ~sep:","
     @@ List.map ~f:(function Some i -> string_of_int i | None -> "-") inputs);
