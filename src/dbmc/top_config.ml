@@ -12,9 +12,11 @@ type t = {
   target : Id.t;
   filename : Filename.t; [@printer String.pp]
   timeout : Time.Span.t option;
-  (* TODO *)
   expected_inputs : int list list;
-  output_dot : bool;
+  (* debug *)
+  debug_phi : bool;
+  debug_model : bool;
+  debug_lookup_graph : bool;
 }
 [@@deriving show { with_path = false }]
 
@@ -28,7 +30,9 @@ let default_config =
     filename = "";
     timeout = None (* Time.Span.of_int_sec 60 *);
     expected_inputs = [];
-    output_dot = false;
+    debug_phi = false;
+    debug_model = true;
+    debug_lookup_graph = false;
   }
 
 let default_config_with_filename filename = { default_config with filename }

@@ -181,19 +181,11 @@ module Make (C : Context) () = struct
 
   let boole_of_str s = Z3.Boolean.mk_const_s ctx s
 
-  let z3_gate_out_phis ccs =
-    List.map ccs ~f:(fun (cname, cval) ->
-        eq
-          (boole_of_str Cvar.(cname |> set_complete |> print))
-          (Z3.Boolean.mk_val ctx cval))
-
-  let phi_z3_of_constraint ?(debug = false) ?debug_tool cs =
+  let phi_z3_of_constraint ?debug_tool cs =
     let log_noted_phi note phi =
-      let key, note_map = Option.value_exn debug_tool in
-      if debug then
-        Hashtbl.add_multi note_map ~key ~data:(note, phi)
-      else
-        ()
+      match debug_tool with
+      | Some (key, note_map) -> Hashtbl.add_multi note_map ~key ~data:(note, phi)
+      | None -> ()
     in
     let rec z3_phis_of_smt_phi = function
       | Constraint.Eq_v (sx, cv) ->

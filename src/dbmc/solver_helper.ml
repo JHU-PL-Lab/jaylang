@@ -13,9 +13,9 @@ let solver = Z3.Solver.mk_solver ctx None
 
 let reset () = Z3.Solver.reset solver
 
-let check phi_z3_list z3_gate_phis =
-  Z3.Solver.add solver phi_z3_list;
-  Z3API.check_with_assumption solver z3_gate_phis
+let check phis_z3 cvars_z3 =
+  Z3.Solver.add solver phis_z3;
+  Z3API.check_with_assumption solver cvars_z3
 
 let string_of_solver () = Z3.Solver.to_string solver
 
@@ -41,3 +41,22 @@ let get_inputs target_x model (target_stack : Concrete_stack.t) program =
     Odefa_interpreter.Naive_interpreter.eval ~input_feeder ~target program
   in
   List.rev !input_history
+
+let get_cvar_picked model cvar_complete =
+  Hashtbl.mapi
+    ~f:(fun ~key:cname ~data:_cc ->
+      Cvar.set_picked cname |> Cvar.print |> Z3API.boole_of_str
+      |> Z3API.get_bool model
+      |> Option.value ~default:false)
+    cvar_complete
+
+let cvar_complete_to_z3 cvar b =
+  Z3API.eq
+    (Z3API.boole_of_str Cvar.(cvar |> set_complete |> print))
+    (Z3.Boolean.mk_val ctx b)
+
+let cvars_complete_to_z3 ccs =
+  List.map ccs ~f:(fun (cvar, b) -> cvar_complete_to_z3 cvar b)
+
+let cvar_complete_false_to_z3 cvar_complete_false =
+  List.map cvar_complete_false ~f:(fun cvar -> cvar_complete_to_z3 cvar false)

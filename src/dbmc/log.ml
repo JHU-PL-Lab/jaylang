@@ -6,6 +6,7 @@ let filename_of_now () = Core.Time.(now () |> to_filename_string ~zone:Zone.utc)
 
 let init ?(testname = "") ?log_level () =
   Logs.set_level log_level;
+  Logs.Src.set_level Debug_log.phi_log (Some Logs.Debug);
 
   (* Logs.set_reporter (Logs_fmt.reporter ()); *)
   (* Logs.set_reporter (reporter (Format.err_formatter)) *)

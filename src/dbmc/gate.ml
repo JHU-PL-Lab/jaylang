@@ -131,17 +131,23 @@ let cond_choice nc nr = Cond_choice (nc, nr)
    cvars is actually some real or virtual out-edges of a node.
    In node-based-recursive function, it's OK to set the cvar for
    the node associated with that edge
-
-   visited_map works as memo for node via node.key
-   cvar_map remembers all cvar_core
-
-   Noting visited_map works for all nodes, while
-   cvar_map just works for some edges.
-   it's a workaround to put cvar as an optional argument,
-   and that's why we first check visited_map and then check cvar_map
 *)
 
 let bubble_up_complete cvar_map coming_edge node =
+  let changed_cvars = ref [] in
+  let collect_cvar cvar =
+    Logs.info (fun m -> m "collect %s" (Cvar.print cvar));
+    Hashtbl.set cvar_map ~key:cvar ~data:true;
+    changed_cvars := cvar :: !changed_cvars
+  in
+  let collect_in_cvar_edges edges =
+    List.iter edges ~f:(fun (cvar, tree) ->
+        if !tree.has_complete_path then
+          collect_cvar cvar
+        else
+          ());
+    List.exists edges ~f:(fun (_, tree) -> !tree.has_complete_path)
+  in
   let rec bubble_up coming_edge (node : Node_ref.t) =
     let coming_node = coming_edge.succ in
     let coming_cvar = coming_edge.label_cvar in
@@ -151,18 +157,6 @@ let bubble_up_complete cvar_map coming_edge node =
           (Fmt.Dump.option Cvar.pp_print)
           coming_cvar);
     (* bubble_up *)
-    let collect_in_cvar_edges edges =
-      List.iter edges ~f:(fun (cvar, tree) ->
-          if !tree.has_complete_path then
-            Hashtbl.set cvar_map ~key:cvar ~data:true
-          else
-            ());
-      List.exists edges ~f:(fun (_, tree) -> !tree.has_complete_path)
-    in
-    let collect_cvar cvar =
-      Logs.info (fun m -> m "collect %s" (Cvar.print cvar));
-      Hashtbl.set cvar_map ~key:cvar ~data:true
-    in
     let can_mark_complete =
       match !node.rule with
       | Pending -> false
@@ -213,7 +207,8 @@ let bubble_up_complete cvar_map coming_edge node =
     else
       ()
   in
-  bubble_up coming_edge node
+  bubble_up coming_edge node;
+  !changed_cvars
 
 let traverse_node ?(stop = fun _ -> false) ~at_node ~init ~acc_f node =
   let rec loop ~acc node =

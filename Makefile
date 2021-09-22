@@ -63,5 +63,8 @@ benchmark:
 land3:
 	OCAML_LANDMARKS=on,output="callgraph3.ansi" ./test_dbmc -t target test2/loop/sum3.odefa
 
-land10:
-	OCAML_LANDMARKS=on,output="callgraph10.ansi" ./test_dbmc -t target test2/loop/sum10.odefa
+land50:
+	OCAML_LANDMARKS=on,output="callgraph50.ansi" ./test_dbmc -t target test2/loop/_sum50.odefa
+
+land100:
+	OCAML_LANDMARKS=on,output="callgraph100.ansi" ./test_dbmc -t target test2/loop/_sum100.odefa

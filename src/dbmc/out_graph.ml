@@ -71,7 +71,7 @@ type graph_info_type = {
   source_map : Odefa_ast.Ast.clause Odefa_ast.Ast.Ident_map.t;
   vertex_info_map : (Lookup_key.t, vertex_info) Hashtbl.t;
   (* search state *)
-  model : Z3.Model.model ref option;
+  model : Z3.Model.model option;
   testname : string option;
 }
 
@@ -262,7 +262,7 @@ module DotPrinter_Make (C : Graph_info) = struct
           | Some model ->
               let lookup_name = Constraint.name_of_lookup (x :: xs) r_stack in
               Logs.info (fun m -> m "lookup (to model) : %s" lookup_name);
-              Solver_helper.Z3API.(get_value !model (var_s lookup_name))
+              Solver_helper.Z3API.(get_value model (var_s lookup_name))
         in
         let clause =
           let c_id =
@@ -291,7 +291,7 @@ module DotPrinter_Make (C : Graph_info) = struct
                       List.map noted_phis ~f:(fun (note, phi) ->
                           let phi_v =
                             Solver_helper.Z3API.(
-                              eval_value !model phi |> bool_of_expr)
+                              eval_value model phi |> bool_of_expr)
                           in
                           (note, phi_v))
                     in

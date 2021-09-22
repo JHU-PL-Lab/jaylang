@@ -44,19 +44,27 @@ let print_dot_graph ~noted_phi_map ~model ~program ~testname
 
 let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
     _ Lwt.t =
+  (* reset *)
+  Solver_helper.reset ();
   (* program analysis *)
   let map = Tracelet.annotate program x_target in
   let x_first = Ddpa_helper.first_var program in
   let block0 = Tracelet.find_by_id x_target map in
   (* let block0 = Tracelet.cut_before true x_target block in *)
-  let state = Search_tree.create block0 x_target in
-  let add_phi ?debug_info key data =
-    Search_tree.add_phi ~debug_info state key data
-  in
-  Solver_helper.reset ();
-
-  let collect_cvar cvar =
-    Hashtbl.add_exn state.cvar_complete ~key:cvar ~data:false
+  let state = Search_tree.create_state block0 x_target in
+  let add_phi key data = Search_tree.add_phi state key data in
+  let collect_cvar cvar = Search_tree.collect_cvar state cvar in
+  let bubble_up_complete edge parent_node =
+    let changed_cvars =
+      Gate.bubble_up_complete state.cvar_complete edge parent_node
+    in
+    List.iter changed_cvars ~f:(fun cvar ->
+        match Hash_set.strict_remove state.cvar_complete_false cvar with
+        | Ok () ->
+            let cvar_z3 = Solver_helper.cvar_complete_to_z3 cvar true in
+            state.cvar_complete_true_z3 <-
+              cvar_z3 :: state.cvar_complete_true_z3
+        | Error _ -> ())
   in
 
   let fun_info_of_callsite callsite map =
@@ -76,7 +84,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
     let[@landmark] lookup_work () =
       state.tree_size <- state.tree_size + 1;
       let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in
-      let block_id = block |> Tracelet.id_of_block in
+      let block_id = Tracelet.id_of_block block in
       let this_key : Lookup_key.t = (x, xs, rel_stack) in
       Logs.info (fun m ->
           m "search begin: %a in block %a" Lookup_key.pp this_key Id.pp block_id);
@@ -117,7 +125,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
         (* Cond Top *)
         | At_chosen cb ->
             let condsite_block = Tracelet.outer_block block map in
-            let choice = BatOption.get cb.choice in
+            let choice = Option.value_exn cb.choice in
 
             let condsite_stack, paired =
               match
@@ -364,106 +372,50 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
       in
       apply_rule ();
 
-      let top_complete = !(state.root_node).has_complete_path in
-      let[@landmark] top_complete_after =
-        if top_complete then
-          let[@landmark] top_complete_true () =
-            let[@landmark] before_checking () =
-              Logs.info (fun m -> m "Search Tree Size:\t%d" state.tree_size);
-              let[@landmark] choices_complete =
-                Hashtbl.to_alist state.cvar_complete
-              in
+      if !(state.root_node).has_complete_path then (
+        Logs.info (fun m -> m "Search Tree Size:\t%d" state.tree_size);
+        let cvars_z3 = Search_tree.get_cvars_z3 ~debug:config.debug_phi state in
+        let check_result = Solver_helper.check state.phis_z3 cvars_z3 in
+        Search_tree.clear_phis state;
+        match check_result with
+        | Result.Ok model ->
+            if config.debug_model then (
+              Logs.debug (fun m ->
+                  m "Solver Phis: %s" (Solver_helper.string_of_solver ()));
+              Logs.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)))
+            else
+              ();
 
-              let[@landmark] choices_complete_z3 =
-                Solver_helper.Z3API.z3_gate_out_phis choices_complete
-              in
+            (* can we shrink bool optional to bool?
+               the answer should be yes since we are not interested in
+               any false or unpicked cvar
+            *)
+            state.cvar_picked_map <-
+              Solver_helper.get_cvar_picked model state.cvar_complete;
 
-              Logs.info (fun m ->
-                  m "Z3_choices_complete: %a"
-                    Fmt.(Dump.list string)
-                    (List.map ~f:Z3.Expr.to_string choices_complete_z3));
-              let[@landmark] noted_phi_map =
-                Hashtbl.create (module Lookup_key)
-              in
-              let[@landmark] phi_z3_map =
-                Hashtbl.mapi state.phi_map ~f:(fun ~key ~data ->
-                    List.map data
-                      ~f:
-                        (Solver_helper.Z3API.phi_z3_of_constraint ~debug:true
-                           ~debug_tool:(key, noted_phi_map)))
-              in
-              let[@landmark] phi_z3_list = Hashtbl.data phi_z3_map in
-              Search_tree.merge_to_acc_phi_map state () [@landmark "merge"];
-              (phi_z3_list, choices_complete, choices_complete_z3, noted_phi_map)
-            in
-            let ( phi_z3_list,
-                  choices_complete,
-                  choices_complete_z3,
-                  noted_phi_map ) =
-              before_checking ()
-            in
+            (* if config.debug_lookup_graph then
+                 let noted_phi_map = Option.value_exn state.noted_phi_map in
+                 print_dot_graph ~noted_phi_map ~model:(Some model) ~program
+                   ~testname:config.filename state
+               else
+                 (); *)
+            let[@landmark] c_stk = Search_tree.find_c_stk state in
 
-            match
-              Solver_helper.check (List.join phi_z3_list) choices_complete_z3
-            with
-            | Result.Ok model ->
-                let[@landmark] sat_result =
-                  Logs.debug (fun m ->
-                      m "Solver Phis: %s" (Solver_helper.string_of_solver ()));
-                  Logs.debug (fun m -> m "Model: %s" (Z3.Model.to_string model));
-
-                  (* can we shrink bool optional to bool?
-                     the answer should be yes since we are not interested in
-                     any false or unpicked cvar
-                  *)
-                  state.cvar_picked_map <-
-                    Hashtbl.mapi
-                      ~f:(fun ~key:cname ~data:_cc ->
-                        Cvar.set_picked cname |> Cvar.print
-                        |> Solver_helper.Z3API.boole_of_str
-                        |> Solver_helper.Z3API.get_bool model
-                        |> Option.value ~default:false)
-                      state.cvar_complete;
-
-                  Logs.debug (fun m ->
-                      m "Cvar Complete: %a"
-                        Fmt.Dump.(list (pair Cvar.pp_print Fmt.bool))
-                        choices_complete);
-
-                  Logs.debug (fun m ->
-                      m "Cvar Picked: %a"
-                        Fmt.Dump.(list (pair Cvar.pp_print Fmt.bool))
-                        (Hashtbl.to_alist state.cvar_picked_map));
-
-                  if config.output_dot [@landmark "dot"] then
-                    print_dot_graph ~noted_phi_map
-                      ~model:(Some (ref model))
-                      ~program ~testname:config.filename state
-                  else
-                    ();
-
-                  let[@landmark] c_stk = Search_tree.find_c_stk state in
-
-                  let result_info = { model; c_stk } in
-                  Lwt.fail (Found_solution result_info)
-                in
-                sat_result
-            | Result.Error _exps ->
-                Logs.info (fun m -> m "UNSAT");
-                Lwt.return_unit
-          in
-          top_complete_true ()
-        else
-          let[@landmark] top_complete_false () = Lwt.return_unit in
-          top_complete_false ()
-      in
-      top_complete_after
+            let result_info = { model; c_stk } in
+            Lwt.fail (Found_solution result_info)
+        | Result.Error _exps ->
+            Logs.info (fun m -> m "UNSAT");
+            Lwt.return_unit)
+      else
+        Lwt.return_unit
     in
     lookup_work
   and bubble_up_edges (edges : Gate.Node.edge list) =
     List.iter edges ~f:(fun edge ->
         if !(edge.succ).has_complete_path then
-          Gate.bubble_up_complete state.cvar_complete edge edge.pred)
+          bubble_up_complete edge edge.pred
+        else
+          ())
   and create_lookup_task ?cvar (key : Lookup_key.t) block parent_node =
     let block_id = block |> Tracelet.id_of_block in
     let x, xs, rel_stack = key in
@@ -495,10 +447,10 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
       if Ident.equal block_id_here id_main then (
         (* Discovery Main *)
         let target_stk = Relative_stack.concretize rel_stack in
-        add_phi ~debug_info:(x, xs, rel_stack) key @@ C.Target_stack target_stk;
+        add_phi key @@ C.Target_stack target_stk;
         gate_tree := { !gate_tree with rule = Gate.done_ target_stk };
         let edge = Gate.mk_edge gate_tree gate_tree in
-        Gate.bubble_up_complete state.cvar_complete edge gate_tree)
+        bubble_up_complete edge gate_tree)
       else (* Discovery Non-Main *)
         let child_tree, edge =
           create_lookup_task (x_first, [], rel_stack) block gate_tree

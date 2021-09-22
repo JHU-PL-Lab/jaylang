@@ -49,7 +49,7 @@ let () =
         Dbmc.Top_config.default_config with
         filename = args.ga_filename;
         log_level = Some Logs.Debug;
-        output_dot = true;
+        debug_lookup_graph = false;
       }
     in
     Dbmc.Log.init ~testname:args.ga_filename ~log_level:Logs.Debug ();

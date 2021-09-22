@@ -87,10 +87,18 @@ let command =
     and expected_inputs =
       flag "-i" (listed int_list_parser) ~doc:"expected_inputs by groups"
     and timeout = flag "-m" (optional timeout_parser) ~doc:"timeout in seconds"
-    and output_dot =
+    and debug_phi =
+      flag "-p"
+        Command.Param.(optional_with_default false bool)
+        ~doc:"[debug] output constraints"
+    and debug_model =
+      flag "-p"
+        Command.Param.(optional_with_default true bool)
+        ~doc:"[debug] output constraints"
+    and debug_lookup_graph =
       flag "-g"
         Command.Param.(optional_with_default false bool)
-        ~doc:"output graphviz dot"
+        ~doc:"[debug] output graphviz dot"
     in
     let top_config =
       {
@@ -100,7 +108,9 @@ let command =
         target;
         timeout;
         expected_inputs;
-        output_dot;
+        debug_phi;
+        debug_model;
+        debug_lookup_graph;
       }
     in
     handle_config top_config;

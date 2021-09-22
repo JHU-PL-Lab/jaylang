@@ -4,61 +4,92 @@ open Core
    Using explicit *mutable* is for replacing a new one easier.
 *)
 type t = {
+  (* graph attr *)
   root_node : Gate.Node.t ref;
-  node_map : (Lookup_key.t, Gate.Node.t ref) Hashtbl.t;
-  phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
-  acc_phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
-  current_pendings : Gate.Node.t ref Hash_set.t;
-  cvar_complete : (Cvar.t, bool) Hashtbl.t;
-  mutable cvar_picked_map : (Cvar.t, bool) Hashtbl.t;
   mutable tree_size : int;
+  (* node attr *)
+  node_map : (Lookup_key.t, Gate.Node.t ref) Hashtbl.t;
+  (* constraints *)
+  mutable phis : Constraint.t list;
+  mutable phis_z3 : Z3.Expr.expr list;
+  phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
+  (* cvar *)
+  cvar_complete : (Cvar.t, bool) Hashtbl.t;
+  cvar_complete_false : Cvar.t Hash_set.t;
+  mutable cvar_complete_true_z3 : Z3.Expr.expr list;
+  mutable cvar_picked_map : (Cvar.t, bool) Hashtbl.t;
+  (* debug *)
+  noted_phi_map : (Lookup_key.t, (string * Z3.Expr.expr) list) Hashtbl.t;
 }
 
-let create block x_target =
-  let root_node =
-    ref (Gate.root_node (block |> Tracelet.id_of_block) x_target)
-  in
-  let state =
-    {
-      root_node;
-      node_map = Hashtbl.create (module Lookup_key);
-      phi_map = Hashtbl.create (module Lookup_key);
-      acc_phi_map = Hashtbl.create (module Lookup_key);
-      current_pendings = Hash_set.create (module Gate.Node_ref);
-      cvar_complete = Hashtbl.create (module Cvar);
-      cvar_picked_map = Hashtbl.create (module Cvar);
-      tree_size = 1;
-    }
-  in
-  Hash_set.add state.current_pendings root_node;
-  (* Hash_set.add state.visited_map !root_node.key; *)
-  state
+let create_state block x_target =
+  {
+    root_node = ref (Gate.root_node (block |> Tracelet.id_of_block) x_target);
+    tree_size = 1;
+    node_map = Hashtbl.create (module Lookup_key);
+    phis = [];
+    phis_z3 = [];
+    phi_map = Hashtbl.create (module Lookup_key);
+    cvar_complete = Hashtbl.create (module Cvar);
+    cvar_complete_false = Hash_set.create (module Cvar);
+    cvar_complete_true_z3 = [];
+    cvar_picked_map = Hashtbl.create (module Cvar);
+    noted_phi_map = Hashtbl.create (module Lookup_key);
+  }
 
-let add_phi ?debug_info state key data =
-  ignore debug_info;
-  Hashtbl.add_multi state.phi_map ~key ~data
+let collect_cvar state cvar =
+  Hashtbl.add_exn state.cvar_complete ~key:cvar ~data:false;
+  Hash_set.strict_add_exn state.cvar_complete_false cvar
+
+let add_phi ?(debug = false) state key phi =
+  state.phis <- phi :: state.phis;
+  let phi_z3 =
+    let debug_tool = Option.some_if debug (key, state.noted_phi_map) in
+    Solver_helper.Z3API.phi_z3_of_constraint ?debug_tool phi
+  in
+  state.phis_z3 <- phi_z3 :: state.phis_z3;
+  Hashtbl.add_multi state.phi_map ~key ~data:phi
+
+let clear_phis state =
+  state.phis <- [];
+  state.phis_z3 <- []
+
+let get_cvars_z3 ?(debug = false) state =
+  let cvars_false = Hash_set.to_list state.cvar_complete_false in
+  let cvars_false_z3 = Solver_helper.cvar_complete_false_to_z3 cvars_false in
+  Debug_log.log_choices_complete debug cvars_false_z3;
+  state.cvar_complete_true_z3 @ cvars_false_z3
+
+(* let phi_z3_list =
+     let phi_z3_map =
+       Hashtbl.mapi state.phi_map ~f:(fun ~key ~data ->
+           let debug_tool =
+             Option.map state.noted_phi_map ~f:(fun map -> (key, map))
+           in
+           List.map data
+             ~f:(Solver_helper.Z3API.phi_z3_of_constraint ?debug_tool))
+     in
+     Hashtbl.data phi_z3_map
+   in *)
 (* match Core.Hashtbl.add phi_map ~key ~data with
-    | `Ok -> ()
-    | `Duplicate ->
-        let old_v = Core.Hashtbl.find_exn phi_map key in
-        if Constraint.equal old_v data then
-          ()
-        else (
-          (match debug_info with
-          | Some l_key ->
-              Fmt.pr "key: %a\nv_old: %a\nv_new: %a\n" Lookup_key.pp l_key
-                Constraint.pp old_v Constraint.pp data
-          | None -> ());
-          failwith "add_phi key duplication") *)
-
-let merge_to_acc_phi_map state () =
-  Hashtbl.merge_into ~src:state.phi_map ~dst:state.acc_phi_map
-    ~f:(fun ~key a ob ->
-      let _ = key in
-      match ob with
-      | Some _b -> failwith "acc_phi_map should not have it"
-      | None -> Set_to a);
-  Hashtbl.clear state.phi_map
+   | `Ok -> ()
+   | `Duplicate ->
+       let old_v = Core.Hashtbl.find_exn phi_map key in
+       if Constraint.equal old_v data then
+         ()
+       else (
+         (match debug_info with
+         | Some l_key ->
+             Fmt.pr "key: %a\nv_old: %a\nv_new: %a\n" Lookup_key.pp l_key
+               Constraint.pp old_v Constraint.pp data
+         | None -> ());
+         failwith "add_phi key duplication") *)
+(* Hashtbl.merge_into ~src:state.phi_map ~dst:state.acc_phi_map
+   ~f:(fun ~key a ob ->
+     let _ = key in
+     match ob with
+     | Some _b -> failwith "acc_phi_map should not have it"
+     | None -> Set_to a); *)
 
 let guarantee_singleton_c_stk_exn state =
   let stop (node : Gate.Node_ref.t) =
