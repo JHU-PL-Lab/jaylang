@@ -1,0 +1,9 @@
+let x = input in
+let y = input in
+let rec sum n = 
+  if n == 0 then n else n + sum (n-1)
+in
+if sum x + sum y == 3 + 10 then
+  let target = 1 in target
+else
+  0
