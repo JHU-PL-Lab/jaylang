@@ -1,5 +1,4 @@
 open Core
-open Helper
 
 module T = struct
   type cat =
@@ -15,19 +14,28 @@ module T = struct
       }
     | Condsite of { condsite : Id.t; beta : bool }
 
-  and state = Core | Complete | Picked
-
   and t = {
     lookups : Id.t list;
     cat : cat;
     r_stk : Relative_stack.t;
-    state : state;
+    complete_name : (string[@ignore]);
+    picked_name : (string[@ignore]);
   }
   [@@deriving sexp, compare, equal, hash, show { with_path = false }]
 end
 
 include T
 include Comparator.Make (T)
+
+module Cvar_partial = struct
+  module T = struct
+    type t = Id.t list * cat * Relative_stack.t
+    [@@deriving sexp, compare, equal, hash, show { with_path = false }]
+  end
+
+  include T
+  include Comparator.Make (T)
+end
 
 let print cvar =
   let cat_string =
@@ -40,67 +48,66 @@ let print cvar =
           cf.block_f
     | Condsite cos -> Fmt.str "%a$%B" Id.pp cos.condsite cos.beta
   in
-  let state_string =
-    match cvar.state with Core -> "" | Complete -> "cc" | Picked -> "pp"
-  in
-  Fmt.str "(%a)%a_%s_%s" Lookup_stack.pp cvar.lookups Relative_stack.pp
-    cvar.r_stk cat_string state_string
+  Fmt.str "(%a)%a_%s" Lookup_stack.pp cvar.lookups Relative_stack.pp cvar.r_stk
+    cat_string
 
 let pp_print = Fmt.of_to_string print
 
-let mk_condsite lookups condsite r_stk =
-  List.map [ true; false ] ~f:(fun beta ->
-      let cat = Condsite { condsite; beta } in
-      { lookups; cat; r_stk; state = Core })
+type fc_out = {
+  xs_out : Id.t list;
+  site : Id.t;
+  stk_out : Relative_stack.t;
+  f_out : Id.t;
+  cvar : t;
+}
+[@@deriving sexp, show { with_path = false }]
 
-let mk_condsite_beta lookups condsite r_stk beta =
+type fc = {
+  xs_in : Id.t list;
+  stk_in : Relative_stack.t;
+  fun_in : Id.t;
+  outs : fc_out list;
+}
+[@@deriving sexp, show { with_path = false }]
+
+type cf_in = {
+  xs_in : Id.t list;
+  stk_in : Relative_stack.t;
+  fun_in : Id.t;
+  cvar : t;
+}
+[@@deriving sexp, show { with_path = false }]
+
+type cf = {
+  xs_out : Id.t list;
+  stk_out : Relative_stack.t;
+  site : Id.t;
+  f_out : Id.t;
+  ins : cf_in list;
+}
+[@@deriving sexp, show { with_path = false }]
+
+let mk_condsite_beta lookups condsite r_stk beta : Cvar_partial.t =
   let cat = Condsite { condsite; beta } in
-  { lookups; cat; r_stk; state = Core }
+  (lookups, cat, r_stk)
 
-let mk_fun_to_callsite lookups fc =
-  List.map fc.outs ~f:(fun out ->
-      let cat =
-        Fun_to_callsite
-          {
-            block_f = fc.fun_in;
-            block_callsite = out.f_out;
-            callsite = out.site;
-          }
-      in
-      { lookups; cat; r_stk = fc.stk_in; state = Core })
-
-let fun_to_callsite lookups r_stk fun_in (out : Helper.fc_out) =
+let mk_fun_to_callsite lookups r_stk fun_in f_out site : Cvar_partial.t =
   let cat =
     Fun_to_callsite
-      { block_f = fun_in; block_callsite = out.f_out; callsite = out.site }
+      { block_f = fun_in; block_callsite = f_out; callsite = site }
   in
-  { lookups; cat; r_stk; state = Core }
+  (lookups, cat, r_stk)
 
-let mk_callsite_to_fun lookups cf =
-  List.map cf.ins ~f:(fun in_ ->
-      let cat =
-        Callsite_to_fun
-          {
-            callsite = cf.site;
-            block_callsite = cf.f_out;
-            block_f = in_.fun_in;
-          }
-      in
-      { lookups; cat; r_stk = cf.stk_out; state = Core })
-
-let callsite_to_fun lookups r_stk callsite f_out (in_ : Helper.cf_in) =
+let mk_callsite_to_fun lookups r_stk callsite f_out fun_in : Cvar_partial.t =
   let cat =
-    Callsite_to_fun { callsite; block_callsite = f_out; block_f = in_.fun_in }
+    Callsite_to_fun { callsite; block_callsite = f_out; block_f = fun_in }
   in
-  { lookups; cat; r_stk; state = Core }
+  (lookups, cat, r_stk)
 
-let set_complete cvar = { cvar with state = Complete }
+let complete_to_string counter = Printf.sprintf "C_%d_c" counter
 
-let set_picked cvar = { cvar with state = Picked }
+let picked_to_string counter = Printf.sprintf "C_%d_p" counter
 
-let derive_complete_and_picked cvars =
-  (List.map ~f:set_complete cvars, List.map ~f:set_picked cvars)
+let str_of_complete cvar = Printf.sprintf "%s_c" (print cvar)
 
-let pp_set oc set =
-  let plist = Hashtbl.to_alist set in
-  Fmt.(pf oc "%a" Dump.(list (pair pp_print Fmt.bool)) plist)
+let str_of_picked cvar = Printf.sprintf "%s_p" (print cvar)

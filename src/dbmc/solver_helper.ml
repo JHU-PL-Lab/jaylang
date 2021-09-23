@@ -44,19 +44,15 @@ let get_inputs target_x model (target_stack : Concrete_stack.t) program =
 
 let get_cvar_picked model cvar_complete =
   Hashtbl.mapi
-    ~f:(fun ~key:cname ~data:_cc ->
-      Cvar.set_picked cname |> Cvar.print |> Z3API.boole_of_str
-      |> Z3API.get_bool model
+    ~f:(fun ~key:cvar ~data:_cc ->
+      cvar.Cvar.picked_name |> Z3API.boole_of_str |> Z3API.get_bool model
       |> Option.value ~default:false)
     cvar_complete
 
 let cvar_complete_to_z3 cvar b =
   Z3API.eq
-    (Z3API.boole_of_str Cvar.(cvar |> set_complete |> print))
+    (cvar.Cvar.complete_name |> Z3API.boole_of_str)
     (Z3.Boolean.mk_val ctx b)
-
-let cvars_complete_to_z3 ccs =
-  List.map ccs ~f:(fun (cvar, b) -> cvar_complete_to_z3 cvar b)
 
 let cvar_complete_false_to_z3 cvar_complete_false =
   List.map cvar_complete_false ~f:(fun cvar -> cvar_complete_to_z3 cvar false)

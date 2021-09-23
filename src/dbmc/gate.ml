@@ -4,8 +4,8 @@ module T = struct
   type t = {
     key : Lookup_key.t;
     block_id : Id.t;
-    rule : rule;
-    mutable preds : edge list;
+    rule : (rule[@ignore]);
+    mutable preds : (edge list[@ignore]);
     mutable has_complete_path : bool;
     mutable all_path_searched : bool;
   }
@@ -28,9 +28,9 @@ module T = struct
     | Binop of t ref * t ref
     | Cond_choice of t ref * t ref
     | Condsite of t ref * edge_with_cvar list
-    | Callsite of t ref * edge_with_cvar list * Helper.cf
-    | Para_local of edges_with_cvar list * Helper.fc
-    | Para_nonlocal of edges_with_cvar list * Helper.fc
+    | Callsite of t ref * edge_with_cvar list * (Cvar.cf[@ignore])
+    | Para_local of edges_with_cvar list * (Cvar.fc[@ignore])
+    | Para_nonlocal of edges_with_cvar list * (Cvar.fc[@ignore])
   [@@deriving sexp, compare, equal, show { with_path = false }]
 
   let rule_name = function
@@ -135,7 +135,7 @@ let cond_choice nc nr = Cond_choice (nc, nr)
 
 let bubble_up_complete cvar_map coming_edge node =
   let changed_cvars = ref [] in
-  let collect_cvar cvar =
+  let change_cvar cvar =
     Logs.info (fun m -> m "collect %s" (Cvar.print cvar));
     Hashtbl.set cvar_map ~key:cvar ~data:true;
     changed_cvars := cvar :: !changed_cvars
@@ -143,7 +143,7 @@ let bubble_up_complete cvar_map coming_edge node =
   let collect_in_cvar_edges edges =
     List.iter edges ~f:(fun (cvar, tree) ->
         if !tree.has_complete_path then
-          collect_cvar cvar
+          change_cvar cvar
         else
           ());
     List.exists edges ~f:(fun (_, tree) -> !tree.has_complete_path)
@@ -168,7 +168,7 @@ let bubble_up_complete cvar_map coming_edge node =
           if phys_equal coming_node nc then
             collect_in_cvar_edges nbs
           else if !nc.has_complete_path then (
-            collect_cvar (Option.value_exn coming_cvar);
+            change_cvar (Option.value_exn coming_cvar);
             true)
           else
             false
@@ -176,7 +176,7 @@ let bubble_up_complete cvar_map coming_edge node =
           if phys_equal coming_node nf then
             collect_in_cvar_edges nts
           else if !nf.has_complete_path then (
-            collect_cvar (Option.value_exn coming_cvar);
+            change_cvar (Option.value_exn coming_cvar);
             true)
           else
             false
@@ -188,7 +188,7 @@ let bubble_up_complete cvar_map coming_edge node =
                 && !t1.has_complete_path && !t2.has_complete_path)
           in
           if collect_this_cvar then (
-            collect_cvar coming_cvar;
+            change_cvar coming_cvar;
             true)
           else
             false

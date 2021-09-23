@@ -1,5 +1,4 @@
 open Core
-open Helper
 
 module T = struct
   type value =
@@ -33,9 +32,9 @@ module T = struct
     | Eq_projection of Symbol.t * Symbol.t * Id.t
     | Target_stack of Concrete_stack.t
     | C_and of t * t
-    | C_cond_bottom of Id.t list * Id.t * Relative_stack.t * t list
-    | Fbody_to_callsite of Id.t list * fc
-    | Callsite_to_fbody of Id.t list * cf
+    | C_cond_bottom of t list * (Cvar.t list[@ignore])
+    | Fbody_to_callsite of Id.t list * (Cvar.fc[@ignore])
+    | Callsite_to_fbody of Id.t list * (Cvar.cf[@ignore])
   [@@deriving sexp, compare, equal, show { with_path = false }]
 end
 
@@ -75,12 +74,16 @@ let rec pp oc t =
   | Eq_projection (_, _, _) -> ()
   | Target_stack stk -> pf oc "@[<v 2>Top: %a@]" Concrete_stack.pp stk
   | C_and (t1, t2) -> pf oc "@[<v 2>%a@,%a@]" pp t1 pp t2
-  | C_cond_bottom (_lookups, site, _, ts) ->
-      pf oc "@[<v 2>Cond_bottom(%a): @,%a@]" Id.pp site (list ~sep:sp pp) ts
+  | C_cond_bottom (ts, _) ->
+      pf oc "@[<v 2>Cond_bottom: @,%a@]" (list ~sep:sp pp) ts
   | Fbody_to_callsite (_, fc) ->
-      pf oc "@[<v 2>Fbody_to_callsite: @,%a@]" (list ~sep:sp pp_fc_out) fc.outs
+      pf oc "@[<v 2>Fbody_to_callsite: @,%a@]"
+        (list ~sep:sp Cvar.pp_fc_out)
+        fc.outs
   | Callsite_to_fbody (_, cf) ->
-      pf oc "@[<v 2>Callsite_to_fbody: @,%a@]" (list ~sep:sp pp_cf_in) cf.ins
+      pf oc "@[<v 2>Callsite_to_fbody: @,%a@]"
+        (list ~sep:sp Cvar.pp_cf_in)
+        cf.ins
 
 let show = Fmt.to_to_string pp
 
@@ -123,8 +126,7 @@ let bind_fun x stk f = Eq_v (Symbol.id x stk, Fun f)
 
 let and_ c1 c2 = C_and (c1, c2)
 
-let cond_bottom lookups site rel_stack cs =
-  C_cond_bottom (lookups, site, rel_stack, cs)
+let cond_bottom cs cvars = C_cond_bottom (cs, cvars)
 
 let name_of_lookup xs stk =
   match xs with

@@ -14,6 +14,8 @@ type t = {
   mutable phis_z3 : Z3.Expr.expr list;
   phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
   (* cvar *)
+  cvar_counter : int ref;
+  cvar_partial_map : (Cvar.Cvar_partial.t, int) Hashtbl.t;
   cvar_complete : (Cvar.t, bool) Hashtbl.t;
   cvar_complete_false : Cvar.t Hash_set.t;
   mutable cvar_complete_true_z3 : Z3.Expr.expr list;
@@ -30,6 +32,8 @@ let create_state block x_target =
     phis = [];
     phis_z3 = [];
     phi_map = Hashtbl.create (module Lookup_key);
+    cvar_counter = ref 0;
+    cvar_partial_map = Hashtbl.create (module Cvar.Cvar_partial);
     cvar_complete = Hashtbl.create (module Cvar);
     cvar_complete_false = Hash_set.create (module Cvar);
     cvar_complete_true_z3 = [];
@@ -37,9 +41,34 @@ let create_state block x_target =
     noted_phi_map = Hashtbl.create (module Lookup_key);
   }
 
-let collect_cvar state cvar =
+let create_cvar state cvar_partial =
+  let counter : int =
+    Int.incr state.cvar_counter;
+    !(state.cvar_counter)
+    (* Hashtbl.find_or_add state.cvar_partial_map cvar_partial ~default:(fun () -> *)
+  in
+
+  let cvar =
+    let lookups, cat, r_stk = cvar_partial in
+    (* let cvar = *)
+    Cvar.
+      {
+        lookups;
+        cat;
+        r_stk;
+        complete_name = Printf.sprintf "C_%d_c" counter;
+        picked_name = Printf.sprintf "C_%d_p" counter;
+      }
+    (* in
+       {
+         cvar with
+         complete_name = Cvar.complete_to_string counter;
+         picked_name = Cvar.picked_to_string counter;
+       } *)
+  in
   Hashtbl.add_exn state.cvar_complete ~key:cvar ~data:false;
-  Hash_set.strict_add_exn state.cvar_complete_false cvar
+  Hash_set.strict_add_exn state.cvar_complete_false cvar;
+  cvar
 
 let add_phi ?(debug = false) state key phi =
   state.phis <- phi :: state.phis;

@@ -53,7 +53,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
   (* let block0 = Tracelet.cut_before true x_target block in *)
   let state = Search_tree.create_state block0 x_target in
   let add_phi key data = Search_tree.add_phi state key data in
-  let collect_cvar cvar = Search_tree.collect_cvar state cvar in
+  let create_cvar cvar = Search_tree.create_cvar state cvar in
   let bubble_up_complete edge parent_node =
     let changed_cvars =
       Gate.bubble_up_complete state.cvar_complete edge parent_node
@@ -174,11 +174,13 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
               create_lookup_task (x', [], rel_stack) block gate_tree
             in
 
-            let phis, sub_trees, edges =
+            let phis, sub_trees, edges, cvars =
               List.fold [ true; false ]
-                ~f:(fun (phis, sub_trees, edges) beta ->
-                  let cvar = Cvar.mk_condsite_beta (x :: xs) x rel_stack beta in
-                  collect_cvar cvar;
+                ~f:(fun (phis, sub_trees, edges, cvars) beta ->
+                  let cvar =
+                    create_cvar
+                      (Cvar.mk_condsite_beta (x :: xs) x rel_stack beta)
+                  in
                   let ctracelet = Cond { cond_block with choice = Some beta } in
                   let x_ret = Tracelet.ret_of ctracelet in
                   let cbody_stack =
@@ -195,10 +197,11 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
                   in
                   ( phis @ [ phi ],
                     sub_trees @ [ (cvar, sub_tree) ],
-                    edges @ [ edge ] ))
-                ~init:([], [], [ var_edge ])
+                    edges @ [ edge ],
+                    cvar :: cvars ))
+                ~init:([], [], [ var_edge ], [])
             in
-            add_phi this_key (C.cond_bottom xs0 x rel_stack phis);
+            add_phi this_key (C.cond_bottom phis (List.rev cvars));
             gate_tree :=
               {
                 !gate_tree with
@@ -223,18 +226,20 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
                   in
                   match Relative_stack.pop rel_stack x' fid with
                   | Some callsite_stack ->
-                      let out : Helper.fc_out =
+                      let cvar =
+                        create_cvar
+                          (Cvar.mk_fun_to_callsite (x :: xs) rel_stack fid x''
+                             x')
+                      in
+                      let out : Cvar.fc_out =
                         {
                           stk_out = callsite_stack;
                           xs_out = x''' :: xs;
                           f_out = x'';
                           site = x';
+                          cvar;
                         }
                       in
-                      let cvar =
-                        Cvar.fun_to_callsite (x :: xs) rel_stack fid out
-                      in
-                      collect_cvar cvar;
                       let sub_tree1, edge1 =
                         create_lookup_task ~cvar (x'', [], callsite_stack)
                           callsite_block gate_tree
@@ -252,7 +257,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
                 ~init:([], [], [])
             in
             let fc =
-              Helper.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
+              Cvar.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
             in
             add_phi this_key (C.Fbody_to_callsite (x :: xs, fc));
             gate_tree := { !gate_tree with rule = Gate.mk_para ~sub_trees ~fc };
@@ -276,18 +281,20 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
                   in
                   match Relative_stack.pop rel_stack x' fid with
                   | Some callsite_stack ->
-                      let out : Helper.fc_out =
+                      let cvar =
+                        create_cvar
+                          (Cvar.mk_fun_to_callsite (x :: xs) rel_stack fid x''
+                             x')
+                      in
+                      let out : Cvar.fc_out =
                         {
                           stk_out = callsite_stack;
                           xs_out = x'' :: x :: xs;
                           f_out = x'';
                           site = x';
+                          cvar;
                         }
                       in
-                      let cvar =
-                        Cvar.fun_to_callsite (x :: xs) rel_stack fid out
-                      in
-                      collect_cvar cvar;
                       let sub_tree1, edge1 =
                         create_lookup_task ~cvar (x'', [], callsite_stack)
                           callsite_block gate_tree
@@ -306,7 +313,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
             in
 
             let fc =
-              Helper.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
+              Cvar.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
             in
             add_phi this_key (C.Fbody_to_callsite (x :: xs, fc));
             gate_tree := { !gate_tree with rule = Gate.mk_para ~sub_trees ~fc };
@@ -331,14 +338,19 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
                   let fblock = Ident_map.find fid map in
                   let x' = Tracelet.ret_of fblock in
                   let rel_stack' = Relative_stack.push rel_stack x fid in
-                  let cf_in =
-                    Helper.
-                      { stk_in = rel_stack'; xs_in = x' :: xs; fun_in = fid }
-                  in
                   let cvar =
-                    Cvar.callsite_to_fun (x :: xs) rel_stack x xf cf_in
+                    create_cvar
+                      (Cvar.mk_callsite_to_fun (x :: xs) rel_stack x xf fid)
                   in
-                  collect_cvar cvar;
+                  let cf_in =
+                    Cvar.
+                      {
+                        stk_in = rel_stack';
+                        xs_in = x' :: xs;
+                        fun_in = fid;
+                        cvar;
+                      }
+                  in
                   let sub_tree, sub_edge =
                     create_lookup_task ~cvar (x', xs, rel_stack') fblock
                       gate_tree
@@ -350,7 +362,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
                 ~init:([], [], [ fun_edge ])
             in
 
-            let cf : Helper.cf =
+            let cf : Cvar.cf =
               {
                 xs_out = x :: xs;
                 stk_out = rel_stack;
@@ -382,6 +394,10 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
             if config.debug_model then (
               Logs.debug (fun m ->
                   m "Solver Phis: %s" (Solver_helper.string_of_solver ()));
+              Logs.debug (fun m ->
+                  m "Solver Cvars: %a"
+                    Fmt.(Dump.list (of_to_string Z3.Expr.to_string))
+                    cvars_z3);
               Logs.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)))
             else
               ();

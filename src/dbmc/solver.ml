@@ -233,19 +233,14 @@ module Make (C : Context) () = struct
           let e1 = z3_phis_of_smt_phi c1 in
           let e2 = z3_phis_of_smt_phi c2 in
           join [ e1; e2 ]
-      | Constraint.C_cond_bottom (lookups, site, r_stk, cs) ->
-          let cvars = Cvar.mk_condsite lookups site r_stk in
-          let cvar_complete, cvar_picked =
-            Cvar.derive_complete_and_picked cvars
+      | Constraint.C_cond_bottom (cs, cvars) ->
+          let cs_complete =
+            List.map cvars ~f:(fun cvar -> cvar.complete_name |> boole_of_str)
           in
-          let cs_complete, cs_picked =
-            ( List.map
-                ~f:(fun cvar -> cvar |> Cvar.print |> boole_of_str)
-                cvar_complete,
-              List.map
-                ~f:(fun cvar -> cvar |> Cvar.print |> boole_of_str)
-                cvar_picked )
+          let cs_picked =
+            List.map cvars ~f:(fun cvar -> cvar.picked_name |> boole_of_str)
           in
+
           let payloads = List.map cs ~f:z3_phis_of_smt_phi in
           let only_pick_the_complete =
             List.map2_exn cs_picked cs_complete ~f:( @=> ) |> join
@@ -254,18 +249,13 @@ module Make (C : Context) () = struct
           let no_paths_complete = join (List.map cs_complete ~f:not_) in
           (* exclusion *)
           or_ [ join [ only_pick_the_complete; exclusion ]; no_paths_complete ]
-      | Constraint.Fbody_to_callsite (lookups, fc) ->
-          let cvars = Cvar.mk_fun_to_callsite lookups fc in
-          let cvar_complete, cvar_picked =
-            Cvar.derive_complete_and_picked cvars
+      | Constraint.Fbody_to_callsite (_lookups, fc) ->
+          let cvars = List.map fc.outs ~f:(fun out -> out.cvar) in
+          let cs_complete =
+            List.map cvars ~f:(fun cvar -> cvar.complete_name |> boole_of_str)
           in
-          let cs_complete, cs_picked =
-            ( List.map
-                ~f:(fun cvar -> cvar |> Cvar.print |> boole_of_str)
-                cvar_complete,
-              List.map
-                ~f:(fun cvar -> cvar |> Cvar.print |> boole_of_str)
-                cvar_picked )
+          let cs_picked =
+            List.map cvars ~f:(fun cvar -> cvar.picked_name |> boole_of_str)
           in
           let eq_lookups =
             List.map fc.outs ~f:(fun out ->
@@ -313,18 +303,13 @@ module Make (C : Context) () = struct
               all_complete_paths_invalid;
               picked_a_complete_path;
             ]
-      | Constraint.Callsite_to_fbody (lookups, cf) ->
-          let cvars = Cvar.mk_callsite_to_fun lookups cf in
-          let cvar_complete, cvar_picked =
-            Cvar.derive_complete_and_picked cvars
+      | Constraint.Callsite_to_fbody (_lookups, cf) ->
+          let cvars = List.map cf.ins ~f:(fun in_ -> in_.cvar) in
+          let cs_complete =
+            List.map cvars ~f:(fun cvar -> cvar.complete_name |> boole_of_str)
           in
-          let cs_complete, cs_picked =
-            ( List.map
-                ~f:(fun cvar -> cvar |> Cvar.print |> boole_of_str)
-                cvar_complete,
-              List.map
-                ~f:(fun cvar -> cvar |> Cvar.print |> boole_of_str)
-                cvar_picked )
+          let cs_picked =
+            List.map cvars ~f:(fun cvar -> cvar.picked_name |> boole_of_str)
           in
           let eq_lookups =
             List.map cf.ins ~f:(fun in_ ->
