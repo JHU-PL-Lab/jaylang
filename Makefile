@@ -60,11 +60,11 @@ logclean:
 benchmark:
 	dune exec benchmark-test-generation/benchmark.exe
 
-land3:
-	OCAML_LANDMARKS=on,output="callgraph3.ansi" ./test_dbmc -t target test2/loop/sum3.odefa
-
-land50:
-	OCAML_LANDMARKS=on,output="callgraph50.ansi" ./test_dbmc -t target test2/loop/_sum50.odefa
-
 land100:
-	OCAML_LANDMARKS=on,output="callgraph100.ansi" ./test_dbmc -t target test2/loop/_sum100.odefa
+	OCAML_LANDMARKS=on,output="callgraph100.ansi" time ./test_dbmc -t target test2/loop/_sum100.odefa
+
+land200:
+	OCAML_LANDMARKS=on,output="callgraph200.ansi" time ./test_dbmc -t target test2/loop/_sum200.odefa
+
+land500:
+	OCAML_LANDMARKS=on,output="callgraph500.ansi" time ./test_dbmc -t target test2/loop/_sum500.odefa
