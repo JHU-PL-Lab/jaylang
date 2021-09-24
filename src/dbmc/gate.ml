@@ -95,11 +95,6 @@ let add_pred node pred =
   if
     List.mem !node.preds pred ~equal:(fun eg1 eg2 ->
         phys_equal eg1.pred eg2.pred)
-    (* match (eg1, eg2) with
-       | With_cvar (cvar1, _p1), With_cvar (cvar2, _p2) ->
-           Cvar.equal cvar1 cvar2
-       | Direct n1, Direct n2 -> phys_equal n1 n2
-       | _, _ -> false) *)
   then
     () (* failwith "why duplicate cvars on edge" *)
   else
@@ -200,10 +195,7 @@ let bubble_up_complete cvar_map coming_edge node =
       ()
     else if can_mark_complete then (
       !node.has_complete_path <- true;
-      List.iter !node.preds ~f:(fun edge -> bubble_up edge edge.pred)
-      (* let pred_edge = { pred }
-         | Direct pred -> bubble_up (Direct node) pred
-         | With_cvar (cvar, pred) -> bubble_up (With_cvar (cvar, node)) pred)) *))
+      List.iter !node.preds ~f:(fun edge -> bubble_up edge edge.pred))
     else
       ()
   in

@@ -104,10 +104,6 @@ let mk_callsite_to_fun lookups r_stk callsite f_out fun_in : Cvar_partial.t =
   in
   (lookups, cat, r_stk)
 
-let complete_to_string counter = Printf.sprintf "C_%d_c" counter
+let str_of_complete counter = Printf.sprintf "C_%d_c" counter
 
-let picked_to_string counter = Printf.sprintf "C_%d_p" counter
-
-let str_of_complete cvar = Printf.sprintf "%s_c" (print cvar)
-
-let str_of_picked cvar = Printf.sprintf "%s_p" (print cvar)
+let str_of_picked counter = Printf.sprintf "C_%d_p" counter

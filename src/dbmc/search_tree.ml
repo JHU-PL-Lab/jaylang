@@ -15,7 +15,6 @@ type t = {
   phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
   (* cvar *)
   cvar_counter : int ref;
-  cvar_partial_map : (Cvar.Cvar_partial.t, int) Hashtbl.t;
   cvar_complete : (Cvar.t, bool) Hashtbl.t;
   cvar_complete_false : Cvar.t Hash_set.t;
   mutable cvar_complete_true_z3 : Z3.Expr.expr list;
@@ -33,7 +32,6 @@ let create_state block x_target =
     phis_z3 = [];
     phi_map = Hashtbl.create (module Lookup_key);
     cvar_counter = ref 0;
-    cvar_partial_map = Hashtbl.create (module Cvar.Cvar_partial);
     cvar_complete = Hashtbl.create (module Cvar);
     cvar_complete_false = Hash_set.create (module Cvar);
     cvar_complete_true_z3 = [];
@@ -50,21 +48,14 @@ let create_cvar state cvar_partial =
 
   let cvar =
     let lookups, cat, r_stk = cvar_partial in
-    (* let cvar = *)
     Cvar.
       {
         lookups;
         cat;
         r_stk;
-        complete_name = Printf.sprintf "C_%d_c" counter;
-        picked_name = Printf.sprintf "C_%d_p" counter;
+        complete_name = Cvar.str_of_complete counter;
+        picked_name = Cvar.str_of_picked counter;
       }
-    (* in
-       {
-         cvar with
-         complete_name = Cvar.complete_to_string counter;
-         picked_name = Cvar.picked_to_string counter;
-       } *)
   in
   Hashtbl.add_exn state.cvar_complete ~key:cvar ~data:false;
   Hash_set.strict_add_exn state.cvar_complete_false cvar;
@@ -87,7 +78,9 @@ let get_cvars_z3 ?(debug = false) state =
   let cvars_false = Hash_set.to_list state.cvar_complete_false in
   let cvars_false_z3 = Solver_helper.cvar_complete_false_to_z3 cvars_false in
   Debug_log.log_choices_complete debug cvars_false_z3;
-  state.cvar_complete_true_z3 @ cvars_false_z3
+  let cvars_true_z3 = state.cvar_complete_true_z3 in
+  state.cvar_complete_true_z3 <- [];
+  (cvars_true_z3, cvars_false_z3)
 
 (* let phi_z3_list =
      let phi_z3_map =
@@ -100,19 +93,7 @@ let get_cvars_z3 ?(debug = false) state =
      in
      Hashtbl.data phi_z3_map
    in *)
-(* match Core.Hashtbl.add phi_map ~key ~data with
-   | `Ok -> ()
-   | `Duplicate ->
-       let old_v = Core.Hashtbl.find_exn phi_map key in
-       if Constraint.equal old_v data then
-         ()
-       else (
-         (match debug_info with
-         | Some l_key ->
-             Fmt.pr "key: %a\nv_old: %a\nv_new: %a\n" Lookup_key.pp l_key
-               Constraint.pp old_v Constraint.pp data
-         | None -> ());
-         failwith "add_phi key duplication") *)
+
 (* Hashtbl.merge_into ~src:state.phi_map ~dst:state.acc_phi_map
    ~f:(fun ~key a ob ->
      let _ = key in

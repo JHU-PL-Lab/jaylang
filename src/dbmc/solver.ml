@@ -17,18 +17,6 @@ module Make (C : Context) () = struct
     Int.incr _counter;
     Symbol.mk_string ctx name
 
-  let make_indexed_symbol pre i =
-    let name = Fmt.str "$%s%03d" pre i in
-    Symbol.mk_string ctx name
-
-  let make_choice_var ~from_id ~to_id post rel_stk =
-    let id_name = function Some id -> Id.show id | None -> "" in
-    let name =
-      Fmt.str "$%a%s_to_%s_%s" Relative_stack.pp rel_stk (id_name from_id)
-        (id_name to_id) post
-    in
-    Symbol.mk_string ctx name
-
   let intS = Arithmetic.Integer.mk_sort ctx
 
   let boolS = Boolean.mk_sort ctx

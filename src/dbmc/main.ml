@@ -386,18 +386,21 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
 
       if !(state.root_node).has_complete_path then (
         Logs.info (fun m -> m "Search Tree Size:\t%d" state.tree_size);
-        let cvars_z3 = Search_tree.get_cvars_z3 ~debug:config.debug_phi state in
-        let check_result = Solver_helper.check state.phis_z3 cvars_z3 in
+        let cvars_true_z3, cvars_false_z3 =
+          Search_tree.get_cvars_z3 ~debug:config.debug_phi state
+        in
+        state.phis_z3 <- List.append cvars_true_z3 state.phis_z3;
+        let check_result = Solver_helper.check state.phis_z3 cvars_false_z3 in
         Search_tree.clear_phis state;
         match check_result with
         | Result.Ok model ->
             if config.debug_model then (
               Logs.debug (fun m ->
                   m "Solver Phis: %s" (Solver_helper.string_of_solver ()));
-              Logs.debug (fun m ->
+              (* Logs.debug (fun m ->
                   m "Solver Cvars: %a"
                     Fmt.(Dump.list (of_to_string Z3.Expr.to_string))
-                    cvars_z3);
+                    cvars_z3); *)
               Logs.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)))
             else
               ();
