@@ -412,12 +412,11 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
             state.cvar_picked_map <-
               Solver_helper.get_cvar_picked model state.cvar_complete;
 
-            (* if config.debug_lookup_graph then
-                 let noted_phi_map = Option.value_exn state.noted_phi_map in
-                 print_dot_graph ~noted_phi_map ~model:(Some model) ~program
-                   ~testname:config.filename state
-               else
-                 (); *)
+            if config.debug_lookup_graph then
+              print_dot_graph ~noted_phi_map:state.noted_phi_map
+                ~model:(Some model) ~program ~testname:config.filename state
+            else
+              ();
             let[@landmark] c_stk = Search_tree.find_c_stk state in
 
             let result_info = { model; c_stk } in

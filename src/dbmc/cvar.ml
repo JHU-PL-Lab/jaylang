@@ -18,8 +18,8 @@ module T = struct
     lookups : Id.t list;
     cat : cat;
     r_stk : Relative_stack.t;
-    complete_name : (string[@ignore]);
-    picked_name : (string[@ignore]);
+    complete_name : (string[@ignore] [@printer Std.ignore2]);
+    picked_name : (string[@ignore] [@printer Std.ignore2]);
   }
   [@@deriving sexp, compare, equal, hash, show { with_path = false }]
 end

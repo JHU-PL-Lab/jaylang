@@ -32,9 +32,9 @@ module T = struct
     | Eq_projection of Symbol.t * Symbol.t * Id.t
     | Target_stack of Concrete_stack.t
     | C_and of t * t
-    | C_cond_bottom of t list * (Cvar.t list[@ignore])
-    | Fbody_to_callsite of Id.t list * (Cvar.fc[@ignore])
-    | Callsite_to_fbody of Id.t list * (Cvar.cf[@ignore])
+    | C_cond_bottom of t list * (Cvar.t list[@ignore] [@printer Std.ignore2])
+    | Fbody_to_callsite of Id.t list * (Cvar.fc[@ignore] [@printer Std.ignore2])
+    | Callsite_to_fbody of Id.t list * (Cvar.cf[@ignore] [@printer Std.ignore2])
   [@@deriving sexp, compare, equal, show { with_path = false }]
 end
 

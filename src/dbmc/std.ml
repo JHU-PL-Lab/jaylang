@@ -27,6 +27,8 @@ let t_or tb1 tb2 =
 
 let just_side_effect = ignore
 
+let ignore2 _ _ = ()
+
 let default_target = Odefa_ast.Ast.Ident "target"
 
 let with_seq ?(start = 0) xs = List.mapi xs ~f:(fun i x -> (i + start, x))
