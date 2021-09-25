@@ -45,7 +45,7 @@ let print_dot_graph ~noted_phi_map ~model ~program ~testname
 let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
     _ Lwt.t =
   (* reset *)
-  Solver_helper.reset ();
+  Solver.reset ();
   (* program analysis *)
   let map = Tracelet.annotate program x_target in
   let x_first = Ddpa_helper.first_var program in
@@ -61,7 +61,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
     List.iter changed_cvars ~f:(fun cvar ->
         match Hash_set.strict_remove state.cvar_complete_false cvar with
         | Ok () ->
-            let cvar_z3 = Solver_helper.cvar_complete_to_z3 cvar true in
+            let cvar_z3 = Solver.cvar_complete_to_z3 cvar true in
             state.cvar_complete_true_z3 <-
               cvar_z3 :: state.cvar_complete_true_z3
         | Error _ -> ())
@@ -390,13 +390,13 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
           Search_tree.get_cvars_z3 ~debug:config.debug_phi state
         in
         state.phis_z3 <- List.append cvars_true_z3 state.phis_z3;
-        let check_result = Solver_helper.check state.phis_z3 cvars_false_z3 in
+        let check_result = Solver.check state.phis_z3 cvars_false_z3 in
         Search_tree.clear_phis state;
         match check_result with
         | Result.Ok model ->
             if config.debug_model then (
               Logs.debug (fun m ->
-                  m "Solver Phis: %s" (Solver_helper.string_of_solver ()));
+                  m "Solver Phis: %s" (Solver.string_of_solver ()));
               (* Logs.debug (fun m ->
                   m "Solver Cvars: %a"
                     Fmt.(Dump.list (of_to_string Z3.Expr.to_string))
@@ -410,7 +410,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
                any false or unpicked cvar
             *)
             state.cvar_picked_map <-
-              Solver_helper.get_cvar_picked model state.cvar_complete;
+              Solver.get_cvar_picked model state.cvar_complete;
 
             if config.debug_lookup_graph then
               print_dot_graph ~noted_phi_map:state.noted_phi_map
@@ -507,8 +507,7 @@ let[@landmark] lookup_main ~(config : Top_config.t) program x_target =
         Logs.info (fun m ->
             m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident x_target
               Concrete_stack.pp ri.c_stk);
-        Lwt.return
-          [ Solver_helper.get_inputs x_target ri.model ri.c_stk program ]
+        Lwt.return [ Solver.get_inputs x_target ri.model ri.c_stk program ]
     | Lwt_unix.Timeout ->
         prerr_endline "timeout";
         Lwt.return [ [] ])

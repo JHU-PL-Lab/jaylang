@@ -15,7 +15,8 @@
   ocamlgraph
   odefa.ast
   odefa.ddpa
-  odefa.interpreter)
+  odefa.interpreter
+  sudu)
  (synopsis "dbmc is demand-driven bounded model checking")
  (inline_tests)
  (preprocess

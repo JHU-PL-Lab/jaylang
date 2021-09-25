@@ -1,10 +1,10 @@
 open Core
 
 module T = struct
-  type value =
+  type value = Sudu.Z3_api.plain =
     | Int of int [@printer Fmt.int]
     | Bool of bool [@printer Fmt.bool]
-    | Fun of Id.t
+    | Fun of string
     | Record
   [@@deriving sexp, compare, equal, show { with_path = false }]
 
@@ -122,7 +122,7 @@ let eq_lookup xs1 stk1 xs2 stk2 = Eq_lookup (xs1, stk1, xs2, stk2)
 let bind_binop x y1 op y2 stk =
   Eq_binop (Symbol.id x stk, Symbol.id y1 stk, to_smt_op op, Symbol.id y2 stk)
 
-let bind_fun x stk f = Eq_v (Symbol.id x stk, Fun f)
+let bind_fun x stk (Id.Ident fid) = Eq_v (Symbol.id x stk, Fun fid)
 
 let and_ c1 c2 = C_and (c1, c2)
 

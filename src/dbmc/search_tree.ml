@@ -65,7 +65,7 @@ let add_phi ?(debug = false) state key phi =
   state.phis <- phi :: state.phis;
   let phi_z3 =
     let debug_tool = Option.some_if debug (key, state.noted_phi_map) in
-    Solver_helper.Z3API.phi_z3_of_constraint ?debug_tool phi
+    Solver.phi_z3_of_constraint ?debug_tool phi
   in
   state.phis_z3 <- phi_z3 :: state.phis_z3;
   Hashtbl.add_multi state.phi_map ~key ~data:phi
@@ -76,7 +76,7 @@ let clear_phis state =
 
 let get_cvars_z3 ?(debug = false) state =
   let cvars_false = Hash_set.to_list state.cvar_complete_false in
-  let cvars_false_z3 = Solver_helper.cvar_complete_false_to_z3 cvars_false in
+  let cvars_false_z3 = Solver.cvar_complete_false_to_z3 cvars_false in
   Debug_log.log_choices_complete debug cvars_false_z3;
   let cvars_true_z3 = state.cvar_complete_true_z3 in
   state.cvar_complete_true_z3 <- [];
@@ -89,7 +89,7 @@ let get_cvars_z3 ?(debug = false) state =
              Option.map state.noted_phi_map ~f:(fun map -> (key, map))
            in
            List.map data
-             ~f:(Solver_helper.Z3API.phi_z3_of_constraint ?debug_tool))
+             ~f:(Solver.phi_z3_of_constraint ?debug_tool))
      in
      Hashtbl.data phi_z3_map
    in *)

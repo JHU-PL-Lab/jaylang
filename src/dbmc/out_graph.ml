@@ -262,7 +262,7 @@ module DotPrinter_Make (C : Graph_info) = struct
           | Some model ->
               let lookup_name = Constraint.name_of_lookup (x :: xs) r_stack in
               Logs.info (fun m -> m "lookup (to model) : %s" lookup_name);
-              Solver_helper.Z3API.(get_value model (var_s lookup_name))
+              Solver.SuduZ3.(get_value model (var_s lookup_name))
         in
         let clause =
           let c_id =
@@ -290,8 +290,8 @@ module DotPrinter_Make (C : Graph_info) = struct
                     let noted_vs =
                       List.map noted_phis ~f:(fun (note, phi) ->
                           let phi_v =
-                            Solver_helper.Z3API.(
-                              eval_value model phi |> bool_of_expr)
+                            Solver.(
+                              SuduZ3.eval_value model phi |> SuduZ3.unbox_bool)
                           in
                           (note, phi_v))
                     in
