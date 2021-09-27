@@ -4,7 +4,7 @@ module T = struct
   type value = Sudu.Z3_api.plain =
     | Int of int [@printer Fmt.int]
     | Bool of bool [@printer Fmt.bool]
-    | Fun of string
+    | Fun of string [@printer Fmt.string]
     | Record
   [@@deriving sexp, compare, equal, show { with_path = false }]
 
