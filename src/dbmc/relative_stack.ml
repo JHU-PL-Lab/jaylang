@@ -76,8 +76,9 @@ let concretize (co_stk, stk) : Concrete_stack.t =
    the call stack is stack top ~ list head ~ source last,
    the constraint is in the former style, the result of `relativize`
    also need to be in the former style.
-   *)
-let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t =
+*)
+let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t
+    =
   let rec discard_common ts cs =
     match (ts, cs) with
     | (cs1, fid1) :: target_stk', (cs2, fid2) :: call_stk' ->

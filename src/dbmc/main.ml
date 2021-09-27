@@ -52,7 +52,9 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
   let block0 = Tracelet.find_by_id x_target map in
   (* let block0 = Tracelet.cut_before true x_target block in *)
   let state = Search_tree.create_state block0 x_target in
-  let add_phi key data = Search_tree.add_phi state key data in
+  let add_phi key data =
+    Search_tree.add_phi ~debug:config.debug_lookup_graph state key data
+  in
   let create_cvar cvar = Search_tree.create_cvar state cvar in
   let bubble_up_complete edge parent_node =
     let changed_cvars =

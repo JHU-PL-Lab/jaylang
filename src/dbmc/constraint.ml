@@ -76,14 +76,15 @@ let rec pp oc t =
   | C_and (t1, t2) -> pf oc "@[<v 2>%a@,%a@]" pp t1 pp t2
   | C_cond_bottom (ts, _) ->
       pf oc "@[<v 2>Cond_bottom: @,%a@]" (list ~sep:sp pp) ts
-  | Fbody_to_callsite (_, fc) ->
-      pf oc "@[<v 2>Fbody_to_callsite: @,%a@]"
-        (list ~sep:sp Cvar.pp_fc_out)
-        fc.outs
-  | Callsite_to_fbody (_, cf) ->
-      pf oc "@[<v 2>Callsite_to_fbody: @,%a@]"
-        (list ~sep:sp Cvar.pp_cf_in)
-        cf.ins
+  | Fbody_to_callsite (_, _fc) ->
+      pf oc "@[<v 2>Fbody_to_callsite: @]"
+      (* pf oc "@[<v 2>Fbody_to_callsite: @,%a@]"
+          (list ~sep:sp Cvar.pp_fc_out)
+          fc.outs *)
+  | Callsite_to_fbody (_, _cf) -> pf oc "@[<v 2>Callsite_to_fbody: @]"
+(* pf oc "@[<v 2>Callsite_to_fbody: @,%a@]"
+   (list ~sep:sp Cvar.pp_cf_in)
+   cf.ins *)
 
 let show = Fmt.to_to_string pp
 
