@@ -10,6 +10,14 @@ end
 module Make_common_builders (C : Context) = struct
   let ctx = C.ctx
 
+  let dump e =
+    let es = Z3.Expr.to_string e in
+    let ss = e |> Z3.Expr.get_sort |> Z3.Sort.to_string in
+    let s = Printf.sprintf "E:%s; Sort:%s" es ss in
+    print_endline s
+
+  let simplify e = Z3.Expr.simplify e None
+
   let mk_bool_s s = Boolean.mk_const_s ctx s
 
   let eq e1 e2 = Boolean.mk_eq ctx e1 e2
@@ -28,7 +36,14 @@ module Make_common_builders (C : Context) = struct
 
   let ( @=> ) = implies
 
-  (* unbox from Z3 epxression *)
+  (* box to Z3 expression *)
+  let box_int i = Z3.Arithmetic.Integer.mk_numeral_i ctx i
+
+  let box_bool b = Boolean.mk_val ctx b
+
+  let box_string s = Seq.mk_string ctx s
+
+  (* unbox from Z3 expression *)
   let unbox_bool_exn v =
     match Boolean.get_bool_value v with
     | L_TRUE -> true
@@ -116,13 +131,27 @@ module Make_datatype_builders (C : Context) = struct
   let funD = Datatype.Constructor.get_constructor_decl funC
 
   (* building Z3 value expressions with the declarations  *)
-  let int_ i = FuncDecl.apply intD [ Arithmetic.Integer.mk_numeral_i ctx i ]
+  let int_ i = FuncDecl.apply intD [ box_int i ]
 
-  let bool_ b = FuncDecl.apply boolD [ Boolean.mk_val ctx b ]
+  let bool_ b = FuncDecl.apply boolD [ box_bool b ]
 
   let fun_ s = FuncDecl.apply funD [ Seq.mk_string ctx s ]
 
+  let string_ = fun_
+
   (* basic builders *)
+  let inject_int e = FuncDecl.apply intD [ e ]
+
+  let inject_bool e = FuncDecl.apply boolD [ e ]
+
+  let inject_string e = FuncDecl.apply funD [ e ]
+
+  let project_int e = FuncDecl.apply getInt [ e ]
+
+  let project_bool e = FuncDecl.apply getBool [ e ]
+
+  let project_string e = FuncDecl.apply getFun [ e ]
+
   let true_ = bool_ true
 
   let false_ = bool_ false
@@ -144,15 +173,13 @@ module Make_datatype_builders (C : Context) = struct
     unbox_bool (Option.value_exn (Model.eval model (ifFun e) false))
 
   let get_bool_expr_exn model e =
-    Option.value_exn (Model.eval model (FuncDecl.apply getBool [ e ]) false)
+    Option.value_exn (Model.eval model (project_bool e) false)
 
   let get_int_expr_exn model e =
-    Option.value_exn (Model.eval model (FuncDecl.apply getInt [ e ]) false)
+    Option.value_exn (Model.eval model (project_int e) false)
 
   let get_int_expr model e =
-    Option.( >>| )
-      (Model.eval model (FuncDecl.apply getInt [ e ]) false)
-      unbox_int
+    Option.( >>| ) (Model.eval model (project_int e) false) unbox_int
 
   let get_fun_expr_exn model e =
     Option.value_exn (Model.eval model (FuncDecl.apply getFun [ e ]) false)

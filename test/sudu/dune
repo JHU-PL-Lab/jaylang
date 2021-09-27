@@ -1,0 +1,11 @@
+(alias
+ (name runtest))
+
+(rule
+ (alias runtest)
+ (action
+  (run ./test_sudu_z3.ml)))
+
+(executables
+ (names test_sudu_z3)
+ (libraries alcotest core z3 sudu))

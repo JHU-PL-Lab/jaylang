@@ -57,6 +57,9 @@ logclean:
 	rm -f dot/*
 	rm -f logs/*
 
+test-z3:
+	dune exec test/sudu/test_sudu_z3.exe -- --verbose
+
 benchmark:
 	dune exec benchmark-test-generation/benchmark.exe
 
