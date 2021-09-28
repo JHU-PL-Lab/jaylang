@@ -16,6 +16,33 @@ module Make_common_builders (C : Context) = struct
     let s = Printf.sprintf "E:%s; Sort:%s" es ss in
     print_endline s
 
+  let dump_model model =
+    let open Z3.Model in
+    Fmt.(
+      pr
+        ("\nModel: %s\n" ^^ "Const[%n]: @[%a@]\n" ^^ "Decl[%n]: @[%a@]\n"
+       ^^ "Sort[%n]: @[%a@]\n")
+        (to_string model)
+        (* _ *)
+        (get_num_consts model)
+        (list string ~sep:cut)
+        (List.map (get_const_decls model) ~f:Z3.FuncDecl.to_string)
+        (get_num_funcs model) (list string ~sep:cut)
+        (List.map (get_func_decls model) ~f:Z3.FuncDecl.to_string)
+        (get_num_sorts model) (list string ~sep:cut)
+        (List.map (get_sorts model) ~f:Z3.Sort.to_string))
+
+  let get_model_exn solver status =
+    match status with
+    | Z3.Solver.SATISFIABLE -> (
+        match Z3.Solver.get_model solver with
+        | None -> failwith "should have model1"
+        | Some model -> model)
+    | Z3.Solver.UNSATISFIABLE -> failwith "should not UNSAT"
+    | Z3.Solver.UNKNOWN -> failwith (Z3.Solver.get_reason_unknown solver)
+
+  let eval_exn model e flag = Option.value_exn (Z3.Model.eval model e flag)
+
   let simplify e = Z3.Expr.simplify e None
 
   let mk_bool_s s = Boolean.mk_const_s ctx s
