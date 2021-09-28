@@ -1,0 +1,4 @@
+x = input;
+one = 1;
+y = x < one;
+z = y ? ( a = 2 ) : ( target = 1 );

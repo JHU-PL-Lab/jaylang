@@ -1,0 +1,4 @@
+za = true;
+b = za ? (r1 = 1; target = 1) : (r2 = 1);
+e = 1;
+c = b

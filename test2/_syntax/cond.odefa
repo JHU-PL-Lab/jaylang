@@ -1,0 +1,5 @@
+a = true;
+b = a ? (r1 = 1) : (r2 = 1);
+e = 1;
+c = b;
+target = 1

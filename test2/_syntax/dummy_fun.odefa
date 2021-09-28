@@ -1,0 +1,4 @@
+b = fun x -> (
+  a = 1
+);
+target = 1

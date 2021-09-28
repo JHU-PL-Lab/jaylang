@@ -1,0 +1,12 @@
+u = 1;
+z = fun w -> (
+  f = fun t -> (
+    target = 1
+  );
+  g = f;
+  a = g u;
+  x = 1;
+);
+z2 = z;
+p = z2 u;
+p2 = p;

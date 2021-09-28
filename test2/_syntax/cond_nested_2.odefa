@@ -1,0 +1,24 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [2, 0]
+
+x = input;
+q = input;
+one = 1;
+two = 2;
+three = 3;
+y = x < one;
+y2 = x < two;
+z = y ? 
+  ( a = 5 ) : 
+  ( 
+    z2 = y2 ? 
+      ( a2 = 5 ):
+      ( 
+        y3 = x < q;
+        z3 = y2 ? 
+          ( a3 = 5 ):
+          ( target = 1 )
+      );
+    t2 = 1
+  );
+g = 1
