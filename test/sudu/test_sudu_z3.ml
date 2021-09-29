@@ -85,15 +85,83 @@ module To_test = struct
     let v = Option.value_exn (Z3.Model.get_const_interp_e model x) in
     v |> project_int |> simplify |> unbox_int
 
-  let plus i1 i2 =
+  let binop_inj op i1 i2 =
     let x = var_s "x" in
     let e1 = int_ i1 in
     let e2 = int_ i2 in
-    let phi = fn_plus x e1 e2 in
+    let phi = op x e1 e2 in
     let model = get_model_exn solver @@ Z3.Solver.check solver [ phi ] in
     let x' = project_int x in
     let v = eval_exn model x' false in
     unbox_int v
+
+  let test_lt_gt i =
+    let x = var_s "x" in
+    let e1, e2 = (int_ (i - 1), int_ (i + 1)) in
+    let b1, b2 = (var_s "b1", var_s "b2") in
+    let phi1, phi2 = (fn_lt b1 e1 x, fn_lt b2 x e2) in
+    let model =
+      get_model_exn solver
+      @@ Z3.Solver.check solver [ phi1; phi2; project_bool b1; project_bool b2 ]
+    in
+    dump_model model;
+    let x' = project_int x in
+    let v = eval_exn model x' false in
+    unbox_int v
+
+  let test_lt_gt_no_binding i =
+    let x = var_s "x" in
+    let e1, e2 = (int_ (i - 1), int_ (i + 1)) in
+    let phi1 = Z3.Arithmetic.mk_lt ctx (project_int e1) (project_int x) in
+    let phi2 = Z3.Arithmetic.mk_lt ctx (project_int x) (project_int e2) in
+    let model = get_model_exn solver @@ Z3.Solver.check solver [ phi1; phi2 ] in
+    let x' = project_int x in
+    let v = eval_exn model x' false in
+    unbox_int v
+
+  let test_lt_gt_no_binding_no_inj_int i =
+    let x = var_s "x" in
+    let e1, e2 = (box_int (i - 1), box_int (i + 1)) in
+    let phi1 = Z3.Arithmetic.mk_lt ctx e1 (project_int x) in
+    let phi2 = Z3.Arithmetic.mk_lt ctx (project_int x) e2 in
+    let model = get_model_exn solver @@ Z3.Solver.check solver [ phi1; phi2 ] in
+    let x' = project_int x in
+    let v = eval_exn model x' false in
+    unbox_int v
+
+  let test_lt_gt_no_inj_int i =
+    let x = var_s "x" in
+    let e1, e2 = (box_int (i - 1), box_int (i + 1)) in
+    let phi1 = Z3.Arithmetic.mk_lt ctx e1 (project_int x) in
+    let phi2 = Z3.Arithmetic.mk_lt ctx (project_int x) e2 in
+    let b1, b2 = (var_s "b1", var_s "b2") in
+    let bp1, bp2 = (project_bool b1, project_bool b2) in
+    let model =
+      get_model_exn solver @@ Z3.Solver.check solver [ phi1; phi2; bp1; bp2 ]
+    in
+    let x' = project_int x in
+    let v = eval_exn model x' false in
+    unbox_int v
+
+  let incremental_plus i1 i2 i3 =
+    let x = var_s "x" in
+    let t = var_s "t" in
+    let e1, e2, e3 = (int_ i1, int_ i2, int_ i3) in
+    let phi_e1_e2 = fn_plus t e1 e2 in
+    Z3.Solver.add solver [ phi_e1_e2 ];
+    let phi_t_e3 = fn_plus x t e3 in
+    Z3.Solver.add solver [ phi_t_e3 ];
+    let model = get_model_exn solver @@ Z3.Solver.check solver [] in
+    let x' = project_int x in
+    let v = eval_exn model x' false in
+    unbox_int v
+
+  let reset_once i1 i2 i3 i4 =
+    let _ = incremental_plus i1 i2 i3 in
+    Z3.Solver.reset solver;
+    let r = incremental_plus i2 i3 i4 in
+    Z3.Solver.reset solver;
+    r
 end
 
 let invariant_int i f () = Alcotest.(check int) "same int" i (f i)
@@ -144,7 +212,7 @@ let () =
         test_binop_bool "Bool.(&&) on bools" To_test.binop_bool
         @ test_binop_bool "Bool.(&&) on projected bools" To_test.binop_bool_inj
       );
-      ( "solver",
+      ( "solve int",
         [
           test_case "solver invariant on int" `Slow
             (invariant_int 1 To_test.put_get_eval_int);
@@ -153,9 +221,34 @@ let () =
           test_case "not unique model" `Slow
             (same_int_f 2 (fun () -> To_test.not_unique_model_assumption 1));
         ] );
-      ( "binop+solver",
-        [ test_case "1+2=3" `Slow (same_int_f 3 (fun () -> To_test.plus 1 2)) ]
-      );
+      ( "solve int plus",
+        [
+          test_case "1+2=3" `Slow
+            (same_int_f 3 (fun () -> To_test.binop_inj SuduZ3.fn_plus 1 2));
+          test_case "6-4=2" `Slow
+            (same_int_f 2 (fun () -> To_test.binop_inj SuduZ3.fn_minus 6 4));
+          test_case "3*4=12" `Slow
+            (same_int_f 12 (fun () -> To_test.binop_inj SuduZ3.fn_times 3 4));
+          test_case "100/20=5" `Slow
+            (same_int_f 5 (fun () -> To_test.binop_inj SuduZ3.fn_divide 100 20));
+          test_case "25%3=1" `Slow
+            (same_int_f 1 (fun () -> To_test.binop_inj SuduZ3.fn_modulus 25 3));
+          test_case "1+2+3=6" `Slow
+            (same_int_f 6 (fun () -> To_test.incremental_plus 1 2 3));
+          test_case "reset;2+3+4=9" `Slow
+            (same_int_f 9 (fun () -> To_test.reset_once 1 2 3 4));
+        ] );
+      ( "solve int relation",
+        [
+          test_case "5 < x < 7" `Slow
+            (same_int_f 6 (fun () -> To_test.test_lt_gt 6));
+          test_case "5 < x < 7" `Slow
+            (same_int_f 6 (fun () -> To_test.test_lt_gt_no_binding 6));
+          test_case "5 < x < 7" `Slow
+            (same_int_f 6 (fun () -> To_test.test_lt_gt_no_binding_no_inj_int 6));
+          test_case "5 < x < 7" `Slow
+            (same_int_f 6 (fun () -> To_test.test_lt_gt_no_inj_int 6));
+        ] );
     ]
 
 (*
