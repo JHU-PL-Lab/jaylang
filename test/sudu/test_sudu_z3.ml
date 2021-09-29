@@ -168,6 +168,8 @@ let invariant_int i f () = Alcotest.(check int) "same int" i (f i)
 
 let same_int_f i f () = Alcotest.(check int) "same int" i (f ())
 
+let diff_int_f i f () = Alcotest.(check (neg int)) "same int" i (f ())
+
 let invariant_bool b f () = Alcotest.(check bool) "same bool" b (f b)
 
 let same_bool b1 b2 () = Alcotest.(check bool) "same bool" b1 b2
@@ -219,7 +221,7 @@ let () =
           test_case "solver invariant on int, const" `Slow
             (invariant_int 1 To_test.put_get_const_interp_int);
           test_case "not unique model" `Slow
-            (same_int_f 2 (fun () -> To_test.not_unique_model_assumption 1));
+            (diff_int_f 1 (fun () -> To_test.not_unique_model_assumption 1));
         ] );
       ( "solve int plus",
         [
@@ -240,14 +242,14 @@ let () =
         ] );
       ( "solve int relation",
         [
-          test_case "5 < x < 7" `Slow
+          test_case "5 < x < 7 (int inj, phi with var)" `Slow
             (same_int_f 6 (fun () -> To_test.test_lt_gt 6));
-          test_case "5 < x < 7" `Slow
+          test_case "5 < x < 7 (int inj, phi noname)" `Slow
             (same_int_f 6 (fun () -> To_test.test_lt_gt_no_binding 6));
-          test_case "5 < x < 7" `Slow
-            (same_int_f 6 (fun () -> To_test.test_lt_gt_no_binding_no_inj_int 6));
-          test_case "5 < x < 7" `Slow
+          test_case "5 < x < 7 (int literal, phi with var)" `Slow
             (same_int_f 6 (fun () -> To_test.test_lt_gt_no_inj_int 6));
+          test_case "5 < x < 7 (int literal, phi noname)" `Slow
+            (same_int_f 6 (fun () -> To_test.test_lt_gt_no_binding_no_inj_int 6));
         ] );
     ]
 
