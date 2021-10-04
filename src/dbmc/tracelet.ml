@@ -46,6 +46,12 @@ type cond_block = {
 type block = Main of main_block | Fun of fun_block | Cond of cond_block
 [@@deriving show { with_path = false }]
 
+type def_site =
+  | At_clause of tl_clause
+  | At_fun_para of bool * fun_block
+  | At_chosen of cond_block
+
+
 type t = block [@@deriving show { with_path = false }]
 
 let get_clauses block =
@@ -209,6 +215,13 @@ let clauses_of_expr e =
         | _ -> { id = cid; cat = Direct; clause = c }
       in
       cs @ [ c' ])
+
+let defined x block =
+  match (clause_of_x block x, block) with
+  | Some tc, _ -> At_clause tc
+  | None, Fun fb -> At_fun_para (Ident.(equal fb.para x), fb)
+  | None, Cond cb -> At_chosen cb
+  | None, Main _mb -> failwith "main block must have target"
 
 let tracelet_map_of_expr e : t Ident_map.t =
   let map = ref Ident_map.empty in

@@ -156,10 +156,30 @@ module To_test = struct
     let v = eval_exn model x' false in
     unbox_int v
 
-  let reset_once i1 i2 i3 i4 =
-    let _ = incremental_plus i1 i2 i3 in
+  let add_int i =
+    let x = Z3.Arithmetic.Integer.mk_const_s ctx "x" in
+    let e1 = box_int i in
+    let phi = eq x e1 in
+    Z3.Solver.add solver [ phi ];
+    let _status = Z3.Solver.check solver [] in
     Z3.Solver.reset solver;
-    let r = incremental_plus i2 i3 i4 in
+    1
+
+  let add_bool b =
+    let x = Z3.Boolean.mk_const_s ctx "x" in
+    let e1 = box_bool b in
+    let phi = eq x e1 in
+    Z3.Solver.add solver [ phi ];
+    let _status = Z3.Solver.check solver [] in
+    Z3.Solver.reset solver;
+    true
+
+  let reset_once _i1 _i2 _i3 _i4 =
+    (* let _ = incremental_plus i1 i2 i3 in
+       Z3.Solver.reset solver; *)
+    Z3.Solver.reset solver;
+    let r = test_lt_gt_no_inj_int 6 in
+    (* let r = incremental_plus i2 i3 i4 in *)
     Z3.Solver.reset solver;
     r
 end
@@ -173,6 +193,8 @@ let diff_int_f i f () = Alcotest.(check (neg int)) "same int" i (f ())
 let invariant_bool b f () = Alcotest.(check bool) "same bool" b (f b)
 
 let same_bool b1 b2 () = Alcotest.(check bool) "same bool" b1 b2
+
+let same_bool_f b f () = Alcotest.(check bool) "same bool" b (f ())
 
 let invariant_string s f () = Alcotest.(check string) "same bool" s (f s)
 
@@ -235,10 +257,10 @@ let () =
             (same_int_f 5 (fun () -> To_test.binop_inj SuduZ3.fn_divide 100 20));
           test_case "25%3=1" `Slow
             (same_int_f 1 (fun () -> To_test.binop_inj SuduZ3.fn_modulus 25 3));
-          test_case "1+2+3=6" `Slow
-            (same_int_f 6 (fun () -> To_test.incremental_plus 1 2 3));
-          test_case "reset;2+3+4=9" `Slow
-            (same_int_f 9 (fun () -> To_test.reset_once 1 2 3 4));
+          (* test_case "1+2+3=6" `Slow
+             (same_int_f 6 (fun () -> To_test.incremental_plus 1 2 3)); *)
+          (* test_case "reset;2+3+4=9" `Slow
+             (same_int_f 6 (fun () -> To_test.reset_once 1 1 2 3)); *)
         ] );
       ( "solve int relation",
         [
@@ -250,6 +272,12 @@ let () =
             (same_int_f 6 (fun () -> To_test.test_lt_gt_no_inj_int 6));
           test_case "5 < x < 7 (int literal, phi noname)" `Slow
             (same_int_f 6 (fun () -> To_test.test_lt_gt_no_binding_no_inj_int 6));
+        ] );
+      ( "debug-mac",
+        [
+          test_case "true => true" `Slow
+            (same_bool_f true (fun () -> To_test.add_bool true));
+          test_case "1 => 1" `Slow (same_int_f 1 (fun () -> To_test.add_int 1));
         ] );
     ]
 

@@ -6,18 +6,6 @@ open Tracelet
 open Odefa_ddpa
 module C = Constraint
 
-type def_site =
-  | At_clause of tl_clause
-  | At_fun_para of bool * fun_block
-  | At_chosen of cond_block
-
-let defined x block =
-  match (Tracelet.clause_of_x block x, block) with
-  | Some tc, _ -> At_clause tc
-  | None, Fun fb -> At_fun_para (Ident.(equal fb.para x), fb)
-  | None, Cond cb -> At_chosen cb
-  | None, Main _mb -> failwith "main block must have target"
-
 type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
 
 exception Found_solution of result_info
@@ -91,7 +79,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
       Logs.info (fun m ->
           m "search begin: %a in block %a" Lookup_key.pp this_key Id.pp block_id);
       let[@landmark] apply_rule () =
-        match defined x block with
+        match Tracelet.defined x block with
         | At_clause { clause = Clause (_, Value_body v); _ } ->
             deal_with_value (Some v) x xs block rel_stack gate_tree
         (* Input *)
