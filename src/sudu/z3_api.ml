@@ -43,9 +43,13 @@ module Make_common_builders (C : Context) = struct
 
   let eval_exn model e flag = Option.value_exn (Z3.Model.eval model e flag)
 
-  let simplify e = Z3.Expr.simplify e None
+  let simplify e = Expr.simplify e None
 
   let mk_bool_s s = Boolean.mk_const_s ctx s
+
+  let string_sort = Seq.mk_string_sort ctx
+
+  let mk_string_s s = Expr.mk_const_s ctx s string_sort
 
   let eq e1 e2 = Boolean.mk_eq ctx e1 e2
 
@@ -199,27 +203,30 @@ module Make_datatype_builders (C : Context) = struct
   let is_fun_from_model model e =
     unbox_bool (Option.value_exn (Model.eval model (ifFun e) false))
 
-  let get_bool_expr_exn model e =
-    Option.value_exn (Model.eval model (project_bool e) false)
-
   let get_int_expr_exn model e =
     Option.value_exn (Model.eval model (project_int e) false)
 
-  let get_int_expr model e =
-    Option.( >>| ) (Model.eval model (project_int e) false) unbox_int
+  let get_bool_expr_exn model e =
+    Option.value_exn (Model.eval model (project_bool e) false)
 
   let get_fun_expr_exn model e =
-    Option.value_exn (Model.eval model (FuncDecl.apply getFun [ e ]) false)
+    Option.value_exn (Model.eval model (project_string e) false)
+
+  let get_unbox_int_exn model e = unbox_int (get_int_expr_exn model e)
+
+  let get_unbox_bool_exn model e = unbox_bool (get_bool_expr_exn model e)
+
+  let get_unbox_fun_exn model e = unbox_string (get_fun_expr_exn model e)
 
   let eval_value model e = Option.value_exn (Model.eval model e false)
 
   let get_value model e =
     if is_int_from_model model e then
-      Some (Int (get_int_expr_exn model e |> unbox_int))
+      Some (Int (get_unbox_int_exn model e))
     else if is_bool_from_model model e then
-      Some (Bool (get_bool_expr_exn model e |> unbox_bool))
+      Some (Bool (get_unbox_bool_exn model e))
     else if is_fun_from_model model e then
-      let fid = get_fun_expr_exn model e |> unbox_string in
+      let fid = get_unbox_fun_exn model e in
       Some (Fun fid)
     else
       None

@@ -51,7 +51,6 @@ type def_site =
   | At_fun_para of bool * fun_block
   | At_chosen of cond_block
 
-
 type t = block [@@deriving show { with_path = false }]
 
 let get_clauses block =
@@ -383,3 +382,14 @@ let annotate e pt : block Ident_map.t =
   in
   loop acl true;
   !map
+
+let fun_info_of_callsite callsite map =
+  let callsite_block = find_by_id callsite map in
+  let tc = clause_of_x_exn callsite_block callsite in
+  let x', x'', x''' =
+    match tc.clause with
+    | Clause (Var (x', _), Appl_body (Var (x'', _), Var (x''', _))) ->
+        (x', x'', x''')
+    | _ -> failwith "incorrect clause for callsite"
+  in
+  (callsite_block, x', x'', x''')

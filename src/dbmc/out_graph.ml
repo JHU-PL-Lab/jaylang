@@ -58,13 +58,6 @@ type vertex_info = {
   picked : bool; (* cvars_in : Cvar.t list; *)
 }
 
-(* type edge_info = {
-     (* the key is cvar : string *)
-     picked : bool;
-     picked_from_root : bool;
-     complete : bool;
-   } *)
-
 type graph_info_type = {
   phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
   noted_phi_map : (Lookup_key.t, (string * Z3.Expr.expr) list) Hashtbl.t;
@@ -136,7 +129,6 @@ module DotPrinter_Make (C : Graph_info) = struct
                 complete;
               }
           in
-          (* add_done_c_stk edge_info.picked_from_root this; *)
           G.add_edge_e g
             (G.E.create (Either.first prev) (Either.first edge_info)
                (Either.first this))
@@ -315,14 +307,28 @@ module DotPrinter_Make (C : Graph_info) = struct
           match node.rule with
           | Pending -> [ `Color Palette.lime ]
           | Mismatch -> [ `Color Palette.red ]
-          | _ -> (
+          | _ ->
               (* Palette.black *)
-              match (graph_vertex.picked_from_root, graph_vertex.picked) with
-              | true, true -> [ `Penwidth 2.0 ]
-              | false, true -> [ `Color Palette.cyan ]
-              | true, false -> [ `Color Palette.light_red ]
-              | false, false -> [ `Penwidth 0.5; `Color Palette.light ])
+              (* match (graph_vertex.picked_from_root, graph_vertex.picked) with
+                 | true, true -> [ `Penwidth 2.0 ]
+                 | false, true -> [ `Color Palette.cyan ]
+                 | true, false -> [ `Color Palette.light_red ]
+                 | false, false -> [ `Penwidth 0.5; `Color Palette.light ] *)
+              let picked =
+                Option.value_map graph_info.model ~default:false
+                  ~f:(fun model ->
+                    let x, xs, r_stk = node.key in
+                    Option.value
+                      (Solver.SuduZ3.get_bool model
+                         (Riddler.pick_at (x :: xs) r_stk))
+                      ~default:false)
+              in
+              if picked then
+                [ `Penwidth 2.0 ]
+              else
+                [ `Penwidth 0.5; `Color Palette.light ]
         in
+
         let line_styles =
           if node.has_complete_path then [] else [ `Style `Dashed ]
         in

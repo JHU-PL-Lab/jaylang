@@ -136,4 +136,4 @@ let name_of_lookup xs stk =
       let p1 = Lookup_stack.mk_name xs in
       let p2 = Relative_stack.show stk in
       p1 ^ p2
-  | [] -> failwith "name_of_lookup empty"
+  | [] -> ""

@@ -19,25 +19,35 @@ type t = {
   cvar_complete_false : Cvar.t Hash_set.t;
   mutable cvar_complete_true_z3 : Z3.Expr.expr list;
   mutable cvar_picked_map : (Cvar.t, bool) Hashtbl.t;
+  (* pvar *)
+  pvar_reach_top : bool ref;
+  lookup_created : Lookup_key.t Hash_set.t;
   (* debug *)
   noted_phi_map : (Lookup_key.t, (string * Z3.Expr.expr) list) Hashtbl.t;
 }
 
 let create_state block x_target =
-  {
-    root_node = ref (Gate.root_node (block |> Tracelet.id_of_block) x_target);
-    tree_size = 1;
-    node_map = Hashtbl.create (module Lookup_key);
-    phis = [];
-    phis_z3 = [];
-    phi_map = Hashtbl.create (module Lookup_key);
-    cvar_counter = ref 0;
-    cvar_complete = Hashtbl.create (module Cvar);
-    cvar_complete_false = Hash_set.create (module Cvar);
-    cvar_complete_true_z3 = [];
-    cvar_picked_map = Hashtbl.create (module Cvar);
-    noted_phi_map = Hashtbl.create (module Lookup_key);
-  }
+  let state =
+    {
+      root_node = ref (Gate.root_node (block |> Tracelet.id_of_block) x_target);
+      tree_size = 1;
+      node_map = Hashtbl.create (module Lookup_key);
+      phis = [];
+      phis_z3 = [];
+      phi_map = Hashtbl.create (module Lookup_key);
+      cvar_counter = ref 0;
+      cvar_complete = Hashtbl.create (module Cvar);
+      cvar_complete_false = Hash_set.create (module Cvar);
+      cvar_complete_true_z3 = [];
+      cvar_picked_map = Hashtbl.create (module Cvar);
+      pvar_reach_top = ref false;
+      lookup_created = Hash_set.create (module Lookup_key);
+      noted_phi_map = Hashtbl.create (module Lookup_key);
+    }
+  in
+  Hash_set.strict_add_exn state.lookup_created
+    (x_target, [], Relative_stack.empty);
+  state
 
 let create_cvar state cvar_partial =
   let counter : int =

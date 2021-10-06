@@ -15,6 +15,12 @@ module To_test = struct
 
   let reset () = Z3.Solver.reset solver
 
+  (* basic boolean *)
+
+  let and0 = and_ [] |> simplify |> unbox_bool
+
+  let or0 = or_ [] |> simplify |> unbox_bool
+
   (* Test Z3 expression, no model *)
   let box_and_unbox_int i = i |> box_int |> unbox_int
 
@@ -215,6 +221,11 @@ let () =
   let open Alcotest in
   run "Sudu"
     [
+      ( "basic",
+        [
+          test_case "or []" `Quick (same_bool To_test.or0 false);
+          test_case "and []" `Quick (same_bool To_test.and0 true);
+        ] );
       ( "box",
         [
           test_case "box invariant on int" `Quick
