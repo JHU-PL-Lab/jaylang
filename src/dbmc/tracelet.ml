@@ -50,6 +50,7 @@ type def_site =
   | At_clause of tl_clause
   | At_fun_para of bool * fun_block
   | At_chosen of cond_block
+  | Lookup_mismatch
 
 type t = block [@@deriving show { with_path = false }]
 

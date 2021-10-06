@@ -40,8 +40,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
   let block0 = Tracelet.find_by_id x_target map in
   (* let block0 = Tracelet.cut_before true x_target block in *)
   let state = Search_tree.create_state block0 x_target in
-  state.phis_z3 <-
-    [ Riddler.reach_top; Riddler.pick_at [ x_target ] Relative_stack.empty ];
+  state.phis_z3 <- [ Riddler.pick_at [ x_target ] Relative_stack.empty ];
   (* let add_phi key data =
        Search_tree.add_phi ~debug:config.debug_lookup_graph state key data
      in
@@ -106,7 +105,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
                   (_, Binary_operation_body (Var (x1, _), _bop, Var (x2, _)));
               _;
             } ->
-            (* add_phi this_key @@ C.bind_binop x x1 bop x2 rel_stack; *)
             add_phi' x xs r_stk defined_site;
 
             let sub_tree1, edge1 =
@@ -123,22 +121,15 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
             let condsite_block = Tracelet.outer_block block map in
             let choice = Option.value_exn cb.choice in
 
-            let condsite_stack, _paired =
+            let condsite_stack =
               match
-                Relative_stack.pop_check_paired rel_stack cb.point
-                  (Id.cond_fid choice)
+                Relative_stack.pop rel_stack cb.point (Id.cond_fid choice)
               with
-              | Some (stk, paired) -> (stk, paired)
+              | Some stk -> stk
               | None -> failwith "impossible in CondTop"
             in
             let x2 = cb.cond in
 
-            (* if paired then
-                 ()
-               else
-                 add_phi this_key (C.bind_v x2 (Value_bool choice) condsite_stack);
-               add_phi this_key
-               @@ C.eq_lookup (x :: xs) rel_stack (x :: xs) condsite_stack; *)
             add_phi' x xs r_stk defined_site;
             let sub_tree1, edge1 =
               create_lookup_task (x2, [], condsite_stack) condsite_block
@@ -170,9 +161,9 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
               create_lookup_task (x', [], rel_stack) block gate_tree
             in
 
-            let _phis, sub_trees, edges, _cvars =
+            let sub_trees, edges, _cvars =
               List.fold [ true; false ]
-                ~f:(fun (phis, sub_trees, edges, cvars) beta ->
+                ~f:(fun (sub_trees, edges, cvars) beta ->
                   let cvar =
                     create_cvar
                       (Cvar.mk_condsite_beta (x :: xs) x rel_stack beta)
@@ -182,22 +173,15 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
                   let cbody_stack =
                     Relative_stack.push rel_stack x (Id.cond_fid beta)
                   in
-                  let phi =
-                    C.and_
-                      (C.bind_v x' (Value_bool beta) rel_stack)
-                      (C.eq_lookup [ x ] rel_stack [ x_ret ] cbody_stack)
-                  in
                   let sub_tree, edge =
                     create_lookup_task ~cvar (x_ret, xs, cbody_stack) ctracelet
                       gate_tree
                   in
-                  ( phis @ [ phi ],
-                    sub_trees @ [ (cvar, sub_tree) ],
+                  ( sub_trees @ [ (cvar, sub_tree) ],
                     edges @ [ edge ],
                     cvar :: cvars ))
-                ~init:([], [], [ var_edge ], [])
+                ~init:([], [ var_edge ], [])
             in
-            (* add_phi this_key (C.cond_bottom phis (List.rev cvars)); *)
             add_phi' x xs r_stk defined_site;
 
             gate_tree :=
@@ -257,7 +241,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
             let fc =
               Cvar.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
             in
-            (* add_phi this_key (C.Fbody_to_callsite (x :: xs, fc)); *)
+
             add_phi' ~callsites x xs r_stk defined_site;
 
             gate_tree := { !gate_tree with rule = Gate.mk_para ~sub_trees ~fc };
@@ -315,7 +299,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
             let fc =
               Cvar.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
             in
-            (* add_phi this_key (C.Fbody_to_callsite (x :: xs, fc)); *)
+
             add_phi' ~callsites x xs r_stk defined_site;
 
             gate_tree := { !gate_tree with rule = Gate.mk_para ~sub_trees ~fc };
@@ -373,7 +357,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
                 ins;
               }
             in
-            (* add_phi this_key (C.Callsite_to_fbody (x :: xs, cf)); *)
             add_phi' x xs r_stk defined_site;
 
             gate_tree :=
@@ -385,6 +368,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
         | At_clause ({ clause = Clause (_, _); _ } as tc) ->
             Logs.err (fun m -> m "%a" Ast_pp.pp_clause tc.clause);
             failwith "error lookup cases"
+        | Lookup_mismatch -> failwith "should not mismatch here"
       in
       apply_rule ();
 
@@ -392,11 +376,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
       if !(state.root_node).has_complete_path then (
         Logs.info (fun m -> m "Search Tree Size:\t%d" state.tree_size);
 
-        (* let cvars_true_z3, cvars_false_z3 =
-             Search_tree.get_cvars_z3 ~debug:config.debug_phi state
-           in
-           state.phis_z3 <- List.append cvars_true_z3 state.phis_z3;
-           let check_result = Solver.check state.phis_z3 cvars_false_z3 in *)
         let unfinish_lookup =
           Hash_set.to_list state.lookup_created
           |> List.map ~f:(fun (x, xs, r_stk) ->
@@ -410,10 +389,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
             if config.debug_model then (
               Logs.debug (fun m ->
                   m "Solver Phis: %s" (Solver.string_of_solver ()));
-              (* Logs.debug (fun m ->
-                  m "Solver Cvars: %a"
-                    Fmt.(Dump.list (of_to_string Z3.Expr.to_string))
-                    cvars_z3); *)
               Logs.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)))
             else
               ();
@@ -422,14 +397,11 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
                the answer should be yes since we are not interested in
                any false or unpicked cvar
             *)
-            (* state.cvar_picked_map <-
-               Solver.get_cvar_picked model state.cvar_complete; *)
             if config.debug_lookup_graph then
               print_dot_graph ~noted_phi_map:state.noted_phi_map
                 ~model:(Some model) ~program ~testname:config.filename state
             else
               ();
-            (* let[@landmark] c_stk = Search_tree.find_c_stk state in *)
             let c_stk_mach =
               Solver.SuduZ3.(get_unbox_fun_exn model Riddler.top_stack)
             in
@@ -478,12 +450,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
     let block_id = block_id_here in
 
     (* Discovery Main & Non-Main *)
-    if List.is_empty xs then (
-      (* (match mv with
-         | Some (Value_function _) -> add_phi key @@ C.bind_fun x rel_stack x
-         | Some v -> add_phi key @@ C.bind_v x v rel_stack
-         | None -> add_phi key @@ C.bind_input x rel_stack); *)
-      ();
+    if List.is_empty xs then
       if Ident.equal block_id_here id_main then (
         (* Discovery Main *)
         let target_stk = Relative_stack.concretize rel_stack in
@@ -500,12 +467,10 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
           create_lookup_task (x_first, [], rel_stack) block gate_tree
         in
         gate_tree := { !gate_tree with rule = Gate.to_first child_tree };
-        bubble_up_edges [ edge ]))
+        bubble_up_edges [ edge ])
     else (* Discard *)
       match mv with
       | Some (Value_function _f) ->
-          (* add_phi key @@ C.eq_lookup (x :: xs) rel_stack xs rel_stack;
-             add_phi key @@ C.bind_fun x rel_stack x; *)
           add_phi' x xs rel_stack (Tracelet.defined x block);
           let sub_tree, edge =
             create_lookup_task
@@ -514,7 +479,12 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
           in
           gate_tree := { !gate_tree with rule = Gate.discard sub_tree };
           bubble_up_edges [ edge ]
-      | _ -> failwith "why mismatch"
+      | _ ->
+          add_phi' x xs rel_stack Tracelet.Lookup_mismatch;
+          gate_tree := { !gate_tree with rule = Gate.mismatch }
+    (* failwith
+       @@ Printf.sprintf "why mismatch: %s"
+            (Lookup_key.show (x, xs, rel_stack)) *)
   in
   lookup [ x_target ] block0 Relative_stack.empty state.root_node ()
 

@@ -12,8 +12,6 @@ let ctx = Solver.ctx
 
 module SuduZ3 = Solver.SuduZ3
 
-let reach_top = SuduZ3.mk_bool_s "X_reachtop"
-
 let top_stack = SuduZ3.var_s "X_topstack"
 
 let var_of_symbol sym = sym |> Symbol.show |> SuduZ3.var_s
@@ -90,12 +88,19 @@ let mk_encode_constraint block_map =
               (r_stk |> Relative_stack.concretize |> Concrete_stack.sexp_of_t
              |> Sexp.to_string_mach |> SuduZ3.fun_)
           in
-          p @=> and_ [ eq_x_v; this_c_stk; reach_top ]
+          p @=> and_ [ eq_x_v; this_c_stk ]
       (* Discover Non-Main *)
       | true, Some x_first -> p @=> and2 eq_x_v (pick_first_at x_first r_stk)
       (* Discard *)
       | false, None ->
-          p @=> and_ [ eq_x_v; bind_x_y xs0 xs r_stk; pick_at xs r_stk ]
+          p
+          @=> and_
+                [
+                  (* this v muse be a Fun *)
+                  eq_x_v;
+                  bind_x_y xs0 xs r_stk;
+                  pick_at xs r_stk;
+                ]
       | false, Some _ -> failwith "error"
     in
     let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in
@@ -179,37 +184,20 @@ let mk_encode_constraint block_map =
       | At_chosen cb ->
           let choice = Option.value_exn cb.choice in
           let x2 = cb.cond in
-          let condsite_stack, paired =
-            match
-              Relative_stack.pop_check_paired r_stk cb.point
-                (Id.cond_fid choice)
-            with
-            | Some (stk, paired) -> (stk, paired)
+          let condsite_stack =
+            match Relative_stack.pop r_stk cb.point (Id.cond_fid choice) with
+            | Some stk -> stk
             | None -> failwith "impossible in CondTop"
           in
           let eq_lookup = bind_x_y' (x :: xs) r_stk (x :: xs) condsite_stack in
-          let then_or_else =
-            if paired then
-              p
-              @=> and_
-                    [
-                      bind_x_v [ x2 ] condsite_stack (Value_bool choice);
-                      pick_at [ x2 ] condsite_stack;
-                      pick_at (x :: xs) condsite_stack;
-                      eq_lookup;
-                    ]
-            else
-              p
-              @=> and_
-                    [
-                      bind_x_v [ x2 ] condsite_stack (Value_bool choice);
-                      pick_at [ x2 ] condsite_stack;
-                      pick_at (x :: xs) condsite_stack;
-                      eq_lookup;
-                    ]
-          in
-          (* and2 eq_lookup then_or_else *)
-          then_or_else
+          p
+          @=> and_
+                [
+                  bind_x_v [ x2 ] condsite_stack (Value_bool choice);
+                  pick_at [ x2 ] condsite_stack;
+                  pick_at (x :: xs) condsite_stack;
+                  eq_lookup;
+                ]
       (* Cond Bottom / Condsite *)
       | At_clause
           {
@@ -234,12 +222,14 @@ let mk_encode_constraint block_map =
                 let p_x_ret_beta = pick_at (x_ret :: xs) cbody_stack in
                 let eq_beta = bind_x_v [ x' ] r_stk (Value_bool beta) in
                 let eq_lookup =
-                  bind_x_y' (x :: xs) r_stk (x_ret :: xs) cbody_stack
+                  (* bind_x_y' (x :: xs) r_stk (x_ret :: xs) cbody_stack *)
+                  bind_x_y' [ x ] r_stk [ x_ret ] cbody_stack
                 in
                 ( cs @ [ p_x_ret_beta ],
                   rs @ [ p_x_ret_beta @=> and2 eq_beta eq_lookup ] ))
           in
           p @=> and_ (or_ cs :: rs)
+      | Lookup_mismatch -> p @=> box_bool false
       | _ -> failwith "error lookup cases"
     in
 
