@@ -61,12 +61,14 @@ let test_one_file testname () =
   let expectation = Test_expect.load_sexp_expectation_for testname in
   match expectation with
   | None -> Alcotest.(check unit) "unit" () ()
-  | Some expectation ->
-      let inputs = List.hd_exn inputss in
-      let expected_inputs = List.hd_exn expectation.inputs in
-      let expected_inputs_ext = List.map ~f:Option.some expected_inputs in
-      Alcotest.(check (list int_option_checker))
-        "equal" inputs expected_inputs_ext
+  | Some expectation -> (
+      match List.hd inputss with
+      | Some inputs ->
+          let expected_inputs = List.hd_exn expectation.inputs in
+          let expected_inputs_ext = List.map ~f:Option.some expected_inputs in
+          Alcotest.(check (list int_option_checker))
+            "equal" inputs expected_inputs_ext
+      | None -> Alcotest.(check int) "equal" 0 (List.length expectation.inputs))
 
 let () =
   Dbmc.Log.init ();

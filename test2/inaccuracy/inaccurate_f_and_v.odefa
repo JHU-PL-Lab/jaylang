@@ -1,7 +1,14 @@
 a1 = 1;
 f1 = fun x1 -> (
   f2 = fun x2 -> (
-    target = 1;
+    x = input;
+    one = 1;
+    cx = x == one;
+    rf = cx ? (
+      target = one;
+    ) : (
+      du = 7
+    )
   )
 );
 

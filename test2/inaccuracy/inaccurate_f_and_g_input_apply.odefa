@@ -1,6 +1,5 @@
 a1 = 1;
 f1 = fun x1 -> (
-  # f2 -> h
   f2 = fun x2 -> (
     target = fun x3 -> (
       rt = 1
@@ -8,10 +7,17 @@ f1 = fun x1 -> (
   )
 );
 
-# apply -> [r3,r2,r1]
 apply = fun g -> (
   three = 3;
-  h = g three;
+
+  x = input;
+  one = 1;
+  cx = x == one;
+  rf = cx ? (
+    h = g three;
+  ) : (
+    du = 7
+  );
 );
 
 r1 = apply f1;

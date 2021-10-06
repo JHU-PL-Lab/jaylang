@@ -482,9 +482,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
       | _ ->
           add_phi' x xs rel_stack Tracelet.Lookup_mismatch;
           gate_tree := { !gate_tree with rule = Gate.mismatch }
-    (* failwith
-       @@ Printf.sprintf "why mismatch: %s"
-            (Lookup_key.show (x, xs, rel_stack)) *)
   in
   lookup [ x_target ] block0 Relative_stack.empty state.root_node ()
 
@@ -500,7 +497,7 @@ let[@landmark] lookup_main ~(config : Top_config.t) program x_target =
 
   Scheduler.push job_queue (fun () -> main_task);
   Lwt_main.run
-    (try%lwt Scheduler.run job_queue >>= fun _ -> Lwt.return [ [] ] with
+    (try%lwt Scheduler.run job_queue >>= fun _ -> Lwt.return [] with
     | Found_solution ri ->
         Logs.info (fun m ->
             m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident x_target
@@ -508,4 +505,4 @@ let[@landmark] lookup_main ~(config : Top_config.t) program x_target =
         Lwt.return [ Solver.get_inputs x_target ri.model ri.c_stk program ]
     | Lwt_unix.Timeout ->
         prerr_endline "timeout";
-        Lwt.return [ [] ])
+        Lwt.return [])

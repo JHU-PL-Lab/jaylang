@@ -69,7 +69,6 @@ let mk_encode_constraint block_map =
     let pick_first_at x_first r_stk = pick_at [ x_first ] r_stk in
 
     let deal_with_value xs0 r_stk v =
-      print_endline @@ Lookup_stack.show xs0;
       let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in
       let eq_x_v =
         match v with

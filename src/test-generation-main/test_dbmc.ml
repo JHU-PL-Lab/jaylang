@@ -54,10 +54,14 @@ let () =
     in
     Dbmc.Log.init ~testname:args.ga_filename ~log_level:Logs.Debug ();
     let inputs = Dbmc.Main.lookup_main ~config ast args.ga_target_point in
-    let inputs = List.hd inputs in
-    Printf.printf "[%s]\n"
-      (String.join ","
-      @@ List.map (function Some i -> string_of_int i | None -> "_") inputs);
+    (match List.Exceptionless.hd inputs with
+    | Some inputs ->
+        Printf.printf "[%s]\n"
+          (String.join ","
+          @@ List.map
+               (function Some i -> string_of_int i | None -> "_")
+               inputs)
+    | None -> Printf.printf "[]");
     Dbmc.Log.close ();
     ignore @@ raise GenComplete;
 
