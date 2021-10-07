@@ -10,7 +10,6 @@ type t = {
   (* node attr *)
   node_map : (Lookup_key.t, Gate.Node.t ref) Hashtbl.t;
   (* constraints *)
-  mutable phis : Constraint.t list;
   mutable phis_z3 : Z3.Expr.expr list;
   phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
   (* cvar *)
@@ -32,7 +31,6 @@ let create_state block x_target =
       root_node = ref (Gate.root_node (block |> Tracelet.id_of_block) x_target);
       tree_size = 1;
       node_map = Hashtbl.create (module Lookup_key);
-      phis = [];
       phis_z3 = [];
       phi_map = Hashtbl.create (module Lookup_key);
       cvar_counter = ref 0;
@@ -72,7 +70,6 @@ let create_cvar state cvar_partial =
   cvar
 
 let add_phi ?(debug = false) state key phi =
-  state.phis <- phi :: state.phis;
   let phi_z3 =
     let debug_tool = Option.some_if debug (key, state.noted_phi_map) in
     Solver.phi_z3_of_constraint ?debug_tool phi
@@ -80,9 +77,7 @@ let add_phi ?(debug = false) state key phi =
   state.phis_z3 <- phi_z3 :: state.phis_z3;
   Hashtbl.add_multi state.phi_map ~key ~data:phi
 
-let clear_phis state =
-  state.phis <- [];
-  state.phis_z3 <- []
+let clear_phis state = state.phis_z3 <- []
 
 let get_cvars_z3 ?(debug = false) state =
   let cvars_false = Hash_set.to_list state.cvar_complete_false in
@@ -103,13 +98,6 @@ let get_cvars_z3 ?(debug = false) state =
      in
      Hashtbl.data phi_z3_map
    in *)
-
-(* Hashtbl.merge_into ~src:state.phi_map ~dst:state.acc_phi_map
-   ~f:(fun ~key a ob ->
-     let _ = key in
-     match ob with
-     | Some _b -> failwith "acc_phi_map should not have it"
-     | None -> Set_to a); *)
 
 let guarantee_singleton_c_stk_exn state =
   let stop (node : Gate.Node_ref.t) =

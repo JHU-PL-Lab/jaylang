@@ -45,7 +45,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
        Search_tree.add_phi ~debug:config.debug_lookup_graph state key data
      in
   *)
-  let add_phi _ _ = () in
   let encode_constraint = Riddler.mk_encode_constraint map in
   let add_phi' ?(x_first = None) ?(callsites = []) x xs r_stk defined_site =
     let data : Z3.Expr.expr =
@@ -89,8 +88,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
             deal_with_value None x xs block rel_stack gate_tree
         (* Alias *)
         | At_clause { clause = Clause (_, Var_body (Var (x', _))); _ } ->
-            (* add_phi this_key
-               @@ C.eq_lookup (x :: xs) rel_stack (x' :: xs) rel_stack; *)
             add_phi' x xs r_stk defined_site;
             let sub_tree, edge =
               create_lookup_task (x', xs, rel_stack) block gate_tree
@@ -199,7 +196,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
               | None -> fb.callsites
             in
             Logs.info (fun m ->
-                m "FunEnter: %a -> %a" Id.pp fid Id.pp_old_list callsites);
+                m "FunEnter: %a -> %a" Id.pp fid Id.pp_list callsites);
             let outs, sub_trees, edges =
               List.fold fb.callsites
                 ~f:(fun (outs, sub_trees, edges) callsite ->
@@ -255,8 +252,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
               | None -> fb.callsites
             in
             Logs.info (fun m ->
-                m "FunEnterNonlocal: %a -> %a" Id.pp fid Id.pp_old_list
-                  callsites);
+                m "FunEnterNonlocal: %a -> %a" Id.pp fid Id.pp_list callsites);
             let outs, sub_trees, edges =
               List.fold callsites
                 ~f:(fun (outs, sub_trees, edges) callsite ->
@@ -311,8 +307,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
               cat = App fids;
               _;
             } ->
-            Logs.info (fun m ->
-                m "FunExit: %a -> %a" Id.pp xf Id.pp_old_list fids);
+            Logs.info (fun m -> m "FunExit: %a -> %a" Id.pp xf Id.pp_list fids);
 
             let fun_tree, fun_edge =
               create_lookup_task (xf, [], rel_stack) block gate_tree
@@ -454,7 +449,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) job_queue program x_target :
       if Ident.equal block_id_here id_main then (
         (* Discovery Main *)
         let target_stk = Relative_stack.concretize rel_stack in
-        (* add_phi key @@ C.Target_stack target_stk; *)
         add_phi' x xs rel_stack (Tracelet.defined x block);
         gate_tree := { !gate_tree with rule = Gate.done_ target_stk };
         let edge = Gate.mk_edge gate_tree gate_tree in

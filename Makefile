@@ -1,48 +1,22 @@
 .PHONY: all clean repl sandbox test benchmark dbmc logclean dtest
 
-all:
-	dune build
-	dune build src/toploop-main/ddpa_toploop.exe
-	dune build src/test-generation-main/test_generator.exe src/test-generation-main/test_dbmc.exe
-	dune build src/translator-main/translator.exe
-	rm -f ddpa_toploop
-	rm -f translator
-	rm -f sandbox
-	rm -f test_generator
-	rm -f test_dbmc
-	rm -f dbmc_top
-	rm -f dtest
-	ln -s _build/default/src/toploop-main/ddpa_toploop.exe ddpa_toploop
-	ln -s _build/default/src/test-generation-main/test_generator.exe test_generator
-	ln -s _build/default/src/translator-main/translator.exe translator
-	ln -s _build/default/src/test-generation-main/test_dbmc.exe test_dbmc
-	ln -s _build/default/src/dbmc-top/dbmc_top.exe dbmc_top
+all: dbmc
 
 dbmc:
-	dune build src/test-generation-main src/dbmc-top
-	rm -f test_generator
-	rm -f test_dbmc
-	rm -f dbmc_top
-	ln -s _build/default/src/test-generation-main/test_generator.exe test_generator
-	ln -s _build/default/src/test-generation-main/test_dbmc.exe test_dbmc
-	ln -s _build/default/src/dbmc-top/dbmc_top.exe dbmc_top
+	dune build src/dbmc-top/dbmc_top.exe
+	ln -s -f _build/default/src/dbmc-top/dbmc_top.exe dbmc_top
 
 dtest:
-	rm -f dtest
 	dune build test/dbmc/test_dbmc.exe 
-	ln -s _build/default/test/dbmc/test_dbmc.exe dtest
+	ln -s -f _build/default/test/dbmc/test_dbmc.exe dtest
+	./dtest
 
-sandbox:
-	dune build test/sandbox/sandbox.exe
-	rm -f sandbox
-	ln -s _build/default/test/sandbox/sandbox.exe sandbox
+ddpa:
+	dune build src/toploop-main/ddpa_toploop.exe
+	ln -s -f _build/default/src/toploop-main/ddpa_toploop.exe ddpa_toploop
 
-repl:
-	dune utop src -- -require pdr-programming
-
-test:
-	dune build test/unittest/test.exe
-	_build/default/test/unittest/test.exe
+	dune build src/translator-main/translator.exe
+	ln -s -f _build/default/src/translator-main/translator.exe translator
 
 clean:
 	dune clean
@@ -64,10 +38,22 @@ benchmark:
 	dune exec benchmark-test-generation/benchmark.exe
 
 land100:
-	OCAML_LANDMARKS=on,output="callgraph100.ansi" time ./test_dbmc -t target test2/loop/_sum100.odefa
+	OCAML_LANDMARKS=on,output="callgraph100.ansi" time ./dbmc_top -t target test2/loop/_sum100.odefa
 
 land200:
-	OCAML_LANDMARKS=on,output="callgraph200.ansi" time ./test_dbmc -t target test2/loop/_sum200.odefa
+	OCAML_LANDMARKS=on,output="callgraph200.ansi" time ./dbmc_top -t target test2/loop/_sum200.odefa
 
 land500:
-	OCAML_LANDMARKS=on,output="callgraph500.ansi" time ./test_dbmc -t target test2/loop/_sum500.odefa
+	OCAML_LANDMARKS=on,output="callgraph500.ansi" time ./dbmc_top -t target test2/loop/_sum500.odefa
+
+# old targets
+sandbox:
+	dune build test/sandbox/sandbox.exe
+	ln -s -f _build/default/test/sandbox/sandbox.exe sandbox
+
+test:
+	dune build test/unittest/test.exe
+	_build/default/test/unittest/test.exe
+
+repl:
+	dune utop src -- -require pdr-programming

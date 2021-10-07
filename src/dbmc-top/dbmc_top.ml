@@ -71,8 +71,10 @@ let handle_config cfg =
       failwith "file extension must be .odefa or .natodefa"
   in
   ignore @@ check_wellformed_or_exit program;
-  dbmc_run program cfg
-(* Format.printf "%a" Odefa_ast.Ast_pp.pp_expr program *)
+  try dbmc_run program cfg
+  with e ->
+    Printexc.print_backtrace Out_channel.stderr;
+    raise e
 
 let command =
   Command.basic ~summary:"DBMC top to run ODEFA or NATODEFA file"
@@ -92,9 +94,9 @@ let command =
         Command.Param.(optional_with_default false bool)
         ~doc:"[debug] output constraints"
     and debug_model =
-      flag "-p"
+      flag "-z"
         Command.Param.(optional_with_default true bool)
-        ~doc:"[debug] output constraints"
+        ~doc:"[debug] output smt model"
     and debug_lookup_graph =
       flag "-g"
         Command.Param.(optional_with_default false bool)
