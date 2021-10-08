@@ -24,7 +24,6 @@ clean:
 	rm -f translator
 	rm -f sandbox
 	rm -f test_dbmc
-	rm -f test_generator
 	rm -f dbmc_top
 
 logclean:

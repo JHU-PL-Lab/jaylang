@@ -267,9 +267,7 @@ let get_inputs target_x model (target_stack : Concrete_stack.t) program =
     memorized_solution_input_feeder input_history model target_stack
   in
   let target = (target_x, target_stack) in
-  let _ =
-    Odefa_interpreter.Naive_interpreter.eval ~input_feeder ~target program
-  in
+  let _ = Naive_interpreter.eval ~input_feeder ~target program in
   List.rev !input_history
 
 let get_cvar_picked model cvar_complete =

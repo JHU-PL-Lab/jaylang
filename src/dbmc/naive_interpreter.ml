@@ -1,4 +1,4 @@
-open Batteries
+open Core
 open Odefa_ast
 open Ast
 
@@ -24,9 +24,10 @@ let rec same_stack s1 s2 =
 let rec eval_exp ~input_feeder ~target stk env e : dvalue =
   let (Expr clauses) = e in
   let _, vs' =
-    List.fold_left_map (eval_clause ~input_feeder ~target stk) env clauses
+    (* List.fold_left_map (eval_clause ~input_feeder ~target stk) env clauses *)
+    List.fold_map ~f:(eval_clause ~input_feeder ~target stk) ~init:env clauses
   in
-  List.last vs'
+  List.last_exn vs'
 
 and eval_clause ~input_feeder ~target stk env clause : denv * dvalue =
   let (Clause (Var (x, _), cbody)) = clause in
@@ -45,7 +46,7 @@ and eval_clause ~input_feeder ~target stk env clause : denv * dvalue =
         eval_exp ~input_feeder ~target stk' env e
     | Input_body ->
         (* TODO: the interpreter may propagate the dummy value (through the value should never be used in any control flow)  *)
-        let n = Option.default 0 (input_feeder (x, stk)) in
+        let n = Option.value ~default:0 (input_feeder (x, stk)) in
         Direct (Value_int n)
     | Appl_body (vx1, vx2) -> (
         match eval_val env vx1 with
@@ -84,13 +85,13 @@ and eval_clause ~input_feeder ~target stk env clause : denv * dvalue =
           | Binary_operator_equal_to, Value_int n1, Value_int n2 ->
               Value_bool (n1 = n2)
           | Binary_operator_equal_to, Value_bool b1, Value_bool b2 ->
-              Value_bool (b1 = b2)
+              Value_bool (Bool.( = ) b1 b2)
           | Binary_operator_and, Value_bool b1, Value_bool b2 ->
               Value_bool (b1 && b2)
           | Binary_operator_or, Value_bool b1, Value_bool b2 ->
               Value_bool (b1 || b2)
           | Binary_operator_xor, Value_bool b1, Value_bool b2 ->
-              Value_bool (b1 <> b2)
+              Value_bool (Bool.( <> ) b1 b2)
           | _, _, _ -> failwith "incorrect binop"
         in
         Direct v
@@ -128,7 +129,7 @@ and check_pattern env vx pattern : bool =
   let is_pass =
     match (eval_val env vx, pattern) with
     | Direct (Value_int _), Int_pattern -> true
-    | Direct (Value_bool b1), Bool_pattern b2 -> b1 = b2
+    | Direct (Value_bool b1), Bool_pattern b2 -> Bool.( = ) b1 b2
     | Direct (Value_function _), _ -> failwith "must be a closure"
     | Direct (Value_record (Record_value record)), Record_pattern key_map ->
         Ident_map.for_all
@@ -143,7 +144,7 @@ and check_pattern env vx pattern : bool =
   in
   is_pass
 
-let eval ?(input_feeder = Input_feeder.dummy0) ~target e =
+let eval ?(input_feeder = Fn.const None) ~target e =
   let empty_stk = [] in
   let empty_env = Ident_map.empty in
   try
