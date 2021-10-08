@@ -3,7 +3,14 @@ open Core
 (* Hashtbl.t is mutable by default.
    Using explicit *mutable* is for replacing a new one easier.
 *)
-type t = {
+type info = {
+  first : Id.t;
+  target : Id.t;
+  program : Odefa_ast.Ast.expr;
+  block_map : Tracelet.block Odefa_ast.Ast.Ident_map.t;
+}
+
+type state = {
   (* graph attr *)
   root_node : Gate.Node.t ref;
   mutable tree_size : int;
@@ -21,6 +28,10 @@ type t = {
   (* pvar *)
   pvar_reach_top : bool ref;
   lookup_created : Lookup_key.t Hash_set.t;
+  picked_map : (Lookup_key.t, Z3.Expr.expr) Hashtbl.t;
+  picked_counter : int ref;
+  lookup_map : (Lookup_key.t, Z3.Expr.expr) Hashtbl.t;
+  lookup_counter : int ref;
   (* debug *)
   noted_phi_map : (Lookup_key.t, (string * Z3.Expr.expr) list) Hashtbl.t;
 }
@@ -39,12 +50,15 @@ let create_state block x_target =
       cvar_complete_true_z3 = [];
       cvar_picked_map = Hashtbl.create (module Cvar);
       pvar_reach_top = ref false;
+      picked_map = Hashtbl.create (module Lookup_key);
+      picked_counter = ref 0;
+      lookup_map = Hashtbl.create (module Lookup_key);
+      lookup_counter = ref 0;
       lookup_created = Hash_set.create (module Lookup_key);
       noted_phi_map = Hashtbl.create (module Lookup_key);
     }
   in
-  Hash_set.strict_add_exn state.lookup_created
-    (x_target, [], Relative_stack.empty);
+  Hash_set.strict_add_exn state.lookup_created (Lookup_key.start x_target);
   state
 
 let create_cvar state cvar_partial =

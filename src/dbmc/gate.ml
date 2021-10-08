@@ -74,7 +74,7 @@ let mk_edge ?cvar pred succ = { pred; succ; label_cvar = cvar }
 let root_node block_id x =
   {
     block_id;
-    key = (x, [], Relative_stack.empty);
+    key = Lookup_key.start x;
     rule = Pending;
     preds = [];
     has_complete_path = false;

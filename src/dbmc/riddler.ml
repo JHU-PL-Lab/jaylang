@@ -16,59 +16,79 @@ let top_stack = SuduZ3.var_s "X_topstack"
 
 let var_of_symbol sym = sym |> Symbol.show |> SuduZ3.var_s
 
-let pick_at xs r_stk =
-  "P_" ^ Constraint.name_of_lookup xs r_stk |> SuduZ3.mk_bool_s
+(* let pick_at_key key =
+   "P_" ^ Constraint.name_of_lookup (Lookup_key.lookups key) key.r_stk
+   |> SuduZ3.mk_bool_s *)
 
-let lookup xs r_stk = Constraint.name_of_lookup xs r_stk |> SuduZ3.var_s
+(* let pick_at xs r_stk =
+   "P_" ^ Constraint.name_of_lookup xs r_stk |> SuduZ3.mk_bool_s *)
 
-let bind_x_v xs r_stk v =
-  let x = lookup xs r_stk in
-  let v =
-    match Constraint.to_smt_v v with
-    | Constraint.Int i -> SuduZ3.int_ i
-    | Constraint.Bool b -> SuduZ3.bool_ b
-    | Constraint.Fun fid -> SuduZ3.fun_ fid
-    | Constraint.Record -> failwith "no record yet"
+let pick_at_key (state : Search_tree.state) key =
+  Hashtbl.find_or_add state.picked_map key ~default:(fun () ->
+      Int.incr state.picked_counter;
+      "P_" ^ Constraint.name_of_lookup (Lookup_key.lookups key) key.r_stk
+      |> SuduZ3.mk_bool_s)
+
+let lookup (state : Search_tree.state) xs r_stk =
+  let key = Lookup_key.of_parts2 xs r_stk in
+  Hashtbl.find_or_add state.lookup_map key ~default:(fun () ->
+      Int.incr state.lookup_counter;
+      Constraint.name_of_lookup xs r_stk |> SuduZ3.var_s)
+
+let mk_encode_constraint block_map (state : Search_tree.state) =
+  let pick_at_key key = pick_at_key state key in
+  let pick_at xs r_stk = pick_at_key (Lookup_key.of_parts2 xs r_stk) in
+  let lookup xs r_stk = lookup state xs r_stk in
+
+  let bind_x_v xs r_stk v =
+    let x = lookup xs r_stk in
+    let v =
+      match Constraint.to_smt_v v with
+      | Constraint.Int i -> SuduZ3.int_ i
+      | Constraint.Bool b -> SuduZ3.bool_ b
+      | Constraint.Fun fid -> SuduZ3.fun_ fid
+      | Constraint.Record -> failwith "no record yet"
+    in
+    SuduZ3.eq x v
   in
-  SuduZ3.eq x v
 
-let bind_fun xs r_stk (Id.Ident fid) =
-  SuduZ3.eq (lookup xs r_stk) (SuduZ3.fun_ fid)
-
-let bind_x_y x y r_stk = SuduZ3.eq (lookup x r_stk) (lookup y r_stk)
-
-let bind_x_y' x r_stk y r_stk' = SuduZ3.eq (lookup x r_stk) (lookup y r_stk')
-
-let bind_binop op y x1 x2 r_stk =
-  let ey = lookup y r_stk in
-  let ex1 = lookup x1 r_stk in
-  let ex2 = lookup x2 r_stk in
-  let open SuduZ3 in
-  let fop =
-    match op with
-    | Binary_operator_plus -> fn_plus
-    | Binary_operator_minus -> fn_minus
-    | Binary_operator_times -> fn_times
-    | Binary_operator_divide -> fn_divide
-    | Binary_operator_modulus -> fn_modulus
-    | Binary_operator_less_than -> fn_lt
-    | Binary_operator_less_than_or_equal_to -> fn_le
-    | Binary_operator_equal_to -> fn_eq
-    | Binary_operator_and -> fn_and
-    | Binary_operator_or -> fn_or
-    | Binary_operator_xor -> fn_xor
+  let bind_fun xs r_stk (Id.Ident fid) =
+    SuduZ3.eq (lookup xs r_stk) (SuduZ3.fun_ fid)
   in
-  fop ey ex1 ex2
-
-let mk_encode_constraint block_map =
-  let encode_constraint ?(x_first = None) ?(callsites = []) xs0 r_stk
-      defined_site =
+  let bind_x_y x y r_stk = SuduZ3.eq (lookup x r_stk) (lookup y r_stk) in
+  let bind_x_y' x r_stk y r_stk' =
+    SuduZ3.eq (lookup x r_stk) (lookup y r_stk')
+  in
+  let bind_binop op y x1 x2 r_stk =
+    let ey = lookup y r_stk in
+    let ex1 = lookup x1 r_stk in
+    let ex2 = lookup x2 r_stk in
     let open SuduZ3 in
-    (* helpers *)
-    let p = pick_at xs0 r_stk in
-    let pick_first_at x_first r_stk = pick_at [ x_first ] r_stk in
+    let fop =
+      match op with
+      | Binary_operator_plus -> fn_plus
+      | Binary_operator_minus -> fn_minus
+      | Binary_operator_times -> fn_times
+      | Binary_operator_divide -> fn_divide
+      | Binary_operator_modulus -> fn_modulus
+      | Binary_operator_less_than -> fn_lt
+      | Binary_operator_less_than_or_equal_to -> fn_le
+      | Binary_operator_equal_to -> fn_eq
+      | Binary_operator_and -> fn_and
+      | Binary_operator_or -> fn_or
+      | Binary_operator_xor -> fn_xor
+    in
+    fop ey ex1 ex2
+  in
 
-    let deal_with_value xs0 r_stk v =
+  let encode_constraint ?(x_first = None) ?(callsites = []) key defined_site =
+    let open SuduZ3 in
+    let open Lookup_key in
+    (* helpers *)
+    let xs0, r_stk = (lookups key, key.r_stk) in
+    let p = pick_at_key key in
+
+    let deal_with_value v =
       let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in
       let eq_x_v =
         match v with
@@ -89,7 +109,8 @@ let mk_encode_constraint block_map =
           in
           p @=> and_ [ eq_x_v; this_c_stk ]
       (* Discover Non-Main *)
-      | true, Some x_first -> p @=> and2 eq_x_v (pick_first_at x_first r_stk)
+      | true, Some x_first ->
+          p @=> and2 eq_x_v (pick_at_key (Lookup_key.to_first key x_first))
       (* Discard *)
       | false, None ->
           p
@@ -106,10 +127,9 @@ let mk_encode_constraint block_map =
     let encode = function
       (* Value *)
       | At_clause { clause = Clause (_, Value_body v); _ } ->
-          deal_with_value xs0 r_stk (Some v)
+          deal_with_value (Some v)
       (* Input *)
-      | At_clause { clause = Clause (_, Input_body); _ } ->
-          deal_with_value xs0 r_stk None
+      | At_clause { clause = Clause (_, Input_body); _ } -> deal_with_value None
       (* Alias *)
       | At_clause { clause = Clause (_, Var_body (Var (x', _))); _ } ->
           p

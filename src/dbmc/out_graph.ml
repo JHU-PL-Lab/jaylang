@@ -95,7 +95,7 @@ end
 module DotPrinter_Make (C : Graph_info) = struct
   let graph_info = C.graph_info
 
-  let graph_of_gate_tree (sts : Search_tree.t) =
+  let graph_of_gate_tree (sts : Search_tree.state) =
     let tree = !(sts.root_node) in
     let g = G.create () in
     let add_node_edge prev_info this =
@@ -244,7 +244,7 @@ module DotPrinter_Make (C : Graph_info) = struct
           Hashtbl.find_exn graph_info.vertex_info_map node.key
         in
         let rule = graph_vertex.rule_name in
-        let x, xs, r_stack = node.key in
+        let xxs = Lookup_key.lookups node.key in
         Logs.info (fun m ->
             m "lookup_key : %a \tblock_id : %a \trule_name : %a" Lookup_key.pp
               node.key Id.pp node.block_id Gate.Node.pp_rule_name node.rule);
@@ -252,7 +252,7 @@ module DotPrinter_Make (C : Graph_info) = struct
           match graph_info.model with
           | None -> None
           | Some model ->
-              let lookup_name = Constraint.name_of_lookup (x :: xs) r_stack in
+              let lookup_name = Constraint.name_of_lookup xxs node.key.r_stk in
               Logs.info (fun m -> m "lookup (to model) : %s" lookup_name);
               Solver.SuduZ3.(get_value model (var_s lookup_name))
         in
@@ -261,7 +261,7 @@ module DotPrinter_Make (C : Graph_info) = struct
             match node.rule with
             | Para_local _ | Para_nonlocal _ | Pending | Cond_choice _ ->
                 node.block_id
-            | _ -> x
+            | _ -> node.key.x
           in
           Odefa_ast.Ast.Ident_map.Exceptionless.find c_id graph_info.source_map
         in
@@ -296,12 +296,12 @@ module DotPrinter_Make (C : Graph_info) = struct
             | None -> ""
           in
           Fmt.str "{ {[%s] | %a} | %a | %a | {φ | { %s %s } } | (%d) | %s}"
-            (Lookup_stack.mk_name (x :: xs))
+            (Lookup_stack.mk_name xxs)
             (Fmt.option Constraint.pp_value)
             key_value
             (Fmt.option Odefa_ast.Ast_pp_graph.pp_clause)
-            clause Relative_stack.pp_chucked r_stack phis_string phi_status
-            (List.length node.preds) rule
+            clause Relative_stack.pp_chucked node.key.r_stk phis_string
+            phi_status (List.length node.preds) rule
         in
         let styles =
           match node.rule with
@@ -315,13 +315,13 @@ module DotPrinter_Make (C : Graph_info) = struct
                  | true, false -> [ `Color Palette.light_red ]
                  | false, false -> [ `Penwidth 0.5; `Color Palette.light ] *)
               let picked =
-                Option.value_map graph_info.model ~default:false
-                  ~f:(fun model ->
-                    let x, xs, r_stk = node.key in
-                    Option.value
-                      (Solver.SuduZ3.get_bool model
-                         (Riddler.pick_at (x :: xs) r_stk))
-                      ~default:false)
+                true
+                (* Option.value_map graph_info.model ~default:false
+                   ~f:(fun model ->
+                     Option.value
+                       (Solver.SuduZ3.get_bool model
+                          (Riddler.pick_at_key graph_info.state node.key))
+                       ~default:false) *)
               in
               if picked then
                 [ `Penwidth 2.0 ]
