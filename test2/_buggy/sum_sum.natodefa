@@ -3,7 +3,19 @@ let y = input in
 let rec sum n = 
   if n == 0 then n else n + sum (n-1)
 in
-if sum x + sum y == 3 + 10 then
+# sum 30 == 465
+# sum 40 == 820
+# sum 50 == 1275
+# 4s
+# if sum x + sum y == 465 + 465 then
+# 15s
+# if sum x + sum y == 820 + 820 then
+# 34s
+# if sum x + sum y == 1275 + 1275 then
+# 90s
+# if sum x + sum y == 1285 then
+  
+if sum x + sum y == 465 + 820 then
   let target = 1 in target
 else
   0
