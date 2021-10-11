@@ -1,6 +1,19 @@
 (executable
  (name dbmc_top)
+ (modules dbmc_top)
  (libraries core logs dbmc odefa.ast odefa.natural odefa.parser)
+ (preprocess
+  (pps ppx_jane -allow-unannotated-ignores ppx_deriving.show lwt_ppx)))
+
+(executable
+ (name analysis_top)
+ (modules analysis_top)
+ (libraries core analysis))
+
+(executable
+ (name play)
+ (modules play)
+ (libraries core fix logs)
  (preprocess
   (pps ppx_jane -allow-unannotated-ignores ppx_deriving.show lwt_ppx)))
 

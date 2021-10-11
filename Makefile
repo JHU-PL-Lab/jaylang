@@ -45,6 +45,9 @@ land200:
 land500:
 	OCAML_LANDMARKS=on,output="callgraph500.ansi" time ./dbmc_top -t target test2/loop/_sum500.odefa
 
+one:
+	dune exec src/dbmc-top/analysis_top.exe -- test2/_syntax/one.odefa
+
 # old targets
 sandbox:
 	dune build test/sandbox/sandbox.exe

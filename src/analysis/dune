@@ -1,21 +1,15 @@
 (library
- (name dbmc)
- (public_name odefa.dbmc)
+ (name analysis)
  (libraries
   core
   fmt
-  lwt
-  lwt.unix
-  z3
-  landmarks
+  fix
   logs
-  logs.lwt
   logs.fmt
-  ocamlgraph
   odefa.ast
   odefa.ddpa
-  sudu)
- (synopsis "dbmc is demand-driven bounded model checking")
+  odefa.natural
+  odefa.parser)
  (inline_tests)
  (preprocess
   (pps

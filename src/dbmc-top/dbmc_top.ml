@@ -58,15 +58,12 @@ let handle_config cfg =
   let program =
     if String.is_suffix cfg.filename ~suffix:"natodefa" then
       let natast =
-        Exn.handle_uncaught_and_exit (fun () ->
-            In_channel.with_file cfg.filename
-              ~f:Odefa_natural.On_parse.parse_program_raw)
+        In_channel.with_file cfg.filename
+          ~f:Odefa_natural.On_parse.parse_program_raw
       in
       Odefa_natural.On_to_odefa.translate natast
     else if String.is_suffix cfg.filename ~suffix:"odefa" then
-      Exn.handle_uncaught_and_exit (fun () ->
-          In_channel.with_file cfg.filename
-            ~f:Odefa_parser.Parser.parse_program_raw)
+      In_channel.with_file cfg.filename ~f:Odefa_parser.Parser.parse_program_raw
     else
       failwith "file extension must be .odefa or .natodefa"
   in
