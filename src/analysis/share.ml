@@ -81,6 +81,12 @@ module IdSet = Prop.Set (struct
   let equal s1 s2 = Set.equal s1 s2
 end)
 
+let first_id program =
+  let open Odefa_ast.Ast in
+  let (Expr clauses) = program in
+  let (Clause (Var (x, _), _)) = List.hd_exn clauses in
+  x
+
 let last_id program =
   let open Odefa_ast.Ast in
   let (Expr clauses) = program in
