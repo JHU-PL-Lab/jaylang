@@ -152,9 +152,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
             let choice = Option.value_exn cb.choice in
 
             let condsite_stack =
-              match
-                Relative_stack.pop rel_stack cb.point (Id.cond_fid choice)
-              with
+              match Rstack.pop rel_stack (cb.point, Id.cond_fid choice) with
               | Some stk -> stk
               | None -> failwith "impossible in CondTop"
             in
@@ -205,7 +203,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
                   let ctracelet = Cond { cond_block with choice = Some beta } in
                   let x_ret = Tracelet.ret_of ctracelet in
                   let cbody_stack =
-                    Relative_stack.push rel_stack x (Id.cond_fid beta)
+                    Rstack.push rel_stack (x, Id.cond_fid beta)
                   in
                   let sub_tree, edge =
                     create_lookup_task ~cvar
@@ -229,7 +227,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
         | At_fun_para (true, fb) ->
             let fid = fb.point in
             let callsites =
-              match Relative_stack.paired_callsite rel_stack fid with
+              match Rstack.paired_callsite rel_stack fid with
               | Some callsite -> [ callsite ]
               | None -> fb.callsites
             in
@@ -241,7 +239,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
                   let callsite_block, x', x'', x''' =
                     Tracelet.fun_info_of_callsite callsite map
                   in
-                  match Relative_stack.pop rel_stack x' fid with
+                  match Rstack.pop rel_stack (x', fid) with
                   | Some callsite_stack ->
                       let cvar =
                         create_cvar
@@ -287,7 +285,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
         | At_fun_para (false, fb) ->
             let fid = fb.point in
             let callsites =
-              match Relative_stack.paired_callsite rel_stack fid with
+              match Rstack.paired_callsite rel_stack fid with
               | Some callsite -> [ callsite ]
               | None -> fb.callsites
             in
@@ -299,7 +297,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
                   let callsite_block, x', x'', _x''' =
                     Tracelet.fun_info_of_callsite callsite map
                   in
-                  match Relative_stack.pop rel_stack x' fid with
+                  match Rstack.pop rel_stack (x', fid) with
                   | Some callsite_stack ->
                       let cvar =
                         create_cvar
@@ -361,7 +359,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
                 ~f:(fun (ins, sub_trees, edges) fid ->
                   let fblock = Ident_map.find fid map in
                   let x' = Tracelet.ret_of fblock in
-                  let rel_stack' = Relative_stack.push rel_stack x fid in
+                  let rel_stack' = Rstack.push rel_stack (x, fid) in
                   let cvar =
                     create_cvar
                       (Cvar.mk_callsite_to_fun (x :: xs) rel_stack x xf fid)
@@ -461,7 +459,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
     if List.is_empty key.xs then
       if Ident.equal block_id_here id_main then (
         (* Discovery Main *)
-        let target_stk = Relative_stack.concretize key.r_stk in
+        let target_stk = Rstack.concretize key.r_stk in
         add_phi' key (Tracelet.defined key.x block);
         gate_tree := { !gate_tree with rule = Gate.done_ target_stk };
         let edge = Gate.mk_edge gate_tree gate_tree in
@@ -487,7 +485,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
           add_phi' key Tracelet.Lookup_mismatch;
           gate_tree := { !gate_tree with rule = Gate.mismatch }
   in
-  lookup [ target ] block0 Relative_stack.empty state.root_node ()
+  lookup [ target ] block0 Rstack.empty state.root_node ()
 
 let[@landmark] lookup_main ~(config : Top_config.t) program target =
   let job_queue = Scheduler.create () in

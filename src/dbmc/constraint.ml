@@ -26,8 +26,7 @@ module T = struct
   type t =
     | Eq_v of Symbol.t * value
     | Eq_x of Symbol.t * Symbol.t
-    | Eq_lookup of
-        Lookup_stack.t * Relative_stack.t * Lookup_stack.t * Relative_stack.t
+    | Eq_lookup of Lookup_stack.t * Rstack.t * Lookup_stack.t * Rstack.t
     | Eq_binop of Symbol.t * Symbol.t * binop * Symbol.t
     | Eq_projection of Symbol.t * Symbol.t * Id.t
     | Target_stack of Concrete_stack.t
@@ -65,9 +64,9 @@ let rec pp oc t =
   | Eq_lookup (xs1, stk1, xs2, stk2) ->
       pf oc "@[<v 2>{%a}%a == {%a}%a@]"
         (list ~sep:(any "-> ") Id.pp)
-        xs1 Relative_stack.pp stk1
+        xs1 Rstack.pp stk1
         (list ~sep:(any "-> ") Id.pp)
-        xs2 Relative_stack.pp stk2
+        xs2 Rstack.pp stk2
   | Eq_binop (s1, s2, op, s3) ->
       pf oc "@[<v 2>%a := %a %a %a@]" Symbol.pp s1 Symbol.pp s2 pp_binop op
         Symbol.pp s3
@@ -134,6 +133,6 @@ let name_of_lookup xs stk =
   | [ x ] -> Symbol.Id (x, stk) |> Symbol.show
   | _ :: _ ->
       let p1 = Lookup_stack.mk_name xs in
-      let _, _, _, p2 = stk in
+      let p2 = Rstack.str_of_t stk in
       p1 ^ p2
   | [] -> ""

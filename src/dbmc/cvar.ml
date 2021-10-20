@@ -17,7 +17,7 @@ module T = struct
   and t = {
     lookups : Id.t list;
     cat : cat;
-    r_stk : Relative_stack.t;
+    r_stk : Rstack.t;
     complete_name : (string[@ignore] [@printer Std.ignore2]);
     picked_name : (string[@ignore] [@printer Std.ignore2]);
   }
@@ -29,7 +29,7 @@ include Comparator.Make (T)
 
 module Cvar_partial = struct
   module T = struct
-    type t = Id.t list * cat * Relative_stack.t
+    type t = Id.t list * cat * Rstack.t
     [@@deriving sexp, compare, equal, hash, show { with_path = false }]
   end
 
@@ -48,7 +48,7 @@ let print cvar =
           cf.block_f
     | Condsite cos -> Fmt.str "%a$%B" Id.pp cos.condsite cos.beta
   in
-  Fmt.str "(%a)%a_%s" Lookup_stack.pp cvar.lookups Relative_stack.pp cvar.r_stk
+  Fmt.str "(%a)%a_%s" Lookup_stack.pp cvar.lookups Rstack.pp cvar.r_stk
     cat_string
 
 let pp_print = Fmt.of_to_string print
@@ -56,7 +56,7 @@ let pp_print = Fmt.of_to_string print
 type fc_out = {
   xs_out : Id.t list;
   site : Id.t;
-  stk_out : Relative_stack.t;
+  stk_out : Rstack.t;
   f_out : Id.t;
   cvar : t;
 }
@@ -64,23 +64,18 @@ type fc_out = {
 
 type fc = {
   xs_in : Id.t list;
-  stk_in : Relative_stack.t;
+  stk_in : Rstack.t;
   fun_in : Id.t;
   outs : fc_out list;
 }
 [@@deriving sexp, show { with_path = false }]
 
-type cf_in = {
-  xs_in : Id.t list;
-  stk_in : Relative_stack.t;
-  fun_in : Id.t;
-  cvar : t;
-}
+type cf_in = { xs_in : Id.t list; stk_in : Rstack.t; fun_in : Id.t; cvar : t }
 [@@deriving sexp, show { with_path = false }]
 
 type cf = {
   xs_out : Id.t list;
-  stk_out : Relative_stack.t;
+  stk_out : Rstack.t;
   site : Id.t;
   f_out : Id.t;
   ins : cf_in list;

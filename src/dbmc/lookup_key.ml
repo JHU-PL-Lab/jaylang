@@ -1,14 +1,14 @@
 open Core
 
 module T = struct
-  type t = { x : Id.t; xs : Lookup_stack.t; r_stk : Relative_stack.t }
+  type t = { x : Id.t; xs : Lookup_stack.t; r_stk : Rstack.t }
   [@@deriving sexp, compare, equal, hash, show { with_path = false }]
 end
 
 include T
 include Comparator.Make (T)
 
-let start (x : Id.t) : t = { x; xs = []; r_stk = Relative_stack.empty }
+let start (x : Id.t) : t = { x; xs = []; r_stk = Rstack.empty }
 
 let of_parts x xs r_stk = { x; xs; r_stk }
 

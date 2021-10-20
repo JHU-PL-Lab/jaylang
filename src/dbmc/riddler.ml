@@ -104,7 +104,7 @@ let mk_encode_constraint block_map (state : Search_tree.state) =
       | true, None ->
           let this_c_stk =
             eq top_stack
-              (r_stk |> Relative_stack.concretize |> Concrete_stack.sexp_of_t
+              (r_stk |> Rstack.concretize |> Concrete_stack.sexp_of_t
              |> Sexp.to_string_mach |> SuduZ3.fun_)
           in
           p @=> and_ [ eq_x_v; this_c_stk ]
@@ -159,7 +159,7 @@ let mk_encode_constraint block_map (state : Search_tree.state) =
                 let _callsite_block, x', x'', x''' =
                   Tracelet.fun_info_of_callsite callsite block_map
                 in
-                match Relative_stack.pop r_stk x' fid with
+                match Rstack.pop r_stk (x', fid) with
                 | Some callsite_stk ->
                     let p_X' =
                       if is_local then
@@ -192,7 +192,7 @@ let mk_encode_constraint block_map (state : Search_tree.state) =
             List.fold fids ~init:([], []) ~f:(fun (cs, rs) fid ->
                 let fblock = Ident_map.find fid block_map in
                 let x' = Tracelet.ret_of fblock in
-                let r_stk' = Relative_stack.push r_stk x fid in
+                let r_stk' = Rstack.push r_stk (x, fid) in
                 let p_x' = pick_at (x' :: xs) r_stk' in
                 let eq_arg_para = bind_x_y' (x :: xs) r_stk (x' :: xs) r_stk' in
                 let eq_fid = bind_fun [ xf ] r_stk fid in
@@ -204,7 +204,7 @@ let mk_encode_constraint block_map (state : Search_tree.state) =
           let choice = Option.value_exn cb.choice in
           let x2 = cb.cond in
           let condsite_stack =
-            match Relative_stack.pop r_stk cb.point (Id.cond_fid choice) with
+            match Rstack.pop r_stk (cb.point, Id.cond_fid choice) with
             | Some stk -> stk
             | None -> failwith "impossible in CondTop"
           in
@@ -235,9 +235,7 @@ let mk_encode_constraint block_map (state : Search_tree.state) =
             List.fold [ true; false ] ~init:([], []) ~f:(fun (cs, rs) beta ->
                 let ctracelet = Cond { cond_block with choice = Some beta } in
                 let x_ret = Tracelet.ret_of ctracelet in
-                let cbody_stack =
-                  Relative_stack.push r_stk x (Id.cond_fid beta)
-                in
+                let cbody_stack = Rstack.push r_stk (x, Id.cond_fid beta) in
                 let p_x_ret_beta = pick_at (x_ret :: xs) cbody_stack in
                 let eq_beta = bind_x_v [ x' ] r_stk (Value_bool beta) in
                 let eq_lookup =

@@ -1,4 +1,4 @@
-.PHONY: all clean repl sandbox test benchmark dbmc logclean dtest
+.PHONY: all clean repl test benchmark dbmc logclean dtest
 
 all: dbmc
 
@@ -22,7 +22,6 @@ clean:
 	dune clean
 	rm -f ddpa_toploop
 	rm -f translator
-	rm -f sandbox
 	rm -f test_dbmc
 	rm -f dbmc_top
 
@@ -49,10 +48,6 @@ one:
 	dune exec src/dbmc-top/analysis_top.exe -- test2/_syntax/one.odefa
 
 # old targets
-sandbox:
-	dune build test/sandbox/sandbox.exe
-	ln -s -f _build/default/test/sandbox/sandbox.exe sandbox
-
 test:
 	dune build test/unittest/test.exe
 	_build/default/test/unittest/test.exe

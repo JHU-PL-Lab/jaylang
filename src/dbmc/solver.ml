@@ -250,7 +250,7 @@ let phi_z3_of_constraint ?debug_tool cs =
   z3_phis_of_smt_phi cs
 
 let solution_input_feeder model target_stack (x, call_stack) : int option =
-  let stk = Relative_stack.relativize target_stack call_stack in
+  let stk = Rstack.relativize target_stack call_stack in
   let sym = Symbol.id x stk in
   SuduZ3.get_int_s model (Symbol.show sym)
 

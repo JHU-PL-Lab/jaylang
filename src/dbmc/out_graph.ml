@@ -300,8 +300,8 @@ module DotPrinter_Make (C : Graph_info) = struct
             (Fmt.option Constraint.pp_value)
             key_value
             (Fmt.option Odefa_ast.Ast_pp_graph.pp_clause)
-            clause Relative_stack.pp_chucked node.key.r_stk phis_string
-            phi_status (List.length node.preds) rule
+            clause Rstack.pp node.key.r_stk phis_string phi_status
+            (List.length node.preds) rule
         in
         let styles =
           match node.rule with
