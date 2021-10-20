@@ -134,6 +134,6 @@ let name_of_lookup xs stk =
   | [ x ] -> Symbol.Id (x, stk) |> Symbol.show
   | _ :: _ ->
       let p1 = Lookup_stack.mk_name xs in
-      let p2 = Relative_stack.show stk in
+      let _, _, _, p2 = stk in
       p1 ^ p2
   | [] -> ""
