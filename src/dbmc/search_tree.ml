@@ -75,14 +75,6 @@ let create_cvar state cvar_partial =
   Hash_set.strict_add_exn state.cvar_complete_false cvar;
   cvar
 
-let add_phi ?(debug = false) state key phi =
-  let phi_z3 =
-    let debug_tool = Option.some_if debug (key, state.noted_phi_map) in
-    Solver.phi_z3_of_constraint ?debug_tool phi
-  in
-  state.phis_z3 <- phi_z3 :: state.phis_z3;
-  Hashtbl.add_multi state.phi_map ~key ~data:phi
-
 let clear_phis state = state.phis_z3 <- []
 
 let get_cvars_z3 ?(debug = false) state =

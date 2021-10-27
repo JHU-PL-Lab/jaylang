@@ -130,7 +130,7 @@ module DotPrinter_Make (S : Graph_state) = struct
           match S.model with
           | None -> None
           | Some model ->
-              let lookup_name = Symbol.name_of_lookup xxs node.key.r_stk in
+              let lookup_name = Lookup_key.to_str node.key in
               Logs.info (fun m -> m "lookup (to model) : %s" lookup_name);
               Solver.SuduZ3.(get_value model (var_s lookup_name))
         in
@@ -174,7 +174,7 @@ module DotPrinter_Make (S : Graph_state) = struct
             | None -> ""
           in
           Fmt.str "{ {[%s] | %a} | %a | %s | {φ | { %s %s } } | (%d) | %s}"
-            (Lookup_stack.mk_name xxs)
+            (Lookup_stack.str_of_t xxs)
             (Fmt.option Constraint.pp_value)
             key_value
             (Fmt.option Odefa_ast.Ast_pp_graph.pp_clause)

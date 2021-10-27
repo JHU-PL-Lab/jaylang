@@ -146,11 +146,6 @@ let bubble_up_complete cvar_map coming_edge node =
   let rec bubble_up coming_edge (node : Node_ref.t) =
     let coming_node = coming_edge.succ in
     let coming_cvar = coming_edge.label_cvar in
-    (* Logs.info (fun m ->
-        m "B: %a [%a->%a]%a" Lookup_key.pp !node.key Lookup_key.pp
-          !(coming_edge.succ).key Lookup_key.pp !(coming_edge.pred).key
-          (Fmt.Dump.option Cvar.pp_print)
-          coming_cvar); *)
     (* bubble_up *)
     let can_mark_complete =
       match !node.rule with

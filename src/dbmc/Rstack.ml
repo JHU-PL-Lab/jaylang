@@ -7,12 +7,7 @@ module T = struct
   type op = Push | Co_pop
 
   (* `co_stk` and `stk` are not necessary here if we choose to record frame change in `op` *)
-  and prev_stk = {
-    prev : t;
-    op : op;
-    co_stk : (frame list[@ignore]);
-    stk : (frame list[@ignore]);
-  }
+  and prev_stk = { prev : t; op : op; co_stk : frame list; stk : frame list }
 
   (* we cannot use `prev_stk option` here since co_pop can return a empty stack or nothing. If using option, both will be `None`. *)
   and t = Cons of prev_stk | Empty [@@deriving sexp, compare, equal, hash]

@@ -219,9 +219,7 @@ let clauses_of_expr e =
 let defined x block =
   match (clause_of_x block x, block) with
   | Some tc, _ -> At_clause tc
-  | None, Fun fb ->
-      Fmt.pr "Defined %a %a\n" Id.pp fb.para Id.pp x;
-      At_fun_para (Ident.(equal fb.para x), fb)
+  | None, Fun fb -> At_fun_para (Ident.(equal fb.para x), fb)
   | None, Cond cb -> At_chosen cb
   | None, Main _mb -> failwith "main block must have target"
 

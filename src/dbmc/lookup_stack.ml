@@ -8,4 +8,4 @@ end
 include T
 include Comparator.Make (T)
 
-let mk_name xs = Fmt.(str "%a" (list ~sep:(any ";") Id.pp) xs)
+let str_of_t xs = Fmt.(str "%a" (list ~sep:(any ";") Id.pp) xs)

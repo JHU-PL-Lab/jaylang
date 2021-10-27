@@ -9,9 +9,7 @@ module SuduZ3 = Solver.SuduZ3
 
 let top_stack = SuduZ3.var_s "X_topstack"
 
-let pick_at_key key =
-  "P_" ^ Symbol.name_of_lookup (Lookup_key.lookups key) key.r_stk
-  |> SuduZ3.mk_bool_s
+let pick_at_key key = "P_" ^ Lookup_key.to_str key |> SuduZ3.mk_bool_s
 
 let pick_at xs r_stk = pick_at_key (Lookup_key.of_parts2 xs r_stk)
 
@@ -19,7 +17,7 @@ let mk_encode_constraint block_map (_state : Search_tree.state) =
   (* let pick_at_key key = pick_at_key state key in *)
 
   (* let lookup xs r_stk = lookup state xs r_stk in *)
-  let lookup xs r_stk = Symbol.name_of_lookup xs r_stk |> SuduZ3.var_s in
+  let lookup xs r_stk = Lookup_key.parts2_to_str xs r_stk |> SuduZ3.var_s in
 
   let bind_x_v xs r_stk v =
     let x = lookup xs r_stk in
@@ -142,9 +140,6 @@ let mk_encode_constraint block_map (_state : Search_tree.state) =
                 in
                 match Rstack.pop r_stk (x', fid) with
                 | Some callsite_stk ->
-                    Fmt.pr "In Fun_para:  %a %B= %s\n" Id.pp fid is_local
-                      (Symbol.name_of_lookup (x :: xs) r_stk);
-
                     let p_X' =
                       if is_local then
                         pick_at (x''' :: xs) callsite_stk

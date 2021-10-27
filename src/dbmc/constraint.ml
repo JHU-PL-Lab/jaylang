@@ -1,5 +1,20 @@
 open Core
 
+module Symbol = struct
+  module T = struct
+    type t = Id of Id.t * Rstack.t [@@deriving sexp, compare, equal, variants]
+  end
+
+  include T
+  include Comparator.Make (T)
+
+  let pp _oc = failwith "not used"
+
+  let show : t -> string = Fmt.to_to_string pp
+
+  let id i s = Id (i, s)
+end
+
 module T = struct
   type value = Sudu.Z3_api.plain =
     | Int of int [@printer Fmt.int]

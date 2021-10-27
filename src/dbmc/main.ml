@@ -61,12 +61,8 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
   (* reset and init *)
   Solver.reset ();
   state.phis_z3 <- [ Riddler.pick_at_key (Lookup_key.start target) ];
-  (* let add_phi key data =
-       Search_tree.add_phi ~debug:config.debug_lookup_graph state key data
-     in
-  *)
   let encode_constraint = Riddler.mk_encode_constraint map state in
-  let add_phi' ?(x_first = None) ?(callsites = []) this_key defined_site =
+  let add_phi ?(x_first = None) ?(callsites = []) this_key defined_site =
     let data : Z3.Expr.expr =
       encode_constraint ~x_first ~callsites this_key defined_site
     in
@@ -97,7 +93,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
       let this_key : Lookup_key.t = Lookup_key.of_parts x xs rel_stack in
       Hash_set.strict_remove_exn state.lookup_created this_key;
       Logs.info (fun m ->
-          m "search begin: %a in block %a" Lookup_key.pp this_key Id.pp block_id);
+          m "Lookup: %a in block %a" Lookup_key.pp this_key Id.pp block_id);
       let[@landmark] apply_rule () =
         let defined_site = Tracelet.defined x block in
         match defined_site with
@@ -108,7 +104,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
             deal_with_value None this_key block gate_tree
         (* Alias *)
         | At_clause { clause = Clause (_, Var_body (Var (x', _))); _ } ->
-            add_phi' this_key defined_site;
+            add_phi this_key defined_site;
             let sub_tree, edge =
               create_lookup_task
                 (Lookup_key.replace_x this_key x')
@@ -124,7 +120,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
                   (_, Binary_operation_body (Var (x1, _), _bop, Var (x2, _)));
               _;
             } ->
-            add_phi' this_key defined_site;
+            add_phi this_key defined_site;
 
             let sub_tree1, edge1 =
               create_lookup_task
@@ -151,7 +147,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
             in
             let x2 = cb.cond in
 
-            add_phi' this_key defined_site;
+            add_phi this_key defined_site;
             let sub_tree1, edge1 =
               create_lookup_task
                 (Lookup_key.of_parts x2 [] condsite_stack)
@@ -208,7 +204,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
                     cvar :: cvars ))
                 ~init:([], [ var_edge ], [])
             in
-            add_phi' this_key defined_site;
+            add_phi this_key defined_site;
 
             gate_tree :=
               {
@@ -270,8 +266,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
               Cvar.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
             in
 
-            Fmt.pr "why\n";
-            add_phi' ~callsites this_key defined_site;
+            add_phi ~callsites this_key defined_site;
 
             gate_tree := { !gate_tree with rule = Gate.mk_para ~sub_trees ~fc };
             bubble_up_edges edges
@@ -329,7 +324,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
               Cvar.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
             in
 
-            add_phi' ~callsites this_key defined_site;
+            add_phi ~callsites this_key defined_site;
 
             gate_tree := { !gate_tree with rule = Gate.mk_para ~sub_trees ~fc };
             bubble_up_edges edges
@@ -388,7 +383,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
                 ins;
               }
             in
-            add_phi' this_key defined_site;
+            add_phi this_key defined_site;
 
             gate_tree :=
               {
@@ -421,39 +416,42 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
         ()) *)
   and create_lookup_task ?cvar (key : Lookup_key.t) block parent_node =
     let block_id = block |> Tracelet.id_of_block in
-    match Hashtbl.find state.node_map key with
-    | Some child_node ->
-        let edge = Gate.mk_edge ?cvar parent_node child_node in
-        Gate.add_pred child_node edge;
-        (child_node, edge)
-    | None ->
-        Hash_set.strict_add_exn state.lookup_created key;
+    let dup, child_node, edge =
+      match Hashtbl.find state.node_map key with
+      | Some child_node ->
+          let edge = Gate.mk_edge ?cvar parent_node child_node in
+          Gate.add_pred child_node edge;
+          (true, child_node, edge)
+      | None ->
+          Hash_set.strict_add_exn state.lookup_created key;
 
-        let child_node =
-          ref (Gate.mk_node ~block_id ~key ~rule:Gate.pending_node)
-        in
-        let edge = Gate.mk_edge ?cvar parent_node child_node in
-        Gate.add_pred child_node edge;
-        Hashtbl.add_exn state.node_map ~key ~data:child_node;
-        Scheduler.push job_queue
-        @@ lookup (Lookup_key.lookups key) block key.r_stk child_node;
-        (child_node, edge)
+          let child_node =
+            ref (Gate.mk_node ~block_id ~key ~rule:Gate.pending_node)
+          in
+          let edge = Gate.mk_edge ?cvar parent_node child_node in
+          Gate.add_pred child_node edge;
+          Hashtbl.add_exn state.node_map ~key ~data:child_node;
+          Scheduler.push job_queue
+          @@ lookup (Lookup_key.lookups key) block key.r_stk child_node;
+          (false, child_node, edge)
+    in
+    Logs.info (fun m -> m "Create: %a (exist: %B)" Lookup_key.pp key dup);
+    (child_node, edge)
   and deal_with_value mv key block (gate_tree : Gate.Node.t ref) =
-    let block_id_here = id_of_block block in
-    let block_id = block_id_here in
+    let block_id = id_of_block block in
 
     (* Discovery Main & Non-Main *)
     if List.is_empty key.xs then
-      if Ident.equal block_id_here id_main then (
+      if Ident.equal block_id id_main then (
         (* Discovery Main *)
         let target_stk = Rstack.concretize key.r_stk in
-        add_phi' key (Tracelet.defined key.x block);
+        add_phi key (Tracelet.defined key.x block);
         gate_tree := { !gate_tree with rule = Gate.done_ target_stk };
         let edge = Gate.mk_edge gate_tree gate_tree in
         bubble_up_complete edge gate_tree)
       else (
         (* Discovery Non-Main *)
-        add_phi' ~x_first:(Some x_first) key (Tracelet.defined key.x block);
+        add_phi ~x_first:(Some x_first) key (Tracelet.defined key.x block);
         let child_tree, edge =
           create_lookup_task (Lookup_key.to_first key x_first) block gate_tree
         in
@@ -462,16 +460,14 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
     else (* Discard *)
       match mv with
       | Some (Value_function _f) ->
-          add_phi' key (Tracelet.defined key.x block);
-          Fmt.pr "In Discard: %a -> %a\n" Lookup_key.pp key Lookup_key.pp
-            (Lookup_key.drop_x key);
+          add_phi key (Tracelet.defined key.x block);
           let sub_tree, edge =
             create_lookup_task (Lookup_key.drop_x key) block gate_tree
           in
           gate_tree := { !gate_tree with rule = Gate.discard sub_tree };
           bubble_up_edges [ edge ]
       | _ ->
-          add_phi' key Tracelet.Lookup_mismatch;
+          add_phi key Tracelet.Lookup_mismatch;
           gate_tree := { !gate_tree with rule = Gate.mismatch }
   in
   lookup [ target ] block0 Rstack.empty state.root_node ()
