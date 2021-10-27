@@ -58,11 +58,6 @@ type passing_state = {
   prev_vertex : Gate.Node.t option;
 }
 
-let add_option xs y =
-  match y with
-  | Some y -> if List.mem xs y ~equal:Cvar.equal then xs else y :: xs
-  | None -> xs
-
 let escape_gen_align_left =
   String.Escaping.escape_gen_exn
     ~escapeworthy_map:
