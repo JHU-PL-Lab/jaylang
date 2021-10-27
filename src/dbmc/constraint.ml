@@ -62,11 +62,11 @@ let rec pp oc t =
   | Eq_v (s, v) -> pf oc "@[<v 2>%a == %a@]" Symbol.pp s pp_value v
   | Eq_x (s1, s2) -> pf oc "@[<v 2>%a == %a@]" Symbol.pp s1 Symbol.pp s2
   | Eq_lookup (xs1, stk1, xs2, stk2) ->
-      pf oc "@[<v 2>{%a}%a == {%a}%a@]"
+      pf oc "@[<v 2>{%a}%s == {%a}%s@]"
         (list ~sep:(any "-> ") Id.pp)
-        xs1 Rstack.pp stk1
+        xs1 (Rstack.str_of_t stk1)
         (list ~sep:(any "-> ") Id.pp)
-        xs2 Rstack.pp stk2
+        xs2 (Rstack.str_of_t stk2)
   | Eq_binop (s1, s2, op, s3) ->
       pf oc "@[<v 2>%a := %a %a %a@]" Symbol.pp s1 Symbol.pp s2 pp_binop op
         Symbol.pp s3
@@ -127,12 +127,3 @@ let bind_fun x stk (Id.Ident fid) = Eq_v (Symbol.id x stk, Fun fid)
 let and_ c1 c2 = C_and (c1, c2)
 
 let cond_bottom cs cvars = C_cond_bottom (cs, cvars)
-
-let name_of_lookup xs stk =
-  match xs with
-  | [ x ] -> Symbol.Id (x, stk) |> Symbol.show
-  | _ :: _ ->
-      let p1 = Lookup_stack.mk_name xs in
-      let p2 = Rstack.str_of_t stk in
-      p1 ^ p2
-  | [] -> ""

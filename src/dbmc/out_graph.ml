@@ -29,12 +29,7 @@ module Graph_node = struct
 end
 
 module Edge_label = struct
-  type edge = {
-    cvar : Cvar.t option;
-    picked_from_root : bool;
-    picked : bool;
-    complete : bool;
-  }
+  type edge = { picked_from_root : bool; picked : bool; complete : bool }
 
   and t = (edge, string) Either.t [@@deriving compare, equal]
 
@@ -51,28 +46,16 @@ module G = Graph.Imperative.Digraph.ConcreteLabeled (Graph_node) (Edge_label)
      Therefore, we have to merge on our own, which occurs outside the module.
 *)
 type vertex_info = {
-  (* the key is Lookup_key.t *)
   block_id : Id.t;
   rule_name : string;
   picked_from_root : bool;
-  picked : bool; (* cvars_in : Cvar.t list; *)
-}
-
-type graph_info_type = {
-  phi_map : (Lookup_key.t, Constraint.t list) Hashtbl.t;
-  noted_phi_map : (Lookup_key.t, (string * Z3.Expr.expr) list) Hashtbl.t;
-  source_map : Odefa_ast.Ast.clause Odefa_ast.Ast.Ident_map.t;
-  vertex_info_map : (Lookup_key.t, vertex_info) Hashtbl.t;
-  (* search state *)
-  model : Z3.Model.model option;
-  testname : string option;
+  picked : bool;
 }
 
 type passing_state = {
   picked_from_root : bool;
   picked : bool;
   prev_vertex : Gate.Node.t option;
-  prev_cvar : Cvar.t option;
 }
 
 let add_option xs y =
@@ -88,137 +71,38 @@ let escape_gen_align_left =
 
 let dot_escaped s = Staged.unstage escape_gen_align_left s
 
-module type Graph_info = sig
-  val graph_info : graph_info_type
+module type Graph_state = sig
+  val state : Search_tree.state
+
+  val testname : string option
+
+  val model : Z3.Model.model option
+
+  val source_map : Odefa_ast.Ast.clause Odefa_ast.Ast.Ident_map.t
 end
 
-module DotPrinter_Make (C : Graph_info) = struct
-  let graph_info = C.graph_info
-
-  let graph_of_gate_tree (sts : Search_tree.state) =
-    let tree = !(sts.root_node) in
+module DotPrinter_Make (S : Graph_state) = struct
+  let graph_of_gate_tree () =
+    let root = S.state.root_node in
     let g = G.create () in
-    let add_node_edge prev_info this =
-      match (prev_info.prev_vertex, prev_info.prev_cvar) with
-      | None, None -> G.add_vertex g (Either.first this)
-      | Some prev, None ->
-          let edge_info =
-            Edge_label.
-              {
-                cvar = None;
-                picked_from_root = prev_info.picked_from_root;
-                picked = true;
-                complete = true;
-              }
-          in
-          (* add_done_c_stk edge_info.picked_from_root this; *)
-          G.add_edge_e g
-            (G.E.create (Either.first prev) (Either.first edge_info)
-               (Either.first this))
-      | Some prev, Some cvar ->
-          let picked =
-            Option.value (Hashtbl.find sts.cvar_picked_map cvar) ~default:false
-          in
-          let complete = Hashtbl.find_exn sts.cvar_complete cvar in
-          let edge_info =
-            Edge_label.
-              {
-                cvar = Some cvar;
-                picked_from_root = prev_info.picked_from_root && picked;
-                picked;
-                complete;
-              }
-          in
-          G.add_edge_e g
-            (G.E.create (Either.first prev) (Either.first edge_info)
-               (Either.first this))
-      | None, Some _ -> failwith "impossible"
-    in
-    let rec loop_tree ?(one_step = false) (prev_info : passing_state)
-        (this : Gate.Node.t) =
-      (* state from passing prev_info *)
-      let picked_cvar =
-        match prev_info.prev_cvar with
-        | Some cvar ->
-            Option.value (Hashtbl.find sts.cvar_picked_map cvar) ~default:false
-        | None -> true
-      in
-      (* use && due to picked_from_root must be all true *)
-      let picked_from_root = prev_info.picked_from_root && picked_cvar in
-      let passing_info = { prev_info with picked_from_root } in
-      (* recursive call pre-work *)
-      let loop ?(next_one_step = false) ?cvar ?this next =
-        if one_step then
-          ()
-        else
-          let passing_state' =
-            { passing_info with prev_vertex = this; prev_cvar = cvar }
-          in
-          loop_tree ~one_step:next_one_step passing_state' next
-      in
-      (* update graph node for this *)
-      let add_or_update_graph_node tree_node =
-        (* add or update the dict *)
-        Hashtbl.update graph_info.vertex_info_map tree_node.Gate.Node.key
-          ~f:(function
-          | Some v ->
-              {
-                v with
-                (* use || due to it can be tree if there exists such a all-true path *)
-                picked_from_root = v.picked_from_root || picked_from_root;
-                picked =
-                  v.picked || picked_cvar
-                  (* cvars_in = add_option v.cvars_in prev_info.prev_cvar; *);
-              }
-          | None ->
-              {
-                block_id = this.block_id;
-                rule_name = Gate.Node.rule_name this.rule;
-                picked_from_root;
-                picked =
-                  picked_cvar
-                  (* cvars_in = add_option [] prev_info.prev_cvar; *);
-              });
-        add_node_edge prev_info tree_node
-      in
-      (match this.rule with _ -> add_or_update_graph_node this);
-      (* looping next *)
-      match this.rule with
-      | Discard next | Alias next | To_first next -> loop ~this !next
-      | Pending | Mismatch | Done _ -> ()
-      (* loop_tree ~one_step:true prev_info !next *)
-      (* | Proxy next -> loop ~next_one_step:true ~this !next *)
-      | Binop (n1, n2) -> List.iter ~f:(fun n -> loop ~this !n) [ n1; n2 ]
-      | Cond_choice (n1, n2) -> List.iter ~f:(fun n -> loop ~this !n) [ n1; n2 ]
-      | Callsite (nf, nb, _) ->
-          loop ~this !nf;
-          List.iter ~f:(fun (cvar, n) -> loop ~cvar ~this !n) nb
-      | Condsite (nc, ncs) ->
-          loop ~this !nc;
-          List.iter ~f:(fun (cvar, n) -> loop ~cvar ~this !n) ncs
-      | Para_local (np, _) ->
-          List.iter
-            ~f:(fun (cvar, n1, n2) ->
-              loop ~cvar ~this !n1;
-              loop ~cvar ~this !n2)
-            np
-      | Para_nonlocal (np, _) ->
-          List.iter
-            ~f:(fun (cvar, n1, n2) ->
-              loop ~cvar ~this !n1;
-              loop ~cvar ~this !n2)
-            np
-    in
 
-    let init_passing_state =
-      {
-        picked_from_root = true;
-        picked = true;
-        prev_vertex = None;
-        prev_cvar = None;
-      }
+    let at_node (tree_node : Gate.Node.t ref) =
+      G.add_vertex g (Either.first !tree_node)
     in
-    loop_tree init_passing_state tree;
+    let acc_f parent node =
+      if Gate.Node_ref.equal node root then
+        node
+      else
+        let edge_info =
+          Edge_label.
+            { picked_from_root = false; picked = false; complete = false }
+        in
+        (* G.add_edge g (Either.first !parent) (Either.first !node); *)
+        G.add_edge_e g
+          (Either.first !parent, Either.first edge_info, Either.first !node);
+        node
+    in
+    ignore @@ Gate.traverse_node ~at_node ~init:root ~acc_f root;
     g
 
   module DotPrinter = Graph.Graphviz.Dot (struct
@@ -231,7 +115,7 @@ module DotPrinter_Make (C : Graph_info) = struct
 
     let graph_attributes _ =
       let graph_title =
-        match graph_info.testname with Some s -> [ `Label s ] | None -> []
+        match S.testname with Some s -> [ `Label s ] | None -> []
       in
       [ `Fontname "Consolas"; `Fontsize 16 ] @ graph_title
 
@@ -240,19 +124,13 @@ module DotPrinter_Make (C : Graph_info) = struct
     let vertex_attributes v0 =
       let node_attr (node : Gate.Node.t) =
         let open Gate in
-        let graph_vertex =
-          Hashtbl.find_exn graph_info.vertex_info_map node.key
-        in
-        let rule = graph_vertex.rule_name in
+        let rule = Gate.Node.rule_name node.rule in
         let xxs = Lookup_key.lookups node.key in
-        Logs.info (fun m ->
-            m "lookup_key : %a \tblock_id : %a \trule_name : %a" Lookup_key.pp
-              node.key Id.pp node.block_id Gate.Node.pp_rule_name node.rule);
         let key_value =
-          match graph_info.model with
+          match S.model with
           | None -> None
           | Some model ->
-              let lookup_name = Constraint.name_of_lookup xxs node.key.r_stk in
+              let lookup_name = Symbol.name_of_lookup xxs node.key.r_stk in
               Logs.info (fun m -> m "lookup (to model) : %s" lookup_name);
               Solver.SuduZ3.(get_value model (var_s lookup_name))
         in
@@ -263,21 +141,21 @@ module DotPrinter_Make (C : Graph_info) = struct
                 node.block_id
             | _ -> node.key.x
           in
-          Odefa_ast.Ast.Ident_map.Exceptionless.find c_id graph_info.source_map
+          Odefa_ast.Ast.Ident_map.Exceptionless.find c_id S.source_map
         in
         let content =
           let phis =
-            Option.value (Hashtbl.find graph_info.phi_map node.key) ~default:[]
+            Option.value (Hashtbl.find S.state.phi_map node.key) ~default:[]
           in
           let phis_string =
             List.map phis ~f:(fun phi -> phi |> Constraint.show |> dot_escaped)
             |> String.concat ~sep:" | "
           in
           let phi_status =
-            match Hashtbl.find graph_info.noted_phi_map node.key with
+            match Hashtbl.find S.state.noted_phi_map node.key with
             | Some [] -> ""
             | Some noted_phis -> (
-                match graph_info.model with
+                match S.model with
                 | Some model ->
                     let noted_vs =
                       List.map noted_phis ~f:(fun (note, phi) ->
@@ -295,13 +173,20 @@ module DotPrinter_Make (C : Graph_info) = struct
                 | None -> "")
             | None -> ""
           in
-          Fmt.str "{ {[%s] | %a} | %a | %a | {φ | { %s %s } } | (%d) | %s}"
+          Fmt.str "{ {[%s] | %a} | %a | %s | {φ | { %s %s } } | (%d) | %s}"
             (Lookup_stack.mk_name xxs)
             (Fmt.option Constraint.pp_value)
             key_value
             (Fmt.option Odefa_ast.Ast_pp_graph.pp_clause)
-            clause Rstack.pp node.key.r_stk phis_string phi_status
-            (List.length node.preds) rule
+            clause
+            (Rstack.str_of_t node.key.r_stk)
+            phis_string phi_status (List.length node.preds) rule
+        in
+        let picked =
+          Option.value_map S.model ~default:false ~f:(fun model ->
+              Option.value
+                (Solver.SuduZ3.get_bool model (Riddler.pick_at_key node.key))
+                ~default:true)
         in
         let styles =
           match node.rule with
@@ -314,15 +199,6 @@ module DotPrinter_Make (C : Graph_info) = struct
                  | false, true -> [ `Color Palette.cyan ]
                  | true, false -> [ `Color Palette.light_red ]
                  | false, false -> [ `Penwidth 0.5; `Color Palette.light ] *)
-              let picked =
-                true
-                (* Option.value_map graph_info.model ~default:false
-                   ~f:(fun model ->
-                     Option.value
-                       (Solver.SuduZ3.get_bool model
-                          (Riddler.pick_at_key graph_info.state node.key))
-                       ~default:false) *)
-              in
               if picked then
                 [ `Penwidth 2.0 ]
               else
@@ -330,7 +206,8 @@ module DotPrinter_Make (C : Graph_info) = struct
         in
 
         let line_styles =
-          if node.has_complete_path then [] else [ `Style `Dashed ]
+          (* node.has_complete_path *)
+          if picked then [] else [ `Style `Dashed ]
         in
         [ `Label content ] @ styles @ line_styles
       in
@@ -351,8 +228,7 @@ module DotPrinter_Make (C : Graph_info) = struct
           else
             [ `Style `Dashed ]
         in
-        let name = Fmt.(str "%a" (option Cvar.pp_print) edge.cvar) in
-        let labels = [ `Label name ] in
+        let labels = [ `Label "" ] in
         styles @ labels
       in
       let string_label s = [ `Label s ] in
@@ -361,8 +237,9 @@ module DotPrinter_Make (C : Graph_info) = struct
     let get_subgraph _ = None
   end)
 
-  let output_graph g =
+  let output_graph () =
+    let graph = graph_of_gate_tree () in
     let oc = Log.dot_file_oc_of_now () in
-    DotPrinter.output_graph oc g;
+    DotPrinter.output_graph oc graph;
     Out_channel.close oc
 end

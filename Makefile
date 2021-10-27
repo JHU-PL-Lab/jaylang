@@ -54,3 +54,6 @@ test:
 
 repl:
 	dune utop src -- -require pdr-programming
+
+c:
+	./dbmc_top -t target -l debug -g true test2/condition/cond_in_f_g.odefa

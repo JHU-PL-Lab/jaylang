@@ -8,6 +8,10 @@ type dvalue = Direct of value | Closure of Ident.t * function_value * denv
 
 and denv = dvalue Ident_map.t
 
+let pp_dvalue oc = function
+  | Direct v -> Odefa_ast.Ast_pp.pp_value oc v
+  | Closure _ -> ()
+
 let cond_fid b = if b then Ident "$tt" else Ident "$ff"
 
 let value_of_dvalue = function
@@ -101,16 +105,16 @@ and eval_clause ~input_feeder ~target stk env clause : denv * dvalue =
     if same_stack (List.rev target_stk) stk then
       raise (Found_target (value_of_dvalue v))
     else
-      (* Fmt.(
-         pr "found %a at stack %a, expect %a" pp_ident x
-           Dump.(list (pair pp_ident pp_ident))
-           target_stk
-           Dump.(list (pair pp_ident pp_ident))
-           stk) *)
-      ()
+      Fmt.(
+        pr "found %a at stack %a, expect %a" pp_ident x
+          Dump.(list (pair pp_ident pp_ident))
+          target_stk
+          Dump.(list (pair pp_ident pp_ident))
+          stk) (* () *)
   else
     ();
 
+  (* Fmt.pr "%a = %a\n" Id.pp x pp_dvalue v; *)
   (Ident_map.add x v env, v)
 
 and eval_val env (Var (x, _)) : dvalue = Ident_map.find x env

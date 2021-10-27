@@ -28,10 +28,6 @@ type state = {
   (* pvar *)
   pvar_reach_top : bool ref;
   lookup_created : Lookup_key.t Hash_set.t;
-  picked_map : (Lookup_key.t, Z3.Expr.expr) Hashtbl.t;
-  picked_counter : int ref;
-  lookup_map : (Lookup_key.t, Z3.Expr.expr) Hashtbl.t;
-  lookup_counter : int ref;
   (* debug *)
   noted_phi_map : (Lookup_key.t, (string * Z3.Expr.expr) list) Hashtbl.t;
 }
@@ -50,10 +46,6 @@ let create_state block x_target =
       cvar_complete_true_z3 = [];
       cvar_picked_map = Hashtbl.create (module Cvar);
       pvar_reach_top = ref false;
-      picked_map = Hashtbl.create (module Lookup_key);
-      picked_counter = ref 0;
-      lookup_map = Hashtbl.create (module Lookup_key);
-      lookup_counter = ref 0;
       lookup_created = Hash_set.create (module Lookup_key);
       noted_phi_map = Hashtbl.create (module Lookup_key);
     }

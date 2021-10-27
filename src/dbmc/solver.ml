@@ -16,7 +16,9 @@ let check phis_z3 cvars_z3 =
 
 let string_of_solver () = Z3.Solver.to_string solver
 
-let var_of_symbol sym = sym |> Symbol.show |> SuduZ3.var_s
+let var_of_symbol sym =
+  let (Symbol.Id (x, r_stk)) = sym in
+  SuduZ3.var_s (Symbol.name_of_lookup [ x ] r_stk)
 
 let phi_z3_of_constraint ?debug_tool cs =
   let open SuduZ3 in
@@ -63,8 +65,8 @@ let phi_z3_of_constraint ?debug_tool cs =
         fop y x1 x2
     (* [eq y (fop x1 x2); not_ (eq y bottom_); not_ (eq x1 bottom_); not_ (eq x2 bottom_)] *)
     | Constraint.Eq_lookup (xs1, s1, xs2, s2) ->
-        let x = var_s @@ Constraint.name_of_lookup xs1 s1 in
-        let y = var_s @@ Constraint.name_of_lookup xs2 s2 in
+        let x = var_s @@ Symbol.name_of_lookup xs1 s1 in
+        let y = var_s @@ Symbol.name_of_lookup xs2 s2 in
         eq x y
     (* [eq x y; not_ (eq x bottom_); not_ (eq y bottom_)] *)
     | Constraint.C_and (c1, c2) ->
@@ -251,8 +253,9 @@ let phi_z3_of_constraint ?debug_tool cs =
 
 let solution_input_feeder model target_stack (x, call_stack) : int option =
   let stk = Rstack.relativize target_stack call_stack in
-  let sym = Symbol.id x stk in
-  SuduZ3.get_int_s model (Symbol.show sym)
+  let name = Symbol.name_of_lookup [ x ] stk in
+  (* Fmt.pr "Qeury Input: %s\n" name; *)
+  SuduZ3.get_int_s model name
 
 let memorized_solution_input_feeder mem model target_stack =
   let input_feeder = solution_input_feeder model target_stack in

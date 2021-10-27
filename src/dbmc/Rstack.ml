@@ -1,8 +1,7 @@
 open Core
 
 module T = struct
-  type frame = Id.t * Id.t
-  [@@deriving sexp, compare, equal, hash, show { with_path = false }]
+  type frame = Id.t * Id.t [@@deriving sexp, compare, equal, hash]
 
   (* No `Pop`. `Pop` won't generate a new rstk, t.prev will be returned. *)
   type op = Push | Co_pop
@@ -16,8 +15,7 @@ module T = struct
   }
 
   (* we cannot use `prev_stk option` here since co_pop can return a empty stack or nothing. If using option, both will be `None`. *)
-  and t = Cons of prev_stk | Empty
-  [@@deriving sexp, compare, equal, hash, show { with_path = false }]
+  and t = Cons of prev_stk | Empty [@@deriving sexp, compare, equal, hash]
 end
 
 include T
@@ -25,49 +23,45 @@ include Comparator.Make (T)
 
 let empty : t = Empty
 
-let push prev frame =
-  match prev with
-  | Empty -> Cons { prev; op = Push; co_stk = []; stk = [ frame ] }
+let push rstk frame =
+  match rstk with
+  | Empty -> Cons { prev = Empty; op = Push; co_stk = []; stk = [ frame ] }
   | Cons rstk ->
-      Cons { prev; op = Push; co_stk = rstk.co_stk; stk = frame :: rstk.stk }
+      Cons
+        {
+          prev = Cons rstk;
+          op = Push;
+          co_stk = rstk.co_stk;
+          stk = frame :: rstk.stk;
+        }
 
-let pop prev frame =
-  match prev with
-  | Empty -> Some (Cons { prev; op = Co_pop; co_stk = [ frame ]; stk = [] })
-  | Cons rstk -> (
-      match rstk.stk with
-      | (cs, _) :: stk' ->
-          let cs', _ = frame in
-          if Id.equal cs cs' then (* Some rstk.prev *)
-            Some
-              (Cons
-                 {
-                   prev = rstk.prev;
-                   op = rstk.op;
-                   co_stk = rstk.co_stk;
-                   stk = stk';
-                 })
-          else
-            None
-      | [] ->
-          Some
-            (Cons { prev; op = Co_pop; co_stk = frame :: rstk.co_stk; stk = [] })
-          (* match rstk.op with
-             | Push ->
-                 let c1, _ = frame in
-                 let c2, _ = List.hd_exn rstk.stk in
-                 if Id.equal c1 c2 then
-                   Some rstk.prev
-                 else (* failwith "unmathch pop from stk" *)
-                   None
-             | Co_pop ->
-                 if not @@ List.is_empty rstk.stk then
-                   failwith "non-empty stack when co_pop"
-                 else
-                   ();
-                 Some
-                   (Cons { prev; op = Co_pop; co_stk = frame :: rstk.co_stk; stk = [] }) *)
-      )
+let pop rstk frame =
+  match rstk with
+  | Empty ->
+      Some (Cons { prev = Empty; op = Co_pop; co_stk = [ frame ]; stk = [] })
+  | Cons { op = Push; prev; stk; _ } ->
+      let c1, _ = frame in
+      let c2, _ = List.hd_exn stk in
+      if Id.equal c1 c2 then
+        Some prev
+      else (* failwith "unmathch pop from stk" *)
+        None
+  | Cons { op = Co_pop; prev; co_stk; stk } ->
+      if List.is_empty stk then
+        Some (Cons { prev; op = Co_pop; co_stk = frame :: co_stk; stk = [] })
+      else
+        failwith "non-empty stack when co_pop"
+
+(* match rstk.stk with
+   | (cs, _) :: _ ->
+       let cs', _ = frame in
+       if Id.equal cs cs' then
+         Some rstk.prev
+       else
+         None
+   | [] ->
+       Some
+         (Cons { prev; op = Co_pop; co_stk = frame :: rstk.co_stk; stk = [] }) *)
 
 let paired_callsite rstk this_f =
   match rstk with
@@ -107,7 +101,7 @@ let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t
   let target_stk', call_stk' = discard_common target_stk call_rev in
   (* (target_stk', List.rev call_stk') *)
   let rstk' =
-    List.fold target_stk' ~init:Empty ~f:(fun acc fm ->
+    List.fold (List.rev target_stk') ~init:Empty ~f:(fun acc fm ->
         Option.value_exn (pop acc fm))
   in
   let rstk = List.fold (List.rev call_stk') ~init:rstk' ~f:push in
@@ -123,6 +117,8 @@ let str_of_t rstk =
         List.fold rstk.co_stk ~init:"" ~f:(fun acc fm -> acc ^ str_of_frame fm)
       in
       let str_stk =
-        List.fold rstk.co_stk ~init:"" ~f:(fun acc fm -> acc ^ str_of_frame fm)
+        List.fold rstk.stk ~init:"" ~f:(fun acc fm -> acc ^ str_of_frame fm)
       in
-      Printf.sprintf "-%s;+%s" str_costk str_stk
+      Printf.sprintf "[-%s;+%s]" str_costk str_stk
+
+let pp = Fmt.of_to_string str_of_t

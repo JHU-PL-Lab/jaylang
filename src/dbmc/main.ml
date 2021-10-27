@@ -10,32 +10,25 @@ type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
 
 exception Found_solution of result_info
 
-let print_dot_graph ~noted_phi_map ~model ~program ~testname
-    (state : Search_tree.state) =
-  let graph_info : Out_graph.graph_info_type =
-    {
-      phi_map = state.phi_map;
-      noted_phi_map;
-      source_map = Ddpa_helper.clause_mapping program;
-      vertex_info_map = Hashtbl.create (module Lookup_key);
-      model;
-      testname = Some testname;
-    }
-  in
+let print_dot_graph ~model ~program ~testname (state : Search_tree.state) =
   let module GI = (val (module struct
-                         let graph_info = graph_info
-                       end) : Out_graph.Graph_info)
+                         let state = state
+
+                         let testname = Some testname
+
+                         let model = model
+
+                         let source_map = Ddpa_helper.clause_mapping program
+                       end) : Out_graph.Graph_state)
   in
   let module Graph_dot_printer = Out_graph.DotPrinter_Make (GI) in
-  let graph = Graph_dot_printer.graph_of_gate_tree state in
-  Graph_dot_printer.output_graph graph
+  Graph_dot_printer.output_graph ()
 
 let check (state : Search_tree.state) (config : Top_config.t) =
   Logs.info (fun m -> m "Search Tree Size:\t%d" state.tree_size);
   let unfinish_lookup =
     Hash_set.to_list state.lookup_created
-    |> List.map ~f:(fun key ->
-           Solver.SuduZ3.not_ (Riddler.pick_at_key state key))
+    |> List.map ~f:(fun key -> Solver.SuduZ3.not_ (Riddler.pick_at_key key))
   in
   let check_result = Solver.check state.phis_z3 unfinish_lookup in
   Search_tree.clear_phis state;
@@ -67,7 +60,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
 
   (* reset and init *)
   Solver.reset ();
-  state.phis_z3 <- [ Riddler.pick_at_key state (Lookup_key.start target) ];
+  state.phis_z3 <- [ Riddler.pick_at_key (Lookup_key.start target) ];
   (* let add_phi key data =
        Search_tree.add_phi ~debug:config.debug_lookup_graph state key data
      in
@@ -277,6 +270,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
               Cvar.{ xs_in = x :: xs; stk_in = rel_stack; fun_in = fid; outs }
             in
 
+            Fmt.pr "why\n";
             add_phi' ~callsites this_key defined_site;
 
             gate_tree := { !gate_tree with rule = Gate.mk_para ~sub_trees ~fc };
@@ -413,14 +407,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
       (* !(state.root_node).has_complete_path &&  *)
       if state.tree_size mod 500 = 0 then
         match check state config with
-        | Some { model; c_stk } ->
-            if config.debug_lookup_graph then
-              print_dot_graph ~noted_phi_map:state.noted_phi_map
-                ~model:(Some model) ~program:info.program
-                ~testname:config.filename state
-            else
-              ();
-            Lwt.fail (Found_solution { model; c_stk })
+        | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
         | None -> Lwt.return_unit
       else
         Lwt.return_unit
@@ -476,6 +463,8 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
       match mv with
       | Some (Value_function _f) ->
           add_phi' key (Tracelet.defined key.x block);
+          Fmt.pr "In Discard: %a -> %a\n" Lookup_key.pp key Lookup_key.pp
+            (Lookup_key.drop_x key);
           let sub_tree, edge =
             create_lookup_task (Lookup_key.drop_x key) block gate_tree
           in
@@ -512,6 +501,11 @@ let[@landmark] lookup_main ~(config : Top_config.t) program target =
     Logs.info (fun m ->
         m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident target
           Concrete_stack.pp c_stk);
+    if config.debug_lookup_graph then
+      print_dot_graph ~model:(Some model) ~program:info.program
+        ~testname:config.filename state
+    else
+      ();
     [ Solver.get_inputs target model c_stk program ]
   in
   let post_process () =

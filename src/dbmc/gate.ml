@@ -146,11 +146,11 @@ let bubble_up_complete cvar_map coming_edge node =
   let rec bubble_up coming_edge (node : Node_ref.t) =
     let coming_node = coming_edge.succ in
     let coming_cvar = coming_edge.label_cvar in
-    Logs.info (fun m ->
+    (* Logs.info (fun m ->
         m "B: %a [%a->%a]%a" Lookup_key.pp !node.key Lookup_key.pp
           !(coming_edge.succ).key Lookup_key.pp !(coming_edge.pred).key
           (Fmt.Dump.option Cvar.pp_print)
-          coming_cvar);
+          coming_cvar); *)
     (* bubble_up *)
     let can_mark_complete =
       match !node.rule with
@@ -188,9 +188,9 @@ let bubble_up_complete cvar_map coming_edge node =
           else
             false
     in
-    Logs.info (fun m ->
+    (* Logs.info (fun m ->
         m "B: %B,%B,%d" !node.has_complete_path can_mark_complete
-          (List.length !node.preds));
+          (List.length !node.preds)); *)
     if !node.has_complete_path then
       ()
     else if can_mark_complete then (
@@ -203,27 +203,36 @@ let bubble_up_complete cvar_map coming_edge node =
   !changed_cvars
 
 let traverse_node ?(stop = fun _ -> false) ~at_node ~init ~acc_f node =
+  let visited = Hash_set.create (module Lookup_key) in
   let rec loop ~acc node =
     let is_stop = stop node in
     if is_stop then
       ()
-    else (
-      (* visit this node *)
-      at_node node;
+    else (* visit this node *)
+      let duplicate =
+        match Hash_set.strict_add visited !node.key with
+        | Ok () ->
+            at_node node;
+            false
+        | Error _ -> true
+      in
       let acc = acc_f acc node in
       (* traverse its children *)
-      match !node.rule with
-      | Pending | Done _ | Mismatch -> ()
-      | Discard child | Alias child | To_first child -> loop ~acc child
-      | Binop (n1, n2) | Cond_choice (n1, n2) ->
-          List.iter ~f:(loop ~acc) [ n1; n2 ]
-      | Callsite (node, child_edges, _) | Condsite (node, child_edges) ->
-          loop ~acc node;
-          List.iter ~f:(fun (_, n) -> loop ~acc n) child_edges
-      | Para_local (ncs, _) | Para_nonlocal (ncs, _) ->
-          List.iter
-            ~f:(fun (_, n1, n2) -> List.iter ~f:(loop ~acc) [ n1; n2 ])
-            ncs)
+      if not duplicate then
+        match !node.rule with
+        | Pending | Done _ | Mismatch -> ()
+        | Discard child | Alias child | To_first child -> loop ~acc child
+        | Binop (n1, n2) | Cond_choice (n1, n2) ->
+            List.iter ~f:(loop ~acc) [ n1; n2 ]
+        | Callsite (node, child_edges, _) | Condsite (node, child_edges) ->
+            loop ~acc node;
+            List.iter ~f:(fun (_, n) -> loop ~acc n) child_edges
+        | Para_local (ncs, _) | Para_nonlocal (ncs, _) ->
+            List.iter
+              ~f:(fun (_, n1, n2) -> List.iter ~f:(loop ~acc) [ n1; n2 ])
+              ncs
+      else
+        ()
   in
   loop ~acc:init node
 
