@@ -74,11 +74,11 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
       state.tree_size <- state.tree_size + 1;
       let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in
       let r_stk = rel_stack in
-      let block_id = Tracelet.id_of_block block in
       let this_key : Lookup_key.t = Lookup_key.of_parts x xs rel_stack in
       Hash_set.strict_remove_exn state.lookup_created this_key;
       Logs.info (fun m ->
-          m "Lookup: %a in block %a" Lookup_key.pp this_key Id.pp block_id);
+          m "Lookup: %a in block %a" Lookup_key.pp this_key Id.pp
+            (Tracelet.id_of_block block));
       let[@landmark] apply_rule () =
         let defined_site = Tracelet.defined x block in
         match defined_site with
@@ -187,8 +187,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
                 !gate_tree with
                 rule = Gate.mk_condsite ~cond_var_tree ~sub_trees;
               }
-        (* Fun Enter *)
-        (* Fun Enter Non-Local *)
+        (* Fun Enter / Fun Enter Non-Local *)
         | At_fun_para (is_local, fb) ->
             let fid = fb.point in
             let callsites =
@@ -278,7 +277,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
     lookup_work
   and create_lookup_task (key : Lookup_key.t) block parent_node : Gate.T.t ref =
     let block_id = block |> Tracelet.id_of_block in
-    let dup, child_node =
+    let _dup, child_node =
       match Hashtbl.find state.node_map key with
       | Some child_node ->
           let edge = Gate.mk_edge parent_node child_node in

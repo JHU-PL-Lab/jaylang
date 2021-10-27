@@ -21,12 +21,13 @@ let mk_encode_constraint block_map (_state : Search_tree.state) =
 
   let bind_x_v xs r_stk v =
     let x = lookup xs r_stk in
+    let open Odefa_ast.Ast in
     let v =
-      match Constraint.to_smt_v v with
-      | Constraint.Int i -> SuduZ3.int_ i
-      | Constraint.Bool b -> SuduZ3.bool_ b
-      | Constraint.Fun fid -> SuduZ3.fun_ fid
-      | Constraint.Record -> failwith "no record yet"
+      match v with
+      | Value_int i -> SuduZ3.int_ i
+      | Value_bool b -> SuduZ3.bool_ b
+      | Value_function _ -> failwith "should not be a function"
+      | Value_record _ -> failwith "no record yet"
     in
     SuduZ3.eq x v
   in
