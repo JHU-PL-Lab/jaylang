@@ -48,25 +48,25 @@ let all_fun_start_clauses clauses =
    with which the symbolic execution can decouple with the analysis.
    It makes the analysis configurable to the symbolic execution.
 *)
-(* 
-exising
-  clause_map:       id -> clause
-  heavily used
+(*
+   exising
+     clause_map:       id -> clause
+     heavily used
 
-  clause_pred_map:  id -> clause
-  never used
+     clause_pred_map:  id -> clause
+     never used
 
-  func_para_map:    para:id -> fun
-  used in FunEnter rule
+     func_para_map:    para:id -> fun
+     used in FunEnter rule
 
-  fun_ret_map:      ret:id -> fun
-  used in FunReturn rule
+     fun_ret_map:      ret:id -> fun
+     used in FunReturn rule
 
-  first_var:        id
-  used in several rules
+     first_var:        id
+     used in several rules
 
-  hybrid_table:     id -> value
- *)
+     hybrid_table:     id -> value
+*)
 
 let rec enum_all_functions_in_expr expr : function_value Enum.t =
   let (Expr clauses) = expr in
@@ -86,6 +86,9 @@ and enum_all_functions_in_body body : function_value Enum.t =
         (enum_all_functions_in_expr e1)
         (enum_all_functions_in_expr e2)
   | Match_body (_, _) | Projection_body (_, _) -> Enum.empty ()
+  | Abort_body -> Enum.empty ()
+  | Assume_body _ -> Enum.empty ()
+  | Assert_body _ -> Enum.empty ()
 
 and enum_all_functions_in_value value : function_value Enum.t =
   match value with
@@ -94,26 +97,27 @@ and enum_all_functions_in_value value : function_value Enum.t =
       Enum.append (Enum.singleton f) @@ enum_all_functions_in_expr e
   | Value_int _ | Value_bool _ -> Enum.empty ()
 
-(* is this the same as Ast_tools.flatten 
+(* is this the same as Ast_tools.flatten
    No. expr_flatten returns expr list
    while flatten return clause list.
 *)
 let rec expr_flatten (Expr clauses as expr) : expr list =
   expr
-  ::
-  (clauses
-  |> List.map (fun (Clause (_, b)) ->
-         match b with
-         | Value_body (Value_function (Function_value (_, e))) -> expr_flatten e
-         | Value_body _ | Var_body _ | Input_body
-         | Appl_body (_, _)
-         | Match_body (_, _)
-         | Projection_body (_, _)
-         | Binary_operation_body (_, _, _) ->
-             []
-         | Conditional_body (_, e1, e2) ->
-             e1 :: e2 :: expr_flatten e1 @ expr_flatten e2)
-  |> List.concat)
+  :: (clauses
+     |> List.map (fun (Clause (_, b)) ->
+            match b with
+            | Value_body (Value_function (Function_value (_, e))) ->
+                expr_flatten e
+            | Value_body _ | Var_body _ | Input_body
+            | Appl_body (_, _)
+            | Match_body (_, _)
+            | Projection_body (_, _)
+            | Binary_operation_body (_, _, _) ->
+                []
+            | Conditional_body (_, e1, e2) ->
+                (e1 :: e2 :: expr_flatten e1) @ expr_flatten e2
+            | Abort_body | Assume_body _ | Assert_body _ -> [])
+     |> List.concat)
 
 let clause_predecessor_mapping e =
   e |> expr_flatten |> List.enum

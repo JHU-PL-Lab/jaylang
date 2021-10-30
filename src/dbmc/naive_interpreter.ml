@@ -99,6 +99,7 @@ and eval_clause ~input_feeder ~target stk env clause : denv * dvalue =
           | _, _, _ -> failwith "incorrect binop"
         in
         Direct v
+    | Abort_body | Assume_body _ | Assert_body _ -> failwith "not supported yet"
   in
   let target_x, target_stk = target in
   if Ident.equal target_x x then

@@ -48,6 +48,9 @@ rule token = parse
   | "or"                             { KEYWORD_OR }
   | "xor"                            { KEYWORD_XOR }
   | "any"                            { KEYWORD_ANY }
+  | "abort"                          { KEYWORD_ABORT }
+  | "assume"                         { KEYWORD_ASSUME }
+  | "assert"                         { KEYWORD_ASSERT }
   | "_"                              { UNDERSCORE }
   | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) }
   | "+"                              { PLUS }

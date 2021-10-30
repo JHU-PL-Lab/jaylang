@@ -28,6 +28,9 @@ module List = BatList;;
 %token KEYWORD_OR
 %token KEYWORD_XOR
 %token KEYWORD_ANY
+%token KEYWORD_ABORT
+%token KEYWORD_ASSUME
+%token KEYWORD_ASSERT
 %token UNDERSCORE
 %token PLUS
 %token MINUS
@@ -83,6 +86,12 @@ clause_body:
       { Value_body($1) }
   | KEYWORD_INPUT
       { Input_body }
+  | KEYWORD_ABORT
+      { Abort_body }
+  | KEYWORD_ASSUME variable
+      { Assume_body $2 }
+  | KEYWORD_ASSERT variable
+      { Assert_body $2 }
   | variable
       { Var_body($1) }
   | variable variable
