@@ -1,7 +1,0 @@
-(library
- (name odefa_interpreter)
- (public_name odefa.interpreter)
- (synopsis "Interpreter for Odefa")
- (libraries batteries core jhupllib odefa.ast odefa.utils fmt)
- (preprocess
-  (pps ppx_here)))
