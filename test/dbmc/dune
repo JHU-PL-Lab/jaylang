@@ -17,9 +17,8 @@
   fmt
   alcotest
   odefa_ast
-  odefa_interpreter
   odefa_parser
   odefa.natural
   odefa.dbmc)
  (preprocess
-  (pps ppx_deriving.std ppx_jane)))
+  (pps ppx_jane -allow-unannotated-ignores ppx_deriving.std)))

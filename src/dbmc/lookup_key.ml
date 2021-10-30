@@ -16,6 +16,8 @@ let of_parts2 xs r_stk = { x = List.hd_exn xs; xs = List.tl_exn xs; r_stk }
 
 let to_parts key = (key.x, key.xs, key.r_stk)
 
+let to_parts2 key = (key.x :: key.xs, key.r_stk)
+
 let to_first key x = { key with x; xs = [] }
 
 let replace_x key x = { key with x }

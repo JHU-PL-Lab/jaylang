@@ -178,3 +178,5 @@ let fold_tree ?(stop = fun _ -> false) ~init ~sum node =
           List.fold ~init:acc ~f:(fun acc (n1, n2) -> sum (sum acc n1) n2) ncs
   in
   loop ~acc:init node
+
+let update_rule tree rule = tree := { !tree with rule }
