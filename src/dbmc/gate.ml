@@ -118,12 +118,6 @@ let binop n1 n2 = Binop (n1, n2)
 
 let cond_choice nc nr = Cond_choice (nc, nr)
 
-(*
-   cvars is actually some real or virtual out-edges of a node.
-   In node-based-recursive function, it's OK to set the cvar for
-   the node associated with that edge
-*)
-
 let traverse_node ?(stop = fun _ -> false) ~at_node ~init ~acc_f node =
   let visited = Hash_set.create (module Lookup_key) in
   let rec loop ~acc node =
@@ -158,25 +152,43 @@ let traverse_node ?(stop = fun _ -> false) ~at_node ~init ~acc_f node =
   in
   loop ~acc:init node
 
-let fold_tree ?(stop = fun _ -> false) ~init ~sum node =
-  let rec loop ~acc node =
+let fold_tree ?(stop = fun _ -> false) ~init ~init_path ~sum ~sum_path node =
+  let visited = Hash_set.create (module Lookup_key) in
+  let rec loop ~acc ~acc_path node =
     let is_stop = stop node in
     if is_stop then
-      ()
+      acc
     else (* fold this node *)
-      let acc = sum acc node in
-      (* fold its children *)
-      match !node.rule with
-      | Pending | Done _ | Mismatch -> acc
-      | Discard child | Alias child | To_first child -> loop ~acc child
-      | Binop (n1, n2) | Cond_choice (n1, n2) ->
-          List.fold ~init:acc ~f:sum [ n1; n2 ]
-      | Callsite (node, child_edges) | Condsite (node, child_edges) ->
-          let acc = sum acc node in
-          List.fold ~init:acc ~f:(fun acc n -> sum acc n) child_edges
-      | Para_local ncs | Para_nonlocal ncs ->
-          List.fold ~init:acc ~f:(fun acc (n1, n2) -> sum (sum acc n1) n2) ncs
+      let duplicate =
+        match Hash_set.strict_add visited node.key with
+        | Ok () -> false
+        | Error _ -> true
+      in
+      if not duplicate then
+        let acc_path = sum_path acc_path node in
+        let acc = sum acc acc_path node in
+        (* fold its children *)
+        match node.rule with
+        | Pending | Done _ | Mismatch -> acc
+        | Discard child | Alias child | To_first child ->
+            loop ~acc ~acc_path !child
+        | Binop (n1, n2) | Cond_choice (n1, n2) ->
+            List.fold ~init:acc
+              ~f:(fun acc n -> loop ~acc ~acc_path !n)
+              [ n1; n2 ]
+        | Callsite (node, child_edges) | Condsite (node, child_edges) ->
+            let acc = loop ~acc ~acc_path !node in
+            List.fold ~init:acc
+              ~f:(fun acc n -> loop ~acc ~acc_path !n)
+              child_edges
+        | Para_local ncs | Para_nonlocal ncs ->
+            List.fold ~init:acc
+              ~f:(fun acc (n1, n2) ->
+                loop ~acc:(loop ~acc ~acc_path !n1) ~acc_path !n2)
+              ncs
+      else
+        acc
   in
-  loop ~acc:init node
+  loop ~acc:init ~acc_path:init_path node
 
 let update_rule tree rule = tree := { !tree with rule }

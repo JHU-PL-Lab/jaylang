@@ -57,18 +57,22 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
   (* let block0 = Tracelet.cut_before true target block in *)
   let block0 = Tracelet.find_by_id target map in
 
+  let add_phi _key phi_z3 =
+    (* Hashtbl.add_exn state.phi_map ~key ~data:phi_z3; *)
+    state.phis_z3 <- phi_z3 :: state.phis_z3
+  in
+
   (* reset and init *)
   Solver.reset ();
   state.phis_z3 <- [ Riddler.pick_at_key (Lookup_key.start target) ];
 
-  let add_phi phi_z3 = state.phis_z3 <- phi_z3 :: state.phis_z3 in
-
   let[@landmark] rec lookup (xs0 : Lookup_stack.t) block r_stk
       (gate_tree : Gate.Node.t ref) : unit -> _ Lwt.t =
+    let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in
+    let this_key : Lookup_key.t = Lookup_key.of_parts x xs r_stk in
+
     let[@landmark] lookup_work () =
       state.tree_size <- state.tree_size + 1;
-      let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in
-      let this_key : Lookup_key.t = Lookup_key.of_parts x xs r_stk in
       Hash_set.strict_remove_exn state.lookup_created this_key;
       Logs.info (fun m ->
           m "Lookup: %a in block %a" Lookup_key.pp this_key Id.pp
@@ -81,6 +85,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
             deal_with_value (Some v) this_key block gate_tree
         (* Input *)
         | At_clause { clause = Clause (_, Input_body); _ } ->
+            Hash_set.add state.input_nodes this_key;
             deal_with_value None this_key block gate_tree
         (* Alias *)
         | At_clause { clause = Clause (_, Var_body (Var (x', _))); _ } ->
@@ -90,7 +95,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
                 block gate_tree
             in
             Gate.update_rule gate_tree (Gate.alias sub_tree);
-            add_phi (Riddler.alias this_key x')
+            add_phi this_key (Riddler.alias this_key x')
         (* Binop *)
         | At_clause
             {
@@ -109,7 +114,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
                 block gate_tree
             in
             Gate.update_rule gate_tree (Gate.binop sub_tree1 sub_tree2);
-            add_phi (Riddler.binop this_key bop x1 x2)
+            add_phi this_key (Riddler.binop this_key bop x1 x2)
         (* Cond Top *)
         | At_chosen cb ->
             let condsite_block = Tracelet.outer_block block map in
@@ -134,7 +139,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
             in
             Gate.update_rule gate_tree (Gate.cond_choice sub_tree1 sub_tree2);
 
-            add_phi (Riddler.cond_top this_key cb condsite_stack)
+            add_phi this_key (Riddler.cond_top this_key cb condsite_stack)
         (* Cond Bottom *)
         | At_clause
             {
@@ -170,7 +175,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
             in
             Gate.update_rule gate_tree
               (Gate.mk_condsite ~cond_var_tree ~sub_trees);
-            add_phi (Riddler.cond_bottom this_key cond_block x')
+            add_phi this_key (Riddler.cond_bottom this_key cond_block x')
         (* Fun Enter / Fun Enter Non-Local *)
         | At_fun_para (is_local, fb) ->
             let fid = fb.point in
@@ -211,7 +216,8 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
             in
 
             Gate.update_rule gate_tree (Gate.mk_para ~sub_trees);
-            add_phi (Riddler.fun_enter this_key is_local fb callsites map)
+            add_phi this_key
+              (Riddler.fun_enter this_key is_local fb callsites map)
         (* Fun Exit *)
         | At_clause
             {
@@ -242,7 +248,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
             in
 
             Gate.update_rule gate_tree (Gate.mk_callsite ~fun_tree ~sub_trees);
-            add_phi (Riddler.fun_exit this_key xf fids map)
+            add_phi this_key (Riddler.fun_exit this_key xf fids map)
         | At_clause ({ clause = Clause (_, _); _ } as tc) ->
             Logs.err (fun m -> m "%a" Ast_pp.pp_clause tc.clause);
             failwith "error lookup cases"
@@ -292,13 +298,13 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
         (* Discovery Main *)
         let target_stk = Rstack.concretize key.r_stk in
         Gate.update_rule gate_tree (Gate.done_ target_stk);
-        add_phi (Riddler.discover_main key mv))
+        add_phi key (Riddler.discover_main key mv))
       else (* Discovery Non-Main *)
         let child_tree =
           create_lookup_task (Lookup_key.to_first key x_first) block gate_tree
         in
         gate_tree := { !gate_tree with rule = Gate.to_first child_tree };
-        add_phi (Riddler.discover_non_main key x_first mv))
+        add_phi key (Riddler.discover_non_main key x_first mv))
     else (* Discard *)
       match mv with
       | Some (Value_function _f) ->
@@ -306,10 +312,10 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
             create_lookup_task (Lookup_key.drop_x key) block gate_tree
           in
           Gate.update_rule gate_tree (Gate.discard sub_tree);
-          add_phi (Riddler.discard key mv)
+          add_phi key (Riddler.discard key mv)
       | _ ->
           Gate.update_rule gate_tree Gate.mismatch;
-          add_phi (Riddler.mismatch key)
+          add_phi key (Riddler.mismatch key)
   in
   lookup [ target ] block0 Rstack.empty state.root_node ()
 
@@ -343,7 +349,19 @@ let[@landmark] lookup_main ~(config : Top_config.t) program target =
         ~testname:config.filename state
     else
       ();
-    [ Solver.get_inputs target model c_stk program ]
+    let inputs_from_interpreter =
+      Solver.get_inputs target model c_stk program
+    in
+    let input_from_model = Search_tree.collect_picked_input state model in
+    Logs.app (fun m ->
+        m "M: %a\nI: %a\n"
+          Fmt.Dump.(
+            list
+              (Fmt.pair ~sep:(Fmt.any ", ") Lookup_key.pp_id (option Fmt.int)))
+          input_from_model
+          Fmt.Dump.(list (option Fmt.int))
+          inputs_from_interpreter);
+    [ inputs_from_interpreter ]
   in
   let post_process () =
     match check state config with

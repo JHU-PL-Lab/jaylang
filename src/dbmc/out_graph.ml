@@ -139,13 +139,13 @@ module DotPrinter_Make (S : Graph_state) = struct
           Odefa_ast.Ast.Ident_map.Exceptionless.find c_id S.source_map
         in
         let content =
-          let phis =
-            Option.value (Hashtbl.find S.state.phi_map node.key) ~default:[]
-          in
           let phis_string =
-            List.map phis ~f:(fun phi -> phi |> Constraint.show |> dot_escaped)
-            |> String.concat ~sep:" | "
+            Option.value_map (Hashtbl.find S.state.phi_map node.key) ~default:""
+              ~f:(fun phi -> phi |> Z3.Expr.to_string |> dot_escaped)
+            (* List.map phis ~f:(fun phi -> phi |> Constraint.show |> dot_escaped)
+               |> String.concat ~sep:" | " *)
           in
+
           let phi_status =
             match Hashtbl.find S.state.noted_phi_map node.key with
             | Some [] -> ""

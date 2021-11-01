@@ -38,3 +38,10 @@ let parts2_to_str xs r_stk = to_str (of_parts2 xs r_stk)
 let show = to_str
 
 let pp = Fmt.of_to_string show
+
+let str_of_id key =
+  Printf.sprintf "%s%s"
+    (Lookup_stack.str_of_t (lookups key))
+    (Rstack.str_of_id key.r_stk)
+
+let pp_id = Fmt.of_to_string str_of_id
