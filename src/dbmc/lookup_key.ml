@@ -45,3 +45,17 @@ let str_of_id key =
     (Rstack.str_of_id key.r_stk)
 
 let pp_id = Fmt.of_to_string str_of_id
+
+let chrono_compare map k1 k2 =
+  let x1, xs1, r_stk1 = to_parts k1 in
+  let x2, xs2, r_stk2 = to_parts k2 in
+  assert (List.is_empty xs1);
+  assert (List.is_empty xs2);
+  let result = Rstack.compare r_stk1 r_stk2 in
+  if result = 0 then
+    if Tracelet.is_before map x1 x2 then
+      1
+    else
+      -1
+  else
+    result

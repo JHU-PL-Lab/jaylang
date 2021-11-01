@@ -394,3 +394,17 @@ let fun_info_of_callsite callsite map =
     | _ -> failwith "incorrect clause for callsite"
   in
   (callsite_block, x', x'', x''')
+
+let is_before map x1 x2 =
+  let open Continue_or_stop in
+  let block = find_by_id x1 map in
+  let clauses = get_clauses block in
+  List.fold_until clauses ~init:false
+    ~f:(fun _ x ->
+      if Id.equal x.id x1 then
+        Stop true
+      else if Id.equal x.id x2 then
+        Stop false
+      else
+        Continue true)
+    ~finish:Fn.id

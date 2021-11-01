@@ -352,15 +352,29 @@ let[@landmark] lookup_main ~(config : Top_config.t) program target =
     let inputs_from_interpreter =
       Solver.get_inputs target model c_stk program
     in
-    let input_from_model = Search_tree.collect_picked_input state model in
+    let input_from_model =
+      let input_collected = Search_tree.collect_picked_input state model in
+      input_collected
+    in
+    let input_from_model_ordered =
+      List.sort input_from_model ~compare:(fun (k1, _v1) (k2, _v2) ->
+          -Lookup_key.chrono_compare info.block_map k1 k2)
+    in
     Logs.app (fun m ->
         m "M: %a\nI: %a\n"
           Fmt.Dump.(
             list
               (Fmt.pair ~sep:(Fmt.any ", ") Lookup_key.pp_id (option Fmt.int)))
-          input_from_model
+          input_from_model_ordered
           Fmt.Dump.(list (option Fmt.int))
           inputs_from_interpreter);
+    assert (
+      List.length input_from_model_ordered
+      = List.count inputs_from_interpreter ~f:Option.is_some);
+    assert (
+      List.equal [%equal: int option]
+        (List.map input_from_model_ordered ~f:snd)
+        (List.filter inputs_from_interpreter ~f:Option.is_some));
     [ inputs_from_interpreter ]
   in
   let post_process () =
