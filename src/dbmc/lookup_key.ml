@@ -49,13 +49,32 @@ let pp_id = Fmt.of_to_string str_of_id
 let chrono_compare map k1 k2 =
   let x1, xs1, r_stk1 = to_parts k1 in
   let x2, xs2, r_stk2 = to_parts k2 in
+  let _s1, v1 = r_stk1 in
+  let _s2, v2 = r_stk2 in
   assert (List.is_empty xs1);
   assert (List.is_empty xs2);
-  let result = Rstack.compare r_stk1 r_stk2 in
-  if result = 0 then
-    if Tracelet.is_before map x1 x2 then
-      1
-    else
-      -1
+  let rec compare_stack s1 s2 =
+    match (s1, s2) with
+    | [], [] ->
+        if Id.equal x1 x2 then
+          0
+        else if Tracelet.is_before map x1 x2 then
+          1
+        else
+          -1
+    | (cs1, f1) :: ss1, (cs2, f2) :: ss2 ->
+        if Rstack.equal_frame (cs1, f1) (cs2, f2) then
+          compare_stack ss1 ss2
+        else if Id.equal cs1 cs2 then
+          failwith "the same promgram points"
+        else if Tracelet.is_before map cs1 cs2 then
+          1
+        else
+          -1
+    | _, _ -> 1
+  in
+  let result_co_stk = compare_stack v1.co_stk v2.co_stk in
+  if result_co_stk = 0 then
+    compare_stack v1.stk v2.stk
   else
-    result
+    result_co_stk

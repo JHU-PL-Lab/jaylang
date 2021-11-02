@@ -296,7 +296,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
     if singleton_lookup then (
       if Ident.equal block_id id_main then (
         (* Discovery Main *)
-        let target_stk = Rstack.concretize key.r_stk in
+        let target_stk = Rstack.concretize_top key.r_stk in
         Gate.update_rule gate_tree (Gate.done_ target_stk);
         add_phi key (Riddler.discover_main key mv))
       else (* Discovery Non-Main *)

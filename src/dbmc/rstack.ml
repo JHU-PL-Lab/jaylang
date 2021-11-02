@@ -90,7 +90,7 @@ let paired_callsite rstk this_f =
             failwith "inequal f when stack is not empty"
       | None -> None)
 
-let concretize rstk =
+let concretize_top rstk =
   let s, v = rstk in
   match s with
   | Empty -> []
@@ -152,17 +152,3 @@ let rec str_of_id rstk =
   | Cons { op = Pop; prev } -> str_of_id (prev, v) ^ "->;"
 
 let pp_id = Fmt.of_to_string str_of_id
-
-let chrono_compare r1 r2 =
-  let rec step_back s1 s2 =
-    match (s1, s2) with
-    | Empty, _ -> -1
-    | _, Empty -> 1
-    | Cons { prev = p1; _ }, Cons { prev = p2; _ } -> step_back p1 p2
-  in
-  let s1, _ = r1 in
-  let s2, _ = r2 in
-  if T.equal_structure s1 s2 then
-    0
-  else
-    step_back s1 s2

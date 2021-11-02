@@ -159,7 +159,7 @@ let discover_main key v =
   let x, _, r_stk = Lookup_key.to_parts key in
   let this_c_stk =
     eq top_stack
-      (r_stk |> Rstack.concretize |> Concrete_stack.sexp_of_t
+      (r_stk |> Rstack.concretize_top |> Concrete_stack.sexp_of_t
      |> Sexp.to_string_mach |> SuduZ3.fun_)
   in
   pick_at_key key @=> and_ [ eq_x_v x v r_stk; this_c_stk ]
