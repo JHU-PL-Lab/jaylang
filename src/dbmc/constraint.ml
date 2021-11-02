@@ -2,7 +2,8 @@ open Core
 
 module Symbol = struct
   module T = struct
-    type t = Id of Id.t * Rstack.t [@@deriving sexp, compare, equal, variants]
+    type t = Id of Id.t * Rstack.T.t
+    [@@deriving sexp, compare, equal, variants]
   end
 
   include T
@@ -41,7 +42,11 @@ module T = struct
   type t =
     | Eq_v of Symbol.t * value
     | Eq_x of Symbol.t * Symbol.t
-    | Eq_lookup of Lookup_stack.t * Rstack.t * Lookup_stack.t * Rstack.t
+    | Eq_lookup of
+        Lookup_stack.t
+        * (Rstack.T.t[@printer Std.ignore2])
+        * Lookup_stack.t
+        * (Rstack.T.t[@printer Std.ignore2])
     | Eq_binop of Symbol.t * Symbol.t * binop * Symbol.t
     | Eq_projection of Symbol.t * Symbol.t * Id.t
     | Target_stack of Concrete_stack.t
@@ -76,12 +81,14 @@ let rec pp oc t =
   match t with
   | Eq_v (s, v) -> pf oc "@[<v 2>%a == %a@]" Symbol.pp s pp_value v
   | Eq_x (s1, s2) -> pf oc "@[<v 2>%a == %a@]" Symbol.pp s1 Symbol.pp s2
-  | Eq_lookup (xs1, stk1, xs2, stk2) ->
-      pf oc "@[<v 2>{%a}%s == {%a}%s@]"
+  | Eq_lookup (xs1, _stk1, xs2, _stk2) ->
+      pf oc "@[<v 2>{%a} == {%a}@]"
         (list ~sep:(any "-> ") Id.pp)
-        xs1 (Rstack.str_of_t stk1)
+        xs1
+        (* (Rstack.str_of_t stk1) *)
         (list ~sep:(any "-> ") Id.pp)
-        xs2 (Rstack.str_of_t stk2)
+        xs2
+      (* (Rstack.str_of_t stk2) *)
   | Eq_binop (s1, s2, op, s3) ->
       pf oc "@[<v 2>%a := %a %a %a@]" Symbol.pp s1 Symbol.pp s2 pp_binop op
         Symbol.pp s3

@@ -17,7 +17,7 @@ module T = struct
   and t = {
     lookups : Id.t list;
     cat : cat;
-    r_stk : (Rstack.t[@printer Std.ignore2]);
+    r_stk : (Rstack.T.t[@printer Std.ignore2]);
     complete_name : (string[@ignore] [@printer Std.ignore2]);
     picked_name : (string[@ignore] [@printer Std.ignore2]);
   }
@@ -29,7 +29,7 @@ include Comparator.Make (T)
 
 module Cvar_partial = struct
   module T = struct
-    type t = Id.t list * cat * (Rstack.t[@printer Std.ignore2])
+    type t = Id.t list * cat * (Rstack.T.t[@printer Std.ignore2])
     [@@deriving sexp, compare, equal, hash, show { with_path = false }]
   end
 
@@ -48,16 +48,14 @@ let print cvar =
           cf.block_f
     | Condsite cos -> Fmt.str "%a$%B" Id.pp cos.condsite cos.beta
   in
-  Fmt.str "(%a)%s_%s" Lookup_stack.pp cvar.lookups
-    (Rstack.str_of_t cvar.r_stk)
-    cat_string
+  Fmt.str "(%a)%s" Lookup_stack.pp cvar.lookups cat_string
 
 let pp_print = Fmt.of_to_string print
 
 type fc_out = {
   xs_out : Id.t list;
   site : Id.t;
-  stk_out : (Rstack.t[@printer Std.ignore2]);
+  stk_out : (Rstack.T.t[@printer Std.ignore2]);
   f_out : Id.t;
   cvar : t;
 }
@@ -65,7 +63,7 @@ type fc_out = {
 
 type fc = {
   xs_in : Id.t list;
-  stk_in : (Rstack.t[@printer Std.ignore2]);
+  stk_in : (Rstack.T.t[@printer Std.ignore2]);
   fun_in : Id.t;
   outs : fc_out list;
 }
@@ -73,7 +71,7 @@ type fc = {
 
 type cf_in = {
   xs_in : Id.t list;
-  stk_in : (Rstack.t[@printer Std.ignore2]);
+  stk_in : (Rstack.T.t[@printer Std.ignore2]);
   fun_in : Id.t;
   cvar : t;
 }
@@ -81,7 +79,7 @@ type cf_in = {
 
 type cf = {
   xs_out : Id.t list;
-  stk_out : (Rstack.t[@printer Std.ignore2]);
+  stk_out : (Rstack.T.t[@printer Std.ignore2]);
   site : Id.t;
   f_out : Id.t;
   ins : cf_in list;

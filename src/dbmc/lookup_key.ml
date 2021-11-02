@@ -1,7 +1,7 @@
 open Core
 
 module T = struct
-  type t = { x : Id.t; xs : Lookup_stack.t; r_stk : Rstack.t }
+  type t = { x : Id.t; xs : Lookup_stack.t; r_stk : Rstack.h_stack }
   [@@deriving sexp, compare, equal, hash]
 end
 
