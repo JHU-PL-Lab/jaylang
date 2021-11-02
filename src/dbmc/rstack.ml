@@ -3,103 +3,65 @@ open Core
 module T = struct
   type frame = Id.t * Id.t [@@deriving sexp, compare, equal, hash]
 
-  (* No `Pop`. `Pop` won't generate a new rstk, t.prev will be returned. *)
-  type op = Push | Pop | Co_pop
+  type op = Push | Push_cond | Co_pop [@@deriving sexp, compare, equal, hash]
 
   (* `co_stk` and `stk` are not necessary here if we choose to record frame change in `op` *)
-  and structure = Cons of { prev : structure; op : op } | Empty
-
-  and view = { co_stk : frame list; stk : frame list }
-
-  and t = (structure[@hash.ignore]) * view
+  type t = Cons of { prev : t; op : op; frame : frame } | Empty
   [@@deriving sexp, compare, equal, hash]
 end
+(* When symbolic executing, we create counter on the fly.
+   However, when relativize, we lose the info on the counter.
 
-(* a stack can have id and view. the id is unique while the view is not.
-   Stacks with different ids can have the same view.
-   The view is used as hash key.
+   Two solution to solve this:
+   1. Keep the stack-tree, which is the collection of all the possible stacks.
+   Thus, any concrete stacks can be treated as _paths_ on the tree.
+   We can retrieve the nodes as needed.
+   The pro is the counter is simple. The con is to maintain the tree.
+   2. Use hashcons. We use hash-cons instead of the counter.
+   The pro is the hashcons is a standard way. The con is slightly heavier than the counter.
 *)
 
 include T
 include Comparator.Make (T)
 
-let empty : t = (Empty, { co_stk = []; stk = [] })
+let empty : t = Empty
 
-let push rstk frame : t =
-  let s, v = rstk in
-  let s' = Cons { prev = s; op = Push } in
-  let v' = { co_stk = v.co_stk; stk = frame :: v.stk } in
-  (s', v')
+let push rstk frame : t = Cons { prev = rstk; op = Push; frame }
 
-let pop rstk frame : t option =
-  let s, v = rstk in
-  match s with
+let push_cond rstk frame : t = Cons { prev = rstk; op = Push_cond; frame }
+
+let rec pop rstk frame : t option =
+  match rstk with
   | Empty ->
-      let s' = Cons { prev = s; op = Co_pop } in
-      let v' = { co_stk = [ frame ]; stk = [] } in
-      Some (s', v')
-  | Cons { op = Push; prev } ->
-      let frame2 = List.hd_exn v.stk in
+      (* TODO: what if starting from a then-block *)
+      Some (Cons { prev = rstk; op = Co_pop; frame })
+  | Cons { op = Push; prev; frame = frame_prev } ->
       let f1, _ = frame in
-      let f2, _ = frame2 in
-      if Id.equal f1 f2 then (
-        let v' = { co_stk = v.co_stk; stk = List.tl_exn v.stk } in
-        let choice1 = (prev, v') in
-        let choice2 = (Cons { prev = s; op = Pop }, v') in
-
-        assert (T.hash choice1 = T.hash choice2);
-        Some choice1)
+      let f2, _ = frame_prev in
+      if Id.equal f1 f2 then
+        Some prev
       else (* failwith "unmathch pop from stk" *)
         None
-  | Cons { op = Co_pop; _ } ->
-      if List.is_empty v.stk then
-        let s' = Cons { prev = s; op = Co_pop } in
-        let v' = { co_stk = frame :: v.co_stk; stk = [] } in
-        Some (s', v')
-      else
-        failwith "non-empty stack when co_pop"
-  | Cons { op = Pop; prev } ->
-      if List.is_empty v.stk then (* Co_pop case *)
-        let s' = Cons { prev = s; op = Co_pop } in
-        let v' = { co_stk = frame :: v.co_stk; stk = [] } in
-        Some (s', v')
-      else (* Push case *)
-        let frame2 = List.hd_exn v.stk in
-        let f1, _ = frame in
-        let f2, _ = frame2 in
-        if Id.equal f1 f2 then (
-          (* if equal_frame frame frame2 then *)
-          let v' = { co_stk = v.co_stk; stk = List.tl_exn v.stk } in
-          let choice1 = (prev, v') in
-          let choice2 = (Cons { prev = s; op = Pop }, v') in
-          assert (T.hash choice1 = T.hash choice2);
-          Some choice2)
-        else (* failwith "unmathch pop from stk" *)
-          None
+  | Cons { op = Co_pop; _ } -> Some (Cons { prev = rstk; op = Co_pop; frame })
+  | Cons { op = Push_cond; prev; _ } -> pop prev frame
 
-let paired_callsite rstk this_f =
-  let s, v = rstk in
-  match s with
+let rec paired_callsite rstk this_f =
+  match rstk with
   | Empty -> None
-  | Cons _ -> (
-      match List.hd v.stk with
-      | Some (cs, fid) ->
-          if Id.equal fid this_f then
-            Some cs
-          else
-            failwith "inequal f when stack is not empty"
-      | None -> None)
-
-let concretize_top rstk =
-  let s, v = rstk in
-  match s with
-  | Empty -> []
-  | Cons _ ->
-      if not @@ List.is_empty v.stk then
-        failwith "non-empty stack when concretize"
+  | Cons { op = Push; frame; _ } ->
+      let cs, fid = frame in
+      if Id.equal fid this_f then
+        Some cs
       else
-        ();
-      v.co_stk
+        failwith "inequal f when stack is not empty"
+  | Cons { op = Co_pop; _ } -> None
+  | Cons { op = Push_cond; prev; _ } -> paired_callsite prev this_f
+
+let rec concretize_top rstk =
+  match rstk with
+  | Empty -> []
+  | Cons { op = Co_pop; prev; frame } -> frame :: concretize_top prev
+  | _ -> failwith "non-empty stack when concretize"
 
 let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t
     =
@@ -125,30 +87,30 @@ let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t
 
 let str_of_frame (Id.Ident x1, Id.Ident x2) = "(" ^ x1 ^ "," ^ x2 ^ ")"
 
-let str_of_t (rstk : t) =
-  let _s, v = rstk in
-  let str_costk =
-    List.fold v.co_stk ~init:"" ~f:(fun acc fm -> acc ^ str_of_frame fm)
-  in
-  let str_stk =
-    List.fold v.stk ~init:"" ~f:(fun acc fm -> acc ^ str_of_frame fm)
-  in
-  Printf.sprintf "[-%s;+%s]" str_costk str_stk
-
-let pp = Fmt.of_to_string str_of_t
-
-let str_of_op = function Push -> "<-" | Co_pop -> "!" | Pop -> "->"
+let str_of_op = function Push -> "<-" | Co_pop -> "!" | Push_cond -> "<."
 
 let rec str_of_id rstk =
-  let s, v = rstk in
-  match s with
+  match rstk with
   | Empty -> ""
-  | Cons { op = Co_pop; prev } ->
-      let v' = { stk = v.stk; co_stk = List.tl_exn v.co_stk } in
-      str_of_id (prev, v') ^ "<@" ^ str_of_frame (List.hd_exn v.co_stk) ^ ";"
-  | Cons { op = Push; prev } ->
-      let v' = { stk = List.tl_exn v.stk; co_stk = v.co_stk } in
-      str_of_id (prev, v') ^ "<-" ^ str_of_frame (List.hd_exn v.stk) ^ ";"
-  | Cons { op = Pop; prev } -> str_of_id (prev, v) ^ "->;"
+  | Cons { op = Co_pop; prev; frame } ->
+      str_of_id prev ^ "<@" ^ str_of_frame frame ^ ";"
+  | Cons { op = Push; prev; frame } ->
+      str_of_id prev ^ "<-" ^ str_of_frame frame ^ ";"
+  | Cons { op = Push_cond; prev; frame } ->
+      str_of_id prev ^ "<." ^ str_of_frame frame ^ ";"
 
 let pp_id = Fmt.of_to_string str_of_id
+
+let str_of_t = str_of_id
+
+let pp = pp_id
+
+let construct_stks r_stk =
+  let rec loop r_stk co_stk stk =
+    match r_stk with
+    | Empty -> (co_stk, stk)
+    | Cons { op = Co_pop; prev; frame } -> loop prev (frame :: co_stk) stk
+    | Cons { op = Push; prev; frame } -> loop prev co_stk (frame :: stk)
+    | Cons { op = Push_cond; prev; frame } -> loop prev (frame :: co_stk) stk
+  in
+  loop r_stk [] []

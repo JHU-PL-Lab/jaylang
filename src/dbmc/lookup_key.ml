@@ -49,8 +49,6 @@ let pp_id = Fmt.of_to_string str_of_id
 let chrono_compare map k1 k2 =
   let x1, xs1, r_stk1 = to_parts k1 in
   let x2, xs2, r_stk2 = to_parts k2 in
-  let _s1, v1 = r_stk1 in
-  let _s2, v2 = r_stk2 in
   assert (List.is_empty xs1);
   assert (List.is_empty xs2);
   let rec compare_stack s1 s2 =
@@ -73,8 +71,10 @@ let chrono_compare map k1 k2 =
           -1
     | _, _ -> 1
   in
-  let result_co_stk = compare_stack v1.co_stk v2.co_stk in
+  let stk1, co_stk1 = Rstack.construct_stks r_stk1 in
+  let stk2, co_stk2 = Rstack.construct_stks r_stk2 in
+  let result_co_stk = compare_stack co_stk1 co_stk2 in
   if result_co_stk = 0 then
-    compare_stack v1.stk v2.stk
+    compare_stack stk1 stk2
   else
     result_co_stk
