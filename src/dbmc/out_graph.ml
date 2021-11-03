@@ -170,7 +170,7 @@ module DotPrinter_Make (S : Graph_state) = struct
           in
           Fmt.str "{ {[%s] | %a} | %a | %s | {φ | { %s %s } } | (%d) | %s}"
             (Lookup_stack.str_of_t xxs)
-            (Fmt.option Constraint.pp_value)
+            (Fmt.option Solver.pp_value)
             key_value
             (Fmt.option Odefa_ast.Ast_pp_graph.pp_clause)
             clause

@@ -1,8 +1,20 @@
 open Core
 
 module T = struct
-  type t = { x : Id.t; xs : Lookup_stack.t; r_stk : Rstack.h_stack }
-  [@@deriving sexp, compare, equal, hash]
+  type rstk_repr = Rstack.t
+
+  let sexp_of_rstk_repr (r : Rstack.t) = [%sexp_of: int] r.hkey
+
+  let compare_rstk_repr (r1 : Rstack.t) (r2 : Rstack.t) =
+    Int.compare r1.hkey r2.hkey
+
+  let equal_rstk_repr (r1 : Rstack.t) (r2 : Rstack.t) =
+    Rstack.X.equal r1.node r2.node
+
+  let hash_fold_rstk_repr state (r : Rstack.t) = Hash.fold_int state r.hkey
+
+  type t = { x : Id.t; xs : Lookup_stack.t; r_stk : rstk_repr }
+  [@@deriving sexp_of, compare, equal, hash]
 end
 
 include T

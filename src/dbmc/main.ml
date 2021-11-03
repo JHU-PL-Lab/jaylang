@@ -4,7 +4,6 @@ open Odefa_ast
 open Odefa_ast.Ast
 open Tracelet
 open Odefa_ddpa
-module C = Constraint
 
 type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
 
@@ -258,10 +257,11 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
 
       (* if !(state.pvar_reach_top) then ( *)
       (* !(state.root_node).has_complete_path &&  *)
-      if state.tree_size mod 500 = 0 then
+      if state.tree_size mod 500 = 0 then (
+        Fmt.pr "%d\n" state.tree_size;
         match check state config with
         | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
-        | None -> Lwt.return_unit
+        | None -> Lwt.return_unit)
       else
         Lwt.return_unit
     in
@@ -352,29 +352,29 @@ let[@landmark] lookup_main ~(config : Top_config.t) program target =
     let inputs_from_interpreter =
       Solver.get_inputs target model c_stk program
     in
-    let input_from_model =
-      let input_collected = Search_tree.collect_picked_input state model in
-      input_collected
-    in
-    let input_from_model_ordered =
-      List.sort input_from_model ~compare:(fun (k1, _v1) (k2, _v2) ->
-          -Lookup_key.chrono_compare info.block_map k1 k2)
-    in
-    Logs.app (fun m ->
-        m "M: %a\nI: %a\n"
-          Fmt.Dump.(
-            list
-              (Fmt.pair ~sep:(Fmt.any ", ") Lookup_key.pp_id (option Fmt.int)))
-          input_from_model_ordered
-          Fmt.Dump.(list (option Fmt.int))
-          inputs_from_interpreter);
-    assert (
-      List.length input_from_model_ordered
-      = List.count inputs_from_interpreter ~f:Option.is_some);
-    assert (
-      List.equal [%equal: int option]
-        (List.map input_from_model_ordered ~f:snd)
-        (List.filter inputs_from_interpreter ~f:Option.is_some));
+    (* let input_from_model =
+          let input_collected = Search_tree.collect_picked_input state model in
+          input_collected
+        in
+        let input_from_model_ordered =
+          List.sort input_from_model ~compare:(fun (k1, _v1) (k2, _v2) ->
+              -Lookup_key.chrono_compare info.block_map k1 k2)
+        in
+       Logs.app (fun m ->
+               m "M: %a\nI: %a\n"
+                 Fmt.Dump.(
+                   list
+                     (Fmt.pair ~sep:(Fmt.any ", ") Lookup_key.pp_id (option Fmt.int)))
+                 input_from_model_ordered
+                 Fmt.Dump.(list (option Fmt.int))
+                 inputs_from_interpreter);
+           assert (
+             List.length input_from_model_ordered
+             = List.count inputs_from_interpreter ~f:Option.is_some);
+           assert (
+             List.equal [%equal: int option]
+               (List.map input_from_model_ordered ~f:snd)
+               (List.filter inputs_from_interpreter ~f:Option.is_some)); *)
     [ inputs_from_interpreter ]
   in
   let post_process () =

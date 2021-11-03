@@ -1,13 +1,14 @@
 open Core
+open Hashcons
 
 module T = struct
-  type frame = Id.t * Id.t [@@deriving sexp, compare, equal, hash]
+  type frame = Id.t * Id.t [@@deriving hash, equal]
 
-  type op = Push | Push_cond | Co_pop [@@deriving sexp, compare, equal, hash]
+  type op = Push | Puscond | Co_pop [@@deriving hash, equal]
 
-  (* `co_stk` and `stk` are not necessary here if we choose to record frame change in `op` *)
-  type t = Cons of { prev : t; op : op; frame : frame } | Empty
-  [@@deriving sexp, compare, equal, hash]
+  type stack = Cons of { prev : t; op : op; frame : frame } | Empty
+
+  and t = stack Hashcons.hash_consed
 end
 (* When symbolic executing, we create counter on the fly.
    However, when relativize, we lose the info on the counter.
@@ -21,133 +22,76 @@ end
    The pro is the hashcons is a standard way. The con is slightly heavier than the counter.
 *)
 
-include T
-include Comparator.Make (T)
-
-type stack =
-  | H_empty
-  | H_cons of { h_prev : h_stack; h_op : op; h_frame : frame }
-
-and h_stack = stack Hashcons.hash_consed
-
 module X = struct
-  type t = stack
+  open T
+
+  type t = T.stack
 
   let equal t1 t2 =
     match (t1, t2) with
-    | H_empty, H_empty -> true
-    | H_cons cell1, H_cons cell2 ->
-        T.equal_op cell1.h_op cell2.h_op
-        && T.equal_frame cell1.h_frame cell2.h_frame
-        && phys_equal cell1.h_prev cell2.h_prev
+    | Empty, Empty -> true
+    | Cons cell1, Cons cell2 ->
+        T.equal_op cell1.op cell2.op
+        && T.equal_frame cell1.frame cell2.frame
+        && phys_equal cell1.prev cell2.prev
     | _, _ -> false
 
   let hash = function
-    | H_empty -> Hashtbl.hash H_empty
-    | H_cons { h_op; h_frame; h_prev } ->
-        (h_prev.tag * 19) + T.hash_frame h_frame + T.hash_op h_op
+    | Empty -> Hashtbl.hash Empty
+    | Cons { op; frame; prev } ->
+        (prev.tag * 19) + (T.hash_frame frame * 7) + T.hash_op op
 end
 
 module H = Hashcons.Make (X)
+include T
 
-let ht = H.create 17
+type t = T.t
 
-let he () = H.hashcons ht H_empty
+let ht = H.create 100
 
-let cons h_op h_prev h_frame = H.hashcons ht (H_cons { h_op; h_prev; h_frame })
+let empty = H.hashcons ht Empty
 
-let x = he ()
+let cons op prev frame = H.hashcons ht (Cons { op; prev; frame })
 
-let r1 () = cons Push x (Id.Ident "x", Id.Ident "y")
+let push rstk frame = cons Push rstk frame
 
-let () = assert (phys_equal x x)
+let puscond rstk frame = cons Puscond rstk frame
 
-let () = assert (phys_equal (r1 ()) (r1 ()))
-
-let empty : h_stack = he ()
-
-let push rstk frame : h_stack = cons Push rstk frame
-
-let push_cond rstk frame : h_stack = cons Push_cond rstk frame
-
-let rec lift_to_hstack = function
-  | Empty -> empty
-  | Cons { prev; op; frame } -> cons op (lift_to_hstack prev) frame
-
-let rec lift_to_stack (h : h_stack) =
-  match h.node with
-  | H_empty -> Empty
-  | H_cons { h_prev; h_op; h_frame } ->
-      Cons { op = h_op; frame = h_frame; prev = lift_to_stack h_prev }
-
-let h_stack_of_sexp s =
-  let node = t_of_sexp s in
-  let hnode = lift_to_hstack node in
-  hnode
-
-let sexp_of_h_stack (h : h_stack) =
-  let node = lift_to_stack h in
-  sexp_of_t node
-
-let rec compare_h_stack (h1 : h_stack) (h2 : h_stack) =
-  match (h1.node, h2.node) with
-  | H_empty, H_empty -> 0
-  | H_cons cell1, H_cons cell2 ->
-      Std.chain_compare
-        (fun () ->
-          Std.chain_compare
-            (fun () -> T.compare_op cell1.h_op cell2.h_op)
-            (fun () -> T.compare_frame cell1.h_frame cell2.h_frame))
-        (fun () -> compare_h_stack cell1.h_prev cell2.h_prev)
-  | H_empty, _ -> -1
-  | _, H_empty -> 1
-
-let equal_h_stack (h1 : h_stack) (h2 : h_stack) = X.equal h1.node h2.node
-
-let hash_fold_h_stack state (h_stack : h_stack) =
-  match h_stack.node with
-  | H_empty -> Hash.fold_int state 0
-  | H_cons { h_prev; h_op; h_frame } ->
-      Hash.fold_int
-        (T.hash_fold_op (T.hash_fold_frame state h_frame) h_op)
-        h_prev.tag
-
-let rec pop (rstk : h_stack) frame : h_stack option =
+let rec pop (rstk : t) frame : t option =
   match rstk.node with
-  | H_empty ->
+  | Empty ->
       (* TODO: what if starting from a then-block *)
       Some (cons Co_pop rstk frame)
-  | H_cons { h_op = Push; h_prev; h_frame = frame_prev } ->
+  | Cons { op = Push; prev; frame = frame_prev } ->
       let f1, _ = frame in
       let f2, _ = frame_prev in
       if Id.equal f1 f2 then
-        Some h_prev
+        Some prev
       else (* failwith "unmathch pop from stk" *)
         None
-  | H_cons { h_op = Co_pop; _ } -> Some (cons Co_pop rstk frame)
-  | H_cons { h_op = Push_cond; h_prev; _ } -> pop h_prev frame
+  | Cons { op = Co_pop; _ } -> Some (cons Co_pop rstk frame)
+  | Cons { op = Puscond; prev; _ } -> pop prev frame
 
-let rec paired_callsite (rstk : h_stack) this_f =
+let rec paired_callsite rstk this_f =
   match rstk.node with
-  | H_empty -> None
-  | H_cons { h_op = Push; h_frame; _ } ->
-      let cs, fid = h_frame in
+  | Empty -> None
+  | Cons { op = Push; frame; _ } ->
+      let cs, fid = frame in
       if Id.equal fid this_f then
         Some cs
       else
         failwith "inequal f when stack is not empty"
-  | H_cons { h_op = Co_pop; _ } -> None
-  | H_cons { h_op = Push_cond; h_prev; _ } -> paired_callsite h_prev this_f
+  | Cons { op = Co_pop; _ } -> None
+  | Cons { op = Puscond; prev; _ } -> paired_callsite prev this_f
 
-let rec concretize_top (rstk : h_stack) =
+let rec concretize_top rstk =
   match rstk.node with
-  | H_empty -> []
-  | H_cons { h_op = Co_pop; h_prev; h_frame } ->
-      h_frame :: concretize_top h_prev
+  | Empty -> []
+  | Cons { op = Co_pop; prev; frame } -> frame :: concretize_top prev
   | _ -> failwith "non-empty stack when concretize"
 
-let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) :
-    h_stack =
+let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t
+    =
   let rec discard_common ts cs =
     match (ts, cs) with
     | fm1 :: ts', fm2 :: cs' ->
@@ -170,8 +114,27 @@ let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) :
 
 let str_of_frame (Id.Ident x1, Id.Ident x2) = "(" ^ x1 ^ "," ^ x2 ^ ")"
 
-let str_of_op = function Push -> "<-" | Co_pop -> "!" | Push_cond -> "<."
+let str_of_op = function Push -> "<-" | Co_pop -> "!" | Puscond -> "<."
 
+let str_of_id h = string_of_int h.hkey
+
+let pp_id : 'a -> t -> 'b = Fmt.of_to_string str_of_id
+
+let str_of_t = str_of_id
+
+let pp = pp_id
+
+let construct_stks r_stk =
+  let rec loop r_stk co_stk stk =
+    match r_stk.node with
+    | Empty -> (co_stk, stk)
+    | Cons { op = Co_pop; prev; frame } -> loop prev (frame :: co_stk) stk
+    | Cons { op = Push; prev; frame } -> loop prev co_stk (frame :: stk)
+    | Cons { op = Puscond; prev; frame } -> loop prev (frame :: co_stk) stk
+  in
+  loop r_stk [] []
+
+(*
 let rec str_of_id rstk =
   match rstk with
   | Empty -> ""
@@ -179,28 +142,47 @@ let rec str_of_id rstk =
       str_of_id prev ^ "<@" ^ str_of_frame frame ^ ";"
   | Cons { op = Push; prev; frame } ->
       str_of_id prev ^ "<-" ^ str_of_frame frame ^ ";"
-  | Cons { op = Push_cond; prev; frame } ->
+  | Cons { op = Puscond; prev; frame } ->
       str_of_id prev ^ "<." ^ str_of_frame frame ^ ";"
 
 let str_of_id h = str_of_id (lift_to_stack h)
 
-let pp_id = Fmt.of_to_string str_of_id
 
-let str_of_t = str_of_id
+   let rec lift_to_hstack = function
+     | Empty -> empty
+     | Cons { prev; op; frame } -> cons op (lift_to_hstack prev) frame
 
-let pp = pp_id
+   let rec lift_to_stack h =
+     match h.node with
+     | Empty -> Empty
+     | Cons { prev; op; frame } -> Cons { op; frame; prev = lift_to_stack prev }
 
-let construct_stks (r_stk : h_stack) =
-  let rec loop (r_stk : h_stack) co_stk stk =
-    match r_stk.node with
-    | H_empty -> (co_stk, stk)
-    | H_cons { h_op = Co_pop; h_prev; h_frame } ->
-        loop h_prev (h_frame :: co_stk) stk
-    | H_cons { h_op = Push; h_prev; h_frame } ->
-        loop h_prev co_stk (h_frame :: stk)
-    | H_cons { h_op = Push_cond; h_prev; h_frame } ->
-        loop h_prev (h_frame :: co_stk) stk
-  in
-  loop r_stk [] []
+   let stack_of_sexp s =
+     let node = t_of_sexp s in
+     let hnode = lift_to_hstack node in
+     hnode
 
-type t = h_stack
+   let sexp_of_stack (h : stack) =
+     let node = lift_to_stack h in
+     sexp_of_t node
+
+   let rec compare_stack (h1 : stack) (h2 : stack) =
+     match (h1.node, h2.node) with
+     | Empty, Empty -> 0
+     | Cons cell1, Cons cell2 ->
+         Std.chain_compare
+           (fun () ->
+             Std.chain_compare
+               (fun () -> T.compare_op cell1.op cell2.op)
+               (fun () -> T.compare_frame cell1.frame cell2.frame))
+           (fun () -> compare_stack cell1.prev cell2.prev)
+     | Empty, _ -> -1
+     | _, Empty -> 1
+
+   let equal_stack (h1 : stack) (h2 : stack) = X.equal h1.node h2.node
+
+   let hasfold_stack state (stack : stack) =
+     match stack.node with
+     | Empty -> Hash.fold_int state 0
+     | Cons { prev; op; frame } ->
+         Hash.fold_int (T.hasfold_op (T.hasfold_frame state frame) op) prev.tag *)

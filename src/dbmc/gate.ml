@@ -27,7 +27,7 @@ module T = struct
     | Callsite of t ref * t ref list
     | Para_local of (t ref * t ref) list
     | Para_nonlocal of (t ref * t ref) list
-  [@@deriving sexp, compare, equal, show { with_path = false }]
+  [@@deriving sexp_of, compare, equal, show { with_path = false }]
 
   let rule_name = function
     | Pending -> "Pending"
@@ -54,7 +54,7 @@ end
 module Node_ref = struct
   module T = struct
     type t = Node.t ref
-    [@@deriving sexp, compare, equal, show { with_path = false }]
+    [@@deriving sexp_of, compare, equal, show { with_path = false }]
 
     let hash = Hashtbl.hash
   end
