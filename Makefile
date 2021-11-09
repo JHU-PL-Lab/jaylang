@@ -36,16 +36,16 @@ benchmark:
 	dune exec benchmark-test-generation/benchmark.exe
 
 land100:
-	OCAML_LANDMARKS=on,output="callgraph100.ansi" time ./dbmc_top -t target test2/loop/_sum100.odefa
+	OCAML_LANDMARKS=on,output="callgraph100.ansi" time ./dbmc_top -t target test-sources/loop/_sum100.odefa
 
 land200:
-	OCAML_LANDMARKS=on,output="callgraph200.ansi" time ./dbmc_top -t target test2/loop/_sum200.odefa
+	OCAML_LANDMARKS=on,output="callgraph200.ansi" time ./dbmc_top -t target test-sources/loop/_sum200.odefa
 
 land500:
-	OCAML_LANDMARKS=on,output="callgraph500.ansi" time ./dbmc_top -t target test2/loop/_sum500.odefa
+	OCAML_LANDMARKS=on,output="callgraph500.ansi" time ./dbmc_top -t target test-sources/loop/_sum500.odefa
 
 one:
-	dune exec src/dbmc-top/analysis_top.exe -- test2/_syntax/one.odefa
+	dune exec src/dbmc-top/analysis_top.exe -- test-sources/_syntax/one.odefa
 
 # old targets
 test:
@@ -56,4 +56,4 @@ repl:
 	dune utop src -- -require pdr-programming
 
 c:
-	./dbmc_top -t target -l debug -g true test2/condition/cond_in_f_g.odefa
+	./dbmc_top -t target -l debug -g true test-sources/condition/cond_in_f_g.odefa

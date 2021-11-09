@@ -70,7 +70,7 @@ let test_one_file testname () =
 
 let () =
   Dbmc.Log.init ();
-  let path = "test2" in
+  let path = "test-sources" in
   let grouped_testfiles = group_all_files path in
   let grouped_tests =
     List.map grouped_testfiles ~f:(fun (group_name, test_names) ->
