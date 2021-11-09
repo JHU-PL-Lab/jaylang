@@ -40,12 +40,7 @@ let group_all_files dir =
   loop dir
 
 let int_option_checker : int option Alcotest.testable =
-  let eq ii jj =
-    match (ii, jj) with
-    | Some i, Some j -> i = j
-    | None, Some _ -> true
-    | _, _ -> failwith "impossible"
-  in
+  let eq ii jj = match (ii, jj) with Some i, Some j -> i = j | _, _ -> true in
   Alcotest.testable Fmt.(Dump.option int) eq
 
 let test_one_file testname () =
@@ -57,17 +52,20 @@ let test_one_file testname () =
       parse_odefa src_text
   in
   let config = Dbmc.Top_config.default_config_with_filename testname in
-  let inputss = Dbmc.Main.lookup_main ~config src Dbmc.Std.default_target in
   let expectation = Test_expect.load_sexp_expectation_for testname in
   match expectation with
-  | None -> Alcotest.(check unit) "unit" () ()
+  | None ->
+      let _ = Dbmc.Main.lookup_main ~config src Dbmc.Std.default_target in
+      Alcotest.(check unit) "unit" () ()
   | Some expectation -> (
+      let inputss =
+        Dbmc.Main.lookup_main ~config src (Dbmc.Id.Ident expectation.target)
+      in
       match List.hd inputss with
       | Some inputs ->
           let expected_inputs = List.hd_exn expectation.inputs in
-          let expected_inputs_ext = List.map ~f:Option.some expected_inputs in
           Alcotest.(check (list int_option_checker))
-            "equal" inputs expected_inputs_ext
+            "equal" inputs expected_inputs
       | None -> Alcotest.(check int) "equal" 0 (List.length expectation.inputs))
 
 let () =

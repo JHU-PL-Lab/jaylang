@@ -89,15 +89,15 @@ let command =
     and debug_phi =
       flag "-p"
         Command.Param.(optional_with_default false bool)
-        ~doc:"[debug] output constraints"
+        ~doc:"[bool] output constraints"
     and debug_model =
       flag "-z"
         Command.Param.(optional_with_default true bool)
-        ~doc:"[debug] output smt model"
+        ~doc:"[bool] output smt model"
     and debug_lookup_graph =
       flag "-g"
         Command.Param.(optional_with_default false bool)
-        ~doc:"[debug] output graphviz dot"
+        ~doc:"[bool] output graphviz dot"
     in
     let top_config =
       {
