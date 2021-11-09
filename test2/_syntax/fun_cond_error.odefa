@@ -1,0 +1,11 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [0]
+
+x = input;
+one = 1;
+cond = x < one;
+# cond = false;
+f = fun b -> (rf = b);
+af = cond ? (t1 = f) : (t2 = 0);
+t = af one;
+target = t;

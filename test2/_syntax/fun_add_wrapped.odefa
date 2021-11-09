@@ -1,0 +1,24 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [0]
+
+outer = fun outer_x -> (
+  x = input;
+  f = fun a -> ( 
+    c = 1;
+    fb = fun b -> ( 
+      ps = a + b;
+      s = ps + c;
+    )
+  );
+  one = 1;
+  two = 2;
+  t1 = f one;
+  check = 42;
+  r = t1 two;
+  cond = x == r;
+  end = cond ?
+    (target = 1) :
+    (none = 0)
+);
+outer_0 = 0;
+outer_v = outer outer_0

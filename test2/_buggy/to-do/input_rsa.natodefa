@@ -1,0 +1,91 @@
+# Mathematical routines.
+
+# FIXME: Properly encode gcd please?
+let gcd a b =
+  a
+in
+
+# extended-gcd(a,b) = (x,y), such that a*x + b*y = gcd(a,b)
+let rec extended_gcd a b =
+  if ((a % b) == 0) then [0, 1]
+  else
+  let lst = extended_gcd b (a % b) in
+  match lst with
+  | hd :: tl :: [] ->
+    let x = hd in
+    let y = tl in
+    [y, (x - (y * (a % b)))]
+  end
+in
+
+# modulo-inverse(a,n) = b, such that a*b = 1 [mod n].
+let modulo_inverse a n =
+  let temp = extended_gcd a n in
+  match temp with
+  | hd :: tl -> hd % n
+  end
+in
+
+# totient(n) = (p - 1)*(q - 1),
+#  where pq is the prime factorization of n.
+let totient p q =
+  (p - 1) * (q - 1)
+in
+
+# square(x) = x^2
+let square x = x * x in
+
+let odd n =
+  if ((n % 2) == 0) then true else false
+in
+
+# modulo-power(base,exp,n) = base^exp [mod n]
+let rec modulo_power base exp n =
+  if (exp == 0) then 1
+  else
+  if (odd exp) then ((base * (modulo_power base (exp - 1) n)) % n)
+               else ((square (modulo_power base (exp/2) n)) % n)
+in
+
+# RSA routines.
+
+# A legal public exponent e is between
+#  1 and totient(n), and gcd(e,totient(n)) = 1
+let is_legal_public_exponent e p q =
+  (1 < e) and (e < (totient p q)) and ((gcd e (totient p q)) == 1)
+in
+
+# The private exponent is the inverse of the public exponent, mod n.
+let private_exponent e p q =
+  if (is_legal_public_exponent e p q)
+  then modulo_inverse e (totient p q)
+  else (0 0)
+in
+
+# An encrypted message is c = m^e [mod n].
+let encrypt m e n =
+  if (m < n) then 0 0
+  else (modulo_power m e n)
+in
+
+# A decrypted message is m = c^d [mod n].
+let decrypt c d n =
+  modulo_power c d n
+in
+
+# RSA example.
+
+let p = 41 in      # A "large" prime.
+let q = 47 in      # Another "large" prime.
+let n = p * q in   # The public modulus.
+
+let e = 7 in                        # The public exponent.
+let d = private_exponent e p q in   # The private exponent.
+
+# Return type?
+let plaintext = 42 in
+let ciphertext = encrypt plaintext e n in
+let decrypted_ciphertext = decrypt ciphertext d n in
+if (not (plaintext == decrypted_ciphertext))
+then false
+else true
