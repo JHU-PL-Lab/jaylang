@@ -1,0 +1,13 @@
+let x = input in
+
+let rec bit_size n =
+  if n <= 1 then
+    0
+  else
+    1 + (bit_size (n / 2))
+  in
+if (bit_size x) == 4
+then
+  let target = x in 1
+else
+  0
