@@ -4,19 +4,24 @@ open Ast
 
 exception Found_target of value
 
-type dvalue = Direct of value | Closure of Ident.t * function_value * denv
+type dvalue =
+  | Direct of value
+  | FunClosure of Ident.t * function_value * denv
+  | RecordClosure of record_value * denv
 
 and denv = dvalue Ident_map.t
 
 let pp_dvalue oc = function
   | Direct v -> Odefa_ast.Ast_pp.pp_value oc v
-  | Closure _ -> ()
+  | FunClosure _ -> Format.fprintf oc "(fc)"
+  | RecordClosure _ -> Format.fprintf oc "(rc)"
 
 let cond_fid b = if b then Ident "$tt" else Ident "$ff"
 
 let value_of_dvalue = function
   | Direct v -> v
-  | Closure (_fid, fv, _env) -> Value_function fv
+  | FunClosure (_fid, fv, _env) -> Value_function fv
+  | RecordClosure (r, _env) -> Value_record r
 
 let rec same_stack s1 s2 =
   match (s1, s2) with
@@ -37,7 +42,8 @@ and eval_clause ~input_feeder ~target stk env clause : denv * dvalue =
   let (Clause (Var (x, _), cbody)) = clause in
   let (v : dvalue) =
     match cbody with
-    | Value_body (Value_function vf) -> Closure (x, vf, env)
+    | Value_body (Value_function vf) -> FunClosure (x, vf, env)
+    | Value_body (Value_record r) -> RecordClosure (r, env)
     | Value_body v -> Direct v
     | Var_body vx -> eval_val env vx
     | Conditional_body (x2, e1, e2) ->
@@ -54,7 +60,7 @@ and eval_clause ~input_feeder ~target stk env clause : denv * dvalue =
         Direct (Value_int n)
     | Appl_body (vx1, vx2) -> (
         match eval_val env vx1 with
-        | Closure (fid, Function_value (Var (arg, _), body), fenv) ->
+        | FunClosure (fid, Function_value (Var (arg, _), body), fenv) ->
             let v2 = eval_val env vx2 in
             let stk2 = (x, fid) :: stk in
             let env2 = Ident_map.add arg v2 fenv in
@@ -63,9 +69,13 @@ and eval_clause ~input_feeder ~target stk env clause : denv * dvalue =
     | Match_body (vx, p) -> Direct (Value_bool (check_pattern env vx p))
     | Projection_body (v, key) -> (
         match eval_val env v with
-        | Direct (Value_record (Record_value record)) ->
-            let vv = Ident_map.find key record in
-            eval_val env vv
+        | RecordClosure (Record_value r, denv) ->
+            let vv = Ident_map.find key r in
+            eval_val denv vv
+        | Direct (Value_record (Record_value _record)) ->
+            (* let vv = Ident_map.find key record in
+               eval_val env vv *)
+            failwith "project should also have a closure"
         | _ -> failwith "project on a non record")
     | Binary_operation_body (vx1, op, vx2) ->
         let v1 = eval_val_to_direct env vx1
@@ -143,7 +153,7 @@ and check_pattern env vx pattern : bool =
             | Some field -> check_pattern env field pv
             | None -> false)
           key_map
-    | Closure (_, _, _), Fun_pattern -> true
+    | FunClosure (_, _, _), Fun_pattern -> true
     | _, Any_pattern -> true
     | _, _ -> false
   in

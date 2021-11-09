@@ -15,6 +15,10 @@ let pick_at xs r_stk = pick_at_key (Lookup_key.of_parts2 xs r_stk)
 
 let lookup xs r_stk = Lookup_key.parts2_to_str xs r_stk |> SuduZ3.var_s
 
+let counter = ref 0
+
+let reset () = counter := 0
+
 let bind_x_v xs r_stk v =
   let x = lookup xs r_stk in
   let v =
@@ -22,7 +26,9 @@ let bind_x_v xs r_stk v =
     | Value_int i -> SuduZ3.int_ i
     | Value_bool b -> SuduZ3.bool_ b
     | Value_function _ -> failwith "should not be a function"
-    | Value_record _ -> failwith "no record yet"
+    | Value_record _ ->
+        Int.incr counter;
+        SuduZ3.int_ !counter
   in
   SuduZ3.eq x v
 
@@ -57,6 +63,11 @@ let alias key x' =
   let x, xs, r_stk = Lookup_key.to_parts key in
   pick_at_key key
   @=> and_ [ bind_x_y (x :: xs) (x' :: xs) r_stk; pick_at (x' :: xs) r_stk ]
+
+let alias_key key key' =
+  let xs, r_stk = Lookup_key.to_parts2 key in
+  let xs', r_stk' = Lookup_key.to_parts2 key' in
+  pick_at_key key @=> and_ [ bind_x_y xs xs' r_stk; pick_at xs' r_stk' ]
 
 let binop key bop x1 x2 =
   let x, xs, r_stk = Lookup_key.to_parts key in

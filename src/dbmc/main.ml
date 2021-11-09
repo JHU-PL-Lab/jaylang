@@ -63,6 +63,7 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
 
   (* reset and init *)
   Solver.reset ();
+  Riddler.reset ();
   state.phis_z3 <- [ Riddler.pick_at_key (Lookup_key.start target) ];
 
   let[@landmark] rec lookup (xs0 : Lookup_stack.t) block r_stk
@@ -80,7 +81,9 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
         let defined_site = Tracelet.defined x block in
         let p = Riddler.pick_at_key this_key in
         match defined_site with
+        (* Value *)
         | At_clause { clause = Clause (_, Value_body v); _ } ->
+            Logs.info (fun m -> m "Rule Value: %a" Ast_pp.pp_value v);
             deal_with_value (Some v) this_key block gate_tree
         (* Input *)
         | At_clause { clause = Clause (_, Input_body); _ } ->
@@ -95,6 +98,15 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
             in
             Gate.update_rule gate_tree (Gate.alias sub_tree);
             add_phi this_key (Riddler.alias this_key x')
+        | At_clause
+            ({ clause = Clause (_, Projection_body (Var (xr, _), lbl)); _ } as
+            tc) ->
+            Logs.info (fun m ->
+                m "Rule ProjectBody : %a = %a.%a" Id.pp x Id.pp xr Id.pp lbl);
+            let key' = Lookup_key.replace_x2 this_key (xr, lbl) in
+            let sub_tree = create_lookup_task key' block gate_tree in
+            Gate.update_rule gate_tree (Gate.alias sub_tree);
+            add_phi this_key (Riddler.alias_key this_key key')
         (* Binop *)
         | At_clause
             {
@@ -313,6 +325,20 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
           in
           Gate.update_rule gate_tree (Gate.discard sub_tree);
           add_phi key (Riddler.discard key mv)
+      | Some (Value_record r) -> (
+          Logs.info (fun m -> m "Rule Record: %a" Ast_pp.pp_record_value r);
+          let (Record_value rmap) = r in
+          let _x, xs, r_stk = Lookup_key.to_parts key in
+          let labal, xs' = (List.hd_exn xs, List.tl_exn xs) in
+          match Ident_map.Exceptionless.find labal rmap with
+          | Some (Var (vid, _)) ->
+              let key' = Lookup_key.of_parts2 (vid :: xs') r_stk in
+              let sub_tree = create_lookup_task key' block gate_tree in
+              Gate.update_rule gate_tree (Gate.alias sub_tree);
+              add_phi key (Riddler.alias_key key key')
+          | None ->
+              Gate.update_rule gate_tree Gate.mismatch;
+              add_phi key (Riddler.mismatch key))
       | _ ->
           Gate.update_rule gate_tree Gate.mismatch;
           add_phi key (Riddler.mismatch key)

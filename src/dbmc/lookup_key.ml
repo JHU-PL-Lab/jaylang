@@ -34,6 +34,8 @@ let to_first key x = { key with x; xs = [] }
 
 let replace_x key x = { key with x }
 
+let replace_x2 key (xr, lbl) = { key with x = xr; xs = lbl :: key.xs }
+
 let drop_x key = { key with x = List.hd_exn key.xs; xs = List.tl_exn key.xs }
 
 let lookups key = key.x :: key.xs
