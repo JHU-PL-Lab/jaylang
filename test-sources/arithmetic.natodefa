@@ -1,6 +1,0 @@
-# EXPECT-WELL-FORMED
-
-let x = 1 in
-let y = x + x + x + x in
-let z = 2 - 3 + 4 in
-y + z

@@ -1,3 +1,0 @@
-# EXPECT-ILL-FORMED
-
-b = a; a = 0;

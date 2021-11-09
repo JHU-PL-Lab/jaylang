@@ -1,7 +1,0 @@
-# EXPECT-ILL-FORMED
-
-y = 0;
-z = fun y -> (
-  zr = 0;
-);
-

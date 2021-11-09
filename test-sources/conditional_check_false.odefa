@@ -1,5 +1,0 @@
-# EXPECT-EVALUATE
-e = true;
-b = false;
-c = b ? ( ra = true ) : ( rb = false );
-t = c ? ( r = e e ) : ( rj = e ) ;

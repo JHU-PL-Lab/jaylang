@@ -1,4 +1,0 @@
-# EXPECT-ILL-FORMED
-
-x = true;
-c = x ? ( x = 0 ) : ( rb = 1 );
