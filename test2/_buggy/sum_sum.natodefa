@@ -14,7 +14,7 @@ in
 # if sum x + sum y == 1275 + 1275 then
 # 90s
 # if sum x + sum y == 1285 then
-  
+# 15s
 if sum x + sum y == 465 + 820 then
   let target = 1 in target
 else

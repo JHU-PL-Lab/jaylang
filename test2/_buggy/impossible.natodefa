@@ -1,0 +1,14 @@
+# EXPECT-WELL-FORMED
+# # EXPECT-INPUT-SEQUENCES-REACH impossible [ 0 ] !
+# since by now we cannot specify for impossible target, we just comment this.
+
+let failure = 42
+in let complete = 42
+in let x = input
+in let rec loop i =
+  if i == 2
+  then let result = complete in result
+  else loop (i+1)
+in let r = loop 3
+in let impossible = 42
+in impossible

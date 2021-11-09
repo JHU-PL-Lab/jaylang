@@ -2,4 +2,5 @@
   (inputs (
     (_)
   ))
+  (target result)
 )
