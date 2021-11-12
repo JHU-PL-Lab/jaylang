@@ -107,8 +107,8 @@ let cond_bottom key cond_block x' =
         let p_x_ret_beta = pick_at (x_ret :: xs) cbody_stack in
         let eq_beta = bind_x_v [ x' ] r_stk (Value_bool beta) in
         let eq_lookup =
-          (* bind_x_y' (x :: xs) r_stk (x_ret :: xs) cbody_stack *)
-          bind_x_y' [ x ] r_stk [ x_ret ] cbody_stack
+          bind_x_y' (x :: xs) r_stk (x_ret :: xs) cbody_stack
+          (* bind_x_y' [ x ] r_stk [ x_ret ] cbody_stack *)
         in
         (cs @ [ p_x_ret_beta ], rs @ [ p_x_ret_beta @=> and2 eq_beta eq_lookup ]))
   in
