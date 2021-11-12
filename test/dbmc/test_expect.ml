@@ -9,13 +9,14 @@ let one_run_of_sexp s =
       match a with Sexp.List _ -> None | Sexp.Atom ns -> int_of_string_opt ns)
     s
 
-type t = {
+type one_case = {
   inputs : one_run list;
   target : string; [@default "target"]
   strict_match : bool; [@default true]
   max_step : int option; [@sexp.option]
 }
-[@@deriving sexp, show { with_path = false }]
+
+and t = one_case list [@@deriving sexp, show { with_path = false }]
 
 let load_sexp_expectation_for testpath =
   let expect_path = Filename.chop_extension testpath ^ ".expect.s" in

@@ -57,16 +57,20 @@ let test_one_file testname () =
   | None ->
       let _ = Dbmc.Main.lookup_main ~config src Dbmc.Std.default_target in
       Alcotest.(check unit) "unit" () ()
-  | Some expectation -> (
-      let inputss =
-        Dbmc.Main.lookup_main ~config src (Dbmc.Id.Ident expectation.target)
-      in
-      match List.hd inputss with
-      | Some inputs ->
-          let expected_inputs = List.hd_exn expectation.inputs in
-          Alcotest.(check (list int_option_checker))
-            "equal" inputs expected_inputs
-      | None -> Alcotest.(check int) "equal" 0 (List.length expectation.inputs))
+  | Some expectations ->
+      List.iter expectations ~f:(fun expectation ->
+          let inputss =
+            Dbmc.Main.lookup_main ~config src (Dbmc.Id.Ident expectation.target)
+          in
+          match List.hd inputss with
+          | Some inputs ->
+              let expected_inputs = List.hd_exn expectation.inputs in
+              Alcotest.(check (list int_option_checker))
+                "equal" inputs expected_inputs;
+              Alcotest.(check (list int_option_checker))
+                "equal" inputs expected_inputs
+          | None ->
+              Alcotest.(check int) "equal" 0 (List.length expectation.inputs))
 
 let () =
   Dbmc.Log.init ();
