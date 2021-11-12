@@ -2,8 +2,8 @@
 x = input;
 f = fun s -> (
     f0 = fun a -> (
-        one_a = 0;
-        b = a == one_a;
+        zero_a = 0;
+        b = a == zero_a;
         r = b ? (
                 r1 = 0
             ) : (

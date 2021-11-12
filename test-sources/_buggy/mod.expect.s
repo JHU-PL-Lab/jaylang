@@ -1,6 +1,8 @@
 (
-  (inputs (
-    (8)
-  ))
-  (target result)
+  (
+    (inputs (
+      (8)
+    ))
+    (target result)
+  )
 )

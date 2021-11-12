@@ -1,6 +1,0 @@
-(
-  (inputs (
-    (_)
-  ))
-  (target total)
-)

@@ -1,0 +1,22 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATES
+# EXPECT-INPUT-SEQUENCES-REACH total [ 0 ]
+
+xx = input;
+f = fun s -> (
+  rf1 = fun x -> (
+    zero = 0;
+    c = x == zero;
+    rf2 = c ?
+      ( r0 = 0; ) :
+      ( ss = s s;
+        one = 1;
+        b = x - one;
+        r1 = ss b;
+      );
+  );
+);
+count = f f;
+num = 0;
+p = count num;
+total = p;

@@ -37,16 +37,11 @@ in
 let ab = append a b in
 let e4 = list_at ab 0 in
 
-if ab.elem == x0
-  and ab.next.elem == x1
-  and ab.next.next.elem == x2
-  and ab.next.next.next.elem == x3
-  and ab.next.next.next.next.elem == x4
-# if    (list_at ab 0) == x0
+if    (list_at ab 0) == x0
 #  and (list_at ab 1) == x1
 #  and (list_at ab 2) == x2
 #  and (list_at ab 3) == x3
-#  and (list_at ab 4) == x4
+  and (list_at ab 4) == x4
 then
   let target = 1 in 1
 else

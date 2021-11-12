@@ -17,7 +17,8 @@ do_something = make_do_something x;
 id_eta = fun y -> (
   dummy_3 = 0;
   zero = 0;
-  r_10 = do_something zero;
+  r_11 = do_something zero;
+  r_10 = r_11;
   r_2 = y;
 );
 

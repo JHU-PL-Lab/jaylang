@@ -1,0 +1,6 @@
+f = fun s -> (
+  z = s
+);
+n = 0;
+m = f n;
+target = m

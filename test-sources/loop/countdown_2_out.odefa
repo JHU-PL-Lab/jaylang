@@ -6,21 +6,20 @@
 zero = 0;
 one = 1;
 two = 2;
-counthalf = fun countself -> (
-  counthalfret = fun counthalfparam -> (
-    counthalfcond = counthalfparam == zero;
-    counthalfret2 = counthalfcond ?
-      ( counthalfcondtrue = 0; ) :
-      ( counthalfselfcall = countself countself;
-        counthalfnextparam = counthalfparam - one;
-        z0 = counthalfnextparam < one;
-        z1 = z0 ? ( z2 = 0; zbad = false; ) : ( z3 = 0; zgood = true );
-        counthalfrecursiveresult = counthalfselfcall counthalfnextparam;
-        couldhalfret3 = counthalfrecursiveresult + one;
+f = fun s -> (
+  rr0 = fun x -> (
+    c = x == zero;
+    rr1 = c ?
+      ( r0 = 0; ) :
+      ( ss = s s;
+        x1 = x - one;
+        z0 = x1 < one;
+        r2 = ss x1;
+        r3 = r2 + one;
       );
   );
 );
-count = counthalf counthalf;
+count = f f;
 num = input;
 total = count num;
 condition = total < two;
