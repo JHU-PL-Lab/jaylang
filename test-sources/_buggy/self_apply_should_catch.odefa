@@ -1,3 +1,0 @@
-f = fun x -> ( r = x x );
-t = f f;
-target = 1

@@ -1,8 +1,7 @@
 (
   (
     (inputs (
-      (6)
+      (_ 47)
     ))
-    (target good)
   )
 )

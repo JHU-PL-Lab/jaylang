@@ -1,0 +1,8 @@
+(
+  (
+    (inputs (
+      ()
+    ))
+    (target answer)
+  )
+)
