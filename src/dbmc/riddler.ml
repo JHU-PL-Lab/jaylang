@@ -9,7 +9,11 @@ let ctx = Solver.ctx
 
 let top_stack = SuduZ3.var_s "X_topstack"
 
-let pick_at_key key = "P_" ^ Lookup_key.to_str key |> SuduZ3.mk_bool_s
+(* let pick_at_key key =
+   let _, r_stk = Lookup_key.to_parts2 key in
+   "P_" ^ Rstack.str_of_t r_stk |> SuduZ3.mk_bool_s *)
+
+let pick_at_key key = "P_" ^ Lookup_key.str_of_t key |> SuduZ3.mk_bool_s
 
 let pick_at xs r_stk = pick_at_key (Lookup_key.of_parts2 xs r_stk)
 

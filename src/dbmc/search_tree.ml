@@ -59,7 +59,7 @@ let collect_picked_input state model =
   let sum_path acc_path node = acc_path && node_picked node in
   let sum acc acc_path (node : Gate.Node.t) =
     if acc_path && Hash_set.mem state.input_nodes node.key then
-      let i = Solver.SuduZ3.get_int_s model (Lookup_key.to_str node.key) in
+      let i = Solver.SuduZ3.get_int_s model (Lookup_key.str_of_t node.key) in
       (node.key, i) :: acc
     else
       acc

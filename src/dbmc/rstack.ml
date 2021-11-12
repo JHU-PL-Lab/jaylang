@@ -4,7 +4,7 @@ open Hashcons
 module T = struct
   type frame = Id.t * Id.t [@@deriving hash, equal]
 
-  type op = Push | Puscond | Co_pop [@@deriving hash, equal]
+  type op = Push | Co_pop [@@deriving hash, equal]
 
   type stack = Cons of { prev : t; op : op; frame : frame } | Empty
 
@@ -55,9 +55,7 @@ let cons op prev frame = H.hashcons ht (Cons { op; prev; frame })
 
 let push rstk frame = cons Push rstk frame
 
-let puscond rstk frame = cons Puscond rstk frame
-
-let rec pop (rstk : t) frame : t option =
+let pop (rstk : t) frame : t option =
   match rstk.node with
   | Empty ->
       (* TODO: what if starting from a then-block *)
@@ -70,9 +68,8 @@ let rec pop (rstk : t) frame : t option =
       else (* failwith "unmathch pop from stk" *)
         None
   | Cons { op = Co_pop; _ } -> Some (cons Co_pop rstk frame)
-  | Cons { op = Puscond; prev; _ } -> pop prev frame
 
-let rec paired_callsite rstk this_f =
+let paired_callsite rstk this_f =
   match rstk.node with
   | Empty -> None
   | Cons { op = Push; frame; _ } ->
@@ -82,7 +79,6 @@ let rec paired_callsite rstk this_f =
       else
         failwith "inequal f when stack is not empty"
   | Cons { op = Co_pop; _ } -> None
-  | Cons { op = Puscond; prev; _ } -> paired_callsite prev this_f
 
 let rec concretize_top rstk =
   match rstk.node with
@@ -114,15 +110,11 @@ let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t
 
 let str_of_frame (Id.Ident x1, Id.Ident x2) = "(" ^ x1 ^ "," ^ x2 ^ ")"
 
-let str_of_op = function Push -> "<-" | Co_pop -> "!" | Puscond -> "<."
+let str_of_op = function Push -> "<-" | Co_pop -> "!"
 
-let str_of_id h = string_of_int h.hkey
+let str_of_t h = string_of_int h.hkey
 
-let pp_id : 'a -> t -> 'b = Fmt.of_to_string str_of_id
-
-let str_of_t = str_of_id
-
-let pp = pp_id
+let pp : 'a -> t -> 'b = Fmt.of_to_string str_of_t
 
 let construct_stks r_stk =
   let rec loop r_stk co_stk stk =
@@ -130,7 +122,6 @@ let construct_stks r_stk =
     | Empty -> (co_stk, stk)
     | Cons { op = Co_pop; prev; frame } -> loop prev (frame :: co_stk) stk
     | Cons { op = Push; prev; frame } -> loop prev co_stk (frame :: stk)
-    | Cons { op = Puscond; prev; frame } -> loop prev (frame :: co_stk) stk
   in
   loop r_stk [] []
 
@@ -142,8 +133,6 @@ let rec str_of_id rstk =
       str_of_id prev ^ "<@" ^ str_of_frame frame ^ ";"
   | Cons { op = Push; prev; frame } ->
       str_of_id prev ^ "<-" ^ str_of_frame frame ^ ";"
-  | Cons { op = Puscond; prev; frame } ->
-      str_of_id prev ^ "<." ^ str_of_frame frame ^ ";"
 
 let str_of_id h = str_of_id (lift_to_stack h)
 

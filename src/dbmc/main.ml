@@ -44,9 +44,7 @@ let check (state : Search_tree.state) (config : Top_config.t) =
       let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
       print_endline @@ Concrete_stack.show c_stk;
       Some { model; c_stk }
-  | Result.Error _exps ->
-      Logs.info (fun m -> m "UNSAT");
-      None
+  | Result.Error _exps -> None
 
 let[@landmark] lookup_top ~config ~(info : Search_tree.info)
     ~(state : Search_tree.state) job_queue : _ Lwt.t =
@@ -406,7 +404,13 @@ let[@landmark] lookup_main ~(config : Top_config.t) program target =
   let post_process () =
     match check state config with
     | Some { model; c_stk } -> handle_found model c_stk
-    | None -> []
+    | None ->
+        Logs.info (fun m -> m "UNSAT");
+        if config.debug_model then
+          Logs.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
+        else
+          ();
+        []
   in
 
   Scheduler.push job_queue (fun () -> main_task);

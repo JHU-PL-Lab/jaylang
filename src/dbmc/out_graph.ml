@@ -125,7 +125,7 @@ module DotPrinter_Make (S : Graph_state) = struct
           match S.model with
           | None -> None
           | Some model ->
-              let lookup_name = Lookup_key.to_str node.key in
+              let lookup_name = Lookup_key.str_of_t node.key in
               Logs.info (fun m -> m "lookup (to model) : %s" lookup_name);
               Solver.SuduZ3.(get_value model (var_s lookup_name))
         in
