@@ -21,6 +21,7 @@ module T = struct
     | Discard of t ref
     | Alias of t ref
     | To_first of t ref
+    | Project of t ref * t ref
     | Binop of t ref * t ref
     | Cond_choice of t ref * t ref
     | Condsite of t ref * t ref list
@@ -36,6 +37,7 @@ module T = struct
     | Discard _ -> "Discard"
     | Alias _ -> "Alias"
     | To_first _ -> "To_first"
+    | Project _ -> "Project"
     | Binop _ -> "Binop"
     | Cond_choice _ -> "Cond_choice"
     | Callsite _ -> "Callsite"
@@ -112,6 +114,8 @@ let mismatch = Mismatch
 
 let alias node = Alias node
 
+let project n1 n2 = Project (n1, n2)
+
 let to_first node = To_first node
 
 let binop n1 n2 = Binop (n1, n2)
@@ -138,7 +142,7 @@ let traverse_node ?(stop = fun _ -> false) ~at_node ~init ~acc_f node =
         match !node.rule with
         | Pending | Done _ | Mismatch -> ()
         | Discard child | Alias child | To_first child -> loop ~acc child
-        | Binop (n1, n2) | Cond_choice (n1, n2) ->
+        | Project (n1, n2) | Binop (n1, n2) | Cond_choice (n1, n2) ->
             List.iter ~f:(loop ~acc) [ n1; n2 ]
         | Callsite (node, child_edges) | Condsite (node, child_edges) ->
             loop ~acc node;
@@ -172,7 +176,7 @@ let fold_tree ?(stop = fun _ -> false) ~init ~init_path ~sum ~sum_path node =
         | Pending | Done _ | Mismatch -> acc
         | Discard child | Alias child | To_first child ->
             loop ~acc ~acc_path !child
-        | Binop (n1, n2) | Cond_choice (n1, n2) ->
+        | Project (n1, n2) | Binop (n1, n2) | Cond_choice (n1, n2) ->
             List.fold ~init:acc
               ~f:(fun acc n -> loop ~acc ~acc_path !n)
               [ n1; n2 ]

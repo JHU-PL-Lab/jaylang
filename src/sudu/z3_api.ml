@@ -1,7 +1,7 @@
 open Core
 open Z3
 
-type plain = Int of int | Bool of bool | Fun of string | Record
+type plain = Int of int | Bool of bool | Fun of string | Record of string
 
 module type Context = sig
   val ctx : Z3.context
@@ -131,13 +131,19 @@ module Make_datatype_builders (C : Context) = struct
       [ Symbol.mk_string ctx "fid" ]
       [ Some strS ] [ 1 ]
 
+  let recordC =
+    Datatype.mk_constructor_s ctx "Record"
+      (Symbol.mk_string ctx "is-Record")
+      [ Symbol.mk_string ctx "rid" ]
+      [ Some strS ] [ 1 ]
+
   (* making *the* sort *)
-  let valS = Datatype.mk_sort_s ctx "IntOrBoolOrFun" [ intC; boolC; funC ]
+  let valS = Datatype.mk_sort_s ctx "TypOdefa" [ intC; boolC; funC; recordC ]
 
   (* making recognizers *)
-  let intR, boolR, funR =
+  let intR, boolR, funR, recordR =
     match Datatype.get_recognizers valS with
-    | [ r1; r2; r3 ] -> (r1, r2, r3)
+    | [ r1; r2; r3; r4 ] -> (r1, r2, r3, r4)
     | _ -> failwith "recogniziers mismatch"
 
   (* building Z3 bool expressions with the recognizers  *)
@@ -147,10 +153,12 @@ module Make_datatype_builders (C : Context) = struct
 
   let ifFun e = FuncDecl.apply funR [ e ]
 
+  let ifRecord e = FuncDecl.apply recordR [ e ]
+
   (* making field getters *)
-  let getInt, getBool, getFun =
+  let getInt, getBool, getFun, getRecord =
     match Datatype.get_accessors valS with
-    | [ [ a1 ]; [ a2 ]; [ a3 ] ] -> (a1, a2, a3)
+    | [ [ a1 ]; [ a2 ]; [ a3 ]; [ a4 ] ] -> (a1, a2, a3, a4)
     (* | [a1]::[a2]::[a3;a4]::[] -> a1, a2, (a3, a4) *)
     | _ -> failwith "accessors mismatch"
 
@@ -161,6 +169,8 @@ module Make_datatype_builders (C : Context) = struct
 
   let funD = Datatype.Constructor.get_constructor_decl funC
 
+  let recordD = Datatype.Constructor.get_constructor_decl recordC
+
   (* building Z3 value expressions with the declarations  *)
   let int_ i = FuncDecl.apply intD [ box_int i ]
 
@@ -170,6 +180,8 @@ module Make_datatype_builders (C : Context) = struct
 
   let string_ = fun_
 
+  let record_ rid = FuncDecl.apply recordD [ Seq.mk_string ctx rid ]
+
   (* basic builders *)
   let inject_int e = FuncDecl.apply intD [ e ]
 
@@ -177,11 +189,15 @@ module Make_datatype_builders (C : Context) = struct
 
   let inject_string e = FuncDecl.apply funD [ e ]
 
+  let inject_record e = FuncDecl.apply recordD [ e ]
+
   let project_int e = FuncDecl.apply getInt [ e ]
 
   let project_bool e = FuncDecl.apply getBool [ e ]
 
   let project_string e = FuncDecl.apply getFun [ e ]
+
+  let project_record e = FuncDecl.apply getRecord [ e ]
 
   let true_ = bool_ true
 
@@ -194,14 +210,17 @@ module Make_datatype_builders (C : Context) = struct
   let var_sym n = Expr.mk_const ctx n valS
 
   (* model *)
-  let is_bool_from_model model e =
-    unbox_bool (Option.value_exn (Model.eval model (ifBool e) false))
-
   let is_int_from_model model e =
     unbox_bool (Option.value_exn (Model.eval model (ifInt e) false))
 
+  let is_bool_from_model model e =
+    unbox_bool (Option.value_exn (Model.eval model (ifBool e) false))
+
   let is_fun_from_model model e =
     unbox_bool (Option.value_exn (Model.eval model (ifFun e) false))
+
+  let is_record_from_model model e =
+    unbox_bool (Option.value_exn (Model.eval model (ifRecord e) false))
 
   let get_int_expr_exn model e =
     Option.value_exn (Model.eval model (project_int e) false)
@@ -212,11 +231,16 @@ module Make_datatype_builders (C : Context) = struct
   let get_fun_expr_exn model e =
     Option.value_exn (Model.eval model (project_string e) false)
 
+  let get_record_expr_exn model e =
+    Option.value_exn (Model.eval model (project_record e) false)
+
   let get_unbox_int_exn model e = unbox_int (get_int_expr_exn model e)
 
   let get_unbox_bool_exn model e = unbox_bool (get_bool_expr_exn model e)
 
   let get_unbox_fun_exn model e = unbox_string (get_fun_expr_exn model e)
+
+  let get_unbox_record_exn model e = unbox_string (get_record_expr_exn model e)
 
   let eval_value model e = Option.value_exn (Model.eval model e false)
 
@@ -228,6 +252,9 @@ module Make_datatype_builders (C : Context) = struct
     else if is_fun_from_model model e then
       let fid = get_unbox_fun_exn model e in
       Some (Fun fid)
+    else if is_record_from_model model e then
+      let rid = get_unbox_record_exn model e in
+      Some (Record rid)
     else
       None
   (* failwith "get_value" *)

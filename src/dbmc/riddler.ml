@@ -31,8 +31,9 @@ let bind_x_v xs r_stk v =
     | Value_bool b -> SuduZ3.bool_ b
     | Value_function _ -> failwith "should not be a function"
     | Value_record _ ->
-        Int.incr counter;
-        SuduZ3.int_ !counter
+        SuduZ3.record_ (Lookup_key.str_of_t (Lookup_key.of_parts2 xs r_stk))
+    (* Int.incr counter;
+       SuduZ3.int_ !counter *)
   in
   SuduZ3.eq x v
 

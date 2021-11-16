@@ -101,10 +101,14 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
             tc) ->
             Logs.info (fun m ->
                 m "Rule ProjectBody : %a = %a.%a" Id.pp x Id.pp xr Id.pp lbl);
-            let key' = Lookup_key.replace_x2 this_key (xr, lbl) in
-            let sub_tree = create_lookup_task key' block gate_tree in
-            Gate.update_rule gate_tree (Gate.alias sub_tree);
-            add_phi this_key (Riddler.alias_key this_key key')
+            let key_r = Lookup_key.replace_x this_key x in
+            let sub_tree1 = create_lookup_task key_r block gate_tree in
+            let key_r_l = Lookup_key.replace_x2 this_key (xr, lbl) in
+            let sub_tree2 = create_lookup_task key_r_l block gate_tree in
+
+            Gate.update_rule gate_tree (Gate.project sub_tree1 sub_tree2);
+            (* Gate.update_rule gate_tree (Gate.alias sub_tree2); *)
+            add_phi this_key (Riddler.alias_key this_key key_r_l)
         (* Binop *)
         | At_clause
             {

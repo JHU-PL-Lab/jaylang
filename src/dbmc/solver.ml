@@ -10,7 +10,7 @@ type value = Sudu.Z3_api.plain =
   | Int of int [@printer Fmt.int]
   | Bool of bool [@printer Fmt.bool]
   | Fun of string [@printer Fmt.string]
-  | Record
+  | Record of string [@printer Fmt.string]
 [@@deriving sexp, compare, equal, show { with_path = false }]
 
 let solver = Z3.Solver.mk_solver ctx None
