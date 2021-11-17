@@ -76,196 +76,209 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
           m "Lookup: %a in block %a" Lookup_key.pp this_key Id.pp
             (Tracelet.id_of_block block));
       let[@landmark] apply_rule () =
-        let defined_site = Tracelet.defined x block in
+        let defined_site_opt = Tracelet.defined x block in
         let p = Riddler.pick_at_key this_key in
-        match defined_site with
-        (* Value *)
-        | At_clause { clause = Clause (_, Value_body v); _ } ->
-            Logs.info (fun m -> m "Rule Value: %a" Ast_pp.pp_value v);
-            deal_with_value (Some v) this_key block gate_tree
-        (* Input *)
-        | At_clause { clause = Clause (_, Input_body); _ } ->
-            Hash_set.add state.input_nodes this_key;
-            deal_with_value None this_key block gate_tree
-        (* Alias *)
-        | At_clause { clause = Clause (_, Var_body (Var (x', _))); _ } ->
-            let sub_tree =
-              create_lookup_task
-                (Lookup_key.replace_x this_key x')
-                block gate_tree
-            in
-            Gate.update_rule gate_tree (Gate.alias sub_tree);
-            add_phi this_key (Riddler.alias this_key x')
-        | At_clause
-            ({ clause = Clause (_, Projection_body (Var (xr, _), lbl)); _ } as
-            tc) ->
-            Logs.info (fun m ->
-                m "Rule ProjectBody : %a = %a.%a" Id.pp x Id.pp xr Id.pp lbl);
-            let key_r = Lookup_key.replace_x this_key x in
-            let sub_tree1 = create_lookup_task key_r block gate_tree in
-            let key_r_l = Lookup_key.replace_x2 this_key (xr, lbl) in
-            let sub_tree2 = create_lookup_task key_r_l block gate_tree in
+        match defined_site_opt with
+        | None ->
+            Gate.update_rule gate_tree Gate.mismatch;
+            add_phi this_key (Riddler.mismatch this_key)
+        | Some defined_site -> (
+            match defined_site with
+            (* Value *)
+            | At_clause { clause = Clause (_, Value_body v); _ } ->
+                Logs.info (fun m -> m "Rule Value: %a" Ast_pp.pp_value v);
+                deal_with_value (Some v) this_key block gate_tree
+            (* Input *)
+            | At_clause { clause = Clause (_, Input_body); _ } ->
+                Hash_set.add state.input_nodes this_key;
+                deal_with_value None this_key block gate_tree
+            (* Alias *)
+            | At_clause { clause = Clause (_, Var_body (Var (x', _))); _ } ->
+                let sub_tree =
+                  create_lookup_task
+                    (Lookup_key.replace_x this_key x')
+                    block gate_tree
+                in
+                Gate.update_rule gate_tree (Gate.alias sub_tree);
+                add_phi this_key (Riddler.alias this_key x')
+            | At_clause
+                ({ clause = Clause (_, Projection_body (Var (xr, _), lbl)); _ }
+                as tc) ->
+                Logs.info (fun m ->
+                    m "Rule ProjectBody : %a = %a.%a" Id.pp x Id.pp xr Id.pp lbl);
+                let key_r = Lookup_key.replace_x this_key x in
+                let sub_tree1 = create_lookup_task key_r block gate_tree in
+                let key_r_l = Lookup_key.replace_x2 this_key (xr, lbl) in
+                let sub_tree2 = create_lookup_task key_r_l block gate_tree in
 
-            Gate.update_rule gate_tree (Gate.project sub_tree1 sub_tree2);
-            (* Gate.update_rule gate_tree (Gate.alias sub_tree2); *)
-            add_phi this_key (Riddler.alias_key this_key key_r_l)
-        (* Binop *)
-        | At_clause
-            {
-              clause =
-                Clause (_, Binary_operation_body (Var (x1, _), bop, Var (x2, _)));
-              _;
-            } ->
-            let sub_tree1 =
-              create_lookup_task
-                (Lookup_key.of_parts x1 xs r_stk)
-                block gate_tree
-            in
-            let sub_tree2 =
-              create_lookup_task
-                (Lookup_key.of_parts x2 xs r_stk)
-                block gate_tree
-            in
-            Gate.update_rule gate_tree (Gate.binop sub_tree1 sub_tree2);
-            add_phi this_key (Riddler.binop this_key bop x1 x2)
-        (* Cond Top *)
-        | At_chosen cb ->
-            let condsite_block = Tracelet.outer_block block map in
-            let choice = Option.value_exn cb.choice in
+                Gate.update_rule gate_tree (Gate.project sub_tree1 sub_tree2);
+                (* Gate.update_rule gate_tree (Gate.alias sub_tree2); *)
+                add_phi this_key (Riddler.alias_key this_key key_r_l)
+            (* Binop *)
+            | At_clause
+                {
+                  clause =
+                    Clause
+                      (_, Binary_operation_body (Var (x1, _), bop, Var (x2, _)));
+                  _;
+                } ->
+                let sub_tree1 =
+                  create_lookup_task
+                    (Lookup_key.of_parts x1 xs r_stk)
+                    block gate_tree
+                in
+                let sub_tree2 =
+                  create_lookup_task
+                    (Lookup_key.of_parts x2 xs r_stk)
+                    block gate_tree
+                in
+                Gate.update_rule gate_tree (Gate.binop sub_tree1 sub_tree2);
+                add_phi this_key (Riddler.binop this_key bop x1 x2)
+            (* Cond Top *)
+            | At_chosen cb ->
+                let condsite_block = Tracelet.outer_block block map in
+                let choice = Option.value_exn cb.choice in
 
-            let condsite_stack =
-              match Rstack.pop r_stk (cb.point, Id.cond_fid choice) with
-              | Some stk -> stk
-              | None -> failwith "impossible in CondTop"
-            in
-            let x2 = cb.cond in
+                let condsite_stack =
+                  match Rstack.pop r_stk (cb.point, Id.cond_fid choice) with
+                  | Some stk -> stk
+                  | None -> failwith "impossible in CondTop"
+                in
+                let x2 = cb.cond in
 
-            let sub_tree1 =
-              create_lookup_task
-                (Lookup_key.of_parts x2 [] condsite_stack)
-                condsite_block gate_tree
-            in
-            let sub_tree2 =
-              create_lookup_task
-                (Lookup_key.of_parts x xs condsite_stack)
-                condsite_block gate_tree
-            in
-            Gate.update_rule gate_tree (Gate.cond_choice sub_tree1 sub_tree2);
+                let sub_tree1 =
+                  create_lookup_task
+                    (Lookup_key.of_parts x2 [] condsite_stack)
+                    condsite_block gate_tree
+                in
+                let sub_tree2 =
+                  create_lookup_task
+                    (Lookup_key.of_parts x xs condsite_stack)
+                    condsite_block gate_tree
+                in
+                Gate.update_rule gate_tree
+                  (Gate.cond_choice sub_tree1 sub_tree2);
 
-            add_phi this_key (Riddler.cond_top this_key cb condsite_stack)
-        (* Cond Bottom *)
-        | At_clause
-            {
-              clause = Clause (_, Conditional_body (Var (x', _), _, _));
-              id = tid;
-              _;
-            } ->
-            let cond_block =
-              Ident_map.find tid map |> Tracelet.cast_to_cond_block
-            in
-            if Option.is_some cond_block.choice then
-              failwith "conditional_body: not both"
-            else
-              ();
-            let cond_var_tree =
-              create_lookup_task
-                (Lookup_key.of_parts x' [] r_stk)
-                block gate_tree
-            in
-            let sub_trees =
-              List.fold [ true; false ]
-                ~f:(fun sub_trees beta ->
-                  let ctracelet = Cond { cond_block with choice = Some beta } in
-                  let x_ret = Tracelet.ret_of ctracelet in
-                  let cbody_stack = Rstack.push r_stk (x, Id.cond_fid beta) in
-                  let sub_tree =
-                    create_lookup_task
-                      (Lookup_key.of_parts x_ret xs cbody_stack)
-                      ctracelet gate_tree
-                  in
-                  sub_trees @ [ sub_tree ])
-                ~init:[]
-            in
-            Gate.update_rule gate_tree
-              (Gate.mk_condsite ~cond_var_tree ~sub_trees);
-            add_phi this_key (Riddler.cond_bottom this_key cond_block x')
-        (* Fun Enter / Fun Enter Non-Local *)
-        | At_fun_para (is_local, fb) ->
-            let fid = fb.point in
-            let callsites =
-              match Rstack.paired_callsite r_stk fid with
-              | Some callsite -> [ callsite ]
-              | None -> fb.callsites
-            in
-            Logs.info (fun m ->
-                m "FunEnter%s: %a -> %a"
-                  (if is_local then "" else "Nonlocal")
-                  Id.pp fid Id.pp_list callsites);
-            let sub_trees =
-              List.fold callsites
-                ~f:(fun sub_trees callsite ->
-                  let callsite_block, x', x'', x''' =
-                    Tracelet.fun_info_of_callsite callsite map
-                  in
-                  match Rstack.pop r_stk (x', fid) with
-                  | Some callsite_stack ->
-                      let sub_tree1 =
+                add_phi this_key (Riddler.cond_top this_key cb condsite_stack)
+            (* Cond Bottom *)
+            | At_clause
+                {
+                  clause = Clause (_, Conditional_body (Var (x', _), _, _));
+                  id = tid;
+                  _;
+                } ->
+                let cond_block =
+                  Ident_map.find tid map |> Tracelet.cast_to_cond_block
+                in
+                if Option.is_some cond_block.choice then
+                  failwith "conditional_body: not both"
+                else
+                  ();
+                let cond_var_tree =
+                  create_lookup_task
+                    (Lookup_key.of_parts x' [] r_stk)
+                    block gate_tree
+                in
+                let sub_trees =
+                  List.fold [ true; false ]
+                    ~f:(fun sub_trees beta ->
+                      let ctracelet =
+                        Cond { cond_block with choice = Some beta }
+                      in
+                      let x_ret = Tracelet.ret_of ctracelet in
+                      let cbody_stack =
+                        Rstack.push r_stk (x, Id.cond_fid beta)
+                      in
+                      let sub_tree =
                         create_lookup_task
-                          (Lookup_key.of_parts x'' [] callsite_stack)
-                          callsite_block gate_tree
+                          (Lookup_key.of_parts x_ret xs cbody_stack)
+                          ctracelet gate_tree
                       in
-                      let sub_key =
-                        if is_local then
-                          Lookup_key.of_parts x''' xs callsite_stack
-                        else
-                          Lookup_key.of_parts x'' (x :: xs) callsite_stack
+                      sub_trees @ [ sub_tree ])
+                    ~init:[]
+                in
+                Gate.update_rule gate_tree
+                  (Gate.mk_condsite ~cond_var_tree ~sub_trees);
+                add_phi this_key (Riddler.cond_bottom this_key cond_block x')
+            (* Fun Enter / Fun Enter Non-Local *)
+            | At_fun_para (is_local, fb) ->
+                let fid = fb.point in
+                let callsites =
+                  match Rstack.paired_callsite r_stk fid with
+                  | Some callsite -> [ callsite ]
+                  | None -> fb.callsites
+                in
+                Logs.info (fun m ->
+                    m "FunEnter%s: %a -> %a"
+                      (if is_local then "" else "Nonlocal")
+                      Id.pp fid Id.pp_list callsites);
+                let sub_trees =
+                  List.fold callsites
+                    ~f:(fun sub_trees callsite ->
+                      let callsite_block, x', x'', x''' =
+                        Tracelet.fun_info_of_callsite callsite map
                       in
-                      let sub_tree2 =
-                        create_lookup_task sub_key callsite_block gate_tree
+                      match Rstack.pop r_stk (x', fid) with
+                      | Some callsite_stack ->
+                          let sub_tree1 =
+                            create_lookup_task
+                              (Lookup_key.of_parts x'' [] callsite_stack)
+                              callsite_block gate_tree
+                          in
+                          let sub_key =
+                            if is_local then
+                              Lookup_key.of_parts x''' xs callsite_stack
+                            else
+                              Lookup_key.of_parts x'' (x :: xs) callsite_stack
+                          in
+                          let sub_tree2 =
+                            create_lookup_task sub_key callsite_block gate_tree
+                          in
+                          sub_trees @ [ (sub_tree1, sub_tree2) ]
+                      | None -> sub_trees)
+                    ~init:[]
+                in
+
+                Gate.update_rule gate_tree (Gate.mk_para ~sub_trees);
+                add_phi this_key
+                  (Riddler.fun_enter this_key is_local fb callsites map)
+            (* Fun Exit *)
+            | At_clause
+                {
+                  clause = Clause (_, Appl_body (Var (xf, _), Var (_xv, _)));
+                  cat = App fids;
+                  _;
+                } ->
+                Logs.info (fun m ->
+                    m "FunExit: %a -> %a" Id.pp xf Id.pp_list fids);
+                let fun_tree =
+                  create_lookup_task
+                    (Lookup_key.of_parts xf [] r_stk)
+                    block gate_tree
+                in
+
+                let sub_trees =
+                  List.fold fids
+                    ~f:(fun sub_trees fid ->
+                      let fblock = Ident_map.find fid map in
+                      let x' = Tracelet.ret_of fblock in
+                      let r_stk' = Rstack.push r_stk (x, fid) in
+                      let sub_tree =
+                        create_lookup_task
+                          (Lookup_key.of_parts x' xs r_stk')
+                          fblock gate_tree
                       in
-                      sub_trees @ [ (sub_tree1, sub_tree2) ]
-                  | None -> sub_trees)
-                ~init:[]
-            in
+                      sub_trees @ [ sub_tree ])
+                    ~init:[]
+                in
 
-            Gate.update_rule gate_tree (Gate.mk_para ~sub_trees);
-            add_phi this_key
-              (Riddler.fun_enter this_key is_local fb callsites map)
-        (* Fun Exit *)
-        | At_clause
-            {
-              clause = Clause (_, Appl_body (Var (xf, _), Var (_xv, _)));
-              cat = App fids;
-              _;
-            } ->
-            Logs.info (fun m -> m "FunExit: %a -> %a" Id.pp xf Id.pp_list fids);
-            let fun_tree =
-              create_lookup_task
-                (Lookup_key.of_parts xf [] r_stk)
-                block gate_tree
-            in
-
-            let sub_trees =
-              List.fold fids
-                ~f:(fun sub_trees fid ->
-                  let fblock = Ident_map.find fid map in
-                  let x' = Tracelet.ret_of fblock in
-                  let r_stk' = Rstack.push r_stk (x, fid) in
-                  let sub_tree =
-                    create_lookup_task
-                      (Lookup_key.of_parts x' xs r_stk')
-                      fblock gate_tree
-                  in
-                  sub_trees @ [ sub_tree ])
-                ~init:[]
-            in
-
-            Gate.update_rule gate_tree (Gate.mk_callsite ~fun_tree ~sub_trees);
-            add_phi this_key (Riddler.fun_exit this_key xf fids map)
-        | At_clause ({ clause = Clause (_, _); _ } as tc) ->
-            Logs.err (fun m -> m "%a" Ast_pp.pp_clause tc.clause);
-            failwith "error lookup cases"
-        | Lookup_mismatch -> failwith "should not mismatch here"
+                Gate.update_rule gate_tree
+                  (Gate.mk_callsite ~fun_tree ~sub_trees);
+                add_phi this_key (Riddler.fun_exit this_key xf fids map)
+            | At_clause ({ clause = Clause (_, _); _ } as tc) ->
+                Logs.err (fun m -> m "%a" Ast_pp.pp_clause tc.clause);
+                failwith "error lookup cases"
+            | Lookup_mismatch -> failwith "should not mismatch here")
       in
       apply_rule ();
 

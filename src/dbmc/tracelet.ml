@@ -218,10 +218,10 @@ let clauses_of_expr e =
 
 let defined x block =
   match (clause_of_x block x, block) with
-  | Some tc, _ -> At_clause tc
-  | None, Fun fb -> At_fun_para (Ident.(equal fb.para x), fb)
-  | None, Cond cb -> At_chosen cb
-  | None, Main _mb -> failwith "main block must have target"
+  | Some tc, _ -> Some (At_clause tc)
+  | None, Fun fb -> Some (At_fun_para (Ident.(equal fb.para x), fb))
+  | None, Cond cb -> Some (At_chosen cb)
+  | None, Main _mb -> None
 
 let tracelet_map_of_expr e : t Ident_map.t =
   let map = ref Ident_map.empty in

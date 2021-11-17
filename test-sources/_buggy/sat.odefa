@@ -1,0 +1,13 @@
+tt = true;
+# f -> [g1; g2]
+apply = fun f -> (rf = f tt);
+g1 = fun n1 -> (
+  g2 = fun n2 -> (
+    rg2 = n1
+  );
+  rg1 = apply g2;
+);
+r0 = apply g1;
+r1 = r0 ? 
+    (target = 1) :
+    (dummy = 0)

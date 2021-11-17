@@ -49,9 +49,8 @@ let parts_to_str x xs r_stk = str_of_t (of_parts x xs r_stk)
 
 let parts2_to_str xs r_stk = str_of_t (of_parts2 xs r_stk)
 
-let show = str_of_t
-
-let pp = Fmt.of_to_string show
+let pp oc key =
+  Fmt.pf oc "%s[%a]" (Lookup_stack.str_of_t (lookups key)) Rstack.pp key.r_stk
 
 let chrono_compare map k1 k2 =
   let x1, xs1, r_stk1 = to_parts k1 in

@@ -114,8 +114,6 @@ let str_of_op = function Push -> "<-" | Co_pop -> "!"
 
 let str_of_t h = string_of_int h.hkey
 
-let pp : 'a -> t -> 'b = Fmt.of_to_string str_of_t
-
 let construct_stks r_stk =
   let rec loop r_stk co_stk stk =
     match r_stk.node with
@@ -125,17 +123,16 @@ let construct_stks r_stk =
   in
   loop r_stk [] []
 
-(*
-let rec str_of_id rstk =
-  match rstk with
-  | Empty -> ""
+let rec pp oc rstk =
+  match rstk.node with
+  | Empty -> ()
   | Cons { op = Co_pop; prev; frame } ->
-      str_of_id prev ^ "<@" ^ str_of_frame frame ^ ";"
+      Fmt.pf oc "-%s;%a" (str_of_frame frame) pp prev
   | Cons { op = Push; prev; frame } ->
-      str_of_id prev ^ "<-" ^ str_of_frame frame ^ ";"
+      Fmt.pf oc "+%s;%a" (str_of_frame frame) pp prev
 
+(*
 let str_of_id h = str_of_id (lift_to_stack h)
-
 
    let rec lift_to_hstack = function
      | Empty -> empty
