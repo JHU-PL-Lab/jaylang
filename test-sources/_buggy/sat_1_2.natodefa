@@ -1,0 +1,22 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [ 0 ]
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 30000
+
+let x = input in
+
+let try f = f true
+in
+let result =
+  let g1 = (fun n1 ->
+        let g2 = (fun n2 ->
+                  let arg = {x1 = n1} in
+                  arg.x1
+            )
+        in try g2
+      ) 
+    in try g1
+in
+if result then
+  let target = 1 in 1
+else
+  0
