@@ -46,7 +46,7 @@ let check (state : Search_tree.state) (config : Top_config.t) =
       Some { model; c_stk }
   | Result.Error _exps -> None
 
-let[@landmark] lookup_top ~config ~(info : Search_tree.info)
+let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
     ~(state : Search_tree.state) job_queue : _ Lwt.t =
   let target = info.target in
   let map = info.block_map in
@@ -284,7 +284,8 @@ let[@landmark] lookup_top ~config ~(info : Search_tree.info)
 
       (* if !(state.pvar_reach_top) then ( *)
       (* !(state.root_node).has_complete_path &&  *)
-      if state.tree_size mod 500 = 0 then (
+      if state.tree_size mod config.steps = 0
+      then (
         Fmt.pr "%d\n" state.tree_size;
         match check state config with
         | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })

@@ -91,19 +91,10 @@ let command =
     and expected_inputs =
       flag "-i" (listed int_list_parser) ~doc:"expected_inputs by groups"
     and timeout = flag "-m" (optional timeout_parser) ~doc:"timeout in seconds"
-    and debug_phi =
-      flag "-p"
-        Command.Param.(optional_with_default false bool)
-        ~doc:"[bool] output constraints"
-    and debug_model =
-      flag "-z"
-        Command.Param.(optional_with_default true bool)
-        ~doc:"[bool] output smt model"
-    and debug_lookup_graph =
-      flag "-g"
-        Command.Param.(optional_with_default false bool)
-        ~doc:"[bool] output graphviz dot"
-    in
+    and steps = flag "-s" (optional_with_default 500 int) ~doc:"check per steps"
+    and debug_phi = flag "-p" no_arg ~doc:"output constraints"
+    and debug_no_model = flag "-z" no_arg ~doc:"not output smt model"
+    and debug_lookup_graph = flag "-g" no_arg ~doc:"output graphviz dot" in
     let top_config =
       {
         ddpa_c_stk;
@@ -111,9 +102,10 @@ let command =
         filename;
         target;
         timeout;
+        steps;
         expected_inputs;
         debug_phi;
-        debug_model;
+        debug_model = not debug_no_model;
         debug_lookup_graph;
       }
     in
