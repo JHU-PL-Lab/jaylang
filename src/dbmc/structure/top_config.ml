@@ -12,11 +12,13 @@ type t = {
   target : Id.t;
   filename : Filename.t; [@printer String.pp]
   timeout : Time.Span.t option;
+  steps : int;
   expected_inputs : int list list;
   (* debug *)
   debug_phi : bool;
   debug_model : bool;
-  debug_lookup_graph : bool;
+  debug_graph : bool;
+  run_max_step : int option;
 }
 [@@deriving show { with_path = false }]
 
@@ -29,13 +31,16 @@ let default_config =
     target = Id.(Ident "target");
     filename = "";
     timeout = None (* Time.Span.of_int_sec 60 *);
+    steps = 1;
     expected_inputs = [];
     debug_phi = false;
     debug_model = true;
-    debug_lookup_graph = false;
+    debug_graph = false;
+    run_max_step = None;
   }
 
-let default_config_with_filename filename = { default_config with filename }
+let default_config_with ?(steps = 500) ~filename : t =
+  { default_config with filename; steps }
 
 let check_wellformed_or_exit ast =
   let open Odefa_ast in

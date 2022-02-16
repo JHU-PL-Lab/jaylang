@@ -63,8 +63,8 @@ let pop (rstk : t) frame : t option =
   | Cons { op = Push; prev; frame = frame_prev } ->
       let f1, _ = frame in
       let f2, _ = frame_prev in
-      if Id.equal f1 f2 then
-        Some prev
+      if Id.equal f1 f2
+      then Some prev
       else (* failwith "unmathch pop from stk" *)
         None
   | Cons { op = Co_pop; _ } -> Some (cons Co_pop rstk frame)
@@ -74,45 +74,45 @@ let paired_callsite rstk this_f =
   | Empty -> None
   | Cons { op = Push; frame; _ } ->
       let cs, fid = frame in
-      if Id.equal fid this_f then
-        Some cs
-      else
-        failwith "inequal f when stack is not empty"
+      if Id.equal fid this_f
+      then Some cs
+      else failwith "inequal f when stack is not empty"
   | Cons { op = Co_pop; _ } -> None
 
-let rec concretize_top rstk =
-  match rstk.node with
-  | Empty -> []
-  | Cons { op = Co_pop; prev; frame } -> frame :: concretize_top prev
-  | _ -> failwith "non-empty stack when concretize"
+let concretize_top rstk : Concrete_stack.t =
+  let rec loop rstk =
+    match rstk.node with
+    | Empty -> []
+    | Cons { op = Co_pop; prev; frame } -> frame :: loop prev
+    | _ -> failwith "non-empty stack when concretize"
+  in
+  Concrete_stack.of_list (loop rstk)
 
 let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t
     =
   let rec discard_common ts cs =
     match (ts, cs) with
     | fm1 :: ts', fm2 :: cs' ->
-        if equal_frame fm1 fm2 then
-          discard_common ts' cs'
-        else
-          (ts, cs)
+        if equal_frame fm1 fm2 then discard_common ts' cs' else (ts, cs)
     | _, _ -> (ts, cs)
   in
   (* Reverse the call stack to make it stack top ~ list head ~ source first *)
+  let call_stk = Concrete_stack.to_list call_stk in
+  let target_stk = Concrete_stack.to_list target_stk in
   let call_rev = List.rev call_stk in
   let target_stk', call_stk' = discard_common target_stk call_rev in
-  (* (target_stk', List.rev call_stk') *)
   let rstk' =
     List.fold (List.rev target_stk') ~init:empty ~f:(fun acc fm ->
         Option.value_exn (pop acc fm))
   in
-  let rstk = List.fold (List.rev call_stk') ~init:rstk' ~f:push in
+  let rstk = List.fold call_stk' ~init:rstk' ~f:push in
   rstk
 
 let str_of_frame (Id.Ident x1, Id.Ident x2) = "(" ^ x1 ^ "," ^ x2 ^ ")"
 
 let str_of_op = function Push -> "<-" | Co_pop -> "!"
 
-let str_of_t h = string_of_int h.hkey
+let to_string h = string_of_int h.hkey
 
 let construct_stks r_stk =
   let rec loop r_stk co_stk stk =
@@ -130,6 +130,17 @@ let rec pp oc rstk =
       Fmt.pf oc "-%s;%a" (str_of_frame frame) pp prev
   | Cons { op = Push; prev; frame } ->
       Fmt.pf oc "+%s;%a" (str_of_frame frame) pp prev
+
+(* Used in Lookup_key *)
+let sexp_of_t (r : t) = [%sexp_of: int] r.hkey
+
+let compare (r1 : t) (r2 : t) = Int.compare r1.hkey r2.hkey
+
+let equal (r1 : t) (r2 : t) = X.equal r1.node r2.node
+
+let hash_fold_t state (r : t) = Hash.fold_int state r.hkey
+
+let hash r = r.hkey
 
 (*
 let str_of_id h = str_of_id (lift_to_stack h)

@@ -1,28 +1,24 @@
-(copy_files# context-stacks/*.{ml,mli})
-(copy_files# pds/*.{ml,mli})
-(copy_files# types/*.{ml,mli})
-(copy_files# utils/*.{ml,mli})
+; (copy_files# context-stacks/*.{ml,mli})
+; (copy_files# pds/*.{ml,mli})
+; (copy_files# types/*.{ml,mli})
+; (copy_files# utils/*.{ml,mli})
+
+(include_subdirs unqualified)
+
 (library
-  (name odefa_ddpa)
-  (public_name odefa.ddpa)
-  (synopsis "DDPA analysis for Odefa")
-  (libraries
-    batteries
-    jhupllib
-    monadlib
-    odefa.ast
-    odefa.utils
-    pds-reachability
-    ppx_deriving_yojson
-  )
-  (preprocess
-    (pps
-      ocaml-monadic
-      ppx_deriving.std
-      ppx_deriving_yojson
-    )
-  )
-  (flags
-    (:standard -w -39) ;for ppx_deriving_yojson, which generates extra rec flags
-  )
-)
+ (name odefa_ddpa)
+ (public_name odefa.ddpa)
+ (synopsis "DDPA analysis for Odefa")
+ (libraries
+  batteries
+  jhupllib
+  monadlib
+  odefa.ast
+  odefa.utils
+  pds-reachability
+  ppx_deriving_yojson)
+ (preprocess
+  (pps ocaml-monadic ppx_deriving.std ppx_deriving_yojson))
+ (flags
+  (:standard -w -39) ;for ppx_deriving_yojson, which generates extra rec flags
+  ))
