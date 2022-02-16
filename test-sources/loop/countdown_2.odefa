@@ -1,24 +1,19 @@
-# EXPECT-WELL-FORMED
-# EXPECT-INPUT-IS 4
-# EXPECT-EVALUATES
-# EXPECT-INPUT-SEQUENCES-REACH good [ 2 ]
-
 zero = 0;
 one = 1;
 two = 2;
-counthalf = fun countself -> (
-  counthalfret = fun counthalfparam -> (
-    counthalfcond = counthalfparam == zero;
-    counthalfret2 = counthalfcond ?
-      ( counthalfcondtrue = 0; ) :
-      ( counthalfselfcall = countself countself;
-        counthalfnextparam = counthalfparam - one;
-        counthalfrecursiveresult = counthalfselfcall counthalfnextparam;
+f = fun s -> (
+  r1 = fun x -> (
+    num = input;
+    fc = num == zero;
+    r2 = fc ?
+      ( t = 0; ) :
+      ( ss = s s;
+        r3 = ss x;
+        r4 = r3 + one;
       );
   );
 );
-count = counthalf counthalf;
-num = input;
-total = count num;
-condition = num < two;
-final = condition ? ( dummy1 = 0; bad = false; ) : ( dummy2 = 0; good = true );
+count = f f;
+total = count zero;
+c = total == two;
+final = c ? ( target = 0 ) : ( bad = 0 );

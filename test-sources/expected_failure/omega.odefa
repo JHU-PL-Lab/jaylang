@@ -6,4 +6,5 @@
 f = fun x -> (
   fr = x x;
 );
-r = f f; # => SPINS FOREVER
+# => SPINS FOREVER
+target = f f

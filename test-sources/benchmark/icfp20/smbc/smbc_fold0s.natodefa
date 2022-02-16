@@ -1,5 +1,5 @@
 # EXPECT-WELL-FORMED
-              # EXPECT-INPUT-SEQUENCES-REACH target [0, 1, 0, 0, 0] [1, 1, 1, 0, 0] [0, 1, 0, 0, 1] [1, 1, 1, 0, 1] ! 
+# EXPECT-INPUT-SEQUENCES-REACH target [0, 1, 0, 0, 0] [1, 1, 1, 0, 0] [0, 1, 0, 0, 1] [1, 1, 1, 0, 1] ! 
 
 let ans1 = input == 0 in
 let ans2 = input == 0 in

@@ -1,3 +1,4 @@
+w = 1;
 x = input;
 one = 1;
 two = 2;

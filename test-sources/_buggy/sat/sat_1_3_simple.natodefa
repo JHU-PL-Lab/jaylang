@@ -1,0 +1,31 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [ 0 ]
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 30000
+
+let x = input in
+
+let phi formula =
+  formula.x1
+in
+let try f =
+  (f true) or (f false)
+in
+let sat_solve_3 p =
+  try (fun n1 ->
+        try (fun n2 ->
+              try (fun n3 ->
+                  let arg = {x1 = n1,
+                              x2 = n2,
+                              x3 = n3
+                            }
+                  in
+                  p arg
+                  )
+            )
+      )
+in
+let result = sat_solve_3 phi in
+if result then
+  let target = 1 in 1
+else
+  0

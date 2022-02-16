@@ -1,7 +1,7 @@
 (
   (
     (inputs (
-      (2)
+      (_ _)
     ))
     (target good)
   )

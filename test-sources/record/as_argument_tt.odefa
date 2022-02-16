@@ -1,6 +1,6 @@
 x = input;
 one = 1;
-c = x < one;
+c = x == one;
 r = { d = c };
 f = fun t -> (
   rf = t.d

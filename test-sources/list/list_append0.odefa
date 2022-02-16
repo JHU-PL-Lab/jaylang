@@ -2,7 +2,7 @@ x0 = input;
 x1 = input;
 t1 = true;
 none = {last=t1};
-one = 1;
+one = 3;
 ff = false;
 a1 = {elem=one, last=ff, next=none};
 zero = 0;

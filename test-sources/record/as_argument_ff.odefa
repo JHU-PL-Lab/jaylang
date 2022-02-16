@@ -1,6 +1,8 @@
 x = input;
 one = 1;
-c = x < one;
+b = x == one;
+ff = false;
+c = b xor ff;
 r = { d = c };
 f = fun t -> (
   rf = t.d

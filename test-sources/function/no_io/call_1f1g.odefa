@@ -3,7 +3,7 @@ a2 = 2;
 f = fun t -> (
   g = fun s -> (
     x = 1;
-    target = t
+    target = t + a1
   )
 );
 c1 = f a1;

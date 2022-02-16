@@ -6,5 +6,6 @@ r3 = {a = r2};
 get_a = fun t -> ( rt = t.a );
 t2 = get_a r3;
 t1 = get_a t2;
-c = x == t1;
+t0 = get_a t1;
+c = x == t0;
 z = c ? (target = 1) : (dummy = 0);

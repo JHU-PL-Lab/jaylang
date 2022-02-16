@@ -9,7 +9,7 @@ let phi formula =
   ((not (formula.x2)) or (not (formula.x3))) and
   (formula.x2)
 in
-let try f =
+let try f = 
   (f true) or (f false)
 in
 let sat_solve_3 p =
