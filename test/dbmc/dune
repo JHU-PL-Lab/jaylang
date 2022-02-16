@@ -15,10 +15,13 @@
  (libraries
   core
   fmt
+  lwt
+  lwt.unix
   alcotest
+  alcotest-lwt
   odefa_ast
   odefa_parser
   odefa.natural
   odefa.dbmc)
  (preprocess
-  (pps ppx_jane -allow-unannotated-ignores ppx_deriving.std)))
+  (pps ppx_jane -allow-unannotated-ignores lwt_ppx ppx_deriving.std)))

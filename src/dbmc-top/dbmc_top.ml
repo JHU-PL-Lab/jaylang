@@ -61,16 +61,17 @@ let dbmc_run program cfg =
 let handle_config cfg =
   (* Format.printf "%a\n" pp_top_config cfg; *)
   let program =
-    if String.is_suffix cfg.filename ~suffix:"natodefa" then
+    if String.is_suffix cfg.filename ~suffix:"natodefa"
+    then
       let natast =
         In_channel.with_file cfg.filename
           ~f:Odefa_natural.On_parse.parse_program_raw
       in
       Odefa_natural.On_to_odefa.translate natast
-    else if String.is_suffix cfg.filename ~suffix:"odefa" then
+    else if String.is_suffix cfg.filename ~suffix:"odefa"
+    then
       In_channel.with_file cfg.filename ~f:Odefa_parser.Parser.parse_program_raw
-    else
-      failwith "file extension must be .odefa or .natodefa"
+    else failwith "file extension must be .odefa or .natodefa"
   in
   ignore @@ check_wellformed_or_exit program;
   try dbmc_run program cfg
@@ -94,7 +95,8 @@ let command =
     and steps = flag "-s" (optional_with_default 500 int) ~doc:"check per steps"
     and debug_phi = flag "-p" no_arg ~doc:"output constraints"
     and debug_no_model = flag "-z" no_arg ~doc:"not output smt model"
-    and debug_lookup_graph = flag "-g" no_arg ~doc:"output graphviz dot" in
+    and debug_graph = flag "-g" no_arg ~doc:"output graphviz dot"
+    and run_max_step = flag "-x" (optional int) ~doc:"check per steps" in
     let top_config =
       {
         ddpa_c_stk;
@@ -106,7 +108,8 @@ let command =
         expected_inputs;
         debug_phi;
         debug_model = not debug_no_model;
-        debug_lookup_graph;
+        debug_graph;
+        run_max_step;
       }
     in
     handle_config top_config;

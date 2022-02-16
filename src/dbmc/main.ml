@@ -33,11 +33,11 @@ let check (state : Search_tree.state) (config : Top_config.t) =
   Search_tree.clear_phis state;
   match check_result with
   | Result.Ok model ->
-      if config.debug_model then (
+      if config.debug_model
+      then (
         Logs.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()));
         Logs.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)))
-      else
-        ();
+      else ();
       let c_stk_mach =
         Solver.SuduZ3.(get_unbox_fun_exn model Riddler.top_stack)
       in
@@ -46,6 +46,14 @@ let check (state : Search_tree.state) (config : Top_config.t) =
       Some { model; c_stk }
   | Result.Error _exps -> None
 
+(** [lookup_top] performs the lookup. Usually one lookup steps consists of
+
+    - process clause
+    - handle graph node
+    - book-keep global search state
+    - create sub-lookups and push into the scheduler
+
+    [state.node_map] is once used to keep track of [Lookup_key.t] created. *)
 let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
     ~(state : Search_tree.state) job_queue : _ Lwt.t =
   let target = info.target in
@@ -54,8 +62,8 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
   (* let block0 = Tracelet.cut_before true target block in *)
   let block0 = Tracelet.find_by_id target map in
 
-  let add_phi _key phi_z3 =
-    (* Hashtbl.add_exn state.phi_map ~key ~data:phi_z3; *)
+  let add_phi key phi_z3 =
+    Hashtbl.add_exn state.phi_map ~key ~data:phi_z3;
     state.phis_z3 <- phi_z3 :: state.phis_z3
   in
 
@@ -170,10 +178,9 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
                 let cond_block =
                   Ident_map.find tid map |> Tracelet.cast_to_cond_block
                 in
-                if Option.is_some cond_block.choice then
-                  failwith "conditional_body: not both"
-                else
-                  ();
+                if Option.is_some cond_block.choice
+                then failwith "conditional_body: not both"
+                else ();
                 let cond_var_tree =
                   create_lookup_task
                     (Lookup_key.of_parts x' [] r_stk)
@@ -226,8 +233,8 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
                               callsite_block gate_tree
                           in
                           let sub_key =
-                            if is_local then
-                              Lookup_key.of_parts x''' xs callsite_stack
+                            if is_local
+                            then Lookup_key.of_parts x''' xs callsite_stack
                             else
                               Lookup_key.of_parts x'' (x :: xs) callsite_stack
                           in
@@ -282,16 +289,14 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
       in
       apply_rule ();
 
-      (* if !(state.pvar_reach_top) then ( *)
       (* !(state.root_node).has_complete_path &&  *)
       if state.tree_size mod config.steps = 0
-      then (
-        Fmt.pr "%d\n" state.tree_size;
+      then
+        (* Fmt.pr "step = %d\n" state.tree_size; *)
         match check state config with
         | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
-        | None -> Lwt.return_unit)
-      else
-        Lwt.return_unit
+        | None -> Lwt.return_unit
+      else Lwt.return_unit
     in
     lookup_work
   and create_lookup_task (key : Lookup_key.t) block parent_node : Gate.T.t ref =
@@ -321,19 +326,23 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
     let singleton_lookup = List.is_empty key.xs in
 
     (* Discovery Main & Non-Main *)
-    if singleton_lookup then (
-      if Ident.equal block_id id_main then (
+    if singleton_lookup
+    then (
+      if Ident.equal block_id id_main
+      then (
         (* Discovery Main *)
         let target_stk = Rstack.concretize_top key.r_stk in
         Gate.update_rule gate_tree (Gate.done_ target_stk);
         add_phi key (Riddler.discover_main key mv))
-      else (* Discovery Non-Main *)
+      else
+        (* Discovery Non-Main *)
         let child_tree =
           create_lookup_task (Lookup_key.to_first key x_first) block gate_tree
         in
         gate_tree := { !gate_tree with rule = Gate.to_first child_tree };
         add_phi key (Riddler.discover_non_main key x_first mv))
-    else (* Discard *)
+    else
+      (* Discard *)
       match mv with
       | Some (Value_function _f) ->
           let sub_tree =
@@ -365,7 +374,7 @@ let[@landmark] lookup_main ~(config : Top_config.t) program target =
   let job_queue = Scheduler.create () in
   let info : Search_tree.info =
     {
-      first = Ddpa_helper.first_var program;
+      first = Ast_tools.first_id program;
       target;
       program;
       block_map = Tracelet.annotate program target;
@@ -386,14 +395,28 @@ let[@landmark] lookup_main ~(config : Top_config.t) program target =
     Logs.info (fun m ->
         m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident target
           Concrete_stack.pp c_stk);
-    if config.debug_lookup_graph then
+    Hashtbl.clear state.rstk_picked;
+    Logs.debug (fun m ->
+        m "Nodes picked states\n%a\n"
+          (Fmt.Dump.iter_bindings
+             (fun f c ->
+               Hashtbl.iteri c ~f:(fun ~key ~data:_ ->
+                   f key (Riddler.is_picked (Some model) key)))
+             Fmt.nop Lookup_key.pp Fmt.bool)
+          state.node_map);
+    Hashtbl.iter_keys state.node_map ~f:(fun key ->
+        if Riddler.is_picked (Some model) key
+        then ignore @@ Hashtbl.add state.rstk_picked ~key:key.r_stk ~data:true
+        else ());
+    let inputs_from_interpreter =
+      Solver.get_inputs ~state ~config target model c_stk program
+    in
+    if config.debug_graph
+    then
       print_dot_graph ~model:(Some model) ~program:info.program
         ~testname:config.filename state
-    else
-      ();
-    let inputs_from_interpreter =
-      Solver.get_inputs target model c_stk program
-    in
+    else ();
+
     (* let input_from_model =
           let input_collected = Search_tree.collect_picked_input state model in
           input_collected
@@ -424,10 +447,10 @@ let[@landmark] lookup_main ~(config : Top_config.t) program target =
     | Some { model; c_stk } -> handle_found model c_stk
     | None ->
         Logs.info (fun m -> m "UNSAT");
-        if config.debug_model then
+        if config.debug_model
+        then
           Logs.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
-        else
-          ();
+        else ();
         []
   in
 

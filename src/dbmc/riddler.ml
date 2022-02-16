@@ -11,9 +11,9 @@ let top_stack = SuduZ3.var_s "X_topstack"
 
 (* let pick_at_key key =
    let _, r_stk = Lookup_key.to_parts2 key in
-   "P_" ^ Rstack.str_of_t r_stk |> SuduZ3.mk_bool_s *)
+   "P_" ^ Rstack.to_string r_stk |> SuduZ3.mk_bool_s *)
 
-let pick_at_key key = "P_" ^ Lookup_key.str_of_t key |> SuduZ3.mk_bool_s
+let pick_at_key key = "P_" ^ Lookup_key.to_string key |> SuduZ3.mk_bool_s
 
 let pick_at xs r_stk = pick_at_key (Lookup_key.of_parts2 xs r_stk)
 
@@ -31,9 +31,9 @@ let bind_x_v xs r_stk v =
     | Value_bool b -> SuduZ3.bool_ b
     | Value_function _ -> failwith "should not be a function"
     | Value_record _ ->
-        SuduZ3.record_ (Lookup_key.str_of_t (Lookup_key.of_parts2 xs r_stk))
-    (* Int.incr counter;
-       SuduZ3.int_ !counter *)
+        (* SuduZ3.record_ (Lookup_key.str_of_t (Lookup_key.of_parts2 xs r_stk)) *)
+        Int.incr counter;
+        SuduZ3.int_ !counter
   in
   SuduZ3.eq x v
 
@@ -127,17 +127,19 @@ let fun_enter key is_local (fb : fun_block) callsites block_map =
         match Rstack.pop r_stk (x', fid) with
         | Some callsite_stk ->
             let p_X' =
-              if is_local then
-                pick_at (x''' :: xs) callsite_stk
-              else
-                pick_at (x'' :: x :: xs) callsite_stk
+              if is_local
+              then pick_at (x''' :: xs) callsite_stk
+              else pick_at (x'' :: x :: xs) callsite_stk
             in
             let p_x'' = pick_at [ x'' ] callsite_stk in
             let choice_i = and2 p_X' p_x'' in
             let eq_on_para =
-              if is_local then (* para == arg *)
+              if is_local
+              then
+                (* para == arg *)
                 bind_x_y' (x :: xs) r_stk (x''' :: xs) callsite_stk
-              else (* nonlocal == def *)
+              else
+                (* nonlocal == def *)
                 bind_x_y' (x :: xs) r_stk (x'' :: x :: xs) callsite_stk
             in
             let eq_fid = bind_fun [ x'' ] callsite_stk fid in
@@ -196,3 +198,9 @@ let discard key v =
           bind_x_y (x :: xs) xs r_stk;
           pick_at xs r_stk;
         ]
+
+let is_picked model key = 
+  Option.value_map model ~default:false ~f:(fun model ->
+    Option.value
+      (SuduZ3.get_bool model (pick_at_key key))
+      ~default:true)

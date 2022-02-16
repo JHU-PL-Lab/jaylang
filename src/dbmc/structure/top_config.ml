@@ -39,7 +39,7 @@ let default_config =
     run_max_step = None;
   }
 
-let default_config_with ?(steps = 500) ~filename : t =
+let default_config_with ?(steps = 500) ~filename () : t =
   { default_config with filename; steps }
 
 let check_wellformed_or_exit ast =

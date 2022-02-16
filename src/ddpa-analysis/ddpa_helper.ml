@@ -62,7 +62,7 @@ let all_fun_start_clauses clauses =
      fun_ret_map:      ret:id -> fun
      used in FunReturn rule
 
-     first_var:        id
+     first_id:         id
      used in several rules
 
      hybrid_table:     id -> value
@@ -134,10 +134,6 @@ let clause_mapping e =
   |> Enum.fold
        (fun map (Clause (Var (x, _), _) as c) -> Ident_map.add x c map)
        Ident_map.empty
-
-let first_var e =
-  e |> (fun (Expr cls) -> cls) |> List.first |> fun (Clause (Var (x, _), _)) ->
-  x
 
 let make_function_mapping e =
   enum_all_functions_in_expr e

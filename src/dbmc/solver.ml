@@ -35,11 +35,17 @@ let memorized_solution_input_feeder mem model target_stack =
     mem := answer :: !mem;
     answer
 
-let get_inputs target_x model (target_stack : Concrete_stack.t) program =
+let get_inputs ~(state : Search_tree.state) ~(config : Top_config.t) target_x
+    model (target_stack : Concrete_stack.t) program =
   let input_history = ref [] in
   let input_feeder =
     memorized_solution_input_feeder input_history model target_stack
   in
   let target = (target_x, target_stack) in
-  let _ = Naive_interpreter.eval ~input_feeder ~target program in
+  let max_step = config.run_max_step in
+
+  let _ =
+    Naive_interpreter.eval ~state ~config ~input_feeder ~target ~max_step
+      program
+  in
   List.rev !input_history

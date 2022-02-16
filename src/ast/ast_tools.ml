@@ -230,3 +230,7 @@ and transform_exprs_in_function (fn : expr -> expr) (fv : function_value) :
     function_value =
   let (Function_value (x, e)) = fv in
   Function_value (x, transform_exprs_in_expr fn e)
+
+let first_id e =
+  e |> (fun (Expr cls) -> cls) |> List.first |> fun (Clause (Var (x, _), _)) ->
+  x
