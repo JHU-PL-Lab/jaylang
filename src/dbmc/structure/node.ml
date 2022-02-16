@@ -66,6 +66,11 @@ module Node_ref = struct
   include Comparator.Make (T)
 end
 
+type t = Node.t
+type ref_t = Node_ref.t
+
+let equal_ref = Node_ref.equal
+
 open Node
 
 let mk_edge pred succ = { pred; succ }
@@ -97,27 +102,16 @@ let add_pred node pred =
   else !node.preds <- pred :: !node.preds
 
 let mk_callsite ~fun_tree ~sub_trees = Callsite (fun_tree, sub_trees)
-
 let mk_condsite ~cond_var_tree ~sub_trees = Condsite (cond_var_tree, sub_trees)
-
 let mk_para ~sub_trees = Para_local sub_trees
-
 let pending_node = Pending
-
 let done_ cstk = Done cstk
-
 let discard node = Discard node
-
 let mismatch = Mismatch
-
 let alias node = Alias node
-
 let project n1 n2 = Project (n1, n2)
-
 let to_first node = To_first node
-
 let binop n1 n2 = Binop (n1, n2)
-
 let cond_choice nc nr = Cond_choice (nc, nr)
 
 (*

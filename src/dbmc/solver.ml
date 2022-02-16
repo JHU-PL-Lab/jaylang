@@ -14,7 +14,6 @@ type value = Sudu.Z3_api.plain =
 [@@deriving sexp, compare, equal, show { with_path = false }]
 
 let solver = Z3.Solver.mk_solver ctx None
-
 let reset () = Z3.Solver.reset solver
 
 let check phis_z3 cvars_z3 =
@@ -35,8 +34,8 @@ let memorized_solution_input_feeder mem model target_stack =
     mem := answer :: !mem;
     answer
 
-let get_inputs ~(state : Search_tree.state) ~(config : Top_config.t) target_x
-    model (target_stack : Concrete_stack.t) program =
+let get_inputs ~(state : Global_state.t) ~(config : Top_config.t) target_x model
+    (target_stack : Concrete_stack.t) program =
   let input_history = ref [] in
   let input_feeder =
     memorized_solution_input_feeder input_history model target_stack

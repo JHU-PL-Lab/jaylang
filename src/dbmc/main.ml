@@ -9,28 +9,25 @@ type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
 
 exception Found_solution of result_info
 
-let print_dot_graph ~model ~program ~testname (state : Search_tree.state) =
+let print_dot_graph ~model ~program ~testname (state : Global_state.t) =
   let module GI = (val (module struct
                          let state = state
-
                          let testname = Some testname
-
                          let model = model
-
                          let source_map = Ddpa_helper.clause_mapping program
                        end) : Out_graph.Graph_state)
   in
   let module Graph_dot_printer = Out_graph.DotPrinter_Make (GI) in
   Graph_dot_printer.output_graph ()
 
-let check (state : Search_tree.state) (config : Top_config.t) =
+let check (state : Global_state.t) (config : Top_config.t) =
   Logs.info (fun m -> m "Search Tree Size:\t%d" state.tree_size);
   let unfinish_lookup =
     Hash_set.to_list state.lookup_created
     |> List.map ~f:(fun key -> Solver.SuduZ3.not_ (Riddler.pick_at_key key))
   in
   let check_result = Solver.check state.phis_z3 unfinish_lookup in
-  Search_tree.clear_phis state;
+  Global_state.clear_phis state;
   match check_result with
   | Result.Ok model ->
       if config.debug_model
@@ -54,8 +51,8 @@ let check (state : Search_tree.state) (config : Top_config.t) =
     - create sub-lookups and push into the scheduler
 
     [state.node_map] is once used to keep track of [Lookup_key.t] created. *)
-let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
-    ~(state : Search_tree.state) job_queue : _ Lwt.t =
+let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
+    ~(state : Global_state.t) job_queue : _ Lwt.t =
   let target = info.target in
   let map = info.block_map in
   let x_first = info.first in
@@ -73,7 +70,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
   state.phis_z3 <- [ Riddler.pick_at_key (Lookup_key.start target) ];
 
   let[@landmark] rec lookup (xs0 : Lookup_stack.t) block r_stk
-      (gate_tree : Gate.Node.t ref) : unit -> _ Lwt.t =
+      (gate_tree : Node.t ref) : unit -> _ Lwt.t =
     let x, xs = (List.hd_exn xs0, List.tl_exn xs0) in
     let this_key : Lookup_key.t = Lookup_key.of_parts x xs r_stk in
 
@@ -88,7 +85,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
         let p = Riddler.pick_at_key this_key in
         match defined_site_opt with
         | None ->
-            Gate.update_rule gate_tree Gate.mismatch;
+            Node.update_rule gate_tree Node.mismatch;
             add_phi this_key (Riddler.mismatch this_key)
         | Some defined_site -> (
             match defined_site with
@@ -107,7 +104,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
                     (Lookup_key.replace_x this_key x')
                     block gate_tree
                 in
-                Gate.update_rule gate_tree (Gate.alias sub_tree);
+                Node.update_rule gate_tree (Node.alias sub_tree);
                 add_phi this_key (Riddler.alias this_key x')
             | At_clause
                 ({ clause = Clause (_, Projection_body (Var (xr, _), lbl)); _ }
@@ -119,8 +116,8 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
                 let key_r_l = Lookup_key.replace_x2 this_key (xr, lbl) in
                 let sub_tree2 = create_lookup_task key_r_l block gate_tree in
 
-                Gate.update_rule gate_tree (Gate.project sub_tree1 sub_tree2);
-                (* Gate.update_rule gate_tree (Gate.alias sub_tree2); *)
+                Node.update_rule gate_tree (Node.project sub_tree1 sub_tree2);
+                (* Node.update_rule gate_tree (Node.alias sub_tree2); *)
                 add_phi this_key (Riddler.alias_key this_key key_r_l)
             (* Binop *)
             | At_clause
@@ -140,7 +137,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
                     (Lookup_key.of_parts x2 xs r_stk)
                     block gate_tree
                 in
-                Gate.update_rule gate_tree (Gate.binop sub_tree1 sub_tree2);
+                Node.update_rule gate_tree (Node.binop sub_tree1 sub_tree2);
                 add_phi this_key (Riddler.binop this_key bop x1 x2)
             (* Cond Top *)
             | At_chosen cb ->
@@ -164,8 +161,8 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
                     (Lookup_key.of_parts x xs condsite_stack)
                     condsite_block gate_tree
                 in
-                Gate.update_rule gate_tree
-                  (Gate.cond_choice sub_tree1 sub_tree2);
+                Node.update_rule gate_tree
+                  (Node.cond_choice sub_tree1 sub_tree2);
 
                 add_phi this_key (Riddler.cond_top this_key cb condsite_stack)
             (* Cond Bottom *)
@@ -204,8 +201,8 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
                       sub_trees @ [ sub_tree ])
                     ~init:[]
                 in
-                Gate.update_rule gate_tree
-                  (Gate.mk_condsite ~cond_var_tree ~sub_trees);
+                Node.update_rule gate_tree
+                  (Node.mk_condsite ~cond_var_tree ~sub_trees);
                 add_phi this_key (Riddler.cond_bottom this_key cond_block x')
             (* Fun Enter / Fun Enter Non-Local *)
             | At_fun_para (is_local, fb) ->
@@ -246,7 +243,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
                     ~init:[]
                 in
 
-                Gate.update_rule gate_tree (Gate.mk_para ~sub_trees);
+                Node.update_rule gate_tree (Node.mk_para ~sub_trees);
                 add_phi this_key
                   (Riddler.fun_enter this_key is_local fb callsites map)
             (* Fun Exit *)
@@ -279,8 +276,8 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
                     ~init:[]
                 in
 
-                Gate.update_rule gate_tree
-                  (Gate.mk_callsite ~fun_tree ~sub_trees);
+                Node.update_rule gate_tree
+                  (Node.mk_callsite ~fun_tree ~sub_trees);
                 add_phi this_key (Riddler.fun_exit this_key xf fids map)
             | At_clause ({ clause = Clause (_, _); _ } as tc) ->
                 Logs.err (fun m -> m "%a" Ast_pp.pp_clause tc.clause);
@@ -299,29 +296,29 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
       else Lwt.return_unit
     in
     lookup_work
-  and create_lookup_task (key : Lookup_key.t) block parent_node : Gate.T.t ref =
+  and create_lookup_task (key : Lookup_key.t) block parent_node : Node.T.t ref =
     let block_id = block |> Tracelet.id_of_block in
     let _dup, child_node =
       match Hashtbl.find state.node_map key with
       | Some child_node ->
-          let edge = Gate.mk_edge parent_node child_node in
-          Gate.add_pred child_node edge;
+          let edge = Node.mk_edge parent_node child_node in
+          Node.add_pred child_node edge;
           (true, child_node)
       | None ->
           Hash_set.strict_add_exn state.lookup_created key;
 
           let child_node =
-            ref (Gate.mk_node ~block_id ~key ~rule:Gate.pending_node)
+            ref (Node.mk_node ~block_id ~key ~rule:Node.pending_node)
           in
-          let edge = Gate.mk_edge parent_node child_node in
-          Gate.add_pred child_node edge;
+          let edge = Node.mk_edge parent_node child_node in
+          Node.add_pred child_node edge;
           Hashtbl.add_exn state.node_map ~key ~data:child_node;
           Scheduler.push job_queue
           @@ lookup (Lookup_key.lookups key) block key.r_stk child_node;
           (false, child_node)
     in
     child_node
-  and deal_with_value mv key block (gate_tree : Gate.Node.t ref) =
+  and deal_with_value mv key block (gate_tree : Node.t ref) =
     let block_id = id_of_block block in
     let singleton_lookup = List.is_empty key.xs in
 
@@ -332,14 +329,14 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
       then (
         (* Discovery Main *)
         let target_stk = Rstack.concretize_top key.r_stk in
-        Gate.update_rule gate_tree (Gate.done_ target_stk);
+        Node.update_rule gate_tree (Node.done_ target_stk);
         add_phi key (Riddler.discover_main key mv))
       else
         (* Discovery Non-Main *)
         let child_tree =
           create_lookup_task (Lookup_key.to_first key x_first) block gate_tree
         in
-        gate_tree := { !gate_tree with rule = Gate.to_first child_tree };
+        gate_tree := { !gate_tree with rule = Node.to_first child_tree };
         add_phi key (Riddler.discover_non_main key x_first mv))
     else
       (* Discard *)
@@ -348,7 +345,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
           let sub_tree =
             create_lookup_task (Lookup_key.drop_x key) block gate_tree
           in
-          Gate.update_rule gate_tree (Gate.discard sub_tree);
+          Node.update_rule gate_tree (Node.discard sub_tree);
           add_phi key (Riddler.discard key mv)
       | Some (Value_record r) -> (
           Logs.info (fun m -> m "Rule Record: %a" Ast_pp.pp_record_value r);
@@ -359,20 +356,20 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Search_tree.info)
           | Some (Var (vid, _)) ->
               let key' = Lookup_key.of_parts2 (vid :: xs') r_stk in
               let sub_tree = create_lookup_task key' block gate_tree in
-              Gate.update_rule gate_tree (Gate.alias sub_tree);
+              Node.update_rule gate_tree (Node.alias sub_tree);
               add_phi key (Riddler.alias_key key key')
           | None ->
-              Gate.update_rule gate_tree Gate.mismatch;
+              Node.update_rule gate_tree Node.mismatch;
               add_phi key (Riddler.mismatch key))
       | _ ->
-          Gate.update_rule gate_tree Gate.mismatch;
+          Node.update_rule gate_tree Node.mismatch;
           add_phi key (Riddler.mismatch key)
   in
   lookup [ target ] block0 Rstack.empty state.root_node ()
 
 let[@landmark] lookup_main ~(config : Top_config.t) program target =
   let job_queue = Scheduler.create () in
-  let info : Search_tree.info =
+  let info : Global_state.info =
     {
       first = Ast_tools.first_id program;
       target;
@@ -382,7 +379,7 @@ let[@landmark] lookup_main ~(config : Top_config.t) program target =
   in
   let state =
     let block0 = Tracelet.find_by_id target info.block_map in
-    let state = Search_tree.create_state block0 target in
+    let state = Global_state.create_state block0 target in
     state
   in
   let do_lookup () = lookup_top ~config ~info ~state job_queue in
@@ -418,7 +415,7 @@ let[@landmark] lookup_main ~(config : Top_config.t) program target =
     else ();
 
     (* let input_from_model =
-          let input_collected = Search_tree.collect_picked_input state model in
+          let input_collected = Global_state.collect_picked_input state model in
           input_collected
         in
         let input_from_model_ordered =

@@ -10,12 +10,12 @@ type info = {
   block_map : Tracelet.block Odefa_ast.Ast.Ident_map.t;
 }
 
-type state = {
+type t = {
   (* graph attr *)
-  root_node : Gate.Node.t ref;
+  root_node : Node.t ref;
   mutable tree_size : int;
   (* central: node attr *)
-  node_map : (Lookup_key.t, Gate.Node.t ref) Hashtbl.t;
+  node_map : (Lookup_key.t, Node.t ref) Hashtbl.t;
   (* constraints *)
   mutable phis_z3 : Z3.Expr.expr list;
   phi_map : (Lookup_key.t, Z3.Expr.expr) Hashtbl.t;
@@ -33,7 +33,7 @@ type state = {
 let create_state block x_target =
   let state =
     {
-      root_node = ref (Gate.root_node (block |> Tracelet.id_of_block) x_target);
+      root_node = ref (Node.root_node (block |> Tracelet.id_of_block) x_target);
       tree_size = 1;
       node_map = Hashtbl.create (module Lookup_key);
       phis_z3 = [];
@@ -61,16 +61,16 @@ let clear_phis state = state.phis_z3 <- []
        ~default:true
 
    let collect_picked_input state model =
-     let node_picked (node : Gate.Node.t) =
+     let node_picked (node : Node.t) =
        let picked = picked_from model node.key in
        picked
      in
      let sum_path acc_path node = acc_path && node_picked node in
-     let sum acc acc_path (node : Gate.Node.t) =
+     let sum acc acc_path (node : Node.t) =
        if acc_path && Hash_set.mem state.input_nodes node.key
        then
          let i = Solver.SuduZ3.get_int_s model (Lookup_key.to_string node.key) in
          (node.key, i) :: acc
        else acc
      in
-     Gate.fold_tree ~init:[] ~init_path:true ~sum ~sum_path !(state.root_node) *)
+     Node.fold_tree ~init:[] ~init_path:true ~sum ~sum_path !(state.root_node) *)

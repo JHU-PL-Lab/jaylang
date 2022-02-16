@@ -2,25 +2,15 @@ open Core
 
 module Palette = struct
   let int_of_rgb r g b = (r * 256 * 256) + (g * 256) + b
-
   let white = int_of_rgb 255 255 255
-
   let light = int_of_rgb 200 200 200
-
   let dark = int_of_rgb 100 100 100
-
   let black = int_of_rgb 0 0 0
-
   let red = int_of_rgb 255 0 0
-
   let light_purple = int_of_rgb 203 201 226
-
   let red_orange = int_of_rgb 253 190 133
-
   let blue = int_of_rgb 0 0 255
-
   let cyan = int_of_rgb 0 200 200
-
   let lime = int_of_rgb 0 255 0
 
   let greens_with_alert =
@@ -40,24 +30,16 @@ module C = struct
 
   (* vertice *)
   let pending = [ `Color Palette.red ]
-
   let mismatch = [ `Color Palette.red ]
-
-  let alert =     [
-    `Penwidth 1.5;
-    `Style `Filled;
-    `Fillcolor Palette.red;
-  ]
+  let alert = [ `Penwidth 1.5; `Style `Filled; `Fillcolor Palette.red ]
 
   let node_picked_set =
-    [
-      `Penwidth 1.5;
-      `Style `Filled;
-      `Fillcolor Palette.light_purple;
-    ]
+    [ `Penwidth 1.5; `Style `Filled; `Fillcolor Palette.light_purple ]
 
   let node_picked_get n =
-    let ci = Int.clamp_exn n ~min:0 ~max:(List.length Palette.greens_with_alert) in
+    let ci =
+      Int.clamp_exn n ~min:0 ~max:(List.length Palette.greens_with_alert)
+    in
     let c = List.nth_exn Palette.greens_with_alert ci in
     [
       `Penwidth 1.5;
@@ -80,23 +62,19 @@ module C = struct
   (* edge *)
 
   let picked_dangling = [ `Arrowhead `Dot; `Color Palette.light ]
-
   let picked_from_root = [ `Color Palette.black ]
-
   let not_picked = [ `Arrowhead `Odot; `Color Palette.light ]
-
   let incomplete = [ `Style `Dashed ]
 end
 
 module Graph_node = struct
-  type t = (Gate.Node.t, string) Either.t [@@deriving compare, equal]
+  type t = (Node.Node.t, string) Either.t [@@deriving compare, equal]
 
   let hash = Hashtbl.hash
 end
 
 module Edge_label = struct
   type edge = { picked_from_root : bool; picked : bool; complete : bool }
-
   and t = (edge, string) Either.t [@@deriving compare, equal]
 
   let default = Either.second ""
@@ -121,7 +99,7 @@ type vertex_info = {
 type passing_state = {
   picked_from_root : bool;
   picked : bool;
-  prev_vertex : Gate.Node.t option;
+  prev_vertex : Node.t option;
 }
 
 let escape_gen_align_left =
@@ -134,18 +112,15 @@ let escape_gen_align_left =
 
 let label_escape s = Staged.unstage escape_gen_align_left s
 
-let name_escape s = 
-  s 
-  |> String.substr_replace_all  ~pattern:"~" ~with_:"_"
-  |> String.substr_replace_all  ~pattern:";" ~with_:"__"
+let name_escape s =
+  s
+  |> String.substr_replace_all ~pattern:"~" ~with_:"_"
+  |> String.substr_replace_all ~pattern:";" ~with_:"__"
 
 module type Graph_state = sig
-  val state : Search_tree.state
-
+  val state : Global_state.t
   val testname : string option
-
   val model : Z3.Model.model option
-
   val source_map : Odefa_ast.Ast.clause Odefa_ast.Ast.Ident_map.t
 end
 
@@ -154,11 +129,11 @@ module DotPrinter_Make (S : Graph_state) = struct
     let root = S.state.root_node in
     let g = G.create () in
 
-    let at_node (tree_node : Gate.Node.t ref) =
+    let at_node (tree_node : Node.t ref) =
       G.add_vertex g (Either.first !tree_node)
     in
     let acc_f parent node =
-      if Gate.Node_ref.equal node root
+      if Node.equal_ref node root
       then node
       else
         let edge_info =
@@ -170,7 +145,7 @@ module DotPrinter_Make (S : Graph_state) = struct
           (Either.first !parent, Either.first edge_info, Either.first !node);
         node
     in
-    ignore @@ Gate.traverse_node ~at_node ~init:root ~acc_f root;
+    ignore @@ Node.traverse_node ~at_node ~init:root ~acc_f root;
     g
 
   module DotPrinter = Graph.Graphviz.Dot (struct
@@ -178,8 +153,7 @@ module DotPrinter_Make (S : Graph_state) = struct
 
     let vertex_name vertex =
       Either.value_map vertex
-        ~first:(fun (v : Gate.Node.t) ->
-          Lookup_key.to_string v.key |> name_escape)
+        ~first:(fun (v : Node.t) -> Lookup_key.to_string v.key |> name_escape)
         ~second:(Fmt.str "\"%s\"")
 
     let graph_attributes _ =
@@ -191,9 +165,9 @@ module DotPrinter_Make (S : Graph_state) = struct
     let default_vertex_attributes _ = [ `Shape `Record ]
 
     let vertex_attributes v0 =
-      let node_attr (node : Gate.Node.t) =
-        let open Gate in
-        let rule = Gate.Node.rule_name node.rule in
+      let node_attr (node : Node.t) =
+        let open Node in
+        let rule = Node.rule_name node.rule in
         let key_value =
           match S.model with
           | None -> None
@@ -254,24 +228,26 @@ module DotPrinter_Make (S : Graph_state) = struct
           | Mismatch -> C.mismatch
           | _ ->
               if Hash_set.mem S.state.lookup_alert node.key
+              then C.alert
+              else if Riddler.is_picked S.model node.key
+              then
+                let is_defining_node =
+                  List.length node.key.xs = 0 && Id.equal c_id node.key.x
+                in
+                if is_defining_node
                 then
-                  C.alert
+                  (* Fmt.pr "@[Fetch  Set at %a@]\n" Lookup_key.pp node.key; *)
+                  C.node_picked_set
                 else
-                  if Riddler.is_picked S.model node.key
-                  then (
-                    let is_defining_node = 
-                    (List.length node.key.xs = 0) && (Id.equal c_id node.key.x) in
-                    if is_defining_node then
-                      (
-                        (* Fmt.pr "@[Fetch  Set at %a@]\n" Lookup_key.pp node.key; *)
-                      C.node_picked_set)
-                    else(
-                      (* C.node_picked_get (Hashtbl.find_exn S.state.node_get node.key) *)
-                      let i = (Hashtbl.find_or_add S.state.node_get (Lookup_key.drop_xs node.key) ~default:(Fn.const 0)) in
-                      (* Fmt.pr "@[Fetch  Get at %a@] = %d\n" Lookup_key.pp node.key i; *)
-                      C.node_picked_get i)
-                  )
-                  else C.node_unpicked
+                  (* C.node_picked_get (Hashtbl.find_exn S.state.node_get node.key) *)
+                  let i =
+                    Hashtbl.find_or_add S.state.node_get
+                      (Lookup_key.drop_xs node.key)
+                      ~default:(Fn.const 0)
+                  in
+                  (* Fmt.pr "@[Fetch  Get at %a@] = %d\n" Lookup_key.pp node.key i; *)
+                  C.node_picked_get i
+              else C.node_unpicked
         in
 
         [ `Label content ] @ styles

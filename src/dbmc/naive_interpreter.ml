@@ -3,11 +3,8 @@ open Odefa_ast
 open Ast
 
 exception Found_target of value
-
 exception Reach_max_step of Id.t * Concrete_stack.t
-
 exception Run_the_same_stack_twice of Id.t * Concrete_stack.t
-
 exception Run_into_wrong_stack of Id.t * Concrete_stack.t
 
 type session = {
@@ -27,7 +24,6 @@ type dvalue =
   | RecordClosure of record_value * denv
 
 and dvalue_with_stack = dvalue * Concrete_stack.t
-
 and denv = dvalue_with_stack Ident_map.t
 
 let pp_dvalue oc = function
@@ -231,7 +227,7 @@ and check_pattern ~session ~stk env vx pattern : bool =
   in
   is_pass
 
-let eval ~(state : Search_tree.state) ~(config : Top_config.t)
+let eval ~(state : Global_state.t) ~(config : Top_config.t)
     ?(input_feeder = Fn.const None) ~target ~max_step e =
   let session =
     {
