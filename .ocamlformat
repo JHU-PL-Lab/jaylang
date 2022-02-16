@@ -1,5 +1,4 @@
-# if-then-else={compact|fit-or-vertical|keyword-first|k-r}
-if-then-else = fit-or-vertical
+if-then-else = keyword-first
 # break-cases={fit|nested|toplevel|fit-or-vertical|all}
 parse-docstrings = true
 sequence-blank-line = preserve-one
