@@ -59,10 +59,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
   (* let block0 = Tracelet.cut_before true target block in *)
   let block0 = Tracelet.find_by_id target map in
 
-  let add_phi key phi_z3 =
-    Hashtbl.add_exn state.phi_map ~key ~data:phi_z3;
-    state.phis_z3 <- phi_z3 :: state.phis_z3
-  in
+  let add_phi = Global_state.add_phi state in
 
   (* reset and init *)
   Solver.reset ();
@@ -286,14 +283,13 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
       in
       apply_rule ();
 
-      (* !(state.root_node).has_complete_path &&  *)
       if state.tree_size mod config.steps = 0
       then
         (* Fmt.pr "step = %d\n" state.tree_size; *)
         match check state config with
         | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
-        | None -> Lwt.return_unit
-      else Lwt.return_unit
+        | None -> Lwt.return_some x
+      else Lwt.return_some x
     in
     lookup_work
   and create_lookup_task (key : Lookup_key.t) block parent_node : Node.T.t ref =
@@ -313,8 +309,17 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
           let edge = Node.mk_edge parent_node child_node in
           Node.add_pred child_node edge;
           Hashtbl.add_exn state.node_map ~key ~data:child_node;
-          Scheduler.push job_queue
-          @@ lookup (Lookup_key.lookups key) block key.r_stk child_node;
+          let sub_lookup : unit -> 'a Lwt.t =
+           fun () ->
+            let%lwt _r =
+              lookup (Lookup_key.lookups key) block key.r_stk child_node ()
+            in
+            (* Logs.app (fun m ->
+                m "callback at %a = %a\n" Lookup_key.pp key
+                  (Fmt.Dump.option Id.pp) r); *)
+            Lwt.return_none
+          in
+          Scheduler.push job_queue sub_lookup;
           (false, child_node)
     in
     child_node
@@ -392,7 +397,6 @@ let[@landmark] lookup_main ~(config : Top_config.t) program target =
     Logs.info (fun m ->
         m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident target
           Concrete_stack.pp c_stk);
-    Hashtbl.clear state.rstk_picked;
     Logs.debug (fun m ->
         m "Nodes picked states\n%a\n"
           (Fmt.Dump.iter_bindings
@@ -401,10 +405,12 @@ let[@landmark] lookup_main ~(config : Top_config.t) program target =
                    f key (Riddler.is_picked (Some model) key)))
              Fmt.nop Lookup_key.pp Fmt.bool)
           state.node_map);
+    Hashtbl.clear state.rstk_picked;
     Hashtbl.iter_keys state.node_map ~f:(fun key ->
         if Riddler.is_picked (Some model) key
         then ignore @@ Hashtbl.add state.rstk_picked ~key:key.r_stk ~data:true
         else ());
+    (* Global_state.refresh_picked state model; *)
     let inputs_from_interpreter =
       Solver.get_inputs ~state ~config target model c_stk program
     in

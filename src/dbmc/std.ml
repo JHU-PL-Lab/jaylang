@@ -26,11 +26,8 @@ let t_or tb1 tb2 =
   | _, _ -> Unknown
 
 let just_side_effect = ignore
-
 let ignore2 _ _ = ()
-
 let default_target = Odefa_ast.Ast.Ident "target"
-
 let with_seq ?(start = 0) xs = List.mapi xs ~f:(fun i x -> (i + start, x))
 
 let pp_with_seq ?(pp_int = Fmt.int) pp_x oc xps =
@@ -48,8 +45,6 @@ let to_indexed_list xps =
       Array.to_list arr
   | None -> []
 
-let wait_once f x _ = f x
-
 let generate_inputs test_generator : (int list * int) list * 'a option =
   (* let generation_callback inputs steps = prints results *)
   let inputs = [ 1; 2 ] in
@@ -63,7 +58,4 @@ let build_input_sequence _solution _program _target : int list = []
 
 let chain_compare f1 f2 =
   let r1 = f1 () in
-  if r1 = 0 then
-    f2 ()
-  else
-    r1
+  if r1 = 0 then f2 () else r1
