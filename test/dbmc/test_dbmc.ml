@@ -49,8 +49,11 @@ let test_one_file testname () =
     else parse_odefa src_text
   in
   let config : Dbmc.Top_config.t =
-    Dbmc.Top_config.default_config_with ~steps:testing_step ~filename:testname
-      ()
+    let filename = testname in
+    let steps = testing_step in
+    let timeout = Some (Time.Span.of_int_sec 5) in
+    let default_config = Dbmc.Top_config.default_config in
+    { default_config with filename; steps; timeout }
   in
   let expectation = Test_expect.load_sexp_expectation_for testname in
   match expectation with
@@ -72,11 +75,6 @@ let test_one_file testname () =
           | None ->
               Alcotest.(check int) "equal" 0 (List.length expectation.inputs))
 
-(* let test_one_file_lwt testname _switch () =
-   try%lwt
-     Lwt_unix.with_timeout 5.0 (fun () -> Lwt.return (test_one_file testname ()))
-   with Lwt_unix.Timeout -> Lwt.return (Alcotest.fail "timeout") *)
-
 exception Timeout
 
 let sigalrm_handler = Caml.Sys.Signal_handle (fun _ -> raise Timeout)
@@ -94,9 +92,16 @@ let timeout f arg time =
     reset_sigalrm ();
     raise exc
 
-let test_one_file_timed testname () =
-  try timeout (test_one_file testname) () 5
-  with Timeout -> Alcotest.fail "timeout"
+let test_one_file_lwt testname _switch () =
+  try%lwt
+    Lwt_unix.with_timeout 5.0 (fun () -> Lwt.return (test_one_file testname ()))
+  with Lwt_unix.Timeout -> Lwt.return (Alcotest.fail "timeout")
+
+(* let test_one_file_lwt testname _switch () =
+   Lwt.return (test_one_file testname ()) *)
+
+let test_one_file_timed testname () = test_one_file testname ()
+(* try timeout (test_one_file testname) () 5 with Timeout -> raise Timeout *)
 
 let () =
   Dbmc.Log.init ();
@@ -106,13 +111,13 @@ let () =
     List.map grouped_testfiles ~f:(fun (group_name, test_names) ->
         ( group_name,
           List.map test_names ~f:(fun testname ->
-              (* Alcotest_lwt.test_case testname `Quick
-                 @@ test_one_file_lwt testname *)
-              Alcotest.test_case testname `Quick @@ test_one_file_timed testname)
+              Alcotest_lwt.test_case testname `Quick
+              @@ test_one_file_lwt testname
+              (* Alcotest.test_case testname `Quick @@ test_one_file_timed testname *))
         ))
   in
 
-  Alcotest.run "DBMC" grouped_tests;
-  (* Lwt_main.run @@ Alcotest_lwt.run "DBMC" grouped_tests; *)
+  (* Alcotest.run "DBMC" grouped_tests; *)
+  Lwt_main.run @@ Alcotest_lwt.run "DBMC" grouped_tests;
   Dbmc.Log.close ();
   ()

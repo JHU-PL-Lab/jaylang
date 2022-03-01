@@ -31,6 +31,25 @@ let add_phi state key phis =
   Hashtbl.add_exn state.phi_map ~key ~data:phis;
   state.phis_z3 <- phis :: state.phis_z3
 
+let find_or_add state key block parent_node =
+  let block_id = Tracelet.id_of_block block in
+  match Hashtbl.find state.node_map key with
+  | Some child_node ->
+      let edge = Node.mk_edge parent_node child_node in
+      Node.add_pred child_node edge;
+      (true, child_node)
+  | None ->
+      Hash_set.strict_add_exn state.lookup_created key;
+      let child_node =
+        ref (Node.mk_node ~block_id ~key ~rule:Node.pending_node)
+      in
+      let edge = Node.mk_edge parent_node child_node in
+      Node.add_pred child_node edge;
+      Hashtbl.add_exn state.node_map ~key ~data:child_node;
+      (false, child_node)
+
+let pvar_picked state key = not (Hash_set.mem state.lookup_created key)
+
 (* let refresh_picked state model =
    Hashtbl.clear state.rstk_picked;
    Hashtbl.iter_keys state.node_map ~f:(fun key ->

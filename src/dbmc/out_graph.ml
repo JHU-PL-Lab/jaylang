@@ -214,13 +214,15 @@ module DotPrinter_Make (S : Graph_state) = struct
                 | None -> "")
             | None -> ""
           in
-          Fmt.str "{ {[%s] | %a} | %a | %a | {φ | { %s %s } } | (%d) | %s}"
+          let pvar = Global_state.pvar_picked S.state node.key in
+          Fmt.str "{ {[%s] | %a} | %a | %a | {φ | { %s %s } } | %B | %s}"
             (Lookup_stack.to_string (Lookup_key.lookups node.key))
             (Fmt.option Solver.pp_value)
             key_value
             (Fmt.option Odefa_ast.Ast_pp_graph.pp_clause)
             clause Rstack.pp node.key.r_stk phis_string phi_status
-            (List.length node.preds) rule
+            (* (List.length node.preds) *)
+            pvar rule
         in
         let styles =
           match node.rule with

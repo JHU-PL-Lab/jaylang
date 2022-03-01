@@ -9,25 +9,15 @@ include T
 include Comparator.Make (T)
 
 let start (x : Id.t) : t = { x; xs = []; r_stk = Rstack.empty }
-
 let of_parts x xs r_stk = { x; xs; r_stk }
-
 let of_parts2 xs r_stk = { x = List.hd_exn xs; xs = List.tl_exn xs; r_stk }
-
 let to_parts key = (key.x, key.xs, key.r_stk)
-
 let to_parts2 key = (key.x :: key.xs, key.r_stk)
-
 let to_first key x = { key with x; xs = [] }
-
 let replace_x key x = { key with x }
-
 let replace_x2 key (xr, lbl) = { key with x = xr; xs = lbl :: key.xs }
-
 let drop_x key = { key with x = List.hd_exn key.xs; xs = List.tl_exn key.xs }
-
 let drop_xs key = { key with xs = [] }
-
 let lookups key = key.x :: key.xs
 
 let to_string key =
@@ -39,7 +29,6 @@ let pp oc key =
   Fmt.pf oc "%s[%a]" (Lookup_stack.to_string (lookups key)) Rstack.pp key.r_stk
 
 let parts_to_str x xs r_stk = to_string (of_parts x xs r_stk)
-
 let parts2_to_str xs r_stk = to_string (of_parts2 xs r_stk)
 
 let chrono_compare map k1 k2 =
