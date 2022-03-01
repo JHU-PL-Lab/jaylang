@@ -58,3 +58,10 @@ let chrono_compare map k1 k2 =
   let stk2, co_stk2 = Rstack.construct_stks r_stk2 in
   let result_co_stk = compare_stack co_stk1 co_stk2 in
   if result_co_stk = 0 then compare_stack stk1 stk2 else result_co_stk
+
+let get_f_return map fid r_stk x xs =
+  let fblock = Odefa_ast.Ast.Ident_map.find fid map in
+  let x' = Tracelet.ret_of fblock in
+  let r_stk' = Rstack.push r_stk (x, fid) in
+  let key_x_ret = of_parts x' xs r_stk' in
+  key_x_ret
