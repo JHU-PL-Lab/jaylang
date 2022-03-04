@@ -13,6 +13,7 @@ let create_state block x_target =
       input_nodes = Hash_set.create (module Lookup_key);
       lookup_created = Hash_set.create (module Lookup_key);
       lookup_alert = Hash_set.create (module Lookup_key);
+      lookup_results = Hashtbl.create (module Lookup_key);
       noted_phi_map = Hashtbl.create (module Lookup_key);
       node_set = Hashtbl.create (module Lookup_key);
       node_get = Hashtbl.create (module Lookup_key);
@@ -49,6 +50,12 @@ let find_or_add state key block parent_node =
       (false, child_node)
 
 let pvar_picked state key = not (Hash_set.mem state.lookup_created key)
+let get_lookup_result state key = Hashtbl.find_exn state.lookup_results key
+
+let set_lookup_result state key seq =
+  (* let seq = Lwt_seq.unfold_lwt (fun _acc -> Lwt.return_none) 0 in *)
+  Hashtbl.add_exn state.lookup_results ~key ~data:seq;
+  ()
 
 (* let refresh_picked state model =
    Hashtbl.clear state.rstk_picked;

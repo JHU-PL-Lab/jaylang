@@ -19,3 +19,7 @@ val find_or_add :
   State.t -> Lookup_key.t -> Tracelet.t -> Node.ref_t -> bool * Node.ref_t
 
 val pvar_picked : State.t -> Lookup_key.t -> bool
+val get_lookup_result : State.t -> Lookup_key.t -> Lookup_result.t Lwt_seq.t
+
+val set_lookup_result :
+  State.t -> Lookup_key.t -> Lookup_result.t Lwt_seq.t -> unit

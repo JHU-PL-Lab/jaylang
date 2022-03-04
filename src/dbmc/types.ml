@@ -18,6 +18,8 @@ module State = struct
     (* cvar *)
     lookup_created : Lookup_key.t Hash_set.t;
     lookup_alert : Lookup_key.t Hash_set.t;
+    (* lookup *)
+    lookup_results : (Lookup_key.t, Lookup_result.t Lwt_seq.t) Hashtbl.t;
     (* debug *)
     noted_phi_map : (Lookup_key.t, (string * Z3.Expr.expr) list) Hashtbl.t;
     node_set : (Lookup_key.t, bool) Hashtbl.t;
