@@ -66,316 +66,91 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
   Riddler.reset ();
   state.phis_z3 <- [ Riddler.pick_at_key (Lookup_key.start target) ];
 
-  let[@landmark] rec lookup (this_key : Lookup_key.t) block
-      (gate_tree : Node.t ref) : unit -> Lookup_result.t Lwt_seq.t Lwt.t =
-    let block_id = Tracelet.id_of_block block in
-    let x, xs, r_stk = Lookup_key.to_parts this_key in
+  let[@landmark] rec lookup (this_key : Lookup_key.t) block () : unit Lwt.t =
+    let%lwt _ =
+      Logs_lwt.app (fun m ->
+          m "[Lookup][=>]: %a in block %a\n" Lookup_key.pp this_key Id.pp
+            (Tracelet.id_of_block block))
+    in
+    let x, _xs, _r_stk = Lookup_key.to_parts this_key in
+    (* A lookup must be required before. *)
+    let gate_tree = Global_state.find_node_exn state this_key block in
+    (* update global state *)
+    state.tree_size <- state.tree_size + 1;
+    Hash_set.strict_remove_exn state.lookup_created this_key;
+    let result_pusher = Global_state.get_lookup_pusher state this_key in
 
-    let[@landmark] lookup_work () =
-      let%lwt _ = Lwt.pause () in
-      state.tree_size <- state.tree_size + 1;
-
-      (* Logs_lwt.app (fun m ->
-             m "[Lookup]: %a in block %a\n" Lookup_key.pp this_key Id.pp block_id)
-         >>= fun _ -> *)
-      Hash_set.strict_remove_exn state.lookup_created this_key;
-
-      let[@landmark] apply_rule () : Lookup_result.t Lwt.t =
-        let defined_site_opt = Tracelet.defined x block in
-        let p = Riddler.pick_at_key this_key in
-        match defined_site_opt with
-        | None ->
-            Node.update_rule gate_tree Node.mismatch;
-            add_phi this_key (Riddler.mismatch this_key);
-            Lookup_result.fail_lwt x
-        | Some defined_site -> (
-            match defined_site with
-            (* Value *)
-            | At_clause { clause = Clause (_, Value_body v); _ } ->
-                Logs.info (fun m -> m "Rule Value: %a" Ast_pp.pp_value v);
-                deal_with_value (Some v) this_key block gate_tree
-            (* Input *)
-            | At_clause { clause = Clause (_, Input_body); _ } ->
-                Hash_set.add state.input_nodes this_key;
-                deal_with_value None this_key block gate_tree
-            (* Alias *)
-            | At_clause { clause = Clause (_, Var_body (Var (x', _))); _ } ->
-                let key_rx = Lookup_key.replace_x this_key x' in
-                let node_rx, lookup_rx = create_task key_rx block gate_tree in
-                Node.update_rule gate_tree (Node.alias node_rx);
-                add_phi this_key (Riddler.alias this_key x');
-                let%lwt _ = filter_and_sequence [ lookup_rx ] in
-                Lookup_result.ok_lwt x
-            (* Record Start *)
-            | At_clause
-                ({ clause = Clause (_, Projection_body (Var (xr, _), lbl)); _ }
-                as tc) ->
-                Logs.info (fun m ->
-                    m "Rule ProjectBody : %a = %a.%a" Id.pp x Id.pp xr Id.pp lbl);
-                let key_r = Lookup_key.replace_x this_key x in
-                let node_r, lookup_r = create_task key_r block gate_tree in
-
-                let key_r_l = Lookup_key.replace_x2 this_key (xr, lbl) in
-                let node_r_l, lookup_r_l =
-                  create_task key_r_l block gate_tree
-                in
-                Node.update_rule gate_tree (Node.project node_r node_r_l);
-                add_phi this_key (Riddler.alias_key this_key key_r_l);
-
-                let%lwt _ =
-                  Lwt_list.map_p
-                    (fun task -> filter_and_sequence [ task ])
-                    [ lookup_r; lookup_r_l ]
-                in
-                Lookup_result.ok_lwt x
-            (* Binop *)
-            | At_clause
-                {
-                  clause =
-                    Clause
-                      (_, Binary_operation_body (Var (x1, _), bop, Var (x2, _)));
-                  _;
-                } ->
-                let key_x1 = Lookup_key.of_parts x1 xs r_stk in
-                let node_x1, lookup_x1 = create_task key_x1 block gate_tree in
-                let key_x2 = Lookup_key.of_parts x2 xs r_stk in
-                let node_x2, lookup_x2 = create_task key_x2 block gate_tree in
-
-                Node.update_rule gate_tree (Node.binop node_x1 node_x2);
-                add_phi this_key (Riddler.binop this_key bop x1 x2);
-
-                let%lwt _ =
-                  Lwt_list.map_p
-                    (fun task -> filter_and_sequence [ task ])
-                    [ lookup_x1; lookup_x2 ]
-                in
-                Lookup_result.ok_lwt x
-            (* Cond Top *)
-            | At_chosen cb ->
-                let condsite_block = Tracelet.outer_block block map in
-                let choice = Option.value_exn cb.choice in
-                let condsite_stack =
-                  match Rstack.pop r_stk (cb.point, Id.cond_fid choice) with
-                  | Some stk -> stk
-                  | None -> failwith "impossible in CondTop"
-                in
-                let x2 = cb.cond in
-
-                let key_x2 = Lookup_key.of_parts x2 [] condsite_stack in
-                let node_x2, lookup_x2 =
-                  create_task key_x2 condsite_block gate_tree
-                in
-                let key_xxs = Lookup_key.of_parts x xs condsite_stack in
-                let node_xxs, lookup_xxs =
-                  create_task key_xxs condsite_block gate_tree
-                in
-
-                Node.update_rule gate_tree (Node.cond_choice node_x2 node_xxs);
-                add_phi this_key (Riddler.cond_top this_key cb condsite_stack);
-                let%lwt _ =
-                  Lwt_list.map_p
-                    (fun task -> filter_and_sequence [ task ])
-                    [ lookup_x2; lookup_xxs ]
-                in
-                Lookup_result.ok_lwt x
-            (* Cond Bottom *)
-            | At_clause
-                {
-                  clause = Clause (_, Conditional_body (Var (x', _), _, _));
-                  id = tid;
-                  _;
-                } ->
-                let cond_block =
-                  Ident_map.find tid map |> Tracelet.cast_to_cond_block
-                in
-                if Option.is_some cond_block.choice
-                then failwith "conditional_body: not both"
-                else ();
-                let key_cond_var = Lookup_key.of_parts x' [] r_stk in
-                let cond_var_tree, lookup_cond_var =
-                  create_task key_cond_var block gate_tree
-                in
-
-                let sub_trees, tasks =
-                  List.fold [ true; false ]
-                    ~f:(fun (sub_trees, tasks) beta ->
-                      let ctracelet =
-                        Cond { cond_block with choice = Some beta }
-                      in
-                      let x_ret = Tracelet.ret_of ctracelet in
-                      let cbody_stack =
-                        Rstack.push r_stk (x, Id.cond_fid beta)
-                      in
-                      let key_x_ret =
-                        Lookup_key.of_parts x_ret xs cbody_stack
-                      in
-                      let node_x_ret, lookup_x_ret =
-                        create_task key_x_ret ctracelet gate_tree
-                      in
-                      (sub_trees @ [ node_x_ret ], tasks @ [ lookup_x_ret ]))
-                    ~init:([], [])
-                in
-                Node.update_rule gate_tree
-                  (Node.mk_condsite ~cond_var_tree ~sub_trees);
-                add_phi this_key (Riddler.cond_bottom this_key cond_block x');
-
-                let%lwt _ = filter_and_sequence [ lookup_cond_var ] in
-                let%lwt _ =
-                  Lwt_list.exists_p
-                    (fun task ->
-                      let%lwt _ = filter_and_sequence [ task ] in
-                      Lwt.return_true)
-                    tasks
-                in
-                Lookup_result.ok_lwt x
-            (* Fun Enter / Fun Enter Non-Local *)
-            | At_fun_para (is_local, fb) ->
-                let fid = fb.point in
-                let callsites =
-                  match Rstack.paired_callsite r_stk fid with
-                  | Some callsite -> [ callsite ]
-                  | None -> fb.callsites
-                in
-                Logs.info (fun m ->
-                    m "FunEnter%s: %a -> %a"
-                      (if is_local then "" else "Nonlocal")
-                      Id.pp fid Id.pp_list callsites);
-                let sub_trees, taskss =
-                  List.fold callsites
-                    ~f:(fun (sub_trees, tasks) callsite ->
-                      let callsite_block, x', x'', x''' =
-                        Tracelet.fun_info_of_callsite callsite map
-                      in
-                      match Rstack.pop r_stk (x', fid) with
-                      | Some callsite_stack ->
-                          let key_f =
-                            Lookup_key.of_parts x'' [] callsite_stack
-                          in
-                          let node_f, lookup_f =
-                            create_task key_f callsite_block gate_tree
-                          in
-                          let key_arg =
-                            if is_local
-                            then Lookup_key.of_parts x''' xs callsite_stack
-                            else
-                              Lookup_key.of_parts x'' (x :: xs) callsite_stack
-                          in
-                          let node_arg, lookup_arg =
-                            create_task key_arg callsite_block gate_tree
-                          in
-                          ( sub_trees @ [ (node_f, node_arg) ],
-                            tasks @ [ [ lookup_f; lookup_arg ] ] )
-                      | None -> (sub_trees, tasks))
-                    ~init:([], [])
-                in
-
-                Node.update_rule gate_tree (Node.mk_para ~sub_trees);
-                add_phi this_key
-                  (Riddler.fun_enter this_key is_local fb callsites map);
-
-                let%lwt _ =
-                  Lwt_list.exists_p
-                    (fun tasks ->
-                      let%lwt _ = filter_and_sequence tasks in
-                      Lwt.return_true)
-                    taskss
-                in
-                Lookup_result.ok_lwt x
-            (* Fun Exit *)
-            | At_clause
-                {
-                  clause = Clause (_, Appl_body (Var (xf, _), Var (_xv, _)));
-                  cat = App fids;
-                  _;
-                } ->
-                let%lwt _ =
-                  Logs_lwt.app (fun m ->
-                      m "FunExit[%a] : %a" Id.pp xf Id.pp_list fids)
-                in
-                let key_fun = Lookup_key.of_parts xf [] r_stk in
-                let node_fun, lookup_fun =
-                  create_task key_fun block gate_tree
-                in
-                let sub_trees, _tasks =
-                  List.fold fids
-                    ~f:(fun (sub_trees, tasks) fid ->
-                      let fblock = Ident_map.find fid map in
-                      let key_x_ret =
-                        Lookup_key.get_f_return map fid r_stk x xs
-                      in
-                      let node_x_ret, lookup_x_ret =
-                        create_task key_x_ret fblock gate_tree
-                      in
-                      (sub_trees @ [ node_x_ret ], tasks @ [ lookup_x_ret ]))
-                    ~init:([], [])
-                in
-
-                Node.update_rule gate_tree
-                  (Node.mk_callsite ~fun_tree:node_fun ~sub_trees);
-                add_phi this_key (Riddler.fun_exit this_key xf fids map);
-
-                let%lwt f_seq = find_or_add_lookup key_fun block gate_tree in
-                (* let f_seq =
-                     Lwt_seq.unfold_lwt
-                       (fun acc ->
-                         if acc = 0
-                         then Lwt.return_none
-                         else
-                           (* let task _ = Lwt.return in *)
-                           let%lwt r = filter_and_sequence [ lookup_fun ] in
-                           Lwt.return_some (r, acc - 1))
-                       (List.length fids)
-                   in *)
-                let handle (xf : Lookup_result.t) =
-                  let fid = xf.from in
-                  let%lwt _ =
-                    Logs_lwt.app (fun m ->
-                        m "Handle[%a] : %a\n" Id.pp x Id.pp xf.from)
-                  in
-                  let key_x_ret = Lookup_key.get_f_return map fid r_stk x xs in
-                  let fblock = Ident_map.find fid map in
-                  let _node_x_ret, lookup_x_ret =
-                    create_task key_x_ret fblock gate_tree
-                  in
-                  let%lwt _ = filter_and_sequence [ lookup_x_ret ] in
-                  Lwt.return_unit
-                in
-                let%lwt _ = Lwt_seq.iter_p handle f_seq in
-                (* let%lwt _ = filter_and_sequence [ lookup_fun ] in
-                   let%lwt _ =
-                     Lwt_list.exists_p
-                       (fun task ->
-                         let%lwt _ = filter_and_sequence [ task ] in
-                         Lwt.return_true)
-                       tasks
-                   in *)
-                Lookup_result.ok_lwt x
-            | At_clause ({ clause = Clause (_, _); _ } as tc) ->
-                Logs.err (fun m -> m "%a" Ast_pp.pp_clause tc.clause);
-                failwith "error lookup cases"
-            | Lookup_mismatch -> failwith "should not mismatch here")
-      in
-      let%lwt _ = apply_rule () in
+    let[@landmark] apply_rule () : Lookup_result.t Lwt.t =
+      let defined_site_opt = Tracelet.defined x block in
+      let p = Riddler.pick_at_key this_key in
+      match defined_site_opt with
+      | None ->
+          Node.update_rule gate_tree Node.mismatch;
+          add_phi this_key (Riddler.mismatch this_key);
+          Lookup_result.fail_lwt x
+      | Some defined_site -> (
+          match defined_site with
+          (* Value *)
+          | At_clause { clause = Clause (_, Value_body v); _ } ->
+              let%lwt _ =
+                Logs_lwt.info (fun m -> m "Rule Value: %a" Ast_pp.pp_value v)
+              in
+              deal_with_value (Some v) this_key block gate_tree
+          (* Input *)
+          (* Alias *)
+          | At_clause { clause = Clause (_, Var_body (Var (x', _))); _ } ->
+              let%lwt _ =
+                Logs_lwt.info (fun m -> m "Rule Alias: %a" Ast_pp.pp_ident x')
+              in
+              let key_rx = Lookup_key.replace_x this_key x' in
+              let node_rx, lookup_rx =
+                find_or_add_lookup key_rx block gate_tree
+              in
+              Node.update_rule gate_tree (Node.alias node_rx);
+              add_phi this_key (Riddler.alias this_key x');
+              let%lwt _ =
+                Lwt_stream.iter (fun x -> result_pusher (Some x)) lookup_rx
+              in
+              Lookup_result.ok_lwt x
+          | At_clause ({ clause = Clause (_, _); _ } as tc) ->
+              Logs.err (fun m -> m "%a" Ast_pp.pp_clause tc.clause);
+              failwith "error lookup cases"
+          | Lookup_mismatch -> failwith "should not mismatch here"
+          | _ -> failwith "TODO")
+    in
+    let%lwt rule_result = apply_rule () in
+    let%lwt _ =
       if state.tree_size mod config.steps = 0
-      then
+      then (
         (* Logs_lwt.app (fun m ->
                m "Step %d\t%a\n" state.tree_size Lookup_key.pp this_key)
            >>= fun _ -> *)
-        match check state config with
+        (* match check state config with *)
+        match None with
         | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
-        | None -> Lwt.return (Lwt_seq.of_list [ Lookup_result.fail x ])
-      else Lwt.return (Lwt_seq.of_list [ Lookup_result.ok x ])
-      (* Lookup_result.ok_lwt x *)
+        | None ->
+            result_pusher (Some rule_result);
+            result_pusher None;
+            Lwt.return_unit)
+      else (
+        result_pusher (Some rule_result);
+        result_pusher None;
+        Lwt.return_unit)
     in
-    lookup_work
+    let%lwt _ =
+      Logs_lwt.app (fun m ->
+          m "[Lookup][<=]: %a in block %a\n" Lookup_key.pp this_key Id.pp
+            (Tracelet.id_of_block block))
+    in
+    Lwt.return_unit
+  (* Lookup_result.ok_lwt x *)
   and deal_with_value mv key block (gate_tree : Node.t ref) =
-    let block_id = id_of_block block in
     let singleton_lookup = List.is_empty key.xs in
 
     (* Discovery Main & Non-Main *)
     if singleton_lookup
     then (
-      if Ident.equal block_id id_main
+      if Ident.equal (id_of_block block) id_main
       then (
         (* Discovery Main *)
         let target_stk = Rstack.concretize_top key.r_stk in
@@ -389,7 +164,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
         gate_tree := { !gate_tree with rule = Node.to_first node_child };
         add_phi key (Riddler.discover_non_main key x_first mv);
         (* ignore @@ filter_and_sequence [ lookup_first ]; *)
-        let%lwt _ = filter_and_sequence [ lookup_first ] in
+        let%lwt _ = filter_and_sequence lookup_first in
         Lookup_result.ok_lwt key.x)
     else
       (* Discard *)
@@ -399,7 +174,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
           let node_sub, lookup_sub = create_task key_drop_x block gate_tree in
           Node.update_rule gate_tree (Node.discard node_sub);
           add_phi key (Riddler.discard key mv);
-          let%lwt _ = filter_and_sequence [ lookup_sub ] in
+          let%lwt _ = filter_and_sequence lookup_sub in
           Lookup_result.ok_lwt key.x
       (* Record Eng *)
       | Some (Value_record r) -> (
@@ -413,7 +188,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
               let node_key, lookup_key = create_task key' block gate_tree in
               Node.update_rule gate_tree (Node.alias node_key);
               add_phi key (Riddler.alias_key key key');
-              let%lwt _ = filter_and_sequence [ lookup_key ] in
+              let%lwt _ = filter_and_sequence lookup_key in
               Lookup_result.ok_lwt key.x
           | None ->
               Node.update_rule gate_tree Node.mismatch;
@@ -423,36 +198,44 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
           Node.update_rule gate_tree Node.mismatch;
           add_phi key (Riddler.mismatch key);
           Lookup_result.fail_lwt key.x
-  and create_task key block node_parent :
-      Node.Node_ref.t * (unit -> Lookup_result.t Lwt.t) option =
-    let exist, node_child =
-      Global_state.find_or_add state key block node_parent
-    in
-    let sub_lookup =
-      if exist then None else (
-        Some (lookup key block node_child)
-      )
-    in
-    (node_child, sub_lookup |> Lwt_seq.)
+  (* These things exist together:
+     1. a node for a lookup (key)
+     2. a result stream for a lookup
+     3. a producer for a lookup in the scheduler
+
+     For a parent lookup, it should only be interested in the
+     (1) to update the nodes relation in the global DAG
+     and (2) to do its own processing.
+     (3) is an initializaion. However, we cannot put it in the beginning
+     of a lookup function. It's the force to create a lookup, an init-pre-init.
+
+     In a complex lookup e.g. `r` at `r = f a`. The node and constraints are eagerly set.
+     The lookup of `f` and `a` are lazy. However, it's possible `a` are eager
+  *)
   and find_or_add_lookup key block node_parent =
-    let exist, _node_child =
+    let exist, node_child, result_stream =
       Global_state.find_or_add state key block node_parent
     in
-    let lookup_result =
-      if exist
-      then Lwt.return (Global_state.get_lookup_result state key)
-      else
-        let%lwt seq = lookup key block node_parent () in
-        Global_state.set_lookup_result state key seq
+    if exist then () else Scheduler.add_and_detach job_queue (lookup key block);
+    (node_child, result_stream)
+  and create_task key block node_parent :
+      Node.Node_ref.t * Lookup_result.t Lwt_stream.t =
+    let _exist, node_child, result_stream =
+      Global_state.find_or_add state key block node_parent
     in
-    lookup_result
-  and filter_and_sequence tasks (* : Lookup_result.t *) =
-    let valid_tasks = List.filter_map tasks ~f:(fun t -> t) in
-    let dummy = Lookup_result.ok_lwt (Ident "dummy") in
-    Scheduler.push_in_line dummy job_queue valid_tasks
+    (node_child, result_stream)
+  and filter_and_sequence _task (* : Lookup_result.t *) =
+    let _ = job_queue in
+    (* let valid_tasks = List.filter_map tasks ~f:(fun t -> t) in
+       let dummy = Lookup_result.ok (Ident "dummy") in
+       let dummy_stream = Lwt.return (Lwt_stream.return dummy) in
+       Scheduler.wait_all dummy_stream job_queue valid_tasks *)
+    Lwt.return_unit
   in
 
-  lookup (Lookup_key.of_parts target [] Rstack.empty) block0 state.root_node ()
+  let key_target = Lookup_key.of_parts target [] Rstack.empty in
+  let _ = Global_state.init_node state key_target state.root_node in
+  lookup key_target block0 ()
 
 let[@landmark] lookup_main ~(config : Top_config.t) program target =
   let job_queue = Scheduler.create () in
@@ -495,30 +278,7 @@ let[@landmark] lookup_main ~(config : Top_config.t) program target =
     let inputs_from_interpreter =
       Solver.get_inputs ~state ~config target model c_stk program
     in
-
-    (* let input_from_model =
-          let input_collected = Global_state.collect_picked_input state model in
-          input_collected
-        in
-        let input_from_model_ordered =
-          List.sort input_from_model ~compare:(fun (k1, _v1) (k2, _v2) ->
-              -Lookup_key.chrono_compare info.block_map k1 k2)
-        in
-       Logs.app (fun m ->
-               m "M: %a\nI: %a\n"
-                 Fmt.Dump.(
-                   list
-                     (Fmt.pair ~sep:(Fmt.any ", ") Lookup_key.pp_id (option Fmt.int)))
-                 input_from_model_ordered
-                 Fmt.Dump.(list (option Fmt.int))
-                 inputs_from_interpreter);
-           assert (
-             List.length input_from_model_ordered
-             = List.count inputs_from_interpreter ~f:Option.is_some);
-           assert (
-             List.equal [%equal: int option]
-               (List.map input_from_model_ordered ~f:snd)
-               (List.filter inputs_from_interpreter ~f:Option.is_some)); *)
+    (* input_from_model *)
     [ inputs_from_interpreter ]
   in
   let post_process () =

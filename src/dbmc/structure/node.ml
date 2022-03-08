@@ -236,4 +236,5 @@ let fold_tree ?(stop = fun _ -> false) ~init ~init_path ~sum ~sum_path node =
   in
   loop ~acc:init ~acc_path:init_path node
 
+(* TODO: try making the rule a mutable field *)
 let update_rule tree rule = tree := { !tree with rule }

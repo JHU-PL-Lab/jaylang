@@ -15,7 +15,7 @@ let make_sentinel () : 'a Lwt.t * 'a Lwt.u = Lwt.wait ()
    scheduled by its internal loop. We lose the control of scheduling.
 
    However, we can create a sentinel Lwt.t and wait for that.
-   The sentinel Lwt.t is created in the last task in `push_in_line`.
+   The sentinel Lwt.t is created in the last task in `wait_all`.
 *)
 
 exception EmptyTaskQueue
@@ -29,6 +29,7 @@ let pull q : 'a job option = Queue.dequeue q
    Can a queue be empty? Should it raise an exception when it's empty?
 *)
 let rec run q : 'a Lwt.t =
+  let%lwt _ = Logs_lwt.app (fun m -> m "Queue size= %d" (Queue.length q)) in
   match pull q with
   | Some job ->
       ignore @@ job ();
@@ -43,7 +44,7 @@ let rec run q : 'a Lwt.t =
 (* raise EmptyTaskQueue *)
 (* Lwt.return_none *)
 
-let push_in_line dummy q jobs : _ Lwt.t =
+let wait_all dummy q jobs : _ Lwt.t =
   let follow t1 t2 () =
     let%lwt r1 = t1 () in
     push q t2;
@@ -67,3 +68,5 @@ let push_in_line dummy q jobs : _ Lwt.t =
     let%lwt _ = Lwt.pause () in
     let%lwt rs = sentinel_p in
     Lwt.return rs
+
+let add_and_detach _q _job : unit = ()

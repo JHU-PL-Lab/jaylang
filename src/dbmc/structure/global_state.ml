@@ -20,10 +20,6 @@ let create_state block x_target =
       rstk_picked = Hashtbl.create (module Rstack);
     }
   in
-  Hashtbl.add_exn state.node_map
-    ~key:(Lookup_key.start x_target)
-    ~data:state.root_node;
-  Hash_set.strict_add_exn state.lookup_created (Lookup_key.start x_target);
   state
 
 let clear_phis state = state.phis_z3 <- []
@@ -32,30 +28,54 @@ let add_phi state key phis =
   Hashtbl.add_exn state.phi_map ~key ~data:phis;
   state.phis_z3 <- phis :: state.phis_z3
 
-let find_or_add state key block parent_node =
+let find_or_add_node state key block =
   let block_id = Tracelet.id_of_block block in
-  match Hashtbl.find state.node_map key with
-  | Some child_node ->
-      let edge = Node.mk_edge parent_node child_node in
-      Node.add_pred child_node edge;
-      (true, child_node)
-  | None ->
-      Hash_set.strict_add_exn state.lookup_created key;
-      let child_node =
-        ref (Node.mk_node ~block_id ~key ~rule:Node.pending_node)
-      in
-      let edge = Node.mk_edge parent_node child_node in
-      Node.add_pred child_node edge;
-      Hashtbl.add_exn state.node_map ~key ~data:child_node;
-      (false, child_node)
+  Hashtbl.find_or_add state.node_map key ~default:(fun () ->
+      ref (Node.mk_node ~block_id ~key ~rule:Node.pending_node))
+
+let find_node_exn state key block =
+  let block_id = Tracelet.id_of_block block in
+  Hashtbl.find_exn state.node_map key
+
+let get_lookup_stream state key =
+  let s, _f = Hashtbl.find_exn state.lookup_results key in
+  Lwt_stream.clone s
+
+let get_lookup_pusher state key =
+  let _s, f = Hashtbl.find_exn state.lookup_results key in
+  f
+
+let set_lookup_stream state key (stream, f) =
+  (* let seq = Lwt_seq.unfold_lwt (fun _acc -> Lwt.return_none) 0 in *)
+  Hashtbl.add_exn state.lookup_results ~key ~data:(stream, f)
+
+let init_node state key node =
+  Hash_set.strict_add_exn state.lookup_created key;
+  Hashtbl.add_exn state.node_map ~key ~data:node;
+  let result_stream, result_pusher = Lwt_stream.create () in
+  set_lookup_stream state key (result_stream, result_pusher);
+  (node, Lwt_stream.clone result_stream)
+
+let find_or_add state key block node_parent =
+  let exist, node_child, stream_child =
+    match Hashtbl.find state.node_map key with
+    | Some node_child -> (true, node_child, get_lookup_stream state key)
+    | None ->
+        let node_child, stream =
+          init_node state key
+            (ref
+               (Node.mk_node
+                  ~block_id:(Tracelet.id_of_block block)
+                  ~key ~rule:Node.pending_node))
+        in
+        (false, node_child, stream)
+  in
+  let edge = Node.mk_edge node_parent node_child in
+  Node.add_pred node_child edge;
+
+  (exist, node_child, stream_child)
 
 let pvar_picked state key = not (Hash_set.mem state.lookup_created key)
-let get_lookup_result state key = Hashtbl.find_exn state.lookup_results key
-
-let set_lookup_result state key seq =
-  (* let seq = Lwt_seq.unfold_lwt (fun _acc -> Lwt.return_none) 0 in *)
-  Hashtbl.add_exn state.lookup_results ~key ~data:seq;
-  ()
 
 (* let refresh_picked state model =
    Hashtbl.clear state.rstk_picked;
