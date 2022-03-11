@@ -36,9 +36,3 @@ val get_lookup_stream : State.t -> Lookup_key.t -> Lookup_result.t Lwt_stream.t
 
 val get_lookup_pusher :
   State.t -> Lookup_key.t -> Lookup_result.t option -> unit
-
-val set_lookup_stream :
-  State.t ->
-  Lookup_key.t ->
-  Lookup_result.t Lwt_stream.t * (Lookup_result.t option -> unit) ->
-  unit

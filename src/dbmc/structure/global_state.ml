@@ -45,15 +45,11 @@ let get_lookup_pusher state key =
   let _s, f = Hashtbl.find_exn state.lookup_results key in
   f
 
-let set_lookup_stream state key (stream, f) =
-  (* let seq = Lwt_seq.unfold_lwt (fun _acc -> Lwt.return_none) 0 in *)
-  Hashtbl.add_exn state.lookup_results ~key ~data:(stream, f)
-
 let init_node state key node =
   Hash_set.strict_add_exn state.lookup_created key;
   Hashtbl.add_exn state.node_map ~key ~data:node;
   let result_stream, result_pusher = Lwt_stream.create () in
-  set_lookup_stream state key (result_stream, result_pusher);
+  Hashtbl.add_exn state.lookup_results ~key ~data:(result_stream, result_pusher);
   (node, Lwt_stream.clone result_stream)
 
 let find_or_add state key block node_parent =

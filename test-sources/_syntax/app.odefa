@@ -1,0 +1,4 @@
+x = input;
+f = fun p -> ( r = p );
+t = f x;
+target = t;

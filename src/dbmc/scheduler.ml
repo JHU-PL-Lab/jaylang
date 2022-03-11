@@ -28,19 +28,20 @@ let pull q : 'a job option = Queue.dequeue q
 (*
    Can a queue be empty? Should it raise an exception when it's empty?
 *)
-let rec run q : 'a Lwt.t =
+let rec run ?(is_empty = false) q : 'a Lwt.t =
   let%lwt _ = Logs_lwt.app (fun m -> m "Queue size= %d" (Queue.length q)) in
   match pull q with
   | Some job ->
       ignore @@ job ();
-      (* FIXME: This `pause` is critical, but why *)
-      let%lwt _ = Lwt.pause () in
-      (* let%lwt _ = Logs_lwt.app (fun m -> m "Scheduler: run") in *)
       let%lwt _ = Lwt_fmt.(flush stdout) in
+      let%lwt _ = Lwt.pause () in
       run q
-  | None -> Lwt.return_none
-(* let%lwt _ = Lwt.pause () in
-   run q *)
+  | None ->
+      if is_empty
+      then Lwt.return_none
+      else
+        let%lwt _ = Lwt.pause () in
+        run ~is_empty:true q
 (* raise EmptyTaskQueue *)
 (* Lwt.return_none *)
 
@@ -69,4 +70,4 @@ let wait_all dummy q jobs : _ Lwt.t =
     let%lwt rs = sentinel_p in
     Lwt.return rs
 
-let add_and_detach _q _job : unit = ()
+let add_and_detach q job : unit = push q job

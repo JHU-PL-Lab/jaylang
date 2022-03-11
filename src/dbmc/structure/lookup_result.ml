@@ -1,13 +1,8 @@
 open Core
 
-type t = {
-  status : bool;
-  from : Id.t;
-  mutable subs : (unit -> unit) list;
-  worker : Id.t Lwt_seq.t;
-}
+type t = { status : bool; from : Id.t; mutable subs : (unit -> unit) list }
 
-let default x = { status = true; from = x; subs = []; worker = Lwt_seq.empty }
+let default x = { status = true; from = x; subs = [] }
 let ok x = default x
 let fail x = { (default x) with status = false }
 let ok_lwt x = Lwt.return (ok x)
