@@ -6,7 +6,6 @@ open Ddpa_graph
 open Ddpa_helper
 
 let name_main = "0_main"
-
 let id_main = Ident name_main
 
 type clause_cat = Direct | Fun | App of ident list | Cond of ident list
@@ -60,14 +59,15 @@ let get_clauses block =
   | Fun fb -> fb.clauses
   | Cond cb ->
       let choice = BatOption.get cb.choice in
-      if choice then
-        cb.then_
-      else
-        cb.else_
+      if choice then cb.then_ else cb.else_
 
 let cast_to_cond_block = function
   | Cond cb -> cb
   | _ -> failwith "cast_to_cond_block"
+
+let cast_to_fun_block = function
+  | Fun fb -> fb
+  | _ -> failwith "cast_to_fun_block"
 
 let id_of_block = function
   | Main b -> b.point
@@ -110,31 +110,24 @@ let find_by_id ?(static = false) x block_map =
   |> List.find_map ~f:(fun tl ->
          match tl with
          | Main b ->
-             if List.exists ~f:(fun tc -> Ident.equal tc.id x) b.clauses then
-               Some tl
-             else
-               None
+             if List.exists ~f:(fun tc -> Ident.equal tc.id x) b.clauses
+             then Some tl
+             else None
          | Fun b ->
-             if List.exists ~f:(fun tc -> Ident.equal tc.id x) b.clauses then
-               Some tl
-             else
-               None
+             if List.exists ~f:(fun tc -> Ident.equal tc.id x) b.clauses
+             then Some tl
+             else None
          | Cond c -> (
              let choice =
-               if List.exists ~f:(fun tc -> Ident.equal tc.id x) c.then_ then
-                 Some true
+               if List.exists ~f:(fun tc -> Ident.equal tc.id x) c.then_
+               then Some true
                else if List.exists ~f:(fun tc -> Ident.equal tc.id x) c.else_
-               then
-                 Some false
-               else
-                 None
+               then Some false
+               else None
              in
              match choice with
              | Some _ ->
-                 if static then
-                   Some (Cond c)
-                 else
-                   Some (Cond { c with choice })
+                 if static then Some (Cond c) else Some (Cond { c with choice })
              | None -> None))
   |> Option.value_exn
 
@@ -146,13 +139,11 @@ let clause_of_x_exn block x =
 
 let update_id_dst id dst0 block =
   let add_dsts dst0 dsts =
-    if List.mem dsts dst0 ~equal:Ident.equal then
-      dsts
-    else
-      dst0 :: dsts
+    if List.mem dsts dst0 ~equal:Ident.equal then dsts else dst0 :: dsts
   in
   let add_dst_in_clause tc =
-    if Ident.equal tc.id id then
+    if Ident.equal tc.id id
+    then
       {
         tc with
         cat =
@@ -161,8 +152,7 @@ let update_id_dst id dst0 block =
           | Cond dsts -> Cond (add_dsts dst0 dsts)
           | other -> other);
       }
-    else
-      tc
+    else tc
   in
   update_clauses (List.map ~f:add_dst_in_clause) block
 
@@ -308,8 +298,8 @@ let annotate e pt : block Ident_map.t =
   (* let debug_bomb = ref 20 in *)
   let visited = ref Annotated_clause_set.empty in
   let rec loop acl dangling : unit =
-    if Annotated_clause_set.mem acl !visited then
-      ()
+    if Annotated_clause_set.mem acl !visited
+    then ()
     else (
       visited := Annotated_clause_set.add acl !visited;
 
@@ -327,13 +317,12 @@ let annotate e pt : block Ident_map.t =
          we can change the tracelet accordingly.
          e.g. [prev: [r = c ? ...; r = r1 @- r]]
       *)
-      if List.length prev_acls > 1 && has_condition_clause prev_acls then
-        if List.length prev_acls = 1 then
-          failwith "cond clause cannot appear along"
-        else
-          add_cond_block map prev_acls cfg
-      else
-        ();
+      if List.length prev_acls > 1 && has_condition_clause prev_acls
+      then
+        if List.length prev_acls = 1
+        then failwith "cond clause cannot appear along"
+        else add_cond_block map prev_acls cfg
+      else ();
 
       (* step logic *)
       let continue = ref true and block_dangling = ref dangling in
@@ -376,10 +365,9 @@ let annotate e pt : block Ident_map.t =
           failwith "impossible binding enter for non callsites"
       | Nonbinding_enter_clause (_, _) ->
           failwith "impossible non-binding enter for non condsites");
-      if !continue then
-        List.iter ~f:(fun acl -> loop acl !block_dangling) (preds_l acl cfg)
-      else
-        ())
+      if !continue
+      then List.iter ~f:(fun acl -> loop acl !block_dangling) (preds_l acl cfg)
+      else ())
   in
   loop acl true;
   !map
@@ -401,10 +389,9 @@ let is_before map x1 x2 =
   let clauses = get_clauses block in
   List.fold_until clauses ~init:false
     ~f:(fun _ x ->
-      if Id.equal x.id x1 then
-        Stop true
-      else if Id.equal x.id x2 then
-        Stop false
-      else
-        Continue true)
+      if Id.equal x.id x1
+      then Stop true
+      else if Id.equal x.id x2
+      then Stop false
+      else Continue true)
     ~finish:Fn.id

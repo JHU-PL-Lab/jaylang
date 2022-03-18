@@ -29,10 +29,12 @@ let pull q : 'a job option = Queue.dequeue q
    Can a queue be empty? Should it raise an exception when it's empty?
 *)
 let rec run ?(is_empty = false) q : 'a Lwt.t =
-  let%lwt _ = Logs_lwt.app (fun m -> m "Queue size= %d" (Queue.length q)) in
+  (* let%lwt _ = Logs_lwt.app (fun m -> m "Queue size= %d" (Queue.length q)) in *)
   match pull q with
   | Some job ->
-      ignore @@ job ();
+      (* ignore @@ job (); *)
+      (* let%lwt _ = job () in *)
+      Lwt.async job;
       let%lwt _ = Lwt_fmt.(flush stdout) in
       let%lwt _ = Lwt.pause () in
       run q

@@ -65,3 +65,11 @@ let get_f_return map fid r_stk x xs =
   let r_stk' = Rstack.push r_stk (x, fid) in
   let key_x_ret = of_parts x' xs r_stk' in
   key_x_ret
+
+let get_cond_return cond_block beta r_stk x xs =
+  let open Tracelet in
+  let ctracelet = Cond { cond_block with choice = Some beta } in
+  let x_ret = Tracelet.ret_of ctracelet in
+  let cbody_stack = Rstack.push r_stk (x, Id.cond_fid beta) in
+  let key_x_ret = of_parts x_ret xs cbody_stack in
+  key_x_ret

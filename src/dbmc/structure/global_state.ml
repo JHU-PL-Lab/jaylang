@@ -28,49 +28,44 @@ let add_phi state key phis =
   Hashtbl.add_exn state.phi_map ~key ~data:phis;
   state.phis_z3 <- phis :: state.phis_z3
 
-let find_or_add_node state key block =
-  let block_id = Tracelet.id_of_block block in
-  Hashtbl.find_or_add state.node_map key ~default:(fun () ->
-      ref (Node.mk_node ~block_id ~key ~rule:Node.pending_node))
-
 let find_node_exn state key block =
   let block_id = Tracelet.id_of_block block in
   Hashtbl.find_exn state.node_map key
 
-let get_lookup_stream state key =
-  let s, _f = Hashtbl.find_exn state.lookup_results key in
-  Lwt_stream.clone s
-
-let get_lookup_pusher state key =
-  let _s, f = Hashtbl.find_exn state.lookup_results key in
-  f
-
 let init_node state key node =
   Hash_set.strict_add_exn state.lookup_created key;
   Hashtbl.add_exn state.node_map ~key ~data:node;
-  let result_stream, result_pusher = Lwt_stream.create () in
-  Hashtbl.add_exn state.lookup_results ~key ~data:(result_stream, result_pusher);
-  (node, Lwt_stream.clone result_stream)
+  node
 
-let find_or_add state key block node_parent =
-  let exist, node_child, stream_child =
+let find_or_add_node state key block node_parent =
+  let exist, node_child =
     match Hashtbl.find state.node_map key with
-    | Some node_child -> (true, node_child, get_lookup_stream state key)
+    | Some node_child -> (true, node_child)
     | None ->
-        let node_child, stream =
+        let node_child =
           init_node state key
             (ref
                (Node.mk_node
                   ~block_id:(Tracelet.id_of_block block)
                   ~key ~rule:Node.pending_node))
         in
-        (false, node_child, stream)
+        (false, node_child)
   in
   let edge = Node.mk_edge node_parent node_child in
   Node.add_pred node_child edge;
+  (exist, node_child)
 
-  (exist, node_child, stream_child)
+let find_or_add_stream state key kind =
+  match Hashtbl.find state.lookup_results key with
+  | Some nm -> (true, Node_messager.get_stream_for_read nm)
+  | None ->
+      (* Logs.app (fun m -> m "[Stream][Create]: %a" Lookup_key.pp key); *)
+      let node_messager = Node_messager.create_with_kind kind in
+      Hashtbl.add_exn state.lookup_results ~key ~data:node_messager;
+      (false, Node_messager.get_stream_for_read node_messager)
 
+let get_messager_exn state key = Hashtbl.find_exn state.lookup_results key
+let get_messager state key = Hashtbl.find state.lookup_results key
 let pvar_picked state key = not (Hash_set.mem state.lookup_created key)
 
 (* let refresh_picked state model =

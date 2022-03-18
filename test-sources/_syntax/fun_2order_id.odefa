@@ -1,0 +1,12 @@
+c = true;
+id = fun x -> (
+  rid = x
+);
+f = fun a -> (
+  g = fun b -> (
+    h = a c
+  )
+);
+b1 = f id;
+b2 = b1 id;
+target = b2

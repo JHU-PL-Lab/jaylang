@@ -13,6 +13,7 @@ apply = fun g -> (
   x = input;
   one = 1;
   cx = x == one;
+  h = g three;
   rf = cx ? (
     h = g three;
   ) : (

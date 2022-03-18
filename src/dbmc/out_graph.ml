@@ -156,11 +156,14 @@ module DotPrinter_Make (S : Graph_state) = struct
         ~first:(fun (v : Node.t) -> Lookup_key.to_string v.key |> name_escape)
         ~second:(Fmt.str "\"%s\"")
 
-    let graph_attributes _ =
+    let graph_attributes (_g : t) =
       let graph_title =
         match S.testname with Some s -> [ `Label s ] | None -> []
       in
-      [ `Fontname "Consolas"; `Fontsize 16 ] @ graph_title
+      [
+        `Fontname "Consolas"; `Fontsize 16; `OrderingOut; `Rankdir `TopToBottom;
+      ]
+      @ graph_title
 
     let default_vertex_attributes _ = [ `Shape `Record ]
 
@@ -187,8 +190,9 @@ module DotPrinter_Make (S : Graph_state) = struct
         in
         let content =
           let phis_string =
-            Option.value_map (Hashtbl.find S.state.phi_map node.key) ~default:""
-              ~f:(fun phi -> phi |> Z3.Expr.to_string |> label_escape)
+            ""
+            (* Option.value_map (Hashtbl.find S.state.phi_map node.key) ~default:""
+               ~f:(fun phi -> phi |> Z3.Expr.to_string |> label_escape) *)
             (* List.map phis ~f:(fun phi -> phi |> Constraint.show |> label_escape)
                |> String.concat ~sep:" | " *)
           in
@@ -215,14 +219,20 @@ module DotPrinter_Make (S : Graph_state) = struct
             | None -> ""
           in
           let pvar = Global_state.pvar_picked S.state node.key in
-          Fmt.str "{ {[%s] | %a} | %a | %a | {φ | { %s %s } } | %B | %s}"
+          let outputs =
+            let messager = Global_state.get_messager S.state node.key in
+            Option.value_map messager ~f:(fun m -> m.outputs) ~default:[]
+          in
+          Fmt.str
+            "{ {[%s] | %a} | %a | %a | %s | {φ | { %s %s } } | %B | {out | %a \
+             } | %s}"
             (Lookup_stack.to_string (Lookup_key.lookups node.key))
             (Fmt.option Solver.pp_value)
             key_value
             (Fmt.option Odefa_ast.Ast_pp_graph.pp_clause)
-            clause Rstack.pp node.key.r_stk phis_string phi_status
-            (* (List.length node.preds) *)
-            pvar rule
+            clause Rstack.pp node.key.r_stk
+            (Rstack.to_string node.key.r_stk)
+            phis_string phi_status pvar (Fmt.Dump.list Id.pp) outputs rule
         in
         let styles =
           match node.rule with
@@ -277,7 +287,19 @@ module DotPrinter_Make (S : Graph_state) = struct
       let string_label s = [ `Label s ] in
       Either.value_map (E.label e) ~first:edge_label ~second:string_label
 
-    let get_subgraph _ = None
+    let get_subgraph vs =
+      Either.value_map vs
+        ~first:(fun (v : Node.t) ->
+          let sg_name =
+            Printf.sprintf "%s_%s" (Id.show v.block_id)
+              (Rstack.to_string v.key.r_stk)
+          in
+          (* CHANGE v.1.8.4 add 'sg_parent = None' to obtain subgraphs whose parents are the main graph) *)
+          let (subgraph : Graph.Graphviz.DotAttributes.subgraph) =
+            { sg_name; sg_attributes = [ `Label "" ]; sg_parent = None }
+          in
+          Some subgraph)
+        ~second:(fun _ -> None)
   end)
 
   let output_graph () =

@@ -3,11 +3,9 @@ open Hashcons
 
 module T = struct
   type frame = Id.t * Id.t [@@deriving hash, equal]
-
   type op = Push | Co_pop [@@deriving hash, equal]
 
   type stack = Cons of { prev : t; op : op; frame : frame } | Empty
-
   and t = stack Hashcons.hash_consed
 end
 (* When symbolic executing, we create counter on the fly.
@@ -48,11 +46,8 @@ include T
 type t = T.t
 
 let ht = H.create 100
-
 let empty = H.hashcons ht Empty
-
 let cons op prev frame = H.hashcons ht (Cons { op; prev; frame })
-
 let push rstk frame = cons Push rstk frame
 
 let pop (rstk : t) frame : t option =
@@ -68,16 +63,6 @@ let pop (rstk : t) frame : t option =
       else (* failwith "unmathch pop from stk" *)
         None
   | Cons { op = Co_pop; _ } -> Some (cons Co_pop rstk frame)
-
-let paired_callsite rstk this_f =
-  match rstk.node with
-  | Empty -> None
-  | Cons { op = Push; frame; _ } ->
-      let cs, fid = frame in
-      if Id.equal fid this_f
-      then Some cs
-      else failwith "inequal f when stack is not empty"
-  | Cons { op = Co_pop; _ } -> None
 
 let concretize_top rstk : Concrete_stack.t =
   let rec loop rstk =
@@ -109,9 +94,7 @@ let relativize (target_stk : Concrete_stack.t) (call_stk : Concrete_stack.t) : t
   rstk
 
 let str_of_frame (Id.Ident x1, Id.Ident x2) = "(" ^ x1 ^ "," ^ x2 ^ ")"
-
 let str_of_op = function Push -> "<-" | Co_pop -> "!"
-
 let to_string h = string_of_int h.hkey
 
 let construct_stks r_stk =
@@ -131,15 +114,24 @@ let rec pp oc rstk =
   | Cons { op = Push; prev; frame } ->
       Fmt.pf oc "+%s;%a" (str_of_frame frame) pp prev
 
+let paired_callsite rstk this_f =
+  match rstk.node with
+  | Empty -> None
+  | Cons { op = Push; frame; _ } ->
+      let cs, fid = frame in
+      if Id.equal fid this_f
+      then Some cs
+      else
+        failwith
+          (Format.sprintf "paired_callsite: rsk=%s, this_f=%s"
+             (Fmt.to_to_string pp rstk) (Id.show this_f))
+  | Cons { op = Co_pop; _ } -> None
+
 (* Used in Lookup_key *)
 let sexp_of_t (r : t) = [%sexp_of: int] r.hkey
-
 let compare (r1 : t) (r2 : t) = Int.compare r1.hkey r2.hkey
-
 let equal (r1 : t) (r2 : t) = X.equal r1.node r2.node
-
 let hash_fold_t state (r : t) = Hash.fold_int state r.hkey
-
 let hash r = r.hkey
 
 (*

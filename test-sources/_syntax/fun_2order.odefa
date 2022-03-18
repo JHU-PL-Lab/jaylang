@@ -1,12 +1,10 @@
-c = true;
-id = fun x -> (
-  rid = x
-);
+x = input;
+z = 0;
 f = fun a -> (
   g = fun b -> (
-    h = a c
+    h = 1
   )
 );
-b1 = f id;
-b2 = b1 id;
+b1 = f z;
+b2 = b1 z;
 target = b2

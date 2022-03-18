@@ -29,10 +29,10 @@ module Make (S : Ruler_state) = struct
         let target_stk = Rstack.concretize_top key.r_stk in
         Node.update_rule gate_tree (Node.done_ target_stk);
         S.add_phi key (Riddler.discover_main key mv);
-        result_pusher (Some (Lookup_result.ok key.x));
-        let%lwt _ =
-          Logs_lwt.app (fun m -> m "[Stream][W]: %a\n" Lookup_key.pp key)
-        in
+        result_pusher (Lookup_result.ok key.x);
+        (* let%lwt _ =
+             Logs_lwt.app (fun m -> m "[Stream][W]: %a\n" Lookup_key.pp key)
+           in *)
         Lookup_result.ok_lwt key.x)
       else
         (* Discovery Non-Main *)
@@ -42,8 +42,12 @@ module Make (S : Ruler_state) = struct
         in
         gate_tree := { !gate_tree with rule = Node.to_first node_child };
         S.add_phi key (Riddler.discover_non_main key S.x_first mv);
+        (* result_pusher (Some (Lookup_result.ok key.x)) *)
         let%lwt _ =
-          Lwt_stream.iter (fun x -> result_pusher (Some x)) lookup_first
+          (* Lwt_stream.iter (fun x -> result_pusher (Some x)) lookup_first *)
+          Lwt_stream.iter
+            (fun _ -> result_pusher (Lookup_result.ok key.x))
+            lookup_first
         in
         Lookup_result.ok_lwt key.x)
     else
@@ -56,9 +60,7 @@ module Make (S : Ruler_state) = struct
           in
           Node.update_rule gate_tree (Node.discard node_sub);
           S.add_phi key (Riddler.discard key mv);
-          let%lwt _ =
-            Lwt_stream.iter (fun x -> result_pusher (Some x)) lookup_sub
-          in
+          let%lwt _ = Lwt_stream.iter (fun x -> result_pusher x) lookup_sub in
           Lookup_result.ok_lwt key.x
       (* Record End *)
       | Some (Value_record r) -> (
@@ -75,7 +77,7 @@ module Make (S : Ruler_state) = struct
               Node.update_rule gate_tree (Node.alias node_key);
               S.add_phi key (Riddler.alias_key key key');
               let%lwt _ =
-                Lwt_stream.iter (fun x -> result_pusher (Some x)) lookup_key
+                Lwt_stream.iter (fun x -> result_pusher x) lookup_key
               in
               Lookup_result.ok_lwt key.x
           | None ->

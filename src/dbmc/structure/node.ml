@@ -6,9 +6,6 @@ module T = struct
     block_id : Id.t;
     rule : (rule[@ignore]);
     mutable preds : (edge list[@ignore]);
-    (* the following are not used not *)
-    mutable has_complete_path : bool;
-    mutable all_path_searched : bool;
   }
 
   and edge = { pred : t ref; succ : t ref }
@@ -29,7 +26,7 @@ module T = struct
     | Callsite of t ref * t ref list
     | Para_local of (t ref * t ref) list
     | Para_nonlocal of (t ref * t ref) list
-  [@@deriving sexp_of, compare, equal, show { with_path = false }]
+  [@@deriving sexp_of, compare, equal]
 
   let rule_name = function
     | Pending -> "Pending"
@@ -56,8 +53,7 @@ end
 
 module Node_ref = struct
   module T = struct
-    type t = Node.t ref
-    [@@deriving sexp_of, compare, equal, show { with_path = false }]
+    type t = Node.t ref [@@deriving sexp_of, compare, equal]
 
     let hash = Hashtbl.hash
   end
@@ -76,24 +72,9 @@ open Node
 let mk_edge pred succ = { pred; succ }
 
 let root_node block_id x =
-  {
-    block_id;
-    key = Lookup_key.start x;
-    rule = Pending;
-    preds = [];
-    has_complete_path = false;
-    all_path_searched = false;
-  }
+  { block_id; key = Lookup_key.start x; rule = Pending; preds = [] }
 
-let mk_node ~block_id ~key ~rule =
-  {
-    block_id;
-    key;
-    rule;
-    preds = [];
-    has_complete_path = false;
-    all_path_searched = false;
-  }
+let mk_node ~block_id ~key ~rule = { block_id; key; rule; preds = [] }
 
 let add_pred node pred =
   if List.mem !node.preds pred ~equal:(fun eg1 eg2 ->

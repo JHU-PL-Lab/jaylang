@@ -7,8 +7,13 @@ f1 = fun x1 -> (
 
 apply = fun g -> (
   three = 3;
-  h = g three;
+  cx = true;
+  rf = cx ? (
+    h = g three;
+  ) : (
+    du = 7
+  );
 );
 
 r1 = apply f1;
-r2 = apply r1
+r2 = apply r1;
