@@ -27,9 +27,9 @@ module Make (S : Ruler_state) = struct
       then (
         (* Discovery Main *)
         let target_stk = Rstack.concretize_top key.r_stk in
-        Node.update_rule gate_tree (Node.done_ target_stk);
-        S.add_phi key (Riddler.discover_main key mv);
-        result_pusher (Lookup_result.ok key.x);
+        Node.update_rule gate_tree (Node.done_ target_stk) ;
+        S.add_phi key (Riddler.discover_main key mv) ;
+        result_pusher (Lookup_result.ok key.x) ;
         Lookup_result.ok_lwt key.x)
       else
         (* Discovery Non-Main *)
@@ -37,15 +37,13 @@ module Make (S : Ruler_state) = struct
         let node_child, lookup_first =
           find_or_add_task key_first block gate_tree
         in
-        gate_tree := { !gate_tree with rule = Node.to_first node_child };
-        S.add_phi key (Riddler.discover_non_main key S.x_first mv);
+        gate_tree := { !gate_tree with rule = Node.to_first node_child } ;
+        S.add_phi key (Riddler.discover_non_main key S.x_first mv) ;
         (* result_pusher (Some (Lookup_result.ok key.x)) *)
-        let%lwt _ =
-          (* Lwt_stream.iter (fun x -> result_pusher (Some x)) lookup_first *)
-          Lwt_stream.iter
-            (fun _ -> result_pusher (Lookup_result.ok key.x))
-            lookup_first
-        in
+        (* Lwt_stream.iter (fun x -> result_pusher (Some x)) lookup_first *)
+        Lwt_stream.iter
+          (fun _ -> result_pusher (Lookup_result.ok key.x))
+          lookup_first ;%lwt
         Lookup_result.ok_lwt key.x)
     else
       (* Discard *)
@@ -55,9 +53,9 @@ module Make (S : Ruler_state) = struct
           let node_sub, lookup_sub =
             find_or_add_task key_drop_x block gate_tree
           in
-          Node.update_rule gate_tree (Node.discard node_sub);
-          S.add_phi key (Riddler.discard key mv);
-          let%lwt _ = Lwt_stream.iter (fun x -> result_pusher x) lookup_sub in
+          Node.update_rule gate_tree (Node.discard node_sub) ;
+          S.add_phi key (Riddler.discard key mv) ;
+          Lwt_stream.iter (fun x -> result_pusher x) lookup_sub ;%lwt
           Lookup_result.ok_lwt key.x
       (* Record End *)
       | Some (Value_record r) -> (
@@ -70,19 +68,17 @@ module Make (S : Ruler_state) = struct
               let node_key, lookup_key =
                 find_or_add_task key' block gate_tree
               in
-              Node.update_rule gate_tree (Node.alias node_key);
-              S.add_phi key (Riddler.alias_key key key');
-              let%lwt _ =
-                Lwt_stream.iter (fun x -> result_pusher x) lookup_key
-              in
+              Node.update_rule gate_tree (Node.alias node_key) ;
+              S.add_phi key (Riddler.alias_key key key') ;
+              Lwt_stream.iter (fun x -> result_pusher x) lookup_key ;%lwt
               Lookup_result.ok_lwt key.x
           | None ->
-              Node.update_rule gate_tree Node.mismatch;
-              S.add_phi key (Riddler.mismatch key);
+              Node.update_rule gate_tree Node.mismatch ;
+              S.add_phi key (Riddler.mismatch key) ;
               Lookup_result.fail_lwt key.x)
       | _ ->
-          Node.update_rule gate_tree Node.mismatch;
-          S.add_phi key (Riddler.mismatch key);
+          Node.update_rule gate_tree Node.mismatch ;
+          S.add_phi key (Riddler.mismatch key) ;
           Lookup_result.fail_lwt key.x
 end
 

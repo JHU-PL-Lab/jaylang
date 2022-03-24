@@ -18,25 +18,25 @@ let push h key payload = Pairing_heap.add h { key; payload }
 let pull h : 'a job option = Pairing_heap.pop h
 
 let rec run ?(is_empty = false) q : 'a Lwt.t =
-  Logs.debug (fun m -> m "[Queue]size = %d" (Pairing_heap.length q));
+  Logs.debug (fun m -> m "[Queue]size = %d" (Pairing_heap.length q)) ;
   Logs.debug (fun m ->
       m "[Queue]%a"
         (Fmt.Dump.list Lookup_key.pp)
-        (q |> Pairing_heap.to_list |> List.map ~f:(fun t -> t.key)));
+        (q |> Pairing_heap.to_list |> List.map ~f:(fun t -> t.key))) ;
   match pull q with
   | Some job ->
       (* ignore @@ job (); *)
       (* let%lwt _ = job () in *)
-      Lwt.async job.payload;
-      let%lwt _ = Lwt_fmt.(flush stdout) in
-      let%lwt _ = Lwt.pause () in
+      Lwt.async job.payload ;
+      Lwt_fmt.(flush stdout) ;%lwt
+      Lwt.pause () ;%lwt
       run q
   | None ->
       if is_empty
       then Lwt.return_none
-      else
-        let%lwt _ = Lwt.pause () in
-        run ~is_empty:true q
+      else (
+        Lwt.pause () ;%lwt
+        run ~is_empty:true q)
 (* raise EmptyTaskQueue *)
 (* Lwt.return_none *)
 
