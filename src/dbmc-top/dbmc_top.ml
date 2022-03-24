@@ -87,29 +87,41 @@ let command =
       flag "-c"
         (optional_with_default default_ddpa_c_stk ddpa_c_stk_parser)
         ~doc:"ddpa_concrete_stack"
-    and log_level = flag "-l" (optional log_level_parser) ~doc:"logging_level"
+    and log_level =
+      flag "-l"
+        (optional log_level_parser)
+        ~doc:"log level for all (can be override)"
+    and log_level_lookup =
+      flag "-ll" (optional log_level_parser) ~doc:"log level for lookup"
+    and log_level_solver =
+      flag "-lc" (optional log_level_parser) ~doc:"log level for solver"
+    and log_level_interpreter =
+      flag "-li" (optional log_level_parser) ~doc:"log level for interpreter"
     and filename = anon ("source_file" %: Filename.arg_type)
     and expected_inputs =
       flag "-i" (listed int_list_parser) ~doc:"expected_inputs by groups"
     and timeout = flag "-m" (optional timeout_parser) ~doc:"timeout in seconds"
     and steps = flag "-s" (optional_with_default 500 int) ~doc:"check per steps"
+    and run_max_step = flag "-x" (optional int) ~doc:"check per steps"
     and debug_phi = flag "-p" no_arg ~doc:"output constraints"
     and debug_no_model = flag "-z" no_arg ~doc:"not output smt model"
-    and debug_graph = flag "-g" no_arg ~doc:"output graphviz dot"
-    and run_max_step = flag "-x" (optional int) ~doc:"check per steps" in
+    and debug_graph = flag "-g" no_arg ~doc:"output graphviz dot" in
     let top_config =
       {
         ddpa_c_stk;
-        log_level;
         filename;
         target;
         timeout;
-        steps;
         expected_inputs;
+        steps;
+        run_max_step;
+        log_level;
+        log_level_lookup;
+        log_level_solver;
+        log_level_interpreter;
         debug_phi;
         debug_model = not debug_no_model;
         debug_graph;
-        run_max_step;
       }
     in
     handle_config top_config;

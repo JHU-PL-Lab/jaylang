@@ -4,6 +4,7 @@ open Odefa_ast
 open Odefa_ast.Ast
 open Tracelet
 open Odefa_ddpa
+open Log.Export
 
 type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
 
@@ -21,7 +22,7 @@ let print_dot_graph ~model ~program ~testname (state : Global_state.t) =
   Graph_dot_printer.output_graph ()
 
 let check (state : Global_state.t) (config : Top_config.t) =
-  Logs.info (fun m -> m "Search Tree Size:\t%d" state.tree_size);
+  LLog.info (fun m -> m "Search Tree Size:\t%d" state.tree_size);
   let unfinish_lookup =
     Hash_set.to_list state.lookup_created
     |> List.map ~f:(fun key -> Solver.SuduZ3.not_ (Riddler.pick_at_key key))
@@ -32,8 +33,8 @@ let check (state : Global_state.t) (config : Top_config.t) =
   | Result.Ok model ->
       if config.debug_model
       then (
-        Logs.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()));
-        Logs.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)))
+        SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()));
+        SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)))
       else ();
       let c_stk_mach =
         Solver.SuduZ3.(get_unbox_fun_exn model Riddler.top_stack)
@@ -51,11 +52,11 @@ let check (state : Global_state.t) (config : Top_config.t) =
     - create sub-lookups and push into the scheduler
 
     [state.node_map] is once used to keep track of [Lookup_key.t] created. *)
-let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
-    ~(state : Global_state.t) job_queue : _ Lwt.t =
-  let target = info.target in
-  let map = info.block_map in
-  let x_first = info.first in
+let[@landmark] lookup_top ~(config : Top_config.t) ~(state : Global_state.t)
+    job_queue : _ Lwt.t =
+  let target = state.target in
+  let map = state.block_map in
+  let x_first = state.first in
   (* let block0 = Tracelet.cut_before true target block in *)
   let block0 = Tracelet.find_by_id target map in
 
@@ -82,7 +83,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
   let module R = Ruler.Make (RS) in
   let[@landmark] rec lookup (this_key : Lookup_key.t) block () : unit Lwt.t =
     (* let%lwt _ = Lwt.pause () in *)
-    Logs.debug (fun m ->
+    LLog.debug (fun m ->
         m "[Lookup][=>]: %a in block %a" Lookup_key.pp this_key Id.pp
           (Tracelet.id_of_block block));
     let x, xs, r_stk = Lookup_key.to_parts this_key in
@@ -110,32 +111,25 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
                 find_or_add_task
           (* Input *)
           | At_clause { clause = Clause (_, Input_body); _ } ->
-              (* let%lwt _ = Logs_lwt.info (fun m -> m "Rule Value (Input)") in *)
+              LLog.debug (fun m -> m "Rule Value (Input)");
               Hash_set.add state.input_nodes this_key;
               R.deal_with_value None this_key block gate_tree result_pusher
                 find_or_add_task
           (* Alias *)
           | At_clause { clause = Clause (_, Var_body (Var (x', _))); _ } ->
-              let%lwt _ =
-                Logs_lwt.info (fun m -> m "Rule Alias: %a" Ast_pp.pp_ident x')
-              in
+              LLog.debug (fun m -> m "Rule Alias: %a" Ast_pp.pp_ident x');
               let key_rx = Lookup_key.replace_x this_key x' in
               let node_rx, lookup_rx =
                 find_or_add_task key_rx block gate_tree
               in
               Node.update_rule gate_tree (Node.alias node_rx);
               add_phi this_key (Riddler.alias this_key x');
-              (* let%lwt _ =
-                   Logs_lwt.app (fun m ->
-                       m "[Stream][Wait]: %a\n" Lookup_key.pp key_rx)
-                 in *)
+
               let%lwt _ =
                 Lwt_stream.iter_p
                   (fun x ->
                     result_pusher x;
-                    Lwt.return_unit
-                    (* Logs_lwt.app (fun m ->
-                        m "[Stream][R]: %a\n" Lookup_key.pp key_rx) *))
+                    Lwt.return_unit)
                   lookup_rx
               in
               Lookup_result.ok_lwt x
@@ -143,7 +137,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
           | At_clause
               ({ clause = Clause (_, Projection_body (Var (xr, _), lbl)); _ } as
               tc) ->
-              Logs.info (fun m ->
+              LLog.info (fun m ->
                   m "Rule ProjectBody : %a = %a.%a" Id.pp x Id.pp xr Id.pp lbl);
               let key_r = Lookup_key.replace_x this_key x in
               let node_r = find_node key_r block gate_tree in
@@ -188,11 +182,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
                 | None, None -> Lwt.return_unit
                 | _, _ ->
                     result_pusher (Lookup_result.ok x);
-                    (* let%lwt _ =
-                         Logs_lwt.app (fun m ->
-                             m "[Stream][Binop] %a receive-both" Lookup_key.pp
-                               this_key)
-                       in *)
                     loop ()
               in
               Lwt.async loop;
@@ -223,23 +212,20 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
                 Lwt_stream.iter_p
                   (fun (rc : Lookup_result.t) ->
                     let c = rc.from in
-                    (* let%lwt _ =
-                         Logs_lwt.app (fun m ->
-                             m "[Stream][CondTop] %a receive-cond-v [%a]\n"
-                               Lookup_key.pp this_key Id.pp c)
-                       in *)
+                    (* LLog.debug (fun m ->
+                        m "[Stream][CondTop] %a receive-cond-v [%a]\n"
+                          Lookup_key.pp this_key Id.pp c); *)
                     let _, lookup_xxs =
                       find_or_add_task key_xxs condsite_block gate_tree
                     in
                     Lwt.async (fun () ->
                         Lwt_stream.iter_p
                           (fun (x : Lookup_result.t) ->
-                            (* let%lwt _ = Lwt.pause () in *)
                             result_pusher x;
-                            Lwt.return_unit
-                            (* Logs_lwt.app (fun m ->
+                            (* LLog.debug (fun m ->
                                 m "[Stream][CondTop] %a receive-cond-ret [%a]"
-                                  Lookup_key.pp key_xxs Id.pp x.from) *))
+                                  Lookup_key.pp key_xxs Id.pp x.from); *)
+                            Lwt.return_unit)
                           lookup_xxs);
                     Lwt.return_unit)
                   lookup_x2
@@ -281,11 +267,9 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
               let%lwt _ =
                 Lwt_stream.iter_p
                   (fun (c : Lookup_result.t) ->
-                    (* let%lwt _ =
-                         Logs_lwt.app (fun m ->
+                    (* LLog.debug (fun m ->
                              m "[Stream][CondBottom] %a receive-cond-var [%a]"
-                               Lookup_key.pp this_key Id.pp c.from)
-                       in *)
+                               Lookup_key.pp this_key Id.pp c.from);*)
                     if c.status
                     then (
                       List.iter [ true; false ] ~f:(fun beta ->
@@ -300,12 +284,12 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
                               Lwt_stream.iter_p
                                 (fun (x : Lookup_result.t) ->
                                   result_pusher x;
-                                  Lwt.return_unit
-                                  (* Logs_lwt.app (fun m ->
+                                  (* LLog.debug (fun m ->
                                       m
                                         "[Stream][CondBottom] %a \
                                          receive-cond-ret [%a]"
-                                        Lookup_key.pp key_x_ret Id.pp x.from) *))
+                                        Lookup_key.pp key_x_ret Id.pp x.from); *)
+                                  Lwt.return_unit)
                                 lookup_x_ret));
                       Lwt.return_unit)
                     else Lwt.return_unit)
@@ -320,7 +304,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
                 | Some callsite -> [ callsite ]
                 | None -> fb.callsites
               in
-              Logs.debug (fun m ->
+              LLog.debug (fun m ->
                   m "FunEnter%s: %a -> %a"
                     (if is_local then "" else "Nonlocal")
                     Id.pp fid Id.pp_list callsites);
@@ -368,7 +352,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
                 cat = App fids;
                 _;
               } ->
-              Logs.debug (fun m ->
+              LLog.debug (fun m ->
                   m "FunExit: %a -> %a" Id.pp xf Id.pp_list fids);
               let key_fun = Lookup_key.of_parts xf [] r_stk in
               let node_fun, lookup_fun =
@@ -389,20 +373,15 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
               Node.update_rule gate_tree
                 (Node.mk_callsite ~fun_tree:node_fun ~sub_trees);
               add_phi this_key (Riddler.fun_exit this_key xf fids map);
-              (* let%lwt _ =
-                   Logs_lwt.app (fun m ->
-                       m "[Stream][Wait]: %a\n" Lookup_key.pp key_fun)
-                 in *)
+              (* LLog.debug (fun m ->
+                       m "[Stream][Wait]: %a\n" Lookup_key.pp key_fun) *)
               let%lwt _ =
                 Lwt_stream.iter_p
                   (fun (rf : Lookup_result.t) ->
-                    (* let%lwt _ = Lwt.pause () in *)
                     let fid = rf.from in
-                    (* let%lwt _ =
-                         Logs_lwt.app (fun m ->
+                    (* LLog.debug.app (fun m ->
                              m "[Stream] %a receive-fun [%a]\n" Lookup_key.pp
-                               this_key Id.pp fid)
-                       in *)
+                               this_key Id.pp fid) *)
                     if List.mem fids fid ~equal:Id.equal
                     then (
                       let fblock = Ident_map.find fid map in
@@ -410,12 +389,10 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
                       let key_x_ret =
                         Lookup_key.get_f_return map fid r_stk x xs
                       in
-                      (* let%lwt _ =
-                           Logs_lwt.app (fun m ->
+                      (* LLog.debug (fun m ->
                                m "[Block] point=%a, para=%a, ret=%a\nSearch=%a" Id.pp
                                  b.point Id.pp b.para Id.pp (ret_of fblock)
-                                 Lookup_key.pp key_x_ret)
-                         in *)
+                                 Lookup_key.pp key_x_ret); *)
                       let _, lookup_x_ret =
                         find_or_add_task key_x_ret fblock gate_tree
                       in
@@ -423,9 +400,9 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
                           Lwt_stream.iter_p
                             (fun (x : Lookup_result.t) ->
                               result_pusher x;
-                              (* Logs_lwt.app (fun m ->
+                              (* LLog.debug.app (fun m ->
                                   m "[Stream] %a receive-f-ret [%a]"
-                                    Lookup_key.pp key_x_ret Id.pp x.from) *)
+                                    Lookup_key.pp key_x_ret Id.pp x.from); *)
                               Lwt.return_unit)
                             lookup_x_ret);
                       Lwt.return_unit)
@@ -435,27 +412,23 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
 
               Lookup_result.ok_lwt x
           | At_clause ({ clause = Clause (_, _); _ } as tc) ->
-              Logs.err (fun m -> m "%a" Ast_pp.pp_clause tc.clause);
+              LLog.err (fun m -> m "%a" Ast_pp.pp_clause tc.clause);
               failwith "error lookup cases"
           | Lookup_mismatch -> failwith "should not mismatch here")
     in
     let%lwt _rule_result = apply_rule () in
+    (* result_pusher None; *)
     let%lwt _ =
       if state.tree_size mod config.steps = 0
-      then
-        (* Logs_lwt.app (fun m ->
-               m "Step %d\t%a\n" state.tree_size Lookup_key.pp this_key)
-           >>= fun _ -> *)
+      then (
+        LLog.debug (fun m ->
+            m "Step %d\t%a\n" state.tree_size Lookup_key.pp this_key);
         match check state config with
-        (* match None with *)
         | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
-        | None ->
-            (* result_pusher None; *)
-            Lwt.return_unit
-      else (* result_pusher None; *)
-        Lwt.return_unit
+        | None -> Lwt.return_unit)
+      else Lwt.return_unit
     in
-    Logs.debug (fun m ->
+    LLog.debug (fun m ->
         m "[Lookup][<=]: %a in block %a\n" Lookup_key.pp this_key Id.pp
           (Tracelet.id_of_block block));
     Lwt.return_unit
@@ -479,8 +452,6 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
       Global_state.find_or_add_node state key block node_parent
     in
     let exist2, stream = Global_state.find_or_add_stream state key kind in
-    (* Logs.app (fun m ->
-        m "[Task] [%a] [Node? %B] [Stream? %B]" Lookup_key.pp key exist1 exist2); *)
     if exist2 then () else Scheduler.push job_queue key (lookup key block);
     (node_child, stream)
   and find_node key block node_parent =
@@ -498,32 +469,19 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(info : Global_state.info)
   lookup key_target block0 ()
 
 let[@landmark] lookup_main ~(config : Top_config.t) program target =
-  let info : Global_state.info =
-    {
-      first = Ast_tools.first_id program;
-      target;
-      program;
-      block_map = Tracelet.annotate program target;
-    }
-  in
-  let job_queue = Scheduler.create info.block_map () in
-  let state =
-    let block0 = Tracelet.find_by_id target info.block_map in
-    let state = Global_state.create_state block0 target in
-    state
-  in
+  let block_map = Tracelet.annotate program target in
+  let job_queue = Scheduler.create block_map () in
+  let state = Global_state.create_state block_map program target in
   let handle_graph model =
     if config.debug_graph
-    then
-      print_dot_graph ~model ~program:info.program ~testname:config.filename
-        state
+    then print_dot_graph ~model ~program ~testname:config.filename state
     else ()
   in
   let handle_found model c_stk =
-    Logs.info (fun m ->
+    LLog.info (fun m ->
         m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident target
           Concrete_stack.pp c_stk);
-    Logs.debug (fun m ->
+    LLog.debug (fun m ->
         m "Nodes picked states\n%a\n"
           (Fmt.Dump.iter_bindings
              (fun f c ->
@@ -549,16 +507,16 @@ let[@landmark] lookup_main ~(config : Top_config.t) program target =
     match check state config with
     | Some { model; c_stk } -> handle_found model c_stk
     | None ->
-        Logs.info (fun m -> m "UNSAT");
+        SLog.info (fun m -> m "UNSAT");
         if config.debug_model
         then
-          Logs.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
+          SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
         else ();
         handle_graph None;
         []
   in
   let key_target = Lookup_key.of_parts target [] Rstack.empty in
-  let do_lookup () = lookup_top ~config ~info ~state job_queue in
+  let do_lookup () = lookup_top ~config ~state job_queue in
   Scheduler.push job_queue key_target do_lookup;
   Lwt_main.run
     (try%lwt

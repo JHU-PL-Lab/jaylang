@@ -6,6 +6,11 @@ open! Core
 
 module State = struct
   type t = {
+    (* program *)
+    first : Id.t;
+    target : Id.t;
+    program : Odefa_ast.Ast.expr;
+    block_map : Tracelet.block Odefa_ast.Ast.Ident_map.t;
     (* graph attr *)
     root_node : Node.t ref;
     mutable tree_size : int;
@@ -25,14 +30,5 @@ module State = struct
     node_set : (Lookup_key.t, bool) Hashtbl.t;
     node_get : (Lookup_key.t, int) Hashtbl.t;
     rstk_picked : (Rstack.t, bool) Hashtbl.t;
-  }
-end
-
-module Info = struct
-  type info = {
-    first : Id.t;
-    target : Id.t;
-    program : Odefa_ast.Ast.expr;
-    block_map : Tracelet.block Odefa_ast.Ast.Ident_map.t;
   }
 end

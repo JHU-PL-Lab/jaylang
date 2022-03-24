@@ -30,9 +30,6 @@ module Make (S : Ruler_state) = struct
         Node.update_rule gate_tree (Node.done_ target_stk);
         S.add_phi key (Riddler.discover_main key mv);
         result_pusher (Lookup_result.ok key.x);
-        (* let%lwt _ =
-             Logs_lwt.app (fun m -> m "[Stream][W]: %a\n" Lookup_key.pp key)
-           in *)
         Lookup_result.ok_lwt key.x)
       else
         (* Discovery Non-Main *)
@@ -64,7 +61,6 @@ module Make (S : Ruler_state) = struct
           Lookup_result.ok_lwt key.x
       (* Record End *)
       | Some (Value_record r) -> (
-          Logs.info (fun m -> m "Rule Record: %a" Ast_pp.pp_record_value r);
           let (Record_value rmap) = r in
           let _x, xs, r_stk = Lookup_key.to_parts key in
           let labal, xs' = (List.hd_exn xs, List.tl_exn xs) in

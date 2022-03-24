@@ -8,17 +8,21 @@ type ddpa_c_stk = C_0ddpa | C_1ddpa | C_2ddpa | C_kddpa of int
 
 type t = {
   ddpa_c_stk : ddpa_c_stk;
-  log_level : Logs.level option;
   target : Id.t;
   filename : Filename.t; [@printer String.pp]
   timeout : Time.Span.t option;
-  steps : int;
   expected_inputs : int list list;
+  steps : int;
+  run_max_step : int option;
+  (* logger *)
+  log_level : Logs.level option;
+  log_level_lookup : Logs.level option;
+  log_level_solver : Logs.level option;
+  log_level_interpreter : Logs.level option;
   (* debug *)
   debug_phi : bool;
   debug_model : bool;
   debug_graph : bool;
-  run_max_step : int option;
 }
 [@@deriving show { with_path = false }]
 
@@ -27,16 +31,19 @@ let default_ddpa_c_stk = C_1ddpa
 let default_config =
   {
     ddpa_c_stk = default_ddpa_c_stk;
-    log_level = None;
     target = Id.(Ident "target");
     filename = "";
     timeout = None (* Time.Span.of_int_sec 60 *);
     steps = 1;
     expected_inputs = [];
+    run_max_step = None;
+    log_level = None;
+    log_level_lookup = None;
+    log_level_solver = None;
+    log_level_interpreter = None;
     debug_phi = false;
     debug_model = true;
     debug_graph = false;
-    run_max_step = None;
   }
 
 let default_config_with ?(steps = 500) ~filename () : t =

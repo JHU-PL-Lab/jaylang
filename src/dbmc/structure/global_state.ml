@@ -1,11 +1,15 @@
 open Core
-include Types.Info
 include Types.State
 
-let create_state block x_target =
+let create_state block_map program target =
+  let block0 = Tracelet.find_by_id target block_map in
   let state =
     {
-      root_node = ref (Node.root_node (block |> Tracelet.id_of_block) x_target);
+      first = Odefa_ast.Ast_tools.first_id program;
+      target;
+      program;
+      block_map;
+      root_node = ref (Node.root_node (block0 |> Tracelet.id_of_block) target);
       tree_size = 1;
       node_map = Hashtbl.create (module Lookup_key);
       phis_z3 = [];
@@ -59,7 +63,6 @@ let find_or_add_stream state key kind =
   match Hashtbl.find state.lookup_results key with
   | Some nm -> (true, Node_messager.get_stream_for_read nm)
   | None ->
-      (* Logs.app (fun m -> m "[Stream][Create]: %a" Lookup_key.pp key); *)
       let node_messager = Node_messager.create_with_kind kind in
       Hashtbl.add_exn state.lookup_results ~key ~data:node_messager;
       (false, Node_messager.get_stream_for_read node_messager)
