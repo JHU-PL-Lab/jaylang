@@ -9,11 +9,9 @@ f1 = fun x1 -> (
 
 apply = fun g -> (
   three = 3;
-
   x = input;
   one = 1;
   cx = x == one;
-  h = g three;
   rf = cx ? (
     h = g three;
   ) : (

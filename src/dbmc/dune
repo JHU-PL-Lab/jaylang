@@ -5,6 +5,7 @@
  (public_name odefa.dbmc)
  (libraries
   core
+  core_kernel.pairing_heap
   fmt
   lwt
   lwt.unix

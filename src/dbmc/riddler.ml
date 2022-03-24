@@ -6,7 +6,6 @@ module SuduZ3 = Solver.SuduZ3
 open SuduZ3
 
 let ctx = Solver.ctx
-
 let top_stack = SuduZ3.var_s "X_topstack"
 
 (* let pick_at_key key =
@@ -14,13 +13,9 @@ let top_stack = SuduZ3.var_s "X_topstack"
    "P_" ^ Rstack.to_string r_stk |> SuduZ3.mk_bool_s *)
 
 let pick_at_key key = "P_" ^ Lookup_key.to_string key |> SuduZ3.mk_bool_s
-
 let pick_at xs r_stk = pick_at_key (Lookup_key.of_parts2 xs r_stk)
-
 let lookup xs r_stk = Lookup_key.parts2_to_str xs r_stk |> SuduZ3.var_s
-
 let counter = ref 0
-
 let reset () = counter := 0
 
 let bind_x_v xs r_stk v =
@@ -41,7 +36,6 @@ let bind_fun xs r_stk (Id.Ident fid) =
   SuduZ3.eq (lookup xs r_stk) (SuduZ3.fun_ fid)
 
 let bind_x_y x y r_stk = SuduZ3.eq (lookup x r_stk) (lookup y r_stk)
-
 let bind_x_y' x r_stk y r_stk' = SuduZ3.eq (lookup x r_stk) (lookup y r_stk')
 
 let bind_binop op y x1 x2 r_stk =
@@ -199,8 +193,6 @@ let discard key v =
           pick_at xs r_stk;
         ]
 
-let is_picked model key = 
+let is_picked model key =
   Option.value_map model ~default:false ~f:(fun model ->
-    Option.value
-      (SuduZ3.get_bool model (pick_at_key key))
-      ~default:true)
+      Option.value (SuduZ3.get_bool model (pick_at_key key)) ~default:true)

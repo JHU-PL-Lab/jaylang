@@ -1,3 +1,9 @@
+
+# target -> zero -> c. -> two .
+#                      -> total -> count -> f.
+# r1 -> zero -> f;zero -> zero -> zero
+# r2 -> fc -> 
+
 zero = 0;
 one = 1;
 two = 2;
@@ -16,4 +22,4 @@ f = fun s -> (
 count = f f;
 total = count zero;
 c = total == two;
-final = c ? ( target = 0 ) : ( bad = 0 );
+final = c ? ( target = 2 ) : ( bad = 0 );

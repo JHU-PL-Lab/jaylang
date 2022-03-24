@@ -32,10 +32,10 @@ let parts_to_str x xs r_stk = to_string (of_parts x xs r_stk)
 let parts2_to_str xs r_stk = to_string (of_parts2 xs r_stk)
 
 let chrono_compare map k1 k2 =
-  let x1, xs1, r_stk1 = to_parts k1 in
-  let x2, xs2, r_stk2 = to_parts k2 in
-  assert (List.is_empty xs1);
-  assert (List.is_empty xs2);
+  let x1, _xs1, r_stk1 = to_parts k1 in
+  let x2, _xs2, r_stk2 = to_parts k2 in
+  (* assert (List.is_empty xs1);
+     assert (List.is_empty xs2); *)
   let rec compare_stack s1 s2 =
     match (s1, s2) with
     | [], [] ->
@@ -48,7 +48,7 @@ let chrono_compare map k1 k2 =
         if Rstack.equal_frame (cs1, f1) (cs2, f2)
         then compare_stack ss1 ss2
         else if Id.equal cs1 cs2
-        then failwith "the same promgram points"
+        then 0 (* failwith "the same promgram points" *)
         else if Tracelet.is_before map cs1 cs2
         then 1
         else -1
@@ -59,6 +59,10 @@ let chrono_compare map k1 k2 =
   let result_co_stk = compare_stack co_stk1 co_stk2 in
   if result_co_stk = 0 then compare_stack stk1 stk2 else result_co_stk
 
+let length k =
+  let xs, r_stk = to_parts2 k in
+  List.length xs + Rstack.length r_stk
+
 let get_f_return map fid r_stk x xs =
   let fblock = Odefa_ast.Ast.Ident_map.find fid map in
   let x' = Tracelet.ret_of fblock in
@@ -66,10 +70,10 @@ let get_f_return map fid r_stk x xs =
   let key_x_ret = of_parts x' xs r_stk' in
   key_x_ret
 
-let get_cond_return cond_block beta r_stk x xs =
+let get_cond_block_and_return cond_block beta r_stk x xs =
   let open Tracelet in
   let ctracelet = Cond { cond_block with choice = Some beta } in
   let x_ret = Tracelet.ret_of ctracelet in
   let cbody_stack = Rstack.push r_stk (x, Id.cond_fid beta) in
   let key_x_ret = of_parts x_ret xs cbody_stack in
-  key_x_ret
+  (ctracelet, key_x_ret)

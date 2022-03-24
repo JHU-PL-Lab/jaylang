@@ -67,8 +67,7 @@ let rec same_stack s1 s2 =
 
 (* OB: we cannot enter the same stack twice. *)
 let rec eval_exp ~session stk env e : dvalue =
-  Fmt.(pr "\n@[-> %a@]\n" Concrete_stack.pp stk);
-
+  (* Fmt.(pr "\n@[-> %a@]\n" Concrete_stack.pp stk); *)
   let _target_x, target_stk = session.target in
   let r_stk = Rstack.relativize target_stk stk in
   Hashtbl.change session.rstk_picked r_stk ~f:(function
@@ -96,9 +95,10 @@ and eval_clause ~session stk env clause : denv * dvalue =
   let target_x, target_stk = session.target in
 
   if session.debug_graph
-  then (
-    update_write_node target_stk x stk session.node_set;
-    Fmt.pr "@[%a = _@]\n" Id.pp x)
+  then
+    update_write_node target_stk x stk session.node_set
+    (* ;
+       Fmt.pr "@[%a = _@]\n" Id.pp x *)
   else ();
 
   let (v_pre : dvalue) =
