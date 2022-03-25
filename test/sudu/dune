@@ -1,8 +1,8 @@
 (alias
- (name runtest))
+ (name z3-test))
 
 (rule
- (alias runtest)
+ (alias z3-test)
  (action
   (run ./test_sudu_z3.ml)))
 

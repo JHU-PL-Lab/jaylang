@@ -34,7 +34,7 @@ let default_config =
     target = Id.(Ident "target");
     filename = "";
     timeout = None (* Time.Span.of_int_sec 60 *);
-    steps = 1;
+    steps = 100;
     expected_inputs = [];
     run_max_step = None;
     log_level = None;
@@ -46,16 +46,16 @@ let default_config =
     debug_graph = false;
   }
 
-let default_config_with ?(steps = 500) ~filename () : t =
+let default_config_with ?(steps = default_config.steps) ~filename () : t =
   { default_config with filename; steps }
 
 let check_wellformed_or_exit ast =
   let open Odefa_ast in
   try Ast_wellformedness.check_wellformed_expr ast
   with Ast_wellformedness.Illformedness_found ills ->
-    print_endline "Program is ill-formed.";
+    print_endline "Program is ill-formed." ;
     ills
     |> List.iter ~f:(fun ill ->
-           print_string "* ";
-           print_endline @@ Ast_wellformedness.show_illformedness ill);
+           print_string "* " ;
+           print_endline @@ Ast_wellformedness.show_illformedness ill) ;
     ignore @@ Stdlib.exit 1

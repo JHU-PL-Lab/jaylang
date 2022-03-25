@@ -2,4 +2,5 @@ if-then-else = keyword-first
 # break-cases={fit|nested|toplevel|fit-or-vertical|all}
 parse-docstrings = true
 sequence-blank-line = preserve-one
+sequence-style = separator
 # wrap-comments = true

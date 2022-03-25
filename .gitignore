@@ -34,7 +34,7 @@ _build
 /dtest
 /translator
 /sandbox
-
+/result
 
 /land*.json
 *.ansi

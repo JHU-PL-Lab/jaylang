@@ -1,6 +1,7 @@
 _esy
 _notes
 .vscode
+dot
 logs
+result
 test-sources
-test2

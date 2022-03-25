@@ -8,4 +8,4 @@
 
 (tests
  (names interpreter)
- (libraries core alcotest odefa_ast odefa_interpreter odefa_parser))
+ (libraries core alcotest odefa_ast odefa_parser odefa.dbmc))

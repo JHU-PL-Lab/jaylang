@@ -408,7 +408,7 @@ let[@landmark] lookup_top ~(config : Top_config.t) ~(state : Global_state.t)
     let%lwt _ =
       if state.tree_size mod config.steps = 0
       then (
-        LLog.debug (fun m ->
+        LLog.app (fun m ->
             m "Step %d\t%a\n" state.tree_size Lookup_key.pp this_key) ;
         match check state config with
         | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })

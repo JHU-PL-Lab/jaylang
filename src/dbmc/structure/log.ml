@@ -17,26 +17,27 @@ end
 let saved_oc = ref None
 let filename_of_now () = Core.Time.(now () |> to_filename_string ~zone:Zone.utc)
 
-let init ?(testname = "") ?log_level () =
-  Logs.set_level log_level;
-  Logs.Src.set_level src_lookup (Some Logs.Debug);
-  Logs.Src.set_level src_solver (Some Logs.Debug);
-  Logs.Src.set_level src_interpreter (Some Logs.Debug);
+let init (cfg : Top_config.t) =
+  Logs.set_level cfg.log_level ;
+  Logs.Src.set_level src_lookup cfg.log_level_lookup ;
+  Logs.Src.set_level src_solver cfg.log_level_solver ;
+  Logs.Src.set_level src_interpreter cfg.log_level_interpreter ;
 
   let suffix =
-    String.Search_pattern.(replace_all (create "/") ~in_:testname ~with_:"_")
+    String.Search_pattern.(
+      replace_all (create "/") ~in_:cfg.filename ~with_:"_")
   in
   let log_file =
     Filename.of_parts [ "logs"; filename_of_now () ^ "_" ^ suffix ^ ".log" ]
   in
   let oc = Out_channel.create log_file in
-  saved_oc := Some oc;
+  saved_oc := Some oc ;
   let fmter = Format.formatter_of_out_channel oc in
   let reporter =
     Logs.format_reporter ~pp_header:Logs.pp_header ~app:Format.std_formatter
       ~dst:fmter ()
   in
-  Logs.set_reporter reporter;
+  Logs.set_reporter reporter ;
   (* Logs.set_reporter (Logs_fmt.reporter ()); *)
   (* Logs.set_reporter (reporter (Format.err_formatter)) *)
   ()

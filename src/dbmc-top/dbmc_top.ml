@@ -44,7 +44,7 @@ let int_list_parser : int list Command.Arg_type.t =
        failwith "baz1") *)
 
 let dbmc_run program cfg =
-  Dbmc.Log.init ~testname:cfg.filename ?log_level:cfg.log_level ();
+  Dbmc.Log.init cfg ;
   let inputss = Dbmc.Main.lookup_main ~config:cfg program cfg.target in
 
   (match List.hd inputss with
@@ -54,7 +54,7 @@ let dbmc_run program cfg =
         @@ List.map
              ~f:(function Some i -> string_of_int i | None -> "-")
              inputs)
-  | None -> Format.printf "Unreachable");
+  | None -> Format.printf "Unreachable") ;
   Dbmc.Log.close ()
 (* ignore @@ raise GenComplete *)
 
@@ -73,10 +73,10 @@ let handle_config cfg =
       In_channel.with_file cfg.filename ~f:Odefa_parser.Parser.parse_program_raw
     else failwith "file extension must be .odefa or .natodefa"
   in
-  ignore @@ check_wellformed_or_exit program;
+  ignore @@ check_wellformed_or_exit program ;
   try dbmc_run program cfg
   with e ->
-    Printexc.print_backtrace Out_channel.stderr;
+    Printexc.print_backtrace Out_channel.stderr ;
     raise e
 
 let command =
@@ -101,7 +101,10 @@ let command =
     and expected_inputs =
       flag "-i" (listed int_list_parser) ~doc:"expected_inputs by groups"
     and timeout = flag "-m" (optional timeout_parser) ~doc:"timeout in seconds"
-    and steps = flag "-s" (optional_with_default 500 int) ~doc:"check per steps"
+    and steps =
+      flag "-s"
+        (optional_with_default default_config.steps int)
+        ~doc:"check per steps"
     and run_max_step = flag "-x" (optional int) ~doc:"check per steps"
     and debug_phi = flag "-p" no_arg ~doc:"output constraints"
     and debug_no_model = flag "-z" no_arg ~doc:"not output smt model"
@@ -124,7 +127,7 @@ let command =
         debug_graph;
       }
     in
-    handle_config top_config;
+    handle_config top_config ;
     fun () -> ())
 
 let () = Command.run command

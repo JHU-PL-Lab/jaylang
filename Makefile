@@ -32,17 +32,25 @@ logclean:
 test-z3:
 	dune exec test/sudu/test_sudu_z3.exe -- --verbose
 
+test-rstack:
+	dune runtest test/dbmc/inline-expect
+	dune promote
+
+# profiling
+
+land100:
+	OCAML_LANDMARKS=on,output="profiling/callgraph100.ansi" time ./dbmc_top -t target test-sources/loop/_sum100.odefa
+
+land200:
+	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dbmc_top -t target test-sources/loop/_sum200.odefa
+
+land500:
+	OCAML_LANDMARKS=on,output="profiling/callgraph500.ansi" time ./dbmc_top -t target test-sources/loop/_sum500.odefa
+
 benchmark:
 	dune exec benchmark-test-generation/benchmark.exe
 
-land100:
-	OCAML_LANDMARKS=on,output="callgraph100.ansi" time ./dbmc_top -t target test-sources/loop/_sum100.odefa
-
-land200:
-	OCAML_LANDMARKS=on,output="callgraph200.ansi" time ./dbmc_top -t target test-sources/loop/_sum200.odefa
-
-land500:
-	OCAML_LANDMARKS=on,output="callgraph500.ansi" time ./dbmc_top -t target test-sources/loop/_sum500.odefa
+# extra
 
 one:
 	dune exec src/dbmc-top/analysis_top.exe -- test-sources/_syntax/one.odefa
@@ -54,6 +62,3 @@ test:
 
 repl:
 	dune utop src -- -require pdr-programming
-
-c:
-	./dbmc_top -t target -l debug -g true test-sources/condition/cond_in_f_g.odefa

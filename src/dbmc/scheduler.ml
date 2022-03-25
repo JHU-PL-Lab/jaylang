@@ -4,9 +4,6 @@ open Lwt.Infix
 type 'a job = { key : Lookup_key.t; payload : unit -> 'a Lwt.t }
 
 let compare j1 j2 = -Lookup_key.compare j1.key j2.key
-(* type sentinel = Yield *)
-
-let make_sentinel () : 'a Lwt.t * 'a Lwt.u = Lwt.wait ()
 
 let create _map () =
   let cmp t1 t2 =
@@ -37,8 +34,6 @@ let rec run ?(is_empty = false) q : 'a Lwt.t =
       else (
         Lwt.pause () ;%lwt
         run ~is_empty:true q)
-(* raise EmptyTaskQueue *)
-(* Lwt.return_none *)
 
 (*
 Can a queue be empty? Should it raise an exception when it's empty?
@@ -55,7 +50,9 @@ Can a queue be empty? Should it raise an exception when it's empty?
 *)
 (*
    exception EmptyTaskQueue
-   exception EmptyTaskList *)
+   exception EmptyTaskList 
+
+   let make_sentinel () : 'a Lwt.t * 'a Lwt.u = Lwt.wait () *)
 
 (* let wait_all dummy q jobs : _ Lwt.t =
    let follow t1 t2 () =

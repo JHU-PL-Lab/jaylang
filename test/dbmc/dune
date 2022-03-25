@@ -2,7 +2,8 @@
  (name test_dbmc)
  (deps
   test_dbmc.exe
-  ; (glob_files ../../test2/loop/**)
+  ; (glob_files ../../test-sources/*)
+  ; (glob_files ../../logs/*)
   ))
 
 (rule
@@ -10,8 +11,13 @@
  (action
   (run ./test_dbmc.exe)))
 
+(rule
+ (alias test_rstack)
+ (action
+  (run ./test_rstack.exe)))
+
 (executables
- (names test_dbmc)
+ (names test_dbmc test_rstack)
  (libraries
   core
   fmt
@@ -24,4 +30,9 @@
   odefa.natural
   odefa.dbmc)
  (preprocess
-  (pps ppx_jane -allow-unannotated-ignores lwt_ppx ppx_deriving.std)))
+  (pps
+   ppx_jane
+   -allow-unannotated-ignores
+   lwt_ppx
+   ppx_deriving.std
+   ppx_expect)))

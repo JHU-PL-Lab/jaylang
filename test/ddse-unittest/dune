@@ -1,11 +1,11 @@
 (alias
- (name runtest)
+ (name ddse-runtest)
  (deps
   test.exe
   (glob_files ../../test-sources/*)))
 
 (rule
- (alias runtest)
+ (alias ddse-runtest)
  (action
   (chdir
    ../..
