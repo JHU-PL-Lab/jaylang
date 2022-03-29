@@ -42,10 +42,10 @@ land100:
 	OCAML_LANDMARKS=on,output="profiling/callgraph100.ansi" time ./dbmc_top -t target test-sources/loop/_sum100.odefa
 
 land200:
-	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dbmc_top -t target test-sources/loop/_sum200.odefa
+	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dbmc_top -t target -s 200 test-sources/loop/_sum200.odefa
 
 land500:
-	OCAML_LANDMARKS=on,output="profiling/callgraph500.ansi" time ./dbmc_top -t target test-sources/loop/_sum500.odefa
+	OCAML_LANDMARKS=on,output="profiling/callgraph500.ansi" time ./dbmc_top -t target -s 200 test-sources/loop/_sum500.odefa
 
 benchmark:
 	dune exec benchmark-test-generation/benchmark.exe
