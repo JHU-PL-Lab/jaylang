@@ -27,7 +27,6 @@ let t_or tb1 tb2 =
 
 let just_side_effect = ignore
 let ignore2 _ _ = ()
-let default_target = Odefa_ast.Ast.Ident "target"
 let with_seq ?(start = 0) xs = List.mapi xs ~f:(fun i x -> (i + start, x))
 
 let pp_with_seq ?(pp_int = Fmt.int) pp_x oc xps =
@@ -41,7 +40,7 @@ let to_indexed_list xps =
   match max_i with
   | Some len ->
       let arr = Array.create ~len:(len + 1) (snd (List.hd_exn xps)) in
-      List.iter xps ~f:(fun (i, x) -> arr.(i) <- x);
+      List.iter xps ~f:(fun (i, x) -> arr.(i) <- x) ;
       Array.to_list arr
   | None -> []
 

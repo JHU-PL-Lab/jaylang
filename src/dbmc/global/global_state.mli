@@ -5,9 +5,7 @@ include module type of struct
   include State
 end
 
-val create_state :
-  Tracelet.t Odefa_ast.Ast.Ident_map.t -> Odefa_ast.Ast.expr -> Id.t -> State.t
-
+val create : Global_config.t -> Odefa_ast.Ast.expr -> State.t
 val init_node : State.t -> Lookup_key.t -> Node.ref_t -> Node.ref_t
 val clear_phis : State.t -> unit
 

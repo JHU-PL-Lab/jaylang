@@ -1,7 +1,10 @@
 open Core
 include Types.State
 
-let create_state block_map program target =
+let create (config : Global_config.t) program =
+  let target = config.target in
+  let block_map = Tracelet.annotate program target in
+
   let block0 = Tracelet.find_by_id target block_map in
   let state =
     {
@@ -29,7 +32,7 @@ let create_state block_map program target =
 let clear_phis state = state.phis_z3 <- []
 
 let add_phi state key phis =
-  Hashtbl.add_exn state.phi_map ~key ~data:phis;
+  Hashtbl.add_exn state.phi_map ~key ~data:phis ;
   state.phis_z3 <- phis :: state.phis_z3
 
 let find_node_exn state key block =
@@ -37,8 +40,8 @@ let find_node_exn state key block =
   Hashtbl.find_exn state.node_map key
 
 let init_node state key node =
-  Hash_set.strict_add_exn state.lookup_created key;
-  Hashtbl.add_exn state.node_map ~key ~data:node;
+  Hash_set.strict_add_exn state.lookup_created key ;
+  Hashtbl.add_exn state.node_map ~key ~data:node ;
   node
 
 let find_or_add_node state key block node_parent =
@@ -56,7 +59,7 @@ let find_or_add_node state key block node_parent =
         (false, node_child)
   in
   let edge = Node.mk_edge node_parent node_child in
-  Node.add_pred node_child edge;
+  Node.add_pred node_child edge ;
   (exist, node_child)
 
 let find_or_add_stream state key kind =
@@ -64,7 +67,7 @@ let find_or_add_stream state key kind =
   | Some nm -> (true, Node_messager.get_stream_for_read nm)
   | None ->
       let node_messager = Node_messager.create_with_kind kind in
-      Hashtbl.add_exn state.lookup_results ~key ~data:node_messager;
+      Hashtbl.add_exn state.lookup_results ~key ~data:node_messager ;
       (false, Node_messager.get_stream_for_read node_messager)
 
 let get_messager_exn state key = Hashtbl.find_exn state.lookup_results key

@@ -23,6 +23,7 @@ module Palette = struct
       int_of_rgb 0 109 44;
     ]
 end
+[@@warning "-32"]
 
 module C = struct
   (* string *)
@@ -89,18 +90,19 @@ module G = Graph.Imperative.Digraph.ConcreteLabeled (Graph_node) (Edge_label)
      There is unrealistic to think OCamlGraph.Dot can merge these two nodes.
      Therefore, we have to merge on our own, which occurs outside the module.
 *)
-type vertex_info = {
-  block_id : Id.t;
-  rule_name : string;
-  picked_from_root : bool;
-  picked : bool;
-}
 
-type passing_state = {
-  picked_from_root : bool;
-  picked : bool;
-  prev_vertex : Node.t option;
-}
+(* type vertex_info = {
+     block_id : Id.t;
+     rule_name : string;
+     picked_from_root : bool;
+     picked : bool;
+   }
+
+   type passing_state = {
+     picked_from_root : bool;
+     picked : bool;
+     prev_vertex : Node.t option;
+   } *)
 
 let escape_gen_align_left =
   String.Escaping.escape_gen_exn
@@ -117,14 +119,14 @@ let name_escape s =
   |> String.substr_replace_all ~pattern:"~" ~with_:"_"
   |> String.substr_replace_all ~pattern:";" ~with_:"__"
 
-module type Graph_state = sig
+module type GS = sig
   val state : Global_state.t
   val testname : string option
   val model : Z3.Model.model option
   val source_map : Odefa_ast.Ast.clause Odefa_ast.Ast.Ident_map.t
 end
 
-module DotPrinter_Make (S : Graph_state) = struct
+module DotPrinter_Make (S : GS) = struct
   let graph_of_gate_tree () =
     let root = S.state.root_node in
     let g = G.create () in
@@ -142,10 +144,10 @@ module DotPrinter_Make (S : Graph_state) = struct
         in
         (* G.add_edge g (Either.first !parent) (Either.first !node); *)
         G.add_edge_e g
-          (Either.first !parent, Either.first edge_info, Either.first !node);
+          (Either.first !parent, Either.first edge_info, Either.first !node) ;
         node
     in
-    ignore @@ Node.traverse_node ~at_node ~init:root ~acc_f root;
+    ignore @@ Node.traverse_node ~at_node ~init:root ~acc_f root ;
     g
 
   module DotPrinter = Graph.Graphviz.Dot (struct
@@ -176,7 +178,7 @@ module DotPrinter_Make (S : Graph_state) = struct
           | None -> None
           | Some model ->
               let lookup_name = Lookup_key.to_string node.key in
-              Logs.info (fun m -> m "lookup (to model) : %s" lookup_name);
+              Logs.info (fun m -> m "lookup (to model) : %s" lookup_name) ;
               Solver.SuduZ3.(get_value model (var_s lookup_name))
         in
         let c_id =
@@ -305,6 +307,19 @@ module DotPrinter_Make (S : Graph_state) = struct
   let output_graph () =
     let graph = graph_of_gate_tree () in
     let oc = Log.dot_file_oc_of_now () in
-    DotPrinter.output_graph oc graph;
+    DotPrinter.output_graph oc graph ;
     Out_channel.close oc
 end
+
+let output_graph ~model ~testname (state : Global_state.t) =
+  let module GI = (val (module struct
+                         let state = state
+                         let testname = Some testname
+                         let model = model
+
+                         let source_map =
+                           Odefa_ddpa.Ddpa_helper.clause_mapping state.program
+                       end) : GS)
+  in
+  let module Graph_dot_printer = DotPrinter_Make (GI) in
+  Graph_dot_printer.output_graph ()

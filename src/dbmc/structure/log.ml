@@ -17,7 +17,7 @@ end
 let saved_oc = ref None
 let filename_of_now () = Core.Time.(now () |> to_filename_string ~zone:Zone.utc)
 
-let init (cfg : Top_config.t) =
+let init (cfg : Global_config.t) =
   Logs.set_level cfg.log_level ;
   Logs.Src.set_level src_lookup cfg.log_level_lookup ;
   Logs.Src.set_level src_solver cfg.log_level_solver ;

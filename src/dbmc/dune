@@ -17,6 +17,8 @@
   ocamlgraph
   odefa.ast
   odefa.ddpa
+  odefa.natural
+  odefa.parser
   hashcons
   sudu)
  (synopsis "dbmc is demand-driven bounded model checking")

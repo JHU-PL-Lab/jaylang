@@ -50,7 +50,7 @@ let update_write_node target_stk x stk
 let alert_lookup target_stk x stk lookup_alert =
   let r_stk = Rstack.relativize target_stk stk in
   let key = Lookup_key.of_parts2 [ x ] r_stk in
-  Fmt.epr "@[Update Alert to %a\t%a@]\n" Lookup_key.pp key Concrete_stack.pp stk;
+  Fmt.epr "@[Update Alert to %a\t%a@]\n" Lookup_key.pp key Concrete_stack.pp stk ;
   Hash_set.add lookup_alert key
 
 let value_of_dvalue = function
@@ -73,7 +73,7 @@ let rec eval_exp ~session stk env e : dvalue =
   Hashtbl.change session.rstk_picked r_stk ~f:(function
     | Some true -> Some false
     | Some false -> raise (Run_into_wrong_stack (Ast_tools.first_id e, stk))
-    | None -> None);
+    | None -> None) ;
 
   (* raise (Run_into_wrong_stack (Ast_tools.first_id e, stk))); *)
   let (Expr clauses) = e in
@@ -90,8 +90,8 @@ and eval_clause ~session stk env clause : denv * dvalue =
   (match session.max_step with
   | None -> ()
   | Some t ->
-      Int.incr session.step;
-      if !(session.step) > t then raise (Reach_max_step (x, stk)) else ());
+      Int.incr session.step ;
+      if !(session.step) > t then raise (Reach_max_step (x, stk)) else ()) ;
   let target_x, target_stk = session.target in
 
   if session.debug_graph
@@ -99,7 +99,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
     update_write_node target_stk x stk session.node_set
     (* ;
        Fmt.pr "@[%a = _@]\n" Id.pp x *)
-  else ();
+  else () ;
 
   let (v_pre : dvalue) =
     match cbody with
@@ -182,20 +182,20 @@ and eval_clause ~session stk env clause : denv * dvalue =
       Fmt.(
         pr "found %a at stack %a, expect %a" pp_ident x Concrete_stack.pp
           target_stk Concrete_stack.pp stk)
-  else ();
+  else () ;
 
   if session.debug_graph
   then
     let rstk = Rstack.relativize target_stk stk in
     Fmt.pr "@[%a = %a\t\t R = %a@]\n" Id.pp x pp_dvalue v Rstack.pp rstk
-  else ();
+  else () ;
 
   (Ident_map.add x v env, v_pre)
 
 and fetch_val ~session ~stk env (Var (x, _)) : dvalue =
   let v, _ = Ident_map.find x env in
   let _target_x, target_stk = session.target in
-  update_read_node target_stk x stk session.node_get;
+  update_read_node target_stk x stk session.node_get ;
   v
 
 and fetch_val_to_direct ~session ~stk env vx : value =
@@ -227,7 +227,7 @@ and check_pattern ~session ~stk env vx pattern : bool =
   in
   is_pass
 
-let eval ~(state : Global_state.t) ~(config : Top_config.t)
+let eval ~(state : Global_state.t) ~(config : Global_config.t)
     ?(input_feeder = Fn.const None) ~target ~max_step e =
   let session =
     {
@@ -246,19 +246,19 @@ let eval ~(state : Global_state.t) ~(config : Top_config.t)
   let _target_x, target_stk = target in
   try
     let _ = eval_exp ~session Concrete_stack.empty empty_env e in
-    Fmt.epr "No target val";
+    Fmt.epr "No target val" ;
     None
   with
   | Found_target v -> Some v
   | Reach_max_step (_x, _stk) ->
-      Fmt.epr "Reach max steps\n";
+      Fmt.epr "Reach max steps\n" ;
       (* alert_lookup target_stk x stk state.lookup_alert; *)
       None
   | Run_the_same_stack_twice (x, stk) ->
-      Fmt.epr "Run into the same stack twice\n";
-      alert_lookup target_stk x stk state.lookup_alert;
+      Fmt.epr "Run into the same stack twice\n" ;
+      alert_lookup target_stk x stk state.lookup_alert ;
       None
   | Run_into_wrong_stack (x, stk) ->
-      Fmt.epr "Run into wrong stack\n";
-      alert_lookup target_stk x stk state.lookup_alert;
+      Fmt.epr "Run into wrong stack\n" ;
+      alert_lookup target_stk x stk state.lookup_alert ;
       None

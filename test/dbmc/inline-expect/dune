@@ -1,0 +1,6 @@
+(library
+ (name tests)
+ (inline_tests)
+ (libraries core fmt odefa_ast odefa_parser odefa.natural odefa.dbmc)
+ (preprocess
+  (pps ppx_jane -allow-unannotated-ignores ppx_expect)))

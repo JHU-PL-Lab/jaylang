@@ -1,7 +1,14 @@
 (executable
  (name dbmc_top)
  (modules dbmc_top)
- (libraries core logs dbmc odefa.ast odefa.natural odefa.parser)
+ (libraries core logs dbmc odefa.ast)
+ (preprocess
+  (pps ppx_jane -allow-unannotated-ignores ppx_deriving.show lwt_ppx)))
+
+(executables
+ (names console)
+ (modules console)
+ (libraries core logs lambda-term dbmc odefa.ast)
  (preprocess
   (pps ppx_jane -allow-unannotated-ignores ppx_deriving.show lwt_ppx)))
 

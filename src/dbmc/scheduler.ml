@@ -15,6 +15,9 @@ let push h key payload = Pairing_heap.add h { key; payload }
 let pull h : 'a job option = Pairing_heap.pop h
 
 let rec run ?(is_empty = false) q : 'a Lwt.t =
+  Control_center.handle_available_commands () ;
+  Lwt_mutex.lock Control_center.mutex >>= fun () ->
+  Lwt_mutex.unlock Control_center.mutex ;
   Logs.debug (fun m -> m "[Queue]size = %d" (Pairing_heap.length q)) ;
   Logs.debug (fun m ->
       m "[Queue]%a"

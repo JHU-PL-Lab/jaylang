@@ -17,7 +17,7 @@ let solver = Z3.Solver.mk_solver ctx None
 let reset () = Z3.Solver.reset solver
 
 let check phis_z3 cvars_z3 =
-  Z3.Solver.add solver phis_z3;
+  Z3.Solver.add solver phis_z3 ;
   SuduZ3.check_with_assumption solver cvars_z3
 
 let string_of_solver () = Z3.Solver.to_string solver
@@ -31,11 +31,11 @@ let memorized_solution_input_feeder mem model target_stack =
   let input_feeder = solution_input_feeder model target_stack in
   fun query ->
     let answer = input_feeder query in
-    mem := answer :: !mem;
+    mem := answer :: !mem ;
     answer
 
-let get_inputs ~(state : Global_state.t) ~(config : Top_config.t) target_x model
-    (target_stack : Concrete_stack.t) program =
+let get_inputs ~(state : Global_state.t) ~(config : Global_config.t) target_x
+    model (target_stack : Concrete_stack.t) =
   let input_history = ref [] in
   let input_feeder =
     memorized_solution_input_feeder input_history model target_stack
@@ -45,6 +45,6 @@ let get_inputs ~(state : Global_state.t) ~(config : Top_config.t) target_x model
 
   let _ =
     Naive_interpreter.eval ~state ~config ~input_feeder ~target ~max_step
-      program
+      state.program
   in
   List.rev !input_history
