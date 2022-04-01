@@ -1,0 +1,15 @@
+(ocamllex lexer)
+
+(menhir
+ (modules parser))
+
+(library
+ (name odefa_parser)
+ (public_name odefa.parser)
+ (synopsis "Parser for Odefa")
+ (libraries batteries jhupllib odefa.ast odefa.utils)
+ (preprocess
+  (pps ppx_deriving.std ppx_deriving_yojson))
+ (flags
+  (:standard -w -39) ;for ppx_deriving_yojson, which generates extra rec flags
+  ))

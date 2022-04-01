@@ -4,6 +4,8 @@ open Share
 module F = Fix.Make (ClauseMap) (IdSet)
 (* module FE = Fix.Make (ExprMap) (IdSet) *)
 
+let id_of_var (Odefa_ast.Ast.Var (id, _)) = id
+
 let rec clause_uses clause request =
   let open Odefa_ast.Ast in
   let (Clause (_var, cbody)) = clause in
@@ -41,6 +43,6 @@ let close_ids clause =
 
 let run filename =
   let program = Load.load filename in
-  print_endline @@ Odefa_ast.Ast_pp.show_expr program;
+  print_endline @@ Odefa_ast.Ast_pp.show_expr program ;
   let (Expr clauses) = program in
   List.iter clauses ~f:close_ids

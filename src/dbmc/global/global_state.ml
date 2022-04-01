@@ -12,6 +12,7 @@ let create (config : Global_config.t) program =
       target;
       program;
       block_map;
+      source_map = lazy (Odefa_ddpa.Ddpa_helper.clause_mapping program);
       root_node = ref (Node.root_node (block0 |> Tracelet.id_of_block) target);
       tree_size = 1;
       node_map = Hashtbl.create (module Lookup_key);

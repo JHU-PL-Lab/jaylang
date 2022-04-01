@@ -9,15 +9,14 @@ open Ast
 open Pp_utils
 
 let pp_ident formatter (Ident s) = Format.pp_print_string formatter s
-
 let show_ident = pp_to_string pp_ident
 
 let pp_ident_map pp_value formatter map =
   let open Format in
   pp_concat_sep_delim "{" "}" ","
     (fun formatter (k, v) ->
-      pp_ident formatter k;
-      pp_print_string formatter " => ";
+      pp_ident formatter k ;
+      pp_print_string formatter " => " ;
       pp_value formatter v)
     formatter
   @@ Ident_map.enum map
@@ -25,13 +24,13 @@ let pp_ident_map pp_value formatter map =
 let pp_freshening_stack formatter (Freshening_stack ids) =
   ids
   |> List.iter (fun i ->
-         Format.pp_print_string formatter "__";
+         Format.pp_print_string formatter "__" ;
          pp_ident formatter i)
 
 let show_freshening_stack = pp_to_string pp_freshening_stack
 
 let pp_var formatter (Var (i, mfs)) =
-  pp_ident formatter i;
+  pp_ident formatter i ;
   match mfs with None -> () | Some fs -> pp_freshening_stack formatter fs
 
 let show_var = pp_to_string pp_var
@@ -48,6 +47,7 @@ let pp_binary_operator formatter binop =
     | Binary_operator_less_than -> "&lt;"
     | Binary_operator_less_than_or_equal_to -> "≤"
     | Binary_operator_equal_to -> "=="
+    | Binary_operator_not_equal_to -> "<>"
     | Binary_operator_and -> "and"
     | Binary_operator_or -> "or"
     | Binary_operator_xor -> "xor"
@@ -103,5 +103,4 @@ and pp_expr formatter (Expr cls) =
   pp_concat_sep ";" pp_clause formatter @@ List.enum cls
 
 let show_value = pp_to_string pp_value
-
 let show_clause = pp_to_string pp_clause

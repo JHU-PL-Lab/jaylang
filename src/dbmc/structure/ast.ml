@@ -2,20 +2,15 @@ open Core
 open Odefa_ast
 
 type id = Id.t
-
 type bop = Add | Sub | Mul | Div | Mod | Le | Leq | Eq | And | Or | Xor
 (* | Not *)
 
 type var = Var of id
 
 type value = Record of record_val | Fun of fun_val | Int of int | Bool of bool
-
 and record_val = var Map.M(Id).t
-
 and fun_val = { arg : id; body : exp }
-
 and pat = Pn_fun | Pn_int | Pn_bool | Pn_any | Pn_record of pat Map.M(Id).t
-
 and exp = Clause of var * clause_body | Block of exp list
 
 and clause_body =
@@ -42,6 +37,7 @@ let of_odefa_binop = function
   | Ast.Binary_operator_less_than -> Le
   | Ast.Binary_operator_less_than_or_equal_to -> Leq
   | Ast.Binary_operator_equal_to -> Eq
+  | Ast.Binary_operator_not_equal_to -> failwith "not supported yet"
   | Ast.Binary_operator_and -> And
   | Ast.Binary_operator_or -> Or
   | Ast.Binary_operator_xor -> Xor

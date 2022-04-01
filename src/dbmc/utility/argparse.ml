@@ -119,6 +119,8 @@ let parse_commandline_config () =
       and debug_no_model = flag "-z" no_arg ~doc:"not output smt model"
       and debug_graph = flag "-g" no_arg ~doc:"output graphviz dot" in
       fun () ->
+        let latter_option l1 l2 = Option.merge l1 l2 ~f:(fun _ y -> y) in
+
         let top_config =
           {
             ddpa_c_stk;
@@ -129,14 +131,16 @@ let parse_commandline_config () =
             steps;
             run_max_step;
             log_level;
-            log_level_lookup;
-            log_level_solver;
-            log_level_interpreter;
+            log_level_lookup = latter_option log_level log_level_lookup;
+            log_level_solver = latter_option log_level log_level_solver;
+            log_level_interpreter =
+              latter_option log_level log_level_interpreter;
             debug_phi;
             debug_model = not debug_no_model;
             debug_graph;
           }
         in
+
         config := top_config)
   in
   Command.run command ;

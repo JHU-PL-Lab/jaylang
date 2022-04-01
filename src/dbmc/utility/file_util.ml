@@ -15,9 +15,9 @@ let read_source filename =
         In_channel.with_file filename
           ~f:Odefa_natural.On_parse.parse_program_raw
       in
-      Odefa_natural.On_to_odefa.translate natast
+      Odefa_natural.On_to_odefa.translate natast |> fst
     else if is_odefa_ext filename
-    then In_channel.with_file filename ~f:Odefa_parser.Parser.parse_program_raw
+    then In_channel.with_file filename ~f:Odefa_parser.Parse.parse_program_raw
     else failwith "file extension must be .odefa or .natodefa"
   in
   ignore @@ Global_config.check_wellformed_or_exit program ;

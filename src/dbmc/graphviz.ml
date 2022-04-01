@@ -123,10 +123,11 @@ module type GS = sig
   val state : Global_state.t
   val testname : string option
   val model : Z3.Model.model option
-  val source_map : Odefa_ast.Ast.clause Odefa_ast.Ast.Ident_map.t
 end
 
 module DotPrinter_Make (S : GS) = struct
+  let source_map = Lazy.force S.state.source_map
+
   let graph_of_gate_tree () =
     let root = S.state.root_node in
     let g = G.create () in
@@ -188,7 +189,7 @@ module DotPrinter_Make (S : GS) = struct
           | _ -> node.key.x
         in
         let clause =
-          Odefa_ast.Ast.Ident_map.Exceptionless.find c_id S.source_map
+          Odefa_ast.Ast.Ident_map.Exceptionless.find c_id source_map
         in
         let content =
           let phis_string =
@@ -316,9 +317,6 @@ let output_graph ~model ~testname (state : Global_state.t) =
                          let state = state
                          let testname = Some testname
                          let model = model
-
-                         let source_map =
-                           Odefa_ddpa.Ddpa_helper.clause_mapping state.program
                        end) : GS)
   in
   let module Graph_dot_printer = DotPrinter_Make (GI) in

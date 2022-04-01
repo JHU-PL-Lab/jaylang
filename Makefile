@@ -15,6 +15,7 @@ ddpa:
 	dune build src/toploop-main/ddpa_toploop.exe
 	ln -s -f _build/default/src/toploop-main/ddpa_toploop.exe ddpa_toploop
 
+translator:
 	dune build src/translator-main/translator.exe
 	ln -s -f _build/default/src/translator-main/translator.exe translator
 

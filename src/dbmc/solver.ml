@@ -44,7 +44,7 @@ let get_inputs ~(state : Global_state.t) ~(config : Global_config.t) target_x
   let max_step = config.run_max_step in
 
   let _ =
-    Naive_interpreter.eval ~state ~config ~input_feeder ~target ~max_step
+    Interpreter.eval ~state ~config ~input_feeder ~target ~max_step
       state.program
   in
   List.rev !input_history

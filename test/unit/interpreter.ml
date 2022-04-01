@@ -4,7 +4,7 @@ open Program_samples
 module To_test = struct
   let eval e t =
     let target = (Odefa_ast.Ast.Ident t, []) in
-    Naive_interpreter.eval ~target e
+    Dbmc.Interpreter.eval ~target e
 
   let eval_int e t =
     let open Odefa_ast.Ast in

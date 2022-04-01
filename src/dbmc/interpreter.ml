@@ -212,15 +212,15 @@ and check_pattern ~session ~stk env vx pattern : bool =
   let is_pass =
     match (fetch_val ~session ~stk env vx, pattern) with
     | Direct (Value_int _), Int_pattern -> true
-    | Direct (Value_bool b1), Bool_pattern b2 -> Bool.( = ) b1 b2
+    | Direct (Value_bool _), Bool_pattern -> true
     | Direct (Value_function _), _ -> failwith "must be a closure"
-    | Direct (Value_record (Record_value record)), Record_pattern key_map ->
-        Ident_map.for_all
-          (fun k pv ->
+    | Direct (Value_record (Record_value record)), Rec_pattern key_set ->
+        Ident_set.for_all
+          (fun k ->
             match Ident_map.Exceptionless.find k record with
-            | Some field -> check_pattern ~session ~stk env field pv
+            | Some _ -> true
             | None -> false)
-          key_map
+          key_set
     | FunClosure (_, _, _), Fun_pattern -> true
     | _, Any_pattern -> true
     | _, _ -> false

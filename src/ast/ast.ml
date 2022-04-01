@@ -10,15 +10,10 @@ module Ident = struct
   type t = ident
 
   let equal = equal_ident
-
   let compare = compare_ident
-
   let pp = pp_ident
-
   let show = show_ident
-
   let to_yojson = ident_to_yojson
-
   let hash = Hashtbl.hash
 end
 
@@ -52,17 +47,12 @@ type freshening_stack = Freshening_stack of ident list
 type var = Var of ident * freshening_stack option
 [@@deriving eq, ord, to_yojson]
 
-let id_of_var (Var (id, _)) = id
-
 module Var = struct
   type t = var
 
   let equal = equal_var
-
   let compare = compare_var
-
   let to_yojson = var_to_yojson
-
   let hash = Hashtbl.hash
 end
 
@@ -91,6 +81,7 @@ type binary_operator =
   | Binary_operator_less_than
   | Binary_operator_less_than_or_equal_to
   | Binary_operator_equal_to
+  | Binary_operator_not_equal_to
   | Binary_operator_and
   | Binary_operator_or
   | Binary_operator_xor
@@ -104,7 +95,8 @@ let binary_operator_to_yojson = function
   | Binary_operator_modulus -> `String "%"
   | Binary_operator_less_than -> `String "<"
   | Binary_operator_less_than_or_equal_to -> `String "<="
-  | Binary_operator_equal_to -> `String "="
+  | Binary_operator_equal_to -> `String "=="
+  | Binary_operator_not_equal_to -> `String "<>"
   | Binary_operator_and -> `String "and"
   | Binary_operator_or -> `String "or"
   | Binary_operator_xor -> `String "xor"
@@ -148,10 +140,10 @@ and expr = Expr of clause list [@@deriving eq, ord, to_yojson]
 
 (** A type representing conditional patterns. *)
 and pattern =
-  | Record_pattern of pattern Ident_map.t
   | Fun_pattern
   | Int_pattern
-  | Bool_pattern of bool
+  | Bool_pattern
+  | Rec_pattern of Ident_set.t
   | Any_pattern
 [@@deriving eq, ord, yojson]
 
@@ -159,8 +151,37 @@ module Value = struct
   type t = value
 
   let equal = equal_value
-
   let compare = compare_value
-
   let to_yojson = value_to_yojson
+end
+
+(** A type representing the types of the language. Note that subtyping rules
+    apply to records. *)
+type type_sig =
+  | Top_type
+  | Int_type
+  | Bool_type
+  | Fun_type
+  | Rec_type of Ident_set.t
+  | Bottom_type
+[@@deriving eq, ord, to_yojson]
+
+module Type_signature = struct
+  type t = type_sig
+
+  let equal = equal_type_sig
+  let compare = compare_type_sig
+  let to_yojson = type_sig_to_yojson
+
+  (** True if first arg is subtyped by second arg, false otherwise *)
+  let subtype t1 t2 =
+    match (t1, t2) with
+    (* l1 is a superset of l2 *)
+    | Rec_type l1, Rec_type l2 -> Ident_set.subset l2 l1
+    (* Top is the supertype of all other types *)
+    | _, Top_type -> true
+    (* Bottom is the subtype to all other types *)
+    | Bottom_type, _ -> true
+    (* All other combos - use equality *)
+    | _, _ -> equal t1 t2
 end

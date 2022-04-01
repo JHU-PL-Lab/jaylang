@@ -11,6 +11,7 @@ module State = struct
     target : Id.t;
     program : Odefa_ast.Ast.expr;
     block_map : Tracelet.block Odefa_ast.Ast.Ident_map.t;
+    source_map : Odefa_ast.Ast.clause Odefa_ast.Ast.Ident_map.t Lazy.t;
     (* graph attr *)
     root_node : Node.t ref;
     mutable tree_size : int;

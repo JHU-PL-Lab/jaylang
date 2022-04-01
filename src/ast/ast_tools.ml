@@ -86,10 +86,7 @@ let non_unique_bindings expression =
   bindings_with_repetition expression
   |> List.group compare_var
   |> List.filter_map (fun group ->
-         if List.length group > 1 then
-           Some (List.first group)
-         else
-           None)
+         if List.length group > 1 then Some (List.first group) else None)
   |> Var_set.of_list
 
 let _bind_filt bound site_x vars =
@@ -234,3 +231,5 @@ and transform_exprs_in_function (fn : expr -> expr) (fv : function_value) :
 let first_id e =
   e |> (fun (Expr cls) -> cls) |> List.first |> fun (Clause (Var (x, _), _)) ->
   x
+
+let label_sep = "~~~"

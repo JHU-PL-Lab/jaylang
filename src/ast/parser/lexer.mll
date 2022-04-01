@@ -1,5 +1,5 @@
 {
-  open Generated_parser;;
+  open Parser;;
 
   (* ocamllex is a slave to tradition, so we have to handle line breaks
      ourselves. *)
@@ -42,6 +42,7 @@ rule token = parse
   | "input"                          { KEYWORD_INPUT }
   | "fun"                            { KEYWORD_FUN }
   | "int"                            { KEYWORD_INT }
+  | "bool"                           { KEYWORD_BOOL }
   | "true"                           { KEYWORD_TRUE }
   | "false"                          { KEYWORD_FALSE }
   | "and"                            { KEYWORD_AND }

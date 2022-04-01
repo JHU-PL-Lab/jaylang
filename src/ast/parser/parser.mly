@@ -2,6 +2,24 @@
 open Odefa_ast;;
 open Ast;;
 module List = BatList;;
+
+let sep = Ast_tools.label_sep
+
+let dup_label_count = ref 0
+
+let rec mark_dupes_record_labels lbls_seen r_list =
+  match r_list with
+  | [] -> []
+  | lbl :: r_list ->
+    if Ident_set.mem lbl lbls_seen then begin
+      let (Ident name) = lbl in
+      let lbl' = Ident (name ^ sep ^ (string_of_int !dup_label_count)) in
+      dup_label_count := !dup_label_count + 1;
+      lbl' :: (mark_dupes_record_labels lbls_seen r_list)
+    end else begin
+      let lbls_seen' = Ident_set.add lbl lbls_seen in
+      lbl :: (mark_dupes_record_labels lbls_seen' r_list)
+    end
 %}
 
 %token <string> IDENTIFIER
@@ -22,6 +40,7 @@ module List = BatList;;
 %token KEYWORD_INPUT
 %token KEYWORD_FUN
 %token KEYWORD_INT
+%token KEYWORD_BOOL
 %token KEYWORD_TRUE
 %token KEYWORD_FALSE
 %token KEYWORD_AND
@@ -175,8 +194,8 @@ pattern:
       { Fun_pattern }
   | KEYWORD_INT
       { Int_pattern }
-  | bool_pattern
-      { Bool_pattern($1) }
+  | KEYWORD_BOOL
+      { Bool_pattern }
   | KEYWORD_ANY
       { Any_pattern }
   | UNDERSCORE
@@ -185,21 +204,22 @@ pattern:
 
 record_pattern:
   | OPEN_BRACE CLOSE_BRACE
-      { Record_pattern(Ident_map.empty) }
+      { Rec_pattern(Ident_set.empty) }
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE
-      { Record_pattern(Ident_map.of_enum @@ List.enum $2) }
+      { let record_pat =
+          $2
+          |> mark_dupes_record_labels Ident_set.empty
+          |> List.enum
+          |> Ident_set.of_enum
+        in
+        Rec_pattern (record_pat)
+      }
+    //   { Rec_pattern(Ident_map.of_enum @@ List.enum $2) }
   ;
 
 record_pattern_element:
-  | identifier EQUALS pattern
-      { ($1,$3) }
-  ;
-
-bool_pattern:
-  | KEYWORD_TRUE
-      { true }
-  | KEYWORD_FALSE
-      { false }
+  | identifier
+      { $1 }
   ;
 
 separated_nonempty_trailing_list(separator, rule):

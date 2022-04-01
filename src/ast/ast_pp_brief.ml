@@ -9,15 +9,14 @@ open Ast
 open Pp_utils
 
 let pp_ident formatter (Ident s) = Format.pp_print_string formatter s
-
 let show_ident = pp_to_string pp_ident
 
 let pp_ident_map pp_value formatter map =
   let open Format in
   pp_concat_sep_delim "{" "}" ","
     (fun formatter (k, v) ->
-      pp_ident formatter k;
-      pp_print_string formatter " => ";
+      pp_ident formatter k ;
+      pp_print_string formatter " => " ;
       pp_value formatter v)
     formatter
   @@ Ident_map.enum map
@@ -25,13 +24,13 @@ let pp_ident_map pp_value formatter map =
 let pp_freshening_stack formatter (Freshening_stack ids) =
   ids
   |> List.iter (fun i ->
-         Format.pp_print_string formatter "__";
+         Format.pp_print_string formatter "__" ;
          pp_ident formatter i)
 
 let show_freshening_stack = pp_to_string pp_freshening_stack
 
 let pp_var formatter (Var (i, mfs)) =
-  pp_ident formatter i;
+  pp_ident formatter i ;
   match mfs with
   | None -> Format.pp_print_char formatter '$'
   | Some fs -> pp_freshening_stack formatter fs
@@ -49,6 +48,7 @@ let pp_binary_operator formatter binop =
     | Binary_operator_less_than -> "<"
     | Binary_operator_less_than_or_equal_to -> "<="
     | Binary_operator_equal_to -> "=="
+    | Binary_operator_not_equal_to -> "<>"
     | Binary_operator_and -> "and"
     | Binary_operator_or -> "or"
     | Binary_operator_xor -> "xor"
@@ -102,5 +102,18 @@ and pp_expr formatter (Expr cls) =
   pp_concat_sep ";" pp_clause formatter @@ List.enum cls
 
 let show_value = pp_to_string pp_value
-
+let show_clause_body = pp_to_string pp_clause_body
 let show_clause = pp_to_string pp_clause
+
+let pp_type_sig formatter type_sig =
+  match type_sig with
+  | Top_type -> Format.pp_print_string formatter "top"
+  | Int_type -> Format.pp_print_string formatter "int"
+  | Bool_type -> Format.pp_print_string formatter "bool"
+  | Fun_type -> Format.pp_print_string formatter "fun"
+  | Rec_type labels ->
+      pp_concat_sep_delim "{" "}" "," pp_ident formatter
+      @@ Ident_set.enum labels
+  | Bottom_type -> Format.pp_print_string formatter "bottom"
+
+let show_type_sig = pp_to_string pp_type_sig

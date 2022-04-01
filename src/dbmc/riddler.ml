@@ -17,6 +17,7 @@ let pick_at xs r_stk = pick_at_key (Lookup_key.of_parts2 xs r_stk)
 let lookup xs r_stk = Lookup_key.parts2_to_str xs r_stk |> SuduZ3.var_s
 let counter = ref 0
 let reset () = counter := 0
+let ( @=> ) = SuduZ3.( @=> )
 
 let bind_x_v xs r_stk v =
   let x = lookup xs r_stk in
@@ -27,7 +28,7 @@ let bind_x_v xs r_stk v =
     | Value_function _ -> failwith "should not be a function"
     | Value_record _ ->
         (* SuduZ3.record_ (Lookup_key.str_of_t (Lookup_key.of_parts2 xs r_stk)) *)
-        Int.incr counter;
+        Int.incr counter ;
         SuduZ3.int_ !counter
   in
   SuduZ3.eq x v
@@ -52,6 +53,7 @@ let bind_binop op y x1 x2 r_stk =
     | Binary_operator_less_than -> fn_lt
     | Binary_operator_less_than_or_equal_to -> fn_le
     | Binary_operator_equal_to -> fn_eq
+    | Binary_operator_not_equal_to -> failwith "refactoring"
     | Binary_operator_and -> fn_and
     | Binary_operator_or -> fn_or
     | Binary_operator_xor -> fn_xor

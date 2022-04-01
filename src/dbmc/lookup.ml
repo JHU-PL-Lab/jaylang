@@ -10,6 +10,36 @@ type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
 
 exception Found_solution of result_info
 
+let eager_check (state : Global_state.t) (config : Global_config.t) target
+    assumption =
+  let _ = (state, config) in
+  let unfinish_lookup =
+    Hash_set.to_list state.lookup_created
+    (* |> List.map ~f:(fun key ->
+           if not (Lookup_key.equal key target)
+           then Solver.SuduZ3.not_ (Riddler.pick_at_key key)
+           else Riddler.pick_at_key key) *)
+    |> List.map ~f:(fun key -> Riddler.(pick_at_key key @=> pick_at_key target))
+  in
+  let phi_used_once =
+    unfinish_lookup @ [ Riddler.(pick_at_key target) ] @ assumption
+  in
+
+  let check_result = Solver.check state.phis_z3 phi_used_once in
+  Global_state.clear_phis state ;
+  SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
+  SLog.debug (fun m ->
+      m "Used-once Phis: %a"
+        Fmt.(Dump.list string)
+        (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
+  match check_result with
+  | Result.Ok _model ->
+      Fmt.pr "eager_check SAT\n" ;
+      true
+  | Result.Error _exps ->
+      Fmt.pr "eager_check UNSAT\n" ;
+      false
+
 let check (state : Global_state.t) (config : Global_config.t) =
   LLog.info (fun m -> m "Search Tree Size:\t%d" state.tree_size) ;
   let unfinish_lookup =
@@ -63,9 +93,6 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
   in
   let module R = Ruler.Make (RS) in
   let[@landmark] rec lookup (this_key : Lookup_key.t) block () : unit Lwt.t =
-    LLog.app (fun m ->
-        m "[Lookup][=>]: %a in block %a" Lookup_key.pp this_key Id.pp
-          (Tracelet.id_of_block block)) ;
     let x, xs, r_stk = Lookup_key.to_parts this_key in
     (* A lookup must be required before. *)
     let gate_tree = Global_state.find_node_exn state this_key block in
@@ -74,14 +101,15 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
     (* update global state *)
     state.tree_size <- state.tree_size + 1 ;
     Hash_set.strict_remove_exn state.lookup_created this_key ;
-
-    let s =
-      Fmt.str "\n{%d}[Lookup][=>]: %a in block %a" state.tree_size Lookup_key.pp
-        this_key Id.pp
-        (Tracelet.id_of_block block)
-    in
-    Out_channel.print_endline s ;
-
+    (* LLog.app (fun m ->
+       m "[Lookup][=>]: %a in block %a" Lookup_key.pp this_key Id.pp
+         (Tracelet.id_of_block block)) ; *)
+    (* let s =
+         Fmt.str "\n{%d}[Lookup][=>]: %a in block %a" state.tree_size Lookup_key.pp
+           this_key Id.pp
+           (Tracelet.id_of_block block)
+       in
+       Out_channel.print_endline s ; *)
     (* Out_channel.flush Out_channel.stdout ; *)
     (* Fmt.flush Fmt.stdout () ; *)
     let[@landmark] apply_rule () : Lookup_result.t Lwt.t =
@@ -195,22 +223,30 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
               Lwt_stream.iter_p
                 (fun (rc : Lookup_result.t) ->
                   let c = rc.from in
-                  (* LLog.debug (fun m ->
-                      m "[Stream][CondTop] %a receive-cond-v [%a]\n"
-                        Lookup_key.pp this_key Id.pp c); *)
-                  let _, lookup_xxs =
-                    find_or_add_task key_xxs condsite_block gate_tree
-                  in
-                  Lwt.async (fun () ->
-                      Lwt_stream.iter_p
-                        (fun (x : Lookup_result.t) ->
-                          result_pusher x ;
-                          (* LLog.debug (fun m ->
-                              m "[Stream][CondTop] %a receive-cond-ret [%a]"
-                                Lookup_key.pp key_xxs Id.pp x.from); *)
-                          Lwt.return_unit)
-                        lookup_xxs) ;
-                  Lwt.return_unit)
+                  if true
+                     (* eager_check state config key_x2
+                        [
+                          Riddler.bind_x_v [ x2 ] condsite_stack
+                            (Value_bool choice);
+                        ] *)
+                  then (
+                    (* LLog.debug (fun m ->
+                        m "[Stream][CondTop] %a receive-cond-v [%a]\n"
+                          Lookup_key.pp this_key Id.pp c); *)
+                    let _, lookup_xxs =
+                      find_or_add_task key_xxs condsite_block gate_tree
+                    in
+                    Lwt.async (fun () ->
+                        Lwt_stream.iter_p
+                          (fun (x : Lookup_result.t) ->
+                            result_pusher x ;
+                            (* LLog.debug (fun m ->
+                                m "[Stream][CondTop] %a receive-cond-ret [%a]"
+                                  Lookup_key.pp key_xxs Id.pp x.from); *)
+                            Lwt.return_unit)
+                          lookup_xxs) ;
+                    Lwt.return_unit)
+                  else Lwt.return_unit)
                 lookup_x2 ;%lwt
               Lookup_result.ok_lwt x
           (* Cond Bottom *)
@@ -242,35 +278,52 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
                     sub_trees @ [ node_x_ret ])
                   ~init:[]
               in
+
+              Hash_set.strict_add_exn state.lookup_created this_key ;
               Node.update_rule gate_tree
                 (Node.mk_condsite ~cond_var_tree ~sub_trees) ;
-              add_phi this_key (Riddler.cond_bottom this_key cond_block x') ;
+              let se =
+                lazy
+                  (Hash_set.strict_remove_exn state.lookup_created this_key ;
+                   add_phi this_key (Riddler.cond_bottom this_key cond_block x'))
+              in
+
               Lwt_stream.iter_p
                 (fun (c : Lookup_result.t) ->
                   (* LLog.debug (fun m ->
                            m "[Stream][CondBottom] %a receive-cond-var [%a]"
                              Lookup_key.pp this_key Id.pp c.from);*)
+                  (* eager_check state config key_cond_var
+                       [ Riddler.bind_x_v [ x' ] r_stk (Value_bool true) ] ;
+                     eager_check state config key_cond_var
+                       [ Riddler.bind_x_v [ x' ] r_stk (Value_bool false) ] ; *)
                   if c.status
                   then (
+                    ignore @@ Lazy.force se ;
+
                     List.iter [ true; false ] ~f:(fun beta ->
-                        let ctracelet, key_x_ret =
-                          Lookup_key.get_cond_block_and_return cond_block beta
-                            r_stk x xs
-                        in
-                        let _, lookup_x_ret =
-                          find_or_add_task key_x_ret ctracelet gate_tree
-                        in
-                        Lwt.async (fun () ->
-                            Lwt_stream.iter_p
-                              (fun (x : Lookup_result.t) ->
-                                result_pusher x ;
-                                (* LLog.debug (fun m ->
-                                    m
-                                      "[Stream][CondBottom] %a \
-                                       receive-cond-ret [%a]"
-                                      Lookup_key.pp key_x_ret Id.pp x.from); *)
-                                Lwt.return_unit)
-                              lookup_x_ret)) ;
+                        if eager_check state config key_cond_var
+                             [ Riddler.bind_x_v [ x' ] r_stk (Value_bool beta) ]
+                        then
+                          let ctracelet, key_x_ret =
+                            Lookup_key.get_cond_block_and_return cond_block beta
+                              r_stk x xs
+                          in
+                          let _, lookup_x_ret =
+                            find_or_add_task key_x_ret ctracelet gate_tree
+                          in
+                          Lwt.async (fun () ->
+                              Lwt_stream.iter_p
+                                (fun (x : Lookup_result.t) ->
+                                  result_pusher x ;
+                                  (* LLog.debug (fun m ->
+                                      m
+                                        "[Stream][CondBottom] %a \
+                                        receive-cond-ret [%a]"
+                                        Lookup_key.pp key_x_ret Id.pp x.from); *)
+                                  Lwt.return_unit)
+                                lookup_x_ret)
+                        else ()) ;
                     Lwt.return_unit)
                   else Lwt.return_unit)
                 lookup_cond_var ;%lwt

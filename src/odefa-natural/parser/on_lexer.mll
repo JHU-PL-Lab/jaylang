@@ -28,14 +28,23 @@ rule token = parse
 | "}"                  { CLOSE_BRACE }
 | "("                  { OPEN_PAREN }
 | ")"                  { CLOSE_PAREN }
+| "["                  { OPEN_BRACKET }
+| "]"                  { CLOSE_BRACKET }
 | ","                  { COMMA }
+| "`"                  { BACKTICK }
 | "="                  { EQUALS }
 | "."                  { DOT }
+| ":"                  { COLON }
+| "::"                 { DOUBLE_COLON }
+| "_"                  { UNDERSCORE }
 | "and"                { AND }
 | "or"                 { OR }
 | "not"                { NOT }
+| "int"                { INT }
+| "bool"               { BOOL_KEYWORD }
 | "fun"                { FUNCTION }
 | "function"           { FUNCTION }
+| "record"             { RECORD }
 | "with"               { WITH }
 | "if"                 { IF }
 | "then"               { THEN }
@@ -47,14 +56,22 @@ rule token = parse
 | "false"              { BOOL false }
 | "true"               { BOOL true }
 | "input"              { INPUT }
+| "match"              { MATCH }
+| "end"                { END }
+| "assert"             { ASSERT }
+| "assume"             { ASSUME }
+| "abort"              { ABORT }
 | "+"                  { PLUS }
 | "-"                  { MINUS }
 | "*"                  { ASTERISK }
 | "/"                  { SLASH }
 | "%"                  { PERCENT }
 | "=="                 { EQUAL_EQUAL }
+| "<>"                 { NOT_EQUAL }
 | "<"                  { LESS }
 | "<="                 { LESS_EQUAL }
+| ">"                  { GREATER }
+| ">="                 { GREATER_EQUAL }
 | digit+ as n         { INT_LITERAL (int_of_string n) }
 | ident_start ident_cont* as s     { IDENTIFIER s }
 
