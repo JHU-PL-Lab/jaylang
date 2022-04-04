@@ -31,3 +31,4 @@ let parse_program_raw (input : in_channel) =
   handle_parse_error buf @@ fun () -> Parser.prog Lexer.token buf
 
 let parse_string s = s |> IO.input_string |> parse_program
+let parse_expressions_str s = s |> IO.input_string |> parse_expressions

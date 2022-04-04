@@ -1,3 +1,0 @@
-(executable
- (name ddpa_toploop)
- (libraries batteries jhupllib odefa.ast odefa.parser odefa.toploop))
