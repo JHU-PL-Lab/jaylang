@@ -12,8 +12,8 @@ dtest:
 	./dtest
 
 ddpa:
-	dune build src/toploop-main/ddpa_toploop.exe
-	ln -s -f _build/default/src/toploop-main/ddpa_toploop.exe ddpa_toploop
+	dune build src/ddpa-toploop/toploop-main/ddpa_toploop.exe
+	ln -s -f _build/default/src/ddpa-toploop/toploop-main/ddpa_toploop.exe ddpa_toploop
 
 translator:
 	dune build src/translator-main/translator.exe
@@ -63,3 +63,6 @@ test:
 
 repl:
 	dune utop src -- -require pdr-programming
+
+echo:
+	dune exec src/langdk/examples/echo_repl.exe

@@ -1,0 +1,3 @@
+(executables
+ (names echo_repl echo_firstclass_module)
+ (libraries langdk))
