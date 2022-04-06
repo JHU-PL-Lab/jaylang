@@ -11,7 +11,6 @@ let anon_fun i_raw =
 
 let run_program source =
   let program = File_util.read_source source in
-  (* Format.printf "%a" Odefa_ast.Ast_pp.pp_expr program *)
   let session = Interpreter.create_interpreter_session !inputs in
   try Interpreter.eval session program with
   | Interpreter.Terminate v -> Format.printf "%a" Odefa_ast.Ast_pp.pp_value v
@@ -22,5 +21,3 @@ let () =
     [ ("-i", Arg.Set_string source_file, "Iutput source file") ]
     anon_fun usage_msg ;
   run_program !source_file
-
-(* let program = File_util.read_source cfg.filename in *)
