@@ -3,19 +3,23 @@ open Odefa_ast
 open Ast
 
 exception Found_target of value
+exception Terminate of value
 exception Reach_max_step of Id.t * Concrete_stack.t
 exception Run_the_same_stack_twice of Id.t * Concrete_stack.t
 exception Run_into_wrong_stack of Id.t * Concrete_stack.t
 
 type session = {
   input_feeder : Id.t * Concrete_stack.t -> int option;
-  target : Id.t * Concrete_stack.t;
   step : int ref;
+  (* session_options *)
+  target_x : Id.t option;
+  target_stk : Concrete_stack.t option;
   max_step : int option;
   debug_graph : bool;
   node_set : (Lookup_key.t, bool) Hashtbl.t;
   node_get : (Lookup_key.t, int) Hashtbl.t;
   rstk_picked : (Rstack.t, bool) Hashtbl.t;
+  lookup_alert : Lookup_key.t Hash_set.t;
 }
 
 type dvalue =
@@ -54,9 +58,9 @@ let alert_lookup target_stk x stk lookup_alert =
   Hash_set.add lookup_alert key
 
 let value_of_dvalue = function
-  | Direct v, _ -> v
-  | FunClosure (_fid, fv, _env), _ -> Value_function fv
-  | RecordClosure (r, _env), _ -> Value_record r
+  | Direct v -> v
+  | FunClosure (_fid, fv, _env) -> Value_function fv
+  | RecordClosure (r, _env) -> Value_record r
 
 let rec same_stack s1 s2 =
   match (s1, s2) with
@@ -68,12 +72,14 @@ let rec same_stack s1 s2 =
 (* OB: we cannot enter the same stack twice. *)
 let rec eval_exp ~session stk env e : dvalue =
   (* Fmt.(pr "\n@[-> %a@]\n" Concrete_stack.pp stk); *)
-  let _target_x, target_stk = session.target in
-  let r_stk = Rstack.relativize target_stk stk in
-  Hashtbl.change session.rstk_picked r_stk ~f:(function
-    | Some true -> Some false
-    | Some false -> raise (Run_into_wrong_stack (Ast_tools.first_id e, stk))
-    | None -> None) ;
+  (match session.target_stk with
+  | Some target_stk ->
+      let r_stk = Rstack.relativize target_stk stk in
+      Hashtbl.change session.rstk_picked r_stk ~f:(function
+        | Some true -> Some false
+        | Some false -> raise (Run_into_wrong_stack (Ast_tools.first_id e, stk))
+        | None -> None)
+  | None -> ()) ;
 
   (* raise (Run_into_wrong_stack (Ast_tools.first_id e, stk))); *)
   let (Expr clauses) = e in
@@ -92,14 +98,12 @@ and eval_clause ~session stk env clause : denv * dvalue =
   | Some t ->
       Int.incr session.step ;
       if !(session.step) > t then raise (Reach_max_step (x, stk)) else ()) ;
-  let target_x, target_stk = session.target in
 
-  if session.debug_graph
-  then
-    update_write_node target_stk x stk session.node_set
-    (* ;
-       Fmt.pr "@[%a = _@]\n" Id.pp x *)
-  else () ;
+  (match (session.target_x, session.target_stk, session.debug_graph) with
+  | Some _target_x, Some target_stk, true ->
+      update_write_node target_stk x stk session.node_set
+      (* ; Fmt.pr "@[%a = _@]\n" Id.pp x *)
+  | _, _, _ -> ()) ;
 
   let (v_pre : dvalue) =
     match cbody with
@@ -174,28 +178,30 @@ and eval_clause ~session stk env clause : denv * dvalue =
   in
   let v = (v_pre, stk) in
 
-  if Ident.equal target_x x
-  then
-    if Concrete_stack.equal_flip target_stk stk
-    then raise (Found_target (value_of_dvalue v))
-    else
-      Fmt.(
-        pr "found %a at stack %a, expect %a" pp_ident x Concrete_stack.pp
-          target_stk Concrete_stack.pp stk)
-  else () ;
+  (match (session.target_x, session.target_stk) with
+  | Some target_x, Some target_stk when Ident.equal target_x x ->
+      if Concrete_stack.equal_flip target_stk stk
+      then raise (Found_target (value_of_dvalue v_pre))
+      else
+        Fmt.(
+          pr "found %a at stack %a, expect %a" pp_ident x Concrete_stack.pp
+            target_stk Concrete_stack.pp stk)
+  | _, _ -> ()) ;
 
-  if session.debug_graph
-  then
-    let rstk = Rstack.relativize target_stk stk in
-    Fmt.pr "@[%a = %a\t\t R = %a@]\n" Id.pp x pp_dvalue v Rstack.pp rstk
-  else () ;
+  (match (session.target_x, session.target_stk, session.debug_graph) with
+  | Some _, Some target_stk, true ->
+      let rstk = Rstack.relativize target_stk stk in
+      Fmt.pr "@[%a = %a\t\t R = %a@]\n" Id.pp x pp_dvalue v Rstack.pp rstk
+  | _, _, _ -> ()) ;
 
   (Ident_map.add x v env, v_pre)
 
 and fetch_val ~session ~stk env (Var (x, _)) : dvalue =
   let v, _ = Ident_map.find x env in
-  let _target_x, target_stk = session.target in
-  update_read_node target_stk x stk session.node_get ;
+  (match (session.target_x, session.target_stk, session.debug_graph) with
+  | Some _target_x, Some target_stk, true ->
+      update_read_node target_stk x stk session.node_get
+  | _, _, _ -> ()) ;
   v
 
 and fetch_val_to_direct ~session ~stk env vx : value =
@@ -227,38 +233,60 @@ and check_pattern ~session ~stk env vx pattern : bool =
   in
   is_pass
 
-let eval ~(state : Global_state.t) ~(config : Global_config.t)
-    ?(input_feeder = Fn.const None) ~target ~max_step e =
-  let session =
-    {
-      input_feeder;
-      target;
-      max_step;
-      step = ref 0;
-      debug_graph = config.debug_graph;
-      node_set = state.node_set;
-      node_get = state.node_get;
-      rstk_picked = state.rstk_picked;
-    }
-  in
+let create_session ?target_stk ?max_step (state : Global_state.t)
+    (config : Global_config.t) input_feeder : session =
+  {
+    input_feeder;
+    target_x = Some config.target;
+    target_stk;
+    max_step;
+    debug_graph = config.debug_graph;
+    step = ref 0;
+    node_set = state.node_set;
+    node_get = state.node_get;
+    rstk_picked = state.rstk_picked;
+    lookup_alert = state.lookup_alert;
+  }
 
+let input_feeder_of_list inputs =
+  let history = ref inputs in
+  fun _ ->
+    let r = List.hd_exn !history in
+    history := List.tl_exn !history ;
+    Some r
+
+let create_interpreter_session inputs =
+  {
+    input_feeder = input_feeder_of_list inputs;
+    target_x = None;
+    target_stk = None;
+    max_step = None;
+    debug_graph = false;
+    step = ref 0;
+    node_set = Hashtbl.create (module Lookup_key);
+    node_get = Hashtbl.create (module Lookup_key);
+    rstk_picked = Hashtbl.create (module Rstack);
+    lookup_alert = Hash_set.create (module Lookup_key);
+  }
+
+let eval session e =
   let empty_env = Ident_map.empty in
-  let _target_x, target_stk = target in
   try
-    let _ = eval_exp ~session Concrete_stack.empty empty_env e in
-    Fmt.epr "No target val" ;
-    None
+    let dv = eval_exp ~session Concrete_stack.empty empty_env e in
+    raise (Terminate (value_of_dvalue dv))
   with
-  | Found_target v -> Some v
-  | Reach_max_step (_x, _stk) ->
+  | Found_target v -> raise (Found_target v)
+  | Reach_max_step (x, stk) ->
       Fmt.epr "Reach max steps\n" ;
-      (* alert_lookup target_stk x stk state.lookup_alert; *)
-      None
+      (* alert_lookup target_stk x stk session.lookup_alert; *)
+      raise (Reach_max_step (x, stk))
   | Run_the_same_stack_twice (x, stk) ->
       Fmt.epr "Run into the same stack twice\n" ;
-      alert_lookup target_stk x stk state.lookup_alert ;
-      None
+      Option.iter session.target_stk ~f:(fun target_stk ->
+          alert_lookup target_stk x stk session.lookup_alert) ;
+      raise (Run_the_same_stack_twice (x, stk))
   | Run_into_wrong_stack (x, stk) ->
       Fmt.epr "Run into wrong stack\n" ;
-      alert_lookup target_stk x stk state.lookup_alert ;
-      None
+      Option.iter session.target_stk ~f:(fun target_stk ->
+          alert_lookup target_stk x stk session.lookup_alert) ;
+      raise (Run_into_wrong_stack (x, stk))

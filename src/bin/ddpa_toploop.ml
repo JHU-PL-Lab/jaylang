@@ -47,15 +47,3 @@ let () =
   in
   let module Echo_repl = Repl.Make (Echo_E) in
   Echo_repl.run ()
-
-(* Odefa_parser.Parse.parse_expressions IO.stdin
-   |> LazyList.iter (fun e ->
-          print_newline () ;
-          ignore
-          @@ Toploop.handle_expression ~callbacks:Toploop.stdout_callbacks
-               toploop_configuration e ;
-          print_string "\n" ;
-          print_string
-            "Please enter an expression to evaluate followed by \";;\".\n" ;
-          print_string "\n" ;
-          flush stdout) *)

@@ -13,10 +13,9 @@ let handle_graph (config : Global_config.t) state model =
 
 let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
     =
-  let target = config.target in
   LLog.info (fun m ->
-      m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident target Concrete_stack.pp
-        c_stk) ;
+      m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident config.target
+        Concrete_stack.pp c_stk) ;
   LLog.debug (fun m ->
       m "Nodes picked states\n%a\n"
         (Fmt.Dump.iter_bindings
@@ -33,9 +32,7 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
   (* Global_state.refresh_picked state model; *)
   handle_graph config state (Some model) ;
 
-  let inputs_from_interpreter =
-    Solver.get_inputs ~state ~config target model c_stk
-  in
+  let inputs_from_interpreter = Solver.get_inputs ~state ~config model c_stk in
   [ inputs_from_interpreter ]
 
 let[@landmark] main_with_state_lwt ~(config : Global_config.t)
@@ -93,9 +90,9 @@ let main_commandline () =
                 ~f:(function Some i -> string_of_int i | None -> "-")
                 inputs)
      | None -> Format.printf "Unreachable"
-   with e ->
+   with ex ->
      Printexc.print_backtrace Out_channel.stderr ;
-     raise e) ;
+     raise ex) ;
 
   Log.close ()
 (* ignore @@ raise GenComplete *)

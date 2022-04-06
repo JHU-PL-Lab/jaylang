@@ -9,7 +9,7 @@ type translation_context = {
 }
 (* [@@deriving eq, ord] *)
 
-let new_translation_context ?(is_natodefa = false) ?(suffix = "~")
+let new_translation_context ?(is_natodefa = false) ?(suffix = "$")
     ?(contextual_recursion = true) () : translation_context =
   {
     tc_fresh_name_counter = 0;

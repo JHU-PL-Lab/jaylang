@@ -1,10 +1,10 @@
-.PHONY: all clean repl test benchmark dbmc logclean dtest
+.PHONY: all clean repl test benchmark dbmc logclean translator dtest 
 
 all: dbmc
 
 dbmc:
-	dune build src/dbmc-top/dbmc_top.exe
-	ln -s -f _build/default/src/dbmc-top/dbmc_top.exe dbmc_top
+	dune build src/bin/dbmc_top.exe
+	ln -s -f _build/default/src/bin/dbmc_top.exe dbmc_top
 
 dtest:
 	dune build test/dbmc/test_dbmc.exe 
@@ -12,8 +12,8 @@ dtest:
 	./dtest
 
 ddpa:
-	dune build src/ddpa-toploop/toploop-main/ddpa_toploop.exe
-	ln -s -f _build/default/src/ddpa-toploop/toploop-main/ddpa_toploop.exe ddpa_toploop
+	dune build src/bin/ddpa_toploop.exe
+	ln -s -f _build/default/src/bin/ddpa_toploop.exe ddpa_toploop
 
 translator:
 	dune build src/translator-main/translator.exe
@@ -54,7 +54,7 @@ benchmark:
 # extra
 
 one:
-	dune exec src/dbmc-top/analysis_top.exe -- test-sources/_syntax/one.odefa
+	dune exec src/bin/analysis_top.exe -- test-sources/_syntax/one.odefa
 
 # old targets
 test:

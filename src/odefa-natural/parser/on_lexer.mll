@@ -37,6 +37,7 @@ rule token = parse
 | ":"                  { COLON }
 | "::"                 { DOUBLE_COLON }
 | "_"                  { UNDERSCORE }
+| "|"                  { PIPE }
 | "and"                { AND }
 | "or"                 { OR }
 | "not"                { NOT }

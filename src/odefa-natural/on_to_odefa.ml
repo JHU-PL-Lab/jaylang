@@ -896,7 +896,7 @@ let translate ?(translation_context = None) ?(is_instrumented = false)
       >>= debug_transform_on "alphatization" alphatize
       >>= debug_transform_odefa "flattening" flatten
       >>= debug_transform_odefa "instrumentation" instrument
-      >>= debug_transform_odefa "adding ~result" add_first_result
+      >>= debug_transform_odefa "adding $result" add_first_result
     in
     let%bind odefa_on_maps = odefa_natodefa_maps in
     lazy_logger `debug (fun () ->

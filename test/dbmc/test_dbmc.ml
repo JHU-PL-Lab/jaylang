@@ -35,7 +35,7 @@ let test_one_file testname () =
   let config : Global_config.t =
     let filename = testname in
     let steps = testing_step in
-    let timeout = Some (Time.Span.of_int_sec 5) in
+    let timeout = Some (Time.Span.of_int_sec 10) in
     let default_config = Global_config.default_config in
     { default_config with filename; steps; timeout }
   in

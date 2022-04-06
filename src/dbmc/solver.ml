@@ -34,17 +34,18 @@ let memorized_solution_input_feeder mem model target_stack =
     mem := answer :: !mem ;
     answer
 
-let get_inputs ~(state : Global_state.t) ~(config : Global_config.t) target_x
-    model (target_stack : Concrete_stack.t) =
+let get_inputs ~(state : Global_state.t) ~(config : Global_config.t) model
+    (target_stack : Concrete_stack.t) =
   let input_history = ref [] in
   let input_feeder =
     memorized_solution_input_feeder input_history model target_stack
   in
-  let target = (target_x, target_stack) in
-  let max_step = config.run_max_step in
-
-  let _ =
-    Interpreter.eval ~state ~config ~input_feeder ~target ~max_step
-      state.program
+  let session =
+    let target_stk = Some target_stack in
+    let max_step = config.run_max_step in
+    Interpreter.create_session ?target_stk ?max_step state config input_feeder
   in
+  (try Interpreter.eval session state.program with
+  | Interpreter.Found_target _ -> ()
+  | ex -> raise ex) ;
   List.rev !input_history

@@ -19,8 +19,8 @@ let newline = '\n'
 let comment = '#' [^'\n']* '\n'
 let string_contents = [^'"']*
 
-let ident_start = alpha | '_'
-let ident_cont = alpha | digit | '_'
+let ident_start = alpha | '_' | '$'
+let ident_cont = alpha | digit | '_' | '$'
 
 rule token = parse
   | eof                              { EOF }
