@@ -90,9 +90,8 @@ let main_commandline () =
                 ~f:(function Some i -> string_of_int i | None -> "-")
                 inputs)
      | None -> Format.printf "Unreachable"
-   with ex ->
-     Printexc.print_backtrace Out_channel.stderr ;
-     raise ex) ;
+   with ex -> (* Printexc.print_backtrace Out_channel.stderr ; *)
+              raise ex) ;
 
   Log.close ()
 (* ignore @@ raise GenComplete *)

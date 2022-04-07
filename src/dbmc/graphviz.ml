@@ -223,8 +223,10 @@ module DotPrinter_Make (S : GS) = struct
           in
           let pvar = Global_state.pvar_picked S.state node.key in
           let outputs =
-            let messager = Global_state.get_messager S.state node.key in
-            Option.value_map messager ~f:(fun m -> m.outputs) ~default:[]
+            Global_state.Unroll.find_messages S.state.unroll node.key
+            |> Option.value_map
+                 ~f:(fun ms -> List.map ms ~f:(fun m -> m.from))
+                 ~default:[]
           in
           Fmt.str
             "{ {[%s] | %a} | %a | %a | %s | {φ | { %s %s } } | %B | {out | %a \

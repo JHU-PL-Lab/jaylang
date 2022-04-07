@@ -21,7 +21,7 @@ let create (config : Global_config.t) program =
       input_nodes = Hash_set.create (module Lookup_key);
       lookup_created = Hash_set.create (module Lookup_key);
       lookup_alert = Hash_set.create (module Lookup_key);
-      lookup_results = Hashtbl.create (module Lookup_key);
+      unroll = Unroll.create ();
       noted_phi_map = Hashtbl.create (module Lookup_key);
       node_set = Hashtbl.create (module Lookup_key);
       node_get = Hashtbl.create (module Lookup_key);
@@ -63,16 +63,6 @@ let find_or_add_node state key block node_parent =
   Node.add_pred node_child edge ;
   (exist, node_child)
 
-let find_or_add_stream state key kind =
-  match Hashtbl.find state.lookup_results key with
-  | Some nm -> (true, Node_messager.get_stream_for_read nm)
-  | None ->
-      let node_messager = Node_messager.create_with_kind kind in
-      Hashtbl.add_exn state.lookup_results ~key ~data:node_messager ;
-      (false, Node_messager.get_stream_for_read node_messager)
-
-let get_messager_exn state key = Hashtbl.find_exn state.lookup_results key
-let get_messager state key = Hashtbl.find state.lookup_results key
 let pvar_picked state key = not (Hash_set.mem state.lookup_created key)
 
 (* let refresh_picked state model =

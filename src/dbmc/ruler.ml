@@ -17,7 +17,7 @@ end
 
 module Make (S : Ruler_state) = struct
   let deal_with_value mv (key : Lookup_key.t) block (gate_tree : Node.t ref)
-      result_pusher find_or_add_task =
+      result_pusher find_or_add_task find_or_add_node =
     let singleton_lookup = List.is_empty key.xs in
 
     (* Discovery Main & Non-Main *)
@@ -34,9 +34,8 @@ module Make (S : Ruler_state) = struct
       else
         (* Discovery Non-Main *)
         let key_first = Lookup_key.to_first key S.x_first in
-        let node_child, lookup_first =
-          find_or_add_task key_first block gate_tree
-        in
+        let node_child = find_or_add_node key_first block gate_tree in
+        let lookup_first = find_or_add_task key_first block in
         gate_tree := { !gate_tree with rule = Node.to_first node_child } ;
         S.add_phi key (Riddler.discover_non_main key S.x_first mv) ;
         (* result_pusher (Some (Lookup_result.ok key.x)) *)
@@ -50,9 +49,8 @@ module Make (S : Ruler_state) = struct
       match mv with
       | Some (Value_function _f) ->
           let key_drop_x = Lookup_key.drop_x key in
-          let node_sub, lookup_sub =
-            find_or_add_task key_drop_x block gate_tree
-          in
+          let node_sub = find_or_add_node key_drop_x block gate_tree in
+          let lookup_sub = find_or_add_task key_drop_x block in
           Node.update_rule gate_tree (Node.discard node_sub) ;
           S.add_phi key (Riddler.discard key mv) ;
           Lwt_stream.iter (fun x -> result_pusher x) lookup_sub ;%lwt
@@ -65,9 +63,8 @@ module Make (S : Ruler_state) = struct
           match Ident_map.Exceptionless.find labal rmap with
           | Some (Var (vid, _)) ->
               let key' = Lookup_key.of_parts2 (vid :: xs') r_stk in
-              let node_key, lookup_key =
-                find_or_add_task key' block gate_tree
-              in
+              let node_key = find_or_add_node key' block gate_tree in
+              let lookup_key = find_or_add_task key' block in
               Node.update_rule gate_tree (Node.alias node_key) ;
               S.add_phi key (Riddler.alias_key key key') ;
               Lwt_stream.iter (fun x -> result_pusher x) lookup_key ;%lwt

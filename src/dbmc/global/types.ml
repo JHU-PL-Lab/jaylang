@@ -5,6 +5,21 @@ open! Core
 *)
 
 module State = struct
+  module Unroll_S :
+    Unroll.S_sig
+      with type message = Lookup_result.t
+       and type result = Lookup_result.t
+       and type key = Lookup_key.t = struct
+    type message = Lookup_result.t
+    type result = Lookup_result.t
+    type key = Lookup_key.t
+
+    let equal_message (m1 : Lookup_result.t) (m2 : Lookup_result.t) =
+      Id.equal m1.from m2.from
+  end
+
+  module Unroll = Unroll.Make (Lookup_key) (Unroll_S)
+
   type t = {
     (* program *)
     first : Id.t;
@@ -25,7 +40,7 @@ module State = struct
     lookup_created : Lookup_key.t Hash_set.t;
     lookup_alert : Lookup_key.t Hash_set.t;
     (* lookup *)
-    lookup_results : (Lookup_key.t, Node_messager.t) Hashtbl.t;
+    unroll : Unroll.t;
     (* debug *)
     noted_phi_map : (Lookup_key.t, (string * Z3.Expr.expr) list) Hashtbl.t;
     node_set : (Lookup_key.t, bool) Hashtbl.t;
