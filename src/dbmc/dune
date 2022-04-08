@@ -15,11 +15,12 @@
   logs.lwt
   logs.fmt
   ocamlgraph
+  hashcons
   odefa.ast
   odefa.ddpa
   odefa.natural
   odefa.parser
-  hashcons
+  odefa.unroll
   sudu)
  (synopsis "dbmc is demand-driven bounded model checking")
  (inline_tests)
