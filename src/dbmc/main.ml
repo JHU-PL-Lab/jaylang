@@ -52,16 +52,14 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
         handle_graph config state None ;
         []
   in
-  let key_target = Lookup_key.of_parts target [] Rstack.empty in
-  let do_lookup () = Lookup.lookup_top ~config ~state job_queue in
-  Scheduler.push job_queue key_target do_lookup ;
   try%lwt
-    let work =
+    let do_work () =
+      Lookup.run ~config ~state job_queue ;
       Scheduler.run job_queue >>= fun _ -> Lwt.return (post_process ())
     in
     match config.timeout with
-    | Some ts -> Lwt_unix.with_timeout (Time.Span.to_sec ts) (fun () -> work)
-    | None -> work
+    | Some ts -> Lwt_unix.with_timeout (Time.Span.to_sec ts) do_work
+    | None -> do_work ()
   with
   | Lookup.Found_solution { model; c_stk } ->
       Lwt.return (handle_found config state model c_stk)

@@ -1,11 +1,11 @@
 exception Found_solution of Riddler.result_info
 
-val lookup_top :
+val run :
   config:Global_config.t ->
   state:Global_state.t ->
   unit Scheduler.job Pairing_heap.t ->
-  unit Lwt.t
-(** [lookup_top] performs the lookup. Usually one lookup steps consists of
+  unit
+(** [run] performs the lookup. Usually one lookup steps consists of
 
     - process clause
     - handle graph node

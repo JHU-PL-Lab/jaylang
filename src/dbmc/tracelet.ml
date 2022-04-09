@@ -206,13 +206,6 @@ let clauses_of_expr e =
       in
       cs @ [ c' ])
 
-let defined x block =
-  match (clause_of_x block x, block) with
-  | Some tc, _ -> Some (At_clause tc)
-  | None, Fun fb -> Some (At_fun_para (Ident.(equal fb.para x), fb))
-  | None, Cond cb -> Some (At_chosen cb)
-  | None, Main _mb -> None
-
 let tracelet_map_of_expr e : t Ident_map.t =
   let map = ref Ident_map.empty in
 
@@ -220,7 +213,7 @@ let tracelet_map_of_expr e : t Ident_map.t =
     let clauses = clauses_of_expr e in
     Main { point = id_main; clauses }
   in
-  map := Ident_map.add id_main main_tracelet !map;
+  map := Ident_map.add id_main main_tracelet !map ;
 
   let rec loop outer_point e =
     let (Expr clauses) = e in
@@ -233,7 +226,7 @@ let tracelet_map_of_expr e : t Ident_map.t =
           let tracelet =
             Fun { point = cid; outer_point; para; callsites = []; clauses }
           in
-          map := Ident_map.add cid tracelet !map;
+          map := Ident_map.add cid tracelet !map ;
           loop (Fun_p cid) fbody
       | Clause (Var (cid, _), Conditional_body (Var (cond, _), e1, e2)) ->
           let then_ = clauses_of_expr e1
@@ -251,15 +244,15 @@ let tracelet_map_of_expr e : t Ident_map.t =
                 choice = None;
               }
           in
-          map := Ident_map.add cid tracelet !map;
-          loop (Cond_p (cid, true)) e1;
+          map := Ident_map.add cid tracelet !map ;
+          loop (Cond_p (cid, true)) e1 ;
           loop (Cond_p (cid, false)) e2
       | _ -> ()
     in
     List.iter clauses ~f:handle_clause
   in
 
-  loop Main_p e;
+  loop Main_p e ;
   !map
 
 let cfg_of e =
@@ -301,7 +294,7 @@ let annotate e pt : block Ident_map.t =
     if Annotated_clause_set.mem acl !visited
     then ()
     else (
-      visited := Annotated_clause_set.add acl !visited;
+      visited := Annotated_clause_set.add acl !visited ;
 
       let prev_acls = preds_l acl cfg in
 
@@ -322,7 +315,7 @@ let annotate e pt : block Ident_map.t =
         if List.length prev_acls = 1
         then failwith "cond clause cannot appear along"
         else add_cond_block map prev_acls cfg
-      else ();
+      else () ;
 
       (* step logic *)
       let continue = ref true and block_dangling = ref dangling in
@@ -336,14 +329,14 @@ let annotate e pt : block Ident_map.t =
           (* para can also be ignored in Fun since para is a property of a Fun block, defined in the source code
             *)
           let f_def = Ident_map.find ret_var ret_to_fun_def_map in
-          map := add_id_dst site_r f_def !map;
+          map := add_id_dst site_r f_def !map ;
           block_dangling := false
       (* out of fbody *)
       | Binding_enter_clause
           (Abs_var para, _, Abs_clause (Abs_var site_r, Abs_appl_body _)) ->
           let f_def = Ident_map.find para para_to_fun_def_map in
-          map := add_id_dst site_r f_def !map;
-          map := add_callsite f_def site_r !map;
+          map := add_id_dst site_r f_def !map ;
+          map := add_callsite f_def site_r !map ;
 
           continue := dangling
       (* into cond-body *)
@@ -364,12 +357,12 @@ let annotate e pt : block Ident_map.t =
       | Binding_enter_clause (_, _, _) ->
           failwith "impossible binding enter for non callsites"
       | Nonbinding_enter_clause (_, _) ->
-          failwith "impossible non-binding enter for non condsites");
+          failwith "impossible non-binding enter for non condsites") ;
       if !continue
       then List.iter ~f:(fun acl -> loop acl !block_dangling) (preds_l acl cfg)
       else ())
   in
-  loop acl true;
+  loop acl true ;
   !map
 
 let fun_info_of_callsite callsite map =
