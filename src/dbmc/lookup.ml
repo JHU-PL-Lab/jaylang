@@ -6,62 +6,9 @@ open Tracelet
 open Odefa_ddpa
 open Log.Export
 
-type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
+type result_info = Riddler.result_info
 
 exception Found_solution of result_info
-
-let eager_check (state : Global_state.t) (config : Global_config.t) target
-    assumption =
-  let _ = (state, config) in
-  let unfinish_lookup =
-    Hash_set.to_list state.lookup_created
-    (* |> List.map ~f:(fun key ->
-           if not (Lookup_key.equal key target)
-           then Solver.SuduZ3.not_ (Riddler.pick_at_key key)
-           else Riddler.pick_at_key key) *)
-    |> List.map ~f:(fun key -> Riddler.(pick_at_key key @=> pick_at_key target))
-  in
-  let phi_used_once =
-    unfinish_lookup @ [ Riddler.(pick_at_key target) ] @ assumption
-  in
-
-  let check_result = Solver.check state.phis_z3 phi_used_once in
-  Global_state.clear_phis state ;
-  SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
-  SLog.debug (fun m ->
-      m "Used-once Phis: %a"
-        Fmt.(Dump.list string)
-        (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
-  match check_result with
-  | Result.Ok _model ->
-      Fmt.pr "eager_check SAT\n" ;
-      true
-  | Result.Error _exps ->
-      Fmt.pr "eager_check UNSAT\n" ;
-      false
-
-let check (state : Global_state.t) (config : Global_config.t) =
-  LLog.info (fun m -> m "Search Tree Size:\t%d" state.tree_size) ;
-  let unfinish_lookup =
-    Hash_set.to_list state.lookup_created
-    |> List.map ~f:(fun key -> Solver.SuduZ3.not_ (Riddler.pick_at_key key))
-  in
-  let check_result = Solver.check state.phis_z3 unfinish_lookup in
-  Global_state.clear_phis state ;
-  match check_result with
-  | Result.Ok model ->
-      if config.debug_model
-      then (
-        SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
-        SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)))
-      else () ;
-      let c_stk_mach =
-        Solver.SuduZ3.(get_unbox_fun_exn model Riddler.top_stack)
-      in
-      let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
-      print_endline @@ Concrete_stack.show c_stk ;
-      Some { model; c_stk }
-  | Result.Error _exps -> None
 
 module U = Global_state.Unroll
 
@@ -97,7 +44,6 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
   (* block works similar to env in a normal interpreter *)
   let[@landmark] rec lookup (this_key : Lookup_key.t) block () : unit Lwt.t =
     let x, xs, r_stk = Lookup_key.to_parts this_key in
-    (* A lookup must be required before. *)
     let gate_tree = Global_state.find_node_exn state this_key block in
 
     (* update global state *)
@@ -264,7 +210,7 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
                       ignore @@ Lazy.force remove_once) ;
 
                   List.iter [ true; false ] ~f:(fun beta ->
-                      if eager_check state config key_cond_var
+                      if Riddler.eager_check state config key_cond_var
                            [ Riddler.bind_x_v [ x' ] r_stk (Value_bool beta) ]
                       then (
                         let ctracelet, key_x_ret =
@@ -384,7 +330,7 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
       then (
         LLog.app (fun m ->
             m "Step %d\t%a\n" state.tree_size Lookup_key.pp this_key) ;
-        match check state config with
+        match Riddler.check state config with
         | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
         | None -> Lwt.return_unit)
       else Lwt.return_unit

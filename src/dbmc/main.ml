@@ -41,7 +41,7 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
   let target = config.target in
 
   let post_process () =
-    match Lookup.check state config with
+    match Riddler.check state config with
     | Some { model; c_stk } -> handle_found config state model c_stk
     | None ->
         SLog.info (fun m -> m "UNSAT") ;

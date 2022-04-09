@@ -1,8 +1,4 @@
-type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
-
-exception Found_solution of result_info
-
-val check : Global_state.t -> Global_config.t -> result_info option
+exception Found_solution of Riddler.result_info
 
 val lookup_top :
   config:Global_config.t ->

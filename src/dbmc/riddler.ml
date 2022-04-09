@@ -4,6 +4,9 @@ open Odefa_ast
 open Odefa_ast.Ast
 module SuduZ3 = Solver.SuduZ3
 open SuduZ3
+open Log.Export
+
+type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
 
 let ctx = Solver.ctx
 let top_stack = SuduZ3.var_s "X_topstack"
@@ -198,3 +201,53 @@ let discard key v =
 let is_picked model key =
   Option.value_map model ~default:false ~f:(fun model ->
       Option.value (SuduZ3.get_bool model (pick_at_key key)) ~default:true)
+
+let eager_check (state : Global_state.t) (config : Global_config.t) target
+    assumption =
+  let _ = (state, config) in
+  let unfinish_lookup =
+    Hash_set.to_list state.lookup_created
+    (* |> List.map ~f:(fun key ->
+           if not (Lookup_key.equal key target)
+           then Solver.SuduZ3.not_ (Riddler.pick_at_key key)
+           else Riddler.pick_at_key key) *)
+    |> List.map ~f:(fun key -> pick_at_key key @=> pick_at_key target)
+  in
+  let phi_used_once = unfinish_lookup @ [ pick_at_key target ] @ assumption in
+
+  let check_result = Solver.check state.phis_z3 phi_used_once in
+  Global_state.clear_phis state ;
+  SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
+  SLog.debug (fun m ->
+      m "Used-once Phis: %a"
+        Fmt.(Dump.list string)
+        (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
+  match check_result with
+  | Result.Ok _model ->
+      Fmt.pr "eager_check SAT\n" ;
+      true
+  | Result.Error _exps ->
+      Fmt.pr "eager_check UNSAT\n" ;
+      false
+
+let check (state : Global_state.t) (config : Global_config.t) :
+    result_info option =
+  LLog.info (fun m -> m "Search Tree Size:\t%d" state.tree_size) ;
+  let unfinish_lookup =
+    Hash_set.to_list state.lookup_created
+    |> List.map ~f:(fun key -> Solver.SuduZ3.not_ (pick_at_key key))
+  in
+  let check_result = Solver.check state.phis_z3 unfinish_lookup in
+  Global_state.clear_phis state ;
+  match check_result with
+  | Result.Ok model ->
+      if config.debug_model
+      then (
+        SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
+        SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)))
+      else () ;
+      let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
+      let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
+      print_endline @@ Concrete_stack.show c_stk ;
+      Some { model; c_stk }
+  | Result.Error _exps -> None
