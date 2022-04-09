@@ -6,6 +6,7 @@
  (libraries
   core
   core_kernel.pairing_heap
+  core.nano_mutex
   fmt
   lwt
   lwt.unix

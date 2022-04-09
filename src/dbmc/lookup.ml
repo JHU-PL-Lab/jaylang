@@ -94,6 +94,7 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
                        end) : Ruler.Ruler_state)
   in
   let module R = Ruler.Make (RS) in
+  (* block works similar to env in a normal interpreter *)
   let[@landmark] rec lookup (this_key : Lookup_key.t) block () : unit Lwt.t =
     let x, xs, r_stk = Lookup_key.to_parts this_key in
     (* A lookup must be required before. *)
@@ -117,14 +118,14 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
           match defined_site with
           (* Value *)
           | At_clause { clause = Clause (_, Value_body v); _ } ->
-              R.deal_with_value state (Some v) this_key block gate_tree
-                make_task_later find_or_add_node
+              R.deal_with_value state (Some v) this_key block gate_tree run_task
+                find_or_add_node
           (* Input *)
           | At_clause { clause = Clause (_, Input_body); _ } ->
               LLog.debug (fun m -> m "Rule Value (Input)") ;
               Hash_set.add state.input_nodes this_key ;
-              R.deal_with_value state None this_key block gate_tree
-                make_task_later find_or_add_node
+              R.deal_with_value state None this_key block gate_tree run_task
+                find_or_add_node
           (* Alias *)
           | At_clause { clause = Clause (_, Var_body (Var (x', _))); _ } ->
               LLog.debug (fun m -> m "Rule Alias: %a" Ast_pp.pp_ident x') ;
@@ -133,8 +134,8 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
               Node.update_rule gate_tree (Node.alias node_rx) ;
               add_phi this_key (Riddler.alias this_key x') ;
 
-              let task_rx = make_task_later key_rx block in
-              U.on_lwt state.unroll this_key key_rx task_rx ;%lwt
+              run_task key_rx block ;
+              U.by_id state.unroll this_key key_rx ;%lwt
 
               Lookup_result.ok_lwt x
           (* Record Start *)
@@ -151,8 +152,8 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
               Node.update_rule gate_tree (Node.project node_r node_r_l) ;
               add_phi this_key (Riddler.alias_key this_key key_r_l) ;
 
-              let task_r_l = make_task_later key_r_l block in
-              U.on_lwt state.unroll this_key key_r_l task_r_l ;%lwt
+              run_task key_r_l block ;
+              U.by_id state.unroll this_key key_r_l ;%lwt
 
               Lookup_result.ok_lwt x
           (* Binop *)
@@ -171,11 +172,10 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
               Node.update_rule gate_tree (Node.binop node_x1 node_x2) ;
               add_phi this_key (Riddler.binop this_key bop x1 x2) ;
 
-              let task_x1 = make_task_later key_x1 block in
-              let task_x2 = make_task_later key_x2 block in
-              let answer = Lookup_result.ok x in
-
-              U.both state.unroll this_key key_x1 task_x1 key_x2 task_x2 answer ;
+              run_task key_x1 block ;
+              run_task key_x2 block ;
+              U.by_map2 state.unroll this_key key_x1 key_x2 (fun _ ->
+                  Lookup_result.ok x) ;
               Lookup_result.ok_lwt x
           (* Cond Top *)
           | At_chosen cb ->
@@ -198,17 +198,18 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
               Node.update_rule gate_tree (Node.cond_choice node_x2 node_xxs) ;
               add_phi this_key (Riddler.cond_top this_key cb condsite_stack) ;
 
-              let task_x2 = make_task_later key_x2 condsite_block in
-              let cb (rc : Lookup_result.t) =
+              run_task key_x2 condsite_block ;
+
+              let cb this_key (rc : Lookup_result.t) =
                 let c = rc.from in
                 if true
                 then (
-                  let task_xxs = make_task_later key_xxs condsite_block in
-                  U.on state.unroll this_key key_xxs task_xxs ;
-                  Lwt.return_unit)
-                else Lwt.return_unit
+                  run_task key_xxs condsite_block ;
+                  Lwt.async (fun () -> U.by_id state.unroll this_key key_xxs))
+                else () ;
+                Lwt.return_unit
               in
-              U.on_cb_lwt state.unroll this_key key_x2 task_x2 cb ;%lwt
+              U.by_bind state.unroll this_key key_x2 cb ;%lwt
 
               Lookup_result.ok_lwt x
           (* Cond Bottom *)
@@ -252,28 +253,33 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
                   (Hash_set.strict_remove_exn state.lookup_created this_key ;
                    add_phi this_key (Riddler.cond_bottom this_key cond_block x'))
               in
-              let task_cond_var = make_task_later key_cond_var block in
+              let remove_mutex = Nano_mutex.create () in
 
-              let cb (c : Lookup_result.t) =
+              run_task key_cond_var block ;
+
+              let cb this_key (c : Lookup_result.t) =
                 if c.status
                 then (
-                  ignore @@ Lazy.force remove_once ;
+                  Nano_mutex.critical_section remove_mutex ~f:(fun () ->
+                      ignore @@ Lazy.force remove_once) ;
 
                   List.iter [ true; false ] ~f:(fun beta ->
                       if eager_check state config key_cond_var
                            [ Riddler.bind_x_v [ x' ] r_stk (Value_bool beta) ]
-                      then
+                      then (
                         let ctracelet, key_x_ret =
                           Lookup_key.get_cond_block_and_return cond_block beta
                             r_stk x xs
                         in
-                        let task_x_ret = make_task_later key_x_ret ctracelet in
-                        U.on state.unroll this_key key_x_ret task_x_ret
+
+                        run_task key_x_ret ctracelet ;
+                        Lwt.async (fun () ->
+                            U.by_id state.unroll this_key key_x_ret))
                       else ()) ;
                   Lwt.return_unit)
                 else Lwt.return_unit
               in
-              U.on_cb_lwt state.unroll this_key key_cond_var task_cond_var cb ;%lwt
+              U.by_bind state.unroll this_key key_cond_var cb ;%lwt
               Lookup_result.ok_lwt x
           (* Fun Enter / Fun Enter Non-Local *)
           | At_fun_para (is_local, fb) ->
@@ -299,7 +305,7 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
                         let node_f =
                           find_or_add_node key_f callsite_block gate_tree
                         in
-                        let _lookup_f = run_tasks key_f callsite_block in
+                        let _lookup_f = run_task key_f callsite_block in
                         let key_arg =
                           if is_local
                           then Lookup_key.of_parts x''' xs callsite_stack
@@ -308,7 +314,7 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
                         let node_arg =
                           find_or_add_node key_arg callsite_block gate_tree
                         in
-                        let _lookup_f_arg = run_tasks key_arg callsite_block in
+                        let _lookup_f_arg = run_task key_arg callsite_block in
                         ( sub_trees @ [ (node_f, node_arg) ],
                           lookups @ [ key_arg ] )
                     | None -> (sub_trees, lookups))
@@ -319,7 +325,7 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
               add_phi this_key
                 (Riddler.fun_enter this_key is_local fb callsites map) ;
 
-              U.all_lwt state.unroll this_key lookups ;%lwt
+              U.by_join state.unroll this_key lookups ;%lwt
               Lookup_result.ok_lwt x
           (* Fun Exit *)
           | At_clause
@@ -350,21 +356,22 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
                 (Node.mk_callsite ~fun_tree:node_fun ~sub_trees) ;
               add_phi this_key (Riddler.fun_exit this_key xf fids map) ;
 
-              let task_fun = make_task_later key_fun block in
+              run_task key_fun block ;
 
-              let cb (rf : Lookup_result.t) =
+              let cb this_key (rf : Lookup_result.t) =
                 let fid = rf.from in
                 if List.mem fids fid ~equal:Id.equal
                 then (
                   let fblock = Ident_map.find fid map in
                   let key_x_ret = Lookup_key.get_f_return map fid r_stk x xs in
-                  let task_x_ret = make_task_later key_x_ret fblock in
-                  U.on state.unroll this_key key_x_ret task_x_ret ;
+
+                  run_task key_x_ret fblock ;
+                  Lwt.async (fun () -> U.by_id state.unroll this_key key_x_ret) ;
                   Lwt.return_unit)
                 else Lwt.return_unit
               in
 
-              U.on_cb_lwt state.unroll this_key key_fun task_fun cb ;%lwt
+              U.by_bind state.unroll this_key key_fun cb ;%lwt
               Lookup_result.ok_lwt x
           | At_clause ({ clause = Clause (_, _); _ } as tc) ->
               LLog.err (fun m -> m "%a" Ast_pp.pp_clause tc.clause) ;
@@ -388,14 +395,12 @@ let[@landmark] lookup_top ~(config : Global_config.t) ~(state : Global_state.t)
     Lwt.return_unit
   and find_or_add_node key block node_parent =
     Global_state.find_or_add_node state key block node_parent |> snd
-  and make_task_later key block () =
-    Scheduler.push job_queue key (lookup key block)
-  and run_tasks key block =
+  and run_task key block =
     let task () = Scheduler.push job_queue key (lookup key block) in
-    U.create_task_stream state.unroll key task
+    U.alloc_task state.unroll ~task key
   in
 
   let key_target = Lookup_key.of_parts target [] Rstack.empty in
   let _ = Global_state.init_node state key_target state.root_node in
-  U.create_task_stream state.unroll key_target (fun () -> ()) ;
+  U.alloc_task state.unroll key_target ;
   lookup key_target block0 ()

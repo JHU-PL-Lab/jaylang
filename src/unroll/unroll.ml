@@ -23,7 +23,6 @@ module type S_sig = sig
   type key
 
   val equal_message : message -> message -> bool
-  (* val init_task : key -> unit *)
 end
 
 module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
@@ -31,16 +30,13 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
   type result = S.result
   type message = S.message
   type push = message option -> unit
-  type handle0 = message -> unit
-  type handle1 = push -> message -> unit
-  type handle2 = push -> message -> message -> unit
   type task = unit -> unit
 
   type task_status =
     | Not_created
     | Initial
-    (* | Waitng of task *)
-    (* | Pending *)
+    | Waitng of task
+    | Pending
     | Running
     | Done
 
@@ -81,11 +77,11 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
     let detail = find_detail t key in
     Lwt_stream.clone detail.stream
 
-  let create_task_stream t key task =
+  let alloc_task t ?task key =
     let detail = find_detail t key in
     if is_initial detail
     then (
-      task () ;
+      (match task with None -> () | Some t -> t ()) ;
       detail.task_status <- Running)
     else ()
 
@@ -98,11 +94,7 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
     else () ;
     Lwt_stream.clone detail.stream
 
-  let find_push t key =
-    let detail = find_detail t key in
-    detail.push
-
-  let push_fresh_result t key =
+  let push_if_new t key =
     let detail = find_detail t key in
     fun msg ->
       Nano_mutex.critical_section push_mutex ~f:(fun () ->
@@ -112,68 +104,53 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
             detail.push (Some msg) ;
             detail.messages <- detail.messages @ [ msg ]))
 
-  let on_lwt t key_src key_tgt task_tgt : unit Lwt.t =
-    let stream_tgt = find_task_stream t key_tgt task_tgt in
-    let cb = push_fresh_result t key_src in
+  let by_id t key_tgt key_src : unit Lwt.t =
+    let stream_src = get_stream t key_src in
+    let cb = push_if_new t key_tgt in
     Lwt_stream.iter_p
       (fun x ->
         cb x ;
         Lwt.return_unit)
-      stream_tgt
+      stream_src
 
-  let on t key_src key_tgt task_tgt : unit =
-    Lwt.async (fun () -> on_lwt t key_src key_tgt task_tgt)
-
-  let on_cb_lwt t _key_src key_tgt task_tgt cb : unit Lwt.t =
-    let stream_tgt = find_task_stream t key_tgt task_tgt in
-    Lwt_stream.iter_p (fun x -> cb x >>= fun () -> Lwt.return_unit) stream_tgt
-
-  let on_answer_lwt t key_src key_tgt task_tgt answer : unit Lwt.t =
-    let stream_tgt = find_task_stream t key_tgt task_tgt in
-    let cb _ = push_fresh_result t key_src answer in
+  let by_map t key_tgt key_src f : unit Lwt.t =
+    let stream_src = get_stream t key_src in
+    let cb = push_if_new t key_tgt in
     Lwt_stream.iter_p
       (fun x ->
-        cb x ;
+        cb (f x) ;
         Lwt.return_unit)
-      stream_tgt
+      stream_src
 
-  let on_answer t key_src key_tgt task_tgt answer : unit =
-    Lwt.async (fun () -> on_answer_lwt t key_src key_tgt task_tgt answer)
+  let by_bind t key_tgt key_src f : unit Lwt.t =
+    let stream_src = get_stream t key_src in
+    Lwt_stream.iter_p (fun x -> f key_tgt x) stream_src
 
-  let all_lwt t key_src key_tgts =
-    let cb = push_fresh_result t key_src in
+  let by_join t key_src key_tgts =
+    let cb = push_if_new t key_src in
     let stream_tgts = List.map key_tgts ~f:(get_stream t) in
     Lwt_list.iter_p
       (fun lookup_x_ret -> Lwt_stream.iter (fun x -> cb x) lookup_x_ret)
       stream_tgts
 
-  let both t key_src key_tgt1 target_tgt1 key_tgt2 target_tgt2 answer : unit =
-    let push = find_push t key_src in
-    let stream_tgt1 = find_task_stream t key_tgt1 target_tgt1 in
-    let stream_tgt2 = find_task_stream t key_tgt2 target_tgt2 in
-    let cb _ = push_fresh_result t key_src answer in
+  let by_map2 t key_tgt key_src1 key_src2 f : unit =
+    let stream_src1 = get_stream t key_src1 in
+    let stream_src2 = get_stream t key_src2 in
+    let cb = push_if_new t key_tgt in
 
     (* TODO: this logic is obviously incorrect *)
     let rec loop () =
-      let r1 = Lwt_stream.get stream_tgt1 in
-      let r2 = Lwt_stream.get stream_tgt2 in
+      let r1 = Lwt_stream.get stream_src1 in
+      let r2 = Lwt_stream.get stream_src2 in
       let%lwt v1, v2 = Lwt.both r1 r2 in
       match (v1, v2) with
       | Some v1, Some v2 ->
-          cb (v1, v2) ;
+          cb (f (v1, v2)) ;
           loop ()
       | _, _ -> Lwt.return_unit
-      (*
-      | None, None -> Lwt.return_unit
-      | _, _ ->
-        result_pusher (Lookup_result.ok x) ;
-        loop ()
-      *)
     in
 
     Lwt.async loop
-
-  (* liftings *)
 
   (* external use *)
   let get_messages t key =
@@ -181,3 +158,17 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
       ~if_found:(fun x -> x.messages)
       ~if_not_found:(fun _ -> [])
 end
+
+(* open Core
+
+   type rule_based_details =
+     | NA
+     | FunEnter of { mutable funs : Id.t list; mutable args : Id.t list }
+     | FunExit of { mutable funs : Id.t list; mutable rets : Id.t list }
+
+   type detail_kind = NA_kind | FunEnter_kind | FunExit_kind
+
+   type t = {
+     details : rule_based_details;
+   }
+*)
