@@ -153,7 +153,7 @@ let traverse_node ?(stop = fun _ -> false) ~at_node ~init ~acc_f node =
       let duplicate =
         match Hash_set.strict_add visited !node.key with
         | Ok () ->
-            at_node node;
+            at_node node ;
             false
         | Error _ -> true
       in
@@ -167,7 +167,7 @@ let traverse_node ?(stop = fun _ -> false) ~at_node ~init ~acc_f node =
         | Project (n1, n2) | Binop (n1, n2) | Cond_choice (n1, n2) ->
             List.iter ~f:(loop ~acc) [ n1; n2 ]
         | Callsite (node, child_edges) | Condsite (node, child_edges) ->
-            loop ~acc node;
+            loop ~acc node ;
             List.iter ~f:(fun n -> loop ~acc n) child_edges
         | Para_local ncs | Para_nonlocal ncs ->
             List.iter

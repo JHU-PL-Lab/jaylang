@@ -2,42 +2,72 @@ open Core
 open Odefa_ast.Ast
 open Odefa_ast.Ast_pp
 
-type discovery_main_rule = DM of { x : Id.t; v : value }
-type discovery_nonmain_rule = DN of { x : Id.t; v : value }
-type discard_rule = D of { x : Id.t; v : value }
-type input_rule = I of { x : Id.t }
-type alias_rule = A of { x : Id.t; x' : Id.t }
+module Discovery_main_rule = struct
+  type t = { x : Id.t; v : value }
+end
 
-type binop_rule =
-  | B of { x : Id.t; bop : binary_operator; x1 : Id.t; x2 : Id.t }
+module Discovery_nonmain_rule = struct
+  type t = { x : Id.t; v : value }
+end
 
-type cond_top_rule = CT of Tracelet.cond_block
-type cond_btm_rule = CB of { x : Id.t; x' : Id.t; tid : Id.t }
+module Input_rule = struct
+  type t = { x : Id.t; is_in_main : bool }
+end
 
-type fun_enter_local_rule =
-  | FEL of { x : Id.t; fb : Tracelet.fun_block; is_local : bool }
+module Discard_rule = struct
+  type t = { x : Id.t; v : value }
+end
 
-type fun_enter_nonlocal_rule =
-  | FEN of { x : Id.t; fb : Tracelet.fun_block; is_local : bool }
+module Alias_rule = struct
+  type t = { x : Id.t; x' : Id.t }
+end
 
-type fun_exit_rule = FE of { x : Id.t; xf : Id.t; fids : Id.t list }
-type record_start_rule = RS of { x : Id.t; r : Id.t; lbl : Id.t }
-type record_end_rule = RE of { x : Id.t; v : value }
+module Binop_rule = struct
+  type t = { x : Id.t; bop : binary_operator; x1 : Id.t; x2 : Id.t }
+end
+
+module Record_start_rule = struct
+  type t = { x : Id.t; r : Id.t; lbl : Id.t }
+end
+
+module Record_end_rule = struct
+  type t = { x : Id.t; r : record_value }
+end
+
+module Cond_top_rule = struct
+  type t = Tracelet.cond_block
+end
+
+module Cond_btm_rule = struct
+  type t = { x : Id.t; x' : Id.t; tid : Id.t }
+end
+
+module Fun_enter_local_rule = struct
+  type t = { x : Id.t; fb : Tracelet.fun_block; is_local : bool }
+end
+
+module Fun_enter_nonlocal_rule = struct
+  type t = { x : Id.t; fb : Tracelet.fun_block; is_local : bool }
+end
+
+module Fun_exit_rule = struct
+  type t = { x : Id.t; xf : Id.t; fids : Id.t list }
+end
 
 type t =
-  | Discovery_main of discovery_main_rule
-  | Discovery_nonmain of discovery_nonmain_rule
-  | Discard of discard_rule
-  | Input of input_rule
-  | Alias of alias_rule
-  | Binop of binop_rule
-  | Cond_top of cond_top_rule
-  | Cond_btm of cond_btm_rule
-  | Fun_enter_local of fun_enter_local_rule
-  | Fun_enter_nonlocal of fun_enter_nonlocal_rule
-  | Fun_exit of fun_exit_rule
-  | Record_start of record_start_rule
-  | Record_end of record_end_rule
+  | Discovery_main of Discovery_main_rule.t
+  | Discovery_nonmain of Discovery_nonmain_rule.t
+  | Input of Input_rule.t
+  | Discard of Discard_rule.t
+  | Alias of Alias_rule.t
+  | Binop of Binop_rule.t
+  | Cond_top of Cond_top_rule.t
+  | Cond_btm of Cond_btm_rule.t
+  | Fun_enter_local of Fun_enter_local_rule.t
+  | Fun_enter_nonlocal of Fun_enter_nonlocal_rule.t
+  | Fun_exit of Fun_exit_rule.t
+  | Record_start of Record_start_rule.t
+  | Record_end of Record_end_rule.t
   | Mismatch
 
 let rule_of_runtime_status x xs block : t =
@@ -47,47 +77,51 @@ let rule_of_runtime_status x xs block : t =
       match tc with
       | { clause = Clause (_, Value_body v); _ } when List.is_empty xs ->
           if Ident.equal (Tracelet.id_of_block block) Tracelet.id_main
-          then Discovery_main (DM { x; v })
-          else Discovery_nonmain (DN { x; v })
+          then Discovery_main { x; v }
+          else Discovery_nonmain { x; v }
       | { clause = Clause (_, Value_body (Value_function _ as v)); _ }
         when not (List.is_empty xs) ->
-          Discard (D { x; v })
-      | { clause = Clause (_, Value_body (Value_record _r as v)); _ }
+          Discard { x; v }
+      | { clause = Clause (_, Input_body); _ } ->
+          assert (List.is_empty xs) ;
+          let is_in_main =
+            Ident.equal (Tracelet.id_of_block block) Tracelet.id_main
+          in
+          Input { x; is_in_main }
+      | { clause = Clause (_, Value_body (Value_record r)); _ }
         when not (List.is_empty xs) ->
-          Record_end (RE { x; v })
+          Record_end { x; r }
       | { clause = Clause (_, Value_body _); _ } when not (List.is_empty xs) ->
           Mismatch
-      | { clause = Clause (_, Input_body); _ } -> Input (I { x })
-      | { clause = Clause (_, Var_body (Var (x', _))); _ } ->
-          Alias (A { x; x' })
+      | { clause = Clause (_, Var_body (Var (x', _))); _ } -> Alias { x; x' }
       | { clause = Clause (_, Projection_body (Var (r, _), lbl)); _ } ->
-          Record_start (RS { x; r; lbl })
+          Record_start { x; r; lbl }
       | {
        clause = Clause (_, Binary_operation_body (Var (x1, _), bop, Var (x2, _)));
        _;
       } ->
-          Binop (B { x; bop; x1; x2 })
+          Binop { x; bop; x1; x2 }
       | {
        clause = Clause (_, Conditional_body (Var (x', _), _, _));
        id = tid;
        _;
       } ->
-          Cond_btm (CB { x; x'; tid })
+          Cond_btm { x; x'; tid }
       | {
        clause = Clause (_, Appl_body (Var (xf, _), Var (_xv, _)));
        cat = App fids;
        _;
       } ->
-          Fun_exit (FE { x; xf; fids })
+          Fun_exit { x; xf; fids }
       | _ ->
           Log.Export.LLog.err (fun m ->
               m "%a" Odefa_ast.Ast_pp.pp_clause tc.clause) ;
           failwith "should not mismatch here")
   | None, Fun fb ->
       if Ident.(equal fb.para x)
-      then Fun_enter_local (FEL { x; fb; is_local = true })
-      else Fun_enter_nonlocal (FEN { x; fb; is_local = false })
-  | None, Cond cb -> Cond_top (CT cb)
+      then Fun_enter_local { x; fb; is_local = true }
+      else Fun_enter_nonlocal { x; fb; is_local = false }
+  | None, Cond cb -> Cond_top cb
   | None, Main _mb -> Mismatch
 
 (* module type Rule_sig = sig
