@@ -40,7 +40,7 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
   let job_queue = Scheduler.create config () in
   let target = config.target in
 
-  let post_process () =
+  let post_check () =
     match Riddler.check state config with
     | Some { model; c_stk } -> handle_found config state model c_stk
     | None ->
@@ -54,18 +54,18 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
   in
   try%lwt
     let do_work () =
-      Lookup.run ~config ~state job_queue ;
-      Scheduler.run job_queue >>= fun _ -> Lwt.return (post_process ())
+      Lookup.run_ddse ~config ~state job_queue ;
+      Scheduler.run job_queue >>= fun _ -> Lwt.return (post_check ())
     in
     match config.timeout with
     | Some ts -> Lwt_unix.with_timeout (Time.Span.to_sec ts) do_work
     | None -> do_work ()
   with
-  | Lookup.Found_solution { model; c_stk } ->
+  | Riddler.Found_solution { model; c_stk } ->
       Lwt.return (handle_found config state model c_stk)
   | Lwt_unix.Timeout ->
       prerr_endline "timeout" ;
-      Lwt.return (post_process ())
+      Lwt.return (post_check ())
 
 let main_lwt ~config program =
   let state = Global_state.create config program in

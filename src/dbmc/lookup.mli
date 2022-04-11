@@ -1,4 +1,8 @@
-exception Found_solution of Riddler.result_info
+val run_ddse :
+  config:Global_config.t ->
+  state:Global_state.t ->
+  unit Scheduler.job Pairing_heap.t ->
+  unit
 
 val run :
   config:Global_config.t ->

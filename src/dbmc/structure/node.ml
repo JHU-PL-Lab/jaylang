@@ -4,7 +4,7 @@ module T = struct
   type t = {
     key : Lookup_key.t;
     block_id : Id.t;
-    rule : (rule[@ignore]);
+    mutable rule : (rule[@ignore]);
     mutable preds : (edge list[@ignore]);
   }
 
@@ -217,5 +217,4 @@ let fold_tree ?(stop = fun _ -> false) ~init ~init_path ~sum ~sum_path node =
   in
   loop ~acc:init ~acc_path:init_path node
 
-(* TODO: try making the rule a mutable field *)
-let update_rule tree rule = tree := { !tree with rule }
+let update_rule node rule = !node.rule <- rule

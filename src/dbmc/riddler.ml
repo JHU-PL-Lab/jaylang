@@ -8,6 +8,8 @@ open Log.Export
 
 type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
 
+exception Found_solution of result_info
+
 let ctx = Solver.ctx
 let top_stack = SuduZ3.var_s "X_topstack"
 
@@ -251,3 +253,14 @@ let check (state : Global_state.t) (config : Global_config.t) :
       print_endline @@ Concrete_stack.show c_stk ;
       Some { model; c_stk }
   | Result.Error _exps -> None
+
+let step_check ~(config : Global_config.t) ~(state : Global_state.t) =
+  state.tree_size <- state.tree_size + 1 ;
+  if state.tree_size mod config.steps = 0
+  then
+    (* LLog.app (fun m ->
+        m "Step %d\t%a\n" state.tree_size Lookup_key.pp this_key) ; *)
+    match check state config with
+    | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
+    | None -> Lwt.return_unit
+  else Lwt.return_unit

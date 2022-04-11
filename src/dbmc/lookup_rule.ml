@@ -18,7 +18,7 @@ module type S = sig
   val x_first : Id.t
 
   val find_or_add_node :
-    Lookup_key.t -> Tracelet.block -> Node.Node_ref.t -> Node.Node_ref.t
+    Lookup_key.t -> Tracelet.block -> Node.ref_t -> Node.ref_t
 
   val block_map : Tracelet.block Odefa_ast.Ast.Ident_map.t
 
@@ -30,7 +30,7 @@ end
 module U = Global_state.Unroll
 
 module Make (S : S) = struct
-  let rule_main v (key : Lookup_key.t) (this_node : Node.t ref) =
+  let rule_main v (key : Lookup_key.t) this_node =
     let result_pusher = U.push_if_new S.state.unroll key in
     let target_stk = Rstack.concretize_top key.r_stk in
     Node.update_rule this_node (Node.done_ target_stk) ;
@@ -38,23 +38,21 @@ module Make (S : S) = struct
     result_pusher (Lookup_result.ok key.x) ;
     Lookup_result.ok_lwt key.x
 
-  let rule_nonmain v (key : Lookup_key.t) (this_node : Node.t ref) block
-      run_task =
+  let rule_nonmain v (key : Lookup_key.t) this_node block run_task =
     let result_pusher = U.push_if_new S.state.unroll key in
     let key_first = Lookup_key.to_first key S.x_first in
     let node_child = S.find_or_add_node key_first block this_node in
-    this_node := { !this_node with rule = Node.to_first node_child } ;
+    Node.update_rule this_node (Node.to_first node_child) ;
     S.add_phi key (Riddler.discover_non_main key S.x_first v) ;
     run_task key_first block ;
     U.by_map S.state.unroll key key_first (fun _ -> Lookup_result.ok key.x) ;%lwt
     Lookup_result.ok_lwt key.x
 
-  let discovery_main p (key : Lookup_key.t) (this_node : Node.t ref) =
+  let discovery_main p (key : Lookup_key.t) this_node =
     let ({ v; _ } : Discovery_main_rule.t) = p in
     rule_main (Some v) key this_node
 
-  let discovery_nonmain p (key : Lookup_key.t) (this_node : Node.t ref) block
-      run_task =
+  let discovery_nonmain p (key : Lookup_key.t) this_node block run_task =
     let ({ v; _ } : Discovery_nonmain_rule.t) = p in
     rule_nonmain (Some v) key this_node block run_task
 
@@ -65,7 +63,7 @@ module Make (S : S) = struct
     then rule_main None this_key this_node
     else rule_nonmain None this_key this_node block run_task
 
-  let discard p (key : Lookup_key.t) (this_node : Node.t ref) block run_task =
+  let discard p (key : Lookup_key.t) this_node block run_task =
     let ({ v; _ } : Discard_rule.t) = p in
     let result_pusher = U.push_if_new S.state.unroll key in
     let key_drop_x = Lookup_key.drop_x key in
@@ -77,7 +75,7 @@ module Make (S : S) = struct
     U.by_id S.state.unroll key key_drop_x ;%lwt
     Lookup_result.ok_lwt key.x
 
-  let alias p (key : Lookup_key.t) (this_node : Node.t ref) block run_task =
+  let alias p (key : Lookup_key.t) this_node block run_task =
     let ({ x; x' } : Alias_rule.t) = p in
     let key_rx = Lookup_key.replace_x key x' in
     let node_rx = S.find_or_add_node key_rx block this_node in
@@ -102,8 +100,7 @@ module Make (S : S) = struct
     U.by_map2 S.state.unroll key key_x1 key_x2 (fun _ -> Lookup_result.ok x) ;
     Lookup_result.ok_lwt x
 
-  let record_start p (key : Lookup_key.t) (this_node : Node.t ref) block
-      run_task =
+  let record_start p (key : Lookup_key.t) this_node block run_task =
     let ({ x; r; lbl } : Record_start_rule.t) = p in
     let key_r = Lookup_key.replace_x key x in
     let node_r = S.find_or_add_node key_r block this_node in
@@ -118,8 +115,7 @@ module Make (S : S) = struct
 
     Lookup_result.ok_lwt x
 
-  let record_end p (key : Lookup_key.t) (this_node : Node.t ref) block run_task
-      =
+  let record_end p (key : Lookup_key.t) this_node block run_task =
     let ({ r; _ } : Record_end_rule.t) = p in
     let (Record_value rmap) = r in
     let _x, xs, r_stk = Lookup_key.to_parts key in
@@ -140,7 +136,7 @@ module Make (S : S) = struct
         Lookup_result.fail_lwt key.x
 
   let cond_top (cb : Cond_top_rule.t) (key : Lookup_key.t)
-      (this_node : Node.t ref) block run_task =
+      (this_node : Node.ref_t) block run_task =
     let condsite_block = Tracelet.outer_block block S.block_map in
     let x, xs, r_stk = Lookup_key.to_parts key in
     let choice = Option.value_exn cb.choice in
@@ -174,7 +170,7 @@ module Make (S : S) = struct
 
     Lookup_result.ok_lwt x
 
-  let cond_btm p (this_key : Lookup_key.t) (this_node : Node.t ref) block
+  let cond_btm p (this_key : Lookup_key.t) (this_node : Node.ref_t) block
       run_task =
     let _x, xs, r_stk = Lookup_key.to_parts this_key in
     let ({ x; x'; tid } : Cond_btm_rule.t) = p in

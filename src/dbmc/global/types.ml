@@ -27,10 +27,10 @@ module State = struct
     block_map : Tracelet.block Odefa_ast.Ast.Ident_map.t;
     source_map : Odefa_ast.Ast.clause Odefa_ast.Ast.Ident_map.t Lazy.t;
     (* graph attr *)
-    root_node : Node.t ref;
+    root_node : Node.ref_t;
     mutable tree_size : int;
     (* central: node attr *)
-    node_map : (Lookup_key.t, Node.t ref) Hashtbl.t;
+    node_map : (Lookup_key.t, Node.ref_t) Hashtbl.t;
     (* constraints *)
     mutable phis_z3 : Z3.Expr.expr list;
     phi_map : (Lookup_key.t, Z3.Expr.expr) Hashtbl.t;
