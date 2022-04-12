@@ -264,3 +264,18 @@ let step_check ~(config : Global_config.t) ~(state : Global_state.t) =
     | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
     | None -> Lwt.return_unit
   else Lwt.return_unit
+
+let check_phis phis is_debug : result_info option =
+  match Solver.check [] phis with
+  | Result.Ok model ->
+      SLog.app (fun m -> m "SAT") ;
+      if is_debug
+      then (
+        SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
+        SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)))
+      else () ;
+      let c_stk = Concrete_stack.empty in
+      Some { model; c_stk }
+  | Result.Error _exps ->
+      SLog.app (fun m -> m "UNSAT") ;
+      None

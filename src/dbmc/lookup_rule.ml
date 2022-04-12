@@ -97,7 +97,7 @@ module Make (S : S) = struct
 
     run_task key_x1 block ;
     run_task key_x2 block ;
-    U.by_map2 S.state.unroll key key_x1 key_x2 (fun _ -> Lookup_result.ok x) ;
+    U.by_map2_u S.state.unroll key key_x1 key_x2 (fun _ -> Lookup_result.ok x) ;
     Lookup_result.ok_lwt x
 
   let record_start p (key : Lookup_key.t) this_node block run_task =

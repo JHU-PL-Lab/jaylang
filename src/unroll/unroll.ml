@@ -104,6 +104,12 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
             detail.push (Some msg) ;
             detail.messages <- detail.messages @ [ msg ]))
 
+  let by_iter t key_src f =
+    let stream_src = get_stream t key_src in
+    Lwt_stream.iter_p (fun x -> f x) stream_src
+
+  let by_iter_u t key_src f = Lwt.async (fun () -> by_iter t key_src f)
+
   let by_id t key_tgt key_src : unit Lwt.t =
     let stream_src = get_stream t key_src in
     let cb = push_if_new t key_tgt in
@@ -112,6 +118,9 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
         cb x ;
         Lwt.return_unit)
       stream_src
+
+  let by_id_u t key_tgt key_src : unit =
+    Lwt.async (fun () -> by_id t key_tgt key_src)
 
   let by_map t key_tgt key_src f : unit Lwt.t =
     let stream_src = get_stream t key_src in
@@ -122,18 +131,32 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
         Lwt.return_unit)
       stream_src
 
+  let by_map_u t key_tgt key_src f : unit =
+    Lwt.async (fun () -> by_map t key_tgt key_src f)
+
   let by_bind t key_tgt key_src f : unit Lwt.t =
     let stream_src = get_stream t key_src in
     Lwt_stream.iter_p (fun x -> f key_tgt x) stream_src
 
-  let by_join t key_src key_tgts =
+  let by_bind_u t key_tgt key_src f : unit =
+    Lwt.async (fun () -> by_bind t key_tgt key_src f)
+
+  let by_join t ?(f = Fn.id) key_src key_tgts =
     let cb = push_if_new t key_src in
     let stream_tgts = List.map key_tgts ~f:(get_stream t) in
     Lwt_list.iter_p
-      (fun lookup_x_ret -> Lwt_stream.iter (fun x -> cb x) lookup_x_ret)
+      (fun lookup_x_ret -> Lwt_stream.iter (fun x -> cb (f x)) lookup_x_ret)
       stream_tgts
 
-  let by_map2 t key_tgt key_src1 key_src2 f : unit =
+  let by_join_u t key_src key_tgts =
+    Lwt.async (fun () -> by_join t key_src key_tgts)
+
+  let by_join_map t key_src key_tgts f = by_join t ~f key_src key_tgts
+
+  let by_join_map_u t key_src key_tgts f =
+    Lwt.async (fun () -> by_join t ~f key_src key_tgts)
+
+  let by_map2 t key_tgt key_src1 key_src2 f : unit Lwt.t =
     let stream_src1 = get_stream t key_src1 in
     let stream_src2 = get_stream t key_src2 in
     let cb = push_if_new t key_tgt in
@@ -149,8 +172,10 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
           loop ()
       | _, _ -> Lwt.return_unit
     in
+    loop ()
 
-    Lwt.async loop
+  let by_map2_u t key_tgt key_src1 key_src2 f : unit =
+    Lwt.async (fun () -> by_map2 t key_tgt key_src1 key_src2 f)
 
   (* external use *)
   let get_messages t key =

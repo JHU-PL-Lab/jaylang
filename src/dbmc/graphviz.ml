@@ -193,11 +193,8 @@ module DotPrinter_Make (S : GS) = struct
         in
         let content =
           let phis_string =
-            ""
-            (* Option.value_map (Hashtbl.find S.state.phi_map node.key) ~default:""
-               ~f:(fun phi -> phi |> Z3.Expr.to_string |> label_escape) *)
-            (* List.map phis ~f:(fun phi -> phi |> Constraint.show |> label_escape)
-               |> String.concat ~sep:" | " *)
+            Option.value_map (Hashtbl.find S.state.phi_map node.key) ~default:""
+              ~f:(fun phi -> phi |> Z3.Expr.to_string |> label_escape)
           in
           let phi_status =
             match Hashtbl.find S.state.noted_phi_map node.key with
