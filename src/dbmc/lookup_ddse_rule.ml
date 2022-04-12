@@ -262,7 +262,12 @@ module Make (S : S) = struct
     in
 
     Node.update_rule this_node (Node.mk_para ~sub_trees) ;
-    U.by_join_map_u S.unroll key lookups (cb_add phi)
+    (* let lookups = [] in *)
+    (* Lwt.dont_wait
+       (fun () -> U.by_join_map S.unroll key lookups (cb_add phi))
+       (fun _ -> LLog.app (fun m -> m "catched")) *)
+    List.iter lookups ~f:(fun lookup ->
+        U.by_map_u S.unroll key lookup (cb_add phi))
 
   let fun_enter_local p this_key this_node phis run_task =
     let ({ fb; is_local; _ } : Fun_enter_local_rule.t) = p in

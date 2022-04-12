@@ -53,6 +53,7 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
         []
   in
   let post_check_ddse () =
+    SLog.app (fun m -> m "post check") ;
     if config.debug_model
     then SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
     else () ;
@@ -60,6 +61,14 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
     []
   in
   try%lwt
+    (Lwt.async_exception_hook :=
+       fun exn ->
+         match exn with
+         | Riddler.Found_solution _ ->
+             LLog.app (fun m -> m "Found in run_ddse") ;
+             raise exn (* Lwt.fail (Riddler.Found_solution { model; c_stk }) *)
+         | _ -> failwith "unknown exception") ;
+
     let do_work () =
       Lookup.run_ddse ~config ~state job_queue ;
       Scheduler.run job_queue >>= fun _ -> Lwt.return (post_check_ddse ())

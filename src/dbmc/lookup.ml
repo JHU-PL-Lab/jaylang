@@ -13,13 +13,24 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
   state.phis_z3 <- [ Riddler.pick_at_key (Lookup_key.start state.target) ] ;
 
   (* async handler *)
-  (Lwt.async_exception_hook :=
+  (* (Lwt.async_exception_hook :=
      fun exn ->
        match exn with
-       | Riddler.Found_solution _ -> raise exn
-       | _ -> failwith "unknown exception") ;
-
+       | Riddler.Found_solution { model; c_stk } ->
+           LLog.app (fun m -> m "Found in run_ddse") ;
+           (* raise exn *)
+           Lwt.fail (Riddler.Found_solution { model; c_stk }) ;
+           ()
+       | _ -> failwith "unknown exception") ; *)
   let unroll = U_ddse.create () in
+  let key_target = Lookup_key.of_parts state.target [] Rstack.empty in
+
+  Lwt.async (fun () ->
+      U_ddse.by_iter unroll key_target (fun (_, phis) ->
+          match Riddler.check_phis (Set.to_list phis) false with
+          | None -> Lwt.return_unit
+          | Some { model; c_stk } ->
+              raise (Riddler.Found_solution { model; c_stk }))) ;
 
   let run_eval key block eval =
     let task () = Scheduler.push job_queue key (eval key block) in
@@ -93,7 +104,6 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
         Lwt.return_unit
   in
 
-  let key_target = Lookup_key.of_parts state.target [] Rstack.empty in
   let _ = Global_state.init_node state key_target state.root_node in
   let block0 = Tracelet.find_by_id state.target state.block_map in
   let phis =
@@ -102,13 +112,15 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
         (empty (module Phi))
         (Riddler.pick_at_key (Lookup_key.start state.target)))
   in
-  Scheduler.push job_queue key_target (fun () ->
-      U_ddse.by_iter unroll key_target (fun (_, phis) ->
+
+  (* Scheduler.push job_queue key_target (fun () ->
+      U_ddse.by_iter unroll key_target (fun (key_result, phis) ->
+          SLog.app (fun m -> m "ddse checking") ;
           match Riddler.check_phis (Set.to_list phis) false with
           | None -> Lwt.return_unit
-          | Some { model; c_stk } ->
-              Lwt.fail (Riddler.Found_solution { model; c_stk }))) ;
-
+          | Some { model; _ } ->
+              let c_stk = Rstack.concretize_top key_result.r_stk in
+              raise (Riddler.Found_solution { model; c_stk }))) ; *)
   run_task key_target block0 phis
 (* Lwt.async (fun () ->
     U_ddse.by_iter unroll key_target (fun (_, phis) ->
@@ -127,12 +139,11 @@ let[@landmark] run ~(config : Global_config.t) ~(state : Global_state.t)
   state.phis_z3 <- [ Riddler.pick_at_key (Lookup_key.start state.target) ] ;
 
   (* async handler *)
-  (Lwt.async_exception_hook :=
+  (* (Lwt.async_exception_hook :=
      fun exn ->
        match exn with
        | Riddler.Found_solution _ -> raise exn
-       | _ -> failwith "unknown exception") ;
-
+       | _ -> failwith "unknown exception") ; *)
   let run_eval key block eval =
     let task () = Scheduler.push job_queue key (eval key block) in
     U.alloc_task state.unroll ~task key
