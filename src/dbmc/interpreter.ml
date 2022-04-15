@@ -71,7 +71,7 @@ let rec same_stack s1 s2 =
 
 (* OB: we cannot enter the same stack twice. *)
 let rec eval_exp ~session stk env e : dvalue =
-  (* Fmt.(pr "\n@[-> %a@]\n" Concrete_stack.pp stk); *)
+  Log.Export.ILog.app (fun m -> m "@[-> %a@]\n" Concrete_stack.pp stk) ;
   (match session.target_stk with
   | Some target_stk ->
       let r_stk = Rstack.relativize target_stk stk in
@@ -184,7 +184,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
       then raise (Found_target (value_of_dvalue v_pre))
       else
         Fmt.(
-          pr "found %a at stack %a, expect %a" pp_ident x Concrete_stack.pp
+          pr "found %a at stack %a, expect %a\n" pp_ident x Concrete_stack.pp
             target_stk Concrete_stack.pp stk)
   | _, _ -> ()) ;
 

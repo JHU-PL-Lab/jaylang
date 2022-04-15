@@ -124,6 +124,24 @@ let rule_of_runtime_status x xs block : t =
   | None, Cond cb -> Cond_top cb
   | None, Main _mb -> Mismatch
 
+let show_rule : t -> string = function
+  | Discovery_main _ -> "Discovery_main"
+  | Discovery_nonmain _ -> "Discovery_nonmain"
+  | Input _ -> "Input"
+  | Discard _ -> "Discard"
+  | Alias _ -> "Alias"
+  | Binop _ -> "Binop"
+  | Cond_top _ -> "Cond_top"
+  | Cond_btm _ -> "Cond_btm"
+  | Fun_enter_local _ -> "Fun_enter_local"
+  | Fun_enter_nonlocal _ -> "Fun_enter_nonlocal"
+  | Fun_exit _ -> "Fun_exit"
+  | Record_start _ -> "Record_start"
+  | Record_end _ -> "Record_end"
+  | Mismatch -> "Mismatch"
+
+let pp_rule = Fmt.of_to_string show_rule
+
 (* module type Rule_sig = sig
      type payload
      type result

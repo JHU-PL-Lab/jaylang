@@ -6,31 +6,15 @@ open Log.Export
 module U_ddse = Lookup_ddse_rule.U
 
 let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
-    job_queue : unit =
+    job_queue : unit Lwt.t =
   (* reset and init *)
   Solver.reset () ;
   Riddler.reset () ;
-  state.phis_z3 <- [ Riddler.pick_at_key (Lookup_key.start state.target) ] ;
+  let picked_target = Riddler.pick_at_key (Lookup_key.start state.target) in
+  state.phis_z3 <- [ picked_target ] ;
 
-  (* async handler *)
-  (* (Lwt.async_exception_hook :=
-     fun exn ->
-       match exn with
-       | Riddler.Found_solution { model; c_stk } ->
-           LLog.app (fun m -> m "Found in run_ddse") ;
-           (* raise exn *)
-           Lwt.fail (Riddler.Found_solution { model; c_stk }) ;
-           ()
-       | _ -> failwith "unknown exception") ; *)
   let unroll = U_ddse.create () in
   let key_target = Lookup_key.of_parts state.target [] Rstack.empty in
-
-  Lwt.async (fun () ->
-      U_ddse.by_iter unroll key_target (fun (_, phis) ->
-          match Riddler.check_phis (Set.to_list phis) false with
-          | None -> Lwt.return_unit
-          | Some { model; c_stk } ->
-              raise (Riddler.Found_solution { model; c_stk }))) ;
 
   let run_eval key block eval =
     let task () = Scheduler.push job_queue key (eval key block) in
@@ -57,6 +41,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
   let module R = Lookup_ddse_rule.Make (LS) in
   (* block works similar to env in a common interpreter *)
   let[@landmark] rec run_task key block phis =
+    (* LLog.app (fun m -> m "k = %a" Lookup_key.pp key) ; *)
     let task () = Scheduler.push job_queue key (lookup key block phis) in
     U_ddse.alloc_task unroll ~task key
     (* ----- *)
@@ -66,68 +51,68 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
 
     let block_id = Tracelet.id_of_block block in
 
-    match Riddler.check_phis (Set.to_list phis) false with
-    | None -> Lwt.return_unit
-    | Some _ ->
-        LLog.app (fun m ->
-            m "[Lookup][=>]: %a in block %a" Lookup_key.pp this_key Id.pp
-              block_id) ;
+    (* match Riddler.check_phis (Set.to_list phis) false with
+       | None -> Lwt.return_unit
+       | Some _ -> *)
+    let rule = Rule.rule_of_runtime_status x xs block in
+    LLog.app (fun m ->
+        m "[Lookup][=>]: %a in block %a; Rule %a" Lookup_key.pp this_key Id.pp
+          block_id Rule.pp_rule rule) ;
 
-        let rule = Rule.rule_of_runtime_status x xs block in
-        let _apply_rule =
-          let open Rule in
-          match rule with
-          | Discovery_main p -> R.discovery_main p this_key this_node phis
-          | Discovery_nonmain p ->
-              R.discovery_nonmain p this_key this_node block phis run_task
-          | Input p -> R.input p this_key this_node block phis run_task
-          | Discard p -> R.discard p this_key this_node block phis run_task
-          | Alias p -> R.alias p this_key this_node block phis run_task
-          | Binop b -> R.binop b this_key this_node block phis run_task
-          | Record_start p ->
-              R.record_start p this_key this_node block phis run_task
-          | Record_end p ->
-              R.record_end p this_key this_node block phis run_task
-          | Cond_top cb -> R.cond_top cb this_key this_node block phis run_task
-          | Cond_btm p -> R.cond_btm p this_key this_node block phis run_task
-          | Fun_enter_local p ->
-              R.fun_enter_local p this_key this_node phis run_task
-          | Fun_enter_nonlocal p ->
-              R.fun_enter_nonlocal p this_key this_node phis run_task
-          | Fun_exit p -> R.fun_exit p this_key this_node block phis run_task
-          | Mismatch -> R.mismatch this_key this_node phis
-        in
+    let _apply_rule =
+      let open Rule in
+      match rule with
+      | Discovery_main p -> R.discovery_main p this_key this_node phis
+      | Discovery_nonmain p ->
+          R.discovery_nonmain p this_key this_node block phis run_task
+      | Input p -> R.input p this_key this_node block phis run_task
+      | Discard p -> R.discard p this_key this_node block phis run_task
+      | Alias p -> R.alias p this_key this_node block phis run_task
+      | Binop b -> R.binop b this_key this_node block phis run_task
+      | Record_start p ->
+          R.record_start p this_key this_node block phis run_task
+      | Record_end p -> R.record_end p this_key this_node block phis run_task
+      | Cond_top cb -> R.cond_top cb this_key this_node block phis run_task
+      | Cond_btm p -> R.cond_btm p this_key this_node block phis run_task
+      | Fun_enter_local p ->
+          R.fun_enter_local p this_key this_node phis run_task
+      | Fun_enter_nonlocal p ->
+          R.fun_enter_nonlocal p this_key this_node phis run_task
+      | Fun_exit p -> R.fun_exit p this_key this_node block phis run_task
+      | Mismatch -> R.mismatch this_key this_node phis
+    in
 
-        LLog.debug (fun m ->
-            m "[Lookup][<=]: %a in block %a" Lookup_key.pp this_key Id.pp
-              block_id) ;
-        Lwt.return_unit
+    LLog.debug (fun m ->
+        m "[Lookup][<=]: %a in block %a" Lookup_key.pp this_key Id.pp block_id) ;
+    Lwt.return_unit
   in
 
   let _ = Global_state.init_node state key_target state.root_node in
   let block0 = Tracelet.find_by_id state.target state.block_map in
-  let phis =
-    Set.(
-      add
-        (empty (module Phi))
-        (Riddler.pick_at_key (Lookup_key.start state.target)))
-  in
+  let phis = Phi_set.empty in
+  run_task key_target block0 phis ;
 
-  (* Scheduler.push job_queue key_target (fun () ->
-      U_ddse.by_iter unroll key_target (fun (key_result, phis) ->
-          SLog.app (fun m -> m "ddse checking") ;
-          match Riddler.check_phis (Set.to_list phis) false with
-          | None -> Lwt.return_unit
-          | Some { model; _ } ->
-              let c_stk = Rstack.concretize_top key_result.r_stk in
-              raise (Riddler.Found_solution { model; c_stk }))) ; *)
-  run_task key_target block0 phis
-(* Lwt.async (fun () ->
+  let wait_result =
     U_ddse.by_iter unroll key_target (fun (_, phis) ->
-        match Riddler.check_phis (Set.to_list phis) false with
+        LLog.debug (fun m -> m "HERE?") ;
+
+        let phis_to_check = Set.to_list phis in
+        match Riddler.check_phis phis_to_check config.debug_model with
         | None -> Lwt.return_unit
         | Some { model; c_stk } ->
-            Lwt.fail (Riddler.Found_solution { model; c_stk }))) *)
+            raise (Riddler.Found_solution { model; c_stk }))
+  in
+
+  (* let%lwt _ = Lwt.both (Scheduler.run job_queue) wait_result in *)
+  let%lwt _ =
+    Lwt.pick
+      [
+        (let%lwt _ = Scheduler.run job_queue in
+         Lwt.return_unit);
+        wait_result;
+      ]
+  in
+  Lwt.return_unit
 
 module U = Global_state.Unroll
 
@@ -138,12 +123,6 @@ let[@landmark] run ~(config : Global_config.t) ~(state : Global_state.t)
   Riddler.reset () ;
   state.phis_z3 <- [ Riddler.pick_at_key (Lookup_key.start state.target) ] ;
 
-  (* async handler *)
-  (* (Lwt.async_exception_hook :=
-     fun exn ->
-       match exn with
-       | Riddler.Found_solution _ -> raise exn
-       | _ -> failwith "unknown exception") ; *)
   let run_eval key block eval =
     let task () = Scheduler.push job_queue key (eval key block) in
     U.alloc_task state.unroll ~task key

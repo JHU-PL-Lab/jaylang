@@ -18,11 +18,11 @@ let rec run ?(is_empty = false) q : 'a Lwt.t =
   Control_center.handle_available_commands () ;
   Lwt_mutex.lock Control_center.mutex >>= fun () ->
   Lwt_mutex.unlock Control_center.mutex ;
-  Logs.debug (fun m -> m "[Queue]size = %d" (Pairing_heap.length q)) ;
-  Logs.debug (fun m ->
-      m "[Queue]%a"
-        (Fmt.Dump.list Lookup_key.pp)
-        (q |> Pairing_heap.to_list |> List.map ~f:(fun t -> t.key))) ;
+  (* Logs.app (fun m -> m "[Queue]size = %d" (Pairing_heap.length q)) ; *)
+  (* Logs.app (fun m ->
+       m "[Queue]%a"
+         (Fmt.Dump.list Lookup_key.pp)
+         (q |> Pairing_heap.to_list |> List.map ~f:(fun t -> t.key))) ; *)
   match pull q with
   | Some job ->
       (* ignore @@ job (); *)

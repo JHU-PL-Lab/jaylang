@@ -81,8 +81,8 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
     let detail = find_detail t key in
     if is_initial detail
     then (
-      (match task with None -> () | Some t -> t ()) ;
-      detail.task_status <- Running)
+      detail.task_status <- Running ;
+      match task with None -> () | Some t -> t ())
     else ()
 
   let find_task_stream t key task =
@@ -156,26 +156,74 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
   let by_join_map_u t key_src key_tgts f =
     Lwt.async (fun () -> by_join t ~f key_src key_tgts)
 
+  let product_stream_ s1 s2 =
+    let s, f = Lwt_stream.create () in
+    let rec loop () =
+      let r1 = Lwt_stream.get s1 in
+      let r2 = Lwt_stream.get s2 in
+      let%lwt v1, v2 = Lwt.both r1 r2 in
+      match (v1, v2) with
+      | Some v1, Some v2 ->
+          f (Some (v1, v2)) ;
+          loop ()
+      | _, _ -> Lwt.return_unit
+    in
+    Lwt.async loop ;
+    s
+
+  let product_stream s1 s2 =
+    let s, f = Lwt_stream.create () in
+    Lwt.async (fun () ->
+        Lwt_stream.iter_p
+          (fun v1 ->
+            let s2' = Lwt_stream.clone s2 in
+            Lwt_stream.iter_p
+              (fun v2 ->
+                f (Some (v1, v2)) ;
+                Lwt.return_unit)
+              s2')
+          s1) ;
+    s
+
   let by_map2 t key_tgt key_src1 key_src2 f : unit Lwt.t =
     let stream_src1 = get_stream t key_src1 in
     let stream_src2 = get_stream t key_src2 in
     let cb = push_if_new t key_tgt in
 
-    (* TODO: this logic is obviously incorrect *)
-    let rec loop () =
-      let r1 = Lwt_stream.get stream_src1 in
-      let r2 = Lwt_stream.get stream_src2 in
-      let%lwt v1, v2 = Lwt.both r1 r2 in
-      match (v1, v2) with
-      | Some v1, Some v2 ->
-          cb (f (v1, v2)) ;
-          loop ()
-      | _, _ -> Lwt.return_unit
-    in
-    loop ()
+    Lwt_stream.iter_p
+      (fun (v1, v2) ->
+        cb (f (v1, v2)) ;
+        Lwt.return_unit)
+      (product_stream stream_src1 stream_src2)
+
+  (* TODO: this logic is obviously incorrect *)
+  (* let rec loop () =
+       let r1 = Lwt_stream.get stream_src1 in
+       let r2 = Lwt_stream.get stream_src2 in
+       let%lwt v1, v2 = Lwt.both r1 r2 in
+       match (v1, v2) with
+       | Some v1, Some v2 ->
+           cb (f (v1, v2)) ;
+           loop ()
+       | _, _ -> Lwt.return_unit
+     in
+     loop () *)
 
   let by_map2_u t key_tgt key_src1 key_src2 f : unit =
     Lwt.async (fun () -> by_map2 t key_tgt key_src1 key_src2 f)
+
+  let by_join_both t key_tgt key_src_pairs f : unit Lwt.t =
+    let srcs =
+      List.map key_src_pairs ~f:(fun (a, b) ->
+          let s1, s2 = (get_stream t a, get_stream t b) in
+          product_stream s1 s2)
+    in
+    let cb = push_if_new t key_tgt in
+    Lwt_list.iter_p
+      (Lwt_stream.iter_p (fun v ->
+           cb (f v) ;
+           Lwt.return_unit))
+      srcs
 
   (* external use *)
   let get_messages t key =

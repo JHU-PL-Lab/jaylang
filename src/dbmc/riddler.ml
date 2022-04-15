@@ -1,6 +1,5 @@
 open Core
 open Tracelet
-open Odefa_ast
 open Odefa_ast.Ast
 module SuduZ3 = Solver.SuduZ3
 open SuduZ3
@@ -23,6 +22,7 @@ let lookup xs r_stk = Lookup_key.parts2_to_str xs r_stk |> SuduZ3.var_s
 let counter = ref 0
 let reset () = counter := 0
 let ( @=> ) = SuduZ3.( @=> )
+let true_ = box_bool true
 
 let bind_x_v xs r_stk v =
   let x = lookup xs r_stk in
@@ -266,15 +266,27 @@ let step_check ~(config : Global_config.t) ~(state : Global_state.t) =
   else Lwt.return_unit
 
 let check_phis phis is_debug : result_info option =
+  if is_debug
+  then
+    SLog.debug (fun m ->
+        m "Phis: %a" Fmt.(Dump.list string) (List.map ~f:Z3.Expr.to_string phis))
+  else () ;
+
   match Solver.check [] phis with
   | Result.Ok model ->
       SLog.app (fun m -> m "SAT") ;
       if is_debug
       then (
-        SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
+        (* SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ; *)
+        SLog.debug (fun m ->
+            m "Phis: %a"
+              Fmt.(Dump.list string)
+              (List.map ~f:Z3.Expr.to_string phis)) ;
         SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)))
       else () ;
-      let c_stk = Concrete_stack.empty in
+      let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
+      let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
+      print_endline @@ Concrete_stack.show c_stk ;
       Some { model; c_stk }
   | Result.Error _exps ->
       SLog.app (fun m -> m "UNSAT") ;
