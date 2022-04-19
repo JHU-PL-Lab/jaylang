@@ -226,7 +226,7 @@ module DotPrinter_Make (S : GS) = struct
           Fmt.str
             "{ {[%s] | %a} | %a | %a | %s | {φ | { %s %s } } | %B | {out | %a \
              } | %s}"
-            (Lookup_stack.to_string (Lookup_key.lookups node.key))
+            (Id.show node.key.x)
             (Fmt.option Solver.pp_value)
             key_value
             (Fmt.option Odefa_ast.Ast_pp_graph.pp_clause)
@@ -243,9 +243,7 @@ module DotPrinter_Make (S : GS) = struct
               then C.alert
               else if Riddler.is_picked S.model node.key
               then
-                let is_defining_node =
-                  List.length node.key.xs = 0 && Id.equal c_id node.key.x
-                in
+                let is_defining_node = Id.equal c_id node.key.x in
                 if is_defining_node
                 then
                   (* Fmt.pr "@[Fetch  Set at %a@]\n" Lookup_key.pp node.key; *)
@@ -253,8 +251,7 @@ module DotPrinter_Make (S : GS) = struct
                 else
                   (* C.node_picked_get (Hashtbl.find_exn S.state.node_get node.key) *)
                   let i =
-                    Hashtbl.find_or_add S.state.node_get
-                      (Lookup_key.drop_xs node.key)
+                    Hashtbl.find_or_add S.state.node_get node.key
                       ~default:(Fn.const 0)
                   in
                   (* Fmt.pr "@[Fetch  Get at %a@] = %d\n" Lookup_key.pp node.key i; *)

@@ -14,10 +14,6 @@ module Input_rule = struct
   type t = { x : Id.t; is_in_main : bool }
 end
 
-module Discard_rule = struct
-  type t = { x : Id.t; v : value }
-end
-
 module Alias_rule = struct
   type t = { x : Id.t; x' : Id.t }
 end
@@ -58,7 +54,6 @@ type t =
   | Discovery_main of Discovery_main_rule.t
   | Discovery_nonmain of Discovery_nonmain_rule.t
   | Input of Input_rule.t
-  | Discard of Discard_rule.t
   | Alias of Alias_rule.t
   | Binop of Binop_rule.t
   | Cond_top of Cond_top_rule.t
@@ -70,30 +65,23 @@ type t =
   | Record_end of Record_end_rule.t
   | Mismatch
 
-let rule_of_runtime_status x xs block : t =
+let rule_of_runtime_status x block : t =
   let open Tracelet in
   match (clause_of_x block x, block) with
   | Some tc, _ -> (
       match tc with
-      | { clause = Clause (_, Value_body v); _ } when List.is_empty xs ->
-          if Ident.equal (Tracelet.id_of_block block) Tracelet.id_main
-          then Discovery_main { x; v }
-          else Discovery_nonmain { x; v }
-      | { clause = Clause (_, Value_body (Value_function _ as v)); _ }
-        when not (List.is_empty xs) ->
-          Discard { x; v }
       | { clause = Clause (_, Input_body); _ } ->
-          assert (List.is_empty xs) ;
           let is_in_main =
             Ident.equal (Tracelet.id_of_block block) Tracelet.id_main
           in
           Input { x; is_in_main }
-      | { clause = Clause (_, Value_body (Value_record r)); _ }
-        when not (List.is_empty xs) ->
-          Record_end { x; r }
-      | { clause = Clause (_, Value_body _); _ } when not (List.is_empty xs) ->
-          Mismatch
       | { clause = Clause (_, Var_body (Var (x', _))); _ } -> Alias { x; x' }
+      | { clause = Clause (_, Value_body (Value_record r)); _ } ->
+          Record_end { x; r }
+      | { clause = Clause (_, Value_body v); _ } ->
+          if Ident.equal (Tracelet.id_of_block block) Tracelet.id_main
+          then Discovery_main { x; v }
+          else Discovery_nonmain { x; v }
       | { clause = Clause (_, Projection_body (Var (r, _), lbl)); _ } ->
           Record_start { x; r; lbl }
       | {
@@ -128,7 +116,6 @@ let show_rule : t -> string = function
   | Discovery_main _ -> "Discovery_main"
   | Discovery_nonmain _ -> "Discovery_nonmain"
   | Input _ -> "Input"
-  | Discard _ -> "Discard"
   | Alias _ -> "Alias"
   | Binop _ -> "Binop"
   | Cond_top _ -> "Cond_top"

@@ -10,11 +10,9 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
   (* reset and init *)
   Solver.reset () ;
   Riddler.reset () ;
-  let picked_target = Riddler.pick_at_key (Lookup_key.start state.target) in
-  state.phis_z3 <- [ picked_target ] ;
 
   let unroll = U_ddse.create () in
-  let key_target = Lookup_key.of_parts state.target [] Rstack.empty in
+  let term_target = Lookup_key.start state.target in
 
   let run_eval key block eval =
     let task () = Scheduler.push job_queue key (eval key block) in
@@ -46,7 +44,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
     U_ddse.alloc_task unroll ~task key
     (* ----- *)
   and lookup (this_key : Lookup_key.t) block phis () : unit Lwt.t =
-    let x, xs, _r_stk = Lookup_key.to_parts this_key in
+    let x, _r_stk = Lookup_key.to2 this_key in
     let this_node = Global_state.find_node_exn state this_key block in
 
     let block_id = Tracelet.id_of_block block in
@@ -54,7 +52,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
     (* match Riddler.check_phis (Set.to_list phis) false with
        | None -> Lwt.return_unit
        | Some _ -> *)
-    let rule = Rule.rule_of_runtime_status x xs block in
+    let rule = Rule.rule_of_runtime_status x block in
     LLog.app (fun m ->
         m "[Lookup][=>]: %a in block %a; Rule %a" Lookup_key.pp this_key Id.pp
           block_id Rule.pp_rule rule) ;
@@ -66,7 +64,6 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
       | Discovery_nonmain p ->
           R.discovery_nonmain p this_key this_node block phis run_task
       | Input p -> R.input p this_key this_node block phis run_task
-      | Discard p -> R.discard p this_key this_node block phis run_task
       | Alias p -> R.alias p this_key this_node block phis run_task
       | Binop b -> R.binop b this_key this_node block phis run_task
       | Record_start p ->
@@ -82,18 +79,18 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
       | Mismatch -> R.mismatch this_key this_node phis
     in
 
-    LLog.debug (fun m ->
-        m "[Lookup][<=]: %a in block %a" Lookup_key.pp this_key Id.pp block_id) ;
+    (* LLog.app (fun m ->
+        m "[Lookup][<=]: %a in block %a" Lookup_key.pp this_key Id.pp block_id) ; *)
     Lwt.return_unit
   in
 
-  let _ = Global_state.init_node state key_target state.root_node in
+  let _ = Global_state.init_node state term_target state.root_node in
   let block0 = Tracelet.find_by_id state.target state.block_map in
   let phis = Phi_set.empty in
-  run_task key_target block0 phis ;
+  run_task term_target block0 phis ;
 
   let wait_result =
-    U_ddse.by_iter unroll key_target (fun (_, phis) ->
+    U_ddse.by_iter unroll term_target (fun (_, phis) ->
         LLog.debug (fun m -> m "HERE?") ;
 
         let phis_to_check = Set.to_list phis in
@@ -145,7 +142,7 @@ let[@landmark] run ~(config : Global_config.t) ~(state : Global_state.t)
   let module R = Lookup_rule.Make (LS) in
   (* block works similar to env in a common interpreter *)
   let[@landmark] rec lookup (this_key : Lookup_key.t) block () : unit Lwt.t =
-    let x, xs, _r_stk = Lookup_key.to_parts this_key in
+    let x, _r_stk = Lookup_key.to2 this_key in
     let this_node = Global_state.find_node_exn state this_key block in
     let run_task key block = run_eval key block lookup in
     let block_id = Tracelet.id_of_block block in
@@ -155,7 +152,7 @@ let[@landmark] run ~(config : Global_config.t) ~(state : Global_state.t)
     LLog.app (fun m ->
         m "[Lookup][=>]: %a in block %a" Lookup_key.pp this_key Id.pp block_id) ;
 
-    let rule = Rule.rule_of_runtime_status x xs block in
+    let rule = Rule.rule_of_runtime_status x block in
     let%lwt _apply_rule =
       let open Rule in
       match rule with
@@ -163,7 +160,6 @@ let[@landmark] run ~(config : Global_config.t) ~(state : Global_state.t)
       | Discovery_nonmain p ->
           R.discovery_nonmain p this_key this_node block run_task
       | Input p -> R.input p this_key this_node block run_task
-      | Discard p -> R.discard p this_key this_node block run_task
       | Alias p -> R.alias p this_key this_node block run_task
       | Binop b -> R.binop b this_key this_node block run_task
       | Record_start p -> R.record_start p this_key this_node block run_task
@@ -177,12 +173,12 @@ let[@landmark] run ~(config : Global_config.t) ~(state : Global_state.t)
       | Mismatch -> R.mismatch this_key this_node
     in
 
-    LLog.debug (fun m ->
+    LLog.app (fun m ->
         m "[Lookup][<=]: %a in block %a" Lookup_key.pp this_key Id.pp block_id) ;
     Lwt.return_unit
   in
 
-  let key_target = Lookup_key.of_parts state.target [] Rstack.empty in
+  let key_target = Lookup_key.start state.target in
   let _ = Global_state.init_node state key_target state.root_node in
   let block0 = Tracelet.find_by_id state.target state.block_map in
   run_eval key_target block0 lookup

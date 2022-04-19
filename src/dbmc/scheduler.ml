@@ -1,18 +1,13 @@
 open Core
 open Lwt.Infix
 
-type 'a job = { key : Lookup_key.t; payload : unit -> 'a Lwt.t }
+type ('key, 'r) job = { key : 'key; payload : unit -> 'r Lwt.t }
 
 let compare j1 j2 = -Lookup_key.compare j1.key j2.key
-
-let create _map () =
-  let cmp t1 t2 =
-    Int.compare (Lookup_key.length t1.key) (Lookup_key.length t2.key)
-  in
-  Pairing_heap.create ~cmp ()
-
+let create_with ~cmp () = Pairing_heap.create ~cmp ()
+let create ~cmp () = Pairing_heap.create ~cmp ()
 let push h key payload = Pairing_heap.add h { key; payload }
-let pull h : 'a job option = Pairing_heap.pop h
+let pull h : ('key, 'r) job option = Pairing_heap.pop h
 
 let rec run ?(is_empty = false) q : 'a Lwt.t =
   Control_center.handle_available_commands () ;

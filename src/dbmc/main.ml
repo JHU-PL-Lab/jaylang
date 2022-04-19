@@ -16,14 +16,14 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
   LLog.info (fun m ->
       m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident config.target
         Concrete_stack.pp c_stk) ;
-  LLog.debug (fun m ->
+  (* LLog.debug (fun m ->
       m "Nodes picked states\n%a\n"
         (Fmt.Dump.iter_bindings
            (fun f c ->
              Hashtbl.iteri c ~f:(fun ~key ~data:_ ->
                  f key (Riddler.is_picked (Some model) key)))
            Fmt.nop Lookup_key.pp Fmt.bool)
-        state.node_map) ;
+        state.node_map) ; *)
   Hashtbl.clear state.rstk_picked ;
   Hashtbl.iter_keys state.node_map ~f:(fun key ->
       if Riddler.is_picked (Some model) key
@@ -37,7 +37,13 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
 
 let[@landmark] main_with_state_lwt ~(config : Global_config.t)
     ~(state : Global_state.t) =
-  let job_queue = Scheduler.create config () in
+  let job_queue =
+    let open Scheduler in
+    let cmp t1 t2 =
+      Int.compare (Lookup_key.length t1.key) (Lookup_key.length t2.key)
+    in
+    Scheduler.create ~cmp ()
+  in
   let target = config.target in
 
   let _post_check_dbmc () =

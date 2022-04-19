@@ -137,6 +137,14 @@ let clause_of_x block x =
 let clause_of_x_exn block x =
   List.find_exn ~f:(fun tc -> Ident.equal tc.id x) (get_clauses block)
 
+let record_of_id map x =
+  let block = find_by_id x map in
+  let c = clause_of_x_exn block x in
+  let (Clause (_, cv)) = c.clause in
+  match cv with
+  | Value_body (Value_record (Record_value r)) -> r
+  | _ -> failwith "must be a record"
+
 let update_id_dst id dst0 block =
   let add_dsts dst0 dsts =
     if List.mem dsts dst0 ~equal:Ident.equal then dsts else dst0 :: dsts

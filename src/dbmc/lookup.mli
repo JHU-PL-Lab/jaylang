@@ -1,13 +1,13 @@
 val run_ddse :
   config:Global_config.t ->
   state:Global_state.t ->
-  unit Scheduler.job Pairing_heap.t ->
+  (Lookup_key.t, unit) Scheduler.job Pairing_heap.t ->
   unit Lwt.t
 
 val run :
   config:Global_config.t ->
   state:Global_state.t ->
-  unit Scheduler.job Pairing_heap.t ->
+  (Lookup_key.t, unit) Scheduler.job Pairing_heap.t ->
   unit
 (** [run] performs the lookup. Usually one lookup steps consists of
 

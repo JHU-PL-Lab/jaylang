@@ -126,8 +126,8 @@ let paired_callsite rstk this_f =
       then Some cs
       else
         failwith
-          (Format.sprintf "paired_callsite: rsk=%s, this_f=%s"
-             (Fmt.to_to_string pp rstk) (Id.show this_f))
+          (Format.sprintf "paired_callsite: {rsk=%s} fid=%s, this_f=%s"
+             (Fmt.to_to_string pp rstk) (Id.show fid) (Id.show this_f))
   | Cons { op = Co_pop; _ } -> None
 
 (* Used in Lookup_key *)

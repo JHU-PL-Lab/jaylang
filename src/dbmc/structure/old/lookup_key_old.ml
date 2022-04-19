@@ -1,28 +1,39 @@
 open Core
 
 module T = struct
-  type t = { x : Id.t; r_stk : Rstack.t }
+  type t = { x : Id.t; xs : Lookup_stack.t; r_stk : Rstack.t }
   [@@deriving sexp_of, compare, equal, hash]
 end
 
 include T
 include Comparator.Make (T)
 
-let start (x : Id.t) : t = { x; r_stk = Rstack.empty }
-let of2 x r_stk = { x; r_stk }
-let to2 key = (key.x, key.r_stk)
-let with_x key x = { key with x }
-let to_first = with_x
+let start (x : Id.t) : t = { x; xs = []; r_stk = Rstack.empty }
+let of_parts x xs r_stk = { x; xs; r_stk }
+let of_parts2 xs r_stk = { x = List.hd_exn xs; xs = List.tl_exn xs; r_stk }
+let to_parts key = (key.x, key.xs, key.r_stk)
+let to_parts2 key = (key.x :: key.xs, key.r_stk)
+let to_first key x = { key with x; xs = [] }
+let replace_x key x = { key with x }
+let replace_x2 key (xr, lbl) = { key with x = xr; xs = lbl :: key.xs }
+let drop_x key = { key with x = List.hd_exn key.xs; xs = List.tl_exn key.xs }
+let drop_xs key = { key with xs = [] }
+let lookups key = key.x :: key.xs
 
 let to_string key =
-  Printf.sprintf "%s_%s" (Id.show key.x) (Rstack.to_string key.r_stk)
+  Printf.sprintf "%s_%s"
+    (Lookup_stack.to_string (lookups key))
+    (Rstack.to_string key.r_stk)
 
-let pp oc key = Fmt.pf oc "%a[%a]" Id.pp key.x Rstack.pp key.r_stk
-let to_str2 xs r_stk = to_string (of2 xs r_stk)
+let pp oc key =
+  Fmt.pf oc "%s[%a]" (Lookup_stack.to_string (lookups key)) Rstack.pp key.r_stk
+
+let parts_to_str x xs r_stk = to_string (of_parts x xs r_stk)
+let parts2_to_str xs r_stk = to_string (of_parts2 xs r_stk)
 
 let chrono_compare map k1 k2 =
-  let x1, r_stk1 = to2 k1 in
-  let x2, r_stk2 = to2 k2 in
+  let x1, _xs1, r_stk1 = to_parts k1 in
+  let x2, _xs2, r_stk2 = to_parts k2 in
   (* assert (List.is_empty xs1);
      assert (List.is_empty xs2); *)
   let rec compare_stack s1 s2 =
@@ -48,19 +59,21 @@ let chrono_compare map k1 k2 =
   let result_co_stk = compare_stack co_stk1 co_stk2 in
   if result_co_stk = 0 then compare_stack stk1 stk2 else result_co_stk
 
-let length key = 1 + Rstack.length key.r_stk
+let length k =
+  let xs, r_stk = to_parts2 k in
+  List.length xs + Rstack.length r_stk
 
-let get_f_return map fid r_stk x =
+let get_f_return map fid r_stk x xs =
   let fblock = Odefa_ast.Ast.Ident_map.find fid map in
   let x' = Tracelet.ret_of fblock in
   let r_stk' = Rstack.push r_stk (x, fid) in
-  let key_x_ret = of2 x' r_stk' in
+  let key_x_ret = of_parts x' xs r_stk' in
   key_x_ret
 
-let get_cond_block_and_return cond_block beta r_stk x =
+let get_cond_block_and_return cond_block beta r_stk x xs =
   let open Tracelet in
   let ctracelet = Cond { cond_block with choice = Some beta } in
   let x_ret = Tracelet.ret_of ctracelet in
   let cbody_stack = Rstack.push r_stk (x, Id.cond_fid beta) in
-  let key_x_ret = of2 x_ret cbody_stack in
+  let key_x_ret = of_parts x_ret xs cbody_stack in
   (ctracelet, key_x_ret)

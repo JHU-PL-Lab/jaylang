@@ -40,20 +40,20 @@ let cond_fid b = if b then Ident "$tt" else Ident "$ff"
 let update_read_node target_stk x stk (node_get : (Lookup_key.t, int) Hashtbl.t)
     =
   let r_stk = Rstack.relativize target_stk stk in
-  let key = Lookup_key.of_parts2 [ x ] r_stk in
+  let key = Lookup_key.of2 x r_stk in
   (* Fmt.pr "@[Update Get to %a@]\n" Lookup_key.pp key; *)
   Hashtbl.update node_get key ~f:(function None -> 1 | Some n -> n + 1)
 
 let update_write_node target_stk x stk
     (node_set : (Lookup_key.t, bool) Hashtbl.t) =
   let r_stk = Rstack.relativize target_stk stk in
-  let key = Lookup_key.of_parts2 [ x ] r_stk in
+  let key = Lookup_key.of2 x r_stk in
   (* Fmt.pr "@[Update Set to %a@]\n" Lookup_key.pp key; *)
   Hashtbl.add_exn node_set ~key ~data:true
 
 let alert_lookup target_stk x stk lookup_alert =
   let r_stk = Rstack.relativize target_stk stk in
-  let key = Lookup_key.of_parts2 [ x ] r_stk in
+  let key = Lookup_key.of2 x r_stk in
   Fmt.epr "@[Update Alert to %a\t%a@]\n" Lookup_key.pp key Concrete_stack.pp stk ;
   Hash_set.add lookup_alert key
 

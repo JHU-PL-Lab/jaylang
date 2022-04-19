@@ -24,7 +24,7 @@ let string_of_solver () = Z3.Solver.to_string solver
 
 let solution_input_feeder model target_stack (x, call_stack) : int option =
   let stk = Rstack.relativize target_stack call_stack in
-  let name = Lookup_key.parts2_to_str [ x ] stk in
+  let name = Lookup_key.to_str2 x stk in
   SuduZ3.get_int_s model name
 
 let memorized_solution_input_feeder mem model target_stack =
