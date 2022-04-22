@@ -45,7 +45,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
     (* ----- *)
   and lookup (this_key : Lookup_key.t) block phis () : unit Lwt.t =
     let x, _r_stk = Lookup_key.to2 this_key in
-    let this_node = Global_state.find_node_exn state this_key block in
+    let this_node = Global_state.find_node_exn state this_key in
 
     let block_id = Tracelet.id_of_block block in
 
@@ -57,6 +57,10 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
         m "[Lookup][=>]: %a in block %a; Rule %a" Lookup_key.pp this_key Id.pp
           block_id Rule.pp_rule rule) ;
 
+    (* let the_rule = Rule_node.from_rule_adapter rule this_key in
+       (match rule with
+       | Discovery_main _ -> Node.update_rule this_node the_rule
+       | _ -> ()) ; *)
     let _apply_rule =
       let open Rule in
       match rule with
@@ -100,7 +104,6 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
             raise (Riddler.Found_solution { model; c_stk }))
   in
 
-  (* let%lwt _ = Lwt.both (Scheduler.run job_queue) wait_result in *)
   let%lwt _ =
     Lwt.pick
       [
@@ -113,8 +116,8 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
 
 module U = Global_state.Unroll
 
-let[@landmark] run ~(config : Global_config.t) ~(state : Global_state.t)
-    job_queue : unit =
+let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
+    job_queue : unit Lwt.t =
   (* reset and init *)
   Solver.reset () ;
   Riddler.reset () ;
@@ -128,8 +131,12 @@ let[@landmark] run ~(config : Global_config.t) ~(state : Global_state.t)
   let module LS = (val (module struct
                          let state = state
                          let config = config
-                         let add_phi = Global_state.add_phi state
-                         let x_first = state.first
+
+                         let add_phi key phis =
+                           Hashtbl.update state.phi_map key ~f:(function
+                             | Some phi' -> Riddler.and_ [ phi'; phis ]
+                             | None -> phis) ;
+                           state.phis_z3 <- phis :: state.phis_z3
 
                          let find_or_add_node key block node_parent =
                            Global_state.find_or_add_node state key block
@@ -140,14 +147,15 @@ let[@landmark] run ~(config : Global_config.t) ~(state : Global_state.t)
                        end) : Lookup_rule.S)
   in
   let module R = Lookup_rule.Make (LS) in
-  (* block works similar to env in a common interpreter *)
   let[@landmark] rec lookup (this_key : Lookup_key.t) block () : unit Lwt.t =
     let x, _r_stk = Lookup_key.to2 this_key in
-    let this_node = Global_state.find_node_exn state this_key block in
+    let this_node = Global_state.find_node_exn state this_key in
     let run_task key block = run_eval key block lookup in
     let block_id = Tracelet.id_of_block block in
 
     Riddler.step_check ~state ~config ;%lwt
+
+    Hash_set.strict_remove_exn state.lookup_created this_key ;
 
     LLog.app (fun m ->
         m "[Lookup][=>]: %a in block %a" Lookup_key.pp this_key Id.pp block_id) ;
@@ -172,13 +180,14 @@ let[@landmark] run ~(config : Global_config.t) ~(state : Global_state.t)
       | Fun_exit p -> R.fun_exit p this_key this_node block run_task
       | Mismatch -> R.mismatch this_key this_node
     in
-
-    LLog.app (fun m ->
-        m "[Lookup][<=]: %a in block %a" Lookup_key.pp this_key Id.pp block_id) ;
+    (* LLog.app (fun m ->
+        m "[Lookup][<=]: %a in block %a" Lookup_key.pp this_key Id.pp block_id) ; *)
     Lwt.return_unit
   in
 
   let key_target = Lookup_key.start state.target in
   let _ = Global_state.init_node state key_target state.root_node in
   let block0 = Tracelet.find_by_id state.target state.block_map in
-  run_eval key_target block0 lookup
+  run_eval key_target block0 lookup ;
+  let%lwt _ = Scheduler.run job_queue in
+  Lwt.return_unit

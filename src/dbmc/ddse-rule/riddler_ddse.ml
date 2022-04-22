@@ -25,29 +25,14 @@ let binop key bop x1 x2 =
 let mismatch _key = box_bool false
 let cond_top xc beta r_stk = bind_x_v xc r_stk (Value_bool beta)
 
-let cond_bottom key beta cond_block x' =
-  let x, r_stk = Lookup_key.to2 key in
-  let ctracelet = Cond { cond_block with choice = Some beta } in
-  let x_ret = Tracelet.ret_of ctracelet in
-  let cbody_stack = Rstack.push r_stk (x, Id.cond_fid beta) in
-  let eq_beta = bind_x_v x' r_stk (Value_bool beta) in
-  failwith "how to encode"
-(* let eq_lookup = bind_x_y' (x :: xs) r_stk (x_ret :: xs) cbody_stack in
-   and2 eq_beta eq_lookup *)
-
-(* let fun_enter key _x' x'' x''' is_local (fb : fun_block) callsite_stk =
-   let x, r_stk = Lookup_key.to2 key in
-   let fid = fb.point in
-   let eq_on_para =
-     if is_local
-     then (* para == arg *)
-       bind_x_y' x r_stk x''' callsite_stk
-     else (* nonlocal == def *)
-       failwith "how to encode"
-     (* bind_x_y' (x ) r_stk (x'' :: x :: xs) callsite_stk *)
-   in
-   let eq_fid = bind_fun x'' callsite_stk fid in
-   and2 eq_on_para eq_fid *)
+(* let cond_bottom key beta cond_block x' =
+     let x, r_stk = Lookup_key.to2 key in
+     let ctracelet = Cond { cond_block with choice = Some beta } in
+     let x_ret = Tracelet.ret_of ctracelet in
+     let cbody_stack = Rstack.push r_stk (x, Id.cond_fid beta) in
+     let eq_beta = bind_x_v x' r_stk (Value_bool beta) in
+   (* let eq_lookup = bind_x_y' (x :: xs) r_stk (x_ret :: xs) cbody_stack in
+      and2 eq_beta eq_lookup *) *)
 
 let fun_enter_local key (fb : fun_block) x'' x''' callsite_stk =
   let x, r_stk = Lookup_key.to2 key in

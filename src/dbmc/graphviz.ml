@@ -232,7 +232,9 @@ module DotPrinter_Make (S : GS) = struct
             (Fmt.option Odefa_ast.Ast_pp_graph.pp_clause)
             clause Rstack.pp node.key.r_stk
             (Rstack.to_string node.key.r_stk)
-            phis_string phi_status pvar (Fmt.Dump.list Id.pp) outputs rule
+            phis_string phi_status pvar
+            (Fmt.Dump.list Lookup_key.pp)
+            outputs rule
         in
         let styles =
           match node.rule with

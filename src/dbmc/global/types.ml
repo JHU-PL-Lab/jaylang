@@ -14,7 +14,7 @@ module State = struct
     type key = Lookup_key.t
 
     let equal_message (m1 : Lookup_result.t) (m2 : Lookup_result.t) =
-      Id.equal m1.from m2.from
+      Lookup_key.equal m1.from m2.from
   end
 
   module Unroll = Unroll.Make (Lookup_key) (Unroll_S)
@@ -35,8 +35,9 @@ module State = struct
     mutable phis_z3 : Z3.Expr.expr list;
     phi_map : (Lookup_key.t, Z3.Expr.expr) Hashtbl.t;
     input_nodes : Lookup_key.t Hash_set.t;
-    (* cvar *)
+    (* pvar *)
     lookup_created : Lookup_key.t Hash_set.t;
+    smt_lists : (Lookup_key.t, int) Hashtbl.t;
     lookup_alert : Lookup_key.t Hash_set.t;
     (* lookup *)
     unroll : Unroll.t;

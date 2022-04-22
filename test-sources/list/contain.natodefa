@@ -11,5 +11,5 @@ let rec contain t r =
       contain t (r.next)
   )
   in
-let answer = contain 0 r2 in
-answer
+let target = contain 0 r2 in
+target

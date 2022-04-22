@@ -15,7 +15,6 @@ module type S = sig
   val state : Global_state.t
   val config : Global_config.t
   val add_phi : Lookup_key.t -> Z3.Expr.expr -> unit
-  val x_first : Id.t
 
   val find_or_add_node :
     Lookup_key.t -> Tracelet.block -> Node.ref_t -> Node.ref_t
@@ -35,18 +34,18 @@ module Make (S : S) = struct
     let target_stk = Rstack.concretize_top key.r_stk in
     Node.update_rule this_node (Node.done_ target_stk) ;
     S.add_phi key (Riddler.discover_main key v) ;
-    result_pusher (Lookup_result.ok key.x) ;
-    Lookup_result.ok_lwt key.x
+    U.by_return S.state.unroll key (Lookup_result.ok key) ;
+    Lookup_result.ok_lwt key
 
   let rule_nonmain v (key : Lookup_key.t) this_node block run_task =
     let result_pusher = U.push_if_new S.state.unroll key in
-    let key_first = Lookup_key.to_first key S.x_first in
+    let key_first = Lookup_key.to_first key S.state.first in
     let node_child = S.find_or_add_node key_first block this_node in
     Node.update_rule this_node (Node.to_first node_child) ;
-    S.add_phi key (Riddler.discover_non_main key S.x_first v) ;
+    S.add_phi key (Riddler.discover_non_main key S.state.first v) ;
     run_task key_first block ;
-    U.by_map S.state.unroll key key_first (fun _ -> Lookup_result.ok key.x) ;%lwt
-    Lookup_result.ok_lwt key.x
+    U.by_map S.state.unroll key key_first (fun _ -> Lookup_result.ok key) ;%lwt
+    Lookup_result.ok_lwt key
 
   let discovery_main p (key : Lookup_key.t) this_node =
     let ({ v; _ } : Discovery_main_rule.t) = p in
@@ -66,7 +65,6 @@ module Make (S : S) = struct
   (* let discard p (key : Lookup_key.t) _this_node _block _run_task =
        let ({ v; _ } : Discard_rule.t) = p in
        let result_pusher = U.push_if_new S.state.unroll key in
-       failwith "how to encode"
      (* let key_drop_x = Lookup_key.drop_x key in
         let node_sub = S.find_or_add_node key_drop_x block this_node in
         Node.update_rule this_node (Node.discard node_sub) ;
@@ -77,17 +75,17 @@ module Make (S : S) = struct
         Lookup_result.ok_lwt key.x *) *)
 
   let alias p (key : Lookup_key.t) this_node block run_task =
-    let ({ x; x' } : Alias_rule.t) = p in
+    let ({ x'; _ } : Alias_rule.t) = p in
     let key_rx = Lookup_key.with_x key x' in
     let node_rx = S.find_or_add_node key_rx block this_node in
     Node.update_rule this_node (Node.alias node_rx) ;
     S.add_phi key (Riddler.alias key x') ;
     run_task key_rx block ;
     U.by_id S.state.unroll key key_rx ;%lwt
-    Lookup_result.ok_lwt x
+    Lookup_result.ok_lwt key
 
   let binop b (key : Lookup_key.t) this_node block run_task =
-    let ({ x; bop; x1; x2 } : Binop_rule.t) = b in
+    let ({ bop; x1; x2; _ } : Binop_rule.t) = b in
     let key_x1 = Lookup_key.with_x key x1 in
     let node_x1 = S.find_or_add_node key_x1 block this_node in
     let key_x2 = Lookup_key.with_x key x2 in
@@ -98,14 +96,37 @@ module Make (S : S) = struct
 
     run_task key_x1 block ;
     run_task key_x2 block ;
-    U.by_map2_u S.state.unroll key key_x1 key_x2 (fun _ -> Lookup_result.ok x) ;
-    Lookup_result.ok_lwt x
+    U.by_map2_u S.state.unroll key key_x1 key_x2 (fun _ -> Lookup_result.ok key) ;
+    Lookup_result.ok_lwt key
 
-  let record_start p (key : Lookup_key.t) this_node block _run_task =
-    let ({ x; _ } : Record_start_rule.t) = p in
-    let key_r = Lookup_key.with_x key x in
+  let record_start p (key : Lookup_key.t) this_node block run_task =
+    let ({ r; lbl; _ } : Record_start_rule.t) = p in
+    let key_r = Lookup_key.with_x key r in
     let node_r = S.find_or_add_node key_r block this_node in
-    failwith "how to encode"
+
+    run_task key_r block ;
+
+    let cb this_key (r : Lookup_result.t) =
+      let key_r' = r.from in
+      let r'_block = Tracelet.find_by_id key_r'.x S.block_map in
+      let node_r' = S.find_or_add_node key_r' r'_block this_node in
+      let rv = Tracelet.record_of_id S.block_map key_r'.x in
+      (match Ident_map.Exceptionless.find lbl rv with
+      | Some (Var (field, _)) ->
+          let key_l = Lookup_key.with_x key_r' field in
+          let node_l = S.find_or_add_node key_l r'_block this_node in
+          Node.update_rule this_node (Node.project node_r node_l) ;
+          run_task key_l r'_block ;
+
+          U.by_id_u S.state.unroll this_key key_l
+      | None ->
+          Node.update_rule this_node Node.mismatch ;
+          S.add_phi key (Riddler.mismatch this_key)) ;
+      Lwt.return_unit
+    in
+    U.by_bind_u S.state.unroll key key_r cb ;
+    Lookup_result.ok_lwt key
+
   (* let key_r_l = Lookup_key.with_x2 key (r, lbl) in
      let node_r_l = S.find_or_add_node key_r_l block this_node in
 
@@ -114,15 +135,19 @@ module Make (S : S) = struct
 
      run_task key_r_l block ;
      U.by_id S.state.unroll key key_r_l ;%lwt
+  *)
 
-     Lookup_result.ok_lwt x *)
-
-  let record_end p (key : Lookup_key.t) _this_node _block _run_task =
+  let record_end p (this_key : Lookup_key.t) this_node block run_task =
     let ({ r; _ } : Record_end_rule.t) = p in
-    let (Record_value _rmap) = r in
-    let _x, r_stk = Lookup_key.to2 key in
-    (* let labal, xs' = (List.hd_exn xs, List.tl_exn xs) in *)
-    failwith "how to encode"
+    let is_in_main =
+      Ident.equal (Tracelet.id_of_block block) Tracelet.id_main
+    in
+    let rv = Some (Value_record r) in
+    if is_in_main
+    then rule_main rv this_key this_node
+    else rule_nonmain rv this_key this_node block run_task
+
+  (* let labal, xs' = (List.hd_exn xs, List.tl_exn xs) in *)
   (* match Ident_map.Exceptionless.find labal rmap with
      | Some (Var (vid, _)) ->
          let key' = Lookup_key.of2 (vid :: xs') r_stk in
@@ -152,10 +177,10 @@ module Make (S : S) = struct
 
     let key_x2 = Lookup_key.of2 x2 condsite_stack in
     let node_x2 = S.find_or_add_node key_x2 condsite_block this_node in
-    let key_xxs = Lookup_key.of2 x condsite_stack in
-    let node_xxs = S.find_or_add_node key_xxs condsite_block this_node in
+    let key_x = Lookup_key.of2 x condsite_stack in
+    let node_x = S.find_or_add_node key_x condsite_block this_node in
 
-    Node.update_rule this_node (Node.cond_choice node_x2 node_xxs) ;
+    Node.update_rule this_node (Node.cond_choice node_x2 node_x) ;
     S.add_phi key (Riddler.cond_top key cb condsite_stack) ;
 
     run_task key_x2 condsite_block ;
@@ -164,14 +189,14 @@ module Make (S : S) = struct
       let c = rc.from in
       if true
       then (
-        run_task key_xxs condsite_block ;
-        Lwt.async (fun () -> U.by_id S.state.unroll key key_xxs))
+        run_task key_x condsite_block ;
+        Lwt.async (fun () -> U.by_id S.state.unroll key key_x))
       else () ;
       Lwt.return_unit
     in
     U.by_bind S.state.unroll key key_x2 cb ;%lwt
 
-    Lookup_result.ok_lwt x
+    Lookup_result.ok_lwt key
 
   let cond_btm p (this_key : Lookup_key.t) (this_node : Node.ref_t) block
       run_task =
@@ -230,7 +255,7 @@ module Make (S : S) = struct
       else Lwt.return_unit
     in
     U.by_bind S.state.unroll this_key key_cond_var cb ;%lwt
-    Lookup_result.ok_lwt x
+    Lookup_result.ok_lwt this_key
 
   let fun_enter (fb : Tracelet.fun_block) is_local this_key this_node run_task =
     let x, r_stk = Lookup_key.to2 this_key in
@@ -240,42 +265,66 @@ module Make (S : S) = struct
       | Some callsite -> [ callsite ]
       | None -> fb.callsites
     in
-    LLog.debug (fun m ->
-        m "FunEnter%s: %a -> %a"
-          (if is_local then "" else "Nonlocal")
-          Id.pp fid Id.pp_list callsites) ;
-    let sub_trees, lookups =
+
+    if is_local
+    then
+      S.add_phi this_key
+        (Riddler.fun_enter_local this_key fb callsites S.block_map)
+    else (
+      S.add_phi this_key (Riddler.fun_enter_basic this_key) ;
+      Hashtbl.add_exn S.state.smt_lists ~key:this_key ~data:0) ;
+
+    let nonlocal_i = ref 0 in
+    let sub_trees =
       List.fold callsites
-        ~f:(fun (sub_trees, lookups) callsite ->
-          let callsite_block, x', x'', _x''' =
+        ~f:(fun sub_trees callsite ->
+          let callsite_block, x', x'', x''' =
             Tracelet.fun_info_of_callsite callsite S.block_map
           in
           match Rstack.pop r_stk (x', fid) with
           | Some callsite_stack ->
               let key_f = Lookup_key.of2 x'' callsite_stack in
               let node_f = S.find_or_add_node key_f callsite_block this_node in
-              let _lookup_f = run_task key_f callsite_block in
-              let key_arg =
-                failwith "how to encode"
-                (* if is_local
-                   then Lookup_key.of2 x''' xs callsite_stack
-                   else Lookup_key.of2 x'' (x :: xs) callsite_stack *)
+              run_task key_f callsite_block ;
+
+              let cb_local this_key (_r : Lookup_result.t) =
+                let key_arg = Lookup_key.of2 x''' callsite_stack in
+                let _node_arg =
+                  S.find_or_add_node key_arg callsite_block this_node
+                in
+                run_task key_arg callsite_block ;
+                U.by_id_u S.state.unroll this_key key_arg ;
+                Lwt.return_unit
               in
-              let node_arg =
-                S.find_or_add_node key_arg callsite_block this_node
+
+              let cb_nonlocal this_key (r : Lookup_result.t) =
+                let i = !nonlocal_i in
+                Int.incr nonlocal_i ;
+                Hashtbl.update S.state.smt_lists this_key ~f:(function
+                  | Some _ -> !nonlocal_i
+                  | None -> failwith "smt list key") ;
+
+                let phi_i = Riddler.fun_enter_append this_key fid r.from x i in
+                S.add_phi this_key phi_i ;
+                let key_arg = Lookup_key.of2 x r.from.r_stk in
+                let fv_block = Tracelet.find_by_id r.from.x S.block_map in
+                let _node_arg = S.find_or_add_node key_arg fv_block this_node in
+                run_task key_arg fv_block ;
+                U.by_id_u S.state.unroll this_key key_arg ;
+                Lwt.return_unit
               in
-              let _lookup_f_arg = run_task key_arg callsite_block in
-              (sub_trees @ [ (node_f, node_arg) ], lookups @ [ key_arg ])
-          | None -> (sub_trees, lookups))
-        ~init:([], [])
+
+              if is_local
+              then U.by_bind_u S.state.unroll this_key key_f cb_local
+              else U.by_bind_u S.state.unroll this_key key_f cb_nonlocal ;
+              sub_trees @ [ (node_f, node_f) ]
+          | None -> sub_trees)
+        ~init:[]
     in
 
     Node.update_rule this_node (Node.mk_para ~sub_trees) ;
-    S.add_phi this_key
-      (Riddler.fun_enter this_key is_local fb callsites S.block_map) ;
 
-    U.by_join S.state.unroll this_key lookups ;%lwt
-    Lookup_result.ok_lwt x
+    Lookup_result.ok_lwt this_key
 
   let fun_enter_local p this_key this_node run_task =
     let ({ fb; is_local; _ } : Fun_enter_local_rule.t) = p in
@@ -288,7 +337,6 @@ module Make (S : S) = struct
   let fun_exit p this_key this_node block run_task =
     let _x, r_stk = Lookup_key.to2 this_key in
     let ({ x; xf; fids } : Fun_exit_rule.t) = p in
-    LLog.debug (fun m -> m "FunExit: %a -> %a" Id.pp xf Id.pp_list fids) ;
     let key_fun = Lookup_key.of2 xf r_stk in
     let node_fun = S.find_or_add_node key_fun block this_node in
     let sub_trees =
@@ -307,7 +355,7 @@ module Make (S : S) = struct
     run_task key_fun block ;
 
     let cb this_key (rf : Lookup_result.t) =
-      let fid = rf.from in
+      let fid = rf.from.x in
       if List.mem fids fid ~equal:Id.equal
       then (
         let fblock = Ident_map.find fid S.block_map in
@@ -320,10 +368,10 @@ module Make (S : S) = struct
     in
 
     U.by_bind S.state.unroll this_key key_fun cb ;%lwt
-    Lookup_result.ok_lwt x
+    Lookup_result.ok_lwt this_key
 
   let mismatch this_key this_node =
     Node.update_rule this_node Node.mismatch ;
     S.add_phi this_key (Riddler.mismatch this_key) ;
-    Lookup_result.fail_lwt this_key.x
+    Lookup_result.fail_lwt this_key
 end

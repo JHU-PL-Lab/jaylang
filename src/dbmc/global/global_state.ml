@@ -20,6 +20,7 @@ let create (config : Global_config.t) program =
       phi_map = Hashtbl.create (module Lookup_key);
       input_nodes = Hash_set.create (module Lookup_key);
       lookup_created = Hash_set.create (module Lookup_key);
+      smt_lists = Hashtbl.create (module Lookup_key);
       lookup_alert = Hash_set.create (module Lookup_key);
       unroll = Unroll.create ();
       noted_phi_map = Hashtbl.create (module Lookup_key);
@@ -36,9 +37,7 @@ let add_phi state key phis =
   Hashtbl.add_exn state.phi_map ~key ~data:phis ;
   state.phis_z3 <- phis :: state.phis_z3
 
-let find_node_exn state key block =
-  let block_id = Tracelet.id_of_block block in
-  Hashtbl.find_exn state.node_map key
+let find_node_exn state key = Hashtbl.find_exn state.node_map key
 
 let init_node state key node =
   Hash_set.strict_add_exn state.lookup_created key ;

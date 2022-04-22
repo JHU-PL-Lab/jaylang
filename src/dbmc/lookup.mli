@@ -4,12 +4,12 @@ val run_ddse :
   (Lookup_key.t, unit) Scheduler.job Pairing_heap.t ->
   unit Lwt.t
 
-val run :
+val run_dbmc :
   config:Global_config.t ->
   state:Global_state.t ->
   (Lookup_key.t, unit) Scheduler.job Pairing_heap.t ->
-  unit
-(** [run] performs the lookup. Usually one lookup steps consists of
+  unit Lwt.t
+(** [run_dbmc] performs the lookup. Usually one lookup steps consists of
 
     - process clause
     - handle graph node

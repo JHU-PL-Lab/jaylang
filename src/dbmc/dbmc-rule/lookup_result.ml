@@ -1,6 +1,6 @@
 open Core
 
-type t = { status : bool; from : Id.t }
+type t = { status : bool; from : Lookup_key.t }
 
 let default x = { status = true; from = x }
 let ok x = default x

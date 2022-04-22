@@ -53,8 +53,7 @@ module Make (S : S) = struct
     Node.update_rule this_node (Node.done_ target_stk) ;
     let phi = Riddler_ddse.discover_main key v in
     let phis = S.add_phi key phi Phi_set.empty in
-    let result_pusher = U.push_if_new S.unroll key in
-    result_pusher (key, phis)
+    U.by_return S.unroll key (key, phis)
 
   let rule_nonmain v (key : Lookup_key.t) this_node block phis_top run_task =
     let key_first = Lookup_key.to_first key S.state.first in
@@ -79,19 +78,6 @@ module Make (S : S) = struct
     if is_in_main
     then rule_main None this_key this_node phis
     else rule_nonmain None this_key this_node block phis run_task
-
-  (* let discard p key _this_node _block _phis_top _run_task =
-       let ({ v; _ } : Discard_rule.t) = p in
-       let result_pusher = U.push_if_new S.unroll key in
-       failwith "how to encode"
-     (* let key_drop_x = Lookup_key.drop_x key in
-        let node_sub = S.find_or_add_node key_drop_x block this_node in
-        Node.update_rule this_node (Node.discard node_sub) ;
-        run_task key_drop_x block phis_top ;
-
-        let phi = Riddler_ddse.discard key (Some v) in
-        let _ = S.add_phi key phi phis_top in
-        U.by_map_u S.unroll key key_drop_x (cb_add phi) *) *)
 
   let alias p (key : Lookup_key.t) this_node block phis_top run_task =
     let ({ x'; _ } : Alias_rule.t) = p in
@@ -152,8 +138,6 @@ module Make (S : S) = struct
     in
     U.by_bind_u S.unroll key key_r cb
 
-  (* x = {l=t}, X=[x,l,...] --> X=[t,...] *)
-
   let record_end p (this_key : Lookup_key.t) this_node block phis run_task =
     let ({ r; _ } : Record_end_rule.t) = p in
     let is_in_main =
@@ -163,20 +147,6 @@ module Make (S : S) = struct
     if is_in_main
     then rule_main rv this_key this_node phis
     else rule_nonmain rv this_key this_node block phis run_task
-
-  (* let labal, xs' = (List.hd_exn xs, List.tl_exn xs) in
-     match Ident_map.Exceptionless.find labal rmap with
-     | Some (Var (vid, _)) ->
-         let key' = Lookup_key.of2 vid r_stk in
-         let node_key = S.find_or_add_node key' block this_node in
-         Node.update_rule this_node (Node.alias node_key) ;
-         (* let phi = Riddler_ddse.alias_key key key' in *)
-         (* let phis_top' = S.add_phi key phi phis_top in *)
-         run_task key' block phis_top ;
-         U.by_map_u S.unroll key key' (cb_phi_from_key key)
-     | None ->
-         Node.update_rule this_node Node.mismatch ;
-         ignore @@ S.add_phi key (Riddler_ddse.mismatch key) phis_top *)
 
   let cond_top (cb : Cond_top_rule.t) (key : Lookup_key.t) this_node block
       phis_top run_task =

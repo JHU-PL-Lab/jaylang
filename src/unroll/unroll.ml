@@ -104,6 +104,10 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
             detail.push (Some msg) ;
             detail.messages <- detail.messages @ [ msg ]))
 
+  let by_return t key v =
+    let pusher = push_if_new t key in
+    pusher v
+
   let by_iter t key_src f =
     let stream_src = get_stream t key_src in
     Lwt_stream.iter_p (fun x -> f x) stream_src

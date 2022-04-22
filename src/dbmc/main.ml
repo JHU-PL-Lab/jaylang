@@ -46,7 +46,7 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
   in
   let target = config.target in
 
-  let _post_check_dbmc () =
+  let post_check_dbmc () =
     match Riddler.check state config with
     | Some { model; c_stk } -> handle_found config state model c_stk
     | None ->
@@ -74,8 +74,10 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
              ignore @@ raise (Riddler.Found_solution { model; c_stk })
          | exn -> failwith (Caml.Printexc.to_string exn)) ;
     let do_work () =
-      Lookup.run_ddse ~config ~state job_queue >>= fun _ ->
-      Lwt.return (post_check_ddse ())
+      (* Lookup.run_ddse ~config ~state job_queue >>= fun _ ->
+         Lwt.return (post_check_ddse ()) *)
+      Lookup.run_dbmc ~config ~state job_queue >>= fun _ ->
+      Lwt.return (post_check_dbmc ())
     in
     match config.timeout with
     | Some ts -> Lwt_unix.with_timeout (Time.Span.to_sec ts) do_work

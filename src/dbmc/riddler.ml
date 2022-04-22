@@ -24,6 +24,7 @@ let counter = ref 0
 let reset () = counter := 0
 let ( @=> ) = SuduZ3.( @=> )
 let true_ = box_bool true
+let and_ = SuduZ3.and_
 
 let bind_lookup_v term v =
   let x = key_to_var term in
@@ -123,7 +124,20 @@ let cond_bottom key cond_block x' =
   in
   pick_at_key key @=> and_ (or_ cs :: rs)
 
-let fun_enter key is_local (fb : fun_block) callsites block_map =
+let pick_key_list key i =
+  Lookup_key.to_string key ^ "_" ^ string_of_int i |> SuduZ3.mk_bool_s
+
+let fun_enter_basic key = pick_at_key key @=> pick_key_list key 0
+
+let fun_enter_append (key : Lookup_key.t) fid (key_f : Lookup_key.t) x i =
+  let eq_fid = bind_fun key_f.x key_f.r_stk fid in
+  let eq_para = bind_x_y' key.x key.r_stk key.x key_f.r_stk in
+  let pick_i =
+    and_ [ eq_fid; eq_para; pick_at key_f.x key_f.r_stk; pick_at x key_f.r_stk ]
+  in
+  pick_key_list key i @=> or_ [ pick_i; pick_key_list key (i + 1) ]
+
+let fun_enter_local key (fb : fun_block) callsites block_map =
   let x, r_stk = Lookup_key.to2 key in
 
   let fid = fb.point in
@@ -134,21 +148,19 @@ let fun_enter key is_local (fb : fun_block) callsites block_map =
         in
         match Rstack.pop r_stk (x', fid) with
         | Some callsite_stk ->
-            let p_X' =
-              failwith "how to encode"
+            let p_arg =
+              pick_at x''' callsite_stk
               (* if is_local
-                 then pick_at (x''' :: xs) callsite_stk
                  else pick_at (x'' :: x :: xs) callsite_stk *)
             in
-            let p_x'' = pick_at x'' callsite_stk in
-            let choice_i = and2 p_X' p_x'' in
+            let p_f = pick_at x'' callsite_stk in
+            let choice_i = and2 p_arg p_f in
             let eq_on_para =
-              if is_local
-              then (* para == arg *)
-                bind_x_y' x r_stk x''' callsite_stk
-              else (* nonlocal == def *)
-                failwith "how to encode"
-              (* bind_x_y' (x ) r_stk (x'' :: x :: xs) callsite_stk *)
+              bind_x_y' x r_stk x''' callsite_stk
+              (* if is_local
+                 then (* para == arg *)
+                 else (* nonlocal == def *)
+                   bind_x_y' (x ) r_stk (x'' :: x :: xs) callsite_stk *)
             in
             let eq_fid = bind_fun x'' callsite_stk fid in
             (cs @ [ choice_i ], rs @ [ choice_i @=> and2 eq_on_para eq_fid ])
@@ -164,8 +176,7 @@ let fun_exit key xf fids block_map =
         let x' = Tracelet.ret_of fblock in
         let r_stk' = Rstack.push r_stk (x, fid) in
         let p_x' = pick_at x' r_stk' in
-        let eq_arg_para = failwith "how to encode" in
-        (* bind_x_y' (x :: xs) r_stk (x' :: xs) r_stk' in *)
+        let eq_arg_para = bind_x_y' x r_stk x' r_stk' in
         let eq_fid = bind_fun xf r_stk fid in
         (cs @ [ p_x' ], rs @ [ p_x' @=> and2 eq_arg_para eq_fid ]))
   in
@@ -197,16 +208,16 @@ let discover_non_main key x_first v =
   pick_at_key key
   @=> and2 (eq_x_v x v r_stk) (pick_at_key (Lookup_key.to_first key x_first))
 
-let discard key v =
-  let x, r_stk = Lookup_key.to2 key in
-  pick_at_key key
-  @=> and_
-        [
-          (* this v muse be a Fun *)
-          eq_x_v x v r_stk;
-          (* bind_x_y (x :: xs) xs r_stk; *)
-          failwith "how to encode" (* pick_at xs r_stk; *);
-        ]
+(* let discard key v =
+   let x, r_stk = Lookup_key.to2 key in
+   pick_at_key key
+   @=> and_
+         [
+           (* this v muse be a Fun *)
+           eq_x_v x v r_stk;
+           (* bind_x_y (x :: xs) xs r_stk; *)
+           pick_at xs r_stk;;
+         ] *)
 
 let is_picked model key =
   Option.value_map model ~default:false ~f:(fun model ->
@@ -223,10 +234,17 @@ let eager_check (state : Global_state.t) (config : Global_config.t) target
            else Riddler.pick_at_key key) *)
     |> List.map ~f:(fun key -> pick_at_key key @=> pick_at_key target)
   in
-  let phi_used_once = unfinish_lookup @ [ pick_at_key target ] @ assumption in
+  let list_fix =
+    Hashtbl.to_alist state.smt_lists
+    |> List.map ~f:(fun (key, i) -> SuduZ3.not_ (pick_key_list key i))
+  in
+  let phi_used_once =
+    unfinish_lookup @ [ pick_at_key target ] @ list_fix @ assumption
+  in
 
   let check_result = Solver.check state.phis_z3 phi_used_once in
   Global_state.clear_phis state ;
+  SLog.debug (fun m -> m "Eager check") ;
   SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
   SLog.debug (fun m ->
       m "Used-once Phis: %a"
@@ -247,14 +265,34 @@ let check (state : Global_state.t) (config : Global_config.t) :
     Hash_set.to_list state.lookup_created
     |> List.map ~f:(fun key -> Solver.SuduZ3.not_ (pick_at_key key))
   in
-  let check_result = Solver.check state.phis_z3 unfinish_lookup in
+  let list_fix =
+    Hashtbl.to_alist state.smt_lists
+    |> List.map ~f:(fun (key, i) -> SuduZ3.not_ (pick_key_list key i))
+  in
+  let phi_used_once = unfinish_lookup @ list_fix in
+  let check_result = Solver.check state.phis_z3 phi_used_once in
   Global_state.clear_phis state ;
+
+  if config.debug_model
+  then (
+    SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
+    SLog.debug (fun m ->
+        m "Used-once Phis: %a"
+          Fmt.(Dump.list string)
+          (List.map ~f:Z3.Expr.to_string phi_used_once))
+    (* SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))) *))
+  else () ;
+
   match check_result with
   | Result.Ok model ->
       if config.debug_model
-      then (
-        SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
-        SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)))
+      then
+        (* SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
+           SLog.debug (fun m ->
+               m "Used-once Phis: %a"
+                 Fmt.(Dump.list string)
+                 (List.map ~f:Z3.Expr.to_string phi_used_once)) ; *)
+        SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
       else () ;
       let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
       let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
@@ -285,7 +323,6 @@ let check_phis phis is_debug : result_info option =
       SLog.app (fun m -> m "SAT") ;
       if is_debug
       then (
-        (* SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ; *)
         SLog.debug (fun m ->
             m "Phis: %a"
               Fmt.(Dump.list string)

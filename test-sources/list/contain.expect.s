@@ -3,6 +3,5 @@
     (inputs (
       ()
     ))
-    (target answer)
   )
 )
