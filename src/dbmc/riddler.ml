@@ -48,9 +48,7 @@ let bind_x_v xs r_stk v =
     | Value_bool b -> SuduZ3.bool_ b
     | Value_function _ -> failwith "should not be a function"
     | Value_record _ ->
-        (* SuduZ3.record_ (Lookup_key.str_of_t (Lookup_key.of_parts2 xs r_stk)) *)
-        Int.incr counter ;
-        SuduZ3.int_ !counter
+        SuduZ3.record_ (Lookup_key.to_string (Lookup_key.of2 xs r_stk))
   in
   SuduZ3.eq x v
 
@@ -127,15 +125,45 @@ let cond_bottom key cond_block x' =
 let pick_key_list key i =
   Lookup_key.to_string key ^ "_" ^ string_of_int i |> SuduZ3.mk_bool_s
 
-let fun_enter_basic key = pick_at_key key @=> pick_key_list key 0
+let list_append_mismatch key i =
+  pick_key_list key i @=> or_ [ box_bool false; pick_key_list key (i + 1) ]
 
-let fun_enter_append (key : Lookup_key.t) fid (key_f : Lookup_key.t) x i =
-  let eq_fid = bind_fun key_f.x key_f.r_stk fid in
-  let eq_para = bind_x_y' key.x key.r_stk key.x key_f.r_stk in
+let list_head key = pick_at_key key @=> pick_key_list key 0
+
+let list_append key i ele =
+  pick_key_list key i @=> or_ [ ele; pick_key_list key (i + 1) ]
+
+let record_start_append key key_r key_r' key_l i =
   let pick_i =
-    and_ [ eq_fid; eq_para; pick_at key_f.x key_f.r_stk; pick_at x key_f.r_stk ]
+    and_
+      [
+        eq_keys key key_l;
+        eq_keys key_r key_r';
+        pick_at_key key_r;
+        pick_at_key key_r';
+        pick_at_key key_l;
+      ]
   in
-  pick_key_list key i @=> or_ [ pick_i; pick_key_list key (i + 1) ]
+  list_append key i pick_i
+
+let fun_enter_append (key : Lookup_key.t) fid (key_fv : Lookup_key.t) x
+    (key_f : Lookup_key.t) i =
+  let eq_fid = bind_fun key_f.x key_f.r_stk fid in
+  let eq_fid_v = bind_fun key_fv.x key_fv.r_stk fid in
+  let eq_para = bind_x_y' key.x key.r_stk key.x key_fv.r_stk in
+  let pick_i =
+    and_
+      [
+        eq_fid;
+        eq_fid_v;
+        eq_para;
+        pick_at_key key_f;
+        pick_at_key key_fv;
+        pick_at x key.r_stk;
+        pick_at x key_fv.r_stk;
+      ]
+  in
+  list_append key i pick_i
 
 let fun_enter_local key (fb : fun_block) callsites block_map =
   let x, r_stk = Lookup_key.to2 key in
@@ -236,7 +264,8 @@ let eager_check (state : Global_state.t) (config : Global_config.t) target
   in
   let list_fix =
     Hashtbl.to_alist state.smt_lists
-    |> List.map ~f:(fun (key, i) -> SuduZ3.not_ (pick_key_list key i))
+    |> List.map ~f:(fun (_key, _i) ->
+           pick_at_key target (* SuduZ3.not_ (pick_key_list key i) *))
   in
   let phi_used_once =
     unfinish_lookup @ [ pick_at_key target ] @ list_fix @ assumption

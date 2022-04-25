@@ -106,35 +106,48 @@ module Make (S : S) = struct
 
     run_task key_r block ;
 
+    let counter = ref 0 in
+    (* S.add_phi key (Riddler.alias key r) ; *)
+    S.add_phi key (Riddler.list_head key) ;
+    Hashtbl.add_exn S.state.smt_lists ~key ~data:0 ;
+
     let cb this_key (r : Lookup_result.t) =
       let key_r' = r.from in
       let r'_block = Tracelet.find_by_id key_r'.x S.block_map in
       let node_r' = S.find_or_add_node key_r' r'_block this_node in
       let rv = Tracelet.record_of_id S.block_map key_r'.x in
+
+      let i = !counter in
+      Int.incr counter ;
+      Hashtbl.update S.state.smt_lists this_key ~f:(function
+        | Some _ -> !counter
+        | None -> failwith "smt list key") ;
+
       (match Ident_map.Exceptionless.find lbl rv with
       | Some (Var (field, _)) ->
           let key_l = Lookup_key.with_x key_r' field in
           let node_l = S.find_or_add_node key_l r'_block this_node in
           Node.update_rule this_node (Node.project node_r node_l) ;
+
+          let phi_i =
+            Riddler.record_start_append this_key key_r key_r' key_l i
+          in
+          S.add_phi this_key phi_i ;
+
           run_task key_l r'_block ;
 
           U.by_id_u S.state.unroll this_key key_l
       | None ->
           Node.update_rule this_node Node.mismatch ;
-          S.add_phi key (Riddler.mismatch this_key)) ;
+          S.add_phi key (Riddler.list_append_mismatch this_key i)) ;
       Lwt.return_unit
     in
     U.by_bind_u S.state.unroll key key_r cb ;
     Lookup_result.ok_lwt key
 
-  (* let key_r_l = Lookup_key.with_x2 key (r, lbl) in
-     let node_r_l = S.find_or_add_node key_r_l block this_node in
-
-     Node.update_rule this_node (Node.project node_r node_r_l) ;
-     S.add_phi key (Riddler.alias_key key key_r_l) ;
-
-     run_task key_r_l block ;
-     U.by_id S.state.unroll key key_r_l ;%lwt
+  (*
+      Node.update_rule this_node (Node.project node_r node_r_l) ;
+      S.add_phi key (Riddler.alias_key key key_r_l) ;
   *)
 
   let record_end p (this_key : Lookup_key.t) this_node block run_task =
@@ -271,7 +284,7 @@ module Make (S : S) = struct
       S.add_phi this_key
         (Riddler.fun_enter_local this_key fb callsites S.block_map)
     else (
-      S.add_phi this_key (Riddler.fun_enter_basic this_key) ;
+      S.add_phi this_key (Riddler.list_head this_key) ;
       Hashtbl.add_exn S.state.smt_lists ~key:this_key ~data:0) ;
 
     let nonlocal_i = ref 0 in
@@ -304,7 +317,9 @@ module Make (S : S) = struct
                   | Some _ -> !nonlocal_i
                   | None -> failwith "smt list key") ;
 
-                let phi_i = Riddler.fun_enter_append this_key fid r.from x i in
+                let phi_i =
+                  Riddler.fun_enter_append this_key fid r.from x key_f i
+                in
                 S.add_phi this_key phi_i ;
                 let key_arg = Lookup_key.of2 x r.from.r_stk in
                 let fv_block = Tracelet.find_by_id r.from.x S.block_map in

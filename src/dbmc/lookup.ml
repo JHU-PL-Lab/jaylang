@@ -157,10 +157,11 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
 
     Hash_set.strict_remove_exn state.lookup_created this_key ;
 
-    LLog.app (fun m ->
-        m "[Lookup][=>]: %a in block %a" Lookup_key.pp this_key Id.pp block_id) ;
-
     let rule = Rule.rule_of_runtime_status x block in
+    LLog.app (fun m ->
+        m "[Lookup][=>]: %a in block %a; Rule %a" Lookup_key.pp this_key Id.pp
+          block_id Rule.pp_rule rule) ;
+
     let%lwt _apply_rule =
       let open Rule in
       match rule with
