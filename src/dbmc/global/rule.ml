@@ -27,7 +27,7 @@ module Record_start_rule = struct
 end
 
 module Record_end_rule = struct
-  type t = { x : Id.t; r : record_value }
+  type t = { x : Id.t; r : record_value; is_in_main : bool }
 end
 
 module Cond_top_rule = struct
@@ -77,7 +77,10 @@ let rule_of_runtime_status x block : t =
           Input { x; is_in_main }
       | { clause = Clause (_, Var_body (Var (x', _))); _ } -> Alias { x; x' }
       | { clause = Clause (_, Value_body (Value_record r)); _ } ->
-          Record_end { x; r }
+          let is_in_main =
+            Ident.equal (Tracelet.id_of_block block) Tracelet.id_main
+          in
+          Record_end { x; r; is_in_main }
       | { clause = Clause (_, Value_body v); _ } ->
           if Ident.equal (Tracelet.id_of_block block) Tracelet.id_main
           then Discovery_main { x; v }

@@ -121,7 +121,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
   (* reset and init *)
   Solver.reset () ;
   Riddler.reset () ;
-  state.phis_z3 <- [ Riddler.pick_at_key (Lookup_key.start state.target) ] ;
+  state.phis_z3 <- [ Riddler.picked (Lookup_key.start state.target) ] ;
 
   let run_eval key block eval =
     let task () = Scheduler.push job_queue key (eval key block) in
@@ -162,7 +162,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
         m "[Lookup][=>]: %a in block %a; Rule %a" Lookup_key.pp this_key Id.pp
           block_id Rule.pp_rule rule) ;
 
-    let%lwt _apply_rule =
+    let _apply_rule =
       let open Rule in
       match rule with
       | Discovery_main p -> R.discovery_main p this_key this_node

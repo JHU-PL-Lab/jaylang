@@ -11,22 +11,16 @@ exception Found_solution of result_info
 
 let ctx = Solver.ctx
 let top_stack = SuduZ3.var_s "X_topstack"
-
-(* let pick_at_key key =
-   let _, r_stk = Lookup_key.to_parts2 key in
-   "P_" ^ Rstack.to_string r_stk |> SuduZ3.mk_bool_s *)
-
-let pick_at_key key = "P_" ^ Lookup_key.to_string key |> SuduZ3.mk_bool_s
-let pick_at x r_stk = pick_at_key (Lookup_key.of2 x r_stk)
-let lookup x r_stk = Lookup_key.to_str2 x r_stk |> SuduZ3.var_s
+let picked key = "P_" ^ Lookup_key.to_string key |> SuduZ3.mk_bool_s
 let key_to_var key = key |> Lookup_key.to_string |> SuduZ3.var_s
 let counter = ref 0
 let reset () = counter := 0
 let ( @=> ) = SuduZ3.( @=> )
 let true_ = box_bool true
+let false_ = box_bool false
 let and_ = SuduZ3.and_
 
-let bind_lookup_v term v =
+let eqv term v =
   let x = key_to_var term in
   let v =
     match v with
@@ -34,35 +28,29 @@ let bind_lookup_v term v =
     | Value_bool b -> SuduZ3.bool_ b
     | Value_function _ -> failwith "should not be a function"
     | Value_record _ ->
-        (* SuduZ3.record_ (Lookup_key.str_of_t (Lookup_key.of_parts2 xs r_stk)) *)
+        (* SuduZ3.record_ (Lookup_key.to_string term) *)
         Int.incr counter ;
         SuduZ3.int_ !counter
   in
+
   SuduZ3.eq x v
 
-let bind_x_v xs r_stk v =
-  let x = lookup xs r_stk in
-  let v =
-    match v with
-    | Value_int i -> SuduZ3.int_ i
-    | Value_bool b -> SuduZ3.bool_ b
-    | Value_function _ -> failwith "should not be a function"
-    | Value_record _ ->
-        SuduZ3.record_ (Lookup_key.to_string (Lookup_key.of2 xs r_stk))
-  in
-  SuduZ3.eq x v
+let eq_fid term (Id.Ident fid) = SuduZ3.eq (key_to_var term) (SuduZ3.fun_ fid)
+let eq key key' = SuduZ3.eq (key_to_var key) (key_to_var key')
 
-let bind_fun xs r_stk (Id.Ident fid) =
-  SuduZ3.eq (lookup xs r_stk) (SuduZ3.fun_ fid)
+let eq_term_v term v =
+  match v with
+  (* Ast.Value_body for function *)
+  | Some (Value_function _) -> eq_fid term term.x
+  (* Ast.Value_body *)
+  | Some v -> eqv term v
+  (* Ast.Input_body *)
+  | None -> eq term term
 
-let bind_x_y x y r_stk = SuduZ3.eq (lookup x r_stk) (lookup y r_stk)
-let eq_keys key key' = SuduZ3.eq (key_to_var key) (key_to_var key')
-let bind_x_y' x1 s1 x2 s2 = SuduZ3.eq (lookup x1 s1) (lookup x2 s2)
-
-let bind_binop op y x1 x2 r_stk =
-  let ey = lookup y r_stk in
-  let ex1 = lookup x1 r_stk in
-  let ex2 = lookup x2 r_stk in
+let binop t op t1 t2 =
+  let e = key_to_var t in
+  let e1 = key_to_var t1 in
+  let e2 = key_to_var t2 in
   let fop =
     match op with
     | Binary_operator_plus -> fn_plus
@@ -78,49 +66,38 @@ let bind_binop op y x1 x2 r_stk =
     | Binary_operator_or -> fn_or
     | Binary_operator_xor -> fn_xor
   in
-  fop ey ex1 ex2
+  fop e e1 e2
 
-let alias key x' =
-  let x, r_stk = Lookup_key.to2 key in
-  pick_at_key key @=> and_ [ bind_x_y x x' r_stk; pick_at x' r_stk ]
+(* with picked *)
+let binop_with_picked t op t1 t2 =
+  let e_bop = binop t op t1 t2 in
+  picked t @=> and_ [ e_bop; picked t1; picked t2 ]
 
-(* let alias_key key key' =
-   let x, r_stk = Lookup_key.to2 key in
-   let x', r_stk' = Lookup_key.to2 key' in
-   pick_at_key key @=> and_ [ bind_x_y x x' r_stk; pick_at x' r_stk' ] *)
+let eq_with_picked key key' = picked key @=> and_ [ eq key key'; picked key' ]
 
-let binop key bop x1 x2 =
-  let x, r_stk = Lookup_key.to2 key in
-  pick_at_key key
-  @=> and_ [ bind_binop bop x x1 x2 r_stk; pick_at x1 r_stk; pick_at x2 r_stk ]
-
-let cond_top key cb condsite_stack =
-  let x, r_stk = Lookup_key.to2 key in
-  let choice = Option.value_exn cb.choice in
-  let x2 = cb.cond in
-  let eq_lookup = bind_x_y' x r_stk x condsite_stack in
-  pick_at_key key
+let cond_top term term_x term_c beta =
+  picked term
   @=> and_
         [
-          bind_x_v x2 condsite_stack (Value_bool choice);
-          pick_at x2 condsite_stack;
-          pick_at x condsite_stack;
-          eq_lookup;
+          picked term_x;
+          picked term_c;
+          eq term term_x;
+          eqv term_c (Value_bool beta);
         ]
 
-let cond_bottom key cond_block x' =
-  let x, r_stk = Lookup_key.to2 key in
+let cond_bottom term term_c cond_block =
+  let x, r_stk = Lookup_key.to2 term in
   let cs, rs =
     List.fold [ true; false ] ~init:([], []) ~f:(fun (cs, rs) beta ->
-        let ctracelet = Cond { cond_block with choice = Some beta } in
-        let x_ret = Tracelet.ret_of ctracelet in
-        let cbody_stack = Rstack.push r_stk (x, Id.cond_fid beta) in
-        let p_x_ret_beta = pick_at x_ret cbody_stack in
-        let eq_beta = bind_x_v x' r_stk (Value_bool beta) in
-        let eq_lookup = bind_x_y' x r_stk x_ret cbody_stack in
-        (cs @ [ p_x_ret_beta ], rs @ [ p_x_ret_beta @=> and2 eq_beta eq_lookup ]))
+        let term_ret =
+          Lookup_key.return_of_cond_block cond_block beta r_stk x
+        in
+        let p_ret = picked term_ret in
+        let eq_beta = eqv term_c (Value_bool beta) in
+        let eq_lookup = eq term term_ret in
+        (cs @ [ p_ret ], rs @ [ p_ret @=> and2 eq_beta eq_lookup ]))
   in
-  pick_at_key key @=> and_ (or_ cs :: rs)
+  picked term @=> and_ (or_ cs :: rs)
 
 let pick_key_list key i =
   Lookup_key.to_string key ^ "_" ^ string_of_int i |> SuduZ3.mk_bool_s
@@ -128,7 +105,7 @@ let pick_key_list key i =
 let list_append_mismatch key i =
   pick_key_list key i @=> or_ [ box_bool false; pick_key_list key (i + 1) ]
 
-let list_head key = pick_at_key key @=> pick_key_list key 0
+let list_head key = picked key @=> pick_key_list key 0
 
 let list_append key i ele =
   pick_key_list key i @=> or_ [ ele; pick_key_list key (i + 1) ]
@@ -137,38 +114,33 @@ let record_start_append key key_r key_r' key_l i =
   let pick_i =
     and_
       [
-        eq_keys key key_l;
-        eq_keys key_r key_r';
-        pick_at_key key_r;
-        pick_at_key key_r';
-        pick_at_key key_l;
+        eq key key_l; eq key_r key_r'; picked key_r; picked key_r'; picked key_l;
       ]
   in
   list_append key i pick_i
 
-let fun_enter_append (key : Lookup_key.t) fid (key_fv : Lookup_key.t) x
-    (key_f : Lookup_key.t) i =
-  let eq_fid = bind_fun key_f.x key_f.r_stk fid in
-  let eq_fid_v = bind_fun key_fv.x key_fv.r_stk fid in
-  let eq_para = bind_x_y' key.x key.r_stk key.x key_fv.r_stk in
-  let pick_i =
+let fun_enter_append key key_f key_fv fid key_arg i =
+  let element =
     and_
       [
-        eq_fid;
-        eq_fid_v;
-        eq_para;
-        pick_at_key key_f;
-        pick_at_key key_fv;
-        pick_at x key.r_stk;
-        pick_at x key_fv.r_stk;
+        eq_fid key_f fid;
+        eq_fid key_fv fid;
+        eq key key_arg;
+        picked key_f;
+        picked key_fv;
+        picked key_arg;
       ]
   in
-  list_append key i pick_i
+  list_append key i element
 
-let fun_enter_local key (fb : fun_block) callsites block_map =
-  let x, r_stk = Lookup_key.to2 key in
+let same_funenter key_f fid key_para key_arg =
+  and2 (eq_fid key_f fid) (eq key_para key_arg)
 
-  let fid = fb.point in
+let same_funexit key_f fid key_in key_out =
+  and2 (eq_fid key_f fid) (eq key_in key_out)
+
+let fun_enter_local term fid callsites block_map =
+  let _x, r_stk = Lookup_key.to2 term in
   let cs, rs =
     List.fold callsites ~init:([], []) ~f:(fun (cs, rs) callsite ->
         let _callsite_block, x', x'', x''' =
@@ -176,80 +148,43 @@ let fun_enter_local key (fb : fun_block) callsites block_map =
         in
         match Rstack.pop r_stk (x', fid) with
         | Some callsite_stk ->
-            let p_arg =
-              pick_at x''' callsite_stk
-              (* if is_local
-                 else pick_at (x'' :: x :: xs) callsite_stk *)
-            in
-            let p_f = pick_at x'' callsite_stk in
-            let choice_i = and2 p_arg p_f in
-            let eq_on_para =
-              bind_x_y' x r_stk x''' callsite_stk
-              (* if is_local
-                 then (* para == arg *)
-                 else (* nonlocal == def *)
-                   bind_x_y' (x ) r_stk (x'' :: x :: xs) callsite_stk *)
-            in
-            let eq_fid = bind_fun x'' callsite_stk fid in
-            (cs @ [ choice_i ], rs @ [ choice_i @=> and2 eq_on_para eq_fid ])
+            let key_f = Lookup_key.of2 x'' callsite_stk in
+            let key_arg = Lookup_key.of2 x''' callsite_stk in
+            let p = and2 (picked key_f) (picked key_arg) in
+            (cs @ [ p ], rs @ [ p @=> same_funenter key_f fid term key_arg ])
         | None -> (cs, rs))
   in
-  pick_at_key key @=> and_ (or_ cs :: rs)
+  picked term @=> and_ (or_ cs :: rs)
 
-let fun_exit key xf fids block_map =
-  let x, r_stk = Lookup_key.to2 key in
+let fun_exit term key_f fids block_map =
+  let x, r_stk = Lookup_key.to2 term in
   let cs, rs =
     List.fold fids ~init:([], []) ~f:(fun (cs, rs) fid ->
         let fblock = Ident_map.find fid block_map in
-        let x' = Tracelet.ret_of fblock in
-        let r_stk' = Rstack.push r_stk (x, fid) in
-        let p_x' = pick_at x' r_stk' in
-        let eq_arg_para = bind_x_y' x r_stk x' r_stk' in
-        let eq_fid = bind_fun xf r_stk fid in
-        (cs @ [ p_x' ], rs @ [ p_x' @=> and2 eq_arg_para eq_fid ]))
+        let key_ret = Lookup_key.get_f_return block_map fid r_stk x in
+        let p = picked key_ret in
+        (cs @ [ p ], rs @ [ p @=> same_funexit key_f fid key_ret term ]))
   in
-  pick_at_key key @=> and_ (or_ cs :: rs)
+  picked term @=> and_ (or_ cs :: rs)
 
-let mismatch key = pick_at_key key @=> box_bool false
+let mismatch_with_picked key = picked key @=> box_bool false
 
-let eq_x_v x v r_stk =
-  match v with
-  (* Ast.Value_body for function *)
-  | Some (Value_function _) -> bind_fun x r_stk x
-  (* Ast.Value_body *)
-  | Some v -> bind_x_v x r_stk v
-  (* Ast.Input_body *)
-  | None -> bind_x_y x x r_stk
+let stack_in_main r_stk =
+  SuduZ3.eq top_stack
+    (r_stk |> Rstack.concretize_top |> Concrete_stack.sexp_of_t
+   |> Sexp.to_string_mach |> SuduZ3.fun_)
 
-let discover_main key v =
-  let x, r_stk = Lookup_key.to2 key in
-  let this_c_stk =
-    eq top_stack
-      (r_stk |> Rstack.concretize_top |> Concrete_stack.sexp_of_t
-     |> Sexp.to_string_mach |> SuduZ3.fun_)
-  in
-  pick_at_key key @=> and_ [ eq_x_v x v r_stk; this_c_stk ]
+let discover_main (term : Lookup_key.t) v =
+  and_ [ eq_term_v term v; stack_in_main term.r_stk ]
 
-let discover_non_main key x_first v =
-  let x, r_stk = Lookup_key.to2 key in
+let discover_main_with_picked term v = picked term @=> discover_main term v
 
-  pick_at_key key
-  @=> and2 (eq_x_v x v r_stk) (pick_at_key (Lookup_key.to_first key x_first))
-
-(* let discard key v =
-   let x, r_stk = Lookup_key.to2 key in
-   pick_at_key key
-   @=> and_
-         [
-           (* this v muse be a Fun *)
-           eq_x_v x v r_stk;
-           (* bind_x_y (x :: xs) xs r_stk; *)
-           pick_at xs r_stk;;
-         ] *)
+let discover_non_main key key_first v =
+  picked key @=> and2 (eq_term_v key v) (picked key_first)
 
 let is_picked model key =
   Option.value_map model ~default:false ~f:(fun model ->
-      Option.value (SuduZ3.get_bool model (pick_at_key key)) ~default:true)
+      Option.value (SuduZ3.get_bool model (picked key)) ~default:true)
 
 let eager_check (state : Global_state.t) (config : Global_config.t) target
     assumption =
@@ -258,17 +193,17 @@ let eager_check (state : Global_state.t) (config : Global_config.t) target
     Hash_set.to_list state.lookup_created
     (* |> List.map ~f:(fun key ->
            if not (Lookup_key.equal key target)
-           then Solver.SuduZ3.not_ (Riddler.pick_at_key key)
-           else Riddler.pick_at_key key) *)
-    |> List.map ~f:(fun key -> pick_at_key key @=> pick_at_key target)
+           then Solver.SuduZ3.not_ (Riddler.picked key)
+           else Riddler.picked key) *)
+    |> List.map ~f:(fun key -> picked key @=> picked target)
   in
   let list_fix =
     Hashtbl.to_alist state.smt_lists
     |> List.map ~f:(fun (_key, _i) ->
-           pick_at_key target (* SuduZ3.not_ (pick_key_list key i) *))
+           picked target (* SuduZ3.not_ (pick_key_list key i) *))
   in
   let phi_used_once =
-    unfinish_lookup @ [ pick_at_key target ] @ list_fix @ assumption
+    unfinish_lookup @ [ picked target ] @ list_fix @ assumption
   in
 
   let check_result = Solver.check state.phis_z3 phi_used_once in
@@ -292,7 +227,7 @@ let check (state : Global_state.t) (config : Global_config.t) :
   LLog.info (fun m -> m "Search Tree Size:\t%d" state.tree_size) ;
   let unfinish_lookup =
     Hash_set.to_list state.lookup_created
-    |> List.map ~f:(fun key -> Solver.SuduZ3.not_ (pick_at_key key))
+    |> List.map ~f:(fun key -> Solver.SuduZ3.not_ (picked key))
   in
   let list_fix =
     Hashtbl.to_alist state.smt_lists

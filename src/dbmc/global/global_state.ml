@@ -73,7 +73,7 @@ let pvar_picked state key = not (Hash_set.mem state.lookup_created key)
 
 (* let picked_from model key =
      Option.value
-       (Solver.SuduZ3.get_bool model (Riddler.pick_at_key key))
+       (Solver.SuduZ3.get_bool model (Riddler.picked key))
        ~default:true
 
    let collect_picked_input state model =

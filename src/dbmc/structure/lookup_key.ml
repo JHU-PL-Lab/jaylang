@@ -12,6 +12,7 @@ let start (x : Id.t) : t = { x; r_stk = Rstack.empty }
 let of2 x r_stk = { x; r_stk }
 let to2 key = (key.x, key.r_stk)
 let with_x key x = { key with x }
+let with_stk key r_stk = { key with r_stk }
 let to_first = with_x
 
 let to_string key =
@@ -54,13 +55,25 @@ let get_f_return map fid r_stk x =
   let fblock = Odefa_ast.Ast.Ident_map.find fid map in
   let x' = Tracelet.ret_of fblock in
   let r_stk' = Rstack.push r_stk (x, fid) in
-  let key_x_ret = of2 x' r_stk' in
-  key_x_ret
+  let key_ret = of2 x' r_stk' in
+  key_ret
 
 let get_cond_block_and_return cond_block beta r_stk x =
   let open Tracelet in
   let ctracelet = Cond { cond_block with choice = Some beta } in
   let x_ret = Tracelet.ret_of ctracelet in
   let cbody_stack = Rstack.push r_stk (x, Id.cond_fid beta) in
-  let key_x_ret = of2 x_ret cbody_stack in
-  (ctracelet, key_x_ret)
+  let key_ret = of2 x_ret cbody_stack in
+  (ctracelet, key_ret)
+
+let return_of_cond_block cond_block beta r_stk x =
+  get_cond_block_and_return cond_block beta r_stk x |> snd
+
+let get_callsites r_stk (fb : Tracelet.fun_block) =
+  let fid = fb.point in
+  let callsites =
+    match Rstack.paired_callsite r_stk fid with
+    | Some callsite -> [ callsite ]
+    | None -> fb.callsites
+  in
+  callsites

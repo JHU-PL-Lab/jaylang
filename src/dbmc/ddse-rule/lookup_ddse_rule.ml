@@ -34,11 +34,11 @@ end
 
 module Make (S : S) = struct
   let cb_phi_from_key this_key (key, phis) =
-    let phi = Riddler.eq_keys this_key key in
+    let phi = Riddler.eq this_key key in
     (key, Phi_set.add phis phi)
 
   let cb_phi_from_key_and_phis this_key this_phis (key, phis) =
-    let phi = Riddler.eq_keys this_key key in
+    let phi = Riddler.eq this_key key in
     (key, Phi_set.(add (union this_phis phis) phi))
 
   let cb_add phi (key, phis) = (key, Phi_set.add phis phi)
@@ -51,7 +51,7 @@ module Make (S : S) = struct
   let rule_main v (key : Lookup_key.t) this_node _phis =
     let target_stk = Rstack.concretize_top key.r_stk in
     Node.update_rule this_node (Node.done_ target_stk) ;
-    let phi = Riddler_ddse.discover_main key v in
+    let phi = Riddler.discover_main key v in
     let phis = S.add_phi key phi Phi_set.empty in
     U.by_return S.unroll key (key, phis)
 
@@ -60,7 +60,7 @@ module Make (S : S) = struct
     let node_child = S.find_or_add_node key_first block this_node in
     Node.update_rule this_node (Node.to_first node_child) ;
     run_task key_first block phis_top ;
-    let phi = Riddler_ddse.discover_non_main key S.state.first v in
+    let phi = Riddler.eq_term_v key v in
     let _ = S.add_phi key phi phis_top in
     U.by_map_u S.unroll key key_first (cb_key phi key)
 
@@ -99,7 +99,7 @@ module Make (S : S) = struct
     run_task key_x1 block phis_top ;
     run_task key_x2 block phis_top ;
 
-    let phi = Riddler_ddse.binop key bop x1 x2 in
+    let phi = Riddler.binop key bop key_x1 key_x2 in
     let _ = S.add_phi key phi phis_top in
     let cb ((_, phis1), (_, phis2)) =
       let phis = Phi_set.(add (union phis1 phis2) phi) in
@@ -114,20 +114,20 @@ module Make (S : S) = struct
 
     run_task key_r block phis_top ;
 
-    let cb this_key ((key_r' : Lookup_key.t), phis_r) =
-      let r'_block = Tracelet.find_by_id key_r'.x S.block_map in
-      let node_r' = S.find_or_add_node key_r' r'_block this_node in
-      let phi1 = Riddler.eq_keys key_r key_r' in
-      let rv = Tracelet.record_of_id S.block_map key_r'.x in
+    let cb this_key ((key_rv : Lookup_key.t), phis_r) =
+      let rv_block = Tracelet.find_by_id key_rv.x S.block_map in
+      let node_rv = S.find_or_add_node key_rv rv_block this_node in
+      let phi1 = Riddler.eq key_r key_rv in
+      let rv = Tracelet.record_of_id S.block_map key_rv.x in
       (match Ident_map.Exceptionless.find lbl rv with
       | Some (Var (field, _)) ->
-          let key_l = Lookup_key.with_x key_r' field in
-          let node_l = S.find_or_add_node key_l r'_block this_node in
+          let key_l = Lookup_key.with_x key_rv field in
+          let node_l = S.find_or_add_node key_l rv_block this_node in
           Node.update_rule this_node (Node.project node_r node_l) ;
 
-          run_task key_l r'_block phis_top ;
+          run_task key_l rv_block phis_top ;
           let cb (key_fv, phis_fv) =
-            let phi2 = Riddler.eq_keys this_key key_fv in
+            let phi2 = Riddler.eq this_key key_fv in
             let phis = Phi_set.(add (add (union phis_r phis_fv) phi1) phi2) in
             (key_fv, phis)
           in
@@ -139,10 +139,7 @@ module Make (S : S) = struct
     U.by_bind_u S.unroll key key_r cb
 
   let record_end p (this_key : Lookup_key.t) this_node block phis run_task =
-    let ({ r; _ } : Record_end_rule.t) = p in
-    let is_in_main =
-      Ident.equal (Tracelet.id_of_block block) Tracelet.id_main
-    in
+    let ({ r; is_in_main; _ } : Record_end_rule.t) = p in
     let rv = Some (Value_record r) in
     if is_in_main
     then rule_main rv this_key this_node phis
@@ -162,22 +159,21 @@ module Make (S : S) = struct
 
     let key_x2 = Lookup_key.of2 x2 condsite_stack in
     let node_x2 = S.find_or_add_node key_x2 condsite_block this_node in
-    let key_xxs = Lookup_key.of2 x condsite_stack in
-    let node_xxs = S.find_or_add_node key_xxs condsite_block this_node in
-    Node.update_rule this_node (Node.cond_choice node_x2 node_xxs) ;
+    let key_x = Lookup_key.of2 x condsite_stack in
+    let node_x = S.find_or_add_node key_x condsite_block this_node in
+    Node.update_rule this_node (Node.cond_choice node_x2 node_x) ;
 
     let beta = Option.value_exn cb.choice in
-    (* let phi = Riddler_ddse.cond_top key cb.cond beta condsite_stack in *)
     (* let phis_top' = S.add_phi key phi phis_top in *)
     run_task key_x2 condsite_block phis_top ;
 
     let cb key rc =
       let (key_c : Lookup_key.t), phis_c = rc in
-      run_task key_xxs condsite_block phis_top ;
-      let phi = Riddler_ddse.cond_top cb.cond beta condsite_stack in
-      let phi_c = Riddler.bind_lookup_v key_c (Value_bool beta) in
+      run_task key_x condsite_block phis_top ;
+      let _phi_c = Riddler.eqv key_c (Value_bool beta) in
+      let phi = Riddler.eqv key_x2 (Value_bool beta) in
       let phic' = Phi_set.(add phis_c phi) in
-      U.by_map_u S.unroll key key_xxs (cb_phi_from_key_and_phis key phic') ;
+      U.by_map_u S.unroll key key_x (cb_phi_from_key_and_phis key phic') ;
       Lwt.return_unit
     in
     U.by_bind_u S.unroll key key_x2 cb
@@ -191,64 +187,42 @@ module Make (S : S) = struct
     if Option.is_some cond_block.choice
     then failwith "conditional_body: not both"
     else () ;
-    let key_cond_var = Lookup_key.of2 x' r_stk in
-    let cond_var_tree = S.find_or_add_node key_cond_var block this_node in
+    let term_c = Lookup_key.of2 x' r_stk in
+    let cond_var_tree = S.find_or_add_node term_c block this_node in
 
     let sub_trees =
       List.fold [ true; false ]
         ~f:(fun sub_trees beta ->
-          let ctracelet, key_x_ret =
+          let ctracelet, key_ret =
             Lookup_key.get_cond_block_and_return cond_block beta r_stk x
           in
-          let node_x_ret = S.find_or_add_node key_x_ret ctracelet this_node in
-          run_task key_cond_var block phis_top ;
+          let node_x_ret = S.find_or_add_node key_ret ctracelet this_node in
+          run_task term_c block phis_top ;
 
-          let cb key_x_ret ((key_c : Lookup_key.t), phis_c) =
-            let phi_beta =
-              Riddler.bind_x_v key_c.x key_c.r_stk (Value_bool beta)
-            in
+          let cb key_ret ((key_c : Lookup_key.t), phis_c) =
+            let phi_beta = Riddler.eqv key_c (Value_bool beta) in
             (* let phi_beta = Riddler_ddse.cond_bottom key_c beta cond_block x' in *)
             (* let phis_top' = Phi_set.add phis_c phi_beta in *)
             (* match Riddler.check_phis (Phi_set.to_list phis_top') false with
                | Some _ -> *)
-            run_task key_x_ret ctracelet phis_top ;
+            run_task key_ret ctracelet phis_top ;
 
-            U.by_map_u S.unroll key key_x_ret
+            U.by_map_u S.unroll key key_ret
               (cb_phi_from_key_and_phis key (Phi_set.add phis_c phi_beta)) ;
             Lwt.return_unit
             (* | None -> () *)
           in
-          U.by_bind_u S.unroll key_x_ret key_cond_var cb ;
+          U.by_bind_u S.unroll key_ret term_c cb ;
           sub_trees @ [ node_x_ret ])
         ~init:[]
     in
     Node.update_rule this_node (Node.mk_condsite ~cond_var_tree ~sub_trees)
 
-  (* let fun_enter (fb : Tracelet.fun_block) is_local key this_node phis_top
-      run_task = *)
-  (* Lwt.async (fun () ->
-      Lwt_list.iter_p
-        (fun (lookup, phi) -> U.by_map S.unroll key lookup (cb_add phi))
-        lookups) ; *)
-  (* List.iter lookups ~f:(fun (lookup, phi) ->
-      U.by_map_u S.unroll key lookup (cb_add phi)) ; *)
-  (* let cb ((_key1, phis1), (key2, phis2)) =
-       (* Phi_set.print phis1 ;
-          Phi_set.print phis2 ; *)
-       let phis = Phi_set.(union phis1 phis2) in
-       (key2, phis)
-     in
-     List.iter lookups ~f:(fun (s1, s2) -> U.by_map2_u S.unroll key s1 s2 cb) *)
-
   let fun_enter_local p key this_node phis_top run_task =
     let ({ fb; _ } : Fun_enter_local_rule.t) = p in
     let _x, r_stk = Lookup_key.to2 key in
     let fid = fb.point in
-    let callsites =
-      match Rstack.paired_callsite r_stk fid with
-      | Some callsite -> [ callsite ]
-      | None -> fb.callsites
-    in
+    let callsites = Lookup_key.get_callsites r_stk fb in
     let sub_trees =
       List.fold callsites
         ~f:(fun sub_trees callsite ->
@@ -261,19 +235,15 @@ module Make (S : S) = struct
               let node_f = S.find_or_add_node key_f callsite_block this_node in
 
               run_task key_f callsite_block phis_top ;
-              let phi =
-                Riddler_ddse.fun_enter_local key fb x'' x''' callsite_stack
-              in
               let key_arg = Lookup_key.of2 x''' callsite_stack in
+              let phi = Riddler.same_funenter key_f fid key key_arg in
               let node_arg =
                 S.find_or_add_node key_arg callsite_block this_node
               in
 
-              let cb key ((key_f : Lookup_key.t), phis_f) =
+              let cb key ((key_fv : Lookup_key.t), phis_f) =
                 run_task key_arg callsite_block phis_top ;
-                let phi_f =
-                  Riddler.eq_keys (Lookup_key.of2 x'' callsite_stack) key_f
-                in
+                let phi_f = Riddler.eq key_f key_fv in
                 U.by_map_u S.unroll key key_arg
                   (cb_merge Phi_set.(add (add phis_f phi) phi_f)) ;
                 Lwt.return_unit
@@ -290,11 +260,7 @@ module Make (S : S) = struct
     let ({ fb; _ } : Fun_enter_nonlocal_rule.t) = p in
     let x, r_stk = Lookup_key.to2 key in
     let fid = fb.point in
-    let callsites =
-      match Rstack.paired_callsite r_stk fid with
-      | Some callsite -> [ callsite ]
-      | None -> fb.callsites
-    in
+    let callsites = Lookup_key.get_callsites r_stk fb in
 
     let sub_trees =
       List.fold callsites
@@ -308,21 +274,17 @@ module Make (S : S) = struct
               let node_f = S.find_or_add_node key_f callsite_block this_node in
               run_task key_f callsite_block phis_top ;
 
-              let phi = Riddler.bind_fun x'' callsite_stack fb.point in
+              let phi = Riddler.eq_fid key_f fb.point in
 
-              let cb_f key ((key_f : Lookup_key.t), phis_f) =
-                let key_arg = Lookup_key.of2 x key_f.r_stk in
-                let fv_block = Tracelet.find_by_id key_f.x S.block_map in
+              let cb_f key ((key_fv : Lookup_key.t), phis_f) =
+                let key_arg = Lookup_key.with_x key_fv x in
+                let fv_block = Tracelet.find_by_id key_fv.x S.block_map in
                 let node_arg = S.find_or_add_node key_arg fv_block this_node in
                 run_task key_arg fv_block phis_top ;
 
-                let phi_f =
-                  Riddler.bind_x_y' x'' callsite_stack key_f.x key_f.r_stk
-                in
+                let phi_f = Riddler.eq key_f key_fv in
                 let cb_arg ((key_arg : Lookup_key.t), phis_arg) =
-                  let phi_arg =
-                    Riddler.bind_x_y' x r_stk key_arg.x key_arg.r_stk
-                  in
+                  let phi_arg = Riddler.eq key key_arg in
                   let phis =
                     Phi_set.(
                       add (add (add (union phis_f phis_arg) phi) phi_f) phi_arg)
@@ -343,31 +305,31 @@ module Make (S : S) = struct
   let fun_exit p this_key this_node block phis_top run_task =
     let _x, r_stk = Lookup_key.to2 this_key in
     let ({ x; xf; fids } : Fun_exit_rule.t) = p in
-    let key_fun = Lookup_key.of2 xf r_stk in
-    let node_fun = S.find_or_add_node key_fun block this_node in
+    let key_f = Lookup_key.of2 xf r_stk in
+    let node_fun = S.find_or_add_node key_f block this_node in
 
-    run_task key_fun block phis_top ;
+    run_task key_f block phis_top ;
 
     let sub_trees =
       List.fold fids
         ~f:(fun sub_trees fid ->
           let fblock = Ident_map.find fid S.block_map in
-          let key_x_ret = Lookup_key.get_f_return S.block_map fid r_stk x in
-          let node_x_ret = S.find_or_add_node key_x_ret fblock this_node in
-          let phi = Riddler_ddse.fun_exit this_key xf fid S.block_map in
+          let key_ret = Lookup_key.get_f_return S.block_map fid r_stk x in
+          let phi = Riddler.same_funexit key_f fid key_ret this_key in
+          let node_x_ret = S.find_or_add_node key_ret fblock this_node in
 
           let cb this_key ((key_f : Lookup_key.t), phis_f) =
             let fid = key_f.x in
             if List.mem fids fid ~equal:Id.equal
             then (
               let phis_top' = Phi_set.union phis_top phis_f in
-              run_task key_x_ret fblock phis_top' ;
-              U.by_map_u S.unroll this_key key_x_ret
+              run_task key_ret fblock phis_top' ;
+              U.by_map_u S.unroll this_key key_ret
                 (cb_phi_from_key_and_phis this_key (Phi_set.add phis_f phi)))
             else () ;
             Lwt.return_unit
           in
-          U.by_bind_u S.unroll this_key key_fun cb ;
+          U.by_bind_u S.unroll this_key key_f cb ;
 
           sub_trees @ [ node_x_ret ])
         ~init:[]
@@ -376,6 +338,6 @@ module Make (S : S) = struct
 
   let mismatch this_key this_node phis =
     Node.update_rule this_node Node.mismatch ;
-    let _phis' = S.add_phi this_key (Riddler_ddse.mismatch this_key) phis in
+    let _phis' = S.add_phi this_key Riddler.false_ phis in
     ()
 end
