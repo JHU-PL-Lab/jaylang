@@ -114,7 +114,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
   in
   Lwt.return_unit
 
-module U = Global_state.Unroll
+module U = Lookup_rule.U
 
 let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
     job_queue : unit Lwt.t =
@@ -123,9 +123,11 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
   Riddler.reset () ;
   state.phis_z3 <- [ Riddler.picked (Lookup_key.start state.target) ] ;
 
+  let unroll = U.create () in
+
   let run_eval key block eval =
     let task () = Scheduler.push job_queue key (eval key block) in
-    U.alloc_task state.unroll ~task key
+    U.alloc_task unroll ~task key
   in
 
   let module LS = (val (module struct
@@ -144,6 +146,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
                            |> snd
 
                          let block_map = state.block_map
+                         let unroll = unroll
                        end) : Lookup_rule.S)
   in
   let module R = Lookup_rule.Make (LS) in

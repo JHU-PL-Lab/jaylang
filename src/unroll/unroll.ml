@@ -1,5 +1,6 @@
 open Core
 open Lwt.Infix
+include Unroll_intf
 
 (* Lookup_result.ok_lwt x *)
 (* These things exist together:
@@ -17,28 +18,24 @@ open Lwt.Infix
    The lookup of `f` and `a` are lazy. However, it's possible `a` are eager
 *)
 
-module type S_sig = sig
-  type message
-  type result
-  type key
-
-  val equal_message : message -> message -> bool
-end
-
-module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
+module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
+  S
+    with type message = M.message
+     and type result = M.result
+     and type key = M.key = struct
   type key = Key.t
-  type result = S.result
-  type message = S.message
+  type result = M.result
+  type message = M.message
   type push = message option -> unit
-  type task = unit -> unit
+  (* type task = unit -> unit *)
 
   type task_status =
-    | Not_created
+    (* | Not_created *)
     | Initial
-    | Waitng of task
-    | Pending
+    (* | Waitng of task *)
+    (* | Pending *)
     | Running
-    | Done
+  (* | Done *)
 
   (* | Failed  *)
   (* used for cancellation *)
@@ -71,7 +68,7 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
         Hashtbl.add_exn t.map ~key ~data:detail ;
         detail
 
-  let find_detail_exn t key = Hashtbl.find_exn t.map key
+  (* let find_detail_exn t key = Hashtbl.find_exn t.map key *)
 
   let get_stream t key =
     let detail = find_detail t key in
@@ -85,20 +82,20 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
       match task with None -> () | Some t -> t ())
     else ()
 
-  let find_task_stream t key task =
-    let detail = find_detail t key in
-    if is_initial detail
-    then (
-      task () ;
-      detail.task_status <- Running)
-    else () ;
-    Lwt_stream.clone detail.stream
+  (* let find_task_stream t key task =
+     let detail = find_detail t key in
+     if is_initial detail
+     then (
+       task () ;
+       detail.task_status <- Running)
+     else () ;
+     Lwt_stream.clone detail.stream *)
 
   let push_if_new t key =
     let detail = find_detail t key in
     fun msg ->
       Nano_mutex.critical_section push_mutex ~f:(fun () ->
-          if List.mem detail.messages msg ~equal:S.equal_message
+          if List.mem detail.messages msg ~equal:M.equal_message
           then ()
           else (
             detail.push (Some msg) ;
@@ -154,26 +151,26 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
 
   let by_join_u t key_src key_tgts =
     Lwt.async (fun () -> by_join t key_src key_tgts)
+  (*
+     let by_join_map t key_src key_tgts f = by_join t ~f key_src key_tgts
 
-  let by_join_map t key_src key_tgts f = by_join t ~f key_src key_tgts
+     let by_join_map_u t key_src key_tgts f =
+       Lwt.async (fun () -> by_join t ~f key_src key_tgts) *)
 
-  let by_join_map_u t key_src key_tgts f =
-    Lwt.async (fun () -> by_join t ~f key_src key_tgts)
-
-  let product_stream_ s1 s2 =
-    let s, f = Lwt_stream.create () in
-    let rec loop () =
-      let r1 = Lwt_stream.get s1 in
-      let r2 = Lwt_stream.get s2 in
-      let%lwt v1, v2 = Lwt.both r1 r2 in
-      match (v1, v2) with
-      | Some v1, Some v2 ->
-          f (Some (v1, v2)) ;
-          loop ()
-      | _, _ -> Lwt.return_unit
-    in
-    Lwt.async loop ;
-    s
+  (* let product_stream_ s1 s2 =
+     let s, f = Lwt_stream.create () in
+     let rec loop () =
+       let r1 = Lwt_stream.get s1 in
+       let r2 = Lwt_stream.get s2 in
+       let%lwt v1, v2 = Lwt.both r1 r2 in
+       match (v1, v2) with
+       | Some v1, Some v2 ->
+           f (Some (v1, v2)) ;
+           loop ()
+       | _, _ -> Lwt.return_unit
+     in
+     Lwt.async loop ;
+     s *)
 
   let product_stream s1 s2 =
     let s, f = Lwt_stream.create () in
@@ -216,18 +213,18 @@ module Make (Key : Base.Hashtbl.Key.S) (S : S_sig) = struct
   let by_map2_u t key_tgt key_src1 key_src2 f : unit =
     Lwt.async (fun () -> by_map2 t key_tgt key_src1 key_src2 f)
 
-  let by_join_both t key_tgt key_src_pairs f : unit Lwt.t =
-    let srcs =
-      List.map key_src_pairs ~f:(fun (a, b) ->
-          let s1, s2 = (get_stream t a, get_stream t b) in
-          product_stream s1 s2)
-    in
-    let cb = push_if_new t key_tgt in
-    Lwt_list.iter_p
-      (Lwt_stream.iter_p (fun v ->
-           cb (f v) ;
-           Lwt.return_unit))
-      srcs
+  (* let by_join_both t key_tgt key_src_pairs f : unit Lwt.t =
+     let srcs =
+       List.map key_src_pairs ~f:(fun (a, b) ->
+           let s1, s2 = (get_stream t a, get_stream t b) in
+           product_stream s1 s2)
+     in
+     let cb = push_if_new t key_tgt in
+     Lwt_list.iter_p
+       (Lwt_stream.iter_p (fun v ->
+            cb (f v) ;
+            Lwt.return_unit))
+       srcs *)
 
   (* external use *)
   let get_messages t key =

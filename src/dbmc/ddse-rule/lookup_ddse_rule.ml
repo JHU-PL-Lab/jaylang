@@ -3,22 +3,7 @@ open Odefa_ast
 open Odefa_ast.Ast
 open Log.Export
 open Rule
-
-module Unroll_S :
-  Unroll.S_sig
-    with type message = Lookup_key.t * Phi_set.t
-     and type result = Lookup_key.t * Phi_set.t = struct
-  type message = Lookup_key.t * Phi_set.t
-  type result = Lookup_key.t * Phi_set.t
-  type key = Lookup_key.t
-
-  let equal_message (k1, phis1) (k2, phis2) =
-    Lookup_key.compare k1 k2 = 0
-    (* && (Ast.equal_value v1 v2) *)
-    && Phi_set.compare phis1 phis2 = 0
-end
-
-module U = Unroll.Make (Lookup_key) (Unroll_S)
+module U = Unrolls.U_ddse
 
 module type S = sig
   val state : Global_state.t

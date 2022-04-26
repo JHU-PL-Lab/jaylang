@@ -1,7 +1,7 @@
 open Core
 open Dbmc
 
-let testing_step = 1
+let testing_step = 200
 
 (* treat the path as the group name and filename as the test name *)
 let group_all_files dir =
@@ -35,7 +35,7 @@ let test_one_file testname () =
   let config : Global_config.t =
     let filename = testname in
     let steps = testing_step in
-    let timeout = Some (Time.Span.of_int_sec 10) in
+    let timeout = Some (Time.Span.of_int_sec 5) in
     let default_config = Global_config.default_config in
     { default_config with filename; steps; timeout }
   in

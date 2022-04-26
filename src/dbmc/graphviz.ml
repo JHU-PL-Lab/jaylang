@@ -220,8 +220,9 @@ module DotPrinter_Make (S : GS) = struct
           in
           let pvar = Global_state.pvar_picked S.state node.key in
           let outputs =
-            Global_state.Unroll.get_messages S.state.unroll node.key
-            |> List.map ~f:(fun m -> m.from)
+            []
+            (* Unrolls.U_dbmc.get_messages S.state.unroll node.key
+               |> List.map ~f:(fun m -> m.from) *)
           in
           Fmt.str
             "{ {[%s] | %a} | %a | %a | %s | {φ | { %s %s } } | %B | {out | %a \

@@ -3,13 +3,7 @@ open Odefa_ast
 open Odefa_ast.Ast
 open Log.Export
 open Rule
-
-(*
-   module type X_int = sig val x : int end;;
-
-   utop # let rec mm = (module struct let x = y end : X_int) and y = 4;;
-   val mm : (module X_int) = <module>
-*)
+module U = Unrolls.U_dbmc
 
 module type S = sig
   val state : Global_state.t
@@ -20,16 +14,15 @@ module type S = sig
     Lookup_key.t -> Tracelet.block -> Node.ref_t -> Node.ref_t
 
   val block_map : Tracelet.block Odefa_ast.Ast.Ident_map.t
+  val unroll : U.t
 end
-
-module U = Global_state.Unroll
 
 module Make (S : S) = struct
   let rule_main v (key : Lookup_key.t) this_node =
     let target_stk = Rstack.concretize_top key.r_stk in
     Node.update_rule this_node (Node.done_ target_stk) ;
     S.add_phi key (Riddler.discover_main_with_picked key v) ;
-    U.by_return S.state.unroll key (Lookup_result.ok key)
+    U.by_return S.unroll key (Lookup_result.ok key)
 
   let rule_nonmain v (key : Lookup_key.t) this_node block run_task =
     let key_first = Lookup_key.to_first key S.state.first in
@@ -37,7 +30,7 @@ module Make (S : S) = struct
     Node.update_rule this_node (Node.to_first node_child) ;
     S.add_phi key (Riddler.discover_non_main key key_first v) ;
     run_task key_first block ;
-    U.by_map_u S.state.unroll key key_first (fun _ -> Lookup_result.ok key)
+    U.by_map_u S.unroll key key_first (fun _ -> Lookup_result.ok key)
 
   let discovery_main p (key : Lookup_key.t) this_node =
     let ({ v; _ } : Discovery_main_rule.t) = p in
@@ -61,7 +54,7 @@ module Make (S : S) = struct
     Node.update_rule this_node (Node.alias node') ;
     S.add_phi key (Riddler.eq_with_picked key key') ;
     run_task key' block ;
-    U.by_id_u S.state.unroll key key'
+    U.by_id_u S.unroll key key'
 
   let binop b (key : Lookup_key.t) this_node block run_task =
     let ({ bop; x1; x2; _ } : Binop_rule.t) = b in
@@ -75,7 +68,7 @@ module Make (S : S) = struct
 
     run_task key_x1 block ;
     run_task key_x2 block ;
-    U.by_map2_u S.state.unroll key key_x1 key_x2 (fun _ -> Lookup_result.ok key)
+    U.by_map2_u S.unroll key key_x1 key_x2 (fun _ -> Lookup_result.ok key)
 
   let record_start p (key : Lookup_key.t) this_node block run_task =
     let ({ r; lbl; _ } : Record_start_rule.t) = p in
@@ -114,13 +107,13 @@ module Make (S : S) = struct
 
           run_task key_l rv_block ;
 
-          U.by_id_u S.state.unroll this_key key_l
+          U.by_id_u S.unroll this_key key_l
       | None ->
           Node.update_rule this_node Node.mismatch ;
           S.add_phi key (Riddler.list_append_mismatch this_key i)) ;
       Lwt.return_unit
     in
-    U.by_bind_u S.state.unroll key key_r cb
+    U.by_bind_u S.unroll key key_r cb
 
   let record_end p (this_key : Lookup_key.t) this_node block run_task =
     let ({ r; is_in_main; _ } : Record_end_rule.t) = p in
@@ -156,11 +149,11 @@ module Make (S : S) = struct
       if true
       then (
         run_task key_x condsite_block ;
-        U.by_id_u S.state.unroll key key_x)
+        U.by_id_u S.unroll key key_x)
       else () ;
       Lwt.return_unit
     in
-    U.by_bind_u S.state.unroll key key_x2 cb
+    U.by_bind_u S.unroll key key_x2 cb
 
   let cond_btm p (this_key : Lookup_key.t) (this_node : Node.ref_t) block
       run_task =
@@ -213,12 +206,12 @@ module Make (S : S) = struct
               in
 
               run_task key_ret ctracelet ;
-              U.by_id_u S.state.unroll this_key key_ret)
+              U.by_id_u S.unroll this_key key_ret)
             else ()) ;
         Lwt.return_unit)
       else Lwt.return_unit
     in
-    U.by_bind_u S.state.unroll this_key term_c cb
+    U.by_bind_u S.unroll this_key term_c cb
 
   let fun_enter_local p this_key this_node run_task =
     let ({ fb; _ } : Fun_enter_local_rule.t) = p in
@@ -248,10 +241,10 @@ module Make (S : S) = struct
                   S.find_or_add_node key_arg callsite_block this_node
                 in
                 run_task key_arg callsite_block ;
-                U.by_id_u S.state.unroll this_key key_arg ;
+                U.by_id_u S.unroll this_key key_arg ;
                 Lwt.return_unit
               in
-              U.by_bind_u S.state.unroll this_key key_f cb ;
+              U.by_bind_u S.unroll this_key key_f cb ;
               sub_trees @ [ (node_f, node_f) ]
           | None -> sub_trees)
         ~init:[]
@@ -297,10 +290,10 @@ module Make (S : S) = struct
                 let fv_block = Tracelet.find_by_id r.from.x S.block_map in
                 let _node_arg = S.find_or_add_node key_arg fv_block this_node in
                 run_task key_arg fv_block ;
-                U.by_id_u S.state.unroll this_key key_arg ;
+                U.by_id_u S.unroll this_key key_arg ;
                 Lwt.return_unit
               in
-              U.by_bind_u S.state.unroll this_key key_f cb ;
+              U.by_bind_u S.unroll this_key key_f cb ;
               sub_trees @ [ (node_f, node_f) ]
           | None -> sub_trees)
         ~init:[]
@@ -336,12 +329,12 @@ module Make (S : S) = struct
         let key_ret = Lookup_key.get_f_return S.block_map fid r_stk x in
 
         run_task key_ret fblock ;
-        U.by_id_u S.state.unroll this_key key_ret ;
+        U.by_id_u S.unroll this_key key_ret ;
         Lwt.return_unit)
       else Lwt.return_unit
     in
 
-    U.by_bind_u S.state.unroll this_key key_f cb
+    U.by_bind_u S.unroll this_key key_f cb
 
   let mismatch this_key this_node =
     Node.update_rule this_node Node.mismatch ;
