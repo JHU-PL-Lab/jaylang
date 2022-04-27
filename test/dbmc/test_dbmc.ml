@@ -1,6 +1,11 @@
 open Core
 open Dbmc
 
+let get_engine () =
+  match Sys.getenv "E" with
+  | Some "ddse" -> Global_config.E_ddse
+  | _ (* "dbmc" *) -> Global_config.E_dbmc
+
 let testing_step = 200
 
 (* treat the path as the group name and filename as the test name *)
@@ -37,7 +42,7 @@ let test_one_file testname () =
     let steps = testing_step in
     let timeout = Some (Time.Span.of_int_sec 5) in
     let default_config = Global_config.default_config in
-    { default_config with filename; steps; timeout }
+    { default_config with filename; steps; timeout; engine = get_engine () }
   in
   Dbmc.Log.init config ;
   match expectation with

@@ -1,15 +1,23 @@
-.PHONY: all clean repl test benchmark dbmc logclean translator dtest 
+.PHONY: all clean repl test benchmark dbmc dbmc-top dbmc-test dtest dtest-all logclean translator
 
 all: dbmc
 
-dbmc:
+dbmc-top:
 	dune build src/bin/dbmc_top.exe
 	ln -s -f _build/default/src/bin/dbmc_top.exe dbmc_top
 
-dtest:
+dbmc-test:
 	dune build test/dbmc/test_dbmc.exe 
 	ln -s -f _build/default/test/dbmc/test_dbmc.exe dtest
+
+dbmc: dbmc-top dbmc-test
+
+dtest: dbmc-test
 	./dtest
+
+dtest-all: dbmc-test
+	./dtest || echo "failure!" 
+	E=ddse ./dtest
 
 ddpa:
 	dune build src/bin/ddpa_toploop.exe

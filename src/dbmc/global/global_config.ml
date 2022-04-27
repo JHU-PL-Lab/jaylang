@@ -4,9 +4,9 @@ open Core
 exception GenComplete
 
 type ddpa_c_stk = C_0ddpa | C_1ddpa | C_2ddpa | C_kddpa of int
-[@@deriving show { with_path = false }]
+and engine = E_dbmc | E_ddse
 
-type t = {
+and t = {
   ddpa_c_stk : ddpa_c_stk;
   target : Id.t;
   filename : Filename.t; [@printer String.pp]
@@ -14,6 +14,8 @@ type t = {
   expected_inputs : int list list;
   steps : int;
   run_max_step : int option;
+  (* engine *)
+  engine : engine;
   (* logger *)
   log_level : Logs.level option;
   log_level_lookup : Logs.level option;
@@ -37,6 +39,7 @@ let default_config =
     steps = 100;
     expected_inputs = [];
     run_max_step = None;
+    engine = E_dbmc;
     log_level = None;
     log_level_lookup = None;
     log_level_solver = None;
