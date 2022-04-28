@@ -264,15 +264,23 @@ let check (state : Global_state.t) (config : Global_config.t) :
       Some { model; c_stk }
   | Result.Error _exps -> None
 
-let step_check ~(config : Global_config.t) ~(state : Global_state.t) =
+let step_check ~(config : Global_config.t) ~(state : Global_state.t) stride =
   state.tree_size <- state.tree_size + 1 ;
-  if state.tree_size mod config.steps = 0
-  then
+  if state.tree_size mod !stride = 0
+  then (
     (* LLog.app (fun m ->
         m "Step %d\t%a\n" state.tree_size Lookup_key.pp this_key) ; *)
     match check state config with
     | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
-    | None -> Lwt.return_unit
+    | None ->
+        if !stride < config.stride_max
+        then (
+          stride := !stride * 2 ;
+          if !stride > config.stride_max
+          then stride := config.stride_max
+          else ())
+        else () ;
+        Lwt.return_unit)
   else Lwt.return_unit
 
 let check_phis phis is_debug : result_info option =

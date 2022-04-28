@@ -122,6 +122,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
   Solver.reset () ;
   Riddler.reset () ;
   state.phis_z3 <- [ Riddler.picked (Lookup_key.start state.target) ] ;
+  let stride = ref config.stride_init in
 
   let unroll = U.create () in
 
@@ -156,7 +157,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
     let run_task key block = run_eval key block lookup in
     let block_id = Tracelet.id_of_block block in
 
-    Riddler.step_check ~state ~config ;%lwt
+    Riddler.step_check ~state ~config stride ;%lwt
 
     Hash_set.strict_remove_exn state.lookup_created this_key ;
 

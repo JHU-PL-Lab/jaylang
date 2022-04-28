@@ -12,7 +12,10 @@ and t = {
   filename : Filename.t; [@printer String.pp]
   timeout : Time.Span.t option;
   expected_inputs : int list list;
-  steps : int;
+  (* check *)
+  stride_init : int;
+  stride_max : int;
+  (* run *)
   run_max_step : int option;
   (* engine *)
   engine : engine;
@@ -36,7 +39,8 @@ let default_config =
     target = Id.(Ident "target");
     filename = "";
     timeout = None (* Time.Span.of_int_sec 60 *);
-    steps = 100;
+    stride_init = 100;
+    stride_max = 10000;
     expected_inputs = [];
     run_max_step = None;
     engine = E_dbmc;
@@ -48,9 +52,6 @@ let default_config =
     debug_model = true;
     debug_graph = false;
   }
-
-let default_config_with ?(steps = default_config.steps) ~filename () : t =
-  { default_config with filename; steps }
 
 let check_wellformed_or_exit ast =
   let open Odefa_ast in

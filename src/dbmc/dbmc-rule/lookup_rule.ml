@@ -24,7 +24,7 @@ module Make (S : S) = struct
     S.add_phi key (Riddler.discover_main_with_picked key v) ;
     U.by_return S.unroll key (Lookup_result.ok key)
 
-  let rule_nonmain v (key : Lookup_key.t) this_node block run_task =
+  let rule_nonmain v key this_node block run_task =
     let key_first = Lookup_key.to_first key S.state.first in
     let node_child = S.find_or_add_node key_first block this_node in
     Node.update_rule this_node (Node.to_first node_child) ;
@@ -32,11 +32,11 @@ module Make (S : S) = struct
     run_task key_first block ;
     U.by_map_u S.unroll key key_first (fun _ -> Lookup_result.ok key)
 
-  let discovery_main p (key : Lookup_key.t) this_node =
+  let discovery_main p key this_node =
     let ({ v; _ } : Discovery_main_rule.t) = p in
     rule_main (Some v) key this_node
 
-  let discovery_nonmain p (key : Lookup_key.t) this_node block run_task =
+  let discovery_nonmain p key this_node block run_task =
     let ({ v; _ } : Discovery_nonmain_rule.t) = p in
     rule_nonmain (Some v) key this_node block run_task
 
@@ -47,7 +47,7 @@ module Make (S : S) = struct
     then rule_main None this_key this_node
     else rule_nonmain None this_key this_node block run_task
 
-  let alias p (key : Lookup_key.t) this_node block run_task =
+  let alias p key this_node block run_task =
     let ({ x'; _ } : Alias_rule.t) = p in
     let key' = Lookup_key.with_x key x' in
     let node' = S.find_or_add_node key' block this_node in
@@ -56,7 +56,7 @@ module Make (S : S) = struct
     run_task key' block ;
     U.by_id_u S.unroll key key'
 
-  let binop b (key : Lookup_key.t) this_node block run_task =
+  let binop b key this_node block run_task =
     let ({ bop; x1; x2; _ } : Binop_rule.t) = b in
     let key_x1 = Lookup_key.with_x key x1 in
     let node_x1 = S.find_or_add_node key_x1 block this_node in
@@ -70,7 +70,7 @@ module Make (S : S) = struct
     run_task key_x2 block ;
     U.by_map2_u S.unroll key key_x1 key_x2 (fun _ -> Lookup_result.ok key)
 
-  let record_start p (key : Lookup_key.t) this_node block run_task =
+  let record_start p key this_node block run_task =
     let ({ r; lbl; _ } : Record_start_rule.t) = p in
     let key_r = Lookup_key.with_x key r in
     let node_r = S.find_or_add_node key_r block this_node in
@@ -115,15 +115,15 @@ module Make (S : S) = struct
     in
     U.by_bind_u S.unroll key key_r cb
 
-  let record_end p (this_key : Lookup_key.t) this_node block run_task =
+  let record_end p this_key this_node block run_task =
     let ({ r; is_in_main; _ } : Record_end_rule.t) = p in
     let rv = Some (Value_record r) in
     if is_in_main
     then rule_main rv this_key this_node
     else rule_nonmain rv this_key this_node block run_task
 
-  let cond_top (cb : Cond_top_rule.t) (key : Lookup_key.t)
-      (this_node : Node.ref_t) block run_task =
+  let cond_top (cb : Cond_top_rule.t) key (this_node : Node.ref_t) block
+      run_task =
     let condsite_block = Tracelet.outer_block block S.block_map in
     let x, r_stk = Lookup_key.to2 key in
     let choice = Option.value_exn cb.choice in
@@ -146,7 +146,9 @@ module Make (S : S) = struct
 
     let cb key (rc : Lookup_result.t) =
       let c = rc.from in
-      if true
+      (* if true *)
+      if Riddler.eager_check S.state S.config key_x2
+           [ Riddler.eqv key_x2 (Value_bool choice) ]
       then (
         run_task key_x condsite_block ;
         U.by_id_u S.unroll key key_x)
@@ -155,8 +157,7 @@ module Make (S : S) = struct
     in
     U.by_bind_u S.unroll key key_x2 cb
 
-  let cond_btm p (this_key : Lookup_key.t) (this_node : Node.ref_t) block
-      run_task =
+  let cond_btm p this_key (this_node : Node.ref_t) block run_task =
     let _x, r_stk = Lookup_key.to2 this_key in
     let ({ x; x'; tid } : Cond_btm_rule.t) = p in
     let cond_block =

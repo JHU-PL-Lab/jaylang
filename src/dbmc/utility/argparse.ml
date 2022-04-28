@@ -62,10 +62,14 @@ let parse_commandline_config () =
         flag "-i" (listed int_list_parser) ~doc:"expected_inputs by groups"
       and timeout =
         flag "-m" (optional timeout_parser) ~doc:"timeout in seconds"
-      and steps =
+      and stride_init =
         flag "-s"
-          (optional_with_default default_config.steps int)
-          ~doc:"check per steps"
+          (optional_with_default default_config.stride_init int)
+          ~doc:"check per steps (initial)"
+      and stride_max =
+        flag "-d"
+          (optional_with_default default_config.stride_max int)
+          ~doc:"check per steps (max)"
       and run_max_step = flag "-x" (optional int) ~doc:"check per steps"
       and engine =
         flag "-e" (optional_with_default E_dbmc engine_parser) ~doc:"engine"
@@ -82,7 +86,8 @@ let parse_commandline_config () =
             target;
             timeout;
             expected_inputs;
-            steps;
+            stride_init;
+            stride_max;
             run_max_step;
             engine;
             log_level;

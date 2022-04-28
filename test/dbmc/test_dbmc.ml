@@ -6,7 +6,7 @@ let get_engine () =
   | Some "ddse" -> Global_config.E_ddse
   | _ (* "dbmc" *) -> Global_config.E_dbmc
 
-let testing_step = 200
+let testing_stride_init = 200
 
 (* treat the path as the group name and filename as the test name *)
 let group_all_files dir =
@@ -39,10 +39,16 @@ let test_one_file testname () =
   let expectation = Test_expect.load_sexp_expectation_for testname in
   let config : Global_config.t =
     let filename = testname in
-    let steps = testing_step in
+    let stride_init = testing_stride_init in
     let timeout = Some (Time.Span.of_int_sec 5) in
     let default_config = Global_config.default_config in
-    { default_config with filename; steps; timeout; engine = get_engine () }
+    {
+      default_config with
+      filename;
+      stride_init;
+      timeout;
+      engine = get_engine ();
+    }
   in
   Dbmc.Log.init config ;
   match expectation with
