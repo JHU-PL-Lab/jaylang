@@ -155,13 +155,13 @@ module Make (S : S) = struct
       let (key_c : Lookup_key.t), phis_c = rc in
       let phi_c = Riddler.eqv key_c (Value_bool beta) in
       let phis_top_with_c = Phi_set.(add (union phis_c phis_top) phi_c) in
-      (match Riddler.check_phis (Phi_set.to_list phis_top_with_c) false with
-      | Some _ ->
-          run_task key_x condsite_block phis_top_with_c ;
-          let phi = Riddler.eqv key_x2 (Value_bool beta) in
-          let phic' = Phi_set.(add phis_c phi) in
-          U.by_map_u S.unroll key key_x (cb_phi_from_key_and_phis key phic')
-      | None -> ()) ;
+      (* (match Riddler.check_phis (Phi_set.to_list phis_top_with_c) false with
+         | Some _ -> *)
+      run_task key_x condsite_block phis_top_with_c ;
+      let phi = Riddler.eqv key_x2 (Value_bool beta) in
+      let phic' = Phi_set.(add phis_c phi) in
+      U.by_map_u S.unroll key key_x (cb_phi_from_key_and_phis key phic')
+      (* | None -> ()) *) ;
       Lwt.return_unit
     in
     U.by_bind_u S.unroll key key_x2 cb

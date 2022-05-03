@@ -160,7 +160,6 @@ let fun_exit term key_f fids block_map =
   let x, r_stk = Lookup_key.to2 term in
   let cs, rs =
     List.fold fids ~init:([], []) ~f:(fun (cs, rs) fid ->
-        let fblock = Ident_map.find fid block_map in
         let key_ret = Lookup_key.get_f_return block_map fid r_stk x in
         let p = picked key_ret in
         (cs @ [ p ], rs @ [ p @=> same_funexit key_f fid key_ret term ]))

@@ -1,4 +1,4 @@
-.PHONY: all clean repl test benchmark dbmc dbmc-top dbmc-test dtest dtest-all logclean translator
+.PHONY: all clean repl test benchmark dbmc dbmc-top dbmc-test dtest dtest-ddse dtest-all logclean translator
 
 all: dbmc
 
@@ -14,6 +14,9 @@ dbmc: dbmc-top dbmc-test
 
 dtest: dbmc-test
 	./dtest
+
+dtest-ddse: dbmc-test
+	E=ddse ./dtest
 
 dtest-all: dbmc-test
 	./dtest || echo "failure!" 
@@ -48,7 +51,13 @@ test-rstack:
 # profiling
 
 land100:
-	OCAML_LANDMARKS=on,output="profiling/callgraph100.ansi" time ./dbmc_top -t target test-sources/loop/_sum100.odefa
+#	OCAML_LANDMARKS=on,output="profiling/callgraph100.ansi" time ./dbmc_top -t target test-sources/loop/_sum100.odefa
+	OCAML_LANDMARKS=on,output="profiling/callgraph8-ddse.ansi" time ./dbmc_top -e ddse -t target test-sources/loop/_sum8.odefa
+
+profile:
+	dune build --workspace dune-workspace.profile src/bin/dbmc_top.exe
+	ln -s -f _build/profile/src/bin/dbmc_top.exe dbmc_top
+# dune exec --workspace dune-workspace.profiling --context profiling src/bin/dbmc_top.exe -- -t target test-sources/loop/_sum100.odefa
 
 land200:
 	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dbmc_top -t target -s 200 test-sources/loop/_sum200.odefa

@@ -7,7 +7,7 @@ license: "Apache"
 homepage: "https://github.com/JHU-PL-Lab/odefa"
 bug-reports: "https://github.com/JHU-PL-Lab/odefa/issues"
 depends: [
-  "dune" {>= "2.8"}
+  "dune" {>= "3.0"}
   "z3"
   "odoc" {with-doc}
 ]

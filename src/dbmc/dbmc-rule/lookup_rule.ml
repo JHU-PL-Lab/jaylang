@@ -144,11 +144,11 @@ module Make (S : S) = struct
 
     run_task key_x2 condsite_block ;
 
-    let cb key (rc : Lookup_result.t) =
-      let c = rc.from in
-      (* if true *)
-      if Riddler.eager_check S.state S.config key_x2
-           [ Riddler.eqv key_x2 (Value_bool choice) ]
+    let cb key (_rc : Lookup_result.t) =
+      (* let c = rc.from in *)
+      if true
+         (* if Riddler.eager_check S.state S.config key_x2
+              [ Riddler.eqv key_x2 (Value_bool choice) ] *)
       then (
         run_task key_x condsite_block ;
         U.by_id_u S.unroll key key_x)

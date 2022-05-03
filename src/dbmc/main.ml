@@ -44,8 +44,6 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
     in
     Scheduler.create ~cmp ()
   in
-  let target = config.target in
-
   let post_check_dbmc () =
     match Riddler.check state config with
     | Some { model; c_stk } -> handle_found config state model c_stk

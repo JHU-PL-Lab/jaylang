@@ -11,7 +11,6 @@
   lwt
   lwt.unix
   z3
-  landmarks
   logs
   logs.lwt
   logs.fmt
@@ -23,6 +22,8 @@
   odefa.parser
   odefa.unroll
   sudu)
+ (instrumentation
+  (backend landmarks))
  (synopsis "dbmc is demand-driven bounded model checking")
  (inline_tests)
  (preprocess

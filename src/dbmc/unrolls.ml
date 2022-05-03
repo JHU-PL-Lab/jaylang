@@ -10,7 +10,7 @@ open Core
 module Unroll_S_dbmc :
   Unroll.M_sig
     with type message = Lookup_result.t
-     and type result = Lookup_result.t 
+     and type result = Lookup_result.t
      and type key = Lookup_key.t = struct
   type message = Lookup_result.t
   type result = Lookup_result.t

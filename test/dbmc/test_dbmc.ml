@@ -69,22 +69,22 @@ let test_one_file testname () =
           | None ->
               Alcotest.(check int) "equal" 0 (List.length expectation.inputs))
 
-exception Timeout
+(* exception Timeout *)
 
-let sigalrm_handler = Caml.Sys.Signal_handle (fun _ -> raise Timeout)
+(* let sigalrm_handler = Caml.Sys.Signal_handle (fun _ -> raise Timeout) *)
 
 (* TODO: it works strangely. Maybe because this timeout won't break a Lwt.t. *)
-let timeout f arg time =
-  let old_behavior = Caml.Sys.signal Caml.Sys.sigalrm sigalrm_handler in
-  let reset_sigalrm () = Caml.Sys.set_signal Caml.Sys.sigalrm old_behavior in
-  ignore (Unix.alarm time) ;
-  try
-    let res = f arg in
-    reset_sigalrm () ;
-    res
-  with exc ->
-    reset_sigalrm () ;
-    raise exc
+(* let timeout f arg time =
+   let old_behavior = Caml.Sys.signal Caml.Sys.sigalrm sigalrm_handler in
+   let reset_sigalrm () = Caml.Sys.set_signal Caml.Sys.sigalrm old_behavior in
+   ignore (Unix.alarm time) ;
+   try
+     let res = f arg in
+     reset_sigalrm () ;
+     res
+   with exc ->
+     reset_sigalrm () ;
+     raise exc *)
 
 let test_one_file_lwt testname _switch () =
   try%lwt
@@ -94,7 +94,7 @@ let test_one_file_lwt testname _switch () =
 (* let test_one_file_lwt testname _switch () =
    Lwt.return (test_one_file testname ()) *)
 
-let test_one_file_timed testname () = test_one_file testname ()
+(* let test_one_file_timed testname () = test_one_file testname () *)
 (* try timeout (test_one_file testname) () 5 with Timeout -> raise Timeout *)
 
 let () =

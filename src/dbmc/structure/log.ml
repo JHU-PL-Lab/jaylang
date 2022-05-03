@@ -57,7 +57,6 @@ let init (cfg : Global_config.t) =
     ()
 
 let dot_file_oc_of_now () =
-  let filename = Core.Time.(now () |> to_filename_string ~zone:Zone.utc) in
   let dot_file = Filename.of_parts [ "dot"; filename_of_now () ^ ".dot" ] in
   Out_channel.create dot_file
 
