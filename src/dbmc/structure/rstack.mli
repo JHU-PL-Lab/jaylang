@@ -1,6 +1,4 @@
-type frame = Id.t * Id.t [@@deriving hash, equal]
-type op = Push | Co_pop [@@deriving hash, equal]
-type t [@@deriving hash, equal, compare, sexp_of]
+include module type of Rstack_intf
 
 val empty : t
 val to_string : t -> string

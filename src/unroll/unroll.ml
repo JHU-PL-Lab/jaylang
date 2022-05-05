@@ -135,6 +135,18 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
   let by_map_u t key_tgt key_src f : unit =
     Lwt.async (fun () -> by_map t key_tgt key_src f)
 
+  let by_filter_map t key_tgt key_src f : unit Lwt.t =
+    let stream_src = get_stream t key_src in
+    let cb = push_if_new t key_tgt in
+    Lwt_stream.iter_p
+      (fun x ->
+        (match f x with Some v -> cb v | None -> ()) ;
+        Lwt.return_unit)
+      stream_src
+
+  let by_filter_map_u t key_tgt key_src f : unit =
+    Lwt.async (fun () -> by_filter_map t key_tgt key_src f)
+
   let by_bind t key_tgt key_src f : unit Lwt.t =
     let stream_src = get_stream t key_src in
     Lwt_stream.iter_p (fun x -> f key_tgt x) stream_src
@@ -197,6 +209,23 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
         Lwt.return_unit)
       (product_stream stream_src1 stream_src2)
 
+  let by_map2_u t key_tgt key_src1 key_src2 f : unit =
+    Lwt.async (fun () -> by_map2 t key_tgt key_src1 key_src2 f)
+
+  let by_filter_map2 t key_tgt key_src1 key_src2 f : unit Lwt.t =
+    let stream_src1 = get_stream t key_src1 in
+    let stream_src2 = get_stream t key_src2 in
+    let cb = push_if_new t key_tgt in
+
+    Lwt_stream.iter_p
+      (fun (v1, v2) ->
+        (match f (v1, v2) with Some v -> cb v | None -> ()) ;
+        Lwt.return_unit)
+      (product_stream stream_src1 stream_src2)
+
+  let by_filter_map2_u t key_tgt key_src1 key_src2 f : unit =
+    Lwt.async (fun () -> by_filter_map2 t key_tgt key_src1 key_src2 f)
+
   (* TODO: this logic is obviously incorrect *)
   (* let rec loop () =
        let r1 = Lwt_stream.get stream_src1 in
@@ -209,9 +238,6 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
        | _, _ -> Lwt.return_unit
      in
      loop () *)
-
-  let by_map2_u t key_tgt key_src1 key_src2 f : unit =
-    Lwt.async (fun () -> by_map2 t key_tgt key_src1 key_src2 f)
 
   (* let by_join_both t key_tgt key_src_pairs f : unit Lwt.t =
      let srcs =

@@ -51,8 +51,8 @@ test-rstack:
 # profiling
 
 land100:
-#	OCAML_LANDMARKS=on,output="profiling/callgraph100.ansi" time ./dbmc_top -t target test-sources/loop/_sum100.odefa
-	OCAML_LANDMARKS=on,output="profiling/callgraph8-ddse.ansi" time ./dbmc_top -e ddse -t target test-sources/loop/_sum8.odefa
+# OCAML_LANDMARKS=on,output="profiling/callgraph100.ansi" time ./dbmc_top -t target test-sources/loop/_sum100.odefa
+	OCAML_LANDMARKS=auto,output="profiling/callgraph100-ddse.ansi" time ./dbmc_top -e ddse -t target test-sources/loop/_sum100.odefa
 
 profile:
 	dune build --workspace dune-workspace.profile src/bin/dbmc_top.exe

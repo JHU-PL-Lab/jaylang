@@ -24,11 +24,27 @@ module type S = sig
   val by_map : t -> key -> key -> (message -> message) -> unit Lwt.t
   val by_map_u : t -> key -> key -> (message -> message) -> unit
 
+  val by_filter_map :
+    t -> key -> key -> (message -> message option) -> unit Lwt.t
+
+  val by_filter_map_u : t -> key -> key -> (message -> message option) -> unit
+
   val by_map2 :
     t -> key -> key -> key -> (message * message -> message) -> unit Lwt.t
 
   val by_map2_u :
     t -> key -> key -> key -> (message * message -> message) -> unit
+
+  val by_filter_map2 :
+    t ->
+    key ->
+    key ->
+    key ->
+    (message * message -> message option) ->
+    unit Lwt.t
+
+  val by_filter_map2_u :
+    t -> key -> key -> key -> (message * message -> message option) -> unit
 
   val by_join : t -> ?f:(message -> message) -> key -> key list -> unit Lwt.t
   val by_join_u : t -> key -> key list -> unit

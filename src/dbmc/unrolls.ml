@@ -22,19 +22,31 @@ end
 
 module U_dbmc = Unroll.Make (Lookup_key) (Unroll_S_dbmc)
 
+(* module Unroll_S_ddse :
+     Unroll.M_sig
+       with type message = Lookup_key.t * Phi_set.t
+        and type result = Lookup_key.t * Phi_set.t
+        and type key = Lookup_key.t = struct
+     type message = Lookup_key.t * Phi_set.t
+     type result = Lookup_key.t * Phi_set.t
+     type key = Lookup_key.t
+
+     let equal_message (k1, phis1) (k2, phis2) =
+       Lookup_key.compare k1 k2 = 0
+       (* && (Ast.equal_value v1 v2) *)
+       && Phi_set.compare phis1 phis2 = 0
+   end *)
+
 module Unroll_S_ddse :
   Unroll.M_sig
-    with type message = Lookup_key.t * Phi_set.t
-     and type result = Lookup_key.t * Phi_set.t
+    with type message = Ddse_result.t
+     and type result = Ddse_result.t
      and type key = Lookup_key.t = struct
-  type message = Lookup_key.t * Phi_set.t
-  type result = Lookup_key.t * Phi_set.t
+  type message = Ddse_result.t
+  type result = Ddse_result.t
   type key = Lookup_key.t
 
-  let equal_message (k1, phis1) (k2, phis2) =
-    Lookup_key.compare k1 k2 = 0
-    (* && (Ast.equal_value v1 v2) *)
-    && Phi_set.compare phis1 phis2 = 0
+  let equal_message = Ddse_result.equal
 end
 
 module U_ddse = Unroll.Make (Lookup_key) (Unroll_S_ddse)
