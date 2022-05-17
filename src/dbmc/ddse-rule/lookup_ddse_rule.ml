@@ -25,12 +25,24 @@ module Make (S : S) = struct
   let return_with_phis this_key phis (this_t : Ddse_result.t)
       (t : Ddse_result.t) =
     let phi = Riddler.eq this_key t.v in
-    Ddse_result.(merge_all t this_t (Phi_set.of_list (phi :: phis)) [])
+    Ddse_result.(merge_all t this_t (Phi_set.of_list (phi :: phis)) [] [])
 
-  let return_phis outer_term phis choices (outer_t : Ddse_result.t)
+  let return_with_phis_with_choices this_key phis choices
+      (this_t : Ddse_result.t) (t : Ddse_result.t) =
+    let phi = Riddler.eq this_key t.v in
+    Ddse_result.(merge_all t this_t (Phi_set.of_list (phi :: phis)) choices [])
+
+  let return_phis_with_beta this_key phis choice_betas (this_t : Ddse_result.t)
+      (t : Ddse_result.t) =
+    let phi = Riddler.eq this_key t.v in
+    Ddse_result.(
+      merge_all t this_t (Phi_set.of_list (phi :: phis)) [] choice_betas)
+
+  let return_phis outer_term phis choices choice_betas (outer_t : Ddse_result.t)
       (t : Ddse_result.t) =
     let phi = Riddler.eq outer_term t.v in
-    Ddse_result.(merge_all t outer_t (Phi_set.of_list (phi :: phis)) choices)
+    Ddse_result.(
+      merge_all t outer_t (Phi_set.of_list (phi :: phis)) choices choice_betas)
 
   let rule_main v (key : Lookup_key.t) this_node _phis =
     let target_stk = Rstack.concretize_top key.r_stk in
@@ -153,7 +165,9 @@ module Make (S : S) = struct
          | Some _ -> *)
       run_task key_x condsite_block phis_top_with_c ;
       let phi = Riddler.eqv key_x2 (Value_bool beta) in
-      U.by_filter_map_u S.unroll key key_x (return_with_phis key [ phi ] rc)
+      let choice_beta = (key_x2, beta) in
+      U.by_filter_map_u S.unroll key key_x
+        (return_phis_with_beta key [ phi ] [ choice_beta ] rc)
       (* | None -> ()) *) ;
       Lwt.return_unit
     in
@@ -209,8 +223,9 @@ module Make (S : S) = struct
              in
              U.by_bind_u S.unroll this_key key_ret cb) *)
           (* Method 1-b: slow in looping *)
+          let choice_beta = (term_c, beta) in
           U.by_filter_map_u S.unroll this_key key_ret
-            (return_with_phis this_key [ phi_beta ] rc))
+            (return_phis_with_beta this_key [ phi_beta ] [ choice_beta ] rc))
       (* End of Method 1-a/b *)
       (* | None -> ()  *) ;
 
@@ -270,15 +285,19 @@ module Make (S : S) = struct
               let node_arg =
                 S.find_or_add_node key_arg callsite_block this_node
               in
+              (* let _choice_this =
+                   Decision.make r_stk Tracelet.(id_of_block (Fun fb))
+                 in *)
               let choice_f =
-                Decision.make r_stk (Tracelet.id_of_block callsite_block)
+                Decision.make callsite_stack
+                  (Tracelet.id_of_block callsite_block)
               in
               let cb key (rf : Ddse_result.t) =
                 run_task key_arg callsite_block phis_top ;
                 let phi_f = Riddler.eq key_f rf.v in
                 (* This function contains `key = key_arg.v` in the phis *)
                 U.by_filter_map_u S.unroll key key_arg
-                  (return_phis key [ phi; phi_f ] [ choice_f ] rf) ;
+                  (return_phis key [ phi; phi_f ] [ choice_f ] [] rf) ;
                 Lwt.return_unit
               in
               U.by_bind_u S.unroll key key_f cb ;
@@ -309,8 +328,12 @@ module Make (S : S) = struct
 
               let phi = Riddler.eq_fid key_f fb.point in
 
+              (* let choice_this =
+                   Decision.make r_stk Tracelet.(id_of_block (Fun fb))
+                 in *)
               let choice_f =
-                Decision.make r_stk (Tracelet.id_of_block callsite_block)
+                Decision.make callsite_stack
+                  (Tracelet.id_of_block callsite_block)
               in
 
               let cb_f key (rf : Ddse_result.t) =
@@ -321,7 +344,7 @@ module Make (S : S) = struct
 
                 let phi_f = Riddler.eq key_f rf.v in
                 U.by_filter_map_u S.unroll key key_arg
-                  (return_phis key [ phi_f; phi ] [ choice_f ] rf) ;
+                  (return_phis key [ phi_f; phi ] [ choice_f ] [] rf) ;
                 Lwt.return_unit
               in
               U.by_bind_u S.unroll key key_f cb_f ;
@@ -349,13 +372,20 @@ module Make (S : S) = struct
           let node_x_ret = S.find_or_add_node key_ret fblock this_node in
 
           let cb this_key (rf : Ddse_result.t) =
-            let fid = rf.v.x in
-            if List.mem fids fid ~equal:Id.equal
+            let fid' = rf.v.x in
+            if Id.equal fid fid' (* if List.mem fids fid ~equal:Id.equal *)
             then (
               let phis_top' = Phi_set.union phis_top rf.phis in
               run_task key_ret fblock phis_top' ;
+              let choice_this =
+                Decision.make r_stk (Tracelet.id_of_block block)
+              in
+              let choice_f =
+                Decision.make key_ret.r_stk (Tracelet.id_of_block fblock)
+              in
               U.by_filter_map_u S.unroll this_key key_ret
-                (return_with_phis this_key [ phi ] rf))
+                (return_with_phis_with_choices this_key [ phi ]
+                   [ choice_this; choice_f ] rf))
             else () ;
             Lwt.return_unit
           in
