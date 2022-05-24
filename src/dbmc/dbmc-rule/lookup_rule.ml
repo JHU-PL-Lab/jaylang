@@ -15,6 +15,7 @@ module type S = sig
 
   val block_map : Tracelet.block Odefa_ast.Ast.Ident_map.t
   val unroll : U.t
+  val stride : int ref
 end
 
 module Make (S : S) = struct
@@ -199,8 +200,9 @@ module Make (S : S) = struct
             ignore @@ Lazy.force remove_once) ;
 
         List.iter [ true; false ] ~f:(fun beta ->
-            if Riddler.eager_check S.state S.config term_c
+            if Riddler.step_eager_check S.state S.config term_c
                  [ Riddler.eqv term_c (Value_bool beta) ]
+                 S.stride
             then (
               let ctracelet, key_ret =
                 Lookup_key.get_cond_block_and_return cond_block beta r_stk x

@@ -215,11 +215,25 @@ let eager_check (state : Global_state.t) (config : Global_config.t) target
         (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
   match check_result with
   | Result.Ok _model ->
-      Fmt.pr "eager_check SAT\n" ;
+      (* Fmt.pr "eager_check SAT\n" ; *)
       true
   | Result.Error _exps ->
-      Fmt.pr "eager_check UNSAT\n" ;
+      (* Fmt.pr "eager_check UNSAT\n" ; *)
       false
+
+let step_eager_check (state : Global_state.t) (config : Global_config.t) target
+    assumption stride =
+  state.tree_size <- state.tree_size + 1 ;
+  if state.tree_size mod !stride = 0
+  then (
+    if !stride < config.stride_max
+    then (
+      stride := !stride * 2 ;
+      if !stride > config.stride_max then stride := config.stride_max else ())
+    else () ;
+    eager_check state config target assumption)
+  else true
+(* eager_check state config target assumption *)
 
 let check (state : Global_state.t) (config : Global_config.t) :
     result_info option =

@@ -24,7 +24,7 @@ _build
 /*.install
 
 # Edit related
-.vscode/settings.json
+.vscode
 
 # Makefile temporaries
 /ddpa_toploop

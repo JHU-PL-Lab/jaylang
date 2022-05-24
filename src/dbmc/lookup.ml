@@ -148,6 +148,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
 
                          let block_map = state.block_map
                          let unroll = unroll
+                         let stride = stride
                        end) : Lookup_rule.S)
   in
   let module R = Lookup_rule.Make (LS) in
