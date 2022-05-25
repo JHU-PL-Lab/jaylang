@@ -128,10 +128,8 @@ module Make (S : S) = struct
     let condsite_block = Tracelet.outer_block block S.block_map in
     let x, r_stk = Lookup_key.to2 key in
     let choice = Option.value_exn cb.choice in
-    let condsite_stack =
-      match Rstack.pop r_stk (cb.point, Id.cond_fid choice) with
-      | Some stk -> stk
-      | None -> failwith "impossible in CondTop"
+    let _paired, condsite_stack =
+      Rstack.pop_at_condtop r_stk (cb.point, Id.cond_fid choice)
     in
     let x2 = cb.cond in
 
@@ -249,7 +247,8 @@ module Make (S : S) = struct
               in
               U.by_bind_u S.unroll this_key key_f cb ;
               sub_trees @ [ (node_f, node_f) ]
-          | None -> sub_trees)
+          | None -> failwith "why Rstack.pop fails here"
+          (* sub_trees *))
         ~init:[]
     in
 
@@ -298,7 +297,8 @@ module Make (S : S) = struct
               in
               U.by_bind_u S.unroll this_key key_f cb ;
               sub_trees @ [ (node_f, node_f) ]
-          | None -> sub_trees)
+          | None -> failwith "why Rstack.pop fails here"
+          (* sub_trees *))
         ~init:[]
     in
 

@@ -51,11 +51,8 @@ module TT = struct
   let cons op prev frame = H.hashcons ht (Cons { op; prev; frame })
   let push rstk frame = cons Push rstk frame
 
-  let pop (rstk : t) frame : t option =
+  let pop rstk frame =
     match rstk.node with
-    | Empty ->
-        (* TODO: what if starting from a then-block *)
-        Some (cons Co_pop rstk frame)
     | Cons { op = Push; prev; frame = frame_prev } ->
         let f1, _ = frame in
         let f2, _ = frame_prev in
@@ -63,7 +60,17 @@ module TT = struct
         then Some prev
         else (* failwith "unmathch pop from stk" *)
           None
-    | Cons { op = Co_pop; _ } -> Some (cons Co_pop rstk frame)
+    | Empty | Cons { op = Co_pop; _ } -> Some (cons Co_pop rstk frame)
+
+  let pop_at_condtop rstk frame =
+    match rstk.node with
+    | Cons { op = Push; prev; frame = frame_prev } ->
+        let f1, _ = frame in
+        let f2, _ = frame_prev in
+        if Id.equal f1 f2
+        then (true, prev)
+        else failwith "impossible in CondTop"
+    | Empty | Cons { op = Co_pop; _ } -> (false, cons Co_pop rstk frame)
 
   let concretize_top rstk : Concrete_stack.t =
     let rec loop rstk =
@@ -120,7 +127,6 @@ module TT = struct
 
   let paired_callsite rstk this_f =
     match rstk.node with
-    | Empty -> None
     | Cons { op = Push; frame; _ } ->
         let cs, fid = frame in
         if Id.equal fid this_f
@@ -129,7 +135,7 @@ module TT = struct
           failwith
             (Format.sprintf "paired_callsite: {rsk=%s} fid=%s, this_f=%s"
                (Fmt.to_to_string pp rstk) (Id.show fid) (Id.show this_f))
-    | Cons { op = Co_pop; _ } -> None
+    | Empty | Cons { op = Co_pop; _ } -> None
 
   (* Used in Lookup_key *)
   let sexp_of_t (r : t) = [%sexp_of: int] r.hkey
