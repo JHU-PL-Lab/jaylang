@@ -12,13 +12,13 @@ let testing_stride_init = 200
 let group_all_files dir =
   let rec loop dir =
     let acc_f, acc_p =
-      Sys.fold_dir ~init:([], [])
+      Sys_unix.fold_dir ~init:([], [])
         ~f:(fun (acc_f, acc_p) path ->
           match String.get path 0 with
           | '.' (* including "." ".." *) | '_' -> (acc_f, acc_p)
           | _ -> (
               let fullpath = Filename.concat dir path in
-              match Sys.is_directory fullpath with
+              match Sys_unix.is_directory fullpath with
               | `Yes -> (acc_f, loop fullpath @ acc_p)
               | `No when File_util.is_odefa_ext fullpath ->
                   (fullpath :: acc_f, acc_p)

@@ -6,7 +6,9 @@
  (libraries
   core
   core_kernel.pairing_heap
-  core.nano_mutex
+  core_unix.nano_mutex
+  core_unix.filename_unix
+  core_unix.command_unix
   fmt
   lwt
   lwt.unix
@@ -27,13 +29,7 @@
  (synopsis "dbmc is demand-driven bounded model checking")
  (inline_tests)
  (preprocess
-  (pps
-   ppx_jane
-   -allow-unannotated-ignores
-   ppx_deriving.show
-   lwt_ppx
-   landmarks-ppx
-   --auto)))
+  (pps ppx_jane ppx_deriving.show lwt_ppx landmarks-ppx --auto)))
 
 (env
  (dev

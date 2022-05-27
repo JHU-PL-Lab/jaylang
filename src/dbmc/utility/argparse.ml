@@ -57,7 +57,7 @@ let parse_commandline_config () =
         flag "-lc" (optional log_level_parser) ~doc:"log level for solver"
       and log_level_interpreter =
         flag "-li" (optional log_level_parser) ~doc:"log level for interpreter"
-      and filename = anon ("source_file" %: Filename.arg_type)
+      and filename = anon ("source_file" %: Filename_unix.arg_type)
       and expected_inputs =
         flag "-i" (listed int_list_parser) ~doc:"expected_inputs by groups"
       and timeout =
@@ -103,5 +103,5 @@ let parse_commandline_config () =
 
         config := top_config)
   in
-  Command.run command ;
+  Command_unix.run command ;
   !config

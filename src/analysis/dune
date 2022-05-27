@@ -12,13 +12,7 @@
   odefa.parser)
  (inline_tests)
  (preprocess
-  (pps
-   ppx_jane
-   -allow-unannotated-ignores
-   ppx_deriving.show
-   lwt_ppx
-   landmarks-ppx
-   --auto)))
+  (pps ppx_jane ppx_deriving.show lwt_ppx landmarks-ppx --auto)))
 
 (env
  (dev

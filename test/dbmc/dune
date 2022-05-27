@@ -20,6 +20,7 @@
  (names test_dbmc test_rstack)
  (libraries
   core
+  core_unix.sys_unix
   fmt
   lwt
   lwt.unix
@@ -30,9 +31,4 @@
   odefa.natural
   odefa.dbmc)
  (preprocess
-  (pps
-   ppx_jane
-   -allow-unannotated-ignores
-   lwt_ppx
-   ppx_deriving.std
-   ppx_expect)))
+  (pps ppx_jane lwt_ppx ppx_deriving.std ppx_expect)))
