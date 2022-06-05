@@ -3,9 +3,9 @@ include Types.State
 
 let create (config : Global_config.t) program =
   let target = config.target in
-  let block_map = Tracelet.annotate program target in
+  let block_map = Cfg.annotate program target in
 
-  let block0 = Tracelet.find_by_id target block_map in
+  let block0 = Cfg.find_by_id target block_map in
   let state =
     {
       first = Odefa_ast.Ast_tools.first_id program;
@@ -13,7 +13,7 @@ let create (config : Global_config.t) program =
       program;
       block_map;
       source_map = lazy (Odefa_ddpa.Ddpa_helper.clause_mapping program);
-      root_node = ref (Node.root_node (block0 |> Tracelet.id_of_block) target);
+      root_node = ref (Node.root_node (block0 |> Cfg.id_of_block) target);
       tree_size = 1;
       node_map = Hashtbl.create (module Lookup_key);
       phis_z3 = [];
@@ -52,9 +52,8 @@ let find_or_add_node state key block node_parent =
         let node_child =
           init_node state key
             (ref
-               (Node.mk_node
-                  ~block_id:(Tracelet.id_of_block block)
-                  ~key ~rule:Node.pending_node))
+               (Node.mk_node ~block_id:(Cfg.id_of_block block) ~key
+                  ~rule:Node.pending_node))
         in
         (false, node_child)
   in

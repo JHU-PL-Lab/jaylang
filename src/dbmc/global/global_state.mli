@@ -13,7 +13,7 @@ val clear_phis : State.t -> unit
 val add_phi : State.t -> Lookup_key.t -> Z3.Expr.expr -> unit
 
 val find_or_add_node :
-  State.t -> Lookup_key.t -> Tracelet.t -> Node.ref_t -> bool * Node.ref_t
+  State.t -> Lookup_key.t -> Cfg.t -> Node.ref_t -> bool * Node.ref_t
 
 val find_node_exn : State.t -> Lookup_key.t -> Node.ref_t
 val pvar_picked : State.t -> Lookup_key.t -> bool

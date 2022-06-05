@@ -9,11 +9,8 @@ module type S = sig
   val state : Global_state.t
   val config : Global_config.t
   val add_phi : Lookup_key.t -> Z3.Expr.expr -> unit
-
-  val find_or_add_node :
-    Lookup_key.t -> Tracelet.block -> Node.ref_t -> Node.ref_t
-
-  val block_map : Tracelet.block Odefa_ast.Ast.Ident_map.t
+  val find_or_add_node : Lookup_key.t -> Cfg.block -> Node.ref_t -> Node.ref_t
+  val block_map : Cfg.block Odefa_ast.Ast.Ident_map.t
   val unroll : U.t
   val stride : int ref
 end
@@ -85,9 +82,9 @@ module Make (S : S) = struct
 
     let cb this_key (r : Lookup_result.t) =
       let key_rv = r.from in
-      let rv_block = Tracelet.find_by_id key_rv.x S.block_map in
+      let rv_block = Cfg.find_by_id key_rv.x S.block_map in
       let node_rv = S.find_or_add_node key_rv rv_block this_node in
-      let rv = Tracelet.record_of_id S.block_map key_rv.x in
+      let rv = Cfg.record_of_id S.block_map key_rv.x in
 
       let i = !counter in
       Int.incr counter ;
@@ -125,7 +122,7 @@ module Make (S : S) = struct
 
   let cond_top (cb : Cond_top_rule.t) key (this_node : Node.ref_t) block
       run_task =
-    let condsite_block = Tracelet.outer_block block S.block_map in
+    let condsite_block = Cfg.outer_block block S.block_map in
     let x, r_stk = Lookup_key.to2 key in
     let choice = Option.value_exn cb.choice in
     let _paired, condsite_stack =
@@ -159,9 +156,7 @@ module Make (S : S) = struct
   let cond_btm p this_key (this_node : Node.ref_t) block run_task =
     let _x, r_stk = Lookup_key.to2 this_key in
     let ({ x; x'; tid } : Cond_btm_rule.t) = p in
-    let cond_block =
-      Ident_map.find tid S.block_map |> Tracelet.cast_to_cond_block
-    in
+    let cond_block = Ident_map.find tid S.block_map |> Cfg.cast_to_cond_block in
     if Option.is_some cond_block.choice
     then failwith "conditional_body: not both"
     else () ;
@@ -171,10 +166,10 @@ module Make (S : S) = struct
     let sub_trees =
       List.fold [ true; false ]
         ~f:(fun sub_trees beta ->
-          let ctracelet, key_ret =
+          let case_block, key_ret =
             Lookup_key.get_cond_block_and_return cond_block beta r_stk x
           in
-          let node_x_ret = S.find_or_add_node key_ret ctracelet this_node in
+          let node_x_ret = S.find_or_add_node key_ret case_block this_node in
           sub_trees @ [ node_x_ret ])
         ~init:[]
     in
@@ -202,11 +197,11 @@ module Make (S : S) = struct
                  [ Riddler.eqv term_c (Value_bool beta) ]
                  S.stride
             then (
-              let ctracelet, key_ret =
+              let case_block, key_ret =
                 Lookup_key.get_cond_block_and_return cond_block beta r_stk x
               in
 
-              run_task key_ret ctracelet ;
+              run_task key_ret case_block ;
               U.by_id_u S.unroll this_key key_ret)
             else ()) ;
         Lwt.return_unit)
@@ -228,7 +223,7 @@ module Make (S : S) = struct
       List.fold callsites
         ~f:(fun sub_trees callsite ->
           let callsite_block, x', x'', x''' =
-            Tracelet.fun_info_of_callsite callsite S.block_map
+            Cfg.fun_info_of_callsite callsite S.block_map
           in
           match Rstack.pop r_stk (x', fid) with
           | Some callsite_stack ->
@@ -269,7 +264,7 @@ module Make (S : S) = struct
       List.fold callsites
         ~f:(fun sub_trees callsite ->
           let callsite_block, x', x'', _x''' =
-            Tracelet.fun_info_of_callsite callsite S.block_map
+            Cfg.fun_info_of_callsite callsite S.block_map
           in
           match Rstack.pop r_stk (x', fid) with
           | Some callsite_stack ->
@@ -289,7 +284,7 @@ module Make (S : S) = struct
                   Riddler.fun_enter_append this_key key_f r.from fid key_arg i
                 in
                 S.add_phi this_key phi_i ;
-                let fv_block = Tracelet.find_by_id r.from.x S.block_map in
+                let fv_block = Cfg.find_by_id r.from.x S.block_map in
                 let _node_arg = S.find_or_add_node key_arg fv_block this_node in
                 run_task key_arg fv_block ;
                 U.by_id_u S.unroll this_key key_arg ;

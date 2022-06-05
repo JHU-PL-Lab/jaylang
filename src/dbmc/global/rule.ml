@@ -31,7 +31,7 @@ module Record_end_rule = struct
 end
 
 module Cond_top_rule = struct
-  type t = Tracelet.cond_block
+  type t = Cfg.cond_block
 end
 
 module Cond_btm_rule = struct
@@ -39,11 +39,11 @@ module Cond_btm_rule = struct
 end
 
 module Fun_enter_local_rule = struct
-  type t = { x : Id.t; fb : Tracelet.fun_block; is_local : bool }
+  type t = { x : Id.t; fb : Cfg.fun_block; is_local : bool }
 end
 
 module Fun_enter_nonlocal_rule = struct
-  type t = { x : Id.t; fb : Tracelet.fun_block; is_local : bool }
+  type t = { x : Id.t; fb : Cfg.fun_block; is_local : bool }
 end
 
 module Fun_exit_rule = struct
@@ -66,23 +66,19 @@ type t =
   | Mismatch
 
 let rule_of_runtime_status x block : t =
-  let open Tracelet in
+  let open Cfg in
   match (clause_of_x block x, block) with
   | Some tc, _ -> (
       match tc with
       | { clause = Clause (_, Input_body); _ } ->
-          let is_in_main =
-            Ident.equal (Tracelet.id_of_block block) Tracelet.id_main
-          in
+          let is_in_main = Ident.equal (Cfg.id_of_block block) Cfg.id_main in
           Input { x; is_in_main }
       | { clause = Clause (_, Var_body (Var (x', _))); _ } -> Alias { x; x' }
       | { clause = Clause (_, Value_body (Value_record r)); _ } ->
-          let is_in_main =
-            Ident.equal (Tracelet.id_of_block block) Tracelet.id_main
-          in
+          let is_in_main = Ident.equal (Cfg.id_of_block block) Cfg.id_main in
           Record_end { x; r; is_in_main }
       | { clause = Clause (_, Value_body v); _ } ->
-          if Ident.equal (Tracelet.id_of_block block) Tracelet.id_main
+          if Ident.equal (Cfg.id_of_block block) Cfg.id_main
           then Discovery_main { x; v }
           else Discovery_nonmain { x; v }
       | { clause = Clause (_, Projection_body (Var (r, _), lbl)); _ } ->

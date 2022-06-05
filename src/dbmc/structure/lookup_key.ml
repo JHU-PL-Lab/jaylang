@@ -29,17 +29,13 @@ let chrono_compare map k1 k2 =
   let rec compare_stack s1 s2 =
     match (s1, s2) with
     | [], [] ->
-        if Id.equal x1 x2
-        then 0
-        else if Tracelet.is_before map x1 x2
-        then 1
-        else -1
+        if Id.equal x1 x2 then 0 else if Cfg.is_before map x1 x2 then 1 else -1
     | (cs1, f1) :: ss1, (cs2, f2) :: ss2 ->
         if Rstack.equal_frame (cs1, f1) (cs2, f2)
         then compare_stack ss1 ss2
         else if Id.equal cs1 cs2
         then 0 (* failwith "the same promgram points" *)
-        else if Tracelet.is_before map cs1 cs2
+        else if Cfg.is_before map cs1 cs2
         then 1
         else -1
     | _, _ -> 1
@@ -53,23 +49,23 @@ let length key = 1 + Rstack.length key.r_stk
 
 let get_f_return map fid r_stk x =
   let fblock = Odefa_ast.Ast.Ident_map.find fid map in
-  let x' = Tracelet.ret_of fblock in
+  let x' = Cfg.ret_of fblock in
   let r_stk' = Rstack.push r_stk (x, fid) in
   let key_ret = of2 x' r_stk' in
   key_ret
 
 let get_cond_block_and_return cond_block beta r_stk x =
-  let open Tracelet in
-  let ctracelet = Cond { cond_block with choice = Some beta } in
-  let x_ret = Tracelet.ret_of ctracelet in
+  let open Cfg in
+  let case_block = Cond { cond_block with choice = Some beta } in
+  let x_ret = Cfg.ret_of case_block in
   let cbody_stack = Rstack.push r_stk (x, Id.cond_fid beta) in
   let key_ret = of2 x_ret cbody_stack in
-  (ctracelet, key_ret)
+  (case_block, key_ret)
 
 let return_of_cond_block cond_block beta r_stk x =
   get_cond_block_and_return cond_block beta r_stk x |> snd
 
-let get_callsites r_stk (fb : Tracelet.fun_block) =
+let get_callsites r_stk (fb : Cfg.fun_block) =
   let fid = fb.point in
   let callsites =
     match Rstack.paired_callsite r_stk fid with

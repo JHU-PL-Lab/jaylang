@@ -2,7 +2,7 @@ open Core
 open Lwt.Infix
 open Odefa_ast
 open Odefa_ast.Ast
-open Tracelet
+open Cfg
 open Odefa_ddpa
 open Log.Export
 

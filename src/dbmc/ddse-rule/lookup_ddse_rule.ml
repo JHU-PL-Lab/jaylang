@@ -9,11 +9,8 @@ module type S = sig
   val state : Global_state.t
   val config : Global_config.t
   val add_phi : Lookup_key.t -> Z3.Expr.expr -> Phi_set.t -> Phi_set.t
-
-  val find_or_add_node :
-    Lookup_key.t -> Tracelet.block -> Node.ref_t -> Node.ref_t
-
-  val block_map : Tracelet.block Odefa_ast.Ast.Ident_map.t
+  val find_or_add_node : Lookup_key.t -> Cfg.block -> Node.ref_t -> Node.ref_t
+  val block_map : Cfg.block Odefa_ast.Ast.Ident_map.t
   val unroll : U.t
 end
 
@@ -111,10 +108,10 @@ module Make (S : S) = struct
     run_task key_r block phis_top ;
 
     let cb this_key (rv : Ddse_result.t) =
-      let rv_block = Tracelet.find_by_id rv.v.x S.block_map in
+      let rv_block = Cfg.find_by_id rv.v.x S.block_map in
       let node_rv = S.find_or_add_node rv.v rv_block this_node in
       let phi1 = Riddler.eq key_r rv.v in
-      let rvv = Tracelet.record_of_id S.block_map rv.v.x in
+      let rvv = Cfg.record_of_id S.block_map rv.v.x in
       (match Ident_map.Exceptionless.find lbl rvv with
       | Some (Var (field, _)) ->
           let key_l = Lookup_key.with_x rv.v field in
@@ -138,7 +135,7 @@ module Make (S : S) = struct
     else rule_nonmain rv this_key this_node block phis run_task
 
   let cond_top (cb : Cond_top_rule.t) key this_node block phis_top run_task =
-    let condsite_block = Tracelet.outer_block block S.block_map in
+    let condsite_block = Cfg.outer_block block S.block_map in
     let x, r_stk = Lookup_key.to2 key in
     let choice = Option.value_exn cb.choice in
     let _paired, condsite_stack =
@@ -174,9 +171,7 @@ module Make (S : S) = struct
   let cond_btm p this_key this_node block phis_top run_task =
     let _x, r_stk = Lookup_key.to2 this_key in
     let ({ x; x'; tid } : Cond_btm_rule.t) = p in
-    let cond_block =
-      Ident_map.find tid S.block_map |> Tracelet.cast_to_cond_block
-    in
+    let cond_block = Ident_map.find tid S.block_map |> Cfg.cast_to_cond_block in
     if Option.is_some cond_block.choice
     then failwith "conditional_body: not both"
     else () ;
@@ -187,10 +182,10 @@ module Make (S : S) = struct
     let sub_trees =
       List.fold [ true; false ]
         ~f:(fun sub_trees beta ->
-          let ctracelet, key_ret =
+          let case_block, key_ret =
             Lookup_key.get_cond_block_and_return cond_block beta r_stk x
           in
-          let node_x_ret = S.find_or_add_node key_ret ctracelet this_node in
+          let node_x_ret = S.find_or_add_node key_ret case_block this_node in
           sub_trees @ [ node_x_ret ])
         ~init:[]
     in
@@ -200,7 +195,7 @@ module Make (S : S) = struct
 
     let cb this_key (rc : Ddse_result.t) =
       List.iter [ true; false ] ~f:(fun beta ->
-          let ctracelet, key_ret =
+          let case_block, key_ret =
             Lookup_key.get_cond_block_and_return cond_block beta r_stk x
           in
           let phi_beta = Riddler.eqv rc.v (Value_bool beta) in
@@ -209,7 +204,7 @@ module Make (S : S) = struct
           in
           (* match Riddler.check_phis (Phi_set.to_list phis_top_with_c) false with
              | Some _ -> *)
-          run_task key_ret ctracelet phis_top_with_c ;
+          run_task key_ret case_block phis_top_with_c ;
 
           (* Method 1-a: slow in looping *)
           (* let cb this_key (r_ret : Ddse_result.t) =
@@ -237,17 +232,17 @@ module Make (S : S) = struct
   (* let sub_trees =
        List.fold [ true; false ]
          ~f:(fun sub_trees beta ->
-           let ctracelet, key_ret =
+           let case_block, key_ret =
              Lookup_key.get_cond_block_and_return cond_block beta r_stk x
            in
-           let node_x_ret = S.find_or_add_node key_ret ctracelet this_node in
+           let node_x_ret = S.find_or_add_node key_ret case_block this_node in
            run_task term_c block phis_top ;
 
            let cb key_ret ((key_c : Lookup_key.t), phis_c) =
              let phi_beta = Riddler.eqv key_c (Value_bool beta) in
              (* match Riddler.check_phis (Phi_set.to_list phis_top') false with
                 | Some _ -> *)
-             run_task key_ret ctracelet phis_top ;
+             run_task key_ret case_block phis_top ;
 
              U.by_map_u S.unroll this_key key_ret
                (return_with_phis this_key (Phi_set.add phis_c phi_beta)) ;
@@ -270,7 +265,7 @@ module Make (S : S) = struct
       List.fold callsites
         ~f:(fun sub_trees callsite ->
           let callsite_block, x', x'', x''' =
-            Tracelet.fun_info_of_callsite callsite S.block_map
+            Cfg.fun_info_of_callsite callsite S.block_map
           in
           match Rstack.pop r_stk (x', fid) with
           | Some callsite_stack ->
@@ -284,11 +279,10 @@ module Make (S : S) = struct
                 S.find_or_add_node key_arg callsite_block this_node
               in
               (* let _choice_this =
-                   Decision.make r_stk Tracelet.(id_of_block (Fun fb))
+                   Decision.make r_stk Cfg.(id_of_block (Fun fb))
                  in *)
               let choice_f =
-                Decision.make callsite_stack
-                  (Tracelet.id_of_block callsite_block)
+                Decision.make callsite_stack (Cfg.id_of_block callsite_block)
               in
               let cb key (rf : Ddse_result.t) =
                 run_task key_arg callsite_block phis_top ;
@@ -317,7 +311,7 @@ module Make (S : S) = struct
       List.fold callsites
         ~f:(fun sub_trees callsite ->
           let callsite_block, x', x'', _x''' =
-            Tracelet.fun_info_of_callsite callsite S.block_map
+            Cfg.fun_info_of_callsite callsite S.block_map
           in
           match Rstack.pop r_stk (x', fid) with
           | Some callsite_stack ->
@@ -328,16 +322,15 @@ module Make (S : S) = struct
               let phi = Riddler.eq_fid key_f fb.point in
 
               (* let choice_this =
-                   Decision.make r_stk Tracelet.(id_of_block (Fun fb))
+                   Decision.make r_stk Cfg.(id_of_block (Fun fb))
                  in *)
               let choice_f =
-                Decision.make callsite_stack
-                  (Tracelet.id_of_block callsite_block)
+                Decision.make callsite_stack (Cfg.id_of_block callsite_block)
               in
 
               let cb_f key (rf : Ddse_result.t) =
                 let key_arg = Lookup_key.with_x rf.v x in
-                let fv_block = Tracelet.find_by_id rf.v.x S.block_map in
+                let fv_block = Cfg.find_by_id rf.v.x S.block_map in
                 let node_arg = S.find_or_add_node key_arg fv_block this_node in
                 run_task key_arg fv_block phis_top ;
 
@@ -377,11 +370,9 @@ module Make (S : S) = struct
             then (
               let phis_top' = Phi_set.union phis_top rf.phis in
               run_task key_ret fblock phis_top' ;
-              let choice_this =
-                Decision.make r_stk (Tracelet.id_of_block block)
-              in
+              let choice_this = Decision.make r_stk (Cfg.id_of_block block) in
               let choice_f =
-                Decision.make key_ret.r_stk (Tracelet.id_of_block fblock)
+                Decision.make key_ret.r_stk (Cfg.id_of_block fblock)
               in
               U.by_filter_map_u S.unroll this_key key_ret
                 (return_with_phis_with_choices this_key [ phi ]

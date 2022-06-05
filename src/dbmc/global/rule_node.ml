@@ -34,9 +34,8 @@ let set_node_rule node_map key block node_parent rule =
     | None ->
         init_node node_map key
           (ref
-             (Node.mk_node
-                ~block_id:(Tracelet.id_of_block block)
-                ~key ~rule:Node.pending_node))
+             (Node.mk_node ~block_id:(Cfg.id_of_block block) ~key
+                ~rule:Node.pending_node))
   in
   let edge = Node.mk_edge node_parent node in
   Node.add_pred node edge ;

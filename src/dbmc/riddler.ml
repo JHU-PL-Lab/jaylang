@@ -1,5 +1,5 @@
 open Core
-open Tracelet
+open Cfg
 open Odefa_ast.Ast
 module SuduZ3 = Solver.SuduZ3
 open SuduZ3
@@ -144,7 +144,7 @@ let fun_enter_local term fid callsites block_map =
   let cs, rs =
     List.fold callsites ~init:([], []) ~f:(fun (cs, rs) callsite ->
         let _callsite_block, x', x'', x''' =
-          Tracelet.fun_info_of_callsite callsite block_map
+          Cfg.fun_info_of_callsite callsite block_map
         in
         match Rstack.pop r_stk (x', fid) with
         | Some callsite_stk ->

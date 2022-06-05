@@ -214,14 +214,14 @@ let clauses_of_expr e =
       in
       cs @ [ c' ])
 
-let tracelet_map_of_expr e : t Ident_map.t =
+let block_map_of_expr e : t Ident_map.t =
   let map = ref Ident_map.empty in
 
-  let main_tracelet =
+  let main_block =
     let clauses = clauses_of_expr e in
     Main { point = id_main; clauses }
   in
-  map := Ident_map.add id_main main_tracelet !map ;
+  map := Ident_map.add id_main main_block !map ;
 
   let rec loop outer_point e =
     let (Expr clauses) = e in
@@ -231,16 +231,16 @@ let tracelet_map_of_expr e : t Ident_map.t =
             Value_body (Value_function (Function_value (Var (para, _), fbody)))
           ) ->
           let clauses = clauses_of_expr fbody in
-          let tracelet =
+          let block =
             Fun { point = cid; outer_point; para; callsites = []; clauses }
           in
-          map := Ident_map.add cid tracelet !map ;
+          map := Ident_map.add cid block !map ;
           loop (Fun_p cid) fbody
       | Clause (Var (cid, _), Conditional_body (Var (cond, _), e1, e2)) ->
           let then_ = clauses_of_expr e1
           and else_ = clauses_of_expr e2
           and possible = None in
-          let tracelet =
+          let block =
             Cond
               {
                 point = cid;
@@ -252,7 +252,7 @@ let tracelet_map_of_expr e : t Ident_map.t =
                 choice = None;
               }
           in
-          map := Ident_map.add cid tracelet !map ;
+          map := Ident_map.add cid block !map ;
           loop (Cond_p (cid, true)) e1 ;
           loop (Cond_p (cid, false)) e2
       | _ -> ()
@@ -273,20 +273,20 @@ let cfg_of e =
   e |> Analysis.create_initial_analysis |> Analysis.perform_full_closure
   |> Analysis.cfg_of_analysis
 
-(* we cannot use tracelet map to represent the dynamic call graph/stack.
+(* we cannot use block map to represent the dynamic call graph/stack.
    the point is for one block, we can have a full version and a partial version
    at the same time.
    For this, we may set the original or annotated source code as a (static) map
    and use another data structure for dynamic
 *)
 
-(* annotate tracelet from the ddpa cfg.
+(* annotate block from the ddpa cfg.
    for call-site `s = e1 e2`, annotate e1 with the real function def_var
    for cond-site `s = c ? e1 : e2`, replace s with
 *)
 
 let annotate e pt : block Ident_map.t =
-  let map = ref (tracelet_map_of_expr e)
+  let map = ref (block_map_of_expr e)
   (* and visited_pred_map = ref BatMultiPMap.empty *)
   and cfg = cfg_of e
   (* and id_first = first_var e *)
@@ -315,7 +315,7 @@ let annotate e pt : block Ident_map.t =
 
       (* process logic *)
       (* if cfg shows only one of then-block and else-block is possible,
-         we can change the tracelet accordingly.
+         we can change the block accordingly.
          e.g. [prev: [r = c ? ...; r = r1 @- r]]
       *)
       if List.length prev_acls > 1 && has_condition_clause prev_acls
