@@ -1,0 +1,4 @@
+x = input;
+t = true;
+z = assume t;
+target = x;

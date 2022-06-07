@@ -9,7 +9,7 @@
   (env
    (_
     (env-vars
-     ("OCAML_LANDMARKS" "on"))))))
+     ("OCAML_LANDMARKS" "auto"))))))
 
 ; (context
 ;  (default

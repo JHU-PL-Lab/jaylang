@@ -1,0 +1,22 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-LOOKUP-FROM-END a {int}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END b {false}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END c {int}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END d {false}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+# EXPECT-NO-TYPE-ERRORS
+
+let first = 0 in
+let r = {
+    nom = (1 + 2) - 3,
+    bul = true and false,
+    fon = (fun x -> x + 1),
+    rek = { head = false }
+    }
+in
+let a = r.nom in
+let b = r.bul in
+let c = r.fon r.nom in
+let d = r.rek.head in
+r

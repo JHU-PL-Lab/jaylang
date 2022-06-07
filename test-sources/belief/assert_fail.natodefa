@@ -1,0 +1,2 @@
+let z = assert false in
+let target = 1 in target

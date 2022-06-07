@@ -9,6 +9,7 @@ let rec fact n =
     n * (fact (n-1))
   in
 if fact x == 3628800 then
+#if fact x == 40320 then
   let target = 1 in 1
 else
   0

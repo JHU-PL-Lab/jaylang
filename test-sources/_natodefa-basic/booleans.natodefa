@@ -1,0 +1,10 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-LOOKUP-FROM-END ~result {int}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+# EXPECT-NO-TYPE-ERRORS
+
+let t = true in
+let f = false in
+let idk = (let n_t = not t in f or n_t and t) in
+if idk then 1 else 2

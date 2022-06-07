@@ -334,6 +334,12 @@ module Make (S : S) = struct
 
     U.by_bind_u S.unroll this_key key_f cb
 
+  let assume _p _key _this_node _block _run_task = ()
+
+  let assert_ _p this_key this_node _block _run_task =
+    Node.update_rule this_node Node.mismatch ;
+    S.add_phi this_key (Riddler.mismatch_with_picked this_key)
+
   let mismatch this_key this_node =
     Node.update_rule this_node Node.mismatch ;
     S.add_phi this_key (Riddler.mismatch_with_picked this_key)

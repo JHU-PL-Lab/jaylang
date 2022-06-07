@@ -1,0 +1,17 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-LOOKUP-FROM-END a {int}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END b {int}
+# EXPECT-ANALYSIS-LOOKUP-FROM-END c {int}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+# EXPECT-NO-TYPE-ERRORS
+
+let a = if true then 0 else false in
+let b = if false then false else 0 in
+let c = if false
+    then 
+        if false then false else true
+    else
+        if false then false else 0
+in
+0

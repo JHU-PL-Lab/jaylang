@@ -80,6 +80,8 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
       | Fun_enter_nonlocal p ->
           R.fun_enter_nonlocal p this_key this_node phis run_task
       | Fun_exit p -> R.fun_exit p this_key this_node block phis run_task
+      | Assume p -> R.assume p this_key this_node block phis run_task
+      | Assert p -> R.assert_ p this_key this_node block phis run_task
       | Mismatch -> R.mismatch this_key this_node phis
     in
 
@@ -184,10 +186,24 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
       | Fun_enter_nonlocal p ->
           R.fun_enter_nonlocal p this_key this_node run_task
       | Fun_exit p -> R.fun_exit p this_key this_node block run_task
+      | Assume p -> R.assume p this_key this_node block run_task
+      | Assert p -> R.assert_ p this_key this_node block run_task
       | Mismatch -> R.mismatch this_key this_node
     in
+
+    let previous_clauses = Cfg.clauses_before_x block x in
+    List.iter previous_clauses ~f:(fun tc ->
+        let term_prev = Lookup_key.with_x this_key tc.id in
+        let _node_arg = LS.find_or_add_node term_prev block this_node in
+        run_task term_prev block) ;
+
+    (* LLog.app (fun m ->
+        m "[Lookup]cs:%a\n%a" Cfg.pp_clause_list previous_clauses Id.pp x) ; *)
+
     (* LLog.app (fun m ->
         m "[Lookup][<=]: %a in block %a" Lookup_key.pp this_key Id.pp block_id) ; *)
+
+    (* add for side-effect, run all previous lookups *)
     Lwt.return_unit
   in
 

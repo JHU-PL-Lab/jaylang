@@ -50,6 +50,14 @@ module Fun_exit_rule = struct
   type t = { x : Id.t; xf : Id.t; fids : Id.t list }
 end
 
+module Assume_rule = struct
+  type t = { x : Id.t; x' : Id.t }
+end
+
+module Assert_rule = struct
+  type t = { x : Id.t; x' : Id.t }
+end
+
 type t =
   | Discovery_main of Discovery_main_rule.t
   | Discovery_nonmain of Discovery_nonmain_rule.t
@@ -63,6 +71,8 @@ type t =
   | Fun_exit of Fun_exit_rule.t
   | Record_start of Record_start_rule.t
   | Record_end of Record_end_rule.t
+  | Assume of Assume_rule.t
+  | Assert of Assert_rule.t
   | Mismatch
 
 let rule_of_runtime_status x block : t =
@@ -100,6 +110,10 @@ let rule_of_runtime_status x block : t =
        _;
       } ->
           Fun_exit { x; xf; fids }
+      | { clause = Clause (_, Assume_body (Var (x', _))); _ } ->
+          Assume { x; x' }
+      | { clause = Clause (_, Assert_body (Var (x', _))); _ } ->
+          Assert { x; x' }
       | _ ->
           Log.Export.LLog.err (fun m ->
               m "%a" Odefa_ast.Ast_pp.pp_clause tc.clause) ;
@@ -124,6 +138,8 @@ let show_rule : t -> string = function
   | Fun_exit _ -> "Fun_exit"
   | Record_start _ -> "Record_start"
   | Record_end _ -> "Record_end"
+  | Assume _ -> "Assume"
+  | Assert _ -> "Assert"
   | Mismatch -> "Mismatch"
 
 let pp_rule = Fmt.of_to_string show_rule

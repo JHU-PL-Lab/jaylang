@@ -387,6 +387,13 @@ module Make (S : S) = struct
     in
     Node.update_rule this_node (Node.mk_callsite ~fun_tree:node_fun ~sub_trees)
 
+  let assume _p _key _this_node _block _phis_top _run_task = ()
+
+  let assert_ _p this_key this_node _block phis_top _run_task =
+    Node.update_rule this_node Node.mismatch ;
+    let _phis' = S.add_phi this_key Riddler.false_ phis_top in
+    ()
+
   let mismatch this_key this_node phis =
     Node.update_rule this_node Node.mismatch ;
     let _phis' = S.add_phi this_key Riddler.false_ phis in

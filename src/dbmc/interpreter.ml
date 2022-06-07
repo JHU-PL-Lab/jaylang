@@ -1,6 +1,7 @@
 open Core
 open Odefa_ast
 open Ast
+open Log.Export
 
 exception Found_target of value
 exception Terminate of value
@@ -174,7 +175,8 @@ and eval_clause ~session stk env clause : denv * dvalue =
           | _, _, _ -> failwith "incorrect binop"
         in
         Direct v
-    | Abort_body | Assume_body _ | Assert_body _ -> failwith "not supported yet"
+    | Abort_body | Assume_body _ | Assert_body _ -> Direct (Value_bool true)
+    (* failwith "not supported yet" *)
   in
   let v = (v_pre, stk) in
 

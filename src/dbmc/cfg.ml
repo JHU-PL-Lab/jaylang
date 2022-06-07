@@ -137,6 +137,12 @@ let clause_of_x block x =
 let clause_of_x_exn block x =
   List.find_exn ~f:(fun tc -> Ident.equal tc.id x) (get_clauses block)
 
+let clauses_before_x block x =
+  List.fold_until ~init:[]
+    ~f:(fun acc tc ->
+      if Ident.equal tc.id x then Stop acc else Continue (tc :: acc))
+    ~finish:List.rev (get_clauses block)
+
 let record_of_id map x =
   let block = find_by_id x map in
   let c = clause_of_x_exn block x in
