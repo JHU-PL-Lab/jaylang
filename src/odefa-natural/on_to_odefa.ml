@@ -17,14 +17,17 @@ open TranslationMonad
 
 let lazy_logger = Logger_utils.make_lazy_logger "On_to_odefa"
 
+let show_expr_desc : type a. a On_ast.expr_desc -> string =
+ fun e -> Pp_utils.pp_to_string On_ast_pp.pp_expr_desc e
+
 (* **** Variable alphatization **** *)
 
 (** Determines all variables contained within a pattern. *)
 let rec pat_vars (pat : On_ast.pattern) : On_ast.Ident_set.t =
   let open On_ast in
   match pat with
-  | AnyPat | IntPat | BoolPat | FunPat -> Ident_set.empty
-  | RecPat record ->
+  | AnyPat | IntPat | BoolPat | FunPat | UntouchedPat _ -> Ident_set.empty
+  | RecPat record | StrictRecPat record ->
       record |> Ident_map.enum
       |> Enum.fold
            (fun idents (_, x_opt) ->
@@ -43,7 +46,7 @@ let pat_rename_vars (name_map : On_ast.Ident.t On_ast.Ident_map.t)
     (pattern : On_ast.pattern) : On_ast.pattern =
   let open On_ast in
   match pattern with
-  | AnyPat | IntPat | BoolPat | FunPat -> pattern
+  | AnyPat | IntPat | BoolPat | FunPat | UntouchedPat _ -> pattern
   | RecPat record ->
       let record' =
         record |> Ident_map.enum
@@ -54,6 +57,16 @@ let pat_rename_vars (name_map : On_ast.Ident.t On_ast.Ident_map.t)
         |> Ident_map.of_enum
       in
       RecPat record'
+  | StrictRecPat record ->
+      let record' =
+        record |> Ident_map.enum
+        |> Enum.map (fun (lbl, x_opt) ->
+               match x_opt with
+               | Some x -> (lbl, Some (Ident_map.find_default x x name_map))
+               | None -> (lbl, None))
+        |> Ident_map.of_enum
+      in
+      StrictRecPat record'
   | VariantPat (lbl, x) ->
       let x' = Ident_map.find_default x x name_map in
       VariantPat (lbl, x')
@@ -66,105 +79,175 @@ let pat_rename_vars (name_map : On_ast.Ident.t On_ast.Ident_map.t)
       let t' = Ident_map.find_default t t name_map in
       LstDestructPat (h', t')
 
+(* TODO: Probably should change the type of the function. Operate on expr_desc directly? *)
+(* Doesn't create new subtrees -- should preserve the tags just fine *)
+
 (** Performs alpha substitution on a given expression. *)
 let rec rename_variable (old_name : On_ast.ident) (new_name : On_ast.ident)
-    (e : On_ast.expr) : On_ast.expr =
+    (e_desc : On_ast.core_natodefa_edesc) : On_ast.core_natodefa_edesc =
   let open On_ast in
   (* NOTE: the generic homomorphism routine m_env_transform_expr does not allow
      us to change the environment of the homomorphism as we descend or to block
      descending into a given subtree, so we can't use it here. *)
   let recurse = rename_variable old_name new_name in
-  match e with
-  | Int _ | Bool _ | Input -> e
-  | Var id -> if id = old_name then Var new_name else Var id
-  | Function (id_list, e') ->
-      if List.exists (Ident.equal old_name) id_list
-      then e
-      else Function (id_list, recurse e')
-  | Let (id, e1, e2) ->
-      let new_e1 = recurse e1 in
-      if id = old_name
-      then Let (id, new_e1, e2)
-      else
-        let new_e2 = recurse e2 in
-        Let (id, new_e1, new_e2)
-  | LetFun (f_sig, e') ->
-      let (Funsig (id, id_list, fun_e)) = f_sig in
-      (* If old_name is same as the function name, then don't change anything *)
-      if id = old_name
-      then e
-      else if (* If old_name is same as one of the names of the params, then
-                  we only want to change the code outside of the function. *)
-              List.exists (Ident.equal old_name) id_list
-      then
-        let new_e' = recurse e' in
-        LetFun (f_sig, new_e')
-      else
-        (* change both the inside and the outside expressions *)
-        let new_inner_e = recurse fun_e in
-        let new_outer_e = recurse e' in
-        let new_funsig = Funsig (id, id_list, new_inner_e) in
-        LetFun (new_funsig, new_outer_e)
-  | LetRecFun (f_sigs, e') ->
-      let function_names =
-        f_sigs |> List.enum
-        |> Enum.map (fun (Funsig (name, _, _)) -> name)
-        |> Ident_set.of_enum
-      in
-      let f_sigs' =
-        if Ident_set.mem old_name function_names
-        then f_sigs
+  let e = e_desc.body in
+  let renamed_expr =
+    match e with
+    | Int _ | Bool _ | Input | Untouched _ | TypeError _ -> e
+    | Var id -> if id = old_name then Var new_name else Var id
+    | Function (id_list, e') ->
+        if List.exists (Ident.equal old_name) id_list
+        then e
         else
+          let e'' = recurse e' in
+          Function (id_list, e'')
+    | Let (id, e1, e2) ->
+        let new_e1 = recurse e1 in
+        if id = old_name
+        then Let (id, new_e1, e2)
+        else
+          let new_e2 = recurse e2 in
+          Let (id, new_e1, new_e2)
+    | LetFun (f_sig, e') ->
+        let (Funsig (id, id_list, fun_e)) = f_sig in
+        (* If old_name is same as the function name, then don't change anything *)
+        if id = old_name
+        then e
+        else if (* If old_name is same as one of the names of the params, then
+                    we only want to change the code outside of the function. *)
+                List.exists (Ident.equal old_name) id_list
+        then
+          let new_e' = recurse e' in
+          LetFun (f_sig, new_e')
+        else
+          (* change both the inside and the outside expressions *)
+          let new_inner_e = recurse fun_e in
+          let new_outer_e = recurse e' in
+          let new_funsig = Funsig (id, id_list, new_inner_e) in
+          LetFun (new_funsig, new_outer_e)
+    | LetRecFun (f_sigs, e') ->
+        let function_names =
+          f_sigs |> List.enum
+          |> Enum.map (fun (Funsig (name, _, _)) -> name)
+          |> Ident_set.of_enum
+        in
+        let f_sigs' =
+          if Ident_set.mem old_name function_names
+          then f_sigs
+          else
+            List.map
+              (fun (Funsig (name, params, body)) ->
+                if List.exists (Ident.equal old_name) params
+                then Funsig (name, params, body)
+                else
+                  let new_body = recurse body in
+                  Funsig (name, params, new_body))
+              f_sigs
+        in
+        let e'' =
+          if Ident_set.mem old_name function_names then e' else recurse e'
+        in
+        LetRecFun (f_sigs', e'')
+    | Match (e0, cases) ->
+        let e0' = recurse e0 in
+        let cases' =
           List.map
-            (fun (Funsig (name, params, body)) ->
-              if List.exists (Ident.equal old_name) params
-              then Funsig (name, params, body)
-              else Funsig (name, params, recurse body))
-            f_sigs
-      in
-      let e'' =
-        if Ident_set.mem old_name function_names then e' else recurse e'
-      in
-      LetRecFun (f_sigs', e'')
-  | Match (e0, cases) ->
-      let e0' = recurse e0 in
-      let cases' =
-        List.map
-          (fun (pattern, body) ->
-            if Ident_set.mem old_name (pat_vars pattern)
-            then (pattern, body)
-            else (pattern, recurse body))
-          cases
-      in
-      Match (e0', cases')
-  | Appl (e1, e2) -> Appl (recurse e1, recurse e2)
-  | Plus (e1, e2) -> Plus (recurse e1, recurse e2)
-  | Minus (e1, e2) -> Minus (recurse e1, recurse e2)
-  | Times (e1, e2) -> Times (recurse e1, recurse e2)
-  | Divide (e1, e2) -> Divide (recurse e1, recurse e2)
-  | Modulus (e1, e2) -> Modulus (recurse e1, recurse e2)
-  | Equal (e1, e2) -> Equal (recurse e1, recurse e2)
-  | Neq (e1, e2) -> Neq (recurse e1, recurse e2)
-  | LessThan (e1, e2) -> LessThan (recurse e1, recurse e2)
-  | Leq (e1, e2) -> Leq (recurse e1, recurse e2)
-  | GreaterThan (e1, e2) -> GreaterThan (recurse e1, recurse e2)
-  | Geq (e1, e2) -> Geq (recurse e1, recurse e2)
-  | And (e1, e2) -> And (recurse e1, recurse e2)
-  | Or (e1, e2) -> Or (recurse e1, recurse e2)
-  | Not e1 -> Not (recurse e1)
-  | If (e1, e2, e3) -> If (recurse e1, recurse e2, recurse e3)
-  | Record m -> Record (Ident_map.map recurse m)
-  | RecordProj (e1, lbl) -> RecordProj (recurse e1, lbl)
-  | VariantExpr (lbl, e1) -> VariantExpr (lbl, recurse e1)
-  | List es -> List (List.map recurse es)
-  | ListCons (e1, e2) -> ListCons (recurse e1, recurse e2)
-  | Assert e -> Assert (recurse e)
-  | Assume e -> Assume (recurse e)
+            (fun (pattern, body) ->
+              if Ident_set.mem old_name (pat_vars pattern)
+              then (pattern, body)
+              else (pattern, recurse body))
+            cases
+        in
+        Match (e0', cases')
+    | Appl (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        Appl (e1', e2')
+    | Plus (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        Plus (e1', e2')
+    | Minus (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        Minus (e1', e2')
+    | Times (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        Times (e1', e2')
+    | Divide (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        Divide (e1', e2')
+    | Modulus (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        Modulus (e1', e2')
+    | Equal (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        Equal (e1', e2')
+    | Neq (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        Neq (e1', e2')
+    | LessThan (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        LessThan (e1', e2')
+    | Leq (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        Leq (e1', e2')
+    | GreaterThan (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        GreaterThan (e1', e2')
+    | Geq (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        Geq (e1', e2')
+    | And (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        And (e1', e2')
+    | Or (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        Or (e1', e2')
+    | Not e1 ->
+        let e1' = recurse e1 in
+        Not e1'
+    | If (e1, e2, e3) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        let e3' = recurse e3 in
+        If (e1', e2', e3')
+    | Record m -> Record (Ident_map.map (fun ed -> recurse ed) m)
+    | RecordProj (e1, lbl) ->
+        let e1' = recurse e1 in
+        RecordProj (e1', lbl)
+    | VariantExpr (lbl, e1) ->
+        let e1' = recurse e1 in
+        VariantExpr (lbl, e1')
+    | List es -> List (List.map (fun ed -> recurse ed) es)
+    | ListCons (e1, e2) ->
+        let e1' = recurse e1 in
+        let e2' = recurse e2 in
+        ListCons (e1', e2')
+    | Assert e ->
+        let e' = recurse e in
+        Assert e'
+    | Assume e ->
+        let e' = recurse e in
+        Assume e'
+  in
+  { tag = e_desc.tag; body = renamed_expr }
 
 (** This function alphatizes an entire expression. If a variable is defined more
     than once in the given expression, all but one of the declarations will be
     alpha-renamed to a fresh name. *)
-let alphatize (e : On_ast.expr) : On_ast.expr m =
+let alphatize (e : On_ast.core_natodefa_edesc) : On_ast.core_natodefa_edesc m =
   let open On_ast in
   (* Given a list of identifiers, a list of expressions, and a list of
      previously declared identifiers, this helper routine renames all previously
@@ -173,9 +256,14 @@ let alphatize (e : On_ast.expr) : On_ast.expr m =
      the renamed expressions, the new set of declared identifiers, and a
      dictionary mapping the identifiers which were renamed onto their new
      values. *)
-  let rec ensure_exprs_unique_names (names : Ident.t list) (exprs : expr list)
-      (prev_declared : Ident_set.t) :
-      (Ident.t list * expr list * Ident_set.t * Ident.t Ident_map.t) m =
+  (* This function also shouldn't create any new subtrees, thus safe to keep og tags *)
+  let rec ensure_exprs_unique_names (names : Ident.t list)
+      (exprs : core_natodefa_edesc list) (prev_declared : Ident_set.t) :
+      (Ident.t list
+      * core_natodefa_edesc list
+      * Ident_set.t
+      * Ident.t Ident_map.t)
+      m =
     match names with
     | [] -> return ([], exprs, prev_declared, Ident_map.empty)
     | name :: more_names ->
@@ -202,16 +290,18 @@ let alphatize (e : On_ast.expr) : On_ast.expr m =
     in
     return (names', List.hd exprs', seen', renaming')
   in
-  let rec walk (expr : expr) (seen_declared : Ident_set.t) :
-      (expr * Ident_set.t) m =
+  let rec walk (expr_desc : core_natodefa_edesc) (seen_declared : Ident_set.t) :
+      (core_natodefa_edesc * Ident_set.t) m =
     let zero () =
       raise @@ Jhupllib_utils.Invariant_failure "list changed size"
     in
     let%bind expr', seen_declared' =
+      let expr = expr_desc.body in
       match expr with
       (* In leaf cases, no new variables are defined and so we have no work to
          do. *)
-      | Var _ | Input | Int _ | Bool _ -> return (expr, seen_declared)
+      | Var _ | Input | Int _ | Bool _ | Untouched _ | TypeError _ ->
+          return (expr, seen_declared)
       | Function (params, body) ->
           (* Recurse on the body to ensure that it is internally alphatized. *)
           let%bind body', seen_declared' = walk body seen_declared in
@@ -414,7 +504,8 @@ let alphatize (e : On_ast.expr) : On_ast.expr m =
           let%bind e', seen_declared' = walk e seen_declared in
           return (Assume e', seen_declared')
     in
-    return (expr', seen_declared')
+    let expr_desc' = { tag = expr_desc.tag; body = expr' } in
+    return (expr_desc', seen_declared')
   in
   lift1 fst @@ walk e Ident_set.empty
 
@@ -422,30 +513,35 @@ let alphatize (e : On_ast.expr) : On_ast.expr m =
 
 (** Create new odefa variable with mapping to natodefa expr *)
 
-let new_odefa_var (expr : On_ast.expr) (var_name : string) : Ast.var m =
+let new_odefa_var (e_desc : On_ast.core_natodefa_edesc) (var_name : string) :
+    Ast.var m =
   let%bind var = fresh_var var_name in
-  let%bind () = add_odefa_natodefa_mapping var expr in
+  let%bind () = add_odefa_natodefa_mapping var e_desc in
   return var
 
-let new_odefa_inst_var (expr : On_ast.expr) (var_name : string) : Ast.var m =
-  let%bind var = new_odefa_var expr var_name in
+let new_odefa_inst_var (e_desc : On_ast.core_natodefa_edesc) (var_name : string)
+    : Ast.var m =
+  let%bind var = new_odefa_var e_desc var_name in
   let%bind () = add_instrument_var var in
   return var
 
+(* TODO: When is this ever relavant? *)
+
 (** Returns the body of a function or conditional with its return variable *)
-let nonempty_body (expr : On_ast.expr) ((body, var) : Ast.clause list * Ast.var)
-    : (Ast.clause list * Ast.var) m =
+let nonempty_body (e_desc : On_ast.core_natodefa_edesc)
+    ((body, var) : Ast.clause list * Ast.var) : (Ast.clause list * Ast.var) m =
   match body with
   | [] ->
       let%bind x = fresh_var "var" in
-      let%bind () = add_odefa_natodefa_mapping x expr in
+      let%bind () = add_odefa_natodefa_mapping x e_desc in
       return @@ ([ Ast.Clause (x, Var_body var) ], x)
   | _ -> return (body, var)
 
 (** Create a new abort clause with multiple conditional clause variables *)
-let add_abort_expr (expr : On_ast.expr) (_ : Ast.var list) : Ast.expr m =
+let add_abort_expr (e_desc : On_ast.core_natodefa_edesc) (_ : Ast.var list) :
+    Ast.expr m =
   let%bind abort_var = fresh_var "ab" in
-  let%bind () = add_odefa_natodefa_mapping abort_var expr in
+  let%bind () = add_odefa_natodefa_mapping abort_var e_desc in
   let abort_clause = Ast.Clause (abort_var, Abort_body) in
   return @@ Ast.Expr [ abort_clause ]
 
@@ -454,13 +550,14 @@ let on_to_odefa_ident (On_ast.Ident id) = Ast.Ident id
 (** Flatten a pattern. The second value in the pair is a list of projection
     clauses associated with a record or variable pattern; these will be appended
     to the front of the pattern's expression. *)
-let flatten_pattern (expr : On_ast.expr) (pat_var : Ast.var)
+let flatten_pattern (e_desc : On_ast.core_natodefa_edesc) (pat_var : Ast.var)
     (pattern : On_ast.pattern) : (Ast.pattern * Ast.clause list) m =
   match pattern with
   | On_ast.AnyPat -> return (Ast.Any_pattern, [])
   | On_ast.IntPat -> return (Ast.Int_pattern, [])
   | On_ast.BoolPat -> return (Ast.Bool_pattern, [])
   | On_ast.FunPat -> return (Ast.Fun_pattern, [])
+  | On_ast.UntouchedPat _s -> failwith "not yet"
   | On_ast.RecPat rec_pat ->
       let rec_pat' =
         rec_pat |> On_ast.Ident_map.keys |> Enum.map on_to_odefa_ident
@@ -475,7 +572,7 @@ let flatten_pattern (expr : On_ast.expr) (pat_var : Ast.var)
                    let v' = on_to_odefa_ident v in
                    let lbl' = on_to_odefa_ident lbl in
                    let ast_var = Ast.Var (v', None) in
-                   let%bind () = add_odefa_natodefa_mapping ast_var expr in
+                   let%bind () = add_odefa_natodefa_mapping ast_var e_desc in
                    let%bind () = add_instrument_var ast_var in
                    let ast_body = Ast.Projection_body (pat_var, lbl') in
                    return @@ acc @ [ Ast.Clause (ast_var, ast_body) ]
@@ -483,10 +580,34 @@ let flatten_pattern (expr : On_ast.expr) (pat_var : Ast.var)
              []
       in
       return (Ast.Rec_pattern rec_pat', projections)
+  | On_ast.StrictRecPat _rec_pat ->
+      failwith "not yet"
+      (* TODO *)
+      (* let rec_pat' =
+           rec_pat |> On_ast.Ident_map.keys |> Enum.map on_to_odefa_ident
+           |> Ast.Ident_set.of_enum
+         in
+         let%bind projections =
+           rec_pat |> On_ast.Ident_map.enum |> List.of_enum
+           |> list_fold_left_m
+                (fun acc (lbl, var) ->
+                  match var with
+                  | Some v ->
+                      let v' = on_to_odefa_ident v in
+                      let lbl' = on_to_odefa_ident lbl in
+                      let ast_var = Ast.Var (v', None) in
+                      let%bind () = add_odefa_natodefa_mapping ast_var e_desc in
+                      let%bind () = add_instrument_var ast_var in
+                      let ast_body = Ast.Projection_body (pat_var, lbl') in
+                      return @@ acc @ [ Ast.Clause (ast_var, ast_body) ]
+                  | None -> return acc)
+                []
+         in
+         return (Ast.Strict_rec_pattern rec_pat', projections) *)
   | On_ast.VarPat var_pat ->
       let (On_ast.Ident var_id) = var_pat in
       let ast_var = Ast.Var (Ident var_id, None) in
-      let%bind () = add_odefa_natodefa_mapping ast_var expr in
+      let%bind () = add_odefa_natodefa_mapping ast_var e_desc in
       let ast_body = Ast.Var_body pat_var in
       let clause = Ast.Clause (ast_var, ast_body) in
       return (Ast.Any_pattern, [ clause ])
@@ -501,8 +622,8 @@ let flatten_pattern (expr : On_ast.expr) (pat_var : Ast.var)
 
 (** Flatten a function *)
 let flatten_fun ?(binding_name = (None : On_ast.Ident.t option))
-    (expr : On_ast.expr) (param_names : On_ast.Ident.t list) (body : Ast.expr) :
-    (Ast.expr * Ast.var) m =
+    (e_desc : On_ast.core_natodefa_edesc) (param_names : On_ast.Ident.t list)
+    (body : Ast.expr) : (Ast.expr * Ast.var) m =
   list_fold_right_m
     (fun (param : On_ast.Ident.t) ((e : Ast.expr), (_ : Ast.Var.t)) ->
       let id = on_to_odefa_ident param in
@@ -511,7 +632,7 @@ let flatten_fun ?(binding_name = (None : On_ast.Ident.t option))
         | None -> fresh_var "flatten_fun"
         | Some (Ident s) -> fresh_var s
       in
-      let%bind () = add_odefa_natodefa_mapping new_var expr in
+      let%bind () = add_odefa_natodefa_mapping new_var e_desc in
       let fun_val = Ast.Value_function (Function_value (Var (id, None), e)) in
       let fun_body = Ast.Value_body fun_val in
       let new_clause = Ast.Clause (new_var, fun_body) in
@@ -521,26 +642,31 @@ let flatten_fun ?(binding_name = (None : On_ast.Ident.t option))
     (body, retv body)
 
 (** Flatten a binary operation *)
-let rec flatten_binop (expr : On_ast.expr) (e1 : On_ast.expr) (e2 : On_ast.expr)
-    (binop : Ast.binary_operator) : (Ast.clause list * Ast.var) m =
-  let%bind e1_clist, e1_var = flatten_expr e1 in
-  let%bind e2_clist, e2_var = flatten_expr e2 in
+let rec flatten_binop (ton_on_maps : Ton_to_on_maps.t)
+    (expr_desc : On_ast.core_natodefa_edesc)
+    (e1_desc : On_ast.core_natodefa_edesc)
+    (e2_desc : On_ast.core_natodefa_edesc) (binop : Ast.binary_operator) :
+    (Ast.clause list * Ast.var) m =
+  let%bind e1_clist, e1_var = flatten_expr ton_on_maps e1_desc in
+  let%bind e2_clist, e2_var = flatten_expr ton_on_maps e2_desc in
   let%bind binop_var = fresh_var "binop" in
-  let%bind () = add_odefa_natodefa_mapping binop_var expr in
+  let%bind () = add_odefa_natodefa_mapping binop_var expr_desc in
   let binop_body = Ast.Binary_operation_body (e1_var, binop, e2_var) in
   let new_clause = Ast.Clause (binop_var, binop_body) in
   return (e1_clist @ e2_clist @ [ new_clause ], binop_var)
 
 (** Flatten either the equal or not equal binary operation. This involves
     instrumenting both operations in nested conditionals. *)
-and flatten_eq_binop (expr : On_ast.expr) (e1 : On_ast.expr) (e2 : On_ast.expr)
-    (binop_int : Ast.binary_operator) (binop_bool : Ast.binary_operator) :
-    (Ast.clause list * Ast.var) m =
+and flatten_eq_binop (ton_on_maps : Ton_to_on_maps.t)
+    (expr_desc : On_ast.core_natodefa_edesc)
+    (e1_desc : On_ast.core_natodefa_edesc)
+    (e2_desc : On_ast.core_natodefa_edesc) (binop_int : Ast.binary_operator)
+    (binop_bool : Ast.binary_operator) : (Ast.clause list * Ast.var) m =
   (* e1 and e2 *)
-  let%bind e1_clist, e1_var = flatten_expr e1 in
-  let%bind e2_clist, e2_var = flatten_expr e2 in
+  let%bind e1_clist, e1_var = flatten_expr ton_on_maps e1_desc in
+  let%bind e2_clist, e2_var = flatten_expr ton_on_maps e2_desc in
   (* Helper functions *)
-  let add_var = new_odefa_inst_var expr in
+  let add_var = new_odefa_inst_var expr_desc in
   let create_match_clause pat pat_name =
     let%bind m_bl = add_var ("m_eq_binop_l_" ^ pat_name) in
     let%bind m_br = add_var ("m_eq_binop_r_" ^ pat_name) in
@@ -576,7 +702,7 @@ and flatten_eq_binop (expr : On_ast.expr) (e1 : On_ast.expr) (e2 : On_ast.expr)
     return @@ Ast.Clause (c_binop, Conditional_body (pred, t_expr, f_expr))
   in
   (* Bool conditional: m2 ? ( x xnor y ) : ( abort ) *)
-  let%bind inner_abort = add_abort_expr expr [] in
+  let%bind inner_abort = add_abort_expr expr_desc [] in
   let%bind cond_bool =
     create_conditional m_bool "bool" binop_bool inner_abort
   in
@@ -586,7 +712,7 @@ and flatten_eq_binop (expr : On_ast.expr) (e1 : On_ast.expr) (e2 : On_ast.expr)
   in
   (* Conditional: m ? ( [see above] ) : ( abort ) *)
   let%bind c_binop = add_var "eq_binop" in
-  let%bind outer_abort = add_abort_expr expr [ c_binop ] in
+  let%bind outer_abort = add_abort_expr expr_desc [ c_binop ] in
   let cond =
     Ast.Clause
       (c_binop, Conditional_body (m_b, Ast.Expr [ cond_int ], outer_abort))
@@ -594,19 +720,42 @@ and flatten_eq_binop (expr : On_ast.expr) (e1 : On_ast.expr) (e2 : On_ast.expr)
   (* Putting it all together *)
   return (e1_clist @ e2_clist @ clist_predicates @ [ cond ], c_binop)
 
-and flatten_pattern_match (expr : On_ast.expr) (subj_var : Ast.var)
-    (pat_e_list : (On_ast.pattern * On_ast.expr) list) :
+(* TODO: Add untouched check logic here; hack solution, might want to rethink
+         in the future. In the spec this is supposed to be part of the instrumentation
+         step. *)
+and flatten_pattern_match (ton_on_maps : Ton_to_on_maps.t)
+    (expr_desc : On_ast.core_natodefa_edesc) (subj_var : Ast.var)
+    (pat_e_list : (On_ast.pattern * On_ast.core_natodefa_edesc) list) :
     (Ast.clause list * Ast.var) m =
-  let rec convert_match ((pat, e) : On_ast.pattern * On_ast.expr)
+  let tag = expr_desc.tag in
+  let () = print_endline @@ string_of_int tag in
+  let%bind () =
+    if Ton_to_on_maps.Int_map.mem tag ton_on_maps.match_tag_to_error_id
+    then
+      let false_id =
+        Ton_to_on_maps.Int_map.find tag ton_on_maps.match_tag_to_error_id
+      in
+      let () = print_endline @@ On_ast.show_ident false_id in
+      add_false_id_subj_var_mapping false_id subj_var
+    else return ()
+  in
+  let rec convert_match ((pat, e) : On_ast.pattern * On_ast.core_natodefa_edesc)
       (accum : Ast.expr * Ast.clause list) : (Ast.expr * Ast.clause list) m =
     (* Conditional expression *)
     let cond_expr_inner, match_cls_list_tail = accum in
     (* Variables *)
-    let%bind bool_var = new_odefa_inst_var expr "m_match_bool" in
-    let%bind cond_var = new_odefa_inst_var expr "m_match_cond" in
+    let%bind bool_var = new_odefa_inst_var expr_desc "m_match_bool" in
+    let%bind cond_var = new_odefa_inst_var expr_desc "m_match_cond" in
     (* Clauses and expressions *)
-    let%bind flat_pat, new_clauses = flatten_pattern expr subj_var pat in
-    let%bind c_list, _ = flatten_expr e in
+    (* TODO:
+       Hack: Depending on what patterns we have, if we fall into the base
+       cases (bool or int), AND that the match expression in question here
+       has a tag that we mapped an error ident to, then we'll record the
+       mapping between this ident and bool_var.
+       Question: How to then connect this bool_var to the abort?
+    *)
+    let%bind flat_pat, new_clauses = flatten_pattern expr_desc subj_var pat in
+    let%bind c_list, _ = flatten_expr ton_on_maps e in
     let c_list' = new_clauses @ c_list in
     let match_clause = Ast.Clause (bool_var, Match_body (subj_var, flat_pat)) in
     let%bind flat_curr_expr = return @@ Ast.Expr c_list' in
@@ -616,7 +765,7 @@ and flatten_pattern_match (expr : On_ast.expr) (subj_var : Ast.var)
     let cond_clause = Ast.Clause (cond_var, cond_body) in
     return (Ast.Expr [ cond_clause ], match_clause :: match_cls_list_tail)
   in
-  let%bind innermost = add_abort_expr expr [] in
+  let%bind innermost = add_abort_expr expr_desc [] in
   let%bind cond_expr, match_cls_list =
     list_fold_right_m convert_match pat_e_list (innermost, [])
   in
@@ -624,7 +773,7 @@ and flatten_pattern_match (expr : On_ast.expr) (subj_var : Ast.var)
   let create_or_clause cls_1 cls_2 =
     let (Ast.Clause (m_var_1, _)) = cls_1 in
     let (Ast.Clause (m_var_2, _)) = cls_2 in
-    let%bind m_match_or = new_odefa_inst_var expr "m_match_or" in
+    let%bind m_match_or = new_odefa_inst_var expr_desc "m_match_or" in
     let binop_body =
       Ast.Binary_operation_body (m_var_1, Binary_operator_or, m_var_2)
     in
@@ -642,101 +791,160 @@ and flatten_pattern_match (expr : On_ast.expr) (subj_var : Ast.var)
   let (Ast.Clause (match_pred, _)) =
     List.hd pred_cls_list (* Never raises b/c pat_e_list must be nonempty *)
   in
-  let%bind cond_var = new_odefa_inst_var expr "match" in
-  let%bind abort_expr = add_abort_expr expr [ cond_var ] in
+  let%bind cond_var = new_odefa_inst_var expr_desc "match" in
+  let%bind abort_expr = add_abort_expr expr_desc [ cond_var ] in
   let cond_cls =
     Ast.Clause (cond_var, Conditional_body (match_pred, cond_expr, abort_expr))
   in
-  return (List.rev pred_cls_list @ [ cond_cls ], cond_var)
+  (* Checks whether this is a user-specified pattern match *)
+  let find_untouched_pat (p : On_ast.pattern) : bool =
+    match p with
+    | UntouchedPat _ -> true
+    | IntPat | BoolPat | FunPat | VarPat _ | RecPat _ | StrictRecPat _
+    | VariantPat _ | EmptyLstPat | LstDestructPat _ | AnyPat ->
+        false
+  in
+  let untouched_exists =
+    pat_e_list |> List.map fst |> List.exists find_untouched_pat
+  in
+  if untouched_exists
+  then
+    (* UntouchedPat is only generated by our translator; do not instrument it *)
+    return (List.rev pred_cls_list @ [ cond_cls ], cond_var)
+  else
+    (* All other cases should be instrumented. *)
+    (* This check here is making sure that the value we're matching on is NOT
+       a polymorphic type. If it is, then we're violating the invariant around
+       parametric polymorphism: we should never try to base our code bahavior
+       upon type-casing a polymorphic value.
+    *)
+    (* Variables *)
+    let%bind m = new_odefa_inst_var expr_desc "m" in
+    (* Clauses *)
+    (* TODO *)
+    (* let m_cls = Ast.Clause (m, Match_body (subj_var, Any_untouched_pattern)) in *)
+    (* Conditional *)
+    let%bind c_match = new_odefa_inst_var expr_desc "c_match" in
+    let%bind t_path = add_abort_expr expr_desc [] in
+    let%bind f_path =
+      return
+      @@ Ast.Expr
+           [
+             Clause
+               ( c_match,
+                 Value_body
+                   (Ast.Value_record (Ast.Record_value Ast.Ident_map.empty)) );
+           ]
+    in
+    let%bind pre_cond_var = new_odefa_inst_var expr_desc "pre_match" in
+    let pre_cond_clause =
+      Ast.Clause (pre_cond_var, Conditional_body (m, t_path, f_path))
+    in
+    return
+    @@ ( [ (* m_cls; *) pre_cond_clause ] @ List.rev pred_cls_list @ [ cond_cls ],
+         cond_var )
 
 (** Flatten an entire expression (i.e. convert natodefa into odefa code) *)
-and flatten_expr (expr : On_ast.expr) : (Ast.clause list * Ast.var) m =
+and flatten_expr (ton_on_maps : Ton_to_on_maps.t)
+    (expr_desc : On_ast.core_natodefa_edesc) : (Ast.clause list * Ast.var) m =
   (* let%bind () = update_natodefa_expr exp in *)
-  match expr with
+  let recurse = flatten_expr ton_on_maps in
+  let exp = expr_desc.body in
+  (* let og_tag = expr_desc.tag in *)
+  match exp with
   | Var id ->
       let%bind alias_var = fresh_var "var" in
       let (Ident i_string) = id in
       let id_var = Ast.Var (Ident i_string, None) in
-      let%bind () = add_odefa_natodefa_mapping alias_var expr in
-      let%bind () = add_odefa_natodefa_mapping id_var expr in
+      let%bind () = add_odefa_natodefa_mapping alias_var expr_desc in
+      let%bind () = add_odefa_natodefa_mapping id_var expr_desc in
       return ([ Ast.Clause (alias_var, Var_body id_var) ], alias_var)
   | Input ->
       let%bind input_var = fresh_var "input" in
-      let%bind () = add_odefa_natodefa_mapping input_var expr in
+      let%bind () = add_odefa_natodefa_mapping input_var expr_desc in
       return ([ Ast.Clause (input_var, Input_body) ], input_var)
   | Function (id_list, e) ->
-      let%bind fun_c_list, _ = nonempty_body expr @@@ flatten_expr e in
+      let%bind fun_c_list, _ = nonempty_body expr_desc @@@ recurse e in
       let body_expr = Ast.Expr fun_c_list in
       let%bind Expr fun_clause, return_var =
-        flatten_fun expr id_list body_expr
+        flatten_fun expr_desc id_list body_expr
       in
       return (fun_clause, return_var)
   | Appl (e1, e2) ->
-      let%bind e1_clist, e1_var = flatten_expr e1 in
-      let%bind e2_clist, e2_var = flatten_expr e2 in
+      let%bind e1_clist, e1_var = recurse e1 in
+      let%bind e2_clist, e2_var = recurse e2 in
       let%bind appl_var = fresh_var "appl" in
-      let%bind () = add_odefa_natodefa_mapping appl_var expr in
+      let%bind () = add_odefa_natodefa_mapping appl_var expr_desc in
       let new_clause = Ast.Clause (appl_var, Ast.Appl_body (e1_var, e2_var)) in
       return (e1_clist @ e2_clist @ [ new_clause ], appl_var)
   | Let (var_ident, e1, e2) ->
-      let%bind e1_clist, e1_var = flatten_expr e1 in
-      let%bind e2_clist, e2_var = flatten_expr e2 in
+      let%bind e1_clist, e1_var = recurse e1 in
+      let%bind e2_clist, e2_var = recurse e2 in
       let (Ident var_name) = var_ident in
       let lt_var = Ast.Var (Ident var_name, None) in
-      let%bind () = add_odefa_natodefa_mapping lt_var expr in
+      let%bind () = add_odefa_natodefa_mapping lt_var expr_desc in
       let assignment_clause = Ast.Clause (lt_var, Var_body e1_var) in
       return (e1_clist @ [ assignment_clause ] @ e2_clist, e2_var)
   | LetFun (sign, e) ->
       (* TODO: check for bugs!!! *)
       (* Translating the function signature... *)
       let (Funsig (fun_name, id_list, fun_e)) = sign in
-      let%bind body_clist, _ = nonempty_body expr @@@ flatten_expr fun_e in
+      let%bind body_clist, _ = nonempty_body expr_desc @@@ recurse fun_e in
       let%bind Expr fun_clauses, return_var =
-        flatten_fun ~binding_name:(Some fun_name) expr id_list (Expr body_clist)
+        flatten_fun ~binding_name:(Some fun_name) expr_desc id_list
+          (Expr body_clist)
       in
       (* Flattening the "e2"... *)
-      let%bind e_clist, e_var = flatten_expr e in
+      let%bind e_clist, e_var = recurse e in
       (* Assigning the function to the given function name... *)
       let (On_ast.Ident var_name) = fun_name in
       let lt_var = Ast.Var (Ident var_name, None) in
-      let%bind () = add_odefa_natodefa_mapping lt_var expr in
+      let%bind () = add_odefa_natodefa_mapping lt_var expr_desc in
       let assignment_clause = Ast.Clause (lt_var, Var_body return_var) in
       return (fun_clauses @ [ assignment_clause ] @ e_clist, e_var)
   | LetRecFun (_, _) ->
       raise
       @@ Utils.Invariant_failure
            "LetRecFun should not have been passed to flatten_expr"
-  | Plus (e1, e2) -> flatten_binop expr e1 e2 Ast.Binary_operator_plus
-  | Minus (e1, e2) -> flatten_binop expr e1 e2 Ast.Binary_operator_minus
-  | Times (e1, e2) -> flatten_binop expr e1 e2 Ast.Binary_operator_times
-  | Divide (e1, e2) -> flatten_binop expr e1 e2 Ast.Binary_operator_divide
-  | Modulus (e1, e2) -> flatten_binop expr e1 e2 Ast.Binary_operator_modulus
-  (* TODO: check whether it's in instrumentation or not *)
+  | Plus (e1, e2) ->
+      flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_plus
+  | Minus (e1, e2) ->
+      flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_minus
+  | Times (e1, e2) ->
+      flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_times
+  | Divide (e1, e2) ->
+      flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_divide
+  | Modulus (e1, e2) ->
+      flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_modulus
   | Equal (e1, e2) ->
-      flatten_binop expr e1 e2 Ast.Binary_operator_equal_to
-      (* flatten_eq_binop expr e1 e2 Ast.Binary_operator_equal_to
-         Ast.Binary_operator_equal_to *)
+      flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_equal_to
   | Neq (e1, e2) ->
-      flatten_binop expr e1 e2 Ast.Binary_operator_not_equal_to
-      (* flatten_eq_binop expr e1 e2 Ast.Binary_operator_not_equal_to
-         Ast.Binary_operator_xor *)
-  | LessThan (e1, e2) -> flatten_binop expr e1 e2 Ast.Binary_operator_less_than
+      flatten_eq_binop ton_on_maps expr_desc e1 e2
+        Ast.Binary_operator_not_equal_to Ast.Binary_operator_xor
+  | LessThan (e1, e2) ->
+      flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_less_than
   | Leq (e1, e2) ->
-      flatten_binop expr e1 e2 Ast.Binary_operator_less_than_or_equal_to
+      flatten_binop ton_on_maps expr_desc e1 e2
+        Ast.Binary_operator_less_than_or_equal_to
   | GreaterThan (e1, e2) ->
       (* Reverse e1 and e2 *)
-      flatten_binop expr e2 e1 Ast.Binary_operator_less_than
+      flatten_binop ton_on_maps expr_desc e2 e1 Ast.Binary_operator_less_than
   | Geq (e1, e2) ->
       (* Reverse e1 and e2 *)
-      flatten_binop expr e2 e1 Ast.Binary_operator_less_than_or_equal_to
-  | And (e1, e2) -> flatten_binop expr e1 e2 Ast.Binary_operator_and
-  | Or (e1, e2) -> flatten_binop expr e1 e2 Ast.Binary_operator_or
+      flatten_binop ton_on_maps expr_desc e2 e1
+        Ast.Binary_operator_less_than_or_equal_to
+  | And (e1, e2) ->
+      flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_and
+  | Or (e1, e2) ->
+      flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_or
   | Not e ->
-      let%bind e_clist, e_var = flatten_expr e in
+      let%bind e_clist, e_var = recurse e in
       let%bind true_var = fresh_var "true" in
       let%bind binop_var = fresh_var "binop" in
-      let%bind () = add_odefa_natodefa_mapping true_var (Bool true) in
-      let%bind () = add_odefa_natodefa_mapping binop_var expr in
+      let%bind () =
+        add_odefa_natodefa_mapping true_var (On_ast.new_expr_desc @@ Bool true)
+      in
+      let%bind () = add_odefa_natodefa_mapping binop_var expr_desc in
       let binop = Ast.Binary_operator_xor in
       let true_body = Ast.Value_body (Value_bool true) in
       let binop_body = Ast.Binary_operation_body (e_var, binop, true_var) in
@@ -748,26 +956,71 @@ and flatten_expr (expr : On_ast.expr) : (Ast.clause list * Ast.var) m =
          do pattern matching. *)
       (* NOTE: this is translation from an if statement. Thus e1 will be always
          matched with true. *)
-      let%bind e1_clst, e1_var = flatten_expr e1 in
-      let%bind e2_clst, _ = nonempty_body expr @@@ flatten_expr e2 in
-      let%bind e3_clst, _ = nonempty_body expr @@@ flatten_expr e3 in
+      let%bind e1_clst, e1_var = recurse e1 in
+      let%bind e2_clst, _ = nonempty_body expr_desc @@@ recurse e2 in
+      let%bind e3_clst, _ = nonempty_body expr_desc @@@ recurse e3 in
       let%bind if_var = fresh_var "if" in
-      let%bind () = add_odefa_natodefa_mapping if_var expr in
+      let%bind () = add_odefa_natodefa_mapping if_var expr_desc in
       let if_body = Ast.Conditional_body (e1_var, Expr e2_clst, Expr e3_clst) in
       let if_clause = Ast.Clause (if_var, if_body) in
       return (e1_clst @ [ if_clause ], if_var)
   | Int n ->
       let%bind int_var = fresh_var "int" in
-      let%bind () = add_odefa_natodefa_mapping int_var expr in
+      let%bind () = add_odefa_natodefa_mapping int_var expr_desc in
       let new_clause = Ast.Clause (int_var, Ast.Value_body (Ast.Value_int n)) in
       return ([ new_clause ], int_var)
   | Bool b ->
       let%bind bool_var = fresh_var "bool" in
-      let%bind () = add_odefa_natodefa_mapping bool_var expr in
+      let%bind () = add_odefa_natodefa_mapping bool_var expr_desc in
       let new_clause =
         Ast.Clause (bool_var, Ast.Value_body (Ast.Value_bool b))
       in
       return ([ new_clause ], bool_var)
+  | Untouched _t ->
+      failwith "not yet"
+      (* TODO *)
+      (* let%bind untouched_var = fresh_var "untouched" in
+         let%bind () = add_odefa_natodefa_mapping untouched_var expr_desc in
+         let new_clause =
+           Ast.Clause (untouched_var, Ast.Value_body (Ast.Value_untouched t))
+         in
+         return ([ new_clause ], untouched_var) *)
+      (* TODO (Earl): This is very funky and probably wrong. Check later *)
+      (* Note: Can we leave a bread crumb here? Connect the id in typeError *)
+      (* Biggest hurdle *)
+  | TypeError (On_ast.Ident x) ->
+      let%bind error_var = fresh_var "error_var" in
+      let error_clause =
+        Ast.Clause (error_var, Ast.Var_body (Ast.Var (Ast.Ident x, None)))
+      in
+      let%bind () = add_odefa_natodefa_mapping error_var expr_desc in
+      (* Helper function *)
+      let add_var var_name =
+        let%bind var = fresh_var var_name in
+        let%bind () = add_odefa_natodefa_mapping var expr_desc in
+        return var
+      in
+      (* Variables *)
+      let%bind assert_pred = add_var "assert_pred" in
+      let%bind assert_result = add_var "assert_res" in
+      let%bind assert_result_inner = add_var "assert_res_true" in
+      (* Clauses *)
+      let alias_clause = Ast.Clause (assert_pred, Var_body error_var) in
+      (* We use an empty record as the result value, since no valid operation can
+         done on it (any projection will fail, and no binop, application, nor
+         conditional will work either).  It's a hack (especially if we match on
+         it), but it will do for now. *)
+      let res_value = Ast.Value_record (Record_value Ast.Ident_map.empty) in
+      let t_path =
+        Ast.Expr [ Clause (assert_result_inner, Value_body res_value) ]
+      in
+      let%bind f_path = add_abort_expr expr_desc [ assert_result ] in
+      let cond_clause =
+        Ast.Clause
+          (assert_result, Conditional_body (assert_pred, t_path, f_path))
+      in
+      let all_clauses = [ error_clause ] @ [ alias_clause; cond_clause ] in
+      return (all_clauses, assert_result)
   | Record recexpr_map ->
       (* function for Enum.fold that generates the clause list and the
          id -> var map for Odefa's record *)
@@ -777,7 +1030,7 @@ and flatten_expr (expr : On_ast.expr) : (Ast.clause list * Ast.var) m =
         let id, e = ident_expr_tuple in
         let (On_ast.Ident id_string) = id in
         let ast_id = Ast.Ident id_string in
-        let%bind e_clist, e_var = flatten_expr e in
+        let%bind e_clist, e_var = recurse e in
         let new_clist = clist @ e_clist in
         let new_map = Ast.Ident_map.add ast_id e_var recmap in
         return (new_clist, new_map)
@@ -789,26 +1042,26 @@ and flatten_expr (expr : On_ast.expr) : (Ast.clause list * Ast.var) m =
         |> list_fold_left_m flatten_and_map empty_acc
       in
       let%bind rec_var = fresh_var "record" in
-      let%bind () = add_odefa_natodefa_mapping rec_var expr in
+      let%bind () = add_odefa_natodefa_mapping rec_var expr_desc in
       let new_body = Ast.Value_body (Ast.Value_record (Ast.Record_value map)) in
       let new_clause = Ast.Clause (rec_var, new_body) in
       return (clist @ [ new_clause ], rec_var)
   | RecordProj (rec_expr, lab) ->
-      let%bind e_clist, e_var = flatten_expr rec_expr in
+      let%bind e_clist, e_var = recurse rec_expr in
       let (On_ast.Label l_string) = lab in
       let l_ident = Ast.Ident l_string in
       let%bind proj_var = fresh_var "proj" in
-      let%bind () = add_odefa_natodefa_mapping proj_var expr in
+      let%bind () = add_odefa_natodefa_mapping proj_var expr_desc in
       let new_clause =
         Ast.Clause (proj_var, Ast.Projection_body (e_var, l_ident))
       in
       return (e_clist @ [ new_clause ], proj_var)
   | Match (subject, pat_e_list) ->
       (* We need to flatten the subject first *)
-      let%bind subject_clause_list, subj_var = flatten_expr subject in
+      let%bind subject_clause_list, subj_var = recurse subject in
       (* Flatten the pattern-expr list *)
       let%bind match_clause_list, cond_var =
-        flatten_pattern_match expr subj_var pat_e_list
+        flatten_pattern_match ton_on_maps expr_desc subj_var pat_e_list
       in
       return (subject_clause_list @ match_clause_list, cond_var)
   | VariantExpr (_, _) ->
@@ -820,11 +1073,11 @@ and flatten_expr (expr : On_ast.expr) : (Ast.clause list * Ast.var) m =
       @@ Utils.Invariant_failure
            "flatten_expr: List expressions should have been handled!"
   | Assert e ->
-      let%bind flattened_exprs, last_var = flatten_expr e in
+      let%bind flattened_exprs, last_var = recurse e in
       (* Helper function *)
       let add_var var_name =
         let%bind var = fresh_var var_name in
-        let%bind () = add_odefa_natodefa_mapping var expr in
+        let%bind () = add_odefa_natodefa_mapping var expr_desc in
         return var
       in
       (* Variables *)
@@ -841,7 +1094,7 @@ and flatten_expr (expr : On_ast.expr) : (Ast.clause list * Ast.var) m =
       let t_path =
         Ast.Expr [ Clause (assert_result_inner, Value_body res_value) ]
       in
-      let%bind f_path = add_abort_expr expr [ assert_result ] in
+      let%bind f_path = add_abort_expr expr_desc [ assert_result ] in
       let cond_clause =
         Ast.Clause
           (assert_result, Conditional_body (assert_pred, t_path, f_path))
@@ -849,17 +1102,18 @@ and flatten_expr (expr : On_ast.expr) : (Ast.clause list * Ast.var) m =
       let all_clauses = flattened_exprs @ [ alias_clause; cond_clause ] in
       return (all_clauses, assert_result)
   | Assume e ->
-      let%bind flattened_exprs, last_var = flatten_expr e in
+      let%bind flattened_exprs, last_var = recurse e in
       let%bind assume_var = fresh_var "assume" in
-      let%bind () = add_odefa_natodefa_mapping assume_var expr in
+      let%bind () = add_odefa_natodefa_mapping assume_var expr_desc in
       let new_clause = Ast.Clause (assume_var, Assume_body last_var) in
       return (flattened_exprs @ [ new_clause ], assume_var)
 
-let debug_transform_on (trans_name : string) (transform : 'a -> On_ast.expr m)
-    (e : 'a) : On_ast.expr m =
+let debug_transform_on (trans_name : string)
+    (transform : 'a -> On_ast.core_natodefa_edesc m) (e : 'a) :
+    On_ast.core_natodefa_edesc m =
   let%bind e' = transform e in
   lazy_logger `debug (fun () ->
-      Printf.sprintf "Result of %s:\n%s" trans_name (On_ast_pp.show_expr e')) ;
+      Printf.sprintf "Result of %s:\n%s" trans_name (show_expr_desc e')) ;
   return e'
 
 let debug_transform_odefa (trans_name : string)
@@ -870,12 +1124,13 @@ let debug_transform_odefa (trans_name : string)
       Printf.sprintf "Result of %s:\n%s" trans_name (Ast_pp.show_expr e')) ;
   return c_list
 
-let translate ?(translation_context = None) ?(is_instrumented = false)
-    (e : On_ast.expr) : Ast.expr * On_to_odefa_maps.t =
+let translate ?(translation_context = None) ?(is_instrumented = true)
+    (ton_on_maps : Ton_to_on_maps.t) (e : On_ast.core_natodefa_edesc) :
+    Ast.expr * On_to_odefa_maps.t =
   let (e_m_with_info : (Ast.expr * On_to_odefa_maps.t) m) =
     (* Odefa transformations *)
     let flatten e : Ast.clause list m =
-      let%bind c_list, _ = flatten_expr e in
+      let%bind c_list, _ = flatten_expr ton_on_maps e in
       return c_list
     in
     let instrument c_list : Ast.clause list m =
@@ -889,14 +1144,14 @@ let translate ?(translation_context = None) ?(is_instrumented = false)
     in
     (* Translation sequence *)
     lazy_logger `debug (fun () ->
-        Printf.sprintf "Initial program:\n%s" (On_ast_pp.show_expr e)) ;
+        Printf.sprintf "Initial program:\n%s" (show_expr_desc e)) ;
     let%bind translation_result =
       return e
       >>= debug_transform_on "desugaring" preliminary_encode_expr
       >>= debug_transform_on "alphatization" alphatize
       >>= debug_transform_odefa "flattening" flatten
       >>= debug_transform_odefa "instrumentation" instrument
-      >>= debug_transform_odefa "adding $result" add_first_result
+      >>= debug_transform_odefa "adding ~result" add_first_result
     in
     let%bind odefa_on_maps = odefa_natodefa_maps in
     lazy_logger `debug (fun () ->

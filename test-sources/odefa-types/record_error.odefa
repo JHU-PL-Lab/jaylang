@@ -1,0 +1,10 @@
+# EXPECT-WELL-FORMED
+# EXPECT-STUCK
+# EXPECT-TYPE-ERROR-COUNT 1
+# EXPECT-TYPE-ERROR ~result [] "s = r.two" "r" "{ zero = z, one = o }" "{two}" "{zero, one}"
+
+z = 0;
+o = 1;
+r = { zero = z, one = o };
+s = r.two; # ???
+t = s + s;

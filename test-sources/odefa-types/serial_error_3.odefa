@@ -1,0 +1,13 @@
+# EXPECT-WELL-FORMED
+# EXPECT-STUCK
+# EXPECT-TYPE-ERROR-COUNT 1
+# EXPECT-TYPE-ERROR ~result [] "r = x and tru" "x = zero" "0" "bool" "int"
+
+zero = 0;
+one = 1;
+tru = true;
+
+f = fun x -> ( r = x and tru );
+fans = f zero;
+
+z = fans + one; # knock-on error!

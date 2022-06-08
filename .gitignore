@@ -32,6 +32,7 @@ _build
 /test_dbmc
 /dbmc_top
 /dtest
+/sato
 /translator
 /sandbox
 /result

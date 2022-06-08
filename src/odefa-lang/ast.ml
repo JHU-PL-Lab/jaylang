@@ -41,11 +41,11 @@ end
     variable in question has not been instantiated (and remains within the body
     of a function). *)
 type freshening_stack = Freshening_stack of ident list
-[@@deriving eq, ord, to_yojson]
+[@@deriving show, eq, ord, to_yojson]
 
 (** Variables in the AST. *)
 type var = Var of ident * freshening_stack option
-[@@deriving eq, ord, to_yojson]
+[@@deriving show, eq, ord, to_yojson]
 
 module Var = struct
   type t = var
@@ -163,6 +163,8 @@ type type_sig =
   | Bool_type
   | Fun_type
   | Rec_type of Ident_set.t
+  | Untouched_type of string
+  | Any_untouched_type
   | Bottom_type
 [@@deriving eq, ord, to_yojson]
 

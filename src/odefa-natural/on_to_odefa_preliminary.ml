@@ -20,7 +20,7 @@ let lbl_tail_m : Ident.t m = _lbl_m "tail";;
 let lbl_variant_m (s : string) : Ident.t m = _lbl_m ("variant_" ^ s);;
 let lbl_value_m : Ident.t m = _lbl_m "value";;
 
-let list_expr_to_record recurse (expr_lst : expr list) =
+let list_expr_to_record recurse (expr_lst : core_natodefa_edesc list) (og_tag : int) =
   (* Record labels *)
   let%bind lbl_empty = lbl_empty_m in
   let%bind lbl_head = lbl_head_m in
@@ -42,15 +42,16 @@ let list_expr_to_record recurse (expr_lst : expr list) =
       |> Ident_map.add lbl_head clean_elm
       |> Ident_map.add lbl_tail acc
     in
-    return @@ Record new_map
+    return @@ new_expr_desc @@ Record new_map
   in
   let empty_rec =
-    Record (Ident_map.add lbl_empty (Record Ident_map.empty) Ident_map.empty)
+    Record (Ident_map.add lbl_empty (new_expr_desc @@ Record Ident_map.empty) Ident_map.empty)
   in
   let%bind record_equivalent =
-    list_fold_right_m list_maker expr_lst empty_rec
+    list_fold_right_m list_maker expr_lst (new_expr_desc empty_rec)
   in
-  return record_equivalent
+  let ret = expr_desc_with_og_tag og_tag @@ record_equivalent.body in
+  return ret
 ;;
 
 (* Here  we "cons" the expression with the list during natodefa-to-odefa translation. 
@@ -59,7 +60,11 @@ let list_expr_to_record recurse (expr_lst : expr list) =
     - What if we wish to lazily cons, eg. as part of a freeze Fun x -> x :: [y]
   The latter question should be a non-issue due to the encoding, however. - KQ
 *)
-let list_cons_expr_to_record recurse (expr : expr) (list_expr : expr) =
+let list_cons_expr_to_record 
+    recurse 
+    (expr : core_natodefa_edesc) 
+    (list_expr : core_natodefa_edesc)
+    (og_tag : int) =
   (* Record labels *)
   (* Note: We need to add extra cons label to distinguish list cons from regular
      lists *)
@@ -82,9 +87,9 @@ let list_cons_expr_to_record recurse (expr : expr) (list_expr : expr) =
     Ident_map.empty
     |> Ident_map.add lbl_head clean_expr
     |> Ident_map.add lbl_tail record_list
-    |> Ident_map.add lbl_cons (Record Ident_map.empty)
+    |> Ident_map.add lbl_cons (new_expr_desc @@ Record Ident_map.empty)
   in
-  let record_equivalent = Record new_map in
+  let record_equivalent = {tag = og_tag; body = Record new_map} in
   return record_equivalent
 ;;
 
@@ -92,8 +97,9 @@ let list_cons_expr_to_record recurse (expr : expr) (list_expr : expr) =
    Record expression. *)
 let variant_expr_to_record recurse
     (v_label : variant_label)
-    (v_expr : expr)
-  : expr m =
+    (v_expr : core_natodefa_edesc)
+    (og_tag : int)
+  : core_natodefa_edesc m =
   (* Record labels *)
   let Variant_label v_name = v_label in
   let%bind lbl_variant = lbl_variant_m v_name in
@@ -111,10 +117,10 @@ let variant_expr_to_record recurse
   (* Make record *)
   let empty_rec = Record (Ident_map.empty) in
   let map_with_label =
-    Ident_map.add lbl_variant empty_rec Ident_map.empty
+    Ident_map.add lbl_variant (new_expr_desc empty_rec) Ident_map.empty
   in
   let res_map = Ident_map.add lbl_value encoded_v_expr map_with_label in
-  let res_record = Record (res_map) in
+  let res_record = expr_desc_with_og_tag og_tag @@ Record (res_map) in
   return res_record
 ;;
 
@@ -164,13 +170,15 @@ let encode_pattern (pattern : pattern) : pattern m =
     in
     return @@ RecPat record
   (* All other patterns: don't encode *)
-  | AnyPat | IntPat | BoolPat | FunPat | RecPat _ | VarPat _ ->
+  | AnyPat | IntPat | BoolPat | FunPat | RecPat _ | StrictRecPat _ | VarPat _ | UntouchedPat _ ->
     return pattern
 ;;
 
 let encode_match_exprs recurse
-    (match_expr : expr)
-    (pat_expr_lst : (pattern * expr) list) =
+    (match_expr : core_natodefa_edesc)
+    (pat_expr_lst : (pattern * core_natodefa_edesc) list) 
+    (og_tag : int)
+    =
   (* Transform first expression *)
   let%bind new_match_expr = recurse match_expr in
   (* Transform pattern-expression pairs *)
@@ -184,7 +192,7 @@ let encode_match_exprs recurse
     sequence @@ List.map pat_expr_list_changer pat_expr_lst
   in
   (* Return final match expression *)
-  return @@ Match (new_match_expr, new_pat_expr_lst)
+  return @@ expr_desc_with_og_tag og_tag @@ Match (new_match_expr, new_pat_expr_lst)
 ;;
 
 (** Transform a let rec expression into one that uses functions.
@@ -211,9 +219,9 @@ let encode_match_exprs recurse
       let g''' = g'' f'' g'' in
       f''' 10
 *)
-let letrec_expr_to_fun recurse fun_sig_list rec_expr =
+let letrec_expr_to_fun recurse fun_sig_list rec_e_desc og_tag =
   (* Translate inner expression *)
-  let%bind transformed_rec_expr = recurse rec_expr in
+  let%bind transformed_rec_expr = recurse rec_e_desc in
   (* Come up with new names for functions *)
   let original_names =
     List.map (fun (Funsig (id, _, _)) -> id) fun_sig_list
@@ -234,19 +242,22 @@ let letrec_expr_to_fun recurse fun_sig_list rec_expr =
         let (original_fun_name, new_fun_name) = base_fun in
         let sub_appl =
           List.fold_left
-            (fun acc fun_name -> Appl(acc, Var (fun_name)))
-            (Var (new_fun_name))
+            (fun acc fun_name ->
+              new_expr_desc @@ 
+              Appl(acc, 
+                   new_expr_desc @@ Var (fun_name)))
+            (new_expr_desc @@ Var (new_fun_name))
             new_names
         in
         return @@ Ident_map.add original_fun_name sub_appl appl_dict
       )
-      Ident_map.empty
+      (Ident_map.empty)
       name_pairs
   in
   (* Create let fun expressions *)
   let lt_maker_fun fun_name acc =
       let cur_appl_expr = Ident_map.find fun_name appls_for_funs in
-      Let (fun_name, cur_appl_expr, acc)
+      new_expr_desc @@ Let (fun_name, cur_appl_expr, acc)
   in
   let transformed_outer_expr =
     List.fold_right lt_maker_fun original_names transformed_rec_expr
@@ -263,38 +274,57 @@ let letrec_expr_to_fun recurse fun_sig_list rec_expr =
           List.fold_right lt_maker_fun original_names transformed_cur_f_expr
         in
         let new_fun = Function (new_param_list, new_fun_expr) in
-        return @@ Let (fun_new_name, new_fun, acc)
+        return @@ new_expr_desc @@ Let (fun_new_name, new_expr_desc new_fun, acc)
       )
       sig_name_pairs
       transformed_outer_expr
   in
-  return ret_expr
+  let ret = expr_desc_with_og_tag og_tag @@ ret_expr.body in
+  return ret
 ;;
 
-let preliminary_encode_expr (e : expr) : expr m =
-  let transformer recurse expr =
+let preliminary_encode_expr (e : core_natodefa_edesc) : core_natodefa_edesc m =
+  let transformer recurse e_desc =
+    let expr = e_desc.body in
+    let og_tag = e_desc.tag in
     match expr with
     | List e_lst ->
-      let%bind expr' = list_expr_to_record recurse e_lst in
-      let%bind () = add_natodefa_expr_mapping expr' expr in
+      let%bind expr' = list_expr_to_record recurse e_lst og_tag in
+      let%bind () = add_natodefa_expr_mapping expr' e_desc in
       return expr'
     | ListCons (e, e_lst) ->
-      let%bind expr' = list_cons_expr_to_record recurse e e_lst in
-      let%bind () = add_natodefa_expr_mapping expr' expr in
+      let%bind expr' = list_cons_expr_to_record recurse e e_lst og_tag in
+      let%bind () = add_natodefa_expr_mapping expr' e_desc in
       return expr'
     | VariantExpr (lbl, e') ->
-      let%bind expr' = variant_expr_to_record recurse lbl e' in
-      let%bind () = add_natodefa_expr_mapping expr' expr in
+      let%bind expr' = variant_expr_to_record recurse lbl e' og_tag in
+      let%bind () = add_natodefa_expr_mapping expr' e_desc in
       return expr'
     | Match (match_e, pat_e_lst) ->
-      let%bind expr' = encode_match_exprs recurse match_e pat_e_lst in
-      let%bind () = add_natodefa_expr_mapping expr' expr in
+      (* let () = print_endline "In Match case" in *)
+      let%bind expr' = encode_match_exprs recurse match_e pat_e_lst og_tag in
+      (* let show_expr = Pp_utils.pp_to_string On_ast_pp.pp_expr in *)
+      (* let () = print_endline "------------------------" in
+      let () = print_endline @@ "Here's the mapping we're trying to add: " in
+      let () = print_endline @@ show_expr expr' in
+      let () = print_endline "***" in
+      let () = print_endline @@ show_expr expr in
+      let () = print_endline "------------------------" in *)
+      let%bind () = add_natodefa_expr_mapping expr' e_desc in
       return expr'
     | LetRecFun (fun_sig_list, rec_e) ->
-      let%bind expr' = letrec_expr_to_fun recurse fun_sig_list rec_e in
-      let%bind () = add_natodefa_expr_mapping expr' expr in
+      (* let () = print_endline "In LetRecFun case" in *)
+      let%bind expr' = letrec_expr_to_fun recurse fun_sig_list rec_e og_tag in
+      (* let show_expr = Pp_utils.pp_to_string On_ast_pp.pp_expr in *)
+      (* let () = print_endline "------------------------" in *)
+      (* let () = print_endline @@ "Here's the mapping we're adding: " in *)
+      (* let () = print_endline @@ show_expr expr in *)
+      (* let () = print_endline "***" in *)
+      (* let () = print_endline @@ show_expr expr' in *)
+      (* let () = print_endline "------------------------" in *)
+      let%bind () = add_natodefa_expr_mapping expr' e_desc in
       return expr'
-    | _ -> return expr
+    | _ -> return e_desc
   in
   m_transform_expr transformer e
 ;;

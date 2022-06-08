@@ -1,0 +1,9 @@
+# EXPECT-WELL-FORMED
+# EXPECT-STUCK
+# EXPECT-TYPE-ERROR-COUNT 1
+# EXPECT-TYPE-ERROR ~result [] "ans = rec.z" "rec" "{ x = zero, y = one }" "{z}" "{x, y}"
+
+zero = 0;
+one = 1;
+rec = { x = zero, y = one };
+ans = rec.z;

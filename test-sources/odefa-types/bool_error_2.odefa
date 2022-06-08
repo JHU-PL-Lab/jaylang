@@ -1,0 +1,8 @@
+# EXPECT-WELL-FORMED
+# EXPECT-TYPE-ERROR-COUNT 2
+# EXPECT-TYPE-ERROR ~result [0, 0] "ans = i1 and i2" "i1" "input" "bool" "int"
+# EXPECT-TYPE-ERROR ~result [0, 0] "ans = i1 and i2" "i2" "input" "bool" "int"
+
+i1 = input;
+i2 = input;
+ans = i1 and i2;

@@ -91,6 +91,10 @@ let rule_of_runtime_status x block : t =
           if Ident.equal (Cfg.id_of_block block) Cfg.id_main
           then Discovery_main { x; v }
           else Discovery_nonmain { x; v }
+      | { clause = Clause (_, Abort_body); _ } ->
+          if Ident.equal (Cfg.id_of_block block) Cfg.id_main
+          then Discovery_main { x; v = Value_bool false }
+          else Discovery_nonmain { x; v = Value_bool false }
       | { clause = Clause (_, Projection_body (Var (r, _), lbl)); _ } ->
           Record_start { x; r; lbl }
       | {

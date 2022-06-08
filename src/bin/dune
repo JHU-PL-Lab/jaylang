@@ -5,6 +5,13 @@
  (preprocess
   (pps ppx_jane ppx_deriving.show lwt_ppx)))
 
+(executable
+ (name sato)
+ (modules sato)
+ (libraries core logs dbmc odefa.ast)
+ (preprocess
+  (pps ppx_jane ppx_deriving.show)))
+
 (executables
  (names dbmc_debugger)
  (modules dbmc_debugger)

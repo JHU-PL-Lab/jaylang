@@ -1,0 +1,12 @@
+# EXPECT-WELL-FORMED
+# EXPECT-TYPE-ERROR-COUNT 1
+# EXPECT-TYPE-ERROR ~result [0] "ret = x and tru" "i" "input" "bool" "int"
+
+tru = true;
+fls = false;
+i = input;
+
+f = fun x -> ( ret = x and tru );
+g = fun y -> ( rety = y );
+h = tru ? ( et = g f ) : ( ef = 0 );
+res = h i;

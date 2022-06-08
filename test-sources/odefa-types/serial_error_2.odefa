@@ -1,0 +1,10 @@
+# EXPECT-WELL-FORMED
+# EXPECT-TYPE-ERROR ~result [0] "sum1 = a + b" "b" "true" "int" "bool"
+# # EXPECT-TYPE-ERROR ~result [0] "sum3 = sum1 + b" "b" "true" "int" "bool"
+
+a = input;
+b = true;
+sum1 = a + b;
+c = input;
+sum2 = sum1 + c;
+sum3 = sum1 + b; # Type error ignored 

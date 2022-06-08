@@ -1,0 +1,11 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH x [ 0 ]
+# EXPECT-TYPE-ERROR-COUNT 1
+# EXPECT-TYPE-ERROR ~result [0] "p = r.lbl" "r = a" "input" "{lbl}" "int"
+# EXPECT-ALL-TYPE-ERRORS-FOUND
+
+a = input;
+b = { lbl = a };
+f = fun r -> ( p = r.lbl );
+x = f b;
+y = f a;

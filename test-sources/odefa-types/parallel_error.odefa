@@ -1,0 +1,13 @@
+# EXPECT-WELL-FORMED
+# EXPECT-TYPE-ERROR-COUNT 2
+# EXPECT-TYPE-ERROR ~result [0] "rf = a + b" "a" "true" "int" "bool"
+# EXPECT-TYPE-ERROR ~result [1] "rg = a or b" "b" "1" "bool" "int"
+
+a = true;
+b = 1;
+i = input;
+zero = 0;
+f = fun x -> ( rf = a + b );
+g = fun y -> ( rg = a or b );
+bul = i == zero;
+z = bul ? ( r1 = f zero ) : ( r2 = g zero );

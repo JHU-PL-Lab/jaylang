@@ -1,0 +1,12 @@
+# EXPECT-WELL-FORMED
+# EXPECT-TYPE-ERROR-COUNT 1
+# # TODO: Remove instrumentation error from function
+
+tru = true;
+fls = false;
+i = input;
+
+f = fun x -> ( one = 1; ret = x + one; );
+g = fun y -> ( rety = y );
+h = f ? ( et = g f ) : ( ef = 0 );
+res = h i;

@@ -1,4 +1,4 @@
-.PHONY: all clean repl test benchmark dbmc dbmc-top dbmc-test dtest dtest-ddse dtest-all logclean translator
+.PHONY: all clean repl test benchmark dbmc dbmc-top dbmc-test sato sato-test dtest dtest-ddse dtest-all logclean translator
 
 all: dbmc
 
@@ -11,6 +11,13 @@ dbmc-test:
 	ln -s -f _build/default/test/dbmc/test_dbmc.exe dtest
 
 dbmc: dbmc-top dbmc-test
+
+sato:
+	dune build src/bin/sato.exe
+	ln -s -f _build/default/src/bin/sato.exe sato
+
+sato-test:
+	./sato -t ab test-sources/odefa-types/assert.odefa
 
 dtest: dbmc-test
 	./dtest
@@ -61,6 +68,9 @@ profile:
 
 land200:
 	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dbmc_top -t target -s 200 test-sources/loop/_sum200.odefa
+
+ll:
+	OCAML_LANDMARKS=on,output="profiling/fold.ansi" time ./dbmc_top -t target -e ddse  -m 3 test-sources/benchmark/icfp20/_smbc/smbc_fold0s.natodefa
 
 land500:
 	OCAML_LANDMARKS=on,output="profiling/callgraph500.ansi" time ./dbmc_top -t target -s 200 test-sources/loop/_sum500.odefa

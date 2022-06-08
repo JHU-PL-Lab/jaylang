@@ -11,6 +11,7 @@
 
 let digit = ['0'-'9']
 let alpha = ['a'-'z'] | ['A'-'Z']
+let alpha_upper = ['A'-'Z']
 let whitespace = [' ' '\t']
 let newline = '\n'
 let comment = '#' [^'\n']* '\n'
@@ -25,19 +26,27 @@ rule token = parse
 | whitespace           { token lexbuf }
 | newline              { incr_lineno lexbuf; token lexbuf }
 | "{"                  { OPEN_BRACE }
+| "{:"                 { OPEN_BRACE_TYPE }
 | "}"                  { CLOSE_BRACE }
+| ":}"                 { CLOSE_BRACE_TYPE }
 | "("                  { OPEN_PAREN }
 | ")"                  { CLOSE_PAREN }
 | "["                  { OPEN_BRACKET }
 | "]"                  { CLOSE_BRACKET }
 | ","                  { COMMA }
 | "`"                  { BACKTICK }
+| "'"                  { APOSTROPHE }
 | "="                  { EQUALS }
 | "."                  { DOT }
 | ":"                  { COLON }
 | "::"                 { DOUBLE_COLON }
 | "_"                  { UNDERSCORE }
 | "|"                  { PIPE }
+| "||"                 { DOUBLE_PIPE }
+| "&&"                 { DOUBLE_AMPERSAND }
+| "$"                  { DOLLAR }
+(* | "[|"                 { OPEN_OBRACKET }
+| "|]"                 { CLOSE_OBRACKET } *)
 | "and"                { AND }
 | "or"                 { OR }
 | "not"                { NOT }
@@ -45,12 +54,13 @@ rule token = parse
 | "bool"               { BOOL_KEYWORD }
 | "fun"                { FUNCTION }
 | "function"           { FUNCTION }
-| "record"             { RECORD }
+(* | "record"             { RECORD } *)
 | "with"               { WITH }
 | "if"                 { IF }
 | "then"               { THEN }
 | "else"               { ELSE }
 | "let"                { LET }
+| "letd"               { LET_D }
 | "rec"                { REC }
 | "in"                 { IN }
 | "->"                 { ARROW }
@@ -61,7 +71,8 @@ rule token = parse
 | "end"                { END }
 | "assert"             { ASSERT }
 | "assume"             { ASSUME }
-| "abort"              { ABORT }
+| "Mu"                 { MU }
+| "List"               { LIST }
 | "+"                  { PLUS }
 | "-"                  { MINUS }
 | "*"                  { ASTERISK }
@@ -73,7 +84,7 @@ rule token = parse
 | "<="                 { LESS_EQUAL }
 | ">"                  { GREATER }
 | ">="                 { GREATER_EQUAL }
-| digit+ as n         { INT_LITERAL (int_of_string n) }
+| digit+ as n          { INT_LITERAL (int_of_string n) }
 | ident_start ident_cont* as s     { IDENTIFIER s }
 
 {}

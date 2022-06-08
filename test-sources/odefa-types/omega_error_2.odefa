@@ -1,0 +1,13 @@
+# EXPECT-WELL-FORMED
+# EXPECT-ANALYSIS-STACK-IS 0ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END r {}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+# EXPECT-NO-TYPE-ERRORS
+
+## MAXIMUM-STEPS 10000
+
+a = 1;
+b = false;
+o = fun x -> ( r = x x );
+oo = o o; # => SPINS FOREVER
+c = a + b; # Type error not detected because it lies before the omega comb

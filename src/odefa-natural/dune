@@ -1,20 +1,34 @@
 (copy_files# parser/*.{ml,mli})
-
 (copy_files parser/*.{mll,mly})
 
-(ocamllex on_lexer)
-
+(ocamllex
+  on_lexer
+)
 (menhir
- (flags --explain)
- (modules on_parser))
+  (flags --explain)
+  (modules
+    on_parser
+  )
+)
 
 (library
- (name odefa_natural)
- (public_name odefa.natural)
- (synopsis "Translator for Odefa Natural")
- (libraries batteries jhupllib monadlib odefa.ast)
- (preprocess
-  (pps ppx_deriving.std ppx_deriving_yojson ocaml-monadic))
- (flags
-  (:standard -w -39) ;for ppx_deriving_yojson, which generates extra rec flags
-  ))
+  (name odefa_natural)
+  (public_name odefa.natural)
+  (synopsis "Translator for Odefa Natural")
+  (libraries
+    batteries
+    jhupllib
+    monadlib
+    odefa.ast
+  )
+  (preprocess
+    (pps
+      ppx_deriving.std
+      ppx_deriving_yojson
+      ocaml-monadic
+    )
+  )
+  (flags
+    (:standard -w -39) ;for ppx_deriving_yojson, which generates extra rec flags
+  )
+)
