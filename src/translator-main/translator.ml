@@ -22,8 +22,9 @@ let main () : unit =
   let options = parse_args () in
   match options.ta_mode with
   | Odefa_natural_to_odefa ->
-      let on_expr = On_parse.parse_program IO.stdin in
-      let odefa_expr = On_to_odefa.translate on_expr |> fst in
+      let ton_expr = On_parse.parse_program IO.stdin in
+      let (on_expr, ton_on_maps) = Ton_to_on.transform_natodefa ton_expr in
+      let odefa_expr = On_to_odefa.translate ton_on_maps on_expr |> fst in
       let result_expr =
         if options.ta_parseable
         then map_expr_vars purge_special_symbols odefa_expr
