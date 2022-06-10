@@ -163,8 +163,8 @@ type type_sig =
   | Bool_type
   | Fun_type
   | Rec_type of Ident_set.t
-  | Untouched_type of string
-  | Any_untouched_type
+  (* | Untouched_type of string
+  | Any_untouched_type *)
   | Bottom_type
 [@@deriving eq, ord, to_yojson]
 

@@ -1,4 +1,4 @@
-open Batteries;;
+(* open Batteries;;
 open On_ast;;
 
 (* *** Generalized transformations for expressions with reader and writer
@@ -251,4 +251,4 @@ let transform_expr (transformer : expr_transformer) (e : On_ast.core_natodefa)
     transformer recurse' e
   in
   env_transform_expr transformer' () e
-;;
+;; *)

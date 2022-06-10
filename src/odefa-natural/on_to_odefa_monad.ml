@@ -52,18 +52,16 @@ module TranslationMonad : sig
   val is_instrument_var : Ast.var -> bool m
 
   (** Map an odefa var to a natodefa expression *)
-  val add_odefa_natodefa_mapping : Ast.var -> On_ast.core_natodefa_edesc -> unit m
+  val add_odefa_natodefa_mapping : Ast.var -> On_ast.expr_desc -> unit m
 
   (** Map a natodefa expression to another natodefa expression *)
-  val add_natodefa_expr_mapping : On_ast.core_natodefa_edesc -> On_ast.core_natodefa_edesc -> unit m
+  val add_natodefa_expr_mapping : On_ast.expr_desc -> On_ast.expr_desc -> unit m
 
   (** Map a natodefa ident to another ident. *)
   val add_natodefa_var_mapping : On_ast.ident -> On_ast.ident -> unit m
 
   (** Map a set of natodefa idents to a natodefa type. *)
   val add_natodefa_type_mapping : On_ast.Ident_set.t -> On_ast.type_sig -> unit m
-
-  val add_false_id_subj_var_mapping : On_ast.ident -> Ast.var -> unit m;;
 
   (** Retrieve the odefa-to-natodefa maps from the monad *)
   val odefa_natodefa_maps : On_to_odefa_maps.t m
@@ -164,16 +162,6 @@ end = struct
       <- On_to_odefa_maps.add_on_idents_to_type_mapping odefa_on_maps k_idents v_type
   ;;
 
-  let add_false_id_subj_var_mapping f_id subj_var ctx = 
-    let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
-    ctx.tc_odefa_natodefa_mappings
-      <- On_to_odefa_maps.add_false_id_to_subj_var_mapping odefa_on_maps f_id subj_var
-      (* let add_id_abort_mapping err_id ab_v ctx =
-    let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
-    ctx.tc_odefa_natodefa_mappings
-      <- On_to_odefa_maps.add_abort_mapping odefa_on_maps err_id ab_v
-  ;; *)
-
   let odefa_natodefa_maps ctx =
     ctx.tc_odefa_natodefa_mappings
   ;;
@@ -233,8 +221,8 @@ let ident_map_map_m
    writer support. *** *)
 
 type ('env, 'out) m_env_out_expr_transformer =
-  ('env -> On_ast.core_natodefa_edesc -> (On_ast.core_natodefa_edesc * 'out) TranslationMonad.m) ->
-  'env -> On_ast.core_natodefa_edesc -> (On_ast.core_natodefa_edesc * 'out) TranslationMonad.m
+  ('env -> On_ast.expr_desc -> (On_ast.expr_desc * 'out) TranslationMonad.m) ->
+  'env -> On_ast.expr_desc -> (On_ast.expr_desc * 'out) TranslationMonad.m
 ;;
 
 let rec m_env_out_transform_expr
@@ -242,8 +230,8 @@ let rec m_env_out_transform_expr
     (combiner : 'out -> 'out -> 'out)
     (default : 'out)
     (env : 'env)
-    (e_desc : On_ast.core_natodefa_edesc)
-  : (On_ast.core_natodefa_edesc * 'out) TranslationMonad.m =
+    (e_desc : On_ast.expr_desc)
+  : (On_ast.expr_desc * 'out) TranslationMonad.m =
   let recurse = m_env_out_transform_expr transformer combiner default in
   let open TranslationMonad in
   let transform_funsig (On_ast.Funsig(name,args,body)) =
@@ -251,7 +239,7 @@ let rec m_env_out_transform_expr
     let%bind (body'', out'') = transformer recurse env body' in
     return @@ (On_ast.Funsig(name,args, body''), combiner out' out'')
   in
-  let%bind ((e' : On_ast.core_natodefa_edesc), (out' : 'out)) =
+  let%bind ((e' : On_ast.expr_desc), (out' : 'out)) =
     let e = e_desc.body in
     let og_tag = e_desc.tag in
     match e with
@@ -393,30 +381,28 @@ let rec m_env_out_transform_expr
       return @@ ({tag = og_tag; body = On_ast.Assert e'}, out)
     | On_ast.Assume e ->
       let%bind (e', out) = recurse env e in
-      return @@ ({tag = og_tag; body = On_ast.Assume e'}, out)
-    | On_ast.Untouched s -> return @@ ({tag = og_tag; body = On_ast.Untouched s}, default)
-    | On_ast.TypeError x -> return @@ ({tag = og_tag; body = On_ast.TypeError x}, default)
+      return @@ ({tag = og_tag; body = On_ast.Assume e'}, out)   
   in
   let%bind (e'', out'') = transformer recurse env e' in
   return (e'', combiner out' out'')
 ;;
 
 type 'env m_env_expr_transformer =
-  ('env -> On_ast.core_natodefa_edesc -> On_ast.core_natodefa_edesc TranslationMonad.m) ->
-  'env -> On_ast.core_natodefa_edesc -> On_ast.core_natodefa_edesc TranslationMonad.m
+  ('env -> On_ast.expr_desc -> On_ast.expr_desc TranslationMonad.m) ->
+  'env -> On_ast.expr_desc -> On_ast.expr_desc TranslationMonad.m
 ;;
 
 let m_env_transform_expr
     (transformer : 'env m_env_expr_transformer)
     (env : 'env)
-    (e : On_ast.core_natodefa_edesc)
-  : On_ast.core_natodefa_edesc TranslationMonad.m =
+    (e : On_ast.expr_desc)
+  : On_ast.expr_desc TranslationMonad.m =
   let open TranslationMonad in
   let transformer'
-      (recurse : 'env -> On_ast.core_natodefa_edesc -> (On_ast.core_natodefa_edesc * unit) m)
+      (recurse : 'env -> On_ast.expr_desc -> (On_ast.expr_desc * unit) m)
       env
-      (e : On_ast.core_natodefa_edesc)
-    : (On_ast.core_natodefa_edesc * unit) m =
+      (e : On_ast.expr_desc)
+    : (On_ast.expr_desc * unit) m =
     let recurse' env e =
       let%bind (e'', ()) = recurse env e in return e''
     in
@@ -430,16 +416,16 @@ let m_env_transform_expr
 ;;
 
 type m_expr_transformer =
-  (On_ast.core_natodefa_edesc -> On_ast.core_natodefa_edesc TranslationMonad.m) -> On_ast.core_natodefa_edesc ->
-  On_ast.core_natodefa_edesc TranslationMonad.m
+  (On_ast.expr_desc -> On_ast.expr_desc TranslationMonad.m) -> On_ast.expr_desc ->
+  On_ast.expr_desc TranslationMonad.m
 ;;
 
-let m_transform_expr (transformer : m_expr_transformer) (e : On_ast.core_natodefa_edesc)
-  : On_ast.core_natodefa_edesc TranslationMonad.m =
+let m_transform_expr (transformer : m_expr_transformer) (e : On_ast.expr_desc)
+  : On_ast.expr_desc TranslationMonad.m =
   let open TranslationMonad in
   let transformer'
-      (recurse : unit -> On_ast.core_natodefa_edesc -> On_ast.core_natodefa_edesc m) () (e : On_ast.core_natodefa_edesc)
-    : On_ast.core_natodefa_edesc TranslationMonad.m =
+      (recurse : unit -> On_ast.expr_desc -> On_ast.expr_desc m) () (e : On_ast.expr_desc)
+    : On_ast.expr_desc TranslationMonad.m =
     let recurse' e = recurse () e in
     transformer recurse' e
   in

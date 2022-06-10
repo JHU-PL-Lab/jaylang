@@ -63,16 +63,31 @@ let pp_variant_label formatter (Variant_label label) =
   Format.fprintf formatter "`%s" label
 ;;
 
-let rec pp_funsig : Format.formatter -> funsig -> unit =
+let rec pp_funsig : type a. Format.formatter -> a funsig -> unit =
  fun formatter (Funsig (x, ident_list, e)) ->
   Format.fprintf formatter "%a@ %a =@ @[%a@]"
     pp_ident x pp_ident_list ident_list pp_expr_desc e
 
-and pp_funsig_list : Format.formatter -> funsig list -> unit =
+and pp_funsig_list : type a. Format.formatter -> (a funsig) list -> unit =
   fun formatter funsig_lst ->
   Pp_utils.pp_concat_sep
     " with "
     pp_funsig
+    formatter
+    (List.enum funsig_lst)
+
+and pp_funsig_with_type 
+  : type a. Format.formatter -> a funsig * a expr_desc -> unit = 
+  fun formatter (Funsig (x, ident_list, e), t) ->
+  Format.fprintf formatter "(%a@ : %a) %a =@ @[%a@]"
+    pp_ident x pp_expr_desc t pp_ident_list ident_list pp_expr_desc e
+
+and pp_funsig_with_type_list 
+  : type a. Format.formatter -> (a funsig * a expr_desc) list -> unit = 
+  fun formatter funsig_lst ->
+  Pp_utils.pp_concat_sep
+    " with "
+    pp_funsig_with_type
     formatter
     (List.enum funsig_lst)
 
@@ -84,6 +99,8 @@ and pp_pattern formatter pattern =
   | FunPat -> Format.pp_print_string formatter "fun"
   | RecPat record ->
     Format.fprintf formatter "%a" (pp_ident_map_sp pp_ident_option) record
+  | StrictRecPat record ->
+    Format.fprintf formatter "%a" (pp_ident_map pp_ident_option) record
   | VariantPat (lbl, var) ->
     Format.fprintf formatter "%a %a" pp_variant_label lbl pp_ident var
   | VarPat ident -> Format.fprintf formatter "%a" pp_ident ident
@@ -91,11 +108,13 @@ and pp_pattern formatter pattern =
   | LstDestructPat (hd_var, tl_var) ->
     Format.fprintf formatter "%a :: %a"
       pp_ident hd_var pp_ident tl_var
+  | UntouchedPat s -> Format.pp_print_string formatter @@ "'" ^ s
 
 (* Note: For two operators of equal precedence, still wrap parens if the
    operators are right-associative, but not if they're left-associative. *)
 
-and pp_binop (formatter : Format.formatter) (expr : expr) : unit =
+and pp_binop : type a. Format.formatter -> a expr -> unit =
+  fun formatter expr ->
   let pp_symb formatter expr =
     match expr with
     | Appl _ -> Format.pp_print_string formatter "" (* FIXME: Outputs two spaces! *)
@@ -134,17 +153,28 @@ and pp_binop (formatter : Format.formatter) (expr : expr) : unit =
       raise @@ Utils.Invariant_failure "Invalid precedence comparison!"
   | _ -> raise @@ Utils.Invariant_failure "Not a binary operator!"
 
-and pp_expr_desc_with_tag (formatter : Format.formatter) (e : expr_desc) : unit = 
-  Format.fprintf formatter "{tag: %a, body: %a}"
-  Format.pp_print_int e.tag pp_expr e.body
+(* and pp_expr_desc : 
+  type a. Format.formatter -> a expr_desc -> unit = 
+  fun formatter e ->
+    if Option.is_some e.tag 
+    then
+      Format.fprintf formatter "{tag: %a, body: %a}"
+      Format.pp_print_int (Option.get e.tag) pp_expr e.body
+    else 
+      Format.fprintf formatter "{tag: None, body: %a}"
+      pp_expr e.body *)
 
-and pp_expr_desc_without_tag 
-  (formatter : Format.formatter) (e : expr_desc) : unit = 
-  Format.fprintf formatter "%a"
-  pp_expr e.body
+and pp_expr_desc : 
+  type a. Format.formatter -> a expr_desc -> unit = 
+  fun formatter e ->
+    Format.fprintf formatter "{tag: %a, body: %a}"
+    Format.pp_print_int e.tag pp_expr e.body
+    (* Format.fprintf formatter "%a"
+    pp_expr e.body *)
 
-and pp_expr 
-  (formatter : Format.formatter) (expr : expr) : unit =
+and pp_expr : 
+  type a. Format.formatter -> a expr -> unit =
+  fun formatter expr ->
   match expr with
   (* Values *)
   | Int n -> Format.pp_print_int formatter n
@@ -168,12 +198,21 @@ and pp_expr
   | Let (ident, e1, e2) -> 
     Format.fprintf formatter "let@ %a =@ %a@ in@ @[%a@]"
       pp_ident ident pp_expr_desc e1 pp_expr_desc e2
+  | LetWithType (ident, e1, e2, type_decl) ->
+    Format.fprintf formatter "let@ (%a : %a) =@ %a@ in@ @[%a@]"
+      pp_ident ident pp_expr_desc type_decl pp_expr_desc e1 pp_expr_desc e2
   | LetRecFun (funsig_lst, e) ->
     Format.fprintf formatter "let rec@ %a@ in@ @[%a@]"
       pp_funsig_list funsig_lst pp_expr_desc e
+  | LetRecFunWithType (funsig_lst, e, type_decl_lst) ->
+    Format.fprintf formatter "let rec@ %a@ in@ @[%a@]"
+    pp_funsig_with_type_list (List.combine funsig_lst type_decl_lst) pp_expr_desc e
   | LetFun (funsig, e) ->
     Format.fprintf formatter "let@ %a@ in@ @[%a@]"
       pp_funsig funsig pp_expr_desc e
+  | LetFunWithType (funsig, e, type_decl) -> 
+    Format.fprintf formatter "let@ %a@ in@ @[%a@]"
+      pp_funsig_with_type (funsig, type_decl) pp_expr_desc e
   | If (pred, e1, e2) ->
     Format.fprintf formatter "if@ %a@ then@ @[<2>%a@]@ else @[<2>%a@]"
     pp_expr_desc pred pp_expr_desc e1 pp_expr_desc e2
@@ -224,10 +263,26 @@ and pp_expr
       Format.fprintf formatter "assume %a" pp_expr_desc e
     else
       Format.fprintf formatter "assume (%a)" pp_expr_desc e
+  | Untouched s ->
+    Format.pp_print_string formatter @@ "'" ^ s 
+  | TypeError x ->
+    Format.fprintf formatter "%a" pp_ident x
+  | TypeVar v -> Format.fprintf formatter "%a" pp_ident v
+  | TypeInt -> Format.pp_print_string formatter "int"
+  | TypeBool -> Format.pp_print_string formatter "bool"
+  | TypeRecord record -> Format.fprintf formatter "%a" (pp_ident_map pp_expr_desc) record
+  | TypeList t -> Format.fprintf formatter "[%a]" pp_expr_desc t
+  | TypeArrow (t1, t2) -> Format.fprintf formatter "(%a -> %a)" pp_expr_desc t1 pp_expr_desc t2
+  | TypeArrowD ((x1, t1), t2) -> Format.fprintf formatter "((%a : %a) -> %a)" pp_ident x1 pp_expr_desc t1 pp_expr_desc t2
+  | TypeSet (t, p) -> Format.fprintf formatter "{%a | %a}" pp_expr_desc t pp_expr_desc p
+  | TypeUnion (t1, t2) -> Format.fprintf formatter "%a v %a" pp_expr_desc t1 pp_expr_desc t2
+  | TypeIntersect (t1, t2) -> Format.fprintf formatter "%a ^ %a" pp_expr_desc t1 pp_expr_desc t2
+  | TypeRecurse (tvar, t) ->  Format.fprintf formatter "Mu %a.%a" pp_ident tvar pp_expr_desc t
+  | TypeUntouched s -> Format.pp_print_string formatter @@ "'" ^ s
 ;;
 
 let show_ident = Pp_utils.pp_to_string pp_ident;;
-let show_expr = Pp_utils.pp_to_string pp_expr;;
+(* let show_expr = Pp_utils.pp_to_string pp_expr;; *)
 let show_pattern = Pp_utils.pp_to_string pp_pattern;;
 
 let pp_on_type formatter (on_type : On_ast.type_sig) =
