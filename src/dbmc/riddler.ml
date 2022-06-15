@@ -75,6 +75,25 @@ let binop_with_picked t op t1 t2 =
 
 let eq_with_picked key key' = picked key @=> and_ [ eq key key'; picked key' ]
 
+let is_pattern term pat =
+  let x = key_to_var term in
+  let is_pattern =
+    match pat with
+    | Fun_pattern -> ifFun x
+    | Int_pattern -> ifInt x
+    | Bool_pattern -> ifBool x
+    | Any_pattern -> true_
+    | Rec_pattern _xr -> failwith "Rec_pattern: not implemented"
+  in
+  is_pattern
+
+let picked_pattern x x' pat =
+  let left = key_to_var x in
+  let right = is_pattern x' pat in
+  picked x
+  @=> and_
+        [ picked x'; ifBool left; SuduZ3.eq (SuduZ3.project_bool left) right ]
+
 let cond_top term term_x term_c beta =
   picked term
   @=> and_

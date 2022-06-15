@@ -92,10 +92,10 @@ module Make (S : S) = struct
     run_task key_x1 block phis_top ;
     run_task key_x2 block phis_top ;
 
-    let phi = Riddler.binop key bop key_x1 key_x2 in
-    let _ = S.add_phi key phi phis_top in
+    (* let phi = Riddler.binop key bop key_x1 key_x2 in *)
+    (* let _ = S.add_phi key phi phis_top in *)
     let cb ((t1 : Ddse_result.t), (t2 : Ddse_result.t)) =
-      Ddse_result.(merge_with_v key phi t1 t2)
+      Ddse_result.(merge_with_v key bop t1 t2)
     in
 
     U.by_filter_map2_u S.unroll key key_x1 key_x2 cb
@@ -387,6 +387,7 @@ module Make (S : S) = struct
     in
     Node.update_rule this_node (Node.mk_callsite ~fun_tree:node_fun ~sub_trees)
 
+  let pattern _p _key _this_node _block _phis_top _run_task = ()
   let assume _p _key _this_node _block _phis_top _run_task = ()
 
   let assert_ _p this_key this_node _block phis_top _run_task =

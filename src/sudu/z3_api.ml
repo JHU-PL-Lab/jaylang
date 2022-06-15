@@ -47,6 +47,12 @@ module Make_common_builders (C : Context) = struct
     | Z3.Solver.UNSATISFIABLE -> failwith "should not UNSAT"
     | Z3.Solver.UNKNOWN -> failwith (Z3.Solver.get_reason_unknown solver)
 
+  let is_unsat status =
+    match status with
+    | Z3.Solver.SATISFIABLE -> false
+    | Z3.Solver.UNSATISFIABLE -> true
+    | Z3.Solver.UNKNOWN -> false
+
   let eval model e flag = Z3.Model.eval model e flag
   let eval_exn model e flag = Option.value_exn (eval model e flag)
   let simplify e = Expr.simplify e None

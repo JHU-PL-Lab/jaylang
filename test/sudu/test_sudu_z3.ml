@@ -195,6 +195,51 @@ module To_test = struct
     let r = incremental_plus_exn i2 i3 i4 in
     Z3.Solver.reset solver ;
     r
+
+  (* Note: Mis-pattern using `inject_<type>` and `eq` is a HARD error.
+     It raises exceptions after inserting this constraint
+  *)
+  let _mis_pattern_hard () =
+    let x = var_s "x" in
+    let ix = inject_int x in
+    let y = var_s "y" in
+    let by = inject_bool y in
+    let phi = eq ix by in
+    Z3.Solver.add solver [ phi ] ;
+    (* let status = Z3.Solver.check solver [ phi ] in
+       is_unsat status *)
+    true
+
+  let mis_pattern_soft () =
+    let x = var_s "x" in
+    let ix = ifInt x in
+    let y = var_s "y" in
+    let by = ifBool y in
+    let phi = eq x y in
+    let status = Z3.Solver.check solver [ ix; by; phi ] in
+    is_unsat status
+
+  (* x = 3; y = x ~ int *)
+  let pattern_check () =
+    let x = var_s "x" in
+    let phi_x = eq x (int_ 3) in
+    let ix = ifInt x in
+    let y = var_s "y" in
+    let by = ifBool y in
+    let phi = eq (project_bool y) ix in
+    let status = Z3.Solver.check solver [ ix; by; phi_x; phi ] in
+    not (is_unsat status)
+
+  (* x = 3; y = x ~ int *)
+  let pattern_fail () =
+    let x = var_s "x" in
+    let phi_x = eq x (bool_ true) in
+    let ix = ifInt x in
+    let y = var_s "y" in
+    let by = ifBool y in
+    let phi = eq (project_bool y) ix in
+    let status = Z3.Solver.check solver [ ix; by; phi_x; phi ] in
+    is_unsat status
 end
 
 let invariant_int i f () = Alcotest.(check int) "same int" i (f i)
@@ -286,6 +331,16 @@ let () =
             (same_int_f 6 (fun () -> To_test.test_lt_gt_no_inj_int 6));
           test_case "5 < x < 7 (int literal, phi noname)" `Slow
             (same_int_f 6 (fun () -> To_test.test_lt_gt_no_binding_no_inj_int 6));
+        ] );
+      ( "pattern",
+        [
+          (* test_case "mis-pattern hard" `Slow
+             (same_bool_f true To_test.mis_pattern_hard); *)
+          test_case "mis-pattern soft" `Slow
+            (same_bool_f true To_test.mis_pattern_soft);
+          test_case "pattern check" `Slow
+            (same_bool_f true To_test.pattern_check);
+          test_case "pattern fail" `Slow (same_bool_f true To_test.pattern_fail);
         ] );
       ( "debug-mac",
         [

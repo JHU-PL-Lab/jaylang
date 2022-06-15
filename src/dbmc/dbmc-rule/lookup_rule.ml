@@ -334,6 +334,17 @@ module Make (S : S) = struct
 
     U.by_bind_u S.unroll this_key key_f cb
 
+  let pattern p key this_node block run_task =
+    let ({ x'; pat; _ } : Pattern_rule.t) = p in
+    let key' = Lookup_key.with_x key x' in
+    let node' = S.find_or_add_node key' block this_node in
+    Node.update_rule this_node Node.mismatch ;
+    run_task key' block ;
+    U.by_map_u S.unroll key key' (fun _ : Lookup_result.t ->
+        let phi = Riddler.picked_pattern key key' pat in
+        S.add_phi key phi ;
+        Lookup_result.ok key)
+
   let assume _p _key _this_node _block _run_task = ()
 
   let assert_ _p this_key this_node _block _run_task =
