@@ -2,8 +2,6 @@ open Core
 
 let ctx = Z3.mk_context []
 
-let solver = Z3.Solver.mk_solver ctx None
-
 module SuduZ3 = Sudu.Z3_api.Make (struct
   let ctx = ctx
 end)
@@ -13,31 +11,26 @@ module To_test = struct
 
   let solver = Z3.Solver.mk_solver SuduZ3.ctx None
 
-  let reset () = Z3.Solver.reset solver
-
   (* basic boolean *)
 
   let and0 = and_ [] |> simplify |> unbox_bool
-
   let or0 = or_ [] |> simplify |> unbox_bool
 
   (* Test Z3 expression, no model *)
   let box_and_unbox_int i = i |> box_int |> unbox_int
-
   let box_and_unbox_bool b = b |> box_bool |> unbox_bool
-
   let box_and_unbox_string s = s |> box_string |> unbox_string
 
   let inj_and_prj_int i =
-    Out_channel.newline stdout;
+    Out_channel.newline stdout ;
     let i_inj = int_ i in
-    dump i_inj;
+    dump i_inj ;
     let i_inj_prj = project_int i_inj in
-    dump i_inj_prj;
+    dump i_inj_prj ;
     let i_z3_again = simplify i_inj_prj in
-    dump i_z3_again;
+    dump i_z3_again ;
     let plain_int = unbox_int i_z3_again in
-    print_endline @@ string_of_int plain_int;
+    print_endline @@ string_of_int plain_int ;
     plain_int
 
   let inj_and_prj_bool b = b |> bool_ |> project_bool |> simplify |> unbox_bool
@@ -113,7 +106,7 @@ module To_test = struct
       get_model_exn solver
       @@ Z3.Solver.check solver [ phi1; phi2; project_bool b1; project_bool b2 ]
     in
-    dump_model model;
+    dump_model model ;
     let x' = project_int x in
     let v = eval_exn model x' false in
     unbox_int v
@@ -152,67 +145,72 @@ module To_test = struct
     let v = eval_exn model x' false in
     unbox_int v
 
-  let incremental_plus i1 i2 i3 =
+  let incremental_plus_common i1 i2 i3 =
     let x = var_s "x" in
     let t = var_s "t" in
     let e1, e2, e3 = (int_ i1, int_ i2, int_ i3) in
     let phi_e1_e2 = fn_plus t e1 e2 in
-    Z3.Solver.add solver [ phi_e1_e2 ];
+    Z3.Solver.add solver [ phi_e1_e2 ] ;
     let phi_t_e3 = fn_plus x t e3 in
-    Z3.Solver.add solver [ phi_t_e3 ];
-    let model = get_model_exn solver @@ Z3.Solver.check solver [] in
-    let x' = project_int x in
-    let v = eval_exn model x' false in
-    unbox_int v
+    Z3.Solver.add solver [ phi_t_e3 ] ;
+    let model = get_model solver @@ Z3.Solver.check solver [] in
+    match model with
+    | Some model ->
+        let x' = project_int x in
+        let v = eval_exn model x' false in
+        Some v
+    | None -> None
+
+  let incremental_plus_exn i1 i2 i3 =
+    let v = incremental_plus_common i1 i2 i3 in
+    unbox_int (Option.value_exn v)
+
+  let incremental_plus i1 i2 i3 =
+    let v = incremental_plus_common i1 i2 i3 in
+    match v with Some v -> Some (unbox_int v) | None -> None
 
   let add_int i =
     let x = Z3.Arithmetic.Integer.mk_const_s ctx "x" in
     let e1 = box_int i in
     let phi = eq x e1 in
-    Z3.Solver.add solver [ phi ];
+    Z3.Solver.add solver [ phi ] ;
     let _status = Z3.Solver.check solver [] in
-    Z3.Solver.reset solver;
+    Z3.Solver.reset solver ;
     1
 
   let add_bool b =
     let x = Z3.Boolean.mk_const_s ctx "x" in
     let e1 = box_bool b in
     let phi = eq x e1 in
-    Z3.Solver.add solver [ phi ];
+    Z3.Solver.add solver [ phi ] ;
     let _status = Z3.Solver.check solver [] in
-    Z3.Solver.reset solver;
+    Z3.Solver.reset solver ;
     true
 
-  let reset_once _i1 _i2 _i3 _i4 =
-    (* let _ = incremental_plus i1 i2 i3 in
-       Z3.Solver.reset solver; *)
-    Z3.Solver.reset solver;
-    let r = test_lt_gt_no_inj_int 6 in
-    (* let r = incremental_plus i2 i3 i4 in *)
-    Z3.Solver.reset solver;
+  let reset_once i1 i2 i3 i4 =
+    let _ = incremental_plus i1 i2 i3 in
+    Z3.Solver.reset solver ;
+    let _ = test_lt_gt_no_inj_int 6 in
+    Z3.Solver.reset solver ;
+    let r = incremental_plus_exn i2 i3 i4 in
+    Z3.Solver.reset solver ;
     r
 end
 
 let invariant_int i f () = Alcotest.(check int) "same int" i (f i)
-
 let same_int_f i f () = Alcotest.(check int) "same int" i (f ())
-
 let diff_int_f i f () = Alcotest.(check (neg int)) "same int" i (f ())
-
 let invariant_bool b f () = Alcotest.(check bool) "same bool" b (f b)
-
 let same_bool b1 b2 () = Alcotest.(check bool) "same bool" b1 b2
-
 let same_bool_f b f () = Alcotest.(check bool) "same bool" b (f ())
-
 let invariant_string s f () = Alcotest.(check string) "same bool" s (f s)
 
 let invariant_bools s f =
   List.map [ true; false ] ~f:(fun b ->
       Alcotest.test_case s `Quick (invariant_bool b f))
 
-let test_inj_and_prj_int () =
-  Alcotest.(check int) "same int" 1 (To_test.inj_and_prj_int 1)
+(* let test_inj_and_prj_int () =
+   Alcotest.(check int) "same int" 1 (To_test.inj_and_prj_int 1) *)
 
 open Fact
 
@@ -273,10 +271,10 @@ let () =
             (same_int_f 5 (fun () -> To_test.binop_inj SuduZ3.fn_divide 100 20));
           test_case "25%3=1" `Slow
             (same_int_f 1 (fun () -> To_test.binop_inj SuduZ3.fn_modulus 25 3));
-          (* test_case "1+2+3=6" `Slow
-             (same_int_f 6 (fun () -> To_test.incremental_plus 1 2 3)); *)
-          (* test_case "reset;2+3+4=9" `Slow
-             (same_int_f 6 (fun () -> To_test.reset_once 1 1 2 3)); *)
+          test_case "1+2+3=6" `Slow
+            (same_int_f 6 (fun () -> To_test.incremental_plus_exn 1 2 3));
+          test_case "reset;2+3+4=9" `Slow
+            (same_int_f 6 (fun () -> To_test.reset_once 1 1 2 3));
         ] );
       ( "solve int relation",
         [
