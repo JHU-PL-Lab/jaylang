@@ -74,6 +74,7 @@ let binop_with_picked t op t1 t2 =
   picked t @=> and_ [ e_bop; picked t1; picked t2 ]
 
 let eq_with_picked key key' = picked key @=> and_ [ eq key key'; picked key' ]
+let eqv_with_picked key key' v = picked key @=> and_ [ eqv key v; picked key' ]
 
 let is_pattern term pat =
   let x = key_to_var term in

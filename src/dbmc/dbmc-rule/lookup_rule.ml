@@ -340,10 +340,20 @@ module Make (S : S) = struct
     let node' = S.find_or_add_node key' block this_node in
     Node.update_rule this_node Node.mismatch ;
     run_task key' block ;
-    U.by_map_u S.unroll key key' (fun _ : Lookup_result.t ->
-        let phi = Riddler.picked_pattern key key' pat in
-        S.add_phi key phi ;
-        Lookup_result.ok key)
+    U.by_map_u S.unroll key key' (fun r : Lookup_result.t ->
+        match pat with
+        | Rec_pattern ids ->
+            let rv = Cfg.record_of_id S.block_map r.from.x in
+            let have_all =
+              Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
+            in
+            let phi = Riddler.eqv_with_picked key key' (Value_bool have_all) in
+            S.add_phi key phi ;
+            Lookup_result.ok key
+        | _ ->
+            let phi = Riddler.picked_pattern key key' pat in
+            S.add_phi key phi ;
+            Lookup_result.ok key)
 
   let assume _p _key _this_node _block _run_task = ()
 
