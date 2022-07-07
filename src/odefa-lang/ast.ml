@@ -155,6 +155,14 @@ module Value = struct
   let to_yojson = value_to_yojson
 end
 
+module Pattern = struct
+  type t = pattern
+
+  let equal = equal_pattern
+  let compare = compare_pattern
+  let to_yojson = pattern_to_yojson
+end
+
 (** A type representing the types of the language. Note that subtyping rules
     apply to records. *)
 type type_sig =

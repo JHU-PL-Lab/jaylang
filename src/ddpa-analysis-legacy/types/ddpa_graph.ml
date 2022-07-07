@@ -33,6 +33,7 @@ module type Graph_sig = sig
   val edges_from : annotated_clause -> ddpa_graph -> ddpa_edge Enum.t
   val edges_to : annotated_clause -> ddpa_graph -> ddpa_edge Enum.t
   val preds : annotated_clause -> ddpa_graph -> annotated_clause Enum.t
+  val preds_l : annotated_clause -> ddpa_graph -> annotated_clause list
   val succs : annotated_clause -> ddpa_graph -> annotated_clause Enum.t
   val to_yojson : ddpa_graph -> Yojson.Safe.t
 end
@@ -67,6 +68,7 @@ module Graph_impl : Graph_sig = struct
            equal_annotated_clause acl acl')
 
   let preds acl g = edges_to acl g |> Enum.map (fun (Ddpa_edge (acl, _)) -> acl)
+  let preds_l acl g = preds acl g |> List.of_enum
   let to_yojson = ddpa_graph_to_yojson
 end
 
@@ -92,7 +94,7 @@ and lift_clause_body b =
       Abs_binary_operation_body (lift_var x1, op, lift_var x2)
   | Abort_body -> Abs_abort_body
   | Assume_body x -> Abs_assume_body (lift_var x)
-  | Assert_body _ -> failwith "no direct assert yet"
+  | Assert_body x -> Abs_assert_body (lift_var x)
 
 and lift_value v =
   match v with

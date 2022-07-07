@@ -90,9 +90,6 @@ struct
         "then" branch (true) or the "else" branch (false).  The state and
         context refer to this wiring clause so a jump can be issued after the
         subject is checked in this branch. *)
-    | Matching_lookup of abstract_var * abstract_var * pattern
-    | Matching_1_of_2
-    | Matching_2_of_2 of abstract_value
     | Record_projection_lookup of abstract_var * abstract_var * ident
     (** Represents the start of a record projection.  If the first variable
         matches our lookup target, then we've discovered that we are looking

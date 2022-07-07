@@ -93,8 +93,7 @@ let rec create_end_of_block_map (acls : abstract_clause list) :
      _create_end_of_block_map_for_annotated_clause frequently returns empty
      dictionaries: the clause itself has already been mapped in a dictionary
      in the primary function. *)
-  if List.length acls = 0
-  then
+  if List.length acls = 0 then
     raise (Utils.Invariant_failure "attempted to create EoS map for empty list")
   else
     let last_var = rv acls in
@@ -136,8 +135,7 @@ and _create_end_of_block_map_for_body (b : abstract_clause_body) =
       | Abs_value_record _ -> Annotated_clause_map.empty
       | Abs_value_function f -> _create_end_of_block_map_for_function f
       | Abs_value_int -> Annotated_clause_map.empty
-      | Abs_value_bool _ -> Annotated_clause_map.empty
-      | Abs_value_untouched _ -> Annotated_clause_map.empty)
+      | Abs_value_bool _ -> Annotated_clause_map.empty)
   | Abs_var_body _ -> Annotated_clause_map.empty
   | Abs_input_body -> Annotated_clause_map.empty
   | Abs_appl_body (_, _) -> Annotated_clause_map.empty
@@ -150,6 +148,7 @@ and _create_end_of_block_map_for_body (b : abstract_clause_body) =
   | Abs_binary_operation_body (_, _, _) -> Annotated_clause_map.empty
   | Abs_abort_body -> Annotated_clause_map.empty
   | Abs_assume_body _ -> Annotated_clause_map.empty
+  | Abs_assert_body _ -> Annotated_clause_map.empty
 
 and _create_end_of_block_map_for_function (f : abstract_function_value) =
   let (Abs_function_value (_, Abs_expr body)) = f in
@@ -166,10 +165,12 @@ let abstract_binary_operation (binop : binary_operator) (arg1 : abstract_value)
       Abs_value_int ) ->
       singleton Abs_value_int
   | ( ( Binary_operator_less_than | Binary_operator_less_than_or_equal_to
-      | Binary_operator_equal_to | Binary_operator_not_equal_to ),
+      | Binary_operator_equal_to ),
       Abs_value_int,
       Abs_value_int ) ->
       Some (List.enum [ Abs_value_bool true; Abs_value_bool false ])
+  | Binary_operator_equal_to, Abs_value_bool b1, Abs_value_bool b2 ->
+      singleton @@ Abs_value_bool (b1 = b2)
   | Binary_operator_and, Abs_value_bool b1, Abs_value_bool b2 ->
       singleton @@ Abs_value_bool (b1 && b2)
   | Binary_operator_or, Abs_value_bool b1, Abs_value_bool b2 ->
@@ -177,18 +178,3 @@ let abstract_binary_operation (binop : binary_operator) (arg1 : abstract_value)
   | Binary_operator_xor, Abs_value_bool b1, Abs_value_bool b2 ->
       singleton @@ Abs_value_bool (b1 <> b2)
   | _ -> None
-
-let abstract_pattern_match (v : abstract_value) (p : pattern) :
-    abstract_value Enum.t =
-  match (v, p) with
-  | _, Any_pattern
-  | Abs_value_function _, Fun_pattern
-  | Abs_value_int, Int_pattern ->
-      Enum.singleton @@ Abs_value_bool true
-  | Abs_value_bool _, Bool_pattern -> Enum.singleton @@ Abs_value_bool true
-  | Abs_value_record _, Rec_pattern _ ->
-      List.enum [ Abs_value_bool true; Abs_value_bool false ]
-  | ( ( Abs_value_int | Abs_value_bool _ | Abs_value_record _
-      | Abs_value_function _ | Abs_value_untouched _ ),
-      (Fun_pattern | Int_pattern | Bool_pattern | Rec_pattern _) ) ->
-      Enum.singleton @@ Abs_value_bool false

@@ -146,19 +146,6 @@ struct
              ; Push(Capture capture_size_1)
              ; Push(Lookup_var(x1))
              ]
-    | Matching_lookup(x1, x2, p) ->
-      let%orzero (Lookup_var x1') = element in
-      [%guard (equal_abstract_var x1 x1')];
-      return [ Push(Continuation_pattern p)
-             ; Push(Lookup_var(x2))
-             ]
-    | Matching_1_of_2 ->
-      let%orzero (Continuation_value v) = element in
-      return [ Pop_dynamic_targeted(Matching_2_of_2 v)]
-    | Matching_2_of_2 v1 ->
-      let%orzero (Continuation_pattern p) = element in
-      let%bind v2 = pick_enum @@ abstract_pattern_match v1 p in
-      return [ Push(Continuation_value v2) ]
     | Record_projection_lookup(x,x',l) ->
       let%orzero (Lookup_var x0) = element in
       [%guard (equal_abstract_var x0 x)];
