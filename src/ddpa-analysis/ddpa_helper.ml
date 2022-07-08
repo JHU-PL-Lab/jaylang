@@ -236,3 +236,4 @@ let find_cond_choice cond_btm cfg =
 
 let bat_list_of_enum = List.of_enum
 let preds_l acl g = preds acl g |> List.of_enum
+let succs_l acl g = succs acl g |> List.of_enum

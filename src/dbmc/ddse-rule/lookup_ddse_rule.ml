@@ -111,7 +111,7 @@ module Make (S : S) = struct
       let rv_block = Cfg.find_by_id rv.v.x S.block_map in
       let node_rv = S.find_or_add_node rv.v rv_block this_node in
       let phi1 = Riddler.eq key_r rv.v in
-      let rvv = Cfg.record_of_id S.block_map rv.v.x in
+      let rvv = Cfg.record_of_id_exn S.block_map rv.v.x in
       (match Ident_map.Exceptionless.find lbl rvv with
       | Some (Var (field, _)) ->
           let key_l = Lookup_key.with_x rv.v field in

@@ -143,13 +143,21 @@ let clauses_before_x block x =
       if Ident.equal tc.id x then Stop acc else Continue (tc :: acc))
     ~finish:List.rev (get_clauses block)
 
-let record_of_id map x =
+let record_of_id_ map x =
   let block = find_by_id x map in
   let c = clause_of_x_exn block x in
   let (Clause (_, cv)) = c.clause in
-  match cv with
+  cv
+
+let record_of_id_exn map x =
+  match record_of_id_ map x with
   | Value_body (Value_record (Record_value r)) -> r
   | _ -> failwith "must be a record"
+
+let record_of_id map x =
+  match record_of_id_ map x with
+  | Value_body (Value_record (Record_value r)) -> Some r
+  | _ -> None
 
 let update_id_dst id dst0 block =
   let add_dsts dst0 dsts =
@@ -376,7 +384,9 @@ let annotate e pt : block Ident_map.t =
       then List.iter ~f:(fun acl -> loop acl !block_dangling) (preds_l acl cfg)
       else ())
   in
-  loop acl true ;
+  let succ_acls = succs_l acl cfg in
+  List.iter ~f:(fun acl -> loop acl true) succ_acls ;
+  (* loop acl true ; *)
   !map
 
 let fun_info_of_callsite callsite map =

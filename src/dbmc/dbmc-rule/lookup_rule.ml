@@ -92,20 +92,25 @@ module Make (S : S) = struct
         | Some _ -> !counter
         | None -> failwith "smt list key") ;
 
-      (match Ident_map.Exceptionless.find lbl rv with
-      | Some (Var (field, _)) ->
-          let key_l = Lookup_key.with_x key_rv field in
-          let node_l = S.find_or_add_node key_l rv_block this_node in
-          Node.update_rule this_node (Node.project node_r node_l) ;
+      (match rv with
+      | Some rv -> (
+          match Ident_map.Exceptionless.find lbl rv with
+          | Some (Var (field, _)) ->
+              let key_l = Lookup_key.with_x key_rv field in
+              let node_l = S.find_or_add_node key_l rv_block this_node in
+              Node.update_rule this_node (Node.project node_r node_l) ;
 
-          let phi_i =
-            Riddler.record_start_append this_key key_r key_rv key_l i
-          in
-          S.add_phi this_key phi_i ;
+              let phi_i =
+                Riddler.record_start_append this_key key_r key_rv key_l i
+              in
+              S.add_phi this_key phi_i ;
 
-          run_task key_l rv_block ;
+              run_task key_l rv_block ;
 
-          U.by_id_u S.unroll this_key key_l
+              U.by_id_u S.unroll this_key key_l
+          | None ->
+              Node.update_rule this_node Node.mismatch ;
+              S.add_phi key (Riddler.list_append_mismatch this_key i))
       | None ->
           Node.update_rule this_node Node.mismatch ;
           S.add_phi key (Riddler.list_append_mismatch this_key i)) ;
@@ -315,7 +320,10 @@ module Make (S : S) = struct
     in
 
     Node.update_rule this_node (Node.mk_callsite ~fun_tree:node_fun ~sub_trees) ;
-    S.add_phi this_key (Riddler.fun_exit this_key key_f fids S.block_map) ;
+    Fmt.pr "[DEBUGphi]ids= %a\n" (Fmt.Dump.list Id.pp) fids ;
+    let phi = Riddler.fun_exit this_key key_f fids S.block_map in
+    Fmt.pr "[DEBUGphi]phi= %s\n" (Z3.Expr.to_string phi) ;
+    S.add_phi this_key phi ;
 
     run_task key_f block ;
 
@@ -341,16 +349,19 @@ module Make (S : S) = struct
     Node.update_rule this_node Node.mismatch ;
     run_task key' block ;
     U.by_map_u S.unroll key key' (fun r : Lookup_result.t ->
-        match pat with
-        | Rec_pattern ids ->
-            let rv = Cfg.record_of_id S.block_map r.from.x in
+        let rv = Cfg.record_of_id S.block_map r.from.x in
+        match (pat, rv) with
+        | Rec_pattern ids, Some rv ->
             let have_all =
               Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
             in
             let phi = Riddler.eqv_with_picked key key' (Value_bool have_all) in
             S.add_phi key phi ;
             Lookup_result.ok key
-        | _ ->
+        | Rec_pattern _ids, None ->
+            S.add_phi key (Riddler.mismatch_with_picked key) ;
+            Lookup_result.fail key
+        | _, _ ->
             let phi = Riddler.picked_pattern key key' pat in
             S.add_phi key phi ;
             Lookup_result.ok key)
