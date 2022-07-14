@@ -108,10 +108,11 @@ module Make (S : S) = struct
     run_task key_r block phis_top ;
 
     let cb this_key (rv : Ddse_result.t) =
-      let rv_block = Cfg.find_by_id rv.v.x S.block_map in
+      let rv_block = Cfg.block_of_id rv.v.x S.block_map in
       let node_rv = S.find_or_add_node rv.v rv_block this_node in
       let phi1 = Riddler.eq key_r rv.v in
-      let rvv = Cfg.record_of_id_exn S.block_map rv.v.x in
+      let clause_body = Cfg.clause_body_of_x rv_block rv.v.x in
+      let rvv = Ast_tools.record_of_clause_body clause_body in
       (match Ident_map.Exceptionless.find lbl rvv with
       | Some (Var (field, _)) ->
           let key_l = Lookup_key.with_x rv.v field in
@@ -330,7 +331,7 @@ module Make (S : S) = struct
 
               let cb_f key (rf : Ddse_result.t) =
                 let key_arg = Lookup_key.with_x rf.v x in
-                let fv_block = Cfg.find_by_id rf.v.x S.block_map in
+                let fv_block = Cfg.block_of_id rf.v.x S.block_map in
                 let node_arg = S.find_or_add_node key_arg fv_block this_node in
                 run_task key_arg fv_block phis_top ;
 

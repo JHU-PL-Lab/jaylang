@@ -82,9 +82,9 @@ module Make (S : S) = struct
 
     let cb this_key (r : Lookup_result.t) =
       let key_rv = r.from in
-      let rv_block = Cfg.find_by_id key_rv.x S.block_map in
+      let rv_block = Cfg.block_of_id key_rv.x S.block_map in
       let node_rv = S.find_or_add_node key_rv rv_block this_node in
-      let rv = Cfg.record_of_id S.block_map key_rv.x in
+      let rv = Cfg.clause_body_of_x rv_block key_rv.x in
 
       let i = !counter in
       Int.incr counter ;
@@ -289,7 +289,7 @@ module Make (S : S) = struct
                   Riddler.fun_enter_append this_key key_f r.from fid key_arg i
                 in
                 S.add_phi this_key phi_i ;
-                let fv_block = Cfg.find_by_id r.from.x S.block_map in
+                let fv_block = Cfg.block_of_id r.from.x S.block_map in
                 let _node_arg = S.find_or_add_node key_arg fv_block this_node in
                 run_task key_arg fv_block ;
                 U.by_id_u S.unroll this_key key_arg ;

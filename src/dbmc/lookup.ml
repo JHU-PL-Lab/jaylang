@@ -92,7 +92,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
   in
 
   let _ = Global_state.init_node state term_target state.root_node in
-  let block0 = Cfg.find_by_id state.target state.block_map in
+  let block0 = Cfg.block_of_id state.target state.block_map in
   let phis = Phi_set.empty in
   run_task term_target block0 phis ;
 
@@ -211,7 +211,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
 
   let key_target = Lookup_key.start state.target in
   let _ = Global_state.init_node state key_target state.root_node in
-  let block0 = Cfg.find_by_id state.target state.block_map in
+  let block0 = Cfg.block_of_id state.target state.block_map in
   run_eval key_target block0 lookup ;
   let%lwt _ = Scheduler.run job_queue in
   Lwt.return_unit

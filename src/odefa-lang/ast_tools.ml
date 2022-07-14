@@ -233,3 +233,7 @@ let first_id e =
   x
 
 let label_sep = "~~~"
+
+let record_of_clause_body = function
+  | Value_body (Value_record (Record_value r)) -> r
+  | _ -> failwith "not record body`"
