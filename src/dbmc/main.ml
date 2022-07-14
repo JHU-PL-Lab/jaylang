@@ -68,7 +68,6 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
        fun exn ->
          match exn with
          | Riddler.Found_solution { model; c_stk } ->
-             LLog.app (fun m -> m "async_exception_hook") ;
              ignore @@ raise (Riddler.Found_solution { model; c_stk })
          | exn -> failwith (Caml.Printexc.to_string exn)) ;
     let do_work () =
@@ -85,7 +84,6 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
     | None -> do_work ()
   with
   | Riddler.Found_solution { model; c_stk } ->
-      LLog.app (fun m -> m "handle found?") ;
       Lwt.return (handle_found config state model c_stk)
   | Lwt_unix.Timeout ->
       prerr_endline "timeout" ;

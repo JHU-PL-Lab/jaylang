@@ -99,8 +99,6 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
 
   let wait_result =
     U_ddse.by_iter unroll term_target (fun (r : Ddse_result.t) ->
-        LLog.debug (fun m -> m "HERE?") ;
-
         let phis_to_check = Set.to_list r.phis in
         match Riddler.check_phis phis_to_check config.debug_model with
         | None -> Lwt.return_unit
