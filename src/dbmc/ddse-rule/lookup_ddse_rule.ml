@@ -396,6 +396,8 @@ module Make (S : S) = struct
     let _phis' = S.add_phi this_key Riddler.false_ phis_top in
     ()
 
+  let abort _p _key _this_node _block _phis_top _run_task = ()
+
   let mismatch this_key this_node phis =
     Node.update_rule this_node Node.mismatch ;
     let _phis' = S.add_phi this_key Riddler.false_ phis in

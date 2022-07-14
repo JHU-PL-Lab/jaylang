@@ -83,6 +83,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
       | Pattern p -> R.pattern p this_key this_node block phis run_task
       | Assume p -> R.assume p this_key this_node block phis run_task
       | Assert p -> R.assert_ p this_key this_node block phis run_task
+      | Abort p -> R.abort p this_key this_node block phis run_task
       | Mismatch -> R.mismatch this_key this_node phis
     in
 
@@ -190,6 +191,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
       | Pattern p -> R.pattern p this_key this_node block run_task
       | Assume p -> R.assume p this_key this_node block run_task
       | Assert p -> R.assert_ p this_key this_node block run_task
+      | Abort p -> R.abort p this_key this_node block run_task
       | Mismatch -> R.mismatch this_key this_node
     in
 

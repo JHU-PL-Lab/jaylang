@@ -62,6 +62,10 @@ module Assert_rule = struct
   type t = { x : Id.t; x' : Id.t }
 end
 
+module Abort_rule = struct
+  type t = { x : Id.t }
+end
+
 type t =
   | Discovery_main of Discovery_main_rule.t
   | Discovery_nonmain of Discovery_nonmain_rule.t
@@ -78,6 +82,7 @@ type t =
   | Pattern of Pattern_rule.t
   | Assume of Assume_rule.t
   | Assert of Assert_rule.t
+  | Abort of Abort_rule.t
   | Mismatch
 
 let rule_of_runtime_status x block : t =
@@ -96,10 +101,7 @@ let rule_of_runtime_status x block : t =
           if Ident.equal (Cfg.id_of_block block) Cfg.id_main
           then Discovery_main { x; v }
           else Discovery_nonmain { x; v }
-      | { clause = Clause (_, Abort_body); _ } ->
-          if Ident.equal (Cfg.id_of_block block) Cfg.id_main
-          then Discovery_main { x; v = Value_bool false }
-          else Discovery_nonmain { x; v = Value_bool false }
+      | { clause = Clause (_, Abort_body); _ } -> Abort { x }
       | { clause = Clause (_, Projection_body (Var (r, _), lbl)); _ } ->
           Record_start { x; r; lbl }
       | {
@@ -152,6 +154,7 @@ let show_rule : t -> string = function
   | Pattern _ -> "Pattern"
   | Assume _ -> "Assume"
   | Assert _ -> "Assert"
+  | Abort _ -> "Abort"
   | Mismatch -> "Mismatch"
 
 let pp_rule = Fmt.of_to_string show_rule
