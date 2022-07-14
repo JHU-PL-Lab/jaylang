@@ -96,11 +96,11 @@ let main_lwt ~config program =
 let main ~config program = Lwt_main.run @@ main_lwt ~config program
 
 let main_commandline () =
-  let cfg = Argparse.parse_commandline_config () in
-  Log.init cfg ;
-  let program = File_util.read_source cfg.filename in
+  let config = Argparse.parse_commandline_config () in
+  Log.init config ;
+  let program = File_util.read_source config.filename in
   (try
-     let inputss = main ~config:cfg program in
+     let inputss = main ~config program in
 
      match List.hd inputss with
      | Some inputs ->

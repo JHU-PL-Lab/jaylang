@@ -73,6 +73,8 @@ let parse_commandline_config () =
       and run_max_step = flag "-x" (optional int) ~doc:"check per steps"
       and engine =
         flag "-e" (optional_with_default E_dbmc engine_parser) ~doc:"engine"
+      and is_instrumented =
+        flag "-a" (optional_with_default false bool) ~doc:"instrumented"
       and debug_phi = flag "-p" no_arg ~doc:"output constraints"
       and debug_no_model = flag "-z" no_arg ~doc:"not output smt model"
       and debug_graph = flag "-g" no_arg ~doc:"output graphviz dot" in
@@ -90,6 +92,7 @@ let parse_commandline_config () =
             stride_max;
             run_max_step;
             engine;
+            is_instrumented;
             log_level;
             log_level_lookup = latter_option log_level log_level_lookup;
             log_level_solver = latter_option log_level log_level_solver;
