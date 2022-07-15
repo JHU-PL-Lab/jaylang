@@ -66,6 +66,9 @@ let binop t op t1 t2 =
   fop e e1 e2
 
 (* with picked *)
+
+let picked_imply key key' = picked key @=> picked key'
+
 let binop_with_picked t op t1 t2 =
   let e_bop = binop t op t1 t2 in
   picked t @=> and_ [ e_bop; picked t1; picked t2 ]

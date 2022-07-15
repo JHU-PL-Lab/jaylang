@@ -143,10 +143,13 @@ let clause_body_of_x block x =
   cv
 
 let clauses_before_x block x =
-  List.fold_until ~init:[]
-    ~f:(fun acc tc ->
-      if Ident.equal tc.id x then Stop acc else Continue (tc :: acc))
-    ~finish:List.rev (get_clauses block)
+  match clause_of_x block x with
+  | Some _ ->
+      List.fold_until ~init:[]
+        ~f:(fun acc tc ->
+          if Ident.equal tc.id x then Stop acc else Continue (tc :: acc))
+        ~finish:List.rev (get_clauses block)
+  | None -> []
 
 let update_id_dst id dst0 block =
   let add_dsts dst0 dsts =
