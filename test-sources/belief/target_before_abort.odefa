@@ -1,0 +1,4 @@
+x = input;
+zero = 0;
+c = x == zero;
+b = c ? (t = 1) : (target = 1; f = abort)
