@@ -82,9 +82,9 @@ module Make (S : S) = struct
 
     let cb this_key (r : Lookup_result.t) =
       let key_rv = r.from in
-      let rv_block = Cfg.find_by_id key_rv.x S.block_map in
+      let rv_block = Cfg.block_of_id key_rv.x S.block_map in
       let node_rv = S.find_or_add_node key_rv rv_block this_node in
-      let rv = Cfg.record_of_id S.block_map key_rv.x in
+      let rv = Cfg.clause_body_of_x rv_block key_rv.x in
 
       let i = !counter in
       Int.incr counter ;
@@ -92,21 +92,26 @@ module Make (S : S) = struct
         | Some _ -> !counter
         | None -> failwith "smt list key") ;
 
-      (match Ident_map.Exceptionless.find lbl rv with
-      | Some (Var (field, _)) ->
-          let key_l = Lookup_key.with_x key_rv field in
-          let node_l = S.find_or_add_node key_l rv_block this_node in
-          Node.update_rule this_node (Node.project node_r node_l) ;
+      (match rv with
+      | Value_body (Value_record (Record_value rv)) -> (
+          match Ident_map.Exceptionless.find lbl rv with
+          | Some (Var (field, _)) ->
+              let key_l = Lookup_key.with_x key_rv field in
+              let node_l = S.find_or_add_node key_l rv_block this_node in
+              Node.update_rule this_node (Node.project node_r node_l) ;
 
-          let phi_i =
-            Riddler.record_start_append this_key key_r key_rv key_l i
-          in
-          S.add_phi this_key phi_i ;
+              let phi_i =
+                Riddler.record_start_append this_key key_r key_rv key_l i
+              in
+              S.add_phi this_key phi_i ;
 
-          run_task key_l rv_block ;
+              run_task key_l rv_block ;
 
-          U.by_id_u S.unroll this_key key_l
-      | None ->
+              U.by_id_u S.unroll this_key key_l
+          | None ->
+              Node.update_rule this_node Node.mismatch ;
+              S.add_phi key (Riddler.list_append_mismatch this_key i))
+      | _ ->
           Node.update_rule this_node Node.mismatch ;
           S.add_phi key (Riddler.list_append_mismatch this_key i)) ;
       Lwt.return_unit
@@ -193,9 +198,10 @@ module Make (S : S) = struct
             ignore @@ Lazy.force remove_once) ;
 
         List.iter [ true; false ] ~f:(fun beta ->
-            if Riddler.step_eager_check S.state S.config term_c
-                 [ Riddler.eqv term_c (Value_bool beta) ]
-                 S.stride
+            if true
+               (* Riddler.step_eager_check S.state S.config term_c
+                  [ Riddler.eqv term_c (Value_bool beta) ]
+                  S.stride *)
             then (
               let case_block, key_ret =
                 Lookup_key.get_cond_block_and_return cond_block beta r_stk x
@@ -284,7 +290,7 @@ module Make (S : S) = struct
                   Riddler.fun_enter_append this_key key_f r.from fid key_arg i
                 in
                 S.add_phi this_key phi_i ;
-                let fv_block = Cfg.find_by_id r.from.x S.block_map in
+                let fv_block = Cfg.block_of_id r.from.x S.block_map in
                 let _node_arg = S.find_or_add_node key_arg fv_block this_node in
                 run_task key_arg fv_block ;
                 U.by_id_u S.unroll this_key key_arg ;
@@ -315,7 +321,8 @@ module Make (S : S) = struct
     in
 
     Node.update_rule this_node (Node.mk_callsite ~fun_tree:node_fun ~sub_trees) ;
-    S.add_phi this_key (Riddler.fun_exit this_key key_f fids S.block_map) ;
+    let phi = Riddler.fun_exit this_key key_f fids S.block_map in
+    S.add_phi this_key phi ;
 
     run_task key_f block ;
 
@@ -334,9 +341,79 @@ module Make (S : S) = struct
 
     U.by_bind_u S.unroll this_key key_f cb
 
+  let pattern p key this_node block run_task =
+    let ({ x'; pat; _ } : Pattern_rule.t) = p in
+    let key' = Lookup_key.with_x key x' in
+    let node' = S.find_or_add_node key' block this_node in
+    Node.update_rule this_node Node.mismatch ;
+    run_task key' block ;
+    U.by_map_u S.unroll key key' (fun r : Lookup_result.t ->
+        (* OB1: For some patterns, we can immediately know the result of the matching:
+           when the returning value is a literal value. We can use it in the interpreter.
+           We lose this information when the lookup go through a conditional block or
+           some binop. *)
+        (* OB2: The pattern matching can tolerate infeasible cases caused by the analysis,
+           because the literal value is incorrect. A conditional block can use this result
+           to go into a then-block or a else-block.
+        *)
+        let key_rv = r.from in
+        let rv_block = Cfg.block_of_id key_rv.x S.block_map in
+        let rv = Cfg.clause_body_of_x rv_block key_rv.x in
+
+        let ans, _matched =
+          match (pat, rv) with
+          | Rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
+              let have_all =
+                Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
+              in
+              let phi =
+                (* Riddler.eqv_with_picked key key' (Value_bool have_all) *)
+                Riddler.picked_record_pattern key key' (Value_bool have_all) pat
+              in
+              S.add_phi key phi ;
+              (Lookup_result.ok key, true)
+          | Rec_pattern _, _ ->
+              let phi = Riddler.eqv_with_picked key key' (Value_bool false) in
+              S.add_phi key phi ;
+              let phi = Riddler.picked_pattern key key' pat in
+              S.add_phi key phi ;
+              (Lookup_result.ok key, false)
+          | Fun_pattern, Value_body (Value_function _) ->
+              let phi = Riddler.eqv_with_picked key key' (Value_bool true) in
+              S.add_phi key phi ;
+              let phi = Riddler.picked_pattern key key' pat in
+              S.add_phi key phi ;
+              (Lookup_result.ok key, true)
+          | Int_pattern, Value_body (Value_int _) ->
+              let phi = Riddler.eqv_with_picked key key' (Value_bool true) in
+              S.add_phi key phi ;
+              let phi = Riddler.picked_pattern key key' pat in
+              S.add_phi key phi ;
+              (Lookup_result.ok key, true)
+          | Bool_pattern, Value_body (Value_bool _) ->
+              let phi = Riddler.eqv_with_picked key key' (Value_bool true) in
+              S.add_phi key phi ;
+              let phi = Riddler.picked_pattern key key' pat in
+              S.add_phi key phi ;
+
+              (Lookup_result.ok key, true)
+          | _ ->
+              (* TODO: some binops contain type information for patterns *)
+              let phi = Riddler.picked_pattern key key' pat in
+              S.add_phi key phi ;
+
+              (Lookup_result.ok key, false)
+        in
+
+        ans)
+
   let assume _p _key _this_node _block _run_task = ()
 
   let assert_ _p this_key this_node _block _run_task =
+    Node.update_rule this_node Node.mismatch ;
+    S.add_phi this_key (Riddler.mismatch_with_picked this_key)
+
+  let abort _p this_key this_node _block _run_task =
     Node.update_rule this_node Node.mismatch ;
     S.add_phi this_key (Riddler.mismatch_with_picked this_key)
 

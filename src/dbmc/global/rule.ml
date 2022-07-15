@@ -50,12 +50,20 @@ module Fun_exit_rule = struct
   type t = { x : Id.t; xf : Id.t; fids : Id.t list }
 end
 
+module Pattern_rule = struct
+  type t = { x : Id.t; x' : Id.t; pat : pattern }
+end
+
 module Assume_rule = struct
   type t = { x : Id.t; x' : Id.t }
 end
 
 module Assert_rule = struct
   type t = { x : Id.t; x' : Id.t }
+end
+
+module Abort_rule = struct
+  type t = { x : Id.t }
 end
 
 type t =
@@ -71,8 +79,10 @@ type t =
   | Fun_exit of Fun_exit_rule.t
   | Record_start of Record_start_rule.t
   | Record_end of Record_end_rule.t
+  | Pattern of Pattern_rule.t
   | Assume of Assume_rule.t
   | Assert of Assert_rule.t
+  | Abort of Abort_rule.t
   | Mismatch
 
 let rule_of_runtime_status x block : t =
@@ -91,10 +101,7 @@ let rule_of_runtime_status x block : t =
           if Ident.equal (Cfg.id_of_block block) Cfg.id_main
           then Discovery_main { x; v }
           else Discovery_nonmain { x; v }
-      | { clause = Clause (_, Abort_body); _ } ->
-          if Ident.equal (Cfg.id_of_block block) Cfg.id_main
-          then Discovery_main { x; v = Value_bool false }
-          else Discovery_nonmain { x; v = Value_bool false }
+      | { clause = Clause (_, Abort_body); _ } -> Abort { x }
       | { clause = Clause (_, Projection_body (Var (r, _), lbl)); _ } ->
           Record_start { x; r; lbl }
       | {
@@ -118,10 +125,12 @@ let rule_of_runtime_status x block : t =
           Assume { x; x' }
       | { clause = Clause (_, Assert_body (Var (x', _))); _ } ->
           Assert { x; x' }
+      | { clause = Clause (_, Match_body (Var (x', _), pat)); _ } ->
+          Pattern { x; x'; pat }
       | _ ->
           Log.Export.LLog.err (fun m ->
               m "%a" Odefa_ast.Ast_pp.pp_clause tc.clause) ;
-          failwith "should not mismatch here")
+          failwith "Abort: not implemented yet")
   | None, Fun fb ->
       if Ident.(equal fb.para x)
       then Fun_enter_local { x; fb; is_local = true }
@@ -142,8 +151,10 @@ let show_rule : t -> string = function
   | Fun_exit _ -> "Fun_exit"
   | Record_start _ -> "Record_start"
   | Record_end _ -> "Record_end"
+  | Pattern _ -> "Pattern"
   | Assume _ -> "Assume"
   | Assert _ -> "Assert"
+  | Abort _ -> "Abort"
   | Mismatch -> "Mismatch"
 
 let pp_rule = Fmt.of_to_string show_rule

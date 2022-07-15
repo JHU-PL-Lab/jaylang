@@ -105,7 +105,7 @@ let update_clauses f block =
       let else_ = f c.else_ in
       Cond { c with then_; else_ }
 
-let find_by_id ?(static = false) x block_map =
+let block_of_id ?(static = false) x block_map =
   block_map |> Ident_map.values |> bat_list_of_enum
   |> List.find_map ~f:(fun tl ->
          match tl with
@@ -137,19 +137,16 @@ let clause_of_x block x =
 let clause_of_x_exn block x =
   List.find_exn ~f:(fun tc -> Ident.equal tc.id x) (get_clauses block)
 
+let clause_body_of_x block x =
+  let c = clause_of_x_exn block x in
+  let (Clause (_, cv)) = c.clause in
+  cv
+
 let clauses_before_x block x =
   List.fold_until ~init:[]
     ~f:(fun acc tc ->
       if Ident.equal tc.id x then Stop acc else Continue (tc :: acc))
     ~finish:List.rev (get_clauses block)
-
-let record_of_id map x =
-  let block = find_by_id x map in
-  let c = clause_of_x_exn block x in
-  let (Clause (_, cv)) = c.clause in
-  match cv with
-  | Value_body (Value_record (Record_value r)) -> r
-  | _ -> failwith "must be a record"
 
 let update_id_dst id dst0 block =
   let add_dsts dst0 dsts =
@@ -171,7 +168,7 @@ let update_id_dst id dst0 block =
   update_clauses (List.map ~f:add_dst_in_clause) block
 
 let add_id_dst site_x def_x tl_map =
-  let tl = find_by_id ~static:true site_x tl_map in
+  let tl = block_of_id ~static:true site_x tl_map in
   let tl' = update_id_dst site_x def_x tl in
   (* Map.add ~key:(id_of_block tl) ~data:tl' tl_map *)
   Ident_map.add (id_of_block tl) tl' tl_map
@@ -376,11 +373,13 @@ let annotate e pt : block Ident_map.t =
       then List.iter ~f:(fun acl -> loop acl !block_dangling) (preds_l acl cfg)
       else ())
   in
-  loop acl true ;
+  let succ_acls = succs_l acl cfg in
+  List.iter ~f:(fun acl -> loop acl true) succ_acls ;
+  (* loop acl true ; *)
   !map
 
 let fun_info_of_callsite callsite map =
-  let callsite_block = find_by_id callsite map in
+  let callsite_block = block_of_id callsite map in
   let tc = clause_of_x_exn callsite_block callsite in
   let x', x'', x''' =
     match tc.clause with
@@ -392,7 +391,7 @@ let fun_info_of_callsite callsite map =
 
 let is_before map x1 x2 =
   let open Continue_or_stop in
-  let block = find_by_id x1 map in
+  let block = block_of_id x1 map in
   let clauses = get_clauses block in
   List.fold_until clauses ~init:false
     ~f:(fun _ x ->

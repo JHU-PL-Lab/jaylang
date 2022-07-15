@@ -32,6 +32,12 @@ module Make_common_builders (C : Context) = struct
         (get_num_sorts model) (list string ~sep:cut)
         (List.map (get_sorts model) ~f:Z3.Sort.to_string))
 
+  let get_model solver status =
+    match status with
+    | Z3.Solver.SATISFIABLE -> Z3.Solver.get_model solver
+    | Z3.Solver.UNSATISFIABLE -> None
+    | Z3.Solver.UNKNOWN -> None
+
   let get_model_exn solver status =
     match status with
     | Z3.Solver.SATISFIABLE -> (
@@ -41,7 +47,14 @@ module Make_common_builders (C : Context) = struct
     | Z3.Solver.UNSATISFIABLE -> failwith "should not UNSAT"
     | Z3.Solver.UNKNOWN -> failwith (Z3.Solver.get_reason_unknown solver)
 
-  let eval_exn model e flag = Option.value_exn (Z3.Model.eval model e flag)
+  let is_unsat status =
+    match status with
+    | Z3.Solver.SATISFIABLE -> false
+    | Z3.Solver.UNSATISFIABLE -> true
+    | Z3.Solver.UNKNOWN -> false
+
+  let eval model e flag = Z3.Model.eval model e flag
+  let eval_exn model e flag = Option.value_exn (eval model e flag)
   let simplify e = Expr.simplify e None
   let mk_bool_s s = Boolean.mk_const_s ctx s
   let string_sort = Seq.mk_string_sort ctx
@@ -230,7 +243,7 @@ module Make_datatype_builders (C : Context) = struct
     | L_TRUE -> Some true
     | L_FALSE -> Some false
     | L_UNDEF ->
-        Logs.warn (fun m -> m "%s L_UNDEF" (Z3.Expr.to_string e));
+        Logs.warn (fun m -> m "%s L_UNDEF" (Z3.Expr.to_string e)) ;
         None
 end
 

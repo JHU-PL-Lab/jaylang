@@ -19,6 +19,7 @@ and t = {
   run_max_step : int option;
   (* engine *)
   engine : engine;
+  is_instrumented : bool;
   (* logger *)
   log_level : Logs.level option;
   log_level_lookup : Logs.level option;
@@ -44,6 +45,7 @@ let default_config =
     expected_inputs = [];
     run_max_step = None;
     engine = E_dbmc;
+    is_instrumented = false;
     log_level = None;
     log_level_lookup = None;
     log_level_solver = None;

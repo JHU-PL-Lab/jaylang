@@ -80,8 +80,10 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
       | Fun_enter_nonlocal p ->
           R.fun_enter_nonlocal p this_key this_node phis run_task
       | Fun_exit p -> R.fun_exit p this_key this_node block phis run_task
+      | Pattern p -> R.pattern p this_key this_node block phis run_task
       | Assume p -> R.assume p this_key this_node block phis run_task
       | Assert p -> R.assert_ p this_key this_node block phis run_task
+      | Abort p -> R.abort p this_key this_node block phis run_task
       | Mismatch -> R.mismatch this_key this_node phis
     in
 
@@ -91,14 +93,12 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
   in
 
   let _ = Global_state.init_node state term_target state.root_node in
-  let block0 = Cfg.find_by_id state.target state.block_map in
+  let block0 = Cfg.block_of_id state.target state.block_map in
   let phis = Phi_set.empty in
   run_task term_target block0 phis ;
 
   let wait_result =
     U_ddse.by_iter unroll term_target (fun (r : Ddse_result.t) ->
-        LLog.debug (fun m -> m "HERE?") ;
-
         let phis_to_check = Set.to_list r.phis in
         match Riddler.check_phis phis_to_check config.debug_model with
         | None -> Lwt.return_unit
@@ -186,8 +186,10 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
       | Fun_enter_nonlocal p ->
           R.fun_enter_nonlocal p this_key this_node run_task
       | Fun_exit p -> R.fun_exit p this_key this_node block run_task
+      | Pattern p -> R.pattern p this_key this_node block run_task
       | Assume p -> R.assume p this_key this_node block run_task
       | Assert p -> R.assert_ p this_key this_node block run_task
+      | Abort p -> R.abort p this_key this_node block run_task
       | Mismatch -> R.mismatch this_key this_node
     in
 
@@ -209,7 +211,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
 
   let key_target = Lookup_key.start state.target in
   let _ = Global_state.init_node state key_target state.root_node in
-  let block0 = Cfg.find_by_id state.target state.block_map in
+  let block0 = Cfg.block_of_id state.target state.block_map in
   run_eval key_target block0 lookup ;
   let%lwt _ = Scheduler.run job_queue in
   Lwt.return_unit

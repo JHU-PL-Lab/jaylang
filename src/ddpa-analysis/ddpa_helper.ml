@@ -124,7 +124,7 @@ let clause_predecessor_mapping e =
   |> Enum.map (fun (Expr clauses) ->
          let c1 = List.enum clauses in
          let c2 = List.enum clauses in
-         Enum.drop 1 c1;
+         Enum.drop 1 c1 ;
          Enum.combine c1 c2
          |> Enum.map (fun (Clause (Var (x, _), _), clause) -> (x, clause)))
   |> Enum.concat |> Ident_map.of_enum
@@ -156,21 +156,21 @@ let make_ret_to_fun_def_mapping e =
           Value_body (Value_function (Function_value (_, function_body))) )
       :: rest_clauses ->
         let (Var (ret_id, _)) = Ast_tools.retv function_body in
-        map := Ident_map.add ret_id def_x !map;
-        loop function_body;
-        loop (Expr rest_clauses);
+        map := Ident_map.add ret_id def_x !map ;
+        loop function_body ;
+        loop (Expr rest_clauses) ;
         ()
     | Clause (_, Conditional_body (_, match_body, antimatch_body))
       :: rest_clauses ->
-        loop match_body;
-        loop antimatch_body;
-        loop (Expr rest_clauses);
+        loop match_body ;
+        loop antimatch_body ;
+        loop (Expr rest_clauses) ;
         ()
     | _clause :: rest_clauses ->
-        loop (Expr rest_clauses);
+        loop (Expr rest_clauses) ;
         ()
   in
-  loop e;
+  loop e ;
   !map
 
 let make_para_to_fun_def_mapping e =
@@ -183,21 +183,21 @@ let make_para_to_fun_def_mapping e =
           Value_body
             (Value_function (Function_value (Var (para, _), function_body))) )
       :: rest_clauses ->
-        map := Ident_map.add para def_x !map;
-        loop function_body;
-        loop (Expr rest_clauses);
+        map := Ident_map.add para def_x !map ;
+        loop function_body ;
+        loop (Expr rest_clauses) ;
         ()
     | Clause (_, Conditional_body (_, match_body, antimatch_body))
       :: rest_clauses ->
-        loop match_body;
-        loop antimatch_body;
-        loop (Expr rest_clauses);
+        loop match_body ;
+        loop antimatch_body ;
+        loop (Expr rest_clauses) ;
         ()
     | _clause :: rest_clauses ->
-        loop (Expr rest_clauses);
+        loop (Expr rest_clauses) ;
         ()
   in
-  loop e;
+  loop e ;
   !map
 
 let app_id1_of_clause = function
@@ -235,3 +235,5 @@ let find_cond_choice cond_btm cfg =
   loop cond_btm
 
 let bat_list_of_enum = List.of_enum
+let preds_l acl g = preds acl g |> List.of_enum
+let succs_l acl g = succs acl g |> List.of_enum

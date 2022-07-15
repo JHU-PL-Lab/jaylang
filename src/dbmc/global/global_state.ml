@@ -5,7 +5,7 @@ let create (config : Global_config.t) program =
   let target = config.target in
   let block_map = Cfg.annotate program target in
 
-  let block0 = Cfg.find_by_id target block_map in
+  let block0 = Cfg.block_of_id target block_map in
   let state =
     {
       first = Odefa_ast.Ast_tools.first_id program;

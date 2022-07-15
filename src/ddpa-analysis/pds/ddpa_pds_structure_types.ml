@@ -4,6 +4,7 @@ open Odefa_ast;;
 open Odefa_utils;;
 
 open Ast;;
+open Ast_pp;;
 open Ddpa_abstract_ast;;
 open Ddpa_context_stack;;
 open Interface_utils;;
@@ -48,6 +49,7 @@ struct
     | Jump of annotated_clause * C.t
     | Capture of Bounded_capture_size.t
     | Continuation_value of abstract_value
+    | Continuation_pattern of pattern
     | Real_flow_huh
     | Require_value of abstract_value
     | Project of ident

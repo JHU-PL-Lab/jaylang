@@ -92,10 +92,10 @@ module Make (S : S) = struct
     run_task key_x1 block phis_top ;
     run_task key_x2 block phis_top ;
 
-    let phi = Riddler.binop key bop key_x1 key_x2 in
-    let _ = S.add_phi key phi phis_top in
+    (* let phi = Riddler.binop key bop key_x1 key_x2 in *)
+    (* let _ = S.add_phi key phi phis_top in *)
     let cb ((t1 : Ddse_result.t), (t2 : Ddse_result.t)) =
-      Ddse_result.(merge_with_v key phi t1 t2)
+      Ddse_result.(merge_with_v key bop t1 t2)
     in
 
     U.by_filter_map2_u S.unroll key key_x1 key_x2 cb
@@ -108,10 +108,11 @@ module Make (S : S) = struct
     run_task key_r block phis_top ;
 
     let cb this_key (rv : Ddse_result.t) =
-      let rv_block = Cfg.find_by_id rv.v.x S.block_map in
+      let rv_block = Cfg.block_of_id rv.v.x S.block_map in
       let node_rv = S.find_or_add_node rv.v rv_block this_node in
       let phi1 = Riddler.eq key_r rv.v in
-      let rvv = Cfg.record_of_id S.block_map rv.v.x in
+      let clause_body = Cfg.clause_body_of_x rv_block rv.v.x in
+      let rvv = Ast_tools.record_of_clause_body clause_body in
       (match Ident_map.Exceptionless.find lbl rvv with
       | Some (Var (field, _)) ->
           let key_l = Lookup_key.with_x rv.v field in
@@ -330,7 +331,7 @@ module Make (S : S) = struct
 
               let cb_f key (rf : Ddse_result.t) =
                 let key_arg = Lookup_key.with_x rf.v x in
-                let fv_block = Cfg.find_by_id rf.v.x S.block_map in
+                let fv_block = Cfg.block_of_id rf.v.x S.block_map in
                 let node_arg = S.find_or_add_node key_arg fv_block this_node in
                 run_task key_arg fv_block phis_top ;
 
@@ -387,12 +388,15 @@ module Make (S : S) = struct
     in
     Node.update_rule this_node (Node.mk_callsite ~fun_tree:node_fun ~sub_trees)
 
+  let pattern _p _key _this_node _block _phis_top _run_task = ()
   let assume _p _key _this_node _block _phis_top _run_task = ()
 
   let assert_ _p this_key this_node _block phis_top _run_task =
     Node.update_rule this_node Node.mismatch ;
     let _phis' = S.add_phi this_key Riddler.false_ phis_top in
     ()
+
+  let abort _p _key _this_node _block _phis_top _run_task = ()
 
   let mismatch this_key this_node phis =
     Node.update_rule this_node Node.mismatch ;

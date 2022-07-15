@@ -532,6 +532,7 @@ struct
             return @@ wire_function cl fn x3 x1 analysis_2.ddpa_graph
           | Unannotated_clause(
               Abs_clause(x1,Abs_conditional_body(x2,e1,e2)) as cl) ->
+              let _ = x2 in
             lazy_logger `trace
               (fun () ->
                  Printf.sprintf "Considering conditional closure for clause %s"
@@ -563,7 +564,7 @@ struct
             raise @@ Utils.Invariant_failure
               "Unhandled clause in perform_closure_steps"
         )
-                         |> Enum.concat
+        |> Enum.concat
     in
     (* Due to the stateful effects of computing the new edges, we're going to
        want to pull on the entire enumeration before we start looking at the

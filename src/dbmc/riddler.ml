@@ -27,10 +27,7 @@ let eqv term v =
     | Value_int i -> SuduZ3.int_ i
     | Value_bool b -> SuduZ3.bool_ b
     | Value_function _ -> failwith "should not be a function"
-    | Value_record _ ->
-        (* SuduZ3.record_ (Lookup_key.to_string term) *)
-        Int.incr counter ;
-        SuduZ3.int_ !counter
+    | Value_record _ -> SuduZ3.record_ (Lookup_key.to_string term)
   in
 
   SuduZ3.eq x v
@@ -74,6 +71,32 @@ let binop_with_picked t op t1 t2 =
   picked t @=> and_ [ e_bop; picked t1; picked t2 ]
 
 let eq_with_picked key key' = picked key @=> and_ [ eq key key'; picked key' ]
+
+let is_pattern term pat =
+  let x = key_to_var term in
+  let is_pattern =
+    match pat with
+    | Fun_pattern -> ifFun x
+    | Int_pattern -> ifInt x
+    | Bool_pattern -> ifBool x
+    | Rec_pattern _ -> ifRecord x
+    | Any_pattern -> true_
+  in
+  is_pattern
+
+let picked_pattern x x' pat =
+  let left = key_to_var x in
+  let right = is_pattern x' pat in
+  picked x
+  @=> and_
+        [ picked x'; ifBool left; SuduZ3.eq (SuduZ3.project_bool left) right ]
+
+let eqv_with_picked key key' v = picked key @=> and_ [ eqv key v; picked key' ]
+
+let picked_record_pattern x x' matched pat =
+  let left = key_to_var x in
+  let right = is_pattern x' pat in
+  picked x @=> and_ [ picked x'; ifBool left; eqv x matched; right ]
 
 let cond_top term term_x term_c beta =
   picked term

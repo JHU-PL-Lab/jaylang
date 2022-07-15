@@ -85,6 +85,18 @@ struct
                     Program_point_state(acl1, ctx))
           end
           ;
+          (* Variable Lookup Discovers Abort *)
+          (*
+          begin
+            let%orzero
+              (Unannotated_clause(Abs_clause(x,Abs_abort_body))) = acl1
+            in
+            (* x = abort *)
+            return (Value_lookup(x, Abs_value_int),
+                    Program_point_state(acl1, ctx))
+          end
+          ;
+          *)
           (* Intermediate Value *)
           begin
             return (Value_drop, Program_point_state(acl0,ctx))
@@ -224,7 +236,25 @@ struct
           end
           ;
           (* ********** Pattern Matching ********** *)
-          (* TODO *)
+          (* Pattern Matching Start *)
+          begin
+            let%orzero (Unannotated_clause(
+                Abs_clause(x1,Abs_match_body(x2,p)))) = acl1
+            in
+            (* x1 = x2 ~ p *)
+            return
+              ( Matching_lookup(x1,x2,p),
+                Program_point_state(acl1, ctx)
+              )
+          end
+          ;
+          (* Pattern Matching Stop *)
+          begin
+            return ( Matching_1_of_2,
+                     Program_point_state(acl0, ctx)
+                   )
+          end
+          ;
           (* ********** Record Projection ********** *)
           (* Record Projection Start *)
           begin

@@ -14,9 +14,7 @@ module Ddpa_edge = struct
   type t = ddpa_edge
 
   let compare = compare_ddpa_edge
-
   let pp = pp_ddpa_edge
-
   let to_yojson = ddpa_edge_to_yojson
 end
 
@@ -29,23 +27,13 @@ module type Graph_sig = sig
   type ddpa_graph
 
   val empty : ddpa_graph
-
   val add_edge : ddpa_edge -> ddpa_graph -> ddpa_graph
-
   val edges_of : ddpa_graph -> ddpa_edge Enum.t
-
   val has_edge : ddpa_edge -> ddpa_graph -> bool
-
   val edges_from : annotated_clause -> ddpa_graph -> ddpa_edge Enum.t
-
   val edges_to : annotated_clause -> ddpa_graph -> ddpa_edge Enum.t
-
   val preds : annotated_clause -> ddpa_graph -> annotated_clause Enum.t
-
-  val preds_l : annotated_clause -> ddpa_graph -> annotated_clause list
-
   val succs : annotated_clause -> ddpa_graph -> annotated_clause Enum.t
-
   val to_yojson : ddpa_graph -> Yojson.Safe.t
 end
 
@@ -61,11 +49,8 @@ module Graph_impl : Graph_sig = struct
   type ddpa_graph = Graph of Ddpa_edge_set.t [@@deriving to_yojson]
 
   let empty = Graph Ddpa_edge_set.empty
-
   let add_edge edge (Graph s) = Graph (Ddpa_edge_set.add edge s)
-
   let edges_of (Graph s) = Ddpa_edge_set.enum s
-
   let has_edge edge (Graph s) = Ddpa_edge_set.mem edge s
 
   let edges_from acl (Graph s) =
@@ -82,9 +67,6 @@ module Graph_impl : Graph_sig = struct
            equal_annotated_clause acl acl')
 
   let preds acl g = edges_to acl g |> Enum.map (fun (Ddpa_edge (acl, _)) -> acl)
-
-  let preds_l acl g = preds acl g |> List.of_enum
-
   let to_yojson = ddpa_graph_to_yojson
 end
 
@@ -94,7 +76,6 @@ let pp_ddpa_graph formatter g =
   pp_concat_sep_delim "{" "}" ", " pp_ddpa_edge formatter @@ edges_of g
 
 let rec lift_expr (Expr cls) = Abs_expr (List.map lift_clause cls)
-
 and lift_clause (Clause (x, b)) = Abs_clause (lift_var x, lift_clause_body b)
 
 and lift_clause_body b =
@@ -111,7 +92,7 @@ and lift_clause_body b =
       Abs_binary_operation_body (lift_var x1, op, lift_var x2)
   | Abort_body -> Abs_abort_body
   | Assume_body x -> Abs_assume_body (lift_var x)
-  | Assert_body x -> Abs_assert_body (lift_var x)
+  | Assert_body _ -> failwith "no direct assert yet"
 
 and lift_value v =
   match v with

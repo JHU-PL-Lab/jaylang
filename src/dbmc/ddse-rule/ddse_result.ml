@@ -77,9 +77,11 @@ let merge_left t1 t2 =
       Some { t1 with decisions; cond_decisions; phis }
     with _ -> None
 
-let merge_with_v v phi t1 t2 =
+let merge_with_v v bop t1 t2 =
   match merge_left t1 t2 with
-  | Some t -> Some { t with v; phis = Phi_set.add t.phis phi }
+  | Some t ->
+      let phi = Riddler.binop v bop t1.v t2.v in
+      Some { t with v; phis = Phi_set.add t.phis phi }
   | None -> None
 
 (*

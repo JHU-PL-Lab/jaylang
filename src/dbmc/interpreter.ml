@@ -221,14 +221,10 @@ and check_pattern ~session ~stk env vx pattern : bool =
     match (fetch_val ~session ~stk env vx, pattern) with
     | Direct (Value_int _), Int_pattern -> true
     | Direct (Value_bool _), Bool_pattern -> true
-    | Direct (Value_function _), _ -> failwith "must be a closure"
-    | Direct (Value_record (Record_value record)), Rec_pattern key_set ->
-        Ident_set.for_all
-          (fun k ->
-            match Ident_map.Exceptionless.find k record with
-            | Some _ -> true
-            | None -> false)
-          key_set
+    | Direct (Value_function _), _ -> failwith "fun must be a closure"
+    | Direct (Value_record _), _ -> failwith "record must be a closure"
+    | RecordClosure (Record_value record, _), Rec_pattern key_set ->
+        Ident_set.for_all (fun id -> Ident_map.mem id record) key_set
     | FunClosure (_, _, _), Fun_pattern -> true
     | _, Any_pattern -> true
     | _, _ -> false
