@@ -8,7 +8,7 @@
 (executable
  (name sato)
  (modules sato)
- (libraries core logs dbmc odefa.ast)
+ (libraries core logs dbmc sato odefa.ast)
  (preprocess
   (pps ppx_jane ppx_deriving.show)))
 

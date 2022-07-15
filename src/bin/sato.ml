@@ -4,10 +4,11 @@ open Dbmc
 let main_commandline () =
   let cfg = Argparse.parse_commandline_config () in
   Log.init cfg ;
-  let program = File_util.read_source cfg.filename in
-  (try
-     let inputss = Main.main ~config:cfg program in
+  let (program, _, _) = Sato.File_util.read_source_sato cfg.filename in
 
+  (try
+     (* Calling dbmc here *)
+     let inputss = Main.main ~config:cfg program in
      match List.hd inputss with
      | Some inputs ->
          Format.printf "[%s]\n"

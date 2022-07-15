@@ -239,7 +239,6 @@ let pp_on_type formatter (on_type : On_ast.type_sig) =
   | ListType -> Format.pp_print_string formatter "List"
   | RecType lbls -> Format.fprintf formatter "Record %a" pp_ident_set lbls
   | VariantType lbl -> Format.fprintf formatter "Variant %a" pp_variant_label lbl
-  | UntouchedType t -> Format.pp_print_string formatter @@ "'" ^ t
 ;;
 
 let show_on_type = Pp_utils.pp_to_string pp_on_type;;

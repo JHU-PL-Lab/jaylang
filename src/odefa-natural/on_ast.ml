@@ -44,7 +44,6 @@ type type_sig =
   | RecType of Ident_set.t
   | ListType
   | VariantType of variant_label
-  | UntouchedType of string
   [@@ deriving eq, ord, show, to_yojson]
 
 (* ******************** AST definition for Natodefa ******************** *)

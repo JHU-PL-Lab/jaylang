@@ -1026,6 +1026,7 @@ and flatten_expr
   | List _ | ListCons _ ->
     raise @@ Utils.Invariant_failure
       "flatten_expr: List expressions should have been handled!"
+  (* TODO: This should happen in the instrumentation phase *)
   | Assert e ->
     let%bind (flattened_exprs, last_var) = recurse e in
     (* Helper function *)
@@ -1087,7 +1088,7 @@ let debug_transform_odefa
 
 let translate
     ?translation_context:(translation_context=None)
-    ?is_instrumented:(is_instrumented=true)
+    ?is_instrumented:(is_instrumented=false)
     (e : On_ast.expr_desc)
   : (Ast.expr * On_to_odefa_maps.t) =
   let (e_m_with_info : (Ast.expr * On_to_odefa_maps.t) m) =
