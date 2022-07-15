@@ -232,9 +232,12 @@ module Make_datatype_builders (C : Context) = struct
   (* failwith "get_value" *)
 
   let get_int_s model s =
-    match get_value model (var_s s) with
+    let e = var_s s in
+    match get_value model e with
     | Some (Int i) -> Some i
-    | Some _ -> failwith "must be an int or none as 0"
+    | Some _ ->
+        Logs.warn (fun m -> m "Get non-int for input%s" (Z3.Expr.to_string e)) ;
+        Some 0
     | None -> None
 
   let get_bool model e =
