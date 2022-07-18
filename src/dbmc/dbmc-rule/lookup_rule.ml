@@ -397,8 +397,16 @@ module Make (S : S) = struct
               S.add_phi key phi ;
 
               (Lookup_result.ok key, true)
-          | _ ->
+          (* Non record-pattern when false *)
+          | _, Value_body _ ->
               (* TODO: some binops contain type information for patterns *)
+              let phi = Riddler.eqv_with_picked key key' (Value_bool false) in
+              S.add_phi key phi ;
+              let phi = Riddler.picked_pattern key key' pat in
+              S.add_phi key phi ;
+
+              (Lookup_result.ok key, false)
+          | _, _ ->
               let phi = Riddler.picked_pattern key key' pat in
               S.add_phi key phi ;
 

@@ -29,7 +29,7 @@ let timeout_parser : Time.Span.t Command.Arg_type.t =
 
 let int_list_parser : int list Command.Arg_type.t =
   Command.Arg_type.create (fun s ->
-      String.split_on_chars s ~on:[ ','; ';'; ' ' ]
+      String.split_on_chars s ~on:[ ',' ]
       |> List.map ~f:(fun s -> Int.of_string s))
 
 let engine_parser =
