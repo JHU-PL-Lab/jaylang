@@ -7,19 +7,20 @@ type ddpa_c_stk = C_0ddpa | C_1ddpa | C_2ddpa | C_kddpa of int
 and engine = E_dbmc | E_ddse
 
 and t = {
-  ddpa_c_stk : ddpa_c_stk;
+  (* basic *)
   target : Id.t;
   filename : Filename.t; [@printer String.pp]
-  timeout : Time.Span.t option;
-  expected_inputs : int list list;
-  (* check *)
-  stride_init : int;
-  stride_max : int;
-  (* run *)
-  run_max_step : int option;
-  (* engine *)
+  (* mode *)
   engine : engine;
   is_instrumented : bool;
+  expected_inputs : int option list option;
+  (* analysis *)
+  ddpa_c_stk : ddpa_c_stk;
+  (* tuning *)
+  run_max_step : int option;
+  timeout : Time.Span.t option;
+  stride_init : int;
+  stride_max : int; (* testing *)
   (* logger *)
   log_level : Logs.level option;
   log_level_lookup : Logs.level option;
@@ -42,7 +43,7 @@ let default_config =
     timeout = None (* Time.Span.of_int_sec 60 *);
     stride_init = 100;
     stride_max = 100;
-    expected_inputs = [];
+    expected_inputs = None;
     run_max_step = None;
     engine = E_dbmc;
     is_instrumented = false;
