@@ -6,6 +6,22 @@ open Cfg
 open Odefa_ddpa
 open Log.Export
 
+let get_inputs ~(state : Global_state.t) ~(config : Global_config.t) model
+    (target_stack : Concrete_stack.t) =
+  let input_history = ref [] in
+  let input_feeder =
+    Input_feeder.memorized_from_model input_history model target_stack
+  in
+  let session =
+    let target_stk = Some target_stack in
+    let max_step = config.run_max_step in
+    Interpreter.create_session ?target_stk ?max_step state config input_feeder
+  in
+  (try Interpreter.eval session state.program with
+  | Interpreter.Found_target _ -> ()
+  | ex -> raise ex) ;
+  List.rev !input_history
+
 let handle_graph (config : Global_config.t) state model =
   if config.debug_graph
   then Graphviz.output_graph ~model ~testname:config.filename state
@@ -32,7 +48,7 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
   (* Global_state.refresh_picked state model; *)
   handle_graph config state (Some model) ;
 
-  let inputs_from_interpreter = Solver.get_inputs ~state ~config model c_stk in
+  let inputs_from_interpreter = get_inputs ~state ~config model c_stk in
   [ inputs_from_interpreter ]
 
 let[@landmark] main_with_state_lwt ~(config : Global_config.t)

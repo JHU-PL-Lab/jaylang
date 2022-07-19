@@ -10,7 +10,7 @@ exception Run_the_same_stack_twice of Id.t * Concrete_stack.t
 exception Run_into_wrong_stack of Id.t * Concrete_stack.t
 
 type session = {
-  input_feeder : Id.t * Concrete_stack.t -> int option;
+  input_feeder : Input_feeder.t;
   step : int ref;
   (* session_options *)
   target_x : Id.t option;
@@ -246,16 +246,9 @@ let create_session ?target_stk ?max_step (state : Global_state.t)
     lookup_alert = state.lookup_alert;
   }
 
-let input_feeder_of_list inputs =
-  let history = ref inputs in
-  fun _ ->
-    let r = List.hd_exn !history in
-    history := List.tl_exn !history ;
-    Some r
-
 let create_interpreter_session inputs =
   {
-    input_feeder = input_feeder_of_list inputs;
+    input_feeder = Input_feeder.from_list inputs;
     target_x = None;
     target_stk = None;
     max_step = None;
