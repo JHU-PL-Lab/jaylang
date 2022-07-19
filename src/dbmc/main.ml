@@ -13,9 +13,8 @@ let get_inputs ~(state : Global_state.t) ~(config : Global_config.t) model
     Input_feeder.memorized_from_model input_history model target_stack
   in
   let session =
-    let target_stk = Some target_stack in
     let max_step = config.run_max_step in
-    Interpreter.create_session ?target_stk ?max_step state config input_feeder
+    Interpreter.create_session ?max_step target_stack state config input_feeder
   in
   (try Interpreter.eval session state.program with
   | Interpreter.Found_target _ -> ()
