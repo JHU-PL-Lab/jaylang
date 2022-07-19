@@ -399,7 +399,6 @@ module Make (S : S) = struct
               (Lookup_result.ok key, true)
           (* Non record-pattern when false *)
           | _, Value_body _ ->
-              (* TODO: some binops contain type information for patterns *)
               let phi = Riddler.eqv_with_picked key key' (Value_bool false) in
               S.add_phi key phi ;
               let phi = Riddler.picked_pattern key key' pat in
@@ -407,6 +406,8 @@ module Make (S : S) = struct
 
               (Lookup_result.ok key, false)
           | _, _ ->
+              (* TODO: some binops contain type information for patterns *)
+              (* TODO: and for previous pattern match *)
               let phi = Riddler.picked_pattern key key' pat in
               S.add_phi key phi ;
 
@@ -423,6 +424,7 @@ module Make (S : S) = struct
 
   let abort _p this_key this_node block run_task =
     if Lookup_key.equal this_key (Lookup_key.start S.config.target)
+       (* TODO: take care of direct `abort` in the main block *)
     then rule_nonmain None this_key this_node block run_task
     else (
       Node.update_rule this_node Node.mismatch ;
