@@ -66,6 +66,9 @@ let binop t op t1 t2 =
   fop e e1 e2
 
 (* with picked *)
+
+let picked_imply key key' = picked key @=> picked key'
+
 let binop_with_picked t op t1 t2 =
   let e_bop = binop t op t1 t2 in
   picked t @=> and_ [ e_bop; picked t1; picked t2 ]
@@ -122,8 +125,12 @@ let cond_bottom term term_c cond_block =
   in
   picked term @=> and_ (or_ cs :: rs)
 
-let pick_key_list key i =
-  Lookup_key.to_string key ^ "_" ^ string_of_int i |> SuduZ3.mk_bool_s
+let pick_key_list (key : Lookup_key.t) i =
+  Lookup_key.to_string key
+  (* Rstack.to_string key.r_stk  *)
+  ^ "_"
+  ^ string_of_int i
+  |> SuduZ3.mk_bool_s
 
 let list_append_mismatch key i =
   pick_key_list key i @=> or_ [ box_bool false; pick_key_list key (i + 1) ]

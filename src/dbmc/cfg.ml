@@ -143,10 +143,13 @@ let clause_body_of_x block x =
   cv
 
 let clauses_before_x block x =
-  List.fold_until ~init:[]
-    ~f:(fun acc tc ->
-      if Ident.equal tc.id x then Stop acc else Continue (tc :: acc))
-    ~finish:List.rev (get_clauses block)
+  match clause_of_x block x with
+  | Some _ ->
+      List.fold_until ~init:[]
+        ~f:(fun acc tc ->
+          if Ident.equal tc.id x then Stop acc else Continue (tc :: acc))
+        ~finish:List.rev (get_clauses block)
+  | None -> []
 
 let update_id_dst id dst0 block =
   let add_dsts dst0 dsts =
@@ -294,10 +297,12 @@ let annotate e pt : block Ident_map.t =
   and cfg = cfg_of e
   (* and id_first = first_var e *)
   and ret_to_fun_def_map = make_ret_to_fun_def_mapping e
-  and para_to_fun_def_map = make_para_to_fun_def_mapping e
-  and acl =
-    Unannotated_clause (lift_clause @@ Ident_map.find pt (clause_mapping e))
-  in
+  and para_to_fun_def_map = make_para_to_fun_def_mapping e in
+  let pt_clause = Ident_map.find pt (clause_mapping e) in
+  (* let is_abort_clause =
+       match pt_clause with Clause (_, Abort_body) -> true | _ -> false
+     in *)
+  let acl = Unannotated_clause (lift_clause pt_clause) in
 
   (* let debug_bomb = ref 20 in *)
   let visited = ref Annotated_clause_set.empty in

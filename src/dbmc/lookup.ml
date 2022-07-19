@@ -193,9 +193,11 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
       | Mismatch -> R.mismatch this_key this_node
     in
 
+    (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked. *)
     let previous_clauses = Cfg.clauses_before_x block x in
     List.iter previous_clauses ~f:(fun tc ->
         let term_prev = Lookup_key.with_x this_key tc.id in
+        LS.add_phi this_key (Riddler.picked_imply this_key term_prev) ;
         let _node_arg = LS.find_or_add_node term_prev block this_node in
         run_task term_prev block) ;
 

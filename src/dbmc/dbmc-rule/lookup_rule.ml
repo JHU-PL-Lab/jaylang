@@ -397,8 +397,16 @@ module Make (S : S) = struct
               S.add_phi key phi ;
 
               (Lookup_result.ok key, true)
-          | _ ->
+          (* Non record-pattern when false *)
+          | _, Value_body _ ->
               (* TODO: some binops contain type information for patterns *)
+              let phi = Riddler.eqv_with_picked key key' (Value_bool false) in
+              S.add_phi key phi ;
+              let phi = Riddler.picked_pattern key key' pat in
+              S.add_phi key phi ;
+
+              (Lookup_result.ok key, false)
+          | _, _ ->
               let phi = Riddler.picked_pattern key key' pat in
               S.add_phi key phi ;
 
@@ -413,9 +421,12 @@ module Make (S : S) = struct
     Node.update_rule this_node Node.mismatch ;
     S.add_phi this_key (Riddler.mismatch_with_picked this_key)
 
-  let abort _p this_key this_node _block _run_task =
-    Node.update_rule this_node Node.mismatch ;
-    S.add_phi this_key (Riddler.mismatch_with_picked this_key)
+  let abort _p this_key this_node block run_task =
+    if Lookup_key.equal this_key (Lookup_key.start S.config.target)
+    then rule_nonmain None this_key this_node block run_task
+    else (
+      Node.update_rule this_node Node.mismatch ;
+      S.add_phi this_key (Riddler.mismatch_with_picked this_key))
 
   let mismatch this_key this_node =
     Node.update_rule this_node Node.mismatch ;
