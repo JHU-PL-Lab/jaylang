@@ -1,7 +1,7 @@
 open Core
 open Dbmc
 
-let main_commandline () =
+let from_commandline () =
   let cfg = Argparse.parse_commandline_config () in
   Log.init cfg ;
   let program = File_util.read_source cfg.filename in
@@ -21,4 +21,4 @@ let main_commandline () =
 
   Log.close ()
 
-let () = main_commandline ()
+let () = from_commandline ()

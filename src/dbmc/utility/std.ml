@@ -27,22 +27,6 @@ let t_or tb1 tb2 =
 
 let just_side_effect = ignore
 let ignore2 _ _ = ()
-let with_seq ?(start = 0) xs = List.mapi xs ~f:(fun i x -> (i + start, x))
-
-let pp_with_seq ?(pp_int = Fmt.int) pp_x oc xps =
-  Fmt.(pf oc "%a" (list ~sep:(any "@,") (pair ~sep:sp pp_int pp_x)) xps)
-
-let pp_llist ?(sepc = Fmt.any "\\n") pp_one oc xss =
-  Fmt.(pf oc "%a" (list ~sep:sepc (list ~sep:(any "; ") pp_one)) xss)
-
-let to_indexed_list xps =
-  let max_i = List.map ~f:fst xps |> List.max_elt ~compare:Int.compare in
-  match max_i with
-  | Some len ->
-      let arr = Array.create ~len:(len + 1) (snd (List.hd_exn xps)) in
-      List.iter xps ~f:(fun (i, x) -> arr.(i) <- x) ;
-      Array.to_list arr
-  | None -> []
 
 let generate_inputs test_generator : (int list * int) list * 'a option =
   (* let generation_callback inputs steps = prints results *)
@@ -58,3 +42,10 @@ let build_input_sequence _solution _program _target : int list = []
 let chain_compare f1 f2 =
   let r1 = f1 () in
   if r1 = 0 then f2 () else r1
+
+let pp_tuple3 pp_a pp_b pp_c oc (a, b, c) =
+  Fmt.pf oc "(%a, %a, %a)" pp_a a pp_b b pp_c c
+
+let string_of_inputs inputs =
+  String.concat ~sep:","
+  @@ List.map ~f:(function Some i -> string_of_int i | None -> "-") inputs

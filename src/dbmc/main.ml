@@ -6,12 +6,34 @@ open Cfg
 open Odefa_ddpa
 open Log.Export
 
-let get_inputs ~(state : Global_state.t) ~(config : Global_config.t) model
+let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t) =
+  match config.mode with
+  | Dbmc_check inputs ->
+      (* = Input_feeder.from_list inputs *)
+      let history = ref [] in
+      let input_feeder = Input_feeder.memorized_from_list inputs history in
+      let session =
+        Interpreter.expected_input_session input_feeder config.target
+      in
+      let expected_stk =
+        try Interpreter.eval session state.program with
+        | Interpreter.Found_target target ->
+            Fmt.(
+              pr "[Expected]%a"
+                (list (Std.pp_tuple3 Id.pp Concrete_stack.pp (option int))))
+              !history ;
+            target.stk
+        | ex -> raise ex
+      in
+      if Solver.check_expected_input_sat expected_stk !history
+      then ()
+      else failwith "expected input leads to a wrong place."
+  | _ -> ()
+
+let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
     (target_stack : Concrete_stack.t) =
-  let input_history = ref [] in
-  let input_feeder =
-    Input_feeder.memorized_from_model input_history model target_stack
-  in
+  let history = ref [] in
+  let input_feeder = Input_feeder.from_model ~history model target_stack in
   let session =
     let max_step = config.run_max_step in
     Interpreter.create_session ?max_step target_stack state config input_feeder
@@ -19,7 +41,7 @@ let get_inputs ~(state : Global_state.t) ~(config : Global_config.t) model
   (try Interpreter.eval session state.program with
   | Interpreter.Found_target _ -> ()
   | ex -> raise ex) ;
-  List.rev !input_history
+  List.rev !history
 
 let handle_graph (config : Global_config.t) state model =
   if config.debug_graph
@@ -47,8 +69,10 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
   (* Global_state.refresh_picked state model; *)
   handle_graph config state (Some model) ;
 
-  let inputs_from_interpreter = get_inputs ~state ~config model c_stk in
-  [ inputs_from_interpreter ]
+  let inputs_from_interpreter = get_input ~config ~state model c_stk in
+  (* check expected inputs *)
+  check_expected_input ~config ~state ;
+  ([ inputs_from_interpreter ], true)
 
 let[@landmark] main_with_state_lwt ~(config : Global_config.t)
     ~(state : Global_state.t) =
@@ -69,14 +93,14 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
           SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
         else () ;
         handle_graph config state None ;
-        []
+        ([], false)
   in
   let post_check_ddse () =
     if config.debug_model
     then SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
     else () ;
     handle_graph config state None ;
-    []
+    ([], false)
   in
   try%lwt
     (Lwt.async_exception_hook :=
@@ -104,29 +128,31 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
       prerr_endline "timeout" ;
       Lwt.return (post_check_ddse ())
 
-let main_lwt ~config program =
+(* entry functions *)
+
+let main_details ~config program =
   let state = Global_state.create config program in
-  main_with_state_lwt ~config ~state
+  let inputs, found = Lwt_main.run (main_with_state_lwt ~config ~state) in
+  (inputs, found, state)
 
-let main ~config program = Lwt_main.run @@ main_lwt ~config program
+let search_input ~config program =
+  main_details ~config program |> fun (a, _b, _c) -> a
 
-let main_commandline () =
+let check_input ~(config : Global_config.t) program inputs =
+  let mode = Global_config.Dbmc_check inputs in
+  let config = { config with mode } in
+  main_details ~config program |> fun (_a, b, _c) -> b
+
+let from_commandline () =
   let config = Argparse.parse_commandline_config () in
   Log.init config ;
   let program = File_util.read_source config.filename in
   (try
-     let inputss = main ~config program in
+     let inputss = search_input ~config program in
 
      match List.hd inputss with
-     | Some inputs ->
-         Format.printf "[%s]\n"
-           (String.concat ~sep:","
-           @@ List.map
-                ~f:(function Some i -> string_of_int i | None -> "-")
-                inputs)
-     | None -> Format.printf "Unreachable"
+     | Some inputs -> Fmt.pr "[%s]@;" (Std.string_of_inputs inputs)
+     | None -> Fmt.pr "Unreachable"
    with ex -> (* Printexc.print_backtrace Out_channel.stderr ; *)
               raise ex) ;
-
   Log.close ()
-(* ignore @@ raise GenComplete *)

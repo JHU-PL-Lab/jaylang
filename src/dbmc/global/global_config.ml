@@ -5,6 +5,7 @@ exception GenComplete
 
 type ddpa_c_stk = C_0ddpa | C_1ddpa | C_2ddpa | C_kddpa of int
 and engine = E_dbmc | E_ddse
+and mode = Dbmc_search | Dbmc_check of int option list | Sato
 
 and t = {
   (* basic *)
@@ -13,7 +14,7 @@ and t = {
   (* mode *)
   engine : engine;
   is_instrumented : bool;
-  expected_inputs : int option list option;
+  mode : mode;
   (* analysis *)
   ddpa_c_stk : ddpa_c_stk;
   (* tuning *)
@@ -43,7 +44,7 @@ let default_config =
     timeout = None (* Time.Span.of_int_sec 60 *);
     stride_init = 100;
     stride_max = 100;
-    expected_inputs = None;
+    mode = Dbmc_search;
     run_max_step = None;
     engine = E_dbmc;
     is_instrumented = false;

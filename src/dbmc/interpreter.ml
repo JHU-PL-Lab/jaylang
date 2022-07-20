@@ -3,8 +3,26 @@ open Odefa_ast
 open Ast
 open Log.Export
 
-exception Found_target of value
-exception Terminate of value
+type dvalue =
+  | Direct of value
+  | FunClosure of Ident.t * function_value * denv
+  | RecordClosure of record_value * denv
+
+and dvalue_with_stack = dvalue * Concrete_stack.t
+and denv = dvalue_with_stack Ident_map.t
+
+let value_of_dvalue = function
+  | Direct v -> v
+  | FunClosure (_fid, fv, _env) -> Value_function fv
+  | RecordClosure (r, _env) -> Value_record r
+
+let pp_dvalue oc = function
+  | Direct v -> Odefa_ast.Ast_pp.pp_value oc v
+  | FunClosure _ -> Format.fprintf oc "(fc)"
+  | RecordClosure _ -> Format.fprintf oc "(rc)"
+
+exception Found_target of { x : Id.t; stk : Concrete_stack.t; v : dvalue }
+exception Terminate of dvalue
 exception Reach_max_step of Id.t * Concrete_stack.t
 exception Run_the_same_stack_twice of Id.t * Concrete_stack.t
 exception Run_into_wrong_stack of Id.t * Concrete_stack.t
@@ -29,23 +47,35 @@ type session = {
   lookup_alert : Lookup_key.t Hash_set.t;
 }
 
-type dvalue =
-  | Direct of value
-  | FunClosure of Ident.t * function_value * denv
-  | RecordClosure of record_value * denv
+let default_session =
+  {
+    input_feeder = Fn.const 42;
+    mode = Plain;
+    max_step = None;
+    is_debug = false;
+    step = ref 0;
+    node_set = Hashtbl.create (module Lookup_key);
+    node_get = Hashtbl.create (module Lookup_key);
+    rstk_picked = Hashtbl.create (module Rstack);
+    lookup_alert = Hash_set.create (module Lookup_key);
+  }
 
-and dvalue_with_stack = dvalue * Concrete_stack.t
-and denv = dvalue_with_stack Ident_map.t
+let create_session ?max_step target_stk (state : Global_state.t)
+    (config : Global_config.t) input_feeder : session =
+  {
+    input_feeder;
+    mode = With_full_target (config.target, target_stk);
+    max_step;
+    is_debug = config.debug_graph;
+    step = ref 0;
+    node_set = state.node_set;
+    node_get = state.node_get;
+    rstk_picked = state.rstk_picked;
+    lookup_alert = state.lookup_alert;
+  }
 
-let value_of_dvalue = function
-  | Direct v -> v
-  | FunClosure (_fid, fv, _env) -> Value_function fv
-  | RecordClosure (r, _env) -> Value_record r
-
-let pp_dvalue oc = function
-  | Direct v, _ -> Odefa_ast.Ast_pp.pp_value oc v
-  | FunClosure _, _ -> Format.fprintf oc "(fc)"
-  | RecordClosure _, _ -> Format.fprintf oc "(rc)"
+let expected_input_session input_feeder target_x =
+  { default_session with input_feeder; mode = With_target_x target_x }
 
 let cond_fid b = if b then Ident "$tt" else Ident "$ff"
 
@@ -69,22 +99,24 @@ let debug_update_write_node session x stk =
       Hashtbl.add_exn session.node_set ~key ~data:true
   | _, _ -> ()
 
-let debug_stack session x stk v =
+let debug_stack session x stk (v, _) =
   match (session.is_debug, session.mode) with
   | true, With_full_target (_, target_stk) ->
       let rstk = Rstack.relativize target_stk stk in
       Fmt.pr "@[%a = %a\t\t R = %a@]\n" Id.pp x pp_dvalue v Rstack.pp rstk
   | _, _ -> ()
 
-let raise_if_with_stack session x stk v_pre =
+let raise_if_with_stack session x stk v =
   match session.mode with
   | With_full_target (target_x, target_stk) when Ident.equal target_x x ->
       if Concrete_stack.equal_flip target_stk stk
-      then raise (Found_target (value_of_dvalue v_pre))
+      then raise (Found_target { x; stk; v })
       else
         Fmt.(
           pr "found %a at stack %a, expect %a\n" pp_ident x Concrete_stack.pp
             target_stk Concrete_stack.pp stk)
+  | With_target_x target_x when Ident.equal target_x x ->
+      raise (Found_target { x; stk; v })
   | _ -> ()
 
 let alert_lookup session x stk =
@@ -151,7 +183,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
         eval_exp ~session stk' env e
     | Input_body ->
         (* TODO: the interpreter may propagate the dummy value (through the value should never be used in any control flow)  *)
-        let n = Option.value ~default:42 (session.input_feeder (x, stk)) in
+        let n = session.input_feeder (x, stk) in
         Direct (Value_int n)
     | Appl_body (vx1, vx2) -> (
         match fetch_val ~session ~stk env vx1 with
@@ -246,40 +278,12 @@ and check_pattern ~session ~stk env vx pattern : bool =
   in
   is_pass
 
-let create_session ?max_step target_stk (state : Global_state.t)
-    (config : Global_config.t) input_feeder : session =
-  {
-    input_feeder;
-    mode = With_full_target (config.target, target_stk);
-    max_step;
-    is_debug = config.debug_graph;
-    step = ref 0;
-    node_set = state.node_set;
-    node_get = state.node_get;
-    rstk_picked = state.rstk_picked;
-    lookup_alert = state.lookup_alert;
-  }
-
-let create_interpreter_session inputs =
-  {
-    input_feeder = Input_feeder.from_list inputs;
-    mode = Plain;
-    max_step = None;
-    is_debug = false;
-    step = ref 0;
-    node_set = Hashtbl.create (module Lookup_key);
-    node_get = Hashtbl.create (module Lookup_key);
-    rstk_picked = Hashtbl.create (module Rstack);
-    lookup_alert = Hash_set.create (module Lookup_key);
-  }
-
 let eval session e =
   let empty_env = Ident_map.empty in
   try
-    let dv = eval_exp ~session Concrete_stack.empty empty_env e in
-    raise (Terminate (value_of_dvalue dv))
+    let v = eval_exp ~session Concrete_stack.empty empty_env e in
+    raise (Terminate v)
   with
-  | Found_target v -> raise (Found_target v)
   | Reach_max_step (x, stk) ->
       Fmt.epr "Reach max steps\n" ;
       (* alert_lookup target_stk x stk session.lookup_alert; *)
