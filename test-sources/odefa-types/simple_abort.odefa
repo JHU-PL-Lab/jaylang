@@ -4,6 +4,4 @@
 # EXPECT-TYPE-ERROR ~result [] "res = b ? ( ret = 0 ) : ( ab = abort )" "b = a" "false"
 
 a = false;
-b = a;
-res = b ? ( ret = 0; ) : ( ab = abort; );
-tar = res;
+b = a + a;

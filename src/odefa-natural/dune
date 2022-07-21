@@ -16,6 +16,7 @@
   (public_name odefa.natural)
   (synopsis "Translator for Odefa Natural")
   (libraries
+    core
     batteries
     jhupllib
     monadlib

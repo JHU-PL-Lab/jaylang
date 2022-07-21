@@ -26,6 +26,13 @@
  (preprocess
   (pps ppx_jane ppx_deriving.show)))
 
+; (executable
+;  (name natodefa)
+;  (modules natodefa)
+;  (libraries core logs dbmc odefa.natural)
+;  (preprocess
+;   (pps ppx_jane ppx_deriving.show)))
+
 (executable
  (name ddpa_toploop)
  (modules ddpa_toploop)

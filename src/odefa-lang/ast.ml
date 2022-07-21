@@ -195,3 +195,19 @@ module Type_signature = struct
     (* All other combos - use equality *)
     | _, _ -> equal t1 t2
 end
+
+type abort_value = {
+  (** The identifier of the conditional clause the abort clause
+      is nested in. *)
+  abort_conditional_ident : ident;
+
+  (** The predicate of the conditional clauses the abort clause
+      is nested in. *)
+  abort_predicate_ident : ident;
+
+  (** The branch of the conditional clause that the abort clause
+      is nested in. *)
+  abort_conditional_branch : bool;
+}
+[@@ deriving eq, ord, show]
+;;
