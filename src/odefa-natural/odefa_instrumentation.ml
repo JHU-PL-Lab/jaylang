@@ -109,6 +109,7 @@ let rec instrument_clauses (c_list : clause list) : clause list m =
                return @@ [mb_cls; tvar_cls; m_cls; cond_clause] @ cont
              end
          end *)
+      | Not_body _v -> failwith "not implemented"
       | Binary_operation_body (v1, binop, v2) ->
           (* Don't instrument if the v is already counted as a variable added
               during instrumentation (i.e. pattern match conversion *)
@@ -134,9 +135,7 @@ let rec instrument_clauses (c_list : clause list) : clause list m =
               | Binary_operator_less_than_or_equal_to | Binary_operator_equal_to
               | Binary_operator_not_equal_to ->
                   Int_pattern
-              | Binary_operator_and | Binary_operator_or | Binary_operator_xor
-                ->
-                  Bool_pattern
+              | Binary_operator_and | Binary_operator_or -> Bool_pattern
             in
             (* Variables *)
             let%bind m1 = fresh_var "m_bl" in

@@ -400,8 +400,6 @@ let odefa_to_on_binop (odefa_binop : Ast.binary_operator) :
       fun e1 e2 -> On_ast.And (new_expr_desc e1, new_expr_desc e2)
   | Ast.Binary_operator_or ->
       fun e1 e2 -> On_ast.Or (new_expr_desc e1, new_expr_desc e2)
-  | Ast.Binary_operator_xor ->
-      fun e1 e2 -> On_ast.Neq (new_expr_desc e1, new_expr_desc e2)
 
 let rec replace_type (t_desc : syn_natodefa_edesc) (new_t : syn_natodefa_edesc)
     (tag : int) : syn_natodefa_edesc =

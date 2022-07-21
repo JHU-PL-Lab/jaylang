@@ -51,7 +51,6 @@ let pp_binary_operator formatter binop =
     | Binary_operator_not_equal_to -> "<>"
     | Binary_operator_and -> "and"
     | Binary_operator_or -> "or"
-    | Binary_operator_xor -> "xor"
   in
   Format.pp_print_string formatter s
 
@@ -86,6 +85,7 @@ and pp_clause_body formatter b =
   | Match_body (x, _) -> Format.fprintf formatter "%a ~ ..." pp_var x
   | Projection_body (x, l) ->
       Format.fprintf formatter "%a.%a" pp_var x pp_ident l
+  | Not_body x -> Format.fprintf formatter "not %a" pp_var x
   | Binary_operation_body (x1, op, x2) ->
       Format.fprintf formatter "%a %a %a" pp_var x1 pp_binary_operator op pp_var
         x2

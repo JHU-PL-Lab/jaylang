@@ -79,7 +79,8 @@ and enum_all_functions_in_clause clause : function_value Enum.t =
 and enum_all_functions_in_body body : function_value Enum.t =
   match body with
   | Value_body v -> enum_all_functions_in_value v
-  | Var_body _ | Input_body | Appl_body _ | Binary_operation_body (_, _, _) ->
+  | Var_body _ | Input_body | Appl_body _ | Not_body _
+  | Binary_operation_body (_, _, _) ->
       Enum.empty ()
   | Conditional_body (_, e1, e2) ->
       Enum.append
@@ -112,8 +113,9 @@ let rec expr_flatten (Expr clauses as expr) : expr list =
             | Appl_body (_, _)
             | Match_body (_, _)
             | Projection_body (_, _)
-            | Binary_operation_body (_, _, _) ->
+            | Not_body _ ->
                 []
+            | Binary_operation_body (_, _, _) -> []
             | Conditional_body (_, e1, e2) ->
                 (e1 :: e2 :: expr_flatten e1) @ expr_flatten e2
             | Abort_body | Assume_body _ | Assert_body _ -> [])

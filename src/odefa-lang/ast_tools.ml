@@ -127,6 +127,7 @@ and check_scope_clause_body (bound : Ident_set.t) (site_x : ident)
       @ check_scope_expr bound e1 @ check_scope_expr bound e2
   | Match_body (Var (x, _), _) -> _bind_filt bound site_x [ x ]
   | Projection_body (Var (x, _), _) -> _bind_filt bound site_x [ x ]
+  | Not_body (Var (x, _)) -> _bind_filt bound site_x [ x ]
   | Binary_operation_body (Var (x1, _), _, Var (x2, _)) ->
       _bind_filt bound site_x [ x1; x2 ]
   | Abort_body -> []
@@ -170,6 +171,7 @@ and map_clause_body_vars (fn : Var.t -> Var.t) (b : clause_body) : clause_body =
       Conditional_body (fn x, map_expr_vars fn e1, map_expr_vars fn e2)
   | Match_body (x, p) -> Match_body (fn x, p)
   | Projection_body (x, l) -> Projection_body (fn x, l)
+  | Not_body x -> Not_body (fn x)
   | Binary_operation_body (x1, op, x2) ->
       Binary_operation_body (fn x1, op, fn x2)
   | Abort_body -> Abort_body
@@ -211,6 +213,7 @@ and transform_exprs_in_clause_body (fn : expr -> expr) (b : clause_body) :
         (x, transform_exprs_in_expr fn e1, transform_exprs_in_expr fn e2)
   | Match_body (x, p) -> Match_body (x, p)
   | Projection_body (_, _) -> b
+  | Not_body _ -> b
   | Binary_operation_body (_, _, _) -> b
   | Abort_body -> b
   | Assume_body _x -> b

@@ -84,7 +84,6 @@ type binary_operator =
   | Binary_operator_not_equal_to
   | Binary_operator_and
   | Binary_operator_or
-  | Binary_operator_xor
 [@@deriving eq, ord]
 
 let binary_operator_to_yojson = function
@@ -99,7 +98,6 @@ let binary_operator_to_yojson = function
   | Binary_operator_not_equal_to -> `String "<>"
   | Binary_operator_and -> `String "and"
   | Binary_operator_or -> `String "or"
-  | Binary_operator_xor -> `String "xor"
 
 (** A type to express record values. *)
 type record_value = Record_value of var Ident_map.t
@@ -126,6 +124,7 @@ and clause_body =
   | Conditional_body of var * expr * expr
   | Match_body of var * pattern
   | Projection_body of var * ident
+  | Not_body of var
   | Binary_operation_body of var * binary_operator * var
   | Abort_body
   | Assume_body of var

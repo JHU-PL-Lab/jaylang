@@ -649,14 +649,15 @@ let rec flatten_binop (ton_on_maps : Ton_to_on_maps.t)
     (Ast.clause list * Ast.var) m =
   let%bind e1_clist, e1_var = flatten_expr ton_on_maps e1_desc in
   let%bind e2_clist, e2_var = flatten_expr ton_on_maps e2_desc in
-  let%bind binop_var = fresh_var "binop" in
-  let%bind () = add_odefa_natodefa_mapping binop_var expr_desc in
+  let%bind notop_var = fresh_var "binop" in
+  let%bind () = add_odefa_natodefa_mapping notop_var expr_desc in
   let binop_body = Ast.Binary_operation_body (e1_var, binop, e2_var) in
-  let new_clause = Ast.Clause (binop_var, binop_body) in
-  return (e1_clist @ e2_clist @ [ new_clause ], binop_var)
+  let new_clause = Ast.Clause (notop_var, binop_body) in
+  return (e1_clist @ e2_clist @ [ new_clause ], notop_var)
 
 (** Flatten either the equal or not equal binary operation. This involves
     instrumenting both operations in nested conditionals. *)
+(* TODO: unused now *)
 and flatten_eq_binop (ton_on_maps : Ton_to_on_maps.t)
     (expr_desc : On_ast.core_natodefa_edesc)
     (e1_desc : On_ast.core_natodefa_edesc)
@@ -919,8 +920,7 @@ and flatten_expr (ton_on_maps : Ton_to_on_maps.t)
   | Equal (e1, e2) ->
       flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_equal_to
   | Neq (e1, e2) ->
-      flatten_eq_binop ton_on_maps expr_desc e1 e2
-        Ast.Binary_operator_not_equal_to Ast.Binary_operator_xor
+      flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_not_equal_to
   | LessThan (e1, e2) ->
       flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_less_than
   | Leq (e1, e2) ->
@@ -939,18 +939,11 @@ and flatten_expr (ton_on_maps : Ton_to_on_maps.t)
       flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_or
   | Not e ->
       let%bind e_clist, e_var = recurse e in
-      let%bind true_var = fresh_var "true" in
-      let%bind binop_var = fresh_var "binop" in
-      let%bind () =
-        add_odefa_natodefa_mapping true_var (On_ast.new_expr_desc @@ Bool true)
-      in
-      let%bind () = add_odefa_natodefa_mapping binop_var expr_desc in
-      let binop = Ast.Binary_operator_xor in
-      let true_body = Ast.Value_body (Value_bool true) in
-      let binop_body = Ast.Binary_operation_body (e_var, binop, true_var) in
-      let true_clause = Ast.Clause (true_var, true_body) in
-      let binop_clause = Ast.Clause (binop_var, binop_body) in
-      return (e_clist @ [ true_clause; binop_clause ], binop_var)
+      let%bind notop_var = fresh_var "notop" in
+      let%bind () = add_odefa_natodefa_mapping notop_var expr_desc in
+      let not_body = Ast.Not_body e_var in
+      let binop_clause = Ast.Clause (notop_var, not_body) in
+      return (e_clist @ [ (* true_clause;  *) binop_clause ], notop_var)
   | If (e1, e2, e3) ->
       (* TODO: there will be another version of a conditional where we can
          do pattern matching. *)

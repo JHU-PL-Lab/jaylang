@@ -45,7 +45,7 @@ let rec mark_dupes_record_labels lbls_seen r_list =
 %token KEYWORD_FALSE
 %token KEYWORD_AND
 %token KEYWORD_OR
-%token KEYWORD_XOR
+%token KEYWORD_NOT
 %token KEYWORD_ANY
 %token KEYWORD_ABORT
 %token KEYWORD_ASSUME
@@ -111,6 +111,8 @@ clause_body:
       { Assume_body $2 }
   | KEYWORD_ASSERT variable
       { Assert_body $2 }
+  | KEYWORD_NOT variable
+      { Not_body $2 }
   | variable
       { Var_body($1) }
   | variable variable
@@ -143,8 +145,6 @@ clause_body:
       { Binary_operation_body($1,Binary_operator_and,$3) }
   | variable KEYWORD_OR variable
       { Binary_operation_body($1,Binary_operator_or,$3) }
-  | variable KEYWORD_XOR variable
-      { Binary_operation_body($1,Binary_operator_xor,$3) }
   ;
 
 value:

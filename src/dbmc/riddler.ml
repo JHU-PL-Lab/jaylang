@@ -61,7 +61,6 @@ let binop t op t1 t2 =
     | Binary_operator_not_equal_to -> failwith "refactoring"
     | Binary_operator_and -> fn_and
     | Binary_operator_or -> fn_or
-    | Binary_operator_xor -> fn_xor
   in
   fop e e1 e2
 

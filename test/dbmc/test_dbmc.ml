@@ -53,7 +53,7 @@ let test_one_file testname () =
   Dbmc.Log.init config ;
   match expectation with
   | None ->
-      let _ = Main.main ~config src in
+      let _ = Main.search_input ~config src in
       Alcotest.(check unit) "unit" () ()
   | Some expectations ->
       List.iter expectations ~f:(fun expectation ->

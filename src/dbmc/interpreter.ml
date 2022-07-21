@@ -205,6 +205,14 @@ and eval_clause ~session stk env clause : denv * dvalue =
                fetch_val env vv *)
             failwith "project should also have a closure"
         | _ -> failwith "project on a non record")
+    | Not_body vx ->
+        let v = fetch_val_to_direct ~session ~stk env vx in
+        let bv =
+          match v with
+          | Value_bool b -> Value_bool (not b)
+          | _ -> failwith "incorrect not"
+        in
+        Direct bv
     | Binary_operation_body (vx1, op, vx2) ->
         let v1 = fetch_val_to_direct ~session ~stk env vx1
         and v2 = fetch_val_to_direct ~session ~stk env vx2 in
@@ -232,8 +240,6 @@ and eval_clause ~session stk env clause : denv * dvalue =
               Value_bool (b1 && b2)
           | Binary_operator_or, Value_bool b1, Value_bool b2 ->
               Value_bool (b1 || b2)
-          | Binary_operator_xor, Value_bool b1, Value_bool b2 ->
-              Value_bool (Bool.( <> ) b1 b2)
           | _, _, _ -> failwith "incorrect binop"
         in
         Direct v
