@@ -146,7 +146,8 @@ let check_input ~(config : Global_config.t) program inputs =
 let from_commandline () =
   let config = Argparse.parse_commandline_config () in
   Log.init config ;
-  let program = File_util.read_source config.filename in
+  let is_instrumented = config.is_instrumented in
+  let program = File_util.read_source ~is_instrumented config.filename in
   (try
      let inputss = search_input ~config program in
 

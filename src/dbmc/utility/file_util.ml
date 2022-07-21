@@ -7,7 +7,7 @@ let is_odefa_ext s = Filename.check_suffix s "odefa"
 let is_natodefa_ext s = Filename.check_suffix s "natodefa"
 (* String.is_suffix s ~suffix:"natodefa" *)
 
-let read_source filename =
+let read_source ?(is_instrumented = false) filename =
   let program =
     if is_natodefa_ext filename
     then
@@ -15,10 +15,19 @@ let read_source filename =
         In_channel.with_file filename
           ~f:Odefa_natural.On_parse.parse_program_raw
       in
-      let p1, p2 = Odefa_natural.Ton_to_on.transform_natodefa natast in
-      Odefa_natural.On_to_odefa.translate p2 p1 |> fst
+      let on_expr, ton_on_maps =
+        Odefa_natural.Ton_to_on.transform_natodefa natast
+      in
+      Odefa_natural.On_to_odefa.translate ~is_instrumented ton_on_maps on_expr
+      |> fst
     else if is_odefa_ext filename
-    then In_channel.with_file filename ~f:Odefa_parser.Parse.parse_program_raw
+    then
+      let ast =
+        In_channel.with_file filename ~f:Odefa_parser.Parse.parse_program_raw
+      in
+      if is_instrumented
+      then Odefa_natural.Odefa_instrumentation.instrument_odefa ast |> fst
+      else ast
     else failwith "file extension must be .odefa or .natodefa"
   in
   ignore @@ Global_config.check_wellformed_or_exit program ;
