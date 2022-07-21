@@ -371,34 +371,9 @@ module Make (S : S) = struct
 
         let ans, _matched =
           match (pat, rv) with
-          | Rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
-              let have_all =
-                Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
-              in
-              let phi =
-                (* Riddler.eqv_with_picked key key' (Value_bool have_all) *)
-                Riddler.picked_record_pattern key key' (Value_bool have_all) pat
-              in
-              S.add_phi key phi ;
-              (Lookup_result.ok key, true)
-          | Rec_pattern _, _ ->
-              let phi = Riddler.eqv_with_picked key key' (Value_bool false) in
-              S.add_phi key phi ;
-              let phi = Riddler.picked_pattern key key' pat in
-              S.add_phi key phi ;
-              (Lookup_result.ok key, false)
-          | Fun_pattern, Value_body (Value_function _) ->
-              let phi = Riddler.eqv_with_picked key key' (Value_bool true) in
-              S.add_phi key phi ;
-              let phi = Riddler.picked_pattern key key' pat in
-              S.add_phi key phi ;
-              (Lookup_result.ok key, true)
-          | Int_pattern, Value_body (Value_int _) ->
-              let phi = Riddler.eqv_with_picked key key' (Value_bool true) in
-              S.add_phi key phi ;
-              let phi = Riddler.picked_pattern key key' pat in
-              S.add_phi key phi ;
-              (Lookup_result.ok key, true)
+          | Any_pattern, _
+          | Fun_pattern, Value_body (Value_function _)
+          | Int_pattern, Value_body (Value_int _)
           | Bool_pattern, Value_body (Value_bool _) ->
               let phi = Riddler.eqv_with_picked key key' (Value_bool true) in
               S.add_phi key phi ;
@@ -406,8 +381,16 @@ module Make (S : S) = struct
               S.add_phi key phi ;
 
               (Lookup_result.ok key, true)
-          (* Non record-pattern when false *)
-          | _, Value_body _ ->
+          | Rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
+              let have_all =
+                Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
+              in
+              let phi =
+                Riddler.picked_record_pattern key key' (Value_bool have_all) pat
+              in
+              S.add_phi key phi ;
+              (Lookup_result.ok key, true)
+          | Rec_pattern _, _ | _, Value_body _ ->
               let phi = Riddler.eqv_with_picked key key' (Value_bool false) in
               S.add_phi key phi ;
               let phi = Riddler.picked_pattern key key' pat in
