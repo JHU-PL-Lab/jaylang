@@ -20,7 +20,7 @@ let make_output state out =
   let output = Printf.sprintf "Out [%d]: %s" state.n out in
   eval [ LTerm_text.S output ]
 
-open Core_kernel
+open Core
 
 class read_line ~term ~history ~state =
   object (self)
@@ -63,7 +63,7 @@ module Make (E : E_sig) = struct
       | None -> fail_with "readline_loop: command is None"
     in
     Lwt.catch (loop prompt_state) (function
-      | Sys.Break -> return None
+      | Sys_unix.Break -> return None
       | exn -> Lwt.fail exn)
 
   let run_lwt () =

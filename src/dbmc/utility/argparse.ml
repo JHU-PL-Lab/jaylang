@@ -47,8 +47,7 @@ let parse_commandline_config () =
       and filename = anon ("source_file" %: Filename_unix.arg_type)
       and engine =
         flag "-e" (optional_with_default E_dbmc engine_parser) ~doc:"engine"
-      and is_instrumented =
-        flag "-a" (optional_with_default false bool) ~doc:"instrumented"
+      and is_instrumented = flag "-a" no_arg ~doc:"instrumented"
       and expected_inputs =
         flag "-i" (optional int_option_list_parser) ~doc:"expected inputs"
       and ddpa_c_stk =
@@ -81,14 +80,18 @@ let parse_commandline_config () =
       and debug_graph = flag "-g" no_arg ~doc:"output graphviz dot" in
       fun () ->
         let latter_option l1 l2 = Option.merge l1 l2 ~f:(fun _ y -> y) in
-
+        let mode =
+          match expected_inputs with
+          | Some inputs -> Dbmc_check inputs
+          | None -> Dbmc_search
+        in
         let top_config =
           {
             target;
             filename;
             engine;
             is_instrumented;
-            expected_inputs;
+            mode;
             ddpa_c_stk;
             run_max_step;
             timeout;

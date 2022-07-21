@@ -88,6 +88,7 @@ and lift_clause_body b =
       Abs_conditional_body (lift_var x, lift_expr e1, lift_expr e2)
   | Match_body (x, p) -> Abs_match_body (lift_var x, p)
   | Projection_body (x, l) -> Abs_projection_body (lift_var x, l)
+  | Not_body x -> Abs_not_body (lift_var x)
   | Binary_operation_body (x1, op, x2) ->
       Abs_binary_operation_body (lift_var x1, op, lift_var x2)
   | Abort_body -> Abs_abort_body

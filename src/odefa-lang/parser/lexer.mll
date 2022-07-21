@@ -47,7 +47,7 @@ rule token = parse
   | "false"                          { KEYWORD_FALSE }
   | "and"                            { KEYWORD_AND }
   | "or"                             { KEYWORD_OR }
-  | "xor"                            { KEYWORD_XOR }
+  | "not"                            { KEYWORD_NOT }
   | "any"                            { KEYWORD_ANY }
   | "abort"                          { KEYWORD_ABORT }
   | "assume"                         { KEYWORD_ASSUME }

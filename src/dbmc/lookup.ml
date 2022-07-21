@@ -69,6 +69,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
           R.discovery_nonmain p this_key this_node block phis run_task
       | Input p -> R.input p this_key this_node block phis run_task
       | Alias p -> R.alias p this_key this_node block phis run_task
+      | Not b -> R.not_ b this_key this_node block phis run_task
       | Binop b -> R.binop b this_key this_node block phis run_task
       | Record_start p ->
           R.record_start p this_key this_node block phis run_task
@@ -177,6 +178,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
           R.discovery_nonmain p this_key this_node block run_task
       | Input p -> R.input p this_key this_node block run_task
       | Alias p -> R.alias p this_key this_node block run_task
+      | Not p -> R.not_ p this_key this_node block run_task
       | Binop b -> R.binop b this_key this_node block run_task
       | Record_start p -> R.record_start p this_key this_node block run_task
       | Record_end p -> R.record_end p this_key this_node block run_task

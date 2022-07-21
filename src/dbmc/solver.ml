@@ -22,30 +22,15 @@ let check phis_z3 cvars_z3 =
 
 let string_of_solver () = Z3.Solver.to_string solver
 
-let solution_input_feeder model target_stack (x, call_stack) : int option =
-  let stk = Rstack.relativize target_stack call_stack in
-  let name = Lookup_key.to_str2 x stk in
-  SuduZ3.get_int_s model name
-
-let memorized_solution_input_feeder mem model target_stack =
-  let input_feeder = solution_input_feeder model target_stack in
-  fun query ->
-    let answer = input_feeder query in
-    mem := answer :: !mem ;
-    answer
-
-let get_inputs ~(state : Global_state.t) ~(config : Global_config.t) model
-    (target_stack : Concrete_stack.t) =
-  let input_history = ref [] in
-  let input_feeder =
-    memorized_solution_input_feeder input_history model target_stack
+let check_expected_input_sat target_stk history =
+  let input_phis =
+    List.filter_map
+      ~f:(fun (x, stk, r) ->
+        Option.map r ~f:(fun i ->
+            let stk = Rstack.relativize target_stk stk in
+            let name = Lookup_key.to_str2 x stk in
+            let zname = SuduZ3.var_s name in
+            SuduZ3.eq zname (SuduZ3.int_ i)))
+      history
   in
-  let session =
-    let target_stk = Some target_stack in
-    let max_step = config.run_max_step in
-    Interpreter.create_session ?target_stk ?max_step state config input_feeder
-  in
-  (try Interpreter.eval session state.program with
-  | Interpreter.Found_target _ -> ()
-  | ex -> raise ex) ;
-  List.rev !input_history
+  Result.is_ok (SuduZ3.check_with_assumption solver input_phis)

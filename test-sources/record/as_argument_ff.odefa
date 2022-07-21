@@ -2,7 +2,7 @@ x = input;
 one = 1;
 b = x == one;
 ff = false;
-c = b xor ff;
+c = b;
 r = { d = c };
 f = fun t -> (
   rf = t.d

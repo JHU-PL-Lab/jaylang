@@ -147,6 +147,7 @@ and _create_end_of_block_map_for_body (b : abstract_clause_body) =
         (create_end_of_block_map acls2)
   | Abs_match_body _ -> Annotated_clause_map.empty
   | Abs_projection_body _ -> Annotated_clause_map.empty
+  | Abs_not_body _ -> Annotated_clause_map.empty
   | Abs_binary_operation_body (_, _, _) -> Annotated_clause_map.empty
   | Abs_abort_body -> Annotated_clause_map.empty
   | Abs_assume_body _ -> Annotated_clause_map.empty
@@ -174,8 +175,6 @@ let abstract_binary_operation (binop : binary_operator) (arg1 : abstract_value)
       singleton @@ Abs_value_bool (b1 && b2)
   | Binary_operator_or, Abs_value_bool b1, Abs_value_bool b2 ->
       singleton @@ Abs_value_bool (b1 || b2)
-  | Binary_operator_xor, Abs_value_bool b1, Abs_value_bool b2 ->
-      singleton @@ Abs_value_bool (b1 <> b2)
   | _ -> None
 
 let abstract_pattern_match (v : abstract_value) (p : pattern) :
@@ -192,3 +191,9 @@ let abstract_pattern_match (v : abstract_value) (p : pattern) :
       | Abs_value_function _ | Abs_value_untouched _ ),
       (Fun_pattern | Int_pattern | Bool_pattern | Rec_pattern _) ) ->
       Enum.singleton @@ Abs_value_bool false
+
+let abstract_not (v : abstract_value) : abstract_value Enum.t option =
+  let singleton x = Some (Enum.singleton x) in
+  match v with
+  | Abs_value_bool b -> singleton @@ Abs_value_bool (not b)
+  | _ -> None

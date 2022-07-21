@@ -253,6 +253,12 @@ end
 module Make_datatype_builder_helpers (C : Context) = struct
   include Make_datatype_builders (C)
 
+  let fn_not y e1 =
+    let b1 = FuncDecl.apply getBool [ e1 ] in
+    let by = Boolean.mk_not ctx b1 in
+    let ey = FuncDecl.apply boolD [ by ] in
+    join [ eq y ey; ifBool e1 ]
+
   (* helper builders *)
   let bop case inj fn e1 e2 =
     let p1 = FuncDecl.apply case [ e1 ] in
@@ -282,7 +288,7 @@ module Make_datatype_builder_helpers (C : Context) = struct
   let fn_eq = fn_two_ints_to_bool (Boolean.mk_eq ctx)
   let fn_and = fn_two_bools and2
   let fn_or = fn_two_bools (fun e1 e2 -> Boolean.mk_or ctx [ e1; e2 ])
-  let fn_xor = fn_two_bools (Boolean.mk_xor ctx)
+  (* let fn_xor = fn_two_bools (Boolean.mk_xor ctx) *)
 
   (* check *)
 

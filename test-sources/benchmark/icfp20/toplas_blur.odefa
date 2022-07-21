@@ -50,7 +50,7 @@ lp = fun lp_clone -> (
         i_0 = blurred_lp s;
         i_1 = i_0 n_pred;
         # not i_1
-        r_4 = i_1 xor tt;
+        r_4 = not i_1;
       );
     );
   );

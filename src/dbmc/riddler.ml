@@ -44,6 +44,11 @@ let eq_term_v term v =
   (* Ast.Input_body *)
   | None -> eq term term
 
+let not_ t t1 =
+  let e = key_to_var t in
+  let e1 = key_to_var t1 in
+  fn_not e e1
+
 let binop t op t1 t2 =
   let e = key_to_var t in
   let e1 = key_to_var t1 in
@@ -61,13 +66,16 @@ let binop t op t1 t2 =
     | Binary_operator_not_equal_to -> failwith "refactoring"
     | Binary_operator_and -> fn_and
     | Binary_operator_or -> fn_or
-    | Binary_operator_xor -> fn_xor
   in
   fop e e1 e2
 
 (* with picked *)
 
 let picked_imply key key' = picked key @=> picked key'
+
+let not_with_picked t t1 =
+  let e_not = not_ t t1 in
+  picked t @=> and_ [ e_not; picked t1 ]
 
 let binop_with_picked t op t1 t2 =
   let e_bop = binop t op t1 t2 in

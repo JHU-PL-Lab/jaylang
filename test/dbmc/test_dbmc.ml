@@ -53,22 +53,28 @@ let test_one_file testname () =
   Dbmc.Log.init config ;
   match expectation with
   | None ->
-      let _ = Main.main ~config src in
+      let _ = Main.search_input ~config src in
       Alcotest.(check unit) "unit" () ()
   | Some expectations ->
       List.iter expectations ~f:(fun expectation ->
           let config = { config with target = Id.Ident expectation.target } in
-          let inputss = Main.main ~config src in
-          match List.hd inputss with
+          match List.hd expectation.inputs with
           | Some inputs ->
-              let expected_inputs = List.hd_exn expectation.inputs in
-              Alcotest.(check (list int_option_checker))
-                "equal" inputs expected_inputs ;
-              Alcotest.(check (list int_option_checker))
-                "equal" inputs expected_inputs
-          | None ->
-              Alcotest.(check int) "equal" 0 (List.length expectation.inputs))
-
+              let checked = Main.check_input ~config src inputs in
+              Alcotest.(check bool) "equal" true checked
+          | None -> (
+              let inputss = Main.search_input ~config src in
+              match List.hd inputss with
+              | Some inputs ->
+                  let expected_inputs = List.hd_exn expectation.inputs in
+                  Alcotest.(check (list int_option_checker))
+                    "equal" inputs expected_inputs ;
+                  Alcotest.(check (list int_option_checker))
+                    "equal" inputs expected_inputs
+              | None ->
+                  Alcotest.(check int)
+                    "equal" 0
+                    (List.length expectation.inputs)))
 (* exception Timeout *)
 
 (* let sigalrm_handler = Caml.Sys.Signal_handle (fun _ -> raise Timeout) *)

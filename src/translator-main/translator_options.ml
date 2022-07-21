@@ -11,7 +11,11 @@ let named_translator_modes =
     (Scheme_to_odefa_natural, "scheme-to-odefa-natural");
   ]
 
-type translator_args = { ta_mode : translator_mode; ta_parseable : bool }
+type translator_args = {
+  ta_mode : translator_mode;
+  ta_parseable : bool;
+  ta_instrument : bool;
+}
 (** Describes arguments passed to the translator executable as structured data. *)
 
 let logging_option_parser : unit BatOptParse.Opt.t =
@@ -51,6 +55,7 @@ type parsers = {
   parse_mode : translator_mode BatOptParse.Opt.t;
   parse_parseable : bool BatOptParse.Opt.t;
   parse_logging : unit BatOptParse.Opt.t;
+  parse_instrument : bool BatOptParse.Opt.t;
 }
 
 let make_parsers () : parsers =
@@ -67,6 +72,7 @@ let make_parsers () : parsers =
             |> String.concat "\n  "));
     parse_parseable = BatOptParse.StdOpt.store_true ();
     parse_logging = logging_option_parser;
+    parse_instrument = BatOptParse.StdOpt.store_true ();
   }
 
 exception ParseFailure of string
@@ -88,6 +94,8 @@ let parse_args () : translator_args =
     parsers.parse_parseable ;
   BatOptParse.OptParser.add cli_parser ~short_name:'l' ~long_name:"log"
     parsers.parse_logging ;
+  BatOptParse.OptParser.add cli_parser ~short_name:'a' ~long_name:"instrument"
+    parsers.parse_instrument ;
   (* **** Perform parse **** *)
   let positional_args = BatOptParse.OptParser.parse_argv cli_parser in
   try
@@ -97,6 +105,8 @@ let parse_args () : translator_args =
           ta_mode = insist "mode" parsers.parse_mode;
           ta_parseable =
             Option.default false @@ parsers.parse_parseable.option_get ();
+          ta_instrument =
+            Option.default false @@ parsers.parse_instrument.option_get ();
         }
     | _ ->
         raise

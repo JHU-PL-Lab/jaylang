@@ -2,7 +2,7 @@
  (name langdk)
  (public_name odefa.langdk)
  (synopsis "Lang Develop Toolkit")
- (libraries core_kernel lwt lambda-term react))
+ (libraries core core_unix.sys_unix lwt lambda-term react))
 
 (env
  (dev
