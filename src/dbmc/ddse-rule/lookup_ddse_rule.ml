@@ -82,6 +82,8 @@ module Make (S : S) = struct
     (* let _ = S.add_phi key phi phis_top in *)
     U.by_map_u S.unroll key key_rx (return_with key)
 
+  let not_ _p _key _this_node _block _phis_top _run_task = ()
+
   let binop b key this_node block phis_top run_task =
     let ({ bop; x1; x2; _ } : Binop_rule.t) = b in
     let key_x1 = Lookup_key.with_x key x1 in

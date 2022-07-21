@@ -18,6 +18,10 @@ module Alias_rule = struct
   type t = { x : Id.t; x' : Id.t }
 end
 
+module Not_rule = struct
+  type t = { x : Id.t; x' : Id.t }
+end
+
 module Binop_rule = struct
   type t = { x : Id.t; bop : binary_operator; x1 : Id.t; x2 : Id.t }
 end
@@ -71,6 +75,7 @@ type t =
   | Discovery_nonmain of Discovery_nonmain_rule.t
   | Input of Input_rule.t
   | Alias of Alias_rule.t
+  | Not of Not_rule.t
   | Binop of Binop_rule.t
   | Cond_top of Cond_top_rule.t
   | Cond_btm of Cond_btm_rule.t
@@ -101,9 +106,9 @@ let rule_of_runtime_status x block : t =
           if Ident.equal (Cfg.id_of_block block) Cfg.id_main
           then Discovery_main { x; v }
           else Discovery_nonmain { x; v }
-      | { clause = Clause (_, Abort_body); _ } -> Abort { x }
       | { clause = Clause (_, Projection_body (Var (r, _), lbl)); _ } ->
           Record_start { x; r; lbl }
+      | { clause = Clause (_, Not_body (Var (x', _))); _ } -> Not { x; x' }
       | {
        clause = Clause (_, Binary_operation_body (Var (x1, _), bop, Var (x2, _)));
        _;
@@ -121,6 +126,7 @@ let rule_of_runtime_status x block : t =
        _;
       } ->
           Fun_exit { x; xf; fids }
+      | { clause = Clause (_, Abort_body); _ } -> Abort { x }
       | { clause = Clause (_, Assume_body (Var (x', _))); _ } ->
           Assume { x; x' }
       | { clause = Clause (_, Assert_body (Var (x', _))); _ } ->
@@ -143,6 +149,7 @@ let show_rule : t -> string = function
   | Discovery_nonmain _ -> "Discovery_nonmain"
   | Input _ -> "Input"
   | Alias _ -> "Alias"
+  | Not _ -> "Not"
   | Binop _ -> "Binop"
   | Cond_top _ -> "Cond_top"
   | Cond_btm _ -> "Cond_btm"

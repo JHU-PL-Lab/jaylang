@@ -54,6 +54,15 @@ module Make (S : S) = struct
     run_task key' block ;
     U.by_id_u S.unroll key key'
 
+  let not_ p key this_node block run_task =
+    let ({ x'; _ } : Not_rule.t) = p in
+    let key' = Lookup_key.with_x key x' in
+    let node' = S.find_or_add_node key' block this_node in
+    Node.update_rule this_node (Node.alias node') ;
+    S.add_phi key (Riddler.not_with_picked key key') ;
+    run_task key' block ;
+    U.by_map_u S.unroll key key' (fun _ -> Lookup_result.ok key)
+
   let binop b key this_node block run_task =
     let ({ bop; x1; x2; _ } : Binop_rule.t) = b in
     let key_x1 = Lookup_key.with_x key x1 in
