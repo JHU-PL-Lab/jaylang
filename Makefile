@@ -6,7 +6,7 @@ dbmc-top:
 	dune build src/bin/dbmc_top.exe
 	ln -s -f _build/default/src/bin/dbmc_top.exe dbmc_top
 
-dbmc-test:
+dbmc-test: 
 	dune build test/dbmc/test_dbmc.exe 
 	ln -s -f _build/default/test/dbmc/test_dbmc.exe dtest
 
@@ -22,12 +22,11 @@ sato-test:
 dtest: dbmc-test
 	./dtest
 
-dtest-ddse: dbmc-test
-	E=ddse ./dtest
+dtest-ins:dbmc-test
+	./dtest --ta
 
-dtest-all: dbmc-test
-	./dtest || echo "failure!" 
-	E=ddse ./dtest
+dtest-ddse: dbmc-test
+	./dtest --te ddse
 
 ddpa:
 	dune build src/bin/ddpa_toploop.exe

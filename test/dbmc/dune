@@ -21,6 +21,7 @@
  (libraries
   core
   core_unix.sys_unix
+  cmdliner
   fmt
   lwt
   lwt.unix

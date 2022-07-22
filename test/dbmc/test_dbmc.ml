@@ -1,12 +1,58 @@
 open Core
 open Dbmc
 
-let get_engine () =
-  match Sys.getenv "E" with
-  | Some "ddse" -> Global_config.E_ddse
-  | _ (* "dbmc" *) -> Global_config.E_dbmc
+type config = {
+  engine : Global_config.engine;
+  is_instrumented : bool;
+  initial_stride : int;
+}
 
-let testing_stride_init = 200
+module Cmd_parser = struct
+  open Cmdliner
+
+  let engine_conv =
+    let parser s =
+      if String.equal s "dbmc"
+      then Result.Ok Global_config.E_dbmc
+      else if String.equal s "ddse"
+      then Result.Ok Global_config.E_ddse
+      else Result.fail (`Msg "wrong engine")
+    in
+    let printer oc = function
+      | Global_config.E_dbmc -> Fmt.string oc "dbmc"
+      | Global_config.E_ddse -> Fmt.string oc "ddse"
+    in
+    Arg.(conv (parser, printer))
+
+  let engine =
+    let doc = "Symbolic interpreter engine." in
+    Arg.(
+      value
+      & opt engine_conv Global_config.E_dbmc
+      & info [ "te"; "engine" ] ~docv:"ENGINE" ~doc)
+
+  let is_instrumented =
+    let doc = "Instrument clauses." in
+    Arg.(
+      value & flag
+      (* & opt bool false *)
+      & info [ "ta"; "instrumented" ] ~docv:"INSTRUMENTED" ~doc)
+
+  let initial_stride =
+    let doc = "Initial stride to call SMT solver." in
+    Arg.(
+      value
+      & opt int Global_config.default_config.stride_init
+      & info [ "ts"; "stride" ] ~docv:"STRIDE" ~doc)
+
+  let make_config engine is_instrumented initial_stride =
+    { engine; is_instrumented; initial_stride }
+
+  let config =
+    Term.(const make_config $ engine $ is_instrumented $ initial_stride)
+end
+
+open Cmd_parser
 
 (* treat the path as the group name and filename as the test name *)
 let group_all_files dir =
@@ -34,20 +80,20 @@ let int_option_checker : int option Alcotest.testable =
   let eq ii jj = match (ii, jj) with Some i, Some j -> i = j | _, _ -> true in
   Alcotest.testable Fmt.(Dump.option int) eq
 
-let test_one_file testname () =
-  let src = File_util.read_source testname in
+let test_one_file test_config testname () =
+  let is_instrumented = test_config.is_instrumented in
+  let src = File_util.read_source ~is_instrumented testname in
   let expectation = Test_expect.load_sexp_expectation_for testname in
   let config : Global_config.t =
     let filename = testname in
-    let stride_init = testing_stride_init in
     let timeout = Some (Time.Span.of_int_sec 5) in
-    let default_config = Global_config.default_config in
     {
-      default_config with
+      Global_config.default_config with
       filename;
-      stride_init;
+      engine = test_config.engine;
+      is_instrumented;
+      stride_init = test_config.initial_stride;
       timeout;
-      engine = get_engine ();
     }
   in
   Dbmc.Log.init config ;
@@ -92,9 +138,10 @@ let test_one_file testname () =
      reset_sigalrm () ;
      raise exc *)
 
-let test_one_file_lwt testname _switch () =
+let test_one_file_lwt testname _switch test_config =
   try%lwt
-    Lwt_unix.with_timeout 5.0 (fun () -> Lwt.return (test_one_file testname ()))
+    Lwt_unix.with_timeout 5.0 (fun () ->
+        Lwt.return (test_one_file test_config testname ()))
   with Lwt_unix.Timeout -> Lwt.return (Alcotest.fail "timeout")
 
 (* let test_one_file_lwt testname _switch () =
@@ -117,6 +164,8 @@ let () =
   in
 
   (* Alcotest.run "DBMC" grouped_tests; *)
-  Lwt_main.run @@ Alcotest_lwt.run "DBMC" grouped_tests ;
+  Lwt_main.run
+  @@ (* Alcotest_lwt.run "DBMC" grouped_tests ; *)
+  Alcotest_lwt.run_with_args "DBMC" config grouped_tests ;
   Dbmc.Log.close () ;
   ()
