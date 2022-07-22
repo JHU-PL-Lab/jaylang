@@ -46,6 +46,7 @@ and enum_all_aborts_in_clause clause : (ident * abort_value) list =
   | Input_body
   | Appl_body (_, _)
   | Binary_operation_body (_, _, _)
+  | Not_body _
   | Match_body (_, _)
   | Projection_body (_, _) ->
     []
@@ -81,16 +82,16 @@ let create_initial_dmbc_config (sato_config : Sato_args.t)
   let timeout = sato_config.timeout in
   let open Dbmc.Global_config in
   {
-    ddpa_c_stk = ddpa_ver;
     target = Dbmc.Id.(Ident "target");
     filename = filename;
+    engine = E_dbmc;
+    is_instrumented = false;
+    mode = Sato;
+    ddpa_c_stk = ddpa_ver;
+    run_max_step = max_step;
     timeout = timeout;
     stride_init = 100;
     stride_max = 100;
-    expected_inputs = None;
-    run_max_step = max_step;
-    engine = E_dbmc;
-    is_instrumented = false;
     log_level = None;
     log_level_lookup = None;
     log_level_solver = None;
@@ -115,7 +116,7 @@ let main_commandline () =
       in
       (* Right now we're stopping after one error is found. *)
       (try
-        let inputss = Dbmc.Main.main ~config:dbmc_config program in
+        let (inputss, _, _) = Dbmc.Main.main_details ~config:dbmc_config program in
         match List.hd inputss with
         | Some inputs ->
             Format.printf "[%s]\n"

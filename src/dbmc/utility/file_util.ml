@@ -11,7 +11,8 @@ let read_source ?(is_instrumented = false) filename =
   let program =
     if is_natodefa_ext filename
     then
-      let natast =
+      failwith "TBI!"
+      (* let natast =
         In_channel.with_file filename
           ~f:Odefa_natural.On_parse.parse_program_raw
       in
@@ -19,7 +20,7 @@ let read_source ?(is_instrumented = false) filename =
         Odefa_natural.Ton_to_on.transform_natodefa natast
       in
       Odefa_natural.On_to_odefa.translate ~is_instrumented ton_on_maps on_expr
-      |> fst
+      |> fst *)
     else if is_odefa_ext filename
     then
       let ast =

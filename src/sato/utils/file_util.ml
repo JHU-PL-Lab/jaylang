@@ -1,6 +1,5 @@
 open! Core
 open Odefa_ast;;
-open Odefa_natural;;
 
 (* Probably should be moved to a more general util file for all systems? *)
 let is_odefa_ext s = Filename.check_suffix s "odefa"
@@ -34,7 +33,7 @@ let read_source_sato filename =
           In_channel.with_file filename ~f:Odefa_parser.Parse.parse_program_raw
         in
         let (odefa_ast, on_odefa_maps) =
-          Odefa_instrumentation.instrument_odefa pre_inst_ast
+          Odefa_natural.Odefa_instrumentation.instrument_odefa pre_inst_ast
         in
         Ast_wellformedness.check_wellformed_expr odefa_ast;
         (odefa_ast, on_odefa_maps, None)

@@ -694,82 +694,18 @@ let flatten_fun
 ;;
 
 (** Flatten a binary operation *)
-let rec flatten_binop (ton_on_maps : Ton_to_on_maps.t)
-    (expr_desc : On_ast.core_natodefa_edesc)
-    (e1_desc : On_ast.core_natodefa_edesc)
-    (e2_desc : On_ast.core_natodefa_edesc) (binop : Ast.binary_operator) :
+let rec flatten_binop 
+    (expr_desc : On_ast.expr_desc)
+    (e1_desc : On_ast.expr_desc)
+    (e2_desc : On_ast.expr_desc) (binop : Ast.binary_operator) :
     (Ast.clause list * Ast.var) m =
-  let%bind e1_clist, e1_var = flatten_expr ton_on_maps e1_desc in
-  let%bind e2_clist, e2_var = flatten_expr ton_on_maps e2_desc in
+  let%bind e1_clist, e1_var = flatten_expr e1_desc in
+  let%bind e2_clist, e2_var = flatten_expr e2_desc in
   let%bind notop_var = fresh_var "binop" in
   let%bind () = add_odefa_natodefa_mapping notop_var expr_desc in
   let binop_body = Ast.Binary_operation_body (e1_var, binop, e2_var) in
   let new_clause = Ast.Clause (notop_var, binop_body) in
   return (e1_clist @ e2_clist @ [ new_clause ], notop_var)
-
-(** Flatten either the equal or not equal binary operation. This involves
-    instrumenting both operations in nested conditionals. *)
-(* TODO: unused now *)
-and flatten_eq_binop (ton_on_maps : Ton_to_on_maps.t)
-    (expr_desc : On_ast.core_natodefa_edesc)
-    (e1_desc : On_ast.core_natodefa_edesc)
-    (e2_desc : On_ast.core_natodefa_edesc) (binop_int : Ast.binary_operator)
-    (binop_bool : Ast.binary_operator) : (Ast.clause list * Ast.var) m =
-  (* e1 and e2 *)
-  let%bind e1_clist, e1_var = flatten_expr ton_on_maps e1_desc in
-  let%bind e2_clist, e2_var = flatten_expr ton_on_maps e2_desc in
-  (* Helper functions *)
-  let add_var = new_odefa_inst_var expr_desc in
-  let create_match_clause pat pat_name =
-    let%bind m_bl = add_var ("m_eq_binop_l_" ^ pat_name) in
-    let%bind m_br = add_var ("m_eq_binop_r_" ^ pat_name) in
-    let%bind m_b = add_var ("m_eq_binop_" ^ pat_name) in
-    let m_clause_l = Ast.Clause (m_bl, Match_body (e1_var, pat)) in
-    let m_clause_r = Ast.Clause (m_br, Match_body (e2_var, pat)) in
-    let m_clause =
-      Ast.Clause (m_b, Binary_operation_body (m_bl, Binary_operator_and, m_br))
-    in
-    (* Int matching: ml = x ~ int; mr = y ~ int; m1 = ml and mr *)
-    let%bind (clist_int, m_int) =
-      create_match_clause Ast.Int_pattern "int"
-    in
-    (* Bool matching: ml = x ~ bool; mr = y ~ bool; m1 = ml and mr *)
-    let%bind (clist_bool, m_bool) =
-      create_match_clause Ast.Bool_pattern "bool"
-    in
-    (* Instrumentation predicate: m = m1 or m2 *)
-    let%bind m_b = add_var "m_eq_binop" in
-    let m_clause_body =
-      Ast.Binary_operation_body (m_int, Binary_operator_or, m_bool)
-    in
-    let m_clause = Ast.Clause (m_b, m_clause_body) in
-    let clist_predicates = clist_int @ clist_bool @ [m_clause] in
-    (* Inner conditionals *)
-    let create_conditional pred pat_name t_operator f_expr =
-      let%bind c_binop' = add_var ("eq_binop_" ^ pat_name ^ "_inner") in
-      let%bind c_binop = add_var ("eq_binop_" ^ pat_name) in
-      let t_expr =
-        Ast.Expr [Clause (c_binop', Binary_operation_body (e1_var, t_operator, e2_var))]
-      in
-      return @@ Ast.Clause (c_binop, Conditional_body (pred, t_expr, f_expr))
-    in
-    (* Bool conditional: m2 ? ( x xnor y ) : ( abort ) *)
-    let%bind inner_abort = add_abort_expr expr_desc [] in
-    let%bind cond_bool =
-      create_conditional m_bool "bool" binop_bool inner_abort
-    in
-    (* Int conditional: m1 ? ( x == y ) : ( [see above] ) *)
-    let%bind cond_int =
-      create_conditional m_int "int" binop_int (Ast.Expr [cond_bool])
-    in
-    (* Conditional: m ? ( [see above] ) : ( abort ) *)
-    let%bind c_binop = add_var "eq_binop" in
-    let%bind outer_abort = add_abort_expr expr_desc [c_binop] in
-    let cond =
-      Ast.Clause (c_binop, Conditional_body (m_b, Ast.Expr [cond_int], outer_abort))
-    in
-    (* Putting it all together *)
-    return (e1_clist @ e2_clist @ clist_predicates @ [cond], c_binop)
 
 (* TODO: Add untouched check logic here; hack solution, might want to rethink
          in the future. In the spec this is supposed to be part of the instrumentation 
@@ -918,12 +854,9 @@ and flatten_expr
   | Modulus (e1, e2) ->
     flatten_binop expr_desc e1 e2 Ast.Binary_operator_modulus
   | Equal (e1, e2) ->
-    flatten_eq_binop expr_desc e1 e2
-      Ast.Binary_operator_equal_to
-      (* TODO: Do not do polymorphic equal *)
-      Ast.Binary_operator_xor
+    flatten_binop expr_desc e1 e2 Ast.Binary_operator_equal_to
   | Neq (e1, e2) ->
-      flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_not_equal_to
+      flatten_binop expr_desc e1 e2 Ast.Binary_operator_not_equal_to
   | LessThan (e1, e2) ->
     flatten_binop expr_desc e1 e2 Ast.Binary_operator_less_than
   | Leq (e1, e2) ->
@@ -935,7 +868,7 @@ and flatten_expr
   | And (e1, e2) ->
     flatten_binop expr_desc e1 e2 Ast.Binary_operator_and
   | Or (e1, e2) ->
-      flatten_binop ton_on_maps expr_desc e1 e2 Ast.Binary_operator_or
+      flatten_binop expr_desc e1 e2 Ast.Binary_operator_or
   | Not e ->
       let%bind e_clist, e_var = recurse e in
       let%bind notop_var = fresh_var "notop" in
@@ -1016,7 +949,8 @@ and flatten_expr
     raise @@ Utils.Invariant_failure
       "flatten_expr: List expressions should have been handled!"
   (* TODO: This should happen in the instrumentation phase *)
-  | Assert e ->
+  | _ -> failwith "TBI!"
+  (* | Assert e ->
     let%bind (flattened_exprs, last_var) = recurse e in
     (* Helper function *)
     let add_var var_name =
@@ -1049,7 +983,7 @@ and flatten_expr
     let%bind assume_var = fresh_var "assume" in
     let%bind () = add_odefa_natodefa_mapping assume_var expr_desc in
     let new_clause = Ast.Clause(assume_var, Assume_body last_var) in
-    return (flattened_exprs @ [new_clause], assume_var)
+    return (flattened_exprs @ [new_clause], assume_var) *)
 ;;
 
 let debug_transform_on
