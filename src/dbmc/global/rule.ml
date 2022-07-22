@@ -136,7 +136,7 @@ let rule_of_runtime_status x block : t =
       | _ ->
           Log.Export.LLog.err (fun m ->
               m "%a" Odefa_ast.Ast_pp.pp_clause tc.clause) ;
-          failwith "Abort: not implemented yet")
+          failwith "Missing rules for this clause")
   | None, Fun fb ->
       if Ident.(equal fb.para x)
       then Fun_enter_local { x; fb; is_local = true }

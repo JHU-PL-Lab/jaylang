@@ -27,6 +27,7 @@ let create (config : Global_config.t) program =
       node_set = Hashtbl.create (module Lookup_key);
       node_get = Hashtbl.create (module Lookup_key);
       rstk_picked = Hashtbl.create (module Rstack);
+      solver = Solver.solver;
     }
   in
   state
