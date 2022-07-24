@@ -1,6 +1,7 @@
 open Core
 open Sato_args
 open Odefa_ast.Ast
+open Odefa_natural.On_to_odefa_maps
 
 (* Enumerate all aborts in a program *)
 
@@ -59,19 +60,35 @@ and enum_all_aborts_in_value value : (ident * abort_value) list =
     []
 ;;
 
-let list_instrument_conditionals (e : expr) : ident list =
+(* let list_instrument_conditionals (e : expr) : (abort_value, ident) list =
   e
   |> enum_all_aborts_in_expr
   (* |> List.map ~f:(fun (_, abort_val) -> abort_val.abort_conditional_ident) *)
-  |> List.map ~f:(fun (abort_id, _) -> abort_id)
+  |> List.map ~f:(fun ((abort_id, _) as ab_val) -> (ab_var, abort_id))
   |> List.rev
+;; *)
+
+let get_target_vars 
+  (ab_pairs : (ident * abort_value) list) : ident list =
+  ab_pairs
+  |> List.map ~f:(fun (abort_id, _) -> abort_id)
 ;;
 
-let get_target_vars (expr : Odefa_ast.Ast.expr) : ident list =
-  match list_instrument_conditionals expr with
-  | [] -> failwith "TBI!"
-  | target_list -> target_list
+let get_abort_cond_clause_id
+  (ab_pairs : (ident * abort_value) list) (ab_id : ident) : ident =
+  let mapper (abort_id, ab_val) = 
+    if Ident.equal abort_id ab_id 
+    then
+      Some ab_val.abort_conditional_ident
+    else
+      None
+  in
+  let clause_opt = List.find_map ab_pairs ~f:mapper in
+  match clause_opt with
+  | Some cls -> cls
+  | None -> failwith "Should have a corresponding clause here!"
 ;;
+
 
 let create_initial_dmbc_config (sato_config : Sato_args.t) 
   : Dbmc.Global_config.t =
@@ -105,8 +122,9 @@ let create_initial_dmbc_config (sato_config : Sato_args.t)
 let main_commandline () =
   let sato_config = Argparse.parse_commandline_config () in
   let dbmc_config_init = create_initial_dmbc_config sato_config in
-  let (program, _, _) = File_util.read_source_sato dbmc_config_init.filename in
-  let target_vars = get_target_vars program in
+  let (program, on_to_odefa_maps, _) = File_util.read_source_sato dbmc_config_init.filename in
+  let ab_pairs = enum_all_aborts_in_expr program in
+  let target_vars = get_target_vars ab_pairs in
   let rec search_all_targets (remaining_targets : ident list) =
     match remaining_targets with
     | [] -> print_endline "No errors found."
@@ -116,14 +134,48 @@ let main_commandline () =
       in
       (* Right now we're stopping after one error is found. *)
       (try
-        let (inputss, _, _) = Dbmc.Main.main_details ~config:dbmc_config program in
+        let open Dbmc in
+        let (inputss, _, state) = Dbmc.Main.main_details ~config:dbmc_config program in
+        (* Getting the target clause *)
+        let source_map = Lazy.force state.source_map in
+        let abort_var = state.target in
+        let abort_cond_var = get_abort_cond_clause_id ab_pairs abort_var in
+        let Clause (_c_id, cls) as pre_inst = get_pre_inst_equivalent_clause on_to_odefa_maps abort_cond_var in
+        let () = print_endline @@ Odefa_ast.Ast_pp.show_clause pre_inst in
         match List.hd inputss with
         | Some inputs ->
-            Format.printf "[%s]\n"
-              (String.concat ~sep:","
-              @@ List.map
-                    ~f:(function Some i -> string_of_int i | None -> "-")
-                    inputs)
+          begin
+            try
+              (
+              let session = 
+                { Interpreter.default_session with input_feeder = Input_feeder.from_list inputs }
+              in
+              Interpreter.eval_verbose session program
+              )
+            with
+            | Interpreter.Terminate_with_env (_, _) ->
+              match cls with
+              | Binary_operation_body ((Var (x1, _) as v1), op, (Var (x2, _) as v2))  ->
+                let Clause (_, c_body1) = Ident_map.find x1 source_map in
+                let Clause (_, c_body2) = Ident_map.find x2 source_map in
+                let error =
+                  Odefa_ast.Error.Odefa_error.Error_binop
+                  { err_binop_left_aliases = [x1];
+                    err_binop_right_aliases = [x2];
+                    err_binop_left_val = c_body1;
+                    err_binop_right_val = c_body2;
+                    err_binop_operation = (Odefa_ast.Ast.Var_body v1, op, Odefa_ast.Ast.Var_body v2);
+                  } 
+                in
+                let () = print_endline @@ Odefa_ast.Error.Odefa_error.show error in
+                ()
+              | _ -> failwith "TBI!"
+              (* let () = 
+              Ident_map.iter (fun x _v -> print_endline @@ show_ident x) env
+              in
+              () *)
+            (* | _ -> failwith "Should terminate with an environment!" *)
+          end
         | None -> search_all_targets tl
       with ex -> (* Printexc.print_backtrace Out_channel.stderr ; *)
                   raise ex)

@@ -63,53 +63,26 @@ let rec instrument_clauses (c_list : clause list) : clause list m =
           (* Nothing to constrain *)
           let%bind new_clauses' = instrument_clauses clauses' in
           return @@ (clause :: new_clauses')
-      (* | Match_body (v', pat) ->
-         begin
-           match pat with
-           | Untouched_pattern _ ->
-             begin
-               let%bind new_clauses' = instrument_clauses clauses' in
-               return @@ clause :: new_clauses'
-             end
-           | Any_untouched_pattern -> failwith "This shouldn't happen!"
-           | Any_pattern | Int_pattern | Bool_pattern | Rec_pattern _
-           | Strict_rec_pattern _ | Fun_pattern ->
-             (* Don't instrument an instrumentation *)
-             let%bind is_already_inst = is_instrument_var v in
-             if is_already_inst then begin
-               let%bind new_clauses' = instrument_clauses clauses' in
-               return @@ clause :: new_clauses'
-             end
-             else begin
-               (*
-                 match = x ~ p;
-                 ==>
-                 m = x ~ untouched;
-                 match = m ? ( c_match = x ~ p ) : ( ab = abort );
-               *)
-               (* Variables *)
-               let%bind mb = fresh_var "m_b" in
-               let%bind tvar = fresh_var "t_var" in
-               let%bind m = fresh_var "m" in
-               let%bind () = add_instrument_var mb in
-               let%bind () = add_instrument_var tvar in
-               let%bind () = add_instrument_var m in
-               (* Clauses *)
-               let mb_cls = Clause(mb, Match_body(v', Any_untouched_pattern)) in
-               let tvar_cls = Clause(tvar, Value_body(Value_bool true)) in
-               let m_bod = Binary_operation_body(mb, Binary_operator_xor, tvar) in
-               let m_cls = Clause(m, m_bod) in
-               (* Conditional *)
-               let%bind c_match = fresh_var "c_match" in
-               let%bind () = add_instrument_var_pair c_match v in
-               let%bind t_path = return @@ Expr([Clause(c_match, body)]) in
-               let%bind f_path = add_abort_expr v in
-               let cond_clause = Clause(v, Conditional_body(m, t_path, f_path)) in
-               let%bind cont = instrument_clauses clauses' in
-               return @@ [mb_cls; tvar_cls; m_cls; cond_clause] @ cont
-             end
-         end *)
-      | Not_body _v -> failwith "not implemented"
+      | Not_body v -> 
+          let%bind is_already_inst = is_instrument_var v in
+          if is_already_inst
+          then
+            let%bind new_clauses' = instrument_clauses clauses' in
+            return @@ (clause :: new_clauses')
+          else
+            let%bind m = fresh_var "m" in
+            let%bind () = add_instrument_var m in
+            let m_clause = Clause (m, Match_body (v, Bool_pattern)) in
+            (* Conditional *)
+            let%bind c_not = fresh_var "c_not" in
+            let%bind () = add_instrument_var_pair c_not v in
+            let%bind t_path = return @@ Expr [ Clause (c_not, body) ] in
+            let%bind f_path = add_abort_expr v in
+            let cond_clause =
+              Clause (v, Conditional_body (m, t_path, f_path))
+            in
+            let%bind cont = instrument_clauses clauses' in
+            return @@ [ m_clause; cond_clause ] @ cont
       | Binary_operation_body (v1, binop, v2) ->
           (* Don't instrument if the v is already counted as a variable added
               during instrumentation (i.e. pattern match conversion *)

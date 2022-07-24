@@ -11,6 +11,17 @@ type dvalue =
 and dvalue_with_stack = dvalue * Concrete_stack.t
 and denv = dvalue_with_stack Ident_map.t
 
+module Ident_with_stack =
+struct
+  type t = Id.t * Concrete_stack.t
+  [@@deriving sexp_of, compare, equal, hash]
+;;
+end;;
+
+(* type ident_with_stack = Ident.t * Concrete_stack.t *)
+
+type ident_with_stack_set = Ident_with_stack.t Hash_set.t
+
 let value_of_dvalue = function
   | Direct v -> v
   | FunClosure (_fid, fv, _env) -> Value_function fv
@@ -23,9 +34,11 @@ let pp_dvalue oc = function
 
 exception Found_target of { x : Id.t; stk : Concrete_stack.t; v : dvalue }
 exception Terminate of dvalue
+exception Terminate_with_env of denv * dvalue
 exception Reach_max_step of Id.t * Concrete_stack.t
 exception Run_the_same_stack_twice of Id.t * Concrete_stack.t
 exception Run_into_wrong_stack of Id.t * Concrete_stack.t
+exception Found_abort of ident
 
 type mode =
   | Plain
@@ -39,6 +52,8 @@ type session = {
   (* tuning *)
   step : int ref;
   max_step : int option;
+  (* Book-keeping *)
+  alias_map : (Ident_with_stack.t, ident_with_stack_set) Hashtbl.t;
   (* debug *)
   is_debug : bool;
   node_set : (Lookup_key.t, bool) Hashtbl.t;
@@ -54,6 +69,7 @@ let default_session =
     max_step = None;
     is_debug = false;
     step = ref 0;
+    alias_map = Hashtbl.create (module Ident_with_stack);
     node_set = Hashtbl.create (module Lookup_key);
     node_get = Hashtbl.create (module Lookup_key);
     rstk_picked = Hashtbl.create (module Rstack);
@@ -68,6 +84,7 @@ let create_session ?max_step target_stk (state : Global_state.t)
     max_step;
     is_debug = config.debug_graph;
     step = ref 0;
+    alias_map = Hashtbl.create (module Ident_with_stack);
     node_set = state.node_set;
     node_get = state.node_get;
     rstk_picked = state.rstk_picked;
@@ -78,6 +95,22 @@ let expected_input_session input_feeder target_x =
   { default_session with input_feeder; mode = With_target_x target_x }
 
 let cond_fid b = if b then Ident "$tt" else Ident "$ff"
+
+let add_alias_mapping x1 x2 session : unit =
+  let alias_map = session.alias_map in
+  if Hashtbl.mem alias_map x1 then
+    let x1_set = Hashtbl.find_exn alias_map x1 in
+    Hash_set.add x1_set x2
+  else
+  if Hashtbl.mem alias_map x2 then
+    let x2_set = Hashtbl.find_exn alias_map x2 in
+    Hash_set.add x2_set x1
+  else
+    let x1_aliases = 
+      Hash_set.create (module Ident_with_stack)
+    in
+    let () = Hash_set.add x1_aliases x2 in
+    Hashtbl.set alias_map ~key:x1 ~data:x1_aliases
 
 let debug_update_read_node session x stk =
   match (session.is_debug, session.mode) with
@@ -156,6 +189,25 @@ let rec eval_exp ~session stk env e : dvalue =
   in
   List.last_exn vs'
 
+and eval_exp_verbose ~session stk env e : denv * dvalue =
+  Log.Export.ILog.app (fun m -> m "@[-> %a@]\n" Concrete_stack.pp stk) ;
+  (match session.mode with
+  | With_full_target (_, target_stk) ->
+      let r_stk = Rstack.relativize target_stk stk in
+      Hashtbl.change session.rstk_picked r_stk ~f:(function
+        | Some true -> Some false
+        | Some false -> raise (Run_into_wrong_stack (Ast_tools.first_id e, stk))
+        | None -> None)
+  | _ -> ()) ;
+
+  (* raise (Run_into_wrong_stack (Ast_tools.first_id e, stk))); *)
+  let (Expr clauses) = e in
+  let denv, vs' =
+    (* List.fold_left_map (eval_clause ~input_feeder ~target stk) env clauses *)
+    List.fold_map ~f:(eval_clause ~session stk) ~init:env clauses
+  in
+  (denv, List.last_exn vs')
+
 (* OB: once stack is to change, there must be an `eval_exp` *)
 and eval_clause ~session stk env clause : denv * dvalue =
   (* Fmt.(pr "---%d---\n" !(session.step)); *)
@@ -173,7 +225,10 @@ and eval_clause ~session stk env clause : denv * dvalue =
     | Value_body (Value_function vf) -> FunClosure (x, vf, env)
     | Value_body (Value_record r) -> RecordClosure (r, env)
     | Value_body v -> Direct v
-    | Var_body vx -> fetch_val ~session ~stk env vx
+    | Var_body vx -> 
+      let Var (v, _) = vx in 
+      add_alias_mapping (x, stk) (v, stk) session;
+      fetch_val ~session ~stk env vx
     | Conditional_body (x2, e1, e2) ->
         let e, stk' =
           if fetch_val_to_bool ~session ~stk env x2
@@ -191,6 +246,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
             let v2 = fetch_val ~session ~stk env vx2 in
             let stk2 = Concrete_stack.push (x, fid) stk in
             let env2 = Ident_map.add arg (v2, stk) fenv in
+            add_alias_mapping (x, stk) (arg, stk) session;
             eval_exp ~session stk2 env2 body
         | _ -> failwith "app to a non fun")
     | Match_body (vx, p) ->
@@ -243,7 +299,18 @@ and eval_clause ~session stk env clause : denv * dvalue =
           | _, _, _ -> failwith "incorrect binop"
         in
         Direct v
-    | Abort_body | Assume_body _ | Assert_body _ -> Direct (Value_bool true)
+    (* | Abort_body ->
+      raise @@ Found_abort x
+    | Assert_body vx ->
+      let v = fetch_val_to_direct ~session ~stk env vx in
+      let bv =
+        match v with
+        | Value_bool b -> Value_bool b
+        | _ -> failwith "failed assert"
+      in
+      Direct bv *)
+      (* TODO: What should the interpreter do with an assume statement? *)
+    | Abort_body | Assert_body _ | Assume_body _ -> Direct (Value_bool true)
     (* failwith "not supported yet" *)
   in
   let v = (v_pre, stk) in
@@ -289,6 +356,25 @@ let eval session e =
   try
     let v = eval_exp ~session Concrete_stack.empty empty_env e in
     raise (Terminate v)
+  with
+  | Reach_max_step (x, stk) ->
+      Fmt.epr "Reach max steps\n" ;
+      (* alert_lookup target_stk x stk session.lookup_alert; *)
+      raise (Reach_max_step (x, stk))
+  | Run_the_same_stack_twice (x, stk) ->
+      Fmt.epr "Run into the same stack twice\n" ;
+      alert_lookup session x stk ;
+      raise (Run_the_same_stack_twice (x, stk))
+  | Run_into_wrong_stack (x, stk) ->
+      Fmt.epr "Run into wrong stack\n" ;
+      alert_lookup session x stk ;
+      raise (Run_into_wrong_stack (x, stk))
+
+let eval_verbose session e =
+  let empty_env = Ident_map.empty in
+  try
+    let (env, v) = eval_exp_verbose ~session Concrete_stack.empty empty_env e in
+    raise (Terminate_with_env (env, v))
   with
   | Reach_max_step (x, stk) ->
       Fmt.epr "Reach max steps\n" ;
