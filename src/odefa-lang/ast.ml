@@ -17,6 +17,15 @@ module Ident = struct
   let hash = Hashtbl.hash
 end
 
+(* Refactoring: Use this definition of Ident *)
+module Ident_new = struct include Base
+  type t = ident = Ident of string
+  [@@deriving sexp, compare, equal, hash, show, to_yojson]
+
+  let hash = Hashtbl.hash
+end
+;;
+
 module Ident_hashtbl = Hashtbl.Make (Ident)
 
 module Ident_set = struct

@@ -32,7 +32,7 @@ let show_freshening_stack = pp_to_string pp_freshening_stack
 let pp_var formatter (Var (i, mfs)) =
   pp_ident formatter i ;
   match mfs with
-  | None -> Format.pp_print_char formatter '$'
+  | None -> Format.pp_print_string formatter ""
   | Some fs -> pp_freshening_stack formatter fs
 
 let show_var = pp_to_string pp_var

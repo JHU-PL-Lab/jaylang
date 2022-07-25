@@ -7,6 +7,7 @@ type dvalue =
   | Direct of value
   | FunClosure of Ident.t * function_value * denv
   | RecordClosure of record_value * denv
+  | AbortClosure of denv
 
 and dvalue_with_stack = dvalue * Concrete_stack.t
 and denv = dvalue_with_stack Ident_map.t
@@ -26,11 +27,13 @@ let value_of_dvalue = function
   | Direct v -> v
   | FunClosure (_fid, fv, _env) -> Value_function fv
   | RecordClosure (r, _env) -> Value_record r
+  | AbortClosure _ -> failwith "To be implemented!"
 
 let pp_dvalue oc = function
   | Direct v -> Odefa_ast.Ast_pp.pp_value oc v
   | FunClosure _ -> Format.fprintf oc "(fc)"
   | RecordClosure _ -> Format.fprintf oc "(rc)"
+  | AbortClosure _ -> Format.fprintf oc "(abort)"
 
 exception Found_target of { x : Id.t; stk : Concrete_stack.t; v : dvalue }
 exception Terminate of dvalue
@@ -310,7 +313,8 @@ and eval_clause ~session stk env clause : denv * dvalue =
       in
       Direct bv *)
       (* TODO: What should the interpreter do with an assume statement? *)
-    | Abort_body | Assert_body _ | Assume_body _ -> Direct (Value_bool true)
+    | Abort_body -> AbortClosure env 
+    | Assert_body _ | Assume_body _ -> Direct (Value_bool true)
     (* failwith "not supported yet" *)
   in
   let v = (v_pre, stk) in

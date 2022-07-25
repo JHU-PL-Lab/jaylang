@@ -1,4 +1,4 @@
-open Batteries
+open Core
 open Jhupllib
 open Odefa_ast
 open Ast
@@ -22,15 +22,15 @@ let rec change_abort_vars (old_var : var) (new_var : var) (clause : clause) :
       match value with
       | Value_function f ->
           let (Function_value (arg, Expr f_body)) = f in
-          let f_body' = List.map (change_abort_vars old_var new_var) f_body in
+          let f_body' = List.map ~f:(change_abort_vars old_var new_var) f_body in
           let value' = Value_function (Function_value (arg, Expr f_body')) in
           Clause (v, Value_body value')
       | _ -> clause)
   | Conditional_body (pred, e1, e2) ->
       let (Expr cl1) = e1 in
       let (Expr cl2) = e2 in
-      let cl1' = List.map (change_abort_vars old_var new_var) cl1 in
-      let cl2' = List.map (change_abort_vars old_var new_var) cl2 in
+      let cl1' = List.map ~f:(change_abort_vars old_var new_var) cl1 in
+      let cl2' = List.map ~f:(change_abort_vars old_var new_var) cl2 in
       let body' = Conditional_body (pred, Expr cl1', Expr cl2') in
       Clause (v, body')
   | _ -> clause
@@ -267,7 +267,7 @@ let rec instrument_clauses (c_list : clause list) : clause list m =
    will zero out because the variable is always outside the scope of the
    function. *)
 let add_first_var (c_list : clause list) : clause list m =
-  let (Clause (_, first_body)) = List.first c_list in
+  let (Clause (_, first_body)) = List.hd_exn c_list in
   match first_body with
   | Value_body (Value_function _) ->
       let%bind fresh_str = freshness_string in
@@ -278,7 +278,7 @@ let add_first_var (c_list : clause list) : clause list m =
   | _ -> return c_list
 
 let add_result_var (c_list : clause list) : clause list m =
-  let (Clause (last_var, _)) = List.last c_list in
+  let (Clause (last_var, _)) = List.last_exn c_list in
   let%bind fresh_string = freshness_string in
   let result_var = Var (Ident (fresh_string ^ "result"), None) in
   let result_cls = Clause (result_var, Var_body last_var) in
