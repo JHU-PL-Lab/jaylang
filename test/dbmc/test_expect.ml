@@ -12,7 +12,6 @@ let one_run_of_sexp s =
 type one_case = {
   inputs : one_run list;
   target : string; [@default "target"]
-  strict_match : bool; [@default true]
   max_step : int option; [@sexp.option]
 }
 
@@ -26,7 +25,6 @@ let load_sexp_expectation_for testpath =
 
 (* let t1 : t = {
      runs = [[1]];
-     strict_match = true;
      max_step = None;
    }
 
