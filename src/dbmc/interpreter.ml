@@ -19,9 +19,10 @@ struct
 ;;
 end;;
 
-(* type ident_with_stack = Ident.t * Concrete_stack.t *)
-
 type ident_with_stack_set = Ident_with_stack.t Hash_set.t
+
+let show_ident_with_stack (x, stk) = 
+  (show_ident x) ^ "@" ^ Concrete_stack.to_string stk
 
 let value_of_dvalue = function
   | Direct v -> v
@@ -57,6 +58,7 @@ type session = {
   max_step : int option;
   (* Book-keeping *)
   alias_map : (Ident_with_stack.t, ident_with_stack_set) Hashtbl.t;
+  val_def_map : (Ident_with_stack.t, clause_body) Hashtbl.t;
   (* debug *)
   is_debug : bool;
   node_set : (Lookup_key.t, bool) Hashtbl.t;
@@ -73,6 +75,7 @@ let default_session =
     is_debug = false;
     step = ref 0;
     alias_map = Hashtbl.create (module Ident_with_stack);
+    val_def_map = Hashtbl.create (module Ident_with_stack);
     node_set = Hashtbl.create (module Lookup_key);
     node_get = Hashtbl.create (module Lookup_key);
     rstk_picked = Hashtbl.create (module Rstack);
@@ -88,6 +91,7 @@ let create_session ?max_step target_stk (state : Global_state.t)
     is_debug = config.debug_graph;
     step = ref 0;
     alias_map = Hashtbl.create (module Ident_with_stack);
+    val_def_map = Hashtbl.create (module Ident_with_stack);
     node_set = state.node_set;
     node_get = state.node_get;
     rstk_picked = state.rstk_picked;
@@ -114,6 +118,14 @@ let add_alias_mapping x1 x2 session : unit =
     in
     let () = Hash_set.add x1_aliases x2 in
     Hashtbl.set alias_map ~key:x1 ~data:x1_aliases
+
+let add_val_def_mapping x vdef session : unit = 
+  let val_def_mapping = session.val_def_map in
+  let added = Hashtbl.add ~key:x ~data:vdef val_def_mapping in
+  match added with
+  | `Duplicate ->
+    failwith "Should not encounter a variable with the same stack again!"
+  | `Ok -> ()
 
 let debug_update_read_node session x stk =
   match (session.is_debug, session.mode) with
@@ -225,9 +237,15 @@ and eval_clause ~session stk env clause : denv * dvalue =
 
   let (v_pre : dvalue) =
     match cbody with
-    | Value_body (Value_function vf) -> FunClosure (x, vf, env)
-    | Value_body (Value_record r) -> RecordClosure (r, env)
-    | Value_body v -> Direct v
+    | Value_body (Value_function vf) -> 
+      let () = add_val_def_mapping (x, stk) cbody session in
+      FunClosure (x, vf, env)
+    | Value_body (Value_record r) -> 
+      let () = add_val_def_mapping (x, stk) cbody session in
+      RecordClosure (r, env)
+    | Value_body v -> 
+      let () = add_val_def_mapping (x, stk) cbody session in
+      Direct v
     | Var_body vx -> 
       let Var (v, _) = vx in 
       add_alias_mapping (x, stk) (v, stk) session;
@@ -241,22 +259,26 @@ and eval_clause ~session stk env clause : denv * dvalue =
         eval_exp ~session stk' env e
     | Input_body ->
         (* TODO: the interpreter may propagate the dummy value (through the value should never be used in any control flow)  *)
+        let () = add_val_def_mapping (x, stk) cbody session in
         let n = session.input_feeder (x, stk) in
         Direct (Value_int n)
-    | Appl_body (vx1, vx2) -> (
+    | Appl_body (vx1, (Var (x2, _) as vx2)) -> (
         match fetch_val ~session ~stk env vx1 with
         | FunClosure (fid, Function_value (Var (arg, _), body), fenv) ->
-            let v2 = fetch_val ~session ~stk env vx2 in
+            (* let v2 = fetch_val ~session ~stk env vx2 in *)
+            let v2, v2_stk = fetch_val_with_stk ~session ~stk env vx2 in
             let stk2 = Concrete_stack.push (x, fid) stk in
             let env2 = Ident_map.add arg (v2, stk) fenv in
-            add_alias_mapping (x, stk) (arg, stk) session;
+            add_alias_mapping (x2, v2_stk) (arg, stk) session;
             eval_exp ~session stk2 env2 body
         | _ -> failwith "app to a non fun")
     | Match_body (vx, p) ->
+        let () = add_val_def_mapping (x, stk) cbody session in
         Direct (Value_bool (check_pattern ~session ~stk env vx p))
     | Projection_body (v, key) -> (
         match fetch_val ~session ~stk env v with
         | RecordClosure (Record_value r, denv) ->
+            let () = add_val_def_mapping (x, stk) cbody session in
             let vv = Ident_map.find key r in
             fetch_val ~session ~stk denv vv
         | Direct (Value_record (Record_value _record)) ->
@@ -268,7 +290,9 @@ and eval_clause ~session stk env clause : denv * dvalue =
         let v = fetch_val_to_direct ~session ~stk env vx in
         let bv =
           match v with
-          | Value_bool b -> Value_bool (not b)
+          | Value_bool b -> 
+            let () = add_val_def_mapping (x, stk) cbody session in
+            Value_bool (not b)
           | _ -> failwith "incorrect not"
         in
         Direct bv
@@ -301,6 +325,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
               Value_bool (b1 || b2)
           | _, _, _ -> failwith "incorrect binop"
         in
+        let () = add_val_def_mapping (x, stk) cbody session in
         Direct v
     (* | Abort_body ->
       raise @@ Found_abort x
@@ -313,8 +338,12 @@ and eval_clause ~session stk env clause : denv * dvalue =
       in
       Direct bv *)
       (* TODO: What should the interpreter do with an assume statement? *)
-    | Abort_body -> AbortClosure env 
-    | Assert_body _ | Assume_body _ -> Direct (Value_bool true)
+    | Abort_body -> 
+      let () = add_val_def_mapping (x, stk) cbody session in
+      AbortClosure env 
+    | Assert_body _ | Assume_body _ -> 
+      let () = add_val_def_mapping (x, stk) cbody session in
+      Direct (Value_bool true)
     (* failwith "not supported yet" *)
   in
   let v = (v_pre, stk) in
@@ -339,6 +368,11 @@ and fetch_val_to_bool ~session ~stk env vx : bool =
   match fetch_val ~session ~stk env vx with
   | Direct (Value_bool b) -> b
   | _ -> failwith "eval to non bool"
+
+and fetch_val_with_stk ~session ~stk env (Var (x, _)) : dvalue * Concrete_stack.t =
+  let res = Ident_map.find x env in
+  debug_update_read_node session x stk ;
+  res
 
 and check_pattern ~session ~stk env vx pattern : bool =
   let is_pass =

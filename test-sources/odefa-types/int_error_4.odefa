@@ -1,0 +1,11 @@
+one = 1;
+
+f1 = fun x -> (
+    f2 = fun y -> (
+        zero = 0;
+        ret = zero and zero;
+    )
+);
+
+ap0 = f1 one;
+ap1 = ap0 one;

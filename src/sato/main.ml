@@ -12,6 +12,15 @@ let get_operand_type op =
   | Binary_operator_not_equal_to -> Int_type
   | Binary_operator_and | Binary_operator_or -> Bool_type
 
+let get_value_type v = 
+  match v with
+  | Value_int _ -> Int_type
+  | Value_bool _ -> Bool_type
+  | Value_function _ -> Fun_type
+  | Value_record (Record_value r) -> 
+    let lbls = Ident_set.of_enum @@ Ident_map.keys r in
+    Rec_type lbls
+
 (* Enumerate all aborts in a program *)
 let rec enum_all_aborts_in_expr expr : (ident * abort_value) list =
   let Expr clauses = expr in
@@ -139,7 +148,7 @@ let show_error inputs err_loc errors =
 let main_commandline () =
   let sato_config = Argparse.parse_commandline_config () in
   let dbmc_config_init = create_initial_dmbc_config sato_config in
-  let (pre_inst_program, program, on_to_odefa_maps, _) = 
+  let (_pre_inst_program, program, on_to_odefa_maps, _) = 
     File_util.read_source_sato dbmc_config_init.filename 
   in
   let ab_pairs = enum_all_aborts_in_expr program in
@@ -155,23 +164,16 @@ let main_commandline () =
       (try
         let open Dbmc in
         let (inputss, _, state, ret_opt) = Dbmc.Main.main_details_ret_model ~config:dbmc_config program in
-        (* Getting the target clause *)
-        let Expr c_list = pre_inst_program in 
-        let source_map = 
-          let alist = 
-            List.map ~f:(fun (Clause (Var (x, _), cls_body)) -> (x, cls_body)) c_list
-          in
-          Hashtbl.of_alist_exn (module Ident_new) alist
-        in
         match (List.hd inputss, ret_opt) with
-        | (Some inputs, Some (_, c_stk)) ->
+        | (Some inputs, Some (_, _c_stk)) ->
+          (* Getting the target clause *)
           let abort_var = state.target in
           let abort_cond_var = get_abort_cond_clause_id ab_pairs abort_var in
           let Clause (_, cls) as pre_inst = 
             get_pre_inst_equivalent_clause on_to_odefa_maps abort_cond_var 
           in
-          let () = print_endline "This is the point of error: " in
-          let () = print_endline @@ Odefa_ast.Ast_pp.show_clause pre_inst in
+          (* let () = print_endline "This is the point of error: " in
+          let () = print_endline @@ Odefa_ast.Ast_pp.show_clause pre_inst in *)
           begin
             let session = 
               { Interpreter.default_session with input_feeder = Input_feeder.from_list inputs }
@@ -182,83 +184,159 @@ let main_commandline () =
               )
             with
             | Interpreter.Terminate_with_env (_, ab_clo) ->
+              let alias_map = session.alias_map in
+              let find_alias x_with_stk ~key ~data acc =
+                if (Interpreter.Ident_with_stack.equal key x_with_stk) then 
+                  Hash_set.union acc data
+                else
+                  if Hash_set.mem data x_with_stk then
+                    (Hash_set.iter data ~f:(Hash_set.add acc); 
+                    Hash_set.add acc key;
+                    acc)
+                  else
+                    acc
+              in
+              let rec find_source_cls cls_mapping xs =
+                match xs with
+                | [] -> failwith "Should have found a value definition clause!"
+                | hd :: tl ->
+                  let found = Hashtbl.find cls_mapping hd in
+                  match found with
+                  | Some cls -> cls
+                  | None -> find_source_cls cls_mapping tl
+              in
+              let mk_match_err expected_type actual_val x x_stk = 
+                match expected_type, actual_val with
+                | Int_type, Value_int _| Bool_type, Value_bool _ -> []
+                | _ -> 
+                  let find_aliases = find_alias (x, x_stk) in
+                  let match_aliases_raw =
+                    let init_set = 
+                      Hash_set.create (module Interpreter.Ident_with_stack)
+                    in
+                    Hash_set.add init_set (x, x_stk);
+                    Hashtbl.fold alias_map ~init:init_set ~f:find_aliases
+                    |> Hash_set.to_list
+                  in
+                  (* let () = print_endline @@ "This is the alias set" in
+                  let () = 
+                    print_endline @@ 
+                    List.to_string ~f:(Interpreter.show_ident_with_stack) match_aliases_raw 
+                  in *)
+                  let match_val_source = 
+                    find_source_cls session.val_def_map match_aliases_raw 
+                  in
+                  let match_aliases = 
+                    match_aliases_raw
+                    |> List.map ~f:(fun (x, _) -> x)
+                  in
+                  let actual_type = get_value_type actual_val in
+                  let match_error = Odefa_ast.Error.Odefa_error.Error_match {
+                    err_match_aliases = match_aliases;
+                    err_match_val = match_val_source;
+                    err_match_expected = expected_type;
+                    err_match_actual = actual_type;
+                  }
+                  in
+                  [match_error]
+              in
+              (
               match cls with
               (* If the point of error is a binary operation, we know that one of
                  the two operands must have taken the wrong type.
               *)
-              | Binary_operation_body ((Var (x1, _) as v1), op, (Var (x2, _) as v2)) ->
+              | Binary_operation_body (Var (x1, _), op, Var (x2, _)) ->
                 let expected_type = 
                   get_operand_type op
                 in
-                let c_stk_actual = 
-                  let tl = 
-                    c_stk 
-                    |> Concrete_stack.to_list 
-                    |> List.rev
-                    |> List.tl_exn
-                    |> List.rev
-                  in
-                  Concrete_stack.of_list @@ tl
-                in
-                let x1_val, x2_val = 
+                let (x1_val, x1_stk), (x2_val, x2_stk) = 
                   match ab_clo with
                   | AbortClosure final_env ->
-                    let (v1, _) = Ident_map.find x1 final_env in
-                    let (v2, _) = Ident_map.find x2 final_env in
-                    (v1, v2)
+                    let (dv1, stk1) = Ident_map.find x1 final_env in
+                    let (dv2, stk2) = Ident_map.find x2 final_env in
+                    let v1, v2 = 
+                      Interpreter.value_of_dvalue dv1,
+                      Interpreter.value_of_dvalue dv2
+                    in 
+                    (v1, stk1), (v2, stk2)
                   | _ -> failwith "Shoud have run into abort here!"
                 in
-                failwith "TBI!"
-                (* let c_body1 = Hashtbl.find_exn source_map x1 in
-                let c_body2 = Hashtbl.find_exn source_map x2 in
-                let alias_map = session.alias_map in
-                let c_stk_actual = 
-                  let tl = List.tl_exn @@ Concrete_stack.to_list c_stk in
-                  Concrete_stack.of_list @@ tl
+                let left_error = mk_match_err expected_type x1_val x1 x1_stk in
+                let right_error = mk_match_err expected_type x2_val x2 x2_stk in
+                let errors = List.append left_error right_error in
+                let () = print_endline @@ show_error inputs pre_inst errors in
+                ()
+              (* If it's a Not operation, we know that the operand has the
+                 wrong type. *)
+              | Not_body (Var (x, _)) ->
+                let expected_type = Bool_type in
+                let (x_val, x_stk) = 
+                  match ab_clo with
+                  | AbortClosure final_env ->
+                    let (dv, stk) = Ident_map.find x final_env in
+                    let v = 
+                      Interpreter.value_of_dvalue dv
+                    in 
+                    (v, stk)
+                  | _ -> failwith "Shoud have run into abort here!"
                 in
-                let x1_with_stk = (x1, c_stk_actual) in
-                (* let () = print_endline @@ show_ident x1 ^ " @ " ^ Concrete_stack.show c_stk_actual in *)
-                let find_alias ((x, _) as x_with_stk) ~key ~data acc =
-                  if (Interpreter.Ident_with_stack.equal key x_with_stk) then 
-                    data
-                    |> Hash_set.to_list
-                    |> List.map ~f:(fun (x_id, _) -> x_id)
-                    |> fun l -> x :: l
-                  else
-                    if Hash_set.mem data x_with_stk then
-                      data
-                      |> Hash_set.to_list
-                      |> List.map ~f:(fun (x_id, _) -> x_id)
-                      |> fun l -> x :: l
-                    else
-                      acc
+                let error = mk_match_err expected_type x_val x x_stk in
+                let () = print_endline @@ show_error inputs pre_inst error in
+                ()
+              (* If it's a function application, we know that we're applying to
+                 a non-function. *)
+              | Appl_body (Var (x, _), _) ->
+                let expected_type = Fun_type in
+                let (x_val, x_stk) = 
+                  match ab_clo with
+                  | AbortClosure final_env ->
+                    let (dv, stk) = Ident_map.find x final_env in
+                    let v = 
+                      Interpreter.value_of_dvalue dv
+                    in 
+                    (v, stk)
+                  | _ -> failwith "Shoud have run into abort here!"
                 in
-                let find_left = find_alias (x1, c_stk) in
-                let find_right = find_alias (x2, c_stk) in
-                let left_aliases =
-                  Hashtbl.fold alias_map ~init:[x1] ~f:find_left
+                let error = mk_match_err expected_type x_val x x_stk in
+                let () = print_endline @@ show_error inputs pre_inst error in
+                ()
+              (* If it's a record projection, we know that we're projecting from
+                 the wrong record. *)
+              | Projection_body (Var (x, _), lbl) ->
+                let expected_type = Rec_type (Ident_set.singleton lbl) in
+                let (x_val, x_stk) = 
+                  match ab_clo with
+                  | AbortClosure final_env ->
+                    let (dv, stk) = Ident_map.find x final_env in
+                    let v = 
+                      Interpreter.value_of_dvalue dv
+                    in 
+                    (v, stk)
+                  | _ -> failwith "Shoud have run into abort here!"
                 in
-                let right_aliases =
-                  Hashtbl.fold alias_map ~init:[x2] ~f:find_right
+                let error = mk_match_err expected_type x_val x x_stk in
+                let () = print_endline @@ show_error inputs pre_inst error in
+                ()
+              (* If it's a conditional, we know that condition itself is not a 
+                 boolean type. *)
+              | Conditional_body (Var (x, _), _, _) ->
+                let expected_type = Bool_type in
+                let (x_val, x_stk) = 
+                  match ab_clo with
+                  | AbortClosure final_env ->
+                    let (dv, stk) = Ident_map.find x final_env in
+                    let v = 
+                      Interpreter.value_of_dvalue dv
+                    in 
+                    (v, stk)
+                  | _ -> failwith "Shoud have run into abort here!"
                 in
-                    
-                let error = 
-                  Odefa_ast.Error.Odefa_error.Error_binop
-                  { err_binop_left_aliases = left_aliases;
-                    err_binop_right_aliases = right_aliases;
-                    err_binop_left_val = c_body1;
-                    err_binop_right_val = c_body2;
-                    err_binop_operation = (Odefa_ast.Ast.Var_body v1, op, Odefa_ast.Ast.Var_body v2);
-                  } 
-                in
-                let () = print_endline @@ show_error inputs pre_inst [error] in
-                () *)
+                let error = mk_match_err expected_type x_val x x_stk in
+                let () = print_endline @@ show_error inputs pre_inst error in
+                ()
               | _ -> exit 0
-              (* let () = 
-              Ident_map.iter (fun x _v -> print_endline @@ show_ident x) env
-              in
-              () *)
-            (* | _ -> failwith "Should terminate with an environment!" *)
+              )
+            | _ -> failwith "Should terminate with an environment!"
           end
         | None, _ -> search_all_targets tl
         | Some _, None -> failwith "Shouldn't happen here!"
