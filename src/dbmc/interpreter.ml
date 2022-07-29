@@ -256,7 +256,11 @@ and eval_clause ~session stk env clause : denv * dvalue =
           then (e1, Concrete_stack.push (x, cond_fid true) stk)
           else (e2, Concrete_stack.push (x, cond_fid false) stk)
         in
-        eval_exp ~session stk' env e
+        let ret_env, ret_val = eval_exp_verbose ~session stk' env e in
+        let Var (ret_id, _) as last_v = Ast_tools.retv e in
+        let _, ret_stk = fetch_val_with_stk ~session ~stk:stk' ret_env last_v in
+        add_alias_mapping (x, stk) (ret_id, ret_stk) session;
+        ret_val
     | Input_body ->
         (* TODO: the interpreter may propagate the dummy value (through the value should never be used in any control flow)  *)
         let () = add_val_def_mapping (x, stk) cbody session in

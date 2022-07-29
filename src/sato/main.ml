@@ -148,7 +148,7 @@ let show_error inputs err_loc errors =
 let main_commandline () =
   let sato_config = Argparse.parse_commandline_config () in
   let dbmc_config_init = create_initial_dmbc_config sato_config in
-  let (_pre_inst_program, program, on_to_odefa_maps, _) = 
+  let (program, on_to_odefa_maps, _) = 
     File_util.read_source_sato dbmc_config_init.filename 
   in
   let ab_pairs = enum_all_aborts_in_expr program in
@@ -163,9 +163,11 @@ let main_commandline () =
       (* Right now we're stopping after one error is found. *)
       (try
         let open Dbmc in
-        let (inputss, _, state, ret_opt) = Dbmc.Main.main_details_ret_model ~config:dbmc_config program in
-        match (List.hd inputss, ret_opt) with
-        | (Some inputs, Some (_, _c_stk)) ->
+        let (inputss, _, state) = 
+          Dbmc.Main.main_details ~config:dbmc_config program 
+        in
+        match List.hd inputss with
+        | Some inputs ->
           (* Getting the target clause *)
           let abort_var = state.target in
           let abort_cond_var = get_abort_cond_clause_id ab_pairs abort_var in
@@ -338,8 +340,7 @@ let main_commandline () =
               )
             | _ -> failwith "Should terminate with an environment!"
           end
-        | None, _ -> search_all_targets tl
-        | Some _, None -> failwith "Shouldn't happen here!"
+        | None -> search_all_targets tl
       with ex -> (* Printexc.print_backtrace Out_channel.stderr ; *)
                   raise ex)
   in
