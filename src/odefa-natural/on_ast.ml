@@ -97,6 +97,7 @@ and expr =
   | ListCons of expr_desc * expr_desc  
   | Assert of expr_desc 
   | Assume of expr_desc 
+  | Error of ident
   [@@ deriving eq, ord, show, to_yojson]
 
 module Expr_desc = struct
@@ -141,6 +142,7 @@ let expr_precedence_p1 (expr : expr) : int =
   | Appl _ -> 10
   | RecordProj _ -> 11
   | Int _ | Bool _ | Input | Var _ | List _ | Record _ -> 12
+  | Error _ -> 13
 ;;
 
 (** Takes expressions e1 and e2 as arguments.  Returns 0 if the two

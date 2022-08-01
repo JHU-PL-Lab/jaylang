@@ -57,3 +57,9 @@ val is_natodefa : t -> bool;;
 (** Returns true if the ident was added during instrumentation, false
     otherwise. *)
 val is_var_instrumenting : t -> Ast.ident -> bool;;
+
+val odefa_to_on_aliases : t -> Ast.ident list -> On_ast.expr_desc list;;
+
+(** Given a natodefa expression, returns the corresponding variable in desugared
+    odefa. *)
+val get_odefa_var_opt_from_natodefa_expr : t -> On_ast.expr_desc -> Ast.var option;;

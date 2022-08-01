@@ -381,7 +381,10 @@ let rec m_env_out_transform_expr
       return @@ ({tag = og_tag; body = On_ast.Assert e'}, out)
     | On_ast.Assume e ->
       let%bind (e', out) = recurse env e in
-      return @@ ({tag = og_tag; body = On_ast.Assume e'}, out)   
+      return @@ ({tag = og_tag; body = On_ast.Assume e'}, out)
+    | On_ast.Error x -> 
+      return @@ ({tag = og_tag; body = On_ast.Error x}, default)
+
   in
   let%bind (e'', out'') = transformer recurse env e' in
   return (e'', combiner out' out'')

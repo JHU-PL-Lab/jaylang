@@ -330,3 +330,18 @@ let is_var_instrumenting mappings odefa_ident =
   let inst_map = mappings.odefa_instrument_vars_map in
   Ast.Ident_map.mem odefa_ident inst_map
 ;;
+
+let odefa_to_on_aliases on_mappings aliases =
+  let odefa_to_on_expr x =
+    get_natodefa_equivalent_expr on_mappings x
+  in
+  aliases
+  |> List.filter_map
+    (fun alias ->
+      let e_desc = odefa_to_on_expr alias in
+      match (e_desc.body) with
+      | (On_ast.Var _) | Error _ -> Some e_desc
+      | _ -> None
+    )
+  |> List.unique
+;;

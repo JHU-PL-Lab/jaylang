@@ -20,7 +20,7 @@ open TranslationMonad;;
 
 let lazy_logger = Logger_utils.make_lazy_logger "On_to_odefa";;
 
-let show_expr = Pp_utils.pp_to_string On_ast_pp.pp_expr;;
+(* let show_expr = Pp_utils.pp_to_string On_ast_pp.pp_expr;; *)
 
 (* **** Variable alphatization **** *)
 
@@ -588,7 +588,7 @@ let on_to_odefa_ident (On_ast.Ident (id)) = Ast.Ident (id);;
 (** Flatten a pattern. The second value in the pair is a list of projection
     clauses associated with a record or variable pattern; these will be
     appended to the front of the pattern's expression. *)
-    let flatten_pattern
+let flatten_pattern
     (e_desc : On_ast.expr_desc)
     (pat_var : Ast.var)
     (pattern : On_ast.pattern)
@@ -993,7 +993,7 @@ let debug_transform_on
   : On_ast.expr_desc m =
   let%bind e' = transform e in
   lazy_logger `debug (fun () ->
-    Printf.sprintf "Result of %s:\n%s" trans_name (show_expr e'.body));
+    Printf.sprintf "Result of %s:\n%s" trans_name (On_ast.show_expr e'.body));
   return e'
 ;;
 
@@ -1011,7 +1011,7 @@ let debug_transform_odefa
 
 let translate
     ?translation_context:(translation_context=None)
-    ?is_instrumented:(is_instrumented=false)
+    ?is_instrumented:(is_instrumented=true)
     (e : On_ast.expr_desc)
   : (Ast.expr * On_to_odefa_maps.t) =
   let (e_m_with_info : (Ast.expr * On_to_odefa_maps.t) m) =
@@ -1033,7 +1033,7 @@ let translate
     in
     (* Translation sequence *)
     lazy_logger `debug (fun () ->
-      Printf.sprintf "Initial program:\n%s" (show_expr e.body));
+      Printf.sprintf "Initial program:\n%s" (On_ast.show_expr e.body));
     let%bind translation_result =
       return e
       >>= debug_transform_on "desugaring" preliminary_encode_expr

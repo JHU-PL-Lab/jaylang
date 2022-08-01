@@ -224,6 +224,8 @@ and pp_expr
       Format.fprintf formatter "assume %a" pp_expr_desc e
     else
       Format.fprintf formatter "assume (%a)" pp_expr_desc e
+  | Error x ->
+    Format.fprintf formatter "%a" pp_ident x
 ;;
 
 let show_ident = Pp_utils.pp_to_string pp_ident;;
