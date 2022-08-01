@@ -333,7 +333,7 @@ let _odefa_to_on_binop (odefa_binop : Ast.binary_operator) :
     in
     { tag = cur_tag; body = t' } *)
 
-let odefa_to_natodefa_error = failwith "TBI!"
+(* let odefa_to_natodefa_error = exit 0 *)
 
 (* let odefa_to_natodefa_error (odefa_on_maps : On_to_odefa_maps.t)
     (ton_on_maps : Ton_to_on_maps.t)

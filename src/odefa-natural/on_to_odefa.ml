@@ -100,7 +100,7 @@ let rec rename_variable
   let e = e_desc.body in
   let renamed_expr = 
     match e with
-      | Int _ | Bool _ | Input -> e
+      | Int _ | Bool _ | Input | Error _ -> e
       | Var (id) ->
         if id = old_name then Var new_name else Var id
       | Function (id_list, e') ->
@@ -319,7 +319,7 @@ let alphatize (e : On_ast.expr_desc) : On_ast.expr_desc m =
       match expr with
       (* In leaf cases, no new variables are defined and so we have no work to
         do. *)
-      | Var _ | Input | Int _ | Bool _ ->
+      | Var _ | Input | Int _ | Bool _ | Error _ ->
         return (expr, seen_declared)
       | Function (params, body) ->
         (* Recurse on the body to ensure that it is internally alphatized. *)

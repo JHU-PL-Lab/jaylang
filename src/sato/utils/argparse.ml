@@ -50,7 +50,7 @@ let parse_commandline_config () =
       and debug_graph = flag "-g" no_arg ~doc:"output graphviz dot" in *)
       fun () ->
         let latter_option l1 l2 = Option.merge l1 l2 ~f:(fun _ y -> y) in
-
+        let is_natodefa = File_utils.is_natodefa_ext filename in
         let top_config =
           {
             (* target; *)
@@ -58,6 +58,7 @@ let parse_commandline_config () =
             (* engine; *)
             (* is_instrumented; *)
             (* expected_inputs; *)
+            is_natodefa;
             ddpa_c_stk;
             run_max_step;
             timeout;

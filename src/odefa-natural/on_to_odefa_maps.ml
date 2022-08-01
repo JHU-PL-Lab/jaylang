@@ -214,6 +214,7 @@ let get_pre_inst_equivalent_clause mappings odefa_ident =
       | ListCons (e1, e2) -> ListCons (recurse e1, recurse e2)
       | Assert e -> Assert (recurse e)
       | Assume e -> Assume (recurse e)
+      | Error x -> Error x
     in
     {tag = og_tag; body = body'}
   ;;
@@ -344,4 +345,124 @@ let odefa_to_on_aliases on_mappings aliases =
       | _ -> None
     )
   |> List.unique
+;;
+
+let get_odefa_var_opt_from_natodefa_expr mappings (expr : On_ast.expr_desc) =
+  (* Getting the desugared version of core nat expression *)
+  let desugared_core = 
+    (* let () = print_endline @@ "This is the transformed expr" in
+    let () = print_endline @@ show_expr_desc expr in *)
+    let find_key_by_value v = 
+      Expr_desc_map.fold
+      (fun desugared sugared acc -> 
+        (* let () = print_endline "----------------------" in *)
+        (* let () = print_endline @@ "This is the value in the dictionary: " in *)
+        (* let () = print_endline @@ show_expr_desc sugared in *)
+        (* let () = print_endline @@ "This is the key in the dictionary: " in *)
+        (* let () = print_endline @@ show_expr_desc desugared in *)
+        (* let () = print_endline "----------------------" in *)
+        if (sugared = v) then Some desugared else acc)
+      mappings.natodefa_expr_to_expr None 
+    in
+    let rec loop edesc = 
+      let edesc_opt' = find_key_by_value edesc in
+      match edesc_opt' with
+      | None -> edesc
+      | Some edesc' -> loop edesc'
+    in
+    loop expr
+  in
+  (* Getting the alphatized version *)
+  let on_ident_transform 
+    (e_desc : On_ast.expr_desc) : On_ast.expr_desc =
+  let open On_ast in
+  let find_ident ident =
+    Ident_map.fold 
+    (fun renamed og_name acc ->
+      if (og_name = ident) then renamed else acc  
+    ) mappings.natodefa_var_to_var ident
+  in
+  let transform_funsig funsig =
+    let (Funsig (fun_ident, arg_ident_list, body)) = funsig in
+    let fun_ident' = find_ident fun_ident in
+    let arg_ident_list' = List.map find_ident arg_ident_list in
+    Funsig (fun_ident', arg_ident_list', body)
+  in
+  let expr = e_desc.body in
+  let og_tag = e_desc.tag in
+  let expr' = 
+    match expr with
+    | Var ident -> Var (find_ident ident)
+    | Function (ident_list, body) ->
+      Function (List.map find_ident ident_list, body)
+    | Let (ident, e1, e2) ->
+      Let (find_ident ident, e1, e2)
+    | LetFun (funsig, e) ->
+      LetFun (transform_funsig funsig, e)
+    | LetRecFun (funsig_list, e) ->
+      LetRecFun (List.map transform_funsig funsig_list, e)
+    | Match (e, pat_e_list) ->
+      let transform_pattern pat =
+        match pat with
+        | RecPat record ->
+          let record' =
+            record
+            |> Ident_map.enum
+            |> Enum.map
+              (fun (lbl, x_opt) ->
+                match x_opt with
+                | Some x -> (lbl, Some (find_ident x))
+                | None -> (lbl, None)
+              )
+            |> Ident_map.of_enum
+          in
+          RecPat record'
+        (* | StrictRecPat record ->
+          let record' =
+            record
+            |> Ident_map.enum
+            |> Enum.map
+              (fun (lbl, x_opt) ->
+                match x_opt with
+                | Some x -> (lbl, Some (find_ident x))
+                | None -> (lbl, None)
+              )
+            |> Ident_map.of_enum
+          in
+          StrictRecPat record' *)
+        | VariantPat (vlbl, x) ->
+          VariantPat (vlbl, find_ident x)
+        | VarPat x ->
+          VarPat (find_ident x)
+        | LstDestructPat (x1, x2) ->
+          LstDestructPat (find_ident x1, find_ident x2)
+        | AnyPat | IntPat | BoolPat | FunPat | EmptyLstPat -> pat
+        (* | UntouchedPat _ *)
+      in
+      let pat_e_list' =
+        List.map
+          (fun (pat, match_expr) -> 
+            (transform_pattern pat, match_expr))
+          pat_e_list
+      in
+      Match (e, pat_e_list')
+    | _ -> expr
+  in
+  {tag = og_tag; body = expr'}
+  in
+  let alphatized = 
+    on_expr_transformer on_ident_transform desugared_core
+    (* actual_expr *)
+  in
+  let odefa_var_opt = 
+    (* let () = print_endline @@ "This is the original expr" in
+    let () = print_endline @@ show_expr_desc alphatized in *)
+    Ast.Ident_map.fold
+    (fun odefa_var core_expr acc -> 
+      (* let () = print_endline @@ "This is the value in the dictionary: " in
+      let () = print_endline @@ show_expr_desc core_expr in *)
+      if (core_expr = alphatized) then Some (Ast.Var (odefa_var, None)) else acc) 
+    mappings.odefa_var_to_natodefa_expr None
+  in
+  odefa_var_opt
 ;;
