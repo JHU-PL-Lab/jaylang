@@ -103,21 +103,63 @@ let expected_input_session input_feeder target_x =
 
 let cond_fid b = if b then Ident "$tt" else Ident "$ff"
 
+(* a = b, c = d, b = d 
+  a => {a, b}
+  c => {c, d}
+*)
+(* K + K, K + V, V + V, NA + K, NA + V, NA + NA*)
 let add_alias_mapping x1 x2 session : unit =
-  let alias_map = session.alias_map in
+  failwith "TBI!"
+  (* let alias_map = session.alias_map in
+  let contained_x1 = 
+    Hashtbl.exists ~f:(fun s -> Hash_set.mem s x1)
+  in
   if Hashtbl.mem alias_map x1 then
+    let () = print_endline @@ "x1 is the key, adding x2" in
+    let () = print_endline @@ show_ident_with_stack x1 in
+    let () = print_endline @@ show_ident_with_stack x2 in
     let x1_set = Hashtbl.find_exn alias_map x1 in
     Hash_set.add x1_set x2
   else
   if Hashtbl.mem alias_map x2 then
+    let () = print_endline @@ "x2 is the key, adding x1" in
+    let () = print_endline @@ show_ident_with_stack x1 in
+    let () = print_endline @@ show_ident_with_stack x2 in
+    let x2_set = Hashtbl.find_exn alias_map x2 in
+    Hash_set.add x2_set x1
+  else  *)
+  (* if Hashtbl.mem alias_map x1 && Hashtbl.mem alias_map x2 then
+    let () = print_endline @@ "Both are keys: " in
+    let () = print_endline @@ show_ident_with_stack x1 in
+    let () = print_endline @@ show_ident_with_stack x2 in
+    let x1_set = Hashtbl.find_exn alias_map x1 in
+    let x2_set = Hashtbl.find_exn alias_map x2 in
+    let () = Hashtbl.remove alias_map x2 in
+    Hashtbl.set alias_map ~key:x1 ~data:(Hash_set.union x1_set x2_set)
+  else
+  if Hashtbl.mem alias_map x1 then
+    let () = print_endline @@ "x1 is the key, adding x2" in
+    let () = print_endline @@ show_ident_with_stack x1 in
+    let () = print_endline @@ show_ident_with_stack x2 in
+    let x1_set = Hashtbl.find_exn alias_map x1 in
+    Hash_set.add x1_set x2
+  else
+  if Hashtbl.mem alias_map x2 then
+    let () = print_endline @@ "x2 is the key, adding x1" in
+    let () = print_endline @@ show_ident_with_stack x1 in
+    let () = print_endline @@ show_ident_with_stack x2 in
     let x2_set = Hashtbl.find_exn alias_map x2 in
     Hash_set.add x2_set x1
   else
+    let () = print_endline @@ "Both are new, adding x1 as the default key" in
+    let () = print_endline @@ show_ident_with_stack x1 in
+    let () = print_endline @@ show_ident_with_stack x2 in
     let x1_aliases = 
       Hash_set.create (module Ident_with_stack)
     in
+    let () = Hash_set.add x1_aliases x1 in
     let () = Hash_set.add x1_aliases x2 in
-    Hashtbl.set alias_map ~key:x1 ~data:x1_aliases
+    Hashtbl.set alias_map ~key:x1 ~data:x1_aliases *)
 
 let add_val_def_mapping x vdef session : unit = 
   let val_def_mapping = session.val_def_map in
@@ -248,6 +290,9 @@ and eval_clause ~session stk env clause : denv * dvalue =
       Direct v
     | Var_body vx -> 
       let Var (v, _) = vx in 
+      (* let () = print_endline @@ "This is adding alias mapping in var body" in
+      let () = print_endline @@ show_ident_with_stack (x, stk) in
+      let () = print_endline @@ show_ident_with_stack (v, stk) in *)
       add_alias_mapping (x, stk) (v, stk) session;
       fetch_val ~session ~stk env vx
     | Conditional_body (x2, e1, e2) ->
@@ -259,6 +304,9 @@ and eval_clause ~session stk env clause : denv * dvalue =
         let ret_env, ret_val = eval_exp_verbose ~session stk' env e in
         let Var (ret_id, _) as last_v = Ast_tools.retv e in
         let _, ret_stk = fetch_val_with_stk ~session ~stk:stk' ret_env last_v in
+        (* let () = print_endline @@ "This is adding alias mapping in conditional body" in
+        let () = print_endline @@ show_ident_with_stack (x, stk) in
+        let () = print_endline @@ show_ident_with_stack (ret_id, ret_stk) in *)
         add_alias_mapping (x, stk) (ret_id, ret_stk) session;
         ret_val
     | Input_body ->

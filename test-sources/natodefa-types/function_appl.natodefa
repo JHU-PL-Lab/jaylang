@@ -1,0 +1,9 @@
+# EXPECT-WELL-FORMED
+# EXPECT-TYPE-ERROR-COUNT 1
+# EXPECT-TYPE-ERROR ~result [] "not_fn 1" "not_fn" "2" "fun" "int"
+
+let fn x y = x + y in
+let not_fn = 2 in
+let a = fn 0 in
+let b = not_fn 1 in
+a

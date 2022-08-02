@@ -39,13 +39,14 @@ let main_commandline () =
   let (program, on_to_odefa_maps, _) = 
     File_utils.read_source_sato dbmc_config_init.filename 
   in
+  let is_natodefa = sato_config.is_natodefa in
   let init_sato_state = 
-    Sato_state.initialize_state_with_expr program on_to_odefa_maps 
+    Sato_state.initialize_state_with_expr is_natodefa program on_to_odefa_maps 
   in
   let target_vars = init_sato_state.target_vars in
   let rec search_all_targets 
     (remaining_targets : ident list) 
-    : Sato_result.Type_errors.t =
+    : Sato_result.Odefa_type_errors.t =
     match remaining_targets with
     | [] -> failwith "???"
       (* print_endline "No errors found." *)
@@ -75,11 +76,11 @@ let main_commandline () =
             | Interpreter.Terminate_with_env (_, ab_clo) ->
               match ab_clo with
               | AbortClosure final_env ->
-                let sato_res = 
-                  Sato_result.Type_errors.get_result 
+                let errors = 
+                  Sato_result.Odefa_type_errors.get_result 
                     init_sato_state dbmc_state session final_env inputs
                 in
-                sato_res
+                errors
               | _ -> failwith "Shoud have run into abort here!"
           end
         | None -> search_all_targets tl
@@ -87,5 +88,5 @@ let main_commandline () =
                   raise ex)
   in
   let errors = search_all_targets target_vars in
-  print_endline @@ Sato_result.Type_errors.show errors;
+  print_endline @@ Sato_result.Odefa_type_errors.show errors;
   Dbmc.Log.close ()

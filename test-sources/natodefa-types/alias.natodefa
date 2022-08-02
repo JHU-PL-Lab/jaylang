@@ -1,0 +1,9 @@
+# EXPECT-WELL-FORMED
+# EXPECT-TYPE-ERROR-COUNT 1
+# EXPECT-TYPE-ERROR ~result [0] "d and true" "d = c = b = a" "input" "bool" "int"
+
+let a = input in
+let b = a in
+let identity c = c in
+let d = identity b in
+d and true

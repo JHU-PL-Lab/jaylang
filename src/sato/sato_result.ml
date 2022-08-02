@@ -4,8 +4,60 @@ open Jhupllib
 open Dbmc
 open Odefa_ast
 open Odefa_ast.Ast
-open Odefa_natural.On_error
 open Odefa_natural.On_to_odefa_maps
+
+module type Error_location = sig
+  type t;;
+  val show : t -> string;;
+  val show_brief : t -> string;;
+  val to_yojson : t -> Yojson.Safe.t;;
+end;;
+
+let replace_linebreaks (str : string) : string =
+  String.tr ~target:'\n' ~replacement:' ' str 
+;;
+
+module Odefa_error_location
+  : Error_location with type t = Ast.clause = struct
+  type t = Ast.clause;;
+  let show = Ast_pp.show_clause;;
+  let show_brief = Ast_pp_brief.show_clause;;
+  let to_yojson clause =
+    `String (replace_linebreaks @@ show clause);;
+end;;
+
+module Natodefa_error_location
+  : Error_location with type t = Odefa_natural.On_ast.expr_desc = struct
+  type t = Odefa_natural.On_ast.expr_desc;;
+  let show = Pp_utils.pp_to_string Odefa_natural.On_ast_pp.pp_expr_desc_without_tag;;
+  let show_brief = Pp_utils.pp_to_string Odefa_natural.On_ast_pp.pp_expr_desc_without_tag;;
+  let to_yojson expr = 
+    `String (replace_linebreaks @@ show expr);;
+end;;
+
+module type Sato_Result = sig
+  type t;;
+  val description : string;;
+  val get_result : 
+    Sato_state.t -> Dbmc.Types.State.t -> 
+    Dbmc.Interpreter.session -> Dbmc.Interpreter.denv -> 
+    int option list -> t;;
+  val show : t -> string;;
+  val show_compact : t -> string;;
+  val count : t -> int;;
+  val generation_successful : t -> bool;;
+  val to_yojson : t -> Yojson.Safe.t;;
+end;;
+
+(* **** String showing utilities **** *)
+
+let pp_input_sequence formatter (input_seq : int list) =
+  Pp_utils.pp_list Format.pp_print_int formatter input_seq
+;;
+
+let show_input_sequence : int list -> string =
+  Pp_utils.pp_to_string pp_input_sequence
+;;
 
 let get_expected_type_from_operator op = 
   match op with
@@ -44,72 +96,151 @@ let get_abort_cond_clause_id
   | Some ab_val -> ab_val.abort_conditional_ident
   | None -> failwith "Should have a corresponding clause here!"
 
-module type Sato_Result = sig
-  type t;;
-  val description : string;;
-  val get_result : 
-    Sato_state.t -> Types.State.t -> 
-    Dbmc.Interpreter.session -> 
-    Dbmc.Interpreter.denv -> int option list -> t;;
-  (* val set_odefa_natodefa_map : Odefa_natural.On_to_odefa_maps.t -> unit;; *)
-  (* val set_ton_on_map : Ton_to_on_maps.t option -> unit;; *)
-  val show : t -> string;;
-  val show_compact : t -> string;;
-  val count : t -> int;;
-  val generation_successful : t -> bool;;
-  val to_yojson : t -> Yojson.Safe.t;;
-end;;
-
-module type Error_location = sig
-  type t;;
-  val show : t -> string;;
-  val show_brief : t -> string;;
-  val to_yojson : t -> Yojson.Safe.t;;
-end;;
-
-let replace_linebreaks (str : string) : string =
-  (* String.replace_chars
-    (function '\n' -> " " | c -> String.of_char c) str *)
-  String.tr ~target:'\n' ~replacement:' ' str 
-;;
-
-module Odefa_error_location
-  : Error_location with type t = Ast.clause = struct
-  type t = Ast.clause;;
-  let show = Ast_pp.show_clause;;
-  let show_brief = Ast_pp_brief.show_clause;;
-  let to_yojson clause =
-    `String (replace_linebreaks @@ show clause);;
-end;;
-
-(* module Natodefa_error_location
-  : Error_location with type t = On_ast.syn_natodefa_edesc = struct
-  type t = On_ast.syn_natodefa_edesc;;
-  let show = Pp_utils.pp_to_string On_ast_pp.pp_expr_desc;;
-  let show_brief = Pp_utils.pp_to_string On_ast_pp.pp_expr_desc;;
-  let to_yojson expr = 
-    `String (replace_linebreaks @@ show expr);;
-end;; *)
-
-(* **** String showing utilities **** *)
-
-let pp_input_sequence formatter (input_seq : int list) =
-  Pp_utils.pp_list Format.pp_print_int formatter input_seq
-;;
-
-let show_input_sequence : int list -> string =
-  Pp_utils.pp_to_string pp_input_sequence
+let get_odefa_errors
+  (sato_state : Sato_state.t)
+  (symb_interp_state : Dbmc.Types.State.t)
+  (interp_session : Dbmc.Interpreter.session) 
+  (final_env : Dbmc.Interpreter.denv)
+  : Ast.clause * Error.Odefa_error.t list =
+  let abort_var = symb_interp_state.target in
+  let ab_mapping = sato_state.abort_mapping in
+  let on_to_odefa_maps = sato_state.on_to_odefa_maps in
+  let abort_cond_var = get_abort_cond_clause_id ab_mapping abort_var in
+  let Clause (_, cls) as error_loc = 
+    get_pre_inst_equivalent_clause on_to_odefa_maps abort_cond_var 
+  in
+  let alias_map = interp_session.alias_map in
+  let find_alias x_with_stk ~key ~data acc =
+    if (Interpreter.Ident_with_stack.equal key x_with_stk) then 
+      Hash_set.union acc data
+    else
+      if Hash_set.mem data x_with_stk then
+        (Hash_set.iter data ~f:(Hash_set.add acc); 
+        acc)
+      else
+        acc
+  in
+  let rec find_source_cls cls_mapping xs =
+    match xs with
+    | [] -> failwith "Should have found a value definition clause!"
+    | hd :: tl ->
+      let () = print_endline @@ Interpreter.show_ident_with_stack hd in
+      let found = Hashtbl.find cls_mapping hd in
+      match found with
+      | Some cls -> cls
+      | None -> find_source_cls cls_mapping tl
+  in
+  let mk_match_err expected_type actual_val x x_stk = 
+    match expected_type, actual_val with
+    | Int_type, Value_int _| Bool_type, Value_bool _ -> []
+    | _ -> 
+      let find_aliases = find_alias (x, x_stk) in
+      let match_aliases_raw =
+        let init_set = 
+          Hash_set.create (module Interpreter.Ident_with_stack)
+        in
+        Hash_set.add init_set (x, x_stk);
+        Hashtbl.fold alias_map ~init:init_set ~f:find_aliases
+        |> Hash_set.to_list
+      in
+      let match_val_source = 
+        find_source_cls interp_session.val_def_map match_aliases_raw 
+      in
+      let match_aliases = 
+        match_aliases_raw
+        |> List.map ~f:(fun (x, _) -> x)
+      in
+      let actual_type = get_value_type actual_val in
+      let match_error = Error.Odefa_error.Error_match {
+        err_match_aliases = match_aliases;
+        err_match_val = match_val_source;
+        err_match_expected = expected_type;
+        err_match_actual = actual_type;
+      }
+      in
+      [match_error]
+  in
+  let mk_value_error x x_stk = 
+    let find_aliases = find_alias (x, x_stk) in
+      let value_aliases_raw =
+        let init_set = 
+          Hash_set.create (module Interpreter.Ident_with_stack)
+        in
+        Hash_set.add init_set (x, x_stk);
+        Hashtbl.fold alias_map ~init:init_set ~f:find_aliases
+        |> Hash_set.to_list
+      in
+      let val_source = 
+        find_source_cls interp_session.val_def_map value_aliases_raw 
+      in
+      let value_aliases = 
+        value_aliases_raw
+        |> List.map ~f:(fun (x, _) -> x)
+      in
+      let value_error = Error.Odefa_error.Error_value {
+        err_value_aliases = value_aliases;
+        err_value_val = val_source;
+      }
+      in
+      [value_error]
+  in
+  let error_list = 
+    match cls with
+    (* If the point of error is a binary operation, we know that one of
+      the two operands must have taken the wrong type.
+    *)
+    | Binary_operation_body (Var (x1, _), _, Var (x2, _)) ->
+      let expected_type = 
+        get_expected_type_from_cls cls
+      in
+      let (x1_val, x1_stk), (x2_val, x2_stk) = 
+        let (dv1, stk1) = Ident_map.find x1 final_env in
+        let (dv2, stk2) = Ident_map.find x2 final_env in
+        let v1, v2 = 
+          Interpreter.value_of_dvalue dv1,
+          Interpreter.value_of_dvalue dv2
+        in 
+        (v1, stk1), (v2, stk2)
+      in
+      let left_error = mk_match_err expected_type x1_val x1 x1_stk in
+      let right_error = mk_match_err expected_type x2_val x2 x2_stk in
+      let errors = List.append left_error right_error in
+      errors
+    (* The following operations are all potential candidates where type errors
+        can occur. *)
+    | Not_body (Var (x, _)) | Appl_body (Var (x, _), _) 
+    | Projection_body (Var (x, _), _) 
+    | Conditional_body (Var (x, _), _, _) ->
+      let expected_type = get_expected_type_from_cls cls in
+      let (x_val, x_stk) = 
+        let (dv, stk) = Ident_map.find x final_env in
+        let v = 
+          Interpreter.value_of_dvalue dv
+        in 
+        (v, stk)
+      in
+      let error = mk_match_err expected_type x_val x x_stk in
+      (* If the error list is empty, that means it's an error where
+        the condition variable leads to an abort in one of the
+        branches. *)
+      if List.is_empty error then
+        let val_error = mk_value_error x x_stk in
+        val_error
+      else
+        error
+    | _ -> []
+  in
+  (error_loc, error_list)
 ;;
 
 (* **** Type Errors **** *)
 
-module Type_errors : Sato_Result = struct
+module Odefa_type_errors : Sato_Result = struct
 
   type error_record = {
     err_errors : Error.Odefa_error.t list;
     err_input_seq : int option list;
     err_location : Odefa_error_location.t;
-    (* err_steps : int; *)
   }
   [@@ deriving to_yojson]
   ;;
@@ -119,196 +250,25 @@ module Type_errors : Sato_Result = struct
 
   let description = "error";;
 
-  (* let odefa_on_maps_option_ref = ref None;; *)
-
-  (* let ton_on_maps_option_ref = ref None;; *)
-
   let get_result
     (sato_state : Sato_state.t)
     (symb_interp_state : Dbmc.Types.State.t)
     (interp_session : Dbmc.Interpreter.session) 
     (final_env : Dbmc.Interpreter.denv)
-    (inputs : int option list) =  
-    let abort_var = symb_interp_state.target in
-    let ab_mapping = sato_state.abort_mapping in
-    let odefa_on_maps = sato_state.on_to_odefa_maps in
-    let abort_cond_var = get_abort_cond_clause_id ab_mapping abort_var in
+    (inputs : int option list) = 
+    let (error_loc, odefa_errors) = 
+      get_odefa_errors sato_state symb_interp_state interp_session final_env 
+    in
     let on_to_odefa_maps = sato_state.on_to_odefa_maps in
-    let Clause (_, cls) as error_loc = 
-      get_pre_inst_equivalent_clause on_to_odefa_maps abort_cond_var 
-    in
-    let alias_map = interp_session.alias_map in
-    let find_alias x_with_stk ~key ~data acc =
-      if (Interpreter.Ident_with_stack.equal key x_with_stk) then 
-        Hash_set.union acc data
-      else
-        if Hash_set.mem data x_with_stk then
-          (Hash_set.iter data ~f:(Hash_set.add acc); 
-          Hash_set.add acc key;
-          acc)
-        else
-          acc
-    in
-    let rec find_source_cls cls_mapping xs =
-      match xs with
-      | [] -> failwith "Should have found a value definition clause!"
-      | hd :: tl ->
-        let found = Hashtbl.find cls_mapping hd in
-        match found with
-        | Some cls -> cls
-        | None -> find_source_cls cls_mapping tl
-    in
-    let mk_match_err expected_type actual_val x x_stk = 
-      match expected_type, actual_val with
-      | Int_type, Value_int _| Bool_type, Value_bool _ -> []
-      | _ -> 
-        let find_aliases = find_alias (x, x_stk) in
-        let match_aliases_raw =
-          let init_set = 
-            Hash_set.create (module Interpreter.Ident_with_stack)
-          in
-          Hash_set.add init_set (x, x_stk);
-          Hashtbl.fold alias_map ~init:init_set ~f:find_aliases
-          |> Hash_set.to_list
-        in
-        (* let () = print_endline @@ "This is the alias set" in
-        let () = 
-          print_endline @@ 
-          List.to_string ~f:(Interpreter.show_ident_with_stack) match_aliases_raw 
-        in *)
-        let match_val_source = 
-          find_source_cls interp_session.val_def_map match_aliases_raw 
-        in
-        let match_aliases = 
-          match_aliases_raw
-          |> List.map ~f:(fun (x, _) -> x)
-        in
-        let actual_type = get_value_type actual_val in
-        let match_error = Error.Odefa_error.Error_match {
-          err_match_aliases = match_aliases;
-          err_match_val = match_val_source;
-          err_match_expected = expected_type;
-          err_match_actual = actual_type;
-        }
-        in
-        [match_error]
-    in
-    let mk_value_error x x_stk = 
-      let find_aliases = find_alias (x, x_stk) in
-        let value_aliases_raw =
-          let init_set = 
-            Hash_set.create (module Interpreter.Ident_with_stack)
-          in
-          Hash_set.add init_set (x, x_stk);
-          Hashtbl.fold alias_map ~init:init_set ~f:find_aliases
-          |> Hash_set.to_list
-        in
-        let val_source = 
-          find_source_cls interp_session.val_def_map value_aliases_raw 
-        in
-        let value_aliases = 
-          value_aliases_raw
-          |> List.map ~f:(fun (x, _) -> x)
-        in
-        let value_error = Error.Odefa_error.Error_value {
-          err_value_aliases = value_aliases;
-          err_value_val = val_source;
-        }
-        in
-        [value_error]
-    in
-    let error_list = 
-      match cls with
-      (* If the point of error is a binary operation, we know that one of
-        the two operands must have taken the wrong type.
-      *)
-      | Binary_operation_body (Var (x1, _), _, Var (x2, _)) ->
-        let expected_type = 
-          get_expected_type_from_cls cls
-        in
-        let (x1_val, x1_stk), (x2_val, x2_stk) = 
-          let (dv1, stk1) = Ident_map.find x1 final_env in
-          let (dv2, stk2) = Ident_map.find x2 final_env in
-          let v1, v2 = 
-            Interpreter.value_of_dvalue dv1,
-            Interpreter.value_of_dvalue dv2
-          in 
-          (v1, stk1), (v2, stk2)
-        in
-        let left_error = mk_match_err expected_type x1_val x1 x1_stk in
-        let right_error = mk_match_err expected_type x2_val x2 x2_stk in
-        let errors = List.append left_error right_error in
-        (* print_endline @@ show_error inputs pre_inst errors; *)
-        errors
-      (* If it's a Not operation, we know that the operand has the
-        wrong type. *)
-      | Not_body (Var (x, _)) | Appl_body (Var (x, _), _) 
-      | Projection_body (Var (x, _), _) 
-      | Conditional_body (Var (x, _), _, _) ->
-        let expected_type = get_expected_type_from_cls cls in
-        let (x_val, x_stk) = 
-          let (dv, stk) = Ident_map.find x final_env in
-          let v = 
-            Interpreter.value_of_dvalue dv
-          in 
-          (v, stk)
-        in
-        let error = mk_match_err expected_type x_val x x_stk in
-        (* If the error list is empty, that means it's an error where
-          the condition variable leads to an abort in one of the
-          branches. *)
-        if List.is_empty error then
-          let val_error = mk_value_error x x_stk in
-          (* (print_endline @@ show_error inputs pre_inst val_error; *)
-          val_error
-        else
-          (* (print_endline @@ show_error inputs pre_inst error; *)
-          error
-      | _ -> []
-    in
     let rm_inst_fn =
-      odefa_error_remove_instrument_vars odefa_on_maps
+      Odefa_natural.On_error.odefa_error_remove_instrument_vars on_to_odefa_maps
     in
     Some {
       err_input_seq = inputs;
       err_location = error_loc;
-      err_errors = List.map ~f:rm_inst_fn error_list;
+      err_errors = List.map ~f:rm_inst_fn odefa_errors;
     }
   ;;
-  (* let answer_from_result steps e x result : t =
-    let (input_seq, error_opt) =
-      Generator_utils.input_sequence_from_result e x result
-    in
-    match !odefa_on_maps_option_ref with
-    | Some odefa_on_maps ->
-      begin
-        match error_opt with
-        | Some (error_loc, error_list, _solution) ->
-          let rm_inst_fn =
-            On_error.odefa_error_remove_instrument_vars odefa_on_maps
-          in
-          let trans_inst_fn =
-            On_to_odefa_maps.get_pre_inst_equivalent_clause odefa_on_maps
-          in
-          Some {
-            err_input_seq = input_seq;
-            err_location = trans_inst_fn error_loc;
-            err_errors = List.map rm_inst_fn error_list;
-            err_steps = steps;
-          }
-        | None -> None
-      end
-    | None -> failwith "Odefa/natodefa maps were not set!"
-  ;; *)
-
-
-  (* let set_odefa_natodefa_map odefa_on_maps : unit =
-    odefa_on_maps_option_ref := Some (odefa_on_maps)
-  ;; *)
-
-  (* let set_ton_on_map ton_on_maps : unit =
-    ton_on_maps_option_ref := ton_on_maps
-  ;; *)
 
   (* TODO: Pretty-print *)
 
@@ -343,27 +303,50 @@ module Type_errors : Sato_Result = struct
   ;;
 end;;
 
-(* module Natodefa_type_errors : Answer = struct
+module Natodefa_type_errors : Sato_Result = struct
 
   type error_record = {
-    err_errors : On_error.On_error.t list;
-    err_input_seq : int list;
+    err_errors : Odefa_natural.On_error.On_error.t list;
+    err_input_seq : int option list;
     err_location : Natodefa_error_location.t;
-    err_steps : int;
   }
   [@@ deriving to_yojson]
   ;;
 
   type t = error_record option;;
 
-  let description = "error";;
+  let description = "natodefa type error";;
 
-  let odefa_on_maps_option_ref = ref None;;
-
-  (* let ton_on_maps_option_ref = ref None;; *)
+  let get_result 
+    (sato_state : Sato_state.t)
+    (symb_interp_state : Dbmc.Types.State.t)
+    (interp_session : Dbmc.Interpreter.session) 
+    (final_env : Dbmc.Interpreter.denv)
+    (inputs : int option list) = 
+    let open Odefa_natural in
+    let ((Clause (Var (err_id, _), _) as error_loc), odefa_errors) = 
+      get_odefa_errors sato_state symb_interp_state interp_session final_env 
+    in
+    let on_to_odefa_maps = sato_state.on_to_odefa_maps in
+    let on_err_loc_core =
+      err_id
+      |> On_to_odefa_maps.get_natodefa_equivalent_expr on_to_odefa_maps 
+    in
+    let on_err_list =
+      let mapper = 
+        (On_error.odefa_to_natodefa_error on_to_odefa_maps) 
+      in 
+      List.map ~f:mapper odefa_errors
+    in
+    Some {
+      err_input_seq = inputs;
+      err_location = on_err_loc_core;
+      err_errors = on_err_list;
+    }
+  ;;
 
   (* Reporting Natodefa errors. *)
-  let answer_from_result steps e x result =
+  (* let answer_from_result steps e x result =
     match (!odefa_on_maps_option_ref, !ton_on_maps_option_ref) with
     | (Some odefa_on_maps, Some ton_on_maps) ->
       begin
@@ -514,25 +497,16 @@ end;;
       end
     | None, _ -> failwith "Odefa/natodefa maps were not set!"
     | _, None -> failwith "typed natodefa/natodefa maps were not set!"
-  ;;
-
-  let set_odefa_natodefa_map odefa_on_maps =
-    odefa_on_maps_option_ref := Some (odefa_on_maps)
-  ;;
-
-  let set_ton_on_map ton_on_maps : unit =
-    ton_on_maps_option_ref := ton_on_maps
-  ;;
+  ;; *)
 
   let show : t -> string = function
     | Some error ->
       "** NatOdefa Type Errors **\n" ^
-      (Printf.sprintf "- Input sequence  : %s\n" (show_input_sequence error.err_input_seq)) ^
+      (Printf.sprintf "- Input sequence  : %s\n" (Dbmc.Std.string_of_inputs error.err_input_seq)) ^
       (Printf.sprintf "- Found at clause : %s\n" (Natodefa_error_location.show error.err_location)) ^
-      (Printf.sprintf "- Found in steps  : %s\n" (string_of_int error.err_steps)) ^
       "--------------------\n" ^
-      (String.join "\n--------------------\n"
-        @@ List.map On_error.On_error.show error.err_errors)
+      (String.concat ~sep:"\n--------------------\n"
+        @@ List.map ~f:Odefa_natural.On_error.On_error.show error.err_errors)
     | None -> ""
   ;;
 
@@ -554,4 +528,4 @@ end;;
     | Some err -> error_record_to_yojson err
     | None -> `Null
   ;;
-end;; *)
+end;;

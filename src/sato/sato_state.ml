@@ -74,12 +74,13 @@ let get_target_vars
 ;;
 
 let initialize_state_with_expr 
+  (is_natodefa : bool)
   (e : expr) 
   (on_to_odefa_maps : Odefa_natural.On_to_odefa_maps.t) : t =
   let abort_lst = enum_all_aborts_in_expr e in
   let ab_mapping = Hashtbl.of_alist_exn (module Ident_new) abort_lst in
   let targets = get_target_vars ab_mapping in
-  { is_natodefa = false;
+  { is_natodefa = is_natodefa;
     program = e;
     abort_mapping = ab_mapping;
     target_vars = targets;

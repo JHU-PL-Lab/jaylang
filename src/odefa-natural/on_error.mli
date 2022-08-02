@@ -24,6 +24,6 @@ val odefa_error_remove_instrument_vars :
 
 (** Given an odefa/natodefa mapping, converts an odefa error into a natodefa
     error. *)
-(* val odefa_to_natodefa_error :
+val odefa_to_natodefa_error :
   On_to_odefa_maps.t -> Error.Odefa_error.t -> On_error.t
-;; *)
+;;

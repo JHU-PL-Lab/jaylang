@@ -1,0 +1,13 @@
+# EXPECT-WELL-FORMED
+# EXPECT-TYPE-ERROR-COUNT 3
+# EXPECT-TYPE-ERROR ~result [0] "if 0 then false else true" "" "0" "bool" "int"
+# EXPECT-TYPE-ERROR ~result [1, 0] "if {} then 0 else 1" "" "{}" "bool" "{}"
+# EXPECT-TYPE-ERROR ~result [1, 1] "if {} then 1 else 2 + {}" "" "{}" "bool" "{}"
+
+if input == 0 then
+    if 0 then false else true
+else
+    if input == 0 then
+        if {} then 0 else 1
+    else
+        if {} then 1 else 2 + {} # Serial error not found

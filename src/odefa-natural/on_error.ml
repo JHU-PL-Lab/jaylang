@@ -148,7 +148,7 @@ let odefa_error_remove_instrument_vars
 
 (* Helper function that returns a natodefa binop, depending on the odefa
    binary operator. *)
-let _odefa_to_on_binop (odefa_binop : Ast.binary_operator) :
+let odefa_to_on_binop (odefa_binop : Ast.binary_operator) :
     On_ast.expr_desc -> On_ast.expr_desc -> On_ast.expr =
   match odefa_binop with
   | Ast.Binary_operator_plus -> (fun e1 e2 -> On_ast.Plus (e1, e2))
@@ -335,30 +335,38 @@ let _odefa_to_on_binop (odefa_binop : Ast.binary_operator) :
 
 (* let odefa_to_natodefa_error = exit 0 *)
 
-(* let odefa_to_natodefa_error (odefa_on_maps : On_to_odefa_maps.t)
-    (ton_on_maps : Ton_to_on_maps.t)
-    (err_loc_option : On_ast.syn_natodefa_edesc option)
-    (actual_aliases : Ast.ident list)
-    (err_vals_map : Ast.value On_ast.Ident_map.t)
+let odefa_to_natodefa_error 
+    (odefa_on_maps : On_to_odefa_maps.t)
     (odefa_err : Error.Odefa_error.t) : On_error.t =
   (* Helper functions *)
+  let open On_ast in
   let odefa_to_on_expr =
     On_to_odefa_maps.get_natodefa_equivalent_expr odefa_on_maps
   in
-  let odefa_to_on_aliases (aliases : Ast.ident list) : On_ast.ident list =
+  let odefa_to_on_aliases aliases =
+    let odefa_to_on_expr x =
+      On_to_odefa_maps.get_natodefa_equivalent_expr odefa_on_maps x
+    in
     aliases
     |> List.filter_map
       (fun alias ->
-        match (odefa_to_on_expr alias).body with
-        | (On_ast.Var ident) -> Some ident
+        let e_desc = odefa_to_on_expr alias in
+        match (e_desc.body) with
+        | (Var _) | Error _ -> Some e_desc
         | _ -> None
       )
-    (* During translation, some odefa vars are assigned to the same natodefa
-       vars (namely in var expressions).  The following procedure removes any
-       adjacent duplicates from the alias chain. *)
-    |> deduplicate_list
+    |> List.unique
   in
-  let odefa_to_on_value (aliases : Ast.ident list) : On_ast.expr_desc =
+  let get_idents_from_aliases (aliases : expr_desc list) =
+    aliases
+    |> List.filter_map 
+    (fun ed -> 
+      match ed.body with
+      | Var x -> Some x
+      | _ -> None
+    ) 
+  in
+  let odefa_to_on_value (aliases : Ast.ident list) : expr_desc =
     let last_var =
       try
         List.last aliases
@@ -392,18 +400,18 @@ let _odefa_to_on_binop (odefa_binop : Ast.binary_operator) :
       let r_value = odefa_to_on_value r_aliases in
       let constraint_expr =
         let left_expr =
-          if List.is_empty l_aliases_on then l_value.body else
-            On_ast.Var (List.hd l_aliases_on)
+          if List.is_empty l_aliases_on then l_value else
+            List.hd l_aliases_on
         in
         let right_expr =
-          if List.is_empty r_aliases_on then r_value.body else
-            On_ast.Var (List.hd r_aliases_on)
+          if List.is_empty r_aliases_on then r_value else
+            List.hd r_aliases_on
         in
         odefa_to_on_binop op left_expr right_expr
       in
       Error_binop {
-        err_binop_left_aliases = l_aliases_on;
-        err_binop_right_aliases = r_aliases_on;
+        err_binop_left_aliases = get_idents_from_aliases l_aliases_on;
+        err_binop_right_aliases = get_idents_from_aliases r_aliases_on;
         err_binop_left_val = l_value.body;
         err_binop_right_val = r_value.body;
         err_binop_operation = constraint_expr;
@@ -413,7 +421,7 @@ let _odefa_to_on_binop (odefa_binop : Ast.binary_operator) :
     begin
       let aliases = err.err_match_aliases in
       Error_match {
-        err_match_aliases = odefa_to_on_aliases aliases;
+        err_match_aliases = get_idents_from_aliases @@ odefa_to_on_aliases aliases;
         err_match_val = (odefa_to_on_value aliases).body;
         err_match_expected = odefa_to_on_type err.err_match_expected;
         err_match_actual = odefa_to_on_type err.err_match_actual;
@@ -423,8 +431,8 @@ let _odefa_to_on_binop (odefa_binop : Ast.binary_operator) :
     begin
       let aliases = err.err_value_aliases in
       Error_value {
-        err_value_aliases = odefa_to_on_aliases aliases;
+        err_value_aliases = get_idents_from_aliases @@ odefa_to_on_aliases aliases;
         err_value_val = (odefa_to_on_value aliases).body;
       }
     end
-;; *)
+;;

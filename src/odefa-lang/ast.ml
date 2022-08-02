@@ -18,7 +18,8 @@ module Ident = struct
 end
 
 (* Refactoring: Use this definition of Ident *)
-module Ident_new = struct include Base
+module Ident_new = struct
+  open Base
   type t = ident = Ident of string
   [@@deriving sexp, compare, equal, hash, show, to_yojson]
 

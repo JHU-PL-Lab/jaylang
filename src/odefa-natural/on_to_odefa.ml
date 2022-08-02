@@ -949,8 +949,8 @@ and flatten_expr
     raise @@ Utils.Invariant_failure
       "flatten_expr: List expressions should have been handled!"
   (* TODO: This should happen in the instrumentation phase *)
-  | _ -> failwith "TBI!"
-  (* | Assert e ->
+  (* | _ -> failwith "TBI!" *)
+  | Assert e ->
     let%bind (flattened_exprs, last_var) = recurse e in
     (* Helper function *)
     let add_var var_name =
@@ -983,7 +983,8 @@ and flatten_expr
     let%bind assume_var = fresh_var "assume" in
     let%bind () = add_odefa_natodefa_mapping assume_var expr_desc in
     let new_clause = Ast.Clause(assume_var, Assume_body last_var) in
-    return (flattened_exprs @ [new_clause], assume_var) *)
+    return (flattened_exprs @ [new_clause], assume_var)
+  | Error _ -> failwith "TBI!"
 ;;
 
 let debug_transform_on
