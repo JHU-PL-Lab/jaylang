@@ -1,7 +1,9 @@
 open Core
+open Graph
+open Log.Export
+
 open Odefa_ast
 open Ast
-open Log.Export
 
 type dvalue =
   | Direct of value
@@ -49,6 +51,8 @@ type mode =
   | With_target_x of Id.t
   | With_full_target of Id.t * Concrete_stack.t
 
+module G = Imperative.Graph.Concrete(Ident_with_stack)
+
 type session = {
   (* mode *)
   input_feeder : Input_feeder.t;
@@ -57,7 +61,7 @@ type session = {
   step : int ref;
   max_step : int option;
   (* Book-keeping *)
-  alias_map : (Ident_with_stack.t, ident_with_stack_set) Hashtbl.t;
+  alias_graph : G.t;
   val_def_map : (Ident_with_stack.t, clause_body) Hashtbl.t;
   (* debug *)
   is_debug : bool;
@@ -74,7 +78,7 @@ let default_session =
     max_step = None;
     is_debug = false;
     step = ref 0;
-    alias_map = Hashtbl.create (module Ident_with_stack);
+    alias_graph = G.create ();
     val_def_map = Hashtbl.create (module Ident_with_stack);
     node_set = Hashtbl.create (module Lookup_key);
     node_get = Hashtbl.create (module Lookup_key);
@@ -90,7 +94,7 @@ let create_session ?max_step target_stk (state : Global_state.t)
     max_step;
     is_debug = config.debug_graph;
     step = ref 0;
-    alias_map = Hashtbl.create (module Ident_with_stack);
+    alias_graph = G.create ();
     val_def_map = Hashtbl.create (module Ident_with_stack);
     node_set = state.node_set;
     node_get = state.node_get;
@@ -108,58 +112,9 @@ let cond_fid b = if b then Ident "$tt" else Ident "$ff"
   c => {c, d}
 *)
 (* K + K, K + V, V + V, NA + K, NA + V, NA + NA*)
-let add_alias_mapping x1 x2 session : unit =
-  failwith "TBI!"
-  (* let alias_map = session.alias_map in
-  let contained_x1 = 
-    Hashtbl.exists ~f:(fun s -> Hash_set.mem s x1)
-  in
-  if Hashtbl.mem alias_map x1 then
-    let () = print_endline @@ "x1 is the key, adding x2" in
-    let () = print_endline @@ show_ident_with_stack x1 in
-    let () = print_endline @@ show_ident_with_stack x2 in
-    let x1_set = Hashtbl.find_exn alias_map x1 in
-    Hash_set.add x1_set x2
-  else
-  if Hashtbl.mem alias_map x2 then
-    let () = print_endline @@ "x2 is the key, adding x1" in
-    let () = print_endline @@ show_ident_with_stack x1 in
-    let () = print_endline @@ show_ident_with_stack x2 in
-    let x2_set = Hashtbl.find_exn alias_map x2 in
-    Hash_set.add x2_set x1
-  else  *)
-  (* if Hashtbl.mem alias_map x1 && Hashtbl.mem alias_map x2 then
-    let () = print_endline @@ "Both are keys: " in
-    let () = print_endline @@ show_ident_with_stack x1 in
-    let () = print_endline @@ show_ident_with_stack x2 in
-    let x1_set = Hashtbl.find_exn alias_map x1 in
-    let x2_set = Hashtbl.find_exn alias_map x2 in
-    let () = Hashtbl.remove alias_map x2 in
-    Hashtbl.set alias_map ~key:x1 ~data:(Hash_set.union x1_set x2_set)
-  else
-  if Hashtbl.mem alias_map x1 then
-    let () = print_endline @@ "x1 is the key, adding x2" in
-    let () = print_endline @@ show_ident_with_stack x1 in
-    let () = print_endline @@ show_ident_with_stack x2 in
-    let x1_set = Hashtbl.find_exn alias_map x1 in
-    Hash_set.add x1_set x2
-  else
-  if Hashtbl.mem alias_map x2 then
-    let () = print_endline @@ "x2 is the key, adding x1" in
-    let () = print_endline @@ show_ident_with_stack x1 in
-    let () = print_endline @@ show_ident_with_stack x2 in
-    let x2_set = Hashtbl.find_exn alias_map x2 in
-    Hash_set.add x2_set x1
-  else
-    let () = print_endline @@ "Both are new, adding x1 as the default key" in
-    let () = print_endline @@ show_ident_with_stack x1 in
-    let () = print_endline @@ show_ident_with_stack x2 in
-    let x1_aliases = 
-      Hash_set.create (module Ident_with_stack)
-    in
-    let () = Hash_set.add x1_aliases x1 in
-    let () = Hash_set.add x1_aliases x2 in
-    Hashtbl.set alias_map ~key:x1 ~data:x1_aliases *)
+let add_alias x1 x2 session : unit =
+  let alias_graph = session.alias_graph in
+  G.add_edge alias_graph x1 x2
 
 let add_val_def_mapping x vdef session : unit = 
   let val_def_mapping = session.val_def_map in
@@ -293,7 +248,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
       (* let () = print_endline @@ "This is adding alias mapping in var body" in
       let () = print_endline @@ show_ident_with_stack (x, stk) in
       let () = print_endline @@ show_ident_with_stack (v, stk) in *)
-      add_alias_mapping (x, stk) (v, stk) session;
+      add_alias (x, stk) (v, stk) session;
       fetch_val ~session ~stk env vx
     | Conditional_body (x2, e1, e2) ->
         let e, stk' =
@@ -307,7 +262,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
         (* let () = print_endline @@ "This is adding alias mapping in conditional body" in
         let () = print_endline @@ show_ident_with_stack (x, stk) in
         let () = print_endline @@ show_ident_with_stack (ret_id, ret_stk) in *)
-        add_alias_mapping (x, stk) (ret_id, ret_stk) session;
+        add_alias (x, stk) (ret_id, ret_stk) session;
         ret_val
     | Input_body ->
         (* TODO: the interpreter may propagate the dummy value (through the value should never be used in any control flow)  *)
@@ -321,7 +276,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
             let v2, v2_stk = fetch_val_with_stk ~session ~stk env vx2 in
             let stk2 = Concrete_stack.push (x, fid) stk in
             let env2 = Ident_map.add arg (v2, stk) fenv in
-            add_alias_mapping (x2, v2_stk) (arg, stk) session;
+            add_alias (x2, v2_stk) (arg, stk) session;
             eval_exp ~session stk2 env2 body
         | _ -> failwith "app to a non fun")
     | Match_body (vx, p) ->

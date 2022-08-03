@@ -1,4 +1,5 @@
 open Core
+open Graph
 open Jhupllib
 
 open Dbmc
@@ -109,16 +110,19 @@ let get_odefa_errors
   let Clause (_, cls) as error_loc = 
     get_pre_inst_equivalent_clause on_to_odefa_maps abort_cond_var 
   in
-  let alias_map = interp_session.alias_map in
-  let find_alias x_with_stk ~key ~data acc =
-    if (Interpreter.Ident_with_stack.equal key x_with_stk) then 
-      Hash_set.union acc data
+  let alias_graph = interp_session.alias_graph in
+  let rec find_alias acc x_with_stk = 
+    if Hash_set.mem acc x_with_stk then acc
     else
-      if Hash_set.mem data x_with_stk then
-        (Hash_set.iter data ~f:(Hash_set.add acc); 
-        acc)
+      let () = Hash_set.add acc x_with_stk in
+      if (Interpreter.G.mem_vertex alias_graph x_with_stk) then
+        let (succs : Interpreter.Ident_with_stack.t list) = Interpreter.G.succ alias_graph x_with_stk in
+        let (aliases : Interpreter.Ident_with_stack.t Hash_set.t) = 
+          List.fold succs ~init:acc ~f:(fun acc next -> Hash_set.union acc (find_alias acc next))
+        in
+        aliases
       else
-        acc
+        (Hash_set.add acc x_with_stk; acc)
   in
   let rec find_source_cls cls_mapping xs =
     match xs with
@@ -134,13 +138,8 @@ let get_odefa_errors
     match expected_type, actual_val with
     | Int_type, Value_int _| Bool_type, Value_bool _ -> []
     | _ -> 
-      let find_aliases = find_alias (x, x_stk) in
       let match_aliases_raw =
-        let init_set = 
-          Hash_set.create (module Interpreter.Ident_with_stack)
-        in
-        Hash_set.add init_set (x, x_stk);
-        Hashtbl.fold alias_map ~init:init_set ~f:find_aliases
+        find_alias (Hash_set.create(module Interpreter.Ident_with_stack)) (x, x_stk)
         |> Hash_set.to_list
       in
       let match_val_source = 
@@ -161,13 +160,8 @@ let get_odefa_errors
       [match_error]
   in
   let mk_value_error x x_stk = 
-    let find_aliases = find_alias (x, x_stk) in
       let value_aliases_raw =
-        let init_set = 
-          Hash_set.create (module Interpreter.Ident_with_stack)
-        in
-        Hash_set.add init_set (x, x_stk);
-        Hashtbl.fold alias_map ~init:init_set ~f:find_aliases
+        find_alias (Hash_set.create(module Interpreter.Ident_with_stack)) (x, x_stk)
         |> Hash_set.to_list
       in
       let val_source = 
