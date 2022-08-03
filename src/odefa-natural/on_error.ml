@@ -344,9 +344,6 @@ let odefa_to_natodefa_error
     On_to_odefa_maps.get_natodefa_equivalent_expr odefa_on_maps
   in
   let odefa_to_on_aliases aliases =
-    let odefa_to_on_expr x =
-      On_to_odefa_maps.get_natodefa_equivalent_expr odefa_on_maps x
-    in
     aliases
     |> List.filter_map
       (fun alias ->

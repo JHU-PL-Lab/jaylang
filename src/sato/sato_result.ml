@@ -52,14 +52,6 @@ end;;
 
 (* **** String showing utilities **** *)
 
-let pp_input_sequence formatter (input_seq : int list) =
-  Pp_utils.pp_list Format.pp_print_int formatter input_seq
-;;
-
-let show_input_sequence : int list -> string =
-  Pp_utils.pp_to_string pp_input_sequence
-;;
-
 let get_expected_type_from_operator op = 
   match op with
   | Binary_operator_plus | Binary_operator_minus

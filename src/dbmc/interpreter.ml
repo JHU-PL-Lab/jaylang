@@ -30,7 +30,7 @@ let value_of_dvalue = function
   | Direct v -> v
   | FunClosure (_fid, fv, _env) -> Value_function fv
   | RecordClosure (r, _env) -> Value_record r
-  | AbortClosure _ -> failwith "To be implemented!"
+  | AbortClosure _ -> Value_bool false
 
 let pp_dvalue oc = function
   | Direct v -> Odefa_ast.Ast_pp.pp_value oc v
