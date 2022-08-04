@@ -1,0 +1,66 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [0, 1, 0, 0, 0] [1, 1, 1, 0, 0] [0, 1, 0, 0, 1] [1, 1, 1, 0, 1] ! 
+
+let ans1 = input == 0 in
+let ans2 = input == 0 in
+let ans3 = input == 0 in
+let ans4 = input == 0 in
+
+let f a elm =
+  if a then
+    if elm then ans1 else ans2
+  else
+    if elm then ans3 else ans4
+  in
+
+let none = {last = true} in
+
+# l0 = [false; false; true; false]
+let a3 =  {last = false, elem = false, next = none} in
+let a2 =  {last = false, elem = true,  next = a3} in
+let a1 =  {last = false, elem = false, next = a2} in
+let l0 =  {last = false, elem = false, next = a1} in
+
+# l1 = [false; true; false; false]
+let b3 =  {last = false, elem = false, next = none} in
+let b2 =  {last = false, elem = false, next = b3} in
+let b1 =  {last = false, elem = true,  next = b2} in
+let l1 =  {last = false, elem = false, next = b1} in
+
+# l2 = [false; false; false; false; true; false]
+let c5 =  {last = false, elem = false, next = none} in
+let c4 =  {last = false, elem = true,  next = c5} in
+let c3 =  {last = false, elem = false, next = c4} in
+let c2 =  {last = false, elem = false, next = c3} in
+let c1 =  {last = false, elem = false, next = c2} in
+let l2 =  {last = false, elem = false, next = c1} in
+
+# l3 = [false; false; false; true; false; false]
+let d5 =  {last = false, elem = false, next = none} in
+let d4 =  {last = false, elem = false, next = d5} in
+let d3 =  {last = false, elem = true,  next = d4} in
+let d2 =  {last = false, elem = false, next = d3} in
+let d1 =  {last = false, elem = false, next = d2} in
+let l3 =  {last = false, elem = false, next = d1} in
+
+let rec fold acc lst =
+  if lst.last then
+    acc
+  else
+    (let acc2 = f acc (lst.elem) 
+      in
+    fold acc2 (lst.next))
+  in
+
+let acc_init = input == 0 in
+
+let r0 = fold acc_init l0 in
+let r1 = fold acc_init l1 in
+# let r2 = fold acc_init l2 in
+# let r3 = fold acc_init l3 in
+
+if (r0 and (not r1)) or (r1 and (not r0)) then
+    # and (r2 and (not r3)) or (r3 and (not r2)) then
+  let target = 1 in 1
+else
+  0
