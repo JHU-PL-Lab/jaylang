@@ -36,10 +36,10 @@ module Natodefa_error_location
     `String (replace_linebreaks @@ show expr);;
 end;;
 
-module type Sato_Result = sig
+module type Sato_error = sig
   type t;;
   val description : string;;
-  val get_result : 
+  val get_errors : 
     Sato_state.t -> Dbmc.Types.State.t -> 
     Dbmc.Interpreter.session -> Dbmc.Interpreter.denv -> 
     int option list -> t;;
@@ -188,6 +188,9 @@ let get_odefa_errors
         in 
         (v1, stk1), (v2, stk2)
       in
+      let () = print_endline @@ "This is the final error idents" in
+      let () = print_endline @@ Interpreter.show_ident_with_stack (x1, x1_stk) in
+      let () = print_endline @@ Interpreter.show_ident_with_stack (x2, x2_stk) in
       let left_error = mk_match_err expected_type x1_val x1 x1_stk in
       let right_error = mk_match_err expected_type x2_val x2 x2_stk in
       let errors = List.append left_error right_error in
@@ -221,9 +224,9 @@ let get_odefa_errors
 
 (* **** Type Errors **** *)
 
-module Odefa_type_errors : Sato_Result = struct
+module Odefa_type_errors : Sato_error = struct
 
-  type error_record = {
+  type odefa_error_record = {
     err_errors : Error.Odefa_error.t list;
     err_input_seq : int option list;
     err_location : Odefa_error_location.t;
@@ -231,17 +234,17 @@ module Odefa_type_errors : Sato_Result = struct
   [@@ deriving to_yojson]
   ;;
 
-  type t = error_record option
+  type t = odefa_error_record option
   ;;
 
   let description = "error";;
 
-  let get_result
+  let get_errors
     (sato_state : Sato_state.t)
     (symb_interp_state : Dbmc.Types.State.t)
     (interp_session : Dbmc.Interpreter.session) 
     (final_env : Dbmc.Interpreter.denv)
-    (inputs : int option list) = 
+    (inputs : int option list) : t = 
     let (error_loc, odefa_errors) = 
       get_odefa_errors sato_state symb_interp_state interp_session final_env 
     in
@@ -284,26 +287,26 @@ module Odefa_type_errors : Sato_Result = struct
   let generation_successful : t -> bool = Option.is_some;;
 
   let to_yojson : t -> Yojson.Safe.t = function
-    | Some err -> error_record_to_yojson err
+    | Some err -> odefa_error_record_to_yojson err
     | None -> `Null
   ;;
 end;;
 
-module Natodefa_type_errors : Sato_Result = struct
+module Natodefa_type_errors : Sato_error = struct
 
-  type error_record = {
+  type natodefa_error_record = {
     err_errors : Odefa_natural.On_error.On_error.t list;
     err_input_seq : int option list;
     err_location : Natodefa_error_location.t;
   }
   [@@ deriving to_yojson]
-  ;;
+  ;;  
 
-  type t = error_record option;;
+  type t = natodefa_error_record option;;
 
   let description = "natodefa type error";;
 
-  let get_result 
+  let get_errors 
     (sato_state : Sato_state.t)
     (symb_interp_state : Dbmc.Types.State.t)
     (interp_session : Dbmc.Interpreter.session) 
@@ -511,7 +514,49 @@ module Natodefa_type_errors : Sato_Result = struct
   let generation_successful : t -> bool = Option.is_some;;
 
   let to_yojson : t -> Yojson.Safe.t = function
-    | Some err -> error_record_to_yojson err
+    | Some err -> natodefa_error_record_to_yojson err
     | None -> `Null
   ;;
 end;;
+
+module type Sato_result = sig
+  module Result : Sato_error;;
+
+  type generation_result = {
+    gen_answers : Result.t;
+    (* gen_num_answers : int; *)
+    (* gen_is_complete : bool; *)
+  }
+  ;;
+ 
+  val get_result : 
+  Sato_state.t -> Dbmc.Types.State.t ->
+  Dbmc.Interpreter.session -> Dbmc.Interpreter.denv ->
+  int option list -> generation_result
+
+end
+;;
+
+module Make(Result : Sato_error) = struct
+  module Result = Result;;
+
+  type generation_result = {
+    gen_answers : Result.t;
+    (* gen_num_answers : int; *)
+    (* gen_is_complete : bool; *)
+  }
+
+  let get_result 
+    (sato_state : Sato_state.t)
+    (symb_interp_state : Dbmc.Types.State.t)
+    (interp_session : Dbmc.Interpreter.session) 
+    (final_env : Dbmc.Interpreter.denv)
+    (inputs : int option list) : generation_result = 
+    let errors = 
+      Result.get_errors sato_state symb_interp_state interp_session final_env inputs
+    in
+    {
+      gen_answers = errors;
+    }
+
+end

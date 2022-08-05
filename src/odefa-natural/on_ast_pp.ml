@@ -96,6 +96,9 @@ and pp_pattern formatter pattern =
    operators are right-associative, but not if they're left-associative. *)
 
 and pp_binop (formatter : Format.formatter) (expr : expr) : unit =
+  let pp_expr_desc = 
+    pp_expr_desc_without_tag
+  in
   let pp_symb formatter expr =
     match expr with
     | Appl _ -> Format.pp_print_string formatter "" (* FIXME: Outputs two spaces! *)
@@ -145,6 +148,9 @@ and pp_expr_desc_without_tag
 
 and pp_expr 
   (formatter : Format.formatter) (expr : expr) : unit =
+  let pp_expr_desc = 
+    pp_expr_desc_without_tag
+  in
   match expr with
   (* Values *)
   | Int n -> Format.pp_print_int formatter n
