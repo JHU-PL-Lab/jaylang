@@ -91,9 +91,9 @@ let get_abort_cond_clause_id
 
 let get_odefa_errors
   (sato_state : Sato_state.t)
-  (symb_interp_state : Dbmc.Types.State.t)
-  (interp_session : Dbmc.Interpreter.session) 
-  (final_env : Dbmc.Interpreter.denv)
+  (symb_interp_state : Types.State.t)
+  (interp_session : Interpreter.session) 
+  (final_env : Interpreter.denv)
   : Ast.clause * Error.Odefa_error.t list =
   let abort_var = symb_interp_state.target in
   let ab_mapping = sato_state.abort_mapping in
@@ -102,9 +102,25 @@ let get_odefa_errors
   let Clause (_, cls) as error_loc = 
     get_pre_inst_equivalent_clause on_to_odefa_maps abort_cond_var 
   in
+  (* let () = print_endline @@ Ast_pp.show_clause_body cls in *)
   let alias_graph = interp_session.alias_graph in
+  (* The alias should follow the rule that each node has a single successor *)
   let rec find_alias acc x_with_stk = 
-    if Hash_set.mem acc x_with_stk then acc
+    (* let () = print_endline "Current target: " in
+    let () = print_endline @@ Interpreter.show_ident_with_stack x_with_stk in *)
+    if Interpreter.G.mem_vertex alias_graph x_with_stk then
+      let (succ : Interpreter.Ident_with_stack.t list) = 
+        Interpreter.G.succ alias_graph x_with_stk 
+      in
+      match succ with
+      | [] -> x_with_stk :: acc
+      | [succ] -> find_alias (x_with_stk :: acc) succ
+      | _ -> failwith "Should not have more than one successor!" 
+    else
+      x_with_stk :: acc
+  in
+  (* let rec find_alias acc x_with_stk = 
+    if List.mem acc x_with_stk ~equal:Interpreter.Ident_with_stack.equal then acc
     else
       let () = Hash_set.add acc x_with_stk in
       if (Interpreter.G.mem_vertex alias_graph x_with_stk) then
@@ -115,12 +131,12 @@ let get_odefa_errors
         aliases
       else
         (Hash_set.add acc x_with_stk; acc)
-  in
+  in *)
   let rec find_source_cls cls_mapping xs =
     match xs with
     | [] -> failwith "Should have found a value definition clause!"
     | hd :: tl ->
-      let () = print_endline @@ Interpreter.show_ident_with_stack hd in
+      (* let () = print_endline @@ Interpreter.show_ident_with_stack hd in *)
       let found = Hashtbl.find cls_mapping hd in
       match found with
       | Some cls -> cls
@@ -128,18 +144,24 @@ let get_odefa_errors
   in
   let mk_match_err expected_type actual_val x x_stk = 
     match expected_type, actual_val with
-    | Int_type, Value_int _| Bool_type, Value_bool _ -> []
+    | Int_type, Value_int _| Bool_type, Value_bool _ -> 
+      []
     | _ -> 
       let match_aliases_raw =
-        find_alias (Hash_set.create(module Interpreter.Ident_with_stack)) (x, x_stk)
-        |> Hash_set.to_list
+        find_alias [] (x, x_stk)
       in
+      (* let () = print_endline @@ "Printing aliases" in
+      let () = 
+        List.iter ~f:(fun a -> print_endline @@ Interpreter.show_ident_with_stack a) 
+        match_aliases_raw 
+      in  *)
       let match_val_source = 
         find_source_cls interp_session.val_def_map match_aliases_raw 
       in
       let match_aliases = 
         match_aliases_raw
         |> List.map ~f:(fun (x, _) -> x)
+        |> List.rev
       in
       let actual_type = get_value_type actual_val in
       let match_error = Error.Odefa_error.Error_match {
@@ -152,9 +174,9 @@ let get_odefa_errors
       [match_error]
   in
   let mk_value_error x x_stk = 
+      (* let () = print_endline "making a value error!" in *)
       let value_aliases_raw =
-        find_alias (Hash_set.create(module Interpreter.Ident_with_stack)) (x, x_stk)
-        |> Hash_set.to_list
+        find_alias [] (x, x_stk)
       in
       let val_source = 
         find_source_cls interp_session.val_def_map value_aliases_raw 
@@ -162,6 +184,7 @@ let get_odefa_errors
       let value_aliases = 
         value_aliases_raw
         |> List.map ~f:(fun (x, _) -> x)
+        |> List.rev
       in
       let value_error = Error.Odefa_error.Error_value {
         err_value_aliases = value_aliases;
@@ -188,9 +211,9 @@ let get_odefa_errors
         in 
         (v1, stk1), (v2, stk2)
       in
-      let () = print_endline @@ "This is the final error idents" in
+      (* let () = print_endline @@ "This is the final error idents" in
       let () = print_endline @@ Interpreter.show_ident_with_stack (x1, x1_stk) in
-      let () = print_endline @@ Interpreter.show_ident_with_stack (x2, x2_stk) in
+      let () = print_endline @@ Interpreter.show_ident_with_stack (x2, x2_stk) in *)
       let left_error = mk_match_err expected_type x1_val x1 x1_stk in
       let right_error = mk_match_err expected_type x2_val x2 x2_stk in
       let errors = List.append left_error right_error in
@@ -200,6 +223,7 @@ let get_odefa_errors
     | Not_body (Var (x, _)) | Appl_body (Var (x, _), _) 
     | Projection_body (Var (x, _), _) 
     | Conditional_body (Var (x, _), _, _) ->
+      (* let () = print_endline @@ Ast_pp.show_clause_body cls in *)
       let expected_type = get_expected_type_from_cls cls in
       let (x_val, x_stk) = 
         let (dv, stk) = Ident_map.find x final_env in

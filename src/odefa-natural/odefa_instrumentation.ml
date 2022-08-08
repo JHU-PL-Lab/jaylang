@@ -63,7 +63,7 @@ let rec instrument_clauses (c_list : clause list) : clause list m =
           (* Nothing to constrain *)
           let%bind new_clauses' = instrument_clauses clauses' in
           return @@ (clause :: new_clauses')
-      | Not_body v -> 
+      | Not_body v' -> 
           let%bind is_already_inst = is_instrument_var v in
           if is_already_inst
           then
@@ -72,7 +72,7 @@ let rec instrument_clauses (c_list : clause list) : clause list m =
           else
             let%bind m = fresh_var "m" in
             let%bind () = add_instrument_var m in
-            let m_clause = Clause (m, Match_body (v, Bool_pattern)) in
+            let m_clause = Clause (m, Match_body (v', Bool_pattern)) in
             (* Conditional *)
             let%bind c_not = fresh_var "c_not" in
             let%bind () = add_instrument_var_pair c_not v in

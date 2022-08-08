@@ -417,6 +417,9 @@ let odefa_to_natodefa_error
   | Error.Odefa_error.Error_match err ->
     begin
       let aliases = err.err_match_aliases in
+      (* let () = print_endline "Printing aliases" in
+      let () = List.iter (fun a -> print_endline @@ Ast.show_ident a) aliases in
+      let () = print_endline @@ show_expr ((odefa_to_on_value aliases).body) in *)
       Error_match {
         err_match_aliases = get_idents_from_aliases @@ odefa_to_on_aliases aliases;
         err_match_val = (odefa_to_on_value aliases).body;
@@ -427,9 +430,16 @@ let odefa_to_natodefa_error
   | Error.Odefa_error.Error_value err ->
     begin
       let aliases = err.err_value_aliases in
-      Error_value {
-        err_value_aliases = get_idents_from_aliases @@ odefa_to_on_aliases aliases;
-        err_value_val = (odefa_to_on_value aliases).body;
-      }
+      let () = print_endline "Printing aliases" in
+      let () = List.iter (fun a -> print_endline @@ Ast.show_ident a) aliases in
+      let err_val_edesc = odefa_to_on_value aliases in
+      match err_val_edesc.body with
+      | Match (_ed, _pat_ed_lst) ->
+        failwith "TBI!"
+      | _ ->
+        Error_value {
+          err_value_aliases = get_idents_from_aliases @@ odefa_to_on_aliases aliases;
+          err_value_val = err_val_edesc.body;
+        }
     end
 ;;
