@@ -351,6 +351,7 @@ let rec m_env_out_transform_expr
       return @@ ({tag = og_tag; body = On_ast.RecordProj(e1', l)}, out)
     | On_ast.Match (e0, branches) ->
       let%bind (e0', out0) = recurse env e0 in
+      (* let () = failwith @@ On_ast.show_expr_desc e0' in *)
       let%bind (branches', outs) =
         lift1 List.split @@
         sequence @@

@@ -1,4 +1,5 @@
 open Odefa_ast;;
+open Odefa_natural;;
 
 (* Natodefa modules *)
 
@@ -25,5 +26,6 @@ val odefa_error_remove_instrument_vars :
 (** Given an odefa/natodefa mapping, converts an odefa error into a natodefa
     error. *)
 val odefa_to_natodefa_error :
-  On_to_odefa_maps.t -> Error.Odefa_error.t -> On_error.t
+  On_to_odefa_maps.t -> Dbmc.Interpreter.session -> Dbmc.Interpreter.denv -> 
+  Error.Odefa_error.t -> On_error.t list
 ;;

@@ -154,70 +154,71 @@ let get_pre_inst_equivalent_clause mappings odefa_ident =
     We need a custom transformer function, rather than the one in utils, 
     because we need to first transform the expression, then recurse (whereas
     transform_expr and transform_expr_m do the other way around). *)
-    let rec on_expr_transformer 
-    (transformer : On_ast.expr_desc -> On_ast.expr_desc) 
-    (e_desc : On_ast.expr_desc) =
-    let open On_ast in
-    let (recurse : expr_desc -> expr_desc) = on_expr_transformer transformer in
-    let e_desc' = transformer e_desc in
-    let expr' = e_desc'.body in
-    let og_tag = e_desc.tag in
-    let body' = 
-      match expr' with
-      | Int _ | Bool _ | Var _ | Input -> 
-        expr'
-      | Record record ->
-        let record' =
-          record
-          |> On_ast.Ident_map.enum
-          |> Enum.map (fun (lbl, e) -> (lbl, recurse e))
-          |> On_ast.Ident_map.of_enum
-        in
-        Record record'
-      | Match (e, pat_e_lst) ->
-        let pat_e_lst' =
-          List.map (fun (pat, e) -> (pat, recurse e)) pat_e_lst
-        in
-        Match (recurse e, pat_e_lst')
-      | Function (id_lst, e) -> Function (id_lst, recurse e)
-      | Appl (e1, e2) -> Appl (recurse e1, recurse e2)
-      | Let (id, e1, e2) -> Let (id, recurse e1, recurse e2)
-      | LetFun (fs, e) ->
-        let Funsig (fs_ident, fs_args, e_body) = fs in
-        let fs' = Funsig (fs_ident, fs_args, recurse e_body) in
-        LetFun (fs', recurse e)
-      | LetRecFun (fs_lst, e) ->
-        let fs_lst' =
-          List.map
-            (fun (Funsig (id, args, e')) -> Funsig (id, args, recurse e'))
-            fs_lst
-        in
-        LetRecFun (fs_lst', recurse e)
-      | Plus (e1, e2) -> Plus (recurse e1, recurse e2)
-      | Minus (e1, e2) -> Minus (recurse e1, recurse e2)
-      | Times (e1, e2) -> Times (recurse e1, recurse e2)
-      | Divide (e1, e2) -> Divide (recurse e1, recurse e2)
-      | Modulus (e1, e2) -> Modulus (recurse e1, recurse e2)
-      | Equal (e1, e2) -> Equal (recurse e1, recurse e2)
-      | Neq (e1, e2) -> Neq (recurse e1, recurse e2)
-      | LessThan (e1, e2) -> LessThan (recurse e1, recurse e2)
-      | Leq (e1, e2) -> Leq (recurse e1, recurse e2)
-      | GreaterThan (e1, e2) -> GreaterThan (recurse e1, recurse e2)
-      | Geq (e1, e2) -> Geq (recurse e1, recurse e2)
-      | And (e1, e2) -> And (recurse e1, recurse e2)
-      | Or (e1, e2) -> Or (recurse e1, recurse e2)
-      | Not e -> Not (recurse e)
-      | If (e1, e2, e3) -> If (recurse e1, recurse e2, recurse e3)
-      | RecordProj (e, lbl) -> RecordProj (recurse e, lbl)
-      | VariantExpr (vlbl, e) -> VariantExpr (vlbl, recurse e)
-      | List (e_lst) -> List (List.map recurse e_lst)
-      | ListCons (e1, e2) -> ListCons (recurse e1, recurse e2)
-      | Assert e -> Assert (recurse e)
-      | Assume e -> Assume (recurse e)
-      | Error x -> Error x
-    in
-    {tag = og_tag; body = body'}
-  ;;
+let rec on_expr_transformer 
+  (transformer : On_ast.expr_desc -> On_ast.expr_desc) 
+  (e_desc : On_ast.expr_desc) =
+  let open On_ast in
+  let (recurse : expr_desc -> expr_desc) = on_expr_transformer transformer in
+  let e_desc' = transformer e_desc in
+  let expr' = e_desc'.body in
+  (* let og_tag = e_desc.tag in *)
+  let new_tag = e_desc'.tag in
+  let body' = 
+    match expr' with
+    | Int _ | Bool _ | Var _ | Input -> 
+      expr'
+    | Record record ->
+      let record' =
+        record
+        |> On_ast.Ident_map.enum
+        |> Enum.map (fun (lbl, e) -> (lbl, recurse e))
+        |> On_ast.Ident_map.of_enum
+      in
+      Record record'
+    | Match (e, pat_e_lst) ->
+      let pat_e_lst' =
+        List.map (fun (pat, e) -> (pat, recurse e)) pat_e_lst
+      in
+      Match (recurse e, pat_e_lst')
+    | Function (id_lst, e) -> Function (id_lst, recurse e)
+    | Appl (e1, e2) -> Appl (recurse e1, recurse e2)
+    | Let (id, e1, e2) -> Let (id, recurse e1, recurse e2)
+    | LetFun (fs, e) ->
+      let Funsig (fs_ident, fs_args, e_body) = fs in
+      let fs' = Funsig (fs_ident, fs_args, recurse e_body) in
+      LetFun (fs', recurse e)
+    | LetRecFun (fs_lst, e) ->
+      let fs_lst' =
+        List.map
+          (fun (Funsig (id, args, e')) -> Funsig (id, args, recurse e'))
+          fs_lst
+      in
+      LetRecFun (fs_lst', recurse e)
+    | Plus (e1, e2) -> Plus (recurse e1, recurse e2)
+    | Minus (e1, e2) -> Minus (recurse e1, recurse e2)
+    | Times (e1, e2) -> Times (recurse e1, recurse e2)
+    | Divide (e1, e2) -> Divide (recurse e1, recurse e2)
+    | Modulus (e1, e2) -> Modulus (recurse e1, recurse e2)
+    | Equal (e1, e2) -> Equal (recurse e1, recurse e2)
+    | Neq (e1, e2) -> Neq (recurse e1, recurse e2)
+    | LessThan (e1, e2) -> LessThan (recurse e1, recurse e2)
+    | Leq (e1, e2) -> Leq (recurse e1, recurse e2)
+    | GreaterThan (e1, e2) -> GreaterThan (recurse e1, recurse e2)
+    | Geq (e1, e2) -> Geq (recurse e1, recurse e2)
+    | And (e1, e2) -> And (recurse e1, recurse e2)
+    | Or (e1, e2) -> Or (recurse e1, recurse e2)
+    | Not e -> Not (recurse e)
+    | If (e1, e2, e3) -> If (recurse e1, recurse e2, recurse e3)
+    | RecordProj (e, lbl) -> RecordProj (recurse e, lbl)
+    | VariantExpr (vlbl, e) -> VariantExpr (vlbl, recurse e)
+    | List (e_lst) -> List (List.map recurse e_lst)
+    | ListCons (e1, e2) -> ListCons (recurse e1, recurse e2)
+    | Assert e -> Assert (recurse e)
+    | Assume e -> Assume (recurse e)
+    | Error x -> Error x
+  in
+  {tag = new_tag; body = body'}
+;;
 
 let get_natodefa_equivalent_expr mappings odefa_ident =
   let inst_map = mappings.odefa_instrument_vars_map in
@@ -240,6 +241,8 @@ let get_natodefa_equivalent_expr mappings odefa_ident =
           "variable %s is not associated with any natodefa expr."
           (Ast.show_ident odefa_ident'))
   in
+  (* let () = print_endline @@ On_ast.show_expr_desc natodefa_expr in
+  let () = failwith "Stop right here!" in *)
   (* Get any original natodefa exprs *)
   let on_expr_transform expr =
     match Expr_desc_map.Exceptionless.find expr on_expr_map with
@@ -350,25 +353,29 @@ let odefa_to_on_aliases on_mappings aliases =
 let get_odefa_var_opt_from_natodefa_expr mappings (expr : On_ast.expr_desc) =
   (* Getting the desugared version of core nat expression *)
   let desugared_core = 
-    (* let () = print_endline @@ "This is the transformed expr" in
-    let () = print_endline @@ show_expr_desc expr in *)
     let find_key_by_value v = 
+      (* let () = print_endline @@ "This is the target expr" in
+      let () = print_endline @@ On_ast.show_expr_desc v in *)
       Expr_desc_map.fold
       (fun desugared sugared acc -> 
-        (* let () = print_endline "----------------------" in *)
-        (* let () = print_endline @@ "This is the value in the dictionary: " in *)
-        (* let () = print_endline @@ show_expr_desc sugared in *)
-        (* let () = print_endline @@ "This is the key in the dictionary: " in *)
-        (* let () = print_endline @@ show_expr_desc desugared in *)
-        (* let () = print_endline "----------------------" in *)
+        (* let () = print_endline "----------------------" in
+        let () = print_endline @@ "This is the value in the dictionary: " in
+        let () = print_endline @@ On_ast.show_expr_desc sugared in *)
+        (* let () = print_endline @@ "This is the key in the dictionary: " in
+        let () = print_endline @@ On_ast.show_expr_desc desugared in *)
+        let () = print_endline "----------------------" in
         if (sugared = v) then Some desugared else acc)
       mappings.natodefa_expr_to_expr None 
     in
     let rec loop edesc = 
       let edesc_opt' = find_key_by_value edesc in
       match edesc_opt' with
-      | None -> edesc
-      | Some edesc' -> loop edesc'
+      | None -> 
+        (* let () = print_endline @@ "None found!" in  *)
+        edesc
+      | Some edesc' -> 
+        (* let () = print_endline @@ "Found some!" in *)
+        loop edesc'
     in
     loop expr
   in
@@ -456,12 +463,12 @@ let get_odefa_var_opt_from_natodefa_expr mappings (expr : On_ast.expr_desc) =
   in
   let odefa_var_opt = 
     (* let () = print_endline @@ "This is the original expr" in
-    let () = print_endline @@ show_expr_desc alphatized in *)
+    let () = print_endline @@ On_ast.show_expr_desc alphatized in *)
     Ast.Ident_map.fold
     (fun odefa_var core_expr acc -> 
       (* let () = print_endline @@ "This is the value in the dictionary: " in
-      let () = print_endline @@ show_expr_desc core_expr in *)
-      if (core_expr = alphatized) then Some (Ast.Var (odefa_var, None)) else acc) 
+      let () = print_endline @@ On_ast.show_expr_desc core_expr in *)
+      if (core_expr.On_ast.tag = alphatized.tag) then Some (Ast.Var (odefa_var, None)) else acc) 
     mappings.odefa_var_to_natodefa_expr None
   in
   odefa_var_opt

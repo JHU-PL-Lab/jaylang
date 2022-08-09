@@ -51,36 +51,6 @@ module type Sato_error = sig
 end;;
 
 (* **** String showing utilities **** *)
-
-let get_expected_type_from_operator op = 
-  match op with
-  | Binary_operator_plus | Binary_operator_minus
-  | Binary_operator_times | Binary_operator_divide
-  | Binary_operator_modulus | Binary_operator_less_than
-  | Binary_operator_less_than_or_equal_to | Binary_operator_equal_to
-  | Binary_operator_not_equal_to -> Int_type
-  | Binary_operator_and | Binary_operator_or -> Bool_type
-
-let get_value_type v = 
-  match v with
-  | Value_int _ -> Int_type
-  | Value_bool _ -> Bool_type
-  | Value_function _ -> Fun_type
-  | Value_record (Record_value r) -> 
-    let lbls = Ident_set.of_enum @@ Ident_map.keys r in
-    Rec_type lbls
-
-let get_expected_type_from_cls cls_body = 
-  match cls_body with
-  | Binary_operation_body (_, op, _) ->
-    get_expected_type_from_operator op
-  | Not_body _ -> Bool_type
-  | Appl_body _ -> Fun_type
-  | Projection_body (_, lbl) -> Rec_type (Ident_set.singleton lbl)
-  | Conditional_body _ -> Bool_type
-  | _ -> failwith @@
-    "Errors should only arise from unary/binary operations, function application, record projection, or a conditional."
-
 let get_abort_cond_clause_id
   (abort_mapping : (Ident_new.t, abort_value) Hashtbl.t) 
   (ab_id : Ident_new.t) 
@@ -104,21 +74,6 @@ let get_odefa_errors
   in
   (* let () = print_endline @@ Ast_pp.show_clause_body cls in *)
   let alias_graph = interp_session.alias_graph in
-  (* The alias should follow the rule that each node has a single successor *)
-  let rec find_alias acc x_with_stk = 
-    (* let () = print_endline "Current target: " in
-    let () = print_endline @@ Interpreter.show_ident_with_stack x_with_stk in *)
-    if Interpreter.G.mem_vertex alias_graph x_with_stk then
-      let (succ : Interpreter.Ident_with_stack.t list) = 
-        Interpreter.G.succ alias_graph x_with_stk 
-      in
-      match succ with
-      | [] -> x_with_stk :: acc
-      | [succ] -> find_alias (x_with_stk :: acc) succ
-      | _ -> failwith "Should not have more than one successor!" 
-    else
-      x_with_stk :: acc
-  in
   (* let rec find_alias acc x_with_stk = 
     if List.mem acc x_with_stk ~equal:Interpreter.Ident_with_stack.equal then acc
     else
@@ -142,13 +97,40 @@ let get_odefa_errors
       | Some cls -> cls
       | None -> find_source_cls cls_mapping tl
   in
-  let mk_match_err expected_type actual_val x x_stk = 
+  let mk_match_err expected_type actual_val x x_stk : Error.Odefa_error.t list = 
     match expected_type, actual_val with
-    | Int_type, Value_int _| Bool_type, Value_bool _ -> 
+    | Bool_type, Value_bool _b -> []
+      (* if not b then
+        (* If the type for the conditional checks out, that suggests the error
+           is an encoding of a more complex type. *)
+        (* Should I need to find aliases here? *)
+        let pred_source = 
+          find_source_cls interp_session.val_def_map [(x, x_stk)] 
+        in
+        let extract_conds (src : Ast.clause_body) : Error.Odefa_error.t list = 
+          (
+          match src with
+          | Binary_operation_body (Var (x1, _), op , Var (x2, _)) ->
+            begin
+            let (dv1, stk1) = Ident_map.find x1 final_env in
+            let (dv2, stk2) = Ident_map.find x2 final_env in
+            match (op, dv1, dv2) with
+            | Binary_operator_or, Direct b1, Direct b2 ->
+              let errors_1 = mk_match_err Bool_type b1 x1 stk1 in
+              let errors_2 = mk_match_err Bool_type b2 x2 stk2 in
+              errors_1 @ errors_2
+            | _ -> failwith "Something went wrong..."
+            end
+          | _ -> failwith "Shouldn't be a non-binop clause!")
+        in
+        extract_conds pred_source
+        (* let () = print_endline @@ Ast_pp.show_clause_body pred_source in *)
+      else [] *)
+    | Int_type, Value_int _ -> 
       []
     | _ -> 
       let match_aliases_raw =
-        find_alias [] (x, x_stk)
+        Sato_tools.find_alias alias_graph [] (x, x_stk)
       in
       (* let () = print_endline @@ "Printing aliases" in
       let () = 
@@ -163,7 +145,7 @@ let get_odefa_errors
         |> List.map ~f:(fun (x, _) -> x)
         |> List.rev
       in
-      let actual_type = get_value_type actual_val in
+      let actual_type = Sato_tools.get_value_type actual_val in
       let match_error = Error.Odefa_error.Error_match {
         err_match_aliases = match_aliases;
         err_match_val = match_val_source;
@@ -176,7 +158,7 @@ let get_odefa_errors
   let mk_value_error x x_stk = 
       (* let () = print_endline "making a value error!" in *)
       let value_aliases_raw =
-        find_alias [] (x, x_stk)
+        Sato_tools.find_alias alias_graph [] (x, x_stk)
       in
       let val_source = 
         find_source_cls interp_session.val_def_map value_aliases_raw 
@@ -200,7 +182,7 @@ let get_odefa_errors
     *)
     | Binary_operation_body (Var (x1, _), _, Var (x2, _)) ->
       let expected_type = 
-        get_expected_type_from_cls cls
+        Sato_tools.get_expected_type_from_cls cls
       in
       let (x1_val, x1_stk), (x2_val, x2_stk) = 
         let (dv1, stk1) = Ident_map.find x1 final_env in
@@ -223,8 +205,9 @@ let get_odefa_errors
     | Not_body (Var (x, _)) | Appl_body (Var (x, _), _) 
     | Projection_body (Var (x, _), _) 
     | Conditional_body (Var (x, _), _, _) ->
+      (* let () = print_endline @@ show_ident x in *)
       (* let () = print_endline @@ Ast_pp.show_clause_body cls in *)
-      let expected_type = get_expected_type_from_cls cls in
+      let expected_type = Sato_tools.get_expected_type_from_cls cls in
       let (x_val, x_stk) = 
         let (dv, stk) = Ident_map.find x final_env in
         let v = 
@@ -274,7 +257,7 @@ module Odefa_type_errors : Sato_error = struct
     in
     let on_to_odefa_maps = sato_state.on_to_odefa_maps in
     let rm_inst_fn =
-      Odefa_natural.On_error.odefa_error_remove_instrument_vars on_to_odefa_maps
+      On_error.odefa_error_remove_instrument_vars on_to_odefa_maps
     in
     Some {
       err_input_seq = inputs;
@@ -319,7 +302,7 @@ end;;
 module Natodefa_type_errors : Sato_error = struct
 
   type natodefa_error_record = {
-    err_errors : Odefa_natural.On_error.On_error.t list;
+    err_errors : On_error.On_error.t list;
     err_input_seq : int option list;
     err_location : Natodefa_error_location.t;
   }
@@ -347,14 +330,14 @@ module Natodefa_type_errors : Sato_error = struct
     in
     let on_err_list =
       let mapper = 
-        (On_error.odefa_to_natodefa_error on_to_odefa_maps) 
+        (On_error.odefa_to_natodefa_error on_to_odefa_maps interp_session final_env) 
       in 
       List.map ~f:mapper odefa_errors
     in
     Some {
       err_input_seq = inputs;
       err_location = on_err_loc_core;
-      err_errors = on_err_list;
+      err_errors = List.concat on_err_list;
     }
   ;;
 
@@ -519,7 +502,7 @@ module Natodefa_type_errors : Sato_error = struct
       (Printf.sprintf "- Found at clause : %s\n" (Natodefa_error_location.show error.err_location)) ^
       "--------------------\n" ^
       (String.concat ~sep:"\n--------------------\n"
-        @@ List.map ~f:Odefa_natural.On_error.On_error.show error.err_errors)
+        @@ List.map ~f:On_error.On_error.show error.err_errors)
     | None -> ""
   ;;
 
