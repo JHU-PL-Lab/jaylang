@@ -363,8 +363,8 @@ let get_odefa_var_opt_from_natodefa_expr mappings (expr : On_ast.expr_desc) =
         let () = print_endline @@ On_ast.show_expr_desc sugared in *)
         (* let () = print_endline @@ "This is the key in the dictionary: " in
         let () = print_endline @@ On_ast.show_expr_desc desugared in *)
-        let () = print_endline "----------------------" in
-        if (sugared = v) then Some desugared else acc)
+        (* let () = print_endline "----------------------" in *)
+        if (On_ast.equal_expr_desc sugared v) then Some desugared else acc)
       mappings.natodefa_expr_to_expr None 
     in
     let rec loop edesc = 
@@ -386,7 +386,7 @@ let get_odefa_var_opt_from_natodefa_expr mappings (expr : On_ast.expr_desc) =
   let find_ident ident =
     Ident_map.fold 
     (fun renamed og_name acc ->
-      if (og_name = ident) then renamed else acc  
+      if (equal_ident og_name ident) then renamed else acc  
     ) mappings.natodefa_var_to_var ident
   in
   let transform_funsig funsig =
@@ -468,7 +468,10 @@ let get_odefa_var_opt_from_natodefa_expr mappings (expr : On_ast.expr_desc) =
     (fun odefa_var core_expr acc -> 
       (* let () = print_endline @@ "This is the value in the dictionary: " in
       let () = print_endline @@ On_ast.show_expr_desc core_expr in *)
-      if (core_expr.On_ast.tag = alphatized.tag) then Some (Ast.Var (odefa_var, None)) else acc) 
+      (* if (core_expr.On_ast.tag = alphatized.tag) then  *)
+      if On_ast.equal_expr_desc core_expr alphatized then
+        Some (Ast.Var (odefa_var, None)) 
+      else acc) 
     mappings.odefa_var_to_natodefa_expr None
   in
   odefa_var_opt

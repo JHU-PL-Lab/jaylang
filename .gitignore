@@ -42,3 +42,4 @@ _build
 
 # local files (ignored by default)
 /_notes
+*.txt

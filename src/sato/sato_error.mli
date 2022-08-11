@@ -42,14 +42,6 @@ module type Error_type = sig
   val to_yojson : t -> Yojson.Safe.t;;
 end;;
 
-(* **** Modules **** *)
-
-module Ident : Error_ident with type t = Ast.ident;;
-module Value : Error_value with type t = Ast.clause_body;;
-module Binop : Error_binop with type t =
-  (Ast.clause_body * Ast.binary_operator * Ast.clause_body);;
-module Type : Error_type with type t = Ast.type_sig;;
-
 (* **** Error modules **** *)
 
 module type Error = sig
@@ -132,11 +124,48 @@ module Make
       and type binop := Binop.t
       and type type_sig := Type.t)
 
+
+(* **** Odefa Error Modules **** *)
+module Odefa_ident : Error_ident with type t = Odefa_ast.Ast.ident;;
+module Odefa_value : Error_value with type t = Odefa_ast.Ast.clause_body;;
+module Odefa_binop : Error_binop with type t =
+  (Odefa_ast.Ast.clause_body * Odefa_ast.Ast.binary_operator * Odefa_ast.Ast.clause_body);;
+module Odefa_type : Error_type with type t = Odefa_ast.Ast.type_sig;;
+
 (** An error produced by an odefa program *)
 module Odefa_error
   : (Error
-      with type ident := Ident.t
-      and type value := Value.t
-      and type binop := Binop.t
-      and type type_sig := Type.t)
+      with type ident := Odefa_ident.t
+      and type value := Odefa_value.t
+      and type binop := Odefa_binop.t
+      and type type_sig := Odefa_type.t)
+;;
+
+(* Natodefa modules *)
+
+module Natodefa_ident : Error_ident with type t = Odefa_natural.On_ast.ident;;
+module Natodefa_value : Error_value with type t = Odefa_natural.On_ast.expr;;
+module Natodefa_binop : Error_binop with type t = Odefa_natural.On_ast.expr;;
+module Natodefa_type : Error_type with type t = Odefa_natural.On_ast.type_sig;;
+
+(** An error produced by a natodefa program *)
+module On_error
+  : (Error
+      with type ident := Natodefa_ident.t
+      and type value := Natodefa_value.t
+      and type binop := Natodefa_binop.t
+      and type type_sig := Natodefa_type.t)
+;;
+
+(** Given an odefa/natodefa mapping, removes variables that were added during
+    error instrumentation. *)
+val odefa_error_remove_instrument_vars :
+  Odefa_natural.On_to_odefa_maps.t -> Odefa_error.t -> Odefa_error.t
+;;
+
+(** Given an odefa/natodefa mapping, converts an odefa error into a natodefa
+    error. *)
+val odefa_to_natodefa_error :
+  Odefa_natural.On_to_odefa_maps.t -> Dbmc.Interpreter.session -> 
+  Dbmc.Interpreter.denv -> Odefa_error.t -> On_error.t list
 ;;

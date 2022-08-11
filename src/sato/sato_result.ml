@@ -36,7 +36,7 @@ module Natodefa_error_location
     `String (replace_linebreaks @@ show expr);;
 end;;
 
-module type Sato_error = sig
+module type Sato_result = sig
   type t;;
   val description : string;;
   val get_errors : 
@@ -64,7 +64,7 @@ let get_odefa_errors
   (symb_interp_state : Types.State.t)
   (interp_session : Interpreter.session) 
   (final_env : Interpreter.denv)
-  : Ast.clause * Error.Odefa_error.t list =
+  : Ast.clause * Sato_error.Odefa_error.t list =
   let abort_var = symb_interp_state.target in
   let ab_mapping = sato_state.abort_mapping in
   let on_to_odefa_maps = sato_state.on_to_odefa_maps in
@@ -72,21 +72,7 @@ let get_odefa_errors
   let Clause (_, cls) as error_loc = 
     get_pre_inst_equivalent_clause on_to_odefa_maps abort_cond_var 
   in
-  (* let () = print_endline @@ Ast_pp.show_clause_body cls in *)
   let alias_graph = interp_session.alias_graph in
-  (* let rec find_alias acc x_with_stk = 
-    if List.mem acc x_with_stk ~equal:Interpreter.Ident_with_stack.equal then acc
-    else
-      let () = Hash_set.add acc x_with_stk in
-      if (Interpreter.G.mem_vertex alias_graph x_with_stk) then
-        let (succs : Interpreter.Ident_with_stack.t list) = Interpreter.G.succ alias_graph x_with_stk in
-        let (aliases : Interpreter.Ident_with_stack.t Hash_set.t) = 
-          List.fold succs ~init:acc ~f:(fun acc next -> Hash_set.union acc (find_alias acc next))
-        in
-        aliases
-      else
-        (Hash_set.add acc x_with_stk; acc)
-  in *)
   let rec find_source_cls cls_mapping xs =
     match xs with
     | [] -> failwith "Should have found a value definition clause!"
@@ -97,37 +83,9 @@ let get_odefa_errors
       | Some cls -> cls
       | None -> find_source_cls cls_mapping tl
   in
-  let mk_match_err expected_type actual_val x x_stk : Error.Odefa_error.t list = 
+  let mk_match_err expected_type actual_val x x_stk : Sato_error.Odefa_error.t list = 
     match expected_type, actual_val with
-    | Bool_type, Value_bool _b -> []
-      (* if not b then
-        (* If the type for the conditional checks out, that suggests the error
-           is an encoding of a more complex type. *)
-        (* Should I need to find aliases here? *)
-        let pred_source = 
-          find_source_cls interp_session.val_def_map [(x, x_stk)] 
-        in
-        let extract_conds (src : Ast.clause_body) : Error.Odefa_error.t list = 
-          (
-          match src with
-          | Binary_operation_body (Var (x1, _), op , Var (x2, _)) ->
-            begin
-            let (dv1, stk1) = Ident_map.find x1 final_env in
-            let (dv2, stk2) = Ident_map.find x2 final_env in
-            match (op, dv1, dv2) with
-            | Binary_operator_or, Direct b1, Direct b2 ->
-              let errors_1 = mk_match_err Bool_type b1 x1 stk1 in
-              let errors_2 = mk_match_err Bool_type b2 x2 stk2 in
-              errors_1 @ errors_2
-            | _ -> failwith "Something went wrong..."
-            end
-          | _ -> failwith "Shouldn't be a non-binop clause!")
-        in
-        extract_conds pred_source
-        (* let () = print_endline @@ Ast_pp.show_clause_body pred_source in *)
-      else [] *)
-    | Int_type, Value_int _ -> 
-      []
+    | Bool_type, Value_bool _ | Int_type, Value_int _ -> []
     | _ -> 
       let match_aliases_raw =
         Sato_tools.find_alias alias_graph [] (x, x_stk)
@@ -136,7 +94,8 @@ let get_odefa_errors
       let () = 
         List.iter ~f:(fun a -> print_endline @@ Interpreter.show_ident_with_stack a) 
         match_aliases_raw 
-      in  *)
+      in 
+      let () = print_endline @@ "---------------" in *)
       let match_val_source = 
         find_source_cls interp_session.val_def_map match_aliases_raw 
       in
@@ -146,7 +105,7 @@ let get_odefa_errors
         |> List.rev
       in
       let actual_type = Sato_tools.get_value_type actual_val in
-      let match_error = Error.Odefa_error.Error_match {
+      let match_error = Sato_error.Odefa_error.Error_match {
         err_match_aliases = match_aliases;
         err_match_val = match_val_source;
         err_match_expected = expected_type;
@@ -168,7 +127,7 @@ let get_odefa_errors
         |> List.map ~f:(fun (x, _) -> x)
         |> List.rev
       in
-      let value_error = Error.Odefa_error.Error_value {
+      let value_error = Sato_error.Odefa_error.Error_value {
         err_value_aliases = value_aliases;
         err_value_val = val_source;
       }
@@ -193,9 +152,9 @@ let get_odefa_errors
         in 
         (v1, stk1), (v2, stk2)
       in
-      (* let () = print_endline @@ "This is the final error idents" in
+      let () = print_endline @@ "This is the final error idents" in
       let () = print_endline @@ Interpreter.show_ident_with_stack (x1, x1_stk) in
-      let () = print_endline @@ Interpreter.show_ident_with_stack (x2, x2_stk) in *)
+      let () = print_endline @@ Interpreter.show_ident_with_stack (x2, x2_stk) in
       let left_error = mk_match_err expected_type x1_val x1 x1_stk in
       let right_error = mk_match_err expected_type x2_val x2 x2_stk in
       let errors = List.append left_error right_error in
@@ -231,10 +190,10 @@ let get_odefa_errors
 
 (* **** Type Errors **** *)
 
-module Odefa_type_errors : Sato_error = struct
+module Odefa_type_errors : Sato_result = struct
 
   type odefa_error_record = {
-    err_errors : Error.Odefa_error.t list;
+    err_errors : Sato_error.Odefa_error.t list;
     err_input_seq : int option list;
     err_location : Odefa_error_location.t;
   }
@@ -257,7 +216,7 @@ module Odefa_type_errors : Sato_error = struct
     in
     let on_to_odefa_maps = sato_state.on_to_odefa_maps in
     let rm_inst_fn =
-      On_error.odefa_error_remove_instrument_vars on_to_odefa_maps
+      Sato_error.odefa_error_remove_instrument_vars on_to_odefa_maps
     in
     Some {
       err_input_seq = inputs;
@@ -276,7 +235,7 @@ module Odefa_type_errors : Sato_error = struct
       (* (Printf.sprintf "- Found in steps  : %s\n" (string_of_int error.err_steps)) ^ *)
       "--------------------\n" ^
       (String.concat ~sep:"\n--------------------\n"
-        @@ List.map ~f:Error.Odefa_error.show error.err_errors)
+        @@ List.map ~f:Sato_error.Odefa_error.show error.err_errors)
     | None -> ""
   ;;
 
@@ -299,10 +258,10 @@ module Odefa_type_errors : Sato_error = struct
   ;;
 end;;
 
-module Natodefa_type_errors : Sato_error = struct
+module Natodefa_type_errors : Sato_result = struct
 
   type natodefa_error_record = {
-    err_errors : On_error.On_error.t list;
+    err_errors : Sato_error.On_error.t list;
     err_input_seq : int option list;
     err_location : Natodefa_error_location.t;
   }
@@ -330,7 +289,7 @@ module Natodefa_type_errors : Sato_error = struct
     in
     let on_err_list =
       let mapper = 
-        (On_error.odefa_to_natodefa_error on_to_odefa_maps interp_session final_env) 
+        (Sato_error.odefa_to_natodefa_error on_to_odefa_maps interp_session final_env) 
       in 
       List.map ~f:mapper odefa_errors
     in
@@ -341,160 +300,6 @@ module Natodefa_type_errors : Sato_error = struct
     }
   ;;
 
-  (* Reporting Natodefa errors. *)
-  (* let answer_from_result steps e x result =
-    match (!odefa_on_maps_option_ref, !ton_on_maps_option_ref) with
-    | (Some odefa_on_maps, Some ton_on_maps) ->
-      begin
-        let (input_seq, error_opt) =
-          Generator_utils.input_sequence_from_result e x result
-        in
-        match error_opt with
-        | Some (error_loc, error_lst, solution) ->
-          (* TODO (Earl): This probably should be the place to trace all the way
-              back to the original, user-written Natodefa code.
-              The current issue with how mappings are kept is that the abort vars
-              are bound to the "assert false" statements directly. 
-              Need to find a way to chain up the assert false to the original point of
-              error.
-          *)
-          (* Getting the original syntactic natodefa expression *)
-          let on_err_loc_core =
-            error_loc
-            |> On_to_odefa_maps.get_natodefa_equivalent_expr odefa_on_maps 
-          in
-          (* let on_err_sem = 
-            on_err_loc_core
-            |> Ton_to_on_maps.sem_natodefa_from_on_err ton_on_maps 
-          in *)
-          let on_err_loc_nat = 
-            on_err_loc_core
-            |> Ton_to_on_maps.get_syn_nat_equivalent_expr ton_on_maps
-          in
-          (* If type error, we need to find the corresponding point of error.
-          *)
-          let is_type_error = 
-            (* false *)
-            match on_err_loc_nat.body with
-            | LetWithType _ | LetFunWithType _ | LetRecFunWithType _ -> true
-            | _ -> false
-          in
-          (* This helper function is called in the case of a type error.
-             When given an odefa_err, it expects an Error_value. Through
-             the aliases, it will retrieve error variable in syn nat. 
-           *)
-          let find_err_ident odefa_err = 
-            match odefa_err with
-            | Error.Odefa_error.Error_binop _
-            | Error.Odefa_error.Error_match _ ->
-              failwith "This shouldn't happen!"
-            | Error.Odefa_error.Error_value err ->
-              let odefa_symbols = err.err_value_aliases in
-              (* let () = print_endline "----------" in
-              let () =
-                List.iter 
-                (fun s -> print_endline @@ Interpreter_types.show_symbol s) 
-                odefa_symbols 
-              in
-              let () = print_endline "----------" in *)
-              let odefa_aliases = 
-                odefa_symbols
-                |> List.map (fun (Interpreter_types.Symbol (x, _)) -> x)
-                |> List.unique
-              in
-              let sem_nat_aliases = 
-                odefa_aliases
-                |> (On_to_odefa_maps.odefa_to_on_aliases odefa_on_maps)
-                |> List.map (Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps)
-              in
-              let sem_val_exprs = 
-                sem_nat_aliases
-                |> List.filter_map @@ Ton_to_on_maps.get_value_expr_from_sem_expr ton_on_maps
-              in
-              let odefa_vars = 
-                sem_val_exprs
-                |> List.filter_map @@ Ton_to_on_maps.get_core_expr_from_sem_expr ton_on_maps
-                |> List.filter_map @@ On_to_odefa_maps.get_odefa_var_opt_from_natodefa_expr odefa_on_maps
-              in
-              (* let () =
-                List.iter (fun v-> print_endline @@ show_var v) odefa_vars
-              in  *)
-              (* let () =
-                List.iter (fun ed -> print_endline @@ On_to_odefa.show_expr_desc ed) sem_nat_aliases
-              in *)
-              (* let core_eds = 
-                Ton_to_on_maps.get_core_match_expr_from_err_ident ton_on_maps sem_nat_aliases
-              in *)
-              (* let () = print_endline @@ string_of_bool @@ List.is_empty core_eds in
-              let () =
-                List.iter (fun ed -> print_endline @@ On_to_odefa.show_expr_desc ed) core_eds
-              in *)
-              (* let odefa_subj_var = 
-                List.map
-                (On_to_odefa_maps.get_odefa_subj_var_from_natodefa_expr odefa_on_maps)
-                core_eds
-              in *)
-              (* let () = print_endline @@ "Is odefa_subj_var empty?" in
-              let () = print_endline @@ string_of_bool @@ List.is_empty odefa_subj_var in
-              let () =
-                List.iter (fun v-> print_endline @@ show_var v) odefa_subj_var
-              in *)
-              let relstacks = 
-                odefa_symbols 
-                |> List.map (fun (Interpreter_types.Symbol (_, relstack)) -> relstack)
-              in
-              let res = 
-                (* odefa_subj_var *)
-                odefa_vars
-                |> List.map (fun (Var (x, _)) -> x)
-                |> List.map 
-                  (fun x -> 
-                    List.map (fun relstack -> Interpreter_types.Symbol (x, relstack))
-                    relstacks
-                  )
-                |> List.concat
-              in
-              (* res *)
-              (* |> List.filter_map  *)
-                (* (Generator_utils.answer_from_solution solution x result) *)
-              (* let () = print_endline @@ "???" in
-              let () = print_endline @@ string_of_bool @@ List.is_empty odefa_subj_var in *)
-              (* let () = print_endline @@ Ast_pp.show_var @@ List.hd odefa_subj_var in *)
-              res
-          in
-          let err_vals_lst_opt = 
-            List.map 
-              (fun err -> 
-                if is_type_error 
-                then
-                  let additional_queries = 
-                    err
-                    |> find_err_ident
-                    |> List.filter_map (Generator_utils.answer_from_solution solution)
-                  in
-                  (err, Some (on_err_loc_nat, additional_queries))
-                else
-                  (err, None))
-            error_lst
-          in
-          let on_err_list =
-            let mapper = 
-              (On_error.odefa_to_natodefa_error odefa_on_maps ton_on_maps) 
-            in 
-            List.map mapper err_vals_lst_opt
-          in
-          Some {
-            err_input_seq = input_seq;
-            err_location = on_err_loc_nat;
-            err_errors = on_err_list;
-            err_steps = steps;
-          }
-        | None -> None
-      end
-    | None, _ -> failwith "Odefa/natodefa maps were not set!"
-    | _, None -> failwith "typed natodefa/natodefa maps were not set!"
-  ;; *)
-
   let show : t -> string = function
     | Some error ->
       "** NatOdefa Type Errors **\n" ^
@@ -502,7 +307,7 @@ module Natodefa_type_errors : Sato_error = struct
       (Printf.sprintf "- Found at clause : %s\n" (Natodefa_error_location.show error.err_location)) ^
       "--------------------\n" ^
       (String.concat ~sep:"\n--------------------\n"
-        @@ List.map ~f:On_error.On_error.show error.err_errors)
+        @@ List.map ~f:Sato_error.On_error.show error.err_errors)
     | None -> ""
   ;;
 
@@ -525,45 +330,3 @@ module Natodefa_type_errors : Sato_error = struct
     | None -> `Null
   ;;
 end;;
-
-module type Sato_result = sig
-  module Result : Sato_error;;
-
-  type generation_result = {
-    gen_answers : Result.t;
-    (* gen_num_answers : int; *)
-    (* gen_is_complete : bool; *)
-  }
-  ;;
- 
-  val get_result : 
-  Sato_state.t -> Dbmc.Types.State.t ->
-  Dbmc.Interpreter.session -> Dbmc.Interpreter.denv ->
-  int option list -> generation_result
-
-end
-;;
-
-module Make(Result : Sato_error) = struct
-  module Result = Result;;
-
-  type generation_result = {
-    gen_answers : Result.t;
-    (* gen_num_answers : int; *)
-    (* gen_is_complete : bool; *)
-  }
-
-  let get_result 
-    (sato_state : Sato_state.t)
-    (symb_interp_state : Dbmc.Types.State.t)
-    (interp_session : Dbmc.Interpreter.session) 
-    (final_env : Dbmc.Interpreter.denv)
-    (inputs : int option list) : generation_result = 
-    let errors = 
-      Result.get_errors sato_state symb_interp_state interp_session final_env inputs
-    in
-    {
-      gen_answers = errors;
-    }
-
-end

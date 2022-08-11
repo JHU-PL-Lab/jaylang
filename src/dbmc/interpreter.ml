@@ -242,10 +242,10 @@ and eval_clause ~session stk env clause : denv * dvalue =
       Direct v
     | Var_body vx -> 
       let Var (v, _) = vx in 
-      (* let () = print_endline @@ "This is adding alias mapping in var body" in
-      let () = print_endline @@ show_ident_with_stack (x, stk) in
-      let () = print_endline @@ show_ident_with_stack (v, stk) in *)
       let ret_val, ret_stk = fetch_val_with_stk ~session ~stk env vx in
+      let () = print_endline @@ "This is adding alias mapping in var body" in
+      let () = print_endline @@ show_ident_with_stack (x, stk) in
+      let () = print_endline @@ show_ident_with_stack (v, ret_stk) in
       add_alias (x, stk) (v, ret_stk) session;
       ret_val
     | Conditional_body (x2, e1, e2) ->
@@ -257,9 +257,9 @@ and eval_clause ~session stk env clause : denv * dvalue =
         let ret_env, ret_val = eval_exp_verbose ~session stk' env e in
         let Var (ret_id, _) as last_v = Ast_tools.retv e in
         let _, ret_stk = fetch_val_with_stk ~session ~stk:stk' ret_env last_v in
-        (* let () = print_endline @@ "This is adding alias mapping in conditional body" in
+        let () = print_endline @@ "This is adding alias mapping in conditional body" in
         let () = print_endline @@ show_ident_with_stack (x, stk) in
-        let () = print_endline @@ show_ident_with_stack (ret_id, ret_stk) in *)
+        let () = print_endline @@ show_ident_with_stack (ret_id, ret_stk) in
         add_alias (x, stk) (ret_id, ret_stk) session;
         ret_val
     | Input_body ->
@@ -274,18 +274,17 @@ and eval_clause ~session stk env clause : denv * dvalue =
             let v2, v2_stk = fetch_val_with_stk ~session ~stk env vx2 in
             let stk2 = Concrete_stack.push (x, fid) stk in
             let env2 = Ident_map.add arg (v2, stk) fenv in
-            (* let () = print_endline @@ "adding arg mapping..." in
+            let () = print_endline @@ "This is adding alias mapping in fun arg" in
             let () = print_endline @@ show_ident_with_stack (arg, stk) in
             let () = print_endline @@ show_ident_with_stack (x2, v2_stk) in
-            let () = print_endline @@ "pair added" in *)
             add_alias (arg, stk) (x2, v2_stk) session;
             let ret_env, ret_val = eval_exp_verbose ~session stk2 env2 body in
             let Var (ret_id, _) as last_v = Ast_tools.retv body in
             let _, ret_stk = fetch_val_with_stk ~session ~stk:stk2 ret_env last_v in
-            (* let () = print_endline @@ "adding ret mapping..." in
-            let () = print_endline @@ show_ident_with_stack (ret_id, ret_stk) in
+            let () = print_endline @@ "This is adding alias mapping in fun ret" in
             let () = print_endline @@ show_ident_with_stack (x, stk) in
-            let () = print_endline @@ "pair added" in *)
+            let () = print_endline @@ show_ident_with_stack (ret_id, ret_stk) in
+            let () = print_endline @@ "pair added" in
             add_alias (x, stk) (ret_id, ret_stk) session;
             ret_val
         | _ -> failwith "app to a non fun")
