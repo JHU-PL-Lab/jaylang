@@ -22,32 +22,10 @@ module On_labels_map = struct
   include Pp_utils.Map_pp(M)(On_ast.Ident_set);;
 end;;
 
-module Odefa_clause = struct
-  type t = Ast.clause;;
-  let pp = Ast_pp.pp_clause;;
-end;;
 
 type t = {
 
-  (** True if the mapping was created during natodefa-to-odefa
-      translation, false otherwise (e.g. after instrumenting on
-      odefa code). *)
-  is_natodefa : bool;
-
-  (** A set of odefa variables that were added during instrumentation
-      (as opposed to being in the original code or added during pre-
-      instrumentation translation).  The instrumentation variable
-      is the key; the value is the pre-instrumentation variable
-      it aliases.  Note that the value is an Option; it is none if
-      the variable has no associated pre-instrumentation alias (namely
-      if it was added as a pattern match conditional var). *)
-  odefa_instrument_vars_map : (Ast.Ident.t option) Ast.Ident_map.t;
-
-  (** Mapping between variables that were added during instrumentation
-      with the variables whose clauses the instrumenting clause is
-      constraining.  This is mainly used to obtain the operation that
-      an instrumenting conditional is constrianing. *)
-  odefa_pre_instrument_clause_mapping : Odefa_clause.t Ast.Ident_map.t;
+  
 
   (** Mapping between an odefa variable to the natodefa expr that the
       odefa variable was derived from. *)
@@ -67,36 +45,24 @@ type t = {
       determine if a record was originally a list, variant, or record, depending
       on its labels. *)
   natodefa_idents_to_types : On_ast.type_sig On_labels_map.t;
+
+  natodefa_instrument_vars_map : (Ast.Ident.t option) Ast.Ident_map.t;
+  
 }
 [@@ deriving show]
 ;;
 
-let empty is_natodefa = {
-  is_natodefa = is_natodefa;
-  odefa_instrument_vars_map = Ast.Ident_map.empty;
-  odefa_pre_instrument_clause_mapping = Ast.Ident_map.empty;
+let empty _is_natodefa = {
+
   odefa_var_to_natodefa_expr = Ast.Ident_map.empty;
   natodefa_expr_to_expr = Expr_desc_map.empty;
   natodefa_var_to_var = On_ast.Ident_map.empty;
   natodefa_idents_to_types = On_labels_map.empty;
+  natodefa_instrument_vars_map = Ast.Ident_map.empty;
+
 }
 ;;
 
-let add_odefa_instrument_var mappings inst_ident ident_opt =
-  let instrument_set = mappings.odefa_instrument_vars_map in
-  { mappings with
-    odefa_instrument_vars_map =
-      Ast.Ident_map.add inst_ident ident_opt instrument_set;
-  }
-;;
-
-let add_odefa_var_clause_mapping mappings var_ident clause =
-  let instrument_map = mappings.odefa_pre_instrument_clause_mapping in
-  { mappings with
-    odefa_pre_instrument_clause_mapping =
-      Ast.Ident_map.add var_ident clause instrument_map;
-  }
-;;
 
 let add_odefa_var_on_expr_mapping mappings odefa_ident on_expr =
   let natodefa_map = mappings.odefa_var_to_natodefa_expr in
@@ -130,24 +96,15 @@ let add_on_idents_to_type_mapping mappings idents type_sig =
   }
 ;;
 
-let get_pre_inst_equivalent_clause mappings odefa_ident =
-  let inst_map = mappings.odefa_instrument_vars_map in
-  let clause_map = mappings.odefa_pre_instrument_clause_mapping in
-  (* Get pre-instrument var from instrument var *)
-  let odefa_ident' =
-    match Ast.Ident_map.Exceptionless.find odefa_ident inst_map with
-    | Some (Some pre_inst_ident) -> pre_inst_ident
-    | Some (None) | None -> odefa_ident
-  in
-  (* Get clause from var *)
-  match Ast.Ident_map.Exceptionless.find odefa_ident' clause_map with
-  | Some clause -> clause
-  | None ->
-    raise @@ Invalid_argument
-      (Printf.sprintf
-        "%s needs to have an associated clause."
-        (Ast.show_ident odefa_ident))
+let add_natodefa_instrument_var mappings inst_ident ident_opt =
+  let instrument_set = mappings.natodefa_instrument_vars_map in
+  { mappings with
+    natodefa_instrument_vars_map =
+      Ast.Ident_map.add inst_ident ident_opt instrument_set;
+  }
 ;;
+
+
 
 (** Helper function to recursively map natodefa expressions according to
     the expression-to-expression mapping (eg. records to lists or variants).
@@ -221,7 +178,7 @@ let rec on_expr_transformer
 ;;
 
 let get_natodefa_equivalent_expr mappings odefa_ident =
-  let inst_map = mappings.odefa_instrument_vars_map in
+  let inst_map = mappings.natodefa_instrument_vars_map in
   let odefa_on_map = mappings.odefa_var_to_natodefa_expr in
   let on_expr_map = mappings.natodefa_expr_to_expr in
   let on_ident_map = mappings.natodefa_var_to_var in
@@ -328,12 +285,6 @@ let get_type_from_idents mappings odefa_idents =
   | None -> RecType on_idents
 ;;
 
-let is_natodefa mappings = mappings.is_natodefa;;
-
-let is_var_instrumenting mappings odefa_ident =
-  let inst_map = mappings.odefa_instrument_vars_map in
-  Ast.Ident_map.mem odefa_ident inst_map
-;;
 
 let odefa_to_on_aliases on_mappings aliases =
   let odefa_to_on_expr x =
@@ -475,4 +426,8 @@ let get_odefa_var_opt_from_natodefa_expr mappings (expr : On_ast.expr_desc) =
     mappings.odefa_var_to_natodefa_expr None
   in
   odefa_var_opt
+;;
+
+let get_natodefa_inst_map mappings = 
+  mappings.natodefa_instrument_vars_map
 ;;

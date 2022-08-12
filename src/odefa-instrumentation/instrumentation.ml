@@ -136,10 +136,10 @@ let rec instrument_clauses (c_list : clause list) : clause list m =
                   let%bind () = add_instrument_var b in
                   (* We need to have this line because we are adding a new value
                      source *)
-                  let%bind () =
+                  (* let%bind () =
                     add_odefa_natodefa_mapping z
                       (On_ast.new_expr_desc @@ On_ast.Int 0)
-                  in
+                  in *)
                   (* Clauses *)
                   let z_cls = Clause (z, Value_body (Value_int 0)) in
                   let b_bod =
@@ -284,8 +284,8 @@ let add_result_var (c_list : clause list) : clause list m =
   let result_cls = Clause (result_var, Var_body last_var) in
   return @@ c_list @ [ result_cls ]
 
-let instrument_odefa (odefa_ast : expr) : expr * On_to_odefa_maps.t =
-  let (monad_val : (expr * On_to_odefa_maps.t) m) =
+let instrument_odefa (odefa_ast : expr) : expr * Odefa_instrumentation_maps.t =
+  let (monad_val : (expr * Odefa_instrumentation_maps.t) m) =
     (* Transform odefa program *)
     lazy_logger `debug (fun () ->
         Printf.sprintf "Initial program:\n%s" (Ast_pp.show_expr odefa_ast)) ;
@@ -299,8 +299,8 @@ let instrument_odefa (odefa_ast : expr) : expr * On_to_odefa_maps.t =
         Printf.sprintf "Result of instrumentation:\n%s"
           (Ast_pp.show_expr t_expr)) ;
     (* Add "~result" to the end of the program *)
-    let%bind on_odefa_maps = odefa_natodefa_maps in
-    return (t_expr, on_odefa_maps)
+    let%bind odefa_inst_maps = get_odefa_inst_maps in
+    return (t_expr, odefa_inst_maps)
   in
   let context = On_to_odefa_monad_inst.new_translation_context () in
   run context monad_val

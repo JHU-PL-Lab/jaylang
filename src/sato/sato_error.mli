@@ -160,12 +160,12 @@ module On_error
 (** Given an odefa/natodefa mapping, removes variables that were added during
     error instrumentation. *)
 val odefa_error_remove_instrument_vars :
-  Odefa_natural.On_to_odefa_maps.t -> Odefa_error.t -> Odefa_error.t
+  Odefa_instrumentation.Odefa_instrumentation_maps.t -> Odefa_error.t -> Odefa_error.t
 ;;
 
 (** Given an odefa/natodefa mapping, converts an odefa error into a natodefa
     error. *)
 val odefa_to_natodefa_error :
-  Odefa_natural.On_to_odefa_maps.t -> Dbmc.Interpreter.session -> 
+  Odefa_instrumentation.Odefa_instrumentation_maps.t -> Odefa_natural.On_to_odefa_maps.t -> Dbmc.Interpreter.session -> 
   Dbmc.Interpreter.denv -> Odefa_error.t -> On_error.t list
 ;;

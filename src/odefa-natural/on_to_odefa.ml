@@ -2,6 +2,7 @@ open Batteries;;
 open Jhupllib;;
 
 open Odefa_ast;;
+open Odefa_instrumentation;;
 
 open Ast_tools;;
 
@@ -1009,39 +1010,27 @@ let debug_transform_odefa
       Printf.sprintf "Result of %s:\n%s" trans_name (Ast_pp.show_expr e'));
     return c_list
 ;;
-(* 
-let debug_transform_odefa'
-    (trans_name : string)
-    (transform : 'a -> Ast.clause list On_to_odefa_monad_inst.TranslationMonad.m)
-    (e : 'a)
-  : Ast.clause list m =
-    let%bind c_list = transform e in
-    let e' = Ast.Expr c_list in
-    lazy_logger `debug (fun () ->
-      Printf.sprintf "Result of %s:\n%s" trans_name (Ast_pp.show_expr e'));
-    return c_list
-;; *)
 
 let translate
     ?translation_context:(translation_context=None)
     ?is_instrumented:(is_instrumented=true)
     (e : On_ast.expr_desc)
-  : (Ast.expr * On_to_odefa_maps.t) =
-  let (e_m_with_info, ctx : (Ast.expr * On_to_odefa_maps.t) On_to_odefa_monad_inst.TranslationMonad.m * On_to_odefa_monad.translation_context) =
+  : (Ast.expr * Odefa_instrumentation.Odefa_instrumentation_maps.t * On_to_odefa_maps.t) =
+  let (e_m_with_info, ctx : Ast.expr On_to_odefa_monad_inst.TranslationMonad.m * On_to_odefa_monad.translation_context) =
     (* Odefa transformations *)
     let flatten e =
       On_to_odefa_monad.TranslationMonad.(>>=) (flatten_expr e) (fun (c_list, _) -> On_to_odefa_monad.TranslationMonad.return c_list)
     in
     let instrument c_list : Ast.clause list On_to_odefa_monad_inst.TranslationMonad.m =
       if is_instrumented then
-        Odefa_instrumentation.instrument_clauses c_list
+        Instrumentation.instrument_clauses c_list
       else
         On_to_odefa_monad_inst.TranslationMonad.return c_list
     in
     let add_first_result c_list : Ast.clause list On_to_odefa_monad_inst.TranslationMonad.m =
       On_to_odefa_monad_inst.TranslationMonad.return c_list
-      |> fun m -> On_to_odefa_monad_inst.TranslationMonad.(>>=) m Odefa_instrumentation.add_first_var
-      |> fun m -> On_to_odefa_monad_inst.TranslationMonad.(>>=) m Odefa_instrumentation.add_result_var
+      |> fun m -> On_to_odefa_monad_inst.TranslationMonad.(>>=) m Instrumentation.add_first_var
+      |> fun m -> On_to_odefa_monad_inst.TranslationMonad.(>>=) m Instrumentation.add_result_var
     in
     (* Translation sequence *)
     lazy_logger `debug (fun () ->
@@ -1075,10 +1064,8 @@ let translate
       Printf.sprintf "Odefa to natodefa maps:\n%s"
         (On_to_odefa_maps.show odefa_on_maps)
     ); *)
-    let odefa_on_maps_m = On_to_odefa_monad_inst.TranslationMonad.odefa_natodefa_maps in
     let res = 
-      On_to_odefa_monad_inst.TranslationMonad.bind odefa_on_maps_m 
-      (fun maps -> On_to_odefa_monad_inst.TranslationMonad.bind translation_result_p2_m (fun m -> On_to_odefa_monad_inst.TranslationMonad.return (Ast.Expr m, maps)))
+      On_to_odefa_monad_inst.TranslationMonad.bind translation_result_p2_m (fun m -> On_to_odefa_monad_inst.TranslationMonad.return (Ast.Expr m))
     in
     (res, ctx)
   in
@@ -1088,10 +1075,12 @@ let translate
     | None -> new_translation_context ~is_natodefa:true ()
     | Some ctx -> ctx
   in *)
-  let init_ctx = 
-    { (On_to_odefa_monad_inst.new_translation_context ()) with tc_odefa_natodefa_mappings = ctx.tc_odefa_natodefa_mappings; tc_fresh_name_counter = ctx.tc_fresh_name_counter } 
+  let natodefa_inst_map = On_to_odefa_maps.get_natodefa_inst_map ctx.tc_odefa_natodefa_mappings in
+  let ctx' = 
+    { (On_to_odefa_monad_inst.new_translation_context_from_natodefa natodefa_inst_map) with tc_fresh_name_counter = ctx.tc_fresh_name_counter } 
   in
-  On_to_odefa_monad_inst.TranslationMonad.run init_ctx e_m_with_info
+  let res = On_to_odefa_monad_inst.TranslationMonad.run ctx' e_m_with_info in
+  (res, ctx'.tc_odefa_instrumentation_mappings, ctx.tc_odefa_natodefa_mappings)
   (* NOTE: commenting this out for DDSE because it has a tendency to eliminate
      unnecessary variables and we use those as targets *)
   (* |> eliminate_aliases *)

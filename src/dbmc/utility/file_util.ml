@@ -21,14 +21,14 @@ let read_source ?(is_instrumented = false) filename =
         Odefa_natural.On_to_odefa.translate (Odefa_natural.On_ast.new_expr_desc natast)
       in *)
       Odefa_natural.On_to_odefa.translate ~is_instrumented nat_edesc
-      |> fst
+      |> fun (e, _, _) -> e
     else if is_odefa_ext filename
     then
       let ast =
         In_channel.with_file filename ~f:Odefa_parser.Parse.parse_program_raw
       in
       if is_instrumented
-      then Odefa_natural.Odefa_instrumentation.instrument_odefa ast |> fst
+      then Odefa_instrumentation.Instrumentation.instrument_odefa ast |> fst
       else ast
     else failwith "file extension must be .odefa or .natodefa"
   in

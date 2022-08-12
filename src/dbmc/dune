@@ -20,6 +20,7 @@
   hashcons
   odefa.ast
   odefa.ddpa
+  odefa.instrumentation
   odefa.natural
   odefa.parser
   odefa.unroll

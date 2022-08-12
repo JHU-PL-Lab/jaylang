@@ -1,27 +1,13 @@
-(copy_files# parser/*.{ml,mli})
-(copy_files parser/*.{mll,mly})
-
-(ocamllex
-  on_lexer
-)
-(menhir
-  (flags --explain)
-  (modules
-    on_parser
-  )
-)
-
 (library
-  (name odefa_natural)
-  (public_name odefa.natural)
-  (synopsis "Translator for Odefa Natural")
+  (name odefa_instrumentation)
+  (public_name odefa.instrumentation)
+  (synopsis "Instrumentation for odefa")
   (libraries
     core
     batteries
     jhupllib
     monadlib
     odefa.ast
-    odefa.instrumentation
   )
   (preprocess
     (pps

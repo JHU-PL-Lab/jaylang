@@ -36,12 +36,12 @@ let create_initial_dmbc_config (sato_config : Sato_args.t)
 let main_commandline () =
   let sato_config = Argparse.parse_commandline_config () in
   let dbmc_config_init = create_initial_dmbc_config sato_config in
-  let (program, on_to_odefa_maps, _) = 
+  let (program, odefa_inst_maps, on_to_odefa_maps_opt, _) = 
     File_utils.read_source_sato dbmc_config_init.filename 
   in
   let is_natodefa = sato_config.is_natodefa in
   let init_sato_state = 
-    Sato_state.initialize_state_with_expr is_natodefa program on_to_odefa_maps 
+    Sato_state.initialize_state_with_expr is_natodefa program odefa_inst_maps on_to_odefa_maps_opt
   in
   let target_vars = init_sato_state.target_vars in
   let rec search_all_targets 

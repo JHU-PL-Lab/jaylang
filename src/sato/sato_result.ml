@@ -5,6 +5,7 @@ open Jhupllib
 open Dbmc
 open Odefa_ast
 open Odefa_ast.Ast
+open Odefa_instrumentation.Odefa_instrumentation_maps
 open Odefa_natural.On_to_odefa_maps
 
 module type Error_location = sig
@@ -68,9 +69,10 @@ let get_odefa_errors
   let abort_var = symb_interp_state.target in
   let ab_mapping = sato_state.abort_mapping in
   let on_to_odefa_maps = sato_state.on_to_odefa_maps in
+  let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
   let abort_cond_var = get_abort_cond_clause_id ab_mapping abort_var in
   let Clause (_, cls) as error_loc = 
-    get_pre_inst_equivalent_clause on_to_odefa_maps abort_cond_var 
+    get_pre_inst_equivalent_clause odefa_inst_maps abort_cond_var 
   in
   let alias_graph = interp_session.alias_graph in
   let rec find_source_cls cls_mapping xs =
@@ -214,9 +216,9 @@ module Odefa_type_errors : Sato_result = struct
     let (error_loc, odefa_errors) = 
       get_odefa_errors sato_state symb_interp_state interp_session final_env 
     in
-    let on_to_odefa_maps = sato_state.on_to_odefa_maps in
+    let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
     let rm_inst_fn =
-      Sato_error.odefa_error_remove_instrument_vars on_to_odefa_maps
+      Sato_error.odefa_error_remove_instrument_vars odefa_inst_maps
     in
     Some {
       err_input_seq = inputs;
@@ -282,14 +284,15 @@ module Natodefa_type_errors : Sato_result = struct
     let ((Clause (Var (err_id, _), _) as error_loc), odefa_errors) = 
       get_odefa_errors sato_state symb_interp_state interp_session final_env 
     in
-    let on_to_odefa_maps = sato_state.on_to_odefa_maps in
+    let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
+    let on_to_odefa_maps = Option.value_exn sato_state.on_to_odefa_maps in
     let on_err_loc_core =
       err_id
       |> On_to_odefa_maps.get_natodefa_equivalent_expr on_to_odefa_maps 
     in
     let on_err_list =
       let mapper = 
-        (Sato_error.odefa_to_natodefa_error on_to_odefa_maps interp_session final_env) 
+        (Sato_error.odefa_to_natodefa_error odefa_inst_maps on_to_odefa_maps interp_session final_env) 
       in 
       List.map ~f:mapper odefa_errors
     in

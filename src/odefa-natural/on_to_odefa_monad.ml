@@ -40,19 +40,9 @@ module TranslationMonad : sig
   (** Create a fresh var *)
   val fresh_var : string -> Ast.var m
 
-  (** Map an odefa var to its clause *)
-  val add_var_clause_pair : Ast.var -> Ast.clause -> unit m
-
   (** Add an odefa var to note that it was added during instrumentation (and
       that it does not have an associated pre-instrumentation clause) *)
   val add_instrument_var : Ast.var -> unit m
-
-  (** Map an odefa clause to its associated pre-instrumentation clause *)
-  val add_instrument_var_pair : Ast.var -> Ast.var -> unit m
-
-  (** Returns true if the odefa var was added during instrumentation, 
-      false otherwise.  Used to avoid unnecessary instrumentation. *)
-  val is_instrument_var : Ast.var -> bool m
 
   (** Map an odefa var to a natodefa expression *)
   val add_odefa_natodefa_mapping : Ast.var -> On_ast.expr_desc -> unit m
@@ -115,32 +105,11 @@ end = struct
     Ast.Var(Ast.Ident name', None)
   ;;
 
-  let add_var_clause_pair v_key cls_val ctx =
-    let (Ast.Var (i_key, _)) = v_key in
-    let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
-    ctx.tc_odefa_natodefa_mappings
-      <- On_to_odefa_maps.add_odefa_var_clause_mapping odefa_on_maps i_key cls_val
-  ;;
-
   let add_instrument_var v ctx =
     let (Ast.Var (i, _)) = v in
     let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
     ctx.tc_odefa_natodefa_mappings
-      <- On_to_odefa_maps.add_odefa_instrument_var odefa_on_maps i None
-  ;;
-
-  let add_instrument_var_pair v_key v_val ctx =
-    let (Ast.Var (i_key, _)) = v_key in
-    let (Ast.Var (i_val, _)) = v_val in
-    let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
-    ctx.tc_odefa_natodefa_mappings
-      <- On_to_odefa_maps.add_odefa_instrument_var odefa_on_maps i_key (Some i_val);
-  ;;
-
-  let is_instrument_var v ctx =
-    let (Ast.Var (i, _)) =  v in
-    let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
-    On_to_odefa_maps.is_var_instrumenting odefa_on_maps i
+      <- On_to_odefa_maps.add_natodefa_instrument_var odefa_on_maps i None
   ;;
 
   let add_odefa_natodefa_mapping v_key e_val ctx =

@@ -8,7 +8,8 @@ type t = {
   (* book-keeping *)
   abort_mapping : (Ident_new.t, abort_value) Hashtbl.t;
   target_vars : Ident_new.t list;
-  on_to_odefa_maps : Odefa_natural.On_to_odefa_maps.t;
+  on_to_odefa_maps : Odefa_natural.On_to_odefa_maps.t option;
+  odefa_instrumentation_maps : Odefa_instrumentation.Odefa_instrumentation_maps.t;
 }
 
 (* Enumerate all aborts in a program *)
@@ -76,7 +77,9 @@ let get_target_vars
 let initialize_state_with_expr 
   (is_natodefa : bool)
   (e : expr) 
-  (on_to_odefa_maps : Odefa_natural.On_to_odefa_maps.t) : t =
+  (odefa_inst_maps : Odefa_instrumentation.Odefa_instrumentation_maps.t) 
+  (on_to_odefa_maps_opt : Odefa_natural.On_to_odefa_maps.t option)
+  : t =
   let abort_lst = enum_all_aborts_in_expr e in
   let ab_mapping = Hashtbl.of_alist_exn (module Ident_new) abort_lst in
   let targets = get_target_vars ab_mapping in
@@ -84,5 +87,6 @@ let initialize_state_with_expr
     program = e;
     abort_mapping = ab_mapping;
     target_vars = targets;
-    on_to_odefa_maps = on_to_odefa_maps;
+    on_to_odefa_maps = on_to_odefa_maps_opt;
+    odefa_instrumentation_maps = odefa_inst_maps;
   }

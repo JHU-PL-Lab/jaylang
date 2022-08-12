@@ -3,6 +3,7 @@ open Jhupllib
 
 open Odefa_ast
 open Odefa_natural
+open Odefa_instrumentation
 
 exception Parse_failure of string
 
@@ -301,13 +302,13 @@ module On_error = Make(Natodefa_ident)(Natodefa_value)(Natodefa_binop)(Natodefa_
 (* **** Odefa error cleanup **** *)
 
 let odefa_error_remove_instrument_vars
-    (odefa_on_maps : On_to_odefa_maps.t)
+    (odefa_on_maps : Odefa_instrumentation_maps.t)
     (error : Odefa_error.t)
   : Odefa_error.t =
   let remove_instrument_aliases aliases =
     List.filter
       ~f:(fun alias ->
-        not @@ On_to_odefa_maps.is_var_instrumenting odefa_on_maps alias)
+        not @@ Odefa_instrumentation_maps.is_var_instrumenting odefa_on_maps alias)
       aliases
   in
   match error with
@@ -378,6 +379,7 @@ let odefa_to_on_binop (odefa_binop : Ast.binary_operator) :
 ;;
 
 let odefa_to_natodefa_error 
+    (odefa_inst_maps : Odefa_instrumentation_maps.t)
     (odefa_on_maps : On_to_odefa_maps.t)
     (interp_session : Dbmc.Interpreter.session) 
     (final_env : Dbmc.Interpreter.denv)
@@ -385,6 +387,10 @@ let odefa_to_natodefa_error
     : On_error.t list =
   (* Helper functions *)
   let open On_ast in
+  let get_pre_inst_id x =
+    Odefa_instrumentation_maps.get_pre_inst_var_opt odefa_inst_maps x
+    |> Option.value ~default:x
+  in 
   let odefa_to_on_expr =
     On_to_odefa_maps.get_natodefa_equivalent_expr odefa_on_maps
   in
@@ -392,7 +398,8 @@ let odefa_to_natodefa_error
     aliases
     |> List.filter_map
       ~f:(fun alias ->
-        let e_desc = odefa_to_on_expr alias in
+        let alias' = get_pre_inst_id alias in
+        let e_desc = odefa_to_on_expr alias' in
         match (e_desc.body) with
         | (Var _) | Error _ -> Some e_desc
         | _ -> None
@@ -415,7 +422,7 @@ let odefa_to_natodefa_error
       with Invalid_argument _ ->
         raise @@ Jhupllib.Utils.Invariant_failure "Can't have empty alias list!"
     in
-    odefa_to_on_expr last_var
+    odefa_to_on_expr @@ get_pre_inst_id last_var
   in
   let odefa_to_on_type (typ : Ast.type_sig) : On_ast.type_sig =
     match typ with
