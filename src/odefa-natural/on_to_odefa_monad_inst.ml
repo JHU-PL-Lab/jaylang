@@ -31,9 +31,6 @@ module TranslationMonad : sig
   (** Run the monad to completion *)
   val run : translation_context -> 'a m -> 'a
 
-  (** Run the monad to completion *)
-  val run_verbose : translation_context -> 'a m -> 'a * translation_context
-
   (** Create a fresh (ie. alphatized) name *)
   val fresh_name : string -> string m
 
@@ -99,9 +96,6 @@ end = struct
   ;;
 
   let run ctx m = m ctx
-  ;;
-  
-  let run_verbose ctx m = (m ctx, ctx)
   ;;
 
   let fresh_name name ctx =

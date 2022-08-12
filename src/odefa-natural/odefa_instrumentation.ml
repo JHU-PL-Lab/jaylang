@@ -2,7 +2,7 @@ open Core
 open Jhupllib
 open Odefa_ast
 open Ast
-open On_to_odefa_monad.TranslationMonad
+open On_to_odefa_monad_inst.TranslationMonad
 
 let lazy_logger = Logger_utils.make_lazy_logger "Type_instrumentation"
 
@@ -302,5 +302,5 @@ let instrument_odefa (odefa_ast : expr) : expr * On_to_odefa_maps.t =
     let%bind on_odefa_maps = odefa_natodefa_maps in
     return (t_expr, on_odefa_maps)
   in
-  let context = On_to_odefa_monad.new_translation_context () in
+  let context = On_to_odefa_monad_inst.new_translation_context () in
   run context monad_val
