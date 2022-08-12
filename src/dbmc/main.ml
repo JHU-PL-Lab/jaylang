@@ -72,7 +72,7 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
   let inputs_from_interpreter = get_input ~config ~state model c_stk in
   (* check expected inputs *)
   check_expected_input ~config ~state ;
-  ([ inputs_from_interpreter ], true)
+  ([ inputs_from_interpreter ], false)
 
 let handle_found_verbose (config : Global_config.t) (state : Global_state.t) model c_stk
     =
@@ -109,7 +109,7 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
     in
     Scheduler.create ~cmp ()
   in
-  let post_check_dbmc () =
+  let post_check_dbmc is_timeout =
     match Riddler.check state config with
     | Some { model; c_stk } -> handle_found config state model c_stk
     | None ->
@@ -119,14 +119,14 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
           SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
         else () ;
         handle_graph config state None ;
-        ([], false)
+        ([], is_timeout)
   in
-  let post_check_ddse () =
+  let post_check_ddse is_timeout =
     if config.debug_model
     then SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
     else () ;
     handle_graph config state None ;
-    ([], false)
+    ([], is_timeout)
   in
   try%lwt
     (Lwt.async_exception_hook :=
@@ -139,10 +139,10 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
       match config.engine with
       | Global_config.E_dbmc ->
           Lookup.run_dbmc ~config ~state job_queue >>= fun _ ->
-          Lwt.return (post_check_dbmc ())
+          Lwt.return (post_check_dbmc false)
       | Global_config.E_ddse ->
           Lookup.run_ddse ~config ~state job_queue >>= fun _ ->
-          Lwt.return (post_check_ddse ())
+          Lwt.return (post_check_ddse false)
     in
     match config.timeout with
     | Some ts -> Lwt_unix.with_timeout (Time.Span.to_sec ts) do_work
@@ -150,9 +150,11 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
   with
   | Riddler.Found_solution { model; c_stk } ->
       Lwt.return (handle_found config state model c_stk)
-  | Lwt_unix.Timeout ->
-      prerr_endline "timeout" ;
-      Lwt.return (post_check_ddse ())
+  | Lwt_unix.Timeout -> (
+      prerr_endline "lookup: timeout" ;
+      match config.engine with
+      | Global_config.E_dbmc -> Lwt.return (post_check_dbmc true)
+      | Global_config.E_ddse -> Lwt.return (post_check_ddse true))
 
 (* entry functions *)
 
@@ -212,8 +214,8 @@ let[@landmark] main_with_state_lwt_verbose ~(config : Global_config.t)
 
 let main_details ~config program =
   let state = Global_state.create config program in
-  let inputs, found = Lwt_main.run (main_with_state_lwt ~config ~state) in
-  (inputs, found, state)
+  let inputs, is_timeout = Lwt_main.run (main_with_state_lwt ~config ~state) in
+  (inputs, is_timeout, state)
 
 let main_details_ret_model ~config program =
   let state = Global_state.create config program in

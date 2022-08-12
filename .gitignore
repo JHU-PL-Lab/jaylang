@@ -23,10 +23,10 @@ _build
 # Dune intermediates
 /*.install
 
-# Edit related
+# Editor related
 .vscode
 
-# Makefile temporaries
+# Binaries
 /ddpa_toploop
 /test_generator
 /test_dbmc
@@ -36,6 +36,10 @@ _build
 /translator
 /sandbox
 /result
+
+# Local results
+profiling
+benchmark/result
 
 /land*.json
 *.ansi
