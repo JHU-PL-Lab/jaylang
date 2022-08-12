@@ -20,7 +20,7 @@ sato-test:
 	./sato -t ab test-sources/odefa-types/assert.odefa
 
 dtest: dbmc-test
-	./dtest
+	./dtest 
 
 dtest-ins:dbmc-test
 	./dtest --ta

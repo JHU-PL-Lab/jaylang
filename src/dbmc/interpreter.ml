@@ -39,12 +39,11 @@ let pp_dvalue oc = function
   | AbortClosure _ -> Format.fprintf oc "(abort)"
 
 exception Found_target of { x : Id.t; stk : Concrete_stack.t; v : dvalue }
+exception Found_abort of dvalue
 exception Terminate of dvalue
-exception Terminate_with_env of denv * dvalue
 exception Reach_max_step of Id.t * Concrete_stack.t
 exception Run_the_same_stack_twice of Id.t * Concrete_stack.t
 exception Run_into_wrong_stack of Id.t * Concrete_stack.t
-exception Found_abort of ident
 
 type mode =
   | Plain
@@ -71,7 +70,7 @@ type session = {
   lookup_alert : Lookup_key.t Hash_set.t;
 }
 
-let default_session =
+let make_default_session () =
   {
     input_feeder = Fn.const 42;
     mode = Plain;
@@ -103,7 +102,7 @@ let create_session ?max_step target_stk (state : Global_state.t)
   }
 
 let expected_input_session input_feeder target_x =
-  { default_session with input_feeder; mode = With_target_x target_x }
+  { (make_default_session ()) with input_feeder; mode = With_target_x target_x }
 
 let cond_fid b = if b then Ident "$tt" else Ident "$ff"
 
@@ -113,12 +112,15 @@ let add_alias x1 x2 session : unit =
   let alias_graph = session.alias_graph in
   G.add_edge alias_graph x1 x2
 
-let add_val_def_mapping x vdef session : unit = 
+let add_val_def_mapping x vdef session : unit =
   let val_def_mapping = session.val_def_map in
+  (* let () = print_endline @@ "This is adding a mapping, here's the key: " in *)
+  (* let () = print_endline @@ show_ident_with_stack x in *)
   let added = Hashtbl.add ~key:x ~data:vdef val_def_mapping in
   match added with
   | `Duplicate ->
-    failwith "Should not encounter a variable with the same stack again!"
+    let v = Hashtbl.find_exn val_def_mapping x in
+    if Ast.equal_clause_body v vdef then () else failwith "Should be the same value"
   | `Ok -> ()
 
 let debug_update_read_node session x stk =
@@ -356,7 +358,23 @@ and eval_clause ~session stk env clause : denv * dvalue =
       (* TODO: What should the interpreter do with an assume statement? *)
     | Abort_body -> 
       let () = add_val_def_mapping (x, stk) cbody session in
-      AbortClosure env 
+      let ab_v = AbortClosure env in
+      (
+      match session.mode with
+      | Plain ->
+        raise @@ Found_abort ab_v
+      | With_target_x target ->
+        if Id.equal target x then raise @@ Found_target { x; stk; v = ab_v }
+        else raise @@ Found_abort ab_v
+      | With_full_target (target, tar_stk) ->
+        (* let () = print_endline @@ "target equal: " ^ string_of_bool (Id.equal target x) in *)
+        let () = print_endline @@ "stack equal: " ^ string_of_bool (Concrete_stack.equal tar_stk stk) in
+        let () = print_endline @@ "expected stack  : " ^ Concrete_stack.show tar_stk in
+        let () = print_endline @@ "actual stack : " ^ Concrete_stack.show stk in
+        if Id.equal target x && Concrete_stack.equal tar_stk stk then 
+          raise @@ Found_target { x; stk; v = ab_v }
+        else raise @@ Found_abort ab_v
+      )
     | Assert_body _ | Assume_body _ -> 
       let () = add_val_def_mapping (x, stk) cbody session in
       Direct (Value_bool true)
@@ -424,7 +442,7 @@ let eval session e =
       alert_lookup session x stk ;
       raise (Run_into_wrong_stack (x, stk))
 
-let eval_verbose session e =
+(* let eval_verbose session e =
   let empty_env = Ident_map.empty in
   try
     let (env, v) = eval_exp_verbose ~session Concrete_stack.empty empty_env e in
@@ -441,4 +459,4 @@ let eval_verbose session e =
   | Run_into_wrong_stack (x, stk) ->
       Fmt.epr "Run into wrong stack\n" ;
       alert_lookup session x stk ;
-      raise (Run_into_wrong_stack (x, stk))
+      raise (Run_into_wrong_stack (x, stk)) *)

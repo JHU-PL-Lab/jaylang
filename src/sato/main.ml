@@ -63,16 +63,16 @@ let main_commandline () =
         | Some inputs ->
           begin
             let session = 
-              { Interpreter.default_session with input_feeder = 
+              { (Interpreter.make_default_session ()) with input_feeder = 
                 Input_feeder.from_list inputs 
               }
             in
             try
               (
-              Interpreter.eval_verbose session program
+              Interpreter.eval session program
               )
             with
-            | Interpreter.Terminate_with_env (_, ab_clo) ->
+            | Interpreter.Found_abort ab_clo ->
               match ab_clo with
               | AbortClosure final_env ->
                 if is_natodefa then
