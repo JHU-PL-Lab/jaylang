@@ -1,0 +1,3 @@
+input_sat_1_direct.natodefa
+0.0733333
+861

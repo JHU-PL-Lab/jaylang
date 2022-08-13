@@ -1,0 +1,3 @@
+[250,250,0]
+20585
+Requested input sequences found; terminating.

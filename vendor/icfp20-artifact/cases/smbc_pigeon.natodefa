@@ -1,0 +1,40 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [0, 2, -1, 0, 3, 1, 3, 4, -2, 20]
+
+let h1 = input in
+let h2 = input in
+let h3 = input in
+let h4 = input in
+
+let p1 = input in
+let p2 = input in
+let p3 = input in
+let p4 = input in
+let p5 = input in
+
+let flag = input in 
+
+if    h1 < h2
+  and h2 < h3
+  and h3 < h4
+
+  and p1 < p2
+  and p2 < p3
+  and p3 < p4
+  and p4 < p5
+
+  and (p1 == h1 or p1 == h2 or p1 == h3 or p1 == h4) 
+  and (p2 == h1 or p2 == h2 or p2 == h3 or p2 == h4) 
+  and (p3 == h1 or p3 == h2 or p3 == h3 or p3 == h4) 
+  and (p4 == h1 or p4 == h2 or p4 == h3 or p4 == h4) 
+  and (p5 == h1 or p5 == h2 or p5 == h3 or p5 == h4)
+then
+  if flag == 10 then
+    let f_target = 1 in 1
+  else
+    0
+else
+  if flag == 20 then
+    let target = 1 in 1
+  else
+    0
