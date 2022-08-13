@@ -41,6 +41,8 @@ let benchmark_time (cfg : Config.t) test n : unit t =
             "--foreground";
             cfg.timeout;
             ddse_bin;
+            "-e";
+            cfg.engine;
             "-t";
             "target";
             (* "-r";
@@ -86,15 +88,32 @@ let collect_result (cfg : Config.t) : unit t =
      >> *)
   run "date" [ "-u"; "+%Y-%m-%d-%H:%M:%S" ]
   |- run "xargs"
-       [ "-I"; "%"; "mv"; cfg.working_path; cfg.result_path ^ "/evaluate-%" ]
+       [
+         "-I";
+         "%";
+         "mv";
+         cfg.working_path;
+         Filename.concat cfg.result_path (cfg.engine ^ "-%");
+       ]
 
 let rec countdown n task : unit t =
   if n > 0 then task n >> countdown (n - 1) task else echo "done"
 
 let read_config () =
-  let config_path = "benchmark/config.s" in
-  let config = Sexp.load_sexp_conv_exn config_path Config.t_of_sexp in
-  config
+  let engine = ref "dbmc" in
+  let config_path = ref "benchmark/config.s" in
+
+  Arg.parse
+    [
+      ("-e", Arg.Set_string engine, "Engine");
+      ("-f", Arg.Set_string config_path, "Config path");
+    ]
+    (fun _ -> ())
+    "Please use `make benchmark`." ;
+  assert (Core.List.mem [ "ddse"; "dbmc" ] !engine ~equal:String.equal) ;
+
+  let config = Sexp.load_sexp_conv_exn !config_path Config.t_of_sexp in
+  { config with engine = !engine }
 
 let () =
   let cfg = read_config () in

@@ -75,7 +75,8 @@ land500:
 	OCAML_LANDMARKS=on,output="profiling/callgraph500.ansi" time ./dbmc_top -t target -s 200 test-sources/loop/_sum500.odefa
 
 benchmark:
-	dune exec benchmark/benchmark.exe
+	dune exec benchmark/benchmark.exe -- -e dbmc
+	dune exec benchmark/benchmark.exe -- -e ddse
 
 # extra
 
