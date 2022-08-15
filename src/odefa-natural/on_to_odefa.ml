@@ -1011,31 +1011,39 @@ let debug_transform_odefa
     return c_list
 ;;
 
+let debug_transform_odefa'
+    (trans_name : string)
+    (transform : 'a -> Ast.clause list On_to_odefa_monad_inst.TranslationMonad.m)
+    (e : 'a)
+  : Ast.clause list On_to_odefa_monad_inst.TranslationMonad.m =
+    let open On_to_odefa_monad_inst.TranslationMonad in
+    let%bind c_list = transform e in
+    let e' = Ast.Expr c_list in
+    lazy_logger `debug (fun () ->
+      Printf.sprintf "Result of %s:\n%s" trans_name (Ast_pp.show_expr e'));
+    return c_list
+;;
+
 let translate
     ?translation_context:(translation_context=None)
     ?is_instrumented:(is_instrumented=true)
     (e : On_ast.expr_desc)
   : (Ast.expr * Odefa_instrumentation.Odefa_instrumentation_maps.t * On_to_odefa_maps.t) =
   let (e_m_with_info, ctx : Ast.expr On_to_odefa_monad_inst.TranslationMonad.m * On_to_odefa_monad.translation_context) =
-    (* Odefa transformations *)
+    (* Translation from Natodefa to Odefa *)
+    let open On_to_odefa_monad.TranslationMonad in
     let flatten e =
-      On_to_odefa_monad.TranslationMonad.(>>=) (flatten_expr e) (fun (c_list, _) -> On_to_odefa_monad.TranslationMonad.return c_list)
+      let%bind (c_list, _) = flatten_expr e in
+      return c_list
     in
-    let instrument c_list : Ast.clause list On_to_odefa_monad_inst.TranslationMonad.m =
-      if is_instrumented then
-        Instrumentation.instrument_clauses c_list
-      else
-        On_to_odefa_monad_inst.TranslationMonad.return c_list
-    in
-    let add_first_result c_list : Ast.clause list On_to_odefa_monad_inst.TranslationMonad.m =
-      On_to_odefa_monad_inst.TranslationMonad.return c_list
-      |> fun m -> On_to_odefa_monad_inst.TranslationMonad.(>>=) m Instrumentation.add_first_var
-      |> fun m -> On_to_odefa_monad_inst.TranslationMonad.(>>=) m Instrumentation.add_result_var
-    in
-    (* Translation sequence *)
+    (* Phase one - translation *)
+    (* Step one: Encode lists, variants, match, and let rec
+       Step two: Alphatize the expressions
+       Step three: Flatten to a-normalized form (Natodefa -> Odefa)
+    *)
     lazy_logger `debug (fun () ->
       Printf.sprintf "Initial program:\n%s" (On_ast.show_expr e.body));
-    let (translation_result_p1_m : (Ast.clause list) On_to_odefa_monad.TranslationMonad.m) =
+    let (translation_result_p1_m : (Ast.clause list) m) =
         return e
         >>= debug_transform_on "desugaring" preliminary_encode_expr
         >>= debug_transform_on "alphatization" alphatize
@@ -1047,41 +1055,57 @@ let translate
       | Some ctx -> ctx
     in
     let (translation_result_p1, ctx) = 
-      On_to_odefa_monad.TranslationMonad.run_verbose context translation_result_p1_m 
+      run_verbose context translation_result_p1_m 
     in
-    let (translation_result_p2_m : Ast.clause list On_to_odefa_monad_inst.TranslationMonad.m) = 
-      On_to_odefa_monad_inst.TranslationMonad.return translation_result_p1
-      |> fun m -> On_to_odefa_monad_inst.TranslationMonad.(>>=) m instrument
-      |> fun m -> On_to_odefa_monad_inst.TranslationMonad.(>>=) m add_first_result
+    (* End of phase one *)
+    (* Phase two: Instrumentation *)
+    (* In this phase, if the instrumentation flag is set to true, we will add
+       first-order instrumentation checks, as well as a first and a final 
+       variable.
+    *)
+    let open On_to_odefa_monad_inst.TranslationMonad in
+    let instrument c_list : Ast.clause list m =
+      if is_instrumented then
+        Instrumentation.instrument_clauses c_list
+      else
+        return c_list
     in
-    (* let%bind (translation_result_p2 : Ast.clause list On_to_odefa_monad_inst.TranslationMonad.m) = 
-      On_to_odefa_monad_inst.TranslationMonad.return translation_result_p1
-      >>= debug_transform_odefa "instrumentation" instrument
-      >>= debug_transform_odefa "adding ~result" add_first_result
+    let add_first_result c_list : Ast.clause list m =
+      return c_list
+      >>= Instrumentation.add_first_var
+      >>= Instrumentation.add_result_var
     in
-    let%bind odefa_on_maps = On_to_odefa_monad_inst.TranslationMonad.odefa_natodefa_maps in *)
-    (* lazy_logger `debug (fun () ->
-      Printf.sprintf "Odefa to natodefa maps:\n%s"
-        (On_to_odefa_maps.show odefa_on_maps)
-    ); *)
+    let (translation_result_p2_m : Ast.clause list m) = 
+      return translation_result_p1
+      >>= debug_transform_odefa' "instrumentation" instrument
+      >>= debug_transform_odefa' "adding ~result" add_first_result
+    in
     let res = 
-      On_to_odefa_monad_inst.TranslationMonad.bind translation_result_p2_m (fun m -> On_to_odefa_monad_inst.TranslationMonad.return (Ast.Expr m))
+      translation_result_p2_m 
+      >>= (fun m -> On_to_odefa_monad_inst.TranslationMonad.return (Ast.Expr m))
     in
     (res, ctx)
   in
   (* Set up context and run *)
-  (* let context =
-    match translation_context with
-    | None -> new_translation_context ~is_natodefa:true ()
-    | Some ctx -> ctx
-  in *)
-  let natodefa_inst_map = On_to_odefa_maps.get_natodefa_inst_map ctx.tc_odefa_natodefa_mappings in
+  let natodefa_inst_map = 
+    On_to_odefa_maps.get_natodefa_inst_map ctx.tc_odefa_natodefa_mappings 
+  in
+  let init_ctx_ph2 = 
+    On_to_odefa_monad_inst.new_translation_context_from_natodefa natodefa_inst_map
+  in
   let ctx' = 
-    { (On_to_odefa_monad_inst.new_translation_context_from_natodefa natodefa_inst_map) with tc_fresh_name_counter = ctx.tc_fresh_name_counter } 
+    { init_ctx_ph2 with tc_fresh_name_counter = ctx.tc_fresh_name_counter } 
   in
   let res = On_to_odefa_monad_inst.TranslationMonad.run ctx' e_m_with_info in
-  (res, ctx'.tc_odefa_instrumentation_mappings, ctx.tc_odefa_natodefa_mappings)
-  (* NOTE: commenting this out for DDSE because it has a tendency to eliminate
-     unnecessary variables and we use those as targets *)
-  (* |> eliminate_aliases *)
+  let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
+  let inst_maps = ctx'.tc_odefa_instrumentation_mappings in
+  lazy_logger `debug (fun () ->
+    Printf.sprintf "Odefa to natodefa maps:\n%s"
+      (On_to_odefa_maps.show odefa_on_maps)
+  );
+  lazy_logger `debug (fun () ->
+    Printf.sprintf "Odefa instrumentation maps:\n%s"
+      (Odefa_instrumentation_maps.show inst_maps)
+  );
+  (res, inst_maps, odefa_on_maps)
 ;;
