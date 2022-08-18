@@ -1,7 +1,3 @@
-# EXPECT-WELL-FORMED
-# EXPECT-TYPE-ERROR-COUNT 1
-# # TODO: Remove instrumentation error from function
-
 tru = true;
 fls = false;
 i = input;

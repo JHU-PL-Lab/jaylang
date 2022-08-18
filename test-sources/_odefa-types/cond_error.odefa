@@ -1,7 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-STUCK
-# EXPECT-TYPE-ERROR-COUNT 1
-# EXPECT-TYPE-ERROR ~result [] "ans = pred ? ( r1 = 0 ) : ( r2 = 1 )" "pred" "0" "bool" "int"
-
-pred = 0;
-ans = pred ? ( r1 = 0 ) : ( r2 = 1 );

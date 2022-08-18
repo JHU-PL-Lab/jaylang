@@ -291,7 +291,6 @@ let rec compare_funsig: type a. a funsig -> a funsig -> int =
 and compare_expr_desc : type a. a expr_desc -> a expr_desc -> int = 
     fun e1 e2 ->
       compare_expr e1.body e2.body
-      (* |> compare_helper (Option.compare e1.tag e2.tag) *)
       |> compare_helper (compare e1.tag e2.tag)
 
 and compare_expr : type a. a expr -> a expr -> int = 

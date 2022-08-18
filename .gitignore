@@ -36,6 +36,7 @@ _build
 /translator
 /sandbox
 /result
+/stest
 
 # Local results
 profiling

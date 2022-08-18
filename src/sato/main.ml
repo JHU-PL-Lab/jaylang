@@ -1,8 +1,10 @@
 open Core
-open Sato_args
+
 open Odefa_ast
 open Odefa_ast.Ast
 open Odefa_natural.On_to_odefa_maps
+open Sato_args
+open Sato_result
 
 let create_initial_dmbc_config (sato_config : Sato_args.t) 
   : Dbmc.Global_config.t =
@@ -33,22 +35,19 @@ let create_initial_dmbc_config (sato_config : Sato_args.t)
   }
 ;;
 
-let main_commandline () =
-  let sato_config = Argparse.parse_commandline_config () in
-  let dbmc_config_init = create_initial_dmbc_config sato_config in
-  let (program, odefa_inst_maps, on_to_odefa_maps_opt, _) = 
-    File_utils.read_source_sato dbmc_config_init.filename 
-  in
-  let is_natodefa = sato_config.is_natodefa in
+let main_from_program 
+  ~config inst_maps odefa_to_on_opt _ton_to_on_opt program 
+  : reported_error option = 
+  let dbmc_config_init = create_initial_dmbc_config config in
+  let is_natodefa = config.is_natodefa in
   let init_sato_state = 
-    Sato_state.initialize_state_with_expr is_natodefa program odefa_inst_maps on_to_odefa_maps_opt
+    Sato_state.initialize_state_with_expr is_natodefa program inst_maps odefa_to_on_opt
   in
   let target_vars = init_sato_state.target_vars in
   let rec search_all_targets 
-    (remaining_targets : ident list) : _ =
+    (remaining_targets : ident list) : reported_error option =
     match remaining_targets with
-    | [] -> print_endline @@ "No errors found!"
-      (* print_endline "No errors found." *)
+    | [] -> None
     | hd :: tl ->
       let dbmc_config = 
         { dbmc_config_init with target = hd }
@@ -80,20 +79,34 @@ let main_commandline () =
                     Sato_result.Natodefa_type_errors.get_errors 
                       init_sato_state dbmc_state session final_env inputs
                   in
-                  print_endline @@
-                  Sato_result.Natodefa_type_errors.show @@ errors
+                  Some (Natodefa_error errors)
                 else
                   let errors = 
                     Sato_result.Odefa_type_errors.get_errors
                       init_sato_state dbmc_state session final_env inputs
                   in
-                  print_endline @@ 
-                  Sato_result.Odefa_type_errors.show @@ errors
+                  Some (Odefa_error errors)
               | _ -> failwith "Shoud have run into abort here!"
           end
         | None -> search_all_targets tl
       with ex -> (* Printexc.print_backtrace Out_channel.stderr ; *)
                   raise ex)
   in
-  let () = search_all_targets target_vars in
+  search_all_targets target_vars
+
+let main_commandline () =
+  let sato_config = Argparse.parse_commandline_config () in
+  let (program, odefa_inst_maps, on_to_odefa_maps_opt, _) = 
+    File_utils.read_source_sato sato_config.filename 
+  in
+  let errors_opt = 
+    main_from_program 
+      ~config:sato_config odefa_inst_maps on_to_odefa_maps_opt None program 
+  in
+  let () = 
+    match errors_opt with
+    | None -> print_endline @@ "No errors found."
+    | Some errors ->
+      print_endline @@ show_reported_error errors
+  in
   Dbmc.Log.close ()

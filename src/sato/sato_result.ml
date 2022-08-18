@@ -47,7 +47,6 @@ module type Sato_result = sig
   val show : t -> string;;
   val show_compact : t -> string;;
   val count : t -> int;;
-  val generation_successful : t -> bool;;
   val to_yojson : t -> Yojson.Safe.t;;
 end;;
 
@@ -154,9 +153,9 @@ let get_odefa_errors
         in 
         (v1, stk1), (v2, stk2)
       in
-      let () = print_endline @@ "This is the final error idents" in
+      (* let () = print_endline @@ "This is the final error idents" in
       let () = print_endline @@ Interpreter.show_ident_with_stack (x1, x1_stk) in
-      let () = print_endline @@ Interpreter.show_ident_with_stack (x2, x2_stk) in
+      let () = print_endline @@ Interpreter.show_ident_with_stack (x2, x2_stk) in *)
       let left_error = mk_match_err expected_type x1_val x1 x1_stk in
       let right_error = mk_match_err expected_type x2_val x2 x2_stk in
       let errors = List.append left_error right_error in
@@ -190,19 +189,19 @@ let get_odefa_errors
   (error_loc, error_list)
 ;;
 
-(* **** Type Errors **** *)
+type odefa_error_record = {
+  err_errors : Sato_error.Odefa_error.t list;
+  err_input_seq : int option list;
+  err_location : Odefa_error_location.t;
+}
+[@@ deriving to_yojson]
+;;
 
-module Odefa_type_errors : Sato_result = struct
+(* **** Odefa Type Errors **** *)
 
-  type odefa_error_record = {
-    err_errors : Sato_error.Odefa_error.t list;
-    err_input_seq : int option list;
-    err_location : Odefa_error_location.t;
-  }
-  [@@ deriving to_yojson]
-  ;;
+module Odefa_type_errors : Sato_result with type t = odefa_error_record = struct
 
-  type t = odefa_error_record option
+  type t = odefa_error_record
   ;;
 
   let description = "error";;
@@ -220,57 +219,48 @@ module Odefa_type_errors : Sato_result = struct
     let rm_inst_fn =
       Sato_error.odefa_error_remove_instrument_vars odefa_inst_maps
     in
-    Some {
+    {
       err_input_seq = inputs;
       err_location = error_loc;
       err_errors = List.map ~f:rm_inst_fn odefa_errors;
     }
   ;;
 
-  (* TODO: Pretty-print *)
-
-  let show : t -> string = function
-    | Some error ->
-      "** Odefa Type Errors **\n" ^
-      (Printf.sprintf "- Input sequence  : %s\n" (Dbmc.Std.string_of_inputs error.err_input_seq)) ^
-      (Printf.sprintf "- Found at clause : %s\n" (Odefa_error_location.show error.err_location)) ^
-      (* (Printf.sprintf "- Found in steps  : %s\n" (string_of_int error.err_steps)) ^ *)
-      "--------------------\n" ^
-      (String.concat ~sep:"\n--------------------\n"
-        @@ List.map ~f:Sato_error.Odefa_error.show error.err_errors)
-    | None -> ""
+  let show : t -> string = fun error ->
+    "** Odefa Type Errors **\n" ^
+    (Printf.sprintf "- Input sequence  : %s\n" (Dbmc.Std.string_of_inputs error.err_input_seq)) ^
+    (Printf.sprintf "- Found at clause : %s\n" (Odefa_error_location.show error.err_location)) ^
+    (* (Printf.sprintf "- Found in steps  : %s\n" (string_of_int error.err_steps)) ^ *)
+    "--------------------\n" ^
+    (String.concat ~sep:"\n--------------------\n"
+      @@ List.map ~f:Sato_error.Odefa_error.show error.err_errors)
   ;;
 
-  let show_compact : t -> string = function
-    | Some error ->
-      "- err at: " ^ (Odefa_error_location.show_brief error.err_location)
-    | None ->
-      "- no errs"
+  let show_compact : t -> string = fun error ->
+    "- err at: " ^ (Odefa_error_location.show_brief error.err_location)
   ;;
 
-  let count : t -> int = function
-    | Some err -> List.length err.err_errors
-    | None -> 0;;
+  let count : t -> int = fun err -> 
+    List.length err.err_errors
 
-  let generation_successful : t -> bool = Option.is_some;;
-
-  let to_yojson : t -> Yojson.Safe.t = function
-    | Some err -> odefa_error_record_to_yojson err
-    | None -> `Null
+  let to_yojson : t -> Yojson.Safe.t = fun err -> odefa_error_record_to_yojson err
   ;;
+
 end;;
 
-module Natodefa_type_errors : Sato_result = struct
+(* **** Natodefa Type Errors **** *)
 
-  type natodefa_error_record = {
-    err_errors : Sato_error.On_error.t list;
-    err_input_seq : int option list;
-    err_location : Natodefa_error_location.t;
-  }
-  [@@ deriving to_yojson]
-  ;;  
+type natodefa_error_record = {
+  err_errors : Sato_error.On_error.t list;
+  err_input_seq : int option list;
+  err_location : Natodefa_error_location.t;
+}
+[@@ deriving to_yojson]
+;;  
 
-  type t = natodefa_error_record option;;
+module Natodefa_type_errors : Sato_result with type t = natodefa_error_record = struct
+
+  type t = natodefa_error_record;;
 
   let description = "natodefa type error";;
 
@@ -296,40 +286,41 @@ module Natodefa_type_errors : Sato_result = struct
       in 
       List.map ~f:mapper odefa_errors
     in
-    Some {
+    {
       err_input_seq = inputs;
       err_location = on_err_loc_core;
       err_errors = List.concat on_err_list;
     }
   ;;
 
-  let show : t -> string = function
-    | Some error ->
-      "** NatOdefa Type Errors **\n" ^
-      (Printf.sprintf "- Input sequence  : %s\n" (Dbmc.Std.string_of_inputs error.err_input_seq)) ^
-      (Printf.sprintf "- Found at clause : %s\n" (Natodefa_error_location.show error.err_location)) ^
-      "--------------------\n" ^
-      (String.concat ~sep:"\n--------------------\n"
-        @@ List.map ~f:Sato_error.On_error.show error.err_errors)
-    | None -> ""
+  let show : t -> string = fun error ->
+    "** NatOdefa Type Errors **\n" ^
+    (Printf.sprintf "- Input sequence  : %s\n" (Dbmc.Std.string_of_inputs error.err_input_seq)) ^
+    (Printf.sprintf "- Found at clause : %s\n" (Natodefa_error_location.show error.err_location)) ^
+    "--------------------\n" ^
+    (String.concat ~sep:"\n--------------------\n"
+      @@ List.map ~f:Sato_error.On_error.show error.err_errors)
   ;;
 
-  let show_compact : t -> string = function
-    | Some error ->
-      "- err at: " ^ (Natodefa_error_location.show_brief error.err_location) 
-    | None ->
-      "- no errs"
+  let show_compact : t -> string = fun error ->
+    "- err at: " ^ (Natodefa_error_location.show_brief error.err_location) 
   ;;
 
-  let count : t -> int = function
-    | Some err -> List.length err.err_errors
-    | None -> 0
+  let count : t -> int = fun err -> 
+    List.length err.err_errors
   ;;
 
-  let generation_successful : t -> bool = Option.is_some;;
-
-  let to_yojson : t -> Yojson.Safe.t = function
-    | Some err -> natodefa_error_record_to_yojson err
-    | None -> `Null
+  let to_yojson : t -> Yojson.Safe.t = fun err -> 
+    natodefa_error_record_to_yojson err
   ;;
+
 end;;
+
+(* **** Unifying Type Errors **** *)
+type reported_error = Natodefa_error of Natodefa_type_errors.t 
+                    | Odefa_error of Odefa_type_errors.t
+
+let show_reported_error err = 
+  match err with
+  | Natodefa_error nat_err -> Natodefa_type_errors.show nat_err
+  | Odefa_error odefa_err -> Odefa_type_errors.show odefa_err

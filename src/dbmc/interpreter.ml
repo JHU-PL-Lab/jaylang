@@ -368,9 +368,9 @@ and eval_clause ~session stk env clause : denv * dvalue =
         else raise @@ Found_abort ab_v
       | With_full_target (target, tar_stk) ->
         (* let () = print_endline @@ "target equal: " ^ string_of_bool (Id.equal target x) in *)
-        let () = print_endline @@ "stack equal: " ^ string_of_bool (Concrete_stack.equal tar_stk stk) in
-        let () = print_endline @@ "expected stack  : " ^ Concrete_stack.show tar_stk in
-        let () = print_endline @@ "actual stack : " ^ Concrete_stack.show stk in
+        (* let () = print_endline @@ "stack equal: " ^ string_of_bool (Concrete_stack.equal tar_stk stk) in *)
+        (* let () = print_endline @@ "expected stack  : " ^ Concrete_stack.show tar_stk in *)
+        (* let () = print_endline @@ "actual stack : " ^ Concrete_stack.show stk in *)
         if Id.equal target x && Concrete_stack.equal tar_stk stk then 
           raise @@ Found_target { x; stk; v = ab_v }
         else raise @@ Found_abort ab_v

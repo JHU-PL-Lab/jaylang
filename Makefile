@@ -17,7 +17,11 @@ sato:
 	ln -s -f _build/default/src/bin/sato.exe sato
 
 sato-test:
-	./sato -t ab test-sources/odefa-types/assert.odefa
+	dune build test/sato/test_sato.exe
+	ln -s -f _build/default/test/sato/test_sato.exe stest
+
+stest: sato-test
+	./stest
 
 dtest: dbmc-test
 	./dtest 
