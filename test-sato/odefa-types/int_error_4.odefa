@@ -3,8 +3,8 @@ one = 1;
 f1 = fun x -> (
     f2 = fun y -> (
         zero = 0;
-        ret = zero and zero;
-    )
+    );
+    ret = f2 + f2;
 );
 
 ap0 = f1 one;

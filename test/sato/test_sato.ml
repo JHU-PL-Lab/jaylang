@@ -88,6 +88,11 @@ let is_error_expected
           let c_1 = List.equal String.equal actual_aliases expected_aliases in
           let c_2 = String.equal actual_v expected_v in
           let check_2 = c_1 && c_2 in
+          (* let () = print_endline @@ List.to_string ~f:(fun x -> x) actual_aliases in
+          let () = print_endline @@ List.to_string ~f:(fun x -> x) expected_aliases in *)
+          (* let () = print_endline @@ actual_v in *)
+          (* let () = print_endline @@ expected_v in *)
+          (* let () = failwith @@ string_of_bool @@ check_2 in *)
           check_2
         | _ -> acc 
       in
