@@ -101,21 +101,21 @@ and pp_binop (formatter : Format.formatter) (expr : expr) : unit =
   in
   let pp_symb formatter expr =
     match expr with
-    | Appl _ -> Format.pp_print_string formatter "" (* FIXME: Outputs two spaces! *)
-    | Plus _ -> Format.pp_print_string formatter "+"
-    | Minus _ -> Format.pp_print_string formatter "-"
-    | Times _ -> Format.pp_print_string formatter "*"
-    | Divide _ -> Format.pp_print_string formatter "/"
-    | Modulus _ -> Format.pp_print_string formatter "%"
-    | Equal _ -> Format.pp_print_string formatter "=="
-    | Neq _ -> Format.pp_print_string formatter "<>"
-    | LessThan _ -> Format.pp_print_string formatter "<"
-    | Leq _ -> Format.pp_print_string formatter "<="
-    | GreaterThan _ -> Format.pp_print_string formatter ">"
-    | Geq _ -> Format.pp_print_string formatter ">="
-    | And _ -> Format.pp_print_string formatter "and"
-    | Or _ -> Format.pp_print_string formatter "or"
-    | ListCons _ -> Format.pp_print_string formatter "::"
+    | Appl _ -> Format.pp_print_string formatter " " (* FIXME: Outputs two spaces! *)
+    | Plus _ -> Format.pp_print_string formatter " + "
+    | Minus _ -> Format.pp_print_string formatter " - "
+    | Times _ -> Format.pp_print_string formatter " * "
+    | Divide _ -> Format.pp_print_string formatter " / "
+    | Modulus _ -> Format.pp_print_string formatter " % "
+    | Equal _ -> Format.pp_print_string formatter " == "
+    | Neq _ -> Format.pp_print_string formatter " <> "
+    | LessThan _ -> Format.pp_print_string formatter " < "
+    | Leq _ -> Format.pp_print_string formatter " <= "
+    | GreaterThan _ -> Format.pp_print_string formatter " > "
+    | Geq _ -> Format.pp_print_string formatter " >= "
+    | And _ -> Format.pp_print_string formatter " and "
+    | Or _ -> Format.pp_print_string formatter " or "
+    | ListCons _ -> Format.pp_print_string formatter " :: "
     | _ -> raise @@ Utils.Invariant_failure "Not a binary operator!"
   in
   match expr with
@@ -126,13 +126,13 @@ and pp_binop (formatter : Format.formatter) (expr : expr) : unit =
     let l_cmp = expr_precedence_cmp e1.body expr in
     let r_cmp = expr_precedence_cmp e2.body expr in
     if l_cmp < 0 && r_cmp <= 0 then 
-      Format.fprintf formatter "(%a) %a (%a)" pp_expr_desc e1 pp_symb expr pp_expr_desc e2
+      Format.fprintf formatter "(%a)%a(%a)" pp_expr_desc e1 pp_symb expr pp_expr_desc e2
     else if l_cmp >= 0 && r_cmp <= 0 then
-      Format.fprintf formatter "%a %a (%a)" pp_expr_desc e1 pp_symb expr pp_expr_desc e2
+      Format.fprintf formatter "%a%a(%a)" pp_expr_desc e1 pp_symb expr pp_expr_desc e2
     else if l_cmp < 0 && r_cmp > 0 then
-      Format.fprintf formatter "(%a) %a %a" pp_expr_desc e1 pp_symb expr pp_expr_desc e2
+      Format.fprintf formatter "(%a)%a%a" pp_expr_desc e1 pp_symb expr pp_expr_desc e2
     else if l_cmp >= 0 && r_cmp > 0 then
-      Format.fprintf formatter "%a %a %a" pp_expr_desc e1 pp_symb expr pp_expr_desc e2
+      Format.fprintf formatter "%a%a%a" pp_expr_desc e1 pp_symb expr pp_expr_desc e2
     else
       raise @@ Utils.Invariant_failure "Invalid precedence comparison!"
   | _ -> raise @@ Utils.Invariant_failure "Not a binary operator!"
@@ -236,6 +236,7 @@ and pp_expr
 
 let show_ident = Pp_utils.pp_to_string pp_ident;;
 let show_expr = Pp_utils.pp_to_string pp_expr;;
+
 let show_pattern = Pp_utils.pp_to_string pp_pattern;;
 
 let pp_on_type formatter (on_type : On_ast.type_sig) =

@@ -24,82 +24,114 @@ let group_all_files dir =
   in
   loop dir
 
-let is_error_expected 
+(* TODO: Refactor; there must be a better way of doing this. *)
+let errors_to_plain 
   (actual : Sato_result.reported_error) 
-  (expected : Test_expect.t) : bool = 
-  let open Sato_result in
+  : Test_expect.t =
+  let open Sato_result in  
   match actual with
   | Odefa_error (err : Odefa_type_errors.t) ->
     let actual_err_loc = Odefa_error_location.show @@ err.err_location in
-    let expected_err_loc = expected.found_at_clause in
-    let actual_errors = err.err_errors in
-    let actual_err_num = 
-      List.length actual_errors
+    let err_num = List.length err.err_errors in
+    let actual_errs = err.err_errors in
+    let transform_one_err_odefa (error : Sato_error.Odefa_error.t) : Test_expect.error =
+      (
+      match error with
+      | Sato_error.Odefa_error.Error_match err ->
+        let actual_aliases = 
+          List.map ~f:(fun (Ident i) -> i) err.err_match_aliases 
+        in
+        let actual_v =
+          Odefa_ast.Ast_pp_brief.show_clause_body err.err_match_val
+        in
+        let (a_actual_type, a_expected_type) = 
+          (Odefa_ast.Ast_pp.show_type_sig @@ err.err_match_actual, 
+          Odefa_ast.Ast_pp.show_type_sig @@ err.err_match_expected)
+        in 
+        Match_error (
+          { m_value = (actual_aliases, actual_v)
+          ; expected_type = a_expected_type
+          ; actual_type = a_actual_type
+          }
+        )
+      | Sato_error.Odefa_error.Error_value err -> 
+        let actual_aliases = 
+          List.map ~f:(fun (Ident i) -> i) err.err_value_aliases 
+        in
+        let actual_v =
+          Odefa_ast.Ast_pp_brief.show_clause_body err.err_value_val
+        in
+        Value_error (
+          { v_value = (actual_aliases, actual_v)
+          }
+        )
+      | _ -> failwith "Expect no other error types!"
+      )
     in
-    let expected_err_num = expected.number_of_errors in 
-    let check_1 = 
-      String.equal actual_err_loc expected_err_loc && actual_err_num = expected_err_num 
-    in 
-    (* let () = failwith @@ string_of_bool @@ check_1 in *)
-    if check_1 then
-      let combined = List.zip_exn actual_errors expected.error_list in
-      let folder acc (actual_err, expected_err) =
-        match (actual_err, expected_err) with
-        | Sato_error.Odefa_error.Error_match err, Test_expect.Match_error err' ->
-          let actual_aliases = 
-            List.map ~f:(fun (Odefa_ast.Ast.Ident i) -> i) err.err_match_aliases 
-          in
-          let actual_v =
-            Odefa_ast.Ast_pp_brief.show_clause_body err.err_match_val
-          in
-          let (expected_aliases, expected_v) = 
-            err'.m_value
-          in
-          let c_1 = List.equal String.equal actual_aliases expected_aliases in
-          let c_2 = String.equal actual_v expected_v in
-          let check_2 = c_1 && c_2 in
-          (* let () = print_endline @@ List.to_string ~f:(fun x -> x) actual_aliases in
-          let () = print_endline @@ List.to_string ~f:(fun x -> x) expected_aliases in *)
-          (* let () = print_endline @@ actual_v in *)
-          (* let () = print_endline @@ expected_v in *)
-          (* let () = failwith @@ string_of_bool @@ check_2 in *)
-          if check_2 then
-            let (a_actual_type, a_expected_type) = 
-              (Odefa_ast.Ast_pp.show_type_sig @@ err.err_match_actual, 
-               Odefa_ast.Ast_pp.show_type_sig @@ err.err_match_expected)
-            in 
-            let (e_actual_type, e_expected_type) = 
-              err'.actual_type, err'.expected_type
-            in
-            String.equal a_actual_type e_actual_type &&
-            String.equal a_expected_type e_expected_type
-          else
-            false
-        | Sato_error.Odefa_error.Error_value err, Test_expect.Value_error err' ->
-          let actual_aliases = 
-            List.map ~f:(fun (Odefa_ast.Ast.Ident i) -> i) err.err_value_aliases 
-          in
-          let actual_v =
-            Odefa_ast.Ast_pp.show_clause_body err.err_value_val
-          in
-          let (expected_aliases, expected_v) = 
-            err'.v_value
-          in
-          let c_1 = List.equal String.equal actual_aliases expected_aliases in
-          let c_2 = String.equal actual_v expected_v in
-          let check_2 = c_1 && c_2 in
-          (* let () = print_endline @@ List.to_string ~f:(fun x -> x) actual_aliases in
-          let () = print_endline @@ List.to_string ~f:(fun x -> x) expected_aliases in *)
-          (* let () = print_endline @@ actual_v in *)
-          (* let () = print_endline @@ expected_v in *)
-          (* let () = failwith @@ string_of_bool @@ check_2 in *)
-          check_2
-        | _ -> acc 
-      in
-      List.fold ~init:true ~f:folder combined
-    else false
-  | Natodefa_error _ -> failwith "Natodefa TBI!"
+    let errs = List.map ~f:transform_one_err_odefa actual_errs
+    in
+    { found_at_clause = actual_err_loc
+    ; number_of_errors = err_num
+    ; error_list = errs
+    }
+  | Natodefa_error (err : Natodefa_type_errors.t) ->
+    (* TODO: Fix - very hacky *)
+    let actual_err_loc = 
+      Natodefa_error_location.show @@ err.err_location 
+      |> String.substr_replace_all ~pattern:"\n" ~with_:" "
+    in    
+    let err_num = List.length err.err_errors in
+    let actual_errs = err.err_errors in
+    let transform_one_err_natodefa (error : Sato_error.On_error.t) : Test_expect.error =
+      (
+      match error with
+      | Sato_error.On_error.Error_match err ->
+        let actual_aliases = 
+          List.map ~f:(fun (Ident i) -> i) err.err_match_aliases 
+        in
+        let actual_v =
+          Odefa_natural.On_ast_pp.show_expr err.err_match_val
+          |> String.substr_replace_all ~pattern:"\n" ~with_:" "
+        in
+        let (a_actual_type, a_expected_type) = 
+          (Odefa_natural.On_ast_pp.show_on_type @@ err.err_match_actual, 
+           Odefa_natural.On_ast_pp.show_on_type @@ err.err_match_expected)
+        in 
+        Match_error (
+          { m_value = (actual_aliases, actual_v)
+          ; expected_type = a_expected_type
+          ; actual_type = a_actual_type
+          }
+        )
+      | Sato_error.On_error.Error_value err -> 
+        let actual_aliases = 
+          List.map ~f:(fun (Ident i) -> i) err.err_value_aliases 
+        in
+        let actual_v =
+          Odefa_natural.On_ast_pp.show_expr err.err_value_val
+        in
+        Value_error (
+          { v_value = (actual_aliases, actual_v)
+          }
+        )
+      | _ -> failwith "Expect no other error types!"
+      )
+    in
+    let errs = List.map ~f:transform_one_err_natodefa actual_errs
+    in
+    { found_at_clause = actual_err_loc
+    ; number_of_errors = err_num
+    ; error_list = errs
+    }
 
+let is_error_expected 
+  (actual : Sato_result.reported_error) 
+  (expected : Test_expect.t) : bool = 
+  let actual_error = errors_to_plain actual in
+  let () = print_endline @@ Test_expect.show actual_error in
+  let () = print_endline @@ Test_expect.show expected in
+  Test_expect.equal expected actual_error
+ 
 let test_one_file testname () =
   let (program, odefa_inst_maps, on_to_odefa_maps_opt, _) = 
     File_utils.read_source_sato testname 
@@ -142,4 +174,4 @@ let main test_path =
   ()
 
 let () = 
-  main "test-sato/odefa-types"
+  main "test-sato"

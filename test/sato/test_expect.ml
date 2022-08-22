@@ -25,8 +25,8 @@ and t = {
   found_at_clause : string;
   number_of_errors : int; 
   error_list : error list;
-}[@@deriving sexp, show {with_path = false}]
-(* }[@@deriving sexp] *)
+}[@@deriving sexp, equal, show {with_path = false}]
+(* }[@@deriving sexp, equal] *)
 
 let load_sexp_expectation_for testpath =
   let expect_path = Filename.chop_extension testpath ^ ".expect.s" in
@@ -35,29 +35,33 @@ let load_sexp_expectation_for testpath =
   else None
 
 (* 
-- Found at clause : v = a - tru
-- Found in steps  : 560
+** NatOdefa Type Errors **
+- Input sequence  : []
+- Found at clause : n < true
+- Found in steps  : 422
 --------------------
-* Value    : tru = true
-* Expected : int
-* Actual   : bool
+* Value    : true
+* Expected : Integer
+* Actual   : Boolean
+1 error found.
+No further control flows exist.
 *)
 
-let t1 : t = {
-     found_at_clause = "v = a - tru";
+(* let t1 : t = {
+     found_at_clause = "n < true";
      number_of_errors = 1;
      error_list = 
      [
       (Match_error {
-        m_value = (["tru"], "true");
-        expected_type = "int";
-        actual_type = "bool";
+        m_value = ([], "true");
+        expected_type = "Integer";
+        actual_type = "Boolean";
       });
      ]
    }
 
 let ss = sexp_of_t t1
 
-let sss = Sexp.to_string_hum ss
+let sss = Sexp.to_string_hum ss *)
 
 (* let t1v = sss |> Sexp.of_string |> t_of_sexp *)
