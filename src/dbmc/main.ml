@@ -60,9 +60,9 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
              Hashtbl.iteri c ~f:(fun ~key ~data:_ ->
                  f key (Riddler.is_picked (Some model) key)))
            Fmt.nop Lookup_key.pp Fmt.bool)
-        state.node_map) ; *)
+        state.key_map) ; *)
   Hashtbl.clear state.rstk_picked ;
-  Hashtbl.iter_keys state.node_map ~f:(fun key ->
+  Hashtbl.iter_keys state.term_detail_map ~f:(fun key ->
       if Riddler.is_picked (Some model) key
       then ignore @@ Hashtbl.add state.rstk_picked ~key:key.r_stk ~data:true
       else ()) ;
@@ -74,8 +74,8 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
   check_expected_input ~config ~state ;
   ([ inputs_from_interpreter ], false)
 
-let handle_found_verbose (config : Global_config.t) (state : Global_state.t) model c_stk
-    =
+let handle_found_verbose (config : Global_config.t) (state : Global_state.t)
+    model c_stk =
   LLog.info (fun m ->
       m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident config.target
         Concrete_stack.pp c_stk) ;
@@ -86,9 +86,9 @@ let handle_found_verbose (config : Global_config.t) (state : Global_state.t) mod
              Hashtbl.iteri c ~f:(fun ~key ~data:_ ->
                  f key (Riddler.is_picked (Some model) key)))
            Fmt.nop Lookup_key.pp Fmt.bool)
-        state.node_map) ; *)
+        state.key_map) ; *)
   Hashtbl.clear state.rstk_picked ;
-  Hashtbl.iter_keys state.node_map ~f:(fun key ->
+  Hashtbl.iter_keys state.term_detail_map ~f:(fun key ->
       if Riddler.is_picked (Some model) key
       then ignore @@ Hashtbl.add state.rstk_picked ~key:key.r_stk ~data:true
       else ()) ;
@@ -219,7 +219,9 @@ let main_details ~config program =
 
 let main_details_ret_model ~config program =
   let state = Global_state.create config program in
-  let inputs, found, ret_opt = Lwt_main.run (main_with_state_lwt_verbose ~config ~state) in
+  let inputs, found, ret_opt =
+    Lwt_main.run (main_with_state_lwt_verbose ~config ~state)
+  in
   (inputs, found, state, ret_opt)
 
 let search_input ~config program =

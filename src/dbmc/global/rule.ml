@@ -164,6 +164,7 @@ let show_rule : t -> string = function
   | Abort _ -> "Abort"
   | Mismatch -> "Mismatch"
 
+let sexp_of_t r = r |> show_rule |> Sexp.of_string
 let pp_rule = Fmt.of_to_string show_rule
 
 (* module type Rule_sig = sig

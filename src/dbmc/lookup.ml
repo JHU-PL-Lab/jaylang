@@ -24,13 +24,24 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
                          let config = config
 
                          let add_phi key phi phis =
-                           Global_state.add_phi state key phi ;
+                           let term_detail =
+                             Hashtbl.find_exn state.term_detail_map key
+                           in
+                           term_detail.phi <- Some phi ;
                            Set.add phis phi
 
-                         let find_or_add_node key block node_parent =
-                           Global_state.find_or_add_node state key block
-                             node_parent
-                           |> snd
+                         (*
+                            
+
+                            (* Hashtbl.add_exn state.phi_map ~key ~data:phis ; *)
+                            state.phis_z3 <- phis :: state.phis_z3 ;
+                            Set.add phis phi
+                         *)
+
+                         (* let find_or_add_node key block node_parent =
+                            Global_state.find_or_add_node state key block
+                              node_parent
+                            |> snd *)
 
                          let block_map = state.block_map
                          let unroll = unroll
@@ -45,8 +56,8 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
     (* ----- *)
   and lookup (this_key : Lookup_key.t) block phis () : unit Lwt.t =
     let x, _r_stk = Lookup_key.to2 this_key in
-    let this_node = Global_state.find_node_exn state this_key in
 
+    (* let this_node = Global_state.find_node_exn state this_key in *)
     let block_id = Cfg.id_of_block block in
 
     (* match Riddler.check_phis (Set.to_list phis) false with
@@ -64,28 +75,25 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
     let _apply_rule =
       let open Rule in
       match rule with
-      | Discovery_main p -> R.discovery_main p this_key this_node phis
+      | Discovery_main p -> R.discovery_main p this_key phis
       | Discovery_nonmain p ->
-          R.discovery_nonmain p this_key this_node block phis run_task
-      | Input p -> R.input p this_key this_node block phis run_task
-      | Alias p -> R.alias p this_key this_node block phis run_task
-      | Not b -> R.not_ b this_key this_node block phis run_task
-      | Binop b -> R.binop b this_key this_node block phis run_task
-      | Record_start p ->
-          R.record_start p this_key this_node block phis run_task
-      | Record_end p -> R.record_end p this_key this_node block phis run_task
-      | Cond_top cb -> R.cond_top cb this_key this_node block phis run_task
-      | Cond_btm p -> R.cond_btm p this_key this_node block phis run_task
-      | Fun_enter_local p ->
-          R.fun_enter_local p this_key this_node phis run_task
-      | Fun_enter_nonlocal p ->
-          R.fun_enter_nonlocal p this_key this_node phis run_task
-      | Fun_exit p -> R.fun_exit p this_key this_node block phis run_task
-      | Pattern p -> R.pattern p this_key this_node block phis run_task
-      | Assume p -> R.assume p this_key this_node block phis run_task
-      | Assert p -> R.assert_ p this_key this_node block phis run_task
-      | Abort p -> R.abort p this_key this_node block phis run_task
-      | Mismatch -> R.mismatch this_key this_node phis
+          R.discovery_nonmain p this_key block phis run_task
+      | Input p -> R.input p this_key block phis run_task
+      | Alias p -> R.alias p this_key block phis run_task
+      | Not b -> R.not_ b this_key block phis run_task
+      | Binop b -> R.binop b this_key block phis run_task
+      | Record_start p -> R.record_start p this_key block phis run_task
+      | Record_end p -> R.record_end p this_key block phis run_task
+      | Cond_top cb -> R.cond_top cb this_key block phis run_task
+      | Cond_btm p -> R.cond_btm p this_key block phis run_task
+      | Fun_enter_local p -> R.fun_enter_local p this_key phis run_task
+      | Fun_enter_nonlocal p -> R.fun_enter_nonlocal p this_key phis run_task
+      | Fun_exit p -> R.fun_exit p this_key block phis run_task
+      | Pattern p -> R.pattern p this_key block phis run_task
+      | Assume p -> R.assume p this_key block phis run_task
+      | Assert p -> R.assert_ p this_key block phis run_task
+      | Abort p -> R.abort p this_key block phis run_task
+      | Mismatch -> R.mismatch this_key phis
     in
 
     (* LLog.app (fun m ->
@@ -93,7 +101,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
     Lwt.return_unit
   in
 
-  let _ = Global_state.init_node state term_target state.root_node in
+  (* let _ = Global_state.init_node state term_target state.root_node in *)
   let block0 = Cfg.block_of_id state.target state.block_map in
   let phis = Phi_set.empty in
   run_task term_target block0 phis ;
@@ -130,24 +138,38 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
   let unroll = U.create () in
 
   let run_eval key block eval =
-    let task () = Scheduler.push job_queue key (eval key block) in
-    U.alloc_task unroll ~task key
+    match Hashtbl.find state.term_detail_map key with
+    | Some _ -> ()
+    | None ->
+        if Hash_set.mem state.lookup_created key
+        then ()
+        else (
+          Hash_set.strict_add_exn state.lookup_created key ;
+          let task () = Scheduler.push job_queue key (eval key block) in
+          U.alloc_task unroll ~task key)
   in
 
   let module LS = (val (module struct
                          let state = state
                          let config = config
 
-                         let add_phi key phis =
-                           Hashtbl.update state.phi_map key ~f:(function
-                             | Some phi' -> Riddler.and_ [ phi'; phis ]
-                             | None -> phis) ;
-                           state.phis_z3 <- phis :: state.phis_z3
+                         (* let add_phi key phis =
+                            let term_detail =
+                              Hashtbl.find_exn state.term_detail_map key
+                            in
+                            let phi' =
+                              Option.value_map term_detail.phi ~default:phis
+                                ~f:(fun phi' -> Riddler.and_ [ phi'; phis ])
+                            in
+                            term_detail.phi <- Some phi' ;
+                            (* Riddler.and_ [ term_detail.phi; phis ] ; *)
+                            (* *)
+                            state.phis_z3 <- phis :: state.phis_z3 *)
 
-                         let find_or_add_node key block node_parent =
-                           Global_state.find_or_add_node state key block
-                             node_parent
-                           |> snd
+                         (* let find_or_add_node key block node_parent =
+                            Global_state.find_or_add_node state key block
+                              node_parent
+                            |> snd *)
 
                          let block_map = state.block_map
                          let unroll = unroll
@@ -155,66 +177,71 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
                        end) : Lookup_rule.S)
   in
   let module R = Lookup_rule.Make (LS) in
-  let[@landmark] rec lookup (this_key : Lookup_key.t) block () : unit Lwt.t =
-    let x, _r_stk = Lookup_key.to2 this_key in
-    let this_node = Global_state.find_node_exn state this_key in
-    let run_task key block = run_eval key block lookup in
+  let[@landmark] rec lookup (key : Lookup_key.t) block () : unit Lwt.t =
+    let x, _r_stk = Lookup_key.to2 key in
+
+    let rule = Rule.rule_of_runtime_status x block in
+
     let block_id = Cfg.id_of_block block in
+    let term_detail : Term_detail.t =
+      { node = ref (Search_graph.mk_node ~block_id ~key); rule; phi = None }
+    in
+    let run_task key block = run_eval key block lookup in
+
+    Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
 
     Riddler.step_check ~state ~config stride ;%lwt
 
-    Hash_set.strict_remove_exn state.lookup_created this_key ;
+    Hash_set.strict_remove_exn state.lookup_created key ;
 
-    let rule = Rule.rule_of_runtime_status x block in
     LLog.app (fun m ->
-        m "[Lookup][=>]: %a in block %a; Rule %a" Lookup_key.pp this_key Id.pp
+        m "[Lookup][=>]: %a in block %a; Rule %a" Lookup_key.pp key Id.pp
           block_id Rule.pp_rule rule) ;
 
     let _apply_rule =
       let open Rule in
       match rule with
-      | Discovery_main p -> R.discovery_main p this_key this_node
+      | Discovery_main p -> R.discovery_main p term_detail key block run_task
       | Discovery_nonmain p ->
-          R.discovery_nonmain p this_key this_node block run_task
-      | Input p -> R.input p this_key this_node block run_task
-      | Alias p -> R.alias p this_key this_node block run_task
-      | Not p -> R.not_ p this_key this_node block run_task
-      | Binop b -> R.binop b this_key this_node block run_task
-      | Record_start p -> R.record_start p this_key this_node block run_task
-      | Record_end p -> R.record_end p this_key this_node block run_task
-      | Cond_top cb -> R.cond_top cb this_key this_node block run_task
-      | Cond_btm p -> R.cond_btm p this_key this_node block run_task
-      | Fun_enter_local p -> R.fun_enter_local p this_key this_node run_task
+          R.discovery_nonmain p term_detail key block run_task
+      | Input p -> R.input p term_detail key block run_task
+      | Alias p -> R.alias p term_detail key block run_task
+      | Not p -> R.not_ p term_detail key block run_task
+      | Binop b -> R.binop b term_detail key block run_task
+      | Record_start p -> R.record_start p term_detail key block run_task
+      | Record_end p -> R.record_end p term_detail key block run_task
+      | Cond_top cb -> R.cond_top cb term_detail key block run_task
+      | Cond_btm p -> R.cond_btm p term_detail key block run_task
+      | Fun_enter_local p -> R.fun_enter_local p term_detail key block run_task
       | Fun_enter_nonlocal p ->
-          R.fun_enter_nonlocal p this_key this_node run_task
-      | Fun_exit p -> R.fun_exit p this_key this_node block run_task
-      | Pattern p -> R.pattern p this_key this_node block run_task
-      | Assume p -> R.assume p this_key this_node block run_task
-      | Assert p -> R.assert_ p this_key this_node block run_task
-      | Abort p -> R.abort p this_key this_node block run_task
-      | Mismatch -> R.mismatch this_key this_node
+          R.fun_enter_nonlocal p term_detail key block run_task
+      | Fun_exit p -> R.fun_exit p term_detail key block run_task
+      | Pattern p -> R.pattern p term_detail key block run_task
+      | Assume p -> R.assume p term_detail key block run_task
+      | Assert p -> R.assert_ p term_detail key block run_task
+      | Abort p -> R.abort p term_detail key block run_task
+      | Mismatch -> R.mismatch term_detail key block run_task
     in
 
     (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked. *)
     let previous_clauses = Cfg.clauses_before_x block x in
     List.iter previous_clauses ~f:(fun tc ->
-        let term_prev = Lookup_key.with_x this_key tc.id in
-        LS.add_phi this_key (Riddler.picked_imply this_key term_prev) ;
-        let _node_arg = LS.find_or_add_node term_prev block this_node in
+        let term_prev = Lookup_key.with_x key tc.id in
+        Lookup_rule.add_phi state term_detail
+          (Riddler.picked_imply key term_prev) ;
         run_task term_prev block) ;
 
     (* LLog.app (fun m ->
         m "[Lookup]cs:%a\n%a" Cfg.pp_clause_list previous_clauses Id.pp x) ; *)
-
-    (* LLog.app (fun m ->
-        m "[Lookup][<=]: %a in block %a" Lookup_key.pp this_key Id.pp block_id) ; *)
+    LLog.app (fun m ->
+        m "[Lookup][<=]: %a in block %a" Lookup_key.pp key Id.pp block_id) ;
 
     (* add for side-effect, run all previous lookups *)
     Lwt.return_unit
   in
 
   let key_target = Lookup_key.start state.target in
-  let _ = Global_state.init_node state key_target state.root_node in
+  (* let _ = Global_state.init_node state key_target state.root_node in *)
   let block0 = Cfg.block_of_id state.target state.block_map in
   run_eval key_target block0 lookup ;
   let%lwt _ = Scheduler.run job_queue in
