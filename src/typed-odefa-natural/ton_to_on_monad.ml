@@ -1,6 +1,6 @@
 open Batteries;;
 
-open On_ast;;
+open Ton_ast_internal;;
 
 
 type translation_context =
@@ -31,7 +31,7 @@ module TonTranslationMonad : sig
   val fresh_name : string -> string m
 
   (** Create a fresh var *)
-  val fresh_ident : string -> On_ast.ident m
+  val fresh_ident : string -> Ton_ast_internal.ident m
 
   (** Map an error ident to the semantic natodefa expression **)
   val add_error_to_natodefa_mapping : ident -> sem_natodefa_edesc -> unit m
@@ -39,11 +39,18 @@ module TonTranslationMonad : sig
   (** Map a semantic natodefa expression to the syntactic natodefa type it has **)
   val add_sem_to_syn_mapping : sem_natodefa_edesc -> syn_natodefa_edesc -> unit m
 
-  (** Map a semantic natodefa expression to the syntactic natodefa type it has **)
-  val add_error_to_tag_mapping : ident -> int -> unit m
+  (** Map a core natodefa expression to the semantic natodefa origin **)
+  val add_core_to_sem_mapping : core_natodefa_edesc -> sem_natodefa_edesc -> unit m
 
   (** Map a semantic natodefa expression to the syntactic natodefa type it has **)
-  val add_match_to_error_mapping : int -> ident -> unit m
+  val add_error_to_tag_mapping : sem_natodefa_edesc -> int -> unit m
+
+  (** Map to specifically keep track of which type in the let recs that it
+      was connected with **)
+  val add_error_to_rec_fun_mapping : ident -> sem_natodefa_edesc -> unit m
+
+  (** Map an error to the specific value expression it was checking **)
+  val add_error_to_value_expr_mapping : sem_natodefa_edesc -> sem_natodefa_edesc -> unit m
 
   (** Retrieve the typed natodefa to natodefa maps from the monad *)
   val ton_to_on_maps : Ton_to_on_maps.t m
@@ -97,16 +104,30 @@ end = struct
       <- Ton_to_on_maps.add_sem_syn_expr_mapping ton_on_maps sem_expr syn_expr 
   ;;
 
-  let add_error_to_tag_mapping err_id expr_tag ctx = 
+  let add_core_to_sem_mapping core_expr sem_expr ctx =
     let ton_on_maps = ctx.tc_ton_to_on_mappings in
     ctx.tc_ton_to_on_mappings
-      <- Ton_to_on_maps.add_error_expr_tag_mapping ton_on_maps err_id expr_tag
+      <- Ton_to_on_maps.add_core_sem_expr_mapping ton_on_maps core_expr sem_expr 
+  ;;
 
-  let add_match_to_error_mapping match_tag err_id ctx = 
+  let add_error_to_tag_mapping err_expr expr_tag ctx = 
     let ton_on_maps = ctx.tc_ton_to_on_mappings in
     ctx.tc_ton_to_on_mappings
-      <- Ton_to_on_maps.add_match_tag_error_mapping ton_on_maps match_tag err_id
+      <- Ton_to_on_maps.add_error_expr_tag_mapping ton_on_maps err_expr expr_tag
     
+  let add_error_to_rec_fun_mapping error_id n_expr ctx =
+    let ton_on_maps = ctx.tc_ton_to_on_mappings in
+    ctx.tc_ton_to_on_mappings
+      <- Ton_to_on_maps.add_error_rec_fun_type_mapping ton_on_maps error_id n_expr 
+  ;;
+
+  let add_error_to_value_expr_mapping error_expr e_expr ctx =
+    let ton_on_maps = ctx.tc_ton_to_on_mappings in
+    ctx.tc_ton_to_on_mappings
+      <- Ton_to_on_maps.add_error_value_expr_mapping ton_on_maps error_expr e_expr 
+  ;;
+
+
   let ton_to_on_maps ctx = 
     ctx.tc_ton_to_on_mappings
   ;;

@@ -1,0 +1,2 @@
+let (x : {: a : bool :} || int) = true
+in x

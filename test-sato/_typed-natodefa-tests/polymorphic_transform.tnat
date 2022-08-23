@@ -1,0 +1,4 @@
+let trans (a : 'a) (f : 'a -> 'b) : 'b = 
+    f a
+in
+trans

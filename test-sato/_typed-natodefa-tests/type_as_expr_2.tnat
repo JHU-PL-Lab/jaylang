@@ -1,0 +1,6 @@
+# Same problem as type_as_expr_1
+
+let point t = {: x : t :} in
+let int_point = point (bool) in
+let (p : int_point) = {x = 4} in
+p

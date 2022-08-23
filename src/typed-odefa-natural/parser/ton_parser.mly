@@ -1,5 +1,5 @@
 %{
-open On_ast;;
+open Ton_ast;;
 module List = BatList;;
 
 (* Functions relating to parsing record entries *)
@@ -33,8 +33,8 @@ let record_from_list pr_list =
      Ident_map.empty
 
 let new_rec_fun_with_type 
-  (fun_sig_and_type : (syntactic_only funsig * syntactic_only expr) list) 
-  (let_body : syntactic_only expr_desc) = 
+  (fun_sig_and_type : (funsig * expr) list) 
+  (let_body : expr_desc) = 
   let fun_sig_list = List.map fst fun_sig_and_type in 
   let fun_type_list = 
     fun_sig_and_type 
@@ -43,18 +43,18 @@ let new_rec_fun_with_type
   LetRecFunWithType (fun_sig_list, let_body, fun_type_list)
 
 let new_let_fun_with_type 
-  (fun_sig_and_type : (syntactic_only funsig * syntactic_only expr)) 
-  (let_body : syntactic_only expr_desc) =
+  (fun_sig_and_type : (funsig * expr)) 
+  (let_body : expr_desc) =
   let fun_sig, fun_type = fun_sig_and_type in
   LetFunWithType (fun_sig, let_body, (new_expr_desc fun_type))
 
 let new_fun_with_type 
   (fun_name : ident) 
-  (typed_param_list : (ident * syntactic_only expr_desc) list) 
-  (return_type : syntactic_only expr_desc)
-  (fun_body : syntactic_only expr_desc) = 
+  (typed_param_list : (ident * expr_desc) list) 
+  (return_type : expr_desc)
+  (fun_body : expr_desc) = 
   let param_list = List.map fst typed_param_list in
-  let (type_list : syntactic_only expr_desc list) = List.map snd typed_param_list in
+  let (type_list : expr_desc list) = List.map snd typed_param_list in
   let function_type_p = 
     match type_list with
     (* Please throw the correct exception here! *)
@@ -71,9 +71,9 @@ let new_fun_with_type
 
 let new_dependent_fun   
   (fun_name : ident) 
-  (typed_param : (ident * syntactic_only expr_desc)) 
-  (return_type : syntactic_only expr_desc)
-  (fun_body : syntactic_only expr_desc) = 
+  (typed_param : (ident * expr_desc)) 
+  (return_type : expr_desc)
+  (fun_body : expr_desc) = 
   let (param, _) = typed_param in
   (Funsig (fun_name, [param], fun_body), TypeArrowD (typed_param, return_type))
 %}
@@ -159,8 +159,8 @@ let new_dependent_fun
 %right ASSERT ASSUME prec_variant    /* Asserts, Assumes, and variants */
 %right ARROW                  /* -> for type declaration */
 
-%start <On_ast.syntactic_only On_ast.expr> prog
-%start <(On_ast.syntactic_only On_ast.expr) option> delim_expr
+%start <Ton_ast.expr> prog
+%start <Ton_ast.expr option> delim_expr
 
 %%
 
@@ -241,7 +241,7 @@ expr:
       { Match(new_expr_desc $2, $5) }
   // Types expressions
   | basic_types { $1 }
-  | type_parameter { $1 }
+  // | type_parameter { $1 }
   | MU ident_decl DOT expr { TypeRecurse ($2, new_expr_desc $4) }
   | expr ARROW expr { TypeArrow (new_expr_desc $1, new_expr_desc $3) }
   | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN ARROW expr { TypeArrowD (($2, new_expr_desc $4), new_expr_desc $7) }
@@ -251,8 +251,8 @@ expr:
   | expr DOUBLE_AMPERSAND expr { TypeIntersect (new_expr_desc $1, new_expr_desc $3) }
 ;
 
-type_parameter:
-  | APOSTROPHE IDENTIFIER { TypeUntouched $2 }
+// type_parameter:
+//   | APOSTROPHE IDENTIFIER { TypeUntouched $2 }
 
 type_var:
   | DOLLAR IDENTIFIER { TypeVar $2 }
@@ -404,9 +404,9 @@ pattern:
   | IDENTIFIER { VarPat(Ident($1)) }
   | variant_label ident_decl { VariantPat($1, $2) }
   | variant_label OPEN_PAREN ident_decl CLOSE_PAREN { VariantPat($1, $3) }
-  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE { StrictRecPat (record_from_list $2) }
+  // | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE { StrictRecPat (record_from_list $2) }
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) UNDERSCORE CLOSE_BRACE { RecPat (record_from_list $2) }
-  | OPEN_BRACE CLOSE_BRACE { StrictRecPat (Ident_map.empty) }
+  // | OPEN_BRACE CLOSE_BRACE { StrictRecPat (Ident_map.empty) }
   | OPEN_BRACE UNDERSCORE CLOSE_BRACE { RecPat (Ident_map.empty) }
   | OPEN_BRACKET CLOSE_BRACKET { EmptyLstPat }
   | ident_decl DOUBLE_COLON ident_decl { LstDestructPat($1, $3) }

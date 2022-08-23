@@ -1,41 +1,17 @@
 open Batteries;;
-open Jhupllib;;
 
 type label = Label of string [@@deriving eq, ord, show, to_yojson];;
 
-type ident = Ident of string [@@deriving eq, ord, show, to_yojson];;
+type ident = Odefa_ast.Ast.ident = Ident of string 
+[@@deriving eq, ord, show, to_yojson];;
 
-module Ident =
-struct
-  type t = ident;;
-  let equal = equal_ident;;
-  let compare = compare_ident;;
-  let pp = pp_ident;;
-  let show = show_ident;;
-  let to_yojson = ident_to_yojson;;
-  let hash = Hashtbl.hash
-end;;
-
-module Ident_set = struct
-  module M = Set.Make(Ident);;
-  include M;;
-  include Pp_utils.Set_pp(M)(Ident);;
-  include Yojson_utils.Set_to_yojson(M)(Ident);;
-end;;
-
-module Ident_map = struct
-  module M = Map.Make(Ident);;
-  include M;;
-  include Pp_utils.Map_pp(M)(Ident);;
-  include Yojson_utils.Map_to_yojson(M)(Ident);;
-end;;
+module Ident = Odefa_ast.Ast.Ident 
+module Ident_set = Odefa_ast.Ast.Ident_set
+module Ident_map = Odefa_ast.Ast.Ident_map
 
 type variant_label = Variant_label of string 
 [@@deriving eq, ord, show, to_yojson]
 
-(* TODO: Should we keep this? This is essentially keeping the same info as
-   patterns.   
-*)
 type type_sig =
   | TopType
   | IntType

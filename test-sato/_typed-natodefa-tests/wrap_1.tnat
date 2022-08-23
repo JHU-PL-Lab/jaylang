@@ -1,0 +1,6 @@
+# This is a wrap problem
+
+let f (g : int -> int) : int =
+    (g true)
+in 
+f

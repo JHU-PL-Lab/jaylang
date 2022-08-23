@@ -1,0 +1,4 @@
+# Reports an error but it's wrong
+
+let addone x = x + 1 in
+let (f : bool -> bool) = addone in f

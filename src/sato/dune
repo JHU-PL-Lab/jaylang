@@ -13,6 +13,7 @@
   odefa.ast
   odefa.ddpa
   odefa.natural
+  odefa.natural.typed
   odefa.parser
   dbmc
  )

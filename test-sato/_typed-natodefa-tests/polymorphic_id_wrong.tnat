@@ -1,0 +1,7 @@
+let id (x : 'a) : 'a = 
+    match x with
+    | int -> x + 1
+    | any -> x
+    end
+in
+id

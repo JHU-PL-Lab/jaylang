@@ -3,6 +3,7 @@ open Jhupllib
 
 open Odefa_ast
 open Odefa_natural
+open Typed_odefa_natural
 open Odefa_instrumentation
 
 exception Parse_failure of string
@@ -92,14 +93,19 @@ module Make
     (Binop : Error_binop)
     (Type : Error_type) :
   Error
-    with type ident := Ident.t
-     and type value := Value.t
-     and type binop := Binop.t
-     and type type_sig := Type.t = struct
+    with type ident = Ident.t
+     and type value = Value.t
+     and type binop = Binop.t
+     and type type_sig = Type.t = struct
   module Error_ident = Ident
   module Error_value = Value
   module Error_binop = Binop
   module Error_type = Type
+
+  type ident = Ident.t
+  type value = Value.t
+  type binop = Binop.t
+  type type_sig = Type.t
 
   type error_binop = {
     err_binop_left_aliases : Ident.t list;
@@ -298,6 +304,47 @@ module Natodefa_type : (Error_type with type t = On_ast.type_sig) = struct
 end;;
 
 module On_error = Make(Natodefa_ident)(Natodefa_value)(Natodefa_binop)(Natodefa_type);;
+
+(* **** Typed natodefa modules **** *)
+
+module Ton_ident : (Error_ident with type t = Ton_ast.ident) = struct
+  type t = Ton_ast.ident;;
+  let equal = Ton_ast.equal_ident;;
+  let pp = Ton_ast_pp.pp_ident;;
+  let show = Ton_ast_pp.show_ident;;
+  let to_yojson ident =
+    `String (replace_linebreaks @@ show ident);;
+end;;
+
+module Ton_value : (Error_value with type t = Ton_ast.expr) = struct
+  type t = Ton_ast.expr;;
+  let equal = Ton_ast.equal_expr;;
+  let pp = Ton_ast_pp.pp_expr;;
+  let show = Ton_ast_pp.show_expr;;
+  let to_yojson value =
+    `String (replace_linebreaks @@ show value);;
+end;;
+
+module Ton_binop : (Error_binop with type t = Ton_ast.expr) = struct
+  type t = Ton_ast.expr;;
+  let equal = Ton_ast.equal_expr;;
+  let pp = Ton_ast_pp.pp_expr;;
+  let show = Ton_ast_pp.show_expr;;
+  let to_yojson binop =
+    `String (replace_linebreaks @@ show binop);;
+end;;
+
+module Ton_type : (Error_type with type t = Ton_ast.type_sig) = struct
+  type t = Ton_ast.type_sig;;
+  let equal = Ton_ast.equal_type_sig;;
+  let subtype _ _ = false;;
+  let pp = Ton_ast_pp.pp_on_type;;
+  let show = Ton_ast_pp.show_on_type;;
+  let to_yojson typ =
+    `String (replace_linebreaks @@ show typ);;
+end;;
+
+module Ton_error = Make(Ton_ident)(Ton_value)(Ton_binop)(Ton_type);;
 
 (* **** Odefa error cleanup **** *)
 
