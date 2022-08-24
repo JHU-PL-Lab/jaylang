@@ -10,18 +10,26 @@ open Core
    } *)
 
 type t =
-  | Direct of { sub : Lookup_key.t; pub : Lookup_key.t }
+  | Leaf of { sub : Lookup_key.t }
+  | Direct of { sub : Lookup_key.t; pub : Lookup_key.t; block : Cfg.block }
   | Direct_map of {
       sub : Lookup_key.t;
       pub : Lookup_key.t;
+      block : Cfg.block;
       map : Lookup_result.t -> Lookup_result.t;
     }
   | Direct_bind of {
       sub : Lookup_key.t;
       pub : Lookup_key.t;
+      block : Cfg.block;
       cb : Lookup_key.t -> Lookup_result.t -> unit Lwt.t;
     }
-  | Both of { sub : Lookup_key.t; pub1 : Lookup_key.t; pub2 : Lookup_key.t }
+  | Both of {
+      sub : Lookup_key.t;
+      pub1 : Lookup_key.t;
+      pub2 : Lookup_key.t;
+      block : Cfg.block;
+    }
   | Or_list of {
       sub : Lookup_key.t;
       pub_with_blocks : (Lookup_key.t * Cfg.block) list;
@@ -44,12 +52,14 @@ type t =
   | Two_phases_lazy of {
       sub : Lookup_key.t;
       pub : Lookup_key.t;
+      block : Cfg.block;
       lazy_edge : t Lazy.t;
       pre_lazy_check : Lookup_result.t -> bool;
     }
   | Seq_on_pub of {
       sub : Lookup_key.t;
       pub : Lookup_key.t;
+      block : Cfg.block;
       seq_on_pub : int -> Lookup_result.t -> bool;
     }
   | Seq_for_sub of {

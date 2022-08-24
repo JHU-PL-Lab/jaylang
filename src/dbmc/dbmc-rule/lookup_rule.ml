@@ -28,21 +28,22 @@ module Make (S : S) = struct
   let add_phi (term_detail : Term_detail.t) phi =
     add_phi S.state term_detail phi
 
-  let rec run_edge run_task edge (term_detail : Term_detail.t) block phi =
+  let rec run_edge run_task (term_detail : Term_detail.t) edge phi =
     add_phi term_detail phi ;
     match edge with
+    | Leaf e -> U.by_return S.unroll e.sub (Lookup_result.ok e.sub)
     | Direct e ->
-        run_task e.pub block ;
+        run_task e.pub e.block ;
         U.by_id_u S.unroll e.sub e.pub
     | Direct_map e ->
-        run_task e.pub block ;
+        run_task e.pub e.block ;
         U.by_map_u S.unroll e.sub e.pub e.map
     | Direct_bind e ->
-        run_task e.pub block ;
+        run_task e.pub e.block ;
         U.by_bind_u S.unroll e.sub e.pub e.cb
     | Both e ->
-        run_task e.pub1 block ;
-        run_task e.pub2 block ;
+        run_task e.pub1 e.block ;
+        run_task e.pub2 e.block ;
         U.by_map2_u S.unroll e.sub e.pub1 e.pub2 (fun _ ->
             Lookup_result.ok e.sub)
     | Or_list e ->
@@ -67,16 +68,16 @@ module Make (S : S) = struct
         U.by_bind_u S.unroll e.sub e.pub cb_lazy ;
         run_task e.pub e.block_pub
     | Two_phases_lazy e ->
-        run_task e.pub block ;
+        run_task e.pub e.block ;
         let cb key result =
           if e.pre_lazy_check result
-          then run_edge run_task (Lazy.force e.lazy_edge) term_detail block phi
+          then run_edge run_task term_detail (Lazy.force e.lazy_edge) phi
           else () ;
           Lwt.return_unit
         in
         U.by_bind_u S.unroll e.sub e.pub cb
     | Seq_on_pub e ->
-        run_task e.pub block ;
+        run_task e.pub e.block ;
         let counter = ref 0 in
         add_phi term_detail (Riddler.list_head e.sub) ;
         Hashtbl.add_exn S.state.smt_lists ~key:e.sub ~data:0 ;
@@ -113,16 +114,23 @@ module Make (S : S) = struct
 
   let rule_main v _p term_detail (key : Lookup_key.t) block run_task =
     let target_stk = Rstack.concretize_top key.r_stk in
-    add_phi term_detail (Riddler.discover_main_with_picked key v) ;
-    U.by_return S.unroll key (Lookup_result.ok key)
+    let phi = Riddler.discover_main_with_picked key v in
+    let edge = Leaf { sub = key } in
+    run_edge run_task term_detail edge phi
 
   let rule_nonmain v _p term_detail (key : Lookup_key.t) block run_task =
     let key_first = Lookup_key.to_first key S.state.first in
-    add_phi term_detail (Riddler.discover_non_main key key_first v) ;
-    run_task key_first block ;
-    U.by_map_u S.unroll key key_first (fun _ -> Lookup_result.ok key)
-  (* let node_child = S.find_or_add_node key_first block this_node in
-     Node.update_rule this_node (Node.to_first node_child) ; *)
+    let phi = Riddler.discover_non_main key key_first v in
+    let edge =
+      Direct_map
+        {
+          sub = key;
+          pub = key_first;
+          block;
+          map = (fun _ -> Lookup_result.ok key);
+        }
+    in
+    run_edge run_task term_detail edge phi
 
   let discovery_main p term_detail (key : Lookup_key.t) block run_task =
     let ({ v; _ } : Discovery_main_rule.t) = p in
@@ -142,16 +150,16 @@ module Make (S : S) = struct
   let alias p term_detail (key : Lookup_key.t) block run_task =
     let ({ x'; _ } : Alias_rule.t) = p in
     let key' = Lookup_key.with_x key x' in
-    let edge = Direct { sub = key; pub = key' } in
+    let edge = Direct { sub = key; pub = key'; block } in
     let phi = Riddler.eq_with_picked key key' in
-    run_edge run_task edge term_detail block phi
+    run_edge run_task term_detail edge phi
 
   let not_ p term_detail (key : Lookup_key.t) block run_task =
     let ({ x'; _ } : Not_rule.t) = p in
     let key' = Lookup_key.with_x key x' in
-    let edge = Direct { sub = key; pub = key' } in
+    let edge = Direct { sub = key; pub = key'; block } in
     let phi = Riddler.not_with_picked key key' in
-    run_edge run_task edge term_detail block phi
+    run_edge run_task term_detail edge phi
 
   let binop b term_detail (key : Lookup_key.t) block run_task =
     let ({ bop; x1; x2; _ } : Binop_rule.t) = b in
@@ -163,10 +171,11 @@ module Make (S : S) = struct
           sub = key;
           pub1 = Lookup_key.with_x key x1;
           pub2 = Lookup_key.with_x key x2;
+          block;
         }
     in
     let phi = Riddler.binop_with_picked key bop key_x1 key_x2 in
-    run_edge run_task edge term_detail block phi
+    run_edge run_task term_detail edge phi
 
   let record_start p term_detail (key : Lookup_key.t) block run_task =
     let ({ r; lbl; _ } : Record_start_rule.t) = p in
@@ -183,16 +192,16 @@ module Make (S : S) = struct
               let phi_i =
                 Riddler.record_start_append key key_r key_rv key_l i
               in
-              let edge = Direct { sub = key; pub = key_l } in
-              run_edge run_task edge term_detail rv_block phi_i ;
+              let edge = Direct { sub = key; pub = key_l; block = rv_block } in
+              run_edge run_task term_detail edge phi_i ;
               true
           | None -> false)
       | _ -> false
     in
 
-    let edge = Seq_on_pub { sub = key; pub = key_r; seq_on_pub } in
+    let edge = Seq_on_pub { sub = key; pub = key_r; seq_on_pub; block } in
     let phi = Riddler.true_ in
-    run_edge run_task edge term_detail block phi
+    run_edge run_task term_detail edge phi
 
   let record_end p term_detail (key : Lookup_key.t) block run_task =
     let ({ r; is_in_main; _ } : Record_end_rule.t) = p in
@@ -224,7 +233,7 @@ module Make (S : S) = struct
           block_lazy = condsite_block;
         }
     in
-    run_edge run_task edge term_detail block phi
+    run_edge run_task term_detail edge phi
 
   let cond_btm p term_detail (key : Lookup_key.t) block run_task =
     let this_key = key in
@@ -258,11 +267,12 @@ module Make (S : S) = struct
         {
           sub = this_key;
           pub = term_c;
+          block;
           pre_lazy_check = (fun c -> c.status);
           lazy_edge;
         }
     in
-    run_edge run_task edge term_detail block phi
+    run_edge run_task term_detail edge phi
 
   let fun_enter_local p term_detail (key : Lookup_key.t) block run_task =
     let this_key = key in
@@ -294,7 +304,7 @@ module Make (S : S) = struct
           | None -> failwith "why Rstack.pop fails here")
     in
     let edge = Or_list_two_phases { sub = this_key; pub_details } in
-    run_edge run_task edge term_detail block phi
+    run_edge run_task term_detail edge phi
 
   let fun_enter_nonlocal p term_detail (key : Lookup_key.t) block run_task =
     let ({ fb; _ } : Fun_enter_nonlocal_rule.t) = p in
@@ -323,7 +333,7 @@ module Make (S : S) = struct
           | None -> failwith "why Rstack.pop fails here")
     in
     let edge = Seq_for_sub { sub = key; pub_with_cbs } in
-    run_edge run_task edge term_detail block Riddler.true_
+    run_edge run_task term_detail edge Riddler.true_
 
   let fun_exit p term_detail (key : Lookup_key.t) block run_task =
     let this_key = key in
@@ -343,8 +353,8 @@ module Make (S : S) = struct
         Lwt.return_unit)
       else Lwt.return_unit
     in
-    let edge = Direct_bind { sub = this_key; pub = key_f; cb } in
-    run_edge run_task edge term_detail block phi
+    let edge = Direct_bind { sub = this_key; pub = key_f; block; cb } in
+    run_edge run_task term_detail edge phi
 
   let pattern p term_detail (key : Lookup_key.t) block run_task =
     let ({ x'; pat; _ } : Pattern_rule.t) = p in
@@ -401,8 +411,8 @@ module Make (S : S) = struct
       in
       ans
     in
-    let edge = Direct_map { sub = key; pub = key'; map } in
-    run_edge run_task edge term_detail block Riddler.true_
+    let edge = Direct_map { sub = key; pub = key'; block; map } in
+    run_edge run_task term_detail edge Riddler.true_
 
   let assume _p _term_detail (key : Lookup_key.t) block run_task = ()
 
