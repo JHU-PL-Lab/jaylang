@@ -90,7 +90,7 @@ let errors_to_plain
           List.map ~f:(fun (Ident i) -> i) err.err_match_aliases 
         in
         let actual_v =
-          Odefa_natural.On_ast_pp.show_expr err.err_match_val
+          Odefa_natural.On_ast_pp.show_expr (err.err_match_val).body
           |> String.substr_replace_all ~pattern:"\n" ~with_:" "
         in
         let (a_actual_type, a_expected_type) = 
@@ -108,7 +108,7 @@ let errors_to_plain
           List.map ~f:(fun (Ident i) -> i) err.err_value_aliases 
         in
         let actual_v =
-          Odefa_natural.On_ast_pp.show_expr err.err_value_val
+          Odefa_natural.On_ast_pp.show_expr (err.err_value_val).body
         in
         Value_error (
           { v_value = (actual_aliases, actual_v)
@@ -123,6 +123,7 @@ let errors_to_plain
     ; number_of_errors = err_num
     ; error_list = errs
     }
+  | Ton_error _ -> failwith "TBI!"
 
 let is_error_expected 
   (actual : Sato_result.reported_error) 
@@ -138,7 +139,7 @@ let test_one_file testname () =
   in
   let config : Sato_args.t = 
     { filename = testname;
-      is_natodefa = File_utils.is_natodefa_ext testname;
+      sato_mode = File_utils.mode_from_file testname;
       ddpa_c_stk = Sato_args.default_ddpa_c_stk;
       timeout = Some (Time.Span.of_int_sec 10);
       run_max_step = None;
@@ -175,3 +176,4 @@ let main test_path =
 
 let () = 
   main "test-sato"
+  (* main "test-sato/playing-ground" *)

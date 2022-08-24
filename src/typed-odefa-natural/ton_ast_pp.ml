@@ -66,7 +66,7 @@ let pp_variant_label formatter (Variant_label label) =
 let rec pp_funsig : Format.formatter -> funsig -> unit =
  fun formatter (Funsig (x, ident_list, e)) ->
   Format.fprintf formatter "%a@ %a =@ @[%a@]"
-    pp_ident x pp_ident_list ident_list pp_expr_desc e
+    pp_ident x pp_ident_list ident_list pp_expr_desc_without_tag e
 
 and pp_funsig_list : Format.formatter -> funsig list -> unit =
   fun formatter funsig_lst ->
@@ -80,7 +80,7 @@ and pp_funsig_with_type
   : Format.formatter -> funsig * expr_desc -> unit = 
   fun formatter (Funsig (x, ident_list, e), t) ->
   Format.fprintf formatter "(%a : %a) %a = @[%a@]"
-    pp_ident x pp_expr_desc t pp_ident_list ident_list pp_expr_desc e
+    pp_ident x pp_expr_desc_without_tag t pp_ident_list ident_list pp_expr_desc_without_tag e
 
 and pp_funsig_with_type_list 
   : Format.formatter -> (funsig * expr_desc) list -> unit = 
@@ -152,9 +152,9 @@ and pp_binop (formatter : Format.formatter) (expr : expr) : unit =
       raise @@ Utils.Invariant_failure "Invalid precedence comparison!"
   | _ -> raise @@ Utils.Invariant_failure "Not a binary operator!"
 
-and pp_expr_desc_with_tag (formatter : Format.formatter) (e : expr_desc) : unit = 
+(* and pp_expr_desc_with_tag (formatter : Format.formatter) (e : expr_desc) : unit = 
   Format.fprintf formatter "{tag: %a, body: %a}"
-  Format.pp_print_int e.tag pp_expr e.body
+  Format.pp_print_int e.tag pp_expr e.body *)
 
 and pp_expr_desc_without_tag 
   (formatter : Format.formatter) (e : expr_desc) : unit = 
@@ -273,6 +273,8 @@ and pp_expr
 
 let show_ident = Pp_utils.pp_to_string pp_ident;;
 let show_expr = Pp_utils.pp_to_string pp_expr;;
+let show_expr_desc = Pp_utils.pp_to_string pp_expr_desc_without_tag;;
+
 
 let show_pattern = Pp_utils.pp_to_string pp_pattern;;
 

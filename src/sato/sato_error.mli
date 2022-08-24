@@ -144,8 +144,8 @@ module Odefa_error
 (* Natodefa modules *)
 
 module Natodefa_ident : Error_ident with type t = Odefa_natural.On_ast.ident;;
-module Natodefa_value : Error_value with type t = Odefa_natural.On_ast.expr;;
-module Natodefa_binop : Error_binop with type t = Odefa_natural.On_ast.expr;;
+module Natodefa_value : Error_value with type t = Odefa_natural.On_ast.expr_desc;;
+module Natodefa_binop : Error_binop with type t = Odefa_natural.On_ast.expr_desc;;
 module Natodefa_type : Error_type with type t = Odefa_natural.On_ast.type_sig;;
 
 (** An error produced by a natodefa program *)
@@ -160,8 +160,8 @@ module On_error
 (* Typed Natodefa modules *)
 
 module Ton_ident : Error_ident with type t = Typed_odefa_natural.Ton_ast.ident;;
-module Ton_value : Error_value with type t = Typed_odefa_natural.Ton_ast.expr;;
-module Ton_binop : Error_binop with type t = Typed_odefa_natural.Ton_ast.expr;;
+module Ton_value : Error_value with type t = Typed_odefa_natural.Ton_ast.expr_desc;;
+module Ton_binop : Error_binop with type t = Typed_odefa_natural.Ton_ast.expr_desc;;
 module Ton_type : Error_type with type t = Typed_odefa_natural.Ton_ast.type_sig;;
 
 (** An error produced by a natodefa program *)
@@ -183,4 +183,11 @@ val odefa_error_remove_instrument_vars :
 val odefa_to_natodefa_error :
   Odefa_instrumentation.Odefa_instrumentation_maps.t -> Odefa_natural.On_to_odefa_maps.t -> Dbmc.Interpreter.session -> 
   Dbmc.Interpreter.denv -> Odefa_error.t -> On_error.t list
+;;
+
+val odefa_to_ton_error_simple :
+  Odefa_instrumentation.Odefa_instrumentation_maps.t -> 
+  Odefa_natural.On_to_odefa_maps.t -> Typed_odefa_natural.Ton_to_on_maps.t ->
+  Dbmc.Interpreter.session -> 
+  Dbmc.Interpreter.denv -> Odefa_error.t -> Ton_error.t list
 ;;

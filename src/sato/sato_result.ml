@@ -349,7 +349,7 @@ module Ton_type_errors : Sato_result with type t = ton_error_record = struct
     (inputs : int option list) = 
     let open Odefa_natural in
     let open Typed_odefa_natural in
-    let ((Clause (Var (err_id, _), _) as error_loc), _odefa_errors) = 
+    let ((Clause (Var (err_id, _), _) as error_loc), odefa_errors) = 
       get_odefa_errors sato_state symb_interp_state interp_session final_env 
     in
     let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
@@ -363,21 +363,31 @@ module Ton_type_errors : Sato_result with type t = ton_error_record = struct
       |> Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps
       |> Ton_ast_internal.from_internal_expr_desc
     in
-    (* let on_err_list =
+    let is_type_error = 
+      match on_err_loc_syn.body with
+      | LetWithType _ | LetFunWithType _ | LetRecFunWithType _ -> true
+      | _ -> false
+    in
+    let ton_err_list =
       let mapper = 
-        (Sato_error.odefa_to_natodefa_error odefa_inst_maps on_to_odefa_maps interp_session final_env) 
+        if is_type_error then
+          failwith "TBI!"
+        else
+          (Sato_error.odefa_to_ton_error_simple 
+            odefa_inst_maps on_to_odefa_maps ton_on_maps 
+            interp_session final_env) 
       in 
       List.map ~f:mapper odefa_errors
-    in *)
+    in
     {
       err_input_seq = inputs;
       err_location = on_err_loc_syn;
-      err_errors = [];
+      err_errors = List.concat ton_err_list;
     }
   ;;
 
   let show : t -> string = fun error ->
-    "** NatOdefa Type Errors **\n" ^
+    "** Typed Natodefa Type Errors **\n" ^
     (Printf.sprintf "- Input sequence  : %s\n" (Dbmc.Std.string_of_inputs error.err_input_seq)) ^
     (Printf.sprintf "- Found at clause : %s\n" (Ton_error_location.show error.err_location)) ^
     "--------------------\n" ^

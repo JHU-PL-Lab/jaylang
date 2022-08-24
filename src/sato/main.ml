@@ -109,12 +109,12 @@ let main_from_program
 
 let main_commandline () =
   let sato_config = Argparse.parse_commandline_config () in
-  let (program, odefa_inst_maps, on_to_odefa_maps_opt, _) = 
+  let (program, odefa_inst_maps, on_to_odefa_maps_opt, ton_to_on_mapts_opt) = 
     File_utils.read_source_sato sato_config.filename 
   in
   let errors_opt = 
     main_from_program 
-      ~config:sato_config odefa_inst_maps on_to_odefa_maps_opt None program 
+      ~config:sato_config odefa_inst_maps on_to_odefa_maps_opt ton_to_on_mapts_opt program 
   in
   let () = 
     match errors_opt with

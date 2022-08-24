@@ -275,20 +275,20 @@ module Natodefa_ident : (Error_ident with type t = On_ast.ident) = struct
     `String (replace_linebreaks @@ show ident);;
 end;;
 
-module Natodefa_value : (Error_value with type t = On_ast.expr) = struct
-  type t = On_ast.expr;;
-  let equal = On_ast.equal_expr;;
-  let pp = On_ast_pp.pp_expr;;
-  let show = On_ast_pp.show_expr;;
+module Natodefa_value : (Error_value with type t = On_ast.expr_desc) = struct
+  type t = On_ast.expr_desc;;
+  let equal = On_ast.equal_expr_desc;;
+  let pp = On_ast_pp.pp_expr_desc_without_tag;;
+  let show = On_ast_pp.show_expr_desc;;
   let to_yojson value =
     `String (replace_linebreaks @@ show value);;
 end;;
 
-module Natodefa_binop : (Error_binop with type t = On_ast.expr) = struct
-  type t = On_ast.expr;;
-  let equal = On_ast.equal_expr;;
-  let pp = On_ast_pp.pp_expr;;
-  let show = On_ast_pp.show_expr;;
+module Natodefa_binop : (Error_binop with type t = On_ast.expr_desc) = struct
+  type t = On_ast.expr_desc;;
+  let equal = On_ast.equal_expr_desc;;
+  let pp = On_ast_pp.pp_expr_desc_without_tag;;
+  let show = On_ast_pp.show_expr_desc;;
   let to_yojson binop =
     `String (replace_linebreaks @@ show binop);;
 end;;
@@ -316,20 +316,20 @@ module Ton_ident : (Error_ident with type t = Ton_ast.ident) = struct
     `String (replace_linebreaks @@ show ident);;
 end;;
 
-module Ton_value : (Error_value with type t = Ton_ast.expr) = struct
-  type t = Ton_ast.expr;;
-  let equal = Ton_ast.equal_expr;;
-  let pp = Ton_ast_pp.pp_expr;;
-  let show = Ton_ast_pp.show_expr;;
+module Ton_value : (Error_value with type t = Ton_ast.expr_desc) = struct
+  type t = Ton_ast.expr_desc;;
+  let equal = Ton_ast.equal_expr_desc;;
+  let pp = Ton_ast_pp.pp_expr_desc_without_tag;;
+  let show = Ton_ast_pp.show_expr_desc;;
   let to_yojson value =
     `String (replace_linebreaks @@ show value);;
 end;;
 
-module Ton_binop : (Error_binop with type t = Ton_ast.expr) = struct
-  type t = Ton_ast.expr;;
-  let equal = Ton_ast.equal_expr;;
-  let pp = Ton_ast_pp.pp_expr;;
-  let show = Ton_ast_pp.show_expr;;
+module Ton_binop : (Error_binop with type t = Ton_ast.expr_desc) = struct
+  type t = Ton_ast.expr_desc;;
+  let equal = Ton_ast.equal_expr_desc;;
+  let pp = Ton_ast_pp.pp_expr_desc_without_tag;;
+  let show = Ton_ast_pp.show_expr_desc;;
   let to_yojson binop =
     `String (replace_linebreaks @@ show binop);;
 end;;
@@ -503,13 +503,13 @@ let odefa_to_natodefa_error
           if List.is_empty r_aliases_on then r_value else
             List.hd_exn r_aliases_on
         in
-        odefa_to_on_binop op left_expr right_expr
+        new_expr_desc @@ odefa_to_on_binop op left_expr right_expr
       in
       [ Error_binop {
         err_binop_left_aliases = get_idents_from_aliases l_aliases_on;
         err_binop_right_aliases = get_idents_from_aliases r_aliases_on;
-        err_binop_left_val = l_value.body;
-        err_binop_right_val = r_value.body;
+        err_binop_left_val = l_value;
+        err_binop_right_val = r_value;
         err_binop_operation = constraint_expr;
       } ]
     end
@@ -521,7 +521,7 @@ let odefa_to_natodefa_error
       let () = print_endline @@ show_expr ((odefa_to_on_value aliases).body) in *)
       [ Error_match {
         err_match_aliases = get_idents_from_aliases @@ odefa_to_on_aliases aliases;
-        err_match_val = (odefa_to_on_value aliases).body;
+        err_match_val = odefa_to_on_value aliases;
         err_match_expected = odefa_to_on_type err.err_match_expected;
         err_match_actual = odefa_to_on_type err.err_match_actual;
       } ]
@@ -559,7 +559,7 @@ let odefa_to_natodefa_error
               in
               On_error.Error_match {
                 err_match_aliases = get_idents_from_aliases @@ odefa_to_on_aliases odefa_aliases;
-                err_match_val = (odefa_to_on_value odefa_aliases).body;
+                err_match_val = odefa_to_on_value odefa_aliases;
                 err_match_expected = expected_type;
                 err_match_actual = odefa_to_on_type actual_type;
               }
@@ -572,12 +572,91 @@ let odefa_to_natodefa_error
       | _ ->
         [ Error_value {
           err_value_aliases = get_idents_from_aliases @@ odefa_to_on_aliases aliases;
-          err_value_val = err_val_edesc.body;
+          err_value_val = err_val_edesc;
         } ]
     end
 ;;
 
-let _odefa_to_ton_error 
+let odefa_to_ton_error_simple
+    (odefa_inst_maps : Odefa_instrumentation_maps.t)
+    (odefa_on_maps : On_to_odefa_maps.t)
+    (ton_on_maps : Ton_to_on_maps.t)
+    (interp_session : Dbmc.Interpreter.session) 
+    (final_env : Dbmc.Interpreter.denv)
+    (odefa_err : Odefa_error.t)
+    : Ton_error.t list =
+  let open Typed_odefa_natural in
+  let natodefa_errors = 
+    odefa_to_natodefa_error 
+      odefa_inst_maps odefa_on_maps interp_session final_env odefa_err
+  in
+  let transform_type_sig (t : On_ast.type_sig) : (Ton_ast.type_sig) = 
+    match t with
+    | TopType -> TopType
+    | IntType -> IntType
+    | BoolType -> BoolType
+    | FunType -> FunType
+    | RecType r -> RecType r
+    | ListType -> ListType
+    | VariantType (Variant_label variant_label) -> 
+      VariantType (Variant_label variant_label)
+  in
+  let natodefa_expr_to_ton nat = 
+    nat
+    |> Ton_ast_internal.from_natodefa_expr_desc
+    |> Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps
+    |> Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps
+    |> Ton_ast_internal.from_internal_expr_desc
+  in
+  let transform_one_error (nat_err : On_error.t) : Ton_error.t =
+    match nat_err with
+    | Error_binop 
+      { err_binop_left_aliases
+      ; err_binop_right_aliases
+      ; err_binop_left_val
+      ; err_binop_right_val
+      ; err_binop_operation
+      } -> 
+      let left_val = 
+        natodefa_expr_to_ton err_binop_left_val
+      in
+      let right_val = 
+        natodefa_expr_to_ton err_binop_right_val
+      in
+      let binop = 
+        natodefa_expr_to_ton err_binop_operation
+      in
+      Error_binop 
+      { err_binop_left_aliases = err_binop_left_aliases
+      ; err_binop_right_aliases = err_binop_right_aliases
+      ; err_binop_left_val = left_val
+      ; err_binop_right_val = right_val
+      ; err_binop_operation = binop
+      }
+    | Error_match 
+      { err_match_aliases 
+      ; err_match_val 
+      ; err_match_expected
+      ; err_match_actual 
+      } -> 
+      Error_match 
+      { err_match_aliases = err_match_aliases
+      ; err_match_val = natodefa_expr_to_ton err_match_val
+      ; err_match_expected = transform_type_sig err_match_expected
+      ; err_match_actual = transform_type_sig err_match_actual
+      }
+    | Error_value 
+      { err_value_aliases
+      ; err_value_val
+      } -> 
+      Error_value
+      { err_value_aliases = err_value_aliases
+      ; err_value_val = natodefa_expr_to_ton err_value_val
+      }
+  in
+  List.map ~f:transform_one_error natodefa_errors
+
+(* let odefa_to_ton_error_simple
     (odefa_inst_maps : Odefa_instrumentation_maps.t)
     (odefa_on_maps : On_to_odefa_maps.t)
     (_ton_on_maps : Ton_to_on_maps.t)
@@ -728,4 +807,4 @@ let _odefa_to_ton_error
           err_value_val = err_val_edesc.body;
         } ]
     end
-;;
+;; *)

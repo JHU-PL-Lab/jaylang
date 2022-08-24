@@ -40,7 +40,7 @@ let read_source_sato filename =
         let (post_inst_ast, odefa_inst_maps, on_odefa_maps) =
           On_to_odefa.translate ~is_instrumented:true natast 
         in
-        let () = print_endline @@ Odefa_ast.Ast_pp.show_expr post_inst_ast in
+        (* let () = print_endline @@ Odefa_ast.Ast_pp.show_expr post_inst_ast in *)
         Ast_wellformedness.check_wellformed_expr post_inst_ast;
         (post_inst_ast, odefa_inst_maps, Some on_odefa_maps, Some ton_on_maps)
       end
@@ -56,7 +56,7 @@ let read_source_sato filename =
             let (post_inst_ast, odefa_inst_maps, on_odefa_maps) =
               On_to_odefa.translate ~is_instrumented:true natast 
             in
-            let () = print_endline @@ Odefa_ast.Ast_pp.show_expr post_inst_ast in
+            (* let () = print_endline @@ Odefa_ast.Ast_pp.show_expr post_inst_ast in *)
             Ast_wellformedness.check_wellformed_expr post_inst_ast;
             (post_inst_ast, odefa_inst_maps, Some on_odefa_maps, None)
           end
@@ -69,7 +69,7 @@ let read_source_sato filename =
             let (post_inst_ast, odefa_inst_maps) =
               Odefa_instrumentation.Instrumentation.instrument_odefa pre_inst_ast
             in
-            let () = print_endline @@ Odefa_ast.Ast_pp.show_expr post_inst_ast in
+            (* let () = print_endline @@ Odefa_ast.Ast_pp.show_expr post_inst_ast in *)
             Ast_wellformedness.check_wellformed_expr post_inst_ast;
             (post_inst_ast, odefa_inst_maps, None, None)
           else failwith "file extension must be .odefa, .natodefa, or .tnat"
