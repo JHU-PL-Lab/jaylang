@@ -950,7 +950,6 @@ and flatten_expr
     raise @@ Utils.Invariant_failure
       "flatten_expr: List expressions should have been handled!"
   (* TODO: This should happen in the instrumentation phase *)
-  (* | _ -> failwith "TBI!" *)
   | Assert e ->
     let%bind (flattened_exprs, last_var) = recurse e in
     (* Helper function *)
@@ -985,7 +984,36 @@ and flatten_expr
     let%bind () = add_odefa_natodefa_mapping assume_var expr_desc in
     let new_clause = Ast.Clause(assume_var, Assume_body last_var) in
     return (flattened_exprs @ [new_clause], assume_var)
-  | Error _ -> failwith "TBI!"
+  | Error (On_ast.Ident x) ->
+    let%bind error_var = fresh_var "error_var" in
+    let error_clause = Ast.Clause(error_var, Ast.Var_body(Ast.Var (Ast.Ident x, None))) in
+    let%bind () = add_odefa_natodefa_mapping error_var expr_desc in
+    (* Helper function *)
+    let add_var var_name =
+      let%bind var = fresh_var var_name in
+      let%bind () = add_odefa_natodefa_mapping var expr_desc in
+      return var
+    in
+    (* Variables *)
+    let%bind assert_pred = add_var "assert_pred" in
+    let%bind assert_result = add_var "assert_res" in
+    let%bind assert_result_inner = add_var "assert_res_true" in
+    (* Clauses *)
+    let alias_clause = Ast.Clause (assert_pred, Var_body error_var) in
+    (* We use an empty record as the result value, since no valid operation can
+       done on it (any projection will fail, and no binop, application, nor
+       conditional will work either).  It's a hack (especially if we match on
+       it), but it will do for now. *)
+    let res_value = Ast.Value_record (Record_value Ast.Ident_map.empty) in
+    let t_path =
+      Ast.Expr [Clause (assert_result_inner, Value_body res_value)]
+    in
+    let%bind f_path = add_abort_expr expr_desc [assert_result] in
+    let cond_clause =
+      Ast.Clause (assert_result, Conditional_body(assert_pred, t_path, f_path))
+    in
+    let all_clauses = ([error_clause] @ [alias_clause; cond_clause]) in
+    return (all_clauses, assert_result)
 ;;
 
 let debug_transform_on

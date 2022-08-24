@@ -10,6 +10,15 @@ let is_natodefa_ext s = Filename.check_suffix s "natodefa"
 
 let is_ton_ext s = Filename.check_suffix s "tnat"
 
+let mode_from_file s =
+  if is_ton_ext s then Sato_args.Typed_natodefa
+  else 
+    if is_natodefa_ext s then Sato_args.Natodefa
+    else 
+      if is_odefa_ext s then Sato_args.Odefa
+      else 
+        failwith "file extension must be .odefa, .natodefa, or .tnat"
+
 let read_source_sato filename =
   let program =
     if is_ton_ext filename

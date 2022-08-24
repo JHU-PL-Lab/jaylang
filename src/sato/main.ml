@@ -36,12 +36,16 @@ let create_initial_dmbc_config (sato_config : Sato_args.t)
 ;;
 
 let main_from_program 
-  ~config inst_maps odefa_to_on_opt _ton_to_on_opt program 
+  ~config inst_maps odefa_to_on_opt ton_to_on_opt program 
   : reported_error option = 
   let dbmc_config_init = create_initial_dmbc_config config in
-  let is_natodefa = config.is_natodefa in
+  let sato_mode = config.sato_mode in
   let init_sato_state = 
-    Sato_state.initialize_state_with_expr is_natodefa program inst_maps odefa_to_on_opt
+    Sato_state.initialize_state_with_expr 
+      sato_mode program 
+      inst_maps 
+      odefa_to_on_opt
+      ton_to_on_opt
   in
   let target_vars = init_sato_state.target_vars in
   let rec search_all_targets 
@@ -74,18 +78,27 @@ let main_from_program
             | Interpreter.Found_abort ab_clo ->
               match ab_clo with
               | AbortClosure final_env ->
-                if is_natodefa then
+                (
+                match sato_mode with
+                | Typed_natodefa ->
+                  let errors = 
+                    Sato_result.Ton_type_errors.get_errors 
+                      init_sato_state dbmc_state session final_env inputs
+                  in
+                  Some (Ton_error errors)
+                | Natodefa ->
                   let errors = 
                     Sato_result.Natodefa_type_errors.get_errors 
                       init_sato_state dbmc_state session final_env inputs
                   in
                   Some (Natodefa_error errors)
-                else
+                | Odefa ->
                   let errors = 
                     Sato_result.Odefa_type_errors.get_errors
                       init_sato_state dbmc_state session final_env inputs
                   in
                   Some (Odefa_error errors)
+                )
               | _ -> failwith "Shoud have run into abort here!"
           end
         | None -> search_all_targets tl

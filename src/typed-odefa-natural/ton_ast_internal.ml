@@ -463,112 +463,285 @@ let expr_desc_precedence_cmp : type a. a expr_desc -> a expr_desc -> int =
   fun ed1 ed2 ->
     expr_precedence_cmp ed1.body ed2.body
 
+let rec from_internal_expr (e : syn_type_natodefa) : Ton_ast.expr = 
+  match e with
+  | Int n -> Int n
+  | Bool b -> Bool b
+  | Var v -> Var v
+  | Function (args, f_edesc) -> 
+    Function (args, from_internal_expr_desc f_edesc)
+  | Input -> Input
+  | Appl (ed1, ed2) ->
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    Appl (ed1', ed2')
+  | Let (x, ed1, ed2) ->
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    Let (x, ed1', ed2')
+  | LetRecFun (fs, ed) ->
+    let fs' = List.map transform_funsig fs in
+    let ed' = from_internal_expr_desc ed in
+    LetRecFun (fs', ed')
+  | LetFun (f_sig, ed) ->
+    let f_sig' = transform_funsig f_sig in
+    let ed' = from_internal_expr_desc ed in
+    LetFun (f_sig', ed')
+  | LetWithType (x, ed1, ed2, t) -> 
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in 
+    let t' = from_internal_expr_desc t in
+    LetWithType (x, ed1', ed2', t')
+  | LetRecFunWithType (fs, ed, ts) ->
+    let fs' = List.map transform_funsig fs in
+    let ed' = from_internal_expr_desc ed in
+    let ts' = List.map from_internal_expr_desc ts in
+    LetRecFunWithType (fs', ed', ts')
+  | LetFunWithType (f_sig, ed, t) ->
+    let f_sig' = transform_funsig f_sig in
+    let ed' = from_internal_expr_desc ed in
+    let t' = from_internal_expr_desc t in
+    LetFunWithType (f_sig', ed', t')
+  | Plus (ed1, ed2) ->
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    Plus (ed1', ed2')
+  | Minus (ed1, ed2) ->
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    Minus (ed1', ed2') 
+  | Times (ed1, ed2) ->
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    Times (ed1', ed2')
+  | Divide (ed1, ed2) -> 
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    Divide (ed1', ed2')
+  | Modulus (ed1, ed2) -> 
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    Modulus (ed1', ed2')
+  | Equal (ed1, ed2) -> 
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    Equal (ed1', ed2')
+  | Neq (ed1, ed2) -> 
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    Neq (ed1', ed2')
+  | LessThan (ed1, ed2) -> 
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    LessThan (ed1', ed2')
+  | Leq (ed1, ed2) -> 
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    Leq (ed1', ed2')
+  | GreaterThan (ed1, ed2) -> 
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    GreaterThan (ed1', ed2')
+  | Geq (ed1, ed2) -> 
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    Geq (ed1', ed2')
+  | And (ed1, ed2) -> 
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    And (ed1', ed2')
+  | Or (ed1, ed2) ->
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    Or (ed1', ed2')
+  | Not ed ->
+    let ed' = from_internal_expr_desc ed in
+    Not ed'
+  | If (ed1, ed2, ed3) ->
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    let ed3' = from_internal_expr_desc ed3 in
+    If (ed1', ed2', ed3')
+  | Record r ->
+    let r' = Ident_map.map from_internal_expr_desc r in
+    Record r'
+  | RecordProj (ed, l) ->
+    let ed' = from_internal_expr_desc ed in
+    RecordProj (ed', l)
+  | Match (m_ed, pe_lst) ->
+    let m_ed' = from_internal_expr_desc m_ed in
+    let pe_lst' = 
+      List.map 
+        (fun (p, ed) -> let ed' = from_internal_expr_desc ed in (p, ed')) 
+        pe_lst 
+    in
+    Match (m_ed', pe_lst')
+  | VariantExpr (lbl, ed) ->
+    let ed' = from_internal_expr_desc ed in
+    VariantExpr (lbl, ed')
+  | List eds ->
+    let eds' = List.map from_internal_expr_desc eds in
+    List eds'
+  | ListCons (ed1, ed2) ->
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    ListCons (ed1', ed2')
+  | TypeError x -> TypeError x
+  | Assert ed ->
+    let ed' = from_internal_expr_desc ed in
+    Assert ed'
+  | Assume ed ->
+    let ed' = from_internal_expr_desc ed in
+    Assume ed'
+  | TypeVar x -> TypeVar x
+  | TypeInt -> TypeInt
+  | TypeBool -> TypeBool
+  | TypeRecord r -> 
+    let r' = Ident_map.map from_internal_expr_desc r in
+    TypeRecord r'
+  | TypeList ed ->
+    let ed' = from_internal_expr_desc ed in
+    TypeList ed'
+  | TypeArrow (ed1, ed2) ->
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    TypeArrow (ed1', ed2')
+  | TypeArrowD ((x, ed1), ed2) ->
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    TypeArrowD ((x, ed1'), ed2')
+  | TypeSet (ed, p) ->
+    let ed' = from_internal_expr_desc ed in
+    let p' = from_internal_expr_desc p in
+    TypeSet (ed', p')
+  | TypeUnion (ed1, ed2) ->
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    TypeUnion (ed1', ed2')
+  | TypeIntersect (ed1, ed2) ->
+    let ed1' = from_internal_expr_desc ed1 in
+    let ed2' = from_internal_expr_desc ed2 in
+    TypeIntersect (ed1', ed2')
+  | TypeRecurse (tv, ed) -> 
+    let ed' = from_internal_expr_desc ed in
+    TypeRecurse (tv, ed')
+
+and from_internal_expr_desc (e : syn_natodefa_edesc) : Ton_ast.expr_desc =
+  let tag' = e.tag in
+  let e' = from_internal_expr e.body in
+  {tag = tag'; body = e'}
+
+and transform_funsig (f_sig : 'a funsig) : Ton_ast.funsig =
+  let Funsig (f, args, f_body) = f_sig in
+  let f_body' = from_internal_expr_desc f_body in
+  Ton_ast.Funsig (f, args, f_body')    
+
 let rec to_internal_expr (e : Ton_ast.expr) : syn_type_natodefa = 
   match e with
-  | Ton_ast.Int n -> Int n
-  | Ton_ast.Bool b -> Bool b
-  | Ton_ast.Var v -> Var v
-  | Ton_ast.Function (args, f_edesc) -> 
+  | Int n -> Int n
+  | Bool b -> Bool b
+  | Var v -> Var v
+  | Function (args, f_edesc) -> 
     Function (args, to_internal_expr_desc f_edesc)
-  | Ton_ast.Input -> Input
-  | Ton_ast.Appl (ed1, ed2) ->
+  | Input -> Input
+  | Appl (ed1, ed2) ->
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     Appl (ed1', ed2')
-  | Ton_ast.Let (x, ed1, ed2) ->
+  | Let (x, ed1, ed2) ->
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     Let (x, ed1', ed2')
-  | Ton_ast.LetRecFun (fs, ed) ->
+  | LetRecFun (fs, ed) ->
     let fs' = List.map transform_funsig fs in
     let ed' = to_internal_expr_desc ed in
     LetRecFun (fs', ed')
-  | Ton_ast.LetFun (f_sig, ed) ->
+  | LetFun (f_sig, ed) ->
     let f_sig' = transform_funsig f_sig in
     let ed' = to_internal_expr_desc ed in
     LetFun (f_sig', ed')
-  | Ton_ast.LetWithType (x, ed1, ed2, t) -> 
+  | LetWithType (x, ed1, ed2, t) -> 
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in 
     let t' = to_internal_expr_desc t in
     LetWithType (x, ed1', ed2', t')
-  | Ton_ast.LetRecFunWithType (fs, ed, ts) ->
+  | LetRecFunWithType (fs, ed, ts) ->
     let fs' = List.map transform_funsig fs in
     let ed' = to_internal_expr_desc ed in
     let ts' = List.map to_internal_expr_desc ts in
     LetRecFunWithType (fs', ed', ts')
-  | Ton_ast.LetFunWithType (f_sig, ed, t) ->
+  | LetFunWithType (f_sig, ed, t) ->
     let f_sig' = transform_funsig f_sig in
     let ed' = to_internal_expr_desc ed in
     let t' = to_internal_expr_desc t in
     LetFunWithType (f_sig', ed', t')
-  | Ton_ast.Plus (ed1, ed2) ->
+  | Plus (ed1, ed2) ->
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     Plus (ed1', ed2')
-  | Ton_ast.Minus (ed1, ed2) ->
+  | Minus (ed1, ed2) ->
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     Minus (ed1', ed2') 
-  | Ton_ast.Times (ed1, ed2) ->
+  | Times (ed1, ed2) ->
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     Times (ed1', ed2')
-  | Ton_ast.Divide (ed1, ed2) -> 
+  | Divide (ed1, ed2) -> 
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     Divide (ed1', ed2')
-  | Ton_ast.Modulus (ed1, ed2) -> 
+  | Modulus (ed1, ed2) -> 
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     Modulus (ed1', ed2')
-  | Ton_ast.Equal (ed1, ed2) -> 
+  | Equal (ed1, ed2) -> 
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     Equal (ed1', ed2')
-  | Ton_ast.Neq (ed1, ed2) -> 
+  | Neq (ed1, ed2) -> 
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     Neq (ed1', ed2')
-  | Ton_ast.LessThan (ed1, ed2) -> 
+  | LessThan (ed1, ed2) -> 
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     LessThan (ed1', ed2')
-  | Ton_ast.Leq (ed1, ed2) -> 
+  | Leq (ed1, ed2) -> 
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     Leq (ed1', ed2')
-  | Ton_ast.GreaterThan (ed1, ed2) -> 
+  | GreaterThan (ed1, ed2) -> 
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     GreaterThan (ed1', ed2')
-  | Ton_ast.Geq (ed1, ed2) -> 
+  | Geq (ed1, ed2) -> 
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     Geq (ed1', ed2')
-  | Ton_ast.And (ed1, ed2) -> 
+  | And (ed1, ed2) -> 
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     And (ed1', ed2')
-  | Ton_ast.Or (ed1, ed2) ->
+  | Or (ed1, ed2) ->
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     Or (ed1', ed2')
-  | Ton_ast.Not ed ->
+  | Not ed ->
     let ed' = to_internal_expr_desc ed in
     Not ed'
-  | Ton_ast.If (ed1, ed2, ed3) ->
+  | If (ed1, ed2, ed3) ->
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     let ed3' = to_internal_expr_desc ed3 in
     If (ed1', ed2', ed3')
-  | Ton_ast.Record r ->
+  | Record r ->
     let r' = Ident_map.map to_internal_expr_desc r in
     Record r'
-  | Ton_ast.RecordProj (ed, l) ->
+  | RecordProj (ed, l) ->
     let ed' = to_internal_expr_desc ed in
     RecordProj (ed', l)
-  | Ton_ast.Match (m_ed, pe_lst) ->
+  | Match (m_ed, pe_lst) ->
     let m_ed' = to_internal_expr_desc m_ed in
     let pe_lst' = 
       List.map 
@@ -576,57 +749,53 @@ let rec to_internal_expr (e : Ton_ast.expr) : syn_type_natodefa =
         pe_lst 
     in
     Match (m_ed', pe_lst')
-  | Ton_ast.VariantExpr (lbl, ed) ->
+  | VariantExpr (lbl, ed) ->
     let ed' = to_internal_expr_desc ed in
     VariantExpr (lbl, ed')
-  | Ton_ast.List eds ->
+  | List eds ->
     let eds' = List.map to_internal_expr_desc eds in
     List eds'
-  | Ton_ast.ListCons (ed1, ed2) ->
+  | ListCons (ed1, ed2) ->
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     ListCons (ed1', ed2')
-  | Ton_ast.TypeError x ->
-    TypeError x
-  | Ton_ast.Assert ed ->
+  | TypeError x -> TypeError x
+  | Assert ed ->
     let ed' = to_internal_expr_desc ed in
     Assert ed'
-  | Ton_ast.Assume ed ->
+  | Assume ed ->
     let ed' = to_internal_expr_desc ed in
     Assume ed'
-  | Ton_ast.TypeVar x ->
-    TypeVar x
-  | Ton_ast.TypeInt -> 
-    TypeInt
-  | Ton_ast.TypeBool -> 
-    TypeBool
-  | Ton_ast.TypeRecord r -> 
+  | TypeVar x -> TypeVar x
+  | TypeInt -> TypeInt
+  | TypeBool -> TypeBool
+  | TypeRecord r -> 
     let r' = Ident_map.map to_internal_expr_desc r in
     TypeRecord r'
-  | Ton_ast.TypeList ed ->
+  | TypeList ed ->
     let ed' = to_internal_expr_desc ed in
     TypeList ed'
-  | Ton_ast.TypeArrow (ed1, ed2) ->
+  | TypeArrow (ed1, ed2) ->
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     TypeArrow (ed1', ed2')
-  | Ton_ast.TypeArrowD ((x, ed1), ed2) ->
+  | TypeArrowD ((x, ed1), ed2) ->
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     TypeArrowD ((x, ed1'), ed2')
-  | Ton_ast.TypeSet (ed, p) ->
+  | TypeSet (ed, p) ->
     let ed' = to_internal_expr_desc ed in
     let p' = to_internal_expr_desc p in
     TypeSet (ed', p')
-  | Ton_ast.TypeUnion (ed1, ed2) ->
+  | TypeUnion (ed1, ed2) ->
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     TypeUnion (ed1', ed2')
-  | Ton_ast.TypeIntersect (ed1, ed2) ->
+  | TypeIntersect (ed1, ed2) ->
     let ed1' = to_internal_expr_desc ed1 in
     let ed2' = to_internal_expr_desc ed2 in
     TypeIntersect (ed1', ed2')
-  | Ton_ast.TypeRecurse (tv, ed) -> 
+  | TypeRecurse (tv, ed) -> 
     let ed' = to_internal_expr_desc ed in
     TypeRecurse (tv, ed')
 
@@ -640,6 +809,147 @@ and transform_funsig (f_sig : Ton_ast.funsig) : 'a funsig =
   let f_body' = to_internal_expr_desc f_body in
   Funsig (f, args, f_body')
 
+let rec from_natodefa_expr (e : Odefa_natural.On_ast.expr) 
+  : core_natodefa = 
+  let pat_conv (p : Odefa_natural.On_ast.pattern) : (pattern) = 
+    match p with
+    | AnyPat -> AnyPat 
+    | IntPat -> IntPat
+    | BoolPat -> BoolPat
+    | FunPat -> FunPat        
+    | RecPat r -> RecPat r
+    | VariantPat ((Variant_label l), x) -> VariantPat (Variant_label l, x)
+    | VarPat x -> VarPat x
+    | EmptyLstPat -> EmptyLstPat
+    | LstDestructPat (hd, tl) -> LstDestructPat (hd, tl)
+  in
+  match e with
+  | Int n -> Int n
+  | Bool b -> Bool b
+  | Var v -> Var v
+  | Function (args, f_edesc) -> 
+    Function (args, from_natodefa_expr_desc f_edesc)
+  | Input -> Input
+  | Appl (ed1, ed2) ->
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    Appl (ed1', ed2')
+  | Let (x, ed1, ed2) ->
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    Let (x, ed1', ed2')
+  | LetRecFun (fs, ed) ->
+    let fs' = List.map transform_funsig' fs in
+    let ed' = from_natodefa_expr_desc ed in
+    LetRecFun (fs', ed')
+  | LetFun (f_sig, ed) ->
+    let f_sig' = transform_funsig' f_sig in
+    let ed' = from_natodefa_expr_desc ed in
+    LetFun (f_sig', ed')
+  | Plus (ed1, ed2) ->
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    Plus (ed1', ed2')
+  | Minus (ed1, ed2) ->
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    Minus (ed1', ed2') 
+  | Times (ed1, ed2) ->
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    Times (ed1', ed2')
+  | Divide (ed1, ed2) -> 
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    Divide (ed1', ed2')
+  | Modulus (ed1, ed2) -> 
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    Modulus (ed1', ed2')
+  | Equal (ed1, ed2) -> 
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    Equal (ed1', ed2')
+  | Neq (ed1, ed2) -> 
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    Neq (ed1', ed2')
+  | LessThan (ed1, ed2) -> 
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    LessThan (ed1', ed2')
+  | Leq (ed1, ed2) -> 
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    Leq (ed1', ed2')
+  | GreaterThan (ed1, ed2) -> 
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    GreaterThan (ed1', ed2')
+  | Geq (ed1, ed2) -> 
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    Geq (ed1', ed2')
+  | And (ed1, ed2) -> 
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    And (ed1', ed2')
+  | Or (ed1, ed2) ->
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    Or (ed1', ed2')
+  | Not ed ->
+    let ed' = from_natodefa_expr_desc ed in
+    Not ed'
+  | If (ed1, ed2, ed3) ->
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    let ed3' = from_natodefa_expr_desc ed3 in
+    If (ed1', ed2', ed3')
+  | Record r ->
+    let r' = Ident_map.map from_natodefa_expr_desc r in
+    Record r'
+  | RecordProj (ed, Label l) ->
+    let ed' = from_natodefa_expr_desc ed in
+    RecordProj (ed', Label l)
+  | Match (m_ed, pe_lst) ->
+    let m_ed' = from_natodefa_expr_desc m_ed in
+    let pe_lst' = 
+      List.map 
+        (fun (p, ed) -> let ed' = from_natodefa_expr_desc ed in (pat_conv p, ed')) 
+        pe_lst 
+    in
+    Match (m_ed', pe_lst')
+  | VariantExpr (Variant_label lbl, ed) ->
+    let ed' = from_natodefa_expr_desc ed in
+    VariantExpr (Variant_label lbl, ed')
+  | List eds ->
+    let eds' = List.map from_natodefa_expr_desc eds in
+    List eds'
+  | ListCons (ed1, ed2) ->
+    let ed1' = from_natodefa_expr_desc ed1 in
+    let ed2' = from_natodefa_expr_desc ed2 in
+    ListCons (ed1', ed2')
+  | Assert ed ->
+    let ed' = from_natodefa_expr_desc ed in
+    Assert ed'
+  | Assume ed ->
+    let ed' = from_natodefa_expr_desc ed in
+    Assume ed'
+  | Error x -> TypeError x 
+
+and from_natodefa_expr_desc (e : Odefa_natural.On_ast.expr_desc) 
+  : core_natodefa_edesc =
+  let tag' = e.tag in
+  let e' = from_natodefa_expr e.body in
+  {tag = tag'; body = e'}
+  
+and transform_funsig' (f_sig : Odefa_natural.On_ast.funsig) 
+  : core_only funsig =
+  let Odefa_natural.On_ast.Funsig (f, args, f_body) = f_sig in
+  let f_body' = from_natodefa_expr_desc f_body in
+  Funsig (f, args, f_body')
+  
 let rec to_natodefa_expr (e : core_natodefa) : Odefa_natural.On_ast.expr = 
   let pat_conv (p : pattern) : (Odefa_natural.On_ast.pattern) = 
     match p with

@@ -119,10 +119,10 @@ module Make
     (Binop : Error_binop)
     (Type : Error_type)
   : (Error
-      with type ident := Ident.t
-      and type value := Value.t
-      and type binop := Binop.t
-      and type type_sig := Type.t)
+      with type ident = Ident.t
+      and type value = Value.t
+      and type binop = Binop.t
+      and type type_sig = Type.t)
 
 
 (* **** Odefa Error Modules **** *)
@@ -135,10 +135,10 @@ module Odefa_type : Error_type with type t = Odefa_ast.Ast.type_sig;;
 (** An error produced by an odefa program *)
 module Odefa_error
   : (Error
-      with type ident := Odefa_ident.t
-      and type value := Odefa_value.t
-      and type binop := Odefa_binop.t
-      and type type_sig := Odefa_type.t)
+      with type ident = Odefa_ident.t
+      and type value = Odefa_value.t
+      and type binop = Odefa_binop.t
+      and type type_sig = Odefa_type.t)
 ;;
 
 (* Natodefa modules *)
@@ -151,12 +151,27 @@ module Natodefa_type : Error_type with type t = Odefa_natural.On_ast.type_sig;;
 (** An error produced by a natodefa program *)
 module On_error
   : (Error
-      with type ident := Natodefa_ident.t
-      and type value := Natodefa_value.t
-      and type binop := Natodefa_binop.t
-      and type type_sig := Natodefa_type.t)
+      with type ident = Natodefa_ident.t
+      and type value = Natodefa_value.t
+      and type binop = Natodefa_binop.t
+      and type type_sig = Natodefa_type.t)
 ;;
 
+(* Typed Natodefa modules *)
+
+module Ton_ident : Error_ident with type t = Typed_odefa_natural.Ton_ast.ident;;
+module Ton_value : Error_value with type t = Typed_odefa_natural.Ton_ast.expr;;
+module Ton_binop : Error_binop with type t = Typed_odefa_natural.Ton_ast.expr;;
+module Ton_type : Error_type with type t = Typed_odefa_natural.Ton_ast.type_sig;;
+
+(** An error produced by a natodefa program *)
+module Ton_error
+  : (Error
+      with type ident = Ton_ident.t
+      and type value = Ton_value.t
+      and type binop = Ton_binop.t
+      and type type_sig = Ton_type.t)
+;;
 (** Given an odefa/natodefa mapping, removes variables that were added during
     error instrumentation. *)
 val odefa_error_remove_instrument_vars :

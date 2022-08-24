@@ -325,11 +325,88 @@ module Natodefa_type_errors : Sato_result with type t = natodefa_error_record = 
 
 end;;
 
+(* **** Typed Natodefa Type Errors **** *)
+
+type ton_error_record = {
+  err_errors : Sato_error.Ton_error.t list;
+  err_input_seq : int option list;
+  err_location : Ton_error_location.t;
+}
+[@@ deriving to_yojson]
+;;  
+
+module Ton_type_errors : Sato_result with type t = ton_error_record = struct
+
+  type t = ton_error_record;;
+
+  let description = "typed natodefa type error";;
+
+  let get_errors 
+    (sato_state : Sato_state.t)
+    (symb_interp_state : Dbmc.Types.State.t)
+    (interp_session : Dbmc.Interpreter.session) 
+    (final_env : Dbmc.Interpreter.denv)
+    (inputs : int option list) = 
+    let open Odefa_natural in
+    let open Typed_odefa_natural in
+    let ((Clause (Var (err_id, _), _) as error_loc), _odefa_errors) = 
+      get_odefa_errors sato_state symb_interp_state interp_session final_env 
+    in
+    let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
+    let on_to_odefa_maps = Option.value_exn sato_state.on_to_odefa_maps in
+    let ton_on_maps = Option.value_exn sato_state.ton_on_maps in
+    let on_err_loc_syn =
+      err_id
+      |> On_to_odefa_maps.get_natodefa_equivalent_expr on_to_odefa_maps 
+      |> Ton_ast_internal.from_natodefa_expr_desc
+      |> Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps
+      |> Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps
+      |> Ton_ast_internal.from_internal_expr_desc
+    in
+    (* let on_err_list =
+      let mapper = 
+        (Sato_error.odefa_to_natodefa_error odefa_inst_maps on_to_odefa_maps interp_session final_env) 
+      in 
+      List.map ~f:mapper odefa_errors
+    in *)
+    {
+      err_input_seq = inputs;
+      err_location = on_err_loc_syn;
+      err_errors = [];
+    }
+  ;;
+
+  let show : t -> string = fun error ->
+    "** NatOdefa Type Errors **\n" ^
+    (Printf.sprintf "- Input sequence  : %s\n" (Dbmc.Std.string_of_inputs error.err_input_seq)) ^
+    (Printf.sprintf "- Found at clause : %s\n" (Ton_error_location.show error.err_location)) ^
+    "--------------------\n" ^
+    (String.concat ~sep:"\n--------------------\n"
+      @@ List.map ~f:Sato_error.Ton_error.show error.err_errors)
+  ;;
+
+  let show_compact : t -> string = fun error ->
+    "- err at: " ^ (Ton_error_location.show_brief error.err_location) 
+  ;;
+
+  let count : t -> int = fun err -> 
+    List.length err.err_errors
+  ;;
+
+  let to_yojson : t -> Yojson.Safe.t = fun err -> 
+    ton_error_record_to_yojson err
+  ;;
+
+end;;
+
+
 (* **** Unifying Type Errors **** *)
-type reported_error = Natodefa_error of Natodefa_type_errors.t 
+type reported_error = Ton_error of Ton_type_errors.t
+                    | Natodefa_error of Natodefa_type_errors.t 
                     | Odefa_error of Odefa_type_errors.t
 
 let show_reported_error err = 
   match err with
+  | Ton_error ton_err -> Ton_type_errors.show ton_err
   | Natodefa_error nat_err -> Natodefa_type_errors.show nat_err
   | Odefa_error odefa_err -> Odefa_type_errors.show odefa_err
