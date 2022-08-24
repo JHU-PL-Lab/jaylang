@@ -639,3 +639,141 @@ and transform_funsig (f_sig : Ton_ast.funsig) : 'a funsig =
   let Ton_ast.Funsig (f, args, f_body) = f_sig in
   let f_body' = to_internal_expr_desc f_body in
   Funsig (f, args, f_body')
+
+let rec to_natodefa_expr (e : core_natodefa) : Odefa_natural.On_ast.expr = 
+  let pat_conv (p : pattern) : (Odefa_natural.On_ast.pattern) = 
+    match p with
+    | AnyPat -> AnyPat 
+    | IntPat -> IntPat
+    | BoolPat -> BoolPat
+    | FunPat -> FunPat        
+    | RecPat r -> RecPat r
+    | VariantPat ((Variant_label l), x) -> VariantPat (Variant_label l, x)
+    | VarPat x -> VarPat x
+    | EmptyLstPat -> EmptyLstPat
+    | LstDestructPat (hd, tl) -> LstDestructPat (hd, tl)
+  in
+  match e with
+  | Int n -> Int n
+  | Bool b -> Bool b
+  | Var v -> Var v
+  | Function (args, f_edesc) -> 
+    Function (args, to_natodefa_expr_desc f_edesc)
+  | Input -> Input
+  | Appl (ed1, ed2) ->
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    Appl (ed1', ed2')
+  | Let (x, ed1, ed2) ->
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    Let (x, ed1', ed2')
+  | LetRecFun (fs, ed) ->
+    let fs' = List.map transform_funsig' fs in
+    let ed' = to_natodefa_expr_desc ed in
+    LetRecFun (fs', ed')
+  | LetFun (f_sig, ed) ->
+    let f_sig' = transform_funsig' f_sig in
+    let ed' = to_natodefa_expr_desc ed in
+    LetFun (f_sig', ed')
+  | Plus (ed1, ed2) ->
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    Plus (ed1', ed2')
+  | Minus (ed1, ed2) ->
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    Minus (ed1', ed2') 
+  | Times (ed1, ed2) ->
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    Times (ed1', ed2')
+  | Divide (ed1, ed2) -> 
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    Divide (ed1', ed2')
+  | Modulus (ed1, ed2) -> 
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    Modulus (ed1', ed2')
+  | Equal (ed1, ed2) -> 
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    Equal (ed1', ed2')
+  | Neq (ed1, ed2) -> 
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    Neq (ed1', ed2')
+  | LessThan (ed1, ed2) -> 
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    LessThan (ed1', ed2')
+  | Leq (ed1, ed2) -> 
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    Leq (ed1', ed2')
+  | GreaterThan (ed1, ed2) -> 
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    GreaterThan (ed1', ed2')
+  | Geq (ed1, ed2) -> 
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    Geq (ed1', ed2')
+  | And (ed1, ed2) -> 
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    And (ed1', ed2')
+  | Or (ed1, ed2) ->
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    Or (ed1', ed2')
+  | Not ed ->
+    let ed' = to_natodefa_expr_desc ed in
+    Not ed'
+  | If (ed1, ed2, ed3) ->
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    let ed3' = to_natodefa_expr_desc ed3 in
+    If (ed1', ed2', ed3')
+  | Record r ->
+    let r' = Ident_map.map to_natodefa_expr_desc r in
+    Record r'
+  | RecordProj (ed, Label l) ->
+    let ed' = to_natodefa_expr_desc ed in
+    RecordProj (ed', Label l)
+  | Match (m_ed, pe_lst) ->
+    let m_ed' = to_natodefa_expr_desc m_ed in
+    let pe_lst' = 
+      List.map 
+        (fun (p, ed) -> let ed' = to_natodefa_expr_desc ed in (pat_conv p, ed')) 
+        pe_lst 
+    in
+    Match (m_ed', pe_lst')
+  | VariantExpr (Variant_label lbl, ed) ->
+    let ed' = to_natodefa_expr_desc ed in
+    VariantExpr (Variant_label lbl, ed')
+  | List eds ->
+    let eds' = List.map to_natodefa_expr_desc eds in
+    List eds'
+  | ListCons (ed1, ed2) ->
+    let ed1' = to_natodefa_expr_desc ed1 in
+    let ed2' = to_natodefa_expr_desc ed2 in
+    ListCons (ed1', ed2')
+  | Assert ed ->
+    let ed' = to_natodefa_expr_desc ed in
+    Assert ed'
+  | Assume ed ->
+    let ed' = to_natodefa_expr_desc ed in
+    Assume ed'
+  | TypeError x -> Error x
+
+and to_natodefa_expr_desc (e : core_natodefa_edesc) : Odefa_natural.On_ast.expr_desc =
+  let tag' = e.tag in
+  let e' = to_natodefa_expr e.body in
+  {tag = tag'; body = e'}
+  
+and transform_funsig' (f_sig : core_only funsig) : Odefa_natural.On_ast.funsig =
+  let Funsig (f, args, f_body) = f_sig in
+  let f_body' = to_natodefa_expr_desc f_body in
+  Odefa_natural.On_ast.Funsig (f, args, f_body')
