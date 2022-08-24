@@ -374,6 +374,7 @@ module Make (S : S) = struct
           | Any_pattern, _
           | Fun_pattern, Value_body (Value_function _)
           | Int_pattern, Value_body (Value_int _)
+          | Int_pattern, Input_body
           | Bool_pattern, Value_body (Value_bool _) ->
               let phi = Riddler.eqv_with_picked key key' (Value_bool true) in
               S.add_phi key phi ;
