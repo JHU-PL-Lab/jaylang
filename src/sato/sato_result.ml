@@ -37,6 +37,15 @@ module Natodefa_error_location
     `String (replace_linebreaks @@ show expr);;
 end;;
 
+module Ton_error_location
+  : Error_location with type t = Typed_odefa_natural.Ton_ast.expr_desc = struct
+  type t = Typed_odefa_natural.Ton_ast.expr_desc;;
+  let show = Pp_utils.pp_to_string Typed_odefa_natural.Ton_ast_pp.pp_expr_desc_without_tag;;
+  let show_brief = Pp_utils.pp_to_string Typed_odefa_natural.Ton_ast_pp.pp_expr_desc_without_tag;;
+  let to_yojson expr = 
+    `String (replace_linebreaks @@ show expr);;
+end;;
+
 module type Sato_result = sig
   type t;;
   val description : string;;
