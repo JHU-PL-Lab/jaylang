@@ -28,6 +28,28 @@ module Make (S : S) = struct
   let add_phi (term_detail : Term_detail.t) phi =
     add_phi S.state term_detail phi
 
+  let init_list_counter (term_detail : Term_detail.t) key =
+    Hashtbl.update S.state.smt_lists key ~f:(function
+      | Some i -> i
+      | None ->
+          add_phi term_detail (Riddler.list_head key) ;
+          0)
+
+  let fetch_list_counter (term_detail : Term_detail.t) key =
+    let new_i =
+      Hashtbl.update_and_return S.state.smt_lists key ~f:(function
+        | Some i -> i + 1
+        | None ->
+            add_phi term_detail (Riddler.list_head key) ;
+            1)
+    in
+    new_i - 1
+
+  (* for a compositiona edge, if a seq with indexed at key will be used later,
+       the user needs to `init_list_counter` eagerly once.
+     The reason for lazy init is the callback may never be called at all. The fix of
+     infinitive list cannot be applied before calling the SMT solver.
+  *)
   let rec run_edge run_task (term_detail : Term_detail.t) edge phi =
     add_phi term_detail phi ;
     match edge with
@@ -54,9 +76,6 @@ module Make (S : S) = struct
         run_task e.pub2 e.block ;
         U.by_map2_u S.unroll e.sub e.pub1 e.pub2 (fun _ ->
             Lookup_result.ok e.sub)
-    | Or_list e ->
-        List.iter e.or_list ~f:(fun e ->
-            run_edge run_task term_detail e Riddler.true_)
     | Static_bind e ->
         let cb_lazy key (rc : Lookup_result.t) =
           if e.pre_next_check rc
@@ -67,40 +86,21 @@ module Make (S : S) = struct
         U.by_bind_u S.unroll e.sub e.pub cb_lazy ;
         run_task e.pub e.block
     | Static_bind_with_seq e ->
+        init_list_counter term_detail e.sub ;
+
         run_task e.pub e.block ;
-        let counter = ref 0 in
-        add_phi term_detail (Riddler.list_head e.sub) ;
-        Hashtbl.add_exn S.state.smt_lists ~key:e.sub ~data:0 ;
-        let cb this_key (r : Lookup_result.t) =
-          let i = !counter in
-          Int.incr counter ;
-          (* update for next i *)
-          Hashtbl.update S.state.smt_lists e.sub ~f:(function
-            | Some _ -> i + 1
-            | None -> failwith "smt list key") ;
-          (* use this i *)
-          if e.seq_on_pub i r
-          then ()
-          else add_phi term_detail (Riddler.list_append_mismatch e.sub i) ;
+        let cb _key (r : Lookup_result.t) =
+          let i = fetch_list_counter term_detail e.sub in
+          let next = e.next i r in
+          (match next with
+          | Some (phi_i, next) -> run_edge run_task term_detail next phi_i
+          | None -> add_phi term_detail (Riddler.list_append_mismatch e.sub i)) ;
           Lwt.return_unit
         in
         U.by_bind_u S.unroll e.sub e.pub cb
-    | Seq_for_sub e ->
-        add_phi term_detail (Riddler.list_head e.sub) ;
-        Hashtbl.add_exn S.state.smt_lists ~key:e.sub ~data:0 ;
-        let nonlocal_i = ref 0 in
-
-        let cb_with_i cb key r =
-          let i = !nonlocal_i in
-          Int.incr nonlocal_i ;
-          Hashtbl.update S.state.smt_lists e.sub ~f:(function
-            | Some _ -> !nonlocal_i
-            | None -> failwith "smt list key") ;
-          cb i key r
-        in
-        List.iter e.pub_with_cbs ~f:(fun (key, block, cb) ->
-            run_task key block ;
-            U.by_bind_u S.unroll e.sub key (cb_with_i cb))
+    | Or_list e ->
+        List.iter e.or_list ~f:(fun e ->
+            run_edge run_task term_detail e Riddler.true_)
   (* | Direct_bind e ->
      run_task e.pub e.block ;
      U.by_bind_u S.unroll e.sub e.pub e.cb *)
@@ -173,7 +173,7 @@ module Make (S : S) = struct
   let record_start p term_detail (key : Lookup_key.t) block run_task =
     let ({ r; lbl; _ } : Record_start_rule.t) = p in
     let key_r = Lookup_key.with_x key r in
-    let seq_on_pub i (r : Lookup_result.t) =
+    let next i (r : Lookup_result.t) =
       let key_rv = r.from in
       let rv_block = Cfg.block_of_id key_rv.x S.block_map in
       let rv = Cfg.clause_body_of_x rv_block key_rv.x in
@@ -186,15 +186,12 @@ module Make (S : S) = struct
                 Riddler.record_start_append key key_r key_rv key_l i
               in
               let edge = Direct { sub = key; pub = key_l; block = rv_block } in
-              run_edge run_task term_detail edge phi_i ;
-              true
-          | None -> false)
-      | _ -> false
+              Some (phi_i, edge)
+          | None -> None)
+      | _ -> None
     in
 
-    let edge =
-      Static_bind_with_seq { sub = key; pub = key_r; block; seq_on_pub }
-    in
+    let edge = Static_bind_with_seq { sub = key; pub = key_r; block; next } in
     let phi = Riddler.true_ in
     run_edge run_task term_detail edge phi
 
@@ -297,7 +294,6 @@ module Make (S : S) = struct
               in
               Chain
                 { sub = this_key; pub = key_f; block = callsite_block; next }
-              (* (key_f, callsite_block, cb) *)
           | None -> failwith "why Rstack.pop fails here")
     in
     let edge = Or_list { sub = this_key; or_list } in
@@ -307,7 +303,7 @@ module Make (S : S) = struct
     let ({ fb; _ } : Fun_enter_nonlocal_rule.t) = p in
     let x, r_stk = Lookup_key.to2 key in
     let callsites = Lookup_key.get_callsites r_stk fb in
-    let pub_with_cbs =
+    let or_list =
       List.map callsites ~f:(fun callsite ->
           let callsite_block, x', x'', _x''' =
             Cfg.fun_info_of_callsite callsite S.block_map
@@ -315,21 +311,23 @@ module Make (S : S) = struct
           match Rstack.pop r_stk (x', fb.point) with
           | Some callsite_stack ->
               let key_f = Lookup_key.of2 x'' callsite_stack in
-              let cb i key (r : Lookup_result.t) =
+              let next i (r : Lookup_result.t) =
                 let key_arg = Lookup_key.of2 x r.from.r_stk in
                 let phi_i =
                   Riddler.fun_enter_append key key_f r.from fb.point key_arg i
                 in
-                add_phi term_detail phi_i ;
                 let fv_block = Cfg.block_of_id r.from.x S.block_map in
-                run_task key_arg fv_block ;
-                U.by_id_u S.unroll key key_arg ;
-                Lwt.return_unit
+                let edge =
+                  Direct { sub = key; pub = key_arg; block = fv_block }
+                in
+                Some (phi_i, edge)
               in
-              (key_f, callsite_block, cb)
+              Static_bind_with_seq
+                { sub = key; pub = key_f; block = callsite_block; next }
           | None -> failwith "why Rstack.pop fails here")
     in
-    let edge = Seq_for_sub { sub = key; pub_with_cbs } in
+    init_list_counter term_detail key ;
+    let edge = Or_list { sub = key; or_list } in
     run_edge run_task term_detail edge Riddler.true_
 
   let fun_exit p term_detail (key : Lookup_key.t) block run_task =
@@ -345,9 +343,6 @@ module Make (S : S) = struct
         let fblock = Ident_map.find fid S.block_map in
         let key_ret = Lookup_key.get_f_return S.block_map fid r_stk x in
         Some (Direct { sub = this_key; pub = key_ret; block = fblock })
-        (* run_task key_ret fblock ;
-           U.by_id_u S.unroll this_key key_ret ;
-           Lwt.return_unit *)
       else None
     in
     let edge = Chain { sub = this_key; pub = key_f; block; next } in

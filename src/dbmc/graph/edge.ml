@@ -4,18 +4,21 @@ open Core
    This one is more like an edge for command.
 *)
 
-(* type lazy_edge = {
-     pub_fn : Lookup_key.t -> Lookup_key.t;
-     result_fn : Lookup_result.t -> unit;
-   } *)
-
 type t =
+  (* t.b.c  *)
+  | Lazy_edge of t Lazy.t
   (* Value main *)
   | Leaf of { sub : Lookup_key.t }
-  | Lazy_edge of t Lazy.t
   (* Alias *)
   (* Not_ *)
   | Direct of { sub : Lookup_key.t; pub : Lookup_key.t; block : Cfg.block }
+  (* Binop *)
+  | Both of {
+      sub : Lookup_key.t;
+      pub1 : Lookup_key.t;
+      pub2 : Lookup_key.t;
+      block : Cfg.block;
+    }
   (* Pattern *)
   | Direct_map of {
       sub : Lookup_key.t;
@@ -31,6 +34,9 @@ type t =
       block : Cfg.block;
       next : Lookup_key.t -> Lookup_result.t -> t option;
     }
+  (* Fun Enter Local *)
+  (* Fun Enter Nonlocal *)
+  | Or_list of { sub : Lookup_key.t; or_list : t list }
   (* Cond Top *)
   (* Cond Btm *)
   | Static_bind of {
@@ -46,27 +52,8 @@ type t =
       sub : Lookup_key.t;
       pub : Lookup_key.t;
       block : Cfg.block;
-      seq_on_pub : int -> Lookup_result.t -> bool;
+      next : int -> Lookup_result.t -> (Z3.Expr.expr * t) option;
     }
-  (* Binop *)
-  | Both of {
-      sub : Lookup_key.t;
-      pub1 : Lookup_key.t;
-      pub2 : Lookup_key.t;
-      block : Cfg.block;
-    }
-  (* Fun Enter Local *)
-  | Or_list of { sub : Lookup_key.t; or_list : t list }
-  (* Fun Enter Nonlocal *)
-  | Seq_for_sub of {
-      sub : Lookup_key.t;
-      pub_with_cbs :
-        (Lookup_key.t
-        * Cfg.block
-        * (int -> Lookup_key.t -> Lookup_result.t -> unit Lwt.t))
-        list;
-    }
-
 (* We don't need a vanilla bind here because we don't need a general callback.
    If we directly notify the expected handler on pub's result to the sub, don't use this.
    If we use the pub's result to generate your edge, the function in record only needs
