@@ -5,12 +5,9 @@ open Core
 *)
 
 type t =
-  (* t.b.c  *)
-  | Lazy_edge of t Lazy.t
   (* Value main *)
   | Leaf of { sub : Lookup_key.t }
-  (* Alias *)
-  (* Not_ *)
+  (* Alias | Not_ *)
   | Direct of { sub : Lookup_key.t; pub : Lookup_key.t; block : Cfg.block }
   (* Binop *)
   | Both of {
@@ -20,35 +17,24 @@ type t =
       block : Cfg.block;
     }
   (* Pattern *)
-  | Direct_map of {
+  | Map of {
       sub : Lookup_key.t;
       pub : Lookup_key.t;
       block : Cfg.block;
       map : Lookup_result.t -> Lookup_result.t;
     }
-  (* Fun Exit *)
-  (* Chain is a weak bind *)
+  (* Fun Exit | Cond Top | Cond Btm *)
   | Chain of {
+      (* Chain is almost bind *)
       sub : Lookup_key.t;
       pub : Lookup_key.t;
       block : Cfg.block;
       next : Lookup_key.t -> Lookup_result.t -> t option;
     }
-  (* Fun Enter Local *)
-  (* Fun Enter Nonlocal *)
-  | Or_list of { sub : Lookup_key.t; or_list : t list }
-  (* Cond Top *)
-  (* Cond Btm *)
-  | Static_bind of {
-      (* It's a bind that doesn't reply on the previous result *)
-      sub : Lookup_key.t;
-      pub : Lookup_key.t;
-      block : Cfg.block;
-      pre_next_check : Lookup_result.t -> bool;
-      next : t;
-    }
+  (* Fun Enter Local | Fun Enter Nonlocal *)
+  | Or_list of { sub : Lookup_key.t; nexts : t list }
   (* Record *)
-  | Static_bind_with_seq of {
+  | Sequence of {
       sub : Lookup_key.t;
       pub : Lookup_key.t;
       block : Cfg.block;
