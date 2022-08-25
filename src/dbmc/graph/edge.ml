@@ -12,6 +12,7 @@ open Core
 type t =
   (* Value main *)
   | Leaf of { sub : Lookup_key.t }
+  | Lazy_edge of t Lazy.t
   (* Alias *)
   (* Not_ *)
   | Direct of { sub : Lookup_key.t; pub : Lookup_key.t; block : Cfg.block }
@@ -22,10 +23,18 @@ type t =
       block : Cfg.block;
       map : Lookup_result.t -> Lookup_result.t;
     }
-  | Lazy_edge of t Lazy.t
+  (* Fun Exit *)
+  (* Chain is a weak bind *)
+  | Chain of {
+      sub : Lookup_key.t;
+      pub : Lookup_key.t;
+      block : Cfg.block;
+      next : Lookup_key.t -> Lookup_result.t -> t option;
+    }
   (* Cond Top *)
   (* Cond Btm *)
   | Static_bind of {
+      (* It's a bind that doesn't reply on the previous result *)
       sub : Lookup_key.t;
       pub : Lookup_key.t;
       block : Cfg.block;
@@ -57,10 +66,22 @@ type t =
         * (int -> Lookup_key.t -> Lookup_result.t -> unit Lwt.t))
         list;
     }
-  (* Fun Exit *)
-  | Direct_bind of {
-      sub : Lookup_key.t;
-      pub : Lookup_key.t;
-      block : Cfg.block;
-      cb : Lookup_key.t -> Lookup_result.t -> unit Lwt.t;
-    }
+
+(* We don't need a vanilla bind here because we don't need a general callback.
+   If we directly notify the expected handler on pub's result to the sub, don't use this.
+   If we use the pub's result to generate your edge, the function in record only needs
+   to return that edge. The `run_edge` will handle on the edge.
+*)
+(* | Direct_bind of {
+     sub : Lookup_key.t;
+     pub : Lookup_key.t;
+     block : Cfg.block;
+     cb : Lookup_key.t -> Lookup_result.t -> unit Lwt.t;
+   } *)
+
+(* | Or_seq of {
+     sub : Lookup_key.t;
+     pub : Lookup_key.t;
+     block : Cfg.block;
+     update_i : unit -> unit;
+   } *)

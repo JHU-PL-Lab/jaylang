@@ -39,9 +39,16 @@ module Make (S : S) = struct
     | Direct_map e ->
         run_task e.pub e.block ;
         U.by_map_u S.unroll e.sub e.pub e.map
-    | Direct_bind e ->
+    | Chain e ->
         run_task e.pub e.block ;
-        U.by_bind_u S.unroll e.sub e.pub e.cb
+        let cb key r =
+          let edge = e.next key r in
+          (match edge with
+          | Some edge -> run_edge run_task term_detail edge Riddler.true_
+          | None -> ()) ;
+          Lwt.return_unit
+        in
+        U.by_bind_u S.unroll e.sub e.pub cb
     | Both e ->
         run_task e.pub1 e.block ;
         run_task e.pub2 e.block ;
@@ -94,6 +101,9 @@ module Make (S : S) = struct
         List.iter e.pub_with_cbs ~f:(fun (key, block, cb) ->
             run_task key block ;
             U.by_bind_u S.unroll e.sub key (cb_with_i cb))
+  (* | Direct_bind e ->
+     run_task e.pub e.block ;
+     U.by_bind_u S.unroll e.sub e.pub e.cb *)
 
   let rule_main v _p term_detail (key : Lookup_key.t) block run_task =
     let target_stk = Rstack.concretize_top key.r_stk in
@@ -279,15 +289,14 @@ module Make (S : S) = struct
           match Rstack.pop r_stk (x', fid) with
           | Some callsite_stack ->
               let key_f = Lookup_key.of2 x'' callsite_stack in
-              let cb this_key (_r : Lookup_result.t) =
+              let next this_key (_r : Lookup_result.t) =
                 let key_arg = Lookup_key.of2 x''' callsite_stack in
-
-                run_task key_arg callsite_block ;
-                U.by_id_u S.unroll this_key key_arg ;
-                Lwt.return_unit
+                Some
+                  (Direct
+                     { sub = this_key; pub = key_arg; block = callsite_block })
               in
-              Direct_bind
-                { sub = this_key; pub = key_f; block = callsite_block; cb }
+              Chain
+                { sub = this_key; pub = key_f; block = callsite_block; next }
               (* (key_f, callsite_block, cb) *)
           | None -> failwith "why Rstack.pop fails here")
     in
@@ -329,19 +338,19 @@ module Make (S : S) = struct
     let ({ x; xf; fids } : Fun_exit_rule.t) = p in
     let key_f = Lookup_key.of2 xf r_stk in
     let phi = Riddler.fun_exit this_key key_f fids S.block_map in
-    let cb this_key (rf : Lookup_result.t) =
+    let next this_key (rf : Lookup_result.t) =
       let fid = rf.from.x in
       if List.mem fids fid ~equal:Id.equal
-      then (
+      then
         let fblock = Ident_map.find fid S.block_map in
         let key_ret = Lookup_key.get_f_return S.block_map fid r_stk x in
-
-        run_task key_ret fblock ;
-        U.by_id_u S.unroll this_key key_ret ;
-        Lwt.return_unit)
-      else Lwt.return_unit
+        Some (Direct { sub = this_key; pub = key_ret; block = fblock })
+        (* run_task key_ret fblock ;
+           U.by_id_u S.unroll this_key key_ret ;
+           Lwt.return_unit *)
+      else None
     in
-    let edge = Direct_bind { sub = this_key; pub = key_f; block; cb } in
+    let edge = Chain { sub = this_key; pub = key_f; block; next } in
     run_edge run_task term_detail edge phi
 
   let pattern p term_detail (key : Lookup_key.t) block run_task =
