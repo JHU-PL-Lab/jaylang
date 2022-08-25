@@ -10,58 +10,45 @@ open Core
    } *)
 
 type t =
+  (* Value main *)
   | Leaf of { sub : Lookup_key.t }
+  (* Alias *)
+  (* Not_ *)
   | Direct of { sub : Lookup_key.t; pub : Lookup_key.t; block : Cfg.block }
+  (* Pattern *)
   | Direct_map of {
       sub : Lookup_key.t;
       pub : Lookup_key.t;
       block : Cfg.block;
       map : Lookup_result.t -> Lookup_result.t;
     }
-  | Direct_bind of {
+  | Lazy_edge of t Lazy.t
+  (* Cond Top *)
+  (* Cond Btm *)
+  | Static_bind of {
       sub : Lookup_key.t;
       pub : Lookup_key.t;
       block : Cfg.block;
-      cb : Lookup_key.t -> Lookup_result.t -> unit Lwt.t;
+      pre_next_check : Lookup_result.t -> bool;
+      next : t;
     }
+  (* Record *)
+  | Static_bind_with_seq of {
+      sub : Lookup_key.t;
+      pub : Lookup_key.t;
+      block : Cfg.block;
+      seq_on_pub : int -> Lookup_result.t -> bool;
+    }
+  (* Binop *)
   | Both of {
       sub : Lookup_key.t;
       pub1 : Lookup_key.t;
       pub2 : Lookup_key.t;
       block : Cfg.block;
     }
-  | Or_list of {
-      sub : Lookup_key.t;
-      pub_with_blocks : (Lookup_key.t * Cfg.block) list;
-    }
-  | Or_list_two_phases of {
-      sub : Lookup_key.t;
-      pub_details :
-        (Lookup_key.t
-        * Cfg.block
-        * (Lookup_key.t -> Lookup_result.t -> unit Lwt.t))
-        list;
-    }
-  | Two_phases of {
-      sub : Lookup_key.t;
-      pub : Lookup_key.t;
-      block_pub : Cfg.block;
-      pub_lazy : Lookup_key.t;
-      block_lazy : Cfg.block;
-    }
-  | Two_phases_lazy of {
-      sub : Lookup_key.t;
-      pub : Lookup_key.t;
-      block : Cfg.block;
-      lazy_edge : t Lazy.t;
-      pre_lazy_check : Lookup_result.t -> bool;
-    }
-  | Seq_on_pub of {
-      sub : Lookup_key.t;
-      pub : Lookup_key.t;
-      block : Cfg.block;
-      seq_on_pub : int -> Lookup_result.t -> bool;
-    }
+  (* Fun Enter Local *)
+  | Or_list of { sub : Lookup_key.t; or_list : t list }
+  (* Fun Enter Nonlocal *)
   | Seq_for_sub of {
       sub : Lookup_key.t;
       pub_with_cbs :
@@ -69,4 +56,11 @@ type t =
         * Cfg.block
         * (int -> Lookup_key.t -> Lookup_result.t -> unit Lwt.t))
         list;
+    }
+  (* Fun Exit *)
+  | Direct_bind of {
+      sub : Lookup_key.t;
+      pub : Lookup_key.t;
+      block : Cfg.block;
+      cb : Lookup_key.t -> Lookup_result.t -> unit Lwt.t;
     }
