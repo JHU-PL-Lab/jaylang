@@ -1,5 +1,0 @@
-input_22 = input;
-m_br_122 = input_22 ~ int;
-binop_23 = m_br_122 ? (c_binop_124 = true) : (
-                                                        ab_125 = abort
-                                                                  )

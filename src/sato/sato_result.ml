@@ -90,7 +90,7 @@ let get_odefa_errors
       (* let () = print_endline @@ Interpreter.show_ident_with_stack hd in *)
       let found = Hashtbl.find cls_mapping hd in
       match found with
-      | Some cls -> cls
+      | Some (cls, _) -> cls
       | None -> find_source_cls cls_mapping tl
   in
   let mk_match_err expected_type actual_val x x_stk : Sato_error.Odefa_error.t list = 
@@ -98,7 +98,7 @@ let get_odefa_errors
     | Bool_type, Value_bool _ | Int_type, Value_int _ -> []
     | _ -> 
       let match_aliases_raw =
-        Sato_tools.find_alias alias_graph [] (x, x_stk)
+        Sato_tools.find_alias alias_graph (x, x_stk)
       in
       (* let () = print_endline @@ "Printing aliases" in
       let () = 
@@ -111,7 +111,7 @@ let get_odefa_errors
       in
       let match_aliases = 
         match_aliases_raw
-        |> List.map ~f:(fun (x, _) -> x)
+        (* |> List.map ~f:(fun (x, _) -> x) *)
         |> List.rev
       in
       let actual_type = Sato_tools.get_value_type actual_val in
@@ -127,14 +127,14 @@ let get_odefa_errors
   let mk_value_error x x_stk = 
       (* let () = print_endline "making a value error!" in *)
       let value_aliases_raw =
-        Sato_tools.find_alias alias_graph [] (x, x_stk)
+        Sato_tools.find_alias alias_graph (x, x_stk)
       in
       let val_source = 
         find_source_cls interp_session.val_def_map value_aliases_raw 
       in
       let value_aliases = 
         value_aliases_raw
-        |> List.map ~f:(fun (x, _) -> x)
+        (* |> List.map ~f:(fun (x, _) -> x) *)
         |> List.rev
       in
       let value_error = Sato_error.Odefa_error.Error_value {
@@ -371,7 +371,9 @@ module Ton_type_errors : Sato_result with type t = ton_error_record = struct
     let ton_err_list =
       let mapper = 
         if is_type_error then
-          failwith "TBI!"
+          (Sato_error.odefa_to_ton_error
+            odefa_inst_maps on_to_odefa_maps ton_on_maps 
+            interp_session final_env) 
         else
           (Sato_error.odefa_to_ton_error_simple 
             odefa_inst_maps on_to_odefa_maps ton_on_maps 

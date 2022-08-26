@@ -4,19 +4,41 @@ open Dbmc
 open Odefa_ast.Ast
 
 (* The alias should follow the rule that each node has a single successor *)
-let rec find_alias graph acc x_with_stk = 
+let find_alias graph x_with_stk = 
+  let rec loop acc target = 
   (* let () = print_endline "Current target: " in
   let () = print_endline @@ Interpreter.show_ident_with_stack x_with_stk in *)
-  if Interpreter.G.mem_vertex graph x_with_stk then
-    let (succ : Interpreter.Ident_with_stack.t list) = 
-      Interpreter.G.succ graph x_with_stk 
-    in
-    match succ with
-    | [] -> x_with_stk :: acc
-    | [succ] -> find_alias graph (x_with_stk :: acc) succ
-    | _ -> failwith "Should not have more than one successor!" 
-  else
-    x_with_stk :: acc
+    if Interpreter.G.mem_vertex graph target then
+      let (succ : Interpreter.Ident_with_stack.t list) = 
+        Interpreter.G.succ graph target 
+      in
+      match succ with
+      | [] -> target :: acc
+      | [succ] -> loop (target :: acc) succ
+      | _ -> failwith "Should not have more than one successor!" 
+    else
+      target :: acc
+  in
+  loop [] x_with_stk
+
+let find_alias_without_stack graph x = 
+  let init_set = Hash_set.create(module Dbmc.Interpreter.Ident_with_stack) in
+  let alias_sets = Hash_set.create(module Dbmc.Interpreter.Ident_with_stack) in
+  let xs = Interpreter.G.fold_vertex 
+    (fun ((i, _) as x_with_stk) acc -> 
+      let check_seen ls =
+        List.exists ~f:(fun aliases -> List.mem aliases x_with_stk ~equal:(Dbmc.Interpreter.Ident_with_stack.equal)) ls 
+      in
+      if (Odefa_ast.Ast.Ident.equal x i) && (not @@ check_seen acc)
+        (* then Hash_set.add init_set x_with_stk  *)
+        then 
+          let new_aliases = find_alias graph x_with_stk in
+          new_aliases :: acc
+        else acc)
+    graph
+    []
+  in
+  xs
 
 let get_expected_type_from_operator op = 
   match op with

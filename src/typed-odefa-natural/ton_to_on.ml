@@ -219,9 +219,7 @@ let rec semantic_type_of
          labels with the corresponding types, and nothing more. That's why
          we require a strict pattern match here. *)
       let match_body = Match (matched_expr,
-       (* TODO: We're using relaxed pattern here for now, change this back once
-          strict pattern is part of dbmc!   
-       *)
+                              (* TODO: Uncomment this line once strict record is in place *)
                               (* [(StrictRecPat type_dict, new_expr_desc fun_body);  *)
                               [(RecPat type_dict, new_expr_desc fun_body); 
                               (AnyPat, fail_pat_cls)])

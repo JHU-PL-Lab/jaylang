@@ -118,8 +118,8 @@ let rec on_expr_transformer
   let (recurse : expr_desc -> expr_desc) = on_expr_transformer transformer in
   let e_desc' = transformer e_desc in
   let expr' = e_desc'.body in
+  let tag' = e_desc'.tag in
   (* let og_tag = e_desc.tag in *)
-  let new_tag = e_desc'.tag in
   let body' = 
     match expr' with
     | Int _ | Bool _ | Var _ | Input -> 
@@ -174,7 +174,7 @@ let rec on_expr_transformer
     | Assume e -> Assume (recurse e)
     | Error x -> Error x
   in
-  {tag = new_tag; body = body'}
+  {tag = tag'; body = body'}
 ;;
 
 let get_natodefa_equivalent_expr mappings odefa_ident =
@@ -198,9 +198,6 @@ let get_natodefa_equivalent_expr mappings odefa_ident =
           "variable %s is not associated with any natodefa expr."
           (Ast.show_ident odefa_ident'))
   in
-  (* let () = print_endline @@ On_ast.show_expr_desc natodefa_expr in
-  let () = failwith "Stop right here!" in *)
-  (* Get any original natodefa exprs *)
   let on_expr_transform expr =
     match Expr_desc_map.Exceptionless.find expr on_expr_map with
     | Some expr' -> expr'

@@ -126,7 +126,7 @@ module Make
 
 
 (* **** Odefa Error Modules **** *)
-module Odefa_ident : Error_ident with type t = Odefa_ast.Ast.ident;;
+module Odefa_ident : Error_ident with type t = Dbmc.Interpreter.Ident_with_stack.t;;
 module Odefa_value : Error_value with type t = Odefa_ast.Ast.clause_body;;
 module Odefa_binop : Error_binop with type t =
   (Odefa_ast.Ast.clause_body * Odefa_ast.Ast.binary_operator * Odefa_ast.Ast.clause_body);;
@@ -186,6 +186,13 @@ val odefa_to_natodefa_error :
 ;;
 
 val odefa_to_ton_error_simple :
+  Odefa_instrumentation.Odefa_instrumentation_maps.t -> 
+  Odefa_natural.On_to_odefa_maps.t -> Typed_odefa_natural.Ton_to_on_maps.t ->
+  Dbmc.Interpreter.session -> 
+  Dbmc.Interpreter.denv -> Odefa_error.t -> Ton_error.t list
+;;
+
+val odefa_to_ton_error :
   Odefa_instrumentation.Odefa_instrumentation_maps.t -> 
   Odefa_natural.On_to_odefa_maps.t -> Typed_odefa_natural.Ton_to_on_maps.t ->
   Dbmc.Interpreter.session -> 

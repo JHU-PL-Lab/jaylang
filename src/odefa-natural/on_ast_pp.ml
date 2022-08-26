@@ -236,7 +236,7 @@ and pp_expr
 
 let show_ident = Pp_utils.pp_to_string pp_ident;;
 let show_expr = Pp_utils.pp_to_string pp_expr;;
-let show_expr_desc = Pp_utils.pp_to_string pp_expr_desc;;
+let show_expr_desc = Pp_utils.pp_to_string pp_expr_desc_without_tag;;
 
 let show_pattern = Pp_utils.pp_to_string pp_pattern;;
 

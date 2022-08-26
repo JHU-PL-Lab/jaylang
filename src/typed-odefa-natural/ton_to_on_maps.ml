@@ -34,6 +34,7 @@ type t = {
   error_to_expr_tag : int Intermediate_expr_desc_map.t;
   error_to_rec_fun_type : sem_natodefa_edesc Ident_map.t;
   error_to_value_expr : sem_natodefa_edesc Intermediate_expr_desc_map.t;
+  syn_tags : int list;
 }
 ;;
 
@@ -44,6 +45,7 @@ let empty = {
   error_to_expr_tag = Intermediate_expr_desc_map.empty;
   error_to_rec_fun_type = Ident_map.empty;
   error_to_value_expr = Intermediate_expr_desc_map.empty;
+  syn_tags = [];
 }
 ;;
 
@@ -103,6 +105,72 @@ let transform_funsig
   let e' = f e in
   Funsig (fun_name, params, e')
 ;;
+
+let find_all_syn_tags ton_on_maps (edesc : syn_natodefa_edesc) = 
+  let rec loop acc cur = 
+    let cur_tag = cur.tag in
+    let expr = cur.body in
+    match expr with
+    | Int _ | Bool _ | Var _ | Input | TypeError _ -> 
+      cur_tag :: acc
+    | Function (_, e) | Not e | VariantExpr (_, e)
+    | RecordProj (e, _) | Assert e | Assume e -> 
+      let acc' = cur_tag :: acc in
+      loop acc' e
+    | Appl (e1, e2) 
+    | Let (_, e1, e2) 
+    | Plus (e1, e2) | Minus (e1, e2) | Times (e1, e2) | Divide (e1, e2) 
+    | Modulus (e1, e2) | Equal (e1, e2) | LessThan (e1, e2) | Leq (e1, e2)
+    | GreaterThan (e1, e2) | Geq (e1, e2) | And (e1, e2) | Or (e1, e2) 
+    | Neq (e1, e2) | ListCons (e1, e2) 
+    | TypeArrow (e1, e2) | TypeArrowD ((_, e1), e2) 
+    | TypeSet (e1, e2) | TypeUnion (e1, e2) | TypeIntersect (e1, e2) -> 
+      let acc' = cur_tag :: acc in
+      let acc'' = loop acc' e1 in
+      loop acc'' e2
+    | LetRecFun (sig_lst, e) ->
+      let acc' =
+        List.fold (fun acc (Funsig (_, _, e)) -> loop acc e) acc sig_lst
+      in
+      loop acc' e
+    | LetFun (Funsig (_, _, fed), e) ->
+      let acc' = loop acc fed in
+      loop acc' e
+    | LetWithType (_, e1, e2, t) ->
+      let acc' = loop acc e1 in
+      let acc'' = loop acc' e2 in
+      loop acc'' t
+    | LetRecFunWithType (sig_lst, e, ts) ->
+      let acc' =
+        List.fold (fun acc (Funsig (_, _, e)) -> loop acc e) acc sig_lst
+      in
+      let acc'' =
+        List.fold (fun acc e -> loop acc e) acc' ts
+      in
+      loop acc'' e
+    | LetFunWithType (Funsig (_, _, fed), e, t) ->
+      let acc' = loop acc fed in
+      let acc'' = loop acc' e in
+      loop acc'' t
+    | If (e1, e2, e3) -> 
+      let acc' = loop acc e1 in
+      let acc'' = loop acc' e2 in
+      loop acc'' e3
+    | Record m | TypeRecord m -> 
+      Ident_map.fold (fun _ e acc -> loop acc e) m acc
+    | Match (e, pattern_expr_lst) ->
+      let acc' = 
+        List.fold (fun acc (_, e) -> loop acc e) acc pattern_expr_lst 
+      in
+      loop acc' e
+    | List expr_lst ->
+      List.fold (fun acc e -> loop acc e) acc expr_lst
+    | TypeInt | TypeBool | TypeVar _ -> acc
+    | TypeList e | TypeRecurse (_, e) -> loop acc e
+    in 
+    let all_syn_tags = loop [] edesc in
+    { ton_on_maps with 
+      syn_tags = all_syn_tags;}
 
 let rec syn_natodefa_from_sem_natodefa 
   ton_on_maps (sem_edesc : sem_natodefa_edesc)

@@ -6,6 +6,8 @@ open Odefa_natural
 open Typed_odefa_natural
 open Odefa_instrumentation
 
+let _show_expr' = Pp_utils.pp_to_string Ton_ast_internal_pp.pp_expr;;
+
 exception Parse_failure of string
 
 module type Error_ident = sig
@@ -213,12 +215,12 @@ end
 
 (* **** Odefa modules **** *)
 
-module Odefa_ident : Error_ident with type t = Ast.ident = struct
-  type t = Ast.ident
+module Odefa_ident : Error_ident with type t = Dbmc.Interpreter.Ident_with_stack.t = struct
+  type t = Dbmc.Interpreter.Ident_with_stack.t
 
-  let equal = Ast.equal_ident
-  let pp = Ast_pp.pp_ident
-  let show = Ast_pp.show_ident
+  let equal = Dbmc.Interpreter.Ident_with_stack.equal
+  let pp = Dbmc.Interpreter.Ident_with_stack.pp
+  let show = Dbmc.Interpreter.Ident_with_stack.show
   let to_yojson ident = `String (replace_linebreaks @@ show ident)
 end
 
@@ -353,8 +355,14 @@ let odefa_error_remove_instrument_vars
     (error : Odefa_error.t)
   : Odefa_error.t =
   let remove_instrument_aliases aliases =
+    (* let () = print_endline "This is aliases pre-transform" in
+    let () = 
+      aliases
+      |> List.iter ~f:(fun x -> print_endline @@ Dbmc.Interpreter.show_ident_with_stack x)
+    in *)
     List.filter
-      ~f:(fun alias ->
+      ~f:(fun alias_with_stack ->
+        let alias = Dbmc.Interpreter.ident_from_id_with_stack alias_with_stack in
         not @@ Odefa_instrumentation_maps.is_var_instrumenting odefa_on_maps alias)
       aliases
   in
@@ -373,12 +381,12 @@ let odefa_error_remove_instrument_vars
       let l_operand' =
         match left_aliases' with
         | [] -> err.err_binop_left_val
-        | v :: _ -> Ast.Var_body (Var (v, None))
+        | (v, _) :: _ -> Ast.Var_body (Var (v, None))
       in
       let r_operand' =
         match right_aliases' with
         | [] -> err.err_binop_right_val
-        | v :: _ -> Ast.Var_body (Var (v, None))
+        | (v, _) :: _ -> Ast.Var_body (Var (v, None))
       in
       Error_binop {
         err with
@@ -487,8 +495,14 @@ let odefa_to_natodefa_error
   match odefa_err with
   | Odefa_error.Error_binop err ->
     begin
-      let l_aliases = err.err_binop_left_aliases in
-      let r_aliases = err.err_binop_right_aliases in
+      let l_aliases = 
+        err.err_binop_left_aliases
+        |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
+      in
+      let r_aliases = 
+        err.err_binop_right_aliases
+        |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
+      in
       let l_aliases_on = odefa_to_on_aliases l_aliases in
       let r_aliases_on = odefa_to_on_aliases r_aliases in
       let (_, op, _) = err.err_binop_operation in
@@ -515,7 +529,10 @@ let odefa_to_natodefa_error
     end
   | Odefa_error.Error_match err ->
     begin
-      let aliases = err.err_match_aliases in
+      let aliases = 
+        err.err_match_aliases 
+        |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
+      in
       (* let () = print_endline "Printing aliases" in
       let () = List.iter (fun a -> print_endline @@ Ast.show_ident a) aliases in
       let () = print_endline @@ show_expr ((odefa_to_on_value aliases).body) in *)
@@ -528,7 +545,10 @@ let odefa_to_natodefa_error
     end
   | Odefa_error.Error_value err ->
     begin
-      let aliases = err.err_value_aliases in
+      let aliases = 
+        err.err_value_aliases 
+        |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
+      in
       (* let () = print_endline "Printing aliases" in
       let () = List.iter (fun a -> print_endline @@ Ast.show_ident a) aliases in *)
       let err_val_edesc = odefa_to_on_value aliases in
@@ -544,7 +564,7 @@ let odefa_to_natodefa_error
           let v = Dbmc.Interpreter.value_of_dvalue dv1 in
           let alias_graph = interp_session.alias_graph in
           let odefa_aliases_raw = 
-            Sato_tools.find_alias alias_graph [] (x, stk) 
+            Sato_tools.find_alias alias_graph (x, stk) 
           in
           let odefa_aliases = 
             odefa_aliases_raw
@@ -656,14 +676,15 @@ let odefa_to_ton_error_simple
   in
   List.map ~f:transform_one_error natodefa_errors
 
-(* let odefa_to_ton_error_simple
+let odefa_to_ton_error
     (odefa_inst_maps : Odefa_instrumentation_maps.t)
     (odefa_on_maps : On_to_odefa_maps.t)
-    (_ton_on_maps : Ton_to_on_maps.t)
-    (interp_session : Dbmc.Interpreter.session) 
-    (final_env : Dbmc.Interpreter.denv)
+    (ton_on_maps : Ton_to_on_maps.t)
+    (interp_session : Dbmc.Interpreter.session)
+    (* (err_source : Ton_ast.expr_desc) *)
+    (_final_env : Dbmc.Interpreter.denv)
     (odefa_err : Odefa_error.t)
-    : On_error.t list =
+    : Ton_error.t list =
   (* Helper functions *)
   let open On_ast in
   let get_pre_inst_id x =
@@ -678,7 +699,11 @@ let odefa_to_ton_error_simple
     |> List.filter_map
       ~f:(fun alias ->
         let alias' = get_pre_inst_id alias in
-        let e_desc = odefa_to_on_expr alias' in
+        let e_desc = 
+          try odefa_to_on_expr alias' 
+          with
+          | Invalid_argument _ -> new_expr_desc @@ Int 0 
+        in
         match (e_desc.body) with
         | (Var _) | Error _ -> Some e_desc
         | _ -> None
@@ -696,10 +721,13 @@ let odefa_to_ton_error_simple
   in
   let odefa_to_on_value (aliases : Ast.ident list) : expr_desc =
     let last_var =
-      try
+      match (List.last aliases) with
+      | Some n -> n
+      | None -> failwith "Thou ailest here and here!"
+      (* try
         List.last_exn aliases
       with Invalid_argument _ ->
-        raise @@ Jhupllib.Utils.Invariant_failure "Can't have empty alias list!"
+        raise @@ Jhupllib.Utils.Invariant_failure "Can't have empty alias list!" *)
     in
     odefa_to_on_expr @@ get_pre_inst_id last_var
   in
@@ -717,94 +745,133 @@ let odefa_to_ton_error_simple
   in
   (* Odefa to natodefa *)
   match odefa_err with
-  | Odefa_error.Error_binop err ->
-    begin
-      let l_aliases = err.err_binop_left_aliases in
-      let r_aliases = err.err_binop_right_aliases in
-      let l_aliases_on = odefa_to_on_aliases l_aliases in
-      let r_aliases_on = odefa_to_on_aliases r_aliases in
-      let (_, op, _) = err.err_binop_operation in
-      let l_value = odefa_to_on_value l_aliases in
-      let r_value = odefa_to_on_value r_aliases in
-      let constraint_expr =
-        let left_expr =
-          if List.is_empty l_aliases_on then l_value else
-            List.hd_exn l_aliases_on
-        in
-        let right_expr =
-          if List.is_empty r_aliases_on then r_value else
-            List.hd_exn r_aliases_on
-        in
-        odefa_to_on_binop op left_expr right_expr
-      in
-      [ Error_binop {
-        err_binop_left_aliases = get_idents_from_aliases l_aliases_on;
-        err_binop_right_aliases = get_idents_from_aliases r_aliases_on;
-        err_binop_left_val = l_value.body;
-        err_binop_right_val = r_value.body;
-        err_binop_operation = constraint_expr;
-      } ]
-    end
-  | Odefa_error.Error_match err ->
-    begin
-      let aliases = err.err_match_aliases in
-      (* let () = print_endline "Printing aliases" in
-      let () = List.iter (fun a -> print_endline @@ Ast.show_ident a) aliases in
-      let () = print_endline @@ show_expr ((odefa_to_on_value aliases).body) in *)
-      [ Error_match {
-        err_match_aliases = get_idents_from_aliases @@ odefa_to_on_aliases aliases;
-        err_match_val = (odefa_to_on_value aliases).body;
-        err_match_expected = odefa_to_on_type err.err_match_expected;
-        err_match_actual = odefa_to_on_type err.err_match_actual;
-      } ]
-    end
+  | Odefa_error.Error_binop _ 
+  | Odefa_error.Error_match _ ->
+   failwith "Should have been handled by odefa_to_ton_error_simple"
   | Odefa_error.Error_value err ->
-    begin
-      let aliases = err.err_value_aliases in
-      (* let () = print_endline "Printing aliases" in
-      let () = List.iter (fun a -> print_endline @@ Ast.show_ident a) aliases in *)
-      let err_val_edesc = odefa_to_on_value aliases in
-      match err_val_edesc.body with
-      | Match (subj, pat_ed_lst) ->
-        begin
-        let odefa_var_opt = 
-          On_to_odefa_maps.get_odefa_var_opt_from_natodefa_expr odefa_on_maps subj
-        in
-        match odefa_var_opt with
-        | Some (Var (x, _)) ->
-          let (dv1, stk) = Ast.Ident_map.find x final_env in
-          let v = Dbmc.Interpreter.value_of_dvalue dv1 in
-          let alias_graph = interp_session.alias_graph in
-          let odefa_aliases_raw = 
-            Sato_tools.find_alias alias_graph [] (x, stk) 
-          in
-          let odefa_aliases = 
-            odefa_aliases_raw
-            |> List.map ~f:(fun (x, _) -> x)
-            |> List.rev
-          in
-          let actual_type = Sato_tools.get_value_type v in
-          let errors = 
-            let mapper (pat, _) = 
-              let expected_type = 
-                Sato_tools.get_expected_type_from_pattern pat 
-              in
-              On_error.Error_match {
-                err_match_aliases = get_idents_from_aliases @@ odefa_to_on_aliases odefa_aliases;
-                err_match_val = (odefa_to_on_value odefa_aliases).body;
-                err_match_expected = expected_type;
-                err_match_actual = odefa_to_on_type actual_type;
-              }
-            in
-            List.map ~f:mapper pat_ed_lst
-          in
-          errors
-        | None -> failwith "Should have found an odefa var!"
-        end
-      | _ ->
-        [ Error_value {
-          err_value_aliases = get_idents_from_aliases @@ odefa_to_on_aliases aliases;
-          err_value_val = err_val_edesc.body;
-        } ]
-    end
-;; *)
+    let odefa_aliases_with_stack = err.err_value_aliases in
+    (* let () = 
+      List.iter 
+        ~f:(fun is -> print_endline @@ Dbmc.Interpreter.show_ident_with_stack is) 
+        odefa_aliases_with_stack 
+    in *)
+    let relevant_stk = 
+      match (List.last odefa_aliases_with_stack) with
+      | Some (_, final_stk) -> final_stk
+      | None -> failwith "Should have at least one element in the list!"
+    in
+    let sem_nat_aliases = 
+      odefa_aliases_with_stack
+      |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
+      |> odefa_to_on_aliases
+      |> List.map ~f:Ton_ast_internal.from_natodefa_expr_desc
+      |> List.map 
+        ~f:(Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps)
+    in
+    (* let () = 
+      List.iter
+        ~f:(fun ed -> print_endline @@ show_expr' ed.body) 
+        sem_nat_aliases 
+    in *)
+    let sem_val_exprs = 
+      sem_nat_aliases
+      |> List.filter_map 
+        ~f:(Ton_to_on_maps.get_value_expr_from_sem_expr ton_on_maps)
+    in
+    (* let () = 
+      List.iter
+        ~f:(fun ed -> print_endline @@ show_expr' ed.body) 
+        sem_val_exprs 
+    in *)
+    let odefa_vars = 
+      sem_val_exprs
+      |> List.filter_map 
+        ~f:(Ton_to_on_maps.get_core_expr_from_sem_expr ton_on_maps)
+      |> List.map ~f:(Ton_ast_internal.to_natodefa_expr_desc)
+      |> List.filter_map 
+        ~f:(On_to_odefa_maps.get_odefa_var_opt_from_natodefa_expr odefa_on_maps)
+    in
+    (* let () = 
+      List.iter
+        ~f:(fun (Var (x, _)) -> print_endline @@ Ast.show_ident x) 
+        odefa_vars 
+    in *)
+    (* TODO: This is hacky. There has got to be a better way of doing this *)
+    (* let stacks = 
+      odefa_aliases_with_stack
+      |> List.map ~f:Dbmc.Interpreter.stack_from_id_with_stack
+    in *)
+    let alias_graph = interp_session.alias_graph in
+    (* let odefa_vars_with_stack =
+      odefa_vars
+      |> List.map ~f:(fun (Var (x, _)) -> x)
+      |> List.map
+          ~f:(fun x -> List.map ~f:(fun stk -> (x, stk)) stacks)
+      |> List.concat
+      |> List.map ~f:(Sato_tools.find_alias alias_graph)
+      |> List.concat
+    in  *)
+    let odefa_vars_with_stack : Dbmc.Interpreter.Ident_with_stack.t list =
+      odefa_vars
+      |> List.map ~f:(fun (Var (x, _)) -> x)
+      |> List.map ~f:(Sato_tools.find_alias_without_stack alias_graph)
+      |> List.concat
+      |> List.concat
+      |> List.filter ~f:(fun (_, stk) -> Dbmc.Concrete_stack.equal stk relevant_stk)
+      |> List.map ~f:(Sato_tools.find_alias alias_graph)
+      |> List.concat
+    in 
+    (* let keys = Batteries.List.of_enum @@ Ast.Ident_map.keys final_env in
+    let () = List.iter ~f:(fun k -> print_endline @@ show_ident k) keys in *)
+    (* let () = failwith @@ string_of_bool @@ List.is_empty @@ List.concat odefa_vars_with_stack in *)
+    (* let () = 
+      List.iter 
+        ~f:(fun x -> print_endline @@ Dbmc.Interpreter.show_ident_with_stack x) 
+        odefa_vars_with_stack in *)
+    let rec find_val 
+      (vdef_mapping : 
+        (Dbmc.Interpreter.Ident_with_stack.t, 
+         Ast.clause_body * Dbmc.Interpreter.dvalue) Hashtbl.t) 
+      (xs : Dbmc.Interpreter.Ident_with_stack.t list) 
+      (* : Dbmc.Interpreter.dvalue * Dbmc.Interpreter.Ident_with_stack.t = *)
+      : Dbmc.Interpreter.dvalue =
+      match xs with
+      | [] -> failwith "Should at least found one value!"
+      | hd :: tl ->
+        let () = print_endline @@ Dbmc.Interpreter.show_ident_with_stack hd in
+        let found = Hashtbl.find vdef_mapping hd in
+        match found with
+        | Some (_, dv) -> dv
+        | None -> find_val vdef_mapping tl
+    in
+    let err_val = 
+      find_val (interp_session.val_def_map) odefa_vars_with_stack
+    in
+    let sem_val_expr_lst = 
+      let odefa_to_on_expr' x = 
+        try Some (odefa_to_on_expr x) with
+        | Invalid_argument _ -> None
+      in
+      let relevant_tags = ton_on_maps.syn_tags in
+      odefa_vars_with_stack
+      |> List.map ~f:(fun (x, _) -> x)
+      |> List.filter_map ~f:odefa_to_on_expr'
+      |> List.map ~f:Ton_ast_internal.from_natodefa_expr_desc
+      |> List.map ~f:(Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps)
+      |> List.map ~f:(Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps)
+      |> List.filter ~f:(fun ed -> List.mem relevant_tags ed.tag ~equal:(=))
+      |> List.map ~f:Ton_ast_internal.from_internal_expr_desc
+    in
+    let () = List.iter ~f:(fun x -> print_endline @@ Ton_ast_pp.show_expr_desc x) sem_val_expr_lst in
+    let v = Dbmc.Interpreter.value_of_dvalue err_val in
+    (* let () = print_endline @@ Ast_pp.show_value v in *)
+    (* let vs = 
+      dvs_lst
+      |> List.map
+          ~f:(fun (dv, _) -> 
+              let res = Dbmc.Interpreter.value_of_dvalue dv in
+              res
+              )
+    in *)
+    failwith "Keep working!"
+;;

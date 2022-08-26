@@ -35,14 +35,16 @@ let read_source_sato filename =
           (* Typed -> Untyped *)
           Ton_to_on.transform_natodefa tnatast_internal.body
         in
+        let ton_on_maps' = Ton_to_on_maps.find_all_syn_tags ton_on_maps tnatast_internal in
         let natast = Ton_ast_internal.to_natodefa_expr_desc core_ast in
         (* let (desugared_typed, ton_on_maps) = transform_natodefa natast in *)
+        (* let () = print_endline @@ On_ast_pp.show_expr_desc natast in *)
         let (post_inst_ast, odefa_inst_maps, on_odefa_maps) =
           On_to_odefa.translate ~is_instrumented:true natast 
         in
-        (* let () = print_endline @@ Odefa_ast.Ast_pp.show_expr post_inst_ast in *)
+        let () = print_endline @@ Odefa_ast.Ast_pp.show_expr post_inst_ast in
         Ast_wellformedness.check_wellformed_expr post_inst_ast;
-        (post_inst_ast, odefa_inst_maps, Some on_odefa_maps, Some ton_on_maps)
+        (post_inst_ast, odefa_inst_maps, Some on_odefa_maps, Some ton_on_maps')
       end
     else 
       if is_natodefa_ext filename

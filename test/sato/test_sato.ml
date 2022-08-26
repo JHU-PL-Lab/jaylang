@@ -39,7 +39,7 @@ let errors_to_plain
       match error with
       | Sato_error.Odefa_error.Error_match err ->
         let actual_aliases = 
-          List.map ~f:(fun (Ident i) -> i) err.err_match_aliases 
+          List.map ~f:(fun (Ident i, _) -> i) err.err_match_aliases 
         in
         let actual_v =
           Odefa_ast.Ast_pp_brief.show_clause_body err.err_match_val
@@ -56,7 +56,7 @@ let errors_to_plain
         )
       | Sato_error.Odefa_error.Error_value err -> 
         let actual_aliases = 
-          List.map ~f:(fun (Ident i) -> i) err.err_value_aliases 
+          List.map ~f:(fun (Ident i, _) -> i) err.err_value_aliases 
         in
         let actual_v =
           Odefa_ast.Ast_pp_brief.show_clause_body err.err_value_val
