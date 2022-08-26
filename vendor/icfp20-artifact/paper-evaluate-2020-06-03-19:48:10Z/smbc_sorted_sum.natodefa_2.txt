@@ -1,0 +1,3 @@
+[-2,-1,18,0]
+18377
+Requested input sequences found; terminating.

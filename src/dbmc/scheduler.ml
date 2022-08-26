@@ -2,6 +2,11 @@ open Core
 open Lwt.Infix
 open Log.Export
 
+(* Scheduler doesn't need to maintain a key map to make it unique.
+   For a scheduler, it should only require a heap that can pop a task when needed.
+   This heap can have duplicate keys.
+*)
+
 type ('key, 'r) job = { key : 'key; payload : unit -> 'r Lwt.t }
 
 let compare j1 j2 = -Lookup_key.compare j1.key j2.key
@@ -14,11 +19,11 @@ let rec run ?(is_empty = false) q : 'a Lwt.t =
   Control_center.handle_available_commands () ;
   Lwt_mutex.lock Control_center.mutex >>= fun () ->
   Lwt_mutex.unlock Control_center.mutex ;
-  (* LLog.app (fun m -> m "[Queue]size = %d" (Pairing_heap.length q)) ;
-     LLog.app (fun m ->
-         m "[Queue]%a"
-           (Fmt.Dump.list Lookup_key.pp)
-           (q |> Pairing_heap.to_list |> List.map ~f:(fun t -> t.key))) ; *)
+  (* LLog.app (fun m -> m "[Queue]size = %d" (Pairing_heap.length q)) ; *)
+  LLog.app (fun m ->
+      m "[Queue]%a"
+        (Fmt.Dump.list Lookup_key.pp)
+        (q |> Pairing_heap.to_list |> List.map ~f:(fun t -> t.key))) ;
   match pull q with
   | Some job ->
       (* ignore @@ job (); *)

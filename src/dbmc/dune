@@ -6,7 +6,7 @@
  (libraries
   core
   core_kernel.pairing_heap
-  core_unix.nano_mutex
+  ;   core_unix.nano_mutex
   core_unix.filename_unix
   core_unix.command_unix
   fmt
@@ -40,4 +40,4 @@
 (env
  (dev
   (flags
-   (:standard -w -33 -w -26))))
+   (:standard -w -33 -w -26 -w -27))))

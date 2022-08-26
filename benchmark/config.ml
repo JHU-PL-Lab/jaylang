@@ -7,6 +7,7 @@ and t = {
   testcases_not_time : test_group;
   repeat : int;
   timeout : string;
+  engine : string; [@default "dbmc"]
   test_path : string; [@default "benchmark/cases"]
   working_path : string; [@default "benchmark/_working"]
   result_path : string; [@default "benchmark/result"]

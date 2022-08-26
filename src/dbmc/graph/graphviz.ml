@@ -67,9 +67,10 @@ module C = struct
   let not_picked = [ `Arrowhead `Odot; `Color Palette.light ]
   let incomplete = [ `Style `Dashed ]
 end
+[@@warning "-32"]
 
 module Graph_node = struct
-  type t = (Node.Node.t, string) Either.t [@@deriving compare, equal]
+  type t = (Search_graph.Node.t, string) Either.t [@@deriving compare, equal]
 
   let hash = Hashtbl.hash
 end
@@ -132,11 +133,11 @@ module DotPrinter_Make (S : GS) = struct
     let root = S.state.root_node in
     let g = G.create () in
 
-    let at_node (tree_node : Node.t ref) =
+    let at_node (tree_node : Search_graph.node_ref) =
       G.add_vertex g (Either.first !tree_node)
     in
     let acc_f parent node =
-      if Node.equal_ref node root
+      if Search_graph.equal_ref node root
       then node
       else
         let edge_info =
@@ -148,7 +149,7 @@ module DotPrinter_Make (S : GS) = struct
           (Either.first !parent, Either.first edge_info, Either.first !node) ;
         node
     in
-    ignore @@ Node.traverse_node ~at_node ~init:root ~acc_f root ;
+    ignore @@ Search_graph.traverse_node ~at_node ~init:root ~acc_f root ;
     g
 
   module DotPrinter = Graph.Graphviz.Dot (struct
@@ -156,7 +157,8 @@ module DotPrinter_Make (S : GS) = struct
 
     let vertex_name vertex =
       Either.value_map vertex
-        ~first:(fun (v : Node.t) -> Lookup_key.to_string v.key |> name_escape)
+        ~first:(fun (v : Search_graph.node) ->
+          Lookup_key.to_string v.key |> name_escape)
         ~second:(Fmt.str "\"%s\"")
 
     let graph_attributes (_g : t) =
@@ -171,9 +173,10 @@ module DotPrinter_Make (S : GS) = struct
     let default_vertex_attributes _ = [ `Shape `Record ]
 
     let vertex_attributes v0 =
-      let node_attr (node : Node.t) =
-        let open Node in
-        let rule = Node.rule_name node.rule in
+      let node_attr (node : Search_graph.node) =
+        let open Search_graph in
+        (* let rule = Node.rule_name node.rule in *)
+        let rule = "not yet" in
         let key_value =
           match S.model with
           | None -> None
@@ -183,40 +186,44 @@ module DotPrinter_Make (S : GS) = struct
               Solver.SuduZ3.(get_value model (var_s lookup_name))
         in
         let c_id =
-          match node.rule with
-          | Para_local _ | Para_nonlocal _ | Pending | Cond_choice _ ->
-              node.block_id
-          | _ -> node.key.x
+          (* match node.rule with
+             | Para_local _ | Para_nonlocal _ | Pending | Cond_choice _ ->
+                 node.block_id
+             | _ -> *)
+          node.key.x
         in
         let clause =
           Odefa_ast.Ast.Ident_map.Exceptionless.find c_id source_map
         in
         let content =
           let phis_string =
-            Option.value_map (Hashtbl.find S.state.phi_map node.key) ~default:""
-              ~f:(fun phi -> phi |> Z3.Expr.to_string |> label_escape)
+            let term_detail = Hashtbl.find S.state.term_detail_map node.key in
+            Option.value_map term_detail ~default:"" ~f:(fun dd ->
+                Option.value_map dd.phi ~default:"" ~f:(fun d ->
+                    d |> Z3.Expr.to_string |> label_escape))
           in
           let phi_status =
-            match Hashtbl.find S.state.noted_phi_map node.key with
-            | Some [] -> ""
-            | Some noted_phis -> (
-                match S.model with
-                | Some model ->
-                    let noted_vs =
-                      List.map noted_phis ~f:(fun (note, phi) ->
-                          let phi_v =
-                            Solver.(
-                              SuduZ3.eval_value model phi |> SuduZ3.unbox_bool)
-                          in
-                          (note, phi_v))
-                    in
-                    Fmt.(
-                      str "| { %a }"
-                        (list ~sep:(any " | ")
-                           (pair ~sep:(any ": ") string bool))
-                        noted_vs)
-                | None -> "")
-            | None -> ""
+            ""
+            (* match Hashtbl.find S.state.noted_phi_map node.key with
+               | Some [] -> ""
+               | Some noted_phis -> (
+                   match S.model with
+                   | Some model ->
+                       let noted_vs =
+                         List.map noted_phis ~f:(fun (note, phi) ->
+                             let phi_v =
+                               Solver.(
+                                 SuduZ3.eval_value model phi |> SuduZ3.unbox_bool)
+                             in
+                             (note, phi_v))
+                       in
+                       Fmt.(
+                         str "| { %a }"
+                           (list ~sep:(any " | ")
+                              (pair ~sep:(any ": ") string bool))
+                           noted_vs)
+                   | None -> "")
+               | None -> "" *)
           in
           let pvar = Global_state.pvar_picked S.state node.key in
           let outputs =
@@ -238,28 +245,29 @@ module DotPrinter_Make (S : GS) = struct
             outputs rule
         in
         let styles =
-          match node.rule with
-          | Pending -> C.pending
-          | Mismatch -> C.mismatch
-          | _ ->
-              if Hash_set.mem S.state.lookup_alert node.key
-              then C.alert
-              else if Riddler.is_picked S.model node.key
-              then
-                let is_defining_node = Id.equal c_id node.key.x in
-                if is_defining_node
-                then
-                  (* Fmt.pr "@[Fetch  Set at %a@]\n" Lookup_key.pp node.key; *)
-                  C.node_picked_set
-                else
-                  (* C.node_picked_get (Hashtbl.find_exn S.state.node_get node.key) *)
-                  let i =
-                    Hashtbl.find_or_add S.state.node_get node.key
-                      ~default:(Fn.const 0)
-                  in
-                  (* Fmt.pr "@[Fetch  Get at %a@] = %d\n" Lookup_key.pp node.key i; *)
-                  C.node_picked_get i
-              else C.node_unpicked
+          []
+          (* match node.rule with
+             | Pending -> C.pending
+             | Mismatch -> C.mismatch
+             | _ ->
+                 if Hash_set.mem S.state.lookup_alert node.key
+                 then C.alert
+                 else if Riddler.is_picked S.model node.key
+                 then
+                   let is_defining_node = Id.equal c_id node.key.x in
+                   if is_defining_node
+                   then
+                     (* Fmt.pr "@[Fetch  Set at %a@]\n" Lookup_key.pp node.key; *)
+                     C.node_picked_set
+                   else
+                     (* C.node_picked_get (Hashtbl.find_exn S.state.node_get node.key) *)
+                     let i =
+                       Hashtbl.find_or_add S.state.node_get node.key
+                         ~default:(Fn.const 0)
+                     in
+                     (* Fmt.pr "@[Fetch  Get at %a@] = %d\n" Lookup_key.pp node.key i; *)
+                     C.node_picked_get i
+                 else C.node_unpicked *)
         in
 
         [ `Label content ] @ styles
@@ -289,7 +297,7 @@ module DotPrinter_Make (S : GS) = struct
 
     let get_subgraph vs =
       Either.value_map vs
-        ~first:(fun (v : Node.t) ->
+        ~first:(fun (v : Search_graph.node) ->
           let sg_name =
             Printf.sprintf "%s_%s" (Id.show v.block_id)
               (Rstack.to_string v.key.r_stk)
