@@ -25,8 +25,6 @@ end;;
 
 type t = {
 
-  
-
   (** Mapping between an odefa variable to the natodefa expr that the
       odefa variable was derived from. *)
   odefa_var_to_natodefa_expr : Expr_desc.t Ast.Ident_map.t;
@@ -189,85 +187,98 @@ let get_natodefa_equivalent_expr mappings odefa_ident =
     | Some (None) | None -> odefa_ident
   in
   (* Get natodefa expr from odefa var *)
-  let natodefa_expr =
-    try
-      Ast.Ident_map.find odefa_ident' odefa_on_map
-    with Not_found ->
-      raise @@ Invalid_argument
-        (Printf.sprintf
-          "variable %s is not associated with any natodefa expr."
-          (Ast.show_ident odefa_ident'))
+  let res_opt = 
+    Ast.Ident_map.find_opt odefa_ident' odefa_on_map
   in
-  let on_expr_transform expr =
-    match Expr_desc_map.Exceptionless.find expr on_expr_map with
-    | Some expr' -> expr'
-    | None -> expr
-  in
-  let on_ident_transform e_desc =
-    let open On_ast in
-    let find_ident ident =
-      Ident_map.find_default ident ident on_ident_map
+  match res_opt with
+  | None -> None
+  | Some res ->
+    let on_expr_transform expr =
+      match Expr_desc_map.Exceptionless.find expr on_expr_map with
+      | Some expr' -> expr'
+      | None -> expr
     in
-    let transform_funsig funsig =
-      let (Funsig (fun_ident, arg_ident_list, body)) = funsig in
-      let fun_ident' = find_ident fun_ident in
-      let arg_ident_list' = List.map find_ident arg_ident_list in
-      Funsig (fun_ident', arg_ident_list', body)
+    let on_ident_transform e_desc =
+      let open On_ast in
+      let find_ident ident =
+        Ident_map.find_default ident ident on_ident_map
+      in
+      let transform_funsig funsig =
+        let (Funsig (fun_ident, arg_ident_list, body)) = funsig in
+        let fun_ident' = find_ident fun_ident in
+        let arg_ident_list' = List.map find_ident arg_ident_list in
+        Funsig (fun_ident', arg_ident_list', body)
+      in
+      let expr = e_desc.body in
+      let og_tag = e_desc.tag in
+      let expr' = 
+        match expr with
+        | Var ident -> Var (find_ident ident)
+        | Function (ident_list, body) ->
+          Function (List.map find_ident ident_list, body)
+        | Let (ident, e1, e2) ->
+          Let (find_ident ident, e1, e2)
+        | LetFun (funsig, e) ->
+          LetFun (transform_funsig funsig, e)
+        | LetRecFun (funsig_list, e) ->
+          LetRecFun (List.map transform_funsig funsig_list, e)
+        | Match (e, pat_e_list) ->
+          let transform_pattern pat =
+            match pat with
+            | RecPat record ->
+              let record' =
+                record
+                |> Ident_map.enum
+                |> Enum.map
+                  (fun (lbl, x_opt) ->
+                    match x_opt with
+                    | Some x -> (lbl, Some (find_ident x))
+                    | None -> (lbl, None)
+                  )
+                |> Ident_map.of_enum
+              in
+              RecPat record'
+            | VariantPat (vlbl, x) ->
+              VariantPat (vlbl, find_ident x)
+            | VarPat x ->
+              VarPat (find_ident x)
+            | LstDestructPat (x1, x2) ->
+              LstDestructPat (find_ident x1, find_ident x2)
+            | AnyPat | IntPat | BoolPat | FunPat | EmptyLstPat -> pat
+          in
+          let pat_e_list' =
+            List.map
+              (fun (pat, match_expr) -> 
+                (* let show_expr = Pp_utils.pp_to_string On_ast_pp.pp_expr in *)
+                (* let () = print_endline @@ show_expr match_expr in *)
+                (transform_pattern pat, match_expr))
+              pat_e_list
+          in
+          Match (e, pat_e_list')
+        | _ -> expr
+      in
+      {tag = og_tag; body = expr'}
     in
-    let expr = e_desc.body in
-    let og_tag = e_desc.tag in
-    let expr' = 
-      match expr with
-      | Var ident -> Var (find_ident ident)
-      | Function (ident_list, body) ->
-        Function (List.map find_ident ident_list, body)
-      | Let (ident, e1, e2) ->
-        Let (find_ident ident, e1, e2)
-      | LetFun (funsig, e) ->
-        LetFun (transform_funsig funsig, e)
-      | LetRecFun (funsig_list, e) ->
-        LetRecFun (List.map transform_funsig funsig_list, e)
-      | Match (e, pat_e_list) ->
-        let transform_pattern pat =
-          match pat with
-          | RecPat record ->
-            let record' =
-              record
-              |> Ident_map.enum
-              |> Enum.map
-                (fun (lbl, x_opt) ->
-                  match x_opt with
-                  | Some x -> (lbl, Some (find_ident x))
-                  | None -> (lbl, None)
-                )
-              |> Ident_map.of_enum
-            in
-            RecPat record'
-          | VariantPat (vlbl, x) ->
-            VariantPat (vlbl, find_ident x)
-          | VarPat x ->
-            VarPat (find_ident x)
-          | LstDestructPat (x1, x2) ->
-            LstDestructPat (find_ident x1, find_ident x2)
-          | AnyPat | IntPat | BoolPat | FunPat | EmptyLstPat -> pat
-        in
-        let pat_e_list' =
-          List.map
-            (fun (pat, match_expr) -> 
-              (* let show_expr = Pp_utils.pp_to_string On_ast_pp.pp_expr in *)
-              (* let () = print_endline @@ show_expr match_expr in *)
-              (transform_pattern pat, match_expr))
-            pat_e_list
-        in
-        Match (e, pat_e_list')
-      | _ -> expr
+    let final_ed = 
+      res
+      |> on_expr_transformer on_ident_transform
+      |> on_expr_transformer on_expr_transform
     in
-    {tag = og_tag; body = expr'}
-  in
-  natodefa_expr
-  |> on_expr_transformer on_ident_transform
-  |> on_expr_transformer on_expr_transform
+    Some final_ed
 ;;
+
+
+let get_natodefa_equivalent_expr_exn mappings odefa_ident =
+  let res_opt = get_natodefa_equivalent_expr mappings odefa_ident in
+  match res_opt with
+  | None -> 
+    raise @@ Invalid_argument
+      (Printf.sprintf
+        "variable %s is not associated with any natodefa expr."
+        (Ast.show_ident odefa_ident))
+  | Some res -> res
+;;
+
 
 let get_type_from_idents mappings odefa_idents =
   let on_idents =
@@ -285,7 +296,7 @@ let get_type_from_idents mappings odefa_idents =
 
 let odefa_to_on_aliases on_mappings aliases =
   let odefa_to_on_expr x =
-    get_natodefa_equivalent_expr on_mappings x
+    get_natodefa_equivalent_expr_exn on_mappings x
   in
   aliases
   |> List.filter_map

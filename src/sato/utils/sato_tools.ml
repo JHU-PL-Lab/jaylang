@@ -21,7 +21,7 @@ let find_alias graph x_with_stk =
   in
   loop [] x_with_stk
 
-let find_alias_without_stack graph x = 
+let find_alias_without_stack graph x : Interpreter.Ident_with_stack.t list list = 
   let init_set = Hash_set.create(module Dbmc.Interpreter.Ident_with_stack) in
   let alias_sets = Hash_set.create(module Dbmc.Interpreter.Ident_with_stack) in
   let xs = Interpreter.G.fold_vertex 

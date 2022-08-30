@@ -6,7 +6,7 @@ open Odefa_natural
 open Typed_odefa_natural
 open Odefa_instrumentation
 
-let _show_expr' = Pp_utils.pp_to_string Ton_ast_internal_pp.pp_expr;;
+(* let _show_expr' = Pp_utils.pp_to_string Ton_ast_internal_pp.pp_expr;; *)
 
 exception Parse_failure of string
 
@@ -346,7 +346,66 @@ module Ton_type : (Error_type with type t = Ton_ast.type_sig) = struct
     `String (replace_linebreaks @@ show typ);;
 end;;
 
-module Ton_error = Make(Ton_ident)(Ton_value)(Ton_binop)(Ton_type);;
+module Ton_error = struct
+  module Error_base = Make(Ton_ident)(Ton_value)(Ton_binop)(Ton_type)
+
+  type error_type = {
+    err_type_variable : Ton_value.t;
+    err_type_expected : Ton_value.t;
+    err_type_actual : Ton_value.t;
+  } 
+  [@@ deriving equal, to_yojson]
+
+  type t =
+    | Error_binop of Error_base.error_binop
+    | Error_match of Error_base.error_match
+    | Error_value of Error_base.error_value
+    | Error_natodefa_type of error_type
+  (* [@@ deriving equal, to_yojson] *)
+
+  let pp_error_type formatter err =
+    let pp_value formatter err =
+      let value = err.err_type_variable in
+      Format.fprintf formatter 
+        "@[* Value    : @[%a@]@]@,"
+        Ton_value.pp value
+    in
+    let pp_expected formatter err =
+      Format.fprintf formatter
+        "@[* Expected : @[%a@]@]@,"
+        Ton_value.pp err.err_type_expected
+    in
+    let pp_actual formatter err =
+      Format.fprintf formatter
+        "@[* Actual   : @[%a@]@]"
+        Ton_value.pp err.err_type_actual
+    in
+    Format.fprintf formatter
+      "@[<v 0>%a%a%a@]"
+      pp_value err
+      pp_expected err
+      pp_actual err
+  ;;
+
+  let to_yojson : t -> Yojson.Safe.t = fun error -> 
+    match error with
+    | Error_binop err -> Error_base.to_yojson (Error_base.Error_binop err)
+    | Error_match err -> Error_base.to_yojson (Error_base.Error_match err)
+    | Error_value err -> Error_base.to_yojson (Error_base.Error_value err)
+    | Error_natodefa_type err -> error_type_to_yojson err
+  ;;
+
+  let pp formatter error =
+    match error with
+    | Error_binop err -> Error_base.pp formatter (Error_base.Error_binop err)
+    | Error_match err -> Error_base.pp formatter (Error_base.Error_match err)
+    | Error_value err -> Error_base.pp formatter (Error_base.Error_value err)
+    | Error_natodefa_type err -> pp_error_type formatter err
+ 
+  let show = Pp_utils.pp_to_string pp
+
+end
+;;
 
 (* **** Odefa error cleanup **** *)
 
@@ -447,7 +506,7 @@ let odefa_to_natodefa_error
     |> Option.value ~default:x
   in 
   let odefa_to_on_expr =
-    On_to_odefa_maps.get_natodefa_equivalent_expr odefa_on_maps
+    On_to_odefa_maps.get_natodefa_equivalent_expr_exn odefa_on_maps
   in
   let odefa_to_on_aliases aliases =
     aliases
@@ -681,8 +740,7 @@ let odefa_to_ton_error
     (odefa_on_maps : On_to_odefa_maps.t)
     (ton_on_maps : Ton_to_on_maps.t)
     (interp_session : Dbmc.Interpreter.session)
-    (* (err_source : Ton_ast.expr_desc) *)
-    (_final_env : Dbmc.Interpreter.denv)
+    (err_source : Ton_ast.expr_desc)
     (odefa_err : Odefa_error.t)
     : Ton_error.t list =
   (* Helper functions *)
@@ -699,55 +757,20 @@ let odefa_to_ton_error
     |> List.filter_map
       ~f:(fun alias ->
         let alias' = get_pre_inst_id alias in
-        let e_desc = 
-          try odefa_to_on_expr alias' 
-          with
-          | Invalid_argument _ -> new_expr_desc @@ Int 0 
-        in
-        match (e_desc.body) with
-        | (Var _) | Error _ -> Some e_desc
-        | _ -> None
+        match odefa_to_on_expr alias' with
+        | None -> None 
+        | Some e_desc ->
+          match (e_desc.body) with
+          | Var _ | Error _ -> Some e_desc
+          | _ -> None
       )
     |> Batteries.List.unique
-  in
-  let get_idents_from_aliases (aliases : expr_desc list) =
-    aliases
-    |> List.filter_map 
-    ~f:(fun ed -> 
-      match ed.body with
-      | Var x -> Some x
-      | _ -> None
-    ) 
-  in
-  let odefa_to_on_value (aliases : Ast.ident list) : expr_desc =
-    let last_var =
-      match (List.last aliases) with
-      | Some n -> n
-      | None -> failwith "Thou ailest here and here!"
-      (* try
-        List.last_exn aliases
-      with Invalid_argument _ ->
-        raise @@ Jhupllib.Utils.Invariant_failure "Can't have empty alias list!" *)
-    in
-    odefa_to_on_expr @@ get_pre_inst_id last_var
-  in
-  let odefa_to_on_type (typ : Ast.type_sig) : On_ast.type_sig =
-    match typ with
-    | Ast.Top_type -> TopType
-    | Ast.Int_type -> IntType
-    | Ast.Bool_type -> BoolType
-    | Ast.Fun_type -> FunType
-    | Ast.Rec_type lbls ->
-      On_to_odefa_maps.get_type_from_idents odefa_on_maps lbls
-    | Ast.Bottom_type ->
-      raise @@ Jhupllib.Utils.Invariant_failure
-        (Printf.sprintf "Bottom type not in natodefa")
   in
   (* Odefa to natodefa *)
   match odefa_err with
   | Odefa_error.Error_binop _ 
   | Odefa_error.Error_match _ ->
-   failwith "Should have been handled by odefa_to_ton_error_simple"
+    failwith "Should have been handled by odefa_to_ton_error_simple"
   | Odefa_error.Error_value err ->
     let odefa_aliases_with_stack = err.err_value_aliases in
     (* let () = 
@@ -755,15 +778,21 @@ let odefa_to_ton_error
         ~f:(fun is -> print_endline @@ Dbmc.Interpreter.show_ident_with_stack is) 
         odefa_aliases_with_stack 
     in *)
+    (* This is the stack of the "false" value that indicates where the error
+       is located. *)
     let relevant_stk = 
       match (List.last odefa_aliases_with_stack) with
       | Some (_, final_stk) -> final_stk
       | None -> failwith "Should have at least one element in the list!"
     in
-    let sem_nat_aliases = 
+    (* Restoring the Natodefa version of the error indicator (the false value) *)
+    let core_nat_aliases = 
       odefa_aliases_with_stack
       |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
       |> odefa_to_on_aliases
+    in
+    let sem_nat_aliases = 
+      core_nat_aliases
       |> List.map ~f:Ton_ast_internal.from_natodefa_expr_desc
       |> List.map 
         ~f:(Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps)
@@ -773,6 +802,7 @@ let odefa_to_ton_error
         ~f:(fun ed -> print_endline @@ show_expr' ed.body) 
         sem_nat_aliases 
     in *)
+    (* Getting the expression that triggered the error *)
     let sem_val_exprs = 
       sem_nat_aliases
       |> List.filter_map 
@@ -783,6 +813,7 @@ let odefa_to_ton_error
         ~f:(fun ed -> print_endline @@ show_expr' ed.body) 
         sem_val_exprs 
     in *)
+    (* Getting the odefa variable corresponding to the error-triggering value *)
     let odefa_vars = 
       sem_val_exprs
       |> List.filter_map 
@@ -817,7 +848,12 @@ let odefa_to_ton_error
       |> List.map ~f:(Sato_tools.find_alias_without_stack alias_graph)
       |> List.concat
       |> List.concat
-      |> List.filter ~f:(fun (_, stk) -> Dbmc.Concrete_stack.equal stk relevant_stk)
+      (* TODO: This might be buggy; we're assuming that all values that might
+         trigger the error must have an alias that is defined within the same
+         block as the error indicator (i.e. the said alias and the indicator
+         will have the same stack). *)
+      |> List.filter 
+        ~f:(fun (_, stk) -> Dbmc.Concrete_stack.equal stk relevant_stk)
       |> List.map ~f:(Sato_tools.find_alias alias_graph)
       |> List.concat
     in 
@@ -836,9 +872,9 @@ let odefa_to_ton_error
       (* : Dbmc.Interpreter.dvalue * Dbmc.Interpreter.Ident_with_stack.t = *)
       : Dbmc.Interpreter.dvalue =
       match xs with
-      | [] -> failwith "Should at least found one value!"
+      | [] -> failwith "Should at least find one value!"
       | hd :: tl ->
-        let () = print_endline @@ Dbmc.Interpreter.show_ident_with_stack hd in
+        (* let () = print_endline @@ Dbmc.Interpreter.show_ident_with_stack hd in *)
         let found = Hashtbl.find vdef_mapping hd in
         match found with
         | Some (_, dv) -> dv
@@ -847,23 +883,209 @@ let odefa_to_ton_error
     let err_val = 
       find_val (interp_session.val_def_map) odefa_vars_with_stack
     in
-    let sem_val_expr_lst = 
-      let odefa_to_on_expr' x = 
-        try Some (odefa_to_on_expr x) with
-        | Invalid_argument _ -> None
-      in
+    (* let val_exprs = 
       let relevant_tags = ton_on_maps.syn_tags in
       odefa_vars_with_stack
       |> List.map ~f:(fun (x, _) -> x)
-      |> List.filter_map ~f:odefa_to_on_expr'
+      |> List.filter_map ~f:odefa_to_on_expr
       |> List.map ~f:Ton_ast_internal.from_natodefa_expr_desc
       |> List.map ~f:(Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps)
       |> List.map ~f:(Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps)
       |> List.filter ~f:(fun ed -> List.mem relevant_tags ed.tag ~equal:(=))
       |> List.map ~f:Ton_ast_internal.from_internal_expr_desc
-    in
-    let () = List.iter ~f:(fun x -> print_endline @@ Ton_ast_pp.show_expr_desc x) sem_val_expr_lst in
+      |> Batteries.List.unique
+    in *)
+    (* let () = List.iter ~f:(fun x -> print_endline @@ Ton_ast_pp.show_expr_desc x) sem_val_expr_lst in *)
     let v = Dbmc.Interpreter.value_of_dvalue err_val in
+    (* Here we need to refine the expected type; since they could be aliases to 
+       the type value rather than the types themselves. 
+       e.g. let x = bool in let (y : x) = true in y and false *)
+    let (expected_type, err_var) = 
+      match (err_source.body) with
+      | LetWithType (x, _, _, t) -> 
+        let ret = Var x
+          |> Ton_ast_internal.new_expr_desc 
+          |> Ton_ast_internal.from_internal_expr_desc 
+        in
+        (t, ret)
+      | LetFunWithType (Funsig (x, _, _), _, t) -> 
+        let ret = Var x
+          |> Ton_ast_internal.new_expr_desc 
+          |> Ton_ast_internal.from_internal_expr_desc 
+        in
+        (t, ret)
+      | LetRecFunWithType (fsigs, _, ts) ->
+        let precise_lookup = 
+          core_nat_aliases
+          |> List.filter_map ~f:(fun alias ->
+              match alias.body with
+              | Error idnt -> Some idnt
+              | _ -> None
+            )
+          |> List.filter_map 
+            ~f:(fun x -> 
+                Ident_map.find_opt x ton_on_maps.error_to_rec_fun_type)
+        in
+        let precise_type = 
+          if List.is_empty precise_lookup then 
+            failwith "No type found!"
+          else
+            (List.hd_exn precise_lookup)
+            |> Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps
+              (* let () = failwith @@ On_to_odefa.show_expr_desc x
+              in  *)
+              (* let () = failwith "1" in *)
+            |> Ton_ast_internal.from_internal_expr_desc
+        in
+        let fsig_with_types = 
+          List.zip_exn fsigs ts
+        in
+        let var_opt = 
+          List.fold 
+            ~f:(fun acc (Funsig (x, _, _), t)-> 
+              if Ton_ast.equal_expr_desc t precise_type 
+              then Some x 
+              else acc) 
+            ~init:None fsig_with_types
+        in
+        (match var_opt with
+        | Some x ->
+          let ret = Var x
+            |> Ton_ast_internal.new_expr_desc 
+            |> Ton_ast_internal.from_internal_expr_desc 
+          in
+          (precise_type, ret)
+        | None -> failwith "Should have found the type signature!")
+      | _ -> failwith "Shouldn't be here!"
+    in
+    let expected_type_internal = 
+      expected_type
+      |> Ton_ast_internal.to_internal_expr_desc
+    in
+    let rec solidify_type (ed : Ton_ast_internal.syn_natodefa_edesc)
+    : Ton_ast_internal.syn_natodefa_edesc =
+      let open Ton_ast_internal in
+      let tag = ed.tag in
+      let e = ed.body in
+      match e with
+      | TypeVar _ | TypeInt | TypeBool -> ed
+      | TypeRecord r ->
+        let body' = TypeRecord (Ident_map.map solidify_type r) in
+        {tag = tag; body = body'}
+      | TypeList led ->
+        let body' = TypeList (solidify_type led) in
+        {tag = tag; body = body'}  
+      | TypeArrow (ed1, ed2) ->
+        let ed1' = solidify_type ed1 in
+        let ed2' = solidify_type ed2 in
+        let body' = TypeArrow (ed1', ed2') in
+        {tag = tag; body = body'}
+      | TypeArrowD ((x, ed1), ed2) ->
+        let ed1' = solidify_type ed1 in
+        let ed2' = solidify_type ed2 in
+        let body' = TypeArrowD ((x, ed1'), ed2') in
+        {tag = tag; body = body'}
+      | TypeUnion (ed1, ed2) ->
+        let ed1' = solidify_type ed1 in
+        let ed2' = solidify_type ed2 in
+        let body' = TypeUnion (ed1', ed2') in
+        {tag = tag; body = body'}
+      | TypeIntersect (ed1, ed2) ->
+        let ed1' = solidify_type ed1 in
+        let ed2' = solidify_type ed2 in
+        let body' = TypeIntersect (ed1', ed2') in
+        {tag = tag; body = body'}
+      | TypeSet (ed, pred) ->
+        let ed' = solidify_type ed in
+        let body' = TypeSet (ed', pred) in
+        {tag = tag; body = body'}
+      | TypeRecurse (rec_id, ed) -> 
+        let ed' = solidify_type ed in
+        let body' = TypeRecurse (rec_id, ed') in
+        {tag = tag; body = body'} 
+      | _ -> 
+        (* Potential FIXME: A lot of things could go wrong here... *)
+        let odefa_vars = 
+          ed
+          |> Ton_to_on_maps.sem_from_syn ton_on_maps
+          |> Ton_to_on_maps.get_core_expr_from_sem_expr ton_on_maps
+          |> Option.value_exn
+          |> Ton_ast_internal.to_natodefa_expr_desc
+          |> On_to_odefa_maps.get_odefa_var_opt_from_natodefa_expr odefa_on_maps
+          |> Option.value_exn
+          |> (fun (Ast.Var (x, _)) -> Sato_tools.find_alias_without_stack alias_graph x)
+          |> List.concat
+          |> List.filter 
+              ~f:(fun (_, stk) -> Dbmc.Concrete_stack.equal stk relevant_stk)
+          |> List.map ~f:(Sato_tools.find_alias alias_graph)
+          |> List.concat
+        in
+        let is_type_expr (ed : Ton_ast_internal.syn_natodefa_edesc) : bool = 
+          match ed.body with
+          | TypeVar _ | TypeInt | TypeBool 
+          | TypeRecord _| TypeList _| TypeArrow _
+          | TypeArrowD _ | TypeUnion _ | TypeIntersect _
+          | TypeSet _ | TypeRecurse _ -> true
+          | _ -> false
+        in
+        let val_exprs = 
+          let relevant_tags = ton_on_maps.syn_tags in
+          odefa_vars
+          |> List.map ~f:(fun (x, _) -> x)
+          |> List.filter_map ~f:odefa_to_on_expr
+          |> List.map ~f:Ton_ast_internal.from_natodefa_expr_desc
+          |> List.map ~f:(Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps)
+          |> List.map ~f:(Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps)
+          (* |> List.filter ~f:(fun ed -> List.mem relevant_tags ed.tag ~equal:(=)) *)
+          |> Batteries.List.unique
+          (* |> List.filter ~f:is_type_expr *)
+        in
+        let () = 
+          List.iter ~f:(fun ed -> print_endline @@ Ton_ast_pp.show_expr_desc (Ton_ast_internal.from_internal_expr_desc ed)) val_exprs 
+        in
+        let val_expr_cleansed = 
+          val_exprs
+          |> List.map ~f:solidify_type
+          |> List.hd_exn
+        in
+        val_expr_cleansed
+    in
+    let actual_expected_type = solidify_type expected_type_internal in
+    let find_tag =
+      sem_nat_aliases
+      |> List.filter_map 
+        ~f:(fun alias -> 
+          Ton_to_on_maps.Intermediate_expr_desc_map.find_opt 
+            alias ton_on_maps.error_to_expr_tag)
+    in
+    let tag = 
+      if List.is_empty find_tag then failwith "No tag found!"
+      else 
+        List.hd_exn find_tag
+    in
+    let new_t = 
+      match v with
+      | Value_int _ -> Ton_ast_internal.new_expr_desc @@ TypeInt
+      | Value_bool _ -> Ton_ast_internal.new_expr_desc @@ TypeBool
+      | _ -> 
+        failwith "Houston we have a problem!"
+    in
+    (* let expected_type_internal = 
+      expected_type
+      |> Ton_ast_internal.to_internal_expr_desc
+    in *)
+    let show_expr_desc = Pp_utils.pp_to_string Ton_ast_internal_pp.pp_expr_desc in
+    let actual_type = 
+      (* let () = print_endline @@ "expected: " ^ string_of_int expected_type_internal.tag in *)
+      (* let () = print_endline @@ "actual: " ^ show_expr_desc new_t in *)
+      (* let () = print_endline @@ string_of_int tag in *)
+      Ton_to_on_maps.replace_type actual_expected_type new_t tag
+      |> Ton_ast_internal.from_internal_expr_desc
+    in
+    let actual_expected_type_external = 
+      actual_expected_type
+      |> Ton_ast_internal.from_internal_expr_desc
+    in
     (* let () = print_endline @@ Ast_pp.show_value v in *)
     (* let vs = 
       dvs_lst
@@ -873,5 +1095,9 @@ let odefa_to_ton_error
               res
               )
     in *)
-    failwith "Keep working!"
+    [ Ton_error.Error_natodefa_type {
+      err_type_variable = err_var;
+      err_type_expected = actual_expected_type_external;
+      err_type_actual = actual_type;
+    } ]
 ;;

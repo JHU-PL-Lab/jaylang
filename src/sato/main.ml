@@ -76,6 +76,7 @@ let main_from_program
               )
             with
             | Interpreter.Found_abort ab_clo ->
+              let () = print_endline @@ "ready to report error!" in
               match ab_clo with
               | AbortClosure final_env ->
                 (

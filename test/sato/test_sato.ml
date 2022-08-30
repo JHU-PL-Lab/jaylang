@@ -16,6 +16,8 @@ let group_all_files dir =
               | `Yes -> (acc_f, loop fullpath @ acc_p)
               | `No when File_utils.is_odefa_ext fullpath ->
                   (fullpath :: acc_f, acc_p)
+              | `No when File_utils.is_ton_ext fullpath ->
+                  (fullpath :: acc_f, acc_p)
               | `No -> (acc_f, acc_p)
               | `Unknown -> (acc_f, acc_p)))
         dir
@@ -123,7 +125,69 @@ let errors_to_plain
     ; number_of_errors = err_num
     ; error_list = errs
     }
-  | Ton_error _ -> failwith "TBI!"
+  | Ton_error err ->
+    let actual_err_loc = 
+      Ton_error_location.show @@ err.err_location 
+      |> String.substr_replace_all ~pattern:"\n" ~with_:""
+    in    
+    let err_num = List.length err.err_errors in
+    let actual_errs = err.err_errors in
+    let transform_one_err_tnat (error : Sato_error.Ton_error.t) : Test_expect.error =
+      (
+      match error with
+      | Sato_error.Ton_error.Error_match err ->
+        let actual_aliases = 
+          List.map ~f:(fun (Ident i) -> i) err.err_match_aliases 
+        in
+        let actual_v =
+          Typed_odefa_natural.Ton_ast_pp.show_expr (err.err_match_val).body
+          |> String.substr_replace_all ~pattern:"\n" ~with_:" "
+        in
+        let (a_actual_type, a_expected_type) = 
+          (Typed_odefa_natural.Ton_ast_pp.show_on_type @@ err.err_match_actual, 
+          Typed_odefa_natural.Ton_ast_pp.show_on_type @@ err.err_match_expected)
+        in 
+        Match_error (
+          { m_value = (actual_aliases, actual_v)
+          ; expected_type = a_expected_type
+          ; actual_type = a_actual_type
+          }
+        )
+      | Sato_error.Ton_error.Error_natodefa_type err ->
+        let actual_v =
+          Typed_odefa_natural.Ton_ast_pp.show_expr (err.err_type_variable).body
+          |> String.substr_replace_all ~pattern:"\n" ~with_:" "
+        in
+        let (a_actual_type, a_expected_type) = 
+          (Typed_odefa_natural.Ton_ast_pp.show_expr @@ err.err_type_actual.body, 
+          Typed_odefa_natural.Ton_ast_pp.show_expr @@ err.err_type_expected.body)
+        in 
+        Type_error (
+          { t_var = actual_v
+          ; t_expected_type = a_expected_type
+          ; t_actual_type = a_actual_type
+          }
+        )
+      | Sato_error.Ton_error.Error_value err -> 
+        let actual_aliases = 
+          List.map ~f:(fun (Ident i) -> i) err.err_value_aliases 
+        in
+        let actual_v =
+          Typed_odefa_natural.Ton_ast_pp.show_expr (err.err_value_val).body
+        in
+        Value_error (
+          { v_value = (actual_aliases, actual_v)
+          }
+        )
+      | _ -> failwith "Expect no other error types!"
+      )
+    in
+    let errs = List.map ~f:transform_one_err_tnat actual_errs
+    in
+    { found_at_clause = actual_err_loc
+    ; number_of_errors = err_num
+    ; error_list = errs
+    }
 
 let is_error_expected 
   (actual : Sato_result.reported_error) 
@@ -134,7 +198,7 @@ let is_error_expected
   Test_expect.equal expected actual_error
  
 let test_one_file testname () =
-  let (program, odefa_inst_maps, on_to_odefa_maps_opt, _) = 
+  let (program, odefa_inst_maps, on_to_odefa_maps_opt, ton_to_on_maps_opt) = 
     File_utils.read_source_sato testname 
   in
   let config : Sato_args.t = 
@@ -147,7 +211,7 @@ let test_one_file testname () =
   in
   let errors_opt = 
     Main.main_from_program 
-      ~config:config odefa_inst_maps on_to_odefa_maps_opt None program 
+      ~config:config odefa_inst_maps on_to_odefa_maps_opt ton_to_on_maps_opt program 
   in
   let expectation = Test_expect.load_sexp_expectation_for testname in
   match expectation with
@@ -175,5 +239,5 @@ let main test_path =
   ()
 
 let () = 
-  main "test-sato"
-  (* main "test-sato/playing-ground" *)
+  (* main "test-sato" *)
+  main "test-sato/playing-ground"

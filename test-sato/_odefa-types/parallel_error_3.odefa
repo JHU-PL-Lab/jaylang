@@ -3,8 +3,6 @@
 # EXPECT-TYPE-ERROR ~result [] "sum = x + y" "y = c" "true" "int" "bool"
 # # EXPECT-TYPE-ERROR ~result [] "sum = x + y" "y = b" "{}" "int" "{}"
 
-# XXX: Interesting that both type errors can be detected
-
 a = 2;
 b = {};
 c = true;

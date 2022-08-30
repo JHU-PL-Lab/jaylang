@@ -8,8 +8,13 @@ let one_run_of_sexp s =
     (fun a ->
       match a with Sexp.List _ -> None | Sexp.Atom ns -> int_of_string_opt ns)
     s *)
+type type_error = {
+  t_var : string;
+  t_expected_type : string;
+  t_actual_type : string;
+  }
 
-type match_error = {
+and match_error = {
   m_value : string list * string;
   expected_type : string;
   actual_type : string;
@@ -19,7 +24,9 @@ and value_error = {
   v_value : string list * string;
 }
 
-and error = Match_error of match_error | Value_error of value_error
+and error = 
+  | Match_error of match_error | Value_error of value_error
+  | Type_error of type_error
 
 and t = {
   found_at_clause : string;
@@ -36,26 +43,27 @@ let load_sexp_expectation_for testpath =
 
 (* 
 ** NatOdefa Type Errors **
-- Input sequence  : []
-- Found at clause : n < true
-- Found in steps  : 422
+- Input sequence  : [0]
+- Found at clause : let (id : (bool -> bool)) x
+ = 1 + 1 in id
+- Found in steps  : 1175
 --------------------
-* Value    : true
-* Expected : Integer
-* Actual   : Boolean
+* Value    : id
+* Expected : (bool -> bool)
+* Actual   : (bool -> int)
 1 error found.
 No further control flows exist.
 *)
 
 (* let t1 : t = {
-     found_at_clause = "n < true";
+     found_at_clause = "let (id : (bool -> bool)) x = 1 + 1 in id";
      number_of_errors = 1;
      error_list = 
      [
-      (Match_error {
-        m_value = ([], "true");
-        expected_type = "Integer";
-        actual_type = "Boolean";
+      (Type_error {
+        t_var = "id";
+        t_expected_type = "(bool -> bool)";
+        t_actual_type = "(bool -> int)";
       });
      ]
    }

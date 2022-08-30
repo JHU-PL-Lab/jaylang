@@ -35,7 +35,9 @@ val add_natodefa_instrument_var : t -> Ast.ident -> Ast.ident option -> t;;
 
 (** Get the natodefa expression that the odefa clause that the odefa var
     identifies maps to. *)
-val get_natodefa_equivalent_expr : t -> Ast.ident -> On_ast.expr_desc;;
+val get_natodefa_equivalent_expr : t -> Ast.ident -> On_ast.expr_desc option;;
+
+val get_natodefa_equivalent_expr_exn : t -> Ast.ident -> On_ast.expr_desc;;
 
 (** Get the natodefa type that a set of record labels corresponds to.  If
     there is no mapping that exists, return a record type by default. *)

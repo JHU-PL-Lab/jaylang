@@ -165,7 +165,7 @@ let find_all_syn_tags ton_on_maps (edesc : syn_natodefa_edesc) =
       loop acc' e
     | List expr_lst ->
       List.fold (fun acc e -> loop acc e) acc expr_lst
-    | TypeInt | TypeBool | TypeVar _ -> acc
+    | TypeInt | TypeBool | TypeVar _ -> cur_tag :: acc
     | TypeList e | TypeRecurse (_, e) -> loop acc e
     in 
     let all_syn_tags = loop [] edesc in
@@ -464,7 +464,6 @@ let rec sem_natodefa_from_core_natodefa ton_on_maps (on_err_desc : core_natodefa
     (* | Untouched s -> {tag = og_tag; body = Untouched s} *)
 ;;
 
-
 let get_syn_nat_equivalent_expr ton_on_maps (expr : Ton_ast_internal.core_natodefa_edesc) =
   expr
   |> sem_natodefa_from_core_natodefa ton_on_maps
@@ -479,4 +478,197 @@ let get_core_expr_from_sem_expr ton_on_maps sem_expr =
 
 let get_value_expr_from_sem_expr ton_on_maps sem_expr =
   Intermediate_expr_desc_map.find_opt sem_expr ton_on_maps.error_to_value_expr
+;;
+
+let rec replace_type 
+  (t_desc : syn_natodefa_edesc) 
+  (new_t : syn_natodefa_edesc) (tag : int) 
+  : syn_natodefa_edesc =
+  let cur_tag = t_desc.tag in
+  let t = t_desc.body in
+  if tag = cur_tag 
+  then 
+    begin
+      match t with
+      (* TODO: HACK *)
+      | TypeSet (td, _) ->
+        (match new_t.body with
+         | TypeError _ ->
+           new_expr_desc @@ TypeSet (td, new_t)
+         | _ -> new_t)
+      | _ -> new_t
+    end 
+  else
+  let transform_funsig (Funsig (fid, args, fe_desc)) = 
+    Funsig (fid, args, replace_type fe_desc new_t tag)
+  in
+  let t' = 
+    match t with
+    | Int _ | Bool _ | Var _ | Input | TypeError _ -> t
+    | Function (args, fe_desc) -> 
+      Function (args, replace_type fe_desc new_t tag) 
+    | Appl (ed1, ed2) -> 
+      Appl (replace_type ed1 new_t tag, replace_type ed2 new_t tag)
+    | Let (x, ed1, ed2) -> 
+      Let (x, replace_type ed1 new_t tag, replace_type ed2 new_t tag)
+    | LetRecFun (funsigs, e_desc) -> 
+      let funsigs' = List.map transform_funsig funsigs in
+      let e_desc' = replace_type e_desc new_t tag in
+      LetRecFun (funsigs', e_desc') 
+    | LetFun (funsig, e_desc) -> 
+      let funsig' = transform_funsig funsig in
+      let e_desc' = replace_type e_desc new_t tag in
+      LetFun (funsig', e_desc')
+    | LetWithType (x, e1_desc, e2_desc, e3_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      let e3_desc' = replace_type e3_desc new_t tag in
+      LetWithType (x, e1_desc', e2_desc', e3_desc')
+    | LetRecFunWithType (funsigs, e_desc, ts) -> 
+      let funsigs' = List.map transform_funsig funsigs in
+      let e_desc' = replace_type e_desc new_t tag in
+      let ts' = List.map (fun ed -> replace_type ed new_t tag) ts in
+      LetRecFunWithType (funsigs', e_desc', ts')
+    | LetFunWithType (funsig, e_desc, t) -> 
+      let funsig' = transform_funsig funsig in
+      let e_desc' = replace_type e_desc new_t tag in
+      let t' = replace_type t new_t tag in
+      LetFunWithType (funsig', e_desc', t')
+    | Plus (e1_desc, e2_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      Plus (e1_desc', e2_desc')
+    | Minus (e1_desc, e2_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      Minus (e1_desc', e2_desc')
+    | Times (e1_desc, e2_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      Times (e1_desc', e2_desc')
+    | Divide (e1_desc, e2_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      Divide (e1_desc', e2_desc')
+    | Modulus (e1_desc, e2_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      Modulus (e1_desc', e2_desc')
+    | Equal (e1_desc, e2_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      Equal (e1_desc', e2_desc')
+    | Neq (e1_desc, e2_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      Neq (e1_desc', e2_desc')
+    | LessThan (e1_desc, e2_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      LessThan (e1_desc', e2_desc')    
+    | Leq (e1_desc, e2_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      Leq (e1_desc', e2_desc')    
+    | GreaterThan (e1_desc, e2_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      GreaterThan (e1_desc', e2_desc')    
+    | Geq (e1_desc, e2_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      Geq (e1_desc', e2_desc')    
+    | And (e1_desc, e2_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      And (e1_desc', e2_desc')    
+    | Or (e1_desc, e2_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      Or (e1_desc', e2_desc')
+    | Not (e_desc) -> 
+      let e_desc' = replace_type e_desc new_t tag in
+      Not (e_desc')
+    | If (e1_desc, e2_desc, e3_desc) -> 
+      let e1_desc' = replace_type e1_desc new_t tag in
+      let e2_desc' = replace_type e2_desc new_t tag in
+      let e3_desc' = replace_type e3_desc new_t tag in
+      If (e1_desc', e2_desc', e3_desc')
+    | Record (ed_map) -> 
+      let ed_map' = Ident_map.map (fun ed -> replace_type ed new_t tag) ed_map in
+      Record (ed_map') 
+    | RecordProj (e_desc, l) ->
+      let e_desc' = replace_type e_desc new_t tag in
+      RecordProj (e_desc', l)
+    | Match (me_desc, ped_lst) -> 
+      let me_desc' = replace_type me_desc new_t tag in
+      let ped_lst' = 
+        List.map (fun (p, ped) -> (p, replace_type ped new_t tag)) ped_lst 
+      in
+      Match (me_desc', ped_lst')
+    | VariantExpr (vl, e_desc) ->
+      let e_desc' = replace_type e_desc new_t tag in
+      VariantExpr (vl, e_desc')
+    | List (ts) -> 
+      let ts' = List.map (fun t -> replace_type t new_t tag) ts in
+      List (ts') 
+    | ListCons (hd_desc, tl_desc) -> 
+      let hd_desc' = replace_type hd_desc new_t tag in
+      let tl_desc' = replace_type tl_desc new_t tag in
+      ListCons (hd_desc', tl_desc') 
+    | Assert (e_desc) -> 
+      let e_desc' = replace_type e_desc new_t tag in
+      Assert (e_desc') 
+    | Assume (e_desc) -> 
+      let e_desc' = replace_type e_desc new_t tag in
+      Assume (e_desc') 
+    | TypeVar _ | TypeInt | TypeBool -> 
+      t
+    | TypeRecord (td_map) -> 
+      let td_map' = Ident_map.map (fun td -> replace_type td new_t tag) td_map in
+      TypeRecord (td_map') 
+    | TypeList td ->
+      let td' = replace_type td new_t tag in
+      TypeList (td')
+    | TypeArrow (td1, td2) ->
+      let td1' = replace_type td1 new_t tag in
+      let td2' = replace_type td2 new_t tag in
+      TypeArrow (td1', td2')
+    | TypeArrowD ((tid, td1), td2) -> 
+      let td1' = replace_type td1 new_t tag in
+      let td2' = replace_type td2 new_t tag in
+      TypeArrowD ((tid, td1'), td2')
+    | TypeSet (td, pred) ->
+      let td' = replace_type td new_t tag in
+      let pred' = replace_type pred new_t tag in
+      TypeSet (td', pred')
+    | TypeUnion (td1, td2) ->
+      let td1' = replace_type td1 new_t tag in
+      let td2' = replace_type td2 new_t tag in
+      TypeUnion (td1', td2')
+    | TypeIntersect (td1, td2) ->
+      let td1' = replace_type td1 new_t tag in
+      let td2' = replace_type td2 new_t tag in
+      TypeIntersect (td1', td2')
+    | TypeRecurse (tv, td) -> 
+      let td' = replace_type td new_t tag in
+      TypeRecurse (tv, td')
+  in
+  {tag = cur_tag; body = t'}
+;;
+
+let sem_from_syn 
+  (ton_on_maps : t) (syn_expr : syn_natodefa_edesc) : sem_natodefa_edesc = 
+  let mappings = ton_on_maps.sem_to_syn in
+  let res_opt = 
+    Intermediate_expr_desc_map.fold 
+      (fun k v acc -> 
+        if Ton_ast_internal.equal_expr_desc v syn_expr then (Some k) else acc) 
+      mappings None 
+  in
+  match res_opt with
+  | Some res -> res
+  | None -> 
+    failwith @@
+      "Doesn't have a mapping from this syntatic natodefa expression!"
 ;;

@@ -287,7 +287,7 @@ module Natodefa_type_errors : Sato_result with type t = natodefa_error_record = 
     let on_to_odefa_maps = Option.value_exn sato_state.on_to_odefa_maps in
     let on_err_loc_core =
       err_id
-      |> On_to_odefa_maps.get_natodefa_equivalent_expr on_to_odefa_maps 
+      |> On_to_odefa_maps.get_natodefa_equivalent_expr_exn on_to_odefa_maps 
     in
     let on_err_list =
       let mapper = 
@@ -357,7 +357,7 @@ module Ton_type_errors : Sato_result with type t = ton_error_record = struct
     let ton_on_maps = Option.value_exn sato_state.ton_on_maps in
     let on_err_loc_syn =
       err_id
-      |> On_to_odefa_maps.get_natodefa_equivalent_expr on_to_odefa_maps 
+      |> On_to_odefa_maps.get_natodefa_equivalent_expr_exn on_to_odefa_maps 
       |> Ton_ast_internal.from_natodefa_expr_desc
       |> Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps
       |> Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps
@@ -373,7 +373,7 @@ module Ton_type_errors : Sato_result with type t = ton_error_record = struct
         if is_type_error then
           (Sato_error.odefa_to_ton_error
             odefa_inst_maps on_to_odefa_maps ton_on_maps 
-            interp_session final_env) 
+            interp_session on_err_loc_syn) 
         else
           (Sato_error.odefa_to_ton_error_simple 
             odefa_inst_maps on_to_odefa_maps ton_on_maps 
