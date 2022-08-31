@@ -2,7 +2,7 @@
  (name benchmark)
  (package odefa)
  (public_name odefa.benchmark_test_generation)
- (libraries shexp.process core)
+ (libraries shexp.process core core_unix)
  (preprocess
   (pps ppx_jane)))
 
