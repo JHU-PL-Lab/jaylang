@@ -86,6 +86,12 @@ benchmark-icfp-artifact:
 	dune exec benchmark/benchmark.exe -- -e dbmc -f benchmark/icfp20-artifact.s
 # dune exec benchmark/benchmark.exe -- -e ddse -f benchmark/icfp20-artifact.s
 
+b1:
+	dune exec benchmark/benchmark.exe -- -e dbmc -f benchmark/neo.s
+
+b2:
+	dune exec benchmark/benchmark.exe -- -e ddse -f benchmark/neo.s
+
 # extra
 
 one:

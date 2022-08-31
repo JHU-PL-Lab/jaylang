@@ -2,7 +2,7 @@
 # EXPECT-INPUT-SEQUENCES-REACH target [2]
 
 let x = input in
-let id x = x in 
+let id x = x in
 let blur y = y in
 let rec lp a n =
   if n <= 1 then
@@ -14,7 +14,10 @@ let rec lp a n =
     not t
   in
 let r = lp false x in
-if r then
-  let target = 1 in 1
+if 101 <= x then
+  if r then
+    let target = 1 in 1
+  else
+    0
 else
   0
