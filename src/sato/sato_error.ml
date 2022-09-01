@@ -962,6 +962,7 @@ let odefa_to_ton_error
       expected_type
       |> Ton_ast_internal.to_internal_expr_desc
     in
+    (* TODO: How to handle this? Is this worth the effort? *)
     let rec solidify_type (ed : Ton_ast_internal.syn_natodefa_edesc)
     : Ton_ast_internal.syn_natodefa_edesc =
       let open Ton_ast_internal in
@@ -1020,14 +1021,6 @@ let odefa_to_ton_error
           |> List.map ~f:(Sato_tools.find_alias alias_graph)
           |> List.concat
         in
-        let is_type_expr (ed : Ton_ast_internal.syn_natodefa_edesc) : bool = 
-          match ed.body with
-          | TypeVar _ | TypeInt | TypeBool 
-          | TypeRecord _| TypeList _| TypeArrow _
-          | TypeArrowD _ | TypeUnion _ | TypeIntersect _
-          | TypeSet _ | TypeRecurse _ -> true
-          | _ -> false
-        in
         let val_exprs = 
           let relevant_tags = ton_on_maps.syn_tags in
           odefa_vars
@@ -1036,19 +1029,24 @@ let odefa_to_ton_error
           |> List.map ~f:Ton_ast_internal.from_natodefa_expr_desc
           |> List.map ~f:(Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps)
           |> List.map ~f:(Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps)
-          (* |> List.filter ~f:(fun ed -> List.mem relevant_tags ed.tag ~equal:(=)) *)
+          |> List.filter ~f:(fun ed -> List.mem relevant_tags ed.tag ~equal:(=))
           |> Batteries.List.unique
-          (* |> List.filter ~f:is_type_expr *)
         in
-        let () = 
-          List.iter ~f:(fun ed -> print_endline @@ Ton_ast_pp.show_expr_desc (Ton_ast_internal.from_internal_expr_desc ed)) val_exprs 
-        in
-        let val_expr_cleansed = 
+        let type_exprs = 
           val_exprs
-          |> List.map ~f:solidify_type
-          |> List.hd_exn
+          |> List.filter ~f:Ton_ast_internal.is_type_expr
         in
-        val_expr_cleansed
+        (* let () = 
+          List.iter ~f:(fun ed -> print_endline @@ Ton_ast_pp.show_expr_desc (Ton_ast_internal.from_internal_expr_desc ed)) val_exprs 
+        in *)
+        let val_expr_cleansed_opt = 
+          type_exprs
+          |> List.map ~f:solidify_type
+          |> List.hd
+        in
+        match val_expr_cleansed_opt with
+        | None -> List.hd_exn val_exprs
+        | Some l -> l
     in
     let actual_expected_type = solidify_type expected_type_internal in
     let find_tag =

@@ -1087,3 +1087,11 @@ and transform_funsig' (f_sig : core_only funsig) : Odefa_natural.On_ast.funsig =
   let Funsig (f, args, f_body) = f_sig in
   let f_body' = to_natodefa_expr_desc f_body in
   Odefa_natural.On_ast.Funsig (f, args, f_body')
+
+let is_type_expr (ed : syn_natodefa_edesc) : bool = 
+  match ed.body with
+  | TypeVar _ | TypeInt | TypeBool 
+  | TypeRecord _| TypeList _| TypeArrow _
+  | TypeArrowD _ | TypeUnion _ | TypeIntersect _
+  | TypeSet _ | TypeRecurse _ -> true
+  | _ -> false
