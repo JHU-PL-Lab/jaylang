@@ -4,7 +4,7 @@
 
 open Jayil;;
 open Ddpa;;
-open Odefa_interpreter;;
+open Jayil_interpreter;;
 
 open Ast;;
 open Interpreter;;
