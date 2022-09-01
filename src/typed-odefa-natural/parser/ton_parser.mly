@@ -33,7 +33,7 @@ let record_from_list pr_list =
      Ident_map.empty
 
 let new_rec_fun_with_type 
-  (fun_sig_and_type : (funsig * expr) list) 
+  (fun_sig_and_type : (funsig * expr) list)
   (let_body : expr_desc) = 
   let fun_sig_list = List.map fst fun_sig_and_type in 
   let fun_type_list = 
@@ -43,7 +43,7 @@ let new_rec_fun_with_type
   LetRecFunWithType (fun_sig_list, let_body, fun_type_list)
 
 let new_let_fun_with_type 
-  (fun_sig_and_type : (funsig * expr)) 
+  (fun_sig_and_type : funsig * expr) 
   (let_body : expr_desc) =
   let fun_sig, fun_type = fun_sig_and_type in
   LetFunWithType (fun_sig, let_body, (new_expr_desc fun_type))
@@ -71,11 +71,241 @@ let new_fun_with_type
 
 let new_dependent_fun   
   (fun_name : ident) 
-  (typed_param : (ident * expr_desc)) 
+  (typed_param : ident * expr_desc)
   (return_type : expr_desc)
   (fun_body : expr_desc) = 
   let (param, _) = typed_param in
   (Funsig (fun_name, [param], fun_body), TypeArrowD (typed_param, return_type))
+
+let rec build_recursive_type (t_var : ident) (e_desc : expr_desc) = 
+  let e = e_desc.body in
+  let tag = e_desc.tag in
+  let body' = 
+    match e with
+    | Int _ | Bool _ | TypeError _ | Input -> e
+    | Var x -> if t_var = x then TypeVar t_var else e 
+    | Function (ids, f_edesc) ->
+      if List.mem t_var ids
+      then e
+      else 
+        let f_edesc' = build_recursive_type t_var f_edesc in
+        Function (ids, f_edesc')
+    | Appl (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      Appl (e_desc1', e_desc2')
+    | Let (x, e_desc1, e_desc2) ->
+      if x = t_var 
+      then e
+      else
+        let e_desc1' = build_recursive_type t_var e_desc1 in
+        let e_desc2' = build_recursive_type t_var e_desc2 in
+        Let (x, e_desc1', e_desc2')
+    | LetRecFun (funsigs, e_desc) ->
+      let locally_bound = 
+        List.fold_left 
+          (fun acc (Funsig (f, _, _)) -> if f = t_var then true else acc)
+          false funsigs
+      in
+      if locally_bound 
+      then
+        e
+      else
+        let funsigs' = 
+          List.map 
+            (fun (Funsig (f, params, f_body)) -> Funsig (f, params, build_recursive_type t_var f_body))
+          funsigs
+        in
+        let e_desc' = build_recursive_type t_var e_desc in
+        LetRecFun (funsigs', e_desc')
+    | LetFun (Funsig (f, params, f_body), e_desc) ->
+      if f = t_var 
+      then
+        e
+      else
+        let f_body' = build_recursive_type t_var f_body in
+        let e_desc' = build_recursive_type t_var e_desc in
+        LetFun (Funsig(f, params, f_body'), e_desc')
+    | LetWithType (x, e_desc1, e_desc2, t) -> 
+      if (x = t_var) 
+      then e
+      else
+        let e_desc1' = build_recursive_type t_var e_desc1 in
+        let e_desc2' = build_recursive_type t_var e_desc2 in
+        let t' = build_recursive_type t_var t in
+        LetWithType (x, e_desc1', e_desc2', t')
+    | LetRecFunWithType (funsigs, e_desc, ts) -> 
+      let locally_bound = 
+        List.fold_left 
+          (fun acc (Funsig (f, _, _)) -> if f = t_var then true else acc)
+          false funsigs
+      in
+      if locally_bound 
+      then
+        e
+      else
+        let funsigs' = 
+          List.map 
+            (fun (Funsig (f, params, f_body)) -> Funsig (f, params, build_recursive_type t_var f_body))
+          funsigs
+        in
+        let e_desc' = build_recursive_type t_var e_desc in
+        let ts' = 
+          List.map (build_recursive_type t_var) ts
+        in
+        LetRecFunWithType (funsigs', e_desc', ts')
+    | LetFunWithType (Funsig (f, params, f_body), e_desc, t) ->
+      if f = t_var 
+      then
+        e
+      else
+        let f_body' = build_recursive_type t_var f_body in
+        let e_desc' = build_recursive_type t_var e_desc in
+        let t' = build_recursive_type t_var t in
+        LetFunWithType (Funsig(f, params, f_body'), e_desc', t')
+    | Plus (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      Plus (e_desc1', e_desc2')
+    | Minus (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      Minus (e_desc1', e_desc2')
+    | Times (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      Times (e_desc1', e_desc2')
+    | Divide (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      Divide (e_desc1', e_desc2')
+    | Modulus (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      Modulus (e_desc1', e_desc2')
+    | Equal (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      Equal (e_desc1', e_desc2')
+    | Neq (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      Neq (e_desc1', e_desc2')
+    | LessThan (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      LessThan (e_desc1', e_desc2')
+    | Leq (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      Leq (e_desc1', e_desc2')
+    | GreaterThan (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      GreaterThan (e_desc1', e_desc2')
+    | Geq (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      Geq (e_desc1', e_desc2')
+    | And (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      And (e_desc1', e_desc2')
+    | Or (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      Or (e_desc1', e_desc2')
+    | Not e_desc ->
+      let e_desc' = build_recursive_type t_var e_desc in
+      Not e_desc'
+    | If (e_desc1, e_desc2, e_desc3) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      let e_desc3' = build_recursive_type t_var e_desc3 in
+      If (e_desc1', e_desc2', e_desc3')
+    | Record r ->
+      let r' =
+        Ident_map.map
+          (fun e_desc -> build_recursive_type t_var e_desc)
+          r
+      in
+      Record r'
+    | RecordProj (e_desc, l) ->
+      let e_desc' = build_recursive_type t_var e_desc in
+      RecordProj (e_desc', l)
+    | Match (match_edesc, pat_edesc_lst) ->
+      let match_edesc' = build_recursive_type t_var match_edesc in
+      let pat_edesc_lst' = 
+        List.map 
+          (fun (pat, e_desc) -> 
+            let e_desc' = build_recursive_type t_var e_desc in
+            (pat, e_desc')
+          )
+          pat_edesc_lst
+      in
+      Match (match_edesc', pat_edesc_lst')
+    | VariantExpr (l, e_desc) ->
+      let e_desc' = build_recursive_type t_var e_desc in
+      VariantExpr (l, e_desc')
+    | List e_descs ->
+      let e_descs' = 
+        List.map (build_recursive_type t_var) e_descs 
+      in
+      List e_descs'
+    | ListCons (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      ListCons (e_desc1', e_desc2')
+    | Assert e_desc ->
+      let e_desc' = build_recursive_type t_var e_desc in
+      Assert e_desc'
+    | Assume e_desc ->
+      let e_desc' = build_recursive_type t_var e_desc in
+      Assume e_desc'
+    | TypeVar _ | TypeInt | TypeBool -> e
+    | TypeRecord r ->
+      let r' =
+        Ident_map.map
+          (fun e_desc -> build_recursive_type t_var e_desc)
+          r
+      in
+      TypeRecord r'
+    | TypeList t ->
+      let t' = build_recursive_type t_var t in
+      TypeList t'
+    | TypeArrow (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      TypeArrow (e_desc1', e_desc2')
+    | TypeArrowD ((x, e_desc1), e_desc2) ->
+      if x = t_var 
+      then
+        e
+      else
+        let e_desc1' = build_recursive_type t_var e_desc1 in
+        let e_desc2' = build_recursive_type t_var e_desc2 in
+        TypeArrowD ((x, e_desc1'), e_desc2')
+    | TypeSet (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      TypeSet (e_desc1', e_desc2')
+    | TypeUnion (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      TypeUnion (e_desc1', e_desc2')
+    | TypeIntersect (e_desc1, e_desc2) ->
+      let e_desc1' = build_recursive_type t_var e_desc1 in
+      let e_desc2' = build_recursive_type t_var e_desc2 in
+      TypeIntersect (e_desc1', e_desc2')
+    | TypeRecurse (tv, e_desc) ->
+      if t_var = tv 
+      then
+        e
+      else
+        let e_desc' = build_recursive_type t_var e_desc in
+        TypeRecurse (tv, e_desc')
+  in
+  {tag = tag; body = body'}
 %}
 
 %token <string> IDENTIFIER
@@ -242,7 +472,8 @@ expr:
   // Types expressions
   | basic_types { $1 }
   // | type_parameter { $1 }
-  | MU ident_decl DOT expr { TypeRecurse ($2, new_expr_desc $4) }
+  | MU ident_decl DOT expr 
+    { TypeRecurse ($2, build_recursive_type $2 (new_expr_desc $4)) }
   | expr ARROW expr { TypeArrow (new_expr_desc $1, new_expr_desc $3) }
   | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN ARROW expr { TypeArrowD (($2, new_expr_desc $4), new_expr_desc $7) }
   // TODO: Change this to fancy curly
@@ -250,9 +481,6 @@ expr:
   | expr DOUBLE_PIPE expr { TypeUnion (new_expr_desc $1, new_expr_desc $3) }
   | expr DOUBLE_AMPERSAND expr { TypeIntersect (new_expr_desc $1, new_expr_desc $3) }
 ;
-
-// type_parameter:
-//   | APOSTROPHE IDENTIFIER { TypeUntouched $2 }
 
 type_var:
   | DOLLAR IDENTIFIER { TypeVar $2 }
