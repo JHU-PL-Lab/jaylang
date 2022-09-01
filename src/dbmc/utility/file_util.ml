@@ -1,15 +1,8 @@
 open! Core
 
-let is_odefa_ext s = Filename.check_suffix s "odefa"
-(* || Filename.check_suffix filename "natodefa"  *)
-(* String.is_suffix s ~suffix:"odefa" *)
-
-let is_natodefa_ext s = Filename.check_suffix s "natodefa"
-(* String.is_suffix s ~suffix:"natodefa" *)
-
 let read_source ?(is_instrumented = false) filename =
   let program =
-    if is_natodefa_ext filename
+    if Odefa_natural.File_utils.check_ext filename
     then
       (* failwith "TBI!" *)
       let natast =
@@ -18,11 +11,11 @@ let read_source ?(is_instrumented = false) filename =
       in
       let nat_edesc = Odefa_natural.On_ast.new_expr_desc natast in
       (* let on_expr, ton_on_maps =
-        Odefa_natural.On_to_odefa.translate (Odefa_natural.On_ast.new_expr_desc natast)
-      in *)
+           Odefa_natural.On_to_odefa.translate (Odefa_natural.On_ast.new_expr_desc natast)
+         in *)
       Odefa_natural.On_to_odefa.translate ~is_instrumented nat_edesc
       |> fun (e, _, _) -> e
-    else if is_odefa_ext filename
+    else if Odefa_ast.File_utils.check_ext filename
     then
       let ast =
         In_channel.with_file filename ~f:Odefa_parser.Parse.parse_program_raw
