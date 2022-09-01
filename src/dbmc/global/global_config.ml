@@ -58,7 +58,7 @@ let default_config =
   }
 
 let check_wellformed_or_exit ast =
-  let open Odefa_ast in
+  let open Jayil in
   try Ast_wellformedness.check_wellformed_expr ast
   with Ast_wellformedness.Illformedness_found ills ->
     print_endline "Program is ill-formed." ;

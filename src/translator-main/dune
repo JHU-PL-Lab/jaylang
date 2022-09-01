@@ -3,6 +3,6 @@
   (libraries
     batteries
     jhupllib
-    odefa.natural
+    bluejay
   )
 )

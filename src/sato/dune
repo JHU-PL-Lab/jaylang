@@ -2,7 +2,7 @@
 
 (library
  (name sato)
- (public_name odefa.sato)
+ (public_name jay.sato)
  (libraries
   core
   core_unix.filename_unix
@@ -10,11 +10,10 @@
   fmt
   lwt
   lwt.unix
-  odefa.ast
-  odefa.ddpa
-  odefa.natural
-  odefa.natural.typed
-  odefa.parser
+  ddpa
+  bluejay
+  jayil
+  jayil_parser
   dbmc
  )
  (synopsis "Sato, the Symbolic Analysis Typechecker for Odefa, dynamically locates type errors using demand-driven symbolic execution.")

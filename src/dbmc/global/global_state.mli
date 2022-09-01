@@ -5,7 +5,7 @@ include module type of struct
   include State
 end
 
-val create : Global_config.t -> Odefa_ast.Ast.expr -> State.t
+val create : Global_config.t -> Jayil.Ast.expr -> State.t
 
 (* val init_node :
    State.t -> Lookup_key.t -> Search_graph.node_ref -> Search_graph.node_ref *)

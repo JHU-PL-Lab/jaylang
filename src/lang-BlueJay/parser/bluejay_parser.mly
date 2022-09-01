@@ -1,10 +1,10 @@
 %{
-open Ton_ast;;
+open Bluejay_ast;;
 module List = BatList;;
 
 (* Functions relating to parsing record entries *)
 
-let sep = Odefa_ast.Ast_tools.label_sep;;
+let sep = Jayil.Ast_tools.label_sep;;
 let dup_label_count = ref 0;;
 
 let new_record lbl value =
@@ -389,8 +389,8 @@ let rec build_recursive_type (t_var : ident) (e_desc : expr_desc) =
 %right ASSERT ASSUME prec_variant    /* Asserts, Assumes, and variants */
 %right ARROW                  /* -> for type declaration */
 
-%start <Ton_ast.expr> prog
-%start <Ton_ast.expr option> delim_expr
+%start <Bluejay_ast.expr> prog
+%start <Bluejay_ast.expr option> delim_expr
 
 %%
 
@@ -601,7 +601,7 @@ record_body:
       { add_record_entry $1 (new_expr_desc $3) $5 }
 ;
 
-/* [1, 2, true] (Unlike ocaml, natodefa lists can be heterogenous) */
+/* [1, 2, true] (Unlike ocaml, bluejay lists can be heterogenous) */
 list_body:
   | expr COMMA list_body { (new_expr_desc $1) :: $3 }
   | expr { [new_expr_desc $1] }

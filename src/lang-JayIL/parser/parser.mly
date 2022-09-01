@@ -1,5 +1,5 @@
 %{
-open Odefa_ast;;
+open Jayil;;
 open Ast;;
 module List = BatList;;
 
@@ -61,8 +61,8 @@ let rec mark_dupes_record_labels lbls_seen r_list =
 %token EQUAL_EQUAL
 %token DOUBLE_SEMICOLON
 
-%start <Odefa_ast.Ast.expr> prog
-%start <Odefa_ast.Ast.expr option> delim_expr
+%start <Jayil.Ast.expr> prog
+%start <Jayil.Ast.expr option> delim_expr
 
 %%
 

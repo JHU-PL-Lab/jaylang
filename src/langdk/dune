@@ -1,6 +1,6 @@
 (library
  (name langdk)
- (public_name odefa.langdk)
+ (public_name jay.langdk)
  (synopsis "Lang Develop Toolkit")
  (libraries core core_unix.sys_unix lwt lambda-term react))
 

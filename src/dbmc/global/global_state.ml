@@ -8,11 +8,11 @@ let create (config : Global_config.t) program =
   let block0 = Cfg.block_of_id target block_map in
   let state =
     {
-      first = Odefa_ast.Ast_tools.first_id program;
+      first = Jayil.Ast_tools.first_id program;
       target;
       program;
       block_map;
-      source_map = lazy (Odefa_ddpa.Ddpa_helper.clause_mapping program);
+      source_map = lazy (Ddpa.Ddpa_helper.clause_mapping program);
       root_node =
         ref (Search_graph.root_node (block0 |> Cfg.id_of_block) target);
       tree_size = 1;

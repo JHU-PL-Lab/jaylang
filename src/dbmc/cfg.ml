@@ -1,6 +1,6 @@
 open Core
-open Odefa_ast.Ast
-open Odefa_ddpa
+open Jayil.Ast
+open Ddpa
 open Ddpa_abstract_ast
 open Ddpa_graph
 open Ddpa_helper
@@ -270,7 +270,7 @@ let block_map_of_expr e : t Ident_map.t =
   !map
 
 let cfg_of e =
-  let open Odefa_ddpa in
+  let open Ddpa in
   let conf : (module Ddpa_context_stack.Context_stack) =
     (module Ddpa_single_element_stack.Stack)
   in

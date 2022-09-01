@@ -15,16 +15,18 @@ let handle_parse_error buf f =
 
 let parse_program (input : IO.input) =
   let buf = Lexing.from_channel input in
-  handle_parse_error buf (fun () -> On_parser.prog On_lexer.token buf)
+  handle_parse_error buf (fun () -> Bluejay_parser.prog Bluejay_lexer.token buf)
 
 let parse_program_raw (input : in_channel) =
   let buf = OCaml_lexing.from_channel input in
-  handle_parse_error buf @@ fun () -> On_parser.prog On_lexer.token buf
+  handle_parse_error buf @@ fun () ->
+  Bluejay_parser.prog Bluejay_lexer.token buf
 
 let parse_expression_string (expr_str : string) =
   let buf = Lexing.from_string expr_str in
   let read_expr () =
-    handle_parse_error buf (fun () -> On_parser.delim_expr On_lexer.token buf)
+    handle_parse_error buf (fun () ->
+        Bluejay_parser.delim_expr Bluejay_lexer.token buf)
   in
   LazyList.to_list @@ LazyList.from_while read_expr
 

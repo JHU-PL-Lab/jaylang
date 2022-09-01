@@ -1,6 +1,6 @@
 open Core
-open Odefa_ast
-open Odefa_ast.Ast
+open Jayil
+open Jayil.Ast
 open Log.Export
 open Rule
 module U = Unrolls.U_ddse
@@ -9,7 +9,7 @@ module type S = sig
   val state : Global_state.t
   val config : Global_config.t
   val add_phi : Lookup_key.t -> Z3.Expr.expr -> Phi_set.t -> Phi_set.t
-  val block_map : Cfg.block Odefa_ast.Ast.Ident_map.t
+  val block_map : Cfg.block Jayil.Ast.Ident_map.t
   val unroll : U.t
 end
 

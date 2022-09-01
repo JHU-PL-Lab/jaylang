@@ -1,9 +1,9 @@
 open Core
 open Lwt.Infix
-open Odefa_ast
-open Odefa_ast.Ast
+open Jayil
+open Jayil.Ast
 open Cfg
-open Odefa_ddpa
+open Ddpa
 open Log.Export
 
 let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t) =

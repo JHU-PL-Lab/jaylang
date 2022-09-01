@@ -1,6 +1,6 @@
 open Batteries
-open Odefa_ast
-open Odefa_ddpa
+open Jayil
+open Ddpa
 open Ast
 open Ddpa_abstract_ast
 
@@ -65,7 +65,7 @@ and _abs_exprs_of_value v =
   match v with
   | Abs_value_record _ -> Enum.empty ()
   | Abs_value_function (Abs_function_value (_, e)) -> Enum.singleton e
-  | Abs_value_int | Abs_value_bool _ -> Enum.empty ()
+  | Abs_value_int | Abs_value_bool _ | Abs_value_untouched _ -> Enum.empty ()
 
 let last_var_of (Expr cls) =
   let (Clause (x, _)) = List.last cls in

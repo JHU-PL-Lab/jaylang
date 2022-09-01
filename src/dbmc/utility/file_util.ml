@@ -2,26 +2,25 @@ open! Core
 
 let read_source ?(is_instrumented = false) filename =
   let program =
-    if Odefa_natural.File_utils.check_ext filename
+    if Jay.File_utils.check_ext filename
     then
       (* failwith "TBI!" *)
       let natast =
-        In_channel.with_file filename
-          ~f:Odefa_natural.On_parse.parse_program_raw
+        In_channel.with_file filename ~f:Jay.Jay_parse.parse_program_raw
       in
-      let nat_edesc = Odefa_natural.On_ast.new_expr_desc natast in
+      let nat_edesc = Jay.Jay_ast.new_expr_desc natast in
       (* let on_expr, ton_on_maps =
-           Odefa_natural.On_to_odefa.translate (Odefa_natural.On_ast.new_expr_desc natast)
+           Jay.Jay_to_jayil.translate (Jay.Jay_ast.new_expr_desc natast)
          in *)
-      Odefa_natural.On_to_odefa.translate ~is_instrumented nat_edesc
-      |> fun (e, _, _) -> e
-    else if Odefa_ast.File_utils.check_ext filename
+      Jay.Jay_to_jayil.translate ~is_instrumented nat_edesc |> fun (e, _, _) ->
+      e
+    else if Jayil.File_utils.check_ext filename
     then
       let ast =
-        In_channel.with_file filename ~f:Odefa_parser.Parse.parse_program_raw
+        In_channel.with_file filename ~f:Jayil_parser.Parse.parse_program_raw
       in
       if is_instrumented
-      then Odefa_instrumentation.Instrumentation.instrument_odefa ast |> fst
+      then Jay_instrumentation.Instrumentation.instrument_odefa ast |> fst
       else ast
     else failwith "file extension must be .odefa or .natodefa"
   in
@@ -29,8 +28,8 @@ let read_source ?(is_instrumented = false) filename =
   program
 
 (*
-let parse_natodefa = Odefa_natural.On_parse.parse_string
-let parse_odefa = Odefa_parser.Parser.parse_string
+let parse_natodefa = Jay.Jay_parse.parse_string
+let parse_odefa = Jayil_parser.Parser.parse_string
 let read_lines file = file |> In_channel.create |> In_channel.input_lines
 
 let read_src file =

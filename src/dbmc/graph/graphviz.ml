@@ -192,9 +192,7 @@ module DotPrinter_Make (S : GS) = struct
              | _ -> *)
           node.key.x
         in
-        let clause =
-          Odefa_ast.Ast.Ident_map.Exceptionless.find c_id source_map
-        in
+        let clause = Jayil.Ast.Ident_map.Exceptionless.find c_id source_map in
         let content =
           let phis_string =
             let term_detail = Hashtbl.find S.state.term_detail_map node.key in
@@ -237,7 +235,7 @@ module DotPrinter_Make (S : GS) = struct
             (Id.show node.key.x)
             (Fmt.option Solver.pp_value)
             key_value
-            (Fmt.option Odefa_ast.Ast_pp_graph.pp_clause)
+            (Fmt.option Jayil.Ast_pp_graph.pp_clause)
             clause Rstack.pp node.key.r_stk
             (Rstack.to_string node.key.r_stk)
             phis_string phi_status pvar

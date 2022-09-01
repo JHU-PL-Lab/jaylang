@@ -1,8 +1,8 @@
 open Core
 open Jhupllib
-open Odefa_ast
+open Jayil
 open Ast
-open On_to_odefa_monad_inst.TranslationMonad
+open Jay_to_jayil_monad_inst.TranslationMonad
 
 let lazy_logger = Logger_utils.make_lazy_logger "Type_instrumentation"
 
@@ -22,7 +22,9 @@ let rec change_abort_vars (old_var : var) (new_var : var) (clause : clause) :
       match value with
       | Value_function f ->
           let (Function_value (arg, Expr f_body)) = f in
-          let f_body' = List.map ~f:(change_abort_vars old_var new_var) f_body in
+          let f_body' =
+            List.map ~f:(change_abort_vars old_var new_var) f_body
+          in
           let value' = Value_function (Function_value (arg, Expr f_body')) in
           Clause (v, Value_body value')
       | _ -> clause)
@@ -63,7 +65,7 @@ let rec instrument_clauses (c_list : clause list) : clause list m =
           (* Nothing to constrain *)
           let%bind new_clauses' = instrument_clauses clauses' in
           return @@ (clause :: new_clauses')
-      | Not_body v' -> 
+      | Not_body v' ->
           let%bind is_already_inst = is_instrument_var v in
           if is_already_inst
           then
@@ -137,9 +139,9 @@ let rec instrument_clauses (c_list : clause list) : clause list m =
                   (* We need to have this line because we are adding a new value
                      source *)
                   (* let%bind () =
-                    add_odefa_natodefa_mapping z
-                      (On_ast.new_expr_desc @@ On_ast.Int 0)
-                  in *)
+                       add_odefa_natodefa_mapping z
+                         (Jay_ast.new_expr_desc @@ Jay_ast.Int 0)
+                     in *)
                   (* Clauses *)
                   let z_cls = Clause (z, Value_body (Value_int 0)) in
                   let b_bod =
@@ -284,12 +286,12 @@ let add_result_var (c_list : clause list) : clause list m =
   let result_cls = Clause (result_var, Var_body last_var) in
   return @@ c_list @ [ result_cls ]
 
-let instrument_odefa (odefa_ast : expr) : expr * Odefa_instrumentation_maps.t =
-  let (monad_val : (expr * Odefa_instrumentation_maps.t) m) =
+let instrument_odefa (jayil_ast : expr) : expr * Jayil_instrumentation_maps.t =
+  let (monad_val : (expr * Jayil_instrumentation_maps.t) m) =
     (* Transform odefa program *)
     lazy_logger `debug (fun () ->
-        Printf.sprintf "Initial program:\n%s" (Ast_pp.show_expr odefa_ast)) ;
-    let (Expr odefa_clist) = odefa_ast in
+        Printf.sprintf "Initial program:\n%s" (Ast_pp.show_expr jayil_ast)) ;
+    let (Expr odefa_clist) = jayil_ast in
     let%bind transformed_clist =
       return odefa_clist >>= instrument_clauses >>= add_first_var
       >>= add_result_var
@@ -302,5 +304,5 @@ let instrument_odefa (odefa_ast : expr) : expr * Odefa_instrumentation_maps.t =
     let%bind odefa_inst_maps = get_odefa_inst_maps in
     return (t_expr, odefa_inst_maps)
   in
-  let context = On_to_odefa_monad_inst.new_translation_context () in
+  let context = Jay_to_jayil_monad_inst.new_translation_context () in
   run context monad_val

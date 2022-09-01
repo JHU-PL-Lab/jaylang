@@ -1,5 +1,5 @@
 (** This module contains a collection of pretty-printing functions which print
-    an abbreviated form of the Odefa AST. Most notably, function bodies are
+    an abbreviated form of the JayIL AST. Most notably, function bodies are
     entirely elided in favor of ellipses. This abbreviated form is useful for
     printing clauses or values as part of an AST without cluttering output. *)
 

@@ -1,8 +1,8 @@
 open Batteries
 (** A front-end for the parser library. *)
 
-open Odefa_ast
-open Odefa_natural
+open Jayil
+open Jay
 open Ast_pp
 open Ast_tools
 open Translator_options
@@ -21,8 +21,8 @@ let purge_special_symbols (x : Ast.Var.t) : Ast.Var.t =
 let main () : unit =
   let options = parse_args () in
   match options.ta_mode with
-  | Odefa_natural_to_odefa ->
-      let ton_expr = On_parse.parse_program IO.stdin in
+  | Jay_to_odefa ->
+      let ton_expr = Jay_parse.parse_program IO.stdin in
       let on_expr, ton_on_maps = Ton_to_on.transform_natodefa ton_expr in
       let is_instrumented = options.ta_instrument in
       let odefa_expr =

@@ -1,11 +1,8 @@
 open Batteries
 open Jhupllib
-open Odefa_toploop
+open Jayil_toploop
 open Toploop_options
 open Langdk
-
-let logger = Logger_utils.make_logger "Toploop_main"
-let lazy_logger = Logger_utils.make_lazy_logger "Toploop_main"
 
 let command_line_parsing () =
   let parser = BatOptParse.OptParser.make ~version:"version 0.3.1" () in
@@ -30,7 +27,7 @@ let () =
 
                              let eval e0 =
                                let es =
-                                 Odefa_parser.Parse.parse_expressions_str e0
+                                 Jayil_parser.Parse.parse_expressions_str e0
                                in
                                LazyList.iter
                                  (fun e ->

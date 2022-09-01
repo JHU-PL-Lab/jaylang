@@ -48,7 +48,7 @@ let chrono_compare map k1 k2 =
 let length key = 1 + Rstack.length key.r_stk
 
 let get_f_return map fid r_stk x =
-  let fblock = Odefa_ast.Ast.Ident_map.find fid map in
+  let fblock = Jayil.Ast.Ident_map.find fid map in
   let x' = Cfg.ret_of fblock in
   let r_stk' = Rstack.push r_stk (x, fid) in
   let key_ret = of2 x' r_stk' in

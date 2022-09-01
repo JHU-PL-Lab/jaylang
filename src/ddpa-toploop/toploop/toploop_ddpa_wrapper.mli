@@ -4,7 +4,7 @@
    bothering the caller with tracking the changes to the analysis as it grows.
 *)
 
-open Odefa_ddpa;;
+open Ddpa;;
 
 open Toploop_ddpa_wrapper_types;;
 

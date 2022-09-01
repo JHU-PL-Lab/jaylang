@@ -1,35 +1,35 @@
 (executable
  (name dbmc_top)
  (modules dbmc_top)
- (libraries core logs dbmc odefa.ast)
+ (libraries core logs dbmc jayil)
  (preprocess
   (pps ppx_jane ppx_deriving.show lwt_ppx)))
 
 (executable
  (name sato)
  (modules sato)
- (libraries core logs dbmc sato odefa.ast)
+ (libraries core logs dbmc sato jayil)
  (preprocess
   (pps ppx_jane ppx_deriving.show)))
 
 (executables
  (names dbmc_debugger)
  (modules dbmc_debugger)
- (libraries core logs lambda-term dbmc odefa.ast)
+ (libraries core logs lambda-term dbmc jayil)
  (preprocess
   (pps ppx_jane ppx_deriving.show lwt_ppx)))
 
-(executable
- (name odefa)
- (modules odefa)
- (libraries core logs dbmc odefa.ast)
- (preprocess
-  (pps ppx_jane ppx_deriving.show)))
+; (executable
+;  (name jayil)
+;  (modules jayil)
+;  (libraries core logs dbmc jayil)
+;  (preprocess
+;   (pps ppx_jane ppx_deriving.show)))
 
 ; (executable
-;  (name natodefa)
-;  (modules natodefa)
-;  (libraries core logs dbmc odefa.natural)
+;  (name jay)
+;  (modules jay)
+;  (libraries core logs dbmc bluejay)
 ;  (preprocess
 ;   (pps ppx_jane ppx_deriving.show)))
 
@@ -39,10 +39,10 @@
  (libraries
   batteries
   jhupllib
-  odefa.ast
-  odefa.parser
-  odefa.toploop
-  odefa.langdk))
+  jayil
+  jayil_parser
+  jayil_toploop
+  langdk))
 
 (env
  (dev

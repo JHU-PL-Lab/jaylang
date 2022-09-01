@@ -1,16 +1,16 @@
 (library
-  (name odefa_toploop)
-  (public_name odefa.toploop)
+  (name jayil_toploop)
+  (public_name jay.toploop)
   (synopsis "Odefa toploop")
   (libraries
     batteries
     jhupllib
-    odefa.ast
-    odefa.ddpa
-    odefa.interpreter
-    odefa.parser
-    odefa.statistics
-    odefa.utils
+    ddpa
+    jayil
+    jayil_interpreter
+    jayil_parser
+    jay_statistics
+    jay_utils
   )
   (preprocess
     (pps

@@ -2,26 +2,26 @@
 (copy_files parser/*.{mll,mly})
 
 (ocamllex
-  on_lexer
+  jay_lexer
 )
 (menhir
   (flags --explain)
   (modules
-    on_parser
+    jay_parser
   )
 )
 
 (library
-  (name odefa_natural)
-  (public_name odefa.natural)
+  (name jay)
+  (public_name jay.jay)
   (synopsis "Translator for Odefa Natural")
   (libraries
     core
     batteries
     jhupllib
     monadlib
-    odefa.ast
-    odefa.instrumentation
+    jayil
+    jay_instrumentation
   )
   (preprocess
     (pps

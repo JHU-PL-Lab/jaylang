@@ -1,7 +1,7 @@
 (library
-  (name odefa_utils)
-  (public_name odefa.utils)
-  (synopsis "General utilities for Odefa")
+  (name jay_utils)
+  (public_name jay.utils)
+  (synopsis "General utilities for Jay")
   (libraries
     batteries
     jhupllib

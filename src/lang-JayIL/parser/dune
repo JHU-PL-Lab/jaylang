@@ -4,10 +4,10 @@
  (modules parser))
 
 (library
- (name odefa_parser)
- (public_name odefa.parser)
- (synopsis "Parser for Odefa")
- (libraries batteries jhupllib odefa.ast odefa.utils)
+ (name jayil_parser)
+ (public_name jay.jayil.parser)
+ (synopsis "Parser for JayIL")
+ (libraries batteries jhupllib jayil jay_utils)
  (preprocess
   (pps ppx_deriving.std ppx_deriving_yojson))
  (flags

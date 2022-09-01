@@ -1,10 +1,10 @@
 %{
-open On_ast;;
+open Jay_ast;;
 module List = BatList;;
 
 (* Functions relating to parsing record entries *)
 
-let sep = Odefa_ast.Ast_tools.label_sep;;
+let sep = Jayil.Ast_tools.label_sep;;
 let dup_label_count = ref 0;;
 
 let new_record lbl value =
@@ -97,8 +97,8 @@ let record_from_list pr_list =
 %right ASSERT ASSUME prec_variant    /* Asserts, Assumes, and variants */
 %right ARROW                  /* -> for type declaration */
 
-%start <On_ast.expr> prog
-%start <On_ast.expr option> delim_expr
+%start <Jay_ast.expr> prog
+%start <Jay_ast.expr option> delim_expr
 
 %%
 

@@ -2,27 +2,27 @@
 (copy_files parser/*.{mll,mly})
 
 (ocamllex
-  ton_lexer
+  bluejay_lexer
 )
 (menhir
   (flags --explain)
   (modules
-    ton_parser
+    bluejay_parser
   )
 )
 
 (library
-  (name typed_odefa_natural)
-  (public_name odefa.natural.typed)
-  (synopsis "Typed odefa natural")
+  (name bluejay)
+  (public_name jay.bluejay)
+  (synopsis "Bluejay language (Typed Jay)")
   (libraries
     core
     batteries
     jhupllib
     monadlib
-    odefa.ast
-    odefa.instrumentation
-    odefa.natural
+    jayil
+    jay_instrumentation
+    jay
   )
   (preprocess
     (pps

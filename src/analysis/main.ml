@@ -4,10 +4,10 @@ open Share
 module F = Fix.Make (ClauseMap) (IdSet)
 (* module FE = Fix.Make (ExprMap) (IdSet) *)
 
-let id_of_var (Odefa_ast.Ast.Var (id, _)) = id
+let id_of_var (Jayil.Ast.Var (id, _)) = id
 
 let rec clause_uses clause request =
-  let open Odefa_ast.Ast in
+  let open Jayil.Ast in
   let (Clause (_var, cbody)) = clause in
   match cbody with
   | Value_body (Value_int _) -> Set.empty (module Id)
@@ -23,7 +23,7 @@ let rec clause_uses clause request =
 (* SSet.(add empty (Ident "_")) *)
 
 and expr_uses expr request =
-  let open Odefa_ast.Ast in
+  let open Jayil.Ast in
   let (Expr clauses) = expr in
   List.fold clauses
     ~init:(Set.empty (module Id))
@@ -32,7 +32,7 @@ and expr_uses expr request =
       Set.union acc this_answer)
 
 let compute_closed : F.variable -> F.valuation -> IdSet.property =
-  let open Odefa_ast.Ast in
+  let open Jayil.Ast in
   fun clause request -> clause_uses clause request
 
 (* let close_ids program =
@@ -43,6 +43,6 @@ let close_ids clause =
 
 let run filename =
   let program = Load.load filename in
-  print_endline @@ Odefa_ast.Ast_pp.show_expr program ;
+  print_endline @@ Jayil.Ast_pp.show_expr program ;
   let (Expr clauses) = program in
   List.iter clauses ~f:close_ids
