@@ -1,6 +1,6 @@
 open Batteries
 
-type label = Ton_ast.label = Label of string
+type label = Bluejay_ast.label = Label of string
 [@@deriving eq, ord, show, to_yojson]
 
 type ident = Jayil.Ast.ident = Ident of string
@@ -10,7 +10,7 @@ module Ident = Jayil.Ast.Ident
 module Ident_set = Jayil.Ast.Ident_set
 module Ident_map = Jayil.Ast.Ident_map
 
-type variant_label = Ton_ast.variant_label = Variant_label of string
+type variant_label = Bluejay_ast.variant_label = Variant_label of string
 [@@deriving eq, ord, show, to_yojson]
 
 type syntactic_only = [ `Syntactic ]
@@ -30,7 +30,7 @@ type type_sig =
   | UntouchedType of string
 [@@deriving eq, ord, show, to_yojson]
 
-type pattern = Ton_ast.pattern =
+type pattern = Bluejay_ast.pattern =
   | AnyPat
   | IntPat
   | BoolPat
@@ -128,18 +128,18 @@ let fresh_tag () =
 let new_expr_desc : type a. a expr -> a expr_desc =
  fun e -> { tag = fresh_tag (); body = e }
 
-type syn_type_natodefa = syntactic_only expr
-type syn_natodefa_edesc = syntactic_only expr_desc
+type syn_type_bluejay = syntactic_only expr
+type syn_bluejay_edesc = syntactic_only expr_desc
 
-(* type syn_type_natodefa_desc = syntactic_only expr_desc *)
+(* type syn_type_bluejay_desc = syntactic_only expr_desc *)
 
-type sem_type_natodefa = [ `Semantic ] expr
-type sem_natodefa_edesc = [ `Semantic ] expr_desc
+type sem_type_bluejay = [ `Semantic ] expr
+type sem_bluejay_edesc = [ `Semantic ] expr_desc
 
-(* type sem_type_natodefa_desc = [ `Semantic ] expr *)
+(* type sem_type_bluejay_desc = [ `Semantic ] expr *)
 
-type core_natodefa = [ `Core ] expr
-type core_natodefa_edesc = [ `Core ] expr_desc
+type core_bluejay = [ `Core ] expr
+type core_bluejay_edesc = [ `Core ] expr_desc
 
 let rec equal_funsig : type a. a funsig -> a funsig -> bool =
  fun (Funsig (id1, params1, fe1)) (Funsig (id2, params2, fe2)) ->
@@ -362,41 +362,41 @@ module type Expr_desc = sig
   val compare : t -> t -> int
 end
 
-(* module TypedExpr : (Expr with type t = syn_type_natodefa) = struct
-     type t = syn_type_natodefa;;
+(* module TypedExpr : (Expr with type t = syn_type_bluejay) = struct
+     type t = syn_type_bluejay;;
      let equal = equal_expr;;
      let compare = compare_expr;;
    end;;
 
-   module IntermediateExpr : (Expr with type t = sem_type_natodefa) = struct
-     type t = sem_type_natodefa;;
+   module IntermediateExpr : (Expr with type t = sem_type_bluejay) = struct
+     type t = sem_type_bluejay;;
      let equal = equal_expr;;
      let compare = compare_expr;;
    end;;
 
-   module CoreExpr : (Expr with type t = core_natodefa) = struct
-     type t = core_natodefa;;
+   module CoreExpr : (Expr with type t = core_bluejay) = struct
+     type t = core_bluejay;;
      let equal = equal_expr;;
      let compare = compare_expr;;
    end;; *)
 
-module Typed_expr_desc : Expr_desc with type t = syn_natodefa_edesc = struct
-  type t = syn_natodefa_edesc
+module Typed_expr_desc : Expr_desc with type t = syn_bluejay_edesc = struct
+  type t = syn_bluejay_edesc
 
   let equal = equal_expr_desc
   let compare = compare_expr_desc
 end
 
-module Semantic_typed_expr_desc : Expr_desc with type t = sem_natodefa_edesc =
+module Semantic_typed_expr_desc : Expr_desc with type t = sem_bluejay_edesc =
 struct
-  type t = sem_natodefa_edesc
+  type t = sem_bluejay_edesc
 
   let equal = equal_expr_desc
   let compare = compare_expr_desc
 end
 
-module Core_expr_desc : Expr_desc with type t = core_natodefa_edesc = struct
-  type t = core_natodefa_edesc
+module Core_expr_desc : Expr_desc with type t = core_bluejay_edesc = struct
+  type t = core_bluejay_edesc
 
   let equal = equal_expr_desc
   let compare = compare_expr_desc
@@ -446,7 +446,7 @@ let expr_precedence_cmp e1 e2 = expr_precedence_p1 e1 - expr_precedence_p1 e2
 let expr_desc_precedence_cmp : type a. a expr_desc -> a expr_desc -> int =
  fun ed1 ed2 -> expr_precedence_cmp ed1.body ed2.body
 
-let rec from_internal_expr (e : syn_type_natodefa) : Ton_ast.expr =
+let rec from_internal_expr (e : syn_type_bluejay) : Bluejay_ast.expr =
   match e with
   | Int n -> Int n
   | Bool b -> Bool b
@@ -610,17 +610,17 @@ let rec from_internal_expr (e : syn_type_natodefa) : Ton_ast.expr =
       let ed' = from_internal_expr_desc ed in
       TypeRecurse (tv, ed')
 
-and from_internal_expr_desc (e : syn_natodefa_edesc) : Ton_ast.expr_desc =
+and from_internal_expr_desc (e : syn_bluejay_edesc) : Bluejay_ast.expr_desc =
   let tag' = e.tag in
   let e' = from_internal_expr e.body in
   { tag = tag'; body = e' }
 
-and transform_funsig (f_sig : 'a funsig) : Ton_ast.funsig =
+and transform_funsig (f_sig : 'a funsig) : Bluejay_ast.funsig =
   let (Funsig (f, args, f_body)) = f_sig in
   let f_body' = from_internal_expr_desc f_body in
-  Ton_ast.Funsig (f, args, f_body')
+  Bluejay_ast.Funsig (f, args, f_body')
 
-let rec to_internal_expr (e : Ton_ast.expr) : syn_type_natodefa =
+let rec to_internal_expr (e : Bluejay_ast.expr) : syn_type_bluejay =
   match e with
   | Int n -> Int n
   | Bool b -> Bool b
@@ -784,17 +784,17 @@ let rec to_internal_expr (e : Ton_ast.expr) : syn_type_natodefa =
       let ed' = to_internal_expr_desc ed in
       TypeRecurse (tv, ed')
 
-and to_internal_expr_desc (e : Ton_ast.expr_desc) : syn_natodefa_edesc =
+and to_internal_expr_desc (e : Bluejay_ast.expr_desc) : syn_bluejay_edesc =
   let tag' = e.tag in
   let e' = to_internal_expr e.body in
   { tag = tag'; body = e' }
 
-and transform_funsig (f_sig : Ton_ast.funsig) : 'a funsig =
-  let (Ton_ast.Funsig (f, args, f_body)) = f_sig in
+and transform_funsig (f_sig : Bluejay_ast.funsig) : 'a funsig =
+  let (Bluejay_ast.Funsig (f, args, f_body)) = f_sig in
   let f_body' = to_internal_expr_desc f_body in
   Funsig (f, args, f_body')
 
-let rec from_natodefa_expr (e : Jay.On_ast.expr) : core_natodefa =
+let rec from_jay_expr (e : Jay.On_ast.expr) : core_bluejay =
   let pat_conv (p : Jay.On_ast.pattern) : pattern =
     match p with
     | AnyPat -> AnyPat
@@ -811,129 +811,129 @@ let rec from_natodefa_expr (e : Jay.On_ast.expr) : core_natodefa =
   | Int n -> Int n
   | Bool b -> Bool b
   | Var v -> Var v
-  | Function (args, f_edesc) -> Function (args, from_natodefa_expr_desc f_edesc)
+  | Function (args, f_edesc) -> Function (args, from_jay_expr_desc f_edesc)
   | Input -> Input
   | Appl (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       Appl (ed1', ed2')
   | Let (x, ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       Let (x, ed1', ed2')
   | LetRecFun (fs, ed) ->
       let fs' = List.map transform_funsig' fs in
-      let ed' = from_natodefa_expr_desc ed in
+      let ed' = from_jay_expr_desc ed in
       LetRecFun (fs', ed')
   | LetFun (f_sig, ed) ->
       let f_sig' = transform_funsig' f_sig in
-      let ed' = from_natodefa_expr_desc ed in
+      let ed' = from_jay_expr_desc ed in
       LetFun (f_sig', ed')
   | Plus (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       Plus (ed1', ed2')
   | Minus (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       Minus (ed1', ed2')
   | Times (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       Times (ed1', ed2')
   | Divide (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       Divide (ed1', ed2')
   | Modulus (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       Modulus (ed1', ed2')
   | Equal (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       Equal (ed1', ed2')
   | Neq (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       Neq (ed1', ed2')
   | LessThan (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       LessThan (ed1', ed2')
   | Leq (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       Leq (ed1', ed2')
   | GreaterThan (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       GreaterThan (ed1', ed2')
   | Geq (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       Geq (ed1', ed2')
   | And (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       And (ed1', ed2')
   | Or (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       Or (ed1', ed2')
   | Not ed ->
-      let ed' = from_natodefa_expr_desc ed in
+      let ed' = from_jay_expr_desc ed in
       Not ed'
   | If (ed1, ed2, ed3) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
-      let ed3' = from_natodefa_expr_desc ed3 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
+      let ed3' = from_jay_expr_desc ed3 in
       If (ed1', ed2', ed3')
   | Record r ->
-      let r' = Ident_map.map from_natodefa_expr_desc r in
+      let r' = Ident_map.map from_jay_expr_desc r in
       Record r'
   | RecordProj (ed, Label l) ->
-      let ed' = from_natodefa_expr_desc ed in
+      let ed' = from_jay_expr_desc ed in
       RecordProj (ed', Label l)
   | Match (m_ed, pe_lst) ->
-      let m_ed' = from_natodefa_expr_desc m_ed in
+      let m_ed' = from_jay_expr_desc m_ed in
       let pe_lst' =
         List.map
           (fun (p, ed) ->
-            let ed' = from_natodefa_expr_desc ed in
+            let ed' = from_jay_expr_desc ed in
             (pat_conv p, ed'))
           pe_lst
       in
       Match (m_ed', pe_lst')
   | VariantExpr (Variant_label lbl, ed) ->
-      let ed' = from_natodefa_expr_desc ed in
+      let ed' = from_jay_expr_desc ed in
       VariantExpr (Variant_label lbl, ed')
   | List eds ->
-      let eds' = List.map from_natodefa_expr_desc eds in
+      let eds' = List.map from_jay_expr_desc eds in
       List eds'
   | ListCons (ed1, ed2) ->
-      let ed1' = from_natodefa_expr_desc ed1 in
-      let ed2' = from_natodefa_expr_desc ed2 in
+      let ed1' = from_jay_expr_desc ed1 in
+      let ed2' = from_jay_expr_desc ed2 in
       ListCons (ed1', ed2')
   | Assert ed ->
-      let ed' = from_natodefa_expr_desc ed in
+      let ed' = from_jay_expr_desc ed in
       Assert ed'
   | Assume ed ->
-      let ed' = from_natodefa_expr_desc ed in
+      let ed' = from_jay_expr_desc ed in
       Assume ed'
   | Error x -> TypeError x
 
-and from_natodefa_expr_desc (e : Jay.On_ast.expr_desc) : core_natodefa_edesc =
+and from_jay_expr_desc (e : Jay.On_ast.expr_desc) : core_bluejay_edesc =
   let tag' = e.tag in
-  let e' = from_natodefa_expr e.body in
+  let e' = from_jay_expr e.body in
   { tag = tag'; body = e' }
 
 and transform_funsig' (f_sig : Jay.On_ast.funsig) : core_only funsig =
   let (Jay.On_ast.Funsig (f, args, f_body)) = f_sig in
-  let f_body' = from_natodefa_expr_desc f_body in
+  let f_body' = from_jay_expr_desc f_body in
   Funsig (f, args, f_body')
 
-let rec to_natodefa_expr (e : core_natodefa) : Jay.On_ast.expr =
+let rec to_jay_expr (e : core_bluejay) : Jay.On_ast.expr =
   let pat_conv (p : pattern) : Jay.On_ast.pattern =
     match p with
     | AnyPat -> AnyPat
@@ -950,129 +950,129 @@ let rec to_natodefa_expr (e : core_natodefa) : Jay.On_ast.expr =
   | Int n -> Int n
   | Bool b -> Bool b
   | Var v -> Var v
-  | Function (args, f_edesc) -> Function (args, to_natodefa_expr_desc f_edesc)
+  | Function (args, f_edesc) -> Function (args, to_jay_expr_desc f_edesc)
   | Input -> Input
   | Appl (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       Appl (ed1', ed2')
   | Let (x, ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       Let (x, ed1', ed2')
   | LetRecFun (fs, ed) ->
       let fs' = List.map transform_funsig' fs in
-      let ed' = to_natodefa_expr_desc ed in
+      let ed' = to_jay_expr_desc ed in
       LetRecFun (fs', ed')
   | LetFun (f_sig, ed) ->
       let f_sig' = transform_funsig' f_sig in
-      let ed' = to_natodefa_expr_desc ed in
+      let ed' = to_jay_expr_desc ed in
       LetFun (f_sig', ed')
   | Plus (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       Plus (ed1', ed2')
   | Minus (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       Minus (ed1', ed2')
   | Times (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       Times (ed1', ed2')
   | Divide (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       Divide (ed1', ed2')
   | Modulus (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       Modulus (ed1', ed2')
   | Equal (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       Equal (ed1', ed2')
   | Neq (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       Neq (ed1', ed2')
   | LessThan (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       LessThan (ed1', ed2')
   | Leq (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       Leq (ed1', ed2')
   | GreaterThan (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       GreaterThan (ed1', ed2')
   | Geq (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       Geq (ed1', ed2')
   | And (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       And (ed1', ed2')
   | Or (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       Or (ed1', ed2')
   | Not ed ->
-      let ed' = to_natodefa_expr_desc ed in
+      let ed' = to_jay_expr_desc ed in
       Not ed'
   | If (ed1, ed2, ed3) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
-      let ed3' = to_natodefa_expr_desc ed3 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
+      let ed3' = to_jay_expr_desc ed3 in
       If (ed1', ed2', ed3')
   | Record r ->
-      let r' = Ident_map.map to_natodefa_expr_desc r in
+      let r' = Ident_map.map to_jay_expr_desc r in
       Record r'
   | RecordProj (ed, Label l) ->
-      let ed' = to_natodefa_expr_desc ed in
+      let ed' = to_jay_expr_desc ed in
       RecordProj (ed', Label l)
   | Match (m_ed, pe_lst) ->
-      let m_ed' = to_natodefa_expr_desc m_ed in
+      let m_ed' = to_jay_expr_desc m_ed in
       let pe_lst' =
         List.map
           (fun (p, ed) ->
-            let ed' = to_natodefa_expr_desc ed in
+            let ed' = to_jay_expr_desc ed in
             (pat_conv p, ed'))
           pe_lst
       in
       Match (m_ed', pe_lst')
   | VariantExpr (Variant_label lbl, ed) ->
-      let ed' = to_natodefa_expr_desc ed in
+      let ed' = to_jay_expr_desc ed in
       VariantExpr (Variant_label lbl, ed')
   | List eds ->
-      let eds' = List.map to_natodefa_expr_desc eds in
+      let eds' = List.map to_jay_expr_desc eds in
       List eds'
   | ListCons (ed1, ed2) ->
-      let ed1' = to_natodefa_expr_desc ed1 in
-      let ed2' = to_natodefa_expr_desc ed2 in
+      let ed1' = to_jay_expr_desc ed1 in
+      let ed2' = to_jay_expr_desc ed2 in
       ListCons (ed1', ed2')
   | Assert ed ->
-      let ed' = to_natodefa_expr_desc ed in
+      let ed' = to_jay_expr_desc ed in
       Assert ed'
   | Assume ed ->
-      let ed' = to_natodefa_expr_desc ed in
+      let ed' = to_jay_expr_desc ed in
       Assume ed'
   | TypeError x -> Error x
 
-and to_natodefa_expr_desc (e : core_natodefa_edesc) : Jay.On_ast.expr_desc =
+and to_jay_expr_desc (e : core_bluejay_edesc) : Jay.On_ast.expr_desc =
   let tag' = e.tag in
-  let e' = to_natodefa_expr e.body in
+  let e' = to_jay_expr e.body in
   { tag = tag'; body = e' }
 
 and transform_funsig' (f_sig : core_only funsig) : Jay.On_ast.funsig =
   let (Funsig (f, args, f_body)) = f_sig in
-  let f_body' = to_natodefa_expr_desc f_body in
+  let f_body' = to_jay_expr_desc f_body in
   Jay.On_ast.Funsig (f, args, f_body')
 
-let is_type_expr (ed : syn_natodefa_edesc) : bool =
+let is_type_expr (ed : syn_bluejay_edesc) : bool =
   match ed.body with
   | TypeVar _ | TypeInt | TypeBool | TypeRecord _ | TypeList _ | TypeArrow _
   | TypeArrowD _ | TypeUnion _ | TypeIntersect _ | TypeSet _ | TypeRecurse _ ->

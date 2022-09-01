@@ -1,5 +1,5 @@
 %{
-open Ton_ast;;
+open Bluejay_ast;;
 module List = BatList;;
 
 (* Functions relating to parsing record entries *)
@@ -389,8 +389,8 @@ let rec build_recursive_type (t_var : ident) (e_desc : expr_desc) =
 %right ASSERT ASSUME prec_variant    /* Asserts, Assumes, and variants */
 %right ARROW                  /* -> for type declaration */
 
-%start <Ton_ast.expr> prog
-%start <Ton_ast.expr option> delim_expr
+%start <Bluejay_ast.expr> prog
+%start <Bluejay_ast.expr option> delim_expr
 
 %%
 
