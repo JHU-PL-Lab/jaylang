@@ -3,12 +3,12 @@ open Batteries;;
 type label = Ton_ast.label = Label of string
 [@@deriving eq, ord, show, to_yojson];;
 
-type ident = Odefa_ast.Ast.ident = Ident of string 
+type ident = Jayil.Ast.ident = Ident of string 
 [@@deriving eq, ord, show, to_yojson];;
 
-module Ident = Odefa_ast.Ast.Ident 
-module Ident_set = Odefa_ast.Ast.Ident_set
-module Ident_map = Odefa_ast.Ast.Ident_map
+module Ident = Jayil.Ast.Ident 
+module Ident_set = Jayil.Ast.Ident_set
+module Ident_map = Jayil.Ast.Ident_map
 
 type variant_label = Ton_ast.variant_label = Variant_label of string 
 [@@deriving eq, ord, show, to_yojson]

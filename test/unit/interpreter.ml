@@ -3,11 +3,11 @@ open Program_samples
 
 module To_test = struct
   let eval e t =
-    let target = (Odefa_ast.Ast.Ident t, []) in
+    let target = (Jayil.Ast.Ident t, []) in
     Dbmc.Interpreter.eval ~target e
 
   let eval_int e t =
-    let open Odefa_ast.Ast in
+    let open Jayil.Ast in
     match eval e t with Value_int v -> v | _ -> failwith "not int"
 end
 

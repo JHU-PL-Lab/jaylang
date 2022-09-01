@@ -1,7 +1,7 @@
 (executable
  (name benchmark)
- (package odefa)
- (public_name odefa.benchmark_test_generation)
+ (package jay)
+ (public_name jay.benchmark_test_generation)
  (libraries shexp.process core)
  (preprocess
   (pps ppx_jane)))

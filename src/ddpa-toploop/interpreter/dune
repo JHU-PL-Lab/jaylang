@@ -1,11 +1,11 @@
 (library
   (name odefa_interpreter)
-  (public_name odefa.interpreter)
+  (public_name jay.interpreter)
   (synopsis "Interpreter for Odefa")
   (libraries
     batteries
     jhupllib
-    odefa.ast
-    odefa.utils
+    jayil
+    jay_utils
   )
 )

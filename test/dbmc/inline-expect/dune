@@ -1,6 +1,6 @@
 (library
  (name tests)
  (inline_tests)
- (libraries core fmt odefa_ast odefa_parser odefa.natural odefa.dbmc)
+ (libraries core fmt odefa_ast odefa_parser bluejay odefa.dbmc)
  (preprocess
   (pps ppx_jane ppx_expect)))

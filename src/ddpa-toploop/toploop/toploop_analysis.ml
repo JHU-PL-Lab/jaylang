@@ -1,7 +1,7 @@
 open Batteries
 open Jhupllib
-open Odefa_ast
-open Odefa_ddpa
+open Jayil
+open Ddpa
 open Ast
 open Toploop_analysis_types
 open Toploop_ddpa_wrapper_types

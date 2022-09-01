@@ -2,9 +2,9 @@ open Core
 open Graph
 open Jhupllib
 open Dbmc
-open Odefa_ast
-open Odefa_ast.Ast
-open Odefa_instrumentation.Odefa_instrumentation_maps
+open Jayil
+open Jayil.Ast
+open Jay_instrumentation.Odefa_instrumentation_maps
 open Odefa_natural.On_to_odefa_maps
 
 module type Error_location = sig

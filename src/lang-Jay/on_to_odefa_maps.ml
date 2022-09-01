@@ -1,7 +1,7 @@
 open Batteries;;
 open Jhupllib;;
 
-open Odefa_ast;;
+open Jayil;;
 
 (* let lazy_logger = Logger_utils.make_lazy_logger "On_to_odefa_types";; *)
 

@@ -18,10 +18,10 @@
   jhupllib
   odefa.ast
   odefa.ddpa
-  odefa.parser
+  jayil_parser
   odefa.symbolic-interpreter
   odefa.toploop
-  odefa.natural
+  bluejay
   oUnit
   ppx_deriving_yojson
   yojson)

@@ -1,6 +1,6 @@
 open Core
 open Jhupllib
-open Odefa_ast
+open Jayil
 open Ast
 open On_to_odefa_monad_inst.TranslationMonad
 
@@ -22,7 +22,9 @@ let rec change_abort_vars (old_var : var) (new_var : var) (clause : clause) :
       match value with
       | Value_function f ->
           let (Function_value (arg, Expr f_body)) = f in
-          let f_body' = List.map ~f:(change_abort_vars old_var new_var) f_body in
+          let f_body' =
+            List.map ~f:(change_abort_vars old_var new_var) f_body
+          in
           let value' = Value_function (Function_value (arg, Expr f_body')) in
           Clause (v, Value_body value')
       | _ -> clause)
@@ -63,7 +65,7 @@ let rec instrument_clauses (c_list : clause list) : clause list m =
           (* Nothing to constrain *)
           let%bind new_clauses' = instrument_clauses clauses' in
           return @@ (clause :: new_clauses')
-      | Not_body v' -> 
+      | Not_body v' ->
           let%bind is_already_inst = is_instrument_var v in
           if is_already_inst
           then
@@ -137,9 +139,9 @@ let rec instrument_clauses (c_list : clause list) : clause list m =
                   (* We need to have this line because we are adding a new value
                      source *)
                   (* let%bind () =
-                    add_odefa_natodefa_mapping z
-                      (On_ast.new_expr_desc @@ On_ast.Int 0)
-                  in *)
+                       add_odefa_natodefa_mapping z
+                         (On_ast.new_expr_desc @@ On_ast.Int 0)
+                     in *)
                   (* Clauses *)
                   let z_cls = Clause (z, Value_body (Value_int 0)) in
                   let b_bod =

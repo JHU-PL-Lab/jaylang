@@ -1,7 +1,7 @@
 open Core
 open Fix
 open Share
-open Odefa_ast.Ast
+open Jayil.Ast
 
 (* module SizeF = Fix.ForHashedType() *)
 
@@ -9,7 +9,6 @@ module IdWithHash : HashedType with type t = Id.t = struct
   type t = Id.t
 
   let hash = Id.hash
-
   let equal = Id.equal
 end
 
@@ -24,18 +23,16 @@ end
 module IntGraph :
   DATA_FLOW_GRAPH with type variable = Id.t and type property = int = struct
   type variable = Id.t
-
   type property = int
 
   let foreach_root _f = ()
-
   let foreach_successor _v _p _f = ()
 end
 
 module F = DataFlow.ForHashedType (IdWithHash) (IntSemiLattice) (IntGraph)
 
 (* let compute_size : F.variable -> F.valuation -> IntProp.property =
-   let open Odefa_ast.Ast in
+   let open Jayil.Ast in
    let rec clause_size _clause _request = 1
    and expr_size expr request =
      let (Expr clauses) = expr in
@@ -58,7 +55,6 @@ module F = DataFlow.ForHashedType (IdWithHash) (IntSemiLattice) (IntGraph)
 exception Found of int
 
 let once = ref false
-
 let answer = ref 0
 
 let rec expr_size f x0 expr =
@@ -74,12 +70,11 @@ and clause_size f x0 clause =
     | Binary_operation_body (Var (x1, _), _, Var (x2, _)) -> f x1 + f x2
     | _ -> 0
   in
-  if Id.equal x (Ident "one") then
-    if !once then failwith "Boom" else once := true
-  else
-    ();
+  if Id.equal x (Ident "one")
+  then if !once then failwith "Boom" else once := true
+  else () ;
   (* if Id.equal x x0 then raise (Found v) else v *)
-  if Id.equal x x0 then answer := v else ();
+  if Id.equal x x0 then answer := v else () ;
   v
 
 let compute_size : Id.t -> int option =
@@ -91,11 +86,11 @@ let compute_size : Id.t -> int option =
 
 let run filename =
   let program = Load.load filename in
-  print_endline @@ Odefa_ast.Ast_pp.show_expr program;
+  print_endline @@ Jayil.Ast_pp.show_expr program ;
   (* let size = compute_size program in
-     let (Odefa_ast.Ast.Expr clauses) = program in
+     let (Jayil.Ast.Expr clauses) = program in
      List.iter clauses ~f:(fun clause ->
-         let (Odefa_ast.Ast.Clause (Var (x, _), _)) = clause in
+         let (Jayil.Ast.Clause (Var (x, _), _)) = clause in
          Format.printf "%a: %d\n" Id.pp x (size x)); *)
   ()
 (* print_endline @@ string_of_int (compute_size program) *)

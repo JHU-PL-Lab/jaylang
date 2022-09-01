@@ -1,6 +1,6 @@
 open Core
-open Odefa_ast
-open Odefa_ast.Ast
+open Jayil
+open Jayil.Ast
 open Log.Export
 open Rule
 module U = Unrolls.U_dbmc
@@ -9,7 +9,7 @@ open Types
 module type S = sig
   val state : Global_state.t
   val config : Global_config.t
-  val block_map : Cfg.block Odefa_ast.Ast.Ident_map.t
+  val block_map : Cfg.block Jayil.Ast.Ident_map.t
   val unroll : U.t
   val stride : int ref
 end

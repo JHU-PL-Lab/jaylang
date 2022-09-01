@@ -2,7 +2,7 @@
 
 (library
  (name dbmc)
- (public_name odefa.dbmc)
+ (public_name jay.dbmc)
  (libraries
   core
   core_kernel.pairing_heap
@@ -18,12 +18,12 @@
   logs.fmt
   ocamlgraph
   hashcons
-  odefa.ast
-  odefa.ddpa
-  odefa.instrumentation
-  odefa.natural
-  odefa.parser
-  odefa.unroll
+  jayil
+  ddpa
+  jay_instrumentation
+  jayil_parser
+  bluejay
+  jay.unroll
   sudu)
  ;  (instrumentation
  ;   (backend landmarks))

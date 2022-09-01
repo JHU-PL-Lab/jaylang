@@ -1,12 +1,12 @@
 (library
-  (name odefa_ast)
-  (public_name odefa.ast)
+  (name jayil)
+  (public_name jay.jayil.ast)
   (synopsis "AST for Odefa")
   (libraries
     core
     batteries
     jhupllib
-    odefa.utils
+    jay_utils
     ppx_deriving_yojson.runtime
   )
   (preprocess

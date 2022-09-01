@@ -1,6 +1,6 @@
 open Batteries;;
 
-open Odefa_ast;;
+open Jayil;;
 
 module Odefa_clause = struct
   type t = Ast.clause;;

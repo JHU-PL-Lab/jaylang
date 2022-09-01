@@ -1,6 +1,6 @@
 (lang dune 3.0)
 
-(name odefa)
+(name jay)
 
 (using menhir 2.0)
 
@@ -16,7 +16,7 @@
 (maintainers "JHU PL Lab <pl.cs@jhu.edu>")
 
 (package
- (name odefa)
+ (name jay)
  (description "Higher-Order Demand-Driven Symbolic Execution")
  (depends
   core

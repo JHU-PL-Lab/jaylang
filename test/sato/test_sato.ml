@@ -13,7 +13,7 @@ let group_all_files dir =
               let fullpath = Filename.concat dir path in
               match Sys_unix.is_directory fullpath with
               | `Yes -> (acc_f, loop fullpath @ acc_p)
-              | `No when Odefa_ast.File_utils.check_ext fullpath ->
+              | `No when Jayil.File_utils.check_ext fullpath ->
                   (fullpath :: acc_f, acc_p)
               | `No when File_utils.is_ton_ext fullpath ->
                   (fullpath :: acc_f, acc_p)
@@ -41,11 +41,11 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
               List.map ~f:(fun (Ident i, _) -> i) err.err_match_aliases
             in
             let actual_v =
-              Odefa_ast.Ast_pp_brief.show_clause_body err.err_match_val
+              Jayil.Ast_pp_brief.show_clause_body err.err_match_val
             in
             let a_actual_type, a_expected_type =
-              ( Odefa_ast.Ast_pp.show_type_sig @@ err.err_match_actual,
-                Odefa_ast.Ast_pp.show_type_sig @@ err.err_match_expected )
+              ( Jayil.Ast_pp.show_type_sig @@ err.err_match_actual,
+                Jayil.Ast_pp.show_type_sig @@ err.err_match_expected )
             in
             Match_error
               {
@@ -58,7 +58,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
               List.map ~f:(fun (Ident i, _) -> i) err.err_value_aliases
             in
             let actual_v =
-              Odefa_ast.Ast_pp_brief.show_clause_body err.err_value_val
+              Jayil.Ast_pp_brief.show_clause_body err.err_value_val
             in
             Value_error { v_value = (actual_aliases, actual_v) }
         | _ -> failwith "Expect no other error types!"

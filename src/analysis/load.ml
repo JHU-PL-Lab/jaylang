@@ -1,29 +1,29 @@
 open Core
 
 let check_wellformed_or_exit ast =
-  let open Odefa_ast in
+  let open Jayil in
   try Ast_wellformedness.check_wellformed_expr ast
   with Ast_wellformedness.Illformedness_found ills ->
-    print_endline "Program is ill-formed.";
+    print_endline "Program is ill-formed." ;
     ills
     |> List.iter ~f:(fun ill ->
-           print_string "* ";
-           print_endline @@ Ast_wellformedness.show_illformedness ill);
+           print_string "* " ;
+           print_endline @@ Ast_wellformedness.show_illformedness ill) ;
     ignore @@ Stdlib.exit 1
 
 let load filename =
   let program =
-    if String.is_suffix filename ~suffix:"natodefa" then
+    if String.is_suffix filename ~suffix:"natodefa"
+    then
       let natast =
         Exn.handle_uncaught_and_exit (fun () ->
             In_channel.with_file filename
               ~f:Odefa_natural.On_parse.parse_program_raw)
       in
       Odefa_natural.On_to_odefa.translate natast
-    else if String.is_suffix filename ~suffix:"odefa" then
-      In_channel.with_file filename ~f:Odefa_parser.Parser.parse_program_raw
-    else
-      failwith "file extension must be .odefa or .natodefa"
+    else if String.is_suffix filename ~suffix:"odefa"
+    then In_channel.with_file filename ~f:Jayil_parser.Parser.parse_program_raw
+    else failwith "file extension must be .odefa or .natodefa"
   in
-  ignore @@ check_wellformed_or_exit program;
+  ignore @@ check_wellformed_or_exit program ;
   program

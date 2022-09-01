@@ -1,8 +1,8 @@
 open Core
 open Fix
 open Share
-open Odefa_ast.Ast
-open Odefa_ddpa.Ddpa_abstract_ast
+open Jayil.Ast
+open Ddpa.Ddpa_abstract_ast
 
 type dvalue =
   | Direct of Abs_value.t
@@ -19,9 +19,7 @@ module Env = struct
   type t = env
 
   let empty = Map.empty (module Id)
-
   let get map x : dvalue = Map.find_exn map x
-
   let add map x v : t = Map.add_exn map ~key:x ~data:v
 end
 
@@ -33,7 +31,6 @@ module AValueSet = struct
   end)
 
   let pp _oc vset = Fmt.(pr "%a" (Dump.list pp_aval)) (elements vset)
-
   let to_list set = set |> to_seq |> Caml.List.of_seq
 
   let bools =
@@ -52,7 +49,6 @@ end
 module AContext = struct
   module T = struct
     type element = Id.t
-
     and t = element list [@@deriving sexp, compare, equal, hash]
   end
 
@@ -60,15 +56,13 @@ module AContext = struct
   include Comparator.Make (T)
 
   let k = 2
-
   let empty : t = []
 
   let push c (x : element) : t =
     let context_new = x :: c in
-    if List.length context_new <= 2 then
-      context_new
-    else
-      List.drop_last_exn context_new
+    if List.length context_new <= 2
+    then context_new
+    else List.drop_last_exn context_new
 
   let pp = Fmt.Dump.list Id.pp
 end
@@ -77,7 +71,6 @@ module Store = struct
   type t = Env.t Map.M(AContext).t
 
   let empty = Map.empty (module AContext)
-
   let equal : Env.t -> Env.t -> bool = Map.equal Poly.equal
 end
 
@@ -85,7 +78,6 @@ module FKey : HashedType with type t = Id.t * AContext.t = struct
   type t = Id.t * AContext.t
 
   let equal (i1, c1) (i2, c2) = Id.equal i1 i2 && AContext.equal c1 c2
-
   let hash = Caml.Hashtbl.hash
 end
 
@@ -109,18 +101,19 @@ let make_fix_f program =
       List.fold_map clauses ~init:[ env ] ~f:(fun envs clause ->
           let (Abs_clause (Abs_var x, _)) = clause in
           Format.printf "@.[Debug(%a%a)][Start] %a" Id.pp id0 AContext.pp ctx
-            Id.pp x;
+            Id.pp x ;
           (* It's unnecessary to traverse the program to estabilish the equations for the asked
              `x` a.k.a. `arg0`. For this, we may use equivalent representation of the program, rather
               than run one-by-one like this
           *)
-          if FKey.equal arg0 (x, ctx) then (
+          if FKey.equal arg0 (x, ctx)
+          then (
             let v =
               List.fold envs ~init:AValueSet.empty ~f:(fun vs env ->
                   AValueSet.union vs (aeval_clause arg0 eval env ctx clause))
             in
             Format.printf "@.[Debug(%a%a)][Found] %a = %a" Id.pp id0 AContext.pp
-              ctx Id.pp x AValueSet.pp v;
+              ctx Id.pp x AValueSet.pp v ;
             (* what's the difference between `raise` at `x` at truncating the expression at `x`.
                Assume the expression has multiple value a.k.a abstract value. In each non-deterministic
                track, it collects one value and when they all merged you can the final values.
@@ -162,10 +155,9 @@ let make_fix_f program =
       | Abs_conditional_body (Abs_var c, e1, e2) -> (
           match Env.get env c with
           | Direct (Abs_value_bool b) ->
-              if b then
-                aeval_expr arg0 eval env ctx e1
-              else
-                aeval_expr arg0 eval env ctx e2
+              if b
+              then aeval_expr arg0 eval env ctx e1
+              else aeval_expr arg0 eval env ctx e2
           | _ -> AValueSet.empty)
       | Abs_value_body (Abs_value_function f) ->
           AValueSet.singleton (Closure (y, f, env))
@@ -211,20 +203,20 @@ let eval_result program =
 
 let run filename =
   let program = Load.load filename in
-  print_endline @@ Odefa_ast.Ast_pp.show_expr program;
+  print_endline @@ Jayil.Ast_pp.show_expr program ;
   let _x_first = first_id program in
   let x_last = last_id program in
-  let aprogram = Odefa_ddpa.Ddpa_graph.lift_expr program in
+  let aprogram = Ddpa.Ddpa_graph.lift_expr program in
   let compute, table = eval_result aprogram in
   (* Compute *)
-  ignore @@ compute (x_last, AContext.empty);
-  print_endline @@ string_of_int (ResultMap.length table);
+  ignore @@ compute (x_last, AContext.empty) ;
+  print_endline @@ string_of_int (ResultMap.length table) ;
   (* let (Expr clauses) = program in
      clauses |> List.rev
      |> List.iter ~f:(fun clause ->
             let (Clause (Var (x, _), _)) = clause in
             ignore @@ compute (x, AContext.empty)); *)
-  print_endline @@ string_of_int (ResultMap.length table);
+  print_endline @@ string_of_int (ResultMap.length table) ;
   ResultMap.iter
     (fun (id, context) vset ->
       Fmt.pr "@.%a%a = %a" Id.pp id Id.pp_list context AValueSet.pp vset)

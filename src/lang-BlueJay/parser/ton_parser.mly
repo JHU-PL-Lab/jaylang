@@ -4,7 +4,7 @@ module List = BatList;;
 
 (* Functions relating to parsing record entries *)
 
-let sep = Odefa_ast.Ast_tools.label_sep;;
+let sep = Jayil.Ast_tools.label_sep;;
 let dup_label_count = ref 0;;
 
 let new_record lbl value =

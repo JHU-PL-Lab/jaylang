@@ -2,8 +2,8 @@
    This module defines the primary functions for the toploop.
 *)
 
-open Odefa_ast;;
-open Odefa_ddpa;;
+open Jayil;;
+open Ddpa;;
 open Odefa_interpreter;;
 
 open Ast;;

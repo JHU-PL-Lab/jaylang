@@ -1,6 +1,6 @@
 open Core
-open Odefa_ast.Ast
-open Odefa_ast.Ast_pp
+open Jayil.Ast
+open Jayil.Ast_pp
 
 module Discovery_main_rule = struct
   type t = { x : Id.t; v : value }
@@ -134,8 +134,7 @@ let rule_of_runtime_status x block : t =
       | { clause = Clause (_, Match_body (Var (x', _), pat)); _ } ->
           Pattern { x; x'; pat }
       | _ ->
-          Log.Export.LLog.err (fun m ->
-              m "%a" Odefa_ast.Ast_pp.pp_clause tc.clause) ;
+          Log.Export.LLog.err (fun m -> m "%a" Jayil.Ast_pp.pp_clause tc.clause) ;
           failwith "Missing rules for this clause")
   | None, Fun fb ->
       if Ident.(equal fb.para x)

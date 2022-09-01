@@ -1,5 +1,5 @@
 open Core
-open Odefa_ast.Ast
+open Jayil.Ast
 open Odefa_natural.On_to_odefa_maps
 open Sato_args
 open Sato_result

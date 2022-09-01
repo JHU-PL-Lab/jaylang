@@ -1,6 +1,6 @@
 open Core
-open Odefa_ast
-open Odefa_ast.Ast
+open Jayil
+open Jayil.Ast
 open Cfg
 open Log.Export
 module U_ddse = Lookup_ddse_rule.U

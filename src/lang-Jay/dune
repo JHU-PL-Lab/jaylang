@@ -13,15 +13,15 @@
 
 (library
   (name odefa_natural)
-  (public_name odefa.natural)
+  (public_name jay.natural)
   (synopsis "Translator for Odefa Natural")
   (libraries
     core
     batteries
     jhupllib
     monadlib
-    odefa.ast
-    odefa.instrumentation
+    jayil
+    jay_instrumentation
   )
   (preprocess
     (pps

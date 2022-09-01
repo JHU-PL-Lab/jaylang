@@ -30,7 +30,7 @@ let () =
 
                              let eval e0 =
                                let es =
-                                 Odefa_parser.Parse.parse_expressions_str e0
+                                 Jayil_parser.Parse.parse_expressions_str e0
                                in
                                LazyList.iter
                                  (fun e ->

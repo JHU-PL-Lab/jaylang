@@ -12,17 +12,17 @@
 )
 
 (library
-  (name typed_odefa_natural)
-  (public_name odefa.natural.typed)
-  (synopsis "Typed odefa natural")
+  (name bluejay)
+  (public_name jay.bluejay)
+  (synopsis "Typed Jay")
   (libraries
     core
     batteries
     jhupllib
     monadlib
-    odefa.ast
-    odefa.instrumentation
-    odefa.natural
+    jayil
+    jay_instrumentation
+    odefa_natural
   )
   (preprocess
     (pps

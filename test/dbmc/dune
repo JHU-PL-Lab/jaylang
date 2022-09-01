@@ -29,7 +29,7 @@
   alcotest-lwt
   odefa_ast
   odefa_parser
-  odefa.natural
+  bluejay
   odefa.dbmc)
  (preprocess
   (pps ppx_jane lwt_ppx ppx_deriving.std ppx_expect)))

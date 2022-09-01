@@ -1,13 +1,13 @@
 (library
-  (name odefa_instrumentation)
-  (public_name odefa.instrumentation)
+  (name jay_instrumentation)
+  (public_name jay.instrumentation)
   (synopsis "Instrumentation for odefa")
   (libraries
     core
     batteries
     jhupllib
     monadlib
-    odefa.ast
+    jayil
   )
   (preprocess
     (pps

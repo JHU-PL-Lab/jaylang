@@ -3,15 +3,15 @@
 (copy_files# types/*.{ml,mli})
 (copy_files# utils/*.{ml,mli})
 (library
-  (name odefa_ddpa)
-  (public_name odefa.ddpa)
+  (name ddpa)
+  (public_name jay.ddpa)
   (synopsis "DDPA analysis for Odefa")
   (libraries
     batteries
     jhupllib
     monadlib
-    odefa.ast
-    odefa.utils
+    jayil
+    jay_utils
     pds-reachability
     ppx_deriving_yojson
   )

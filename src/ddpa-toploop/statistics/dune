@@ -1,12 +1,12 @@
 (library
   (name odefa_statistics)
-  (public_name odefa.statistics)
+  (public_name jay.statistics)
   (synopsis "Statistics for Odefa programs")
   (libraries
     batteries
     jhupllib
-    odefa.ast
-    odefa.utils
+    jayil
+    jay_utils
   )
   (preprocess
     (pps
