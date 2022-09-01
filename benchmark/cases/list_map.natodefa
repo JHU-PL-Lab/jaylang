@@ -1,3 +1,21 @@
+# Std.List - start
+
+let hd l = 
+  match l with
+  | x :: xs -> x
+  | [] -> (0 0)
+  end
+in
+let tl l = 
+  match l with
+  | x :: xs -> xs
+  | [] -> (0 0)
+  end
+in
+
+# Std.List - end
+
+
 let x = input in 
 let y = input in
 let z = input in
@@ -26,20 +44,6 @@ let lst2 = [x, y, z] in
 
 let ans1 = my_map (id (fun a -> a + 1)) lst1 in
 let ans2 = my_map (id (fun b -> b + 1)) lst2 in
-
-let hd l = 
-  match l with
-  | x :: xs -> x
-  | [] -> (0 0)
-  end
-in
-let tl l = 
-  match l with
-  | x :: xs -> xs
-  | [] -> (0 0)
-  end
-in
-
 
 if hd ans2 == 8 
     and hd (tl ans2) == 9

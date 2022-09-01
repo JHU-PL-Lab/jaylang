@@ -12,7 +12,8 @@
     ; "input_blur.natodefa"
 
     ; the sum of two products
-    ; "input_facehugger.natodefa"
+    ; "facehugger.natodefa"
+
     
     ; "input_flatten.natodefa"
     ; "input_k_cfa_2.natodefa"
@@ -36,6 +37,6 @@
     )
   )
   (test_path "benchmark/cases")
-  (repeat 3)
+  (repeat 1)
   (timeout "20m")
 )
