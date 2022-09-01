@@ -5,7 +5,7 @@ type translation_context = {
   tc_fresh_suffix_separator : string;
   tc_contextual_recursion : bool;
   mutable tc_fresh_name_counter : int;
-  mutable tc_odefa_instrumentation_mappings : Odefa_instrumentation_maps.t;
+  mutable tc_odefa_instrumentation_mappings : Jayil_instrumentation_maps.t;
 }
 (* [@@deriving eq, ord] *)
 
@@ -16,7 +16,7 @@ let new_translation_context ?(is_natodefa = false) ?(suffix = "~")
     tc_fresh_suffix_separator = suffix;
     tc_contextual_recursion = contextual_recursion;
     tc_odefa_instrumentation_mappings =
-      Odefa_instrumentation_maps.empty is_natodefa;
+      Jayil_instrumentation_maps.empty is_natodefa;
   }
 
 let new_translation_context_from_natodefa ?(suffix = "~")
@@ -26,7 +26,8 @@ let new_translation_context_from_natodefa ?(suffix = "~")
     tc_fresh_suffix_separator = suffix;
     tc_contextual_recursion = contextual_recursion;
     tc_odefa_instrumentation_mappings =
-      Odefa_instrumentation_maps.inherit_from_on_to_odefa_maps natodefa_inst_map;
+      Jayil_instrumentation_maps.inherit_from_jay_to_jayil_maps
+        natodefa_inst_map;
   }
 
 module TranslationMonad : sig
@@ -55,7 +56,7 @@ module TranslationMonad : sig
   (** Returns true if the odefa var was added during instrumentation, false
       otherwise. Used to avoid unnecessary instrumentation. *)
 
-  val get_odefa_inst_maps : Odefa_instrumentation_maps.t m
+  val get_odefa_inst_maps : Jayil_instrumentation_maps.t m
   (** Retrieve the odefa-to-natodefa maps from the monad *)
 
   val freshness_string : string m
@@ -98,27 +99,27 @@ end = struct
     let (Ast.Var (i_key, _)) = v_key in
     let odefa_inst_maps = ctx.tc_odefa_instrumentation_mappings in
     ctx.tc_odefa_instrumentation_mappings <-
-      Odefa_instrumentation_maps.add_odefa_var_clause_mapping odefa_inst_maps
+      Jayil_instrumentation_maps.add_odefa_var_clause_mapping odefa_inst_maps
         i_key cls_val
 
   let add_instrument_var v ctx =
     let (Ast.Var (i, _)) = v in
     let odefa_inst_maps = ctx.tc_odefa_instrumentation_mappings in
     ctx.tc_odefa_instrumentation_mappings <-
-      Odefa_instrumentation_maps.add_odefa_instrument_var odefa_inst_maps i None
+      Jayil_instrumentation_maps.add_odefa_instrument_var odefa_inst_maps i None
 
   let add_instrument_var_pair v_key v_val ctx =
     let (Ast.Var (i_key, _)) = v_key in
     let (Ast.Var (i_val, _)) = v_val in
     let odefa_inst_maps = ctx.tc_odefa_instrumentation_mappings in
     ctx.tc_odefa_instrumentation_mappings <-
-      Odefa_instrumentation_maps.add_odefa_instrument_var odefa_inst_maps i_key
+      Jayil_instrumentation_maps.add_odefa_instrument_var odefa_inst_maps i_key
         (Some i_val)
 
   let is_instrument_var v ctx =
     let (Ast.Var (i, _)) = v in
     let odefa_inst_maps = ctx.tc_odefa_instrumentation_mappings in
-    Odefa_instrumentation_maps.is_var_instrumenting odefa_inst_maps i
+    Jayil_instrumentation_maps.is_var_instrumenting odefa_inst_maps i
 
   let get_odefa_inst_maps ctx = ctx.tc_odefa_instrumentation_mappings
   let freshness_string ctx = ctx.tc_fresh_suffix_separator

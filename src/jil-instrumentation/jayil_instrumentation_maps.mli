@@ -33,4 +33,4 @@ val get_pre_inst_equivalent_clause : t -> Ast.ident -> Ast.clause;;
 
 val get_pre_inst_var_opt : t -> Ast.ident -> Ast.ident option;;
 
-val inherit_from_on_to_odefa_maps : (Ast.ident option) Ast.Ident_map.t -> t;; 
+val inherit_from_jay_to_jayil_maps : (Ast.ident option) Ast.Ident_map.t -> t;; 

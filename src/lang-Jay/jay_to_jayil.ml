@@ -968,7 +968,7 @@ let debug_transform_odefa' (trans_name : string)
 let translate ?(translation_context = None) ?(is_instrumented = true)
     (e : On_ast.expr_desc) :
     Ast.expr
-    * Jay_instrumentation.Odefa_instrumentation_maps.t
+    * Jay_instrumentation.Jayil_instrumentation_maps.t
     * Jay_to_jayil_maps.t =
   let (e_m_with_info, ctx)
         : Ast.expr Jay_to_jayil_monad_inst.TranslationMonad.m
@@ -1046,5 +1046,5 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
         (Jay_to_jayil_maps.show odefa_on_maps)) ;
   lazy_logger `debug (fun () ->
       Printf.sprintf "Odefa instrumentation maps:\n%s"
-        (Odefa_instrumentation_maps.show inst_maps)) ;
+        (Jayil_instrumentation_maps.show inst_maps)) ;
   (res, inst_maps, odefa_on_maps)

@@ -85,7 +85,7 @@ let get_pre_inst_var_opt mappings x =
   | Some x' -> x'
 ;;
 
-let inherit_from_on_to_odefa_maps inst_map_nat = 
+let inherit_from_jay_to_jayil_maps inst_map_nat = 
   {
   is_natodefa = true;
   odefa_pre_instrument_clause_mapping = Ast.Ident_map.empty;

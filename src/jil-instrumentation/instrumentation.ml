@@ -286,8 +286,8 @@ let add_result_var (c_list : clause list) : clause list m =
   let result_cls = Clause (result_var, Var_body last_var) in
   return @@ c_list @ [ result_cls ]
 
-let instrument_odefa (jayil_ast : expr) : expr * Odefa_instrumentation_maps.t =
-  let (monad_val : (expr * Odefa_instrumentation_maps.t) m) =
+let instrument_odefa (jayil_ast : expr) : expr * Jayil_instrumentation_maps.t =
+  let (monad_val : (expr * Jayil_instrumentation_maps.t) m) =
     (* Transform odefa program *)
     lazy_logger `debug (fun () ->
         Printf.sprintf "Initial program:\n%s" (Ast_pp.show_expr jayil_ast)) ;
