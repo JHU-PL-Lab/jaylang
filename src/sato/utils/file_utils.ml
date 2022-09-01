@@ -36,7 +36,7 @@ let read_source_sato filename =
       in
       let natast = Bluejay_ast_internal.to_jay_expr_desc core_ast in
       (* let (desugared_typed, ton_on_maps) = transform_natodefa natast in *)
-      (* let () = print_endline @@ On_ast_pp.show_expr_desc natast in *)
+      (* let () = print_endline @@ Jay_ast_pp.show_expr_desc natast in *)
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
         Jay_to_jayil.translate ~is_instrumented:true natast
       in
@@ -46,7 +46,7 @@ let read_source_sato filename =
     else if Jay.File_utils.check_ext filename
     then (
       let natast =
-        On_ast.new_expr_desc
+        Jay_ast.new_expr_desc
         @@ In_channel.with_file filename ~f:Jay.On_parse.parse_program_raw
       in
       (* let (desugared_typed, ton_on_maps) = transform_natodefa natast in *)

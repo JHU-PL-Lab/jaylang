@@ -26,12 +26,12 @@ module Jayil_error_location : Error_location with type t = Ast.clause = struct
   let to_yojson clause = `String (replace_linebreaks @@ show clause)
 end
 
-module Jay_error_location : Error_location with type t = Jay.On_ast.expr_desc =
+module Jay_error_location : Error_location with type t = Jay.Jay_ast.expr_desc =
 struct
-  type t = Jay.On_ast.expr_desc
+  type t = Jay.Jay_ast.expr_desc
 
-  let show = Pp_utils.pp_to_string Jay.On_ast_pp.pp_expr_desc_without_tag
-  let show_brief = Pp_utils.pp_to_string Jay.On_ast_pp.pp_expr_desc_without_tag
+  let show = Pp_utils.pp_to_string Jay.Jay_ast_pp.pp_expr_desc_without_tag
+  let show_brief = Pp_utils.pp_to_string Jay.Jay_ast_pp.pp_expr_desc_without_tag
   let to_yojson expr = `String (replace_linebreaks @@ show expr)
 end
 

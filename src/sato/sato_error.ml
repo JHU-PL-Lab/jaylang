@@ -269,40 +269,40 @@ module Jayil_error = Make (Jayil_ident) (Jayil_value) (Jayil_binop) (Jayil_type)
 
 (* **** Jay modules **** *)
 
-module Jay_ident : Error_ident with type t = On_ast.ident = struct
-  type t = On_ast.ident
+module Jay_ident : Error_ident with type t = Jay_ast.ident = struct
+  type t = Jay_ast.ident
 
-  let equal = On_ast.equal_ident
-  let pp = On_ast_pp.pp_ident
-  let show = On_ast_pp.show_ident
+  let equal = Jay_ast.equal_ident
+  let pp = Jay_ast_pp.pp_ident
+  let show = Jay_ast_pp.show_ident
   let to_yojson ident = `String (replace_linebreaks @@ show ident)
 end
 
-module Jay_value : Error_value with type t = On_ast.expr_desc = struct
-  type t = On_ast.expr_desc
+module Jay_value : Error_value with type t = Jay_ast.expr_desc = struct
+  type t = Jay_ast.expr_desc
 
-  let equal = On_ast.equal_expr_desc
-  let pp = On_ast_pp.pp_expr_desc_without_tag
-  let show = On_ast_pp.show_expr_desc
+  let equal = Jay_ast.equal_expr_desc
+  let pp = Jay_ast_pp.pp_expr_desc_without_tag
+  let show = Jay_ast_pp.show_expr_desc
   let to_yojson value = `String (replace_linebreaks @@ show value)
 end
 
-module Jay_binop : Error_binop with type t = On_ast.expr_desc = struct
-  type t = On_ast.expr_desc
+module Jay_binop : Error_binop with type t = Jay_ast.expr_desc = struct
+  type t = Jay_ast.expr_desc
 
-  let equal = On_ast.equal_expr_desc
-  let pp = On_ast_pp.pp_expr_desc_without_tag
-  let show = On_ast_pp.show_expr_desc
+  let equal = Jay_ast.equal_expr_desc
+  let pp = Jay_ast_pp.pp_expr_desc_without_tag
+  let show = Jay_ast_pp.show_expr_desc
   let to_yojson binop = `String (replace_linebreaks @@ show binop)
 end
 
-module Jay_type : Error_type with type t = On_ast.type_sig = struct
-  type t = On_ast.type_sig
+module Jay_type : Error_type with type t = Jay_ast.type_sig = struct
+  type t = Jay_ast.type_sig
 
-  let equal = On_ast.equal_type_sig
+  let equal = Jay_ast.equal_type_sig
   let subtype _ _ = false
-  let pp = On_ast_pp.pp_on_type
-  let show = On_ast_pp.show_on_type
+  let pp = Jay_ast_pp.pp_on_type
+  let show = Jay_ast_pp.show_on_type
   let to_yojson typ = `String (replace_linebreaks @@ show typ)
 end
 
@@ -460,19 +460,20 @@ let jayil_error_remove_instrument_vars
 (* Helper function that returns a jay binop, depending on the jayil
    binary operator. *)
 let jayil_to_jay_binop (jayil_binop : Ast.binary_operator) :
-    On_ast.expr_desc -> On_ast.expr_desc -> On_ast.expr =
+    Jay_ast.expr_desc -> Jay_ast.expr_desc -> Jay_ast.expr =
   match jayil_binop with
-  | Ast.Binary_operator_plus -> fun e1 e2 -> On_ast.Plus (e1, e2)
-  | Ast.Binary_operator_minus -> fun e1 e2 -> On_ast.Minus (e1, e2)
-  | Ast.Binary_operator_times -> fun e1 e2 -> On_ast.Times (e1, e2)
-  | Ast.Binary_operator_divide -> fun e1 e2 -> On_ast.Divide (e1, e2)
-  | Ast.Binary_operator_modulus -> fun e1 e2 -> On_ast.Modulus (e1, e2)
-  | Ast.Binary_operator_equal_to -> fun e1 e2 -> On_ast.Equal (e1, e2)
-  | Ast.Binary_operator_not_equal_to -> fun e1 e2 -> On_ast.Neq (e1, e2)
-  | Ast.Binary_operator_less_than -> fun e1 e2 -> On_ast.LessThan (e1, e2)
-  | Ast.Binary_operator_less_than_or_equal_to -> fun e1 e2 -> On_ast.Leq (e1, e2)
-  | Ast.Binary_operator_and -> fun e1 e2 -> On_ast.And (e1, e2)
-  | Ast.Binary_operator_or -> fun e1 e2 -> On_ast.Or (e1, e2)
+  | Ast.Binary_operator_plus -> fun e1 e2 -> Jay_ast.Plus (e1, e2)
+  | Ast.Binary_operator_minus -> fun e1 e2 -> Jay_ast.Minus (e1, e2)
+  | Ast.Binary_operator_times -> fun e1 e2 -> Jay_ast.Times (e1, e2)
+  | Ast.Binary_operator_divide -> fun e1 e2 -> Jay_ast.Divide (e1, e2)
+  | Ast.Binary_operator_modulus -> fun e1 e2 -> Jay_ast.Modulus (e1, e2)
+  | Ast.Binary_operator_equal_to -> fun e1 e2 -> Jay_ast.Equal (e1, e2)
+  | Ast.Binary_operator_not_equal_to -> fun e1 e2 -> Jay_ast.Neq (e1, e2)
+  | Ast.Binary_operator_less_than -> fun e1 e2 -> Jay_ast.LessThan (e1, e2)
+  | Ast.Binary_operator_less_than_or_equal_to ->
+      fun e1 e2 -> Jay_ast.Leq (e1, e2)
+  | Ast.Binary_operator_and -> fun e1 e2 -> Jay_ast.And (e1, e2)
+  | Ast.Binary_operator_or -> fun e1 e2 -> Jay_ast.Or (e1, e2)
 
 let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
     (jayil_jay_maps : Jay_to_jayil_maps.t)
@@ -480,7 +481,7 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
     (final_env : Dbmc.Interpreter.denv) (jayil_err : Jayil_error.t) :
     On_error.t list =
   (* Helper functions *)
-  let open On_ast in
+  let open Jay_ast in
   let get_pre_inst_id x =
     Jayil_instrumentation_maps.get_pre_inst_var_opt jayil_inst_maps x
     |> Option.value ~default:x
@@ -509,7 +510,7 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
     in
     jayil_to_jay_expr @@ get_pre_inst_id last_var
   in
-  let jayil_to_jay_type (typ : Ast.type_sig) : On_ast.type_sig =
+  let jayil_to_jay_type (typ : Ast.type_sig) : Jay_ast.type_sig =
     match typ with
     | Ast.Top_type -> TopType
     | Ast.Int_type -> IntType
@@ -646,7 +647,7 @@ let jayil_to_bluejay_error_simple
     jayil_to_jay_error jayil_inst_maps jayil_jay_maps interp_session final_env
       jayil_err
   in
-  let transform_type_sig (t : On_ast.type_sig) : Bluejay_ast.type_sig =
+  let transform_type_sig (t : Jay_ast.type_sig) : Bluejay_ast.type_sig =
     match t with
     | TopType -> TopType
     | IntType -> IntType
@@ -714,7 +715,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
     (err_source : Bluejay_ast.expr_desc) (jayil_err : Jayil_error.t) :
     Bluejay_error.t list =
   (* Helper functions *)
-  let open On_ast in
+  let open Jay_ast in
   let get_pre_inst_id x =
     Jayil_instrumentation_maps.get_pre_inst_var_opt jayil_inst_maps x
     |> Option.value ~default:x
