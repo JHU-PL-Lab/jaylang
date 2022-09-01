@@ -1,15 +1,19 @@
 open Core
 open Odefa_ast.Ast
 
+type mode = Sato_args.mode = Odefa | Natodefa | Typed_natodefa
+[@@deriving show]
+
 type t = {
   (* basic *)
-  is_natodefa : bool;
+  sato_mode : mode;
   program : expr;
   (* book-keeping *)
   abort_mapping : (Ident_new.t, abort_value) Hashtbl.t;
   target_vars : Ident_new.t list;
-  on_to_odefa_maps : Odefa_natural.On_to_odefa_maps.t option;
   odefa_instrumentation_maps : Odefa_instrumentation.Odefa_instrumentation_maps.t;
+  on_to_odefa_maps : Odefa_natural.On_to_odefa_maps.t option;
+  ton_on_maps : Typed_odefa_natural.Ton_to_on_maps.t option;
 }
 
 (* Enumerate all aborts in a program *)
@@ -75,18 +79,20 @@ let get_target_vars
 ;;
 
 let initialize_state_with_expr 
-  (is_natodefa : bool)
+  (sato_mode : mode)
   (e : expr) 
   (odefa_inst_maps : Odefa_instrumentation.Odefa_instrumentation_maps.t) 
   (on_to_odefa_maps_opt : Odefa_natural.On_to_odefa_maps.t option)
+  (ton_to_on_maps_opt : Typed_odefa_natural.Ton_to_on_maps.t option)
   : t =
   let abort_lst = enum_all_aborts_in_expr e in
   let ab_mapping = Hashtbl.of_alist_exn (module Ident_new) abort_lst in
   let targets = get_target_vars ab_mapping in
-  { is_natodefa = is_natodefa;
+  { sato_mode = sato_mode;
     program = e;
     abort_mapping = ab_mapping;
     target_vars = targets;
-    on_to_odefa_maps = on_to_odefa_maps_opt;
     odefa_instrumentation_maps = odefa_inst_maps;
+    on_to_odefa_maps = on_to_odefa_maps_opt;
+    ton_on_maps = ton_to_on_maps_opt;
   }

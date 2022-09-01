@@ -1,0 +1,37 @@
+(copy_files# parser/*.{ml,mli})
+(copy_files parser/*.{mll,mly})
+
+(ocamllex
+  ton_lexer
+)
+(menhir
+  (flags --explain)
+  (modules
+    ton_parser
+  )
+)
+
+(library
+  (name typed_odefa_natural)
+  (public_name odefa.natural.typed)
+  (synopsis "Typed odefa natural")
+  (libraries
+    core
+    batteries
+    jhupllib
+    monadlib
+    odefa.ast
+    odefa.instrumentation
+    odefa.natural
+  )
+  (preprocess
+    (pps
+      ppx_deriving.std
+      ppx_deriving_yojson
+      ocaml-monadic
+    )
+  )
+  (flags
+    (:standard -w -39) ;for ppx_deriving_yojson, which generates extra rec flags
+  )
+)

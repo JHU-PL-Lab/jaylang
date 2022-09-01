@@ -1,0 +1,2 @@
+let (x : {a = int, b = int}) = {a = 0, b = 1} in
+1 + false

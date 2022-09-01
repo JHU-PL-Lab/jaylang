@@ -1,0 +1,12 @@
+# DDSE: 10s
+# DBMC: Times out
+
+let f x g = g (x + 1) in
+letd h (x : int) : (y : {. int | fun a -> a > x }) -> {. int | fun a -> a > y } = 
+    fun yv -> yv + 1 
+in
+let main (n : int) : {. int | fun c -> c < 0 } =
+    if (n >= 0) 
+    then f n (h n)
+    else 1
+in main

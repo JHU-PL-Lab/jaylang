@@ -1,0 +1,14 @@
+# EXPECT-WELL-FORMED
+# EXPECT-NO-TYPE-ERRORS
+
+let record_constraint re = 
+    match re with
+    | {a = x, b = y} -> 
+        match y with
+        | {c = z} -> x + z >= 0
+        end  
+    end
+in
+let isTrue b = b in
+let test (test_record : {. {: a : int, b : {: c : int :} :} | record_constraint }) : {. bool | isTrue } = (test_record.a + (test_record.b).c < 0) in
+test

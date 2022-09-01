@@ -37,6 +37,15 @@ module Natodefa_error_location
     `String (replace_linebreaks @@ show expr);;
 end;;
 
+module Ton_error_location
+  : Error_location with type t = Typed_odefa_natural.Ton_ast.expr_desc = struct
+  type t = Typed_odefa_natural.Ton_ast.expr_desc;;
+  let show = Pp_utils.pp_to_string Typed_odefa_natural.Ton_ast_pp.pp_expr_desc_without_tag;;
+  let show_brief = Pp_utils.pp_to_string Typed_odefa_natural.Ton_ast_pp.pp_expr_desc_without_tag;;
+  let to_yojson expr = 
+    `String (replace_linebreaks @@ show expr);;
+end;;
+
 module type Sato_result = sig
   type t;;
   val description : string;;
@@ -81,7 +90,7 @@ let get_odefa_errors
       (* let () = print_endline @@ Interpreter.show_ident_with_stack hd in *)
       let found = Hashtbl.find cls_mapping hd in
       match found with
-      | Some cls -> cls
+      | Some (cls, _) -> cls
       | None -> find_source_cls cls_mapping tl
   in
   let mk_match_err expected_type actual_val x x_stk : Sato_error.Odefa_error.t list = 
@@ -89,7 +98,7 @@ let get_odefa_errors
     | Bool_type, Value_bool _ | Int_type, Value_int _ -> []
     | _ -> 
       let match_aliases_raw =
-        Sato_tools.find_alias alias_graph [] (x, x_stk)
+        Sato_tools.find_alias alias_graph (x, x_stk)
       in
       (* let () = print_endline @@ "Printing aliases" in
       let () = 
@@ -102,7 +111,7 @@ let get_odefa_errors
       in
       let match_aliases = 
         match_aliases_raw
-        |> List.map ~f:(fun (x, _) -> x)
+        (* |> List.map ~f:(fun (x, _) -> x) *)
         |> List.rev
       in
       let actual_type = Sato_tools.get_value_type actual_val in
@@ -118,14 +127,14 @@ let get_odefa_errors
   let mk_value_error x x_stk = 
       (* let () = print_endline "making a value error!" in *)
       let value_aliases_raw =
-        Sato_tools.find_alias alias_graph [] (x, x_stk)
+        Sato_tools.find_alias alias_graph (x, x_stk)
       in
       let val_source = 
         find_source_cls interp_session.val_def_map value_aliases_raw 
       in
       let value_aliases = 
         value_aliases_raw
-        |> List.map ~f:(fun (x, _) -> x)
+        (* |> List.map ~f:(fun (x, _) -> x) *)
         |> List.rev
       in
       let value_error = Sato_error.Odefa_error.Error_value {
@@ -278,7 +287,7 @@ module Natodefa_type_errors : Sato_result with type t = natodefa_error_record = 
     let on_to_odefa_maps = Option.value_exn sato_state.on_to_odefa_maps in
     let on_err_loc_core =
       err_id
-      |> On_to_odefa_maps.get_natodefa_equivalent_expr on_to_odefa_maps 
+      |> On_to_odefa_maps.get_natodefa_equivalent_expr_exn on_to_odefa_maps 
     in
     let on_err_list =
       let mapper = 
@@ -316,11 +325,100 @@ module Natodefa_type_errors : Sato_result with type t = natodefa_error_record = 
 
 end;;
 
+(* **** Typed Natodefa Type Errors **** *)
+
+type ton_error_record = {
+  err_errors : Sato_error.Ton_error.t list;
+  err_input_seq : int option list;
+  err_location : Ton_error_location.t;
+}
+[@@ deriving to_yojson]
+;;  
+
+module Ton_type_errors : Sato_result with type t = ton_error_record = struct
+
+  type t = ton_error_record;;
+
+  let description = "typed natodefa type error";;
+
+  let get_errors 
+    (sato_state : Sato_state.t)
+    (symb_interp_state : Dbmc.Types.State.t)
+    (interp_session : Dbmc.Interpreter.session) 
+    (final_env : Dbmc.Interpreter.denv)
+    (inputs : int option list) = 
+    let open Odefa_natural in
+    let open Typed_odefa_natural in
+    let ((Clause (Var (err_id, _), _) as error_loc), odefa_errors) = 
+      get_odefa_errors sato_state symb_interp_state interp_session final_env 
+    in
+    let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
+    let on_to_odefa_maps = Option.value_exn sato_state.on_to_odefa_maps in
+    let ton_on_maps = Option.value_exn sato_state.ton_on_maps in
+    let on_err_loc_syn =
+      err_id
+      |> On_to_odefa_maps.get_natodefa_equivalent_expr_exn on_to_odefa_maps 
+      |> Ton_ast_internal.from_natodefa_expr_desc
+      |> Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps
+      |> Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps
+      |> Ton_ast_internal.from_internal_expr_desc
+    in
+    let is_type_error = 
+      match on_err_loc_syn.body with
+      | LetWithType _ | LetFunWithType _ | LetRecFunWithType _ -> true
+      | _ -> false
+    in
+    let ton_err_list =
+      let mapper = 
+        if is_type_error then
+          (Sato_error.odefa_to_ton_error
+            odefa_inst_maps on_to_odefa_maps ton_on_maps 
+            interp_session on_err_loc_syn) 
+        else
+          (Sato_error.odefa_to_ton_error_simple 
+            odefa_inst_maps on_to_odefa_maps ton_on_maps 
+            interp_session final_env) 
+      in 
+      List.map ~f:mapper odefa_errors
+    in
+    {
+      err_input_seq = inputs;
+      err_location = on_err_loc_syn;
+      err_errors = List.concat ton_err_list;
+    }
+  ;;
+
+  let show : t -> string = fun error ->
+    "** Typed Natodefa Type Errors **\n" ^
+    (Printf.sprintf "- Input sequence  : %s\n" (Dbmc.Std.string_of_inputs error.err_input_seq)) ^
+    (Printf.sprintf "- Found at clause : %s\n" (Ton_error_location.show error.err_location)) ^
+    "--------------------\n" ^
+    (String.concat ~sep:"\n--------------------\n"
+      @@ List.map ~f:Sato_error.Ton_error.show error.err_errors)
+  ;;
+
+  let show_compact : t -> string = fun error ->
+    "- err at: " ^ (Ton_error_location.show_brief error.err_location) 
+  ;;
+
+  let count : t -> int = fun err -> 
+    List.length err.err_errors
+  ;;
+
+  let to_yojson : t -> Yojson.Safe.t = fun err -> 
+    ton_error_record_to_yojson err
+  ;;
+
+end;;
+
+
 (* **** Unifying Type Errors **** *)
-type reported_error = Natodefa_error of Natodefa_type_errors.t 
+type reported_error = Ton_error of Ton_type_errors.t
+                    | Natodefa_error of Natodefa_type_errors.t 
                     | Odefa_error of Odefa_type_errors.t
 
 let show_reported_error err = 
   match err with
+  | Ton_error ton_err -> Ton_type_errors.show ton_err
   | Natodefa_error nat_err -> Natodefa_type_errors.show nat_err
   | Odefa_error odefa_err -> Odefa_type_errors.show odefa_err

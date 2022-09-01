@@ -17,7 +17,7 @@ and denv = dvalue_with_stack Ident_map.t
 module Ident_with_stack =
 struct
   type t = Id.t * Concrete_stack.t
-  [@@deriving sexp_of, compare, equal, hash]
+  [@@deriving sexp_of, compare, equal, hash, show]
 ;;
 end;;
 
@@ -25,6 +25,10 @@ type ident_with_stack_set = Ident_with_stack.t Hash_set.t
 
 let show_ident_with_stack (x, stk) = 
   (show_ident x) ^ "@" ^ Concrete_stack.to_string stk
+
+let ident_from_id_with_stack (x, _) = x
+
+let stack_from_id_with_stack (_, stk) = stk
 
 let value_of_dvalue = function
   | Direct v -> v
@@ -61,7 +65,7 @@ type session = {
   max_step : int option;
   (* Book-keeping *)
   alias_graph : G.t;
-  val_def_map : (Ident_with_stack.t, clause_body) Hashtbl.t;
+  val_def_map : (Ident_with_stack.t, clause_body * dvalue) Hashtbl.t;
   (* debug *)
   is_debug : bool;
   node_set : (Lookup_key.t, bool) Hashtbl.t;
@@ -116,12 +120,12 @@ let add_val_def_mapping x vdef session : unit =
   let val_def_mapping = session.val_def_map in
   (* let () = print_endline @@ "This is adding a mapping, here's the key: " in *)
   (* let () = print_endline @@ show_ident_with_stack x in *)
-  let added = Hashtbl.add ~key:x ~data:vdef val_def_mapping in
-  match added with
+  Hashtbl.add_exn ~key:x ~data:vdef val_def_mapping
+  (* match added with
   | `Duplicate ->
     let v = Hashtbl.find_exn val_def_mapping x in
-    if Ast.equal_clause_body v vdef then () else failwith "Should be the same value"
-  | `Ok -> ()
+    if Ast.equal_clause_body v vdef  then () else failwith "Should be the same value"
+  | `Ok -> () *)
 
 let debug_update_read_node session x stk =
   match (session.is_debug, session.mode) with
@@ -234,14 +238,17 @@ and eval_clause ~session stk env clause : denv * dvalue =
   let (v_pre : dvalue) =
     match cbody with
     | Value_body (Value_function vf) -> 
-      let () = add_val_def_mapping (x, stk) cbody session in
-      FunClosure (x, vf, env)
+      let retv = FunClosure (x, vf, env) in
+      let () = add_val_def_mapping (x, stk) (cbody, retv) session in
+      retv
     | Value_body (Value_record r) -> 
-      let () = add_val_def_mapping (x, stk) cbody session in
-      RecordClosure (r, env)
+      let retv = RecordClosure (r, env) in
+      let () = add_val_def_mapping (x, stk) (cbody, retv) session in
+      retv
     | Value_body v -> 
-      let () = add_val_def_mapping (x, stk) cbody session in
-      Direct v
+      let retv = Direct v in
+      let () = add_val_def_mapping (x, stk) (cbody, retv) session in
+      retv
     | Var_body vx -> 
       let Var (v, _) = vx in 
       let ret_val, ret_stk = fetch_val_with_stk ~session ~stk env vx in
@@ -266,9 +273,10 @@ and eval_clause ~session stk env clause : denv * dvalue =
         ret_val
     | Input_body ->
         (* TODO: the interpreter may propagate the dummy value (through the value should never be used in any control flow)  *)
-        let () = add_val_def_mapping (x, stk) cbody session in
         let n = session.input_feeder (x, stk) in
-        Direct (Value_int n)
+        let retv = Direct (Value_int n) in
+        let () = add_val_def_mapping (x, stk) (cbody, retv) session in
+        retv
     | Appl_body (vx1, (Var (x2, _) as vx2)) -> (
         match fetch_val ~session ~stk env vx1 with
         | FunClosure (fid, Function_value (Var (arg, _), body), fenv) ->
@@ -291,14 +299,19 @@ and eval_clause ~session stk env clause : denv * dvalue =
             ret_val
         | _ -> failwith "app to a non fun")
     | Match_body (vx, p) ->
-        let () = add_val_def_mapping (x, stk) cbody session in
-        Direct (Value_bool (check_pattern ~session ~stk env vx p))
+        let retv = Direct (Value_bool (check_pattern ~session ~stk env vx p)) in
+        let () = add_val_def_mapping (x, stk) (cbody, retv) session in
+        retv
     | Projection_body (v, key) -> (
         match fetch_val ~session ~stk env v with
         | RecordClosure (Record_value r, denv) ->
-            let () = add_val_def_mapping (x, stk) cbody session in
+            (* let () = add_val_def_mapping (x, stk) cbody session in
             let vv = Ident_map.find key r in
-            fetch_val ~session ~stk denv vv
+            fetch_val ~session ~stk denv vv *)
+            let (Var (proj_x, _) as vv) = Ident_map.find key r in
+            let (dvv, vv_stk) = fetch_val_with_stk ~session ~stk denv vv in
+            add_alias (x, stk) (proj_x, vv_stk) session;
+            dvv
         | Direct (Value_record (Record_value _record)) ->
             (* let vv = Ident_map.find key record in
                fetch_val env vv *)
@@ -309,11 +322,12 @@ and eval_clause ~session stk env clause : denv * dvalue =
         let bv =
           match v with
           | Value_bool b -> 
-            let () = add_val_def_mapping (x, stk) cbody session in
             Value_bool (not b)
           | _ -> failwith "incorrect not"
         in
-        Direct bv
+        let retv = Direct bv in
+        let () = add_val_def_mapping (x, stk) (cbody, retv) session in
+        retv
     | Binary_operation_body (vx1, op, vx2) ->
         let v1 = fetch_val_to_direct ~session ~stk env vx1
         and v2 = fetch_val_to_direct ~session ~stk env vx2 in
@@ -343,8 +357,9 @@ and eval_clause ~session stk env clause : denv * dvalue =
               Value_bool (b1 || b2)
           | _, _, _ -> failwith "incorrect binop"
         in
-        let () = add_val_def_mapping (x, stk) cbody session in
-        Direct v
+        let retv = Direct v in
+        let () = add_val_def_mapping (x, stk) (cbody, retv) session in
+        retv 
     (* | Abort_body ->
       raise @@ Found_abort x
     | Assert_body vx ->
@@ -357,8 +372,8 @@ and eval_clause ~session stk env clause : denv * dvalue =
       Direct bv *)
       (* TODO: What should the interpreter do with an assume statement? *)
     | Abort_body -> 
-      let () = add_val_def_mapping (x, stk) cbody session in
       let ab_v = AbortClosure env in
+      let () = add_val_def_mapping (x, stk) (cbody, ab_v) session in
       (
       match session.mode with
       | Plain ->
@@ -367,9 +382,9 @@ and eval_clause ~session stk env clause : denv * dvalue =
         if Id.equal target x then raise @@ Found_target { x; stk; v = ab_v }
         else raise @@ Found_abort ab_v
       | With_full_target (target, tar_stk) ->
-        (* let () = print_endline @@ "target equal: " ^ string_of_bool (Id.equal target x) in *)
-        (* let () = print_endline @@ "stack equal: " ^ string_of_bool (Concrete_stack.equal tar_stk stk) in *)
-        (* let () = print_endline @@ "-------------" in
+        (* let () = print_endline @@ "target equal: " ^ string_of_bool (Id.equal target x) in
+        let () = print_endline @@ "stack equal: " ^ string_of_bool (Concrete_stack.equal tar_stk stk) in
+        let () = print_endline @@ "-------------" in
         let () = print_endline @@ "expected stack  : " ^ Concrete_stack.show tar_stk in
         let () = print_endline @@ "actual stack : " ^ Concrete_stack.show stk in
         let () = print_endline @@ "-------------" in *)
@@ -378,8 +393,9 @@ and eval_clause ~session stk env clause : denv * dvalue =
         else raise @@ Found_abort ab_v
       )
     | Assert_body _ | Assume_body _ -> 
-      let () = add_val_def_mapping (x, stk) cbody session in
-      Direct (Value_bool true)
+      let retv = Direct (Value_bool true) in
+      let () = add_val_def_mapping (x, stk) (cbody, retv) session in
+      retv
     (* failwith "not supported yet" *)
   in
   let v = (v_pre, stk) in

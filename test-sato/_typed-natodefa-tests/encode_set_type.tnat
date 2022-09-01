@@ -1,0 +1,19 @@
+# Hasn't tested this one
+
+let set_type base_type pred = 
+    let gen = fun x ->
+        let base_value = (base_type.generator) 0 in
+        if (pred base_value) then base_value
+        else assume false
+    in
+    let check = fun e ->
+        let type_checker = base_type.checker in
+        if (type_checker e) then (pred e) else assert false
+    in
+    {generator = gen, checker = check}
+in
+let isPos n = n > 0 in
+let positive_int = set_type int isPos in
+let (x : positive_int) = 0 in x
+
+

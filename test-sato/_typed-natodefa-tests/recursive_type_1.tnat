@@ -1,0 +1,5 @@
+# Doesn't work. Probably because the parser looks at "tt" and thought it was
+# a regular variable rather than a type var
+
+let (x : Mu tt. ({: a : bool, b : tt :} || int)) = { a = false, b = true }
+in x

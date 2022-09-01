@@ -1,0 +1,15 @@
+# ???
+
+let rec f (x : [int]) : ((y : [int]) -> (z : [int]) -> =
+    let g l2 =
+        let h acc =
+            match l2 with
+            | [] -> acc
+            | hd :: tl -> f l2 tl acc
+            end
+        in
+        h
+    in
+    g
+in
+f
