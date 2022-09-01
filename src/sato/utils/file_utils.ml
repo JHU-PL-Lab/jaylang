@@ -1,7 +1,7 @@
 open! Core
 open Jayil
 open Odefa_natural
-open Typed_odefa_natural
+open Bluejay
 
 let is_ton_ext s = Filename.check_suffix s "tnat"
 
@@ -20,8 +20,7 @@ let read_source_sato filename =
     then (
       let tnatast =
         Ton_ast.new_expr_desc
-        @@ In_channel.with_file filename
-             ~f:Typed_odefa_natural.Ton_parse.parse_program_raw
+        @@ In_channel.with_file filename ~f:Bluejay.Ton_parse.parse_program_raw
       in
       let tnatast_internal = Ton_ast_internal.to_internal_expr_desc tnatast in
       let core_ast, ton_on_maps =

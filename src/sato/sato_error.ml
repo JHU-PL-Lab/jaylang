@@ -2,7 +2,7 @@ open Core
 open Jhupllib
 open Jayil
 open Odefa_natural
-open Typed_odefa_natural
+open Bluejay
 open Jay_instrumentation
 
 (* let _show_expr' = Pp_utils.pp_to_string Ton_ast_internal_pp.pp_expr;; *)
@@ -638,7 +638,7 @@ let odefa_to_ton_error_simple (odefa_inst_maps : Odefa_instrumentation_maps.t)
     (interp_session : Dbmc.Interpreter.session)
     (final_env : Dbmc.Interpreter.denv) (odefa_err : Odefa_error.t) :
     Ton_error.t list =
-  let open Typed_odefa_natural in
+  let open Bluejay in
   let natodefa_errors =
     odefa_to_natodefa_error odefa_inst_maps odefa_on_maps interp_session
       final_env odefa_err

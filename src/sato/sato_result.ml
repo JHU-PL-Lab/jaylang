@@ -40,16 +40,13 @@ module Natodefa_error_location :
 end
 
 module Ton_error_location :
-  Error_location with type t = Typed_odefa_natural.Ton_ast.expr_desc = struct
-  type t = Typed_odefa_natural.Ton_ast.expr_desc
+  Error_location with type t = Bluejay.Ton_ast.expr_desc = struct
+  type t = Bluejay.Ton_ast.expr_desc
 
-  let show =
-    Pp_utils.pp_to_string
-      Typed_odefa_natural.Ton_ast_pp.pp_expr_desc_without_tag
+  let show = Pp_utils.pp_to_string Bluejay.Ton_ast_pp.pp_expr_desc_without_tag
 
   let show_brief =
-    Pp_utils.pp_to_string
-      Typed_odefa_natural.Ton_ast_pp.pp_expr_desc_without_tag
+    Pp_utils.pp_to_string Bluejay.Ton_ast_pp.pp_expr_desc_without_tag
 
   let to_yojson expr = `String (replace_linebreaks @@ show expr)
 end
@@ -337,7 +334,7 @@ module Ton_type_errors : Sato_result with type t = ton_error_record = struct
       (interp_session : Dbmc.Interpreter.session)
       (final_env : Dbmc.Interpreter.denv) (inputs : int option list) =
     let open Odefa_natural in
-    let open Typed_odefa_natural in
+    let open Bluejay in
     let (Clause (Var (err_id, _), _) as error_loc), odefa_errors =
       get_odefa_errors sato_state symb_interp_state interp_session final_env
     in

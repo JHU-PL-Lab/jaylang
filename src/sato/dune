@@ -10,9 +10,9 @@
   fmt
   lwt
   lwt.unix
-  odefa.ast
-  odefa.ddpa
+  ddpa
   bluejay
+  jayil
   jayil_parser
   dbmc
  )

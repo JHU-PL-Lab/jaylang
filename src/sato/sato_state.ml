@@ -13,7 +13,7 @@ type t = {
   target_vars : Ident_new.t list;
   odefa_instrumentation_maps : Jay_instrumentation.Odefa_instrumentation_maps.t;
   on_to_odefa_maps : Odefa_natural.On_to_odefa_maps.t option;
-  ton_on_maps : Typed_odefa_natural.Ton_to_on_maps.t option;
+  ton_on_maps : Bluejay.Ton_to_on_maps.t option;
 }
 
 (* Enumerate all aborts in a program *)
@@ -69,7 +69,7 @@ let get_target_vars (abort_mapping : (Ident_new.t, abort_value) Hashtbl.t) :
 let initialize_state_with_expr (sato_mode : mode) (e : expr)
     (odefa_inst_maps : Jay_instrumentation.Odefa_instrumentation_maps.t)
     (on_to_odefa_maps_opt : Odefa_natural.On_to_odefa_maps.t option)
-    (ton_to_on_maps_opt : Typed_odefa_natural.Ton_to_on_maps.t option) : t =
+    (ton_to_on_maps_opt : Bluejay.Ton_to_on_maps.t option) : t =
   let abort_lst = enum_all_aborts_in_expr e in
   let ab_mapping = Hashtbl.of_alist_exn (module Ident_new) abort_lst in
   let targets = get_target_vars ab_mapping in

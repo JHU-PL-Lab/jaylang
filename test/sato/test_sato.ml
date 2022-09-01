@@ -130,14 +130,12 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
               List.map ~f:(fun (Ident i) -> i) err.err_match_aliases
             in
             let actual_v =
-              Typed_odefa_natural.Ton_ast_pp.show_expr err.err_match_val.body
+              Bluejay.Ton_ast_pp.show_expr err.err_match_val.body
               |> String.substr_replace_all ~pattern:"\n" ~with_:" "
             in
             let a_actual_type, a_expected_type =
-              ( Typed_odefa_natural.Ton_ast_pp.show_on_type
-                @@ err.err_match_actual,
-                Typed_odefa_natural.Ton_ast_pp.show_on_type
-                @@ err.err_match_expected )
+              ( Bluejay.Ton_ast_pp.show_on_type @@ err.err_match_actual,
+                Bluejay.Ton_ast_pp.show_on_type @@ err.err_match_expected )
             in
             Match_error
               {
@@ -147,15 +145,12 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
               }
         | Sato_error.Ton_error.Error_natodefa_type err ->
             let actual_v =
-              Typed_odefa_natural.Ton_ast_pp.show_expr
-                err.err_type_variable.body
+              Bluejay.Ton_ast_pp.show_expr err.err_type_variable.body
               |> String.substr_replace_all ~pattern:"\n" ~with_:" "
             in
             let a_actual_type, a_expected_type =
-              ( Typed_odefa_natural.Ton_ast_pp.show_expr
-                @@ err.err_type_actual.body,
-                Typed_odefa_natural.Ton_ast_pp.show_expr
-                @@ err.err_type_expected.body )
+              ( Bluejay.Ton_ast_pp.show_expr @@ err.err_type_actual.body,
+                Bluejay.Ton_ast_pp.show_expr @@ err.err_type_expected.body )
             in
             Type_error
               {
@@ -168,7 +163,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
               List.map ~f:(fun (Ident i) -> i) err.err_value_aliases
             in
             let actual_v =
-              Typed_odefa_natural.Ton_ast_pp.show_expr err.err_value_val.body
+              Bluejay.Ton_ast_pp.show_expr err.err_value_val.body
             in
             Value_error { v_value = (actual_aliases, actual_v) }
         | _ -> failwith "Expect no other error types!"
