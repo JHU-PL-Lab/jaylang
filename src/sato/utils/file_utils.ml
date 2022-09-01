@@ -3,19 +3,15 @@ open Odefa_ast
 open Odefa_natural
 open Typed_odefa_natural
 
-(* Probably should be moved to a more general util file for all systems? *)
-let is_odefa_ext s = Filename.check_suffix s "odefa"
-
-let is_natodefa_ext s = Filename.check_suffix s "natodefa"
 
 let is_ton_ext s = Filename.check_suffix s "tnat"
 
 let mode_from_file s =
   if is_ton_ext s then Sato_args.Typed_natodefa
   else 
-    if is_natodefa_ext s then Sato_args.Natodefa
+    if Odefa_natural.File_utils.check_ext s then Sato_args.Natodefa
     else 
-      if is_odefa_ext s then Sato_args.Odefa
+      if Odefa_ast.File_utils.check_ext s then Sato_args.Odefa
       else 
         failwith "file extension must be .odefa, .natodefa, or .tnat"
 
@@ -47,7 +43,7 @@ let read_source_sato filename =
         (post_inst_ast, odefa_inst_maps, Some on_odefa_maps, Some ton_on_maps')
       end
     else 
-      if is_natodefa_ext filename
+      if Odefa_natural.File_utils.check_ext filename
         then
           begin
             let natast = On_ast.new_expr_desc @@
@@ -63,7 +59,7 @@ let read_source_sato filename =
             (post_inst_ast, odefa_inst_maps, Some on_odefa_maps, None)
           end
         else
-          if is_odefa_ext filename
+          if Odefa_ast.File_utils.check_ext filename
           then 
             let pre_inst_ast = 
               In_channel.with_file filename ~f:Odefa_parser.Parse.parse_program_raw
@@ -77,4 +73,3 @@ let read_source_sato filename =
           else failwith "file extension must be .odefa, .natodefa, or .tnat"
   in
   program
-

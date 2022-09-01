@@ -1,13 +1,11 @@
 open Core
-
-open Odefa_ast
 open Odefa_ast.Ast
 open Odefa_natural.On_to_odefa_maps
 open Sato_args
 open Sato_result
 
-let create_initial_dmbc_config (sato_config : Sato_args.t) 
-  : Dbmc.Global_config.t =
+let create_initial_dmbc_config (sato_config : Sato_args.t) :
+    Dbmc.Global_config.t =
   (* Extract basic configuration from sato args *)
   let filename = sato_config.filename in
   let ddpa_ver = sato_config.ddpa_c_stk in
@@ -16,13 +14,13 @@ let create_initial_dmbc_config (sato_config : Sato_args.t)
   let open Dbmc.Global_config in
   {
     target = Dbmc.Id.(Ident "target");
-    filename = filename;
+    filename;
     engine = E_dbmc;
     is_instrumented = false;
     mode = Sato;
     ddpa_c_stk = ddpa_ver;
     run_max_step = max_step;
-    timeout = timeout;
+    timeout;
     stride_init = 100;
     stride_max = 100;
     log_level = None;
@@ -33,7 +31,6 @@ let create_initial_dmbc_config (sato_config : Sato_args.t)
     debug_model = true;
     debug_graph = false;
   }
-;;
 
 let main_from_program 
   ~config inst_maps odefa_to_on_opt ton_to_on_opt program 
@@ -48,8 +45,8 @@ let main_from_program
       ton_to_on_opt
   in
   let target_vars = init_sato_state.target_vars in
-  let rec search_all_targets 
-    (remaining_targets : ident list) : reported_error option =
+  let rec search_all_targets (remaining_targets : ident list) :
+      reported_error option =
     match remaining_targets with
     | [] -> None
     | hd :: tl ->
@@ -117,10 +114,9 @@ let main_commandline () =
     main_from_program 
       ~config:sato_config odefa_inst_maps on_to_odefa_maps_opt ton_to_on_mapts_opt program 
   in
-  let () = 
+  let () =
     match errors_opt with
     | None -> print_endline @@ "No errors found."
-    | Some errors ->
-      print_endline @@ show_reported_error errors
+    | Some errors -> print_endline @@ show_reported_error errors
   in
   Dbmc.Log.close ()

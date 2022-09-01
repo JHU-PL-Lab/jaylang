@@ -16,4 +16,4 @@ val run_dbmc :
     - book-keep global search state
     - create sub-lookups and push into the scheduler
 
-    [state.node_map] is once used to keep track of [Lookup_key.t] created. *)
+    [state.key_map] is once used to keep track of [Lookup_key.t] created. *)

@@ -1,5 +1,4 @@
 open Core
-
 open Sato
 
 (* treat the path as the group name and filename as the test name *)
@@ -14,7 +13,7 @@ let group_all_files dir =
               let fullpath = Filename.concat dir path in
               match Sys_unix.is_directory fullpath with
               | `Yes -> (acc_f, loop fullpath @ acc_p)
-              | `No when File_utils.is_odefa_ext fullpath ->
+              | `No when Odefa_ast.File_utils.check_ext fullpath ->
                   (fullpath :: acc_f, acc_p)
               | `No when File_utils.is_ton_ext fullpath ->
                   (fullpath :: acc_f, acc_p)
@@ -27,10 +26,8 @@ let group_all_files dir =
   loop dir
 
 (* TODO: Refactor; there must be a better way of doing this. *)
-let errors_to_plain 
-  (actual : Sato_result.reported_error) 
-  : Test_expect.t =
-  let open Sato_result in  
+let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
+  let open Sato_result in
   match actual with
   | Odefa_error (err : Odefa_type_errors.t) ->
     let actual_err_loc = Odefa_error_location.show @@ err.err_location in
@@ -189,14 +186,13 @@ let errors_to_plain
     ; error_list = errs
     }
 
-let is_error_expected 
-  (actual : Sato_result.reported_error) 
-  (expected : Test_expect.t) : bool = 
+let is_error_expected (actual : Sato_result.reported_error)
+    (expected : Test_expect.t) : bool =
   let actual_error = errors_to_plain actual in
   let () = print_endline @@ Test_expect.show actual_error in
   let () = print_endline @@ Test_expect.show expected in
   Test_expect.equal expected actual_error
- 
+
 let test_one_file testname () =
   let (program, odefa_inst_maps, on_to_odefa_maps_opt, ton_to_on_maps_opt) = 
     File_utils.read_source_sato testname 
@@ -216,15 +212,17 @@ let test_one_file testname () =
   let expectation = Test_expect.load_sexp_expectation_for testname in
   match expectation with
   | None ->
-    Alcotest.(check bool) "Expect no type errors" true (Option.is_none errors_opt)
-  | Some expected -> 
-    match errors_opt with
-    | None -> 
-      Alcotest.(check bool) "Expect type error!" true false
-    | Some error ->
-      (* let () = failwith @@ string_of_bool @@ is_error_expected error expected in *)
-      Alcotest.(check bool) 
-        "Type error matches expected" true (is_error_expected error expected)
+      Alcotest.(check bool)
+        "Expect no type errors" true
+        (Option.is_none errors_opt)
+  | Some expected -> (
+      match errors_opt with
+      | None -> Alcotest.(check bool) "Expect type error!" true false
+      | Some error ->
+          (* let () = failwith @@ string_of_bool @@ is_error_expected error expected in *)
+          Alcotest.(check bool)
+            "Type error matches expected" true
+            (is_error_expected error expected))
 
 let main test_path =
   let grouped_testfiles = group_all_files test_path in
@@ -232,12 +230,11 @@ let main test_path =
     List.map grouped_testfiles ~f:(fun (group_name, test_names) ->
         ( group_name,
           List.map test_names ~f:(fun testname ->
-              Alcotest.test_case testname `Quick
-              @@ test_one_file testname) ))
+              Alcotest.test_case testname `Quick @@ test_one_file testname) ))
   in
   Alcotest.run "Sato" grouped_tests ;
   ()
 
 let () = 
-  (* main "test-sato" *)
-  main "test-sato/playing-ground"
+  main "test-sato"
+  (* main "test-sato/playing-ground" *)

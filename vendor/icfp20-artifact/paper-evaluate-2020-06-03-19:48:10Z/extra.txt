@@ -1,0 +1,9 @@
+Input sequence: [9, 1, 0]
+Generated in 5878 steps.
+Input sequence: [1, -1, 9, 0]
+Generated in 10793 steps.
+Input sequence: [-1, 1, -1, 13, 0]
+Generated in 17947 steps.
+Input sequence: [1, -1, -1, -1, 9, 0]
+Generated in 27618 steps.
+Requested input sequences found; terminating.

@@ -20,7 +20,6 @@
   odefa.ddpa
   odefa.parser
   odefa.symbolic-interpreter
-  odefa.test-generation
   odefa.toploop
   odefa.natural
   oUnit
