@@ -1,5 +1,5 @@
 (library
-  (name odefa_statistics)
+  (name jay_statistics)
   (public_name jay.statistics)
   (synopsis "Statistics for Odefa programs")
   (libraries

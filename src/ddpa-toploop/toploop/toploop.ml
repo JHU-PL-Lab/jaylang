@@ -2,8 +2,8 @@ open Batteries
 open Jhupllib
 open Jayil
 open Ddpa
-open Odefa_interpreter
-open Odefa_statistics
+open Jayil_interpreter
+open Jay_statistics
 open Ast
 open Ast_pp
 open Ast_wellformedness

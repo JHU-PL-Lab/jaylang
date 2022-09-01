@@ -151,7 +151,6 @@ let make_fix_f program =
               AValueSet.bools
           | Binary_operator_and -> bool_binop v1 v2 ( && )
           | Binary_operator_or -> bool_binop v1 v2 ( || )
-          | Binary_operator_xor -> bool_binop v1 v2 Bool.( <> ))
       | Abs_conditional_body (Abs_var c, e1, e2) -> (
           match Env.get env c with
           | Direct (Abs_value_bool b) ->

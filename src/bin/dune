@@ -41,8 +41,8 @@
   jhupllib
   jayil
   jayil_parser
-  odefa.toploop
-  odefa.langdk))
+  jayil_toploop
+  langdk))
 
 (env
  (dev
