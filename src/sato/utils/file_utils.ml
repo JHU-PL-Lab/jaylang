@@ -3,38 +3,42 @@ open Jayil
 open Jay
 open Bluejay
 
-let is_ton_ext s = Filename.check_suffix s "tnat"
+let is_bluejay_ext s =
+  Filename.check_suffix s "tnat" || Filename.check_suffix s "bjy"
 
 let mode_from_file s =
-  if is_ton_ext s
-  then Sato_args.Typed_natodefa
+  if is_bluejay_ext s
+  then Sato_args.Bluejay
   else if Jay.File_utils.check_ext s
-  then Sato_args.Natodefa
+  then Sato_args.Jay
   else if Jayil.File_utils.check_ext s
-  then Sato_args.Odefa
-  else failwith "file extension must be .odefa, .natodefa, or .tnat"
+  then Sato_args.Jayil
+  else failwith "file extension must be .jil, .jay, or .bjy"
 
 let read_source_sato filename =
   let program =
-    if is_ton_ext filename
+    if is_bluejay_ext filename
     then (
       let tnatast =
-        Ton_ast.new_expr_desc
-        @@ In_channel.with_file filename ~f:Bluejay.Ton_parse.parse_program_raw
+        Bluejay_ast.new_expr_desc
+        @@ In_channel.with_file filename
+             ~f:Bluejay.Bluejay_parse.parse_program_raw
       in
-      let tnatast_internal = Ton_ast_internal.to_internal_expr_desc tnatast in
+      let tnatast_internal =
+        Bluejay_ast_internal.to_internal_expr_desc tnatast
+      in
       let core_ast, ton_on_maps =
         (* Typed -> Untyped *)
-        Ton_to_on.transform_natodefa tnatast_internal.body
+        Bluejay_to_jay.transform_bluejay tnatast_internal.body
       in
       let ton_on_maps' =
-        Ton_to_on_maps.find_all_syn_tags ton_on_maps tnatast_internal
+        Bluejay_to_jay_maps.find_all_syn_tags ton_on_maps tnatast_internal
       in
-      let natast = Ton_ast_internal.to_natodefa_expr_desc core_ast in
+      let natast = Bluejay_ast_internal.to_jay_expr_desc core_ast in
       (* let (desugared_typed, ton_on_maps) = transform_natodefa natast in *)
       (* let () = print_endline @@ On_ast_pp.show_expr_desc natast in *)
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
-        On_to_odefa.translate ~is_instrumented:true natast
+        Jay_to_jayil.translate ~is_instrumented:true natast
       in
       let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;
@@ -47,7 +51,7 @@ let read_source_sato filename =
       in
       (* let (desugared_typed, ton_on_maps) = transform_natodefa natast in *)
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
-        On_to_odefa.translate ~is_instrumented:true natast
+        Jay_to_jayil.translate ~is_instrumented:true natast
       in
       (* let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in *)
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;
@@ -63,6 +67,6 @@ let read_source_sato filename =
       (* let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in *)
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;
       (post_inst_ast, odefa_inst_maps, None, None))
-    else failwith "file extension must be .odefa, .natodefa, or .tnat"
+    else failwith "file extension must be .jil, .jay, or .bjy"
   in
   program

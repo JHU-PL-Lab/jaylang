@@ -1,6 +1,6 @@
 open Core
 open Jayil.Ast
-open Jay.On_to_odefa_maps
+open Jay.Jay_to_jayil_maps
 open Sato_args
 open Sato_result
 
@@ -67,24 +67,24 @@ let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
                 match ab_clo with
                 | AbortClosure final_env -> (
                     match sato_mode with
-                    | Typed_natodefa ->
+                    | Bluejay ->
                         let errors =
-                          Sato_result.Ton_type_errors.get_errors init_sato_state
+                          Sato_result.Bluejay_type_errors.get_errors
+                            init_sato_state dbmc_state session final_env inputs
+                        in
+                        Some (Bluejay_error errors)
+                    | Jay ->
+                        let errors =
+                          Sato_result.Jay_type_errors.get_errors init_sato_state
                             dbmc_state session final_env inputs
                         in
-                        Some (Ton_error errors)
-                    | Natodefa ->
+                        Some (Jay_error errors)
+                    | Jayil ->
                         let errors =
-                          Sato_result.Natodefa_type_errors.get_errors
+                          Sato_result.Jayil_type_errors.get_errors
                             init_sato_state dbmc_state session final_env inputs
                         in
-                        Some (Natodefa_error errors)
-                    | Odefa ->
-                        let errors =
-                          Sato_result.Odefa_type_errors.get_errors
-                            init_sato_state dbmc_state session final_env inputs
-                        in
-                        Some (Odefa_error errors))
+                        Some (Jayil_error errors))
                 | _ -> failwith "Shoud have run into abort here!"))
           | None -> search_all_targets tl
         with ex -> (* Printexc.print_backtrace Out_channel.stderr ; *)

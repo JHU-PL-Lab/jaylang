@@ -4,8 +4,8 @@ open Jhupllib
 open Dbmc
 open Jayil
 open Jayil.Ast
-open Jay_instrumentation.Odefa_instrumentation_maps
-open Jay.On_to_odefa_maps
+open Jay_instrumentation.Jayil_instrumentation_maps
+open Jay.Jay_to_jayil_maps
 
 module type Error_location = sig
   type t
@@ -18,7 +18,7 @@ end
 let replace_linebreaks (str : string) : string =
   String.tr ~target:'\n' ~replacement:' ' str
 
-module Odefa_error_location : Error_location with type t = Ast.clause = struct
+module Jayil_error_location : Error_location with type t = Ast.clause = struct
   type t = Ast.clause
 
   let show = Ast_pp.show_clause
@@ -26,8 +26,8 @@ module Odefa_error_location : Error_location with type t = Ast.clause = struct
   let to_yojson clause = `String (replace_linebreaks @@ show clause)
 end
 
-module Natodefa_error_location :
-  Error_location with type t = Jay.On_ast.expr_desc = struct
+module Jay_error_location : Error_location with type t = Jay.On_ast.expr_desc =
+struct
   type t = Jay.On_ast.expr_desc
 
   let show = Pp_utils.pp_to_string Jay.On_ast_pp.pp_expr_desc_without_tag
@@ -35,14 +35,15 @@ module Natodefa_error_location :
   let to_yojson expr = `String (replace_linebreaks @@ show expr)
 end
 
-module Ton_error_location :
-  Error_location with type t = Bluejay.Ton_ast.expr_desc = struct
-  type t = Bluejay.Ton_ast.expr_desc
+module Bluejay_error_location :
+  Error_location with type t = Bluejay.Bluejay_ast.expr_desc = struct
+  type t = Bluejay.Bluejay_ast.expr_desc
 
-  let show = Pp_utils.pp_to_string Bluejay.Ton_ast_pp.pp_expr_desc_without_tag
+  let show =
+    Pp_utils.pp_to_string Bluejay.Bluejay_ast_pp.pp_expr_desc_without_tag
 
   let show_brief =
-    Pp_utils.pp_to_string Bluejay.Ton_ast_pp.pp_expr_desc_without_tag
+    Pp_utils.pp_to_string Bluejay.Bluejay_ast_pp.pp_expr_desc_without_tag
 
   let to_yojson expr = `String (replace_linebreaks @@ show expr)
 end
@@ -76,7 +77,7 @@ let get_abort_cond_clause_id
 
 let get_odefa_errors (sato_state : Sato_state.t)
     (symb_interp_state : Types.State.t) (interp_session : Interpreter.session)
-    (final_env : Interpreter.denv) : Ast.clause * Sato_error.Odefa_error.t list
+    (final_env : Interpreter.denv) : Ast.clause * Sato_error.Jayil_error.t list
     =
   let abort_var = symb_interp_state.target in
   let ab_mapping = sato_state.abort_mapping in
@@ -98,7 +99,7 @@ let get_odefa_errors (sato_state : Sato_state.t)
         | None -> find_source_cls cls_mapping tl)
   in
   let mk_match_err expected_type actual_val x x_stk :
-      Sato_error.Odefa_error.t list =
+      Sato_error.Jayil_error.t list =
     match (expected_type, actual_val) with
     | Bool_type, Value_bool _ | Int_type, Value_int _ -> []
     | _ ->
@@ -119,7 +120,7 @@ let get_odefa_errors (sato_state : Sato_state.t)
         in
         let actual_type = Sato_tools.get_value_type actual_val in
         let match_error =
-          Sato_error.Odefa_error.Error_match
+          Sato_error.Jayil_error.Error_match
             {
               err_match_aliases = match_aliases;
               err_match_val = match_val_source;
@@ -141,7 +142,7 @@ let get_odefa_errors (sato_state : Sato_state.t)
       |> List.rev
     in
     let value_error =
-      Sato_error.Odefa_error.Error_value
+      Sato_error.Jayil_error.Error_value
         { err_value_aliases = value_aliases; err_value_val = val_source }
     in
     [ value_error ]
@@ -196,15 +197,15 @@ let get_odefa_errors (sato_state : Sato_state.t)
   (error_loc, error_list)
 
 type odefa_error_record = {
-  err_errors : Sato_error.Odefa_error.t list;
+  err_errors : Sato_error.Jayil_error.t list;
   err_input_seq : int option list;
-  err_location : Odefa_error_location.t;
+  err_location : Jayil_error_location.t;
 }
 [@@deriving to_yojson]
 
-(* **** Odefa Type Errors **** *)
+(* **** Jayil Type Errors **** *)
 
-module Odefa_type_errors : Sato_result with type t = odefa_error_record = struct
+module Jayil_type_errors : Sato_result with type t = odefa_error_record = struct
   type t = odefa_error_record
 
   let description = "error"
@@ -218,7 +219,7 @@ module Odefa_type_errors : Sato_result with type t = odefa_error_record = struct
     in
     let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
     let rm_inst_fn =
-      Sato_error.odefa_error_remove_instrument_vars odefa_inst_maps
+      Sato_error.jayil_error_remove_instrument_vars odefa_inst_maps
     in
     {
       err_input_seq = inputs;
@@ -228,19 +229,19 @@ module Odefa_type_errors : Sato_result with type t = odefa_error_record = struct
 
   let show : t -> string =
    fun error ->
-    "** Odefa Type Errors **\n"
+    "** Jayil Type Errors **\n"
     ^ Printf.sprintf "- Input sequence  : %s\n"
         (Dbmc.Std.string_of_inputs error.err_input_seq)
     ^ Printf.sprintf "- Found at clause : %s\n"
-        (Odefa_error_location.show error.err_location)
+        (Jayil_error_location.show error.err_location)
     (* (Printf.sprintf "- Found in steps  : %s\n" (string_of_int error.err_steps)) ^ *)
     ^ "--------------------\n"
     ^ String.concat ~sep:"\n--------------------\n"
-    @@ List.map ~f:Sato_error.Odefa_error.show error.err_errors
+    @@ List.map ~f:Sato_error.Jayil_error.show error.err_errors
 
   let show_compact : t -> string =
    fun error ->
-    "- err at: " ^ Odefa_error_location.show_brief error.err_location
+    "- err at: " ^ Jayil_error_location.show_brief error.err_location
 
   let count : t -> int = fun err -> List.length err.err_errors
 
@@ -248,16 +249,16 @@ module Odefa_type_errors : Sato_result with type t = odefa_error_record = struct
    fun err -> odefa_error_record_to_yojson err
 end
 
-(* **** Natodefa Type Errors **** *)
+(* **** Jay Type Errors **** *)
 
 type natodefa_error_record = {
   err_errors : Sato_error.On_error.t list;
   err_input_seq : int option list;
-  err_location : Natodefa_error_location.t;
+  err_location : Jay_error_location.t;
 }
 [@@deriving to_yojson]
 
-module Natodefa_type_errors : Sato_result with type t = natodefa_error_record =
+module Jay_type_errors : Sato_result with type t = natodefa_error_record =
 struct
   type t = natodefa_error_record
 
@@ -275,11 +276,11 @@ struct
     let on_to_odefa_maps = Option.value_exn sato_state.on_to_odefa_maps in
     let on_err_loc_core =
       err_id
-      |> On_to_odefa_maps.get_natodefa_equivalent_expr_exn on_to_odefa_maps
+      |> Jay_to_jayil_maps.get_natodefa_equivalent_expr_exn on_to_odefa_maps
     in
     let on_err_list =
       let mapper =
-        Sato_error.odefa_to_natodefa_error odefa_inst_maps on_to_odefa_maps
+        Sato_error.jayil_to_jay_error odefa_inst_maps on_to_odefa_maps
           interp_session final_env
       in
       List.map ~f:mapper odefa_errors
@@ -296,14 +297,13 @@ struct
     ^ Printf.sprintf "- Input sequence  : %s\n"
         (Dbmc.Std.string_of_inputs error.err_input_seq)
     ^ Printf.sprintf "- Found at clause : %s\n"
-        (Natodefa_error_location.show error.err_location)
+        (Jay_error_location.show error.err_location)
     ^ "--------------------\n"
     ^ String.concat ~sep:"\n--------------------\n"
     @@ List.map ~f:Sato_error.On_error.show error.err_errors
 
   let show_compact : t -> string =
-   fun error ->
-    "- err at: " ^ Natodefa_error_location.show_brief error.err_location
+   fun error -> "- err at: " ^ Jay_error_location.show_brief error.err_location
 
   let count : t -> int = fun err -> List.length err.err_errors
 
@@ -311,16 +311,16 @@ struct
    fun err -> natodefa_error_record_to_yojson err
 end
 
-(* **** Typed Natodefa Type Errors **** *)
+(* **** Typed Jay Type Errors **** *)
 
 type ton_error_record = {
-  err_errors : Sato_error.Ton_error.t list;
+  err_errors : Sato_error.Bluejay_error.t list;
   err_input_seq : int option list;
-  err_location : Ton_error_location.t;
+  err_location : Bluejay_error_location.t;
 }
 [@@deriving to_yojson]
 
-module Ton_type_errors : Sato_result with type t = ton_error_record = struct
+module Bluejay_type_errors : Sato_result with type t = ton_error_record = struct
   type t = ton_error_record
 
   let description = "typed natodefa type error"
@@ -339,11 +339,11 @@ module Ton_type_errors : Sato_result with type t = ton_error_record = struct
     let ton_on_maps = Option.value_exn sato_state.ton_on_maps in
     let on_err_loc_syn =
       err_id
-      |> On_to_odefa_maps.get_natodefa_equivalent_expr_exn on_to_odefa_maps
-      |> Ton_ast_internal.from_natodefa_expr_desc
-      |> Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps
-      |> Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps
-      |> Ton_ast_internal.from_internal_expr_desc
+      |> Jay_to_jayil_maps.get_natodefa_equivalent_expr_exn on_to_odefa_maps
+      |> Bluejay_ast_internal.from_jay_expr_desc
+      |> Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay ton_on_maps
+      |> Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay ton_on_maps
+      |> Bluejay_ast_internal.from_internal_expr_desc
     in
     let is_type_error =
       match on_err_loc_syn.body with
@@ -354,11 +354,11 @@ module Ton_type_errors : Sato_result with type t = ton_error_record = struct
       let mapper =
         if is_type_error
         then
-          Sato_error.odefa_to_ton_error odefa_inst_maps on_to_odefa_maps
+          Sato_error.jayil_to_bluejay_error odefa_inst_maps on_to_odefa_maps
             ton_on_maps interp_session on_err_loc_syn
         else
-          Sato_error.odefa_to_ton_error_simple odefa_inst_maps on_to_odefa_maps
-            ton_on_maps interp_session final_env
+          Sato_error.jayil_to_bluejay_error_simple odefa_inst_maps
+            on_to_odefa_maps ton_on_maps interp_session final_env
       in
       List.map ~f:mapper odefa_errors
     in
@@ -370,17 +370,18 @@ module Ton_type_errors : Sato_result with type t = ton_error_record = struct
 
   let show : t -> string =
    fun error ->
-    "** Typed Natodefa Type Errors **\n"
+    "** Bluejay Type Errors **\n"
     ^ Printf.sprintf "- Input sequence  : %s\n"
         (Dbmc.Std.string_of_inputs error.err_input_seq)
     ^ Printf.sprintf "- Found at clause : %s\n"
-        (Ton_error_location.show error.err_location)
+        (Bluejay_error_location.show error.err_location)
     ^ "--------------------\n"
     ^ String.concat ~sep:"\n--------------------\n"
-    @@ List.map ~f:Sato_error.Ton_error.show error.err_errors
+    @@ List.map ~f:Sato_error.Bluejay_error.show error.err_errors
 
   let show_compact : t -> string =
-   fun error -> "- err at: " ^ Ton_error_location.show_brief error.err_location
+   fun error ->
+    "- err at: " ^ Bluejay_error_location.show_brief error.err_location
 
   let count : t -> int = fun err -> List.length err.err_errors
   let to_yojson : t -> Yojson.Safe.t = fun err -> ton_error_record_to_yojson err
@@ -388,12 +389,12 @@ end
 
 (* **** Unifying Type Errors **** *)
 type reported_error =
-  | Ton_error of Ton_type_errors.t
-  | Natodefa_error of Natodefa_type_errors.t
-  | Odefa_error of Odefa_type_errors.t
+  | Bluejay_error of Bluejay_type_errors.t
+  | Jay_error of Jay_type_errors.t
+  | Jayil_error of Jayil_type_errors.t
 
 let show_reported_error err =
   match err with
-  | Ton_error ton_err -> Ton_type_errors.show ton_err
-  | Natodefa_error nat_err -> Natodefa_type_errors.show nat_err
-  | Odefa_error odefa_err -> Odefa_type_errors.show odefa_err
+  | Bluejay_error ton_err -> Bluejay_type_errors.show ton_err
+  | Jay_error nat_err -> Jay_type_errors.show nat_err
+  | Jayil_error odefa_err -> Jayil_type_errors.show odefa_err

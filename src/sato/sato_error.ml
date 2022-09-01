@@ -5,7 +5,7 @@ open Jay
 open Bluejay
 open Jay_instrumentation
 
-(* let _show_expr' = Pp_utils.pp_to_string Ton_ast_internal_pp.pp_expr;; *)
+(* let _show_expr' = Pp_utils.pp_to_string Bluejay_ast_internal_pp.pp_expr;; *)
 
 exception Parse_failure of string
 
@@ -213,9 +213,9 @@ module Make
   let show = Pp_utils.pp_to_string pp
 end
 
-(* **** Odefa modules **** *)
+(* **** Jayil modules **** *)
 
-module Odefa_ident :
+module Jayil_ident :
   Error_ident with type t = Dbmc.Interpreter.Ident_with_stack.t = struct
   type t = Dbmc.Interpreter.Ident_with_stack.t
 
@@ -225,7 +225,7 @@ module Odefa_ident :
   let to_yojson ident = `String (replace_linebreaks @@ show ident)
 end
 
-module Odefa_value : Error_value with type t = Ast.clause_body = struct
+module Jayil_value : Error_value with type t = Ast.clause_body = struct
   type t = Ast.clause_body
 
   let equal = Ast.equal_clause_body
@@ -237,7 +237,7 @@ module Odefa_value : Error_value with type t = Ast.clause_body = struct
   let to_yojson value = `String (replace_linebreaks @@ show value)
 end
 
-module Odefa_binop :
+module Jayil_binop :
   Error_binop
     with type t = Ast.clause_body * Ast.binary_operator * Ast.clause_body =
 struct
@@ -255,7 +255,7 @@ struct
   let to_yojson binop = `String (replace_linebreaks @@ show binop)
 end
 
-module Odefa_type : Error_type with type t = Ast.type_sig = struct
+module Jayil_type : Error_type with type t = Ast.type_sig = struct
   type t = Ast.type_sig
 
   let equal = Ast.equal_type_sig
@@ -265,11 +265,11 @@ module Odefa_type : Error_type with type t = Ast.type_sig = struct
   let to_yojson typ = `String (Ast_pp.show_type_sig typ)
 end
 
-module Odefa_error = Make (Odefa_ident) (Odefa_value) (Odefa_binop) (Odefa_type)
+module Jayil_error = Make (Jayil_ident) (Jayil_value) (Jayil_binop) (Jayil_type)
 
-(* **** Natodefa modules **** *)
+(* **** Jay modules **** *)
 
-module Natodefa_ident : Error_ident with type t = On_ast.ident = struct
+module Jay_ident : Error_ident with type t = On_ast.ident = struct
   type t = On_ast.ident
 
   let equal = On_ast.equal_ident
@@ -278,7 +278,7 @@ module Natodefa_ident : Error_ident with type t = On_ast.ident = struct
   let to_yojson ident = `String (replace_linebreaks @@ show ident)
 end
 
-module Natodefa_value : Error_value with type t = On_ast.expr_desc = struct
+module Jay_value : Error_value with type t = On_ast.expr_desc = struct
   type t = On_ast.expr_desc
 
   let equal = On_ast.equal_expr_desc
@@ -287,7 +287,7 @@ module Natodefa_value : Error_value with type t = On_ast.expr_desc = struct
   let to_yojson value = `String (replace_linebreaks @@ show value)
 end
 
-module Natodefa_binop : Error_binop with type t = On_ast.expr_desc = struct
+module Jay_binop : Error_binop with type t = On_ast.expr_desc = struct
   type t = On_ast.expr_desc
 
   let equal = On_ast.equal_expr_desc
@@ -296,7 +296,7 @@ module Natodefa_binop : Error_binop with type t = On_ast.expr_desc = struct
   let to_yojson binop = `String (replace_linebreaks @@ show binop)
 end
 
-module Natodefa_type : Error_type with type t = On_ast.type_sig = struct
+module Jay_type : Error_type with type t = On_ast.type_sig = struct
   type t = On_ast.type_sig
 
   let equal = On_ast.equal_type_sig
@@ -306,55 +306,55 @@ module Natodefa_type : Error_type with type t = On_ast.type_sig = struct
   let to_yojson typ = `String (replace_linebreaks @@ show typ)
 end
 
-module On_error =
-  Make (Natodefa_ident) (Natodefa_value) (Natodefa_binop) (Natodefa_type)
+module On_error = Make (Jay_ident) (Jay_value) (Jay_binop) (Jay_type)
 
-(* **** Typed natodefa modules **** *)
+(* **** Bluejay modules **** *)
 
-module Ton_ident : Error_ident with type t = Ton_ast.ident = struct
-  type t = Ton_ast.ident
+module Bluejay_ident : Error_ident with type t = Bluejay_ast.ident = struct
+  type t = Bluejay_ast.ident
 
-  let equal = Ton_ast.equal_ident
-  let pp = Ton_ast_pp.pp_ident
-  let show = Ton_ast_pp.show_ident
+  let equal = Bluejay_ast.equal_ident
+  let pp = Bluejay_ast_pp.pp_ident
+  let show = Bluejay_ast_pp.show_ident
   let to_yojson ident = `String (replace_linebreaks @@ show ident)
 end
 
-module Ton_value : Error_value with type t = Ton_ast.expr_desc = struct
-  type t = Ton_ast.expr_desc
+module Bluejay_value : Error_value with type t = Bluejay_ast.expr_desc = struct
+  type t = Bluejay_ast.expr_desc
 
-  let equal = Ton_ast.equal_expr_desc
-  let pp = Ton_ast_pp.pp_expr_desc_without_tag
-  let show = Ton_ast_pp.show_expr_desc
+  let equal = Bluejay_ast.equal_expr_desc
+  let pp = Bluejay_ast_pp.pp_expr_desc_without_tag
+  let show = Bluejay_ast_pp.show_expr_desc
   let to_yojson value = `String (replace_linebreaks @@ show value)
 end
 
-module Ton_binop : Error_binop with type t = Ton_ast.expr_desc = struct
-  type t = Ton_ast.expr_desc
+module Bluejay_binop : Error_binop with type t = Bluejay_ast.expr_desc = struct
+  type t = Bluejay_ast.expr_desc
 
-  let equal = Ton_ast.equal_expr_desc
-  let pp = Ton_ast_pp.pp_expr_desc_without_tag
-  let show = Ton_ast_pp.show_expr_desc
+  let equal = Bluejay_ast.equal_expr_desc
+  let pp = Bluejay_ast_pp.pp_expr_desc_without_tag
+  let show = Bluejay_ast_pp.show_expr_desc
   let to_yojson binop = `String (replace_linebreaks @@ show binop)
 end
 
-module Ton_type : Error_type with type t = Ton_ast.type_sig = struct
-  type t = Ton_ast.type_sig
+module Bluejay_type : Error_type with type t = Bluejay_ast.type_sig = struct
+  type t = Bluejay_ast.type_sig
 
-  let equal = Ton_ast.equal_type_sig
+  let equal = Bluejay_ast.equal_type_sig
   let subtype _ _ = false
-  let pp = Ton_ast_pp.pp_on_type
-  let show = Ton_ast_pp.show_on_type
+  let pp = Bluejay_ast_pp.pp_bluejay_type
+  let show = Bluejay_ast_pp.show_bluejay_type
   let to_yojson typ = `String (replace_linebreaks @@ show typ)
 end
 
-module Ton_error = struct
-  module Error_base = Make (Ton_ident) (Ton_value) (Ton_binop) (Ton_type)
+module Bluejay_error = struct
+  module Error_base =
+    Make (Bluejay_ident) (Bluejay_value) (Bluejay_binop) (Bluejay_type)
 
   type error_type = {
-    err_type_variable : Ton_value.t;
-    err_type_expected : Ton_value.t;
-    err_type_actual : Ton_value.t;
+    err_type_variable : Bluejay_value.t;
+    err_type_expected : Bluejay_value.t;
+    err_type_actual : Bluejay_value.t;
   }
   [@@deriving equal, to_yojson]
 
@@ -362,20 +362,21 @@ module Ton_error = struct
     | Error_binop of Error_base.error_binop
     | Error_match of Error_base.error_match
     | Error_value of Error_base.error_value
-    | Error_natodefa_type of error_type
+    | Error_jay_type of error_type
   (* [@@ deriving equal, to_yojson] *)
 
   let pp_error_type formatter err =
     let pp_value formatter err =
       let value = err.err_type_variable in
-      Format.fprintf formatter "@[* Value    : @[%a@]@]@," Ton_value.pp value
+      Format.fprintf formatter "@[* Value    : @[%a@]@]@," Bluejay_value.pp
+        value
     in
     let pp_expected formatter err =
-      Format.fprintf formatter "@[* Expected : @[%a@]@]@," Ton_value.pp
+      Format.fprintf formatter "@[* Expected : @[%a@]@]@," Bluejay_value.pp
         err.err_type_expected
     in
     let pp_actual formatter err =
-      Format.fprintf formatter "@[* Actual   : @[%a@]@]" Ton_value.pp
+      Format.fprintf formatter "@[* Actual   : @[%a@]@]" Bluejay_value.pp
         err.err_type_actual
     in
     Format.fprintf formatter "@[<v 0>%a%a%a@]" pp_value err pp_expected err
@@ -387,23 +388,23 @@ module Ton_error = struct
     | Error_binop err -> Error_base.to_yojson (Error_base.Error_binop err)
     | Error_match err -> Error_base.to_yojson (Error_base.Error_match err)
     | Error_value err -> Error_base.to_yojson (Error_base.Error_value err)
-    | Error_natodefa_type err -> error_type_to_yojson err
+    | Error_jay_type err -> error_type_to_yojson err
 
   let pp formatter error =
     match error with
     | Error_binop err -> Error_base.pp formatter (Error_base.Error_binop err)
     | Error_match err -> Error_base.pp formatter (Error_base.Error_match err)
     | Error_value err -> Error_base.pp formatter (Error_base.Error_value err)
-    | Error_natodefa_type err -> pp_error_type formatter err
+    | Error_jay_type err -> pp_error_type formatter err
 
   let show = Pp_utils.pp_to_string pp
 end
 
-(* **** Odefa error cleanup **** *)
+(* **** Jayil error cleanup **** *)
 
-let odefa_error_remove_instrument_vars
-    (odefa_on_maps : Odefa_instrumentation_maps.t) (error : Odefa_error.t) :
-    Odefa_error.t =
+let jayil_error_remove_instrument_vars
+    (jayil_jay_maps : Jayil_instrumentation_maps.t) (error : Jayil_error.t) :
+    Jayil_error.t =
   let remove_instrument_aliases aliases =
     (* let () = print_endline "This is aliases pre-transform" in
        let () =
@@ -416,7 +417,7 @@ let odefa_error_remove_instrument_vars
           Dbmc.Interpreter.ident_from_id_with_stack alias_with_stack
         in
         not
-        @@ Odefa_instrumentation_maps.is_var_instrumenting odefa_on_maps alias)
+        @@ Jayil_instrumentation_maps.is_var_instrumenting jayil_jay_maps alias)
       aliases
   in
   match error with
@@ -454,13 +455,13 @@ let odefa_error_remove_instrument_vars
       Error_value
         { err with err_value_aliases = remove_instrument_aliases aliases }
 
-(* **** Odefa to natodefa error translation **** *)
+(* **** Jayil to jay error translation **** *)
 
-(* Helper function that returns a natodefa binop, depending on the odefa
+(* Helper function that returns a jay binop, depending on the jayil
    binary operator. *)
-let odefa_to_on_binop (odefa_binop : Ast.binary_operator) :
+let jayil_to_jay_binop (jayil_binop : Ast.binary_operator) :
     On_ast.expr_desc -> On_ast.expr_desc -> On_ast.expr =
-  match odefa_binop with
+  match jayil_binop with
   | Ast.Binary_operator_plus -> fun e1 e2 -> On_ast.Plus (e1, e2)
   | Ast.Binary_operator_minus -> fun e1 e2 -> On_ast.Minus (e1, e2)
   | Ast.Binary_operator_times -> fun e1 e2 -> On_ast.Times (e1, e2)
@@ -473,25 +474,25 @@ let odefa_to_on_binop (odefa_binop : Ast.binary_operator) :
   | Ast.Binary_operator_and -> fun e1 e2 -> On_ast.And (e1, e2)
   | Ast.Binary_operator_or -> fun e1 e2 -> On_ast.Or (e1, e2)
 
-let odefa_to_natodefa_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
-    (odefa_on_maps : On_to_odefa_maps.t)
+let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
+    (jayil_jay_maps : Jay_to_jayil_maps.t)
     (interp_session : Dbmc.Interpreter.session)
-    (final_env : Dbmc.Interpreter.denv) (odefa_err : Odefa_error.t) :
+    (final_env : Dbmc.Interpreter.denv) (jayil_err : Jayil_error.t) :
     On_error.t list =
   (* Helper functions *)
   let open On_ast in
   let get_pre_inst_id x =
-    Odefa_instrumentation_maps.get_pre_inst_var_opt odefa_inst_maps x
+    Jayil_instrumentation_maps.get_pre_inst_var_opt jayil_inst_maps x
     |> Option.value ~default:x
   in
-  let odefa_to_on_expr =
-    On_to_odefa_maps.get_natodefa_equivalent_expr_exn odefa_on_maps
+  let jayil_to_jay_expr =
+    Jay_to_jayil_maps.get_natodefa_equivalent_expr_exn jayil_jay_maps
   in
-  let odefa_to_on_aliases aliases =
+  let jayil_to_jay_aliases aliases =
     aliases
     |> List.filter_map ~f:(fun alias ->
            let alias' = get_pre_inst_id alias in
-           let e_desc = odefa_to_on_expr alias' in
+           let e_desc = jayil_to_jay_expr alias' in
            match e_desc.body with Var _ | Error _ -> Some e_desc | _ -> None)
     |> Batteries.List.unique
   in
@@ -500,30 +501,30 @@ let odefa_to_natodefa_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
     |> List.filter_map ~f:(fun ed ->
            match ed.body with Var x -> Some x | _ -> None)
   in
-  let odefa_to_on_value (aliases : Ast.ident list) : expr_desc =
+  let jayil_to_jay_value (aliases : Ast.ident list) : expr_desc =
     let last_var =
       try List.last_exn aliases
       with Invalid_argument _ ->
         raise @@ Jhupllib.Utils.Invariant_failure "Can't have empty alias list!"
     in
-    odefa_to_on_expr @@ get_pre_inst_id last_var
+    jayil_to_jay_expr @@ get_pre_inst_id last_var
   in
-  let odefa_to_on_type (typ : Ast.type_sig) : On_ast.type_sig =
+  let jayil_to_jay_type (typ : Ast.type_sig) : On_ast.type_sig =
     match typ with
     | Ast.Top_type -> TopType
     | Ast.Int_type -> IntType
     | Ast.Bool_type -> BoolType
     | Ast.Fun_type -> FunType
     | Ast.Rec_type lbls ->
-        On_to_odefa_maps.get_type_from_idents odefa_on_maps lbls
+        Jay_to_jayil_maps.get_type_from_idents jayil_jay_maps lbls
     | Ast.Bottom_type ->
         raise
         @@ Jhupllib.Utils.Invariant_failure
-             (Printf.sprintf "Bottom type not in natodefa")
+             (Printf.sprintf "Bottom type not in jay")
   in
-  (* Odefa to natodefa *)
-  match odefa_err with
-  | Odefa_error.Error_binop err ->
+  (* Jayil to jay *)
+  match jayil_err with
+  | Jayil_error.Error_binop err ->
       let l_aliases =
         err.err_binop_left_aliases
         |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
@@ -532,76 +533,76 @@ let odefa_to_natodefa_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
         err.err_binop_right_aliases
         |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
       in
-      let l_aliases_on = odefa_to_on_aliases l_aliases in
-      let r_aliases_on = odefa_to_on_aliases r_aliases in
+      let l_aliases_jay = jayil_to_jay_aliases l_aliases in
+      let r_aliases_jay = jayil_to_jay_aliases r_aliases in
       let _, op, _ = err.err_binop_operation in
-      let l_value = odefa_to_on_value l_aliases in
-      let r_value = odefa_to_on_value r_aliases in
+      let l_value = jayil_to_jay_value l_aliases in
+      let r_value = jayil_to_jay_value r_aliases in
       let constraint_expr =
         let left_expr =
-          if List.is_empty l_aliases_on
+          if List.is_empty l_aliases_jay
           then l_value
-          else List.hd_exn l_aliases_on
+          else List.hd_exn l_aliases_jay
         in
         let right_expr =
-          if List.is_empty r_aliases_on
+          if List.is_empty r_aliases_jay
           then r_value
-          else List.hd_exn r_aliases_on
+          else List.hd_exn r_aliases_jay
         in
-        new_expr_desc @@ odefa_to_on_binop op left_expr right_expr
+        new_expr_desc @@ jayil_to_jay_binop op left_expr right_expr
       in
       [
         Error_binop
           {
-            err_binop_left_aliases = get_idents_from_aliases l_aliases_on;
-            err_binop_right_aliases = get_idents_from_aliases r_aliases_on;
+            err_binop_left_aliases = get_idents_from_aliases l_aliases_jay;
+            err_binop_right_aliases = get_idents_from_aliases r_aliases_jay;
             err_binop_left_val = l_value;
             err_binop_right_val = r_value;
             err_binop_operation = constraint_expr;
           };
       ]
-  | Odefa_error.Error_match err ->
+  | Jayil_error.Error_match err ->
       let aliases =
         err.err_match_aliases
         |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
       in
       (* let () = print_endline "Printing aliases" in
          let () = List.iter (fun a -> print_endline @@ Ast.show_ident a) aliases in
-         let () = print_endline @@ show_expr ((odefa_to_on_value aliases).body) in *)
+         let () = print_endline @@ show_expr ((jayil_to_jay_value aliases).body) in *)
       [
         Error_match
           {
             err_match_aliases =
-              get_idents_from_aliases @@ odefa_to_on_aliases aliases;
-            err_match_val = odefa_to_on_value aliases;
-            err_match_expected = odefa_to_on_type err.err_match_expected;
-            err_match_actual = odefa_to_on_type err.err_match_actual;
+              get_idents_from_aliases @@ jayil_to_jay_aliases aliases;
+            err_match_val = jayil_to_jay_value aliases;
+            err_match_expected = jayil_to_jay_type err.err_match_expected;
+            err_match_actual = jayil_to_jay_type err.err_match_actual;
           };
       ]
-  | Odefa_error.Error_value err -> (
+  | Jayil_error.Error_value err -> (
       let aliases =
         err.err_value_aliases
         |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
       in
       (* let () = print_endline "Printing aliases" in
          let () = List.iter (fun a -> print_endline @@ Ast.show_ident a) aliases in *)
-      let err_val_edesc = odefa_to_on_value aliases in
+      let err_val_edesc = jayil_to_jay_value aliases in
       match err_val_edesc.body with
       | Match (subj, pat_ed_lst) -> (
-          let odefa_var_opt =
-            On_to_odefa_maps.get_odefa_var_opt_from_natodefa_expr odefa_on_maps
-              subj
+          let jayil_var_opt =
+            Jay_to_jayil_maps.get_odefa_var_opt_from_natodefa_expr
+              jayil_jay_maps subj
           in
-          match odefa_var_opt with
+          match jayil_var_opt with
           | Some (Var (x, _)) ->
               let dv1, stk = Ast.Ident_map.find x final_env in
               let v = Dbmc.Interpreter.value_of_dvalue dv1 in
               let alias_graph = interp_session.alias_graph in
-              let odefa_aliases_raw =
+              let jayil_aliases_raw =
                 Sato_tools.find_alias alias_graph (x, stk)
               in
-              let odefa_aliases =
-                odefa_aliases_raw |> List.map ~f:(fun (x, _) -> x) |> List.rev
+              let jayil_aliases =
+                jayil_aliases_raw |> List.map ~f:(fun (x, _) -> x) |> List.rev
               in
               let actual_type = Sato_tools.get_value_type v in
               let errors =
@@ -613,37 +614,39 @@ let odefa_to_natodefa_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
                     {
                       err_match_aliases =
                         get_idents_from_aliases
-                        @@ odefa_to_on_aliases odefa_aliases;
-                      err_match_val = odefa_to_on_value odefa_aliases;
+                        @@ jayil_to_jay_aliases jayil_aliases;
+                      err_match_val = jayil_to_jay_value jayil_aliases;
                       err_match_expected = expected_type;
-                      err_match_actual = odefa_to_on_type actual_type;
+                      err_match_actual = jayil_to_jay_type actual_type;
                     }
                 in
                 List.map ~f:mapper pat_ed_lst
               in
               errors
-          | None -> failwith "Should have found an odefa var!")
+          | None -> failwith "Should have found an jayil var!")
       | _ ->
           [
             Error_value
               {
                 err_value_aliases =
-                  get_idents_from_aliases @@ odefa_to_on_aliases aliases;
+                  get_idents_from_aliases @@ jayil_to_jay_aliases aliases;
                 err_value_val = err_val_edesc;
               };
           ])
 
-let odefa_to_ton_error_simple (odefa_inst_maps : Odefa_instrumentation_maps.t)
-    (odefa_on_maps : On_to_odefa_maps.t) (ton_on_maps : Ton_to_on_maps.t)
+let jayil_to_bluejay_error_simple
+    (jayil_inst_maps : Jayil_instrumentation_maps.t)
+    (jayil_jay_maps : Jay_to_jayil_maps.t)
+    (bluejay_jay_maps : Bluejay_to_jay_maps.t)
     (interp_session : Dbmc.Interpreter.session)
-    (final_env : Dbmc.Interpreter.denv) (odefa_err : Odefa_error.t) :
-    Ton_error.t list =
+    (final_env : Dbmc.Interpreter.denv) (jayil_err : Jayil_error.t) :
+    Bluejay_error.t list =
   let open Bluejay in
-  let natodefa_errors =
-    odefa_to_natodefa_error odefa_inst_maps odefa_on_maps interp_session
-      final_env odefa_err
+  let jay_errors =
+    jayil_to_jay_error jayil_inst_maps jayil_jay_maps interp_session final_env
+      jayil_err
   in
-  let transform_type_sig (t : On_ast.type_sig) : Ton_ast.type_sig =
+  let transform_type_sig (t : On_ast.type_sig) : Bluejay_ast.type_sig =
     match t with
     | TopType -> TopType
     | IntType -> IntType
@@ -654,13 +657,13 @@ let odefa_to_ton_error_simple (odefa_inst_maps : Odefa_instrumentation_maps.t)
     | VariantType (Variant_label variant_label) ->
         VariantType (Variant_label variant_label)
   in
-  let natodefa_expr_to_ton nat =
-    nat |> Ton_ast_internal.from_natodefa_expr_desc
-    |> Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps
-    |> Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps
-    |> Ton_ast_internal.from_internal_expr_desc
+  let jay_expr_to_bluejay nat =
+    nat |> Bluejay_ast_internal.from_jay_expr_desc
+    |> Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay bluejay_jay_maps
+    |> Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay bluejay_jay_maps
+    |> Bluejay_ast_internal.from_internal_expr_desc
   in
-  let transform_one_error (nat_err : On_error.t) : Ton_error.t =
+  let transform_one_error (nat_err : On_error.t) : Bluejay_error.t =
     match nat_err with
     | Error_binop
         {
@@ -670,9 +673,9 @@ let odefa_to_ton_error_simple (odefa_inst_maps : Odefa_instrumentation_maps.t)
           err_binop_right_val;
           err_binop_operation;
         } ->
-        let left_val = natodefa_expr_to_ton err_binop_left_val in
-        let right_val = natodefa_expr_to_ton err_binop_right_val in
-        let binop = natodefa_expr_to_ton err_binop_operation in
+        let left_val = jay_expr_to_bluejay err_binop_left_val in
+        let right_val = jay_expr_to_bluejay err_binop_right_val in
+        let binop = jay_expr_to_bluejay err_binop_operation in
         Error_binop
           {
             err_binop_left_aliases;
@@ -691,7 +694,7 @@ let odefa_to_ton_error_simple (odefa_inst_maps : Odefa_instrumentation_maps.t)
         Error_match
           {
             err_match_aliases;
-            err_match_val = natodefa_expr_to_ton err_match_val;
+            err_match_val = jay_expr_to_bluejay err_match_val;
             err_match_expected = transform_type_sig err_match_expected;
             err_match_actual = transform_type_sig err_match_actual;
           }
@@ -699,29 +702,31 @@ let odefa_to_ton_error_simple (odefa_inst_maps : Odefa_instrumentation_maps.t)
         Error_value
           {
             err_value_aliases;
-            err_value_val = natodefa_expr_to_ton err_value_val;
+            err_value_val = jay_expr_to_bluejay err_value_val;
           }
   in
-  List.map ~f:transform_one_error natodefa_errors
+  List.map ~f:transform_one_error jay_errors
 
-let odefa_to_ton_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
-    (odefa_on_maps : On_to_odefa_maps.t) (ton_on_maps : Ton_to_on_maps.t)
-    (interp_session : Dbmc.Interpreter.session) (err_source : Ton_ast.expr_desc)
-    (odefa_err : Odefa_error.t) : Ton_error.t list =
+let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
+    (jayil_jay_maps : Jay_to_jayil_maps.t)
+    (bluejay_jay_maps : Bluejay_to_jay_maps.t)
+    (interp_session : Dbmc.Interpreter.session)
+    (err_source : Bluejay_ast.expr_desc) (jayil_err : Jayil_error.t) :
+    Bluejay_error.t list =
   (* Helper functions *)
   let open On_ast in
   let get_pre_inst_id x =
-    Odefa_instrumentation_maps.get_pre_inst_var_opt odefa_inst_maps x
+    Jayil_instrumentation_maps.get_pre_inst_var_opt jayil_inst_maps x
     |> Option.value ~default:x
   in
-  let odefa_to_on_expr =
-    On_to_odefa_maps.get_natodefa_equivalent_expr odefa_on_maps
+  let jayil_to_jay_expr =
+    Jay_to_jayil_maps.get_natodefa_equivalent_expr jayil_jay_maps
   in
-  let odefa_to_on_aliases aliases =
+  let jayil_to_jay_aliases aliases =
     aliases
     |> List.filter_map ~f:(fun alias ->
            let alias' = get_pre_inst_id alias in
-           match odefa_to_on_expr alias' with
+           match jayil_to_jay_expr alias' with
            | None -> None
            | Some e_desc -> (
                match e_desc.body with
@@ -729,35 +734,37 @@ let odefa_to_ton_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
                | _ -> None))
     |> Batteries.List.unique
   in
-  (* Odefa to natodefa *)
-  match odefa_err with
-  | Odefa_error.Error_binop _ | Odefa_error.Error_match _ ->
-      failwith "Should have been handled by odefa_to_ton_error_simple"
-  | Odefa_error.Error_value err ->
-      let odefa_aliases_with_stack = err.err_value_aliases in
+  (* Jayil to jay *)
+  match jayil_err with
+  | Jayil_error.Error_binop _ | Jayil_error.Error_match _ ->
+      failwith "Should have been handled by jayil_to_bluejay_error_simple"
+  | Jayil_error.Error_value err ->
+      let jayil_aliases_with_stack = err.err_value_aliases in
       (* let () =
            List.iter
              ~f:(fun is -> print_endline @@ Dbmc.Interpreter.show_ident_with_stack is)
-             odefa_aliases_with_stack
+             jayil_aliases_with_stack
          in *)
       (* This is the stack of the "false" value that indicates where the error
          is located. *)
       let relevant_stk =
-        match List.last odefa_aliases_with_stack with
+        match List.last jayil_aliases_with_stack with
         | Some (_, final_stk) -> final_stk
         | None -> failwith "Should have at least one element in the list!"
       in
-      (* Restoring the Natodefa version of the error indicator (the false value) *)
+      (* Restoring the Jay version of the error indicator (the false value) *)
       let core_nat_aliases =
-        odefa_aliases_with_stack
+        jayil_aliases_with_stack
         |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
-        |> odefa_to_on_aliases
+        |> jayil_to_jay_aliases
       in
       let sem_nat_aliases =
         core_nat_aliases
-        |> List.map ~f:Ton_ast_internal.from_natodefa_expr_desc
+        |> List.map ~f:Bluejay_ast_internal.from_jay_expr_desc
         |> List.map
-             ~f:(Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps)
+             ~f:
+               (Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay
+                  bluejay_jay_maps)
       in
       (* let () =
            List.iter
@@ -768,37 +775,40 @@ let odefa_to_ton_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
       let sem_val_exprs =
         sem_nat_aliases
         |> List.filter_map
-             ~f:(Ton_to_on_maps.get_value_expr_from_sem_expr ton_on_maps)
+             ~f:
+               (Bluejay_to_jay_maps.get_value_expr_from_sem_expr
+                  bluejay_jay_maps)
       in
       (* let () =
            List.iter
              ~f:(fun ed -> print_endline @@ show_expr' ed.body)
              sem_val_exprs
          in *)
-      (* Getting the odefa variable corresponding to the error-triggering value *)
-      let odefa_vars =
+      (* Getting the jayil variable corresponding to the error-triggering value *)
+      let jayil_vars =
         sem_val_exprs
         |> List.filter_map
-             ~f:(Ton_to_on_maps.get_core_expr_from_sem_expr ton_on_maps)
-        |> List.map ~f:Ton_ast_internal.to_natodefa_expr_desc
+             ~f:
+               (Bluejay_to_jay_maps.get_core_expr_from_sem_expr bluejay_jay_maps)
+        |> List.map ~f:Bluejay_ast_internal.to_jay_expr_desc
         |> List.filter_map
              ~f:
-               (On_to_odefa_maps.get_odefa_var_opt_from_natodefa_expr
-                  odefa_on_maps)
+               (Jay_to_jayil_maps.get_odefa_var_opt_from_natodefa_expr
+                  jayil_jay_maps)
       in
       (* let () =
            List.iter
              ~f:(fun (Var (x, _)) -> print_endline @@ Ast.show_ident x)
-             odefa_vars
+             jayil_vars
          in *)
       (* TODO: This is hacky. There has got to be a better way of doing this *)
       (* let stacks =
-           odefa_aliases_with_stack
+           jayil_aliases_with_stack
            |> List.map ~f:Dbmc.Interpreter.stack_from_id_with_stack
          in *)
       let alias_graph = interp_session.alias_graph in
-      (* let odefa_vars_with_stack =
-           odefa_vars
+      (* let jayil_vars_with_stack =
+           jayil_vars
            |> List.map ~f:(fun (Var (x, _)) -> x)
            |> List.map
                ~f:(fun x -> List.map ~f:(fun stk -> (x, stk)) stacks)
@@ -806,8 +816,8 @@ let odefa_to_ton_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
            |> List.map ~f:(Sato_tools.find_alias alias_graph)
            |> List.concat
          in *)
-      let odefa_vars_with_stack : Dbmc.Interpreter.Ident_with_stack.t list =
-        odefa_vars
+      let jayil_vars_with_stack : Dbmc.Interpreter.Ident_with_stack.t list =
+        jayil_vars
         |> List.map ~f:(fun (Var (x, _)) -> x)
         |> List.map ~f:(Sato_tools.find_alias_without_stack alias_graph)
         |> List.concat |> List.concat
@@ -822,11 +832,11 @@ let odefa_to_ton_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
       in
       (* let keys = Batteries.List.of_enum @@ Ast.Ident_map.keys final_env in
          let () = List.iter ~f:(fun k -> print_endline @@ show_ident k) keys in *)
-      (* let () = failwith @@ string_of_bool @@ List.is_empty @@ List.concat odefa_vars_with_stack in *)
+      (* let () = failwith @@ string_of_bool @@ List.is_empty @@ List.concat jayil_vars_with_stack in *)
       (* let () =
          List.iter
            ~f:(fun x -> print_endline @@ Dbmc.Interpreter.show_ident_with_stack x)
-           odefa_vars_with_stack in *)
+           jayil_vars_with_stack in *)
       let rec find_val
           (vdef_mapping :
             ( Dbmc.Interpreter.Ident_with_stack.t,
@@ -843,20 +853,20 @@ let odefa_to_ton_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
             | Some (_, dv) -> dv
             | None -> find_val vdef_mapping tl)
       in
-      let err_val = find_val interp_session.val_def_map odefa_vars_with_stack in
+      let err_val = find_val interp_session.val_def_map jayil_vars_with_stack in
       (* let val_exprs =
-           let relevant_tags = ton_on_maps.syn_tags in
-           odefa_vars_with_stack
+           let relevant_tags = bluejay_jay_maps.syn_tags in
+           jayil_vars_with_stack
            |> List.map ~f:(fun (x, _) -> x)
-           |> List.filter_map ~f:odefa_to_on_expr
-           |> List.map ~f:Ton_ast_internal.from_natodefa_expr_desc
-           |> List.map ~f:(Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps)
-           |> List.map ~f:(Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps)
+           |> List.filter_map ~f:jayil_to_jay_expr
+           |> List.map ~f:Bluejay_ast_internal.from_jay_expr_desc
+           |> List.map ~f:(Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay bluejay_jay_maps)
+           |> List.map ~f:(Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay bluejay_jay_maps)
            |> List.filter ~f:(fun ed -> List.mem relevant_tags ed.tag ~equal:(=))
-           |> List.map ~f:Ton_ast_internal.from_internal_expr_desc
+           |> List.map ~f:Bluejay_ast_internal.from_internal_expr_desc
            |> Batteries.List.unique
          in *)
-      (* let () = List.iter ~f:(fun x -> print_endline @@ Ton_ast_pp.show_expr_desc x) sem_val_expr_lst in *)
+      (* let () = List.iter ~f:(fun x -> print_endline @@ Bluejay_ast_pp.show_expr_desc x) sem_val_expr_lst in *)
       let v = Dbmc.Interpreter.value_of_dvalue err_val in
       (* Here we need to refine the expected type; since they could be aliases to
          the type value rather than the types themselves.
@@ -865,14 +875,14 @@ let odefa_to_ton_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
         match err_source.body with
         | LetWithType (x, _, _, t) ->
             let ret =
-              Var x |> Ton_ast_internal.new_expr_desc
-              |> Ton_ast_internal.from_internal_expr_desc
+              Var x |> Bluejay_ast_internal.new_expr_desc
+              |> Bluejay_ast_internal.from_internal_expr_desc
             in
             (t, ret)
         | LetFunWithType (Funsig (x, _, _), _, t) ->
             let ret =
-              Var x |> Ton_ast_internal.new_expr_desc
-              |> Ton_ast_internal.from_internal_expr_desc
+              Var x |> Bluejay_ast_internal.new_expr_desc
+              |> Bluejay_ast_internal.from_internal_expr_desc
             in
             (t, ret)
         | LetRecFunWithType (fsigs, _, ts) -> (
@@ -881,43 +891,46 @@ let odefa_to_ton_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
               |> List.filter_map ~f:(fun alias ->
                      match alias.body with Error idnt -> Some idnt | _ -> None)
               |> List.filter_map ~f:(fun x ->
-                     Ident_map.find_opt x ton_on_maps.error_to_rec_fun_type)
+                     Ident_map.find_opt x bluejay_jay_maps.error_to_rec_fun_type)
             in
             let precise_type =
               if List.is_empty precise_lookup
               then failwith "No type found!"
               else
                 List.hd_exn precise_lookup
-                |> Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps
-                (* let () = failwith @@ On_to_odefa.show_expr_desc x
+                |> Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay
+                     bluejay_jay_maps
+                (* let () = failwith @@ On_to_jayil.show_expr_desc x
                    in *)
                 (* let () = failwith "1" in *)
-                |> Ton_ast_internal.from_internal_expr_desc
+                |> Bluejay_ast_internal.from_internal_expr_desc
             in
             let fsig_with_types = List.zip_exn fsigs ts in
             let var_opt =
               List.fold
                 ~f:(fun acc (Funsig (x, _, _), t) ->
-                  if Ton_ast.equal_expr_desc t precise_type then Some x else acc)
+                  if Bluejay_ast.equal_expr_desc t precise_type
+                  then Some x
+                  else acc)
                 ~init:None fsig_with_types
             in
             match var_opt with
             | Some x ->
                 let ret =
-                  Var x |> Ton_ast_internal.new_expr_desc
-                  |> Ton_ast_internal.from_internal_expr_desc
+                  Var x |> Bluejay_ast_internal.new_expr_desc
+                  |> Bluejay_ast_internal.from_internal_expr_desc
                 in
                 (precise_type, ret)
             | None -> failwith "Should have found the type signature!")
         | _ -> failwith "Shouldn't be here!"
       in
       let expected_type_internal =
-        expected_type |> Ton_ast_internal.to_internal_expr_desc
+        expected_type |> Bluejay_ast_internal.to_internal_expr_desc
       in
       (* TODO: How to handle this? Is this worth the effort? *)
-      let rec solidify_type (ed : Ton_ast_internal.syn_natodefa_edesc) :
-          Ton_ast_internal.syn_natodefa_edesc =
-        let open Ton_ast_internal in
+      let rec solidify_type (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
+          Bluejay_ast_internal.syn_bluejay_edesc =
+        let open Bluejay_ast_internal in
         let tag = ed.tag in
         let e = ed.body in
         match e with
@@ -958,13 +971,14 @@ let odefa_to_ton_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
             { tag; body = body' }
         | _ -> (
             (* Potential FIXME: A lot of things could go wrong here... *)
-            let odefa_vars =
+            let jayil_vars =
               ed
-              |> Ton_to_on_maps.sem_from_syn ton_on_maps
-              |> Ton_to_on_maps.get_core_expr_from_sem_expr ton_on_maps
-              |> Option.value_exn |> Ton_ast_internal.to_natodefa_expr_desc
-              |> On_to_odefa_maps.get_odefa_var_opt_from_natodefa_expr
-                   odefa_on_maps
+              |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps
+              |> Bluejay_to_jay_maps.get_core_expr_from_sem_expr
+                   bluejay_jay_maps
+              |> Option.value_exn |> Bluejay_ast_internal.to_jay_expr_desc
+              |> Jay_to_jayil_maps.get_odefa_var_opt_from_natodefa_expr
+                   jayil_jay_maps
               |> Option.value_exn
               |> (fun (Ast.Var (x, _)) ->
                    Sato_tools.find_alias_without_stack alias_graph x)
@@ -975,26 +989,28 @@ let odefa_to_ton_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
               |> List.concat
             in
             let val_exprs =
-              let relevant_tags = ton_on_maps.syn_tags in
-              odefa_vars
+              let relevant_tags = bluejay_jay_maps.syn_tags in
+              jayil_vars
               |> List.map ~f:(fun (x, _) -> x)
-              |> List.filter_map ~f:odefa_to_on_expr
-              |> List.map ~f:Ton_ast_internal.from_natodefa_expr_desc
+              |> List.filter_map ~f:jayil_to_jay_expr
+              |> List.map ~f:Bluejay_ast_internal.from_jay_expr_desc
               |> List.map
                    ~f:
-                     (Ton_to_on_maps.sem_natodefa_from_core_natodefa ton_on_maps)
+                     (Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay
+                        bluejay_jay_maps)
               |> List.map
                    ~f:
-                     (Ton_to_on_maps.syn_natodefa_from_sem_natodefa ton_on_maps)
+                     (Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay
+                        bluejay_jay_maps)
               |> List.filter ~f:(fun ed ->
                      List.mem relevant_tags ed.tag ~equal:( = ))
               |> Batteries.List.unique
             in
             let type_exprs =
-              val_exprs |> List.filter ~f:Ton_ast_internal.is_type_expr
+              val_exprs |> List.filter ~f:Bluejay_ast_internal.is_type_expr
             in
             (* let () =
-                 List.iter ~f:(fun ed -> print_endline @@ Ton_ast_pp.show_expr_desc (Ton_ast_internal.from_internal_expr_desc ed)) val_exprs
+                 List.iter ~f:(fun ed -> print_endline @@ Bluejay_ast_pp.show_expr_desc (Bluejay_ast_internal.from_internal_expr_desc ed)) val_exprs
                in *)
             let val_expr_cleansed_opt =
               type_exprs |> List.map ~f:solidify_type |> List.hd
@@ -1007,8 +1023,8 @@ let odefa_to_ton_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
       let find_tag =
         sem_nat_aliases
         |> List.filter_map ~f:(fun alias ->
-               Ton_to_on_maps.Intermediate_expr_desc_map.find_opt alias
-                 ton_on_maps.error_to_expr_tag)
+               Bluejay_to_jay_maps.Intermediate_expr_desc_map.find_opt alias
+                 bluejay_jay_maps.error_to_expr_tag)
       in
       let tag =
         if List.is_empty find_tag
@@ -1017,26 +1033,26 @@ let odefa_to_ton_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
       in
       let new_t =
         match v with
-        | Value_int _ -> Ton_ast_internal.new_expr_desc @@ TypeInt
-        | Value_bool _ -> Ton_ast_internal.new_expr_desc @@ TypeBool
+        | Value_int _ -> Bluejay_ast_internal.new_expr_desc @@ TypeInt
+        | Value_bool _ -> Bluejay_ast_internal.new_expr_desc @@ TypeBool
         | _ -> failwith "Houston we have a problem!"
       in
       (* let expected_type_internal =
            expected_type
-           |> Ton_ast_internal.to_internal_expr_desc
+           |> Bluejay_ast_internal.to_internal_expr_desc
          in *)
       let show_expr_desc =
-        Pp_utils.pp_to_string Ton_ast_internal_pp.pp_expr_desc
+        Pp_utils.pp_to_string Bluejay_ast_internal_pp.pp_expr_desc
       in
       let actual_type =
         (* let () = print_endline @@ "expected: " ^ string_of_int expected_type_internal.tag in *)
         (* let () = print_endline @@ "actual: " ^ show_expr_desc new_t in *)
         (* let () = print_endline @@ string_of_int tag in *)
-        Ton_to_on_maps.replace_type actual_expected_type new_t tag
-        |> Ton_ast_internal.from_internal_expr_desc
+        Bluejay_to_jay_maps.replace_type actual_expected_type new_t tag
+        |> Bluejay_ast_internal.from_internal_expr_desc
       in
       let actual_expected_type_external =
-        actual_expected_type |> Ton_ast_internal.from_internal_expr_desc
+        actual_expected_type |> Bluejay_ast_internal.from_internal_expr_desc
       in
       (* let () = print_endline @@ Ast_pp.show_value v in *)
       (* let vs =
@@ -1048,7 +1064,7 @@ let odefa_to_ton_error (odefa_inst_maps : Odefa_instrumentation_maps.t)
                    )
          in *)
       [
-        Ton_error.Error_natodefa_type
+        Bluejay_error.Error_jay_type
           {
             err_type_variable = err_var;
             err_type_expected = actual_expected_type_external;

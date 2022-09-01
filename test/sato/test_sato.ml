@@ -15,7 +15,7 @@ let group_all_files dir =
               | `Yes -> (acc_f, loop fullpath @ acc_p)
               | `No when Jayil.File_utils.check_ext fullpath ->
                   (fullpath :: acc_f, acc_p)
-              | `No when File_utils.is_ton_ext fullpath ->
+              | `No when File_utils.is_bluejay_ext fullpath ->
                   (fullpath :: acc_f, acc_p)
               | `No -> (acc_f, acc_p)
               | `Unknown -> (acc_f, acc_p)))
@@ -29,14 +29,14 @@ let group_all_files dir =
 let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
   let open Sato_result in
   match actual with
-  | Odefa_error (err : Odefa_type_errors.t) ->
-      let actual_err_loc = Odefa_error_location.show @@ err.err_location in
+  | Jayil_error (err : Jayil_type_errors.t) ->
+      let actual_err_loc = Jayil_error_location.show @@ err.err_location in
       let err_num = List.length err.err_errors in
       let actual_errs = err.err_errors in
-      let transform_one_err_odefa (error : Sato_error.Odefa_error.t) :
+      let transform_one_err_odefa (error : Sato_error.Jayil_error.t) :
           Test_expect.error =
         match error with
-        | Sato_error.Odefa_error.Error_match err ->
+        | Sato_error.Jayil_error.Error_match err ->
             let actual_aliases =
               List.map ~f:(fun (Ident i, _) -> i) err.err_match_aliases
             in
@@ -53,7 +53,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
                 expected_type = a_expected_type;
                 actual_type = a_actual_type;
               }
-        | Sato_error.Odefa_error.Error_value err ->
+        | Sato_error.Jayil_error.Error_value err ->
             let actual_aliases =
               List.map ~f:(fun (Ident i, _) -> i) err.err_value_aliases
             in
@@ -69,15 +69,15 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
         number_of_errors = err_num;
         error_list = errs;
       }
-  | Natodefa_error (err : Natodefa_type_errors.t) ->
+  | Jay_error (err : Jay_type_errors.t) ->
       (* TODO: Fix - very hacky *)
       let actual_err_loc =
-        Natodefa_error_location.show @@ err.err_location
+        Jay_error_location.show @@ err.err_location
         |> String.substr_replace_all ~pattern:"\n" ~with_:" "
       in
       let err_num = List.length err.err_errors in
       let actual_errs = err.err_errors in
-      let transform_one_err_natodefa (error : Sato_error.On_error.t) :
+      let transform_one_err_jay (error : Sato_error.On_error.t) :
           Test_expect.error =
         match error with
         | Sato_error.On_error.Error_match err ->
@@ -106,33 +106,34 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
             Value_error { v_value = (actual_aliases, actual_v) }
         | _ -> failwith "Expect no other error types!"
       in
-      let errs = List.map ~f:transform_one_err_natodefa actual_errs in
+      let errs = List.map ~f:transform_one_err_jay actual_errs in
       {
         found_at_clause = actual_err_loc;
         number_of_errors = err_num;
         error_list = errs;
       }
-  | Ton_error err ->
+  | Bluejay_error err ->
       let actual_err_loc =
-        Ton_error_location.show @@ err.err_location
+        Bluejay_error_location.show @@ err.err_location
         |> String.substr_replace_all ~pattern:"\n" ~with_:""
       in
       let err_num = List.length err.err_errors in
       let actual_errs = err.err_errors in
-      let transform_one_err_tnat (error : Sato_error.Ton_error.t) :
+      let transform_one_err_tnat (error : Sato_error.Bluejay_error.t) :
           Test_expect.error =
         match error with
-        | Sato_error.Ton_error.Error_match err ->
+        | Sato_error.Bluejay_error.Error_match err ->
             let actual_aliases =
               List.map ~f:(fun (Ident i) -> i) err.err_match_aliases
             in
             let actual_v =
-              Bluejay.Ton_ast_pp.show_expr err.err_match_val.body
+              Bluejay.Bluejay_ast_pp.show_expr err.err_match_val.body
               |> String.substr_replace_all ~pattern:"\n" ~with_:" "
             in
             let a_actual_type, a_expected_type =
-              ( Bluejay.Ton_ast_pp.show_on_type @@ err.err_match_actual,
-                Bluejay.Ton_ast_pp.show_on_type @@ err.err_match_expected )
+              ( Bluejay.Bluejay_ast_pp.show_bluejay_type @@ err.err_match_actual,
+                Bluejay.Bluejay_ast_pp.show_bluejay_type
+                @@ err.err_match_expected )
             in
             Match_error
               {
@@ -140,14 +141,15 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
                 expected_type = a_expected_type;
                 actual_type = a_actual_type;
               }
-        | Sato_error.Ton_error.Error_natodefa_type err ->
+        | Sato_error.Bluejay_error.Error_jay_type err ->
             let actual_v =
-              Bluejay.Ton_ast_pp.show_expr err.err_type_variable.body
+              Bluejay.Bluejay_ast_pp.show_expr err.err_type_variable.body
               |> String.substr_replace_all ~pattern:"\n" ~with_:" "
             in
             let a_actual_type, a_expected_type =
-              ( Bluejay.Ton_ast_pp.show_expr @@ err.err_type_actual.body,
-                Bluejay.Ton_ast_pp.show_expr @@ err.err_type_expected.body )
+              ( Bluejay.Bluejay_ast_pp.show_expr @@ err.err_type_actual.body,
+                Bluejay.Bluejay_ast_pp.show_expr @@ err.err_type_expected.body
+              )
             in
             Type_error
               {
@@ -155,12 +157,12 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
                 t_expected_type = a_expected_type;
                 t_actual_type = a_actual_type;
               }
-        | Sato_error.Ton_error.Error_value err ->
+        | Sato_error.Bluejay_error.Error_value err ->
             let actual_aliases =
               List.map ~f:(fun (Ident i) -> i) err.err_value_aliases
             in
             let actual_v =
-              Bluejay.Ton_ast_pp.show_expr err.err_value_val.body
+              Bluejay.Bluejay_ast_pp.show_expr err.err_value_val.body
             in
             Value_error { v_value = (actual_aliases, actual_v) }
         | _ -> failwith "Expect no other error types!"
