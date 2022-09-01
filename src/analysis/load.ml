@@ -17,7 +17,7 @@ let load filename =
     then
       let natast =
         Exn.handle_uncaught_and_exit (fun () ->
-            In_channel.with_file filename ~f:Jay.On_parse.parse_program_raw)
+            In_channel.with_file filename ~f:Jay.Jay_parse.parse_program_raw)
       in
       Jay.Jay_to_jayil.translate natast
     else if String.is_suffix filename ~suffix:"odefa"

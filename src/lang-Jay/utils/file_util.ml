@@ -8,7 +8,7 @@ let read_source filename =
     if is_natodefa_ext filename
     then
       let natast =
-        In_channel.with_file filename ~f:Jay.On_parse.parse_program_raw
+        In_channel.with_file filename ~f:Jay.Jay_parse.parse_program_raw
       in
       Jay.Jay_to_jayil.translate (Jay.Jay_ast.new_expr_desc natast) |> fst
     else if is_odefa_ext filename
@@ -19,7 +19,7 @@ let read_source filename =
   program
 
 (*
-let parse_natodefa = Jay.On_parse.parse_string
+let parse_natodefa = Jay.Jay_parse.parse_string
 let parse_odefa = Jayil_parser.Parser.parse_string
 let read_lines file = file |> In_channel.create |> In_channel.input_lines
 

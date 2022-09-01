@@ -22,7 +22,7 @@ let main () : unit =
   let options = parse_args () in
   match options.ta_mode with
   | Jay_to_odefa ->
-      let ton_expr = On_parse.parse_program IO.stdin in
+      let ton_expr = Jay_parse.parse_program IO.stdin in
       let on_expr, ton_on_maps = Ton_to_on.transform_natodefa ton_expr in
       let is_instrumented = options.ta_instrument in
       let odefa_expr =

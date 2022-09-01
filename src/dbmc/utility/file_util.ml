@@ -6,7 +6,7 @@ let read_source ?(is_instrumented = false) filename =
     then
       (* failwith "TBI!" *)
       let natast =
-        In_channel.with_file filename ~f:Jay.On_parse.parse_program_raw
+        In_channel.with_file filename ~f:Jay.Jay_parse.parse_program_raw
       in
       let nat_edesc = Jay.Jay_ast.new_expr_desc natast in
       (* let on_expr, ton_on_maps =
@@ -28,7 +28,7 @@ let read_source ?(is_instrumented = false) filename =
   program
 
 (*
-let parse_natodefa = Jay.On_parse.parse_string
+let parse_natodefa = Jay.Jay_parse.parse_string
 let parse_odefa = Jayil_parser.Parser.parse_string
 let read_lines file = file |> In_channel.create |> In_channel.input_lines
 

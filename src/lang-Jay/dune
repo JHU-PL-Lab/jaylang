@@ -2,12 +2,12 @@
 (copy_files parser/*.{mll,mly})
 
 (ocamllex
-  on_lexer
+  jay_lexer
 )
 (menhir
   (flags --explain)
   (modules
-    on_parser
+    jay_parser
   )
 )
 

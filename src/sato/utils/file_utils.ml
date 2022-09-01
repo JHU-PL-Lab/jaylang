@@ -47,7 +47,7 @@ let read_source_sato filename =
     then (
       let natast =
         Jay_ast.new_expr_desc
-        @@ In_channel.with_file filename ~f:Jay.On_parse.parse_program_raw
+        @@ In_channel.with_file filename ~f:Jay.Jay_parse.parse_program_raw
       in
       (* let (desugared_typed, ton_on_maps) = transform_natodefa natast in *)
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
