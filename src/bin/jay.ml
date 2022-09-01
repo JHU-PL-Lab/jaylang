@@ -1,7 +1,7 @@
 open Core
 open Jay
 
-let usage_msg = "natodefa -i <file>"
+let usage_msg = "jay -i <file>"
 let source_file = ref ""
 let anon_fun _ = failwith "No anonymous argument allowed!"
 

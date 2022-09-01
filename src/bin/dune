@@ -19,16 +19,16 @@
  (preprocess
   (pps ppx_jane ppx_deriving.show lwt_ppx)))
 
-(executable
- (name odefa)
- (modules odefa)
- (libraries core logs dbmc jayil)
- (preprocess
-  (pps ppx_jane ppx_deriving.show)))
+; (executable
+;  (name jayil)
+;  (modules jayil)
+;  (libraries core logs dbmc jayil)
+;  (preprocess
+;   (pps ppx_jane ppx_deriving.show)))
 
 ; (executable
-;  (name natodefa)
-;  (modules natodefa)
+;  (name jay)
+;  (modules jay)
 ;  (libraries core logs dbmc bluejay)
 ;  (preprocess
 ;   (pps ppx_jane ppx_deriving.show)))
