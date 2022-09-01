@@ -8,12 +8,9 @@ let read_source filename =
     if is_natodefa_ext filename
     then
       let natast =
-        In_channel.with_file filename
-          ~f:Odefa_natural.On_parse.parse_program_raw
+        In_channel.with_file filename ~f:Jay.On_parse.parse_program_raw
       in
-      Odefa_natural.On_to_odefa.translate
-        (Odefa_natural.On_ast.new_expr_desc natast)
-      |> fst
+      Jay.On_to_odefa.translate (Jay.On_ast.new_expr_desc natast) |> fst
     else if is_odefa_ext filename
     then In_channel.with_file filename ~f:Jayil_parser.Parse.parse_program_raw
     else failwith "file extension must be .natodefa"
@@ -22,7 +19,7 @@ let read_source filename =
   program
 
 (*
-let parse_natodefa = Odefa_natural.On_parse.parse_string
+let parse_natodefa = Jay.On_parse.parse_string
 let parse_odefa = Jayil_parser.Parser.parse_string
 let read_lines file = file |> In_channel.create |> In_channel.input_lines
 

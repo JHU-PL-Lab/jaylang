@@ -75,7 +75,7 @@ let get_expected_type_from_cls cls_body =
           application, record projection, or a conditional."
 
 let get_expected_type_from_pattern nat_pat =
-  let open Odefa_natural.On_ast in
+  let open Jay.On_ast in
   match nat_pat with
   | AnyPat -> TopType
   | IntPat -> IntType

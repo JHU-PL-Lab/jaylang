@@ -17,10 +17,9 @@ let load filename =
     then
       let natast =
         Exn.handle_uncaught_and_exit (fun () ->
-            In_channel.with_file filename
-              ~f:Odefa_natural.On_parse.parse_program_raw)
+            In_channel.with_file filename ~f:Jay.On_parse.parse_program_raw)
       in
-      Odefa_natural.On_to_odefa.translate natast
+      Jay.On_to_odefa.translate natast
     else if String.is_suffix filename ~suffix:"odefa"
     then In_channel.with_file filename ~f:Jayil_parser.Parser.parse_program_raw
     else failwith "file extension must be .odefa or .natodefa"

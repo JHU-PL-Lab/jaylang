@@ -1,5 +1,5 @@
 open Core
-open Odefa_natural
+open Jay
 
 let usage_msg = "natodefa -i <file>"
 let source_file = ref ""

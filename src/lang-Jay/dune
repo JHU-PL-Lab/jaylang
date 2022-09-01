@@ -12,8 +12,8 @@
 )
 
 (library
-  (name odefa_natural)
-  (public_name jay.natural)
+  (name jay)
+  (public_name jay.jay)
   (synopsis "Translator for Odefa Natural")
   (libraries
     core

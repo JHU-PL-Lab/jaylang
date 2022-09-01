@@ -5,7 +5,7 @@ open Dbmc
 open Jayil
 open Jayil.Ast
 open Jay_instrumentation.Odefa_instrumentation_maps
-open Odefa_natural.On_to_odefa_maps
+open Jay.On_to_odefa_maps
 
 module type Error_location = sig
   type t
@@ -27,15 +27,11 @@ module Odefa_error_location : Error_location with type t = Ast.clause = struct
 end
 
 module Natodefa_error_location :
-  Error_location with type t = Odefa_natural.On_ast.expr_desc = struct
-  type t = Odefa_natural.On_ast.expr_desc
+  Error_location with type t = Jay.On_ast.expr_desc = struct
+  type t = Jay.On_ast.expr_desc
 
-  let show =
-    Pp_utils.pp_to_string Odefa_natural.On_ast_pp.pp_expr_desc_without_tag
-
-  let show_brief =
-    Pp_utils.pp_to_string Odefa_natural.On_ast_pp.pp_expr_desc_without_tag
-
+  let show = Pp_utils.pp_to_string Jay.On_ast_pp.pp_expr_desc_without_tag
+  let show_brief = Pp_utils.pp_to_string Jay.On_ast_pp.pp_expr_desc_without_tag
   let to_yojson expr = `String (replace_linebreaks @@ show expr)
 end
 
@@ -271,7 +267,7 @@ struct
       (symb_interp_state : Dbmc.Types.State.t)
       (interp_session : Dbmc.Interpreter.session)
       (final_env : Dbmc.Interpreter.denv) (inputs : int option list) =
-    let open Odefa_natural in
+    let open Jay in
     let (Clause (Var (err_id, _), _) as error_loc), odefa_errors =
       get_odefa_errors sato_state symb_interp_state interp_session final_env
     in
@@ -333,7 +329,7 @@ module Ton_type_errors : Sato_result with type t = ton_error_record = struct
       (symb_interp_state : Dbmc.Types.State.t)
       (interp_session : Dbmc.Interpreter.session)
       (final_env : Dbmc.Interpreter.denv) (inputs : int option list) =
-    let open Odefa_natural in
+    let open Jay in
     let open Bluejay in
     let (Clause (Var (err_id, _), _) as error_loc), odefa_errors =
       get_odefa_errors sato_state symb_interp_state interp_session final_env

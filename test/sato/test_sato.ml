@@ -85,13 +85,12 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
               List.map ~f:(fun (Ident i) -> i) err.err_match_aliases
             in
             let actual_v =
-              Odefa_natural.On_ast_pp.show_expr err.err_match_val.body
+              Jay.On_ast_pp.show_expr err.err_match_val.body
               |> String.substr_replace_all ~pattern:"\n" ~with_:" "
             in
             let a_actual_type, a_expected_type =
-              ( Odefa_natural.On_ast_pp.show_on_type @@ err.err_match_actual,
-                Odefa_natural.On_ast_pp.show_on_type @@ err.err_match_expected
-              )
+              ( Jay.On_ast_pp.show_on_type @@ err.err_match_actual,
+                Jay.On_ast_pp.show_on_type @@ err.err_match_expected )
             in
             Match_error
               {
@@ -103,9 +102,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
             let actual_aliases =
               List.map ~f:(fun (Ident i) -> i) err.err_value_aliases
             in
-            let actual_v =
-              Odefa_natural.On_ast_pp.show_expr err.err_value_val.body
-            in
+            let actual_v = Jay.On_ast_pp.show_expr err.err_value_val.body in
             Value_error { v_value = (actual_aliases, actual_v) }
         | _ -> failwith "Expect no other error types!"
       in

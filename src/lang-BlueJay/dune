@@ -22,7 +22,7 @@
     monadlib
     jayil
     jay_instrumentation
-    odefa_natural
+    jay
   )
   (preprocess
     (pps

@@ -18,7 +18,7 @@ open Ddpa
 open Jayil_parser
 open Odefa_test_generation
 open Odefa_toploop
-open Odefa_natural
+open Jay
 open Ast
 open Ast_pp
 open Ast_wellformedness

@@ -1,6 +1,6 @@
 open! Core
 open Jayil
-open Odefa_natural
+open Jay
 open Bluejay
 
 let is_ton_ext s = Filename.check_suffix s "tnat"
@@ -8,7 +8,7 @@ let is_ton_ext s = Filename.check_suffix s "tnat"
 let mode_from_file s =
   if is_ton_ext s
   then Sato_args.Typed_natodefa
-  else if Odefa_natural.File_utils.check_ext s
+  else if Jay.File_utils.check_ext s
   then Sato_args.Natodefa
   else if Jayil.File_utils.check_ext s
   then Sato_args.Odefa
@@ -39,12 +39,11 @@ let read_source_sato filename =
       let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;
       (post_inst_ast, odefa_inst_maps, Some on_odefa_maps, Some ton_on_maps'))
-    else if Odefa_natural.File_utils.check_ext filename
+    else if Jay.File_utils.check_ext filename
     then (
       let natast =
         On_ast.new_expr_desc
-        @@ In_channel.with_file filename
-             ~f:Odefa_natural.On_parse.parse_program_raw
+        @@ In_channel.with_file filename ~f:Jay.On_parse.parse_program_raw
       in
       (* let (desugared_typed, ton_on_maps) = transform_natodefa natast in *)
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
