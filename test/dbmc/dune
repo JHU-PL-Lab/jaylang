@@ -27,9 +27,9 @@
   lwt.unix
   alcotest
   alcotest-lwt
-  odefa_ast
-  odefa_parser
+  jayil
+  jayil_parser
   bluejay
-  odefa.dbmc)
+  dbmc)
  (preprocess
   (pps ppx_jane lwt_ppx ppx_deriving.std ppx_expect)))
