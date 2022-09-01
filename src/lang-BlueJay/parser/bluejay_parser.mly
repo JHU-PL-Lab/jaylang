@@ -601,7 +601,7 @@ record_body:
       { add_record_entry $1 (new_expr_desc $3) $5 }
 ;
 
-/* [1, 2, true] (Unlike ocaml, natodefa lists can be heterogenous) */
+/* [1, 2, true] (Unlike ocaml, bluejay lists can be heterogenous) */
 list_body:
   | expr COMMA list_body { (new_expr_desc $1) :: $3 }
   | expr { [new_expr_desc $1] }

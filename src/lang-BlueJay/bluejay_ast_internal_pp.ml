@@ -270,8 +270,8 @@ let show_ident = Pp_utils.pp_to_string pp_ident
 (* let show_expr = Pp_utils.pp_to_string pp_expr;; *)
 let show_pattern = Pp_utils.pp_to_string pp_pattern
 
-let pp_on_type formatter (on_type : Bluejay_ast_internal.type_sig) =
-  match on_type with
+let pp_bluejay_type formatter (bluejay_type : Bluejay_ast_internal.type_sig) =
+  match bluejay_type with
   | TopType -> Format.pp_print_string formatter "Any"
   | IntType -> Format.pp_print_string formatter "Integer"
   | BoolType -> Format.pp_print_string formatter "Boolean"
@@ -282,4 +282,4 @@ let pp_on_type formatter (on_type : Bluejay_ast_internal.type_sig) =
       Format.fprintf formatter "Variant %a" pp_variant_label lbl
   | UntouchedType t -> Format.pp_print_string formatter @@ "'" ^ t
 
-let show_on_type = Pp_utils.pp_to_string pp_on_type
+let show_bluejay_type = Pp_utils.pp_to_string pp_bluejay_type

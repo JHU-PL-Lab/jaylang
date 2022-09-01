@@ -330,15 +330,15 @@ let rec syn_bluejay_from_sem_bluejay bluejay_jay_maps
           { tag = og_tag; body = Assume e' })
 
 let rec sem_bluejay_from_core_bluejay bluejay_jay_maps
-    (on_err_desc : core_bluejay_edesc) : sem_bluejay_edesc =
+    (core_edesc : core_bluejay_edesc) : sem_bluejay_edesc =
   match
-    Core_expr_desc_map.Exceptionless.find on_err_desc
+    Core_expr_desc_map.Exceptionless.find core_edesc
       bluejay_jay_maps.core_to_sem
   with
   | Some expr' -> expr'
   | None -> (
-      let on_err = on_err_desc.body in
-      let og_tag = on_err_desc.tag in
+      let on_err = core_edesc.body in
+      let og_tag = core_edesc.tag in
       match on_err with
       | TypeError err_id -> (
           let err_expr_op =
