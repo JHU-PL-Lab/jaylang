@@ -362,7 +362,7 @@ module Bluejay_error = struct
     | Error_binop of Error_base.error_binop
     | Error_match of Error_base.error_match
     | Error_value of Error_base.error_value
-    | Error_jay_type of error_type
+    | Error_bluejay_type of error_type
   (* [@@ deriving equal, to_yojson] *)
 
   let pp_error_type formatter err =
@@ -388,14 +388,14 @@ module Bluejay_error = struct
     | Error_binop err -> Error_base.to_yojson (Error_base.Error_binop err)
     | Error_match err -> Error_base.to_yojson (Error_base.Error_match err)
     | Error_value err -> Error_base.to_yojson (Error_base.Error_value err)
-    | Error_jay_type err -> error_type_to_yojson err
+    | Error_bluejay_type err -> error_type_to_yojson err
 
   let pp formatter error =
     match error with
     | Error_binop err -> Error_base.pp formatter (Error_base.Error_binop err)
     | Error_match err -> Error_base.pp formatter (Error_base.Error_match err)
     | Error_value err -> Error_base.pp formatter (Error_base.Error_value err)
-    | Error_jay_type err -> pp_error_type formatter err
+    | Error_bluejay_type err -> pp_error_type formatter err
 
   let show = Pp_utils.pp_to_string pp
 end
@@ -1064,7 +1064,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                    )
          in *)
       [
-        Bluejay_error.Error_jay_type
+        Bluejay_error.Error_bluejay_type
           {
             err_type_variable = err_var;
             err_type_expected = actual_expected_type_external;

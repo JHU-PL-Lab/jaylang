@@ -141,7 +141,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
                 expected_type = a_expected_type;
                 actual_type = a_actual_type;
               }
-        | Sato_error.Bluejay_error.Error_jay_type err ->
+        | Sato_error.Bluejay_error.Error_bluejay_type err ->
             let actual_v =
               Bluejay.Bluejay_ast_pp.show_expr err.err_type_variable.body
               |> String.substr_replace_all ~pattern:"\n" ~with_:" "
