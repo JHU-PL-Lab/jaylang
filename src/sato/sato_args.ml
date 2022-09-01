@@ -1,7 +1,6 @@
 open Core
 
-type mode = Odefa | Natodefa | Typed_natodefa
-[@@deriving show]
+type mode = Odefa | Natodefa | Typed_natodefa [@@deriving show]
 
 type t = {
   (* basic *)
