@@ -1,5 +1,5 @@
 %{
-open On_ast;;
+open Jay_ast;;
 module List = BatList;;
 
 (* Functions relating to parsing record entries *)
@@ -97,8 +97,8 @@ let record_from_list pr_list =
 %right ASSERT ASSUME prec_variant    /* Asserts, Assumes, and variants */
 %right ARROW                  /* -> for type declaration */
 
-%start <On_ast.expr> prog
-%start <On_ast.expr option> delim_expr
+%start <Jay_ast.expr> prog
+%start <Jay_ast.expr option> delim_expr
 
 %%
 

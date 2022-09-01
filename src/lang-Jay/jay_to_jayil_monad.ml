@@ -1,6 +1,6 @@
 open Batteries
 open Jayil
-open On_ast
+open Jay_ast
 
 type translation_context = {
   tc_fresh_suffix_separator : string;
@@ -38,16 +38,16 @@ module TranslationMonad : sig
   (** Add an odefa var to note that it was added during instrumentation (and
       that it does not have an associated pre-instrumentation clause) *)
 
-  val add_jayil_jay_mapping : Ast.var -> On_ast.expr_desc -> unit m
+  val add_jayil_jay_mapping : Ast.var -> Jay_ast.expr_desc -> unit m
   (** Map an odefa var to a natodefa expression *)
 
-  val add_jay_expr_mapping : On_ast.expr_desc -> On_ast.expr_desc -> unit m
+  val add_jay_expr_mapping : Jay_ast.expr_desc -> Jay_ast.expr_desc -> unit m
   (** Map a natodefa expression to another natodefa expression *)
 
-  val add_jay_var_mapping : On_ast.ident -> On_ast.ident -> unit m
+  val add_jay_var_mapping : Jay_ast.ident -> Jay_ast.ident -> unit m
   (** Map a natodefa ident to another ident. *)
 
-  val add_jay_type_mapping : On_ast.Ident_set.t -> On_ast.type_sig -> unit m
+  val add_jay_type_mapping : Jay_ast.Ident_set.t -> Jay_ast.type_sig -> unit m
   (** Map a set of natodefa idents to a natodefa type. *)
 
   val odefa_natodefa_maps : Jay_to_jayil_maps.t m
@@ -148,168 +148,175 @@ end = struct
 end
 
 let ident_map_map_m (fn : 'a -> 'b TranslationMonad.m)
-    (m : 'a On_ast.Ident_map.t) : 'b On_ast.Ident_map.t TranslationMonad.m =
+    (m : 'a Jay_ast.Ident_map.t) : 'b Jay_ast.Ident_map.t TranslationMonad.m =
   let open TranslationMonad in
-  m |> On_ast.Ident_map.enum
+  m |> Jay_ast.Ident_map.enum
   |> Enum.map (fun (k, v) ->
          let%bind v' = fn v in
          return (k, v'))
   |> List.of_enum |> sequence |> lift1 List.enum
-  |> lift1 On_ast.Ident_map.of_enum
+  |> lift1 Jay_ast.Ident_map.of_enum
 
 (* *** Generalized monadic transformations for expressions with reader and
    writer support. *** *)
 
 type ('env, 'out) m_env_out_expr_transformer =
-  ('env -> On_ast.expr_desc -> (On_ast.expr_desc * 'out) TranslationMonad.m) ->
+  ('env -> Jay_ast.expr_desc -> (Jay_ast.expr_desc * 'out) TranslationMonad.m) ->
   'env ->
-  On_ast.expr_desc ->
-  (On_ast.expr_desc * 'out) TranslationMonad.m
+  Jay_ast.expr_desc ->
+  (Jay_ast.expr_desc * 'out) TranslationMonad.m
 
 let rec m_env_out_transform_expr
     (transformer : ('env, 'out) m_env_out_expr_transformer)
     (combiner : 'out -> 'out -> 'out) (default : 'out) (env : 'env)
-    (e_desc : On_ast.expr_desc) : (On_ast.expr_desc * 'out) TranslationMonad.m =
+    (e_desc : Jay_ast.expr_desc) : (Jay_ast.expr_desc * 'out) TranslationMonad.m
+    =
   let recurse = m_env_out_transform_expr transformer combiner default in
   let open TranslationMonad in
-  let transform_funsig (On_ast.Funsig (name, args, body)) =
+  let transform_funsig (Jay_ast.Funsig (name, args, body)) =
     let%bind body', out' = recurse env body in
     let%bind body'', out'' = transformer recurse env body' in
-    return @@ (On_ast.Funsig (name, args, body''), combiner out' out'')
+    return @@ (Jay_ast.Funsig (name, args, body''), combiner out' out'')
   in
-  let%bind (e' : On_ast.expr_desc), (out' : 'out) =
+  let%bind (e' : Jay_ast.expr_desc), (out' : 'out) =
     let e = e_desc.body in
     let og_tag = e_desc.tag in
     match e with
-    | On_ast.Var x -> return @@ ({ tag = og_tag; body = On_ast.Var x }, default)
-    | On_ast.Input -> return @@ ({ tag = og_tag; body = On_ast.Input }, default)
-    | On_ast.Function (x, e1) ->
+    | Jay_ast.Var x ->
+        return @@ ({ tag = og_tag; body = Jay_ast.Var x }, default)
+    | Jay_ast.Input ->
+        return @@ ({ tag = og_tag; body = Jay_ast.Input }, default)
+    | Jay_ast.Function (x, e1) ->
         let%bind e1', out1 = recurse env e1 in
-        return @@ ({ tag = og_tag; body = On_ast.Function (x, e1') }, out1)
-    | On_ast.Appl (e1, e2) ->
-        let%bind e1', out1 = recurse env e1 in
-        let%bind e2', out2 = recurse env e2 in
-        return
-        @@ ({ tag = og_tag; body = On_ast.Appl (e1', e2') }, combiner out1 out2)
-    | On_ast.Let (x, e1, e2) ->
+        return @@ ({ tag = og_tag; body = Jay_ast.Function (x, e1') }, out1)
+    | Jay_ast.Appl (e1, e2) ->
         let%bind e1', out1 = recurse env e1 in
         let%bind e2', out2 = recurse env e2 in
         return
-        @@ ( { tag = og_tag; body = On_ast.Let (x, e1', e2') },
+        @@ ({ tag = og_tag; body = Jay_ast.Appl (e1', e2') }, combiner out1 out2)
+    | Jay_ast.Let (x, e1, e2) ->
+        let%bind e1', out1 = recurse env e1 in
+        let%bind e2', out2 = recurse env e2 in
+        return
+        @@ ( { tag = og_tag; body = Jay_ast.Let (x, e1', e2') },
              combiner out1 out2 )
-    | On_ast.LetRecFun (funsigs, e1) ->
+    | Jay_ast.LetRecFun (funsigs, e1) ->
         let%bind e1', out1 = recurse env e1 in
         let%bind funsigs', outs =
           lift1 List.split @@ sequence @@ List.map transform_funsig funsigs
         in
         let out = List.fold_left combiner out1 outs in
         return
-        @@ ({ tag = og_tag; body = On_ast.LetRecFun (funsigs', e1') }, out)
-    | On_ast.LetFun (funsig, e1) ->
+        @@ ({ tag = og_tag; body = Jay_ast.LetRecFun (funsigs', e1') }, out)
+    | Jay_ast.LetFun (funsig, e1) ->
         let%bind e1', out1 = recurse env e1 in
         let%bind funsig', out2 = transform_funsig funsig in
         return
-        @@ ( { tag = og_tag; body = On_ast.LetFun (funsig', e1') },
+        @@ ( { tag = og_tag; body = Jay_ast.LetFun (funsig', e1') },
              combiner out1 out2 )
-    | On_ast.Plus (e1, e2) ->
+    | Jay_ast.Plus (e1, e2) ->
         let%bind e1', out1 = recurse env e1 in
         let%bind e2', out2 = recurse env e2 in
         return
-        @@ ({ tag = og_tag; body = On_ast.Plus (e1', e2') }, combiner out1 out2)
-    | On_ast.Minus (e1, e2) ->
+        @@ ({ tag = og_tag; body = Jay_ast.Plus (e1', e2') }, combiner out1 out2)
+    | Jay_ast.Minus (e1, e2) ->
         let%bind e1', out1 = recurse env e1 in
         let%bind e2', out2 = recurse env e2 in
         return
-        @@ ({ tag = og_tag; body = On_ast.Minus (e1', e2') }, combiner out1 out2)
-    | On_ast.Times (e1, e2) ->
-        let%bind e1', out1 = recurse env e1 in
-        let%bind e2', out2 = recurse env e2 in
-        return
-        @@ ({ tag = og_tag; body = On_ast.Times (e1', e2') }, combiner out1 out2)
-    | On_ast.Divide (e1, e2) ->
-        let%bind e1', out1 = recurse env e1 in
-        let%bind e2', out2 = recurse env e2 in
-        return
-        @@ ( { tag = og_tag; body = On_ast.Divide (e1', e2') },
+        @@ ( { tag = og_tag; body = Jay_ast.Minus (e1', e2') },
              combiner out1 out2 )
-    | On_ast.Modulus (e1, e2) ->
+    | Jay_ast.Times (e1, e2) ->
         let%bind e1', out1 = recurse env e1 in
         let%bind e2', out2 = recurse env e2 in
         return
-        @@ ( { tag = og_tag; body = On_ast.Modulus (e1', e2') },
+        @@ ( { tag = og_tag; body = Jay_ast.Times (e1', e2') },
              combiner out1 out2 )
-    | On_ast.Equal (e1, e2) ->
+    | Jay_ast.Divide (e1, e2) ->
         let%bind e1', out1 = recurse env e1 in
         let%bind e2', out2 = recurse env e2 in
         return
-        @@ ({ tag = og_tag; body = On_ast.Equal (e1', e2') }, combiner out1 out2)
-    | On_ast.Neq (e1, e2) ->
-        let%bind e1', out1 = recurse env e1 in
-        let%bind e2', out2 = recurse env e2 in
-        return
-        @@ ({ tag = og_tag; body = On_ast.Neq (e1', e2') }, combiner out1 out2)
-    | On_ast.LessThan (e1, e2) ->
-        let%bind e1', out1 = recurse env e1 in
-        let%bind e2', out2 = recurse env e2 in
-        return
-        @@ ( { tag = og_tag; body = On_ast.LessThan (e1', e2') },
+        @@ ( { tag = og_tag; body = Jay_ast.Divide (e1', e2') },
              combiner out1 out2 )
-    | On_ast.Leq (e1, e2) ->
+    | Jay_ast.Modulus (e1, e2) ->
         let%bind e1', out1 = recurse env e1 in
         let%bind e2', out2 = recurse env e2 in
         return
-        @@ ({ tag = og_tag; body = On_ast.Leq (e1', e2') }, combiner out1 out2)
-    | On_ast.GreaterThan (e1, e2) ->
-        let%bind e1', out1 = recurse env e1 in
-        let%bind e2', out2 = recurse env e2 in
-        return
-        @@ ( { tag = og_tag; body = On_ast.GreaterThan (e1', e2') },
+        @@ ( { tag = og_tag; body = Jay_ast.Modulus (e1', e2') },
              combiner out1 out2 )
-    | On_ast.Geq (e1, e2) ->
+    | Jay_ast.Equal (e1, e2) ->
         let%bind e1', out1 = recurse env e1 in
         let%bind e2', out2 = recurse env e2 in
         return
-        @@ ({ tag = og_tag; body = On_ast.Geq (e1', e2') }, combiner out1 out2)
-    | On_ast.And (e1, e2) ->
+        @@ ( { tag = og_tag; body = Jay_ast.Equal (e1', e2') },
+             combiner out1 out2 )
+    | Jay_ast.Neq (e1, e2) ->
         let%bind e1', out1 = recurse env e1 in
         let%bind e2', out2 = recurse env e2 in
         return
-        @@ ({ tag = og_tag; body = On_ast.And (e1', e2') }, combiner out1 out2)
-    | On_ast.Or (e1, e2) ->
+        @@ ({ tag = og_tag; body = Jay_ast.Neq (e1', e2') }, combiner out1 out2)
+    | Jay_ast.LessThan (e1, e2) ->
         let%bind e1', out1 = recurse env e1 in
         let%bind e2', out2 = recurse env e2 in
         return
-        @@ ({ tag = og_tag; body = On_ast.Or (e1', e2') }, combiner out1 out2)
-    | On_ast.Not e1 ->
+        @@ ( { tag = og_tag; body = Jay_ast.LessThan (e1', e2') },
+             combiner out1 out2 )
+    | Jay_ast.Leq (e1, e2) ->
         let%bind e1', out1 = recurse env e1 in
-        return @@ ({ tag = og_tag; body = On_ast.Not e1' }, out1)
-    | On_ast.If (e1, e2, e3) ->
+        let%bind e2', out2 = recurse env e2 in
+        return
+        @@ ({ tag = og_tag; body = Jay_ast.Leq (e1', e2') }, combiner out1 out2)
+    | Jay_ast.GreaterThan (e1, e2) ->
+        let%bind e1', out1 = recurse env e1 in
+        let%bind e2', out2 = recurse env e2 in
+        return
+        @@ ( { tag = og_tag; body = Jay_ast.GreaterThan (e1', e2') },
+             combiner out1 out2 )
+    | Jay_ast.Geq (e1, e2) ->
+        let%bind e1', out1 = recurse env e1 in
+        let%bind e2', out2 = recurse env e2 in
+        return
+        @@ ({ tag = og_tag; body = Jay_ast.Geq (e1', e2') }, combiner out1 out2)
+    | Jay_ast.And (e1, e2) ->
+        let%bind e1', out1 = recurse env e1 in
+        let%bind e2', out2 = recurse env e2 in
+        return
+        @@ ({ tag = og_tag; body = Jay_ast.And (e1', e2') }, combiner out1 out2)
+    | Jay_ast.Or (e1, e2) ->
+        let%bind e1', out1 = recurse env e1 in
+        let%bind e2', out2 = recurse env e2 in
+        return
+        @@ ({ tag = og_tag; body = Jay_ast.Or (e1', e2') }, combiner out1 out2)
+    | Jay_ast.Not e1 ->
+        let%bind e1', out1 = recurse env e1 in
+        return @@ ({ tag = og_tag; body = Jay_ast.Not e1' }, out1)
+    | Jay_ast.If (e1, e2, e3) ->
         let%bind e1', out1 = recurse env e1 in
         let%bind e2', out2 = recurse env e2 in
         let%bind e3', out3 = recurse env e3 in
         return
-        @@ ( { tag = og_tag; body = On_ast.If (e1', e2', e3') },
+        @@ ( { tag = og_tag; body = Jay_ast.If (e1', e2', e3') },
              combiner (combiner out1 out2) out3 )
-    | On_ast.Int n -> return @@ ({ tag = og_tag; body = On_ast.Int n }, default)
-    | On_ast.Bool b ->
-        return @@ ({ tag = og_tag; body = On_ast.Bool b }, default)
-    | On_ast.Record r ->
+    | Jay_ast.Int n ->
+        return @@ ({ tag = og_tag; body = Jay_ast.Int n }, default)
+    | Jay_ast.Bool b ->
+        return @@ ({ tag = og_tag; body = Jay_ast.Bool b }, default)
+    | Jay_ast.Record r ->
         let%bind mappings, outs =
-          r |> On_ast.Ident_map.enum
+          r |> Jay_ast.Ident_map.enum
           |> Enum.map (fun (k, v) ->
                  let%bind v', out' = recurse env v in
                  return ((k, v'), out'))
           |> List.of_enum |> sequence |> lift1 List.enum |> lift1 Enum.uncombine
         in
-        let r' = On_ast.Ident_map.of_enum mappings in
+        let r' = Jay_ast.Ident_map.of_enum mappings in
         let out = Enum.fold combiner default outs in
-        return @@ ({ tag = og_tag; body = On_ast.Record r' }, out)
-    | On_ast.RecordProj (e1, l) ->
+        return @@ ({ tag = og_tag; body = Jay_ast.Record r' }, out)
+    | Jay_ast.RecordProj (e1, l) ->
         let%bind e1', out = recurse env e1 in
-        return @@ ({ tag = og_tag; body = On_ast.RecordProj (e1', l) }, out)
-    | On_ast.Match (e0, branches) ->
+        return @@ ({ tag = og_tag; body = Jay_ast.RecordProj (e1', l) }, out)
+    | Jay_ast.Match (e0, branches) ->
         let%bind e0', out0 = recurse env e0 in
-        (* let () = failwith @@ On_ast.show_expr_desc e0' in *)
+        (* let () = failwith @@ Jay_ast.show_expr_desc e0' in *)
         let%bind branches', outs =
           lift1 List.split @@ sequence
           @@ List.map
@@ -319,47 +326,48 @@ let rec m_env_out_transform_expr
                branches
         in
         let out = List.fold_left combiner out0 outs in
-        return @@ ({ tag = og_tag; body = On_ast.Match (e0', branches') }, out)
-    | On_ast.VariantExpr (l, e) ->
+        return @@ ({ tag = og_tag; body = Jay_ast.Match (e0', branches') }, out)
+    | Jay_ast.VariantExpr (l, e) ->
         let%bind e', out = recurse env e in
-        return @@ ({ tag = og_tag; body = On_ast.VariantExpr (l, e') }, out)
-    | On_ast.List es ->
+        return @@ ({ tag = og_tag; body = Jay_ast.VariantExpr (l, e') }, out)
+    | Jay_ast.List es ->
         let%bind es', outs =
           lift1 List.split @@ sequence @@ List.map (fun e -> recurse env e) es
         in
         let out = List.fold_left combiner default outs in
-        return @@ ({ tag = og_tag; body = On_ast.List es' }, out)
-    | On_ast.ListCons (e1, e2) ->
+        return @@ ({ tag = og_tag; body = Jay_ast.List es' }, out)
+    | Jay_ast.ListCons (e1, e2) ->
         let%bind e1', out1 = recurse env e1 in
         let%bind e2', out2 = recurse env e2 in
         return
-        @@ ( { tag = og_tag; body = On_ast.ListCons (e1', e2') },
+        @@ ( { tag = og_tag; body = Jay_ast.ListCons (e1', e2') },
              combiner out1 out2 )
-    | On_ast.Assert e ->
+    | Jay_ast.Assert e ->
         let%bind e', out = recurse env e in
-        return @@ ({ tag = og_tag; body = On_ast.Assert e' }, out)
-    | On_ast.Assume e ->
+        return @@ ({ tag = og_tag; body = Jay_ast.Assert e' }, out)
+    | Jay_ast.Assume e ->
         let%bind e', out = recurse env e in
-        return @@ ({ tag = og_tag; body = On_ast.Assume e' }, out)
-    | On_ast.Error x ->
-        return @@ ({ tag = og_tag; body = On_ast.Error x }, default)
+        return @@ ({ tag = og_tag; body = Jay_ast.Assume e' }, out)
+    | Jay_ast.Error x ->
+        return @@ ({ tag = og_tag; body = Jay_ast.Error x }, default)
   in
 
   let%bind e'', out'' = transformer recurse env e' in
   return (e'', combiner out' out'')
 
 type 'env m_env_expr_transformer =
-  ('env -> On_ast.expr_desc -> On_ast.expr_desc TranslationMonad.m) ->
+  ('env -> Jay_ast.expr_desc -> Jay_ast.expr_desc TranslationMonad.m) ->
   'env ->
-  On_ast.expr_desc ->
-  On_ast.expr_desc TranslationMonad.m
+  Jay_ast.expr_desc ->
+  Jay_ast.expr_desc TranslationMonad.m
 
 let m_env_transform_expr (transformer : 'env m_env_expr_transformer)
-    (env : 'env) (e : On_ast.expr_desc) : On_ast.expr_desc TranslationMonad.m =
+    (env : 'env) (e : Jay_ast.expr_desc) : Jay_ast.expr_desc TranslationMonad.m
+    =
   let open TranslationMonad in
   let transformer'
-      (recurse : 'env -> On_ast.expr_desc -> (On_ast.expr_desc * unit) m) env
-      (e : On_ast.expr_desc) : (On_ast.expr_desc * unit) m =
+      (recurse : 'env -> Jay_ast.expr_desc -> (Jay_ast.expr_desc * unit) m) env
+      (e : Jay_ast.expr_desc) : (Jay_ast.expr_desc * unit) m =
     let recurse' env e =
       let%bind e'', () = recurse env e in
       return e''
@@ -373,15 +381,15 @@ let m_env_transform_expr (transformer : 'env m_env_expr_transformer)
   return e'
 
 type m_expr_transformer =
-  (On_ast.expr_desc -> On_ast.expr_desc TranslationMonad.m) ->
-  On_ast.expr_desc ->
-  On_ast.expr_desc TranslationMonad.m
+  (Jay_ast.expr_desc -> Jay_ast.expr_desc TranslationMonad.m) ->
+  Jay_ast.expr_desc ->
+  Jay_ast.expr_desc TranslationMonad.m
 
-let m_transform_expr (transformer : m_expr_transformer) (e : On_ast.expr_desc) :
-    On_ast.expr_desc TranslationMonad.m =
+let m_transform_expr (transformer : m_expr_transformer) (e : Jay_ast.expr_desc)
+    : Jay_ast.expr_desc TranslationMonad.m =
   let open TranslationMonad in
-  let transformer' (recurse : unit -> On_ast.expr_desc -> On_ast.expr_desc m) ()
-      (e : On_ast.expr_desc) : On_ast.expr_desc TranslationMonad.m =
+  let transformer' (recurse : unit -> Jay_ast.expr_desc -> Jay_ast.expr_desc m)
+      () (e : Jay_ast.expr_desc) : Jay_ast.expr_desc TranslationMonad.m =
     let recurse' e = recurse () e in
     transformer recurse' e
   in

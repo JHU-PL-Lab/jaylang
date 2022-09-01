@@ -1,6 +1,6 @@
 open Batteries
 open Jhupllib
-open On_ast
+open Jay_ast
 open Jay_to_jayil_monad
 open TranslationMonad
 
@@ -27,8 +27,8 @@ let list_expr_to_record recurse (expr_lst : expr_desc list) =
   let nonempty_list_lbls =
     Ident_set.empty |> Ident_set.add lbl_head |> Ident_set.add lbl_tail
   in
-  let%bind () = add_jay_type_mapping empty_list_lbls On_ast.ListType in
-  let%bind () = add_jay_type_mapping nonempty_list_lbls On_ast.ListType in
+  let%bind () = add_jay_type_mapping empty_list_lbls Jay_ast.ListType in
+  let%bind () = add_jay_type_mapping nonempty_list_lbls Jay_ast.ListType in
   (* Make record *)
   let list_maker element acc =
     let%bind clean_elm = recurse element in
@@ -70,7 +70,7 @@ let list_cons_expr_to_record recurse (expr : expr_desc) (list_expr : expr_desc)
     Ident_set.empty |> Ident_set.add lbl_head |> Ident_set.add lbl_cons
     |> Ident_set.add lbl_tail
   in
-  let%bind () = add_jay_type_mapping lst_lbls On_ast.ListType in
+  let%bind () = add_jay_type_mapping lst_lbls Jay_ast.ListType in
   (* Recurse over inner expr *)
   let%bind clean_expr = recurse expr in
   let%bind record_list = recurse list_expr in
@@ -95,7 +95,7 @@ let variant_expr_to_record recurse (v_label : variant_label)
   let variant_lbl_set =
     Ident_set.empty |> Ident_set.add lbl_variant |> Ident_set.add lbl_value
   in
-  let variant_typ = On_ast.VariantType v_label in
+  let variant_typ = Jay_ast.VariantType v_label in
   let%bind () = add_jay_type_mapping variant_lbl_set variant_typ in
   (* Recurse over inner expr *)
   let%bind encoded_v_expr = recurse v_expr in
@@ -116,7 +116,7 @@ let encode_pattern (pattern : pattern) : pattern m =
          The corresponding pattern is {~empty = None} *)
       let%bind lbl_empty = lbl_empty_m in
       let%bind () =
-        add_jay_type_mapping (Ident_set.singleton lbl_empty) On_ast.ListType
+        add_jay_type_mapping (Ident_set.singleton lbl_empty) Jay_ast.ListType
       in
       let empty_rec = Ident_map.add lbl_empty None Ident_map.empty in
       return @@ RecPat empty_rec
@@ -126,7 +126,7 @@ let encode_pattern (pattern : pattern) : pattern m =
       let lst_lbls =
         Ident_set.empty |> Ident_set.add lbl_head |> Ident_set.add lbl_tail
       in
-      let%bind () = add_jay_type_mapping lst_lbls On_ast.ListType in
+      let%bind () = add_jay_type_mapping lst_lbls Jay_ast.ListType in
       let new_lbls =
         Ident_map.empty
         |> Ident_map.add lbl_head @@ Some hd_var
@@ -141,7 +141,7 @@ let encode_pattern (pattern : pattern) : pattern m =
       let variant_lbls =
         Ident_set.empty |> Ident_set.add variant_lbl |> Ident_set.add value_lbl
       in
-      let variant_type = On_ast.VariantType v_label in
+      let variant_type = Jay_ast.VariantType v_label in
       let%bind () = add_jay_type_mapping variant_lbls variant_type in
       let record =
         Ident_map.empty

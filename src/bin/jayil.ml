@@ -1,7 +1,7 @@
 open Core
 open Dbmc
 
-let usage_msg = "odefa -i <file> [<input_i>]"
+let usage_msg = "jayil -i <file> [<input_i>]"
 let source_file = ref ""
 let inputs = ref []
 

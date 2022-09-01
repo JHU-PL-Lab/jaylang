@@ -140,7 +140,7 @@ let rec instrument_clauses (c_list : clause list) : clause list m =
                      source *)
                   (* let%bind () =
                        add_odefa_natodefa_mapping z
-                         (On_ast.new_expr_desc @@ On_ast.Int 0)
+                         (Jay_ast.new_expr_desc @@ Jay_ast.Int 0)
                      in *)
                   (* Clauses *)
                   let z_cls = Clause (z, Value_body (Value_int 0)) in

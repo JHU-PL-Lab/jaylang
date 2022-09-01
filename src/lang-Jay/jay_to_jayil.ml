@@ -16,13 +16,13 @@ open TranslationMonad
 
 let lazy_logger = Logger_utils.make_lazy_logger "Jay_to_jayil"
 
-(* let show_expr = Pp_utils.pp_to_string On_ast_pp.pp_expr;; *)
+(* let show_expr = Pp_utils.pp_to_string Jay_ast_pp.pp_expr;; *)
 
 (* **** Variable alphatization **** *)
 
 (** Determines all variables contained within a pattern. *)
-let rec pat_vars (pat : On_ast.pattern) : On_ast.Ident_set.t =
-  let open On_ast in
+let rec pat_vars (pat : Jay_ast.pattern) : Jay_ast.Ident_set.t =
+  let open Jay_ast in
   match pat with
   | AnyPat | IntPat | BoolPat | FunPat -> Ident_set.empty
   | RecPat record ->
@@ -40,9 +40,9 @@ let rec pat_vars (pat : On_ast.pattern) : On_ast.Ident_set.t =
       Ident_set.empty |> Ident_set.add x1 |> Ident_set.add x2
 
 (** Performs variable substitution on a pattern. *)
-let pat_rename_vars (name_map : On_ast.Ident.t On_ast.Ident_map.t)
-    (pattern : On_ast.pattern) : On_ast.pattern =
-  let open On_ast in
+let pat_rename_vars (name_map : Jay_ast.Ident.t Jay_ast.Ident_map.t)
+    (pattern : Jay_ast.pattern) : Jay_ast.pattern =
+  let open Jay_ast in
   match pattern with
   | AnyPat | IntPat | BoolPat | FunPat -> pattern
   | RecPat record ->
@@ -71,9 +71,9 @@ let pat_rename_vars (name_map : On_ast.Ident.t On_ast.Ident_map.t)
 (* Doesn't create new subtrees -- should preserve the tags just fine *)
 
 (** Performs alpha substitution on a given expression. *)
-let rec rename_variable (old_name : On_ast.ident) (new_name : On_ast.ident)
-    (e_desc : On_ast.expr_desc) : On_ast.expr_desc =
-  let open On_ast in
+let rec rename_variable (old_name : Jay_ast.ident) (new_name : Jay_ast.ident)
+    (e_desc : Jay_ast.expr_desc) : Jay_ast.expr_desc =
+  let open Jay_ast in
   (* NOTE: the generic homomorphism routine m_env_transform_expr does not allow
      us to change the environment of the homomorphism as we descend or to block
      descending into a given subtree, so we can't use it here. *)
@@ -235,8 +235,8 @@ let rec rename_variable (old_name : On_ast.ident) (new_name : On_ast.ident)
 (** This function alphatizes an entire expression. If a variable is defined more
     than once in the given expression, all but one of the declarations will be
     alpha-renamed to a fresh name. *)
-let alphatize (e : On_ast.expr_desc) : On_ast.expr_desc m =
-  let open On_ast in
+let alphatize (e : Jay_ast.expr_desc) : Jay_ast.expr_desc m =
+  let open Jay_ast in
   (* Given a list of identifiers, a list of expressions, and a list of
      previously declared identifiers, this helper routine renames all previously
      declared identifiers which appear in the list within all of the
@@ -496,12 +496,12 @@ let alphatize (e : On_ast.expr_desc) : On_ast.expr_desc m =
 
 (** Create new odefa variable with mapping to natodefa expr *)
 
-let new_odefa_var (e_desc : On_ast.expr_desc) (var_name : string) : Ast.var m =
+let new_odefa_var (e_desc : Jay_ast.expr_desc) (var_name : string) : Ast.var m =
   let%bind var = fresh_var var_name in
   let%bind () = add_jayil_jay_mapping var e_desc in
   return var
 
-let new_odefa_inst_var (e_desc : On_ast.expr_desc) (var_name : string) :
+let new_odefa_inst_var (e_desc : Jay_ast.expr_desc) (var_name : string) :
     Ast.var m =
   let%bind var = new_odefa_var e_desc var_name in
   let%bind () = add_instrument_var var in
@@ -510,7 +510,7 @@ let new_odefa_inst_var (e_desc : On_ast.expr_desc) (var_name : string) :
 (* TODO: When is this ever relavant? *)
 
 (** Returns the body of a function or conditional with its return variable *)
-let nonempty_body (e_desc : On_ast.expr_desc)
+let nonempty_body (e_desc : Jay_ast.expr_desc)
     ((body, var) : Ast.clause list * Ast.var) : (Ast.clause list * Ast.var) m =
   match body with
   | [] ->
@@ -520,32 +520,33 @@ let nonempty_body (e_desc : On_ast.expr_desc)
   | _ -> return (body, var)
 
 (** Create a new abort clause with multiple conditional clause variables *)
-let add_abort_expr (e_desc : On_ast.expr_desc) (_ : Ast.var list) : Ast.expr m =
+let add_abort_expr (e_desc : Jay_ast.expr_desc) (_ : Ast.var list) : Ast.expr m
+    =
   let%bind abort_var = fresh_var "ab" in
   let%bind () = add_jayil_jay_mapping abort_var e_desc in
   let abort_clause = Ast.Clause (abort_var, Abort_body) in
   return @@ Ast.Expr [ abort_clause ]
 
-let jay_to_jayil_ident (On_ast.Ident id) = Ast.Ident id
+let jay_to_jayil_ident (Jay_ast.Ident id) = Ast.Ident id
 
 (** Flatten a pattern. The second value in the pair is a list of projection
     clauses associated with a record or variable pattern; these will be appended
     to the front of the pattern's expression. *)
-let flatten_pattern (e_desc : On_ast.expr_desc) (pat_var : Ast.var)
-    (pattern : On_ast.pattern) : (Ast.pattern * Ast.clause list) m =
+let flatten_pattern (e_desc : Jay_ast.expr_desc) (pat_var : Ast.var)
+    (pattern : Jay_ast.pattern) : (Ast.pattern * Ast.clause list) m =
   match pattern with
-  | On_ast.AnyPat -> return (Ast.Any_pattern, [])
-  | On_ast.IntPat -> return (Ast.Int_pattern, [])
-  | On_ast.BoolPat -> return (Ast.Bool_pattern, [])
-  | On_ast.FunPat -> return (Ast.Fun_pattern, [])
-  | On_ast.RecPat rec_pat ->
+  | Jay_ast.AnyPat -> return (Ast.Any_pattern, [])
+  | Jay_ast.IntPat -> return (Ast.Int_pattern, [])
+  | Jay_ast.BoolPat -> return (Ast.Bool_pattern, [])
+  | Jay_ast.FunPat -> return (Ast.Fun_pattern, [])
+  | Jay_ast.RecPat rec_pat ->
       let rec_pat' =
-        rec_pat |> On_ast.Ident_map.keys
+        rec_pat |> Jay_ast.Ident_map.keys
         |> Enum.map jay_to_jayil_ident
         |> Ast.Ident_set.of_enum
       in
       let%bind projections =
-        rec_pat |> On_ast.Ident_map.enum |> List.of_enum
+        rec_pat |> Jay_ast.Ident_map.enum |> List.of_enum
         |> list_fold_left_m
              (fun acc (lbl, var) ->
                match var with
@@ -561,16 +562,16 @@ let flatten_pattern (e_desc : On_ast.expr_desc) (pat_var : Ast.var)
              []
       in
       return (Ast.Rec_pattern rec_pat', projections)
-  (* | On_ast.StrictRecPat rec_pat ->
+  (* | Jay_ast.StrictRecPat rec_pat ->
      let rec_pat' =
        rec_pat
-       |> On_ast.Ident_map.keys
+       |> Jay_ast.Ident_map.keys
        |> Enum.map jay_to_jayil_ident
        |> Ast.Ident_set.of_enum
      in
      let%bind projections =
        rec_pat
-       |> On_ast.Ident_map.enum
+       |> Jay_ast.Ident_map.enum
        |> List.of_enum
        |> list_fold_left_m
            (fun acc (lbl, var) ->
@@ -588,28 +589,28 @@ let flatten_pattern (e_desc : On_ast.expr_desc) (pat_var : Ast.var)
            []
      in
      return (Ast.Strict_rec_pattern rec_pat', projections) *)
-  | On_ast.VarPat var_pat ->
-      let (On_ast.Ident var_id) = var_pat in
+  | Jay_ast.VarPat var_pat ->
+      let (Jay_ast.Ident var_id) = var_pat in
       let ast_var = Ast.Var (Ident var_id, None) in
       let%bind () = add_jayil_jay_mapping ast_var e_desc in
       let ast_body = Ast.Var_body pat_var in
       let clause = Ast.Clause (ast_var, ast_body) in
       return (Ast.Any_pattern, [ clause ])
-  | On_ast.VariantPat _ ->
+  | Jay_ast.VariantPat _ ->
       raise
       @@ Utils.Invariant_failure
            "flatten_pattern: Variants patterns should have been encoded!"
-  | On_ast.EmptyLstPat | On_ast.LstDestructPat _ ->
+  | Jay_ast.EmptyLstPat | Jay_ast.LstDestructPat _ ->
       raise
       @@ Utils.Invariant_failure
            "flatten_pattern: List patterns should have been encoded!"
 
 (** Flatten a function *)
-let flatten_fun ?(binding_name = (None : On_ast.Ident.t option))
-    (e_desc : On_ast.expr_desc) (param_names : On_ast.Ident.t list)
+let flatten_fun ?(binding_name = (None : Jay_ast.Ident.t option))
+    (e_desc : Jay_ast.expr_desc) (param_names : Jay_ast.Ident.t list)
     (body : Ast.expr) : (Ast.expr * Ast.var) m =
   list_fold_right_m
-    (fun (param : On_ast.Ident.t) ((e : Ast.expr), (_ : Ast.Var.t)) ->
+    (fun (param : Jay_ast.Ident.t) ((e : Ast.expr), (_ : Ast.Var.t)) ->
       let id = jay_to_jayil_ident param in
       let%bind (new_var : Ast.var) =
         match binding_name with
@@ -626,8 +627,8 @@ let flatten_fun ?(binding_name = (None : On_ast.Ident.t option))
     (body, retv body)
 
 (** Flatten a binary operation *)
-let rec flatten_binop (expr_desc : On_ast.expr_desc)
-    (e1_desc : On_ast.expr_desc) (e2_desc : On_ast.expr_desc)
+let rec flatten_binop (expr_desc : Jay_ast.expr_desc)
+    (e1_desc : Jay_ast.expr_desc) (e2_desc : Jay_ast.expr_desc)
     (binop : Ast.binary_operator) : (Ast.clause list * Ast.var) m =
   let%bind e1_clist, e1_var = flatten_expr e1_desc in
   let%bind e2_clist, e2_var = flatten_expr e2_desc in
@@ -640,10 +641,10 @@ let rec flatten_binop (expr_desc : On_ast.expr_desc)
 (* TODO: Add untouched check logic here; hack solution, might want to rethink
          in the future. In the spec this is supposed to be part of the instrumentation
          step. *)
-and flatten_pattern_match (expr_desc : On_ast.expr_desc) (subj_var : Ast.var)
-    (pat_e_list : (On_ast.pattern * On_ast.expr_desc) list) :
+and flatten_pattern_match (expr_desc : Jay_ast.expr_desc) (subj_var : Ast.var)
+    (pat_e_list : (Jay_ast.pattern * Jay_ast.expr_desc) list) :
     (Ast.clause list * Ast.var) m =
-  let rec convert_match ((pat, e) : On_ast.pattern * On_ast.expr_desc)
+  let rec convert_match ((pat, e) : Jay_ast.pattern * Jay_ast.expr_desc)
       (accum : Ast.expr * Ast.clause list) : (Ast.expr * Ast.clause list) m =
     (* Conditional expression *)
     let cond_expr_inner, match_cls_list_tail = accum in
@@ -703,7 +704,7 @@ and flatten_pattern_match (expr_desc : On_ast.expr_desc) (subj_var : Ast.var)
   return (List.rev pred_cls_list @ [ cond_cls ], cond_var)
 
 (** Flatten an entire expression (i.e. convert natodefa into odefa code) *)
-and flatten_expr (expr_desc : On_ast.expr_desc) : (Ast.clause list * Ast.var) m
+and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
     =
   (* let%bind () = update_natodefa_expr exp in *)
   let recurse = flatten_expr in
@@ -755,7 +756,7 @@ and flatten_expr (expr_desc : On_ast.expr_desc) : (Ast.clause list * Ast.var) m
       (* Flattening the "e2"... *)
       let%bind e_clist, e_var = recurse e in
       (* Assigning the function to the given function name... *)
-      let (On_ast.Ident var_name) = fun_name in
+      let (Jay_ast.Ident var_name) = fun_name in
       let lt_var = Ast.Var (Ident var_name, None) in
       let%bind () = add_jayil_jay_mapping lt_var expr_desc in
       let assignment_clause = Ast.Clause (lt_var, Var_body return_var) in
@@ -824,7 +825,7 @@ and flatten_expr (expr_desc : On_ast.expr_desc) : (Ast.clause list * Ast.var) m
           (Ast.clause list * Ast.var Ast.Ident_map.t) m =
         let clist, recmap = acc in
         let id, e = ident_expr_tuple in
-        let (On_ast.Ident id_string) = id in
+        let (Jay_ast.Ident id_string) = id in
         let ast_id = Ast.Ident id_string in
         let%bind e_clist, e_var = recurse e in
         let new_clist = clist @ e_clist in
@@ -833,7 +834,7 @@ and flatten_expr (expr_desc : On_ast.expr_desc) : (Ast.clause list * Ast.var) m
       in
       let empty_acc = ([], Ast.Ident_map.empty) in
       let%bind clist, map =
-        On_ast.Ident_map.enum recexpr_map
+        Jay_ast.Ident_map.enum recexpr_map
         |> List.of_enum
         |> list_fold_left_m flatten_and_map empty_acc
       in
@@ -844,7 +845,7 @@ and flatten_expr (expr_desc : On_ast.expr_desc) : (Ast.clause list * Ast.var) m
       return (clist @ [ new_clause ], rec_var)
   | RecordProj (rec_expr, lab) ->
       let%bind e_clist, e_var = recurse rec_expr in
-      let (On_ast.Label l_string) = lab in
+      let (Jay_ast.Label l_string) = lab in
       let l_ident = Ast.Ident l_string in
       let%bind proj_var = fresh_var "proj" in
       let%bind () = add_jayil_jay_mapping proj_var expr_desc in
@@ -904,7 +905,7 @@ and flatten_expr (expr_desc : On_ast.expr_desc) : (Ast.clause list * Ast.var) m
       let%bind () = add_jayil_jay_mapping assume_var expr_desc in
       let new_clause = Ast.Clause (assume_var, Assume_body last_var) in
       return (flattened_exprs @ [ new_clause ], assume_var)
-  | Error (On_ast.Ident x) ->
+  | Error (Jay_ast.Ident x) ->
       let%bind error_var = fresh_var "error_var" in
       let error_clause =
         Ast.Clause (error_var, Ast.Var_body (Ast.Var (Ast.Ident x, None)))
@@ -939,10 +940,10 @@ and flatten_expr (expr_desc : On_ast.expr_desc) : (Ast.clause list * Ast.var) m
       return (all_clauses, assert_result)
 
 let debug_transform_on (trans_name : string)
-    (transform : 'a -> On_ast.expr_desc m) (e : 'a) : On_ast.expr_desc m =
+    (transform : 'a -> Jay_ast.expr_desc m) (e : 'a) : Jay_ast.expr_desc m =
   let%bind e' = transform e in
   lazy_logger `debug (fun () ->
-      Printf.sprintf "Result of %s:\n%s" trans_name (On_ast.show_expr e'.body)) ;
+      Printf.sprintf "Result of %s:\n%s" trans_name (Jay_ast.show_expr e'.body)) ;
   return e'
 
 let debug_transform_odefa (trans_name : string)
@@ -966,7 +967,7 @@ let debug_transform_odefa' (trans_name : string)
   return c_list
 
 let translate ?(translation_context = None) ?(is_instrumented = true)
-    (e : On_ast.expr_desc) :
+    (e : Jay_ast.expr_desc) :
     Ast.expr
     * Jay_instrumentation.Jayil_instrumentation_maps.t
     * Jay_to_jayil_maps.t =
@@ -985,7 +986,7 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
        Step three: Flatten to a-normalized form (Natodefa -> Odefa)
     *)
     lazy_logger `debug (fun () ->
-        Printf.sprintf "Initial program:\n%s" (On_ast.show_expr e.body)) ;
+        Printf.sprintf "Initial program:\n%s" (Jay_ast.show_expr e.body)) ;
     let (translation_result_p1_m : Ast.clause list m) =
       return e
       >>= debug_transform_on "desugaring" preliminary_encode_expr

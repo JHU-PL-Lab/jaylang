@@ -794,8 +794,8 @@ and transform_funsig (f_sig : Bluejay_ast.funsig) : 'a funsig =
   let f_body' = to_internal_expr_desc f_body in
   Funsig (f, args, f_body')
 
-let rec from_jay_expr (e : Jay.On_ast.expr) : core_bluejay =
-  let pat_conv (p : Jay.On_ast.pattern) : pattern =
+let rec from_jay_expr (e : Jay.Jay_ast.expr) : core_bluejay =
+  let pat_conv (p : Jay.Jay_ast.pattern) : pattern =
     match p with
     | AnyPat -> AnyPat
     | IntPat -> IntPat
@@ -923,18 +923,18 @@ let rec from_jay_expr (e : Jay.On_ast.expr) : core_bluejay =
       Assume ed'
   | Error x -> TypeError x
 
-and from_jay_expr_desc (e : Jay.On_ast.expr_desc) : core_bluejay_edesc =
+and from_jay_expr_desc (e : Jay.Jay_ast.expr_desc) : core_bluejay_edesc =
   let tag' = e.tag in
   let e' = from_jay_expr e.body in
   { tag = tag'; body = e' }
 
-and transform_funsig' (f_sig : Jay.On_ast.funsig) : core_only funsig =
-  let (Jay.On_ast.Funsig (f, args, f_body)) = f_sig in
+and transform_funsig' (f_sig : Jay.Jay_ast.funsig) : core_only funsig =
+  let (Jay.Jay_ast.Funsig (f, args, f_body)) = f_sig in
   let f_body' = from_jay_expr_desc f_body in
   Funsig (f, args, f_body')
 
-let rec to_jay_expr (e : core_bluejay) : Jay.On_ast.expr =
-  let pat_conv (p : pattern) : Jay.On_ast.pattern =
+let rec to_jay_expr (e : core_bluejay) : Jay.Jay_ast.expr =
+  let pat_conv (p : pattern) : Jay.Jay_ast.pattern =
     match p with
     | AnyPat -> AnyPat
     | IntPat -> IntPat
@@ -1062,15 +1062,15 @@ let rec to_jay_expr (e : core_bluejay) : Jay.On_ast.expr =
       Assume ed'
   | TypeError x -> Error x
 
-and to_jay_expr_desc (e : core_bluejay_edesc) : Jay.On_ast.expr_desc =
+and to_jay_expr_desc (e : core_bluejay_edesc) : Jay.Jay_ast.expr_desc =
   let tag' = e.tag in
   let e' = to_jay_expr e.body in
   { tag = tag'; body = e' }
 
-and transform_funsig' (f_sig : core_only funsig) : Jay.On_ast.funsig =
+and transform_funsig' (f_sig : core_only funsig) : Jay.Jay_ast.funsig =
   let (Funsig (f, args, f_body)) = f_sig in
   let f_body' = to_jay_expr_desc f_body in
-  Jay.On_ast.Funsig (f, args, f_body')
+  Jay.Jay_ast.Funsig (f, args, f_body')
 
 let is_type_expr (ed : syn_bluejay_edesc) : bool =
   match ed.body with
