@@ -3,7 +3,7 @@ open Jhupllib;;
 
 open Jayil;;
 
-(* let lazy_logger = Logger_utils.make_lazy_logger "On_to_odefa_types";; *)
+(* let lazy_logger = Logger_utils.make_lazy_logger "Jay_to_jayil_types";; *)
 
 module Expr_desc = struct
   include On_ast.Expr_desc;;
@@ -27,77 +27,77 @@ type t = {
 
   (** Mapping between an odefa variable to the natodefa expr that the
       odefa variable was derived from. *)
-  odefa_var_to_natodefa_expr : Expr_desc.t Ast.Ident_map.t;
+  jayil_var_to_jay_expr : Expr_desc.t Ast.Ident_map.t;
 
   (** Mapping between two natodefa expressions.  Used to create a
       mapping of natodefa lists and variants with their record
       equivalents as their keys, as well as mappings between let recs and
       their desugared versions. *)
-  natodefa_expr_to_expr : Expr_desc.t Expr_desc_map.t;
+  jay_expr_to_expr : Expr_desc.t Expr_desc_map.t;
 
   (** Mapping between two natodefa idents.  Used to create a mapping from
       post- to pre-alphatization variables. *)
-  natodefa_var_to_var : On_ast.Ident.t On_ast.Ident_map.t;
+  jay_var_to_var : On_ast.Ident.t On_ast.Ident_map.t;
 
   (** Mapping between sets of natodefa idents and natodefa type sigs.  Used to
       determine if a record was originally a list, variant, or record, depending
       on its labels. *)
-  natodefa_idents_to_types : On_ast.type_sig On_labels_map.t;
+  jay_idents_to_types : On_ast.type_sig On_labels_map.t;
 
-  natodefa_instrument_vars_map : (Ast.Ident.t option) Ast.Ident_map.t;
+  jay_instrument_vars_map : (Ast.Ident.t option) Ast.Ident_map.t;
   
 }
 [@@ deriving show]
 ;;
 
-let empty _is_natodefa = {
+let empty _is_jay = {
 
-  odefa_var_to_natodefa_expr = Ast.Ident_map.empty;
-  natodefa_expr_to_expr = Expr_desc_map.empty;
-  natodefa_var_to_var = On_ast.Ident_map.empty;
-  natodefa_idents_to_types = On_labels_map.empty;
-  natodefa_instrument_vars_map = Ast.Ident_map.empty;
+  jayil_var_to_jay_expr = Ast.Ident_map.empty;
+  jay_expr_to_expr = Expr_desc_map.empty;
+  jay_var_to_var = On_ast.Ident_map.empty;
+  jay_idents_to_types = On_labels_map.empty;
+  jay_instrument_vars_map = Ast.Ident_map.empty;
 
 }
 ;;
 
 
-let add_odefa_var_on_expr_mapping mappings odefa_ident on_expr =
-  let natodefa_map = mappings.odefa_var_to_natodefa_expr in
+let add_jayil_var_on_expr_mapping mappings odefa_ident on_expr =
+  let natodefa_map = mappings.jayil_var_to_jay_expr in
   { mappings with
-    odefa_var_to_natodefa_expr =
+    jayil_var_to_jay_expr =
       Ast.Ident_map.add odefa_ident on_expr natodefa_map;
   }
 ;;
 
 let add_on_expr_to_expr_mapping mappings expr1 expr2 =
-  let natodefa_expr_map = mappings.natodefa_expr_to_expr in
+  let natodefa_expr_map = mappings.jay_expr_to_expr in
   { mappings with
-    natodefa_expr_to_expr =
+    jay_expr_to_expr =
       Expr_desc_map.add expr1 expr2 natodefa_expr_map;
   }
 ;;
 
 let add_on_var_to_var_mapping mappings var1 var2 =
-  let natodefa_var_map = mappings.natodefa_var_to_var in
+  let natodefa_var_map = mappings.jay_var_to_var in
   { mappings with
-    natodefa_var_to_var =
+    jay_var_to_var =
       On_ast.Ident_map.add var1 var2 natodefa_var_map
   }
 ;;
 
 let add_on_idents_to_type_mapping mappings idents type_sig =
-  let natodefa_idents_type_map = mappings.natodefa_idents_to_types in
+  let natodefa_idents_type_map = mappings.jay_idents_to_types in
   { mappings with
-    natodefa_idents_to_types =
+    jay_idents_to_types =
       On_labels_map.add idents type_sig natodefa_idents_type_map
   }
 ;;
 
-let add_natodefa_instrument_var mappings inst_ident ident_opt =
-  let instrument_set = mappings.natodefa_instrument_vars_map in
+let add_jay_instrument_var mappings inst_ident ident_opt =
+  let instrument_set = mappings.jay_instrument_vars_map in
   { mappings with
-    natodefa_instrument_vars_map =
+    jay_instrument_vars_map =
       Ast.Ident_map.add inst_ident ident_opt instrument_set;
   }
 ;;
@@ -176,10 +176,10 @@ let rec on_expr_transformer
 ;;
 
 let get_natodefa_equivalent_expr mappings odefa_ident =
-  let inst_map = mappings.natodefa_instrument_vars_map in
-  let odefa_on_map = mappings.odefa_var_to_natodefa_expr in
-  let on_expr_map = mappings.natodefa_expr_to_expr in
-  let on_ident_map = mappings.natodefa_var_to_var in
+  let inst_map = mappings.jay_instrument_vars_map in
+  let odefa_on_map = mappings.jayil_var_to_jay_expr in
+  let on_expr_map = mappings.jay_expr_to_expr in
+  let on_ident_map = mappings.jay_var_to_var in
   (* Get pre-instrument var *)
   let odefa_ident' =
     match Ast.Ident_map.Exceptionless.find odefa_ident inst_map with
@@ -287,7 +287,7 @@ let get_type_from_idents mappings odefa_idents =
     |> Enum.map (fun (Ast.Ident lbl) -> On_ast.Ident lbl)
     |> On_ast.Ident_set.of_enum
   in
-  let on_idents_type_map = mappings.natodefa_idents_to_types in
+  let on_idents_type_map = mappings.jay_idents_to_types in
   match On_labels_map.Exceptionless.find on_idents on_idents_type_map with
   | Some typ -> typ
   | None -> RecType on_idents
@@ -324,7 +324,7 @@ let get_odefa_var_opt_from_natodefa_expr mappings (expr : On_ast.expr_desc) =
         let () = print_endline @@ On_ast.show_expr_desc desugared in *)
         (* let () = print_endline "----------------------" in *)
         if (On_ast.equal_expr_desc sugared v) then Some desugared else acc)
-      mappings.natodefa_expr_to_expr None 
+      mappings.jay_expr_to_expr None 
     in
     let rec loop edesc = 
       let edesc_opt' = find_key_by_value edesc in
@@ -346,7 +346,7 @@ let get_odefa_var_opt_from_natodefa_expr mappings (expr : On_ast.expr_desc) =
     Ident_map.fold 
     (fun renamed og_name acc ->
       if (equal_ident og_name ident) then renamed else acc  
-    ) mappings.natodefa_var_to_var ident
+    ) mappings.jay_var_to_var ident
   in
   let transform_funsig funsig =
     let (Funsig (fun_ident, arg_ident_list, body)) = funsig in
@@ -431,11 +431,11 @@ let get_odefa_var_opt_from_natodefa_expr mappings (expr : On_ast.expr_desc) =
       if On_ast.equal_expr_desc core_expr alphatized then
         Some (Ast.Var (odefa_var, None)) 
       else acc) 
-    mappings.odefa_var_to_natodefa_expr None
+    mappings.jayil_var_to_jay_expr None
   in
   odefa_var_opt
 ;;
 
 let get_natodefa_inst_map mappings = 
-  mappings.natodefa_instrument_vars_map
+  mappings.jay_instrument_vars_map
 ;;

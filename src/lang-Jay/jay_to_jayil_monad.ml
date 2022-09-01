@@ -6,7 +6,7 @@ type translation_context = {
   tc_fresh_suffix_separator : string;
   tc_contextual_recursion : bool;
   mutable tc_fresh_name_counter : int;
-  mutable tc_odefa_natodefa_mappings : On_to_odefa_maps.t;
+  mutable tc_odefa_natodefa_mappings : Jay_to_jayil_maps.t;
 }
 (* [@@deriving eq, ord] *)
 
@@ -16,7 +16,7 @@ let new_translation_context ?(is_natodefa = false) ?(suffix = "~")
     tc_fresh_name_counter = 0;
     tc_fresh_suffix_separator = suffix;
     tc_contextual_recursion = contextual_recursion;
-    tc_odefa_natodefa_mappings = On_to_odefa_maps.empty is_natodefa;
+    tc_odefa_natodefa_mappings = Jay_to_jayil_maps.empty is_natodefa;
   }
 
 module TranslationMonad : sig
@@ -38,20 +38,19 @@ module TranslationMonad : sig
   (** Add an odefa var to note that it was added during instrumentation (and
       that it does not have an associated pre-instrumentation clause) *)
 
-  val add_odefa_natodefa_mapping : Ast.var -> On_ast.expr_desc -> unit m
+  val add_jayil_jay_mapping : Ast.var -> On_ast.expr_desc -> unit m
   (** Map an odefa var to a natodefa expression *)
 
-  val add_natodefa_expr_mapping : On_ast.expr_desc -> On_ast.expr_desc -> unit m
+  val add_jay_expr_mapping : On_ast.expr_desc -> On_ast.expr_desc -> unit m
   (** Map a natodefa expression to another natodefa expression *)
 
-  val add_natodefa_var_mapping : On_ast.ident -> On_ast.ident -> unit m
+  val add_jay_var_mapping : On_ast.ident -> On_ast.ident -> unit m
   (** Map a natodefa ident to another ident. *)
 
-  val add_natodefa_type_mapping :
-    On_ast.Ident_set.t -> On_ast.type_sig -> unit m
+  val add_jay_type_mapping : On_ast.Ident_set.t -> On_ast.type_sig -> unit m
   (** Map a set of natodefa idents to a natodefa type. *)
 
-  val odefa_natodefa_maps : On_to_odefa_maps.t m
+  val odefa_natodefa_maps : Jay_to_jayil_maps.t m
   (** Retrieve the odefa-to-natodefa maps from the monad *)
 
   val freshness_string : string m
@@ -95,28 +94,28 @@ end = struct
     let (Ast.Var (i, _)) = v in
     let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
     ctx.tc_odefa_natodefa_mappings <-
-      On_to_odefa_maps.add_natodefa_instrument_var odefa_on_maps i None
+      Jay_to_jayil_maps.add_jay_instrument_var odefa_on_maps i None
 
-  let add_odefa_natodefa_mapping v_key e_val ctx =
+  let add_jayil_jay_mapping v_key e_val ctx =
     let (Ast.Var (i_key, _)) = v_key in
     let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
     ctx.tc_odefa_natodefa_mappings <-
-      On_to_odefa_maps.add_odefa_var_on_expr_mapping odefa_on_maps i_key e_val
+      Jay_to_jayil_maps.add_jayil_var_on_expr_mapping odefa_on_maps i_key e_val
 
-  let add_natodefa_expr_mapping k_expr v_expr ctx =
+  let add_jay_expr_mapping k_expr v_expr ctx =
     let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
     ctx.tc_odefa_natodefa_mappings <-
-      On_to_odefa_maps.add_on_expr_to_expr_mapping odefa_on_maps k_expr v_expr
+      Jay_to_jayil_maps.add_on_expr_to_expr_mapping odefa_on_maps k_expr v_expr
 
-  let add_natodefa_var_mapping k_var v_var ctx =
+  let add_jay_var_mapping k_var v_var ctx =
     let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
     ctx.tc_odefa_natodefa_mappings <-
-      On_to_odefa_maps.add_on_var_to_var_mapping odefa_on_maps k_var v_var
+      Jay_to_jayil_maps.add_on_var_to_var_mapping odefa_on_maps k_var v_var
 
-  let add_natodefa_type_mapping k_idents v_type ctx =
+  let add_jay_type_mapping k_idents v_type ctx =
     let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
     ctx.tc_odefa_natodefa_mappings <-
-      On_to_odefa_maps.add_on_idents_to_type_mapping odefa_on_maps k_idents
+      Jay_to_jayil_maps.add_on_idents_to_type_mapping odefa_on_maps k_idents
         v_type
 
   let odefa_natodefa_maps ctx = ctx.tc_odefa_natodefa_mappings

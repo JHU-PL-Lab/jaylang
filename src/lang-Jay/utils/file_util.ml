@@ -10,7 +10,7 @@ let read_source filename =
       let natast =
         In_channel.with_file filename ~f:Jay.On_parse.parse_program_raw
       in
-      Jay.On_to_odefa.translate (Jay.On_ast.new_expr_desc natast) |> fst
+      Jay.Jay_to_jayil.translate (Jay.On_ast.new_expr_desc natast) |> fst
     else if is_odefa_ext filename
     then In_channel.with_file filename ~f:Jayil_parser.Parse.parse_program_raw
     else failwith "file extension must be .natodefa"

@@ -10,9 +10,10 @@ let read_source ?(is_instrumented = false) filename =
       in
       let nat_edesc = Jay.On_ast.new_expr_desc natast in
       (* let on_expr, ton_on_maps =
-           Jay.On_to_odefa.translate (Jay.On_ast.new_expr_desc natast)
+           Jay.Jay_to_jayil.translate (Jay.On_ast.new_expr_desc natast)
          in *)
-      Jay.On_to_odefa.translate ~is_instrumented nat_edesc |> fun (e, _, _) -> e
+      Jay.Jay_to_jayil.translate ~is_instrumented nat_edesc |> fun (e, _, _) ->
+      e
     else if Jayil.File_utils.check_ext filename
     then
       let ast =

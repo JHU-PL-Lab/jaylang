@@ -9,7 +9,7 @@ val empty : bool -> t;;
 
 (** Add a mapping from an odefa ident to the natodefa expression that, when
     flattened, produced its odefa clause. *)
-val add_odefa_var_on_expr_mapping : t -> Ast.ident -> On_ast.expr_desc -> t;;
+val add_jayil_var_on_expr_mapping : t -> Ast.ident -> On_ast.expr_desc -> t;;
 
 (** Add a mapping between two natodefa expressions.  These pairs are added
     when let rec, list, and variant expressions/patterns are desuraged. *)
@@ -28,7 +28,7 @@ val add_on_idents_to_type_mapping : t -> On_ast.Ident_set.t -> On_ast.type_sig -
     odefa ident option, corresponding to some pre-instrumentation ident it
     aliases.  The value is None if there is not a corresponding aliased
     ident (e.g. vars added during match expr flattening). *)
-val add_natodefa_instrument_var : t -> Ast.ident -> Ast.ident option -> t;;
+val add_jay_instrument_var : t -> Ast.ident -> Ast.ident option -> t;;
 
 (* **** Getter functions **** *)
 
