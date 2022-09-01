@@ -1,7 +1,7 @@
 (library
   (name jayil)
   (public_name jay.jayil.ast)
-  (synopsis "AST for Odefa")
+  (synopsis "AST for JayIL")
   (libraries
     core
     batteries

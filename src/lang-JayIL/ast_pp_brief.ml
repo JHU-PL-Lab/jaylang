@@ -1,5 +1,5 @@
 (** This module contains a collection of pretty-printing functions which print
-    an abbreviated form of the Odefa AST. Most notably, function bodies are
+    an abbreviated form of the JayIL AST. Most notably, function bodies are
     entirely elided in favor of ellipses. This abbreviated form is useful for
     printing clauses or values as part of an AST without cluttering output. *)
 
@@ -115,7 +115,7 @@ let pp_type_sig formatter type_sig =
       pp_concat_sep_delim "{" "}" "," pp_ident formatter
       @@ Ident_set.enum labels
   (* | Untouched_type s -> Format.pp_print_string formatter @@ "'" ^ s
-  | Any_untouched_type -> Format.pp_print_string formatter "untouched" *)
+     | Any_untouched_type -> Format.pp_print_string formatter "untouched" *)
   | Bottom_type -> Format.pp_print_string formatter "bottom"
 
 let show_type_sig = pp_to_string pp_type_sig

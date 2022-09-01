@@ -22,7 +22,7 @@ type type_sig =
   | VariantType of variant_label
 [@@deriving eq, ord, show, to_yojson]
 
-(* ******************** AST definition for Natodefa ******************** *)
+(* ******************** AST definition for Jay ******************** *)
 
 type pattern =
   | AnyPat
