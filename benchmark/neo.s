@@ -16,8 +16,8 @@
 
     ; "list_flatten.jay"
 
-    "input_k_cfa_2.jay"
-    ; "input_k_cfa_3.jay"
+    "k_cfa_2.jay"
+    ; "k_cfa_3.jay"
     ; "input_map.jay"
     ; "input_mj09.jay"
     ; "input_sat_1.jay"
