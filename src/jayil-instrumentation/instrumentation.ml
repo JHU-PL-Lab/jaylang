@@ -139,7 +139,7 @@ let rec instrument_clauses (c_list : clause list) : clause list m =
                   (* We need to have this line because we are adding a new value
                      source *)
                   (* let%bind () =
-                       add_odefa_natodefa_mapping z
+                       add_jayil_jay_mapping z
                          (Jay_ast.new_expr_desc @@ Jay_ast.Int 0)
                      in *)
                   (* Clauses *)
@@ -286,14 +286,14 @@ let add_result_var (c_list : clause list) : clause list m =
   let result_cls = Clause (result_var, Var_body last_var) in
   return @@ c_list @ [ result_cls ]
 
-let instrument_odefa (jayil_ast : expr) : expr * Jayil_instrumentation_maps.t =
+let instrument_jayil (jayil_ast : expr) : expr * Jayil_instrumentation_maps.t =
   let (monad_val : (expr * Jayil_instrumentation_maps.t) m) =
-    (* Transform odefa program *)
+    (* Transform jayil program *)
     lazy_logger `debug (fun () ->
         Printf.sprintf "Initial program:\n%s" (Ast_pp.show_expr jayil_ast)) ;
-    let (Expr odefa_clist) = jayil_ast in
+    let (Expr jayil_clist) = jayil_ast in
     let%bind transformed_clist =
-      return odefa_clist >>= instrument_clauses >>= add_first_var
+      return jayil_clist >>= instrument_clauses >>= add_first_var
       >>= add_result_var
     in
     let t_expr = Expr transformed_clist in
@@ -301,8 +301,8 @@ let instrument_odefa (jayil_ast : expr) : expr * Jayil_instrumentation_maps.t =
         Printf.sprintf "Result of instrumentation:\n%s"
           (Ast_pp.show_expr t_expr)) ;
     (* Add "~result" to the end of the program *)
-    let%bind odefa_inst_maps = get_odefa_inst_maps in
-    return (t_expr, odefa_inst_maps)
+    let%bind jayil_inst_maps = get_jayil_inst_maps in
+    return (t_expr, jayil_inst_maps)
   in
   let context = Jay_to_jayil_monad_inst.new_translation_context () in
   run context monad_val
