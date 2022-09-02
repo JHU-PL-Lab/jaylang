@@ -929,7 +929,139 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         expected_type |> Bluejay_ast_internal.to_internal_expr_desc
       in
       (* TODO: How to handle this? Is this worth the effort? *)
-      let rec solidify_type (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
+      (* let rec type_resolution (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
+             Bluejay_ast_internal.syn_bluejay_edesc =
+           let open Bluejay_ast_internal in
+           let tag = ed.tag in
+           let e = ed.body in
+           match e with
+           | TypeVar _ | TypeInt | TypeBool -> ed
+           | TypeRecord r ->
+               let body' = TypeRecord (Ident_map.map type_resolution r) in
+               { tag; body = body' }
+           | TypeList led ->
+               let body' = TypeList (type_resolution led) in
+               { tag; body = body' }
+           | TypeArrow (ed1, ed2) ->
+               let ed1' = type_resolution ed1 in
+               let ed2' = type_resolution ed2 in
+               let body' = TypeArrow (ed1', ed2') in
+               { tag; body = body' }
+           | TypeArrowD ((x, ed1), ed2) ->
+               let ed1' = type_resolution ed1 in
+               let ed2' = type_resolution ed2 in
+               let body' = TypeArrowD ((x, ed1'), ed2') in
+               { tag; body = body' }
+           | TypeUnion (ed1, ed2) ->
+               let ed1' = type_resolution ed1 in
+               let ed2' = type_resolution ed2 in
+               let body' = TypeUnion (ed1', ed2') in
+               { tag; body = body' }
+           | TypeIntersect (ed1, ed2) ->
+               let ed1' = type_resolution ed1 in
+               let ed2' = type_resolution ed2 in
+               let body' = TypeIntersect (ed1', ed2') in
+               { tag; body = body' }
+           | TypeSet (ed, pred) ->
+               let ed' = type_resolution ed in
+               let body' = TypeSet (ed', pred) in
+               { tag; body = body' }
+           | TypeRecurse (rec_id, ed) ->
+               let ed' = type_resolution ed in
+               let body' = TypeRecurse (rec_id, ed') in
+               { tag; body = body' }
+           | _ -> (
+               (* Potential FIXME: A lot of things could go wrong here... *)
+               let jayil_vars =
+                 ed
+                 |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps
+                 |> Bluejay_to_jay_maps.get_core_expr_from_sem_expr
+                      bluejay_jay_maps
+                 |> Option.value_exn |> Bluejay_ast_internal.to_jay_expr_desc
+                 |> Jay_to_jayil_maps.get_odefa_var_opt_from_natodefa_expr
+                      jayil_jay_maps
+                 |> Option.value_exn
+                 |> (fun (Ast.Var (x, _)) ->
+                      Sato_tools.find_alias_without_stack alias_graph x)
+                 |> List.concat
+                 |> List.filter ~f:(fun (_, stk) ->
+                        Dbmc.Concrete_stack.equal stk relevant_stk)
+                 |> List.map ~f:(Sato_tools.find_alias alias_graph)
+                 |> List.concat
+               in
+               let val_exprs =
+                 let relevant_tags = bluejay_jay_maps.syn_tags in
+                 jayil_vars
+                 |> List.map ~f:(fun (x, _) -> x)
+                 |> List.filter_map ~f:jayil_to_jay_expr
+                 |> List.map ~f:Bluejay_ast_internal.from_jay_expr_desc
+                 |> List.map
+                      ~f:
+                        (Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay
+                           bluejay_jay_maps)
+                 |> List.map
+                      ~f:
+                        (Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay
+                           bluejay_jay_maps)
+                 |> List.filter ~f:(fun ed ->
+                        List.mem relevant_tags ed.tag ~equal:( = ))
+                 |> Batteries.List.unique
+               in
+               let type_exprs =
+                 val_exprs |> List.filter ~f:Bluejay_ast_internal.is_type_expr
+               in
+               (* let () =
+                    List.iter ~f:(fun ed -> print_endline @@ Bluejay_ast_pp.show_expr_desc (Bluejay_ast_internal.from_internal_expr_desc ed)) val_exprs
+                  in *)
+               let val_expr_cleansed_opt =
+                 type_exprs |> List.map ~f:type_resolution |> List.hd
+               in
+               match val_expr_cleansed_opt with
+               | None -> List.hd_exn val_exprs
+               | Some l -> l)
+         in *)
+      let check_aliases_for_type (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
+          Bluejay_ast_internal.syn_bluejay_edesc =
+        let jayil_vars =
+          ed
+          |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps
+          |> Bluejay_to_jay_maps.get_core_expr_from_sem_expr bluejay_jay_maps
+          |> Option.value_exn |> Bluejay_ast_internal.to_jay_expr_desc
+          |> Jay_to_jayil_maps.get_odefa_var_opt_from_natodefa_expr
+               jayil_jay_maps
+          |> Option.value_exn
+          |> (fun (Ast.Var (x, _)) ->
+               Sato_tools.find_alias_without_stack alias_graph x)
+          |> List.concat
+          |> List.filter ~f:(fun (_, stk) ->
+                 Dbmc.Concrete_stack.equal stk relevant_stk)
+          |> List.map ~f:(Sato_tools.find_alias alias_graph)
+          |> List.concat
+        in
+        let val_exprs =
+          let relevant_tags = bluejay_jay_maps.syn_tags in
+          jayil_vars
+          |> List.map ~f:(fun (x, _) -> x)
+          |> List.filter_map ~f:jayil_to_jay_expr
+          |> List.map ~f:Bluejay_ast_internal.from_jay_expr_desc
+          |> List.map
+               ~f:
+                 (Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay
+                    bluejay_jay_maps)
+          |> List.map
+               ~f:
+                 (Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay
+                    bluejay_jay_maps)
+          |> List.filter ~f:(fun ed ->
+                 List.mem relevant_tags ed.tag ~equal:( = ))
+          |> Batteries.List.unique
+        in
+        let type_exprs =
+          val_exprs |> List.filter ~f:Bluejay_ast_internal.is_type_expr
+        in
+        failwith "TBI!"
+      in
+      let rec type_resolution (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
           Bluejay_ast_internal.syn_bluejay_edesc =
         let open Bluejay_ast_internal in
         let tag = ed.tag in
@@ -937,90 +1069,43 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         match e with
         | TypeVar _ | TypeInt | TypeBool -> ed
         | TypeRecord r ->
-            let body' = TypeRecord (Ident_map.map solidify_type r) in
+            let body' = TypeRecord (Ident_map.map type_resolution r) in
             { tag; body = body' }
         | TypeList led ->
-            let body' = TypeList (solidify_type led) in
+            let body' = TypeList (type_resolution led) in
             { tag; body = body' }
         | TypeArrow (ed1, ed2) ->
-            let ed1' = solidify_type ed1 in
-            let ed2' = solidify_type ed2 in
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
             let body' = TypeArrow (ed1', ed2') in
             { tag; body = body' }
         | TypeArrowD ((x, ed1), ed2) ->
-            let ed1' = solidify_type ed1 in
-            let ed2' = solidify_type ed2 in
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
             let body' = TypeArrowD ((x, ed1'), ed2') in
             { tag; body = body' }
         | TypeUnion (ed1, ed2) ->
-            let ed1' = solidify_type ed1 in
-            let ed2' = solidify_type ed2 in
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
             let body' = TypeUnion (ed1', ed2') in
             { tag; body = body' }
         | TypeIntersect (ed1, ed2) ->
-            let ed1' = solidify_type ed1 in
-            let ed2' = solidify_type ed2 in
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
             let body' = TypeIntersect (ed1', ed2') in
             { tag; body = body' }
         | TypeSet (ed, pred) ->
-            let ed' = solidify_type ed in
+            let ed' = type_resolution ed in
             let body' = TypeSet (ed', pred) in
             { tag; body = body' }
         | TypeRecurse (rec_id, ed) ->
-            let ed' = solidify_type ed in
+            let ed' = type_resolution ed in
             let body' = TypeRecurse (rec_id, ed') in
             { tag; body = body' }
-        | _ -> (
-            (* Potential FIXME: A lot of things could go wrong here... *)
-            let jayil_vars =
-              ed
-              |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps
-              |> Bluejay_to_jay_maps.get_core_expr_from_sem_expr
-                   bluejay_jay_maps
-              |> Option.value_exn |> Bluejay_ast_internal.to_jay_expr_desc
-              |> Jay_to_jayil_maps.get_odefa_var_opt_from_natodefa_expr
-                   jayil_jay_maps
-              |> Option.value_exn
-              |> (fun (Ast.Var (x, _)) ->
-                   Sato_tools.find_alias_without_stack alias_graph x)
-              |> List.concat
-              |> List.filter ~f:(fun (_, stk) ->
-                     Dbmc.Concrete_stack.equal stk relevant_stk)
-              |> List.map ~f:(Sato_tools.find_alias alias_graph)
-              |> List.concat
-            in
-            let val_exprs =
-              let relevant_tags = bluejay_jay_maps.syn_tags in
-              jayil_vars
-              |> List.map ~f:(fun (x, _) -> x)
-              |> List.filter_map ~f:jayil_to_jay_expr
-              |> List.map ~f:Bluejay_ast_internal.from_jay_expr_desc
-              |> List.map
-                   ~f:
-                     (Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay
-                        bluejay_jay_maps)
-              |> List.map
-                   ~f:
-                     (Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay
-                        bluejay_jay_maps)
-              |> List.filter ~f:(fun ed ->
-                     List.mem relevant_tags ed.tag ~equal:( = ))
-              |> Batteries.List.unique
-            in
-            let type_exprs =
-              val_exprs |> List.filter ~f:Bluejay_ast_internal.is_type_expr
-            in
-            (* let () =
-                 List.iter ~f:(fun ed -> print_endline @@ Bluejay_ast_pp.show_expr_desc (Bluejay_ast_internal.from_internal_expr_desc ed)) val_exprs
-               in *)
-            let val_expr_cleansed_opt =
-              type_exprs |> List.map ~f:solidify_type |> List.hd
-            in
-            match val_expr_cleansed_opt with
-            | None -> List.hd_exn val_exprs
-            | Some l -> l)
+        | Int _ | Bool _ -> ed
+        | _ -> failwith "TBI!"
       in
-      let actual_expected_type = solidify_type expected_type_internal in
+      let actual_expected_type = type_resolution expected_type_internal in
       let find_tag =
         sem_nat_aliases
         |> List.filter_map ~f:(fun alias ->
