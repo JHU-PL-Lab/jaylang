@@ -23,6 +23,17 @@ let none = [] in
 
 # let a = [1, 2] in
 
+let b = [3, 4, 5, 6, 7, 8] in
+let b2 = tl (tl (tl (tl b))) in
+# let b3 = tl (tl (tl (tl [3, 4, 5, 6, 7, 8]))) in
+
+if (hd b2 == x1)
+then
+  let target = 1 in 1
+else
+  0
+
+
 # through the original is [a, [b]]
 # let d = [a, b] in
 
@@ -35,13 +46,4 @@ let none = [] in
 #  end
 # in
 # let result = append a b in
-
-let b = [3, 4, 5, 6, 7, 8] in
-let b2 = tl (tl (tl (tl b))) in
-let b3 = tl (tl (tl (tl [3, 4, 5, 6, 7, 8]))) in
-
-if hd b2 == x1
-then
-  let target = 1 in 1
-else
-  0
+  
