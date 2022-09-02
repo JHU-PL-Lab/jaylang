@@ -62,7 +62,7 @@ let read_source_sato filename =
         In_channel.with_file filename ~f:Jayil_parser.Parse.parse_program_raw
       in
       let post_inst_ast, odefa_inst_maps =
-        Jay_instrumentation.Instrumentation.instrument_odefa pre_inst_ast
+        Jay_instrumentation.Instrumentation.instrument_jayil pre_inst_ast
       in
       (* let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in *)
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;

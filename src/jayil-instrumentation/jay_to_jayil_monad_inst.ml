@@ -56,7 +56,7 @@ module TranslationMonad : sig
   (** Returns true if the odefa var was added during instrumentation, false
       otherwise. Used to avoid unnecessary instrumentation. *)
 
-  val get_odefa_inst_maps : Jayil_instrumentation_maps.t m
+  val get_jayil_inst_maps : Jayil_instrumentation_maps.t m
   (** Retrieve the odefa-to-natodefa maps from the monad *)
 
   val freshness_string : string m
@@ -121,7 +121,7 @@ end = struct
     let odefa_inst_maps = ctx.tc_odefa_instrumentation_mappings in
     Jayil_instrumentation_maps.is_var_instrumenting odefa_inst_maps i
 
-  let get_odefa_inst_maps ctx = ctx.tc_odefa_instrumentation_mappings
+  let get_jayil_inst_maps ctx = ctx.tc_odefa_instrumentation_mappings
   let freshness_string ctx = ctx.tc_fresh_suffix_separator
   let acontextual_recursion ctx = not ctx.tc_contextual_recursion
 
