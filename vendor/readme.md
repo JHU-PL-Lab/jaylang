@@ -2,9 +2,13 @@
 
 used in icfp20-ddse paper
 
+# one paper on HOBMC
+
 # rosette/benchmark
 
 copy from sympro's virtualbox image
+
+# smbc
 
 # hopv
 
@@ -21,5 +25,6 @@ A full-HFLz solver
 
 # soft-contract
 
-https://github.com/philnguyen/soft-contract
+https://github.com/philnguyen
+/soft-contract
 https://github.com/camoy/corpse-reviver

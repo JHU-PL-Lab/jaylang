@@ -14,9 +14,9 @@
     ; the sum of two products
     ; "facehugger.jay"
 
-    
-    "list_flatten.jay"
-    ; "input_k_cfa_2.jay"
+    ; "list_flatten.jay"
+
+    "input_k_cfa_2.jay"
     ; "input_k_cfa_3.jay"
     ; "input_map.jay"
     ; "input_mj09.jay"
