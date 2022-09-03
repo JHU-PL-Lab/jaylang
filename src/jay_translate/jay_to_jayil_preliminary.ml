@@ -52,7 +52,7 @@ let list_expr_to_record recurse (expr_lst : expr_desc list) =
   let ret = new_expr_desc @@ record_equivalent.body in
   return ret
 
-(* Here  we "cons" the expression with the list during natodefa-to-odefa translation.
+(* Here  we "cons" the expression with the list during jay-to-jayil translation.
      Simple, but can introduce pitfalls such as:
      - How do we know if what we are consing to is not a list? How do we typecheck?
      - What if we wish to lazily cons, eg. as part of a freeze Fun x -> x :: [y]

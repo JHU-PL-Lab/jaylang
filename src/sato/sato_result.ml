@@ -276,7 +276,7 @@ struct
     let on_to_odefa_maps = Option.value_exn sato_state.on_to_odefa_maps in
     let on_err_loc_core =
       err_id
-      |> Jay_translate.Jay_to_jayil_maps.get_natodefa_equivalent_expr_exn
+      |> Jay_translate.Jay_to_jayil_maps.get_jay_equivalent_expr_exn
            on_to_odefa_maps
     in
     let on_err_list =
@@ -340,7 +340,7 @@ module Bluejay_type_errors : Sato_result with type t = ton_error_record = struct
     let ton_on_maps = Option.value_exn sato_state.ton_on_maps in
     let on_err_loc_syn =
       err_id
-      |> Jay_translate.Jay_to_jayil_maps.get_natodefa_equivalent_expr_exn
+      |> Jay_translate.Jay_to_jayil_maps.get_jay_equivalent_expr_exn
            on_to_odefa_maps
       |> Bluejay_ast_internal.from_jay_expr_desc
       |> Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay ton_on_maps

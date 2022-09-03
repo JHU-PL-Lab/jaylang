@@ -24,18 +24,18 @@ module On_labels_map = struct
 end
 
 type t = {
-  (* Mapping between an odefa variable to the natodefa expr that the
-      odefa variable was derived from. *)
+  (* Mapping between an jayil variable to the jay expr that the
+      jayil variable was derived from. *)
   jayil_var_to_jay_expr : Expr_desc.t Ast.Ident_map.t;
-  (* Mapping between two natodefa expressions.  Used to create a
-      mapping of natodefa lists and variants with their record
+  (* Mapping between two jay expressions.  Used to create a
+      mapping of jay lists and variants with their record
       equivalents as their keys, as well as mappings between let recs and
       their desugared versions. *)
   jay_expr_to_expr : Expr_desc.t Expr_desc_map.t;
-  (* Mapping between two natodefa idents.  Used to create a mapping from
+  (* Mapping between two jay idents.  Used to create a mapping from
       post- to pre-alphatization variables. *)
   jay_var_to_var : Jay_ast.Ident.t Jay_ast.Ident_map.t;
-  (* Mapping between sets of natodefa idents and natodefa type sigs.  Used to
+  (* Mapping between sets of jay idents and jay type sigs.  Used to
       determine if a record was originally a list, variant, or record, depending
       on its labels. *)
   jay_idents_to_types : Jay_ast.type_sig On_labels_map.t;
@@ -52,33 +52,29 @@ let empty _is_jay =
     jay_instrument_vars_map = Ast.Ident_map.empty;
   }
 
-let add_jayil_var_on_expr_mapping mappings odefa_ident on_expr =
-  let natodefa_map = mappings.jayil_var_to_jay_expr in
+let add_jayil_var_jay_expr_mapping mappings jayil_ident on_expr =
+  let jay_map = mappings.jayil_var_to_jay_expr in
   {
     mappings with
-    jayil_var_to_jay_expr = Ast.Ident_map.add odefa_ident on_expr natodefa_map;
+    jayil_var_to_jay_expr = Ast.Ident_map.add jayil_ident on_expr jay_map;
   }
 
-let add_on_expr_to_expr_mapping mappings expr1 expr2 =
-  let natodefa_expr_map = mappings.jay_expr_to_expr in
+let add_jay_expr_to_expr_mapping mappings expr1 expr2 =
+  let jay_expr_map = mappings.jay_expr_to_expr in
   {
     mappings with
-    jay_expr_to_expr = Expr_desc_map.add expr1 expr2 natodefa_expr_map;
+    jay_expr_to_expr = Expr_desc_map.add expr1 expr2 jay_expr_map;
   }
 
-let add_on_var_to_var_mapping mappings var1 var2 =
-  let natodefa_var_map = mappings.jay_var_to_var in
-  {
-    mappings with
-    jay_var_to_var = Jay_ast.Ident_map.add var1 var2 natodefa_var_map;
-  }
+let add_jay_var_to_var_mapping mappings var1 var2 =
+  let jay_var_map = mappings.jay_var_to_var in
+  { mappings with jay_var_to_var = Jay_ast.Ident_map.add var1 var2 jay_var_map }
 
-let add_on_idents_to_type_mapping mappings idents type_sig =
-  let natodefa_idents_type_map = mappings.jay_idents_to_types in
+let add_jay_idents_to_type_mapping mappings idents type_sig =
+  let jay_idents_type_map = mappings.jay_idents_to_types in
   {
     mappings with
-    jay_idents_to_types =
-      On_labels_map.add idents type_sig natodefa_idents_type_map;
+    jay_idents_to_types = On_labels_map.add idents type_sig jay_idents_type_map;
   }
 
 let add_jay_instrument_var mappings inst_ident ident_opt =
@@ -89,7 +85,7 @@ let add_jay_instrument_var mappings inst_ident ident_opt =
       Ast.Ident_map.add inst_ident ident_opt instrument_set;
   }
 
-(** Helper function to recursively map natodefa expressions according to the
+(** Helper function to recursively map jay expressions according to the
     expression-to-expression mapping (eg. records to lists or variants). We need
     a custom transformer function, rather than the one in utils, because we need
     to first transform the expression, then recurse (whereas transform_expr and
@@ -157,19 +153,19 @@ let rec on_expr_transformer
   in
   { tag = tag'; body = body' }
 
-let get_natodefa_equivalent_expr mappings odefa_ident =
+let get_jay_equivalent_expr mappings jayil_ident =
   let inst_map = mappings.jay_instrument_vars_map in
-  let odefa_on_map = mappings.jayil_var_to_jay_expr in
+  let jayil_jay_map = mappings.jayil_var_to_jay_expr in
   let on_expr_map = mappings.jay_expr_to_expr in
   let on_ident_map = mappings.jay_var_to_var in
   (* Get pre-instrument var *)
-  let odefa_ident' =
-    match Ast.Ident_map.Exceptionless.find odefa_ident inst_map with
+  let jayil_ident' =
+    match Ast.Ident_map.Exceptionless.find jayil_ident inst_map with
     | Some (Some pre_inst_ident) -> pre_inst_ident
-    | Some None | None -> odefa_ident
+    | Some None | None -> jayil_ident
   in
-  (* Get natodefa expr from odefa var *)
-  let res_opt = Ast.Ident_map.find_opt odefa_ident' odefa_on_map in
+  (* Get jay expr from jayil var *)
+  let res_opt = Ast.Ident_map.find_opt jayil_ident' jayil_jay_map in
   match res_opt with
   | None -> None
   | Some res ->
@@ -239,20 +235,19 @@ let get_natodefa_equivalent_expr mappings odefa_ident =
       in
       Some final_ed
 
-let get_natodefa_equivalent_expr_exn mappings odefa_ident =
-  let res_opt = get_natodefa_equivalent_expr mappings odefa_ident in
+let get_jay_equivalent_expr_exn mappings jayil_ident =
+  let res_opt = get_jay_equivalent_expr mappings jayil_ident in
   match res_opt with
   | None ->
       raise
       @@ Invalid_argument
-           (Printf.sprintf
-              "variable %s is not associated with any natodefa expr."
-              (Ast.show_ident odefa_ident))
+           (Printf.sprintf "variable %s is not associated with any jay expr."
+              (Ast.show_ident jayil_ident))
   | Some res -> res
 
-let get_type_from_idents mappings odefa_idents =
+let get_type_from_idents mappings jayil_idents =
   let on_idents =
-    odefa_idents |> Ast.Ident_set.enum
+    jayil_idents |> Ast.Ident_set.enum
     |> Enum.map (fun (Ast.Ident lbl) -> Jay_ast.Ident lbl)
     |> Jay_ast.Ident_set.of_enum
   in
@@ -261,17 +256,17 @@ let get_type_from_idents mappings odefa_idents =
   | Some typ -> typ
   | None -> RecType on_idents
 
-let odefa_to_on_aliases on_mappings aliases =
-  let odefa_to_on_expr x = get_natodefa_equivalent_expr_exn on_mappings x in
+let jayil_to_jay_aliases on_mappings aliases =
+  let jayil_to_jay_expr x = get_jay_equivalent_expr_exn on_mappings x in
   aliases
   |> List.filter_map (fun alias ->
-         let e_desc = odefa_to_on_expr alias in
+         let e_desc = jayil_to_jay_expr alias in
          match e_desc.body with
          | Jay_ast.Var _ | Error _ -> Some e_desc
          | _ -> None)
   |> List.unique
 
-let get_odefa_var_opt_from_natodefa_expr mappings (expr : Jay_ast.expr_desc) =
+let get_jayil_var_opt_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
   (* Getting the desugared version of core nat expression *)
   let desugared_core =
     let find_key_by_value v =
@@ -373,19 +368,19 @@ let get_odefa_var_opt_from_natodefa_expr mappings (expr : Jay_ast.expr_desc) =
     on_expr_transformer on_ident_transform desugared_core
     (* actual_expr *)
   in
-  let odefa_var_opt =
+  let jayil_var_opt =
     (* let () = print_endline @@ "This is the original expr" in
        let () = print_endline @@ Jay_ast.show_expr_desc alphatized in *)
     Ast.Ident_map.fold
-      (fun odefa_var core_expr acc ->
+      (fun jayil_var core_expr acc ->
         (* let () = print_endline @@ "This is the value in the dictionary: " in
            let () = print_endline @@ Jay_ast.show_expr_desc core_expr in *)
         (* if (core_expr.Jay_ast.tag = alphatized.tag) then  *)
         if Jay_ast.equal_expr_desc core_expr alphatized
-        then Some (Ast.Var (odefa_var, None))
+        then Some (Ast.Var (jayil_var, None))
         else acc)
       mappings.jayil_var_to_jay_expr None
   in
-  odefa_var_opt
+  jayil_var_opt
 
-let get_natodefa_inst_map mappings = mappings.jay_instrument_vars_map
+let get_jay_inst_map mappings = mappings.jay_instrument_vars_map
