@@ -45,6 +45,7 @@ let pp_variant_label formatter (Variant_label label) =
 
 let rec pp_funsig : Format.formatter -> funsig -> unit =
  fun formatter (Funsig (x, ident_list, e)) ->
+  let pp_expr_desc = pp_expr_desc_without_tag in
   Format.fprintf formatter "%a@ %a =@ @[%a@]" pp_ident x pp_ident_list
     ident_list pp_expr_desc e
 
