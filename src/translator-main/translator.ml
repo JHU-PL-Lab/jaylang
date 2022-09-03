@@ -19,9 +19,7 @@ let purge_special_symbols_jayil (x : Ast.Var.t) : Ast.Var.t =
 
 let get_translation_ctx options =
   if options.ta_parseable
-  then
-    Jay_to_jayil_monad.new_translation_context ~is_natodefa:true ~suffix:"___"
-      ()
+  then Jay_to_jayil_monad.new_translation_context ~is_jay:true ~suffix:"___" ()
   else Jay_to_jayil_monad.new_translation_context ()
 
 let bluejay_to_jay () =

@@ -11,13 +11,13 @@ type translation_context = {
 }
 (* [@@deriving eq, ord] *)
 
-let new_translation_context ?(is_natodefa = false) ?(suffix = "~")
+let new_translation_context ?(is_jay = false) ?(suffix = "~")
     ?(contextual_recursion = true) () : translation_context =
   {
     tc_fresh_name_counter = 0;
     tc_fresh_suffix_separator = suffix;
     tc_contextual_recursion = contextual_recursion;
-    tc_odefa_natodefa_mappings = Jay_to_jayil_maps.empty is_natodefa;
+    tc_odefa_natodefa_mappings = Jay_to_jayil_maps.empty is_jay;
   }
 
 module TranslationMonad : sig

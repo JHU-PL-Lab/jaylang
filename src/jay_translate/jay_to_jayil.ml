@@ -996,7 +996,7 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
     in
     let context =
       match translation_context with
-      | None -> new_translation_context ~is_natodefa:true ()
+      | None -> new_translation_context ~is_jay:true ()
       | Some ctx -> ctx
     in
     let translation_result_p1, ctx =
