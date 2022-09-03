@@ -1,6 +1,7 @@
 open Batteries;;
 open Jhupllib;;
 
+open Jay
 open Jayil;;
 
 (* let lazy_logger = Logger_utils.make_lazy_logger "Jay_to_jayil_types";; *)

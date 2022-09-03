@@ -3,6 +3,7 @@ open Jhupllib
 open Jayil
 open Jay
 open Bluejay
+open Jay_translate
 open Jay_instrumentation
 
 (* let _show_expr' = Pp_utils.pp_to_string Bluejay_ast_internal_pp.pp_expr;; *)

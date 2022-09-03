@@ -1,5 +1,6 @@
 open Batteries
 open Jayil
+open Jay
 open Jay_ast
 
 type translation_context = {

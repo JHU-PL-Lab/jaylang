@@ -1,5 +1,6 @@
 open Batteries
 open Jhupllib
+open Jay
 open Jay_ast
 open Jay_to_jayil_monad
 open TranslationMonad

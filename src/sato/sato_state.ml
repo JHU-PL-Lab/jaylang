@@ -1,5 +1,6 @@
 open Core
 open Jayil.Ast
+open Jay_translate
 
 type mode = Sato_args.mode = Jayil | Jay | Bluejay [@@deriving show]
 
@@ -11,7 +12,7 @@ type t = {
   abort_mapping : (Ident_new.t, abort_value) Hashtbl.t;
   target_vars : Ident_new.t list;
   odefa_instrumentation_maps : Jay_instrumentation.Jayil_instrumentation_maps.t;
-  on_to_odefa_maps : Jay.Jay_to_jayil_maps.t option;
+  on_to_odefa_maps : Jay_translate.Jay_to_jayil_maps.t option;
   ton_on_maps : Bluejay.Bluejay_to_jay_maps.t option;
 }
 
@@ -67,7 +68,7 @@ let get_target_vars (abort_mapping : (Ident_new.t, abort_value) Hashtbl.t) :
 
 let initialize_state_with_expr (sato_mode : mode) (e : expr)
     (odefa_inst_maps : Jay_instrumentation.Jayil_instrumentation_maps.t)
-    (on_to_odefa_maps_opt : Jay.Jay_to_jayil_maps.t option)
+    (on_to_odefa_maps_opt : Jay_to_jayil_maps.t option)
     (ton_to_on_maps_opt : Bluejay.Bluejay_to_jay_maps.t option) : t =
   let abort_lst = enum_all_aborts_in_expr e in
   let ab_mapping = Hashtbl.of_alist_exn (module Ident_new) abort_lst in

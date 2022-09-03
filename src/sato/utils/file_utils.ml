@@ -2,6 +2,7 @@ open! Core
 open Jayil
 open Jay
 open Bluejay
+open Jay_translate
 
 let is_bluejay_ext s =
   Filename.check_suffix s "tnat" || Filename.check_suffix s "bjy"
@@ -38,7 +39,7 @@ let read_source_sato filename =
       (* let (desugared_typed, ton_on_maps) = transform_natodefa jay_ast in *)
       (* let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in *)
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
-        Jay_to_jayil.translate ~is_instrumented:true jay_ast
+        Jay_translate.Jay_to_jayil.translate ~is_instrumented:true jay_ast
       in
       let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;

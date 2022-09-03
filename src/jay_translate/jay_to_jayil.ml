@@ -1,6 +1,7 @@
 open Batteries
 open Jhupllib
 open Jayil
+open Jay
 open Jay_instrumentation
 open Ast_tools
 open Jay_to_jayil_preliminary
