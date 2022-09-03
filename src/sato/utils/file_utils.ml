@@ -19,39 +19,39 @@ let read_source_sato filename =
   let program =
     if is_bluejay_ext filename
     then (
-      let tnatast =
+      let bluejay_ast =
         Bluejay_ast.new_expr_desc
         @@ In_channel.with_file filename
              ~f:Bluejay.Bluejay_parse.parse_program_raw
       in
-      let tnatast_internal =
-        Bluejay_ast_internal.to_internal_expr_desc tnatast
+      let bluejay_ast_internal =
+        Bluejay_ast_internal.to_internal_expr_desc bluejay_ast
       in
       let core_ast, ton_on_maps =
         (* Typed -> Untyped *)
-        Bluejay_to_jay.transform_bluejay tnatast_internal.body
+        Bluejay_to_jay.transform_bluejay bluejay_ast_internal.body
       in
       let ton_on_maps' =
-        Bluejay_to_jay_maps.find_all_syn_tags ton_on_maps tnatast_internal
+        Bluejay_to_jay_maps.find_all_syn_tags ton_on_maps bluejay_ast_internal
       in
-      let natast = Bluejay_ast_internal.to_jay_expr_desc core_ast in
-      (* let (desugared_typed, ton_on_maps) = transform_natodefa natast in *)
-      (* let () = print_endline @@ Jay_ast_pp.show_expr_desc natast in *)
+      let jay_ast = Bluejay_ast_internal.to_jay_expr_desc core_ast in
+      (* let (desugared_typed, ton_on_maps) = transform_natodefa jay_ast in *)
+      (* let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in *)
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
-        Jay_to_jayil.translate ~is_instrumented:true natast
+        Jay_to_jayil.translate ~is_instrumented:true jay_ast
       in
       let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;
       (post_inst_ast, odefa_inst_maps, Some on_odefa_maps, Some ton_on_maps'))
     else if Jay.File_utils.check_ext filename
     then (
-      let natast =
+      let jay_ast =
         Jay_ast.new_expr_desc
         @@ In_channel.with_file filename ~f:Jay.Jay_parse.parse_program_raw
       in
-      (* let (desugared_typed, ton_on_maps) = transform_natodefa natast in *)
+      (* let (desugared_typed, ton_on_maps) = transform_natodefa jay_ast in *)
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
-        Jay_to_jayil.translate ~is_instrumented:true natast
+        Jay_to_jayil.translate ~is_instrumented:true jay_ast
       in
       (* let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in *)
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;

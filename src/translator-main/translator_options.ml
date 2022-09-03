@@ -3,12 +3,16 @@ open Batteries
 exception Argument_parse_failure
 
 (** Determines the type of translation to perform. *)
-type translator_mode = Odefa_natural_to_odefa | Scheme_to_odefa_natural
+type translator_mode = 
+  | Bluejay_to_jayil | Jay_to_jayil | Bluejay_to_jay
+  | Scheme_to_jay
 
 let named_translator_modes =
   [
-    (Odefa_natural_to_odefa, "odefa-natural-to-odefa");
-    (Scheme_to_odefa_natural, "scheme-to-odefa-natural");
+    (Bluejay_to_jayil, "bluejay-to-jayil");
+    (Jay_to_jayil, "jay-to-jayil");
+    (Bluejay_to_jay, "bluejay-to-jay");
+    (Scheme_to_jay, "scheme-to-jay");
   ]
 
 type translator_args = {
@@ -61,7 +65,7 @@ type parsers = {
 let make_parsers () : parsers =
   {
     parse_mode =
-      BatOptParse.Opt.value_option "MODE" (Some Odefa_natural_to_odefa)
+      BatOptParse.Opt.value_option "MODE" (Some Jay_to_jayil)
         (fun s ->
           try List.assoc_inv s named_translator_modes
           with Not_found -> raise Argument_parse_failure)
