@@ -45,7 +45,7 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
 
 let handle_graph (config : Global_config.t) state model =
   if config.debug_graph
-  then Graphviz.output_graph ~model ~testname:config.filename state
+  then () (* Graphviz.output_graph ~model ~testname:config.filename state *)
   else ()
 
 let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk

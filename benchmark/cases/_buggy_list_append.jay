@@ -15,35 +15,13 @@ in
 
 # Std.List - end
 
-let x0 = input in
-let x1 = input in
-let x2 = input in
+let x = input in
+let x2 = 2 in
+let x3 = 3 in
+let x4 = 4 in
+let b = tl (tl (tl (tl [1, 2, 3, 4, 5, 6]))) in
 
-let none = [] in
-
-# let a = [1, 2] in
-
-let b = [3, 4, 5, 6, 7, 8] in
-let b2 = tl (tl (tl (tl b))) in
-# let b3 = tl (tl (tl (tl [3, 4, 5, 6, 7, 8]))) in
-
-if (hd b2 == x1)
-then
+if (hd b == x) then
   let target = 1 in 1
 else
   0
-
-
-# through the original is [a, [b]]
-# let d = [a, b] in
-
-# let rec append l1 l2 =
-#  match l1 with
-#  | x :: xs -> 
-#    let next2 = append xs l2 in
-#    x :: next2
-#  | [] -> l2
-#  end
-# in
-# let result = append a b in
-  
