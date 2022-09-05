@@ -1020,8 +1020,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                | None -> List.hd_exn val_exprs
                | Some l -> l)
          in *)
+      (* NOTE: The case where a variable might take on different types for 
+         different instances might be problematic here. *)
       let check_aliases_for_type (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
-          Bluejay_ast_internal.syn_bluejay_edesc =
+          Bluejay_ast_internal.syn_bluejay_edesc option =
         let jayil_vars =
           ed
           |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps
@@ -1033,6 +1035,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           |> (fun (Ast.Var (x, _)) ->
                Sato_tools.find_alias_without_stack alias_graph x)
           |> List.concat
+          (* TODO: Rethink the strategy here *)
           |> List.filter ~f:(fun (_, stk) ->
                  Dbmc.Concrete_stack.equal stk relevant_stk)
           |> List.map ~f:(Sato_tools.find_alias alias_graph)
@@ -1059,53 +1062,201 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         let type_exprs =
           val_exprs |> List.filter ~f:Bluejay_ast_internal.is_type_expr
         in
-        failwith "TBI!"
+        List.hd type_exprs
       in
       let rec type_resolution (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
           Bluejay_ast_internal.syn_bluejay_edesc =
         let open Bluejay_ast_internal in
-        let tag = ed.tag in
-        let e = ed.body in
-        match e with
-        | TypeVar _ | TypeInt | TypeBool -> ed
-        | TypeRecord r ->
-            let body' = TypeRecord (Ident_map.map type_resolution r) in
-            { tag; body = body' }
-        | TypeList led ->
-            let body' = TypeList (type_resolution led) in
-            { tag; body = body' }
-        | TypeArrow (ed1, ed2) ->
+        let type_expr_opt = check_aliases_for_type ed in
+        let resolve_type ted = 
+          let tag = ted.tag in
+          let e = ted.body in
+          match e with
+          | TypeVar _ | TypeInt | TypeBool -> ted
+          | TypeRecord r ->
+              let body' = TypeRecord (Ident_map.map type_resolution r) in
+              { tag; body = body' }
+          | TypeList led ->
+              let body' = TypeList (type_resolution led) in
+              { tag; body = body' }
+          | TypeArrow (ed1, ed2) ->
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              let body' = TypeArrow (ed1', ed2') in
+              { tag; body = body' }
+          | TypeArrowD ((x, ed1), ed2) ->
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              let body' = TypeArrowD ((x, ed1'), ed2') in
+              { tag; body = body' }
+          | TypeUnion (ed1, ed2) ->
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              let body' = TypeUnion (ed1', ed2') in
+              { tag; body = body' }
+          | TypeIntersect (ed1, ed2) ->
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              let body' = TypeIntersect (ed1', ed2') in
+              { tag; body = body' }
+          | TypeSet (ed, pred) ->
+              let ed' = type_resolution ed in
+              let body' = TypeSet (ed', pred) in
+              { tag; body = body' }
+          | TypeRecurse (rec_id, ed) ->
+              let ed' = type_resolution ed in
+              let body' = TypeRecurse (rec_id, ed') in
+              { tag; body = body' }
+          | _ -> failwith "Should be working with a type expression!" 
+        in        
+        let resolve_non_type ed = 
+          let tag = ed.tag in
+          let e = ed.body in
+          let transform_funsig (f_sig : syntactic_only funsig) = 
+            let (Funsig (f, args, f_body)) = f_sig in
+            let f_body' = type_resolution f_body in
+            Funsig (f, args, f_body')
+          in
+          match e with
+          | Int _ | Bool _ | Var _ | Input -> ed
+          | Function (args, fed) ->
+            {tag; body = Function (args, type_resolution fed)}
+          | Appl (ed1, ed2) ->
             let ed1' = type_resolution ed1 in
             let ed2' = type_resolution ed2 in
-            let body' = TypeArrow (ed1', ed2') in
-            { tag; body = body' }
-        | TypeArrowD ((x, ed1), ed2) ->
+            {tag; body = Appl (ed1', ed2')}
+          | Let (x, ed1, ed2) ->
             let ed1' = type_resolution ed1 in
             let ed2' = type_resolution ed2 in
-            let body' = TypeArrowD ((x, ed1'), ed2') in
-            { tag; body = body' }
-        | TypeUnion (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            let body' = TypeUnion (ed1', ed2') in
-            { tag; body = body' }
-        | TypeIntersect (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            let body' = TypeIntersect (ed1', ed2') in
-            { tag; body = body' }
-        | TypeSet (ed, pred) ->
+            {tag; body = Let (x, ed1', ed2')}
+          | LetRecFun (f_sigs, ed) ->
+            let f_sigs' = List.map ~f:transform_funsig f_sigs in
             let ed' = type_resolution ed in
-            let body' = TypeSet (ed', pred) in
-            { tag; body = body' }
-        | TypeRecurse (rec_id, ed) ->
+            {tag; body = LetRecFun (f_sigs', ed')}
+          | LetFun (f_sig, ed) ->
+            let f_sig' = transform_funsig f_sig in
             let ed' = type_resolution ed in
-            let body' = TypeRecurse (rec_id, ed') in
-            { tag; body = body' }
-        | Int _ | Bool _ -> ed
-        | _ -> failwith "TBI!"
+            {tag; body = LetFun (f_sig', ed')}
+          | LetWithType (x, ed1, ed2, ed3) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            let ed3' = type_resolution ed3 in
+            {tag; body = LetWithType (x, ed1', ed2', ed3')}
+          | LetRecFunWithType (f_sigs, ed, ts) ->
+            let f_sigs' = List.map ~f:transform_funsig f_sigs in
+            let ed' = type_resolution ed in
+            let ts' = List.map ~f:type_resolution ts in
+            {tag; body = LetRecFunWithType (f_sigs', ed', ts')}
+          | LetFunWithType (f_sig, ed, t) ->
+            let f_sig' = transform_funsig f_sig in
+            let ed' = type_resolution ed in
+            let t' = type_resolution t in
+            {tag; body = LetFunWithType (f_sig', ed', t')}
+          | Plus (ed1, ed2) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            {tag; body = Plus (ed1', ed2')}
+          | Minus (ed1, ed2) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            {tag; body = Minus (ed1', ed2')}
+          | Times (ed1, ed2) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            {tag; body = Times (ed1', ed2')}
+          | Divide (ed1, ed2) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            {tag; body = Divide (ed1', ed2')}
+          | Modulus (ed1, ed2) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            {tag; body = Modulus (ed1', ed2')}
+          | Equal (ed1, ed2) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            {tag; body = Equal (ed1', ed2')}
+          | Neq (ed1, ed2) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            {tag; body = Neq (ed1', ed2')}
+          | LessThan (ed1, ed2) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            {tag; body = LessThan (ed1', ed2')}
+          | Leq (ed1, ed2) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            {tag; body = Leq (ed1', ed2')}
+          | GreaterThan (ed1, ed2) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            {tag; body = GreaterThan (ed1', ed2')}
+          | Geq (ed1, ed2) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            {tag; body = Geq (ed1', ed2')}
+          | And (ed1, ed2) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            {tag; body = And (ed1', ed2')}
+          | Or (ed1, ed2) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            {tag; body = Or (ed1', ed2')}
+          | Not ed ->
+            let ed' = type_resolution ed in
+            {tag; body = Not ed'}
+          | If (ed1, ed2, ed3) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            let ed3' = type_resolution ed3 in
+            {tag; body = If (ed1', ed2', ed3')}
+          | Record r ->
+            let r' = Ident_map.map type_resolution r in
+            {tag; body = Record r'}
+          | RecordProj (ed, l) ->
+            let ed' = type_resolution ed in
+            {tag; body = RecordProj (ed', l)}
+          | Match (ed, pat_ed_lst) ->
+            let ed' = type_resolution ed in
+            let pat_ed_lst' = 
+              List.map 
+                ~f:(fun (pat, ed) -> (pat, type_resolution ed))
+                pat_ed_lst
+            in
+            {tag; body = Match (ed', pat_ed_lst')}
+          | VariantExpr (v_lbl, ed) ->
+            let ed' = type_resolution ed in
+            {tag; body = VariantExpr (v_lbl, ed')}
+          | List eds ->
+            let eds' = List.map ~f:type_resolution eds in
+            {tag; body = List eds'}
+          | ListCons (ed1, ed2) ->
+            let ed1' = type_resolution ed1 in
+            let ed2' = type_resolution ed2 in
+            {tag; body = ListCons (ed1', ed2')}
+          | Assert ed ->
+            let ed' = type_resolution ed in
+            {tag; body = Assert ed'}
+          | Assume ed ->
+            let ed' = type_resolution ed in
+            {tag; body = Assume ed'}
+          | TypeError _ -> failwith "resolve_non_type: I'm not sure why you're here..."
+          | _ -> failwith "resolve_non_type: Should be working with a non-type expression!" 
+        in
+        match type_expr_opt with
+        | Some t -> 
+          let () = print_endline "Found type aliases!" in
+          (* let () = 
+            print_endline @@ Bluejay_ast.show_expr_desc 
+            @@ Bluejay_ast_internal.from_internal_expr_desc t in *)
+          resolve_type t
+        | None -> 
+          let () = print_endline "No type aliases!" in
+          resolve_non_type ed
       in
-      let actual_expected_type = type_resolution expected_type_internal in
+      let resolved_expected_type = type_resolution expected_type_internal in
       let find_tag =
         sem_nat_aliases
         |> List.filter_map ~f:(fun alias ->
@@ -1121,25 +1272,34 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         match v with
         | Value_int _ -> Bluejay_ast_internal.new_expr_desc @@ TypeInt
         | Value_bool _ -> Bluejay_ast_internal.new_expr_desc @@ TypeBool
-        | _ -> failwith "Houston we have a problem!"
+        | _ -> failwith "TBI!"
       in
       (* let expected_type_internal =
            expected_type
            |> Bluejay_ast_internal.to_internal_expr_desc
          in *)
-      let show_expr_desc =
-        Pp_utils.pp_to_string Bluejay_ast_internal_pp.pp_expr_desc
-      in
       let actual_type =
         (* let () = print_endline @@ "expected: " ^ string_of_int expected_type_internal.tag in *)
         (* let () = print_endline @@ "actual: " ^ show_expr_desc new_t in *)
         (* let () = print_endline @@ string_of_int tag in *)
-        Bluejay_to_jay_maps.replace_type actual_expected_type new_t tag
-        |> Bluejay_ast_internal.from_internal_expr_desc
+        let replaced =  
+          Bluejay_to_jay_maps.replace_type resolved_expected_type new_t tag
+        in
+        if Bluejay_ast_internal.equal_expr_desc replaced resolved_expected_type
+          then
+            Bluejay_ast_internal.new_expr_desc @@ TypeError (Ident "Type unknown")
+          else 
+            replaced
       in
-      let actual_expected_type_external =
-        actual_expected_type |> Bluejay_ast_internal.from_internal_expr_desc
+      let actual_type_external = 
+        actual_type |> Bluejay_ast_internal.from_internal_expr_desc
       in
+      let resolved_expected_type_external =
+        resolved_expected_type |> Bluejay_ast_internal.from_internal_expr_desc
+      in
+      (* let () = 
+        print_endline @@ Bluejay_ast.show_expr_desc resolved_expected_type_external
+      in *)
       (* let () = print_endline @@ Ast_pp.show_value v in *)
       (* let vs =
            dvs_lst
@@ -1153,7 +1313,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         Bluejay_error.Error_bluejay_type
           {
             err_type_variable = err_var;
-            err_type_expected = actual_expected_type_external;
-            err_type_actual = actual_type;
+            err_type_expected = resolved_expected_type_external;
+            err_type_actual = actual_type_external;
           };
       ]
