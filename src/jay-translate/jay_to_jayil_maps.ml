@@ -90,11 +90,11 @@ let add_jay_instrument_var mappings inst_ident ident_opt =
     a custom transformer function, rather than the one in utils, because we need
     to first transform the expression, then recurse (whereas transform_expr and
     transform_expr_m do the other way around). *)
-let rec on_expr_transformer
+let rec jay_expr_transformer
     (transformer : Jay_ast.expr_desc -> Jay_ast.expr_desc)
     (e_desc : Jay_ast.expr_desc) =
   let open Jay_ast in
-  let (recurse : expr_desc -> expr_desc) = on_expr_transformer transformer in
+  let (recurse : expr_desc -> expr_desc) = jay_expr_transformer transformer in
   let e_desc' = transformer e_desc in
   let expr' = e_desc'.body in
   let tag' = e_desc'.tag in
@@ -230,8 +230,8 @@ let get_jay_equivalent_expr mappings jayil_ident =
       in
       let final_ed =
         res
-        |> on_expr_transformer on_ident_transform
-        |> on_expr_transformer on_expr_transform
+        |> jay_expr_transformer on_ident_transform
+        |> jay_expr_transformer on_expr_transform
       in
       Some final_ed
 
@@ -365,7 +365,7 @@ let get_jayil_var_opt_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
     { tag = og_tag; body = expr' }
   in
   let alphatized =
-    on_expr_transformer on_ident_transform desugared_core
+    jay_expr_transformer on_ident_transform desugared_core
     (* actual_expr *)
   in
   let jayil_var_opt =

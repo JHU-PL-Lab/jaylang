@@ -1,6 +1,6 @@
 .PHONY: all clean repl test benchmark dbmc dbmc-top dbmc-test sato sato-test dtest dtest-ddse dtest-all logclean translator
 
-all: dbmc
+all: dbmc sato translator
 
 dbmc-top:
 	dune build src/bin/dbmc_top.exe
