@@ -83,8 +83,11 @@ module Make (S : S) = struct
           let i = fetch_list_counter term_detail e.sub in
           let next = e.next i r in
           (match next with
-          | Some (phi_i, next) -> run_edge run_task term_detail next phi_i
-          | None -> add_phi term_detail (Riddler.list_append_mismatch e.sub i)) ;
+          | Some (phi_i, next) ->
+              let phi = Riddler.list_append e.sub i phi_i in
+              run_edge run_task term_detail next phi
+          | None ->
+              add_phi term_detail (Riddler.list_append e.sub i Riddler.false_)) ;
           Lwt.return_unit
         in
         U.by_bind_u S.unroll e.sub e.pub cb
@@ -172,9 +175,7 @@ module Make (S : S) = struct
           match Ident_map.Exceptionless.find lbl rv with
           | Some (Var (field, _)) ->
               let key_l = Lookup_key.with_x key_rv field in
-              let phi_i =
-                Riddler.record_start_append key key_r key_rv key_l i
-              in
+              let phi_i = Riddler.record_start key key_r key_rv key_l in
               let edge = Direct { sub = key; pub = key_l; block = rv_block } in
               Some (phi_i, edge)
           | None -> None)
@@ -294,7 +295,7 @@ module Make (S : S) = struct
               let next i (r : Lookup_result.t) =
                 let key_arg = Lookup_key.of2 x r.from.r_stk in
                 let phi_i =
-                  Riddler.fun_enter_append key key_f r.from fb.point key_arg i
+                  Riddler.fun_enter_nonlocal key key_f r.from fb.point key_arg
                 in
                 let fv_block = Cfg.block_of_id r.from.x S.block_map in
                 let edge =

@@ -189,14 +189,15 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
     let run_task key block = run_eval key block lookup in
 
     Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
+    state.tree_size <- state.tree_size + 1 ;
 
     Riddler.step_check ~state ~config stride ;%lwt
 
     Hash_set.strict_remove_exn state.lookup_created key ;
 
     LLog.app (fun m ->
-        m "[Lookup][=>]: %a in block %a; Rule %a" Lookup_key.pp key Id.pp
-          block_id Rule.pp_rule rule) ;
+        m "[Lookup][%d][=>]: %a in block %a; Rule %a" state.tree_size
+          Lookup_key.pp key Id.pp block_id Rule.pp_rule rule) ;
 
     let _apply_rule =
       let open Rule in

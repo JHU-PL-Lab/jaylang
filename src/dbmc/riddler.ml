@@ -140,36 +140,25 @@ let pick_key_list (key : Lookup_key.t) i =
   ^ string_of_int i
   |> SuduZ3.mk_bool_s
 
-let list_append_mismatch key i =
-  pick_key_list key i @=> or_ [ box_bool false; pick_key_list key (i + 1) ]
-
 let list_head key = picked key @=> pick_key_list key 0
 
 let list_append key i ele =
   pick_key_list key i @=> or_ [ ele; pick_key_list key (i + 1) ]
 
-let record_start_append key key_r key_r' key_l i =
-  let pick_i =
-    and_
-      [
-        eq key key_l; eq key_r key_r'; picked key_r; picked key_r'; picked key_l;
-      ]
-  in
-  list_append key i pick_i
+let record_start key key_r key_rv key_l =
+  and_
+    [ eq key key_l; eq key_r key_rv; picked key_r; picked key_rv; picked key_l ]
 
-let fun_enter_append key key_f key_fv fid key_arg i =
-  let element =
-    and_
-      [
-        eq_fid key_f fid;
-        eq_fid key_fv fid;
-        eq key key_arg;
-        picked key_f;
-        picked key_fv;
-        picked key_arg;
-      ]
-  in
-  list_append key i element
+let fun_enter_nonlocal key key_f key_fv fid key_arg =
+  and_
+    [
+      eq_fid key_f fid;
+      eq_fid key_fv fid;
+      eq key key_arg;
+      picked key_f;
+      picked key_fv;
+      picked key_arg;
+    ]
 
 let same_funenter key_f fid key_para key_arg =
   and2 (eq_fid key_f fid) (eq key_para key_arg)
@@ -261,7 +250,7 @@ let eager_check (state : Global_state.t) (config : Global_config.t) target
 
 let step_eager_check (state : Global_state.t) (config : Global_config.t) target
     assumption stride =
-  state.tree_size <- state.tree_size + 1 ;
+  (* state.tree_size <- state.tree_size + 1 ; *)
   if state.tree_size mod !stride = 0
   then (
     if !stride < config.stride_max
@@ -316,13 +305,15 @@ let check (state : Global_state.t) (config : Global_config.t) :
   | Result.Error _exps -> None
 
 let step_check ~(config : Global_config.t) ~(state : Global_state.t) stride =
-  state.tree_size <- state.tree_size + 1 ;
+  (* state.tree_size <- state.tree_size + 1 ; *)
   if state.tree_size mod !stride = 0
   then (
     (* LLog.app (fun m ->
         m "Step %d\t%a\n" state.tree_size Lookup_key.pp this_key) ; *)
     match check state config with
-    | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
+    | Some { model; c_stk } ->
+        Fmt.pr "Check this\n" ;
+        Lwt.fail (Found_solution { model; c_stk })
     | None ->
         if !stride < config.stride_max
         then (
