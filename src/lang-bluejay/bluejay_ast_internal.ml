@@ -44,6 +44,13 @@ type pattern = Bluejay_ast.pattern =
 
 type predicate = syntactic_only expr_desc
 and 'a funsig = Funsig of ident * ident list * 'a expr_desc
+
+and 'a typed_funsig =
+  | Typed_funsig of
+      ident * (ident * 'a expr_desc) list * ('a expr_desc * 'a expr_desc)
+  | DTyped_funsig of
+      ident * (ident * 'a expr_desc) * ('a expr_desc * 'a expr_desc)
+
 and 'a expr_desc = { body : 'a expr; tag : int }
 (*
    P1: no internal transformation -> doesn't need to change tag
@@ -65,10 +72,10 @@ and 'a expr =
       (ident * 'a expr_desc * 'a expr_desc * 'a expr_desc)
       -> 'a syntactic_and_semantic expr
   | LetRecFunWithType :
-      ('a funsig list * 'a expr_desc * 'a expr_desc list)
+      ('a typed_funsig list * 'a expr_desc)
       -> 'a syntactic_and_semantic expr
   | LetFunWithType :
-      ('a funsig * 'a expr_desc * 'a expr_desc)
+      ('a typed_funsig * 'a expr_desc)
       -> 'a syntactic_and_semantic expr
   | Plus : ('a expr_desc * 'a expr_desc) -> 'a expr
   | Minus : ('a expr_desc * 'a expr_desc) -> 'a expr
@@ -145,6 +152,25 @@ let rec equal_funsig : type a. a funsig -> a funsig -> bool =
  fun (Funsig (id1, params1, fe1)) (Funsig (id2, params2, fe2)) ->
   id1 = id2 && List.eq equal_ident params1 params2 && equal_expr_desc fe1 fe2
 
+and equal_typed_funsig : type a. a typed_funsig -> a typed_funsig -> bool =
+ fun fsig_1 fsig_2 ->
+  match (fsig_1, fsig_2) with
+  | ( Typed_funsig (f1, params_with_type_1, (f_body_1, ret_type_1)),
+      Typed_funsig (f2, params_with_type_2, (f_body_2, ret_type_2)) ) ->
+      equal_ident f1 f2
+      && List.equal
+           (fun (param1, t1) (param2, t2) ->
+             equal_ident param1 param2 && equal_expr_desc t1 t2)
+           params_with_type_1 params_with_type_2
+      && equal_expr_desc f_body_1 f_body_2
+      && equal_expr_desc ret_type_1 ret_type_2
+  | ( DTyped_funsig (f1, (param1, t1), (f_body_1, ret_type_1)),
+      DTyped_funsig (f2, (param2, t2), (f_body_2, ret_type_2)) ) ->
+      equal_ident f1 f2 && equal_ident param1 param2 && equal_expr_desc t1 t2
+      && equal_expr_desc f_body_1 f_body_2
+      && equal_expr_desc ret_type_1 ret_type_2
+  | _ -> false
+
 and equal_expr_desc : type a. a expr_desc -> a expr_desc -> bool =
  fun e1 e2 ->
   equal_expr e1.body e2.body
@@ -184,14 +210,11 @@ and equal_expr : type a. a expr -> a expr -> bool =
       x1 = x2 && equal_expr_desc xe1 xe2 && equal_expr_desc e1 e2
       && equal_expr_desc t1 t2
   (* | LetWithType _, _ -> false *)
-  | LetFunWithType (f1, e1, t1), LetFunWithType (f2, e2, t2) ->
-      equal_funsig f1 f2 && equal_expr_desc e1 e2 && equal_expr_desc t1 t2
+  | LetFunWithType (f1, e1), LetFunWithType (f2, e2) ->
+      equal_typed_funsig f1 f2 && equal_expr_desc e1 e2
   (* | LetFunWithType _, _ -> false *)
-  | LetRecFunWithType (sig_lst1, e1, t1), LetRecFunWithType (sig_lst2, e2, t2)
-    ->
-      List.eq equal_funsig sig_lst1 sig_lst2
-      && equal_expr_desc e1 e2
-      && List.eq equal_expr_desc t1 t2
+  | LetRecFunWithType (sig_lst1, e1), LetRecFunWithType (sig_lst2, e2) ->
+      List.eq equal_typed_funsig sig_lst1 sig_lst2 && equal_expr_desc e1 e2
   (* | LetRecFunWithType _, _ -> false *)
   | Match (me1, pe_lst1), Match (me2, pe_lst2) ->
       let eq_pe (p1, e1) (p2, e2) = p1 = p2 && equal_expr_desc e1 e2 in
@@ -261,11 +284,33 @@ let rec compare_funsig : type a. a funsig -> a funsig -> int =
   |> compare_helper (List.compare compare_ident params1 params2)
   |> compare_helper (compare_expr_desc fe1 fe2)
 
+and compare_typed_funsig : type a. a typed_funsig -> a typed_funsig -> int =
+ fun fsig_1 fsig_2 ->
+  match (fsig_1, fsig_2) with
+  | ( Typed_funsig (f1, params_with_type_1, (f_body_1, ret_type_1)),
+      Typed_funsig (f2, params_with_type_2, (f_body_2, ret_type_2)) ) ->
+      compare_ident f1 f2
+      |> compare_helper
+         @@ List.compare
+              (fun (param1, t1) (param2, t2) ->
+                compare_ident param1 param2
+                |> compare_helper @@ compare_expr_desc t1 t2)
+              params_with_type_1 params_with_type_2
+      |> compare_helper @@ compare_expr_desc f_body_1 f_body_2
+      |> compare_helper @@ compare_expr_desc ret_type_1 ret_type_2
+  | ( DTyped_funsig (f1, (param1, t1), (f_body_1, ret_type_1)),
+      DTyped_funsig (f2, (param2, t2), (f_body_2, ret_type_2)) ) ->
+      compare_ident f1 f2
+      |> compare_helper @@ compare_ident param1 param2
+      |> compare_helper @@ compare_expr_desc t1 t2
+      |> compare_helper @@ compare_expr_desc f_body_1 f_body_2
+      |> compare_helper @@ compare_expr_desc ret_type_1 ret_type_2
+  | DTyped_funsig _, Typed_funsig _ -> 1
+  | Typed_funsig _, DTyped_funsig _ -> -1
+
 and compare_expr_desc : type a. a expr_desc -> a expr_desc -> int =
  fun e1 e2 ->
-  compare_expr e1.body e2.body
-  (* |> compare_helper (Option.compare e1.tag e2.tag) *)
-  |> compare_helper (compare e1.tag e2.tag)
+  compare_expr e1.body e2.body |> compare_helper (compare e1.tag e2.tag)
 
 and compare_expr : type a. a expr -> a expr -> int =
  fun e1 e2 ->
@@ -276,7 +321,6 @@ and compare_expr : type a. a expr -> a expr -> int =
   | Var x1, Var x2 -> compare x1 x2
   | List l1, List l2 -> List.compare compare_expr_desc l1 l2
   | Record r1, Record r2 -> Ident_map.compare compare_expr_desc r1 r2
-  (* | Untouched s1, Untouched s2 -> compare s1 s2 *)
   | Function (id_lst1, fun_body1), Function (id_lst2, fun_body2) ->
       List.compare compare_ident id_lst1 id_lst2
       |> compare_helper (compare_expr_desc fun_body1 fun_body2)
@@ -293,15 +337,11 @@ and compare_expr : type a. a expr -> a expr -> int =
       |> compare_helper (compare_expr_desc xe1 xe2)
       |> compare_helper (compare_expr_desc e1 e2)
       |> compare_helper (compare_expr_desc t1 t2)
-  | LetFunWithType (f1, e1, t1), LetFunWithType (f2, e2, t2) ->
-      compare_funsig f1 f2
+  | LetFunWithType (f1, e1), LetFunWithType (f2, e2) ->
+      compare_typed_funsig f1 f2 |> compare_helper (compare_expr_desc e1 e2)
+  | LetRecFunWithType (sig_lst1, e1), LetRecFunWithType (sig_lst2, e2) ->
+      List.compare compare_typed_funsig sig_lst1 sig_lst2
       |> compare_helper (compare_expr_desc e1 e2)
-      |> compare_helper (compare_expr_desc t1 t2)
-  | LetRecFunWithType (sig_lst1, e1, t1), LetRecFunWithType (sig_lst2, e2, t2)
-    ->
-      List.compare compare_funsig sig_lst1 sig_lst2
-      |> compare_helper (compare_expr_desc e1 e2)
-      |> compare_helper (List.compare compare_expr_desc t1 t2)
   | Match (me1, pe_lst1), Match (me2, pe_lst2) ->
       let compare_pe (p1, e1) (p2, e2) =
         compare_pattern p1 p2 |> compare_helper (compare_expr_desc e1 e2)
@@ -353,7 +393,98 @@ and compare_expr : type a. a expr -> a expr -> int =
       compare x1 x2 |> compare_helper (compare t1 t2)
   (* | TypeUntouched s1, TypeUntouched s2 -> compare s1 s2 *)
   (* TODO: Another potential source for bug *)
-  | _ -> 1
+  | Int _, _ -> 1
+  | _, Int _ -> -1
+  | Bool _, _ -> 1
+  | _, Bool _ -> -1
+  | Var _, _ -> 1
+  | _, Var _ -> -1
+  | Function _, _ -> 1
+  | _, Function _ -> -1
+  | Input, _ -> 1
+  | _, Input -> -1
+  | Appl _, _ -> 1
+  | _, Appl _ -> -1
+  | Let _, _ -> 1
+  | _, Let _ -> -1
+  | LetRecFun _, _ -> 1
+  | _, LetRecFun _ -> -1
+  | LetFun _, _ -> 1
+  | _, LetFun _ -> -1
+  | LetWithType _, _ -> 1
+  | _, LetWithType _ -> -1
+  | LetRecFunWithType _, _ -> 1
+  | _, LetRecFunWithType _ -> -1
+  | LetFunWithType _, _ -> 1
+  | _, LetFunWithType _ -> -1
+  | Plus _, _ -> 1
+  | _, Plus _ -> -1
+  | Minus _, _ -> 1
+  | _, Minus _ -> -1
+  | Times _, _ -> 1
+  | _, Times _ -> -1
+  | Divide _, _ -> 1
+  | _, Divide _ -> -1
+  | Modulus _, _ -> 1
+  | _, Modulus _ -> -1
+  | Equal _, _ -> 1
+  | _, Equal _ -> -1
+  | Neq _, _ -> 1
+  | _, Neq _ -> -1
+  | LessThan _, _ -> 1
+  | _, LessThan _ -> -1
+  | Leq _, _ -> 1
+  | _, Leq _ -> -1
+  | GreaterThan _, _ -> 1
+  | _, GreaterThan _ -> -1
+  | Geq _, _ -> 1
+  | _, Geq _ -> -1
+  | And _, _ -> 1
+  | _, And _ -> -1
+  | Or _, _ -> 1
+  | _, Or _ -> -1
+  | Not _, _ -> 1
+  | _, Not _ -> -1
+  | If _, _ -> 1
+  | _, If _ -> -1
+  | Record _, _ -> 1
+  | _, Record _ -> -1
+  | RecordProj _, _ -> 1
+  | _, RecordProj _ -> -1
+  | Match _, _ -> 1
+  | _, Match _ -> -1
+  | VariantExpr _, _ -> 1
+  | _, VariantExpr _ -> -1
+  | List _, _ -> 1
+  | _, List _ -> -1
+  | ListCons _, _ -> 1
+  | _, ListCons _ -> -1
+  | TypeError _, _ -> 1
+  | _, TypeError _ -> -1
+  | Assert _, _ -> 1
+  | _, Assert _ -> -1
+  | Assume _, _ -> 1
+  | _, Assume _ -> -1
+  | TypeVar _, _ -> 1
+  | _, TypeVar _ -> -1
+  | TypeInt, _ -> 1
+  | _, TypeInt -> -1
+  | TypeBool, _ -> 1
+  | _, TypeBool -> -1
+  | TypeRecord _, _ -> 1
+  | _, TypeRecord _ -> -1
+  | TypeList _, _ -> 1
+  | _, TypeList _ -> -1
+  | TypeArrow _, _ -> 1
+  | _, TypeArrow _ -> -1
+  | TypeArrowD _, _ -> 1
+  | _, TypeArrowD _ -> -1
+  | TypeSet _, _ -> 1
+  | _, TypeSet _ -> -1
+  | TypeUnion _, _ -> 1
+  | _, TypeUnion _ -> -1
+  | TypeIntersect _, _ -> 1
+  | _, TypeIntersect _ -> -1
 
 module type Expr_desc = sig
   type t
@@ -446,7 +577,38 @@ let expr_precedence_cmp e1 e2 = expr_precedence_p1 e1 - expr_precedence_p1 e2
 let expr_desc_precedence_cmp : type a. a expr_desc -> a expr_desc -> int =
  fun ed1 ed2 -> expr_precedence_cmp ed1.body ed2.body
 
-let rec from_internal_expr (e : syn_type_bluejay) : Bluejay_ast.expr =
+(* Helper routines to transform internal bluejay to external bluejay *)
+
+let rec from_internal_expr_desc (e : syn_bluejay_edesc) : Bluejay_ast.expr_desc
+    =
+  let tag' = e.tag in
+  let e' = from_internal_expr e.body in
+  { tag = tag'; body = e' }
+
+and transform_funsig (f_sig : 'a funsig) : Bluejay_ast.funsig =
+  let (Funsig (f, args, f_body)) = f_sig in
+  let f_body' = from_internal_expr_desc f_body in
+  Bluejay_ast.Funsig (f, args, f_body')
+
+and transform_typed_funsig (f_sig : 'a typed_funsig) : Bluejay_ast.typed_funsig
+    =
+  match f_sig with
+  | Typed_funsig (f, args_with_type, (f_body, ret_type)) ->
+      let args_with_type' =
+        List.map
+          (fun (arg, t) -> (arg, from_internal_expr_desc t))
+          args_with_type
+      in
+      let f_body' = from_internal_expr_desc f_body in
+      let ret_type' = from_internal_expr_desc ret_type in
+      Bluejay_ast.Typed_funsig (f, args_with_type', (f_body', ret_type'))
+  | DTyped_funsig (f, (arg, t), (f_body, ret_type)) ->
+      let f_body' = from_internal_expr_desc f_body in
+      let ret_type' = from_internal_expr_desc ret_type in
+      Bluejay_ast.DTyped_funsig
+        (f, (arg, from_internal_expr_desc t), (f_body', ret_type'))
+
+and from_internal_expr (e : syn_type_bluejay) : Bluejay_ast.expr =
   match e with
   | Int n -> Int n
   | Bool b -> Bool b
@@ -474,16 +636,14 @@ let rec from_internal_expr (e : syn_type_bluejay) : Bluejay_ast.expr =
       let ed2' = from_internal_expr_desc ed2 in
       let t' = from_internal_expr_desc t in
       LetWithType (x, ed1', ed2', t')
-  | LetRecFunWithType (fs, ed, ts) ->
-      let fs' = List.map transform_funsig fs in
+  | LetRecFunWithType (fs, ed) ->
+      let fs' = List.map transform_typed_funsig fs in
       let ed' = from_internal_expr_desc ed in
-      let ts' = List.map from_internal_expr_desc ts in
-      LetRecFunWithType (fs', ed', ts')
-  | LetFunWithType (f_sig, ed, t) ->
-      let f_sig' = transform_funsig f_sig in
+      LetRecFunWithType (fs', ed')
+  | LetFunWithType (f_sig, ed) ->
+      let f_sig' = transform_typed_funsig f_sig in
       let ed' = from_internal_expr_desc ed in
-      let t' = from_internal_expr_desc t in
-      LetFunWithType (f_sig', ed', t')
+      LetFunWithType (f_sig', ed')
   | Plus (ed1, ed2) ->
       let ed1' = from_internal_expr_desc ed1 in
       let ed2' = from_internal_expr_desc ed2 in
@@ -610,17 +770,34 @@ let rec from_internal_expr (e : syn_type_bluejay) : Bluejay_ast.expr =
       let ed' = from_internal_expr_desc ed in
       TypeRecurse (tv, ed')
 
-and from_internal_expr_desc (e : syn_bluejay_edesc) : Bluejay_ast.expr_desc =
+(* Helper routines to transform external bluejay to internal bluejay *)
+
+let rec to_internal_expr_desc (e : Bluejay_ast.expr_desc) : syn_bluejay_edesc =
   let tag' = e.tag in
-  let e' = from_internal_expr e.body in
+  let e' = to_internal_expr e.body in
   { tag = tag'; body = e' }
 
-and transform_funsig (f_sig : 'a funsig) : Bluejay_ast.funsig =
-  let (Funsig (f, args, f_body)) = f_sig in
-  let f_body' = from_internal_expr_desc f_body in
-  Bluejay_ast.Funsig (f, args, f_body')
+and transform_funsig (f_sig : Bluejay_ast.funsig) : 'a funsig =
+  let (Bluejay_ast.Funsig (f, args, f_body)) = f_sig in
+  let f_body' = to_internal_expr_desc f_body in
+  Funsig (f, args, f_body')
 
-let rec to_internal_expr (e : Bluejay_ast.expr) : syn_type_bluejay =
+and transform_typed_funsig (f_sig : Bluejay_ast.typed_funsig) : 'a typed_funsig
+    =
+  match f_sig with
+  | Bluejay_ast.Typed_funsig (f, args_with_type, (f_body, ret_type)) ->
+      let args_with_type' =
+        List.map (fun (arg, t) -> (arg, to_internal_expr_desc t)) args_with_type
+      in
+      let f_body' = to_internal_expr_desc f_body in
+      let ret_type' = to_internal_expr_desc ret_type in
+      Typed_funsig (f, args_with_type', (f_body', ret_type'))
+  | Bluejay_ast.DTyped_funsig (f, (arg, t), (f_body, ret_type)) ->
+      let f_body' = to_internal_expr_desc f_body in
+      let ret_type' = to_internal_expr_desc ret_type in
+      DTyped_funsig (f, (arg, to_internal_expr_desc t), (f_body', ret_type'))
+
+and to_internal_expr (e : Bluejay_ast.expr) : syn_type_bluejay =
   match e with
   | Int n -> Int n
   | Bool b -> Bool b
@@ -648,16 +825,14 @@ let rec to_internal_expr (e : Bluejay_ast.expr) : syn_type_bluejay =
       let ed2' = to_internal_expr_desc ed2 in
       let t' = to_internal_expr_desc t in
       LetWithType (x, ed1', ed2', t')
-  | LetRecFunWithType (fs, ed, ts) ->
-      let fs' = List.map transform_funsig fs in
+  | LetRecFunWithType (fs, ed) ->
+      let fs' = List.map transform_typed_funsig fs in
       let ed' = to_internal_expr_desc ed in
-      let ts' = List.map to_internal_expr_desc ts in
-      LetRecFunWithType (fs', ed', ts')
-  | LetFunWithType (f_sig, ed, t) ->
-      let f_sig' = transform_funsig f_sig in
+      LetRecFunWithType (fs', ed')
+  | LetFunWithType (f_sig, ed) ->
+      let f_sig' = transform_typed_funsig f_sig in
       let ed' = to_internal_expr_desc ed in
-      let t' = to_internal_expr_desc t in
-      LetFunWithType (f_sig', ed', t')
+      LetFunWithType (f_sig', ed')
   | Plus (ed1, ed2) ->
       let ed1' = to_internal_expr_desc ed1 in
       let ed2' = to_internal_expr_desc ed2 in
@@ -784,17 +959,19 @@ let rec to_internal_expr (e : Bluejay_ast.expr) : syn_type_bluejay =
       let ed' = to_internal_expr_desc ed in
       TypeRecurse (tv, ed')
 
-and to_internal_expr_desc (e : Bluejay_ast.expr_desc) : syn_bluejay_edesc =
+(* Helper routines to transform jay to internal bluejay *)
+
+let rec from_jay_expr_desc (e : Jay.Jay_ast.expr_desc) : core_bluejay_edesc =
   let tag' = e.tag in
-  let e' = to_internal_expr e.body in
+  let e' = from_jay_expr e.body in
   { tag = tag'; body = e' }
 
-and transform_funsig (f_sig : Bluejay_ast.funsig) : 'a funsig =
-  let (Bluejay_ast.Funsig (f, args, f_body)) = f_sig in
-  let f_body' = to_internal_expr_desc f_body in
+and transform_funsig (f_sig : Jay.Jay_ast.funsig) : core_only funsig =
+  let (Jay.Jay_ast.Funsig (f, args, f_body)) = f_sig in
+  let f_body' = from_jay_expr_desc f_body in
   Funsig (f, args, f_body')
 
-let rec from_jay_expr (e : Jay.Jay_ast.expr) : core_bluejay =
+and from_jay_expr (e : Jay.Jay_ast.expr) : core_bluejay =
   let pat_conv (p : Jay.Jay_ast.pattern) : pattern =
     match p with
     | AnyPat -> AnyPat
@@ -822,11 +999,11 @@ let rec from_jay_expr (e : Jay.Jay_ast.expr) : core_bluejay =
       let ed2' = from_jay_expr_desc ed2 in
       Let (x, ed1', ed2')
   | LetRecFun (fs, ed) ->
-      let fs' = List.map transform_funsig' fs in
+      let fs' = List.map transform_funsig fs in
       let ed' = from_jay_expr_desc ed in
       LetRecFun (fs', ed')
   | LetFun (f_sig, ed) ->
-      let f_sig' = transform_funsig' f_sig in
+      let f_sig' = transform_funsig f_sig in
       let ed' = from_jay_expr_desc ed in
       LetFun (f_sig', ed')
   | Plus (ed1, ed2) ->
@@ -923,17 +1100,19 @@ let rec from_jay_expr (e : Jay.Jay_ast.expr) : core_bluejay =
       Assume ed'
   | Error x -> TypeError x
 
-and from_jay_expr_desc (e : Jay.Jay_ast.expr_desc) : core_bluejay_edesc =
+(* Helper routines to transform internal bluejay to jay *)
+
+let rec to_jay_expr_desc (e : core_bluejay_edesc) : Jay.Jay_ast.expr_desc =
   let tag' = e.tag in
-  let e' = from_jay_expr e.body in
+  let e' = to_jay_expr e.body in
   { tag = tag'; body = e' }
 
-and transform_funsig' (f_sig : Jay.Jay_ast.funsig) : core_only funsig =
-  let (Jay.Jay_ast.Funsig (f, args, f_body)) = f_sig in
-  let f_body' = from_jay_expr_desc f_body in
-  Funsig (f, args, f_body')
+and transform_funsig (f_sig : core_only funsig) : Jay.Jay_ast.funsig =
+  let (Funsig (f, args, f_body)) = f_sig in
+  let f_body' = to_jay_expr_desc f_body in
+  Jay.Jay_ast.Funsig (f, args, f_body')
 
-let rec to_jay_expr (e : core_bluejay) : Jay.Jay_ast.expr =
+and to_jay_expr (e : core_bluejay) : Jay.Jay_ast.expr =
   let pat_conv (p : pattern) : Jay.Jay_ast.pattern =
     match p with
     | AnyPat -> AnyPat
@@ -961,11 +1140,11 @@ let rec to_jay_expr (e : core_bluejay) : Jay.Jay_ast.expr =
       let ed2' = to_jay_expr_desc ed2 in
       Let (x, ed1', ed2')
   | LetRecFun (fs, ed) ->
-      let fs' = List.map transform_funsig' fs in
+      let fs' = List.map transform_funsig fs in
       let ed' = to_jay_expr_desc ed in
       LetRecFun (fs', ed')
   | LetFun (f_sig, ed) ->
-      let f_sig' = transform_funsig' f_sig in
+      let f_sig' = transform_funsig f_sig in
       let ed' = to_jay_expr_desc ed in
       LetFun (f_sig', ed')
   | Plus (ed1, ed2) ->
@@ -1062,16 +1241,7 @@ let rec to_jay_expr (e : core_bluejay) : Jay.Jay_ast.expr =
       Assume ed'
   | TypeError x -> Error x
 
-and to_jay_expr_desc (e : core_bluejay_edesc) : Jay.Jay_ast.expr_desc =
-  let tag' = e.tag in
-  let e' = to_jay_expr e.body in
-  { tag = tag'; body = e' }
-
-and transform_funsig' (f_sig : core_only funsig) : Jay.Jay_ast.funsig =
-  let (Funsig (f, args, f_body)) = f_sig in
-  let f_body' = to_jay_expr_desc f_body in
-  Jay.Jay_ast.Funsig (f, args, f_body')
-
+(* Other helper functions *)
 let is_type_expr (ed : syn_bluejay_edesc) : bool =
   match ed.body with
   | TypeVar _ | TypeInt | TypeBool | TypeRecord _ | TypeList _ | TypeArrow _

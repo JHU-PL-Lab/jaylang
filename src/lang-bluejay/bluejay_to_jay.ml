@@ -11,6 +11,13 @@ let transform_funsig (f : 'a expr_desc -> 'b expr_desc m)
   let%bind e' = f e in
   return @@ Funsig (fun_name, params, e')
 
+let transform_typed_funsig (f : 'a expr_desc -> 'b expr_desc m)
+    (Typed_funsig (fun_name, typed_params, (e, _)) : 'a typed_funsig) :
+    'b funsig m =
+  let params = List.map (fun (param, _) -> param) typed_params in
+  let%bind e' = f e in
+  return @@ Funsig (fun_name, params, e')
+
 (* Phase one of transformation: turning all syntactic types into its
    semantic correspondence.
    i.e. int -> { generator = fun _ -> input,
@@ -1173,11 +1180,74 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
       let res = new_expr_desc @@ LetRecFun (sig_lst', test_exprs) in
       let%bind () = add_core_to_sem_mapping res e_desc in
       return res
-  | LetFunWithType ((Funsig (f, _, _) as fun_sig), e, type_decl) ->
-      let%bind type_decl' = bluejay_to_jay type_decl in
+  | LetFunWithType (f_sig, e) ->
       let%bind e' = bluejay_to_jay e in
       let%bind check_res = fresh_ident "check_res" in
       let%bind () = add_error_to_bluejay_mapping check_res e_desc in
+      let%bind (check_expr : core_only expr) =
+        match f_sig with
+        | Typed_funsig (f, typed_params, (_, ret_type)) ->
+            let%bind arg_ids =
+              list_fold_right_m
+                (fun (Ident p, t) acc ->
+                  let%bind arg_id = fresh_ident p in
+                  return @@ ((arg_id, t) :: acc))
+                typed_params []
+            in
+            let mk_appl =
+              List.fold_right
+                (fun (arg, _) acc ->
+                  Appl (new_expr_desc @@ acc, new_expr_desc @@ Var arg))
+                (List.tl arg_ids)
+                (Appl
+                   ( new_expr_desc @@ Var f,
+                     new_expr_desc @@ Var (fst @@ List.hd arg_ids) ))
+            in
+            let%bind ret_type_core = bluejay_to_jay ret_type in
+            let check_ret =
+              Appl
+                ( new_expr_desc @@ RecordProj (ret_type_core, Label "checker"),
+                  new_expr_desc @@ mk_appl )
+            in
+            let%bind check_expr =
+              list_fold_right_m
+                (fun (arg, t) acc ->
+                  let%bind t' = bluejay_to_jay t in
+                  return
+                  @@ Let
+                       ( arg,
+                         new_expr_desc
+                         @@ Appl
+                              ( new_expr_desc
+                                @@ RecordProj (t', Label "generator"),
+                                new_expr_desc @@ Int 0 ),
+                         new_expr_desc acc ))
+                arg_ids check_ret
+            in
+            return check_expr
+        | DTyped_funsig (f, (Ident param, t), (_, ret_type)) ->
+            let%bind arg_id = fresh_ident param in
+            let%bind t' = bluejay_to_jay t in
+            let%bind ret_type_core = bluejay_to_jay ret_type in
+            let appl_res =
+              Appl (new_expr_desc @@ Var f, new_expr_desc @@ Var arg_id)
+            in
+            let check_ret =
+              Appl
+                ( new_expr_desc @@ RecordProj (ret_type_core, Label "checker"),
+                  new_expr_desc @@ appl_res )
+            in
+            let check_expr =
+              Let
+                ( arg_id,
+                  new_expr_desc
+                  @@ Appl
+                       ( new_expr_desc @@ RecordProj (t', Label "generator"),
+                         new_expr_desc @@ Int 0 ),
+                  new_expr_desc @@ check_ret )
+            in
+            return check_expr
+      in
       let res_cls =
         If
           ( new_expr_desc @@ Var check_res,
@@ -1185,18 +1255,34 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
             new_expr_desc @@ TypeError check_res )
       in
       let check_cls =
-        Let
-          ( check_res,
-            new_expr_desc
-            @@ Appl
-                 ( new_expr_desc @@ RecordProj (type_decl', Label "checker"),
-                   new_expr_desc @@ Var f ),
-            new_expr_desc res_cls )
+        Let (check_res, new_expr_desc @@ check_expr, new_expr_desc res_cls)
       in
-      let%bind fun_sig' = (transform_funsig bluejay_to_jay) fun_sig in
+      let%bind fun_sig' = (transform_typed_funsig bluejay_to_jay) f_sig in
       let res = new_expr_desc @@ LetFun (fun_sig', new_expr_desc check_cls) in
       let%bind () = add_core_to_sem_mapping res e_desc in
       return res
+      (* let%bind type_decl' = bluejay_to_jay type_decl in
+         let%bind e' = bluejay_to_jay e in
+         let%bind check_res = fresh_ident "check_res" in
+         let%bind () = add_error_to_bluejay_mapping check_res e_desc in
+         let res_cls =
+           If
+             ( new_expr_desc @@ Var check_res,
+               e',
+               new_expr_desc @@ TypeError check_res )
+         in
+         let check_cls =
+           Let
+             ( check_res,
+               new_expr_desc
+               @@ Appl
+                    ( new_expr_desc @@ RecordProj (type_decl', Label "checker"),
+                      new_expr_desc @@ Var f ),
+               new_expr_desc res_cls )
+         in
+         let%bind fun_sig' = (transform_funsig bluejay_to_jay) fun_sig in
+         let res = new_expr_desc @@ LetFun (fun_sig', new_expr_desc check_cls) in
+         let%bind () = add_core_to_sem_mapping res e_desc in *)
   | Plus (e1, e2) ->
       let%bind e1' = bluejay_to_jay e1 in
       let%bind e2' = bluejay_to_jay e2 in
