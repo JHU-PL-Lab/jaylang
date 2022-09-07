@@ -43,7 +43,16 @@ let pp_ident_list formatter list =
 let pp_variant_label formatter (Variant_label label) =
   Format.fprintf formatter "`%s" label
 
-let rec pp_funsig : Format.formatter -> funsig -> unit =
+let rec pp_ident_with_type : Format.formatter -> ident * expr_desc -> unit =
+ fun formatter (x, t) ->
+  Format.fprintf formatter "(%a : %a)" pp_ident x pp_expr_desc_without_tag t
+
+and pp_ident_with_type_list formatter list =
+  Pp_utils.pp_concat_sep " "
+    (fun formatter x_with_t -> pp_ident_with_type formatter x_with_t)
+    formatter (List.enum list)
+
+and pp_funsig : Format.formatter -> funsig -> unit =
  fun formatter (Funsig (x, ident_list, e)) ->
   Format.fprintf formatter "%a@ %a =@ @[%a@]" pp_ident x pp_ident_list
     ident_list pp_expr_desc_without_tag e
@@ -52,17 +61,40 @@ and pp_funsig_list : Format.formatter -> funsig list -> unit =
  fun formatter funsig_lst ->
   Pp_utils.pp_concat_sep " with " pp_funsig formatter (List.enum funsig_lst)
 
-and pp_funsig_with_type : Format.formatter -> funsig * expr_desc -> unit =
- fun formatter (Funsig (x, ident_list, e), t) ->
-  Format.fprintf formatter "(%a : %a) %a = @[%a@]" pp_ident x
-    pp_expr_desc_without_tag t pp_ident_list ident_list pp_expr_desc_without_tag
-    e
+(* and pp_funsig_with_type : Format.formatter -> funsig * expr_desc -> unit =
+   fun formatter (Funsig (x, ident_list, e), t) ->
+    Format.fprintf formatter "(%a : %a) %a = @[%a@]" pp_ident x
+      pp_expr_desc_without_tag t pp_ident_list ident_list pp_expr_desc_without_tag
+      e *)
 
-and pp_funsig_with_type_list :
-    Format.formatter -> (funsig * expr_desc) list -> unit =
+and pp_typed_funsig : Format.formatter -> typed_funsig -> unit =
+ fun formatter f_sig ->
+  match f_sig with
+  | Typed_funsig (f, id_with_type_lst, (f_body, ret_type)) ->
+      Format.fprintf formatter "%a %a : %a = @[%a@]" pp_ident f
+        pp_ident_with_type_list id_with_type_lst pp_expr_desc_without_tag
+        ret_type pp_expr_desc_without_tag f_body
+  | DTyped_funsig (f, id_with_type, (f_body, ret_type)) ->
+      Format.fprintf formatter "%a %a : %a = @[%a@]" pp_ident f
+        pp_ident_with_type id_with_type pp_expr_desc_without_tag ret_type
+        pp_expr_desc_without_tag f_body
+
+and pp_typed_funsig_list : Format.formatter -> typed_funsig list -> unit =
  fun formatter funsig_lst ->
-  Pp_utils.pp_concat_sep " with " pp_funsig_with_type formatter
+  Pp_utils.pp_concat_sep " with " pp_typed_funsig formatter
     (List.enum funsig_lst)
+
+(* and pp_dtyped_funsig : Format.formatter -> dtyped_funsig -> unit =
+   fun formatter (DTyped_funsig (f, id_with_type, (f_body, ret_type))) ->
+    Format.fprintf formatter "%a %a : %a = @[%a@]" pp_ident f pp_ident_with_type
+      id_with_type pp_expr_desc_without_tag ret_type pp_expr_desc_without_tag
+      f_body *)
+
+(* and pp_funsig_with_type_list :
+      Format.formatter -> (funsig * expr_desc) list -> unit =
+   fun formatter funsig_lst ->
+    Pp_utils.pp_concat_sep " with " pp_funsig_with_type formatter
+      (List.enum funsig_lst) *)
 
 and pp_pattern formatter pattern =
   match pattern with
@@ -176,16 +208,15 @@ and pp_expr (formatter : Format.formatter) (expr : expr) : unit =
   | LetRecFun (funsig_lst, e) ->
       Format.fprintf formatter "let rec %a in @[%a@]" pp_funsig_list funsig_lst
         pp_expr_desc e
-  | LetRecFunWithType (funsig_lst, e, type_decl_lst) ->
-      Format.fprintf formatter "let rec %a in @[%a@]" pp_funsig_with_type_list
-        (List.combine funsig_lst type_decl_lst)
-        pp_expr_desc e
+  | LetRecFunWithType (typed_funsig_lst, e) ->
+      Format.fprintf formatter "let rec %a in @[%a@]" pp_typed_funsig_list
+        typed_funsig_lst pp_expr_desc e
   | LetFun (funsig, e) ->
       Format.fprintf formatter "let %a in @[%a@]" pp_funsig funsig pp_expr_desc
         e
-  | LetFunWithType (funsig, e, type_decl) ->
-      Format.fprintf formatter "let %a in @[%a@]" pp_funsig_with_type
-        (funsig, type_decl) pp_expr_desc e
+  | LetFunWithType (typed_funsig, e) ->
+      Format.fprintf formatter "let %a in @[%a@]" pp_typed_funsig typed_funsig
+        pp_expr_desc e
   | If (pred, e1, e2) ->
       Format.fprintf formatter "if %a then @[<2>%a@] else @[<2>%a@]"
         pp_expr_desc pred pp_expr_desc e1 pp_expr_desc e2
