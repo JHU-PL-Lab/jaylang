@@ -1,4 +1,4 @@
-(** This module defines a routine which simplifies an Odefa ANF AST by removing
+(** This module defines a routine which simplifies an JayIL AST by removing
     unnecessary variable aliases. *)
 
 open Batteries

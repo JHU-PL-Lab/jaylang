@@ -1,8 +1,8 @@
 (library
- (name jay_instrumentation)
- (public_name jay.instrumentation)
- (synopsis "Instrumentation for jayil")
- (libraries core batteries jhupllib monadlib jayil)
+ (name jay_translate)
+ (public_name jay.jay_translate)
+ (synopsis "Translator from Jay to JayIL")
+ (libraries core batteries jhupllib monadlib jay jayil)
  (preprocess
   (pps ppx_deriving.std ppx_deriving_yojson ocaml-monadic))
  (flags

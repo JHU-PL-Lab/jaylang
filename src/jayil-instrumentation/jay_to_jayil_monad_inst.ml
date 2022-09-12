@@ -5,27 +5,26 @@ type translation_context = {
   tc_fresh_suffix_separator : string;
   tc_contextual_recursion : bool;
   mutable tc_fresh_name_counter : int;
-  mutable tc_odefa_instrumentation_mappings : Jayil_instrumentation_maps.t;
+  mutable tc_jayil_instrumentation_mappings : Jayil_instrumentation_maps.t;
 }
 (* [@@deriving eq, ord] *)
 
-let new_translation_context ?(is_natodefa = false) ?(suffix = "~")
+let new_translation_context ?(is_jay = false) ?(suffix = "~")
     ?(contextual_recursion = true) () : translation_context =
   {
     tc_fresh_name_counter = 0;
     tc_fresh_suffix_separator = suffix;
     tc_contextual_recursion = contextual_recursion;
-    tc_odefa_instrumentation_mappings =
-      Jayil_instrumentation_maps.empty is_natodefa;
+    tc_jayil_instrumentation_mappings = Jayil_instrumentation_maps.empty is_jay;
   }
 
-let new_translation_context_from_natodefa ?(suffix = "~")
+let new_translation_context_from_jay ?(suffix = "~")
     ?(contextual_recursion = true) natodefa_inst_map : translation_context =
   {
     tc_fresh_name_counter = 0;
     tc_fresh_suffix_separator = suffix;
     tc_contextual_recursion = contextual_recursion;
-    tc_odefa_instrumentation_mappings =
+    tc_jayil_instrumentation_mappings =
       Jayil_instrumentation_maps.inherit_from_jay_to_jayil_maps
         natodefa_inst_map;
   }
@@ -97,31 +96,31 @@ end = struct
 
   let add_var_clause_pair v_key cls_val ctx =
     let (Ast.Var (i_key, _)) = v_key in
-    let odefa_inst_maps = ctx.tc_odefa_instrumentation_mappings in
-    ctx.tc_odefa_instrumentation_mappings <-
+    let odefa_inst_maps = ctx.tc_jayil_instrumentation_mappings in
+    ctx.tc_jayil_instrumentation_mappings <-
       Jayil_instrumentation_maps.add_odefa_var_clause_mapping odefa_inst_maps
         i_key cls_val
 
   let add_instrument_var v ctx =
     let (Ast.Var (i, _)) = v in
-    let odefa_inst_maps = ctx.tc_odefa_instrumentation_mappings in
-    ctx.tc_odefa_instrumentation_mappings <-
+    let odefa_inst_maps = ctx.tc_jayil_instrumentation_mappings in
+    ctx.tc_jayil_instrumentation_mappings <-
       Jayil_instrumentation_maps.add_odefa_instrument_var odefa_inst_maps i None
 
   let add_instrument_var_pair v_key v_val ctx =
     let (Ast.Var (i_key, _)) = v_key in
     let (Ast.Var (i_val, _)) = v_val in
-    let odefa_inst_maps = ctx.tc_odefa_instrumentation_mappings in
-    ctx.tc_odefa_instrumentation_mappings <-
+    let odefa_inst_maps = ctx.tc_jayil_instrumentation_mappings in
+    ctx.tc_jayil_instrumentation_mappings <-
       Jayil_instrumentation_maps.add_odefa_instrument_var odefa_inst_maps i_key
         (Some i_val)
 
   let is_instrument_var v ctx =
     let (Ast.Var (i, _)) = v in
-    let odefa_inst_maps = ctx.tc_odefa_instrumentation_mappings in
+    let odefa_inst_maps = ctx.tc_jayil_instrumentation_mappings in
     Jayil_instrumentation_maps.is_var_instrumenting odefa_inst_maps i
 
-  let get_jayil_inst_maps ctx = ctx.tc_odefa_instrumentation_mappings
+  let get_jayil_inst_maps ctx = ctx.tc_jayil_instrumentation_mappings
   let freshness_string ctx = ctx.tc_fresh_suffix_separator
   let acontextual_recursion ctx = not ctx.tc_contextual_recursion
 

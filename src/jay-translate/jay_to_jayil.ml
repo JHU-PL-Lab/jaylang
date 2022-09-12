@@ -1,16 +1,17 @@
 open Batteries
 open Jhupllib
 open Jayil
+open Jay
 open Jay_instrumentation
 open Ast_tools
 open Jay_to_jayil_preliminary
 open Jay_to_jayil_monad
 
-(** In this module we will translate from natodefa to odefa in the following
-    order: * Desugar let rec, lists, variants, and list/variant patterns *
-    Alphatize program again (do this after to allow above to introduce dupes) *
-    Flatten natodefa expressions to odefa expressions * Instrument odefa with
-    type/error constriants *)
+(** In this module we will translate from jay to jayil in the following order: *
+    Desugar let rec, lists, variants, and list/variant patterns * Alphatize
+    program again (do this after to allow above to introduce dupes) * Flatten
+    jay expressions to jayil expressions * Instrument jayil with type/error
+    constriants *)
 
 open TranslationMonad
 
@@ -494,16 +495,16 @@ let alphatize (e : Jay_ast.expr_desc) : Jay_ast.expr_desc m =
 
 (* **** Expression flattening **** *)
 
-(** Create new odefa variable with mapping to natodefa expr *)
+(** Create new jayil variable with mapping to jay expr *)
 
-let new_odefa_var (e_desc : Jay_ast.expr_desc) (var_name : string) : Ast.var m =
+let new_jayil_var (e_desc : Jay_ast.expr_desc) (var_name : string) : Ast.var m =
   let%bind var = fresh_var var_name in
   let%bind () = add_jayil_jay_mapping var e_desc in
   return var
 
-let new_odefa_inst_var (e_desc : Jay_ast.expr_desc) (var_name : string) :
+let new_jayil_inst_var (e_desc : Jay_ast.expr_desc) (var_name : string) :
     Ast.var m =
-  let%bind var = new_odefa_var e_desc var_name in
+  let%bind var = new_jayil_var e_desc var_name in
   let%bind () = add_instrument_var var in
   return var
 
@@ -649,8 +650,8 @@ and flatten_pattern_match (expr_desc : Jay_ast.expr_desc) (subj_var : Ast.var)
     (* Conditional expression *)
     let cond_expr_inner, match_cls_list_tail = accum in
     (* Variables *)
-    let%bind bool_var = new_odefa_inst_var expr_desc "m_match_bool" in
-    let%bind cond_var = new_odefa_inst_var expr_desc "m_match_cond" in
+    let%bind bool_var = new_jayil_inst_var expr_desc "m_match_bool" in
+    let%bind cond_var = new_jayil_inst_var expr_desc "m_match_cond" in
     (* Clauses and expressions *)
     (* TODO:
        Hack: Depending on what patterns we have, if we fall into the base
@@ -678,7 +679,7 @@ and flatten_pattern_match (expr_desc : Jay_ast.expr_desc) (subj_var : Ast.var)
   let create_or_clause cls_1 cls_2 =
     let (Ast.Clause (m_var_1, _)) = cls_1 in
     let (Ast.Clause (m_var_2, _)) = cls_2 in
-    let%bind m_match_or = new_odefa_inst_var expr_desc "m_match_or" in
+    let%bind m_match_or = new_jayil_inst_var expr_desc "m_match_or" in
     let binop_body =
       Ast.Binary_operation_body (m_var_1, Binary_operator_or, m_var_2)
     in
@@ -696,17 +697,16 @@ and flatten_pattern_match (expr_desc : Jay_ast.expr_desc) (subj_var : Ast.var)
   let (Ast.Clause (match_pred, _)) =
     List.hd pred_cls_list (* Never raises b/c pat_e_list must be nonempty *)
   in
-  let%bind cond_var = new_odefa_inst_var expr_desc "match" in
+  let%bind cond_var = new_jayil_inst_var expr_desc "match" in
   let%bind abort_expr = add_abort_expr expr_desc [ cond_var ] in
   let cond_cls =
     Ast.Clause (cond_var, Conditional_body (match_pred, cond_expr, abort_expr))
   in
   return (List.rev pred_cls_list @ [ cond_cls ], cond_var)
 
-(** Flatten an entire expression (i.e. convert natodefa into odefa code) *)
+(** Flatten an entire expression (i.e. convert jay into jayil code) *)
 and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
     =
-  (* let%bind () = update_natodefa_expr exp in *)
   let recurse = flatten_expr in
   let exp = expr_desc.body in
   (* let og_tag = expr_desc.tag in *)
@@ -820,7 +820,7 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       return ([ new_clause ], bool_var)
   | Record recexpr_map ->
       (* function for Enum.fold that generates the clause list and the
-         id -> var map for Odefa's record *)
+         id -> var map for JayIL's record *)
       let flatten_and_map acc ident_expr_tuple :
           (Ast.clause list * Ast.var Ast.Ident_map.t) m =
         let clist, recmap = acc in
@@ -946,7 +946,7 @@ let debug_transform_on (trans_name : string)
       Printf.sprintf "Result of %s:\n%s" trans_name (Jay_ast.show_expr e'.body)) ;
   return e'
 
-let debug_transform_odefa (trans_name : string)
+let debug_transform_jayil (trans_name : string)
     (transform : 'a -> Ast.clause list Jay_to_jayil_monad.TranslationMonad.m)
     (e : 'a) : Ast.clause list m =
   let%bind c_list = transform e in
@@ -955,7 +955,7 @@ let debug_transform_odefa (trans_name : string)
       Printf.sprintf "Result of %s:\n%s" trans_name (Ast_pp.show_expr e')) ;
   return c_list
 
-let debug_transform_odefa' (trans_name : string)
+let debug_transform_jayil' (trans_name : string)
     (transform :
       'a -> Ast.clause list Jay_to_jayil_monad_inst.TranslationMonad.m) (e : 'a)
     : Ast.clause list Jay_to_jayil_monad_inst.TranslationMonad.m =
@@ -974,7 +974,7 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
   let (e_m_with_info, ctx)
         : Ast.expr Jay_to_jayil_monad_inst.TranslationMonad.m
           * Jay_to_jayil_monad.translation_context =
-    (* Translation from Natodefa to Odefa *)
+    (* Translation from Jay to JayIL *)
     let open Jay_to_jayil_monad.TranslationMonad in
     let flatten e =
       let%bind c_list, _ = flatten_expr e in
@@ -983,7 +983,7 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
     (* Phase one - translation *)
     (* Step one: Encode lists, variants, match, and let rec
        Step two: Alphatize the expressions
-       Step three: Flatten to a-normalized form (Natodefa -> Odefa)
+       Step three: Flatten to a-normalized form (Jay -> JayIL)
     *)
     lazy_logger `debug (fun () ->
         Printf.sprintf "Initial program:\n%s" (Jay_ast.show_expr e.body)) ;
@@ -991,11 +991,11 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
       return e
       >>= debug_transform_on "desugaring" preliminary_encode_expr
       >>= debug_transform_on "alphatization" alphatize
-      >>= debug_transform_odefa "flattening" flatten
+      >>= debug_transform_jayil "flattening" flatten
     in
     let context =
       match translation_context with
-      | None -> new_translation_context ~is_natodefa:true ()
+      | None -> new_translation_context ~is_jay:true ()
       | Some ctx -> ctx
     in
     let translation_result_p1, ctx =
@@ -1019,8 +1019,8 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
     in
     let (translation_result_p2_m : Ast.clause list m) =
       return translation_result_p1
-      >>= debug_transform_odefa' "instrumentation" instrument
-      >>= debug_transform_odefa' "adding ~result" add_first_result
+      >>= debug_transform_jayil' "instrumentation" instrument
+      >>= debug_transform_jayil' "adding ~result" add_first_result
     in
     let res =
       translation_result_p2_m >>= fun m ->
@@ -1029,23 +1029,22 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
     (res, ctx)
   in
   (* Set up context and run *)
-  let natodefa_inst_map =
-    Jay_to_jayil_maps.get_natodefa_inst_map ctx.tc_odefa_natodefa_mappings
+  let jay_inst_map =
+    Jay_to_jayil_maps.get_jay_inst_map ctx.tc_jayil_jay_mappings
   in
   let init_ctx_ph2 =
-    Jay_to_jayil_monad_inst.new_translation_context_from_natodefa
-      natodefa_inst_map
+    Jay_to_jayil_monad_inst.new_translation_context_from_jay jay_inst_map
   in
   let ctx' =
     { init_ctx_ph2 with tc_fresh_name_counter = ctx.tc_fresh_name_counter }
   in
   let res = Jay_to_jayil_monad_inst.TranslationMonad.run ctx' e_m_with_info in
-  let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
-  let inst_maps = ctx'.tc_odefa_instrumentation_mappings in
+  let jayil_jay_maps = ctx.tc_jayil_jay_mappings in
+  let inst_maps = ctx'.tc_jayil_instrumentation_mappings in
   lazy_logger `debug (fun () ->
-      Printf.sprintf "Odefa to natodefa maps:\n%s"
-        (Jay_to_jayil_maps.show odefa_on_maps)) ;
+      Printf.sprintf "JayIL to Jay maps:\n%s"
+        (Jay_to_jayil_maps.show jayil_jay_maps)) ;
   lazy_logger `debug (fun () ->
-      Printf.sprintf "Odefa instrumentation maps:\n%s"
+      Printf.sprintf "JayIL instrumentation maps:\n%s"
         (Jayil_instrumentation_maps.show inst_maps)) ;
-  (res, inst_maps, odefa_on_maps)
+  (res, inst_maps, jayil_jay_maps)

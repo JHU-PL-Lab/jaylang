@@ -1,22 +1,23 @@
 open Batteries
 open Jayil
+open Jay
 open Jay_ast
 
 type translation_context = {
   tc_fresh_suffix_separator : string;
   tc_contextual_recursion : bool;
   mutable tc_fresh_name_counter : int;
-  mutable tc_odefa_natodefa_mappings : Jay_to_jayil_maps.t;
+  mutable tc_jayil_jay_mappings : Jay_to_jayil_maps.t;
 }
 (* [@@deriving eq, ord] *)
 
-let new_translation_context ?(is_natodefa = false) ?(suffix = "~")
+let new_translation_context ?(is_jay = false) ?(suffix = "~")
     ?(contextual_recursion = true) () : translation_context =
   {
     tc_fresh_name_counter = 0;
     tc_fresh_suffix_separator = suffix;
     tc_contextual_recursion = contextual_recursion;
-    tc_odefa_natodefa_mappings = Jay_to_jayil_maps.empty is_natodefa;
+    tc_jayil_jay_mappings = Jay_to_jayil_maps.empty is_jay;
   }
 
 module TranslationMonad : sig
@@ -35,23 +36,23 @@ module TranslationMonad : sig
   (** Create a fresh var *)
 
   val add_instrument_var : Ast.var -> unit m
-  (** Add an odefa var to note that it was added during instrumentation (and
+  (** Add an jayil var to note that it was added during instrumentation (and
       that it does not have an associated pre-instrumentation clause) *)
 
   val add_jayil_jay_mapping : Ast.var -> Jay_ast.expr_desc -> unit m
-  (** Map an odefa var to a natodefa expression *)
+  (** Map an jayil var to a jay expression *)
 
   val add_jay_expr_mapping : Jay_ast.expr_desc -> Jay_ast.expr_desc -> unit m
-  (** Map a natodefa expression to another natodefa expression *)
+  (** Map a jay expression to another jay expression *)
 
   val add_jay_var_mapping : Jay_ast.ident -> Jay_ast.ident -> unit m
-  (** Map a natodefa ident to another ident. *)
+  (** Map a jay ident to another ident. *)
 
   val add_jay_type_mapping : Jay_ast.Ident_set.t -> Jay_ast.type_sig -> unit m
-  (** Map a set of natodefa idents to a natodefa type. *)
+  (** Map a set of jay idents to a jay type. *)
 
-  val odefa_natodefa_maps : Jay_to_jayil_maps.t m
-  (** Retrieve the odefa-to-natodefa maps from the monad *)
+  val jayil_jay_maps : Jay_to_jayil_maps.t m
+  (** Retrieve the jayil-to-jay maps from the monad *)
 
   val freshness_string : string m
   (** Retrieve the freshness string from the monad *)
@@ -92,33 +93,35 @@ end = struct
 
   let add_instrument_var v ctx =
     let (Ast.Var (i, _)) = v in
-    let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
-    ctx.tc_odefa_natodefa_mappings <-
-      Jay_to_jayil_maps.add_jay_instrument_var odefa_on_maps i None
+    let jayil_jay_maps = ctx.tc_jayil_jay_mappings in
+    ctx.tc_jayil_jay_mappings <-
+      Jay_to_jayil_maps.add_jay_instrument_var jayil_jay_maps i None
 
   let add_jayil_jay_mapping v_key e_val ctx =
     let (Ast.Var (i_key, _)) = v_key in
-    let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
-    ctx.tc_odefa_natodefa_mappings <-
-      Jay_to_jayil_maps.add_jayil_var_on_expr_mapping odefa_on_maps i_key e_val
+    let jayil_jay_maps = ctx.tc_jayil_jay_mappings in
+    ctx.tc_jayil_jay_mappings <-
+      Jay_to_jayil_maps.add_jayil_var_jay_expr_mapping jayil_jay_maps i_key
+        e_val
 
   let add_jay_expr_mapping k_expr v_expr ctx =
-    let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
-    ctx.tc_odefa_natodefa_mappings <-
-      Jay_to_jayil_maps.add_on_expr_to_expr_mapping odefa_on_maps k_expr v_expr
+    let jayil_jay_maps = ctx.tc_jayil_jay_mappings in
+    ctx.tc_jayil_jay_mappings <-
+      Jay_to_jayil_maps.add_jay_expr_to_expr_mapping jayil_jay_maps k_expr
+        v_expr
 
   let add_jay_var_mapping k_var v_var ctx =
-    let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
-    ctx.tc_odefa_natodefa_mappings <-
-      Jay_to_jayil_maps.add_on_var_to_var_mapping odefa_on_maps k_var v_var
+    let jayil_jay_maps = ctx.tc_jayil_jay_mappings in
+    ctx.tc_jayil_jay_mappings <-
+      Jay_to_jayil_maps.add_jay_var_to_var_mapping jayil_jay_maps k_var v_var
 
   let add_jay_type_mapping k_idents v_type ctx =
-    let odefa_on_maps = ctx.tc_odefa_natodefa_mappings in
-    ctx.tc_odefa_natodefa_mappings <-
-      Jay_to_jayil_maps.add_on_idents_to_type_mapping odefa_on_maps k_idents
+    let jayil_jay_maps = ctx.tc_jayil_jay_mappings in
+    ctx.tc_jayil_jay_mappings <-
+      Jay_to_jayil_maps.add_jay_idents_to_type_mapping jayil_jay_maps k_idents
         v_type
 
-  let odefa_natodefa_maps ctx = ctx.tc_odefa_natodefa_mappings
+  let jayil_jay_maps ctx = ctx.tc_jayil_jay_mappings
   let freshness_string ctx = ctx.tc_fresh_suffix_separator
   let acontextual_recursion ctx = not ctx.tc_contextual_recursion
 

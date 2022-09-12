@@ -9,7 +9,7 @@ end;;
 
 type t = {
 
-  is_natodefa : bool;
+  is_jay : bool;
   (** A set of odefa variables that were added during instrumentation
       (as opposed to being in the original code or added during pre-
       instrumentation translation).  The instrumentation variable
@@ -29,8 +29,8 @@ type t = {
 [@@ deriving show]
 ;;
 
-let empty is_natodefa = {
-  is_natodefa = is_natodefa;
+let empty is_jay = {
+  is_jay = is_jay;
   jayil_pre_instrument_clause_mapping = Ast.Ident_map.empty;
   jayil_instrument_vars_map = Ast.Ident_map.empty;
 }
@@ -71,7 +71,7 @@ let get_pre_inst_equivalent_clause mappings odefa_ident =
         (Ast.show_ident odefa_ident))
 ;;
 
-let is_natodefa mappings = mappings.is_natodefa;;
+let is_jay mappings = mappings.is_jay;;
 
 let is_var_instrumenting mappings odefa_ident =
   let inst_map = mappings.jayil_instrument_vars_map in
@@ -87,7 +87,7 @@ let get_pre_inst_var_opt mappings x =
 
 let inherit_from_jay_to_jayil_maps inst_map_nat = 
   {
-  is_natodefa = true;
+  is_jay = true;
   jayil_pre_instrument_clause_mapping = Ast.Ident_map.empty;
   jayil_instrument_vars_map = inst_map_nat;
 }
