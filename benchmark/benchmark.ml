@@ -18,12 +18,14 @@ let is_mac =
 let time_bin = if is_mac then "gtime" else "/usr/bin/time"
 let timeout_bin = if is_mac then "gtimeout" else "/usr/bin/timeout"
 let testcase_path (cfg : Config.t) test = Filename.concat cfg.test_path test
+let escape_path s = String.substr_replace_all ~pattern:"/" ~with_:"_" s
 
 let result_path (cfg : Config.t) test n =
-  Filename.concat cfg.working_path ((test ^ "_" ^ string_of_int n) ^ ".txt")
+  Filename.concat cfg.working_path
+    ((escape_path test ^ "_" ^ string_of_int n) ^ ".txt")
 
 let time_result_path (cfg : Config.t) test =
-  Filename.concat cfg.working_path (test ^ ".time.txt")
+  Filename.concat cfg.working_path (escape_path test ^ ".time.txt")
 
 let prepare (cfg : Config.t) : unit t =
   run "rm" [ "-rf"; cfg.working_path ]

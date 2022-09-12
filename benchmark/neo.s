@@ -2,6 +2,9 @@
   ; higher-order bmc
   ; no better than forward
 
+  ; smbc
+  ; vendor/smbc_data/_opam/bin/smbc benchmark/cases/smbc/fold/fold0.smt2
+
   ; higher-order runtime contract
   ; 
 
@@ -16,7 +19,8 @@
 
     ; "list_flatten.jay"
 
-    "k_cfa_2.jay"
+    ; "ddse/k_cfa_2.jay"
+    "smbc/fold/fold0.jay"
     ; "k_cfa_3.jay"
     ; "input_map.jay"
     ; "input_mj09.jay"

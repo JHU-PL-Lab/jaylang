@@ -1,0 +1,33 @@
+# Std.List - start
+
+let rec fetch lst n = 
+  match lst with
+  | x :: xs -> if n == 0 then x else fetch xs (n-1)
+  | [] -> 0
+  end
+in
+
+let rec eval env e =
+  match e with
+  | `N n -> n
+  | `Add e -> 
+    let e1 = e.e1 in
+    let e2 = e.e2 in
+    (eval env e1) + (eval env e2)
+  end
+in
+
+# Std.List - end
+
+let l0 = [1, 2, 3, 4, 5] in
+let x = input in
+let y = input in
+let n3 = `N 3 in
+let n4 = `N 4 in
+let e2 = `Add {e1 = n3, e2 = n4} in
+
+if (fetch l0 1) == x 
+    and (eval l0 e2) == y then
+  let target = 1 in 1
+else
+  42

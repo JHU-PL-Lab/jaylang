@@ -1,0 +1,11 @@
+let x = input in
+let f n = 
+  let fx = input in
+  fx == 0
+in
+let s1 = f 0 in
+let s2 = f 0 in
+if s1 and (not s2) then
+  let target = 0 in target
+else 
+  42

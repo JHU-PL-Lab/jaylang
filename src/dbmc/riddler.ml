@@ -312,7 +312,7 @@ let step_check ~(config : Global_config.t) ~(state : Global_state.t) stride =
         m "Step %d\t%a\n" state.tree_size Lookup_key.pp this_key) ; *)
     match check state config with
     | Some { model; c_stk } ->
-        Fmt.pr "Check this\n" ;
+        (* Fmt.pr "Check this\n" ; *)
         Lwt.fail (Found_solution { model; c_stk })
     | None ->
         if !stride < config.stride_max

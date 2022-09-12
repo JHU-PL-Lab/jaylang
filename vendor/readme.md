@@ -28,3 +28,13 @@ A full-HFLz solver
 https://github.com/philnguyen
 /soft-contract
 https://github.com/camoy/corpse-reviver
+
+# preparing `sbmc`
+
+```console
+opam switch create ./
+opam pin 'https://github.com/c-cube/smbc.git#master'
+opam install smbc
+smbc --help
+
+```
