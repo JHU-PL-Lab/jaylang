@@ -29,7 +29,7 @@ https://github.com/philnguyen
 /soft-contract
 https://github.com/camoy/corpse-reviver
 
-# preparing `sbmc`
+# preparing `smbc`
 
 ```console
 opam switch create ./
