@@ -1,5 +1,20 @@
-# EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH target [ 0 ]
+# Std.List - start
+
+let rec append l1 l2 =
+  match l1 with
+  | x :: xs -> x :: (append xs l2)
+  | [] -> l2
+  end
+in
+
+let rec rev lst =
+  match lst with
+  | x :: xs -> append (rev xs) [x]
+  | [] -> l2
+  end
+in
+
+# Std.List - end
 
 let dummy = 1 in
 let none = {last = true} in

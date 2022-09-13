@@ -1,5 +1,3 @@
-# Std.List - start
-
 let rec fetch lst n = 
   match lst with
   | x :: xs -> if n == 0 then x else fetch xs (n-1)
@@ -10,24 +8,47 @@ in
 let rec eval env e =
   match e with
   | `N n -> n
-  | `Add e -> 
+  | `V n -> fetch env n
+  | `Plus e -> 
     let e1 = e.e1 in
     let e2 = e.e2 in
     (eval env e1) + (eval env e2)
+  | `Minus e -> 
+    let e1 = e.e1 in
+    let e2 = e.e2 in
+    (eval env e1) - (eval env e2)
+  | `Mult e -> 
+    let e1 = e.e1 in
+    let e2 = e.e2 in
+    (eval env e1) * (eval env e2)
+  | `Eq e ->
+    let e1 = e.e1 in
+    let e2 = e.e2 in
+    let v1 = eval env e1 in
+    let v2 = eval env e2 in
+    if v1 == v2 then 1 else 0
   end
 in
 
-# Std.List - end
+# let equal e1 e2 = e1 == e2 in
 
-let l0 = [1, 2, 3, 4, 5] in
 let x = input in
 let y = input in
+let l0 = [0, 1, 2, 3, 4] in
 let n3 = `N 3 in
 let n4 = `N 4 in
-let e2 = `Add {e1 = n3, e2 = n4} in
+let n5 = `N 5 in
+let e3 = `Minus {e1 = n5, e2 = n4} in
+let n6 = `N 6 in
+let v2 = `V 2 in
+let e4 = `Mult {e1 = e3, e2 = v2} in
+# let b5 = `Eq {e1 = n4, e2 = n5} in
+let e5 = `Plus {e1 = e4, e2 = n3} in
+#let e5 = `Plus {e1 = e4, e2 = b5} in
 
 if (fetch l0 1) == x 
-    and (eval l0 e2) == y then
+    and (eval l0 e3) == y 
+then
   let target = 1 in 1
 else
   42
