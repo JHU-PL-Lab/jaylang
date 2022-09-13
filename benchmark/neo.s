@@ -46,6 +46,14 @@
     ; long_rev_sum3.jay
 
     ; smbc/pigeon/pigeon4.jay
+
+    ; now for hopv/mochi
+    ;"mochi/mochi/ack.jay"
+    
+    ; slow
+    ;"mochi/mochi/array_init.jay"
+
+    
     )
   )
   (testcases_not_time (

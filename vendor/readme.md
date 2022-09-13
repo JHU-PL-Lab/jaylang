@@ -73,6 +73,17 @@ sudo apt install libglpk-dev
 
 ```console
 git clone https://github.com/hopv/benchmarks
-cd benchmark
+cd benchmarks
 ../MoCHi/src/mochi.exe caml/lia/mochi/ack.ml
 ```
+
+Q: What is the difference between `lia` and `dorder_lia`
+A: No answer yet.
+Searching `dorder` in `hopv` suggests an APLOS'17 paper, but no one matches after checking.
+I asked on it on GitHub.
+
+The `vender/hopv/diff_lia_dorder_lia.diff` shows the `dorder` versions
+
+1. The majority is the same.
+2. `dorder` annotates a few more types.
+3. `if` clause and `assert` clause always comes with a `else ()`.
