@@ -38,3 +38,41 @@ opam install smbc
 smbc --help
 
 ```
+
+# preparing hopv's `mochi`
+
+```console
+(install rust at https://www.rust-lang.org/learn/get-started)
+git clone https://github.com/hopv/hoice
+mkdir hoice
+cd hoice
+cargo install --git https://github.com/hopv/hoice
+
+```
+
+
+```console
+git clone https://github.com/hopv/horsat2
+cd horsat2
+make horsat2
+
+(add this path to path)
+
+
+```
+
+```console
+git clone https://github.com/hopv/MoCHi.git
+opam switch create ./ 4.11.2
+opam install z3 dune batteries ocamlfind ppx_deriving yojson camlp5 zarith apron menhir
+
+sudo apt install libglpk-dev
+./build
+./src/mochi.exe -help
+```
+
+```console
+git clone https://github.com/hopv/benchmarks
+cd benchmark
+../MoCHi/src/mochi.exe caml/lia/mochi/ack.ml
+```
