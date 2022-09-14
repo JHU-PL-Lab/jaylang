@@ -1,0 +1,13 @@
+let a = `A 1 in
+let c = 
+  match a with
+  | `A x -> x
+  | `B y -> y
+  | `C y -> y
+  end
+in
+let x = input in
+if c == x then
+  let target = 1 in 1
+else
+  42

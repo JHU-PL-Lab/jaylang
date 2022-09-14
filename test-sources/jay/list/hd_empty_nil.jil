@@ -1,0 +1,15 @@
+void = {};
+nil = {___empty=void};
+l = nil;
+
+#s0   = {___head=three, ___tail=nil};
+
+case_cons  = l ~ {___head,  ___tail};
+r0 = case_cons ? (
+        r1 = l.___head;
+     ) : (
+        #case_empty = l ~ {___empty};
+        r4 = abort
+     );
+
+target = r0

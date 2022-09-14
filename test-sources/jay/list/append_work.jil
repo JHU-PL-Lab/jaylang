@@ -1,0 +1,63 @@
+end = {};
+
+append0 = fun fa -> (
+  ar1 = fun l1 -> (
+    ar2 = fun l2 -> (
+      ff = fa fa;
+      case_cons_a = l1 ~ {head_,  tail_};
+      case_empty_a = l1 ~ {empty_};
+      cons_cr = 
+        case_cons_a ? (
+          x = l1.head_;
+          xs = l1.tail_;
+
+          appl___19 = ff xs;
+          appl___21 = appl___19 l2;
+          cons_r = {
+            cons_ = end,
+            head_ = x,
+            tail_ = appl___21
+          }
+        ) : (
+          empty_cr = 
+            case_empty_a ? (
+              empty_r = l2
+            ) : (
+              ab_a = abort
+            )
+        )
+    )
+  )
+);
+append = append0 append0;
+
+#hd = fun l -> (
+#  case_empty = l ~ {empty_};
+#  case_cons =  l ~ {head_,  tail_};
+#  hd_result = 
+#    case_cons ? (
+#      l_tail = l.tail_;
+#      l_head = l.head_;
+#    ) : (
+#      ab = abort
+#    )
+#);
+
+hd = fun l -> (
+  r_hd = l.head_
+);
+
+x1 = input;
+
+three = 3;
+nil_0 = {empty_ = end};
+list_0 = {head_=three, tail_=nil_0};
+
+nil_1 = {empty_ = end};
+
+appl___46 = append list_0;
+s = appl___46 nil_1;
+s0 = hd s;
+
+binop___54 = s0 == x1;
+rrr = binop___54 ? (target = 1) : (void = 42)
