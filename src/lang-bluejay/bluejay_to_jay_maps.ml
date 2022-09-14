@@ -37,7 +37,7 @@ type t = {
   sem_to_syn : syn_bluejay_edesc Intermediate_expr_desc_map.t;
   core_to_sem : sem_bluejay_edesc Core_expr_desc_map.t;
   error_to_expr_tag : int Intermediate_expr_desc_map.t;
-  error_to_rec_fun_type : sem_bluejay_edesc Ident_map.t;
+  error_to_rec_fun_type : ident Ident_map.t;
   error_to_value_expr : sem_bluejay_edesc Intermediate_expr_desc_map.t;
   syn_tags : int list;
 }
@@ -82,11 +82,11 @@ let add_error_expr_tag_mapping mappings err_expr expr_tag =
       Intermediate_expr_desc_map.add err_expr expr_tag error_expr_tag_mapping;
   }
 
-let add_error_rec_fun_type_mapping mappings x e =
+let add_error_rec_fun_type_mapping mappings x f =
   let error_rec_fun_type_map = mappings.error_to_rec_fun_type in
   {
     mappings with
-    error_to_rec_fun_type = Ident_map.add x e error_rec_fun_type_map;
+    error_to_rec_fun_type = Ident_map.add x f error_rec_fun_type_map;
   }
 
 let add_error_value_expr_mapping mappings err_e v_e =
@@ -153,8 +153,8 @@ let find_all_syn_tags bluejay_jay_maps (edesc : syn_bluejay_edesc) =
         let acc'' = loop acc' e2 in
         loop acc'' t
     | LetRecFunWithType (typed_funsigs, e) ->
-        let collect_types acc f_sig =
-          match f_sig with
+        let collect_types acc fun_sig =
+          match fun_sig with
           | Typed_funsig (_, typed_params, (f_body, ret_type)) ->
               let param_types = List.map (fun (_, t) -> t) typed_params in
               param_types @ [ f_body; ret_type; e ] @ acc
@@ -163,8 +163,8 @@ let find_all_syn_tags bluejay_jay_maps (edesc : syn_bluejay_edesc) =
         in
         let types = List.fold collect_types [ e ] typed_funsigs in
         List.fold loop acc types
-    | LetFunWithType (f_sig, e) -> (
-        match f_sig with
+    | LetFunWithType (fun_sig, e) -> (
+        match fun_sig with
         | Typed_funsig (_, typed_params, (f_body, ret_type)) ->
             let param_types = List.map (fun (_, t) -> t) typed_params in
             let all_exprs = param_types @ [ f_body; ret_type; e ] in
@@ -526,8 +526,8 @@ let rec replace_type (t_desc : syn_bluejay_edesc) (new_t : syn_bluejay_edesc)
     let transform_funsig (Funsig (fid, args, fe_desc)) =
       Funsig (fid, args, replace_type fe_desc new_t tag)
     in
-    let transform_typed_funsig f_sig =
-      match f_sig with
+    let transform_typed_funsig fun_sig =
+      match fun_sig with
       | Typed_funsig (fid, typed_params, (f_body, ret_type)) ->
           let typed_params' =
             List.map

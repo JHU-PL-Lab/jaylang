@@ -585,14 +585,14 @@ let rec from_internal_expr_desc (e : syn_bluejay_edesc) : Bluejay_ast.expr_desc
   let e' = from_internal_expr e.body in
   { tag = tag'; body = e' }
 
-and transform_funsig (f_sig : 'a funsig) : Bluejay_ast.funsig =
-  let (Funsig (f, args, f_body)) = f_sig in
+and transform_funsig (fun_sig : 'a funsig) : Bluejay_ast.funsig =
+  let (Funsig (f, args, f_body)) = fun_sig in
   let f_body' = from_internal_expr_desc f_body in
   Bluejay_ast.Funsig (f, args, f_body')
 
-and transform_typed_funsig (f_sig : 'a typed_funsig) : Bluejay_ast.typed_funsig
-    =
-  match f_sig with
+and transform_typed_funsig (fun_sig : 'a typed_funsig) :
+    Bluejay_ast.typed_funsig =
+  match fun_sig with
   | Typed_funsig (f, args_with_type, (f_body, ret_type)) ->
       let args_with_type' =
         List.map
@@ -627,10 +627,10 @@ and from_internal_expr (e : syn_type_bluejay) : Bluejay_ast.expr =
       let fs' = List.map transform_funsig fs in
       let ed' = from_internal_expr_desc ed in
       LetRecFun (fs', ed')
-  | LetFun (f_sig, ed) ->
-      let f_sig' = transform_funsig f_sig in
+  | LetFun (fun_sig, ed) ->
+      let fun_sig' = transform_funsig fun_sig in
       let ed' = from_internal_expr_desc ed in
-      LetFun (f_sig', ed')
+      LetFun (fun_sig', ed')
   | LetWithType (x, ed1, ed2, t) ->
       let ed1' = from_internal_expr_desc ed1 in
       let ed2' = from_internal_expr_desc ed2 in
@@ -640,10 +640,10 @@ and from_internal_expr (e : syn_type_bluejay) : Bluejay_ast.expr =
       let fs' = List.map transform_typed_funsig fs in
       let ed' = from_internal_expr_desc ed in
       LetRecFunWithType (fs', ed')
-  | LetFunWithType (f_sig, ed) ->
-      let f_sig' = transform_typed_funsig f_sig in
+  | LetFunWithType (fun_sig, ed) ->
+      let fun_sig' = transform_typed_funsig fun_sig in
       let ed' = from_internal_expr_desc ed in
-      LetFunWithType (f_sig', ed')
+      LetFunWithType (fun_sig', ed')
   | Plus (ed1, ed2) ->
       let ed1' = from_internal_expr_desc ed1 in
       let ed2' = from_internal_expr_desc ed2 in
@@ -777,14 +777,14 @@ let rec to_internal_expr_desc (e : Bluejay_ast.expr_desc) : syn_bluejay_edesc =
   let e' = to_internal_expr e.body in
   { tag = tag'; body = e' }
 
-and transform_funsig (f_sig : Bluejay_ast.funsig) : 'a funsig =
-  let (Bluejay_ast.Funsig (f, args, f_body)) = f_sig in
+and transform_funsig (fun_sig : Bluejay_ast.funsig) : 'a funsig =
+  let (Bluejay_ast.Funsig (f, args, f_body)) = fun_sig in
   let f_body' = to_internal_expr_desc f_body in
   Funsig (f, args, f_body')
 
-and transform_typed_funsig (f_sig : Bluejay_ast.typed_funsig) : 'a typed_funsig
-    =
-  match f_sig with
+and transform_typed_funsig (fun_sig : Bluejay_ast.typed_funsig) :
+    'a typed_funsig =
+  match fun_sig with
   | Bluejay_ast.Typed_funsig (f, args_with_type, (f_body, ret_type)) ->
       let args_with_type' =
         List.map (fun (arg, t) -> (arg, to_internal_expr_desc t)) args_with_type
@@ -816,10 +816,10 @@ and to_internal_expr (e : Bluejay_ast.expr) : syn_type_bluejay =
       let fs' = List.map transform_funsig fs in
       let ed' = to_internal_expr_desc ed in
       LetRecFun (fs', ed')
-  | LetFun (f_sig, ed) ->
-      let f_sig' = transform_funsig f_sig in
+  | LetFun (fun_sig, ed) ->
+      let fun_sig' = transform_funsig fun_sig in
       let ed' = to_internal_expr_desc ed in
-      LetFun (f_sig', ed')
+      LetFun (fun_sig', ed')
   | LetWithType (x, ed1, ed2, t) ->
       let ed1' = to_internal_expr_desc ed1 in
       let ed2' = to_internal_expr_desc ed2 in
@@ -829,10 +829,10 @@ and to_internal_expr (e : Bluejay_ast.expr) : syn_type_bluejay =
       let fs' = List.map transform_typed_funsig fs in
       let ed' = to_internal_expr_desc ed in
       LetRecFunWithType (fs', ed')
-  | LetFunWithType (f_sig, ed) ->
-      let f_sig' = transform_typed_funsig f_sig in
+  | LetFunWithType (fun_sig, ed) ->
+      let fun_sig' = transform_typed_funsig fun_sig in
       let ed' = to_internal_expr_desc ed in
-      LetFunWithType (f_sig', ed')
+      LetFunWithType (fun_sig', ed')
   | Plus (ed1, ed2) ->
       let ed1' = to_internal_expr_desc ed1 in
       let ed2' = to_internal_expr_desc ed2 in
@@ -966,8 +966,8 @@ let rec from_jay_expr_desc (e : Jay.Jay_ast.expr_desc) : core_bluejay_edesc =
   let e' = from_jay_expr e.body in
   { tag = tag'; body = e' }
 
-and transform_funsig (f_sig : Jay.Jay_ast.funsig) : core_only funsig =
-  let (Jay.Jay_ast.Funsig (f, args, f_body)) = f_sig in
+and transform_funsig (fun_sig : Jay.Jay_ast.funsig) : core_only funsig =
+  let (Jay.Jay_ast.Funsig (f, args, f_body)) = fun_sig in
   let f_body' = from_jay_expr_desc f_body in
   Funsig (f, args, f_body')
 
@@ -1002,10 +1002,10 @@ and from_jay_expr (e : Jay.Jay_ast.expr) : core_bluejay =
       let fs' = List.map transform_funsig fs in
       let ed' = from_jay_expr_desc ed in
       LetRecFun (fs', ed')
-  | LetFun (f_sig, ed) ->
-      let f_sig' = transform_funsig f_sig in
+  | LetFun (fun_sig, ed) ->
+      let fun_sig' = transform_funsig fun_sig in
       let ed' = from_jay_expr_desc ed in
-      LetFun (f_sig', ed')
+      LetFun (fun_sig', ed')
   | Plus (ed1, ed2) ->
       let ed1' = from_jay_expr_desc ed1 in
       let ed2' = from_jay_expr_desc ed2 in
@@ -1107,8 +1107,8 @@ let rec to_jay_expr_desc (e : core_bluejay_edesc) : Jay.Jay_ast.expr_desc =
   let e' = to_jay_expr e.body in
   { tag = tag'; body = e' }
 
-and transform_funsig (f_sig : core_only funsig) : Jay.Jay_ast.funsig =
-  let (Funsig (f, args, f_body)) = f_sig in
+and transform_funsig (fun_sig : core_only funsig) : Jay.Jay_ast.funsig =
+  let (Funsig (f, args, f_body)) = fun_sig in
   let f_body' = to_jay_expr_desc f_body in
   Jay.Jay_ast.Funsig (f, args, f_body')
 
@@ -1143,10 +1143,10 @@ and to_jay_expr (e : core_bluejay) : Jay.Jay_ast.expr =
       let fs' = List.map transform_funsig fs in
       let ed' = to_jay_expr_desc ed in
       LetRecFun (fs', ed')
-  | LetFun (f_sig, ed) ->
-      let f_sig' = transform_funsig f_sig in
+  | LetFun (fun_sig, ed) ->
+      let fun_sig' = transform_funsig fun_sig in
       let ed' = to_jay_expr_desc ed in
-      LetFun (f_sig', ed')
+      LetFun (fun_sig', ed')
   | Plus (ed1, ed2) ->
       let ed1' = to_jay_expr_desc ed1 in
       let ed2' = to_jay_expr_desc ed2 in

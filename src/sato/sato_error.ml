@@ -869,158 +869,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
          in *)
       (* let () = List.iter ~f:(fun x -> print_endline @@ Bluejay_ast_pp.show_expr_desc x) sem_val_expr_lst in *)
       let v = Dbmc.Interpreter.value_of_dvalue err_val in
-      (* Here we need to refine the expected type; since they could be aliases to
-         the type value rather than the types themselves.
-         e.g. let x = bool in let (y : x) = true in y and false *)
-      let expected_type, err_var =
-        match err_source.body with
-        | LetWithType (x, _, _, t) ->
-            let ret =
-              Var x |> Bluejay_ast_internal.new_expr_desc
-              |> Bluejay_ast_internal.from_internal_expr_desc
-            in
-            (t, ret)
-        | LetFunWithType (Funsig (x, _, _), _, t) ->
-            let ret =
-              Var x |> Bluejay_ast_internal.new_expr_desc
-              |> Bluejay_ast_internal.from_internal_expr_desc
-            in
-            (t, ret)
-        | LetRecFunWithType (fsigs, _, ts) -> (
-            let precise_lookup =
-              core_nat_aliases
-              |> List.filter_map ~f:(fun alias ->
-                     match alias.body with Error idnt -> Some idnt | _ -> None)
-              |> List.filter_map ~f:(fun x ->
-                     Ident_map.find_opt x bluejay_jay_maps.error_to_rec_fun_type)
-            in
-            let precise_type =
-              if List.is_empty precise_lookup
-              then failwith "No type found!"
-              else
-                List.hd_exn precise_lookup
-                |> Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay
-                     bluejay_jay_maps
-                (* let () = failwith @@ On_to_jayil.show_expr_desc x
-                   in *)
-                (* let () = failwith "1" in *)
-                |> Bluejay_ast_internal.from_internal_expr_desc
-            in
-            let fsig_with_types = List.zip_exn fsigs ts in
-            let var_opt =
-              List.fold
-                ~f:(fun acc (Funsig (x, _, _), t) ->
-                  if Bluejay_ast.equal_expr_desc t precise_type
-                  then Some x
-                  else acc)
-                ~init:None fsig_with_types
-            in
-            match var_opt with
-            | Some x ->
-                let ret =
-                  Var x |> Bluejay_ast_internal.new_expr_desc
-                  |> Bluejay_ast_internal.from_internal_expr_desc
-                in
-                (precise_type, ret)
-            | None -> failwith "Should have found the type signature!")
-        | _ -> failwith "Shouldn't be here!"
-      in
-      let expected_type_internal =
-        expected_type |> Bluejay_ast_internal.to_internal_expr_desc
-      in
-      (* TODO: How to handle this? Is this worth the effort? *)
-      (* let rec type_resolution (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
-             Bluejay_ast_internal.syn_bluejay_edesc =
-           let open Bluejay_ast_internal in
-           let tag = ed.tag in
-           let e = ed.body in
-           match e with
-           | TypeVar _ | TypeInt | TypeBool -> ed
-           | TypeRecord r ->
-               let body' = TypeRecord (Ident_map.map type_resolution r) in
-               { tag; body = body' }
-           | TypeList led ->
-               let body' = TypeList (type_resolution led) in
-               { tag; body = body' }
-           | TypeArrow (ed1, ed2) ->
-               let ed1' = type_resolution ed1 in
-               let ed2' = type_resolution ed2 in
-               let body' = TypeArrow (ed1', ed2') in
-               { tag; body = body' }
-           | TypeArrowD ((x, ed1), ed2) ->
-               let ed1' = type_resolution ed1 in
-               let ed2' = type_resolution ed2 in
-               let body' = TypeArrowD ((x, ed1'), ed2') in
-               { tag; body = body' }
-           | TypeUnion (ed1, ed2) ->
-               let ed1' = type_resolution ed1 in
-               let ed2' = type_resolution ed2 in
-               let body' = TypeUnion (ed1', ed2') in
-               { tag; body = body' }
-           | TypeIntersect (ed1, ed2) ->
-               let ed1' = type_resolution ed1 in
-               let ed2' = type_resolution ed2 in
-               let body' = TypeIntersect (ed1', ed2') in
-               { tag; body = body' }
-           | TypeSet (ed, pred) ->
-               let ed' = type_resolution ed in
-               let body' = TypeSet (ed', pred) in
-               { tag; body = body' }
-           | TypeRecurse (rec_id, ed) ->
-               let ed' = type_resolution ed in
-               let body' = TypeRecurse (rec_id, ed') in
-               { tag; body = body' }
-           | _ -> (
-               (* Potential FIXME: A lot of things could go wrong here... *)
-               let jayil_vars =
-                 ed
-                 |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps
-                 |> Bluejay_to_jay_maps.get_core_expr_from_sem_expr
-                      bluejay_jay_maps
-                 |> Option.value_exn |> Bluejay_ast_internal.to_jay_expr_desc
-                 |> Jay_to_jayil_maps.get_odefa_var_opt_from_natodefa_expr
-                      jayil_jay_maps
-                 |> Option.value_exn
-                 |> (fun (Ast.Var (x, _)) ->
-                      Sato_tools.find_alias_without_stack alias_graph x)
-                 |> List.concat
-                 |> List.filter ~f:(fun (_, stk) ->
-                        Dbmc.Concrete_stack.equal stk relevant_stk)
-                 |> List.map ~f:(Sato_tools.find_alias alias_graph)
-                 |> List.concat
-               in
-               let val_exprs =
-                 let relevant_tags = bluejay_jay_maps.syn_tags in
-                 jayil_vars
-                 |> List.map ~f:(fun (x, _) -> x)
-                 |> List.filter_map ~f:jayil_to_jay_expr
-                 |> List.map ~f:Bluejay_ast_internal.from_jay_expr_desc
-                 |> List.map
-                      ~f:
-                        (Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay
-                           bluejay_jay_maps)
-                 |> List.map
-                      ~f:
-                        (Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay
-                           bluejay_jay_maps)
-                 |> List.filter ~f:(fun ed ->
-                        List.mem relevant_tags ed.tag ~equal:( = ))
-                 |> Batteries.List.unique
-               in
-               let type_exprs =
-                 val_exprs |> List.filter ~f:Bluejay_ast_internal.is_type_expr
-               in
-               (* let () =
-                    List.iter ~f:(fun ed -> print_endline @@ Bluejay_ast_pp.show_expr_desc (Bluejay_ast_internal.from_internal_expr_desc ed)) val_exprs
-                  in *)
-               let val_expr_cleansed_opt =
-                 type_exprs |> List.map ~f:type_resolution |> List.hd
-               in
-               match val_expr_cleansed_opt with
-               | None -> List.hd_exn val_exprs
-               | Some l -> l)
-         in *)
-      (* NOTE: The case where a variable might take on different types for 
+      (* NOTE: The case where a variable might take on different types for
          different instances might be problematic here. *)
       let check_aliases_for_type (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
           Bluejay_ast_internal.syn_bluejay_edesc option =
@@ -1068,7 +917,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           Bluejay_ast_internal.syn_bluejay_edesc =
         let open Bluejay_ast_internal in
         let type_expr_opt = check_aliases_for_type ed in
-        let resolve_type ted = 
+        let resolve_type ted =
           let tag = ted.tag in
           let e = ted.body in
           match e with
@@ -1107,156 +956,306 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
               let ed' = type_resolution ed in
               let body' = TypeRecurse (rec_id, ed') in
               { tag; body = body' }
-          | _ -> failwith "Should be working with a type expression!" 
-        in        
-        let resolve_non_type ed = 
+          | _ -> failwith "Should be working with a type expression!"
+        in
+        let resolve_non_type ed =
           let tag = ed.tag in
           let e = ed.body in
-          let transform_funsig (f_sig : syntactic_only funsig) = 
-            let (Funsig (f, args, f_body)) = f_sig in
+          let transform_funsig (fun_sig : syntactic_only funsig) =
+            let (Funsig (f, args, f_body)) = fun_sig in
             let f_body' = type_resolution f_body in
             Funsig (f, args, f_body')
+          in
+          let transform_typed_funsig (fun_sig : syntactic_only typed_funsig) :
+              syntactic_only typed_funsig =
+            match fun_sig with
+            | Typed_funsig (f, args_with_type, (f_body, ret_type)) ->
+                let args_with_type' =
+                  List.map
+                    ~f:(fun (arg, t) -> (arg, type_resolution t))
+                    args_with_type
+                in
+                let f_body' = type_resolution f_body in
+                let ret_type' = type_resolution ret_type in
+                Typed_funsig (f, args_with_type', (f_body', ret_type'))
+            | DTyped_funsig (f, (arg, t), (f_body, ret_type)) ->
+                let f_body' = type_resolution f_body in
+                let ret_type' = type_resolution ret_type in
+                DTyped_funsig (f, (arg, type_resolution t), (f_body', ret_type'))
           in
           match e with
           | Int _ | Bool _ | Var _ | Input -> ed
           | Function (args, fed) ->
-            {tag; body = Function (args, type_resolution fed)}
+              { tag; body = Function (args, type_resolution fed) }
           | Appl (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = Appl (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = Appl (ed1', ed2') }
           | Let (x, ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = Let (x, ed1', ed2')}
-          | LetRecFun (f_sigs, ed) ->
-            let f_sigs' = List.map ~f:transform_funsig f_sigs in
-            let ed' = type_resolution ed in
-            {tag; body = LetRecFun (f_sigs', ed')}
-          | LetFun (f_sig, ed) ->
-            let f_sig' = transform_funsig f_sig in
-            let ed' = type_resolution ed in
-            {tag; body = LetFun (f_sig', ed')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = Let (x, ed1', ed2') }
+          | LetRecFun (fun_sigs, ed) ->
+              let fun_sigs' = List.map ~f:transform_funsig fun_sigs in
+              let ed' = type_resolution ed in
+              { tag; body = LetRecFun (fun_sigs', ed') }
+          | LetFun (fun_sig, ed) ->
+              let fun_sig' = transform_funsig fun_sig in
+              let ed' = type_resolution ed in
+              { tag; body = LetFun (fun_sig', ed') }
           | LetWithType (x, ed1, ed2, ed3) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            let ed3' = type_resolution ed3 in
-            {tag; body = LetWithType (x, ed1', ed2', ed3')}
-          | LetRecFunWithType (f_sigs, ed, ts) ->
-            let f_sigs' = List.map ~f:transform_funsig f_sigs in
-            let ed' = type_resolution ed in
-            let ts' = List.map ~f:type_resolution ts in
-            {tag; body = LetRecFunWithType (f_sigs', ed', ts')}
-          | LetFunWithType (f_sig, ed, t) ->
-            let f_sig' = transform_funsig f_sig in
-            let ed' = type_resolution ed in
-            let t' = type_resolution t in
-            {tag; body = LetFunWithType (f_sig', ed', t')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              let ed3' = type_resolution ed3 in
+              { tag; body = LetWithType (x, ed1', ed2', ed3') }
+          | LetRecFunWithType (fun_sigs, ed) ->
+              let fun_sigs' = List.map ~f:transform_typed_funsig fun_sigs in
+              let ed' = type_resolution ed in
+              { tag; body = LetRecFunWithType (fun_sigs', ed') }
+          | LetFunWithType (fun_sig, ed) ->
+              let fun_sig' = transform_typed_funsig fun_sig in
+              let ed' = type_resolution ed in
+              { tag; body = LetFunWithType (fun_sig', ed') }
           | Plus (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = Plus (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = Plus (ed1', ed2') }
           | Minus (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = Minus (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = Minus (ed1', ed2') }
           | Times (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = Times (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = Times (ed1', ed2') }
           | Divide (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = Divide (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = Divide (ed1', ed2') }
           | Modulus (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = Modulus (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = Modulus (ed1', ed2') }
           | Equal (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = Equal (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = Equal (ed1', ed2') }
           | Neq (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = Neq (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = Neq (ed1', ed2') }
           | LessThan (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = LessThan (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = LessThan (ed1', ed2') }
           | Leq (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = Leq (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = Leq (ed1', ed2') }
           | GreaterThan (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = GreaterThan (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = GreaterThan (ed1', ed2') }
           | Geq (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = Geq (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = Geq (ed1', ed2') }
           | And (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = And (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = And (ed1', ed2') }
           | Or (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = Or (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = Or (ed1', ed2') }
           | Not ed ->
-            let ed' = type_resolution ed in
-            {tag; body = Not ed'}
+              let ed' = type_resolution ed in
+              { tag; body = Not ed' }
           | If (ed1, ed2, ed3) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            let ed3' = type_resolution ed3 in
-            {tag; body = If (ed1', ed2', ed3')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              let ed3' = type_resolution ed3 in
+              { tag; body = If (ed1', ed2', ed3') }
           | Record r ->
-            let r' = Ident_map.map type_resolution r in
-            {tag; body = Record r'}
+              let r' = Ident_map.map type_resolution r in
+              { tag; body = Record r' }
           | RecordProj (ed, l) ->
-            let ed' = type_resolution ed in
-            {tag; body = RecordProj (ed', l)}
+              let ed' = type_resolution ed in
+              { tag; body = RecordProj (ed', l) }
           | Match (ed, pat_ed_lst) ->
-            let ed' = type_resolution ed in
-            let pat_ed_lst' = 
-              List.map 
-                ~f:(fun (pat, ed) -> (pat, type_resolution ed))
-                pat_ed_lst
-            in
-            {tag; body = Match (ed', pat_ed_lst')}
+              let ed' = type_resolution ed in
+              let pat_ed_lst' =
+                List.map
+                  ~f:(fun (pat, ed) -> (pat, type_resolution ed))
+                  pat_ed_lst
+              in
+              { tag; body = Match (ed', pat_ed_lst') }
           | VariantExpr (v_lbl, ed) ->
-            let ed' = type_resolution ed in
-            {tag; body = VariantExpr (v_lbl, ed')}
+              let ed' = type_resolution ed in
+              { tag; body = VariantExpr (v_lbl, ed') }
           | List eds ->
-            let eds' = List.map ~f:type_resolution eds in
-            {tag; body = List eds'}
+              let eds' = List.map ~f:type_resolution eds in
+              { tag; body = List eds' }
           | ListCons (ed1, ed2) ->
-            let ed1' = type_resolution ed1 in
-            let ed2' = type_resolution ed2 in
-            {tag; body = ListCons (ed1', ed2')}
+              let ed1' = type_resolution ed1 in
+              let ed2' = type_resolution ed2 in
+              { tag; body = ListCons (ed1', ed2') }
           | Assert ed ->
-            let ed' = type_resolution ed in
-            {tag; body = Assert ed'}
+              let ed' = type_resolution ed in
+              { tag; body = Assert ed' }
           | Assume ed ->
-            let ed' = type_resolution ed in
-            {tag; body = Assume ed'}
-          | TypeError _ -> failwith "resolve_non_type: I'm not sure why you're here..."
-          | _ -> failwith "resolve_non_type: Should be working with a non-type expression!" 
+              let ed' = type_resolution ed in
+              { tag; body = Assume ed' }
+          | TypeError _ ->
+              failwith "resolve_non_type: I'm not sure why you're here..."
+          | _ ->
+              failwith
+                "resolve_non_type: Should be working with a non-type \
+                 expression!"
         in
         match type_expr_opt with
-        | Some t -> 
-          let () = print_endline "Found type aliases!" in
-          (* let () = 
-            print_endline @@ Bluejay_ast.show_expr_desc 
-            @@ Bluejay_ast_internal.from_internal_expr_desc t in *)
-          resolve_type t
-        | None -> 
-          let () = print_endline "No type aliases!" in
-          resolve_non_type ed
+        | Some t ->
+            let () = print_endline "Found type aliases!" in
+            (* let () =
+               print_endline @@ Bluejay_ast.show_expr_desc
+               @@ Bluejay_ast_internal.from_internal_expr_desc t in *)
+            resolve_type t
+        | None ->
+            let () = print_endline "No type aliases!" in
+            resolve_non_type ed
       in
-      let resolved_expected_type = type_resolution expected_type_internal in
+      (* Here we need to refine the expected type; since they could be aliases to
+         the type value rather than the types themselves.
+         e.g. let x = bool in let (y : x) = true in y and false *)
+      let expected_type, err_var =
+        match err_source.body with
+        | LetWithType (x, _, _, t) ->
+            let ret =
+              Var x |> Bluejay_ast_internal.new_expr_desc
+              |> Bluejay_ast_internal.from_internal_expr_desc
+            in
+            let t_internal = t |> Bluejay_ast_internal.to_internal_expr_desc in
+            let resolved_t = type_resolution t_internal in
+            (resolved_t, ret)
+        | LetFunWithType (fun_sig, _) -> (
+            match fun_sig with
+            | Typed_funsig (f, typed_params, (_, ret_type)) ->
+                let ret =
+                  Var f |> Bluejay_ast_internal.new_expr_desc
+                  |> Bluejay_ast_internal.from_internal_expr_desc
+                in
+                let fun_type =
+                  let ts =
+                    List.map
+                      ~f:(fun (_, t) ->
+                        Bluejay_ast_internal.to_internal_expr_desc t)
+                      typed_params
+                  in
+                  List.fold_right
+                    ~f:(fun t accum ->
+                      Bluejay_ast_internal.new_expr_desc
+                      @@ Bluejay_ast_internal.TypeArrow (t, accum))
+                    ~init:(Bluejay_ast_internal.to_internal_expr_desc ret_type)
+                    ts
+                in
+                (fun_type, ret)
+            | DTyped_funsig (f, (x, t), (_, ret_type)) ->
+                let ret =
+                  Var f |> Bluejay_ast_internal.new_expr_desc
+                  |> Bluejay_ast_internal.from_internal_expr_desc
+                in
+                let fun_type =
+                  Bluejay_ast_internal.new_expr_desc
+                  @@ Bluejay_ast_internal.TypeArrowD
+                       ( (x, Bluejay_ast_internal.to_internal_expr_desc t),
+                         Bluejay_ast_internal.to_internal_expr_desc ret_type )
+                in
+                (fun_type, ret))
+        | LetRecFunWithType (fsigs, _) -> (
+            let precise_lookup =
+              core_nat_aliases
+              |> List.filter_map ~f:(fun alias ->
+                     match alias.body with Error idnt -> Some idnt | _ -> None)
+              |> List.filter_map ~f:(fun x ->
+                     Ident_map.find_opt x bluejay_jay_maps.error_to_rec_fun_type)
+            in
+            let target_funsig =
+              let candidates =
+                List.filter
+                  ~f:(fun fun_sig ->
+                    match fun_sig with
+                    | Typed_funsig (f, _, _) | DTyped_funsig (f, _, _) ->
+                        List.mem precise_lookup f ~equal:Ident.equal)
+                  fsigs
+              in
+              if List.is_empty candidates
+              then failwith "No type found!"
+              else List.hd_exn candidates
+            in
+            match target_funsig with
+            | Typed_funsig (f, typed_params, (_, ret_type)) ->
+                let ret =
+                  Var f |> Bluejay_ast_internal.new_expr_desc
+                  |> Bluejay_ast_internal.from_internal_expr_desc
+                in
+                let fun_type =
+                  let ts =
+                    List.map
+                      ~f:(fun (_, t) ->
+                        Bluejay_ast_internal.to_internal_expr_desc t)
+                      typed_params
+                  in
+                  List.fold_right
+                    ~f:(fun t accum ->
+                      Bluejay_ast_internal.new_expr_desc
+                      @@ Bluejay_ast_internal.TypeArrow (t, accum))
+                    ~init:(Bluejay_ast_internal.to_internal_expr_desc ret_type)
+                    ts
+                in
+                (fun_type, ret)
+            | DTyped_funsig (f, (x, t), (_, ret_type)) ->
+                let ret =
+                  Var f |> Bluejay_ast_internal.new_expr_desc
+                  |> Bluejay_ast_internal.from_internal_expr_desc
+                in
+                let fun_type =
+                  Bluejay_ast_internal.new_expr_desc
+                  @@ Bluejay_ast_internal.TypeArrowD
+                       ( (x, Bluejay_ast_internal.to_internal_expr_desc t),
+                         Bluejay_ast_internal.to_internal_expr_desc ret_type )
+                in
+                (fun_type, ret)
+            (* let precise_type =
+                 if List.is_empty precise_lookup
+                 then failwith "No type found!"
+                 else
+                   List.hd_exn precise_lookup
+                   |> Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay
+                        bluejay_jay_maps
+                   (* let () = failwith @@ On_to_jayil.show_expr_desc x
+                      in *)
+                   (* let () = failwith "1" in *)
+                   |> Bluejay_ast_internal.from_internal_expr_desc
+               in
+               let fsig_with_types = List.zip_exn fsigs ts in
+               let var_opt =
+                 List.fold
+                   ~f:(fun acc (Funsig (x, _, _), t) ->
+                     if Bluejay_ast.equal_expr_desc t precise_type
+                     then Some x
+                     else acc)
+                   ~init:None fsig_with_types
+               in
+               match var_opt with
+               | Some x ->
+                   let ret =
+                     Var x |> Bluejay_ast_internal.new_expr_desc
+                     |> Bluejay_ast_internal.from_internal_expr_desc
+                   in
+                   (precise_type, ret)
+               | None -> failwith "Should have found the type signature!") *))
+        | _ -> failwith "Shouldn't be here!"
+      in
       let find_tag =
         sem_nat_aliases
         |> List.filter_map ~f:(fun alias ->
@@ -1282,24 +1281,23 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         (* let () = print_endline @@ "expected: " ^ string_of_int expected_type_internal.tag in *)
         (* let () = print_endline @@ "actual: " ^ show_expr_desc new_t in *)
         (* let () = print_endline @@ string_of_int tag in *)
-        let replaced =  
-          Bluejay_to_jay_maps.replace_type resolved_expected_type new_t tag
+        let replaced =
+          Bluejay_to_jay_maps.replace_type expected_type new_t tag
         in
-        if Bluejay_ast_internal.equal_expr_desc replaced resolved_expected_type
-          then
-            Bluejay_ast_internal.new_expr_desc @@ TypeError (Ident "Type unknown")
-          else 
-            replaced
+        if Bluejay_ast_internal.equal_expr_desc replaced expected_type
+        then
+          Bluejay_ast_internal.new_expr_desc @@ TypeError (Ident "Type unknown")
+        else replaced
       in
-      let actual_type_external = 
+      let actual_type_external =
         actual_type |> Bluejay_ast_internal.from_internal_expr_desc
       in
       let resolved_expected_type_external =
-        resolved_expected_type |> Bluejay_ast_internal.from_internal_expr_desc
+        expected_type |> Bluejay_ast_internal.from_internal_expr_desc
       in
-      (* let () = 
-        print_endline @@ Bluejay_ast.show_expr_desc resolved_expected_type_external
-      in *)
+      (* let () =
+           print_endline @@ Bluejay_ast.show_expr_desc resolved_expected_type_external
+         in *)
       (* let () = print_endline @@ Ast_pp.show_value v in *)
       (* let vs =
            dvs_lst

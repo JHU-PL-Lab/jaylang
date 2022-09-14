@@ -96,8 +96,8 @@ let rec rename_variable (old_name : Jay_ast.ident) (new_name : Jay_ast.ident)
         else
           let new_e2 = recurse e2 in
           Let (id, new_e1, new_e2)
-    | LetFun (f_sig, e') ->
-        let (Funsig (id, id_list, fun_e)) = f_sig in
+    | LetFun (fun_sig, e') ->
+        let (Funsig (id, id_list, fun_e)) = fun_sig in
         (* If old_name is same as the function name, then don't change anything *)
         if id = old_name
         then e
@@ -106,22 +106,22 @@ let rec rename_variable (old_name : Jay_ast.ident) (new_name : Jay_ast.ident)
                 List.exists (Ident.equal old_name) id_list
         then
           let new_e' = recurse e' in
-          LetFun (f_sig, new_e')
+          LetFun (fun_sig, new_e')
         else
           (* change both the inside and the outside expressions *)
           let new_inner_e = recurse fun_e in
           let new_outer_e = recurse e' in
           let new_funsig = Funsig (id, id_list, new_inner_e) in
           LetFun (new_funsig, new_outer_e)
-    | LetRecFun (f_sigs, e') ->
+    | LetRecFun (fun_sigs, e') ->
         let function_names =
-          f_sigs |> List.enum
+          fun_sigs |> List.enum
           |> Enum.map (fun (Funsig (name, _, _)) -> name)
           |> Ident_set.of_enum
         in
-        let f_sigs' =
+        let fun_sigs' =
           if Ident_set.mem old_name function_names
-          then f_sigs
+          then fun_sigs
           else
             List.map
               (fun (Funsig (name, params, body)) ->
@@ -130,12 +130,12 @@ let rec rename_variable (old_name : Jay_ast.ident) (new_name : Jay_ast.ident)
                 else
                   let new_body = recurse body in
                   Funsig (name, params, new_body))
-              f_sigs
+              fun_sigs
         in
         let e'' =
           if Ident_set.mem old_name function_names then e' else recurse e'
         in
-        LetRecFun (f_sigs', e'')
+        LetRecFun (fun_sigs', e'')
     | Match (e0, cases) ->
         let e0' = recurse e0 in
         let cases' =

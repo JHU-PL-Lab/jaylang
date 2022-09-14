@@ -40,7 +40,7 @@ module BluejayTranslationMonad : sig
   val add_error_to_tag_mapping : sem_bluejay_edesc -> int -> unit m
   (** Map a semantic bluejay expression to the syntactic bluejay type it has **)
 
-  val add_error_to_rec_fun_mapping : ident -> sem_bluejay_edesc -> unit m
+  val add_error_to_rec_fun_mapping : ident -> ident -> unit m
   (** Map to specifically keep track of which type in the let recs that it was
       connected with **)
 
@@ -105,11 +105,11 @@ end = struct
       Bluejay_to_jay_maps.add_error_expr_tag_mapping bluejay_jay_maps err_expr
         expr_tag
 
-  let add_error_to_rec_fun_mapping error_id n_expr ctx =
+  let add_error_to_rec_fun_mapping error_id fun_name ctx =
     let bluejay_jay_maps = ctx.tc_bluejay_to_jay_mappings in
     ctx.tc_bluejay_to_jay_mappings <-
       Bluejay_to_jay_maps.add_error_rec_fun_type_mapping bluejay_jay_maps
-        error_id n_expr
+        error_id fun_name
 
   let add_error_to_value_expr_mapping error_expr e_expr ctx =
     let bluejay_jay_maps = ctx.tc_bluejay_to_jay_mappings in

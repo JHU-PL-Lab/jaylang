@@ -145,8 +145,8 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
     | LetRecFunWithType (funsigs, e_desc) -> 
       let locally_bound = 
         List.fold_left 
-          (fun acc f_sig -> 
-            match f_sig with
+          (fun acc fun_sig -> 
+            match fun_sig with
             | Typed_funsig (f, _, _) | DTyped_funsig (f, _, _) ->
               if f = t_var then true else acc)
           false funsigs
@@ -157,8 +157,8 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
       else
         let funsigs' = 
           List.map 
-            (fun f_sig -> 
-              match f_sig with
+            (fun fun_sig -> 
+              match fun_sig with
               | Typed_funsig (f, typed_params, (f_body, ret_type)) ->
                 let typed_params' = 
                   List.map 
@@ -180,9 +180,9 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
         in
         let e_desc' = build_recursive_type t_var e_desc in
         LetRecFunWithType (funsigs', e_desc')
-    | LetFunWithType (f_sig, e_desc) ->
+    | LetFunWithType (fun_sig, e_desc) ->
       (
-      match f_sig with 
+      match fun_sig with 
       | Typed_funsig (f, typed_params, (f_body, ret_type)) ->
         if f = t_var 
         then

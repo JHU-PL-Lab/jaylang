@@ -65,8 +65,8 @@ and pp_funsig_list : type a. Format.formatter -> a funsig list -> unit =
   Pp_utils.pp_concat_sep " with " pp_funsig formatter (List.enum funsig_lst)
 
 and pp_typed_funsig : type a. Format.formatter -> a typed_funsig -> unit =
- fun formatter f_sig ->
-  match f_sig with
+ fun formatter fun_sig ->
+  match fun_sig with
   | Typed_funsig (f, id_with_type_lst, (f_body, ret_type)) ->
       Format.fprintf formatter "%a %a : %a = @[%a@]" pp_ident f
         pp_ident_with_type_list id_with_type_lst pp_expr_desc ret_type

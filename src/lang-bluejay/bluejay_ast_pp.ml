@@ -68,8 +68,8 @@ and pp_funsig_list : Format.formatter -> funsig list -> unit =
       e *)
 
 and pp_typed_funsig : Format.formatter -> typed_funsig -> unit =
- fun formatter f_sig ->
-  match f_sig with
+ fun formatter fun_sig ->
+  match fun_sig with
   | Typed_funsig (f, id_with_type_lst, (f_body, ret_type)) ->
       Format.fprintf formatter "%a %a : %a = @[%a@]" pp_ident f
         pp_ident_with_type_list id_with_type_lst pp_expr_desc_without_tag
