@@ -676,33 +676,41 @@ and flatten_pattern_match (expr_desc : Jay_ast.expr_desc) (subj_var : Ast.var)
     list_fold_right_m convert_match pat_e_list (innermost, [])
   in
   (* Predicates - one big disjunction of atomic formulae *)
-  let create_or_clause cls_1 cls_2 =
-    let (Ast.Clause (m_var_1, _)) = cls_1 in
-    let (Ast.Clause (m_var_2, _)) = cls_2 in
-    let%bind m_match_or = new_jayil_inst_var expr_desc "m_match_or" in
-    let binop_body =
-      Ast.Binary_operation_body (m_var_1, Binary_operator_or, m_var_2)
-    in
-    return @@ Ast.Clause (m_match_or, binop_body)
-  in
-  let create_or_list accum match_cls =
-    match accum with
-    | [] -> return [ match_cls ]
-    | cls :: _ ->
-        let%bind new_or_cls = create_or_clause match_cls cls in
-        return @@ (new_or_cls :: match_cls :: accum)
-  in
-  let%bind pred_cls_list = list_fold_left_m create_or_list [] match_cls_list in
+  (* let create_or_clause cls_1 cls_2 =
+       let (Ast.Clause (m_var_1, _)) = cls_1 in
+       let (Ast.Clause (m_var_2, _)) = cls_2 in
+       let%bind m_match_or = new_jayil_inst_var expr_desc "m_match_or" in
+       let binop_body =
+         Ast.Binary_operation_body (m_var_1, Binary_operator_or, m_var_2)
+       in
+       return @@ Ast.Clause (m_match_or, binop_body)
+     in *)
+  (* let create_or_list accum match_cls = match_cls
+       match accum with
+       | [] -> return [ match_cls ]
+       | cls :: _ ->
+            let%bind new_or_cls = create_or_clause match_cls cls in
+              return @@ (new_or_cls :: match_cls :: accum)
+     in
+     let%bind pred_cls_list = list_fold_left_m create_or_list [] match_cls_list in *)
+  let%bind pred_cls_list = return match_cls_list in
   (* Putting it all together *)
+  (* let (Ast.Clause (match_pred, _)) =
+       List.hd pred_cls_list (* Never raises b/c pat_e_list must be nonempty *)
+     in *)
+  (* let%bind cond_var = new_jayil_inst_var expr_desc "match" in *)
+  (*
+      let%bind abort_expr = add_abort_expr expr_desc [ cond_var ] in *)
+  (* let cond_cls =
+       Ast.Clause (cond_var, Conditional_body (match_pred, cond_expr, abort_expr))
+     in
+     return (List.rev pred_cls_list @ [ cond_cls ], cond_var) *)
+  let (Ast.Expr cc) = cond_expr in
   let (Ast.Clause (match_pred, _)) =
-    List.hd pred_cls_list (* Never raises b/c pat_e_list must be nonempty *)
+    List.hd cc (* Never raises b/c pat_e_list must be nonempty *)
   in
-  let%bind cond_var = new_jayil_inst_var expr_desc "match" in
-  let%bind abort_expr = add_abort_expr expr_desc [ cond_var ] in
-  let cond_cls =
-    Ast.Clause (cond_var, Conditional_body (match_pred, cond_expr, abort_expr))
-  in
-  return (List.rev pred_cls_list @ [ cond_cls ], cond_var)
+  (* return (List.rev pred_cls_list @ cc, match_pred) *)
+  return (List.rev pred_cls_list @ cc, match_pred)
 
 (** Flatten an entire expression (i.e. convert jay into jayil code) *)
 and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
