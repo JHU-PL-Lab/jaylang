@@ -17,7 +17,7 @@ in
 # Std.List - end
 
 let x1 = input in
-let s = append [101] [] in
+let s = append [101] [102] in
 
 if hd s == x1 then
   let target = 1 in 1

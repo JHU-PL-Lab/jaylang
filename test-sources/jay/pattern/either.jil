@@ -1,0 +1,9 @@
+one = 1;
+two = 2;
+ra = {a = one};
+rb = {b = two};
+x = input;
+c = x == one;
+r = c ? (rt = ra) : (rf = rb);
+p = r ~ {a};
+target = p

@@ -237,7 +237,7 @@ let eager_check (state : Global_state.t) (config : Global_config.t) target
   SLog.debug (fun m -> m "Eager check") ;
   SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
   SLog.debug (fun m ->
-      m "Used-once Phis: %a"
+      m "Used-once Phis (eager): %a"
         Fmt.(Dump.list string)
         (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
   match check_result with
@@ -283,20 +283,13 @@ let check (state : Global_state.t) (config : Global_config.t) :
     SLog.debug (fun m ->
         m "Used-once Phis: %a"
           Fmt.(Dump.list string)
-          (List.map ~f:Z3.Expr.to_string phi_used_once))
-    (* SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))) *))
+          (List.map ~f:Z3.Expr.to_string phi_used_once)))
   else () ;
 
   match check_result with
   | Result.Ok model ->
       if config.debug_model
-      then
-        (* SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
-           SLog.debug (fun m ->
-               m "Used-once Phis: %a"
-                 Fmt.(Dump.list string)
-                 (List.map ~f:Z3.Expr.to_string phi_used_once)) ; *)
-        SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
+      then SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
       else () ;
       let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
       let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
