@@ -6,7 +6,7 @@ let var_ = Fmt.using (fun (Var (x, _)) -> x) id
 let id_map pp_v oc map =
   let pp_entry oc (x, v) = Fmt.pf oc "%a = %a" id x pp_v v in
 
-  Fmt.iter_bindings ~sep:(Fmt.any "; ")
+  Fmt.iter_bindings ~sep:(Fmt.any ", ")
     (fun f map -> Ident_map.iter f map)
     pp_entry oc map
 
