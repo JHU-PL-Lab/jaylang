@@ -4,7 +4,7 @@ open Jayil
 open Jay
 open Jay_instrumentation
 open Ast_tools
-open Jay_to_jayil_preliminary
+open Jay_to_jayil_desugar
 open Jay_to_jayil_monad
 
 (** In this module we will translate from jay to jayil in the following order: *
@@ -951,7 +951,8 @@ let debug_transform_on (trans_name : string)
     (transform : 'a -> Jay_ast.expr_desc m) (e : 'a) : Jay_ast.expr_desc m =
   let%bind e' = transform e in
   lazy_logger `debug (fun () ->
-      Printf.sprintf "Result of %s:\n%s" trans_name (Jay_ast.show_expr e'.body)) ;
+      Printf.sprintf "Result of %s:\n%s" trans_name
+        (Jay_ast_pp.show_expr e'.body)) ;
   return e'
 
 let debug_transform_jayil (trans_name : string)
@@ -994,10 +995,10 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
        Step three: Flatten to a-normalized form (Jay -> JayIL)
     *)
     lazy_logger `debug (fun () ->
-        Printf.sprintf "Initial program:\n%s" (Jay_ast.show_expr e.body)) ;
+        Printf.sprintf "Initial program:\n%s" (Jay_ast_pp.show_expr e.body)) ;
     let (translation_result_p1_m : Ast.clause list m) =
       return e
-      >>= debug_transform_on "desugaring" preliminary_encode_expr
+      >>= debug_transform_on "desugaring" desugar
       >>= debug_transform_on "alphatization" alphatize
       >>= debug_transform_jayil "flattening" flatten
     in
@@ -1049,10 +1050,10 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
   let res = Jay_to_jayil_monad_inst.TranslationMonad.run ctx' e_m_with_info in
   let jayil_jay_maps = ctx.tc_jayil_jay_mappings in
   let inst_maps = ctx'.tc_jayil_instrumentation_mappings in
-  lazy_logger `debug (fun () ->
-      Printf.sprintf "JayIL to Jay maps:\n%s"
-        (Jay_to_jayil_maps.show jayil_jay_maps)) ;
-  lazy_logger `debug (fun () ->
-      Printf.sprintf "JayIL instrumentation maps:\n%s"
-        (Jayil_instrumentation_maps.show inst_maps)) ;
+  (* lazy_logger `debug (fun () ->
+         Printf.sprintf "JayIL to Jay maps:\n%s"
+           (Jay_to_jayil_maps.show jayil_jay_maps)) ;
+     lazy_logger `debug (fun () ->
+         Printf.sprintf "JayIL instrumentation maps:\n%s"
+           (Jayil_instrumentation_maps.show inst_maps)) ;*)
   (res, inst_maps, jayil_jay_maps)

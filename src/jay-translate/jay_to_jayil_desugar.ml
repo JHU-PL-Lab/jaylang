@@ -231,7 +231,7 @@ let letrec_expr_to_fun recurse fun_sig_list rec_e_desc =
   let ret = new_expr_desc @@ ret_expr.body in
   return ret
 
-let preliminary_encode_expr (e : expr_desc) : expr_desc m =
+let desugar (e : expr_desc) : expr_desc m =
   let transformer recurse e_desc =
     let expr = e_desc.body in
     match expr with
