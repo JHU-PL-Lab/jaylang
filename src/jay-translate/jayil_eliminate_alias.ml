@@ -5,6 +5,7 @@ open Batteries
 open Jayil
 open Ast
 open Ast_tools
+open Lazy_logger
 
 let eliminate_alias_pass (e : expr) : expr =
   e
@@ -43,9 +44,12 @@ let rec eliminate_aliases (e : expr) : expr =
   let e' = eliminate_alias_pass e in
   if equal_expr e e' then e' else eliminate_aliases e'
 
-(* let eliminate_alias (e : Ast.clause list) =
-   let%bind ea = fresh_var "ea" in
-   let%bind Expr c_list, _ =
-     return (jayil_eliminate_alias.eliminate_aliases (Expr e), ea)
-   in
-   return c_list*)
+let eliminate_alias (e : Ast.clause list) =
+  let open Jay_to_jayil_monad.TranslationMonad in
+  let%bind jayil_jay_map = jayil_jay_maps in
+  lazy_logger `debug (fun () ->
+      Printf.sprintf "JayIL to Jay maps:\n%s"
+        (Jay_to_jayil_maps.show jayil_jay_map)) ;
+  let%bind ea = fresh_var "ea" in
+  let%bind Expr c_list, _ = return (eliminate_aliases (Expr e), ea) in
+  return c_list

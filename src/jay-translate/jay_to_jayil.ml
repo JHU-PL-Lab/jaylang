@@ -1,18 +1,16 @@
 open Batteries
-open Jhupllib
 open Jayil
 open Jay
 open Jay_instrumentation
 open Jay_to_jayil_monad
 open TranslationMonad
+open Lazy_logger
 
 (** In this module we will translate from jay to jayil in the following order: *
     Desugar let rec, lists, variants, and list/variant patterns * Alphatize
     program again (do this after to allow above to introduce dupes) * Flatten
     jay expressions to jayil expressions * Instrument jayil with type/error
     constriants *)
-
-let lazy_logger = Logger_utils.make_lazy_logger "Jay_to_jayil"
 
 let debug_transform_jay (trans_name : string)
     (transform : 'a -> Jay_ast.expr_desc m) (e : 'a) : Jay_ast.expr_desc m =
@@ -61,7 +59,8 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
       >>= debug_transform_jay "desugaring" Jay_desugar.desugar
       >>= debug_transform_jay "alphatization" Jay_alphatize.alphatize
       >>= debug_transform_jayil "flattening" Jay_to_jayil_flatten.flatten
-      (* >>= debug_transform_jayil "eliminating" Jayil_eliminate_alias.eliminate_alias *)
+      (* >>= debug_transform_jayil "eliminating"
+            Jayil_eliminate_alias.eliminate_alias *)
     in
 
     let context =
@@ -93,10 +92,7 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
       >>= debug_transform_jayil_inst "instrumentation" instrument
       >>= debug_transform_jayil_inst "adding ~result" add_first_result
     in
-    let res =
-      translation_result_p2_m >>= fun m ->
-      Jay_to_jayil_monad_inst.TranslationMonad.return (Ast.Expr m)
-    in
+    let res = translation_result_p2_m >>= fun m -> return (Ast.Expr m) in
     (res, ctx)
   in
   (* Set up context and run *)
