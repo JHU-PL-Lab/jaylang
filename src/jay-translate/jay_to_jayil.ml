@@ -989,6 +989,13 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
       let%bind c_list, _ = flatten_expr e in
       return c_list
     in
+    (* let eliminate_alias (e : Ast.clause list) =
+         let%bind ea = fresh_var "ea" in
+         let%bind Expr c_list, _ =
+           return (Jay_to_jayil_simplification.eliminate_aliases (Expr e), ea)
+         in
+         return c_list
+       in *)
     (* Phase one - translation *)
     (* Step one: Encode lists, variants, match, and let rec
        Step two: Alphatize the expressions
@@ -1001,7 +1008,9 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
       >>= debug_transform_on "desugaring" desugar
       >>= debug_transform_on "alphatization" alphatize
       >>= debug_transform_jayil "flattening" flatten
+      (* >>= debug_transform_jayil "eliminating" eliminate_alias *)
     in
+
     let context =
       match translation_context with
       | None -> new_translation_context ~is_jay:true ()
@@ -1048,6 +1057,7 @@ let translate ?(translation_context = None) ?(is_instrumented = true)
     { init_ctx_ph2 with tc_fresh_name_counter = ctx.tc_fresh_name_counter }
   in
   let res = Jay_to_jayil_monad_inst.TranslationMonad.run ctx' e_m_with_info in
+
   let jayil_jay_maps = ctx.tc_jayil_jay_mappings in
   let inst_maps = ctx'.tc_jayil_instrumentation_mappings in
   (* lazy_logger `debug (fun () ->
