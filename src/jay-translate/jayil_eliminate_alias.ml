@@ -42,3 +42,10 @@ let eliminate_alias_pass (e : expr) : expr =
 let rec eliminate_aliases (e : expr) : expr =
   let e' = eliminate_alias_pass e in
   if equal_expr e e' then e' else eliminate_aliases e'
+
+(* let eliminate_alias (e : Ast.clause list) =
+   let%bind ea = fresh_var "ea" in
+   let%bind Expr c_list, _ =
+     return (jayil_eliminate_alias.eliminate_aliases (Expr e), ea)
+   in
+   return c_list*)
