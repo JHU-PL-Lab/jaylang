@@ -3,8 +3,10 @@ open Batteries
 exception Argument_parse_failure
 
 (** Determines the type of translation to perform. *)
-type translator_mode = 
-  | Bluejay_to_jayil | Jay_to_jayil | Bluejay_to_jay
+type translator_mode =
+  | Bluejay_to_jayil
+  | Jay_to_jayil
+  | Bluejay_to_jay
   | Scheme_to_jay
 
 let named_translator_modes =
@@ -15,11 +17,7 @@ let named_translator_modes =
     (Scheme_to_jay, "scheme-to-jay");
   ]
 
-type translator_args = {
-  ta_mode : translator_mode;
-  ta_parseable : bool;
-  ta_instrument : bool;
-}
+type translator_args = { ta_mode : translator_mode; ta_instrument : bool }
 (** Describes arguments passed to the translator executable as structured data. *)
 
 let logging_option_parser : unit BatOptParse.Opt.t =
@@ -94,8 +92,6 @@ let parse_args () : translator_args =
   (* **** Add options **** *)
   BatOptParse.OptParser.add cli_parser ~short_name:'m' ~long_name:"mode"
     parsers.parse_mode ;
-  BatOptParse.OptParser.add cli_parser ~short_name:'p' ~long_name:"parseable"
-    parsers.parse_parseable ;
   BatOptParse.OptParser.add cli_parser ~short_name:'l' ~long_name:"log"
     parsers.parse_logging ;
   BatOptParse.OptParser.add cli_parser ~short_name:'a' ~long_name:"instrument"
@@ -107,8 +103,6 @@ let parse_args () : translator_args =
     | [] ->
         {
           ta_mode = insist "mode" parsers.parse_mode;
-          ta_parseable =
-            Option.default false @@ parsers.parse_parseable.option_get ();
           ta_instrument =
             Option.default false @@ parsers.parse_instrument.option_get ();
         }

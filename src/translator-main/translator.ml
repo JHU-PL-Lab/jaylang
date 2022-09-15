@@ -17,10 +17,8 @@ let purge_special_symbols_jayil (x : Ast.Var.t) : Ast.Var.t =
   in
   Ast.Var (Ast.Ident s', fs)
 
-let get_translation_ctx options =
-  if options.ta_parseable
-  then Jay_to_jayil_monad.new_translation_context ~is_jay:true ~suffix:"___" ()
-  else Jay_to_jayil_monad.new_translation_context ()
+let get_translation_ctx _options =
+  Jay_to_jayil_monad.new_translation_context ~is_jay:true ~suffix:"___" ()
 
 let bluejay_to_jay () =
   let bluejay_ast =
@@ -44,11 +42,7 @@ let jay_to_jayil jay_ast options =
     Jay_to_jayil.translate ~is_instrumented
       ~translation_context:(Some translation_ctx) jay_ast
   in
-  let result_expr =
-    if options.ta_parseable
-    then map_expr_vars purge_special_symbols_jayil post_inst_ast
-    else post_inst_ast
-  in
+  let result_expr = map_expr_vars purge_special_symbols_jayil post_inst_ast in
   result_expr
 
 let main () : unit =
