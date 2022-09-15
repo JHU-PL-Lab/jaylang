@@ -66,8 +66,7 @@ let main () : unit =
   | Jay_to_jayil ->
       let jay_ast = Jay_ast.new_expr_desc @@ Jay_parse.parse_program IO.stdin in
       let result_expr = jay_to_jayil jay_ast options in
-      let expr_string = show_expr result_expr in
-      print_endline expr_string
+      Fmt.pr "%a" Jayil.Pp.expr result_expr
   | Scheme_to_jay -> raise @@ Jhupllib.Utils.Not_yet_implemented "scheme-to-jay"
 ;;
 
