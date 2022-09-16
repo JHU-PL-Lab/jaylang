@@ -48,6 +48,7 @@ and 'a funsig = Funsig of ident * ident list * 'a expr_desc
 and 'a typed_funsig =
   | Typed_funsig of
       ident * (ident * 'a expr_desc) list * ('a expr_desc * 'a expr_desc)
+  (* TODO: In the future we may want to change this to argument list accomodate easier user experience *)
   | DTyped_funsig of
       ident * (ident * 'a expr_desc) * ('a expr_desc * 'a expr_desc)
 
@@ -267,7 +268,7 @@ and equal_expr : type a. a expr -> a expr -> bool =
   | TypeList t1, TypeList t2 -> equal_expr_desc t1 t2
   | TypeArrow (lt1, rt1), TypeArrow (lt2, rt2)
   | TypeUnion (lt1, rt1), TypeUnion (lt2, rt2)
-  | TypeIntersect (lt1, rt1), TypeUnion (lt2, rt2)
+  | TypeIntersect (lt1, rt1), TypeIntersect (lt2, rt2)
   | TypeSet (lt1, rt1), TypeSet (lt2, rt2) ->
       equal_expr_desc lt1 lt2 && equal_expr_desc rt1 rt2
   | TypeArrowD ((id1, lt1), rt1), TypeArrowD ((id2, lt2), rt2) ->
@@ -382,7 +383,7 @@ and compare_expr : type a. a expr -> a expr -> int =
   | TypeList t1, TypeList t2 -> compare_expr_desc t1 t2
   | TypeArrow (lt1, rt1), TypeArrow (lt2, rt2)
   | TypeUnion (lt1, rt1), TypeUnion (lt2, rt2)
-  | TypeIntersect (lt1, rt1), TypeUnion (lt2, rt2)
+  | TypeIntersect (lt1, rt1), TypeIntersect (lt2, rt2)
   | TypeSet (lt1, rt1), TypeSet (lt2, rt2) ->
       compare_expr_desc lt1 lt2 + compare_expr_desc rt1 rt2
   | TypeArrowD ((id1, lt1), rt1), TypeArrowD ((id2, lt2), rt2) ->

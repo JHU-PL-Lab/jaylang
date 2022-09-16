@@ -916,7 +916,9 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let rec type_resolution (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
           Bluejay_ast_internal.syn_bluejay_edesc =
         let open Bluejay_ast_internal in
-        let type_expr_opt = check_aliases_for_type ed in
+        let type_expr_opt =
+          if is_type_expr ed then Some ed else check_aliases_for_type ed
+        in
         let resolve_type ted =
           let tag = ted.tag in
           let e = ted.body in
@@ -1115,13 +1117,13 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         in
         match type_expr_opt with
         | Some t ->
-            let () = print_endline "Found type aliases!" in
+            (* let () = print_endline "Found type aliases!" in *)
             (* let () =
                print_endline @@ Bluejay_ast.show_expr_desc
                @@ Bluejay_ast_internal.from_internal_expr_desc t in *)
             resolve_type t
         | None ->
-            let () = print_endline "No type aliases!" in
+            (* let () = print_endline "No type aliases!" in *)
             resolve_non_type ed
       in
       (* Here we need to refine the expected type; since they could be aliases to

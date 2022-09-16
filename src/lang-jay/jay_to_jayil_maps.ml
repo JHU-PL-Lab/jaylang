@@ -427,8 +427,8 @@ let get_odefa_var_opt_from_natodefa_expr mappings (expr : Jay_ast.expr_desc) =
     (fun odefa_var core_expr acc -> 
       (* let () = print_endline @@ "This is the value in the dictionary: " in
       let () = print_endline @@ Jay_ast.show_expr_desc core_expr in *)
-      (* if (core_expr.Jay_ast.tag = alphatized.tag) then  *)
-      if Jay_ast.equal_expr_desc core_expr alphatized then
+      if (core_expr.Jay_ast.tag = alphatized.tag) then 
+      (* if Jay_ast.equal_expr_desc core_expr alphatized then *)
         Some (Ast.Var (odefa_var, None)) 
       else acc) 
     mappings.jayil_var_to_jay_expr None

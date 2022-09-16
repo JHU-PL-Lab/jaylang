@@ -405,6 +405,13 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
            typed input. If not, report an error. *)
         (* TODO: The error reporting here isn't really working for this "wrap"
            case. *)
+        let%bind fail_id = fresh_ident "fail" in
+        let fail_cls =
+          Let
+            ( fail_id,
+              new_expr_desc @@ Bool false,
+              new_expr_desc @@ Assert (new_expr_desc @@ Var fail_id) )
+        in
         let inner_expr =
           If
             ( new_expr_desc
@@ -417,9 +424,10 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
                    ( new_expr_desc
                      @@ RecordProj (gc_pair_cod_gen, Label "generator"),
                      new_expr_desc @@ Int 0 ),
-              new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+              new_expr_desc @@ fail_cls )
         in
         let gen_expr = Function ([ arg_assume ], new_expr_desc inner_expr) in
+        let%bind () = add_error_to_bluejay_mapping fail_id e_desc in
         return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
       in
       let%bind checker =
