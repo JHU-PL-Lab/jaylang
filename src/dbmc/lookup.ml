@@ -14,11 +14,6 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
   let unroll = U_ddse.create () in
   let term_target = Lookup_key.start state.target in
 
-  let run_eval key block eval =
-    let task () = Scheduler.push job_queue key (eval key block) in
-    U_ddse.alloc_task unroll ~task key
-  in
-
   let module LS = (val (module struct
                          let state = state
                          let config = config
@@ -31,17 +26,10 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
                            Set.add phis phi
 
                          (*
-                            
-
-                            (* Hashtbl.add_exn state.phi_map ~key ~data:phis ; *)
-                            state.phis_z3 <- phis :: state.phis_z3 ;
-                            Set.add phis phi
+                             (* Hashtbl.add_exn state.phi_map ~key ~data:phis ; *)
+                             state.phis_z3 <- phis :: state.phis_z3 ;
+                             Set.add phis phi
                          *)
-
-                         (* let find_or_add_node key block node_parent =
-                            Global_state.find_or_add_node state key block
-                              node_parent
-                            |> snd *)
 
                          let block_map = state.block_map
                          let unroll = unroll
@@ -50,10 +38,18 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
   let module R = Lookup_ddse_rule.Make (LS) in
   (* block works similar to env in a common interpreter *)
   let[@landmark] rec run_task key block phis =
-    (* LLog.app (fun m -> m "k = %a" Lookup_key.pp key) ; *)
-    let task () = Scheduler.push job_queue key (lookup key block phis) in
-    U_ddse.alloc_task unroll ~task key
-    (* ----- *)
+    match Hashtbl.find state.term_detail_map key with
+    | Some _ -> ()
+    | None ->
+        let term_detail : Term_detail.t =
+          let block_id = Cfg.id_of_block block in
+          let x, _r_stk = Lookup_key.to2 key in
+          let rule = Rule.rule_of_runtime_status x block in
+          { node = ref (Search_graph.mk_node ~block_id ~key); rule; phi = None }
+        in
+        Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
+        let task () = Scheduler.push job_queue key (lookup key block phis) in
+        U_ddse.alloc_task unroll ~task key
   and lookup (this_key : Lookup_key.t) block phis () : unit Lwt.t =
     let x, _r_stk = Lookup_key.to2 this_key in
 
@@ -68,10 +64,6 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
         m "[Lookup][=>]: %a in block %a; Rule %a" Lookup_key.pp this_key Id.pp
           block_id Rule.pp_rule rule) ;
 
-    (* let the_rule = Rule_node.from_rule_adapter rule this_key in
-       (match rule with
-       | Discovery_main _ -> Node.update_rule this_node the_rule
-       | _ -> ()) ; *)
     let _apply_rule =
       let open Rule in
       match rule with
@@ -152,25 +144,6 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
   let module LS = (val (module struct
                          let state = state
                          let config = config
-
-                         (* let add_phi key phis =
-                            let term_detail =
-                              Hashtbl.find_exn state.term_detail_map key
-                            in
-                            let phi' =
-                              Option.value_map term_detail.phi ~default:phis
-                                ~f:(fun phi' -> Riddler.and_ [ phi'; phis ])
-                            in
-                            term_detail.phi <- Some phi' ;
-                            (* Riddler.and_ [ term_detail.phi; phis ] ; *)
-                            (* *)
-                            state.phis_z3 <- phis :: state.phis_z3 *)
-
-                         (* let find_or_add_node key block node_parent =
-                            Global_state.find_or_add_node state key block
-                              node_parent
-                            |> snd *)
-
                          let block_map = state.block_map
                          let unroll = unroll
                          let stride = stride
@@ -189,14 +162,15 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
     let run_task key block = run_eval key block lookup in
 
     Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
+    state.tree_size <- state.tree_size + 1 ;
 
     Riddler.step_check ~state ~config stride ;%lwt
 
     Hash_set.strict_remove_exn state.lookup_created key ;
 
     LLog.app (fun m ->
-        m "[Lookup][=>]: %a in block %a; Rule %a" Lookup_key.pp key Id.pp
-          block_id Rule.pp_rule rule) ;
+        m "[Lookup][%d][=>]: %a in block %a; Rule %a" state.tree_size
+          Lookup_key.pp key Id.pp block_id Rule.pp_rule rule) ;
 
     let _apply_rule =
       let open Rule in

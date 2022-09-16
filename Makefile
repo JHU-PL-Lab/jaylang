@@ -1,6 +1,6 @@
 .PHONY: all clean repl test benchmark dbmc dbmc-top dbmc-test sato sato-test dtest dtest-ddse dtest-all logclean translator
 
-all: dbmc
+all: dbmc sato translator
 
 dbmc-top:
 	dune build src/bin/dbmc_top.exe
@@ -85,6 +85,12 @@ benchmark:
 benchmark-icfp-artifact:
 	dune exec benchmark/benchmark.exe -- -e dbmc -f benchmark/icfp20-artifact.s
 # dune exec benchmark/benchmark.exe -- -e ddse -f benchmark/icfp20-artifact.s
+
+b1:
+	dune exec benchmark/benchmark.exe -- -e dbmc -f benchmark/neo.s
+
+b2:
+	dune exec benchmark/benchmark.exe -- -e ddse -f benchmark/neo.s
 
 # extra
 

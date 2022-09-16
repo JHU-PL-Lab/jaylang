@@ -8,13 +8,24 @@ open Shexp_process.Infix
    |- run "xargs" [ "-I"; "%"; "mkdir"; "-p"; "result/%" ] *)
 
 let ddse_bin = "./dbmc_top"
+
+let is_mac =
+  let ic = Caml_unix.open_process_in "uname" in
+  let uname = In_channel.input_line ic in
+  let () = In_channel.close ic in
+  Option.value_map uname ~default:false ~f:(fun os -> String.equal os "Darwin")
+
+let time_bin = if is_mac then "gtime" else "/usr/bin/time"
+let timeout_bin = if is_mac then "gtimeout" else "/usr/bin/timeout"
 let testcase_path (cfg : Config.t) test = Filename.concat cfg.test_path test
+let escape_path s = String.substr_replace_all ~pattern:"/" ~with_:"_" s
 
 let result_path (cfg : Config.t) test n =
-  Filename.concat cfg.working_path ((test ^ "_" ^ string_of_int n) ^ ".txt")
+  Filename.concat cfg.working_path
+    ((escape_path test ^ "_" ^ string_of_int n) ^ ".txt")
 
 let time_result_path (cfg : Config.t) test =
-  Filename.concat cfg.working_path (test ^ ".time.txt")
+  Filename.concat cfg.working_path (escape_path test ^ ".time.txt")
 
 let prepare (cfg : Config.t) : unit t =
   run "rm" [ "-rf"; cfg.working_path ]
@@ -29,7 +40,7 @@ let benchmark_time (cfg : Config.t) test n : unit t =
   >> stdout_to ~append:() (result_path cfg test n)
        (call
           [
-            "/usr/bin/time";
+            time_bin;
             "-o";
             test_time_result;
             "-a";
@@ -37,7 +48,7 @@ let benchmark_time (cfg : Config.t) test n : unit t =
             "%e\n\
              %Uuser %Ssystem %Eelapsed %PCPU (%Xtext+%Ddata %Mmax)k \
              %Iinputs+%Ooutputs (%Fmajor+%Rminor)pagefaults %Wswaps";
-            "/usr/bin/timeout";
+            timeout_bin;
             "--foreground";
             cfg.timeout;
             ddse_bin;

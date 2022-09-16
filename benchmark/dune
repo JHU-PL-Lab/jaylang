@@ -2,7 +2,7 @@
  (name benchmark)
  (package jay)
  (public_name jay.benchmark_test_generation)
- (libraries shexp.process core)
+ (libraries shexp.process core core_unix)
  (preprocess
   (pps ppx_jane)))
 

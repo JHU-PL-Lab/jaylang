@@ -1,0 +1,12 @@
+let hd l = 
+  match l with
+  | x :: xs -> x
+  | [] -> (0 0)
+  end
+in
+let s = [5,6,7] in
+let x = input in
+if (hd s == x) then
+  let target = 1 in 1
+else
+  0

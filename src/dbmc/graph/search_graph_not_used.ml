@@ -172,15 +172,6 @@ include G
 
 (* let empty = Node *)
 
-(* let from_rule_adapter rule (term : Lookup_key.t) =
-   let open Rule in
-   match rule with
-   | Discovery_main _ ->
-       let target_stk = Rstack.concretize_top term.r_stk in
-       Node.done_ target_stk
-   | Discovery_nonmain _ -> Node.to_first node_child
-   | _ -> failwith "not yet" *)
-
 (* for ddse,
    the node tree is a state it updates as the evaluating.
    it's also functional since in each non-deterministic run it updates differently.

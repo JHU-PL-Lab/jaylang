@@ -235,7 +235,7 @@ module DotPrinter_Make (S : GS) = struct
             (Id.show node.key.x)
             (Fmt.option Solver.pp_value)
             key_value
-            (Fmt.option Jayil.Ast_pp_graph.pp_clause)
+            (Fmt.option Jayil.Pp_graph.clause)
             clause Rstack.pp node.key.r_stk
             (Rstack.to_string node.key.r_stk)
             phis_string phi_status pvar

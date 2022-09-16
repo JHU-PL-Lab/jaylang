@@ -3,6 +3,7 @@ open Jhupllib
 open Jayil
 open Jay
 open Bluejay
+open Jay_translate
 open Jay_instrumentation
 
 (* let _show_expr' = Pp_utils.pp_to_string Bluejay_ast_internal_pp.pp_expr;; *)
@@ -487,7 +488,7 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
     |> Option.value ~default:x
   in
   let jayil_to_jay_expr =
-    Jay_to_jayil_maps.get_natodefa_equivalent_expr_exn jayil_jay_maps
+    Jay_to_jayil_maps.get_jay_equivalent_expr_exn jayil_jay_maps
   in
   let jayil_to_jay_aliases aliases =
     aliases
@@ -591,8 +592,8 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       match err_val_edesc.body with
       | Match (subj, pat_ed_lst) -> (
           let jayil_var_opt =
-            Jay_to_jayil_maps.get_odefa_var_opt_from_natodefa_expr
-              jayil_jay_maps subj
+            Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps
+              subj
           in
           match jayil_var_opt with
           | Some (Var (x, _)) ->
@@ -721,7 +722,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
     |> Option.value ~default:x
   in
   let jayil_to_jay_expr =
-    Jay_to_jayil_maps.get_natodefa_equivalent_expr jayil_jay_maps
+    Jay_to_jayil_maps.get_jay_equivalent_expr jayil_jay_maps
   in
   let jayil_to_jay_aliases aliases =
     aliases
@@ -794,8 +795,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         |> List.map ~f:Bluejay_ast_internal.to_jay_expr_desc
         |> List.filter_map
              ~f:
-               (Jay_to_jayil_maps.get_odefa_var_opt_from_natodefa_expr
-                  jayil_jay_maps)
+               (Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps)
       in
       (* let () =
            List.iter
@@ -878,7 +878,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps
           |> Bluejay_to_jay_maps.get_core_expr_from_sem_expr bluejay_jay_maps
           |> Option.value_exn |> Bluejay_ast_internal.to_jay_expr_desc
-          |> Jay_to_jayil_maps.get_odefa_var_opt_from_natodefa_expr
+          |> Jay_translate.Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr
                jayil_jay_maps
           |> Option.value_exn
           |> (fun (Ast.Var (x, _)) ->

@@ -1,6 +1,6 @@
 open Core
 open Jayil.Ast
-open Jay.Jay_to_jayil_maps
+open Jay_translate.Jay_to_jayil_maps
 open Sato_args
 open Sato_result
 

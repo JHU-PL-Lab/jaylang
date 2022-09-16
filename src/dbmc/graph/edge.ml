@@ -16,12 +16,19 @@ type t =
       pub2 : Lookup_key.t;
       block : Cfg.block;
     }
-  (* Pattern *)
+  (* Non-main *)
   | Map of {
       sub : Lookup_key.t;
       pub : Lookup_key.t;
       block : Cfg.block;
       map : Lookup_result.t -> Lookup_result.t;
+    }
+  (* Pattern *)
+  | MapSeq of {
+      sub : Lookup_key.t;
+      pub : Lookup_key.t;
+      block : Cfg.block;
+      map : int -> Lookup_result.t -> Lookup_result.t * Z3.Expr.expr list;
     }
   (* Fun Exit | Cond Top | Cond Btm *)
   | Chain of {

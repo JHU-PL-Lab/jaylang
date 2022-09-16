@@ -260,6 +260,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
           else (e2, Concrete_stack.push (x, cond_fid false) stk)
         in
         let ret_env, ret_val = eval_exp_verbose ~session stk' env e in
+        (* let ret_val = eval_exp ~session stk' env e in *)
         let (Var (ret_id, _) as last_v) = Ast_tools.retv e in
         let _, ret_stk = fetch_val_with_stk ~session ~stk:stk' ret_env last_v in
         (* let () = print_endline @@ "This is adding alias mapping in conditional body" in

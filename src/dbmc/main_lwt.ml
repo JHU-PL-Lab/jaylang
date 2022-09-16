@@ -3,7 +3,9 @@ open Lwt.Infix
 
 let main_details ~config program =
   let state = Global_state.create config program in
-  let%lwt inputs, is_timeout = Main.main_with_state_lwt ~config ~state in
+  let%lwt inputs, is_timeout, _model =
+    Main.main_with_state_lwt ~config ~state
+  in
   Lwt.return (inputs, is_timeout, state)
 
 let search_input ~config program =

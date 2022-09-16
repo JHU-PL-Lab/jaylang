@@ -60,6 +60,16 @@ module Make (S : S) = struct
     | Map e ->
         run_task e.pub e.block ;
         U.by_map_u S.unroll e.sub e.pub e.map
+    | MapSeq e ->
+        init_list_counter term_detail e.sub ;
+        run_task e.pub e.block ;
+        let f r =
+          let i = fetch_list_counter term_detail e.sub in
+          let ans, phis = e.map i r in
+          add_phi term_detail (Riddler.list_append e.sub i (Riddler.and_ phis)) ;
+          ans
+        in
+        U.by_map_u S.unroll e.sub e.pub f
     | Both e ->
         run_task e.pub1 e.block ;
         run_task e.pub2 e.block ;
@@ -83,8 +93,11 @@ module Make (S : S) = struct
           let i = fetch_list_counter term_detail e.sub in
           let next = e.next i r in
           (match next with
-          | Some (phi_i, next) -> run_edge run_task term_detail next phi_i
-          | None -> add_phi term_detail (Riddler.list_append_mismatch e.sub i)) ;
+          | Some (phi_i, next) ->
+              let phi = Riddler.list_append e.sub i phi_i in
+              run_edge run_task term_detail next phi
+          | None ->
+              add_phi term_detail (Riddler.list_append e.sub i Riddler.false_)) ;
           Lwt.return_unit
         in
         U.by_bind_u S.unroll e.sub e.pub cb
@@ -172,9 +185,7 @@ module Make (S : S) = struct
           match Ident_map.Exceptionless.find lbl rv with
           | Some (Var (field, _)) ->
               let key_l = Lookup_key.with_x key_rv field in
-              let phi_i =
-                Riddler.record_start_append key key_r key_rv key_l i
-              in
+              let phi_i = Riddler.record_start key key_r key_rv key_l in
               let edge = Direct { sub = key; pub = key_l; block = rv_block } in
               Some (phi_i, edge)
           | None -> None)
@@ -294,7 +305,7 @@ module Make (S : S) = struct
               let next i (r : Lookup_result.t) =
                 let key_arg = Lookup_key.of2 x r.from.r_stk in
                 let phi_i =
-                  Riddler.fun_enter_append key key_f r.from fb.point key_arg i
+                  Riddler.fun_enter_nonlocal key key_f r.from fb.point key_arg
                 in
                 let fv_block = Cfg.block_of_id r.from.x S.block_map in
                 let edge =
@@ -330,7 +341,7 @@ module Make (S : S) = struct
   let pattern p term_detail (key : Lookup_key.t) block run_task =
     let ({ x'; pat; _ } : Pattern_rule.t) = p in
     let key' = Lookup_key.with_x key x' in
-    let map (r : Lookup_result.t) =
+    let next i (r : Lookup_result.t) =
       (* OB1: For some patterns, we can immediately know the result of the matching:
            when the returning value is a literal value. We can use it in the interpreter.
            We lose this information when the lookup go through a conditional block or
@@ -343,19 +354,20 @@ module Make (S : S) = struct
       let rv_block = Cfg.block_of_id key_rv.x S.block_map in
       let rv = Cfg.clause_body_of_x rv_block key_rv.x in
 
-      let ans, _matched =
+      Fmt.pr "[Pattern] %a | %a | %d <- %a\n" Lookup_key.pp key
+        Jayil.Ast_pp.pp_pattern pat i Lookup_key.pp key_rv ;
+
+      let ans, phis, _matched =
         match (pat, rv) with
         | Any_pattern, _
         | Fun_pattern, Value_body (Value_function _)
         | Int_pattern, Value_body (Value_int _)
         | Int_pattern, Input_body
         | Bool_pattern, Value_body (Value_bool _) ->
-            let phi = Riddler.eqv_with_picked key key' (Value_bool true) in
-            add_phi term_detail phi ;
-            let phi = Riddler.picked_pattern key key' pat in
-            add_phi term_detail phi ;
+            let phi1 = Riddler.eqv_with_picked key key' (Value_bool true) in
+            let phi2 = Riddler.picked_pattern key key' pat in
 
-            (Lookup_result.ok key, true)
+            (Lookup_result.ok key, [ phi1; phi2 ], true)
         | Rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
             let have_all =
               Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
@@ -363,26 +375,21 @@ module Make (S : S) = struct
             let phi =
               Riddler.picked_record_pattern key key' (Value_bool have_all) pat
             in
-            add_phi term_detail phi ;
-            (Lookup_result.ok key, true)
+            (Lookup_result.ok key, [ phi ], true)
         | Rec_pattern _, _ | _, Value_body _ ->
-            let phi = Riddler.eqv_with_picked key key' (Value_bool false) in
-            add_phi term_detail phi ;
-            let phi = Riddler.picked_pattern key key' pat in
-            add_phi term_detail phi ;
+            let phi1 = Riddler.eqv_with_picked key key' (Value_bool false) in
+            let phi2 = Riddler.picked_pattern key key' pat in
 
-            (Lookup_result.ok key, false)
+            (Lookup_result.ok key, [ phi1; phi2 ], false)
         | _, _ ->
             (* TODO: some binops contain type information for patterns *)
             (* TODO: and for previous pattern match *)
             let phi = Riddler.picked_pattern key key' pat in
-            add_phi term_detail phi ;
-
-            (Lookup_result.ok key, false)
+            (Lookup_result.ok key, [ phi ], false)
       in
-      ans
+      (ans, phis)
     in
-    let edge = Map { sub = key; pub = key'; block; map } in
+    let edge = MapSeq { sub = key; pub = key'; block; map = next } in
     run_edge run_task term_detail edge Riddler.true_
 
   let assume _p _term_detail (key : Lookup_key.t) block run_task = ()
