@@ -427,7 +427,6 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
               new_expr_desc @@ fail_cls )
         in
         let gen_expr = Function ([ arg_assume ], new_expr_desc inner_expr) in
-        let%bind () = add_error_to_bluejay_mapping fail_id e_desc in
         return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
       in
       let%bind checker =
