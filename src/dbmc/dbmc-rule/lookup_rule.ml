@@ -389,21 +389,7 @@ module Make (S : S) = struct
       in
       (ans, phis)
     in
-    (* let edge = MapSeq { sub = key; pub = key'; block; map = next } in *)
-    let edge =
-      Map
-        {
-          sub = key;
-          pub = key';
-          block;
-          map =
-            (fun r ->
-              let ans, phis = next 0 r in
-              add_phi term_detail (Riddler.and_ phis) ;
-              ans);
-        }
-    in
-
+    let edge = MapSeq { sub = key; pub = key'; block; map = next } in
     run_edge run_task term_detail edge Riddler.true_
 
   let assume _p _term_detail (key : Lookup_key.t) block run_task = ()
