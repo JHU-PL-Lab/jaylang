@@ -15,12 +15,8 @@ module type S = sig
 end
 
 let add_phi (state : Global_state.t) (term_detail : Term_detail.t) phi =
-  let phi' =
-    Option.value_map term_detail.phi ~default:phi ~f:(fun phi' ->
-        Riddler.and_ [ phi'; phi ])
-  in
-  term_detail.phi <- Some phi' ;
-  state.phis_z3 <- phi :: state.phis_z3
+  term_detail.phis <- phi :: term_detail.phis ;
+  state.phis <- phi :: state.phis
 
 module Make (S : S) = struct
   open Edge
@@ -354,9 +350,8 @@ module Make (S : S) = struct
       let rv_block = Cfg.block_of_id key_rv.x S.block_map in
       let rv = Cfg.clause_body_of_x rv_block key_rv.x in
 
-      Fmt.pr "[Pattern] %a | %a | %d <- %a\n" Lookup_key.pp key
-        Jayil.Ast_pp.pp_pattern pat i Lookup_key.pp key_rv ;
-
+      (* Fmt.pr "[Pattern] %a | %a | %d <- %a\n" Lookup_key.pp key
+         Jayil.Ast_pp.pp_pattern pat i Lookup_key.pp key_rv ; *)
       let ans, phis, _matched =
         match (pat, rv) with
         | Any_pattern, _

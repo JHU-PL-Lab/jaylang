@@ -196,10 +196,13 @@ module DotPrinter_Make (S : GS) = struct
         let content =
           let phis_string =
             let term_detail = Hashtbl.find S.state.term_detail_map node.key in
-            Option.value_map term_detail ~default:"" ~f:(fun dd ->
-                Option.value_map dd.phi ~default:"" ~f:(fun d ->
-                    d |> Z3.Expr.to_string |> label_escape))
+            let phis =
+              Option.value_map term_detail ~default:[] ~f:(fun d -> d.phis)
+            in
+            let phi = Riddler.and_ phis in
+            phi |> Z3.Expr.to_string |> label_escape
           in
+
           let phi_status =
             ""
             (* match Hashtbl.find S.state.noted_phi_map node.key with

@@ -232,7 +232,7 @@ let eager_check (state : Global_state.t) (config : Global_config.t) target
     unfinish_lookup @ [ picked target ] @ list_fix @ assumption
   in
 
-  let check_result = Solver.check state.phis_z3 phi_used_once in
+  let check_result = Solver.check state.phis phi_used_once in
   Global_state.clear_phis state ;
   SLog.debug (fun m -> m "Eager check") ;
   SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
@@ -274,7 +274,7 @@ let check (state : Global_state.t) (config : Global_config.t) :
     |> List.map ~f:(fun (key, i) -> SuduZ3.not_ (pick_key_list key i))
   in
   let phi_used_once = unfinish_lookup @ list_fix in
-  let check_result = Solver.check state.phis_z3 phi_used_once in
+  let check_result = Solver.check state.phis phi_used_once in
   Global_state.clear_phis state ;
 
   if config.debug_model

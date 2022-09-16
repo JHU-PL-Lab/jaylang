@@ -22,14 +22,8 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
                            let term_detail =
                              Hashtbl.find_exn state.term_detail_map key
                            in
-                           term_detail.phi <- Some phi ;
+                           term_detail.phis <- phi :: term_detail.phis ;
                            Set.add phis phi
-
-                         (*
-                             (* Hashtbl.add_exn state.phi_map ~key ~data:phis ; *)
-                             state.phis_z3 <- phis :: state.phis_z3 ;
-                             Set.add phis phi
-                         *)
 
                          let block_map = state.block_map
                          let unroll = unroll
@@ -45,7 +39,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
           let block_id = Cfg.id_of_block block in
           let x, _r_stk = Lookup_key.to2 key in
           let rule = Rule.rule_of_runtime_status x block in
-          { node = ref (Search_graph.mk_node ~block_id ~key); rule; phi = None }
+          { node = ref (Search_graph.mk_node ~block_id ~key); rule; phis = [] }
         in
         Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
         let task () = Scheduler.push job_queue key (lookup key block phis) in
@@ -124,7 +118,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
   (* reset and init *)
   Solver.reset () ;
   Riddler.reset () ;
-  state.phis_z3 <- [ Riddler.picked (Lookup_key.start state.target) ] ;
+  state.phis <- [ Riddler.picked (Lookup_key.start state.target) ] ;
   let stride = ref config.stride_init in
 
   let unroll = U.create () in
@@ -157,7 +151,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
 
     let block_id = Cfg.id_of_block block in
     let term_detail : Term_detail.t =
-      { node = ref (Search_graph.mk_node ~block_id ~key); rule; phi = None }
+      { node = ref (Search_graph.mk_node ~block_id ~key); rule; phis = [] }
     in
     let run_task key block = run_eval key block lookup in
 
