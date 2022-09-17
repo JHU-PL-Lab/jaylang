@@ -143,7 +143,7 @@ let test_one_file test_config testname () =
   Dj_common.Log.init config ;
   match expectation with
   | None ->
-      let* _, is_timeout = Main_lwt.search_input ~config src in
+      let* { is_timeout; _ } = Main.main_lwt ~config src in
       prerr_endline "search_input, no expectation, end" ;
       Lwt.return
       @@ Alcotest.(check bool) "search_input: not timeout" false is_timeout
@@ -153,13 +153,15 @@ let test_one_file test_config testname () =
           let config = { config with target = Id.Ident expectation.target } in
           match List.hd expectation.inputs with
           | Some inputs ->
-              let* checked = Main_lwt.check_input ~config src inputs in
-              prerr_endline "check_input, with expectation, end" ;
+              let config =
+                { config with mode = Global_config.Dbmc_check inputs }
+              in
+              let* _ = Main.main_lwt ~config src in
+              let checked = false in
               Lwt.return
               @@ Alcotest.(check bool) "check_input: not timeout" false checked
           | None ->
-              let* inputss, _ = Main_lwt.search_input ~config src in
-              prerr_endline "search_input, end" ;
+              let* { inputss; _ } = Main.main_lwt ~config src in
               let () =
                 match List.hd inputss with
                 | Some _inputs ->

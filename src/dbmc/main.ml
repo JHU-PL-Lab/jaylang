@@ -7,6 +7,14 @@ open Cfg
 open Ddpa
 open Log.Export
 
+type result = {
+  inputss : int option list list;
+  is_timeout : bool;
+  is_checked : bool option;
+  symbolic_result : (Z3.Model.model * Concrete_stack.t) option;
+  state : Global_state.t;
+}
+
 let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t) =
   match config.mode with
   | Dbmc_check inputs ->
@@ -77,8 +85,8 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
   check_expected_input ~config ~state ;
   ([ inputs_from_interpreter ], false (* true *), Some (model, c_stk))
 
-let[@landmark] main_with_state_lwt ~(config : Global_config.t)
-    ~(state : Global_state.t) =
+let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
+    =
   let job_queue =
     let open Scheduler in
     let cmp t1 t2 =
@@ -138,20 +146,15 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
 
 (* entry functions *)
 
-let main_details ~config program =
+let main_lwt ~config program =
   let state = Global_state.create config program in
-  let inputs, is_timeout, _model =
-    Lwt_main.run (main_with_state_lwt ~config ~state)
+  let%lwt inputss, is_timeout, symbolic_result = main_lookup ~config ~state in
+  let result =
+    { inputss; is_timeout; is_checked = None; symbolic_result; state }
   in
-  (inputs, is_timeout, state)
+  Lwt.return result
 
-let search_input ~config program =
-  main_details ~config program |> fun (a, _b, _c) -> a
-
-let check_input ~(config : Global_config.t) program inputs =
-  let mode = Global_config.Dbmc_check inputs in
-  let config = { config with mode } in
-  main_details ~config program |> fun (_a, b, _c) -> b
+let main ~config program = Lwt_main.run (main_lwt ~config program)
 
 let from_commandline () =
   let config = Argparse.parse_commandline_config () in
@@ -161,16 +164,15 @@ let from_commandline () =
     Dj_common.File_utils.read_source ~is_instrumented config.filename
   in
   (try
+     let result = main ~config program in
+     let { inputss; is_timeout; state; _ } = result in
+
      match config.mode with
      | Dbmc_search -> (
-         let inputss = search_input ~config program in
-
          match List.hd inputss with
          | Some inputs -> Fmt.pr "[%s]@;" (Std.string_of_inputs inputs)
          | None -> Fmt.pr "Unreachable")
-     | Dbmc_check inputs ->
-         let r = check_input ~config program inputs in
-         Fmt.pr "%B" r
+     | Dbmc_check inputs -> Fmt.pr "%B" is_timeout
      | _ -> ()
    with ex -> (* Printexc.print_backtrace Out_channel.stderr ; *)
               raise ex) ;

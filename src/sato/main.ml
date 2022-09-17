@@ -52,8 +52,8 @@ let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
         (* Right now we're stopping after one error is found. *)
         try
           let open Dbmc in
-          let inputss, _, dbmc_state =
-            Dbmc.Main.main_details ~config:dbmc_config program
+          let Main.{ inputss; state = dbmc_state; _ } =
+            Dbmc.Main.main ~config:dbmc_config program
           in
           match List.hd inputss with
           | Some inputs -> (
