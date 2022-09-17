@@ -11,6 +11,38 @@ let transform_funsig (f : 'a expr_desc -> 'b expr_desc m)
   let%bind e' = f e in
   return @@ Funsig (fun_name, params, e')
 
+let transform_typed_funsig (f : 'a expr_desc -> 'b expr_desc m)
+    (fun_sig : 'a typed_funsig) : 'b typed_funsig m =
+  match fun_sig with
+  | Typed_funsig (fun_name, typed_params, (e, ret_type)) ->
+      let typed_params_m =
+        List.map
+          (fun (param, t) ->
+            let%bind t' = f t in
+            return (param, t'))
+          typed_params
+      in
+      let%bind typed_params' = sequence typed_params_m in
+      let%bind e' = f e in
+      let%bind ret_type' = f ret_type in
+      return @@ Typed_funsig (fun_name, typed_params', (e', ret_type'))
+  | DTyped_funsig (fun_name, (param, t), (e, ret_type)) ->
+      let%bind t' = f t in
+      let%bind e' = f e in
+      let%bind ret_type' = f ret_type in
+      return @@ DTyped_funsig (fun_name, (param, t'), (e', ret_type'))
+
+let remove_type_from_funsig (f : 'a expr_desc -> 'b expr_desc m)
+    (fun_sig : 'a typed_funsig) : 'b funsig m =
+  match fun_sig with
+  | Typed_funsig (fun_name, typed_params, (e, _)) ->
+      let params = List.map (fun (param, _) -> param) typed_params in
+      let%bind e' = f e in
+      return @@ Funsig (fun_name, params, e')
+  | DTyped_funsig (fun_name, (param, _), (e, _)) ->
+      let%bind e' = f e in
+      return @@ Funsig (fun_name, [ param ], e')
+
 (* Phase one of transformation: turning all syntactic types into its
    semantic correspondence.
    i.e. int -> { generator = fun _ -> input,
@@ -373,6 +405,13 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
            typed input. If not, report an error. *)
         (* TODO: The error reporting here isn't really working for this "wrap"
            case. *)
+        let%bind fail_id = fresh_ident "fail" in
+        let fail_cls =
+          Let
+            ( fail_id,
+              new_expr_desc @@ Bool false,
+              new_expr_desc @@ Assert (new_expr_desc @@ Var fail_id) )
+        in
         let inner_expr =
           If
             ( new_expr_desc
@@ -385,7 +424,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
                    ( new_expr_desc
                      @@ RecordProj (gc_pair_cod_gen, Label "generator"),
                      new_expr_desc @@ Int 0 ),
-              new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+              new_expr_desc @@ fail_cls )
         in
         let gen_expr = Function ([ arg_assume ], new_expr_desc inner_expr) in
         return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
@@ -897,20 +936,22 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       let res = new_expr_desc @@ LetWithType (x, e1', e2', t') in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
-  | LetRecFunWithType (sig_lst, e, t_lst) ->
-      let%bind sig_lst' =
-        sig_lst |> List.map (transform_funsig semantic_type_of) |> sequence
+  | LetRecFunWithType (typed_sig_lst, e) ->
+      let%bind typed_sig_lst' =
+        typed_sig_lst
+        |> List.map (transform_typed_funsig semantic_type_of)
+        |> sequence
       in
-      let%bind t_lst' = t_lst |> List.map semantic_type_of |> sequence in
       let%bind e' = semantic_type_of e in
-      let res = new_expr_desc @@ LetRecFunWithType (sig_lst', e', t_lst') in
+      let res = new_expr_desc @@ LetRecFunWithType (typed_sig_lst', e') in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
-  | LetFunWithType (fun_sig, e, t) ->
-      let%bind fun_sig' = fun_sig |> transform_funsig semantic_type_of in
+  | LetFunWithType (typed_fun_sig, e) ->
+      let%bind typed_fun_sig' =
+        typed_fun_sig |> transform_typed_funsig semantic_type_of
+      in
       let%bind e' = semantic_type_of e in
-      let%bind t' = semantic_type_of t in
-      let res = new_expr_desc @@ LetFunWithType (fun_sig', e', t') in
+      let res = new_expr_desc @@ LetFunWithType (typed_fun_sig', e') in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | Plus (e1, e2) ->
@@ -1053,9 +1094,72 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       return res
 
 (* Phase two of the transformation: erasing all type signatures from the code.
-    By the end of this phase, there should no longer be any (x : tau) present
+   By the end of this phase, there should no longer be any (x : tau) present
    in the AST. *)
 and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
+  let mk_check_from_fun_sig fun_sig =
+    match fun_sig with
+    | Typed_funsig (f, typed_params, (_, ret_type)) ->
+        let%bind arg_ids =
+          list_fold_right_m
+            (fun (Ident p, t) acc ->
+              let%bind arg_id = fresh_ident p in
+              return @@ ((arg_id, t) :: acc))
+            typed_params []
+        in
+        let mk_appl =
+          List.fold_left
+            (fun acc (arg, _) ->
+              Appl (new_expr_desc @@ acc, new_expr_desc @@ Var arg))
+            (Appl
+               ( new_expr_desc @@ Var f,
+                 new_expr_desc @@ Var (fst @@ List.hd arg_ids) ))
+            (List.tl arg_ids)
+        in
+        let%bind ret_type_core = bluejay_to_jay ret_type in
+        let check_ret =
+          Appl
+            ( new_expr_desc @@ RecordProj (ret_type_core, Label "checker"),
+              new_expr_desc @@ mk_appl )
+        in
+        let%bind check_expr =
+          list_fold_right_m
+            (fun (arg, t) acc ->
+              let%bind t' = bluejay_to_jay t in
+              return
+              @@ Let
+                   ( arg,
+                     new_expr_desc
+                     @@ Appl
+                          ( new_expr_desc @@ RecordProj (t', Label "generator"),
+                            new_expr_desc @@ Int 0 ),
+                     new_expr_desc acc ))
+            arg_ids check_ret
+        in
+        return check_expr
+    | DTyped_funsig (f, (Ident param, t), (_, ret_type)) ->
+        let%bind arg_id = fresh_ident param in
+        let%bind t' = bluejay_to_jay t in
+        let%bind ret_type_core = bluejay_to_jay ret_type in
+        let appl_res =
+          Appl (new_expr_desc @@ Var f, new_expr_desc @@ Var arg_id)
+        in
+        let check_ret =
+          Appl
+            ( new_expr_desc @@ RecordProj (ret_type_core, Label "checker"),
+              new_expr_desc @@ appl_res )
+        in
+        let check_expr =
+          Let
+            ( arg_id,
+              new_expr_desc
+              @@ Appl
+                   ( new_expr_desc @@ RecordProj (t', Label "generator"),
+                     new_expr_desc @@ Int 0 ),
+              new_expr_desc @@ check_ret )
+        in
+        return check_expr
+  in
   let e = e_desc.body in
   let _tag = e_desc.tag in
   match e with
@@ -1138,43 +1242,41 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
       let res = new_expr_desc @@ Let (x, e1', new_expr_desc check_cls) in
       let%bind () = add_core_to_sem_mapping res e_desc in
       return res
-  | LetRecFunWithType (sig_lst, e, type_decl_lst) ->
-      let fun_names = List.map (fun (Funsig (id, _, _)) -> id) sig_lst in
-      let combined_lst = List.combine fun_names type_decl_lst in
-      let folder (f, t) acc =
-        let%bind t' = bluejay_to_jay t in
+  | LetRecFunWithType (sig_lst, e) ->
+      let folder fun_sig acc =
         let%bind check_res = fresh_ident "check_res" in
         let%bind () = add_error_to_bluejay_mapping check_res e_desc in
-        let%bind () = add_error_to_rec_fun_mapping check_res t in
+        (* TODO: Come back to this later. Need to think about how we do error
+           reporting. *)
+        let fun_name =
+          match fun_sig with
+          | Typed_funsig (f, _, _) | DTyped_funsig (f, _, _) -> f
+        in
+        let%bind () = add_error_to_rec_fun_mapping check_res fun_name in
         let res_cls =
           If
             ( new_expr_desc @@ Var check_res,
               acc,
               new_expr_desc @@ TypeError check_res )
         in
+        let%bind check_expr = mk_check_from_fun_sig fun_sig in
         let check_cls =
-          Let
-            ( check_res,
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (t', Label "checker"),
-                     new_expr_desc @@ Var f ),
-              new_expr_desc res_cls )
+          Let (check_res, new_expr_desc check_expr, new_expr_desc res_cls)
         in
         return @@ new_expr_desc @@ check_cls
       in
       let%bind test_exprs =
         let%bind e' = bluejay_to_jay e in
-        list_fold_right_m folder combined_lst e'
+        list_fold_right_m folder sig_lst e'
       in
       let%bind sig_lst' =
-        sig_lst |> List.map (transform_funsig bluejay_to_jay) |> sequence
+        sig_lst |> List.map (remove_type_from_funsig bluejay_to_jay) |> sequence
       in
       let res = new_expr_desc @@ LetRecFun (sig_lst', test_exprs) in
       let%bind () = add_core_to_sem_mapping res e_desc in
       return res
-  | LetFunWithType ((Funsig (f, _, _) as fun_sig), e, type_decl) ->
-      let%bind type_decl' = bluejay_to_jay type_decl in
+  | LetFunWithType (fun_sig, e) ->
+      let%bind (check_expr : core_only expr) = mk_check_from_fun_sig fun_sig in
       let%bind e' = bluejay_to_jay e in
       let%bind check_res = fresh_ident "check_res" in
       let%bind () = add_error_to_bluejay_mapping check_res e_desc in
@@ -1185,15 +1287,9 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
             new_expr_desc @@ TypeError check_res )
       in
       let check_cls =
-        Let
-          ( check_res,
-            new_expr_desc
-            @@ Appl
-                 ( new_expr_desc @@ RecordProj (type_decl', Label "checker"),
-                   new_expr_desc @@ Var f ),
-            new_expr_desc res_cls )
+        Let (check_res, new_expr_desc @@ check_expr, new_expr_desc res_cls)
       in
-      let%bind fun_sig' = (transform_funsig bluejay_to_jay) fun_sig in
+      let%bind fun_sig' = remove_type_from_funsig bluejay_to_jay fun_sig in
       let res = new_expr_desc @@ LetFun (fun_sig', new_expr_desc check_cls) in
       let%bind () = add_core_to_sem_mapping res e_desc in
       return res

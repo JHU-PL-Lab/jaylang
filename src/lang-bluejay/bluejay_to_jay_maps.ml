@@ -37,7 +37,7 @@ type t = {
   sem_to_syn : syn_bluejay_edesc Intermediate_expr_desc_map.t;
   core_to_sem : sem_bluejay_edesc Core_expr_desc_map.t;
   error_to_expr_tag : int Intermediate_expr_desc_map.t;
-  error_to_rec_fun_type : sem_bluejay_edesc Ident_map.t;
+  error_to_rec_fun_type : ident Ident_map.t;
   error_to_value_expr : sem_bluejay_edesc Intermediate_expr_desc_map.t;
   syn_tags : int list;
 }
@@ -82,11 +82,11 @@ let add_error_expr_tag_mapping mappings err_expr expr_tag =
       Intermediate_expr_desc_map.add err_expr expr_tag error_expr_tag_mapping;
   }
 
-let add_error_rec_fun_type_mapping mappings x e =
+let add_error_rec_fun_type_mapping mappings x f =
   let error_rec_fun_type_map = mappings.error_to_rec_fun_type in
   {
     mappings with
-    error_to_rec_fun_type = Ident_map.add x e error_rec_fun_type_map;
+    error_to_rec_fun_type = Ident_map.add x f error_rec_fun_type_map;
   }
 
 let add_error_value_expr_mapping mappings err_e v_e =
@@ -152,16 +152,26 @@ let find_all_syn_tags bluejay_jay_maps (edesc : syn_bluejay_edesc) =
         let acc' = loop acc e1 in
         let acc'' = loop acc' e2 in
         loop acc'' t
-    | LetRecFunWithType (sig_lst, e, ts) ->
-        let acc' =
-          List.fold (fun acc (Funsig (_, _, e)) -> loop acc e) acc sig_lst
+    | LetRecFunWithType (typed_funsigs, e) ->
+        let collect_types acc fun_sig =
+          match fun_sig with
+          | Typed_funsig (_, typed_params, (f_body, ret_type)) ->
+              let param_types = List.map (fun (_, t) -> t) typed_params in
+              param_types @ [ f_body; ret_type; e ] @ acc
+          | DTyped_funsig (_, (_, t), (f_body, ret_type)) ->
+              [ t; f_body; ret_type; e ] @ acc
         in
-        let acc'' = List.fold (fun acc e -> loop acc e) acc' ts in
-        loop acc'' e
-    | LetFunWithType (Funsig (_, _, fed), e, t) ->
-        let acc' = loop acc fed in
-        let acc'' = loop acc' e in
-        loop acc'' t
+        let types = List.fold collect_types [ e ] typed_funsigs in
+        List.fold loop acc types
+    | LetFunWithType (fun_sig, e) -> (
+        match fun_sig with
+        | Typed_funsig (_, typed_params, (f_body, ret_type)) ->
+            let param_types = List.map (fun (_, t) -> t) typed_params in
+            let all_exprs = param_types @ [ f_body; ret_type; e ] in
+            List.fold loop acc all_exprs
+        | DTyped_funsig (_, (_, t), (f_body, ret_type)) ->
+            let all_exprs = [ t; f_body; ret_type; e ] in
+            List.fold loop acc all_exprs)
     | If (e1, e2, e3) ->
         let acc' = loop acc e1 in
         let acc'' = loop acc' e2 in
@@ -490,8 +500,15 @@ let get_syn_nat_equivalent_expr bluejay_jay_maps
   |> syn_bluejay_from_sem_bluejay bluejay_jay_maps
 
 let get_core_expr_from_sem_expr bluejay_jay_maps sem_expr =
+  (* let show_expr_desc =
+       Pp_utils.pp_to_string Bluejay_ast_internal_pp.pp_expr_desc_with_tag
+     in
+     let () = print_endline "Target: " in
+     let () = print_endline @@ show_expr_desc sem_expr in *)
   Core_expr_desc_map.fold
     (fun core_ed sem_ed acc ->
+      (* let () = print_endline @@ "Current v: " in
+         let () = print_endline @@ show_expr_desc sem_ed in *)
       if sem_expr.tag = sem_ed.tag then Some core_ed else acc)
     bluejay_jay_maps.core_to_sem None
 
@@ -516,6 +533,23 @@ let rec replace_type (t_desc : syn_bluejay_edesc) (new_t : syn_bluejay_edesc)
     let transform_funsig (Funsig (fid, args, fe_desc)) =
       Funsig (fid, args, replace_type fe_desc new_t tag)
     in
+    let transform_typed_funsig fun_sig =
+      match fun_sig with
+      | Typed_funsig (fid, typed_params, (f_body, ret_type)) ->
+          let typed_params' =
+            List.map
+              (fun (param, t) -> (param, replace_type t new_t tag))
+              typed_params
+          in
+          let f_body' = replace_type f_body new_t tag in
+          let ret_type' = replace_type ret_type new_t tag in
+          Typed_funsig (fid, typed_params', (f_body', ret_type'))
+      | DTyped_funsig (fid, (param, t), (f_body, ret_type)) ->
+          let t' = replace_type t new_t tag in
+          let f_body' = replace_type f_body new_t tag in
+          let ret_type' = replace_type ret_type new_t tag in
+          DTyped_funsig (fid, (param, t'), (f_body', ret_type'))
+    in
     let t' =
       match t with
       | Int _ | Bool _ | Var _ | Input | TypeError _ -> t
@@ -538,16 +572,14 @@ let rec replace_type (t_desc : syn_bluejay_edesc) (new_t : syn_bluejay_edesc)
           let e2_desc' = replace_type e2_desc new_t tag in
           let e3_desc' = replace_type e3_desc new_t tag in
           LetWithType (x, e1_desc', e2_desc', e3_desc')
-      | LetRecFunWithType (funsigs, e_desc, ts) ->
-          let funsigs' = List.map transform_funsig funsigs in
+      | LetRecFunWithType (funsigs, e_desc) ->
+          let funsigs' = List.map transform_typed_funsig funsigs in
           let e_desc' = replace_type e_desc new_t tag in
-          let ts' = List.map (fun ed -> replace_type ed new_t tag) ts in
-          LetRecFunWithType (funsigs', e_desc', ts')
-      | LetFunWithType (funsig, e_desc, t) ->
-          let funsig' = transform_funsig funsig in
+          LetRecFunWithType (funsigs', e_desc')
+      | LetFunWithType (funsig, e_desc) ->
+          let funsig' = transform_typed_funsig funsig in
           let e_desc' = replace_type e_desc new_t tag in
-          let t' = replace_type t new_t tag in
-          LetFunWithType (funsig', e_desc', t')
+          LetFunWithType (funsig', e_desc')
       | Plus (e1_desc, e2_desc) ->
           let e1_desc' = replace_type e1_desc new_t tag in
           let e2_desc' = replace_type e2_desc new_t tag in
@@ -679,7 +711,14 @@ let sem_from_syn (bluejay_jay_maps : t) (syn_expr : syn_bluejay_edesc) :
   let res_opt =
     Intermediate_expr_desc_map.fold
       (fun k v acc ->
-        if Bluejay_ast_internal.equal_expr_desc v syn_expr then Some k else acc)
+        (* let () = print_endline @@ "Current v: " in
+           let () =
+             print_endline
+             @@ Bluejay_ast.show_expr_desc
+                  (Bluejay_ast_internal.from_internal_expr_desc v)
+           in *)
+        if v.tag = syn_expr.tag then Some k else acc)
+        (* if Bluejay_ast_internal.equal_expr_desc v syn_expr then Some k else acc) *)
       mappings None
   in
   match res_opt with
