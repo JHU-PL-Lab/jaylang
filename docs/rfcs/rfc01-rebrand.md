@@ -94,9 +94,9 @@ For tools,
 
 **ODEFA** will be unsed.
 **DDPA** is only used as a program analysis model. `jay-analysis --ddpa0 source.jay`.
-**DDSE** is only used as a symbolic execution model. `dy --model=ddse source.jay`
-**DMBC** is only used as the default symbolic execution model. `dy <--model=dbmc> source.jay`
-**SATO** will be unsed. `dy --check-type full.jay` or `jayzz full.jay`.
+**DDSE** is only used as a symbolic execution model. `dj --model=ddse source.jay`
+**DMBC** is only used as the default symbolic execution model. `dj <--model=dbmc> source.jay`
+**SATO** will be unsed. `dj --check-type full.jay` or `jayzz full.jay`.
 
 # reference
 
