@@ -178,7 +178,7 @@ let rec same_stack s1 s2 =
   | _, _ -> false
 
 (* OB: we cannot enter the same stack twice. *)
-let rec eval_exp_verbose ~session stk env e : denv * dvalue =
+let rec eval_exp ~session stk env e : denv * dvalue =
   ILog.app (fun m -> m "@[-> %a@]\n" Concrete_stack.pp stk) ;
   (match session.mode with
   | With_full_target (_, target_stk) ->
@@ -196,9 +196,6 @@ let rec eval_exp_verbose ~session stk env e : denv * dvalue =
     List.fold_map ~f:(eval_clause ~session stk) ~init:env clauses
   in
   (denv, List.last_exn vs')
-
-and eval_exp ~session stk env e : dvalue =
-  snd (eval_exp_verbose ~session stk env e)
 
 (* OB: once stack is to change, there must be an `eval_exp` *)
 and eval_clause ~session stk env clause : denv * dvalue =
@@ -239,7 +236,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
           then (e1, Concrete_stack.push (x, cond_fid true) stk)
           else (e2, Concrete_stack.push (x, cond_fid false) stk)
         in
-        let ret_env, ret_val = eval_exp_verbose ~session stk' env e in
+        let ret_env, ret_val = eval_exp ~session stk' env e in
         let (Var (ret_id, _) as last_v) = Ast_tools.retv e in
         let _, ret_stk = fetch_val_with_stk ~session ~stk:stk' ret_env last_v in
         (* let () = print_endline @@ "This is adding alias mapping in conditional body" in
@@ -263,7 +260,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
                let () = print_endline @@ show_ident_with_stack (arg, stk) in
                let () = print_endline @@ show_ident_with_stack (x2, v2_stk) in *)
             add_alias (arg, stk) (x2, v2_stk) session ;
-            let ret_env, ret_val = eval_exp_verbose ~session stk2 env2 body in
+            let ret_env, ret_val = eval_exp ~session stk2 env2 body in
             let (Var (ret_id, _) as last_v) = Ast_tools.retv body in
             let _, ret_stk =
               fetch_val_with_stk ~session ~stk:stk2 ret_env last_v
@@ -419,7 +416,7 @@ and check_pattern ~session ~stk env vx pattern : bool =
 let eval session e =
   let empty_env = Ident_map.empty in
   try
-    let v = eval_exp ~session Concrete_stack.empty empty_env e in
+    let v = snd (eval_exp ~session Concrete_stack.empty empty_env e) in
     raise (Terminate v)
   with
   | Reach_max_step (x, stk) ->
