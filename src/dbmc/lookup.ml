@@ -40,7 +40,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
           let block_id = Cfg.id_of_block block in
           let x, _r_stk = Lookup_key.to2 key in
           let rule = Rule.rule_of_runtime_status x block in
-          { node = ref (Search_graph.mk_node ~block_id ~key); rule; phis = [] }
+          Term_detail.mk_detail ~rule ~block_id ~key
         in
         Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
         let task () = Scheduler.push job_queue key (lookup key block phis) in
@@ -151,9 +151,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
     let rule = Rule.rule_of_runtime_status x block in
 
     let block_id = Cfg.id_of_block block in
-    let term_detail : Term_detail.t =
-      { node = ref (Search_graph.mk_node ~block_id ~key); rule; phis = [] }
-    in
+    let term_detail = Term_detail.mk_detail ~rule ~block_id ~key in
     let run_task key block = run_eval key block lookup in
 
     Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;

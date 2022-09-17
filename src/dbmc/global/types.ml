@@ -61,8 +61,6 @@ module State = struct
     (*  *)
     (* interpreter used *)
     lookup_alert : Lookup_key.t Hash_set.t;
-    node_set : (Lookup_key.t, bool) Hashtbl.t;
-    node_get : (Lookup_key.t, int) Hashtbl.t;
     rstk_picked : (Rstack.t, bool) Hashtbl.t;
     solver : Z3.Solver.solver;
   }

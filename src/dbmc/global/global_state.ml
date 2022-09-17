@@ -26,8 +26,6 @@ let create (config : Global_config.t) program =
       lookup_alert = Hash_set.create (module Lookup_key);
       (* unroll = Unrolls.U_dbmc.create (); *)
       (* noted_phi_map = Hashtbl.create (module Lookup_key); *)
-      node_set = Hashtbl.create (module Lookup_key);
-      node_get = Hashtbl.create (module Lookup_key);
       rstk_picked = Hashtbl.create (module Rstack);
       solver = Solver.solver;
     }

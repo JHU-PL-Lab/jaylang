@@ -52,8 +52,7 @@ type session = {
   val_def_map : (Id_with_stack.t, clause_body * dvalue) Hashtbl.t;
   (* debug *)
   is_debug : bool;
-  node_set : (Lookup_key.t, bool) Hashtbl.t;
-  node_get : (Lookup_key.t, int) Hashtbl.t;
+  term_detail_map : (Lookup_key.t, Term_detail.t) Hashtbl.t;
   rstk_picked : (Rstack.t, bool) Hashtbl.t;
   lookup_alert : Lookup_key.t Hash_set.t;
   (* debug heavily *)
@@ -69,8 +68,7 @@ let make_default_session () =
     step = ref 0;
     alias_graph = G.create ();
     val_def_map = Hashtbl.create (module Id_with_stack);
-    node_set = Hashtbl.create (module Lookup_key);
-    node_get = Hashtbl.create (module Lookup_key);
+    term_detail_map = Hashtbl.create (module Lookup_key);
     rstk_picked = Hashtbl.create (module Rstack);
     lookup_alert = Hash_set.create (module Lookup_key);
     is_check_per_step = false;
@@ -86,8 +84,7 @@ let create_session ?max_step target_stk (state : Global_state.t)
     step = ref 0;
     alias_graph = G.create ();
     val_def_map = Hashtbl.create (module Id_with_stack);
-    node_set = state.node_set;
-    node_get = state.node_get;
+    term_detail_map = state.term_detail_map;
     rstk_picked = state.rstk_picked;
     lookup_alert = state.lookup_alert;
     is_check_per_step = false;
@@ -126,9 +123,9 @@ let debug_update_read_node session x stk =
       let r_stk = Rstack.relativize target_stk stk in
       let key = Lookup_key.of2 x r_stk in
       (* Fmt.pr "@[Update Get to %a@]\n" Lookup_key.pp key; *)
-      Hashtbl.update session.node_get key ~f:(function
-        | None -> 1
-        | Some n -> n + 1)
+      Hashtbl.change session.term_detail_map key ~f:(function
+        | Some td -> Some { td with get_count = td.get_count + 1 }
+        | None -> failwith "not term_detail")
   | _, _ -> ()
 
 let debug_update_write_node session x stk =
@@ -137,7 +134,9 @@ let debug_update_write_node session x stk =
       let r_stk = Rstack.relativize target_stk stk in
       let key = Lookup_key.of2 x r_stk in
       (* Fmt.pr "@[Update Set to %a@]\n" Lookup_key.pp key; *)
-      Hashtbl.add_exn session.node_set ~key ~data:true
+      Hashtbl.change session.term_detail_map key ~f:(function
+        | Some td -> Some { td with is_set = true }
+        | None -> failwith "not term_detail")
   | _, _ -> ()
 
 let debug_stack session x stk (v, _) =
