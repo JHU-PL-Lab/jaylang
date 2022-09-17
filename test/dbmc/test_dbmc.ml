@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 open Dbmc
 
 type config = {
@@ -126,7 +127,7 @@ let test_one_file test_config testname () =
   let open Lwt.Syntax in
   let is_instrumented = test_config.is_instrumented in
 
-  let src = File_util.read_source ~is_instrumented testname in
+  let src = File_utils.read_source ~is_instrumented testname in
   let expectation = Test_expect.load_sexp_expectation_for testname in
   let config : Global_config.t =
     let filename = testname in
@@ -139,7 +140,7 @@ let test_one_file test_config testname () =
       timeout = test_config.timeout;
     }
   in
-  Dbmc.Log.init config ;
+  Dj_common.Log.init config ;
   match expectation with
   | None ->
       let* _, is_timeout = Main_lwt.search_input ~config src in
@@ -191,7 +192,7 @@ let main top_config =
   in
 
   Lwt_main.run @@ Alcotest_lwt.run_with_args "DBMC" config grouped_tests ;
-  Dbmc.Log.close () ;
+  Dj_common.Log.close () ;
   ()
 
 let () =

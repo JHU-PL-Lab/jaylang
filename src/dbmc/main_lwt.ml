@@ -1,5 +1,6 @@
 open Core
 open Lwt.Infix
+open Dj_common
 
 let main_details ~config program =
   let state = Global_state.create config program in

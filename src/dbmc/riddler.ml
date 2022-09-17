@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 open Cfg
 open Jayil.Ast
 module SuduZ3 = Solver.SuduZ3

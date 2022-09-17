@@ -1,5 +1,6 @@
 open Core
 open Lwt.Infix
+open Dj_common
 open Log.Export
 
 (* Scheduler doesn't need to maintain a key map to make it unique.

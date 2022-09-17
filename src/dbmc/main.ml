@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 open Lwt.Infix
 open Jayil
 open Jayil.Ast
@@ -12,8 +13,10 @@ let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t) =
       (* = Input_feeder.from_list inputs *)
       let history = ref [] in
       let input_feeder = Input_feeder.memorized_from_list inputs history in
+      let is_check_per_step = config.is_check_per_step in
       let session =
-        Interpreter.expected_input_session input_feeder config.target
+        Interpreter.expected_input_session ~is_check_per_step input_feeder
+          config.target
       in
       let expected_stk =
         try Interpreter.eval session state.program with
@@ -88,6 +91,9 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
     | Some { model; c_stk } -> handle_found config state model c_stk
     | None ->
         SLog.info (fun m -> m "UNSAT") ;
+        if config.is_check_per_step
+        then check_expected_input ~config ~state
+        else () ;
         if config.debug_model
         then
           SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
@@ -151,13 +157,21 @@ let from_commandline () =
   let config = Argparse.parse_commandline_config () in
   Log.init config ;
   let is_instrumented = config.is_instrumented in
-  let program = File_util.read_source ~is_instrumented config.filename in
+  let program =
+    Dj_common.File_utils.read_source ~is_instrumented config.filename
+  in
   (try
-     let inputss = search_input ~config program in
+     match config.mode with
+     | Dbmc_search -> (
+         let inputss = search_input ~config program in
 
-     match List.hd inputss with
-     | Some inputs -> Fmt.pr "[%s]@;" (Std.string_of_inputs inputs)
-     | None -> Fmt.pr "Unreachable"
+         match List.hd inputss with
+         | Some inputs -> Fmt.pr "[%s]@;" (Std.string_of_inputs inputs)
+         | None -> Fmt.pr "Unreachable")
+     | Dbmc_check inputs ->
+         let r = check_input ~config program inputs in
+         Fmt.pr "%B" r
+     | _ -> ()
    with ex -> (* Printexc.print_backtrace Out_channel.stderr ; *)
               raise ex) ;
   Log.close ()

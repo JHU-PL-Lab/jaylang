@@ -3,8 +3,6 @@ open Core
 module T = struct
   type t = Jayil.Ast.ident = Ident of string
   [@@deriving sexp, compare, equal, hash]
-
-  let hash = Hashtbl.hash
 end
 
 include T

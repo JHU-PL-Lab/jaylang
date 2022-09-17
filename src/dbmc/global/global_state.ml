@@ -1,5 +1,6 @@
 open Core
 include Types.State
+open Dj_common
 
 let create (config : Global_config.t) program =
   let target = config.target in

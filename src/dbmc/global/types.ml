@@ -1,4 +1,5 @@
 open! Core
+open Dj_common
 
 (* Hashtbl.t is mutable by default.
    Using explicit *mutable* is for replacing a new one easier.

@@ -5,15 +5,16 @@ open Sato_args
 open Sato_result
 
 let create_initial_dmbc_config (sato_config : Sato_args.t) :
-    Dbmc.Global_config.t =
+    Dj_common.Global_config.t =
   (* Extract basic configuration from sato args *)
+  let open Dj_common in
   let filename = sato_config.filename in
   let ddpa_ver = sato_config.ddpa_c_stk in
   let max_step = sato_config.run_max_step in
   let timeout = sato_config.timeout in
-  let open Dbmc.Global_config in
+  let open Dj_common.Global_config in
   {
-    target = Dbmc.Id.(Ident "target");
+    target = Id.(Ident "target");
     filename;
     engine = E_dbmc;
     is_instrumented = false;
@@ -30,6 +31,7 @@ let create_initial_dmbc_config (sato_config : Sato_args.t) :
     debug_phi = false;
     debug_model = true;
     debug_graph = false;
+    is_check_per_step = false;
   }
 
 let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
@@ -106,4 +108,4 @@ let main_commandline () =
     | None -> print_endline @@ "No errors found."
     | Some errors -> print_endline @@ show_reported_error errors
   in
-  Dbmc.Log.close ()
+  Dj_common.Log.close ()

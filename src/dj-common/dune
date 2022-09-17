@@ -1,12 +1,12 @@
 (include_subdirs unqualified)
 
 (library
- (name dbmc)
- (public_name jay.dbmc)
+ (name dj_common)
+ (public_name jay.dj_common)
  (libraries
   core
-  core_kernel.pairing_heap
-  fmt
+  core_unix.filename_unix
+  core_unix.command_unix
   lwt
   lwt.unix
   z3
@@ -14,20 +14,13 @@
   logs.lwt
   logs.fmt
   ocamlgraph
-  hashcons
-  jayil
+  fmt
   ddpa
-  jay_translate
-  jay_instrumentation
+  jay
+  jayil
   jayil_parser
-  bluejay
-  jay.unroll
-  dj_common
-  sudu)
- ;  (instrumentation
- ;   (backend landmarks))
- (synopsis "dbmc is demand-driven bounded model checking")
- (inline_tests)
+  jay_translate)
+ (synopsis "dj-common is common data structures")
  (preprocess
   (pps
    ppx_jane

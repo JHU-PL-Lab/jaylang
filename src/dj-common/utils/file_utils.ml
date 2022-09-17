@@ -8,7 +8,13 @@ let read_source ?(is_instrumented = false) filename =
         In_channel.with_file filename ~f:Jay.Jay_parse.parse_program_raw
       in
       let nat_edesc = Jay.Jay_ast.new_expr_desc natast in
-      Jay_translate.Jay_to_jayil.translate ~is_instrumented nat_edesc
+      let translation_context =
+        Some
+          (Jay_translate.Jay_to_jayil_monad.new_translation_context ~is_jay:true
+             ~suffix:"___" ())
+      in
+      Jay_translate.Jay_to_jayil.translate ~translation_context ~is_instrumented
+        nat_edesc
       |> fun (e, _, _) -> e
     else if Jayil.File_utils.check_ext filename
     then

@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 
 type t = Id.t * Concrete_stack.t -> int
 

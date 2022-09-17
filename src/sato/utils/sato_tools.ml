@@ -9,7 +9,7 @@ let find_alias graph x_with_stk =
        let () = print_endline @@ Interpreter.show_ident_with_stack x_with_stk in *)
     if Interpreter.G.mem_vertex graph target
     then
-      let (succ : Interpreter.Ident_with_stack.t list) =
+      let (succ : Dj_common.Id_with_stack.t list) =
         Interpreter.G.succ graph target
       in
       match succ with
@@ -20,18 +20,16 @@ let find_alias graph x_with_stk =
   in
   loop [] x_with_stk
 
-let find_alias_without_stack graph x : Interpreter.Ident_with_stack.t list list
-    =
-  let init_set = Hash_set.create (module Dbmc.Interpreter.Ident_with_stack) in
-  let alias_sets = Hash_set.create (module Dbmc.Interpreter.Ident_with_stack) in
+let find_alias_without_stack graph x : Dj_common.Id_with_stack.t list list =
+  let init_set = Hash_set.create (module Dj_common.Id_with_stack) in
+  let alias_sets = Hash_set.create (module Dj_common.Id_with_stack) in
   let xs =
     Interpreter.G.fold_vertex
       (fun ((i, _) as x_with_stk) acc ->
         let check_seen ls =
           List.exists
             ~f:(fun aliases ->
-              List.mem aliases x_with_stk
-                ~equal:Dbmc.Interpreter.Ident_with_stack.equal)
+              List.mem aliases x_with_stk ~equal:Dj_common.Id_with_stack.equal)
             ls
         in
         if Jayil.Ast.Ident.equal x i && (not @@ check_seen acc)

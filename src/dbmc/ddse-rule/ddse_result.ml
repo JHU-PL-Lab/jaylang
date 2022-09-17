@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 
 type t = {
   v : Lookup_key.t;

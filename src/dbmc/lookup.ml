@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 open Jayil
 open Jayil.Ast
 open Cfg
@@ -166,6 +167,11 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
         m "[Lookup][%d][=>]: %a in block %a; Rule %a" state.tree_size
           Lookup_key.pp key Id.pp block_id Rule.pp_rule rule) ;
 
+    (* let cc = clause_of_x block x in
+       let scc =
+         Option.value_map cc ~default:"" ~f:(fun t -> Ast_pp.show_clause t.clause)
+       in
+       LLog.app (fun m -> m "[Lookup][=>]: %s " scc) ; *)
     let _apply_rule =
       let open Rule in
       match rule with

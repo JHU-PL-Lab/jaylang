@@ -7,14 +7,14 @@ type t = {
   filename : Filename.t; [@printer String.pp]
   sato_mode : mode;
   (* analysis *)
-  ddpa_c_stk : Dbmc.Global_config.ddpa_c_stk;
+  ddpa_c_stk : Dj_common.Global_config.ddpa_c_stk;
   (* tuning *)
   run_max_step : int option;
   timeout : Time.Span.t option;
 }
 [@@deriving show]
 
-let default_ddpa_c_stk = Dbmc.Global_config.C_1ddpa
+let default_ddpa_c_stk = Dj_common.Global_config.C_1ddpa
 
 let default_config =
   {

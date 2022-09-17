@@ -1,3 +1,5 @@
+open Dj_common
+
 val run_ddse :
   config:Global_config.t ->
   state:Global_state.t ->

@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 
 (* Edge for command and edge for the dependency result is not the same
    This one is more like an edge for command.

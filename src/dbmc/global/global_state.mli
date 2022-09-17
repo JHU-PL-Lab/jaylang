@@ -1,5 +1,6 @@
 open! Core
 open! Types
+open Dj_common
 
 include module type of struct
   include State
