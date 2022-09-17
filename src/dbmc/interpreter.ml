@@ -181,26 +181,7 @@ let rec same_stack s1 s2 =
   | _, _ -> false
 
 (* OB: we cannot enter the same stack twice. *)
-let rec eval_exp ~session stk env e : dvalue =
-  Log.Export.ILog.app (fun m -> m "@[-> %a@]\n" Concrete_stack.pp stk) ;
-  (match session.mode with
-  | With_full_target (_, target_stk) ->
-      let r_stk = Rstack.relativize target_stk stk in
-      Hashtbl.change session.rstk_picked r_stk ~f:(function
-        | Some true -> Some false
-        | Some false -> raise (Run_into_wrong_stack (Ast_tools.first_id e, stk))
-        | None -> None)
-  | _ -> ()) ;
-
-  (* raise (Run_into_wrong_stack (Ast_tools.first_id e, stk))); *)
-  let (Expr clauses) = e in
-  let _, vs' =
-    (* List.fold_left_map (eval_clause ~input_feeder ~target stk) env clauses *)
-    List.fold_map ~f:(eval_clause ~session stk) ~init:env clauses
-  in
-  List.last_exn vs'
-
-and eval_exp_verbose ~session stk env e : denv * dvalue =
+let rec eval_exp_verbose ~session stk env e : denv * dvalue =
   Log.Export.ILog.app (fun m -> m "@[-> %a@]\n" Concrete_stack.pp stk) ;
   (match session.mode with
   | With_full_target (_, target_stk) ->
@@ -218,6 +199,9 @@ and eval_exp_verbose ~session stk env e : denv * dvalue =
     List.fold_map ~f:(eval_clause ~session stk) ~init:env clauses
   in
   (denv, List.last_exn vs')
+
+and eval_exp ~session stk env e : dvalue =
+  snd (eval_exp_verbose ~session stk env e)
 
 (* OB: once stack is to change, there must be an `eval_exp` *)
 and eval_clause ~session stk env clause : denv * dvalue =
@@ -260,7 +244,6 @@ and eval_clause ~session stk env clause : denv * dvalue =
           else (e2, Concrete_stack.push (x, cond_fid false) stk)
         in
         let ret_env, ret_val = eval_exp_verbose ~session stk' env e in
-        (* let ret_val = eval_exp ~session stk' env e in *)
         let (Var (ret_id, _) as last_v) = Ast_tools.retv e in
         let _, ret_stk = fetch_val_with_stk ~session ~stk:stk' ret_env last_v in
         (* let () = print_endline @@ "This is adding alias mapping in conditional body" in
@@ -277,7 +260,6 @@ and eval_clause ~session stk env clause : denv * dvalue =
     | Appl_body (vx1, (Var (x2, _) as vx2)) -> (
         match fetch_val ~session ~stk env vx1 with
         | FunClosure (fid, Function_value (Var (arg, _), body), fenv) ->
-            (* let v2 = fetch_val ~session ~stk env vx2 in *)
             let v2, v2_stk = fetch_val_with_stk ~session ~stk env vx2 in
             let stk2 = Concrete_stack.push (x, fid) stk in
             let env2 = Ident_map.add arg (v2, stk) fenv in
@@ -402,10 +384,14 @@ and eval_clause ~session stk env clause : denv * dvalue =
 
   (Ident_map.add x v env, v_pre)
 
-and fetch_val ~session ~stk env (Var (x, _)) : dvalue =
-  let v, _ = Ident_map.find x env in
+and fetch_val_with_stk ~session ~stk env (Var (x, _)) :
+    dvalue * Concrete_stack.t =
+  let res = Ident_map.find x env in
   debug_update_read_node session x stk ;
-  v
+  res
+
+and fetch_val ~session ~stk env x : dvalue =
+  fst (fetch_val_with_stk ~session ~stk env x)
 
 and fetch_val_to_direct ~session ~stk env vx : value =
   match fetch_val ~session ~stk env vx with
@@ -416,12 +402,6 @@ and fetch_val_to_bool ~session ~stk env vx : bool =
   match fetch_val ~session ~stk env vx with
   | Direct (Value_bool b) -> b
   | _ -> failwith "eval to non bool"
-
-and fetch_val_with_stk ~session ~stk env (Var (x, _)) :
-    dvalue * Concrete_stack.t =
-  let res = Ident_map.find x env in
-  debug_update_read_node session x stk ;
-  res
 
 and check_pattern ~session ~stk env vx pattern : bool =
   let is_pass =
@@ -456,22 +436,3 @@ let eval session e =
       Fmt.epr "Run into wrong stack\n" ;
       alert_lookup session x stk ;
       raise (Run_into_wrong_stack (x, stk))
-
-(* let eval_verbose session e =
-   let empty_env = Ident_map.empty in
-   try
-     let (env, v) = eval_exp_verbose ~session Concrete_stack.empty empty_env e in
-     raise (Terminate_with_env (env, v))
-   with
-   | Reach_max_step (x, stk) ->
-       Fmt.epr "Reach max steps\n" ;
-       (* alert_lookup target_stk x stk session.lookup_alert; *)
-       raise (Reach_max_step (x, stk))
-   | Run_the_same_stack_twice (x, stk) ->
-       Fmt.epr "Run into the same stack twice\n" ;
-       alert_lookup session x stk ;
-       raise (Run_the_same_stack_twice (x, stk))
-   | Run_into_wrong_stack (x, stk) ->
-       Fmt.epr "Run into wrong stack\n" ;
-       alert_lookup session x stk ;
-       raise (Run_into_wrong_stack (x, stk)) *)
