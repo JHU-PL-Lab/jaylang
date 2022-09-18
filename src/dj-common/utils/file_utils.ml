@@ -16,11 +16,11 @@ let check_upto_bluejay s =
     ~f:(Filename.check_suffix s)
 
 let parse_bluejay_file filename =
-  In_channel.with_file filename ~f:Bluejay.Bluejay_parse.parse_program_raw
+  In_channel.with_file filename ~f:Bluejay.Bluejay_parse.parse_program
 
-let parse_jay = Jay.Parse.parse_program_raw
-let parse_jayil = Jayil_parser.Parse.parse_program_raw
-let parse_bluejay = Bluejay.Bluejay_parse.parse_program_raw
+let parse_jay = Jay.Parse.parse_program
+let parse_jayil = Jayil_parser.Parse.parse_program
+let parse_bluejay = Bluejay.Bluejay_parse.parse_program
 let parse_jay_file filename = In_channel.with_file filename ~f:parse_jay
 let parse_jayil_file filename = In_channel.with_file filename ~f:parse_jayil
 (* let parse_bluejay_file filename = In_channel.with_file filename ~f:parse_bluejay *)
