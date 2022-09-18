@@ -6,6 +6,8 @@ open Dj_common
 *)
 
 type t =
+  (* Mismatch *)
+  | Withered
   (* Value main *)
   | Leaf of { sub : Lookup_key.t }
   (* Alias | Not_ *)

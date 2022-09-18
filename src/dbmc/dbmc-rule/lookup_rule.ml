@@ -50,6 +50,7 @@ module Make (S : S) = struct
   let rec run_edge run_task (term_detail : Term_detail.t) edge phi =
     add_phi term_detail phi ;
     match edge with
+    | Withered -> ()
     | Leaf e -> U.by_return S.unroll e.sub (Lookup_result.ok e.sub)
     | Direct e ->
         run_task e.pub e.block ;
@@ -257,8 +258,6 @@ module Make (S : S) = struct
     let fid = fb.point in
     let callsites = Lookup_key.get_callsites r_stk fb in
     let phi = Riddler.fun_enter_local this_key fid callsites S.block_map in
-    add_phi term_detail phi ;
-
     let nexts =
       List.map callsites ~f:(fun callsite ->
           let callsite_block, x', x'', x''' =
@@ -384,15 +383,15 @@ module Make (S : S) = struct
   let assume _p _term_detail (key : Lookup_key.t) block run_task = ()
 
   let assert_ _p term_detail (key : Lookup_key.t) block run_task =
-    (* update_rule this_key Node.mismatch ; *)
-    add_phi term_detail (Riddler.mismatch_with_picked key)
+    run_edge run_task term_detail Withered (Riddler.mismatch_with_picked key)
 
   let abort p term_detail (key : Lookup_key.t) block run_task =
     if Lookup_key.equal key (Lookup_key.start S.config.target)
        (* TODO: take care of direct `abort` in the main block *)
     then rule_nonmain None p term_detail key block run_task
-    else add_phi term_detail (Riddler.mismatch_with_picked key)
+    else
+      run_edge run_task term_detail Withered (Riddler.mismatch_with_picked key)
 
   let mismatch term_detail (key : Lookup_key.t) block run_task =
-    add_phi term_detail (Riddler.mismatch_with_picked key)
+    run_edge run_task term_detail Withered (Riddler.mismatch_with_picked key)
 end
