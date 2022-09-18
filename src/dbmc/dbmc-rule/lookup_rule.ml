@@ -193,13 +193,6 @@ module Make (S : S) = struct
     let phi = Riddler.true_ in
     run_edge run_task term_detail edge phi
 
-  let record_end p term_detail (key : Lookup_key.t) block run_task =
-    let ({ r; is_in_main; _ } : Record_end_rule.t) = p in
-    let rv = Some (Value_record r) in
-    if is_in_main
-    then rule_main rv p term_detail key block run_task
-    else rule_nonmain rv p term_detail key block run_task
-
   let cond_top (cb : Cond_top_rule.t) term_detail (key : Lookup_key.t) block
       run_task =
     let condsite_block = Cfg.outer_block block S.block_map in

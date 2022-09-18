@@ -70,7 +70,6 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
       | Not b -> R.not_ b this_key block phis run_task
       | Binop b -> R.binop b this_key block phis run_task
       | Record_start p -> R.record_start p this_key block phis run_task
-      | Record_end p -> R.record_end p this_key block phis run_task
       | Cond_top cb -> R.cond_top cb this_key block phis run_task
       | Cond_btm p -> R.cond_btm p this_key block phis run_task
       | Fun_enter_local p -> R.fun_enter_local p this_key phis run_task
@@ -181,7 +180,6 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
       | Not p -> R.not_ p term_detail key block run_task
       | Binop b -> R.binop b term_detail key block run_task
       | Record_start p -> R.record_start p term_detail key block run_task
-      | Record_end p -> R.record_end p term_detail key block run_task
       | Cond_top cb -> R.cond_top cb term_detail key block run_task
       | Cond_btm p -> R.cond_btm p term_detail key block run_task
       | Fun_enter_local p -> R.fun_enter_local p term_detail key block run_task

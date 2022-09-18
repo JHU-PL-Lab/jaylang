@@ -31,10 +31,6 @@ module Record_start_rule = struct
   type t = { x : Id.t; r : Id.t; lbl : Id.t }
 end
 
-module Record_end_rule = struct
-  type t = { x : Id.t; r : record_value; is_in_main : bool }
-end
-
 module Cond_top_rule = struct
   type t = Cfg.cond_block
 end
@@ -84,7 +80,6 @@ type t =
   | Fun_enter_nonlocal of Fun_enter_nonlocal_rule.t
   | Fun_exit of Fun_exit_rule.t
   | Record_start of Record_start_rule.t
-  | Record_end of Record_end_rule.t
   | Pattern of Pattern_rule.t
   | Assume of Assume_rule.t
   | Assert of Assert_rule.t
@@ -100,9 +95,6 @@ let rule_of_runtime_status x block : t =
           let is_in_main = Ident.equal (Cfg.id_of_block block) Cfg.id_main in
           Input { x; is_in_main }
       | { clause = Clause (_, Var_body (Var (x', _))); _ } -> Alias { x; x' }
-      | { clause = Clause (_, Value_body (Value_record r)); _ } ->
-          let is_in_main = Ident.equal (Cfg.id_of_block block) Cfg.id_main in
-          Record_end { x; r; is_in_main }
       | { clause = Clause (_, Value_body v); _ } ->
           if Ident.equal (Cfg.id_of_block block) Cfg.id_main
           then Discovery_main { x; v }
@@ -157,7 +149,6 @@ let show_rule : t -> string = function
   | Fun_enter_nonlocal _ -> "Fun_enter_nonlocal"
   | Fun_exit _ -> "Fun_exit"
   | Record_start _ -> "Record_start"
-  | Record_end _ -> "Record_end"
   | Pattern _ -> "Pattern"
   | Assume _ -> "Assume"
   | Assert _ -> "Assert"

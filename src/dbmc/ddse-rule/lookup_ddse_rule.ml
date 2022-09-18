@@ -115,13 +115,6 @@ module Make (S : S) = struct
     in
     U.by_bind_u S.unroll key key_r cb
 
-  let record_end p this_key block phis run_task =
-    let ({ r; is_in_main; _ } : Record_end_rule.t) = p in
-    let rv = Some (Value_record r) in
-    if is_in_main
-    then rule_main rv this_key phis
-    else rule_nonmain rv this_key block phis run_task
-
   let cond_top (cb : Cond_top_rule.t) key block phis_top run_task =
     let condsite_block = Cfg.outer_block block S.block_map in
     let x, r_stk = Lookup_key.to2 key in
