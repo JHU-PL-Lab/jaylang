@@ -2,6 +2,9 @@ open Core
 include Types.State
 open Dj_common
 
+let job_key_compare (t1 : Lookup_key.t) (t2 : Lookup_key.t) =
+  Int.compare (Lookup_key.length t1) (Lookup_key.length t2)
+
 let create (config : Global_config.t) program =
   let target = config.target in
   let block_map = Cfg.annotate program target in
@@ -14,6 +17,7 @@ let create (config : Global_config.t) program =
       program;
       block_map;
       source_map = lazy (Ddpa.Ddpa_helper.clause_mapping program);
+      job_queue = Scheduler.create ~cmp_key:job_key_compare ();
       root_node =
         ref (Search_graph.root_node (block0 |> Cfg.id_of_block) target);
       tree_size = 1;

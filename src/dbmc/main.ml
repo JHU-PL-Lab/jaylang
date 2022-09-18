@@ -76,13 +76,6 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
 
 let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
     =
-  let job_queue =
-    let open Scheduler in
-    let cmp t1 t2 =
-      Int.compare (Lookup_key.length t1.key) (Lookup_key.length t2.key)
-    in
-    Scheduler.create ~cmp ()
-  in
   let post_check_dbmc is_timeout =
     match Riddler.check state config with
     | Some { model; c_stk } -> handle_found config state model c_stk
@@ -115,10 +108,10 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
     let do_work () =
       match config.engine with
       | Global_config.E_dbmc ->
-          Lookup.run_dbmc ~config ~state job_queue >>= fun _ ->
+          Lookup.run_dbmc ~config ~state >>= fun _ ->
           Lwt.return (post_check_dbmc false)
       | Global_config.E_ddse ->
-          Lookup.run_ddse ~config ~state job_queue >>= fun _ ->
+          Lookup.run_ddse ~config ~state >>= fun _ ->
           Lwt.return (post_check_ddse false)
     in
     match config.timeout with

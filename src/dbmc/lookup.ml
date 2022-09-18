@@ -6,8 +6,8 @@ open Cfg
 open Log.Export
 module U_ddse = Lookup_ddse_rule.U
 
-let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
-    job_queue : unit Lwt.t =
+let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
+    unit Lwt.t =
   (* reset and init *)
   Solver.reset () ;
   Riddler.reset () ;
@@ -43,7 +43,9 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
           Term_detail.mk_detail ~rule ~block_id ~key
         in
         Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
-        let task () = Scheduler.push job_queue key (lookup key block phis) in
+        let task () =
+          Scheduler.push state.job_queue key (lookup key block phis)
+        in
         U_ddse.alloc_task unroll ~task key
   and lookup (this_key : Lookup_key.t) block phis () : unit Lwt.t =
     let x, _r_stk = Lookup_key.to2 this_key in
@@ -104,7 +106,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
   let%lwt _ =
     Lwt.pick
       [
-        (let%lwt _ = Scheduler.run job_queue in
+        (let%lwt _ = Scheduler.run state.job_queue in
          Lwt.return_unit);
         wait_result;
       ]
@@ -113,8 +115,8 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t)
 
 module U = Lookup_rule.U
 
-let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
-    job_queue : unit Lwt.t =
+let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
+    unit Lwt.t =
   (* reset and init *)
   Solver.reset () ;
   Riddler.reset () ;
@@ -131,7 +133,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
         then ()
         else (
           Hash_set.strict_add_exn state.lookup_created key ;
-          let task () = Scheduler.push job_queue key (eval key block) in
+          let task () = Scheduler.push state.job_queue key (eval key block) in
           U.alloc_task unroll ~task key)
   in
 
@@ -214,5 +216,5 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t)
   (* let _ = Global_state.init_node state key_target state.root_node in *)
   let block0 = Cfg.block_of_id state.target state.block_map in
   run_eval key_target block0 lookup ;
-  let%lwt _ = Scheduler.run job_queue in
+  let%lwt _ = Scheduler.run state.job_queue in
   Lwt.return_unit
