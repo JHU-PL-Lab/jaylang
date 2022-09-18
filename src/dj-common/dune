@@ -16,6 +16,7 @@
   ocamlgraph
   fmt
   ddpa
+  bluejay
   jay
   jayil
   jayil_parser

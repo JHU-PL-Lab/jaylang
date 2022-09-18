@@ -107,9 +107,7 @@ let group_all_files dir =
               let fullpath = Filename.concat dir path in
               match Sys_unix.is_directory fullpath with
               | `Yes -> (acc_f, loop fullpath @ acc_p)
-              | `No when Jay.File_utils.check_ext fullpath ->
-                  (fullpath :: acc_f, acc_p)
-              | `No when Jayil.File_utils.check_ext fullpath ->
+              | `No when File_utils.check_upto_jay fullpath ->
                   (fullpath :: acc_f, acc_p)
               | `No -> (acc_f, acc_p)
               | `Unknown -> (acc_f, acc_p)))

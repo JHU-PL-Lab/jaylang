@@ -1,62 +1,48 @@
-open Batteries
 open Jayil
-open Jay
 open Ast_pp
-open Ast_tools
 open Translator_options
-open Jay_translate
+open Dj_common
 
-(** Removes from a variable any special symbols introduced by the translation
-    process which are not parseable identifiers. *)
-let purge_special_symbols_jayil (x : Ast.Var.t) : Ast.Var.t =
-  let (Ast.Var (Ast.Ident s, fs)) = x in
-  let s' =
-    s
-    |> String.replace_chars (fun c ->
-           match c with '~' -> "___" | _ -> String.of_char c)
-  in
-  Ast.Var (Ast.Ident s', fs)
+(*
+open Ast_tools
+
+  (** Removes from a variable any special symbols introduced by the translation
+      process which are not parseable identifiers. *)
+   let purge_special_symbols_jayil (x : Ast.Var.t) : Ast.Var.t =
+     let (Ast.Var (Ast.Ident s, fs)) = x in
+     let s' =
+       s
+       |> String.replace_chars (fun c ->
+              match c with '~' -> "___" | _ -> String.of_char c)
+     in
+     Ast.Var (Ast.Ident s', fs) *)
+(* let result_expr = map_expr_vars purge_special_symbols_jayil post_inst_ast in
+   result_expr *)
 
 let bluejay_to_jay () =
   let bluejay_ast =
     Bluejay.Bluejay_ast.new_expr_desc
-    @@ Bluejay.Bluejay_parse.parse_program IO.stdin
+    @@ File_utils.parse_bluejay In_channel.stdin
   in
-  let bluejay_ast_internal =
-    Bluejay.Bluejay_ast_internal.to_internal_expr_desc bluejay_ast
-  in
-  let core_ast, _ton_on_maps =
-    (* Typed -> Untyped *)
-    Bluejay.Bluejay_to_jay.transform_bluejay bluejay_ast_internal.body
-  in
-  let jay_ast = Bluejay.Bluejay_ast_internal.to_jay_expr_desc core_ast in
-  jay_ast
-
-let jay_to_jayil jay_ast options =
-  let is_instrumented = options.ta_instrument in
-  let post_inst_ast, _odefa_inst_maps, _on_odefa_maps =
-    Jay_to_jayil.translate ~is_jay:true ~is_instrumented jay_ast
-  in
-  let result_expr = map_expr_vars purge_special_symbols_jayil post_inst_ast in
-  result_expr
+  Convert.bluejay_edesc_to_jay bluejay_ast
 
 let main () : unit =
   let options = parse_args () in
+  let is_instrumented = options.ta_instrument in
   match options.ta_mode with
   | Bluejay_to_jayil ->
-      let jay_ast = bluejay_to_jay () in
-      let result_expr = jay_to_jayil jay_ast options in
-      let expr_string = show_expr result_expr in
+      let jay_edesc = bluejay_to_jay () in
+      let jayil_ast = Convert.jay_edesc_to_jayil ~is_instrumented jay_edesc in
+      let expr_string = show_expr jayil_ast in
       print_endline expr_string
   | Bluejay_to_jay ->
       let jay_ast = bluejay_to_jay () in
       let expr_string = Jay.Jay_ast_pp.show_expr_desc jay_ast in
       print_endline expr_string
   | Jay_to_jayil ->
-      let jay_ast = Jay_ast.new_expr_desc @@ Jay_parse.parse_program IO.stdin in
-      let result_expr = jay_to_jayil jay_ast options in
-      Fmt.pr "%a" Jayil.Pp.expr result_expr
-  | Scheme_to_jay -> raise @@ Jhupllib.Utils.Not_yet_implemented "scheme-to-jay"
-;;
+      let jay_ast = File_utils.parse_jay In_channel.stdin in
+      let jayil_ast = Convert.jay_ast_to_jayil ~is_instrumented jay_ast in
+      Fmt.pr "%a" Jayil.Pp.expr jayil_ast
+  | Scheme_to_jay -> failwith "scheme-to-jay"
 
-main ()
+let () = main ()
