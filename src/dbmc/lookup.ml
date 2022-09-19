@@ -115,6 +115,10 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
 
 module U = Lookup_rule.U
 
+(* | Direct_bind e ->
+   run_task e.pub e.block ;
+   U.by_bind_u S.unroll e.sub e.pub e.cb *)
+
 let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     unit Lwt.t =
   (* reset and init *)
@@ -137,12 +141,113 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
           U.alloc_task unroll ~task key)
   in
 
+  (* for a compositiona edge, if a seq with indexed at key will be used later,
+       the user needs to `init_list_counter` eagerly once.
+     The reason for lazy init is the callback may never be called at all. The fix of
+     infinitive list cannot be applied before calling the SMT solver.
+  *)
+  let add_phi (term_detail : Term_detail.t) phi =
+    term_detail.phis <- phi :: term_detail.phis ;
+    state.phis <- phi :: state.phis
+  in
+
+  let init_list_counter (term_detail : Term_detail.t) key =
+    Hashtbl.update state.smt_lists key ~f:(function
+      | Some i -> i
+      | None ->
+          add_phi term_detail (Riddler.list_head key) ;
+          0)
+  in
+  let fetch_list_counter (term_detail : Term_detail.t) key =
+    let new_i =
+      Hashtbl.update_and_return state.smt_lists key ~f:(function
+        | Some i -> i + 1
+        | None ->
+            add_phi term_detail (Riddler.list_head key) ;
+            1)
+    in
+    new_i - 1
+  in
+  let add_phi_edge term_detail edge =
+    let open Edge in
+    let phis =
+      match edge with
+      | Withered e -> e.phis
+      | Leaf e -> e.phis
+      | Direct e -> e.phis
+      | Map e -> e.phis
+      | MapSeq e -> e.phis
+      | Both e -> e.phis
+      | Chain e -> e.phis
+      | Sequence e -> e.phis
+      | Or_list e -> e.phis
+    in
+    List.iter phis ~f:(add_phi term_detail)
+  in
+
+  let rec run_edge run_task (term_detail : Term_detail.t) edge =
+    let open Edge in
+    add_phi_edge term_detail edge ;
+    match edge with
+    | Withered e -> ()
+    | Leaf e -> U.by_return unroll e.sub (Lookup_result.ok e.sub)
+    | Direct e ->
+        run_task e.pub e.block ;
+        U.by_id_u unroll e.sub e.pub
+    | Map e ->
+        run_task e.pub e.block ;
+        U.by_map_u unroll e.sub e.pub e.map
+    | MapSeq e ->
+        init_list_counter term_detail e.sub ;
+        run_task e.pub e.block ;
+        let f r =
+          let i = fetch_list_counter term_detail e.sub in
+          let ans, phis = e.map i r in
+          add_phi term_detail (Riddler.list_append e.sub i (Riddler.and_ phis)) ;
+          ans
+        in
+        U.by_map_u unroll e.sub e.pub f
+    | Both e ->
+        run_task e.pub1 e.block ;
+        run_task e.pub2 e.block ;
+        U.by_map2_u unroll e.sub e.pub1 e.pub2 (fun _ -> Lookup_result.ok e.sub)
+    | Chain e ->
+        let cb key r =
+          let edge = e.next key r in
+          (match edge with
+          | Some edge -> run_edge run_task term_detail edge
+          | None -> ()) ;
+          Lwt.return_unit
+        in
+        U.by_bind_u unroll e.sub e.pub cb ;
+        run_task e.pub e.block
+    | Sequence e ->
+        init_list_counter term_detail e.sub ;
+
+        run_task e.pub e.block ;
+        let cb _key (r : Lookup_result.t) =
+          let i = fetch_list_counter term_detail e.sub in
+          let next = e.next i r in
+          (match next with
+          | Some (phi_i, next) ->
+              let phi = Riddler.list_append e.sub i phi_i in
+              add_phi term_detail phi ;
+              run_edge run_task term_detail next
+          | None ->
+              add_phi term_detail (Riddler.list_append e.sub i Riddler.false_)) ;
+          Lwt.return_unit
+        in
+        U.by_bind_u unroll e.sub e.pub cb
+    | Or_list e ->
+        if e.unbound then init_list_counter term_detail e.sub else () ;
+
+        List.iter e.nexts ~f:(fun e -> run_edge run_task term_detail e)
+  in
+
   let module LS = (val (module struct
                          let state = state
                          let config = config
                          let block_map = state.block_map
-                         let unroll = unroll
-                         let stride = stride
                        end) : Lookup_rule.S)
   in
   let module R = Lookup_rule.Make (LS) in
@@ -171,7 +276,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
          Option.value_map cc ~default:"" ~f:(fun t -> Ast_pp.show_clause t.clause)
        in
        LLog.app (fun m -> m "[Lookup][=>]: %s " scc) ; *)
-    let _apply_rule =
+    let edge =
       let open Rule in
       match rule with
       | Discovery_main p -> R.discovery_main p term_detail key block run_task
@@ -194,13 +299,13 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
       | Abort p -> R.abort p term_detail key block run_task
       | Mismatch -> R.mismatch term_detail key block run_task
     in
+    run_edge run_task term_detail edge ;
 
     (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked. *)
     let previous_clauses = Cfg.clauses_before_x block x in
     List.iter previous_clauses ~f:(fun tc ->
         let term_prev = Lookup_key.with_x key tc.id in
-        Lookup_rule.add_phi state term_detail
-          (Riddler.picked_imply key term_prev) ;
+        add_phi term_detail (Riddler.picked_imply key term_prev) ;
         run_task term_prev block) ;
 
     (* LLog.app (fun m ->

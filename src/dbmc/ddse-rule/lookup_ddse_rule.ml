@@ -74,7 +74,6 @@ module Make (S : S) = struct
     let key_rx = Lookup_key.with_x key x' in
     run_task key_rx block phis_top ;
 
-    (* let _ = S.add_phi key phi phis_top in *)
     U.by_map_u S.unroll key key_rx (return_with key)
 
   let not_ _p _key _block _phis_top _run_task = ()
