@@ -97,7 +97,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
   let wait_result =
     U_ddse.by_iter unroll term_target (fun (r : Ddse_result.t) ->
         let phis_to_check = Set.to_list r.phis in
-        match Riddler.check_phis phis_to_check config.debug_model with
+        match Checker.check_phis phis_to_check config.debug_model with
         | None -> Lwt.return_unit
         | Some { model; c_stk } ->
             raise (Riddler.Found_solution { model; c_stk }))
@@ -263,7 +263,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
     state.tree_size <- state.tree_size + 1 ;
 
-    Riddler.step_check ~state ~config stride ;%lwt
+    Checker.step_check ~state ~config stride ;%lwt
 
     Hash_set.strict_remove_exn state.lookup_created key ;
 

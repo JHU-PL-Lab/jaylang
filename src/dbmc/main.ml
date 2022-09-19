@@ -77,7 +77,7 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
 let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
     =
   let post_check_dbmc is_timeout =
-    match Riddler.check state config with
+    match Checker.check state config with
     | Some { model; c_stk } -> handle_found config state model c_stk
     | None ->
         SLog.info (fun m -> m "UNSAT") ;
