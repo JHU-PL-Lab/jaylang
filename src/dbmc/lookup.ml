@@ -279,25 +279,23 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     let edge =
       let open Rule in
       match rule with
-      | Discovery_main p -> R.discovery_main p term_detail key block run_task
-      | Discovery_nonmain p ->
-          R.discovery_nonmain p term_detail key block run_task
-      | Input p -> R.input p term_detail key block run_task
-      | Alias p -> R.alias p term_detail key block run_task
-      | Not p -> R.not_ p term_detail key block run_task
-      | Binop b -> R.binop b term_detail key block run_task
-      | Record_start p -> R.record_start p term_detail key block run_task
-      | Cond_top cb -> R.cond_top cb term_detail key block run_task
-      | Cond_btm p -> R.cond_btm p term_detail key block run_task
-      | Fun_enter_local p -> R.fun_enter_local p term_detail key block run_task
-      | Fun_enter_nonlocal p ->
-          R.fun_enter_nonlocal p term_detail key block run_task
-      | Fun_exit p -> R.fun_exit p term_detail key block run_task
-      | Pattern p -> R.pattern p term_detail key block run_task
-      | Assume p -> R.assume p term_detail key block run_task
-      | Assert p -> R.assert_ p term_detail key block run_task
-      | Abort p -> R.abort p term_detail key block run_task
-      | Mismatch -> R.mismatch term_detail key block run_task
+      | Discovery_main p -> R.discovery_main p key block
+      | Discovery_nonmain p -> R.discovery_nonmain p key block
+      | Input p -> R.input p key block
+      | Alias p -> R.alias p key block
+      | Not p -> R.not_ p key block
+      | Binop b -> R.binop b key block
+      | Record_start p -> R.record_start p key block
+      | Cond_top cb -> R.cond_top cb key block
+      | Cond_btm p -> R.cond_btm p key block
+      | Fun_enter_local p -> R.fun_enter_local p key block
+      | Fun_enter_nonlocal p -> R.fun_enter_nonlocal p key block
+      | Fun_exit p -> R.fun_exit p key block
+      | Pattern p -> R.pattern p key block
+      | Assume p -> R.assume p key block
+      | Assert p -> R.assert_ p key block
+      | Abort p -> R.abort p key block
+      | Mismatch -> R.mismatch key block
     in
     run_edge run_task term_detail edge ;
 

@@ -16,12 +16,12 @@ end
 module Make (S : S) = struct
   open Edge
 
-  let rule_main v _p term_detail (key : Lookup_key.t) block run_task =
+  let rule_main v _p (key : Lookup_key.t) block =
     let target_stk = Rstack.concretize_top key.r_stk in
     let phis = [ Riddler.discover_main_with_picked key v ] in
     Leaf { sub = key; phis }
 
-  let rule_nonmain v _p term_detail (key : Lookup_key.t) block run_task =
+  let rule_nonmain v _p (key : Lookup_key.t) block =
     let key_first = Lookup_key.to_first key S.state.first in
     let phis = [ Riddler.discover_non_main key key_first v ] in
     Map
@@ -33,34 +33,34 @@ module Make (S : S) = struct
         phis;
       }
 
-  let discovery_main p term_detail (key : Lookup_key.t) block run_task =
+  let discovery_main p (key : Lookup_key.t) block =
     let ({ v; _ } : Discovery_main_rule.t) = p in
-    rule_main (Some v) p term_detail key block run_task
+    rule_main (Some v) p key block
 
-  let discovery_nonmain p term_detail (key : Lookup_key.t) block run_task =
+  let discovery_nonmain p (key : Lookup_key.t) block =
     let ({ v; _ } : Discovery_nonmain_rule.t) = p in
-    rule_nonmain (Some v) p term_detail key block run_task
+    rule_nonmain (Some v) p key block
 
-  let input p term_detail (key : Lookup_key.t) block run_task =
+  let input p (key : Lookup_key.t) block =
     let ({ is_in_main; _ } : Input_rule.t) = p in
     Hash_set.add S.state.input_nodes key ;
     if is_in_main
-    then rule_main None p term_detail key block run_task
-    else rule_nonmain None p term_detail key block run_task
+    then rule_main None p key block
+    else rule_nonmain None p key block
 
-  let alias p term_detail (key : Lookup_key.t) block run_task =
+  let alias p (key : Lookup_key.t) block =
     let ({ x'; _ } : Alias_rule.t) = p in
     let key' = Lookup_key.with_x key x' in
     let phis = [ Riddler.eq_with_picked key key' ] in
     Direct { sub = key; pub = key'; block; phis }
 
-  let not_ p term_detail (key : Lookup_key.t) block run_task =
+  let not_ p (key : Lookup_key.t) block =
     let ({ x'; _ } : Not_rule.t) = p in
     let key' = Lookup_key.with_x key x' in
     let phis = [ Riddler.not_with_picked key key' ] in
     Direct { sub = key; pub = key'; block; phis }
 
-  let binop b term_detail (key : Lookup_key.t) block run_task =
+  let binop b (key : Lookup_key.t) block =
     let ({ bop; x1; x2; _ } : Binop_rule.t) = b in
     let key_x1 = Lookup_key.with_x key x1 in
     let key_x2 = Lookup_key.with_x key x2 in
@@ -74,7 +74,7 @@ module Make (S : S) = struct
         phis;
       }
 
-  let record_start p term_detail (key : Lookup_key.t) block run_task =
+  let record_start p (key : Lookup_key.t) block =
     let ({ r; lbl; _ } : Record_start_rule.t) = p in
     let key_r = Lookup_key.with_x key r in
     let next i (r : Lookup_result.t) =
@@ -96,8 +96,7 @@ module Make (S : S) = struct
     in
     Sequence { sub = key; pub = key_r; block; next; phis = [] }
 
-  let cond_top (cb : Cond_top_rule.t) term_detail (key : Lookup_key.t) block
-      run_task =
+  let cond_top (cb : Cond_top_rule.t) (key : Lookup_key.t) block =
     let condsite_block = Cfg.outer_block block S.block_map in
     let x, r_stk = Lookup_key.to2 key in
     let choice = Option.value_exn cb.choice in
@@ -117,7 +116,7 @@ module Make (S : S) = struct
     let phis = [ Riddler.cond_top key key_x key_x2 choice ] in
     Chain { sub = key; pub = key_x2; block = condsite_block; next; phis }
 
-  let cond_btm p term_detail (key : Lookup_key.t) block run_task =
+  let cond_btm p (key : Lookup_key.t) block =
     let this_key = key in
     let ({ x; x'; tid } : Cond_btm_rule.t) = p in
     let cond_block = Ident_map.find tid S.block_map |> Cfg.cast_to_cond_block in
@@ -156,7 +155,7 @@ module Make (S : S) = struct
     let phis = [ Riddler.cond_bottom this_key term_c cond_block ] in
     Chain { sub = this_key; pub = term_c; block; next; phis }
 
-  let fun_enter_local p term_detail (key : Lookup_key.t) block run_task =
+  let fun_enter_local p (key : Lookup_key.t) block =
     let this_key = key in
     let ({ fb; _ } : Fun_enter_local_rule.t) = p in
     let _x, r_stk = Lookup_key.to2 this_key in
@@ -194,7 +193,7 @@ module Make (S : S) = struct
     let phis = [ Riddler.fun_enter_local this_key fid callsites S.block_map ] in
     Or_list { sub = this_key; nexts; unbound = false; phis }
 
-  let fun_enter_nonlocal p term_detail (key : Lookup_key.t) block run_task =
+  let fun_enter_nonlocal p (key : Lookup_key.t) block =
     let ({ fb; _ } : Fun_enter_nonlocal_rule.t) = p in
     let x, r_stk = Lookup_key.to2 key in
     let callsites = Lookup_key.get_callsites r_stk fb in
@@ -230,7 +229,7 @@ module Make (S : S) = struct
     in
     Or_list { sub = key; nexts; unbound = true; phis = [] }
 
-  let fun_exit p term_detail (key : Lookup_key.t) block run_task =
+  let fun_exit p (key : Lookup_key.t) block =
     let this_key = key in
     let _x, r_stk = Lookup_key.to2 this_key in
     let ({ x; xf; fids } : Fun_exit_rule.t) = p in
@@ -248,7 +247,7 @@ module Make (S : S) = struct
     let phis = [ Riddler.fun_exit this_key key_f fids S.block_map ] in
     Chain { sub = this_key; pub = key_f; block; next; phis }
 
-  let pattern p term_detail (key : Lookup_key.t) block run_task =
+  let pattern p (key : Lookup_key.t) block =
     let ({ x'; pat; _ } : Pattern_rule.t) = p in
     let key' = Lookup_key.with_x key x' in
     let next i (r : Lookup_result.t) =
@@ -300,18 +299,17 @@ module Make (S : S) = struct
     in
     MapSeq { sub = key; pub = key'; block; map = next; phis = [] }
 
-  let assume _p _term_detail (key : Lookup_key.t) block run_task =
-    Withered { phis = [] }
+  let assume _p (key : Lookup_key.t) block = Withered { phis = [] }
 
-  let assert_ _p term_detail (key : Lookup_key.t) block run_task =
+  let assert_ _p (key : Lookup_key.t) block =
     Withered { phis = [ Riddler.mismatch_with_picked key ] }
 
-  let abort p term_detail (key : Lookup_key.t) block run_task =
+  let abort p (key : Lookup_key.t) block =
     if Lookup_key.equal key (Lookup_key.start S.config.target)
        (* TODO: take care of direct `abort` in the main block *)
-    then rule_nonmain None p term_detail key block run_task
+    then rule_nonmain None p key block
     else Withered { phis = [ Riddler.mismatch_with_picked key ] }
 
-  let mismatch term_detail (key : Lookup_key.t) block run_task =
+  let mismatch (key : Lookup_key.t) block =
     Withered { phis = [ Riddler.mismatch_with_picked key ] }
 end
