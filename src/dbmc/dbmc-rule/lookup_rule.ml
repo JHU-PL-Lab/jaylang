@@ -14,9 +14,9 @@ module type S = sig
 end
 
 module Make (S : S) = struct
-  open Edge
+  open Rule_action
 
-  let rule_main v _p (key : Lookup_key.t) block =
+  let rule_main v _p (key : Lookup_key.t) =
     let target_stk = Rstack.concretize_top key.r_stk in
     let phis = [ Riddler.discover_main_with_picked key v ] in
     Leaf { sub = key; phis }
@@ -33,9 +33,9 @@ module Make (S : S) = struct
         phis;
       }
 
-  let discovery_main p (key : Lookup_key.t) block =
+  let discovery_main p (key : Lookup_key.t) =
     let ({ v; _ } : Discovery_main_rule.t) = p in
-    rule_main (Some v) p key block
+    rule_main (Some v) p key
 
   let discovery_nonmain p (key : Lookup_key.t) block =
     let ({ v; _ } : Discovery_nonmain_rule.t) = p in
@@ -44,9 +44,7 @@ module Make (S : S) = struct
   let input p (key : Lookup_key.t) block =
     let ({ is_in_main; _ } : Input_rule.t) = p in
     Hash_set.add S.state.input_nodes key ;
-    if is_in_main
-    then rule_main None p key block
-    else rule_nonmain None p key block
+    if is_in_main then rule_main None p key else rule_nonmain None p key block
 
   let alias p (key : Lookup_key.t) block =
     let ({ x'; _ } : Alias_rule.t) = p in
@@ -87,10 +85,10 @@ module Make (S : S) = struct
           | Some (Var (field, _)) ->
               let key_l = Lookup_key.with_x key_rv field in
               let phi_i = Riddler.record_start key key_r key_rv key_l in
-              let edge =
+              let action =
                 Direct { sub = key; pub = key_l; block = rv_block; phis = [] }
               in
-              Some (phi_i, edge)
+              Some (phi_i, action)
           | None -> None)
       | _ -> None
     in
@@ -211,11 +209,11 @@ module Make (S : S) = struct
                   Riddler.fun_enter_nonlocal key key_f r.from fb.point key_arg
                 in
                 let fv_block = Cfg.block_of_id r.from.x S.block_map in
-                let edge =
+                let action =
                   Direct
                     { sub = key; pub = key_arg; block = fv_block; phis = [] }
                 in
-                Some (phi_i, edge)
+                Some (phi_i, action)
               in
               Sequence
                 {
@@ -299,9 +297,9 @@ module Make (S : S) = struct
     in
     MapSeq { sub = key; pub = key'; block; map = next; phis = [] }
 
-  let assume _p (key : Lookup_key.t) block = Withered { phis = [] }
+  let assume _p (key : Lookup_key.t) = Withered { phis = [] }
 
-  let assert_ _p (key : Lookup_key.t) block =
+  let assert_ _p (key : Lookup_key.t) =
     Withered { phis = [ Riddler.mismatch_with_picked key ] }
 
   let abort p (key : Lookup_key.t) block =
@@ -310,6 +308,6 @@ module Make (S : S) = struct
     then rule_nonmain None p key block
     else Withered { phis = [ Riddler.mismatch_with_picked key ] }
 
-  let mismatch (key : Lookup_key.t) block =
+  let mismatch (key : Lookup_key.t) =
     Withered { phis = [ Riddler.mismatch_with_picked key ] }
 end

@@ -83,3 +83,9 @@ type t =
      block : Cfg.block;
      update_i : unit -> unit;
    } *)
+
+(* for a compositiona edge, if a seq with indexed at key will be used later,
+     the user needs to `init_list_counter` eagerly once.
+   The reason for lazy init is the callback may never be called at all. The fix of
+   infinitive list cannot be applied before calling the SMT solver.
+*)
