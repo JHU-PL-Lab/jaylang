@@ -13,7 +13,6 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
   Riddler.reset () ;
 
   let unroll = U_ddse.create () in
-  let term_target = Lookup_key.start state.target in
 
   let module LS = (val (module struct
                          let state = state
@@ -89,8 +88,8 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     Lwt.return_unit
   in
 
-  (* let _ = Global_state.init_node state term_target state.root_node in *)
   let block0 = Cfg.block_of_id state.target state.block_map in
+  let term_target = Lookup_key.start state.target (Cfg.id_of_block block0) in
   let phis = Phi_set.empty in
   run_task term_target block0 phis ;
 
@@ -115,11 +114,6 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
 
 let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     unit Lwt.t =
-  (* reset and init *)
-  Solver.reset () ;
-  Riddler.reset () ;
-  state.phis <- [ Riddler.picked (Lookup_key.start state.target) ] ;
-
   let add_phi (term_detail : Term_detail.t) phi =
     term_detail.phis <- phi :: term_detail.phis ;
     state.phis <- phi :: state.phis
@@ -151,8 +145,6 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     let x, _r_stk = Lookup_key.to2 key in
 
     let rule = Rule.rule_of_runtime_status x block in
-
-    let block_id = Cfg.id_of_block block in
     let term_detail = Term_detail.mk_detail ~rule ~block ~key in
 
     Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
@@ -162,11 +154,12 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
 
     Hash_set.strict_remove_exn state.lookup_created key ;
 
+    let block_id = Cfg.id_of_block block in
     LLog.app (fun m ->
         m "[Lookup][%d][=>]: %a in block %a; Rule %a" state.tree_size
           Lookup_key.pp key Id.pp block_id Rule.pp_rule rule) ;
 
-    let edge =
+    let rule_action =
       let open Rule in
       match rule with
       | Discovery_main p -> R.discovery_main p key
@@ -188,7 +181,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
       | Mismatch -> R.mismatch key
     in
     let run_task key block = run_eval key block lookup in
-    Run_rule_action.run run_task unroll state term_detail edge ;
+    Run_rule_action.run run_task unroll state term_detail rule_action ;
 
     (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked.
         run all previous lookups *)
@@ -204,9 +197,12 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     Lwt.return_unit
   in
 
-  let key_target = Lookup_key.start state.target in
-  (* let _ = Global_state.init_node state key_target state.root_node in *)
+  (* reset and init *)
+  Solver.reset () ;
+  Riddler.reset () ;
   let block0 = Cfg.block_of_id state.target state.block_map in
+  let key_target = Lookup_key.start state.target (Cfg.id_of_block block0) in
+  state.phis <- [ Riddler.picked key_target ] ;
   run_eval key_target block0 lookup ;
   let%lwt _ = Scheduler.run state.job_queue in
   Lwt.return_unit

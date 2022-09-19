@@ -175,13 +175,14 @@ let fun_enter_local term fid callsites block_map =
   let _x, r_stk = Lookup_key.to2 term in
   let cs, rs =
     List.fold callsites ~init:([], []) ~f:(fun (cs, rs) callsite ->
-        let _callsite_block, x', x'', x''' =
+        let cs_block, x', x'', x''' =
           Cfg.fun_info_of_callsite callsite block_map
         in
+        let b_id = Cfg.id_of_block cs_block in
         match Rstack.pop r_stk (x', fid) with
         | Some callsite_stk ->
-            let key_f = Lookup_key.of2 x'' callsite_stk in
-            let key_arg = Lookup_key.of2 x''' callsite_stk in
+            let key_f = Lookup_key.of3 x'' callsite_stk b_id in
+            let key_arg = Lookup_key.of3 x''' callsite_stk b_id in
             let p = and2 (picked key_f) (picked key_arg) in
             (cs @ [ p ], rs @ [ p @=> same_funenter key_f fid term key_arg ])
         | None -> (cs, rs))

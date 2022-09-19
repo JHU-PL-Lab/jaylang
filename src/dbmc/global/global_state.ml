@@ -8,7 +8,6 @@ let job_key_compare (t1 : Lookup_key.t) (t2 : Lookup_key.t) =
 let create (config : Global_config.t) program =
   let target = config.target in
   let block_map = Cfg.annotate program target in
-
   let block0 = Cfg.block_of_id target block_map in
   let state =
     {
@@ -34,6 +33,7 @@ let create (config : Global_config.t) program =
       solver = Solver.solver;
     }
   in
+  (* Global_state.lookup_alert state key_target state.root_node; *)
   state
 
 let clear_phis state = state.phis <- []

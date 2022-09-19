@@ -51,37 +51,44 @@ let rec run run_task unroll (state : Global_state.t)
   | Withered e -> ()
   | Leaf e -> U.by_return unroll e.sub (Lookup_result.ok e.sub)
   | Direct e ->
-      run_task e.pub e.block ;
-      U.by_id_u unroll e.sub e.pub
+      let pub, block = e.pub in
+      run_task pub block ;
+      U.by_id_u unroll e.sub pub
   | Map e ->
-      run_task e.pub e.block ;
-      U.by_map_u unroll e.sub e.pub e.map
+      let pub, block = e.pub in
+      run_task pub block ;
+      U.by_map_u unroll e.sub pub e.map
   | MapSeq e ->
+      let pub, block = e.pub in
       init_list_counter state term_detail e.sub ;
-      run_task e.pub e.block ;
+      run_task pub block ;
       let f r =
         let i = fetch_list_counter state term_detail e.sub in
         let ans, phis = e.map i r in
         add_phi term_detail (Riddler.list_append e.sub i (Riddler.and_ phis)) ;
         ans
       in
-      U.by_map_u unroll e.sub e.pub f
+      U.by_map_u unroll e.sub pub f
   | Both e ->
-      run_task e.pub1 e.block ;
-      run_task e.pub2 e.block ;
-      U.by_map2_u unroll e.sub e.pub1 e.pub2 (fun _ -> Lookup_result.ok e.sub)
+      let pub1, block = e.pub1 in
+      let pub2, _ = e.pub2 in
+      run_task pub1 block ;
+      run_task pub2 block ;
+      U.by_map2_u unroll e.sub pub1 pub2 (fun _ -> Lookup_result.ok e.sub)
   | Chain e ->
+      let pub, block = e.pub in
       let cb key r =
         let edge = e.next key r in
         (match edge with Some edge -> loop edge | None -> ()) ;
         Lwt.return_unit
       in
-      U.by_bind_u unroll e.sub e.pub cb ;
-      run_task e.pub e.block
+      U.by_bind_u unroll e.sub pub cb ;
+      run_task pub block
   | Sequence e ->
+      let pub, block = e.pub in
       init_list_counter state term_detail e.sub ;
 
-      run_task e.pub e.block ;
+      run_task pub block ;
       let cb _key (r : Lookup_result.t) =
         let i = fetch_list_counter state term_detail e.sub in
         let next = e.next i r in
@@ -94,8 +101,7 @@ let rec run run_task unroll (state : Global_state.t)
             add_phi term_detail (Riddler.list_append e.sub i Riddler.false_)) ;
         Lwt.return_unit
       in
-      U.by_bind_u unroll e.sub e.pub cb
+      U.by_bind_u unroll e.sub pub cb
   | Or_list e ->
       if e.unbound then init_list_counter state term_detail e.sub else () ;
-
       List.iter e.nexts ~f:(fun e -> loop e)

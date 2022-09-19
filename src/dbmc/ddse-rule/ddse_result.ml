@@ -16,7 +16,6 @@ let equal t1 t2 =
     && Map.equal Bool.equal t1.cond_decisions t2.cond_decisions
     (* && Phi_set.compare t1.phis t2.phis = 0 *)
   in
-
   (*
      if (not ans) && Phi_set.compare t1.phis t2.phis = 0 then assert false else () ;
      if ans && Phi_set.compare t1.phis t2.phis <> 0 then assert false else () ; *)
