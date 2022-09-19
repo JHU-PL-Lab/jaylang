@@ -123,9 +123,8 @@ module Make (S : S) = struct
     in
     let x2 = cb.cond in
 
-    let b_id = Cfg.id_of_block condsite_block in
-    let key_x2 = Lookup_key.of3 x2 condsite_stack b_id in
-    let key_x = Lookup_key.of3 x condsite_stack b_id in
+    let key_x2 = Lookup_key.of3 x2 condsite_stack condsite_block in
+    let key_x = Lookup_key.of3 x condsite_stack condsite_block in
 
     let beta = Option.value_exn cb.choice in
     run_task key_x2 condsite_block phis_top ;
@@ -148,11 +147,12 @@ module Make (S : S) = struct
   let cond_btm p this_key block phis_top run_task =
     let _x, r_stk = Lookup_key.to2 this_key in
     let ({ x; x'; tid } : Cond_btm_rule.t) = p in
-    let cond_block = Ident_map.find tid S.block_map |> Cfg.cast_to_cond_block in
+    let block = Ident_map.find tid S.block_map in
+    let cond_block = block |> Cfg.cast_to_cond_block in
     if Option.is_some cond_block.choice
     then failwith "conditional_body: not both"
     else () ;
-    let term_c = Lookup_key.of3 x' r_stk cond_block.point in
+    let term_c = Lookup_key.of3 x' r_stk block in
 
     (* let cond_var_tree = S.find_or_add_node term_c block this_node in *)
 
@@ -246,13 +246,12 @@ module Make (S : S) = struct
           let callsite_block, x', x'', x''' =
             Cfg.fun_info_of_callsite callsite S.block_map
           in
-          let b_id = Cfg.id_of_block callsite_block in
           match Rstack.pop r_stk (x', fid) with
           | Some callsite_stack ->
-              let key_f = Lookup_key.of3 x'' callsite_stack b_id in
+              let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
 
               run_task key_f callsite_block phis_top ;
-              let key_arg = Lookup_key.of3 x''' callsite_stack b_id in
+              let key_arg = Lookup_key.of3 x''' callsite_stack callsite_block in
               let phi = Riddler.same_funenter key_f fid key key_arg in
               (* let _choice_this =
                    Decision.make r_stk Cfg.(id_of_block (Fun fb))
@@ -293,10 +292,7 @@ module Make (S : S) = struct
           in
           match Rstack.pop r_stk (x', fid) with
           | Some callsite_stack ->
-              let key_f =
-                Lookup_key.of3 x'' callsite_stack
-                  (Cfg.id_of_block callsite_block)
-              in
+              let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
               run_task key_f callsite_block phis_top ;
 
               let phi = Riddler.eq_fid key_f fb.point in
@@ -331,7 +327,7 @@ module Make (S : S) = struct
   let fun_exit p this_key block phis_top run_task =
     let _x, r_stk = Lookup_key.to2 this_key in
     let ({ x; xf; fids } : Fun_exit_rule.t) = p in
-    let key_f = Lookup_key.of3 xf r_stk (Cfg.id_of_block block) in
+    let key_f = Lookup_key.of3 xf r_stk block in
 
     run_task key_f block phis_top ;
 

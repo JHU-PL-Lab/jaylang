@@ -89,7 +89,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
   in
 
   let block0 = Cfg.block_of_id state.target state.block_map in
-  let term_target = Lookup_key.start state.target (Cfg.id_of_block block0) in
+  let term_target = Lookup_key.start state.target block0 in
   let phis = Phi_set.empty in
   run_task term_target block0 phis ;
 
@@ -120,7 +120,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   in
   let stride = ref config.stride_init in
 
-  let unroll = Lookup_rule.U.create () in
+  let unroll = Unrolls.U_dbmc.create () in
 
   let run_eval key block eval =
     match Hashtbl.find state.term_detail_map key with
@@ -131,7 +131,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
         else (
           Hash_set.strict_add_exn state.lookup_created key ;
           let task () = Scheduler.push state.job_queue key (eval key block) in
-          Lookup_rule.U.alloc_task unroll ~task key)
+          Unrolls.U_dbmc.alloc_task unroll ~task key)
   in
 
   let module LS = (val (module struct
@@ -201,7 +201,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   Solver.reset () ;
   Riddler.reset () ;
   let block0 = Cfg.block_of_id state.target state.block_map in
-  let key_target = Lookup_key.start state.target (Cfg.id_of_block block0) in
+  let key_target = Lookup_key.start state.target block0 in
   state.phis <- [ Riddler.picked key_target ] ;
   run_eval key_target block0 lookup ;
   let%lwt _ = Scheduler.run state.job_queue in

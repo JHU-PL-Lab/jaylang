@@ -19,7 +19,7 @@ type t =
   (* Binop *)
   | Both of {
       sub : Lookup_key.t;
-      pub1 : Lookup_key.with_block;
+      pub1 : Lookup_key.t;
       pub2 : Lookup_key.with_block;
       phis : Z3.Expr.expr list;
     }

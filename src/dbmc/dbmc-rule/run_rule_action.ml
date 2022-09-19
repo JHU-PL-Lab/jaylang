@@ -1,6 +1,6 @@
 open Core
 open Dj_common
-module U = Lookup_rule.U
+module U = Unrolls.U_dbmc
 
 let add_phi (state : Global_state.t) (term_detail : Term_detail.t) phi =
   term_detail.phis <- phi :: term_detail.phis ;
@@ -42,12 +42,17 @@ let add_phi_edge state term_detail edge =
   List.iter phis ~f:(add_phi state term_detail)
 
 let rec run run_task unroll (state : Global_state.t)
-    (term_detail : Term_detail.t) edge =
-  let loop edge = run run_task unroll state term_detail @@ edge in
+    (term_detail : Term_detail.t) rule_action =
+  let loop rule_action = run run_task unroll state term_detail @@ rule_action in
   let add_phi = add_phi state in
+  let run_task' key block_id =
+    Fmt.pr "[DEBUG] %a @@ %a" Lookup_key.pp key Id.pp block_id ;
+    run_task key (Jayil.Ast.Ident_map.find block_id state.block_map) ;
+    Fmt.pr "[DEBUG] safe"
+  in
   let open Rule_action in
-  add_phi_edge state term_detail edge ;
-  match edge with
+  add_phi_edge state term_detail rule_action ;
+  match (rule_action : Rule_action.t) with
   | Withered e -> ()
   | Leaf e -> U.by_return unroll e.sub (Lookup_result.ok e.sub)
   | Direct e ->
@@ -70,11 +75,10 @@ let rec run run_task unroll (state : Global_state.t)
       in
       U.by_map_u unroll e.sub pub f
   | Both e ->
-      let pub1, block = e.pub1 in
-      let pub2, _ = e.pub2 in
-      run_task pub1 block ;
+      let pub2, block = e.pub2 in
+      run_task e.pub1 e.pub1.block ;
       run_task pub2 block ;
-      U.by_map2_u unroll e.sub pub1 pub2 (fun _ -> Lookup_result.ok e.sub)
+      U.by_map2_u unroll e.sub e.pub1 pub2 (fun _ -> Lookup_result.ok e.sub)
   | Chain e ->
       let pub, block = e.pub in
       let cb key r =

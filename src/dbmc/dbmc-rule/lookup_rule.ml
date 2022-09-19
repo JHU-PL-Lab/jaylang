@@ -4,7 +4,6 @@ open Jayil
 open Jayil.Ast
 open Log.Export
 open Rule
-module U = Unrolls.U_dbmc
 open Types
 
 module type S = sig
@@ -65,7 +64,7 @@ module Make (S : S) = struct
     Both
       {
         sub = key;
-        pub1 = (Lookup_key.with_x key x1, block);
+        pub1 = Lookup_key.with_x key x1;
         pub2 = (Lookup_key.with_x key x2, block);
         phis;
       }
@@ -100,12 +99,8 @@ module Make (S : S) = struct
       Rstack.pop_at_condtop r_stk (cb.point, Id.cond_fid choice)
     in
     let x2 = cb.cond in
-    let key_x2 =
-      Lookup_key.of3 x2 condsite_stack (Cfg.id_of_block condsite_block)
-    in
-    let key_x =
-      Lookup_key.of3 x condsite_stack (Cfg.id_of_block condsite_block)
-    in
+    let key_x2 = Lookup_key.of3 x2 condsite_stack condsite_block in
+    let key_x = Lookup_key.of3 x condsite_stack condsite_block in
     let next _ r =
       (* true *)
       (* if Riddler.eager_check S.state S.config key_x2
@@ -160,12 +155,13 @@ module Make (S : S) = struct
           let callsite_block, x', x'', x''' =
             Cfg.fun_info_of_callsite callsite S.block_map
           in
-          let b_id = Cfg.id_of_block callsite_block in
           match Rstack.pop r_stk (x', fid) with
           | Some callsite_stack ->
-              let key_f = Lookup_key.of3 x'' callsite_stack b_id in
+              let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
               let next this_key (_r : Lookup_result.t) =
-                let key_arg = Lookup_key.of3 x''' callsite_stack b_id in
+                let key_arg =
+                  Lookup_key.of3 x''' callsite_stack callsite_block
+                in
                 Some
                   (Direct
                      {
@@ -195,12 +191,11 @@ module Make (S : S) = struct
           let callsite_block, x', x'', _x''' =
             Cfg.fun_info_of_callsite callsite S.block_map
           in
-          let b_id = Cfg.id_of_block callsite_block in
           match Rstack.pop r_stk (x', fb.point) with
           | Some callsite_stack ->
-              let key_f = Lookup_key.of3 x'' callsite_stack b_id in
+              let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
               let next i (r : Lookup_result.t) =
-                let key_arg = Lookup_key.of3 x r.from.r_stk b_id in
+                let key_arg = Lookup_key.of3 x r.from.r_stk callsite_block in
                 let phi_i =
                   Riddler.fun_enter_nonlocal key key_f r.from fb.point key_arg
                 in
@@ -220,7 +215,7 @@ module Make (S : S) = struct
     let this_key = key in
     let _x, r_stk = Lookup_key.to2 this_key in
     let ({ x; xf; fids } : Fun_exit_rule.t) = p in
-    let key_f = Lookup_key.of3 xf r_stk (Cfg.id_of_block block) in
+    let key_f = Lookup_key.of3 xf r_stk block in
     let next this_key (rf : Lookup_result.t) =
       let fid = rf.from.x in
       if List.mem fids fid ~equal:Id.equal
@@ -291,8 +286,7 @@ module Make (S : S) = struct
     Withered { phis = [ Riddler.mismatch_with_picked key ] }
 
   let abort p (key : Lookup_key.t) block =
-    if Lookup_key.equal key
-         (Lookup_key.start S.config.target (Cfg.id_of_block block))
+    if Lookup_key.equal key (Lookup_key.start S.config.target block)
        (* TODO: take care of direct `abort` in the main block *)
     then rule_nonmain None p key block
     else Withered { phis = [ Riddler.mismatch_with_picked key ] }
