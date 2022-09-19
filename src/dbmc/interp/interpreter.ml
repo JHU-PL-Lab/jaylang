@@ -53,6 +53,7 @@ type session = {
   (* debug *)
   is_debug : bool;
   term_detail_map : (Lookup_key.t, Term_detail.t) Hashtbl.t;
+  block_map : Cfg.block Jayil.Ast.Ident_map.t;
   rstk_picked : (Rstack.t, bool) Hashtbl.t;
   lookup_alert : Lookup_key.t Hash_set.t;
   (* debug heavily *)
@@ -68,6 +69,7 @@ let make_default_session () =
     step = ref 0;
     alias_graph = G.create ();
     val_def_map = Hashtbl.create (module Id_with_stack);
+    block_map = Jayil.Ast.Ident_map.empty;
     term_detail_map = Hashtbl.create (module Lookup_key);
     rstk_picked = Hashtbl.create (module Rstack);
     lookup_alert = Hash_set.create (module Lookup_key);
@@ -83,6 +85,7 @@ let create_session ?max_step target_stk (state : Global_state.t)
     is_debug = config.debug_graph;
     step = ref 0;
     alias_graph = G.create ();
+    block_map = state.block_map;
     val_def_map = Hashtbl.create (module Id_with_stack);
     term_detail_map = state.term_detail_map;
     rstk_picked = state.rstk_picked;
@@ -121,7 +124,8 @@ let debug_update_read_node session x stk =
   match (session.is_debug, session.mode) with
   | true, With_full_target (_, target_stk) ->
       let r_stk = Rstack.relativize target_stk stk in
-      let key = Lookup_key.of2 x r_stk in
+      let b_id = Cfg.(block_of_id x session.block_map |> id_of_block) in
+      let key = Lookup_key.of3 x r_stk b_id in
       (* Fmt.pr "@[Update Get to %a@]\n" Lookup_key.pp key; *)
       Hashtbl.change session.term_detail_map key ~f:(function
         | Some td -> Some { td with get_count = td.get_count + 1 }
@@ -132,7 +136,8 @@ let debug_update_write_node session x stk =
   match (session.is_debug, session.mode) with
   | true, With_full_target (_, target_stk) ->
       let r_stk = Rstack.relativize target_stk stk in
-      let key = Lookup_key.of2 x r_stk in
+      let b_id = Cfg.(block_of_id x session.block_map |> id_of_block) in
+      let key = Lookup_key.of3 x r_stk b_id in
       (* Fmt.pr "@[Update Set to %a@]\n" Lookup_key.pp key; *)
       Hashtbl.change session.term_detail_map key ~f:(function
         | Some td -> Some { td with is_set = true }
@@ -163,7 +168,8 @@ let alert_lookup session x stk =
   match session.mode with
   | With_full_target (_, target_stk) ->
       let r_stk = Rstack.relativize target_stk stk in
-      let key = Lookup_key.of2 x r_stk in
+      let b_id = Cfg.(block_of_id x session.block_map |> id_of_block) in
+      let key = Lookup_key.of3 x r_stk b_id in
       Fmt.epr "@[Update Alert to %a\t%a@]\n" Lookup_key.pp key Concrete_stack.pp
         stk ;
       Hash_set.add session.lookup_alert key
