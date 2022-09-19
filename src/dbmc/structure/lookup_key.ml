@@ -15,8 +15,6 @@ let start (x : Id.t) block : t = { x; r_stk = Rstack.empty; block }
 let of3 x r_stk block = { x; r_stk; block }
 let to2 key = (key.x, key.r_stk)
 let with_x key x = { key with x }
-
-(* let with_stk key r_stk = { key with r_stk } *)
 let to_first = with_x
 
 let to_string key =
@@ -60,7 +58,7 @@ let get_f_return map fid r_stk x =
   let key_ret = of3 x' r_stk' fblock in
   key_ret
 
-let get_cond_block_and_return cond_block beta r_stk x =
+let return_of_cond_block_ddse cond_block beta r_stk x =
   let open Cfg in
   let case_block = Cond { cond_block with choice = Some beta } in
   let x_ret = Cfg.ret_of case_block in
@@ -69,7 +67,12 @@ let get_cond_block_and_return cond_block beta r_stk x =
   (case_block, key_ret)
 
 let return_of_cond_block cond_block beta r_stk x =
-  get_cond_block_and_return cond_block beta r_stk x |> snd
+  let open Cfg in
+  let case_block = Cond { cond_block with choice = Some beta } in
+  let x_ret = Cfg.ret_of case_block in
+  let cbody_stack = Rstack.push r_stk (x, Id.cond_fid beta) in
+  let key_ret = of3 x_ret cbody_stack case_block in
+  key_ret
 
 let get_callsites r_stk (fb : Cfg.fun_block) =
   let fid = fb.point in
@@ -79,5 +82,3 @@ let get_callsites r_stk (fb : Cfg.fun_block) =
     | None -> fb.callsites
   in
   callsites
-
-type with_block = t * Cfg.block

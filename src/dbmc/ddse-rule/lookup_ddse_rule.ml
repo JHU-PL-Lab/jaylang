@@ -147,8 +147,7 @@ module Make (S : S) = struct
   let cond_btm p this_key block phis_top run_task =
     let _x, r_stk = Lookup_key.to2 this_key in
     let ({ x; x'; tid } : Cond_btm_rule.t) = p in
-    let block = Ident_map.find tid S.block_map in
-    let cond_block = block |> Cfg.cast_to_cond_block in
+    let cond_block = Ident_map.find tid S.block_map |> Cfg.cast_to_cond_block in
     if Option.is_some cond_block.choice
     then failwith "conditional_body: not both"
     else () ;
@@ -160,22 +159,19 @@ module Make (S : S) = struct
     let sub_trees =
       List.fold [ true; false ]
         ~f:(fun sub_trees beta ->
-          let case_block, key_ret =
-            Lookup_key.get_cond_block_and_return cond_block beta r_stk x
+          let key_ret =
+            Lookup_key.return_of_cond_block cond_block beta r_stk x
           in
-          (* let node_x_ret = S.find_or_add_node key_ret case_block this_node in *)
-          sub_trees
-          (* @ [ node_x_ret ] *))
+          sub_trees)
         ~init:[]
     in
 
-    (* Node.update_rule this_node (Node.mk_condsite ~cond_var_tree ~sub_trees) ; *)
     run_task term_c block phis_top ;
 
     let cb this_key (rc : Ddse_result.t) =
       List.iter [ true; false ] ~f:(fun beta ->
           let case_block, key_ret =
-            Lookup_key.get_cond_block_and_return cond_block beta r_stk x
+            Lookup_key.return_of_cond_block_ddse cond_block beta r_stk x
           in
           let phi_beta = Riddler.eqv rc.v (Value_bool beta) in
           let phis_top_with_c =
@@ -212,7 +208,7 @@ module Make (S : S) = struct
        List.fold [ true; false ]
          ~f:(fun sub_trees beta ->
            let case_block, key_ret =
-             Lookup_key.get_cond_block_and_return cond_block beta r_stk x
+             Lookup_key.return_of_cond_block_ddse cond_block beta r_stk x
            in
            let node_x_ret = S.find_or_add_node key_ret case_block this_node in
            run_task term_c block phis_top ;
@@ -249,7 +245,6 @@ module Make (S : S) = struct
           match Rstack.pop r_stk (x', fid) with
           | Some callsite_stack ->
               let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
-
               run_task key_f callsite_block phis_top ;
               let key_arg = Lookup_key.of3 x''' callsite_stack callsite_block in
               let phi = Riddler.same_funenter key_f fid key key_arg in

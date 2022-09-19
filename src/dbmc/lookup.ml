@@ -36,7 +36,6 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     | Some _ -> ()
     | None ->
         let term_detail : Term_detail.t =
-          let block_id = Cfg.id_of_block block in
           let x, _r_stk = Lookup_key.to2 key in
           let rule = Rule.rule_of_runtime_status x block in
           Term_detail.mk_detail ~rule ~block ~key
@@ -122,7 +121,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
 
   let unroll = Unrolls.U_dbmc.create () in
 
-  let run_eval key block eval =
+  let run_eval key eval =
     match Hashtbl.find state.term_detail_map key with
     | Some _ -> ()
     | None ->
@@ -130,7 +129,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
         then ()
         else (
           Hash_set.strict_add_exn state.lookup_created key ;
-          let task () = Scheduler.push state.job_queue key (eval key block) in
+          let task () = Scheduler.push state.job_queue key (eval key) in
           Unrolls.U_dbmc.alloc_task unroll ~task key)
   in
 
@@ -141,9 +140,9 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
                        end) : Lookup_rule.S)
   in
   let module R = Lookup_rule.Make (LS) in
-  let[@landmark] rec lookup (key : Lookup_key.t) block () : unit Lwt.t =
+  let[@landmark] rec lookup (key : Lookup_key.t) () : unit Lwt.t =
     let x, _r_stk = Lookup_key.to2 key in
-
+    let block = key.block in
     let rule = Rule.rule_of_runtime_status x block in
     let term_detail = Term_detail.mk_detail ~rule ~block ~key in
 
@@ -163,24 +162,24 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
       let open Rule in
       match rule with
       | Discovery_main p -> R.discovery_main p key
-      | Discovery_nonmain p -> R.discovery_nonmain p key block
-      | Input p -> R.input p key block
-      | Alias p -> R.alias p key block
-      | Not p -> R.not_ p key block
-      | Binop b -> R.binop b key block
-      | Record_start p -> R.record_start p key block
-      | Cond_top cb -> R.cond_top cb key block
-      | Cond_btm p -> R.cond_btm p key block
-      | Fun_enter_local p -> R.fun_enter_local p key block
-      | Fun_enter_nonlocal p -> R.fun_enter_nonlocal p key block
-      | Fun_exit p -> R.fun_exit p key block
-      | Pattern p -> R.pattern p key block
+      | Discovery_nonmain p -> R.discovery_nonmain p key
+      | Input p -> R.input p key
+      | Alias p -> R.alias p key
+      | Not p -> R.not_ p key
+      | Binop b -> R.binop b key
+      | Record_start p -> R.record_start p key
+      | Cond_top cb -> R.cond_top cb key
+      | Cond_btm p -> R.cond_btm p key
+      | Fun_enter_local p -> R.fun_enter_local p key
+      | Fun_enter_nonlocal p -> R.fun_enter_nonlocal p key
+      | Fun_exit p -> R.fun_exit p key
+      | Pattern p -> R.pattern p key
       | Assume p -> R.assume p key
       | Assert p -> R.assert_ p key
-      | Abort p -> R.abort p key block
+      | Abort p -> R.abort p key
       | Mismatch -> R.mismatch key
     in
-    let run_task key block = run_eval key block lookup in
+    let run_task key _block = run_eval key lookup in
     Run_rule_action.run run_task unroll state term_detail rule_action ;
 
     (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked.
@@ -203,6 +202,6 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   let block0 = Cfg.block_of_id state.target state.block_map in
   let key_target = Lookup_key.start state.target block0 in
   state.phis <- [ Riddler.picked key_target ] ;
-  run_eval key_target block0 lookup ;
+  run_eval key_target lookup ;
   let%lwt _ = Scheduler.run state.job_queue in
   Lwt.return_unit
