@@ -1,33 +1,48 @@
-
-let equal n1 n2 = n1 == n2 in
-
-let rec eq_e e1 e2 = 
-  match e1 with
-  | `N n1 ->
-    match e2 with
-    | `N n2 -> true
-    | _ -> false
-    end
-
-  | `Plus e3 ->
-    match e2 with
-    | `Plus e4 -> eq_e e3 e4
-    | _ -> false
-    end
-    
-  | _ -> false
-
+let rec fetch lst n = 
+  match lst with
+  | x :: xs -> if n == 0 then x else fetch xs (n-1)
+  | [] -> 0
   end
-  
 in
-let x = input in
-let y = input in
-let n3 = `N 3 in
-let n4 = `N 4 in
-let e7 = `Plus {e1 = n3, e2 = n4} in
 
-if eq_e e7 e7
-then
+let rec eval env e =
+  match e with
+  | `N n -> n
+  | `V n -> fetch env n
+  | `Plus e -> 
+    let e1 = e.e1 in
+    let e2 = e.e2 in
+    (eval env e1) + (eval env e2)
+  | `Minus e -> 
+    let e1 = e.e1 in
+    let e2 = e.e2 in
+    (eval env e1) - (eval env e2)
+  | `Mult e -> 
+    let e1 = e.e1 in
+    let e2 = e.e2 in
+    (eval env e1) * (eval env e2)
+  | `Eq e ->
+    let e1 = e.e1 in
+    let e2 = e.e2 in
+    let v1 = eval env e1 in
+    let v2 = eval env e2 in
+    if v1 == v2 then 1 else 0
+  end
+in
+
+let rec gen_e _d =
+  let seed = input in
+  if seed == 0 then
+    let v = input in
+    `N v
+  else 
+    let e3 = gen_e 0 in
+    let e4 = gen_e 0 in
+    `Plus {e1 = e3, e2 = e4}
+in
+let r1 = gen_e 0 in
+
+if eval [] r1 == 3 then
   let target = 1 in 1
 else
   42

@@ -214,9 +214,6 @@ module Make (S : S) = struct
       let key_rv = r.from in
       let rv_block = Cfg.block_of_id key_rv.x S.block_map in
       let rv = Cfg.clause_body_of_x rv_block key_rv.x in
-
-      (* Fmt.pr "[Pattern] %a | %a | %d <- %a\n" Lookup_key.pp key
-         Jayil.Ast_pp.pp_pattern pat i Lookup_key.pp key_rv ; *)
       let ans, phis, _matched =
         match (pat, rv) with
         | Any_pattern, _
@@ -247,6 +244,8 @@ module Make (S : S) = struct
             let phi = Riddler.picked_pattern key key' pat in
             (Lookup_result.ok key, [ phi ], false)
       in
+      (* Fmt.pr "[Pattern][%B] %a | %a |%a\n" matched Lookup_key.pp key
+         Jayil.Ast_pp.pp_pattern pat Lookup_key.pp key_rv ; *)
       (ans, phis)
     in
     MapSeq { sub = key; pub = key'; map = next; phis = [] }

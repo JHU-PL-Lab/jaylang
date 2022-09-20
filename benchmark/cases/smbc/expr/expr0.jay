@@ -39,22 +39,70 @@ let rec eq_e e1 e2 =
     | `N n2 -> equal n1 n2
     | _ -> false
     end
+
   | `V n1 ->
     match e2 with
     | `V n2 -> equal n1 n2
     | _ -> false
     end
+
   | `Plus e3 ->
     match e2 with
-    | `Plus e4 -> eq_e e3 e4
+    | `Plus e4 -> (eq_e e3.e1 e4.e1) and (eq_e e3.e2 e4.e2)
     | _ -> false
     end
-    
-  | _ -> false
+  
+  | `Minus e3 ->
+    match e2 with
+    | `Minus e4 -> (eq_e e3.e1 e4.e1) and (eq_e e3.e2 e4.e2)
+    | _ -> false
+    end
+
+  | `Mult e3 ->
+    match e2 with
+    | `Mult e4 -> (eq_e e3.e1 e4.e1) and (eq_e e3.e2 e4.e2)
+    | _ -> false
+    end
+
+  | `Eq e3 ->
+    match e2 with
+    | `Eq e4 -> (eq_e e3.e1 e4.e1) and (eq_e e3.e2 e4.e2)
+    | _ -> false
+    end
 
   end
-  
 in
+
+let step1 e = 
+  match e with
+  | `Plus pe ->
+    let y = pe.e1 in
+    let b = pe.e2 in
+    let z = 
+      let x2 = 
+        if eq_e y b then 1 else 1
+      in
+      x2
+    in
+      match y with
+      | `N x6 -> 
+        if x6 == 0 then b else z
+      | _ -> 0
+      end
+  | _ -> e
+  end
+in
+
+let rec simp1 e =
+  match e with
+  | `Plus e -> 
+    let e3 = simp1 e.e1 in
+    let e4 = simp1 e.e2 in
+    step1 (`Plus {e1 = e3, e2 = e4})
+  | _ -> step1 e
+  end
+in
+
 let x = input in
 let y = input in
 let l0 = [0, 1, 2, 3, 4] in
@@ -69,9 +117,20 @@ let e4 = `Mult {e1 = e3, e2 = v2} in
 let e5 = `Plus {e1 = e4, e2 = n3} in
 #let e5 = `Plus {e1 = e4, e2 = b5} in
 
-let e7 = `Plus {e1 = n3, e2 = n4} in
+let rec gen_e d =
+  let seed = input in
+  let v = input in
+  if seed == 0 then
+    `N v
+  else 
+    let e3 = gen_e 0 in
+    let e4 = gen_e 0 in
+    `Plus {e1 = e3, e2 = e4}
+in
+let r1 = gen_e 0 in
 
-if eq_e e7 e7
+if eval [] r1 == 3
+  # eq_e e5 e5
   # (fetch l0 1) == x 
   # and (eval l0 e3) == y 
 then

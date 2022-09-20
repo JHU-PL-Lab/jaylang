@@ -20,11 +20,18 @@ let value_of_dvalue = function
   | RecordClosure (r, _env) -> Value_record r
   | AbortClosure _ -> Value_bool false
 
-let pp_dvalue oc = function
+let rec pp_dvalue oc = function
   | Direct v -> Jayil.Ast_pp.pp_value oc v
   | FunClosure _ -> Format.fprintf oc "(fc)"
-  | RecordClosure _ -> Format.fprintf oc "(rc)"
+  | RecordClosure (r, env) -> pp_record_c (r, env) oc
   | AbortClosure _ -> Format.fprintf oc "(abort)"
+
+and pp_record_c (Record_value r, env) oc =
+  let pp_entry oc (x, v) =
+    Fmt.pf oc "%a = %a" Jayil.Ast_pp.pp_ident x Jayil.Ast_pp.pp_var v
+  in
+  (Fmt.braces (Fmt.iter_bindings ~sep:(Fmt.any ", ") Ident_map.iter pp_entry))
+    oc r
 
 exception Found_target of { x : Id.t; stk : Concrete_stack.t; v : dvalue }
 exception Found_abort of dvalue
