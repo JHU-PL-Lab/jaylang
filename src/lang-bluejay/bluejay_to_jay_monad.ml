@@ -33,6 +33,9 @@ module BluejayTranslationMonad : sig
   val add_sem_to_syn_mapping : sem_bluejay_edesc -> syn_bluejay_edesc -> unit m
   (** Map a semantic bluejay expression to the syntactic bluejay type it has **)
 
+  val add_wrapped_to_unwrapped_mapping :
+    sem_bluejay_edesc -> sem_bluejay_edesc -> unit m
+
   val add_core_to_sem_mapping :
     core_bluejay_edesc -> sem_bluejay_edesc -> unit m
   (** Map a core bluejay expression to the semantic bluejay origin **)
@@ -92,6 +95,12 @@ end = struct
     ctx.tc_bluejay_to_jay_mappings <-
       Bluejay_to_jay_maps.add_sem_syn_expr_mapping bluejay_jay_maps sem_expr
         syn_expr
+
+  let add_wrapped_to_unwrapped_mapping wrapped unwrapped ctx =
+    let bluejay_jay_maps = ctx.tc_bluejay_to_jay_mappings in
+    ctx.tc_bluejay_to_jay_mappings <-
+      Bluejay_to_jay_maps.add_wrapped_unwrapped_mapping bluejay_jay_maps wrapped
+        unwrapped
 
   let add_core_to_sem_mapping core_expr sem_expr ctx =
     let bluejay_jay_maps = ctx.tc_bluejay_to_jay_mappings in

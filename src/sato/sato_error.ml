@@ -767,12 +767,18 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
              ~f:
                (Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay
                   bluejay_jay_maps)
+        |> List.map
+             ~f:
+               (Bluejay_to_jay_maps.unwrapped_bluejay_from_wrapped_bluejay
+                  bluejay_jay_maps)
       in
-      (* let () =
-           List.iter
-             ~f:(fun ed -> print_endline @@ show_expr' ed.body)
-             sem_nat_aliases
-         in *)
+      let show_expr' =
+        Pp_utils.pp_to_string @@ Bluejay_ast_internal_pp.pp_expr_desc_with_tag
+      in
+      let () = print_endline @@ "semantic aliases" in
+      let () =
+        List.iter ~f:(fun ed -> print_endline @@ show_expr' ed) sem_nat_aliases
+      in
       (* Getting the expression that triggered the error *)
       let sem_val_exprs =
         sem_nat_aliases
@@ -781,11 +787,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                (Bluejay_to_jay_maps.get_value_expr_from_sem_expr
                   bluejay_jay_maps)
       in
-      (* let () =
-           List.iter
-             ~f:(fun ed -> print_endline @@ show_expr' ed.body)
-             sem_val_exprs
-         in *)
+      let () = print_endline @@ "semantic values" in
+      let () =
+        List.iter ~f:(fun ed -> print_endline @@ show_expr' ed) sem_val_exprs
+      in
       (* Getting the jayil variable corresponding to the error-triggering value *)
       let jayil_vars =
         sem_val_exprs
@@ -797,7 +802,8 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
              ~f:
                (Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps)
       in
-      (* let () =
+      (* let () = print_endline @@ "jayil vars" in
+         let () =
            List.iter
              ~f:(fun (Var (x, _)) -> print_endline @@ Ast.show_ident x)
              jayil_vars
@@ -834,10 +840,13 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       (* let keys = Batteries.List.of_enum @@ Ast.Ident_map.keys final_env in
          let () = List.iter ~f:(fun k -> print_endline @@ show_ident k) keys in *)
       (* let () = failwith @@ string_of_bool @@ List.is_empty @@ List.concat jayil_vars_with_stack in *)
-      (* let () =
-         List.iter
-           ~f:(fun x -> print_endline @@ Dbmc.Interpreter.show_ident_with_stack x)
-           jayil_vars_with_stack in *)
+      let () = print_endline @@ "jayil vars (aliases)" in
+      let () =
+        List.iter
+          ~f:(fun x ->
+            print_endline @@ Dbmc.Interpreter.show_ident_with_stack x)
+          jayil_vars_with_stack
+      in
       let rec find_val
           (vdef_mapping :
             ( Dbmc.Interpreter.Ident_with_stack.t,
@@ -876,6 +885,9 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         let jayil_vars =
           ed
           |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps
+          (* |> Bluejay_to_jay_maps.wrapped_bluejay_from_unwrapped_bluejay
+               bluejay_jay_maps *)
+          (* |> Option.value_exn *)
           |> Bluejay_to_jay_maps.get_core_expr_from_sem_expr bluejay_jay_maps
           |> Option.value_exn |> Bluejay_ast_internal.to_jay_expr_desc
           |> Jay_translate.Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr
@@ -1270,10 +1282,13 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         else List.hd_exn find_tag
       in
       let new_t =
+        let () = print_endline "This is the value" in
+        let () = print_endline @@ Ast_pp.show_value v in
+        let () = print_endline "value done!" in
         match v with
         | Value_int _ -> Bluejay_ast_internal.new_expr_desc @@ TypeInt
         | Value_bool _ -> Bluejay_ast_internal.new_expr_desc @@ TypeBool
-        | _ -> failwith "TBI!"
+        | _ -> failwith "jayil_to_bluejay_error: TBI!"
       in
       (* let expected_type_internal =
            expected_type

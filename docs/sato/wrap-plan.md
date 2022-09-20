@@ -32,7 +32,7 @@ let add (x : int) (y : int) : int = x + y in add
 ==>
 ```ocaml
 let add (x : int) (y : int) : int = 
-    fun x' -> (
+    (fun x' -> 
         let c1 = (int.check x') in
         if (int.check x') 
         then
@@ -42,9 +42,9 @@ let add (x : int) (y : int) : int =
             then
                 (x + y)
             else
-                assert c2) y'
+                assert c2) y
         else 
-            assert c1) x'
+            assert c1) x
         
 ```
 

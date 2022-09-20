@@ -10,7 +10,7 @@ let create_initial_dmbc_config (sato_config : Sato_args.t) :
   let filename = sato_config.filename in
   let ddpa_ver = sato_config.ddpa_c_stk in
   let max_step = sato_config.run_max_step in
-  let timeout = sato_config.timeout in
+  let timeout = Some (Time.Span.of_int_sec 5) in
   let open Dbmc.Global_config in
   {
     target = Dbmc.Id.(Ident "target");
@@ -63,7 +63,6 @@ let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
               in
               try Interpreter.eval session program
               with Interpreter.Found_abort ab_clo -> (
-                let () = print_endline @@ "ready to report error!" in
                 match ab_clo with
                 | AbortClosure final_env -> (
                     match sato_mode with

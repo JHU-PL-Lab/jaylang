@@ -1444,47 +1444,53 @@ let debug_transform_bluejay (trans_name : string)
 let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
   let e = e_desc.body in
   (* Using the original tag for now; may be buggy *)
-  let tag = e_desc.tag in
+  let _tag = e_desc.tag in
   match e with
   | Int _ | Bool _ | Var _ | Input | TypeError _ -> return e_desc
   | Function (id_lst, e) ->
       let%bind e' = wrap e in
-      let res = Function (id_lst, e') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Function (id_lst, e') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Appl (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = Appl (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Appl (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Let (x, e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = Let (x, e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Let (x, e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | LetRecFun (sig_lst, e) ->
       let%bind sig_lst' =
         sig_lst |> List.map (transform_funsig wrap) |> sequence
       in
       let%bind e' = wrap e in
-      let res = LetRecFun (sig_lst', e') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ LetRecFun (sig_lst', e') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | LetFun (fun_sig, e) ->
       let%bind sig' = fun_sig |> transform_funsig wrap in
       let%bind e' = wrap e in
-      let res = LetFun (sig', e') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ LetFun (sig', e') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   (* TODO: Will want to handle the function case here *)
   | LetWithType (x, e1, e2, type_decl) ->
       let%bind type_decl' = wrap type_decl in
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = LetWithType (x, e1', e2', type_decl') in
-      return @@ { tag; body = res }
-  | LetRecFunWithType (_sig_lst, _e) -> failwith "TBI!"
+      let res = new_expr_desc @@ LetWithType (x, e1', e2', type_decl') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
+  | LetRecFunWithType (_sig_lst, _e) -> failwith "wrap: TBI!"
   | LetFunWithType (fun_sig, e) -> (
       match fun_sig with
       | Typed_funsig (f, typed_params, (f_body, ret_type)) ->
-          let folder (Ident p, t) acc =
+          let folder ((Ident p as param), t) acc =
             let%bind eta_arg = fresh_ident p in
             let%bind arg_check = fresh_ident "arg_check" in
             let check_arg =
@@ -1503,12 +1509,10 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
             in
             let wrapped_body =
               new_expr_desc
-              @@ Function
-                   ( [ eta_arg ],
-                     new_expr_desc
-                     @@ Appl
-                          ( new_expr_desc @@ eta_body,
-                            new_expr_desc @@ Var eta_arg ) )
+              @@ Appl
+                   ( new_expr_desc
+                     @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
+                     new_expr_desc @@ Var param )
             in
             return wrapped_body
           in
@@ -1527,8 +1531,9 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
           let fun_sig' =
             Typed_funsig (f, typed_params', (wrapped_f, ret_type'))
           in
-          let res = LetFunWithType (fun_sig', og_e') in
-          return @@ { tag; body = res }
+          let res = new_expr_desc @@ LetFunWithType (fun_sig', og_e') in
+          let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+          return res
       | DTyped_funsig (f, (Ident p, t), (f_body, ret_type)) ->
           let%bind eta_arg = fresh_ident p in
           let%bind arg_check = fresh_ident "arg_check" in
@@ -1562,91 +1567,109 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
           let fun_sig' =
             DTyped_funsig (f, (Ident p, t'), (wrapped_f, ret_type'))
           in
-          let res = LetFunWithType (fun_sig', og_e') in
-          return @@ { tag; body = res })
+          let res = new_expr_desc @@ LetFunWithType (fun_sig', og_e') in
+          let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+          return res)
   | Plus (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = Plus (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Plus (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Minus (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = Minus (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Minus (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Times (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = Times (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Times (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Divide (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = Divide (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Divide (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Modulus (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = Modulus (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Modulus (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Equal (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = Equal (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Equal (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Neq (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = Neq (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Neq (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | LessThan (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = LessThan (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ LessThan (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Leq (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = Leq (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Leq (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | GreaterThan (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = GreaterThan (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ GreaterThan (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Geq (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = Geq (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Geq (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | And (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = And (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ And (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Or (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = Or (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Or (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Not e ->
       let%bind e' = wrap e in
-      let res = Not e' in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Not e' in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | If (e1, e2, e3) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
       let%bind e3' = wrap e3 in
-      let res = If (e1', e2', e3') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ If (e1', e2', e3') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Record m ->
       let%bind m' = ident_map_map_m (fun e -> wrap e) m in
-      let res = Record m' in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Record m' in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | RecordProj (e, l) ->
       let%bind e' = wrap e in
-      let res = RecordProj (e', l) in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ RecordProj (e', l) in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Match (e, pattern_expr_lst) ->
       let%bind e' = wrap e in
       let mapper (pat, expr) =
@@ -1656,29 +1679,35 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
       let%bind pattern_expr_lst' =
         pattern_expr_lst |> List.map mapper |> sequence
       in
-      let res = Match (e', pattern_expr_lst') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Match (e', pattern_expr_lst') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | VariantExpr (lbl, e) ->
       let%bind e' = wrap e in
-      let res = VariantExpr (lbl, e') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ VariantExpr (lbl, e') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | List expr_lst ->
       let%bind expr_lst' = expr_lst |> List.map wrap |> sequence in
-      let res = List expr_lst' in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ List expr_lst' in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | ListCons (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
-      let res = ListCons (e1', e2') in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ ListCons (e1', e2') in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Assert e ->
       let%bind e' = wrap e in
-      let res = Assert e' in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Assert e' in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
   | Assume e ->
       let%bind e' = wrap e in
-      let res = Assume e' in
-      return @@ { tag; body = res }
+      let res = new_expr_desc @@ Assume e' in
+      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+      return res
 
 let transform_bluejay (e : syn_type_bluejay) :
     core_bluejay_edesc * Bluejay_to_jay_maps.t =

@@ -50,11 +50,12 @@ let read_source_sato filename =
         Jay_ast.new_expr_desc
         @@ In_channel.with_file filename ~f:Jay.Jay_parse.parse_program_raw
       in
+      let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in
       (* let (desugared_typed, ton_on_maps) = transform_natodefa jay_ast in *)
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
         Jay_to_jayil.translate ~is_instrumented:true jay_ast
       in
-      (* let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in *)
+      let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;
       (post_inst_ast, odefa_inst_maps, Some on_odefa_maps, None))
     else if Jayil.File_utils.check_ext filename
@@ -65,7 +66,7 @@ let read_source_sato filename =
       let post_inst_ast, odefa_inst_maps =
         Jay_instrumentation.Instrumentation.instrument_jayil pre_inst_ast
       in
-      (* let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in *)
+      let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;
       (post_inst_ast, odefa_inst_maps, None, None))
     else failwith "file extension must be .jil, .jay, or .bjy"

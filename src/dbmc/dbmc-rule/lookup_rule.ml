@@ -354,9 +354,6 @@ module Make (S : S) = struct
       let rv_block = Cfg.block_of_id key_rv.x S.block_map in
       let rv = Cfg.clause_body_of_x rv_block key_rv.x in
 
-      Fmt.pr "[Pattern] %a | %a | %d <- %a\n" Lookup_key.pp key
-        Jayil.Ast_pp.pp_pattern pat i Lookup_key.pp key_rv ;
-
       let ans, phis, _matched =
         match (pat, rv) with
         | Any_pattern, _

@@ -35,6 +35,7 @@ end)
 type t = {
   error_to_bluejay_expr : sem_bluejay_edesc Ident_map.t;
   sem_to_syn : syn_bluejay_edesc Intermediate_expr_desc_map.t;
+  wrapped_to_unwrapped : sem_bluejay_edesc Intermediate_expr_desc_map.t;
   core_to_sem : sem_bluejay_edesc Core_expr_desc_map.t;
   error_to_expr_tag : int Intermediate_expr_desc_map.t;
   error_to_rec_fun_type : ident Ident_map.t;
@@ -46,6 +47,7 @@ let empty =
   {
     error_to_bluejay_expr = Ident_map.empty;
     sem_to_syn = Intermediate_expr_desc_map.empty;
+    wrapped_to_unwrapped = Intermediate_expr_desc_map.empty;
     core_to_sem = Core_expr_desc_map.empty;
     error_to_expr_tag = Intermediate_expr_desc_map.empty;
     error_to_rec_fun_type = Ident_map.empty;
@@ -65,6 +67,14 @@ let add_sem_syn_expr_mapping mappings sem syn =
   {
     mappings with
     sem_to_syn = Intermediate_expr_desc_map.add sem syn sem_syn_expr_mapping;
+  }
+
+let add_wrapped_unwrapped_mapping mappings wrapped unwrapped =
+  let wrapped_unwrapped_mapping = mappings.wrapped_to_unwrapped in
+  {
+    mappings with
+    wrapped_to_unwrapped =
+      Intermediate_expr_desc_map.add wrapped unwrapped wrapped_unwrapped_mapping;
   }
 
 let add_core_sem_expr_mapping mappings core sem =
@@ -339,6 +349,248 @@ let rec syn_bluejay_from_sem_bluejay bluejay_jay_maps
           let e' = syn_bluejay_from_sem_bluejay bluejay_jay_maps e in
           { tag = og_tag; body = Assume e' })
 
+let rec unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps
+    (wrapped : sem_bluejay_edesc) : sem_bluejay_edesc =
+  (* let show_expr_desc =
+       Pp_utils.pp_to_string Bluejay_ast_internal_pp.pp_expr_desc_with_tag
+     in
+     let () = print_endline "Wrapped expr: " in
+     let () = print_endline @@ show_expr_desc wrapped in
+     let keys =
+       Intermediate_expr_desc_map.keys bluejay_jay_maps.wrapped_to_unwrapped
+     in
+     let () = Enum.iter (fun ed -> print_endline @@ show_expr_desc ed) keys in *)
+  match
+    Intermediate_expr_desc_map.Exceptionless.find wrapped
+      bluejay_jay_maps.wrapped_to_unwrapped
+  with
+  | Some expr' -> expr'
+  | None -> (
+      let on_err = wrapped.body in
+      let og_tag = wrapped.tag in
+      match on_err with
+      | TypeError _err_id -> failwith "Should have type error exprs!"
+      | Int _ | Bool _ | Var _ | Input -> wrapped
+      | Function (id_lst, f_expr) ->
+          {
+            tag = og_tag;
+            body =
+              Function
+                ( id_lst,
+                  unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps f_expr
+                );
+          }
+      | Appl (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = Appl (e1', e2') }
+      | Let (x, e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = Let (x, e1', e2') }
+      | LetRecFun (funsig_lst, e) ->
+          let funsig_lst' =
+            funsig_lst
+            |> List.map
+                 (transform_funsig
+                    (unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps))
+          in
+          let e' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e in
+          { tag = og_tag; body = LetRecFun (funsig_lst', e') }
+      | LetFun (funsig, e) ->
+          let funsig' =
+            funsig
+            |> transform_funsig
+                 (unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps)
+          in
+          let e' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e in
+          { tag = og_tag; body = LetFun (funsig', e') }
+      | LetWithType (x, e1, e2, t) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          let t' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps t in
+          { tag = og_tag; body = LetWithType (x, e1', e2', t') }
+      | LetFunWithType _ | LetRecFunWithType _ ->
+          failwith "unwrapped_bluejay_from_wrapped_bluejay: TBI!"
+      | Plus (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = Plus (e1', e2') }
+      | Minus (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = Minus (e1', e2') }
+      | Times (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = Times (e1', e2') }
+      | Divide (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = Divide (e1', e2') }
+      | Modulus (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = Modulus (e1', e2') }
+      | Equal (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = Equal (e1', e2') }
+      | Neq (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = Neq (e1', e2') }
+      | LessThan (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = LessThan (e1', e2') }
+      | Leq (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = Leq (e1', e2') }
+      | GreaterThan (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = GreaterThan (e1', e2') }
+      | Geq (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = Geq (e1', e2') }
+      | And (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = And (e1', e2') }
+      | Or (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = Or (e1', e2') }
+      | Not e ->
+          let e' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e in
+          { tag = og_tag; body = Not e' }
+      | If (e1, e2, e3) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          let e3' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e3
+          in
+          { tag = og_tag; body = If (e1', e2', e3') }
+      | Record r ->
+          let r' =
+            r
+            |> Ident_map.map
+                 (unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps)
+            |> Ident_map.map (fun e -> e)
+          in
+          { tag = og_tag; body = Record r' }
+      | RecordProj (e, l) ->
+          let e' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e in
+          { tag = og_tag; body = RecordProj (e', l) }
+      | Match (match_e, pat_expr_lst) ->
+          let match_e' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps match_e
+          in
+          let pat_expr_lst' =
+            pat_expr_lst
+            |> List.map (fun (p, e) ->
+                   let e' =
+                     unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e
+                   in
+                   (p, e'))
+          in
+          { tag = og_tag; body = Match (match_e', pat_expr_lst') }
+      | VariantExpr (l, e) ->
+          let e' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e in
+          { tag = og_tag; body = VariantExpr (l, e') }
+      | List es ->
+          let es' =
+            es
+            |> List.map
+                 (unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps)
+          in
+          { tag = og_tag; body = List es' }
+      | ListCons (e1, e2) ->
+          let e1' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
+          in
+          let e2' =
+            unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e2
+          in
+          { tag = og_tag; body = ListCons (e1', e2') }
+      | Assert e ->
+          let e' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e in
+          { tag = og_tag; body = Assert e' }
+      | Assume e ->
+          let e' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e in
+          { tag = og_tag; body = Assume e' })
+
 let rec sem_bluejay_from_core_bluejay bluejay_jay_maps
     (core_edesc : core_bluejay_edesc) : sem_bluejay_edesc =
   match
@@ -497,7 +749,16 @@ let get_syn_nat_equivalent_expr bluejay_jay_maps
     (expr : Bluejay_ast_internal.core_bluejay_edesc) =
   expr
   |> sem_bluejay_from_core_bluejay bluejay_jay_maps
+  |> unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps
   |> syn_bluejay_from_sem_bluejay bluejay_jay_maps
+
+let wrapped_bluejay_from_unwrapped_bluejay bluejay_jay_maps unwrapped =
+  Intermediate_expr_desc_map.fold
+    (fun k v acc ->
+      (* let () = print_endline @@ "Current v: " in
+         let () = print_endline @@ show_expr_desc sem_ed in *)
+      if v.tag = unwrapped.tag then Some k else acc)
+    bluejay_jay_maps.wrapped_to_unwrapped None
 
 let get_core_expr_from_sem_expr bluejay_jay_maps sem_expr =
   (* let show_expr_desc =
