@@ -86,7 +86,9 @@ type t =
   | Abort of Abort_rule.t
   | Mismatch
 
-let rule_of_runtime_status x block : t =
+let rule_of_runtime_status (key : Lookup_key.t) : t =
+  let x = key.x in
+  let block = key.block in
   let open Cfg in
   match (clause_of_x block x, block) with
   | Some tc, _ -> (

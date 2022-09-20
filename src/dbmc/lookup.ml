@@ -31,66 +31,57 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
   in
   let module R = Lookup_ddse_rule.Make (LS) in
   (* block works similar to env in a common interpreter *)
-  let[@landmark] rec run_task key block phis =
+  let[@landmark] rec run_task key phis =
     match Hashtbl.find state.term_detail_map key with
     | Some _ -> ()
     | None ->
         let term_detail : Term_detail.t =
           let x, _r_stk = Lookup_key.to2 key in
-          let rule = Rule.rule_of_runtime_status x block in
-          Term_detail.mk_detail ~rule ~block ~key
+          let rule = Rule.rule_of_runtime_status key in
+          Term_detail.mk_detail ~rule ~key
         in
         Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
-        let task () =
-          Scheduler.push state.job_queue key (lookup key block phis)
-        in
+        let task () = Scheduler.push state.job_queue key (lookup key phis) in
         U_ddse.alloc_task unroll ~task key
-  and lookup (this_key : Lookup_key.t) block phis () : unit Lwt.t =
-    let x, _r_stk = Lookup_key.to2 this_key in
-
-    (* let this_node = Global_state.find_node_exn state this_key in *)
-    let block_id = Cfg.id_of_block block in
-
+  and lookup (this_key : Lookup_key.t) phis () : unit Lwt.t =
     (* match Riddler.check_phis (Set.to_list phis) false with
        | None -> Lwt.return_unit
        | Some _ -> *)
-    let rule = Rule.rule_of_runtime_status x block in
+    let rule = Rule.rule_of_runtime_status this_key in
     LLog.app (fun m ->
-        m "[Lookup][=>]: %a in block %a; Rule %a" Lookup_key.pp this_key Id.pp
-          block_id Rule.pp_rule rule) ;
+        m "[Lookup][=>]: %a ; Rule %a" Lookup_key.pp this_key Rule.pp_rule rule) ;
 
     let _apply_rule =
       let open Rule in
       match rule with
       | Discovery_main p -> R.discovery_main p this_key phis
-      | Discovery_nonmain p ->
-          R.discovery_nonmain p this_key block phis run_task
-      | Input p -> R.input p this_key block phis run_task
-      | Alias p -> R.alias p this_key block phis run_task
-      | Not b -> R.not_ b this_key block phis run_task
-      | Binop b -> R.binop b this_key block phis run_task
-      | Record_start p -> R.record_start p this_key block phis run_task
-      | Cond_top cb -> R.cond_top cb this_key block phis run_task
-      | Cond_btm p -> R.cond_btm p this_key block phis run_task
+      | Discovery_nonmain p -> R.discovery_nonmain p this_key phis run_task
+      | Input p -> R.input p this_key phis run_task
+      | Alias p -> R.alias p this_key phis run_task
+      | Not b -> R.not_ b this_key phis run_task
+      | Binop b -> R.binop b this_key phis run_task
+      | Record_start p -> R.record_start p this_key phis run_task
+      | Cond_top cb -> R.cond_top cb this_key phis run_task
+      | Cond_btm p -> R.cond_btm p this_key phis run_task
       | Fun_enter_local p -> R.fun_enter_local p this_key phis run_task
       | Fun_enter_nonlocal p -> R.fun_enter_nonlocal p this_key phis run_task
-      | Fun_exit p -> R.fun_exit p this_key block phis run_task
-      | Pattern p -> R.pattern p this_key block phis run_task
-      | Assume p -> R.assume p this_key block phis run_task
-      | Assert p -> R.assert_ p this_key block phis run_task
-      | Abort p -> R.abort p this_key block phis run_task
+      | Fun_exit p -> R.fun_exit p this_key phis run_task
+      | Pattern p -> R.pattern p this_key phis run_task
+      | Assume p -> R.assume p this_key phis run_task
+      | Assert p -> R.assert_ p this_key phis run_task
+      | Abort p -> R.abort p this_key phis run_task
       | Mismatch -> R.mismatch this_key phis
     in
 
     (* LLog.app (fun m ->
-        m "[Lookup][<=]: %a in block %a" Lookup_key.pp this_key Id.pp block_id) ; *)
+        m "[Lookup][<=]: %a" Lookup_key.pp this_key) ; *)
     Lwt.return_unit
   in
 
   let block0 = Cfg.block_of_id state.target state.block_map in
   let term_target = Lookup_key.start state.target block0 in
   let phis = Phi_set.empty in
-  run_task term_target block0 phis ;
+  run_task term_target phis ;
 
   let wait_result =
     U_ddse.by_iter unroll term_target (fun (r : Ddse_result.t) ->
@@ -142,9 +133,8 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   let module R = Lookup_rule.Make (LS) in
   let[@landmark] rec lookup (key : Lookup_key.t) () : unit Lwt.t =
     let x, _r_stk = Lookup_key.to2 key in
-    let block = key.block in
-    let rule = Rule.rule_of_runtime_status x block in
-    let term_detail = Term_detail.mk_detail ~rule ~block ~key in
+    let rule = Rule.rule_of_runtime_status key in
+    let term_detail = Term_detail.mk_detail ~rule ~key in
 
     Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
     state.tree_size <- state.tree_size + 1 ;
@@ -153,10 +143,9 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
 
     Hash_set.strict_remove_exn state.lookup_created key ;
 
-    let block_id = Cfg.id_of_block block in
     LLog.app (fun m ->
-        m "[Lookup][%d][=>]: %a in block %a; Rule %a" state.tree_size
-          Lookup_key.pp key Id.pp block_id Rule.pp_rule rule) ;
+        m "[Lookup][%d][=>]: %a ; Rule %a" state.tree_size Lookup_key.pp key
+          Rule.pp_rule rule) ;
 
     let rule_action =
       let open Rule in
@@ -179,19 +168,18 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
       | Abort p -> R.abort p key
       | Mismatch -> R.mismatch key
     in
-    let run_task key _block = run_eval key lookup in
+    let run_task key = run_eval key lookup in
     Run_rule_action.run run_task unroll state term_detail rule_action ;
 
     (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked.
         run all previous lookups *)
-    let previous_clauses = Cfg.clauses_before_x block x in
+    let previous_clauses = Cfg.clauses_before_x key.block x in
     List.iter previous_clauses ~f:(fun tc ->
         let term_prev = Lookup_key.with_x key tc.id in
         add_phi term_detail (Riddler.picked_imply key term_prev) ;
-        run_task term_prev block) ;
+        run_task term_prev) ;
 
-    LLog.app (fun m ->
-        m "[Lookup][<=]: %a in block %a" Lookup_key.pp key Id.pp block_id) ;
+    LLog.app (fun m -> m "[Lookup][<=]: %a" Lookup_key.pp key) ;
 
     Lwt.return_unit
   in

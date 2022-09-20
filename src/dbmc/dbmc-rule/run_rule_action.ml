@@ -51,14 +51,14 @@ let rec run run_task unroll (state : Global_state.t)
   | Withered e -> ()
   | Leaf e -> U.by_return unroll e.sub (Lookup_result.ok e.sub)
   | Direct e ->
-      run_task e.pub e.pub.block ;
+      run_task e.pub ;
       U.by_id_u unroll e.sub e.pub
   | Map e ->
-      run_task e.pub e.pub.block ;
+      run_task e.pub ;
       U.by_map_u unroll e.sub e.pub e.map
   | MapSeq e ->
       init_list_counter state term_detail e.sub ;
-      run_task e.pub e.pub.block ;
+      run_task e.pub ;
       let f r =
         let i = fetch_list_counter state term_detail e.sub in
         let ans, phis = e.map i r in
@@ -67,8 +67,8 @@ let rec run run_task unroll (state : Global_state.t)
       in
       U.by_map_u unroll e.sub e.pub f
   | Both e ->
-      run_task e.pub1 e.pub1.block ;
-      run_task e.pub2 e.pub2.block ;
+      run_task e.pub1 ;
+      run_task e.pub2 ;
       U.by_map2_u unroll e.sub e.pub1 e.pub2 (fun _ -> Lookup_result.ok e.sub)
   | Chain e ->
       let cb key r =
@@ -77,11 +77,11 @@ let rec run run_task unroll (state : Global_state.t)
         Lwt.return_unit
       in
       U.by_bind_u unroll e.sub e.pub cb ;
-      run_task e.pub e.pub.block
+      run_task e.pub
   | Sequence e ->
       init_list_counter state term_detail e.sub ;
 
-      run_task e.pub e.pub.block ;
+      run_task e.pub ;
       let cb _key (r : Lookup_result.t) =
         let i = fetch_list_counter state term_detail e.sub in
         let next = e.next i r in

@@ -9,8 +9,8 @@ type t = {
   mutable get_count : int;
 }
 
-let mk_detail ~rule ~block ~key =
-  let block_id = Cfg.id_of_block block in
+let mk_detail ~rule ~key =
+  let block_id = Cfg.id_of_block key.Lookup_key.block in
   {
     node = ref (Search_graph.mk_node ~block_id ~key);
     rule;

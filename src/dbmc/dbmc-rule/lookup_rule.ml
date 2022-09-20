@@ -82,7 +82,6 @@ module Make (S : S) = struct
           | Some (Var (field, _)) ->
               let key_l = Lookup_key.with_x key_rv field in
               let phi_i = Riddler.record_start key key_r key_rv key_l in
-              (* ACTION: pub = (key_l, rv_block); *)
               let action = Direct { sub = key; pub = key_l; phis = [] } in
               Some (phi_i, action)
           | None -> None)
