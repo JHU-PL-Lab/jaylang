@@ -1,35 +1,32 @@
 _first = {};
-map = fun map0 -> (
-    rmap1 = fun fn -> (
-        rmap2 = fun lst -> (
-            fmm = map0 map0;
-            is_empty = lst ~ {___empty};
-            is_cons = lst ~ {___head, ___tail};
-            r_empty = is_cons ? (
-                    hd = lst.___head;
-                    tl = lst.___tail;
-                    em1 = {};
-                    nhd = fn hd;
-                    ntl_pre = fmm fn;
-                    ntl = ntl_pre tl;
-                    r_c = {___cons = em1, ___head = nhd, ___tail = ntl}
-                ) : (
-                    r_cons = is_empty ? (
-                            em2 = {};
-                            r_e = {___empty = em2}
-                        ) : (
-                            ab7 = abort
-                        )
-                ))));
 inc = fun n -> (
     one = 1;
     r_inc = n + one
 );
+map = fun map0 -> (
+    rmap2 = fun lst -> (
+        fmm = map0 map0;
+        is_empty = lst ~ {___empty};
+        is_cons = lst ~ {___head, ___tail};
+        r_empty = is_cons ? (
+                hd = lst.___head;
+                tl = lst.___tail;
+                em1 = {};
+                nhd = inc hd;
+                ntl = fmm tl;
+                r_c = {___cons = em1, ___head = nhd, ___tail = ntl}
+            ) : (
+                r_cons = is_empty ? (
+                        em2 = {};
+                        r_e = {___empty = em2}
+                    ) : (
+                        ab7 = abort
+                    )
+            )));
 xi = input;
 zero = 0;
 is_zero = xi == zero;
-mm = map map;
-mmi = mm inc;
+mmi = map map;
 _result = is_zero ? (
         ti = 1;
         tb = true;
