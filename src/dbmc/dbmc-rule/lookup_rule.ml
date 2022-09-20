@@ -89,24 +89,23 @@ module Make (S : S) = struct
     in
     Sequence { sub = key; pub = key_r; next; phis = [] }
 
-  let cond_top (cb : Cond_top_rule.t) (key : Lookup_key.t) =
-    let condsite_block = Cfg.outer_block key.block S.block_map in
-    let x, r_stk = Lookup_key.to2 key in
+  let cond_top (cb : Cond_top_rule.t) (this_key : Lookup_key.t) =
+    let condsite_block = Cfg.outer_block this_key.block S.block_map in
     let choice = Option.value_exn cb.choice in
     let _paired, condsite_stack =
-      Rstack.pop_at_condtop r_stk (cb.point, Id.cond_fid choice)
+      Rstack.pop_at_condtop this_key.r_stk (cb.point, Id.cond_fid choice)
     in
     let x2 = cb.cond in
     let key_x2 = Lookup_key.of3 x2 condsite_stack condsite_block in
-    let key_x = Lookup_key.of3 x condsite_stack condsite_block in
+    let key_x = Lookup_key.of3 this_key.x condsite_stack condsite_block in
     let next _ r =
       (* true *)
       (* if Riddler.eager_check S.state S.config key_x2
            [ Riddler.eqv key_x2 (Value_bool choice) ] *)
-      Some (Direct { sub = key; pub = key_x; phis = [] })
+      Some (Direct { sub = this_key; pub = key_x; phis = [] })
     in
-    let phis = [ Riddler.cond_top key key_x key_x2 choice ] in
-    Chain { sub = key; pub = key_x2; next; phis }
+    let phis = [ Riddler.cond_top this_key key_x key_x2 choice ] in
+    Chain { sub = this_key; pub = key_x2; next; phis }
 
   let cond_btm p (key : Lookup_key.t) =
     let this_key = key in
@@ -163,19 +162,18 @@ module Make (S : S) = struct
 
   let fun_enter_nonlocal p (key : Lookup_key.t) =
     let ({ fb; _ } : Fun_enter_nonlocal_rule.t) = p in
-    let x, r_stk = Lookup_key.to2 key in
-    let callsites = Lookup_key.get_callsites r_stk fb in
+    let callsites = Lookup_key.get_callsites key.r_stk fb in
     let nexts =
       List.map callsites ~f:(fun callsite ->
           let callsite_block, x', x'', _x''' =
             Cfg.fun_info_of_callsite callsite S.block_map
           in
-          match Rstack.pop r_stk (x', fb.point) with
+          match Rstack.pop key.r_stk (x', fb.point) with
           | Some callsite_stack ->
               let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
               let next i (r : Lookup_result.t) =
                 let fv_block = Cfg.block_of_id r.from.x S.block_map in
-                let key_arg = Lookup_key.of3 x r.from.r_stk fv_block in
+                let key_arg = Lookup_key.of3 key.x r.from.r_stk fv_block in
                 let phi_i =
                   Riddler.fun_enter_nonlocal key key_f r.from fb.point key_arg
                 in
@@ -194,9 +192,7 @@ module Make (S : S) = struct
       let fid = rf.from.x in
       if List.mem fids fid ~equal:Id.equal
       then
-        let key_ret =
-          Lookup_key.get_f_return S.block_map fid this_key.r_stk x
-        in
+        let key_ret = Lookup_key.get_f_return S.block_map fid this_key in
         Some (Direct { sub = this_key; pub = key_ret; phis = [] })
       else None
     in

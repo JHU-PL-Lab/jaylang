@@ -125,7 +125,6 @@ let cond_top term term_x term_c beta =
         ]
 
 let cond_bottom term term_c block_map =
-  let x, r_stk = Lookup_key.to2 term in
   let cs, rs =
     List.fold [ true; false ] ~init:([], []) ~f:(fun (cs, rs) beta ->
         let term_ret = Lookup_key.return_key_of_cond term block_map beta in
@@ -186,10 +185,9 @@ let fun_enter_local (term : Lookup_key.t) fid callsites block_map =
   picked term @=> and_ (or_ cs :: rs)
 
 let fun_exit term key_f fids block_map =
-  let x, r_stk = Lookup_key.to2 term in
   let cs, rs =
     List.fold fids ~init:([], []) ~f:(fun (cs, rs) fid ->
-        let key_ret = Lookup_key.get_f_return block_map fid r_stk x in
+        let key_ret = Lookup_key.get_f_return block_map fid term in
         let p = picked key_ret in
         (cs @ [ p ], rs @ [ p @=> same_funexit key_f fid key_ret term ]))
   in

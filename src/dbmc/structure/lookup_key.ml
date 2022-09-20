@@ -13,7 +13,6 @@ include Comparator.Make (T)
 
 let start (x : Id.t) block : t = { x; r_stk = Rstack.empty; block }
 let of3 x r_stk block = { x; r_stk; block }
-let to2 key = (key.x, key.r_stk)
 let with_x key x = { key with x }
 let to_first = with_x
 
@@ -51,10 +50,10 @@ let chrono_compare map k1 k2 =
 
 let length key = 1 + Rstack.length key.r_stk
 
-let get_f_return map fid r_stk x =
+let get_f_return map fid term =
   let fblock = Jayil.Ast.Ident_map.find fid map in
   let x' = Cfg.ret_of fblock in
-  let r_stk' = Rstack.push r_stk (x, fid) in
+  let r_stk' = Rstack.push term.r_stk (term.x, fid) in
   let key_ret = of3 x' r_stk' fblock in
   key_ret
 

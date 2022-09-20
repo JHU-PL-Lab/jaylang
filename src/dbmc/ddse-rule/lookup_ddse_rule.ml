@@ -116,15 +116,14 @@ module Make (S : S) = struct
 
   let cond_top (cb : Cond_top_rule.t) key phis_top run_task =
     let condsite_block = Cfg.outer_block key.Lookup_key.block S.block_map in
-    let x, r_stk = Lookup_key.to2 key in
     let choice = Option.value_exn cb.choice in
     let _paired, condsite_stack =
-      Rstack.pop_at_condtop r_stk (cb.point, Id.cond_fid choice)
+      Rstack.pop_at_condtop key.r_stk (cb.point, Id.cond_fid choice)
     in
     let x2 = cb.cond in
 
     let key_x2 = Lookup_key.of3 x2 condsite_stack condsite_block in
-    let key_x = Lookup_key.of3 x condsite_stack condsite_block in
+    let key_x = Lookup_key.of3 key.x condsite_stack condsite_block in
 
     let beta = Option.value_exn cb.choice in
     run_task key_x2 phis_top ;
@@ -212,18 +211,17 @@ module Make (S : S) = struct
 
   (* Method 2 End *)
 
-  let fun_enter_local p key phis_top run_task =
+  let fun_enter_local p (key : Lookup_key.t) phis_top run_task =
     let ({ fb; _ } : Fun_enter_local_rule.t) = p in
-    let _x, r_stk = Lookup_key.to2 key in
     let fid = fb.point in
-    let callsites = Lookup_key.get_callsites r_stk fb in
+    let callsites = Lookup_key.get_callsites key.r_stk fb in
     let sub_trees =
       List.fold callsites
         ~f:(fun sub_trees callsite ->
           let callsite_block, x', x'', x''' =
             Cfg.fun_info_of_callsite callsite S.block_map
           in
-          match Rstack.pop r_stk (x', fid) with
+          match Rstack.pop key.r_stk (x', fid) with
           | Some callsite_stack ->
               let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
               run_task key_f phis_top ;
@@ -298,8 +296,7 @@ module Make (S : S) = struct
     in
     ()
 
-  let fun_exit p this_key phis_top run_task =
-    let _x, r_stk = Lookup_key.to2 this_key in
+  let fun_exit p (this_key : Lookup_key.t) phis_top run_task =
     let ({ x; xf; fids } : Fun_exit_rule.t) = p in
     let key_f = Lookup_key.with_x this_key xf in
     let b_id = Cfg.id_of_block this_key.block in
@@ -310,15 +307,15 @@ module Make (S : S) = struct
       List.fold fids
         ~f:(fun sub_trees fid ->
           let fblock = Ident_map.find fid S.block_map in
-          let key_ret = Lookup_key.get_f_return S.block_map fid r_stk x in
+          let key_ret = Lookup_key.get_f_return S.block_map fid this_key in
           let phi = Riddler.same_funexit key_f fid key_ret this_key in
-          let cb this_key (rf : Ddse_result.t) =
+          let cb (key : Lookup_key.t) (rf : Ddse_result.t) =
             let fid' = rf.v.x in
             if Id.equal fid fid' (* if List.mem fids fid ~equal:Id.equal *)
             then (
               let phis_top' = Phi_set.union phis_top rf.phis in
               run_task key_ret phis_top' ;
-              let choice_this = Decision.make r_stk b_id in
+              let choice_this = Decision.make key.r_stk b_id in
               let choice_f =
                 Decision.make key_ret.r_stk (Cfg.id_of_block fblock)
               in
