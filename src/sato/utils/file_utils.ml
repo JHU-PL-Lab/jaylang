@@ -37,7 +37,7 @@ let read_source_sato filename =
       in
       let jay_ast = Bluejay_ast_internal.to_jay_expr_desc core_ast in
       (* let (desugared_typed, ton_on_maps) = transform_natodefa jay_ast in *)
-      (* let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in *)
+      let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
         Jay_translate.Jay_to_jayil.translate ~is_instrumented:true jay_ast
       in

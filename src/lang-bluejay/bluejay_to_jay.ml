@@ -1441,6 +1441,245 @@ let debug_transform_bluejay (trans_name : string)
         (Pp_utils.pp_to_string Bluejay_ast_internal_pp.pp_expr e'.body)) ;
   return e'
 
+let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
+  let e = e_desc.body in
+  (* Using the original tag for now; may be buggy *)
+  let tag = e_desc.tag in
+  match e with
+  | Int _ | Bool _ | Var _ | Input | TypeError _ -> return e_desc
+  | Function (id_lst, e) ->
+      let%bind e' = wrap e in
+      let res = Function (id_lst, e') in
+      return @@ { tag; body = res }
+  | Appl (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = Appl (e1', e2') in
+      return @@ { tag; body = res }
+  | Let (x, e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = Let (x, e1', e2') in
+      return @@ { tag; body = res }
+  | LetRecFun (sig_lst, e) ->
+      let%bind sig_lst' =
+        sig_lst |> List.map (transform_funsig wrap) |> sequence
+      in
+      let%bind e' = wrap e in
+      let res = LetRecFun (sig_lst', e') in
+      return @@ { tag; body = res }
+  | LetFun (fun_sig, e) ->
+      let%bind sig' = fun_sig |> transform_funsig wrap in
+      let%bind e' = wrap e in
+      let res = LetFun (sig', e') in
+      return @@ { tag; body = res }
+  (* TODO: Will want to handle the function case here *)
+  | LetWithType (x, e1, e2, type_decl) ->
+      let%bind type_decl' = wrap type_decl in
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = LetWithType (x, e1', e2', type_decl') in
+      return @@ { tag; body = res }
+  | LetRecFunWithType (_sig_lst, _e) -> failwith "TBI!"
+  | LetFunWithType (fun_sig, e) -> (
+      match fun_sig with
+      | Typed_funsig (f, typed_params, (f_body, ret_type)) ->
+          let folder (Ident p, t) acc =
+            let%bind eta_arg = fresh_ident p in
+            let%bind arg_check = fresh_ident "arg_check" in
+            let check_arg =
+              Appl
+                ( new_expr_desc @@ RecordProj (t, Label "checker"),
+                  new_expr_desc @@ Var eta_arg )
+            in
+            let cond =
+              If
+                ( new_expr_desc @@ Var arg_check,
+                  acc,
+                  new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+            in
+            let eta_body =
+              Let (arg_check, new_expr_desc @@ check_arg, new_expr_desc @@ cond)
+            in
+            let wrapped_body =
+              new_expr_desc
+              @@ Function
+                   ( [ eta_arg ],
+                     new_expr_desc
+                     @@ Appl
+                          ( new_expr_desc @@ eta_body,
+                            new_expr_desc @@ Var eta_arg ) )
+            in
+            return wrapped_body
+          in
+          let%bind f_body' = wrap f_body in
+          let%bind wrapped_f = list_fold_right_m folder typed_params f_body' in
+          let%bind typed_params' =
+            sequence
+            @@ List.map
+                 (fun (p, t) ->
+                   let%bind t' = wrap t in
+                   return @@ (p, t'))
+                 typed_params
+          in
+          let%bind og_e' = wrap e in
+          let%bind ret_type' = wrap ret_type in
+          let fun_sig' =
+            Typed_funsig (f, typed_params', (wrapped_f, ret_type'))
+          in
+          let res = LetFunWithType (fun_sig', og_e') in
+          return @@ { tag; body = res }
+      | DTyped_funsig (f, (Ident p, t), (f_body, ret_type)) ->
+          let%bind eta_arg = fresh_ident p in
+          let%bind arg_check = fresh_ident "arg_check" in
+          let check_arg =
+            Appl
+              ( new_expr_desc @@ RecordProj (t, Label "checker"),
+                new_expr_desc @@ Var eta_arg )
+          in
+          let%bind f_body' = wrap f_body in
+          let cond =
+            If
+              ( new_expr_desc @@ Var arg_check,
+                f_body',
+                new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+          in
+          let wrapped_f_body =
+            Let (arg_check, new_expr_desc @@ check_arg, new_expr_desc @@ cond)
+          in
+          let wrapped_f =
+            new_expr_desc
+            @@ Function
+                 ( [ eta_arg ],
+                   new_expr_desc
+                   @@ Appl
+                        ( new_expr_desc @@ wrapped_f_body,
+                          new_expr_desc @@ Var eta_arg ) )
+          in
+          let%bind t' = wrap t in
+          let%bind og_e' = wrap e in
+          let%bind ret_type' = wrap ret_type in
+          let fun_sig' =
+            DTyped_funsig (f, (Ident p, t'), (wrapped_f, ret_type'))
+          in
+          let res = LetFunWithType (fun_sig', og_e') in
+          return @@ { tag; body = res })
+  | Plus (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = Plus (e1', e2') in
+      return @@ { tag; body = res }
+  | Minus (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = Minus (e1', e2') in
+      return @@ { tag; body = res }
+  | Times (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = Times (e1', e2') in
+      return @@ { tag; body = res }
+  | Divide (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = Divide (e1', e2') in
+      return @@ { tag; body = res }
+  | Modulus (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = Modulus (e1', e2') in
+      return @@ { tag; body = res }
+  | Equal (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = Equal (e1', e2') in
+      return @@ { tag; body = res }
+  | Neq (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = Neq (e1', e2') in
+      return @@ { tag; body = res }
+  | LessThan (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = LessThan (e1', e2') in
+      return @@ { tag; body = res }
+  | Leq (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = Leq (e1', e2') in
+      return @@ { tag; body = res }
+  | GreaterThan (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = GreaterThan (e1', e2') in
+      return @@ { tag; body = res }
+  | Geq (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = Geq (e1', e2') in
+      return @@ { tag; body = res }
+  | And (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = And (e1', e2') in
+      return @@ { tag; body = res }
+  | Or (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = Or (e1', e2') in
+      return @@ { tag; body = res }
+  | Not e ->
+      let%bind e' = wrap e in
+      let res = Not e' in
+      return @@ { tag; body = res }
+  | If (e1, e2, e3) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let%bind e3' = wrap e3 in
+      let res = If (e1', e2', e3') in
+      return @@ { tag; body = res }
+  | Record m ->
+      let%bind m' = ident_map_map_m (fun e -> wrap e) m in
+      let res = Record m' in
+      return @@ { tag; body = res }
+  | RecordProj (e, l) ->
+      let%bind e' = wrap e in
+      let res = RecordProj (e', l) in
+      return @@ { tag; body = res }
+  | Match (e, pattern_expr_lst) ->
+      let%bind e' = wrap e in
+      let mapper (pat, expr) =
+        let%bind expr' = wrap expr in
+        return @@ (pat, expr')
+      in
+      let%bind pattern_expr_lst' =
+        pattern_expr_lst |> List.map mapper |> sequence
+      in
+      let res = Match (e', pattern_expr_lst') in
+      return @@ { tag; body = res }
+  | VariantExpr (lbl, e) ->
+      let%bind e' = wrap e in
+      let res = VariantExpr (lbl, e') in
+      return @@ { tag; body = res }
+  | List expr_lst ->
+      let%bind expr_lst' = expr_lst |> List.map wrap |> sequence in
+      let res = List expr_lst' in
+      return @@ { tag; body = res }
+  | ListCons (e1, e2) ->
+      let%bind e1' = wrap e1 in
+      let%bind e2' = wrap e2 in
+      let res = ListCons (e1', e2') in
+      return @@ { tag; body = res }
+  | Assert e ->
+      let%bind e' = wrap e in
+      let res = Assert e' in
+      return @@ { tag; body = res }
+  | Assume e ->
+      let%bind e' = wrap e in
+      let res = Assume e' in
+      return @@ { tag; body = res }
+
 let transform_bluejay (e : syn_type_bluejay) :
     core_bluejay_edesc * Bluejay_to_jay_maps.t =
   let transformed_expr : (core_bluejay_edesc * Bluejay_to_jay_maps.t) m =
@@ -1448,6 +1687,7 @@ let transform_bluejay (e : syn_type_bluejay) :
       return (new_expr_desc e)
       >>= debug_transform_bluejay "initial" (fun e -> return e)
       >>= debug_transform_bluejay "typed bluejay phase one" semantic_type_of
+      >>= debug_transform_bluejay "wrap" wrap
       >>= debug_transform_bluejay "typed bluejay phase two" bluejay_to_jay
     in
     let%bind bluejay_jay_map = bluejay_to_jay_maps in
