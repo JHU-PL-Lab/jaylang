@@ -110,11 +110,7 @@ module Make (S : S) = struct
 
   let cond_btm p (key : Lookup_key.t) =
     let this_key = key in
-    let ({ x; x'; tid } : Cond_btm_rule.t) = p in
-    let cond_block = Ident_map.find tid S.block_map |> Cfg.cast_to_cond_block in
-    if Option.is_some cond_block.choice
-    then failwith "conditional_body: not both"
-    else () ;
+    let ({ x; x' } : Cond_btm_rule.t) = p in
     let term_c = Lookup_key.with_x this_key x' in
     let next _ (r : Lookup_result.t) =
       if r.status
@@ -128,8 +124,7 @@ module Make (S : S) = struct
                      S.config.stride *)
               then
                 let key_ret =
-                  Lookup_key.return_of_cond_block cond_block beta this_key.r_stk
-                    x
+                  Lookup_key.return_key_of_cond key S.block_map beta
                 in
                 Some (Direct { sub = this_key; pub = key_ret; phis = [] })
               else None)
@@ -137,21 +132,21 @@ module Make (S : S) = struct
         Some (Or_list { sub; nexts; unbound = false; phis = [] })
       else None
     in
-    let phis = [ Riddler.cond_bottom this_key term_c cond_block ] in
+
+    let phis = [ Riddler.cond_bottom this_key term_c S.block_map ] in
     Chain { sub = this_key; pub = term_c; next; phis }
 
   let fun_enter_local p (key : Lookup_key.t) =
     let this_key = key in
     let ({ fb; _ } : Fun_enter_local_rule.t) = p in
-    let _x, r_stk = Lookup_key.to2 this_key in
     let fid = fb.point in
-    let callsites = Lookup_key.get_callsites r_stk fb in
+    let callsites = Lookup_key.get_callsites this_key.r_stk fb in
     let nexts =
       List.map callsites ~f:(fun callsite ->
           let callsite_block, x', x'', x''' =
             Cfg.fun_info_of_callsite callsite S.block_map
           in
-          match Rstack.pop r_stk (x', fid) with
+          match Rstack.pop this_key.r_stk (x', fid) with
           | Some callsite_stack ->
               let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
               let next this_key (_r : Lookup_result.t) =
@@ -192,16 +187,16 @@ module Make (S : S) = struct
     in
     Or_list { sub = key; nexts; unbound = true; phis = [] }
 
-  let fun_exit p (key : Lookup_key.t) =
-    let this_key = key in
-    let _x, r_stk = Lookup_key.to2 this_key in
+  let fun_exit p (this_key : Lookup_key.t) =
     let ({ x; xf; fids } : Fun_exit_rule.t) = p in
-    let key_f = Lookup_key.of3 xf r_stk this_key.block in
-    let next this_key (rf : Lookup_result.t) =
+    let key_f = Lookup_key.of3 xf this_key.r_stk this_key.block in
+    let next (this_key : Lookup_key.t) (rf : Lookup_result.t) =
       let fid = rf.from.x in
       if List.mem fids fid ~equal:Id.equal
       then
-        let key_ret = Lookup_key.get_f_return S.block_map fid r_stk x in
+        let key_ret =
+          Lookup_key.get_f_return S.block_map fid this_key.r_stk x
+        in
         Some (Direct { sub = this_key; pub = key_ret; phis = [] })
       else None
     in

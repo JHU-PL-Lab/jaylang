@@ -36,7 +36,6 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     | Some _ -> ()
     | None ->
         let term_detail : Term_detail.t =
-          let x, _r_stk = Lookup_key.to2 key in
           let rule = Rule.rule_of_runtime_status key in
           Term_detail.mk_detail ~rule ~key
         in
@@ -132,7 +131,6 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   in
   let module R = Lookup_rule.Make (LS) in
   let[@landmark] rec lookup (key : Lookup_key.t) () : unit Lwt.t =
-    let x, _r_stk = Lookup_key.to2 key in
     let rule = Rule.rule_of_runtime_status key in
     let term_detail = Term_detail.mk_detail ~rule ~key in
 
@@ -173,7 +171,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
 
     (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked.
         run all previous lookups *)
-    let previous_clauses = Cfg.clauses_before_x key.block x in
+    let previous_clauses = Cfg.clauses_before_x key.block key.x in
     List.iter previous_clauses ~f:(fun tc ->
         let term_prev = Lookup_key.with_x key tc.id in
         add_phi term_detail (Riddler.picked_imply key term_prev) ;

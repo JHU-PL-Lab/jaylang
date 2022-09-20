@@ -124,13 +124,11 @@ let cond_top term term_x term_c beta =
           eqv term_c (Value_bool beta);
         ]
 
-let cond_bottom term term_c cond_block =
+let cond_bottom term term_c block_map =
   let x, r_stk = Lookup_key.to2 term in
   let cs, rs =
     List.fold [ true; false ] ~init:([], []) ~f:(fun (cs, rs) beta ->
-        let term_ret =
-          Lookup_key.return_of_cond_block cond_block beta r_stk x
-        in
+        let term_ret = Lookup_key.return_key_of_cond term block_map beta in
         let p_ret = picked term_ret in
         let eq_beta = eqv term_c (Value_bool beta) in
         let eq_lookup = eq term term_ret in
@@ -171,14 +169,13 @@ let same_funenter key_f fid key_para key_arg =
 let same_funexit key_f fid key_in key_out =
   and2 (eq_fid key_f fid) (eq key_in key_out)
 
-let fun_enter_local term fid callsites block_map =
-  let _x, r_stk = Lookup_key.to2 term in
+let fun_enter_local (term : Lookup_key.t) fid callsites block_map =
   let cs, rs =
     List.fold callsites ~init:([], []) ~f:(fun (cs, rs) callsite ->
         let cs_block, x', x'', x''' =
           Cfg.fun_info_of_callsite callsite block_map
         in
-        match Rstack.pop r_stk (x', fid) with
+        match Rstack.pop term.r_stk (x', fid) with
         | Some callsite_stk ->
             let key_f = Lookup_key.of3 x'' callsite_stk cs_block in
             let key_arg = Lookup_key.of3 x''' callsite_stk cs_block in

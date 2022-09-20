@@ -26,8 +26,8 @@ let to_str2 x r_stk =
   Printf.sprintf "%s_%s" (Id.show x) (Rstack.to_string r_stk)
 
 let chrono_compare map k1 k2 =
-  let x1, r_stk1 = to2 k1 in
-  let x2, r_stk2 = to2 k2 in
+  let { x = x1; r_stk = r_stk1; _ } = k1 in
+  let { x = x2; r_stk = r_stk2; _ } = k2 in
   (* assert (List.is_empty xs1);
      assert (List.is_empty xs2); *)
   let rec compare_stack s1 s2 =
@@ -58,21 +58,20 @@ let get_f_return map fid r_stk x =
   let key_ret = of3 x' r_stk' fblock in
   key_ret
 
-let return_of_cond_block_ddse cond_block beta r_stk x =
+let return_key_of_cond key block_map beta =
   let open Cfg in
-  let case_block = Cond { cond_block with choice = Some beta } in
-  let x_ret = Cfg.ret_of case_block in
-  let cbody_stack = Rstack.push r_stk (x, Id.cond_fid beta) in
-  let key_ret = of3 x_ret cbody_stack case_block in
-  (case_block, key_ret)
-
-let return_of_cond_block cond_block beta r_stk x =
-  let open Cfg in
-  let case_block = Cond { cond_block with choice = Some beta } in
-  let x_ret = Cfg.ret_of case_block in
-  let cbody_stack = Rstack.push r_stk (x, Id.cond_fid beta) in
-  let key_ret = of3 x_ret cbody_stack case_block in
-  key_ret
+  let beta_block =
+    let cond_block =
+      Jayil.Ast.Ident_map.find key.x block_map |> Cfg.cast_to_cond_block
+    in
+    if Option.is_some cond_block.choice
+    then failwith "conditional_body: not both"
+    else () ;
+    Cond { cond_block with choice = Some beta }
+  in
+  let x_ret = Cfg.ret_of beta_block in
+  let beta_stack = Rstack.push key.r_stk (key.x, Id.cond_fid beta) in
+  of3 x_ret beta_stack beta_block
 
 let get_callsites r_stk (fb : Cfg.fun_block) =
   let fid = fb.point in

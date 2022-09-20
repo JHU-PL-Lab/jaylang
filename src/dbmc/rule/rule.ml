@@ -36,7 +36,7 @@ module Cond_top_rule = struct
 end
 
 module Cond_btm_rule = struct
-  type t = { x : Id.t; x' : Id.t; tid : Id.t }
+  type t = { x : Id.t; x' : Id.t }
 end
 
 module Fun_enter_local_rule = struct
@@ -109,12 +109,8 @@ let rule_of_runtime_status (key : Lookup_key.t) : t =
        _;
       } ->
           Binop { x; bop; x1; x2 }
-      | {
-       clause = Clause (_, Conditional_body (Var (x', _), _, _));
-       id = tid;
-       _;
-      } ->
-          Cond_btm { x; x'; tid }
+      | { clause = Clause (_, Conditional_body (Var (x', _), _, _)); _ } ->
+          Cond_btm { x; x' }
       | {
        clause = Clause (_, Appl_body (Var (xf, _), Var (_xv, _)));
        cat = App fids;
