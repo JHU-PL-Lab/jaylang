@@ -1,0 +1,33 @@
+
+let equal n1 n2 = n1 == n2 in
+
+let rec eq_e e1 e2 = 
+  match e1 with
+  | `N n1 ->
+    match e2 with
+    | `N n2 -> true
+    | _ -> false
+    end
+
+  | `Plus e3 ->
+    match e2 with
+    | `Plus e4 -> eq_e e3 e4
+    | _ -> false
+    end
+    
+  | _ -> false
+
+  end
+  
+in
+let x = input in
+let y = input in
+let n3 = `N 3 in
+let n4 = `N 4 in
+let e7 = `Plus {e1 = n3, e2 = n4} in
+
+if eq_e e7 e7
+then
+  let target = 1 in 1
+else
+  42

@@ -1,0 +1,63 @@
+empty = {};
+eq_e = fun f -> (
+    s1 = fun e1 -> (
+        s2 = fun e2 -> (
+            ff = f f;
+            rest = e1 ~ any;
+            is_Plus = e1 ~ {___value, ___variant_Plus};
+            is_N = e1 ~ {___value, ___variant_N};
+            r_is_N = is_N ? (
+                    n1 = e1.___value;
+                    m_match_bool___36 = e2 ~ any;
+                    m_match_bool___39 = e2 ~ {___value, ___variant_N};
+                    m_match_cond___40 = m_match_bool___39 ? (
+                            n2 = e2.___value;
+                            bool___41 = true
+                        ) : (
+                            m_match_cond___37 = m_match_bool___36 ? (
+                                    bool___38 = false
+                                ) : (
+                                    ab___35 = abort
+                                )
+                        )
+                ) : (
+                    r_is_Plus = is_Plus ? (
+                            e3 = e1.___value;
+                            m_match_bool___22 = e2 ~ any;
+                            m_match_bool___25 = e2 ~ {___value, ___variant_Plus};
+                            m_match_cond___26 = m_match_bool___25 ? (
+                                    e4 = e2.___value;
+                                    appl___29 = ff e3;
+                                    appl___31 = appl___29 e4
+                                ) : (
+                                    m_match_cond___23 = m_match_bool___22 ? (
+                                            bool___24 = false
+                                        ) : (
+                                            ab___21 = abort
+                                        )
+                                )
+                        ) : (
+                            m_match_cond___16 = rest ? (
+                                    bool___17 = false
+                                ) : (
+                                    ab___14 = abort
+                                )
+                        )
+                ))));
+input___48 = input;
+three = 3;
+n3 = {___value = three, ___variant_N = empty};
+four = 4;
+n4 = {___value = four, ___variant_N = empty};
+p34_v = {e1 = n3, e2 = n4};
+p34 = {___value = p34_v, ___variant_Plus = empty};
+
+fs0 = eq_e eq_e;
+fs1 = fs0 n3;
+fret = fs1 p34;
+c = fret ? (
+        target = 1
+    ) : (
+        dummy = 42
+    );
+result = c

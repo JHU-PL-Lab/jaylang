@@ -30,8 +30,31 @@ let rec eval env e =
   end
 in
 
-# let equal e1 e2 = e1 == e2 in
+let equal n1 n2 = n1 == n2 in
 
+let rec eq_e e1 e2 = 
+  match e1 with
+  | `N n1 ->
+    match e2 with
+    | `N n2 -> equal n1 n2
+    | _ -> false
+    end
+  | `V n1 ->
+    match e2 with
+    | `V n2 -> equal n1 n2
+    | _ -> false
+    end
+  | `Plus e3 ->
+    match e2 with
+    | `Plus e4 -> eq_e e3 e4
+    | _ -> false
+    end
+    
+  | _ -> false
+
+  end
+  
+in
 let x = input in
 let y = input in
 let l0 = [0, 1, 2, 3, 4] in
@@ -46,8 +69,11 @@ let e4 = `Mult {e1 = e3, e2 = v2} in
 let e5 = `Plus {e1 = e4, e2 = n3} in
 #let e5 = `Plus {e1 = e4, e2 = b5} in
 
-if (fetch l0 1) == x 
-    and (eval l0 e3) == y 
+let e7 = `Plus {e1 = n3, e2 = n4} in
+
+if eq_e e7 e7
+  # (fetch l0 1) == x 
+  # and (eval l0 e3) == y 
 then
   let target = 1 in 1
 else
