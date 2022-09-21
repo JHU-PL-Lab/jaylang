@@ -83,11 +83,12 @@ let make_default_session () =
     is_check_per_step = false;
   }
 
-let create_session ?max_step target_stk (state : Global_state.t)
-    (config : Global_config.t) input_feeder : session =
+let create_session ?max_step (state : Global_state.t) (config : Global_config.t)
+    mode input_feeder : session =
+  (* = With_full_target (config.target, target_stk) *)
   {
     input_feeder;
-    mode = With_full_target (config.target, target_stk);
+    mode;
     max_step;
     is_debug = config.debug_graph;
     step = ref 0;
@@ -97,15 +98,7 @@ let create_session ?max_step target_stk (state : Global_state.t)
     term_detail_map = state.term_detail_map;
     rstk_picked = state.rstk_picked;
     lookup_alert = state.lookup_alert;
-    is_check_per_step = false;
-  }
-
-let expected_input_session ?(is_check_per_step = false) input_feeder target_x =
-  {
-    (make_default_session ()) with
-    input_feeder;
-    mode = With_target_x target_x;
-    is_check_per_step;
+    is_check_per_step = config.is_check_per_step;
   }
 
 let cond_fid b = if b then Ident "$tt" else Ident "$ff"

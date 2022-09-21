@@ -19,11 +19,10 @@ let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t) =
   match config.mode with
   | Dbmc_check inputs ->
       let history = ref [] in
-      let input_feeder = Input_feeder.memorized_from_list inputs history in
-      let is_check_per_step = config.is_check_per_step in
       let session =
-        Interpreter.expected_input_session ~is_check_per_step input_feeder
-          config.target
+        let input_feeder = Input_feeder.memorized_from_list inputs history in
+        let mode = Interpreter.With_target_x config.target in
+        Interpreter.create_session state config mode input_feeder
       in
       let expected_stk =
         try Interpreter.eval session state.program with
@@ -46,7 +45,8 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
   let input_feeder = Input_feeder.from_model ~history model target_stack in
   let session =
     let max_step = config.run_max_step in
-    Interpreter.create_session ?max_step target_stack state config input_feeder
+    let mode = Interpreter.With_full_target (config.target, target_stack) in
+    Interpreter.create_session ?max_step state config mode input_feeder
   in
   (try Interpreter.eval session state.program with
   | Interpreter.Found_target _ -> ()
