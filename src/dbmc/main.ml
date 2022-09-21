@@ -63,34 +63,39 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
   LLog.info (fun m ->
       m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident config.target
         Concrete_stack.pp c_stk) ;
+
+  (* set picked rstk *)
   Hashtbl.clear state.rstk_picked ;
   Hashtbl.iter_keys state.term_detail_map ~f:(fun key ->
       if Riddler.is_picked (Some model) key
       then ignore @@ Hashtbl.add state.rstk_picked ~key:key.r_stk ~data:true
       else ()) ;
+
+  (* print graph *)
   handle_graph config state (Some model) ;
 
   let inputs_from_interpreter = get_input ~config ~state model c_stk in
   check_expected_input ~config ~state ;
   ([ inputs_from_interpreter ], false (* true *), Some (model, c_stk))
 
+let handle_not_found (config : Global_config.t) (state : Global_state.t)
+    is_timeout =
+  SLog.info (fun m -> m "UNSAT") ;
+  if config.is_check_per_step then check_expected_input ~config ~state else () ;
+  if config.debug_model
+  then SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
+  else () ;
+  handle_graph config state None ;
+  ([], is_timeout, None)
+
 let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
     =
   let post_check_dbmc is_timeout =
     match Checker.check state config with
     | Some { model; c_stk } -> handle_found config state model c_stk
-    | None ->
-        SLog.info (fun m -> m "UNSAT") ;
-        if config.is_check_per_step
-        then check_expected_input ~config ~state
-        else () ;
-        if config.debug_model
-        then
-          SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
-        else () ;
-        handle_graph config state None ;
-        ([], is_timeout, None)
+    | None -> handle_not_found config state is_timeout
   in
+
   let post_check_ddse is_timeout =
     if config.debug_model
     then SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))

@@ -49,7 +49,6 @@ module State = struct
     term_detail_map : (Lookup_key.t, Term_detail.t) Hashtbl.t;
     (* constraints *)
     mutable phis : Z3.Expr.expr list;
-    (* phi_map : (Lookup_key.t, Z3.Expr.expr) Hashtbl.t; *)
     (* TODO: get this after smt solving *)
     input_nodes : Lookup_key.t Hash_set.t;
     (* pvar *)
@@ -58,8 +57,6 @@ module State = struct
     (* lookup *)
     (* unroll : Unrolls.U_dbmc.t; *)
     (* debug *)
-    (* noted_phi_map : (Lookup_key.t, (string * Z3.Expr.expr) list) Hashtbl.t; *)
-    (*  *)
     (* interpreter used *)
     lookup_alert : Lookup_key.t Hash_set.t;
     rstk_picked : (Rstack.t, bool) Hashtbl.t;

@@ -227,22 +227,21 @@ module DotPrinter_Make (S : GS) = struct
                    | None -> "")
                | None -> "" *)
           in
-          let pvar = Global_state.pvar_picked S.state node.key in
           let outputs =
             []
             (* Unrolls.U_dbmc.get_messages S.state.unroll node.key
                |> List.map ~f:(fun m -> m.from) *)
           in
           Fmt.str
-            "{ {[%s] | %a} | %a | %a | %s | {φ | { %s %s } } | %B | {out | %a \
-             } | %s}"
+            "{ {[%s] | %a} | %a | %a | %s | {φ | { %s %s } } | {out | %a } | \
+             %s}"
             (Id.show node.key.x)
             (Fmt.option Solver.pp_value)
             key_value
             (Fmt.option Jayil.Pp_graph.clause)
             clause Rstack.pp node.key.r_stk
             (Rstack.to_string node.key.r_stk)
-            phis_string phi_status pvar
+            phis_string phi_status
             (Fmt.Dump.list Lookup_key.pp)
             outputs rule
         in

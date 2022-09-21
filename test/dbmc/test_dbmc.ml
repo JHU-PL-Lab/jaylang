@@ -117,10 +117,6 @@ let group_all_files dir =
   in
   loop dir
 
-(* let int_option_checker : int option Alcotest.testable =
-   let eq ii jj = match (ii, jj) with Some i, Some j -> i = j | _, _ -> true in
-   Alcotest.testable Fmt.(Dump.option int) eq *)
-
 let test_one_file test_config testname () =
   let open Lwt.Syntax in
   let is_instrumented = test_config.is_instrumented in

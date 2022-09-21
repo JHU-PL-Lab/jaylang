@@ -21,13 +21,11 @@ let create (config : Global_config.t) program =
       tree_size = 1;
       term_detail_map = Hashtbl.create (module Lookup_key);
       phis = [];
-      (* phi_map = Hashtbl.create (module Lookup_key); *)
       input_nodes = Hash_set.create (module Lookup_key);
       lookup_created = Hash_set.create (module Lookup_key);
       smt_lists = Hashtbl.create (module Lookup_key);
       lookup_alert = Hash_set.create (module Lookup_key);
       (* unroll = Unrolls.U_dbmc.create (); *)
-      (* noted_phi_map = Hashtbl.create (module Lookup_key); *)
       rstk_picked = Hashtbl.create (module Rstack);
       solver = Solver.solver;
     }
