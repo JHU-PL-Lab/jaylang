@@ -22,10 +22,6 @@ let rec run ?(is_empty = false) q : 'a Lwt.t =
   Lwt_mutex.lock Control_center.mutex >>= fun () ->
   Lwt_mutex.unlock Control_center.mutex ;
   (* LLog.app (fun m -> m "[Queue]size = %d" (Pairing_heap.length q)) ; *)
-  (* LLog.app (fun m ->
-      m "[Queue]%a"
-        (Fmt.Dump.list Lookup_key.pp)
-        (q |> Pairing_heap.to_list |> List.map ~f:(fun t -> t.key))) ; *)
   match pull q with
   | Some job ->
       (* ignore @@ job (); *)

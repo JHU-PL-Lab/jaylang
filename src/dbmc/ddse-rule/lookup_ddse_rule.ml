@@ -98,7 +98,7 @@ module Make (S : S) = struct
     run_task key_r phis_top ;
 
     let cb this_key (rv : Ddse_result.t) =
-      let rv_block = Cfg.block_of_id rv.v.x S.block_map in
+      let rv_block = Cfg.find_block_by_id rv.v.x S.block_map in
       let phi1 = Riddler.eq key_r rv.v in
       let clause_body = Cfg.clause_body_of_x rv_block rv.v.x in
       let rvv = Ast_tools.record_of_clause_body clause_body in
@@ -278,7 +278,7 @@ module Make (S : S) = struct
 
               let cb_f key (rf : Ddse_result.t) =
                 let key_arg = Lookup_key.with_x rf.v this_key.x in
-                let fv_block = Cfg.block_of_id rf.v.x S.block_map in
+                let fv_block = Cfg.find_block_by_id rf.v.x S.block_map in
                 run_task key_arg phis_top ;
 
                 let phi_f = Riddler.eq key_f rf.v in

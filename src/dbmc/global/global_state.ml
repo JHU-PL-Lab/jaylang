@@ -8,7 +8,7 @@ let job_key_compare (t1 : Lookup_key.t) (t2 : Lookup_key.t) =
 let create (config : Global_config.t) program =
   let target = config.target in
   let block_map = Cfg.annotate program target in
-  let block0 = Cfg.block_of_id target block_map in
+  let block0 = Cfg.find_block_by_id target block_map in
   let state =
     {
       first = Jayil.Ast_tools.first_id program;

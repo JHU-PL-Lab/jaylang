@@ -77,7 +77,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     Lwt.return_unit
   in
 
-  let block0 = Cfg.block_of_id state.target state.block_map in
+  let block0 = Cfg.find_block_by_id state.target state.block_map in
   let term_target = Lookup_key.start state.target block0 in
   let phis = Phi_set.empty in
   run_task term_target phis ;
@@ -118,6 +118,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
         if Hash_set.mem state.lookup_created key
         then ()
         else (
+          (* Fmt.pr "[Task] %a\n" Lookup_key.pp key ; *)
           Hash_set.strict_add_exn state.lookup_created key ;
           let task () = Scheduler.push state.job_queue key (eval key) in
           Unrolls.U_dbmc.alloc_task unroll ~task key)
@@ -171,11 +172,24 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
 
     (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked.
         run all previous lookups *)
-    let previous_clauses = Cfg.clauses_before_x key.block key.x in
+    let search_x =
+      let open Rule in
+      match rule with
+      (* | Cond_top cb -> cb.
+         | Cond_btm p -> R.cond_btm p key
+         | Fun_enter_local p -> R.fun_enter_local p key
+         | Fun_enter_nonlocal p -> R.fun_enter_nonlocal p key *)
+      | _ -> key.x
+    in
+
+    let previous_clauses = Cfg.clauses_before_x key.block search_x in
     List.iter previous_clauses ~f:(fun tc ->
+        Fmt.pr "[Clause before %a] %a\n" Id.pp key.x Id.pp tc.id ;
         let term_prev = Lookup_key.with_x key tc.id in
         add_phi term_detail (Riddler.picked_imply key term_prev) ;
         run_task term_prev) ;
+
+    Fmt.pr "[Clause counts = %d]\n" (List.length previous_clauses) ;
 
     LLog.app (fun m -> m "[Lookup][<=]: %a" Lookup_key.pp key) ;
 
@@ -185,7 +199,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   (* reset and init *)
   Solver.reset () ;
   Riddler.reset () ;
-  let block0 = Cfg.block_of_id state.target state.block_map in
+  let block0 = Cfg.find_block_by_id state.target state.block_map in
   let key_target = Lookup_key.start state.target block0 in
   state.phis <- [ Riddler.picked key_target ] ;
   run_eval key_target lookup ;

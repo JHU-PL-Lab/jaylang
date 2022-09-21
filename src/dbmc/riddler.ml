@@ -14,8 +14,11 @@ let ctx = Solver.ctx
 let top_stack = SuduZ3.var_s "X_topstack"
 (* let picked key = "P_" ^ Lookup_key.to_string key |> SuduZ3.mk_bool_s *)
 
+(* let picked (key : Lookup_key.t) =
+   "P_" ^ Rstack.to_string key.r_stk |> SuduZ3.mk_bool_s *)
+
 let picked (key : Lookup_key.t) =
-  "P_" ^ Rstack.to_string key.r_stk |> SuduZ3.mk_bool_s
+  "P_" ^ Lookup_key.to_string key |> SuduZ3.mk_bool_s
 
 let key_to_var key = key |> Lookup_key.to_string |> SuduZ3.var_s
 let counter = ref 0

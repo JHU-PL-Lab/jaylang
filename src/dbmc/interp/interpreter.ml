@@ -131,7 +131,7 @@ let debug_update_read_node session x stk =
   match (session.is_debug, session.mode) with
   | true, With_full_target (_, target_stk) ->
       let r_stk = Rstack.relativize target_stk stk in
-      let block = Cfg.(block_of_id x session.block_map) in
+      let block = Cfg.(find_block_by_id x session.block_map) in
       let key = Lookup_key.of3 x r_stk block in
       (* Fmt.pr "@[Update Get to %a@]\n" Lookup_key.pp key; *)
       Hashtbl.change session.term_detail_map key ~f:(function
@@ -143,7 +143,7 @@ let debug_update_write_node session x stk =
   match (session.is_debug, session.mode) with
   | true, With_full_target (_, target_stk) ->
       let r_stk = Rstack.relativize target_stk stk in
-      let block = Cfg.(block_of_id x session.block_map) in
+      let block = Cfg.(find_block_by_id x session.block_map) in
       let key = Lookup_key.of3 x r_stk block in
       (* Fmt.pr "@[Update Set to %a@]\n" Lookup_key.pp key; *)
       Hashtbl.change session.term_detail_map key ~f:(function
@@ -175,7 +175,7 @@ let alert_lookup session x stk =
   match session.mode with
   | With_full_target (_, target_stk) ->
       let r_stk = Rstack.relativize target_stk stk in
-      let block = Cfg.(block_of_id x session.block_map) in
+      let block = Cfg.(find_block_by_id x session.block_map) in
       let key = Lookup_key.of3 x r_stk block in
       Fmt.epr "@[Update Alert to %a\t%a@]\n" Lookup_key.pp key Concrete_stack.pp
         stk ;

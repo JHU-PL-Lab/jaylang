@@ -74,7 +74,7 @@ module Make (S : S) = struct
     let key_r = Lookup_key.with_x key r in
     let next i (r : Lookup_result.t) =
       let key_rv = r.from in
-      let rv_block = Cfg.block_of_id key_rv.x S.block_map in
+      let rv_block = Cfg.find_block_by_id key_rv.x S.block_map in
       let rv = Cfg.clause_body_of_x rv_block key_rv.x in
       match rv with
       | Value_body (Value_record (Record_value rv)) -> (
@@ -172,7 +172,7 @@ module Make (S : S) = struct
           | Some callsite_stack ->
               let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
               let next i (r : Lookup_result.t) =
-                let fv_block = Cfg.block_of_id r.from.x S.block_map in
+                let fv_block = Cfg.find_block_by_id r.from.x S.block_map in
                 let key_arg = Lookup_key.of3 key.x r.from.r_stk fv_block in
                 let phi_i =
                   Riddler.fun_enter_nonlocal key key_f r.from fb.point key_arg
@@ -212,7 +212,7 @@ module Make (S : S) = struct
          to go into a then-block or a else-block.
       *)
       let key_rv = r.from in
-      let rv_block = Cfg.block_of_id key_rv.x S.block_map in
+      let rv_block = Cfg.find_block_by_id key_rv.x S.block_map in
       let rv = Cfg.clause_body_of_x rv_block key_rv.x in
       let ans, phis, _matched =
         match (pat, rv) with
@@ -246,7 +246,8 @@ module Make (S : S) = struct
       in
       (* Fmt.pr "[Pattern][%B] %a | %a |%a\n" matched Lookup_key.pp key
          Jayil.Ast_pp.pp_pattern pat Lookup_key.pp key_rv ; *)
-      (ans, phis)
+      let eq_key'_rv = Riddler.eq key' key_rv in
+      (ans, eq_key'_rv :: phis)
     in
     MapSeq { sub = key; pub = key'; map = next; phis = [] }
 

@@ -16,10 +16,10 @@ type tl_clause = { id : ident; cat : clause_cat; clause : clause [@opaque] }
 
 type clause_list = tl_clause list [@@deriving show { with_path = false }]
 
-type main_block = { point : ident; clauses : clause_list }
+type outer_id = Main_p | Fun_p of ident | Cond_p of ident * bool
 [@@deriving show { with_path = false }]
 
-type outer_id = Main_p | Fun_p of ident | Cond_p of ident * bool
+type main_block = { point : ident; clauses : clause_list }
 [@@deriving show { with_path = false }]
 
 type fun_block = {
@@ -105,7 +105,7 @@ let update_clauses f block =
       let else_ = f c.else_ in
       Cond { c with then_; else_ }
 
-let block_of_id ?(static = false) x block_map =
+let find_block_by_id ?(static = false) x block_map =
   block_map |> Ident_map.values |> bat_list_of_enum
   |> List.find_map ~f:(fun tl ->
          match tl with
@@ -171,7 +171,7 @@ let update_id_dst id dst0 block =
   update_clauses (List.map ~f:add_dst_in_clause) block
 
 let add_id_dst site_x def_x tl_map =
-  let tl = block_of_id ~static:true site_x tl_map in
+  let tl = find_block_by_id ~static:true site_x tl_map in
   let tl' = update_id_dst site_x def_x tl in
   (* Map.add ~key:(id_of_block tl) ~data:tl' tl_map *)
   Ident_map.add (id_of_block tl) tl' tl_map
@@ -384,7 +384,7 @@ let annotate e pt : block Ident_map.t =
   !map
 
 let fun_info_of_callsite callsite map =
-  let callsite_block = block_of_id callsite map in
+  let callsite_block = find_block_by_id callsite map in
   let tc = clause_of_x_exn callsite_block callsite in
   let x', x'', x''' =
     match tc.clause with
@@ -396,7 +396,7 @@ let fun_info_of_callsite callsite map =
 
 let is_before map x1 x2 =
   let open Continue_or_stop in
-  let block = block_of_id x1 map in
+  let block = find_block_by_id x1 map in
   let clauses = get_clauses block in
   List.fold_until clauses ~init:false
     ~f:(fun _ x ->
