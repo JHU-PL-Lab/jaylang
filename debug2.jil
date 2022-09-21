@@ -1,0 +1,26 @@
+em = {};
+map = fun map0 -> (
+    rmap2 = fun lst -> (
+        fmm = map0 map0;
+        is_cons = lst ~ {_head, _tail};
+        r_empty = is_cons ? (
+                hd = lst._head;
+                tl = lst._tail;
+                one = 1;
+                is_hd_int = hd ~ int;
+                r2 = is_hd_int ? (
+                        nhd = hd + one;
+                        ntl = fmm tl;
+                        rr = nhd
+                    ) : (
+                        ab3 = abort
+                )
+            ) : (
+                ab7 = abort
+        )));
+xi = input;
+mmi = map map;
+tb = true;
+s0 = {___empty = em};
+s1 = {_head = tb, _tail = s0};
+r = mmi s1
