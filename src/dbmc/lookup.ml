@@ -103,10 +103,6 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
 
 let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     unit Lwt.t =
-  let add_phi (term_detail : Term_detail.t) phi =
-    term_detail.phis <- phi :: term_detail.phis ;
-    state.phis <- phi :: state.phis
-  in
   let stride = ref config.stride_init in
 
   let unroll = Unrolls.U_dbmc.create () in
@@ -186,7 +182,8 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     List.iter previous_clauses ~f:(fun tc ->
         Fmt.pr "[Clause before %a] %a\n" Id.pp key.x Id.pp tc.id ;
         let term_prev = Lookup_key.with_x key tc.id in
-        add_phi term_detail (Riddler.picked_imply key term_prev) ;
+        Global_state.add_phi state term_detail
+          (Riddler.picked_imply key term_prev) ;
         run_task term_prev) ;
 
     Fmt.pr "[Clause counts = %d]\n" (List.length previous_clauses) ;
@@ -201,7 +198,13 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   Riddler.reset () ;
   let block0 = Cfg.find_block_by_id state.target state.block_map in
   let key_target = Lookup_key.start state.target block0 in
-  state.phis <- [ Riddler.picked key_target ] ;
-  run_eval key_target lookup ;
+
+  let lookup_main key_target () =
+    lookup key_target () ;%lwt
+    let td = Hashtbl.find_exn state.term_detail_map key_target in
+    Global_state.add_phi state td (Riddler.picked key_target) ;
+    Lwt.return_unit
+  in
+  run_eval key_target lookup_main ;
   let%lwt _ = Scheduler.run state.job_queue in
   Lwt.return_unit

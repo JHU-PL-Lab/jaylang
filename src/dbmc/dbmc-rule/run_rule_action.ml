@@ -2,16 +2,12 @@ open Core
 open Dj_common
 module U = Unrolls.U_dbmc
 
-let add_phi (state : Global_state.t) (term_detail : Term_detail.t) phi =
-  term_detail.phis <- phi :: term_detail.phis ;
-  state.phis <- phi :: state.phis
-
 let init_list_counter (state : Global_state.t) (term_detail : Term_detail.t) key
     =
   Hashtbl.update state.smt_lists key ~f:(function
     | Some i -> i
     | None ->
-        add_phi state term_detail (Riddler.list_head key) ;
+        Global_state.add_phi state term_detail (Riddler.list_head key) ;
         0)
 
 let fetch_list_counter (state : Global_state.t) (term_detail : Term_detail.t)
@@ -40,12 +36,12 @@ let add_phi_edge state term_detail edge =
     | Sequence e -> e.phis
     | Or_list e -> e.phis
   in
-  List.iter phis ~f:(add_phi state term_detail)
+  List.iter phis ~f:(Global_state.add_phi state term_detail)
 
 let rec run run_task unroll (state : Global_state.t)
     (term_detail : Term_detail.t) rule_action =
   let loop rule_action = run run_task unroll state term_detail @@ rule_action in
-  let add_phi = add_phi state in
+  let add_phi = Global_state.add_phi state in
   let open Rule_action in
   add_phi_edge state term_detail rule_action ;
   match (rule_action : Rule_action.t) with

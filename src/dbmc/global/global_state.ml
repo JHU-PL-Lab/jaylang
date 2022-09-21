@@ -36,7 +36,10 @@ let create (config : Global_config.t) program =
   state
 
 let clear_phis state = state.phis <- []
-let pvar_picked state key = not (Hash_set.mem state.lookup_created key)
+
+let add_phi (state : t) (term_detail : Term_detail.t) phi =
+  term_detail.phis <- phi :: term_detail.phis ;
+  state.phis <- phi :: state.phis
 
 (* let picked_from model key =
      Option.value
