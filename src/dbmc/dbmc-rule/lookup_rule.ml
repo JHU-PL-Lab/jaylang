@@ -90,12 +90,12 @@ module Make (S : S) = struct
     Sequence { sub = key; pub = key_r; next; phis = [] }
 
   let cond_top (cb : Cond_top_rule.t) (this_key : Lookup_key.t) =
-    let condsite_block = Cfg.outer_block this_key.block S.block_map in
     let beta = cb.choice in
     let _paired, condsite_stack =
-      Rstack.pop_at_condtop this_key.r_stk (this_key.block.id, Id.cond_fid beta)
+      Rstack.pop_at_condtop this_key.r_stk (cb.condsite, Id.cond_fid beta)
     in
     let x2 = cb.cond in
+    let condsite_block = Cfg.outer_block this_key.block S.block_map in
     let key_x2 = Lookup_key.of3 x2 condsite_stack condsite_block in
     let key_x = Lookup_key.of3 this_key.x condsite_stack condsite_block in
     let next _ r =

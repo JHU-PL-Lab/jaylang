@@ -139,8 +139,8 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     Hash_set.strict_remove_exn state.lookup_created key ;
 
     LLog.app (fun m ->
-        m "[Lookup][%d][=>]: %a ; Rule %a" state.tree_size Lookup_key.pp key
-          Rule.pp_rule rule) ;
+        m "[Lookup][%d][=>]: %a; [Rule] %a; [Block] %a" state.tree_size
+          Lookup_key.pp key Rule.pp_rule rule Id.pp key.block.id) ;
 
     let rule_action =
       let open Rule in

@@ -58,19 +58,11 @@ let get_f_return map fid term =
   key_ret
 
 let return_key_of_cond key block_map beta =
-  let open Cfg in
-  let beta_block =
-    let block = Jayil.Ast.Ident_map.find key.x block_map in
-    let cond_block : cond_block = Cfg.cast_to_cond_block block in
-    (* if Option.is_some cond_block.choice
-       then failwith "conditional_body: not both"
-       else () ; *)
-    assert (Bool.( = ) beta cond_block.choice) ;
-    block
-  in
-  let x_ret = Cfg.ret_of beta_block in
+  let cond_block = Cfg.find_cond_block key.x block_map beta in
+
+  let x_ret = Cfg.ret_of cond_block in
   let beta_stack = Rstack.push key.r_stk (key.x, Id.cond_fid beta) in
-  of3 x_ret beta_stack beta_block
+  of3 x_ret beta_stack cond_block
 
 let get_callsites r_stk (fb : Cfg.block) =
   let fid = fb.id in

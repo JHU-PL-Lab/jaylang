@@ -10,7 +10,7 @@ type t = {
 }
 
 let mk_detail ~rule ~key =
-  let block_id = Cfg.id_of_block key.Lookup_key.block in
+  let block_id = key.Lookup_key.block.id in
   {
     node = ref (Search_graph.mk_node ~block_id ~key);
     rule;

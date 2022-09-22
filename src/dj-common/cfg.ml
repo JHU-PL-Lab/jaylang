@@ -16,38 +16,19 @@ type tl_clause = { id : ident; cat : clause_cat; clause : clause [@opaque] }
 
 type clause_list = tl_clause list [@@deriving show { with_path = false }]
 
-type outer_id = Main_p | Fun_p of ident | Cond_p of ident * bool
-[@@deriving show { with_path = false }]
-
-type fun_block = {
-  outer_point : outer_id;
-  para : ident;
-  callsites : ident list;
-}
+type fun_block = { outer_id : ident; para : ident; callsites : ident list }
 [@@deriving show { with_path = false }]
 
 type cond_block = {
-  outer_point : outer_id;
+  outer_id : ident;
   cond : ident;
+  condsite : ident;
   possible : bool;
   choice : bool;
 }
 [@@deriving show { with_path = false }]
 
-type static_cond_block = {
-  outer_point : outer_id;
-  cond : ident;
-  possible : bool option;
-  then_ : clause_list;
-  else_ : clause_list;
-}
-[@@deriving show { with_path = false }]
-
-type block_kind =
-  | Main
-  | Fun of fun_block
-  | Cond of cond_block
-  | Static_cond of static_cond_block
+type block_kind = Main | Fun of fun_block | Cond of cond_block
 [@@deriving show { with_path = false }]
 
 type block = { id : Id.t; clauses : clause_list; kind : block_kind }
@@ -61,59 +42,67 @@ type def_site =
 
 type t = block [@@deriving show { with_path = false }]
 
-let get_clauses block = block.clauses
-
-let cast_to_static_cond_block block =
-  match block.kind with
-  | Static_cond scb -> scb
-  | _ -> failwith "cast_to_static_cond_block"
-
 let cast_to_cond_block block =
   match block.kind with Cond cb -> cb | _ -> failwith "cast_to_cond_block"
 
 let cast_to_fun_block block =
   match block.kind with Fun fb -> fb | _ -> failwith "cast_to_fun_block"
 
-let id_of_block b = b.id
-
 let outer_block block map =
-  let outer_point =
+  let outer_id =
     match block.kind with
-    | Main -> failwith "no outer_point for main block"
-    | Fun fb -> fb.outer_point
-    | Cond cb -> cb.outer_point
-    | Static_cond scb -> scb.outer_point
+    | Main -> failwith "no outer_id for main block"
+    | Fun fb -> fb.outer_id
+    | Cond cb -> cb.outer_id
   in
-  Ident_map.find id_main map
-(* match outer_point with
-   | Main_p -> Ident_map.find id_main map
-   | Fun_p fid -> Ident_map.find fid map
-   | Cond_p (cid, choice) ->
-       let cb = Ident_map.find cid map |> cast_to_cond_block in
-       Cond { cb with choice = Some choice } *)
+  Ident_map.find outer_id map
 
 let ret_of block =
-  let clauses = get_clauses block in
+  let clauses = block.clauses in
   (List.last_exn clauses).id
 
 let update_clauses f block = { block with clauses = f block.clauses }
 
-let find_block_by_id ?(static = false) x block_map =
+let find_block_by_id x block_map =
   block_map |> Ident_map.values |> bat_list_of_enum
   |> List.find_map ~f:(fun block ->
-         match block.kind with
-         | Static_cond c -> if static then Some block else Some block
-         | _ ->
-             if List.exists ~f:(fun tc -> Ident.equal tc.id x) block.clauses
-             then Some block
-             else None)
+         let is_possible =
+           match block.kind with Cond cb -> cb.possible | _ -> true
+         in
+         if is_possible
+         then
+           if List.exists ~f:(fun tc -> Ident.equal tc.id x) block.clauses
+           then Some block
+           else None
+         else None)
   |> Option.value_exn
 
+let find_cond_blocks x block_map =
+  block_map |> Ident_map.values |> bat_list_of_enum
+  |> List.filter_map ~f:(fun block ->
+         match block.kind with
+         | Cond cb ->
+             if cb.possible
+             then
+               if Id.equal cb.condsite x then Some (cb.choice, block) else None
+             else None
+         | _ -> None)
+
+let find_cond_block x block_map beta =
+  block_map |> Ident_map.values |> bat_list_of_enum
+  |> List.find_exn ~f:(fun block ->
+         match block.kind with
+         | Cond cb ->
+             if cb.possible
+             then Id.equal cb.condsite x && Bool.( = ) cb.choice beta
+             else false
+         | _ -> false)
+
 let clause_of_x block x =
-  List.find ~f:(fun tc -> Ident.equal tc.id x) (get_clauses block)
+  List.find ~f:(fun tc -> Ident.equal tc.id x) block.clauses
 
 let clause_of_x_exn block x =
-  List.find_exn ~f:(fun tc -> Ident.equal tc.id x) (get_clauses block)
+  List.find_exn ~f:(fun tc -> Ident.equal tc.id x) block.clauses
 
 let clause_body_of_x block x =
   let c = clause_of_x_exn block x in
@@ -126,7 +115,7 @@ let clauses_before_x block x =
       List.fold_until ~init:[]
         ~f:(fun acc tc ->
           if Ident.equal tc.id x then Stop acc else Continue (tc :: acc))
-        ~finish:List.rev (get_clauses block)
+        ~finish:List.rev block.clauses
   | None -> []
 
 let update_id_dst id dst0 block =
@@ -149,12 +138,11 @@ let update_id_dst id dst0 block =
   update_clauses (List.map ~f:add_dst_in_clause) block
 
 let add_id_dst site_x def_x tl_map =
-  let tl = find_block_by_id ~static:true site_x tl_map in
+  let tl = find_block_by_id site_x tl_map in
   let tl' = update_id_dst site_x def_x tl in
-  (* Map.add ~key:(id_of_block tl) ~data:tl' tl_map *)
-  Ident_map.add (id_of_block tl) tl' tl_map
+  Ident_map.add tl.id tl' tl_map
 
-let add_cond_block tl_map acls cfg =
+let make_cond_block_possible tl_map acls cfg =
   let cond_site, possible =
     match acls with
     | [
@@ -171,11 +159,24 @@ let add_cond_block tl_map acls cfg =
         (cond_site, None)
     | _ -> failwith "wrong precondition to call"
   in
-  let block = Ident_map.find cond_site !tl_map in
-  let static_cond_block = cast_to_static_cond_block block in
-  let static_cond_block' = { static_cond_block with possible } in
-  let block' = { block with kind = Static_cond static_cond_block' } in
-  tl_map := Ident_map.add cond_site block' !tl_map
+  let make_block_possible block =
+    let cond_block = cast_to_cond_block block in
+    let cond_block' = { cond_block with possible = true } in
+    let block' = { block with kind = Cond cond_block' } in
+    tl_map := Ident_map.add block.id block' !tl_map
+  in
+
+  let cond_blocks = find_cond_blocks cond_site !tl_map in
+  match cond_blocks with
+  | [ (true, block_true); (false, block_false) ]
+  | [ (false, block_false); (true, block_true) ] -> (
+      match possible with
+      | Some beta ->
+          make_block_possible (if beta then block_true else block_false)
+      | None ->
+          make_block_possible block_true ;
+          make_block_possible block_false)
+  | _ -> failwith "make_cond_block_possible must find two blocks"
 
 let _add_callsite site block =
   match block.kind with
@@ -210,7 +211,7 @@ let block_map_of_expr e : t Ident_map.t =
   in
   map := Ident_map.add id_main main_block !map ;
 
-  let rec loop outer_point e =
+  let rec loop outer_id e =
     let (Expr clauses) = e in
     let handle_clause = function
       | Clause
@@ -219,34 +220,41 @@ let block_map_of_expr e : t Ident_map.t =
           ) ->
           let clauses = clauses_of_expr fbody in
           let block =
-            {
-              id = cid;
-              clauses;
-              kind = Fun { outer_point; para; callsites = [] };
-            }
+            { id = cid; clauses; kind = Fun { outer_id; para; callsites = [] } }
           in
           map := Ident_map.add cid block !map ;
-          loop (Fun_p cid) fbody
+          loop cid fbody
       | Clause (Var (cid, _), Conditional_body (Var (cond, _), e1, e2)) ->
-          let then_ = clauses_of_expr e1
-          and else_ = clauses_of_expr e2
-          and possible = None in
-          let block =
+          let make_block e beta =
+            let clauses = clauses_of_expr e in
             {
-              id = cid;
-              clauses = [];
-              kind = Static_cond { outer_point; cond; possible; then_; else_ };
+              id = Id.cond_block_id cid beta;
+              clauses;
+              kind =
+                Cond
+                  {
+                    outer_id;
+                    condsite = cid;
+                    cond;
+                    possible = true;
+                    choice = beta;
+                  };
             }
           in
-          map := Ident_map.add cid block !map ;
-          loop (Cond_p (cid, true)) e1 ;
-          loop (Cond_p (cid, false)) e2
+          let block_then = make_block e1 true in
+          let block_else = make_block e2 false in
+          map := Ident_map.add block_then.id block_then !map ;
+          map := Ident_map.add block_else.id block_else !map ;
+          let cond_blocks = find_cond_blocks cid !map in
+          Fmt.pr "before length = %d\n" (List.length cond_blocks) ;
+          loop block_then.id e1 ;
+          loop block_else.id e2
       | _ -> ()
     in
     List.iter clauses ~f:handle_clause
   in
 
-  loop Main_p e ;
+  loop id_main e ;
   !map
 
 let cfg_of e =
@@ -310,7 +318,7 @@ let annotate e pt : block Ident_map.t =
       then
         if List.length prev_acls = 1
         then failwith "cond clause cannot appear along"
-        else add_cond_block map prev_acls cfg
+        else make_cond_block_possible map prev_acls cfg
       else () ;
 
       (* step logic *)
@@ -377,8 +385,7 @@ let fun_info_of_callsite callsite map =
 let is_before map x1 x2 =
   let open Continue_or_stop in
   let block = find_block_by_id x1 map in
-  let clauses = get_clauses block in
-  List.fold_until clauses ~init:false
+  List.fold_until block.clauses ~init:false
     ~f:(fun _ x ->
       if Id.equal x.id x1
       then Stop true

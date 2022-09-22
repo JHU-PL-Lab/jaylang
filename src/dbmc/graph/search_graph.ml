@@ -81,7 +81,7 @@ open Node
 let mk_edge pred succ = { pred; succ }
 
 let root_node block x =
-  let block_id = Cfg.id_of_block block in
+  let block_id = block.Cfg.id in
   { block_id; key = Lookup_key.start x block; gate = Open; preds = [] }
 
 let mk_node ~block_id ~key = { block_id; key; gate = Open; preds = [] }

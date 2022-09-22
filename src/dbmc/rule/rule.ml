@@ -94,11 +94,11 @@ let rule_of_runtime_status (key : Lookup_key.t) : t =
   | Some tc, _ -> (
       match tc with
       | { clause = Clause (_, Input_body); _ } ->
-          let is_in_main = Ident.equal (Cfg.id_of_block block) Cfg.id_main in
+          let is_in_main = Ident.equal block.id Cfg.id_main in
           Input { x; is_in_main }
       | { clause = Clause (_, Var_body (Var (x', _))); _ } -> Alias { x; x' }
       | { clause = Clause (_, Value_body v); _ } ->
-          if Ident.equal (Cfg.id_of_block block) Cfg.id_main
+          if Ident.equal block.id Cfg.id_main
           then Discovery_main { x; v }
           else Discovery_nonmain { x; v }
       | { clause = Clause (_, Projection_body (Var (r, _), lbl)); _ } ->
@@ -133,7 +133,6 @@ let rule_of_runtime_status (key : Lookup_key.t) : t =
       else Fun_enter_nonlocal { x; fb; is_local = false }
   | None, Cond cb -> Cond_top cb
   | None, Main -> Mismatch
-  | None, Static_cond _ -> failwith "No static cond block in runtime"
 
 let show_rule : t -> string = function
   | Discovery_main _ -> "Discovery_main"

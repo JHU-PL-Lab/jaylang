@@ -118,7 +118,7 @@ module Make (S : S) = struct
     let condsite_block = Cfg.outer_block key.Lookup_key.block S.block_map in
     let beta = cb.choice in
     let _paired, condsite_stack =
-      Rstack.pop_at_condtop key.r_stk (key.block.id, Id.cond_fid beta)
+      Rstack.pop_at_condtop key.r_stk (cb.condsite, Id.cond_fid beta)
     in
     let x2 = cb.cond in
 
@@ -144,7 +144,7 @@ module Make (S : S) = struct
 
   let cond_btm p (this_key : Lookup_key.t) phis_top run_task =
     let ({ x; x' } : Cond_btm_rule.t) = p in
-    let cond_block = Ident_map.find x S.block_map |> Cfg.cast_to_cond_block in
+    (* let cond_block = Ident_map.find x S.block_map |> Cfg.cast_to_cond_block in *)
     (* if Option.is_some cond_block.choice
        then failwith "conditional_body: not both"
        else () ; *)
@@ -227,11 +227,9 @@ module Make (S : S) = struct
               let key_arg = Lookup_key.of3 x''' callsite_stack callsite_block in
               let phi = Riddler.same_funenter key_f fid key key_arg in
               (* let _choice_this =
-                   Decision.make r_stk Cfg.(id_of_block (Fun fb))
+                   Decision.make r_stk Cfg.(key.block.id)
                  in *)
-              let choice_f =
-                Decision.make callsite_stack (Cfg.id_of_block callsite_block)
-              in
+              let choice_f = Decision.make callsite_stack callsite_block.id in
               let cb key (rf : Ddse_result.t) =
                 run_task key_arg phis_top ;
                 let phi_f = Riddler.eq key_f rf.v in
@@ -267,13 +265,8 @@ module Make (S : S) = struct
               run_task key_f phis_top ;
 
               let phi = Riddler.eq_fid key_f fid in
-
-              (* let choice_this =
-                   Decision.make r_stk Cfg.(id_of_block (Fun fb))
-                 in *)
-              let choice_f =
-                Decision.make callsite_stack (Cfg.id_of_block callsite_block)
-              in
+              (* let choice_this = Decision.make r_stk this_key.block.id in *)
+              let choice_f = Decision.make callsite_stack callsite_block.id in
 
               let cb_f key (rf : Ddse_result.t) =
                 let key_arg = Lookup_key.with_x rf.v this_key.x in
@@ -298,7 +291,7 @@ module Make (S : S) = struct
   let fun_exit p (this_key : Lookup_key.t) phis_top run_task =
     let ({ x; xf; fids } : Fun_exit_rule.t) = p in
     let key_f = Lookup_key.with_x this_key xf in
-    let b_id = Cfg.id_of_block this_key.block in
+    let b_id = this_key.block.id in
 
     run_task key_f phis_top ;
 
@@ -315,9 +308,7 @@ module Make (S : S) = struct
               let phis_top' = Phi_set.union phis_top rf.phis in
               run_task key_ret phis_top' ;
               let choice_this = Decision.make key.r_stk b_id in
-              let choice_f =
-                Decision.make key_ret.r_stk (Cfg.id_of_block fblock)
-              in
+              let choice_f = Decision.make key_ret.r_stk fblock.id in
               U.by_filter_map_u S.unroll this_key key_ret
                 (return_with_phis_with_choices this_key [ phi ]
                    [ choice_this; choice_f ] rf))
