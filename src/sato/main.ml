@@ -31,6 +31,7 @@ let create_initial_dmbc_config (sato_config : Sato_args.t) :
     debug_phi = false;
     debug_model = true;
     debug_graph = false;
+    debug_interpreter = false;
     is_check_per_step = false;
   }
 

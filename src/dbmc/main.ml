@@ -15,29 +15,27 @@ type result = {
   state : Global_state.t;
 }
 
-let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t) =
-  match config.mode with
-  | Dbmc_check inputs ->
-      let history = ref [] in
-      let session =
-        let input_feeder = Input_feeder.memorized_from_list inputs history in
-        let mode = Interpreter.With_target_x config.target in
-        Interpreter.create_session state config mode input_feeder
-      in
-      let expected_stk =
-        try Interpreter.eval session state.program with
-        | Interpreter.Found_target target ->
-            Fmt.(
-              pr "[Expected]%a"
-                (list (Std.pp_tuple3 Id.pp Concrete_stack.pp (option int))))
-              !history ;
-            target.stk
-        | ex -> raise ex
-      in
-      if Solver.check_expected_input_sat expected_stk !history
-      then ()
-      else failwith "expected input leads to a wrong place."
-  | _ -> ()
+let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t)
+    inputs =
+  let history = ref [] in
+  let session =
+    let input_feeder = Input_feeder.memorized_from_list inputs history in
+    let mode = Interpreter.With_target_x config.target in
+    Interpreter.create_session state config mode input_feeder
+  in
+  let expected_stk =
+    try Interpreter.eval session state.program with
+    | Interpreter.Found_target target ->
+        Fmt.(
+          pr "[Expected]%a"
+            (list (Std.pp_tuple3 Id.pp Concrete_stack.pp (option int))))
+          !history ;
+        target.stk
+    | ex -> raise ex
+  in
+  if Solver.check_expected_input_sat expected_stk !history
+  then ()
+  else failwith "expected input leads to a wrong place."
 
 let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
     (target_stack : Concrete_stack.t) =
@@ -46,7 +44,37 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
   let session =
     let max_step = config.run_max_step in
     let mode = Interpreter.With_full_target (config.target, target_stack) in
-    Interpreter.create_session ?max_step state config mode input_feeder
+    let debug_mode =
+      if config.is_check_per_step
+      then
+        let clause_cb x c_stk v =
+          let stk = Rstack.relativize target_stack c_stk in
+          let key =
+            Lookup_key.of3 x stk (Cfg.find_block_by_id x state.block_map)
+          in
+          let key_z = Riddler.key_to_var key in
+          let key_picked = Riddler.picked key in
+          let eq_z =
+            match v with
+            | Value_function _ -> Riddler.true_
+            | _ -> Riddler.eqv key v
+          in
+          state.phis <- key_picked :: eq_z :: state.phis ;
+          let info =
+            Fmt.str "[Con]: %a %a = %a \n[Sym] %a\n\n" Id.pp x Concrete_stack.pp
+              c_stk Jayil.Pp.value v Lookup_key.pp key
+          in
+          Fmt.pr "[Check] %s" info ;
+
+          match Checker.check state config with
+          | Some _ -> ()
+          | None -> failwith @@ "step check failed"
+        in
+        Interpreter.Debug_clause clause_cb
+      else Interpreter.No_debug
+    in
+    Interpreter.create_session ?max_step ~debug_mode state config mode
+      input_feeder
   in
   (try Interpreter.eval session state.program with
   | Interpreter.Found_target _ -> ()
@@ -74,14 +102,20 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
   (* print graph *)
   handle_graph config state (Some model) ;
 
+  print_endline @@ Concrete_stack.show c_stk ;
+
   let inputs_from_interpreter = get_input ~config ~state model c_stk in
-  check_expected_input ~config ~state ;
+  (match config.mode with
+  | Dbmc_check inputs -> check_expected_input ~config ~state inputs
+  | _ -> ()) ;
   ([ inputs_from_interpreter ], false (* true *), Some (model, c_stk))
 
 let handle_not_found (config : Global_config.t) (state : Global_state.t)
     is_timeout =
   SLog.info (fun m -> m "UNSAT") ;
-  if config.is_check_per_step then check_expected_input ~config ~state else () ;
+  (* (match config.mode with
+     | Dbmc_check inputs -> check_expected_input ~config ~state inputs
+     | _ -> ()) ; *)
   if config.debug_model
   then SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
   else () ;

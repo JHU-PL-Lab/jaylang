@@ -54,9 +54,11 @@ let step_eager_check (state : Global_state.t) (config : Global_config.t) target
   else true
 (* eager_check state config target assumption *)
 
-let check (state : Global_state.t) (config : Global_config.t) :
-    result_info option =
-  LLog.info (fun m -> m "Search Tree Size:\t%d" state.tree_size) ;
+let check ?(verbose = true) (state : Global_state.t) (config : Global_config.t)
+    : result_info option =
+  if verbose
+  then LLog.info (fun m -> m "Search Tree Size:\t%d" state.tree_size)
+  else () ;
   let unfinish_lookup =
     Hash_set.to_list state.lookup_created
     |> List.map ~f:(fun key -> Solver.SuduZ3.not_ (picked key))
@@ -69,7 +71,7 @@ let check (state : Global_state.t) (config : Global_config.t) :
   let check_result = Solver.check state.phis phi_used_once in
   Global_state.clear_phis state ;
 
-  if config.debug_model
+  if config.debug_model && verbose
   then (
     SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
     SLog.debug (fun m ->
@@ -80,12 +82,11 @@ let check (state : Global_state.t) (config : Global_config.t) :
 
   match check_result with
   | Result.Ok model ->
-      if config.debug_model
+      if config.debug_model && verbose
       then SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
       else () ;
       let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
       let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
-      print_endline @@ Concrete_stack.show c_stk ;
       Some { model; c_stk }
   | Result.Error _exps -> None
 

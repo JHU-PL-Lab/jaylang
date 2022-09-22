@@ -45,6 +45,9 @@ type mode =
   | With_target_x of Id.t
   | With_full_target of Id.t * Concrete_stack.t
 
+type clause_cb = Id.t -> Concrete_stack.t -> value -> unit
+type debug_mode = No_debug | Debug_clause of clause_cb
+
 module G = Imperative.Digraph.ConcreteBidirectional (Id_with_stack)
 
 type session = {
@@ -56,15 +59,14 @@ type session = {
   max_step : int option;
   (* book-keeping *)
   alias_graph : G.t;
-  val_def_map : (Id_with_stack.t, clause_body * dvalue) Hashtbl.t;
   (* debug *)
-  is_debug : bool;
+  is_debug : bool; (* TODO: get rid of this *)
+  debug_mode : debug_mode;
+  val_def_map : (Id_with_stack.t, clause_body * dvalue) Hashtbl.t;
   term_detail_map : (Lookup_key.t, Term_detail.t) Hashtbl.t;
   block_map : Cfg.block Jayil.Ast.Ident_map.t;
   rstk_picked : (Rstack.t, bool) Hashtbl.t;
   lookup_alert : Lookup_key.t Hash_set.t;
-  (* debug heavily *)
-  is_check_per_step : bool;
 }
 
 let make_default_session () =
@@ -73,6 +75,7 @@ let make_default_session () =
     mode = Plain;
     max_step = None;
     is_debug = false;
+    debug_mode = No_debug;
     step = ref 0;
     alias_graph = G.create ();
     val_def_map = Hashtbl.create (module Id_with_stack);
@@ -80,17 +83,17 @@ let make_default_session () =
     term_detail_map = Hashtbl.create (module Lookup_key);
     rstk_picked = Hashtbl.create (module Rstack);
     lookup_alert = Hash_set.create (module Lookup_key);
-    is_check_per_step = false;
   }
 
-let create_session ?max_step (state : Global_state.t) (config : Global_config.t)
-    mode input_feeder : session =
+let create_session ?max_step ?(debug_mode = No_debug) (state : Global_state.t)
+    (config : Global_config.t) mode input_feeder : session =
   (* = With_full_target (config.target, target_stk) *)
   {
     input_feeder;
     mode;
     max_step;
-    is_debug = config.debug_graph;
+    is_debug = config.debug_interpreter;
+    debug_mode;
     step = ref 0;
     alias_graph = G.create ();
     block_map = state.block_map;
@@ -98,7 +101,6 @@ let create_session ?max_step (state : Global_state.t) (config : Global_config.t)
     term_detail_map = state.term_detail_map;
     rstk_picked = state.rstk_picked;
     lookup_alert = state.lookup_alert;
-    is_check_per_step = config.is_check_per_step;
   }
 
 let cond_fid b = if b then Ident "$tt" else Ident "$ff"
@@ -182,6 +184,17 @@ let rec same_stack s1 s2 =
   | [], [] -> true
   | _, _ -> false
 
+let debug_clause ~session x v stk =
+  ILog.app (fun m -> m "@[%a = %a@]" Id.pp x pp_dvalue v) ;
+
+  (match session.debug_mode with
+  | Debug_clause clause_cb -> clause_cb x stk (value_of_dvalue v)
+  | No_debug -> ()) ;
+
+  raise_if_with_stack session x stk v ;
+  debug_stack session x stk (v, stk) ;
+  ()
+
 (* OB: we cannot enter the same stack twice. *)
 let rec eval_exp ~session stk env e : denv * dvalue =
   ILog.app (fun m -> m "@[-> %a@]\n" Concrete_stack.pp stk) ;
@@ -197,7 +210,6 @@ let rec eval_exp ~session stk env e : denv * dvalue =
   (* raise (Run_into_wrong_stack (Ast_tools.first_id e, stk))); *)
   let (Expr clauses) = e in
   let denv, vs' =
-    (* List.fold_left_map (eval_clause ~input_feeder ~target stk) env clauses *)
     List.fold_map ~f:(eval_clause ~session stk) ~init:env clauses
   in
   (denv, List.last_exn vs')
@@ -213,7 +225,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
 
   debug_update_write_node session x stk ;
 
-  let (v_pre : dvalue) =
+  let (v : dvalue) =
     match cbody with
     | Value_body (Value_function vf) ->
         let retv = FunClosure (x, vf, env) in
@@ -374,15 +386,8 @@ and eval_clause ~session stk env clause : denv * dvalue =
         retv
     (* failwith "not supported yet" *)
   in
-  let v = (v_pre, stk) in
-
-  ILog.app (fun m -> m "@[%a = %a@]" Id.pp x pp_dvalue v_pre) ;
-
-  raise_if_with_stack session x stk v_pre ;
-
-  debug_stack session x stk v ;
-
-  (Ident_map.add x v env, v_pre)
+  debug_clause ~session x v stk ;
+  (Ident_map.add x (v, stk) env, v)
 
 and fetch_val_with_stk ~session ~stk env (Var (x, _)) :
     dvalue * Concrete_stack.t =

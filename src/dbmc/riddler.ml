@@ -30,15 +30,14 @@ let and_ = SuduZ3.and_
 
 let eqv term v =
   let x = key_to_var term in
-  let v =
+  let zv =
     match v with
     | Value_int i -> SuduZ3.int_ i
     | Value_bool b -> SuduZ3.bool_ b
     | Value_function _ -> failwith "should not be a function"
     | Value_record _ -> SuduZ3.record_ (Lookup_key.to_string term)
   in
-
-  SuduZ3.eq x v
+  SuduZ3.eq x zv
 
 let eq_fid term (Id.Ident fid) = SuduZ3.eq (key_to_var term) (SuduZ3.fun_ fid)
 let eq key key' = SuduZ3.eq (key_to_var key) (key_to_var key')

@@ -78,6 +78,7 @@ let parse_commandline_config () =
       and debug_phi = flag "-dp" no_arg ~doc:"output constraints"
       and debug_no_model = flag "-dnm" no_arg ~doc:"not output smt model"
       and debug_graph = flag "-dg" no_arg ~doc:"output graphviz dot"
+      and debug_interpreter = flag "-di" no_arg ~doc:"check the interpreter"
       and is_check_per_step = flag "-dcs" no_arg ~doc:"check per step" in
       fun () ->
         let latter_option l1 l2 = Option.merge l1 l2 ~f:(fun _ y -> y) in
@@ -106,6 +107,7 @@ let parse_commandline_config () =
             debug_phi;
             debug_model = not debug_no_model;
             debug_graph;
+            debug_interpreter;
             is_check_per_step;
           }
         in
