@@ -32,7 +32,7 @@ module Record_start_rule = struct
 end
 
 module Cond_top_rule = struct
-  type t = Cfg.cond_block
+  type t = Cfg.cond_block_info
 end
 
 module Cond_btm_rule = struct
@@ -40,11 +40,11 @@ module Cond_btm_rule = struct
 end
 
 module Fun_enter_local_rule = struct
-  type t = { x : Id.t; fb : Cfg.fun_block; is_local : bool }
+  type t = { x : Id.t; fb : Cfg.fun_block_info; is_local : bool }
 end
 
 module Fun_enter_nonlocal_rule = struct
-  type t = { x : Id.t; fb : Cfg.fun_block; is_local : bool }
+  type t = { x : Id.t; fb : Cfg.fun_block_info; is_local : bool }
 end
 
 module Fun_exit_rule = struct
@@ -94,11 +94,11 @@ let rule_of_runtime_status (key : Lookup_key.t) : t =
   | Some tc, _ -> (
       match tc with
       | { clause = Clause (_, Input_body); _ } ->
-          let is_in_main = Ident.equal block.id Cfg.id_main in
+          let is_in_main = Ident.equal block.id Id.main_block in
           Input { x; is_in_main }
       | { clause = Clause (_, Var_body (Var (x', _))); _ } -> Alias { x; x' }
       | { clause = Clause (_, Value_body v); _ } ->
-          if Ident.equal block.id Cfg.id_main
+          if Ident.equal block.id Id.main_block
           then Discovery_main { x; v }
           else Discovery_nonmain { x; v }
       | { clause = Clause (_, Projection_body (Var (r, _), lbl)); _ } ->

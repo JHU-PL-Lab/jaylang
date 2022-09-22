@@ -144,10 +144,6 @@ module Make (S : S) = struct
 
   let cond_btm p (this_key : Lookup_key.t) phis_top run_task =
     let ({ x; x' } : Cond_btm_rule.t) = p in
-    (* let cond_block = Ident_map.find x S.block_map |> Cfg.cast_to_cond_block in *)
-    (* if Option.is_some cond_block.choice
-       then failwith "conditional_body: not both"
-       else () ; *)
     let term_c = Lookup_key.with_x this_key x' in
 
     (* Method 1 : lookup condition then lookup beta-case *)

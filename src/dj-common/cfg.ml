@@ -5,9 +5,6 @@ open Ddpa_abstract_ast
 open Ddpa_graph
 open Ddpa_helper
 
-let name_main = "0_main"
-let id_main = Ident name_main
-
 type clause_cat = Direct | Fun | App of ident list | Cond of ident list
 [@@deriving show { with_path = false }]
 
@@ -16,10 +13,10 @@ type tl_clause = { id : ident; cat : clause_cat; clause : clause [@opaque] }
 
 type clause_list = tl_clause list [@@deriving show { with_path = false }]
 
-type fun_block = { outer_id : ident; para : ident; callsites : ident list }
+type fun_block_info = { outer_id : ident; para : ident; callsites : ident list }
 [@@deriving show { with_path = false }]
 
-type cond_block = {
+type cond_block_info = {
   outer_id : ident;
   cond : ident;
   condsite : ident;
@@ -28,7 +25,7 @@ type cond_block = {
 }
 [@@deriving show { with_path = false }]
 
-type block_kind = Main | Fun of fun_block | Cond of cond_block
+type block_kind = Main | Fun of fun_block_info | Cond of cond_block_info
 [@@deriving show { with_path = false }]
 
 type block = { id : Id.t; clauses : clause_list; kind : block_kind }
@@ -36,17 +33,19 @@ type block = { id : Id.t; clauses : clause_list; kind : block_kind }
 
 type def_site =
   | At_clause of tl_clause
-  | At_fun_para of bool * fun_block
-  | At_chosen of cond_block
+  | At_fun_para of bool * fun_block_info
+  | At_chosen of cond_block_info
   | Lookup_mismatch
 
 type t = block [@@deriving show { with_path = false }]
 
-let cast_to_cond_block block =
-  match block.kind with Cond cb -> cb | _ -> failwith "cast_to_cond_block"
+let cast_to_cond_block_info block =
+  match block.kind with
+  | Cond cb -> cb
+  | _ -> failwith "cast_to_cond_block_info"
 
-let cast_to_fun_block block =
-  match block.kind with Fun fb -> fb | _ -> failwith "cast_to_fun_block"
+let cast_to_fun_block_info block =
+  match block.kind with Fun fb -> fb | _ -> failwith "cast_to_fun_block_info"
 
 let outer_block block map =
   let outer_id =
@@ -160,9 +159,9 @@ let make_cond_block_possible tl_map acls cfg =
     | _ -> failwith "wrong precondition to call"
   in
   let make_block_possible block =
-    let cond_block = cast_to_cond_block block in
-    let cond_block' = { cond_block with possible = true } in
-    let block' = { block with kind = Cond cond_block' } in
+    let cond_block_info = cast_to_cond_block_info block in
+    let cond_block_info' = { cond_block_info with possible = true } in
+    let block' = { block with kind = Cond cond_block_info' } in
     tl_map := Ident_map.add block.id block' !tl_map
   in
 
@@ -207,9 +206,9 @@ let block_map_of_expr e : t Ident_map.t =
 
   let main_block =
     let clauses = clauses_of_expr e in
-    { id = id_main; clauses; kind = Main }
+    { id = Id.main_block; clauses; kind = Main }
   in
-  map := Ident_map.add id_main main_block !map ;
+  map := Ident_map.add Id.main_block main_block !map ;
 
   let rec loop outer_id e =
     let (Expr clauses) = e in
@@ -245,8 +244,6 @@ let block_map_of_expr e : t Ident_map.t =
           let block_else = make_block e2 false in
           map := Ident_map.add block_then.id block_then !map ;
           map := Ident_map.add block_else.id block_else !map ;
-          let cond_blocks = find_cond_blocks cid !map in
-          Fmt.pr "before length = %d\n" (List.length cond_blocks) ;
           loop block_then.id e1 ;
           loop block_else.id e2
       | _ -> ()
@@ -254,7 +251,7 @@ let block_map_of_expr e : t Ident_map.t =
     List.iter clauses ~f:handle_clause
   in
 
-  loop id_main e ;
+  loop Id.main_block e ;
   !map
 
 let cfg_of e =

@@ -69,6 +69,6 @@ let get_callsites r_stk (fb : Cfg.block) =
   let callsites =
     match Rstack.paired_callsite r_stk fid with
     | Some callsite -> [ callsite ]
-    | None -> (Cfg.cast_to_fun_block fb).callsites
+    | None -> (Cfg.cast_to_fun_block_info fb).callsites
   in
   callsites
