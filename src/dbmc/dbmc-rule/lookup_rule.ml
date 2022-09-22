@@ -91,9 +91,9 @@ module Make (S : S) = struct
 
   let cond_top (cb : Cond_top_rule.t) (this_key : Lookup_key.t) =
     let condsite_block = Cfg.outer_block this_key.block S.block_map in
-    let choice = Option.value_exn cb.choice in
+    let beta = cb.choice in
     let _paired, condsite_stack =
-      Rstack.pop_at_condtop this_key.r_stk (cb.point, Id.cond_fid choice)
+      Rstack.pop_at_condtop this_key.r_stk (this_key.block.id, Id.cond_fid beta)
     in
     let x2 = cb.cond in
     let key_x2 = Lookup_key.of3 x2 condsite_stack condsite_block in
@@ -104,7 +104,7 @@ module Make (S : S) = struct
            [ Riddler.eqv key_x2 (Value_bool choice) ] *)
       Some (Direct { sub = this_key; pub = key_x; phis = [] })
     in
-    let phis = [ Riddler.cond_top this_key key_x key_x2 choice ] in
+    let phis = [ Riddler.cond_top this_key key_x key_x2 beta ] in
     Chain { sub = this_key; pub = key_x2; next; phis }
 
   let cond_btm p (key : Lookup_key.t) =
@@ -138,8 +138,8 @@ module Make (S : S) = struct
   let fun_enter_local p (key : Lookup_key.t) =
     let this_key = key in
     let ({ fb; _ } : Fun_enter_local_rule.t) = p in
-    let fid = fb.point in
-    let callsites = Lookup_key.get_callsites this_key.r_stk fb in
+    let fid = key.block.id in
+    let callsites = Lookup_key.get_callsites this_key.r_stk key.block in
     let nexts =
       List.map callsites ~f:(fun callsite ->
           let callsite_block, x', x'', x''' =
@@ -162,20 +162,21 @@ module Make (S : S) = struct
 
   let fun_enter_nonlocal p (key : Lookup_key.t) =
     let ({ fb; _ } : Fun_enter_nonlocal_rule.t) = p in
-    let callsites = Lookup_key.get_callsites key.r_stk fb in
+    let callsites = Lookup_key.get_callsites key.r_stk key.block in
     let nexts =
       List.map callsites ~f:(fun callsite ->
           let callsite_block, x', x'', _x''' =
             Cfg.fun_info_of_callsite callsite S.block_map
           in
-          match Rstack.pop key.r_stk (x', fb.point) with
+          match Rstack.pop key.r_stk (x', key.block.id) with
           | Some callsite_stack ->
               let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
               let next i (r : Lookup_result.t) =
                 let fv_block = Cfg.find_block_by_id r.from.x S.block_map in
                 let key_arg = Lookup_key.of3 key.x r.from.r_stk fv_block in
                 let phi_i =
-                  Riddler.fun_enter_nonlocal key key_f r.from fb.point key_arg
+                  Riddler.fun_enter_nonlocal key key_f r.from key.block.id
+                    key_arg
                 in
                 let action = Direct { sub = key; pub = key_arg; phis = [] } in
                 Some (phi_i, action)
@@ -247,7 +248,8 @@ module Make (S : S) = struct
       (* Fmt.pr "[Pattern][%B] %a | %a |%a\n" matched Lookup_key.pp key
          Jayil.Ast_pp.pp_pattern pat Lookup_key.pp key_rv ; *)
       let eq_key'_rv = Riddler.eq key' key_rv in
-      (ans, eq_key'_rv :: phis)
+      let picked_rv = Riddler.picked key_rv in
+      (ans, picked_rv :: eq_key'_rv :: phis)
     in
     MapSeq { sub = key; pub = key'; map = next; phis = [] }
 

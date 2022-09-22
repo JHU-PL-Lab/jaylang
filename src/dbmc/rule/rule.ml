@@ -90,7 +90,7 @@ let rule_of_runtime_status (key : Lookup_key.t) : t =
   let x = key.x in
   let block = key.block in
   let open Cfg in
-  match (clause_of_x block x, block) with
+  match (clause_of_x block x, block.kind) with
   | Some tc, _ -> (
       match tc with
       | { clause = Clause (_, Input_body); _ } ->
@@ -132,7 +132,8 @@ let rule_of_runtime_status (key : Lookup_key.t) : t =
       then Fun_enter_local { x; fb; is_local = true }
       else Fun_enter_nonlocal { x; fb; is_local = false }
   | None, Cond cb -> Cond_top cb
-  | None, Main _mb -> Mismatch
+  | None, Main -> Mismatch
+  | None, Static_cond _ -> failwith "No static cond block in runtime"
 
 let show_rule : t -> string = function
   | Discovery_main _ -> "Discovery_main"

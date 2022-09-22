@@ -116,16 +116,15 @@ module Make (S : S) = struct
 
   let cond_top (cb : Cond_top_rule.t) key phis_top run_task =
     let condsite_block = Cfg.outer_block key.Lookup_key.block S.block_map in
-    let choice = Option.value_exn cb.choice in
+    let beta = cb.choice in
     let _paired, condsite_stack =
-      Rstack.pop_at_condtop key.r_stk (cb.point, Id.cond_fid choice)
+      Rstack.pop_at_condtop key.r_stk (key.block.id, Id.cond_fid beta)
     in
     let x2 = cb.cond in
 
     let key_x2 = Lookup_key.of3 x2 condsite_stack condsite_block in
     let key_x = Lookup_key.of3 key.x condsite_stack condsite_block in
 
-    let beta = Option.value_exn cb.choice in
     run_task key_x2 phis_top ;
 
     let cb key (rc : Ddse_result.t) =
@@ -146,9 +145,9 @@ module Make (S : S) = struct
   let cond_btm p (this_key : Lookup_key.t) phis_top run_task =
     let ({ x; x' } : Cond_btm_rule.t) = p in
     let cond_block = Ident_map.find x S.block_map |> Cfg.cast_to_cond_block in
-    if Option.is_some cond_block.choice
-    then failwith "conditional_body: not both"
-    else () ;
+    (* if Option.is_some cond_block.choice
+       then failwith "conditional_body: not both"
+       else () ; *)
     let term_c = Lookup_key.with_x this_key x' in
 
     (* Method 1 : lookup condition then lookup beta-case *)
@@ -213,8 +212,8 @@ module Make (S : S) = struct
 
   let fun_enter_local p (key : Lookup_key.t) phis_top run_task =
     let ({ fb; _ } : Fun_enter_local_rule.t) = p in
-    let fid = fb.point in
-    let callsites = Lookup_key.get_callsites key.r_stk fb in
+    let fid = key.block.id in
+    let callsites = Lookup_key.get_callsites key.r_stk key.block in
     let sub_trees =
       List.fold callsites
         ~f:(fun sub_trees callsite ->
@@ -253,8 +252,8 @@ module Make (S : S) = struct
 
   let fun_enter_nonlocal p (this_key : Lookup_key.t) phis_top run_task =
     let ({ fb; _ } : Fun_enter_nonlocal_rule.t) = p in
-    let fid = fb.point in
-    let callsites = Lookup_key.get_callsites this_key.r_stk fb in
+    let fid = this_key.block.id in
+    let callsites = Lookup_key.get_callsites this_key.r_stk this_key.block in
 
     let sub_trees =
       List.fold callsites
@@ -267,7 +266,7 @@ module Make (S : S) = struct
               let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
               run_task key_f phis_top ;
 
-              let phi = Riddler.eq_fid key_f fb.point in
+              let phi = Riddler.eq_fid key_f fid in
 
               (* let choice_this =
                    Decision.make r_stk Cfg.(id_of_block (Fun fb))
