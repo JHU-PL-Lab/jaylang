@@ -25,9 +25,30 @@ A full-HFLz solver
 
 # soft-contract
 
-https://github.com/philnguyen
-/soft-contract
+https://github.com/philnguyen/soft-contract
+
+Higher-order symbolic execution for contract verification and refutation 2016.
+The paper unifies and expands
+- Soft contract verification, ICFP 2014
+- Relatively complete counterexamples for higherorder programs, PLDI 2015
+subsumes
+- Higher-order symbolic execution via contracts, OOPSLA 2012
+
+Soft Contract Verification for Higher-order Stateful Programs, POPL 2018
+https://github.com/philnguyen/soft-contract/tree/popl18-ae
+
+Corpse Reviver: Sound and Efficient Gradual Typing via Contract Verification
 https://github.com/camoy/corpse-reviver
+We use the benchmark suite first developed by Takikawa et al. [2016] (Is Sound Gradual
+Typing Dead?) and expanded by Greenman et al. [2019].6 Our evaluation pits SCV-CR against Typed Racket on 12 of the 20 programs in the
+benchmark suite.
+
+(not relevant)
+https://github.com/philnguyen/termination
+Size-change termination as a contract: dynamically and statically enforcing termination for higher-order programs, PLDI 2019
+
+
+
 
 # preparing `smbc`
 
