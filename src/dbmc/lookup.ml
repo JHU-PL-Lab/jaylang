@@ -168,17 +168,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
 
     (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked.
         run all previous lookups *)
-    let search_x =
-      let open Rule in
-      match rule with
-      (* | Cond_top cb -> cb.
-         | Cond_btm p -> R.cond_btm p key
-         | Fun_enter_local p -> R.fun_enter_local p key
-         | Fun_enter_nonlocal p -> R.fun_enter_nonlocal p key *)
-      | _ -> key.x
-    in
-
-    let previous_clauses = Cfg.clauses_before_x key.block search_x in
+    let previous_clauses = Cfg.clauses_before_x key.block key.x in
     List.iter previous_clauses ~f:(fun tc ->
         (* Fmt.pr "[Clause before %a] %a\n" Id.pp key.x Id.pp tc.id ; *)
         let term_prev = Lookup_key.with_x key tc.id in
