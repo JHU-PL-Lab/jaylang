@@ -78,7 +78,7 @@ let find_block_by_id x block_map =
          else None)
   |> Option.value_exn
 
-let find_cond_blocks ?(init = false) x block_map =
+let find_cond_blocks x block_map =
   let cond_case_infos =
     block_map |> Ident_map.values |> bat_list_of_enum
     |> List.filter_map ~f:(fun block ->

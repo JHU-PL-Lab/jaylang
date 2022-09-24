@@ -98,7 +98,7 @@ module Make (S : S) = struct
     run_task key_r phis_top ;
 
     let cb this_key (rv : Ddse_result.t) =
-      let rv_block = Cfg.find_block_by_id rv.v.x S.block_map in
+      let rv_block = rv.v.block in
       let phi1 = Riddler.eq key_r rv.v in
       let clause_body = Cfg.clause_body_of_x rv_block rv.v.x in
       let rvv = Ast_tools.record_of_clause_body clause_body in
@@ -114,8 +114,8 @@ module Make (S : S) = struct
     in
     U.by_bind_u S.unroll key key_r cb
 
-  let cond_top (cb : Cond_top_rule.t) key phis_top run_task =
-    let condsite_block = Cfg.outer_block key.Lookup_key.block S.block_map in
+  let cond_top p (key : Lookup_key.t) phis_top run_task =
+    let ({ cond_case_info = cb; condsite_block } : Cond_top_rule.t) = p in
     let beta = cb.choice in
     let _paired, condsite_stack =
       Rstack.pop_at_condtop key.r_stk (cb.condsite, Id.cond_fid beta)

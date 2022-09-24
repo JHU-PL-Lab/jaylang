@@ -74,8 +74,7 @@ module Make (S : S) = struct
     let key_r = Lookup_key.with_x key r in
     let next i (r : Lookup_result.t) =
       let key_rv = r.from in
-      let rv_block = Cfg.find_block_by_id key_rv.x S.block_map in
-      let rv = Cfg.clause_body_of_x rv_block key_rv.x in
+      let rv = Cfg.clause_body_of_x key_rv.block key_rv.x in
       match rv with
       | Value_body (Value_record (Record_value rv)) -> (
           match Ident_map.Exceptionless.find lbl rv with
@@ -89,13 +88,13 @@ module Make (S : S) = struct
     in
     Sequence { sub = key; pub = key_r; next; phis = [] }
 
-  let cond_top (cb : Cond_top_rule.t) (this_key : Lookup_key.t) =
+  let cond_top p (this_key : Lookup_key.t) =
+    let ({ cond_case_info = cb; condsite_block } : Cond_top_rule.t) = p in
     let beta = cb.choice in
     let _paired, condsite_stack =
       Rstack.pop_at_condtop this_key.r_stk (cb.condsite, Id.cond_fid beta)
     in
     let x2 = cb.cond in
-    let condsite_block = Cfg.outer_block this_key.block S.block_map in
     let key_x2 = Lookup_key.of3 x2 condsite_stack condsite_block in
     let key_x = Lookup_key.of3 this_key.x condsite_stack condsite_block in
     let next _ r =
@@ -216,8 +215,7 @@ module Make (S : S) = struct
          to go into a then-block or a else-block.
       *)
       let key_rv = r.from in
-      let rv_block = Cfg.find_block_by_id key_rv.x S.block_map in
-      let rv = Cfg.clause_body_of_x rv_block key_rv.x in
+      let rv = Cfg.clause_body_of_x key_rv.block key_rv.x in
       let ans, phis, _matched =
         match (pat, rv) with
         | Any_pattern, _

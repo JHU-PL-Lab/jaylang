@@ -32,7 +32,7 @@ module Record_start_rule = struct
 end
 
 module Cond_top_rule = struct
-  type t = Cfg.cond_case_info
+  type t = { cond_case_info : Cfg.cond_case_info; condsite_block : Cfg.block }
 end
 
 module Cond_btm_rule = struct
@@ -90,8 +90,8 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map : t =
   let x = key.x in
   let block = key.block in
   let open Cfg in
-  match (clause_of_x block x, block.kind) with
-  | Some tc, _ -> (
+  match clause_of_x block x with
+  | Some tc -> (
       match tc with
       | { clause = Clause (_, Input_body); _ } ->
           let is_in_main = Ident.equal block.id Id.main_block in
@@ -128,12 +128,16 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map : t =
       | _ ->
           Log.Export.LLog.err (fun m -> m "%a" Jayil.Ast_pp.pp_clause tc.clause) ;
           failwith "Missing rules for this clause")
-  | None, Fun fb ->
-      if Ident.(equal fb.para x)
-      then Fun_enter_local { x; fb; is_local = true }
-      else Fun_enter_nonlocal { x; fb; is_local = false }
-  | None, Cond cb -> Cond_top cb
-  | None, Main -> Mismatch
+  | None -> (
+      match block.kind with
+      | Fun fb ->
+          if Ident.(equal fb.para x)
+          then Fun_enter_local { x; fb; is_local = true }
+          else Fun_enter_nonlocal { x; fb; is_local = false }
+      | Cond cb ->
+          let condsite_block = Cfg.outer_block block block_map in
+          Cond_top { cond_case_info = cb; condsite_block }
+      | Main -> Mismatch)
 
 let show_rule : t -> string = function
   | Discovery_main _ -> "Discovery_main"
