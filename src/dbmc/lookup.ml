@@ -36,7 +36,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     | Some _ -> ()
     | None ->
         let term_detail : Term_detail.t =
-          let rule = Rule.rule_of_runtime_status key in
+          let rule = Rule.rule_of_runtime_status key state.block_map in
           Term_detail.mk_detail ~rule ~key
         in
         Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
@@ -46,7 +46,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     (* match Riddler.check_phis (Set.to_list phis) false with
        | None -> Lwt.return_unit
        | Some _ -> *)
-    let rule = Rule.rule_of_runtime_status this_key in
+    let rule = Rule.rule_of_runtime_status this_key state.block_map in
     LLog.app (fun m ->
         m "[Lookup][=>]: %a ; Rule %a" Lookup_key.pp this_key Rule.pp_rule rule) ;
 
@@ -128,7 +128,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   in
   let module R = Lookup_rule.Make (LS) in
   let[@landmark] rec lookup (key : Lookup_key.t) () : unit Lwt.t =
-    let rule = Rule.rule_of_runtime_status key in
+    let rule = Rule.rule_of_runtime_status key state.block_map in
     let term_detail = Term_detail.mk_detail ~rule ~key in
 
     Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
@@ -180,13 +180,11 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
 
     let previous_clauses = Cfg.clauses_before_x key.block search_x in
     List.iter previous_clauses ~f:(fun tc ->
-        Fmt.pr "[Clause before %a] %a\n" Id.pp key.x Id.pp tc.id ;
+        (* Fmt.pr "[Clause before %a] %a\n" Id.pp key.x Id.pp tc.id ; *)
         let term_prev = Lookup_key.with_x key tc.id in
         Global_state.add_phi state term_detail
           (Riddler.picked_imply key term_prev) ;
         run_task term_prev) ;
-
-    Fmt.pr "[Clause counts = %d]\n" (List.length previous_clauses) ;
 
     LLog.app (fun m -> m "[Lookup][<=]: %a" Lookup_key.pp key) ;
 

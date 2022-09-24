@@ -57,9 +57,7 @@ let get_f_return map fid term =
   let key_ret = of3 x' r_stk' fblock in
   key_ret
 
-let return_key_of_cond key block_map beta =
-  let cond_block = Cfg.find_cond_block key.x block_map beta in
-
+let return_key_of_cond key beta cond_block =
   let x_ret = Cfg.ret_of cond_block in
   let beta_stack = Rstack.push key.r_stk (key.x, Id.cond_fid beta) in
   of3 x_ret beta_stack cond_block

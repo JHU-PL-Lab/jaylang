@@ -143,7 +143,7 @@ module Make (S : S) = struct
     U.by_bind_u S.unroll key key_x2 cb
 
   let cond_btm p (this_key : Lookup_key.t) phis_top run_task =
-    let ({ x; x' } : Cond_btm_rule.t) = p in
+    let ({ x; x'; cond_both } : Cond_btm_rule.t) = p in
     let term_c = Lookup_key.with_x this_key x' in
 
     (* Method 1 : lookup condition then lookup beta-case *)
@@ -151,33 +151,36 @@ module Make (S : S) = struct
 
     let cb (this_key : Lookup_key.t) (rc : Ddse_result.t) =
       List.iter [ true; false ] ~f:(fun beta ->
-          let key_ret =
-            Lookup_key.return_key_of_cond this_key S.block_map beta
+          let cond_case_block_opt =
+            if beta then cond_both.then_ else cond_both.else_
           in
+          match cond_case_block_opt with
+          | Some cond_case_block ->
+              let key_ret =
+                Lookup_key.return_key_of_cond this_key beta cond_case_block
+              in
+              let phi_beta = Riddler.eqv rc.v (Value_bool beta) in
+              let phis_top_with_c =
+                Phi_set.(add (union rc.phis phis_top) phi_beta)
+              in
+              (* match Riddler.check_phis (Phi_set.to_list phis_top_with_c) false with
+                 | Some _ -> *)
+              run_task key_ret phis_top_with_c ;
 
-          let phi_beta = Riddler.eqv rc.v (Value_bool beta) in
-          let phis_top_with_c =
-            Phi_set.(add (union rc.phis phis_top) phi_beta)
-          in
-          (* match Riddler.check_phis (Phi_set.to_list phis_top_with_c) false with
-             | Some _ -> *)
-          run_task key_ret phis_top_with_c ;
-
-          (* Method 1-a: slow in looping *)
-          (* let cb this_key (r_ret : Ddse_result.t) =
-               U.by_map_u S.unroll this_key r_ret.v
-                 (return_with_phis this_key
-                    (Phi_set.add rc.phis phi_beta)
-                    r_ret) ;
-               Lwt.return_unit
-             in
-             U.by_bind_u S.unroll this_key key_ret cb) *)
-          (* Method 1-b: slow in looping *)
-          let choice_beta = (term_c, beta) in
-          U.by_filter_map_u S.unroll this_key key_ret
-            (return_phis_with_beta this_key [ phi_beta ] [ choice_beta ] rc))
-      (* End of Method 1-a/b *)
-      (* | None -> ()  *) ;
+              (* Method 1-a: slow in looping *)
+              (* let cb this_key (r_ret : Ddse_result.t) =
+                   U.by_map_u S.unroll this_key r_ret.v
+                     (return_with_phis this_key
+                        (Phi_set.add rc.phis phi_beta)
+                        r_ret) ;
+                   Lwt.return_unit
+                 in
+                 U.by_bind_u S.unroll this_key key_ret cb) *)
+              (* Method 1-b: slow in looping *)
+              let choice_beta = (term_c, beta) in
+              U.by_filter_map_u S.unroll this_key key_ret
+                (return_phis_with_beta this_key [ phi_beta ] [ choice_beta ] rc)
+          | None -> ()) ;
 
       Lwt.return_unit
     in

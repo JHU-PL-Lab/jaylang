@@ -16,7 +16,7 @@ type clause_list = tl_clause list [@@deriving show { with_path = false }]
 type fun_block_info = { outer_id : ident; para : ident; callsites : ident list }
 [@@deriving show { with_path = false }]
 
-type cond_block_info = {
+type cond_case_info = {
   outer_id : ident;
   cond : ident;
   condsite : ident;
@@ -25,16 +25,18 @@ type cond_block_info = {
 }
 [@@deriving show { with_path = false }]
 
-type block_kind = Main | Fun of fun_block_info | Cond of cond_block_info
+type block_kind = Main | Fun of fun_block_info | Cond of cond_case_info
 [@@deriving show { with_path = false }]
 
 type block = { id : Id.t; clauses : clause_list; kind : block_kind }
 [@@deriving show { with_path = false }]
 
+type cond_both_info = { then_ : block option; else_ : block option }
+
 type def_site =
   | At_clause of tl_clause
   | At_fun_para of bool * fun_block_info
-  | At_chosen of cond_block_info
+  | At_chosen of cond_case_info
   | Lookup_mismatch
 
 type t = block [@@deriving show { with_path = false }]
@@ -76,26 +78,25 @@ let find_block_by_id x block_map =
          else None)
   |> Option.value_exn
 
-let find_cond_blocks x block_map =
-  block_map |> Ident_map.values |> bat_list_of_enum
-  |> List.filter_map ~f:(fun block ->
-         match block.kind with
-         | Cond cb ->
-             if cb.possible
-             then
-               if Id.equal cb.condsite x then Some (cb.choice, block) else None
-             else None
-         | _ -> None)
-
-let find_cond_block x block_map beta =
-  block_map |> Ident_map.values |> bat_list_of_enum
-  |> List.find_exn ~f:(fun block ->
-         match block.kind with
-         | Cond cb ->
-             if cb.possible
-             then Id.equal cb.condsite x && Bool.( = ) cb.choice beta
-             else false
-         | _ -> false)
+let find_cond_blocks ?(init = false) x block_map =
+  let cond_case_infos =
+    block_map |> Ident_map.values |> bat_list_of_enum
+    |> List.filter_map ~f:(fun block ->
+           match block.kind with
+           | Cond cb ->
+               if Id.equal cb.condsite x
+               then Some (cb.choice, block, cb)
+               else None
+           | _ -> None)
+  in
+  match cond_case_infos with
+  | [ (true, block_true, cb_true); (false, block_false, cb_false) ]
+  | [ (false, block_false, cb_false); (true, block_true, cb_true) ] ->
+      {
+        then_ = (if cb_true.possible then Some block_true else None);
+        else_ = (if cb_false.possible then Some block_false else None);
+      }
+  | _ -> failwith "find_cond_blocks must find two blocks"
 
 let clause_of_x block x =
   List.find ~f:(fun tc -> Ident.equal tc.id x) block.clauses
@@ -158,24 +159,23 @@ let make_cond_block_possible tl_map acls cfg =
         (cond_site, None)
     | _ -> failwith "wrong precondition to call"
   in
-  let make_block_possible block =
+  let make_block_impossible block =
     let cond_block_info = cast_to_cond_block_info block in
-    let cond_block_info' = { cond_block_info with possible = true } in
+    let cond_block_info' = { cond_block_info with possible = false } in
     let block' = { block with kind = Cond cond_block_info' } in
     tl_map := Ident_map.add block.id block' !tl_map
   in
 
-  let cond_blocks = find_cond_blocks cond_site !tl_map in
-  match cond_blocks with
-  | [ (true, block_true); (false, block_false) ]
-  | [ (false, block_false); (true, block_true) ] -> (
-      match possible with
-      | Some beta ->
-          make_block_possible (if beta then block_true else block_false)
-      | None ->
-          make_block_possible block_true ;
-          make_block_possible block_false)
-  | _ -> failwith "make_cond_block_possible must find two blocks"
+  let cond_both = find_cond_blocks cond_site !tl_map in
+  match possible with
+  | Some beta ->
+      let beta_block =
+        if beta
+        then Option.value_exn cond_both.else_
+        else Option.value_exn cond_both.then_
+      in
+      make_block_impossible beta_block
+  | None -> ()
 
 let _add_callsite site block =
   match block.kind with

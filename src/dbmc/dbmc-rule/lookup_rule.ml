@@ -109,7 +109,7 @@ module Make (S : S) = struct
 
   let cond_btm p (key : Lookup_key.t) =
     let this_key = key in
-    let ({ x; x' } : Cond_btm_rule.t) = p in
+    let ({ x; x'; cond_both } : Cond_btm_rule.t) = p in
     let term_c = Lookup_key.with_x this_key x' in
     let next _ (r : Lookup_result.t) =
       if r.status
@@ -117,22 +117,25 @@ module Make (S : S) = struct
         let sub = this_key in
         let nexts =
           List.filter_map [ true; false ] ~f:(fun beta ->
-              if true
-                 (* Riddler.step_eager_check S.state S.config term_c
+              let cond_case_block_opt =
+                if beta then cond_both.then_ else cond_both.else_
+              in
+              (* Riddler.step_eager_check S.state S.config term_c
                      [ Riddler.eqv term_c (Value_bool beta) ]
                      S.config.stride *)
-              then
-                let key_ret =
-                  Lookup_key.return_key_of_cond key S.block_map beta
-                in
-                Some (Direct { sub = this_key; pub = key_ret; phis = [] })
-              else None)
+              match cond_case_block_opt with
+              | Some cond_case_block ->
+                  let key_ret =
+                    Lookup_key.return_key_of_cond key beta cond_case_block
+                  in
+                  Some (Direct { sub = this_key; pub = key_ret; phis = [] })
+              | None -> None)
         in
         Some (Or_list { sub; nexts; unbound = false; phis = [] })
       else None
     in
 
-    let phis = [ Riddler.cond_bottom this_key term_c S.block_map ] in
+    let phis = [ Riddler.cond_bottom this_key term_c cond_both ] in
     Chain { sub = this_key; pub = term_c; next; phis }
 
   let fun_enter_local p (key : Lookup_key.t) =

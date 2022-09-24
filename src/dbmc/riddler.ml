@@ -126,14 +126,22 @@ let cond_top term term_x term_c beta =
           eqv term_c (Value_bool beta);
         ]
 
-let cond_bottom term term_c block_map =
+let cond_bottom term term_c cond_both =
   let cs, rs =
     List.fold [ true; false ] ~init:([], []) ~f:(fun (cs, rs) beta ->
-        let term_ret = Lookup_key.return_key_of_cond term block_map beta in
-        let p_ret = picked term_ret in
-        let eq_beta = eqv term_c (Value_bool beta) in
-        let eq_lookup = eq term term_ret in
-        (cs @ [ p_ret ], rs @ [ p_ret @=> and2 eq_beta eq_lookup ]))
+        let cond_case_block_opt =
+          if beta then cond_both.then_ else cond_both.else_
+        in
+        match cond_case_block_opt with
+        | Some cond_case_block ->
+            let term_ret =
+              Lookup_key.return_key_of_cond term beta cond_case_block
+            in
+            let p_ret = picked term_ret in
+            let eq_beta = eqv term_c (Value_bool beta) in
+            let eq_lookup = eq term term_ret in
+            (cs @ [ p_ret ], rs @ [ p_ret @=> and2 eq_beta eq_lookup ])
+        | None -> (cs, rs))
   in
   picked term @=> and_ (or_ cs :: rs)
 

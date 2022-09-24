@@ -32,11 +32,11 @@ module Record_start_rule = struct
 end
 
 module Cond_top_rule = struct
-  type t = Cfg.cond_block_info
+  type t = Cfg.cond_case_info
 end
 
 module Cond_btm_rule = struct
-  type t = { x : Id.t; x' : Id.t }
+  type t = { x : Id.t; x' : Id.t; cond_both : Cfg.cond_both_info }
 end
 
 module Fun_enter_local_rule = struct
@@ -86,7 +86,7 @@ type t =
   | Abort of Abort_rule.t
   | Mismatch
 
-let rule_of_runtime_status (key : Lookup_key.t) : t =
+let rule_of_runtime_status (key : Lookup_key.t) block_map : t =
   let x = key.x in
   let block = key.block in
   let open Cfg in
@@ -110,7 +110,8 @@ let rule_of_runtime_status (key : Lookup_key.t) : t =
       } ->
           Binop { x; bop; x1; x2 }
       | { clause = Clause (_, Conditional_body (Var (x', _), _, _)); _ } ->
-          Cond_btm { x; x' }
+          let cond_both_info = Cfg.find_cond_blocks x block_map in
+          Cond_btm { x; x'; cond_both = cond_both_info }
       | {
        clause = Clause (_, Appl_body (Var (xf, _), Var (_xv, _)));
        cat = App fids;
