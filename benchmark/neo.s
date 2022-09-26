@@ -11,13 +11,15 @@
   ; rosette
 
   (testcases_to_time (
+    ;
+    ; ICFP'20 Remake
+    ;
     ; recursive flip a boolean
     ; "input_blur.jay"
-
     ; the sum of two products
     ; "facehugger.jay"
-
     ; "list_flatten.jay"
+    ;; "input_eta.jay"
 
     ; "ddse/k_cfa_2.jay"
     ; "k_cfa_3.jay"
@@ -25,24 +27,27 @@
     ; "input_mj09.jay"
     ; "input_sat_1.jay"
     ; "input_sat_1_direct.jay"
-    ; "smbc_fold0s.jay"
+
+    ;
+    ; SMBC Remake
+    ;
+
+    ;"smbc/fold/fold0.jay"
+    
+    ; slow to encode encode the `eval`
+    ; "smbc/expr/expr0.jay"
+
+    ; "smbc/palindromes/long_rev_sum3.jay
+
     ; "smbc_gen_list_len.jay"
     ; "smbc_long_rev_sum3.jay"
     ; "smbc_pigeon.jay"
     ; "smbc_sorted_sum.jay"
 
-    ;;  
-    ;; "input_eta.jay"
 
-    "smbc/fold/fold0.jay"
 
-    ; need to encode uninterpreted function
-    ;"smbc/fold/fold1s.jay"
 
-    ; slow to encode encode the `eval`
-    ; "smbc/expr/expr0.jay"
-
-    ; see _buggy_list_append.jay first
+    
     ; long_rev_sum3.jay
 
     ; smbc/pigeon/pigeon4.jay

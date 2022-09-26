@@ -73,32 +73,112 @@ let rec eq_e e1 e2 =
   end
 in
 
-let step1 e = 
-  match e with
+let step1 x = 
+  match x with
+  # idea of plus when pe = y + b
+  # if b is `N 0 then y else x2 where 
+  # x2 is 
+  #    if y is the same as b then y * 2
+  #    else case y
+  #      when y is another sum, change the association
+  #      (the following is buggy)
+  #      when y is a fetch and b is the same another fetchn, y * 2
+  #      when y is a fetch only or otherwise, return the default 
   | `Plus pe ->
     let y = pe.e1 in
     let b = pe.e2 in
     let z = 
       let x2 = 
-        if eq_e y b then 1 else 1
+        if eq_e y b then 
+          (`Mul {e1 = `N 2, e2 = y})
+        else
+          match y with
+          | `Plus py ->
+            let a = py.e1 in
+            let c = py.e2 in     
+            let pac = `Plus {e1 = c, e2 = b} in       
+            `Plus {e1 = a, e2 = pac}
+          | `V x3 ->
+            match b with
+            | `V y2 -> 
+              # buggy point, should be _equal y2 x3_
+              if equal x3 x3 then
+                `Mul {e1 = `N 2, e2 = y}
+              else
+                x
+            | _ -> x
+            end
+          | _ -> x
+          end
       in
-      x2
+        match b with
+        | `N x4 -> 
+          if x4 == 0 then y else x2
+        | _ -> x2
+        end
     in
       match y with
       | `N x6 -> 
         if x6 == 0 then b else z
       | _ -> 0
       end
-  | _ -> e
+  | `Mult me ->
+    let x8 = me.e1 in
+    let b2 = me.e2 in
+    let x9 = 
+      let x10 = 
+        let x11 = 
+          let x12 =
+            match x8 with
+            | `Mul ab ->
+              let a2 = ab.e1 in
+              let b3 = ab.e2 in
+              `Mul {e1 = a2, e2 = (`Mul {e1 = b3, e2 = b2})}
+            | _ -> x
+            end
+          in 
+            match b2 with
+            | `N x13 ->
+              # not good, can be 0, not x12
+              if x13 == 0 then x12
+              else if x13 == 1 then x8
+              else x12            
+            | _ -> x12
+            end
+        in
+          match x8 with
+          | `N x16 ->
+            if x16 == 0 then x11
+            else if x16 == 1 then b2
+            else x11
+          | _ -> x11
+          end
+      in
+        match b2 with
+        | `N x19 -> if x19 == 0 then 0 else x10
+        | _ -> x10
+        end
+    in
+      match x8 with
+      | `N x21 -> if x21 == 0 then 0 else x9
+      | _ -> x9
+      end
+  | `Eq ee ->
+    let a3 = ee.e1 in
+    let b4 = ee.e2 in
+    if eq_e a3 b4 then `N {e1 = 1} else x
+  | _ -> x
   end
 in
 
 let rec simp1 e =
   match e with
   | `Plus e -> 
-    let e3 = simp1 e.e1 in
-    let e4 = simp1 e.e2 in
-    step1 (`Plus {e1 = e3, e2 = e4})
+    step1 (`Plus {e1 = simp1 e.e1, e2 = simp1 e.e2})
+  | `Mult e -> 
+      step1 (`Mult {e1 = simp1 e.e1, e2 = simp1 e.e2})
+  | `Eq e -> 
+    step1 (`Eq {e1 = simp1 e.e1, e2 = simp1 e.e2})
   | _ -> step1 e
   end
 in
@@ -113,9 +193,10 @@ let e3 = `Minus {e1 = n5, e2 = n4} in
 let n6 = `N 6 in
 let v2 = `V 2 in
 let e4 = `Mult {e1 = e3, e2 = v2} in
-# let b5 = `Eq {e1 = n4, e2 = n5} in
 let e5 = `Plus {e1 = e4, e2 = n3} in
-#let e5 = `Plus {e1 = e4, e2 = b5} in
+
+let p34 = `Plus {e1 = n3, e2 = n4} in
+let m34 = `Mult {e1 = n3, e2 = n4} in
 
 let rec gen_e d =
   let seed = input in
@@ -129,10 +210,13 @@ let rec gen_e d =
 in
 let r1 = gen_e 0 in
 
-if eval [] r1 == 3
-  # eq_e e5 e5
-  # (fetch l0 1) == x 
-  # and (eval l0 e3) == y 
+if eval [] (simp1 p34) == 7
+  # eval [] (simp1 r1) == 3 
+  # eval [] (simp1 n3) == 3
+   # eval [] r1 == 3
+   # eq_e e5 e5
+   # (fetch l0 1) == x 
+   # and (eval l0 e3) == y 
 then
   let target = 1 in 1
 else
