@@ -188,7 +188,7 @@ let test_one_file testname () =
       filename = testname;
       sato_mode = File_utils.mode_from_file testname;
       ddpa_c_stk = Sato_args.default_ddpa_c_stk;
-      timeout = None;
+      timeout = Some (Time.Span.of_int_sec 5);
       run_max_step = None;
     }
   in
@@ -222,5 +222,5 @@ let main test_path =
   Alcotest.run "Sato" grouped_tests ;
   ()
 
-(* let () = main "test-sato" *)
-let () = main "test-sato/playing-ground"
+let () = main "test-sato"
+(* let () = main "test-sato/playing-ground" *)

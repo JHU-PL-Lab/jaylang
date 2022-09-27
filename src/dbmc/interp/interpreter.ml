@@ -381,7 +381,10 @@ and eval_clause ~session stk env clause : denv * dvalue =
             in
             let () =
               print_endline @@ "stack equal: "
-              ^ string_of_bool (Concrete_stack.equal tar_stk stk)
+              ^ string_of_bool
+                  (Concrete_stack.equal tar_stk
+                     (Concrete_stack.of_list @@ List.rev
+                    @@ Concrete_stack.to_list @@ stk))
             in
             let () = print_endline @@ "-------------" in
             let () = print_endline @@ "expected id  : " ^ show_ident target in
