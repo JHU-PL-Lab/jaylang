@@ -267,7 +267,6 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       let assignment_clause = Ast.Clause (lt_var, Var_body e1_var) in
       return (e1_clist @ [ assignment_clause ] @ e2_clist, e2_var)
   | LetFun (sign, e) ->
-      (* TODO: check for bugs!!! *)
       (* Translating the function signature... *)
       let (Funsig (fun_name, id_list, fun_e)) = sign in
       let%bind body_clist, _ = nonempty_body expr_desc @@@ recurse fun_e in
