@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 open Hashcons
 
 module TT = struct
@@ -151,45 +152,3 @@ end
 
 include TT
 include CC
-
-(*
-let str_of_id h = str_of_id (lift_to_stack h)
-
-   let rec lift_to_hstack = function
-     | Empty -> empty
-     | Cons { prev; op; frame } -> cons op (lift_to_hstack prev) frame
-
-   let rec lift_to_stack h =
-     match h.node with
-     | Empty -> Empty
-     | Cons { prev; op; frame } -> Cons { op; frame; prev = lift_to_stack prev }
-
-   let stack_of_sexp s =
-     let node = t_of_sexp s in
-     let hnode = lift_to_hstack node in
-     hnode
-
-   let sexp_of_stack (h : stack) =
-     let node = lift_to_stack h in
-     sexp_of_t node
-
-   let rec compare_stack (h1 : stack) (h2 : stack) =
-     match (h1.node, h2.node) with
-     | Empty, Empty -> 0
-     | Cons cell1, Cons cell2 ->
-         Std.chain_compare
-           (fun () ->
-             Std.chain_compare
-               (fun () -> T.compare_op cell1.op cell2.op)
-               (fun () -> T.compare_frame cell1.frame cell2.frame))
-           (fun () -> compare_stack cell1.prev cell2.prev)
-     | Empty, _ -> -1
-     | _, Empty -> 1
-
-   let equal_stack (h1 : stack) (h2 : stack) = X.equal h1.node h2.node
-
-   let hasfold_stack state (stack : stack) =
-     match stack.node with
-     | Empty -> Hash.fold_int state 0
-     | Cons { prev; op; frame } ->
-         Hash.fold_int (T.hasfold_op (T.hasfold_frame state frame) op) prev.tag *)

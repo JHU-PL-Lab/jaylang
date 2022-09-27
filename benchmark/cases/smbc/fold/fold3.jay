@@ -1,11 +1,12 @@
-let x = input in
+let gen n = input in
 let f n = 
-  let fx = input in
-  fx == 0
+  let v = gen n in
+  v == 0
 in
-let s1 = f 0 in
-let s2 = f 0 in
-if s1 and (not s2) then
+let f3 = f 3 in
+let f4 = f 4 in
+let g3 = f 3 in
+if f3 and (not f4) and (not g3) then
   let target = 0 in target
 else 
   42

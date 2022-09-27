@@ -8,10 +8,12 @@ open Log.Export
 *)
 
 type ('key, 'r) job = { key : 'key; payload : unit -> 'r Lwt.t }
+type ('key, 'r) t = ('key, 'r) job Pairing_heap.t
 
-let compare j1 j2 = -Lookup_key.compare j1.key j2.key
-let create_with ~cmp () = Pairing_heap.create ~cmp ()
-let create ~cmp () = Pairing_heap.create ~cmp ()
+let create ~cmp_key () =
+  let cmp j1 j2 = cmp_key j1.key j2.key in
+  Pairing_heap.create ~cmp ()
+
 let push h key payload = Pairing_heap.add h { key; payload }
 let pull h : ('key, 'r) job option = Pairing_heap.pop h
 
@@ -20,10 +22,6 @@ let rec run ?(is_empty = false) q : 'a Lwt.t =
   Lwt_mutex.lock Control_center.mutex >>= fun () ->
   Lwt_mutex.unlock Control_center.mutex ;
   (* LLog.app (fun m -> m "[Queue]size = %d" (Pairing_heap.length q)) ; *)
-  (* LLog.app (fun m ->
-      m "[Queue]%a"
-        (Fmt.Dump.list Lookup_key.pp)
-        (q |> Pairing_heap.to_list |> List.map ~f:(fun t -> t.key))) ; *)
   match pull q with
   | Some job ->
       (* ignore @@ job (); *)
@@ -38,6 +36,7 @@ let rec run ?(is_empty = false) q : 'a Lwt.t =
       else (
         Lwt.pause () ;%lwt
         run ~is_empty:true q)
+(* end *)
 
 (*
 Can a queue be empty? Should it raise an exception when it's empty?

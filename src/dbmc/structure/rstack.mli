@@ -1,3 +1,4 @@
+open Dj_common
 include module type of Rstack_intf
 
 val empty : t

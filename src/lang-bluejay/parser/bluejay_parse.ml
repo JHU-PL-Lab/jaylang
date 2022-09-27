@@ -1,5 +1,3 @@
-module OCaml_lexing = Lexing
-open Batteries
 open Lexing
 
 exception Parse_error of exn * int * int * string
@@ -13,12 +11,8 @@ let handle_parse_error buf f =
     let tok = lexeme buf in
     raise @@ Parse_error (exn, line, column, tok)
 
-let parse_program (input : IO.input) =
+let parse_program (input : in_channel) =
   let buf = Lexing.from_channel input in
-  handle_parse_error buf (fun () -> Bluejay_parser.prog Bluejay_lexer.token buf)
-
-let parse_program_raw (input : in_channel) =
-  let buf = OCaml_lexing.from_channel input in
   handle_parse_error buf @@ fun () ->
   Bluejay_parser.prog Bluejay_lexer.token buf
 
@@ -27,8 +21,9 @@ let parse_expression_string (expr_str : string) =
   let read_expr () =
     handle_parse_error buf (fun () ->
         Bluejay_parser.delim_expr Bluejay_lexer.token buf)
+    |> Option.map (fun e -> (e, ()))
   in
-  LazyList.to_list @@ LazyList.from_while read_expr
+  Seq.unfold read_expr () |> List.of_seq
 
 let parse_single_expr_string (expr_str : string) =
   let expr_lst = parse_expression_string expr_str in

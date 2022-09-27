@@ -1,7 +1,5 @@
 (** A front-end for the parser library. *)
 
-module OCaml_Lexing = Lexing
-open Batteries
 open Lexing
 
 exception Parse_error of exn * int * int * string
@@ -15,20 +13,21 @@ let handle_parse_error buf f =
     let tok = lexeme buf in
     raise @@ Parse_error (exn, line, column, tok)
 
-let parse_expressions (input : IO.input) =
+let parse_program (input : in_channel) =
   let buf = Lexing.from_channel input in
+  handle_parse_error buf @@ fun () -> Parser.prog Lexer.token buf
+
+let parse_program_str input =
+  let buf = Lexing.from_string input in
+  handle_parse_error buf @@ fun () -> Parser.prog Lexer.token buf
+
+let parse_expressions_str input =
+  let buf = Lexing.from_string input in
   let read_expr () =
-    handle_parse_error buf @@ fun () -> Parser.delim_expr Lexer.token buf
+    (handle_parse_error buf @@ fun () -> Parser.delim_expr Lexer.token buf)
+    |> Option.map (fun e -> (e, ()))
   in
-  LazyList.from_while read_expr
+  Seq.unfold read_expr ()
 
-let parse_program (input : IO.input) =
-  let buf = Lexing.from_channel input in
-  handle_parse_error buf @@ fun () -> Parser.prog Lexer.token buf
-
-let parse_program_raw (input : in_channel) =
-  let buf = OCaml_Lexing.from_channel input in
-  handle_parse_error buf @@ fun () -> Parser.prog Lexer.token buf
-
-let parse_string s = s |> IO.input_string |> parse_program
-let parse_expressions_str s = s |> IO.input_string |> parse_expressions
+let parse_string = parse_program_str
+let parse_expressions_str = parse_expressions_str

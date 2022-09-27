@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 
 type ('node, 'leaf) gate =
   | Open
@@ -79,8 +80,9 @@ open Node
 
 let mk_edge pred succ = { pred; succ }
 
-let root_node block_id x =
-  { block_id; key = Lookup_key.start x; gate = Open; preds = [] }
+let root_node block x =
+  let block_id = block.Cfg.id in
+  { block_id; key = Lookup_key.start x block; gate = Open; preds = [] }
 
 let mk_node ~block_id ~key = { block_id; key; gate = Open; preds = [] }
 

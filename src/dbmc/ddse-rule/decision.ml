@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 
 module T = struct
   type t = { r_stk : Rstack.t; v : Id.t }

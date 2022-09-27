@@ -31,6 +31,8 @@ and t = {
   debug_phi : bool;
   debug_model : bool;
   debug_graph : bool;
+  debug_interpreter : bool;
+  is_check_per_step : bool;
 }
 [@@deriving show { with_path = false }]
 
@@ -55,6 +57,8 @@ let default_config =
     debug_phi = false;
     debug_model = true;
     debug_graph = false;
+    debug_interpreter = false;
+    is_check_per_step = false;
   }
 
 let check_wellformed_or_exit ast =

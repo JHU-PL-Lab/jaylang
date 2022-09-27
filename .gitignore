@@ -48,3 +48,4 @@ benchmark/result
 # local files (ignored by default)
 /_notes
 *.txt
+vendor

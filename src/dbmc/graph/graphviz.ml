@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 
 module Palette = struct
   let int_of_rgb r g b = (r * 256 * 256) + (g * 256) + b
@@ -196,10 +197,13 @@ module DotPrinter_Make (S : GS) = struct
         let content =
           let phis_string =
             let term_detail = Hashtbl.find S.state.term_detail_map node.key in
-            Option.value_map term_detail ~default:"" ~f:(fun dd ->
-                Option.value_map dd.phi ~default:"" ~f:(fun d ->
-                    d |> Z3.Expr.to_string |> label_escape))
+            let phis =
+              Option.value_map term_detail ~default:[] ~f:(fun d -> d.phis)
+            in
+            let phi = Riddler.and_ phis in
+            phi |> Z3.Expr.to_string |> label_escape
           in
+
           let phi_status =
             ""
             (* match Hashtbl.find S.state.noted_phi_map node.key with
@@ -223,22 +227,21 @@ module DotPrinter_Make (S : GS) = struct
                    | None -> "")
                | None -> "" *)
           in
-          let pvar = Global_state.pvar_picked S.state node.key in
           let outputs =
             []
             (* Unrolls.U_dbmc.get_messages S.state.unroll node.key
                |> List.map ~f:(fun m -> m.from) *)
           in
           Fmt.str
-            "{ {[%s] | %a} | %a | %a | %s | {φ | { %s %s } } | %B | {out | %a \
-             } | %s}"
+            "{ {[%s] | %a} | %a | %a | %s | {φ | { %s %s } } | {out | %a } | \
+             %s}"
             (Id.show node.key.x)
             (Fmt.option Solver.pp_value)
             key_value
             (Fmt.option Jayil.Pp_graph.clause)
             clause Rstack.pp node.key.r_stk
             (Rstack.to_string node.key.r_stk)
-            phis_string phi_status pvar
+            phis_string phi_status
             (Fmt.Dump.list Lookup_key.pp)
             outputs rule
         in

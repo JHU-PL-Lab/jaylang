@@ -22,7 +22,7 @@ let string_of_binop = function
   | Binary_operator_less_than -> "<"
   | Binary_operator_less_than_or_equal_to -> "<="
   | Binary_operator_equal_to -> "=="
-  | Binary_operator_not_equal_to -> "=="
+  | Binary_operator_not_equal_to -> "<>"
   | Binary_operator_and -> "and"
   | Binary_operator_or -> "or"
 

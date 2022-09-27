@@ -1,11 +1,14 @@
 open Core
 include Types.State
+open Dj_common
+
+let job_key_compare (t1 : Lookup_key.t) (t2 : Lookup_key.t) =
+  Int.compare (Lookup_key.length t1) (Lookup_key.length t2)
 
 let create (config : Global_config.t) program =
   let target = config.target in
   let block_map = Cfg.annotate program target in
-
-  let block0 = Cfg.block_of_id target block_map in
+  let block0 = Cfg.find_block_by_id target block_map in
   let state =
     {
       first = Jayil.Ast_tools.first_id program;
@@ -13,64 +16,28 @@ let create (config : Global_config.t) program =
       program;
       block_map;
       source_map = lazy (Ddpa.Ddpa_helper.clause_mapping program);
-      root_node =
-        ref (Search_graph.root_node (block0 |> Cfg.id_of_block) target);
+      job_queue = Scheduler.create ~cmp_key:job_key_compare ();
+      root_node = ref (Search_graph.root_node block0 target);
       tree_size = 1;
       term_detail_map = Hashtbl.create (module Lookup_key);
-      phis_z3 = [];
-      (* phi_map = Hashtbl.create (module Lookup_key); *)
+      phis = [];
       input_nodes = Hash_set.create (module Lookup_key);
       lookup_created = Hash_set.create (module Lookup_key);
       smt_lists = Hashtbl.create (module Lookup_key);
       lookup_alert = Hash_set.create (module Lookup_key);
       (* unroll = Unrolls.U_dbmc.create (); *)
-      (* noted_phi_map = Hashtbl.create (module Lookup_key); *)
-      node_set = Hashtbl.create (module Lookup_key);
-      node_get = Hashtbl.create (module Lookup_key);
       rstk_picked = Hashtbl.create (module Rstack);
       solver = Solver.solver;
     }
   in
+  (* Global_state.lookup_alert state key_target state.root_node; *)
   state
 
-let clear_phis state = state.phis_z3 <- []
-(*
-   let add_phi state key phis =
-     Hashtbl.add_exn state.phi_map ~key ~data:phis ;
-     state.phis_z3 <- phis :: state.phis_z3 *)
+let clear_phis state = state.phis <- []
 
-(* let find_node_exn state key = Hashtbl.find_exn state.key_map key *)
-
-(* let init_node state key node =
-   Hash_set.strict_add_exn state.lookup_created key ;
-   Hashtbl.add_exn state.key_map ~key ~data:node ;
-   node *)
-
-(* let find_or_add_node state key block node_parent =
-   let exist, node_child =
-     match Hashtbl.find state.key_map key with
-     | Some node_child -> (true, node_child)
-     | None ->
-         let node_child =
-           init_node state key
-             (ref
-                (Node.mk_node ~block_id:(Cfg.id_of_block block) ~key
-                   ~rule:Node.pending_node))
-         in
-         (false, node_child)
-   in
-   let edge = Node.mk_edge node_parent node_child in
-   Node.add_pred node_child edge ;
-   (exist, node_child) *)
-
-let pvar_picked state key = not (Hash_set.mem state.lookup_created key)
-
-(* let refresh_picked state model =
-   Hashtbl.clear state.rstk_picked;
-   Hashtbl.iter_keys state.key_map ~f:(fun key ->
-       if Riddler.is_picked (Some model) key
-       then ignore @@ Hashtbl.add state.rstk_picked ~key:key.r_stk ~data:true
-       else ()) *)
+let add_phi (state : t) (term_detail : Term_detail.t) phi =
+  term_detail.phis <- phi :: term_detail.phis ;
+  state.phis <- phi :: state.phis
 
 (* let picked_from model key =
      Option.value

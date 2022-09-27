@@ -29,7 +29,7 @@ let () =
                                let es =
                                  Jayil_parser.Parse.parse_expressions_str e0
                                in
-                               LazyList.iter
+                               Seq.iter
                                  (fun e ->
                                    ignore
                                    @@ Toploop.handle_expression

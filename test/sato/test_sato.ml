@@ -13,9 +13,7 @@ let group_all_files dir =
               let fullpath = Filename.concat dir path in
               match Sys_unix.is_directory fullpath with
               | `Yes -> (acc_f, loop fullpath @ acc_p)
-              | `No when Jayil.File_utils.check_ext fullpath ->
-                  (fullpath :: acc_f, acc_p)
-              | `No when File_utils.is_bluejay_ext fullpath ->
+              | `No when Dj_common.File_utils.check_upto_bluejay fullpath ->
                   (fullpath :: acc_f, acc_p)
               | `No -> (acc_f, acc_p)
               | `Unknown -> (acc_f, acc_p)))
@@ -190,7 +188,7 @@ let test_one_file testname () =
       filename = testname;
       sato_mode = File_utils.mode_from_file testname;
       ddpa_c_stk = Sato_args.default_ddpa_c_stk;
-      timeout = Some (Time.Span.of_int_sec 10);
+      timeout = None;
       run_max_step = None;
     }
   in
@@ -224,5 +222,5 @@ let main test_path =
   Alcotest.run "Sato" grouped_tests ;
   ()
 
-let () = main "test-sato"
-(* let () = main "test-sato/playing-ground" *)
+(* let () = main "test-sato" *)
+let () = main "test-sato/playing-ground"

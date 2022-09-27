@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 open Dbmc
 
 type config = {
@@ -106,9 +107,7 @@ let group_all_files dir =
               let fullpath = Filename.concat dir path in
               match Sys_unix.is_directory fullpath with
               | `Yes -> (acc_f, loop fullpath @ acc_p)
-              | `No when Jay.File_utils.check_ext fullpath ->
-                  (fullpath :: acc_f, acc_p)
-              | `No when Jayil.File_utils.check_ext fullpath ->
+              | `No when File_utils.check_upto_jay fullpath ->
                   (fullpath :: acc_f, acc_p)
               | `No -> (acc_f, acc_p)
               | `Unknown -> (acc_f, acc_p)))
@@ -118,15 +117,11 @@ let group_all_files dir =
   in
   loop dir
 
-(* let int_option_checker : int option Alcotest.testable =
-   let eq ii jj = match (ii, jj) with Some i, Some j -> i = j | _, _ -> true in
-   Alcotest.testable Fmt.(Dump.option int) eq *)
-
 let test_one_file test_config testname () =
   let open Lwt.Syntax in
   let is_instrumented = test_config.is_instrumented in
 
-  let src = File_util.read_source ~is_instrumented testname in
+  let src = File_utils.read_source ~is_instrumented testname in
   let expectation = Test_expect.load_sexp_expectation_for testname in
   let config : Global_config.t =
     let filename = testname in
@@ -139,10 +134,10 @@ let test_one_file test_config testname () =
       timeout = test_config.timeout;
     }
   in
-  Dbmc.Log.init config ;
+  Dj_common.Log.init config ;
   match expectation with
   | None ->
-      let* _, is_timeout = Main_lwt.search_input ~config src in
+      let* { is_timeout; _ } = Main.main_lwt ~config src in
       prerr_endline "search_input, no expectation, end" ;
       Lwt.return
       @@ Alcotest.(check bool) "search_input: not timeout" false is_timeout
@@ -152,13 +147,15 @@ let test_one_file test_config testname () =
           let config = { config with target = Id.Ident expectation.target } in
           match List.hd expectation.inputs with
           | Some inputs ->
-              let* checked = Main_lwt.check_input ~config src inputs in
-              prerr_endline "check_input, with expectation, end" ;
+              let config =
+                { config with mode = Global_config.Dbmc_check inputs }
+              in
+              let* _ = Main.main_lwt ~config src in
+              let checked = false in
               Lwt.return
               @@ Alcotest.(check bool) "check_input: not timeout" false checked
           | None ->
-              let* inputss, _ = Main_lwt.search_input ~config src in
-              prerr_endline "search_input, end" ;
+              let* { inputss; _ } = Main.main_lwt ~config src in
               let () =
                 match List.hd inputss with
                 | Some _inputs ->
@@ -191,7 +188,7 @@ let main top_config =
   in
 
   Lwt_main.run @@ Alcotest_lwt.run_with_args "DBMC" config grouped_tests ;
-  Dbmc.Log.close () ;
+  Dj_common.Log.close () ;
   ()
 
 let () =

@@ -1,4 +1,5 @@
 open! Core
+open Dj_common
 
 (* Hashtbl.t is mutable by default.
    Using explicit *mutable* is for replacing a new one easier.
@@ -40,14 +41,14 @@ module State = struct
     program : Jayil.Ast.expr;
     block_map : Cfg.block Jayil.Ast.Ident_map.t;
     source_map : Jayil.Ast.clause Jayil.Ast.Ident_map.t Lazy.t;
+    job_queue : (Lookup_key.t, unit) Scheduler.t;
     (* graph *)
     root_node : Search_graph.node_ref;
     mutable tree_size : int;
     (* central: node attr *)
     term_detail_map : (Lookup_key.t, Term_detail.t) Hashtbl.t;
     (* constraints *)
-    mutable phis_z3 : Z3.Expr.expr list;
-    (* phi_map : (Lookup_key.t, Z3.Expr.expr) Hashtbl.t; *)
+    mutable phis : Z3.Expr.expr list;
     (* TODO: get this after smt solving *)
     input_nodes : Lookup_key.t Hash_set.t;
     (* pvar *)
@@ -56,12 +57,8 @@ module State = struct
     (* lookup *)
     (* unroll : Unrolls.U_dbmc.t; *)
     (* debug *)
-    (* noted_phi_map : (Lookup_key.t, (string * Z3.Expr.expr) list) Hashtbl.t; *)
-    (*  *)
     (* interpreter used *)
     lookup_alert : Lookup_key.t Hash_set.t;
-    node_set : (Lookup_key.t, bool) Hashtbl.t;
-    node_get : (Lookup_key.t, int) Hashtbl.t;
     rstk_picked : (Rstack.t, bool) Hashtbl.t;
     solver : Z3.Solver.solver;
   }

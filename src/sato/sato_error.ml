@@ -1,5 +1,6 @@
 open Core
 open Jhupllib
+open Dj_common
 open Jayil
 open Jay
 open Bluejay
@@ -216,13 +217,12 @@ end
 
 (* **** Jayil modules **** *)
 
-module Jayil_ident :
-  Error_ident with type t = Dbmc.Interpreter.Ident_with_stack.t = struct
-  type t = Dbmc.Interpreter.Ident_with_stack.t
+module Jayil_ident : Error_ident with type t = Id_with_stack.t = struct
+  type t = Id_with_stack.t
 
-  let equal = Dbmc.Interpreter.Ident_with_stack.equal
-  let pp = Dbmc.Interpreter.Ident_with_stack.pp
-  let show = Dbmc.Interpreter.Ident_with_stack.show
+  let equal = Id_with_stack.equal
+  let pp = Id_with_stack.pp
+  let show = Id_with_stack.show
   let to_yojson ident = `String (replace_linebreaks @@ show ident)
 end
 
@@ -414,9 +414,7 @@ let jayil_error_remove_instrument_vars
        in *)
     List.filter
       ~f:(fun alias_with_stack ->
-        let alias =
-          Dbmc.Interpreter.ident_from_id_with_stack alias_with_stack
-        in
+        let alias = Id_with_stack.id_of alias_with_stack in
         not
         @@ Jayil_instrumentation_maps.is_var_instrumenting jayil_jay_maps alias)
       aliases
@@ -528,12 +526,10 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
   match jayil_err with
   | Jayil_error.Error_binop err ->
       let l_aliases =
-        err.err_binop_left_aliases
-        |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
+        err.err_binop_left_aliases |> List.map ~f:Id_with_stack.id_of
       in
       let r_aliases =
-        err.err_binop_right_aliases
-        |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
+        err.err_binop_right_aliases |> List.map ~f:Id_with_stack.id_of
       in
       let l_aliases_jay = jayil_to_jay_aliases l_aliases in
       let r_aliases_jay = jayil_to_jay_aliases r_aliases in
@@ -564,10 +560,7 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           };
       ]
   | Jayil_error.Error_match err ->
-      let aliases =
-        err.err_match_aliases
-        |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
-      in
+      let aliases = err.err_match_aliases |> List.map ~f:Id_with_stack.id_of in
       (* let () = print_endline "Printing aliases" in
          let () = List.iter (fun a -> print_endline @@ Ast.show_ident a) aliases in
          let () = print_endline @@ show_expr ((jayil_to_jay_value aliases).body) in *)
@@ -582,10 +575,7 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           };
       ]
   | Jayil_error.Error_value err -> (
-      let aliases =
-        err.err_value_aliases
-        |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
-      in
+      let aliases = err.err_value_aliases |> List.map ~f:Id_with_stack.id_of in
       (* let () = print_endline "Printing aliases" in
          let () = List.iter (fun a -> print_endline @@ Ast.show_ident a) aliases in *)
       let err_val_edesc = jayil_to_jay_value aliases in
@@ -757,7 +747,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       (* Restoring the Jay version of the error indicator (the false value) *)
       let core_nat_aliases =
         jayil_aliases_with_stack
-        |> List.map ~f:Dbmc.Interpreter.ident_from_id_with_stack
+        |> List.map ~f:Id_with_stack.id_of
         |> jayil_to_jay_aliases
       in
       let sem_nat_aliases =
@@ -823,7 +813,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
            |> List.map ~f:(Sato_tools.find_alias alias_graph)
            |> List.concat
          in *)
-      let jayil_vars_with_stack : Dbmc.Interpreter.Ident_with_stack.t list =
+      let jayil_vars_with_stack : Id_with_stack.t list =
         jayil_vars
         |> List.map ~f:(fun (Var (x, _)) -> x)
         |> List.map ~f:(Sato_tools.find_alias_without_stack alias_graph)
@@ -833,7 +823,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
            block as the error indicator (i.e. the said alias and the indicator
            will have the same stack). *)
         |> List.filter ~f:(fun (_, stk) ->
-               Dbmc.Concrete_stack.equal stk relevant_stk)
+               Concrete_stack.equal stk relevant_stk)
         |> List.map ~f:(Sato_tools.find_alias alias_graph)
         |> List.concat
       in
@@ -843,17 +833,15 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let () = print_endline @@ "jayil vars (aliases)" in
       let () =
         List.iter
-          ~f:(fun x ->
-            print_endline @@ Dbmc.Interpreter.show_ident_with_stack x)
+          ~f:(fun x -> print_endline @@ Dj_common.Id_with_stack.show x)
           jayil_vars_with_stack
       in
       let rec find_val
           (vdef_mapping :
-            ( Dbmc.Interpreter.Ident_with_stack.t,
+            ( Id_with_stack.t,
               Ast.clause_body * Dbmc.Interpreter.dvalue )
-            Hashtbl.t) (xs : Dbmc.Interpreter.Ident_with_stack.t list) :
-          Dbmc.Interpreter.dvalue =
-        (* : Dbmc.Interpreter.dvalue * Dbmc.Interpreter.Ident_with_stack.t = *)
+            Hashtbl.t) (xs : Id_with_stack.t list) : Dbmc.Interpreter.dvalue =
+        (* : Dbmc.Interpreter.dvalue * Id_with_stack.t = *)
         match xs with
         | [] -> failwith "Should at least find one value!"
         | hd :: tl -> (
@@ -898,7 +886,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           |> List.concat
           (* TODO: Rethink the strategy here *)
           |> List.filter ~f:(fun (_, stk) ->
-                 Dbmc.Concrete_stack.equal stk relevant_stk)
+                 Concrete_stack.equal stk relevant_stk)
           |> List.map ~f:(Sato_tools.find_alias alias_graph)
           |> List.concat
         in

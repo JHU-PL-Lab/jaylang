@@ -2,23 +2,7 @@ open Batteries
 open Jayil
 open Jay
 open Jay_ast
-
-type translation_context = {
-  tc_fresh_suffix_separator : string;
-  tc_contextual_recursion : bool;
-  mutable tc_fresh_name_counter : int;
-  mutable tc_jayil_jay_mappings : Jay_to_jayil_maps.t;
-}
-(* [@@deriving eq, ord] *)
-
-let new_translation_context ?(is_jay = false) ?(suffix = "~")
-    ?(contextual_recursion = true) () : translation_context =
-  {
-    tc_fresh_name_counter = 0;
-    tc_fresh_suffix_separator = suffix;
-    tc_contextual_recursion = contextual_recursion;
-    tc_jayil_jay_mappings = Jay_to_jayil_maps.empty is_jay;
-  }
+open Translation_context
 
 module TranslationMonad : sig
   include Monad.Monad

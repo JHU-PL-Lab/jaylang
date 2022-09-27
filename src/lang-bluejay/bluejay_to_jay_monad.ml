@@ -8,7 +8,7 @@ type translation_context = {
 }
 (* [@@deriving eq, ord] *)
 
-let new_translation_context ?(suffix = "~") () : translation_context =
+let new_translation_context ?(suffix = "___") () : translation_context =
   {
     tc_fresh_suffix_separator = suffix;
     tc_fresh_name_counter = 0;

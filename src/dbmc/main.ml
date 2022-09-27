@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 open Lwt.Infix
 open Jayil
 open Jayil.Ast
@@ -6,29 +7,35 @@ open Cfg
 open Ddpa
 open Log.Export
 
-let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t) =
-  match config.mode with
-  | Dbmc_check inputs ->
-      (* = Input_feeder.from_list inputs *)
-      let history = ref [] in
-      let input_feeder = Input_feeder.memorized_from_list inputs history in
-      let session =
-        Interpreter.expected_input_session input_feeder config.target
-      in
-      let expected_stk =
-        try Interpreter.eval session state.program with
-        | Interpreter.Found_target target ->
-            Fmt.(
-              pr "[Expected]%a"
-                (list (Std.pp_tuple3 Id.pp Concrete_stack.pp (option int))))
-              !history ;
-            target.stk
-        | ex -> raise ex
-      in
-      if Solver.check_expected_input_sat expected_stk !history
-      then ()
-      else failwith "expected input leads to a wrong place."
-  | _ -> ()
+type result = {
+  inputss : int option list list;
+  is_timeout : bool;
+  is_checked : bool option;
+  symbolic_result : (Z3.Model.model * Concrete_stack.t) option;
+  state : Global_state.t;
+}
+
+let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t)
+    inputs =
+  let history = ref [] in
+  let session =
+    let input_feeder = Input_feeder.memorized_from_list inputs history in
+    let mode = Interpreter.With_target_x config.target in
+    Interpreter.create_session state config mode input_feeder
+  in
+  let expected_stk =
+    try Interpreter.eval session state.program with
+    | Interpreter.Found_target target ->
+        Fmt.(
+          pr "[Expected]%a"
+            (list (Std.pp_tuple3 Id.pp Concrete_stack.pp (option int))))
+          !history ;
+        target.stk
+    | ex -> raise ex
+  in
+  if Solver.check_expected_input_sat expected_stk !history
+  then ()
+  else failwith "expected input leads to a wrong place."
 
 let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
     (target_stack : Concrete_stack.t) =
@@ -36,7 +43,38 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
   let input_feeder = Input_feeder.from_model ~history model target_stack in
   let session =
     let max_step = config.run_max_step in
-    Interpreter.create_session ?max_step target_stack state config input_feeder
+    let mode = Interpreter.With_full_target (config.target, target_stack) in
+    let debug_mode =
+      if config.is_check_per_step
+      then
+        let clause_cb x c_stk v =
+          let stk = Rstack.relativize target_stack c_stk in
+          let key =
+            Lookup_key.of3 x stk (Cfg.find_block_by_id x state.block_map)
+          in
+          let key_z = Riddler.key_to_var key in
+          let key_picked = Riddler.picked key in
+          let eq_z =
+            match v with
+            | Value_function _ -> Riddler.true_
+            | _ -> Riddler.eqv key v
+          in
+          state.phis <- key_picked :: eq_z :: state.phis ;
+          let info =
+            Fmt.str "[Con]: %a %a = %a \n[Sym] %a\n\n" Id.pp x Concrete_stack.pp
+              c_stk Jayil.Pp.value v Lookup_key.pp key
+          in
+          Fmt.pr "[Check] %s" info ;
+
+          match Checker.check state config with
+          | Some _ -> ()
+          | None -> failwith @@ "step check failed"
+        in
+        Interpreter.Debug_clause clause_cb
+      else Interpreter.No_debug
+    in
+    Interpreter.create_session ?max_step ~debug_mode state config mode
+      input_feeder
   in
   (try Interpreter.eval session state.program with
   | Interpreter.Found_target _ -> ()
@@ -53,48 +91,45 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
   LLog.info (fun m ->
       m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident config.target
         Concrete_stack.pp c_stk) ;
-  (* LLog.debug (fun m ->
-      m "Nodes picked states\n%a\n"
-        (Fmt.Dump.iter_bindings
-           (fun f c ->
-             Hashtbl.iteri c ~f:(fun ~key ~data:_ ->
-                 f key (Riddler.is_picked (Some model) key)))
-           Fmt.nop Lookup_key.pp Fmt.bool)
-        state.key_map) ; *)
+
+  (* set picked rstk *)
   Hashtbl.clear state.rstk_picked ;
   Hashtbl.iter_keys state.term_detail_map ~f:(fun key ->
       if Riddler.is_picked (Some model) key
       then ignore @@ Hashtbl.add state.rstk_picked ~key:key.r_stk ~data:true
       else ()) ;
-  (* Global_state.refresh_picked state model; *)
+
+  (* print graph *)
   handle_graph config state (Some model) ;
 
+  print_endline @@ Concrete_stack.show c_stk ;
+
   let inputs_from_interpreter = get_input ~config ~state model c_stk in
-  (* check expected inputs *)
-  check_expected_input ~config ~state ;
+  (match config.mode with
+  | Dbmc_check inputs -> check_expected_input ~config ~state inputs
+  | _ -> ()) ;
   ([ inputs_from_interpreter ], false (* true *), Some (model, c_stk))
 
-let[@landmark] main_with_state_lwt ~(config : Global_config.t)
-    ~(state : Global_state.t) =
-  let job_queue =
-    let open Scheduler in
-    let cmp t1 t2 =
-      Int.compare (Lookup_key.length t1.key) (Lookup_key.length t2.key)
-    in
-    Scheduler.create ~cmp ()
-  in
+let handle_not_found (config : Global_config.t) (state : Global_state.t)
+    is_timeout =
+  SLog.info (fun m -> m "UNSAT") ;
+  (* (match config.mode with
+     | Dbmc_check inputs -> check_expected_input ~config ~state inputs
+     | _ -> ()) ; *)
+  if config.debug_model
+  then SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
+  else () ;
+  handle_graph config state None ;
+  ([], is_timeout, None)
+
+let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
+    =
   let post_check_dbmc is_timeout =
-    match Riddler.check state config with
+    match Checker.check state config with
     | Some { model; c_stk } -> handle_found config state model c_stk
-    | None ->
-        SLog.info (fun m -> m "UNSAT") ;
-        if config.debug_model
-        then
-          SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
-        else () ;
-        handle_graph config state None ;
-        ([], is_timeout, None)
+    | None -> handle_not_found config state is_timeout
   in
+
   let post_check_ddse is_timeout =
     if config.debug_model
     then SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
@@ -112,10 +147,10 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
     let do_work () =
       match config.engine with
       | Global_config.E_dbmc ->
-          Lookup.run_dbmc ~config ~state job_queue >>= fun _ ->
+          Lookup.run_dbmc ~config ~state >>= fun _ ->
           Lwt.return (post_check_dbmc false)
       | Global_config.E_ddse ->
-          Lookup.run_ddse ~config ~state job_queue >>= fun _ ->
+          Lookup.run_ddse ~config ~state >>= fun _ ->
           Lwt.return (post_check_ddse false)
     in
     match config.timeout with
@@ -132,32 +167,34 @@ let[@landmark] main_with_state_lwt ~(config : Global_config.t)
 
 (* entry functions *)
 
-let main_details ~config program =
+let main_lwt ~config program =
   let state = Global_state.create config program in
-  let inputs, is_timeout, _model =
-    Lwt_main.run (main_with_state_lwt ~config ~state)
+  let%lwt inputss, is_timeout, symbolic_result = main_lookup ~config ~state in
+  let result =
+    { inputss; is_timeout; is_checked = None; symbolic_result; state }
   in
-  (inputs, is_timeout, state)
+  Lwt.return result
 
-let search_input ~config program =
-  main_details ~config program |> fun (a, _b, _c) -> a
-
-let check_input ~(config : Global_config.t) program inputs =
-  let mode = Global_config.Dbmc_check inputs in
-  let config = { config with mode } in
-  main_details ~config program |> fun (_a, b, _c) -> b
+let main ~config program = Lwt_main.run (main_lwt ~config program)
 
 let from_commandline () =
   let config = Argparse.parse_commandline_config () in
   Log.init config ;
   let is_instrumented = config.is_instrumented in
-  let program = File_util.read_source ~is_instrumented config.filename in
+  let program =
+    Dj_common.File_utils.read_source ~is_instrumented config.filename
+  in
   (try
-     let inputss = search_input ~config program in
+     let result = main ~config program in
+     let { inputss; is_timeout; state; _ } = result in
 
-     match List.hd inputss with
-     | Some inputs -> Fmt.pr "[%s]@;" (Std.string_of_inputs inputs)
-     | None -> Fmt.pr "Unreachable"
+     match config.mode with
+     | Dbmc_search -> (
+         match List.hd inputss with
+         | Some inputs -> Fmt.pr "[%s]@;" (Std.string_of_inputs inputs)
+         | None -> Fmt.pr "Unreachable")
+     | Dbmc_check inputs -> Fmt.pr "%B" is_timeout
+     | _ -> ()
    with ex -> (* Printexc.print_backtrace Out_channel.stderr ; *)
               raise ex) ;
   Log.close ()

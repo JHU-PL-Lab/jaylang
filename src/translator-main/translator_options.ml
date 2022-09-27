@@ -55,7 +55,6 @@ let logging_option_parser : unit BatOptParse.Opt.t =
 
 type parsers = {
   parse_mode : translator_mode BatOptParse.Opt.t;
-  parse_parseable : bool BatOptParse.Opt.t;
   parse_logging : unit BatOptParse.Opt.t;
   parse_instrument : bool BatOptParse.Opt.t;
 }
@@ -72,7 +71,6 @@ let make_parsers () : parsers =
           ^ (named_translator_modes |> List.map snd
             |> List.map (fun s -> "* " ^ s)
             |> String.concat "\n  "));
-    parse_parseable = BatOptParse.StdOpt.store_true ();
     parse_logging = logging_option_parser;
     parse_instrument = BatOptParse.StdOpt.store_true ();
   }

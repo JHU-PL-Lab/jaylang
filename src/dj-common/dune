@@ -1,0 +1,37 @@
+(include_subdirs unqualified)
+
+(library
+ (name dj_common)
+ (public_name jay.dj_common)
+ (libraries
+  core
+  core_unix.filename_unix
+  core_unix.command_unix
+  core_kernel.pairing_heap
+  lwt
+  lwt.unix
+  z3
+  logs
+  logs.lwt
+  logs.fmt
+  ocamlgraph
+  fmt
+  ddpa
+  bluejay
+  jay
+  jayil
+  jayil_parser
+  jay_translate)
+ (synopsis "dj-common is common data structures")
+ (preprocess
+  (pps
+   ppx_jane
+   ppx_deriving.show
+   lwt_ppx
+   ;   landmarks-ppx --auto
+   )))
+
+(env
+ (dev
+  (flags
+   (:standard -w -33 -w -26 -w -27))))

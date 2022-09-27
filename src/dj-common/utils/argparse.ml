@@ -62,7 +62,7 @@ let parse_commandline_config () =
           (optional_with_default default_config.stride_init int)
           ~doc:"check per steps (initial)"
       and stride_max =
-        flag "-d"
+        flag "-sm"
           (optional_with_default default_config.stride_max int)
           ~doc:"check per steps (max)"
       and log_level =
@@ -75,9 +75,11 @@ let parse_commandline_config () =
         flag "-lc" (optional log_level_parser) ~doc:"log level for solver"
       and log_level_interpreter =
         flag "-li" (optional log_level_parser) ~doc:"log level for interpreter"
-      and debug_phi = flag "-p" no_arg ~doc:"output constraints"
-      and debug_no_model = flag "-z" no_arg ~doc:"not output smt model"
-      and debug_graph = flag "-g" no_arg ~doc:"output graphviz dot" in
+      and debug_phi = flag "-dp" no_arg ~doc:"output constraints"
+      and debug_no_model = flag "-dnm" no_arg ~doc:"not output smt model"
+      and debug_graph = flag "-dg" no_arg ~doc:"output graphviz dot"
+      and debug_interpreter = flag "-di" no_arg ~doc:"check the interpreter"
+      and is_check_per_step = flag "-dcs" no_arg ~doc:"check per step" in
       fun () ->
         let latter_option l1 l2 = Option.merge l1 l2 ~f:(fun _ y -> y) in
         let mode =
@@ -105,6 +107,8 @@ let parse_commandline_config () =
             debug_phi;
             debug_model = not debug_no_model;
             debug_graph;
+            debug_interpreter;
+            is_check_per_step;
           }
         in
 

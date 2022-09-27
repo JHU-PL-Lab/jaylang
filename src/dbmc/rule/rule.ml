@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 open Jayil.Ast
 open Jayil.Ast_pp
 
@@ -30,24 +31,20 @@ module Record_start_rule = struct
   type t = { x : Id.t; r : Id.t; lbl : Id.t }
 end
 
-module Record_end_rule = struct
-  type t = { x : Id.t; r : record_value; is_in_main : bool }
-end
-
 module Cond_top_rule = struct
-  type t = Cfg.cond_block
+  type t = { cond_case_info : Cfg.cond_case_info; condsite_block : Cfg.block }
 end
 
 module Cond_btm_rule = struct
-  type t = { x : Id.t; x' : Id.t; tid : Id.t }
+  type t = { x : Id.t; x' : Id.t; cond_both : Cfg.cond_both_info }
 end
 
 module Fun_enter_local_rule = struct
-  type t = { x : Id.t; fb : Cfg.fun_block; is_local : bool }
+  type t = { x : Id.t; fb : Cfg.fun_block_info; is_local : bool }
 end
 
 module Fun_enter_nonlocal_rule = struct
-  type t = { x : Id.t; fb : Cfg.fun_block; is_local : bool }
+  type t = { x : Id.t; fb : Cfg.fun_block_info; is_local : bool }
 end
 
 module Fun_exit_rule = struct
@@ -83,27 +80,25 @@ type t =
   | Fun_enter_nonlocal of Fun_enter_nonlocal_rule.t
   | Fun_exit of Fun_exit_rule.t
   | Record_start of Record_start_rule.t
-  | Record_end of Record_end_rule.t
   | Pattern of Pattern_rule.t
   | Assume of Assume_rule.t
   | Assert of Assert_rule.t
   | Abort of Abort_rule.t
   | Mismatch
 
-let rule_of_runtime_status x block : t =
+let rule_of_runtime_status (key : Lookup_key.t) block_map : t =
+  let x = key.x in
+  let block = key.block in
   let open Cfg in
-  match (clause_of_x block x, block) with
-  | Some tc, _ -> (
+  match clause_of_x block x with
+  | Some tc -> (
       match tc with
       | { clause = Clause (_, Input_body); _ } ->
-          let is_in_main = Ident.equal (Cfg.id_of_block block) Cfg.id_main in
+          let is_in_main = Ident.equal block.id Id.main_block in
           Input { x; is_in_main }
       | { clause = Clause (_, Var_body (Var (x', _))); _ } -> Alias { x; x' }
-      | { clause = Clause (_, Value_body (Value_record r)); _ } ->
-          let is_in_main = Ident.equal (Cfg.id_of_block block) Cfg.id_main in
-          Record_end { x; r; is_in_main }
       | { clause = Clause (_, Value_body v); _ } ->
-          if Ident.equal (Cfg.id_of_block block) Cfg.id_main
+          if Ident.equal block.id Id.main_block
           then Discovery_main { x; v }
           else Discovery_nonmain { x; v }
       | { clause = Clause (_, Projection_body (Var (r, _), lbl)); _ } ->
@@ -114,12 +109,9 @@ let rule_of_runtime_status x block : t =
        _;
       } ->
           Binop { x; bop; x1; x2 }
-      | {
-       clause = Clause (_, Conditional_body (Var (x', _), _, _));
-       id = tid;
-       _;
-      } ->
-          Cond_btm { x; x'; tid }
+      | { clause = Clause (_, Conditional_body (Var (x', _), _, _)); _ } ->
+          let cond_both_info = Cfg.find_cond_blocks x block_map in
+          Cond_btm { x; x'; cond_both = cond_both_info }
       | {
        clause = Clause (_, Appl_body (Var (xf, _), Var (_xv, _)));
        cat = App fids;
@@ -136,12 +128,16 @@ let rule_of_runtime_status x block : t =
       | _ ->
           Log.Export.LLog.err (fun m -> m "%a" Jayil.Ast_pp.pp_clause tc.clause) ;
           failwith "Missing rules for this clause")
-  | None, Fun fb ->
-      if Ident.(equal fb.para x)
-      then Fun_enter_local { x; fb; is_local = true }
-      else Fun_enter_nonlocal { x; fb; is_local = false }
-  | None, Cond cb -> Cond_top cb
-  | None, Main _mb -> Mismatch
+  | None -> (
+      match block.kind with
+      | Fun fb ->
+          if Ident.(equal fb.para x)
+          then Fun_enter_local { x; fb; is_local = true }
+          else Fun_enter_nonlocal { x; fb; is_local = false }
+      | Cond cb ->
+          let condsite_block = Cfg.outer_block block block_map in
+          Cond_top { cond_case_info = cb; condsite_block }
+      | Main -> Mismatch)
 
 let show_rule : t -> string = function
   | Discovery_main _ -> "Discovery_main"
@@ -156,7 +152,6 @@ let show_rule : t -> string = function
   | Fun_enter_nonlocal _ -> "Fun_enter_nonlocal"
   | Fun_exit _ -> "Fun_exit"
   | Record_start _ -> "Record_start"
-  | Record_end _ -> "Record_end"
   | Pattern _ -> "Pattern"
   | Assume _ -> "Assume"
   | Assert _ -> "Assert"

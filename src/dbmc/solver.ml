@@ -16,21 +16,20 @@ type value = Sudu.Z3_api.plain =
 let solver = Z3.Solver.mk_solver ctx None
 let reset () = Z3.Solver.reset solver
 
-let check phis_z3 cvars_z3 =
-  Z3.Solver.add solver phis_z3 ;
+let check phis cvars_z3 =
+  Z3.Solver.add solver phis ;
   SuduZ3.check_with_assumption solver cvars_z3
 
 let string_of_solver () = Z3.Solver.to_string solver
 
 let check_expected_input_sat target_stk history =
   let input_phis =
-    List.filter_map
-      ~f:(fun (x, stk, r) ->
+    List.filter_map history ~f:(fun (x, stk, r) ->
         Option.map r ~f:(fun i ->
             let stk = Rstack.relativize target_stk stk in
             let name = Lookup_key.to_str2 x stk in
             let zname = SuduZ3.var_s name in
             SuduZ3.eq zname (SuduZ3.int_ i)))
-      history
   in
+
   Result.is_ok (SuduZ3.check_with_assumption solver input_phis)

@@ -110,7 +110,7 @@ let make_lookup () =
   let state : Global_state.t = Global_state.create config program in
   let lookup_task () =
     Lwt_mutex.lock Control_center.mutex >>= fun () ->
-    Main.main_with_state_lwt ~config ~state >>= fun inputss ->
+    Main.main_lookup ~config ~state >>= fun inputss ->
     (match List.hd inputss with
     | Some inputs ->
         Format.printf "[%s]\n"

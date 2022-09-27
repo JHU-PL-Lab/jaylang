@@ -1,5 +1,5 @@
 {
-  open Jay_parser;;
+  open Parser;;
   open Lexing
   let incr_lineno lexbuf =
     let pos = lexbuf.lex_curr_p in
@@ -17,7 +17,7 @@ let newline = '\n'
 let comment = '#' [^'\n']* '\n'
 let string_contents = [^'"']*
 
-let ident_start = alpha
+let ident_start = alpha | '_'
 let ident_cont = alpha | digit | '_'
 
 rule token = parse
