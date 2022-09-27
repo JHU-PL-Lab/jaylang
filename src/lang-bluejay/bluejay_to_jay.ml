@@ -1137,17 +1137,24 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
             arg_ids check_ret
         in
         return check_expr
-    | DTyped_funsig (f, (Ident param, t), (_, ret_type)) ->
+    | DTyped_funsig (f, ((Ident param as p), t), (_, ret_type)) ->
         let%bind arg_id = fresh_ident param in
         let%bind t' = bluejay_to_jay t in
         let%bind ret_type_core = bluejay_to_jay ret_type in
         let appl_res =
           Appl (new_expr_desc @@ Var f, new_expr_desc @@ Var arg_id)
         in
-        let check_ret =
+        let checker' =
           Appl
-            ( new_expr_desc @@ RecordProj (ret_type_core, Label "checker"),
-              new_expr_desc @@ appl_res )
+            ( new_expr_desc
+              @@ Function
+                   ( [ p ],
+                     new_expr_desc @@ RecordProj (ret_type_core, Label "checker")
+                   ),
+              new_expr_desc @@ Var arg_id )
+        in
+        let check_ret =
+          Appl (new_expr_desc @@ checker', new_expr_desc @@ appl_res)
         in
         let check_expr =
           Let
