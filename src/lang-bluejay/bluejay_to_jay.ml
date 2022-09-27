@@ -744,6 +744,10 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
+  (* TODO: Function intersection's generator are still funky;
+     needs flattening, (a -> b) ^ (c -> d) ^ (e -> f)
+     => (a v c v e) -> (if a -> b, if c -> d, if e -> f)
+  *)
   | TypeIntersect (t1, t2) ->
       let%bind generator =
         (* For intersection type, we want to make sure that the value generated
