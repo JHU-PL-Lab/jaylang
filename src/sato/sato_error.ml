@@ -792,12 +792,12 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
              ~f:
                (Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps)
       in
-      (* let () = print_endline @@ "jayil vars" in
-         let () =
-           List.iter
-             ~f:(fun (Var (x, _)) -> print_endline @@ Ast.show_ident x)
-             jayil_vars
-         in *)
+      let () = print_endline @@ "jayil vars" in
+      let () =
+        List.iter
+          ~f:(fun (Var (x, _)) -> print_endline @@ Ast.show_ident x)
+          jayil_vars
+      in
       (* TODO: This is hacky. There has got to be a better way of doing this *)
       (* let stacks =
            jayil_aliases_with_stack
@@ -1276,7 +1276,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         match v with
         | Value_int _ -> Bluejay_ast_internal.new_expr_desc @@ TypeInt
         | Value_bool _ -> Bluejay_ast_internal.new_expr_desc @@ TypeBool
-        | _ -> failwith "jayil_to_bluejay_error: TBI!"
+        | _ ->
+            let () = print_endline @@ "This is the actual value" in
+            let () = print_endline @@ Ast_pp.show_value v in
+            failwith "jayil_to_bluejay_error: TBI!"
       in
       (* let expected_type_internal =
            expected_type

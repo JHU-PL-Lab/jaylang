@@ -585,11 +585,10 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind t_check_id = fresh_ident "t_check" in
         let%bind pred_check_id = fresh_ident "pred_check" in
         let fail_pat_cls = new_expr_desc @@ Var pred_check_id in
+        let expr_to_check = new_expr_desc @@ Var expr_id in
+        let check_pred_res = new_expr_desc @@ Appl (p_c, expr_to_check) in
         let check_pred_inner =
-          If
-            ( new_expr_desc @@ Appl (p_c, new_expr_desc @@ Var expr_id),
-              new_expr_desc @@ Bool true,
-              fail_pat_cls )
+          If (check_pred_res, new_expr_desc @@ Bool true, fail_pat_cls)
         in
         (* Note: To reduce complexity, we are not checking whether the predicate
            is of the right type. *)
@@ -624,6 +623,9 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         (* Since the predicate check could be a point of faliure, we need to
            record it. *)
         let%bind () = add_error_to_tag_mapping fail_pat_cls tag in
+        let%bind () =
+          add_error_to_value_expr_mapping fail_pat_cls expr_to_check
+        in
         return @@ Function ([ expr_id ], new_expr_desc check_type)
       in
       let rec_map =
@@ -1497,7 +1499,7 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
           Typed_funsig (f, typed_params', (wrapped_f, ret_type'))
         in
         return fun_sig'
-    | DTyped_funsig (f, (Ident p, t), (f_body, ret_type)) ->
+    | DTyped_funsig (f, ((Ident p as param), t), (f_body, ret_type)) ->
         let%bind eta_arg = fresh_ident p in
         let%bind arg_check = fresh_ident "arg_check" in
         let check_arg =
@@ -1512,22 +1514,20 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
               f_body',
               new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
         in
-        let wrapped_f_body =
+        let eta_body =
           Let (arg_check, new_expr_desc @@ check_arg, new_expr_desc @@ cond)
         in
-        let wrapped_f =
+        let wrapped_body =
           new_expr_desc
-          @@ Function
-               ( [ eta_arg ],
-                 new_expr_desc
-                 @@ Appl
-                      ( new_expr_desc @@ wrapped_f_body,
-                        new_expr_desc @@ Var eta_arg ) )
+          @@ Appl
+               ( new_expr_desc
+                 @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
+                 new_expr_desc @@ Var param )
         in
         let%bind t' = wrap t in
         let%bind ret_type' = wrap ret_type in
         let fun_sig' =
-          DTyped_funsig (f, (Ident p, t'), (wrapped_f, ret_type'))
+          DTyped_funsig (f, (Ident p, t'), (wrapped_body, ret_type'))
         in
         return fun_sig'
   in

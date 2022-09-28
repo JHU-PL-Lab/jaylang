@@ -785,10 +785,13 @@ let rec replace_type (t_desc : syn_bluejay_edesc) (new_t : syn_bluejay_edesc)
   then
     match t with
     (* TODO: HACK *)
-    | TypeSet (td, _) -> (
-        match new_t.body with
-        | TypeError _ -> new_expr_desc @@ TypeSet (td, new_t)
-        | _ -> new_t)
+    | TypeSet (td, _) ->
+        if Bluejay_ast_internal.tagless_equal_expr_desc td new_t
+        then
+          new_expr_desc
+          @@ TypeSet
+               (td, new_expr_desc @@ TypeError (Ident "Predicate Violated!"))
+        else new_t
     | _ -> new_t
   else
     let transform_funsig (Funsig (fid, args, fe_desc)) =
