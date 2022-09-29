@@ -1,5 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-TYPE-ERROR-COUNT 1
-# EXPECT-TYPE-ERROR ~result [] "assert ( not true )" "" "true" "" "true" "true <> true" 
-
-assert ( not true )

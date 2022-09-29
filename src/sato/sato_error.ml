@@ -762,13 +762,13 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                (Bluejay_to_jay_maps.unwrapped_bluejay_from_wrapped_bluejay
                   bluejay_jay_maps)
       in
-      let show_expr' =
-        Pp_utils.pp_to_string @@ Bluejay_ast_internal_pp.pp_expr_desc_with_tag
-      in
-      let () = print_endline @@ "semantic aliases" in
-      let () =
-        List.iter ~f:(fun ed -> print_endline @@ show_expr' ed) sem_nat_aliases
-      in
+      (* let show_expr' =
+           Pp_utils.pp_to_string @@ Bluejay_ast_internal_pp.pp_expr_desc_with_tag
+         in
+         let () = print_endline @@ "semantic aliases" in
+         let () =
+           List.iter ~f:(fun ed -> print_endline @@ show_expr' ed) sem_nat_aliases
+         in *)
       (* Getting the expression that triggered the error *)
       let sem_val_exprs =
         sem_nat_aliases
@@ -777,10 +777,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                (Bluejay_to_jay_maps.get_value_expr_from_sem_expr
                   bluejay_jay_maps)
       in
-      let () = print_endline @@ "semantic values" in
-      let () =
-        List.iter ~f:(fun ed -> print_endline @@ show_expr' ed) sem_val_exprs
-      in
+      (* let () = print_endline @@ "semantic values" in
+         let () =
+           List.iter ~f:(fun ed -> print_endline @@ show_expr' ed) sem_val_exprs
+         in *)
       (* Getting the jayil variable corresponding to the error-triggering value *)
       let jayil_vars =
         sem_val_exprs
@@ -792,12 +792,12 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
              ~f:
                (Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps)
       in
-      let () = print_endline @@ "jayil vars" in
-      let () =
-        List.iter
-          ~f:(fun (Var (x, _)) -> print_endline @@ Ast.show_ident x)
-          jayil_vars
-      in
+      (* let () = print_endline @@ "jayil vars" in
+         let () =
+           List.iter
+             ~f:(fun (Var (x, _)) -> print_endline @@ Ast.show_ident x)
+             jayil_vars
+         in *)
       (* TODO: This is hacky. There has got to be a better way of doing this *)
       (* let stacks =
            jayil_aliases_with_stack
@@ -830,12 +830,12 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       (* let keys = Batteries.List.of_enum @@ Ast.Ident_map.keys final_env in
          let () = List.iter ~f:(fun k -> print_endline @@ show_ident k) keys in *)
       (* let () = failwith @@ string_of_bool @@ List.is_empty @@ List.concat jayil_vars_with_stack in *)
-      let () = print_endline @@ "jayil vars (aliases)" in
-      let () =
-        List.iter
-          ~f:(fun x -> print_endline @@ Dj_common.Id_with_stack.show x)
-          jayil_vars_with_stack
-      in
+      (* let () = print_endline @@ "jayil vars (aliases)" in
+         let () =
+           List.iter
+             ~f:(fun x -> print_endline @@ Dj_common.Id_with_stack.show x)
+             jayil_vars_with_stack
+         in *)
       let rec find_val
           (vdef_mapping :
             ( Id_with_stack.t,
@@ -1270,15 +1270,15 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         else List.hd_exn find_tag
       in
       let new_t =
-        let () = print_endline "This is the value" in
-        let () = print_endline @@ Ast_pp.show_value v in
-        let () = print_endline "value done!" in
+        (* let () = print_endline "This is the value" in
+           let () = print_endline @@ Ast_pp.show_value v in
+           let () = print_endline "value done!" in *)
         match v with
         | Value_int _ -> Bluejay_ast_internal.new_expr_desc @@ TypeInt
         | Value_bool _ -> Bluejay_ast_internal.new_expr_desc @@ TypeBool
         | _ ->
-            let () = print_endline @@ "This is the actual value" in
-            let () = print_endline @@ Ast_pp.show_value v in
+            (* let () = print_endline @@ "This is the actual value" in
+               let () = print_endline @@ Ast_pp.show_value v in *)
             failwith "jayil_to_bluejay_error: TBI!"
       in
       (* let expected_type_internal =
