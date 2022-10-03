@@ -1,0 +1,40 @@
+# Std.List - start
+
+let hd l = 
+  match l with
+  | x :: xs -> x
+  | [] -> (0 0)
+  end
+in
+
+let rec append l1 l2 =
+  match l1 with
+  | x :: xs -> x :: (append xs l2)
+  | [] -> l2
+  end
+in
+
+let rec flatten r = 
+  match r with
+  | x :: xs -> 
+    append (flatten x) (flatten xs)
+  | [] -> []
+  | _ -> [r]
+  end in
+
+let rec len lst = 
+    match lst with
+    | x :: xs -> 1 + len xs
+    | [] -> 0
+    end
+in
+
+# Std.List - end
+
+let s = flatten [[[1],2],[3,[4,5]]] in
+let x = input in
+let y = input in
+if hd s == x and len s == y then
+  let target = 1 in 1
+else
+  0

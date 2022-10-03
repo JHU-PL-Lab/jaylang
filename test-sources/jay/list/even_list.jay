@@ -1,0 +1,15 @@
+let rec even_list x = 
+  match x with
+  | [] -> true
+  | _x :: xs -> odd_list xs
+  end
+with odd_list x =
+  match x with
+  | [] -> false
+  | _x :: xs -> even_list xs
+  end
+in
+  if (even_list [3,4]) then
+    let target = 1 in 1
+  else
+    0

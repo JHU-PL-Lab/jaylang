@@ -1,5 +1,3 @@
-# Std.List - start
-
 let hd l = 
   match l with
   | x :: xs -> x
@@ -12,16 +10,14 @@ let tl l =
   | [] -> (0 0)
   end
 in
-
-# Std.List - end
-
-let x = input in
-let x2 = 2 in
-let x3 = 3 in
-let x4 = 4 in
-let b = tl (tl (tl (tl [1, 2, 3, 4, 5, 6]))) in
-
-if (hd b == x) then
+let s = [5,6,7] in
+let x1 = input in
+let x2 = input in
+let x3 = input in
+if (hd s == x1) 
+    and (hd (tl s) == x2) 
+    and (hd (tl (tl s)) == x3)
+then
   let target = 1 in 1
 else
   0

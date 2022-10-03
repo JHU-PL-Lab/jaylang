@@ -4,7 +4,7 @@ all: dbmc sato translator
 
 dbmc-top:
 	dune build src/bin/dbmc_top.exe
-	ln -s -f _build/default/src/bin/dbmc_top.exe dbmc_top
+	ln -s -f _build/default/src/bin/dbmc_top.exe dj
 
 dbmc-test: 
 	dune build test/dbmc/test_dbmc.exe 

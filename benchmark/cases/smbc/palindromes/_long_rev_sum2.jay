@@ -59,8 +59,8 @@ let nil = [] in
 
 let l0 = gen_list nil in
 let l1 = rev l0 in
-if (len l0 == 2) 
-  and (sum_list l0 == 500)
+if (len l0 == 200) 
+  and (sum_list l0 == 1)
   and (eq_list l0 l1) then
   let target = 1 in 1
 else

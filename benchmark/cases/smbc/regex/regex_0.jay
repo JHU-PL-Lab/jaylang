@@ -1,0 +1,128 @@
+# list of token is for input string
+# R is the data type for patterns
+# list2 of (list * list) is for transforming tokens
+# list3 of bool 
+
+# All of list2, list3, splits2, splits, ors is used for `++` pattern
+
+# splits2 : T -> list2 -> list2
+# splits2 inserts token `x` to every first element of the pair of y
+let rec splits2 x y = 
+  match y with
+  | [] -> []
+  | z :: x2 -> 
+    let bs = z.l in
+    let cs = z.r in
+    ({l = x :: bs, r = cs}) :: (splits2 x x2)
+  end
+in
+
+# splits : list -> list2
+# splits takes a list of tokens and makes a list of splited results
+# e.g. splits [`A, `B] get [([], [`A, `B]), ([`A], [`B]), ([`A, `B], [])]
+# To understand splits, we check its use site
+#   `Con (p1,p2) -> ors (reck2 p1 p2 (splits y))
+# in reck2 p1 p2 x
+#   to check x is of pattern p1++p2,
+#   either 
+let rec splits x =
+  match x with
+  | [] -> [{l = [], r = []}]
+  | y :: xs -> ({l = [], r = x}) :: (splits2 y (splits xs))
+  end
+in
+
+let ors _l = true in
+
+let eq_t t1 t2 = 
+  match t1 with
+  | `A _a ->
+    match t2 with
+    | `A _a -> true
+    | _ -> false
+    end
+  | `B _b ->
+    match t2 with
+    | `B _b -> true
+    | _ -> false
+    end
+  | `C _c ->
+    match t2 with
+    | `C _c -> true
+    | _ -> false
+    end
+  end
+in
+
+# | `Nil _z -> 
+# | `Eps _z -> 
+# | `Atom c -> 
+# | `P2 p2 -> 
+# | `G2 g2 -> 
+# | `Star s -> 
+
+let rec eps x =  
+  match x with
+  | `Nil _z -> false
+  | `Eps _z -> true
+  | `Star s -> true
+  | `Atom c -> false
+  | `Or p -> eps p.e1 or  eps p.e2
+  | `Con p -> eps p.e1 and eps p.e2
+  end 
+in
+
+let step x y = `Nil 0 in
+
+# rec_ : R -> list -> bool
+# check if x can recognize y
+#   if y is empty, then x must be a eps
+#   otherwise, expend x to recognize the first element in y
+#              x may be expended to have an eps
+let rec rec_ x y =
+  match y with
+  | [] -> eps x
+  | z :: xs -> rec_ (step x z) xs
+  end
+in
+
+
+let rec reck2 p q x =
+  match x with
+  | []     -> []
+  | y :: z -> (
+    let l = y.l in
+    let r = y.r in
+    ((reck p l) and (rec_ q r)) :: (reck2 p q z) ) 
+  end
+with reck x y =
+  (match x with
+  | `Nil _z -> false
+  | `Eps _z -> 
+    match y with
+    | [] -> true
+    | z :: x2 -> false
+    end
+  | `Atom c -> 
+    match y with
+    | [] -> false
+    | b2 :: x3 -> 
+      match x3 with
+      | [] -> eq_t c b2
+      | x4 :: x5 -> false
+      end
+    end
+  | `Or p -> (reck p.e1 y) or (reck p.e2 y)
+  | `Con p -> ors (reck2 p.e1 p.e2 (splits y))
+  | `Star s -> true
+  end)
+in
+
+let e1 = input == 0 in
+let e2 = input == 0 in
+let e3 = input == 0 in
+
+if eq_t (`A 0) (`A 0) and not eq_t (`A 0) (`B 0) then
+  let target = 1 in 1
+else
+  0
