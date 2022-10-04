@@ -43,24 +43,20 @@ let load_sexp_expectation_for testpath =
 
 (*
 ** Bluejay Type Errors **
-- Input sequence  : -1,-7758
-- Found at clause : let g (y : int)
- : int = y >= 0 in g
---------------------
-* Value    : g
-* Expected : (int -> int)
-* Actual   : (int -> bool)
+- Input sequence  : 0
+- Found at clause : let list_test (lst : [int])
+ : int = match lst with | [] -> false | hd :: tl -> 5 end in list_test
 *)
 
 (* let t1 : t = {
-        found_at_clause = "let g (y : int) : int = y >= 0 in g";
+        found_at_clause = "let list_test (lst : [int]) : int = match lst with | [] -> false | hd :: tl -> 5 end in list_test";
         number_of_errors = 1;
         error_list =
         [
          (Type_error {
-           t_var = "g";
-           t_expected_type = "(int -> int)";
-           t_actual_type = "(int -> bool)";
+           t_var = "list_test";
+           t_expected_type = "([int] -> int)";
+           t_actual_type = "([int] -> bool)";
          });
         ]
       }
