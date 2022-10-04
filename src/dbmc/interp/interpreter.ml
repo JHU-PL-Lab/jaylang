@@ -207,7 +207,6 @@ let rec eval_exp ~session stk env e : denv * dvalue =
         | None -> None)
   | _ -> ()) ;
 
-  (* raise (Run_into_wrong_stack (Ast_tools.first_id e, stk))); *)
   let (Expr clauses) = e in
   let denv, vs' =
     List.fold_map ~f:(eval_clause ~session stk) ~init:env clauses

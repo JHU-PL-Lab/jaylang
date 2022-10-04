@@ -109,15 +109,6 @@ module TT = struct
   let rec length r_stk =
     match r_stk.node with Empty -> 0 | Cons { prev; _ } -> 1 + length prev
 
-  let construct_stks r_stk =
-    let rec loop r_stk co_stk stk =
-      match r_stk.node with
-      | Empty -> (co_stk, stk)
-      | Cons { op = Co_pop; prev; frame } -> loop prev (frame :: co_stk) stk
-      | Cons { op = Push; prev; frame } -> loop prev co_stk (frame :: stk)
-    in
-    loop r_stk [] []
-
   let rec pp oc rstk =
     match rstk.node with
     | Empty -> ()
@@ -152,3 +143,12 @@ end
 
 include TT
 include CC
+
+let construct_stks r_stk =
+  let rec loop r_stk co_stk stk =
+    match r_stk.node with
+    | Empty -> (co_stk, stk)
+    | Cons { op = Co_pop; prev; frame } -> loop prev (frame :: co_stk) stk
+    | Cons { op = Push; prev; frame } -> loop prev co_stk (frame :: stk)
+  in
+  loop r_stk [] []

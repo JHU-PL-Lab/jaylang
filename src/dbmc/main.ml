@@ -92,14 +92,8 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
       m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident config.target
         Concrete_stack.pp c_stk) ;
 
-  (* set picked rstk *)
-  Hashtbl.clear state.rstk_picked ;
-  Hashtbl.iter_keys state.term_detail_map ~f:(fun key ->
-      if Riddler.is_picked (Some model) key
-      then ignore @@ Hashtbl.add state.rstk_picked ~key:key.r_stk ~data:true
-      else ()) ;
+  Observe.update_rstk_pick config state model ;
 
-  (* print graph *)
   handle_graph config state (Some model) ;
 
   print_endline @@ Concrete_stack.show c_stk ;
@@ -108,7 +102,7 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
   (match config.mode with
   | Dbmc_check inputs -> check_expected_input ~config ~state inputs
   | _ -> ()) ;
-  ([ inputs_from_interpreter ], false (* true *), Some (model, c_stk))
+  ([ inputs_from_interpreter ], false, Some (model, c_stk))
 
 let handle_not_found (config : Global_config.t) (state : Global_state.t)
     is_timeout =
