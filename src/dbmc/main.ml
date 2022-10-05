@@ -81,21 +81,21 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
   | ex -> raise ex) ;
   List.rev !history
 
-let handle_graph (config : Global_config.t) state model =
+let handle_both (config : Global_config.t) (state : Global_state.t) model =
+  (* print graph *)
   if config.debug_graph
   then () (* Graphviz.output_graph ~model ~testname:config.filename state *)
-  else ()
+  else () ;
+  Observe.process_rstk_detail_map config state ;
+  ()
 
 let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
     =
   LLog.info (fun m ->
       m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident config.target
         Concrete_stack.pp c_stk) ;
-
   Observe.update_rstk_pick config state model ;
-
-  handle_graph config state (Some model) ;
-
+  handle_both config state (Some model) ;
   print_endline @@ Concrete_stack.show c_stk ;
 
   let inputs_from_interpreter = get_input ~config ~state model c_stk in
@@ -113,7 +113,7 @@ let handle_not_found (config : Global_config.t) (state : Global_state.t)
   if config.debug_model
   then SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
   else () ;
-  handle_graph config state None ;
+  handle_both config state None ;
   ([], is_timeout, None)
 
 let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
@@ -123,14 +123,7 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
     | Some { model; c_stk } -> handle_found config state model c_stk
     | None -> handle_not_found config state is_timeout
   in
-
-  let post_check_ddse is_timeout =
-    if config.debug_model
-    then SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
-    else () ;
-    handle_graph config state None ;
-    ([], is_timeout, None)
-  in
+  let post_check_ddse is_timeout = handle_not_found config state is_timeout in
   try%lwt
     (Lwt.async_exception_hook :=
        fun exn ->

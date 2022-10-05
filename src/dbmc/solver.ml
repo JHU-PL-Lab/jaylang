@@ -15,6 +15,7 @@ type value = Sudu.Z3_api.plain =
 
 let solver = Z3.Solver.mk_solver ctx None
 let reset () = Z3.Solver.reset solver
+let get_assertion_count () = List.length (Z3.Solver.get_assertions solver)
 
 let check phis cvars_z3 =
   Z3.Solver.add solver phis ;

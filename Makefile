@@ -4,6 +4,7 @@ all: dbmc sato translator
 
 dbmc-top:
 	dune build src/bin/dbmc_top.exe
+	ln -s -f _build/default/src/bin/dbmc_top.exe dbmc_top
 	ln -s -f _build/default/src/bin/dbmc_top.exe dj
 
 dbmc-test: 
@@ -70,13 +71,13 @@ profile:
 # dune exec --workspace dune-workspace.profiling --context profiling src/bin/dbmc_top.exe -- -t target test-sources/loop/_sum100.odefa
 
 land200:
-	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dbmc_top -t target -s 200 test-sources/loop/_sum200.odefa
+	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dbmc_top -t target test-sources/loop/_sum200.odefa
 
 ll:
 	OCAML_LANDMARKS=on,output="profiling/fold.ansi" time ./dbmc_top -t target -e ddse  -m 3 test-sources/benchmark/icfp20/_smbc/smbc_fold0s.natodefa
 
 land500:
-	OCAML_LANDMARKS=on,output="profiling/callgraph500.ansi" time ./dbmc_top -t target -s 200 test-sources/loop/_sum500.odefa
+	OCAML_LANDMARKS=on,output="profiling/callgraph500.ansi" time ./dbmc_top -t target test-sources/loop/_sum500.odefa
 
 benchmark:
 	dune exec benchmark/benchmark.exe -- -e dbmc

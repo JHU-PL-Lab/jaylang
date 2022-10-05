@@ -90,13 +90,17 @@ let check ?(verbose = true) (state : Global_state.t) (config : Global_config.t)
       Some { model; c_stk }
   | Result.Error _exps -> None
 
-let step_check ~(config : Global_config.t) ~(state : Global_state.t) stride =
+let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
+    stride =
   (* state.tree_size <- state.tree_size + 1 ; *)
   if state.tree_size mod !stride = 0
   then (
-    (* LLog.app (fun m ->
-        m "Step %d\t%a\n" state.tree_size Lookup_key.pp this_key) ; *)
-    match check state config with
+    let t_start = Time_ns.now () in
+    let check_result = check state config in
+    let t_span = Time_ns.(diff (now ()) t_start) in
+    Observe.count_smt_request config state key true Time_ns.Span.(to_sec t_span) ;
+
+    match check_result with
     | Some { model; c_stk } ->
         (* Fmt.pr "Check this\n" ; *)
         Lwt.fail (Found_solution { model; c_stk })
@@ -109,7 +113,9 @@ let step_check ~(config : Global_config.t) ~(state : Global_state.t) stride =
           else ())
         else () ;
         Lwt.return_unit)
-  else Lwt.return_unit
+  else (
+    Observe.count_smt_request config state key false 0.0 ;
+    Lwt.return_unit)
 
 let check_phis phis is_debug : result_info option =
   if is_debug

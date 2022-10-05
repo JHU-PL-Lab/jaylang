@@ -3,11 +3,13 @@ open Core
 let src_lookup = Logs.Src.create "lookup"
 let src_solver = Logs.Src.create "solver"
 let src_interpreter = Logs.Src.create "interpreter"
+let src_search = Logs.Src.create "search"
 
 module Export = struct
   module LLog = (val Logs.src_log src_lookup : Logs.LOG)
   module SLog = (val Logs.src_log src_solver : Logs.LOG)
   module ILog = (val Logs.src_log src_interpreter : Logs.LOG)
+  module S2Log = (val Logs.src_log src_search : Logs.LOG)
 
   (* Message tags are arbitrary named and typed values that can be associated to log messages.
      See https://erratique.ch/software/logs/doc/Logs/index.html#ex1 *)
@@ -22,6 +24,7 @@ let init (cfg : Global_config.t) =
   Logs.Src.set_level src_lookup cfg.log_level_lookup ;
   Logs.Src.set_level src_solver cfg.log_level_solver ;
   Logs.Src.set_level src_interpreter cfg.log_level_interpreter ;
+  Logs.Src.set_level src_search cfg.log_level_search ;
 
   let levels =
     [
@@ -29,6 +32,7 @@ let init (cfg : Global_config.t) =
       cfg.log_level_lookup;
       cfg.log_level_solver;
       cfg.log_level_interpreter;
+      cfg.log_level_search;
     ]
   in
   let enable_logging = List.exists levels ~f:Option.is_some in

@@ -109,6 +109,8 @@ module TT = struct
   let rec length r_stk =
     match r_stk.node with Empty -> 0 | Cons { prev; _ } -> 1 + length prev
 
+  let pp_length oc r_stk = Fmt.int oc (length r_stk)
+
   let rec pp oc rstk =
     match rstk.node with
     | Empty -> ()

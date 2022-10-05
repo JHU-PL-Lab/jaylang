@@ -2,7 +2,10 @@ open Core
 open Dj_common
 
 type t = {
-  c_stk : Concrete_stack.t;
-  mutable visited : int;
-  mutable smt_check_count : int;
+  block_id : Id.t;
+  mutable visits : int;
+  mutable smt_checks : int;
+  mutable smt_size : int;
+  mutable smt_time : float;
 }
+[@@deriving show { with_path = false }]
