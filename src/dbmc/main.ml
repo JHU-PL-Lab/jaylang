@@ -86,7 +86,7 @@ let handle_both (config : Global_config.t) (state : Global_state.t) model =
   if config.debug_graph
   then () (* Graphviz.output_graph ~model ~testname:config.filename state *)
   else () ;
-  Observe.process_rstk_detail_map config state ;
+  Observe.process_rstk_stat_map config state ;
   ()
 
 let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk

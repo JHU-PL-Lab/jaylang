@@ -31,6 +31,22 @@ type block_kind = Main | Fun of fun_block_info | Cond of cond_case_info
 type block = { id : Id.t; clauses : clause_list; kind : block_kind }
 [@@deriving show { with_path = false }]
 
+module Block = struct
+  module T = struct
+    type t = block
+
+    let compare b1 b2 = Id.compare b1.id b2.id
+    let equal b1 b2 = Id.equal b1.id b2.id
+    let hash b = Id.hash b.id
+    let sexp_of_t b = Id.sexp_of_t b.id
+  end
+
+  include T
+  include Comparator.Make (T)
+
+  let pp oc b = Id.pp oc b.id
+end
+
 type cond_both_info = { then_ : block option; else_ : block option }
 
 type def_site =

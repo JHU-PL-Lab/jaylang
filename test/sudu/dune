@@ -7,5 +7,5 @@
   (run ./test_sudu_z3.ml)))
 
 (executables
- (names test_sudu_z3)
+ (names test_sudu_z3 test_heavy)
  (libraries alcotest core z3 sudu))

@@ -132,9 +132,10 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     let term_detail = Term_detail.mk_detail ~rule ~key in
 
     Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
-    state.tree_size <- state.tree_size + 1 ;
 
     Checker.try_step_check ~state ~config key stride ;%lwt
+    state.tree_size <- state.tree_size + 1 ;
+    Observe.dump_block_stat config state ;
 
     Hash_set.strict_remove_exn state.lookup_created key ;
 
