@@ -61,23 +61,22 @@ test-rstack:
 
 # profiling
 
-land100:
-# OCAML_LANDMARKS=on,output="profiling/callgraph100.ansi" time ./dbmc_top -t target test-sources/loop/_sum100.odefa
-	OCAML_LANDMARKS=auto,output="profiling/callgraph100-ddse.ansi" time ./dbmc_top -e ddse -t target test-sources/loop/_sum100.odefa
-
 profile:
 	dune build --workspace dune-workspace.profile src/bin/dbmc_top.exe
 	ln -s -f _build/profile/src/bin/dbmc_top.exe dbmc_top
 # dune exec --workspace dune-workspace.profiling --context profiling src/bin/dbmc_top.exe -- -t target test-sources/loop/_sum100.odefa
 
+land100:
+	OCAML_LANDMARKS=auto,output="profiling/callgraph100-ddse.ansi" time ./dbmc_top -t target -ls2 debug test-sources/loop/_sum100.odefa
+
 land200:
-	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dbmc_top -t target test-sources/loop/_sum200.odefa
+	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dbmc_top -t target -ls2 debug test-sources/loop/_sum200.odefa
+
+land500:
+	OCAML_LANDMARKS=auto,output="profiling/callgraph500.ansi" time ./dbmc_top -t target -ls2 debug test-sources/loop/_sum500.odefa
 
 ll:
 	OCAML_LANDMARKS=on,output="profiling/fold.ansi" time ./dbmc_top -t target -e ddse  -m 3 test-sources/benchmark/icfp20/_smbc/smbc_fold0s.natodefa
-
-land500:
-	OCAML_LANDMARKS=on,output="profiling/callgraph500.ansi" time ./dbmc_top -t target test-sources/loop/_sum500.odefa
 
 benchmark:
 	dune exec benchmark/benchmark.exe -- -e dbmc

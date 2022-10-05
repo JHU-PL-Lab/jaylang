@@ -29,9 +29,9 @@ let count_smt_request (config : Global_config.t) (state : Global_state.t)
     | None ->
         {
           block_id = key.block.id;
-          visits = 0;
-          smt_checks = 0;
-          smt_size = 0;
+          visits = 1;
+          smt_checks = (if is_checked then 1 else 0);
+          smt_size = Solver.get_assertion_count ();
           smt_time;
         }
     | Some d ->
@@ -40,5 +40,5 @@ let count_smt_request (config : Global_config.t) (state : Global_state.t)
           visits = d.visits + 1;
           smt_checks = (if is_checked then d.smt_checks + 1 else d.smt_checks);
           smt_size = max d.smt_size (Solver.get_assertion_count ());
-          smt_time;
+          smt_time = d.smt_time +. smt_time;
         })
