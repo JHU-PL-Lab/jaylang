@@ -1230,7 +1230,14 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
             let jay_expr = jayil_to_jay_expr err_val_var in
             match jay_expr with
             | None -> failwith "jayil_to_bluejay_error: TBI!"
-            | Some ed -> (* TODO: TURN IT INTO A BLUEJAY EXPR *)
+            | Some ed ->
+                let sem_expr = Bluejay_ast_internal.from_jay_expr_desc ed in
+                let syn_expr =
+                  Bluejay_to_jay_maps.get_syn_nat_equivalent_expr
+                    bluejay_jay_maps sem_expr
+                in
+                syn_expr
+            (* TODO: TURN IT INTO A BLUEJAY EXPR *)
             (* TODO: If it's a list, how do we know what type it contains in general? I guess we can take advantage of the fact that the list is always translated in a formatted fashion, and we'll simply get the head from the interpreter and see its value. But it feels very unclean. *)
             (* TODO: Also, records? It's gonna be a nightmare... *))
       in
