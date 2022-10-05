@@ -192,7 +192,7 @@ let test_one_file testname () =
       run_max_step = None;
     }
   in
-  let errors_opt =
+  let errors_opt, _ =
     Main.main_from_program ~config odefa_inst_maps on_to_odefa_maps_opt
       ton_to_on_maps_opt program
   in
@@ -222,5 +222,5 @@ let main test_path =
   Alcotest.run "Sato" grouped_tests ;
   ()
 
-(* let () = main "test-sato" *)
-let () = main "test-sato/playing-ground"
+let () = main "test-sato"
+(* let () = main "test-sato/playing-ground" *)
