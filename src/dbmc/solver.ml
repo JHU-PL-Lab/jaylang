@@ -1,4 +1,5 @@
 open Core
+open Dj_common.Log.Export
 
 let ctx = Z3.mk_context []
 
@@ -16,12 +17,18 @@ type value = Sudu.Z3_api.plain =
 let solver = Z3.Solver.mk_solver ctx None
 let reset () = Z3.Solver.reset solver
 let get_assertion_count () = List.length (Z3.Solver.get_assertions solver)
-
-let check phis cvars_z3 =
-  Z3.Solver.add solver phis ;
-  SuduZ3.check_with_assumption solver cvars_z3
-
 let string_of_solver () = Z3.Solver.to_string solver
+
+let check ?(verbose = true) phis cvars_z3 =
+  Z3.Solver.add solver phis ;
+
+  if verbose
+  then
+    SLog.debug (fun m ->
+        m "Solver Phis (%d) : %s" (get_assertion_count ()) (string_of_solver ()))
+  else () ;
+
+  SuduZ3.check_with_assumption solver cvars_z3
 
 let check_expected_input_sat target_stk history =
   let input_phis =

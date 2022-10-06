@@ -30,7 +30,7 @@ let eager_check (state : Global_state.t) (config : Global_config.t) target
   SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
   SLog.debug (fun m ->
       m "Used-once Phis (eager): %a"
-        Fmt.(Dump.list string)
+        Fmt.(list ~sep:sp string)
         (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
   match check_result with
   | Result.Ok _model ->
@@ -68,21 +68,25 @@ let check ?(verbose = true) (state : Global_state.t) (config : Global_config.t)
     |> List.map ~f:(fun (key, i) -> SuduZ3.not_ (pick_key_list key i))
   in
   let phi_used_once = unfinish_lookup @ list_fix in
-  let check_result = Solver.check state.phis phi_used_once in
-  Global_state.clear_phis state ;
 
-  if config.debug_model && verbose
-  then (
-    SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
+  LLog.info (fun m -> m "before check:\t%d" state.tree_size) ;
+
+  let verbose = verbose && config.debug_model in
+  if verbose
+  then
     SLog.debug (fun m ->
-        m "Used-once Phis: %a"
-          Fmt.(Dump.list string)
-          (List.map ~f:Z3.Expr.to_string phi_used_once)))
+        m "Used-once Phis:@?@\n@[<v>%a@]"
+          Fmt.(list ~sep:cut string)
+          (List.map ~f:Z3.Expr.to_string phi_used_once))
   else () ;
 
+  let check_result = Solver.check ~verbose state.phis phi_used_once in
+  Global_state.clear_phis state ;
+
+  LLog.info (fun m -> m "before model:\t%d" state.tree_size) ;
   match check_result with
   | Result.Ok model ->
-      if config.debug_model && verbose
+      if verbose
       then SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
       else () ;
       let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
