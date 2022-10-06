@@ -131,7 +131,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     let rule = Rule.rule_of_runtime_status key state.block_map in
     let term_detail = Term_detail.mk_detail ~rule ~key in
 
-    Out_channel.flush (Option.value_exn !Log.saved_oc) ;
+    Option.iter !Log.saved_oc ~f:Out_channel.flush ;
 
     Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
 
