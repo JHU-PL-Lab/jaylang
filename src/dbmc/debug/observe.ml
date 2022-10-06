@@ -27,7 +27,7 @@ let process_rstk_stat_map (config : Global_config.t) (state : Global_state.t) =
         srd_list time_sum)
 
 let dump_block_stat (config : Global_config.t) (state : Global_state.t) =
-  if true (* state.tree_size mod 100 = 0 *)
+  if state.tree_size mod 1000 = 0
   then
     let raw_plist = state.block_stat_map |> Hashtbl.to_alist in
     S2Log.app (fun m ->

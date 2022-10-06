@@ -98,6 +98,8 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
   handle_both config state (Some model) ;
   print_endline @@ Concrete_stack.show c_stk ;
 
+  print_endline @@ string_of_int state.tree_size ;
+
   let inputs_from_interpreter = get_input ~config ~state model c_stk in
   (match config.mode with
   | Dbmc_check inputs -> check_expected_input ~config ~state inputs
