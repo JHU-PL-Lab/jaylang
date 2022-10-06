@@ -1389,3 +1389,6 @@ let is_type_expr (ed : syn_bluejay_edesc) : bool =
   | TypeArrowD _ | TypeUnion _ | TypeIntersect _ | TypeSet _ | TypeRecurse _ ->
       true
   | _ -> false
+
+let is_fun_type (ed : syn_bluejay_edesc) : bool =
+  match ed.body with TypeArrow _ | TypeArrowD _ -> true | _ -> false

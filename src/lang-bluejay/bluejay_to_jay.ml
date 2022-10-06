@@ -751,6 +751,53 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
      => (a v c v e) -> (if a -> b, if c -> d, if e -> f)
   *)
   | TypeIntersect (t1, t2) ->
+      let rec _flatten_fun_intersection ed acc =
+        match ed.body with
+        | TypeIntersect (t1, t2) -> (
+            match (t1.body, t2.body) with
+            | TypeArrow _, TypeArrow _ | TypeArrowD _, TypeArrowD _ ->
+                t1 :: t2 :: acc
+            | TypeArrow _, TypeIntersect _ | TypeArrowD _, TypeIntersect _ ->
+                let acc' = t1 :: acc in
+                _flatten_fun_intersection t2 acc'
+            | TypeIntersect _, TypeArrow _ | TypeIntersect _, TypeArrowD _ ->
+                let acc' = t2 :: acc in
+                _flatten_fun_intersection t1 acc'
+            | TypeIntersect _, TypeIntersect _ ->
+                let acc' = _flatten_fun_intersection t1 acc in
+                _flatten_fun_intersection t2 acc'
+            | _ ->
+                failwith
+                  "flatten_fun_intersection: Should be an intersection of \
+                   functions!")
+        | _ ->
+            failwith
+              "flatten_fun_intersection: Should be an intersection of \
+               functions!"
+      in
+      let rec _arity_check ed counter =
+        match ed.body with
+        | TypeArrow (_, t2) | TypeArrowD ((_, _), t2) ->
+            1 + _arity_check t2 counter
+        | _ -> counter
+      in
+      let rec _domain_check ed =
+        match ed.body with
+        | TypeArrow (t1, t2) | TypeArrowD ((_, t1), t2) ->
+            if is_fun_type t1 then false else _domain_check t2
+        | _ -> true
+      in
+      let mk_fun_intersect_gen fun_types =
+        let canonical_arity = _arity_check @@ List.hd fun_types in
+        let well_formed =
+          List.for_all (fun t -> _arity_check t = canonical_arity) fun_types
+          && List.for_all _domain_check fun_types
+        in
+        if well_formed
+        then failwith "TBI!"
+        else
+          failwith "mk_fun_intersect_gen: ill-formed function intersection type"
+      in
       let%bind generator =
         (* For intersection type, we want to make sure that the value generated
            will indeed be in both types. Thus we will use the generator of one
