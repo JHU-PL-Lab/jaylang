@@ -1,0 +1,3 @@
+let id (x : int) : int = x
+in
+id true

@@ -1,4 +1,0 @@
-let test (x : int) : int = 
-    x + x
-in
-test true

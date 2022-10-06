@@ -33,7 +33,7 @@ let read_source_sato filename =
       in
       let jay_ast = Bluejay_ast_internal.to_jay_expr_desc core_ast in
       (* let (desugared_typed, ton_on_maps) = transform_natodefa jay_ast in *)
-      (* let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in *)
+      let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
         Jay_translate.Jay_to_jayil.translate ~is_jay:true ~is_instrumented:true
           jay_ast
@@ -46,11 +46,12 @@ let read_source_sato filename =
       let jay_ast =
         Jay_ast.new_expr_desc @@ Dj_common.File_utils.parse_jay_file filename
       in
+      let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in
       (* let (desugared_typed, ton_on_maps) = transform_natodefa jay_ast in *)
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
         Jay_to_jayil.translate ~is_instrumented:true jay_ast
       in
-      (* let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in *)
+      let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;
       (post_inst_ast, odefa_inst_maps, Some on_odefa_maps, None))
     else if Dj_common.File_utils.check_jayil_ext filename
@@ -59,7 +60,7 @@ let read_source_sato filename =
       let post_inst_ast, odefa_inst_maps =
         Jay_instrumentation.Instrumentation.instrument_jayil pre_inst_ast
       in
-      (* let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in *)
+      let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;
       (post_inst_ast, odefa_inst_maps, None, None))
     else failwith "file extension must be .jil, .jay, or .bjy"

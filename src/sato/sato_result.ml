@@ -343,8 +343,7 @@ module Bluejay_type_errors : Sato_result with type t = ton_error_record = struct
       |> Jay_translate.Jay_to_jayil_maps.get_jay_equivalent_expr_exn
            on_to_odefa_maps
       |> Bluejay_ast_internal.from_jay_expr_desc
-      |> Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay ton_on_maps
-      |> Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay ton_on_maps
+      |> Bluejay_to_jay_maps.get_syn_nat_equivalent_expr ton_on_maps
       |> Bluejay_ast_internal.from_internal_expr_desc
     in
     let is_type_error =

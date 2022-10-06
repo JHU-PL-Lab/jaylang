@@ -729,14 +729,11 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
   (* Jayil to jay *)
   match jayil_err with
   | Jayil_error.Error_binop _ | Jayil_error.Error_match _ ->
-      failwith "Should have been handled by jayil_to_bluejay_error_simple"
+      failwith
+        "jayil_to_bluejay_error: Should have been handled by \
+         jayil_to_bluejay_error_simple"
   | Jayil_error.Error_value err ->
       let jayil_aliases_with_stack = err.err_value_aliases in
-      (* let () =
-           List.iter
-             ~f:(fun is -> print_endline @@ Dbmc.Interpreter.show_ident_with_stack is)
-             jayil_aliases_with_stack
-         in *)
       (* This is the stack of the "false" value that indicates where the error
          is located. *)
       let relevant_stk =
@@ -750,6 +747,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         |> List.map ~f:Id_with_stack.id_of
         |> jayil_to_jay_aliases
       in
+      (* Restoring the Bluejay version of the error indicator (the false value) *)
       let sem_nat_aliases =
         core_nat_aliases
         |> List.map ~f:Bluejay_ast_internal.from_jay_expr_desc
@@ -757,12 +755,11 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
              ~f:
                (Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay
                   bluejay_jay_maps)
+        |> List.map
+             ~f:
+               (Bluejay_to_jay_maps.unwrapped_bluejay_from_wrapped_bluejay
+                  bluejay_jay_maps)
       in
-      (* let () =
-           List.iter
-             ~f:(fun ed -> print_endline @@ show_expr' ed.body)
-             sem_nat_aliases
-         in *)
       (* Getting the expression that triggered the error *)
       let sem_val_exprs =
         sem_nat_aliases
@@ -771,12 +768,8 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                (Bluejay_to_jay_maps.get_value_expr_from_sem_expr
                   bluejay_jay_maps)
       in
-      (* let () =
-           List.iter
-             ~f:(fun ed -> print_endline @@ show_expr' ed.body)
-             sem_val_exprs
-         in *)
-      (* Getting the jayil variable corresponding to the error-triggering value *)
+      (* Translating the value back to jayil so that we can look up its runtime
+         value *)
       let jayil_vars =
         sem_val_exprs
         |> List.filter_map
@@ -787,26 +780,8 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
              ~f:
                (Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps)
       in
-      (* let () =
-           List.iter
-             ~f:(fun (Var (x, _)) -> print_endline @@ Ast.show_ident x)
-             jayil_vars
-         in *)
-      (* TODO: This is hacky. There has got to be a better way of doing this *)
-      (* let stacks =
-           jayil_aliases_with_stack
-           |> List.map ~f:Dbmc.Interpreter.stack_from_id_with_stack
-         in *)
+      (* Getting all the aliases (for runtime value lookup) *)
       let alias_graph = interp_session.alias_graph in
-      (* let jayil_vars_with_stack =
-           jayil_vars
-           |> List.map ~f:(fun (Var (x, _)) -> x)
-           |> List.map
-               ~f:(fun x -> List.map ~f:(fun stk -> (x, stk)) stacks)
-           |> List.concat
-           |> List.map ~f:(Sato_tools.find_alias alias_graph)
-           |> List.concat
-         in *)
       let jayil_vars_with_stack : Id_with_stack.t list =
         jayil_vars
         |> List.map ~f:(fun (Var (x, _)) -> x)
@@ -821,42 +796,25 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         |> List.map ~f:(Sato_tools.find_alias alias_graph)
         |> List.concat
       in
-      (* let keys = Batteries.List.of_enum @@ Ast.Ident_map.keys final_env in
-         let () = List.iter ~f:(fun k -> print_endline @@ show_ident k) keys in *)
-      (* let () = failwith @@ string_of_bool @@ List.is_empty @@ List.concat jayil_vars_with_stack in *)
-      (* let () =
-         List.iter
-           ~f:(fun x -> print_endline @@ Dbmc.Interpreter.show_ident_with_stack x)
-           jayil_vars_with_stack in *)
+      (* Helper function for looking up the value definition clause *)
       let rec find_val
           (vdef_mapping :
             ( Id_with_stack.t,
               Ast.clause_body * Dbmc.Interpreter.dvalue )
-            Hashtbl.t) (xs : Id_with_stack.t list) : Dbmc.Interpreter.dvalue =
-        (* : Dbmc.Interpreter.dvalue * Id_with_stack.t = *)
+            Hashtbl.t) (xs : Id_with_stack.t list) :
+          Dbmc.Interpreter.dvalue * Id_with_stack.t =
         match xs with
         | [] -> failwith "Should at least find one value!"
         | hd :: tl -> (
-            (* let () = print_endline @@ Dbmc.Interpreter.show_ident_with_stack hd in *)
             let found = Hashtbl.find vdef_mapping hd in
             match found with
-            | Some (_, dv) -> dv
+            | Some (_, dv) -> (dv, hd)
             | None -> find_val vdef_mapping tl)
       in
-      let err_val = find_val interp_session.val_def_map jayil_vars_with_stack in
-      (* let val_exprs =
-           let relevant_tags = bluejay_jay_maps.syn_tags in
-           jayil_vars_with_stack
-           |> List.map ~f:(fun (x, _) -> x)
-           |> List.filter_map ~f:jayil_to_jay_expr
-           |> List.map ~f:Bluejay_ast_internal.from_jay_expr_desc
-           |> List.map ~f:(Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay bluejay_jay_maps)
-           |> List.map ~f:(Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay bluejay_jay_maps)
-           |> List.filter ~f:(fun ed -> List.mem relevant_tags ed.tag ~equal:(=))
-           |> List.map ~f:Bluejay_ast_internal.from_internal_expr_desc
-           |> Batteries.List.unique
-         in *)
-      (* let () = List.iter ~f:(fun x -> print_endline @@ Bluejay_ast_pp.show_expr_desc x) sem_val_expr_lst in *)
+      (* Getting the runtime value and the corresponding jayil variable *)
+      let err_val, (err_val_var, _err_val_stk) =
+        find_val interp_session.val_def_map jayil_vars_with_stack
+      in
       let v = Dbmc.Interpreter.value_of_dvalue err_val in
       (* NOTE: The case where a variable might take on different types for
          different instances might be problematic here. *)
@@ -865,6 +823,9 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         let jayil_vars =
           ed
           |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps
+          (* |> Bluejay_to_jay_maps.wrapped_bluejay_from_unwrapped_bluejay
+               bluejay_jay_maps *)
+          (* |> Option.value_exn *)
           |> Bluejay_to_jay_maps.get_core_expr_from_sem_expr bluejay_jay_maps
           |> Option.value_exn |> Bluejay_ast_internal.to_jay_expr_desc
           |> Jay_translate.Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr
@@ -1262,16 +1223,25 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         match v with
         | Value_int _ -> Bluejay_ast_internal.new_expr_desc @@ TypeInt
         | Value_bool _ -> Bluejay_ast_internal.new_expr_desc @@ TypeBool
-        | _ -> failwith "TBI!"
+        | _ -> (
+            (* TODO: Here's the issue. There doesn't seem to be a good way of restoring the "actual type" here. *)
+            let () = print_endline @@ "This is the actual value" in
+            let () = print_endline @@ Ast_pp.show_value v in
+            let jay_expr = jayil_to_jay_expr err_val_var in
+            match jay_expr with
+            | None -> failwith "jayil_to_bluejay_error: TBI!"
+            | Some ed ->
+                let sem_expr = Bluejay_ast_internal.from_jay_expr_desc ed in
+                let syn_expr =
+                  Bluejay_to_jay_maps.get_syn_nat_equivalent_expr
+                    bluejay_jay_maps sem_expr
+                in
+                syn_expr
+            (* TODO: TURN IT INTO A BLUEJAY EXPR *)
+            (* TODO: If it's a list, how do we know what type it contains in general? I guess we can take advantage of the fact that the list is always translated in a formatted fashion, and we'll simply get the head from the interpreter and see its value. But it feels very unclean. *)
+            (* TODO: Also, records? It's gonna be a nightmare... *))
       in
-      (* let expected_type_internal =
-           expected_type
-           |> Bluejay_ast_internal.to_internal_expr_desc
-         in *)
       let actual_type =
-        (* let () = print_endline @@ "expected: " ^ string_of_int expected_type_internal.tag in *)
-        (* let () = print_endline @@ "actual: " ^ show_expr_desc new_t in *)
-        (* let () = print_endline @@ string_of_int tag in *)
         let replaced =
           Bluejay_to_jay_maps.replace_type expected_type new_t tag
         in
@@ -1286,18 +1256,6 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let resolved_expected_type_external =
         expected_type |> Bluejay_ast_internal.from_internal_expr_desc
       in
-      (* let () =
-           print_endline @@ Bluejay_ast.show_expr_desc resolved_expected_type_external
-         in *)
-      (* let () = print_endline @@ Ast_pp.show_value v in *)
-      (* let vs =
-           dvs_lst
-           |> List.map
-               ~f:(fun (dv, _) ->
-                   let res = Dbmc.Interpreter.value_of_dvalue dv in
-                   res
-                   )
-         in *)
       [
         Bluejay_error.Error_bluejay_type
           {

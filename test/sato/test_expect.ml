@@ -33,7 +33,7 @@ and t = {
   error_list : error list;
 }
 [@@deriving sexp, equal, show { with_path = false }]
-(* }[@@deriving sexp, equal] *)
+(* [@@deriving sexp, equal] *)
 
 let load_sexp_expectation_for testpath =
   let expect_path = Filename.chop_extension testpath ^ ".expect.s" in
@@ -42,28 +42,24 @@ let load_sexp_expectation_for testpath =
   else None
 
 (*
-   ** NatOdefa Type Errors **
-   - Input sequence  : [0]
-   - Found at clause : let (id : (bool -> bool)) x
-    = 1 + 1 in id
-   - Found in steps  : 1175
-   --------------------
-   * Value    : id
-   * Expected : (bool -> bool)
-   * Actual   : (bool -> int)
-   1 error found.
-   No further control flows exist.
+** Bluejay Type Errors **
+- Input sequence  : 
+- Found at clause : let (lst : [int]) = [true] in lst
+--------------------
+* Value    : lst
+* Expected : [int]
+* Actual   : [bool]
 *)
 
 (* let t1 : t = {
-        found_at_clause = "let (id : (bool -> bool)) x = 1 + 1 in id";
+        found_at_clause = "let (x : [int]) = 1 in x";
         number_of_errors = 1;
         error_list =
         [
          (Type_error {
-           t_var = "id";
-           t_expected_type = "(bool -> bool)";
-           t_actual_type = "(bool -> int)";
+           t_var = "x";
+           t_expected_type = "[int]";
+           t_actual_type = "[[1]]";
          });
         ]
       }

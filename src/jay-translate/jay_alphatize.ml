@@ -52,10 +52,8 @@ let pat_rename_vars (name_map : Jay_ast.Ident.t Jay_ast.Ident_map.t)
       let t' = Ident_map.find_default t t name_map in
       LstDestructPat (h', t')
 
-(* TODO: Probably should change the type of the function. Operate on expr_desc directly? *)
-(* Doesn't create new subtrees -- should preserve the tags just fine *)
-
-(** Performs alpha substitution on a given expression. *)
+(** Performs alpha substitution on a given expression. Doesn't create new
+    subtrees -- should preserve the tags just fine *)
 let rec rename_variable (old_name : Jay_ast.ident) (new_name : Jay_ast.ident)
     (e_desc : Jay_ast.expr_desc) : Jay_ast.expr_desc =
   let open Jay_ast in
@@ -63,6 +61,7 @@ let rec rename_variable (old_name : Jay_ast.ident) (new_name : Jay_ast.ident)
      us to change the environment of the homomorphism as we descend or to block
      descending into a given subtree, so we can't use it here. *)
   let recurse = rename_variable old_name new_name in
+  let tag = e_desc.tag in
   let e = e_desc.body in
   let renamed_expr =
     match e with
@@ -215,7 +214,7 @@ let rec rename_variable (old_name : Jay_ast.ident) (new_name : Jay_ast.ident)
         let e' = recurse e in
         Assume e'
   in
-  new_expr_desc renamed_expr
+  { tag; body = renamed_expr }
 
 (** This function alphatizes an entire expression. If a variable is defined more
     than once in the given expression, all but one of the declarations will be

@@ -1,5 +1,5 @@
 # EXPECT-WELL-FORMED
 # EXPECT-NO-TYPE-ERRORS
 
-let (x : List bool) = [1] in
+let (x : List int) = [1] in
 x

@@ -277,6 +277,146 @@ and equal_expr : type a. a expr -> a expr -> bool =
   (* | TypeUntouched s1, TypeUntouched s2 -> s1 = s2 *)
   | _ -> false
 
+let rec tagless_equal_funsig : type a. a funsig -> a funsig -> bool =
+ fun (Funsig (id1, params1, fe1)) (Funsig (id2, params2, fe2)) ->
+  id1 = id2
+  && List.eq equal_ident params1 params2
+  && tagless_equal_expr_desc fe1 fe2
+
+and tagless_equal_typed_funsig :
+    type a. a typed_funsig -> a typed_funsig -> bool =
+ fun fsig_1 fsig_2 ->
+  match (fsig_1, fsig_2) with
+  | ( Typed_funsig (f1, params_with_type_1, (f_body_1, ret_type_1)),
+      Typed_funsig (f2, params_with_type_2, (f_body_2, ret_type_2)) ) ->
+      equal_ident f1 f2
+      && List.equal
+           (fun (param1, t1) (param2, t2) ->
+             equal_ident param1 param2 && tagless_equal_expr_desc t1 t2)
+           params_with_type_1 params_with_type_2
+      && tagless_equal_expr_desc f_body_1 f_body_2
+      && tagless_equal_expr_desc ret_type_1 ret_type_2
+  | ( DTyped_funsig (f1, (param1, t1), (f_body_1, ret_type_1)),
+      DTyped_funsig (f2, (param2, t2), (f_body_2, ret_type_2)) ) ->
+      equal_ident f1 f2 && equal_ident param1 param2
+      && tagless_equal_expr_desc t1 t2
+      && tagless_equal_expr_desc f_body_1 f_body_2
+      && tagless_equal_expr_desc ret_type_1 ret_type_2
+  | _ -> false
+
+and tagless_equal_expr_desc : type a. a expr_desc -> a expr_desc -> bool =
+ fun e1 e2 -> tagless_equal_expr e1.body e2.body
+
+and tagless_equal_expr : type a. a expr -> a expr -> bool =
+ fun e1 e2 ->
+  match (e1, e2) with
+  | Int n1, Int n2 -> n1 = n2
+  (* | Int _, _ -> false *)
+  | Bool b1, Bool b2 -> b1 = b2
+  (* | Bool _, _ -> false *)
+  | Input, Input -> true
+  (* | Input, _ -> false *)
+  | Var x1, Var x2 -> x1 = x2
+  (* | Var _, _ -> false *)
+  | List l1, List l2 -> List.eq tagless_equal_expr_desc l1 l2
+  (* | List _, _ -> false *)
+  | Record r1, Record r2 -> Ident_map.equal tagless_equal_expr_desc r1 r2
+  (* | Record _, _ -> false *)
+  (* | Untouched s1, Untouched s2 -> s1 = s2 *)
+  (* | Untouched _, _ -> false *)
+  | Function (id_lst1, fun_body1), Function (id_lst2, fun_body2) ->
+      List.eq equal_ident id_lst1 id_lst2
+      && tagless_equal_expr_desc fun_body1 fun_body2
+  (* | Function _, _ -> false *)
+  | Let (x1, xe1, e1), Let (x2, xe2, e2) ->
+      x1 = x2
+      && tagless_equal_expr_desc xe1 xe2
+      && tagless_equal_expr_desc e1 e2
+  (* | Let _, _ -> false *)
+  | LetFun (f1, e1), LetFun (f2, e2) ->
+      equal_funsig f1 f2 && tagless_equal_expr_desc e1 e2
+  (* | LetFun _, _ -> false *)
+  | LetRecFun (sig_lst1, e1), LetRecFun (sig_lst2, e2) ->
+      List.eq equal_funsig sig_lst1 sig_lst2 && tagless_equal_expr_desc e1 e2
+  (* | LetRecFun _, _ -> false *)
+  | LetWithType (x1, xe1, e1, t1), LetWithType (x2, xe2, e2, t2) ->
+      x1 = x2
+      && tagless_equal_expr_desc xe1 xe2
+      && tagless_equal_expr_desc e1 e2
+      && tagless_equal_expr_desc t1 t2
+  (* | LetWithType _, _ -> false *)
+  | LetFunWithType (f1, e1), LetFunWithType (f2, e2) ->
+      equal_typed_funsig f1 f2 && tagless_equal_expr_desc e1 e2
+  (* | LetFunWithType _, _ -> false *)
+  | LetRecFunWithType (sig_lst1, e1), LetRecFunWithType (sig_lst2, e2) ->
+      List.eq equal_typed_funsig sig_lst1 sig_lst2
+      && tagless_equal_expr_desc e1 e2
+  (* | LetRecFunWithType _, _ -> false *)
+  | Match (me1, pe_lst1), Match (me2, pe_lst2) ->
+      let eq_pe (p1, e1) (p2, e2) = p1 = p2 && tagless_equal_expr_desc e1 e2 in
+      tagless_equal_expr_desc me1 me2 && List.eq eq_pe pe_lst1 pe_lst2
+  (* | Match _, _ -> false *)
+  | If (cond1, tb1, fb1), If (cond2, tb2, fb2) ->
+      tagless_equal_expr_desc cond1 cond2
+      && tagless_equal_expr_desc tb1 tb2
+      && tagless_equal_expr_desc fb1 fb2
+  (* | If _, _ -> false *)
+  | Or (lop1, rop1), Or (lop2, rop2)
+  | And (lop1, rop1), And (lop2, rop2)
+  | Equal (lop1, rop1), Equal (lop2, rop2)
+  | Neq (lop1, rop1), Neq (lop2, rop2)
+  | LessThan (lop1, rop1), LessThan (lop2, rop2)
+  | Leq (lop1, rop1), Leq (lop2, rop2)
+  | GreaterThan (lop1, rop1), GreaterThan (lop2, rop2)
+  | Geq (lop1, rop1), Geq (lop2, rop2)
+  | Appl (lop1, rop1), Appl (lop2, rop2)
+  | Plus (lop1, rop1), Plus (lop2, rop2)
+  | Minus (lop1, rop1), Minus (lop2, rop2)
+  | Times (lop1, rop1), Times (lop2, rop2)
+  | Divide (lop1, rop1), Divide (lop2, rop2)
+  | Modulus (lop1, rop1), Modulus (lop2, rop2)
+  | ListCons (lop1, rop1), ListCons (lop2, rop2) ->
+      tagless_equal_expr_desc lop1 lop2 && tagless_equal_expr_desc rop1 rop2
+  (* | Or _, _
+     | And _, _
+     | Equal _, _
+     | Neq _, _
+     | LessThan _, _
+     | Leq _, _
+     | GreaterThan _, _
+     | Geq _, _
+     | Appl _, _
+     | Plus _, _
+     | Minus _, _
+     | Times _, _
+     | Divide _, _
+     | Modulus _, _
+     | ListCons _, _ -> false *)
+  | Assert e1, Assert e2 | Assume e1, Assume e2 | Not e1, Not e2 ->
+      tagless_equal_expr_desc e1 e2
+  | VariantExpr (l1, e1), VariantExpr (l2, e2) ->
+      l1 = l2 && tagless_equal_expr_desc e1 e2
+  | RecordProj (e1, l1), RecordProj (e2, l2) ->
+      l1 = l2 && tagless_equal_expr_desc e1 e2
+  (* Type expressions *)
+  | TypeVar x1, TypeVar x2 -> x1 = x2
+  | TypeInt, TypeInt | TypeBool, TypeBool -> true
+  | TypeRecord t1, TypeRecord t2 ->
+      Ident_map.equal tagless_equal_expr_desc t1 t2
+  | TypeList t1, TypeList t2 -> tagless_equal_expr_desc t1 t2
+  | TypeArrow (lt1, rt1), TypeArrow (lt2, rt2)
+  | TypeUnion (lt1, rt1), TypeUnion (lt2, rt2)
+  | TypeIntersect (lt1, rt1), TypeIntersect (lt2, rt2)
+  | TypeSet (lt1, rt1), TypeSet (lt2, rt2) ->
+      tagless_equal_expr_desc lt1 lt2 && tagless_equal_expr_desc rt1 rt2
+  | TypeArrowD ((id1, lt1), rt1), TypeArrowD ((id2, lt2), rt2) ->
+      id1 = id2
+      && tagless_equal_expr_desc lt1 lt2
+      && tagless_equal_expr_desc rt1 rt2
+  | TypeRecurse (x1, t1), TypeRecurse (x2, t2) -> x1 = x2 && t1 = t2
+  (* | TypeUntouched s1, TypeUntouched s2 -> s1 = s2 *)
+  | _ -> false
+
 let compare_helper (x : int) (y : int) : int = if x <> 0 then x else y
 
 let rec compare_funsig : type a. a funsig -> a funsig -> int =

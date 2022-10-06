@@ -1,4 +1,4 @@
-let translate ?(is_jay = false) ?(suffix = "___") ?(is_instrumented = true)
+let translate ?(is_jay = false) ?(suffix = "_j_") ?(is_instrumented = true)
     jay_edesc =
   let context = Translation_context.new_translation_context suffix is_jay () in
 

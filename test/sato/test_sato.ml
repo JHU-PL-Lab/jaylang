@@ -188,11 +188,11 @@ let test_one_file testname () =
       filename = testname;
       sato_mode = File_utils.mode_from_file testname;
       ddpa_c_stk = Sato_args.default_ddpa_c_stk;
-      timeout = Some (Time.Span.of_int_sec 10);
+      timeout = Some (Time.Span.of_int_sec 2);
       run_max_step = None;
     }
   in
-  let errors_opt =
+  let errors_opt, _ =
     Main.main_from_program ~config odefa_inst_maps on_to_odefa_maps_opt
       ton_to_on_maps_opt program
   in
