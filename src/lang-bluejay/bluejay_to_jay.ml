@@ -787,7 +787,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
             if is_fun_type t1 then false else _domain_check t2
         | _ -> true
       in
-      let mk_fun_intersect_gen fun_types =
+      let _mk_fun_intersect_gen fun_types =
         let canonical_arity = _arity_check @@ List.hd fun_types in
         let well_formed =
           List.for_all (fun t -> _arity_check t = canonical_arity) fun_types
