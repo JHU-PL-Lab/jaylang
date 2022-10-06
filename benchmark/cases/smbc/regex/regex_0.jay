@@ -32,7 +32,12 @@ let rec splits x =
   end
 in
 
-let ors _l = true in
+let rec ors x = 
+  match x with
+  | [] -> false
+  | y :: xs -> y or (ors xs)
+  end
+in
 
 let eq_t t1 t2 = 
   match t1 with
@@ -54,25 +59,30 @@ let eq_t t1 t2 =
   end
 in
 
-# | `Nil _z -> 
-# | `Eps _z -> 
-# | `Atom c -> 
-# | `P2 p2 -> 
-# | `G2 g2 -> 
-# | `Star s -> 
-
 let rec eps x =  
   match x with
   | `Nil _z -> false
+  | `Atom c -> false
   | `Eps _z -> true
   | `Star s -> true
-  | `Atom c -> false
   | `Or p -> eps p.e1 or  eps p.e2
   | `Con p -> eps p.e1 and eps p.e2
   end 
 in
 
-let step x y = `Nil 0 in
+let rec step x y = 
+  match x with
+  | `Atom b -> if eq_t b y then `Eps 0 else `Nil 0
+  | `Or p -> `Or {e1 = step p.e1 y, e2 = step p.e2 y}
+  | `Con p -> 
+    if eps p.e1 then
+      `Or {e1 = `Con {e1 = step p.e1 y}, e2 = step p.e2 y}
+    else
+      `Or {e1 = `Con {e1 = step p.e1 y}, e2 = `Nil 0}
+  | `Star s -> true
+  | _ -> x
+  end
+in
 
 # rec_ : R -> list -> bool
 # check if x can recognize y
@@ -122,7 +132,21 @@ let e1 = input == 0 in
 let e2 = input == 0 in
 let e3 = input == 0 in
 
-if eq_t (`A 0) (`A 0) and not eq_t (`A 0) (`B 0) then
+let n = `Nil 0 in
+let a = `A 0 in
+let b = `B 0 in
+let c = `C 0 in
+
+if true 
+  # and not (reck (`Nil 0) [a])
+  # and reck (`Atom a) [a]
+  # and not (reck (`Atom a) [b])
+  # and reck (`Or {e1 = `Atom a, e2 = `Atom b}) [a]
+  # and reck (`Or {e1 = `Atom a, e2 = `Atom b}) [b]
+  # and not (reck (`Or {e1 = `Atom a, e2 = `Atom b}) [c])
+  and reck (`Con {e1 = `Nil 0, e2 = `Nil 0}) n
+  # eq_t (`A 0) (`A 0) and not eq_t (`A 0) (`B 0) 
+then
   let target = 1 in 1
 else
   0
