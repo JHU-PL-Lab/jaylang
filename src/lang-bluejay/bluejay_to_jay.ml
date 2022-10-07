@@ -798,6 +798,87 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         else
           failwith "mk_fun_intersect_gen: ill-formed function intersection type"
       in
+      let rec _record_intersection_check ed =
+        match ed.body with
+        | TypeRecord _ -> true
+        | TypeIntersect (t1, t2) -> (
+            match (t1.body, t2.body) with
+            | TypeRecord _, TypeRecord _ -> true
+            | TypeRecord _, TypeIntersect _ -> _record_intersection_check t2
+            | TypeIntersect _, TypeRecord _ -> _record_intersection_check t1
+            | TypeIntersect _, TypeIntersect _ ->
+                if _record_intersection_check t1
+                then _record_intersection_check t2
+                else false
+            | _ -> false)
+        | _ ->
+            failwith
+              "record_intersection_check: Expecting intersection of record \
+               types!"
+      in
+      (* {a : int} ^ {b : {c : int}} ^ {b : {c : int; d : int}}
+         = {a : int; b : {c : int; d: int}}
+         ---------------------------------------
+         {a : int} ^ {b : {c : int}} = {a : int; b : {c : Int}}
+         {a : int; b : {c : Int}} ^  {b : {c : int; d : int}}:
+           {c : Int } ^ {c : int; d : int} = {c : int; d : int}
+         => {a : int; b : {c : int; d : int}} *)
+      (* algorithm for r1 ^ r2 <- which level should we be operating on?
+         - if r1 <: r2: r1
+         - if r2 <: r1: r2
+         - if r1 & r2 have overlapping labels:
+           for overlapping labels:
+           - for each l : t1 in r1, t2 in r2 the new type will be l : t1 ^ t2
+             * problem here: returning the same problem we're solving
+           for non-overlapping labels:
+           - direct merge
+         - if r1 & r2 don't have overlapping labels:
+           merge r1 r2 directly *)
+      let rec _find_least_common_subtype ed1 ed2 =
+        if is_subtype ed1 ed2
+        then ed1
+        else if is_subtype ed2 ed1
+        then ed2
+        else
+          match (ed1.body, ed2.body) with
+          | TypeRecord r1, TypeRecord r2 ->
+              let r1_labels = Ident_map.key_list r1 in
+              let r2_labels = Ident_map.key_list r2 in
+              let common_labels =
+                List.filter (fun x -> List.mem x r2_labels) r1_labels
+              in
+              if List.is_empty common_labels
+              then
+                new_expr_desc @@ TypeRecord (Ident_map.fold Ident_map.add r2 r1)
+              else
+                let new_record_type_init =
+                  List.fold
+                    (fun acc label ->
+                      Ident_map.add label
+                        (_find_least_common_subtype (Ident_map.find label r1)
+                           (Ident_map.find label r2))
+                        acc)
+                    Ident_map.empty common_labels
+                in
+                let new_record_ret =
+                  new_record_type_init |> fun acc ->
+                  Ident_map.fold
+                    (fun k v acc ->
+                      if List.mem k common_labels
+                      then acc
+                      else Ident_map.add k v acc)
+                    acc r1
+                  |> fun acc ->
+                  Ident_map.fold
+                    (fun k v acc ->
+                      if List.mem k common_labels
+                      then acc
+                      else Ident_map.add k v acc)
+                    acc r2
+                in
+                new_expr_desc @@ TypeRecord new_record_ret
+          | _ -> failwith "find_least_common_subtype: no common subtype!"
+      in
       let%bind generator =
         (* For intersection type, we want to make sure that the value generated
            will indeed be in both types. Thus we will use the generator of one

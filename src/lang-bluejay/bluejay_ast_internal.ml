@@ -1392,3 +1392,30 @@ let is_type_expr (ed : syn_bluejay_edesc) : bool =
 
 let is_fun_type (ed : syn_bluejay_edesc) : bool =
   match ed.body with TypeArrow _ | TypeArrowD _ -> true | _ -> false
+
+let rec is_subtype (ed1 : syn_bluejay_edesc) (ed2 : syn_bluejay_edesc) : bool =
+  if tagless_equal_expr_desc ed1 ed2
+  then true
+  else
+    match (ed1.body, ed2.body) with
+    | TypeRecord r1, TypeRecord r2 ->
+        (* e.g.: { a : int; b : int } <: { a : int v bool }  *)
+        let r1_labels = Ident_map.key_list r1 in
+        let r2_labels = Ident_map.key_list r2 in
+        (* r1 must have all the labels that r2 has to be its subtype *)
+        let prelim = List.subset compare_ident r2_labels r1_labels in
+        if prelim
+        then
+          (* r1's fields must all be subtypes to the corresponding fields in r2 *)
+          Ident_map.for_all (fun k v -> is_subtype (Ident_map.find k r1) v) r2
+        else false
+    | TypeList t1, TypeList t2 -> is_subtype t1 t2
+    | TypeArrow (dom1, cod1), TypeArrow (dom2, cod2) ->
+        is_subtype dom2 dom1 && is_subtype cod1 cod2
+    | _, TypeUnion (t1, t2) ->
+        if is_subtype ed1 t1 then true else is_subtype ed1 t2
+    | _, TypeIntersect (t1, t2) ->
+        if is_subtype ed1 t1
+        then is_subtype ed1 t2
+        else false (* TODO: What other cases are we missing here? *)
+    | _ -> failwith "TBI!"
