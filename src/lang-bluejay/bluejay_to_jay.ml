@@ -816,6 +816,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
               "record_intersection_check: Expecting intersection of record \
                types!"
       in
+      (* TODO: Strict records *)
       (* {a : int} ^ {b : {c : int}} ^ {b : {c : int; d : int}}
          = {a : int; b : {c : int; d: int}}
          ---------------------------------------

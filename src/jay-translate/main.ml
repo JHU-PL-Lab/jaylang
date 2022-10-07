@@ -60,8 +60,8 @@ let do_translate ?(is_instrumented : bool = true) context
       >>= debug_transform_jay "desugaring" Jay_desugar.desugar
       >>= debug_transform_jay "alphatization" Jay_alphatize.alphatize
       >>= debug_transform_jayil "flattening" Jay_to_jayil_flatten.flatten
-      (* >>= debug_transform_jayil "eliminating"
-            Jayil_eliminate_alias.eliminate_alias *)
+      >>= debug_transform_jayil "eliminating"
+            Jayil_eliminate_alias.eliminate_alias
     in
     let translation_result_p1, ctx =
       run_verbose context translation_result_p1_m
