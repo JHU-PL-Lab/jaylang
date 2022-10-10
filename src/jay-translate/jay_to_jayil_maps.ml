@@ -25,21 +25,31 @@ end
 
 type t = {
   (* Mapping between an jayil variable to the jay expr that the
-      jayil variable was derived from. *)
+     jayil variable was derived from. *)
   jayil_var_to_jay_expr : Expr_desc.t Ast.Ident_map.t;
   (* Mapping between two jay expressions.  Used to create a
-      mapping of jay lists and variants with their record
-      equivalents as their keys, as well as mappings between let recs and
-      their desugared versions. *)
+     mapping of jay lists and variants with their record
+     equivalents as their keys, as well as mappings between let recs and
+     their desugared versions. *)
   jay_expr_to_expr : Expr_desc.t Expr_desc_map.t;
   (* Mapping between two jay idents.  Used to create a mapping from
-      post- to pre-alphatization variables. *)
+     post- to pre-alphatization variables. *)
   jay_var_to_var : Jay_ast.Ident.t Jay_ast.Ident_map.t;
   (* Mapping between sets of jay idents and jay type sigs.  Used to
-      determine if a record was originally a list, variant, or record, depending
-      on its labels. *)
+     determine if a record was originally a list, variant, or record, depending
+     on its labels. *)
   jay_idents_to_types : Jay_ast.type_sig On_labels_map.t;
+  (* A set of odefa variables that were added during instrumentation (as
+     opposed to being in the original code or added during pre-
+     instrumentation translation). The instrumentation variable is the key;
+     the value is the pre-instrumentation variable it aliases. Note that
+     the value is an Option; it is none if the variable has no associated
+     pre-instrumentation alias (namely if it was added as a pattern match
+     conditional var). *)
   jay_instrument_vars_map : Ast.Ident.t option Ast.Ident_map.t;
+  (* A list of odefa variables that should not be touched during the alias
+     elimination pass. *)
+  const_vars : Ast.var list;
 }
 [@@deriving show]
 
@@ -50,6 +60,7 @@ let empty _is_jay =
     jay_var_to_var = Jay_ast.Ident_map.empty;
     jay_idents_to_types = On_labels_map.empty;
     jay_instrument_vars_map = Ast.Ident_map.empty;
+    const_vars = [];
   }
 
 let add_jayil_var_jay_expr_mapping mappings jayil_ident on_expr =
@@ -384,3 +395,12 @@ let get_jayil_var_opt_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
   jayil_var_opt
 
 let get_jay_inst_map mappings = mappings.jay_instrument_vars_map
+
+let add_const_var mappings var =
+  let consts = mappings.const_vars in
+  let consts' =
+    if List.mem var consts then consts else var :: mappings.const_vars
+  in
+  { mappings with const_vars = consts' }
+
+let get_const_vars mappings = mappings.const_vars
