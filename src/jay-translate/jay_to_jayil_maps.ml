@@ -404,3 +404,56 @@ let add_const_var mappings var =
   { mappings with const_vars = consts' }
 
 let get_const_vars mappings = mappings.const_vars
+
+let update_jay_jayil_maps (mappings : t)
+    (replacement_map : Ast.var Ast.Var_map.t) : t =
+  let jayil_var_to_jay_expr' =
+    let kept =
+      mappings.jayil_var_to_jay_expr
+      |> Ast.Ident_map.filter (fun k _ ->
+             Ast.Var_map.mem (Ast.Var (k, None)) replacement_map)
+    in
+    let removed =
+      mappings.jayil_var_to_jay_expr
+      |> Ast.Ident_map.filter (fun k _ ->
+             not @@ Ast.Var_map.mem (Ast.Var (k, None)) replacement_map)
+      |> Ast.Ident_map.bindings
+      |> List.map (fun (k, v) ->
+             let (Var (k', _)) =
+               Ast.Var_map.find (Var (k, None)) replacement_map
+             in
+             (k', v))
+    in
+    let new_map =
+      let folder acc (k, v) =
+        let found = Ast.Ident_map.find_opt k acc in
+        match found with
+        | None -> Ast.Ident_map.add k v acc
+        | Some v' ->
+            if v = v'
+            then acc
+            else failwith "Shouldn't map to different expressions"
+      in
+      List.fold folder kept removed
+    in
+    new_map
+  in
+  let jay_var_to_var' =
+    mappings.jay_var_to_var
+    |> Ast.Ident_map.map (fun v ->
+           let (Var (v', _)) =
+             Ast.Var_map.find_default
+               (Ast.Var (v, None))
+               (Ast.Var (v, None))
+               replacement_map
+           in
+           v')
+  in
+  {
+    mappings with
+    jayil_var_to_jay_expr = jayil_var_to_jay_expr';
+    jay_var_to_var = jay_var_to_var';
+  }
+(* jay_idents_to_types : Jay_ast.type_sig On_labels_map.t; *)
+
+(* jay_instrument_vars_map : Ast.Ident.t option Ast.Ident_map.t; *)
