@@ -80,7 +80,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
         match error with
         | Sato_error.On_error.Error_match err ->
             let actual_aliases =
-              List.map ~f:(fun (Ident i) -> i) err.err_match_aliases
+              List.map ~f:Jay_error_location.show err.err_match_aliases
             in
             let actual_v =
               Jay.Jay_ast_pp.show_expr err.err_match_val.body
@@ -98,7 +98,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
               }
         | Sato_error.On_error.Error_value err ->
             let actual_aliases =
-              List.map ~f:(fun (Ident i) -> i) err.err_value_aliases
+              List.map ~f:Jay_error_location.show err.err_value_aliases
             in
             let actual_v = Jay.Jay_ast_pp.show_expr err.err_value_val.body in
             Value_error { v_value = (actual_aliases, actual_v) }
@@ -122,7 +122,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
         match error with
         | Sato_error.Bluejay_error.Error_match err ->
             let actual_aliases =
-              List.map ~f:(fun (Ident i) -> i) err.err_match_aliases
+              List.map ~f:Bluejay_error_location.show err.err_match_aliases
             in
             let actual_v =
               Bluejay.Bluejay_ast_pp.show_expr err.err_match_val.body
@@ -157,7 +157,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
               }
         | Sato_error.Bluejay_error.Error_value err ->
             let actual_aliases =
-              List.map ~f:(fun (Ident i) -> i) err.err_value_aliases
+              List.map ~f:Bluejay_error_location.show err.err_value_aliases
             in
             let actual_v =
               Bluejay.Bluejay_ast_pp.show_expr err.err_value_val.body

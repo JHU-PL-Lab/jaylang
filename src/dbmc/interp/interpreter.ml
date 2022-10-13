@@ -113,14 +113,7 @@ let add_alias x1 x2 session : unit =
 
 let add_val_def_mapping x vdef session : unit =
   let val_def_mapping = session.val_def_map in
-  (* let () = print_endline @@ "This is adding a mapping, here's the key: " in *)
-  (* let () = print_endline @@ show_ident_with_stack x in *)
   Hashtbl.add_exn ~key:x ~data:vdef val_def_mapping
-(* match added with
-   | `Duplicate ->
-     let v = Hashtbl.find_exn val_def_mapping x in
-     if Ast.equal_clause_body v vdef  then () else failwith "Should be the same value"
-   | `Ok -> () *)
 
 let debug_update_read_node session x stk =
   match (session.is_debug, session.mode) with
@@ -242,9 +235,6 @@ and eval_clause ~session stk env clause : denv * dvalue =
     | Var_body vx ->
         let (Var (v, _)) = vx in
         let ret_val, ret_stk = fetch_val_with_stk ~session ~stk env vx in
-        (* let () = print_endline @@ "This is adding alias mapping in var body" in
-           let () = print_endline @@ show_ident_with_stack (x, stk) in
-           let () = print_endline @@ show_ident_with_stack (v, ret_stk) in *)
         add_alias (x, stk) (v, ret_stk) session ;
         ret_val
     | Conditional_body (x2, e1, e2) ->
@@ -256,9 +246,6 @@ and eval_clause ~session stk env clause : denv * dvalue =
         let ret_env, ret_val = eval_exp ~session stk' env e in
         let (Var (ret_id, _) as last_v) = Ast_tools.retv e in
         let _, ret_stk = fetch_val_with_stk ~session ~stk:stk' ret_env last_v in
-        (* let () = print_endline @@ "This is adding alias mapping in conditional body" in
-           let () = print_endline @@ show_ident_with_stack (x, stk) in
-           let () = print_endline @@ show_ident_with_stack (ret_id, ret_stk) in *)
         add_alias (x, stk) (ret_id, ret_stk) session ;
         ret_val
     | Input_body ->
@@ -273,23 +260,12 @@ and eval_clause ~session stk env clause : denv * dvalue =
             let v2, v2_stk = fetch_val_with_stk ~session ~stk env vx2 in
             let stk2 = Concrete_stack.push (x, fid) stk in
             let env2 = Ident_map.add arg (v2, stk) fenv in
-            (* let () =
-                 print_endline @@ "This is adding alias mapping in fun arg"
-               in
-               let () = print_endline @@ show_ident_with_stack (arg, stk) in
-               let () = print_endline @@ show_ident_with_stack (x2, v2_stk) in *)
             add_alias (arg, stk) (x2, v2_stk) session ;
             let ret_env, ret_val = eval_exp ~session stk2 env2 body in
             let (Var (ret_id, _) as last_v) = Ast_tools.retv body in
             let _, ret_stk =
               fetch_val_with_stk ~session ~stk:stk2 ret_env last_v
             in
-            (* let () =
-                 print_endline @@ "This is adding alias mapping in fun ret"
-               in
-               let () = print_endline @@ show_ident_with_stack (x, stk) in
-               let () = print_endline @@ show_ident_with_stack (ret_id, ret_stk) in
-               let () = print_endline @@ "pair added" in *)
             add_alias (x, stk) (ret_id, ret_stk) session ;
             ret_val
         | _ -> failwith "app to a non fun")
@@ -300,9 +276,6 @@ and eval_clause ~session stk env clause : denv * dvalue =
     | Projection_body (v, key) -> (
         match fetch_val ~session ~stk env v with
         | RecordClosure (Record_value r, denv) ->
-            (* let () = add_val_def_mapping (x, stk) cbody session in
-               let vv = Ident_map.find key r in
-               fetch_val ~session ~stk denv vv *)
             let (Var (proj_x, _) as vv) = Ident_map.find key r in
             let dvv, vv_stk = fetch_val_with_stk ~session ~stk denv vv in
             add_alias (x, stk) (proj_x, vv_stk) session ;
@@ -375,31 +348,32 @@ and eval_clause ~session stk env clause : denv * dvalue =
             then raise @@ Found_target { x; stk; v = ab_v }
             else raise @@ Found_abort ab_v
         | With_full_target (target, tar_stk) ->
-            let () =
-              print_endline @@ "target equal: "
-              ^ string_of_bool (Id.equal target x)
-            in
-            let () =
-              print_endline @@ "stack equal: "
-              ^ string_of_bool
-                  (Concrete_stack.equal tar_stk
-                     (Concrete_stack.of_list @@ List.rev
-                    @@ Concrete_stack.to_list @@ stk))
-            in
-            let () = print_endline @@ "-------------" in
-            let () = print_endline @@ "expected id  : " ^ show_ident target in
-            let () = print_endline @@ "actual id : " ^ show_ident x in
-            let () = print_endline @@ "-------------" in
-            let () =
-              print_endline @@ "expected stack  : "
-              ^ Concrete_stack.to_string tar_stk
-            in
-            let () =
-              print_endline @@ "actual stack : " ^ Concrete_stack.to_string
-              @@ Concrete_stack.of_list @@ List.rev
-              @@ Concrete_stack.to_list stk
-            in
-            let () = print_endline @@ "-------------" in
+            (* DEBUG OUTPUT *)
+            (* let () =
+                 print_endline @@ "target equal: "
+                 ^ string_of_bool (Id.equal target x)
+               in
+               let () =
+                 print_endline @@ "stack equal: "
+                 ^ string_of_bool
+                     (Concrete_stack.equal tar_stk
+                        (Concrete_stack.of_list @@ List.rev
+                       @@ Concrete_stack.to_list @@ stk))
+               in
+               let () = print_endline @@ "-------------" in
+               let () = print_endline @@ "expected id  : " ^ show_ident target in
+               let () = print_endline @@ "actual id : " ^ show_ident x in
+               let () = print_endline @@ "-------------" in
+               let () =
+                 print_endline @@ "expected stack  : "
+                 ^ Concrete_stack.to_string tar_stk
+               in
+               let () =
+                 print_endline @@ "actual stack : " ^ Concrete_stack.to_string
+                 @@ Concrete_stack.of_list @@ List.rev
+                 @@ Concrete_stack.to_list stk
+               in
+               let () = print_endline @@ "-------------" in *)
             if Id.equal target x && Concrete_stack.equal_flip tar_stk stk
             then raise @@ Found_target { x; stk; v = ab_v }
             else raise @@ Found_abort ab_v)

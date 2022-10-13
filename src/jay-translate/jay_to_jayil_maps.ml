@@ -228,10 +228,7 @@ let get_jay_equivalent_expr mappings jayil_ident =
               in
               let pat_e_list' =
                 List.map
-                  (fun (pat, match_expr) ->
-                    (* let show_expr = Pp_utils.pp_to_string Jay_ast_pp.pp_expr in *)
-                    (* let () = print_endline @@ show_expr match_expr in *)
-                    (transform_pattern pat, match_expr))
+                  (fun (pat, match_expr) -> (transform_pattern pat, match_expr))
                   pat_e_list
               in
               Match (e, pat_e_list')
@@ -281,28 +278,14 @@ let get_jayil_var_opt_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
   (* Getting the desugared version of core nat expression *)
   let desugared_core =
     let find_key_by_value v =
-      (* let () = print_endline @@ "This is the target expr" in
-         let () = print_endline @@ Jay_ast.show_expr_desc v in *)
       Expr_desc_map.fold
         (fun desugared sugared acc ->
-          (* let () = print_endline "----------------------" in
-             let () = print_endline @@ "This is the value in the dictionary: " in
-             let () = print_endline @@ Jay_ast.show_expr_desc sugared in *)
-          (* let () = print_endline @@ "This is the key in the dictionary: " in
-             let () = print_endline @@ Jay_ast.show_expr_desc desugared in *)
-          (* let () = print_endline "----------------------" in *)
           if Jay_ast.equal_expr_desc sugared v then Some desugared else acc)
         mappings.jay_expr_to_expr None
     in
     let rec loop edesc =
       let edesc_opt' = find_key_by_value edesc in
-      match edesc_opt' with
-      | None ->
-          (* let () = print_endline @@ "None found!" in  *)
-          edesc
-      | Some edesc' ->
-          (* let () = print_endline @@ "Found some!" in *)
-          loop edesc'
+      match edesc_opt' with None -> edesc | Some edesc' -> loop edesc'
     in
     loop expr
   in
@@ -380,13 +363,8 @@ let get_jayil_var_opt_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
     (* actual_expr *)
   in
   let jayil_var_opt =
-    (* let () = print_endline @@ "This is the original expr" in
-       let () = print_endline @@ Jay_ast.show_expr_desc alphatized in *)
     Ast.Ident_map.fold
       (fun jayil_var core_expr acc ->
-        (* let () = print_endline @@ "This is the value in the dictionary: " in
-           let () = print_endline @@ Jay_ast.show_expr_desc core_expr in *)
-        (* if (core_expr.Jay_ast.tag = alphatized.tag) then  *)
         if Jay_ast.equal_expr_desc core_expr alphatized
         then Some (Ast.Var (jayil_var, None))
         else acc)
@@ -405,22 +383,22 @@ let add_const_var mappings var =
 
 let get_const_vars mappings = mappings.const_vars
 
-let update_jay_jayil_maps (mappings : t)
+let update_jayil_mappings (mappings : t)
     (replacement_map : Ast.var Ast.Var_map.t) : t =
   let jayil_var_to_jay_expr' =
     let kept =
       mappings.jayil_var_to_jay_expr
       |> Ast.Ident_map.filter (fun k _ ->
-             Ast.Var_map.mem (Ast.Var (k, None)) replacement_map)
+             not @@ Ast.Var_map.mem (Var (k, None)) replacement_map)
     in
     let removed =
       mappings.jayil_var_to_jay_expr
       |> Ast.Ident_map.filter (fun k _ ->
-             not @@ Ast.Var_map.mem (Ast.Var (k, None)) replacement_map)
+             Ast.Var_map.mem (Ast.Var (k, None)) replacement_map)
       |> Ast.Ident_map.bindings
       |> List.map (fun (k, v) ->
              let (Var (k', _)) =
-               Ast.Var_map.find (Var (k, None)) replacement_map
+               Ast.Var_map.find (Ast.Var (k, None)) replacement_map
              in
              (k', v))
     in
@@ -429,31 +407,67 @@ let update_jay_jayil_maps (mappings : t)
         let found = Ast.Ident_map.find_opt k acc in
         match found with
         | None -> Ast.Ident_map.add k v acc
-        | Some v' ->
-            if v = v'
-            then acc
-            else failwith "Shouldn't map to different expressions"
+        | Some _v' ->
+            (* if v = v' then acc else acc *)
+            (* TODO: Potential bug; here we're trusting the replacement to be unnecessary *)
+            Ast.Ident_map.add k v acc
       in
       List.fold folder kept removed
     in
     new_map
   in
-  let jay_var_to_var' =
-    mappings.jay_var_to_var
-    |> Ast.Ident_map.map (fun v ->
-           let (Var (v', _)) =
-             Ast.Var_map.find_default
-               (Ast.Var (v, None))
-               (Ast.Var (v, None))
-               replacement_map
-           in
-           v')
+  let jay_instrument_vars_map' =
+    let kept =
+      mappings.jay_instrument_vars_map
+      |> Ast.Ident_map.filter (fun k _ ->
+             Ast.Var_map.mem (Var (k, None)) replacement_map)
+    in
+    let removed =
+      mappings.jay_instrument_vars_map
+      |> Ast.Ident_map.filter (fun k _ ->
+             not @@ Ast.Var_map.mem (Var (k, None)) replacement_map)
+      |> Ast.Ident_map.bindings
+      |> List.map (fun (k, v_opt) ->
+             let (Var (k', _)) =
+               Ast.Var_map.find_default
+                 (Ast.Var (k, None))
+                 (Var (k, None))
+                 replacement_map
+             in
+             match v_opt with
+             | None -> (k', v_opt)
+             | Some v ->
+                 let (Var (v', _)) =
+                   Ast.Var_map.find_default
+                     (Ast.Var (v, None))
+                     (Var (v, None))
+                     replacement_map
+                 in
+                 (k', Some v'))
+    in
+    let new_map =
+      let folder acc (k, v_opt) =
+        let found = Ast.Ident_map.find_opt k acc in
+        match found with
+        | None -> Ast.Ident_map.add k v_opt acc
+        | Some (Some v') -> (
+            match v_opt with
+            | None -> failwith "Shouldn't map to different expressions"
+            | Some v ->
+                if v = v'
+                then acc
+                else failwith "Shouldn't map to different expressions")
+        | Some None -> (
+            match v_opt with
+            | None -> acc
+            | Some _ -> failwith "Shouldn't map to different expressions")
+      in
+      List.fold folder kept removed
+    in
+    new_map
   in
   {
     mappings with
     jayil_var_to_jay_expr = jayil_var_to_jay_expr';
-    jay_var_to_var = jay_var_to_var';
+    jay_instrument_vars_map = jay_instrument_vars_map';
   }
-(* jay_idents_to_types : Jay_ast.type_sig On_labels_map.t; *)
-
-(* jay_instrument_vars_map : Ast.Ident.t option Ast.Ident_map.t; *)

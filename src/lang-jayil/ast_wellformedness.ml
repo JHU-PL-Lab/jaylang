@@ -30,10 +30,8 @@ let check_wellformed_expr expression : unit =
    if not (Var_set.is_empty expression_non_unique_bindings)
    then
      let illformednesses =
-       let () = print_endline "non-unique bindings" in
        expression_non_unique_bindings |> Var_set.enum
        |> Enum.map (fun non_unique_binding ->
-              let () = print_endline @@ show_var non_unique_binding in
               Duplicate_variable_binding non_unique_binding)
        |> List.of_enum
      in
@@ -42,13 +40,8 @@ let check_wellformed_expr expression : unit =
   if not (List.is_empty expression_scope_violations)
   then
     let illformednesses =
-      let () = print_endline "scope violations: " in
       expression_scope_violations |> List.enum
       |> Enum.map (fun (program_point, dependency) ->
-             let () =
-               print_endline @@ show_var program_point ^ " = "
-               ^ show_var dependency
-             in
              Variable_not_in_scope (program_point, dependency))
       |> List.of_enum
     in
