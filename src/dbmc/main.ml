@@ -181,8 +181,10 @@ let from_commandline () =
   let config = Argparse.parse_commandline_config () in
   Log.init config ;
   let is_instrumented = config.is_instrumented in
+  let target_var = Var (config.target, None) in
   let program =
-    Dj_common.File_utils.read_source ~is_instrumented config.filename
+    Dj_common.File_utils.read_source ~is_instrumented ~consts:[ target_var ]
+      config.filename
   in
   (try
      let result = main ~config program in

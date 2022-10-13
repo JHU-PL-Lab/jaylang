@@ -26,12 +26,12 @@ let parse_jayil_file filename = In_channel.with_file filename ~f:parse_jayil
 (* let parse_bluejay_file filename = In_channel.with_file filename ~f:parse_bluejay *)
 
 (* for users *)
-let read_source ?(is_instrumented = false) filename =
+let read_source ?(is_instrumented = false) ?(consts = []) filename =
   let jayil_ast =
     if check_jay_ext filename
     then
       let jay_ast = parse_jay_file filename in
-      Convert.jay_ast_to_jayil ~is_instrumented jay_ast
+      Convert.jay_ast_to_jayil ~is_instrumented ~consts jay_ast
     else if check_jayil_ext filename
     then
       let jayal_ast = parse_jayil_file filename in

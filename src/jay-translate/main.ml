@@ -101,13 +101,6 @@ let do_translate ?(is_instrumented : bool = true) context
     { init_ctx_ph2 with tc_fresh_name_counter = ctx.tc_fresh_name_counter }
   in
   let res = Jay_to_jayil_monad_inst.TranslationMonad.run ctx' e_m_with_info in
-
   let jayil_jay_maps = ctx.tc_jayil_jay_mappings in
   let inst_maps = ctx'.tc_jayil_instrumentation_mappings in
-  (* lazy_logger `debug (fun () ->
-         Printf.sprintf "JayIL to Jay maps:\n%s"
-           (Jay_to_jayil_maps.show jayil_jay_maps)) ;
-     lazy_logger `debug (fun () ->
-         Printf.sprintf "JayIL instrumentation maps:\n%s"
-           (Jayil_instrumentation_maps.show inst_maps)) ;*)
   (res, inst_maps, jayil_jay_maps)

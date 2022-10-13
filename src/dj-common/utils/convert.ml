@@ -9,7 +9,7 @@ let bluejay_edesc_to_jay bluejay_edesc =
   in
   Bluejay.Bluejay_ast_internal.to_jay_expr_desc core_ast
 
-let bluejay_edesc_to_jayil ~is_instrumented bluejay_edesc =
+let bluejay_edesc_to_jayil ~is_instrumented ~consts bluejay_edesc =
   let consts =
     Bluejay.Bluejay_ast_tools.defined_vars_of_expr_desc bluejay_edesc
     |> Bluejay.Bluejay_ast.Ident_set.to_list
@@ -27,7 +27,7 @@ let bluejay_edesc_to_jayil ~is_instrumented bluejay_edesc =
     jay_edesc
   |> fun (e, _, _) -> e
 
-let jay_edesc_to_jayil ~is_instrumented jay_edesc =
+let jay_edesc_to_jayil ~is_instrumented ~consts jay_edesc =
   let consts =
     Jay.Jay_ast_tools.defined_vars_of_expr_desc jay_edesc
     |> Jay.Jay_ast.Ident_set.to_list
@@ -38,7 +38,7 @@ let jay_edesc_to_jayil ~is_instrumented jay_edesc =
     jay_edesc
   |> fun (e, _, _) -> e
 
-let jay_ast_to_jayil ~is_instrumented jay_ast =
+let jay_ast_to_jayil ~is_instrumented ~consts jay_ast =
   let jay_edesc = Jay.Jay_ast.new_expr_desc jay_ast in
   let consts =
     Jay.Jay_ast_tools.defined_vars_of_expr_desc jay_edesc
@@ -46,7 +46,8 @@ let jay_ast_to_jayil ~is_instrumented jay_ast =
     |> List.map ~f:(fun x -> Jayil.Ast.Var (x, None))
     |> Jayil.Ast.Var_set.of_list
   in
-  Jay_translate.Jay_to_jayil.translate ~is_jay:true ~is_instrumented jay_edesc
+  Jay_translate.Jay_to_jayil.translate ~is_jay:true ~is_instrumented ~consts
+    jay_edesc
   |> fun (e, _, _) -> e
 
 let instrument_jayil_if ~is_instrumented jayil_ast =
