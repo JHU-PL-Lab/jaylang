@@ -26,6 +26,8 @@ let eliminate_alias_pass (consts : Ast.Var_set.t) (e : expr) : expr m =
      this expression.  To do so, we must substitute all uses of those
      variables in the expression. *)
   let replacement_map = Var_map.of_enum @@ List.enum aliases in
+  let () = print_endline @@ "This is pre-elim ast" in
+  let () = print_endline @@ Ast_pp.show_expr e in
   let e' =
     e
     |> transform_exprs_in_expr (fun expr ->
@@ -46,6 +48,8 @@ let eliminate_alias_pass (consts : Ast.Var_set.t) (e : expr) : expr m =
            e'')
   in
   let%bind () = update_jayil_jay_maps replacement_map in
+  let () = print_endline @@ "This is pre-elim ast" in
+  let () = print_endline @@ Ast_pp.show_expr e' in
   return e'
 
 let rec eliminate_aliases (consts : Ast.Var_set.t) (e : expr) : expr m =
