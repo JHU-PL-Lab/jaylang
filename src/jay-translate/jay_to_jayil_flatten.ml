@@ -254,7 +254,7 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       let id_var = Ast.Var (Ident i_string, None) in
       (* let%bind () = add_const id_var in *)
       let%bind () = add_jayil_jay_mapping alias_var expr_desc in
-      (* let%bind () = add_jayil_jay_mapping id_var expr_desc in *)
+      let%bind () = add_jayil_jay_mapping id_var expr_desc in
       return ([ Ast.Clause (alias_var, Var_body id_var) ], alias_var)
   | Input ->
       let%bind input_var = fresh_var "input" in
@@ -284,7 +284,7 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       (* let%bind () = add_jayil_jay_mapping lt_var expr_desc in *)
       (* We wanna make sure that the explicit binding stays. *)
       (* let%bind () = add_const e1_var in *)
-      (* let%bind () = add_jayil_jay_mapping lt_var e1 in *)
+      let%bind () = add_jayil_jay_mapping lt_var e1 in
       (* let%bind () = add_jayil_jay_mapping e2_var e2 in *)
       let assignment_clause = Ast.Clause (lt_var, Var_body e1_var) in
       return (e1_clist @ [ assignment_clause ] @ e2_clist, e2_var)
