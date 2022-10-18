@@ -1393,6 +1393,17 @@ let is_type_expr (ed : syn_bluejay_edesc) : bool =
 let is_fun_type (ed : syn_bluejay_edesc) : bool =
   match ed.body with TypeArrow _ | TypeArrowD _ -> true | _ -> false
 
+let is_dependent_fun_type (ed : syn_bluejay_edesc) : bool =
+  match ed.body with TypeArrowD _ -> true | _ -> false
+
+let get_dependent_fun_var (ed : syn_bluejay_edesc) : ident =
+  match ed.body with
+  | TypeArrowD ((x, _), _) -> x
+  | _ ->
+      failwith
+        "get_dependent_fun_var: Should only be called with a dependent \
+         function type!"
+
 let rec is_subtype (ed1 : syn_bluejay_edesc) (ed2 : syn_bluejay_edesc) : bool =
   if tagless_equal_expr_desc ed1 ed2
   then true

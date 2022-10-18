@@ -9,6 +9,7 @@ type t = {
   (* analysis *)
   ddpa_c_stk : Dj_common.Global_config.ddpa_c_stk;
   (* tuning *)
+  do_wrap : bool;
   run_max_step : int option;
   timeout : Time.Span.t option;
 }
@@ -21,6 +22,7 @@ let default_config =
     filename = "";
     sato_mode = Jayil;
     ddpa_c_stk = default_ddpa_c_stk;
+    do_wrap = true;
     timeout = None (* Time.Span.of_int_sec 60 *);
     run_max_step = None;
   }

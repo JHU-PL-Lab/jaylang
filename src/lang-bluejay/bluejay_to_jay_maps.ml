@@ -351,6 +351,26 @@ let rec syn_bluejay_from_sem_bluejay bluejay_jay_maps
 
 let rec unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps
     (wrapped : sem_bluejay_edesc) : sem_bluejay_edesc =
+  let transform_typed_funsig (f : 'a expr_desc -> 'b expr_desc)
+      (fun_sig : 'a typed_funsig) : 'b typed_funsig =
+    match fun_sig with
+    | Typed_funsig (fun_name, typed_params, (e, ret_type)) ->
+        let typed_params =
+          List.map
+            (fun (param, t) ->
+              let t' = f t in
+              (param, t'))
+            typed_params
+        in
+        let e' = f e in
+        let ret_type' = f ret_type in
+        Typed_funsig (fun_name, typed_params, (e', ret_type'))
+    | DTyped_funsig (fun_name, (param, t), (e, ret_type)) ->
+        let t' = f t in
+        let e' = f e in
+        let ret_type' = f ret_type in
+        DTyped_funsig (fun_name, (param, t'), (e', ret_type'))
+  in
   match
     Intermediate_expr_desc_map.Exceptionless.find wrapped
       bluejay_jay_maps.wrapped_to_unwrapped
@@ -413,8 +433,23 @@ let rec unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps
           in
           let t' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps t in
           { tag = og_tag; body = LetWithType (x, e1', e2', t') }
-      | LetFunWithType _ | LetRecFunWithType _ ->
-          failwith "unwrapped_bluejay_from_wrapped_bluejay: TBI!"
+      | LetFunWithType (typed_funsig, e) ->
+          let typed_funsig' =
+            typed_funsig
+            |> transform_typed_funsig
+                 (unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps)
+          in
+          let e' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e in
+          { tag = og_tag; body = LetFunWithType (typed_funsig', e') }
+      | LetRecFunWithType (typed_funsig_lst, e) ->
+          let typed_funsig_lst' =
+            typed_funsig_lst
+            |> List.map
+                 (transform_typed_funsig
+                    (unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps))
+          in
+          let e' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e in
+          { tag = og_tag; body = LetRecFunWithType (typed_funsig_lst', e') }
       | Plus (e1, e2) ->
           let e1' =
             unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1

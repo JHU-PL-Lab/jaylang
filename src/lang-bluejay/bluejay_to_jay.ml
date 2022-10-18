@@ -751,6 +751,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
      => (a v c v e) -> (if a -> b, if c -> d, if e -> f)
   *)
   | TypeIntersect (t1, t2) ->
+      (* Note: Intersection of all records are now empty? *)
       let rec _flatten_fun_intersection ed acc =
         match ed.body with
         | TypeIntersect (t1, t2) -> (
@@ -775,12 +776,12 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
               "flatten_fun_intersection: Should be an intersection of \
                functions!"
       in
-      let rec _arity_check ed counter =
-        match ed.body with
-        | TypeArrow (_, t2) | TypeArrowD ((_, _), t2) ->
-            1 + _arity_check t2 counter
-        | _ -> counter
-      in
+      (* let rec _arity_check ed counter =
+           match ed.body with
+           | TypeArrow (_, t2) | TypeArrowD ((_, _), t2) ->
+               1 + _arity_check t2 counter
+           | _ -> counter
+         in *)
       let rec _domain_check ed =
         match ed.body with
         | TypeArrow (t1, t2) | TypeArrowD ((_, t1), t2) ->
@@ -788,97 +789,65 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         | _ -> true
       in
       let _mk_fun_intersect_gen fun_types =
-        let canonical_arity = _arity_check @@ List.hd fun_types in
+        (* let canonical_arity = _arity_check @@ List.hd fun_types in *)
         let well_formed =
-          List.for_all (fun t -> _arity_check t = canonical_arity) fun_types
-          && List.for_all _domain_check fun_types
+          (* List.for_all (fun t -> _arity_check t = canonical_arity) fun_types *)
+          List.for_all _domain_check fun_types
         in
         if well_formed
-        then failwith "TBI!"
+        then
+          let mk_gc_pair_cod x_id cod arg =
+            Appl
+              ( new_expr_desc @@ Function ([ x_id ], cod),
+                new_expr_desc @@ Var arg )
+          in
+          let%bind arg = fresh_ident "arg" in
+          let rec folder t acc =
+            match t.body with
+            | TypeArrow (t1, t2) ->
+                let%bind gc_pair_dom_g = semantic_type_of t1 in
+                let%bind gc_pair_cod_g = semantic_type_of t2 in
+                return
+                @@ If
+                     ( new_expr_desc
+                       @@ Appl
+                            ( new_expr_desc
+                              @@ RecordProj (gc_pair_dom_g, Label "checker"),
+                              new_expr_desc @@ Var arg ),
+                       new_expr_desc
+                       @@ Appl
+                            ( new_expr_desc
+                              @@ RecordProj (gc_pair_cod_g, Label "generator"),
+                              new_expr_desc @@ Int 0 ),
+                       new_expr_desc @@ acc )
+            | TypeArrowD ((x, t1), t2) ->
+                let%bind gc_pair_dom_g = semantic_type_of t1 in
+                let%bind gc_pair_cod_g =
+                  let%bind cod_g = semantic_type_of t2 in
+                  return @@ new_expr_desc @@ mk_gc_pair_cod x cod_g arg
+                in
+                return
+                @@ If
+                     ( new_expr_desc
+                       @@ Appl
+                            ( new_expr_desc
+                              @@ RecordProj (gc_pair_dom_g, Label "checker"),
+                              new_expr_desc @@ Var arg ),
+                       new_expr_desc
+                       @@ Appl
+                            ( new_expr_desc
+                              @@ RecordProj (gc_pair_cod_g, Label "generator"),
+                              new_expr_desc @@ Int 0 ),
+                       new_expr_desc @@ acc )
+            | _ -> failwith "Should only handle function intersections!"
+          in
+          let%bind fun_body =
+            list_fold_right_m folder fun_types
+              (Assert (new_expr_desc @@ Bool false))
+          in
+          return @@ Function ([ arg ], new_expr_desc fun_body)
         else
           failwith "mk_fun_intersect_gen: ill-formed function intersection type"
-      in
-      let rec _record_intersection_check ed =
-        match ed.body with
-        | TypeRecord _ -> true
-        | TypeIntersect (t1, t2) -> (
-            match (t1.body, t2.body) with
-            | TypeRecord _, TypeRecord _ -> true
-            | TypeRecord _, TypeIntersect _ -> _record_intersection_check t2
-            | TypeIntersect _, TypeRecord _ -> _record_intersection_check t1
-            | TypeIntersect _, TypeIntersect _ ->
-                if _record_intersection_check t1
-                then _record_intersection_check t2
-                else false
-            | _ -> false)
-        | _ ->
-            failwith
-              "record_intersection_check: Expecting intersection of record \
-               types!"
-      in
-      (* TODO: Strict records *)
-      (* {a : int} ^ {b : {c : int}} ^ {b : {c : int; d : int}}
-         = {a : int; b : {c : int; d: int}}
-         ---------------------------------------
-         {a : int} ^ {b : {c : int}} = {a : int; b : {c : Int}}
-         {a : int; b : {c : Int}} ^  {b : {c : int; d : int}}:
-           {c : Int } ^ {c : int; d : int} = {c : int; d : int}
-         => {a : int; b : {c : int; d : int}} *)
-      (* algorithm for r1 ^ r2 <- which level should we be operating on?
-         - if r1 <: r2: r1
-         - if r2 <: r1: r2
-         - if r1 & r2 have overlapping labels:
-           for overlapping labels:
-           - for each l : t1 in r1, t2 in r2 the new type will be l : t1 ^ t2
-             * problem here: returning the same problem we're solving
-           for non-overlapping labels:
-           - direct merge
-         - if r1 & r2 don't have overlapping labels:
-           merge r1 r2 directly *)
-      let rec _find_least_common_subtype ed1 ed2 =
-        if is_subtype ed1 ed2
-        then ed1
-        else if is_subtype ed2 ed1
-        then ed2
-        else
-          match (ed1.body, ed2.body) with
-          | TypeRecord r1, TypeRecord r2 ->
-              let r1_labels = Ident_map.key_list r1 in
-              let r2_labels = Ident_map.key_list r2 in
-              let common_labels =
-                List.filter (fun x -> List.mem x r2_labels) r1_labels
-              in
-              if List.is_empty common_labels
-              then
-                new_expr_desc @@ TypeRecord (Ident_map.fold Ident_map.add r2 r1)
-              else
-                let new_record_type_init =
-                  List.fold
-                    (fun acc label ->
-                      Ident_map.add label
-                        (_find_least_common_subtype (Ident_map.find label r1)
-                           (Ident_map.find label r2))
-                        acc)
-                    Ident_map.empty common_labels
-                in
-                let new_record_ret =
-                  new_record_type_init |> fun acc ->
-                  Ident_map.fold
-                    (fun k v acc ->
-                      if List.mem k common_labels
-                      then acc
-                      else Ident_map.add k v acc)
-                    acc r1
-                  |> fun acc ->
-                  Ident_map.fold
-                    (fun k v acc ->
-                      if List.mem k common_labels
-                      then acc
-                      else Ident_map.add k v acc)
-                    acc r2
-                in
-                new_expr_desc @@ TypeRecord new_record_ret
-          | _ -> failwith "find_least_common_subtype: no common subtype!"
       in
       let%bind generator =
         (* For intersection type, we want to make sure that the value generated
@@ -886,28 +855,35 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
            type, and then use the checker of the other to determine whether our
            fabricated value is valid. If not, simply zero out this execution with
            "assume false". *)
-        let%bind gc_pair1_g = semantic_type_of t1 in
-        let%bind gc_pair2_g = semantic_type_of t2 in
-        let%bind candidate_var = fresh_ident "candidate" in
-        let validate =
-          If
-            ( new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair2_g, Label "checker"),
-                     new_expr_desc @@ Var candidate_var ),
-              new_expr_desc @@ Var candidate_var,
-              new_expr_desc @@ Assume (new_expr_desc @@ Bool false) )
-        in
-        let gen_expr =
-          Let
-            ( candidate_var,
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair1_g, Label "generator"),
-                     new_expr_desc @@ Int 0 ),
-              new_expr_desc @@ validate )
-        in
-        return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
+        if is_fun_type t1 || is_fun_type t2
+        then
+          let funs = _flatten_fun_intersection e_desc [] in
+          let%bind gen_body = _mk_fun_intersect_gen funs in
+          return @@ Function ([ Ident "~null" ], new_expr_desc gen_body)
+        else
+          let%bind gc_pair1_g = semantic_type_of t1 in
+          let%bind gc_pair2_g = semantic_type_of t2 in
+          let%bind candidate_var = fresh_ident "candidate" in
+          let validate =
+            If
+              ( new_expr_desc
+                @@ Appl
+                     ( new_expr_desc @@ RecordProj (gc_pair2_g, Label "checker"),
+                       new_expr_desc @@ Var candidate_var ),
+                new_expr_desc @@ Var candidate_var,
+                new_expr_desc @@ Assume (new_expr_desc @@ Bool false) )
+          in
+          let gen_expr =
+            Let
+              ( candidate_var,
+                new_expr_desc
+                @@ Appl
+                     ( new_expr_desc
+                       @@ RecordProj (gc_pair1_g, Label "generator"),
+                       new_expr_desc @@ Int 0 ),
+                new_expr_desc @@ validate )
+          in
+          return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
       in
       let%bind checker =
         (* To type check an intersection type, we want to make sure it passes
@@ -1855,15 +1831,22 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
       let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
       return res
 
-let transform_bluejay (e : syn_type_bluejay) :
+let transform_bluejay ?(do_wrap = true) (e : syn_type_bluejay) :
     core_bluejay_edesc * Bluejay_to_jay_maps.t =
   let transformed_expr : (core_bluejay_edesc * Bluejay_to_jay_maps.t) m =
     let%bind e' =
-      return (new_expr_desc e)
-      >>= debug_transform_bluejay "initial" (fun e -> return e)
-      >>= debug_transform_bluejay "typed bluejay phase one" semantic_type_of
-      >>= debug_transform_bluejay "wrap" wrap
-      >>= debug_transform_bluejay "typed bluejay phase two" bluejay_to_jay
+      if do_wrap
+      then
+        return (new_expr_desc e)
+        >>= debug_transform_bluejay "initial" (fun e -> return e)
+        >>= debug_transform_bluejay "typed bluejay phase one" semantic_type_of
+        >>= debug_transform_bluejay "wrap" wrap
+        >>= debug_transform_bluejay "typed bluejay phase two" bluejay_to_jay
+      else
+        return (new_expr_desc e)
+        >>= debug_transform_bluejay "initial" (fun e -> return e)
+        >>= debug_transform_bluejay "typed bluejay phase one" semantic_type_of
+        >>= debug_transform_bluejay "typed bluejay phase two" bluejay_to_jay
     in
     let%bind bluejay_jay_map = bluejay_to_jay_maps in
     return (e', bluejay_jay_map)

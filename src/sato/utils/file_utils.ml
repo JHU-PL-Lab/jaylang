@@ -13,7 +13,7 @@ let mode_from_file s =
   then Sato_args.Jayil
   else failwith "file extension must be .jil, .jay, or .bjy"
 
-let read_source_sato filename =
+let read_source_sato ?(do_wrap = false) filename =
   let program =
     if Dj_common.File_utils.check_bluejay_ext filename
     then (
@@ -33,7 +33,7 @@ let read_source_sato filename =
       in
       let core_ast, ton_on_maps =
         (* Typed -> Untyped *)
-        Bluejay_to_jay.transform_bluejay bluejay_ast_internal.body
+        Bluejay_to_jay.transform_bluejay ~do_wrap bluejay_ast_internal.body
       in
       let ton_on_maps' =
         Bluejay_to_jay_maps.find_all_syn_tags ton_on_maps bluejay_ast_internal
