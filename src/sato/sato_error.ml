@@ -1262,6 +1262,21 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         match v with
         | Value_int _ -> Bluejay_ast_internal.new_expr_desc @@ TypeInt
         | Value_bool _ -> Bluejay_ast_internal.new_expr_desc @@ TypeBool
+        | Value_record (Record_value r) ->
+            let keys = Ident_map.key_list r in
+            let is_untouched = List.mem keys (Ident "~untouched") in
+            let (Ident untouched_lbl) =
+              List.filter
+                ~f:(fun x -> not @@ Ast.Ident.equal x (Ident "~untouched"))
+                keys
+              |> List.hd_exn
+            in
+            let symbol_purged =
+              untouched_lbl
+              |> String.chop_prefix ~prefix:"~\'"
+              |> Option.value_exn
+            in
+            Bluejay_ast_internal.new_expr_desc @@ TypeUntouched symbol_purged
         | _ -> (
             (* TODO: Here's the issue. There doesn't seem to be a good way of restoring the "actual type" here. *)
             let jay_expr = jayil_to_jay_expr err_val_var in

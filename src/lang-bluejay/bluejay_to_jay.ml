@@ -963,7 +963,9 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         Ident_map.empty
         |> Ident_map.add (Ident "~untouched")
              (new_expr_desc @@ Record Ident_map.empty)
-        |> Ident_map.add (Ident t') (new_expr_desc @@ Record Ident_map.empty)
+        |> Ident_map.add
+             (Ident ("~\'" ^ t'))
+             (new_expr_desc @@ Record Ident_map.empty)
       in
       let generator =
         Function ([ Ident "~null" ], new_expr_desc @@ Record untouched_v)
@@ -974,7 +976,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let check_pat =
           Ident_map.empty
           |> Ident_map.add (Ident "~untouched") None
-          |> Ident_map.add (Ident t') None
+          |> Ident_map.add (Ident ("~\'" ^ t')) None
         in
         let fail_pat_cls = new_expr_desc @@ Var fail_id in
         let matched_expr = new_expr_desc @@ Var expr_id in
