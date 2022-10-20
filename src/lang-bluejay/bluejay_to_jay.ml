@@ -958,32 +958,52 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
-  (* | TypeUntouched t' ->
-     let generator =
-       Function ([Ident "~null"], new_expr_desc @@ Untouched t')
-     in
-     let%bind fail_id = fresh_ident "fail" in
-     let%bind checker =
-       let%bind expr_id = fresh_ident "expr" in
-       let check_body =
-         Function ([expr_id],
-           new_expr_desc @@
-           Match (new_expr_desc @@ Var expr_id,
-                 [(UntouchedPat t', new_expr_desc @@ Bool true);
-                 (AnyPat, new_expr_desc @@ Var fail_id)]))
-       in
-       return @@
-         Let (fail_id, new_expr_desc @@ Bool false, new_expr_desc check_body)
-     in
-     let rec_map =
-       Ident_map.empty
-       |> Ident_map.add (Ident "generator") (new_expr_desc generator)
-       |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-     in
-     let res = new_expr_desc @@ Record rec_map in
-     let%bind () = add_sem_to_syn_mapping res e_desc in
-     return res *)
-  (* These are constant functions that only modify the types *)
+  | TypeUntouched t' ->
+      let untouched_v =
+        Ident_map.empty
+        |> Ident_map.add (Ident "~untouched")
+             (new_expr_desc @@ Record Ident_map.empty)
+        |> Ident_map.add (Ident t') (new_expr_desc @@ Record Ident_map.empty)
+      in
+      let generator =
+        Function ([ Ident "~null" ], new_expr_desc @@ Record untouched_v)
+      in
+      let%bind fail_id = fresh_ident "fail" in
+      let%bind checker =
+        let%bind expr_id = fresh_ident "expr" in
+        let check_pat =
+          Ident_map.empty
+          |> Ident_map.add (Ident "~untouched") None
+          |> Ident_map.add (Ident t') None
+        in
+        let fail_pat_cls = new_expr_desc @@ Var fail_id in
+        let matched_expr = new_expr_desc @@ Var expr_id in
+        let check_body =
+          Function
+            ( [ expr_id ],
+              new_expr_desc
+              @@ Match
+                   ( matched_expr,
+                     [
+                       (RecPat check_pat, new_expr_desc @@ Bool true);
+                       (AnyPat, fail_pat_cls);
+                     ] ) )
+        in
+        let%bind () =
+          add_error_to_value_expr_mapping fail_pat_cls matched_expr
+        in
+        let%bind () = add_error_to_tag_mapping fail_pat_cls tag in
+        return
+        @@ Let (fail_id, new_expr_desc @@ Bool false, new_expr_desc check_body)
+      in
+      let rec_map =
+        Ident_map.empty
+        |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+        |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+      in
+      let res = new_expr_desc @@ Record rec_map in
+      let%bind () = add_sem_to_syn_mapping res e_desc in
+      return res
   | Int n ->
       let res = new_expr_desc @@ Int n in
       let%bind () = add_sem_to_syn_mapping res e_desc in

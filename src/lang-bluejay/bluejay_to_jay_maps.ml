@@ -117,7 +117,8 @@ let find_all_syn_tags bluejay_jay_maps (edesc : syn_bluejay_edesc) =
     let cur_tag = cur.tag in
     let expr = cur.body in
     match expr with
-    | Int _ | Bool _ | Var _ | Input | TypeError _ -> cur_tag :: acc
+    | Int _ | Bool _ | Var _ | Input | TypeError _ | TypeUntouched _ ->
+        cur_tag :: acc
     | Function (_, e)
     | Not e
     | VariantExpr (_, e)
@@ -215,7 +216,6 @@ let rec syn_bluejay_from_sem_bluejay bluejay_jay_maps
       | Bool b -> { tag = og_tag; body = Bool b }
       | Var x -> { tag = og_tag; body = Var x }
       | Input -> { tag = og_tag; body = Input }
-      (* | Untouched s -> {tag = og_tag; body = Untouched s} *)
       | TypeError x -> { tag = og_tag; body = TypeError x }
       | Function (id_lst, e) ->
           let e' = syn_bluejay_from_sem_bluejay bluejay_jay_maps e in
@@ -769,7 +769,6 @@ let rec sem_bluejay_from_core_bluejay bluejay_jay_maps
       | Assume e ->
           let e' = sem_bluejay_from_core_bluejay bluejay_jay_maps e in
           { tag = og_tag; body = Assume e' })
-(* | Untouched s -> {tag = og_tag; body = Untouched s} *)
 
 let get_syn_nat_equivalent_expr bluejay_jay_maps
     (expr : Bluejay_ast_internal.core_bluejay_edesc) =
@@ -832,7 +831,7 @@ let rec replace_type (t_desc : syn_bluejay_edesc) (new_t : syn_bluejay_edesc)
     in
     let t' =
       match t with
-      | Int _ | Bool _ | Var _ | Input | TypeError _ -> t
+      | Int _ | Bool _ | Var _ | Input | TypeError _ | TypeUntouched _ -> t
       | Function (args, fe_desc) ->
           Function (args, replace_type fe_desc new_t tag)
       | Appl (ed1, ed2) ->

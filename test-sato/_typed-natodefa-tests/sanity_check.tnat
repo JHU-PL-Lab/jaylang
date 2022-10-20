@@ -1,0 +1,7 @@
+let bad_id x = 
+    match x with
+    | int -> x + 1
+    | _ -> x
+    end
+in
+bad_id

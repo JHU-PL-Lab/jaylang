@@ -88,7 +88,6 @@ and expr =
   | TypeError of ident
   | Assert of expr_desc
   | Assume of expr_desc
-  (* | Untouched of string  *)
   (* Type expressions *)
   | TypeVar of ident
   | TypeInt
@@ -101,6 +100,7 @@ and expr =
   | TypeUnion of expr_desc * expr_desc
   | TypeIntersect of expr_desc * expr_desc
   | TypeRecurse of ident * expr_desc
+  | TypeUntouched of string
 [@@deriving eq, ord, show, to_yojson]
 
 let counter = ref 0
@@ -135,7 +135,7 @@ let expr_precedence_p1 (expr : expr) : int =
   (* TODO: For now, all type expressions will have the lowest precedence coz I'm lazy and don't wanna think about it *)
   | TypeVar _ | TypeInt | TypeBool | TypeRecord _ | TypeList _ | TypeArrow _
   | TypeArrowD _ | TypeSet _ | TypeUnion _ | TypeIntersect _ | TypeRecurse _
-  | TypeError _ ->
+  | TypeError _ | TypeUntouched _ ->
       13
 
 (** Takes expressions [e1] and [e2] as arguments. Returns 0 if the two

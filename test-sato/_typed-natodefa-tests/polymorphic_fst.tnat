@@ -1,2 +1,2 @@
-let fst (x : 'a) (y : 'b) : 'a = x in
+let fst (x : 'a) (y : 'b) : 'a = y in
 fst

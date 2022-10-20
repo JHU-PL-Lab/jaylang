@@ -282,7 +282,7 @@ and pp_expr : type a. Format.formatter -> a expr -> unit =
       Format.fprintf formatter "%a ^ %a" pp_expr_desc t1 pp_expr_desc t2
   | TypeRecurse (tvar, t) ->
       Format.fprintf formatter "Mu %a.%a" pp_ident tvar pp_expr_desc t
-(* | TypeUntouched s -> Format.pp_print_string formatter @@ "'" ^ s *)
+  | TypeUntouched s -> Format.pp_print_string formatter @@ "'" ^ s
 
 let show_ident = Pp_utils.pp_to_string pp_ident
 
