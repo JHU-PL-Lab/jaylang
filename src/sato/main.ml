@@ -14,7 +14,7 @@ let create_initial_dmbc_config (sato_config : Sato_args.t) :
   let timeout = sato_config.timeout in
   let open Dj_common.Global_config in
   {
-    target = Id.(Ident "target");
+    Global_config.default_config with
     filename;
     engine = E_dbmc;
     is_instrumented = false;
@@ -22,17 +22,6 @@ let create_initial_dmbc_config (sato_config : Sato_args.t) :
     ddpa_c_stk = ddpa_ver;
     run_max_step = max_step;
     timeout;
-    stride_init = 100;
-    stride_max = 100;
-    log_level = None;
-    log_level_lookup = None;
-    log_level_solver = None;
-    log_level_interpreter = None;
-    debug_phi = false;
-    debug_model = true;
-    debug_graph = false;
-    debug_interpreter = false;
-    is_check_per_step = false;
   }
 
 let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
