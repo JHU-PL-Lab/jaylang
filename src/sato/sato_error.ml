@@ -1270,10 +1270,25 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
             if is_untouched
             then
               let (Ident untouched_lbl) =
-                List.filter
-                  ~f:(fun x -> not @@ Ast.Ident.equal x (Ident "~untouched"))
-                  keys
-                |> List.hd_exn
+                let (Var (lookup_var, _)) =
+                  Ident_map.find (Ident "~untouched") r
+                in
+                let dv_poly =
+                  match err_val with
+                  | RecordClosure (_, denv) ->
+                      Ident_map.find lookup_var denv |> fst
+                  | _ ->
+                      failwith
+                        "jayil_to_bluejay_error: expecting a record closure \
+                         value!"
+                in
+                match dv_poly with
+                | RecordClosure (Record_value r, _) ->
+                    Ident_map.key_list r |> List.hd_exn
+                | _ ->
+                    failwith
+                      "jayil_to_bluejay_error: expecting a record closure \
+                       value!"
               in
               let symbol_purged =
                 untouched_lbl

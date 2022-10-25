@@ -959,13 +959,15 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeUntouched t' ->
-      let untouched_v =
+      let inner_map =
         Ident_map.empty
-        |> Ident_map.add (Ident "~untouched")
-             (new_expr_desc @@ Record Ident_map.empty)
         |> Ident_map.add
              (Ident ("~\'" ^ t'))
              (new_expr_desc @@ Record Ident_map.empty)
+      in
+      let untouched_v =
+        Ident_map.empty
+        |> Ident_map.add (Ident "~untouched") (new_expr_desc @@ Record inner_map)
       in
       let generator =
         Function ([ Ident "~null" ], new_expr_desc @@ Record untouched_v)
@@ -973,13 +975,28 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       let%bind fail_id = fresh_ident "fail" in
       let%bind checker =
         let%bind expr_id = fresh_ident "expr" in
+        let%bind poly_var_id = fresh_ident "~poly_var" in
         let check_pat =
           Ident_map.empty
-          |> Ident_map.add (Ident "~untouched") None
+          |> Ident_map.add (Ident "~untouched") (Some poly_var_id)
+          (* |> Ident_map.add (Ident ("~\'" ^ t')) None *)
+        in
+        let check_pat_inner =
+          Ident_map.empty
+          (* |> Ident_map.add (Ident "~untouched") (Some poly_var_id) *)
           |> Ident_map.add (Ident ("~\'" ^ t')) None
         in
-        let fail_pat_cls = new_expr_desc @@ Var fail_id in
+        let fail_pat_cls_1 = new_expr_desc @@ Var fail_id in
+        let fail_pat_cls_2 = new_expr_desc @@ Var fail_id in
         let matched_expr = new_expr_desc @@ Var expr_id in
+        let check_poly_var =
+          Match
+            ( new_expr_desc @@ Var poly_var_id,
+              [
+                (RecPat check_pat_inner, new_expr_desc @@ Bool true);
+                (AnyPat, fail_pat_cls_2);
+              ] )
+        in
         let check_body =
           Function
             ( [ expr_id ],
@@ -987,14 +1004,18 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
               @@ Match
                    ( matched_expr,
                      [
-                       (RecPat check_pat, new_expr_desc @@ Bool true);
-                       (AnyPat, fail_pat_cls);
+                       (RecPat check_pat, new_expr_desc @@ check_poly_var);
+                       (AnyPat, fail_pat_cls_1);
                      ] ) )
         in
         let%bind () =
-          add_error_to_value_expr_mapping fail_pat_cls matched_expr
+          add_error_to_value_expr_mapping fail_pat_cls_1 matched_expr
         in
-        let%bind () = add_error_to_tag_mapping fail_pat_cls tag in
+        let%bind () =
+          add_error_to_value_expr_mapping fail_pat_cls_2 matched_expr
+        in
+        let%bind () = add_error_to_tag_mapping fail_pat_cls_1 tag in
+        let%bind () = add_error_to_tag_mapping fail_pat_cls_2 tag in
         return
         @@ Let (fail_id, new_expr_desc @@ Bool false, new_expr_desc check_body)
       in
@@ -1193,10 +1214,24 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind expr' = semantic_type_of expr in
         return @@ (pat, expr')
       in
+      let%bind fail_id = fresh_ident "fail" in
       let%bind pattern_expr_lst' =
-        pattern_expr_lst |> List.map mapper |> sequence
+        let%bind og_pats = pattern_expr_lst |> List.map mapper |> sequence in
+        let check_poly =
+          let check_pat =
+            Ident_map.empty |> Ident_map.add (Ident "~untouched") None
+            (* |> Ident_map.add (Ident ("~\'" ^ t')) None *)
+          in
+          ( RecPat check_pat,
+            new_expr_desc @@ Assert (new_expr_desc @@ Var fail_id) )
+        in
+        return @@ (check_poly :: og_pats)
       in
-      let res = new_expr_desc @@ Match (e', pattern_expr_lst') in
+      let transformed_match = new_expr_desc @@ Match (e', pattern_expr_lst') in
+      let res =
+        new_expr_desc
+        @@ Let (fail_id, new_expr_desc @@ Bool false, transformed_match)
+      in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | VariantExpr (lbl, e) ->
