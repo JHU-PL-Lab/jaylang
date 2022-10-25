@@ -253,8 +253,6 @@ struct
     in
     let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
     let on_to_odefa_maps = Option.value_exn sato_state.on_to_odefa_maps in
-    let () = print_endline @@ "err_id" in
-    let () = print_endline @@ show_ident err_id in
     let on_err_loc_core =
       err_id
       |> Jay_translate.Jay_to_jayil_maps.get_jay_equivalent_expr_exn

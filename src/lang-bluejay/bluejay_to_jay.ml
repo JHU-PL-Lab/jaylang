@@ -1586,30 +1586,38 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
     match fun_sig with
     | Typed_funsig (f, typed_params, (f_body, ret_type)) ->
         let folder ((Ident p as param), t) acc =
-          let%bind eta_arg = fresh_ident p in
-          let%bind arg_check = fresh_ident "arg_check" in
-          let check_arg =
-            Appl
-              ( new_expr_desc @@ RecordProj (t, Label "checker"),
-                new_expr_desc @@ Var eta_arg )
+          let%bind bluejay_jay_maps = bluejay_to_jay_maps in
+          let t_syn =
+            Bluejay_to_jay_maps.Intermediate_expr_desc_map.find t
+              bluejay_jay_maps.sem_to_syn
           in
-          let cond =
-            If
-              ( new_expr_desc @@ Var arg_check,
-                acc,
-                new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
-          in
-          let eta_body =
-            Let (arg_check, new_expr_desc @@ check_arg, new_expr_desc @@ cond)
-          in
-          let wrapped_body =
-            new_expr_desc
-            @@ Appl
-                 ( new_expr_desc
-                   @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
-                   new_expr_desc @@ Var param )
-          in
-          return wrapped_body
+          if is_polymorphic_type t_syn
+          then return acc
+          else
+            let%bind eta_arg = fresh_ident p in
+            let%bind arg_check = fresh_ident "arg_check" in
+            let check_arg =
+              Appl
+                ( new_expr_desc @@ RecordProj (t, Label "checker"),
+                  new_expr_desc @@ Var eta_arg )
+            in
+            let cond =
+              If
+                ( new_expr_desc @@ Var arg_check,
+                  acc,
+                  new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+            in
+            let eta_body =
+              Let (arg_check, new_expr_desc @@ check_arg, new_expr_desc @@ cond)
+            in
+            let wrapped_body =
+              new_expr_desc
+              @@ Appl
+                   ( new_expr_desc
+                     @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
+                     new_expr_desc @@ Var param )
+            in
+            return wrapped_body
         in
         let%bind f_body' = wrap f_body in
         let%bind wrapped_f = list_fold_right_m folder typed_params f_body' in

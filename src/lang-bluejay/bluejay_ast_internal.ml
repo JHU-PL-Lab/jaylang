@@ -1375,6 +1375,9 @@ let is_fun_type (ed : syn_bluejay_edesc) : bool =
 let is_dependent_fun_type (ed : syn_bluejay_edesc) : bool =
   match ed.body with TypeArrowD _ -> true | _ -> false
 
+let is_polymorphic_type (ed : syn_bluejay_edesc) : bool =
+  match ed.body with TypeUntouched _ -> true | _ -> false
+
 let get_dependent_fun_var (ed : syn_bluejay_edesc) : ident =
   match ed.body with
   | TypeArrowD ((x, _), _) -> x
