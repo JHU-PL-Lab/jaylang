@@ -240,3 +240,36 @@ let label_sep = "~~~"
 let record_of_clause_body = function
   | Value_body (Value_record (Record_value r)) -> r
   | _ -> failwith "not record body`"
+
+let rec defined_vars_of_expr (e : expr) : Var_set.t =
+  let (Expr cls) = e in
+  List.fold
+    (fun acc cls ->
+      let res = defined_vars_of_clause cls in
+      Var_set.union acc res)
+    Var_set.empty cls
+
+and defined_vars_of_clause (c : clause) : Var_set.t =
+  let (Clause (x, b)) = c in
+  Var_set.add x (defined_vars_of_clause_body b)
+
+and defined_vars_of_clause_body (b : clause_body) : Var_set.t =
+  match (b : clause_body) with
+  | Var_body _ | Input_body | Appl_body _ | Match_body _ | Projection_body _
+  | Not_body _ | Binary_operation_body _ | Abort_body | Assert_body _
+  | Assume_body _ ->
+      Var_set.empty
+  | Value_body v -> defined_vars_of_value v
+  | Conditional_body (_, e1, e2) ->
+      let s1 = defined_vars_of_expr e1 in
+      let s2 = defined_vars_of_expr e2 in
+      Var_set.union s1 s2
+
+and defined_vars_of_value (v : value) : Var_set.t =
+  match (v : value) with
+  | Value_record _ | Value_int _ | Value_bool _ -> Var_set.empty
+  | Value_function f -> defined_vars_of_function f
+
+and defined_vars_of_function (f : function_value) : Var_set.t =
+  let (Function_value (_, e)) = f in
+  defined_vars_of_expr e

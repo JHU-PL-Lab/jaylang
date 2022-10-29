@@ -5,8 +5,6 @@ open Jayil.Ast
 (* The alias should follow the rule that each node has a single successor *)
 let find_alias graph x_with_stk =
   let rec loop acc target =
-    (* let () = print_endline "Current target: " in
-       let () = print_endline @@ Interpreter.show_ident_with_stack x_with_stk in *)
     if Interpreter.G.mem_vertex graph target
     then
       let (succ : Dj_common.Id_with_stack.t list) =
@@ -33,7 +31,6 @@ let find_alias_without_stack graph x : Dj_common.Id_with_stack.t list list =
             ls
         in
         if Jayil.Ast.Ident.equal x i && (not @@ check_seen acc)
-           (* then Hash_set.add init_set x_with_stk  *)
         then
           let new_aliases = find_alias graph x_with_stk in
           new_aliases :: acc

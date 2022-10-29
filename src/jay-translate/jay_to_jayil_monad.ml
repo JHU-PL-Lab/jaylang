@@ -35,6 +35,10 @@ module TranslationMonad : sig
   val add_jay_type_mapping : Jay_ast.Ident_set.t -> Jay_ast.type_sig -> unit m
   (** Map a set of jay idents to a jay type. *)
 
+  val add_const : Ast.var -> unit m
+  val get_const_vars : Ast.var list m
+  val update_jayil_jay_maps : Ast.var Ast.Var_map.t -> unit m
+
   val jayil_jay_maps : Jay_to_jayil_maps.t m
   (** Retrieve the jayil-to-jay maps from the monad *)
 
@@ -104,6 +108,19 @@ end = struct
     ctx.tc_jayil_jay_mappings <-
       Jay_to_jayil_maps.add_jay_idents_to_type_mapping jayil_jay_maps k_idents
         v_type
+
+  let add_const v ctx =
+    let jayil_jay_maps = ctx.tc_jayil_jay_mappings in
+    ctx.tc_jayil_jay_mappings <-
+      Jay_to_jayil_maps.add_const_var jayil_jay_maps v
+
+  let get_const_vars ctx =
+    let jayil_jay_maps = ctx.tc_jayil_jay_mappings in
+    Jay_to_jayil_maps.get_const_vars jayil_jay_maps
+
+  let update_jayil_jay_maps mappings ctx =
+    ctx.tc_jayil_jay_mappings <-
+      Jay_to_jayil_maps.update_jayil_mappings ctx.tc_jayil_jay_mappings mappings
 
   let jayil_jay_maps ctx = ctx.tc_jayil_jay_mappings
   let freshness_string ctx = ctx.tc_fresh_suffix_separator

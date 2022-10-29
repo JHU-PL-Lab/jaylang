@@ -32,6 +32,10 @@ val add_jay_instrument_var : t -> Ast.ident -> Ast.ident option -> t
     The value is None if there is not a corresponding aliased ident (e.g. vars
     added during match expr flattening). *)
 
+val add_const_var : t -> Ast.var -> t
+
+val update_jayil_mappings : t -> Ast.var Ast.Var_map.t -> t
+
 (* **** Getter functions **** *)
 
 val get_jay_equivalent_expr : t -> Ast.ident -> Jay_ast.expr_desc option
@@ -50,4 +54,7 @@ val get_jayil_var_opt_from_jay_expr : t -> Jay_ast.expr_desc -> Ast.var option
 (** Given a jay expression, returns the corresponding variable in desugared
     jayil. *)
 
+val get_const_vars : t -> Ast.var list
+
 val get_jay_inst_map : t -> Ast.ident option Ast.Ident_map.t
+

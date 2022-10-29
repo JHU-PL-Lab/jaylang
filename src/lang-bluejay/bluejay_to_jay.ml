@@ -751,34 +751,139 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
      => (a v c v e) -> (if a -> b, if c -> d, if e -> f)
   *)
   | TypeIntersect (t1, t2) ->
+      (* Note: Intersection of all records are now empty? *)
+      let rec _flatten_fun_intersection ed acc =
+        match ed.body with
+        | TypeIntersect (t1, t2) -> (
+            match (t1.body, t2.body) with
+            | TypeArrow _, TypeArrow _ | TypeArrowD _, TypeArrowD _ ->
+                t1 :: t2 :: acc
+            | TypeArrow _, TypeIntersect _ | TypeArrowD _, TypeIntersect _ ->
+                let acc' = t1 :: acc in
+                _flatten_fun_intersection t2 acc'
+            | TypeIntersect _, TypeArrow _ | TypeIntersect _, TypeArrowD _ ->
+                let acc' = t2 :: acc in
+                _flatten_fun_intersection t1 acc'
+            | TypeIntersect _, TypeIntersect _ ->
+                let acc' = _flatten_fun_intersection t1 acc in
+                _flatten_fun_intersection t2 acc'
+            | _ ->
+                failwith
+                  "flatten_fun_intersection: Should be an intersection of \
+                   functions!")
+        | _ ->
+            failwith
+              "flatten_fun_intersection: Should be an intersection of \
+               functions!"
+      in
+      (* let rec _arity_check ed counter =
+           match ed.body with
+           | TypeArrow (_, t2) | TypeArrowD ((_, _), t2) ->
+               1 + _arity_check t2 counter
+           | _ -> counter
+         in *)
+      let rec _domain_check ed =
+        match ed.body with
+        | TypeArrow (t1, t2) | TypeArrowD ((_, t1), t2) ->
+            if is_fun_type t1 then false else _domain_check t2
+        | _ -> true
+      in
+      let _mk_fun_intersect_gen fun_types =
+        (* let canonical_arity = _arity_check @@ List.hd fun_types in *)
+        let well_formed =
+          (* List.for_all (fun t -> _arity_check t = canonical_arity) fun_types *)
+          List.for_all _domain_check fun_types
+        in
+        if well_formed
+        then
+          let mk_gc_pair_cod x_id cod arg =
+            Appl
+              ( new_expr_desc @@ Function ([ x_id ], cod),
+                new_expr_desc @@ Var arg )
+          in
+          let%bind arg = fresh_ident "arg" in
+          let rec folder t acc =
+            match t.body with
+            | TypeArrow (t1, t2) ->
+                let%bind gc_pair_dom_g = semantic_type_of t1 in
+                let%bind gc_pair_cod_g = semantic_type_of t2 in
+                return
+                @@ If
+                     ( new_expr_desc
+                       @@ Appl
+                            ( new_expr_desc
+                              @@ RecordProj (gc_pair_dom_g, Label "checker"),
+                              new_expr_desc @@ Var arg ),
+                       new_expr_desc
+                       @@ Appl
+                            ( new_expr_desc
+                              @@ RecordProj (gc_pair_cod_g, Label "generator"),
+                              new_expr_desc @@ Int 0 ),
+                       new_expr_desc @@ acc )
+            | TypeArrowD ((x, t1), t2) ->
+                let%bind gc_pair_dom_g = semantic_type_of t1 in
+                let%bind gc_pair_cod_g =
+                  let%bind cod_g = semantic_type_of t2 in
+                  return @@ new_expr_desc @@ mk_gc_pair_cod x cod_g arg
+                in
+                return
+                @@ If
+                     ( new_expr_desc
+                       @@ Appl
+                            ( new_expr_desc
+                              @@ RecordProj (gc_pair_dom_g, Label "checker"),
+                              new_expr_desc @@ Var arg ),
+                       new_expr_desc
+                       @@ Appl
+                            ( new_expr_desc
+                              @@ RecordProj (gc_pair_cod_g, Label "generator"),
+                              new_expr_desc @@ Int 0 ),
+                       new_expr_desc @@ acc )
+            | _ -> failwith "Should only handle function intersections!"
+          in
+          let%bind fun_body =
+            list_fold_right_m folder fun_types
+              (Assert (new_expr_desc @@ Bool false))
+          in
+          return @@ Function ([ arg ], new_expr_desc fun_body)
+        else
+          failwith "mk_fun_intersect_gen: ill-formed function intersection type"
+      in
       let%bind generator =
         (* For intersection type, we want to make sure that the value generated
            will indeed be in both types. Thus we will use the generator of one
            type, and then use the checker of the other to determine whether our
            fabricated value is valid. If not, simply zero out this execution with
            "assume false". *)
-        let%bind gc_pair1_g = semantic_type_of t1 in
-        let%bind gc_pair2_g = semantic_type_of t2 in
-        let%bind candidate_var = fresh_ident "candidate" in
-        let validate =
-          If
-            ( new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair2_g, Label "checker"),
-                     new_expr_desc @@ Var candidate_var ),
-              new_expr_desc @@ Var candidate_var,
-              new_expr_desc @@ Assume (new_expr_desc @@ Bool false) )
-        in
-        let gen_expr =
-          Let
-            ( candidate_var,
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair1_g, Label "generator"),
-                     new_expr_desc @@ Int 0 ),
-              new_expr_desc @@ validate )
-        in
-        return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
+        if is_fun_type t1 || is_fun_type t2
+        then
+          let funs = _flatten_fun_intersection e_desc [] in
+          let%bind gen_body = _mk_fun_intersect_gen funs in
+          return @@ Function ([ Ident "~null" ], new_expr_desc gen_body)
+        else
+          let%bind gc_pair1_g = semantic_type_of t1 in
+          let%bind gc_pair2_g = semantic_type_of t2 in
+          let%bind candidate_var = fresh_ident "candidate" in
+          let validate =
+            If
+              ( new_expr_desc
+                @@ Appl
+                     ( new_expr_desc @@ RecordProj (gc_pair2_g, Label "checker"),
+                       new_expr_desc @@ Var candidate_var ),
+                new_expr_desc @@ Var candidate_var,
+                new_expr_desc @@ Assume (new_expr_desc @@ Bool false) )
+          in
+          let gen_expr =
+            Let
+              ( candidate_var,
+                new_expr_desc
+                @@ Appl
+                     ( new_expr_desc
+                       @@ RecordProj (gc_pair1_g, Label "generator"),
+                       new_expr_desc @@ Int 0 ),
+                new_expr_desc @@ validate )
+          in
+          return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
       in
       let%bind checker =
         (* To type check an intersection type, we want to make sure it passes
@@ -1726,15 +1831,22 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
       let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
       return res
 
-let transform_bluejay (e : syn_type_bluejay) :
+let transform_bluejay ?(do_wrap = true) (e : syn_type_bluejay) :
     core_bluejay_edesc * Bluejay_to_jay_maps.t =
   let transformed_expr : (core_bluejay_edesc * Bluejay_to_jay_maps.t) m =
     let%bind e' =
-      return (new_expr_desc e)
-      >>= debug_transform_bluejay "initial" (fun e -> return e)
-      >>= debug_transform_bluejay "typed bluejay phase one" semantic_type_of
-      >>= debug_transform_bluejay "wrap" wrap
-      >>= debug_transform_bluejay "typed bluejay phase two" bluejay_to_jay
+      if do_wrap
+      then
+        return (new_expr_desc e)
+        >>= debug_transform_bluejay "initial" (fun e -> return e)
+        >>= debug_transform_bluejay "typed bluejay phase one" semantic_type_of
+        >>= debug_transform_bluejay "wrap" wrap
+        >>= debug_transform_bluejay "typed bluejay phase two" bluejay_to_jay
+      else
+        return (new_expr_desc e)
+        >>= debug_transform_bluejay "initial" (fun e -> return e)
+        >>= debug_transform_bluejay "typed bluejay phase one" semantic_type_of
+        >>= debug_transform_bluejay "typed bluejay phase two" bluejay_to_jay
     in
     let%bind bluejay_jay_map = bluejay_to_jay_maps in
     return (e', bluejay_jay_map)

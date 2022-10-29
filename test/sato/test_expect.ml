@@ -52,20 +52,19 @@ let load_sexp_expectation_for testpath =
 *)
 
 (* let t1 : t = {
-        found_at_clause = "let (x : [int]) = 1 in x";
-        number_of_errors = 1;
-        error_list =
-        [
-         (Type_error {
-           t_var = "x";
-           t_expected_type = "[int]";
-           t_actual_type = "[[1]]";
-         });
-        ]
-      }
+           found_at_clause = "let (x : [int]) = 1 in x";
+           number_of_errors = 1;
+           error_list =
+           [
+            (Type_error {
+              t_var = "x";
+              t_expected_type = "[int]";
+              t_actual_type = "[[1]]";
+            });
+           ]
+         }
+      let ss = sexp_of_t t1
 
-   let ss = sexp_of_t t1
-
-   let sss = Sexp.to_string_hum ss *)
+      let sss = Sexp.to_string_hum ss *)
 
 (* let t1v = sss |> Sexp.of_string |> t_of_sexp *)

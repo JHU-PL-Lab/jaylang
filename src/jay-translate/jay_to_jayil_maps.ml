@@ -25,21 +25,31 @@ end
 
 type t = {
   (* Mapping between an jayil variable to the jay expr that the
-      jayil variable was derived from. *)
+     jayil variable was derived from. *)
   jayil_var_to_jay_expr : Expr_desc.t Ast.Ident_map.t;
   (* Mapping between two jay expressions.  Used to create a
-      mapping of jay lists and variants with their record
-      equivalents as their keys, as well as mappings between let recs and
-      their desugared versions. *)
+     mapping of jay lists and variants with their record
+     equivalents as their keys, as well as mappings between let recs and
+     their desugared versions. *)
   jay_expr_to_expr : Expr_desc.t Expr_desc_map.t;
   (* Mapping between two jay idents.  Used to create a mapping from
-      post- to pre-alphatization variables. *)
+     post- to pre-alphatization variables. *)
   jay_var_to_var : Jay_ast.Ident.t Jay_ast.Ident_map.t;
   (* Mapping between sets of jay idents and jay type sigs.  Used to
-      determine if a record was originally a list, variant, or record, depending
-      on its labels. *)
+     determine if a record was originally a list, variant, or record, depending
+     on its labels. *)
   jay_idents_to_types : Jay_ast.type_sig On_labels_map.t;
+  (* A set of odefa variables that were added during instrumentation (as
+     opposed to being in the original code or added during pre-
+     instrumentation translation). The instrumentation variable is the key;
+     the value is the pre-instrumentation variable it aliases. Note that
+     the value is an Option; it is none if the variable has no associated
+     pre-instrumentation alias (namely if it was added as a pattern match
+     conditional var). *)
   jay_instrument_vars_map : Ast.Ident.t option Ast.Ident_map.t;
+  (* A list of odefa variables that should not be touched during the alias
+     elimination pass. *)
+  const_vars : Ast.var list;
 }
 [@@deriving show]
 
@@ -50,6 +60,7 @@ let empty _is_jay =
     jay_var_to_var = Jay_ast.Ident_map.empty;
     jay_idents_to_types = On_labels_map.empty;
     jay_instrument_vars_map = Ast.Ident_map.empty;
+    const_vars = [];
   }
 
 let add_jayil_var_jay_expr_mapping mappings jayil_ident on_expr =
@@ -169,6 +180,8 @@ let get_jay_equivalent_expr mappings jayil_ident =
   match res_opt with
   | None -> None
   | Some res ->
+      let () = print_endline @@ "this is the og jay expr" in
+      let () = print_endline @@ Jay.Jay_ast_pp.show_expr_desc res in
       let on_expr_transform expr =
         match Expr_desc_map.Exceptionless.find expr on_expr_map with
         | Some expr' -> expr'
@@ -217,10 +230,7 @@ let get_jay_equivalent_expr mappings jayil_ident =
               in
               let pat_e_list' =
                 List.map
-                  (fun (pat, match_expr) ->
-                    (* let show_expr = Pp_utils.pp_to_string Jay_ast_pp.pp_expr in *)
-                    (* let () = print_endline @@ show_expr match_expr in *)
-                    (transform_pattern pat, match_expr))
+                  (fun (pat, match_expr) -> (transform_pattern pat, match_expr))
                   pat_e_list
               in
               Match (e, pat_e_list')
@@ -270,28 +280,14 @@ let get_jayil_var_opt_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
   (* Getting the desugared version of core nat expression *)
   let desugared_core =
     let find_key_by_value v =
-      (* let () = print_endline @@ "This is the target expr" in
-         let () = print_endline @@ Jay_ast.show_expr_desc v in *)
       Expr_desc_map.fold
         (fun desugared sugared acc ->
-          (* let () = print_endline "----------------------" in
-             let () = print_endline @@ "This is the value in the dictionary: " in
-             let () = print_endline @@ Jay_ast.show_expr_desc sugared in *)
-          (* let () = print_endline @@ "This is the key in the dictionary: " in
-             let () = print_endline @@ Jay_ast.show_expr_desc desugared in *)
-          (* let () = print_endline "----------------------" in *)
           if Jay_ast.equal_expr_desc sugared v then Some desugared else acc)
         mappings.jay_expr_to_expr None
     in
     let rec loop edesc =
       let edesc_opt' = find_key_by_value edesc in
-      match edesc_opt' with
-      | None ->
-          (* let () = print_endline @@ "None found!" in  *)
-          edesc
-      | Some edesc' ->
-          (* let () = print_endline @@ "Found some!" in *)
-          loop edesc'
+      match edesc_opt' with None -> edesc | Some edesc' -> loop edesc'
     in
     loop expr
   in
@@ -369,13 +365,8 @@ let get_jayil_var_opt_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
     (* actual_expr *)
   in
   let jayil_var_opt =
-    (* let () = print_endline @@ "This is the original expr" in
-       let () = print_endline @@ Jay_ast.show_expr_desc alphatized in *)
     Ast.Ident_map.fold
       (fun jayil_var core_expr acc ->
-        (* let () = print_endline @@ "This is the value in the dictionary: " in
-           let () = print_endline @@ Jay_ast.show_expr_desc core_expr in *)
-        (* if (core_expr.Jay_ast.tag = alphatized.tag) then  *)
         if Jay_ast.equal_expr_desc core_expr alphatized
         then Some (Ast.Var (jayil_var, None))
         else acc)
@@ -384,3 +375,108 @@ let get_jayil_var_opt_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
   jayil_var_opt
 
 let get_jay_inst_map mappings = mappings.jay_instrument_vars_map
+
+let add_const_var mappings var =
+  let consts = mappings.const_vars in
+  let consts' =
+    if List.mem var consts then consts else var :: mappings.const_vars
+  in
+  { mappings with const_vars = consts' }
+
+let get_const_vars mappings = mappings.const_vars
+
+let update_jayil_mappings (mappings : t)
+    (replacement_map : Ast.var Ast.Var_map.t) : t =
+  let jayil_var_to_jay_expr' =
+    let kept =
+      mappings.jayil_var_to_jay_expr
+      |> Ast.Ident_map.filter (fun k _ ->
+             not @@ Ast.Var_map.mem (Var (k, None)) replacement_map)
+    in
+    let removed =
+      mappings.jayil_var_to_jay_expr
+      |> Ast.Ident_map.filter (fun k _ ->
+             Ast.Var_map.mem (Ast.Var (k, None)) replacement_map)
+      |> Ast.Ident_map.bindings
+      |> List.map (fun (k, v) ->
+             let (Var (k', _)) =
+               Ast.Var_map.find (Ast.Var (k, None)) replacement_map
+             in
+             let () = print_endline "This is a key to be removed" in
+             let () = print_endline @@ Jayil.Ast_pp.show_ident k in
+             (k', v))
+    in
+    let new_map =
+      let folder acc (k, v) =
+        let found = Ast.Ident_map.find_opt k acc in
+        match found with
+        | None -> Ast.Ident_map.add k v acc
+        | Some _v' ->
+            (* if v = v' then acc else acc *)
+            (* TODO: Potential bug; here we're trusting the replacement to be unnecessary *)
+            let () = print_endline "Original key and value: " in
+            let () = print_endline @@ Jayil.Ast_pp.show_ident k in
+            let () = print_endline @@ Jay.Jay_ast_pp.show_expr_desc _v' in
+            let () = print_endline "New value: " in
+            let () = print_endline @@ Jay.Jay_ast_pp.show_expr_desc v in
+            Ast.Ident_map.add k v acc
+      in
+      List.fold folder kept removed
+    in
+    new_map
+  in
+  let jay_instrument_vars_map' =
+    let kept =
+      mappings.jay_instrument_vars_map
+      |> Ast.Ident_map.filter (fun k _ ->
+             Ast.Var_map.mem (Var (k, None)) replacement_map)
+    in
+    let removed =
+      mappings.jay_instrument_vars_map
+      |> Ast.Ident_map.filter (fun k _ ->
+             not @@ Ast.Var_map.mem (Var (k, None)) replacement_map)
+      |> Ast.Ident_map.bindings
+      |> List.map (fun (k, v_opt) ->
+             let (Var (k', _)) =
+               Ast.Var_map.find_default
+                 (Ast.Var (k, None))
+                 (Var (k, None))
+                 replacement_map
+             in
+             match v_opt with
+             | None -> (k', v_opt)
+             | Some v ->
+                 let (Var (v', _)) =
+                   Ast.Var_map.find_default
+                     (Ast.Var (v, None))
+                     (Var (v, None))
+                     replacement_map
+                 in
+                 (k', Some v'))
+    in
+    let new_map =
+      let folder acc (k, v_opt) =
+        let found = Ast.Ident_map.find_opt k acc in
+        match found with
+        | None -> Ast.Ident_map.add k v_opt acc
+        | Some (Some v') -> (
+            match v_opt with
+            | None -> failwith "Shouldn't map to different expressions"
+            | Some v ->
+                if v = v'
+                then acc
+                else failwith "Shouldn't map to different expressions")
+        | Some None -> (
+            match v_opt with
+            | None -> acc
+            | Some _ -> failwith "Shouldn't map to different expressions")
+      in
+      List.fold folder kept removed
+    in
+    new_map
+  in
+  {
+    mappings with
+    jayil_var_to_jay_expr = jayil_var_to_jay_expr';
+    jay_instrument_vars_map = jay_instrument_vars_map';
+  }

@@ -351,15 +351,26 @@ let rec syn_bluejay_from_sem_bluejay bluejay_jay_maps
 
 let rec unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps
     (wrapped : sem_bluejay_edesc) : sem_bluejay_edesc =
-  (* let show_expr_desc =
-       Pp_utils.pp_to_string Bluejay_ast_internal_pp.pp_expr_desc_with_tag
-     in
-     let () = print_endline "Wrapped expr: " in
-     let () = print_endline @@ show_expr_desc wrapped in
-     let keys =
-       Intermediate_expr_desc_map.keys bluejay_jay_maps.wrapped_to_unwrapped
-     in
-     let () = Enum.iter (fun ed -> print_endline @@ show_expr_desc ed) keys in *)
+  let transform_typed_funsig (f : 'a expr_desc -> 'b expr_desc)
+      (fun_sig : 'a typed_funsig) : 'b typed_funsig =
+    match fun_sig with
+    | Typed_funsig (fun_name, typed_params, (e, ret_type)) ->
+        let typed_params =
+          List.map
+            (fun (param, t) ->
+              let t' = f t in
+              (param, t'))
+            typed_params
+        in
+        let e' = f e in
+        let ret_type' = f ret_type in
+        Typed_funsig (fun_name, typed_params, (e', ret_type'))
+    | DTyped_funsig (fun_name, (param, t), (e, ret_type)) ->
+        let t' = f t in
+        let e' = f e in
+        let ret_type' = f ret_type in
+        DTyped_funsig (fun_name, (param, t'), (e', ret_type'))
+  in
   match
     Intermediate_expr_desc_map.Exceptionless.find wrapped
       bluejay_jay_maps.wrapped_to_unwrapped
@@ -422,8 +433,23 @@ let rec unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps
           in
           let t' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps t in
           { tag = og_tag; body = LetWithType (x, e1', e2', t') }
-      | LetFunWithType _ | LetRecFunWithType _ ->
-          failwith "unwrapped_bluejay_from_wrapped_bluejay: TBI!"
+      | LetFunWithType (typed_funsig, e) ->
+          let typed_funsig' =
+            typed_funsig
+            |> transform_typed_funsig
+                 (unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps)
+          in
+          let e' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e in
+          { tag = og_tag; body = LetFunWithType (typed_funsig', e') }
+      | LetRecFunWithType (typed_funsig_lst, e) ->
+          let typed_funsig_lst' =
+            typed_funsig_lst
+            |> List.map
+                 (transform_typed_funsig
+                    (unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps))
+          in
+          let e' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e in
+          { tag = og_tag; body = LetRecFunWithType (typed_funsig_lst', e') }
       | Plus (e1, e2) ->
           let e1' =
             unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e1
@@ -754,22 +780,12 @@ let get_syn_nat_equivalent_expr bluejay_jay_maps
 
 let wrapped_bluejay_from_unwrapped_bluejay bluejay_jay_maps unwrapped =
   Intermediate_expr_desc_map.fold
-    (fun k v acc ->
-      (* let () = print_endline @@ "Current v: " in
-         let () = print_endline @@ show_expr_desc sem_ed in *)
-      if v.tag = unwrapped.tag then Some k else acc)
+    (fun k v acc -> if v.tag = unwrapped.tag then Some k else acc)
     bluejay_jay_maps.wrapped_to_unwrapped None
 
 let get_core_expr_from_sem_expr bluejay_jay_maps sem_expr =
-  (* let show_expr_desc =
-       Pp_utils.pp_to_string Bluejay_ast_internal_pp.pp_expr_desc_with_tag
-     in
-     let () = print_endline "Target: " in
-     let () = print_endline @@ show_expr_desc sem_expr in *)
   Core_expr_desc_map.fold
     (fun core_ed sem_ed acc ->
-      (* let () = print_endline @@ "Current v: " in
-         let () = print_endline @@ show_expr_desc sem_ed in *)
       if sem_expr.tag = sem_ed.tag then Some core_ed else acc)
     bluejay_jay_maps.core_to_sem None
 
@@ -974,14 +990,7 @@ let sem_from_syn (bluejay_jay_maps : t) (syn_expr : syn_bluejay_edesc) :
   let mappings = bluejay_jay_maps.sem_to_syn in
   let res_opt =
     Intermediate_expr_desc_map.fold
-      (fun k v acc ->
-        (* let () = print_endline @@ "Current v: " in
-           let () =
-             print_endline
-             @@ Bluejay_ast.show_expr_desc
-                  (Bluejay_ast_internal.from_internal_expr_desc v)
-           in *)
-        if v.tag = syn_expr.tag then Some k else acc)
+      (fun k v acc -> if v.tag = syn_expr.tag then Some k else acc)
         (* if Bluejay_ast_internal.equal_expr_desc v syn_expr then Some k else acc) *)
       mappings None
   in

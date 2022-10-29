@@ -252,6 +252,7 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       let%bind alias_var = fresh_var "var" in
       let (Ident i_string) = id in
       let id_var = Ast.Var (Ident i_string, None) in
+      (* let%bind () = add_const id_var in *)
       let%bind () = add_jayil_jay_mapping alias_var expr_desc in
       let%bind () = add_jayil_jay_mapping id_var expr_desc in
       return ([ Ast.Clause (alias_var, Var_body id_var) ], alias_var)
@@ -265,6 +266,7 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       let%bind Expr fun_clause, return_var =
         flatten_fun expr_desc id_list body_expr
       in
+      let%bind () = add_jayil_jay_mapping return_var expr_desc in
       return (fun_clause, return_var)
   | Appl (e1, e2) ->
       let%bind e1_clist, e1_var = recurse e1 in
@@ -273,12 +275,17 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       let%bind () = add_jayil_jay_mapping appl_var expr_desc in
       let new_clause = Ast.Clause (appl_var, Ast.Appl_body (e1_var, e2_var)) in
       return (e1_clist @ e2_clist @ [ new_clause ], appl_var)
+  (* TOOD: Change the mapping for the translation here. lt_var shouldn't map to the entire expression *)
   | Let (var_ident, e1, e2) ->
       let%bind e1_clist, e1_var = recurse e1 in
       let%bind e2_clist, e2_var = recurse e2 in
       let (Ident var_name) = var_ident in
       let lt_var = Ast.Var (Ident var_name, None) in
-      let%bind () = add_jayil_jay_mapping lt_var expr_desc in
+      (* let%bind () = add_jayil_jay_mapping lt_var expr_desc in *)
+      (* We wanna make sure that the explicit binding stays. *)
+      (* let%bind () = add_const e1_var in *)
+      let%bind () = add_jayil_jay_mapping lt_var e1 in
+      (* let%bind () = add_jayil_jay_mapping e2_var e2 in *)
       let assignment_clause = Ast.Clause (lt_var, Var_body e1_var) in
       return (e1_clist @ [ assignment_clause ] @ e2_clist, e2_var)
   | LetFun (sign, e) ->
@@ -294,7 +301,8 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       (* Assigning the function to the given function name... *)
       let (Jay_ast.Ident var_name) = fun_name in
       let lt_var = Ast.Var (Ident var_name, None) in
-      let%bind () = add_jayil_jay_mapping lt_var expr_desc in
+      (* let%bind () = add_jayil_jay_mapping lt_var expr_desc in *)
+      (* let%bind () = add_jayil_jay_mapping e_var e in *)
       let assignment_clause = Ast.Clause (lt_var, Var_body return_var) in
       return (fun_clauses @ [ assignment_clause ] @ e_clist, e_var)
   | LetRecFun (_, _) ->
@@ -392,6 +400,8 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
   | Match (subject, pat_e_list) ->
       (* We need to flatten the subject first *)
       let%bind subject_clause_list, subj_var = recurse subject in
+      (* We wanna make sure that the explicit binding stays. *)
+      let%bind () = add_const subj_var in
       (* Flatten the pattern-expr list *)
       let%bind match_clause_list, cond_var =
         flatten_pattern_match expr_desc subj_var pat_e_list
@@ -409,15 +419,15 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
   | Assert e ->
       let%bind flattened_exprs, last_var = recurse e in
       (* Helper function *)
-      let add_var var_name =
+      let add_var var_name ed =
         let%bind var = fresh_var var_name in
-        let%bind () = add_jayil_jay_mapping var expr_desc in
+        let%bind () = add_jayil_jay_mapping var ed in
         return var
       in
       (* Variables *)
-      let%bind assert_pred = add_var "assert_pred" in
-      let%bind assert_result = add_var "assert_res" in
-      let%bind assert_result_inner = add_var "assert_res_true" in
+      let%bind assert_pred = add_var "assert_pred" e in
+      let%bind assert_result = add_var "assert_res" expr_desc in
+      let%bind assert_result_inner = add_var "assert_res_true" expr_desc in
       (* Clauses *)
       let alias_clause = Ast.Clause (assert_pred, Var_body last_var) in
       (* We use an empty record as the result value, since no valid operation can

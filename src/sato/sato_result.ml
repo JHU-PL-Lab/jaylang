@@ -92,7 +92,6 @@ let get_odefa_errors (sato_state : Sato_state.t)
     match xs with
     | [] -> failwith "Should have found a value definition clause!"
     | hd :: tl -> (
-        (* let () = print_endline @@ Interpreter.show_ident_with_stack hd in *)
         let found = Hashtbl.find cls_mapping hd in
         match found with
         | Some (cls, _) -> cls
@@ -104,20 +103,10 @@ let get_odefa_errors (sato_state : Sato_state.t)
     | Bool_type, Value_bool _ | Int_type, Value_int _ -> []
     | _ ->
         let match_aliases_raw = Sato_tools.find_alias alias_graph (x, x_stk) in
-        (* let () = print_endline @@ "Printing aliases" in
-           let () =
-             List.iter ~f:(fun a -> print_endline @@ Interpreter.show_ident_with_stack a)
-             match_aliases_raw
-           in
-           let () = print_endline @@ "---------------" in *)
         let match_val_source =
           find_source_cls interp_session.val_def_map match_aliases_raw
         in
-        let match_aliases =
-          match_aliases_raw
-          (* |> List.map ~f:(fun (x, _) -> x) *)
-          |> List.rev
-        in
+        let match_aliases = match_aliases_raw |> List.rev in
         let actual_type = Sato_tools.get_value_type actual_val in
         let match_error =
           Sato_error.Jayil_error.Error_match
@@ -131,16 +120,11 @@ let get_odefa_errors (sato_state : Sato_state.t)
         [ match_error ]
   in
   let mk_value_error x x_stk =
-    (* let () = print_endline "making a value error!" in *)
     let value_aliases_raw = Sato_tools.find_alias alias_graph (x, x_stk) in
     let val_source =
       find_source_cls interp_session.val_def_map value_aliases_raw
     in
-    let value_aliases =
-      value_aliases_raw
-      (* |> List.map ~f:(fun (x, _) -> x) *)
-      |> List.rev
-    in
+    let value_aliases = value_aliases_raw |> List.rev in
     let value_error =
       Sato_error.Jayil_error.Error_value
         { err_value_aliases = value_aliases; err_value_val = val_source }
@@ -162,9 +146,6 @@ let get_odefa_errors (sato_state : Sato_state.t)
           in
           ((v1, stk1), (v2, stk2))
         in
-        (* let () = print_endline @@ "This is the final error idents" in
-           let () = print_endline @@ Interpreter.show_ident_with_stack (x1, x1_stk) in
-           let () = print_endline @@ Interpreter.show_ident_with_stack (x2, x2_stk) in *)
         let left_error = mk_match_err expected_type x1_val x1 x1_stk in
         let right_error = mk_match_err expected_type x2_val x2 x2_stk in
         let errors = List.append left_error right_error in
@@ -175,8 +156,6 @@ let get_odefa_errors (sato_state : Sato_state.t)
     | Appl_body (Var (x, _), _)
     | Projection_body (Var (x, _), _)
     | Conditional_body (Var (x, _), _, _) ->
-        (* let () = print_endline @@ show_ident x in *)
-        (* let () = print_endline @@ Ast_pp.show_clause_body cls in *)
         let expected_type = Sato_tools.get_expected_type_from_cls cls in
         let x_val, x_stk =
           let dv, stk = Ident_map.find x final_env in
@@ -274,6 +253,8 @@ struct
     in
     let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
     let on_to_odefa_maps = Option.value_exn sato_state.on_to_odefa_maps in
+    let () = print_endline @@ "err_id" in
+    let () = print_endline @@ show_ident err_id in
     let on_err_loc_core =
       err_id
       |> Jay_translate.Jay_to_jayil_maps.get_jay_equivalent_expr_exn

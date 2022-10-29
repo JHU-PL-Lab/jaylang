@@ -41,7 +41,7 @@ let debug_transform_jayil_inst (trans_name : string)
   return c_list
 
 let do_translate ?(is_instrumented : bool = true) context
-    (e : Jay_ast.expr_desc) :
+    (consts : Ast.Var_set.t) (e : Jay_ast.expr_desc) :
     Ast.expr
     * Jay_instrumentation.Jayil_instrumentation_maps.t
     * Jay_to_jayil_maps.t =
@@ -60,8 +60,8 @@ let do_translate ?(is_instrumented : bool = true) context
       >>= debug_transform_jay "desugaring" Jay_desugar.desugar
       >>= debug_transform_jay "alphatization" Jay_alphatize.alphatize
       >>= debug_transform_jayil "flattening" Jay_to_jayil_flatten.flatten
-      (* >>= debug_transform_jayil "eliminating"
-            Jayil_eliminate_alias.eliminate_alias *)
+      >>= debug_transform_jayil "eliminating"
+            (Jayil_eliminate_alias.eliminate_alias consts)
     in
     let translation_result_p1, ctx =
       run_verbose context translation_result_p1_m
@@ -101,13 +101,6 @@ let do_translate ?(is_instrumented : bool = true) context
     { init_ctx_ph2 with tc_fresh_name_counter = ctx.tc_fresh_name_counter }
   in
   let res = Jay_to_jayil_monad_inst.TranslationMonad.run ctx' e_m_with_info in
-
   let jayil_jay_maps = ctx.tc_jayil_jay_mappings in
   let inst_maps = ctx'.tc_jayil_instrumentation_mappings in
-  (* lazy_logger `debug (fun () ->
-         Printf.sprintf "JayIL to Jay maps:\n%s"
-           (Jay_to_jayil_maps.show jayil_jay_maps)) ;
-     lazy_logger `debug (fun () ->
-         Printf.sprintf "JayIL instrumentation maps:\n%s"
-           (Jayil_instrumentation_maps.show inst_maps)) ;*)
   (res, inst_maps, jayil_jay_maps)
