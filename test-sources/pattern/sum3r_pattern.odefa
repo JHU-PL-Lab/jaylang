@@ -2,8 +2,6 @@
 x = input;
 f = fun s -> (
     f0 = fun ra -> (
-
-#        a = ra.val;
         cra = ra ~ {val};
         a = cra ? (ta = ra.val) : (fa = abort);
 

@@ -1,26 +1,21 @@
 
 x = input;
-f = fun s -> (
+sum = fun s -> (
     f0 = fun a -> (
-        zero_a = 0;
-        b = a == zero_a;
+        zero = 0;
+        b = a == zero;
         r = b ? (
                 r1 = 0
             ) : (
-                cs = s ~ fun;
-                ss = cs ? (ts = s s) : (fs = abort);
-
+                ss = ss
                 one_b = 1;
                 v = a - one_b;
-
-                css = ss ~ fun;
-                v2 = css ? (tss = ss v) : (fss = abort);
-
+                v2 = ss v
                 r2 = a + v2
             );
     );
 );
-ff = f f;
+ff = sum sum;
 x3 = 3;
 
 cff = ff ~ fun;

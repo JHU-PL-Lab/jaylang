@@ -1,0 +1,9 @@
+one = 1;
+zero = 0;
+r1 = {a = one};
+r2 = {b = one};
+x = input;
+c1 = x == zero;
+r = c1 ? (t1 = r1) : (t2 = r2);
+c2 = r ~ {a};
+z = c1 ? (t3 = 1) : (t4 = 2);
