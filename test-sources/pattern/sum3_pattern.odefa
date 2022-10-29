@@ -7,10 +7,10 @@ sum = fun s -> (
         r = b ? (
                 r1 = 0
             ) : (
-                ss = ss
+                ss = ss;
                 one_b = 1;
                 v = a - one_b;
-                v2 = ss v
+                v2 = ss v;
                 r2 = a + v2
             );
     );
