@@ -20,8 +20,8 @@
   jay_instrumentation
   jayil_parser
   bluejay
-  jay.unroll
   dj_common
+  unroll
   sudu)
  (instrumentation
   (backend landmarks))

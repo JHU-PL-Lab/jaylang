@@ -8,7 +8,7 @@ and t = {
   repeat : int;
   timeout : string;
   engine : string; [@default "dbmc"]
-  test_path : string; [@default "benchmark/cases"]
+  test_path : string; [@default "benchmark/cases/ddse"]
   working_path : string; [@default "benchmark/_working"]
   result_path : string; [@default "benchmark/result"]
 }

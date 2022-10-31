@@ -1,8 +1,7 @@
 (include_subdirs no)
 
 (library
- (name unroll)
- (public_name jay.unroll)
+ (public_name unroll)
  (libraries
   core
   core_unix.nano_mutex
@@ -14,7 +13,7 @@
   logs.lwt
   logs.fmt
   hashcons)
- (synopsis "unroll is a library to search unbounded cases")
+ (synopsis "Unroll is a library to search unbounded cases")
  (inline_tests)
  (preprocess
   (pps ppx_jane ppx_deriving.show lwt_ppx)))
