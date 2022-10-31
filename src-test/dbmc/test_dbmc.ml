@@ -14,7 +14,7 @@ let default_config =
   {
     timeout = Some (Time.Span.of_int_sec 5);
     engine = Global_config.E_dbmc;
-    test_path = "test-sources";
+    test_path = "test/dbmc";
     is_instrumented = false;
     initial_stride = Global_config.default_config.stride_init;
   }

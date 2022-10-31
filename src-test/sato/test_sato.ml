@@ -223,5 +223,5 @@ let main test_path =
   Alcotest.run "Sato" grouped_tests ;
   ()
 
-let () = main "test-sato"
+let () = main "test/sato"
 (* let () = main "test-sato/playing-ground" *)

@@ -1,25 +1,60 @@
-.PHONY: all clean repl test benchmark dbmc dbmc-top dbmc-test sato sato-test dtest dtest-ddse dtest-all logclean translator
+.PHONY: all clean dbmc dj sato translator jil logclean benchmark \
+				repl test dbmc-test sato-test dtest dtest-ddse dtest-all 
+
+BUILD = _build/default
+BUILD_SRC = _build/default/src
+BUILD_BIN = _build/default/src/bin
+BUILD_TEST = _build/default/src-test
+
 
 all: dbmc sato translator
 
-dbmc-top:
-	dune build src/bin/dbmc_top.exe
-	ln -s -f _build/default/src/bin/dbmc_top.exe dbmc_top
-	ln -s -f _build/default/src/bin/dbmc_top.exe dj
 
-dbmc-test: 
-	dune build test/dbmc/test_dbmc.exe 
-	ln -s -f _build/default/test/dbmc/test_dbmc.exe dtest
+# executables
 
-dbmc: dbmc-top dbmc-test
+dj:
+	dune build src/bin/dj.exe
+	ln -s -f $(BUILD_BIN)/dj.exe dj
+	ln -s -f $(BUILD_BIN)/dj.exe dj
+
+dbmc: dj dbmc-test
 
 sato:
 	dune build src/bin/sato.exe
-	ln -s -f _build/default/src/bin/sato.exe sato
+	ln -s -f $(BUILD_BIN)/sato.exe sato
+
+translator:
+	dune build src/translator-main/translator.exe
+	ln -s -f $(BUILD_SRC)/translator-main/translator.exe translator
+
+jil:
+	dune build src/bin/jil.exe
+	ln -s -f $(BUILD_BIN)/jil.exe jil
+
+
+# clean up
+
+clean:
+	dune clean
+	rm -f ddpa_toploop
+	rm -f translator
+	rm -f test_dbmc
+	rm -f dj
+
+logclean:
+	rm -f dot/*
+	rm -f logs/*
+
+
+# testing
+
+dbmc-test: 
+	dune build src-test/dbmc/test_dbmc.exe 
+	ln -s -f $(BUILD_TEST)/dbmc/test_dbmc.exe dtest
 
 sato-test:
-	dune build test/sato/test_sato.exe
-	ln -s -f _build/default/test/sato/test_sato.exe stest
+	dune build src-test/sato/test_sato.exe
+	ln -s -f $(BUILD_TEST)/sato/test_sato.exe stest
 
 stest: sato-test
 	./stest
@@ -33,24 +68,6 @@ dtest-ins:dbmc-test
 dtest-ddse: dbmc-test
 	./dtest --te ddse
 
-ddpa:
-	dune build src/bin/ddpa_toploop.exe
-	ln -s -f _build/default/src/bin/ddpa_toploop.exe ddpa_toploop
-
-translator:
-	dune build src/translator-main/translator.exe
-	ln -s -f _build/default/src/translator-main/translator.exe translator
-
-clean:
-	dune clean
-	rm -f ddpa_toploop
-	rm -f translator
-	rm -f test_dbmc
-	rm -f dbmc_top
-
-logclean:
-	rm -f dot/*
-	rm -f logs/*
 
 test-z3:
 	dune exec test/sudu/test_sudu_z3.exe -- --verbose
@@ -62,24 +79,28 @@ test-rstack:
 	dune runtest test/dbmc/inline-expect
 	dune promote
 
+
 # profiling
 
 profile:
-	dune build --workspace dune-workspace.profile src/bin/dbmc_top.exe
-	ln -s -f _build/profile/src/bin/dbmc_top.exe dbmc_top
-# dune exec --workspace dune-workspace.profiling --context profiling src/bin/dbmc_top.exe -- -t target test-sources/loop/_sum100.odefa
+	dune build --workspace dune-workspace.profile src/bin/dj.exe
+	ln -s -f _build/profile/src/bin/dj.exe dj
+# dune exec --workspace dune-workspace.profiling --context profiling src/bin/dj.exe -- -t target test-sources/loop/_sum100.odefa
 
 land100:
-	OCAML_LANDMARKS=auto,output="profiling/callgraph100-ddse.ansi" time ./dbmc_top -t target -ls2 debug test-sources/loop/_sum100.odefa
+	OCAML_LANDMARKS=auto,output="profiling/callgraph100-ddse.ansi" time ./dj -t target -ls2 debug test-sources/loop/_sum100.odefa
 
 land200:
-	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dbmc_top -t target -ls2 debug test-sources/loop/_sum200.odefa
+	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dj -t target -ls2 debug test-sources/loop/_sum200.odefa
 
 land500:
-	OCAML_LANDMARKS=auto,output="profiling/callgraph500.ansi" time ./dbmc_top -t target -ls2 debug test-sources/loop/_sum500.odefa
+	OCAML_LANDMARKS=auto,output="profiling/callgraph500.ansi" time ./dj -t target -ls2 debug test-sources/loop/_sum500.odefa
 
 ll:
-	OCAML_LANDMARKS=on,output="profiling/fold.ansi" time ./dbmc_top -t target -e ddse  -m 3 test-sources/benchmark/icfp20/_smbc/smbc_fold0s.natodefa
+	OCAML_LANDMARKS=on,output="profiling/fold.ansi" time ./dj -t target -e ddse  -m 3 test-sources/benchmark/icfp20/_smbc/smbc_fold0s.natodefa
+
+
+# benchmark
 
 benchmark:
 	dune exec benchmark/benchmark.exe -- -e dbmc
@@ -95,15 +116,16 @@ b1:
 b2:
 	dune exec benchmark/benchmark.exe -- -e ddse -f benchmark/neo.s
 
-# extra
 
-one:
-	dune exec src/bin/analysis_top.exe -- test-sources/_syntax/one.odefa
+# legacy
 
-# old targets
+ddpa:
+	dune build src/bin/ddpa_toploop.exe
+	ln -s -f $(BUILD_BIN)/ddpa_toploop.exe ddpa_toploop
+
 test:
-	dune build test/unittest/test.exe
-	_build/default/test/unittest/test.exe
+	dune build src-test/unittest/test.exe
+	$(BUILD_TEST)/unittest/test.exe
 
 repl:
 	dune utop src -- -require pdr-programming

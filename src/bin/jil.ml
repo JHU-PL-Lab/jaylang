@@ -1,7 +1,7 @@
 open Core
 open Dbmc
 
-let usage_msg = "jayil -i <file> [<input_i>]"
+let usage_msg = "jil -i <file> [<input_i>]"
 let source_file = ref ""
 let inputs = ref []
 
@@ -10,10 +10,10 @@ let anon_fun i_raw =
   inputs := !inputs @ [ this_i ]
 
 let run_program source =
-  let program = File_util.read_source source in
+  let program = Dj_common.File_utils.read_source source in
   let session =
     {
-      Interpreter.default_session with
+      (Interpreter.make_default_session ()) with
       input_feeder = Input_feeder.from_list !inputs;
     }
   in

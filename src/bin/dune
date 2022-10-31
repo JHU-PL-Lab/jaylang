@@ -1,6 +1,6 @@
 (executable
- (name dbmc_top)
- (modules dbmc_top)
+ (name dj)
+ (modules dj)
  (libraries core logs dbmc jayil)
  (preprocess
   (pps ppx_jane ppx_deriving.show lwt_ppx)))
@@ -19,12 +19,12 @@
  (preprocess
   (pps ppx_jane ppx_deriving.show lwt_ppx)))
 
-; (executable
-;  (name jayil)
-;  (modules jayil)
-;  (libraries core logs dbmc jayil)
-;  (preprocess
-;   (pps ppx_jane ppx_deriving.show)))
+(executable
+ (name jil)
+ (modules jil)
+ (libraries core logs dj_common dbmc jayil)
+ (preprocess
+  (pps ppx_jane ppx_deriving.show)))
 
 ; (executable
 ;  (name jay)
@@ -36,13 +36,7 @@
 (executable
  (name ddpa_toploop)
  (modules ddpa_toploop)
- (libraries
-  batteries
-  jhupllib
-  jayil
-  jayil_parser
-  jayil_toploop
-  langdk))
+ (libraries batteries jhupllib jayil jayil_parser jayil_toploop langdk))
 
 (env
  (dev
