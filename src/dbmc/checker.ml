@@ -30,7 +30,7 @@ let eager_check (state : Global_state.t) (config : Global_config.t) target
   SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
   SLog.debug (fun m ->
       m "Used-once Phis (eager): %a"
-        Fmt.(Dump.list string)
+        Fmt.(list ~sep:sp string)
         (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
   match check_result with
   | Result.Ok _model ->
@@ -68,21 +68,25 @@ let check ?(verbose = true) (state : Global_state.t) (config : Global_config.t)
     |> List.map ~f:(fun (key, i) -> SuduZ3.not_ (pick_key_list key i))
   in
   let phi_used_once = unfinish_lookup @ list_fix in
-  let check_result = Solver.check state.phis phi_used_once in
-  Global_state.clear_phis state ;
 
-  if config.debug_model && verbose
-  then (
-    SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
+  LLog.info (fun m -> m "before check:\t%d" state.tree_size) ;
+
+  let verbose = verbose && config.debug_model in
+  if verbose
+  then
     SLog.debug (fun m ->
-        m "Used-once Phis: %a"
-          Fmt.(Dump.list string)
-          (List.map ~f:Z3.Expr.to_string phi_used_once)))
+        m "Used-once Phis:@?@\n@[<v>%a@]"
+          Fmt.(list ~sep:cut string)
+          (List.map ~f:Z3.Expr.to_string phi_used_once))
   else () ;
 
+  let check_result = Solver.check ~verbose state.phis phi_used_once in
+  Global_state.clear_phis state ;
+
+  LLog.info (fun m -> m "before model:\t%d" state.tree_size) ;
   match check_result with
   | Result.Ok model ->
-      if config.debug_model && verbose
+      if verbose
       then SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
       else () ;
       let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
@@ -90,13 +94,17 @@ let check ?(verbose = true) (state : Global_state.t) (config : Global_config.t)
       Some { model; c_stk }
   | Result.Error _exps -> None
 
-let step_check ~(config : Global_config.t) ~(state : Global_state.t) stride =
+let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
+    stride =
   (* state.tree_size <- state.tree_size + 1 ; *)
   if state.tree_size mod !stride = 0
   then (
-    (* LLog.app (fun m ->
-        m "Step %d\t%a\n" state.tree_size Lookup_key.pp this_key) ; *)
-    match check state config with
+    let t_start = Time_ns.now () in
+    let check_result = check state config in
+    let t_span = Time_ns.(diff (now ()) t_start) in
+    Observe.count_smt_request config state key true Time_ns.Span.(to_sec t_span) ;
+
+    match check_result with
     | Some { model; c_stk } ->
         (* Fmt.pr "Check this\n" ; *)
         Lwt.fail (Found_solution { model; c_stk })
@@ -109,7 +117,9 @@ let step_check ~(config : Global_config.t) ~(state : Global_state.t) stride =
           else ())
         else () ;
         Lwt.return_unit)
-  else Lwt.return_unit
+  else (
+    Observe.count_smt_request config state key false 0.0 ;
+    Lwt.return_unit)
 
 let check_phis phis is_debug : result_info option =
   if is_debug

@@ -16,7 +16,7 @@ let create (config : Global_config.t) program =
       program;
       block_map;
       source_map = lazy (Ddpa.Ddpa_helper.clause_mapping program);
-      job_queue = Scheduler.create ~cmp_key:job_key_compare ();
+      job_queue = Scheduler.create ~cmp:job_key_compare ();
       root_node = ref (Search_graph.root_node block0 target);
       tree_size = 1;
       term_detail_map = Hashtbl.create (module Lookup_key);
@@ -27,6 +27,8 @@ let create (config : Global_config.t) program =
       lookup_alert = Hash_set.create (module Lookup_key);
       (* unroll = Unrolls.U_dbmc.create (); *)
       rstk_picked = Hashtbl.create (module Rstack);
+      rstk_stat_map = Hashtbl.create (module Rstack);
+      block_stat_map = Hashtbl.create (module Cfg.Block);
       solver = Solver.solver;
     }
   in

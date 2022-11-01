@@ -24,7 +24,7 @@ let bluejay_to_jay () =
     Bluejay.Bluejay_ast.new_expr_desc
     @@ File_utils.parse_bluejay In_channel.stdin
   in
-  Convert.bluejay_edesc_to_jay bluejay_ast
+  Convert.bluejay_edesc_to_jay ~do_wrap:true bluejay_ast
 
 let main () : unit =
   let options = parse_args () in
@@ -43,8 +43,8 @@ let main () : unit =
         |> Jayil.Ast.Var_set.of_list
       in
       let jayil_ast =
-        Convert.bluejay_edesc_to_jayil ~is_instrumented bluejay_ast
-          ~consts:init_consts
+        Convert.bluejay_edesc_to_jayil ~do_wrap:true ~is_instrumented
+          bluejay_ast ~consts:init_consts
       in
       let expr_string = show_expr jayil_ast in
       print_endline expr_string

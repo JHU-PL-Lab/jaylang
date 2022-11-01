@@ -23,8 +23,8 @@
   jay.unroll
   dj_common
   sudu)
- ;  (instrumentation
- ;   (backend landmarks))
+ (instrumentation
+  (backend landmarks))
  (synopsis "dbmc is demand-driven bounded model checking")
  (inline_tests)
  (preprocess
@@ -32,8 +32,9 @@
    ppx_jane
    ppx_deriving.show
    lwt_ppx
-   ;   landmarks-ppx --auto
-   )))
+   ; for profiling
+   landmarks-ppx
+   --auto)))
 
 (env
  (dev

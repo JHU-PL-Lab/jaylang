@@ -131,10 +131,13 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     let rule = Rule.rule_of_runtime_status key state.block_map in
     let term_detail = Term_detail.mk_detail ~rule ~key in
 
-    Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
-    state.tree_size <- state.tree_size + 1 ;
+    Option.iter !Log.saved_oc ~f:Out_channel.flush ;
 
-    Checker.step_check ~state ~config stride ;%lwt
+    Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
+
+    Checker.try_step_check ~state ~config key stride ;%lwt
+    state.tree_size <- state.tree_size + 1 ;
+    Observe.dump_block_stat config state ;
 
     Hash_set.strict_remove_exn state.lookup_created key ;
 

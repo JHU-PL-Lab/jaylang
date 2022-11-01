@@ -10,8 +10,8 @@ open Log.Export
 type ('key, 'r) job = { key : 'key; payload : unit -> 'r Lwt.t }
 type ('key, 'r) t = ('key, 'r) job Pairing_heap.t
 
-let create ~cmp_key () =
-  let cmp j1 j2 = cmp_key j1.key j2.key in
+let create ~cmp () =
+  let cmp j1 j2 = cmp j1.key j2.key in
   Pairing_heap.create ~cmp ()
 
 let push h key payload = Pairing_heap.add h { key; payload }

@@ -10,12 +10,3 @@
    (_
     (env-vars
      ("OCAML_LANDMARKS" "auto"))))))
-
-; (context
-;  (default
-;   (name profiling-auto)
-;   (instrument_with landmarks)
-;   (env
-;    (_
-;     (env-vars
-;      ("OCAML_LANDMARKS" "auto"))))))

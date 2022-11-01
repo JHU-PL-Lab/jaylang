@@ -37,7 +37,9 @@
     ; slow to encode encode the `eval`
     ; "smbc/expr/expr0.jay"
 
-    ; "smbc/palindromes/long_rev_sum3.jay
+    "smbc/palindromes/_long_rev_sum1.jay"
+    "smbc/palindromes/_long_rev_sum2.jay"
+    "smbc/palindromes/long_rev_sum3.jay"
 
     ; "smbc_gen_list_len.jay"
     ; "smbc_long_rev_sum3.jay"

@@ -124,7 +124,7 @@ let make_lookup () =
   (config, program, state, lookup_task)
 
 let main () =
-  (* Core.Command.run Dbmc_top.command ; *)
+  (* Core.Command.run Dj.command ; *)
   LTerm_inputrc.load () >>= fun () ->
   Lwt.catch
     (fun () ->

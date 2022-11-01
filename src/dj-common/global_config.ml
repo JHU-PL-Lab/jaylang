@@ -27,6 +27,7 @@ and t = {
   log_level_lookup : Logs.level option;
   log_level_solver : Logs.level option;
   log_level_interpreter : Logs.level option;
+  log_level_search : Logs.level option;
   (* debug *)
   debug_phi : bool;
   debug_model : bool;
@@ -54,6 +55,7 @@ let default_config =
     log_level_lookup = None;
     log_level_solver = None;
     log_level_interpreter = None;
+    log_level_search = None;
     debug_phi = false;
     debug_model = true;
     debug_graph = false;

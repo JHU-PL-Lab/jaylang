@@ -10,59 +10,55 @@ in
 let rec rev lst =
   match lst with
   | x :: xs -> append (rev xs) [x]
-  | [] -> l2
+  | [] -> lst
+  end
+in
+
+let rec gen_list _n = 
+  let t = input in
+  if (t < 0) then []
+              else (t :: (gen_list 0))
+in
+
+let is_lst_nil lst = 
+  match lst with
+  | {___empty = x, _} -> true
+  | _ -> false
+  end
+in
+let rec eq_list lst1 lst2 = 
+  let c1 = is_lst_nil lst1 in
+  let c2 = is_lst_nil lst1 in
+  if c1 and c2 then
+    true
+  else
+    if lst1.___head <> lst2.___head then
+      false
+    else
+      eq_list lst1.___tail lst2.___tail
+in
+
+let rec len lst = 
+  match lst with
+  | x :: xs -> 1 + len xs
+  | [] -> 0
+  end
+in
+
+let rec sum_list lst = 
+  match lst with
+  | x :: xs -> x + sum_list xs
+  | [] -> 0
   end
 in
 
 # Std.List - end
 
 let dummy = 1 in
-let none = {last = true} in
+let nil = [] in
 
-let rec gen_list acc = 
-  let t = input in
-  if 0 == t then
-    acc
-  else
-    let nacc = {elem = t, last = false, next = acc} in
-    gen_list nacc
-  in
-
-let rec rev_list lst acc =
-  if lst.last then
-    acc
-  else
-    let nacc = {elem = (lst.elem), last = false, next = acc} in
-    rev_list (lst.next) nacc
-  in
-
-let rec eq_list lst0 lst1 =
-  if (lst0.last) and (lst1.last) then
-    true
-  else if (lst0.last) or (lst1.last) then
-    false
-  else if (lst0.elem) == (lst1.elem) then
-    eq_list (lst0.next) (lst1.next)
-  else
-    false
-  in
-
-let rec sum_list lst = 
-  if lst.last then
-    0
-  else
-    (lst.elem) + (sum_list (lst.next))
-  in
-
-let rec len lst = 
-  if lst.last then
-    0
-  else
-    1 + (len (lst.next))
-  in
-
-let l0 = gen_list none in
-let l1 = rev_list l0 none in
+let l0 = gen_list nil in
+let l1 = rev l0 in
 if (len l0 == 2) 
   and (sum_list l0 == 500)
   and (eq_list l0 l1) then
