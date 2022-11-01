@@ -1,4 +1,4 @@
-.PHONY: all clean dbmc dj sato translator jil logclean benchmark \
+.PHONY: all clean dbmc dj sato translator jil partial logclean benchmark \
 				repl test dbmc-test sato-test dtest dtest-ddse dtest-all 
 
 BUILD = _build/default
@@ -29,6 +29,10 @@ translator:
 jil:
 	dune build src/bin/jil.exe
 	ln -s -f $(BUILD_BIN)/jil.exe jil
+
+partial:
+	dune build src/bin/partial.exe
+	ln -s -f $(BUILD_BIN)/partial.exe partial
 
 
 # clean up
