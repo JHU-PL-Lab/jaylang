@@ -483,7 +483,7 @@ expr:
   | expr ARROW expr { TypeArrow (new_expr_desc $1, new_expr_desc $3) }
   | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN ARROW expr { TypeArrowD (($2, new_expr_desc $4), new_expr_desc $7) }
   // TODO: Change this to fancy curly
-  | OPEN_BRACE DOT basic_types PIPE expr CLOSE_BRACE { TypeSet (new_expr_desc $3, new_expr_desc $5) } 
+  | OPEN_BRACE DOT expr PIPE expr CLOSE_BRACE { TypeSet (new_expr_desc $3, new_expr_desc $5) } 
   | expr DOUBLE_PIPE expr { TypeUnion (new_expr_desc $1, new_expr_desc $3) }
   | expr DOUBLE_AMPERSAND expr { TypeIntersect (new_expr_desc $1, new_expr_desc $3) }
 ;
@@ -497,7 +497,7 @@ type_var:
 record_type:
   | OPEN_BRACE_TYPE record_type_body CLOSE_BRACE_TYPE
       { TypeRecord $2 }
-  | OPEN_BRACE_TYPE CLOSE_BRACE CLOSE_BRACE_TYPE
+  | OPEN_BRACE_TYPE CLOSE_BRACE_TYPE
       { TypeRecord (Ident_map.empty) }
 
 record_type_body:
