@@ -15,7 +15,6 @@ all: dbmc sato translator
 dj:
 	dune build src/bin/dj.exe
 	ln -s -f $(BUILD_BIN)/dj.exe dj
-	ln -s -f $(BUILD_BIN)/dj.exe dj
 
 dbmc: dj dbmc-test
 

@@ -30,7 +30,7 @@ _build
 /ddpa_toploop
 /test_generator
 /test_dbmc
-/dbmc_top
+/dj
 /dtest
 /sato
 /translator

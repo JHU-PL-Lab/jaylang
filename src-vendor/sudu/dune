@@ -1,4 +1,3 @@
 (library
- (name sudu)
  (public_name sudu)
  (libraries core fmt logs z3))

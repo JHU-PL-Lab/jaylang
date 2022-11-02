@@ -21,29 +21,28 @@ opam update
 ```
 
 Install local opam switch. Answer `yes` to questions. It can take a while.
+This command installs the dependencies of this project to opam. You are supposed to develop in this directory.
+
+If you also want to install this project to opam and develop external project, remove `--deps-only` from the command.
 
 ```
-opam switch create ./ 4.14.0
+opam switch create ./ 4.14.0 --deps-only --description=jay-dev
+```
 
+After that, you can install the develop tools
+```
 opam user-setup install
 opam install ocaml-lsp-server ocamlformat
 ```
 
+Now you should be able to run the project.
 
-Here are the libraries needed:
-```
-opam install core_kernel core_unix fmt logs lwt_ppx hashcons ocamlgraph alcotest alcotest-lwt landmarks landmarks-ppx
-opam install react lambda-term pds-reachability
-
-
-```
-<!-- opam install shexp core batteries gmap jhupllib monadlib ocaml-monadic pds-reachability ppx_deriving ppx_deriving_yojson -y -->
 
 Run
 ---
 
 ```
-make
-make test
-make benchmark
+make dj
+make dbmc
+make sato
 ```
