@@ -91,6 +91,9 @@ module Make (S : S) = struct
   let cond_top p (this_key : Lookup_key.t) =
     let ({ cond_case_info = cb; condsite_block } : Cond_top_rule.t) = p in
     let beta = cb.choice in
+    Fmt.pr "Block: %a" Cfg.pp_cond_case_info cb ;
+
+    assert cb.possible ;
     let _paired, condsite_stack =
       Rstack.pop_at_condtop this_key.r_stk (cb.condsite, Id.cond_fid beta)
     in

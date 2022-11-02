@@ -182,6 +182,9 @@ let make_cond_block_possible tl_map acls cfg =
     tl_map := Ident_map.add block.id block' !tl_map
   in
 
+  Fmt.pr "cond_site: %a, possible: %a" Jayil.Ast_pp.pp_ident cond_site
+    (Fmt.Dump.option Fmt.bool) possible ;
+
   let cond_both = find_cond_blocks cond_site !tl_map in
   match possible with
   | Some beta ->
@@ -314,6 +317,8 @@ let annotate e pt : block Ident_map.t =
       visited := Annotated_clause_set.add acl !visited ;
 
       let prev_acls = preds_l acl cfg in
+
+      Fmt.pr "#prev = %d" (List.length prev_acls) ;
 
       (* debug to prevent infinite loop *)
       (* debug_bomb := !debug_bomb - 1;
