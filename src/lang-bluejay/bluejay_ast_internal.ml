@@ -36,6 +36,7 @@ type pattern = Bluejay_ast.pattern =
   | BoolPat
   | FunPat
   | RecPat of ident option Ident_map.t
+  | StrictRecPat of ident option Ident_map.t
   | VariantPat of variant_label * ident
   | VarPat of ident
   | EmptyLstPat
@@ -1099,6 +1100,7 @@ and from_jay_expr (e : Jay.Jay_ast.expr) : core_bluejay =
     | BoolPat -> BoolPat
     | FunPat -> FunPat
     | RecPat r -> RecPat r
+    | StrictRecPat r -> StrictRecPat r
     | VariantPat (Variant_label l, x) -> VariantPat (Variant_label l, x)
     | VarPat x -> VarPat x
     | EmptyLstPat -> EmptyLstPat
@@ -1240,6 +1242,7 @@ and to_jay_expr (e : core_bluejay) : Jay.Jay_ast.expr =
     | BoolPat -> BoolPat
     | FunPat -> FunPat
     | RecPat r -> RecPat r
+    | StrictRecPat r -> StrictRecPat r
     | VariantPat (Variant_label l, x) -> VariantPat (Variant_label l, x)
     | VarPat x -> VarPat x
     | EmptyLstPat -> EmptyLstPat

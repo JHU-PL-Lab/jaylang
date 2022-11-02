@@ -76,33 +76,29 @@ let flatten_pattern (e_desc : Jay_ast.expr_desc) (pat_var : Ast.var)
              []
       in
       return (Ast.Rec_pattern rec_pat', projections)
-  (* | Jay_ast.StrictRecPat rec_pat ->
-     let rec_pat' =
-       rec_pat
-       |> Jay_ast.Ident_map.keys
-       |> Enum.map jay_to_jayil_ident
-       |> Ast.Ident_set.of_enum
-     in
-     let%bind projections =
-       rec_pat
-       |> Jay_ast.Ident_map.enum
-       |> List.of_enum
-       |> list_fold_left_m
-           (fun acc (lbl, var) ->
-             match var with
-             | Some v ->
-               let v' = jay_to_jayil_ident v in
-               let lbl' = jay_to_jayil_ident lbl in
-               let ast_var = Ast.Var (v', None) in
-               let%bind () = add_jayil_jay_mapping ast_var e_desc in
-               let%bind () = add_instrument_var ast_var in
-               let ast_body = Ast.Projection_body(pat_var, lbl') in
-               return @@ acc @ [(Ast.Clause (ast_var, ast_body))]
-             | None -> return acc
-           )
-           []
-     in
-     return (Ast.Strict_rec_pattern rec_pat', projections) *)
+  | Jay_ast.StrictRecPat rec_pat ->
+      let rec_pat' =
+        rec_pat |> Jay_ast.Ident_map.keys
+        |> Enum.map jay_to_jayil_ident
+        |> Ast.Ident_set.of_enum
+      in
+      let%bind projections =
+        rec_pat |> Jay_ast.Ident_map.enum |> List.of_enum
+        |> list_fold_left_m
+             (fun acc (lbl, var) ->
+               match var with
+               | Some v ->
+                   let v' = jay_to_jayil_ident v in
+                   let lbl' = jay_to_jayil_ident lbl in
+                   let ast_var = Ast.Var (v', None) in
+                   let%bind () = add_jayil_jay_mapping ast_var e_desc in
+                   let%bind () = add_instrument_var ast_var in
+                   let ast_body = Ast.Projection_body (pat_var, lbl') in
+                   return @@ acc @ [ Ast.Clause (ast_var, ast_body) ]
+               | None -> return acc)
+             []
+      in
+      return (Ast.Strict_rec_pattern rec_pat', projections)
   | Jay_ast.VarPat var_pat ->
       let (Jay_ast.Ident var_id) = var_pat in
       let ast_var = Ast.Var (Ident var_id, None) in

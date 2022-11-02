@@ -235,6 +235,14 @@ module Make (S : S) = struct
               Riddler.picked_record_pattern key key' (Value_bool have_all) pat
             in
             (Lookup_result.ok key, [ phi ], true)
+        | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
+            let have_all =
+              Ident_set.equal ids (Ident_set.of_enum @@ Ident_map.keys rv)
+            in
+            let phi =
+              Riddler.picked_record_pattern key key' (Value_bool have_all) pat
+            in
+            (Lookup_result.ok key, [ phi ], true)
         | Rec_pattern _, _ | _, Value_body _ ->
             let phi1 = Riddler.eqv_with_picked key key' (Value_bool false) in
             let phi2 = Riddler.picked_pattern key key' pat in

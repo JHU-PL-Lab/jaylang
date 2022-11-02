@@ -90,8 +90,8 @@ and pp_pattern formatter pattern =
   | FunPat -> Format.pp_print_string formatter "fun"
   | RecPat record ->
       Format.fprintf formatter "%a" (pp_ident_map_sp pp_ident_option) record
-  (* | StrictRecPat record ->
-     Format.fprintf formatter "%a" (pp_ident_map pp_ident_option) record *)
+  | StrictRecPat record ->
+      Format.fprintf formatter "%a" (pp_ident_map pp_ident_option) record
   | VariantPat (lbl, var) ->
       Format.fprintf formatter "%a %a" pp_variant_label lbl pp_ident var
   | VarPat ident -> Format.fprintf formatter "%a" pp_ident ident

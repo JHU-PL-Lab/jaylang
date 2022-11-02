@@ -244,9 +244,8 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           Match
             ( matched_expr,
               (* TODO: Uncomment this line once strict record is in place *)
-              (* [(StrictRecPat type_dict, new_expr_desc fun_body);  *)
               [
-                (RecPat type_dict, new_expr_desc fun_body);
+                (StrictRecPat type_dict, new_expr_desc fun_body);
                 (AnyPat, fail_pat_cls);
               ] )
         in

@@ -220,6 +220,16 @@ let get_jay_equivalent_expr mappings jayil_ident =
                       |> Ident_map.of_enum
                     in
                     RecPat record'
+                | StrictRecPat record ->
+                    let record' =
+                      record |> Ident_map.enum
+                      |> Enum.map (fun (lbl, x_opt) ->
+                             match x_opt with
+                             | Some x -> (lbl, Some (find_ident x))
+                             | None -> (lbl, None))
+                      |> Ident_map.of_enum
+                    in
+                    StrictRecPat record'
                 | VariantPat (vlbl, x) -> VariantPat (vlbl, find_ident x)
                 | VarPat x -> VarPat (find_ident x)
                 | LstDestructPat (x1, x2) ->
@@ -328,19 +338,16 @@ let get_jayil_var_opt_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
                   |> Ident_map.of_enum
                 in
                 RecPat record'
-            (* | StrictRecPat record ->
-               let record' =
-                 record
-                 |> Ident_map.enum
-                 |> Enum.map
-                   (fun (lbl, x_opt) ->
-                     match x_opt with
-                     | Some x -> (lbl, Some (find_ident x))
-                     | None -> (lbl, None)
-                   )
-                 |> Ident_map.of_enum
-               in
-               StrictRecPat record' *)
+            | StrictRecPat record ->
+                let record' =
+                  record |> Ident_map.enum
+                  |> Enum.map (fun (lbl, x_opt) ->
+                         match x_opt with
+                         | Some x -> (lbl, Some (find_ident x))
+                         | None -> (lbl, None))
+                  |> Ident_map.of_enum
+                in
+                StrictRecPat record'
             | VariantPat (vlbl, x) -> VariantPat (vlbl, find_ident x)
             | VarPat x -> VarPat (find_ident x)
             | LstDestructPat (x1, x2) ->

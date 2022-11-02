@@ -641,9 +641,9 @@ pattern:
   | IDENTIFIER { VarPat(Ident($1)) }
   | variant_label ident_decl { VariantPat($1, $2) }
   | variant_label OPEN_PAREN ident_decl CLOSE_PAREN { VariantPat($1, $3) }
-  // | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE { StrictRecPat (record_from_list $2) }
+  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE { StrictRecPat (record_from_list $2) }
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) UNDERSCORE CLOSE_BRACE { RecPat (record_from_list $2) }
-  // | OPEN_BRACE CLOSE_BRACE { StrictRecPat (Ident_map.empty) }
+  | OPEN_BRACE CLOSE_BRACE { StrictRecPat (Ident_map.empty) }
   | OPEN_BRACE UNDERSCORE CLOSE_BRACE { RecPat (Ident_map.empty) }
   | OPEN_BRACKET CLOSE_BRACKET { EmptyLstPat }
   | ident_decl DOUBLE_COLON ident_decl { LstDestructPat($1, $3) }

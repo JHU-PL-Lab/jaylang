@@ -79,6 +79,9 @@ let get_expected_type_from_pattern nat_pat =
   | RecPat m ->
       let s = Ident_set.of_enum @@ Ident_map.keys m in
       RecType s
+  | StrictRecPat m ->
+      let s = Ident_set.of_enum @@ Ident_map.keys m in
+      RecType s
   | VariantPat (vl, _) -> VariantType vl
   | VarPat _ -> failwith "Type unknown!"
   | EmptyLstPat | LstDestructPat _ -> ListType
