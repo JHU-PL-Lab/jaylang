@@ -1,3 +1,5 @@
 a = input;
+z = 0;
 c = true;
-b = c ? (dummy = 1) : (target = 2)
+b = c ? (bt = 1) : (bf = 2);
+target = b
