@@ -25,6 +25,7 @@ _build
 
 # Editor related
 .vscode
+*.code-workspace
 
 # Binaries
 /ddpa_toploop
