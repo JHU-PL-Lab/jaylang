@@ -27,6 +27,7 @@ let create_initial_dmbc_config (sato_config : Sato_args.t) :
 let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
     reported_error option * bool =
   let dbmc_config_init = create_initial_dmbc_config config in
+  Dj_common.Log.init dbmc_config_init ;
   let sato_mode = config.sato_mode in
   let init_sato_state =
     Sato_state.initialize_state_with_expr sato_mode program inst_maps
@@ -38,6 +39,8 @@ let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
     match remaining_targets with
     | [] -> (None, has_timeout)
     | hd :: tl -> (
+        let () = print_endline "Lookup target: " in
+        let () = print_endline @@ show_ident hd in
         let dbmc_config = { dbmc_config_init with target = hd } in
         (* Right now we're stopping after one error is found. *)
         try

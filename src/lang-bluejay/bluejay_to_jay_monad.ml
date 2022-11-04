@@ -51,8 +51,13 @@ module BluejayTranslationMonad : sig
     sem_bluejay_edesc -> sem_bluejay_edesc -> unit m
   (** Map an error to the specific value expression it was checking **)
 
+  val add_instrumented_tag : int -> unit m
+  (** Map an error to the specific value expression it was checking **)
+
   val bluejay_to_jay_maps : Bluejay_to_jay_maps.t m
   (** Retrieve the typed bluejay to bluejay maps from the monad *)
+
+  val is_instrumented : int -> bool m
 
   val sequence : 'a m list -> 'a list m
   (** Convert a list of monadic values into a singular monadic value *)
@@ -126,7 +131,16 @@ end = struct
       Bluejay_to_jay_maps.add_error_value_expr_mapping bluejay_jay_maps
         error_expr e_expr
 
+  let add_instrumented_tag tag ctx =
+    let bluejay_jay_maps = ctx.tc_bluejay_to_jay_mappings in
+    ctx.tc_bluejay_to_jay_mappings <-
+      Bluejay_to_jay_maps.add_instrumented_tag bluejay_jay_maps tag
+
   let bluejay_to_jay_maps ctx = ctx.tc_bluejay_to_jay_mappings
+
+  let is_instrumented (tag : int) ctx =
+    let instrumented_tags = ctx.tc_bluejay_to_jay_mappings.instrumented_tags in
+    List.mem tag instrumented_tags
 
   let rec sequence ms =
     match ms with

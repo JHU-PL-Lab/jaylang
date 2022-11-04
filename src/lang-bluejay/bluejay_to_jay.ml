@@ -43,6 +43,11 @@ let remove_type_from_funsig (f : 'a expr_desc -> 'b expr_desc m)
       let%bind e' = f e in
       return @@ Funsig (fun_name, [ param ], e')
 
+let new_instrumented_ed (e : 'a expr) : 'a expr_desc m =
+  let ed = new_expr_desc e in
+  let%bind () = add_instrumented_tag ed.tag in
+  return ed
+
 (* Phase one of transformation: turning all syntactic types into its
    semantic correspondence.
    i.e. int -> { generator = fun _ -> input,
@@ -70,8 +75,8 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
          here.
 
          tv -> (tv tv) *)
-      let res =
-        new_expr_desc
+      let%bind res =
+        new_instrumented_ed
         @@ Appl (new_expr_desc (Var tvar), new_expr_desc (Var tvar))
       in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -176,17 +181,13 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind res_record = list_fold_left_m folder empty_record lbl_to_var in
         let folder' acc (_, lbl_var, cur_t) =
           let%bind gc_pair = semantic_type_of cur_t in
-          let res =
-            new_expr_desc
-            @@ Let
-                 ( lbl_var,
-                   new_expr_desc
-                   @@ Appl
-                        ( new_expr_desc
-                          @@ RecordProj (gc_pair, Label "generator"),
-                          new_expr_desc @@ Int 0 ),
-                   acc )
+          let%bind proj_ed =
+            new_instrumented_ed @@ RecordProj (gc_pair, Label "generator")
           in
+          let%bind appl_ed =
+            new_instrumented_ed @@ Appl (proj_ed, new_expr_desc @@ Int 0)
+          in
+          let res = new_expr_desc @@ Let (lbl_var, appl_ed, acc) in
           return res
         in
         let base_acc = new_expr_desc @@ Record res_record in
@@ -206,29 +207,36 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let fold_fun expr_a (Ident lbl, t) =
           let%bind lbl_check_id = fresh_ident "lbl_check" in
           let%bind cur_gc_pair = semantic_type_of t in
-          return
-          @@ Let
-               ( lbl_check_id,
-                 new_expr_desc
-                 @@ Appl
-                      ( new_expr_desc
-                        @@ RecordProj (cur_gc_pair, Label "checker"),
-                        new_expr_desc
-                        @@ RecordProj (new_expr_desc @@ Var expr_id, Label lbl)
-                      ),
-                 new_expr_desc
-                 @@ If
-                      ( new_expr_desc @@ Var lbl_check_id,
-                        new_expr_desc @@ expr_a,
-                        new_expr_desc @@ Var lbl_check_id ) )
+          let%bind proj_ed_1 =
+            new_instrumented_ed @@ RecordProj (cur_gc_pair, Label "checker")
+          in
+          let%bind proj_ed_2 =
+            new_instrumented_ed
+            @@ RecordProj (new_expr_desc @@ Var expr_id, Label lbl)
+          in
+          let%bind appl_ed =
+            new_instrumented_ed @@ Appl (proj_ed_1, proj_ed_2)
+          in
+          let%bind if_ed =
+            new_instrumented_ed
+            @@ If
+                 ( new_expr_desc @@ Var lbl_check_id,
+                   expr_a,
+                   new_expr_desc @@ Var lbl_check_id )
+          in
+          return @@ new_expr_desc @@ Let (lbl_check_id, appl_ed, if_ed)
         in
         let Ident first_lbl, first_type = List.hd all_bindings in
         let%bind gc_pair_fst = semantic_type_of first_type in
-        let init_acc =
-          Appl
-            ( new_expr_desc @@ RecordProj (gc_pair_fst, Label "checker"),
-              new_expr_desc
-              @@ RecordProj (new_expr_desc @@ Var expr_id, Label first_lbl) )
+        let%bind proj_ed_3 =
+          new_instrumented_ed @@ RecordProj (gc_pair_fst, Label "checker")
+        in
+        let%bind proj_ed_4 =
+          new_instrumented_ed
+          @@ RecordProj (new_expr_desc @@ Var expr_id, Label first_lbl)
+        in
+        let%bind init_acc =
+          new_instrumented_ed @@ Appl (proj_ed_3, proj_ed_4)
         in
         let%bind fun_body =
           list_fold_left_m fold_fun init_acc (List.tl all_bindings)
@@ -243,11 +251,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let match_body =
           Match
             ( matched_expr,
-              (* TODO: Uncomment this line once strict record is in place *)
-              [
-                (StrictRecPat type_dict, new_expr_desc fun_body);
-                (AnyPat, fail_pat_cls);
-              ] )
+              [ (StrictRecPat type_dict, fun_body); (AnyPat, fail_pat_cls) ] )
         in
         let check_cls =
           Let
@@ -279,40 +283,40 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind len_id = fresh_ident "len" in
         let%bind maker_id = fresh_ident "list_maker" in
         let%bind elm_id = fresh_ident "elm" in
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (gc_pair_g, Label "generator")
+        in
+        let%bind appl_ed_1 =
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Int 0)
+        in
+        let%bind minus_ed =
+          new_instrumented_ed
+          @@ Minus (new_expr_desc @@ Var len_id, new_expr_desc @@ Int 1)
+        in
+        let%bind appl_ed_2 =
+          new_instrumented_ed @@ Appl (new_expr_desc @@ Var maker_id, minus_ed)
+        in
         let recur_call =
           Let
             ( elm_id,
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair_g, Label "generator"),
-                     new_expr_desc @@ Int 0 ),
-              new_expr_desc
-              @@ ListCons
-                   ( new_expr_desc @@ Var elm_id,
-                     new_expr_desc
-                     @@ Appl
-                          ( new_expr_desc @@ Var maker_id,
-                            new_expr_desc
-                            @@ Minus
-                                 ( new_expr_desc @@ Var len_id,
-                                   new_expr_desc @@ Int 1 ) ) ) )
+              appl_ed_1,
+              new_expr_desc @@ ListCons (new_expr_desc @@ Var elm_id, appl_ed_2)
+            )
         in
-        let list_maker =
-          If
-            ( new_expr_desc
-              @@ Equal (new_expr_desc @@ Var len_id, new_expr_desc @@ Int 0),
-              new_expr_desc @@ List [],
-              new_expr_desc @@ recur_call )
+        let%bind eq_ed =
+          new_instrumented_ed
+          @@ Equal (new_expr_desc @@ Var len_id, new_expr_desc @@ Int 0)
         in
-        let list_maker_fun =
-          Funsig (maker_id, [ len_id ], new_expr_desc @@ list_maker)
+        let%bind list_maker =
+          new_instrumented_ed
+          @@ If (eq_ed, new_expr_desc @@ List [], new_expr_desc @@ recur_call)
         in
-        let mk_lst =
-          Appl (new_expr_desc @@ Var maker_id, new_expr_desc @@ Var len_id)
+        let list_maker_fun = Funsig (maker_id, [ len_id ], list_maker) in
+        let%bind mk_lst =
+          new_instrumented_ed
+          @@ Appl (new_expr_desc @@ Var maker_id, new_expr_desc @@ Var len_id)
         in
-        let list_len =
-          Let (len_id, new_expr_desc Input, new_expr_desc mk_lst)
-        in
+        let list_len = Let (len_id, new_expr_desc Input, mk_lst) in
         let gen_expr = LetRecFun ([ list_maker_fun ], new_expr_desc list_len) in
         return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
       in
@@ -326,37 +330,43 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind elm_check_id = fresh_ident "elm_check" in
         let%bind expr_id = fresh_ident "expr" in
         let%bind lst_check_fail = fresh_ident "lst_fail" in
-        let test_fun =
-          Match
-            ( new_expr_desc @@ Var test_list_id,
-              [
-                (EmptyLstPat, new_expr_desc @@ Bool true);
-                ( LstDestructPat (Ident "hd", Ident "tl"),
-                  new_expr_desc
-                  @@ Let
-                       ( elm_check_id,
-                         new_expr_desc
-                         @@ Appl
-                              ( new_expr_desc
-                                @@ RecordProj (gc_pair_c, Label "checker"),
-                                new_expr_desc @@ Var (Ident "hd") ),
-                         new_expr_desc
-                         @@ If
-                              ( new_expr_desc @@ Var elm_check_id,
-                                new_expr_desc
-                                @@ Appl
-                                     ( new_expr_desc @@ Var test_fun_id,
-                                       new_expr_desc @@ Var (Ident "tl") ),
-                                new_expr_desc @@ Var elm_check_id ) ) );
-              ] )
+        let%bind test_fun =
+          let%bind proj_ed_1 =
+            new_instrumented_ed @@ RecordProj (gc_pair_c, Label "checker")
+          in
+          let%bind appl_ed_1 =
+            new_instrumented_ed
+            @@ Appl (proj_ed_1, new_expr_desc @@ Var (Ident "hd"))
+          in
+          let%bind appl_ed_2 =
+            new_instrumented_ed
+            @@ Appl
+                 ( new_expr_desc @@ Var test_fun_id,
+                   new_expr_desc @@ Var (Ident "tl") )
+          in
+          let%bind if_ed =
+            new_instrumented_ed
+            @@ If
+                 ( new_expr_desc @@ Var elm_check_id,
+                   appl_ed_2,
+                   new_expr_desc @@ Var elm_check_id )
+          in
+          return @@ new_expr_desc
+          @@ Match
+               ( new_expr_desc @@ Var test_list_id,
+                 [
+                   (EmptyLstPat, new_expr_desc @@ Bool true);
+                   ( LstDestructPat (Ident "hd", Ident "tl"),
+                     new_expr_desc @@ Let (elm_check_id, appl_ed_1, if_ed) );
+                 ] )
         in
-        let check_fun =
-          Funsig (test_fun_id, [ test_list_id ], new_expr_desc test_fun)
+        let check_fun = Funsig (test_fun_id, [ test_list_id ], test_fun) in
+        let%bind check_cls =
+          new_instrumented_ed
+          @@ Appl
+               (new_expr_desc @@ Var test_fun_id, new_expr_desc @@ Var expr_id)
         in
-        let check_cls =
-          Appl (new_expr_desc @@ Var test_fun_id, new_expr_desc @@ Var expr_id)
-        in
-        let fun_body = LetRecFun ([ check_fun ], new_expr_desc check_cls) in
+        let fun_body = LetRecFun ([ check_fun ], check_cls) in
         (* Building the intial check for whether it's a list value *)
         let fail_pat_cls = new_expr_desc @@ Var lst_check_fail in
         let matched_expr = new_expr_desc @@ Var expr_id in
@@ -411,21 +421,24 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
               new_expr_desc @@ Bool false,
               new_expr_desc @@ Assert (new_expr_desc @@ Var fail_id) )
         in
-        let inner_expr =
-          If
-            ( new_expr_desc
-              @@ Appl
-                   ( new_expr_desc
-                     @@ RecordProj (gc_pair_dom_gen, Label "checker"),
-                     new_expr_desc @@ Var arg_assume ),
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc
-                     @@ RecordProj (gc_pair_cod_gen, Label "generator"),
-                     new_expr_desc @@ Int 0 ),
-              new_expr_desc @@ fail_cls )
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (gc_pair_dom_gen, Label "checker")
         in
-        let gen_expr = Function ([ arg_assume ], new_expr_desc inner_expr) in
+        let%bind appl_ed_1 =
+          new_instrumented_ed
+          @@ Appl (proj_ed_1, new_expr_desc @@ Var arg_assume)
+        in
+        let%bind proj_ed_2 =
+          new_instrumented_ed @@ RecordProj (gc_pair_cod_gen, Label "generator")
+        in
+        let%bind appl_ed_2 =
+          new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
+        in
+        let%bind inner_expr =
+          new_instrumented_ed
+          @@ If (appl_ed_1, appl_ed_2, new_expr_desc @@ fail_cls)
+        in
+        let gen_expr = Function ([ arg_assume ], inner_expr) in
         return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
       in
       let%bind checker =
@@ -437,29 +450,25 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind expr_id = fresh_ident "expr" in
         let%bind arg_assert = fresh_ident "arg_assert" in
         let%bind ret_id = fresh_ident "fun_ret" in
-        let codom_check =
-          Let
-            ( ret_id,
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ Var expr_id,
-                     new_expr_desc @@ Var arg_assert ),
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc
-                     @@ RecordProj (gc_pair_cod_check, Label "checker"),
-                     new_expr_desc @@ Var ret_id ) )
+        let%bind appl_ed_1 =
+          new_instrumented_ed
+          @@ Appl (new_expr_desc @@ Var expr_id, new_expr_desc @@ Var arg_assert)
         in
-        let fun_body =
-          Let
-            ( arg_assert,
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc
-                     @@ RecordProj (gc_pair_dom_check, Label "generator"),
-                     new_expr_desc @@ Int 0 ),
-              new_expr_desc codom_check )
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (gc_pair_cod_check, Label "checker")
         in
+        let%bind appl_ed_2 =
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var ret_id)
+        in
+        let codom_check = Let (ret_id, appl_ed_1, appl_ed_2) in
+        let%bind proj_ed_2 =
+          new_instrumented_ed
+          @@ RecordProj (gc_pair_dom_check, Label "generator")
+        in
+        let%bind appl_ed_3 =
+          new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
+        in
+        let fun_body = Let (arg_assert, appl_ed_3, new_expr_desc codom_check) in
         return @@ Function ([ expr_id ], new_expr_desc fun_body)
       in
       let rec_map =
@@ -483,23 +492,30 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         (* Same as a normal function type, we need to first check whether we have
            a correctly typed input given to us. *)
         (* TODO: Fix error reporting for incorrect input *)
-        let inner_expr =
-          If
-            ( new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair_dom_g, Label "checker"),
-                     new_expr_desc @@ Var arg_assume ),
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc
-                     @@ RecordProj
-                          ( new_expr_desc
-                            @@ mk_gc_pair_cod gc_pair_cod_g arg_assume,
-                            Label "generator" ),
-                     new_expr_desc @@ Int 0 ),
-              new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (gc_pair_dom_g, Label "checker")
         in
-        let gen_expr = Function ([ arg_assume ], new_expr_desc inner_expr) in
+        let%bind appl_ed_1 =
+          new_instrumented_ed @@ mk_gc_pair_cod gc_pair_cod_g arg_assume
+        in
+        let%bind proj_ed_2 =
+          new_instrumented_ed @@ RecordProj (appl_ed_1, Label "generator")
+        in
+        let%bind appl_ed_2 =
+          new_instrumented_ed
+          @@ Appl (proj_ed_1, new_expr_desc @@ Var arg_assume)
+        in
+        let%bind appl_ed_3 =
+          new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
+        in
+        let%bind inner_expr =
+          new_instrumented_ed
+          @@ If
+               ( appl_ed_2,
+                 appl_ed_3,
+                 new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+        in
+        let gen_expr = Function ([ arg_assume ], inner_expr) in
         return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
       in
       let%bind checker =
@@ -508,37 +524,33 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind expr_id = fresh_ident "expr" in
         let%bind arg_assert = fresh_ident "arg_assert" in
         let%bind ret_id = fresh_ident "fun_ret" in
-        let gc_pair_cod' =
-          Appl
-            ( new_expr_desc
-              @@ Function
-                   ( [ x1 ],
-                     new_expr_desc (mk_gc_pair_cod gc_pair_cod_c arg_assert) ),
-              new_expr_desc @@ Var arg_assert )
+        let%bind appl_ed_1 =
+          new_instrumented_ed @@ mk_gc_pair_cod gc_pair_cod_c arg_assert
         in
-        let codom_check =
-          Let
-            ( ret_id,
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ Var expr_id,
-                     new_expr_desc @@ Var arg_assert ),
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc
-                     @@ RecordProj (new_expr_desc gc_pair_cod', Label "checker"),
-                     new_expr_desc @@ Var ret_id ) )
+        let%bind gc_pair_cod' =
+          new_instrumented_ed
+          @@ Appl
+               ( new_expr_desc @@ Function ([ x1 ], appl_ed_1),
+                 new_expr_desc @@ Var arg_assert )
         in
-        let fun_body =
-          Let
-            ( arg_assert,
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc
-                     @@ RecordProj (gc_pair_dom_c, Label "generator"),
-                     new_expr_desc @@ Int 0 ),
-              new_expr_desc codom_check )
+        let%bind appl_ed_2 =
+          new_instrumented_ed
+          @@ Appl (new_expr_desc @@ Var expr_id, new_expr_desc @@ Var arg_assert)
         in
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (gc_pair_cod', Label "checker")
+        in
+        let%bind appl_ed_3 =
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var ret_id)
+        in
+        let codom_check = Let (ret_id, appl_ed_2, appl_ed_3) in
+        let%bind proj_ed_2 =
+          new_instrumented_ed @@ RecordProj (gc_pair_dom_c, Label "generator")
+        in
+        let%bind appl_ed_4 =
+          new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
+        in
+        let fun_body = Let (arg_assert, appl_ed_4, new_expr_desc codom_check) in
         return @@ Function ([ expr_id ], new_expr_desc fun_body)
       in
       let rec_map =
@@ -558,21 +570,23 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind gc_pair_g = semantic_type_of t in
         let%bind p_g = semantic_type_of p in
         let%bind candidate = fresh_ident "candidate" in
-        let pred_check =
-          If
-            ( new_expr_desc @@ Appl (p_g, new_expr_desc @@ Var candidate),
-              new_expr_desc @@ Var candidate,
-              new_expr_desc @@ Assume (new_expr_desc @@ Bool false) )
+        let%bind appl_ed_1 =
+          new_instrumented_ed @@ Appl (p_g, new_expr_desc @@ Var candidate)
         in
-        let gen_expr =
-          Let
-            ( candidate,
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair_g, Label "generator"),
-                     new_expr_desc @@ Int 0 ),
-              new_expr_desc @@ pred_check )
+        let%bind pred_check =
+          new_instrumented_ed
+          @@ If
+               ( appl_ed_1,
+                 new_expr_desc @@ Var candidate,
+                 new_expr_desc @@ Assume (new_expr_desc @@ Bool false) )
         in
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (gc_pair_g, Label "generator")
+        in
+        let%bind appl_ed_2 =
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Int 0)
+        in
+        let gen_expr = Let (candidate, appl_ed_2, pred_check) in
         return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
       in
       let%bind checker =
@@ -585,9 +599,12 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind pred_check_id = fresh_ident "pred_check" in
         let fail_pat_cls = new_expr_desc @@ Var pred_check_id in
         let expr_to_check = new_expr_desc @@ Var expr_id in
-        let check_pred_res = new_expr_desc @@ Appl (p_c, expr_to_check) in
-        let check_pred_inner =
-          If (check_pred_res, new_expr_desc @@ Bool true, fail_pat_cls)
+        let%bind check_pred_res =
+          new_instrumented_ed @@ Appl (p_c, expr_to_check)
+        in
+        let%bind check_pred_inner =
+          new_instrumented_ed
+          @@ If (check_pred_res, new_expr_desc @@ Bool true, fail_pat_cls)
         in
         (* Note: To reduce complexity, we are not checking whether the predicate
            is of the right type. *)
@@ -599,26 +616,22 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
                                  pred_cond)
            in *)
         let check_pred =
-          Let
-            ( pred_check_id,
-              new_expr_desc @@ Bool false,
-              new_expr_desc @@ check_pred_inner )
+          Let (pred_check_id, new_expr_desc @@ Bool false, check_pred_inner)
         in
-        let check_type_body =
-          If
-            ( new_expr_desc @@ Var t_check_id,
-              new_expr_desc @@ check_pred,
-              new_expr_desc @@ Var t_check_id )
+        let%bind check_type_body =
+          new_instrumented_ed
+          @@ If
+               ( new_expr_desc @@ Var t_check_id,
+                 new_expr_desc @@ check_pred,
+                 new_expr_desc @@ Var t_check_id )
         in
-        let check_type =
-          Let
-            ( t_check_id,
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair_c, Label "checker"),
-                     new_expr_desc @@ Var expr_id ),
-              new_expr_desc check_type_body )
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (gc_pair_c, Label "checker")
         in
+        let%bind appl_ed_1 =
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var expr_id)
+        in
+        let check_type = Let (t_check_id, appl_ed_1, check_type_body) in
         (* Since the predicate check could be a point of faliure, we need to
            record it. *)
         let%bind () = add_error_to_tag_mapping fail_pat_cls tag in
@@ -642,22 +655,26 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind gc_pair1_g = semantic_type_of t1 in
         let%bind gc_pair2_g = semantic_type_of t2 in
         let%bind select_int = fresh_ident "select_int" in
-        let branch =
-          If
-            ( new_expr_desc
-              @@ Geq (new_expr_desc @@ Var select_int, new_expr_desc @@ Int 0),
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair1_g, Label "generator"),
-                     new_expr_desc @@ Int 0 ),
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair2_g, Label "generator"),
-                     new_expr_desc @@ Int 0 ) )
+        let%bind geq_ed =
+          new_instrumented_ed
+          @@ Geq (new_expr_desc @@ Var select_int, new_expr_desc @@ Int 0)
         in
-        let gen_expr =
-          Let (select_int, new_expr_desc Input, new_expr_desc branch)
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (gc_pair1_g, Label "generator")
         in
+        let%bind appl_ed_1 =
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Int 0)
+        in
+        let%bind proj_ed_2 =
+          new_instrumented_ed @@ RecordProj (gc_pair2_g, Label "generator")
+        in
+        let%bind appl_ed_2 =
+          new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
+        in
+        let%bind branch =
+          new_instrumented_ed @@ If (geq_ed, appl_ed_1, appl_ed_2)
+        in
+        let gen_expr = Let (select_int, new_expr_desc Input, branch) in
         return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
       in
       let%bind checker =
@@ -675,52 +692,54 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let fail_pat_cls_2 = new_expr_desc @@ Var fail_id in
         let tested_expr_1 = new_expr_desc @@ Var expr_id in
         let tested_expr_2 = new_expr_desc @@ Var expr_id in
-        let checker1_inner =
-          If
-            ( new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair2_c, Label "checker"),
-                     tested_expr_1 ),
-              new_expr_desc @@ Bool true,
-              fail_pat_cls_1 )
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (gc_pair2_c, Label "checker")
         in
-        let checker1 =
-          If
-            ( new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair1_c, Label "checker"),
-                     new_expr_desc @@ Var expr_id ),
-              new_expr_desc @@ Bool true,
-              new_expr_desc @@ checker1_inner )
+        let%bind appl_ed_1 =
+          new_instrumented_ed @@ Appl (proj_ed_1, tested_expr_1)
         in
-        let checker2_inner =
-          If
-            ( new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair1_c', Label "checker"),
-                     tested_expr_2 ),
-              new_expr_desc @@ Bool true,
-              fail_pat_cls_2 )
+        let%bind checker1_inner =
+          new_instrumented_ed
+          @@ If (appl_ed_1, new_expr_desc @@ Bool true, fail_pat_cls_1)
         in
-        let checker2 =
-          If
-            ( new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair2_c', Label "checker"),
-                     new_expr_desc @@ Var expr_id ),
-              new_expr_desc @@ Bool true,
-              new_expr_desc @@ checker2_inner )
+        let%bind proj_ed_2 =
+          new_instrumented_ed @@ RecordProj (gc_pair1_c, Label "checker")
         in
-        let branch =
-          If
-            ( new_expr_desc
-              @@ Geq (new_expr_desc @@ Var select_int, new_expr_desc @@ Int 0),
-              new_expr_desc @@ checker1,
-              new_expr_desc @@ checker2 )
+        let%bind appl_ed_2 =
+          new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Var expr_id)
         in
-        let fail_def =
-          Let (fail_id, new_expr_desc @@ Bool false, new_expr_desc branch)
+        let%bind checker1 =
+          new_instrumented_ed
+          @@ If (appl_ed_2, new_expr_desc @@ Bool true, checker1_inner)
         in
+        let%bind proj_ed_3 =
+          new_instrumented_ed @@ RecordProj (gc_pair1_c', Label "checker")
+        in
+        let%bind appl_ed_3 =
+          new_instrumented_ed @@ Appl (proj_ed_3, tested_expr_2)
+        in
+        let%bind checker2_inner =
+          new_instrumented_ed
+          @@ If (appl_ed_3, new_expr_desc @@ Bool true, fail_pat_cls_2)
+        in
+        let%bind proj_ed_4 =
+          new_instrumented_ed @@ RecordProj (gc_pair2_c', Label "checker")
+        in
+        let%bind appl_ed_4 =
+          new_instrumented_ed @@ Appl (proj_ed_4, new_expr_desc @@ Var expr_id)
+        in
+        let%bind checker2 =
+          new_instrumented_ed
+          @@ If (appl_ed_4, new_expr_desc @@ Bool true, checker2_inner)
+        in
+        let%bind geq_ed =
+          new_instrumented_ed
+          @@ Geq (new_expr_desc @@ Var select_int, new_expr_desc @@ Int 0)
+        in
+        let%bind branch =
+          new_instrumented_ed @@ If (geq_ed, checker1, checker2)
+        in
+        let fail_def = Let (fail_id, new_expr_desc @@ Bool false, branch) in
         let fun_body =
           Let (select_int, new_expr_desc Input, new_expr_desc fail_def)
         in
@@ -745,10 +764,6 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
-  (* TODO: Function intersection's generator are still funky;
-     needs flattening, (a -> b) ^ (c -> d) ^ (e -> f)
-     => (a v c v e) -> (if a -> b, if c -> d, if e -> f)
-  *)
   | TypeIntersect (t1, t2) ->
       (* Note: Intersection of all records are now empty? *)
       let rec flatten_fun_intersection ed acc =
@@ -796,45 +811,60 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
             | TypeArrow (t1, t2) ->
                 let%bind gc_pair_dom_g = semantic_type_of t1 in
                 let%bind gc_pair_cod_g = semantic_type_of t2 in
-                return
-                @@ If
-                     ( new_expr_desc
-                       @@ Appl
-                            ( new_expr_desc
-                              @@ RecordProj (gc_pair_dom_g, Label "checker"),
-                              new_expr_desc @@ Var arg ),
-                       new_expr_desc
-                       @@ Appl
-                            ( new_expr_desc
-                              @@ RecordProj (gc_pair_cod_g, Label "generator"),
-                              new_expr_desc @@ Int 0 ),
-                       new_expr_desc @@ acc )
+                let%bind proj_ed_1 =
+                  new_instrumented_ed
+                  @@ RecordProj (gc_pair_dom_g, Label "checker")
+                in
+                let%bind appl_ed_1 =
+                  new_instrumented_ed
+                  @@ Appl (proj_ed_1, new_expr_desc @@ Var arg)
+                in
+                let%bind proj_ed_2 =
+                  new_instrumented_ed
+                  @@ RecordProj (gc_pair_cod_g, Label "generator")
+                in
+                let%bind appl_ed_2 =
+                  new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
+                in
+                let%bind if_ed =
+                  new_instrumented_ed @@ If (appl_ed_1, appl_ed_2, acc)
+                in
+                return @@ if_ed
             | TypeArrowD ((x, t1), t2) ->
                 let%bind gc_pair_dom_g = semantic_type_of t1 in
                 let%bind gc_pair_cod_g =
                   let%bind cod_g = semantic_type_of t2 in
                   return @@ new_expr_desc @@ mk_gc_pair_cod x cod_g arg
                 in
-                return
-                @@ If
-                     ( new_expr_desc
-                       @@ Appl
-                            ( new_expr_desc
-                              @@ RecordProj (gc_pair_dom_g, Label "checker"),
-                              new_expr_desc @@ Var arg ),
-                       new_expr_desc
-                       @@ Appl
-                            ( new_expr_desc
-                              @@ RecordProj (gc_pair_cod_g, Label "generator"),
-                              new_expr_desc @@ Int 0 ),
-                       new_expr_desc @@ acc )
-            | _ -> failwith "Should only handle function intersections!"
+                let%bind proj_ed_1 =
+                  new_instrumented_ed
+                  @@ RecordProj (gc_pair_dom_g, Label "checker")
+                in
+                let%bind appl_ed_1 =
+                  new_instrumented_ed
+                  @@ Appl (proj_ed_1, new_expr_desc @@ Var arg)
+                in
+                let%bind proj_ed_2 =
+                  new_instrumented_ed
+                  @@ RecordProj (gc_pair_cod_g, Label "generator")
+                in
+                let%bind appl_ed_2 =
+                  new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
+                in
+                let%bind if_ed =
+                  new_instrumented_ed @@ If (appl_ed_1, appl_ed_2, acc)
+                in
+                return @@ if_ed
+            | _ ->
+                failwith
+                  "mk_fun_intersect_gen: should only handle function \
+                   intersections!"
           in
           let%bind fun_body =
             list_fold_right_m folder fun_types
-              (Assert (new_expr_desc @@ Bool false))
+              (new_expr_desc @@ Assert (new_expr_desc @@ Bool false))
           in
-          return @@ Function ([ arg ], new_expr_desc fun_body)
+          return @@ Function ([ arg ], fun_body)
         else
           failwith "mk_fun_intersect_gen: ill-formed function intersection type"
       in
@@ -853,25 +883,27 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           let%bind gc_pair1_g = semantic_type_of t1 in
           let%bind gc_pair2_g = semantic_type_of t2 in
           let%bind candidate_var = fresh_ident "candidate" in
-          let validate =
-            If
-              ( new_expr_desc
-                @@ Appl
-                     ( new_expr_desc @@ RecordProj (gc_pair2_g, Label "checker"),
-                       new_expr_desc @@ Var candidate_var ),
-                new_expr_desc @@ Var candidate_var,
-                new_expr_desc @@ Assume (new_expr_desc @@ Bool false) )
+          let%bind proj_ed_1 =
+            new_instrumented_ed @@ RecordProj (gc_pair2_g, Label "checker")
           in
-          let gen_expr =
-            Let
-              ( candidate_var,
-                new_expr_desc
-                @@ Appl
-                     ( new_expr_desc
-                       @@ RecordProj (gc_pair1_g, Label "generator"),
-                       new_expr_desc @@ Int 0 ),
-                new_expr_desc @@ validate )
+          let%bind appl_ed_1 =
+            new_instrumented_ed
+            @@ Appl (proj_ed_1, new_expr_desc @@ Var candidate_var)
           in
+          let%bind validate =
+            new_instrumented_ed
+            @@ If
+                 ( appl_ed_1,
+                   new_expr_desc @@ Var candidate_var,
+                   new_expr_desc @@ Assume (new_expr_desc @@ Bool false) )
+          in
+          let%bind proj_ed_2 =
+            new_instrumented_ed @@ RecordProj (gc_pair1_g, Label "generator")
+          in
+          let%bind appl_ed_2 =
+            new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
+          in
+          let gen_expr = Let (candidate_var, appl_ed_2, validate) in
           return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
       in
       let%bind checker =
@@ -886,30 +918,27 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let fail_pat_cls_1 = new_expr_desc @@ Var check_id in
         let fail_pat_cls_2 = new_expr_desc @@ Var check_id2 in
         let tested_expr = new_expr_desc @@ Var expr_id in
-        let check_t2 =
-          Let
-            ( check_id2,
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair2_c, Label "checker"),
-                     tested_expr ),
-              fail_pat_cls_2 )
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (gc_pair2_c, Label "checker")
         in
-        let fun_body_inner =
-          If
-            ( new_expr_desc @@ Var check_id,
-              new_expr_desc @@ check_t2,
-              fail_pat_cls_1 )
+        let%bind appl_ed_1 =
+          new_instrumented_ed @@ Appl (proj_ed_1, tested_expr)
         in
-        let fun_body =
-          Let
-            ( check_id,
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (gc_pair1_c, Label "checker"),
-                     new_expr_desc @@ Var expr_id ),
-              new_expr_desc @@ fun_body_inner )
+        let check_t2 = Let (check_id2, appl_ed_1, fail_pat_cls_2) in
+        let%bind fun_body_inner =
+          new_instrumented_ed
+          @@ If
+               ( new_expr_desc @@ Var check_id,
+                 new_expr_desc @@ check_t2,
+                 fail_pat_cls_1 )
         in
+        let%bind proj_ed_2 =
+          new_instrumented_ed @@ RecordProj (gc_pair1_c, Label "checker")
+        in
+        let%bind appl_ed_2 =
+          new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Var expr_id)
+        in
+        let fun_body = Let (check_id, appl_ed_2, fun_body_inner) in
         (* Here, the point of error isn't the "false" returned by the base case,
            since the real error point is really a fabricated one that's the "and"
            of two check results. *)
@@ -935,15 +964,14 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       (* For recursive types, we're really setting up the bootstrap here. *)
       let%bind gc_pair = semantic_type_of t' in
       let%bind primer_id = fresh_ident "primer" in
+      let%bind appl_ed =
+        new_instrumented_ed
+        @@ Appl (new_expr_desc @@ Var primer_id, new_expr_desc @@ Var primer_id)
+      in
       let res =
         new_expr_desc
         @@ Let
-             ( primer_id,
-               new_expr_desc @@ Function ([ t_var ], gc_pair),
-               new_expr_desc
-               @@ Appl
-                    ( new_expr_desc @@ Var primer_id,
-                      new_expr_desc @@ Var primer_id ) )
+             (primer_id, new_expr_desc @@ Function ([ t_var ], gc_pair), appl_ed)
       in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
@@ -1260,33 +1288,37 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
               return @@ ((arg_id, t) :: acc))
             typed_params []
         in
-        let mk_appl =
-          List.fold_left
+        let%bind mk_appl =
+          let%bind appl_ed_1 =
+            new_instrumented_ed
+            @@ Appl
+                 ( new_expr_desc @@ Var f,
+                   new_expr_desc @@ Var (fst @@ List.hd arg_ids) )
+          in
+          list_fold_left_m
             (fun acc (arg, _) ->
-              Appl (new_expr_desc @@ acc, new_expr_desc @@ Var arg))
-            (Appl
-               ( new_expr_desc @@ Var f,
-                 new_expr_desc @@ Var (fst @@ List.hd arg_ids) ))
-            (List.tl arg_ids)
+              let%bind appl_ed_2 =
+                new_instrumented_ed @@ Appl (acc, new_expr_desc @@ Var arg)
+              in
+              return @@ appl_ed_2)
+            appl_ed_1 (List.tl arg_ids)
         in
         let%bind ret_type_core = bluejay_to_jay ret_type in
-        let check_ret =
-          Appl
-            ( new_expr_desc @@ RecordProj (ret_type_core, Label "checker"),
-              new_expr_desc @@ mk_appl )
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (ret_type_core, Label "checker")
         in
+        let%bind check_ret = new_instrumented_ed @@ Appl (proj_ed_1, mk_appl) in
         let%bind check_expr =
           list_fold_right_m
             (fun (arg, t) acc ->
               let%bind t' = bluejay_to_jay t in
-              return
-              @@ Let
-                   ( arg,
-                     new_expr_desc
-                     @@ Appl
-                          ( new_expr_desc @@ RecordProj (t', Label "generator"),
-                            new_expr_desc @@ Int 0 ),
-                     new_expr_desc acc ))
+              let%bind proj_ed_2 =
+                new_instrumented_ed @@ RecordProj (t', Label "generator")
+              in
+              let%bind appl_ed_3 =
+                new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
+              in
+              return @@ new_expr_desc @@ Let (arg, appl_ed_3, acc))
             arg_ids check_ret
         in
         return check_expr
@@ -1294,34 +1326,35 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         let%bind arg_id = fresh_ident param in
         let%bind t' = bluejay_to_jay t in
         let%bind ret_type_core = bluejay_to_jay ret_type in
-        let appl_res =
-          Appl (new_expr_desc @@ Var f, new_expr_desc @@ Var arg_id)
+        let%bind appl_res =
+          new_instrumented_ed
+          @@ Appl (new_expr_desc @@ Var f, new_expr_desc @@ Var arg_id)
         in
-        let checker' =
-          Appl
-            ( new_expr_desc
-              @@ Function
-                   ( [ p ],
-                     new_expr_desc @@ RecordProj (ret_type_core, Label "checker")
-                   ),
-              new_expr_desc @@ Var arg_id )
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (ret_type_core, Label "checker")
         in
-        let check_ret =
-          Appl (new_expr_desc @@ checker', new_expr_desc @@ appl_res)
+        let%bind checker' =
+          new_instrumented_ed
+          @@ Appl
+               ( new_expr_desc @@ Function ([ p ], proj_ed_1),
+                 new_expr_desc @@ Var arg_id )
         in
-        let check_expr =
-          Let
-            ( arg_id,
-              new_expr_desc
-              @@ Appl
-                   ( new_expr_desc @@ RecordProj (t', Label "generator"),
-                     new_expr_desc @@ Int 0 ),
-              new_expr_desc @@ check_ret )
+        let%bind check_ret = new_instrumented_ed @@ Appl (checker', appl_res) in
+        let%bind proj_ed_2 =
+          new_instrumented_ed @@ RecordProj (t', Label "generator")
         in
+        let%bind appl_ed_1 =
+          new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
+        in
+        let check_expr = new_expr_desc @@ Let (arg_id, appl_ed_1, check_ret) in
         return check_expr
   in
   let e = e_desc.body in
-  let _tag = e_desc.tag in
+  let tag = e_desc.tag in
+  let%bind instrumented_bool = is_instrumented tag in
+  let%bind () =
+    if instrumented_bool then add_instrumented_tag tag else return @@ ()
+  in
   match e with
   | Int n ->
       let res = new_expr_desc @@ Int n in
@@ -1384,21 +1417,20 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
       let%bind e2' = bluejay_to_jay e2 in
       let%bind check_res = fresh_ident "check_res" in
       let%bind () = add_error_to_bluejay_mapping check_res e_desc in
-      let res_cls =
-        If
-          ( new_expr_desc @@ Var check_res,
-            e2',
-            new_expr_desc @@ TypeError check_res )
+      let%bind res_cls =
+        new_instrumented_ed
+        @@ If
+             ( new_expr_desc @@ Var check_res,
+               e2',
+               new_expr_desc @@ TypeError check_res )
       in
-      let check_cls =
-        Let
-          ( check_res,
-            new_expr_desc
-            @@ Appl
-                 ( new_expr_desc @@ RecordProj (type_decl', Label "checker"),
-                   new_expr_desc @@ Var x ),
-            new_expr_desc @@ res_cls )
+      let%bind proj_ed_1 =
+        new_instrumented_ed @@ RecordProj (type_decl', Label "checker")
       in
+      let%bind appl_ed_1 =
+        new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var x)
+      in
+      let check_cls = Let (check_res, appl_ed_1, res_cls) in
       let res = new_expr_desc @@ Let (x, e1', new_expr_desc check_cls) in
       let%bind () = add_core_to_sem_mapping res e_desc in
       return res
@@ -1413,16 +1445,15 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
           | Typed_funsig (f, _, _) | DTyped_funsig (f, _, _) -> f
         in
         let%bind () = add_error_to_rec_fun_mapping check_res fun_name in
-        let res_cls =
-          If
-            ( new_expr_desc @@ Var check_res,
-              acc,
-              new_expr_desc @@ TypeError check_res )
+        let%bind res_cls =
+          new_instrumented_ed
+          @@ If
+               ( new_expr_desc @@ Var check_res,
+                 acc,
+                 new_expr_desc @@ TypeError check_res )
         in
         let%bind check_expr = mk_check_from_fun_sig fun_sig in
-        let check_cls =
-          Let (check_res, new_expr_desc check_expr, new_expr_desc res_cls)
-        in
+        let check_cls = Let (check_res, check_expr, res_cls) in
         return @@ new_expr_desc @@ check_cls
       in
       let%bind test_exprs =
@@ -1436,19 +1467,20 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
       let%bind () = add_core_to_sem_mapping res e_desc in
       return res
   | LetFunWithType (fun_sig, e) ->
-      let%bind (check_expr : core_only expr) = mk_check_from_fun_sig fun_sig in
+      let%bind (check_expr : core_only expr_desc) =
+        mk_check_from_fun_sig fun_sig
+      in
       let%bind e' = bluejay_to_jay e in
       let%bind check_res = fresh_ident "check_res" in
       let%bind () = add_error_to_bluejay_mapping check_res e_desc in
-      let res_cls =
-        If
-          ( new_expr_desc @@ Var check_res,
-            e',
-            new_expr_desc @@ TypeError check_res )
+      let%bind res_cls =
+        new_instrumented_ed
+        @@ If
+             ( new_expr_desc @@ Var check_res,
+               e',
+               new_expr_desc @@ TypeError check_res )
       in
-      let check_cls =
-        Let (check_res, new_expr_desc @@ check_expr, new_expr_desc res_cls)
-      in
+      let check_cls = Let (check_res, check_expr, res_cls) in
       let%bind fun_sig' = remove_type_from_funsig bluejay_to_jay fun_sig in
       let res = new_expr_desc @@ LetFun (fun_sig', new_expr_desc check_cls) in
       let%bind () = add_core_to_sem_mapping res e_desc in
@@ -1616,22 +1648,23 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
           else
             let%bind eta_arg = fresh_ident p in
             let%bind arg_check = fresh_ident "arg_check" in
-            let check_arg =
-              Appl
-                ( new_expr_desc @@ RecordProj (t, Label "checker"),
-                  new_expr_desc @@ Var eta_arg )
+            let%bind proj_ed_1 =
+              new_instrumented_ed @@ RecordProj (t, Label "checker")
             in
-            let cond =
-              If
-                ( new_expr_desc @@ Var arg_check,
-                  acc,
-                  new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+            let%bind check_arg =
+              new_instrumented_ed
+              @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
             in
-            let eta_body =
-              Let (arg_check, new_expr_desc @@ check_arg, new_expr_desc @@ cond)
+            let%bind cond =
+              new_instrumented_ed
+              @@ If
+                   ( new_expr_desc @@ Var arg_check,
+                     acc,
+                     new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
             in
-            let wrapped_body =
-              new_expr_desc
+            let eta_body = Let (arg_check, check_arg, cond) in
+            let%bind wrapped_body =
+              new_instrumented_ed
               @@ Appl
                    ( new_expr_desc
                      @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
@@ -1657,23 +1690,23 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
     | DTyped_funsig (f, ((Ident p as param), t), (f_body, ret_type)) ->
         let%bind eta_arg = fresh_ident p in
         let%bind arg_check = fresh_ident "arg_check" in
-        let check_arg =
-          Appl
-            ( new_expr_desc @@ RecordProj (t, Label "checker"),
-              new_expr_desc @@ Var eta_arg )
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (t, Label "checker")
+        in
+        let%bind check_arg =
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
         in
         let%bind f_body' = wrap f_body in
-        let cond =
-          If
-            ( new_expr_desc @@ Var arg_check,
-              f_body',
-              new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+        let%bind cond =
+          new_instrumented_ed
+          @@ If
+               ( new_expr_desc @@ Var arg_check,
+                 f_body',
+                 new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
         in
-        let eta_body =
-          Let (arg_check, new_expr_desc @@ check_arg, new_expr_desc @@ cond)
-        in
-        let wrapped_body =
-          new_expr_desc
+        let eta_body = Let (arg_check, check_arg, cond) in
+        let%bind wrapped_body =
+          new_instrumented_ed
           @@ Appl
                ( new_expr_desc
                  @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),

@@ -36,6 +36,10 @@ val add_const_var : t -> Ast.var -> t
 
 val update_jayil_mappings : t -> Ast.var Ast.Var_map.t -> t
 
+val update_instrumented_tags : t -> int list -> t
+
+val is_jay_instrumented : t -> int -> bool
+
 (* **** Getter functions **** *)
 
 val get_jay_equivalent_expr : t -> Ast.ident -> Jay_ast.expr_desc option

@@ -52,7 +52,7 @@ let read_source_sato ?(do_wrap = false) filename =
       in
       let () = print_endline @@ "*************************************" in
       let () = print_endline @@ "Jayil program after instrumentation: " in
-      let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in
+      let () = Fmt.pr "%a" Jayil.Pp.expr post_inst_ast in
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;
       (post_inst_ast, odefa_inst_maps, Some on_odefa_maps, Some ton_on_maps'))
     else if Dj_common.File_utils.check_jay_ext filename

@@ -286,6 +286,11 @@ module Make_datatype_builder_helpers (C : Context) = struct
   let fn_lt = fn_two_ints_to_bool (Arithmetic.mk_lt ctx)
   let fn_le = fn_two_ints_to_bool (Arithmetic.mk_le ctx)
   let fn_eq = fn_two_ints_to_bool (Boolean.mk_eq ctx)
+
+  let fn_neq =
+    fn_two_ints_to_bool (fun e1 e2 ->
+        Boolean.mk_not ctx @@ Boolean.mk_eq ctx e1 e2)
+
   let fn_and = fn_two_bools and2
   let fn_or = fn_two_bools (fun e1 e2 -> Boolean.mk_or ctx [ e1; e2 ])
   (* let fn_xor = fn_two_bools (Boolean.mk_xor ctx) *)

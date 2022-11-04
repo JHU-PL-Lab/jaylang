@@ -145,21 +145,21 @@ let rec flatten_binop (expr_desc : Jay_ast.expr_desc)
   let%bind notop_var = fresh_var "binop" in
   let%bind () = add_jayil_jay_mapping notop_var expr_desc in
   let%bind new_clauses =
-    match binop with
-    | Ast.Binary_operator_not_equal_to ->
-        let binop_body =
-          Ast.Binary_operation_body
-            (e1_var, Ast.Binary_operator_equal_to, e2_var)
-        in
-        let%bind notnot = fresh_var "notnot" in
-        return
-          [
-            Ast.Clause (notnot, binop_body);
-            Ast.Clause (notop_var, Ast.Not_body notnot);
-          ]
-    | _ ->
-        let binop_body = Ast.Binary_operation_body (e1_var, binop, e2_var) in
-        return [ Ast.Clause (notop_var, binop_body) ]
+    (* match binop with
+       | Ast.Binary_operator_not_equal_to ->
+           let binop_body =
+             Ast.Binary_operation_body
+               (e1_var, Ast.Binary_operator_equal_to, e2_var)
+           in
+           let%bind notnot = fresh_var "notnot" in
+           return
+             [
+               Ast.Clause (notnot, binop_body);
+               Ast.Clause (notop_var, Ast.Not_body notnot);
+             ]
+       | _ -> *)
+    let binop_body = Ast.Binary_operation_body (e1_var, binop, e2_var) in
+    return [ Ast.Clause (notop_var, binop_body) ]
   in
   return (e1_clist @ e2_clist @ new_clauses, notop_var)
 

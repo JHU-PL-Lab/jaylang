@@ -50,6 +50,7 @@ type t = {
   (* A list of odefa variables that should not be touched during the alias
      elimination pass. *)
   const_vars : Ast.var list;
+  instrumented_tags : int list;
 }
 [@@deriving show]
 
@@ -61,6 +62,7 @@ let empty _is_jay =
     jay_idents_to_types = On_labels_map.empty;
     jay_instrument_vars_map = Ast.Ident_map.empty;
     const_vars = [];
+    instrumented_tags = [];
   }
 
 let add_jayil_var_jay_expr_mapping mappings jayil_ident on_expr =
@@ -475,3 +477,10 @@ let update_jayil_mappings (mappings : t)
     jayil_var_to_jay_expr = jayil_var_to_jay_expr';
     jay_instrument_vars_map = jay_instrument_vars_map';
   }
+
+let update_instrumented_tags (mappings : t) (tags : int list) : t =
+  { mappings with instrumented_tags = tags }
+
+let is_jay_instrumented (mappings : t) (tag : int) : bool =
+  let instrumented_tags = mappings.instrumented_tags in
+  List.mem tag instrumented_tags
