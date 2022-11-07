@@ -21,8 +21,6 @@ let new_jayil_inst_var (e_desc : Jay_ast.expr_desc) (var_name : string) :
   let%bind () = add_instrument_var var in
   return var
 
-(* TODO: When is this ever relavant? *)
-
 (** Returns the body of a function or conditional with its return variable *)
 let nonempty_body (e_desc : Jay_ast.expr_desc)
     ((body, var) : Ast.clause list * Ast.var) : (Ast.clause list * Ast.var) m =
@@ -163,9 +161,6 @@ let rec flatten_binop (expr_desc : Jay_ast.expr_desc)
   in
   return (e1_clist @ e2_clist @ new_clauses, notop_var)
 
-(* TODO: Add untouched check logic here; hack solution, might want to rethink
-         in the future. In the spec this is supposed to be part of the instrumentation
-         step. *)
 and flatten_pattern_match (expr_desc : Jay_ast.expr_desc) (subj_var : Ast.var)
     (pat_e_list : (Jay_ast.pattern * Jay_ast.expr_desc) list) :
     (Ast.clause list * Ast.var) m =
@@ -177,13 +172,6 @@ and flatten_pattern_match (expr_desc : Jay_ast.expr_desc) (subj_var : Ast.var)
     let%bind bool_var = new_jayil_inst_var expr_desc "m_match_bool" in
     let%bind cond_var = new_jayil_inst_var expr_desc "m_match_cond" in
     (* Clauses and expressions *)
-    (* TODO:
-       Hack: Depending on what patterns we have, if we fall into the base
-       cases (bool or int), AND that the match expression in question here
-       has a tag that we mapped an error ident to, then we'll record the
-       mapping between this ident and bool_var.
-       Question: How to then connect this bool_var to the abort?
-    *)
     let%bind flat_pat, new_clauses = flatten_pattern expr_desc subj_var pat in
     let%bind c_list, _ = flatten_expr e in
     let c_list' = new_clauses @ c_list in
@@ -199,36 +187,6 @@ and flatten_pattern_match (expr_desc : Jay_ast.expr_desc) (subj_var : Ast.var)
   let%bind cond_expr, match_cls_list =
     list_fold_right_m convert_match pat_e_list (innermost, [])
   in
-
-  (* Predicates - one big disjunction of atomic formulae *)
-  (* let create_or_clause cls_1 cls_2 =
-       let (Ast.Clause (m_var_1, _)) = cls_1 in
-       let (Ast.Clause (m_var_2, _)) = cls_2 in
-       let%bind m_match_or = new_jayil_inst_var expr_desc "m_match_or" in
-       let binop_body =
-         Ast.Binary_operation_body (m_var_1, Binary_operator_or, m_var_2)
-       in
-       return @@ Ast.Clause (m_match_or, binop_body)
-     in
-     let create_or_list accum match_cls =
-       match accum with
-       | [] -> return [ match_cls ]
-       | cls :: _ ->
-           let%bind new_or_cls = create_or_clause match_cls cls in
-           return @@ (new_or_cls :: match_cls :: accum)
-     in
-     let%bind pred_cls_list = list_fold_left_m create_or_list [] match_cls_list in
-
-     (* Putting it all together *)
-     let (Ast.Clause (match_pred, _)) = List.hd pred_cls_list in
-     let%bind cond_var = new_jayil_inst_var expr_desc "match" in
-
-     let%bind abort_expr = add_abort_expr expr_desc [ cond_var ] in
-     let cond_cls =
-       Ast.Clause (cond_var, Conditional_body (match_pred, cond_expr, abort_expr))
-     in
-
-     return (List.rev pred_cls_list @ [ cond_cls ], cond_var) *)
   let (Ast.Expr cc) = cond_expr in
   let (Ast.Clause (match_pred, _)) =
     List.hd cc (* Never raises b/c pat_e_list must be nonempty *)
@@ -242,13 +200,12 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
     =
   let recurse = flatten_expr in
   let exp = expr_desc.body in
-  (* let og_tag = expr_desc.tag in *)
+  let tag = expr_desc.tag in
   match exp with
   | Var id ->
       let%bind alias_var = fresh_var "var" in
       let (Ident i_string) = id in
       let id_var = Ast.Var (Ident i_string, None) in
-      (* let%bind () = add_const id_var in *)
       let%bind () = add_jayil_jay_mapping alias_var expr_desc in
       let%bind () = add_jayil_jay_mapping id_var expr_desc in
       return ([ Ast.Clause (alias_var, Var_body id_var) ], alias_var)
@@ -265,23 +222,23 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       let%bind () = add_jayil_jay_mapping return_var expr_desc in
       return (fun_clause, return_var)
   | Appl (e1, e2) ->
+      let%bind is_instrumented = is_jay_instrumented tag in
       let%bind e1_clist, e1_var = recurse e1 in
       let%bind e2_clist, e2_var = recurse e2 in
-      let%bind appl_var = fresh_var "appl" in
+      let%bind appl_var =
+        if is_instrumented
+        then new_jayil_inst_var expr_desc "appl"
+        else fresh_var "appl"
+      in
       let%bind () = add_jayil_jay_mapping appl_var expr_desc in
       let new_clause = Ast.Clause (appl_var, Ast.Appl_body (e1_var, e2_var)) in
       return (e1_clist @ e2_clist @ [ new_clause ], appl_var)
-  (* TOOD: Change the mapping for the translation here. lt_var shouldn't map to the entire expression *)
   | Let (var_ident, e1, e2) ->
       let%bind e1_clist, e1_var = recurse e1 in
       let%bind e2_clist, e2_var = recurse e2 in
       let (Ident var_name) = var_ident in
       let lt_var = Ast.Var (Ident var_name, None) in
-      (* let%bind () = add_jayil_jay_mapping lt_var expr_desc in *)
-      (* We wanna make sure that the explicit binding stays. *)
-      (* let%bind () = add_const e1_var in *)
       let%bind () = add_jayil_jay_mapping lt_var e1 in
-      (* let%bind () = add_jayil_jay_mapping e2_var e2 in *)
       let assignment_clause = Ast.Clause (lt_var, Var_body e1_var) in
       return (e1_clist @ [ assignment_clause ] @ e2_clist, e2_var)
   | LetFun (sign, e) ->
@@ -297,8 +254,6 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       (* Assigning the function to the given function name... *)
       let (Jay_ast.Ident var_name) = fun_name in
       let lt_var = Ast.Var (Ident var_name, None) in
-      (* let%bind () = add_jayil_jay_mapping lt_var expr_desc in *)
-      (* let%bind () = add_jayil_jay_mapping e_var e in *)
       let assignment_clause = Ast.Clause (lt_var, Var_body return_var) in
       return (fun_clauses @ [ assignment_clause ] @ e_clist, e_var)
   | LetRecFun (_, _) ->
@@ -334,14 +289,17 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       let binop_clause = Ast.Clause (notop_var, not_body) in
       return (e_clist @ [ (* true_clause;  *) binop_clause ], notop_var)
   | If (e1, e2, e3) ->
-      (* TODO: there will be another version of a conditional where we can
-         do pattern matching. *)
+      let%bind is_instrumented = is_jay_instrumented tag in
       (* NOTE: this is translation from an if statement. Thus e1 will be always
          matched with true. *)
       let%bind e1_clst, e1_var = recurse e1 in
       let%bind e2_clst, _ = nonempty_body expr_desc @@@ recurse e2 in
       let%bind e3_clst, _ = nonempty_body expr_desc @@@ recurse e3 in
-      let%bind if_var = fresh_var "if" in
+      let%bind if_var =
+        if is_instrumented
+        then new_jayil_inst_var expr_desc "if"
+        else fresh_var "if"
+      in
       let%bind () = add_jayil_jay_mapping if_var expr_desc in
       let if_body = Ast.Conditional_body (e1_var, Expr e2_clst, Expr e3_clst) in
       let if_clause = Ast.Clause (if_var, if_body) in
@@ -384,10 +342,17 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       let new_clause = Ast.Clause (rec_var, new_body) in
       return (clist @ [ new_clause ], rec_var)
   | RecordProj (rec_expr, lab) ->
+      let%bind is_instrumented = is_jay_instrumented tag in
       let%bind e_clist, e_var = recurse rec_expr in
       let (Jay_ast.Label l_string) = lab in
       let l_ident = Ast.Ident l_string in
-      let%bind proj_var = fresh_var "proj" in
+      let%bind proj_var =
+        if is_instrumented
+        then new_jayil_inst_var expr_desc "proj"
+        else
+          (* let () = failwith @@ "tag: " ^ string_of_int tag in *)
+          fresh_var "proj"
+      in
       let%bind () = add_jayil_jay_mapping proj_var expr_desc in
       let new_clause =
         Ast.Clause (proj_var, Ast.Projection_body (e_var, l_ident))
@@ -396,8 +361,6 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
   | Match (subject, pat_e_list) ->
       (* We need to flatten the subject first *)
       let%bind subject_clause_list, subj_var = recurse subject in
-      (* We wanna make sure that the explicit binding stays. *)
-      let%bind () = add_const subj_var in
       (* Flatten the pattern-expr list *)
       let%bind match_clause_list, cond_var =
         flatten_pattern_match expr_desc subj_var pat_e_list
@@ -411,7 +374,6 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       raise
       @@ Utils.Invariant_failure
            "flatten_expr: List expressions should have been handled!"
-  (* TODO: This should happen in the instrumentation phase *)
   | Assert e ->
       let%bind flattened_exprs, last_var = recurse e in
       (* Helper function *)

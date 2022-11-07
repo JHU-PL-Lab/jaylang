@@ -41,7 +41,8 @@ let debug_transform_jayil_inst (trans_name : string)
   return c_list
 
 let do_translate ?(is_instrumented : bool = true) context
-    (consts : Ast.Var_set.t) (e : Jay_ast.expr_desc) :
+    (consts : Ast.Var_set.t) (bluejay_instruments : int list)
+    (e : Jay_ast.expr_desc) :
     Ast.expr
     * Jay_instrumentation.Jayil_instrumentation_maps.t
     * Jay_to_jayil_maps.t =
@@ -56,6 +57,12 @@ let do_translate ?(is_instrumented : bool = true) context
     lazy_logger `debug (fun () ->
         Printf.sprintf "Initial program:\n%s" (Jay_ast_pp.show_expr e.body)) ;
     let (translation_result_p1_m : Ast.clause list m) =
+      let%bind () = update_instrumented_tags bluejay_instruments in
+      let () =
+        List.iter
+          (fun s -> print_endline @@ string_of_int s)
+          bluejay_instruments
+      in
       return e
       >>= debug_transform_jay "desugaring" Jay_desugar.desugar
       >>= debug_transform_jay "alphatization" Jay_alphatize.alphatize

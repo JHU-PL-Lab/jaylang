@@ -38,6 +38,9 @@ module TranslationMonad : sig
   val add_const : Ast.var -> unit m
   val get_const_vars : Ast.var list m
   val update_jayil_jay_maps : Ast.var Ast.Var_map.t -> unit m
+  val update_instrumented_tags : int list -> unit m
+  val is_jay_instrumented : int -> bool m
+  val add_jay_instrumented : int -> unit m
 
   val jayil_jay_maps : Jay_to_jayil_maps.t m
   (** Retrieve the jayil-to-jay maps from the monad *)
@@ -121,6 +124,18 @@ end = struct
   let update_jayil_jay_maps mappings ctx =
     ctx.tc_jayil_jay_mappings <-
       Jay_to_jayil_maps.update_jayil_mappings ctx.tc_jayil_jay_mappings mappings
+
+  let update_instrumented_tags instrument_tags ctx =
+    ctx.tc_jayil_jay_mappings <-
+      Jay_to_jayil_maps.update_instrumented_tags ctx.tc_jayil_jay_mappings
+        instrument_tags
+
+  let is_jay_instrumented tag ctx =
+    Jay_to_jayil_maps.is_jay_instrumented ctx.tc_jayil_jay_mappings tag
+
+  let add_jay_instrumented tag ctx =
+    ctx.tc_jayil_jay_mappings <-
+      Jay_to_jayil_maps.add_jay_instrumented ctx.tc_jayil_jay_mappings tag
 
   let jayil_jay_maps ctx = ctx.tc_jayil_jay_mappings
   let freshness_string ctx = ctx.tc_fresh_suffix_separator

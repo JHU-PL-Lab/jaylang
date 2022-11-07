@@ -334,6 +334,8 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           let%bind proj_ed_1 =
             new_instrumented_ed @@ RecordProj (gc_pair_c, Label "checker")
           in
+          let () = print_endline "This is the tag: " in
+          let () = print_endline @@ string_of_int proj_ed_1.tag in
           let%bind appl_ed_1 =
             new_instrumented_ed
             @@ Appl (proj_ed_1, new_expr_desc @@ Var (Ident "hd"))
@@ -1352,277 +1354,282 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
   let e = e_desc.body in
   let tag = e_desc.tag in
   let%bind instrumented_bool = is_instrumented tag in
-  let%bind () =
-    if instrumented_bool then add_instrumented_tag tag else return @@ ()
-  in
-  match e with
-  | Int n ->
-      let res = new_expr_desc @@ Int n in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Bool b ->
-      let res = new_expr_desc @@ Bool b in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Var x ->
-      let res = new_expr_desc @@ Var x in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Input ->
-      let res = new_expr_desc @@ Input in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  (* | Untouched s ->
-     let res = new_expr_desc @@ Untouched s in
-     let%bind () = add_core_to_sem_mapping res e_desc in
-     return res *)
-  | TypeError x ->
-      let res = new_expr_desc @@ TypeError x in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Function (id_lst, e) ->
-      let%bind e' = bluejay_to_jay e in
-      let res = new_expr_desc @@ Function (id_lst, e') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Appl (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ Appl (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Let (x, e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ Let (x, e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | LetRecFun (sig_lst, e) ->
-      let%bind sig_lst' =
-        sig_lst |> List.map (transform_funsig bluejay_to_jay) |> sequence
-      in
-      let%bind e' = bluejay_to_jay e in
-      let res = new_expr_desc @@ LetRecFun (sig_lst', e') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | LetFun (fun_sig, e) ->
-      let%bind sig' = fun_sig |> transform_funsig bluejay_to_jay in
-      let%bind e' = bluejay_to_jay e in
-      let res = new_expr_desc @@ LetFun (sig', e') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | LetWithType (x, e1, e2, type_decl) ->
-      let%bind type_decl' = bluejay_to_jay type_decl in
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let%bind check_res = fresh_ident "check_res" in
-      let%bind () = add_error_to_bluejay_mapping check_res e_desc in
-      let%bind res_cls =
-        new_instrumented_ed
-        @@ If
-             ( new_expr_desc @@ Var check_res,
-               e2',
-               new_expr_desc @@ TypeError check_res )
-      in
-      let%bind proj_ed_1 =
-        new_instrumented_ed @@ RecordProj (type_decl', Label "checker")
-      in
-      let%bind appl_ed_1 =
-        new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var x)
-      in
-      let check_cls = Let (check_res, appl_ed_1, res_cls) in
-      let res = new_expr_desc @@ Let (x, e1', new_expr_desc check_cls) in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | LetRecFunWithType (sig_lst, e) ->
-      let folder fun_sig acc =
+  let%bind transformed_ed =
+    match e with
+    | Int n ->
+        let res = new_expr_desc @@ Int n in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Bool b ->
+        let res = new_expr_desc @@ Bool b in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Var x ->
+        let res = new_expr_desc @@ Var x in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Input ->
+        let res = new_expr_desc @@ Input in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    (* | Untouched s ->
+       let res = new_expr_desc @@ Untouched s in
+       let%bind () = add_core_to_sem_mapping res e_desc in
+       return res *)
+    | TypeError x ->
+        let res = new_expr_desc @@ TypeError x in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Function (id_lst, e) ->
+        let%bind e' = bluejay_to_jay e in
+        let res = new_expr_desc @@ Function (id_lst, e') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Appl (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ Appl (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Let (x, e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ Let (x, e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | LetRecFun (sig_lst, e) ->
+        let%bind sig_lst' =
+          sig_lst |> List.map (transform_funsig bluejay_to_jay) |> sequence
+        in
+        let%bind e' = bluejay_to_jay e in
+        let res = new_expr_desc @@ LetRecFun (sig_lst', e') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | LetFun (fun_sig, e) ->
+        let%bind sig' = fun_sig |> transform_funsig bluejay_to_jay in
+        let%bind e' = bluejay_to_jay e in
+        let res = new_expr_desc @@ LetFun (sig', e') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | LetWithType (x, e1, e2, type_decl) ->
+        let%bind type_decl' = bluejay_to_jay type_decl in
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
         let%bind check_res = fresh_ident "check_res" in
         let%bind () = add_error_to_bluejay_mapping check_res e_desc in
-        (* TODO: Come back to this later. Need to think about how we do error
-           reporting. *)
-        let fun_name =
-          match fun_sig with
-          | Typed_funsig (f, _, _) | DTyped_funsig (f, _, _) -> f
-        in
-        let%bind () = add_error_to_rec_fun_mapping check_res fun_name in
         let%bind res_cls =
           new_instrumented_ed
           @@ If
                ( new_expr_desc @@ Var check_res,
-                 acc,
+                 e2',
                  new_expr_desc @@ TypeError check_res )
         in
-        let%bind check_expr = mk_check_from_fun_sig fun_sig in
-        let check_cls = Let (check_res, check_expr, res_cls) in
-        return @@ new_expr_desc @@ check_cls
-      in
-      let%bind test_exprs =
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (type_decl', Label "checker")
+        in
+        let%bind appl_ed_1 =
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var x)
+        in
+        let check_cls = Let (check_res, appl_ed_1, res_cls) in
+        let res = new_expr_desc @@ Let (x, e1', new_expr_desc check_cls) in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | LetRecFunWithType (sig_lst, e) ->
+        let folder fun_sig acc =
+          let%bind check_res = fresh_ident "check_res" in
+          let%bind () = add_error_to_bluejay_mapping check_res e_desc in
+          let fun_name =
+            match fun_sig with
+            | Typed_funsig (f, _, _) | DTyped_funsig (f, _, _) -> f
+          in
+          let%bind () = add_error_to_rec_fun_mapping check_res fun_name in
+          let%bind res_cls =
+            new_instrumented_ed
+            @@ If
+                 ( new_expr_desc @@ Var check_res,
+                   acc,
+                   new_expr_desc @@ TypeError check_res )
+          in
+          let%bind check_expr = mk_check_from_fun_sig fun_sig in
+          let check_cls = Let (check_res, check_expr, res_cls) in
+          return @@ new_expr_desc @@ check_cls
+        in
+        let%bind test_exprs =
+          let%bind e' = bluejay_to_jay e in
+          list_fold_right_m folder sig_lst e'
+        in
+        let%bind sig_lst' =
+          sig_lst
+          |> List.map (remove_type_from_funsig bluejay_to_jay)
+          |> sequence
+        in
+        let res = new_expr_desc @@ LetRecFun (sig_lst', test_exprs) in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | LetFunWithType (fun_sig, e) ->
+        let%bind (check_expr : core_only expr_desc) =
+          mk_check_from_fun_sig fun_sig
+        in
         let%bind e' = bluejay_to_jay e in
-        list_fold_right_m folder sig_lst e'
-      in
-      let%bind sig_lst' =
-        sig_lst |> List.map (remove_type_from_funsig bluejay_to_jay) |> sequence
-      in
-      let res = new_expr_desc @@ LetRecFun (sig_lst', test_exprs) in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | LetFunWithType (fun_sig, e) ->
-      let%bind (check_expr : core_only expr_desc) =
-        mk_check_from_fun_sig fun_sig
-      in
-      let%bind e' = bluejay_to_jay e in
-      let%bind check_res = fresh_ident "check_res" in
-      let%bind () = add_error_to_bluejay_mapping check_res e_desc in
-      let%bind res_cls =
-        new_instrumented_ed
-        @@ If
-             ( new_expr_desc @@ Var check_res,
-               e',
-               new_expr_desc @@ TypeError check_res )
-      in
-      let check_cls = Let (check_res, check_expr, res_cls) in
-      let%bind fun_sig' = remove_type_from_funsig bluejay_to_jay fun_sig in
-      let res = new_expr_desc @@ LetFun (fun_sig', new_expr_desc check_cls) in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Plus (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ Plus (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Minus (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ Minus (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Times (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ Times (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Divide (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ Divide (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Modulus (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ Modulus (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Equal (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ Equal (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Neq (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ Neq (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | LessThan (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ LessThan (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Leq (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ Leq (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | GreaterThan (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ GreaterThan (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Geq (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ Geq (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | And (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ And (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Or (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ Or (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Not e ->
-      let%bind e' = bluejay_to_jay e in
-      let res = new_expr_desc @@ Not e' in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | If (e1, e2, e3) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let%bind e3' = bluejay_to_jay e3 in
-      let res = new_expr_desc @@ If (e1', e2', e3') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Record m ->
-      let%bind m' = ident_map_map_m (fun e -> bluejay_to_jay e) m in
-      let res = new_expr_desc @@ Record m' in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | RecordProj (e, l) ->
-      let%bind e' = bluejay_to_jay e in
-      let res = new_expr_desc @@ RecordProj (e', l) in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Match (e, pattern_expr_lst) ->
-      let%bind e' = bluejay_to_jay e in
-      let mapper (pat, expr) =
-        let%bind expr' = bluejay_to_jay expr in
-        return @@ (pat, expr')
-      in
-      let%bind pattern_expr_lst' =
-        pattern_expr_lst |> List.map mapper |> sequence
-      in
-      let res = new_expr_desc @@ Match (e', pattern_expr_lst') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | VariantExpr (lbl, e) ->
-      let%bind e' = bluejay_to_jay e in
-      let res = new_expr_desc @@ VariantExpr (lbl, e') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | List expr_lst ->
-      let%bind expr_lst' = expr_lst |> List.map bluejay_to_jay |> sequence in
-      let res = new_expr_desc @@ List expr_lst' in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | ListCons (e1, e2) ->
-      let%bind e1' = bluejay_to_jay e1 in
-      let%bind e2' = bluejay_to_jay e2 in
-      let res = new_expr_desc @@ ListCons (e1', e2') in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Assert e ->
-      let%bind e' = bluejay_to_jay e in
-      let res = new_expr_desc @@ Assert e' in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
-  | Assume e ->
-      let%bind e' = bluejay_to_jay e in
-      let res = new_expr_desc @@ Assume e' in
-      let%bind () = add_core_to_sem_mapping res e_desc in
-      return res
+        let%bind check_res = fresh_ident "check_res" in
+        let%bind () = add_error_to_bluejay_mapping check_res e_desc in
+        let%bind res_cls =
+          new_instrumented_ed
+          @@ If
+               ( new_expr_desc @@ Var check_res,
+                 e',
+                 new_expr_desc @@ TypeError check_res )
+        in
+        let check_cls = Let (check_res, check_expr, res_cls) in
+        let%bind fun_sig' = remove_type_from_funsig bluejay_to_jay fun_sig in
+        let res = new_expr_desc @@ LetFun (fun_sig', new_expr_desc check_cls) in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Plus (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ Plus (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Minus (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ Minus (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Times (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ Times (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Divide (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ Divide (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Modulus (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ Modulus (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Equal (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ Equal (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Neq (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ Neq (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | LessThan (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ LessThan (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Leq (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ Leq (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | GreaterThan (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ GreaterThan (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Geq (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ Geq (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | And (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ And (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Or (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ Or (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Not e ->
+        let%bind e' = bluejay_to_jay e in
+        let res = new_expr_desc @@ Not e' in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | If (e1, e2, e3) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let%bind e3' = bluejay_to_jay e3 in
+        let res = new_expr_desc @@ If (e1', e2', e3') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Record m ->
+        let%bind m' = ident_map_map_m (fun e -> bluejay_to_jay e) m in
+        let res = new_expr_desc @@ Record m' in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | RecordProj (e, l) ->
+        let%bind e' = bluejay_to_jay e in
+        let res = new_expr_desc @@ RecordProj (e', l) in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Match (e, pattern_expr_lst) ->
+        let%bind e' = bluejay_to_jay e in
+        let mapper (pat, expr) =
+          let%bind expr' = bluejay_to_jay expr in
+          return @@ (pat, expr')
+        in
+        let%bind pattern_expr_lst' =
+          pattern_expr_lst |> List.map mapper |> sequence
+        in
+        let res = new_expr_desc @@ Match (e', pattern_expr_lst') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | VariantExpr (lbl, e) ->
+        let%bind e' = bluejay_to_jay e in
+        let res = new_expr_desc @@ VariantExpr (lbl, e') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | List expr_lst ->
+        let%bind expr_lst' = expr_lst |> List.map bluejay_to_jay |> sequence in
+        let res = new_expr_desc @@ List expr_lst' in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | ListCons (e1, e2) ->
+        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e2' = bluejay_to_jay e2 in
+        let res = new_expr_desc @@ ListCons (e1', e2') in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Assert e ->
+        let%bind e' = bluejay_to_jay e in
+        let res = new_expr_desc @@ Assert e' in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+    | Assume e ->
+        let%bind e' = bluejay_to_jay e in
+        let res = new_expr_desc @@ Assume e' in
+        let%bind () = add_core_to_sem_mapping res e_desc in
+        return res
+  in
+  let%bind () =
+    if instrumented_bool
+    then add_instrumented_tag transformed_ed.tag
+    else return @@ ()
+  in
+  return transformed_ed
 
 let debug_transform_bluejay (trans_name : string)
     (transform : 'a expr_desc -> 'b expr_desc m) (e : 'a expr_desc) :
@@ -1721,7 +1728,11 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
   in
   let e = e_desc.body in
   (* Using the original tag for now; may be buggy *)
-  let _tag = e_desc.tag in
+  let tag = e_desc.tag in
+  let%bind instrumented_bool = is_instrumented tag in
+  let%bind () =
+    if instrumented_bool then add_instrumented_tag tag else return @@ ()
+  in
   match e with
   | Int _ | Bool _ | Var _ | Input | TypeError _ -> return e_desc
   | Function (id_lst, e) ->

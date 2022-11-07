@@ -197,9 +197,13 @@ let letrec_expr_to_fun recurse fun_sig_list rec_e_desc =
       (fun appl_dict base_fun ->
         let original_fun_name, new_fun_name = base_fun in
         let sub_appl =
-          List.fold_left
+          list_fold_left_m
             (fun acc fun_name ->
-              new_expr_desc @@ Appl (acc, new_expr_desc @@ Var fun_name))
+              let ret =
+                new_expr_desc @@ Appl (acc, new_expr_desc @@ Var fun_name)
+              in
+              let%bind () = add_jay_instrumented ret.tag in
+              return ret)
             (new_expr_desc @@ Var new_fun_name)
             new_names
         in
@@ -208,11 +212,11 @@ let letrec_expr_to_fun recurse fun_sig_list rec_e_desc =
   in
   (* Create let fun expressions *)
   let lt_maker_fun fun_name acc =
-    let cur_appl_expr = Ident_map.find fun_name appls_for_funs in
-    new_expr_desc @@ Let (fun_name, cur_appl_expr, acc)
+    let%bind cur_appl_expr = Ident_map.find fun_name appls_for_funs in
+    return @@ new_expr_desc @@ Let (fun_name, cur_appl_expr, acc)
   in
-  let transformed_outer_expr =
-    List.fold_right lt_maker_fun original_names transformed_rec_expr
+  let%bind transformed_outer_expr =
+    list_fold_right_m lt_maker_fun original_names transformed_rec_expr
   in
   let sig_name_pairs = List.combine fun_sig_list new_names in
   (* Final expression *)
@@ -222,8 +226,8 @@ let letrec_expr_to_fun recurse fun_sig_list rec_e_desc =
         let (Funsig (_, param_list, cur_f_expr)) = fun_sig in
         let%bind transformed_cur_f_expr = recurse cur_f_expr in
         let new_param_list = new_names @ param_list in
-        let new_fun_expr =
-          List.fold_right lt_maker_fun original_names transformed_cur_f_expr
+        let%bind new_fun_expr =
+          list_fold_right_m lt_maker_fun original_names transformed_cur_f_expr
         in
         let new_fun = Function (new_param_list, new_fun_expr) in
         return @@ new_expr_desc @@ Let (fun_new_name, new_expr_desc new_fun, acc))

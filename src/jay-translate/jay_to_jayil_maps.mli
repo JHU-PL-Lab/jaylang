@@ -40,6 +40,8 @@ val update_instrumented_tags : t -> int list -> t
 
 val is_jay_instrumented : t -> int -> bool
 
+val add_jay_instrumented : t -> int -> t
+
 (* **** Getter functions **** *)
 
 val get_jay_equivalent_expr : t -> Ast.ident -> Jay_ast.expr_desc option

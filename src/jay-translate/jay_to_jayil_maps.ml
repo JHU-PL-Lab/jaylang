@@ -484,3 +484,8 @@ let update_instrumented_tags (mappings : t) (tags : int list) : t =
 let is_jay_instrumented (mappings : t) (tag : int) : bool =
   let instrumented_tags = mappings.instrumented_tags in
   List.mem tag instrumented_tags
+
+let add_jay_instrumented (mappings : t) (tag : int) : t =
+  let instrumented_tags = mappings.instrumented_tags in
+  let instrumented_tags' = tag :: instrumented_tags in
+  { mappings with instrumented_tags = instrumented_tags' }
