@@ -394,6 +394,7 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       @@ Utils.Invariant_failure
            "flatten_expr: List expressions should have been handled!"
   | Assert e ->
+      let%bind is_instrumented = is_jay_instrumented tag in
       let%bind flattened_exprs, last_var = recurse e in
       (* Helper function *)
       let add_var var_name ed =
@@ -403,7 +404,11 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       in
       (* Variables *)
       let%bind assert_pred = add_var "assert_pred" e in
-      let%bind assert_result = add_var "assert_res" expr_desc in
+      let%bind assert_result =
+        if is_instrumented
+        then new_jayil_inst_var expr_desc "assert_res"
+        else add_var "assert_res" expr_desc
+      in
       let%bind assert_result_inner = add_var "assert_res_true" expr_desc in
       (* Clauses *)
       let alias_clause = Ast.Clause (assert_pred, Var_body last_var) in
@@ -429,6 +434,7 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       let new_clause = Ast.Clause (assume_var, Assume_body last_var) in
       return (flattened_exprs @ [ new_clause ], assume_var)
   | Error (Jay_ast.Ident x) ->
+      let%bind is_instrumented = is_jay_instrumented tag in
       let%bind error_var = fresh_var "error_var" in
       let error_clause =
         Ast.Clause (error_var, Ast.Var_body (Ast.Var (Ast.Ident x, None)))
@@ -442,7 +448,11 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       in
       (* Variables *)
       let%bind assert_pred = add_var "assert_pred" in
-      let%bind assert_result = add_var "assert_res" in
+      let%bind assert_result =
+        if is_instrumented
+        then new_jayil_inst_var expr_desc "assert_res"
+        else add_var "assert_res"
+      in
       let%bind assert_result_inner = add_var "assert_res_true" in
       (* Clauses *)
       let alias_clause = Ast.Clause (assert_pred, Var_body error_var) in

@@ -412,12 +412,10 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         (* TODO: The error reporting here isn't really working for this "wrap"
            case. *)
         let%bind fail_id = fresh_ident "fail" in
-        let fail_cls =
-          Let
-            ( fail_id,
-              new_expr_desc @@ Bool false,
-              new_expr_desc @@ Assert (new_expr_desc @@ Var fail_id) )
+        let%bind assert_cls =
+          new_instrumented_ed @@ Assert (new_expr_desc @@ Var fail_id)
         in
+        let fail_cls = Let (fail_id, new_expr_desc @@ Bool false, assert_cls) in
         let%bind proj_ed_1 =
           new_instrumented_ed @@ RecordProj (gc_pair_dom_gen, Label "checker")
         in
@@ -505,12 +503,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind appl_ed_3 =
           new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
         in
+        let%bind assert_cls =
+          new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
+        in
         let%bind inner_expr =
-          new_instrumented_ed
-          @@ If
-               ( appl_ed_2,
-                 appl_ed_3,
-                 new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+          new_instrumented_ed @@ If (appl_ed_2, appl_ed_3, assert_cls)
         in
         let gen_expr = Function ([ arg_assume ], inner_expr) in
         return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
@@ -857,10 +854,10 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
                   "mk_fun_intersect_gen: should only handle function \
                    intersections!"
           in
-          let%bind fun_body =
-            list_fold_right_m folder fun_types
-              (new_expr_desc @@ Assert (new_expr_desc @@ Bool false))
+          let%bind assert_cls =
+            new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
           in
+          let%bind fun_body = list_fold_right_m folder fun_types assert_cls in
           return @@ Function ([ arg ], fun_body)
         else
           failwith "mk_fun_intersect_gen: ill-formed function intersection type"
@@ -1226,13 +1223,15 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       let%bind fail_id = fresh_ident "fail" in
       let%bind pattern_expr_lst' =
         let%bind og_pats = pattern_expr_lst |> List.map mapper |> sequence in
+        let%bind assert_cls =
+          new_instrumented_ed @@ Assert (new_expr_desc @@ Var fail_id)
+        in
         let check_poly =
           let check_pat =
             Ident_map.empty |> Ident_map.add (Ident "~untouched") None
             (* |> Ident_map.add (Ident ("~\'" ^ t')) None *)
           in
-          ( RecPat check_pat,
-            new_expr_desc @@ Assert (new_expr_desc @@ Var fail_id) )
+          (RecPat check_pat, assert_cls)
         in
         return @@ (check_poly :: og_pats)
       in
@@ -1411,12 +1410,10 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         let%bind e2' = bluejay_to_jay e2 in
         let%bind check_res = fresh_ident "check_res" in
         let%bind () = add_error_to_bluejay_mapping check_res e_desc in
+        let%bind error_cls = new_instrumented_ed @@ TypeError check_res in
         let%bind res_cls =
           new_instrumented_ed
-          @@ If
-               ( new_expr_desc @@ Var check_res,
-                 e2',
-                 new_expr_desc @@ TypeError check_res )
+          @@ If (new_expr_desc @@ Var check_res, e2', error_cls)
         in
         let%bind proj_ed_1 =
           new_instrumented_ed @@ RecordProj (type_decl', Label "checker")
@@ -1437,12 +1434,11 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
             | Typed_funsig (f, _, _) | DTyped_funsig (f, _, _) -> f
           in
           let%bind () = add_error_to_rec_fun_mapping check_res fun_name in
+          let%bind error_cls = new_instrumented_ed @@ TypeError check_res in
+
           let%bind res_cls =
             new_instrumented_ed
-            @@ If
-                 ( new_expr_desc @@ Var check_res,
-                   acc,
-                   new_expr_desc @@ TypeError check_res )
+            @@ If (new_expr_desc @@ Var check_res, acc, error_cls)
           in
           let%bind check_expr = mk_check_from_fun_sig fun_sig in
           let check_cls = Let (check_res, check_expr, res_cls) in
@@ -1467,12 +1463,11 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         let%bind e' = bluejay_to_jay e in
         let%bind check_res = fresh_ident "check_res" in
         let%bind () = add_error_to_bluejay_mapping check_res e_desc in
+        let%bind error_cls = new_instrumented_ed @@ TypeError check_res in
+
         let%bind res_cls =
           new_instrumented_ed
-          @@ If
-               ( new_expr_desc @@ Var check_res,
-                 e',
-                 new_expr_desc @@ TypeError check_res )
+          @@ If (new_expr_desc @@ Var check_res, e', error_cls)
         in
         let check_cls = Let (check_res, check_expr, res_cls) in
         let%bind fun_sig' = remove_type_from_funsig bluejay_to_jay fun_sig in
@@ -1656,12 +1651,12 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
               new_instrumented_ed
               @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
             in
+            let%bind assert_cls =
+              new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
+            in
             let%bind cond =
               new_instrumented_ed
-              @@ If
-                   ( new_expr_desc @@ Var arg_check,
-                     acc,
-                     new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+              @@ If (new_expr_desc @@ Var arg_check, acc, assert_cls)
             in
             let eta_body = Let (arg_check, check_arg, cond) in
             let%bind wrapped_body =
@@ -1698,12 +1693,12 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
           new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
         in
         let%bind f_body' = wrap f_body in
+        let%bind assert_cls =
+          new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
+        in
         let%bind cond =
           new_instrumented_ed
-          @@ If
-               ( new_expr_desc @@ Var arg_check,
-                 f_body',
-                 new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+          @@ If (new_expr_desc @@ Var arg_check, f_body', assert_cls)
         in
         let eta_body = Let (arg_check, check_arg, cond) in
         let%bind wrapped_body =
