@@ -58,11 +58,6 @@ let do_translate ?(is_instrumented : bool = true) context
         Printf.sprintf "Initial program:\n%s" (Jay_ast_pp.show_expr e.body)) ;
     let (translation_result_p1_m : Ast.clause list m) =
       let%bind () = update_instrumented_tags bluejay_instruments in
-      let () =
-        List.iter
-          (fun s -> print_endline @@ string_of_int s)
-          bluejay_instruments
-      in
       return e
       >>= debug_transform_jay "desugaring" Jay_desugar.desugar
       >>= debug_transform_jay "alphatization" Jay_alphatize.alphatize

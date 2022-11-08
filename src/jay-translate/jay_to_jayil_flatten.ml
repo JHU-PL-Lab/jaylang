@@ -138,9 +138,14 @@ let flatten_fun ?(binding_name = (None : Jay_ast.Ident.t option))
 let rec flatten_binop (expr_desc : Jay_ast.expr_desc)
     (e1_desc : Jay_ast.expr_desc) (e2_desc : Jay_ast.expr_desc)
     (binop : Ast.binary_operator) : (Ast.clause list * Ast.var) m =
+  let%bind is_instrumented = is_jay_instrumented expr_desc.tag in
   let%bind e1_clist, e1_var = flatten_expr e1_desc in
   let%bind e2_clist, e2_var = flatten_expr e2_desc in
-  let%bind notop_var = fresh_var "binop" in
+  let%bind notop_var =
+    if is_instrumented
+    then new_jayil_inst_var expr_desc "binop"
+    else fresh_var "binop"
+  in
   let%bind () = add_jayil_jay_mapping notop_var expr_desc in
   let%bind new_clauses =
     (* match binop with

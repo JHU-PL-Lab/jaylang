@@ -334,8 +334,6 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           let%bind proj_ed_1 =
             new_instrumented_ed @@ RecordProj (gc_pair_c, Label "checker")
           in
-          let () = print_endline "This is the tag: " in
-          let () = print_endline @@ string_of_int proj_ed_1.tag in
           let%bind appl_ed_1 =
             new_instrumented_ed
             @@ Appl (proj_ed_1, new_expr_desc @@ Var (Ident "hd"))
@@ -1730,200 +1728,207 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
   (* Using the original tag for now; may be buggy *)
   let tag = e_desc.tag in
   let%bind instrumented_bool = is_instrumented tag in
-  let%bind () =
-    if instrumented_bool then add_instrumented_tag tag else return @@ ()
+  let%bind transformed_ed =
+    match e with
+    | Int _ | Bool _ | Var _ | Input | TypeError _ -> return e_desc
+    | Function (id_lst, e) ->
+        let%bind e' = wrap e in
+        let res = new_expr_desc @@ Function (id_lst, e') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Appl (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ Appl (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Let (x, e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ Let (x, e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | LetRecFun (sig_lst, e) ->
+        let%bind sig_lst' =
+          sig_lst |> List.map (transform_funsig wrap) |> sequence
+        in
+        let%bind e' = wrap e in
+        let res = new_expr_desc @@ LetRecFun (sig_lst', e') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | LetFun (fun_sig, e) ->
+        let%bind sig' = fun_sig |> transform_funsig wrap in
+        let%bind e' = wrap e in
+        let res = new_expr_desc @@ LetFun (sig', e') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    (* TODO: Will want to handle the function case here *)
+    | LetWithType (x, e1, e2, type_decl) ->
+        let%bind type_decl' = wrap type_decl in
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ LetWithType (x, e1', e2', type_decl') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | LetRecFunWithType (sig_lst, e) ->
+        let%bind sig_lst' =
+          sequence @@ List.map mk_check_from_fun_sig sig_lst
+        in
+        let%bind og_e' = wrap e in
+        let res = new_expr_desc @@ LetRecFunWithType (sig_lst', og_e') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | LetFunWithType (fun_sig, e) ->
+        let%bind fun_sig' = mk_check_from_fun_sig fun_sig in
+        let%bind og_e' = wrap e in
+        let res = new_expr_desc @@ LetFunWithType (fun_sig', og_e') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Plus (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ Plus (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Minus (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ Minus (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Times (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ Times (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Divide (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ Divide (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Modulus (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ Modulus (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Equal (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ Equal (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Neq (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ Neq (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | LessThan (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ LessThan (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Leq (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ Leq (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | GreaterThan (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ GreaterThan (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Geq (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ Geq (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | And (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ And (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Or (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ Or (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Not e ->
+        let%bind e' = wrap e in
+        let res = new_expr_desc @@ Not e' in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | If (e1, e2, e3) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let%bind e3' = wrap e3 in
+        let res = new_expr_desc @@ If (e1', e2', e3') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Record m ->
+        let%bind m' = ident_map_map_m (fun e -> wrap e) m in
+        let res = new_expr_desc @@ Record m' in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | RecordProj (e, l) ->
+        let%bind e' = wrap e in
+        let res = new_expr_desc @@ RecordProj (e', l) in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Match (e, pattern_expr_lst) ->
+        let%bind e' = wrap e in
+        let mapper (pat, expr) =
+          let%bind expr' = wrap expr in
+          return @@ (pat, expr')
+        in
+        let%bind pattern_expr_lst' =
+          pattern_expr_lst |> List.map mapper |> sequence
+        in
+        let res = new_expr_desc @@ Match (e', pattern_expr_lst') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | VariantExpr (lbl, e) ->
+        let%bind e' = wrap e in
+        let res = new_expr_desc @@ VariantExpr (lbl, e') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | List expr_lst ->
+        let%bind expr_lst' = expr_lst |> List.map wrap |> sequence in
+        let res = new_expr_desc @@ List expr_lst' in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | ListCons (e1, e2) ->
+        let%bind e1' = wrap e1 in
+        let%bind e2' = wrap e2 in
+        let res = new_expr_desc @@ ListCons (e1', e2') in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Assert e ->
+        let%bind e' = wrap e in
+        let res = new_expr_desc @@ Assert e' in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
+    | Assume e ->
+        let%bind e' = wrap e in
+        let res = new_expr_desc @@ Assume e' in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
   in
-  match e with
-  | Int _ | Bool _ | Var _ | Input | TypeError _ -> return e_desc
-  | Function (id_lst, e) ->
-      let%bind e' = wrap e in
-      let res = new_expr_desc @@ Function (id_lst, e') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Appl (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ Appl (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Let (x, e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ Let (x, e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | LetRecFun (sig_lst, e) ->
-      let%bind sig_lst' =
-        sig_lst |> List.map (transform_funsig wrap) |> sequence
-      in
-      let%bind e' = wrap e in
-      let res = new_expr_desc @@ LetRecFun (sig_lst', e') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | LetFun (fun_sig, e) ->
-      let%bind sig' = fun_sig |> transform_funsig wrap in
-      let%bind e' = wrap e in
-      let res = new_expr_desc @@ LetFun (sig', e') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  (* TODO: Will want to handle the function case here *)
-  | LetWithType (x, e1, e2, type_decl) ->
-      let%bind type_decl' = wrap type_decl in
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ LetWithType (x, e1', e2', type_decl') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | LetRecFunWithType (sig_lst, e) ->
-      let%bind sig_lst' = sequence @@ List.map mk_check_from_fun_sig sig_lst in
-      let%bind og_e' = wrap e in
-      let res = new_expr_desc @@ LetRecFunWithType (sig_lst', og_e') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | LetFunWithType (fun_sig, e) ->
-      let%bind fun_sig' = mk_check_from_fun_sig fun_sig in
-      let%bind og_e' = wrap e in
-      let res = new_expr_desc @@ LetFunWithType (fun_sig', og_e') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Plus (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ Plus (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Minus (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ Minus (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Times (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ Times (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Divide (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ Divide (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Modulus (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ Modulus (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Equal (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ Equal (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Neq (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ Neq (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | LessThan (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ LessThan (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Leq (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ Leq (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | GreaterThan (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ GreaterThan (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Geq (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ Geq (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | And (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ And (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Or (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ Or (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Not e ->
-      let%bind e' = wrap e in
-      let res = new_expr_desc @@ Not e' in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | If (e1, e2, e3) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let%bind e3' = wrap e3 in
-      let res = new_expr_desc @@ If (e1', e2', e3') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Record m ->
-      let%bind m' = ident_map_map_m (fun e -> wrap e) m in
-      let res = new_expr_desc @@ Record m' in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | RecordProj (e, l) ->
-      let%bind e' = wrap e in
-      let res = new_expr_desc @@ RecordProj (e', l) in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Match (e, pattern_expr_lst) ->
-      let%bind e' = wrap e in
-      let mapper (pat, expr) =
-        let%bind expr' = wrap expr in
-        return @@ (pat, expr')
-      in
-      let%bind pattern_expr_lst' =
-        pattern_expr_lst |> List.map mapper |> sequence
-      in
-      let res = new_expr_desc @@ Match (e', pattern_expr_lst') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | VariantExpr (lbl, e) ->
-      let%bind e' = wrap e in
-      let res = new_expr_desc @@ VariantExpr (lbl, e') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | List expr_lst ->
-      let%bind expr_lst' = expr_lst |> List.map wrap |> sequence in
-      let res = new_expr_desc @@ List expr_lst' in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | ListCons (e1, e2) ->
-      let%bind e1' = wrap e1 in
-      let%bind e2' = wrap e2 in
-      let res = new_expr_desc @@ ListCons (e1', e2') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Assert e ->
-      let%bind e' = wrap e in
-      let res = new_expr_desc @@ Assert e' in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
-  | Assume e ->
-      let%bind e' = wrap e in
-      let res = new_expr_desc @@ Assume e' in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
+  let%bind () =
+    if instrumented_bool
+    then add_instrumented_tag transformed_ed.tag
+    else return @@ ()
+  in
+  return transformed_ed
 
 let transform_bluejay ?(do_wrap = true) (e : syn_type_bluejay) :
     core_bluejay_edesc * Bluejay_to_jay_maps.t =
