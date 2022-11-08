@@ -39,6 +39,15 @@ let add_abort_expr (e_desc : Jay_ast.expr_desc) (_ : Ast.var list) : Ast.expr m
   let abort_clause = Ast.Clause (abort_var, Abort_body) in
   return @@ Ast.Expr [ abort_clause ]
 
+let add_void_expr (e_desc : Jay_ast.expr_desc) (_ : Ast.var list) : Ast.expr m =
+  let%bind void_var = fresh_var "void" in
+  let%bind () = add_jayil_jay_mapping void_var e_desc in
+  let void_clause =
+    Ast.Clause
+      (void_var, Value_body (Value_record (Record_value Ast.Ident_map.empty)))
+  in
+  return @@ Ast.Expr [ void_clause ]
+
 let jay_to_jayil_ident (Jay_ast.Ident id) = Ast.Ident id
 
 (** Flatten a pattern. The second value in the pair is a list of projection
@@ -167,8 +176,8 @@ let rec flatten_binop (expr_desc : Jay_ast.expr_desc)
   return (e1_clist @ e2_clist @ new_clauses, notop_var)
 
 and flatten_pattern_match (expr_desc : Jay_ast.expr_desc) (subj_var : Ast.var)
-    (pat_e_list : (Jay_ast.pattern * Jay_ast.expr_desc) list) :
-    (Ast.clause list * Ast.var) m =
+    (pat_e_list : (Jay_ast.pattern * Jay_ast.expr_desc) list)
+    (instrumented : bool) : (Ast.clause list * Ast.var) m =
   let rec convert_match ((pat, e) : Jay_ast.pattern * Jay_ast.expr_desc)
       (accum : Ast.expr * Ast.clause list) : (Ast.expr * Ast.clause list) m =
     (* Conditional expression *)
@@ -188,7 +197,11 @@ and flatten_pattern_match (expr_desc : Jay_ast.expr_desc) (subj_var : Ast.var)
     let cond_clause = Ast.Clause (cond_var, cond_body) in
     return (Ast.Expr [ cond_clause ], match_clause :: match_cls_list_tail)
   in
-  let%bind innermost = add_abort_expr expr_desc [] in
+  let%bind innermost =
+    if instrumented
+    then add_void_expr expr_desc []
+    else add_abort_expr expr_desc []
+  in
   let%bind cond_expr, match_cls_list =
     list_fold_right_m convert_match pat_e_list (innermost, [])
   in
@@ -364,11 +377,12 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       in
       return (e_clist @ [ new_clause ], proj_var)
   | Match (subject, pat_e_list) ->
+      let%bind is_instrumented = is_jay_instrumented tag in
       (* We need to flatten the subject first *)
       let%bind subject_clause_list, subj_var = recurse subject in
       (* Flatten the pattern-expr list *)
       let%bind match_clause_list, cond_var =
-        flatten_pattern_match expr_desc subj_var pat_e_list
+        flatten_pattern_match expr_desc subj_var pat_e_list is_instrumented
       in
       return (subject_clause_list @ match_clause_list, cond_var)
   | VariantExpr (_, _) ->

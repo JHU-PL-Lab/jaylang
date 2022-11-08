@@ -24,6 +24,7 @@ let read_source_sato ?(do_wrap = false) filename =
       let show_bluejay_tagless = Bluejay_ast_pp.show_expr_desc in
       let () = print_endline @@ "*************************************" in
       let () = print_endline @@ "Original program: " in
+      (* let () = print_endline @@ Bluejay_ast.show_expr_desc bluejay_ast in *)
       let () = print_endline @@ show_bluejay_tagless bluejay_ast in
       let init_consts =
         Bluejay.Bluejay_ast_tools.defined_vars_of_expr_desc bluejay_ast
@@ -46,6 +47,7 @@ let read_source_sato ?(do_wrap = false) filename =
       let () = print_endline @@ "*************************************" in
       let () = print_endline @@ "Jay program after type elimination: " in
       let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in
+      (* let () = print_endline @@ Jay_ast.show_expr_desc jay_ast in *)
       let instrument_tags_bluejay = ton_on_maps'.instrumented_tags in
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
         Jay_translate.Jay_to_jayil.translate ~is_jay:true ~is_instrumented:true

@@ -238,6 +238,8 @@ let letrec_expr_to_fun recurse fun_sig_list rec_e_desc =
 
 let desugar (e : expr_desc) : expr_desc m =
   let transformer recurse e_desc =
+    let tag = e_desc.tag in
+    let%bind is_instrumented = is_jay_instrumented tag in
     let expr = e_desc.body in
     match expr with
     | List e_lst ->
@@ -255,6 +257,12 @@ let desugar (e : expr_desc) : expr_desc m =
     | Match (match_e, pat_e_lst) ->
         let%bind expr' = encode_match_exprs recurse match_e pat_e_lst in
         let%bind () = add_jay_expr_mapping expr' e_desc in
+        let%bind () =
+          if is_instrumented then add_jay_instrumented expr'.tag else return ()
+          (* let () = print_endline "-----------------" in
+             let () = print_endline @@ Jay_ast_pp.show_expr_desc e_desc in
+             failwith @@ "Not accounted for: tag = " ^ string_of_int tag *)
+        in
         return expr'
     | LetRecFun (fun_sig_list, rec_e) ->
         let%bind expr' = letrec_expr_to_fun recurse fun_sig_list rec_e in
@@ -262,4 +270,5 @@ let desugar (e : expr_desc) : expr_desc m =
         return expr'
     | _ -> return e_desc
   in
-  m_transform_expr transformer e
+  let%bind ret_ed = m_transform_expr transformer e in
+  return ret_ed

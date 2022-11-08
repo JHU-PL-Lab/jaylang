@@ -88,8 +88,8 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind fail_id = fresh_ident "fail" in
         let matched_expr = new_expr_desc @@ Var expr_id in
         let fail_pat_cls = new_expr_desc @@ Var fail_id in
-        let match_edesc =
-          new_expr_desc
+        let%bind match_edesc =
+          new_instrumented_ed
           @@ Match
                ( matched_expr,
                  [
@@ -136,8 +136,8 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind fail_id = fresh_ident "fail" in
         let matched_expr = new_expr_desc @@ Var expr_id in
         let fail_pat_cls = new_expr_desc @@ Var fail_id in
-        let match_edesc =
-          new_expr_desc
+        let%bind match_edesc =
+          new_instrumented_ed
           @@ Match
                ( matched_expr,
                  [
@@ -248,16 +248,15 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         (* Also, the record type we have here is like OCaml; it must have the
            labels with the corresponding types, and nothing more. That's why
            we require a strict pattern match here. *)
-        let match_body =
-          Match
-            ( matched_expr,
-              [ (StrictRecPat type_dict, fun_body); (AnyPat, fail_pat_cls) ] )
+        let%bind match_body =
+          new_instrumented_ed
+          @@ Match
+               ( matched_expr,
+                 [ (StrictRecPat type_dict, fun_body); (AnyPat, fail_pat_cls) ]
+               )
         in
         let check_cls =
-          Let
-            ( rec_fail_id,
-              new_expr_desc @@ Bool false,
-              new_expr_desc @@ match_body )
+          Let (rec_fail_id, new_expr_desc @@ Bool false, match_body)
         in
         (* Since the initial record check could be a point of faliure, we need to
            record it as well. *)
@@ -351,7 +350,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
                    appl_ed_2,
                    new_expr_desc @@ Var elm_check_id )
           in
-          return @@ new_expr_desc
+          new_instrumented_ed
           @@ Match
                ( new_expr_desc @@ Var test_list_id,
                  [
@@ -370,21 +369,19 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         (* Building the intial check for whether it's a list value *)
         let fail_pat_cls = new_expr_desc @@ Var lst_check_fail in
         let matched_expr = new_expr_desc @@ Var expr_id in
-        let match_body =
-          Match
-            ( matched_expr,
-              [
-                (EmptyLstPat, new_expr_desc @@ Bool true);
-                ( LstDestructPat (Ident "~underscore", Ident "~underscore2"),
-                  new_expr_desc @@ fun_body );
-                (AnyPat, fail_pat_cls);
-              ] )
+        let%bind match_body =
+          new_instrumented_ed
+          @@ Match
+               ( matched_expr,
+                 [
+                   (EmptyLstPat, new_expr_desc @@ Bool true);
+                   ( LstDestructPat (Ident "~underscore", Ident "~underscore2"),
+                     new_expr_desc @@ fun_body );
+                   (AnyPat, fail_pat_cls);
+                 ] )
         in
         let lst_fail =
-          Let
-            ( lst_check_fail,
-              new_expr_desc @@ Bool false,
-              new_expr_desc match_body )
+          Let (lst_check_fail, new_expr_desc @@ Bool false, match_body)
         in
         (* Since the initial list check could be a point of faliure, we need to
            record it as well. *)
@@ -1006,25 +1003,24 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let fail_pat_cls_1 = new_expr_desc @@ Var fail_id in
         let fail_pat_cls_2 = new_expr_desc @@ Var fail_id in
         let matched_expr = new_expr_desc @@ Var expr_id in
-        let check_poly_var =
-          Match
-            ( new_expr_desc @@ Var poly_var_id,
-              [
-                (RecPat check_pat_inner, new_expr_desc @@ Bool true);
-                (AnyPat, fail_pat_cls_2);
-              ] )
+        let%bind check_poly_var =
+          new_instrumented_ed
+          @@ Match
+               ( new_expr_desc @@ Var poly_var_id,
+                 [
+                   (RecPat check_pat_inner, new_expr_desc @@ Bool true);
+                   (AnyPat, fail_pat_cls_2);
+                 ] )
         in
-        let check_body =
-          Function
-            ( [ expr_id ],
-              new_expr_desc
-              @@ Match
-                   ( matched_expr,
-                     [
-                       (RecPat check_pat, new_expr_desc @@ check_poly_var);
-                       (AnyPat, fail_pat_cls_1);
-                     ] ) )
+        let%bind match_cls =
+          new_instrumented_ed
+          @@ Match
+               ( matched_expr,
+                 [
+                   (RecPat check_pat, check_poly_var); (AnyPat, fail_pat_cls_1);
+                 ] )
         in
+        let check_body = Function ([ expr_id ], match_cls) in
         let%bind () =
           add_error_to_value_expr_mapping fail_pat_cls_1 matched_expr
         in
