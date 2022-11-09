@@ -1,3 +1,0 @@
-(executable
- (name translator)
- (libraries batteries bluejay jay_translate dj_common))
