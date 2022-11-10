@@ -1,9 +1,8 @@
 open Core
 
-let usage_msg = "partial <file>"
-let flag = ref false
+let usage_msg = "partial -i <file>"
 let source_file = ref ""
-let anon_fun source = source_file := source
+let anon_fun _ = ()
 
 let run_program source =
   ignore @@ Partial_evaluator.eval source ;
@@ -11,6 +10,6 @@ let run_program source =
 
 let () =
   Arg.parse
-    [ ("-f", Arg.Bool (fun fl -> flag := fl), "Iutput source file") ]
+    [ ("-i", Arg.Set_string source_file, "Iutput source file") ]
     anon_fun usage_msg ;
   run_program !source_file

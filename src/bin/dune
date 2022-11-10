@@ -31,7 +31,10 @@
  (modules partial)
  (libraries core logs dj_common partial_evaluator jayil)
  (preprocess
-  (pps ppx_jane)))
+  (pps ppx_jane))
+ (promote
+  (until-clean)
+  (into "../..")))
 
 (executables
  (names dbmc_debugger)
