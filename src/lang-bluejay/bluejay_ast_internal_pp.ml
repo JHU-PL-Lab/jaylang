@@ -90,8 +90,8 @@ and pp_pattern formatter pattern =
   | FunPat -> Format.pp_print_string formatter "fun"
   | RecPat record ->
       Format.fprintf formatter "%a" (pp_ident_map_sp pp_ident_option) record
-  (* | StrictRecPat record ->
-     Format.fprintf formatter "%a" (pp_ident_map pp_ident_option) record *)
+  | StrictRecPat record ->
+      Format.fprintf formatter "%a" (pp_ident_map pp_ident_option) record
   | VariantPat (lbl, var) ->
       Format.fprintf formatter "%a %a" pp_variant_label lbl pp_ident var
   | VarPat ident -> Format.fprintf formatter "%a" pp_ident ident
@@ -282,7 +282,7 @@ and pp_expr : type a. Format.formatter -> a expr -> unit =
       Format.fprintf formatter "%a ^ %a" pp_expr_desc t1 pp_expr_desc t2
   | TypeRecurse (tvar, t) ->
       Format.fprintf formatter "Mu %a.%a" pp_ident tvar pp_expr_desc t
-(* | TypeUntouched s -> Format.pp_print_string formatter @@ "'" ^ s *)
+  | TypeUntouched s -> Format.pp_print_string formatter @@ "'" ^ s
 
 let show_ident = Pp_utils.pp_to_string pp_ident
 

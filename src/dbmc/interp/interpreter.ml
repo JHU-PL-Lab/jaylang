@@ -413,6 +413,8 @@ and check_pattern ~session ~stk env vx pattern : bool =
     | Direct (Value_record _), _ -> failwith "record must be a closure"
     | RecordClosure (Record_value record, _), Rec_pattern key_set ->
         Ident_set.for_all (fun id -> Ident_map.mem id record) key_set
+    | RecordClosure (Record_value record, _), Strict_rec_pattern key_set ->
+        Ident_set.equal key_set (Ident_set.of_enum @@ Ident_map.keys record)
     | FunClosure (_, _, _), Fun_pattern -> true
     | _, Any_pattern -> true
     | _, _ -> false

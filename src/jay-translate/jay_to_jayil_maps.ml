@@ -180,8 +180,6 @@ let get_jay_equivalent_expr mappings jayil_ident =
   match res_opt with
   | None -> None
   | Some res ->
-      let () = print_endline @@ "this is the og jay expr" in
-      let () = print_endline @@ Jay.Jay_ast_pp.show_expr_desc res in
       let on_expr_transform expr =
         match Expr_desc_map.Exceptionless.find expr on_expr_map with
         | Some expr' -> expr'
@@ -222,6 +220,16 @@ let get_jay_equivalent_expr mappings jayil_ident =
                       |> Ident_map.of_enum
                     in
                     RecPat record'
+                | StrictRecPat record ->
+                    let record' =
+                      record |> Ident_map.enum
+                      |> Enum.map (fun (lbl, x_opt) ->
+                             match x_opt with
+                             | Some x -> (lbl, Some (find_ident x))
+                             | None -> (lbl, None))
+                      |> Ident_map.of_enum
+                    in
+                    StrictRecPat record'
                 | VariantPat (vlbl, x) -> VariantPat (vlbl, find_ident x)
                 | VarPat x -> VarPat (find_ident x)
                 | LstDestructPat (x1, x2) ->
@@ -330,19 +338,16 @@ let get_jayil_var_opt_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
                   |> Ident_map.of_enum
                 in
                 RecPat record'
-            (* | StrictRecPat record ->
-               let record' =
-                 record
-                 |> Ident_map.enum
-                 |> Enum.map
-                   (fun (lbl, x_opt) ->
-                     match x_opt with
-                     | Some x -> (lbl, Some (find_ident x))
-                     | None -> (lbl, None)
-                   )
-                 |> Ident_map.of_enum
-               in
-               StrictRecPat record' *)
+            | StrictRecPat record ->
+                let record' =
+                  record |> Ident_map.enum
+                  |> Enum.map (fun (lbl, x_opt) ->
+                         match x_opt with
+                         | Some x -> (lbl, Some (find_ident x))
+                         | None -> (lbl, None))
+                  |> Ident_map.of_enum
+                in
+                StrictRecPat record'
             | VariantPat (vlbl, x) -> VariantPat (vlbl, find_ident x)
             | VarPat x -> VarPat (find_ident x)
             | LstDestructPat (x1, x2) ->
@@ -402,8 +407,6 @@ let update_jayil_mappings (mappings : t)
              let (Var (k', _)) =
                Ast.Var_map.find (Ast.Var (k, None)) replacement_map
              in
-             let () = print_endline "This is a key to be removed" in
-             let () = print_endline @@ Jayil.Ast_pp.show_ident k in
              (k', v))
     in
     let new_map =
@@ -411,15 +414,7 @@ let update_jayil_mappings (mappings : t)
         let found = Ast.Ident_map.find_opt k acc in
         match found with
         | None -> Ast.Ident_map.add k v acc
-        | Some _v' ->
-            (* if v = v' then acc else acc *)
-            (* TODO: Potential bug; here we're trusting the replacement to be unnecessary *)
-            let () = print_endline "Original key and value: " in
-            let () = print_endline @@ Jayil.Ast_pp.show_ident k in
-            let () = print_endline @@ Jay.Jay_ast_pp.show_expr_desc _v' in
-            let () = print_endline "New value: " in
-            let () = print_endline @@ Jay.Jay_ast_pp.show_expr_desc v in
-            Ast.Ident_map.add k v acc
+        | Some _v' -> Ast.Ident_map.add k v acc
       in
       List.fold folder kept removed
     in

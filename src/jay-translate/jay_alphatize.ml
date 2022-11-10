@@ -10,7 +10,7 @@ let rec pat_vars (pat : Jay_ast.pattern) : Jay_ast.Ident_set.t =
   let open Jay_ast in
   match pat with
   | AnyPat | IntPat | BoolPat | FunPat -> Ident_set.empty
-  | RecPat record ->
+  | RecPat record | StrictRecPat record ->
       record |> Ident_map.enum
       |> Enum.fold
            (fun idents (_, x_opt) ->
@@ -40,6 +40,16 @@ let pat_rename_vars (name_map : Jay_ast.Ident.t Jay_ast.Ident_map.t)
         |> Ident_map.of_enum
       in
       RecPat record'
+  | StrictRecPat record ->
+      let record' =
+        record |> Ident_map.enum
+        |> Enum.map (fun (lbl, x_opt) ->
+               match x_opt with
+               | Some x -> (lbl, Some (Ident_map.find_default x x name_map))
+               | None -> (lbl, None))
+        |> Ident_map.of_enum
+      in
+      StrictRecPat record'
   | VariantPat (lbl, x) ->
       let x' = Ident_map.find_default x x name_map in
       VariantPat (lbl, x')

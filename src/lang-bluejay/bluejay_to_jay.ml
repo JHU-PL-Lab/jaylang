@@ -244,9 +244,8 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           Match
             ( matched_expr,
               (* TODO: Uncomment this line once strict record is in place *)
-              (* [(StrictRecPat type_dict, new_expr_desc fun_body);  *)
               [
-                (RecPat type_dict, new_expr_desc fun_body);
+                (StrictRecPat type_dict, new_expr_desc fun_body);
                 (AnyPat, fail_pat_cls);
               ] )
         in
@@ -752,7 +751,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
   *)
   | TypeIntersect (t1, t2) ->
       (* Note: Intersection of all records are now empty? *)
-      let rec _flatten_fun_intersection ed acc =
+      let rec flatten_fun_intersection ed acc =
         match ed.body with
         | TypeIntersect (t1, t2) -> (
             match (t1.body, t2.body) with
@@ -760,13 +759,13 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
                 t1 :: t2 :: acc
             | TypeArrow _, TypeIntersect _ | TypeArrowD _, TypeIntersect _ ->
                 let acc' = t1 :: acc in
-                _flatten_fun_intersection t2 acc'
+                flatten_fun_intersection t2 acc'
             | TypeIntersect _, TypeArrow _ | TypeIntersect _, TypeArrowD _ ->
                 let acc' = t2 :: acc in
-                _flatten_fun_intersection t1 acc'
+                flatten_fun_intersection t1 acc'
             | TypeIntersect _, TypeIntersect _ ->
-                let acc' = _flatten_fun_intersection t1 acc in
-                _flatten_fun_intersection t2 acc'
+                let acc' = flatten_fun_intersection t1 acc in
+                flatten_fun_intersection t2 acc'
             | _ ->
                 failwith
                   "flatten_fun_intersection: Should be an intersection of \
@@ -776,24 +775,14 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
               "flatten_fun_intersection: Should be an intersection of \
                functions!"
       in
-      (* let rec _arity_check ed counter =
-           match ed.body with
-           | TypeArrow (_, t2) | TypeArrowD ((_, _), t2) ->
-               1 + _arity_check t2 counter
-           | _ -> counter
-         in *)
-      let rec _domain_check ed =
+      let rec domain_check ed =
         match ed.body with
         | TypeArrow (t1, t2) | TypeArrowD ((_, t1), t2) ->
-            if is_fun_type t1 then false else _domain_check t2
+            if is_fun_type t1 then false else domain_check t2
         | _ -> true
       in
-      let _mk_fun_intersect_gen fun_types =
-        (* let canonical_arity = _arity_check @@ List.hd fun_types in *)
-        let well_formed =
-          (* List.for_all (fun t -> _arity_check t = canonical_arity) fun_types *)
-          List.for_all _domain_check fun_types
-        in
+      let mk_fun_intersect_gen fun_types =
+        let well_formed = List.for_all domain_check fun_types in
         if well_formed
         then
           let mk_gc_pair_cod x_id cod arg =
@@ -857,8 +846,8 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
            "assume false". *)
         if is_fun_type t1 || is_fun_type t2
         then
-          let funs = _flatten_fun_intersection e_desc [] in
-          let%bind gen_body = _mk_fun_intersect_gen funs in
+          let funs = flatten_fun_intersection e_desc [] in
+          let%bind gen_body = mk_fun_intersect_gen funs in
           return @@ Function ([ Ident "~null" ], new_expr_desc gen_body)
         else
           let%bind gc_pair1_g = semantic_type_of t1 in
@@ -958,32 +947,75 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
-  (* | TypeUntouched t' ->
-     let generator =
-       Function ([Ident "~null"], new_expr_desc @@ Untouched t')
-     in
-     let%bind fail_id = fresh_ident "fail" in
-     let%bind checker =
-       let%bind expr_id = fresh_ident "expr" in
-       let check_body =
-         Function ([expr_id],
-           new_expr_desc @@
-           Match (new_expr_desc @@ Var expr_id,
-                 [(UntouchedPat t', new_expr_desc @@ Bool true);
-                 (AnyPat, new_expr_desc @@ Var fail_id)]))
-       in
-       return @@
-         Let (fail_id, new_expr_desc @@ Bool false, new_expr_desc check_body)
-     in
-     let rec_map =
-       Ident_map.empty
-       |> Ident_map.add (Ident "generator") (new_expr_desc generator)
-       |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-     in
-     let res = new_expr_desc @@ Record rec_map in
-     let%bind () = add_sem_to_syn_mapping res e_desc in
-     return res *)
-  (* These are constant functions that only modify the types *)
+  | TypeUntouched t' ->
+      let inner_map =
+        Ident_map.empty
+        |> Ident_map.add
+             (Ident ("~\'" ^ t'))
+             (new_expr_desc @@ Record Ident_map.empty)
+      in
+      let untouched_v =
+        Ident_map.empty
+        |> Ident_map.add (Ident "~untouched") (new_expr_desc @@ Record inner_map)
+      in
+      let generator =
+        Function ([ Ident "~null" ], new_expr_desc @@ Record untouched_v)
+      in
+      let%bind fail_id = fresh_ident "fail" in
+      let%bind checker =
+        let%bind expr_id = fresh_ident "expr" in
+        let%bind poly_var_id = fresh_ident "~poly_var" in
+        let check_pat =
+          Ident_map.empty
+          |> Ident_map.add (Ident "~untouched") (Some poly_var_id)
+          (* |> Ident_map.add (Ident ("~\'" ^ t')) None *)
+        in
+        let check_pat_inner =
+          Ident_map.empty
+          (* |> Ident_map.add (Ident "~untouched") (Some poly_var_id) *)
+          |> Ident_map.add (Ident ("~\'" ^ t')) None
+        in
+        let fail_pat_cls_1 = new_expr_desc @@ Var fail_id in
+        let fail_pat_cls_2 = new_expr_desc @@ Var fail_id in
+        let matched_expr = new_expr_desc @@ Var expr_id in
+        let check_poly_var =
+          Match
+            ( new_expr_desc @@ Var poly_var_id,
+              [
+                (RecPat check_pat_inner, new_expr_desc @@ Bool true);
+                (AnyPat, fail_pat_cls_2);
+              ] )
+        in
+        let check_body =
+          Function
+            ( [ expr_id ],
+              new_expr_desc
+              @@ Match
+                   ( matched_expr,
+                     [
+                       (RecPat check_pat, new_expr_desc @@ check_poly_var);
+                       (AnyPat, fail_pat_cls_1);
+                     ] ) )
+        in
+        let%bind () =
+          add_error_to_value_expr_mapping fail_pat_cls_1 matched_expr
+        in
+        let%bind () =
+          add_error_to_value_expr_mapping fail_pat_cls_2 matched_expr
+        in
+        let%bind () = add_error_to_tag_mapping fail_pat_cls_1 tag in
+        let%bind () = add_error_to_tag_mapping fail_pat_cls_2 tag in
+        return
+        @@ Let (fail_id, new_expr_desc @@ Bool false, new_expr_desc check_body)
+      in
+      let rec_map =
+        Ident_map.empty
+        |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+        |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+      in
+      let res = new_expr_desc @@ Record rec_map in
+      let%bind () = add_sem_to_syn_mapping res e_desc in
+      return res
   | Int n ->
       let res = new_expr_desc @@ Int n in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -1000,10 +1032,6 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       let res = new_expr_desc @@ Input in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
-  (* | Untouched s ->
-     let res = new_expr_desc @@ Untouched s in
-     let%bind () = add_sem_to_syn_mapping res e_desc in
-     return res *)
   | TypeError x ->
       let res = new_expr_desc @@ TypeError x in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -1171,10 +1199,24 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind expr' = semantic_type_of expr in
         return @@ (pat, expr')
       in
+      let%bind fail_id = fresh_ident "fail" in
       let%bind pattern_expr_lst' =
-        pattern_expr_lst |> List.map mapper |> sequence
+        let%bind og_pats = pattern_expr_lst |> List.map mapper |> sequence in
+        let check_poly =
+          let check_pat =
+            Ident_map.empty |> Ident_map.add (Ident "~untouched") None
+            (* |> Ident_map.add (Ident ("~\'" ^ t')) None *)
+          in
+          ( RecPat check_pat,
+            new_expr_desc @@ Assert (new_expr_desc @@ Var fail_id) )
+        in
+        return @@ (check_poly :: og_pats)
       in
-      let res = new_expr_desc @@ Match (e', pattern_expr_lst') in
+      let transformed_match = new_expr_desc @@ Match (e', pattern_expr_lst') in
+      let res =
+        new_expr_desc
+        @@ Let (fail_id, new_expr_desc @@ Bool false, transformed_match)
+      in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | VariantExpr (lbl, e) ->
@@ -1564,30 +1606,38 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
     match fun_sig with
     | Typed_funsig (f, typed_params, (f_body, ret_type)) ->
         let folder ((Ident p as param), t) acc =
-          let%bind eta_arg = fresh_ident p in
-          let%bind arg_check = fresh_ident "arg_check" in
-          let check_arg =
-            Appl
-              ( new_expr_desc @@ RecordProj (t, Label "checker"),
-                new_expr_desc @@ Var eta_arg )
+          let%bind bluejay_jay_maps = bluejay_to_jay_maps in
+          let t_syn =
+            Bluejay_to_jay_maps.Intermediate_expr_desc_map.find t
+              bluejay_jay_maps.sem_to_syn
           in
-          let cond =
-            If
-              ( new_expr_desc @@ Var arg_check,
-                acc,
-                new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
-          in
-          let eta_body =
-            Let (arg_check, new_expr_desc @@ check_arg, new_expr_desc @@ cond)
-          in
-          let wrapped_body =
-            new_expr_desc
-            @@ Appl
-                 ( new_expr_desc
-                   @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
-                   new_expr_desc @@ Var param )
-          in
-          return wrapped_body
+          if is_polymorphic_type t_syn
+          then return acc
+          else
+            let%bind eta_arg = fresh_ident p in
+            let%bind arg_check = fresh_ident "arg_check" in
+            let check_arg =
+              Appl
+                ( new_expr_desc @@ RecordProj (t, Label "checker"),
+                  new_expr_desc @@ Var eta_arg )
+            in
+            let cond =
+              If
+                ( new_expr_desc @@ Var arg_check,
+                  acc,
+                  new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+            in
+            let eta_body =
+              Let (arg_check, new_expr_desc @@ check_arg, new_expr_desc @@ cond)
+            in
+            let wrapped_body =
+              new_expr_desc
+              @@ Appl
+                   ( new_expr_desc
+                     @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
+                     new_expr_desc @@ Var param )
+            in
+            return wrapped_body
         in
         let%bind f_body' = wrap f_body in
         let%bind wrapped_f = list_fold_right_m folder typed_params f_body' in

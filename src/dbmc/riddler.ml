@@ -98,6 +98,7 @@ let is_pattern term pat =
     | Int_pattern -> ifInt x
     | Bool_pattern -> ifBool x
     | Rec_pattern _ -> ifRecord x
+    | Strict_rec_pattern _ -> ifRecord x
     | Any_pattern -> true_
   in
   is_pattern

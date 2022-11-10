@@ -9,26 +9,21 @@ BUILD_TEST = _build/default/src-test
 
 all: dbmc sato translator
 
-
 # executables
 
 dj:
 	dune build src/bin/dj.exe
-	ln -s -f $(BUILD_BIN)/dj.exe dj
 
 dbmc: dj dbmc-test
 
 sato:
 	dune build src/bin/sato.exe
-	ln -s -f $(BUILD_BIN)/sato.exe sato
 
 translator:
-	dune build src/translator-main/translator.exe
-	ln -s -f $(BUILD_SRC)/translator-main/translator.exe translator
+	dune build src/bin/translator.exe
 
 jil:
 	dune build src/bin/jil.exe
-	ln -s -f $(BUILD_BIN)/jil.exe jil
 
 partial:
 	dune build src/bin/partial.exe

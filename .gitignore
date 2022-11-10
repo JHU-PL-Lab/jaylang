@@ -28,6 +28,7 @@ _build
 *.code-workspace
 
 # Binaries
+*.exe
 /ddpa_toploop
 /test_generator
 /test_dbmc

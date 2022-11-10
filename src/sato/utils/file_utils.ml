@@ -21,7 +21,10 @@ let read_source_sato ?(do_wrap = false) filename =
         Bluejay_ast.new_expr_desc
         @@ Dj_common.File_utils.parse_bluejay_file filename
       in
-      (* let () = print_endline @@ Bluejay_ast.show_expr_desc bluejay_ast in *)
+      let show_bluejay_tagless = Bluejay_ast_pp.show_expr_desc in
+      let () = print_endline @@ "*************************************" in
+      let () = print_endline @@ "Original program: " in
+      let () = print_endline @@ show_bluejay_tagless bluejay_ast in
       let init_consts =
         Bluejay.Bluejay_ast_tools.defined_vars_of_expr_desc bluejay_ast
         |> Bluejay.Bluejay_ast.Ident_set.to_list
@@ -40,12 +43,16 @@ let read_source_sato ?(do_wrap = false) filename =
       in
       let jay_ast = Bluejay_ast_internal.to_jay_expr_desc core_ast in
       (* let (desugared_typed, ton_on_maps) = transform_natodefa jay_ast in *)
-      (* let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in *)
+      let () = print_endline @@ "*************************************" in
+      let () = print_endline @@ "Jay program after type elimination: " in
+      let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
         Jay_translate.Jay_to_jayil.translate ~is_jay:true ~is_instrumented:true
           ~consts:init_consts jay_ast
       in
-      (* let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in *)
+      let () = print_endline @@ "*************************************" in
+      let () = print_endline @@ "Jayil program after instrumentation: " in
+      let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;
       (post_inst_ast, odefa_inst_maps, Some on_odefa_maps, Some ton_on_maps'))
     else if Dj_common.File_utils.check_jay_ext filename

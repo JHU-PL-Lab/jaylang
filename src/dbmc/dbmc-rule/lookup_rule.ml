@@ -91,6 +91,9 @@ module Make (S : S) = struct
   let cond_top p (this_key : Lookup_key.t) =
     let ({ cond_case_info = cb; condsite_block } : Cond_top_rule.t) = p in
     let beta = cb.choice in
+    Fmt.pr "Block: %a" Cfg.pp_cond_case_info cb ;
+
+    assert cb.possible ;
     let _paired, condsite_stack =
       Rstack.pop_at_condtop this_key.r_stk (cb.condsite, Id.cond_fid beta)
     in
@@ -230,6 +233,14 @@ module Make (S : S) = struct
         | Rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
             let have_all =
               Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
+            in
+            let phi =
+              Riddler.picked_record_pattern key key' (Value_bool have_all) pat
+            in
+            (Lookup_result.ok key, [ phi ], true)
+        | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
+            let have_all =
+              Ident_set.equal ids (Ident_set.of_enum @@ Ident_map.keys rv)
             in
             let phi =
               Riddler.picked_record_pattern key key' (Value_bool have_all) pat

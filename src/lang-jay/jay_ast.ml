@@ -30,6 +30,7 @@ type pattern =
   | BoolPat
   | FunPat
   | RecPat of ident option Ident_map.t
+  | StrictRecPat of ident option Ident_map.t
   | VariantPat of variant_label * ident
   | VarPat of ident
   | EmptyLstPat

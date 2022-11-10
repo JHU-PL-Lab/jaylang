@@ -104,6 +104,8 @@ and pp_pattern formatter pattern =
   | FunPat -> Format.pp_print_string formatter "fun"
   | RecPat record ->
       Format.fprintf formatter "%a" (pp_ident_map_sp pp_ident_option) record
+  | StrictRecPat record ->
+      Format.fprintf formatter "%a" (pp_ident_map pp_ident_option) record
   | VariantPat (lbl, var) ->
       Format.fprintf formatter "%a %a" pp_variant_label lbl pp_ident var
   | VarPat ident -> Format.fprintf formatter "%a" pp_ident ident
@@ -260,8 +262,6 @@ and pp_expr (formatter : Format.formatter) (expr : expr) : unit =
       if expr_precedence_cmp expr e.body < 0
       then Format.fprintf formatter "assume %a" pp_expr_desc e
       else Format.fprintf formatter "assume (%a)" pp_expr_desc e
-  (* | Untouched s ->
-     Format.pp_print_string formatter @@ "'" ^ s *)
   | TypeError x -> Format.fprintf formatter "%a" pp_ident x
   | TypeVar v -> Format.fprintf formatter "%a" pp_ident v
   | TypeInt -> Format.pp_print_string formatter "int"
@@ -282,6 +282,7 @@ and pp_expr (formatter : Format.formatter) (expr : expr) : unit =
       Format.fprintf formatter "%a ^ %a" pp_expr_desc t1 pp_expr_desc t2
   | TypeRecurse (tvar, t) ->
       Format.fprintf formatter "Mu %a.%a" pp_ident tvar pp_expr_desc t
+  | TypeUntouched s -> Format.pp_print_string formatter @@ "'" ^ s
 
 let show_ident = Pp_utils.pp_to_string pp_ident
 let show_expr = Pp_utils.pp_to_string pp_expr

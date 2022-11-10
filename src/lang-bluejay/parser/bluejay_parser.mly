@@ -32,45 +32,6 @@ let record_from_list pr_list =
      (fun acc (lbl, v) -> add_record_entry lbl v acc)
      Ident_map.empty
 
-(*
-let new_rec_fun_with_type 
-  (fun_sig_and_type : (funsig * expr) list)
-  (let_body : expr_desc) = 
-  let fun_sig_list = List.map fst fun_sig_and_type in 
-  let fun_type_list = 
-    fun_sig_and_type 
-    |> List.map (fun p -> new_expr_desc (snd p)) 
-  in
-  LetRecFunWithType (fun_sig_list, let_body, fun_type_list)
-
-let new_let_fun_with_type 
-  (fun_sig_and_type : funsig * expr) 
-  (let_body : expr_desc) =
-  let fun_sig, fun_type = fun_sig_and_type in
-  LetFunWithType (fun_sig, let_body, (new_expr_desc fun_type))
-*)
-(*
-let new_fun_with_type 
-  (fun_name : ident) 
-  (typed_param_list : (ident * expr_desc) list) 
-  (return_type : expr_desc)
-  (fun_body : expr_desc) = 
-  let param_list = List.map fst typed_param_list in
-  let (type_list : expr_desc list) = List.map snd typed_param_list in
-  let function_type_p = 
-    match type_list with
-    (* Please throw the correct exception here! *)
-    | [] -> failwith "undefined"
-    | _ -> 
-      let reversed_list = List.rev type_list in
-      let last_type = List.hd reversed_list in
-      let accumulator = TypeArrow (last_type, return_type) in
-      List.fold_left
-          (fun acc -> fun t -> TypeArrow (t, (new_expr_desc acc))) accumulator 
-          (List.tl reversed_list)
-  in
-  (Funsig (fun_name, param_list, fun_body), function_type_p)
-*)
 let new_fun_with_type 
   (fun_name : ident) 
   (typed_param_list : (ident * expr_desc) list) 
@@ -90,7 +51,7 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
   let tag = ed.tag in
   let body' = 
     match e with
-    | Int _ | Bool _ | TypeError _ | Input -> e
+    | Int _ | Bool _ | TypeError _ | TypeUntouched _ | Input -> e
     | Var x -> if t_var = x then TypeVar t_var else e 
     | Function (ids, f_edesc) ->
       if List.mem t_var ids
@@ -516,16 +477,19 @@ expr:
       { Match(new_expr_desc $2, $5) }
   // Types expressions
   | basic_types { $1 }
-  // | type_parameter { $1 }
+  | type_parameter { $1 }
   | MU ident_decl DOT expr 
     { TypeRecurse ($2, build_recursive_type $2 (new_expr_desc $4)) }
   | expr ARROW expr { TypeArrow (new_expr_desc $1, new_expr_desc $3) }
   | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN ARROW expr { TypeArrowD (($2, new_expr_desc $4), new_expr_desc $7) }
   // TODO: Change this to fancy curly
-  | OPEN_BRACE DOT basic_types PIPE expr CLOSE_BRACE { TypeSet (new_expr_desc $3, new_expr_desc $5) } 
+  | OPEN_BRACE DOT expr PIPE expr CLOSE_BRACE { TypeSet (new_expr_desc $3, new_expr_desc $5) } 
   | expr DOUBLE_PIPE expr { TypeUnion (new_expr_desc $1, new_expr_desc $3) }
   | expr DOUBLE_AMPERSAND expr { TypeIntersect (new_expr_desc $1, new_expr_desc $3) }
 ;
+
+type_parameter:
+  | APOSTROPHE IDENTIFIER { TypeUntouched $2 }
 
 type_var:
   | DOLLAR IDENTIFIER { TypeVar $2 }
@@ -533,7 +497,7 @@ type_var:
 record_type:
   | OPEN_BRACE_TYPE record_type_body CLOSE_BRACE_TYPE
       { TypeRecord $2 }
-  | OPEN_BRACE_TYPE CLOSE_BRACE CLOSE_BRACE_TYPE
+  | OPEN_BRACE_TYPE CLOSE_BRACE_TYPE
       { TypeRecord (Ident_map.empty) }
 
 record_type_body:
@@ -677,9 +641,9 @@ pattern:
   | IDENTIFIER { VarPat(Ident($1)) }
   | variant_label ident_decl { VariantPat($1, $2) }
   | variant_label OPEN_PAREN ident_decl CLOSE_PAREN { VariantPat($1, $3) }
-  // | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE { StrictRecPat (record_from_list $2) }
+  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE { StrictRecPat (record_from_list $2) }
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) UNDERSCORE CLOSE_BRACE { RecPat (record_from_list $2) }
-  // | OPEN_BRACE CLOSE_BRACE { StrictRecPat (Ident_map.empty) }
+  | OPEN_BRACE CLOSE_BRACE { StrictRecPat (Ident_map.empty) }
   | OPEN_BRACE UNDERSCORE CLOSE_BRACE { RecPat (Ident_map.empty) }
   | OPEN_BRACKET CLOSE_BRACKET { EmptyLstPat }
   | ident_decl DOUBLE_COLON ident_decl { LstDestructPat($1, $3) }

@@ -36,6 +36,7 @@ type pattern = Bluejay_ast.pattern =
   | BoolPat
   | FunPat
   | RecPat of ident option Ident_map.t
+  | StrictRecPat of ident option Ident_map.t
   | VariantPat of variant_label * ident
   | VarPat of ident
   | EmptyLstPat
@@ -103,7 +104,6 @@ and 'a expr =
   | TypeError : ident -> 'a expr
   | Assert : 'a expr_desc -> 'a expr
   | Assume : 'a expr_desc -> 'a expr
-  (* | Untouched : string -> 'a expr *)
   (* Type expressions *)
   | TypeVar : ident -> syntactic_only expr
   | TypeInt : syntactic_only expr
@@ -124,7 +124,7 @@ and 'a expr =
       (syntactic_only expr_desc * syntactic_only expr_desc)
       -> syntactic_only expr
   | TypeRecurse : (ident * syntactic_only expr_desc) -> syntactic_only expr
-(* | TypeUntouched : string -> syntactic_only expr *)
+  | TypeUntouched : string -> syntactic_only expr
 
 let counter = ref 0
 
@@ -193,8 +193,6 @@ and equal_expr : type a. a expr -> a expr -> bool =
   (* | List _, _ -> false *)
   | Record r1, Record r2 -> Ident_map.equal equal_expr_desc r1 r2
   (* | Record _, _ -> false *)
-  (* | Untouched s1, Untouched s2 -> s1 = s2 *)
-  (* | Untouched _, _ -> false *)
   | Function (id_lst1, fun_body1), Function (id_lst2, fun_body2) ->
       List.eq equal_ident id_lst1 id_lst2 && equal_expr_desc fun_body1 fun_body2
   (* | Function _, _ -> false *)
@@ -274,7 +272,7 @@ and equal_expr : type a. a expr -> a expr -> bool =
   | TypeArrowD ((id1, lt1), rt1), TypeArrowD ((id2, lt2), rt2) ->
       id1 = id2 && equal_expr_desc lt1 lt2 && equal_expr_desc rt1 rt2
   | TypeRecurse (x1, t1), TypeRecurse (x2, t2) -> x1 = x2 && t1 = t2
-  (* | TypeUntouched s1, TypeUntouched s2 -> s1 = s2 *)
+  | TypeUntouched s1, TypeUntouched s2 -> s1 = s2
   | _ -> false
 
 let rec tagless_equal_funsig : type a. a funsig -> a funsig -> bool =
@@ -322,8 +320,6 @@ and tagless_equal_expr : type a. a expr -> a expr -> bool =
   (* | List _, _ -> false *)
   | Record r1, Record r2 -> Ident_map.equal tagless_equal_expr_desc r1 r2
   (* | Record _, _ -> false *)
-  (* | Untouched s1, Untouched s2 -> s1 = s2 *)
-  (* | Untouched _, _ -> false *)
   | Function (id_lst1, fun_body1), Function (id_lst2, fun_body2) ->
       List.eq equal_ident id_lst1 id_lst2
       && tagless_equal_expr_desc fun_body1 fun_body2
@@ -414,7 +410,7 @@ and tagless_equal_expr : type a. a expr -> a expr -> bool =
       && tagless_equal_expr_desc lt1 lt2
       && tagless_equal_expr_desc rt1 rt2
   | TypeRecurse (x1, t1), TypeRecurse (x2, t2) -> x1 = x2 && t1 = t2
-  (* | TypeUntouched s1, TypeUntouched s2 -> s1 = s2 *)
+  | TypeUntouched s1, TypeUntouched s2 -> s1 = s2
   | _ -> false
 
 let compare_helper (x : int) (y : int) : int = if x <> 0 then x else y
@@ -532,7 +528,7 @@ and compare_expr : type a. a expr -> a expr -> int =
       |> compare_helper (compare_expr_desc rt1 rt2)
   | TypeRecurse (x1, t1), TypeRecurse (x2, t2) ->
       compare x1 x2 |> compare_helper (compare t1 t2)
-  (* | TypeUntouched s1, TypeUntouched s2 -> compare s1 s2 *)
+  | TypeUntouched s1, TypeUntouched s2 -> compare s1 s2
   (* TODO: Another potential source for bug *)
   | Int _, _ -> 1
   | _, Int _ -> -1
@@ -626,6 +622,8 @@ and compare_expr : type a. a expr -> a expr -> int =
   | _, TypeUnion _ -> -1
   | TypeIntersect _, _ -> 1
   | _, TypeIntersect _ -> -1
+  | TypeRecurse _, _ -> 1
+  | _, TypeRecurse _ -> 1
 
 module type Expr_desc = sig
   type t
@@ -633,24 +631,6 @@ module type Expr_desc = sig
   val equal : t -> t -> bool
   val compare : t -> t -> int
 end
-
-(* module TypedExpr : (Expr with type t = syn_type_bluejay) = struct
-     type t = syn_type_bluejay;;
-     let equal = equal_expr;;
-     let compare = compare_expr;;
-   end;;
-
-   module IntermediateExpr : (Expr with type t = sem_type_bluejay) = struct
-     type t = sem_type_bluejay;;
-     let equal = equal_expr;;
-     let compare = compare_expr;;
-   end;;
-
-   module CoreExpr : (Expr with type t = core_bluejay) = struct
-     type t = core_bluejay;;
-     let equal = equal_expr;;
-     let compare = compare_expr;;
-   end;; *)
 
 module Typed_expr_desc : Expr_desc with type t = syn_bluejay_edesc = struct
   type t = syn_bluejay_edesc
@@ -702,13 +682,11 @@ let expr_precedence_p1 : type a. a expr -> int =
   | Appl _ -> 10
   | RecordProj _ -> 11
   | Int _ | Bool _ | Input | Var _ | List _ | Record _ -> 12
-  (* | Untouched _  *)
   (* TODO: For now, all type expressions will have the lowest precedence coz I'm lazy and don't wanna think about it *)
   | TypeVar _ | TypeInt | TypeBool | TypeRecord _ | TypeList _ | TypeArrow _
   | TypeArrowD _ | TypeSet _ | TypeUnion _ | TypeIntersect _ | TypeRecurse _
-  | TypeError _ ->
+  | TypeError _ | TypeUntouched _ ->
       13
-(* | TypeUntouched _  *)
 
 (** Takes expressions [e1] and [e2] as arguments. Returns 0 if the two
     expressions have equal precedence, a negative int if [e1] has lower
@@ -910,6 +888,7 @@ and from_internal_expr (e : syn_type_bluejay) : Bluejay_ast.expr =
   | TypeRecurse (tv, ed) ->
       let ed' = from_internal_expr_desc ed in
       TypeRecurse (tv, ed')
+  | TypeUntouched s -> TypeUntouched s
 
 (* Helper routines to transform external bluejay to internal bluejay *)
 
@@ -1099,6 +1078,7 @@ and to_internal_expr (e : Bluejay_ast.expr) : syn_type_bluejay =
   | TypeRecurse (tv, ed) ->
       let ed' = to_internal_expr_desc ed in
       TypeRecurse (tv, ed')
+  | TypeUntouched s -> TypeUntouched s
 
 (* Helper routines to transform jay to internal bluejay *)
 
@@ -1120,6 +1100,7 @@ and from_jay_expr (e : Jay.Jay_ast.expr) : core_bluejay =
     | BoolPat -> BoolPat
     | FunPat -> FunPat
     | RecPat r -> RecPat r
+    | StrictRecPat r -> StrictRecPat r
     | VariantPat (Variant_label l, x) -> VariantPat (Variant_label l, x)
     | VarPat x -> VarPat x
     | EmptyLstPat -> EmptyLstPat
@@ -1261,6 +1242,7 @@ and to_jay_expr (e : core_bluejay) : Jay.Jay_ast.expr =
     | BoolPat -> BoolPat
     | FunPat -> FunPat
     | RecPat r -> RecPat r
+    | StrictRecPat r -> StrictRecPat r
     | VariantPat (Variant_label l, x) -> VariantPat (Variant_label l, x)
     | VarPat x -> VarPat x
     | EmptyLstPat -> EmptyLstPat
@@ -1395,6 +1377,9 @@ let is_fun_type (ed : syn_bluejay_edesc) : bool =
 
 let is_dependent_fun_type (ed : syn_bluejay_edesc) : bool =
   match ed.body with TypeArrowD _ -> true | _ -> false
+
+let is_polymorphic_type (ed : syn_bluejay_edesc) : bool =
+  match ed.body with TypeUntouched _ -> true | _ -> false
 
 let get_dependent_fun_var (ed : syn_bluejay_edesc) : ident =
   match ed.body with

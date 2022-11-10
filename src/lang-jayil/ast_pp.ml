@@ -116,6 +116,12 @@ and pp_pattern formatter p =
       in
       pp_concat_sep_delim "{" "}" ", " pp_element formatter
       @@ Ident_set.enum els
+  | Strict_rec_pattern els ->
+      let pp_element formatter idnt =
+        Format.fprintf formatter "%a" pp_ident idnt
+      in
+      pp_concat_sep_delim "|{" "}|" ", " pp_element formatter
+      @@ Ident_set.enum els
   | Any_pattern -> Format.pp_print_string formatter "any"
 
 let show_value = pp_to_string pp_value

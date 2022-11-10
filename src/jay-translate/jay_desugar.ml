@@ -151,7 +151,8 @@ let encode_pattern (pattern : pattern) : pattern m =
       in
       return @@ RecPat record
   (* All other patterns: don't encode *)
-  | AnyPat | IntPat | BoolPat | FunPat | RecPat _ | VarPat _ -> return pattern
+  | AnyPat | IntPat | BoolPat | FunPat | RecPat _ | StrictRecPat _ | VarPat _ ->
+      return pattern
 
 let encode_match_exprs recurse (match_expr : expr_desc)
     (pat_expr_lst : (pattern * expr_desc) list) =

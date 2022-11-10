@@ -203,9 +203,11 @@ pattern:
   ;
 
 record_pattern:
-  | OPEN_BRACE CLOSE_BRACE
+  | OPEN_BRACE UNDERSCORE CLOSE_BRACE
       { Rec_pattern(Ident_set.empty) }
-  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE
+  | OPEN_BRACE CLOSE_BRACE
+      { Strict_rec_pattern(Ident_set.empty) }
+  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) UNDERSCORE CLOSE_BRACE
       { let record_pat =
           $2
           |> mark_dupes_record_labels Ident_set.empty
@@ -213,6 +215,15 @@ record_pattern:
           |> Ident_set.of_enum
         in
         Rec_pattern (record_pat)
+      }
+  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE
+      { let record_pat =
+          $2
+          |> mark_dupes_record_labels Ident_set.empty
+          |> List.enum
+          |> Ident_set.of_enum
+        in
+        Strict_rec_pattern (record_pat)
       }
     //   { Rec_pattern(Ident_map.of_enum @@ List.enum $2) }
   ;

@@ -69,3 +69,4 @@ and pattern oc = function
   | Bool_pattern -> Fmt.string oc "bool"
   | Any_pattern -> Fmt.string oc "any"
   | Rec_pattern els -> (Fmt.braces id_set) oc els
+  | Strict_rec_pattern els -> (Fmt.braces id_set) oc els

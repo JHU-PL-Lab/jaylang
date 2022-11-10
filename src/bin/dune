@@ -3,21 +3,28 @@
  (modules dj)
  (libraries core logs dbmc jayil)
  (preprocess
-  (pps ppx_jane ppx_deriving.show lwt_ppx)))
+  (pps ppx_jane))
+ (promote
+  (until-clean)
+  (into "../..")))
 
 (executable
  (name sato)
  (modules sato)
  (libraries core logs dbmc sato jayil)
  (preprocess
-  (pps ppx_jane ppx_deriving.show)))
+  (pps ppx_jane))
+ (promote
+  (until-clean)
+  (into "../..")))
 
 (executable
- (name jil)
- (modules jil)
- (libraries core logs dj_common dbmc jayil)
- (preprocess
-  (pps ppx_jane)))
+ (name translator)
+ (modules translator translator_options)
+ (libraries batteries bluejay jay_translate dj_common)
+ (promote
+  (until-clean)
+  (into "../..")))
 
 (executable
  (name partial)
@@ -31,7 +38,25 @@
  (modules dbmc_debugger)
  (libraries core logs lambda-term dbmc jayil)
  (preprocess
-  (pps ppx_jane ppx_deriving.show lwt_ppx)))
+  (pps ppx_jane))
+ (promote
+  (until-clean)
+  (into "../..")))
+
+(executable
+ (name jil)
+ (modules jil)
+ (libraries core logs dj_common dbmc jayil)
+ (preprocess
+  (pps ppx_jane))
+ (promote
+  (until-clean)
+  (into "../..")))
+
+(executable
+ (name ddpa_toploop)
+ (modules ddpa_toploop)
+ (libraries batteries jhupllib jayil jayil_parser jayil_toploop langdk))
 
 ; (executable
 ;  (name jay)
@@ -39,11 +64,6 @@
 ;  (libraries core logs dbmc bluejay)
 ;  (preprocess
 ;   (pps ppx_jane ppx_deriving.show)))
-
-(executable
- (name ddpa_toploop)
- (modules ddpa_toploop)
- (libraries batteries jhupllib jayil jayil_parser jayil_toploop langdk))
 
 (env
  (dev

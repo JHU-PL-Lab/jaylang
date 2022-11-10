@@ -182,6 +182,9 @@ let make_cond_block_possible tl_map acls cfg =
     tl_map := Ident_map.add block.id block' !tl_map
   in
 
+  Fmt.pr "cond_site: %a, possible: %a" Jayil.Ast_pp.pp_ident cond_site
+    (Fmt.Dump.option Fmt.bool) possible ;
+
   let cond_both = find_cond_blocks cond_site !tl_map in
   match possible with
   | Some beta ->
@@ -294,7 +297,6 @@ let cfg_of e =
 
 let annotate e pt : block Ident_map.t =
   let map = ref (block_map_of_expr e)
-  (* and visited_pred_map = ref BatMultiPMap.empty *)
   and cfg = cfg_of e
   (* and id_first = first_var e *)
   and ret_to_fun_def_map = make_ret_to_fun_def_mapping e
@@ -305,9 +307,8 @@ let annotate e pt : block Ident_map.t =
      in *)
   let acl = Unannotated_clause (lift_clause pt_clause) in
 
-  (* let debug_bomb = ref 20 in *)
   let visited = ref Annotated_clause_set.empty in
-  let rec loop acl dangling : unit =
+  let rec loop acl is_main_track : unit =
     if Annotated_clause_set.mem acl !visited
     then ()
     else (
@@ -315,12 +316,9 @@ let annotate e pt : block Ident_map.t =
 
       let prev_acls = preds_l acl cfg in
 
-      (* debug to prevent infinite loop *)
-      (* debug_bomb := !debug_bomb - 1;
-         if !debug_bomb = 0
-         then failwith "bomb"
-         else ()
-         ; *)
+      Fmt.pr "cls = %a\n#prev = %d\nis_cond=%B\n\n"
+        Ddpa_abstract_ast.pp_annotated_clause acl (List.length prev_acls)
+        (has_condition_clause prev_acls) ;
 
       (* process logic *)
       (* if cfg shows only one of then-block and else-block is possible,
@@ -328,55 +326,49 @@ let annotate e pt : block Ident_map.t =
          e.g. [prev: [r = c ? ...; r = r1 @- r]]
       *)
       if List.length prev_acls > 1 && has_condition_clause prev_acls
-      then
-        if List.length prev_acls = 1
-        then failwith "cond clause cannot appear along"
-        else make_cond_block_possible map prev_acls cfg
+      then make_cond_block_possible map prev_acls cfg
       else () ;
 
       (* step logic *)
-      let continue = ref true and block_dangling = ref dangling in
-      (match acl with
-      | Unannotated_clause _ | Start_clause _ | End_clause _ -> ()
-      (* into fbody *)
-      | Binding_exit_clause
-          ( Abs_var _para,
-            Abs_var ret_var,
-            Abs_clause (Abs_var site_r, Abs_appl_body _) ) ->
-          (* para can also be ignored in Fun since para is a property of a Fun block, defined in the source code
-            *)
-          let f_def = Ident_map.find ret_var ret_to_fun_def_map in
-          map := add_id_dst site_r f_def !map ;
-          block_dangling := false
-      (* out of fbody *)
-      | Binding_enter_clause
-          (Abs_var para, _, Abs_clause (Abs_var site_r, Abs_appl_body _)) ->
-          let f_def = Ident_map.find para para_to_fun_def_map in
-          map := add_id_dst site_r f_def !map ;
-          map := add_callsite f_def site_r !map ;
-
-          continue := dangling
-      (* into cond-body *)
-      | Binding_exit_clause
-          ( _,
-            Abs_var _ret_var,
-            Abs_clause (Abs_var _site_r, Abs_conditional_body _) ) ->
-          block_dangling := false
-      (* out of cond-body *)
-      | Nonbinding_enter_clause
-          ( Abs_value_bool _cond,
-            Abs_clause
-              ( Abs_var _site_r,
-                Abs_conditional_body (Abs_var _x1, _e_then, _e_else) ) ) ->
-          continue := dangling
-      | Binding_exit_clause (_, _, _) ->
-          failwith "impossible binding exit for non-sites"
-      | Binding_enter_clause (_, _, _) ->
-          failwith "impossible binding enter for non callsites"
-      | Nonbinding_enter_clause (_, _) ->
-          failwith "impossible non-binding enter for non condsites") ;
-      if !continue
-      then List.iter ~f:(fun acl -> loop acl !block_dangling) (preds_l acl cfg)
+      let is_skipped, is_sub =
+        match acl with
+        | Unannotated_clause _ | Start_clause _ | End_clause _ -> (true, false)
+        (* into fbody *)
+        | Binding_exit_clause
+            ( Abs_var _,
+              Abs_var ret_var,
+              Abs_clause (Abs_var site_r, Abs_appl_body _) ) ->
+            (* para can also be ignored in Fun since para is a property of a Fun block, defined in the source code *)
+            let f_def = Ident_map.find ret_var ret_to_fun_def_map in
+            map := add_id_dst site_r f_def !map ;
+            (false, true)
+        (* out of fbody *)
+        | Binding_enter_clause
+            (Abs_var para, _, Abs_clause (Abs_var site_r, Abs_appl_body _)) ->
+            let f_def = Ident_map.find para para_to_fun_def_map in
+            map := add_id_dst site_r f_def !map ;
+            map := add_callsite f_def site_r !map ;
+            (false, false)
+        (* into cond-body *)
+        | Binding_exit_clause
+            (_, Abs_var _, Abs_clause (_, Abs_conditional_body _)) ->
+            (false, true)
+        (* out of cond-body *)
+        | Nonbinding_enter_clause
+            (Abs_value_bool _, Abs_clause (_, Abs_conditional_body _)) ->
+            (false, false)
+        | Binding_exit_clause (_, _, _) ->
+            failwith "impossible binding exit for non-sites"
+        | Binding_enter_clause (_, _, _) ->
+            failwith "impossible binding enter for non callsites"
+        | Nonbinding_enter_clause (_, _) ->
+            failwith "impossible non-binding enter for non condsites"
+      in
+      if is_skipped || is_sub
+      then
+        List.iter
+          ~f:(fun acl -> loop acl ((not is_sub) && is_main_track))
+          (preds_l acl cfg)
       else ())
   in
   let succ_acls = succs_l acl cfg in

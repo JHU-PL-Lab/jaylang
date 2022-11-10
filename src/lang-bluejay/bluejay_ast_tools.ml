@@ -7,7 +7,8 @@ let rec defined_vars_of_expr_desc (ed : expr_desc) : Ident_set.t =
 
 and defined_vars_of_expr (e : expr) : Ident_set.t =
   match e with
-  | Int _ | Bool _ | Input | TypeInt | TypeBool -> Ident_set.empty
+  | Int _ | Bool _ | Input | TypeInt | TypeBool | TypeUntouched _ ->
+      Ident_set.empty
   | Var x | TypeVar x | TypeError x -> Ident_set.singleton x
   | Function (params, ed) ->
       Ident_set.union (Ident_set.of_list params) (defined_vars_of_expr_desc ed)
