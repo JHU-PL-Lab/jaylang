@@ -262,7 +262,9 @@ module Make (S : S) = struct
     in
     MapSeq { sub = key; pub = key'; map = next; phis = [] }
 
-  let assume _p (key : Lookup_key.t) = Withered { phis = [] }
+  let assume _p (key : Lookup_key.t) =
+    (* Withered { phis = [] } *)
+    Withered { phis = [ Riddler.mismatch_with_picked key ] }
 
   let assert_ _p (key : Lookup_key.t) =
     Withered { phis = [ Riddler.mismatch_with_picked key ] }

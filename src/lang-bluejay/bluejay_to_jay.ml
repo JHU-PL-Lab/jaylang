@@ -315,7 +315,17 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed
           @@ Appl (new_expr_desc @@ Var maker_id, new_expr_desc @@ Var len_id)
         in
-        let list_len = Let (len_id, new_expr_desc Input, mk_lst) in
+        let%bind check_len =
+          new_instrumented_ed
+          @@ Geq (new_expr_desc @@ Var len_id, new_expr_desc @@ Int 0)
+        in
+        let%bind zero_out =
+          new_instrumented_ed @@ Assume (new_expr_desc @@ Bool false)
+        in
+        let%bind mk_lst_wrapped =
+          new_instrumented_ed @@ If (check_len, mk_lst, zero_out)
+        in
+        let list_len = Let (len_id, new_expr_desc Input, mk_lst_wrapped) in
         let gen_expr = LetRecFun ([ list_maker_fun ], new_expr_desc list_len) in
         return @@ Function ([ Ident "~null" ], new_expr_desc gen_expr)
       in
