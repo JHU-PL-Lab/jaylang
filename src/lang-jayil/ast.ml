@@ -123,7 +123,7 @@ and value =
   | Value_function of function_value
   | Value_int of int
   | Value_bool of bool
-[@@deriving eq, ord, to_yojson]
+[@@deriving show { with_path = false }, eq, ord, to_yojson]
 
 (** A type to represent the bodies of clauses. *)
 and clause_body =

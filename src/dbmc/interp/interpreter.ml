@@ -439,3 +439,39 @@ let eval session e =
       Fmt.epr "Run into wrong stack\n" ;
       alert_lookup session x stk ;
       raise (Run_into_wrong_stack (x, stk))
+
+(* toplevel eval assuming Plain mode, returning dvalue directly instead of exception *)
+(* Assumes that default session has no max_step *)
+let [@warning "-8"] teval e = 
+  let empty_env = Ident_map.empty in
+    match snd (eval_exp ~session:(make_default_session ()) Concrete_stack.empty empty_env e) with
+    | Direct v -> v
+;;
+
+(* let unparse_val = function
+  | Value_record Record_value r ->
+  | Value_function Function_value x e ->
+  | Value_int v -> string_of_int v
+  | Value_bool True -> "True"
+  | Value_bool False -> "False"
+
+and unparse (ast : expr) = *)
+
+let parse = Jayil_parser.Parse.parse_program_str;;
+
+let unparse = Jayil.Ast_pp.show_value;;
+let unparse_expr = Jayil.Ast_pp.show_expr;;
+
+let parse_eval (a : string) = a |> parse |> teval;;
+let parse_eval_x (a : string) =
+  try
+    a |> parse |> (fun ast -> eval (make_default_session ()) ast) 
+  with 
+    | Terminate Direct v -> v
+;;
+
+
+let parse_eval_unparse (a : string) = a |> parse |> teval |> unparse;;
+let peu = parse_eval_unparse;;
+let parse_eval_print (a : string) = a |> peu |> print_endline;; (* print_endline "";; *)
+let rep = parse_eval_print;;
