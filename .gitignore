@@ -41,6 +41,9 @@ _build
 /stest
 /dj
 
+jil
+partial
+
 # Local results
 profiling
 benchmark/result

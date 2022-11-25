@@ -3,8 +3,11 @@ open Program_samples
 
 module To_test = struct
   let eval e t =
-    let target = (Jayil.Ast.Ident t, []) in
-    Dbmc.Interpreter.eval ~target e
+    (* let target = (Jayil.Ast.Ident t, []) in *)
+    let session = { (Dbmc.Interpreter.make_default_session ()) with
+      mode = With_full_target (Jayil.Ast.Ident t, Dj_common.Concrete_stack.empty)
+    } in
+    Dbmc.Interpreter.eval session e
 
   let eval_int e t =
     let open Jayil.Ast in

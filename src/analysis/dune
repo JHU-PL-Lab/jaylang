@@ -6,10 +6,12 @@
   fix
   logs
   logs.fmt
-  odefa.ast
-  odefa.ddpa
-  odefa.natural
-  odefa.parser)
+  jay.jayil.ast
+  jay.jayil.parser
+  jay.ddpa
+  jay.dj_common
+  ; odefa.natural
+  )
  (inline_tests)
  (preprocess
   (pps ppx_jane ppx_deriving.show lwt_ppx landmarks-ppx --auto)))

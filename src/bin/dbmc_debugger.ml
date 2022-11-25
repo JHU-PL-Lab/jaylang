@@ -1,4 +1,5 @@
 open Lwt
+open Dj_common
 open LTerm_text
 
 (* +-----------------------------------------------------------------+
@@ -60,7 +61,7 @@ class read_line ~term ~history ~state =
    +-----------------------------------------------------------------+ *)
 (* loop term history state () *)
 
-let readline_loop term history prompt_state (config : Dbmc.Global_config.t)
+let readline_loop term history prompt_state (config : Dj_common.Global_config.t)
     program state =
   let rec loop prompt_state () =
     let rl =
@@ -88,8 +89,8 @@ let readline_loop term history prompt_state (config : Dbmc.Global_config.t)
           Lwt.return_unit)
         else (
           (* if command = Zed_string.of_utf8 "step" *)
-          Lwt_mutex.unlock Dbmc.Control_center.mutex ;
-          Lwt.pause () >>= fun () -> Lwt_mutex.lock Dbmc.Control_center.mutex))
+          Lwt_mutex.unlock Dj_common.Control_center.mutex ;
+          Lwt.pause () >>= fun () -> Lwt_mutex.lock Dj_common.Control_center.mutex))
         (* >>= fun () -> Lwt.return_unit *)
         >>= fun () -> loop prompt_state ()
     | None -> fail_with "why none"
@@ -106,18 +107,18 @@ let make_lookup () =
   let open Core in
   let open Dbmc in
   let config : Global_config.t = Argparse.parse_commandline_config () in
-  let program = File_util.read_source config.filename in
+  let program = File_utils.read_source config.filename in
   let state : Global_state.t = Global_state.create config program in
   let lookup_task () =
     Lwt_mutex.lock Control_center.mutex >>= fun () ->
-    Main.main_lookup ~config ~state >>= fun inputss ->
-    (match List.hd inputss with
+    Main.main_lookup ~config ~state >>= fun (int_opt_lst_lst, bol, model_stack_opt) ->
+    (match model_stack_opt with
     | Some inputs ->
         Format.printf "[%s]\n"
           (String.concat ~sep:","
           @@ List.map
                ~f:(function Some i -> string_of_int i | None -> "-")
-               inputs)
+               (List.concat int_opt_lst_lst))
     | None -> Format.printf "Unreachable") ;
     Lwt.return_unit
   in

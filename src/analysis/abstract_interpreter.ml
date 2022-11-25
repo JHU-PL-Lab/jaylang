@@ -147,17 +147,19 @@ let make_fix_f program =
           | Binary_operator_divide | Binary_operator_modulus ->
               AValueSet.singleton (Direct Abs_value_int)
           | Binary_operator_less_than | Binary_operator_less_than_or_equal_to
-          | Binary_operator_equal_to ->
+          | Binary_operator_equal_to | Binary_operator_not_equal_to ->
               AValueSet.bools
           | Binary_operator_and -> bool_binop v1 v2 ( && )
           | Binary_operator_or -> bool_binop v1 v2 ( || )
+        )
       | Abs_conditional_body (Abs_var c, e1, e2) -> (
           match Env.get env c with
           | Direct (Abs_value_bool b) ->
               if b
               then aeval_expr arg0 eval env ctx e1
               else aeval_expr arg0 eval env ctx e2
-          | _ -> AValueSet.empty)
+          | _ -> AValueSet.empty
+        )
       | Abs_value_body (Abs_value_function f) ->
           AValueSet.singleton (Closure (y, f, env))
       | Abs_appl_body (Abs_var xf, Abs_var xa) -> (

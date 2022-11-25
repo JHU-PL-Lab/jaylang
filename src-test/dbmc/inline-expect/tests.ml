@@ -1,8 +1,9 @@
 open! Core
 module R = Dbmc.Rstack
 
-let x = Dbmc.Id.Ident "x"
-let f = Dbmc.Id.Ident "f"
+
+let x = Dj_common.Id.Ident "x"
+let f = Dj_common.Id.Ident "f"
 let r0 = R.empty
 let xf : R.frame = (x, f)
 let r1 = R.push r0 xf
