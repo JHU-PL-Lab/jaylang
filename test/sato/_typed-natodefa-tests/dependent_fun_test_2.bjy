@@ -12,7 +12,7 @@ letd rec f (x : List int) : ((y : List int) -> (z : List int) -> {. List int | (
         let h acc =
             match l2 with
             | [] -> []
-            | hd :: tl -> f l2 tl (hd :: acc)
+            | hd :: tl -> f l2 tl acc
             end
         in
         h
