@@ -1,5 +1,4 @@
-let tree_type = Mu tt. ({: left : tt, right : tt :} || {: leaf : int :}) in
-let (x : tree_type) = 
+let (x : Mu tt. ({: left : tt, right : tt :} || {: leaf : int :})) = 
     { left = { leaf = 0 } , 
       right = { leaf = 0 } }
 in x
