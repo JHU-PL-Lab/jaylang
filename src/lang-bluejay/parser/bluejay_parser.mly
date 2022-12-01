@@ -39,12 +39,12 @@ let new_fun_with_type
   (fun_body : expr_desc) = 
   Typed_funsig (fun_name, typed_param_list, (fun_body, return_type))
 
-let new_dependent_fun   
+ let new_dependent_fun   
   (fun_name : ident) 
   (typed_param : ident * expr_desc)
   (return_type : expr_desc)
   (fun_body : expr_desc) = 
-  DTyped_funsig (fun_name, typed_param, (fun_body, return_type))
+  DTyped_funsig (fun_name, typed_param, (fun_body, return_type)) 
 
 let rec build_recursive_type (t_var : ident) (ed : expr_desc) = 
   let e = ed.body in
@@ -336,7 +336,7 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
 %token PIPE
 %token DOUBLE_PIPE
 %token DOUBLE_AMPERSAND
-%token DOLLAR
+// %token DOLLAR
 // %token OPEN_OBRACKET
 // %token CLOSE_OBRACKET
 %token FUNCTION
@@ -465,7 +465,7 @@ expr:
       { LetRecFunWithType ($3, new_expr_desc $5) }
   | LET ident_decl EQUALS expr IN expr %prec prec_let
       { Let($2, new_expr_desc $4, new_expr_desc $6) }
-  | LET OPEN_PAREN ident_decl COLON expr CLOSE_PAREN EQUALS expr IN expr %prec prec_let
+  | LET OPEN_PAREN ident_decl COLON type_decl CLOSE_PAREN EQUALS expr IN expr %prec prec_let
       { LetWithType($3, new_expr_desc $8, new_expr_desc $10, new_expr_desc $5) }
   | LET fun_sig IN expr %prec prec_fun
       { LetFun($2, new_expr_desc $4) }
@@ -476,23 +476,31 @@ expr:
   | MATCH expr WITH PIPE? match_expr_list END
       { Match(new_expr_desc $2, $5) }
   // Types expressions
-  | basic_types { $1 }
-  | type_parameter { $1 }
-  | MU ident_decl DOT expr 
-    { TypeRecurse ($2, build_recursive_type $2 (new_expr_desc $4)) }
-  | expr ARROW expr { TypeArrow (new_expr_desc $1, new_expr_desc $3) }
-  | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN ARROW expr { TypeArrowD (($2, new_expr_desc $4), new_expr_desc $7) }
-  // TODO: Change this to fancy curly
-  | OPEN_BRACE DOT expr PIPE expr CLOSE_BRACE { TypeSet (new_expr_desc $3, new_expr_desc $5) } 
-  | expr DOUBLE_PIPE expr { TypeUnion (new_expr_desc $1, new_expr_desc $3) }
-  | expr DOUBLE_AMPERSAND expr { TypeIntersect (new_expr_desc $1, new_expr_desc $3) }
+  // | basic_types { $1 }
+  // | type_parameter { $1 }
+  // | MU ident_decl DOT expr 
+  //   { TypeRecurse ($2, build_recursive_type $2 (new_expr_desc $4)) }
+  // | expr ARROW expr { TypeArrow (new_expr_desc $1, new_expr_desc $3) }
+  // | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN ARROW expr { TypeArrowD (($2, new_expr_desc $4), new_expr_desc $7) }
+  // // TODO: Change this to fancy curly
+  // | OPEN_BRACE DOT expr PIPE expr CLOSE_BRACE { TypeSet (new_expr_desc $3, new_expr_desc $5) } 
+  // | expr DOUBLE_PIPE expr { TypeUnion (new_expr_desc $1, new_expr_desc $3) }
+  // | expr DOUBLE_AMPERSAND expr { TypeIntersect (new_expr_desc $1, new_expr_desc $3) }
 ;
+
+type_decl:
+  | basic_types { $1 }
+  | ident_decl { TypeVar $1 }
+  | type_parameter { $1 }
+  | MU ident_decl DOT type_decl { TypeRecurse ($2, build_recursive_type $2 (new_expr_desc $4)) }
+  | type_decl ARROW type_decl { TypeArrow (new_expr_desc $1, new_expr_desc $3) }
+  | OPEN_BRACE DOT basic_types PIPE expr CLOSE_BRACE { TypeSet (new_expr_desc $3, new_expr_desc $5) }
+  | OPEN_PAREN type_decl CLOSE_PAREN { $2 }
+  | type_decl DOUBLE_PIPE type_decl { TypeUnion (new_expr_desc $1, new_expr_desc $3) }
+  | type_decl DOUBLE_AMPERSAND type_decl { TypeIntersect (new_expr_desc $1, new_expr_desc $3) }
 
 type_parameter:
   | APOSTROPHE IDENTIFIER { TypeUntouched $2 }
-
-type_var:
-  | DOLLAR IDENTIFIER { TypeVar $2 }
 
 record_type:
   | OPEN_BRACE_TYPE record_type_body CLOSE_BRACE_TYPE
@@ -501,9 +509,9 @@ record_type:
       { TypeRecord (Ident_map.empty) }
 
 record_type_body:
-  | label COLON expr
+  | label COLON type_decl
       { new_record $1 (new_expr_desc $3) }
-  | label COLON expr COMMA record_type_body
+  | label COLON type_decl COMMA record_type_body
       { add_record_entry $1 (new_expr_desc $3) $5 }
 ;
 
@@ -511,7 +519,7 @@ basic_types:
   | INT { TypeInt }
   | BOOL_KEYWORD { TypeBool }
   | record_type { $1 }
-  | LIST expr { TypeList (new_expr_desc $2) }
+  | LIST type_decl { TypeList (new_expr_desc $2) }
 
 /* let foo x = ... */
 fun_sig:
@@ -520,7 +528,7 @@ fun_sig:
 
 /* let foo (x : int) ... : int = ... */
 fun_sig_with_type:
-  | ident_decl param_list_with_type COLON expr EQUALS expr
+  | ident_decl param_list_with_type COLON type_decl EQUALS expr
       { new_fun_with_type $1 $2 (new_expr_desc $4) (new_expr_desc $6) }
 
 fun_sig_dependent_list:
@@ -528,7 +536,7 @@ fun_sig_dependent_list:
   | fun_sig_dependent WITH fun_sig_dependent_list { $1 :: $3 }
 
 fun_sig_dependent:
-  | ident_decl param_with_type COLON expr EQUALS expr
+  | ident_decl param_with_type COLON type_decl EQUALS expr
       { new_dependent_fun $1 $2 (new_expr_desc $4) (new_expr_desc $6) }
 
 /* let rec foo x y = ... with bar a b = ... in ... */
@@ -580,7 +588,7 @@ param_list_with_type:
 ;
 
 param_with_type:
-  | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN { ($2, (new_expr_desc $4)) }
+  | OPEN_PAREN ident_decl COLON type_decl CLOSE_PAREN { ($2, new_expr_desc $4) }
 ;
 
 param_list:

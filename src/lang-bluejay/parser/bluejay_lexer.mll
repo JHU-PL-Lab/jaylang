@@ -44,7 +44,7 @@ rule token = parse
 | "|"                  { PIPE }
 | "||"                 { DOUBLE_PIPE }
 | "&&"                 { DOUBLE_AMPERSAND }
-| "$"                  { DOLLAR }
+(* | "$"                  { DOLLAR } *)
 (* | "[|"                 { OPEN_OBRACKET }
 | "|]"                 { CLOSE_OBRACKET } *)
 | "and"                { AND }
