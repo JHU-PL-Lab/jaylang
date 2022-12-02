@@ -232,7 +232,7 @@ module Jayil_ident : Error_ident with type t = Id_with_stack.t = struct
   type t = Id_with_stack.t
 
   let equal = Id_with_stack.equal
-  let pp = Id_with_stack.pp
+  let pp formatter x = Id.pp formatter @@ Id_with_stack.id_of x
   let show = Id_with_stack.show
   let to_yojson ident = `String (replace_linebreaks @@ show ident)
 end
