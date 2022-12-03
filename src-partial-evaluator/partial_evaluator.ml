@@ -18,13 +18,16 @@ and constant_folding_clause clause =
       Clause (Var (x, s), new_body)
   | _ -> clause
 
-let eval raw_source =
-  let expr = Dj_common.File_utils.read_source raw_source in
+let eval expr =
 
   Fmt.pr "%a\n" Jayil.Pp.expr expr ;
   let new_expr = constant_folding expr in
   Fmt.pr "%a\n" Jayil.Pp.expr new_expr ;
-  expr
+
+  new_expr
+;;
+
+let eval_file raw_source = raw_source |> Dj_common.File_utils.read_source |> eval;;
 
 type dvalue =
   | Direct of value
@@ -339,7 +342,7 @@ and check_pattern ~session ~stk env vx pattern : bool =
   in
   is_pass
 
-let eval session e =
+(* let eval session e =
   let empty_env = Ident_map.empty in
   try
     let v = snd (eval_exp ~session Concrete_stack.empty empty_env e) in
@@ -356,7 +359,7 @@ let eval session e =
   | Run_into_wrong_stack (x, stk) ->
       Fmt.epr "Run into wrong stack\n" ;
       alert_lookup session x stk ;
-      raise (Run_into_wrong_stack (x, stk))
+      raise (Run_into_wrong_stack (x, stk)) *)
 
 (* toplevel eval assuming Plain mode, returning dvalue directly instead of exception *)
 (* Assumes that default session has no max_step *)
@@ -383,9 +386,9 @@ let unparse_expr = Jayil.Ast_pp.show_expr;;
 let parse_eval (a : string) = a |> parse |> teval;;
 let parse_eval_x (a : string) =
   try
-    a |> parse |> (fun ast -> eval (make_default_session ()) ast) 
+    a |> parse |> eval (*fun ast -> eval (make_default_session ()) ast *) 
   with 
-    | Terminate Direct v -> v
+    | Terminate Direct v -> Expr [Clause (Var (Ident "output", None), Value_body v)]
 ;;
 
 
