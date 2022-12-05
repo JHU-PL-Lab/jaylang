@@ -1,0 +1,8 @@
+bool_j_0 = true;
+notop_j_1 = not bool_j_0;
+assert_res_j_3 = notop_j_1 ? (
+        assert_res_true_j_4 = {}
+    ) : (
+        ab_j_5 = abort
+    );
+i_result = assert_res_j_3
