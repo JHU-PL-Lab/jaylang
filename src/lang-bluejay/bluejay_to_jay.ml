@@ -1581,7 +1581,15 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         return res
     | RecordProj (e, l) ->
         let%bind e' = bluejay_to_jay e in
-        let res = new_expr_desc @@ RecordProj (e', l) in
+        let%bind res =
+          if instrumented_bool
+          then return @@ new_expr_desc @@ RecordProj (e', l)
+          else
+            let%bind inner_projection =
+              new_instrumented_ed @@ RecordProj (e', Label "~actual_rec")
+            in
+            return @@ new_expr_desc @@ RecordProj (inner_projection, l)
+        in
         let%bind () = add_core_to_sem_mapping res e_desc in
         return res
     | Match (e, pattern_expr_lst) ->

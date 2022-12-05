@@ -19,3 +19,7 @@
 - A big challenge for a refutation-based system like this is that a forward symbolic execution might spend a lot of time exploring unrelated paths before diving into the control flow that will lead to an actual error. We alleviate this problem by using a demand-driven symbolic execution, which is capable of starting in an arbitrary point in the program and search backwards for a path to the top of the program. This ensures that all the control-flow paths that the symbolic execution explores are in fact relavant to the potential errors that we are interested in.
 
 
+**TODO:**
+- Other type of record: unprobable records? <- records will carry metadata about what the legal fields to match on are <-- add to the system
+- Chew on functors -- type declaration on functors
+- Modules <- Can our system do modules without adding additional feature?
