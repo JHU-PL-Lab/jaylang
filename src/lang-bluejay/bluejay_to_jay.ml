@@ -1121,7 +1121,38 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | LetWithType (x, e1, e2, t) ->
-      let%bind e1' = semantic_type_of e1 in
+      let%bind e1' =
+        let%bind e1_transformed = semantic_type_of e1 in
+        if is_record_type t
+        then
+          let new_lbls =
+            match t.body with
+            | TypeRecord r ->
+                r |> Ident_map.keys
+                |> Enum.fold
+                     (fun acc k ->
+                       Ident_map.add k
+                         (new_expr_desc @@ Record Ident_map.empty)
+                         acc)
+                     Ident_map.empty
+            | _ ->
+                failwith
+                  "semantic_type_of: Should only be invoked when t is a record \
+                   type!"
+          in
+          let%bind actual_rec =
+            new_instrumented_ed
+            @@ RecordProj (e1_transformed, Label "~actual_rec")
+          in
+          let new_rec =
+            Ident_map.empty
+            |> Ident_map.add (Ident "~actual_rec") actual_rec
+            |> Ident_map.add (Ident "~decl_lbls")
+                 (new_expr_desc @@ Record new_lbls)
+          in
+          return @@ new_expr_desc @@ Record new_rec
+        else return e1_transformed
+      in
       let%bind e2' = semantic_type_of e2 in
       let%bind t' = semantic_type_of t in
       let res = new_expr_desc @@ LetWithType (x, e1', e2', t') in

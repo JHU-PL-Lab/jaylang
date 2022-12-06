@@ -174,7 +174,7 @@ let encode_match_exprs recurse is_instrumented (match_expr : expr_desc)
           let%bind new_expr = recurse curr_expr in
           return (new_pat, new_expr)
       | RecPat rec_pat | StrictRecPat rec_pat ->
-          (* TODO: Really cheap trick. How can I improve this? *)
+          (* TODO: Really cheap trick. How can I improve this? Add an abstract label to primitive records that we create *)
           let%bind hd_lbl = lbl_head_m in
           let%bind tl_lbl = lbl_tail_m in
           let%bind cons_lbl = lbl_cons_m in
