@@ -67,6 +67,9 @@ let flatten_pattern (e_desc : Jay_ast.expr_desc) (pat_var : Ast.var)
         |> Ast.Ident_set.of_enum
       in
       let%bind projections =
+        (* let%bind is_istrumented = is_jay_instrumented e_desc.tag in
+           if is_istrumented
+           then *)
         rec_pat |> Jay_ast.Ident_map.enum |> List.of_enum
         |> list_fold_left_m
              (fun acc (lbl, var) ->
@@ -81,6 +84,24 @@ let flatten_pattern (e_desc : Jay_ast.expr_desc) (pat_var : Ast.var)
                    return @@ acc @ [ Ast.Clause (ast_var, ast_body) ]
                | None -> return acc)
              []
+        (* else
+           let%bind pat_var' = new_jayil_inst_var e_desc "actual_rec" in
+           let rec_body = Ast.Projection_body (pat_var, Ident "~actual_rec") in
+           let rec_clause = Ast.Clause (pat_var', rec_body) in
+           rec_pat |> Jay_ast.Ident_map.enum |> List.of_enum
+           |> list_fold_left_m
+                (fun acc (lbl, var) ->
+                  match var with
+                  | Some v ->
+                      let v' = jay_to_jayil_ident v in
+                      let lbl' = jay_to_jayil_ident lbl in
+                      let ast_var = Ast.Var (v', None) in
+                      let%bind () = add_jayil_jay_mapping ast_var e_desc in
+                      let%bind () = add_instrument_var ast_var in
+                      let ast_body = Ast.Projection_body (pat_var', lbl') in
+                      return @@ acc @ [ Ast.Clause (ast_var, ast_body) ]
+                  | None -> return acc)
+                [ rec_clause ] *)
       in
       return (Ast.Rec_pattern rec_pat', projections)
   | Jay_ast.StrictRecPat rec_pat ->

@@ -154,16 +154,74 @@ let encode_pattern (pattern : pattern) : pattern m =
   | AnyPat | IntPat | BoolPat | FunPat | RecPat _ | StrictRecPat _ | VarPat _ ->
       return pattern
 
-let encode_match_exprs recurse (match_expr : expr_desc)
+let encode_match_exprs recurse is_instrumented (match_expr : expr_desc)
     (pat_expr_lst : (pattern * expr_desc) list) =
   (* Transform first expression *)
   let%bind new_match_expr = recurse match_expr in
   (* Transform pattern-expression pairs *)
   let pat_expr_list_changer pat_expr_tuple =
     let curr_pat, curr_expr = pat_expr_tuple in
-    let%bind new_pat = encode_pattern curr_pat in
-    let%bind new_expr = recurse curr_expr in
-    return (new_pat, new_expr)
+    if is_instrumented
+    then
+      let%bind new_pat = encode_pattern curr_pat in
+      let%bind new_expr = recurse curr_expr in
+      return (new_pat, new_expr)
+    else
+      match curr_pat with
+      | AnyPat | IntPat | BoolPat | FunPat | VariantPat _ | VarPat _
+      | EmptyLstPat | LstDestructPat _ ->
+          let%bind new_pat = encode_pattern curr_pat in
+          let%bind new_expr = recurse curr_expr in
+          return (new_pat, new_expr)
+      | RecPat rec_pat | StrictRecPat rec_pat ->
+          (* TODO: Really cheap trick. How can I improve this? *)
+          let%bind hd_lbl = lbl_head_m in
+          let%bind tl_lbl = lbl_tail_m in
+          let%bind cons_lbl = lbl_cons_m in
+          let%bind empty_lbl = lbl_empty_m in
+          if Ident_map.mem hd_lbl rec_pat
+             || Ident_map.mem tl_lbl rec_pat
+             || Ident_map.mem cons_lbl rec_pat
+             || Ident_map.mem empty_lbl rec_pat
+             || Ident_map.mem (Ident "~untouched") rec_pat
+          then
+            let%bind new_pat = encode_pattern curr_pat in
+            let%bind new_expr = recurse curr_expr in
+            return (new_pat, new_expr)
+          else
+            let%bind expr' = recurse curr_expr in
+            let%bind r_name = fresh_name "actual_r" in
+            let decl_lbls =
+              new_expr_desc @@ RecordProj (new_match_expr, Label "~decl_lbls")
+            in
+            let ret_pat' = Ident_map.map (fun _ -> None) rec_pat in
+            let lbl_var_pairs =
+              Ident_map.bindings rec_pat
+              |> List.filter_map (fun (l, v) ->
+                     match v with Some x -> Some (l, x) | None -> None)
+            in
+            let%bind rebind_vars =
+              list_fold_left_m
+                (fun acc (Ident l, x) ->
+                  let new_proj =
+                    new_expr_desc
+                    @@ RecordProj (new_expr_desc @@ Var (Ident r_name), Label l)
+                  in
+                  let%bind () = add_jay_instrumented new_proj.tag in
+                  return @@ new_expr_desc @@ Let (x, new_proj, acc))
+                expr' lbl_var_pairs
+            in
+            let legal_match =
+              new_expr_desc
+              @@ Match (decl_lbls, [ (StrictRecPat ret_pat', rebind_vars) ])
+            in
+            let%bind () = add_jay_instrumented decl_lbls.tag in
+            let%bind () = add_jay_instrumented legal_match.tag in
+            let pat' =
+              RecPat
+                (Ident_map.singleton (Ident "~actual_rec") (Some (Ident r_name)))
+            in
+            return @@ (pat', legal_match)
   in
   let%bind new_pat_expr_lst =
     sequence @@ List.map pat_expr_list_changer pat_expr_lst
@@ -255,13 +313,20 @@ let desugar (e : expr_desc) : expr_desc m =
         let%bind () = add_jay_expr_mapping expr' e_desc in
         return expr'
     | Match (match_e, pat_e_lst) ->
-        let%bind expr' = encode_match_exprs recurse match_e pat_e_lst in
+        let%bind expr' =
+          encode_match_exprs recurse is_instrumented match_e pat_e_lst
+        in
         let%bind () = add_jay_expr_mapping expr' e_desc in
         let%bind () =
           if is_instrumented then add_jay_instrumented expr'.tag else return ()
           (* let () = print_endline "-----------------" in
              let () = print_endline @@ Jay_ast_pp.show_expr_desc e_desc in
              failwith @@ "Not accounted for: tag = " ^ string_of_int tag *)
+        in
+        let () = print_endline @@ "This is the transformed match" in
+        let () =
+          print_endline
+          @@ (Pp_utils.pp_to_string Jay_ast_pp.pp_expr_desc_without_tag) expr'
         in
         return expr'
     | LetRecFun (fun_sig_list, rec_e) ->

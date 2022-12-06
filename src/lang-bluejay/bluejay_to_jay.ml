@@ -192,18 +192,37 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         in
         let base_acc = new_expr_desc @@ Record res_record in
         let%bind gen_expr = list_fold_left_m folder' base_acc lbl_to_var in
-        return @@ Function ([ Ident "~null" ], gen_expr)
+        let actual_rec =
+          let decl_lbls =
+            Ident_map.keys r
+            |> Enum.fold
+                 (fun acc k ->
+                   Ident_map.add k (new_expr_desc @@ Record Ident_map.empty) acc)
+                 Ident_map.empty
+          in
+          Ident_map.empty
+          |> Ident_map.add (Ident "~actual_rec") gen_expr
+          |> Ident_map.add (Ident "~decl_lbls")
+               (new_expr_desc @@ Record decl_lbls)
+        in
+        return
+        @@ Function ([ Ident "~null" ], new_expr_desc @@ Record actual_rec)
       in
       let%bind checker =
+        (* Building the intial check for whether it's a record value *)
+        let%bind rec_fail_id = fresh_ident "rec_fail" in
+        let%bind expr_id = fresh_ident "expr" in
+        let fail_pat_cls = new_expr_desc @@ Var rec_fail_id in
+        let matched_expr = new_expr_desc @@ Var expr_id in
         (* For the checker, we need to first check whether the value in
            question is a record. If not, returns false. Otherwise. we need
            to go through all the fields in this record to check whether it
            has the correct type for each field. *)
         let all_bindings = List.rev @@ Ident_map.bindings r in
+        let rec_pat = Ident_map.singleton (Ident "~actual_rec") None in
         let type_dict =
           Ident_map.of_enum @@ Enum.map (fun k -> (k, None)) (Ident_map.keys r)
         in
-        let%bind expr_id = fresh_ident "expr" in
         let fold_fun expr_a (Ident lbl, t) =
           let%bind lbl_check_id = fresh_ident "lbl_check" in
           let%bind cur_gc_pair = semantic_type_of t in
@@ -241,10 +260,13 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind fun_body =
           list_fold_left_m fold_fun init_acc (List.tl all_bindings)
         in
-        (* Building the intial check for whether it's a record value *)
-        let%bind rec_fail_id = fresh_ident "rec_fail" in
-        let fail_pat_cls = new_expr_desc @@ Var rec_fail_id in
-        let matched_expr = new_expr_desc @@ Var expr_id in
+        let%bind actual_rec =
+          new_instrumented_ed @@ RecordProj (matched_expr, Label "~actual_rec")
+        in
+        let%bind lbls_check =
+          new_instrumented_ed
+          @@ Match (actual_rec, [ (RecPat type_dict, fun_body) ])
+        in
         (* Also, the record type we have here is like OCaml; it must have the
            labels with the corresponding types, and nothing more. That's why
            we require a strict pattern match here. *)
@@ -252,8 +274,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed
           @@ Match
                ( matched_expr,
-                 [ (StrictRecPat type_dict, fun_body); (AnyPat, fail_pat_cls) ]
-               )
+                 [ (RecPat rec_pat, lbls_check); (AnyPat, fail_pat_cls) ] )
         in
         let check_cls =
           Let (rec_fail_id, new_expr_desc @@ Bool false, match_body)
@@ -1593,6 +1614,8 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         let%bind () = add_core_to_sem_mapping res e_desc in
         return res
     | Match (e, pattern_expr_lst) ->
+        (* if instrumented_bool
+           then *)
         let%bind e' = bluejay_to_jay e in
         let mapper (pat, expr) =
           let%bind expr' = bluejay_to_jay expr in
@@ -1604,6 +1627,33 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         let res = new_expr_desc @@ Match (e', pattern_expr_lst') in
         let%bind () = add_core_to_sem_mapping res e_desc in
         return res
+        (* else
+           let%bind e' = bluejay_to_jay e in
+           let mapper (pat, expr) =
+             match pat with
+             | AnyPat | IntPat | BoolPat | FunPat | StrictRecPat _ | VariantPat _
+             | VarPat _ | EmptyLstPat | LstDestructPat _ ->
+                 let%bind expr' = bluejay_to_jay expr in
+                 return @@ (pat, expr')
+             | RecPat rec_pat ->
+                 let%bind expr' = bluejay_to_jay expr in
+                 let%bind decl_lbls =
+                   new_instrumented_ed @@ RecordProj (e', Label "~decl_lbls")
+                 in
+                 let%bind legal_match =
+                   new_instrumented_ed
+                   @@ Match (decl_lbls, [ (RecPat rec_pat, expr') ])
+                 in
+                 let pat' = RecPat
+                 (Ident_map.singleton (Ident "~actual_rec") None) in
+                 return @@ (pat', legal_match)
+           in
+           let%bind pattern_expr_lst' =
+             pattern_expr_lst |> List.map mapper |> sequence
+           in
+           let res = new_expr_desc @@ Match (e', pattern_expr_lst') in
+           let%bind () = add_core_to_sem_mapping res e_desc in
+           return res *)
     | VariantExpr (lbl, e) ->
         let%bind e' = bluejay_to_jay e in
         let res = new_expr_desc @@ VariantExpr (lbl, e') in
