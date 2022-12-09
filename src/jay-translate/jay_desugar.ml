@@ -216,7 +216,7 @@ let encode_match_exprs recurse is_instrumented (match_expr : expr_desc)
               @@ Match (decl_lbls, [ (StrictRecPat ret_pat', rebind_vars) ])
             in
             let%bind () = add_jay_instrumented decl_lbls.tag in
-            let%bind () = add_jay_instrumented legal_match.tag in
+            (* let%bind () = add_jay_instrumented legal_match.tag in *)
             let pat' =
               RecPat
                 (Ident_map.singleton (Ident "~actual_rec") (Some (Ident r_name)))

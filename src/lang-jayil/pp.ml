@@ -68,5 +68,5 @@ and pattern oc = function
   | Int_pattern -> Fmt.string oc "int"
   | Bool_pattern -> Fmt.string oc "bool"
   | Any_pattern -> Fmt.string oc "any"
-  | Rec_pattern els -> (Fmt.braces id_set) oc els
+  | Rec_pattern els -> (Fmt.braces id_set) oc (Ident_set.add (Ident "_") els)
   | Strict_rec_pattern els -> (Fmt.braces id_set) oc els
