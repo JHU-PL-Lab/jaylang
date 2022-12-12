@@ -1,35 +1,15 @@
-(alias
- (name test_dbmc)
- (deps
-  test_dbmc.exe
-  ; (glob_files ../../test-sources/*)
-  ; (glob_files ../../logs/*)
-  ))
-
 (rule
  (alias test_dbmc)
  (action
-  (run ./test_dbmc.exe)))
+  (run %{exe:test_dbmc.exe} --tp "../../../../test/dbmc")))
 
 (rule
  (alias test_rstack)
  (action
   (run ./test_rstack.exe)))
 
-(executables
+(tests
  (names test_dbmc test_rstack)
- (libraries
-  core
-  core_unix.sys_unix
-  cmdliner
-  fmt
-  lwt
-  lwt.unix
-  alcotest
-  alcotest-lwt
-  jayil
-  jayil_parser
-  bluejay
-  dbmc)
+ (libraries core core_unix.sys_unix cmdliner alcotest alcotest-lwt dbmc)
  (preprocess
   (pps ppx_jane lwt_ppx ppx_deriving.std ppx_expect)))

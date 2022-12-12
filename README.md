@@ -32,7 +32,7 @@ opam switch create ./ 4.14.0 --deps-only --description=jay-dev
 After that, you can install the develop tools
 ```
 opam user-setup install
-opam install ocaml-lsp-server ocamlformat
+opam install utop ocaml-lsp-server ocamlformat
 ```
 
 Now you should be able to run the project.
