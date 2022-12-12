@@ -15,6 +15,7 @@ depends: [
   "shexp"
   "hashcons"
   "ocamlgraph"
+  "menhir"
   "fmt"
   "logs"
   "lwt"
