@@ -1,7 +1,7 @@
-(rule
- (alias test_sato)
- (action
-  (run ./test_sato.ml)))
+; (rule
+;  (alias test_sato)
+;  (action
+;   (run ./test_sato.ml)))
 
 (executables
  (names test_sato)

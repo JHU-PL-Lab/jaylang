@@ -1,7 +1,7 @@
-(rule
- (alias test_dbmc)
- (action
-  (run %{exe:test_dbmc.exe} --tp "../../../../test/dbmc")))
+; (rule
+;  (alias test_dbmc)
+;  (action
+;   (run %{exe:test_dbmc.exe} --tp "../../../../test/dbmc")))
 
 (rule
  (alias test_rstack)
