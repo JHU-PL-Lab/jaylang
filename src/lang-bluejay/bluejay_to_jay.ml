@@ -118,7 +118,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let res = new_expr_desc @@ Record rec_map in
+      let%bind res = new_instrumented_ed @@ Record rec_map in
       (* Keeping track of which original expression this transformed expr
          corresponds to. Useful when we need to reconstruct the original expr
          later in error reporting. *)
@@ -160,10 +160,12 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let res = new_expr_desc @@ Record rec_map in
+      let%bind res = new_instrumented_ed @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeRecord r ->
+      (* TODO: Potential source of bug here; I'm assuming that the record values
+         we generate will have to go through the wrap/unwarp process as well. *)
       let%bind generator =
         (* For the generator, we need to generate the corresponding value for
            each field, from their declared type. *)
@@ -221,20 +223,21 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let all_bindings = List.rev @@ Ident_map.bindings r in
         let rec_pat = Ident_map.singleton (Ident "~actual_rec") None in
         let type_dict =
-          Ident_map.of_enum @@ Enum.map (fun k -> (k, None)) (Ident_map.keys r)
+          Ident_map.of_enum
+          @@ Enum.map (fun k -> (k, Some k)) (Ident_map.keys r)
         in
-        let fold_fun expr_a (Ident lbl, t) =
+        let fold_fun expr_a (lbl, t) =
           let%bind lbl_check_id = fresh_ident "lbl_check" in
           let%bind cur_gc_pair = semantic_type_of t in
           let%bind proj_ed_1 =
             new_instrumented_ed @@ RecordProj (cur_gc_pair, Label "checker")
           in
-          let%bind proj_ed_2 =
-            new_instrumented_ed
-            @@ RecordProj (new_expr_desc @@ Var expr_id, Label lbl)
-          in
+          (* let%bind proj_ed_2 =
+               new_instrumented_ed
+               @@ RecordProj (new_expr_desc @@ Var expr_id, Label lbl)
+             in *)
           let%bind appl_ed =
-            new_instrumented_ed @@ Appl (proj_ed_1, proj_ed_2)
+            new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var lbl)
           in
           let%bind if_ed =
             new_instrumented_ed
@@ -245,17 +248,17 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           in
           return @@ new_expr_desc @@ Let (lbl_check_id, appl_ed, if_ed)
         in
-        let Ident first_lbl, first_type = List.hd all_bindings in
+        let first_lbl, first_type = List.hd all_bindings in
         let%bind gc_pair_fst = semantic_type_of first_type in
         let%bind proj_ed_3 =
           new_instrumented_ed @@ RecordProj (gc_pair_fst, Label "checker")
         in
-        let%bind proj_ed_4 =
-          new_instrumented_ed
-          @@ RecordProj (new_expr_desc @@ Var expr_id, Label first_lbl)
-        in
+        (* let%bind proj_ed_4 =
+             new_instrumented_ed
+             @@ RecordProj (new_expr_desc @@ Var expr_id, Label first_lbl)
+           in *)
         let%bind init_acc =
-          new_instrumented_ed @@ Appl (proj_ed_3, proj_ed_4)
+          new_instrumented_ed @@ Appl (proj_ed_3, new_expr_desc @@ Var first_lbl)
         in
         let%bind fun_body =
           list_fold_left_m fold_fun init_acc (List.tl all_bindings)
@@ -265,7 +268,9 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         in
         let%bind lbls_check =
           new_instrumented_ed
-          @@ Match (actual_rec, [ (RecPat type_dict, fun_body) ])
+          @@ Match
+               ( actual_rec,
+                 [ (RecPat type_dict, fun_body); (AnyPat, fail_pat_cls) ] )
         in
         (* Also, the record type we have here is like OCaml; it must have the
            labels with the corresponding types, and nothing more. That's why
@@ -292,7 +297,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let res = new_expr_desc @@ Record rec_map in
+      let%bind res = new_instrumented_ed @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeList l ->
@@ -427,7 +432,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let res = new_expr_desc @@ Record rec_map in
+      let%bind res = new_instrumented_ed @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeArrow (t1, t2) ->
@@ -502,7 +507,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let res = new_expr_desc @@ Record rec_map in
+      let%bind res = new_instrumented_ed @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeArrowD ((x1, t1), t2) ->
@@ -583,7 +588,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let res = new_expr_desc @@ Record rec_map in
+      let%bind res = new_instrumented_ed @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeSet (t, p) ->
@@ -670,7 +675,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let res = new_expr_desc @@ Record rec_map in
+      let%bind res = new_instrumented_ed @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeUnion (t1, t2) ->
@@ -786,7 +791,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let res = new_expr_desc @@ Record rec_map in
+      let%bind res = new_instrumented_ed @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeIntersect (t1, t2) ->
@@ -982,7 +987,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let res = new_expr_desc @@ Record rec_map in
+      let%bind res = new_instrumented_ed @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeRecurse (t_var, t') ->
@@ -1001,18 +1006,23 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeUntouched t' ->
-      let inner_map =
-        Ident_map.empty
-        |> Ident_map.add
-             (Ident ("~\'" ^ t'))
-             (new_expr_desc @@ Record Ident_map.empty)
+      let%bind inner_map =
+        let%bind empty_rec = new_instrumented_ed @@ Record Ident_map.empty in
+        let encode_untouched =
+          Ident_map.add (Ident ("~\'" ^ t')) empty_rec Ident_map.empty
+        in
+        return encode_untouched
       in
-      let untouched_v =
-        Ident_map.empty
-        |> Ident_map.add (Ident "~untouched") (new_expr_desc @@ Record inner_map)
+      let%bind untouched_v =
+        let%bind inner_entry = new_instrumented_ed @@ Record inner_map in
+        let encode_untouched_v =
+          Ident_map.add (Ident "~untouched") inner_entry Ident_map.empty
+        in
+        return encode_untouched_v
       in
-      let generator =
-        Function ([ Ident "~null" ], new_expr_desc @@ Record untouched_v)
+      let%bind generator =
+        let%bind rec_ed = new_instrumented_ed @@ Record untouched_v in
+        return @@ Function ([ Ident "~null" ], rec_ed)
       in
       let%bind fail_id = fresh_ident "fail" in
       let%bind checker =
@@ -1065,7 +1075,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let res = new_expr_desc @@ Record rec_map in
+      let%bind res = new_instrumented_ed @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | Int n ->
@@ -1150,7 +1160,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
             |> Ident_map.add (Ident "~decl_lbls")
                  (new_expr_desc @@ Record new_lbls)
           in
-          return @@ new_expr_desc @@ Record new_rec
+          new_instrumented_ed @@ Record new_rec
         else return e1_transformed
       in
       let%bind e2' = semantic_type_of e2 in
@@ -1628,7 +1638,27 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         return res
     | Record m ->
         let%bind m' = ident_map_map_m (fun e -> bluejay_to_jay e) m in
-        let res = new_expr_desc @@ Record m' in
+        let%bind res =
+          if instrumented_bool
+          then return @@ new_expr_desc @@ Record m'
+          else
+            let wrapped_record =
+              let decl_lbls =
+                Ident_map.keys m'
+                |> Enum.fold
+                     (fun acc k ->
+                       Ident_map.add k
+                         (new_expr_desc @@ Record Ident_map.empty)
+                         acc)
+                     Ident_map.empty
+              in
+              Ident_map.empty
+              |> Ident_map.add (Ident "~actual_rec") (new_expr_desc @@ Record m')
+              |> Ident_map.add (Ident "~decl_lbls")
+                   (new_expr_desc @@ Record decl_lbls)
+            in
+            new_instrumented_ed @@ Record wrapped_record
+        in
         let%bind () = add_core_to_sem_mapping res e_desc in
         return res
     | RecordProj (e, l) ->

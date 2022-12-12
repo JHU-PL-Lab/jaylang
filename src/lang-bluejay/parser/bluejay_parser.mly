@@ -1,7 +1,6 @@
 %{
 open Bluejay_ast;;
 module List = BatList;;
-module Enum = BatEnum;;
 
 (* Functions relating to parsing record entries *)
 
@@ -32,15 +31,6 @@ let record_from_list pr_list =
   |> List.fold_left 
      (fun acc (lbl, v) -> add_record_entry lbl v acc)
      Ident_map.empty
-
-let mk_wrapped_record r = 
-  let internal_r = new_record (Label "~actual_rec") (new_expr_desc @@ Record r) in
-  let decl_lbls =
-    Ident_map.keys r
-    |> Enum.fold (fun acc k -> Ident_map.add k (new_expr_desc @@ Record Ident_map.empty) acc) Ident_map.empty
-  in
-  let wrapped_r = add_record_entry (Label "~decl_lbls") (new_expr_desc @@ Record decl_lbls) internal_r in
-  wrapped_r
 
 let new_fun_with_type 
   (fun_name : ident) 
@@ -569,9 +559,9 @@ primary_expr:
   | ident_usage
       { $1 }
   | OPEN_BRACE record_body CLOSE_BRACE
-      { Record (mk_wrapped_record $2) }
+      { Record $2 }
   | OPEN_BRACE CLOSE_BRACE
-      { Record (mk_wrapped_record @@ Ident_map.empty) }
+      { Record Ident_map.empty }
   | OPEN_BRACKET list_body CLOSE_BRACKET
       { List $2 }
   | OPEN_BRACKET CLOSE_BRACKET

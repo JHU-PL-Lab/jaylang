@@ -43,12 +43,16 @@ let load_sexp_expectation_for testpath =
 
 (*
 ** Bluejay Type Errors **
-- Input sequence  : 
-- Found at clause : let (lst : [int]) = [true] in lst
+- Input sequence  : 4,-1
+- Found at clause : let create_record (x : int)  (y : bool)
+ : {a = int, b = bool} = {
+                            ~actual_rec = {a = x, b = x},
+                            ~decl_lbls = {a = {}, b = {}}
+                         } in create_record
 --------------------
-* Value    : lst
-* Expected : [int]
-* Actual   : [bool]
+* Value    : create_record
+* Expected : (int -> (bool -> {a = int, b = bool}))
+* Actual   : (int -> (bool -> {a = int, b = int}))
 *)
 
 (* let t1 : t = {
