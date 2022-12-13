@@ -13,7 +13,7 @@ let mode_from_file s =
   then Sato_args.Jayil
   else failwith "file extension must be .jil, .jay, or .bjy"
 
-let read_source_sato ?(do_wrap = false) filename =
+let read_source_sato ?(do_wrap = false) ?(do_instrument = true) filename =
   let program =
     if Dj_common.File_utils.check_bluejay_ext filename
     then (
@@ -50,9 +50,9 @@ let read_source_sato ?(do_wrap = false) filename =
       (* let () = print_endline @@ Jay_ast.show_expr_desc jay_ast in *)
       let instrument_tags_bluejay = ton_on_maps'.instrumented_tags in
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
-        Jay_translate.Jay_to_jayil.translate ~is_jay:true ~is_instrumented:true
-          ~consts:init_consts ~bluejay_instruments:instrument_tags_bluejay
-          jay_ast
+        Jay_translate.Jay_to_jayil.translate ~is_jay:true
+          ~is_instrumented:do_instrument ~consts:init_consts
+          ~bluejay_instruments:instrument_tags_bluejay jay_ast
       in
       let () = print_endline @@ "*************************************" in
       let () = print_endline @@ "Jayil program after instrumentation: " in
@@ -73,7 +73,7 @@ let read_source_sato ?(do_wrap = false) filename =
       (* let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in *)
       (* let (desugared_typed, ton_on_maps) = transform_natodefa jay_ast in *)
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
-        Jay_to_jayil.translate ~is_instrumented:true ~consts jay_ast
+        Jay_to_jayil.translate ~is_instrumented:do_instrument ~consts jay_ast
       in
       (* let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in *)
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;
@@ -82,9 +82,13 @@ let read_source_sato ?(do_wrap = false) filename =
     then (
       let pre_inst_ast = Dj_common.File_utils.parse_jayil_file filename in
       let post_inst_ast, odefa_inst_maps =
-        Jay_instrumentation.Instrumentation.instrument_jayil pre_inst_ast
+        if do_instrument
+        then Jay_instrumentation.Instrumentation.instrument_jayil pre_inst_ast
+        else
+          ( pre_inst_ast,
+            Jay_instrumentation.Jayil_instrumentation_maps.empty false )
       in
-      (* let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in *)
+      let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;
       (post_inst_ast, odefa_inst_maps, None, None))
     else failwith "file extension must be .jil, .jay, or .bjy"
