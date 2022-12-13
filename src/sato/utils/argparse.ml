@@ -21,6 +21,10 @@ let parse_commandline_config () =
            flag "-i" (optional int_option_list_parser) ~doc:"expected inputs" *)
       and do_wrap =
         flag "-w" (optional_with_default true bool) ~doc:"enables wrap"
+      and do_instrument =
+        flag "-i"
+          (optional_with_default true bool)
+          ~doc:"performs instrumentation"
       and ddpa_c_stk =
         flag "-c"
           (optional_with_default default_ddpa_c_stk
@@ -62,6 +66,7 @@ let parse_commandline_config () =
             (* is_instrumented; *)
             (* expected_inputs; *)
             do_wrap;
+            do_instrument;
             sato_mode;
             ddpa_c_stk;
             run_max_step;
