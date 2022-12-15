@@ -70,12 +70,16 @@ let read_source_sato ?(do_wrap = false) ?(do_instrument = true) filename =
         |> List.map ~f:(fun x -> Jayil.Ast.Var (x, None))
         |> Jayil.Ast.Var_set.of_list
       in
-      (* let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in *)
+      let () = print_endline @@ "*************************************" in
+      let () = print_endline @@ "Jay program before instrumentation: " in
+      let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in
       (* let (desugared_typed, ton_on_maps) = transform_natodefa jay_ast in *)
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
         Jay_to_jayil.translate ~is_instrumented:do_instrument ~consts jay_ast
       in
-      (* let () = print_endline @@ Jayil.Ast_pp.show_expr post_inst_ast in *)
+      let () = print_endline @@ "*************************************" in
+      let () = print_endline @@ "Jayil program after instrumentation: " in
+      let () = Fmt.pr "%a" Jayil.Pp.expr post_inst_ast in
       Ast_wellformedness.check_wellformed_expr post_inst_ast ;
       (post_inst_ast, odefa_inst_maps, Some on_odefa_maps, None))
     else if Dj_common.File_utils.check_jayil_ext filename

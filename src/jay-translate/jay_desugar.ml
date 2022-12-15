@@ -17,6 +17,22 @@ let lbl_cons_m : Ident.t m = _lbl_m "cons"
 let lbl_tail_m : Ident.t m = _lbl_m "tail"
 let lbl_variant_m (s : string) : Ident.t m = _lbl_m ("variant_" ^ s)
 let lbl_value_m : Ident.t m = _lbl_m "value"
+let actual_rec_m : Ident.t m = _lbl_m "actual_rec"
+
+let no_wrap rec_pat =
+  let%bind hd_lbl = lbl_head_m in
+  let%bind tl_lbl = lbl_tail_m in
+  let%bind cons_lbl = lbl_cons_m in
+  let%bind empty_lbl = lbl_empty_m in
+  let ret_bool =
+    Ident_map.mem hd_lbl rec_pat
+    || Ident_map.mem tl_lbl rec_pat
+    || Ident_map.mem cons_lbl rec_pat
+    || Ident_map.mem empty_lbl rec_pat
+    || Ident_map.mem (Ident "~untouched") rec_pat
+    || Ident_map.mem (Ident "~actual_rec") rec_pat
+  in
+  return ret_bool
 
 let list_expr_to_record recurse (expr_lst : expr_desc list) =
   (* Record labels *)
@@ -120,7 +136,7 @@ let encode_pattern (pattern : pattern) : pattern m =
         add_jay_type_mapping (Ident_set.singleton lbl_empty) Jay_ast.ListType
       in
       let empty_rec = Ident_map.add lbl_empty None Ident_map.empty in
-      return @@ RecPat empty_rec
+      return @@ StrictRecPat empty_rec
   | LstDestructPat (hd_var, tl_var) ->
       let%bind lbl_head = lbl_head_m in
       let%bind lbl_tail = lbl_tail_m in
@@ -133,7 +149,7 @@ let encode_pattern (pattern : pattern) : pattern m =
         |> Ident_map.add lbl_head @@ Some hd_var
         |> Ident_map.add lbl_tail @@ Some tl_var
       in
-      return @@ RecPat new_lbls
+      return @@ StrictRecPat new_lbls
   (* Encode variant patterns *)
   | VariantPat (v_label, v_var) ->
       let (Variant_label v_name) = v_label in
@@ -149,7 +165,7 @@ let encode_pattern (pattern : pattern) : pattern m =
         |> Ident_map.add variant_lbl None
         |> Ident_map.add value_lbl (Some v_var)
       in
-      return @@ RecPat record
+      return @@ StrictRecPat record
   (* All other patterns: don't encode *)
   | AnyPat | IntPat | BoolPat | FunPat | RecPat _ | StrictRecPat _ | VarPat _ ->
       return pattern
@@ -175,25 +191,14 @@ let encode_match_exprs recurse is_instrumented (match_expr : expr_desc)
           return (new_pat, new_expr)
       | RecPat rec_pat | StrictRecPat rec_pat ->
           (* TODO: Really cheap trick. How can I improve this? Add an abstract label to primitive records that we create *)
-          let%bind hd_lbl = lbl_head_m in
-          let%bind tl_lbl = lbl_tail_m in
-          let%bind cons_lbl = lbl_cons_m in
-          let%bind empty_lbl = lbl_empty_m in
-          if Ident_map.mem hd_lbl rec_pat
-             || Ident_map.mem tl_lbl rec_pat
-             || Ident_map.mem cons_lbl rec_pat
-             || Ident_map.mem empty_lbl rec_pat
-             || Ident_map.mem (Ident "~untouched") rec_pat
+          let%bind no_wrap = no_wrap rec_pat in
+          if no_wrap
           then
             let%bind new_pat = encode_pattern curr_pat in
             let%bind new_expr = recurse curr_expr in
             return (new_pat, new_expr)
           else
             let%bind expr' = recurse curr_expr in
-            let%bind r_name = fresh_name "actual_r" in
-            let decl_lbls =
-              new_expr_desc @@ RecordProj (new_match_expr, Label "~decl_lbls")
-            in
             let ret_pat' = Ident_map.map (fun _ -> None) rec_pat in
             let lbl_var_pairs =
               Ident_map.bindings rec_pat
@@ -203,31 +208,25 @@ let encode_match_exprs recurse is_instrumented (match_expr : expr_desc)
             let%bind rebind_vars =
               list_fold_left_m
                 (fun acc (Ident l, x) ->
+                  let%bind r_name = actual_rec_m in
                   let new_proj =
                     new_expr_desc
-                    @@ RecordProj (new_expr_desc @@ Var (Ident r_name), Label l)
+                    @@ RecordProj (new_expr_desc @@ Var r_name, Label l)
                   in
                   let%bind () = add_jay_instrumented new_proj.tag in
                   return @@ new_expr_desc @@ Let (x, new_proj, acc))
                 expr' lbl_var_pairs
             in
-            let legal_match =
-              new_expr_desc
-              @@ Match (decl_lbls, [ (StrictRecPat ret_pat', rebind_vars) ])
-            in
-            let%bind () = add_jay_instrumented decl_lbls.tag in
-            (* let%bind () = add_jay_instrumented legal_match.tag in *)
-            let pat' =
-              RecPat
-                (Ident_map.singleton (Ident "~actual_rec") (Some (Ident r_name)))
-            in
-            return @@ (pat', legal_match)
+            return @@ (RecPat ret_pat', rebind_vars)
   in
   let%bind new_pat_expr_lst =
     sequence @@ List.map pat_expr_list_changer pat_expr_lst
   in
   (* Return final match expression *)
-  return @@ new_expr_desc @@ Match (new_match_expr, new_pat_expr_lst)
+  let ret_ed = new_expr_desc @@ Match (new_match_expr, new_pat_expr_lst) in
+  let%bind is_instrumented' = is_jay_instrumented ret_ed.tag in
+  let () = if is_instrumented' then failwith "NO" else () in
+  return ret_ed
 
 (** Transform a let rec expression into one that uses functions. E.g. let rec f
     n = ... in f 10 becomes let f = fun f' a -> let f = f' f' in ... in let f''
@@ -294,6 +293,199 @@ let letrec_expr_to_fun recurse fun_sig_list rec_e_desc =
   let ret = new_expr_desc @@ ret_expr.body in
   return ret
 
+let rec encode_match_for_record (ed : expr_desc) : expr_desc m =
+  let%bind is_instrumented = is_jay_instrumented ed.tag in
+  let expr = ed.body in
+  let tag = ed.tag in
+  let transform_funsig (Funsig (f, xs, ed)) =
+    let%bind ed' = encode_match_for_record ed in
+    return @@ Funsig (f, xs, ed')
+  in
+  match expr with
+  | Int _ | Bool _ | Var _ | Error _ | Input -> return ed
+  | Function (xs, fed) ->
+      let%bind fed' = encode_match_for_record fed in
+      let f' = Function (xs, fed') in
+      return { tag; body = f' }
+  | Appl (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = Appl (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | Plus (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = Plus (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | Minus (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = Minus (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | Times (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = Times (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | Divide (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = Divide (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | Modulus (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = Modulus (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | Equal (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = Equal (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | Neq (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = Neq (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | LessThan (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = LessThan (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | Leq (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = Leq (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | GreaterThan (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = GreaterThan (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | Geq (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = Geq (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | And (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = And (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | Or (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = Or (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | ListCons (ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = ListCons (ed1', ed2') in
+      return @@ { tag; body = e' }
+  | Let (x, ed1, ed2) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let e' = Let (x, ed1', ed2') in
+      return @@ { tag; body = e' }
+  | LetRecFun (fun_sigs, ed) ->
+      let%bind fun_sigs' = fun_sigs |> List.map transform_funsig |> sequence in
+      let%bind ed' = encode_match_for_record ed in
+      let ed' = LetRecFun (fun_sigs', ed') in
+      return @@ { tag; body = ed' }
+  | LetFun (fun_sig, ed) ->
+      let%bind fun_sig' = transform_funsig fun_sig in
+      let%bind ed' = encode_match_for_record ed in
+      let ed' = LetFun (fun_sig', ed') in
+      return @@ { tag; body = ed' }
+  | Not ed1 ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let e' = Not ed1' in
+      return @@ { tag; body = e' }
+  | RecordProj (ed1, l) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let e' = RecordProj (ed1', l) in
+      return @@ { tag; body = e' }
+  | VariantExpr (vl, ed1) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let e' = VariantExpr (vl, ed1') in
+      return @@ { tag; body = e' }
+  | Assert ed1 ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let e' = Assert ed1' in
+      return @@ { tag; body = e' }
+  | Assume ed1 ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let e' = Assume ed1' in
+      return @@ { tag; body = e' }
+  | List eds ->
+      let%bind eds' = eds |> List.map encode_match_for_record |> sequence in
+      let e' = List eds' in
+      return @@ { tag; body = e' }
+  | If (ed1, ed2, ed3) ->
+      let%bind ed1' = encode_match_for_record ed1 in
+      let%bind ed2' = encode_match_for_record ed2 in
+      let%bind ed3' = encode_match_for_record ed3 in
+      let e' = If (ed1', ed2', ed3') in
+      return @@ { tag; body = e' }
+  | Record r ->
+      let%bind r' = ident_map_map_m encode_match_for_record r in
+      let e' = Record r' in
+      return @@ { tag; body = e' }
+  | Match (me, pes) ->
+      (* let () =
+           Fmt.pr
+             "\n\
+              This is the current ed: %a \n\
+             \ And its instrumentation status: %a \n\n"
+             Jay_ast_pp.pp_expr_desc_without_tag ed Fmt.bool is_instrumented
+         in *)
+      let%bind me' = encode_match_for_record me in
+      let%bind pes' =
+        pes
+        |> List.map (fun (p, ed) ->
+               let%bind ed' = encode_match_for_record ed in
+               return (p, ed'))
+        |> sequence
+      in
+      let%bind record_pat_expr_lst =
+        filter_m
+          (fun (pat, _) ->
+            match pat with
+            | RecPat rec_pat | StrictRecPat rec_pat ->
+                let%bind no_wrap = no_wrap rec_pat in
+                return @@ not no_wrap
+            | _ -> return false)
+          pes'
+      in
+      let%bind non_record_pat_expr_lst =
+        filter_m
+          (fun (pat, _) ->
+            match pat with
+            | RecPat rec_pat | StrictRecPat rec_pat ->
+                let%bind no_wrap = no_wrap rec_pat in
+                return @@ no_wrap
+            | _ -> return true)
+          pes'
+      in
+      if List.is_empty record_pat_expr_lst || is_instrumented
+      then
+        (* Return final match expression *)
+        return @@ new_expr_desc @@ Match (me', pes')
+      else
+        let%bind r_name = actual_rec_m in
+        let pat' =
+          RecPat (Ident_map.singleton (Ident "~actual_rec") (Some r_name))
+        in
+        let decl_lbls = new_expr_desc @@ RecordProj (me', Label "~decl_lbls") in
+        let%bind () = add_jay_instrumented decl_lbls.tag in
+        let inner_match =
+          new_expr_desc @@ Match (decl_lbls, record_pat_expr_lst)
+        in
+        (* let%bind () = add_jay_instrumented inner_match.tag in *)
+        let rec_pat_aggregate = (pat', inner_match) in
+        return @@ new_expr_desc
+        @@ Match (me', rec_pat_aggregate :: non_record_pat_expr_lst)
+
 let desugar (e : expr_desc) : expr_desc m =
   let transformer recurse e_desc =
     let tag = e_desc.tag in
@@ -319,14 +511,6 @@ let desugar (e : expr_desc) : expr_desc m =
         let%bind () = add_jay_expr_mapping expr' e_desc in
         let%bind () =
           if is_instrumented then add_jay_instrumented expr'.tag else return ()
-          (* let () = print_endline "-----------------" in
-             let () = print_endline @@ Jay_ast_pp.show_expr_desc e_desc in
-             failwith @@ "Not accounted for: tag = " ^ string_of_int tag *)
-        in
-        let () = print_endline @@ "This is the transformed match" in
-        let () =
-          print_endline
-          @@ (Pp_utils.pp_to_string Jay_ast_pp.pp_expr_desc_without_tag) expr'
         in
         return expr'
     | LetRecFun (fun_sig_list, rec_e) ->
@@ -336,4 +520,6 @@ let desugar (e : expr_desc) : expr_desc m =
     | _ -> return e_desc
   in
   let%bind ret_ed = m_transform_expr transformer e in
-  return ret_ed
+  let%bind res = encode_match_for_record ret_ed in
+  let%bind () = add_jay_expr_mapping res e in
+  return res

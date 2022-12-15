@@ -29,6 +29,11 @@ let check_wellformed_expr expression : unit =
   (let expression_non_unique_bindings = non_unique_bindings expression in
    if not (Var_set.is_empty expression_non_unique_bindings)
    then
+     let () =
+       Var_set.iter
+         (fun v -> print_endline @@ show_var v)
+         expression_non_unique_bindings
+     in
      let illformednesses =
        expression_non_unique_bindings |> Var_set.enum
        |> Enum.map (fun non_unique_binding ->
@@ -39,6 +44,12 @@ let check_wellformed_expr expression : unit =
   let expression_scope_violations = scope_violations expression in
   if not (List.is_empty expression_scope_violations)
   then
+    let () =
+      List.iter
+        (fun (v1, v2) ->
+          print_endline @@ "(" ^ show_var v1 ^ ", " ^ show_var v2 ^ ")")
+        expression_scope_violations
+    in
     let illformednesses =
       expression_scope_violations |> List.enum
       |> Enum.map (fun (program_point, dependency) ->

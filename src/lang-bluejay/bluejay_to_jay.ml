@@ -194,21 +194,27 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         in
         let base_acc = new_expr_desc @@ Record res_record in
         let%bind gen_expr = list_fold_left_m folder' base_acc lbl_to_var in
-        let actual_rec =
-          let decl_lbls =
-            Ident_map.keys r
-            |> Enum.fold
+        let%bind actual_rec =
+          let%bind decl_lbls =
+            Ident_map.key_list r
+            |> list_fold_left_m
                  (fun acc k ->
-                   Ident_map.add k (new_expr_desc @@ Record Ident_map.empty) acc)
+                   let%bind empty_rec =
+                     new_instrumented_ed @@ Record Ident_map.empty
+                   in
+                   return @@ Ident_map.add k empty_rec acc)
                  Ident_map.empty
           in
-          Ident_map.empty
-          |> Ident_map.add (Ident "~actual_rec") gen_expr
-          |> Ident_map.add (Ident "~decl_lbls")
-               (new_expr_desc @@ Record decl_lbls)
+          let%bind new_lbls_rec = new_instrumented_ed @@ Record decl_lbls in
+          let ret =
+            Ident_map.empty
+            |> Ident_map.add (Ident "~actual_rec") gen_expr
+            |> Ident_map.add (Ident "~decl_lbls") new_lbls_rec
+          in
+          return ret
         in
-        return
-        @@ Function ([ Ident "~null" ], new_expr_desc @@ Record actual_rec)
+        let%bind ret_rec = new_instrumented_ed @@ Record actual_rec in
+        return @@ Function ([ Ident "~null" ], ret_rec)
       in
       let%bind checker =
         (* Building the intial check for whether it's a record value *)
@@ -1135,15 +1141,16 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind e1_transformed = semantic_type_of e1 in
         if is_record_type t
         then
-          let new_lbls =
+          let%bind new_lbls =
             match t.body with
             | TypeRecord r ->
-                r |> Ident_map.keys
-                |> Enum.fold
+                r |> Ident_map.key_list
+                |> list_fold_left_m
                      (fun acc k ->
-                       Ident_map.add k
-                         (new_expr_desc @@ Record Ident_map.empty)
-                         acc)
+                       let%bind empty_rec =
+                         new_instrumented_ed @@ Record Ident_map.empty
+                       in
+                       return @@ Ident_map.add k empty_rec acc)
                      Ident_map.empty
             | _ ->
                 failwith
@@ -1154,11 +1161,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
             new_instrumented_ed
             @@ RecordProj (e1_transformed, Label "~actual_rec")
           in
+          let%bind new_lbls_rec = new_instrumented_ed @@ Record new_lbls in
           let new_rec =
             Ident_map.empty
             |> Ident_map.add (Ident "~actual_rec") actual_rec
-            |> Ident_map.add (Ident "~decl_lbls")
-                 (new_expr_desc @@ Record new_lbls)
+            |> Ident_map.add (Ident "~decl_lbls") new_lbls_rec
           in
           new_instrumented_ed @@ Record new_rec
         else return e1_transformed

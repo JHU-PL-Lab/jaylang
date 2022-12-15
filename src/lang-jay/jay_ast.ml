@@ -99,7 +99,7 @@ let counter = ref 0
 
 let fresh_tag () =
   let c = !counter in
-  counter := c + 1 ;
+  counter := c - 1 ;
   c
 
 let new_expr_desc : expr -> expr_desc =

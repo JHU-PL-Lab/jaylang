@@ -69,7 +69,7 @@ let get_expected_type_from_cls cls_body =
       @@ "Errors should only arise from unary/binary operations, function \
           application, record projection, or a conditional."
 
-let get_expected_type_from_pattern nat_pat =
+let get_expected_type_from_pattern jayjil_maps nat_pat =
   let open Jay.Jay_ast in
   match nat_pat with
   | AnyPat -> TopType
@@ -81,7 +81,10 @@ let get_expected_type_from_pattern nat_pat =
       RecType s
   | StrictRecPat m ->
       let s = Ident_set.of_enum @@ Ident_map.keys m in
-      RecType s
+      let t =
+        Jay_translate.Jay_to_jayil_maps.get_type_from_idents jayjil_maps s
+      in
+      t
   | VariantPat (vl, _) -> VariantType vl
   | VarPat _ -> failwith "Type unknown!"
   | EmptyLstPat | LstDestructPat _ -> ListType

@@ -606,7 +606,7 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
               let errors =
                 let mapper (pat, _) =
                   let expected_type =
-                    Sato_tools.get_expected_type_from_pattern pat
+                    Sato_tools.get_expected_type_from_pattern jayil_jay_maps pat
                   in
                   On_error.Error_match
                     {
@@ -826,6 +826,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
              ~f:
                (Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps)
       in
+      let () =
+        Fmt.pr "\n\n\nThese are the jayil_vars: %a\n\n\n"
+          (Fmt.list Ast_pp.pp_var) jayil_vars
+      in
       (* Getting all the aliases (for runtime value lookup) *)
       let alias_graph = interp_session.alias_graph in
       let jayil_vars_with_stack : Id_with_stack.t list =
@@ -852,6 +856,13 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         match xs with
         | [] -> failwith "Should at least find one value!"
         | hd :: tl -> (
+            let () = print_endline "please print" in
+            let () = print_endline "please print" in
+            let () = print_endline "please print" in
+            let () = print_endline "please print" in
+            let () = print_endline "please print" in
+            let () = Fmt.pr "Current lookup target: %a\n" Id_with_stack.pp hd in
+            let () = Out_channel.flush stdout in
             let found = Hashtbl.find vdef_mapping hd in
             match found with
             | Some (_, dv) -> (dv, hd)
