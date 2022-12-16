@@ -27,6 +27,9 @@ If you also want to install this project to opam and develop external project, r
 
 ```
 opam switch create ./ 4.14.0 --deps-only --description=jay-dev
+
+# Sometimes opam fails due to parallel installation of packages. To fix it
+opam install . --deps-only
 ```
 
 After that, you can install the develop tools
