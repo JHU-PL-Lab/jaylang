@@ -1,2 +1,3 @@
+let fun_sig = {: b : int :} -> int in
 let f (x : {: a : int :}) : int = x.a in
-f
+let (type_check : fun_sig) = f in 1

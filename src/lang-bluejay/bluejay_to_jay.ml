@@ -195,7 +195,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           let res = new_expr_desc @@ Let (lbl_var, appl_ed, acc) in
           return res
         in
-        let base_acc = new_expr_desc @@ Record res_record in
+        let%bind base_acc = new_instrumented_ed @@ Record res_record in
         let%bind gen_expr = list_fold_left_m folder' base_acc lbl_to_var in
         let%bind actual_rec =
           let%bind decl_lbls =
@@ -1950,7 +1950,8 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
               @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
             in
             let%bind assert_cls =
-              new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
+              (* new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false) *)
+              new_instrumented_ed @@ Assert (new_expr_desc @@ Var arg_check)
             in
             let%bind cond =
               new_instrumented_ed
