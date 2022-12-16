@@ -1,0 +1,9 @@
+let sample_module =
+{ t = List 'a,
+  emptyset = [],
+  add = fun x -> fun s -> (x :: s)
+}
+in
+let module_type = {: emptyset : List 'a, add : ('a -> List 'a -> List 'a) :}
+in
+let (check_type : module_type) = sample_module in sample_module
