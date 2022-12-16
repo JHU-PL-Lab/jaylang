@@ -118,7 +118,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let%bind res = new_instrumented_ed @@ Record rec_map in
+      let res = new_expr_desc @@ Record rec_map in
       (* Keeping track of which original expression this transformed expr
          corresponds to. Useful when we need to reconstruct the original expr
          later in error reporting. *)
@@ -160,7 +160,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let%bind res = new_instrumented_ed @@ Record rec_map in
+      let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeRecord r ->
@@ -183,8 +183,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind res_record = list_fold_left_m folder empty_record lbl_to_var in
         let folder' acc (_, lbl_var, cur_t) =
           let%bind gc_pair = semantic_type_of cur_t in
+          let%bind proj_ed_inner =
+            new_instrumented_ed @@ RecordProj (gc_pair, Label "~actual_rec")
+          in
           let%bind proj_ed =
-            new_instrumented_ed @@ RecordProj (gc_pair, Label "generator")
+            new_instrumented_ed @@ RecordProj (proj_ed_inner, Label "generator")
           in
           let%bind appl_ed =
             new_instrumented_ed @@ Appl (proj_ed, new_expr_desc @@ Int 0)
@@ -235,8 +238,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let fold_fun expr_a (lbl, t) =
           let%bind lbl_check_id = fresh_ident "lbl_check" in
           let%bind cur_gc_pair = semantic_type_of t in
+          let%bind proj_ed_1_inner =
+            new_instrumented_ed @@ RecordProj (cur_gc_pair, Label "~actual_rec")
+          in
           let%bind proj_ed_1 =
-            new_instrumented_ed @@ RecordProj (cur_gc_pair, Label "checker")
+            new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
           in
           (* let%bind proj_ed_2 =
                new_instrumented_ed
@@ -256,8 +262,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         in
         let first_lbl, first_type = List.hd all_bindings in
         let%bind gc_pair_fst = semantic_type_of first_type in
+        let%bind proj_ed_3_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair_fst, Label "~actual_rec")
+        in
         let%bind proj_ed_3 =
-          new_instrumented_ed @@ RecordProj (gc_pair_fst, Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_3_inner, Label "checker")
         in
         (* let%bind proj_ed_4 =
              new_instrumented_ed
@@ -303,7 +312,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let%bind res = new_instrumented_ed @@ Record rec_map in
+      let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeList l ->
@@ -314,8 +323,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind len_id = fresh_ident "len" in
         let%bind maker_id = fresh_ident "list_maker" in
         let%bind elm_id = fresh_ident "elm" in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair_g, Label "~actual_rec")
+        in
         let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (gc_pair_g, Label "generator")
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "generator")
         in
         let%bind appl_ed_1 =
           new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Int 0)
@@ -372,8 +384,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind expr_id = fresh_ident "expr" in
         let%bind lst_check_fail = fresh_ident "lst_fail" in
         let%bind test_fun =
+          let%bind proj_ed_1_inner =
+            new_instrumented_ed @@ RecordProj (gc_pair_c, Label "~actual_rec")
+          in
           let%bind proj_ed_1 =
-            new_instrumented_ed @@ RecordProj (gc_pair_c, Label "checker")
+            new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
           in
           let%bind appl_ed_1 =
             new_instrumented_ed
@@ -438,7 +453,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let%bind res = new_instrumented_ed @@ Record rec_map in
+      let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeArrow (t1, t2) ->
@@ -458,15 +473,23 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed @@ Assert (new_expr_desc @@ Var fail_id)
         in
         let fail_cls = Let (fail_id, new_expr_desc @@ Bool false, assert_cls) in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed
+          @@ RecordProj (gc_pair_dom_gen, Label "~actual_rec")
+        in
         let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (gc_pair_dom_gen, Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
         let%bind appl_ed_1 =
           new_instrumented_ed
           @@ Appl (proj_ed_1, new_expr_desc @@ Var arg_assume)
         in
+        let%bind proj_ed_2_inner =
+          new_instrumented_ed
+          @@ RecordProj (gc_pair_cod_gen, Label "~actual_rec")
+        in
         let%bind proj_ed_2 =
-          new_instrumented_ed @@ RecordProj (gc_pair_cod_gen, Label "generator")
+          new_instrumented_ed @@ RecordProj (proj_ed_2_inner, Label "generator")
         in
         let%bind appl_ed_2 =
           new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
@@ -491,16 +514,23 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed
           @@ Appl (new_expr_desc @@ Var expr_id, new_expr_desc @@ Var arg_assert)
         in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed
+          @@ RecordProj (gc_pair_cod_check, Label "~actual_rec")
+        in
         let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (gc_pair_cod_check, Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
         let%bind appl_ed_2 =
           new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var ret_id)
         in
         let codom_check = Let (ret_id, appl_ed_1, appl_ed_2) in
-        let%bind proj_ed_2 =
+        let%bind proj_ed_2_inner =
           new_instrumented_ed
-          @@ RecordProj (gc_pair_dom_check, Label "generator")
+          @@ RecordProj (gc_pair_dom_check, Label "~actual_rec")
+        in
+        let%bind proj_ed_2 =
+          new_instrumented_ed @@ RecordProj (proj_ed_2_inner, Label "generator")
         in
         let%bind appl_ed_3 =
           new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
@@ -513,7 +543,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let%bind res = new_instrumented_ed @@ Record rec_map in
+      let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeArrowD ((x1, t1), t2) ->
@@ -529,14 +559,20 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         (* Same as a normal function type, we need to first check whether we have
            a correctly typed input given to us. *)
         (* TODO: Fix error reporting for incorrect input *)
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair_dom_g, Label "~actual_rec")
+        in
         let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (gc_pair_dom_g, Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
         let%bind appl_ed_1 =
           new_instrumented_ed @@ mk_gc_pair_cod gc_pair_cod_g arg_assume
         in
+        let%bind proj_ed_2_inner =
+          new_instrumented_ed @@ RecordProj (appl_ed_1, Label "~actual_rec")
+        in
         let%bind proj_ed_2 =
-          new_instrumented_ed @@ RecordProj (appl_ed_1, Label "generator")
+          new_instrumented_ed @@ RecordProj (proj_ed_2_inner, Label "generator")
         in
         let%bind appl_ed_2 =
           new_instrumented_ed
@@ -573,15 +609,21 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed
           @@ Appl (new_expr_desc @@ Var expr_id, new_expr_desc @@ Var arg_assert)
         in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair_cod', Label "~actual_rec")
+        in
         let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (gc_pair_cod', Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
         let%bind appl_ed_3 =
           new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var ret_id)
         in
         let codom_check = Let (ret_id, appl_ed_2, appl_ed_3) in
+        let%bind proj_ed_2_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair_dom_c, Label "~actual_rec")
+        in
         let%bind proj_ed_2 =
-          new_instrumented_ed @@ RecordProj (gc_pair_dom_c, Label "generator")
+          new_instrumented_ed @@ RecordProj (proj_ed_2_inner, Label "generator")
         in
         let%bind appl_ed_4 =
           new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
@@ -594,7 +636,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let%bind res = new_instrumented_ed @@ Record rec_map in
+      let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeSet (t, p) ->
@@ -616,8 +658,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
                  new_expr_desc @@ Var candidate,
                  new_expr_desc @@ Assume (new_expr_desc @@ Bool false) )
         in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair_g, Label "~actual_rec")
+        in
         let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (gc_pair_g, Label "generator")
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "generator")
         in
         let%bind appl_ed_2 =
           new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Int 0)
@@ -661,8 +706,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
                  new_expr_desc @@ check_pred,
                  new_expr_desc @@ Var t_check_id )
         in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair_c, Label "~actual_rec")
+        in
         let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (gc_pair_c, Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
         let%bind appl_ed_1 =
           new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var expr_id)
@@ -681,7 +729,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let%bind res = new_instrumented_ed @@ Record rec_map in
+      let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeUnion (t1, t2) ->
@@ -695,14 +743,20 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed
           @@ Geq (new_expr_desc @@ Var select_int, new_expr_desc @@ Int 0)
         in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair1_g, Label "~actual_rec")
+        in
         let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (gc_pair1_g, Label "generator")
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "generator")
         in
         let%bind appl_ed_1 =
           new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Int 0)
         in
+        let%bind proj_ed_2_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair2_g, Label "~actual_rec")
+        in
         let%bind proj_ed_2 =
-          new_instrumented_ed @@ RecordProj (gc_pair2_g, Label "generator")
+          new_instrumented_ed @@ RecordProj (proj_ed_2_inner, Label "generator")
         in
         let%bind appl_ed_2 =
           new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
@@ -728,8 +782,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let fail_pat_cls_2 = new_expr_desc @@ Var fail_id in
         let tested_expr_1 = new_expr_desc @@ Var expr_id in
         let tested_expr_2 = new_expr_desc @@ Var expr_id in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair2_c, Label "~actual_rec")
+        in
         let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (gc_pair2_c, Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
         let%bind appl_ed_1 =
           new_instrumented_ed @@ Appl (proj_ed_1, tested_expr_1)
@@ -738,8 +795,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed
           @@ If (appl_ed_1, new_expr_desc @@ Bool true, fail_pat_cls_1)
         in
+        let%bind proj_ed_2_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair1_c, Label "~actual_rec")
+        in
         let%bind proj_ed_2 =
-          new_instrumented_ed @@ RecordProj (gc_pair1_c, Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_2_inner, Label "checker")
         in
         let%bind appl_ed_2 =
           new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Var expr_id)
@@ -748,8 +808,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed
           @@ If (appl_ed_2, new_expr_desc @@ Bool true, checker1_inner)
         in
+        let%bind proj_ed_3_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair1_c', Label "~actual_rec")
+        in
         let%bind proj_ed_3 =
-          new_instrumented_ed @@ RecordProj (gc_pair1_c', Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_3_inner, Label "checker")
         in
         let%bind appl_ed_3 =
           new_instrumented_ed @@ Appl (proj_ed_3, tested_expr_2)
@@ -758,8 +821,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed
           @@ If (appl_ed_3, new_expr_desc @@ Bool true, fail_pat_cls_2)
         in
+        let%bind proj_ed_4_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair2_c', Label "~actual_rec")
+        in
         let%bind proj_ed_4 =
-          new_instrumented_ed @@ RecordProj (gc_pair2_c', Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_4_inner, Label "checker")
         in
         let%bind appl_ed_4 =
           new_instrumented_ed @@ Appl (proj_ed_4, new_expr_desc @@ Var expr_id)
@@ -797,7 +863,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let%bind res = new_instrumented_ed @@ Record rec_map in
+      let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeIntersect (t1, t2) ->
@@ -847,17 +913,25 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
             | TypeArrow (t1, t2) ->
                 let%bind gc_pair_dom_g = semantic_type_of t1 in
                 let%bind gc_pair_cod_g = semantic_type_of t2 in
+                let%bind proj_ed_1_inner =
+                  new_instrumented_ed
+                  @@ RecordProj (gc_pair_dom_g, Label "~actual_rec")
+                in
                 let%bind proj_ed_1 =
                   new_instrumented_ed
-                  @@ RecordProj (gc_pair_dom_g, Label "checker")
+                  @@ RecordProj (proj_ed_1_inner, Label "checker")
                 in
                 let%bind appl_ed_1 =
                   new_instrumented_ed
                   @@ Appl (proj_ed_1, new_expr_desc @@ Var arg)
                 in
+                let%bind proj_ed_2_inner =
+                  new_instrumented_ed
+                  @@ RecordProj (gc_pair_cod_g, Label "~actual_rec")
+                in
                 let%bind proj_ed_2 =
                   new_instrumented_ed
-                  @@ RecordProj (gc_pair_cod_g, Label "generator")
+                  @@ RecordProj (proj_ed_2_inner, Label "generator")
                 in
                 let%bind appl_ed_2 =
                   new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
@@ -872,17 +946,25 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
                   let%bind cod_g = semantic_type_of t2 in
                   return @@ new_expr_desc @@ mk_gc_pair_cod x cod_g arg
                 in
+                let%bind proj_ed_1_inner =
+                  new_instrumented_ed
+                  @@ RecordProj (gc_pair_dom_g, Label "~actual_rec")
+                in
                 let%bind proj_ed_1 =
                   new_instrumented_ed
-                  @@ RecordProj (gc_pair_dom_g, Label "checker")
+                  @@ RecordProj (proj_ed_1_inner, Label "checker")
                 in
                 let%bind appl_ed_1 =
                   new_instrumented_ed
                   @@ Appl (proj_ed_1, new_expr_desc @@ Var arg)
                 in
+                let%bind proj_ed_2_inner =
+                  new_instrumented_ed
+                  @@ RecordProj (gc_pair_cod_g, Label "~actual_rec")
+                in
                 let%bind proj_ed_2 =
                   new_instrumented_ed
-                  @@ RecordProj (gc_pair_cod_g, Label "generator")
+                  @@ RecordProj (proj_ed_2_inner, Label "generator")
                 in
                 let%bind appl_ed_2 =
                   new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
@@ -919,8 +1001,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           let%bind gc_pair1_g = semantic_type_of t1 in
           let%bind gc_pair2_g = semantic_type_of t2 in
           let%bind candidate_var = fresh_ident "candidate" in
+          let%bind proj_ed_1_inner =
+            new_instrumented_ed @@ RecordProj (gc_pair2_g, Label "~actual_rec")
+          in
           let%bind proj_ed_1 =
-            new_instrumented_ed @@ RecordProj (gc_pair2_g, Label "checker")
+            new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
           in
           let%bind appl_ed_1 =
             new_instrumented_ed
@@ -933,8 +1018,12 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
                    new_expr_desc @@ Var candidate_var,
                    new_expr_desc @@ Assume (new_expr_desc @@ Bool false) )
           in
+          let%bind proj_ed_2_inner =
+            new_instrumented_ed @@ RecordProj (gc_pair1_g, Label "~actual_rec")
+          in
           let%bind proj_ed_2 =
-            new_instrumented_ed @@ RecordProj (gc_pair1_g, Label "generator")
+            new_instrumented_ed
+            @@ RecordProj (proj_ed_2_inner, Label "generator")
           in
           let%bind appl_ed_2 =
             new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
@@ -954,8 +1043,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let fail_pat_cls_1 = new_expr_desc @@ Var check_id in
         let fail_pat_cls_2 = new_expr_desc @@ Var check_id2 in
         let tested_expr = new_expr_desc @@ Var expr_id in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair2_c, Label "~actual_rec")
+        in
         let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (gc_pair2_c, Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
         let%bind appl_ed_1 =
           new_instrumented_ed @@ Appl (proj_ed_1, tested_expr)
@@ -968,8 +1060,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
                  new_expr_desc @@ check_t2,
                  fail_pat_cls_1 )
         in
+        let%bind proj_ed_2_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair1_c, Label "~actual_rec")
+        in
         let%bind proj_ed_2 =
-          new_instrumented_ed @@ RecordProj (gc_pair1_c, Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_2_inner, Label "checker")
         in
         let%bind appl_ed_2 =
           new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Var expr_id)
@@ -993,7 +1088,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let%bind res = new_instrumented_ed @@ Record rec_map in
+      let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeRecurse (t_var, t') ->
@@ -1081,7 +1176,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
-      let%bind res = new_instrumented_ed @@ Record rec_map in
+      let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | Int n ->
@@ -1378,16 +1473,23 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
             appl_ed_1 (List.tl arg_ids)
         in
         let%bind ret_type_core = bluejay_to_jay ret_type in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (ret_type_core, Label "~actual_rec")
+        in
         let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (ret_type_core, Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
         let%bind check_ret = new_instrumented_ed @@ Appl (proj_ed_1, mk_appl) in
         let%bind check_expr =
           list_fold_right_m
             (fun (arg, t) acc ->
               let%bind t' = bluejay_to_jay t in
+              let%bind proj_ed_2_inner =
+                new_instrumented_ed @@ RecordProj (t', Label "~actual_rec")
+              in
               let%bind proj_ed_2 =
-                new_instrumented_ed @@ RecordProj (t', Label "generator")
+                new_instrumented_ed
+                @@ RecordProj (proj_ed_2_inner, Label "generator")
               in
               let%bind appl_ed_3 =
                 new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
@@ -1404,8 +1506,11 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
           new_instrumented_ed
           @@ Appl (new_expr_desc @@ Var f, new_expr_desc @@ Var arg_id)
         in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (ret_type_core, Label "~actual_rec")
+        in
         let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (ret_type_core, Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
         let%bind checker' =
           new_instrumented_ed
@@ -1414,8 +1519,11 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
                  new_expr_desc @@ Var arg_id )
         in
         let%bind check_ret = new_instrumented_ed @@ Appl (checker', appl_res) in
+        let%bind proj_ed_2_inner =
+          new_instrumented_ed @@ RecordProj (t', Label "~actual_rec")
+        in
         let%bind proj_ed_2 =
-          new_instrumented_ed @@ RecordProj (t', Label "generator")
+          new_instrumented_ed @@ RecordProj (proj_ed_2_inner, Label "generator")
         in
         let%bind appl_ed_1 =
           new_instrumented_ed @@ Appl (proj_ed_2, new_expr_desc @@ Int 0)
@@ -1494,8 +1602,11 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
           new_instrumented_ed
           @@ If (new_expr_desc @@ Var check_res, e2', error_cls)
         in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (type_decl', Label "~actual_rec")
+        in
         let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (type_decl', Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
         let%bind appl_ed_1 =
           new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var x)
@@ -1827,8 +1938,12 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
           else
             let%bind eta_arg = fresh_ident p in
             let%bind arg_check = fresh_ident "arg_check" in
+            let%bind proj_ed_1_inner =
+              new_instrumented_ed @@ RecordProj (t, Label "~actual_rec")
+            in
             let%bind proj_ed_1 =
-              new_instrumented_ed @@ RecordProj (t, Label "checker")
+              new_instrumented_ed
+              @@ RecordProj (proj_ed_1_inner, Label "checker")
             in
             let%bind check_arg =
               new_instrumented_ed
@@ -1869,8 +1984,11 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
     | DTyped_funsig (f, ((Ident p as param), t), (f_body, ret_type)) ->
         let%bind eta_arg = fresh_ident p in
         let%bind arg_check = fresh_ident "arg_check" in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (t, Label "~actual_rec")
+        in
         let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (t, Label "checker")
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
         let%bind check_arg =
           new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)

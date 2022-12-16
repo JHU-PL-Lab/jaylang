@@ -1,8 +1,10 @@
-let sample_module = 
+let sample_functor = fun t -> 
+    let f (module : {: a : int :}) = 
     let t = bool in
     { type = { t = t },
     module = 
     { emptyset = 1 }}
+    in f
 in
 let module_type = (fun t -> {: emptyset : t :}) 
 in
@@ -12,3 +14,6 @@ let (check_type : module_type_check) = sample_module.module in sample_module
 
 
 
+let type_sig = (t : {: a : int, b : int :}) -> int in
+let f (x : {: a : int :}) : int = x.a in
+let (check_type : type_sig) = f in 1  
