@@ -1392,6 +1392,12 @@ let get_dependent_fun_var (ed : syn_bluejay_edesc) : ident =
 let is_record_type : type a. a expr_desc -> bool =
  fun ed -> match ed.body with TypeRecord _ -> true | _ -> false
 
+let is_record_pat (p : pattern) : bool =
+  match p with
+  | StrictRecPat rec_pat | RecPat rec_pat ->
+      not @@ Ident_map.mem (Ident "~untouched") rec_pat
+  | _ -> false
+
 let rec is_subtype (ed1 : syn_bluejay_edesc) (ed2 : syn_bluejay_edesc) : bool =
   if tagless_equal_expr_desc ed1 ed2
   then true

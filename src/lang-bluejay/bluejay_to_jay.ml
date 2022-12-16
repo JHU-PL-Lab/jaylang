@@ -1668,22 +1668,34 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         in
         let%bind () = add_core_to_sem_mapping res e_desc in
         return res
-    | RecordProj (e, l) ->
+    | RecordProj (e, (Label l as lbl)) ->
         let%bind e' = bluejay_to_jay e in
         let%bind res =
           if instrumented_bool
-          then return @@ new_expr_desc @@ RecordProj (e', l)
+          then return @@ new_expr_desc @@ RecordProj (e', lbl)
           else
+            let%bind decl_lbls =
+              new_instrumented_ed @@ RecordProj (e', Label "~decl_lbls")
+            in
+            let pat = RecPat (Ident_map.singleton (Ident l) None) in
+            let%bind assert_cls =
+              new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
+            in
             let%bind inner_projection =
               new_instrumented_ed @@ RecordProj (e', Label "~actual_rec")
             in
-            return @@ new_expr_desc @@ RecordProj (inner_projection, l)
+            let%bind proj_ed =
+              new_instrumented_ed @@ RecordProj (inner_projection, lbl)
+            in
+            let%bind check_lbls =
+              new_instrumented_ed
+              @@ Match (decl_lbls, [ (pat, proj_ed); (AnyPat, assert_cls) ])
+            in
+            return @@ check_lbls
         in
         let%bind () = add_core_to_sem_mapping res e_desc in
         return res
     | Match (e, pattern_expr_lst) ->
-        (* if instrumented_bool
-           then *)
         let%bind e' = bluejay_to_jay e in
         let mapper (pat, expr) =
           let%bind expr' = bluejay_to_jay expr in
@@ -1692,36 +1704,71 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         let%bind pattern_expr_lst' =
           pattern_expr_lst |> List.map mapper |> sequence
         in
-        let res = new_expr_desc @@ Match (e', pattern_expr_lst') in
-        let%bind () = add_core_to_sem_mapping res e_desc in
-        return res
-        (* else
-           let%bind e' = bluejay_to_jay e in
-           let mapper (pat, expr) =
-             match pat with
-             | AnyPat | IntPat | BoolPat | FunPat | StrictRecPat _ | VariantPat _
-             | VarPat _ | EmptyLstPat | LstDestructPat _ ->
-                 let%bind expr' = bluejay_to_jay expr in
-                 return @@ (pat, expr')
-             | RecPat rec_pat ->
-                 let%bind expr' = bluejay_to_jay expr in
-                 let%bind decl_lbls =
-                   new_instrumented_ed @@ RecordProj (e', Label "~decl_lbls")
-                 in
-                 let%bind legal_match =
-                   new_instrumented_ed
-                   @@ Match (decl_lbls, [ (RecPat rec_pat, expr') ])
-                 in
-                 let pat' = RecPat
-                 (Ident_map.singleton (Ident "~actual_rec") None) in
-                 return @@ (pat', legal_match)
-           in
-           let%bind pattern_expr_lst' =
-             pattern_expr_lst |> List.map mapper |> sequence
-           in
-           let res = new_expr_desc @@ Match (e', pattern_expr_lst') in
-           let%bind () = add_core_to_sem_mapping res e_desc in
-           return res *)
+        let rec_pat_expr_lst =
+          List.filter
+            (fun (p, _) -> Bluejay_ast_internal.is_record_pat p)
+            pattern_expr_lst'
+        in
+        if instrumented_bool || List.is_empty rec_pat_expr_lst
+        then
+          let res = new_expr_desc @@ Match (e', pattern_expr_lst') in
+          let%bind () = add_core_to_sem_mapping res e_desc in
+          return res
+        else
+          let%bind actual_rec_str = fresh_ident "actual_rec" in
+          let pat' =
+            RecPat
+              (Ident_map.singleton (Ident "~actual_rec") (Some actual_rec_str))
+          in
+          let%bind decl_lbls =
+            new_instrumented_ed @@ RecordProj (e', Label "~decl_lbls")
+          in
+          let%bind rec_pat_expr_lst' =
+            let mapper (p, ed) =
+              match p with
+              | StrictRecPat rec_pat | RecPat rec_pat ->
+                  let lbl_to_vars = Ident_map.bindings rec_pat in
+                  let%bind rebind_vars =
+                    List.fold
+                      (fun acc_m (Ident l, x_opt) ->
+                        match x_opt with
+                        | Some x ->
+                            let%bind acc = acc_m in
+                            let%bind get_cur_proj =
+                              new_instrumented_ed
+                              @@ RecordProj
+                                   (new_expr_desc @@ Var actual_rec_str, Label l)
+                            in
+                            let new_binding =
+                              new_expr_desc @@ Let (x, get_cur_proj, acc)
+                            in
+                            return @@ new_binding
+                        | None -> acc_m)
+                      (return ed) lbl_to_vars
+                  in
+                  return (p, rebind_vars)
+              | _ ->
+                  failwith
+                    "bluejay_to_jay: should only be called with record \
+                     patterns!"
+            in
+            rec_pat_expr_lst |> List.map mapper |> sequence
+          in
+          let inner_match =
+            new_expr_desc @@ Match (decl_lbls, rec_pat_expr_lst')
+          in
+          let rec_pat_aggregate = (pat', inner_match) in
+          let non_rec_pat_expr_lst =
+            List.filter
+              (fun (p, _) -> not @@ Bluejay_ast_internal.is_record_pat p)
+              pattern_expr_lst'
+          in
+          let res =
+            new_expr_desc
+            @@ Match (e', rec_pat_aggregate :: non_rec_pat_expr_lst)
+          in
+          let%bind () = add_core_to_sem_mapping res e_desc in
+          return res
     | VariantExpr (lbl, e) ->
         let%bind e' = bluejay_to_jay e in
         let res = new_expr_desc @@ VariantExpr (lbl, e') in
