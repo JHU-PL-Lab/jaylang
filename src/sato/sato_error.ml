@@ -826,10 +826,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
              ~f:
                (Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps)
       in
-      let () =
-        Fmt.pr "\n\n\nThese are the jayil_vars: %a\n\n\n"
-          (Fmt.list Ast_pp.pp_var) jayil_vars
-      in
+      (* let () =
+           Fmt.pr "\n\n\nThese are the jayil_vars: %a\n\n\n"
+             (Fmt.list Ast_pp.pp_var) jayil_vars
+         in *)
       (* Getting all the aliases (for runtime value lookup) *)
       let alias_graph = interp_session.alias_graph in
       let jayil_vars_with_stack : Id_with_stack.t list =
@@ -856,13 +856,6 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         match xs with
         | [] -> failwith "Should at least find one value!"
         | hd :: tl -> (
-            let () = print_endline "please print" in
-            let () = print_endline "please print" in
-            let () = print_endline "please print" in
-            let () = print_endline "please print" in
-            let () = print_endline "please print" in
-            let () = Fmt.pr "Current lookup target: %a\n" Id_with_stack.pp hd in
-            let () = Out_channel.flush stdout in
             let found = Hashtbl.find vdef_mapping hd in
             match found with
             | Some (_, dv) -> (dv, hd)
@@ -878,11 +871,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let check_aliases_for_type (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
           Bluejay_ast_internal.syn_bluejay_edesc option =
         let jayil_vars =
-          ed
-          |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps
-          |> Bluejay_to_jay_maps.wrapped_bluejay_from_unwrapped_bluejay
-               bluejay_jay_maps
-          |> Option.value_exn
+          ed |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps |> fun ed' ->
+          Option.value ~default:ed'
+            (Bluejay_to_jay_maps.wrapped_bluejay_from_unwrapped_bluejay
+               bluejay_jay_maps ed')
           |> Bluejay_to_jay_maps.get_core_expr_from_sem_expr bluejay_jay_maps
           |> Option.value_exn |> Bluejay_ast_internal.to_jay_expr_desc
           |> Jay_translate.Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr

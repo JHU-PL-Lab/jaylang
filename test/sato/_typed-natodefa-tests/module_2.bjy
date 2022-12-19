@@ -1,19 +1,19 @@
-let sample_functor = fun t -> 
-    let f (module : {: a : int :}) = 
+let sample_functor module =
+    let t = bool in 
+    { type = {t = t}
+    , module = {empty = module.emptyset} 
+    }
+in
+let sample_module = 
     let t = bool in
     { type = { t = t },
     module = 
     { emptyset = 1 }}
-    in f
 in
-let module_type = (fun t -> {: emptyset : t :}) 
-in
-let inner_t = (sample_module.type).t in
-let module_type_check = module_type inner_t in
-let (check_type : module_type_check) = sample_module.module in sample_module
+let res_module_type = fun t -> {: empty : t :} in
+let functor_appld = sample_functor sample_module in
+let inner_t = (functor_appld.type).t in
+let module_type_check = res_module_type inner_t in
+let (check_type : module_type_check) = functor_appld.module in functor_appld
 
 
-
-let type_sig = (t : {: a : int, b : int :}) -> int in
-let f (x : {: a : int :}) : int = x.a in
-let (check_type : type_sig) = f in 1  

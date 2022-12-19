@@ -1,3 +1,5 @@
+# dbmc: times out
+
 let rec map (mf : 'a -> 'b) (l : List 'a) : List 'b =
     match l with
     | [] -> []

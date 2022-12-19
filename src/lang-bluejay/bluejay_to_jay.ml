@@ -1981,6 +1981,7 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
         let fun_sig' =
           Typed_funsig (f, typed_params', (wrapped_f, ret_type'))
         in
+        let%bind () = add_wrapped_to_unwrapped_mapping wrapped_f f_body in
         return fun_sig'
     | DTyped_funsig (f, ((Ident p as param), t), (f_body, ret_type)) ->
         let%bind eta_arg = fresh_ident p in
