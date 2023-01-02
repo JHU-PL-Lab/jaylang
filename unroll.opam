@@ -3,7 +3,7 @@ opam-version: "2.0"
 description: "Unroll is a library to search unbounded cases"
 maintainer: ["JHU PL Lab <pl.cs@jhu.edu>"]
 authors: ["JHU PL Lab <pl.cs@jhu.edu>"]
-license: "Apache"
+license: "Apache-2.0"
 homepage: "https://github.com/JHU-PL-Lab/jaylang"
 bug-reports: "https://github.com/JHU-PL-Lab/jaylang/issues"
 depends: [
