@@ -35,69 +35,36 @@ and t = {
 [@@deriving sexp, equal, show { with_path = false }]
 (* [@@deriving sexp, equal] *)
 
+let dedup_whitespace s =
+  s
+  |> String.substr_replace_all ~pattern:"\n" ~with_:" "
+  |> String.split ~on:' '
+  |> List.filter ~f:(fun s -> not @@ String.is_empty s)
+  |> String.concat ~sep:" "
+
 let clean_up_error_str err =
   match err with
   | Match_error { m_value = xs, v; expected_type = t1; actual_type = t2 } ->
-      let xs' =
-        xs
-        |> List.map ~f:(String.substr_replace_all ~pattern:"\n" ~with_:" ")
-        |> List.map ~f:(String.substr_replace_all ~pattern:"  " ~with_:" ")
-      in
-      let v' =
-        v
-        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
-        |> String.substr_replace_all ~pattern:"  " ~with_:" "
-      in
-      let t1' =
-        t1
-        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
-        |> String.substr_replace_all ~pattern:"  " ~with_:" "
-      in
-      let t2' =
-        t2
-        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
-        |> String.substr_replace_all ~pattern:"  " ~with_:" "
-      in
+      let xs' = xs |> List.map ~f:dedup_whitespace in
+      let v' = v |> dedup_whitespace in
+      let t1' = t1 |> dedup_whitespace in
+      let t2' = t2 |> dedup_whitespace in
       Match_error
         { m_value = (xs', v'); expected_type = t1'; actual_type = t2' }
   | Value_error { v_value = xs, v } ->
-      let xs' =
-        xs
-        |> List.map ~f:(String.substr_replace_all ~pattern:"\n" ~with_:" ")
-        |> List.map ~f:(String.substr_replace_all ~pattern:"  " ~with_:" ")
-      in
-      let v' =
-        v
-        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
-        |> String.substr_replace_all ~pattern:"  " ~with_:" "
-      in
+      let xs' = xs |> List.map ~f:dedup_whitespace in
+      let v' = v |> dedup_whitespace in
       Value_error { v_value = (xs', v') }
   | Type_error { t_var = x; t_expected_type = t1; t_actual_type = t2 } ->
-      let x' =
-        x
-        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
-        |> String.substr_replace_all ~pattern:"  " ~with_:" "
-      in
-      let t1' =
-        t1
-        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
-        |> String.substr_replace_all ~pattern:"  " ~with_:" "
-      in
-      let t2' =
-        t2
-        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
-        |> String.substr_replace_all ~pattern:"  " ~with_:" "
-      in
+      let x' = x |> dedup_whitespace in
+      let t1' = t1 |> dedup_whitespace in
+      let t2' = t2 |> dedup_whitespace in
       Type_error { t_var = x'; t_expected_type = t1'; t_actual_type = t2' }
 
 let clean_up_t t =
   match t with
   | { found_at_clause = cls; number_of_errors = n; error_list = errs } ->
-      let cls' =
-        cls
-        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
-        |> String.substr_replace_all ~pattern:"  " ~with_:" "
-      in
+      let cls' = cls |> dedup_whitespace in
       let errs' = errs |> List.map ~f:clean_up_error_str in
       { found_at_clause = cls'; number_of_errors = n; error_list = errs' }
 
@@ -109,24 +76,29 @@ let load_sexp_expectation_for testpath =
 
 (*
 ** Bluejay Type Errors **
-- Input sequence  : -1,0,-39
-- Found at clause : let main (n : int) : {int | fun c
- -> c < 0} = if n >= 0 then f n (h n) else 1 in main
+- Input sequence  : 0,1,-1
+- Found at clause : let rec 
+          prepend (l1 : [int])  (l2 : [bool])
+           : [int] = match l2 with 
+                                     | [] -> l1
+                                     | hd :: tl -> prepend (hd :: l1) tl
+                                    end
+ in prepend
 --------------------
-* Value    : main
-* Expected : (int -> {int | fun c -> c < 0})
-* Actual   : (int -> {int | Predicate Violated!})
+* Value    : prepend
+* Expected : ([int] -> ([bool] -> [int]))
+* Actual   : ([int] -> ([bool] -> [bool]))
 *)
 
 (* let t1 : t = {
-           found_at_clause = "let main (n : int) : {int | fun c -> c < 0} = if n >= 0 then f n (h n) else 1 in main";
+           found_at_clause = "let rec prepend (l1 : [int])  (l2 : [bool]) : [int] = match l2 with | [] -> l1 | hd :: tl -> prepend (hd :: l1) tl end";
            number_of_errors = 1;
            error_list =
            [
             (Type_error {
-              t_var = "main";
-              t_expected_type = "(int -> {int | fun c -> c < 0})";
-              t_actual_type = "(int -> {int | Predicate Violated!})";
+              t_var = "prepend";
+              t_expected_type = "([int] -> ([bool] -> [int]))";
+              t_actual_type = "([int] -> ([bool] -> [bool]))";
             });
            ]
          }
