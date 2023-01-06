@@ -26,6 +26,15 @@ let pp_ident_map pp_value formatter map =
       pp_value formatter v)
     formatter (Ident_map.enum map)
 
+let pp_ident_map_as_type pp_value formatter map =
+  let open Format in
+  Pp_utils.pp_concat_sep_delim "{:" ":}" ","
+    (fun formatter (k, v) ->
+      pp_ident formatter k ;
+      pp_print_string formatter " : " ;
+      pp_value formatter v)
+    formatter (Ident_map.enum map)
+
 let pp_ident_map_sp pp_value formatter map =
   let open Format in
   Pp_utils.pp_concat_sep_delim "{" ",_}" ","
@@ -267,7 +276,7 @@ and pp_expr (formatter : Format.formatter) (expr : expr) : unit =
   | TypeInt -> Format.pp_print_string formatter "int"
   | TypeBool -> Format.pp_print_string formatter "bool"
   | TypeRecord record ->
-      Format.fprintf formatter "%a" (pp_ident_map pp_expr_desc) record
+      Format.fprintf formatter "%a" (pp_ident_map_as_type pp_expr_desc) record
   | TypeList t -> Format.fprintf formatter "[%a]" pp_expr_desc t
   | TypeArrow (t1, t2) ->
       Format.fprintf formatter "(%a -> %a)" pp_expr_desc t1 pp_expr_desc t2

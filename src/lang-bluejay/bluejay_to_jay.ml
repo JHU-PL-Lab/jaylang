@@ -1262,7 +1262,14 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
             |> Ident_map.add (Ident "~actual_rec") actual_rec
             |> Ident_map.add (Ident "~decl_lbls") new_lbls_rec
           in
-          new_instrumented_ed @@ Record new_rec
+          let%bind new_rec_ed = new_instrumented_ed @@ Record new_rec in
+          (* FIXME: This might be buggy: this is adding the mapping between the
+             newly typed record with the originally typed record.
+             e.g.: let (x : {: a : int :}) = { a = 1, b = 2 } in ...
+             {~actual_rec = { a = 1, b = 2 }, ~decl_lbls = { a = {}}} -> {a = 1, b = 2}
+          *)
+          let%bind () = add_sem_to_syn_mapping new_rec_ed e1 in
+          return new_rec_ed
         else return e1_transformed
       in
       let%bind e2' = semantic_type_of e2 in

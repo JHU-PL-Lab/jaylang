@@ -826,10 +826,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
              ~f:
                (Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps)
       in
-      (* let () =
-           Fmt.pr "\n\n\nThese are the jayil_vars: %a\n\n\n"
-             (Fmt.list Ast_pp.pp_var) jayil_vars
-         in *)
+      let () =
+        Fmt.pr "\n\n\nThese are the jayil_vars: %a\n\n\n"
+          (Fmt.list Ast_pp.pp_var) jayil_vars
+      in
       (* Getting all the aliases (for runtime value lookup) *)
       let alias_graph = interp_session.alias_graph in
       let jayil_vars_with_stack : Id_with_stack.t list =
@@ -841,8 +841,8 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
            trigger the error must have an alias that is defined within the same
            block as the error indicator (i.e. the said alias and the indicator
            will have the same stack). *)
-        |> List.filter ~f:(fun (_, stk) ->
-               Concrete_stack.equal stk relevant_stk)
+        (* |> List.filter ~f:(fun (_, stk) ->
+               Concrete_stack.equal stk relevant_stk) *)
         |> List.map ~f:(Sato_tools.find_alias alias_graph)
         |> List.concat
       in
@@ -1128,6 +1128,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
               Var x |> Bluejay_ast_internal.new_expr_desc
               |> Bluejay_ast_internal.from_internal_expr_desc
             in
+            (* let () =
+                 Fmt.pr "\n \n This is the original t: %a \n \n"
+                   Bluejay_ast_pp.pp_expr_desc_without_tag t
+               in *)
             let t_internal = t |> Bluejay_ast_internal.to_internal_expr_desc in
             let resolved_t = type_resolution t_internal in
             (resolved_t, ret)
@@ -1304,7 +1308,15 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
               match jay_expr with
               | None -> failwith "jayil_to_bluejay_error: TBI!"
               | Some ed ->
+                  let () =
+                    Fmt.pr "\n \n This is the original actual type: %a \n \n"
+                      Jay_ast_pp.pp_expr_desc_without_tag ed
+                  in
                   let sem_expr = Bluejay_ast_internal.from_jay_expr_desc ed in
+                  let () =
+                    Fmt.pr "\n \n This is the semantic type: %a \n \n"
+                      Bluejay_ast_internal_pp.pp_expr_desc sem_expr
+                  in
                   let syn_expr =
                     Bluejay_to_jay_maps.get_syn_nat_equivalent_expr
                       bluejay_jay_maps sem_expr
@@ -1332,7 +1344,8 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         in
         if Bluejay_ast_internal.equal_expr_desc replaced expected_type
         then
-          Bluejay_ast_internal.new_expr_desc @@ TypeError (Ident "Type unknown")
+          new_t
+          (* Bluejay_ast_internal.new_expr_desc @@ TypeError (Ident "Type unknown") *)
         else replaced
       in
       let actual_type_external =

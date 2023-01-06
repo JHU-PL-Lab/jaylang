@@ -4,5 +4,5 @@
  (error_list
   ((Type_error
     ((t_var f)
-     (t_expected_type "((x : [int]) -> {int | fun a\n -> a == sum x 0})")
+     (t_expected_type "((x : [int]) -> {int | fun a -> a == sum x 0})")
      (t_actual_type "((x : [int]) -> {int | Predicate Violated!})"))))))

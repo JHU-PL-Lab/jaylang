@@ -35,6 +35,72 @@ and t = {
 [@@deriving sexp, equal, show { with_path = false }]
 (* [@@deriving sexp, equal] *)
 
+let clean_up_error_str err =
+  match err with
+  | Match_error { m_value = xs, v; expected_type = t1; actual_type = t2 } ->
+      let xs' =
+        xs
+        |> List.map ~f:(String.substr_replace_all ~pattern:"\n" ~with_:" ")
+        |> List.map ~f:(String.substr_replace_all ~pattern:"  " ~with_:" ")
+      in
+      let v' =
+        v
+        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
+        |> String.substr_replace_all ~pattern:"  " ~with_:" "
+      in
+      let t1' =
+        t1
+        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
+        |> String.substr_replace_all ~pattern:"  " ~with_:" "
+      in
+      let t2' =
+        t2
+        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
+        |> String.substr_replace_all ~pattern:"  " ~with_:" "
+      in
+      Match_error
+        { m_value = (xs', v'); expected_type = t1'; actual_type = t2' }
+  | Value_error { v_value = xs, v } ->
+      let xs' =
+        xs
+        |> List.map ~f:(String.substr_replace_all ~pattern:"\n" ~with_:" ")
+        |> List.map ~f:(String.substr_replace_all ~pattern:"  " ~with_:" ")
+      in
+      let v' =
+        v
+        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
+        |> String.substr_replace_all ~pattern:"  " ~with_:" "
+      in
+      Value_error { v_value = (xs', v') }
+  | Type_error { t_var = x; t_expected_type = t1; t_actual_type = t2 } ->
+      let x' =
+        x
+        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
+        |> String.substr_replace_all ~pattern:"  " ~with_:" "
+      in
+      let t1' =
+        t1
+        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
+        |> String.substr_replace_all ~pattern:"  " ~with_:" "
+      in
+      let t2' =
+        t2
+        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
+        |> String.substr_replace_all ~pattern:"  " ~with_:" "
+      in
+      Type_error { t_var = x'; t_expected_type = t1'; t_actual_type = t2' }
+
+let clean_up_t t =
+  match t with
+  | { found_at_clause = cls; number_of_errors = n; error_list = errs } ->
+      let cls' =
+        cls
+        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
+        |> String.substr_replace_all ~pattern:"  " ~with_:" "
+      in
+      let errs' = errs |> List.map ~f:clean_up_error_str in
+      { found_at_clause = cls'; number_of_errors = n; error_list = errs' }
+
 let load_sexp_expectation_for testpath =
   let expect_path = Filename.chop_extension testpath ^ ".expect.s" in
   if Sys_unix.is_file_exn expect_path
@@ -43,27 +109,24 @@ let load_sexp_expectation_for testpath =
 
 (*
 ** Bluejay Type Errors **
-- Input sequence  : 4,-1
-- Found at clause : let create_record (x : int)  (y : bool)
- : {a = int, b = bool} = {
-                            ~actual_rec = {a = x, b = x},
-                            ~decl_lbls = {a = {}, b = {}}
-                         } in create_record
+- Input sequence  : -1,0,-39
+- Found at clause : let main (n : int) : {int | fun c
+ -> c < 0} = if n >= 0 then f n (h n) else 1 in main
 --------------------
-* Value    : create_record
-* Expected : (int -> (bool -> {a = int, b = bool}))
-* Actual   : (int -> (bool -> {a = int, b = int}))
+* Value    : main
+* Expected : (int -> {int | fun c -> c < 0})
+* Actual   : (int -> {int | Predicate Violated!})
 *)
 
 (* let t1 : t = {
-           found_at_clause = "let (x : [int]) = 1 in x";
+           found_at_clause = "let main (n : int) : {int | fun c -> c < 0} = if n >= 0 then f n (h n) else 1 in main";
            number_of_errors = 1;
            error_list =
            [
             (Type_error {
-              t_var = "x";
-              t_expected_type = "[int]";
-              t_actual_type = "[[1]]";
+              t_var = "main";
+              t_expected_type = "(int -> {int | fun c -> c < 0})";
+              t_actual_type = "(int -> {int | Predicate Violated!})";
             });
            ]
          }

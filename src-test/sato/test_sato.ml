@@ -68,11 +68,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
         error_list = errs;
       }
   | Jay_error (err : Jay_type_errors.t) ->
-      (* TODO: Fix - very hacky *)
-      let actual_err_loc =
-        Jay_error_location.show @@ err.err_location
-        |> String.substr_replace_all ~pattern:"\n" ~with_:" "
-      in
+      let actual_err_loc = Jay_error_location.show @@ err.err_location in
       let err_num = List.length err.err_errors in
       let actual_errs = err.err_errors in
       let transform_one_err_jay (error : Sato_error.On_error.t) :
@@ -82,10 +78,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
             let actual_aliases =
               List.map ~f:Jay_error_location.show err.err_match_aliases
             in
-            let actual_v =
-              Jay.Jay_ast_pp.show_expr err.err_match_val.body
-              |> String.substr_replace_all ~pattern:"\n" ~with_:" "
-            in
+            let actual_v = Jay.Jay_ast_pp.show_expr err.err_match_val.body in
             let a_actual_type, a_expected_type =
               ( Jay.Jay_ast_pp.show_on_type @@ err.err_match_actual,
                 Jay.Jay_ast_pp.show_on_type @@ err.err_match_expected )
@@ -111,10 +104,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
         error_list = errs;
       }
   | Bluejay_error err ->
-      let actual_err_loc =
-        Bluejay_error_location.show @@ err.err_location
-        |> String.substr_replace_all ~pattern:"\n" ~with_:""
-      in
+      let actual_err_loc = Bluejay_error_location.show @@ err.err_location in
       let err_num = List.length err.err_errors in
       let actual_errs = err.err_errors in
       let transform_one_err_tnat (error : Sato_error.Bluejay_error.t) :
@@ -126,7 +116,6 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
             in
             let actual_v =
               Bluejay.Bluejay_ast_pp.show_expr err.err_match_val.body
-              |> String.substr_replace_all ~pattern:"\n" ~with_:" "
             in
             let a_actual_type, a_expected_type =
               ( Bluejay.Bluejay_ast_pp.show_bluejay_type @@ err.err_match_actual,
@@ -142,7 +131,6 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
         | Sato_error.Bluejay_error.Error_bluejay_type err ->
             let actual_v =
               Bluejay.Bluejay_ast_pp.show_expr err.err_type_variable.body
-              |> String.substr_replace_all ~pattern:"\n" ~with_:" "
             in
             let a_actual_type, a_expected_type =
               ( Bluejay.Bluejay_ast_pp.show_expr @@ err.err_type_actual.body,
@@ -165,7 +153,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
             Value_error { v_value = (actual_aliases, actual_v) }
         | _ -> failwith "Expect no other error types!"
       in
-      let errs = List.map ~f:transform_one_err_tnat actual_errs in
+      let errs = actual_errs |> List.map ~f:transform_one_err_tnat in
       {
         found_at_clause = actual_err_loc;
         number_of_errors = err_num;
@@ -174,7 +162,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
 
 let is_error_expected (actual : Sato_result.reported_error)
     (expected : Test_expect.t) : bool =
-  let actual_error = errors_to_plain actual in
+  let actual_error = Test_expect.clean_up_t @@ errors_to_plain actual in
   let () = print_endline @@ Test_expect.show actual_error in
   let () = print_endline @@ Test_expect.show expected in
   Test_expect.equal expected actual_error
@@ -208,7 +196,6 @@ let test_one_file testname () =
       match errors_opt with
       | None -> Alcotest.(check bool) "Expect type error!" true false
       | Some error ->
-          (* let () = failwith @@ string_of_bool @@ is_error_expected error expected in *)
           Alcotest.(check bool)
             "Type error matches expected" true
             (is_error_expected error expected))
@@ -225,4 +212,4 @@ let main test_path =
   ()
 
 let () = main "test/sato"
-(* let () = main "test-sato/playing-ground" *)
+(* let () = main "test/sato/playing-ground" *)
