@@ -76,24 +76,24 @@ let load_sexp_expectation_for testpath =
 
 (*
 ** Bluejay Type Errors **
-- Input sequence  : 8,1,9,-1
-- Found at clause : let rec fold (acc : int)  (foldf : (int -> (int -> bool))) (lst : [int]) : int = match lst with | [] -> acc | hd :: tl -> fold (foldf acc hd) foldf tl end in fold
+- Input sequence  : 0
+- Found at clause : let (x : {[int] | testFun}) = [val, val] in x
 --------------------
-* Value    : fold
-* Expected : (int -> ((int -> (int -> bool)) -> ([int] -> int)))
-* Actual   : (int -> ((int -> (int -> bool)) -> ([int] -> bool)))
+* Value    : x
+* Expected : {[int] | testFun}
+* Actual   : [val, val]
 
 *)
 
 (* let t1 : t = {
-                found_at_clause = "let rec fold (acc : int)  (foldf : (int -> (int -> bool))) (lst : [int]) : int = match lst with | [] -> acc | hd :: tl -> fold (foldf acc hd) foldf tl end in fold";
+                found_at_clause = "let (x : {[int] | testFun}) = [val, val] in x";
                 number_of_errors = 1;
                 error_list =
                 [
                  (Type_error {
-                   t_var = "fold";
-                   t_expected_type = "(int -> ((int -> (int -> bool)) -> ([int] -> int)))";
-                   t_actual_type = "(int -> ((int -> (int -> bool)) -> ([int] -> bool)))";
+                   t_var = "x";
+                   t_expected_type = "{[int] | testFun}";
+                   t_actual_type = "[val, val]";
                  });
                 ]
               }
