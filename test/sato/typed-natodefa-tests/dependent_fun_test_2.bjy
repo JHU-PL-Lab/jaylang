@@ -1,5 +1,5 @@
 # DDSE: Times out
-# DBMC: Times out
+# DBMC: Finds error
 
 let rec length x acc = 
     match x with

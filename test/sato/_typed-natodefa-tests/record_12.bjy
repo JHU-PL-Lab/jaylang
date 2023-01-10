@@ -1,4 +1,0 @@
-let x = {a = 1} in
-match x with
-| {b = z} -> z
-end

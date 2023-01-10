@@ -76,34 +76,29 @@ let load_sexp_expectation_for testpath =
 
 (*
 ** Bluejay Type Errors **
-- Input sequence  : 0,1,-1
-- Found at clause : let rec 
-          prepend (l1 : [int])  (l2 : [bool])
-           : [int] = match l2 with 
-                                     | [] -> l1
-                                     | hd :: tl -> prepend (hd :: l1) tl
-                                    end
- in prepend
+- Input sequence  : 8,1,9,-1
+- Found at clause : let rec fold (acc : int)  (foldf : (int -> (int -> bool))) (lst : [int]) : int = match lst with | [] -> acc | hd :: tl -> fold (foldf acc hd) foldf tl end in fold
 --------------------
-* Value    : prepend
-* Expected : ([int] -> ([bool] -> [int]))
-* Actual   : ([int] -> ([bool] -> [bool]))
+* Value    : fold
+* Expected : (int -> ((int -> (int -> bool)) -> ([int] -> int)))
+* Actual   : (int -> ((int -> (int -> bool)) -> ([int] -> bool)))
+
 *)
 
 (* let t1 : t = {
-           found_at_clause = "let rec prepend (l1 : [int])  (l2 : [bool]) : [int] = match l2 with | [] -> l1 | hd :: tl -> prepend (hd :: l1) tl end";
-           number_of_errors = 1;
-           error_list =
-           [
-            (Type_error {
-              t_var = "prepend";
-              t_expected_type = "([int] -> ([bool] -> [int]))";
-              t_actual_type = "([int] -> ([bool] -> [bool]))";
-            });
-           ]
-         }
-      let ss = sexp_of_t t1
+                found_at_clause = "let rec fold (acc : int)  (foldf : (int -> (int -> bool))) (lst : [int]) : int = match lst with | [] -> acc | hd :: tl -> fold (foldf acc hd) foldf tl end in fold";
+                number_of_errors = 1;
+                error_list =
+                [
+                 (Type_error {
+                   t_var = "fold";
+                   t_expected_type = "(int -> ((int -> (int -> bool)) -> ([int] -> int)))";
+                   t_actual_type = "(int -> ((int -> (int -> bool)) -> ([int] -> bool)))";
+                 });
+                ]
+              }
+           let ss = sexp_of_t t1
 
-      let sss = Sexp.to_string_hum ss *)
+           let sss = Sexp.to_string_hum ss *)
 
 (* let t1v = sss |> Sexp.of_string |> t_of_sexp *)
