@@ -104,7 +104,8 @@ and pp_record_c (Record_value r, env) oc =
     oc r
 
 let add_ident_line (ident : Ident.t) (lexadr : int * int) (v : 'a) (map : 'a IdentLine_map.t) =
-  IdentLine_map.add (LexAdr lexadr) v (IdentLine_map.add (Ident ident) v map)
+  let envnum, _ = lexadr
+  in IdentLine_map.add (LexAdr (envnum, -1)) v (IdentLine_map.add (LexAdr lexadr) v (IdentLine_map.add (Ident ident) v map))
 
 let add_ident_line_penv (ident : Ident.t) (lexadr : int * int) (lexadrs : LexAdr_set.t) (v : presidual) (map : penv) =
   let mapval = (ident, v, LexAdr_set.add lexadr lexadrs) in
@@ -120,9 +121,15 @@ let get_pvalue_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, P
 
 let get_pvalue_deps_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, deps) = get_from_ident ident env in deps, v
 
-let simple_eval (expr : expr) : value =
-  let rec eval_expr () = ()
-  and eval_clause (lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv * pvalue = 
+let simple_eval (expr : expr) : value * penv = (
+
+  let rec eval_expr (envnum : int) (env : penv) (Expr (clauses) : expr) : penv = 
+    let foldable_eval_clause (env : penv) (index : int) (clause : clause) : penv = (
+      let env' = eval_clause (envnum, index+1) env clause in env' 
+    )
+    in List.fold_lefti foldable_eval_clause env clauses
+
+  and eval_clause (lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 
     let linedeps, res_value = match body with
 
     (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
@@ -161,36 +168,12 @@ let simple_eval (expr : expr) : value =
       let v1, v2 = match v1, v2 with
         | Direct v1, Direct v2 -> v1, v2
         | _ -> failwith "Type error! Binary ops attempted on incompatible types!"
-      in let v =
-        match (op, v1, v2) with
-        | Binary_operator_plus, Value_int n1, Value_int n2 ->
-            Value_int (n1 + n2)
-        | Binary_operator_minus, Value_int n1, Value_int n2 ->
-            Value_int (n1 - n2)
-        | Binary_operator_times, Value_int n1, Value_int n2 ->
-            Value_int (n1 * n2)
-        | Binary_operator_divide, Value_int n1, Value_int n2 ->
-            Value_int (n1 / n2)
-        | Binary_operator_modulus, Value_int n1, Value_int n2 ->
-            Value_int (n1 mod n2)
-        | Binary_operator_less_than, Value_int n1, Value_int n2 ->
-            Value_bool (n1 < n2)
-        | Binary_operator_less_than_or_equal_to, Value_int n1, Value_int n2 ->
-            Value_bool (n1 <= n2)
-        | Binary_operator_equal_to, Value_int n1, Value_int n2 ->
-            Value_bool (n1 = n2)
-        | Binary_operator_equal_to, Value_bool b1, Value_bool b2 ->
-            Value_bool (Core.Bool.( = ) b1 b2)
-        | Binary_operator_and, Value_bool b1, Value_bool b2 ->
-            Value_bool (b1 && b2)
-        | Binary_operator_or, Value_bool b1, Value_bool b2 ->
-            Value_bool (b1 || b2)
-        | _, _, _ -> failwith "incorrect binop"
+      in let v = binop (op, v1, v2)
       in LexAdr_set.union lexadrs1 lexadrs2, Direct v
     
     | Abort_body | Assert_body _ | Assume_body _ -> failwith "Evaluation does not yet support abort, assert, and assume!"
   
-    in (add_ident_line_penv x lexadr linedeps (PValue res_value) env), res_value
+    in (add_ident_line_penv x lexadr linedeps (PValue res_value) env)
 
   and check_pattern (v : pvalue) (pattern : pattern) : bool =
     match v, pattern with
@@ -205,9 +188,37 @@ let simple_eval (expr : expr) : value =
     | FunClosure (_, _, _), Fun_pattern -> true
     | _, Any_pattern -> true
     | _ -> false
-
-in let _, dv = eval_clause (0, 1) (IdentLine_map.empty) (Clause (Var (Ident "x", None), Value_body (Value_int 0))) in value_of_pvalue dv
-
+  
+  and binop = function
+    | Binary_operator_plus, Value_int n1, Value_int n2 ->
+        Value_int (n1 + n2)
+    | Binary_operator_minus, Value_int n1, Value_int n2 ->
+        Value_int (n1 - n2)
+    | Binary_operator_times, Value_int n1, Value_int n2 ->
+        Value_int (n1 * n2)
+    | Binary_operator_divide, Value_int n1, Value_int n2 ->
+        Value_int (n1 / n2)
+    | Binary_operator_modulus, Value_int n1, Value_int n2 ->
+        Value_int (n1 mod n2)
+    | Binary_operator_less_than, Value_int n1, Value_int n2 ->
+        Value_bool (n1 < n2)
+    | Binary_operator_less_than_or_equal_to, Value_int n1, Value_int n2 ->
+        Value_bool (n1 <= n2)
+    | Binary_operator_equal_to, Value_int n1, Value_int n2 ->
+        Value_bool (n1 = n2)
+    | Binary_operator_equal_to, Value_bool b1, Value_bool b2 ->
+        Value_bool (Core.Bool.( = ) b1 b2)
+    | Binary_operator_and, Value_bool b1, Value_bool b2 ->
+        Value_bool (b1 && b2)
+    | Binary_operator_or, Value_bool b1, Value_bool b2 ->
+        Value_bool (b1 || b2)
+    | _, _, _ -> failwith "incorrect binop"
+  
+  in let endenv = eval_expr 0 IdentLine_map.empty expr
+  in let [@warning "-8"] _, PValue endpvalue, _ = (IdentLine_map.find (LexAdr (0, -1)) endenv)
+  in value_of_pvalue endpvalue, endenv
+)
+;;
 
 
 let parse = Jayil_parser.Parse.parse_program_str;;
@@ -215,10 +226,12 @@ let parse = Jayil_parser.Parse.parse_program_str;;
 let unparse = Jayil.Ast_pp.show_value;;
 let unparse_expr = Jayil.Ast_pp.show_expr;;
 
-let sparse_eval (a : string) = a |> parse |> simple_eval;;
+let sparse_eval (a : string) = a |> parse |> simple_eval |> fst;;
+
+let debug_sparse_eval (a : string) = a |> parse |> simple_eval |> snd;;
 
 
-let sparse_eval_unparse (a : string) = a |> parse |> simple_eval |> unparse;;
+let sparse_eval_unparse (a : string) = a |> parse |> simple_eval |> fst |> unparse;;
 let speu = sparse_eval_unparse;;
 let sparse_eval_print (a : string) = a |> speu |> print_endline;; (* print_endline "";; *)
 let srep = sparse_eval_print;;
