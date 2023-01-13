@@ -58,10 +58,10 @@ let rec count_occurrences elm l =
 *)
 
 let count_occurrences_tail elm l =
-   let rec count_occurrences_inner start = function
+   let rec inner_count_occurrences start = function
       | [] -> start
-      | x :: xs -> count_occurrences_inner (start + if x = elm then 1 else 0) xs 
-   in count_occurrences_inner 0 l
+      | x :: xs -> inner_count_occurrences (start + if x = elm then 1 else 0) xs 
+   in inner_count_occurrences 0 l
 ;;
 
 (*
@@ -285,7 +285,7 @@ let rec nth lst n =
 - : int = 0
 *)
 
-let fetch_row = nth
+let fetch_row : 'a list list -> int -> 'a list = nth
 
 
 (* 2b. The list representation makes it easy to access each row, but it can be
@@ -300,6 +300,14 @@ let rec fetch_column grid col =
    | row :: rows
    -> nth row col :: fetch_column rows col
 ;;
+
+let fetch_column_tail grid col = 
+   let rec inner_fetch_column apl = function
+   | [] -> apl []
+   | row :: rows -> 
+      let cur_col_val = nth row col
+      in inner_fetch_column (fun cont_col -> apl (cur_col_val :: cont_col)) rows
+   in inner_fetch_column (fun cont_col -> cont_col) grid
 
 (*
 # let test_grid = 
@@ -468,6 +476,46 @@ let zip_2_gen (g1 : 'a gen) (g2 : 'b gen) : ('a * 'b) gen =
    in (fun () -> gen_next g1 g2)
 ;;
 
+let zip_2_opt_gen (g1 : 'a gen) (g2 : 'b gen) : ('a option * 'b option) gen =
+   (* let opt_gen_next : 'z. 'z gen = (fun () -> None)
+   in *)
+   let rec gen_next (g1 : 'a gen) (g2 : 'b gen) =
+      let (x1, next_g1) = match g1 () with
+      | (Some (x1, next_g1)) -> Option.Some x1, next_g1
+      | None -> Option.None, g1 (* opt_gen_next *)
+      in
+      let (x2, next_g2) = match g2 () with
+      | (Some (x2, next_g2)) -> Option.Some x2, next_g2
+      | None -> Option.None, g2 (* opt_gen_next *)
+      in
+      match x1, x2 with
+      | None, None -> None
+      | _ -> Some ((x1, x2), (fun () -> gen_next next_g1 next_g2))
+   in (fun () -> gen_next g1 g2)
+
+let zip_2_def_gen (g1 : 'a gen) (def1 : 'a) (g2 : 'b gen) (def2 : 'b) : ('a * 'b) gen =
+   (* let rec def_1_gen_next () : 'a gen_res = Some (def1, def_1_gen_next) in
+      let rec def_2_gen_next () : 'b gen_res = Some (def2, def_2_gen_next) in 
+   
+      *)
+   let rec gen_next (g1 : 'a gen) (g2 : 'b gen) =
+      let (x1, next_g1) = match g1 () with
+      | (Some (x1, next_g1)) -> Option.Some x1, next_g1
+      | None -> Option.None, g1
+      in
+      let (x2, next_g2) = match g2 () with
+      | (Some (x2, next_g2)) -> Option.Some x2, next_g2
+      | None -> Option.None, g2
+      in
+      match x1, x2 with
+      | None, None -> None
+      | _ -> 
+         let x1 = Option.value x1 ~default:def1 in
+         let x2 = Option.value x2 ~default:def2 in
+         
+         Some ((x1, x2), (fun () -> gen_next next_g1 next_g2))
+   in (fun () -> gen_next g1 g2)
+
 let zip_n_gen (gen_gen : 'a gen gen) : 'a gen gen =
    let rec gen_next gen_gen =
       let rec gen_el apl gen_gen =
@@ -557,12 +605,26 @@ let verify_solution dimention grid row_vals col_vals =
             else false
    in let dim_1 = dimention-1 in verify_vals fetch_row row_vals dim_1 && verify_vals fetch_column col_vals dim_1
 ;;
+
+(* Explicitly catches when vals list is longer than grid *)
+let verify_solution_2 dimention grid row_vals col_vals =
+   let rec verify_vals fetcher vals inv_val_num = match vals, inv_val_num with
+   | [], -1 -> true
+   | cur_val :: next_vals, inv_val_num when inv_val_num > -1 ->
+      if verify_list (fetcher grid (dimention-inv_val_num)) cur_val
+         then verify_vals fetcher next_vals (inv_val_num-1)
+         else false
+   | _ -> failwith "number of vals should match dimension in grid!"
+   in let dim_1 = dimention-1 in verify_vals fetch_row row_vals dim_1 && verify_vals fetch_column col_vals dim_1
+;;
       
 (* calling fetch_row and fetch_col in the above manner is somewhat inefficient; they are O(n) and O(n^2) operations respectively
    in the number of rows / cols; therefore the total run-time is cubic in the number of rows / cols *)
 
 (* the below solution with lazy generators / streams is quadratic in the number of rows / cols; taking a dimension parameter is
    also then unnecessary. Of course, it comes with the bloat of deeply nested function calls, as is typical with lazy computation *)
+
+(* There is also no length check...so if lengths don't match up it silently succeeds. But we can add it with 2 more O(n) operations *)
 
 let verify_solution_gen grid row_vals col_vals = 
    let row_gen_gen = map_eager_gen (lst_gen grid) (fun row -> lst_gen row) (* O(n), creates an O(1) generator of n length of O(1) generators of n length *)

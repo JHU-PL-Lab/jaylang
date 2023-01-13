@@ -6,7 +6,7 @@
   "Sato, the Symbolic Analysis Typechecker for Odefa, dynamically locates type errors using demand-driven symbolic execution.")
  (inline_tests)
  (preprocess
-  (pps ppx_jane ppx_deriving.show ppx_deriving_yojson lwt_ppx)))
+  (pps ppx_jane ppx_deriving.std ppx_deriving_yojson lwt_ppx)))
 
 (env
  (dev

@@ -25,7 +25,6 @@ module Ident_new = struct
 
   let hash = Hashtbl.hash
 end
-;;
 
 module Ident_hashtbl = Hashtbl.Make (Ident)
 

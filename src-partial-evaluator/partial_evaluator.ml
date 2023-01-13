@@ -5,8 +5,11 @@ open Log.Export
 open Jayil
 open Ast
 
+open Batteries
+open Jhupllib
+
 let rec constant_folding (Expr clauses) =
-  let new_clauses = List.map ~f:constant_folding_clause clauses in
+  let new_clauses = List.map constant_folding_clause clauses in
   Expr new_clauses
 
 and constant_folding_clause clause =
@@ -29,22 +32,65 @@ let eval expr =
 
 let eval_file raw_source = raw_source |> Dj_common.File_utils.read_source |> eval;;
 
-type dvalue =
+type lexadr = int * int [@@deriving eq, ord, show, to_yojson]
+
+module LexAdr = struct
+  type t = lexadr
+
+  let equal = equal_lexadr
+  let compare = compare_lexadr
+  let pp = pp_lexadr
+  let show = show_lexadr
+  let to_yojson = lexadr_to_yojson
+  let hash = Hashtbl.hash
+end
+
+module LexAdr_set = struct
+  module S = Set.Make (LexAdr)
+  include S
+  include Pp_utils.Set_pp (S) (LexAdr)
+  include Yojson_utils.Set_to_yojson (S) (LexAdr)
+end
+
+type identline = Ident of Ident.t | LexAdr of lexadr [@@deriving eq, ord, show, to_yojson]
+
+module IdentLine = struct
+  type t = identline
+
+  let equal = equal_identline
+  let compare = compare_identline
+  let pp = pp_identline
+  let show = show_identline
+  let to_yojson = identline_to_yojson
+  let hash = Hashtbl.hash
+end
+
+module IdentLine_map = struct
+  module M = Map.Make (IdentLine)
+  include M
+  include Pp_utils.Map_pp (M) (IdentLine)
+  include Yojson_utils.Map_to_yojson (M) (IdentLine)
+
+  let key_list map = keys map |> List.of_enum
+end
+
+type pvalue =
   | Direct of value
-  | FunClosure of Ident.t * function_value * denv
-  | RecordClosure of record_value * denv
-  | AbortClosure of denv
+  | FunClosure of Ident.t * function_value * penv
+  | RecordClosure of record_value * penv
+  | AbortClosure of penv
 
-and dvalue_with_stack = dvalue * Concrete_stack.t
-and denv = dvalue_with_stack Ident_map.t
+and presidual = PValue of pvalue | PClause of clause_body (* Note that Value_body of clause_body should not be used... *)
+and presidual_with_ident_lexadr_deps = Ident.t * presidual * LexAdr_set.t
+and penv = presidual_with_ident_lexadr_deps IdentLine_map.t
 
-let value_of_dvalue = function
+let value_of_pvalue = function
   | Direct v -> v
   | FunClosure (_fid, fv, _env) -> Value_function fv
   | RecordClosure (r, _env) -> Value_record r
   | AbortClosure _ -> Value_bool false
 
-let rec pp_dvalue oc = function
+let rec pp_pvalue oc = function
   | Direct v -> Jayil.Ast_pp.pp_value oc v
   | FunClosure _ -> Format.fprintf oc "(fc)"
   | RecordClosure (r, env) -> pp_record_c (r, env) oc
@@ -57,17 +103,134 @@ and pp_record_c (Record_value r, env) oc =
   (Fmt.braces (Fmt.iter_bindings ~sep:(Fmt.any ", ") Ident_map.iter pp_entry))
     oc r
 
-exception Found_target of { x : Id.t; stk : Concrete_stack.t; v : dvalue }
-exception Found_abort of dvalue
-exception Terminate of dvalue
+let add_ident_line (ident : Ident.t) (lexadr : int * int) (v : 'a) (map : 'a IdentLine_map.t) =
+  IdentLine_map.add (LexAdr lexadr) v (IdentLine_map.add (Ident ident) v map)
+
+let add_ident_line_penv (ident : Ident.t) (lexadr : int * int) (lexadrs : LexAdr_set.t) (v : presidual) (map : penv) =
+  let mapval = (ident, v, LexAdr_set.add lexadr lexadrs) in
+  add_ident_line ident lexadr mapval map
+;;
+
+let get_from_ident (Var (ident, _) : var) (env : penv) =
+  match IdentLine_map.find_opt (Ident ident) env with
+    | Some v -> v
+    | None -> failwith ("Expression not closed! " ^ show_ident ident ^ " not in environment!")
+  
+let get_pvalue_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, _) = get_from_ident ident env in v
+
+let get_pvalue_deps_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, deps) = get_from_ident ident env in deps, v
+
+let simple_eval (expr : expr) : value =
+  let rec eval_expr () = ()
+  and eval_clause (lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv * pvalue = 
+    let linedeps, res_value = match body with
+
+    (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
+    | Value_body (Value_function vf) -> LexAdr_set.empty, FunClosure (x, vf, env)
+    (* Deps list is inaccurate, need to actually go through record and see what variables are captured *)
+    | Value_body (Value_record vr) -> LexAdr_set.empty, RecordClosure (vr, env)
+    | Value_body v -> LexAdr_set.empty, Direct v
+
+    | Var_body vx -> get_pvalue_deps_from_ident vx env
+
+    | Input_body -> LexAdr_set.empty, Direct (Value_int (read_int ())) (* This will be interesting to peval...We'll need arguments for whether input is known at peval-time or not *)
+
+    | Match_body (vx, p) -> let lexadrs, v = get_pvalue_deps_from_ident vx env in
+      lexadrs, Direct (Value_bool (check_pattern v p))
+
+    | Conditional_body (x2, e1, e2) -> failwith "Evaluation does not yet support conditionals!"
+
+    | Appl_body (vx1, (Var (x2, _) as vx2)) -> failwith "Evaluation does not yet support function application!"
+
+    (* Deps list here actually only needs to be the original captured variable, not the whole list for the record! *)
+    | Projection_body (v, key) -> ( match get_pvalue_from_ident v env with
+      | RecordClosure (Record_value r, renv) ->
+        let proj_x = Ident_map.find key r in
+        get_pvalue_deps_from_ident proj_x renv
+      | _ -> failwith "Type error! Projection attempted on a non-record!"
+    )
+    
+    | Not_body vx -> ( match get_pvalue_deps_from_ident vx env with
+      | lexadrs, Direct (Value_bool b) -> lexadrs, Direct (Value_bool (not b))
+      | _ -> failwith "Type error! Not attempted on a non-bool!"
+    )
+    
+    | Binary_operation_body (vx1, op, vx2) ->
+      let lexadrs1, v1 = get_pvalue_deps_from_ident vx1 env
+      and lexadrs2, v2 = get_pvalue_deps_from_ident vx2 env in
+      let v1, v2 = match v1, v2 with
+        | Direct v1, Direct v2 -> v1, v2
+        | _ -> failwith "Type error! Binary ops attempted on incompatible types!"
+      in let v =
+        match (op, v1, v2) with
+        | Binary_operator_plus, Value_int n1, Value_int n2 ->
+            Value_int (n1 + n2)
+        | Binary_operator_minus, Value_int n1, Value_int n2 ->
+            Value_int (n1 - n2)
+        | Binary_operator_times, Value_int n1, Value_int n2 ->
+            Value_int (n1 * n2)
+        | Binary_operator_divide, Value_int n1, Value_int n2 ->
+            Value_int (n1 / n2)
+        | Binary_operator_modulus, Value_int n1, Value_int n2 ->
+            Value_int (n1 mod n2)
+        | Binary_operator_less_than, Value_int n1, Value_int n2 ->
+            Value_bool (n1 < n2)
+        | Binary_operator_less_than_or_equal_to, Value_int n1, Value_int n2 ->
+            Value_bool (n1 <= n2)
+        | Binary_operator_equal_to, Value_int n1, Value_int n2 ->
+            Value_bool (n1 = n2)
+        | Binary_operator_equal_to, Value_bool b1, Value_bool b2 ->
+            Value_bool (Core.Bool.( = ) b1 b2)
+        | Binary_operator_and, Value_bool b1, Value_bool b2 ->
+            Value_bool (b1 && b2)
+        | Binary_operator_or, Value_bool b1, Value_bool b2 ->
+            Value_bool (b1 || b2)
+        | _, _, _ -> failwith "incorrect binop"
+      in LexAdr_set.union lexadrs1 lexadrs2, Direct v
+    
+    | Abort_body | Assert_body _ | Assume_body _ -> failwith "Evaluation does not yet support abort, assert, and assume!"
+  
+    in (add_ident_line_penv x lexadr linedeps (PValue res_value) env), res_value
+
+  and check_pattern (v : pvalue) (pattern : pattern) : bool =
+    match v, pattern with
+    | Direct (Value_int _), Int_pattern -> true
+    | Direct (Value_bool _), Bool_pattern -> true
+    | Direct (Value_function _), _ -> failwith "fun must be a closure (Impossible!)"
+    | Direct (Value_record _), _ -> failwith "record must be a closure (Impossible!)"
+    | RecordClosure (Record_value record, _), Rec_pattern key_set ->
+        Ident_set.for_all (fun id -> Ident_map.mem id record) key_set
+    | RecordClosure (Record_value record, _), Strict_rec_pattern key_set ->
+        Ident_set.equal key_set (Ident_set.of_enum @@ Ident_map.keys record)
+    | FunClosure (_, _, _), Fun_pattern -> true
+    | _, Any_pattern -> true
+    | _ -> false
+
+in let _, dv = eval_clause (0, 1) (IdentLine_map.empty) (Clause (Var (Ident "x", None), Value_body (Value_int 0))) in value_of_pvalue dv
+
+
+
+let parse = Jayil_parser.Parse.parse_program_str;;
+
+let unparse = Jayil.Ast_pp.show_value;;
+let unparse_expr = Jayil.Ast_pp.show_expr;;
+
+let sparse_eval (a : string) = a |> parse |> simple_eval;;
+
+
+let sparse_eval_unparse (a : string) = a |> parse |> simple_eval |> unparse;;
+let speu = sparse_eval_unparse;;
+let sparse_eval_print (a : string) = a |> speu |> print_endline;; (* print_endline "";; *)
+let srep = sparse_eval_print;;
+
+
+
+exception Found_target of { x : Id.t; stk : Concrete_stack.t; v : pvalue }
+exception Found_abort of pvalue
+exception Terminate of pvalue
 exception Reach_max_step of Id.t * Concrete_stack.t
 exception Run_the_same_stack_twice of Id.t * Concrete_stack.t
 exception Run_into_wrong_stack of Id.t * Concrete_stack.t
-
-type mode =
-  | Plain
-  | With_target_x of Id.t
-  | With_full_target of Id.t * Concrete_stack.t
 
 type clause_cb = Id.t -> Concrete_stack.t -> value -> unit
 type debug_mode = No_debug | Debug_clause of clause_cb
@@ -83,9 +246,9 @@ type session = {
   (* debug *)
   is_debug : bool; (* TODO: get rid of this *)
   debug_mode : debug_mode;
-  val_def_map : (Id_with_stack.t, clause_body * dvalue) Hashtbl.t;
+  val_def_map : (Id_with_stack.t, clause_body * pvalue) Core.Hashtbl.t;
   (* term_detail_map : (Lookup_key.t, Term_detail.t) Hashtbl.t; *)
-  block_map : Cfg.block Jayil.Ast.Ident_map.t;
+  (* block_map : Cfg.block Jayil.Ast.Ident_map.t; *)
   (* rstk_picked : (Rstack.t, bool) Hashtbl.t; *)
   (* lookup_alert : Lookup_key.t Hash_set.t; *)
 }
@@ -97,9 +260,9 @@ let make_default_session () =
     debug_mode = No_debug;
     step = ref 0;
     alias_graph = G.create ();
-    val_def_map = Hashtbl.create (module Id_with_stack);
-    block_map = Jayil.Ast.Ident_map.empty;
+    val_def_map = Core.Hashtbl.create (module Id_with_stack);
     (* term_detail_map = Hashtbl.create (module Lookup_key); *)
+    (* block_map = Jayil.Ast.Ident_map.empty; *)
     (* rstk_picked = Hashtbl.create (module Rstack); *)
     (* lookup_alert = Hash_set.create (module Lookup_key); *)
   }
@@ -113,14 +276,14 @@ let create_session ?max_step ?(debug_mode = No_debug) (* state : Global_state.t 
     debug_mode;
     step = ref 0;
     alias_graph = G.create ();
-    block_map = Jayil.Ast.Ident_map.empty; (* state.block_map; *)
-    val_def_map = Hashtbl.create (module Id_with_stack);
+    val_def_map = Core.Hashtbl.create (module Id_with_stack);
     (* term_detail_map = Hashtbl.create (module Lookup_key); (* state.term_detail_map; *) *)
+    (* block_map = Jayil.Ast.Ident_map.empty; (* state.block_map; *) *)
     (* rstk_picked = Hashtbl.create (module Rstack); (* state.rstk_picked; *) *)
     (* lookup_alert = Hash_set.create (module Lookup_key); (* state.lookup_alert; *) *)
   }
 
-let cond_fid b = if b then Ident "$tt" else Ident "$ff"
+let cond_fid b = if b then Ast.Ident "$tt" else Ast.Ident "$ff"
 
 (* This function will add a directed edge x1 -> x2 in the alias graph. Thus
    x1 here needs to be the *later* defined variable. *)
@@ -130,15 +293,15 @@ let add_alias x1 x2 session : unit =
 
 let add_val_def_mapping x vdef session : unit =
   let val_def_mapping = session.val_def_map in
-  Hashtbl.add_exn ~key:x ~data:vdef val_def_mapping
+  Core.Hashtbl.add_exn ~key:x ~data:vdef val_def_mapping
 
 let debug_update_read_node (session : session) (x : ident) (stk : Concrete_stack.t) =  ()
 
 let debug_update_write_node (session : session) (x : ident) (stk : Concrete_stack.t) = ()
 
-let debug_stack (session : session) (x : ident) (stk : Concrete_stack.t) ((v : dvalue), _) = ()
+let debug_stack (session : session) (x : ident) (stk : Concrete_stack.t) ((v : pvalue), _) = ()
 
-let raise_if_with_stack (session : session) (x : ident) (stk : Concrete_stack.t) (v : dvalue) = ()
+let raise_if_with_stack (session : session) (x : ident) (stk : Concrete_stack.t) (v : pvalue) = ()
 
 let alert_lookup (session : session) (x : ident) (stk : Concrete_stack.t) = ()
 
@@ -150,169 +313,20 @@ let rec same_stack s1 s2 =
   | _, _ -> false
 
 let debug_clause ~session x v stk =
-  ILog.app (fun m -> m "@[%a = %a@]" Id.pp x pp_dvalue v) ;
+  ILog.app (fun m -> m "@[%a = %a@]" Id.pp x pp_pvalue v) ;
 
   raise_if_with_stack session x stk v ;
   debug_stack session x stk (v, stk) ;
   ()
 
 (* OB: we cannot enter the same stack twice. *)
-let rec eval_exp ~session stk env e : denv * dvalue =
-  ILog.app (fun m -> m "@[-> %a@]\n" Concrete_stack.pp stk) ;
-
-  let (Expr clauses) = e in
-  let denv, vs' =
-    List.fold_map ~f:(eval_clause ~session stk) ~init:env clauses
-  in
-  (denv, List.last_exn vs')
-
-(* OB: once stack is to change, there must be an `eval_exp` *)
-and eval_clause ~session stk env clause : denv * dvalue =
-  let (Clause (Var (x, _), cbody)) = clause in
-
-  debug_update_write_node session x stk ;
-
-  let (v : dvalue) =
-    match cbody with
-    | Value_body (Value_function vf) ->
-        let retv = FunClosure (x, vf, env) in
-        let () = add_val_def_mapping (x, stk) (cbody, retv) session in
-        retv
-    | Value_body (Value_record r) ->
-        let retv = RecordClosure (r, env) in
-        let () = add_val_def_mapping (x, stk) (cbody, retv) session in
-        retv
-    | Value_body v ->
-        let retv = Direct v in
-        let () = add_val_def_mapping (x, stk) (cbody, retv) session in
-        retv
-    | Var_body vx ->
-        let (Var (v, _)) = vx in
-        let ret_val, ret_stk = fetch_val_with_stk ~session ~stk env vx in
-        add_alias (x, stk) (v, ret_stk) session ;
-        ret_val
-    | Conditional_body (x2, e1, e2) ->
-        let e, stk' =
-          if fetch_val_to_bool ~session ~stk env x2
-          then (e1, Concrete_stack.push (x, cond_fid true) stk)
-          else (e2, Concrete_stack.push (x, cond_fid false) stk)
-        in
-        let ret_env, ret_val = eval_exp ~session stk' env e in
-        let (Var (ret_id, _) as last_v) = Ast_tools.retv e in
-        let _, ret_stk = fetch_val_with_stk ~session ~stk:stk' ret_env last_v in
-        add_alias (x, stk) (ret_id, ret_stk) session ;
-        ret_val
-    | Input_body ->
-        (* TODO: the interpreter may propagate the dummy value (through the value should never be used in any control flow)  *)
-        (* To change: Partial eval should view input as an unknown*)
-        let n = 1 in
-        let retv = Direct (Value_int n) in
-        let () = add_val_def_mapping (x, stk) (cbody, retv) session in
-        retv
-    | Appl_body (vx1, (Var (x2, _) as vx2)) -> (
-        match fetch_val ~session ~stk env vx1 with
-        | FunClosure (fid, Function_value (Var (arg, _), body), fenv) ->
-            let v2, v2_stk = fetch_val_with_stk ~session ~stk env vx2 in
-            let stk2 = Concrete_stack.push (x, fid) stk in
-            let env2 = Ident_map.add arg (v2, stk) fenv in
-            add_alias (arg, stk) (x2, v2_stk) session ;
-            let ret_env, ret_val = eval_exp ~session stk2 env2 body in
-            let (Var (ret_id, _) as last_v) = Ast_tools.retv body in
-            let _, ret_stk =
-              fetch_val_with_stk ~session ~stk:stk2 ret_env last_v
-            in
-            add_alias (x, stk) (ret_id, ret_stk) session ;
-            ret_val
-        | _ -> failwith "app to a non fun")
-    | Match_body (vx, p) ->
-        let retv = Direct (Value_bool (check_pattern ~session ~stk env vx p)) in
-        let () = add_val_def_mapping (x, stk) (cbody, retv) session in
-        retv
-    | Projection_body (v, key) -> (
-        match fetch_val ~session ~stk env v with
-        | RecordClosure (Record_value r, denv) ->
-            let (Var (proj_x, _) as vv) = Ident_map.find key r in
-            let dvv, vv_stk = fetch_val_with_stk ~session ~stk denv vv in
-            add_alias (x, stk) (proj_x, vv_stk) session ;
-            dvv
-        | Direct (Value_record (Record_value _record)) ->
-            (* let vv = Ident_map.find key record in
-               fetch_val env vv *)
-            failwith "project should also have a closure"
-        | _ -> failwith "project on a non record")
-    | Not_body vx ->
-        let v = fetch_val_to_direct ~session ~stk env vx in
-        let bv =
-          match v with
-          | Value_bool b -> Value_bool (not b)
-          | _ -> failwith "incorrect not"
-        in
-        let retv = Direct bv in
-        let () = add_val_def_mapping (x, stk) (cbody, retv) session in
-        retv
-    | Binary_operation_body (vx1, op, vx2) ->
-        let v1 = fetch_val_to_direct ~session ~stk env vx1
-        and v2 = fetch_val_to_direct ~session ~stk env vx2 in
-        let v =
-          match (op, v1, v2) with
-          | Binary_operator_plus, Value_int n1, Value_int n2 ->
-              Value_int (n1 + n2)
-          | Binary_operator_minus, Value_int n1, Value_int n2 ->
-              Value_int (n1 - n2)
-          | Binary_operator_times, Value_int n1, Value_int n2 ->
-              Value_int (n1 * n2)
-          | Binary_operator_divide, Value_int n1, Value_int n2 ->
-              Value_int (n1 / n2)
-          | Binary_operator_modulus, Value_int n1, Value_int n2 ->
-              Value_int (n1 mod n2)
-          | Binary_operator_less_than, Value_int n1, Value_int n2 ->
-              Value_bool (n1 < n2)
-          | Binary_operator_less_than_or_equal_to, Value_int n1, Value_int n2 ->
-              Value_bool (n1 <= n2)
-          | Binary_operator_equal_to, Value_int n1, Value_int n2 ->
-              Value_bool (n1 = n2)
-          | Binary_operator_equal_to, Value_bool b1, Value_bool b2 ->
-              Value_bool (Bool.( = ) b1 b2)
-          | Binary_operator_and, Value_bool b1, Value_bool b2 ->
-              Value_bool (b1 && b2)
-          | Binary_operator_or, Value_bool b1, Value_bool b2 ->
-              Value_bool (b1 || b2)
-          | _, _, _ -> failwith "incorrect binop"
-        in
-        let retv = Direct v in
-        let () = add_val_def_mapping (x, stk) (cbody, retv) session in
-        retv
-        (* | Abort_body ->
-             raise @@ Found_abort x
-           | Assert_body vx ->
-             let v = fetch_val_to_direct ~session ~stk env vx in
-             let bv =
-               match v with
-               | Value_bool b -> Value_bool b
-               | _ -> failwith "failed assert"
-             in
-             Direct bv *)
-        (* TODO: What should the interpreter do with an assume statement? *)
-    | Abort_body -> (
-        let ab_v = AbortClosure env in
-        let () = add_val_def_mapping (x, stk) (cbody, ab_v) session in
-         raise @@ Found_abort ab_v)
-    | Assert_body _ | Assume_body _ ->
-        let retv = Direct (Value_bool true) in
-        let () = add_val_def_mapping (x, stk) (cbody, retv) session in
-        retv
-    (* failwith "not supported yet" *)
-  in
-  debug_clause ~session x v stk ;
-  (Ident_map.add x (v, stk) env, v)
-
-and fetch_val_with_stk ~session ~stk env (Var (x, _)) :
-    dvalue * Concrete_stack.t =
+let rec fetch_val_with_stk ~session ~stk env (Var (x, _)) :
+    pvalue * Concrete_stack.t =
   let res = Ident_map.find x env in
   debug_update_read_node session x stk ;
   res
 
-and fetch_val ~session ~stk env x : dvalue =
+and fetch_val ~session ~stk env x : pvalue =
   fst (fetch_val_with_stk ~session ~stk env x)
 
 and fetch_val_to_direct ~session ~stk env vx : value =
@@ -341,58 +355,3 @@ and check_pattern ~session ~stk env vx pattern : bool =
     | _, _ -> false
   in
   is_pass
-
-(* let eval session e =
-  let empty_env = Ident_map.empty in
-  try
-    let v = snd (eval_exp ~session Concrete_stack.empty empty_env e) in
-    raise (Terminate v)
-  with
-  | Reach_max_step (x, stk) ->
-      Fmt.epr "Reach max steps\n" ;
-      (* alert_lookup target_stk x stk session.lookup_alert; *)
-      raise (Reach_max_step (x, stk))
-  | Run_the_same_stack_twice (x, stk) ->
-      Fmt.epr "Run into the same stack twice\n" ;
-      alert_lookup session x stk ;
-      raise (Run_the_same_stack_twice (x, stk))
-  | Run_into_wrong_stack (x, stk) ->
-      Fmt.epr "Run into wrong stack\n" ;
-      alert_lookup session x stk ;
-      raise (Run_into_wrong_stack (x, stk)) *)
-
-(* toplevel eval assuming Plain mode, returning dvalue directly instead of exception *)
-(* Assumes that default session has no max_step *)
-let [@warning "-8"] teval e = 
-  let empty_env = Ident_map.empty in
-    match snd (eval_exp ~session:(make_default_session ()) Concrete_stack.empty empty_env e) with
-    | Direct v -> v
-;;
-
-(* let unparse_val = function
-  | Value_record Record_value r ->
-  | Value_function Function_value x e ->
-  | Value_int v -> string_of_int v
-  | Value_bool True -> "True"
-  | Value_bool False -> "False"
-
-and unparse (ast : expr) = *)
-
-let parse = Jayil_parser.Parse.parse_program_str;;
-
-let unparse = Jayil.Ast_pp.show_value;;
-let unparse_expr = Jayil.Ast_pp.show_expr;;
-
-let parse_eval (a : string) = a |> parse |> teval;;
-let parse_eval_x (a : string) =
-  try
-    a |> parse |> eval (*fun ast -> eval (make_default_session ()) ast *) 
-  with 
-    | Terminate Direct v -> Expr [Clause (Var (Ident "output", None), Value_body v)]
-;;
-
-
-let parse_eval_unparse (a : string) = a |> parse |> teval |> unparse;;
-let peu = parse_eval_unparse;;
-let parse_eval_print (a : string) = a |> peu |> print_endline;; (* print_endline "";; *)
-let rep = parse_eval_print;;
