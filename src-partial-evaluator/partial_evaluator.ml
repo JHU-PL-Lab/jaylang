@@ -59,10 +59,17 @@ module IdentLine = struct
 
   let equal = equal_identline
   let compare = compare_identline
-  let pp = pp_identline
+  (* let pp = pp_identline *)
   let show = show_identline
   let to_yojson = identline_to_yojson
   let hash = Hashtbl.hash
+
+
+  
+  let pp oc = function
+  | Ident ident -> Jayil.Ast_pp.pp_ident oc ident
+  | LexAdr lexadr -> LexAdr.pp oc lexadr
+
 end
 
 module IdentLine_map = struct
@@ -108,7 +115,7 @@ and pp_presidual oc = function
   | PClause clause_body -> Jayil.Ast_pp.pp_clause_body oc clause_body
 
 and pp_pwild oc ((ident, presidual, lexadrset) : presidual_with_ident_lexadr_deps) =
-  Format.fprintf oc "%a = %a, %a" pp_var (Var (ident, _)) pp_presidual presidual LexAdr_set.pp lexadrset
+  Format.fprintf oc "%a = %a, %a" Jayil.Ast_pp.pp_ident ident pp_presidual presidual LexAdr_set.pp lexadrset
 
 let pp_penv : penv Pp_utils.pretty_printer = IdentLine_map.pp pp_pwild
 
@@ -245,6 +252,10 @@ let sparse_eval_unparse (a : string) = a |> parse |> simple_eval |> fst |> unpar
 let speu = sparse_eval_unparse;;
 let sparse_eval_print (a : string) = a |> speu |> print_endline;; (* print_endline "";; *)
 let srep = sparse_eval_print;;
+let debug_sparse_eval_print (a : string) = a |> debug_sparse_eval |> Format.printf "%a" pp_penv;;
+let sdrep = debug_sparse_eval_print;;
+
+
 
 let spfile_eval (a : string) = a |> pfile |> simple_eval |> fst;;
 
@@ -253,8 +264,10 @@ let debug_spfile_eval (a : string) = a |> pfile |> simple_eval |> snd;;
 
 let spfile_eval_unparse (a : string) = a |> pfile |> simple_eval |> fst |> unparse;;
 let spfeu = spfile_eval_unparse;;
-let spfile_eval_print (a : string) = a |> speu |> print_endline;; (* print_endline "";; *)
+let spfile_eval_print (a : string) = a |> spfeu |> print_endline;; (* print_endline "";; *)
 let sfrep = spfile_eval_print;;
+let debug_spfile_eval_print (a : string) = a |> debug_spfile_eval |> Format.printf "%a" pp_penv;;
+let sdfrep = debug_spfile_eval_print;;
 
 
 
