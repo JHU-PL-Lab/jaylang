@@ -103,6 +103,15 @@ and pp_record_c (Record_value r, env) oc =
   (Fmt.braces (Fmt.iter_bindings ~sep:(Fmt.any ", ") Ident_map.iter pp_entry))
     oc r
 
+and pp_presidual oc = function
+  | PValue pvalue -> pp_pvalue oc pvalue
+  | PClause clause_body -> Jayil.Ast_pp.pp_clause_body oc clause_body
+
+and pp_pwild oc ((ident, presidual, lexadrset) : presidual_with_ident_lexadr_deps) =
+  Format.fprintf oc "%a = %a, %a" pp_var (Var (ident, _)) pp_presidual presidual LexAdr_set.pp lexadrset
+
+let pp_penv : penv Pp_utils.pretty_printer = IdentLine_map.pp pp_pwild
+
 let add_ident_line (ident : Ident.t) (lexadr : int * int) (v : 'a) (map : 'a IdentLine_map.t) =
   let envnum, _ = lexadr
   in IdentLine_map.add (LexAdr (envnum, -1)) v (IdentLine_map.add (LexAdr lexadr) v (IdentLine_map.add (Ident ident) v map))
@@ -222,6 +231,7 @@ let simple_eval (expr : expr) : value * penv = (
 
 
 let parse = Jayil_parser.Parse.parse_program_str;;
+let pfile = Dj_common.File_utils.read_source;;
 
 let unparse = Jayil.Ast_pp.show_value;;
 let unparse_expr = Jayil.Ast_pp.show_expr;;
@@ -235,6 +245,16 @@ let sparse_eval_unparse (a : string) = a |> parse |> simple_eval |> fst |> unpar
 let speu = sparse_eval_unparse;;
 let sparse_eval_print (a : string) = a |> speu |> print_endline;; (* print_endline "";; *)
 let srep = sparse_eval_print;;
+
+let spfile_eval (a : string) = a |> pfile |> simple_eval |> fst;;
+
+let debug_spfile_eval (a : string) = a |> pfile |> simple_eval |> snd;;
+
+
+let spfile_eval_unparse (a : string) = a |> pfile |> simple_eval |> fst |> unparse;;
+let spfeu = spfile_eval_unparse;;
+let spfile_eval_print (a : string) = a |> speu |> print_endline;; (* print_endline "";; *)
+let sfrep = spfile_eval_print;;
 
 
 
