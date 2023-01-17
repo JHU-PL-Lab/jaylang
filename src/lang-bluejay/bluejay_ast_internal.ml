@@ -125,6 +125,9 @@ and 'a expr =
       -> syntactic_only expr
   | TypeRecurse : (ident * syntactic_only expr_desc) -> syntactic_only expr
   | TypeUntouched : string -> syntactic_only expr
+  | TypeVariant :
+      (variant_label * syntactic_only expr_desc)
+      -> syntactic_only expr
 
 let counter = ref 0
 
@@ -273,6 +276,8 @@ and equal_expr : type a. a expr -> a expr -> bool =
       id1 = id2 && equal_expr_desc lt1 lt2 && equal_expr_desc rt1 rt2
   | TypeRecurse (x1, t1), TypeRecurse (x2, t2) -> x1 = x2 && t1 = t2
   | TypeUntouched s1, TypeUntouched s2 -> s1 = s2
+  | TypeVariant (l1, e1), TypeVariant (l2, e2) ->
+      l1 = l2 && equal_expr_desc e1 e2
   | _ -> false
 
 let rec tagless_equal_funsig : type a. a funsig -> a funsig -> bool =
@@ -411,6 +416,8 @@ and tagless_equal_expr : type a. a expr -> a expr -> bool =
       && tagless_equal_expr_desc rt1 rt2
   | TypeRecurse (x1, t1), TypeRecurse (x2, t2) -> x1 = x2 && t1 = t2
   | TypeUntouched s1, TypeUntouched s2 -> s1 = s2
+  | TypeVariant (l1, e1), TypeVariant (l2, e2) ->
+      l1 = l2 && tagless_equal_expr_desc e1 e2
   | _ -> false
 
 let compare_helper (x : int) (y : int) : int = if x <> 0 then x else y
@@ -529,6 +536,8 @@ and compare_expr : type a. a expr -> a expr -> int =
   | TypeRecurse (x1, t1), TypeRecurse (x2, t2) ->
       compare x1 x2 |> compare_helper (compare t1 t2)
   | TypeUntouched s1, TypeUntouched s2 -> compare s1 s2
+  | TypeVariant (l1, e1), TypeVariant (l2, e2) ->
+      compare l1 l2 |> compare_helper (compare_expr_desc e1 e2)
   (* TODO: Another potential source for bug *)
   | Int _, _ -> 1
   | _, Int _ -> -1
@@ -623,7 +632,9 @@ and compare_expr : type a. a expr -> a expr -> int =
   | TypeIntersect _, _ -> 1
   | _, TypeIntersect _ -> -1
   | TypeRecurse _, _ -> 1
-  | _, TypeRecurse _ -> 1
+  | _, TypeRecurse _ -> -1
+  | TypeUntouched _, _ -> 1
+  | _, TypeUntouched _ -> -1
 
 module type Expr_desc = sig
   type t
@@ -685,7 +696,7 @@ let expr_precedence_p1 : type a. a expr -> int =
   (* TODO: For now, all type expressions will have the lowest precedence coz I'm lazy and don't wanna think about it *)
   | TypeVar _ | TypeInt | TypeBool | TypeRecord _ | TypeList _ | TypeArrow _
   | TypeArrowD _ | TypeSet _ | TypeUnion _ | TypeIntersect _ | TypeRecurse _
-  | TypeError _ | TypeUntouched _ ->
+  | TypeError _ | TypeUntouched _ | TypeVariant _ ->
       13
 
 (** Takes expressions [e1] and [e2] as arguments. Returns 0 if the two
@@ -889,6 +900,9 @@ and from_internal_expr (e : syn_type_bluejay) : Bluejay_ast.expr =
       let ed' = from_internal_expr_desc ed in
       TypeRecurse (tv, ed')
   | TypeUntouched s -> TypeUntouched s
+  | TypeVariant (l, ed) ->
+      let ed' = from_internal_expr_desc ed in
+      TypeVariant (l, ed')
 
 (* Helper routines to transform external bluejay to internal bluejay *)
 
@@ -1079,6 +1093,9 @@ and to_internal_expr (e : Bluejay_ast.expr) : syn_type_bluejay =
       let ed' = to_internal_expr_desc ed in
       TypeRecurse (tv, ed')
   | TypeUntouched s -> TypeUntouched s
+  | TypeVariant (lbl, ed) ->
+      let ed' = to_internal_expr_desc ed in
+      TypeVariant (lbl, ed')
 
 (* Helper routines to transform jay to internal bluejay *)
 
@@ -1368,7 +1385,8 @@ and to_jay_expr (e : core_bluejay) : Jay.Jay_ast.expr =
 let is_type_expr (ed : syn_bluejay_edesc) : bool =
   match ed.body with
   | TypeVar _ | TypeInt | TypeBool | TypeRecord _ | TypeList _ | TypeArrow _
-  | TypeArrowD _ | TypeUnion _ | TypeIntersect _ | TypeSet _ | TypeRecurse _ ->
+  | TypeArrowD _ | TypeUnion _ | TypeIntersect _ | TypeSet _ | TypeRecurse _
+  | TypeVariant _ ->
       true
   | _ -> false
 

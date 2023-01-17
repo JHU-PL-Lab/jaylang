@@ -1179,6 +1179,66 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
+  | TypeVariant (v_lbl, t') ->
+      let%bind generator =
+        let%bind gc_pair_g = semantic_type_of t' in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair_g, Label "~actual_rec")
+        in
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "generator")
+        in
+        let%bind appl_ed_1 =
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Int 0)
+        in
+        let%bind expr_id = fresh_ident "v_expr" in
+        let v_maker =
+          Function ([ Ident "~null" ], new_expr_desc @@ Var expr_id)
+        in
+        let v_expr = Let (expr_id, appl_ed_1, new_expr_desc @@ v_maker) in
+        return v_expr
+      in
+      let%bind checker =
+        let%bind variant_fail_id = fresh_ident "variant_fail" in
+        let%bind expr_id = fresh_ident "expr" in
+        let%bind v_expr = fresh_ident "v_expr" in
+        let fail_pat_cls = new_expr_desc @@ Var variant_fail_id in
+        let matched_expr = new_expr_desc @@ Var expr_id in
+        let%bind gc_pair_c = semantic_type_of t' in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair_c, Label "~actual_rec")
+        in
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
+        in
+        let%bind appl_ed =
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var v_expr)
+        in
+        let%bind match_body =
+          new_instrumented_ed
+          @@ Match
+               ( matched_expr,
+                 [
+                   (VariantPat (v_lbl, v_expr), appl_ed); (AnyPat, fail_pat_cls);
+                 ] )
+        in
+        let check_cls =
+          Let (variant_fail_id, new_expr_desc @@ Bool false, match_body)
+        in
+        let%bind () =
+          add_error_to_value_expr_mapping fail_pat_cls matched_expr
+        in
+        let%bind () = add_error_to_tag_mapping fail_pat_cls tag in
+        return @@ Function ([ expr_id ], new_expr_desc check_cls)
+      in
+      let rec_map =
+        Ident_map.empty
+        |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+        |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+      in
+      let res = new_expr_desc @@ Record rec_map in
+      let%bind () = add_sem_to_syn_mapping res e_desc in
+      return res
   | Int n ->
       let res = new_expr_desc @@ Int n in
       let%bind () = add_sem_to_syn_mapping res e_desc in

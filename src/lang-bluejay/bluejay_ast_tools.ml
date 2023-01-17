@@ -39,7 +39,8 @@ and defined_vars_of_expr (e : expr) : Ident_set.t =
   | VariantExpr (_, ed)
   | Assert ed
   | Assume ed
-  | TypeList ed ->
+  | TypeList ed
+  | TypeVariant (_, ed) ->
       defined_vars_of_expr_desc ed
   | If (ed1, ed2, ed3) ->
       let s1 = defined_vars_of_expr_desc ed1 in

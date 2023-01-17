@@ -872,11 +872,19 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           Bluejay_ast_internal.syn_bluejay_edesc option =
         let jayil_vars =
           ed |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps |> fun ed' ->
+          (* let () =
+               print_endline @@ Bluejay_ast_pp.show_expr_desc
+               @@ Bluejay_ast_internal.from_internal_expr_desc ed
+             in *)
           Option.value ~default:ed'
             (Bluejay_to_jay_maps.wrapped_bluejay_from_unwrapped_bluejay
                bluejay_jay_maps ed')
           |> Bluejay_to_jay_maps.get_core_expr_from_sem_expr bluejay_jay_maps
           |> Option.value_exn |> Bluejay_ast_internal.to_jay_expr_desc
+          (* |> fun x ->
+             let () = print_endline @@ Jay.Jay_ast_pp.show_expr_desc x in
+             Jay_translate.Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr
+               jayil_jay_maps x *)
           |> Jay_translate.Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr
                jayil_jay_maps
           |> Option.value_exn
@@ -957,7 +965,12 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
               let ed' = type_resolution ed in
               let body' = TypeRecurse (rec_id, ed') in
               { tag; body = body' }
-          | _ -> failwith "Should be working with a type expression!"
+          | TypeVariant (v_lbl, ed) ->
+              let ed' = type_resolution ed in
+              let body' = TypeVariant (v_lbl, ed') in
+              { tag; body = body' }
+          | _ ->
+              failwith "resolve_type: Should be working with a type expression!"
         in
         let resolve_non_type ed =
           let tag = ed.tag in

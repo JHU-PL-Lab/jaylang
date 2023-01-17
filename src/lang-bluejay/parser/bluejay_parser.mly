@@ -310,6 +310,9 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
       else
         let e_desc' = build_recursive_type t_var e_desc in
         TypeRecurse (tv, e_desc')
+    | TypeVariant (l, e_desc) ->
+      let e_desc' = build_recursive_type t_var e_desc in
+      TypeVariant (l, e_desc')
   in
   {tag = tag; body = body'}
 %}
@@ -486,6 +489,7 @@ expr:
   | OPEN_BRACE DOT expr PIPE expr CLOSE_BRACE { TypeSet (new_expr_desc $3, new_expr_desc $5) } 
   | expr DOUBLE_PIPE expr { TypeUnion (new_expr_desc $1, new_expr_desc $3) }
   | expr DOUBLE_AMPERSAND expr { TypeIntersect (new_expr_desc $1, new_expr_desc $3) }
+  | variant_type_label expr { TypeVariant ($1, new_expr_desc $2)  }
 ;
 
 type_parameter:
@@ -619,6 +623,9 @@ list_body:
 /* `Variant 2 */
 variant_label:
   | BACKTICK IDENTIFIER { Variant_label $2 }
+
+variant_type_label:
+  | BACKTICK BACKTICK IDENTIFIER { Variant_label $3 }
 
 /* **** Pattern matching **** */
 

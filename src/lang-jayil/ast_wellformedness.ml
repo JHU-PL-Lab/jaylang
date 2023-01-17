@@ -30,6 +30,7 @@ let check_wellformed_expr expression : unit =
    if not (Var_set.is_empty expression_non_unique_bindings)
    then
      let () =
+       print_endline @@ "Non-unique bindings: " ;
        Var_set.iter
          (fun v -> print_endline @@ show_var v)
          expression_non_unique_bindings
@@ -47,6 +48,7 @@ let check_wellformed_expr expression : unit =
     let () =
       List.iter
         (fun (v1, v2) ->
+          print_endline @@ "Scope violations: " ;
           print_endline @@ "(" ^ show_var v1 ^ ", " ^ show_var v2 ^ ")")
         expression_scope_violations
     in
