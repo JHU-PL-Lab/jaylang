@@ -54,7 +54,7 @@ module Make (S : S) = struct
     let ({ x'; _ } : Not_rule.t) = p in
     let key' = Lookup_key.with_x key x' in
     let phis = [ Riddler.not_with_picked key key' ] in
-    Direct { sub = key; pub = key'; phis }
+    Map { sub = key; pub = key'; map = (fun _ -> Lookup_result.ok key); phis }
 
   let binop b (key : Lookup_key.t) =
     let ({ bop; x1; x2; _ } : Binop_rule.t) = b in
@@ -262,7 +262,9 @@ module Make (S : S) = struct
     in
     MapSeq { sub = key; pub = key'; map = next; phis = [] }
 
-  let assume _p (key : Lookup_key.t) = Withered { phis = [] }
+  let assume _p (key : Lookup_key.t) =
+    (* Withered { phis = [] } *)
+    Withered { phis = [ Riddler.mismatch_with_picked key ] }
 
   let assert_ _p (key : Lookup_key.t) =
     Withered { phis = [ Riddler.mismatch_with_picked key ] }

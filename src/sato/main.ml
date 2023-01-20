@@ -50,10 +50,11 @@ let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
           in
           match List.hd inputss with
           | Some inputs -> (
+              let history = ref inputs in
               let session =
                 {
                   (Interpreter.make_default_session ()) with
-                  input_feeder = Input_feeder.from_list inputs;
+                  input_feeder = Input_feeder.from_list inputs ~history;
                 }
               in
               try Interpreter.eval session program

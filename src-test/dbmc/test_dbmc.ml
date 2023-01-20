@@ -95,28 +95,6 @@ end
 
 open Cmd_parser
 
-(* treat the path as the group name and filename as the test name *)
-let group_all_files dir =
-  let rec loop dir =
-    let acc_f, acc_p =
-      Sys_unix.fold_dir ~init:([], [])
-        ~f:(fun (acc_f, acc_p) path ->
-          match String.get path 0 with
-          | '.' (* including "." ".." *) | '_' -> (acc_f, acc_p)
-          | _ -> (
-              let fullpath = Filename.concat dir path in
-              match Sys_unix.is_directory fullpath with
-              | `Yes -> (acc_f, loop fullpath @ acc_p)
-              | `No when File_utils.check_upto_jay fullpath ->
-                  (fullpath :: acc_f, acc_p)
-              | `No -> (acc_f, acc_p)
-              | `Unknown -> (acc_f, acc_p)))
-        dir
-    in
-    (dir, List.sort acc_f ~compare:String.compare) :: acc_p
-  in
-  loop dir
-
 let test_one_file test_config testname () =
   let open Lwt.Syntax in
   let is_instrumented = test_config.is_instrumented in
@@ -178,12 +156,17 @@ let test_one_file_lwt testname _switch test_config =
   | None -> test_one_file test_config testname ()
 
 let main top_config =
-  let grouped_testfiles = group_all_files top_config.test_path in
+  let grouped_testfiles =
+    Directory_utils.group_all_files top_config.test_path
+  in
+  let simplify path =
+    Directory_utils.chop_parent_dir top_config.test_path path
+  in
   let grouped_tests =
     List.map grouped_testfiles ~f:(fun (group_name, test_names) ->
-        ( group_name,
+        ( simplify group_name,
           List.map test_names ~f:(fun testname ->
-              Alcotest_lwt.test_case testname `Quick
+              Alcotest_lwt.test_case (simplify testname) `Quick
               @@ test_one_file_lwt testname) ))
   in
 

@@ -7,7 +7,7 @@ open Shexp_process.Infix
    run "date" [ "-u"; "+%Y_%m_%d_%H_%M_%S" ]
    |- run "xargs" [ "-I"; "%"; "mkdir"; "-p"; "result/%" ] *)
 
-let ddse_bin = "./dj"
+let ddse_bin = "./dj.exe"
 
 let is_mac =
   let ic = Caml_unix.open_process_in "uname" in

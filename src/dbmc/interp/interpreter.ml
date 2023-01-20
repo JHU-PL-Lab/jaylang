@@ -321,6 +321,8 @@ and eval_clause ~session stk env clause : denv * dvalue =
               Value_bool (b1 && b2)
           | Binary_operator_or, Value_bool b1, Value_bool b2 ->
               Value_bool (b1 || b2)
+          | Binary_operator_not_equal_to, Value_int n1, Value_int n2 ->
+              Value_bool (n1 <> n2)
           | _, _, _ -> failwith "incorrect binop"
         in
         let retv = Direct v in
