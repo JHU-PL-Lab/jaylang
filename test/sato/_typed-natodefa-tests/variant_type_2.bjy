@@ -1,0 +1,6 @@
+let f (n : ``A int) : int =
+    match n with
+    | `A x -> x >= 0
+    end
+in
+f

@@ -1195,7 +1195,12 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let v_maker =
           Function ([ Ident "~null" ], new_expr_desc @@ Var expr_id)
         in
-        let v_expr = Let (expr_id, appl_ed_1, new_expr_desc @@ v_maker) in
+        let v_expr =
+          Let
+            ( expr_id,
+              new_expr_desc @@ VariantExpr (v_lbl, appl_ed_1),
+              new_expr_desc @@ v_maker )
+        in
         return v_expr
       in
       let%bind checker =

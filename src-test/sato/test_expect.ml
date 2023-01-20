@@ -76,24 +76,24 @@ let load_sexp_expectation_for testpath =
 
 (*
 ** Bluejay Type Errors **
-- Input sequence  : 0
-- Found at clause : let (x : {[int] | testFun}) = [val, val] in x
+- Input sequence  : 2
+- Found at clause : let (x : ``A (int)) = `A true in x
 --------------------
 * Value    : x
-* Expected : {[int] | testFun}
-* Actual   : [val, val]
+* Expected : ``A (int)
+* Actual   : ``A (bool)
 
 *)
 
 (* let t1 : t = {
-                found_at_clause = "let (x : {[int] | testFun}) = [val, val] in x";
+                found_at_clause = "let (x : ``A (int)) = `A true in x";
                 number_of_errors = 1;
                 error_list =
                 [
                  (Type_error {
                    t_var = "x";
-                   t_expected_type = "{[int] | testFun}";
-                   t_actual_type = "[val, val]";
+                   t_expected_type = "``A (int)";
+                   t_actual_type = "``A (bool)";
                  });
                 ]
               }
