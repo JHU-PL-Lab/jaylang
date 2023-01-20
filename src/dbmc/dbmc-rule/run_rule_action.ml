@@ -16,9 +16,8 @@ let fetch_list_counter (state : Global_state.t) (term_detail : Term_detail.t)
     Hashtbl.update_and_return state.smt_lists key ~f:(function
       | Some i -> i + 1
       | None ->
-          failwith (Fmt.str "why not inited : %a" Lookup_key.pp key)
-          (* add_phi state term_detail (Riddler.list_head key) ;
-             1 *))
+          (* add_phi state term_detail (Riddler.list_head key) *)
+          failwith (Fmt.str "why not inited : %a" Lookup_key.pp key))
   in
   new_i - 1
 

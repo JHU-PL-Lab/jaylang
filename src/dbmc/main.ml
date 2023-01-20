@@ -33,7 +33,7 @@ let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t)
         target.stk
     | ex -> raise ex
   in
-  if Solver.check_expected_input_sat expected_stk !history
+  if Solver.check_expected_input_sat expected_stk !history state.solver
   then ()
   else failwith "expected input leads to a wrong place."
 
@@ -59,7 +59,7 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
             | Value_function _ -> Riddler.true_
             | _ -> Riddler.eqv key v
           in
-          state.phis <- key_picked :: eq_z :: state.phis ;
+          state.phis_staging <- key_picked :: eq_z :: state.phis_staging ;
           let info =
             Fmt.str "[Con]: %a %a = %a \n[Sym] %a\n\n" Id.pp x Concrete_stack.pp
               c_stk Jayil.Pp.value v Lookup_key.pp key
@@ -113,7 +113,9 @@ let handle_not_found (config : Global_config.t) (state : Global_state.t)
      | Dbmc_check inputs -> check_expected_input ~config ~state inputs
      | _ -> ()) ; *)
   if config.debug_model
-  then SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ()))
+  then
+    SLog.debug (fun m ->
+        m "Solver Phis: %s" (Solver.string_of_solver state.solver))
   else () ;
   handle_both config state None ;
   ([], is_timeout, None)

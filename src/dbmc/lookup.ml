@@ -16,7 +16,7 @@ let push_job (state : Global_state.t) (key : Lookup_key.t) task () =
 let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     unit Lwt.t =
   (* reset and init *)
-  Solver.reset () ;
+  Solver.reset state.solver ;
   Riddler.reset () ;
 
   let unroll = U_ddse.create () in
@@ -92,7 +92,9 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
   let wait_result =
     U_ddse.by_iter unroll term_target (fun (r : Ddse_result.t) ->
         let phis_to_check = Set.to_list r.phis in
-        match Checker.check_phis phis_to_check config.debug_model with
+        match
+          Checker.check_phis state.solver phis_to_check config.debug_model
+        with
         | None -> Lwt.return_unit
         | Some { model; c_stk } ->
             raise (Riddler.Found_solution { model; c_stk }))
@@ -192,7 +194,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   in
 
   (* reset and init *)
-  Solver.reset () ;
+  Solver.reset state.solver ;
   Riddler.reset () ;
   let block0 = Cfg.find_block_by_id state.target state.block_map in
   let key_target = Lookup_key.start state.target block0 in

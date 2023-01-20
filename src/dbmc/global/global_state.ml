@@ -17,7 +17,8 @@ let create (config : Global_config.t) program =
       root_node = ref (Search_graph.root_node block0 target);
       tree_size = 1;
       term_detail_map = Hashtbl.create (module Lookup_key);
-      phis = [];
+      phis_staging = [];
+      phis_added = [];
       input_nodes = Hash_set.create (module Lookup_key);
       lookup_created = Hash_set.create (module Lookup_key);
       smt_lists = Hashtbl.create (module Lookup_key);
@@ -26,17 +27,19 @@ let create (config : Global_config.t) program =
       rstk_picked = Hashtbl.create (module Rstack);
       rstk_stat_map = Hashtbl.create (module Rstack);
       block_stat_map = Hashtbl.create (module Cfg.Block);
-      solver = Solver.solver;
+      solver = Z3.Solver.mk_solver Solver.ctx None;
     }
   in
   (* Global_state.lookup_alert state key_target state.root_node; *)
   state
 
-let clear_phis state = state.phis <- []
+let clear_phis state =
+  state.phis_added <- state.phis_added @ state.phis_staging ;
+  state.phis_staging <- []
 
 let add_phi (state : t) (term_detail : Term_detail.t) phi =
   term_detail.phis <- phi :: term_detail.phis ;
-  state.phis <- phi :: state.phis
+  state.phis_staging <- phi :: state.phis_staging
 
 (* let picked_from model key =
      Option.value

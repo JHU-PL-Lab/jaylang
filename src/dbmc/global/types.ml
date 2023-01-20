@@ -48,7 +48,8 @@ module State = struct
     (* central: node attr *)
     term_detail_map : (Lookup_key.t, Term_detail.t) Hashtbl.t;
     (* constraints *)
-    mutable phis : Z3.Expr.expr list;
+    mutable phis_staging : Z3.Expr.expr list;
+    mutable phis_added : Z3.Expr.expr list;
     (* TODO: get this after smt solving *)
     input_nodes : Lookup_key.t Hash_set.t;
     (* pvar *)

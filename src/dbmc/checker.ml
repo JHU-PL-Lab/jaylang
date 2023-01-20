@@ -24,10 +24,13 @@ let eager_check (state : Global_state.t) (config : Global_config.t) target
     unfinish_lookup @ [ picked target ] @ list_fix @ assumption
   in
 
-  let check_result = Solver.check state.phis phi_used_once in
+  let check_result =
+    Solver.check state.solver state.phis_staging phi_used_once
+  in
   Global_state.clear_phis state ;
   SLog.debug (fun m -> m "Eager check") ;
-  SLog.debug (fun m -> m "Solver Phis: %s" (Solver.string_of_solver ())) ;
+  SLog.debug (fun m ->
+      m "Solver Phis: %s" (Solver.string_of_solver state.solver)) ;
   SLog.debug (fun m ->
       m "Used-once Phis (eager): %a"
         Fmt.(list ~sep:sp string)
@@ -80,25 +83,43 @@ let check ?(verbose = true) (state : Global_state.t) (config : Global_config.t)
           (List.map ~f:Z3.Expr.to_string phi_used_once))
   else () ;
 
-  let check_result = Solver.check ~verbose state.phis phi_used_once in
+  let solver_result =
+    Solver.check ~verbose state.solver state.phis_staging phi_used_once
+  in
   Global_state.clear_phis state ;
 
   LLog.info (fun m -> m "before model:\t%d" state.tree_size) ;
-  match check_result with
-  | Result.Ok model ->
-      if verbose
-      then SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
-      else () ;
-      let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
-      let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
-      Some { model; c_stk }
-  | Result.Error _exps -> None
+
+  let check_result =
+    match solver_result with
+    | Result.Ok model ->
+        if verbose
+        then SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
+        else () ;
+        let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
+        let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
+        Some { model; c_stk }
+    | Result.Error _exps -> None
+  in
+
+  (* try another solver using accumulated phis *)
+  let another_solver = Z3.Solver.mk_solver Solver.ctx None in
+  let another_result =
+    Solver.check another_solver state.phis_added phi_used_once
+  in
+  (match (solver_result, another_result) with
+  | Result.Ok _, Result.Ok _ | Result.Error _, Result.Error _ -> ()
+  | _, _ -> assert false) ;
+  check_result
+
+let simplify_phis () = ()
 
 let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
     stride =
   (* state.tree_size <- state.tree_size + 1 ; *)
   if state.tree_size mod !stride = 0
   then (
+    simplify_phis () ;
     let t_start = Time_ns.now () in
     let check_result = check state config in
     let t_span = Time_ns.(diff (now ()) t_start) in
@@ -121,14 +142,14 @@ let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
     Observe.count_smt_request config state key false 0.0 ;
     Lwt.return_unit)
 
-let check_phis phis is_debug : result_info option =
+let check_phis solver phis is_debug : result_info option =
   if is_debug
   then
     SLog.debug (fun m ->
         m "Phis: %a" Fmt.(Dump.list string) (List.map ~f:Z3.Expr.to_string phis))
   else () ;
 
-  match Solver.check [] phis with
+  match Solver.check solver [] phis with
   | Result.Ok model ->
       SLog.app (fun m -> m "SAT") ;
       if is_debug
