@@ -26,13 +26,16 @@ This command installs the dependencies of this project to opam. You are supposed
 If you also want to install this project to opam and develop external project, remove `--deps-only` from the command.
 
 ```
-opam switch create ./ 4.14.0 --deps-only --description=jay-dev
+opam switch create ./ 4.14.1 --deps-only --description=jay-dev
+
+# Sometimes opam fails due to parallel installation of packages. To fix it
+opam install . --deps-only
 ```
 
 After that, you can install the develop tools
 ```
 opam user-setup install
-opam install ocaml-lsp-server ocamlformat
+opam install utop ocaml-lsp-server ocamlformat
 ```
 
 Now you should be able to run the project.

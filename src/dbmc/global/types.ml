@@ -41,7 +41,7 @@ module State = struct
     program : Jayil.Ast.expr;
     block_map : Cfg.block Jayil.Ast.Ident_map.t;
     source_map : Jayil.Ast.clause Jayil.Ast.Ident_map.t Lazy.t;
-    job_queue : (Lookup_key.t, unit) Scheduler.t;
+    job_queue : (Job_key.t, unit) Scheduler.t;
     (* graph *)
     root_node : Search_graph.node_ref;
     mutable tree_size : int;

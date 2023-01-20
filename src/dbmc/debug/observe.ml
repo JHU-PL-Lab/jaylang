@@ -62,3 +62,8 @@ let count_smt_request (config : Global_config.t) (state : Global_state.t)
     | None -> { visits = 1 }
     | Some d -> { visits = d.visits + 1 }) ;
   ()
+
+let get_block_visits (state : Global_state.t) (key : Lookup_key.t) =
+  Hashtbl.find_and_call state.block_stat_map key.block
+    ~if_found:(fun d -> d.visits)
+    ~if_not_found:(fun _ -> 0)

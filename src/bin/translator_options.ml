@@ -2,6 +2,10 @@ open Batteries
 
 exception Argument_parse_failure
 
+module Translator_constants = struct
+  let version = "0.1"
+end
+
 (** Determines the type of translation to perform. *)
 type translator_mode =
   | Bluejay_to_jayil

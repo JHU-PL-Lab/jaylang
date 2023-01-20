@@ -6,6 +6,13 @@ open Cfg
 open Log.Export
 module U_ddse = Lookup_ddse_rule.U
 
+let push_job (state : Global_state.t) (key : Lookup_key.t) task () =
+  (* Scheduler.push state.job_queue key task *)
+  let job_key : Job_key.t =
+    { lookup = key; block_visits = Observe.get_block_visits state key }
+  in
+  Scheduler.push state.job_queue job_key task
+
 let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     unit Lwt.t =
   (* reset and init *)
@@ -40,7 +47,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
           Term_detail.mk_detail ~rule ~key
         in
         Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
-        let task () = Scheduler.push state.job_queue key (lookup key phis) in
+        let task = push_job state key (lookup key phis) in
         U_ddse.alloc_task unroll ~task key
   and lookup (this_key : Lookup_key.t) phis () : unit Lwt.t =
     (* match Riddler.check_phis (Set.to_list phis) false with
@@ -116,7 +123,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
         else (
           (* Fmt.pr "[Task] %a\n" Lookup_key.pp key ; *)
           Hash_set.strict_add_exn state.lookup_created key ;
-          let task () = Scheduler.push state.job_queue key (eval key) in
+          let task = push_job state key (eval key) in
           Unrolls.U_dbmc.alloc_task unroll ~task key)
   in
 

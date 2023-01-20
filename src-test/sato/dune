@@ -1,14 +1,10 @@
-(alias
- (name sato-test))
-
-(rule
- (alias sato-test)
- (action
-  (run ./test_sato.ml)))
+; (rule
+;  (alias test_sato)
+;  (action
+;   (run ./test_sato.ml)))
 
 (executables
  (names test_sato)
- (libraries 
-  alcotest core sato)
+ (libraries alcotest core sato)
  (preprocess
   (pps ppx_jane lwt_ppx ppx_deriving.std ppx_expect)))

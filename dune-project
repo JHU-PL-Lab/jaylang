@@ -9,7 +9,7 @@
 (source
  (github JHU-PL-Lab/jaylang))
 
-(license Apache)
+(license Apache-2.0)
 
 (authors "JHU PL Lab <pl.cs@jhu.edu>")
 
