@@ -1,0 +1,16 @@
+let set_m = 
+  let tf t = List t in
+  let  
+  let (emptyset : tf 'a) = [] in
+  let add (x : 'a) (s : 'a t) : 'a t = (x :: s)
+  let rec remove (x : 'a) (s: 'a t) (equal : 'a -> 'a -> bool) : 'a t =
+    match s with
+    | [] -> failwith "item is not in set"
+    | hd :: tl ->
+      if equal hd x then tl
+      else hd :: remove x tl equal
+  let rec contains (x: 'a) (s: 'a t) (equal : 'a -> 'a -> bool) : bool =
+    match s with
+    | [] -> false
+    | hd :: tl ->
+      if equal x hd then true else contains x tl equal

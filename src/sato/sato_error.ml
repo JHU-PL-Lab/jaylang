@@ -1357,8 +1357,8 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         in
         if Bluejay_ast_internal.equal_expr_desc replaced expected_type
         then
-          new_t
-          (* Bluejay_ast_internal.new_expr_desc @@ TypeError (Ident "Type unknown") *)
+          (* new_t *)
+          Bluejay_ast_internal.new_expr_desc @@ TypeError (Ident "Type unknown")
         else replaced
       in
       let actual_type_external =
