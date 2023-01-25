@@ -21,11 +21,11 @@ let set_m =
   }
 in
 let set_m_type = 
-  let t = List 'a in
-  {: emptyset : t
-   , add : 'a -> t -> t
-   , remove : 'a -> t -> (t -> t -> bool) -> t
-   , contains : 'a -> t -> (t -> t -> bool) -> bool
+  let tf tau = List tau in
+  {: emptyset : 
+   , add : 'a -> (tf 'a) -> (tf 'a)
+   , remove : 'a -> (tf 'a) -> ((tf 'a) -> (tf 'a) -> bool) -> (tf 'a)
+   , contains : 'a -> (tf 'a) -> ((tf 'a) -> (tf 'a) -> bool) -> bool
   :}
 in
 let (check_type : set_m_type) = set_m in check_type 

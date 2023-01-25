@@ -1,1 +1,2 @@
-let (x : List (int || bool)) = [{a = 1}] in x 
+let (add : int -> (List int) -> List int) = fun x -> fun s -> x :: s in
+add

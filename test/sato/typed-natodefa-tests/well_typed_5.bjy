@@ -1,5 +1,3 @@
-# DBMC: Times out
-
 let twice (f : int -> int) (x : int) : int = f (f x) in
 let inc (x : int) : int = x + 1 in
 twice inc 2
