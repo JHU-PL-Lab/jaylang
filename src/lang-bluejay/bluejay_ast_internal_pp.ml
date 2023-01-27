@@ -262,7 +262,7 @@ and pp_expr : type a. Format.formatter -> a expr -> unit =
       else Format.fprintf formatter "assume (%a)" pp_expr_desc e
   (* | Untouched s ->
      Format.pp_print_string formatter @@ "'" ^ s *)
-  | TypeError x -> Format.fprintf formatter "%a" pp_ident x
+  | TypeError x -> Format.fprintf formatter "Type Error: %a" pp_ident x
   | TypeVar v -> Format.fprintf formatter "%a" pp_ident v
   | TypeInt -> Format.pp_print_string formatter "int"
   | TypeBool -> Format.pp_print_string formatter "bool"

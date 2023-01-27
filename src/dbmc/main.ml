@@ -78,7 +78,9 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
   in
   (try Interpreter.eval session state.program with
   | Interpreter.Found_target _ -> ()
-  | ex -> raise ex) ;
+  | ex ->
+      (* TODO: Here is where the exception is raised *)
+      raise ex) ;
   List.rev !history
 
 let handle_both (config : Global_config.t) (state : Global_state.t) model =

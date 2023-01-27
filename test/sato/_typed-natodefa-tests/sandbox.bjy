@@ -1,2 +1,12 @@
-let (add : int -> (List int) -> List int) = fun x -> fun s -> x :: s in
-add
+let t = (List 'a) in
+let set_m_type =
+  {: emptyset : t
+   , add : 'a -> t -> t
+  :}
+in
+let set_m = 
+  { emptyset = []
+  , add = fun x -> fun s -> x :: s 
+  }
+in
+let (check_type : set_m_type) = set_m in check_type 

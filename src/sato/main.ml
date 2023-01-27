@@ -39,8 +39,6 @@ let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
     match remaining_targets with
     | [] -> (None, has_timeout)
     | hd :: tl -> (
-        let () = print_endline "Lookup target: " in
-        let () = print_endline @@ show_ident hd in
         let dbmc_config = { dbmc_config_init with target = hd } in
         (* Right now we're stopping after one error is found. *)
         try
@@ -50,6 +48,8 @@ let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
           in
           match List.hd inputss with
           | Some inputs -> (
+              let () = print_endline "Lookup target: " in
+              let () = failwith @@ show_ident hd in
               let history = ref inputs in
               let session =
                 {
