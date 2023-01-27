@@ -887,6 +887,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                jayil_jay_maps x *)
           |> Jay_translate.Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr
                jayil_jay_maps
+             (* TODO: This is the problem here *)
           |> Option.value_exn
           |> (fun (Ast.Var (x, _)) ->
                Sato_tools.find_alias_without_stack alias_graph x)
@@ -924,13 +925,15 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           Bluejay_ast_internal.syn_bluejay_edesc =
         let open Bluejay_ast_internal in
         let type_expr_opt =
-          if is_type_expr ed then Some ed else check_aliases_for_type ed
+          if is_type_expr ed
+          then Some ed
+          else try check_aliases_for_type ed with _ex -> None
         in
         let resolve_type ted =
           let tag = ted.tag in
           let e = ted.body in
           match e with
-          | TypeVar _ | TypeInt | TypeBool -> ted
+          | TypeVar _ | TypeUntouched _ | TypeInt | TypeBool -> ted
           | TypeRecord r ->
               let body' = TypeRecord (Ident_map.map type_resolution r) in
               { tag; body = body' }
@@ -1146,6 +1149,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                    Bluejay_ast_pp.pp_expr_desc_without_tag t
                in *)
             let t_internal = t |> Bluejay_ast_internal.to_internal_expr_desc in
+            (* let resolved_t = type_resolution t_internal in *)
             let resolved_t = type_resolution t_internal in
             (resolved_t, ret)
         | LetFunWithType (fun_sig, _) -> (

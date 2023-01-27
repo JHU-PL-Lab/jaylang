@@ -49,7 +49,7 @@ let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
           match List.hd inputss with
           | Some inputs -> (
               let () = print_endline "Lookup target: " in
-              let () = failwith @@ show_ident hd in
+              let () = print_endline @@ show_ident hd in
               let history = ref inputs in
               let session =
                 {
