@@ -34,8 +34,6 @@ let dump_block_stat (config : Global_config.t) (state : Global_state.t) =
         m "%d@,%a" state.tree_size
           Fmt.(vbox (list ~sep:sp (Dump.pair Cfg.Block.pp Block_stat.pp)))
           raw_plist)
-    (* ;
-       S2Log.app (fun m -> m "") *)
   else ()
 
 let count_smt_request (config : Global_config.t) (state : Global_state.t)

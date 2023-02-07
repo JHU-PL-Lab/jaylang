@@ -98,6 +98,12 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
           if List.mem detail.messages msg ~equal:M.equal_message
           then ()
           else (
+            (* Note this push is not for the current src-tgt pair.
+               The handler function belonging to this target key is defined at the place
+               where `push_if_new` is used.
+               This push is used for other pairs in which this target is their's source.
+               That's the reason why we cannot see any handler here.
+            *)
             detail.push (Some msg) ;
             detail.messages <- detail.messages @ [ msg ]))
 

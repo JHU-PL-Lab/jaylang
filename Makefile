@@ -5,6 +5,7 @@ BUILD = _build/default
 BUILD_SRC = _build/default/src
 BUILD_BIN = _build/default/src/bin
 BUILD_TEST = _build/default/src-test
+TEST_D = test/dbmc
 
 
 all: dbmc sato translator
@@ -77,28 +78,27 @@ test-rstack:
 # profiling
 
 profile:
+	mkdir -p profiling
 	dune build --workspace dune-workspace.profile src/bin/dj.exe
-	ln -s -f _build/profile/src/bin/dj.exe dj
-# dune exec --workspace dune-workspace.profiling --context profiling src/bin/dj.exe -- -t target test-sources/loop/_sum100.odefa
+# dune exec --workspace dune-workspace.profiling --context profiling src/bin/dj.exe -- -t target $(TEST_D)/loop/_sum100.jil
 
 land100:
-	OCAML_LANDMARKS=auto,output="profiling/callgraph100-ddse.ansi" time ./dj -t target -ls2 debug test-sources/loop/_sum100.odefa
+	OCAML_LANDMARKS=auto,output="profiling/callgraph100-ddse.ansi" time ./dj.exe -t target -ls2 debug $(TEST_D)/loop/_sum100.jil
 
 land200:
-	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dj -t target -ls2 debug test-sources/loop/_sum200.odefa
+	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dj.exe -t target -ls2 debug $(TEST_D)/loop/_sum200.jil
 
 land500:
-	OCAML_LANDMARKS=auto,output="profiling/callgraph500.ansi" time ./dj -t target -ls2 debug test-sources/loop/_sum500.odefa
+	OCAML_LANDMARKS=auto,output="profiling/callgraph500.ansi" time ./dj.exe -t target -ls2 debug $(TEST_D)/loop/_sum500.jil
 
 ll:
-	OCAML_LANDMARKS=on,output="profiling/fold.ansi" time ./dj -t target -e ddse  -m 3 test-sources/benchmark/icfp20/_smbc/smbc_fold0s.natodefa
-
+	OCAML_LANDMARKS=on,output="profiling/fold.ansi" time ./dj.exe -t target -e ddse -m 3 $(TEST_D)/benchmark/icfp20/_smbc/smbc_fold0s.natodefa
 
 # benchmark
 
 benchmark:
 	dune exec benchmark/benchmark.exe -- -e dbmc
-	dune exec benchmark/benchmark.exe -- -e ddse
+# dune exec benchmark/benchmark.exe -- -e ddse
 
 benchmark-icfp-artifact:
 	dune exec benchmark/benchmark.exe -- -e dbmc -f benchmark/icfp20-artifact.s
