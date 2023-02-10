@@ -35,34 +35,43 @@ open Dj_common
 *)
 module State = struct
   type t = {
-    (* program *)
+    (*
+        lookup basic
+    *)
     first : Id.t;
     target : Id.t;
     program : Jayil.Ast.expr;
     block_map : Cfg.block Jayil.Ast.Ident_map.t;
     source_map : Jayil.Ast.clause Jayil.Ast.Ident_map.t Lazy.t;
+    (*
+       scheduling
+    *)
     job_queue : (Job_key.t, unit) Scheduler.t;
-    (* graph *)
+    (*
+        search graph
+    *)
     root_node : Search_graph.node_ref;
     mutable tree_size : int;
-    (* central: node attr *)
     term_detail_map : (Lookup_key.t, Term_detail.t) Hashtbl.t;
-    (* constraints *)
+    (*
+        search graph for solving
+    *)
+    lookup_created : Lookup_key.t Hash_set.t;
+    input_nodes : Lookup_key.t Hash_set.t;
+    (*
+       constraint solving
+    *)
     mutable phis_staging : Z3.Expr.expr list;
     mutable phis_added : Z3.Expr.expr list;
-    (* TODO: get this after smt solving *)
-    input_nodes : Lookup_key.t Hash_set.t;
-    (* pvar *)
-    lookup_created : Lookup_key.t Hash_set.t;
     smt_lists : (Lookup_key.t, int) Hashtbl.t;
-    (* lookup *)
-    (* unroll : Unrolls.U_dbmc.t; *)
-    (* debug *)
-    (* interpreter used *)
+    solver : Z3.Solver.solver;
+    (*
+        debug and stats
+    *)
     lookup_alert : Lookup_key.t Hash_set.t;
     rstk_picked : (Rstack.t, bool) Hashtbl.t;
     rstk_stat_map : (Rstack.t, Rstk_stat.t) Hashtbl.t;
     block_stat_map : (Cfg.block, Block_stat.t) Hashtbl.t;
-    solver : Z3.Solver.solver;
+    mutable check_infos : Check_info.t list;
   }
 end

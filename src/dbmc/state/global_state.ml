@@ -17,17 +17,17 @@ let create (config : Global_config.t) program =
       root_node = ref (Search_graph.root_node block0 target);
       tree_size = 1;
       term_detail_map = Hashtbl.create (module Lookup_key);
+      lookup_created = Hash_set.create (module Lookup_key);
+      input_nodes = Hash_set.create (module Lookup_key);
       phis_staging = [];
       phis_added = [];
-      input_nodes = Hash_set.create (module Lookup_key);
-      lookup_created = Hash_set.create (module Lookup_key);
       smt_lists = Hashtbl.create (module Lookup_key);
+      solver = Z3.Solver.mk_solver Solver.ctx None;
       lookup_alert = Hash_set.create (module Lookup_key);
-      (* unroll = Unrolls.U_dbmc.create (); *)
       rstk_picked = Hashtbl.create (module Rstack);
       rstk_stat_map = Hashtbl.create (module Rstack);
       block_stat_map = Hashtbl.create (module Cfg.Block);
-      solver = Z3.Solver.mk_solver Solver.ctx None;
+      check_infos = [] (* unroll = Unrolls.U_dbmc.create (); *);
     }
   in
   (* Global_state.lookup_alert state key_target state.root_node; *)

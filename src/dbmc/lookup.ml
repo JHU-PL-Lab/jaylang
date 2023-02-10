@@ -50,9 +50,6 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
         let task = push_job state key (lookup key phis) in
         U_ddse.alloc_task unroll ~task key
   and lookup (this_key : Lookup_key.t) phis () : unit Lwt.t =
-    (* match Riddler.check_phis (Set.to_list phis) false with
-       | None -> Lwt.return_unit
-       | Some _ -> *)
     let rule = Rule.rule_of_runtime_status this_key state.block_map in
     LLog.app (fun m ->
         m "[Lookup][=>]: %a ; Rule %a" Lookup_key.pp this_key Rule.pp_rule rule) ;

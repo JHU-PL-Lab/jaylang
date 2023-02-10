@@ -112,25 +112,31 @@ module Make (S : S) = struct
     let term_c = Lookup_key.with_x this_key x' in
     let next _ (r : Lookup_result.t) =
       if r.status
-      then
+      then (
         let sub = this_key in
-        let nexts =
-          List.filter_map [ true; false ] ~f:(fun beta ->
-              let cond_case_block_opt =
-                if beta then cond_both.then_ else cond_both.else_
-              in
-              (* Riddler.step_eager_check S.state S.config term_c
-                     [ Riddler.eqv term_c (Value_bool beta) ]
-                     S.config.stride *)
-              match cond_case_block_opt with
-              | Some cond_case_block ->
-                  let key_ret =
-                    Lookup_key.return_key_of_cond key beta cond_case_block
-                  in
-                  Some (Direct { sub = this_key; pub = key_ret; phis = [] })
-              | None -> None)
-        in
-        Some (Or_list { sub; nexts; unbound = false; phis = [] })
+        let eager_result = Checker.eager_check S.state S.config term_c [] in
+        Fmt.pr "[CondBtm]%a <- %a\nEager=%B\n" Lookup_key.pp key Lookup_key.pp
+          r.from eager_result ;
+        if true
+        then
+          let nexts =
+            List.filter_map [ true; false ] ~f:(fun beta ->
+                let cond_case_block_opt =
+                  if beta then cond_both.then_ else cond_both.else_
+                in
+                (* Riddler.step_eager_check S.state S.config term_c
+                      [ Riddler.eqv term_c (Value_bool beta) ]
+                      S.config.stride *)
+                match cond_case_block_opt with
+                | Some cond_case_block ->
+                    let key_ret =
+                      Lookup_key.return_key_of_cond key beta cond_case_block
+                    in
+                    Some (Direct { sub = this_key; pub = key_ret; phis = [] })
+                | None -> None)
+          in
+          Some (Or_list { sub; nexts; unbound = false; phis = [] })
+        else None)
       else None
     in
 

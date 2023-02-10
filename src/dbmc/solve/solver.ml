@@ -19,18 +19,28 @@ let reset solver = Z3.Solver.reset solver
 let get_assertion_count solver = List.length (Z3.Solver.get_assertions solver)
 let string_of_solver solver = Z3.Solver.to_string solver
 
-let check ?(verbose = true) solver phis cvars_z3 =
+let get_rlimit solver =
+  let stat = Z3.Solver.get_statistics solver in
+  let r = Z3.Statistics.get stat "rlimit count" in
+  let rv = Option.value_exn r in
+  Z3.Statistics.Entry.get_int rv
+
+let check ?(verbose = true) solver phis phi_used_once =
   Z3.Solver.add solver phis ;
 
   if verbose
-  then
+  then (
+    SLog.debug (fun m ->
+        m "Used-once Phis:@?@\n@[<v>%a@]"
+          Fmt.(list ~sep:cut string)
+          (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
     SLog.debug (fun m ->
         m "Solver Phis (%d) : %s"
           (get_assertion_count solver)
-          (string_of_solver solver))
+          (string_of_solver solver)))
   else () ;
 
-  SuduZ3.check_with_assumption solver cvars_z3
+  SuduZ3.check_with_assumption solver phi_used_once
 
 let check_expected_input_sat target_stk history solver =
   let input_phis =

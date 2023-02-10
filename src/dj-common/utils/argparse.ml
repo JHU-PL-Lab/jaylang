@@ -16,7 +16,7 @@ let log_level_parser : Logs.level Command.Arg_type.t =
   Command.Arg_type.create (function
     | "app" -> Logs.App
     | "error" -> Logs.Error
-    | "warning" -> Logs.Warning
+    | "warn" -> Logs.Warning
     | "info" -> Logs.Info
     | "debug" -> Logs.Debug
     | _ -> failwith "incorrect log level")
