@@ -261,7 +261,7 @@ let reconstruct_expr_from_lexadr (deps : LexAdr_set.t) (env : penv) : expr =
     in let clause_body = match presidual with
       | PValue pval -> Value_body (value_of_pvalue pval)
       | PClause pcls -> pcls
-    in let clause = (Clause (Var (ident, _), clause_body))
+    in let clause = (Clause (Var (ident, None), clause_body))
     in (fun res -> next (clause :: res))
   in Expr ((LexAdr_set.fold inner_reconstruct deps (fun res -> res)) [])
 
@@ -387,13 +387,13 @@ let simple_peval (expr : expr) : expr * penv = (
     )
     
     | Binary_operation_body (vx1, op, vx2) -> bail (
-      let+ deps1, v1 = get_wrapped_pvalue_deps_from_ident_opt vx1 env
-      and+ deps2, v2 = get_wrapped_pvalue_deps_from_ident_opt vx2 env in
+      let+ _, v1 = get_wrapped_pvalue_deps_from_ident_opt vx1 env
+      and+ _, v2 = get_wrapped_pvalue_deps_from_ident_opt vx2 env in
       let v1, v2 = match v1, v2 with
         | PValue (Direct v1), PValue (Direct v2) -> v1, v2
         | _ -> failwith "Type error! Binary ops attempted on incompatible types!"
       in let v = binop (op, v1, v2)
-      in LexAdr_set.union deps1 deps2, PValue (Direct v)
+      in LexAdr_set.empty, PValue (Direct v)
     )
     
     | Abort_body | Assert_body _ | Assume_body _ -> failwith "Evaluation does not yet support abort, assert, and assume!"
