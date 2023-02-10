@@ -379,6 +379,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
             then raise @@ Found_target { x; stk; v = ab_v }
             else raise @@ Found_abort ab_v)
     | Assert_body _ | Assume_body _ ->
+        (* FIXME:  *)
         let retv = Direct (Value_bool true) in
         let () = add_val_def_mapping (x, stk) (cbody, retv) session in
         retv
