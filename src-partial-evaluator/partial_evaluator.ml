@@ -124,6 +124,37 @@ and pp_pwild oc ((ident, presidual, lexadrset) : presidual_with_ident_lexadr_dep
 
 let pp_penv : penv Pp_utils.pretty_printer = IdentLine_map.pp pp_pwild
 
+module OptionSyntax : sig
+
+  (* Monad *)
+  val ( let* ) : 'a option * LexAdr_set.t -> ('a -> ('b option * LexAdr_set.t) ) -> 'b option * LexAdr_set.t
+
+  (* Applicatives *)
+  val ( let+ ) : 'a option * LexAdr_set.t -> ('a -> 'b) -> 'b option * LexAdr_set.t
+  val ( and+ ) : 'a option * LexAdr_set.t -> 'b option * LexAdr_set.t -> ('a * 'b) option * LexAdr_set.t
+
+end = struct
+  (*
+  let (let*\) x f = match x with
+  | None -> None
+  | Some x -> (f x)
+  let (let+) x f = match x with
+  | None -> None
+  | Some x -> Some (f x)
+  *)
+  let (let*) x f = match x with
+  | None, set -> None, set
+  | (Some x), set -> let res, setres = f x in res, (LexAdr_set.union set setres)
+  let (let+) (opt, set) f = match opt with
+  | None -> None, set
+  | Some x -> Some (f x), set
+  let (and+) (o1, set1) (o2, set2) = (match o1, o2 with
+    | Some x, Some y  -> Some (x,y)
+    | _               -> None), (LexAdr_set.union set1 set2)
+end
+
+open OptionSyntax
+
 
 
 
@@ -146,6 +177,41 @@ let get_from_ident (Var (ident, _) : var) (env : penv) =
 let get_pvalue_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, _) = get_from_ident ident env in v
 
 let get_pvalue_deps_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, deps) = get_from_ident ident env in deps, v
+
+let get_from_ident_opt (Var (ident, _) : var) (env : penv) =
+  IdentLine_map.find_opt (Ident ident) env, LexAdr_set.empty
+  
+let get_pvalue_from_ident_opt (ident : var) (env : penv) =
+  let* (_, v, deps) = get_from_ident_opt ident env in
+  let+ v = (match v with | PValue v -> Some v | _ -> None), deps
+  in v
+
+let get_deps_from_ident_opt (ident : var) (env : penv) =
+  let* (_, _, deps) = get_from_ident_opt ident env in
+  Some (), deps (* Add deps to state also *)
+
+let get_many_deps_from_ident_opt (idents : var list) (env : penv) =
+  let deps = List.fold_left (fun prev_deps ident ->
+    let (_, next_deps) = get_deps_from_ident_opt ident env
+    in LexAdr_set.union prev_deps next_deps) LexAdr_set.empty idents
+  in Some (), deps (* deps might also suffice if this doesn't have to be in the monad *)
+
+let get_wrapped_pvalue_deps_from_ident_opt (ident : var) (env : penv) =
+  let* (_, v, deps) = get_from_ident_opt ident env in
+  let+ v = (match v with | PValue _ -> Some v | _ -> None), deps
+  in deps, v
+
+let get_presidual_deps_from_ident_opt (ident : var) (env : penv) =
+  let+ (_, v, deps) = get_from_ident_opt ident env
+  in deps, v
+
+let pval (default : clause_body) (attempt : (LexAdr_set.t * presidual) option * LexAdr_set.t) = 
+  match attempt with
+  | Some x, _ -> x
+  | None, deps -> deps, PClause(default)
+
+
+
 
 
 (* Eval helpers *)
@@ -187,6 +253,18 @@ and binop = function
   | Binary_operator_or, Value_bool b1, Value_bool b2 ->
       Value_bool (b1 || b2)
   | _, _, _ -> failwith "incorrect binop"
+
+
+let reconstruct_expr_from_lexadr (deps : LexAdr_set.t) (env : penv) : expr =
+  let inner_reconstruct (deps : lexadr) next =
+    let ident, presidual, _ = IdentLine_map.find (LexAdr deps) env
+    in let clause_body = match presidual with
+      | PValue pval -> Value_body (value_of_pvalue pval)
+      | PClause pcls -> pcls
+    in let clause = (Clause (Var (ident, _), clause_body))
+    in (fun res -> next (clause :: res))
+  in Expr ((LexAdr_set.fold inner_reconstruct deps (fun res -> res)) [])
+
 
 
 
@@ -252,6 +330,82 @@ let simple_eval (expr : expr) : value * penv = (
 )
 ;;
 
+let simple_peval (expr : expr) : expr * penv = (
+
+  let rec peval_expr (envnum : int) (env : penv) (Expr (clauses) : expr) : penv = 
+    let foldable_eval_clause (env : penv) (index : int) (clause : clause) : penv = (
+      let env' = peval_clause (envnum, index+1) env clause in env' 
+    )
+    in List.fold_lefti foldable_eval_clause env clauses
+
+  and peval_clause (lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 
+    let bail = pval body in
+    let linedeps, res_value = match body with
+
+    (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
+    | Value_body (Value_function vf) -> LexAdr_set.empty, PValue (FunClosure (x, vf, env))
+    (* Deps list is inaccurate, need to actually go through record and see what variables are captured *)
+    | Value_body (Value_record vr) -> LexAdr_set.empty, PValue (RecordClosure (vr, env))
+    | Value_body v -> LexAdr_set.empty, PValue (Direct v)
+
+    | Var_body vx -> bail (get_wrapped_pvalue_deps_from_ident_opt vx env)
+ 
+    | Input_body -> LexAdr_set.empty, PValue (Direct (Value_int (read_int ()))) (* This will be interesting to peval...We'll need arguments for whether input is known at peval-time or not *)
+
+    | Match_body (vx, p) -> bail begin [@warning "-8"]
+      let+ deps, (PValue pval) = get_wrapped_pvalue_deps_from_ident_opt vx env in
+      deps, PValue (Direct (Value_bool (check_pattern pval p)))
+    end
+
+    | Conditional_body (x2, e1, e2) -> failwith "Evaluation does not yet support conditionals!"
+
+    | Appl_body (vx1, (Var (x2, _) as vx2)) -> failwith "Evaluation does not yet support function application!"
+
+    (* Deps list here actually only needs to be the original captured variable, not the whole list for the record! *)
+    | Projection_body (v, key) -> bail (
+      let* pval = match get_pvalue_from_ident_opt v env with (* Currently, this always passes if record is bound. *)
+      | None, deps -> None, deps
+      | (Some _) as pval, _ -> pval, LexAdr_set.empty
+      in match pval with
+        | RecordClosure (Record_value r, renv) ->
+          let proj_x = Ident_map.find key r in
+          (* If the record is a pvalue, then the aliased vars must be in the environment *)
+          (* Requires accurate dependency list for record values *)
+          (* Actually... right now it kinda works out, because the record deps are none, and if
+             the aliased var is free...then its dep should really be empty. Of course, the
+             value returned should still be that free thing, not the record...hmm... *)
+          (* So no, it doesn't work out. But I just won't test those cases lol. *)
+          get_presidual_deps_from_ident_opt proj_x renv
+        | _ -> failwith "Type error! Projection attempted on a non-record!"
+    )
+    
+    | Not_body vx -> bail (
+      let+ deps, presidual = get_wrapped_pvalue_deps_from_ident_opt vx env in
+      match presidual with
+      | PValue( Direct (Value_bool b)) -> deps, PValue (Direct (Value_bool (not b)))
+      | _ -> failwith "Type error! Not attempted on a non-bool!"
+    )
+    
+    | Binary_operation_body (vx1, op, vx2) -> bail (
+      let+ deps1, v1 = get_wrapped_pvalue_deps_from_ident_opt vx1 env
+      and+ deps2, v2 = get_wrapped_pvalue_deps_from_ident_opt vx2 env in
+      let v1, v2 = match v1, v2 with
+        | PValue (Direct v1), PValue (Direct v2) -> v1, v2
+        | _ -> failwith "Type error! Binary ops attempted on incompatible types!"
+      in let v = binop (op, v1, v2)
+      in LexAdr_set.union deps1 deps2, PValue (Direct v)
+    )
+    
+    | Abort_body | Assert_body _ | Assume_body _ -> failwith "Evaluation does not yet support abort, assert, and assume!"
+
+    in (add_ident_line_penv x lexadr linedeps res_value env)
+  
+  in let endenv = peval_expr 0 IdentLine_map.empty expr
+  in let _, _, enddeps = (IdentLine_map.find (LexAdr (0, -1)) endenv)
+  in reconstruct_expr_from_lexadr enddeps endenv, endenv
+)
+;;
+
 
 
 
@@ -284,14 +438,14 @@ module PEToploop (P : Parser) (E : PEvaler) = struct
   let drep = debug_parse_eval_print;;
 end
 
-let parse = Jayil_parser.Parse.parse_program_str;;
+let pstring = Jayil_parser.Parse.parse_program_str;;
 let pfile s = Dj_common.File_utils.read_source s;;
 
 let unparse_value = Jayil.Ast_pp.show_value;;
 let unparse_expr = Jayil.Ast_pp.show_expr;;
 
 module StringParser = struct
-  let parse = parse
+  let parse = pstring
 end
 
 module FileParser = struct
@@ -300,7 +454,7 @@ end
 
 module SimpleEval = PEToploop (FileParser) (struct type t = value;; let eval = simple_eval;; let unparse = unparse_value end)
 
-module PartialEval = PEToploop (FileParser) (struct type t = value;; let eval = simple_peval;; let unparse = unparse_expr end)
+module PartialEval = PEToploop (FileParser) (struct type t = expr;; let eval = simple_peval;; let unparse = unparse_expr end)
 
 (*
 let sparse_eval (a : string) = a |> parse |> simple_eval |> fst;;

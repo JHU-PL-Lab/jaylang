@@ -1,0 +1,9 @@
+a1 = 1;
+f = fun t -> (
+  z = t + t;
+  g = fun s -> (
+    x = z + s;
+  );
+);
+c1 = f a1;
+c2 = c1 a2;

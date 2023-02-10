@@ -41,8 +41,8 @@ _build
 /stest
 /dj
 
-jil
-partial
+/jil
+/partial
 
 # Local results
 profiling

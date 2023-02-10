@@ -1,0 +1,4 @@
+y = 5;
+z = 10;
+b = y + z;
+target = a + b;
