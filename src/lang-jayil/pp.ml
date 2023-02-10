@@ -13,6 +13,9 @@ let id_map pp_v oc map =
 let id_set oc set =
   Fmt.iter ~sep:(Fmt.any ", ") (fun f set -> Ident_set.iter f set) id oc set
 
+let id_list oc list =
+  Fmt.iter ~sep:(Fmt.any ", ") (fun f list -> List.iter f list) id oc list
+
 let string_of_binop = function
   | Binary_operator_plus -> "+"
   | Binary_operator_minus -> "-"
@@ -68,5 +71,6 @@ and pattern oc = function
   | Int_pattern -> Fmt.string oc "int"
   | Bool_pattern -> Fmt.string oc "bool"
   | Any_pattern -> Fmt.string oc "any"
-  | Rec_pattern els -> (Fmt.braces id_set) oc (Ident_set.add (Ident "_") els)
+  | Rec_pattern els ->
+      (Fmt.braces id_list) oc @@ (Ident_set.to_list @@ els) @ [ Ident "_" ]
   | Strict_rec_pattern els -> (Fmt.braces id_set) oc els

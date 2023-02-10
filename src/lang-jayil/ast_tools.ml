@@ -152,6 +152,58 @@ let retv (e : expr) : Var.t =
   let (Expr cs) = e in
   rv cs
 
+(** Homomorphically maps all idents in an expression. *)
+let rec map_expr_ids (fn : ident -> ident) (e : expr) : expr =
+  let (Expr cls) = e in
+  Expr (List.map (map_clause_ids fn) cls)
+
+and map_clause_ids (fn : ident -> ident) (c : clause) : clause =
+  let (Clause (Var (x, stk), b)) = c in
+  Clause (Var (fn x, stk), map_clause_body_ids fn b)
+
+and map_clause_body_ids (fn : ident -> ident) (b : clause_body) : clause_body =
+  match (b : clause_body) with
+  | Value_body v -> Value_body (map_value_ids fn v)
+  | Var_body (Var (x, stk)) -> Var_body (Var (fn x, stk))
+  | Input_body -> Input_body
+  | Appl_body (Var (x1, stk1), Var (x2, stk2)) ->
+      Appl_body (Var (fn x1, stk1), Var (fn x2, stk2))
+  | Conditional_body (Var (x, stk), e1, e2) ->
+      Conditional_body (Var (fn x, stk), map_expr_ids fn e1, map_expr_ids fn e2)
+  | Match_body (Var (x, stk), p) ->
+      Match_body (Var (fn x, stk), map_pattern_ids fn p)
+  | Projection_body (Var (x, stk), l) -> Projection_body (Var (fn x, stk), fn l)
+  | Not_body (Var (x, stk)) -> Not_body (Var (fn x, stk))
+  | Binary_operation_body (Var (x1, stk1), op, Var (x2, stk2)) ->
+      Binary_operation_body (Var (fn x1, stk1), op, Var (fn x2, stk2))
+  | Abort_body -> Abort_body
+  | Assume_body (Var (x, stk)) -> Assume_body (Var (fn x, stk))
+  | Assert_body (Var (x, stk)) -> Assert_body (Var (fn x, stk))
+
+and map_value_ids (fn : ident -> ident) (v : value) : value =
+  match (v : value) with
+  | Value_record (Record_value m) ->
+      let pairs = Ident_map.bindings m in
+      let m' =
+        List.map (fun (k, Var (x, stk)) -> (fn k, Var (fn x, stk))) pairs
+        |> List.to_seq |> Ident_map.of_seq
+      in
+      Value_record (Record_value m')
+  | Value_function f -> Value_function (map_function_ids fn f)
+  | Value_int _ -> v
+  | Value_bool _ -> v
+
+and map_function_ids (fn : ident -> ident) (f : function_value) : function_value
+    =
+  let (Function_value (Var (x, stk), e)) = f in
+  Function_value (Var (fn x, stk), map_expr_ids fn e)
+
+and map_pattern_ids (fn : ident -> ident) (p : pattern) : pattern =
+  match p with
+  | Fun_pattern | Int_pattern | Bool_pattern | Any_pattern -> p
+  | Rec_pattern id_set -> Rec_pattern (Ident_set.map fn id_set)
+  | Strict_rec_pattern id_set -> Strict_rec_pattern (Ident_set.map fn id_set)
+
 (** Homomorphically maps all variables in an expression. *)
 let rec map_expr_vars (fn : Var.t -> Var.t) (e : expr) : expr =
   let (Expr cls) = e in

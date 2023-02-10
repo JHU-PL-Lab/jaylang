@@ -25,6 +25,10 @@ let parse_commandline_config () =
         flag "-i"
           (optional_with_default true bool)
           ~doc:"performs instrumentation"
+      and output_parsable =
+        flag "-p"
+          (optional_with_default false bool)
+          ~doc:"output parsable .jil file"
       and ddpa_c_stk =
         flag "-c"
           (optional_with_default default_ddpa_c_stk
@@ -67,6 +71,7 @@ let parse_commandline_config () =
             (* expected_inputs; *)
             do_wrap;
             do_instrument;
+            output_parsable;
             sato_mode;
             ddpa_c_stk;
             run_max_step;

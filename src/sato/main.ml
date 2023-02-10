@@ -109,4 +109,20 @@ let main_commandline () =
             longer timeout setting."
     | Some errors, _ -> print_endline @@ show_reported_error errors
   in
+  let output_parsable = sato_config.output_parsable in
+  if output_parsable
+  then (
+    let og_file =
+      Filename.chop_extension @@ Filename.basename @@ sato_config.filename
+    in
+    let new_file = og_file ^ "_instrumented.jil" in
+    let oc = Out_channel.create new_file in
+    let formatter = Format.formatter_of_out_channel oc in
+    let purged_expr =
+      program
+      |> Jayil.Ast_tools.map_expr_ids (fun (Ident id) ->
+             Ident (String.substr_replace_all id ~pattern:"~" ~with_:"bj_"))
+    in
+    Format.fprintf formatter "%a" Jayil.Pp.expr purged_expr ;
+    Out_channel.close oc) ;
   Dj_common.Log.close ()
