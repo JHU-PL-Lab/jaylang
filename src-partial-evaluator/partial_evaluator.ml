@@ -32,6 +32,11 @@ let eval expr =
 
 let eval_file raw_source = raw_source |> Dj_common.File_utils.read_source |> eval;;
 
+
+
+
+
+(* New types & module definitions *)
 type lexadr = int * int [@@deriving eq, ord, show, to_yojson]
 
 module LexAdr = struct
@@ -119,6 +124,11 @@ and pp_pwild oc ((ident, presidual, lexadrset) : presidual_with_ident_lexadr_dep
 
 let pp_penv : penv Pp_utils.pretty_printer = IdentLine_map.pp pp_pwild
 
+
+
+
+
+(* Helper functions *)
 let add_ident_line (ident : Ident.t) (lexadr : int * int) (v : 'a) (map : 'a IdentLine_map.t) =
   let envnum, _ = lexadr
   in IdentLine_map.add (LexAdr (envnum, -1)) v (IdentLine_map.add (LexAdr lexadr) v (IdentLine_map.add (Ident ident) v map))
@@ -137,6 +147,51 @@ let get_pvalue_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, P
 
 let get_pvalue_deps_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, deps) = get_from_ident ident env in deps, v
 
+
+(* Eval helpers *)
+let check_pattern (v : pvalue) (pattern : pattern) : bool =
+  match v, pattern with
+  | Direct (Value_int _), Int_pattern -> true
+  | Direct (Value_bool _), Bool_pattern -> true
+  | Direct (Value_function _), _ -> failwith "fun must be a closure (Impossible!)"
+  | Direct (Value_record _), _ -> failwith "record must be a closure (Impossible!)"
+  | RecordClosure (Record_value record, _), Rec_pattern key_set ->
+      Ident_set.for_all (fun id -> Ident_map.mem id record) key_set
+  | RecordClosure (Record_value record, _), Strict_rec_pattern key_set ->
+      Ident_set.equal key_set (Ident_set.of_enum @@ Ident_map.keys record)
+  | FunClosure (_, _, _), Fun_pattern -> true
+  | _, Any_pattern -> true
+  | _ -> false
+
+and binop = function
+  | Binary_operator_plus, Value_int n1, Value_int n2 ->
+      Value_int (n1 + n2)
+  | Binary_operator_minus, Value_int n1, Value_int n2 ->
+      Value_int (n1 - n2)
+  | Binary_operator_times, Value_int n1, Value_int n2 ->
+      Value_int (n1 * n2)
+  | Binary_operator_divide, Value_int n1, Value_int n2 ->
+      Value_int (n1 / n2)
+  | Binary_operator_modulus, Value_int n1, Value_int n2 ->
+      Value_int (n1 mod n2)
+  | Binary_operator_less_than, Value_int n1, Value_int n2 ->
+      Value_bool (n1 < n2)
+  | Binary_operator_less_than_or_equal_to, Value_int n1, Value_int n2 ->
+      Value_bool (n1 <= n2)
+  | Binary_operator_equal_to, Value_int n1, Value_int n2 ->
+      Value_bool (n1 = n2)
+  | Binary_operator_equal_to, Value_bool b1, Value_bool b2 ->
+      Value_bool (Core.Bool.( = ) b1 b2)
+  | Binary_operator_and, Value_bool b1, Value_bool b2 ->
+      Value_bool (b1 && b2)
+  | Binary_operator_or, Value_bool b1, Value_bool b2 ->
+      Value_bool (b1 || b2)
+  | _, _, _ -> failwith "incorrect binop"
+
+
+
+
+(* evals *)
 let simple_eval (expr : expr) : value * penv = (
 
   let rec eval_expr (envnum : int) (env : penv) (Expr (clauses) : expr) : penv = 
@@ -190,45 +245,6 @@ let simple_eval (expr : expr) : value * penv = (
     | Abort_body | Assert_body _ | Assume_body _ -> failwith "Evaluation does not yet support abort, assert, and assume!"
   
     in (add_ident_line_penv x lexadr linedeps (PValue res_value) env)
-
-  and check_pattern (v : pvalue) (pattern : pattern) : bool =
-    match v, pattern with
-    | Direct (Value_int _), Int_pattern -> true
-    | Direct (Value_bool _), Bool_pattern -> true
-    | Direct (Value_function _), _ -> failwith "fun must be a closure (Impossible!)"
-    | Direct (Value_record _), _ -> failwith "record must be a closure (Impossible!)"
-    | RecordClosure (Record_value record, _), Rec_pattern key_set ->
-        Ident_set.for_all (fun id -> Ident_map.mem id record) key_set
-    | RecordClosure (Record_value record, _), Strict_rec_pattern key_set ->
-        Ident_set.equal key_set (Ident_set.of_enum @@ Ident_map.keys record)
-    | FunClosure (_, _, _), Fun_pattern -> true
-    | _, Any_pattern -> true
-    | _ -> false
-  
-  and binop = function
-    | Binary_operator_plus, Value_int n1, Value_int n2 ->
-        Value_int (n1 + n2)
-    | Binary_operator_minus, Value_int n1, Value_int n2 ->
-        Value_int (n1 - n2)
-    | Binary_operator_times, Value_int n1, Value_int n2 ->
-        Value_int (n1 * n2)
-    | Binary_operator_divide, Value_int n1, Value_int n2 ->
-        Value_int (n1 / n2)
-    | Binary_operator_modulus, Value_int n1, Value_int n2 ->
-        Value_int (n1 mod n2)
-    | Binary_operator_less_than, Value_int n1, Value_int n2 ->
-        Value_bool (n1 < n2)
-    | Binary_operator_less_than_or_equal_to, Value_int n1, Value_int n2 ->
-        Value_bool (n1 <= n2)
-    | Binary_operator_equal_to, Value_int n1, Value_int n2 ->
-        Value_bool (n1 = n2)
-    | Binary_operator_equal_to, Value_bool b1, Value_bool b2 ->
-        Value_bool (Core.Bool.( = ) b1 b2)
-    | Binary_operator_and, Value_bool b1, Value_bool b2 ->
-        Value_bool (b1 && b2)
-    | Binary_operator_or, Value_bool b1, Value_bool b2 ->
-        Value_bool (b1 || b2)
-    | _, _, _ -> failwith "incorrect binop"
   
   in let endenv = eval_expr 0 IdentLine_map.empty expr
   in let [@warning "-8"] _, PValue endpvalue, _ = (IdentLine_map.find (LexAdr (0, -1)) endenv)
@@ -237,12 +253,56 @@ let simple_eval (expr : expr) : value * penv = (
 ;;
 
 
-let parse = Jayil_parser.Parse.parse_program_str;;
-let pfile = Dj_common.File_utils.read_source;;
 
-let unparse = Jayil.Ast_pp.show_value;;
+
+
+(* Printing functions & modules *)
+module type Parser = sig
+  val parse : string -> expr
+end
+
+module type PEvaler = sig
+  type t
+  val eval : expr -> t * penv
+  val unparse : t -> string
+end
+
+module PEToploop (P : Parser) (E : PEvaler) = struct
+  include P
+  include E
+
+  let parse_eval (a : string) = a |> parse |> eval |> fst;;
+
+  let debug_parse_eval (a : string) = a |> parse |> eval |> snd;;
+  
+  
+  let parse_eval_unparse (a : string) = a |> parse_eval |> unparse;;
+  let peu = parse_eval_unparse;;
+  let parse_eval_print (a : string) = a |> peu |> print_endline;; (* print_endline "";; *)
+  let rep = parse_eval_print;;
+  let debug_parse_eval_print (a : string) = a |> debug_parse_eval |> Format.printf "%a" pp_penv;;
+  let drep = debug_parse_eval_print;;
+end
+
+let parse = Jayil_parser.Parse.parse_program_str;;
+let pfile s = Dj_common.File_utils.read_source s;;
+
+let unparse_value = Jayil.Ast_pp.show_value;;
 let unparse_expr = Jayil.Ast_pp.show_expr;;
 
+module StringParser = struct
+  let parse = parse
+end
+
+module FileParser = struct
+  let parse = pfile
+end
+
+module SimpleEval = PEToploop (FileParser) (struct type t = value;; let eval = simple_eval;; let unparse = unparse_value end)
+
+module PartialEval = PEToploop (FileParser) (struct type t = value;; let eval = simple_peval;; let unparse = unparse_expr end)
+
+(*
 let sparse_eval (a : string) = a |> parse |> simple_eval |> fst;;
 
 let debug_sparse_eval (a : string) = a |> parse |> simple_eval |> snd;;
@@ -268,6 +328,7 @@ let spfile_eval_print (a : string) = a |> spfeu |> print_endline;; (* print_endl
 let sfrep = spfile_eval_print;;
 let debug_spfile_eval_print (a : string) = a |> debug_spfile_eval |> Format.printf "%a" pp_penv;;
 let sdfrep = debug_spfile_eval_print;;
+*)
 
 
 
