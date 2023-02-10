@@ -439,7 +439,7 @@ module PEToploop (P : Parser) (E : PEvaler) = struct
 end
 
 let pstring = Jayil_parser.Parse.parse_program_str;;
-let pfile s = Dj_common.File_utils.read_source s;;
+let pfile s = Dj_common.File_utils.read_source ~check_wellformed:false s;;
 
 let unparse_value = Jayil.Ast_pp.show_value;;
 let unparse_expr = Jayil.Ast_pp.show_expr;;

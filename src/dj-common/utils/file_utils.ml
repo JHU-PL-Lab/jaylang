@@ -26,7 +26,7 @@ let parse_jayil_file filename = In_channel.with_file filename ~f:parse_jayil
 (* let parse_bluejay_file filename = In_channel.with_file filename ~f:parse_bluejay *)
 
 (* for users *)
-let read_source ?(is_instrumented = false) ?(consts = []) filename =
+let read_source ?(is_instrumented = false) ?(check_wellformed = true) ?(consts = []) filename =
   let jayil_ast =
     if check_jay_ext filename
     then
@@ -38,5 +38,5 @@ let read_source ?(is_instrumented = false) ?(consts = []) filename =
       Convert.instrument_jayil_if ~is_instrumented jayal_ast
     else failwith "file extension must be .jay or .jil"
   in
-  Global_config.check_wellformed_or_exit jayil_ast ;
+  if check_wellformed then Global_config.check_wellformed_or_exit jayil_ast else ();
   jayil_ast
