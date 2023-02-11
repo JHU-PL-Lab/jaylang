@@ -1,0 +1,5 @@
+a = 5;
+b = a + z;
+c = b;
+x = {a = c};
+target = x.a;

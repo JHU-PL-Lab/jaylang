@@ -1,6 +1,7 @@
 a1 = 1;
-z_a1 = 2;
+# z_a1 = 2;
 c1 = fun s -> (
+  z_a1 = 2; # More local definitions are more performant for symbolic evaluator
   x = z_a1 + s;
 );
 c2 = c1 a2;
