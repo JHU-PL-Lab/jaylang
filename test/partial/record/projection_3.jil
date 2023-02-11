@@ -1,0 +1,7 @@
+one = 1;
+two = one + c;
+r = {
+  a = one,
+  d = two
+};
+target = r.d;

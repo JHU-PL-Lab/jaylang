@@ -1,0 +1,3 @@
+one = 1;
+two = one + c;
+target = one + c; # Ideally two would also be removed, but this is a tad difficult

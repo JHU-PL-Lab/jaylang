@@ -1,0 +1,4 @@
+a = 5;
+b = a + z;
+c = b;
+target = c;
