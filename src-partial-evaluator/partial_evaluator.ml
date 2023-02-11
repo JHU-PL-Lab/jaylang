@@ -163,12 +163,15 @@ open OptionSyntax
 
 (* Helper functions *)
 let add_ident_line (ident : Ident.t) (lexadr : int * int) (v : 'a) (map : 'a IdentLine_map.t) =
+  IdentLine_map.add (LexAdr lexadr) v (IdentLine_map.add (Ident ident) v map)
+
+let add_ident_line_last (ident : Ident.t) (lexadr : int * int) (v : 'a) (map : 'a IdentLine_map.t) =
   let envnum, _ = lexadr
   in IdentLine_map.add (LexAdr (envnum, -1)) v (IdentLine_map.add (LexAdr lexadr) v (IdentLine_map.add (Ident ident) v map))
 
 let add_ident_line_penv (ident : Ident.t) (lexadr : int * int) (lexadrs : LexAdr_set.t) (v : presidual) (map : penv) =
   let mapval = (ident, v, LexAdr_set.add lexadr lexadrs) in
-  add_ident_line ident lexadr mapval map
+  add_ident_line_last ident lexadr mapval map
 ;;
 
 let get_from_ident (Var (ident, _) : var) (env : penv) =
@@ -207,14 +210,15 @@ let get_presidual_from_ident_semi_ref_opt (ident : var) (env : penv) =
   let* (_, v, deps) = get_from_ident_opt ident env
   in match v with
   | PClause Var_body _ -> Some v, LexAdr_set.pop_max deps |> snd (* This may fail if deps contains higher envnums then itself? *)
+  | PClause _ -> Some (PClause (Var_body ident)), deps
   | _ -> Some v, deps (* deps guaranteed trivial for now *)
 
 let get_deps_from_ident_opt (ident : var) (env : penv) =
   let* (_, _, deps) = get_from_ident_opt ident env in
   Some (), deps (* Add deps to state only? *)
 
-let get_many_deps_from_ident_opt (idents : var list) (env : penv) =
-  let deps = List.fold_left (fun prev_deps ident ->
+let get_many_deps_from_ident_opt (idents : var Enum.t) (env : penv) =
+  let deps = Enum.fold (fun prev_deps ident ->
     let (_, next_deps) = get_deps_from_ident_opt ident env
     in LexAdr_set.union prev_deps next_deps) LexAdr_set.empty idents
   in Some (), deps (* deps might also suffice if this doesn't have to be in the monad *)
@@ -244,6 +248,19 @@ let bail_compose (default : clause_body) ((attempt, deps) : presidual option * L
 
 
 (* Eval helpers *)
+(* let rec find_function_env_deps (Function_value (Var (Ident id , _), func) : function_value) (env : penv) =
+  let rec in_find_fun (Expr func_clauses : expr) (env : penv) =
+    List.fold_left *)
+
+
+let find_record_env_deps (Record_value record : record_value) (env : penv) : penv * LexAdr_set.t =
+  let _, deps = get_many_deps_from_ident_opt (Ident_map.values record) env
+  in LexAdr_set.fold begin fun cur_lexadr new_env -> 
+    let wrap_lexadr = LexAdr cur_lexadr
+    in let (ident, _, _) as cur_val = IdentLine_map.find wrap_lexadr env (* get_many_deps only returns real deps *)
+    in add_ident_line ident cur_lexadr cur_val new_env
+  end deps IdentLine_map.empty, deps
+
 let check_pattern (v : pvalue) (pattern : pattern) : bool =
   match v, pattern with
   | Direct (Value_int _), Int_pattern -> true
@@ -373,8 +390,10 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = (
 
     (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
     | Value_body (Value_function vf) -> pure (PValue (FunClosure (x, vf, env)))
-    (* Deps list is inaccurate, need to actually go through record and see what variables are captured *)
-    | Value_body (Value_record vr) -> pure (PValue (RecordClosure (vr, env)))
+    
+    | Value_body (Value_record vr) -> let new_env, deps = find_record_env_deps vr env
+      in Some (PValue (RecordClosure (vr, new_env))), deps
+
     | Value_body v -> pure (PValue (Direct v))
 
     | Var_body vx -> get_presidual_from_ident_semi_ref_opt vx env
