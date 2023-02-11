@@ -124,6 +124,39 @@ and pp_pwild oc ((ident, presidual, lexadrset) : presidual_with_ident_lexadr_dep
 
 let pp_penv : penv Pp_utils.pretty_printer = IdentLine_map.pp pp_pwild
 
+(* Source: https://gist.github.com/hcarty/3789149 *)
+let pp_enum ?(flush = false) ?(first = "") ?(last = "") ?(sep = " ") ?(indent = String.length first) pp f e =
+  let open Format in
+  pp_open_box f indent;
+  pp_print_cut f ();
+  pp_print_string f first;
+  pp_print_cut f ();
+  match Enum.get e with
+  | None ->
+      pp_print_string f last;
+      pp_close_box f ();
+      if flush then pp_print_flush f ()
+  | Some x ->
+      pp_open_box f indent;
+      pp f x;
+      let rec aux () =
+        match Enum.get e with
+        | None ->
+            pp_close_box f ();
+            pp_print_cut f ();
+            pp_print_string f last;
+            pp_close_box f ();
+            if flush then pp_print_flush f ()
+        | Some x ->
+            pp_print_string f sep;
+            pp_close_box f ();
+            pp_print_cut f ();
+            pp_open_box f indent;
+            pp f x;
+            aux ()
+      in
+      aux ()
+
 module OptionSyntax : sig
 
   (* Monad *)
@@ -222,6 +255,13 @@ let get_many_deps_from_ident_opt (idents : var Enum.t) (env : penv) =
     let (_, next_deps) = get_deps_from_ident_opt ident env
     in LexAdr_set.union prev_deps next_deps) LexAdr_set.empty idents
   in Some (), deps (* deps might also suffice if this doesn't have to be in the monad *)
+  
+let get_many_lines_from_ident_opt (idents : var Enum.t) (env : penv) =
+  let lines, deps = Enum.fold (fun (prev_lines, prev_deps) ident ->
+    let (_, next_deps) = get_deps_from_ident_opt ident env
+    in (LexAdr_set.max_elt next_deps) :: prev_lines, LexAdr_set.union prev_deps next_deps
+  ) ([], LexAdr_set.empty) idents
+  in (* Some *) lines, deps
 
 let get_wrapped_pvalue_deps_from_ident_opt (ident : var) (env : penv) =
   let* (_, v, deps) = get_from_ident_opt ident env in
@@ -254,12 +294,15 @@ let bail_compose (default : clause_body) ((attempt, deps) : presidual option * L
 
 
 let find_record_env_deps (Record_value record : record_value) (env : penv) : penv * LexAdr_set.t =
-  let _, deps = get_many_deps_from_ident_opt (Ident_map.values record) env
-  in LexAdr_set.fold begin fun cur_lexadr new_env -> 
+  let lines, deps = get_many_lines_from_ident_opt (Ident_map.values record) env
+  (* in let () = Format.printf "%a\n" LexAdr_set.pp deps; Format.printf "%a\n" (pp_enum pp_var) (Ident_map.values record) *)
+  in List.fold_right begin fun cur_lexadr new_env ->
+    (* Format.printf "%s\n" (show_lexadr cur_lexadr);
+    Format.printf "%a\n" pp_penv new_env; *)
     let wrap_lexadr = LexAdr cur_lexadr
     in let (ident, _, _) as cur_val = IdentLine_map.find wrap_lexadr env (* get_many_deps only returns real deps *)
     in add_ident_line ident cur_lexadr cur_val new_env
-  end deps IdentLine_map.empty, deps
+  end lines IdentLine_map.empty, deps
 
 let check_pattern (v : pvalue) (pattern : pattern) : bool =
   match v, pattern with
@@ -378,39 +421,43 @@ let simple_eval (expr : expr) : value * penv = (
 
 let simple_peval (peval_input : bool) (expr : expr) : expr * penv = (
 
-  let rec peval_expr (envnum : int) (env : penv) (Expr (clauses) : expr) : penv = 
+  let rec peval_expr (envnum : int) (env : penv) (Expr (clauses) : expr) : expr * penv = 
     let foldable_eval_clause (env : penv) (index : int) (clause : clause) : penv = (
       let env' = peval_clause (envnum, index+1) env clause in env' 
     )
-    in List.fold_lefti foldable_eval_clause env clauses
+    in let endenv = List.fold_lefti foldable_eval_clause env clauses
+    in let _, _, enddeps = (IdentLine_map.find (LexAdr (0, -1)) endenv)
+    in reconstruct_expr_from_lexadr enddeps endenv, endenv
 
   and peval_clause (lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 
     let bail = bail_with body in
-    let linedeps, res_value = bail begin match body with (* Could move bail out here someday *)
+    let linedeps, res_value = begin match body with
 
     (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
-    | Value_body (Value_function vf) -> pure (PValue (FunClosure (x, vf, env)))
+    | Value_body (Value_function vf) -> LexAdr_set.empty, PValue (FunClosure (x, vf, env))
     
     | Value_body (Value_record vr) -> let new_env, deps = find_record_env_deps vr env
-      in Some (PValue (RecordClosure (vr, new_env))), deps
+      in deps, PValue (RecordClosure (vr, new_env))
 
-    | Value_body v -> pure (PValue (Direct v))
+    | Value_body v -> LexAdr_set.empty, PValue (Direct v)
 
-    | Var_body vx -> get_presidual_from_ident_semi_ref_opt vx env
+    | Var_body vx -> bail @@ get_presidual_from_ident_semi_ref_opt vx env
  
-    | Input_body -> pure @@ if peval_input (* This will be interesting to peval...We'll need arguments for whether input is known at peval-time or not *)
+    | Input_body -> LexAdr_set.empty, if peval_input (* This will be interesting to peval...We'll need arguments for whether input is known at peval-time or not *)
       then PValue (Direct (Value_int (read_int ()))) (* Interestingly enough, this condition should itself be partially evaluated... *)
       else PClause(body)
 
-    | Match_body (vx, p) -> let+ pval = get_pvalue_from_ident_opt vx env in
+    | Match_body (vx, p) -> bail (
+      let+ pval = get_pvalue_from_ident_opt vx env in
       PValue (Direct (Value_bool (check_pattern pval p)))
+    )
 
     | Conditional_body (x2, e1, e2) -> failwith "Evaluation does not yet support conditionals!"
 
     | Appl_body (vx1, (Var (x2, _) as vx2)) -> failwith "Evaluation does not yet support function application!"
 
     (* Deps list here actually only needs to be the original captured variable, not the whole list for the record! *)
-    | Projection_body (v, key) -> begin
+    | Projection_body (v, key) -> bail begin
       match get_pvalue_from_ident_opt v env with
       | (None, _ as none) -> none
       | Some (RecordClosure (Record_value r, renv)), _ ->
@@ -420,14 +467,14 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = (
       | _ -> failwith "Type error! Projection attempted on a non-record!"
       end
     
-    | Not_body vx -> begin
+    | Not_body vx -> bail begin
       let+ presidual = get_pvalue_from_ident_opt vx env in
       match presidual with
       | Direct (Value_bool b) -> PValue (Direct (Value_bool (not b)))
       | _ -> failwith "Type error! Not attempted on a non-bool!"
     end
     
-    | Binary_operation_body (vx1, op, vx2) -> begin
+    | Binary_operation_body (vx1, op, vx2) -> bail begin
       let+ v1 = get_pvalue_from_ident_opt vx1 env
       and+ v2 = get_pvalue_from_ident_opt vx2 env in
       let v1, v2 = match v1, v2 with
@@ -441,9 +488,7 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = (
 
     end in (add_ident_line_penv x lexadr linedeps res_value env)
   
-  in let endenv = peval_expr 0 IdentLine_map.empty expr
-  in let _, _, enddeps = (IdentLine_map.find (LexAdr (0, -1)) endenv)
-  in reconstruct_expr_from_lexadr enddeps endenv, endenv
+  in peval_expr 0 IdentLine_map.empty expr
 )
 ;;
 
