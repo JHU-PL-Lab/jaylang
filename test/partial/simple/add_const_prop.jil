@@ -1,5 +1,5 @@
 y = 5;
 z = 10;
 b = y + z;
-c = a + b;
+c = a + a;
 target = c + b;

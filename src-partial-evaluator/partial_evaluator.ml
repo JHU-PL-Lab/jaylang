@@ -132,6 +132,7 @@ module OptionSyntax : sig
   (* Applicatives *)
   val ( let+ ) : 'a option * LexAdr_set.t -> ('a -> 'b) -> 'b option * LexAdr_set.t
   val ( and+ ) : 'a option * LexAdr_set.t -> 'b option * LexAdr_set.t -> ('a * 'b) option * LexAdr_set.t
+  val pure : 'a -> 'a option * LexAdr_set.t
 
 end = struct
   (*
@@ -151,6 +152,7 @@ end = struct
   let (and+) (o1, set1) (o2, set2) = (match o1, o2 with
     | Some x, Some y  -> Some (x,y)
     | _               -> None), (LexAdr_set.union set1 set2)
+  let pure x = Some x, LexAdr_set.empty
 end
 
 open OptionSyntax
@@ -183,12 +185,33 @@ let get_from_ident_opt (Var (ident, _) : var) (env : penv) =
   
 let get_pvalue_from_ident_opt (ident : var) (env : penv) =
   let* (_, v, deps) = get_from_ident_opt ident env in
-  let+ v = (match v with | PValue v -> Some v | _ -> None), deps
+  let+ v = (match v with | PValue v -> Some v | _ -> None), deps (* PValue deps guaranteed trivial for now *)
   in v
+
+let get_wrapped_pvalue_from_ident_opt (ident : var) (env : penv) =
+  let* (_, v, deps) = get_from_ident_opt ident env in
+  let+ v = (match v with | PValue _ -> Some v | _ -> None), deps (* PValue deps guaranteed trivial for now *)
+  in v
+
+let get_presidual_from_ident_opt (ident : var) (env : penv) =
+  let* (_, v, deps) = get_from_ident_opt ident env
+  in Some v, deps (* deps guaranteed non-trivial for PClauses *)
+
+let get_presidual_from_ident_ref_opt (ident : var) (env : penv) =
+  let* (_, v, deps) = get_from_ident_opt ident env
+  in match v with
+  | PValue _ -> Some v, deps (* deps guaranteed trivial for now *)
+  | PClause _ -> Some v, LexAdr_set.pop_max deps |> snd (* This may fail if deps contains higher envnums then itself? *)
+
+let get_presidual_from_ident_semi_ref_opt (ident : var) (env : penv) =
+  let* (_, v, deps) = get_from_ident_opt ident env
+  in match v with
+  | PClause Var_body _ -> Some v, LexAdr_set.pop_max deps |> snd (* This may fail if deps contains higher envnums then itself? *)
+  | _ -> Some v, deps (* deps guaranteed trivial for now *)
 
 let get_deps_from_ident_opt (ident : var) (env : penv) =
   let* (_, _, deps) = get_from_ident_opt ident env in
-  Some (), deps (* Add deps to state also *)
+  Some (), deps (* Add deps to state only? *)
 
 let get_many_deps_from_ident_opt (idents : var list) (env : penv) =
   let deps = List.fold_left (fun prev_deps ident ->
@@ -202,14 +225,20 @@ let get_wrapped_pvalue_deps_from_ident_opt (ident : var) (env : penv) =
   in deps, v
 
 let get_presidual_deps_from_ident_opt (ident : var) (env : penv) =
-  let+ (_, v, deps) = get_from_ident_opt ident env
-  in deps, v
+  let* (_, v, deps) = get_from_ident_opt ident env
+  in Some (deps, v), deps
 
-let pval (default : clause_body) (attempt : (LexAdr_set.t * presidual) option * LexAdr_set.t) = 
+let bail_with (default : clause_body) ((attempt, deps) : presidual option * LexAdr_set.t) = 
   match attempt with
-  | Some x, _ -> x
-  | None, deps -> deps, PClause(default)
+  | Some ((PValue _) as x) -> LexAdr_set.empty,  x
+  | Some ((PClause _) as x) -> deps, x
+  | None -> deps, PClause(default) 
 
+let bail_compose (default : clause_body) ((attempt, deps) : presidual option * LexAdr_set.t) =
+  match attempt with
+  | Some ((PValue _) as x) -> Some x, LexAdr_set.empty
+  | Some ((PClause _) as x) -> Some x, deps
+  | None -> Some (PClause(default)), deps
 
 
 
@@ -330,7 +359,7 @@ let simple_eval (expr : expr) : value * penv = (
 )
 ;;
 
-let simple_peval (expr : expr) : expr * penv = (
+let simple_peval (peval_input : bool) (expr : expr) : expr * penv = (
 
   let rec peval_expr (envnum : int) (env : penv) (Expr (clauses) : expr) : penv = 
     let foldable_eval_clause (env : penv) (index : int) (clause : clause) : penv = (
@@ -339,66 +368,59 @@ let simple_peval (expr : expr) : expr * penv = (
     in List.fold_lefti foldable_eval_clause env clauses
 
   and peval_clause (lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 
-    let bail = pval body in
-    let linedeps, res_value = match body with
+    let bail = bail_with body in
+    let linedeps, res_value = bail begin match body with (* Could move bail out here someday *)
 
     (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
-    | Value_body (Value_function vf) -> LexAdr_set.empty, PValue (FunClosure (x, vf, env))
+    | Value_body (Value_function vf) -> pure (PValue (FunClosure (x, vf, env)))
     (* Deps list is inaccurate, need to actually go through record and see what variables are captured *)
-    | Value_body (Value_record vr) -> LexAdr_set.empty, PValue (RecordClosure (vr, env))
-    | Value_body v -> LexAdr_set.empty, PValue (Direct v)
+    | Value_body (Value_record vr) -> pure (PValue (RecordClosure (vr, env)))
+    | Value_body v -> pure (PValue (Direct v))
 
-    | Var_body vx -> bail (get_wrapped_pvalue_deps_from_ident_opt vx env)
+    | Var_body vx -> get_presidual_from_ident_semi_ref_opt vx env
  
-    | Input_body -> LexAdr_set.empty, PValue (Direct (Value_int (read_int ()))) (* This will be interesting to peval...We'll need arguments for whether input is known at peval-time or not *)
+    | Input_body -> pure @@ if peval_input (* This will be interesting to peval...We'll need arguments for whether input is known at peval-time or not *)
+      then PValue (Direct (Value_int (read_int ()))) (* Interestingly enough, this condition should itself be partially evaluated... *)
+      else PClause(body)
 
-    | Match_body (vx, p) -> bail begin [@warning "-8"]
-      let+ deps, (PValue pval) = get_wrapped_pvalue_deps_from_ident_opt vx env in
-      deps, PValue (Direct (Value_bool (check_pattern pval p)))
-    end
+    | Match_body (vx, p) -> let+ pval = get_pvalue_from_ident_opt vx env in
+      PValue (Direct (Value_bool (check_pattern pval p)))
 
     | Conditional_body (x2, e1, e2) -> failwith "Evaluation does not yet support conditionals!"
 
     | Appl_body (vx1, (Var (x2, _) as vx2)) -> failwith "Evaluation does not yet support function application!"
 
     (* Deps list here actually only needs to be the original captured variable, not the whole list for the record! *)
-    | Projection_body (v, key) -> bail (
-      let* pval = match get_pvalue_from_ident_opt v env with (* Currently, this always passes if record is bound. *)
-      | None, deps -> None, deps
-      | (Some _) as pval, _ -> pval, LexAdr_set.empty
-      in match pval with
-        | RecordClosure (Record_value r, renv) ->
-          let proj_x = Ident_map.find key r in
-          (* If the record is a pvalue, then the aliased vars must be in the environment *)
-          (* Requires accurate dependency list for record values *)
-          (* Actually... right now it kinda works out, because the record deps are none, and if
-             the aliased var is free...then its dep should really be empty. Of course, the
-             value returned should still be that free thing, not the record...hmm... *)
-          (* So no, it doesn't work out. But I just won't test those cases lol. *)
-          get_presidual_deps_from_ident_opt proj_x renv
-        | _ -> failwith "Type error! Projection attempted on a non-record!"
-    )
+    | Projection_body (v, key) -> begin
+      match get_pvalue_from_ident_opt v env with
+      | (None, _ as none) -> none
+      | Some (RecordClosure (Record_value r, renv)), _ ->
+          let proj_x = Ident_map.find key r in bail_compose (Var_body proj_x) (
+            get_presidual_from_ident_semi_ref_opt proj_x renv
+        )
+      | _ -> failwith "Type error! Projection attempted on a non-record!"
+      end
     
-    | Not_body vx -> bail (
-      let+ deps, presidual = get_wrapped_pvalue_deps_from_ident_opt vx env in
+    | Not_body vx -> begin
+      let+ presidual = get_pvalue_from_ident_opt vx env in
       match presidual with
-      | PValue( Direct (Value_bool b)) -> deps, PValue (Direct (Value_bool (not b)))
+      | Direct (Value_bool b) -> PValue (Direct (Value_bool (not b)))
       | _ -> failwith "Type error! Not attempted on a non-bool!"
-    )
+    end
     
-    | Binary_operation_body (vx1, op, vx2) -> bail (
-      let+ _, v1 = get_wrapped_pvalue_deps_from_ident_opt vx1 env
-      and+ _, v2 = get_wrapped_pvalue_deps_from_ident_opt vx2 env in
+    | Binary_operation_body (vx1, op, vx2) -> begin
+      let+ v1 = get_pvalue_from_ident_opt vx1 env
+      and+ v2 = get_pvalue_from_ident_opt vx2 env in
       let v1, v2 = match v1, v2 with
-        | PValue (Direct v1), PValue (Direct v2) -> v1, v2
+        | Direct v1, Direct v2 -> v1, v2
         | _ -> failwith "Type error! Binary ops attempted on incompatible types!"
       in let v = binop (op, v1, v2)
-      in LexAdr_set.empty, PValue (Direct v)
-    )
+      in PValue (Direct v)
+    end
     
     | Abort_body | Assert_body _ | Assume_body _ -> failwith "Evaluation does not yet support abort, assert, and assume!"
 
-    in (add_ident_line_penv x lexadr linedeps res_value env)
+    end in (add_ident_line_penv x lexadr linedeps res_value env)
   
   in let endenv = peval_expr 0 IdentLine_map.empty expr
   in let _, _, enddeps = (IdentLine_map.find (LexAdr (0, -1)) endenv)
@@ -454,7 +476,7 @@ end
 
 module SimpleEval = PEToploop (FileParser) (struct type t = value;; let eval = simple_eval;; let unparse = unparse_value end)
 
-module PartialEval = PEToploop (FileParser) (struct type t = expr;; let eval = simple_peval;; let unparse = unparse_expr end)
+module PartialEval = PEToploop (FileParser) (struct type t = expr;; let eval = simple_peval true;; let unparse = unparse_expr end)
 
 (*
 let sparse_eval (a : string) = a |> parse |> simple_eval |> fst;;
@@ -528,7 +550,7 @@ let make_default_session () =
     (* lookup_alert = Hash_set.create (module Lookup_key); *)
   }
 
-let create_session ?max_step ?(debug_mode = No_debug) (* state : Global_state.t *)
+(* let create_session ?max_step ?(debug_mode = No_debug) (* state : Global_state.t *)
     (config : Global_config.t) mode input_feeder : session =
   (* = With_full_target (config.target, target_stk) *)
   {
@@ -542,7 +564,7 @@ let create_session ?max_step ?(debug_mode = No_debug) (* state : Global_state.t 
     (* block_map = Jayil.Ast.Ident_map.empty; (* state.block_map; *) *)
     (* rstk_picked = Hashtbl.create (module Rstack); (* state.rstk_picked; *) *)
     (* lookup_alert = Hash_set.create (module Lookup_key); (* state.lookup_alert; *) *)
-  }
+  } *)
 
 let cond_fid b = if b then Ast.Ident "$tt" else Ast.Ident "$ff"
 
@@ -556,7 +578,7 @@ let add_val_def_mapping x vdef session : unit =
   let val_def_mapping = session.val_def_map in
   Core.Hashtbl.add_exn ~key:x ~data:vdef val_def_mapping
 
-let debug_update_read_node (session : session) (x : ident) (stk : Concrete_stack.t) =  ()
+(* let debug_update_read_node (session : session) (x : ident) (stk : Concrete_stack.t) =  ()
 
 let debug_update_write_node (session : session) (x : ident) (stk : Concrete_stack.t) = ()
 
@@ -564,7 +586,7 @@ let debug_stack (session : session) (x : ident) (stk : Concrete_stack.t) ((v : p
 
 let raise_if_with_stack (session : session) (x : ident) (stk : Concrete_stack.t) (v : pvalue) = ()
 
-let alert_lookup (session : session) (x : ident) (stk : Concrete_stack.t) = ()
+let alert_lookup (session : session) (x : ident) (stk : Concrete_stack.t) = () *)
 
 let rec same_stack s1 s2 =
   match (s1, s2) with
@@ -573,7 +595,7 @@ let rec same_stack s1 s2 =
   | [], [] -> true
   | _, _ -> false
 
-let debug_clause ~session x v stk =
+(* let debug_clause ~session x v stk =
   ILog.app (fun m -> m "@[%a = %a@]" Id.pp x pp_pvalue v) ;
 
   raise_if_with_stack session x stk v ;
@@ -599,20 +621,4 @@ and fetch_val_to_bool ~session ~stk env vx : bool =
   match fetch_val ~session ~stk env vx with
   | Direct (Value_bool b) -> b
   | _ -> failwith "eval to non bool"
-
-and check_pattern ~session ~stk env vx pattern : bool =
-  let is_pass =
-    match (fetch_val ~session ~stk env vx, pattern) with
-    | Direct (Value_int _), Int_pattern -> true
-    | Direct (Value_bool _), Bool_pattern -> true
-    | Direct (Value_function _), _ -> failwith "fun must be a closure"
-    | Direct (Value_record _), _ -> failwith "record must be a closure"
-    | RecordClosure (Record_value record, _), Rec_pattern key_set ->
-        Ident_set.for_all (fun id -> Ident_map.mem id record) key_set
-    | RecordClosure (Record_value record, _), Strict_rec_pattern key_set ->
-        Ident_set.equal key_set (Ident_set.of_enum @@ Ident_map.keys record)
-    | FunClosure (_, _, _), Fun_pattern -> true
-    | _, Any_pattern -> true
-    | _, _ -> false
-  in
-  is_pass
+ *)
