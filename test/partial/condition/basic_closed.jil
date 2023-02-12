@@ -1,0 +1,8 @@
+target_in = input;
+target_const = 42;
+target_if_true = 84;
+target_if_false = 21;
+target_cond = target_in == target_const;
+target_r = target_cond ?
+  (target = target_if_true) :
+  (target_fail = target_if_false)

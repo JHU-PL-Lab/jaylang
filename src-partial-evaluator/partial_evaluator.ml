@@ -137,8 +137,10 @@ let simple_eval (expr : expr) : value * penv = (
 
     (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
     | Value_body (Value_function vf) -> LexAdr_set.empty, FunClosure (x, vf, env)
-    (* Deps list is inaccurate, need to actually go through record and see what variables are captured *)
-    | Value_body (Value_record vr) -> LexAdr_set.empty, RecordClosure (vr, env)
+    
+    | Value_body (Value_record vr) -> let new_env, deps = find_record_env_deps vr env
+      in deps, RecordClosure (vr, new_env)
+    
     | Value_body v -> LexAdr_set.empty, Direct v
 
     | Var_body vx -> get_pvalue_deps_from_ident vx env
@@ -148,22 +150,30 @@ let simple_eval (expr : expr) : value * penv = (
     | Match_body (vx, p) -> let lexadrs, v = get_pvalue_deps_from_ident vx env in
       lexadrs, Direct (Value_bool (check_pattern v p))
 
-    | Conditional_body (x2, e1, e2) -> failwith "Evaluation does not yet support conditionals!"
+    | Conditional_body (vx, e1, e2) -> begin
+      let bool_deps, bool_val = match get_pvalue_deps_from_ident vx env with
+      | deps, Direct (Value_bool b) -> deps, b
+      | _ -> failwith "Type error! Conditional attempted with a non-bool!"
+      in let inner_envnum = fst lexadr + 1
+      in let endenv = eval_expr inner_envnum env (if bool_val then e1 else e2)
+      in let [@warning "-8"] _, PValue endpvalue, inner_deps = (IdentLine_map.find (LexAdr (inner_envnum, -1)) endenv)
+      in LexAdr_set.union bool_deps (LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) inner_deps), endpvalue
+    end
 
     | Appl_body (vx1, (Var (x2, _) as vx2)) -> failwith "Evaluation does not yet support function application!"
 
     (* Deps list here actually only needs to be the original captured variable, not the whole list for the record! *)
-    | Projection_body (v, key) -> ( match get_pvalue_from_ident v env with
+    | Projection_body (v, key) -> begin match get_pvalue_from_ident v env with
       | RecordClosure (Record_value r, renv) ->
         let proj_x = Ident_map.find key r in
         get_pvalue_deps_from_ident proj_x renv
       | _ -> failwith "Type error! Projection attempted on a non-record!"
-    )
+      end
     
-    | Not_body vx -> ( match get_pvalue_deps_from_ident vx env with
-      | lexadrs, Direct (Value_bool b) -> lexadrs, Direct (Value_bool (not b))
+    | Not_body vx -> begin match get_pvalue_deps_from_ident vx env with
+      | deps, Direct (Value_bool b) -> deps, Direct (Value_bool (not b))
       | _ -> failwith "Type error! Not attempted on a non-bool!"
-    )
+    end
     
     | Binary_operation_body (vx1, op, vx2) ->
       let lexadrs1, v1 = get_pvalue_deps_from_ident vx1 env
@@ -212,10 +222,10 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = (
       then PValue (Direct (Value_int (read_int ()))) (* Interestingly enough, this condition should itself be partially evaluated... *)
       else PClause(body)
 
-    | Match_body (vx, p) -> bail (
+    | Match_body (vx, p) -> bail begin
       let+ pval = get_pvalue_from_ident_opt vx env in
       PValue (Direct (Value_bool (check_pattern pval p)))
-    )
+    end
 
     | Conditional_body (x2, e1, e2) -> failwith "Evaluation does not yet support conditionals!"
 

@@ -1,0 +1,15 @@
+x = input;
+one = 1;
+two = 2;
+fourty_two = 42;
+eight = 8;
+y = x < one;
+y2 = x < two;
+z = y ? 
+  ( a = 5 ) : 
+  ( 
+    random = fourty_two;
+    z2 = y2 ? 
+      ( target = random ):
+      ( b2 = eight )
+  )
