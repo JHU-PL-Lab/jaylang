@@ -1,0 +1,8 @@
+p = 0;
+a1 = input;
+a2 = 2;
+f = fun t -> (
+  x = input;
+  c = x == t;
+);
+s = f a1

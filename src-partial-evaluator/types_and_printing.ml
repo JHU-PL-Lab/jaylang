@@ -165,14 +165,16 @@ open OptionSyntax
 let add_ident_line (ident : Ident.t) (lexadr : int * int) (v : 'a) (map : 'a IdentLine_map.t) =
   IdentLine_map.add (LexAdr lexadr) v (IdentLine_map.add (Ident ident) v map)
 
-let add_ident_line_last (ident : Ident.t) (lexadr : int * int) (v : 'a) (map : 'a IdentLine_map.t) =
-  let envnum, _ = lexadr
-  in IdentLine_map.add (LexAdr (envnum, -1)) v (IdentLine_map.add (LexAdr lexadr) v (IdentLine_map.add (Ident ident) v map))
+let add_ident_line_last (ident : Ident.t) ((envnum, _ as lexadr) : int * int) (v : 'a) (map : 'a IdentLine_map.t) =
+  IdentLine_map.add (LexAdr (envnum, -1)) v (IdentLine_map.add (LexAdr lexadr) v (IdentLine_map.add (Ident ident) v map))
 
 let add_ident_line_penv (ident : Ident.t) (lexadr : int * int) (lexadrs : LexAdr_set.t) (v : presidual) (map : penv) =
   let mapval = (ident, v, LexAdr_set.add lexadr lexadrs) in
   add_ident_line_last ident lexadr mapval map
 ;;
+
+let add_ident_el_penv (ident : Ident.t) (((_, _, lexadrs) as mapval) : presidual_with_ident_lexadr_deps) ~(map : penv) =
+  add_ident_line_last ident (LexAdr_set.max_elt lexadrs) mapval map
 
 let get_from_ident (Var (ident, _) : var) (env : penv) =
   match IdentLine_map.find_opt (Ident ident) env with
@@ -182,6 +184,10 @@ let get_from_ident (Var (ident, _) : var) (env : penv) =
 let get_pvalue_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, _) = get_from_ident ident env in v
 
 let get_pvalue_deps_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, deps) = get_from_ident ident env in deps, v
+
+let get_presidual_from_ident = get_from_ident
+
+(* let get_pvalue_deps_line_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, deps) = get_from_ident ident env in deps, v, LexAdr_set.max_elt deps *)
 
 let get_from_ident_opt (Var (ident, _) : var) (env : penv) =
   IdentLine_map.find_opt (Ident ident) env, LexAdr_set.empty
@@ -229,15 +235,6 @@ let get_many_lines_from_ident_opt (idents : var Enum.t) (env : penv) =
     in (LexAdr_set.max_elt next_deps) :: prev_lines, LexAdr_set.union prev_deps next_deps
   ) ([], LexAdr_set.empty) idents
   in (* Some *) lines, deps
-
-let get_wrapped_pvalue_deps_from_ident_opt (ident : var) (env : penv) =
-  let* (_, v, deps) = get_from_ident_opt ident env in
-  let+ v = (match v with | PValue _ -> Some v | _ -> None), deps
-  in deps, v
-
-let get_presidual_deps_from_ident_opt (ident : var) (env : penv) =
-  let* (_, v, deps) = get_from_ident_opt ident env
-  in Some (deps, v), deps
 
 
 

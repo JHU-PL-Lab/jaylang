@@ -127,6 +127,7 @@ let reconstruct_expr_from_lexadr (deps : LexAdr_set.t) (env : penv) : expr =
 let simple_eval (expr : expr) : value * penv = (
 
   let rec eval_expr (envnum : int) (env : penv) (Expr (clauses) : expr) : penv = 
+    (* Format.printf "Eval expression with envnum %d, with following environment:\n%a\n" envnum pp_penv env; *)
     let foldable_eval_clause (env : penv) (index : int) (clause : clause) : penv = (
       let env' = eval_clause (envnum, index+1) env clause in env' 
     )
@@ -160,7 +161,15 @@ let simple_eval (expr : expr) : value * penv = (
       in LexAdr_set.union bool_deps (LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) inner_deps), endpvalue
     end
 
-    | Appl_body (vx1, (Var (x2, _) as vx2)) -> failwith "Evaluation does not yet support function application!"
+    | Appl_body (vx1, vx2) -> begin
+      let func_deps, func_x, func_expr, func_env = match get_pvalue_deps_from_ident vx1 env with
+      | deps, FunClosure (_, Function_value (Var (x, _), expr), env) -> deps, x, expr, env
+      | _ -> failwith "Type error! Function application attempted with a non-function!"
+      in let inner_envnum = fst lexadr + 1
+      in let endenv = eval_expr inner_envnum (get_from_ident vx2 env |> (add_ident_el_penv func_x ~map:func_env)) func_expr
+      in let [@warning "-8"] _, PValue endpvalue, inner_deps = (IdentLine_map.find (LexAdr (inner_envnum, -1)) endenv)
+      in LexAdr_set.union func_deps (LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) inner_deps), endpvalue
+    end
 
     (* Deps list here actually only needs to be the original captured variable, not the whole list for the record! *)
     | Projection_body (v, key) -> begin match get_pvalue_from_ident v env with
