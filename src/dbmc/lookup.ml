@@ -193,15 +193,11 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   (* reset and init *)
   Solver.reset state.solver ;
   Riddler.reset () ;
-  let block0 = Cfg.find_block_by_id state.target state.block_map in
-  let key_target = Lookup_key.start state.target block0 in
-
   let lookup_main key_target () =
     lookup key_target () ;%lwt
     let td = Hashtbl.find_exn state.term_detail_map key_target in
-    Global_state.add_phi state td (Riddler.picked key_target) ;
     Lwt.return_unit
   in
-  run_eval key_target lookup_main ;
+  run_eval state.key_target lookup_main ;
   let%lwt _ = Scheduler.run state.job_queue in
   Lwt.return_unit

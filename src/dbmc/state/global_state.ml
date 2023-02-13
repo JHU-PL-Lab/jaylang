@@ -10,6 +10,7 @@ let create (config : Global_config.t) program =
     {
       first = Jayil.Ast_tools.first_id program;
       target;
+      key_target = Lookup_key.start target block0;
       program;
       block_map;
       source_map = lazy (Ddpa.Ddpa_helper.clause_mapping program);

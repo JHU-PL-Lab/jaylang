@@ -40,6 +40,7 @@ module State = struct
     *)
     first : Id.t;
     target : Id.t;
+    key_target : Lookup_key.t;
     program : Jayil.Ast.expr;
     block_map : Cfg.block Jayil.Ast.Ident_map.t;
     source_map : Jayil.Ast.clause Jayil.Ast.Ident_map.t Lazy.t;
