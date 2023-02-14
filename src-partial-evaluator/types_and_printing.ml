@@ -60,7 +60,7 @@ type pvalue =
   | RecordClosure of record_value * penv
   | AbortClosure of penv
 
-and presidual = PValue of pvalue | PClause of clause_body (* Note that Value_body of clause_body should not be used... *)
+and presidual = PValue of pvalue | PClause of clause_body | PExpr of expr (* Note that Value_body of clause_body should not be used... *)
 and presidual_with_ident_lexadr_deps = Ident.t * presidual * LexAdr_set.t
 and penv = presidual_with_ident_lexadr_deps IdentLine_map.t
 
@@ -86,6 +86,7 @@ and pp_record_c (Record_value r, env) oc =
 and pp_presidual oc = function
   | PValue pvalue -> pp_pvalue oc pvalue
   | PClause clause_body -> Jayil.Ast_pp.pp_clause_body oc clause_body
+  | PExpr expr -> Jayil.Ast_pp.pp_expr oc expr
 
 and pp_pwild oc ((ident, presidual, lexadrset) : presidual_with_ident_lexadr_deps) =
   Format.fprintf oc "%a = %a, %a" Jayil.Ast_pp.pp_ident ident pp_presidual presidual LexAdr_set.pp lexadrset
@@ -183,6 +184,8 @@ let get_from_ident (Var (ident, _) : var) (env : penv) =
   
 let get_pvalue_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, _) = get_from_ident ident env in v
 
+let get_deps_from_ident (ident : var) (env : penv) = let (_, _, deps) = get_from_ident ident env in deps
+
 let get_pvalue_deps_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, deps) = get_from_ident ident env in deps, v
 
 let get_presidual_from_ident = get_from_ident
@@ -210,14 +213,14 @@ let get_presidual_from_ident_ref_opt (ident : var) (env : penv) =
   let* (_, v, deps) = get_from_ident_opt ident env
   in match v with
   | PValue _ -> Some v, deps (* deps guaranteed trivial for now *)
-  | PClause _ -> Some v, LexAdr_set.pop_max deps |> snd (* This may fail if deps contains higher envnums then itself? *)
+  | _ -> Some v, LexAdr_set.pop_max deps |> snd (* This may fail if deps contains higher envnums then itself? *)
 
 let get_presidual_from_ident_semi_ref_opt (ident : var) (env : penv) =
   let* (_, v, deps) = get_from_ident_opt ident env
   in match v with
+  | PValue _ -> Some v, deps (* deps guaranteed trivial for now *)
   | PClause Var_body _ -> Some v, LexAdr_set.pop_max deps |> snd (* This may fail if deps contains higher envnums then itself? *)
-  | PClause _ -> Some (PClause (Var_body ident)), deps
-  | _ -> Some v, deps (* deps guaranteed trivial for now *)
+  | _ -> Some (PClause (Var_body ident)), deps
 
 let get_deps_from_ident_opt (ident : var) (env : penv) =
   let* (_, _, deps) = get_from_ident_opt ident env in
@@ -227,7 +230,7 @@ let get_many_deps_from_ident_opt (idents : var Enum.t) (env : penv) =
   let deps = Enum.fold (fun prev_deps ident ->
     let (_, next_deps) = get_deps_from_ident_opt ident env
     in LexAdr_set.union prev_deps next_deps) LexAdr_set.empty idents
-  in Some (), deps (* deps might also suffice if this doesn't have to be in the monad *)
+  in deps (* deps might also suffice if this doesn't have to be in the monad *)
   
 let get_many_lines_from_ident_opt (idents : var Enum.t) (env : penv) =
   let lines, deps = Enum.fold (fun (prev_lines, prev_deps) ident ->

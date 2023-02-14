@@ -40,13 +40,13 @@ let eval_file raw_source = raw_source |> Dj_common.File_utils.read_source |> eva
 let bail_with (default : clause_body) ((attempt, deps) : presidual option * LexAdr_set.t) = 
   match attempt with
   | Some ((PValue _) as x) -> LexAdr_set.empty,  x
-  | Some ((PClause _) as x) -> deps, x
+  | Some x -> deps, x
   | None -> deps, PClause(default) 
 
 let bail_compose (default : clause_body) ((attempt, deps) : presidual option * LexAdr_set.t) =
   match attempt with
   | Some ((PValue _) as x) -> Some x, LexAdr_set.empty
-  | Some ((PClause _) as x) -> Some x, deps
+  | Some x -> Some x, deps
   | None -> Some (PClause(default)), deps
 
 
@@ -56,7 +56,6 @@ let bail_compose (default : clause_body) ((attempt, deps) : presidual option * L
 (* let rec find_function_env_deps (Function_value (Var (Ident id , _), func) : function_value) (env : penv) =
   let rec in_find_fun (Expr func_clauses : expr) (env : penv) =
     List.fold_left *)
-
 
 let find_record_env_deps (Record_value record : record_value) (env : penv) : penv * LexAdr_set.t =
   let lines, deps = get_many_lines_from_ident_opt (Ident_map.values record) env
@@ -68,6 +67,65 @@ let find_record_env_deps (Record_value record : record_value) (env : penv) : pen
     in let (ident, _, _) as cur_val = IdentLine_map.find wrap_lexadr env (* get_many_deps only returns real deps *)
     in add_ident_line ident cur_lexadr cur_val new_env
   end lines IdentLine_map.empty, deps
+
+(* Note: Only reason right now to also return penv is for debugging purposes only *)
+(* There should be no diverging concerns here, as this devaluator (dependency evaluator)
+   only enters scope; it does not evaluate any functions *)
+let rec simple_deval (start_envnum : int) (expr : expr) : LexAdr_set.t * penv = (
+
+  let rec dummy_map_val = PValue (AbortClosure IdentLine_map.empty)
+
+  and deval_expr (envnum : int) (env : penv) (Expr (clauses) : expr) : LexAdr_set.t * penv = 
+    (* Format.printf "Eval expression with envnum %d, with following environment:\n%a\n" envnum pp_penv env; *)
+    let foldable_eval_clause (env : penv) (index : int) (clause : clause) : penv = (
+      let env' = deval_clause (envnum, index+1) env clause in env' 
+    )
+    in let endenv = List.fold_lefti foldable_eval_clause env clauses
+    in let _, _, enddeps = (IdentLine_map.find (LexAdr (0, -1)) endenv)
+    in enddeps, endenv
+
+  and deval_clause (lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 
+    let linedeps = match body with
+
+    (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
+    | Value_body (Value_function vf) -> LexAdr_set.empty
+    
+    | Value_body (Value_record Record_value record) -> get_many_deps_from_ident_opt (Ident_map.values record) env
+    
+    | Value_body v -> LexAdr_set.empty
+
+    (* | Var_body vx -> *)
+
+    | Input_body -> LexAdr_set.empty
+
+    (* | Match_body (vx, _) -> *)
+
+    (* Improvement could be made to find deps of only e1 or e2 if vx is indeed known beforehand *)
+    | Conditional_body (vx, e1, e2) -> begin
+      let bool_deps = get_deps_from_ident vx env
+      in let inner_envnum = fst lexadr + 1
+      in let inner_deps = LexAdr_set.union (deval_expr inner_envnum env e1 |> fst) (deval_expr inner_envnum env e2 |> fst)
+      in LexAdr_set.union bool_deps (LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) inner_deps)
+    end
+
+    (* Deps of function should have already been found, only need to union func_deps with val_deps *)
+    | Appl_body (vx1, vx2) -> LexAdr_set.union (get_deps_from_ident vx1 env) (get_deps_from_ident vx2 env)
+
+    (* Improvement could be made to find deps of only var associated with key if v is indeed known beforehand *)
+    | Projection_body (v, key) -> get_deps_from_ident v env
+    
+    (* | Not_body vx -> *)
+    
+    | Binary_operation_body (vx1, op, vx2) -> LexAdr_set.union (get_deps_from_ident vx1 env) (get_deps_from_ident vx2 env)
+
+    | Var_body vx | Match_body (vx, _) | Not_body vx -> get_deps_from_ident vx env
+    
+    | Abort_body | Assert_body _ | Assume_body _ -> failwith "Evaluation does not yet support abort, assert, and assume!"
+  
+    in (add_ident_line_penv x lexadr linedeps dummy_map_val env)
+  
+  in deval_expr start_envnum IdentLine_map.empty expr
+)
 
 let check_pattern (v : pvalue) (pattern : pattern) : bool =
   match v, pattern with
@@ -112,11 +170,14 @@ and binop = function
 let reconstruct_expr_from_lexadr (deps : LexAdr_set.t) (env : penv) : expr =
   let inner_reconstruct (deps : lexadr) next =
     let ident, presidual, _ = IdentLine_map.find (LexAdr deps) env
-    in let clause_body = match presidual with
+    in let clauses_val = match presidual with
+    | PExpr Expr expr_val -> expr_val
+    | _ ->
+      let clause_body = match [@warning "-8"] presidual with
       | PValue pval -> Value_body (value_of_pvalue pval)
       | PClause pcls -> pcls
-    in let clause = (Clause (Var (ident, None), clause_body))
-    in (fun res -> next (clause :: res))
+      in [(Clause (Var (ident, None), clause_body))]
+    in (fun res -> next (clauses_val @ res))
   in Expr ((LexAdr_set.fold inner_reconstruct deps (fun res -> res)) [])
 
 
@@ -137,7 +198,7 @@ let simple_eval (expr : expr) : value * penv = (
     let linedeps, res_value = match body with
 
     (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
-    | Value_body (Value_function vf) -> LexAdr_set.empty, FunClosure (x, vf, env)
+    | Value_body (Value_function (Function_value (_, func_expr) as vf)) -> simple_deval (fst lexadr + 1) func_expr |> fst, FunClosure (x, vf, env)
     
     | Value_body (Value_record vr) -> let new_env, deps = find_record_env_deps vr env
       in deps, RecordClosure (vr, new_env)
@@ -148,8 +209,8 @@ let simple_eval (expr : expr) : value * penv = (
 
     | Input_body -> LexAdr_set.empty, Direct (Value_int (read_int ())) (* This will be interesting to peval...We'll need arguments for whether input is known at peval-time or not *)
 
-    | Match_body (vx, p) -> let lexadrs, v = get_pvalue_deps_from_ident vx env in
-      lexadrs, Direct (Value_bool (check_pattern v p))
+    | Match_body (vx, p) -> let deps, v = get_pvalue_deps_from_ident vx env in
+      deps, Direct (Value_bool (check_pattern v p))
 
     | Conditional_body (vx, e1, e2) -> begin
       let bool_deps, bool_val = match get_pvalue_deps_from_ident vx env with

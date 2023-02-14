@@ -3,7 +3,7 @@ true_add = 2;
 false_add = 3;
 f = fun t -> (
   g = fun s -> (
-    x = t + true_add;
+    x = s ? (x_true = t + true_add) : (x_false = t + false_add);
   );
 );
 c1 = f a1;
