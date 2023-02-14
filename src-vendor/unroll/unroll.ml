@@ -2,7 +2,6 @@ open Core
 open Lwt.Infix
 include Unroll_intf
 
-(* Lookup_result.ok_lwt x *)
 (* These things exist together:
    1. a node for a lookup (key)
    2. a result stream for a lookup

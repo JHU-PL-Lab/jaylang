@@ -37,7 +37,7 @@ type t =
       map : int -> Lookup_result.t -> Lookup_result.t * Z3.Expr.expr list;
       phis : Z3.Expr.expr list;
     }
-  (* Fun Exit | Cond Top | Cond Btm *)
+  (* Fun Enter Local | Fun Exit | Cond Top | Cond Btm *)
   | Chain of {
       (* Chain is almost bind *)
       sub : Lookup_key.t;
@@ -45,14 +45,14 @@ type t =
       next : Lookup_key.t -> Lookup_result.t -> t option;
       phis : Z3.Expr.expr list;
     }
-  (* Fun Enter Local | Fun Enter Nonlocal *)
+  (* Fun Enter Local | Fun Enter Nonlocal | Cond Btm *)
   | Or_list of {
       sub : Lookup_key.t;
-      nexts : t list;
+      elements : t list;
       unbound : bool;
       phis : Z3.Expr.expr list;
     }
-  (* Record *)
+  (* Record | Fun Enter Nonlocal *)
   | Sequence of {
       sub : Lookup_key.t;
       pub : Lookup_key.t;

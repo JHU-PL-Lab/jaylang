@@ -73,18 +73,21 @@ module Make (S : S) = struct
     let ({ r; lbl; _ } : Record_start_rule.t) = p in
     let key_r = Lookup_key.with_x key r in
     let next i (r : Lookup_result.t) =
-      let key_rv = r.from in
-      let rv = Cfg.clause_body_of_x key_rv.block key_rv.x in
-      match rv with
-      | Value_body (Value_record (Record_value rv)) -> (
-          match Ident_map.Exceptionless.find lbl rv with
-          | Some (Var (field, _)) ->
-              let key_l = Lookup_key.with_x key_rv field in
-              let phi_i = Riddler.record_start key key_r key_rv key_l in
-              let action = Direct { sub = key; pub = key_l; phis = [] } in
-              Some (phi_i, action)
-          | None -> None)
-      | _ -> None
+      if Lookup_result.is_ok r
+      then
+        let key_rv = r.from in
+        let rv = Cfg.clause_body_of_x key_rv.block key_rv.x in
+        match rv with
+        | Value_body (Value_record (Record_value rv)) -> (
+            match Ident_map.Exceptionless.find lbl rv with
+            | Some (Var (field, _)) ->
+                let key_l = Lookup_key.with_x key_rv field in
+                let phi_i = Riddler.record_start key key_r key_rv key_l in
+                let action = Direct { sub = key; pub = key_l; phis = [] } in
+                Some (phi_i, action)
+            | None -> None)
+        | _ -> None
+      else None
     in
     Sequence { sub = key; pub = key_r; next; phis = [] }
 
@@ -101,7 +104,9 @@ module Make (S : S) = struct
       (* true *)
       (* if Riddler.eager_check S.state S.config key_x2
            [ Riddler.eqv key_x2 (Value_bool choice) ] *)
-      Some (Direct { sub = this_key; pub = key_x; phis = [] })
+      if Lookup_result.is_ok r
+      then Some (Direct { sub = this_key; pub = key_x; phis = [] })
+      else None
     in
     let phis = [ Riddler.cond_top this_key key_x key_x2 beta ] in
     Chain { sub = this_key; pub = key_x2; next; phis }
@@ -111,15 +116,16 @@ module Make (S : S) = struct
     let ({ x; x'; cond_both } : Cond_btm_rule.t) = p in
     let term_c = Lookup_key.with_x this_key x' in
     let next _ (r : Lookup_result.t) =
-      if r.status
-      then (
+      if Lookup_result.is_ok r
+      then
         let sub = this_key in
-        let eager_result = Checker.eager_check S.state S.config term_c [] in
-        Fmt.pr "[CondBtm]%a <- %a\nEager=%B\n" Lookup_key.pp key Lookup_key.pp
-          r.from eager_result ;
+        (* let eager_result = Checker.eager_check S.state S.config term_c [] in
+           Fmt.pr "[CondBtm]%a <- %a\nEager=%B\n" Lookup_key.pp key Lookup_key.pp
+             r.from eager_result ; *)
+        (* if eager_result *)
         if true
         then
-          let nexts =
+          let elements =
             List.filter_map [ true; false ] ~f:(fun beta ->
                 let cond_case_block_opt =
                   if beta then cond_both.then_ else cond_both.else_
@@ -135,8 +141,8 @@ module Make (S : S) = struct
                     Some (Direct { sub = this_key; pub = key_ret; phis = [] })
                 | None -> None)
           in
-          Some (Or_list { sub; nexts; unbound = false; phis = [] })
-        else None)
+          Some (Or_list { sub; elements; unbound = false; phis = [] })
+        else None
       else None
     in
 
@@ -148,7 +154,7 @@ module Make (S : S) = struct
     let ({ fb; _ } : Fun_enter_local_rule.t) = p in
     let fid = key.block.id in
     let callsites = Lookup_key.get_callsites this_key.r_stk key.block in
-    let nexts =
+    let elements =
       List.map callsites ~f:(fun callsite ->
           let callsite_block, x', x'', x''' =
             Cfg.fun_info_of_callsite callsite S.block_map
@@ -156,22 +162,25 @@ module Make (S : S) = struct
           match Rstack.pop this_key.r_stk (x', fid) with
           | Some callsite_stack ->
               let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
-              let next this_key (_r : Lookup_result.t) =
-                let key_arg =
-                  Lookup_key.of3 x''' callsite_stack callsite_block
-                in
-                Some (Direct { sub = this_key; pub = key_arg; phis = [] })
+              let next this_key (r : Lookup_result.t) =
+                if Lookup_result.is_ok r
+                then
+                  let key_arg =
+                    Lookup_key.of3 x''' callsite_stack callsite_block
+                  in
+                  Some (Direct { sub = this_key; pub = key_arg; phis = [] })
+                else None
               in
               Chain { sub = this_key; pub = key_f; next; phis = [] }
           | None -> failwith "why Rstack.pop fails here")
     in
     let phis = [ Riddler.fun_enter_local this_key fid callsites S.block_map ] in
-    Or_list { sub = this_key; nexts; unbound = false; phis }
+    Or_list { sub = this_key; elements; unbound = false; phis }
 
   let fun_enter_nonlocal p (key : Lookup_key.t) =
     let ({ fb; _ } : Fun_enter_nonlocal_rule.t) = p in
     let callsites = Lookup_key.get_callsites key.r_stk key.block in
-    let nexts =
+    let elements =
       List.map callsites ~f:(fun callsite ->
           let callsite_block, x', x'', _x''' =
             Cfg.fun_info_of_callsite callsite S.block_map
@@ -180,29 +189,35 @@ module Make (S : S) = struct
           | Some callsite_stack ->
               let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
               let next i (r : Lookup_result.t) =
-                let fv_block = Cfg.find_block_by_id r.from.x S.block_map in
-                let key_arg = Lookup_key.of3 key.x r.from.r_stk fv_block in
-                let phi_i =
-                  Riddler.fun_enter_nonlocal key key_f r.from key.block.id
-                    key_arg
-                in
-                let action = Direct { sub = key; pub = key_arg; phis = [] } in
-                Some (phi_i, action)
+                if Lookup_result.is_ok r
+                then
+                  let fv_block = Cfg.find_block_by_id r.from.x S.block_map in
+                  let key_arg = Lookup_key.of3 key.x r.from.r_stk fv_block in
+                  let phi_i =
+                    Riddler.fun_enter_nonlocal key key_f r.from key.block.id
+                      key_arg
+                  in
+                  let action = Direct { sub = key; pub = key_arg; phis = [] } in
+                  Some (phi_i, action)
+                else None
               in
               Sequence { sub = key; pub = key_f; next; phis = [] }
           | None -> failwith "why Rstack.pop fails here")
     in
-    Or_list { sub = key; nexts; unbound = true; phis = [] }
+    Or_list { sub = key; elements; unbound = true; phis = [] }
 
   let fun_exit p (this_key : Lookup_key.t) =
     let ({ x; xf; fids } : Fun_exit_rule.t) = p in
     let key_f = Lookup_key.of3 xf this_key.r_stk this_key.block in
     let next (this_key : Lookup_key.t) (rf : Lookup_result.t) =
-      let fid = rf.from.x in
-      if List.mem fids fid ~equal:Id.equal
+      if Lookup_result.is_ok rf
       then
-        let key_ret = Lookup_key.get_f_return S.block_map fid this_key in
-        Some (Direct { sub = this_key; pub = key_ret; phis = [] })
+        let fid = rf.from.x in
+        if List.mem fids fid ~equal:Id.equal
+        then
+          let key_ret = Lookup_key.get_f_return S.block_map fid this_key in
+          Some (Direct { sub = this_key; pub = key_ret; phis = [] })
+        else None
       else None
     in
     let phis = [ Riddler.fun_exit this_key key_f fids S.block_map ] in

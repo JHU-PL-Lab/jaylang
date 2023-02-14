@@ -45,27 +45,29 @@ let rec run run_task unroll (state : Global_state.t)
   add_phi_edge state term_detail rule_action ;
   match (rule_action : Rule_action.t) with
   | Withered e -> ()
-  | Leaf e -> U.by_return unroll e.sub (Lookup_result.ok e.sub)
+  | Leaf e -> U.by_return unroll e.sub (Lookup_result.complete e.sub)
   | Direct e ->
-      run_task e.pub ;
-      U.by_id_u unroll e.sub e.pub
+      U.by_id_u unroll e.sub e.pub ;
+      run_task e.pub
   | Map e ->
-      run_task e.pub ;
-      U.by_map_u unroll e.sub e.pub e.map
+      U.by_map_u unroll e.sub e.pub e.map ;
+      run_task e.pub
   | MapSeq e ->
       init_list_counter state term_detail e.sub ;
-      run_task e.pub ;
       let f r =
         let i = fetch_list_counter state term_detail e.sub in
         let ans, phis = e.map i r in
         add_phi term_detail (Riddler.list_append e.sub i (Riddler.and_ phis)) ;
-        ans
+        Lookup_result.status_as ans r.status
+        (* ans *)
       in
-      U.by_map_u unroll e.sub e.pub f
+      U.by_map_u unroll e.sub e.pub f ;
+      run_task e.pub
   | Both e ->
+      U.by_map2_u unroll e.sub e.pub1 e.pub2 (fun (v1, v2) ->
+          Lookup_result.(status_as (ok e.sub) (status_join v1.status v2.status))) ;
       run_task e.pub1 ;
-      run_task e.pub2 ;
-      U.by_map2_u unroll e.sub e.pub1 e.pub2 (fun _ -> Lookup_result.ok e.sub)
+      run_task e.pub2
   | Chain e ->
       let cb key r =
         let edge = e.next key r in
@@ -77,7 +79,6 @@ let rec run run_task unroll (state : Global_state.t)
   | Sequence e ->
       init_list_counter state term_detail e.sub ;
 
-      run_task e.pub ;
       let cb _key (r : Lookup_result.t) =
         let i = fetch_list_counter state term_detail e.sub in
         let next = e.next i r in
@@ -90,7 +91,8 @@ let rec run run_task unroll (state : Global_state.t)
             add_phi term_detail (Riddler.list_append e.sub i Riddler.false_)) ;
         Lwt.return_unit
       in
-      U.by_bind_u unroll e.sub e.pub cb
+      U.by_bind_u unroll e.sub e.pub cb ;
+      run_task e.pub
   | Or_list e ->
       if e.unbound then init_list_counter state term_detail e.sub else () ;
-      List.iter e.nexts ~f:(fun e -> loop e)
+      List.iter e.elements ~f:(fun e -> loop e)
