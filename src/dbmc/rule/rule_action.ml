@@ -7,7 +7,7 @@ open Dj_common
 
 type t =
   (* Mismatch *)
-  | Withered of { phis : Z3.Expr.expr list }
+  | Withered of { sub : Lookup_key.t; phis : Z3.Expr.expr list }
   (* Value main *)
   | Leaf of { sub : Lookup_key.t; phis : Z3.Expr.expr list }
   (* Alias | Not_ *)
@@ -45,18 +45,19 @@ type t =
       next : Lookup_key.t -> Lookup_result.t -> t option;
       phis : Z3.Expr.expr list;
     }
-  (* Fun Enter Local | Fun Enter Nonlocal | Cond Btm *)
-  | Or_list of {
-      sub : Lookup_key.t;
-      elements : t list;
-      unbound : bool;
-      phis : Z3.Expr.expr list;
-    }
   (* Record | Fun Enter Nonlocal *)
+  (* A sequence can be viewed as a full-fledged chain. *)
   | Sequence of {
       sub : Lookup_key.t;
       pub : Lookup_key.t;
       next : int -> Lookup_result.t -> (Z3.Expr.expr * t) option;
+      phis : Z3.Expr.expr list;
+    }
+    (* Fun Enter Local | Fun Enter Nonlocal | Cond Btm *)
+  | Or_list of {
+      sub : Lookup_key.t;
+      elements : t list;
+      unbound : bool;
       phis : Z3.Expr.expr list;
     }
 (* We don't need a vanilla bind here because we don't need a general callback.
@@ -83,3 +84,25 @@ type t =
    The reason for lazy init is the callback may never be called at all. The fix of
    infinitive list cannot be applied before calling the SMT solver.
 *)
+
+let phis_of = function
+  | Withered e -> e.phis
+  | Leaf e -> e.phis
+  | Direct e -> e.phis
+  | Map e -> e.phis
+  | MapSeq e -> e.phis
+  | Both e -> e.phis
+  | Chain e -> e.phis
+  | Sequence e -> e.phis
+  | Or_list e -> e.phis
+
+let sub_of = function
+  | Withered e -> e.sub
+  | Leaf e -> e.sub
+  | Direct e -> e.sub
+  | Map e -> e.sub
+  | MapSeq e -> e.sub
+  | Both e -> e.sub
+  | Chain e -> e.sub
+  | Sequence e -> e.sub
+  | Or_list e -> e.sub

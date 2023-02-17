@@ -258,7 +258,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
        srcs *)
 
   (* external use *)
-  let get_messages t key =
+  let current_messages t key =
     Hashtbl.find_and_call t.map key
       ~if_found:(fun x -> x.messages)
       ~if_not_found:(fun _ -> [])

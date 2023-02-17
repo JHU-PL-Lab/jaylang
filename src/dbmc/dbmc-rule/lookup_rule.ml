@@ -109,6 +109,8 @@ module Make (S : S) = struct
       else None
     in
     let phis = [ Riddler.cond_top this_key key_x key_x2 beta ] in
+    (* Fmt.pr "\n[Chain inspect]key= %a, x= %a, x2= %a," Lookup_key.pp this_key
+       Lookup_key.pp key_x Lookup_key.pp key_x2 ; *)
     Chain { sub = this_key; pub = key_x2; next; phis }
 
   let cond_btm p (key : Lookup_key.t) =
@@ -284,18 +286,17 @@ module Make (S : S) = struct
     MapSeq { sub = key; pub = key'; map = next; phis = [] }
 
   let assume _p (key : Lookup_key.t) =
-    (* Withered { phis = [] } *)
-    Withered { phis = [ Riddler.mismatch_with_picked key ] }
+    Withered { sub = key; phis = [ Riddler.mismatch_with_picked key ] }
 
   let assert_ _p (key : Lookup_key.t) =
-    Withered { phis = [ Riddler.mismatch_with_picked key ] }
+    Withered { sub = key; phis = [ Riddler.mismatch_with_picked key ] }
 
   let abort p (key : Lookup_key.t) =
     if Lookup_key.equal key (Lookup_key.start S.config.target key.block)
        (* TODO: take care of direct `abort` in the main block *)
     then rule_nonmain None p key
-    else Withered { phis = [ Riddler.mismatch_with_picked key ] }
+    else Withered { sub = key; phis = [ Riddler.mismatch_with_picked key ] }
 
   let mismatch (key : Lookup_key.t) =
-    Withered { phis = [ Riddler.mismatch_with_picked key ] }
+    Withered { sub = key; phis = [ Riddler.mismatch_with_picked key ] }
 end

@@ -229,7 +229,7 @@ module DotPrinter_Make (S : GS) = struct
           in
           let outputs =
             []
-            (* Unrolls.U_dbmc.get_messages S.state.unroll node.key
+            (* Unrolls.U_dbmc.current_messages S.state.unroll node.key
                |> List.map ~f:(fun m -> m.from) *)
           in
           Fmt.str

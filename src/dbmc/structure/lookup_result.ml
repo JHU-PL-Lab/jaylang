@@ -26,5 +26,11 @@ let ok x = default x
 
 (* is `complete` a separate last message or does it come with the last message *)
 let complete x = { (default x) with status = Complete }
-let is_ok x = match x.status with Good -> true | Complete -> true | _ -> false
+let is_ok x = match x.status with Good | Complete -> true | _ -> false
+let is_good x = match x.status with Good -> true | _ -> false
+let is_complete x = match x.status with Complete -> true | _ -> false
+
+let is_complete_or_fail x =
+  match x.status with Complete | Fail -> true | _ -> false
+
 let status_as x status = { x with status }

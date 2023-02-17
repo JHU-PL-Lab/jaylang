@@ -22,41 +22,36 @@ let fetch_list_counter (state : Global_state.t) (term_detail : Term_detail.t)
   new_i - 1
 
 let add_phi_edge state term_detail edge =
-  let open Rule_action in
-  let phis =
-    match edge with
-    | Withered e -> e.phis
-    | Leaf e -> e.phis
-    | Direct e -> e.phis
-    | Map e -> e.phis
-    | MapSeq e -> e.phis
-    | Both e -> e.phis
-    | Chain e -> e.phis
-    | Sequence e -> e.phis
-    | Or_list e -> e.phis
-  in
-  List.iter phis ~f:(Global_state.add_phi state term_detail)
+  List.iter (Rule_action.phis_of edge)
+    ~f:(Global_state.add_phi state term_detail)
 
 let rec run run_task unroll (state : Global_state.t)
     (term_detail : Term_detail.t) rule_action =
   let loop rule_action = run run_task unroll state term_detail @@ rule_action in
   let add_phi = Global_state.add_phi state in
+  let mark_and_id r =
+    if Lookup_result.is_complete_or_fail r
+    then term_detail.is_complete_or_fail <- true
+    else () ;
+    r
+  in
   let open Rule_action in
-  add_phi_edge state term_detail rule_action ;
-  match (rule_action : Rule_action.t) with
-  | Withered e -> ()
-  | Leaf e -> U.by_return unroll e.sub (Lookup_result.complete e.sub)
+  (match (rule_action : Rule_action.t) with
+  | Withered e -> term_detail.is_complete_or_fail <- true
+  | Leaf e ->
+      term_detail.is_complete_or_fail <- true ;
+      U.by_return unroll e.sub (Lookup_result.complete e.sub)
   | Direct e ->
-      U.by_id_u unroll e.sub e.pub ;
+      U.by_map_u unroll e.sub e.pub mark_and_id ;
       run_task e.pub
   | Map e ->
-      U.by_map_u unroll e.sub e.pub e.map ;
+      U.by_map_u unroll e.sub e.pub (fun r -> e.map (mark_and_id r)) ;
       run_task e.pub
   | MapSeq e ->
       init_list_counter state term_detail e.sub ;
       let f r =
         let i = fetch_list_counter state term_detail e.sub in
-        let ans, phis = e.map i r in
+        let ans, phis = e.map i (mark_and_id r) in
         add_phi term_detail (Riddler.list_append e.sub i (Riddler.and_ phis)) ;
         Lookup_result.status_as ans r.status
         (* ans *)
@@ -69,9 +64,38 @@ let rec run run_task unroll (state : Global_state.t)
       run_task e.pub1 ;
       run_task e.pub2
   | Chain e ->
-      let cb key r =
-        let edge = e.next key r in
-        (match edge with Some edge -> loop edge | None -> ()) ;
+      (* Fmt.pr "\n[Chain start]%a = %a -> " Lookup_key.pp e.sub Lookup_key.pp
+         e.pub ; *)
+      let cb key (r : Lookup_result.t) =
+        (match r.status with
+        | Fail -> ()
+        | Complete | Good -> (
+            let edge = e.next key r in
+            match edge with
+            | Some edge ->
+                term_detail.sub_lookups <-
+                  term_detail.sub_lookups @ [ Rule_action.sub_of edge ] ;
+                loop edge
+            | None -> ())) ;
+        (match r.status with
+        | Fail | Complete ->
+            Lwt.async (fun () ->
+                (* Fmt.pr "\n[Chain end (step1)]%a = %a -> " Lookup_key.pp e.sub
+                   Lookup_key.pp e.pub ; *)
+                let%lwt all_complete =
+                  Lwt_list.for_all_s
+                    (fun sub_key ->
+                      (* Fmt.pr "%a; " Lookup_key.pp sub_key ; *)
+                      let sub_s = U.get_stream unroll sub_key in
+                      Lwt_stream.junk_while Lookup_result.is_good sub_s ;%lwt
+                      Lwt.map Lookup_result.is_complete (Lwt_stream.next sub_s))
+                    term_detail.sub_lookups
+                in
+                (* Fmt.pr "\n[Chain end (step2)]%a = %a <- " Lookup_key.pp e.sub
+                   Lookup_key.pp e.pub ; *)
+                term_detail.is_complete_or_fail <- all_complete ;
+                Lwt.return_unit)
+        | Good -> ()) ;
         Lwt.return_unit
       in
       U.by_bind_u unroll e.sub e.pub cb ;
@@ -95,4 +119,5 @@ let rec run run_task unroll (state : Global_state.t)
       run_task e.pub
   | Or_list e ->
       if e.unbound then init_list_counter state term_detail e.sub else () ;
-      List.iter e.elements ~f:(fun e -> loop e)
+      List.iter e.elements ~f:(fun e -> loop e)) ;
+  add_phi_edge state term_detail rule_action

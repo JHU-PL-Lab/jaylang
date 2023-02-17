@@ -16,6 +16,7 @@ module type S = sig
 
   val create : unit -> t
   val alloc_task : t -> ?task:(unit -> unit) -> key -> unit
+  val get_stream : t -> key -> message Lwt_stream.t
   val by_return : t -> key -> message -> unit
   val by_iter : t -> key -> (message -> unit Lwt.t) -> unit Lwt.t
   val by_iter_u : t -> key -> (message -> unit Lwt.t) -> unit
@@ -50,5 +51,5 @@ module type S = sig
   val by_join_u : t -> key -> key list -> unit
   val by_bind : t -> key -> key -> (key -> message -> unit Lwt.t) -> unit Lwt.t
   val by_bind_u : t -> key -> key -> (key -> message -> unit Lwt.t) -> unit
-  val get_messages : t -> key -> message list
+  val current_messages : t -> key -> message list
 end
