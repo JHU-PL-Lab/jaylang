@@ -71,7 +71,7 @@ let find_record_env_deps (Record_value record : record_value) (env : penv) : pen
 (* Note: Only reason right now to also return penv is for debugging purposes only *)
 (* There should be no diverging concerns here, as this devaluator (dependency evaluator)
    only enters scope; it does not evaluate any functions *)
-let rec simple_deval (start_envnum : int) (expr : expr) : LexAdr_set.t * penv = (
+let rec simple_deval (start_envnum : int) (start_penv : penv) (expr : expr) : LexAdr_set.t * penv = (
 
   let rec dummy_map_val = PValue (AbortClosure IdentLine_map.empty)
 
@@ -87,9 +87,11 @@ let rec simple_deval (start_envnum : int) (expr : expr) : LexAdr_set.t * penv = 
   and deval_clause (lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 
     let linedeps = match body with
 
-    | Value_body (Value_function Function_value (_, func_expr)) -> begin
+    | Value_body (Value_function Function_value (Var (x1, _), func_expr)) -> begin
       let inner_envnum = fst lexadr + 1
-      in LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) @@ fst @@ deval_expr inner_envnum env func_expr
+      in let [@warning "-6"] beginenv = add_ident_el_penv x1 (x1, PExpr (Expr []), LexAdr_set.empty) ~map:env (* :( Have to be explicit huh *)
+      in let () = Format.printf "%a\n" pp_penv beginenv
+      in LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) @@ fst @@ deval_expr inner_envnum beginenv func_expr
     end
     
     | Value_body (Value_record Record_value record) -> get_many_deps_from_ident_opt (Ident_map.values record) env
@@ -126,7 +128,7 @@ let rec simple_deval (start_envnum : int) (expr : expr) : LexAdr_set.t * penv = 
   
     in (add_ident_line_penv x lexadr linedeps dummy_map_val env)
   
-  in deval_expr start_envnum IdentLine_map.empty expr
+  in deval_expr start_envnum start_penv expr
 )
 
 let check_pattern (v : pvalue) (pattern : pattern) : bool =
@@ -200,7 +202,12 @@ let simple_eval (expr : expr) : value * penv = (
     let linedeps, res_value = match body with
 
     (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
-    | Value_body (Value_function (Function_value (_, func_expr) as vf)) -> simple_deval (fst lexadr + 1) func_expr |> fst, FunClosure (x, vf, env)
+    | Value_body (Value_function (Function_value (Var(x1, _), func_expr) as vf)) -> begin
+      (* Format.printf "%a\n" pp_penv env; *)
+      let [@warning "-6"] beginenv = add_ident_el_penv x1 (x1, PExpr (Expr []), LexAdr_set.singleton (-1, -1)) env
+      (* in let () = Format.printf "%a\n" pp_penv beginenv *)
+      in simple_deval (fst lexadr + 1) beginenv func_expr |> fst, FunClosure (x, vf, env)
+    end
     
     | Value_body (Value_record vr) -> let new_env, deps = find_record_env_deps vr env
       in deps, RecordClosure (vr, new_env)
@@ -229,7 +236,9 @@ let simple_eval (expr : expr) : value * penv = (
       | deps, FunClosure (_, Function_value (Var (x, _), expr), env) -> deps, x, expr, env
       | _ -> failwith "Type error! Function application attempted with a non-function!"
       in let inner_envnum = fst lexadr + 1
-      in let endenv = eval_expr inner_envnum (get_from_ident vx2 env |> (add_ident_el_penv func_x ~map:func_env)) func_expr
+      in let beginenv = get_from_ident vx2 env |> (add_ident_el_penv func_x ~map:func_env)
+      (* in let () = Format.printf "%a\n" pp_penv beginenv *)
+      in let endenv = eval_expr inner_envnum beginenv func_expr
       in let [@warning "-8"] _, PValue endpvalue, inner_deps = (IdentLine_map.find (LexAdr (inner_envnum, -1)) endenv)
       in LexAdr_set.union func_deps (LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) inner_deps), endpvalue
     end
