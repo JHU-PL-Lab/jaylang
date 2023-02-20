@@ -355,36 +355,9 @@ module SimpleEval = PEToploop (FileParser) (struct type t = value;; let eval = s
 
 module PartialEval = PEToploop (FileParser) (struct type t = expr;; let eval = simple_peval true;; let unparse = unparse_expr end)
 
-(*
-let sparse_eval (a : string) = a |> parse |> simple_eval |> fst;;
-
-let debug_sparse_eval (a : string) = a |> parse |> simple_eval |> snd;;
 
 
-let sparse_eval_unparse (a : string) = a |> parse |> simple_eval |> fst |> unparse;;
-let speu = sparse_eval_unparse;;
-let sparse_eval_print (a : string) = a |> speu |> print_endline;; (* print_endline "";; *)
-let srep = sparse_eval_print;;
-let debug_sparse_eval_print (a : string) = a |> debug_sparse_eval |> Format.printf "%a" pp_penv;;
-let sdrep = debug_sparse_eval_print;;
-
-
-
-let spfile_eval (a : string) = a |> pfile |> simple_eval |> fst;;
-
-let debug_spfile_eval (a : string) = a |> pfile |> simple_eval |> snd;;
-
-
-let spfile_eval_unparse (a : string) = a |> pfile |> simple_eval |> fst |> unparse;;
-let spfeu = spfile_eval_unparse;;
-let spfile_eval_print (a : string) = a |> spfeu |> print_endline;; (* print_endline "";; *)
-let sfrep = spfile_eval_print;;
-let debug_spfile_eval_print (a : string) = a |> debug_spfile_eval |> Format.printf "%a" pp_penv;;
-let sdfrep = debug_spfile_eval_print;;
-*)
-
-
-
+(* Below copied from dbmc *)
 exception Found_target of { x : Id.t; stk : Concrete_stack.t; v : pvalue }
 exception Found_abort of pvalue
 exception Terminate of pvalue
