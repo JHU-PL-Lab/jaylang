@@ -87,8 +87,10 @@ let rec simple_deval (start_envnum : int) (expr : expr) : LexAdr_set.t * penv = 
   and deval_clause (lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 
     let linedeps = match body with
 
-    (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
-    | Value_body (Value_function vf) -> LexAdr_set.empty
+    | Value_body (Value_function Function_value (_, func_expr)) -> begin
+      let inner_envnum = fst lexadr + 1
+      in LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) @@ fst @@ deval_expr inner_envnum env func_expr
+    end
     
     | Value_body (Value_record Record_value record) -> get_many_deps_from_ident_opt (Ident_map.values record) env
     
