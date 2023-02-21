@@ -43,6 +43,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
   type detail = {
     stream : message Lwt_stream.t;
     push : push;
+    mutable pre_push : message -> message option;
     mutable task_status : task_status;
     mutable messages : message list;
   }
@@ -52,12 +53,13 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
 
   let empty_detail () =
     let stream, push = Lwt_stream.create () in
-    { task_status = Initial; stream; push; messages = [] }
+    let pre_push m = Some m in
+    { task_status = Initial; stream; push; pre_push; messages = [] }
 
   type t = { map : (Key.t, detail) Hashtbl.t }
 
-  let push_mutex = Nano_mutex.create ()
   let create () : t = { map = Hashtbl.create (module Key) }
+  let push_mutex = Nano_mutex.create ()
 
   let find_detail t key =
     match Hashtbl.find t.map key with
@@ -72,6 +74,10 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
   let get_stream t key =
     let detail = find_detail t key in
     Lwt_stream.clone detail.stream
+
+  let set_pre_push t key pre_push =
+    let detail = find_detail t key in
+    detail.pre_push <- pre_push
 
   let alloc_task t ?task key =
     let detail = find_detail t key in
@@ -90,24 +96,27 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
      else () ;
      Lwt_stream.clone detail.stream *)
 
-  let push_if_new t key =
+  let real_push t key =
     let detail = find_detail t key in
     fun msg ->
       Nano_mutex.critical_section push_mutex ~f:(fun () ->
           if List.mem detail.messages msg ~equal:M.equal_message
           then ()
-          else (
+          else
             (* Note this push is not for the current src-tgt pair.
                The handler function belonging to this target key is defined at the place
-               where `push_if_new` is used.
+               where `real_push` is used.
                This push is used for other pairs in which this target is their's source.
                That's the reason why we cannot see any handler here.
             *)
-            detail.push (Some msg) ;
-            detail.messages <- detail.messages @ [ msg ]))
+            match detail.pre_push msg with
+            | Some msg ->
+                detail.push (Some msg) ;
+                detail.messages <- detail.messages @ [ msg ]
+            | None -> ())
 
   let by_return t key v =
-    let pusher = push_if_new t key in
+    let pusher = real_push t key in
     pusher v
 
   let by_iter t key_src f =
@@ -118,10 +127,9 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
 
   let by_id t key_tgt key_src : unit Lwt.t =
     let stream_src = get_stream t key_src in
-    let cb = push_if_new t key_tgt in
     Lwt_stream.iter_p
       (fun x ->
-        cb x ;
+        (real_push t key_tgt) x ;
         Lwt.return_unit)
       stream_src
 
@@ -130,10 +138,9 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
 
   let by_map t key_tgt key_src f : unit Lwt.t =
     let stream_src = get_stream t key_src in
-    let cb = push_if_new t key_tgt in
     Lwt_stream.iter_p
       (fun x ->
-        cb (f x) ;
+        real_push t key_tgt (f x) ;
         Lwt.return_unit)
       stream_src
 
@@ -142,10 +149,9 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
 
   let by_filter_map t key_tgt key_src f : unit Lwt.t =
     let stream_src = get_stream t key_src in
-    let cb = push_if_new t key_tgt in
     Lwt_stream.iter_p
       (fun x ->
-        (match f x with Some v -> cb v | None -> ()) ;
+        (match f x with Some v -> (real_push t key_tgt) v | None -> ()) ;
         Lwt.return_unit)
       stream_src
 
@@ -160,7 +166,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
     Lwt.async (fun () -> by_bind t key_tgt key_src f)
 
   let by_join t ?(f = Fn.id) key_src key_tgts =
-    let cb = push_if_new t key_src in
+    let cb = real_push t key_src in
     let stream_tgts = List.map key_tgts ~f:(get_stream t) in
     Lwt_list.iter_p
       (fun lookup_x_ret -> Lwt_stream.iter (fun x -> cb (f x)) lookup_x_ret)
@@ -206,7 +212,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
   let by_map2 t key_tgt key_src1 key_src2 f : unit Lwt.t =
     let stream_src1 = get_stream t key_src1 in
     let stream_src2 = get_stream t key_src2 in
-    let cb = push_if_new t key_tgt in
+    let cb = real_push t key_tgt in
 
     Lwt_stream.iter_p
       (fun (v1, v2) ->
@@ -220,7 +226,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
   let by_filter_map2 t key_tgt key_src1 key_src2 f : unit Lwt.t =
     let stream_src1 = get_stream t key_src1 in
     let stream_src2 = get_stream t key_src2 in
-    let cb = push_if_new t key_tgt in
+    let cb = real_push t key_tgt in
 
     Lwt_stream.iter_p
       (fun (v1, v2) ->
@@ -250,7 +256,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
            let s1, s2 = (get_stream t a, get_stream t b) in
            product_stream s1 s2)
      in
-     let cb = push_if_new t key_tgt in
+     let cb = real_push t key_tgt in
      Lwt_list.iter_p
        (Lwt_stream.iter_p (fun v ->
             cb (f v) ;

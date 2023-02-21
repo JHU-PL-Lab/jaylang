@@ -72,7 +72,7 @@ module Make (S : S) = struct
   let record_start p (key : Lookup_key.t) =
     let ({ r; lbl; _ } : Record_start_rule.t) = p in
     let key_r = Lookup_key.with_x key r in
-    let next i (r : Lookup_result.t) =
+    let next i r =
       if Lookup_result.is_ok r
       then
         let key_rv = r.from in
@@ -117,7 +117,7 @@ module Make (S : S) = struct
     let this_key = key in
     let ({ x; x'; cond_both } : Cond_btm_rule.t) = p in
     let term_c = Lookup_key.with_x this_key x' in
-    let next _ (r : Lookup_result.t) =
+    let next _ r =
       if Lookup_result.is_ok r
       then
         let sub = this_key in
@@ -164,7 +164,7 @@ module Make (S : S) = struct
           match Rstack.pop this_key.r_stk (x', fid) with
           | Some callsite_stack ->
               let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
-              let next this_key (r : Lookup_result.t) =
+              let next this_key r =
                 if Lookup_result.is_ok r
                 then
                   let key_arg =
@@ -190,7 +190,7 @@ module Make (S : S) = struct
           match Rstack.pop key.r_stk (x', key.block.id) with
           | Some callsite_stack ->
               let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
-              let next i (r : Lookup_result.t) =
+              let next i r =
                 if Lookup_result.is_ok r
                 then
                   let fv_block = Cfg.find_block_by_id r.from.x S.block_map in

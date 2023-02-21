@@ -29,17 +29,17 @@ let rec run run_task unroll (state : Global_state.t)
     (term_detail : Term_detail.t) rule_action =
   let loop rule_action = run run_task unroll state term_detail @@ rule_action in
   let add_phi = Global_state.add_phi state in
-  let mark_and_id r =
-    if Lookup_result.is_complete_or_fail r
-    then term_detail.is_complete_or_fail <- true
+  let mark_and_id (r : Lookup_result.t) =
+    if Lookup_status.is_ok term_detail.status
+    then term_detail.status <- r.status
     else () ;
     r
   in
   let open Rule_action in
   (match (rule_action : Rule_action.t) with
-  | Withered e -> term_detail.is_complete_or_fail <- true
+  | Withered e -> term_detail.status <- Lookup_status.Fail
   | Leaf e ->
-      term_detail.is_complete_or_fail <- true ;
+      term_detail.status <- Lookup_status.Complete ;
       U.by_return unroll e.sub (Lookup_result.complete e.sub)
   | Direct e ->
       U.by_map_u unroll e.sub e.pub mark_and_id ;
@@ -60,16 +60,18 @@ let rec run run_task unroll (state : Global_state.t)
       run_task e.pub
   | Both e ->
       U.by_map2_u unroll e.sub e.pub1 e.pub2 (fun (v1, v2) ->
-          Lookup_result.(status_as (ok e.sub) (status_join v1.status v2.status))) ;
+          Lookup_result.(status_as (ok e.sub) (status_join v1 v2))) ;
       run_task e.pub1 ;
       run_task e.pub2
   | Chain e ->
       (* Fmt.pr "\n[Chain start]%a = %a -> " Lookup_key.pp e.sub Lookup_key.pp
          e.pub ; *)
+      let part1_done = ref false in
       let cb key (r : Lookup_result.t) =
         (match r.status with
         | Fail -> ()
         | Complete | Good -> (
+            part1_done := true ;
             let edge = e.next key r in
             match edge with
             | Some edge ->
@@ -77,28 +79,43 @@ let rec run run_task unroll (state : Global_state.t)
                   term_detail.sub_lookups @ [ Rule_action.sub_of edge ] ;
                 loop edge
             | None -> ())) ;
-        (match r.status with
-        | Fail | Complete ->
-            Lwt.async (fun () ->
-                (* Fmt.pr "\n[Chain end (step1)]%a = %a -> " Lookup_key.pp e.sub
-                   Lookup_key.pp e.pub ; *)
-                let%lwt all_complete =
-                  Lwt_list.for_all_s
-                    (fun sub_key ->
-                      (* Fmt.pr "%a; " Lookup_key.pp sub_key ; *)
-                      let sub_s = U.get_stream unroll sub_key in
-                      Lwt_stream.junk_while Lookup_result.is_good sub_s ;%lwt
-                      Lwt.map Lookup_result.is_complete (Lwt_stream.next sub_s))
-                    term_detail.sub_lookups
-                in
-                (* Fmt.pr "\n[Chain end (step2)]%a = %a <- " Lookup_key.pp e.sub
-                   Lookup_key.pp e.pub ; *)
-                term_detail.is_complete_or_fail <- all_complete ;
-                Lwt.return_unit)
-        | Good -> ()) ;
         Lwt.return_unit
       in
+      let pre_push (r : Lookup_result.t) =
+        (* Fmt.pr "\n[pre_push][X]%a = %a in %a " Lookup_key.pp e.sub Lookup_key.pp
+             e.pub Lookup_status.pp term_detail.status ;
+           Fmt.pr "\n[pre_push][R]<- %a in %a" Lookup_key.pp r.from
+             Lookup_status.pp r.status ; *)
+        (match r.status with
+        | Fail -> ()
+        | Complete | Good -> if !part1_done then () else ()) ;
+        Some r
+        (* ; *)
+      in
+
+      (* =
+           (match r.status with
+           | Fail | Complete ->
+               Lwt.async (fun () ->
+                   (* Fmt.pr "\n[Chain end (step1)]%a = %a -> " Lookup_key.pp e.sub
+                      Lookup_key.pp e.pub ; *)
+                   let%lwt all_complete =
+                     Lwt_list.for_all_s
+                       (fun sub_key ->
+                         (* Fmt.pr "%a; " Lookup_key.pp sub_key ; *)
+                         let sub_s = U.get_stream unroll sub_key in
+                         Lwt_stream.junk_while Lookup_result.is_good sub_s ;%lwt
+                         Lwt.map Lookup_result.is_complete (Lwt_stream.next sub_s))
+                       term_detail.sub_lookups
+                   in
+                   (* Fmt.pr "\n[Chain end (step2)]%a = %a <- " Lookup_key.pp e.sub
+                      Lookup_key.pp e.pub ; *)
+                   term_detail.is_complete_or_fail <- all_complete ;
+                   Lwt.return_unit)
+           | Good -> ()) ;
+         in *)
       U.by_bind_u unroll e.sub e.pub cb ;
+      U.set_pre_push unroll e.sub pre_push ;
       run_task e.pub
   | Sequence e ->
       init_list_counter state term_detail e.sub ;

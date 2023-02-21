@@ -5,7 +5,7 @@ type t = {
   node : Search_graph.node_ref;
   rule : Rule.t;
   mutable phis : Z3.Expr.expr list;
-  mutable is_complete_or_fail : bool;
+  mutable status : Lookup_status.t;
   mutable sub_lookups : Lookup_key.t list;
   (* debug *)
   mutable is_set : bool;
@@ -18,7 +18,7 @@ let mk_detail ~rule ~key =
     node = ref (Search_graph.mk_node ~block_id ~key);
     rule;
     phis = [];
-    is_complete_or_fail = false;
+    status = Lookup_status.Good;
     sub_lookups = [];
     is_set = false;
     get_count = 0;
