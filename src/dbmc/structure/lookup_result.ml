@@ -10,11 +10,4 @@ let ok x = default x
 (* is `complete` a separate last message or does it come with the last message *)
 let complete x = { (default x) with status = Complete }
 let status_as x status = { x with status }
-
-let status_join x1 x2 =
-  match (x1.status, x2.status) with
-  | Fail, _ | _, Fail -> Fail
-  | Complete, Complete -> Complete
-  | _, _ -> Good
-
 let is_ok r = Lookup_status.is_ok r.status

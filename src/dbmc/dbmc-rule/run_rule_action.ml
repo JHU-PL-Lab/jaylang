@@ -25,24 +25,56 @@ let add_phi_edge state term_detail edge =
   List.iter (Rule_action.phis_of edge)
     ~f:(Global_state.add_phi state term_detail)
 
-let exists_status map lookups f =
-  List.exists lookups ~f:(fun lookup ->
+let fold_lookups_status map lookups =
+  let open Lookup_status in
+  List.fold_until lookups ~init:Good
+    ~f:(fun acc_s lookup ->
       let (detail : Term_detail.t) = Hashtbl.find_exn map lookup in
-      f detail.status)
+      match (detail.status, acc_s) with
+      | Good, _ -> Stop Good
+      | Complete, _ -> Continue Complete
+      | Fail, Complete -> Continue Complete
+      | Fail, _ -> Continue Fail)
+    ~finish:Fn.id
 
-let for_all_status map lookups f =
-  List.for_all lookups ~f:(fun lookup ->
-      let (detail : Term_detail.t) = Hashtbl.find_exn map lookup in
-      f detail.status)
+let pre_push_for_seq map lookups (td : Term_detail.t) part1_done part2_done
+    (r : Lookup_result.t) =
+  Lookup_status.iter_ok r.status (fun () ->
+      if !part1_done && not !part2_done
+      then
+        let status' = fold_lookups_status map lookups in
+        if Lookup_status.is_complete_or_fail status'
+        then (
+          part2_done := true ;
+          td.status <- status')) ;
+  Some r
+
+(*
+   Status promotion:
+   The status of a lookup depends om the status of messages from its sublookups.
+   The status promotion is a lattice and any status can only be promoted once.
+
+   The workflow is:
+   1. If not top-status:
+   1.a.1 check the status from the incoming message
+   1.b.1 check the sub-lookups to get the current status
+   1.b.2     record the current status
+   1.b.3 promote the status in the message if necessary
+
+   The difference of 1.a and 1.b comes from whether 
+*)
 
 let rec run run_task unroll (state : Global_state.t)
     (term_detail : Term_detail.t) rule_action =
-  let loop rule_action = run run_task unroll state term_detail @@ rule_action in
+  let add_then_loop action =
+    term_detail.sub_lookups <-
+      term_detail.sub_lookups @ [ Rule_action.sub_of action ] ;
+    run run_task unroll state term_detail @@ action
+  in
   let add_phi = Global_state.add_phi state in
   let mark_and_id (r : Lookup_result.t) =
     if Lookup_status.is_ok term_detail.status
-    then term_detail.status <- r.status
-    else () ;
+    then term_detail.status <- r.status ;
     r
   in
   let open Rule_action in
@@ -64,54 +96,34 @@ let rec run run_task unroll (state : Global_state.t)
         let ans, phis = e.map i (mark_and_id r) in
         add_phi term_detail (Riddler.list_append e.sub i (Riddler.and_ phis)) ;
         Lookup_result.status_as ans r.status
-        (* ans *)
       in
       U.by_map_u unroll e.sub e.pub f ;
       run_task e.pub
   | Both e ->
       U.by_map2_u unroll e.sub e.pub1 e.pub2 (fun (v1, v2) ->
-          Lookup_result.(status_as (ok e.sub) (status_join v1 v2))) ;
+          let joined_status = Lookup_status.join v1.status v2.status in
+          let open Lookup_status in
+          (match (term_detail.status, joined_status) with
+          | Good, Good -> ()
+          | Good, _ -> term_detail.status <- joined_status
+          | _, _ -> failwith "failed in both") ;
+          Lookup_result.(status_as (ok e.sub) joined_status)) ;
       run_task e.pub1 ;
       run_task e.pub2
   | Chain e ->
-      (* Fmt.pr "\n[Chain start]%a = %a -> " Lookup_key.pp e.sub Lookup_key.pp
-         e.pub ; *)
-      (* Fmt.pr "\n[pre_push][X]%a = %a in %a " Lookup_key.pp e.sub Lookup_key.pp
-           e.pub Lookup_status.pp term_detail.status ;
-         Fmt.pr "\n[pre_push][R]<- %a in %a" Lookup_key.pp r.from
-           Lookup_status.pp r.status ; *)
       let part1_done = ref false in
       let part1_cb key (r : Lookup_result.t) =
-        if Lookup_status.is_complete_or_fail r.status
-        then part1_done := true
-        else () ;
-
+        if Lookup_status.is_complete_or_fail r.status then part1_done := true ;
         Lookup_status.iter_ok r.status (fun () ->
             match e.next key r with
-            | Some edge ->
-                term_detail.sub_lookups <-
-                  term_detail.sub_lookups @ [ Rule_action.sub_of edge ] ;
-                loop edge
+            | Some edge -> add_then_loop edge
             | None -> ()) ;
         Lwt.return_unit
       in
       let part2_done = ref false in
-      let pre_push (r : Lookup_result.t) =
-        Lookup_status.iter_ok r.status (fun () ->
-            if !part1_done && not !part2_done
-            then
-              if for_all_status state.term_detail_map term_detail.sub_lookups
-                   Lookup_status.is_complete_or_fail
-              then (
-                part2_done := true ;
-                let this_status =
-                  exists_status state.term_detail_map term_detail.sub_lookups
-                    Lookup_status.is_complete
-                  |> Lookup_status.complete_or_fail
-                in
-                term_detail.status <- this_status)
-              else ()) ;
-        Some r
+      let pre_push =
+        pre_push_for_seq state.term_detail_map term_detail.sub_lookups
+          term_detail part1_done part2_done
       in
       U.by_bind_u unroll e.sub e.pub part1_cb ;
       U.set_pre_push unroll e.sub pre_push ;
@@ -120,51 +132,37 @@ let rec run run_task unroll (state : Global_state.t)
       init_list_counter state term_detail e.sub ;
       let part1_done = ref false in
       let part1_cb _key (r : Lookup_result.t) =
-        if Lookup_status.is_complete_or_fail r.status
-        then part1_done := true
-        else () ;
+        if Lookup_status.is_complete_or_fail r.status then part1_done := true ;
 
         Lookup_status.iter_ok r.status (fun () ->
             let i = fetch_list_counter state term_detail e.sub in
             let next = e.next i r in
             match next with
-            | Some (phi_i, next) ->
+            | Some (phi_i, edge) ->
                 let phi = Riddler.list_append e.sub i phi_i in
                 add_phi term_detail phi ;
-                term_detail.sub_lookups <-
-                  term_detail.sub_lookups @ [ Rule_action.sub_of next ] ;
-                loop next
+                add_then_loop edge
             | None ->
                 add_phi term_detail (Riddler.list_append e.sub i Riddler.false_)) ;
         Lwt.return_unit
       in
       let part2_done = ref false in
-      let pre_push (r : Lookup_result.t) =
-        Lookup_status.iter_ok r.status (fun () ->
-            if !part1_done && not !part2_done
-            then
-              if for_all_status state.term_detail_map term_detail.sub_lookups
-                   Lookup_status.is_complete_or_fail
-              then (
-                part2_done := true ;
-                let this_status =
-                  exists_status state.term_detail_map term_detail.sub_lookups
-                    Lookup_status.is_complete
-                  |> Lookup_status.complete_or_fail
-                in
-                term_detail.status <- this_status)
-              else ()) ;
-        Some r
+      let pre_push =
+        pre_push_for_seq state.term_detail_map term_detail.sub_lookups
+          term_detail part1_done part2_done
       in
       U.by_bind_u unroll e.sub e.pub part1_cb ;
       U.set_pre_push unroll e.sub pre_push ;
       run_task e.pub
   | Or_list e ->
-      if e.unbound then init_list_counter state term_detail e.sub else () ;
-      (* TODO *)
-      List.iter e.elements ~f:(fun e ->
-          term_detail.sub_lookups <-
-            term_detail.sub_lookups @ [ Rule_action.sub_of e ] ;
-          loop e)) ;
+      if e.unbound then init_list_counter state term_detail e.sub ;
+      List.iter e.elements ~f:add_then_loop ;
+      let pre_push (r : Lookup_result.t) =
+        let status' =
+          fold_lookups_status state.term_detail_map term_detail.sub_lookups
+        in
+        Some r
+      in
+      U.set_pre_push unroll e.sub pre_push) ;
 
   add_phi_edge state term_detail rule_action
