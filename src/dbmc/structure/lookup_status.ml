@@ -13,8 +13,10 @@ open Core
 
 type t = Good | Fail | Complete [@@deriving equal]
 
-let show = function Good -> "good" | Fail -> "fail" | Complete -> "done"
+let show = function Good -> "good" | Fail -> "fail" | Complete -> "C"
 let pp = Fmt.(using show string)
+let show_short = function Good -> "G" | Fail -> "F" | Complete -> "C"
+let pp_short = Fmt.(using show_short string)
 let is_ok = function Good | Complete -> true | _ -> false
 let is_complete = function Complete -> true | _ -> false
 let is_complete_or_fail = function Complete | Fail -> true | _ -> false

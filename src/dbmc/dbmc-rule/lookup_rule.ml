@@ -113,8 +113,7 @@ module Make (S : S) = struct
        Lookup_key.pp key_x Lookup_key.pp key_x2 ; *)
     Chain { sub = this_key; pub = key_x2; next; phis }
 
-  let cond_btm p (key : Lookup_key.t) =
-    let this_key = key in
+  let cond_btm p (this_key : Lookup_key.t) =
     let ({ x; x'; cond_both } : Cond_btm_rule.t) = p in
     let term_c = Lookup_key.with_x this_key x' in
     let next _ r =
@@ -138,7 +137,8 @@ module Make (S : S) = struct
                 match cond_case_block_opt with
                 | Some cond_case_block ->
                     let key_ret =
-                      Lookup_key.return_key_of_cond key beta cond_case_block
+                      Lookup_key.return_key_of_cond this_key beta
+                        cond_case_block
                     in
                     Some (Direct { sub = this_key; pub = key_ret; phis = [] })
                 | None -> None)

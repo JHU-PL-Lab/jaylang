@@ -63,3 +63,32 @@ let get_block_visits (state : Global_state.t) (key : Lookup_key.t) =
   Hashtbl.find_and_call state.block_stat_map key.block
     ~if_found:(fun d -> d.visits)
     ~if_not_found:(fun _ -> 0)
+
+let pp_one_sub map oc key =
+  let sub_status =
+    let sub_td : Term_detail.t = Hashtbl.find_exn map key in
+    sub_td.status
+  in
+  Fmt.pr "%a=%a" Lookup_key.pp key Lookup_status.pp_short sub_status
+
+let pp_subs map oc (td : Term_detail.t) =
+  Fmt.(pr "%a" (hbox @@ list ~sep:semi (pp_one_sub map))) td.sub_lookups
+
+let pp_key_with_detail map oc ((key, td) : Lookup_key.t * Term_detail.t) =
+  Fmt.(
+    pf oc "%a[%a] {%d}:  %a" Lookup_key.pp key Lookup_status.pp_short td.status
+      (List.length td.sub_lookups)
+      (pp_subs map) td)
+
+let dump_lookup_status (state : Global_state.t) =
+  let sorted_list_of_hashtbl table =
+    Hashtbl.to_alist table
+    |> List.sort ~compare:(fun (k1, _) (k2, _) ->
+           Int.compare (Lookup_key.length k1) (Lookup_key.length k2))
+  in
+  let td_lst = sorted_list_of_hashtbl state.term_detail_map in
+  Fmt.(pr "@.[Size: %d]@." (List.length td_lst)) ;
+  Fmt.(
+    pr "%a@.@."
+      (vbox @@ list ~sep:cut (pp_key_with_detail state.term_detail_map))
+      td_lst)

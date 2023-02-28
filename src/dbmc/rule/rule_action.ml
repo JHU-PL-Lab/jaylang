@@ -106,3 +106,14 @@ let sub_of = function
   | Chain e -> e.sub
   | Sequence e -> e.sub
   | Or_list e -> e.sub
+
+let source_of = function
+  | Chain e -> Some e.pub
+  | Sequence e -> Some e.pub
+  | Direct e -> Some e.pub
+  | Or_list e -> None
+  | Leaf _e -> failwith "source_of: Leaf"
+  | Map _e -> failwith "source_of: Map"
+  | MapSeq _e -> failwith "source_of: MapSeq"
+  | Both _ -> failwith "source_of: Both"
+  | Withered _ -> failwith "source_of: Withered"

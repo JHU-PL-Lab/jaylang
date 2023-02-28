@@ -67,8 +67,17 @@ let pre_push_for_seq map lookups (td : Term_detail.t) part1_done part2_done
 let rec run run_task unroll (state : Global_state.t)
     (term_detail : Term_detail.t) rule_action =
   let add_then_loop action =
-    term_detail.sub_lookups <-
-      term_detail.sub_lookups @ [ Rule_action.sub_of action ] ;
+    (* CAUTION: `sub` is not the id by a lookup.
+       `sub` is the _id_ for lookup task creation. However, multiple streams can push to this `sub`.
+       `pub` is the _id_ for a lookup result.
+
+       These lookups won't call this function:
+       Leaf-lookup has no `pub` because itself is a sub and a pub.
+       Both-lookup has two `pub`s.
+       Map-lookup and MapSeq has one `pub`.
+    *)
+    Option.iter (Rule_action.source_of action) ~f:(fun source ->
+        term_detail.sub_lookups <- term_detail.sub_lookups @ [ source ]) ;
     run run_task unroll state term_detail @@ action
   in
   let add_phi = Global_state.add_phi state in
@@ -118,12 +127,23 @@ let rec run run_task unroll (state : Global_state.t)
             match e.next key r with
             | Some edge -> add_then_loop edge
             | None -> ()) ;
+        Fmt.pr "[sub][p1] %a ~@."
+          (Observe.pp_key_with_detail state.term_detail_map)
+          (e.sub, term_detail) ;
         Lwt.return_unit
       in
       let part2_done = ref false in
       let pre_push =
-        pre_push_for_seq state.term_detail_map term_detail.sub_lookups
-          term_detail part1_done part2_done
+        let ans =
+          pre_push_for_seq state.term_detail_map term_detail.sub_lookups
+            term_detail part1_done part2_done
+        in
+        Fmt.pr "[sub][p2] %a ~@."
+          (Observe.pp_key_with_detail state.term_detail_map)
+          (e.sub, term_detail) ;
+        (* Fmt.pr "[pub]%a : %a ~@." Lookup_key.pp e.pub Lookup_status.pp_short
+            (Hashtbl.find_exn state.term_detail_map e.pub).status ; *)
+        ans
       in
       U.by_bind_u unroll e.sub e.pub part1_cb ;
       U.set_pre_push unroll e.sub pre_push ;
