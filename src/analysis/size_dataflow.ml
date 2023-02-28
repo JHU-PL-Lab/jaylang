@@ -71,10 +71,9 @@ and clause_size f x0 clause =
     | _ -> 0
   in
   if Id.equal x (Ident "one")
-  then if !once then failwith "Boom" else once := true
-  else () ;
+  then if !once then failwith "Boom" else once := true ;
   (* if Id.equal x x0 then raise (Found v) else v *)
-  if Id.equal x x0 then answer := v else () ;
+  if Id.equal x x0 then answer := v ;
   v
 
 let compute_size : Id.t -> int option =

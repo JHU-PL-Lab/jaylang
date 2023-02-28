@@ -119,8 +119,7 @@ let handle_not_found (config : Global_config.t) (state : Global_state.t)
   if config.debug_model
   then
     SLog.debug (fun m ->
-        m "Solver Phis: %s" (Solver.string_of_solver state.solver))
-  else () ;
+        m "Solver Phis: %s" (Solver.string_of_solver state.solver)) ;
   handle_both config state None ;
   ([], is_timeout, None)
 

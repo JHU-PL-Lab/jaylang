@@ -37,8 +37,7 @@ let check ?(verbose = true) solver phis phi_used_once =
     SLog.debug (fun m ->
         m "Solver Phis (%d) : %s"
           (get_assertion_count solver)
-          (string_of_solver solver)))
-  else () ;
+          (string_of_solver solver))) ;
 
   SuduZ3.check_with_assumption solver phi_used_once
 

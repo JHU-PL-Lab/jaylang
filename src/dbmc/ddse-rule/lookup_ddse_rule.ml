@@ -310,8 +310,7 @@ module Make (S : S) = struct
               let choice_f = Decision.make key_ret.r_stk fblock.id in
               U.by_filter_map_u S.unroll this_key key_ret
                 (return_with_phis_with_choices this_key [ phi ]
-                   [ choice_this; choice_f ] rf))
-            else () ;
+                   [ choice_this; choice_f ] rf)) ;
             Lwt.return_unit
           in
           U.by_bind_u S.unroll this_key key_f cb ;

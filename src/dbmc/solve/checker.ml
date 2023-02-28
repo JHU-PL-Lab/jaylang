@@ -64,8 +64,7 @@ let check (state : Global_state.t) (config : Global_config.t) :
     match solver_result with
     | Result.Ok model ->
         if config.debug_model
-        then SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
-        else () ;
+        then SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)) ;
         let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
         let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
         Some { model; c_stk }
@@ -109,10 +108,7 @@ let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
         if !stride < config.stride_max
         then (
           stride := !stride * 2 ;
-          if !stride > config.stride_max
-          then stride := config.stride_max
-          else ())
-        else () ;
+          if !stride > config.stride_max then stride := config.stride_max) ;
         Lwt.return_unit)
   else (
     Observe.count_smt_request config state key false 0.0 ;
@@ -126,8 +122,8 @@ let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
      if !stride < config.stride_max
      then (
        stride := !stride * 2 ;
-       if !stride > config.stride_max then stride := config.stride_max else ())
-     else () ;
+       if !stride > config.stride_max then stride := config.stride_max )
+     ;
      eager_check state config target assumption)
    else true *)
 
@@ -136,8 +132,7 @@ let check_phis solver phis is_debug : result_info option =
   if is_debug
   then
     SLog.debug (fun m ->
-        m "Phis: %a" Fmt.(Dump.list string) (List.map ~f:Z3.Expr.to_string phis))
-  else () ;
+        m "Phis: %a" Fmt.(Dump.list string) (List.map ~f:Z3.Expr.to_string phis)) ;
 
   match Solver.check solver [] phis with
   | Result.Ok model ->
@@ -148,8 +143,7 @@ let check_phis solver phis is_debug : result_info option =
             m "Phis: %a"
               Fmt.(Dump.list string)
               (List.map ~f:Z3.Expr.to_string phis)) ;
-        SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)))
-      else () ;
+        SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))) ;
       let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
       let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
       print_endline @@ Concrete_stack.show c_stk ;

@@ -319,7 +319,6 @@ let annotate e pt : block Ident_map.t =
       (* debug_bomb := !debug_bomb - 1;
          if !debug_bomb = 0
          then failwith "bomb"
-         else ()
          ; *)
 
       (* process logic *)
@@ -331,8 +330,7 @@ let annotate e pt : block Ident_map.t =
       then
         if List.length prev_acls = 1
         then failwith "cond clause cannot appear along"
-        else make_cond_block_possible map prev_acls cfg
-      else () ;
+        else make_cond_block_possible map prev_acls cfg ;
 
       (* step logic *)
       let continue = ref true and block_dangling = ref dangling in
@@ -376,8 +374,7 @@ let annotate e pt : block Ident_map.t =
       | Nonbinding_enter_clause (_, _) ->
           failwith "impossible non-binding enter for non condsites") ;
       if !continue
-      then List.iter ~f:(fun acl -> loop acl !block_dangling) (preds_l acl cfg)
-      else ())
+      then List.iter ~f:(fun acl -> loop acl !block_dangling) (preds_l acl cfg))
   in
   let succ_acls = succs_l acl cfg in
   List.iter ~f:(fun acl -> loop acl true) succ_acls ;

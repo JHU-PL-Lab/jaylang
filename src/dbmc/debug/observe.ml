@@ -6,8 +6,7 @@ let update_rstk_pick (config : Global_config.t) (state : Global_state.t) model =
   Hashtbl.clear state.rstk_picked ;
   Hashtbl.iter_keys state.term_detail_map ~f:(fun key ->
       if Riddler.is_picked (Some model) key
-      then ignore @@ Hashtbl.add state.rstk_picked ~key:key.r_stk ~data:true
-      else ())
+      then ignore @@ Hashtbl.add state.rstk_picked ~key:key.r_stk ~data:true)
 
 let process_rstk_stat_map (config : Global_config.t) (state : Global_state.t) =
   let raw_plist = state.rstk_stat_map |> Hashtbl.to_alist in
@@ -34,7 +33,6 @@ let dump_block_stat (config : Global_config.t) (state : Global_state.t) =
         m "%d@,%a" state.tree_size
           Fmt.(vbox (list ~sep:sp (Dump.pair Cfg.Block.pp Block_stat.pp)))
           raw_plist)
-  else ()
 
 let count_smt_request (config : Global_config.t) (state : Global_state.t)
     (key : Lookup_key.t) is_checked smt_time =

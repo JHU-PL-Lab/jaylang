@@ -63,11 +63,10 @@ and clause_size f x0 clause =
   if Id.equal x x0
   then (
     if Id.equal x (Ident "one")
-    then if !once then failwith "Boom" else once := true
-    else () ;
+    then if !once then failwith "Boom" else once := true ;
     raise (Found v))
   else v
-(* if Id.equal x x0 then answer := v else ();
+(* if Id.equal x x0 then answer := v;
    v *)
 
 let compute_size program : Id.t -> int =
