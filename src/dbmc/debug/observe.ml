@@ -65,11 +65,11 @@ let get_block_visits (state : Global_state.t) (key : Lookup_key.t) =
     ~if_not_found:(fun _ -> 0)
 
 let pp_one_sub map oc key =
-  let sub_status =
-    let sub_td : Term_detail.t = Hashtbl.find_exn map key in
-    sub_td.status
-  in
-  Fmt.pr "%a=%a" Lookup_key.pp key Lookup_status.pp_short sub_status
+  match Hashtbl.find map key with
+  | Some (td : Term_detail.t) ->
+      let sub_status = td.status in
+      Fmt.pr "%a=%a" Lookup_key.pp key Lookup_status.pp_short sub_status
+  | None -> Fmt.pr "%a=/" Lookup_key.pp key
 
 let pp_subs map oc (td : Term_detail.t) =
   Fmt.(pr "%a" (hbox @@ list ~sep:semi (pp_one_sub map))) td.sub_lookups

@@ -5,34 +5,29 @@ open Dj_common
    This one is more like an edge for command.
 *)
 
-type t =
+type t = { target : Lookup_key.t; source : source }
+
+and source =
   (* Mismatch *)
-  | Withered of { sub : Lookup_key.t; phis : Z3.Expr.expr list }
+  | Withered of { phis : Z3.Expr.expr list }
   (* Value main *)
-  | Leaf of { sub : Lookup_key.t; phis : Z3.Expr.expr list }
+  | Leaf of { phis : Z3.Expr.expr list }
   (* Alias | Not_ *)
-  | Direct of {
-      sub : Lookup_key.t;
-      pub : Lookup_key.t;
-      phis : Z3.Expr.expr list;
-    }
+  | Direct of { pub : Lookup_key.t; phis : Z3.Expr.expr list }
   (* Binop *)
   | Both of {
-      sub : Lookup_key.t;
       pub1 : Lookup_key.t;
       pub2 : Lookup_key.t;
       phis : Z3.Expr.expr list;
     }
   (* Non-main *)
   | Map of {
-      sub : Lookup_key.t;
       pub : Lookup_key.t;
       map : Lookup_result.t -> Lookup_result.t;
       phis : Z3.Expr.expr list;
     }
   (* Pattern *)
   | MapSeq of {
-      sub : Lookup_key.t;
       pub : Lookup_key.t;
       map : int -> Lookup_result.t -> Lookup_result.t * Z3.Expr.expr list;
       phis : Z3.Expr.expr list;
@@ -40,23 +35,20 @@ type t =
   (* Fun Enter Local | Fun Exit | Cond Top | Cond Btm *)
   | Chain of {
       (* Chain is almost bind *)
-      sub : Lookup_key.t;
       pub : Lookup_key.t;
-      next : Lookup_key.t -> Lookup_result.t -> t option;
+      next : Lookup_key.t -> Lookup_result.t -> source option;
       phis : Z3.Expr.expr list;
     }
   (* Record | Fun Enter Nonlocal *)
   (* A sequence can be viewed as a full-fledged chain. *)
   | Sequence of {
-      sub : Lookup_key.t;
       pub : Lookup_key.t;
-      next : int -> Lookup_result.t -> (Z3.Expr.expr * t) option;
+      next : int -> Lookup_result.t -> (Z3.Expr.expr * source) option;
       phis : Z3.Expr.expr list;
     }
     (* Fun Enter Local | Fun Enter Nonlocal | Cond Btm *)
   | Or_list of {
-      sub : Lookup_key.t;
-      elements : t list;
+      elements : source list;
       unbound : bool;
       phis : Z3.Expr.expr list;
     }
@@ -85,6 +77,8 @@ type t =
    infinitive list cannot be applied before calling the SMT solver.
 *)
 
+let mk key source = { target = key; source }
+
 let phis_of = function
   | Withered e -> e.phis
   | Leaf e -> e.phis
@@ -96,24 +90,13 @@ let phis_of = function
   | Sequence e -> e.phis
   | Or_list e -> e.phis
 
-let sub_of = function
-  | Withered e -> e.sub
-  | Leaf e -> e.sub
-  | Direct e -> e.sub
-  | Map e -> e.sub
-  | MapSeq e -> e.sub
-  | Both e -> e.sub
-  | Chain e -> e.sub
-  | Sequence e -> e.sub
-  | Or_list e -> e.sub
-
-let source_of = function
+let pub_of = function
   | Chain e -> Some e.pub
   | Sequence e -> Some e.pub
   | Direct e -> Some e.pub
   | Or_list e -> None
-  | Leaf _e -> failwith "source_of: Leaf"
-  | Map _e -> failwith "source_of: Map"
-  | MapSeq _e -> failwith "source_of: MapSeq"
-  | Both _ -> failwith "source_of: Both"
-  | Withered _ -> failwith "source_of: Withered"
+  | Leaf _e -> failwith "pub_of: Leaf"
+  | Map _e -> failwith "pub_of: Map"
+  | MapSeq _e -> failwith "pub_of: MapSeq"
+  | Both _ -> failwith "pub_of: Both"
+  | Withered _ -> failwith "pub_of: Withered"
