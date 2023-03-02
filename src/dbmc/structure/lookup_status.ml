@@ -21,6 +21,13 @@ let is_ok = function Good | Complete -> true | _ -> false
 let is_complete = function Complete -> true | _ -> false
 let is_complete_or_fail = function Complete | Fail -> true | _ -> false
 
+let leq s s' =
+  match (s, s') with
+  | Good, _ -> true
+  | Complete, Complete -> true
+  | Fail, Fail -> true
+  | _ -> false
+
 let iter ~good ~complete ~fail = function
   | Good -> good ()
   | Complete -> complete ()

@@ -91,7 +91,7 @@ let phis_of = function
   | Or_list e -> e.phis
 
 let pub_of = function
-  | Chain e -> Some e.pub
+  | Chain e -> None
   | Sequence e -> Some e.pub
   | Direct e -> Some e.pub
   | Or_list e -> None
