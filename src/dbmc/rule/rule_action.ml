@@ -89,14 +89,3 @@ let phis_of = function
   | Chain e -> e.phis
   | Sequence e -> e.phis
   | Or_list e -> e.phis
-
-let pub_of = function
-  | Chain e -> None
-  | Sequence e -> Some e.pub
-  | Direct e -> Some e.pub
-  | Or_list e -> None
-  | Leaf _e -> failwith "pub_of: Leaf"
-  | Map _e -> failwith "pub_of: Map"
-  | MapSeq _e -> failwith "pub_of: MapSeq"
-  | Both _ -> failwith "pub_of: Both"
-  | Withered _ -> failwith "pub_of: Withered"

@@ -66,22 +66,6 @@ let fold_lookups_status map lookups =
       | None -> Stop Good)
     ~finish:Fn.id
 
-let pre_push_for_seq map lookups (td : Term_detail.t) part1_done part2_done
-    (r : Lookup_result.t) =
-  Fmt.pr "[pre_push] r:%a_%a@." Lookup_key.pp r.from Lookup_status.pp_short
-    r.status ;
-  if Lookup_status.is_complete_or_fail r.status
-     && !part1_done && not !part2_done
-  then (
-    let status' = fold_lookups_status map lookups in
-    Fmt.pr "[pre_push] .:%a@." Lookup_status.pp_short status' ;
-    if Lookup_status.is_complete_or_fail status'
-    then (
-      part2_done := true ;
-      td.status <- status') ;
-    Some (Lookup_result.status_as r status'))
-  else Some r
-
 let set_status (td : Term_detail.t) status = td.status <- status
 
 let promote_status (td : Term_detail.t) status' =
@@ -94,45 +78,46 @@ let promote_status (td : Term_detail.t) status' =
   | Complete, _ -> failwith "[complete] why here"
   | Fail, _ -> failwith "[fail] why here"
 
-let mark_and_id (td : Term_detail.t) (r : Lookup_result.t) =
-  let status' = promote_status td r.status in
-  set_status td status' ;
-  Lookup_result.status_as r status'
+let promote_result (target : Lookup_key.t) map (td : Term_detail.t)
+    (r : Lookup_result.t) status' =
+  (* BUGGY *)
+  Fmt.pr "[Push]%a @." (Observe.pp_key_with_detail map) (target, td) ;
+  Fmt.pr "[Push] <- %a;%a(%a) @." Lookup_key.pp r.from Lookup_status.pp_short
+    status' Lookup_status.pp_short r.status ;
+  let status'' = promote_status td status' in
 
-let promote_result (td : Term_detail.t) (r : Lookup_result.t) =
-  let status' = promote_status td r.status in
-  set_status td status' ;
-  Lookup_result.(status_as r status')
+  set_status td status'' ;
+  Fmt.pr "[Push] -- %a;%a@." Lookup_key.pp target Lookup_status.pp_short
+    td.status ;
+  Lookup_result.(status_as r status'')
 
-(* let mk_pre_push (td : Term_detail.t) (target : Lookup_key.t) (r : Lookup_result.t) = *)
-
-let run run_task unroll (state : Global_state.t) (term_detail : Term_detail.t)
-    rule_action =
+let register run_task unroll (state : Global_state.t)
+    (term_detail : Term_detail.t) rule_action =
   let open Rule_action in
   let { target; source } = rule_action in
   let add_phi = Global_state.add_phi state term_detail in
   let set_status = set_status term_detail in
-
-  let rec run source =
-    let add_then_loop source =
-      Option.iter (Rule_action.pub_of source) ~f:(fun src ->
-          term_detail.sub_lookups <- term_detail.sub_lookups @ [ src ]) ;
-      run source
-    in
+  let add_sub_preconds cond =
+    term_detail.sub_preconds <- term_detail.sub_preconds @ [ cond ]
+  in
+  let add_sublookup key =
+    term_detail.sub_lookups <- term_detail.sub_lookups @ [ key ]
+  in
+  let promote_result = promote_result target state.term_detail_map in
+  let rec run ?(add_lookup = false) source =
     (match source with
     | Withered e -> set_status Lookup_status.Fail
     | Leaf e ->
         set_status Lookup_status.Complete ;
         U.by_return unroll target (Lookup_result.complete target)
     | Direct e ->
-        U.by_map_u unroll target e.pub (mark_and_id term_detail) ;
+        if add_lookup then add_sublookup e.pub ;
+        U.by_map_u unroll target e.pub (fun r ->
+            promote_result term_detail r r.status) ;
         run_task e.pub
     | Map e ->
         U.by_map_u unroll target e.pub (fun r ->
-            Fmt.pr "[Map]%a(%a) <- %a(%a) @." Lookup_key.pp target
-              Lookup_status.pp_short term_detail.status Lookup_key.pp r.from
-              Lookup_status.pp_short r.status ;
-            mark_and_id term_detail (e.map r)) ;
+            promote_result term_detail (e.map r) r.status) ;
         run_task e.pub
     | MapSeq e ->
         init_list_counter state term_detail target ;
@@ -140,58 +125,35 @@ let run run_task unroll (state : Global_state.t) (term_detail : Term_detail.t)
           let i = fetch_list_counter state term_detail target in
           let r', phis = e.map i r in
           add_phi (Riddler.list_append target i (Riddler.and_ phis)) ;
-          mark_and_id term_detail r'
+          promote_result term_detail r' r.status
         in
         U.by_map_u unroll target e.pub f ;
         run_task e.pub
     | Both e ->
         U.by_map2_u unroll target e.pub1 e.pub2 (fun (v1, v2) ->
             let joined_status = Lookup_status.join v1.status v2.status in
-
-            Fmt.pr "[Both] %a <- %a <- %a(%a) %a(%a)@." Lookup_key.pp target
-              Lookup_status.pp_short joined_status Lookup_key.pp v1.from
-              Lookup_status.pp_short v1.status Lookup_key.pp v2.from
-              Lookup_status.pp_short v2.status ;
-
-            let status' = promote_status term_detail joined_status in
-            Lookup_result.(from_as target status')) ;
+            promote_result term_detail (Lookup_result.ok target) joined_status) ;
         run_task e.pub1 ;
         run_task e.pub2
     | Chain e ->
-        let part1_done = ref false in
+        let precond = ref false in
+        add_sub_preconds precond ;
         let part1_cb key (r : Lookup_result.t) =
-          if Lookup_status.is_complete_or_fail r.status then part1_done := true ;
+          if Lookup_status.is_complete_or_fail r.status then precond := true ;
           Lookup_status.iter_ok r.status (fun () ->
               match e.next key r with
-              | Some edge -> add_then_loop edge
+              | Some edge -> run ~add_lookup:true edge
               | None -> ()) ;
-          Fmt.pr "[Chain]%a@."
-            (Observe.pp_key_with_detail state.term_detail_map)
-            (target, term_detail) ;
-
-          Fmt.pr "[Chain][p1:%B]<- %a(%a) @." !part1_done Lookup_key.pp r.from
-            Lookup_status.pp_short r.status ;
           Lwt.return_unit
         in
-        let part2_done = ref false in
-        let pre_push (r : Lookup_result.t) =
-          Fmt.pr "[Chain]%a@."
-            (Observe.pp_key_with_detail state.term_detail_map)
-            (target, term_detail) ;
-          Fmt.pr "[Chain]<- %a(%a) @." Lookup_key.pp r.from
-            Lookup_status.pp_short r.status ;
-
-          pre_push_for_seq state.term_detail_map term_detail.sub_lookups
-            term_detail part1_done part2_done r
-        in
         U.by_bind_u unroll target e.pub part1_cb ;
-        U.set_pre_push unroll target pre_push ;
         run_task e.pub
     | Sequence e ->
         init_list_counter state term_detail target ;
-        let part1_done = ref false in
+        let precond = ref false in
+        add_sub_preconds precond ;
         let part1_cb _key (r : Lookup_result.t) =
-          if Lookup_status.is_complete_or_fail r.status then part1_done := true ;
+          if Lookup_status.is_complete_or_fail r.status then precond := true ;
 
           Lookup_status.iter_ok r.status (fun () ->
               let i = fetch_list_counter state term_detail target in
@@ -200,52 +162,48 @@ let run run_task unroll (state : Global_state.t) (term_detail : Term_detail.t)
               | Some (phi_i, edge) ->
                   let phi = Riddler.list_append target i phi_i in
                   add_phi phi ;
-                  add_then_loop edge
+                  run ~add_lookup:true edge
               | None -> add_phi (Riddler.list_append target i Riddler.false_)) ;
           Lwt.return_unit
         in
-        let part2_done = ref false in
-        let pre_push (r : Lookup_result.t) =
-          Fmt.pr "[Sequence]%a@."
-            (Observe.pp_key_with_detail state.term_detail_map)
-            (target, term_detail) ;
-
-          Fmt.pr "[Sequence]<- %a(%a) @." Lookup_key.pp r.from
-            Lookup_status.pp_short r.status ;
-
-          pre_push_for_seq state.term_detail_map term_detail.sub_lookups
-            term_detail part1_done part2_done r
-        in
         U.by_bind_u unroll target e.pub part1_cb ;
-        U.set_pre_push unroll target pre_push ;
         run_task e.pub
     | Or_list e ->
         if e.unbound then init_list_counter state term_detail target ;
-
-        Fmt.pr "[Or_list][Create]%a(%a): %a@." Lookup_key.pp target
-          Lookup_status.pp_short term_detail.status
-          Fmt.Dump.(list @@ option Lookup_key.pp)
-          (List.map e.elements ~f:pub_of) ;
-
-        List.iter e.elements ~f:add_then_loop ;
-        (* List.iter e.elements ~f:run ; *)
-        let pre_push (r : Lookup_result.t) =
-          Fmt.pr "[Or_list]%a@."
-            (Observe.pp_key_with_detail state.term_detail_map)
-            (target, term_detail) ;
-
-          Fmt.pr "[Or_list]<- %a(%a) @." Lookup_key.pp r.from
-            Lookup_status.pp_short r.status ;
-          let status' =
-            fold_lookups_status state.term_detail_map term_detail.sub_lookups
-          in
-          let status'' = promote_status term_detail status' in
-          Some (Lookup_result.status_as r status')
-        in
-        U.set_pre_push unroll target pre_push) ;
+        List.iter e.elements ~f:(run ~add_lookup)) ;
     add_phi_edge state term_detail source
   in
-  run source
+
+  run source ;
+  (if not (List.is_empty term_detail.sub_preconds)
+  then
+    let pre_push (r : Lookup_result.t) =
+      Fmt.pr "[PrePush] <-%a;%a@." Lookup_key.pp r.from Lookup_status.pp_short
+        r.status ;
+      if List.for_all term_detail.sub_preconds ~f:Ref.( ! )
+      then (
+        let status' =
+          fold_lookups_status state.term_detail_map term_detail.sub_lookups
+        in
+        Fmt.pr "[PrePush] <=%a@." Lookup_status.pp_short status' ;
+        Some (promote_result term_detail r status'))
+      else Some r
+    in
+    U.set_pre_push unroll target pre_push) ;
+  Fmt.pr "[Reg] %a %d@." Lookup_key.pp target
+    (List.length term_detail.sub_preconds)
+
+(* *)
+
+(* Fmt.pr "[Both] %a <- %a <- %a(%a) %a(%a)@." Lookup_key.pp target
+   Lookup_status.pp_short joined_status Lookup_key.pp v1.from
+   Lookup_status.pp_short v1.status Lookup_key.pp v2.from
+   Lookup_status.pp_short v2.status ; *)
+(* Fmt.pr "[Chain]%a@."
+     (Observe.pp_key_with_detail state.term_detail_map)
+     (target, term_detail) ;
+   Fmt.pr "[Chain][p1:%B]<- %a(%a) @." !precond Lookup_key.pp r.from
+     Lookup_status.pp_short r.status ; *)
 
 (* let open Lookup_status in
    (match (term_detail.status, joined_status) with

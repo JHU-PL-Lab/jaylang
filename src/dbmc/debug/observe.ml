@@ -76,7 +76,9 @@ let pp_subs map oc (td : Term_detail.t) =
 
 let pp_key_with_detail map oc ((key, td) : Lookup_key.t * Term_detail.t) =
   Fmt.(
-    pf oc "%a[%a] {%d}:  %a" Lookup_key.pp key Lookup_status.pp_short td.status
+    pf oc "%a[%a]: {%d}, {%d}: %a" Lookup_key.pp key Lookup_status.pp_short
+      td.status
+      (List.length td.sub_preconds)
       (List.length td.sub_lookups)
       (pp_subs map) td)
 

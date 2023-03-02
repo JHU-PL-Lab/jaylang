@@ -173,7 +173,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
       | Mismatch -> R.mismatch key
     in
     let run_task key = run_eval key lookup in
-    Run_rule_action.run run_task unroll state term_detail rule_action ;
+    Run_rule_action.register run_task unroll state term_detail rule_action ;
 
     (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked.
         run all previous lookups *)

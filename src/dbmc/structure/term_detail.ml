@@ -6,6 +6,7 @@ type t = {
   rule : Rule.t;
   mutable phis : Z3.Expr.expr list;
   mutable status : Lookup_status.t;
+  mutable sub_preconds : bool ref list;
   mutable sub_lookups : Lookup_key.t list;
   (* debug *)
   mutable is_set : bool;
@@ -19,6 +20,7 @@ let mk_detail ~rule ~key =
     rule;
     phis = [];
     status = Lookup_status.Good;
+    sub_preconds = [];
     sub_lookups = [];
     is_set = false;
     get_count = 0;

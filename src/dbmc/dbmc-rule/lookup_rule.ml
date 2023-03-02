@@ -228,7 +228,7 @@ module Make (S : S) = struct
   let pattern p (key : Lookup_key.t) =
     let ({ x'; pat; _ } : Pattern_rule.t) = p in
     let key' = Lookup_key.with_x key x' in
-    let next i (r : Lookup_result.t) =
+    let f i (r : Lookup_result.t) =
       (* OB1: For some patterns, we can immediately know the result of the matching:
            when the returning value is a literal value. We can use it in the interpreter.
            We lose this information when the lookup go through a conditional block or
@@ -283,7 +283,7 @@ module Make (S : S) = struct
       let picked_rv = Riddler.picked key_rv in
       (Lookup_result.from_as key r.status, picked_rv :: eq_key'_rv :: phis)
     in
-    Rule_action.mk key (MapSeq { pub = key'; map = next; phis = [] })
+    Rule_action.mk key (MapSeq { pub = key'; map = f; phis = [] })
 
   let assume _p (key : Lookup_key.t) =
     Rule_action.mk key
