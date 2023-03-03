@@ -178,6 +178,7 @@ let test_one_file testname () =
       ddpa_c_stk = Sato_args.default_ddpa_c_stk;
       do_wrap = false;
       do_instrument = true;
+      output_parsable = false;
       timeout = Some (Time.Span.of_int_sec 2);
       run_max_step = None;
     }

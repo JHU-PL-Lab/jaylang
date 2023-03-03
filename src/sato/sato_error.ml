@@ -846,6 +846,11 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         |> List.map ~f:(Sato_tools.find_alias alias_graph)
         |> List.concat
       in
+      let () =
+        Fmt.pr "\n\n\nThese are the jayil_vars_with_stack: %a\n\n\n"
+          (Fmt.list Id_with_stack.pp)
+          jayil_vars_with_stack
+      in
       (* Helper function for looking up the value definition clause *)
       let rec find_val
           (vdef_mapping :
@@ -857,6 +862,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         | [] -> failwith "Should at least find one value!"
         | hd :: tl -> (
             let found = Hashtbl.find vdef_mapping hd in
+            (* let () =
+                 Fmt.pr "This is the variable we're looking for: %a \n"
+                   Id_with_stack.pp hd
+               in *)
             match found with
             | Some (_, dv) -> (dv, hd)
             | None -> find_val vdef_mapping tl)

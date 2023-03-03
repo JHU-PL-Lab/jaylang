@@ -281,11 +281,20 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind actual_rec =
           new_instrumented_ed @@ RecordProj (matched_expr, Label "~actual_rec")
         in
+        let%bind decl_lbls =
+          new_instrumented_ed @@ RecordProj (matched_expr, Label "~decl_lbls")
+        in
         let%bind lbls_check =
           new_instrumented_ed
           @@ Match
                ( actual_rec,
                  [ (RecPat type_dict, fun_body); (AnyPat, fail_pat_cls) ] )
+        in
+        let%bind decl_lbls_check =
+          new_instrumented_ed
+          @@ Match
+               ( decl_lbls,
+                 [ (RecPat type_dict, lbls_check); (AnyPat, fail_pat_cls) ] )
         in
         (* Also, the record type we have here is like OCaml; it must have the
            labels with the corresponding types, and nothing more. That's why
@@ -294,7 +303,8 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed
           @@ Match
                ( matched_expr,
-                 [ (RecPat rec_pat, lbls_check); (AnyPat, fail_pat_cls) ] )
+                 [ (RecPat rec_pat, decl_lbls_check); (AnyPat, fail_pat_cls) ]
+               )
         in
         let check_cls =
           Let (rec_fail_id, new_expr_desc @@ Bool false, match_body)
@@ -1297,46 +1307,45 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | LetWithType (x, e1, e2, t) ->
-      let%bind e1' =
-        let%bind e1_transformed = semantic_type_of e1 in
-        if is_record_type t
-        then
-          let%bind new_lbls =
-            match t.body with
-            | TypeRecord r ->
-                r |> Ident_map.key_list
-                |> list_fold_left_m
-                     (fun acc k ->
-                       let%bind empty_rec =
-                         new_instrumented_ed @@ Record Ident_map.empty
-                       in
-                       return @@ Ident_map.add k empty_rec acc)
-                     Ident_map.empty
-            | _ ->
-                failwith
-                  "semantic_type_of: Should only be invoked when t is a record \
-                   type!"
-          in
-          let%bind actual_rec =
-            new_instrumented_ed
-            @@ RecordProj (e1_transformed, Label "~actual_rec")
-          in
-          let%bind new_lbls_rec = new_instrumented_ed @@ Record new_lbls in
-          let new_rec =
-            Ident_map.empty
-            |> Ident_map.add (Ident "~actual_rec") actual_rec
-            |> Ident_map.add (Ident "~decl_lbls") new_lbls_rec
-          in
-          let%bind new_rec_ed = new_instrumented_ed @@ Record new_rec in
-          (* FIXME: This might be buggy: this is adding the mapping between the
-             newly typed record with the originally typed record.
-             e.g.: let (x : {: a : int :}) = { a = 1, b = 2 } in ...
-             {~actual_rec = { a = 1, b = 2 }, ~decl_lbls = { a = {}}} -> {a = 1, b = 2}
-          *)
-          let%bind () = add_sem_to_syn_mapping new_rec_ed e1 in
-          return new_rec_ed
-        else return e1_transformed
-      in
+      let%bind e1' = semantic_type_of e1 in
+      (* let%bind e1_transformed = semantic_type_of e1 in
+         if is_record_type t
+         then
+           let%bind new_lbls =
+             match t.body with
+             | TypeRecord r ->
+                 r |> Ident_map.key_list
+                 |> list_fold_left_m
+                      (fun acc k ->
+                        let%bind empty_rec =
+                          new_instrumented_ed @@ Record Ident_map.empty
+                        in
+                        return @@ Ident_map.add k empty_rec acc)
+                      Ident_map.empty
+             | _ ->
+                 failwith
+                   "semantic_type_of: Should only be invoked when t is a record \
+                    type!"
+           in
+           let%bind actual_rec =
+             new_instrumented_ed
+             @@ RecordProj (e1_transformed, Label "~actual_rec")
+           in
+           let%bind new_lbls_rec = new_instrumented_ed @@ Record new_lbls in
+           let new_rec =
+             Ident_map.empty
+             |> Ident_map.add (Ident "~actual_rec") actual_rec
+             |> Ident_map.add (Ident "~decl_lbls") new_lbls_rec
+           in
+           let%bind new_rec_ed = new_instrumented_ed @@ Record new_rec in
+           (* FIXME: This might be buggy: this is adding the mapping between the
+              newly typed record with the originally typed record.
+              e.g.: let (x : {: a : int :}) = { a = 1, b = 2 } in ...
+              {~actual_rec = { a = 1, b = 2 }, ~decl_lbls = { a = {}}} -> {a = 1, b = 2}
+           *)
+           let%bind () = add_sem_to_syn_mapping new_rec_ed e1 in
+           return new_rec_ed
+         else return e1_transformed *)
       let%bind e2' = semantic_type_of e2 in
       let%bind t' = semantic_type_of t in
       let res = new_expr_desc @@ LetWithType (x, e1', e2', t') in
@@ -1665,15 +1674,58 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         return res
     | LetWithType (x, e1, e2, type_decl) ->
         let%bind type_decl' = bluejay_to_jay type_decl in
-        let%bind e1' = bluejay_to_jay e1 in
+        let%bind e1_transformed = bluejay_to_jay e1 in
+        let%bind e1' =
+          (* let%bind e1_transformed = semantic_type_of e1 in *)
+          let%bind bluejay_to_jay_maps = bluejay_to_jay_maps in
+          let og_t =
+            Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay bluejay_to_jay_maps
+              type_decl
+          in
+          if is_record_type og_t
+          then
+            let%bind new_lbls =
+              match og_t.body with
+              | TypeRecord r ->
+                  r |> Ident_map.key_list
+                  |> list_fold_left_m
+                       (fun acc k ->
+                         let%bind empty_rec =
+                           new_instrumented_ed @@ Record Ident_map.empty
+                         in
+                         return @@ Ident_map.add k empty_rec acc)
+                       Ident_map.empty
+              | _ ->
+                  failwith
+                    "semantic_type_of: Should only be invoked when t is a \
+                     record type!"
+            in
+            let%bind actual_rec =
+              new_instrumented_ed
+              @@ RecordProj (e1_transformed, Label "~actual_rec")
+            in
+            let%bind new_lbls_rec = new_instrumented_ed @@ Record new_lbls in
+            let new_rec =
+              Ident_map.empty
+              |> Ident_map.add (Ident "~actual_rec") actual_rec
+              |> Ident_map.add (Ident "~decl_lbls") new_lbls_rec
+            in
+            let%bind new_rec_ed = new_instrumented_ed @@ Record new_rec in
+            (* FIXME: This might be buggy: this is adding the mapping between the
+               newly typed record with the originally typed record.
+               e.g.: let (x : {: a : int :}) = { a = 1, b = 2 } in ...
+               {~actual_rec = { a = 1, b = 2 }, ~decl_lbls = { a = {}}} -> {a = 1, b = 2}
+            *)
+            let%bind () = add_core_to_sem_mapping new_rec_ed e1 in
+            return new_rec_ed
+          else return e1_transformed
+        in
         let%bind e2' = bluejay_to_jay e2 in
         let%bind check_res = fresh_ident "check_res" in
+        let (Ident x_str) = x in
+        let%bind x' = fresh_ident x_str in
         let%bind () = add_error_to_bluejay_mapping check_res e_desc in
         let%bind error_cls = new_instrumented_ed @@ TypeError check_res in
-        let%bind res_cls =
-          new_instrumented_ed
-          @@ If (new_expr_desc @@ Var check_res, e2', error_cls)
-        in
         let%bind proj_ed_1_inner =
           new_instrumented_ed @@ RecordProj (type_decl', Label "~actual_rec")
         in
@@ -1681,10 +1733,15 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
           new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
         let%bind appl_ed_1 =
-          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var x)
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var x')
         in
-        let check_cls = Let (check_res, appl_ed_1, res_cls) in
-        let res = new_expr_desc @@ Let (x, e1', new_expr_desc check_cls) in
+        let inner_let = Let (x', e1_transformed, appl_ed_1) in
+        let%bind check_1 =
+          new_instrumented_ed
+          @@ If (new_expr_desc @@ Var check_res, e1', error_cls)
+        in
+        let check_cls = Let (check_res, new_expr_desc inner_let, check_1) in
+        let res = new_expr_desc @@ Let (x, new_expr_desc check_cls, e2') in
         let%bind () = add_core_to_sem_mapping res e_desc in
         return res
     | LetRecFunWithType (sig_lst, e) ->

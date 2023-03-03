@@ -3,6 +3,7 @@ let set_m =
   , add = fun x -> fun s -> x :: s 
   }
 in
+let n = 1 in
 let set_m_type =
   let t = List 'a in
   {: emptyset : t
