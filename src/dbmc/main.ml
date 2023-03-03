@@ -127,11 +127,17 @@ let handle_not_found (config : Global_config.t) (state : Global_state.t)
 let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
     =
   let post_check_dbmc is_timeout =
-    match Checker.check state config with
-    | Some { model; c_stk } -> handle_found config state model c_stk
-    | None -> handle_not_found config state is_timeout
+    Lwt.pause () ;%lwt
+    let result =
+      match Checker.check state config with
+      | Some { model; c_stk } -> handle_found config state model c_stk
+      | None -> handle_not_found config state is_timeout
+    in
+    Lwt.return result
   in
-  let post_check_ddse is_timeout = handle_not_found config state is_timeout in
+  let post_check_ddse is_timeout =
+    Lwt.return @@ handle_not_found config state is_timeout
+  in
   try%lwt
     (Lwt.async_exception_hook :=
        fun exn ->
@@ -142,11 +148,9 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
     let do_work () =
       match config.engine with
       | Global_config.E_dbmc ->
-          Lookup.run_dbmc ~config ~state >>= fun _ ->
-          Lwt.return (post_check_dbmc false)
+          Lookup.run_dbmc ~config ~state >>= fun _ -> post_check_dbmc false
       | Global_config.E_ddse ->
-          Lookup.run_ddse ~config ~state >>= fun _ ->
-          Lwt.return (post_check_ddse false)
+          Lookup.run_ddse ~config ~state >>= fun _ -> post_check_ddse false
     in
     match config.timeout with
     | Some ts -> Lwt_unix.with_timeout (Time.Span.to_sec ts) do_work
@@ -157,8 +161,8 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
   | Lwt_unix.Timeout -> (
       prerr_endline "lookup: timeout" ;
       match config.engine with
-      | Global_config.E_dbmc -> Lwt.return (post_check_dbmc true)
-      | Global_config.E_ddse -> Lwt.return (post_check_ddse true))
+      | Global_config.E_dbmc -> post_check_dbmc true
+      | Global_config.E_ddse -> post_check_ddse true)
 
 (* entry functions *)
 

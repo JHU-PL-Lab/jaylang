@@ -73,12 +73,10 @@ let promote_status (td : Term_detail.t) status' =
   match (td.status, status') with
   | Good, Good -> Some Good
   | Good, _ -> Some status'
-  | Complete, _ ->
-      (* None *)
-      failwith "[complete] why here"
-  | Fail, _ ->
-      (* None *)
-      failwith "[fail] why here"
+  | Complete, _ -> None
+  (* failwith "[complete] why here" *)
+  | Fail, _ -> None
+(* failwith "[fail] why here" *)
 
 let promote_result (target : Lookup_key.t) map (td : Term_detail.t)
     (r : Lookup_result.t) status' =
@@ -122,8 +120,8 @@ let register run_task unroll (state : Global_state.t)
         else
           U.by_filter_map_u unroll target e.pub (fun r ->
               promote_result term_detail r r.status) ;
-        Fmt.pr "[Direct]%a <- %a(%B) @." Lookup_key.pp target Lookup_key.pp
-          e.pub sub_lookup ;
+        (* Fmt.pr "[Direct]%a <= %a(%B) @." Lookup_key.pp target Lookup_key.pp
+           e.pub sub_lookup ; *)
         run_task e.pub
     | Map e ->
         U.by_filter_map_u unroll target e.pub (fun r ->

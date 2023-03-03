@@ -26,7 +26,6 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
   type result = M.result
   type message = M.message
   type push = message option -> unit
-  (* type task = unit -> unit *)
 
   type task_status =
     (* | Not_created *)
@@ -69,8 +68,6 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
         Hashtbl.add_exn t.map ~key ~data:detail ;
         detail
 
-  (* let find_detail_exn t key = Hashtbl.find_exn t.map key *)
-
   let get_stream t key =
     let detail = find_detail t key in
     Lwt_stream.clone detail.stream
@@ -86,15 +83,6 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
       detail.task_status <- Running ;
       match task with None -> () | Some t -> t ())
     else ()
-
-  (* let find_task_stream t key task =
-     let detail = find_detail t key in
-     if is_initial detail
-     then (
-       task () ;
-       detail.task_status <- Running)
-     else () ;
-     Lwt_stream.clone detail.stream *)
 
   let real_push t key =
     let detail = find_detail t key in
@@ -121,13 +109,13 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
 
   let by_iter t key_src f =
     let stream_src = get_stream t key_src in
-    Lwt_stream.iter_p (fun x -> f x) stream_src
+    Lwt_stream.iter_s (fun x -> f x) stream_src
 
   let by_iter_u t key_src f = Lwt.async (fun () -> by_iter t key_src f)
 
   let by_id t key_tgt key_src : unit Lwt.t =
     let stream_src = get_stream t key_src in
-    Lwt_stream.iter_p
+    Lwt_stream.iter_s
       (fun x ->
         (real_push t key_tgt) x ;
         Lwt.return_unit)
@@ -138,7 +126,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
 
   let by_map t key_tgt key_src f : unit Lwt.t =
     let stream_src = get_stream t key_src in
-    Lwt_stream.iter_p
+    Lwt_stream.iter_s
       (fun x ->
         real_push t key_tgt (f x) ;
         Lwt.return_unit)
@@ -149,7 +137,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
 
   let by_filter_map t key_tgt key_src f : unit Lwt.t =
     let stream_src = get_stream t key_src in
-    Lwt_stream.iter_p
+    Lwt_stream.iter_s
       (fun x ->
         (match f x with Some v -> (real_push t key_tgt) v | None -> ()) ;
         Lwt.return_unit)
@@ -160,7 +148,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
 
   let by_bind t key_tgt key_src f : unit Lwt.t =
     let stream_src = get_stream t key_src in
-    Lwt_stream.iter_p (fun x -> f key_tgt x) stream_src
+    Lwt_stream.iter_s (fun x -> f key_tgt x) stream_src
 
   let by_bind_u t key_tgt key_src f : unit =
     Lwt.async (fun () -> by_bind t key_tgt key_src f)
@@ -168,7 +156,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
   let by_join t ?(f = Fn.id) key_src key_tgts =
     let cb = real_push t key_src in
     let stream_tgts = List.map key_tgts ~f:(get_stream t) in
-    Lwt_list.iter_p
+    Lwt_list.iter_s
       (fun lookup_x_ret -> Lwt_stream.iter (fun x -> cb (f x)) lookup_x_ret)
       stream_tgts
 
@@ -198,10 +186,10 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
   let product_stream s1 s2 =
     let s, f = Lwt_stream.create () in
     Lwt.async (fun () ->
-        Lwt_stream.iter_p
+        Lwt_stream.iter_s
           (fun v1 ->
             let s2' = Lwt_stream.clone s2 in
-            Lwt_stream.iter_p
+            Lwt_stream.iter_s
               (fun v2 ->
                 f (Some (v1, v2)) ;
                 Lwt.return_unit)
@@ -214,7 +202,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
     let stream_src2 = get_stream t key_src2 in
     let cb = real_push t key_tgt in
 
-    Lwt_stream.iter_p
+    Lwt_stream.iter_s
       (fun (v1, v2) ->
         cb (f (v1, v2)) ;
         Lwt.return_unit)
@@ -228,7 +216,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
     let stream_src2 = get_stream t key_src2 in
     let cb = real_push t key_tgt in
 
-    Lwt_stream.iter_p
+    Lwt_stream.iter_s
       (fun (v1, v2) ->
         (match f (v1, v2) with Some v -> cb v | None -> ()) ;
         Lwt.return_unit)
@@ -257,8 +245,8 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
            product_stream s1 s2)
      in
      let cb = real_push t key_tgt in
-     Lwt_list.iter_p
-       (Lwt_stream.iter_p (fun v ->
+     Lwt_list.iter_s
+       (Lwt_stream.iter_s (fun v ->
             cb (f v) ;
             Lwt.return_unit))
        srcs *)
@@ -269,17 +257,3 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
       ~if_found:(fun x -> x.messages)
       ~if_not_found:(fun _ -> [])
 end
-
-(* open Core
-
-   type rule_based_details =
-     | NA
-     | FunEnter of { mutable funs : Id.t list; mutable args : Id.t list }
-     | FunExit of { mutable funs : Id.t list; mutable rets : Id.t list }
-
-   type detail_kind = NA_kind | FunEnter_kind | FunExit_kind
-
-   type t = {
-     details : rule_based_details;
-   }
-*)

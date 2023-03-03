@@ -3,6 +3,9 @@ open Lookup_status
 
 type t = { status : Lookup_status.t; from : Lookup_key.t }
 
+let pp oc r =
+  Fmt.pf oc "%a(%a)" Lookup_key.pp r.from Lookup_status.pp_short r.status
+
 let default x = { status = Good; from = x }
 let ok x = default x
 

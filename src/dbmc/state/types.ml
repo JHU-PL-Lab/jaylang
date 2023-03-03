@@ -44,6 +44,7 @@ module State = struct
     program : Jayil.Ast.expr;
     block_map : Cfg.block Jayil.Ast.Ident_map.t;
     source_map : Jayil.Ast.clause Jayil.Ast.Ident_map.t Lazy.t;
+    unroll : unroll_t;
     (*
        scheduling
     *)
@@ -75,4 +76,6 @@ module State = struct
     block_stat_map : (Cfg.block, Block_stat.t) Hashtbl.t;
     mutable check_infos : Check_info.t list;
   }
+
+  and unroll_t = S_dbmc of Unrolls.U_dbmc.t | S_ddse of Unrolls.U_ddse.t
 end

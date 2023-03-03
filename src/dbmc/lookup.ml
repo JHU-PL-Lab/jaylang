@@ -19,7 +19,9 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
   Solver.reset state.solver ;
   Riddler.reset () ;
 
-  let unroll = U_ddse.create () in
+  let unroll =
+    match state.unroll with S_ddse unroll -> unroll | _ -> failwith "unroll"
+  in
 
   let module LS = (val (module struct
                          let state = state
@@ -111,8 +113,9 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     unit Lwt.t =
   let stride = ref config.stride_init in
 
-  let unroll = Unrolls.U_dbmc.create () in
-
+  let unroll =
+    match state.unroll with S_dbmc unroll -> unroll | _ -> failwith "unroll"
+  in
   let run_eval key eval =
     match Hashtbl.find state.term_detail_map key with
     | Some _ -> ()

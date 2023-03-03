@@ -21,7 +21,7 @@ let rec run ?(is_empty = false) q : 'a Lwt.t =
   Control_center.handle_available_commands () ;
   Lwt_mutex.lock Control_center.mutex >>= fun () ->
   Lwt_mutex.unlock Control_center.mutex ;
-  (* LLog.app (fun m -> m "[Queue]size = %d" (Pairing_heap.length q)) ; *)
+  LLog.app (fun m -> m "[Queue]size = %d" (Pairing_heap.length q)) ;
   match pull q with
   | Some job ->
       (* ignore @@ job (); *)
@@ -36,7 +36,6 @@ let rec run ?(is_empty = false) q : 'a Lwt.t =
       else (
         Lwt.pause () ;%lwt
         run ~is_empty:true q)
-(* end *)
 
 (*
 Can a queue be empty? Should it raise an exception when it's empty?

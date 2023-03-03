@@ -6,6 +6,11 @@ let create (config : Global_config.t) program =
   let target = config.target in
   let block_map = Cfg.annotate program target in
   let block0 = Cfg.find_block_by_id target block_map in
+  let unroll =
+    match config.engine with
+    | Global_config.E_dbmc -> S_dbmc (Unrolls.U_dbmc.create ())
+    | Global_config.E_ddse -> S_ddse (Unrolls.U_ddse.create ())
+  in
   let state =
     {
       first = Jayil.Ast_tools.first_id program;
@@ -14,6 +19,7 @@ let create (config : Global_config.t) program =
       program;
       block_map;
       source_map = lazy (Ddpa.Ddpa_helper.clause_mapping program);
+      unroll;
       job_queue = Schedule.create ();
       root_node = ref (Search_graph.root_node block0 target);
       tree_size = 1;
