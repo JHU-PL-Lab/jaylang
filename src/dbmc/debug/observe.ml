@@ -82,7 +82,7 @@ let pp_key_with_detail map oc ((key, td) : Lookup_key.t * Term_detail.t) =
       (List.length td.sub_lookups)
       (pp_subs map) td)
 
-let dump_lookup_status (state : Global_state.t) =
+let dump_term_details (state : Global_state.t) =
   let sorted_list_of_hashtbl table =
     Hashtbl.to_alist table
     |> List.sort ~compare:(fun (k1, _) (k2, _) ->
@@ -90,7 +90,12 @@ let dump_lookup_status (state : Global_state.t) =
   in
   let td_lst = sorted_list_of_hashtbl state.term_detail_map in
   Fmt.(pr "@.[Size: %d]@." (List.length td_lst)) ;
-  Fmt.(
-    pr "%a@.@."
-      (vbox @@ list ~sep:cut (pp_key_with_detail state.term_detail_map))
-      td_lst)
+  List.iter td_lst ~f:(fun (key, td) ->
+      let open Lookup_status in
+      match td.status with
+      | Complete | Fail -> ()
+      | Good ->
+          Fmt.(
+            pr "%a@."
+              (vbox @@ pp_key_with_detail state.term_detail_map)
+              (key, td)))
