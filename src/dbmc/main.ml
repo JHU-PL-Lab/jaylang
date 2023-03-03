@@ -127,7 +127,6 @@ let handle_not_found (config : Global_config.t) (state : Global_state.t)
 let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
     =
   let post_check_dbmc is_timeout =
-    Lwt.pause () ;%lwt
     let result =
       match Checker.check state config with
       | Some { model; c_stk } -> handle_found config state model c_stk
@@ -157,6 +156,10 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
     | None -> do_work ()
   with
   | Riddler.Found_solution { model; c_stk } ->
+      let unroll = Observe.get_dbmc_unroll state in
+      let msg_list = !Unrolls.U_dbmc.msg_queue in
+      Fmt.pr "[msg]%d@," (List.length msg_list) ;
+      Lwt_list.iter_p (fun msg -> msg) msg_list >>= fun _ ->
       Lwt.return (handle_found config state model c_stk)
   | Lwt_unix.Timeout -> (
       prerr_endline "lookup: timeout" ;

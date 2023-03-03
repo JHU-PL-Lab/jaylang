@@ -53,4 +53,5 @@ module type S = sig
   val by_bind : t -> key -> key -> (key -> message -> unit Lwt.t) -> unit Lwt.t
   val by_bind_u : t -> key -> key -> (key -> message -> unit Lwt.t) -> unit
   val current_messages : t -> key -> message list
+  val msg_queue : unit Lwt.t list ref
 end

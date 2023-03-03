@@ -47,6 +47,12 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
     mutable messages : message list;
   }
 
+  let msg_queue = ref []
+
+  let add_msg msg =
+    msg_queue := msg :: !msg_queue ;
+    msg
+
   let is_status_initial = function Initial -> true | _ -> false
   let is_initial detail = is_status_initial detail.task_status
 
@@ -111,7 +117,8 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
     let stream_src = get_stream t key_src in
     Lwt_stream.iter_s (fun x -> f x) stream_src
 
-  let by_iter_u t key_src f = Lwt.async (fun () -> by_iter t key_src f)
+  let by_iter_u t key_src f =
+    Lwt.async (fun () -> add_msg @@ by_iter t key_src f)
 
   let by_id t key_tgt key_src : unit Lwt.t =
     let stream_src = get_stream t key_src in
@@ -122,7 +129,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
       stream_src
 
   let by_id_u t key_tgt key_src : unit =
-    Lwt.async (fun () -> by_id t key_tgt key_src)
+    Lwt.async (fun () -> add_msg @@ by_id t key_tgt key_src)
 
   let by_map t key_tgt key_src f : unit Lwt.t =
     let stream_src = get_stream t key_src in
@@ -133,7 +140,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
       stream_src
 
   let by_map_u t key_tgt key_src f : unit =
-    Lwt.async (fun () -> by_map t key_tgt key_src f)
+    Lwt.async (fun () -> add_msg @@ by_map t key_tgt key_src f)
 
   let by_filter_map t key_tgt key_src f : unit Lwt.t =
     let stream_src = get_stream t key_src in
@@ -144,14 +151,14 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
       stream_src
 
   let by_filter_map_u t key_tgt key_src f : unit =
-    Lwt.async (fun () -> by_filter_map t key_tgt key_src f)
+    Lwt.async (fun () -> add_msg @@ by_filter_map t key_tgt key_src f)
 
   let by_bind t key_tgt key_src f : unit Lwt.t =
     let stream_src = get_stream t key_src in
     Lwt_stream.iter_s (fun x -> f key_tgt x) stream_src
 
   let by_bind_u t key_tgt key_src f : unit =
-    Lwt.async (fun () -> by_bind t key_tgt key_src f)
+    Lwt.async (fun () -> add_msg @@ by_bind t key_tgt key_src f)
 
   let by_join t ?(f = Fn.id) key_src key_tgts =
     let cb = real_push t key_src in
@@ -161,7 +168,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
       stream_tgts
 
   let by_join_u t key_src key_tgts =
-    Lwt.async (fun () -> by_join t key_src key_tgts)
+    Lwt.async (fun () -> add_msg @@ by_join t key_src key_tgts)
   (*
      let by_join_map t key_src key_tgts f = by_join t ~f key_src key_tgts
 
@@ -209,7 +216,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
       (product_stream stream_src1 stream_src2)
 
   let by_map2_u t key_tgt key_src1 key_src2 f : unit =
-    Lwt.async (fun () -> by_map2 t key_tgt key_src1 key_src2 f)
+    Lwt.async (fun () -> add_msg @@ by_map2 t key_tgt key_src1 key_src2 f)
 
   let by_filter_map2 t key_tgt key_src1 key_src2 f : unit Lwt.t =
     let stream_src1 = get_stream t key_src1 in
@@ -223,7 +230,8 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
       (product_stream stream_src1 stream_src2)
 
   let by_filter_map2_u t key_tgt key_src1 key_src2 f : unit =
-    Lwt.async (fun () -> by_filter_map2 t key_tgt key_src1 key_src2 f)
+    Lwt.async (fun () ->
+        add_msg @@ by_filter_map2 t key_tgt key_src1 key_src2 f)
 
   (* TODO: this logic is obviously incorrect *)
   (* let rec loop () =
