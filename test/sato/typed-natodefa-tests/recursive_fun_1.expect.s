@@ -6,4 +6,4 @@
     ((t_var main)
      (t_expected_type "({int | fun a -> a >= 0} -> {int | fun a -> a > 0})")
      (t_actual_type
-      "({int | fun a -> a >= 0} -> {int | Predicate Violated!})"))))))
+      "({int | fun a -> a >= 0} -> {int | TypeError: Predicate Violated!})"))))))

@@ -6,4 +6,4 @@
     ((t_var access_record)
      (t_expected_type "({{:a : int, b : bool:} | aIsPos} -> {int | isNeg})")
      (t_actual_type
-      "({{:a : int, b : bool:} | aIsPos} -> {int | Predicate Violated!})"))))))
+      "({{:a : int, b : bool:} | aIsPos} -> {int | TypeError: Predicate Violated!})"))))))

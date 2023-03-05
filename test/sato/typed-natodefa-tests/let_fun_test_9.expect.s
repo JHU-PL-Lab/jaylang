@@ -4,4 +4,4 @@
  (error_list
   ((Type_error
     ((t_var negation) (t_expected_type "({int | isNeg} -> {int | isPos})")
-     (t_actual_type "({int | isNeg} -> {int | Predicate Violated!})"))))))
+     (t_actual_type "({int | isNeg} -> {int | TypeError: Predicate Violated!})"))))))

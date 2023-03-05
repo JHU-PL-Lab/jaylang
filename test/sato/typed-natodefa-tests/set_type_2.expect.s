@@ -3,4 +3,4 @@
  (error_list
   ((Type_error
     ((t_var x) (t_expected_type "{int | fun a -> (fun b -> 0 > b) a}")
-     (t_actual_type "{int | Predicate Violated!}"))))))
+     (t_actual_type "{int | TypeError: Predicate Violated!}"))))))
