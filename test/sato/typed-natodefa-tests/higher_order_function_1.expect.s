@@ -7,4 +7,4 @@
      (t_expected_type
       "(({int | isEven} -> {int | isEven}) -> ({int | isOdd} -> {int | isOdd}))")
      (t_actual_type
-      "(({int | isEven} -> {int | isEven}) -> ({int | isOdd} -> {int | Predicate Violated!}))"))))))
+      "(({int | isEven} -> {int | isEven}) -> ({int | isOdd} -> {int | TypeError: Predicate Violated!}))"))))))

@@ -7,4 +7,4 @@
      (t_expected_type
       "({{:a : int, b : int:} | record_constraint} -> {bool | isTrue})")
      (t_actual_type
-      "({{:a : int, b : int:} | record_constraint} -> {bool | Predicate Violated!})"))))))
+      "({{:a : int, b : int:} | record_constraint} -> {bool | TypeError: Predicate Violated!})"))))))
