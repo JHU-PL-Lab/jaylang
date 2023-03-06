@@ -1349,6 +1349,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       let%bind e2' = semantic_type_of e2 in
       let%bind t' = semantic_type_of t in
       let res = new_expr_desc @@ LetWithType (x, e1', e2', t') in
+      let%bind () = add_sem_to_syn_mapping e1' e1 in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | LetRecFunWithType (typed_sig_lst, e) ->
@@ -1722,8 +1723,8 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         in
         let%bind e2' = bluejay_to_jay e2 in
         let%bind check_res = fresh_ident "check_res" in
-        let (Ident x_str) = x in
-        let%bind x' = fresh_ident x_str in
+        (* let (Ident x_str) = x in *)
+        (* let%bind x' = fresh_ident x_str in *)
         let%bind () = add_error_to_bluejay_mapping check_res e_desc in
         let%bind error_cls = new_instrumented_ed @@ TypeError check_res in
         let%bind proj_ed_1_inner =
@@ -1732,18 +1733,44 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         let%bind proj_ed_1 =
           new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
+        (* let%bind appl_ed_1 =
+             new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var x')
+           in *)
         let%bind appl_ed_1 =
-          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var x')
+          new_instrumented_ed @@ Appl (proj_ed_1, e1_transformed)
         in
-        let inner_let = Let (x', e1_transformed, appl_ed_1) in
+        (* let inner_let = Let (x', e1_transformed, appl_ed_1) in *)
         let%bind check_1 =
           new_instrumented_ed
-          @@ If (new_expr_desc @@ Var check_res, e1', error_cls)
+          @@ If (new_expr_desc @@ Var check_res, e2', error_cls)
         in
-        let check_cls = Let (check_res, new_expr_desc inner_let, check_1) in
-        let res = new_expr_desc @@ Let (x, new_expr_desc check_cls, e2') in
+        let check_cls = Let (check_res, appl_ed_1, check_1) in
+        let res = new_expr_desc @@ Let (x, e1', new_expr_desc check_cls) in
         let%bind () = add_core_to_sem_mapping res e_desc in
         return res
+        (* let%bind type_decl' = bluejay_to_jay type_decl in
+              let%bind e1' = bluejay_to_jay e1 in
+              let%bind e2' = bluejay_to_jay e2 in
+              let%bind check_res = fresh_ident "check_res" in
+              let%bind () = add_error_to_bluejay_mapping check_res e_desc in
+              let%bind error_cls = new_instrumented_ed @@ TypeError check_res in
+              let%bind res_cls =
+                new_instrumented_ed
+                @@ If (new_expr_desc @@ Var check_res, e2', error_cls)
+              in
+              let%bind proj_ed_1_inner =
+                new_instrumented_ed @@ RecordProj (type_decl', Label "~actual_rec")
+              in
+              let%bind proj_ed_1 =
+                new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
+              in
+              let%bind appl_ed_1 =
+                new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var x)
+              in
+              let check_cls = Let (check_res, appl_ed_1, res_cls) in
+              let res = new_expr_desc @@ Let (x, e1', new_expr_desc check_cls) in
+              let%bind () = add_core_to_sem_mapping res e_desc in
+           return res *)
     | LetRecFunWithType (sig_lst, e) ->
         let folder fun_sig acc =
           let%bind check_res = fresh_ident "check_res" in

@@ -1330,6 +1330,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
               in
               Bluejay_ast_internal.new_expr_desc @@ TypeUntouched symbol_purged
             else
+              let () =
+                Fmt.pr "\n \n This is the original jayil error var: %a \n \n"
+                  Jayil.Pp.id err_val_var
+              in
               let jay_expr = jayil_to_jay_expr err_val_var in
               match jay_expr with
               | None -> failwith "jayil_to_bluejay_error: TBI!"
