@@ -81,16 +81,17 @@ let rec simple_deval (start_envnum : int) (start_penv : penv) (expr : expr) : Le
       let env' = deval_clause (envnum, index+1) env clause in env' 
     )
     in let endenv = List.fold_lefti foldable_eval_clause env clauses
-    in let _, _, enddeps = (IdentLine_map.find (LexAdr (0, -1)) endenv)
+    in let _, _, enddeps = (IdentLine_map.find (LexAdr (envnum, -1)) endenv)
+    (* in let () = Format.printf "Endenv of deval %d: \n %a\n" envnum pp_penv endenv *)
     in enddeps, endenv
 
-  and deval_clause ((envn, line) as lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 
-    (*Format.printf "Deval LexAdr: %d, %d\n" envn line;*) let linedeps = match body with
+  and deval_clause ((envnum, line) as lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 
+    (*Format.printf "Deval LexAdr: %d, %d\n" envnum line;*) let linedeps = match body with
 
     | Value_body (Value_function Function_value (Var (x1, _), func_expr)) -> begin
       (* Format.printf "Hi before\n"; *)
-      let inner_envnum = fst lexadr + 1
-      in let [@warning "-6"] beginenv = add_ident_el_penv x1 (x1, PExpr (Expr []), LexAdr_set.singleton (-1, -1)) env
+      let inner_envnum = envnum + 1
+      in let [@warning "-6"] beginenv = add_ident_el_penv x1 (x1, PExpr (Expr []), LexAdr_set.singleton (inner_envnum, -1)) env
       (* in let () = Format.printf "%a\n" pp_penv beginenv *)
       in LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) @@ fst @@ deval_expr inner_envnum beginenv func_expr
     end
@@ -108,7 +109,7 @@ let rec simple_deval (start_envnum : int) (start_penv : penv) (expr : expr) : Le
     (* Improvement could be made to find deps of only e1 or e2 if vx is indeed known beforehand *)
     | Conditional_body (vx, e1, e2) -> begin
       let bool_deps = get_deps_from_ident vx env
-      in let inner_envnum = fst lexadr + 1
+      in let inner_envnum = envnum + 1
       in let inner_deps = LexAdr_set.union (deval_expr inner_envnum env e1 |> fst) (deval_expr inner_envnum env e2 |> fst)
       in LexAdr_set.union bool_deps (LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) inner_deps)
     end
@@ -261,15 +262,16 @@ let simple_eval (expr : expr) : value * penv = begin
     )
     in List.fold_lefti foldable_eval_clause env clauses
 
-  and eval_clause (lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 
+  and eval_clause ((envnum, line) as lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 
     let linedeps, res_value = match body with
 
     (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
     | Value_body (Value_function (Function_value (Var(x1, _), func_expr) as vf)) -> begin
       (* Format.printf "%a\n" pp_penv env; *)
-      let [@warning "-6"] beginenv = add_ident_el_penv x1 (x1, PExpr (Expr []), LexAdr_set.singleton (-1, -1)) env
+      let inner_envnum = envnum + 1
+      in let [@warning "-6"] beginenv = add_ident_el_penv x1 (x1, PExpr (Expr []), LexAdr_set.singleton (inner_envnum, 0)) env
       (* in let () = Format.printf "%a\n" pp_penv beginenv *)
-      in simple_deval (fst lexadr + 1) beginenv func_expr |> fst, FunClosure (x, vf, env)
+      in LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) @@ fst @@ simple_deval (inner_envnum) beginenv func_expr, FunClosure (x, vf, env)
     end
     
     | Value_body (Value_record vr) -> let new_env, deps = find_record_env_deps vr env
@@ -288,7 +290,7 @@ let simple_eval (expr : expr) : value * penv = begin
       let bool_deps, bool_val = match get_pvalue_deps_from_ident vx env with
       | deps, Direct (Value_bool b) -> deps, b
       | _ -> failwith "Type error! Conditional attempted with a non-bool!"
-      in let inner_envnum = fst lexadr + 1
+      in let inner_envnum = envnum + 1
       in let endenv = eval_expr inner_envnum env (if bool_val then e1 else e2)
       in let [@warning "-8"] _, PValue endpvalue, inner_deps = (IdentLine_map.find (LexAdr (inner_envnum, -1)) endenv)
       in LexAdr_set.union bool_deps (LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) inner_deps), endpvalue
@@ -298,8 +300,8 @@ let simple_eval (expr : expr) : value * penv = begin
       let func_deps, func_x, func_expr, func_env = match get_pvalue_deps_from_ident vx1 env with
       | deps, FunClosure (_, Function_value (Var (x, _), expr), env) -> deps, x, expr, env
       | _ -> failwith "Type error! Function application attempted with a non-function!"
-      in let inner_envnum = fst lexadr + 1
-      in let beginenv = get_from_ident vx2 env |> (add_ident_el_penv func_x ~map:func_env)
+      in let inner_envnum = envnum + 1
+      in let beginenv = get_from_ident vx2 env |> (add_ident_line_last func_x (envnum, 0) ~map:func_env)
       (* in let () = Format.printf "%a\n" pp_penv beginenv *)
       in let endenv = eval_expr inner_envnum beginenv func_expr
       in let [@warning "-8"] _, PValue endpvalue, inner_deps = (IdentLine_map.find (LexAdr (inner_envnum, -1)) endenv)
@@ -345,7 +347,7 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = begin
       let env' = peval_clause (envnum, index+1) env clause in env' 
     )
     in let endenv = List.fold_lefti foldable_eval_clause env clauses
-    in let _, _, enddeps = (IdentLine_map.find (LexAdr (0, -1)) endenv)
+    in let _, _, enddeps = (IdentLine_map.find (LexAdr (envnum, -1)) endenv)
     in reconstruct_expr_from_lexadr enddeps endenv, endenv
 
   and peval_clause (lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 

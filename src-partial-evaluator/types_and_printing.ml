@@ -166,16 +166,20 @@ open OptionSyntax
 let add_ident_line (ident : Ident.t) (lexadr : int * int) (v : 'a) (map : 'a IdentLine_map.t) =
   IdentLine_map.add (LexAdr lexadr) v (IdentLine_map.add (Ident ident) v map)
 
-let add_ident_line_last (ident : Ident.t) ((envnum, _ as lexadr) : int * int) (v : 'a) (map : 'a IdentLine_map.t) =
+let add_ident_line_last (ident : Ident.t) ((envnum, _ as lexadr) : int * int) (v : 'a) ~(map : 'a IdentLine_map.t) =
   IdentLine_map.add (LexAdr (envnum, -1)) v (IdentLine_map.add (LexAdr lexadr) v (IdentLine_map.add (Ident ident) v map))
 
 let add_ident_line_penv (ident : Ident.t) (lexadr : int * int) (lexadrs : LexAdr_set.t) (v : presidual) (map : penv) =
   let mapval = (ident, v, LexAdr_set.add lexadr lexadrs) in
-  add_ident_line_last ident lexadr mapval map
+  add_ident_line_last ident lexadr mapval ~map
 ;;
 
 let add_ident_el_penv (ident : Ident.t) (((_, _, lexadrs) as mapval) : presidual_with_ident_lexadr_deps) ~(map : penv) =
-  add_ident_line_last ident (LexAdr_set.max_elt lexadrs) mapval map
+  add_ident_line_last ident (LexAdr_set.max_elt lexadrs) mapval ~map
+
+let add_param_el_penv (ident : Ident.t) (envnum : int) (mapval : presidual_with_ident_lexadr_deps) ~(map : penv) =
+  add_ident_line_last ident (envnum, 0) mapval ~map
+;;
 
 let get_from_ident (Var (ident, _) : var) (env : penv) =
   match IdentLine_map.find_opt (Ident ident) env with
