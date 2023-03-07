@@ -71,7 +71,7 @@ let find_record_env_deps (Record_value record : record_value) (env : penv) : pen
 (* Note: Only reason right now to also return penv is for debugging purposes only *)
 (* There should be no diverging concerns here, as this devaluator (dependency evaluator)
    only enters scope; it does not evaluate any functions *)
-let rec simple_deval (start_envnum : int) (start_penv : penv) (expr : expr) : LexAdr_set.t * penv = (
+let rec simple_deval (start_envnum : int) (start_penv : penv) (expr : expr) : LexAdr_set.t * penv = begin
 
   let rec dummy_map_val = PValue (AbortClosure IdentLine_map.empty)
 
@@ -129,7 +129,69 @@ let rec simple_deval (start_envnum : int) (start_penv : penv) (expr : expr) : Le
     in (add_ident_line_penv x lexadr linedeps dummy_map_val env)
   
   in deval_expr start_envnum start_penv expr
-)
+end
+;;
+
+let ident_set_from_var_enum (enum : var Enum.t) =
+  Ident_set.of_enum @@ Enum.map (fun (Var (x, _)) -> x) enum
+;;
+
+let simple_cval (expr : expr) : Ident_set.t = begin
+
+  let rec empty_ident_pair = (Ident_set.empty, Ident_set.empty)
+
+  and cval_expr (ident_pair : Ident_set.t * Ident_set.t) (Expr (clauses) : expr) : Ident_set.t = 
+    
+    let foldable_eval_clause (ident_pair : Ident_set.t * Ident_set.t) (index : int) (clause : clause) : Ident_set.t * Ident_set.t = (
+      let ident_pair' = cval_clause ident_pair clause in ident_pair' 
+    )
+    in let captured, _ = List.fold_lefti foldable_eval_clause ident_pair clauses
+    in captured
+
+  and cval_clause ((cap, def) : Ident_set.t * Ident_set.t) (Clause (Var (x, _), body) : clause) : Ident_set.t * Ident_set.t =
+    let lineuses = match body with
+
+    | Value_body (Value_function Function_value (Var (x1, _), func_expr)) -> begin
+      let added_ident_pair = (Ident_set.empty, Ident_set.singleton x1)
+      in cval_expr added_ident_pair func_expr
+    end
+    
+    | Value_body (Value_record Record_value record) -> Ident_set.of_enum @@ Enum.map (fun (Var (x, _)) -> x) (Ident_map.values record)
+    
+    | Value_body v -> Ident_set.empty
+
+    (* | Var_body vx -> *)
+
+    | Input_body -> Ident_set.empty
+
+    (* | Match_body (vx, _) -> *)
+
+    (* Improvement could be made to find deps of only e1 or e2 if vx is indeed known beforehand *)
+    | Conditional_body (Var(x, _), e1, e2) -> begin
+      let bool_ident = Ident_set.singleton x
+      in let inner_deps = Ident_set.union (cval_expr empty_ident_pair e1) (cval_expr empty_ident_pair e2)
+      in Ident_set.union bool_ident inner_deps
+    end
+
+    (* Deps of function should have already been found, only need to union func_deps with val_deps *)
+    | Appl_body (Var(x1, _), Var(x2, _)) -> Ident_set.of_list [x1; x2]
+
+    (* Improvement could be made to find deps of only var associated with key if v is indeed known beforehand *)
+    | Projection_body (Var(v, _), key) -> Ident_set.singleton v
+    
+    (* | Not_body vx -> *)
+    
+    | Binary_operation_body (Var(x1, _), op, Var(x2, _)) -> Ident_set.of_list [x1; x2]
+
+    | Var_body (Var(x, _)) | Match_body (Var(x, _), _) | Not_body (Var(x, _)) -> Ident_set.singleton x
+    
+    | Abort_body | Assert_body _ | Assume_body _ -> failwith "Evaluation does not yet support abort, assert, and assume!"
+  
+    in Ident_set.union cap (Ident_set.diff lineuses def), Ident_set.union def (Ident_set.singleton x)
+
+  in cval_expr empty_ident_pair expr
+end
+;;
 
 let check_pattern (v : pvalue) (pattern : pattern) : bool =
   match v, pattern with
@@ -189,7 +251,7 @@ let reconstruct_expr_from_lexadr (deps : LexAdr_set.t) (env : penv) : expr =
 
 
 (* evals *)
-let simple_eval (expr : expr) : value * penv = (
+let simple_eval (expr : expr) : value * penv = begin
 
   let rec eval_expr (envnum : int) (env : penv) (Expr (clauses) : expr) : penv = 
     (* Format.printf "Eval expression with envnum %d, with following environment:\n%a\n" envnum pp_penv env; *)
@@ -272,10 +334,10 @@ let simple_eval (expr : expr) : value * penv = (
   in let endenv = eval_expr 0 IdentLine_map.empty expr
   in let [@warning "-8"] _, PValue endpvalue, _ = (IdentLine_map.find (LexAdr (0, -1)) endenv)
   in value_of_pvalue endpvalue, endenv
-)
+end
 ;;
 
-let simple_peval (peval_input : bool) (expr : expr) : expr * penv = (
+let simple_peval (peval_input : bool) (expr : expr) : expr * penv = begin
 
   let rec peval_expr (envnum : int) (env : penv) (Expr (clauses) : expr) : expr * penv = 
     let foldable_eval_clause (env : penv) (index : int) (clause : clause) : penv = (
@@ -345,7 +407,7 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = (
     end in (add_ident_line_penv x lexadr linedeps res_value env)
   
   in peval_expr 0 IdentLine_map.empty expr
-)
+end
 ;;
 
 
