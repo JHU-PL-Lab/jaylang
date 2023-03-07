@@ -177,8 +177,13 @@ let add_ident_line_penv (ident : Ident.t) (lexadr : int * int) (lexadrs : LexAdr
 let add_ident_el_penv (ident : Ident.t) (((_, _, lexadrs) as mapval) : presidual_with_ident_lexadr_deps) ~(map : penv) =
   add_ident_line_last ident (LexAdr_set.max_elt lexadrs) mapval ~map
 
-let add_param_el_penv (ident : Ident.t) (envnum : int) (mapval : presidual_with_ident_lexadr_deps) ~(map : penv) =
-  add_ident_line_last ident (envnum, 0) mapval ~map
+(* For now, this function is meant for just eval. Therefore, existing deps will not be scrubbed even when mapval is PValue *)
+(* Optionally add in the original lexadr -> mapval mapping also *)
+let add_param_el_penv (ident : Ident.t) (envnum : int) (((id, pre, lexadrs) as mapval) : presidual_with_ident_lexadr_deps) ~(map : penv) =
+  let new_lexadrs = LexAdr_set.add (envnum, 0) lexadrs
+  (* in add_ident_el_penv ident (id, pre, new_lexadrs) ~map *)
+  in IdentLine_map.add (LexAdr (LexAdr_set.max_elt lexadrs)) mapval (add_ident_el_penv ident (id, pre, new_lexadrs) ~map)
+  (* in add_ident_el_penv ident (id, pre, new_lexadrs) ~map:(add_ident_line ident (LexAdr_set.max_elt lexadrs) mapval map) *)
 ;;
 
 let get_from_ident (Var (ident, _) : var) (env : penv) =

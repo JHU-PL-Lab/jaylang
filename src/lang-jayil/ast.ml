@@ -61,6 +61,7 @@ module Var = struct
 
   let equal = equal_var
   let compare = compare_var
+  let pp = pp_var
   let to_yojson = var_to_yojson
   let hash = Hashtbl.hash
 end
@@ -68,6 +69,7 @@ end
 module Var_set = struct
   module S = Set.Make (Var)
   include S
+  include Pp_utils.Set_pp (S) (Var)
   include Yojson_utils.Set_to_yojson (S) (Var)
 end
 

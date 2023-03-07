@@ -57,9 +57,9 @@ let bail_compose (default : clause_body) ((attempt, deps) : presidual option * L
   let rec in_find_fun (Expr func_clauses : expr) (env : penv) =
     List.fold_left *)
 
-let find_record_env_deps (Record_value record : record_value) (env : penv) : penv * LexAdr_set.t =
-  let lines, deps = get_many_lines_from_ident_opt (Ident_map.values record) env
-  (* in let () = Format.printf "%a\n" LexAdr_set.pp deps; Format.printf "%a\n" (pp_enum pp_var) (Ident_map.values record) *)
+let find_var_env_deps (var_enum : var Enum.t) (env : penv) : penv * LexAdr_set.t =
+  let lines, deps = get_many_lines_from_ident_opt var_enum env
+  in let () = Format.printf "Finding var env deps:\n %a\n" LexAdr_set.pp deps; Format.printf "%a\n" (pp_enum pp_var) (var_enum)
   in List.fold_right begin fun cur_lexadr new_env ->
     (* Format.printf "%s\n" (show_lexadr cur_lexadr);
     Format.printf "%a\n" pp_penv new_env; *)
@@ -138,58 +138,59 @@ let ident_set_from_var_enum (enum : var Enum.t) =
   Ident_set.of_enum @@ Enum.map (fun (Var (x, _)) -> x) enum
 ;;
 
-let simple_cval (expr : expr) : Ident_set.t = begin
+let simple_cval (expr : expr) : Var_set.t = begin
 
-  let rec empty_ident_pair = (Ident_set.empty, Ident_set.empty)
+  let rec empty_ident_pair = (Var_set.empty, Var_set.empty)
 
-  and cval_expr (ident_pair : Ident_set.t * Ident_set.t) (Expr (clauses) : expr) : Ident_set.t = 
+  and cval_expr (ident_pair : Var_set.t * Var_set.t) (Expr (clauses) : expr) : Var_set.t = 
     
-    let foldable_eval_clause (ident_pair : Ident_set.t * Ident_set.t) (index : int) (clause : clause) : Ident_set.t * Ident_set.t = (
+    let foldable_eval_clause (ident_pair : Var_set.t * Var_set.t) (index : int) (clause : clause) : Var_set.t * Var_set.t = (
       let ident_pair' = cval_clause ident_pair clause in ident_pair' 
     )
     in let captured, _ = List.fold_lefti foldable_eval_clause ident_pair clauses
     in captured
 
-  and cval_clause ((cap, def) : Ident_set.t * Ident_set.t) (Clause (Var (x, _), body) : clause) : Ident_set.t * Ident_set.t =
+  and cval_clause ((cap, def) : Var_set.t * Var_set.t) (Clause (vx, body) : clause) : Var_set.t * Var_set.t =
     let lineuses = match body with
 
-    | Value_body (Value_function Function_value (Var (x1, _), func_expr)) -> begin
-      let added_ident_pair = (Ident_set.empty, Ident_set.singleton x1)
+    | Value_body (Value_function Function_value (vx1, func_expr)) -> begin
+      let added_ident_pair = (Var_set.empty, Var_set.singleton vx1)
       in cval_expr added_ident_pair func_expr
     end
     
-    | Value_body (Value_record Record_value record) -> Ident_set.of_enum @@ Enum.map (fun (Var (x, _)) -> x) (Ident_map.values record)
+    (* | Value_body (Value_record Record_value record) -> Var_set.of_enum @@ Enum.map (fun (Var (x, _)) -> x) (Ident_map.values record) *)
+    | Value_body (Value_record Record_value record) -> Var_set.of_enum @@ Ident_map.values record
     
-    | Value_body v -> Ident_set.empty
+    | Value_body v -> Var_set.empty
 
     (* | Var_body vx -> *)
 
-    | Input_body -> Ident_set.empty
+    | Input_body -> Var_set.empty
 
     (* | Match_body (vx, _) -> *)
 
     (* Improvement could be made to find deps of only e1 or e2 if vx is indeed known beforehand *)
-    | Conditional_body (Var(x, _), e1, e2) -> begin
-      let bool_ident = Ident_set.singleton x
-      in let inner_deps = Ident_set.union (cval_expr empty_ident_pair e1) (cval_expr empty_ident_pair e2)
-      in Ident_set.union bool_ident inner_deps
+    | Conditional_body (vx, e1, e2) -> begin
+      let bool_ident = Var_set.singleton vx
+      in let inner_deps = Var_set.union (cval_expr empty_ident_pair e1) (cval_expr empty_ident_pair e2)
+      in Var_set.union bool_ident inner_deps
     end
 
     (* Deps of function should have already been found, only need to union func_deps with val_deps *)
-    | Appl_body (Var(x1, _), Var(x2, _)) -> Ident_set.of_list [x1; x2]
+    | Appl_body (vx1, vx2) -> Var_set.of_list [vx1; vx2]
 
     (* Improvement could be made to find deps of only var associated with key if v is indeed known beforehand *)
-    | Projection_body (Var(v, _), key) -> Ident_set.singleton v
+    | Projection_body (v, key) -> Var_set.singleton v
     
     (* | Not_body vx -> *)
     
-    | Binary_operation_body (Var(x1, _), op, Var(x2, _)) -> Ident_set.of_list [x1; x2]
+    | Binary_operation_body (vx1, op, vx2) -> Var_set.of_list [vx1; vx2]
 
-    | Var_body (Var(x, _)) | Match_body (Var(x, _), _) | Not_body (Var(x, _)) -> Ident_set.singleton x
+    | Var_body vx | Match_body (vx, _) | Not_body vx -> Var_set.singleton vx
     
     | Abort_body | Assert_body _ | Assume_body _ -> failwith "Evaluation does not yet support abort, assert, and assume!"
   
-    in Ident_set.union cap (Ident_set.diff lineuses def), Ident_set.union def (Ident_set.singleton x)
+    in Var_set.union cap (Var_set.diff lineuses def), Var_set.add vx def
 
   in cval_expr empty_ident_pair expr
 end
@@ -266,15 +267,15 @@ let simple_eval (expr : expr) : value * penv = begin
     let linedeps, res_value = match body with
 
     (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
-    | Value_body (Value_function (Function_value (Var(x1, _), func_expr) as vf)) -> begin
-      (* Format.printf "%a\n" pp_penv env; *)
-      let inner_envnum = envnum + 1
-      in let [@warning "-6"] beginenv = add_ident_el_penv x1 (x1, PExpr (Expr []), LexAdr_set.singleton (inner_envnum, 0)) env
-      (* in let () = Format.printf "%a\n" pp_penv beginenv *)
-      in LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) @@ fst @@ simple_deval (inner_envnum) beginenv func_expr, FunClosure (x, vf, env)
+    | Value_body (Value_function (Function_value ((Var(x1, _)) as vx1, func_expr) as vf)) -> begin
+      let captured = Var_set.remove vx1 (simple_cval func_expr)
+      in let () = Format.printf "%a\n" Var_set.pp captured
+      in let new_env, deps = find_var_env_deps (Var_set.enum captured) env
+      in let () = Format.printf "%a\n" pp_penv new_env
+      in deps, FunClosure (x, vf, new_env)
     end
     
-    | Value_body (Value_record vr) -> let new_env, deps = find_record_env_deps vr env
+    | Value_body (Value_record ((Record_value r) as vr)) -> let new_env, deps = find_var_env_deps (Ident_map.values r) env
       in deps, RecordClosure (vr, new_env)
     
     | Value_body v -> LexAdr_set.empty, Direct v
@@ -301,8 +302,8 @@ let simple_eval (expr : expr) : value * penv = begin
       | deps, FunClosure (_, Function_value (Var (x, _), expr), env) -> deps, x, expr, env
       | _ -> failwith "Type error! Function application attempted with a non-function!"
       in let inner_envnum = envnum + 1
-      in let beginenv = get_from_ident vx2 env |> (add_ident_line_last func_x (envnum, 0) ~map:func_env)
-      (* in let () = Format.printf "%a\n" pp_penv beginenv *)
+      in let beginenv = get_from_ident vx2 env |> (add_param_el_penv func_x inner_envnum ~map:func_env)
+      in let () = Format.printf "Begin function with:\n %a\n" pp_penv beginenv
       in let endenv = eval_expr inner_envnum beginenv func_expr
       in let [@warning "-8"] _, PValue endpvalue, inner_deps = (IdentLine_map.find (LexAdr (inner_envnum, -1)) endenv)
       in LexAdr_set.union func_deps (LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) inner_deps), endpvalue
@@ -357,7 +358,7 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = begin
     (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
     | Value_body (Value_function vf) -> LexAdr_set.empty, PValue (FunClosure (x, vf, env))
     
-    | Value_body (Value_record vr) -> let new_env, deps = find_record_env_deps vr env
+    | Value_body (Value_record ((Record_value r) as vr)) -> let new_env, deps = find_var_env_deps (Ident_map.values r) env
       in deps, PValue (RecordClosure (vr, new_env))
 
     | Value_body v -> LexAdr_set.empty, PValue (Direct v)
