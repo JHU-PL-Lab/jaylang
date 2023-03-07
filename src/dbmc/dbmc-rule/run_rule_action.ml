@@ -1,6 +1,7 @@
 open Core
 open Dj_common
 module U = Unrolls.U_dbmc
+module Log = Log.Export.CMLOG
 
 let init_list_counter (state : Global_state.t) (term_detail : Term_detail.t) key
     =
@@ -15,15 +16,9 @@ let fetch_list_counter (state : Global_state.t) (term_detail : Term_detail.t)
   let new_i =
     Hashtbl.update_and_return state.smt_lists key ~f:(function
       | Some i -> i + 1
-      | None ->
-          (* add_phi state term_detail (Riddler.list_head key) *)
-          failwith (Fmt.str "why not inited : %a" Lookup_key.pp key))
+      | None -> failwith (Fmt.str "why not inited : %a" Lookup_key.pp key))
   in
   new_i - 1
-
-let add_phi_edge state term_detail edge =
-  List.iter (Rule_action.phis_of edge)
-    ~f:(Global_state.add_phi state term_detail)
 
 (*
    Status promotion:
@@ -73,10 +68,8 @@ let promote_status (td : Term_detail.t) status' =
   match (td.status, status') with
   | Good, Good -> Some Good
   | Good, _ -> Some status'
-  | Complete, _ -> None
-  (* failwith "[complete] why here" *)
-  | Fail, _ -> None
-(* failwith "[fail] why here" *)
+  | Complete, _ -> None (* failwith "[complete] why here" *)
+  | Fail, _ -> None (* failwith "[fail] why here" *)
 
 let promote_result (target : Lookup_key.t) map (td : Term_detail.t)
     (r : Lookup_result.t) status' =
@@ -84,9 +77,10 @@ let promote_result (target : Lookup_key.t) map (td : Term_detail.t)
         Fmt.pr "[Push] <- %a;%a(%a) @." Lookup_key.pp r.from Lookup_status.pp_short
      status' Lookup_status.pp_short r.status ; *)
   match promote_status td status' with
+  | Some Complete ->
+      set_status td Complete ;
+      Some Lookup_result.(status_as r Complete)
   | Some status'' ->
-      (* Fmt.pr "[Push] %a ===> %a@." Lookup_status.pp_short td.status
-         Lookup_status.pp_short status'' ; *)
       set_status td status'' ;
       Some Lookup_result.(status_as r status'')
   | None ->
@@ -94,9 +88,8 @@ let promote_result (target : Lookup_key.t) map (td : Term_detail.t)
       None
 
 let register run_task unroll (state : Global_state.t)
-    (term_detail : Term_detail.t) rule_action =
+    (term_detail : Term_detail.t) target source =
   let open Rule_action in
-  let { target; source } = rule_action in
   let add_phi = Global_state.add_phi state term_detail in
   let set_status = set_status term_detail in
   let add_sub_preconds cond =
@@ -107,9 +100,9 @@ let register run_task unroll (state : Global_state.t)
   in
   let promote_result = promote_result target state.term_detail_map in
   let rec run ?(sub_lookup = false) source =
-    (match source with
-    | Withered e -> set_status Lookup_status.Fail
-    | Leaf e ->
+    match source with
+    | Withered -> set_status Lookup_status.Fail
+    | Leaf ->
         set_status Lookup_status.Complete ;
         U.by_return unroll target (Lookup_result.complete target)
     | Direct e ->
@@ -120,8 +113,9 @@ let register run_task unroll (state : Global_state.t)
         else
           U.by_filter_map_u unroll target e.pub (fun r ->
               promote_result term_detail r r.status) ;
-        (* Fmt.pr "[Direct]%a <= %a(%B) @." Lookup_key.pp target Lookup_key.pp
-           e.pub sub_lookup ; *)
+        Log.debug (fun m ->
+            m "[Direct]%a <- %a(%B) @." Lookup_key.pp target Lookup_key.pp e.pub
+              sub_lookup) ;
         run_task e.pub
     | Map e ->
         U.by_filter_map_u unroll target e.pub (fun r ->
@@ -172,8 +166,7 @@ let register run_task unroll (state : Global_state.t)
               let next = e.next i r in
               match next with
               | Some (phi_i, edge) ->
-                  let phi = Riddler.list_append target i phi_i in
-                  add_phi phi ;
+                  add_phi @@ Riddler.list_append target i phi_i ;
                   run ~sub_lookup:true edge
               | None -> add_phi (Riddler.list_append target i Riddler.false_)) ;
           Lwt.return_unit
@@ -182,8 +175,7 @@ let register run_task unroll (state : Global_state.t)
         run_task e.pub
     | Or_list e ->
         if e.unbound then init_list_counter state term_detail target ;
-        List.iter e.elements ~f:(run ~sub_lookup)) ;
-    add_phi_edge state term_detail source
+        List.iter e.elements ~f:(run ~sub_lookup)
   in
 
   run source ;
@@ -206,5 +198,6 @@ let register run_task unroll (state : Global_state.t)
       else Some r
     in
     U.set_pre_push unroll target pre_push ;
-    Fmt.pr "[Reg-%B] %a %d@." need_pre_push Lookup_key.pp target
-      (List.length term_detail.sub_preconds))
+    Log.debug (fun m ->
+        m "[Reg-%B] %a %d@." need_pre_push Lookup_key.pp target
+          (List.length term_detail.sub_preconds)))

@@ -20,7 +20,7 @@ let process_rstk_stat_map (config : Global_config.t) (state : Global_state.t) =
     List.sum (module Float) raw_plist ~f:(fun (k, d) -> d.smt_time)
   in
 
-  S2Log.info (fun m ->
+  LS2Log.info (fun m ->
       m "%a@;%f"
         Fmt.(vbox (list ~sep:cut (pair Rstack.pp_length Rstk_stat.pp)))
         srd_list time_sum)
@@ -29,7 +29,7 @@ let dump_block_stat (config : Global_config.t) (state : Global_state.t) =
   if state.tree_size mod 1000 = 0
   then
     let raw_plist = state.block_stat_map |> Hashtbl.to_alist in
-    S2Log.app (fun m ->
+    LS2Log.debug (fun m ->
         m "%d@,%a" state.tree_size
           Fmt.(vbox (list ~sep:sp (Dump.pair Cfg.Block.pp Block_stat.pp)))
           raw_plist)
@@ -68,8 +68,8 @@ let pp_one_sub map oc key =
   match Hashtbl.find map key with
   | Some (td : Term_detail.t) ->
       let sub_status = td.status in
-      Fmt.pr "%a=%a" Lookup_key.pp key Lookup_status.pp_short sub_status
-  | None -> Fmt.pr "%a=/" Lookup_key.pp key
+      Fmt.pf oc "%a=%a" Lookup_key.pp key Lookup_status.pp_short sub_status
+  | None -> Fmt.pf oc "%a=/" Lookup_key.pp key
 
 let pp_subs map oc (td : Term_detail.t) =
   Fmt.(pr "%a" (hbox @@ list ~sep:semi (pp_one_sub map))) td.sub_lookups
@@ -92,21 +92,20 @@ let dump_term_details (state : Global_state.t) =
            Int.compare (Lookup_key.length k1) (Lookup_key.length k2))
   in
   let td_lst = sorted_list_of_hashtbl state.term_detail_map in
-  Fmt.(pr "@.[Size: %d]@." (List.length td_lst)) ;
+
+  CMLOG.debug (fun m -> m "@.[Size: %d]@." (List.length td_lst)) ;
   let unroll = get_dbmc_unroll state in
   List.iter td_lst ~f:(fun (key, td) ->
-      let open Lookup_status in
       match td.status with
-      (* | Complete | Fail -> ()
-         | Good -> *)
+      | Complete | Fail -> ()
       | _ ->
-          Fmt.(
-            pr "%a@."
-              (vbox @@ pp_key_with_detail state.term_detail_map)
-              (key, td)) ;
+          CMLOG.debug (fun m ->
+              m "%a@."
+                (Fmt.vbox @@ pp_key_with_detail state.term_detail_map)
+                (key, td)) ;
           let msg_s = Unrolls.U_dbmc.get_stream unroll key in
           let msg_lst = Lwt_stream.get_available msg_s in
-          Fmt.(
-            pr "msg[%d]: %a@." (List.length msg_lst)
-              (Dump.list Lookup_result.pp)
-              msg_lst))
+          CMLOG.debug (fun m ->
+              m "msg[%d]: %a@." (List.length msg_lst)
+                (Fmt.Dump.list Lookup_result.pp)
+                msg_lst))

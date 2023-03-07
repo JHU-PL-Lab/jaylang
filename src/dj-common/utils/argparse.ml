@@ -76,7 +76,11 @@ let parse_commandline_config () =
       and log_level_interpreter =
         flag "-li" (optional log_level_parser) ~doc:"log level for interpreter"
       and log_level_search =
-        flag "-ls2" (optional log_level_parser) ~doc:"log level for interpreter"
+        flag "-ls2" (optional log_level_parser) ~doc:"log level for search"
+      and log_level_complete_message =
+        flag "-lm"
+          (optional log_level_parser)
+          ~doc:"log level for completemessage"
       and debug_phi = flag "-dp" no_arg ~doc:"output constraints"
       and debug_no_model = flag "-dnm" no_arg ~doc:"not output smt model"
       and debug_graph = flag "-dg" no_arg ~doc:"output graphviz dot"
@@ -107,6 +111,8 @@ let parse_commandline_config () =
             log_level_interpreter =
               latter_option log_level log_level_interpreter;
             log_level_search = latter_option log_level log_level_search;
+            log_level_complete_message =
+              latter_option log_level log_level_search;
             debug_phi;
             debug_model = not debug_no_model;
             debug_graph;

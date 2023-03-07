@@ -77,9 +77,12 @@ let check (state : Global_state.t) (config : Global_config.t) :
      }
    in
    state.check_infos <- this_check_info :: state.check_infos)
-  (* debug - should be removed *)
-  (* try another solver using accumulated phis *)
-  (* let another_solver = Z3.Solver.mk_solver Solver.ctx None in
+  (* debug -
+     try another solver using accumulated phis
+     should be removed *)
+
+  (* ;
+     let another_solver = Z3.Solver.mk_solver Solver.ctx None in
      let another_result =
        Solver.check another_solver state.phis_added phi_used_once
      in

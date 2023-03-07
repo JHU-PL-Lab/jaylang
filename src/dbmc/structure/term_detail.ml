@@ -4,7 +4,9 @@ open Dj_common
 type t = {
   node : Search_graph.node_ref;
   rule : Rule.t;
+  mutable domain : Lookup_key.t list;
   mutable phis : Z3.Expr.expr list;
+  (* lookup *)
   mutable status : Lookup_status.t;
   mutable sub_preconds : bool ref list;
   mutable sub_lookups : Lookup_key.t list;
@@ -18,6 +20,7 @@ let mk_detail ~rule ~key =
   {
     node = ref (Search_graph.mk_node ~block_id ~key);
     rule;
+    domain = [];
     phis = [];
     status = Lookup_status.Good;
     sub_preconds = [];

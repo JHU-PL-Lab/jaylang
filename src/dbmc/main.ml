@@ -87,7 +87,7 @@ let handle_both (config : Global_config.t) (state : Global_state.t) model =
   then () (* Graphviz.output_graph ~model ~testname:config.filename state *)
   else () ;
   Observe.process_rstk_stat_map config state ;
-  Observe.dump_term_details state ;
+  (* Observe.dump_term_details state ; *)
   SLog.warn (fun m ->
       m "@,%a"
         Fmt.(vbox (list ~sep:sp Check_info.pp))
@@ -156,10 +156,10 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
     | None -> do_work ()
   with
   | Riddler.Found_solution { model; c_stk } ->
-      let unroll = Observe.get_dbmc_unroll state in
-      let msg_list = !Unrolls.U_dbmc.msg_queue in
-      Fmt.pr "[msg]%d@," (List.length msg_list) ;
-      Lwt_list.iter_p (fun msg -> msg) msg_list >>= fun _ ->
+      (* let unroll = Observe.get_dbmc_unroll state in
+            let msg_list = !Unrolls.U_dbmc.msg_queue in
+            Fmt.pr "[msg]%d@," (List.length msg_list) ;
+         Lwt_list.iter_p (fun msg -> msg) msg_list >>= fun _ -> *)
       Lwt.return (handle_found config state model c_stk)
   | Lwt_unix.Timeout -> (
       prerr_endline "lookup: timeout" ;
