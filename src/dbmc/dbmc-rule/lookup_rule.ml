@@ -31,23 +31,16 @@ module Make (S : S) = struct
     Hash_set.add S.state.input_nodes key ;
     if p.is_in_main then rule_main None p key else rule_nonmain None p key
 
-  let alias (p : Alias_rule.t) (key : Lookup_key.t) =
-    let key' = Lookup_key.with_x key p.x' in
-    Direct { pub = key' }
+  let alias (p : Alias_rule.t) (key : Lookup_key.t) = Direct { pub = p.x' }
 
   let not_ (p : Not_rule.t) (key : Lookup_key.t) =
-    let key' = Lookup_key.with_x key p.x' in
-    Map { pub = key'; map = (fun r -> Lookup_result.from_as key r.status) }
+    Map { pub = p.x'; map = (fun r -> Lookup_result.from_as key r.status) }
 
   let binop (p : Binop_rule.t) (key : Lookup_key.t) =
-    let key_x1 = Lookup_key.with_x key p.x1 in
-    let key_x2 = Lookup_key.with_x key p.x2 in
-    Both
-      { pub1 = Lookup_key.with_x key p.x1; pub2 = Lookup_key.with_x key p.x2 }
+    Both { pub1 = p.x1; pub2 = p.x2 }
 
   let record_start p (key : Lookup_key.t) =
-    let ({ r; lbl; _ } : Record_start_rule.t) = p in
-    let key_r = Lookup_key.with_x key r in
+    let ({ r = key_r; lbl } : Record_start_rule.t) = p in
     let next i r =
       if Lookup_result.is_ok r
       then
@@ -85,8 +78,7 @@ module Make (S : S) = struct
     Chain { pub = key_x2; next }
 
   let cond_btm p (key : Lookup_key.t) =
-    let ({ x; x'; cond_both } : Cond_btm_rule.t) = p in
-    let term_c = Lookup_key.with_x key x' in
+    let ({ x'; cond_both } : Cond_btm_rule.t) = p in
     let next _ r =
       if Lookup_result.is_ok r
       then
@@ -116,7 +108,7 @@ module Make (S : S) = struct
         else None
       else None
     in
-    Chain { pub = term_c; next }
+    Chain { pub = x'; next }
 
   let fun_enter_local p (key : Lookup_key.t) =
     let fid = key.block.id in
@@ -172,7 +164,6 @@ module Make (S : S) = struct
     Or_list { elements; unbound = true }
 
   let fun_exit (p : Fun_exit_rule.t) (key : Lookup_key.t) =
-    let key_f = Lookup_key.of3 p.xf key.r_stk key.block in
     let next (_key : Lookup_key.t) (rf : Lookup_result.t) =
       if Lookup_result.is_ok rf
       then
@@ -184,11 +175,10 @@ module Make (S : S) = struct
         else None
       else None
     in
-    Chain { pub = key_f; next }
+    Chain { pub = p.xf; next }
 
   let pattern p (key : Lookup_key.t) =
     let ({ x'; pat; _ } : Pattern_rule.t) = p in
-    let key' = Lookup_key.with_x key x' in
     let f i (r : Lookup_result.t) =
       (* OB1: For some patterns, we can immediately know the result of the matching:
            when the returning value is a literal value. We can use it in the interpreter.
@@ -207,8 +197,8 @@ module Make (S : S) = struct
         | Int_pattern, Value_body (Value_int _)
         | Int_pattern, Input_body
         | Bool_pattern, Value_body (Value_bool _) ->
-            let phi1 = Riddler.eqv_with_picked key key' (Value_bool true) in
-            let phi2 = Riddler.picked_pattern key key' pat in
+            let phi1 = Riddler.eqv_with_picked key x' (Value_bool true) in
+            let phi2 = Riddler.picked_pattern key x' pat in
 
             ([ phi1; phi2 ], true)
         | Rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
@@ -216,7 +206,7 @@ module Make (S : S) = struct
               Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
             in
             let phi =
-              Riddler.picked_record_pattern key key' (Value_bool have_all) pat
+              Riddler.picked_record_pattern key x' (Value_bool have_all) pat
             in
             ([ phi ], true)
         | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
@@ -224,27 +214,27 @@ module Make (S : S) = struct
               Ident_set.equal ids (Ident_set.of_enum @@ Ident_map.keys rv)
             in
             let phi =
-              Riddler.picked_record_pattern key key' (Value_bool have_all) pat
+              Riddler.picked_record_pattern key x' (Value_bool have_all) pat
             in
             ([ phi ], true)
         | Rec_pattern _, _ | _, Value_body _ ->
-            let phi1 = Riddler.eqv_with_picked key key' (Value_bool false) in
-            let phi2 = Riddler.picked_pattern key key' pat in
+            let phi1 = Riddler.eqv_with_picked key x' (Value_bool false) in
+            let phi2 = Riddler.picked_pattern key x' pat in
 
             ([ phi1; phi2 ], false)
         | _, _ ->
             (* TODO: some binops contain type information for patterns *)
             (* TODO: and for previous pattern match *)
-            let phi = Riddler.picked_pattern key key' pat in
+            let phi = Riddler.picked_pattern key x' pat in
             ([ phi ], false)
       in
       (* Fmt.pr "[Pattern][%B] %a | %a |%a\n" matched Lookup_key.pp key
          Jayil.Ast_pp.pp_pattern pat Lookup_key.pp key_rv ; *)
-      let eq_key'_rv = Riddler.eq key' key_rv in
+      let eq_key'_rv = Riddler.eq x' key_rv in
       let picked_rv = Riddler.picked key_rv in
       (Lookup_result.from_as key r.status, picked_rv :: eq_key'_rv :: phis)
     in
-    MapSeq { pub = key'; map = f }
+    MapSeq { pub = x'; map = f }
 
   let assume _p (key : Lookup_key.t) = Withered
   let assert_ _p (key : Lookup_key.t) = Withered

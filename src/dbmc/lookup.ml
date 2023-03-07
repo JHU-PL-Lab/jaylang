@@ -190,16 +190,9 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
           if p.is_in_main
           then Riddler.discover_main_with_picked key None
           else Riddler.discover_non_main key key_first None
-      | Alias p ->
-          let key' = Lookup_key.with_x key p.x' in
-          Riddler.eq_with_picked key key'
-      | Not p ->
-          let key' = Lookup_key.with_x key p.x' in
-          Riddler.not_with_picked key key'
-      | Binop p ->
-          let key_x1 = Lookup_key.with_x key p.x1 in
-          let key_x2 = Lookup_key.with_x key p.x2 in
-          Riddler.binop_with_picked key p.bop key_x1 key_x2
+      | Alias p -> Riddler.eq_with_picked key p.x'
+      | Not p -> Riddler.not_with_picked key p.x'
+      | Binop p -> Riddler.binop_with_picked key p.bop p.x1 p.x2
       | Cond_top p ->
           let ({ cond_case_info = cb; condsite_block } : Cond_top_rule.t) = p in
           let beta = cb.choice in
@@ -210,16 +203,12 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
           let key_x2 = Lookup_key.of3 x2 condsite_stack condsite_block in
           let key_x = Lookup_key.of3 key.x condsite_stack condsite_block in
           Riddler.cond_top key key_x key_x2 beta
-      | Cond_btm p ->
-          let term_c = Lookup_key.with_x key p.x' in
-          Riddler.cond_bottom key term_c p.cond_both
+      | Cond_btm p -> Riddler.cond_bottom key p.x' p.cond_both
       | Fun_enter_local p ->
           let callsites = Lookup_key.get_callsites key.r_stk key.block in
           Riddler.fun_enter_local key key.block.id callsites state.block_map
       | Fun_enter_nonlocal p -> Riddler.true_
-      | Fun_exit p ->
-          let key_f = Lookup_key.of3 p.xf key.r_stk key.block in
-          Riddler.fun_exit key key_f p.fids state.block_map
+      | Fun_exit p -> Riddler.fun_exit key p.xf p.fids state.block_map
       | Pattern p -> Riddler.true_
       | Record_start p -> Riddler.true_
       | Assume p -> Riddler.mismatch_with_picked key

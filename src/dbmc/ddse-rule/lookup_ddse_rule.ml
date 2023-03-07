@@ -70,36 +70,32 @@ module Make (S : S) = struct
     else rule_nonmain None this_key phis run_task
 
   let alias p key phis_top run_task =
-    let ({ x'; _ } : Alias_rule.t) = p in
-    let key_rx = Lookup_key.with_x key x' in
-    run_task key_rx phis_top ;
+    let ({ x' } : Alias_rule.t) = p in
+    run_task x' phis_top ;
 
-    U.by_map_u S.unroll key key_rx (return_with key)
+    U.by_map_u S.unroll key x' (return_with key)
 
   let not_ _p _key _phis_top _run_task = ()
 
   let binop b key phis_top run_task =
-    let ({ bop; x1; x2; _ } : Binop_rule.t) = b in
-    let key_x1 = Lookup_key.with_x key x1 in
-    let key_x2 = Lookup_key.with_x key x2 in
-    run_task key_x1 phis_top ;
-    run_task key_x2 phis_top ;
+    let ({ bop; x1; x2 } : Binop_rule.t) = b in
+    run_task x1 phis_top ;
+    run_task x2 phis_top ;
 
     let cb ((t1 : Ddse_result.t), (t2 : Ddse_result.t)) =
       Ddse_result.(merge_with_v key bop t1 t2)
     in
 
-    U.by_filter_map2_u S.unroll key key_x1 key_x2 cb
+    U.by_filter_map2_u S.unroll key x1 x2 cb
 
   let record_start p key phis_top run_task =
-    let ({ r; lbl; _ } : Record_start_rule.t) = p in
-    let key_r = Lookup_key.with_x key r in
+    let ({ r; lbl } : Record_start_rule.t) = p in
 
-    run_task key_r phis_top ;
+    run_task r phis_top ;
 
     let cb this_key (rv : Ddse_result.t) =
       let rv_block = rv.v.block in
-      let phi1 = Riddler.eq key_r rv.v in
+      let phi1 = Riddler.eq r rv.v in
       let clause_body = Cfg.clause_body_of_x rv_block rv.v.x in
       let rvv = Ast_tools.record_of_clause_body clause_body in
       (match Ident_map.Exceptionless.find lbl rvv with
@@ -112,7 +108,7 @@ module Make (S : S) = struct
 
       Lwt.return_unit
     in
-    U.by_bind_u S.unroll key key_r cb
+    U.by_bind_u S.unroll key r cb
 
   let cond_top p (key : Lookup_key.t) phis_top run_task =
     let ({ cond_case_info = cb; condsite_block } : Cond_top_rule.t) = p in
@@ -143,11 +139,10 @@ module Make (S : S) = struct
     U.by_bind_u S.unroll key key_x2 cb
 
   let cond_btm p (this_key : Lookup_key.t) phis_top run_task =
-    let ({ x; x'; cond_both } : Cond_btm_rule.t) = p in
-    let term_c = Lookup_key.with_x this_key x' in
+    let ({ x'; cond_both } : Cond_btm_rule.t) = p in
 
     (* Method 1 : lookup condition then lookup beta-case *)
-    run_task term_c phis_top ;
+    run_task x' phis_top ;
 
     let cb (this_key : Lookup_key.t) (rc : Ddse_result.t) =
       List.iter [ true; false ] ~f:(fun beta ->
@@ -177,7 +172,7 @@ module Make (S : S) = struct
                  in
                  U.by_bind_u S.unroll this_key key_ret cb) *)
               (* Method 1-b: slow in looping *)
-              let choice_beta = (term_c, beta) in
+              let choice_beta = (x', beta) in
               U.by_filter_map_u S.unroll this_key key_ret
                 (return_phis_with_beta this_key [ phi_beta ] [ choice_beta ] rc)
           | None -> ()) ;
@@ -185,7 +180,7 @@ module Make (S : S) = struct
       Lwt.return_unit
     in
 
-    U.by_bind_u S.unroll this_key term_c cb
+    U.by_bind_u S.unroll this_key x' cb
 
   (* Method 1 End *)
 
@@ -288,18 +283,17 @@ module Make (S : S) = struct
     ()
 
   let fun_exit p (this_key : Lookup_key.t) phis_top run_task =
-    let ({ x; xf; fids } : Fun_exit_rule.t) = p in
-    let key_f = Lookup_key.with_x this_key xf in
+    let ({ xf; fids } : Fun_exit_rule.t) = p in
     let b_id = this_key.block.id in
 
-    run_task key_f phis_top ;
+    run_task xf phis_top ;
 
     let sub_trees =
       List.fold fids
         ~f:(fun sub_trees fid ->
           let fblock = Ident_map.find fid S.block_map in
           let key_ret = Lookup_key.get_f_return S.block_map fid this_key in
-          let phi = Riddler.same_funexit key_f fid key_ret this_key in
+          let phi = Riddler.same_funexit xf fid key_ret this_key in
           let cb (key : Lookup_key.t) (rf : Ddse_result.t) =
             let fid' = rf.v.x in
             if Id.equal fid fid' (* if List.mem fids fid ~equal:Id.equal *)
@@ -313,7 +307,7 @@ module Make (S : S) = struct
                    [ choice_this; choice_f ] rf)) ;
             Lwt.return_unit
           in
-          U.by_bind_u S.unroll this_key key_f cb ;
+          U.by_bind_u S.unroll this_key xf cb ;
 
           sub_trees)
         ~init:[]
