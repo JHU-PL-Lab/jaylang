@@ -59,7 +59,7 @@ let bail_compose (default : clause_body) ((attempt, deps) : presidual option * L
 
 let find_var_env_deps (var_enum : var Enum.t) (env : penv) : penv * LexAdr_set.t =
   let lines, deps = get_many_lines_from_ident_opt var_enum env
-  in let () = Format.printf "Finding var env deps:\n %a\n" LexAdr_set.pp deps; Format.printf "%a\n" (pp_enum pp_var) (var_enum)
+  (* in let () = Format.printf "Finding var env deps:\n %a\n" LexAdr_set.pp deps; Format.printf "%a\n" (pp_enum pp_var) (var_enum) *)
   in List.fold_right begin fun cur_lexadr new_env ->
     (* Format.printf "%s\n" (show_lexadr cur_lexadr);
     Format.printf "%a\n" pp_penv new_env; *)
@@ -269,9 +269,9 @@ let simple_eval (expr : expr) : value * penv = begin
     (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
     | Value_body (Value_function (Function_value ((Var(x1, _)) as vx1, func_expr) as vf)) -> begin
       let captured = Var_set.remove vx1 (simple_cval func_expr)
-      in let () = Format.printf "%a\n" Var_set.pp captured
+      (* in let () = Format.printf "%a\n" Var_set.pp captured *)
       in let new_env, deps = find_var_env_deps (Var_set.enum captured) env
-      in let () = Format.printf "%a\n" pp_penv new_env
+      (* in let () = Format.printf "%a\n" pp_penv new_env *)
       in deps, FunClosure (x, vf, new_env)
     end
     
@@ -303,7 +303,7 @@ let simple_eval (expr : expr) : value * penv = begin
       | _ -> failwith "Type error! Function application attempted with a non-function!"
       in let inner_envnum = envnum + 1
       in let beginenv = get_from_ident vx2 env |> (add_param_el_penv func_x inner_envnum ~map:func_env)
-      in let () = Format.printf "Begin function with:\n %a\n" pp_penv beginenv
+      (* in let () = Format.printf "Begin function with:\n %a\n" pp_penv beginenv *)
       in let endenv = eval_expr inner_envnum beginenv func_expr
       in let [@warning "-8"] _, PValue endpvalue, inner_deps = (IdentLine_map.find (LexAdr (inner_envnum, -1)) endenv)
       in LexAdr_set.union func_deps (LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) inner_deps), endpvalue
