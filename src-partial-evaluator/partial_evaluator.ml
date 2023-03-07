@@ -84,13 +84,14 @@ let rec simple_deval (start_envnum : int) (start_penv : penv) (expr : expr) : Le
     in let _, _, enddeps = (IdentLine_map.find (LexAdr (0, -1)) endenv)
     in enddeps, endenv
 
-  and deval_clause (lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 
-    let linedeps = match body with
+  and deval_clause ((envn, line) as lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 
+    (*Format.printf "Deval LexAdr: %d, %d\n" envn line;*) let linedeps = match body with
 
     | Value_body (Value_function Function_value (Var (x1, _), func_expr)) -> begin
+      (* Format.printf "Hi before\n"; *)
       let inner_envnum = fst lexadr + 1
-      in let [@warning "-6"] beginenv = add_ident_el_penv x1 (x1, PExpr (Expr []), LexAdr_set.empty) ~map:env (* :( Have to be explicit huh *)
-      in let () = Format.printf "%a\n" pp_penv beginenv
+      in let [@warning "-6"] beginenv = add_ident_el_penv x1 (x1, PExpr (Expr []), LexAdr_set.singleton (-1, -1)) env
+      (* in let () = Format.printf "%a\n" pp_penv beginenv *)
       in LexAdr_set.filter (fun (envnum, _) -> envnum < inner_envnum) @@ fst @@ deval_expr inner_envnum beginenv func_expr
     end
     
