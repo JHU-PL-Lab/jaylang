@@ -154,7 +154,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
         m "[Lookup][%d][=>]: %a; [Rule] %a; [Block] %a" state.tree_size
           Lookup_key.pp key Rule.pp_rule rule Id.pp key.block.id) ;
 
-    let rule_action =
+    let rule_action, rule_phi =
       let open Rule in
       match rule with
       | Discovery_main p -> R.discovery_main p key
@@ -175,51 +175,13 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
       | Abort p -> R.abort p key
       | Mismatch -> R.mismatch key
     in
-    Run_rule_action.register
+    Lookup_rule.register
       (fun key -> run_eval key lookup)
       unroll state term_detail key rule_action ;
 
-    let phi =
-      let key_first = Lookup_key.to_first key state.first in
-      let open Rule in
-      match rule with
-      | Discovery_main p -> Riddler.discover_main_with_picked key (Some p.v)
-      | Discovery_nonmain p ->
-          Riddler.discover_non_main key key_first (Some p.v)
-      | Input p ->
-          if p.is_in_main
-          then Riddler.discover_main_with_picked key None
-          else Riddler.discover_non_main key key_first None
-      | Alias p -> Riddler.eq_with_picked key p.x'
-      | Not p -> Riddler.not_with_picked key p.x'
-      | Binop p -> Riddler.binop_with_picked key p.bop p.x1 p.x2
-      | Cond_top p ->
-          let ({ cond_case_info = cb; condsite_block } : Cond_top_rule.t) = p in
-          let beta = cb.choice in
-          let _paired, condsite_stack =
-            Rstack.pop_at_condtop key.r_stk (cb.condsite, Id.cond_fid beta)
-          in
-          let x2 = cb.cond in
-          let key_x2 = Lookup_key.of3 x2 condsite_stack condsite_block in
-          let key_x = Lookup_key.of3 key.x condsite_stack condsite_block in
-          Riddler.cond_top key key_x key_x2 beta
-      | Cond_btm p -> Riddler.cond_bottom key p.x' p.cond_both
-      | Fun_enter_local p ->
-          let callsites = Lookup_key.get_callsites key.r_stk key.block in
-          Riddler.fun_enter_local key key.block.id callsites state.block_map
-      | Fun_enter_nonlocal p -> Riddler.true_
-      | Fun_exit p -> Riddler.fun_exit key p.xf p.fids state.block_map
-      | Pattern p -> Riddler.true_
-      | Record_start p -> Riddler.true_
-      | Assume p -> Riddler.mismatch_with_picked key
-      | Assert p -> Riddler.mismatch_with_picked key
-      | Abort p ->
-          if Lookup_key.equal key (Lookup_key.start config.target key.block)
-          then Riddler.discover_non_main key key_first None
-          else Riddler.mismatch_with_picked key
-      | Mismatch -> Riddler.mismatch_with_picked key
-    in
-    Global_state.add_phi state term_detail phi ;
+    (match rule_phi with
+    | Some phi -> Global_state.add_phi state term_detail phi
+    | None -> ()) ;
 
     (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked.
         run all previous lookups *)
