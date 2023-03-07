@@ -782,6 +782,11 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let jayil_aliases_with_stack = err.err_value_aliases in
       (* This is the stack of the "false" value that indicates where the error
          is located. *)
+      let () =
+        Fmt.pr "\nThese are the aliases: %a \n"
+          (Fmt.list Id_with_stack.pp)
+          jayil_aliases_with_stack
+      in
       let relevant_stk =
         match List.last jayil_aliases_with_stack with
         | Some (_, final_stk) -> final_stk

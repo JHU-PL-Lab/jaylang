@@ -221,9 +221,13 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       in
       let%bind checker =
         (* Building the intial check for whether it's a record value *)
-        let%bind rec_fail_id = fresh_ident "rec_fail" in
+        let%bind rec_fail_id_1 = fresh_ident "rec_fail" in
+        let%bind rec_fail_id_2 = fresh_ident "rec_fail" in
+        let%bind rec_fail_id_3 = fresh_ident "rec_fail" in
         let%bind expr_id = fresh_ident "expr" in
-        let fail_pat_cls = new_expr_desc @@ Var rec_fail_id in
+        let fail_pat_cls_1 = new_expr_desc @@ Var rec_fail_id_1 in
+        let fail_pat_cls_2 = new_expr_desc @@ Var rec_fail_id_2 in
+        let fail_pat_cls_3 = new_expr_desc @@ Var rec_fail_id_3 in
         let matched_expr = new_expr_desc @@ Var expr_id in
         (* For the checker, we need to first check whether the value in
            question is a record. If not, returns false. Otherwise. we need
@@ -288,13 +292,13 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed
           @@ Match
                ( actual_rec,
-                 [ (RecPat type_dict, fun_body); (AnyPat, fail_pat_cls) ] )
+                 [ (RecPat type_dict, fun_body); (AnyPat, fail_pat_cls_1) ] )
         in
         let%bind decl_lbls_check =
           new_instrumented_ed
           @@ Match
                ( decl_lbls,
-                 [ (RecPat type_dict, lbls_check); (AnyPat, fail_pat_cls) ] )
+                 [ (RecPat type_dict, lbls_check); (AnyPat, fail_pat_cls_2) ] )
         in
         (* Also, the record type we have here is like OCaml; it must have the
            labels with the corresponding types, and nothing more. That's why
@@ -303,19 +307,39 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed
           @@ Match
                ( matched_expr,
-                 [ (RecPat rec_pat, decl_lbls_check); (AnyPat, fail_pat_cls) ]
+                 [ (RecPat rec_pat, decl_lbls_check); (AnyPat, fail_pat_cls_3) ]
                )
         in
-        let check_cls =
-          Let (rec_fail_id, new_expr_desc @@ Bool false, match_body)
+        let check_cls_1 =
+          Let (rec_fail_id_1, new_expr_desc @@ Bool false, match_body)
+        in
+        let check_cls_2 =
+          Let
+            ( rec_fail_id_2,
+              new_expr_desc @@ Bool false,
+              new_expr_desc check_cls_1 )
+        in
+        let check_cls_3 =
+          Let
+            ( rec_fail_id_3,
+              new_expr_desc @@ Bool false,
+              new_expr_desc check_cls_2 )
         in
         (* Since the initial record check could be a point of faliure, we need to
            record it as well. *)
         let%bind () =
-          add_error_to_value_expr_mapping fail_pat_cls matched_expr
+          add_error_to_value_expr_mapping fail_pat_cls_1 actual_rec
         in
-        let%bind () = add_error_to_tag_mapping fail_pat_cls tag in
-        return @@ Function ([ expr_id ], new_expr_desc check_cls)
+        let%bind () =
+          add_error_to_value_expr_mapping fail_pat_cls_2 decl_lbls
+        in
+        let%bind () =
+          add_error_to_value_expr_mapping fail_pat_cls_3 matched_expr
+        in
+        let%bind () = add_error_to_tag_mapping fail_pat_cls_1 tag in
+        let%bind () = add_error_to_tag_mapping fail_pat_cls_2 tag in
+        let%bind () = add_error_to_tag_mapping fail_pat_cls_3 tag in
+        return @@ Function ([ expr_id ], new_expr_desc check_cls_3)
       in
       let rec_map =
         Ident_map.empty
