@@ -32,7 +32,12 @@ module Record_start_rule = struct
 end
 
 module Cond_top_rule = struct
-  type t = { cond_case_info : Cfg.cond_case_info; condsite_block : Cfg.block }
+  type t = {
+    cond_case_info : Cfg.cond_case_info;
+    condsite_block : Cfg.block;
+    x : Lookup_key.t;
+    x2 : Lookup_key.t;
+  }
 end
 
 module Cond_btm_rule = struct
@@ -40,11 +45,11 @@ module Cond_btm_rule = struct
 end
 
 module Fun_enter_local_rule = struct
-  type t = { fb : Cfg.fun_block_info; is_local : bool }
+  type t = { fb : Cfg.fun_block_info; is_local : bool; callsites : ident list }
 end
 
 module Fun_enter_nonlocal_rule = struct
-  type t = { fb : Cfg.fun_block_info; is_local : bool }
+  type t = { fb : Cfg.fun_block_info; is_local : bool; callsites : ident list }
 end
 
 module Fun_exit_rule = struct
@@ -64,7 +69,7 @@ module Assert_rule = struct
 end
 
 module Abort_rule = struct
-  type t = Abort_tag
+  type t = { is_target : bool }
 end
 
 type t =
@@ -86,7 +91,7 @@ type t =
   | Abort of Abort_rule.t
   | Mismatch
 
-let rule_of_runtime_status (key : Lookup_key.t) block_map : t =
+let rule_of_runtime_status (key : Lookup_key.t) block_map target : t =
   let x = key.x in
   let block = key.block in
   let open Cfg in
@@ -128,7 +133,12 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map : t =
       } ->
           let xf = Lookup_key.with_x key ixf in
           Fun_exit { xf; fids }
-      | { clause = Clause (_, Abort_body); _ } -> Abort Abort_tag
+      | { clause = Clause (_, Abort_body); _ } ->
+          (* TODO: take care of direct `abort` in the main block *)
+          let is_target =
+            Lookup_key.equal key (Lookup_key.start target key.block)
+          in
+          Abort { is_target }
       | { clause = Clause (_, Assume_body (Var (ix', _))); _ } ->
           let x' = Lookup_key.with_x key ix' in
           Assume { x' }
@@ -144,12 +154,21 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map : t =
   | None -> (
       match block.kind with
       | Fun fb ->
+          let callsites = Lookup_key.get_callsites key.r_stk key.block in
           if Ident.(equal fb.para x)
-          then Fun_enter_local { fb; is_local = true }
-          else Fun_enter_nonlocal { fb; is_local = false }
+          then Fun_enter_local { fb; is_local = true; callsites }
+          else Fun_enter_nonlocal { fb; is_local = false; callsites }
       | Cond cb ->
           let condsite_block = Cfg.outer_block block block_map in
-          Cond_top { cond_case_info = cb; condsite_block }
+          let x, x2 =
+            let _paired, condsite_stack =
+              Rstack.pop_at_condtop key.r_stk
+                (cb.condsite, Id.cond_fid cb.choice)
+            in
+            ( Lookup_key.of3 key.x condsite_stack condsite_block,
+              Lookup_key.of3 cb.cond condsite_stack condsite_block )
+          in
+          Cond_top { cond_case_info = cb; condsite_block; x; x2 }
       | Main -> Mismatch)
 
 let show_rule : t -> string = function

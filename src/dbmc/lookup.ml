@@ -45,14 +45,18 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     | Some _ -> ()
     | None ->
         let term_detail : Term_detail.t =
-          let rule = Rule.rule_of_runtime_status key state.block_map in
+          let rule =
+            Rule.rule_of_runtime_status key state.block_map config.target
+          in
           Term_detail.mk_detail ~rule ~key
         in
         Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
         let task = push_job state key (lookup key phis) in
         U_ddse.alloc_task unroll ~task key
   and lookup (this_key : Lookup_key.t) phis () : unit Lwt.t =
-    let rule = Rule.rule_of_runtime_status this_key state.block_map in
+    let rule =
+      Rule.rule_of_runtime_status this_key state.block_map config.target
+    in
     LLog.app (fun m ->
         m "[Lookup][=>]: %a ; Rule %a" Lookup_key.pp this_key Rule.pp_rule rule) ;
 
@@ -137,7 +141,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   in
   let module R = Lookup_rule.Make (LS) in
   let[@landmark] rec lookup (key : Lookup_key.t) () : unit Lwt.t =
-    let rule = Rule.rule_of_runtime_status key state.block_map in
+    let rule = Rule.rule_of_runtime_status key state.block_map config.target in
     let term_detail = Term_detail.mk_detail ~rule ~key in
 
     Option.iter !Log.saved_oc ~f:Out_channel.flush ;
@@ -154,34 +158,38 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
         m "[Lookup][%d][=>]: %a; [Rule] %a; [Block] %a" state.tree_size
           Lookup_key.pp key Rule.pp_rule rule Id.pp key.block.id) ;
 
-    let rule_action, rule_phi =
+    let rule_action =
       let open Rule in
+      let open Rule_action in
       match rule with
-      | Discovery_main p -> R.discovery_main p key
-      | Discovery_nonmain p -> R.discovery_nonmain p key
-      | Input p -> R.input p key
-      | Alias p -> R.alias p key
-      | Not p -> R.not_ p key
-      | Binop b -> R.binop b key
+      (* Simple *)
+      | Discovery_main p -> Must_complete
+      | Assume p -> Must_fail
+      | Assert p -> Must_fail
+      | Abort p -> if p.is_target then R.first_but_drop key else Must_fail
+      | Mismatch -> Must_fail
+      | Discovery_nonmain p -> R.first_but_drop key
+      | Input p ->
+          Hash_set.add state.input_nodes key ;
+          if p.is_in_main then Must_complete else R.first_but_drop key
+      | Alias p -> Direct { pub = p.x' }
+      | Not p -> R.listen_but_use p.x' key
+      | Binop p -> Both { pub1 = p.x1; pub2 = p.x2 }
+      (* A bit complex *)
       | Record_start p -> R.record_start p key
-      | Cond_top cb -> R.cond_top cb key
+      | Cond_top p -> R.chain_then_direct p.x2 p.x
       | Cond_btm p -> R.cond_btm p key
       | Fun_enter_local p -> R.fun_enter_local p key
       | Fun_enter_nonlocal p -> R.fun_enter_nonlocal p key
       | Fun_exit p -> R.fun_exit p key
       | Pattern p -> R.pattern p key
-      | Assume p -> R.assume p key
-      | Assert p -> R.assert_ p key
-      | Abort p -> R.abort p key
-      | Mismatch -> R.mismatch key
     in
     Lookup_rule.register
       (fun key -> run_eval key lookup)
       unroll state term_detail key rule_action ;
 
-    (match rule_phi with
-    | Some phi -> Global_state.add_phi state term_detail phi
-    | None -> ()) ;
+    Global_state.add_phi state term_detail
+      (R.phis_from_action key rule rule_action) ;
 
     (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked.
         run all previous lookups *)

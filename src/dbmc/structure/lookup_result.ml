@@ -13,6 +13,7 @@ let ok x = default x
 
 (* is `complete` a separate last message or does it come with the last message *)
 let complete x = { (default x) with status = Complete }
-let status_as x status = { x with status }
+
+(* let status_as x status = { x with status } *)
 let from_as from status = { from; status }
 let is_ok r = Lookup_status.is_ok r.status

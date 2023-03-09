@@ -7,15 +7,15 @@ open Dj_common
 
 type t =
   (* Mismatch *)
-  | Withered
+  | Must_fail
   (* Value main *)
-  | Leaf
+  | Must_complete
   (* Alias | Not_ *)
   | Direct of { pub : Lookup_key.t }
   (* Binop *)
   | Both of { pub1 : Lookup_key.t; pub2 : Lookup_key.t }
   (* Non-main *)
-  | Map of { pub : Lookup_key.t; map : Lookup_result.t -> Lookup_result.t }
+  | Map of { pub : Lookup_key.t; map : Lookup_key.t -> Lookup_key.t }
   (* Pattern *)
   | MapSeq of {
       pub : Lookup_key.t;

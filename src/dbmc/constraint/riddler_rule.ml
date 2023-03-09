@@ -182,3 +182,5 @@ let picked_pattern x x' pat =
 (* Mismatch *)
 
 let mismatch_with_picked key = picked key @=> box_bool false
+let get_initial_phis (rule : Rule.t) : Z3.Expr.expr = true_
+let get_phis (rule : Rule.t) (lstatus : Lookup_status.t) : Z3.Expr.expr = true_

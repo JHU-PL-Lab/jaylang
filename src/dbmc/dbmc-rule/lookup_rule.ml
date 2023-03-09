@@ -65,29 +65,22 @@ let fold_lookups_status map lookups =
 
 let set_status (td : Term_detail.t) status = td.status <- status
 
-let promote_status (td : Term_detail.t) status' =
+let change_status old_status new_status =
   let open Lookup_status in
-  match (td.status, status') with
-  | Good, Good -> Some Good
-  | Good, _ -> Some status'
+  match (old_status, new_status) with
   | Complete, _ -> None (* failwith "[complete] why here" *)
   | Fail, _ -> None (* failwith "[fail] why here" *)
+  | Good, Good -> Some Good
+  | Good, _ -> Some new_status
 
-let promote_result (target : Lookup_key.t) map (td : Term_detail.t)
-    (r : Lookup_result.t) status' =
-  (* Fmt.pr "[Push]%a @." (Observe.pp_key_with_detail map) (target, td) ;
-        Fmt.pr "[Push] <- %a;%a(%a) @." Lookup_key.pp r.from Lookup_status.pp_short
-     status' Lookup_status.pp_short r.status ; *)
-  match promote_status td status' with
-  | Some Complete ->
-      set_status td Complete ;
-      Some Lookup_result.(status_as r Complete)
-  | Some status'' ->
-      set_status td status'' ;
-      Some Lookup_result.(status_as r status'')
-  | None ->
-      (* Fmt.pr "[Push] %a =/=> @." Lookup_status.pp_short td.status ; *)
-      None
+let promote_result (target : Lookup_key.t) map (td : Term_detail.t) new_status
+    (v : Lookup_key.t) =
+  match change_status td.status new_status with
+  | Some Complete | Some Fail ->
+      set_status td new_status ;
+      Some Lookup_result.(from_as v new_status)
+  | Some Good -> Some Lookup_result.(from_as v Good)
+  | None -> None
 
 let register run_task unroll (state : Global_state.t)
     (term_detail : Term_detail.t) target source =
@@ -100,11 +93,13 @@ let register run_task unroll (state : Global_state.t)
   let add_sublookup key =
     term_detail.sub_lookups <- term_detail.sub_lookups @ [ key ]
   in
-  let promote_result = promote_result target state.term_detail_map in
+  let promote_result =
+    promote_result target state.term_detail_map term_detail
+  in
   let rec run ?(sub_lookup = false) source =
     match source with
-    | Withered -> set_status Lookup_status.Fail
-    | Leaf ->
+    | Must_fail -> set_status Lookup_status.Fail
+    | Must_complete ->
         set_status Lookup_status.Complete ;
         U.by_return unroll target (Lookup_result.complete target)
     | Direct e ->
@@ -114,14 +109,14 @@ let register run_task unroll (state : Global_state.t)
           U.by_id_u unroll target e.pub)
         else
           U.by_filter_map_u unroll target e.pub (fun r ->
-              promote_result term_detail r r.status) ;
+              promote_result r.status r.from) ;
         Log.debug (fun m ->
             m "[Direct]%a <- %a(%B) @." Lookup_key.pp target Lookup_key.pp e.pub
               sub_lookup) ;
         run_task e.pub
     | Map e ->
         U.by_filter_map_u unroll target e.pub (fun r ->
-            promote_result term_detail (e.map r) r.status) ;
+            promote_result r.status (e.map r.from)) ;
         run_task e.pub
     | MapSeq e ->
         create_counter state term_detail target ;
@@ -129,14 +124,14 @@ let register run_task unroll (state : Global_state.t)
           let i = fetch_counter state target in
           let r', phis = e.map i r in
           add_phi (Riddler.list_append target i (Riddler.and_ phis)) ;
-          promote_result term_detail r' r.status
+          promote_result r.status r'.from
         in
         U.by_filter_map_u unroll target e.pub f ;
         run_task e.pub
     | Both e ->
         U.by_filter_map2_u unroll target e.pub1 e.pub2 (fun (v1, v2) ->
             let joined_status = Lookup_status.join v1.status v2.status in
-            promote_result term_detail (Lookup_result.ok target) joined_status) ;
+            promote_result joined_status target) ;
         run_task e.pub1 ;
         run_task e.pub2
     | Chain e ->
@@ -195,8 +190,7 @@ let register run_task unroll (state : Global_state.t)
         let status' =
           fold_lookups_status state.term_detail_map term_detail.sub_lookups
         in
-        (* Fmt.pr "[PrePush] <=%a@." Lookup_status.pp_short status' ; *)
-        promote_result term_detail r status'
+        promote_result status' r.from
       else Some r
     in
     U.set_pre_push unroll target pre_push ;
@@ -213,38 +207,59 @@ end
 module Make (S : S) = struct
   open Rule_action
 
-  let rule_main v _p (key : Lookup_key.t) =
-    (Leaf, Some (Riddler.discover_main_with_picked key v))
-
-  let rule_nonmain v _p (key : Lookup_key.t) =
+  let phis_from_action (key : Lookup_key.t) (rule : Rule.t)
+      (action : Rule_action.t) =
+    let open Rule in
     let key_first = Lookup_key.to_first key S.state.first in
-    ( Map
-        { pub = key_first; map = (fun r -> Lookup_result.from_as key r.status) },
-      Some (Riddler.discover_non_main key key_first v) )
+    match (rule, action) with
+    (* Fail *)
+    | _, Must_fail -> Riddler.mismatch_with_picked key
+    | Discovery_main p, Must_complete ->
+        Riddler.discover_main_with_picked key (Some p.v)
+    (* Complete *)
+    | Input p, Must_complete ->
+        if p.is_in_main
+        then Riddler.discover_main_with_picked key None
+        else Riddler.discover_non_main key key_first None
+    | _, Must_complete -> Riddler.true_
+    (* Finite sub *)
+    | Discovery_nonmain p, _ ->
+        Riddler.discover_non_main key key_first (Some p.v)
+    | Alias p, _ -> Riddler.eq_with_picked key p.x'
+    | Not p, _ -> Riddler.not_with_picked key p.x'
+    | Binop p, _ -> Riddler.binop_with_picked key p.bop p.x1 p.x2
+    (* Unbound sub, start with empty *)
+    | Record_start p, _ -> Riddler.true_
+    | Cond_top p, _ -> Riddler.cond_top key p.x p.x2 p.cond_case_info.choice
+    | Cond_btm p, _ -> Riddler.cond_bottom key p.x' p.cond_both
+    | Fun_enter_local p, _ ->
+        Riddler.fun_enter_local key key.block.id p.callsites S.state.block_map
+    | Fun_exit p, _ -> Riddler.fun_exit key p.xf p.fids S.state.block_map
+    (* failwith "no such leaf" *)
+    | Abort p, _ ->
+        if p.is_target
+        then Riddler.discover_non_main key key_first None
+        else Riddler.mismatch_with_picked key
+    | _ -> Riddler.true_
 
-  let discovery_main (p : Discovery_main_rule.t) (key : Lookup_key.t) =
-    rule_main (Some p.v) p.v key
+  (* Common actions *)
+  let first_but_drop (key : Lookup_key.t) =
+    let key_first = Lookup_key.to_first key S.state.first in
+    Map { pub = key_first; map = Fn.const key }
 
-  let discovery_nonmain (p : Discovery_nonmain_rule.t) (key : Lookup_key.t) =
-    rule_nonmain (Some p.v) p key
+  let listen_but_use source value = Map { pub = source; map = Fn.const value }
 
-  let input (p : Input_rule.t) (key : Lookup_key.t) =
-    Hash_set.add S.state.input_nodes key ;
-    if p.is_in_main then rule_main None p key else rule_nonmain None p key
+  let chain_then_direct pre source =
+    let next _ r =
+      (* cond_top *)
+      (* true *)
+      (* if Riddler.eager_check S.state S.config key_x2
+           [ Riddler.eqv key_x2 (Value_bool choice) ] *)
+      if Lookup_result.is_ok r then Some (Direct { pub = source }) else None
+    in
+    Chain { pub = pre; next }
 
-  let alias (p : Alias_rule.t) (key : Lookup_key.t) =
-    (Direct { pub = p.x' }, Some (Riddler.eq_with_picked key p.x'))
-
-  let not_ (p : Not_rule.t) (key : Lookup_key.t) =
-    ( Map { pub = p.x'; map = (fun r -> Lookup_result.from_as key r.status) },
-      Some (Riddler.not_with_picked key p.x') )
-
-  let binop (p : Binop_rule.t) (key : Lookup_key.t) =
-    ( Both { pub1 = p.x1; pub2 = p.x2 },
-      Some (Riddler.binop_with_picked key p.bop p.x1 p.x2) )
-
-  let record_start p (key : Lookup_key.t) =
-    let ({ r = key_r; lbl } : Record_start_rule.t) = p in
+  let record_start (p : Record_start_rule.t) (key : Lookup_key.t) =
     let next i r =
       if Lookup_result.is_ok r
       then
@@ -252,35 +267,17 @@ module Make (S : S) = struct
         let rv = Cfg.clause_body_of_x key_rv.block key_rv.x in
         match rv with
         | Value_body (Value_record (Record_value rv)) -> (
-            match Ident_map.Exceptionless.find lbl rv with
+            match Ident_map.Exceptionless.find p.lbl rv with
             | Some (Var (field, _)) ->
                 let key_l = Lookup_key.with_x key_rv field in
-                let phi_i = Riddler.record_start key key_r key_rv key_l in
+                let phi_i = Riddler.record_start key p.r key_rv key_l in
                 let action = Direct { pub = key_l } in
                 Some (phi_i, action)
             | None -> None)
         | _ -> None
       else None
     in
-    (Sequence { pub = key_r; next }, None)
-
-  let cond_top p (key : Lookup_key.t) =
-    let ({ cond_case_info = cb; condsite_block } : Cond_top_rule.t) = p in
-    let key_x, key_x2, beta =
-      let _paired, condsite_stack =
-        Rstack.pop_at_condtop key.r_stk (cb.condsite, Id.cond_fid cb.choice)
-      in
-      ( Lookup_key.of3 key.x condsite_stack condsite_block,
-        Lookup_key.of3 cb.cond condsite_stack condsite_block,
-        cb.choice )
-    in
-    let next _ r =
-      (* true *)
-      (* if Riddler.eager_check S.state S.config key_x2
-           [ Riddler.eqv key_x2 (Value_bool choice) ] *)
-      if Lookup_result.is_ok r then Some (Direct { pub = key_x }) else None
-    in
-    (Chain { pub = key_x2; next }, Some (Riddler.cond_top key key_x key_x2 beta))
+    Sequence { pub = p.r; next }
 
   let cond_btm p (key : Lookup_key.t) =
     let ({ x'; cond_both } : Cond_btm_rule.t) = p in
@@ -313,13 +310,12 @@ module Make (S : S) = struct
         else None
       else None
     in
-    (Chain { pub = x'; next }, Some (Riddler.cond_bottom key p.x' p.cond_both))
+    Chain { pub = x'; next }
 
-  let fun_enter_local p (key : Lookup_key.t) =
+  let fun_enter_local (p : Fun_enter_local_rule.t) (key : Lookup_key.t) =
     let fid = key.block.id in
-    let callsites = Lookup_key.get_callsites key.r_stk key.block in
     let elements =
-      List.map callsites ~f:(fun callsite ->
+      List.map p.callsites ~f:(fun callsite ->
           let callsite_block, x', x'', x''' =
             Cfg.fun_info_of_callsite callsite S.block_map
           in
@@ -338,15 +334,11 @@ module Make (S : S) = struct
               Chain { pub = key_f; next }
           | None -> failwith "why Rstack.pop fails here")
     in
-    ( Or_list { elements; unbound = false },
-      Some
-        (Riddler.fun_enter_local key key.block.id callsites S.state.block_map)
-    )
+    Or_list { elements; unbound = false }
 
-  let fun_enter_nonlocal p (key : Lookup_key.t) =
-    let callsites = Lookup_key.get_callsites key.r_stk key.block in
+  let fun_enter_nonlocal (p : Fun_enter_nonlocal_rule.t) (key : Lookup_key.t) =
     let elements =
-      List.map callsites ~f:(fun callsite ->
+      List.map p.callsites ~f:(fun callsite ->
           let callsite_block, x', x'', _x''' =
             Cfg.fun_info_of_callsite callsite S.block_map
           in
@@ -369,7 +361,7 @@ module Make (S : S) = struct
               Sequence { pub = key_f; next }
           | None -> failwith "why Rstack.pop fails here")
     in
-    (Or_list { elements; unbound = true }, None)
+    Or_list { elements; unbound = true }
 
   let fun_exit (p : Fun_exit_rule.t) (key : Lookup_key.t) =
     let next (_key : Lookup_key.t) (rf : Lookup_result.t) =
@@ -383,8 +375,7 @@ module Make (S : S) = struct
         else None
       else None
     in
-    ( Chain { pub = p.xf; next },
-      Some (Riddler.fun_exit key p.xf p.fids S.state.block_map) )
+    Chain { pub = p.xf; next }
 
   let pattern p (key : Lookup_key.t) =
     let ({ x'; pat; _ } : Pattern_rule.t) = p in
@@ -443,20 +434,5 @@ module Make (S : S) = struct
       let picked_rv = Riddler.picked key_rv in
       (Lookup_result.from_as key r.status, picked_rv :: eq_key'_rv :: phis)
     in
-    (MapSeq { pub = x'; map = f }, None)
-
-  let assume _p (key : Lookup_key.t) =
-    (Withered, Some (Riddler.mismatch_with_picked key))
-
-  let assert_ _p (key : Lookup_key.t) =
-    (Withered, Some (Riddler.mismatch_with_picked key))
-
-  let abort p (key : Lookup_key.t) =
-    if Lookup_key.equal key (Lookup_key.start S.config.target key.block)
-       (* TODO: take care of direct `abort` in the main block *)
-    then rule_nonmain None p key
-    else (Withered, Some (Riddler.mismatch_with_picked key))
-
-  let mismatch (key : Lookup_key.t) =
-    (Withered, Some (Riddler.mismatch_with_picked key))
+    MapSeq { pub = x'; map = f }
 end
