@@ -1020,6 +1020,40 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         else
           failwith "mk_fun_intersect_gen: ill-formed function intersection type"
       in
+      let rec flatten_record_intersection ed =
+        let combine_rec r1 r2 =
+          Ident_map.fold
+            (fun k v acc ->
+              match Ident_map.find_opt k acc with
+              | Some v2 ->
+                  let v' = new_expr_desc @@ TypeIntersect (v, v2) in
+                  Ident_map.add k v' acc
+              | None -> Ident_map.add k v acc)
+            r1 r2
+        in
+        match ed.body with
+        | TypeIntersect (t1, t2) -> (
+            match (t1.body, t2.body) with
+            | TypeRecord r1, TypeRecord r2 -> combine_rec r1 r2
+            | TypeIntersect _, TypeRecord r2 ->
+                let r1 = flatten_record_intersection t1 in
+                combine_rec r1 r2
+            | TypeRecord r1, TypeIntersect _ ->
+                let r2 = flatten_record_intersection t2 in
+                combine_rec r1 r2
+            | TypeIntersect _, TypeIntersect _ ->
+                let r1 = flatten_record_intersection t1 in
+                let r2 = flatten_record_intersection t2 in
+                combine_rec r1 r2
+            | _ ->
+                failwith
+                  "flatten_record_intersection: Should be an intersection of \
+                   records!")
+        | _ ->
+            failwith
+              "flatten_record_intersection: Should be an intersection of \
+               records!"
+      in
       let%bind generator =
         (* For intersection type, we want to make sure that the value generated
            will indeed be in both types. Thus we will use the generator of one
@@ -1031,6 +1065,23 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           let funs = flatten_fun_intersection e_desc [] in
           let%bind gen_body = mk_fun_intersect_gen funs in
           return @@ Function ([ Ident "~null" ], new_expr_desc gen_body)
+        else if is_record_type t1 || is_record_type t2
+        then
+          let actual_type = flatten_record_intersection e_desc in
+          let%bind gc_pair_g =
+            semantic_type_of (new_expr_desc @@ TypeRecord actual_type)
+          in
+          let%bind proj_ed_1_inner =
+            new_instrumented_ed @@ RecordProj (gc_pair_g, Label "~actual_rec")
+          in
+          let%bind proj_ed_1 =
+            new_instrumented_ed
+            @@ RecordProj (proj_ed_1_inner, Label "generator")
+          in
+          let%bind appl_ed_1 =
+            new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Int 0)
+          in
+          return @@ Function ([ Ident "~null" ], appl_ed_1)
         else
           let%bind gc_pair1_g = semantic_type_of t1 in
           let%bind gc_pair2_g = semantic_type_of t2 in

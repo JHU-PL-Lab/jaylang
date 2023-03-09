@@ -1,0 +1,4 @@
+let f (r : {: a : {: c : int :} :} && {: b : {: c : int, d : bool :} :}) : int = 
+    r.b.d
+in
+f
