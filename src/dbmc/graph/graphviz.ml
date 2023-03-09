@@ -196,9 +196,9 @@ module DotPrinter_Make (S : GS) = struct
         let clause = Jayil.Ast.Ident_map.Exceptionless.find c_id source_map in
         let content =
           let phis_string =
-            let term_detail = Hashtbl.find S.state.term_detail_map node.key in
+            let detail = Hashtbl.find S.state.lookup_detail_map node.key in
             let phis =
-              Option.value_map term_detail ~default:[] ~f:(fun d -> d.phis)
+              Option.value_map detail ~default:[] ~f:(fun d -> d.phis)
             in
             let phi = Riddler.and_ phis in
             phi |> Z3.Expr.to_string |> label_escape

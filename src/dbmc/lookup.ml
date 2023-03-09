@@ -28,10 +28,10 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
                          let config = config
 
                          let add_phi key phi phis =
-                           let term_detail =
-                             Hashtbl.find_exn state.term_detail_map key
+                           let detail =
+                             Hashtbl.find_exn state.lookup_detail_map key
                            in
-                           term_detail.phis <- phi :: term_detail.phis ;
+                           detail.phis <- phi :: detail.phis ;
                            Set.add phis phi
 
                          let block_map = state.block_map
@@ -41,16 +41,16 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
   let module R = Lookup_ddse_rule.Make (LS) in
   (* block works similar to env in a common interpreter *)
   let[@landmark] rec run_task key phis =
-    match Hashtbl.find state.term_detail_map key with
+    match Hashtbl.find state.lookup_detail_map key with
     | Some _ -> ()
     | None ->
-        let term_detail : Term_detail.t =
+        let detail : Lookup_detail.t =
           let rule =
             Rule.rule_of_runtime_status key state.block_map config.target
           in
-          Term_detail.mk_detail ~rule ~key
+          Lookup_detail.mk_detail ~rule ~key
         in
-        Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
+        Hashtbl.add_exn state.lookup_detail_map ~key ~data:detail ;
         let task = push_job state key (lookup key phis) in
         U_ddse.alloc_task unroll ~task key
   and lookup (this_key : Lookup_key.t) phis () : unit Lwt.t =
@@ -121,7 +121,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     match state.unroll with S_dbmc unroll -> unroll | _ -> failwith "unroll"
   in
   let run_eval key eval =
-    match Hashtbl.find state.term_detail_map key with
+    match Hashtbl.find state.lookup_detail_map key with
     | Some _ -> ()
     | None ->
         if Hash_set.mem state.lookup_created key
@@ -141,11 +141,11 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   let module R = Lookup_rule.Make (LS) in
   let[@landmark] rec lookup (key : Lookup_key.t) () : unit Lwt.t =
     let rule = Rule.rule_of_runtime_status key state.block_map config.target in
-    let term_detail = Term_detail.mk_detail ~rule ~key in
+    let detail = Lookup_detail.mk_detail ~rule ~key in
 
     Option.iter !Log.saved_oc ~f:Out_channel.flush ;
 
-    Hashtbl.add_exn state.term_detail_map ~key ~data:term_detail ;
+    Hashtbl.add_exn state.lookup_detail_map ~key ~data:detail ;
 
     Checker.try_step_check ~state ~config key stride ;%lwt
     state.tree_size <- state.tree_size + 1 ;
@@ -158,19 +158,18 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
           Lookup_key.pp key Rule.pp_rule rule Id.pp key.block.id) ;
 
     let phi, action = R.get_initial_trio key rule in
-    Global_state.add_phi state term_detail phi ;
+    Global_state.add_phi state detail phi ;
 
     Lookup_rule.register
       (fun key -> run_eval key lookup)
-      unroll state term_detail key action ;
+      unroll state detail key action ;
 
     (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked.
         run all previous lookups *)
     let previous_clauses = Cfg.clauses_before_x key.block key.x in
     List.iter previous_clauses ~f:(fun tc ->
         let term_prev = Lookup_key.with_x key tc.id in
-        Global_state.add_phi state term_detail
-          (Riddler.picked_imply key term_prev) ;
+        Global_state.add_phi state detail (Riddler.picked_imply key term_prev) ;
         run_eval term_prev lookup) ;
     Lwt.return_unit
   in
@@ -179,7 +178,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   Riddler.reset () ;
   let lookup_main key_target () =
     lookup key_target () ;%lwt
-    let td = Hashtbl.find_exn state.term_detail_map key_target in
+    let td = Hashtbl.find_exn state.lookup_detail_map key_target in
     Lwt.return_unit
   in
   run_eval state.key_target lookup_main ;

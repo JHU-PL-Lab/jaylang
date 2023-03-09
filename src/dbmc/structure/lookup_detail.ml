@@ -1,9 +1,6 @@
 open Core
 open Dj_common
 
-(* type status_lattice =
-   | *)
-
 type t = {
   node : Search_graph.node_ref;
   rule : Rule.t;

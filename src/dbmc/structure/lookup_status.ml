@@ -32,13 +32,8 @@ let iter ~good ~complete ~fail = function
   | Complete -> complete ()
   | Fail -> fail ()
 
-let iter_good r f = iter ~good:f ~complete:Fn.ignore ~fail:Fn.ignore r
 let iter_ok r f = iter ~good:f ~complete:f ~fail:Fn.ignore r
-
-(* let is_good = function Good -> true | _ -> false *)
-(* let is_complete x = match x.status with Complete -> true | _ -> false
-
-   *)
+(* let iter_good r f = iter ~good:f ~complete:Fn.ignore ~fail:Fn.ignore r *)
 
 let join x1 x2 =
   match (x1, x2) with

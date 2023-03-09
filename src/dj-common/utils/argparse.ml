@@ -112,7 +112,7 @@ let parse_commandline_config () =
               latter_option log_level log_level_interpreter;
             log_level_search = latter_option log_level log_level_search;
             log_level_complete_message =
-              latter_option log_level log_level_search;
+              latter_option log_level log_level_complete_message;
             debug_phi;
             debug_model = not debug_no_model;
             debug_graph;

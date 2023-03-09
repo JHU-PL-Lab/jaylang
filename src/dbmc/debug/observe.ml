@@ -4,7 +4,7 @@ open Log.Export
 
 let update_rstk_pick (config : Global_config.t) (state : Global_state.t) model =
   Hashtbl.clear state.rstk_picked ;
-  Hashtbl.iter_keys state.term_detail_map ~f:(fun key ->
+  Hashtbl.iter_keys state.lookup_detail_map ~f:(fun key ->
       if Riddler.is_picked (Some model) key
       then ignore @@ Hashtbl.add state.rstk_picked ~key:key.r_stk ~data:true)
 
@@ -66,46 +66,49 @@ let get_block_visits (state : Global_state.t) (key : Lookup_key.t) =
 
 let pp_one_sub map oc key =
   match Hashtbl.find map key with
-  | Some (td : Term_detail.t) ->
-      let sub_status = td.status in
-      Fmt.pf oc "%a=%a" Lookup_key.pp key Lookup_status.pp_short sub_status
+  | Some (detail : Lookup_detail.t) ->
+      Fmt.pf oc "%a=%a" Lookup_key.pp key Lookup_status.pp_short detail.status
   | None -> Fmt.pf oc "%a=/" Lookup_key.pp key
 
-let pp_subs map oc (td : Term_detail.t) =
-  Fmt.(pr "%a" (hbox @@ list ~sep:semi (pp_one_sub map))) td.sub_lookups
+let pp_subs map oc (detail : Lookup_detail.t) =
+  Fmt.(pr "%a" (hbox @@ list ~sep:semi (pp_one_sub map))) detail.sub_lookups
 
-let pp_key_with_detail map oc ((key, td) : Lookup_key.t * Term_detail.t) =
+let pp_key_with_detail map oc ((key, detail) : Lookup_key.t * Lookup_detail.t) =
   Fmt.(
     pf oc "%a[%a]: {%d}, {%d}: %a" Lookup_key.pp key Lookup_status.pp_short
-      td.status
-      (List.length td.sub_preconds)
-      (List.length td.sub_lookups)
-      (pp_subs map) td)
+      detail.status
+      (List.length detail.sub_preconds)
+      (List.length detail.sub_lookups)
+      (pp_subs map) detail)
 
 let get_dbmc_unroll (state : Global_state.t) =
   match state.unroll with S_dbmc unroll -> unroll | _ -> failwith "unroll"
 
-let dump_term_details (state : Global_state.t) =
+let dump_lookup_details (state : Global_state.t) =
   let sorted_list_of_hashtbl table =
     Hashtbl.to_alist table
     |> List.sort ~compare:(fun (k1, _) (k2, _) ->
            Int.compare (Lookup_key.length k1) (Lookup_key.length k2))
   in
-  let td_lst = sorted_list_of_hashtbl state.term_detail_map in
+  let td_lst = sorted_list_of_hashtbl state.lookup_detail_map in
 
   CMLOG.debug (fun m -> m "@.[Size: %d]@." (List.length td_lst)) ;
   let unroll = get_dbmc_unroll state in
   List.iter td_lst ~f:(fun (key, td) ->
       match td.status with
-      | Complete | Fail -> ()
+      (* | Complete | Fail -> () *)
       | _ ->
-          CMLOG.debug (fun m ->
-              m "%a@."
-                (Fmt.vbox @@ pp_key_with_detail state.term_detail_map)
+          CMLOG.app (fun m ->
+              m "%a"
+                (Fmt.vbox @@ pp_key_with_detail state.lookup_detail_map)
                 (key, td)) ;
           let msg_s = Unrolls.U_dbmc.get_stream unroll key in
           let msg_lst = Lwt_stream.get_available msg_s in
-          CMLOG.debug (fun m ->
-              m "msg[%d]: %a@." (List.length msg_lst)
+          CMLOG.app (fun m ->
+              m "--v[%d]: %a" (List.length td.domain)
+                (Fmt.Dump.list Lookup_key.pp)
+                td.domain) ;
+          CMLOG.app (fun m ->
+              m "--m[%d]: %a@." (List.length msg_lst)
                 (Fmt.Dump.list Lookup_result.pp)
                 msg_lst))

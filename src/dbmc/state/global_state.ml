@@ -23,7 +23,7 @@ let create (config : Global_config.t) program =
       job_queue = Schedule.create ();
       root_node = ref (Search_graph.root_node block0 target);
       tree_size = 1;
-      term_detail_map = Hashtbl.create (module Lookup_key);
+      lookup_detail_map = Hashtbl.create (module Lookup_key);
       lookup_created = Hash_set.create (module Lookup_key);
       input_nodes = Hash_set.create (module Lookup_key);
       phis_staging = [];
@@ -44,8 +44,8 @@ let clear_phis state =
   state.phis_added <- state.phis_added @ state.phis_staging ;
   state.phis_staging <- []
 
-let add_phi (state : t) (term_detail : Term_detail.t) phi =
-  term_detail.phis <- phi :: term_detail.phis ;
+let add_phi (state : t) (lookup_detail : Lookup_detail.t) phi =
+  lookup_detail.phis <- phi :: lookup_detail.phis ;
   state.phis_staging <- phi :: state.phis_staging
 
 (* let picked_from model key =

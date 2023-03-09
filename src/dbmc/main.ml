@@ -87,7 +87,7 @@ let handle_both (config : Global_config.t) (state : Global_state.t) model =
   then () (* Graphviz.output_graph ~model ~testname:config.filename state *)
   else () ;
   Observe.process_rstk_stat_map config state ;
-  (* Observe.dump_term_details state ; *)
+  (* Observe.dump_lookup_details state ; *)
   SLog.warn (fun m ->
       m "@,%a"
         Fmt.(vbox (list ~sep:sp Check_info.pp))

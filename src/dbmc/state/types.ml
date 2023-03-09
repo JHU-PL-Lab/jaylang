@@ -54,7 +54,7 @@ module State = struct
     *)
     root_node : Search_graph.node_ref;
     mutable tree_size : int;
-    term_detail_map : (Lookup_key.t, Term_detail.t) Hashtbl.t;
+    lookup_detail_map : (Lookup_key.t, Lookup_detail.t) Hashtbl.t;
     (*
         search graph for solving
     *)
