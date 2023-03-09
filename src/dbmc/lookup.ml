@@ -127,7 +127,6 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
         if Hash_set.mem state.lookup_created key
         then ()
         else (
-          (* Fmt.pr "[Task] %a\n" Lookup_key.pp key ; *)
           Hash_set.strict_add_exn state.lookup_created key ;
           let task = push_job state key (eval key) in
           Unrolls.U_dbmc.alloc_task unroll ~task key)
@@ -158,44 +157,17 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
         m "[Lookup][%d][=>]: %a; [Rule] %a; [Block] %a" state.tree_size
           Lookup_key.pp key Rule.pp_rule rule Id.pp key.block.id) ;
 
-    let rule_action =
-      let open Rule in
-      let open Rule_action in
-      match rule with
-      (* Simple *)
-      | Discovery_main p -> Must_complete
-      | Assume p -> Must_fail
-      | Assert p -> Must_fail
-      | Abort p -> if p.is_target then R.first_but_drop key else Must_fail
-      | Mismatch -> Must_fail
-      | Discovery_nonmain p -> R.first_but_drop key
-      | Input p ->
-          Hash_set.add state.input_nodes key ;
-          if p.is_in_main then Must_complete else R.first_but_drop key
-      | Alias p -> Direct { pub = p.x' }
-      | Not p -> R.listen_but_use p.x' key
-      | Binop p -> Both { pub1 = p.x1; pub2 = p.x2 }
-      (* A bit complex *)
-      | Record_start p -> R.record_start p key
-      | Cond_top p -> R.chain_then_direct p.x2 p.x
-      | Cond_btm p -> R.cond_btm p key
-      | Fun_enter_local p -> R.fun_enter_local p key
-      | Fun_enter_nonlocal p -> R.fun_enter_nonlocal p key
-      | Fun_exit p -> R.fun_exit p key
-      | Pattern p -> R.pattern p key
-    in
+    let phi, action = R.get_initial_trio key rule in
+    Global_state.add_phi state term_detail phi ;
+
     Lookup_rule.register
       (fun key -> run_eval key lookup)
-      unroll state term_detail key rule_action ;
-
-    Global_state.add_phi state term_detail
-      (R.phis_from_action key rule rule_action) ;
+      unroll state term_detail key action ;
 
     (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked.
         run all previous lookups *)
     let previous_clauses = Cfg.clauses_before_x key.block key.x in
     List.iter previous_clauses ~f:(fun tc ->
-        (* Fmt.pr "[Clause before %a] %a\n" Id.pp key.x Id.pp tc.id ; *)
         let term_prev = Lookup_key.with_x key tc.id in
         Global_state.add_phi state term_detail
           (Riddler.picked_imply key term_prev) ;
@@ -203,7 +175,6 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     Lwt.return_unit
   in
 
-  (* reset and init *)
   Solver.reset state.solver ;
   Riddler.reset () ;
   let lookup_main key_target () =

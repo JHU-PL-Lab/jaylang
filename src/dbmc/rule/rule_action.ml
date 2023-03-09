@@ -6,10 +6,7 @@ open Dj_common
 *)
 
 type t =
-  (* Mismatch *)
-  | Must_fail
-  (* Value main *)
-  | Must_complete
+  | Leaf of Lookup_status.t
   (* Alias | Not_ *)
   | Direct of { pub : Lookup_key.t }
   (* Binop *)
@@ -21,19 +18,13 @@ type t =
       pub : Lookup_key.t;
       map : int -> Lookup_result.t -> Lookup_result.t * Z3.Expr.expr list;
     }
-  (* Fun Enter Local | Fun Exit | Cond Top | Cond Btm *)
+  (* Fun Enter Local | Fun Exit | Cond Top | Cond Btm | Record | Fun Enter Nonlocal *)
   | Chain of {
-      (* Chain is almost bind *)
       pub : Lookup_key.t;
-      next : Lookup_key.t -> Lookup_result.t -> t option;
+      next : int -> Lookup_key.t -> Z3.Expr.expr option * t option;
+      unbound : bool;
     }
-  (* Record | Fun Enter Nonlocal *)
-  (* A sequence can be viewed as a full-fledged chain. *)
-  | Sequence of {
-      pub : Lookup_key.t;
-      next : int -> Lookup_result.t -> (Z3.Expr.expr * t) option;
-    }
-    (* Fun Enter Local | Fun Enter Nonlocal | Cond Btm *)
+  (* Fun Enter Local | Fun Enter Nonlocal | Cond Btm *)
   | Or_list of { elements : t list; unbound : bool }
 (* We don't need a vanilla bind here because we don't need a general callback.
    If we directly notify the expected handler on pub's result to the sub, don't use this.

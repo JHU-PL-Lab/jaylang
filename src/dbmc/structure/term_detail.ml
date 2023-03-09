@@ -1,13 +1,18 @@
 open Core
 open Dj_common
 
+(* type status_lattice =
+   | *)
+
 type t = {
   node : Search_graph.node_ref;
   rule : Rule.t;
-  mutable domain : Lookup_key.t list;
+  (* constraints *)
   mutable phis : Z3.Expr.expr list;
-  (* lookup *)
+  (* state *)
+  mutable domain : Lookup_key.t list;
   mutable status : Lookup_status.t;
+  (* mutable status_phis : Lookup_status.t; *)
   mutable sub_preconds : bool ref list;
   mutable sub_lookups : Lookup_key.t list;
   (* debug *)
