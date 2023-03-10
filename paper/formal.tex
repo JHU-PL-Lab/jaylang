@@ -1,0 +1,48 @@
+\section{Intro}
+
+Here is a formalization of our type system.
+
+\section{Core Language}
+
+First, we'll define a small core language with basic integers, booleans, and functions.
+
+\begin{figure}[hbt!]%{r}{.5\textwidth}%
+  \begin{grammar}
+            \grule[expressions]{\expr}{
+                \mathbb{Z}
+                \gor \mathbb {B}
+                \gor \ev
+                \gor \gtfun\ \ev \gtarrow \expr
+                \gor \expr\ \expr
+            }
+            \grule[variables]{\ev}{
+                        \textit{(identifiers)}
+            }
+            \grule[values]{\eval}{
+                \mathbb{Z}
+                \gor \mathbb {B}
+                \gor \gtfun\ \ev \gtarrow \expr
+                \gor \ev
+            }
+            \grule[types]{\syntype}{
+              \tint
+              \gor \tbool
+              \gor \tfun
+          }
+        \end{grammar}
+    \caption{Core language grammar}
+    \label{fig_Grammar}
+\end{figure}
+
+The typing rules of the system is defined as following:
+
+\begin{definition}[Typing rules]
+  \label{def_typingRules}
+  % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+  \ \par
+  \begin{enumerate}
+      \item $\ \models \hastype{\expr}{\tint}$ iff $\expr \bigstep \eval$, $\eval \in \mathbb{Z}$.
+      \item $\ \models \hastype{\expr}{\tbool}$ iff $\expr \bigstep \eval$, $\eval \in \mathbb{B}$.
+      \item $\ \models \hastype{\expr}{\mktfun{\tau_1}{\tau_2}}$ iff $\forall{\eval}$ such that $\models \hastype{\eval}{\tau_1}$, $\models \hastype{\expr\ \eval}{\tau_2}$.
+   \end{enumerate}
+\end{definition}

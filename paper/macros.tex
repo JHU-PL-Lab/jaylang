@@ -1,0 +1,392 @@
+% !TEX root = main.tex
+
+\usepackage{jhupllab}
+\usepackage{amsmath}
+%\usepackage{amssymb}
+%\usepackage[T1]{fontenc}
+\usepackage{mathpartir}
+\usepackage{accents}
+\usepackage{wasysym}
+\SetSymbolFont{wasy}{bold}{U}{wasy}{m}{n} % silence spurious bold font errors for wasysym
+\usepackage{stmaryrd}
+\SetSymbolFont{stmry}{bold}{U}{stmry}{m}{n} % silence spurious bold font errors for stmaryrd
+\usepackage{mathtools}
+\usepackage{amsthm}
+\usepackage{thmtools}
+\usepackage{ifthenx}
+\usepackage{relsize}
+\usepackage{array}
+\usepackage{wrapfig}
+\usepackage{xargs}
+\usepackage{soul}
+
+% Centering environment that adds no extra space.
+\newenvironment{nscenter}{\parskip=0pt\par\nopagebreak\centering}{\par\noindent\ignorespacesafterend}
+
+\def\MathparLineskip{\lineskip=.25cm} % limits space between rules, rule names already spacing them
+\newcommand{\bbrule}[4][]{\inferrule*[left={\bbrulename{#2}},#1]{#3}{#4}}
+\newcommand{\bbrulename}[1]{{\sc #1}}
+
+\newcommand{\fnstyle}[1]{\text{\textsmaller{\sc{#1}}}}
+\newcommand{\deffn}[2]{%
+    \expandafter\newcommand\expandafter{\csname #1\endcsname}[1][]{\fnstyle{#2}\ifthenelse{\isempty{##1}}{}{(##1)}}%
+}
+
+\newcommand{\formalRuleLine}{\\ \hspace*{1.5em}}
+
+\newcommand{\ggc}{g}
+
+\renewcommand{\listof}[2][]{{\color{red}\textrm{\bfseries We are not using \texttt{\char`\\listof} in this document!}}}
+\renewcommand{\setof}[2][]{{\color{red}\textrm{\bfseries We are not using \texttt{\char`\\setof} in this document!}}}
+\newcommand*{\defeq}{\stackrel{\text{def}}{=}}
+
+\newsavebox{\codeBoxA}
+\newsavebox{\codeBoxB}
+\newsavebox{\someBoxA}
+\newsavebox{\someBoxB}
+
+\makeatletter
+\newcommand{\setlabel}[2]{\def\@currentlabel{#2}\label{#1}}
+\makeatother
+
+\definecolor{tableZebra}{gray}{0.9}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Expression grammar
+
+\newcommand{\tttilde}{{\raisebox{-0.1em}{\texttt{\char`\~}}}}
+\newcommand{\codetilde}{\tttilde}
+
+% edited these to get rid of italics in definitions etc.  surely not optimal defns but working - SS
+\defgt[gtcolon]{\texttt{\upshape :}}
+\defgt[gttilde]{\texttt{\upshape \codetilde}}
+\defgt[gtquestion]{\texttt{\upshape ?}}
+\defgt[gtarrow]{\texttt{\upshape ->}}
+\newcommand{\gtdot}{\texttt{.}}
+\defgt[gtob]{\upshape \char`\{}
+\defgt[gtcb]{\upshape \char`\}}
+\defgt[gtop]{\upshape (}
+\defgt[gtcp]{\upshape )}
+\defgt[gtis]{\texttt{\upshape =}}
+\defgt[gtfun]{\upshape fun}
+\defgt[gtref]{\upshape ref}
+\defgt[gtset]{\upshape <-}
+\defgt[gtlbrack]{\upshape \lbrack}
+\defgt[gtrbrack]{\upshape \rbrack}
+\defgt[gtdoublequote]{\upshape "}
+\defgt[gttrue]{\upshape true}
+\defgt[gtfalse]{\upshape false}
+\defgt[gtstring]{\upshape string}
+\defgt[gtany]{\upshape any}
+\defgt[gtderef]{\upshape !}
+
+% Achintya and test generation extensions to above
+\defgt[gtint]{\upshape int}
+\defgt[gtnot]{\upshape not}
+\defgt[gtxor]{\upshape xor}
+\defgt[gtinput]{\upshape input}
+
+\defgn[binop]{\odot}
+\defgn[unop]{\Box}
+
+\defgt[gtplus]{\texttt{\upshape +}}
+\defgt[gtminus]{\texttt{\upshape -}}
+\defgt[gtless]{\texttt{\upshape <}}
+\defgt[gtand]{\texttt{\upshape and}}
+\defgt[gtor]{\texttt{\upshape or}}
+\defgt[gtleq]{\texttt{\upshape <=}}
+\defgt[gteq]{\texttt{\upshape =}} % single = to save space
+\defgt[gtat]{\texttt{\upshape @}}
+
+%
+% Effects extension syntax
+%
+\defgt[gtcreate]{\upshape create}
+\defgt[gtread]{\upshape read}
+\defgt[gtwrite]{\upshape write}
+\defgt[gtfork]{\upshape fork}
+\defgt[gtjoin]{\upshape join}
+\defgt[gtend]{\upshape end}
+
+
+\defgn[expr]{e}
+\defgn[gexpr]{\expr_\textrm{glob}}
+\defgn[env]{E}
+\defgn[ecl]{c}
+\defgn[elb]{b}
+\defgn[eval]{v}
+\defgn[elbl]{\ell}
+\defgn[efunc]{f}
+\defgn[erec]{r}
+\defgn[epat]{p}
+\defgn[ev]{x}
+%\defgn[eint]{\mathbb{Z}}
+%\defgn[ebool]{\mathbb{B}}
+\defgn[eint]{n}
+\defgn[ebool]{\beta}
+\defgn[estring]{\mathbb{S}}
+\defgn[inlist]{I}
+\defgn[inmap]{\iota}
+
+\deffn{dom}{Dom}
+\newcommand{\conditional}[3]{#1 \gtquestion #2 \gtcolon #3}
+\newcommand{\condbranch}[2]{#1\,\texttt{!}\,#2}
+
+%
+% Type syntax
+%
+\defgn[syntype]{\tau}
+\defgt[tint]{\upshape int}
+\defgt[tbool]{\upshape bool}
+\defgn[tfun]{\tau \texttt{->} \tau}
+\newcommand{\hastype}[2]{#1\ \colon #2}
+\newcommand{\mktfun}[2]{#1 \texttt{->} #2}
+
+\DeclareRobustCommand{\localDeprecate}[2][orange]{\mhighlight[#1!50]{#2}}
+
+% \newcommand{\lv}[1]{\fnstyle{LastVar}\ifthenelse{\isempty{#1}}{}{(#1)}}
+\newcommand{\stackname}[1]{\fnstyle{StackName}\ifthenelse{\isempty{#1}}{}{(#1)}}
+\newcommand{\extract}[2]{\fnstyle{Extract}\ifthenelse{\isempty{#1}}{}{(#1,#2)}}
+\newcommand{\rawval}[1]{\fnstyle{RawVal}\ifthenelse{\isempty{#1}}{}{(#1)}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Operational semantics
+
+\newcommand{\bigstep}{\mathrel{\Longrightarrow}}
+\newcommand{\smallstep}[1][]{\mathrel{\longrightarrow^1_{#1}}}
+\newcommand{\smallsteps}[1][]{\mathrel{\longrightarrow^*_{#1}}}
+\newcommand{\nsmallstep}[1][]{\mathrel{\longarrownot\longrightarrow^1_{#1}}}
+% currently overloading some of these so macro output same .. 
+\newcommand{\Iismallstep}{\smallstep}
+\newcommand{\Iismallsteps}{\smallsteps}
+\newcommand{\iIsmallstep}{\smallstep[\inmap]}
+\newcommand{\iIsmallsteps}{\smallsteps[\inmap]}
+\newcommand{\ismallstep}{\smallstep[\inmap]}
+\newcommand{\ismallsteps}{\smallsteps[\inmap]}
+\newcommand{\allsteps}{\downarrow}
+\newcommand{\iallsteps}{\downarrow_\inmap}
+\deffn{freshen}{Freshen}
+\newcommand{\initfreshen}{\freshen_{\freshtop}}
+\newcommand{\freshvarA}[2]{\ensuremath{\freshen\ifthenelse{\isempty{#1}}{}{_{#1}(#2)}}}
+\newcommand{\freshvarC}[2]{\ensuremath{\freshen^{\text{cs}}\ifthenelse{\isempty{#1}}{}{_{#1}(#2)}}}
+\newcommand{\lC}{\listConcat} % Save wear and tear on the fingers
+\deffn{oldtonew}{OldToNew}
+
+\newcommand{\slogparen}[2]{#2#1}
+\defgn[senvterm]{l}
+\defgn[senv]{L}
+\defgn[sinstr]{\iota}
+\defgn[sinstrs]{I}
+\newcommand{\splitEnv}[3]{\fnstyle{SplitEnv}\ifthenelse{\isempty{#1}}{}{(#1\ifthenelse{\isempty{#2}}{}{,#2,#3})}}
+\newcommand{\extractEnv}[1]{\fnstyle{ExtractEnv}\ifthenelse{\isempty{#1}}{}{(#1)}}
+\newcommand{\extractEnvOld}[2]{\toDeprecate{\fnstyle{ExtractEnv}\ifthenelse{\isempty{#1}}{}{(#1\ifthenelse{\isempty{#2}}{}{,#2})}}}
+
+\defgn[lenvterm]{z}
+\defgn[lenv]{Z}
+\defgn[lcl]{w}
+\defgn[lexpr]{W}
+\newcommand{\llookup}[3][\lenv]{#1(#2\ifthenelse{\isempty{#3}}{}{,#3})}
+
+\deffn{rv}{RetV}
+\deffn{firstv}{FirstV}
+\newcommand{\param}[1]{\textsc{Param}(#1)}
+
+
+\defgn[lexprs]{\boldsymbol{W}}
+\newcommand{\currentStack}[1]{\fnstyle{CurStack}\ifthenelse{\isempty{#1}}{}{(#1)}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\defgn[searchpath]{\Pi}
+\deffn{issat}{isSAT}
+\deffn{sats}{SATs}
+\defgt{stack}
+
+\defgn[evals]{V}
+\defgn[evars]{\mathcal{X}}
+\defgn[gcstacks]{\boldsymbol C}
+\defgn[epairs]{\boldsymbol P}
+\defgn[bind]{\beta}
+\defgn[nonce]{n}
+\defgn[gxstack]{X}
+\defgn[gcstack]{C}
+\defgn[gccstack]{\dot{C}}
+\deffn{stackize}{Concretize}
+\deffn{reverse}{Reverse}
+\deffn{normalize}{Normalize}
+
+\newcommand{\lss}[1]{{}^{#1}\!}
+% generic fresh variables
+\newcommand{\fev}{\lss{\freshtag}\ev}
+\newcommand{\efev}{\lss{\unfreshened}\ev}
+\newcommand{\sfev}[1]{\lss{\freshtag_{#1}}\ev_{#1}}
+\newcommand{\fevp}{\lss{\freshtag'}\ev'}
+\newcommand{\fevpp}{\lss{\freshtag''}\ev''}
+% stack-based fresh variables
+\newcommand{\cev}{\lss{\gcstack}\ev}
+\newcommand{\scev}[1]{\lss{\gcstack_{#1}}\ev_{#1}}
+\newcommand{\eev}{\lss{[]}\ev}
+\newcommand{\ccev}{\lss{\gccstack}\ev}
+\newcommand{\ccevp}{\lss{\gccstack'}\ev'}
+\newcommand{\ccevpp}{\lss{\gccstack''}\ev''}
+\newcommand{\ccevz}{\lss{\gccstack_0}\ev_0}
+\newcommand{\ccevo}{\lss{\gccstack_1}\ev_1}
+\newcommand{\freshtag}{F}
+\newcommand{\fvar}{\varsigma}
+\newcommand{\fvarTrue}{\varsigma_{\texttt{true}}}
+\newcommand{\somefvar}[2]{\lss{#2}{#1}}
+\newcommand{\freshtop}{\top}
+\newcommand{\unfreshened}{\epsilon}
+
+% auxiliary defintitions for lookup
+\deffn{thecl}{Cl}
+\deffn{ppred}{Pred}
+\deffn{ifev}{\toDeprecate{IfX}}
+\deffn{ifbranch}{\toDeprecate{IfBranch}}
+\deffn{retcl}{RetCl}
+\deffn{canfirst}{First}
+\deffn{stpush}{Push}
+\deffn{stpop}{Pop}
+
+% Effect additions for lookup
+\newcommand{\synch}{\mathrel{\&\&}}
+\newcommand{\inducedby}{\longleftarrow}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Lookup
+
+\newcommand{\smallsup}[1]{^{^{\!\!#1}}}
+\newcommand{\lomega}{\mathbb{L}}%\smallsup{\omega}\!}
+\newcommand{\lgomega}{\mathbb{L}\smallsup{g}\!}
+\newcommand{\linterp}{\mathbb{L}\smallsup{\textrm{I}}\!}
+\newcommand{\lsymb}{\mathbb{L}\smallsup{\textrm{S}}\mskip -1mu}
+\newcommand{\lsymbfull}{\mathbb{L}\smallsup{\textrm{SF}}\mskip -1mu}
+\newcommand{\lsymbg}{\mathbb{L}\smallsup{g\textrm{S}}\!}
+
+%
+% reverse lookup
+\newcommand{\lookupr}[4]{\lomega(#1,#2,#3) \equiv #4}
+% function form of no-graph reverse
+\newcommand{\lookupfun}[3]{\lomega(#1,#2,#3)}
+
+% Symbolic reverse lookup
+\newcommand{\slookupr}[4]{\lsymb(#1,#2,#3) \equiv #4}
+% Symbolic reverse lookup with no result (for synch only now)
+\newcommand{\slookuprnr}[3]{\lsymb(#1,#2,#3)}
+% Symbolic reverse lookup with no result full
+\newcommand{\slookuprnrfull}[3]{\lsymbfull(#1,#2,#3)}% as a function to make writing easier.
+\newcommand{\slookupfun}[3]{\lsymb(#1,#2,#3)}
+% also show the default args
+\newcommand{\slookuprall}[4]{\lsymb(#1,\Phi,\searchpath,#2,#3) \equiv #4}
+% full with no default args
+\newcommand{\slookuprfull}[6]{\lsymb(#1,#2,#3,#4,#5) \equiv #6}
+
+% Symbolic reverse lookup weak
+%\newcommand{\slookuprw}[4]{\lsymb(#1,#2,#3) \stackrel{W}{\equiv} #4}
+\newcommand{\gentest}{\mathbb{T}}
+
+\newcommand{\ddse}{DDSE}
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+% Rule macros
+
+\newcommand{\ruleref}[1]{\textsc{#1}}
+
+\newcommand{\rulename}[1]{\ruleref{#1}\\}
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Listings code
+
+\usepackage{listings}
+
+\newcommand{\plangbasicstyle}{\ttfamily}
+\newcommand{\plangkeywordstyle}{\plangbasicstyle \color{NavyBlue}}
+\newcommand{\plangsymbolstyle}{\plangbasicstyle \color{RoyalPurple}}
+\newcommand{\plangcommentstyle}{\plangbasicstyle \color{ForestGreen}}
+
+\newcommand{\ttob}{\text{\upshape\ttfamily\char`\{}}
+\newcommand{\ttcb}{\text{\upshape\ttfamily\char`\}}}
+\newcommand{\ttop}{\text{\upshape\ttfamily(}}
+\newcommand{\ttcp}{\text{\upshape\ttfamily)}}
+
+\catcode`\#=11%
+\newcommand{\es}{} % consumes whitespace
+\newcommand{\plangset}{%
+    \lstset{%
+        basicstyle=\plangbasicstyle,
+        fontadjust=false,
+        showspaces=false,
+        showtabs=false,
+        numberstyle=\tiny\color{gray},
+        stepnumber=1,
+        numbers=left,
+        numbersep=5pt,
+        escapeinside={$}{$},
+        escapebegin=$,
+        escapeend=$,
+        keywordstyle=\plangkeywordstyle,
+        keywords={fun,if},
+        commentstyle=\plangcommentstyle,
+        morecomment=[l]{#},
+        literate=%
+            {\{}{\begingroup    \plangsymbolstyle   \ttob       \endgroup}{1}%
+            {\}}{\begingroup    \plangsymbolstyle   \ttcb       \endgroup}{1}%
+            {(}{\begingroup     \plangsymbolstyle   \ttop       \endgroup}{1}%
+            {)}{\begingroup     \plangsymbolstyle   \ttcp       \endgroup}{1}%
+            {=}{\begingroup     \plangsymbolstyle   =\es        \endgroup}{1}%
+            {?}{\begingroup     \plangsymbolstyle   ?\es        \endgroup}{1}%
+            {:}{\begingroup     \plangsymbolstyle   :\es        \endgroup}{1}%
+            {~}{\begingroup     \plangsymbolstyle   \tttilde    \endgroup}{1}%
+            {->}{\begingroup    \plangsymbolstyle   ->\es       \endgroup}{2}%
+            {@\{}{\begingroup   \plangcommentstyle  \ttob       \endgroup}{1}%
+            {@\}}{\begingroup   \plangcommentstyle  \ttcb       \endgroup}{1}%
+            {@:}{\begingroup    \plangcommentstyle  :\es        \endgroup}{1}%
+            {@=}{\begingroup    \plangcommentstyle  =\es        \endgroup}{1}%
+    }%
+}
+\catcode`\#=6%
+
+\plangset % just run it once to make things consistent
+\lstnewenvironment{plang}[1][]{\begingroup\renewcommand{\plangbasicstyle}{\footnotesize\ttfamily} #1}{\endgroup}
+\newcommand{\plangil}[1][]{\plangset{}#1\lstinline[mathescape]}
+\newcommand{\pl}{\plangil} % typing shorthand for non-100wpm-ers
+
+\newcommand{\camlset}{\lstset{language=caml,numbers=left,numbersep=10pt,frame=single,framerule=0pt,basicstyle=\ttfamily,escapeinside={$}{$},escapebegin=$,escapeend=$,morekeywords={case,input}}}
+\newcommand{\cset}{\lstset{language=c,numbers=left,numbersep=10pt,frame=single,framerule=0pt,basicstyle=\ttfamily,escapeinside={$}{$},escapebegin=$,escapeend=$,morekeywords={case,input}}}
+\lstnewenvironment{caml}{\begingroup \camlset}{\endgroup}
+\newcommand{\camlil}[1][]{\camlset{}#1\lstinline[mathescape]}
+
+% Brace yourself.  The following terrible, glorious hack will squeeze the characters in listings closer together, since the
+% existing spacing is more than a little too wasteful.
+\makeatletter
+\lst@Key{basewidth}{0.5em,0.35em}{\lstKV@CSTwoArg{#1}% was 0.6 and 0.45em resp - SS
+    {\def\lst@widthfixed{##1}\def\lst@widthflexible{##2}%
+     \ifx\lst@widthflexible\@empty
+         \let\lst@widthflexible\lst@widthfixed
+     \fi
+     \def\lst@temp{\PackageError{Listings}%
+                                {Negative value(s) treated as zero}%
+                                \@ehc}%
+     \let\lst@error\@empty
+     \ifdim \lst@widthfixed<\z@
+         \let\lst@error\lst@temp \let\lst@widthfixed\z@
+     \fi
+     \ifdim \lst@widthflexible<\z@
+         \let\lst@error\lst@temp \let\lst@widthflexible\z@
+     \fi
+     \lst@error}}
+\makeatother
+
+% Code figure header/footer
+\newcommand{\codefigurestart}[1][.4\textwidth]{\hspace*{15pt}\begin{minipage}{#1-20pt}\camlset\footnotesize}
+\newcommand{\codefigurestop}{\end{minipage}}
+
+
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "main.tex"
+%%% End:
+
+

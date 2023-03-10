@@ -1,0 +1,346 @@
+\section{Intro}
+
+Here is a formalization of some ideas for opimizing DDSE as well as making it simpler.
+
+\section{DDSE Review}
+
+First lets repeat the DDSE paper symbolic lookup; in the subsequent sections we will describe the optimizations.
+
+\begin{definition}[Clause operations]
+  \label{def_clauseOps}
+  \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+  \ \par
+  \begin{enumerate}
+      \item $\ppred[\ecl] = \ecl'$ iff $[\ldots,\ecl',\ecl,\ldots]$ occurs in $\gexpr$ \textnormal{(to find the syntactic predecessor of a clause)}
+      \item $\ppred[\ev] = \ppred[{\thecl(\ev)}]$
+      \item $\retcl[{[\ecl_1,\dots,\ecl_n]}] = \ecl_n$ \textnormal{(to extract the return (last) clause of a function or conditional body)}
+   \end{enumerate}
+\end{definition}
+
+
+\begin{figure}%{r}{.5\textwidth}%
+  \begin{grammar}
+            \grule[expressions]{\expr}{
+                        [\ecl, \ldots]
+            }
+            \grule[clauses]{\ecl}{
+                        \ev \gtis \elb
+                \gor    \gtfun\ \ev \gtarrow
+                \gor    \condbranch{\ev}{\ebool}
+            }
+            \grule[variables]{\ev}{
+                        \textit{(identifiers)}
+            }
+            \grule[bodies]{\elb}{
+                        \eval
+                \gor    \ev
+                \gor    \gtinput
+                \gor    \ev\ \ev
+                \gline
+                \gor    \conditional{\ev}{\expr}{\expr}
+                \gor    \ev \binop \ev
+            }
+            \grule[binops]{\binop}{
+                        \gtplus
+                \gor    \gtminus
+                \gor    \gtless
+                \gor    \gteq
+                \gor    \gtand
+                \gor    \gtor
+                \gor    \gtxor
+            }
+            \grule[values]{\eval}{
+                        \efunc
+                \gor    \eint
+                \gor    \ebool
+            }
+            \grule[functions]{\efunc}{
+                        [ \gtfun\ \ev \gtarrow ] \listConcat \expr
+            }
+            \grule[integers]{\eint}{
+              0 \gor 1 \gor -1 \gor \dots
+            }
+            \grule[booleans]{\ebool}{
+              \gttrue \gor \gtfalse
+            }
+            \hline
+            \grule[contexts]{\gcstack}{
+                        [\ecl, \ldots]
+            }
+            \grule[lookup stacks]{\gxstack}{
+                        [\ev, \ldots]
+            }
+            \grule[inputs]{\inmap}{
+                        \{\cev \mapsto \eint, \ldots, \cev \mapsto \eint \}
+            }
+        \end{grammar}
+    \caption{Language grammar and interpreter structures}
+    \label{fig_Grammar}
+\end{figure}
+
+
+
+\begin{figure}
+  %{r}{.5\textwidth}
+    \begin{center}
+  \begin{grammar}
+     \grule[annotated vars]{\ccev}{}
+     \grule[annotated var sets]{\evars}{}
+            \grule[relative stacks]{\gccstack}{
+                      \gcstack ? \gcstack
+                    }
+            \grule[formulae symbols]{\fvar}{
+                        \ccev
+                \gor    \fvarTrue
+            }
+            \grule[formulae atoms]{\phi}{
+                        \fvar \gtis \fvar \binop \fvar
+                \gor    \fvar \gteq \fvar\gline
+                \gor    \fvar \gteq \eval
+                \gor    \gtstack \gteq \gcstack
+            }
+            \grule[formulae]{\Phi}{\phi \land \ldots \land \phi}
+            \grule[search paths]{\searchpath}{
+                        \{\gccstack \mapsto \ecl, \ldots \}
+            }
+  \end{grammar}
+\end{center}
+\caption{Constructs for Symbolic Lookup}\label{fig_symb_grammar}
+\end{figure}
+
+\begin{definition}
+  \label{def_relstacks}
+  Notation for pushing, popping, and concretizing relative stacks is as follows.
+\begin{enumerate}
+\item
+  $\stpush([\ecl_1, \dots \ecl_n] ? [\ecl'_1, \dots \ecl'_{n'}], \ecl) =
+  [\ecl_1, \dots \ecl_n] ? [\ecl, \ecl'_1, \dots \ecl'_{n'}]$,
+\item
+  $\stpop([\ecl_1, \dots \ecl_n] ? [],\ecl) =
+  [\ecl,\ecl_1, \dots \ecl_n] ? []$,
+\item
+  $\stpop([\ecl_1, \dots \ecl_n] ? [\ecl'_1, \dots \ecl'_{n'}],\ecl) =
+  [\ecl_1, \dots \ecl_n] ? [\ecl'_2, \dots , \ecl'_{n'}]$ for $\ecl =
+  \ecl'_1$,
+\item $[\ecl_1, \dots \ecl_n] ? [\ecl'_1, \dots \ecl'_{n'}]$ is \emph{empty} iff $n'=0$ (the stack is empty, the co-stack may not be).
+\item $\stackize(\gcstack ? []) = \reverse(\gcstack)$
+\end{enumerate}
+\end{definition}
+
+\begin{definition}
+  We  use the following notation for formulae and their properties:
+\begin{enumerate}
+    \item $\Phi = \phi_1 \land \dots \land \phi_n$ in some contexts is punned as the set of its atomic conjunctions, $\Phi = \{\phi_1,\ldots,\phi_n\}$.
+    \item $\issat(\Phi)$ holds if there is a satisfying assignment for $\Phi$.
+    \item $\sats(\Phi)$ is the set of all satisfying assignments $M$ that map (annotated) variables in $\Phi$ to values $\eval$.
+\end{enumerate}
+\end{definition}
+
+\begin{figure}
+  \begin{mathpar}
+    \bbrule{Value Discovery}{
+     (\ccev \gtis \eval) \in \Phi\\
+     \ev \neq \firstv(\gexpr) \lor (\gtstack\gteq\stackize(\gccstack)) \in \Phi\\
+           \canfirst^S(\ev,\thecl(\ev),\gccstack)
+   }{
+          \slookupr{[\ev]}{(\ev \gtis \eval)}{\gccstack}{\ccev}
+      }
+
+    \bbrule{Input}{
+      \fvarTrue \gteq (\ccev \gteq \ccev) \in \Phi\\
+      \ev \neq \firstv(\gexpr) \lor (\gtstack\gteq\stackize(\gccstack)) \in \Phi\\
+     \canfirst^S(\ev,\thecl(\ev),\gccstack)
+      }{
+          \slookupr{[\ev]}{(\ev \gtis \gtinput)}{\gccstack}{\ccev}
+      }
+
+      \bbrule{Value Discard}{
+          \slookupr{\gxstack}{\ppred(\ev)}{\gccstack}{\ccevz}
+      }{
+          \slookupr{[\ev] \listConcat \gxstack}{(\ev \gtis \efunc)}{\gccstack}{\ccevz}
+      }
+
+      \bbrule{Alias}{
+          \slookupr{[\ev'] \listConcat \gxstack}{\ppred(\ev)}{\gccstack}{\ccevz}
+      }{
+          \slookupr{[\ev] \listConcat \gxstack}{(\ev \gtis \ev')}{\gccstack}{\ccevz}
+      }
+
+      \bbrule{Binop}{
+        \slookupr{[\ev']}{\ppred(\ev)}{\gccstack}{\ccev'}\\
+       \slookupr{[\ev'']}{\ppred(\ev)}{\gccstack}{\ccev''}\\
+        \ccev \gtis \ccev' \binop \ccev'' \in \Phi
+ }{
+   \slookupr{[\ev]}{(\ev \gtis \ev' \binop \ev'')}{\gccstack}{\ccev}
+      }
+
+      \bbrule{\parbox{5em}{Function\\ Enter\\ Parameter}}{
+          \gccstack' = \stpop(\gccstack,\ecl)\\
+          \slookupr{[\ev_v] \listConcat \gxstack}{\ppred(\ecl)}{\gccstack'}{\ccevz}\\
+          \ecl = (\ev_r \gtis \ev_f\ \ev_v)\\
+          \searchpath(\gccstack) = \ecl\\
+          \slookupr{[\ev_f]}{\ppred(\ecl)}{\gccstack'}{(\gtfun\ \ev \gtarrow \gtop \expr \gtcp)}
+      }{
+          \slookupr{[\ev] \listConcat \gxstack}{(\gtfun\ \ev \gtarrow)}{\gccstack}{\ccevz}
+      }
+
+      \bbrule{\parbox{4em}{Function\\ Enter\\ Non-Local}}{
+          \gccstack' = \stpop(\gccstack,\ecl)\\
+          \ev'' \neq \ev \\
+          \ecl = (\ev_r\gtis \ev_f\ \ev_v) \text{ or }(\ev_r\gtis \gtfork \ev_f) \\
+          \searchpath(\gccstack) = \ecl\\
+          \slookupr{[\ev_f, \ev] \listConcat \gxstack}{\ppred(\ecl)}{\gccstack'}{\ccevz}\\
+          \slookupr{[\ev_f]}{\ppred(\ecl)}{\gccstack'}{(\gtfun\ \ev'' \gtarrow \gtop \expr \gtcp)}
+      }{
+          \slookupr{[\ev] \listConcat \gxstack}{(\gtfun\ \ev'' \gtarrow)}{\gccstack}{\ccevz}
+      }
+
+      \bbrule{Function Exit}{
+          \slookupr{[\ev'] \listConcat \gxstack}{(\ev' = \elb)}{\stpush(\gccstack,\thecl(\ev))}{\ccevz}\\
+           \retcl[\expr] = (\ev' = \elb)\\
+          \slookupr{[\ev_f]}{\ppred(\ev)}{\gccstack}{(\gtfun\ \ev'' \gtarrow \gtop \expr \gtcp)}
+      }{
+          \slookupr{[\ev] \listConcat \gxstack}{(\ev \gtis \ev_f\ \ev_v)}{\gccstack}{\ccevz}
+      }
+
+      \bbrule{Skip}{
+          \ev'' \neq \ev \\
+          \slookupr{[\ev] \listConcat \gxstack}{\ppred(\ev'')}{\gccstack}{\ccevz}\\
+          \slookupr{[\ev'']}{\thecl(\ev'')}{\gccstack}{\_}
+      }{
+          \slookupr{[\ev] \listConcat \gxstack}{(\ev'' \gtis \elb)}{\gccstack}{\ccevz}
+        }
+
+
+      \bbrule{Conditional Top}{
+          \thecl[\ev_1] = (\ev_1 \gtis \conditional{\ev_2}{\expr_{\gttrue}}{\expr_{\gtfalse}}) \\
+          \slookupr{[\ev_2]}{\ppred[\ev_1]}{\gccstack}{\ebool} \\
+          \slookupr{\gxstack}{\ppred[\ev_1]}{\gccstack}{\ccevz}
+      }{
+          \slookupr{\gxstack}{(\condbranch{\ev_1}{\ebool})}{\gccstack}{\ccevz}
+      }
+
+      \bbrule{Conditional Bottom}{
+          \slookupr{[\ev_2]}{\ppred[\ev_1]}{\gccstack}{\ebool} \\
+          \slookupr{[\ev'] \lC \gxstack}{(\ev' \gtis \elb)}{\gccstack}{\ccevz} \\
+          \retcl[\expr_{\ebool}] = (\ev' \gtis \elb)
+      }{
+          \slookupr{[\ev_1] \lC \gxstack}{(\ev_1 \gtis \conditional{\ev_2}{\expr_{\gttrue}}{\expr_{\gtfalse}}}{\gccstack}{\ccevz}
+        }
+  \end{mathpar}
+  \caption{Base Theory Symbolic Lookup Rules}
+  \label{fig_slookup}
+\end{figure}
+
+
+\begin{definition}
+  \label{def_symbolic_lookup}
+For implicit fixed program $\gexpr$, $\Phi$ with $\issat(\Phi)$ holding, and path mapping $\searchpath$, \ddse{} variable lookup, $\slookuprall{\gxstack}{\ecl}{\gccstack}{\ccev}$ holds iff there is a proof using the rules of Figure~\ref{fig_slookup}.  Since $\Phi$ and $\searchpath$ are fixed in most places we take them as implicit parameters in the Figure and elsewhere, writing the equivalent shorthand $\slookupr{\gxstack}{\ecl}{\gccstack}{\ccev}$.
+In this Figure, we use a few additional notational abbreviations:
+\begin{itemize}
+\item $\firstv([\ev_1 \gtis \elb_1, \ldots]) = \ev_1$ extracts the first variable defined in the program $\gexpr=[\ev_1 \gtis \elb_1, \ldots]$.
+\item $\slookupr{\gxstack}{\ecl}{\gccstack}{\eval}$ abbreviates  $\exists \ccevz.\ \slookupr{\gxstack}{\ecl}{\gccstack}{\ccevz} \land (\ccevz \gtis \eval) \in \Phi$
+\item $\slookupr{\gxstack}{\ecl}{\gccstack}{\_}$ abbreviates $\slookupr{\gxstack}{\ecl}{\gccstack}{\ccevz}$ for some $\ccevz$.
+\item $\canfirst^S(\ev,\ecl,\gccstack)$ holds iff $\ev \neq \firstv(\gexpr) \text{ implies } \slookupr{[\firstv(\gexpr)]}{\ppred(\ecl)}{\gccstack}{\_}$
+\end{itemize}
+\end{definition}
+
+
+\section{Eliminating the non-locals stack}
+
+If we don't need to make a PDA out of the algorithm it is possible to eliminate the nonlocals stack $\gxstack$, replacing it with a singleton $\ev$.  The high-level idea is to independently look up the function and to obtain its context stack and program point as part of the lookup result (the context is the $\gccstack$ of the function value result $\ccev$, and the $\ev$ there is the program point).  The function enter non-local rule may then use that stack and program point to resume lookup of the variable.   Note that $\gxstack$ can be deleted from the grammar, and lookup now is a relation $\slookupr{\ev}{\ecl}{\gccstack}{\ccev}$ - replace $\gxstack$ with a de facto singleton stack $ev$.
+
+
+Without further ado here are the new rules. 
+
+
+\begin{figure}
+  \begin{mathpar}
+    \bbrule{Value Discovery}{
+     (\ccev \gtis \eval) \in \Phi\\
+     \ev \neq \firstv(\gexpr) \lor (\gtstack\gteq\stackize(\gccstack)) \in \Phi\\
+           \canfirst^S(\ev,\thecl(\ev),\gccstack)
+   }{
+          \slookupr{\ev}{(\ev \gtis \eval)}{\gccstack}{\ccev}
+      }
+
+    \bbrule{Input}{
+      \fvarTrue \gteq (\ccev \gteq \ccev) \in \Phi\\
+      \ev \neq \firstv(\gexpr) \lor (\gtstack\gteq\stackize(\gccstack)) \in \Phi\\
+     \canfirst^S(\ev,\thecl(\ev),\gccstack)
+      }{
+          \slookupr{\ev}{(\ev \gtis \gtinput)}{\gccstack}{\ccev}
+      }
+
+      \bbrule{Alias}{
+          \slookupr{\ev'}{\ppred(\ev)}{\gccstack}{\ccevz}
+      }{
+          \slookupr{\ev}{(\ev \gtis \ev')}{\gccstack}{\ccevz}
+      }
+
+      \bbrule{Binop}{
+        \slookupr{\ev'}{\ppred(\ev)}{\gccstack}{\ccev'}\\
+       \slookupr{\ev''}{\ppred(\ev)}{\gccstack}{\ccev''}\\
+        \ccev \gtis \ccev' \binop \ccev'' \in \Phi
+ }{
+   \slookupr{\ev}{(\ev \gtis \ev' \binop \ev'')}{\gccstack}{\ccev}
+      }
+
+      \bbrule{\parbox{5em}{Function\\ Enter\\ Parameter}}{
+          \gccstack' = \stpop(\gccstack,\ecl)\\
+          \slookupr{\ev_v}{\ppred(\ecl)}{\gccstack'}{\ccevz}\\
+          \ecl = (\ev_r \gtis \ev_f\ \ev_v)\\
+          \searchpath(\gccstack) = \ecl\\
+          \slookupr{\ev_f}{\ppred(\ecl)}{\gccstack'}{(\gtfun\ \ev \gtarrow \gtop \expr \gtcp)}
+      }{
+          \slookupr{\ev}{(\gtfun\ \ev \gtarrow)}{\gccstack}{\ccevz}
+      }
+
+      \bbrule{\parbox{4em}{Function\\ Enter\\ Non-Local}}{
+          \gccstack' = \stpop(\gccstack,\ecl)\\
+          \ev'' \neq \ev \\
+          \ecl = (\ev_r\gtis \ev_f\ \ev_v) \\
+          \searchpath(\gccstack) = \ecl\\
+          \thecl(\ev_1) = (\ev_1 \gtis \gtfun\ \ev'' \gtarrow \gtop \expr \gtcp)\\
+          \slookupr{\ev}{\ppred(\thecl(\ev_1))}{\gccstack_1}{\ccevz}\\
+          \slookupr{\ev_f}{\ppred(\ecl)}{\gccstack'}{\ccevo}
+      }{
+          \slookupr{\ev}{(\gtfun\ \ev'' \gtarrow)}{\gccstack}{\ccevz}
+      }
+
+      \bbrule{Function Exit}{
+          \slookupr{\ev'}{(\ev' = \elb)}{\stpush(\gccstack,\thecl(\ev))}{\ccevz}\\
+           \retcl[\expr] = (\ev' = \elb)\\
+          \slookupr{\ev_f}{\ppred(\ev)}{\gccstack}{(\gtfun\ \ev'' \gtarrow \gtop \expr \gtcp)}
+      }{
+          \slookupr{\ev}{(\ev \gtis \ev_f\ \ev_v)}{\gccstack}{\ccevz}
+      }
+
+      \bbrule{Skip}{
+          \ev'' \neq \ev \\
+          \slookupr{\ev}{\ppred(\ev'')}{\gccstack}{\ccevz}\\
+          \slookupr{\ev''}{\thecl(\ev'')}{\gccstack}{\_}
+      }{
+          \slookupr{\ev}{(\ev'' \gtis \elb)}{\gccstack}{\ccevz}
+        }
+
+
+      \bbrule{Conditional Top}{
+          \thecl(\ev_1) = (\ev_1 \gtis \conditional{\ev_2}{\expr_{\gttrue}}{\expr_{\gtfalse}}) \\
+          \slookupr{\ev_2}{\ppred(\ev_1)}{\gccstack}{\ebool} \\
+          \slookupr{\ev}{\ppred(\ev_1)}{\gccstack}{\ccevz}
+      }{
+          \slookupr{\ev}{(\condbranch{\ev_1}{\ebool})}{\gccstack}{\ccevz}
+      }
+
+      \bbrule{Conditional Bottom}{
+          \slookupr{\ev_2}{\ppred(\ev_1)}{\gccstack}{\ebool} \\
+          \slookupr{\ev'}{(\ev' \gtis \elb)}{\gccstack}{\ccevz} \\
+          \retcl[\expr_{\ebool}] = (\ev' \gtis \elb)
+      }{
+          \slookupr{\ev_1}{(\ev_1 \gtis \conditional{\ev_2}{\expr_{\gttrue}}{\expr_{\gtfalse}}}{\gccstack}{\ccevz}
+        }
+  \end{mathpar}
+  \caption{Lookup-stack-free Symbolic Lookup Rules}
+  \label{fig_slookup_noX}
+\end{figure}
