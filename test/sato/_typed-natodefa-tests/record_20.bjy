@@ -1,4 +1,4 @@
 let f (r : {: a : {: c : int :} :} && {: a : {: c : int, d : bool :} :}) : int = 
-    r.a.d
+    r.a.c
 in
 f
