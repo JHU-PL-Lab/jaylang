@@ -53,6 +53,9 @@ let fold_lookups_status map lookups =
 
 let set_status (detail : Lookup_detail.t) status = detail.status <- status
 
+let set_status_gen_phi (detail : Lookup_detail.t) status =
+  detail.status_gen_phi <- status
+
 let change_status old_status new_status =
   let open Lookup_status in
   match (old_status, new_status) with
@@ -73,11 +76,12 @@ let promote_result (target : Lookup_key.t) map (detail : Lookup_detail.t)
   | Some Good -> Some Lookup_result.(from_as v Good)
   | None -> None
 
-let register run_task unroll (state : Global_state.t) (detail : Lookup_detail.t)
-    target source =
+let run_action run_task unroll (state : Global_state.t)
+    (detail : Lookup_detail.t) target source =
   let open Rule_action in
   let add_phi = Global_state.add_phi state detail in
   let set_status = set_status detail in
+  let set_status_gen_phi = set_status_gen_phi detail in
   let add_to_domain v = detail.domain <- detail.domain @ [ v ] in
   let add_sub_preconds cond =
     detail.sub_preconds <- detail.sub_preconds @ [ cond ]
@@ -87,10 +91,12 @@ let register run_task unroll (state : Global_state.t) (detail : Lookup_detail.t)
   let rec run ?(sub_lookup = false) source =
     match source with
     | Leaf Fail ->
-        set_status Lookup_status.Fail
+        set_status Lookup_status.Fail ;
+        set_status_gen_phi Lookup_status.Fail
         (* ; U.by_return unroll target (Lookup_result.fail target) *)
     | Leaf Complete ->
         set_status Lookup_status.Complete ;
+        set_status_gen_phi Lookup_status.Complete ;
         add_to_domain target ;
         U.by_return unroll target (Lookup_result.complete target)
     | Leaf _ -> failwith "incorrect leaf status"

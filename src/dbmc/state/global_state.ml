@@ -48,6 +48,14 @@ let add_phi (state : t) (lookup_detail : Lookup_detail.t) phi =
   lookup_detail.phis <- phi :: lookup_detail.phis ;
   state.phis_staging <- phi :: state.phis_staging
 
+let detail_alist (state : t) =
+  let sorted_list_of_hashtbl table =
+    Hashtbl.to_alist table
+    |> List.sort ~compare:(fun (k1, _) (k2, _) ->
+           Int.compare (Lookup_key.length k1) (Lookup_key.length k2))
+  in
+  sorted_list_of_hashtbl state.lookup_detail_map
+
 (* let picked_from model key =
      Option.value
        (Solver.SuduZ3.get_bool model (Riddler.picked key))

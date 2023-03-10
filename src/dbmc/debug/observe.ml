@@ -85,12 +85,7 @@ let get_dbmc_unroll (state : Global_state.t) =
   match state.unroll with S_dbmc unroll -> unroll | _ -> failwith "unroll"
 
 let dump_lookup_details (state : Global_state.t) =
-  let sorted_list_of_hashtbl table =
-    Hashtbl.to_alist table
-    |> List.sort ~compare:(fun (k1, _) (k2, _) ->
-           Int.compare (Lookup_key.length k1) (Lookup_key.length k2))
-  in
-  let td_lst = sorted_list_of_hashtbl state.lookup_detail_map in
+  let td_lst = Global_state.detail_alist state in
 
   CMLOG.debug (fun m -> m "@.[Size: %d]@." (List.length td_lst)) ;
   let unroll = get_dbmc_unroll state in

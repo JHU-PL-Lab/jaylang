@@ -141,6 +141,10 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   let module R = Lookup_rule.Make (LS) in
   let[@landmark] rec lookup (key : Lookup_key.t) () : unit Lwt.t =
     let rule = Rule.rule_of_runtime_status key state.block_map config.target in
+    LLog.app (fun m ->
+        m "[Lookup][%d][=>]: %a; [Rule] %a; [Block] %a" state.tree_size
+          Lookup_key.pp key Rule.pp_rule rule Id.pp key.block.id) ;
+
     let detail = Lookup_detail.mk_detail ~rule ~key in
 
     Option.iter !Log.saved_oc ~f:Out_channel.flush ;
@@ -153,14 +157,10 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
 
     Hash_set.strict_remove_exn state.lookup_created key ;
 
-    LLog.app (fun m ->
-        m "[Lookup][%d][=>]: %a; [Rule] %a; [Block] %a" state.tree_size
-          Lookup_key.pp key Rule.pp_rule rule Id.pp key.block.id) ;
-
     let phi, action = R.get_initial_trio key rule in
     Global_state.add_phi state detail phi ;
 
-    Lookup_rule.register
+    Lookup_rule.run_action
       (fun key -> run_eval key lookup)
       unroll state detail key action ;
 

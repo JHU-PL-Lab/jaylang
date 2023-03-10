@@ -76,23 +76,58 @@ let check (state : Global_state.t) (config : Global_config.t) :
        solver_resource = Solver.get_rlimit state.solver;
      }
    in
-   state.check_infos <- this_check_info :: state.check_infos)
-  (* debug -
-     try another solver using accumulated phis
-     should be removed *)
+   state.check_infos <- this_check_info :: state.check_infos) ;
 
-  (* ;
-     let another_solver = Z3.Solver.mk_solver Solver.ctx None in
-     let another_result =
-       Solver.check another_solver state.phis_added phi_used_once
-     in
-     (match (solver_result, another_result) with
-     | Result.Ok _, Result.Ok _ | Result.Error _, Result.Error _ -> ()
-     | _, _ -> assert false) *)
-  (* debug - end *) ;
+  let detail_lst = Global_state.detail_alist state in
+
+  (* let count = ref 0 in
+     count := !count + 1 ;
+     Fmt.pr "[Re-gen]%d@." !count ; *)
+
+  (* debug *)
+  SLog.debug (fun m -> m "One: %s" (Z3.Solver.to_string state.solver)) ;
+
+  Solver.reset state.solver ;
+  List.iter detail_lst ~f:(fun (key, detail) ->
+      if Lookup_status.equal detail.status detail.status_gen_phi
+      then state.phis_staging <- detail.phis @ state.phis_staging
+      else
+        let key_staging =
+          match detail.status with
+          | Complete -> picked_eq_choices key detail.domain
+          | Fail -> mismatch_with_picked key
+          | Good -> failwith "Good in re-gen phis"
+        in
+        detail.status_gen_phi <- detail.status ;
+        state.phis_staging <- key_staging :: state.phis_staging ;
+        detail.status_gen_phi <- detail.status) ;
+
+  SLog.debug (fun m -> m "Two: %s" (Z3.Solver.to_string state.solver)) ;
+
+  let another_result =
+    Solver.check ~verbose:config.debug_model state.solver state.phis_staging
+      phi_used_once
+  in
+  Global_state.clear_phis state ;
+  (match (solver_result, another_result) with
+  | Result.Ok _, Result.Ok _ | Result.Error _, Result.Error _ -> ()
+  | Result.Ok _, Result.Error _ -> failwith "should SAT"
+  | Result.Error _, Result.Ok _ -> failwith "should UNSAT") ;
 
   check_result
+(* debug -
+   try another solver using accumulated phis
+   should be removed *)
 
+(* ;
+   let another_solver = Z3.Solver.mk_solver Solver.ctx None in
+   let another_result =
+     Solver.check another_solver state.phis_added phi_used_once
+   in
+   (match (solver_result, another_result) with
+   | Result.Ok _, Result.Ok _ | Result.Error _, Result.Error _ -> ()
+   | _, _ -> assert false) *)
+(* debug - end *)
 let simplify_phis () = ()
 
 let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
