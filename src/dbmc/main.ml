@@ -19,7 +19,7 @@ let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t)
     inputs =
   let history = ref [] in
   let session =
-    let input_feeder = Input_feeder.memorized_from_list inputs history in
+    let input_feeder = Input_feeder.memorized_from_list history inputs in
     let mode = Interpreter.With_target_x config.target in
     Interpreter.create_session state config mode input_feeder
   in

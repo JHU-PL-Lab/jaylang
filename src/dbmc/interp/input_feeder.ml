@@ -3,18 +3,19 @@ open Dj_common
 
 type t = Id.t * Concrete_stack.t -> int
 
-let from_list ?(default = 42) inputs ?(history = ref inputs) : t =
- fun _ ->
-  let r = List.hd_exn !history in
-  history := List.tl_exn !history ;
-  match r with Some i -> i | None -> default
+let from_list ?(default = 42) inputs : t =
+  let cell = ref inputs in
+  fun _ ->
+    let r = List.hd_exn !cell in
+    cell := List.tl_exn !cell ;
+    match r with Some i -> i | None -> default
 
-let memorized_from_list ?(default = 42) inputs
-    (history : (Id.t * Concrete_stack.t * int option) list ref) : t =
-  let inputs = ref inputs in
+let memorized_from_list ?(default = 42)
+    (history : (Id.t * Concrete_stack.t * int option) list ref) inputs : t =
+  let cell = ref inputs in
   fun (x, stk) ->
-    let r = List.hd_exn !inputs in
-    inputs := List.tl_exn !inputs ;
+    let r = List.hd_exn !cell in
+    cell := List.tl_exn !cell ;
     history := !history @ [ (x, stk, r) ] ;
     match r with Some i -> i | None -> default
 
