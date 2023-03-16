@@ -157,7 +157,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
 
     Hash_set.strict_remove_exn state.lookup_created key ;
 
-    let phi, action = R.get_initial_trio key rule in
+    let phi, action = R.get_initial_phi_action key rule in
     Global_state.add_phi state detail phi ;
 
     Lookup_rule.run_action

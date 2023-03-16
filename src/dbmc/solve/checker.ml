@@ -87,14 +87,17 @@ let check (state : Global_state.t) (config : Global_config.t) :
   (* debug *)
   SLog.debug (fun m -> m "One: %s" (Z3.Solver.to_string state.solver)) ;
 
-  Solver.reset state.solver ;
+  (* Solver.reset state.solver ; *)
   List.iter detail_lst ~f:(fun (key, detail) ->
       if Lookup_status.equal detail.status detail.status_gen_phi
       then state.phis_staging <- detail.phis @ state.phis_staging
       else
         let key_staging =
           match detail.status with
-          | Complete -> picked_eq_choices key detail.domain
+          | Complete ->
+              Riddler.complete_phis_of_rule key detail
+                (Lookup_key.to_first key state.first)
+              (* picked_eq_choices key detail.domain *)
           | Fail -> mismatch_with_picked key
           | Good -> failwith "Good in re-gen phis"
         in

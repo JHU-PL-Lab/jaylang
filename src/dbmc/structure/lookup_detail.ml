@@ -10,6 +10,7 @@ type t = {
   mutable domain : Lookup_key.t list;
   mutable status : Lookup_status.t;
   mutable status_gen_phi : Lookup_status.t;
+  (* sublookup *)
   mutable sub_preconds : bool ref list;
   mutable sub_lookups : Lookup_key.t list;
   (* debug *)

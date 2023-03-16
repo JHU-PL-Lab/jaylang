@@ -144,19 +144,19 @@ let run_action run_task unroll (state : Global_state.t)
         run_task e.pub1 ;
         run_task e.pub2
     | Chain e ->
-        if e.unbound then create_counter state detail target ;
+        if not e.bounded then create_counter state detail target ;
 
         let precond = ref false in
         add_sub_preconds precond ;
         let part1_cb key (r : Lookup_result.t) =
           if Lookup_status.is_complete_or_fail r.status then precond := true ;
           Lookup_status.iter_ok r.status (fun () ->
-              let i = if e.unbound then fetch_counter state target else 0 in
+              let i = if not e.bounded then fetch_counter state target else 0 in
               let phi_new, action_next = e.next i r.from in
               (match phi_new with
               | Some phi_i -> add_phi @@ Riddler.list_append target i phi_i
               | None ->
-                  if e.unbound
+                  if not e.bounded
                   then add_phi (Riddler.list_append target i Riddler.false_)) ;
               match action_next with
               | Some edge -> run ~sub_lookup:true edge
@@ -166,7 +166,7 @@ let run_action run_task unroll (state : Global_state.t)
         U.by_bind_u unroll target e.pub part1_cb ;
         run_task e.pub
     | Or_list e ->
-        if e.unbound then create_counter state detail target ;
+        if not e.bounded then create_counter state detail target ;
         List.iter e.elements ~f:(run ~sub_lookup)
   in
 
@@ -217,7 +217,7 @@ module Make (S : S) = struct
            [ Riddler.eqv key_x2 (Value_bool choice) ] *)
       (None, Some (Direct { pub = source }))
     in
-    Chain { pub = pre; next; unbound = false }
+    Chain { pub = pre; next; bounded = true }
 
   let record_start (p : Record_start_rule.t) (key : Lookup_key.t) =
     let next i (key_rv : Lookup_key.t) =
@@ -233,7 +233,7 @@ module Make (S : S) = struct
           | None -> (None, None))
       | _ -> (None, None)
     in
-    Chain { pub = p.r; next; unbound = true }
+    Chain { pub = p.r; next; bounded = false }
 
   let cond_btm p (key : Lookup_key.t) =
     let ({ x'; cond_both } : Cond_btm_rule.t) = p in
@@ -260,10 +260,10 @@ module Make (S : S) = struct
                   Some (Direct { pub = key_ret })
               | None -> None)
         in
-        (None, Some (Or_list { elements; unbound = false }))
+        (None, Some (Or_list { elements; bounded = true }))
       else (None, None)
     in
-    Chain { pub = x'; next; unbound = false }
+    Chain { pub = x'; next; bounded = true }
 
   let fun_enter_local (p : Fun_enter_local_rule.t) (key : Lookup_key.t) =
     let fid = key.block.id in
@@ -281,10 +281,10 @@ module Make (S : S) = struct
                 in
                 (None, Some (Direct { pub = key_arg }))
               in
-              Chain { pub = key_f; next; unbound = false }
+              Chain { pub = key_f; next; bounded = true }
           | None -> failwith "why Rstack.pop fails here")
     in
-    Or_list { elements; unbound = false }
+    Or_list { elements; bounded = true }
 
   let fun_enter_nonlocal (p : Fun_enter_nonlocal_rule.t) (key : Lookup_key.t) =
     let elements =
@@ -304,10 +304,10 @@ module Make (S : S) = struct
                 let action = Direct { pub = key_arg } in
                 (Some phi_i, Some action)
               in
-              Chain { pub = key_f; next; unbound = true }
+              Chain { pub = key_f; next; bounded = false }
           | None -> failwith "why Rstack.pop fails here")
     in
-    Or_list { elements; unbound = true }
+    Or_list { elements; bounded = false }
 
   let fun_exit (p : Fun_exit_rule.t) (key : Lookup_key.t) =
     let next _ (rf : Lookup_key.t) =
@@ -318,7 +318,7 @@ module Make (S : S) = struct
         (None, Some (Direct { pub = key_ret }))
       else (None, None)
     in
-    Chain { pub = p.xf; next; unbound = false }
+    Chain { pub = p.xf; next; bounded = true }
 
   let pattern p (key : Lookup_key.t) =
     let ({ x'; pat; _ } : Pattern_rule.t) = p in
@@ -379,11 +379,12 @@ module Make (S : S) = struct
     in
     MapSeq { pub = x'; map = f }
 
-  let get_initial_trio (key : Lookup_key.t) (rule : Rule.t) =
+  let get_initial_phi_action (key : Lookup_key.t) (rule : Rule.t) =
     let key_first = Lookup_key.to_first key S.state.first in
     let open Rule in
     let open Lookup_status in
     match rule with
+    (* Bounded (same as complete phi) *)
     | Discovery_main p ->
         (Riddler.discover_main_with_picked key (Some p.v), Leaf Complete)
     | Discovery_nonmain p ->
@@ -405,6 +406,9 @@ module Make (S : S) = struct
     | Binop p ->
         ( Riddler.binop_with_picked key p.bop p.x1 p.x2,
           Both { pub1 = p.x1; pub2 = p.x2 } )
+    (*
+      Unbounded
+    *)
     | Record_start p -> (Riddler.true_, record_start p key)
     | Cond_top p ->
         ( Riddler.cond_top key p.x p.x2 p.cond_case_info.choice,
