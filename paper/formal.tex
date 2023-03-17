@@ -96,6 +96,7 @@ We will now extend the language with records.
             \grule[expressions]{\expr}{
               \cdots
               \gor \{\overline{\elbl = \expr}\}^{\{\overline{\elbl}\}}
+              \gor \expr.\elbl
             }
             \grule[values]{\eval}{
               \cdots
@@ -121,12 +122,12 @@ We will now extend the language with records.
 
 \section{Type as values}
 
-In this section, we will demonstrate how to represent each type using a tuple of two functions, $\genf$ and $\chef$.
+In this section, we will demonstrate how to represent each type using a tuple of functions $\genf$ and $\chef$.
 
 \begin{definition}[Semantic interpretation of types]
   \label{def_typeAsVal}
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
-  We define the semantic interpretation of types as $\llbracket \syntype \rrbracket$, where $\llbracket \syntype \rrbracket = \langle \mkgen{\syntype}, \mkche{\syntype} \rangle$.
+  We define the semantic interpretation of types as $\llbracket \syntype \rrbracket$, where $\llbracket \syntype \rrbracket = \langle \mkgen{\syntype}, \mkche{\syntype}{\expr} \rangle$.
 \end{definition}
 
 \begin{definition}[Defining Generator in the core language]
@@ -134,9 +135,9 @@ In this section, we will demonstrate how to represent each type using a tuple of
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par 
   \begin{enumerate}
-    \item $\mkgen{$\tint$} = n \in \mathbb{Z}$.
-    \item $\mkgen{$\tbool$}$ : pick $b \in \mathbb{B}$.
-    \item $\mkgen{$\mkfun{\syntype_1}{\syntype_2}$}$ : pick $\mklambda{\ev}{\expr}$ such that $\forall \eval$ where $\ \models \hastype{\eval}{\syntype_1}$, $\ \models \hastype{(\mklambda{\ev}{\expr})\ \eval}{\syntype_2}$.
+    \item $\mkgen{\tint} : \pick \ n \in \mathbb{Z}$.
+    \item $\mkgen{\tbool} : \pick \ b \in \mathbb{B}$.
+    \item $\mkgen{\mkfun{\syntype_1}{\syntype_2}} : \mkfunv{\ev}{\mkgen{\syntype_2}}$.
   \end{enumerate}
 \end{definition}
 
@@ -145,8 +146,34 @@ In this section, we will demonstrate how to represent each type using a tuple of
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par 
   \begin{enumerate}
-    \item $\mkche{$\tint$}$ : $\expr \Longrightarrow \eval$ and $\eval \in \mathbb{Z}$.
-    \item $\mkche{$\tbool$}$ : $\expr \Longrightarrow \eval$ and $\eval \in \mathbb{B}$.
-    \item $\mkche{$\mkfun{\syntype_1}{\syntype_2}$}$ : $\forall \eval$ if $\ \models \hastype{\eval}{\syntype_1}$, then $\ \models \hastype{(\mklambda{\ev}{\expr})\ \eval}{\syntype_2}$.
+    \item $\mkche{\tint}{\expr} : \matches{\expr}{\tint}$.
+    \item $\mkche{\tbool}{\expr} : \matches{\expr}{\tbool}$.
+    \item $\mkche{\mkfun{\syntype_1}{\syntype_2}}{\expr} : \texttt{let arg = }\mkgen{\syntype_1} \texttt{ in }\mkche{\syntype_2}{\texttt{(e arg)}}$.
   \end{enumerate}
 \end{definition}
+
+\begin{definition}[Defining Generator in the extended language]
+  \label{def_genExt}
+  % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+  \ \par 
+  \begin{enumerate}
+    \item $\mkgen{\tpoly_i} : \vpoly_i$.
+    \item $\mkgen{\mkunion{\syntype_1}{\syntype_2}} : \pick \ b \in \mathbb{B}$. $\ife{b}{\mkgen{\syntype_1}}{\mkgen{\syntype_2}}$.
+    \item $\mkgen{\mkunion{\syntype_1}{\syntype_2}} : \pick \ b \in \mathbb{B}$. ?
+    \item $\mkgen{\mktset{\syntype}{p}} : \texttt{let choice = \mkgen{\syntype} in \take{p}{choice}}.$
+    \item $\mkgen{\mkdfun{\ev}{\syntype_1}{\syntype_2}} : \texttt{let $\tau_2'$ = }\mkfunv{\ev}{\syntype_2} \texttt{ in }\mkfunv{\ev'}{\mkgen{\tau_2'\ \ev'}}.$
+    \item $\mkgen{\mkmiu{\alpha}{\syntype}} : \mkgen{\substitute{\syntype}{\alpha}{\mkmiu{\alpha}{\syntype}}}.$
+    \item $\mkgen{\{\hastype{\elbl_1}{\syntype_1}, \cdots, \hastype{\elbl_n}{\syntype_n}\}} :$ \\ $\texttt{let }\eval_1 = \mkgen{\syntype_1}\texttt{ in }\cdots\texttt{ let }\eval_n = \mkgen{\syntype_n}\texttt{ in } \{\elbl_1 = \eval_1, \cdots, \elbl_n = \eval_n\}.$
+  \end{enumerate}
+\end{definition}
+
+% \begin{definition}[Defining Checker in the extended language]
+%   \label{def_cheExt}
+%   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+%   \ \par 
+%   \begin{enumerate}
+%     \item $\mkche{$\tint$}{\expr} : \expr \Longrightarrow \eval$ and $\eval \in \mathbb{Z}$.
+%     \item $\mkche{$\tbool$}{\expr} : \expr \Longrightarrow \eval$ and $\eval \in \mathbb{B}$.
+%     \item $\mkche{$\mkfun{\syntype_1}{\syntype_2}$}{\expr} : \forall \eval$ if $\ \models \hastype{\eval}{\syntype_1}$, then $\ \models \hastype{(\mklambda{\ev}{\expr})\ \eval}{\syntype_2}$.
+%   \end{enumerate}
+% \end{definition}

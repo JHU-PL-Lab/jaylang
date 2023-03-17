@@ -140,21 +140,24 @@
 \defgn[tpoly]{\alpha}
 \defgn[vpoly]{a}
 
-\defgt[tint]{\upshape int}
-\defgt[tbool]{\upshape bool}
-\defgt[genf]{\texttt{generator}}
-\defgt[chef]{\texttt{checker}}
+\newcommand{\tint}{\texttt{int}}
+\newcommand{\tbool}{\texttt{bool}}
+\newcommand{\genf}{\texttt{generator}}
+\newcommand{\chef}{\texttt{checker}}
+\newcommand{\pick}{\texttt{pick}}
+\newcommand{\take}[2]{\texttt{take}(#1, #2)}
 
 \newcommand{\hastype}[2]{#1\ \colon #2}
 \newcommand{\mkfun}[2]{#1 \texttt{ -> } #2}
+\newcommand{\mkfunv}[2]{\texttt{fun }#1 \texttt{ -> } #2}
 \newcommand{\mklambda}[2]{\lambda#1. #2}
 \newcommand{\mkdfun}[3]{(\hastype{#1}{#2}) \texttt{ -> } #3}
 \newcommand{\mkunion}[2]{#1 \cup #2}
 \newcommand{\mkintersect}[2]{#1 \cap #2}
 \newcommand{\mktset}[2]{\{#1 \mathrel{\vert} #2\}}
 \newcommand{\mkmiu}[2]{\mu#1 . #2}
-\newcommand{\mkgen}[1]{\textsc{generator(#1)}}
-\newcommand{\mkche}[1]{\textsc{checker(#1)}}
+\newcommand{\mkgen}[1]{\texttt{generator}(#1)}
+\newcommand{\mkche}[2]{\texttt{checker}(#1, #2)}
 
 \DeclareRobustCommand{\localDeprecate}[2][orange]{\mhighlight[#1!50]{#2}}
 
@@ -209,6 +212,8 @@
 \newcommand{\currentStack}[1]{\fnstyle{CurStack}\ifthenelse{\isempty{#1}}{}{(#1)}}
 
 \newcommand{\substitute}[3]{#1[#2/#3]}
+\newcommand{\matches}[2]{#1 \ \tttilde \ #2}
+\newcommand{\ife}[3]{\texttt{If } #1 \texttt{ Then } #2 \texttt{ Else }#3}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
