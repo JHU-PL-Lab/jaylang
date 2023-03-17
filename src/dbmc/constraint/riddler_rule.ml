@@ -186,45 +186,6 @@ let mismatch_with_picked key = picked key @=> box_bool false
 let eq_one_picked_of key choices =
   List.map choices ~f:(fun choice -> and_ [ eq key choice; picked choice ])
 
-(* Completion *)
-let complete_phis_of_rule key (detail : Lookup_detail.t) key_first =
-  let open Rule in
-  match detail.rule with
-  (* Bounded (same as complete phi) *)
-  | Discovery_main p -> discover_main_with_picked key (Some p.v)
-  | Discovery_nonmain p -> discover_non_main key key_first (Some p.v)
-  | Assume p -> mismatch_with_picked key
-  | Assert p -> mismatch_with_picked key
-  | Mismatch -> mismatch_with_picked key
-  | Abort p ->
-      if p.is_target
-      then discover_non_main key key_first None
-      else mismatch_with_picked key
-  | Alias p -> eq_with_picked key p.x'
-  | Input p ->
-      if p.is_in_main
-      then discover_main_with_picked key None
-      else discover_non_main key key_first None
-  | Not p -> not_with_picked key p.x'
-  | Binop p -> binop_with_picked key p.bop p.x1 p.x2
-  (*
-      Unbounded
-  *)
-  | Record_start p ->
-      picked key @=> and_ (picked p.r :: eq_one_picked_of key detail.domain)
-  | Cond_top p ->
-      picked key
-      @=> and_
-            ([ picked p.x; picked p.x2; eq key p.x ]
-            (* before the `@` is the original constraits
-               after the `@` is the added ones *)
-            @ eq_one_picked_of key detail.domain)
-  | Cond_btm p -> cond_bottom key p.x' p.cond_both
-  (*
-      Todo
-  *)
-  | _ -> true_
-
 let picked_eq_choices key choices =
   picked key
   @=> or_
