@@ -43,6 +43,110 @@ The typing rules of the system is defined as following:
   \begin{enumerate}
       \item $\ \models \hastype{\expr}{\tint}$ iff $\expr \bigstep \eval$, $\eval \in \mathbb{Z}$.
       \item $\ \models \hastype{\expr}{\tbool}$ iff $\expr \bigstep \eval$, $\eval \in \mathbb{B}$.
-      \item $\ \models \hastype{\expr}{\mktfun{\tau_1}{\tau_2}}$ iff $\forall{\eval}$ such that $\models \hastype{\eval}{\tau_1}$, $\models \hastype{\expr\ \eval}{\tau_2}$.
+      \item $\ \models \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$ iff $\forall{\eval}$ such that $\models \hastype{\eval}{\syntype_1}$, $\models \hastype{\expr\ \eval}{\syntype_2}$.
    \end{enumerate}
+\end{definition}
+
+\section{Language extensions}
+
+Next, we will define a couple of languages extensions and their corresponding typing rules.
+
+\begin{figure}[hbt!]%{r}{.5\textwidth}%
+  \begin{grammar}
+            \grule[expressions]{\expr}{
+              \cdots
+              \gor \vpoly
+            }
+            \grule[values]{\eval}{
+              \cdots
+              \gor \vpoly
+            }
+            \grule[types]{\syntype}{
+              \cdots
+              \gor \tpoly
+              \gor \mkunion{\syntype}{\syntype}
+              \gor \mkintersect{\syntype}{\syntype}
+              \gor \mktset{\syntype}{\expr}
+              \gor \mkdfun{\ev}{\syntype}{\syntype}
+              \gor \mkmiu{\alpha}{\syntype}
+          }
+        \end{grammar}
+    \caption{Extended language grammar}
+    \label{ext_Grammar}
+\end{figure}
+
+\begin{definition}[More typing rules]
+  \label{def_typingRulesExt}
+  % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+  \ \par
+  \begin{enumerate}
+      \item $\ \models \hastype{\expr}{\tpoly_i}$ iff $\expr \bigstep \vpoly_i$.
+      \item $\ \models \hastype{\expr}{\mkunion{\syntype_1}{\syntype_2}}$ iff $\ \models \hastype{\expr}{\syntype_1}$ or $\ \models \hastype{\expr}{\syntype_2}$.
+      \item $\ \models \hastype{\expr}{\mkintersect{\syntype_1}{\syntype_2}}$ iff $\ \models \hastype{\expr}{\syntype_1}$ and $\ \models \hastype{\expr}{\syntype_2}$.
+      \item $\ \models \hastype{\expr}{\mktset{\syntype}{p}}$ iff $\ \models \hastype{\expr}{\syntype}$ and $p \ \expr \Longrightarrow \gttrue$.
+      \item $\ \models \hastype{\expr}{\mkdfun{\ev}{\syntype_1}{\syntype_2}}$ iff $\forall{\eval}$ such that $\models \hastype{\eval}{\syntype_1}$, $\models \hastype{\expr\ \eval}{\substitute{\syntype_2}{\eval}{\ev}}$.
+      \item $\ \models \hastype{\expr}{\mkmiu{\alpha}{\syntype}}$ iff $\hastype{\expr}{\substitute{\syntype}{\mkmiu{\alpha}{\syntype}}{\alpha}}$.
+  \end{enumerate}
+\end{definition}
+
+We will now extend the language with records.
+
+\begin{figure}[hbt!]%{r}{.5\textwidth}%
+  \begin{grammar}
+            \grule[expressions]{\expr}{
+              \cdots
+              \gor \{\overline{\elbl = \expr}\}^{\{\overline{\elbl}\}}
+            }
+            \grule[values]{\eval}{
+              \cdots
+              \gor \{\overline{\elbl = \eval}\}^{\{\overline{\elbl}\}}
+            }
+            \grule[types]{\syntype}{
+              \cdots
+              \gor \{\overline{\hastype{\elbl}{\syntype}}\} 
+          }
+        \end{grammar}
+    \caption{Extended language grammar (with records)}
+    \label{rec_Grammar}
+\end{figure}
+
+\begin{definition}[Record typing rules]
+  \label{def_typingRec}
+  % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+  \ \par
+  \begin{enumerate}
+      \item $\ \models \hastype{\expr}{\{\hastype{\elbl_1}{\syntype_1},\ \cdots, \hastype{\elbl_m}{\syntype_m}\}}$ iff $\expr \bigstep \{\elbl_1 = \eval_1,\ \cdots, \elbl_m = \eval_m,\ \cdots, \elbl_n = \eval_n\}^{\{\elbl_1, \cdots, \elbl_m\}}$ where $\ \models \hastype{\eval_i}{\syntype_i}$ for $i \in \{1,\ \cdots, m\}$, $n \geq m$
+  \end{enumerate}
+\end{definition}
+
+\section{Type as values}
+
+In this section, we will demonstrate how to represent each type using a tuple of two functions, $\genf$ and $\chef$.
+
+\begin{definition}[Semantic interpretation of types]
+  \label{def_typeAsVal}
+  % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+  We define the semantic interpretation of types as $\llbracket \syntype \rrbracket$, where $\llbracket \syntype \rrbracket = \langle \mkgen{\syntype}, \mkche{\syntype} \rangle$.
+\end{definition}
+
+\begin{definition}[Defining Generator in the core language]
+  \label{def_genCore}
+  % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+  \ \par 
+  \begin{enumerate}
+    \item $\mkgen{int}$ : pick $n \in \mathbb{Z}$.
+    \item $\mkgen{bool}$ : pick $b \in \mathbb{B}$.
+    \item $\mkgen{$\mkfun{\syntype_1}{\syntype_2}$}$ : pick $\mklambda{\ev}{\expr}$ such that $\forall \eval$ where $\ \models \hastype{\eval}{\syntype_1}$, $\ \models \hastype{(\mklambda{\ev}{\expr})\ \eval}{\syntype_2}$.
+  \end{enumerate}
+\end{definition}
+
+\begin{definition}[Defining Checker in the core language]
+  \label{def_CheCore}
+  % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+  \ \par 
+  \begin{enumerate}
+    \item $\mkche{int}$ : $\expr \Longrightarrow \eval$ and $\eval \in \mathbb{Z}$.
+    \item $\mkche{bool}$ : $\expr \Longrightarrow \eval$ and $\eval \in \mathbb{B}$.
+    \item $\mkche{$\mkfun{\syntype_1}{\syntype_2}$}$ : $\forall \eval$ if $\ \models \hastype{\eval}{\syntype_1}$, then $\ \models \hastype{(\mklambda{\ev}{\expr})\ \eval}{\syntype_2}$.
+  \end{enumerate}
 \end{definition}
