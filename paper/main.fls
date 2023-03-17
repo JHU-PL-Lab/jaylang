@@ -1582,6 +1582,8 @@ INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/stxscr.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/vf/public/newtx/ntxsy7.vf
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/txsys.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/txex-bar.tfm
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-sc-t1.tfm
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-sc-t1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-ot1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-ot1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/nxlmi5.tfm
@@ -1610,6 +1612,7 @@ INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/mnsymbol/MnSymbolC5.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/mnsymbol/MnSymbolC5.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/mnsymbol/MnSymbolD5.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/mnsymbol/MnSymbolD5.tfm
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-sc-t1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-ot1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-ot1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/nxlmi5.tfm
@@ -1638,9 +1641,13 @@ INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/mnsymbol/MnSymbolC5.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/mnsymbol/MnSymbolC5.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/mnsymbol/MnSymbolD5.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/mnsymbol/MnSymbolD5.tfm
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-sc-t1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/inconsolata/t1-zi4r-4.tfm
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-sc-t1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/inconsolata/t1-zi4r-4.tfm
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-sc-t1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/inconsolata/t1-zi4r-4.tfm
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-sc-t1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/inconsolata/t1-zi4r-4.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/vf/public/libertine/LinBiolinumT-tlf-t1.vf
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinBiolinumT-tlf-t1--base.tfm
@@ -1650,9 +1657,12 @@ INPUT /usr/share/texlive/texmf-dist/fonts/vf/public/newtx/nxlmi5.vf
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/LibertineMathMI5.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/NewTXMI5.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/stxscr.tfm
+INPUT /usr/share/texlive/texmf-dist/fonts/vf/public/libertine/LinLibertineT-tlf-sc-t1.vf
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-sc-t1--base.tfm
 INPUT /home/kwu48/Grad/Project/ddse/paper/main.aux
 INPUT /home/kwu48/Grad/Project/ddse/paper/main.out
 INPUT /home/kwu48/Grad/Project/ddse/paper/main.out
+INPUT /usr/share/texlive/texmf-dist/fonts/enc/dvips/libertine/lbtn_ncsllp.enc
 INPUT /usr/share/texlive/texmf-dist/fonts/enc/dvips/libertine/lbtn_25tcsq.enc
 INPUT /usr/share/texlive/texmf-dist/fonts/enc/dvips/libertine/lbtn_7grukw.enc
 INPUT /usr/share/texlive/texmf-dist/fonts/enc/dvips/inconsolata/i4-t1-4.enc

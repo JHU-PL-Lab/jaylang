@@ -134,8 +134,8 @@ In this section, we will demonstrate how to represent each type using a tuple of
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par 
   \begin{enumerate}
-    \item $\mkgen{int}$ : pick $n \in \mathbb{Z}$.
-    \item $\mkgen{bool}$ : pick $b \in \mathbb{B}$.
+    \item $\mkgen{$\tint$} = n \in \mathbb{Z}$.
+    \item $\mkgen{$\tbool$}$ : pick $b \in \mathbb{B}$.
     \item $\mkgen{$\mkfun{\syntype_1}{\syntype_2}$}$ : pick $\mklambda{\ev}{\expr}$ such that $\forall \eval$ where $\ \models \hastype{\eval}{\syntype_1}$, $\ \models \hastype{(\mklambda{\ev}{\expr})\ \eval}{\syntype_2}$.
   \end{enumerate}
 \end{definition}
@@ -145,8 +145,8 @@ In this section, we will demonstrate how to represent each type using a tuple of
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par 
   \begin{enumerate}
-    \item $\mkche{int}$ : $\expr \Longrightarrow \eval$ and $\eval \in \mathbb{Z}$.
-    \item $\mkche{bool}$ : $\expr \Longrightarrow \eval$ and $\eval \in \mathbb{B}$.
+    \item $\mkche{$\tint$}$ : $\expr \Longrightarrow \eval$ and $\eval \in \mathbb{Z}$.
+    \item $\mkche{$\tbool$}$ : $\expr \Longrightarrow \eval$ and $\eval \in \mathbb{B}$.
     \item $\mkche{$\mkfun{\syntype_1}{\syntype_2}$}$ : $\forall \eval$ if $\ \models \hastype{\eval}{\syntype_1}$, then $\ \models \hastype{(\mklambda{\ev}{\expr})\ \eval}{\syntype_2}$.
   \end{enumerate}
 \end{definition}
