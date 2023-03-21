@@ -904,19 +904,19 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       (* Note: Intersection of all records are now empty? *)
       let rec flatten_fun_intersection ed acc =
         match ed.body with
-        | TypeIntersect (t1, t2) -> (
-            match (t1.body, t2.body) with
+        | TypeIntersect (dom, cod) -> (
+            match (dom.body, cod.body) with
             | TypeArrow _, TypeArrow _ | TypeArrowD _, TypeArrowD _ ->
-                t1 :: t2 :: acc
+                dom :: cod :: acc
             | TypeArrow _, TypeIntersect _ | TypeArrowD _, TypeIntersect _ ->
-                let acc' = t1 :: acc in
-                flatten_fun_intersection t2 acc'
+                let acc' = dom :: acc in
+                flatten_fun_intersection cod acc'
             | TypeIntersect _, TypeArrow _ | TypeIntersect _, TypeArrowD _ ->
-                let acc' = t2 :: acc in
-                flatten_fun_intersection t1 acc'
+                let acc' = cod :: acc in
+                flatten_fun_intersection dom acc'
             | TypeIntersect _, TypeIntersect _ ->
-                let acc' = flatten_fun_intersection t1 acc in
-                flatten_fun_intersection t2 acc'
+                let acc' = flatten_fun_intersection dom acc in
+                flatten_fun_intersection cod acc'
             | _ ->
                 failwith
                   "flatten_fun_intersection: Should be an intersection of \
@@ -928,8 +928,8 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       in
       let rec domain_check ed =
         match ed.body with
-        | TypeArrow (t1, t2) | TypeArrowD ((_, t1), t2) ->
-            if is_fun_type t1 then false else domain_check t2
+        | TypeArrow (dom, cod) | TypeArrowD ((_, dom), cod) ->
+            if is_fun_type dom then false else domain_check cod
         | _ -> true
       in
       let mk_fun_intersect_gen fun_types =

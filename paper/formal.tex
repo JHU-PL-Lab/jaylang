@@ -159,21 +159,34 @@ In this section, we will demonstrate how to represent each type using a tuple of
   \begin{enumerate}
     \item $\mkgen{\tpoly_i} : \vpoly_i$.
     \item $\mkgen{\mkunion{\syntype_1}{\syntype_2}} : \pick \ b \in \mathbb{B}$. $\ife{b}{\mkgen{\syntype_1}}{\mkgen{\syntype_2}}$.
-    \item $\mkgen{\mkunion{\syntype_1}{\syntype_2}} : \pick \ b \in \mathbb{B}$. ?
-    \item $\mkgen{\mktset{\syntype}{p}} : \texttt{let choice = \mkgen{\syntype} in \take{p}{choice}}.$
+    \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where $\syntype_1, \syntype_2$ are not arrow types : $\pick \ b \in \mathbb{B}$. \\ 
+    $\ife{b}{\texttt{let gend = } \mkgen{\syntype_1} \texttt{ in }\take{\mkche{\syntype_2}{\texttt{gend}}}{\texttt{gend}}
+    }{\\ \texttt{let gend = } \mkgen{\syntype_2} \texttt{ in }\take{\mkche{\syntype_1}{\texttt{gend}}}{\texttt{gend}}
+    }$.
+    \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where $\syntype_1 = \mkfun{\syntype_{dom1}}{\syntype_{cod1}}, \syntype_2 = \mkfun{\syntype_{dom2}}{\syntype_{cod2}} : $ \\ 
+    $\mkfunv{\ev}{
+      \ife{\mkche{\syntype_{dom1}}{\ev}}{\mkgen{\syntype_{cod1}}}{\\\mkgen{\syntype_{cod2}}}
+    }$. 
+    \item $\mkgen{\mktset{\syntype}{p}} : \texttt{let choice = }\mkgen{\syntype} \texttt{ in } \take{p}{choice}.$
     \item $\mkgen{\mkdfun{\ev}{\syntype_1}{\syntype_2}} : \texttt{let $\tau_2'$ = }\mkfunv{\ev}{\syntype_2} \texttt{ in }\mkfunv{\ev'}{\mkgen{\tau_2'\ \ev'}}.$
     \item $\mkgen{\mkmiu{\alpha}{\syntype}} : \mkgen{\substitute{\syntype}{\alpha}{\mkmiu{\alpha}{\syntype}}}.$
     \item $\mkgen{\{\hastype{\elbl_1}{\syntype_1}, \cdots, \hastype{\elbl_n}{\syntype_n}\}} :$ \\ $\texttt{let }\eval_1 = \mkgen{\syntype_1}\texttt{ in }\cdots\texttt{ let }\eval_n = \mkgen{\syntype_n}\texttt{ in } \{\elbl_1 = \eval_1, \cdots, \elbl_n = \eval_n\}.$
   \end{enumerate}
 \end{definition}
 
-% \begin{definition}[Defining Checker in the extended language]
-%   \label{def_cheExt}
-%   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
-%   \ \par 
-%   \begin{enumerate}
-%     \item $\mkche{$\tint$}{\expr} : \expr \Longrightarrow \eval$ and $\eval \in \mathbb{Z}$.
-%     \item $\mkche{$\tbool$}{\expr} : \expr \Longrightarrow \eval$ and $\eval \in \mathbb{B}$.
-%     \item $\mkche{$\mkfun{\syntype_1}{\syntype_2}$}{\expr} : \forall \eval$ if $\ \models \hastype{\eval}{\syntype_1}$, then $\ \models \hastype{(\mklambda{\ev}{\expr})\ \eval}{\syntype_2}$.
-%   \end{enumerate}
-% \end{definition}
+\begin{definition}[Defining Checker in the extended language]
+  \label{def_cheExt}
+  % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+  \ \par 
+  \begin{enumerate}
+    \item $\mkche{\tpoly_i}{\expr} : \matches{\expr}{\vpoly_i}$.
+    \item $\mkche{\mkunion{\syntype_1}{\syntype_2}}{\expr} : \mkche{\syntype_1}{\expr} \texttt{ or } \mkche{\syntype_2}{\expr}$.
+    \item $\mkche{\mkintersect{\syntype_1}{\syntype_2}}{\expr} : \mkche{\syntype_1}{\expr} \texttt{ and } \mkche{\syntype_2}{\expr}$. 
+    \item $\mkche{\mktset{\syntype}{p}}{\expr} : \mkche{\syntype}{\expr} \texttt{ and } \evaluate{\expr} = \gttrue$.
+    \item $\mkche{\mkdfun{\ev}{\syntype_1}{\syntype_2}}{\expr} : \texttt{let arg = } \mkgen{\syntype_1} \texttt{ in } \mkche{\substitute{\syntype_2}{\texttt{arg}}{\ev}}{\texttt{(e arg)}}$.
+    \item $\mkche{\mkmiu{\alpha}{\syntype}}{\expr} : \mkche{\substitute{\syntype}{\mkmiu{\alpha}{\syntype}}{\alpha}}{\expr}$.
+    \item $\mkche{\{\hastype{\elbl_1}{\syntype_1}, \cdots, \hastype{\elbl_m}{\syntype_m}\}}{\expr} :$
+    $\evaluate{\expr} = \{\elbl_1 = \eval_1, \cdots, \elbl_m = \eval_m, \cdots, \elbl_n = \eval_n\}^{\{\elbl_1, \cdots, \elbl_m\}}$ \\ 
+    $\texttt{and } \mkche{\syntype_1}{\eval_1} \cdots \texttt{ and } \mkche{\syntype_m}{\eval_m}$.
+  \end{enumerate}
+\end{definition}
