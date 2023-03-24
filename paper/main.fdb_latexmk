@@ -1,7 +1,7 @@
 # Fdb version 3
-["pdflatex"] 1679515220 "/home/kwu2/Project/ddse/paper/main.tex" "/home/kwu2/Project/ddse/paper/main.pdf" "main" 1679515220
+["pdflatex"] 1679678513 "/home/kwu2/Project/ddse/paper/main.tex" "/home/kwu2/Project/ddse/paper/main.pdf" "main" 1679678514
   "/etc/texmf/web2c/texmf.cnf" 1563579552 475 c0e671620eb5563b2130f56340a5fde8 ""
-  "/home/kwu2/Project/ddse/paper/main.aux" 1679515220 2785 ac2d8e5d0c6eec218e89331723a01fe2 ""
+  "/home/kwu2/Project/ddse/paper/main.aux" 1679678514 2785 ac2d8e5d0c6eec218e89331723a01fe2 ""
   "/home/kwu2/Project/ddse/paper/main.tex" 1678483628 3236 12fbed8cb18a7d760db25b133ec29acf ""
   "/usr/share/texlive/texmf-dist/fonts/enc/dvips/base/8r.enc" 1165713224 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
   "/usr/share/texlive/texmf-dist/fonts/enc/dvips/inconsolata/i4-t1-4.enc" 1480098667 7311 f1482de29b79cbe9ecc4861d6c55e906 ""
@@ -269,16 +269,16 @@
   "/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map" 1563581694 3236060 fd056e42459c13cbcb0cc6e0a7cae8d4 ""
   "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1563581716 4225636 873c91cd61e64ad2d464db7db7fc3fc6 ""
   "acmfart.cls" 1678481504 64790 6d2423036c7a5c1f4e5e7a0a5901c514 ""
-  "formal.tex" 1679515219 9635 f04172778139c72c2523981252e56e8b ""
+  "formal.tex" 1679678513 9723 0c7b15f64d6873c6db6ecb8c19e03aa3 ""
   "jhupllab.sty" 1678481504 18547 64831725ca7b9b054f31d0633d2c2193 ""
   "macros.tex" 1679514937 14339 479b56bfa374d151fef88c9724760cdd ""
-  "main.aux" 1679515220 2785 ac2d8e5d0c6eec218e89331723a01fe2 ""
-  "main.out" 1679515220 491 ce0abe1f80c94426d655cab79cfa8469 ""
+  "main.aux" 1679678514 2785 ac2d8e5d0c6eec218e89331723a01fe2 ""
+  "main.out" 1679678514 491 ce0abe1f80c94426d655cab79cfa8469 ""
   "main.tex" 1678483628 3236 12fbed8cb18a7d760db25b133ec29acf ""
   (generated)
   "main.out"
   "/home/kwu2/Project/ddse/paper/main.pdf"
-  "/home/kwu2/Project/ddse/paper/main.log"
   "main.pdf"
   "main.log"
   "main.aux"
+  "/home/kwu2/Project/ddse/paper/main.log"

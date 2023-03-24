@@ -167,12 +167,11 @@ In this section, we will demonstrate how to represent each type using a tuple of
     $\mkfunv{\ev}{
       \ife{\mkche{\syntype_{dom1}}{\ev}}{\mkgen{\syntype_{cod1}}}{\\\mkgen{\syntype_{cod2}}}
     }$. 
-    \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where \\ $\syntype_1 = \{\hastype{\elbl_1}{\syntype_1}, \cdots, \hastype{\elbl_m}{\syntype_m}\}, \syntype_2 = \{\hastype{\elbl_1}{\syntype_1}, \cdots, \hastype{\elbl_m}{\syntype_m}, \cdots, \hastype{\elbl_n}{\syntype_n}\} : $ \\ 
-    $\mkfunv{\ev}{
-      \ife{\mkche{\syntype_{dom1}}{\ev}}{\mkgen{\syntype_{cod1}}}{\\\mkgen{\syntype_{cod2}}}
-    }$. 
+    \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where \\ $\syntype_1 = \{\hastype{\elbl_1}{\syntype_1'}, \cdots, \hastype{\elbl_m}{\syntype_m'}\}, \syntype_2 = \{\hastype{\elbl_1}{\syntype_1''}, \cdots, \hastype{\elbl_m}{\syntype_m''}, \cdots, \hastype{\elbl_n}{\syntype_n''}\} : $ \\ $
+      \{\elbl_1 = \mkgen{\mkintersect{\syntype_1'}{\syntype_1''}}, \elbl_m = \mkgen{\mkintersect{\syntype_m'}{\syntype_m''}}, \cdots, \elbl_n = \}
+    $. 
     \item $\mkgen{\mktset{\syntype}{p}} : \texttt{let choice = }\mkgen{\syntype} \texttt{ in } \take{p}{choice}.$
-    \item $\mkgen{\mkdfun{\ev}{\syntype_1}{\syntype_2}} : \texttt{let $\tau_2'$ = }\mkfunv{\ev}{\syntype_2} \texttt{ in }\mkfunv{\ev'}{\mkgen{\tau_2'\ \ev'}}.$
+    \item $\mkgen{\mkdfun{\ev}{\syntype_1}{\syntype_2}} : \texttt{let $\tau_2'$ = }\mkfunv{\ev}{\syntype_2} \texttt{ in } \\ \mkfunv{\ev'}{\ife{\mkche{\tau_1}{\ev'}}{\mkgen{\tau_2'\ \ev'}}{TYPE\_ERROR}}.$
     \item $\mkgen{\mkmiu{\alpha}{\syntype}} : \mkgen{\substitute{\syntype}{\alpha}{\mkmiu{\alpha}{\syntype}}}.$
     \item $\mkgen{\{\hastype{\elbl_1}{\syntype_1}, \cdots, \hastype{\elbl_n}{\syntype_n}\}} :$ \\ $\texttt{let }\eval_1 = \mkgen{\syntype_1}\texttt{ in }\cdots\texttt{ let }\eval_n = \mkgen{\syntype_n}\texttt{ in } \{\elbl_1 = \eval_1, \cdots, \elbl_n = \eval_n\}.$
   \end{enumerate}
