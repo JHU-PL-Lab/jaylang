@@ -1,0 +1,20 @@
+p = 0;
+a1 = input;
+a2 = 2;
+a4 = 4;
+e = a2 + a4;
+f = fun t -> (
+  x = input;
+  a3 = 3;
+  d = a2 + a3;
+  c = x == t;
+);
+s = f a1
+
+f = fun t -> (
+  e = 6;
+  x = input;
+  a3 = 3;
+  d = e + a3;
+  c = x == t;
+);

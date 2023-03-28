@@ -1,0 +1,15 @@
+a1 = 1;
+f = fun t -> (
+  c = d + t
+  g = fun s -> (
+    x = c + s;
+  );
+);
+c1 = f a1;
+// c2 = c1 a2;
+
+c__ = d + t
+g__ = fun s -> (
+  x = c + s;
+);
+c1 = g__

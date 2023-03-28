@@ -406,7 +406,9 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = begin
       in PValue (Direct v)
     end
     
-    | Abort_body | Assert_body _ | Assume_body _ -> failwith "Evaluation does not yet support abort, assert, and assume!"
+    | Abort_body -> bail (None, LexAdr_set.empty) (* LexAdr_set.empty, PClause clause *)
+    
+    | Assert_body vx | Assume_body vx -> bail (None, snd @@ get_deps_from_ident_opt vx env)
 
     end in (add_ident_line_penv x lexadr linedeps res_value env)
   
