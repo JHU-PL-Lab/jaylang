@@ -64,7 +64,7 @@ let get_block_visits (state : Global_state.t) (key : Lookup_key.t) =
     ~if_found:(fun d -> d.visits)
     ~if_not_found:(fun _ -> 0)
 
-let pp_one_sub map oc key =
+let pp_one_sub map oc (pre, key) =
   match Hashtbl.find map key with
   | Some (detail : Lookup_detail.t) ->
       Fmt.pf oc "%a=%a" Lookup_key.pp key Lookup_status.pp_short detail.status

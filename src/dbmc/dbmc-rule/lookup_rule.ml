@@ -37,7 +37,8 @@ let fetch_counter (state : Global_state.t) key =
    The difference of 1.a and 1.b comes from whether 
 *)
 
-let fold_lookups_status map lookups =
+let fold_lookups_status map lookups_with_pre =
+  let lookups = List.map ~f:snd lookups_with_pre in
   let open Lookup_status in
   List.fold_until lookups ~init:Good
     ~f:(fun acc_s lookup ->
@@ -86,9 +87,11 @@ let run_action run_task unroll (state : Global_state.t)
   let add_sub_preconds cond =
     detail.sub_preconds <- detail.sub_preconds @ [ cond ]
   in
-  let add_sublookup key = detail.sub_lookups <- detail.sub_lookups @ [ key ] in
+  let add_sublookup pre_pair key =
+    detail.sub_lookups <- detail.sub_lookups @ [ (pre_pair, key) ]
+  in
   let promote_result = promote_result target state.lookup_detail_map detail in
-  let rec run ?(sub_lookup = false) source =
+  let rec run ?sub_lookup source =
     match source with
     | Leaf Fail ->
         set_status Lookup_status.Fail ;
@@ -101,19 +104,20 @@ let run_action run_task unroll (state : Global_state.t)
         U.by_return unroll target (Lookup_result.complete target)
     | Leaf _ -> failwith "incorrect leaf status"
     | Direct e ->
-        if sub_lookup
-        then (
-          add_sublookup e.pub ;
-          U.by_map_u unroll target e.pub (fun r ->
-              Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from) ;
-              r))
-        else
-          U.by_filter_map_u unroll target e.pub (fun r ->
-              Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from) ;
-              promote_result r.status r.from) ;
+        (match sub_lookup with
+        | Some pre ->
+            add_sublookup pre e.pub ;
+            U.by_map_u unroll target e.pub (fun r ->
+                Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from) ;
+                r)
+        | None ->
+            U.by_filter_map_u unroll target e.pub (fun r ->
+                Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from) ;
+                promote_result r.status r.from)) ;
+
         Log.debug (fun m ->
             m "[Direct]%a <- %a(%B) @." Lookup_key.pp target Lookup_key.pp e.pub
-              sub_lookup) ;
+              (Option.is_some sub_lookup)) ;
         run_task e.pub
     | Map e ->
         U.by_filter_map_u unroll target e.pub (fun r ->
@@ -159,7 +163,7 @@ let run_action run_task unroll (state : Global_state.t)
                   if not e.bounded
                   then add_phi (Riddler.list_append target i Riddler.false_)) ;
               match action_next with
-              | Some edge -> run ~sub_lookup:true edge
+              | Some edge -> run ~sub_lookup:(key, r.from) edge
               | None -> ()) ;
           Lwt.return_unit
         in
@@ -167,7 +171,7 @@ let run_action run_task unroll (state : Global_state.t)
         run_task e.pub
     | Or_list e ->
         if not e.bounded then create_counter state detail target ;
-        List.iter e.elements ~f:(run ~sub_lookup)
+        List.iter e.elements ~f:(run ?sub_lookup)
   in
 
   run source ;

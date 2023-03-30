@@ -12,7 +12,7 @@ type t = {
   mutable status_gen_phi : Lookup_status.t;
   (* sublookup *)
   mutable sub_preconds : bool ref list;
-  mutable sub_lookups : Lookup_key.t list;
+  mutable sub_lookups : ((Lookup_key.t * Lookup_key.t) * Lookup_key.t) list;
   (* debug *)
   mutable is_set : bool;
   mutable get_count : int;

@@ -105,19 +105,74 @@ let complete_phis_of_rule (state : Global_state.t) key
             let domain_arg = detail_arg.domain in
             and_
               [
+                eq key key_arg;
                 picked_eq_choices key_f domain_f;
                 picked_eq_choices key_arg domain_arg;
               ])
       in
-      and_
-        [
-          Riddler.fun_enter_local key key.block.id p.callsites state.block_map;
-          picked key @=> and_ phi_f_and_arg;
-        ]
-  (*
-      Todo
-  *)
-  (* | Fun_enter_nonlocal p -> false_ *)
+      (* and_
+         [
+           Riddler.fun_enter_local key key.block.id p.callsites state.block_map;
+           ;
+         ] *)
+      picked key @=> or_ phi_f_and_arg
+  | Fun_enter_nonlocal p ->
+      let fid = key.block.id in
+      let phi_f_and_arg =
+        List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_arg) ->
+            let detail_arg = Hashtbl.find_exn state.lookup_detail_map key_arg in
+            and_
+              [
+                picked key_f;
+                picked key_fv;
+                eq key_f key_fv;
+                picked_eq_choices key_arg detail_arg.domain;
+              ])
+      in
+      picked key @=> or_ phi_f_and_arg
+      (* List.map p.callsites ~f:(fun callsite ->
+          let callsite_block, x', x'', x''' =
+            Cfg.fun_info_of_callsite callsite state.block_map
+          in
+          let callsite_stack =
+            Option.value_exn (Rstack.pop key.r_stk (x', fid))
+          in
+          let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
+          let detail_f = Hashtbl.find_exn state.lookup_detail_map key_f in
+          or_
+            (List.map detail_f.sub_lookups
+               ~f:(fun ((key_f, key_fv), key_arg) ->
+                 let detail_arg =
+                   Hashtbl.find_exn state.lookup_detail_map key_arg
+                 in
+                 and_
+                   [
+                     picked key_f;
+                     picked key_fv;
+                     eq key_f key_fv;
+                     picked_eq_choices key_arg detail_arg.domain;
+                   ]))
+          (*   let domain_f = detail_f.domain in *)
+          (* let key_arg = Lookup_key.of3 x' callsite_stack callsite_block in *)
+          (* let key_arg =
+               List.find_exn
+                 ~f:(fun (pre, _) -> Lookup_key.equal pre key_f)
+                 detail_f.sub_lookups
+               |> snd
+             in
+             let domain_arg = detail_arg.domain in
+             and_
+               [
+                 eq key key_arg;
+                 picked_eq_choices key_f domain_f;
+                 picked_eq_choices key_arg domain_arg;
+               ]) *)) *)
+
+      (* and_
+         [
+           (* Riddler.fun_enter_local key key.block.id p.callsites state.block_map; *)
+
+         ] *)
   | _ -> true_
 
 let check (state : Global_state.t) (config : Global_config.t) :
