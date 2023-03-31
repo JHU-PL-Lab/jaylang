@@ -163,7 +163,7 @@ let run_action run_task unroll (state : Global_state.t)
                   if not e.bounded
                   then add_phi (Riddler.list_append target i Riddler.false_)) ;
               match action_next with
-              | Some edge -> run ~sub_lookup:(key, r.from) edge
+              | Some edge -> run ~sub_lookup:(e.pub, r.from) edge
               | None -> ()) ;
           Lwt.return_unit
         in
