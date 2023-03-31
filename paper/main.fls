@@ -392,6 +392,9 @@ INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineTI-tl
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineTI-tlf-t1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineTI-tlf-t1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinBiolinumT-tlf-t1.tfm
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-sc-t1.tfm
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-sc-t1.tfm
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-sc-t1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/vf/public/libertine/LinBiolinumTB-tlf-t1.vf
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinBiolinumTB-tlf-t1--base.tfm
 INPUT /var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map
@@ -438,6 +441,11 @@ INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf
 INPUT /usr/share/texlive/texmf-dist/fonts/vf/public/txfonts/txmi.vf
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/txfonts/rtxmi.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/txfonts/rtxptmri.tfm
+INPUT /usr/share/texlive/texmf-dist/fonts/vf/public/libertine/LinLibertineT-tlf-sc-t1.vf
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-sc-t1--base.tfm
+INPUT /usr/share/texlive/texmf-dist/fonts/vf/public/newtx/ntxsy7.vf
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/txsys.tfm
+INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/txex-bar.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/vf/public/newtx/nxlmi7.vf
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/fxlri-7alt.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/LibertineTheta-Regular.tfm
@@ -445,9 +453,6 @@ INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/rtxmi7.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/zxlr-7nums.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/fxlri-7letters.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/rntxmi7.tfm
-INPUT /usr/share/texlive/texmf-dist/fonts/vf/public/newtx/ntxsy7.vf
-INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/txsys.tfm
-INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/txex-bar.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-ot1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/libertine/LinLibertineT-tlf-ot1.tfm
 INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/nxlmi5.tfm
@@ -518,6 +523,7 @@ INPUT /usr/share/texlive/texmf-dist/fonts/tfm/public/newtx/rntxmi5.tfm
 INPUT /home/kwu2/Project/ddse/paper/main.aux
 INPUT /home/kwu2/Project/ddse/paper/main.out
 INPUT /home/kwu2/Project/ddse/paper/main.out
+INPUT /usr/share/texlive/texmf-dist/fonts/enc/dvips/libertine/lbtn_ncsllp.enc
 INPUT /usr/share/texlive/texmf-dist/fonts/enc/dvips/libertine/lbtn_25tcsq.enc
 INPUT /usr/share/texlive/texmf-dist/fonts/enc/dvips/newtx/libertinealt.enc
 INPUT /usr/share/texlive/texmf-dist/fonts/enc/dvips/libertine/lbtn_7grukw.enc

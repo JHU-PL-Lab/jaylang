@@ -80,16 +80,25 @@ Next, we will define a couple of languages extensions and their corresponding ty
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par
   \begin{enumerate}
-      \item $\ \models \hastype{\expr}{\tpoly_i}$ iff $\expr \bigstep \vpoly_i$.
+      \item $\ \models \hastype{\expr}{\tpoly}$ iff $\expr \bigstep \vpoly$, where $\textsc{typeof}(\vpoly) = \tpoly$.
       \item $\ \models \hastype{\expr}{\mkunion{\syntype_1}{\syntype_2}}$ iff $\ \models \hastype{\expr}{\syntype_1}$ or $\ \models \hastype{\expr}{\syntype_2}$.
       \item $\ \models \hastype{\expr}{\mkintersect{\syntype_1}{\syntype_2}}$ iff $\ \models \hastype{\expr}{\syntype_1}$ and $\ \models \hastype{\expr}{\syntype_2}$.
       \item $\ \models \hastype{\expr}{\mktset{\syntype}{p}}$ iff $\ \models \hastype{\expr}{\syntype}$ and $p \ \expr \Longrightarrow \gttrue$.
       \item $\ \models \hastype{\expr}{\mkdfun{\ev}{\syntype_1}{\syntype_2}}$ iff $\forall{\eval}$ such that $\models \hastype{\eval}{\syntype_1}$, $\models \hastype{\expr\ \eval}{\substitute{\syntype_2}{\eval}{\ev}}$.
-      \item $\ \models \hastype{\expr}{\mkmiu{\alpha}{\syntype}}$ iff $\hastype{\expr}{\substitute{\syntype}{\mkmiu{\alpha}{\syntype}}{\alpha}}$.
+      \item $\ \models \hastype{\expr}{\mkmiu{\alpha}{\syntype}}$ iff ?.
   \end{enumerate}
 \end{definition}
 
 We will now extend the language with records.
+
+% fun x -> 
+%   match x with 
+%   | int -> x
+%   | bool -> not x
+
+% (int -> int) ^ (bool -> bool)
+
+
 
 \begin{figure}[hbt!]%{r}{.5\textwidth}%
   \begin{grammar}
@@ -116,7 +125,7 @@ We will now extend the language with records.
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par
   \begin{enumerate}
-      \item $\ \models \hastype{\expr}{\{\hastype{\elbl_1}{\syntype_1},\ \cdots, \hastype{\elbl_m}{\syntype_m}\}}$ iff $\expr \bigstep \{\elbl_1 = \eval_1,\ \cdots, \elbl_m = \eval_m,\ \cdots, \elbl_n = \eval_n\}^{\{\elbl_1, \cdots, \elbl_m\}}$ where $\ \models \hastype{\eval_i}{\syntype_i}$ for $i \in \{1,\ \cdots, m\}$, $n \geq m$
+      \item $\ \models \hastype{\expr}{\{\hastype{\elbl_1}{\syntype_1},\ \cdots, \hastype{\elbl_m}{\syntype_m}\}}$ iff $\expr \bigstep \{\elbl_1 = \eval_1,\ \cdots, \elbl_m = \eval_m,\ \cdots, \elbl_n = \eval_n\}^{\{\elbl_1, \cdots, \elbl_p\}}$ where $\ \models \hastype{\eval_i}{\syntype_i}$ for $i \in \{1,\ \cdots, m\}$, $n \geq p \geq m$.
   \end{enumerate}
 \end{definition}
 
