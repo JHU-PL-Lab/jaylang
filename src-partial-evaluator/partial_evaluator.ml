@@ -68,6 +68,18 @@ let find_var_env_deps (var_enum : var Enum.t) (env : penv) : penv * LexAdr_set.t
     in add_ident_line ident cur_lexadr cur_val new_env
   end lines IdentLine_map.empty, deps
 
+(* let fold_expr (env : penv) (cur_expr : clause list) (cur_var : var) =
+  let pvalue = get_pvalue_from_ident cur_var env
+  in Clause (cur_var, Value_body (value_of_pvalue pvalue) ) :: cur_expr *)
+
+let prepend_vars_to_expr (var_enum : var Enum.t) (Expr clauses : expr) (env : penv) : expr =
+  (* Expr (Enum.fold (fold_expr env) clauses var_enum) *)
+  Expr (Enum.fold (fun cur_expr cur_var ->
+    let pvalue = get_pvalue_from_ident cur_var env
+    in Clause (cur_var, Value_body (value_of_pvalue pvalue) ) :: cur_expr
+  ) clauses var_enum)
+;;
+
 (* Note: Only reason right now to also return penv is for debugging purposes only *)
 (* There should be no diverging concerns here, as this devaluator (dependency evaluator)
    only enters scope; it does not evaluate any functions *)
@@ -266,13 +278,13 @@ let simple_eval (expr : expr) : value * penv = begin
   and eval_clause ((envnum, line) as lexadr : int * int) (env : penv) (Clause (Var (x, _), body) : clause) : penv = 
     let linedeps, res_value = match body with
 
-    (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
-    | Value_body (Value_function (Function_value ((Var(x1, _)) as vx1, func_expr) as vf)) -> begin
+    | Value_body (Value_function (Function_value ((Var(x1, _)) as vx1, func_expr) as _vf)) -> begin
       let captured = Var_set.remove vx1 (simple_cval func_expr)
       (* in let () = Format.printf "%a\n" Var_set.pp captured *)
       in let new_env, deps = find_var_env_deps (Var_set.enum captured) env
       (* in let () = Format.printf "%a\n" pp_penv new_env *)
-      in deps, FunClosure (x, vf, new_env)
+      in let new_func_expr = prepend_vars_to_expr (Var_set.enum captured) func_expr new_env
+      in deps, FunClosure (x, (Function_value (vx1, new_func_expr)), IdentLine_map.empty)
     end
     
     | Value_body (Value_record ((Record_value r) as vr)) -> let new_env, deps = find_var_env_deps (Ident_map.values r) env
