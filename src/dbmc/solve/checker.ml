@@ -130,50 +130,36 @@ let complete_phis_of_rule (state : Global_state.t) key
               ])
       in
       picked key @=> or_ phi_f_and_arg
-      (* List.map p.callsites ~f:(fun callsite ->
-          let callsite_block, x', x'', x''' =
-            Cfg.fun_info_of_callsite callsite state.block_map
-          in
-          let callsite_stack =
-            Option.value_exn (Rstack.pop key.r_stk (x', fid))
-          in
-          let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
-          let detail_f = Hashtbl.find_exn state.lookup_detail_map key_f in
-          or_
-            (List.map detail_f.sub_lookups
-               ~f:(fun ((key_f, key_fv), key_arg) ->
-                 let detail_arg =
-                   Hashtbl.find_exn state.lookup_detail_map key_arg
-                 in
-                 and_
-                   [
-                     picked key_f;
-                     picked key_fv;
-                     eq key_f key_fv;
-                     picked_eq_choices key_arg detail_arg.domain;
-                   ]))
-          (*   let domain_f = detail_f.domain in *)
-          (* let key_arg = Lookup_key.of3 x' callsite_stack callsite_block in *)
-          (* let key_arg =
-               List.find_exn
-                 ~f:(fun (pre, _) -> Lookup_key.equal pre key_f)
-                 detail_f.sub_lookups
-               |> snd
-             in
-             let domain_arg = detail_arg.domain in
-             and_
-               [
-                 eq key key_arg;
-                 picked_eq_choices key_f domain_f;
-                 picked_eq_choices key_arg domain_arg;
-               ]) *)) *)
-
-      (* and_
-         [
-           (* Riddler.fun_enter_local key key.block.id p.callsites state.block_map; *)
-
-         ] *)
-  | _ -> true_
+  | Fun_exit p ->
+      let phi_f_and_ret =
+        List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_ret) ->
+            let detail_ret = Hashtbl.find_exn state.lookup_detail_map key_ret in
+            and_
+              [
+                picked key_f;
+                picked key_fv;
+                eq key_f key_fv;
+                picked_eq_choices key_ret detail_ret.domain;
+              ])
+      in
+      picked key @=> or_ phi_f_and_ret
+  | Pattern p -> true_
+(* let pattern_truth pat rv =
+     let open Jayil.Ast in
+     match (pat, rv) with
+     | Any_pattern, _
+     | Fun_pattern, Value_body (Value_function _)
+     | Int_pattern, Value_body (Value_int _)
+     | Int_pattern, Input_body
+     | Bool_pattern, Value_body (Value_bool _) ->
+         true
+     | Rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
+         Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
+     | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
+         Ident_set.equal ids (Ident_set.of_enum @@ Ident_map.keys rv)
+     | _ -> false
+     in
+   picked key @=> and_ [picked p.x'; pattern_truth p.pat] *)
 
 let check (state : Global_state.t) (config : Global_config.t) :
     result_info option =
@@ -223,12 +209,17 @@ let check (state : Global_state.t) (config : Global_config.t) :
         state.phis_staging <- key_staging :: state.phis_staging ;
         detail.status_gen_phi <- detail.status) ;
 
-  SLog.debug (fun m -> m "Two: %s" (Z3.Solver.to_string state.solver)) ;
-
   let another_result =
     Solver.check ~verbose:config.debug_model state.solver state.phis_staging
       phi_used_once
   in
+
+  SLog.debug (fun m -> m "Two: %s" (Z3.Solver.to_string state.solver)) ;
+  SLog.debug (fun m ->
+      m "Two (used once): %a"
+        Fmt.(Dump.list string)
+        (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
+
   Global_state.clear_phis state ;
   (match (solver_result, another_result) with
   | Result.Ok _, Result.Ok _ | Result.Error _, Result.Error _ -> ()

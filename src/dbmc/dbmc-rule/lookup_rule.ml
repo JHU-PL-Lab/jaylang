@@ -324,6 +324,20 @@ module Make (S : S) = struct
     in
     Chain { pub = p.xf; next; bounded = true }
 
+  let pattern_truth pat rv =
+    match (pat, rv) with
+    | Any_pattern, _
+    | Fun_pattern, Value_body (Value_function _)
+    | Int_pattern, Value_body (Value_int _)
+    | Int_pattern, Input_body
+    | Bool_pattern, Value_body (Value_bool _) ->
+        true
+    | Rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
+        Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
+    | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
+        Ident_set.equal ids (Ident_set.of_enum @@ Ident_map.keys rv)
+    | _ -> false
+
   let pattern p (key : Lookup_key.t) =
     let ({ x'; pat; _ } : Pattern_rule.t) = p in
     let f i (r : Lookup_result.t) =
@@ -337,43 +351,32 @@ module Make (S : S) = struct
       *)
       let key_rv = r.from in
       let rv = Cfg.clause_body_of_x key_rv.block key_rv.x in
-      let phis, _matched =
+      let matched = pattern_truth pat rv in
+      let phis =
         match (pat, rv) with
         | Any_pattern, _
         | Fun_pattern, Value_body (Value_function _)
         | Int_pattern, Value_body (Value_int _)
         | Int_pattern, Input_body
         | Bool_pattern, Value_body (Value_bool _) ->
-            let phi1 = Riddler.eqv_with_picked key x' (Value_bool true) in
-            let phi2 = Riddler.picked_pattern key x' pat in
-
-            ([ phi1; phi2 ], true)
-        | Rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
-            let have_all =
-              Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
-            in
-            let phi =
-              Riddler.picked_record_pattern key x' (Value_bool have_all) pat
-            in
-            ([ phi ], true)
-        | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
-            let have_all =
-              Ident_set.equal ids (Ident_set.of_enum @@ Ident_map.keys rv)
-            in
-            let phi =
-              Riddler.picked_record_pattern key x' (Value_bool have_all) pat
-            in
-            ([ phi ], true)
+            [
+              Riddler.eqv_with_picked key x' (Value_bool (* true *) matched);
+              Riddler.picked_pattern key x' pat;
+            ]
+        | Rec_pattern ids, Value_body (Value_record (Record_value rv_)) ->
+            [ Riddler.picked_record_pattern key x' (Value_bool matched) pat ]
+        | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv_))
+          ->
+            [ Riddler.picked_record_pattern key x' (Value_bool matched) pat ]
         | Rec_pattern _, _ | _, Value_body _ ->
-            let phi1 = Riddler.eqv_with_picked key x' (Value_bool false) in
-            let phi2 = Riddler.picked_pattern key x' pat in
-
-            ([ phi1; phi2 ], false)
+            [
+              Riddler.eqv_with_picked key x' (Value_bool (* false *) matched);
+              Riddler.picked_pattern key x' pat;
+            ]
         | _, _ ->
             (* TODO: some binops contain type information for patterns *)
             (* TODO: and for previous pattern match *)
-            let phi = Riddler.picked_pattern key x' pat in
-            ([ phi ], false)
+            [ Riddler.picked_pattern key x' pat ]
       in
       (* Fmt.pr "[Pattern][%B] %a | %a |%a\n" matched Lookup_key.pp key
          Jayil.Ast_pp.pp_pattern pat Lookup_key.pp key_rv ; *)
