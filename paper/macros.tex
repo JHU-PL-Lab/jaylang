@@ -146,6 +146,7 @@
 \newcommand{\chef}{\texttt{checker}}
 \newcommand{\pick}{\texttt{pick}}
 \newcommand{\take}[2]{\texttt{take}(#1, #2)}
+\newcommand{\mzero}{\texttt{mzero}}
 
 \newcommand{\hastype}[2]{#1\ \colon #2}
 \newcommand{\mkfun}[2]{#1 \texttt{ -> } #2}
@@ -159,6 +160,9 @@
 \newcommand{\mkgen}[1]{\texttt{generator}(#1)}
 \newcommand{\mkche}[2]{\texttt{checker}(#1, #2)}
 \newcommand{\evaluate}[1]{\texttt{eval}(#1)}
+\newcommand{\letfun}{\texttt{let f x = e in e}}
+\newcommand{\letfunt}{\texttt{let f (x : \syntype) : \syntype \ = e in e}}
+\newcommand{\eerror}{\texttt{ERROR}}
 
 \DeclareRobustCommand{\localDeprecate}[2][orange]{\mhighlight[#1!50]{#2}}
 
@@ -215,6 +219,8 @@
 \newcommand{\substitute}[3]{#1[#2/#3]}
 \newcommand{\matches}[2]{#1 \ \tttilde \ #2}
 \newcommand{\ife}[3]{\texttt{if } #1 \texttt{ then } #2 \texttt{ else }#3}
+\newcommand{\letin}[3]{\texttt{let }#1\texttt{ = }#2\texttt{ in }#3}
+\newcommand{\letint}[4]{\texttt{let (}#1\texttt{ : #2) = }#3\texttt{ in }#4}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

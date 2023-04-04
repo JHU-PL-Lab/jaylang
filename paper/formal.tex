@@ -129,6 +129,65 @@ We will now extend the language with records.
   \end{enumerate}
 \end{definition}
 
+\begin{figure}[hbt!]%{r}{.5\textwidth}%
+  \begin{grammar}
+            \grule[expressions]{\expr}{
+                \mathbb{Z}
+                \gor \mathbb {B}
+                \gor \ev
+                \gor \gtfun\ \ev \gtarrow \expr
+                \gor \expr\ \expr
+                \gor \expr \ \binop \ \expr
+                \gor \vpoly
+                \gor \{\overline{\elbl = \expr}\}^{\{\overline{\elbl}\}}
+                \gor \expr.\elbl
+                \gline
+                \gor \ife{\expr}{\expr}{\expr}
+                \gor \pick_i
+                \gor \pick_b
+                \gor \mzero
+                \gor \eerror
+                \gline
+                \gor \letin{\ev}{\expr}{\expr}
+                \gor \letfun
+                \gor \matches{\expr}{p}
+            }
+            \grule[variables]{\ev}{
+                \textit{(identifiers)}
+            }
+            \grule[patterns]{p}{
+                \tint
+                \gor \tbool
+                \gor \gtfun
+                \gor \gtany
+                \gor \vpoly
+                \gor \{\overline{\elbl}\}
+            }
+            \grule[values]{\eval}{
+                \mathbb{Z}
+                \gor \mathbb {B}
+                \gor \gtfun\ \ev \gtarrow \expr
+                \gor \ev
+                \gor \vpoly
+                \gor \{\overline{\elbl = \eval}\}^{\{\overline{\elbl}\}}
+            }
+            \grule[types]{\syntype}{
+                \tint
+                \gor \tbool
+                \gor \tfun
+                \gor \tpoly
+                \gor \mkunion{\syntype}{\syntype}
+                \gor \mkintersect{\syntype}{\syntype}
+                \gor \mktset{\syntype}{\expr}
+                \gor \mkdfun{\ev}{\syntype}{\syntype}
+                \gor \mkmiu{\alpha}{\syntype}
+                \gor \{\overline{\hastype{\elbl}{\syntype}}\}
+          }
+        \end{grammar}
+    \caption{Complete language grammar}
+    \label{fig_completeGrammar}
+\end{figure}
+
 \section{Type as values}
 
 In this section, we will demonstrate how to represent each type using a tuple of functions $\genf$ and $\chef$.
@@ -136,7 +195,7 @@ In this section, we will demonstrate how to represent each type using a tuple of
 \begin{definition}[Semantic interpretation of types]
   \label{def_typeAsVal}
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
-  We define the semantic interpretation of types as $\llbracket \syntype \rrbracket$, where $\llbracket \syntype \rrbracket = \langle \mkgen{\syntype}, \mkche{\syntype}{\expr} \rangle$.
+  We define the semantic interpretation of types as $\llbracket \syntype \rrbracket = \{\texttt{gen = \mkgen{\syntype}, check = }\mkfunv{\expr}{\mkche{\syntype}{\expr}}\}$.
 \end{definition}
 
 \begin{definition}[Defining Generator in the core language]
@@ -144,8 +203,8 @@ In this section, we will demonstrate how to represent each type using a tuple of
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par 
   \begin{enumerate}
-    \item $\mkgen{\tint} : \pick \ n \in \mathbb{Z}$.
-    \item $\mkgen{\tbool} : \pick \ b \in \mathbb{B}$.
+    \item $\mkgen{\tint} : \pick_i$.
+    \item $\mkgen{\tbool} : \pick_b$.
     \item $\mkgen{\mkfun{\syntype_1}{\syntype_2}} : \mkfunv{\ev}{\mkgen{\syntype_2}}$.
   \end{enumerate}
 \end{definition}
@@ -167,20 +226,25 @@ In this section, we will demonstrate how to represent each type using a tuple of
   \ \par 
   \begin{enumerate}
     \item $\mkgen{\tpoly_i} : \vpoly_i$.
-    \item $\mkgen{\mkunion{\syntype_1}{\syntype_2}} : \pick \ b \in \mathbb{B}$. $\ife{b}{\mkgen{\syntype_1}}{\mkgen{\syntype_2}}$.
-    \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where $\syntype_1, \syntype_2$ are not arrow types : $\pick \ b \in \mathbb{B}$. \\ 
-    $\ife{b}{\texttt{let gend = } \mkgen{\syntype_1} \texttt{ in }\take{\mkche{\syntype_2}{\texttt{gend}}}{\texttt{gend}}
-    }{\\ \texttt{let gend = } \mkgen{\syntype_2} \texttt{ in }\take{\mkche{\syntype_1}{\texttt{gend}}}{\texttt{gend}}
-    }$.
-    \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where $\syntype_1 = \mkfun{\syntype_{dom1}}{\syntype_{cod1}}, \syntype_2 = \mkfun{\syntype_{dom2}}{\syntype_{cod2}} : $ \\ 
-    $\mkfunv{\ev}{
-      \ife{\mkche{\syntype_{dom1}}{\ev}}{\mkgen{\syntype_{cod1}}}{\\\mkgen{\syntype_{cod2}}}
+    \item $\mkgen{\mkunion{\syntype_1}{\syntype_2}} : \pick_b$. $\ife{b}{\mkgen{\syntype_1}}{\mkgen{\syntype_2}}$.
+    \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where $\syntype_1, \syntype_2$ are not arrow types or record types : $\pick \ b \in \mathbb{B}$. \\ 
+    $\texttt{if }b\texttt{ then }$
+    $\\\texttt{\ \ let gend = }\mkgen{\syntype_1}\texttt{ in }$
+    $\\ \texttt{\ \ if }\mkche{\syntype_2}{\texttt{gend}}\texttt{ then gend else } \mzero$
+    $\\ \texttt{else}$
+    $\\\texttt{\ \ let gend = }\mkgen{\syntype_2}\texttt{ in }$
+    $\\ \texttt{\ \ if }\mkche{\syntype_1}{\texttt{gend}}\texttt{ then gend else } \mzero$   
+    \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where $\syntype_1 = \mkfun{\syntype_{dom1}}{\syntype_{cod1}}, \syntype_2 = \mkfun{\syntype_{dom2}}{\syntype_{cod2}} : $ \\ $\mkfunv{\ev}{\\
+      \texttt{\ \ }\ife{\mkche{\syntype_{dom1}}{\ev}}{\mkgen{\syntype_{cod1}}}{\mkgen{\syntype_{cod2}}}
     }$. 
-    \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where \\ $\syntype_1 = \{\hastype{\elbl_1}{\syntype_1'}, \cdots, \hastype{\elbl_m}{\syntype_m'}\}, \syntype_2 = \{\hastype{\elbl_1}{\syntype_1''}, \cdots, \hastype{\elbl_m}{\syntype_m''}, \cdots, \hastype{\elbl_n}{\syntype_n''}\} : $ \\ $
-      \{\elbl_1 = \mkgen{\mkintersect{\syntype_1'}{\syntype_1''}}, \elbl_m = \mkgen{\mkintersect{\syntype_m'}{\syntype_m''}}, \cdots, \elbl_n = \}
-    $. 
-    \item $\mkgen{\mktset{\syntype}{p}} : \texttt{let choice = }\mkgen{\syntype} \texttt{ in } \take{p}{choice}.$
-    \item $\mkgen{\mkdfun{\ev}{\syntype_1}{\syntype_2}} : \texttt{let $\tau_2'$ = }\mkfunv{\ev}{\syntype_2} \texttt{ in } \\ \mkfunv{\ev'}{\ife{\mkche{\tau_1}{\ev'}}{\mkgen{\tau_2'\ \ev'}}{TYPE\_ERROR}}.$
+    \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where \\ 
+    $\syntype_1 = \{\hastype{\elbl_1}{\syntype_1'}, \cdots, \hastype{\elbl_n}{\syntype_n'}, \cdots, \hastype{\elbl_{11}}{\syntype_{11}'}, \cdots, \hastype{\elbl_{1m}}{\syntype_{1m}'}\}, 
+    \\ \syntype_2 = \{\hastype{\elbl_1}{\syntype_1''}, \cdots, \hastype{\elbl_n}{\syntype_n''}, \cdots, \hastype{\elbl_{21}}{\syntype_{21}''}, \cdots, \hastype{\elbl_{2n}}{\syntype_{2n}''}\} : $ \\ 
+    $\{\elbl_1 = \mkgen{\mkintersect{\syntype_1'}{\syntype_1''}}, \cdots, \elbl_n = \mkgen{\mkintersect{\syntype_n'}{\syntype_n''}}, \cdots, \elbl_{11} = \syntype_{11}, \cdots, \elbl_{2n} = \syntype_{2n}'\}$. 
+    \item $\mkgen{\mktset{\syntype}{p}} : $ \\ 
+    $\texttt{let gend = }\mkgen{\syntype} \texttt{ in } \ife{\texttt{(p gend)}}{\texttt{gend}}{\mzero}.$
+    \item $\mkgen{\mkdfun{\ev}{\syntype_1}{\syntype_2}} : $
+    \\$\mkfunv{\ev'}{\ife{\mkche{\tau_1}{\ev'}}{\mkgen{\substitute{\syntype_2}{\ev'}{\ev}}}{\eerror}}.$
     \item $\mkgen{\mkmiu{\alpha}{\syntype}} : \mkgen{\substitute{\syntype}{\alpha}{\mkmiu{\alpha}{\syntype}}}.$
     \item $\mkgen{\{\hastype{\elbl_1}{\syntype_1}, \cdots, \hastype{\elbl_n}{\syntype_n}\}} :$ \\ $\texttt{let }\eval_1 = \mkgen{\syntype_1}\texttt{ in }\cdots\texttt{ let }\eval_n = \mkgen{\syntype_n}\texttt{ in } \{\elbl_1 = \eval_1, \cdots, \elbl_n = \eval_n\}.$
   \end{enumerate}
@@ -202,3 +266,20 @@ In this section, we will demonstrate how to represent each type using a tuple of
     $\texttt{and } \mkche{\syntype_1}{\eval_1} \cdots \texttt{ and } \mkche{\syntype_m}{\eval_m}$.
   \end{enumerate}
 \end{definition}
+
+\section{Selective typechecking}
+
+We allow users to declare types in their program selectively. If an expression doesn't have a type declaration, we assume that the user does not wish for us to check its type. In other words, we will only be checking explicitly declared types in the user program.
+
+\begin{figure}[hbt!]%{r}{.5\textwidth}%
+  \begin{grammar}
+            \grule[expressions]{\expr}{
+                \cdots
+                \gor \letfunt
+                \gor \letint{\ev}{\syntype}{\expr}{\expr}
+            }
+        \end{grammar}
+    \caption{Updated language grammar}
+    \label{fig_updatedGrammar}
+\end{figure}
+
