@@ -51,3 +51,10 @@ benchmark/result
 /_notes
 *.txt
 vendor
+
+# paper related
+/paper/main.aux
+/paper/main.fdb_latexmk
+/paper/main.out
+/paper/main.log
+/paper/main.fls
