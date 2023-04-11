@@ -44,7 +44,10 @@ let clear_phis state =
   state.phis_added <- state.phis_added @ state.phis_staging ;
   state.phis_staging <- []
 
-let add_phi (state : t) (lookup_detail : Lookup_detail.t) phi =
+let add_phi ?(is_external = false) (state : t) (lookup_detail : Lookup_detail.t)
+    phi =
+  if is_external
+  then lookup_detail.phis_external <- phi :: lookup_detail.phis_external ;
   lookup_detail.phis <- phi :: lookup_detail.phis ;
   state.phis_staging <- phi :: state.phis_staging
 
@@ -55,6 +58,21 @@ let detail_alist (state : t) =
            Int.compare (Lookup_key.length k1) (Lookup_key.length k2))
   in
   sorted_list_of_hashtbl state.lookup_detail_map
+
+let create_counter state detail key =
+  Hashtbl.update state.smt_lists key ~f:(function
+    | Some i -> i
+    | None ->
+        add_phi state detail (Riddler.list_head key) ;
+        0)
+
+let fetch_counter state key =
+  let new_i =
+    Hashtbl.update_and_return state.smt_lists key ~f:(function
+      | Some i -> i + 1
+      | None -> failwith (Fmt.str "why not inited : %a" Lookup_key.pp key))
+  in
+  new_i - 1
 
 (* let picked_from model key =
      Option.value

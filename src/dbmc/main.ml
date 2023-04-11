@@ -199,6 +199,5 @@ let from_commandline () =
          | None -> Fmt.pr "Unreachable")
      | Dbmc_check inputs -> Fmt.pr "%B" is_timeout
      | _ -> ()
-   with ex -> (* Printexc.print_backtrace Out_channel.stderr ; *)
-              raise ex) ;
+   with ex -> raise ex) ;
   Log.close ()

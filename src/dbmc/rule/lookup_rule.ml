@@ -7,21 +7,6 @@ open Types
 module U = Unrolls.U_dbmc
 module Log = Log.Export.CMLOG
 
-let create_counter (state : Global_state.t) (detail : Lookup_detail.t) key =
-  Hashtbl.update state.smt_lists key ~f:(function
-    | Some i -> i
-    | None ->
-        Global_state.add_phi state detail (Riddler.list_head key) ;
-        0)
-
-let fetch_counter (state : Global_state.t) key =
-  let new_i =
-    Hashtbl.update_and_return state.smt_lists key ~f:(function
-      | Some i -> i + 1
-      | None -> failwith (Fmt.str "why not inited : %a" Lookup_key.pp key))
-  in
-  new_i - 1
-
 (*
    Status promotion:
    The status of a lookup depends om the status of messages from its sublookups.
@@ -127,9 +112,9 @@ let run_action run_task unroll (state : Global_state.t)
             r') ;
         run_task e.pub
     | MapSeq e ->
-        create_counter state detail target ;
+        Global_state.create_counter state detail target ;
         let f r =
-          let i = fetch_counter state target in
+          let i = Global_state.fetch_counter state target in
           let r', phis = e.map i r in
           add_phi (Riddler.list_append target i (Riddler.and_ phis)) ;
           Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from) ;
@@ -148,14 +133,18 @@ let run_action run_task unroll (state : Global_state.t)
         run_task e.pub1 ;
         run_task e.pub2
     | Chain e ->
-        if not e.bounded then create_counter state detail target ;
+        if not e.bounded then Global_state.create_counter state detail target ;
 
         let precond = ref false in
         add_sub_preconds precond ;
         let part1_cb key (r : Lookup_result.t) =
           if Lookup_status.is_complete_or_fail r.status then precond := true ;
           Lookup_status.iter_ok r.status (fun () ->
-              let i = if not e.bounded then fetch_counter state target else 0 in
+              let i =
+                if not e.bounded
+                then Global_state.fetch_counter state target
+                else 0
+              in
               let phi_new, action_next = e.next i r.from in
               (match phi_new with
               | Some phi_i -> add_phi @@ Riddler.list_append target i phi_i
@@ -170,7 +159,7 @@ let run_action run_task unroll (state : Global_state.t)
         U.by_bind_u unroll target e.pub part1_cb ;
         run_task e.pub
     | Or_list e ->
-        if not e.bounded then create_counter state detail target ;
+        if not e.bounded then Global_state.create_counter state detail target ;
         List.iter e.elements ~f:(run ?sub_lookup)
   in
 
@@ -210,18 +199,6 @@ module Make (S : S) = struct
   let first_but_drop (key : Lookup_key.t) =
     let key_first = Lookup_key.to_first key S.state.first in
     Map { pub = key_first; map = Fn.const key }
-
-  let listen_but_use source value = Map { pub = source; map = Fn.const value }
-
-  let chain_then_direct pre source =
-    let next _ _r =
-      (* cond_top *)
-      (* true *)
-      (* if Riddler.eager_check S.state S.config key_x2
-           [ Riddler.eqv key_x2 (Value_bool choice) ] *)
-      (None, Some (Direct { pub = source }))
-    in
-    Chain { pub = pre; next; bounded = true }
 
   let record_start (p : Record_start_rule.t) (key : Lookup_key.t) =
     let next i (key_rv : Lookup_key.t) =
@@ -430,8 +407,130 @@ module Make (S : S) = struct
     | Pattern p -> (Riddler.true_, pattern p key)
 end
 
-(* Fmt.pr "[Chain][P1]%a <- %a(%a) @." Lookup_key.pp target Lookup_key.pp
-     r.from Lookup_status.pp_short r.status ;
-   Fmt.pr "[Chain][P1](%B)%a @." !precond
-     (Observe.pp_key_with_detail state.lookup_detail_map)
-     (target, lookup_detail) ; *)
+open Riddler
+open SuduZ3
+
+(* Completion *)
+let complete_phis_of_rule (state : Global_state.t) key
+    (detail : Lookup_detail.t) =
+  let open Rule in
+  let open Riddler in
+  let key_first = Lookup_key.to_first key state.first in
+  match detail.rule with
+  (* Bounded (same as complete phi) *)
+  | Discovery_main p -> discover_main_with_picked key (Some p.v)
+  | Discovery_nonmain p -> discover_non_main key key_first (Some p.v)
+  | Assume p -> mismatch_with_picked key
+  | Assert p -> mismatch_with_picked key
+  | Mismatch -> mismatch_with_picked key
+  | Abort p ->
+      if p.is_target
+      then discover_non_main key key_first None
+      else mismatch_with_picked key
+  | Alias p -> eq_with_picked key p.x'
+  | Input p ->
+      if p.is_in_main
+      then discover_main_with_picked key None
+      else discover_non_main key key_first None
+  | Not p -> not_with_picked key p.x'
+  | Binop p -> binop_with_picked key p.bop p.x1 p.x2
+  (*
+      Unbounded
+  *)
+  | Record_start p ->
+      picked key @=> and_ (picked p.r :: eq_one_picked_of key detail.domain)
+  | Cond_top p ->
+      picked key
+      @=> and_
+            ([
+               picked p.x;
+               picked p.x2;
+               eq key p.x;
+               eqv p.x2 (Value_bool p.cond_case_info.choice);
+             ]
+            (* before the `@` is the original constraits
+               after the `@` is the added ones *)
+            @ eq_one_picked_of key detail.domain)
+  | Cond_btm p -> cond_bottom key p.x' p.cond_both
+  | Fun_enter_local p ->
+      let fid = key.block.id in
+      let phi_f_and_arg =
+        List.map p.callsites ~f:(fun callsite ->
+            let callsite_block, x', x'', x''' =
+              Cfg.fun_info_of_callsite callsite state.block_map
+            in
+            let callsite_stack =
+              Option.value_exn (Rstack.pop key.r_stk (x', fid))
+            in
+            let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
+            let detail_f = Hashtbl.find_exn state.lookup_detail_map key_f in
+            let domain_f = detail_f.domain in
+            let key_arg = Lookup_key.of3 x''' callsite_stack callsite_block in
+            let detail_arg = Hashtbl.find_exn state.lookup_detail_map key_arg in
+            let domain_arg = detail_arg.domain in
+            and_
+              [
+                eq key key_arg;
+                eq_fid key_f fid;
+                picked_eq_choices key_f domain_f;
+                picked_eq_choices key_arg domain_arg;
+              ])
+      in
+      (* and_
+         [
+           Riddler.fun_enter_local key key.block.id p.callsites state.block_map;
+           ;
+         ] *)
+      picked key @=> or_ phi_f_and_arg
+  | Fun_enter_nonlocal p ->
+      let fid = key.block.id in
+      let phi_f_and_arg =
+        List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_arg) ->
+            let detail_arg = Hashtbl.find_exn state.lookup_detail_map key_arg in
+            and_
+              [
+                picked key_f;
+                picked key_fv;
+                eq_fid key_f fid;
+                eq key_f key_fv;
+                picked_eq_choices key_arg detail_arg.domain;
+              ])
+      in
+      picked key @=> or_ phi_f_and_arg
+  | Fun_exit p ->
+      let phi_f_and_ret =
+        List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_ret) ->
+            let detail_ret = Hashtbl.find_exn state.lookup_detail_map key_ret in
+            and_
+              [
+                picked key_f;
+                eq_fid key_fv key_fv.x;
+                picked key_fv;
+                eq key_f key_fv;
+                picked_eq_choices key_ret detail_ret.domain;
+              ])
+      in
+      picked key @=> or_ phi_f_and_ret
+  | Pattern p ->
+      let detail_x' = Hashtbl.find_exn state.lookup_detail_map p.x' in
+      let pattern_truth pat rv =
+        let open Jayil.Ast in
+        match (pat, rv) with
+        | Any_pattern, _
+        | Fun_pattern, Value_body (Value_function _)
+        | Int_pattern, Value_body (Value_int _)
+        | Int_pattern, Input_body
+        | Bool_pattern, Value_body (Value_bool _) ->
+            true
+        | Rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
+            Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
+        | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
+            Ident_set.equal ids (Ident_set.of_enum @@ Ident_map.keys rv)
+        | _ -> false
+      in
+      let choices =
+        List.map detail_x'.domain ~f:(fun key_r ->
+            let rv = Cfg.clause_body_of_x key_r.block key_r.x in
+            and_ [ eqv key (Value_bool (pattern_truth p.pat rv)); picked key_r ])
+      in
+      picked key @=> and_ [ picked p.x'; or_ choices ]

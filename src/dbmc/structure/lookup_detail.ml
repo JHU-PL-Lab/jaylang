@@ -6,6 +6,7 @@ type t = {
   rule : Rule.t;
   (* constraints *)
   mutable phis : Z3.Expr.expr list;
+  mutable phis_external : Z3.Expr.expr list;
   (* state *)
   mutable domain : Lookup_key.t list;
   mutable status : Lookup_status.t;
@@ -25,6 +26,7 @@ let mk_detail ~rule ~key =
     rule;
     domain = [];
     phis = [];
+    phis_external = [];
     status = Lookup_status.Good;
     status_gen_phi = Lookup_status.Good;
     sub_preconds = [];

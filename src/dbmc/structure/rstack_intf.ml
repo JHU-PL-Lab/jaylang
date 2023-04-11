@@ -119,6 +119,8 @@ module TT = struct
     | Cons { op = Push; prev; frame } ->
         Fmt.pf oc "+%s;%a" (str_of_frame frame) pp prev
 
+  let to_string rstk = Fmt.str "@[<hov>%a@]" pp rstk
+
   let paired_callsite rstk this_f =
     match rstk.node with
     | Cons { op = Push; frame; _ } ->

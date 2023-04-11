@@ -169,7 +169,8 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     let previous_clauses = Cfg.clauses_before_x key.block key.x in
     List.iter previous_clauses ~f:(fun tc ->
         let term_prev = Lookup_key.with_x key tc.id in
-        Global_state.add_phi state detail (Riddler.picked_imply key term_prev) ;
+        Global_state.add_phi ~is_external:true state detail
+          (Riddler.picked_imply key term_prev) ;
         run_eval term_prev lookup) ;
     Lwt.return_unit
   in

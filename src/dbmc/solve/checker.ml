@@ -50,117 +50,6 @@ let eager_check (state : Global_state.t) (config : Global_config.t) c assumption
   | Result.Ok _model -> true
   | Result.Error _exps -> false
 
-(* Completion *)
-let complete_phis_of_rule (state : Global_state.t) key
-    (detail : Lookup_detail.t) =
-  let open Rule in
-  let open Riddler in
-  let key_first = Lookup_key.to_first key state.first in
-  match detail.rule with
-  (* Bounded (same as complete phi) *)
-  | Discovery_main p -> discover_main_with_picked key (Some p.v)
-  | Discovery_nonmain p -> discover_non_main key key_first (Some p.v)
-  | Assume p -> mismatch_with_picked key
-  | Assert p -> mismatch_with_picked key
-  | Mismatch -> mismatch_with_picked key
-  | Abort p ->
-      if p.is_target
-      then discover_non_main key key_first None
-      else mismatch_with_picked key
-  | Alias p -> eq_with_picked key p.x'
-  | Input p ->
-      if p.is_in_main
-      then discover_main_with_picked key None
-      else discover_non_main key key_first None
-  | Not p -> not_with_picked key p.x'
-  | Binop p -> binop_with_picked key p.bop p.x1 p.x2
-  (*
-      Unbounded
-  *)
-  | Record_start p ->
-      picked key @=> and_ (picked p.r :: eq_one_picked_of key detail.domain)
-  | Cond_top p ->
-      picked key
-      @=> and_
-            ([ picked p.x; picked p.x2; eq key p.x ]
-            (* before the `@` is the original constraits
-               after the `@` is the added ones *)
-            @ eq_one_picked_of key detail.domain)
-  | Cond_btm p -> cond_bottom key p.x' p.cond_both
-  | Fun_enter_local p ->
-      let fid = key.block.id in
-      let phi_f_and_arg =
-        List.map p.callsites ~f:(fun callsite ->
-            let callsite_block, x', x'', x''' =
-              Cfg.fun_info_of_callsite callsite state.block_map
-            in
-            let callsite_stack =
-              Option.value_exn (Rstack.pop key.r_stk (x', fid))
-            in
-            let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
-            let detail_f = Hashtbl.find_exn state.lookup_detail_map key_f in
-            let domain_f = detail_f.domain in
-            let key_arg = Lookup_key.of3 x''' callsite_stack callsite_block in
-            let detail_arg = Hashtbl.find_exn state.lookup_detail_map key_arg in
-            let domain_arg = detail_arg.domain in
-            and_
-              [
-                eq key key_arg;
-                picked_eq_choices key_f domain_f;
-                picked_eq_choices key_arg domain_arg;
-              ])
-      in
-      (* and_
-         [
-           Riddler.fun_enter_local key key.block.id p.callsites state.block_map;
-           ;
-         ] *)
-      picked key @=> or_ phi_f_and_arg
-  | Fun_enter_nonlocal p ->
-      let fid = key.block.id in
-      let phi_f_and_arg =
-        List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_arg) ->
-            let detail_arg = Hashtbl.find_exn state.lookup_detail_map key_arg in
-            and_
-              [
-                picked key_f;
-                picked key_fv;
-                eq key_f key_fv;
-                picked_eq_choices key_arg detail_arg.domain;
-              ])
-      in
-      picked key @=> or_ phi_f_and_arg
-  | Fun_exit p ->
-      let phi_f_and_ret =
-        List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_ret) ->
-            let detail_ret = Hashtbl.find_exn state.lookup_detail_map key_ret in
-            and_
-              [
-                picked key_f;
-                picked key_fv;
-                eq key_f key_fv;
-                picked_eq_choices key_ret detail_ret.domain;
-              ])
-      in
-      picked key @=> or_ phi_f_and_ret
-  | Pattern p -> true_
-(* let pattern_truth pat rv =
-     let open Jayil.Ast in
-     match (pat, rv) with
-     | Any_pattern, _
-     | Fun_pattern, Value_body (Value_function _)
-     | Int_pattern, Value_body (Value_int _)
-     | Int_pattern, Input_body
-     | Bool_pattern, Value_body (Value_bool _) ->
-         true
-     | Rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
-         Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
-     | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
-         Ident_set.equal ids (Ident_set.of_enum @@ Ident_map.keys rv)
-     | _ -> false
-     in
-   picked key @=> and_ [picked p.x'; pattern_truth p.pat] *)
-
 let check (state : Global_state.t) (config : Global_config.t) :
     result_info option =
   LLog.info (fun m -> m "Search Tree Size:\t%d" state.tree_size) ;
@@ -194,27 +83,36 @@ let check (state : Global_state.t) (config : Global_config.t) :
   (* debug *)
   SLog.debug (fun m -> m "One: %s" (Z3.Solver.to_string state.solver)) ;
 
-  (* Solver.reset state.solver ; *)
-  List.iter detail_lst ~f:(fun (key, detail) ->
-      if Lookup_status.equal detail.status detail.status_gen_phi
-      then state.phis_staging <- detail.phis @ state.phis_staging
-      else
-        let key_staging =
-          match detail.status with
-          | Complete -> complete_phis_of_rule state key detail
-          | Fail -> mismatch_with_picked key
-          | Good -> failwith "Good in re-gen phis"
-        in
-        detail.status_gen_phi <- detail.status ;
-        state.phis_staging <- key_staging :: state.phis_staging ;
-        detail.status_gen_phi <- detail.status) ;
+  Solver.reset state.solver ;
 
+  SLog.debug (fun m -> m "Two") ;
+  List.iter detail_lst ~f:(fun (key, detail) ->
+      let phis =
+        if Lookup_status.equal detail.status detail.status_gen_phi
+        then detail.phis
+        else
+          let phis' =
+            match detail.status with
+            | Complete -> Lookup_rule.complete_phis_of_rule state key detail
+            | Fail -> mismatch_with_picked key
+            | Good -> failwith "Good in re-gen phis"
+          in
+          detail.status_gen_phi <- detail.status ;
+          detail.phis <- [ phis' ] ;
+          [ phis' ]
+      in
+      let phis_all = phis @ detail.phis_external in
+      SLog.debug (fun m ->
+          m "%a @@ %a's phis = \n@[<v>%a@]" Lookup_key.pp key
+            Lookup_status.pp_short detail.status
+            Fmt.(list ~sep:cut string)
+            (List.map ~f:Z3.Expr.to_string phis_all)) ;
+      state.phis_staging <- phis_all @ state.phis_staging) ;
   let another_result =
     Solver.check ~verbose:config.debug_model state.solver state.phis_staging
       phi_used_once
   in
 
-  SLog.debug (fun m -> m "Two: %s" (Z3.Solver.to_string state.solver)) ;
   SLog.debug (fun m ->
       m "Two (used once): %a"
         Fmt.(Dump.list string)
@@ -227,19 +125,7 @@ let check (state : Global_state.t) (config : Global_config.t) :
   | Result.Error _, Result.Ok _ -> failwith "should UNSAT") ;
 
   check_result
-(* debug -
-   try another solver using accumulated phis
-   should be removed *)
 
-(* ;
-   let another_solver = Z3.Solver.mk_solver Solver.ctx None in
-   let another_result =
-     Solver.check another_solver state.phis_added phi_used_once
-   in
-   (match (solver_result, another_result) with
-   | Result.Ok _, Result.Ok _ | Result.Error _, Result.Error _ -> ()
-   | _, _ -> assert false) *)
-(* debug - end *)
 let simplify_phis () = ()
 
 let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
@@ -279,11 +165,6 @@ let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
 
 (* `check_phis` are used in ddse and dbmc-debug *)
 let check_phis solver phis is_debug : result_info option =
-  if is_debug
-  then
-    SLog.debug (fun m ->
-        m "Phis: %a" Fmt.(Dump.list string) (List.map ~f:Z3.Expr.to_string phis)) ;
-
   match Solver.check solver [] phis with
   | Result.Ok model ->
       SLog.app (fun m -> m "SAT") ;

@@ -50,3 +50,15 @@ type t =
    The reason for lazy init is the callback may never be called at all. The fix of
    infinitive list cannot be applied before calling the SMT solver.
 *)
+
+let chain_then_direct pre source =
+  let next _ _r =
+    (* cond_top *)
+    (* true *)
+    (* if Riddler.eager_check S.state S.config key_x2
+         [ Riddler.eqv key_x2 (Value_bool choice) ] *)
+    (None, Some (Direct { pub = source }))
+  in
+  Chain { pub = pre; next; bounded = true }
+
+let listen_but_use source value = Map { pub = source; map = Fn.const value }
