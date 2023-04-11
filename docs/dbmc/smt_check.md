@@ -61,6 +61,24 @@ Case 2: if some possible precondition fails?
 If `c1a` (not with `c2`) fails, `c2` is still possible
 If `c1a && c2` fails, `c2` is still possible.
 Therefore, the difference is to check `c1a`, we need more information. e.g. if `c1a` is possible while `c1a && c2` fails, checking `c1a` without `c2` gives us inaccurate result.
+If `(c1a || c2a) && c2` fails, all possible choice of `c2` fails, so does `c2`.
 
 
-(spine network)
+
+...
+
+## Problem of non-immediate eager check
+ 
+for `c2`:
+
+```
+p_c2 -> p_c1a ...
+p_c1a -> c2
+``` 
+
+
+
+
+## To-do
+
+gc the phi

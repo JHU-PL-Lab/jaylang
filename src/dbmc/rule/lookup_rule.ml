@@ -231,7 +231,7 @@ module Make (S : S) = struct
                 if beta then cond_both.then_ else cond_both.else_
               in
               (* Riddler.step_eager_check S.state S.config term_c
-                    [ Riddler.eqv term_c (Value_bool beta) ]
+                    [ Riddler.eq_bool term_c beta ]
                     S.config.stride *)
               match cond_case_block_opt with
               | Some cond_case_block ->
@@ -370,22 +370,32 @@ module Make (S : S) = struct
     match rule with
     (* Bounded (same as complete phi) *)
     | Discovery_main p ->
-        (Riddler.discover_main_with_picked key (Some p.v), Leaf Complete)
+        ( Riddler.discover_main_with_picked key
+            (Riddler.eq_term_v key (Some p.v)),
+          Leaf Complete )
     | Discovery_nonmain p ->
-        (Riddler.discover_non_main key key_first (Some p.v), first_but_drop key)
+        ( Riddler.discover_non_main key key_first
+            (Riddler.eq_term_v key (Some p.v)),
+          first_but_drop key )
     | Assume p -> (Riddler.mismatch_with_picked key, Leaf Fail)
     | Assert p -> (Riddler.mismatch_with_picked key, Leaf Fail)
     | Mismatch -> (Riddler.mismatch_with_picked key, Leaf Fail)
     | Abort p ->
         if p.is_target
-        then (Riddler.discover_non_main key key_first None, first_but_drop key)
+        then
+          ( Riddler.discover_non_main key key_first (Riddler.eq_term_v key None),
+            first_but_drop key )
         else (Riddler.mismatch_with_picked key, Leaf Fail)
     | Alias p -> (Riddler.eq_with_picked key p.x', Direct { pub = p.x' })
     | Input p ->
         Hash_set.add S.state.input_nodes key ;
         if p.is_in_main
-        then (Riddler.discover_main_with_picked key None, Leaf Complete)
-        else (Riddler.discover_non_main key key_first None, first_but_drop key)
+        then
+          ( Riddler.discover_main_with_picked key (Riddler.eq_term_v key None),
+            Leaf Complete )
+        else
+          ( Riddler.discover_non_main key key_first (Riddler.eq_term_v key None),
+            first_but_drop key )
     | Not p -> (Riddler.not_with_picked key p.x', listen_but_use p.x' key)
     | Binop p ->
         ( Riddler.binop_with_picked key p.bop p.x1 p.x2,
@@ -418,20 +428,22 @@ let complete_phis_of_rule (state : Global_state.t) key
   let key_first = Lookup_key.to_first key state.first in
   match detail.rule with
   (* Bounded (same as complete phi) *)
-  | Discovery_main p -> discover_main_with_picked key (Some p.v)
-  | Discovery_nonmain p -> discover_non_main key key_first (Some p.v)
+  | Discovery_main p ->
+      discover_main_with_picked key (Riddler.eq_term_v key (Some p.v))
+  | Discovery_nonmain p ->
+      discover_non_main key key_first (Riddler.eq_term_v key (Some p.v))
   | Assume p -> mismatch_with_picked key
   | Assert p -> mismatch_with_picked key
   | Mismatch -> mismatch_with_picked key
   | Abort p ->
       if p.is_target
-      then discover_non_main key key_first None
+      then discover_non_main key key_first (Riddler.eq_term_v key None)
       else mismatch_with_picked key
   | Alias p -> eq_with_picked key p.x'
   | Input p ->
       if p.is_in_main
-      then discover_main_with_picked key None
-      else discover_non_main key key_first None
+      then discover_main_with_picked key (Riddler.eq_term_v key None)
+      else discover_non_main key key_first (Riddler.eq_term_v key None)
   | Not p -> not_with_picked key p.x'
   | Binop p -> binop_with_picked key p.bop p.x1 p.x2
   (*
@@ -446,7 +458,7 @@ let complete_phis_of_rule (state : Global_state.t) key
                picked p.x;
                picked p.x2;
                eq key p.x;
-               eqv p.x2 (Value_bool p.cond_case_info.choice);
+               eq_bool p.x2 p.cond_case_info.choice;
              ]
             (* before the `@` is the original constraits
                after the `@` is the added ones *)
@@ -531,6 +543,6 @@ let complete_phis_of_rule (state : Global_state.t) key
       let choices =
         List.map detail_x'.domain ~f:(fun key_r ->
             let rv = Cfg.clause_body_of_x key_r.block key_r.x in
-            and_ [ eqv key (Value_bool (pattern_truth p.pat rv)); picked key_r ])
+            and_ [ eq_bool key (pattern_truth p.pat rv); picked key_r ])
       in
       picked key @=> and_ [ picked p.x'; or_ choices ]

@@ -56,18 +56,18 @@ module Make (S : S) = struct
 
   let discovery_main p key phis =
     let ({ v; _ } : Discovery_main_rule.t) = p in
-    rule_main (Some v) key phis
+    rule_main (Riddler.eq_term_v key (Some v)) key phis
 
   let discovery_nonmain p key phis run_task =
     let ({ v; _ } : Discovery_nonmain_rule.t) = p in
-    rule_nonmain (Some v) key phis run_task
+    rule_nonmain (Riddler.eq_term_v key (Some v)) key phis run_task
 
-  let input p this_key phis run_task =
+  let input p key phis run_task =
     let ({ is_in_main; _ } : Input_rule.t) = p in
-    Hash_set.add S.state.input_nodes this_key ;
+    Hash_set.add S.state.input_nodes key ;
     if is_in_main
-    then rule_main None this_key phis
-    else rule_nonmain None this_key phis run_task
+    then rule_main (Riddler.eq_term_v key None) key phis
+    else rule_nonmain (Riddler.eq_term_v key None) key phis run_task
 
   let alias p key phis_top run_task =
     let ({ x' } : Alias_rule.t) = p in
@@ -124,12 +124,12 @@ module Make (S : S) = struct
     run_task key_x2 phis_top ;
 
     let cb key (rc : Ddse_result.t) =
-      let phi_c = Riddler.eqv rc.v (Value_bool beta) in
+      let phi_c = Riddler.eq_bool rc.v beta in
       let phis_top_with_c = Phi_set.(add (union rc.phis phis_top) phi_c) in
       (* (match Riddler.check_phis (Phi_set.to_list phis_top_with_c) false with
          | Some _ -> *)
       run_task key_x phis_top_with_c ;
-      let phi = Riddler.eqv key_x2 (Value_bool beta) in
+      let phi = Riddler.eq_bool key_x2 beta in
       let choice_beta = (key_x2, beta) in
       U.by_filter_map_u S.unroll key key_x
         (return_phis_with_beta key [ phi ] [ choice_beta ] rc)
@@ -154,7 +154,7 @@ module Make (S : S) = struct
               let key_ret =
                 Lookup_key.return_key_of_cond this_key beta cond_case_block
               in
-              let phi_beta = Riddler.eqv rc.v (Value_bool beta) in
+              let phi_beta = Riddler.eq_bool rc.v beta in
               let phis_top_with_c =
                 Phi_set.(add (union rc.phis phis_top) phi_beta)
               in
@@ -190,7 +190,7 @@ module Make (S : S) = struct
       run_task term_c phis_top ;
 
       let cb key_ret ((key_c : Lookup_key.t), phis_c) =
-        let phi_beta = Riddler.eqv key_c (Value_bool beta) in
+        let phi_beta = Riddler.eq_bool key_c beta in
         (* match Riddler.check_phis (Phi_set.to_list phis_top') false with
            | Some _ -> *)
         run_task key_ret phis_top ;

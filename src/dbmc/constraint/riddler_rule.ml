@@ -11,13 +11,14 @@ let stack_in_main r_stk =
     (r_stk |> Rstack.concretize_top |> Concrete_stack.sexp_of_t
    |> Sexp.to_string_mach |> SuduZ3.fun_)
 
-let discover_main (term : Lookup_key.t) v =
-  and_ [ eq_term_v term v; stack_in_main term.r_stk ]
+let discover_main (term : Lookup_key.t) eq_phi =
+  and_ [ eq_phi; stack_in_main term.r_stk ]
 
-let discover_main_with_picked term v = picked term @=> discover_main term v
+let discover_main_with_picked term eq_phi =
+  picked term @=> discover_main term eq_phi
 
-let discover_non_main key key_first v =
-  picked key @=> and2 (eq_term_v key v) (picked key_first)
+let discover_non_main key key_first eq_phi =
+  picked key @=> and2 eq_phi (picked key_first)
 
 (* Alias *)
 
@@ -72,13 +73,7 @@ let record_start key key_r key_rv key_l =
 
 let cond_top term term_x term_c beta =
   picked term
-  @=> and_
-        [
-          picked term_x;
-          picked term_c;
-          eq term term_x;
-          eqv term_c (Value_bool beta);
-        ]
+  @=> and_ [ picked term_x; picked term_c; eq term term_x; eq_bool term_c beta ]
 
 (* Cond Bottom *)
 
@@ -95,7 +90,7 @@ let cond_bottom term term_c cond_both =
               Lookup_key.return_key_of_cond term beta cond_case_block
             in
             let p_ret = picked term_ret in
-            let eq_beta = eqv term_c (Value_bool beta) in
+            let eq_beta = eq_bool term_c beta in
             let eq_lookup = eq term term_ret in
             (cs @ [ p_ret ], rs @ [ p_ret @=> and2 eq_beta eq_lookup ])
         | None -> (cs, rs))
