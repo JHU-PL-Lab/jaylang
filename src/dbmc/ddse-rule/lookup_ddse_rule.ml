@@ -41,33 +41,33 @@ module Make (S : S) = struct
     Ddse_result.(
       merge_all t outer_t (Phi_set.of_list (phi :: phis)) choices choice_betas)
 
-  let rule_main v (key : Lookup_key.t) _phis =
+  let rule_main vo (key : Lookup_key.t) _phis =
     let target_stk = Rstack.concretize_top key.r_stk in
-    let phi = Riddler.discover_main key v in
+    let phi = Riddler.(and_ [ Riddler.stack_in_main key.r_stk; eqvo key vo ]) in
     let phis = S.add_phi key phi Phi_set.empty in
     U.by_return S.unroll key (Ddse_result.of3 key phis target_stk)
 
-  let rule_nonmain v key phis_top run_task =
+  let rule_nonmain vo key phis_top run_task =
     let key_first = Lookup_key.to_first key S.state.first in
     run_task key_first phis_top ;
-    let phi = Riddler.eq_term_v key v in
-    let _ = S.add_phi key phi phis_top in
-    U.by_map_u S.unroll key key_first (Ddse_result.with_v_and_phi key phi)
+    let eq_phi = Riddler.eqvo key vo in
+    let _ = S.add_phi key eq_phi phis_top in
+    U.by_map_u S.unroll key key_first (Ddse_result.with_v_and_phi key eq_phi)
 
   let discovery_main p key phis =
     let ({ v; _ } : Discovery_main_rule.t) = p in
-    rule_main (Riddler.eq_term_v key (Some v)) key phis
+    rule_main (Some v) key phis
 
   let discovery_nonmain p key phis run_task =
     let ({ v; _ } : Discovery_nonmain_rule.t) = p in
-    rule_nonmain (Riddler.eq_term_v key (Some v)) key phis run_task
+    rule_nonmain (Some v) key phis run_task
 
   let input p key phis run_task =
     let ({ is_in_main; _ } : Input_rule.t) = p in
     Hash_set.add S.state.input_nodes key ;
     if is_in_main
-    then rule_main (Riddler.eq_term_v key None) key phis
-    else rule_nonmain (Riddler.eq_term_v key None) key phis run_task
+    then rule_main None key phis
+    else rule_nonmain None key phis run_task
 
   let alias p key phis_top run_task =
     let ({ x' } : Alias_rule.t) = p in
@@ -139,43 +139,34 @@ module Make (S : S) = struct
     U.by_bind_u S.unroll key key_x2 cb
 
   let cond_btm p (this_key : Lookup_key.t) phis_top run_task =
-    let ({ x'; cond_both } : Cond_btm_rule.t) = p in
+    let ({ x'; rets; _ } : Cond_btm_rule.t) = p in
 
     (* Method 1 : lookup condition then lookup beta-case *)
     run_task x' phis_top ;
 
     let cb (this_key : Lookup_key.t) (rc : Ddse_result.t) =
-      List.iter [ true; false ] ~f:(fun beta ->
-          let cond_case_block_opt =
-            if beta then cond_both.then_ else cond_both.else_
+      List.iter rets ~f:(fun (beta, key_ret) ->
+          let phi_beta = Riddler.eq_bool rc.v beta in
+          let phis_top_with_c =
+            Phi_set.(add (union rc.phis phis_top) phi_beta)
           in
-          match cond_case_block_opt with
-          | Some cond_case_block ->
-              let key_ret =
-                Lookup_key.return_key_of_cond this_key beta cond_case_block
-              in
-              let phi_beta = Riddler.eq_bool rc.v beta in
-              let phis_top_with_c =
-                Phi_set.(add (union rc.phis phis_top) phi_beta)
-              in
-              (* match Riddler.check_phis (Phi_set.to_list phis_top_with_c) false with
-                 | Some _ -> *)
-              run_task key_ret phis_top_with_c ;
+          (* match Riddler.check_phis (Phi_set.to_list phis_top_with_c) false with
+             | Some _ -> *)
+          run_task key_ret phis_top_with_c ;
 
-              (* Method 1-a: slow in looping *)
-              (* let cb this_key (r_ret : Ddse_result.t) =
-                   U.by_map_u S.unroll this_key r_ret.v
-                     (return_with_phis this_key
-                        (Phi_set.add rc.phis phi_beta)
-                        r_ret) ;
-                   Lwt.return_unit
-                 in
-                 U.by_bind_u S.unroll this_key key_ret cb) *)
-              (* Method 1-b: slow in looping *)
-              let choice_beta = (x', beta) in
-              U.by_filter_map_u S.unroll this_key key_ret
-                (return_phis_with_beta this_key [ phi_beta ] [ choice_beta ] rc)
-          | None -> ()) ;
+          (* Method 1-a: slow in looping *)
+          (* let cb this_key (r_ret : Ddse_result.t) =
+               U.by_map_u S.unroll this_key r_ret.v
+                 (return_with_phis this_key
+                    (Phi_set.add rc.phis phi_beta)
+                    r_ret) ;
+               Lwt.return_unit
+             in
+             U.by_bind_u S.unroll this_key key_ret cb) *)
+          (* Method 1-b: slow in looping *)
+          let choice_beta = (x', beta) in
+          U.by_filter_map_u S.unroll this_key key_ret
+            (return_phis_with_beta this_key [ phi_beta ] [ choice_beta ] rc)) ;
 
       Lwt.return_unit
     in
@@ -205,79 +196,54 @@ module Make (S : S) = struct
   (* Method 2 End *)
 
   let fun_enter_local p (key : Lookup_key.t) phis_top run_task =
-    let ({ fb; _ } : Fun_enter_local_rule.t) = p in
-    let fid = key.block.id in
-    let callsites = Lookup_key.get_callsites key.r_stk key.block in
+    let ({ fb; fid; callsites_with_stk; _ } : Fun_enter_local_rule.t) = p in
     let sub_trees =
-      List.fold callsites
-        ~f:(fun sub_trees callsite ->
-          let callsite_block, x', x'', x''' =
-            Cfg.fun_info_of_callsite callsite S.block_map
+      List.fold callsites_with_stk
+        ~f:(fun sub_trees (key_f, key_arg) ->
+          run_task key_f phis_top ;
+          let phi = Riddler.align_fun_para_arg key_f fid key key_arg in
+          let choice_f = Decision.make key_f.r_stk key_f.block.id in
+          let cb key (rf : Ddse_result.t) =
+            run_task key_arg phis_top ;
+            let phi_f = Riddler.eq key_f rf.v in
+            (* This function contains `key = key_arg.v` in the phis *)
+            U.by_filter_map_u S.unroll key key_arg
+              (return_phis key [ phi; phi_f ] [ choice_f ] [] rf) ;
+            Lwt.return_unit
           in
-          match Rstack.pop key.r_stk (x', fid) with
-          | Some callsite_stack ->
-              let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
-              run_task key_f phis_top ;
-              let key_arg = Lookup_key.of3 x''' callsite_stack callsite_block in
-              let phi = Riddler.same_funenter key_f fid key key_arg in
-              (* let _choice_this =
-                   Decision.make r_stk Cfg.(key.block.id)
-                 in *)
-              let choice_f = Decision.make callsite_stack callsite_block.id in
-              let cb key (rf : Ddse_result.t) =
-                run_task key_arg phis_top ;
-                let phi_f = Riddler.eq key_f rf.v in
-                (* This function contains `key = key_arg.v` in the phis *)
-                U.by_filter_map_u S.unroll key key_arg
-                  (return_phis key [ phi; phi_f ] [ choice_f ] [] rf) ;
-                Lwt.return_unit
-              in
-              U.by_bind_u S.unroll key key_f cb ;
+          U.by_bind_u S.unroll key key_f cb ;
 
-              sub_trees
-              (* @ [ (node_f, node_arg) ] *)
-          | None -> failwith "why Rstack.pop fails here"
-          (* sub_trees *))
+          sub_trees
+          (* @ [ (node_f, node_arg) ] *))
         ~init:[]
     in
     ()
 
   let fun_enter_nonlocal p (this_key : Lookup_key.t) phis_top run_task =
-    let ({ fb; _ } : Fun_enter_nonlocal_rule.t) = p in
-    let fid = this_key.block.id in
-    let callsites = Lookup_key.get_callsites this_key.r_stk this_key.block in
+    let ({ fb; fid; callsites_with_stk; _ } : Fun_enter_nonlocal_rule.t) = p in
 
     let sub_trees =
-      List.fold callsites
-        ~f:(fun sub_trees callsite ->
-          let callsite_block, x', x'', _x''' =
-            Cfg.fun_info_of_callsite callsite S.block_map
+      List.fold callsites_with_stk
+        ~f:(fun sub_trees (key_f, _key_arg) ->
+          run_task key_f phis_top ;
+          let phi = Riddler.eq_fid key_f fid in
+          (* let choice_this = Decision.make r_stk this_key.block.id in *)
+          let choice_f = Decision.make key_f.r_stk key_f.block.id in
+
+          let cb_f key (rf : Ddse_result.t) =
+            let key_arg = Lookup_key.with_x rf.v this_key.x in
+            let fv_block = Cfg.find_block_by_id rf.v.x S.block_map in
+            run_task key_arg phis_top ;
+
+            let phi_f = Riddler.eq key_f rf.v in
+            U.by_filter_map_u S.unroll key key_arg
+              (return_phis key [ phi_f; phi ] [ choice_f ] [] rf) ;
+            Lwt.return_unit
           in
-          match Rstack.pop this_key.r_stk (x', fid) with
-          | Some callsite_stack ->
-              let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
-              run_task key_f phis_top ;
+          U.by_bind_u S.unroll this_key key_f cb_f ;
 
-              let phi = Riddler.eq_fid key_f fid in
-              (* let choice_this = Decision.make r_stk this_key.block.id in *)
-              let choice_f = Decision.make callsite_stack callsite_block.id in
-
-              let cb_f key (rf : Ddse_result.t) =
-                let key_arg = Lookup_key.with_x rf.v this_key.x in
-                let fv_block = Cfg.find_block_by_id rf.v.x S.block_map in
-                run_task key_arg phis_top ;
-
-                let phi_f = Riddler.eq key_f rf.v in
-                U.by_filter_map_u S.unroll key key_arg
-                  (return_phis key [ phi_f; phi ] [ choice_f ] [] rf) ;
-                Lwt.return_unit
-              in
-              U.by_bind_u S.unroll this_key key_f cb_f ;
-
-              sub_trees
-              (* @ [ (node_f, node_f) ] *)
-          | None -> failwith "why Rstack.pop fails here"
-          (* sub_trees *))
+          sub_trees
+          (* @ [ (node_f, node_f) ] *))
         ~init:[]
     in
     ()
@@ -293,7 +259,7 @@ module Make (S : S) = struct
         ~f:(fun sub_trees fid ->
           let fblock = Ident_map.find fid S.block_map in
           let key_ret = Lookup_key.get_f_return S.block_map fid this_key in
-          let phi = Riddler.same_funexit xf fid key_ret this_key in
+          let phi = Riddler.align_fun_para_arg xf fid key_ret this_key in
           let cb (key : Lookup_key.t) (rf : Ddse_result.t) =
             let fid' = rf.v.x in
             if Id.equal fid fid' (* if List.mem fids fid ~equal:Id.equal *)

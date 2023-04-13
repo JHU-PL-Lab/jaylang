@@ -50,122 +50,6 @@ let eager_check (state : Global_state.t) (config : Global_config.t) c assumption
   | Result.Ok _model -> true
   | Result.Error _exps -> false
 
-(* Completion *)
-let complete_phis_of_rule (state : Global_state.t) key
-    (detail : Lookup_detail.t) =
-  let open Rule in
-  let open Riddler in
-  let key_first = Lookup_key.to_first key state.first in
-  match detail.rule with
-  (* Bounded (same as complete phi) *)
-  | Discovery_main p ->
-      discover_main_with_picked key (Riddler.eq_term_v key (Some p.v))
-  | Discovery_nonmain p ->
-      discover_non_main key key_first (Riddler.eq_term_v key (Some p.v))
-  | Assume p -> mismatch_with_picked key
-  | Assert p -> mismatch_with_picked key
-  | Mismatch -> mismatch_with_picked key
-  | Abort p ->
-      if p.is_target
-      then discover_non_main key key_first (Riddler.eq_term_v key None)
-      else mismatch_with_picked key
-  | Alias p -> eq_with_picked key p.x'
-  | Input p ->
-      if p.is_in_main
-      then discover_main_with_picked key (Riddler.eq_term_v key None)
-      else discover_non_main key key_first (Riddler.eq_term_v key None)
-  | Not p -> not_with_picked key p.x'
-  | Binop p -> binop_with_picked key p.bop p.x1 p.x2
-  (*
-      Unbounded
-  *)
-  | Record_start p ->
-      picked key @=> and_ (picked p.r :: eq_one_picked_of key detail.domain)
-  | Cond_top p ->
-      picked key
-      @=> and_
-            ([ picked p.x; picked p.x2; eq key p.x ]
-            (* before the `@` is the original constraits
-               after the `@` is the added ones *)
-            @ eq_one_picked_of key detail.domain)
-  | Cond_btm p -> cond_bottom key p.x' p.cond_both
-  | Fun_enter_local p ->
-      let fid = key.block.id in
-      let phi_f_and_arg =
-        List.map p.callsites ~f:(fun callsite ->
-            let callsite_block, x', x'', x''' =
-              Cfg.fun_info_of_callsite callsite state.block_map
-            in
-            let callsite_stack =
-              Option.value_exn (Rstack.pop key.r_stk (x', fid))
-            in
-            let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
-            let detail_f = Hashtbl.find_exn state.lookup_detail_map key_f in
-            let domain_f = detail_f.domain in
-            let key_arg = Lookup_key.of3 x''' callsite_stack callsite_block in
-            let detail_arg = Hashtbl.find_exn state.lookup_detail_map key_arg in
-            let domain_arg = detail_arg.domain in
-            and_
-              [
-                eq key key_arg;
-                picked_eq_choices key_f domain_f;
-                picked_eq_choices key_arg domain_arg;
-              ])
-      in
-      picked key @=> or_ phi_f_and_arg
-  | Fun_enter_nonlocal p ->
-      let fid = key.block.id in
-      let phi_f_and_arg =
-        List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_arg) ->
-            let detail_arg = Hashtbl.find_exn state.lookup_detail_map key_arg in
-            and_
-              [
-                picked key_f;
-                picked key_fv;
-                eq key_f key_fv;
-                picked_eq_choices key_arg detail_arg.domain;
-              ])
-      in
-      picked key @=> or_ phi_f_and_arg
-  | Fun_exit p ->
-      let phi_f_and_ret =
-        List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_ret) ->
-            let detail_ret = Hashtbl.find_exn state.lookup_detail_map key_ret in
-            and_
-              [
-                picked key_f;
-                picked key_fv;
-                eq key_f key_fv;
-                picked_eq_choices key_ret detail_ret.domain;
-              ])
-      in
-      picked key @=> or_ phi_f_and_ret
-  | Pattern p ->
-      let open Jayil.Ast in
-      let pattern_truth pat rv =
-        match (pat, rv) with
-        | Any_pattern, _
-        | Fun_pattern, Value_body (Value_function _)
-        | Int_pattern, Value_body (Value_int _)
-        | Int_pattern, Input_body
-        | Bool_pattern, Value_body (Value_bool _) ->
-            true
-        | Rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
-            Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
-        | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
-            Ident_set.equal ids (Ident_set.of_enum @@ Ident_map.keys rv)
-        | _ -> false
-      in
-      picked key
-      @=> and_
-            [
-              picked p.x';
-              or_
-                (List.map detail.domain ~f:(fun v ->
-                     let rv = Cfg.clause_body_of_x v.block v.x in
-                     and_ [ picked v; eq_bool key (pattern_truth p.pat rv) ]));
-            ]
-
 let check (state : Global_state.t) (config : Global_config.t) :
     result_info option =
   LLog.info (fun m -> m "Search Tree Size:\t%d" state.tree_size) ;
@@ -210,7 +94,7 @@ let check (state : Global_state.t) (config : Global_config.t) :
           let phis' =
             match detail.status with
             | Complete -> Lookup_rule.complete_phis_of_rule state key detail
-            | Fail -> mismatch_with_picked key
+            | Fail -> picked_false key
             | Good -> failwith "Good in re-gen phis"
           in
           detail.status_gen_phi <- detail.status ;

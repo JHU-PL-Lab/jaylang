@@ -41,15 +41,31 @@ module Cond_top_rule = struct
 end
 
 module Cond_btm_rule = struct
-  type t = { x' : Lookup_key.t; cond_both : Cfg.cond_both_info }
+  type t = {
+    x' : Lookup_key.t;
+    cond_both : Cfg.cond_both_info;
+    rets : (bool * Lookup_key.t) list;
+  }
 end
 
 module Fun_enter_local_rule = struct
-  type t = { fb : Cfg.fun_block_info; is_local : bool; callsites : ident list }
+  type t = {
+    fb : Cfg.fun_block_info;
+    fid : Id.t;
+    is_local : bool;
+    callsites : ident list;
+    callsites_with_stk : (Lookup_key.t * Lookup_key.t) list;
+  }
 end
 
 module Fun_enter_nonlocal_rule = struct
-  type t = { fb : Cfg.fun_block_info; is_local : bool; callsites : ident list }
+  type t = {
+    fb : Cfg.fun_block_info;
+    fid : Id.t;
+    is_local : bool;
+    callsites : ident list;
+    callsites_with_stk : (Lookup_key.t * Lookup_key.t) list;
+  }
 end
 
 module Fun_exit_rule = struct
@@ -123,9 +139,22 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map target : t =
           let x2 = Lookup_key.with_x key id2 in
           Binop { bop; x1; x2 }
       | { clause = Clause (_, Conditional_body (Var (ix', _), _, _)); _ } ->
-          let cond_both_info = Cfg.find_cond_blocks x block_map in
+          let cond_both = Cfg.find_cond_blocks x block_map in
           let x' = Lookup_key.with_x key ix' in
-          Cond_btm { x'; cond_both = cond_both_info }
+          let rets =
+            List.filter_map [ true; false ] ~f:(fun beta ->
+                let cond_case_block_opt =
+                  if beta then cond_both.then_ else cond_both.else_
+                in
+                match cond_case_block_opt with
+                | Some cond_case_block ->
+                    Some
+                      ( beta,
+                        Lookup_key.return_key_of_cond key beta cond_case_block
+                      )
+                | None -> None)
+          in
+          Cond_btm { x'; cond_both; rets }
       | {
        clause = Clause (_, Appl_body (Var (ixf, _), Var (_xv, _)));
        cat = App fids;
@@ -154,10 +183,27 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map target : t =
   | None -> (
       match block.kind with
       | Fun fb ->
+          let fid = block.id in
           let callsites = Lookup_key.get_callsites key.r_stk key.block in
+          let callsites_with_stk =
+            List.filter_map callsites ~f:(fun cs ->
+                let cs_block, x', x'', x''' =
+                  Cfg.fun_info_of_callsite cs block_map
+                in
+                match Rstack.pop key.r_stk (x', fid) with
+                | Some cs_stk ->
+                    let key_f = Lookup_key.of3 x'' cs_stk cs_block in
+                    let key_arg = Lookup_key.of3 x''' cs_stk cs_block in
+                    Some (key_f, key_arg)
+                | None -> None)
+          in
           if Ident.(equal fb.para x)
-          then Fun_enter_local { fb; is_local = true; callsites }
-          else Fun_enter_nonlocal { fb; is_local = false; callsites }
+          then
+            Fun_enter_local
+              { fid; fb; is_local = true; callsites; callsites_with_stk }
+          else
+            Fun_enter_nonlocal
+              { fid; fb; is_local = false; callsites; callsites_with_stk }
       | Cond cb ->
           let condsite_block = Cfg.outer_block block block_map in
           let x, x2 =
@@ -211,10 +257,3 @@ let pp_rule = Fmt.of_to_string show_rule
      val record_end : t -> payload -> result
      val mismatch : t -> payload -> result
    end *)
-
-(* [@@deriving variants]
-   let () =
-     print_endline
-     @@ Variants.map Value_discover_main
-          ~value_discover_main:(fun _ -> "Value_discover_main")
-          ~value_discard:(fun _ -> "Value_discard") *)

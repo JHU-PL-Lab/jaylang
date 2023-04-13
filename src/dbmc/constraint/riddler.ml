@@ -1,2 +1,0 @@
-include Riddler_basic
-include Riddler_rule
