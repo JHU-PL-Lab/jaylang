@@ -222,7 +222,10 @@ module Make (S : S) = struct
           match Ident_map.Exceptionless.find p.lbl rv with
           | Some (Var (field, _)) ->
               let key_l = Lookup_key.with_x key_rv field in
-              let phi_i = Riddler.record_start key p.r key_rv key_l in
+              let phi_i =
+                Riddler.(
+                  eq_list ~exclude:key [ K (key, key_l); K (p.r, key_rv) ])
+              in
               let action = Direct { pub = key_l } in
               (Some phi_i, Some action)
           | None -> (None, None))
@@ -263,10 +266,16 @@ module Make (S : S) = struct
             let fv_block = Cfg.find_block_by_id r.x S.block_map in
             let key_arg = Lookup_key.of3 key.x r.r_stk fv_block in
             let phi_i =
-              Riddler.fun_enter_nonlocal key key_f r key.block.id key_arg
+              let fid = key.block.id in
+              Riddler.(
+                eq_list ~exclude:key
+                  [
+                    K (key, key_arg);
+                    Z (key_f, z_of_fid fid);
+                    Z (r, z_of_fid fid);
+                  ])
             in
-            let action = Direct { pub = key_arg } in
-            (Some phi_i, Some action)
+            (Some phi_i, Some (Direct { pub = key_arg }))
           in
           Chain { pub = key_f; next; bounded = false })
     in
@@ -304,26 +313,18 @@ module Make (S : S) = struct
         | Int_pattern, Value_body (Value_int _)
         | Int_pattern, Input_body
         | Bool_pattern, Value_body (Value_bool _) ->
-            [
-              Riddler.picked_imply_with_v1 key x'
-                (Value_bool (* true *) matched);
-              Riddler.picked_pattern key x' pat;
-            ]
+            [ Riddler.picked_pattern key x' (Some matched) pat ]
         | Rec_pattern ids, Value_body (Value_record (Record_value rv_)) ->
-            [ Riddler.picked_record_pattern key x' (Value_bool matched) ]
+            [ Riddler.picked_record_pattern key x' matched ]
         | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv_))
           ->
-            [ Riddler.picked_record_pattern key x' (Value_bool matched) ]
+            [ Riddler.picked_record_pattern key x' matched ]
         | Rec_pattern _, _ | _, Value_body _ ->
-            [
-              Riddler.picked_imply_with_v1 key x'
-                (Value_bool (* false *) matched);
-              Riddler.picked_pattern key x' pat;
-            ]
+            [ Riddler.picked_pattern key x' (Some matched) pat ]
         | _, _ ->
             (* TODO: some binops contain type information for patterns *)
             (* TODO: and for previous pattern match *)
-            [ Riddler.picked_pattern key x' pat ]
+            [ Riddler.picked_pattern key x' None pat ]
       in
       (* Fmt.pr "[Pattern][%B] %a | %a |%a\n" matched Lookup_key.pp key
          Jayil.Ast_pp.pp_pattern pat Lookup_key.pp key_rv ; *)
@@ -339,22 +340,21 @@ module Make (S : S) = struct
     let open Lookup_status in
     match rule with
     (* Bounded (same as complete phi) *)
-    | Discovery_main p -> (Riddler.picked_main key (Some p.v), Leaf Complete)
+    | Discovery_main p -> (Riddler.at_main key (Some p.v), Leaf Complete)
     | Discovery_nonmain p ->
-        ( Riddler.picked_imply_with key key_first (Riddler.eqv key p.v),
-          first_but_drop key )
+        (Riddler.implies_v1 key key_first p.v, first_but_drop key)
     | Input p ->
         Hash_set.add S.state.input_nodes key ;
         if p.is_in_main
-        then (Riddler.picked_main key None, Leaf Complete)
-        else (Riddler.picked_imply key key_first, first_but_drop key)
-    | Assume p -> (Riddler.picked_false key, Leaf Fail)
-    | Assert p -> (Riddler.picked_false key, Leaf Fail)
-    | Mismatch -> (Riddler.picked_false key, Leaf Fail)
+        then (Riddler.at_main key None, Leaf Complete)
+        else (Riddler.implies key key_first, first_but_drop key)
+    | Assume p -> (Riddler.invalid key, Leaf Fail)
+    | Assert p -> (Riddler.invalid key, Leaf Fail)
+    | Mismatch -> (Riddler.invalid key, Leaf Fail)
     | Abort p ->
         if p.is_target
-        then (Riddler.picked_imply key key_first, first_but_drop key)
-        else (Riddler.picked_false key, Leaf Fail)
+        then (Riddler.implies key key_first, first_but_drop key)
+        else (Riddler.invalid key, Leaf Fail)
     | Alias p -> (Riddler.eq_with_picked key p.x', Direct { pub = p.x' })
     | Not p -> (Riddler.not_with_picked key p.x', listen_but_use p.x' key)
     | Binop p ->
@@ -386,16 +386,14 @@ let complete_phis_of_rule (state : Global_state.t) key
   let key_first = Lookup_key.to_first key state.first in
   match detail.rule with
   (* Bounded (same as complete phi) *)
-  | Discovery_main p -> picked_main key (Some p.v)
-  | Discovery_nonmain p -> picked_imply_with key key_first (Riddler.eqv key p.v)
-  | Assume p -> picked_false key
-  | Assert p -> picked_false key
-  | Mismatch -> picked_false key
-  | Abort p ->
-      if p.is_target then picked_imply key key_first else picked_false key
+  | Discovery_main p -> at_main key (Some p.v)
+  | Discovery_nonmain p -> implies_v1 key key_first p.v
+  | Assume p -> invalid key
+  | Assert p -> invalid key
+  | Mismatch -> invalid key
+  | Abort p -> if p.is_target then implies key key_first else invalid key
   | Alias p -> eq_with_picked key p.x'
-  | Input p ->
-      if p.is_in_main then picked_main key None else picked_imply key key_first
+  | Input p -> if p.is_in_main then at_main key None else implies key key_first
   | Not p -> not_with_picked key p.x'
   | Binop p -> binop_with_picked key p.bop p.x1 p.x2
   (*

@@ -94,7 +94,7 @@ let check (state : Global_state.t) (config : Global_config.t) :
           let phis' =
             match detail.status with
             | Complete -> Lookup_rule.complete_phis_of_rule state key detail
-            | Fail -> picked_false key
+            | Fail -> invalid key
             | Good -> failwith "Good in re-gen phis"
           in
           detail.status_gen_phi <- detail.status ;

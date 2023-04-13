@@ -201,7 +201,7 @@ module Make (S : S) = struct
       List.fold callsites_with_stk
         ~f:(fun sub_trees (key_f, key_arg) ->
           run_task key_f phis_top ;
-          let phi = Riddler.align_fun_para_arg key_f fid key key_arg in
+          let phi = Riddler.(and_ [ eq_fid key_f fid; eq key key_arg ]) in
           let choice_f = Decision.make key_f.r_stk key_f.block.id in
           let cb key (rf : Ddse_result.t) =
             run_task key_arg phis_top ;
@@ -259,7 +259,7 @@ module Make (S : S) = struct
         ~f:(fun sub_trees fid ->
           let fblock = Ident_map.find fid S.block_map in
           let key_ret = Lookup_key.get_f_return S.block_map fid this_key in
-          let phi = Riddler.align_fun_para_arg xf fid key_ret this_key in
+          let phi = Riddler.(and_ [ eq_fid xf fid; eq key_ret this_key ]) in
           let cb (key : Lookup_key.t) (rf : Ddse_result.t) =
             let fid' = rf.v.x in
             if Id.equal fid fid' (* if List.mem fids fid ~equal:Id.equal *)
