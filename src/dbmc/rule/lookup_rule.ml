@@ -214,7 +214,7 @@ module Make (S : S) = struct
     let key_first = Lookup_key.to_first key S.state.first in
     Map { pub = key_first; map = Fn.const key }
 
-  let record_start (p : Record_start_rule.t) (key : Lookup_key.t) =
+  let record_start_action (p : Record_start_rule.t) (key : Lookup_key.t) =
     let next i (key_rv : Lookup_key.t) =
       let rv = Cfg.clause_body_of_x key_rv.block key_rv.x in
       match rv with
@@ -250,7 +250,7 @@ module Make (S : S) = struct
     in
     Chain { pub = x'; next; bounded = true }
 
-  let fun_enter_local (p : Fun_enter_local_rule.t) (key : Lookup_key.t) =
+  let fun_enter_local_action (p : Fun_enter_local_rule.t) (key : Lookup_key.t) =
     let fid = key.block.id in
     let elements =
       List.map p.callsites_with_stk ~f:(fun (key_f, key_arg) ->
@@ -281,7 +281,7 @@ module Make (S : S) = struct
     in
     Or_list { elements; bounded = false }
 
-  let fun_exit (p : Fun_exit_rule.t) (key : Lookup_key.t) =
+  let fun_exit_action (p : Fun_exit_rule.t) (key : Lookup_key.t) =
     let next _ (rf : Lookup_key.t) =
       let fid = rf.x in
       if List.mem p.fids fid ~equal:Id.equal
@@ -313,18 +313,17 @@ module Make (S : S) = struct
         | Int_pattern, Value_body (Value_int _)
         | Int_pattern, Input_body
         | Bool_pattern, Value_body (Value_bool _) ->
-            [ Riddler.picked_pattern key x' (Some matched) pat ]
+            [ Riddler.pattern key x' (Some matched) pat ]
         | Rec_pattern ids, Value_body (Value_record (Record_value rv_)) ->
-            [ Riddler.picked_record_pattern key x' matched ]
+            [ Riddler.record_pattern key x' matched ]
         | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv_))
           ->
-            [ Riddler.picked_record_pattern key x' matched ]
-        | Rec_pattern _, _ | _, Value_body _ ->
-            [ Riddler.picked_pattern key x' (Some matched) pat ]
-        | _, _ ->
+            [ Riddler.record_pattern key x' matched ]
+        | Rec_pattern _, _ -> [ Riddler.pattern key x' (Some matched) pat ]
+        | _, Value_body _ | _, _ ->
             (* TODO: some binops contain type information for patterns *)
             (* TODO: and for previous pattern match *)
-            [ Riddler.picked_pattern key x' None pat ]
+            [ Riddler.pattern key x' None pat ]
       in
       (* Fmt.pr "[Pattern][%B] %a | %a |%a\n" matched Lookup_key.pp key
          Jayil.Ast_pp.pp_pattern pat Lookup_key.pp key_rv ; *)
@@ -338,41 +337,42 @@ module Make (S : S) = struct
     let key_first = Lookup_key.to_first key S.state.first in
     let open Rule in
     let open Lookup_status in
+    let open Riddler in
     match rule with
     (* Bounded (same as complete phi) *)
-    | Discovery_main p -> (Riddler.at_main key (Some p.v), Leaf Complete)
-    | Discovery_nonmain p ->
-        (Riddler.implies_v1 key key_first p.v, first_but_drop key)
+    | Discovery_main p -> (at_main key (Some p.v), Leaf Complete)
+    | Discovery_nonmain p -> (implies_v1 key key_first p.v, first_but_drop key)
     | Input p ->
         Hash_set.add S.state.input_nodes key ;
         if p.is_in_main
-        then (Riddler.at_main key None, Leaf Complete)
-        else (Riddler.implies key key_first, first_but_drop key)
-    | Assume p -> (Riddler.invalid key, Leaf Fail)
-    | Assert p -> (Riddler.invalid key, Leaf Fail)
-    | Mismatch -> (Riddler.invalid key, Leaf Fail)
+        then (at_main key None, Leaf Complete)
+        else (implies key key_first, first_but_drop key)
+    | Assume p -> (invalid key, Leaf Fail)
+    | Assert p -> (invalid key, Leaf Fail)
+    | Mismatch -> (invalid key, Leaf Fail)
     | Abort p ->
         if p.is_target
-        then (Riddler.implies key key_first, first_but_drop key)
-        else (Riddler.invalid key, Leaf Fail)
-    | Alias p -> (Riddler.eq_with_picked key p.x', Direct { pub = p.x' })
-    | Not p -> (Riddler.not_with_picked key p.x', listen_but_use p.x' key)
+        then (implies key key_first, first_but_drop key)
+        else (invalid key, Leaf Fail)
+    | Alias p -> (eq_lookup key p.x', Direct { pub = p.x' })
+    | Not p -> (not_lookup key p.x', listen_but_use p.x' key)
     | Binop p ->
-        ( Riddler.binop_with_picked key p.bop p.x1 p.x2,
+        ( binop_with_picked key p.bop p.x1 p.x2,
           Both { pub1 = p.x1; pub2 = p.x2 } )
-    (*
-      Unbounded
-    *)
-    | Record_start p -> (Riddler.true_, record_start p key)
+    | Record_start p -> (true_, record_start_action p key)
     | Cond_top p ->
-        ( Riddler.cond_top key p.x p.x2 p.cond_case_info.choice,
+        ( phi_of_picked
+            (Imply_with
+               ( key,
+                 p.x,
+                 Payload [ Z (p.x2, SuduZ3.bool_ p.cond_case_info.choice) ] )),
           chain_then_direct p.x2 p.x )
-    | Cond_btm p -> (Riddler.cond_bottom key p.x' p.rets, cond_btm p key)
-    | Fun_enter_local p -> (Riddler.fun_enter_local key p, fun_enter_local p key)
-    | Fun_enter_nonlocal p -> (Riddler.true_, fun_enter_nonlocal p key)
+    | Cond_btm p -> (cond_bottom key p.x' p.rets, cond_btm p key)
+    | Fun_enter_local p -> (fun_enter_local key p, fun_enter_local_action p key)
+    | Fun_enter_nonlocal p -> (true_, fun_enter_nonlocal p key)
     | Fun_exit p ->
-        (Riddler.fun_exit key p.xf p.fids S.state.block_map, fun_exit p key)
-    | Pattern p -> (Riddler.true_, pattern p key)
+        (fun_exit key p.xf p.fids S.state.block_map, fun_exit_action p key)
+    | Pattern p -> (true_, pattern p key)
 end
 
 open Riddler
@@ -388,89 +388,59 @@ let complete_phis_of_rule (state : Global_state.t) key
   (* Bounded (same as complete phi) *)
   | Discovery_main p -> at_main key (Some p.v)
   | Discovery_nonmain p -> implies_v1 key key_first p.v
+  | Input p -> if p.is_in_main then at_main key None else implies key key_first
   | Assume p -> invalid key
   | Assert p -> invalid key
   | Mismatch -> invalid key
   | Abort p -> if p.is_target then implies key key_first else invalid key
-  | Alias p -> eq_with_picked key p.x'
-  | Input p -> if p.is_in_main then at_main key None else implies key key_first
-  | Not p -> not_with_picked key p.x'
+  | Alias p -> eq_lookup key p.x'
+  | Not p -> not_lookup key p.x'
   | Binop p -> binop_with_picked key p.bop p.x1 p.x2
-  (*
-      Unbounded
-  *)
-  | Record_start p -> picked_eq_choices key detail.domain (picked p.r)
+  | Record_start p -> imply_domain_with key detail.domain [ P p.r ]
   | Cond_top p ->
-      picked_eq_choices key detail.domain
-        (and_
-           [
-             picked p.x;
-             picked p.x2;
-             eq key p.x;
-             eq_bool p.x2 p.cond_case_info.choice;
-           ])
+      imply_domain_with key detail.domain
+        [ P p.x; Z (p.x2, SuduZ3.bool_ p.cond_case_info.choice) ]
   | Cond_btm p -> cond_bottom key p.x' p.rets
   | Fun_enter_local p ->
       let fid = key.block.id in
       let phi_f_and_arg =
-        List.map p.callsites ~f:(fun callsite ->
-            let callsite_block, x', x'', x''' =
-              Cfg.fun_info_of_callsite callsite state.block_map
-            in
-            let callsite_stack =
-              Option.value_exn (Rstack.pop key.r_stk (x', fid))
-            in
-            let key_f = Lookup_key.of3 x'' callsite_stack callsite_block in
+        List.map p.callsites_with_stk ~f:(fun (key_f, key_arg) ->
             let detail_f = Hashtbl.find_exn state.lookup_detail_map key_f in
-            let domain_f = detail_f.domain in
-            let key_arg = Lookup_key.of3 x''' callsite_stack callsite_block in
             let detail_arg = Hashtbl.find_exn state.lookup_detail_map key_arg in
-            let domain_arg = detail_arg.domain in
-            and_
+            Payload
               [
-                eq key key_arg;
-                eq_fid key_f fid;
-                picked key_f;
-                picked_eq_choices key_f domain_f true_;
-                picked key_arg;
-                picked_eq_choices key_arg domain_arg true_;
+                K (key, key_arg);
+                Z (key_f, z_of_fid fid);
+                D (key_f, detail_f.domain);
+                D (key_arg, detail_arg.domain);
               ])
       in
-      (* and_
-         [
-           Riddler.fun_enter_local key key.block.id p.callsites state.block_map;
-           ;
-         ] *)
-      picked key @=> or_ phi_f_and_arg
+      phi_of_picked (Choices_p (key, phi_f_and_arg))
   | Fun_enter_nonlocal p ->
       let fid = key.block.id in
       let phi_f_and_arg =
         List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_arg) ->
             let detail_arg = Hashtbl.find_exn state.lookup_detail_map key_arg in
-            and_
+            Payload
               [
-                picked key_f;
-                picked key_fv;
-                eq_fid key_f fid;
-                eq key_f key_fv;
-                picked_eq_choices key_arg detail_arg.domain true_;
+                K (key_f, key_fv);
+                Z (key_f, z_of_fid fid);
+                D (key_arg, detail_arg.domain);
               ])
       in
-      picked key @=> or_ phi_f_and_arg
+      phi_of_picked (Choices_p (key, phi_f_and_arg))
   | Fun_exit p ->
       let phi_f_and_ret =
         List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_ret) ->
             let detail_ret = Hashtbl.find_exn state.lookup_detail_map key_ret in
-            and_
+            Payload
               [
-                picked key_f;
-                eq_fid key_fv key_fv.x;
-                picked key_fv;
-                eq key_f key_fv;
-                picked_eq_choices key_ret detail_ret.domain true_;
+                K (key_f, key_fv);
+                Z (key_fv, z_of_fid key_fv.x);
+                D (key_ret, detail_ret.domain);
               ])
       in
-      picked key @=> or_ phi_f_and_ret
+      phi_of_picked (Choices_p (key, phi_f_and_ret))
   | Pattern p ->
       let detail_x' = Hashtbl.find_exn state.lookup_detail_map p.x' in
       let choices =
