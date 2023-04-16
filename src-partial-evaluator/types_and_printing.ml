@@ -56,17 +56,17 @@ end
 
 type pvalue =
   | Direct of value
-  | FunClosure of Ident.t * function_value * penv
+  | FunClosure of Ident.t * function_value * penv * bool
   | RecordClosure of record_value * penv
   | AbortClosure of penv
 
-and presidual = PValue of pvalue | PClause of clause_body | PExpr of expr (* Note that Value_body of clause_body should not be used... *)
+and presidual = PValue of pvalue | PClause of clause_body | PExpr of expr * Ident.t (* Note that Value_body of clause_body should not be used... *)
 and presidual_with_ident_lexadr_deps = Ident.t * presidual * LexAdr_set.t
 and penv = presidual_with_ident_lexadr_deps IdentLine_map.t
 
 let value_of_pvalue = function
   | Direct v -> v
-  | FunClosure (_fid, fv, _env) -> Value_function fv
+  | FunClosure (_fid, fv, _env, _) -> Value_function fv
   | RecordClosure (r, _env) -> Value_record r
   | AbortClosure _ -> Value_bool false
 
@@ -86,7 +86,7 @@ and pp_record_c (Record_value r, env) oc =
 and pp_presidual oc = function
   | PValue pvalue -> pp_pvalue oc pvalue
   | PClause clause_body -> Jayil.Ast_pp.pp_clause_body oc clause_body
-  | PExpr expr -> Jayil.Ast_pp.pp_expr oc expr
+  | PExpr (expr, _) -> Jayil.Ast_pp.pp_expr oc expr
 
 and pp_pwild oc ((ident, presidual, lexadrset) : presidual_with_ident_lexadr_deps) =
   Format.fprintf oc "%a = %a, %a" Jayil.Ast_pp.pp_ident ident pp_presidual presidual LexAdr_set.pp lexadrset
@@ -197,7 +197,7 @@ let get_deps_from_ident (ident : var) (env : penv) = let (_, _, deps) = get_from
 
 let get_pvalue_deps_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, deps) = get_from_ident ident env in deps, v
 
-let get_presidual_from_ident = get_from_ident
+let get_entry_from_ident = get_from_ident
 
 (* let get_pvalue_deps_line_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, deps) = get_from_ident ident env in deps, v, LexAdr_set.max_elt deps *)
 
@@ -235,6 +235,11 @@ let get_deps_from_ident_opt (ident : var) (env : penv) =
   let* (_, _, deps) = get_from_ident_opt ident env in
   Some (), deps (* Add deps to state only? *)
 
+let get_entry_from_ident_opt (ident : var) (env : penv) =
+  let* (_, _, deps) as entry = get_from_ident_opt ident env in
+  Some entry, deps
+
+
 let get_many_deps_from_ident_opt (idents : var Enum.t) (env : penv) =
   let deps = Enum.fold (fun prev_deps ident ->
     let (_, next_deps) = get_deps_from_ident_opt ident env
@@ -244,7 +249,10 @@ let get_many_deps_from_ident_opt (idents : var Enum.t) (env : penv) =
 let get_many_lines_from_ident_opt (idents : var Enum.t) (env : penv) =
   let lines, deps = Enum.fold (fun (prev_lines, prev_deps) ident ->
     let (_, next_deps) = get_deps_from_ident_opt ident env
-    in (LexAdr_set.max_elt next_deps) :: prev_lines, LexAdr_set.union prev_deps next_deps
+    in (match (LexAdr_set.max_elt_opt next_deps) with
+      | Some max_el -> max_el :: prev_lines
+      | None -> prev_lines
+    ), LexAdr_set.union prev_deps next_deps
   ) ([], LexAdr_set.empty) idents
   in (* Some *) lines, deps
 
