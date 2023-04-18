@@ -223,8 +223,7 @@ module Make (S : S) = struct
           | Some (Var (field, _)) ->
               let key_l = Lookup_key.with_x key_rv field in
               let phi_i =
-                Riddler.(
-                  eq_list ~exclude:key [ K (key, key_l); K (p.r, key_rv) ])
+                Riddler.(eq_list [ K2 (key, key_l); K (p.r, key_rv) ])
               in
               let action = Direct { pub = key_l } in
               (Some phi_i, Some action)
@@ -268,9 +267,9 @@ module Make (S : S) = struct
             let phi_i =
               let fid = key.block.id in
               Riddler.(
-                eq_list ~exclude:key
+                eq_list
                   [
-                    K (key, key_arg);
+                    K2 (key, key_arg);
                     Z (key_f, z_of_fid fid);
                     Z (r, z_of_fid fid);
                   ])
@@ -313,17 +312,17 @@ module Make (S : S) = struct
         | Int_pattern, Value_body (Value_int _)
         | Int_pattern, Input_body
         | Bool_pattern, Value_body (Value_bool _) ->
-            Riddler.pattern key x' (Some matched) pat
+            Riddler.pattern key x' (Some matched) pat false
         | Rec_pattern ids, Value_body (Value_record (Record_value rv_)) ->
-            Riddler.record_pattern key x' matched
+            Riddler.pattern key x' (Some matched) pat true
         | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv_))
           ->
-            Riddler.record_pattern key x' matched
-        | Rec_pattern _, _ -> Riddler.pattern key x' (Some matched) pat
+            Riddler.pattern key x' (Some matched) pat true
+        | Rec_pattern _, _ -> Riddler.pattern key x' (Some matched) pat true
         | _, Value_body _ | _, _ ->
             (* TODO: some binops contain type information for patterns *)
             (* TODO: and for previous pattern match *)
-            Riddler.pattern key x' None pat
+            Riddler.pattern key x' None pat false
       in
       (* Fmt.pr "[Pattern][%B] %a | %a |%a\n" matched Lookup_key.pp key
          Jayil.Ast_pp.pp_pattern pat Lookup_key.pp key_rv ; *)
@@ -340,7 +339,7 @@ module Make (S : S) = struct
     match rule with
     (* Bounded (same as complete phi) *)
     | Discovery_main p -> (at_main key (Some p.v), Leaf Complete)
-    | Discovery_nonmain p -> (implies_v1 key key_first p.v, first_but_drop key)
+    | Discovery_nonmain p -> (implies_v key key_first p.v, first_but_drop key)
     | Input p ->
         Hash_set.add S.state.input_nodes key ;
         if p.is_in_main
@@ -358,14 +357,8 @@ module Make (S : S) = struct
     | Binop p -> (binop key p.bop p.x1 p.x2, Both { pub1 = p.x1; pub2 = p.x2 })
     | Record_start p -> (true_, record_start_action p key)
     | Cond_top p ->
-        ( phi_of_picked
-            (Imply
-               ( key,
-                 Payload
-                   [
-                     K2 (key, p.x);
-                     Z (p.x2, SuduZ3.bool_ p.cond_case_info.choice);
-                   ] )),
+        ( Riddler.imply key
+            [ K2 (key, p.x); Z (p.x2, SuduZ3.bool_ p.cond_case_info.choice) ],
           chain_then_direct p.x2 p.x )
     | Cond_btm p -> (cond_bottom key p.x' p.rets, cond_btm p key)
     | Fun_enter_local p -> (fun_enter_local key p, fun_enter_local_action p key)
@@ -387,7 +380,7 @@ let complete_phis_of_rule (state : Global_state.t) key
   match detail.rule with
   (* Bounded (same as complete phi) *)
   | Discovery_main p -> at_main key (Some p.v)
-  | Discovery_nonmain p -> implies_v1 key key_first p.v
+  | Discovery_nonmain p -> implies_v key key_first p.v
   | Input p -> if p.is_in_main then at_main key None else implies key key_first
   | Assume p -> invalid key
   | Assert p -> invalid key
@@ -407,47 +400,44 @@ let complete_phis_of_rule (state : Global_state.t) key
         List.map p.callsites_with_stk ~f:(fun (key_f, key_arg) ->
             let detail_f = Hashtbl.find_exn state.lookup_detail_map key_f in
             let detail_arg = Hashtbl.find_exn state.lookup_detail_map key_arg in
-            Payload
-              [
-                K (key, key_arg);
-                Z (key_f, z_of_fid fid);
-                D (key_f, detail_f.domain);
-                D (key_arg, detail_arg.domain);
-              ])
+            [
+              K2 (key, key_arg);
+              Z (key_f, z_of_fid fid);
+              D (key_f, detail_f.domain);
+              D (key_arg, detail_arg.domain);
+            ])
       in
-      phi_of_picked (Choices (key, phi_f_and_arg))
+      choices key phi_f_and_arg
   | Fun_enter_nonlocal p ->
       let fid = key.block.id in
       let phi_f_and_arg =
         List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_arg) ->
             let detail_arg = Hashtbl.find_exn state.lookup_detail_map key_arg in
-            Payload
-              [
-                K (key_f, key_fv);
-                Z (key_f, z_of_fid fid);
-                D (key_arg, detail_arg.domain);
-              ])
+
+            [
+              K (key_f, key_fv);
+              Z (key_f, z_of_fid fid);
+              D (key_arg, detail_arg.domain);
+            ])
       in
-      phi_of_picked (Choices (key, phi_f_and_arg))
+      choices key phi_f_and_arg
   | Fun_exit p ->
       let phi_f_and_ret =
         List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_ret) ->
             let detail_ret = Hashtbl.find_exn state.lookup_detail_map key_ret in
-            Payload
-              [
-                K (key_f, key_fv);
-                Z (key_fv, z_of_fid key_fv.x);
-                D (key_ret, detail_ret.domain);
-              ])
+            [
+              K (key_f, key_fv);
+              Z (key_fv, z_of_fid key_fv.x);
+              D (key_ret, detail_ret.domain);
+            ])
       in
-      phi_of_picked (Choices (key, phi_f_and_ret))
+      choices key phi_f_and_ret
   | Pattern p ->
       let detail_x' = Hashtbl.find_exn state.lookup_detail_map p.x' in
-      let choices =
+      let phi_choices =
         (* detail.domain *)
         List.map detail_x'.domain ~f:(fun key_r ->
             let rv = Cfg.clause_body_of_x key_r.block key_r.x in
-            Payload
-              [ P p.x'; P key_r; Phi (eq_bool key (pattern_truth p.pat rv)) ])
+            [ P p.x'; P key_r; Z (key, bool_ (pattern_truth p.pat rv)) ])
       in
-      phi_of_picked (Choices (key, choices))
+      choices key phi_choices

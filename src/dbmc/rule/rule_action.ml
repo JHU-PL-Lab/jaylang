@@ -56,7 +56,7 @@ let chain_then_direct pre source =
     (* cond_top *)
     (* true *)
     (* if Riddler.eager_check S.state S.config key_x2
-         [ Riddler.eq_bool key_x2 choice ] *)
+         [ Riddler.(eqz key_x2 (bool_ choice)) ] *)
     (None, Some (Direct { pub = source }))
   in
   Chain { pub = pre; next; bounded = true }
