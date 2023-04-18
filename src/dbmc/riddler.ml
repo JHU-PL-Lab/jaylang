@@ -108,6 +108,7 @@ type eg_edge =
   | Z of (Lookup_key.t * Z3.Expr.expr)
   | D of (Lookup_key.t * Lookup_key.t list)
   | P of Lookup_key.t
+  | Phi of Z3.Expr.expr
 
 and eq_edge_neo = eg_edge list
 
@@ -125,70 +126,45 @@ let eq_list ?exclude es =
     | K2 (k1, k2) -> [ eq k1 k2; picked k2 ]
     | Z (k, z) -> [ eqz k z; picked k ]
     | D (k, kvs) -> [ eq_domain k kvs ]
-    | P k -> [ picked k ])
+    | P k -> [ picked k ]
+    | Phi p -> [ p ])
   |> List.concat |> and_
 
 type eq_edge =
   | Dummy
   | Payload of eq_edge_neo
-  | Imply of Lookup_key.t * Lookup_key.t
-  | Imply_v of Lookup_key.t * Z3.Expr.expr
-  | Eq of Lookup_key.t * Lookup_key.t
-  | Eq_v of Lookup_key.t * Z3.Expr.expr * Z3.Expr.expr
-  | Imply_with of Lookup_key.t * eq_edge
-  | Imply_domain of Lookup_key.t * Lookup_key.t list * eq_edge
+  | Imply of Lookup_key.t * eq_edge
   | Imply_post of Lookup_key.t * Lookup_key.t * Z3.Expr.expr
   | And2 of Lookup_key.t * Lookup_key.t * Lookup_key.t * Z3.Expr.expr
-  | Choices_alt of Lookup_key.t * (Lookup_key.t * Z3.Expr.expr) list
-  | Choices_group of
-      Lookup_key.t * (Lookup_key.t * Lookup_key.t * Z3.Expr.expr) list
-  | Choices_p of Lookup_key.t * eq_edge list
+  | Choices of Lookup_key.t * eq_edge list
 
 let phi_of_picked pe =
   let rec loop = function
     | Payload es -> eq_list es
-    | Imply (k1, k2) -> picked k1 @=> picked k2
-    | Imply_v (k, v) -> picked k @=> v
-    | Eq (k1, k2) -> picked k1 @=> and2 (picked k2) (eq k1 k2)
-    | Eq_v (k, v, phis) -> picked k @=> and2 (SuduZ3.eq (key_to_var k) v) phis
-    | Imply_with (k, pe) -> picked k @=> and_ [ loop pe ]
-    | Imply_domain (k, kvs, pe) ->
-        picked k @=> and_ [ eq_domain k kvs; loop pe ]
+    | Imply (k, pe) -> picked k @=> and_ [ loop pe ]
     | Imply_post (k1, k2, phis) -> picked k1 @=> and2 (picked k2) phis
     | And2 (k, k1, k2, phis) -> picked k @=> and_ [ picked k1; picked k2; phis ]
-    | Choices_alt (k, es) ->
-        picked k
-        @=> or_
-              (List.map es ~f:(fun (kv, phiv) ->
-                   and_ [ phiv; eq k kv; picked kv ]))
-    | Choices_group (k, es) ->
-        picked k
-        @=> or_
-              (List.map es ~f:(fun (kv, k2, k2v) ->
-                   and_
-                     [
-                       eq k kv;
-                       picked kv;
-                       SuduZ3.eq (key_to_var k2) k2v;
-                       picked k2;
-                     ]))
-    | Choices_p (k, pes) ->
+    | Choices (k, pes) ->
         (* TODO: should ignore (picked key) *)
         picked k @=> or_ (List.map pes ~f:loop)
     | _ -> true_
   in
   loop pe
 
-let invalid key = phi_of_picked (Imply_v (key, box_bool false))
-let implies key key' = phi_of_picked (Imply (key, key'))
-let implies_v1 key key' v = phi_of_picked (Imply_post (key, key', eqv key v))
-let not_lookup t t1 = phi_of_picked (Imply_post (t, t1, not_ t t1))
+let invalid key = phi_of_picked (Imply (key, Payload [ Phi (box_bool false) ]))
+let implies key key' = phi_of_picked (Imply (key, Payload [ P key' ]))
+
+let implies_v1 key key' v =
+  phi_of_picked (Imply (key, Payload [ P key'; Z (key, phi_of_value key v) ]))
+
+let not_lookup t t1 =
+  phi_of_picked (Imply (t, Payload [ P t1; Phi (not_ t t1) ]))
 
 (* Alias *)
-let eq_lookup key key' = phi_of_picked (Eq (key, key'))
+let eq_lookup key key' = phi_of_picked (Imply (key, Payload [ K (key, key') ]))
 
 (* Binop *)
-let binop_with_picked t op t1 t2 =
+let binop t op t1 t2 =
   let e_bop = binop t op t1 t2 in
   (* and_ [ e_bop; picked_imply2 t t1 t2 true_ ] *)
   phi_of_picked (And2 (t, t1, t2, e_bop))
@@ -196,16 +172,23 @@ let binop_with_picked t op t1 t2 =
 (* Cond Top *)
 let cond_top key key_x key_c beta =
   phi_of_picked
-    (Imply_with (key, Payload [ K2 (key, key_x); Z (key_c, SuduZ3.bool_ beta) ]))
+    (Imply (key, Payload [ K2 (key, key_x); Z (key_c, SuduZ3.bool_ beta) ]))
 
-let imply_domain k kd = phi_of_picked (Imply_with (k, Payload [ D (k, kd) ]))
-let imply_domain_with k kd pe = phi_of_picked (Imply_domain (k, kd, Payload pe))
+let imply_domain k kd = phi_of_picked (Imply (k, Payload [ D (k, kd) ]))
+
+let imply_domain_with k kd pe =
+  phi_of_picked (Imply (k, Payload ([ D (k, kd) ] @ pe)))
 
 (* Rules *)
 (* Value rules for main and non-main *)
 
 let at_main key vo =
-  phi_of_picked (Eq_v (key, phi_of_value_opt key vo, stack_in_main key.r_stk))
+  phi_of_picked
+    (Imply
+       ( key,
+         Payload
+           [ Z (key, phi_of_value_opt key vo); Phi (stack_in_main key.r_stk) ]
+       ))
 
 (* Pattern *)
 
@@ -222,8 +205,17 @@ let is_pattern term pat v =
 
 let record_pattern x x' matched =
   phi_of_picked
-    (Imply_post
-       (x, x', and_ [ is_bool x; ifRecord (key_to_var x'); eq_bool x matched ]))
+    (* (Imply_post
+       (x, x', and_ [ is_bool x; ifRecord (key_to_var x'); eq_bool x matched ])) *)
+    (Imply
+       ( x,
+         Payload
+           [
+             P x';
+             Phi (is_bool x);
+             Phi (ifRecord (key_to_var x'));
+             Phi (eq_bool x matched);
+           ] ))
 (*
    let is_pattern term pat v =
      let x = key_to_var term in
@@ -239,7 +231,7 @@ let record_pattern x x' matched =
 let pattern x x' v' pat =
   let phi_k = match v' with Some b -> eq_bool x b | None -> true_ in
   phi_of_picked
-    (Imply_post
+    (* (Imply_post
        ( x,
          x',
          and_
@@ -249,29 +241,42 @@ let pattern x x' v' pat =
              SuduZ3.eq
                (SuduZ3.project_bool (key_to_var x))
                (is_pattern x' pat true);
+           ] )) *)
+    (Imply
+       ( x,
+         Payload
+           [
+             P x';
+             Phi (is_bool x);
+             Phi phi_k;
+             Phi
+               (SuduZ3.eq
+                  (SuduZ3.project_bool (key_to_var x))
+                  (is_pattern x' pat true));
            ] ))
 
 (* Cond Bottom *)
 let cond_bottom key key_c rets =
   let es =
-    List.map rets ~f:(fun (beta, key_ret) -> (key_ret, eq_bool key_c beta))
+    List.map rets ~f:(fun (beta, key_ret) ->
+        Payload [ K2 (key, key_ret); Phi (eq_bool key_c beta) ])
   in
-  phi_of_picked (Choices_alt (key, es))
+  phi_of_picked (Choices (key, es))
 
 (* Fun Enter Local *)
 let fun_enter_local (key_para : Lookup_key.t) (p : Rule.Fun_enter_local_rule.t)
     =
   let cs =
     List.map p.callsites_with_stk ~f:(fun (key_f, key_arg) ->
-        (key_arg, key_f, z_of_fid p.fid))
+        Payload [ K2 (key_para, key_arg); Z (key_f, z_of_fid p.fid) ])
   in
-  phi_of_picked (Choices_group (key_para, cs))
+  phi_of_picked (Choices (key_para, cs))
 
 (* Fun Exit *)
 let fun_exit key_arg key_f fids block_map =
   let cs =
     List.map fids ~f:(fun fid ->
         let key_ret = Lookup_key.get_f_return block_map fid key_arg in
-        (key_ret, key_f, z_of_fid fid))
+        Payload [ K2 (key_arg, key_ret); Z (key_f, z_of_fid fid) ])
   in
-  phi_of_picked (Choices_group (key_arg, cs))
+  phi_of_picked (Choices (key_arg, cs))

@@ -292,7 +292,7 @@ module Make (S : S) = struct
     in
     Chain { pub = p.xf; next; bounded = true }
 
-  let pattern p (key : Lookup_key.t) =
+  let pattern_action p (key : Lookup_key.t) =
     let ({ x'; pat; _ } : Pattern_rule.t) = p in
     let f i (r : Lookup_result.t) =
       (* OB1: For some patterns, we can immediately know the result of the matching:
@@ -306,30 +306,29 @@ module Make (S : S) = struct
       let key_rv = r.from in
       let rv = Cfg.clause_body_of_x key_rv.block key_rv.x in
       let matched = pattern_truth pat rv in
-      let phis =
+      let phi =
         match (pat, rv) with
         | Any_pattern, _
         | Fun_pattern, Value_body (Value_function _)
         | Int_pattern, Value_body (Value_int _)
         | Int_pattern, Input_body
         | Bool_pattern, Value_body (Value_bool _) ->
-            [ Riddler.pattern key x' (Some matched) pat ]
+            Riddler.pattern key x' (Some matched) pat
         | Rec_pattern ids, Value_body (Value_record (Record_value rv_)) ->
-            [ Riddler.record_pattern key x' matched ]
+            Riddler.record_pattern key x' matched
         | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv_))
           ->
-            [ Riddler.record_pattern key x' matched ]
-        | Rec_pattern _, _ -> [ Riddler.pattern key x' (Some matched) pat ]
+            Riddler.record_pattern key x' matched
+        | Rec_pattern _, _ -> Riddler.pattern key x' (Some matched) pat
         | _, Value_body _ | _, _ ->
             (* TODO: some binops contain type information for patterns *)
             (* TODO: and for previous pattern match *)
-            [ Riddler.pattern key x' None pat ]
+            Riddler.pattern key x' None pat
       in
       (* Fmt.pr "[Pattern][%B] %a | %a |%a\n" matched Lookup_key.pp key
          Jayil.Ast_pp.pp_pattern pat Lookup_key.pp key_rv ; *)
-      let eq_key'_rv = Riddler.eq x' key_rv in
-      let picked_rv = Riddler.picked key_rv in
-      (Lookup_result.from_as key r.status, picked_rv :: eq_key'_rv :: phis)
+      ( Lookup_result.from_as key r.status,
+        [ Riddler.(eq_list [ K (x', key_rv); Phi phi ]) ] )
     in
     MapSeq { pub = x'; map = f }
 
@@ -356,23 +355,24 @@ module Make (S : S) = struct
         else (invalid key, Leaf Fail)
     | Alias p -> (eq_lookup key p.x', Direct { pub = p.x' })
     | Not p -> (not_lookup key p.x', listen_but_use p.x' key)
-    | Binop p ->
-        ( binop_with_picked key p.bop p.x1 p.x2,
-          Both { pub1 = p.x1; pub2 = p.x2 } )
+    | Binop p -> (binop key p.bop p.x1 p.x2, Both { pub1 = p.x1; pub2 = p.x2 })
     | Record_start p -> (true_, record_start_action p key)
     | Cond_top p ->
         ( phi_of_picked
-            (Imply_with
+            (Imply
                ( key,
-                 p.x,
-                 Payload [ Z (p.x2, SuduZ3.bool_ p.cond_case_info.choice) ] )),
+                 Payload
+                   [
+                     K2 (key, p.x);
+                     Z (p.x2, SuduZ3.bool_ p.cond_case_info.choice);
+                   ] )),
           chain_then_direct p.x2 p.x )
     | Cond_btm p -> (cond_bottom key p.x' p.rets, cond_btm p key)
     | Fun_enter_local p -> (fun_enter_local key p, fun_enter_local_action p key)
     | Fun_enter_nonlocal p -> (true_, fun_enter_nonlocal p key)
     | Fun_exit p ->
         (fun_exit key p.xf p.fids S.state.block_map, fun_exit_action p key)
-    | Pattern p -> (true_, pattern p key)
+    | Pattern p -> (true_, pattern_action p key)
 end
 
 open Riddler
@@ -395,7 +395,7 @@ let complete_phis_of_rule (state : Global_state.t) key
   | Abort p -> if p.is_target then implies key key_first else invalid key
   | Alias p -> eq_lookup key p.x'
   | Not p -> not_lookup key p.x'
-  | Binop p -> binop_with_picked key p.bop p.x1 p.x2
+  | Binop p -> binop key p.bop p.x1 p.x2
   | Record_start p -> imply_domain_with key detail.domain [ P p.r ]
   | Cond_top p ->
       imply_domain_with key detail.domain
@@ -415,7 +415,7 @@ let complete_phis_of_rule (state : Global_state.t) key
                 D (key_arg, detail_arg.domain);
               ])
       in
-      phi_of_picked (Choices_p (key, phi_f_and_arg))
+      phi_of_picked (Choices (key, phi_f_and_arg))
   | Fun_enter_nonlocal p ->
       let fid = key.block.id in
       let phi_f_and_arg =
@@ -428,7 +428,7 @@ let complete_phis_of_rule (state : Global_state.t) key
                 D (key_arg, detail_arg.domain);
               ])
       in
-      phi_of_picked (Choices_p (key, phi_f_and_arg))
+      phi_of_picked (Choices (key, phi_f_and_arg))
   | Fun_exit p ->
       let phi_f_and_ret =
         List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_ret) ->
@@ -440,13 +440,14 @@ let complete_phis_of_rule (state : Global_state.t) key
                 D (key_ret, detail_ret.domain);
               ])
       in
-      phi_of_picked (Choices_p (key, phi_f_and_ret))
+      phi_of_picked (Choices (key, phi_f_and_ret))
   | Pattern p ->
       let detail_x' = Hashtbl.find_exn state.lookup_detail_map p.x' in
       let choices =
         (* detail.domain *)
         List.map detail_x'.domain ~f:(fun key_r ->
             let rv = Cfg.clause_body_of_x key_r.block key_r.x in
-            and_ [ eq_bool key (pattern_truth p.pat rv); picked key_r ])
+            Payload
+              [ P p.x'; P key_r; Phi (eq_bool key (pattern_truth p.pat rv)) ])
       in
-      picked key @=> and_ [ picked p.x'; or_ choices ]
+      phi_of_picked (Choices (key, choices))
