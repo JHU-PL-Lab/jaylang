@@ -186,20 +186,6 @@ let run_action run_task unroll (state : Global_state.t)
         m "[Reg-%B] %a %d@." need_pre_push Lookup_key.pp target
           (List.length detail.sub_preconds)))
 
-let pattern_truth pat rv =
-  match (pat, rv) with
-  | Any_pattern, _
-  | Fun_pattern, Value_body (Value_function _)
-  | Int_pattern, Value_body (Value_int _)
-  | Int_pattern, Input_body
-  | Bool_pattern, Value_body (Value_bool _) ->
-      true
-  | Rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
-      Ident_set.for_all (fun id -> Ident_map.mem id rv) ids
-  | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
-      Ident_set.equal ids (Ident_set.of_enum @@ Ident_map.keys rv)
-  | _ -> false
-
 module type S = sig
   val state : Global_state.t
   val config : Global_config.t
@@ -294,40 +280,10 @@ module Make (S : S) = struct
   let pattern_action p (key : Lookup_key.t) =
     let ({ x'; pat; _ } : Pattern_rule.t) = p in
     let f i (r : Lookup_result.t) =
-      (* OB1: For some patterns, we can immediately know the result of the matching:
-           when the returning value is a literal value. We can use it in the interpreter.
-           We lose this information when the lookup go through a conditional block or
-           some binop. *)
-      (* OB2: The pattern matching can tolerate infeasible cases caused by the analysis,
-         because the literal value is incorrect. A conditional block can use this result
-         to go into a then-block or a else-block.
-      *)
       let key_rv = r.from in
       let rv = Cfg.clause_body_of_x key_rv.block key_rv.x in
-      let matched = pattern_truth pat rv in
-      let phi =
-        match (pat, rv) with
-        | Any_pattern, _
-        | Fun_pattern, Value_body (Value_function _)
-        | Int_pattern, Value_body (Value_int _)
-        | Int_pattern, Input_body
-        | Bool_pattern, Value_body (Value_bool _) ->
-            Riddler.pattern key x' (Some matched) pat false
-        | Rec_pattern ids, Value_body (Value_record (Record_value rv_)) ->
-            Riddler.pattern key x' (Some matched) pat true
-        | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv_))
-          ->
-            Riddler.pattern key x' (Some matched) pat true
-        | Rec_pattern _, _ -> Riddler.pattern key x' (Some matched) pat true
-        | _, Value_body _ | _, _ ->
-            (* TODO: some binops contain type information for patterns *)
-            (* TODO: and for previous pattern match *)
-            Riddler.pattern key x' None pat false
-      in
-      (* Fmt.pr "[Pattern][%B] %a | %a |%a\n" matched Lookup_key.pp key
-         Jayil.Ast_pp.pp_pattern pat Lookup_key.pp key_rv ; *)
       ( Lookup_result.from_as key r.status,
-        [ Riddler.(eq_list [ K (x', key_rv); Phi phi ]) ] )
+        [ Riddler.pattern key x' key_rv rv pat ] )
     in
     MapSeq { pub = x'; map = f }
 
@@ -438,6 +394,8 @@ let complete_phis_of_rule (state : Global_state.t) key
         (* detail.domain *)
         List.map detail_x'.domain ~f:(fun key_r ->
             let rv = Cfg.clause_body_of_x key_r.block key_r.x in
-            [ P p.x'; P key_r; Z (key, bool_ (pattern_truth p.pat rv)) ])
+            [
+              P p.x'; P key_r; Z (key, bool_ (Jayil.Ast.pattern_match p.pat rv));
+            ])
       in
       choices key phi_choices

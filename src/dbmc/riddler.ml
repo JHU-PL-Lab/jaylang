@@ -74,7 +74,6 @@ let phi_of_value_opt (key : Lookup_key.t) = function
   | None -> key_to_var key
 
 let eqv key v = SuduZ3.eq (key_to_var key) (phi_of_value key v)
-let eqvo key v = SuduZ3.eq (key_to_var key) (phi_of_value_opt key v)
 let eq key key' = SuduZ3.eq (key_to_var key) (key_to_var key')
 let eqz key v = SuduZ3.eq (key_to_var key) v
 
@@ -152,7 +151,7 @@ let at_main key vo =
 
 (* Pattern *)
 
-let is_pattern term pat =
+let if_pattern term pat =
   let x = key_to_var term in
   let open Jayil.Ast in
   match pat with
@@ -163,18 +162,30 @@ let is_pattern term pat =
   | Strict_rec_pattern _ -> ifRecord x
   | Any_pattern -> true_
 
-let pattern x x' v' pat is_rec =
-  let phi_k = match v' with Some b -> [ Z (x, bool_ b) ] | None -> [] in
+(* OB1: For some patterns, we can immediately know the result of the matching:
+   when the returning value is a literal value. We can use it in the interpreter.
+   We lose this information when the lookup go through a conditional block or
+   some binop. *)
+(* OB2: The pattern matching can tolerate infeasible cases caused by the analysis,
+   because the literal value is incorrect. A conditional block can use this result
+   to go into a then-block or a else-block.
+*)
+
+let pattern x x' key_rv rv pat =
+  let value_matched = Jayil.Ast.pattern_match pat rv in
+  let type_pattern = if_pattern x' pat in
+  let value_pattern =
+    if Jayil.Ast.is_record_pattern pat
+    then SuduZ3.inject_bool (and2 type_pattern (box_bool value_matched))
+    else SuduZ3.inject_bool type_pattern
+  in
   imply x
-    (phi_k
-    @ (if is_rec
-      then [ Phi (is_pattern x' pat) (* Phi (ifRecord (key_to_var x')); *) ]
-      else
-        [
-          Phi
-            (SuduZ3.eq (SuduZ3.project_bool (key_to_var x)) (is_pattern x' pat));
-        ])
-    @ [ P x'; Phi (is_bool x) ])
+    [
+      Z (x, value_pattern);
+      Phi (is_bool x);
+      Z (x, bool_ value_matched);
+      K (x', key_rv);
+    ]
 
 (* Cond Bottom *)
 let cond_bottom key key_c rets =

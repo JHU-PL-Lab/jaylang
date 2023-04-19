@@ -24,13 +24,13 @@ module To_test = struct
   let inj_and_prj_int i =
     Out_channel.newline stdout ;
     let i_inj = int_ i in
-    dump i_inj ;
+    (* dump i_inj ; *)
     let i_inj_prj = project_int i_inj in
-    dump i_inj_prj ;
+    (* dump i_inj_prj ; *)
     let i_z3_again = simplify i_inj_prj in
-    dump i_z3_again ;
+    (* dump i_z3_again ; *)
     let plain_int = unbox_int i_z3_again in
-    print_endline @@ string_of_int plain_int ;
+    (* print_endline @@ string_of_int plain_int ; *)
     plain_int
 
   let inj_and_prj_bool b = b |> bool_ |> project_bool |> simplify |> unbox_bool
@@ -106,7 +106,7 @@ module To_test = struct
       get_model_exn solver
       @@ Z3.Solver.check solver [ phi1; phi2; project_bool b1; project_bool b2 ]
     in
-    dump_model model ;
+    (* dump_model model ; *)
     let x' = project_int x in
     let v = eval_exn model x' false in
     unbox_int v
@@ -220,26 +220,111 @@ module To_test = struct
     is_unsat status
 
   (* x = 3; y = x ~ int *)
-  let pattern_check () =
+  let pattern_check_true () =
     let x = var_s "x" in
     let phi_x = eq x (int_ 3) in
     let ix = ifInt x in
     let y = var_s "y" in
     let by = ifBool y in
     let phi = eq (project_bool y) ix in
-    let status = Z3.Solver.check solver [ ix; by; phi_x; phi ] in
-    not (is_unsat status)
+    let phi_y = project_bool y in
+    let status = Z3.Solver.check solver [ ix; by; phi_x; phi; phi_y ] in
+    is_sat status
 
-  (* x = 3; y = x ~ int *)
-  let pattern_fail () =
+  (* x = true; y = x ~ int *)
+  let pattern_check_false () =
     let x = var_s "x" in
     let phi_x = eq x (bool_ true) in
     let ix = ifInt x in
     let y = var_s "y" in
     let by = ifBool y in
     let phi = eq (project_bool y) ix in
-    let status = Z3.Solver.check solver [ ix; by; phi_x; phi ] in
-    is_unsat status
+    let phi_y = project_bool y in
+    let status = Z3.Solver.check solver [ by; phi_x; phi; not_ phi_y ] in
+    is_sat status
+
+  (* x = 3; c = x ~ int; z = ite c 1 2 *)
+  let pattern_cond_true () =
+    let x = var_s "x" in
+    let phi_x = eq x (int_ 3) in
+    let c = var_s "c" in
+    let bc = ifBool c in
+    let ix = ifInt x in
+    let phi_c = eq (project_bool c) ix in
+    let z = var_s "z" in
+    let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
+    let z1 = eq z (int_ 1) in
+    let status = Z3.Solver.check solver [ phi_x; bc; phi_c; phi_z; z1 ] in
+    is_sat status
+
+  (* x = true; c = x ~ int; z = ite c 1 2 *)
+  let pattern_cond_false () =
+    let x = var_s "x" in
+    let phi_x = eq x true_ in
+    let c = var_s "c" in
+    let bc = ifBool c in
+    let ix = ifInt x in
+    let phi_c = eq (project_bool c) ix in
+    let z = var_s "z" in
+    let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
+    let z2 = eq z (int_ 2) in
+    let status = Z3.Solver.check solver [ phi_x; bc; phi_c; phi_z; z2 ] in
+    is_sat status
+
+  (* x = <Record>; c = x ~ {...}; z = ite c 1 2 *)
+  let pattern_cond_record_true () =
+    let x = var_s "x" in
+    let rx = ifRecord x in
+    let valid_x = box_bool true in
+    let c = var_s "c" in
+    let bc = ifBool c in
+    let phi_c = eq (project_bool c) (and2 rx valid_x) in
+    let z = var_s "z" in
+    let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
+    let z1 = eq z (int_ 1) in
+    let status = Z3.Solver.check solver [ rx; bc; phi_c; phi_z; z1 ] in
+    is_sat status
+
+  (* x = <Record>; c = x ~ {...}; z = ite c 1 2 *)
+  let pattern_cond_record_false () =
+    let x = var_s "x" in
+    let rx = ifRecord x in
+    let valid_x = box_bool false in
+    let c = var_s "c" in
+    let bc = ifBool c in
+    let phi_c = eq (project_bool c) (and2 rx valid_x) in
+    let z = var_s "z" in
+    let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
+    let z2 = eq z (int_ 2) in
+    let status = Z3.Solver.check solver [ rx; bc; phi_c; phi_z; z2 ] in
+    is_sat status
+
+  let pattern_cond_record_inj_true () =
+    let x = var_s "x" in
+    let rx = ifRecord x in
+    let valid_x = box_bool true in
+    let c = var_s "c" in
+    let bc = ifBool c in
+    let phi_c = eq c (inject_bool (and2 rx valid_x)) in
+    let z = var_s "z" in
+    let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
+    let z1 = eq z (int_ 1) in
+    let status = Z3.Solver.check solver [ rx; bc; phi_c; phi_z; z1 ] in
+    is_sat status
+
+  (* x = <Record>; c = x ~ {...}; z = ite c 1 2 *)
+  let pattern_cond_record_inj_false () =
+    let x = var_s "x" in
+    let rx = ifRecord x in
+    let valid_x = box_bool false in
+    let c = var_s "c" in
+    let bc = ifBool c in
+    let phi_c = eq c (inject_bool (and2 rx valid_x)) in
+    let z = var_s "z" in
+    let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
+    let z2 = eq z (int_ 2) in
+    let status = Z3.Solver.check solver [ rx; bc; phi_c; phi_z; z2 ] in
+    is_sat status
 end
 
 let invariant_int i f () = Alcotest.(check int) "same int" i (f i)
@@ -338,9 +423,22 @@ let () =
              (same_bool_f true To_test.mis_pattern_hard); *)
           test_case "mis-pattern soft" `Slow
             (same_bool_f true To_test.mis_pattern_soft);
-          test_case "pattern check" `Slow
-            (same_bool_f true To_test.pattern_check);
-          test_case "pattern fail" `Slow (same_bool_f true To_test.pattern_fail);
+          test_case "pattern check true" `Slow
+            (same_bool_f true To_test.pattern_check_true);
+          test_case "pattern check false" `Slow
+            (same_bool_f true To_test.pattern_check_false);
+          test_case "pattern cond true" `Slow
+            (same_bool_f true To_test.pattern_cond_true);
+          test_case "pattern cond false" `Slow
+            (same_bool_f true To_test.pattern_cond_false);
+          test_case "pattern cond record true" `Slow
+            (same_bool_f true To_test.pattern_cond_record_true);
+          test_case "pattern cond record false" `Slow
+            (same_bool_f true To_test.pattern_cond_record_false);
+          test_case "pattern cond record inj true" `Slow
+            (same_bool_f true To_test.pattern_cond_record_inj_true);
+          test_case "pattern cond record inj false" `Slow
+            (same_bool_f true To_test.pattern_cond_record_inj_false);
         ] );
       ( "debug-mac",
         [

@@ -43,14 +43,18 @@ module Make (S : S) = struct
 
   let rule_main vo (key : Lookup_key.t) _phis =
     let target_stk = Rstack.concretize_top key.r_stk in
-    let phi = Riddler.(and_ [ Riddler.stack_in_main key.r_stk; eqvo key vo ]) in
+    let phi =
+      Riddler.(
+        and_
+          [ Riddler.stack_in_main key.r_stk; eqz key (phi_of_value_opt key vo) ])
+    in
     let phis = S.add_phi key phi Phi_set.empty in
     U.by_return S.unroll key (Ddse_result.of3 key phis target_stk)
 
   let rule_nonmain vo key phis_top run_task =
     let key_first = Lookup_key.to_first key S.state.first in
     run_task key_first phis_top ;
-    let eq_phi = Riddler.eqvo key vo in
+    let eq_phi = Riddler.eqz key (Riddler.phi_of_value_opt key vo) in
     let _ = S.add_phi key eq_phi phis_top in
     U.by_map_u S.unroll key key_first (Ddse_result.with_v_and_phi key eq_phi)
 
