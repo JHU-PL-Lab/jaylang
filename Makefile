@@ -65,13 +65,13 @@ dtest-ddse: dbmc-test
 
 
 test-z3:
-	dune exec test/sudu/test_sudu_z3.exe -- --verbose
+	dune exec src-test/sudu/test_sudu_z3.exe -- --verbose
 
 test-z3-heavy:
-	dune exec test/sudu/test_heavy.exe 
+	dune exec src-test/sudu/test_heavy.exe 
 
 test-rstack:
-	dune runtest test/dbmc/inline-expect
+	dune runtest src-test/dbmc/inline-expect
 	dune promote
 
 

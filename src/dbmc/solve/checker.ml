@@ -78,9 +78,11 @@ let check (state : Global_state.t) (config : Global_config.t) :
    in
    state.check_infos <- this_check_info :: state.check_infos) ;
 
+  (*
+      double check - start
+  *)
   let detail_lst = Global_state.detail_alist state in
 
-  (* debug *)
   SLog.debug (fun m -> m "One: %s" (Z3.Solver.to_string state.solver)) ;
 
   Solver.reset state.solver ;
@@ -124,6 +126,9 @@ let check (state : Global_state.t) (config : Global_config.t) :
   | Result.Ok _, Result.Error _ -> failwith "should SAT"
   | Result.Error _, Result.Ok _ -> failwith "should UNSAT") ;
 
+  (*
+      double check - end
+  *)
   check_result
 
 let simplify_phis () = ()
