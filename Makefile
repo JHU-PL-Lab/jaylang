@@ -77,6 +77,10 @@ test-rstack:
 
 # profiling
 
+perf:
+	dune build src/bin/perf.exe
+	./perf.exe
+
 profile:
 	mkdir -p profiling
 	dune build --workspace dune-workspace.profile src/bin/dj.exe

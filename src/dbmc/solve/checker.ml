@@ -81,50 +81,50 @@ let check (state : Global_state.t) (config : Global_config.t) :
   (*
       double check - start
   *)
-  let detail_lst = Global_state.detail_alist state in
+  (* let detail_lst = Global_state.detail_alist state in
 
-  SLog.debug (fun m -> m "One: %s" (Z3.Solver.to_string state.solver)) ;
+     SLog.debug (fun m -> m "One: %s" (Z3.Solver.to_string state.solver)) ;
 
-  Solver.reset state.solver ;
+     Solver.reset state.solver ;
 
-  SLog.debug (fun m -> m "Two") ;
-  List.iter detail_lst ~f:(fun (key, detail) ->
-      let phis =
-        if Lookup_status.equal detail.status detail.status_gen_phi
-        then detail.phis
-        else
-          let phis' =
-            match detail.status with
-            | Complete -> Lookup_rule.complete_phis_of_rule state key detail
-            | Fail -> invalid key
-            | Good -> failwith "Good in re-gen phis"
-          in
-          detail.status_gen_phi <- detail.status ;
-          detail.phis <- [ phis' ] ;
-          [ phis' ]
-      in
-      let phis_all = phis @ detail.phis_external in
-      SLog.debug (fun m ->
-          m "%a @@ %a's phis = \n@[<v>%a@]" Lookup_key.pp key
-            Lookup_status.pp_short detail.status
-            Fmt.(list ~sep:cut string)
-            (List.map ~f:Z3.Expr.to_string phis_all)) ;
-      state.phis_staging <- phis_all @ state.phis_staging) ;
-  let another_result =
-    Solver.check ~verbose:config.debug_model state.solver state.phis_staging
-      phi_used_once
-  in
+     SLog.debug (fun m -> m "Two") ;
+     List.iter detail_lst ~f:(fun (key, detail) ->
+         let phis =
+           if Lookup_status.equal detail.status detail.status_gen_phi
+           then detail.phis
+           else
+             let phis' =
+               match detail.status with
+               | Complete -> Lookup_rule.complete_phis_of_rule state key detail
+               | Fail -> invalid key
+               | Good -> failwith "Good in re-gen phis"
+             in
+             detail.status_gen_phi <- detail.status ;
+             detail.phis <- [ phis' ] ;
+             [ phis' ]
+         in
+         let phis_all = phis @ detail.phis_external in
+         SLog.debug (fun m ->
+             m "%a @@ %a's phis = \n@[<v>%a@]" Lookup_key.pp key
+               Lookup_status.pp_short detail.status
+               Fmt.(list ~sep:cut string)
+               (List.map ~f:Z3.Expr.to_string phis_all)) ;
+         state.phis_staging <- phis_all @ state.phis_staging) ;
+     let another_result =
+       Solver.check ~verbose:config.debug_model state.solver state.phis_staging
+         phi_used_once
+     in
 
-  SLog.debug (fun m ->
-      m "Two (used once): %a"
-        Fmt.(Dump.list string)
-        (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
+     SLog.debug (fun m ->
+         m "Two (used once): %a"
+           Fmt.(Dump.list string)
+           (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
 
-  Global_state.clear_phis state ;
-  (match (solver_result, another_result) with
-  | Result.Ok _, Result.Ok _ | Result.Error _, Result.Error _ -> ()
-  | Result.Ok _, Result.Error _ -> failwith "should SAT"
-  | Result.Error _, Result.Ok _ -> failwith "should UNSAT") ;
+     Global_state.clear_phis state ;
+     (match (solver_result, another_result) with
+     | Result.Ok _, Result.Ok _ | Result.Error _, Result.Error _ -> ()
+     | Result.Ok _, Result.Error _ -> failwith "should SAT"
+     | Result.Error _, Result.Ok _ -> failwith "should UNSAT") ; *)
 
   (*
       double check - end

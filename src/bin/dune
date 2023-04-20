@@ -26,6 +26,16 @@
   (until-clean)
   (into "../..")))
 
+(executable
+ (name perf)
+ (modules perf)
+ (libraries core logs dbmc jayil)
+ (preprocess
+  (pps ppx_jane))
+ (promote
+  (until-clean)
+  (into "../..")))
+
 (executables
  (names dbmc_debugger)
  (modules dbmc_debugger)
