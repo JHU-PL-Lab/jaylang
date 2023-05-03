@@ -91,11 +91,14 @@ let handle_both (config : Global_config.t) (state : Global_state.t) model =
   SLog.warn (fun m ->
       m "@,%a"
         Fmt.(vbox (list ~sep:sp Check_info.pp))
-        (List.rev state.check_infos)) ;
-  ()
+        (List.rev state.check_infos))
 
 let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
     =
+  (* let unroll = Observe.get_dbmc_unroll state in
+        let msg_list = !Unrolls.U_dbmc.msg_queue in
+        Fmt.pr "[msg]%d@," (List.length msg_list) ;
+     Lwt_list.iter_p (fun msg -> msg) msg_list >>= fun _ -> *)
   LLog.info (fun m ->
       m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident config.target
         Concrete_stack.pp c_stk) ;
@@ -126,16 +129,13 @@ let handle_not_found (config : Global_config.t) (state : Global_state.t)
 
 let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
     =
-  let post_check_dbmc is_timeout =
-    let result =
-      match Checker.check state config with
-      | Some { model; c_stk } -> handle_found config state model c_stk
-      | None -> handle_not_found config state is_timeout
-    in
-    Lwt.return result
-  in
-  let post_check_ddse is_timeout =
-    Lwt.return @@ handle_not_found config state is_timeout
+  let post_check is_timeout =
+    match config.engine with
+    | Global_config.E_dbmc -> (
+        match Checker.check state config with
+        | Some { model; c_stk } -> handle_found config state model c_stk
+        | None -> handle_not_found config state is_timeout)
+    | Global_config.E_ddse -> handle_not_found config state is_timeout
   in
   try%lwt
     (Lwt.async_exception_hook :=
@@ -145,27 +145,22 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
              ignore @@ raise (Riddler.Found_solution { model; c_stk })
          | exn -> failwith (Caml.Printexc.to_string exn)) ;
     let do_work () =
-      match config.engine with
-      | Global_config.E_dbmc ->
-          Lookup.run_dbmc ~config ~state >>= fun _ -> post_check_dbmc false
-      | Global_config.E_ddse ->
-          Lookup.run_ddse ~config ~state >>= fun _ -> post_check_ddse false
+      Lookup.run_dbmc ~config ~state >|= fun _ -> post_check false
     in
     match config.timeout with
     | Some ts -> Lwt_unix.with_timeout (Time.Span.to_sec ts) do_work
     | None -> do_work ()
   with
   | Riddler.Found_solution { model; c_stk } ->
-      (* let unroll = Observe.get_dbmc_unroll state in
-            let msg_list = !Unrolls.U_dbmc.msg_queue in
-            Fmt.pr "[msg]%d@," (List.length msg_list) ;
-         Lwt_list.iter_p (fun msg -> msg) msg_list >>= fun _ -> *)
       Lwt.return (handle_found config state model c_stk)
-  | Lwt_unix.Timeout -> (
-      prerr_endline "lookup: timeout" ;
-      match config.engine with
-      | Global_config.E_dbmc -> post_check_dbmc true
-      | Global_config.E_ddse -> post_check_ddse true)
+  | Lwt_unix.Timeout -> Lwt.return @@ post_check true
+
+(* The main function should have only one function that doing all the work.
+    The function is configured by a pre-tuned argument config.
+    The function returns one result that concerning all the mode.
+    The config setting and the result filtering are processed by other
+    pre-/post-processing functions to keep the real main unique and versatile.
+*)
 
 (* entry functions *)
 
@@ -182,10 +177,10 @@ let main ~config program = Lwt_main.run (main_lwt ~config program)
 let from_commandline () =
   let config = Argparse.parse_commandline_config () in
   Log.init config ;
-  let is_instrumented = config.is_instrumented in
-  let target_var = Var (config.target, None) in
   let program =
-    Dj_common.File_utils.read_source ~is_instrumented ~consts:[ target_var ]
+    let is_instrumented = config.is_instrumented in
+    let target_var = Var (config.target, None) in
+    File_utils.read_source ~is_instrumented ~consts:[ target_var ]
       config.filename
   in
   (try
