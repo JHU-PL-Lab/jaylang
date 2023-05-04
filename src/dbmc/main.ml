@@ -10,7 +10,6 @@ open Log.Export
 type result = {
   inputss : int option list list;
   is_timeout : bool;
-  is_checked : bool option;
   symbolic_result : (Z3.Model.model * Concrete_stack.t) option;
   state : Global_state.t;
 }
@@ -167,9 +166,7 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
 let main_lwt ~config program =
   let state = Global_state.create config program in
   let%lwt inputss, is_timeout, symbolic_result = main_lookup ~config ~state in
-  let result =
-    { inputss; is_timeout; is_checked = None; symbolic_result; state }
-  in
+  let result = { inputss; is_timeout; symbolic_result; state } in
   Lwt.return result
 
 let main ~config program = Lwt_main.run (main_lwt ~config program)
@@ -177,13 +174,14 @@ let main ~config program = Lwt_main.run (main_lwt ~config program)
 let from_commandline () =
   let config = Argparse.parse_commandline_config () in
   Log.init config ;
-  let program =
-    let is_instrumented = config.is_instrumented in
-    let target_var = Var (config.target, None) in
-    File_utils.read_source ~is_instrumented ~consts:[ target_var ]
-      config.filename
-  in
   (try
+     let program =
+       let is_instrumented = config.is_instrumented in
+       let target_var = Var (config.target, None) in
+       File_utils.read_source ~is_instrumented ~consts:[ target_var ]
+         config.filename
+     in
+
      let result = main ~config program in
      let { inputss; is_timeout; state; _ } = result in
 
@@ -194,5 +192,7 @@ let from_commandline () =
          | None -> Fmt.pr "Unreachable")
      | Dbmc_check inputs -> Fmt.pr "%B" is_timeout
      | _ -> ()
-   with ex -> raise ex) ;
+   with
+  | Sys_error ex -> Fmt.pr "exception Sys_error(%s)" ex
+  | ex -> raise ex) ;
   Log.close ()
