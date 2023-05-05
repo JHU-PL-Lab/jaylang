@@ -1,10 +1,16 @@
 \section{Intro}
 
-Here is a formalization of our type system.
+In this section, we will first provide the model theory definition of types in 
+our language. However, since in real programs, we cannot effectively perform 
+certain mathematical enumerations (such as enumeration of functions), we will 
+need an operational-semantics-based definition of how typechecking works in actual 
+programs. As such, we will provide a proof theory definition of types, and prove
+equivalence of the two systems.
 
 \section{Core Language}
 
-First, we'll define a small core language with basic integers, booleans, and functions.
+First, we'll define a small core language with basic integers, booleans, binary 
+operations, conditionals, and functions.
 
 \begin{figure}[hbt!]%{r}{.5\textwidth}%
   \begin{grammar}
@@ -14,6 +20,14 @@ First, we'll define a small core language with basic integers, booleans, and fun
                 \gor \ev
                 \gor \gtfun\ \ev \gtarrow \expr
                 \gor \expr\ \expr
+                \gline
+                \gor \expr\ \binop\ \expr
+                \gor \ife{\expr}{\expr}{\expr}
+                \gor \letin{\ev}{\expr}{\expr}
+                \gline 
+                \gor \pick_i 
+                \gor \pick_b
+                \gor \eerror
             }
             \grule[variables]{\ev}{
                         \textit{(identifiers)}
@@ -22,7 +36,6 @@ First, we'll define a small core language with basic integers, booleans, and fun
                 \mathbb{Z}
                 \gor \mathbb {B}
                 \gor \gtfun\ \ev \gtarrow \expr
-                \gor \ev
             }
             \grule[types]{\syntype}{
               \tint
@@ -34,18 +47,87 @@ First, we'll define a small core language with basic integers, booleans, and fun
     \label{fig_Grammar}
 \end{figure}
 
+\subsection{Modeling Types}
+
 The typing rules of the system is defined as following:
 
-\begin{definition}[Typing rules]
-  \label{def_typingRules}
+\begin{definition}[Typing rules in model theory]
+  \label{def_typingM}
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par
   \begin{enumerate}
-      \item $\ \models \hastype{\expr}{\tint}$ iff $\expr \bigstep \eval$, $\eval \in \mathbb{Z}$.
-      \item $\ \models \hastype{\expr}{\tbool}$ iff $\expr \bigstep \eval$, $\eval \in \mathbb{B}$.
-      \item $\ \models \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$ iff $\forall{\eval}$ such that $\models \hastype{\eval}{\syntype_1}$, $\models \hastype{\expr\ \eval}{\syntype_2}$.
+      \item $\ \models \hastype{\expr}{\tint}$ iff $\forall \eval. \expr \smallsteps[] \eval$, $\eval \in \mathbb{Z}$.
+      \item $\ \models \hastype{\expr}{\tbool}$ iff $\forall \eval.\expr \smallsteps[] \eval$, $\eval \in \mathbb{B}$.
+      \item $\ \models \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$ iff $\forall \eval_f.\expr \smallsteps[] \eval_f$, and that $\forall{\eval}.$ if $\models \hastype{\eval}{\syntype_1}$, then $\models \hastype{\eval_f\ \eval}{\syntype_2}$.
    \end{enumerate}
 \end{definition}
+
+Note that the rules do not actually check the types of the subexpressions. In 
+fact, we can have an expression such as \texttt{Y}\ 
+\texttt{(fun this -> fun n -> if n = 0 then 0 else this (n-1))} and 
+assign the type \texttt{int -> int} to it, in spite of the fact that
+we cannot assign types to any of its subexpressions.
+
+\subsection{Proving Types}
+
+In this section, we will provide the proof theory definition of typechecking.
+
+\begin{definition}[Type Generator]
+  \label{def_genCore}
+  % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+  \ \par 
+  \begin{enumerate}
+    \item $\mkgen{\tint} = \pick_i$
+    \item $\mkgen{\tbool} = \pick_b$
+    \item $\mkgen{\mkfun{\syntype_1}{\syntype_2}} = \mkfunv{\ev}{\letin{\_}{\llbracket \ev \rrbracket_{\syntype_1}}{\mkgen{\syntype_2}}}$
+  \end{enumerate}
+\end{definition}
+
+\begin{definition}[Type Checker]
+  \label{def_checkCore}
+  % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+  \ \par
+  \begin{enumerate}
+      \item $\mkche{\tint}{\expr} = \ife{\matches{\expr}{\tint}}{\expr}{\eerror}$
+      \item $\mkche{\tint}{\expr} = \ife{\matches{\expr}{\tbool}}{\expr}{\eerror}$
+      \item $\mkche{\mkfun{\syntype_1}{\syntype_2}}{\expr} = \\
+       \texttt{let arg = }\mkgen{\syntype_1} \texttt{ in }\mkche{\syntype_2}{\texttt{(e arg)}}$
+   \end{enumerate}
+\end{definition}
+
+\begin{definition}[Typing rules in proof theory]
+  \ \par
+  $\ \vdash \hastype{\expr}{\syntype}$ iff $\forall\eval.$ if $\expr \smallsteps[] \eval$, then $\mkche{\syntype}{\eval} \nsmallsteps[] \eerror$.
+\end{definition}
+
+\subsection{Completeness and Soundness}
+
+In this section, we will show that the two definitions are equivalent, by showing
+completeness and soundness.
+
+\begin{proof}[Completeness]
+  $\forall. \expr$ if $\not\vdash \hastype{\expr}{\syntype}$, then $\not\models \hastype{\expr}{\syntype}$.
+
+  This is equivalent to showing: if $\mkche{\syntype}{\expr} \smallsteps[] \eerror$, then $\not\models \hastype{\expr}{\syntype}$.
+
+  We will prove it by induction on the structure of $\syntype$.
+
+  \textbf{Base case}: $\syntype = \tint$
+
+  Given $\mkche{\tint}{\expr} \smallsteps[] \eerror$, we know that $\ife{\matches{\expr}{\tint}}{\expr}{\eerror} \smallsteps[] \eerror$. 
+  
+  There are two potential sources for $\eerror$:
+  \begin{enumerate}
+    \item $\expr \smallsteps[] \eerror$. In this case, $\not\models \hastype{\expr}{\tint}$ is trivial. 
+    \item $\expr \smallsteps[] \eval$. In this case, we know that $\matches{\eval}{\tint} \smallsteps[] \texttt{false}$, which means $\eval \notin \mathbb{Z}$. Thus $\not\models \hastype{\expr}{\tint}$. 
+  \end{enumerate}
+
+  \textbf{Inductive step:} $\syntype = \mkfun{\syntype_1}{\syntype_2}$
+
+  Given $\mkche{\mkfun{\syntype_1}{\syntype_2}}{\expr} \smallsteps[] \eerror$, since $\texttt{arg} = \mkgen{\syntype}$ is guaranteed to evaluate to a value, we know that $\eerror$ must come from $\mkche{\syntype_2}{\texttt{(e arg)}}$. This suggests that $\exists \eval. \texttt{(e arg)} \smallsteps[] \eval$ and $\not\vdash \hastype{\eval}{\syntype_2}$. By induction hypothesis, we know that $\not\models \hastype{\texttt{\eval}}{\syntype_2}$. By lemma 1, we know that $\models \hastype{\mkgen{\syntype_1}}{\syntype_1}$. Thus we have found a witness $\models \hastype{\eval}{\syntype_1}$ such that $\not\models \hastype{(\expr \ \eval)}{\syntype_2}$, proving that $\not\models \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$.
+
+
+\end{proof}
 
 \section{Language extensions}
 
@@ -90,14 +172,6 @@ Next, we will define a couple of languages extensions and their corresponding ty
 \end{definition}
 
 We will now extend the language with records.
-
-% fun x -> 
-%   match x with 
-%   | int -> x
-%   | bool -> not x
-
-% (int -> int) ^ (bool -> bool)
-
 
 
 \begin{figure}[hbt!]%{r}{.5\textwidth}%
@@ -198,27 +272,27 @@ In this section, we will demonstrate how to represent each type using a tuple of
   We define the semantic interpretation of types as $\llbracket \syntype \rrbracket = \{\texttt{gen = \mkgen{\syntype}, check = }\mkfunv{\expr}{\mkche{\syntype}{\expr}}\}$.
 \end{definition}
 
-\begin{definition}[Defining Generator in the core language]
-  \label{def_genCore}
-  % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
-  \ \par 
-  \begin{enumerate}
-    \item $\mkgen{\tint} : \pick_i$.
-    \item $\mkgen{\tbool} : \pick_b$.
-    \item $\mkgen{\mkfun{\syntype_1}{\syntype_2}} : \mkfunv{\ev}{\mkgen{\syntype_2}}$.
-  \end{enumerate}
-\end{definition}
+% \begin{definition}[Defining Generator in the core language]
+%   \label{def_genCore}
+%   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+%   \ \par 
+%   \begin{enumerate}
+%     \item $\mkgen{\tint} : \pick_i$.
+%     \item $\mkgen{\tbool} : \pick_b$.
+%     \item $\mkgen{\mkfun{\syntype_1}{\syntype_2}} : \mkfunv{\ev}{\mkgen{\syntype_2}}$.
+%   \end{enumerate}
+% \end{definition}
 
-\begin{definition}[Defining Checker in the core language]
-  \label{def_CheCore}
-  % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
-  \ \par 
-  \begin{enumerate}
-    \item $\mkche{\tint}{\expr} : \matches{\expr}{\tint}$.
-    \item $\mkche{\tbool}{\expr} : \matches{\expr}{\tbool}$.
-    \item $\mkche{\mkfun{\syntype_1}{\syntype_2}}{\expr} : \texttt{let arg = }\mkgen{\syntype_1} \texttt{ in }\mkche{\syntype_2}{\texttt{(e arg)}}$.
-  \end{enumerate}
-\end{definition}
+% \begin{definition}[Defining Checker in the core language]
+%   \label{def_CheCore}
+%   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+%   \ \par 
+%   \begin{enumerate}
+%     \item $\mkche{\tint}{\expr} : \matches{\expr}{\tint}$.
+%     \item $\mkche{\tbool}{\expr} : \matches{\expr}{\tbool}$.
+%     \item $\mkche{\mkfun{\syntype_1}{\syntype_2}}{\expr} : \texttt{let arg = }\mkgen{\syntype_1} \texttt{ in }\mkche{\syntype_2}{\texttt{(e arg)}}$.
+%   \end{enumerate}
+% \end{definition}
 
 \begin{definition}[Defining Generator in the extended language]
   \label{def_genExt}
