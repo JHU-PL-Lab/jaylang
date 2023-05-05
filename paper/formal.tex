@@ -108,15 +108,13 @@ completeness and soundness.
 \begin{proof}[Completeness]
   $\forall. \expr$ if $\not\vdash \hastype{\expr}{\syntype}$, then $\not\models \hastype{\expr}{\syntype}$.
 
-  This is equivalent to showing: if $\mkche{\syntype}{\expr} \smallsteps[] \eerror$, then $\not\models \hastype{\expr}{\syntype}$.
+  This is equivalent to showing: if $\exists \eval. \expr \smallsteps[] \eval$ and $\mkche{\syntype}{\eval} \smallsteps[] \eerror$, then $\not\models \hastype{\expr}{\syntype}$.
 
   We will prove it by induction on the structure of $\syntype$.
 
   \textbf{Base case}: $\syntype = \tint$
 
-  Given $\mkche{\tint}{\expr} \smallsteps[] \eerror$, we know that $\ife{\matches{\expr}{\tint}}{\expr}{\eerror} \smallsteps[] \eerror$. 
-  
-  There are two potential sources for $\eerror$:
+  Given $\exists \eval. \expr \smallsteps[] \eval$ and $\mkche{\tint}{\expr} \smallsteps[] \eerror$, we know that there are two potential sources for $\eerror$:
   \begin{enumerate}
     \item $\expr \smallsteps[] \eerror$. In this case, $\not\models \hastype{\expr}{\tint}$ is trivial. 
     \item $\expr \smallsteps[] \eval$. In this case, we know that $\matches{\eval}{\tint} \smallsteps[] \texttt{false}$, which means $\eval \notin \mathbb{Z}$. Thus $\not\models \hastype{\expr}{\tint}$. 
