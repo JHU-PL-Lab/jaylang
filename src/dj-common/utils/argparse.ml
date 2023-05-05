@@ -42,86 +42,89 @@ let parse_commandline_config () =
   let command =
     Command.basic ~summary:"DBMC top to run ODEFA or NATODEFA file"
       (let open Command.Let_syntax in
-      let%map_open target =
-        flag "-t" (required target_parser) ~doc:"target_point"
-      and filename = anon ("source_file" %: Filename_unix.arg_type)
-      and engine =
-        flag "-e" (optional_with_default E_dbmc engine_parser) ~doc:"engine"
-      and is_instrumented = flag "-a" no_arg ~doc:"instrumented"
-      and expected_inputs =
-        flag "-i" (optional int_option_list_parser) ~doc:"expected inputs"
-      and ddpa_c_stk =
-        flag "-c"
-          (optional_with_default default_ddpa_c_stk ddpa_c_stk_parser)
-          ~doc:"ddpa_concrete_stack"
-      and run_max_step = flag "-x" (optional int) ~doc:"check per steps"
-      and timeout =
-        flag "-m" (optional timeout_parser) ~doc:"timeout in seconds"
-      and stride_init =
-        flag "-s"
-          (optional_with_default default_config.stride_init int)
-          ~doc:"check per steps (initial)"
-      and stride_max =
-        flag "-sm"
-          (optional_with_default default_config.stride_max int)
-          ~doc:"check per steps (max)"
-      and log_level =
-        flag "-l"
-          (optional log_level_parser)
-          ~doc:"log level for all (can be override)"
-      and log_level_lookup =
-        flag "-ll" (optional log_level_parser) ~doc:"log level for lookup"
-      and log_level_solver =
-        flag "-ls" (optional log_level_parser) ~doc:"log level for solver"
-      and log_level_interpreter =
-        flag "-li" (optional log_level_parser) ~doc:"log level for interpreter"
-      and log_level_search =
-        flag "-ls2" (optional log_level_parser) ~doc:"log level for search"
-      and log_level_complete_message =
-        flag "-lm"
-          (optional log_level_parser)
-          ~doc:"log level for completemessage"
-      and debug_phi = flag "-dp" no_arg ~doc:"output constraints"
-      and debug_no_model = flag "-dnm" no_arg ~doc:"not output smt model"
-      and debug_graph = flag "-dg" no_arg ~doc:"output graphviz dot"
-      and debug_interpreter = flag "-di" no_arg ~doc:"check the interpreter"
-      and is_check_per_step = flag "-dcs" no_arg ~doc:"check per step" in
-      fun () ->
-        let latter_option l1 l2 = Option.merge l1 l2 ~f:(fun _ y -> y) in
-        let mode =
-          match expected_inputs with
-          | Some inputs -> Dbmc_check inputs
-          | None -> Dbmc_search
-        in
-        let top_config =
-          {
-            target;
-            filename;
-            engine;
-            is_instrumented;
-            mode;
-            ddpa_c_stk;
-            run_max_step;
-            timeout;
-            stride_init;
-            stride_max;
-            log_level;
-            log_level_lookup = latter_option log_level log_level_lookup;
-            log_level_solver = latter_option log_level log_level_solver;
-            log_level_interpreter =
-              latter_option log_level log_level_interpreter;
-            log_level_search = latter_option log_level log_level_search;
-            log_level_complete_message =
-              latter_option log_level log_level_complete_message;
-            debug_phi;
-            debug_model = not debug_no_model;
-            debug_graph;
-            debug_interpreter;
-            is_check_per_step;
-          }
-        in
+       let%map_open target =
+         flag "-t" (required target_parser) ~doc:"target_point"
+       and filename = anon ("source_file" %: Filename_unix.arg_type)
+       and engine =
+         flag "-e" (optional_with_default E_dbmc engine_parser) ~doc:"engine"
+       and is_instrumented = flag "-a" no_arg ~doc:"instrumented"
+       and expected_inputs =
+         flag "-i" (optional int_option_list_parser) ~doc:"expected inputs"
+       and ddpa_c_stk =
+         flag "-c"
+           (optional_with_default default_ddpa_c_stk ddpa_c_stk_parser)
+           ~doc:"ddpa_concrete_stack"
+       and run_max_step = flag "-x" (optional int) ~doc:"check per steps"
+       and timeout =
+         flag "-m" (optional timeout_parser) ~doc:"timeout in seconds"
+       and stride_init =
+         flag "-s"
+           (optional_with_default default_config.stride_init int)
+           ~doc:"check per steps (initial)"
+       and stride_max =
+         flag "-sm"
+           (optional_with_default default_config.stride_max int)
+           ~doc:"check per steps (max)"
+       and log_level =
+         flag "-l"
+           (optional log_level_parser)
+           ~doc:"log level for all (can be override)"
+       and log_level_lookup =
+         flag "-ll" (optional log_level_parser) ~doc:"log level for lookup"
+       and log_level_solver =
+         flag "-ls" (optional log_level_parser) ~doc:"log level for solver"
+       and log_level_interpreter =
+         flag "-li" (optional log_level_parser) ~doc:"log level for interpreter"
+       and log_level_search =
+         flag "-ls2" (optional log_level_parser) ~doc:"log level for search"
+       and log_level_complete_message =
+         flag "-lm"
+           (optional log_level_parser)
+           ~doc:"log level for completemessage"
+       and log_level_perf =
+         flag "-lp" (optional log_level_parser) ~doc:"log level for perf"
+       and debug_phi = flag "-dp" no_arg ~doc:"output constraints"
+       and debug_no_model = flag "-dnm" no_arg ~doc:"not output smt model"
+       and debug_graph = flag "-dg" no_arg ~doc:"output graphviz dot"
+       and debug_interpreter = flag "-di" no_arg ~doc:"check the interpreter"
+       and is_check_per_step = flag "-dcs" no_arg ~doc:"check per step" in
+       fun () ->
+         let latter_option l1 l2 = Option.merge l1 l2 ~f:(fun _ y -> y) in
+         let mode =
+           match expected_inputs with
+           | Some inputs -> Dbmc_check inputs
+           | None -> Dbmc_search
+         in
+         let top_config =
+           {
+             target;
+             filename;
+             engine;
+             is_instrumented;
+             mode;
+             ddpa_c_stk;
+             run_max_step;
+             timeout;
+             stride_init;
+             stride_max;
+             log_level;
+             log_level_lookup = latter_option log_level log_level_lookup;
+             log_level_solver = latter_option log_level log_level_solver;
+             log_level_interpreter =
+               latter_option log_level log_level_interpreter;
+             log_level_search = latter_option log_level log_level_search;
+             log_level_complete_message =
+               latter_option log_level log_level_complete_message;
+             log_level_perf = latter_option log_level log_level_perf;
+             debug_phi;
+             debug_model = not debug_no_model;
+             debug_graph;
+             debug_interpreter;
+             is_check_per_step;
+           }
+         in
 
-        config := top_config)
+         config := top_config)
   in
   Command_unix.run command ;
   !config

@@ -29,6 +29,7 @@ and t = {
   log_level_interpreter : Logs.level option;
   log_level_search : Logs.level option;
   log_level_complete_message : Logs.level option;
+  log_level_perf : Logs.level option;
   (* debug *)
   debug_phi : bool;
   debug_model : bool;
@@ -57,7 +58,8 @@ let default_config =
     log_level_solver = None;
     log_level_interpreter = None;
     log_level_search = Some Logs.Debug;
-    log_level_complete_message = Some Logs.Debug;
+    log_level_complete_message = None;
+    log_level_perf = None;
     debug_phi = false;
     debug_model = true;
     debug_graph = false;

@@ -5,7 +5,7 @@ open Jayil.Ast
 open Rule
 open Types
 module U = Unrolls.U_dbmc
-module Log = Log.Export.CMLOG
+module Log = Log.Export.CMLog
 
 (*
    Status promotion:
