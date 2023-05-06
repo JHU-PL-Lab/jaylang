@@ -79,7 +79,7 @@ In this section, we will provide the proof theory definition of typechecking.
   \begin{enumerate}
     \item $\mkgen{\tint} = \pick_i$
     \item $\mkgen{\tbool} = \pick_b$
-    \item $\mkgen{\mkfun{\syntype_1}{\syntype_2}} = \mkfunv{\ev}{\letin{\_}{\llbracket \ev \rrbracket_{\syntype_1}}{\mkgen{\syntype_2}}}$
+    \item $\mkgen{\mkfun{\syntype_1}{\syntype_2}} = \mkfunv{\ev}{\letin{\_}{\mkche{\syntype_1}{\ev}}{\mkgen{\syntype_2}}}$
   \end{enumerate}
 \end{definition}
 
@@ -110,9 +110,17 @@ completeness and soundness.
 
   This is equivalent to showing: if $\exists \eval. \expr \smallsteps[] \eval$ and $\mkche{\syntype}{\eval} \smallsteps[] \eerror$, then $\not\models \hastype{\expr}{\syntype}$.
 
-  We will prove it by induction on the structure of $\syntype$.
+  To prove this statement, we'll need the following lemma:
+
+  \begin{lemma}
+    $\models \hastype{\mkgen{\syntype}}{\syntype}$.
+  \end{lemma}
+
+  We will prove these two statements at the same time by mutual induction on the structure of $\syntype$.
 
   \textbf{Base case}: $\syntype = \tint$
+
+  Since $\mkgen{\tint} = pick_i$, by definition of $\pick_i$, we know that $\forall \eval.$ if $\pick_i \smallsteps[] \eval$, then $\eval \in \mathbb{Z}$. Thus, we have shown that $\hastype{\mkgen{\tint}}{\tint}$.
 
   Given $\exists \eval. \expr \smallsteps[] \eval$ and $\mkche{\tint}{\expr} \smallsteps[] \eerror$, we know that there are two potential sources for $\eerror$:
   \begin{enumerate}
@@ -120,10 +128,23 @@ completeness and soundness.
     \item $\expr \smallsteps[] \eval$. In this case, we know that $\matches{\eval}{\tint} \smallsteps[] \texttt{false}$, which means $\eval \notin \mathbb{Z}$. Thus $\not\models \hastype{\expr}{\tint}$. 
   \end{enumerate}
 
+  Proof for the case where $\syntype = \tbool$ is very similar, so we'll omit it here for brevity.
+
   \textbf{Inductive step:} $\syntype = \mkfun{\syntype_1}{\syntype_2}$
 
-  Given $\mkche{\mkfun{\syntype_1}{\syntype_2}}{\expr} \smallsteps[] \eerror$, since $\texttt{arg} = \mkgen{\syntype}$ is guaranteed to evaluate to a value, we know that $\eerror$ must come from $\mkche{\syntype_2}{\texttt{(e arg)}}$. This suggests that $\exists \eval. \texttt{(e arg)} \smallsteps[] \eval$ and $\not\vdash \hastype{\eval}{\syntype_2}$. By induction hypothesis, we know that $\not\models \hastype{\texttt{\eval}}{\syntype_2}$. By lemma 1, we know that $\models \hastype{\mkgen{\syntype_1}}{\syntype_1}$. Thus we have found a witness $\models \hastype{\eval}{\syntype_1}$ such that $\not\models \hastype{(\expr \ \eval)}{\syntype_2}$, proving that $\not\models \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$.
+  Since $\mkgen{\mkfun{\syntype_1}{\syntype_2}} = \mkfunv{\ev}{\letin{\_}{\mkche{\syntype_1}{\ev}}{\mkgen{\syntype_2}}}$, by inductive hypothesis, we know that $\forall.\expr$ if $\models \hastype{\expr}{\syntype_1}$, then $\vdash \hastype{\expr}{\syntype_1}$, which means $\mkche{\syntype_1}{\expr} \nsmallsteps[] \eerror$. By the definition of $\mkgen{\syntype}$, we also know that $\mkgen{\syntype} \nsmallsteps[] \eerror$.
+  
+  Therefore, we can conclude that $\forall \eval.$ if $\models \hastype{\eval}{\syntype_1}$, then $(\mkgen{\mkfun{\syntype_1}{\syntype_2}}\
+   \eval) \smallsteps[] \mkgen{\syntype_2}$. By inductive hypothesis, we know that $\hastype{\mkgen{\syntype_2}}{\syntype_2}$. Therefore, we have shown that $\hastype{\mkgen{\mkfun{\syntype_1}{\syntype_2}}}{\mkfun{\syntype_1}{\syntype_2}}$.
 
+   Given $\mkche{\mkfun{\syntype_1}{\syntype_2}}{\expr} \smallsteps[] \eerror$, since $\texttt{arg} = \mkgen{\syntype}$ is guaranteed to evaluate to a value, we know that $\eerror$ must come from $\mkche{\syntype_2}{\texttt{(e arg)}}$. This suggests that $\exists \eval. \texttt{(e arg)} \smallsteps[] \eval$ and $\not\vdash \hastype{\eval}{\syntype_2}$. By induction hypothesis, we know that $\not\models \hastype{\texttt{\eval}}{\syntype_2}$, and that $\models \hastype{\mkgen{\syntype_1}}{\syntype_1}$. Thus we have found a witness $\models \hastype{\eval}{\syntype_1}$ such that $\not\models \hastype{(\expr \ \eval)}{\syntype_2}$, proving that $\not\models \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$.
+
+\end{proof}
+
+\begin{proof}[Soundness]
+  $\forall. \expr$ if $\not\models \hastype{\expr}{\syntype}$, then $\not\vdash \hastype{\expr}{\syntype}$.
+
+  This is equivalent to showing: if $\not\models \hastype{\expr}{\syntype}$, then $\exists \eval. \expr \smallsteps[] \eval$ and $\mkche{\syntype}{\eval} \smallsteps[] \eerror$.
 
 \end{proof}
 
