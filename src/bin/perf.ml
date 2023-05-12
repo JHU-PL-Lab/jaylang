@@ -1,12 +1,17 @@
 open Core
 open Dj_common
+open Log.Export
 
-let perf_one_file filename =
+let logfile = Log.filename_with "perf.csv"
+
+let perf_one_file short_name filename =
   let raw_config =
     {
       Global_config.default_config with
       filename;
       timeout = Some (Time.Span.of_int_sec 5);
+      global_logfile = Some logfile;
+      (* global_logfile = None; *)
     }
   in
   let config =
@@ -21,14 +26,14 @@ let perf_one_file filename =
     | None -> raw_config
   in
   let is_instrumented = config.is_instrumented in
-  Log.init config ;
-  Fmt.pr "\n%s" filename ;
   let src = File_utils.read_source ~is_instrumented filename in
-
-  ignore @@ Dbmc.Main.main ~config src
+  let result = Dbmc.Main.main ~config src in
+  Dbmc.Observe.dump_check_info short_name result.state
 
 let () =
   let perf_path = "test/dbmc/simple" in
+  Log.init_global logfile ;
+  PLog.debug (fun m -> m "file,total,resource") ;
   Directory_utils.iter_in_groups
-    ~f:(fun _ _ test_path -> perf_one_file test_path)
+    ~f:(fun _ short_name test_path -> perf_one_file short_name test_path)
     perf_path

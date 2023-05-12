@@ -21,7 +21,31 @@ module Export = struct
 end
 
 let saved_oc = ref None
-let filename_of_now () = Core.Time.(now () |> to_filename_string ~zone:Zone.utc)
+let filename_of_now () = Core.Time.(now () |> to_sec_string ~zone:Zone.utc)
+
+let filename_with suffix =
+  Filename.of_parts [ "logs"; filename_of_now () ^ "_" ^ suffix ]
+
+let get_log_file filename =
+  let suffix =
+    String.Search_pattern.(replace_all (create "/") ~in_:filename ~with_:"_")
+  in
+  filename_with (suffix ^ ".log")
+
+let init_log_file ?(header = true) log_file =
+  let oc = Out_channel.create log_file in
+  saved_oc := Some oc ;
+  let fmter = Format.formatter_of_out_channel oc in
+  let pp_header = if header then Logs.pp_header else Fmt.nop in
+  let reporter =
+    Logs.format_reporter ~pp_header ~app:Format.std_formatter ~dst:fmter ()
+  in
+  Logs.set_reporter reporter
+
+let init_global log_file =
+  init_log_file ~header:false log_file ;
+  Logs.set_level None ;
+  Logs.Src.set_level src_perf (Some Logs.Debug)
 
 let init (cfg : Global_config.t) =
   Logs.set_level cfg.log_level ;
@@ -46,23 +70,17 @@ let init (cfg : Global_config.t) =
   let enable_logging = List.exists levels ~f:Option.is_some in
 
   if enable_logging
-  then (
-    let suffix =
-      String.Search_pattern.(
-        replace_all (create "/") ~in_:cfg.filename ~with_:"_")
-    in
-
-    let log_file =
-      Filename.of_parts [ "logs"; filename_of_now () ^ "_" ^ suffix ^ ".log" ]
-    in
-    let oc = Out_channel.create log_file in
-    saved_oc := Some oc ;
-    let fmter = Format.formatter_of_out_channel oc in
-    let reporter =
-      Logs.format_reporter ~pp_header:Logs.pp_header ~app:Format.std_formatter
-        ~dst:fmter ()
-    in
-    Logs.set_reporter reporter)
+  then
+    let log_file = get_log_file cfg.filename in
+    init_log_file log_file
+    (* let oc = Out_channel.create log_file in
+       saved_oc := Some oc ;
+       let fmter = Format.formatter_of_out_channel oc in
+       let reporter =
+         Logs.format_reporter ~pp_header:Logs.pp_header ~app:Format.std_formatter
+           ~dst:fmter ()
+       in
+       Logs.set_reporter reporter *)
   else
     (* Logs.set_reporter (Logs_fmt.reporter ()); *)
     (* Logs.set_reporter (reporter (Format.err_formatter)) *)

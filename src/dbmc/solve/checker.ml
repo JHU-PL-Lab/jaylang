@@ -125,7 +125,6 @@ let check (state : Global_state.t) (config : Global_config.t) :
      | Result.Ok _, Result.Ok _ | Result.Error _, Result.Error _ -> ()
      | Result.Ok _, Result.Error _ -> failwith "should SAT"
      | Result.Error _, Result.Ok _ -> failwith "should UNSAT") ; *)
-
   (*
       double check - end
   *)
@@ -135,25 +134,26 @@ let simplify_phis () = ()
 
 let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
     stride =
-  if state.tree_size mod !stride = 0
-  then (
-    simplify_phis () ;
-    let t_start = Time_ns.now () in
-    let check_result = check state config in
-    let t_span = Time_ns.(diff (now ()) t_start) in
-    Observe.count_smt_request config state key true Time_ns.Span.(to_sec t_span) ;
+  let is_checked, smt_time, check_result =
+    if state.tree_size mod !stride = 0
+    then (
+      simplify_phis () ;
+      let t_start = Time_ns.now () in
+      let check_result = check state config in
+      let t_span = Time_ns.(diff (now ()) t_start) in
 
-    match check_result with
-    | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
-    | None ->
-        if !stride < config.stride_max
-        then (
-          stride := !stride * 2 ;
-          if !stride > config.stride_max then stride := config.stride_max) ;
-        Lwt.return_unit)
-  else (
-    Observe.count_smt_request config state key false 0.0 ;
-    Lwt.return_unit)
+      if !stride < config.stride_max
+      then (
+        stride := !stride * 2 ;
+        if !stride > config.stride_max then stride := config.stride_max) ;
+      (true, Time_ns.Span.to_sec t_span, check_result))
+    else (false, 0.0, None)
+  in
+
+  Observe.update_block_visits config state key is_checked smt_time ;
+  match check_result with
+  | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
+  | None -> Lwt.return_unit
 
 (* let step_eager_check (state : Global_state.t) (config : Global_config.t) target
      assumption stride =

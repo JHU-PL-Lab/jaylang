@@ -34,7 +34,7 @@ let dump_block_stat (config : Global_config.t) (state : Global_state.t) =
           Fmt.(vbox (list ~sep:sp (Dump.pair Cfg.Block.pp Block_stat.pp)))
           raw_plist)
 
-let count_smt_request (config : Global_config.t) (state : Global_state.t)
+let update_block_visits (config : Global_config.t) (state : Global_state.t)
     (key : Lookup_key.t) is_checked smt_time =
   Hashtbl.update state.rstk_stat_map key.r_stk ~f:(function
     | None ->
@@ -87,23 +87,28 @@ let get_dbmc_unroll (state : Global_state.t) =
 let dump_lookup_details (state : Global_state.t) =
   let td_lst = Global_state.detail_alist state in
 
-  CMLOG.debug (fun m -> m "@.[Size: %d]@." (List.length td_lst)) ;
+  CMLog.debug (fun m -> m "@.[Size: %d]@." (List.length td_lst)) ;
   let unroll = get_dbmc_unroll state in
   List.iter td_lst ~f:(fun (key, td) ->
       match td.status with
       (* | Complete | Fail -> () *)
       | _ ->
-          CMLOG.app (fun m ->
+          CMLog.app (fun m ->
               m "%a"
                 (Fmt.vbox @@ pp_key_with_detail state.lookup_detail_map)
                 (key, td)) ;
           let msg_s = Unrolls.U_dbmc.get_stream unroll key in
           let msg_lst = Lwt_stream.get_available msg_s in
-          CMLOG.app (fun m ->
+          CMLog.app (fun m ->
               m "--v[%d]: %a" (List.length td.domain)
                 (Fmt.Dump.list Lookup_key.pp)
                 td.domain) ;
-          CMLOG.app (fun m ->
+          CMLog.app (fun m ->
               m "--m[%d]: %a@." (List.length msg_lst)
                 (Fmt.Dump.list Lookup_result.pp)
                 msg_lst))
+
+let dump_check_info filename (state : Global_state.t) =
+  List.iter state.check_infos ~f:(fun entry ->
+      PLog.debug (fun m ->
+          m "%s,%d,%d" filename entry.total_phis entry.solver_resource))
