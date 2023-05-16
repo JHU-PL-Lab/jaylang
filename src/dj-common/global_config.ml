@@ -6,6 +6,7 @@ exception GenComplete
 type ddpa_c_stk = C_0ddpa | C_1ddpa | C_2ddpa | C_kddpa of int
 and engine = E_dbmc | E_ddse
 and mode = Dbmc_search | Dbmc_check of int option list | Sato
+and encode_policy = Only_incremental | Always_shrink
 
 and t = {
   (* basic *)
@@ -21,7 +22,8 @@ and t = {
   run_max_step : int option;
   timeout : Time.Span.t option;
   stride_init : int;
-  stride_max : int; (* testing *)
+  stride_max : int;
+  encode_policy : encode_policy;
   (* logger *)
   log_level : Logs.level option;
   log_level_lookup : Logs.level option;
@@ -50,6 +52,7 @@ let default_config =
     timeout = None (* Time.Span.of_int_sec 60 *);
     stride_init = 100;
     stride_max = 100;
+    encode_policy = Only_incremental;
     mode = Dbmc_search;
     run_max_step = None;
     engine = E_dbmc;
@@ -68,14 +71,3 @@ let default_config =
     debug_interpreter = false;
     is_check_per_step = false;
   }
-
-let check_wellformed_or_exit ast =
-  let open Jayil in
-  try Ast_wellformedness.check_wellformed_expr ast
-  with Ast_wellformedness.Illformedness_found ills ->
-    print_endline "Program is ill-formed." ;
-    ills
-    |> List.iter ~f:(fun ill ->
-           print_string "* " ;
-           print_endline @@ Ast_wellformedness.show_illformedness ill) ;
-    ignore @@ Stdlib.exit 1

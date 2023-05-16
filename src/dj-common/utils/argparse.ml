@@ -36,6 +36,10 @@ let int_option_list_parser : int option list Command.Arg_type.t =
 let engine_parser =
   Command.Arg_type.of_alist_exn [ ("dbmc", E_dbmc); ("ddse", E_ddse) ]
 
+let encode_policy_parser =
+  Command.Arg_type.of_alist_exn
+    [ ("inc", Only_incremental); ("shrink", Always_shrink) ]
+
 let parse_commandline_config () =
   let config = ref default_config in
 
@@ -65,6 +69,10 @@ let parse_commandline_config () =
         flag "-sm"
           (optional_with_default default_config.stride_max int)
           ~doc:"check per steps (max)"
+      and encode_policy =
+        flag "-ep"
+          (optional_with_default Only_incremental encode_policy_parser)
+          ~doc:"encode policy"
       and log_level =
         flag "-l"
           (optional log_level_parser)
@@ -107,6 +115,7 @@ let parse_commandline_config () =
             timeout;
             stride_init;
             stride_max;
+            encode_policy;
             log_level;
             log_level_lookup = latter_option log_level log_level_lookup;
             log_level_solver = latter_option log_level log_level_solver;

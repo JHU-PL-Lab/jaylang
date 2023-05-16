@@ -50,15 +50,65 @@ let eager_check (state : Global_state.t) (config : Global_config.t) c assumption
   | Result.Ok _model -> true
   | Result.Error _exps -> false
 
-let check (state : Global_state.t) (config : Global_config.t) :
-    result_info option =
-  LLog.info (fun m -> m "Search Tree Size:\t%d" state.tree_size) ;
+let check_incremental (state : Global_state.t) (config : Global_config.t) :
+    (Z3.Model.model, 'a option) result =
   let phi_used_once = phi_fix state in
   let solver_result =
     Solver.check ~verbose:config.debug_model state.solver state.phis_staging
       phi_used_once
   in
-  Global_state.clear_phis state ;
+  solver_result
+
+let check_shrink (state : Global_state.t) (config : Global_config.t) :
+    (Z3.Model.model, 'a option) result =
+  let phi_used_once = phi_fix state in
+  let detail_lst = Global_state.detail_alist state in
+
+  SLog.debug (fun m -> m "One: %s" (Z3.Solver.to_string state.solver)) ;
+
+  Solver.reset state.solver ;
+  SLog.debug (fun m -> m "Two") ;
+  List.iter detail_lst ~f:(fun (key, detail) ->
+      let phis =
+        if Lookup_status.equal detail.status detail.status_gen_phi
+        then detail.phis
+        else
+          let phis' =
+            match detail.status with
+            | Complete -> Lookup_rule.complete_phis_of_rule state key detail
+            | Fail -> invalid key
+            | Good -> failwith "Good in re-gen phis"
+          in
+          detail.status_gen_phi <- detail.status ;
+          detail.phis <- [ phis' ] ;
+          [ phis' ]
+      in
+      let phis_all = phis @ detail.phis_external in
+      SLog.debug (fun m ->
+          m "%a @@ %a's phis = \n@[<v>%a@]" Lookup_key.pp key
+            Lookup_status.pp_short detail.status
+            Fmt.(list ~sep:cut string)
+            (List.map ~f:Z3.Expr.to_string phis_all)) ;
+      state.phis_staging <- phis_all @ state.phis_staging) ;
+  let another_result =
+    Solver.check ~verbose:config.debug_model state.solver state.phis_staging
+      phi_used_once
+  in
+  SLog.debug (fun m ->
+      m "Two (used once): %a"
+        Fmt.(Dump.list string)
+        (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
+  another_result
+
+let assert_equal_result r1 r2 =
+  match (r1, r2) with
+  | Result.Ok _, Result.Ok _ | Result.Error _, Result.Error _ -> ()
+  | Result.Ok _, Result.Error _ -> failwith "should SAT"
+  | Result.Error _, Result.Ok _ -> failwith "should UNSAT"
+
+let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
+    (solver_result : (Z3.Model.model, 'a option) result) =
+  let phi_used_once = phi_fix state in
 
   let check_result =
     match solver_result with
@@ -77,58 +127,21 @@ let check (state : Global_state.t) (config : Global_config.t) :
      }
    in
    state.check_infos <- this_check_info :: state.check_infos) ;
-
-  (*
-      double check - start
-  *)
-  (* let detail_lst = Global_state.detail_alist state in
-
-     SLog.debug (fun m -> m "One: %s" (Z3.Solver.to_string state.solver)) ;
-
-     Solver.reset state.solver ;
-
-     SLog.debug (fun m -> m "Two") ;
-     List.iter detail_lst ~f:(fun (key, detail) ->
-         let phis =
-           if Lookup_status.equal detail.status detail.status_gen_phi
-           then detail.phis
-           else
-             let phis' =
-               match detail.status with
-               | Complete -> Lookup_rule.complete_phis_of_rule state key detail
-               | Fail -> invalid key
-               | Good -> failwith "Good in re-gen phis"
-             in
-             detail.status_gen_phi <- detail.status ;
-             detail.phis <- [ phis' ] ;
-             [ phis' ]
-         in
-         let phis_all = phis @ detail.phis_external in
-         SLog.debug (fun m ->
-             m "%a @@ %a's phis = \n@[<v>%a@]" Lookup_key.pp key
-               Lookup_status.pp_short detail.status
-               Fmt.(list ~sep:cut string)
-               (List.map ~f:Z3.Expr.to_string phis_all)) ;
-         state.phis_staging <- phis_all @ state.phis_staging) ;
-     let another_result =
-       Solver.check ~verbose:config.debug_model state.solver state.phis_staging
-         phi_used_once
-     in
-
-     SLog.debug (fun m ->
-         m "Two (used once): %a"
-           Fmt.(Dump.list string)
-           (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
-
-     Global_state.clear_phis state ;
-     (match (solver_result, another_result) with
-     | Result.Ok _, Result.Ok _ | Result.Error _, Result.Error _ -> ()
-     | Result.Ok _, Result.Error _ -> failwith "should SAT"
-     | Result.Error _, Result.Ok _ -> failwith "should UNSAT") ; *)
-  (*
-      double check - end
-  *)
   check_result
+
+let check (state : Global_state.t) (config : Global_config.t) :
+    result_info option =
+  LLog.info (fun m -> m "Search Tree Size:\t%d" state.tree_size) ;
+  (*
+     match config.encode_policy with
+     | Only_incremental -> check_incremental state config
+     | Always_shrink -> check_reencode state config
+  *)
+  let solver_result = check_incremental state config in
+  let another_result = check_shrink state config in
+  assert_equal_result solver_result another_result ;
+  Global_state.clear_phis state ;
+  exactract_solver_result state config solver_result
 
 let simplify_phis () = ()
 

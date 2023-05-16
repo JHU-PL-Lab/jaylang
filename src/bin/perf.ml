@@ -32,6 +32,7 @@ let perf_one_file short_name filename =
 
 let () =
   let perf_path = "test/dbmc/simple" in
+  (* let perf_path = "test/dbmc" in *)
   Log.init_global logfile ;
   PLog.debug (fun m -> m "file,total,resource") ;
   Directory_utils.iter_in_groups
