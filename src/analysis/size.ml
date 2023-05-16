@@ -76,7 +76,7 @@ let compute_size program : Id.t -> int =
     !answer) *)
 
 let run filename =
-  let program = Load.load filename in
+  let program = load filename in
   print_endline @@ Jayil.Ast_pp.show_expr program ;
   let size = compute_size program in
   let (Jayil.Ast.Expr clauses) = program in

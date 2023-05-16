@@ -42,7 +42,7 @@ let close_ids clause =
   F.lfp compute_closed clause |> Set.to_list |> Fmt.(pr "%a" Id.pp_list)
 
 let run filename =
-  let program = Load.load filename in
+  let program = load filename in
   print_endline @@ Jayil.Ast_pp.show_expr program ;
   let (Expr clauses) = program in
   List.iter clauses ~f:close_ids

@@ -201,7 +201,7 @@ let eval_result program =
   (compute, table)
 
 let run filename =
-  let program = Load.load filename in
+  let program = load filename in
   print_endline @@ Jayil.Ast_pp.show_expr program ;
   let _x_first = first_id program in
   let x_last = last_id program in

@@ -38,5 +38,5 @@ let read_source ?(is_instrumented = false) ?(consts = []) filename =
       Convert.instrument_jayil_if ~is_instrumented jayal_ast
     else failwith "file extension must be .jay or .jil"
   in
-  Global_config.check_wellformed_or_exit jayil_ast ;
+  Jayil.Ast_wellformedness.check_wellformed_or_exit jayil_ast ;
   jayil_ast

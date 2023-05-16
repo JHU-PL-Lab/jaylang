@@ -77,3 +77,5 @@ let last_id program =
   let (Expr clauses) = program in
   let (Clause (Var (x, _), _)) = List.last_exn clauses in
   x
+
+let load filename = Dj_common.File_utils.read_source filename
