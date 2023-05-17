@@ -100,15 +100,10 @@ let ident_set_from_var_enum (enum : var Enum.t) =
 
 let simple_cval (expr : expr) : Var_set.t = begin
 
-  let rec empty_ident_pair = (Var_set.empty, Var_set.empty)
+  let empty_ident_pair = (Var_set.empty, Var_set.empty)
 
-  and cval_expr (ident_pair : Var_set.t * Var_set.t) (Expr (clauses) : expr) : Var_set.t = 
-    
-    let foldable_eval_clause (ident_pair : Var_set.t * Var_set.t) (index : int) (clause : clause) : Var_set.t * Var_set.t = (
-      let ident_pair' = cval_clause ident_pair clause in ident_pair' 
-    )
-    in let captured, _ = List.fold_lefti foldable_eval_clause ident_pair clauses
-    in captured
+  in let rec cval_expr (ident_pair : Var_set.t * Var_set.t) (Expr (clauses) : expr) : Var_set.t = 
+    fst @@ List.fold_left cval_clause ident_pair clauses
 
   and cval_clause ((cap, def) : Var_set.t * Var_set.t) (Clause (vx, body) : clause) : Var_set.t * Var_set.t =
     let lineuses = match body with
@@ -215,6 +210,68 @@ let bad_prefix_expr (prefix : string) (Expr (clauses) : expr) =
   (Clause (Var (Ident old_ident, stack), body)) -> 
   (Clause (Var (Ident (prefix ^ old_ident), stack), body))
   ) clauses)
+;;
+
+
+
+let simple_prefix (prefix : string) (expr : expr) : expr = begin
+
+  (*let empty_ident_pair = (Var_set.empty, Var_set.empty)
+  
+  in*) let rec prefix_expr (def : Var_set.t) (Expr (clauses) : expr) : expr = 
+    
+    let foldable_prefix_clause ((apl, def) : (clause list -> expr) * Var_set.t) (clause : clause) : (clause list -> expr) * Var_set.t = (
+      let new_clause, new_def = prefix_clause def clause in (fun cont_expr -> apl (new_clause :: cont_expr)), new_def
+    )
+    in let make_expr, _ = List.fold_left foldable_prefix_clause ((fun cont_expr -> Expr cont_expr), def) clauses
+    in make_expr []
+
+  and prefix_clause (def : Var_set.t) (Clause (vx, body) : clause) : clause * Var_set.t =
+
+    let prefix_var_if_def (Var (Ident old_ident, stack) as old_var : var) : var = 
+      if Var_set.mem old_var def
+        then Var (Ident (prefix ^ old_ident), stack)
+        else old_var
+
+    in let res_body = match body with
+
+    | Value_body (Value_function Function_value (vx1, func_expr)) -> begin
+      let new_func_expr = prefix_expr def func_expr (*To be more safe, (Var_set.remove vx1 def) can be used*)
+      in Value_body (Value_function (Function_value (vx1, new_func_expr)))
+    end
+    
+    (* | Value_body (Value_record Record_value record) -> Var_set.of_enum @@ Enum.map (fun (Var (x, _)) -> x) (Ident_map.values record) *)
+    | Value_body (Value_record Record_value record) -> Value_body (Value_record (Record_value (Ident_map.map prefix_var_if_def record)))
+    
+    | Value_body v -> body
+
+    | Var_body vx -> Var_body (prefix_var_if_def vx)
+
+    | Input_body -> body
+
+    | Match_body (vx, pat) -> Match_body (prefix_var_if_def vx, pat)
+
+    (* Improvement could be made to find deps of only e1 or e2 if vx is indeed known beforehand *)
+    | Conditional_body (vx, e1, e2) -> Conditional_body (prefix_var_if_def vx, prefix_expr def e1, prefix_expr def e2)
+
+    (* Deps of function should have already been found, only need to union func_deps with val_deps *)
+    | Appl_body (vx1, vx2) -> Appl_body (prefix_var_if_def vx1, prefix_var_if_def vx2)
+
+    (* Improvement could be made to find deps of only var associated with key if v is indeed known beforehand *)
+    | Projection_body (v, key) -> Projection_body (prefix_var_if_def v, key)
+    
+    | Not_body vx -> Not_body (prefix_var_if_def vx)
+    
+    | Binary_operation_body (vx1, op, vx2) -> Binary_operation_body (prefix_var_if_def vx1, op, prefix_var_if_def vx2)
+    
+    | Abort_body | Assert_body _ | Assume_body _ -> failwith "Evaluation does not yet support abort, assert, and assume!"
+  
+    in let Var (Ident assign_old_ident, assign_stack) = vx
+    in (Clause (Var (Ident (prefix ^ assign_old_ident), assign_stack), res_body)), Var_set.add vx def
+
+  in prefix_expr Var_set.empty expr
+end
+;;
 
 
 (* evals *)
@@ -324,7 +381,6 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = begin
     let bail = bail_with body in
     let linedeps, res_value = begin match body with
 
-    (* Deps list is inaccurate, need to actually go through function and see what variables are captured *)
     | Value_body (Value_function (Function_value ((Var(x1, _)) as vx1, func_expr) as _vf)) -> begin 
       let init_captured = Var_set.remove vx1 (simple_cval func_expr)
       in let optim_func_expr, (captured, uses_param) = if Var_set.is_empty init_captured then func_expr, (init_captured, true) else
@@ -332,9 +388,9 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = begin
         in let inner_envnum = envnum + 1
         in let _, new_func_expr, _ = fst @@ peval_expr inner_envnum init_env func_expr
         in let new_captured = simple_cval new_func_expr
-        in new_func_expr, match Var_set.find_opt vx1 new_captured with
-            | Some _ -> Var_set.remove vx1 new_captured, true
-            | None -> new_captured, false
+        in new_func_expr, if Var_set.mem vx1 new_captured
+            then Var_set.remove vx1 new_captured, true
+            else new_captured, false
       in let new_func_expr, new_env, new_deps = prepend_vars_if_pvalue_else_env_deps (Var_set.enum captured) func_expr env
       in new_deps, PValue (FunClosure (x, Function_value(vx1, new_func_expr), new_env, uses_param))
     end
@@ -359,13 +415,13 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = begin
       let inner_envnum = envnum + 1
       in match get_pvalue_from_ident_opt vx env with
       | None, cond_deps ->
-        let    (_, end_pexpr1, enddeps1) = fst @@ peval_expr inner_envnum env e1
-        in let (_, end_pexpr2, enddeps2) = fst @@ peval_expr inner_envnum env e2
+        let (_, end_pexpr1, enddeps1) = fst @@ peval_expr inner_envnum env e1
+        and (_, end_pexpr2, enddeps2) = fst @@ peval_expr inner_envnum env e2
         in Some (PClause (Conditional_body (vx, end_pexpr1, end_pexpr2))), LexAdr_set.union cond_deps (LexAdr_set.union enddeps1 enddeps2)
       | Some (Direct (Value_bool bool_val)), _ ->
         let (end_ident, end_pexpr, enddeps) = fst @@ peval_expr inner_envnum env (if bool_val then e1 else e2)
         in let prefix = Printf.sprintf "%s__%s__" assign_ident cond_ident
-        in let modified_pexpr = bad_prefix_expr prefix end_pexpr
+        in let modified_pexpr = simple_prefix prefix end_pexpr
         in Some (PExpr (modified_pexpr, end_ident)), enddeps
       | _ -> failwith "Type error! Conditional attempted with a non-bool!"
     end
@@ -390,7 +446,7 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = begin
         in let beginenv = get_entry_from_ident vx2 env |> (add_param_el_penv func_x inner_envnum ~map:func_env)
         in let (end_ident, end_pexpr, enddeps) = fst @@ peval_expr inner_envnum beginenv func_expr
         in let prefix = Printf.sprintf "%s__%s__%s__" assign_ident func_ident arg_ident
-        in let modified_pexpr = bad_prefix_expr prefix end_pexpr
+        in let modified_pexpr = simple_prefix prefix end_pexpr
         in Some (PExpr (modified_pexpr, end_ident)), enddeps
     end
 
@@ -470,120 +526,3 @@ module SimpleEval = PEToploop (FileParser) (struct type t = value;; let eval = s
 
 module PartialEval = PEToploop (FileParser) (struct type t = expr;; let eval = simple_peval true;; let unparse = unparse_expr end)
 
-
-
-(* Below copied from dbmc *)
-exception Found_target of { x : Id.t; stk : Concrete_stack.t; v : pvalue }
-exception Found_abort of pvalue
-exception Terminate of pvalue
-exception Reach_max_step of Id.t * Concrete_stack.t
-exception Run_the_same_stack_twice of Id.t * Concrete_stack.t
-exception Run_into_wrong_stack of Id.t * Concrete_stack.t
-
-type clause_cb = Id.t -> Concrete_stack.t -> value -> unit
-type debug_mode = No_debug | Debug_clause of clause_cb
-
-module G = Imperative.Digraph.ConcreteBidirectional (Id_with_stack)
-
-type session = {
-  (* tuning *)
-  step : int ref;
-  max_step : int option;
-  (* book-keeping *)
-  alias_graph : G.t;
-  (* debug *)
-  is_debug : bool; (* TODO: get rid of this *)
-  debug_mode : debug_mode;
-  val_def_map : (Id_with_stack.t, clause_body * pvalue) Core.Hashtbl.t;
-  (* term_detail_map : (Lookup_key.t, Term_detail.t) Hashtbl.t; *)
-  (* block_map : Cfg.block Jayil.Ast.Ident_map.t; *)
-  (* rstk_picked : (Rstack.t, bool) Hashtbl.t; *)
-  (* lookup_alert : Lookup_key.t Hash_set.t; *)
-}
-
-let make_default_session () =
-  {
-    max_step = None;
-    is_debug = false;
-    debug_mode = No_debug;
-    step = ref 0;
-    alias_graph = G.create ();
-    val_def_map = Core.Hashtbl.create (module Id_with_stack);
-    (* term_detail_map = Hashtbl.create (module Lookup_key); *)
-    (* block_map = Jayil.Ast.Ident_map.empty; *)
-    (* rstk_picked = Hashtbl.create (module Rstack); *)
-    (* lookup_alert = Hash_set.create (module Lookup_key); *)
-  }
-
-(* let create_session ?max_step ?(debug_mode = No_debug) (* state : Global_state.t *)
-    (config : Global_config.t) mode input_feeder : session =
-  (* = With_full_target (config.target, target_stk) *)
-  {
-    max_step;
-    is_debug = config.debug_interpreter;
-    debug_mode;
-    step = ref 0;
-    alias_graph = G.create ();
-    val_def_map = Core.Hashtbl.create (module Id_with_stack);
-    (* term_detail_map = Hashtbl.create (module Lookup_key); (* state.term_detail_map; *) *)
-    (* block_map = Jayil.Ast.Ident_map.empty; (* state.block_map; *) *)
-    (* rstk_picked = Hashtbl.create (module Rstack); (* state.rstk_picked; *) *)
-    (* lookup_alert = Hash_set.create (module Lookup_key); (* state.lookup_alert; *) *)
-  } *)
-
-let cond_fid b = if b then Ast.Ident "$tt" else Ast.Ident "$ff"
-
-(* This function will add a directed edge x1 -> x2 in the alias graph. Thus
-   x1 here needs to be the *later* defined variable. *)
-let add_alias x1 x2 session : unit =
-  let alias_graph = session.alias_graph in
-  G.add_edge alias_graph x1 x2
-
-let add_val_def_mapping x vdef session : unit =
-  let val_def_mapping = session.val_def_map in
-  Core.Hashtbl.add_exn ~key:x ~data:vdef val_def_mapping
-
-(* let debug_update_read_node (session : session) (x : ident) (stk : Concrete_stack.t) =  ()
-
-let debug_update_write_node (session : session) (x : ident) (stk : Concrete_stack.t) = ()
-
-let debug_stack (session : session) (x : ident) (stk : Concrete_stack.t) ((v : pvalue), _) = ()
-
-let raise_if_with_stack (session : session) (x : ident) (stk : Concrete_stack.t) (v : pvalue) = ()
-
-let alert_lookup (session : session) (x : ident) (stk : Concrete_stack.t) = () *)
-
-let rec same_stack s1 s2 =
-  match (s1, s2) with
-  | (cs1, fid1) :: ss1, (cs2, fid2) :: ss2 ->
-      Ident.equal cs1 cs2 && Ident.equal fid1 fid2 && same_stack ss1 ss2
-  | [], [] -> true
-  | _, _ -> false
-
-(* let debug_clause ~session x v stk =
-  ILog.app (fun m -> m "@[%a = %a@]" Id.pp x pp_pvalue v) ;
-
-  raise_if_with_stack session x stk v ;
-  debug_stack session x stk (v, stk) ;
-  ()
-
-(* OB: we cannot enter the same stack twice. *)
-let rec fetch_val_with_stk ~session ~stk env (Var (x, _)) :
-    pvalue * Concrete_stack.t =
-  let res = Ident_map.find x env in
-  debug_update_read_node session x stk ;
-  res
-
-and fetch_val ~session ~stk env x : pvalue =
-  fst (fetch_val_with_stk ~session ~stk env x)
-
-and fetch_val_to_direct ~session ~stk env vx : value =
-  match fetch_val ~session ~stk env vx with
-  | Direct v -> v
-  | _ -> failwith "eval to non direct value"
-
-and fetch_val_to_bool ~session ~stk env vx : bool =
-  match fetch_val ~session ~stk env vx with
-  | Direct (Value_bool b) -> b
-  | _ -> failwith "eval to non bool"
- *)
