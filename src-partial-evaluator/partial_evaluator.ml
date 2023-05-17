@@ -419,10 +419,10 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = begin
         and (_, end_pexpr2, enddeps2) = fst @@ peval_expr inner_envnum env e2
         in Some (PClause (Conditional_body (vx, end_pexpr1, end_pexpr2))), LexAdr_set.union cond_deps (LexAdr_set.union enddeps1 enddeps2)
       | Some (Direct (Value_bool bool_val)), _ ->
-        let (end_ident, end_pexpr, enddeps) = fst @@ peval_expr inner_envnum env (if bool_val then e1 else e2)
+        let (Ident end_string, end_pexpr, enddeps) = fst @@ peval_expr inner_envnum env (if bool_val then e1 else e2)
         in let prefix = Printf.sprintf "%s__%s__" assign_ident cond_ident
         in let modified_pexpr = simple_prefix prefix end_pexpr
-        in Some (PExpr (modified_pexpr, end_ident)), enddeps
+        in Some (PExpr (modified_pexpr, Ident (prefix ^ end_string))), enddeps
       | _ -> failwith "Type error! Conditional attempted with a non-bool!"
     end
 
@@ -435,7 +435,7 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = begin
     | Appl_body (Var (Ident func_ident, _) as vx1, (Var (Ident arg_ident, _) as vx2)) -> bail begin
       match
         let+ v1 = get_pvalue_from_ident_opt vx1 env
-        and+ _ = get_pvalue_from_ident_opt vx2 env
+        and+ _ = get_pvalue_from_ident_opt vx2 env (* Can be changed to get_entry_from_ident to make inlining less strict *)
         in v1
       with
       | ((None, _) as none) -> none
@@ -444,32 +444,11 @@ let simple_peval (peval_input : bool) (expr : expr) : expr * penv = begin
           | _ -> failwith "Type error! Function application attempted with a non-function!"
         in let inner_envnum = envnum + 1
         in let beginenv = get_entry_from_ident vx2 env |> (add_param_el_penv func_x inner_envnum ~map:func_env)
-        in let (end_ident, end_pexpr, enddeps) = fst @@ peval_expr inner_envnum beginenv func_expr
+        in let (Ident end_string, end_pexpr, enddeps) = fst @@ peval_expr inner_envnum beginenv func_expr
         in let prefix = Printf.sprintf "%s__%s__%s__" assign_ident func_ident arg_ident
         in let modified_pexpr = simple_prefix prefix end_pexpr
-        in Some (PExpr (modified_pexpr, end_ident)), enddeps
+        in Some (PExpr (modified_pexpr, Ident (prefix ^ end_string))), enddeps
     end
-
-    
-    (* Partial eval on function applications can be made more strict. If the function
-    is known but the argument is not, we can refuse to partially evaluate. *)
-    (* | Appl_body (Var (x1, _) as vx1, (Var (x2, _) as vx2)) -> bail begin
-      match
-        let+ v1 = get_pvalue_from_ident_opt vx1 env
-        and+ v2 = get_entry_from_ident_opt vx2 env
-        in v1, v2
-      with
-      | ((None, _) as none) -> none
-      | Some (v1, v2), _ -> let func_x, func_expr, func_env = match v1 with
-          | FunClosure (_, Function_value (Var (x, _), expr), env, _) -> x, expr, env
-          | _ -> failwith "Type error! Function application attempted with a non-function!"
-        in let inner_envnum = envnum + 1
-        in let beginenv = v2 |> (add_param_el_penv func_x inner_envnum ~map:func_env)
-        in let (end_ident, end_pexpr, enddeps) = fst @@ peval_expr inner_envnum beginenv func_expr
-        in let prefix = let Ident func_ident, Ident arg_ident = x1, x2 in Printf.sprintf "%s__%s__" func_ident arg_ident
-        in let modified_pexpr = prefix_expr prefix end_pexpr
-        in Some (PExpr (modified_pexpr, end_ident)), enddeps
-    end *)
 
     (* Deps list here actually only needs to be the original captured variable, not the whole list for the record! *)
     | Projection_body (vx, key) -> bail begin
