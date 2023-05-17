@@ -179,11 +179,16 @@ let add_ident_el_penv (ident : Ident.t) (((_, _, lexadrs) as mapval) : presidual
 
 (* For now, this function is meant for just eval. Therefore, existing deps will not be scrubbed even when mapval is PValue *)
 (* Optionally add in the original lexadr -> mapval mapping also *)
-let add_param_el_penv (param_id : Ident.t) (envnum : int) (((old_id, pre, lexadrs) as mapval) : presidual_with_ident_lexadr_deps) ~(map : penv) =
+let add_param_el_penv_eval (param_id : Ident.t) (envnum : int) (((old_id, pre, lexadrs) as mapval) : presidual_with_ident_lexadr_deps) ~(map : penv) =
   let new_lexadrs = LexAdr_set.add (envnum, 0) lexadrs
-  (* in add_ident_el_penv ident (id, pre, new_lexadrs) ~map *)
+  (* in add_ident_el_penv param_id (param_id, pre, new_lexadrs) ~map *)
   in IdentLine_map.add (LexAdr (LexAdr_set.max_elt lexadrs)) mapval (add_ident_el_penv param_id (param_id, pre, new_lexadrs) ~map)
-  (* in add_ident_el_penv ident (id, pre, new_lexadrs) ~map:(add_ident_line ident (LexAdr_set.max_elt lexadrs) mapval map) *)
+  (* in add_ident_el_penv param_id (param_id, pre, new_lexadrs) ~map:(add_ident_line param_id (LexAdr_set.max_elt lexadrs) mapval map) *)
+;;
+
+let add_param_el_penv (param_id : Ident.t) (envnum : int) (((_old_id, pre, lexadrs) as _mapval) : presidual_with_ident_lexadr_deps) ~(map : penv) =
+  let new_lexadrs = LexAdr_set.pop_max lexadrs |> snd |> LexAdr_set.add (envnum, 0)
+  in add_ident_el_penv param_id (param_id, pre, new_lexadrs) ~map
 ;;
 
 let get_from_ident (Var (ident, _) : var) (env : penv) =
