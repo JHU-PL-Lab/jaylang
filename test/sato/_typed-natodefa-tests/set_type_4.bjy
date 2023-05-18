@@ -1,4 +1,4 @@
-let rec is_sorted (l : List int) : bool = 
+let rec is_sorted l = 
     match l with
     | [] -> true
     | hd :: tl -> 
@@ -18,7 +18,7 @@ let insertion_sort
         | hd :: tl -> foldl f (f acc hd) tl
         end
     in
-    foldl insert [] l
+    foldl insert [1] l
 in
 insertion_sort
 

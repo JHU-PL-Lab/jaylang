@@ -25,12 +25,18 @@ operations, conditionals, and functions.
                 \gor \ife{\expr}{\expr}{\expr}
                 \gor \letin{\ev}{\expr}{\expr}
                 \gline 
+                \gor \matches{\expr}{p}
                 \gor \pick_i 
                 \gor \pick_b
                 \gor \eerror
             }
             \grule[variables]{\ev}{
                         \textit{(identifiers)}
+            }
+            \grule[patterns]{p}{
+              \tint
+              \gor \tbool
+              \gor \gtfun
             }
             \grule[values]{\eval}{
                 \mathbb{Z}
@@ -47,18 +53,18 @@ operations, conditionals, and functions.
     \label{fig_Grammar}
 \end{figure}
 
-\subsection{Modeling Types}
+\subsection{Modeling Types Mathematically}
 
 The typing rules of the system is defined as following:
 
-\begin{definition}[Typing rules in model theory]
+\begin{definition}[Typing rules]
   \label{def_typingM}
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par
   \begin{enumerate}
       \item $\ \models \hastype{\expr}{\tint}$ iff $\expr \nsmallsteps[] \eerror$ and $\forall \eval. \expr \smallsteps[] \eval$, $\eval \in \mathbb{Z}$.
       \item $\ \models \hastype{\expr}{\tbool}$ iff $\expr \nsmallsteps[] \eerror$ and $\forall \eval.\expr \smallsteps[] \eval$, $\eval \in \mathbb{B}$.
-      \item $\ \models \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$ iff $\expr \nsmallsteps[] \eerror$ and $\forall \eval_f.\expr \smallsteps[] \eval_f$, and that $\forall{\eval}.$ if $\models \hastype{\eval}{\syntype_1}$, then $\models \hastype{\eval_f\ \eval}{\syntype_2}$.
+      \item $\ \models \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$ iff $\expr \nsmallsteps[] \eerror$ and $\forall \eval_f.$ if $\expr \smallsteps[] \eval_f$, \\ then $\forall{\eval}.$ if $\models \hastype{\eval}{\syntype_1}$, then $\models \hastype{\eval_f\ \eval}{\syntype_2}$.
    \end{enumerate}
 \end{definition}
 
@@ -68,7 +74,7 @@ fact, we can have an expression such as \texttt{Y}\
 assign the type \texttt{int -> int} to it, in spite of the fact that
 we cannot assign types to any of its subexpressions.
 
-\subsection{Proving Types}
+\subsection{Modeling Types Practically}
 
 In this section, we will provide the proof theory definition of typechecking.
 
@@ -89,24 +95,27 @@ In this section, we will provide the proof theory definition of typechecking.
   \ \par
   \begin{enumerate}
       \item $\mkche{\tint}{\expr} = \ife{\matches{\expr}{\tint}}{\expr}{\eerror}$
-      \item $\mkche{\tint}{\expr} = \ife{\matches{\expr}{\tbool}}{\expr}{\eerror}$
+      \item $\mkche{\tbool}{\expr} = \ife{\matches{\expr}{\tbool}}{\expr}{\eerror}$
       \item $\mkche{\mkfun{\syntype_1}{\syntype_2}}{\expr} = \\
-       \texttt{let arg = }\mkgen{\syntype_1} \texttt{ in }\mkche{\syntype_2}{\texttt{(e arg)}}$
+       \texttt{let arg = }\mkgen{\syntype_1} \texttt{ in }\letin{\_}{\mkche{\syntype_2}{\texttt{(e arg)}}}{\texttt{e}}$
    \end{enumerate}
 \end{definition}
 
-\begin{definition}[Typing rules in proof theory]
+\begin{definition}[Updated typing rule]
   \ \par
-  $\ \vdash \hastype{\expr}{\syntype}$ iff $\mkche{\syntype}{\expr} \nsmallsteps[] \eerror$.
+  $\models_p \hastype{\expr}{\syntype}$ iff $\mkche{\syntype}{\expr} \nsmallsteps[] \eerror$.
 \end{definition}
 
 \subsection{Completeness and Soundness}
 
-In this section, we will show that the two definitions are equivalent, by showing
-completeness and soundness.
+In this section, we will show that the two definitions are equivalent.
 
-\begin{proof}[Completeness]
-  $\forall \expr.$ if $\not\vdash \hastype{\expr}{\syntype}$, then $\not\models \hastype{\expr}{\syntype}$.
+\begin{theorem}
+  $\forall \expr.$ $\not\models_p \hastype{\expr}{\syntype}$ iff $\not\models \hastype{\expr}{\syntype}$.
+\end{theorem}
+
+\begin{proof}[if direction]
+  $\forall \expr.$ if $\not\models_p \hastype{\expr}{\syntype}$, then $\not\models \hastype{\expr}{\syntype}$.
 
   This is equivalent to showing: if $\mkche{\syntype}{\expr} \smallsteps[] \eerror$, then $\not\models \hastype{\expr}{\syntype}$.
 
@@ -116,13 +125,17 @@ completeness and soundness.
     $\models \hastype{\mkgen{\syntype}}{\syntype}$.
   \end{lemma}
 
-  We will prove these two statements at the same time by mutual induction on the structure of $\syntype$.
+  We will prove the conjunction of the completeness statement and the lemma by induction on the structure of $\syntype$.
 
   \textbf{Base case}: $\syntype = \tint$
 
+  First, we will show that $\models \hastype{\mkgen{\tint}}{\tint}$.
+  
   Since $\mkgen{\tint} = pick_i$, by definition of $\pick_i$, we know that $\forall \eval.$ if $\pick_i \smallsteps[] \eval$, then $\eval \in \mathbb{Z}$. Thus, we have shown that $\models \hastype{\mkgen{\tint}}{\tint}$.
 
-  Given $\mkche{\tint}{\expr} \smallsteps[] \eerror$, we know that there are two potential sources for $\eerror$:
+  Next, we'll prove that for an arbitrary $\expr$, if $ \hastype{\expr}{\tint}$, then $\not\models \hastype{\expr}{\tint}$.
+
+  By definition of $\vdash \hastype{\expr}{\tint}$, we know that $\not\models_p \hastype{\expr}{\tint}$ suggests $\mkche{\tint}{\expr} \smallsteps[] \eerror$. Examining the definition of $\mkche{\tint}{\expr}$, we can see that there are two potential sources for $\eerror$:
   \begin{enumerate}
     \item $\expr \smallsteps[] \eerror$. In this case, $\not\models \hastype{\expr}{\tint}$ is trivial. 
     \item $\expr \smallsteps[] \eval$. In this case, we know that $\matches{\eval}{\tint} \smallsteps[] \texttt{false}$, which means $\eval \notin \mathbb{Z}$. Thus $\not\models \hastype{\expr}{\tint}$. 
@@ -132,18 +145,22 @@ completeness and soundness.
 
   \textbf{Inductive step:} $\syntype = \mkfun{\syntype_1}{\syntype_2}$
 
-  Since $\mkgen{\mkfun{\syntype_1}{\syntype_2}} = \mkfunv{\ev}{\letin{\_}{\mkche{\syntype_1}{\ev}}{\mkgen{\syntype_2}}}$, by inductive hypothesis, we know that $\forall.\expr$ if $\models \hastype{\expr}{\syntype_1}$, then $\vdash \hastype{\expr}{\syntype_1}$, which means $\mkche{\syntype_1}{\expr} \nsmallsteps[] \eerror$. By the definition of $\mkgen{\syntype}$, we also know that $\mkgen{\syntype} \nsmallsteps[] \eerror$.
-  
-  % Need to rewrite this part of the proof
-  Therefore, we can conclude that $\forall \eval.$ if $\models \hastype{\eval}{\syntype_1}$, then $(\mkgen{\mkfun{\syntype_1}{\syntype_2}}\
-   \eval) \smallsteps[] \mkgen{\syntype_2}$. By inductive hypothesis, we know that $\hastype{\mkgen{\syntype_2}}{\syntype_2}$. Therefore, we have shown that $\models \hastype{\mkgen{\mkfun{\syntype_1}{\syntype_2}}}{\mkfun{\syntype_1}{\syntype_2}}$.
+  First, we will show that $\models \hastype{\mkgen{\mkfun{\syntype_1}{\syntype_2}}}{\mkfun{\syntype_1}{\syntype_2}}$.
 
-   Given $\mkche{\mkfun{\syntype_1}{\syntype_2}}{\expr} \smallsteps[] \eerror$, since $\texttt{arg} = \mkgen{\syntype_1}$ is guaranteed to evaluate to a value, we know that $\eerror$ must come from $\mkche{\syntype_2}{\texttt{(e arg)}}$. This suggests that $\not\vdash \hastype{(\expr\ \texttt{arg})}{\syntype_2}$. By induction hypothesis, we know that $\not\models \hastype{(\texttt{\expr\ \texttt{arg}})}{\syntype_2}$, and that $\models \hastype{\mkgen{\syntype_1}}{\syntype_1}$. Thus we have found a witness $\models \hastype{\texttt{arg}}{\syntype_1}$ such that $\not\models \hastype{(\expr \ \texttt{arg})}{\syntype_2}$, proving that $\not\models \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$.
+  To prove this, we need to show that $\forall\eval.$ if $\hastype{\eval}{\syntype_1}$, then $\models \hastype{(\mkgen{\mkfun{\syntype_1}{\syntype_2}} \ \eval)}{\syntype_2}$.
+  
+  By definition, $(\mkgen{\mkfun{\syntype_1}{\syntype_2}}) \ \eval = \letin{\_}{\mkche{\syntype_1}{\eval}}{\mkgen{\syntype_2}}$.
+
+  By inductive hypothesis, $\forall\eval.$ if $\models \hastype{\eval}{\syntype_1}$, then $\vdash \hastype{\eval}{\syntype_1}$, which means $\mkche{\syntype_1}{\eval}\nsmallsteps[] \eerror$. In the case that $\mkche{\syntype_1}{\eval}$ diverges, $(\mkgen{\mkfun{\syntype_1}{\syntype_2}}) \ \eval$ will diverge, too, making the statement $\models \hastype{(\mkgen{\mkfun{\syntype_1}{\syntype_2}} \ \eval)}{\syntype_2}$ trivially true. If $\mkche{\syntype_1}{\eval}$ doesn't diverge, we only have to consider $\mkgen{\syntype_2}$. By inductive hypothesis, we know that $\models \hastype{\mkgen{\syntype_2}}{\syntype_2}$. Therefore, we have shown that $\forall\eval.$ if $\hastype{\eval}{\syntype_1}$, then $\models \hastype{(\mkgen{\mkfun{\syntype_1}{\syntype_2}} \ \eval)}{\syntype_2}$, which means $\models \hastype{\mkgen{\mkfun{\syntype_1}{\syntype_2}}}{\mkfun{\syntype_1}{\syntype_2}}$.
+
+  Next, we'll prove that for an arbitrary $\expr$, if $\not\models_p \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$, then $\not\models \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$.
+
+  By definition, $\mkche{\mkfun{\syntype_1}{\syntype_2}}{\expr} = \texttt{let arg = }\mkgen{\syntype_1} \texttt{ in }\mkche{\syntype_2}{\texttt{(e arg)}}$. Since $\mkgen{\syntype_1}$ is guaranteed to evaluate to a value, we know that $\eerror$ must come from $\mkche{\syntype_2}{\texttt{(e arg)}}$. This suggests that $\not\models_p \hastype{(\expr\ \texttt{arg})}{\syntype_2}$. By induction hypothesis, we know that $\not\models \hastype{(\texttt{\expr\ \texttt{arg}})}{\syntype_2}$, and that $\models \hastype{\mkgen{\syntype_1}}{\syntype_1}$. Thus we have found a witness $\models \hastype{\texttt{arg}}{\syntype_1}$ such that $\not\models \hastype{(\expr \ \texttt{arg})}{\syntype_2}$, proving that $\not\models \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$.
 
 \end{proof}
 
 \begin{proof}[Soundness]
-  $\forall. \expr$ if $\not\models \hastype{\expr}{\syntype}$, then $\not\vdash \hastype{\expr}{\syntype}$.
+  $\forall. \expr$ if $\not\models \hastype{\expr}{\syntype}$, then $\not\models_p \hastype{\expr}{\syntype}$.
 
   This is equivalent to showing: if $\not\models \hastype{\expr}{\syntype}$, then $\exists \eval. \expr \smallsteps[] \eval$ and $\mkche{\syntype}{\eval} \smallsteps[] \eerror$.
 
@@ -210,11 +227,11 @@ Next, we will define a couple of languages extensions and their corresponding ty
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par
   \begin{enumerate}
-      \item $\ \models \hastype{\expr}{\tpoly}$ iff $\expr \bigstep \vpoly$, where $\textsc{typeof}(\vpoly) = \tpoly$.
-      \item $\ \models \hastype{\expr}{\mkunion{\syntype_1}{\syntype_2}}$ iff $\ \models \hastype{\expr}{\syntype_1}$ or $\ \models \hastype{\expr}{\syntype_2}$.
-      \item $\ \models \hastype{\expr}{\mkintersect{\syntype_1}{\syntype_2}}$ iff $\ \models \hastype{\expr}{\syntype_1}$ and $\ \models \hastype{\expr}{\syntype_2}$.
-      \item $\ \models \hastype{\expr}{\mktset{\syntype}{p}}$ iff $\ \models \hastype{\expr}{\syntype}$ and $p \ \expr \Longrightarrow \gttrue$.
-      \item $\ \models \hastype{\expr}{\mkdfun{\ev}{\syntype_1}{\syntype_2}}$ iff $\forall{\eval}$ such that $\models \hastype{\eval}{\syntype_1}$, $\models \hastype{\expr\ \eval}{\substitute{\syntype_2}{\eval}{\ev}}$.
+      \item $\ \models \hastype{\expr}{\tpoly}$ iff $\expr \smallsteps[] \vpoly$, where $\textsc{typeof}(\vpoly) = \tpoly$.
+      \item $\ \models \hastype{\expr}{\mkunion{\syntype_1}{\syntype_2}}$ iff $\expr \nsmallsteps[] \eerror$, and $\forall \eval.$ if $\expr \smallsteps[] \eval$, then $\ \models \hastype{\eval}{\syntype_1}$ or $\ \models \hastype{\eval}{\syntype_2}$.
+      \item $\ \models \hastype{\expr}{\mkintersect{\syntype_1}{\syntype_2}}$ iff $\expr \nsmallsteps[] \eerror$, and $\forall \eval.$ if $\expr \smallsteps[] \eval$, then $\ \models \hastype{\eval}{\syntype_1}$ and $\ \models \hastype{\eval}{\syntype_2}$.
+      \item $\ \models \hastype{\expr}{\mktset{\syntype}{p}}$ iff $\expr \nsmallsteps[] \eerror$, and $\forall \eval.$ if $\expr \smallsteps[] \eval$, \\ then $\ \models \hastype{\eval}{\syntype}$ and $p \ \eval \smallsteps[] \gttrue$.
+      \item $\ \models \hastype{\expr}{\mkdfun{\ev}{\syntype_1}{\syntype_2}}$ iff $\expr \nsmallsteps[] \eerror$, and $\forall{\eval_f}$, if $\expr \smallsteps[] \eval_f$, \\ then $\forall \eval$, if $\models \hastype{\eval}{\syntype_1}$, then $\models \hastype{\eval_f\ \eval}{\substitute{\syntype_2}{\eval}{\ev}}$.
       \item $\ \models \hastype{\expr}{\mkmiu{\alpha}{\syntype}}$ iff ?.
   \end{enumerate}
 \end{definition}
@@ -267,12 +284,15 @@ We will now extend the language with records.
                 \gor \ife{\expr}{\expr}{\expr}
                 \gor \pick_i
                 \gor \pick_b
+                \gor \matches{\expr}{p}
                 \gor \mzero
                 \gor \eerror
                 \gline
                 \gor \letin{\ev}{\expr}{\expr}
                 \gor \letfun
-                \gor \matches{\expr}{p}
+                \gline
+                \gor \letfunt
+                \gor \letint{\ev}{\syntype}{\expr}{\expr}
             }
             \grule[variables]{\ev}{
                 \textit{(identifiers)}
@@ -342,33 +362,98 @@ In this section, we will demonstrate how to represent each type using a tuple of
 %   \end{enumerate}
 % \end{definition}
 
+% \begin{definition}[Defining Generator in the extended language]
+%   \label{def_genExt}
+%   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+%   \ \par 
+%   \begin{enumerate}
+%     \item $\mkgen{\tpoly_i} : \vpoly_i$.
+%     \item $\mkgen{\mkunion{\syntype_1}{\syntype_2}} : \pick_b$. $\ife{b}{\mkgen{\syntype_1}}{\mkgen{\syntype_2}}$.
+%     \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where $\syntype_1, \syntype_2$ are not arrow types or record types : $\pick \ b \in \mathbb{B}$. \\ 
+%     $\texttt{if }b\texttt{ then }$
+%     $\\\texttt{\ \ let gend = }\mkgen{\syntype_1}\texttt{ in }$
+%     $\\ \texttt{\ \ if }\mkche{\syntype_2}{\texttt{gend}}\texttt{ then gend else } \mzero$
+%     $\\ \texttt{else}$
+%     $\\\texttt{\ \ let gend = }\mkgen{\syntype_2}\texttt{ in }$
+%     $\\ \texttt{\ \ if }\mkche{\syntype_1}{\texttt{gend}}\texttt{ then gend else } \mzero$   
+%     \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where $\syntype_1 = \mkfun{\syntype_{dom1}}{\syntype_{cod1}}, \syntype_2 = \mkfun{\syntype_{dom2}}{\syntype_{cod2}} : $ \\ $\mkfunv{\ev}{\\
+%       \texttt{\ \ }\ife{\mkche{\syntype_{dom1}}{\ev}}{\mkgen{\syntype_{cod1}}}{\mkgen{\syntype_{cod2}}}
+%     }$. 
+%     \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where \\ 
+%     $\syntype_1 = \{\hastype{\elbl_1}{\syntype_1'}, \cdots, \hastype{\elbl_n}{\syntype_n'}, \cdots, \hastype{\elbl_{11}}{\syntype_{11}'}, \cdots, \hastype{\elbl_{1m}}{\syntype_{1m}'}\}, 
+%     \\ \syntype_2 = \{\hastype{\elbl_1}{\syntype_1''}, \cdots, \hastype{\elbl_n}{\syntype_n''}, \cdots, \hastype{\elbl_{21}}{\syntype_{21}''}, \cdots, \hastype{\elbl_{2n}}{\syntype_{2n}''}\} : $ \\ 
+%     $\{\elbl_1 = \mkgen{\mkintersect{\syntype_1'}{\syntype_1''}}, \cdots, \elbl_n = \mkgen{\mkintersect{\syntype_n'}{\syntype_n''}}, \cdots, \elbl_{11} = \syntype_{11}, \cdots, \elbl_{2n} = \syntype_{2n}'\}$. 
+%     \item $\mkgen{\mktset{\syntype}{p}} : $ \\ 
+%     $\texttt{let gend = }\mkgen{\syntype} \texttt{ in } \ife{\texttt{(p gend)}}{\texttt{gend}}{\mzero}.$
+%     \item $\mkgen{\mkdfun{\ev}{\syntype_1}{\syntype_2}} : $
+%     \\$\mkfunv{\ev'}{\ife{\mkche{\tau_1}{\ev'}}{\mkgen{\substitute{\syntype_2}{\ev'}{\ev}}}{\eerror}}.$
+%     \item $\mkgen{\mkmiu{\alpha}{\syntype}} : \mkgen{\substitute{\syntype}{\alpha}{\mkmiu{\alpha}{\syntype}}}.$
+%     \item $\mkgen{\{\hastype{\elbl_1}{\syntype_1}, \cdots, \hastype{\elbl_n}{\syntype_n}\}} :$ \\ $\texttt{let }\eval_1 = \mkgen{\syntype_1}\texttt{ in }\cdots\texttt{ let }\eval_n = \mkgen{\syntype_n}\texttt{ in } \{\elbl_1 = \eval_1, \cdots, \elbl_n = \eval_n\}.$
+%   \end{enumerate}
+% \end{definition}
+
+% \begin{definition}[Defining Checker in the extended language]
+%   \label{def_cheExt}
+%   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
+%   \ \par 
+%   \begin{enumerate}
+%     \item $\mkche{\tpoly_i}{\expr} : \matches{\expr}{\vpoly_i}$.
+%     \item $\mkche{\mkunion{\syntype_1}{\syntype_2}}{\expr} : \mkche{\syntype_1}{\expr} \texttt{ or } \mkche{\syntype_2}{\expr}$.
+%     \item $\mkche{\mkintersect{\syntype_1}{\syntype_2}}{\expr} : \mkche{\syntype_1}{\expr} \texttt{ and } \mkche{\syntype_2}{\expr}$. 
+%     \item $\mkche{\mktset{\syntype}{p}}{\expr} : \mkche{\syntype}{\expr} \texttt{ and } \evaluate{\expr} = \gttrue$.
+%     \item $\mkche{\mkdfun{\ev}{\syntype_1}{\syntype_2}}{\expr} : \texttt{let arg = } \mkgen{\syntype_1} \texttt{ in } \mkche{\substitute{\syntype_2}{\texttt{arg}}{\ev}}{\texttt{(e arg)}}$.
+%     \item $\mkche{\mkmiu{\alpha}{\syntype}}{\expr} : \mkche{\substitute{\syntype}{\mkmiu{\alpha}{\syntype}}{\alpha}}{\expr}$.
+%     \item $\mkche{\{\hastype{\elbl_1}{\syntype_1}, \cdots, \hastype{\elbl_m}{\syntype_m}\}}{\expr} :$
+%     $\evaluate{\expr} = \{\elbl_1 = \eval_1, \cdots, \elbl_m = \eval_m, \cdots, \elbl_n = \eval_n\}^{\{\elbl_1, \cdots, \elbl_m\}}$ \\ 
+%     $\texttt{and } \mkche{\syntype_1}{\eval_1} \cdots \texttt{ and } \mkche{\syntype_m}{\eval_m}$.
+%   \end{enumerate}
+% \end{definition}
+
+\section{Selective typechecking}
+
+We allow users to declare types in their program selectively. If an expression doesn't have a type declaration, we assume that the user does not wish for us to check its type. In other words, we will only be checking explicitly declared types in the user program.
+
+% \begin{figure}[hbt!]%{r}{.5\textwidth}%
+%   \begin{grammar}
+%             \grule[expressions]{\expr}{
+%                 \cdots
+%                 \gor \letfunt
+%                 \gor \letint{\ev}{\syntype}{\expr}{\expr}
+%             }
+%         \end{grammar}
+%     \caption{Updated language grammar}
+%     \label{fig_updatedGrammar}
+% \end{figure}
+
+% For presentation
+
+\begin{figure}[hbt!]%{r}{.5\textwidth}%
+  \begin{grammar}
+            \grule[expressions]{\expr}{
+                \cdots
+                \gor \letfunt
+                \gline
+                \gor \letint{\ev}{\syntype}{\expr}{\expr}
+            }
+            \grule[types]{\syntype}{
+              \cdots
+              \gor \mktset{\syntype}{\expr}
+              \gor \mkdfun{\ev}{\syntype}{\syntype}
+            }
+        \end{grammar}
+    \caption{Updated language grammar}
+    \label{fig_updatedGrammar}
+\end{figure}
+
 \begin{definition}[Defining Generator in the extended language]
   \label{def_genExt}
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par 
   \begin{enumerate}
-    \item $\mkgen{\tpoly_i} : \vpoly_i$.
-    \item $\mkgen{\mkunion{\syntype_1}{\syntype_2}} : \pick_b$. $\ife{b}{\mkgen{\syntype_1}}{\mkgen{\syntype_2}}$.
-    \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where $\syntype_1, \syntype_2$ are not arrow types or record types : $\pick \ b \in \mathbb{B}$. \\ 
-    $\texttt{if }b\texttt{ then }$
-    $\\\texttt{\ \ let gend = }\mkgen{\syntype_1}\texttt{ in }$
-    $\\ \texttt{\ \ if }\mkche{\syntype_2}{\texttt{gend}}\texttt{ then gend else } \mzero$
-    $\\ \texttt{else}$
-    $\\\texttt{\ \ let gend = }\mkgen{\syntype_2}\texttt{ in }$
-    $\\ \texttt{\ \ if }\mkche{\syntype_1}{\texttt{gend}}\texttt{ then gend else } \mzero$   
-    \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where $\syntype_1 = \mkfun{\syntype_{dom1}}{\syntype_{cod1}}, \syntype_2 = \mkfun{\syntype_{dom2}}{\syntype_{cod2}} : $ \\ $\mkfunv{\ev}{\\
-      \texttt{\ \ }\ife{\mkche{\syntype_{dom1}}{\ev}}{\mkgen{\syntype_{cod1}}}{\mkgen{\syntype_{cod2}}}
-    }$. 
-    \item $\mkgen{\mkintersect{\syntype_1}{\syntype_2}}$ where \\ 
-    $\syntype_1 = \{\hastype{\elbl_1}{\syntype_1'}, \cdots, \hastype{\elbl_n}{\syntype_n'}, \cdots, \hastype{\elbl_{11}}{\syntype_{11}'}, \cdots, \hastype{\elbl_{1m}}{\syntype_{1m}'}\}, 
-    \\ \syntype_2 = \{\hastype{\elbl_1}{\syntype_1''}, \cdots, \hastype{\elbl_n}{\syntype_n''}, \cdots, \hastype{\elbl_{21}}{\syntype_{21}''}, \cdots, \hastype{\elbl_{2n}}{\syntype_{2n}''}\} : $ \\ 
-    $\{\elbl_1 = \mkgen{\mkintersect{\syntype_1'}{\syntype_1''}}, \cdots, \elbl_n = \mkgen{\mkintersect{\syntype_n'}{\syntype_n''}}, \cdots, \elbl_{11} = \syntype_{11}, \cdots, \elbl_{2n} = \syntype_{2n}'\}$. 
     \item $\mkgen{\mktset{\syntype}{p}} : $ \\ 
     $\texttt{let gend = }\mkgen{\syntype} \texttt{ in } \ife{\texttt{(p gend)}}{\texttt{gend}}{\mzero}.$
     \item $\mkgen{\mkdfun{\ev}{\syntype_1}{\syntype_2}} : $
     \\$\mkfunv{\ev'}{\ife{\mkche{\tau_1}{\ev'}}{\mkgen{\substitute{\syntype_2}{\ev'}{\ev}}}{\eerror}}.$
-    \item $\mkgen{\mkmiu{\alpha}{\syntype}} : \mkgen{\substitute{\syntype}{\alpha}{\mkmiu{\alpha}{\syntype}}}.$
-    \item $\mkgen{\{\hastype{\elbl_1}{\syntype_1}, \cdots, \hastype{\elbl_n}{\syntype_n}\}} :$ \\ $\texttt{let }\eval_1 = \mkgen{\syntype_1}\texttt{ in }\cdots\texttt{ let }\eval_n = \mkgen{\syntype_n}\texttt{ in } \{\elbl_1 = \eval_1, \cdots, \elbl_n = \eval_n\}.$
   \end{enumerate}
 \end{definition}
 
@@ -377,31 +462,38 @@ In this section, we will demonstrate how to represent each type using a tuple of
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par 
   \begin{enumerate}
-    \item $\mkche{\tpoly_i}{\expr} : \matches{\expr}{\vpoly_i}$.
-    \item $\mkche{\mkunion{\syntype_1}{\syntype_2}}{\expr} : \mkche{\syntype_1}{\expr} \texttt{ or } \mkche{\syntype_2}{\expr}$.
-    \item $\mkche{\mkintersect{\syntype_1}{\syntype_2}}{\expr} : \mkche{\syntype_1}{\expr} \texttt{ and } \mkche{\syntype_2}{\expr}$. 
-    \item $\mkche{\mktset{\syntype}{p}}{\expr} : \mkche{\syntype}{\expr} \texttt{ and } \evaluate{\expr} = \gttrue$.
-    \item $\mkche{\mkdfun{\ev}{\syntype_1}{\syntype_2}}{\expr} : \texttt{let arg = } \mkgen{\syntype_1} \texttt{ in } \mkche{\substitute{\syntype_2}{\texttt{arg}}{\ev}}{\texttt{(e arg)}}$.
-    \item $\mkche{\mkmiu{\alpha}{\syntype}}{\expr} : \mkche{\substitute{\syntype}{\mkmiu{\alpha}{\syntype}}{\alpha}}{\expr}$.
-    \item $\mkche{\{\hastype{\elbl_1}{\syntype_1}, \cdots, \hastype{\elbl_m}{\syntype_m}\}}{\expr} :$
-    $\evaluate{\expr} = \{\elbl_1 = \eval_1, \cdots, \elbl_m = \eval_m, \cdots, \elbl_n = \eval_n\}^{\{\elbl_1, \cdots, \elbl_m\}}$ \\ 
-    $\texttt{and } \mkche{\syntype_1}{\eval_1} \cdots \texttt{ and } \mkche{\syntype_m}{\eval_m}$.
+    \item $\mkche{\mktset{\syntype}{p}}{\expr} : $\\ 
+    $\mkche{\syntype}{\expr} \texttt{ and } \evaluate{\expr} = \gttrue$.
+    \item $\mkche{\mkdfun{\ev}{\syntype_1}{\syntype_2}}{\expr} :$\\ 
+    $\texttt{let arg = } \mkgen{\syntype_1} \texttt{ in } \mkche{\substitute{\syntype_2}{\texttt{arg}}{\ev}}{\texttt{(e arg)}}$.
   \end{enumerate}
 \end{definition}
 
-\section{Selective typechecking}
+\begin{definition}[Refinement type]
+  $\ \models \hastype{\expr}{\mktset{\syntype}{p}}$ iff $\expr \nsmallsteps[] \eerror$, and $\forall \eval.$ if $\expr \smallsteps[] \eval$, 
+  
+  then $\ \models \hastype{\eval}{\syntype}$ and $p \ \eval \smallsteps[] \gttrue$.
 
-We allow users to declare types in their program selectively. If an expression doesn't have a type declaration, we assume that the user does not wish for us to check its type. In other words, we will only be checking explicitly declared types in the user program.
+  \begin{itemize}
+    \item $\mkche{\mktset{\syntype}{p}}{\expr} : $\\ 
+    $\letin{\_}{\mkche{\syntype}{\expr}}{\ife{(p \  e)}{e}{\eerror}}$
+    \item $\mkgen{\mktset{\syntype}{p}} : $ \\ 
+    $\texttt{let gend = }\mkgen{\syntype} \texttt{ in } \ife{\texttt{(p gend)}}{\texttt{gend}}{\mzero}$
+  \end{itemize}
+\end{definition}
 
-\begin{figure}[hbt!]%{r}{.5\textwidth}%
-  \begin{grammar}
-            \grule[expressions]{\expr}{
-                \cdots
-                \gor \letfunt
-                \gor \letint{\ev}{\syntype}{\expr}{\expr}
-            }
-        \end{grammar}
-    \caption{Updated language grammar}
-    \label{fig_updatedGrammar}
-\end{figure}
+\pagebreak
+
+\begin{definition}[Dependent type]
+  $\ \models \hastype{\expr}{\mkdfun{\ev}{\syntype_1}{\syntype_2}}$ iff $\expr \nsmallsteps[] \eerror$, and $\forall{\eval_f}$, if $\expr \smallsteps[] \eval_f$, 
+  
+  then $\forall \eval$, if $\models \hastype{\eval}{\syntype_1}$, then $\models \hastype{\eval_f\ \eval}{\substitute{\syntype_2}{\eval}{\ev}}$.
+
+  \begin{itemize}
+    \item $\mkche{\mkdfun{\ev}{\syntype_1}{\syntype_2}}{\expr} :$\\ 
+    $\texttt{let arg = } \mkgen{\syntype_1} \texttt{ in } \mkche{\substitute{\syntype_2}{\texttt{arg}}{\ev}}{\texttt{(e arg)}}$
+    \item $\mkgen{\mkdfun{\ev}{\syntype_1}{\syntype_2}} : $
+    \\$\mkfunv{\ev'}{\letin{\_}{\mkche{\tau_1}{\ev'}}{\mkgen{\substitute{\syntype_2}{\ev'}{\ev}}}}$
+  \end{itemize}
+\end{definition}
 

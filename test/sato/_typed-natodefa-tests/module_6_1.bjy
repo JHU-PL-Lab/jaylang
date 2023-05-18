@@ -1,6 +1,5 @@
 let set_m = 
-  { emptyset = []
-  , add = fun x -> fun s -> x :: s 
+  { add = fun x -> fun s -> x :: s 
   }
 in
 let set_m_type =
