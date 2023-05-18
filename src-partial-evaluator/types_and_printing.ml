@@ -4,7 +4,9 @@ open Ast
 open Batteries
 open Jhupllib
 
-(* New types & module definitions *)
+(* New types, module definitions, and pretty printing *)
+
+(* environment number * line number *)
 type lexadr = int * int [@@deriving eq, ord, show, to_yojson]
 
 module LexAdr = struct
@@ -25,6 +27,7 @@ module LexAdr_set = struct
   include Yojson_utils.Set_to_yojson (S) (LexAdr)
 end
 
+(* To serve as key into environment, either an identifier (from instructions on later lines) or lexical address (from dependents for expr reconstruction) *)
 type identline = Ident of Ident.t | LexAdr of lexadr [@@deriving eq, ord, show, to_yojson]
 
 module IdentLine = struct
@@ -60,6 +63,9 @@ type pvalue =
   | RecordClosure of record_value * penv
   | AbortClosure of penv
 
+(* presidual_with_ident_lexadr_deps = variable ident * value stored in variable * dependency set of variable value *)
+(* variable ident & dependency set are used for expr reconstruction *)
+
 and presidual = PValue of pvalue | PClause of clause_body | PExpr of expr * Ident.t (* Note that Value_body of clause_body should not be used... *)
 and presidual_with_ident_lexadr_deps = Ident.t * presidual * LexAdr_set.t
 and penv = presidual_with_ident_lexadr_deps IdentLine_map.t
@@ -73,10 +79,10 @@ let value_of_pvalue = function
 let rec pp_pvalue oc = function
   | Direct v -> Jayil.Ast_pp.pp_value oc v
   | FunClosure _ -> Format.fprintf oc "(fc)"
-  | RecordClosure (r, env) -> pp_record_c (r, env) oc
+  | RecordClosure _ as rclosure -> pp_record_c oc rclosure
   | AbortClosure _ -> Format.fprintf oc "(abort)"
 
-and pp_record_c (Record_value r, env) oc =
+and [@warning "-8"] pp_record_c oc (RecordClosure (Record_value r, env)) =
   let pp_entry oc (x, v) =
     Fmt.pf oc "%a = %a" Jayil.Ast_pp.pp_ident x Jayil.Ast_pp.pp_var v
   in
@@ -127,7 +133,7 @@ let pp_enum ?(flush = false) ?(first = "") ?(last = "") ?(sep = " ") ?(indent = 
       aux ()
 
 
-
+(* Defines a monad that is the cartesian product of an options monad, and a (LexAdr_)set union monad *)
 module OptionSyntax : sig
 
   (* Monad *)
@@ -139,23 +145,17 @@ module OptionSyntax : sig
   val pure : 'a -> 'a option * LexAdr_set.t
 
 end = struct
-  (*
-  let (let*\) x f = match x with
-  | None -> None
-  | Some x -> (f x)
-  let (let+) x f = match x with
-  | None -> None
-  | Some x -> Some (f x)
-  *)
   let (let*) x f = match x with
   | None, set -> None, set
   | (Some x), set -> let res, setres = f x in res, (LexAdr_set.union set setres)
-  let (let+) (opt, set) f = match opt with
-  | None -> None, set
-  | Some x -> Some (f x), set
+  let (let+) (opt, set) f = (match opt with
+    | None -> None
+    | Some x -> Some (f x)
+  ), set
   let (and+) (o1, set1) (o2, set2) = (match o1, o2 with
     | Some x, Some y  -> Some (x,y)
-    | _               -> None), (LexAdr_set.union set1 set2)
+    | _               -> None
+  ), (LexAdr_set.union set1 set2)
   let pure x = Some x, LexAdr_set.empty
 end
 
@@ -163,11 +163,18 @@ open OptionSyntax
 
 
 (* Helper functions *)
+
+
+
+(* Add to environment *)
+
 let add_ident_line (ident : Ident.t) (lexadr : int * int) (v : 'a) (map : 'a IdentLine_map.t) =
   IdentLine_map.add (LexAdr lexadr) v (IdentLine_map.add (Ident ident) v map)
+;;
 
 let add_ident_line_last (ident : Ident.t) ((envnum, _ as lexadr) : int * int) (v : 'a) ~(map : 'a IdentLine_map.t) =
   IdentLine_map.add (LexAdr (envnum, -1)) v (IdentLine_map.add (LexAdr lexadr) v (IdentLine_map.add (Ident ident) v map))
+;;
 
 let add_ident_line_penv (ident : Ident.t) (lexadr : int * int) (lexadrs : LexAdr_set.t) (v : presidual) (map : penv) =
   let mapval = (ident, v, LexAdr_set.add lexadr lexadrs) in
@@ -176,6 +183,7 @@ let add_ident_line_penv (ident : Ident.t) (lexadr : int * int) (lexadrs : LexAdr
 
 let add_ident_el_penv (ident : Ident.t) (((_, _, lexadrs) as mapval) : presidual_with_ident_lexadr_deps) ~(map : penv) =
   add_ident_line_last ident (LexAdr_set.max_elt lexadrs) mapval ~map
+;;
 
 (* For now, this function is meant for just eval. Therefore, existing deps will not be scrubbed even when mapval is PValue *)
 (* Optionally add in the original lexadr -> mapval mapping also *)
@@ -191,66 +199,95 @@ let add_param_el_penv (param_id : Ident.t) (envnum : int) (((_old_id, pre, lexad
   in add_ident_el_penv param_id (param_id, pre, new_lexadrs) ~map
 ;;
 
+
+
+(* Retrieve from environment for simple_eval *)
+
 let get_from_ident (Var (ident, _) : var) (env : penv) =
   match IdentLine_map.find_opt (Ident ident) env with
     | Some v -> v
     | None -> failwith ("Expression not closed! " ^ show_ident ident ^ " not in environment!")
+;;
   
-let get_pvalue_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, _) = get_from_ident ident env in v
+let get_pvalue_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, _) = get_from_ident ident env in v;;
 
-let get_deps_from_ident (ident : var) (env : penv) = let (_, _, deps) = get_from_ident ident env in deps
+(* Currently Unused, superseded by get_pvalue_deps_from_ident *)
+let get_deps_from_ident (ident : var) (env : penv) = let (_, _, deps) = get_from_ident ident env in deps;;
 
-let get_pvalue_deps_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, deps) = get_from_ident ident env in deps, v
+(* Standard environment map retrieval function for simple_eval *)
+let get_pvalue_deps_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, deps) = get_from_ident ident env in deps, v;;
 
-let get_entry_from_ident = get_from_ident
+let get_entry_from_ident = get_from_ident;;
 
-(* let get_pvalue_deps_line_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, deps) = get_from_ident ident env in deps, v, LexAdr_set.max_elt deps *)
+(* Currently Unused *)
+let get_pvalue_deps_line_from_ident (ident : var) (env : penv) = let [@warning "-8"] (_, PValue v, deps) = get_from_ident ident env in deps, v, LexAdr_set.max_elt deps;;
+
+
+
+(* Retrieve from environment for simple_peval *)
 
 let get_from_ident_opt (Var (ident, _) : var) (env : penv) =
   IdentLine_map.find_opt (Ident ident) env, LexAdr_set.empty
-  
+;;
+
+(* Standard environment map retrieval function for simple_peval *)
 let get_pvalue_from_ident_opt (ident : var) (env : penv) =
   let* (_, v, deps) = get_from_ident_opt ident env in
   let+ v = (match v with | PValue v -> Some v | _ -> None), deps (* PValue deps guaranteed trivial for now *)
   in v
+;;
 
+(* Currently Unused, superseded by below *)
 let get_wrapped_pvalue_from_ident_opt (ident : var) (env : penv) =
   let* (_, v, deps) = get_from_ident_opt ident env in
   let+ v = (match v with | PValue _ -> Some v | _ -> None), deps (* PValue deps guaranteed trivial for now *)
   in v
+;;
 
+(* Currently Unused, superseded by below *)
 let get_presidual_from_ident_opt (ident : var) (env : penv) =
   let* (_, v, deps) = get_from_ident_opt ident env
   in Some v, deps (* deps guaranteed non-trivial for PClauses *)
+;;
 
+(* Option for alias / projection, collapse entirely to original clause *)
 let get_presidual_from_ident_ref_opt (ident : var) (env : penv) =
   let* (_, v, deps) = get_from_ident_opt ident env
   in match v with
   | PValue _ -> Some v, deps (* deps guaranteed trivial for now *)
   | _ -> Some v, LexAdr_set.pop_max deps |> snd (* This may fail if deps contains higher envnums then itself? *)
+;;
 
+(* Option for alias / projection, collapse to one alias away *)
 let get_presidual_from_ident_semi_ref_opt (ident : var) (env : penv) =
   let* (_, v, deps) = get_from_ident_opt ident env
   in match v with
   | PValue _ -> Some v, deps (* deps guaranteed trivial for now *)
   | PClause Var_body _ -> Some v, LexAdr_set.pop_max deps |> snd (* This may fail if deps contains higher envnums then itself? *)
   | _ -> Some (PClause (Var_body ident)), deps
+;;
 
 let get_deps_from_ident_opt (ident : var) (env : penv) =
   let* (_, _, deps) = get_from_ident_opt ident env in
   Some (), deps (* Add deps to state only? *)
+;;
 
+(* Currently Unused *)
 let get_entry_from_ident_opt (ident : var) (env : penv) =
   let* (_, _, deps) as entry = get_from_ident_opt ident env in
   Some entry, deps
+;;
 
-
+(* Currently Unused, superseded by get_many_lines_from_ident_opt *)
 let get_many_deps_from_ident_opt (idents : var Enum.t) (env : penv) =
   let deps = Enum.fold (fun prev_deps ident ->
     let (_, next_deps) = get_deps_from_ident_opt ident env
     in LexAdr_set.union prev_deps next_deps) LexAdr_set.empty idents
   in deps (* deps might also suffice if this doesn't have to be in the monad *)
-  
+;;
+
+(* From a enumeration of variables, return both their line numbers,
+   and a union of all their dependencies, if they exist *)
 let get_many_lines_from_ident_opt (idents : var Enum.t) (env : penv) =
   let lines, deps = Enum.fold (fun (prev_lines, prev_deps) ident ->
     let (_, next_deps) = get_deps_from_ident_opt ident env
@@ -260,6 +297,7 @@ let get_many_lines_from_ident_opt (idents : var Enum.t) (env : penv) =
     ), LexAdr_set.union prev_deps next_deps
   ) ([], LexAdr_set.empty) idents
   in (* Some *) lines, deps
+;;
 
 
 
