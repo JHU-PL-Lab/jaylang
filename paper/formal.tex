@@ -4,8 +4,9 @@ In this section, we will first provide the model theory definition of types in
 our language. However, since in real programs, we cannot effectively perform 
 certain mathematical enumerations (such as enumeration of functions), we will 
 need an operational-semantics-based definition of how typechecking works in actual 
-programs. As such, we will provide a proof theory definition of types, and prove
-equivalence of the two systems.
+programs. As such, we will provide an alternative definition of types that will 
+serve as the basis of our implementation, and prove equivalence of the two systems 
+with respect to typechecking.
 
 \section{Core Language}
 
@@ -55,9 +56,9 @@ operations, conditionals, and functions.
 
 \subsection{Modeling Types Mathematically}
 
-The typing rules of the system is defined as following:
+Typechecking is defined by the following model relation:
 
-\begin{definition}[Typing rules]
+\begin{definition}[Model relation]
   \label{def_typingM}
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par
@@ -68,7 +69,7 @@ The typing rules of the system is defined as following:
    \end{enumerate}
 \end{definition}
 
-Note that the rules do not actually check the types of the subexpressions. In 
+Note that the relation does not actually check the types of the subexpressions. In 
 fact, we can have an expression such as \texttt{Y}\ 
 \texttt{(fun this -> fun n -> if n = 0 then 0 else this (n-1))} and 
 assign the type \texttt{int -> int} to it, in spite of the fact that
@@ -76,7 +77,7 @@ we cannot assign types to any of its subexpressions.
 
 \subsection{Modeling Types Practically}
 
-In this section, we will provide the proof theory definition of typechecking.
+In this section, we will provide an alternative definition of typechecking. But first, we will provide some auxilliary definitions that will be invoked in the typechecking definition.
 
 \begin{definition}[Type Generator]
   \label{def_genCore}
@@ -101,7 +102,7 @@ In this section, we will provide the proof theory definition of typechecking.
    \end{enumerate}
 \end{definition}
 
-\begin{definition}[Updated typing rule]
+\begin{definition}[Updated model relation]
   \ \par
   $\models_p \hastype{\expr}{\syntype}$ iff $\mkche{\syntype}{\expr} \nsmallsteps[] \eerror$.
 \end{definition}
@@ -111,11 +112,11 @@ In this section, we will provide the proof theory definition of typechecking.
 In this section, we will show that the two definitions are equivalent.
 
 \begin{theorem}
-  $\forall \expr.$ $\not\models_p \hastype{\expr}{\syntype}$ iff $\not\models \hastype{\expr}{\syntype}$.
+  $\forall \expr.$ $\models_p \hastype{\expr}{\syntype}$ iff $\models \hastype{\expr}{\syntype}$.
 \end{theorem}
 
 \begin{proof}[Completeness]
-  $\forall \expr.$ if $\not\models_p \hastype{\expr}{\syntype}$, then $\not\models \hastype{\expr}{\syntype}$.
+  $\forall \expr.$ if $\models \hastype{\expr}{\syntype}$, then $\models_p \hastype{\expr}{\syntype}$.
 
   This is equivalent to showing: if $\mkche{\syntype}{\expr} \smallsteps[] \eerror$, then $\not\models \hastype{\expr}{\syntype}$.
 
@@ -133,9 +134,9 @@ In this section, we will show that the two definitions are equivalent.
   
   Since $\mkgen{\tint} = pick_i$, by definition of $\pick_i$, we know that $\forall \eval.$ if $\pick_i \smallsteps[] \eval$, then $\eval \in \mathbb{Z}$. Thus, we have shown that $\models \hastype{\mkgen{\tint}}{\tint}$.
 
-  Next, we'll prove that for an arbitrary $\expr$, if $ \hastype{\expr}{\tint}$, then $\not\models \hastype{\expr}{\tint}$.
+  Next, we'll prove that for an arbitrary $\expr$, if $\not \models_p \hastype{\expr}{\tint}$, then $\not\models \hastype{\expr}{\tint}$.
 
-  By definition of $\vdash \hastype{\expr}{\tint}$, we know that $\not\models_p \hastype{\expr}{\tint}$ suggests $\mkche{\tint}{\expr} \smallsteps[] \eerror$. Examining the definition of $\mkche{\tint}{\expr}$, we can see that there are two potential sources for $\eerror$:
+  By definition of $\models_p \hastype{\expr}{\tint}$, we know that $\not\models_p \hastype{\expr}{\tint}$ implies $\mkche{\tint}{\expr} \smallsteps[] \eerror$. Examining the definition of $\mkche{\tint}{\expr}$, we can see that there are two potential sources for $\eerror$:
   \begin{enumerate}
     \item $\expr \smallsteps[] \eerror$. In this case, $\not\models \hastype{\expr}{\tint}$ is trivial. 
     \item $\expr \smallsteps[] \eval$. In this case, we know that $\matches{\eval}{\tint} \smallsteps[] \texttt{false}$, which means $\eval \notin \mathbb{Z}$. Thus $\not\models \hastype{\expr}{\tint}$. 
@@ -151,26 +152,26 @@ In this section, we will show that the two definitions are equivalent.
   
   By definition, $(\mkgen{\mkfun{\syntype_1}{\syntype_2}}) \ \eval = \letin{\_}{\mkche{\syntype_1}{\eval}}{\mkgen{\syntype_2}}$.
 
-  By inductive hypothesis, $\forall\eval.$ if $\models \hastype{\eval}{\syntype_1}$, then $\vdash \hastype{\eval}{\syntype_1}$, which means $\mkche{\syntype_1}{\eval}\nsmallsteps[] \eerror$. In the case that $\mkche{\syntype_1}{\eval}$ diverges, $(\mkgen{\mkfun{\syntype_1}{\syntype_2}}) \ \eval$ will diverge, too, making the statement $\models \hastype{(\mkgen{\mkfun{\syntype_1}{\syntype_2}} \ \eval)}{\syntype_2}$ trivially true. If $\mkche{\syntype_1}{\eval}$ doesn't diverge, we only have to consider $\mkgen{\syntype_2}$. By inductive hypothesis, we know that $\models \hastype{\mkgen{\syntype_2}}{\syntype_2}$. Therefore, we have shown that $\forall\eval.$ if $\hastype{\eval}{\syntype_1}$, then $\models \hastype{(\mkgen{\mkfun{\syntype_1}{\syntype_2}} \ \eval)}{\syntype_2}$, which means $\models \hastype{\mkgen{\mkfun{\syntype_1}{\syntype_2}}}{\mkfun{\syntype_1}{\syntype_2}}$.
+  By inductive hypothesis, $\forall\eval.$ if $\models \hastype{\eval}{\syntype_1}$, then $\models_p \hastype{\eval}{\syntype_1}$, which means $\mkche{\syntype_1}{\eval}\nsmallsteps[] \eerror$. In the case that $\mkche{\syntype_1}{\eval}$ diverges, $(\mkgen{\mkfun{\syntype_1}{\syntype_2}}) \ \eval$ will diverge, too, making the statement $\models \hastype{(\mkgen{\mkfun{\syntype_1}{\syntype_2}} \ \eval)}{\syntype_2}$ trivially true. If $\mkche{\syntype_1}{\eval}$ doesn't diverge, we only have to consider $\mkgen{\syntype_2}$. By inductive hypothesis, we know that $\models \hastype{\mkgen{\syntype_2}}{\syntype_2}$. Therefore, we have shown that $\forall\eval.$ if $\hastype{\eval}{\syntype_1}$, then $\models \hastype{(\mkgen{\mkfun{\syntype_1}{\syntype_2}} \ \eval)}{\syntype_2}$, which means $\models \hastype{\mkgen{\mkfun{\syntype_1}{\syntype_2}}}{\mkfun{\syntype_1}{\syntype_2}}$.
 
   Next, we'll prove that for an arbitrary $\expr$, if $\not\models_p \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$, then $\not\models \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$.
 
-  By definition, $\mkche{\mkfun{\syntype_1}{\syntype_2}}{\expr} = \texttt{let arg = }\mkgen{\syntype_1} \texttt{ in }\mkche{\syntype_2}{\texttt{(e arg)}}$. Since $\mkgen{\syntype_1}$ is guaranteed to evaluate to a value, we know that $\eerror$ must come from $\mkche{\syntype_2}{\texttt{(e arg)}}$. This suggests that $\not\models_p \hastype{(\expr\ \texttt{arg})}{\syntype_2}$. By induction hypothesis, we know that $\not\models \hastype{(\texttt{\expr\ \texttt{arg}})}{\syntype_2}$, and that $\models \hastype{\mkgen{\syntype_1}}{\syntype_1}$. Thus we have found a witness $\models \hastype{\texttt{arg}}{\syntype_1}$ such that $\not\models \hastype{(\expr \ \texttt{arg})}{\syntype_2}$, proving that $\not\models \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$.
+  By definition, $\mkche{\mkfun{\syntype_1}{\syntype_2}}{\expr} = \texttt{let arg = }\mkgen{\syntype_1} \texttt{ in }\mkche{\syntype_2}{\texttt{(e arg)}}$. Since $\mkgen{\syntype_1}$ is guaranteed to evaluate to a value, by the above, we know that $\eerror$ must come from $\mkche{\syntype_2}{\texttt{(e arg)}}$. This implies that $\not\models_p \hastype{(\expr\ \texttt{arg})}{\syntype_2}$. By induction hypothesis, we know that $\not\models \hastype{(\texttt{\expr\ \texttt{arg}})}{\syntype_2}$, and that $\models \hastype{\mkgen{\syntype_1}}{\syntype_1}$. Thus we have found a witness $\models \hastype{\texttt{arg}}{\syntype_1}$ such that $\not\models \hastype{(\expr \ \texttt{arg})}{\syntype_2}$, proving that $\not\models \hastype{\expr}{\mkfun{\syntype_1}{\syntype_2}}$.
 
 \end{proof}
 
 \begin{proof}[Soundness]
-  $\forall. \expr$ if $\not\models \hastype{\expr}{\syntype}$, then $\not\models_p \hastype{\expr}{\syntype}$.
+  $\forall. \expr$ if $\models_p \hastype{\expr}{\syntype}$, then $\models \hastype{\expr}{\syntype}$.
 
-  This is equivalent to showing: if $\not\models \hastype{\expr}{\syntype}$, then $\mkche{\syntype}{\expr} \smallsteps[] \eerror$. Since we know that $\not \models \hastype{\expr}{\syntype}$, we can conclude that $\expr \not\Uparrow$. 
+  This is equivalent to showing: if $\not\models \hastype{\expr}{\syntype}$, then $\mkche{\syntype}{\expr} \smallsteps[] \eerror$. Since we know that $\not \models \hastype{\expr}{\syntype}$, we can safely assume that $\expr \not\Uparrow$. 
 
   Consider the case where $\expr \smallsteps[] \eerror$. By the operational semantics, we know that if $\expr$ evaluates to $\eerror$, then $\mkche{\syntype}{\expr} \smallsteps[] \eerror$.
 
-  Now, we have to show that if $\expr \smallsteps[] \eval$, and that $\not \models \hastype{\eval}{\syntype}$, then $\not\models_p \hastype{\expr}{\syntype}$. We will prove this by induction on the size of $\syntype$.
+  Therefore, it suffices to show that if $\expr \smallsteps[] \eval$ and $\not \models \hastype{\eval}{\syntype}$, then $\not\models_p \hastype{\expr}{\syntype}$. We will prove this by induction on the size of $\syntype$.
 
   \textbf{Base case: }$\syntype = \tint$
 
-  Given $\not \models \hastype{\expr}{\tint}$ and $\expr \smallsteps[] \eval$, we know that $\eval \not\in \mathbb{Z}$. Unpack the definition for $\mkche{\tint}{\expr}$, we get $\ife{\matches{\expr}{\tint}}{\expr}{\eerror}$. Since $\expr \smallsteps[] \eval$ and $\eval \not\in \mathbb{Z}$, $\matches{\expr}{\tint}$ will evaluate to $\gtfalse$, and the entire $\texttt{if}$ expression will evaluate to $\eerror$.
+  Given $\not \models \hastype{\expr}{\tint}$ and $\expr \smallsteps[] \eval$, we know that $\eval \not\in \mathbb{Z}$. Unpacking the definition for $\mkche{\tint}{\expr}$, we get $\ife{\matches{\expr}{\tint}}{\expr}{\eerror}$. Since $\expr \smallsteps[] \eval$ and $\eval \not\in \mathbb{Z}$, $\matches{\expr}{\tint}$ will evaluate to $\gtfalse$, and the entire $\texttt{if}$ expression will evaluate to $\eerror$, establishing this case.
 
   Proof for the case where $\syntype = \tbool$ is very similar, so we'll omit it here for brevity.
 
@@ -265,8 +266,8 @@ In this section, we will show that the two definitions are equivalent.
     Since $\eval$ is a value, we don't have to consider the case where $C'[\circ] = \circ$, since a value by itself cannot be a redex. This leaves us with the case where $C'[\eval]$ is a redex. There are two main scenarios to consider:
 
     \begin{enumerate}
-      \item If $C'$ doesn't have holes: This suggests that neither $\eval$ nor $\eval'$ will appear in the redex, $r$. In this case, we know that $r \smallsteps[] c$, and that $\redcon{\eval}{r} \smallsteps[] \redcon{\eval}{c}$. Since $\redcon{\eval}{c} \smallsteps[n'] \eerror$ where $n' < n$, by induction hypothesis, we can conclude that $\redcon{\eval'}{c} \smallsteps[] \eerror$. Since we know that $\redcon{\eval'}{r} \smallsteps[] \redcon{\eval'}{c}$, we can conclude that $\redcon{\eval'}{r} \smallsteps[] \eerror$.
-      \item If $C'$ does have holes: This suggests that $\eval$ (and in turn, $\eval'$) will appear in the redex. We'll proceed by case analysis on the redex. Since $\eval$, a function value, is in the redex, $C'[\eval]$, we know that $C'[\eval]$ cannot take the forms listed in the base case, since they will result in an error immediately. This leaves us with the following cases:
+      \item If $C'$ doesn't have holes: This impliess that neither $\eval$ nor $\eval'$ will appear in the redex, $r$. In this case, we know that $r \smallsteps[] c$, and that $\redcon{\eval}{r} \smallsteps[] \redcon{\eval}{c}$. Since $\redcon{\eval}{c} \smallsteps[n'] \eerror$ where $n' < n$, by induction hypothesis, we can conclude that $\redcon{\eval'}{c} \smallsteps[] \eerror$. Since we know that $\redcon{\eval'}{r} \smallsteps[] \redcon{\eval'}{c}$, we can conclude that $\redcon{\eval'}{r} \smallsteps[] \eerror$.
+      \item If $C'$ does have holes: This impliess that $\eval$ (and in turn, $\eval'$) will appear in the redex. We'll proceed by case analysis on the redex. Since $\eval$, a function value, is in the redex, $C'[\eval]$, we know that $C'[\eval]$ cannot take the forms listed in the base case, since they will result in an error immediately. This leaves us with the following cases:
       \begin{enumerate}
         \item $C'[\eval] = \eval \ \eval_0$: In this case, $C[\eval'] = \eval' \ \eval_0$. Because $\models \hastype{\eval}{\mkfun{\syntype_1}{\syntype_2}}$, we know that if $\models \hastype{\eval_0}{\syntype_1}$, then $\eval \ \eval_0 \smallsteps[] \eval_{r1}$ and $\models \hastype{\eval_{r1}}{\syntype_2}$. 
         
@@ -295,7 +296,7 @@ In this section, we will show that the two definitions are equivalent.
 
 \section{Language extensions}
 
-Next, we will define a couple of languages extensions and their corresponding typing rules.
+Next, we will define a couple of languages extensions and their corresponding typing relations.
 
 \begin{figure}[hbt!]%{r}{.5\textwidth}%
   \begin{grammar}
@@ -321,7 +322,7 @@ Next, we will define a couple of languages extensions and their corresponding ty
     \label{ext_Grammar}
 \end{figure}
 
-\begin{definition}[More typing rules]
+\begin{definition}[More model relations]
   \label{def_typingRulesExt}
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par
@@ -358,7 +359,7 @@ We will now extend the language with records.
     \label{rec_Grammar}
 \end{figure}
 
-\begin{definition}[Record typing rules]
+\begin{definition}[Record model relation]
   \label{def_typingRec}
   % \label{def_ppred} \label{def_ifx} \label{def_ifbranch} \label{def_retcl}
   \ \par
