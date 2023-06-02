@@ -53,6 +53,7 @@ benchmark/result
 vendor
 
 # paper related
+/docs/sato/paper
 /paper/main.aux
 /paper/main.fdb_latexmk
 /paper/main.out

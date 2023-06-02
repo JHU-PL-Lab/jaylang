@@ -1,2 +1,1 @@
-let x = input in
-if x > 0 then x else assume false
+let (o : int) = (fun x -> x x) (fun x -> x x) in o
