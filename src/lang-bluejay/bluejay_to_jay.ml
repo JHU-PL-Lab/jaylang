@@ -52,6 +52,7 @@ let new_instrumented_ed (e : 'a expr) : 'a expr_desc m =
    semantic correspondence.
    i.e. int -> { generator = fun _ -> input,
                , checker = fun e -> isInt e
+               , wrap = fun e -> e
                }
    - The transformation should provide the guarantee that only the type
      expression subtrees are modified, and we should be able to recover the
@@ -113,10 +114,15 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         in
         return @@ fail_cls
       in
+      let%bind wrapper =
+        let%bind expr_id = fresh_ident "expr" in
+        return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
+      in
       let rec_map =
         Ident_map.empty
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
       in
       let res = new_expr_desc @@ Record rec_map in
       (* Keeping track of which original expression this transformed expr
@@ -155,10 +161,15 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         in
         return @@ fail_cls
       in
+      let%bind wrapper =
+        let%bind expr_id = fresh_ident "expr" in
+        return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
+      in
       let rec_map =
         Ident_map.empty
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -341,10 +352,16 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind () = add_error_to_tag_mapping fail_pat_cls_3 tag in
         return @@ Function ([ expr_id ], new_expr_desc check_cls_3)
       in
+      (* TODO: Check - Is wrap for record just id? *)
+      let%bind wrapper =
+        let%bind expr_id = fresh_ident "expr" in
+        return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
+      in
       let rec_map =
         Ident_map.empty
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+        |> Ident_map.add (Ident "wrap") (new_expr_desc wrapper)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -482,10 +499,15 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind () = add_error_to_tag_mapping fail_pat_cls tag in
         return @@ Function ([ expr_id ], new_expr_desc lst_fail)
       in
+      let%bind wrapper =
+        let%bind expr_id = fresh_ident "expr" in
+        return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
+      in
       let rec_map =
         Ident_map.empty
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -572,10 +594,49 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let fun_body = Let (arg_assert, appl_ed_3, new_expr_desc codom_check) in
         return @@ Function ([ expr_id ], new_expr_desc fun_body)
       in
+      let%bind wrapper =
+        let%bind gc_pair_dom_check = semantic_type_of t1 in
+        let%bind gc_pair_cod_check = semantic_type_of t2 in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed
+          @@ RecordProj (gc_pair_dom_check, Label "~actual_rec")
+        in
+        let%bind proj_ed_2_inner =
+          new_instrumented_ed
+          @@ RecordProj (gc_pair_dom_check, Label "~actual_rec")
+        in
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
+        in
+        let%bind expr_id = fresh_ident "expr" in
+        let%bind arg_id = fresh_ident "arg" in
+        let check_arg =
+          new_expr_desc @@ Appl (proj_ed_1, new_expr_desc @@ Var arg_id)
+        in
+        let%bind assert_cls =
+          new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
+        in
+        let%bind proj_ed_2 =
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "wrapper")
+        in
+        (* Let wrap_res =  *)
+        let check_cls =
+          new_expr_desc
+          @@ If
+               ( check_arg,
+                 new_expr_desc
+                 @@ Appl
+                      (new_expr_desc @@ Var expr_id, new_expr_desc @@ Var arg_id),
+                 assert_cls )
+        in
+        let wrapped_fun = new_expr_desc @@ Function ([ arg_id ], check_cls) in
+        return @@ Function ([ expr_id ], wrapped_fun)
+      in
       let rec_map =
         Ident_map.empty
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -665,10 +726,40 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let fun_body = Let (arg_assert, appl_ed_4, new_expr_desc codom_check) in
         return @@ Function ([ expr_id ], new_expr_desc fun_body)
       in
+      let%bind wrapper =
+        let%bind gc_pair_dom_check = semantic_type_of t1 in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed
+          @@ RecordProj (gc_pair_dom_check, Label "~actual_rec")
+        in
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
+        in
+        let%bind expr_id = fresh_ident "expr" in
+        let%bind arg_id = fresh_ident "arg" in
+        let check_arg =
+          new_expr_desc @@ Appl (proj_ed_1, new_expr_desc @@ Var arg_id)
+        in
+        let%bind assert_cls =
+          new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
+        in
+        let check_cls =
+          new_expr_desc
+          @@ If
+               ( check_arg,
+                 new_expr_desc
+                 @@ Appl
+                      (new_expr_desc @@ Var expr_id, new_expr_desc @@ Var arg_id),
+                 assert_cls )
+        in
+        let wrapped_fun = new_expr_desc @@ Function ([ arg_id ], check_cls) in
+        return @@ Function ([ expr_id ], wrapped_fun)
+      in
       let rec_map =
         Ident_map.empty
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -758,10 +849,15 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         in
         return @@ Function ([ expr_id ], new_expr_desc check_type)
       in
+      let%bind wrapper =
+        let%bind expr_id = fresh_ident "expr" in
+        return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
+      in
       let rec_map =
         Ident_map.empty
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -892,10 +988,15 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind () = add_error_to_tag_mapping fail_pat_cls_2 tag in
         return @@ Function ([ expr_id ], new_expr_desc fun_body)
       in
+      let%bind wrapper =
+        let%bind expr_id = fresh_ident "expr" in
+        return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
+      in
       let rec_map =
         Ident_map.empty
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -1168,10 +1269,15 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind () = add_error_to_tag_mapping fail_pat_cls_2 tag in
         return @@ Function ([ expr_id ], new_expr_desc fun_body)
       in
+      let%bind wrapper =
+        let%bind expr_id = fresh_ident "expr" in
+        return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
+      in
       let rec_map =
         Ident_map.empty
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -1256,10 +1362,15 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         return
         @@ Let (fail_id, new_expr_desc @@ Bool false, new_expr_desc check_body)
       in
+      let%bind wrapper =
+        let%bind expr_id = fresh_ident "expr" in
+        return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
+      in
       let rec_map =
         Ident_map.empty
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -1321,10 +1432,15 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind () = add_error_to_tag_mapping fail_pat_cls tag in
         return @@ Function ([ expr_id ], new_expr_desc check_cls)
       in
+      let%bind wrapper =
+        let%bind expr_id = fresh_ident "expr" in
+        return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
+      in
       let rec_map =
         Ident_map.empty
         |> Ident_map.add (Ident "generator") (new_expr_desc generator)
         |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -1383,44 +1499,6 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
       return res
   | LetWithType (x, e1, e2, t) ->
       let%bind e1' = semantic_type_of e1 in
-      (* let%bind e1_transformed = semantic_type_of e1 in
-         if is_record_type t
-         then
-           let%bind new_lbls =
-             match t.body with
-             | TypeRecord r ->
-                 r |> Ident_map.key_list
-                 |> list_fold_left_m
-                      (fun acc k ->
-                        let%bind empty_rec =
-                          new_instrumented_ed @@ Record Ident_map.empty
-                        in
-                        return @@ Ident_map.add k empty_rec acc)
-                      Ident_map.empty
-             | _ ->
-                 failwith
-                   "semantic_type_of: Should only be invoked when t is a record \
-                    type!"
-           in
-           let%bind actual_rec =
-             new_instrumented_ed
-             @@ RecordProj (e1_transformed, Label "~actual_rec")
-           in
-           let%bind new_lbls_rec = new_instrumented_ed @@ Record new_lbls in
-           let new_rec =
-             Ident_map.empty
-             |> Ident_map.add (Ident "~actual_rec") actual_rec
-             |> Ident_map.add (Ident "~decl_lbls") new_lbls_rec
-           in
-           let%bind new_rec_ed = new_instrumented_ed @@ Record new_rec in
-           (* FIXME: This might be buggy: this is adding the mapping between the
-              newly typed record with the originally typed record.
-              e.g.: let (x : {: a : int :}) = { a = 1, b = 2 } in ...
-              {~actual_rec = { a = 1, b = 2 }, ~decl_lbls = { a = {}}} -> {a = 1, b = 2}
-           *)
-           let%bind () = add_sem_to_syn_mapping new_rec_ed e1 in
-           return new_rec_ed
-         else return e1_transformed *)
       let%bind e2' = semantic_type_of e2 in
       let%bind t' = semantic_type_of t in
       let res = new_expr_desc @@ LetWithType (x, e1', e2', t') in
@@ -1798,8 +1876,6 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         in
         let%bind e2' = bluejay_to_jay e2 in
         let%bind check_res = fresh_ident "check_res" in
-        (* let (Ident x_str) = x in *)
-        (* let%bind x' = fresh_ident x_str in *)
         let%bind () = add_error_to_bluejay_mapping check_res e_desc in
         let%bind error_cls = new_instrumented_ed @@ TypeError check_res in
         let%bind proj_ed_1_inner =
@@ -1808,13 +1884,9 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         let%bind proj_ed_1 =
           new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
-        (* let%bind appl_ed_1 =
-             new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var x')
-           in *)
         let%bind appl_ed_1 =
           new_instrumented_ed @@ Appl (proj_ed_1, e1_transformed)
         in
-        (* let inner_let = Let (x', e1_transformed, appl_ed_1) in *)
         let%bind check_1 =
           new_instrumented_ed
           @@ If (new_expr_desc @@ Var check_res, e2', error_cls)
@@ -1823,29 +1895,6 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         let res = new_expr_desc @@ Let (x, e1', new_expr_desc check_cls) in
         let%bind () = add_core_to_sem_mapping res e_desc in
         return res
-        (* let%bind type_decl' = bluejay_to_jay type_decl in
-              let%bind e1' = bluejay_to_jay e1 in
-              let%bind e2' = bluejay_to_jay e2 in
-              let%bind check_res = fresh_ident "check_res" in
-              let%bind () = add_error_to_bluejay_mapping check_res e_desc in
-              let%bind error_cls = new_instrumented_ed @@ TypeError check_res in
-              let%bind res_cls =
-                new_instrumented_ed
-                @@ If (new_expr_desc @@ Var check_res, e2', error_cls)
-              in
-              let%bind proj_ed_1_inner =
-                new_instrumented_ed @@ RecordProj (type_decl', Label "~actual_rec")
-              in
-              let%bind proj_ed_1 =
-                new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
-              in
-              let%bind appl_ed_1 =
-                new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var x)
-              in
-              let check_cls = Let (check_res, appl_ed_1, res_cls) in
-              let res = new_expr_desc @@ Let (x, e1', new_expr_desc check_cls) in
-              let%bind () = add_core_to_sem_mapping res e_desc in
-           return res *)
     | LetRecFunWithType (sig_lst, e) ->
         let folder fun_sig acc =
           let%bind check_res = fresh_ident "check_res" in
@@ -2145,110 +2194,7 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
   in
   return transformed_ed
 
-let debug_transform_bluejay (trans_name : string)
-    (transform : 'a expr_desc -> 'b expr_desc m) (e : 'a expr_desc) :
-    'b expr_desc m =
-  let%bind e' = transform e in
-  lazy_logger `debug (fun () ->
-      Printf.sprintf "Result of %s:\n%s" trans_name
-        (Pp_utils.pp_to_string Bluejay_ast_internal_pp.pp_expr e'.body)) ;
-  return e'
-
 let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
-  let mk_check_from_fun_sig fun_sig =
-    match fun_sig with
-    | Typed_funsig (f, typed_params, (f_body, ret_type)) ->
-        let folder ((Ident p as param), t) acc =
-          let%bind bluejay_jay_maps = bluejay_to_jay_maps in
-          let t_syn =
-            Bluejay_to_jay_maps.Intermediate_expr_desc_map.find t
-              bluejay_jay_maps.sem_to_syn
-          in
-          if is_polymorphic_type t_syn
-          then return acc
-          else
-            let%bind eta_arg = fresh_ident p in
-            let%bind arg_check = fresh_ident "arg_check" in
-            let%bind proj_ed_1_inner =
-              new_instrumented_ed @@ RecordProj (t, Label "~actual_rec")
-            in
-            let%bind proj_ed_1 =
-              new_instrumented_ed
-              @@ RecordProj (proj_ed_1_inner, Label "checker")
-            in
-            let%bind check_arg =
-              new_instrumented_ed
-              @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
-            in
-            let%bind assert_cls =
-              (* new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false) *)
-              new_instrumented_ed @@ Assert (new_expr_desc @@ Var arg_check)
-            in
-            let%bind cond =
-              new_instrumented_ed
-              @@ If (new_expr_desc @@ Var arg_check, acc, assert_cls)
-            in
-            let eta_body = Let (arg_check, check_arg, cond) in
-            let%bind wrapped_body =
-              new_instrumented_ed
-              @@ Appl
-                   ( new_expr_desc
-                     @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
-                     new_expr_desc @@ Var param )
-            in
-            return wrapped_body
-        in
-        let%bind f_body' = wrap f_body in
-        let%bind wrapped_f = list_fold_right_m folder typed_params f_body' in
-        let%bind typed_params' =
-          sequence
-          @@ List.map
-               (fun (p, t) ->
-                 let%bind t' = wrap t in
-                 return @@ (p, t'))
-               typed_params
-        in
-        let%bind ret_type' = wrap ret_type in
-        let fun_sig' =
-          Typed_funsig (f, typed_params', (wrapped_f, ret_type'))
-        in
-        let%bind () = add_wrapped_to_unwrapped_mapping wrapped_f f_body in
-        return fun_sig'
-    | DTyped_funsig (f, ((Ident p as param), t), (f_body, ret_type)) ->
-        let%bind eta_arg = fresh_ident p in
-        let%bind arg_check = fresh_ident "arg_check" in
-        let%bind proj_ed_1_inner =
-          new_instrumented_ed @@ RecordProj (t, Label "~actual_rec")
-        in
-        let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
-        in
-        let%bind check_arg =
-          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
-        in
-        let%bind f_body' = wrap f_body in
-        let%bind assert_cls =
-          new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
-        in
-        let%bind cond =
-          new_instrumented_ed
-          @@ If (new_expr_desc @@ Var arg_check, f_body', assert_cls)
-        in
-        let eta_body = Let (arg_check, check_arg, cond) in
-        let%bind wrapped_body =
-          new_instrumented_ed
-          @@ Appl
-               ( new_expr_desc
-                 @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
-                 new_expr_desc @@ Var param )
-        in
-        let%bind t' = wrap t in
-        let%bind ret_type' = wrap ret_type in
-        let fun_sig' =
-          DTyped_funsig (f, (Ident p, t'), (wrapped_body, ret_type'))
-        in
-        return fun_sig'
-  in
   let e = e_desc.body in
   (* Using the original tag for now; may be buggy *)
   let tag = e_desc.tag in
@@ -2455,6 +2401,15 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
   in
   return transformed_ed
 
+let debug_transform_bluejay (trans_name : string)
+    (transform : 'a expr_desc -> 'b expr_desc m) (e : 'a expr_desc) :
+    'b expr_desc m =
+  let%bind e' = transform e in
+  lazy_logger `debug (fun () ->
+      Printf.sprintf "Result of %s:\n%s" trans_name
+        (Pp_utils.pp_to_string Bluejay_ast_internal_pp.pp_expr e'.body)) ;
+  return e'
+
 let transform_bluejay ?(do_wrap = true) (e : syn_type_bluejay) :
     core_bluejay_edesc * Bluejay_to_jay_maps.t =
   let transformed_expr : (core_bluejay_edesc * Bluejay_to_jay_maps.t) m =
@@ -2464,7 +2419,6 @@ let transform_bluejay ?(do_wrap = true) (e : syn_type_bluejay) :
         return (new_expr_desc e)
         >>= debug_transform_bluejay "initial" (fun e -> return e)
         >>= debug_transform_bluejay "typed bluejay phase one" semantic_type_of
-        >>= debug_transform_bluejay "wrap" wrap
         >>= debug_transform_bluejay "typed bluejay phase two" bluejay_to_jay
       else
         return (new_expr_desc e)
