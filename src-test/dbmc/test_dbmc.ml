@@ -59,7 +59,7 @@ let test_one_file_lwt testname _switch test_config =
   match test_config.timeout with
   | Some t -> (
       try%lwt
-        Lwt_unix.with_timeout (Time.Span.to_sec t) (fun () ->
+        Lwt_unix.with_timeout (Time_float.Span.to_sec t) (fun () ->
             test_one_file test_config testname ())
       with Lwt_unix.Timeout -> failwith "test_dbmc: timeout")
   | None -> test_one_file test_config testname ()

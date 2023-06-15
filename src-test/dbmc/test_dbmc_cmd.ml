@@ -2,7 +2,7 @@ open Core
 open Dj_common
 
 type config = {
-  timeout : Time.Span.t option;
+  timeout : Time_float.Span.t option;
   engine : Global_config.engine;
   test_path : string;
   is_instrumented : bool;
@@ -11,7 +11,7 @@ type config = {
 
 let default_config =
   {
-    timeout = Some (Time.Span.of_int_sec 5);
+    timeout = Some (Time_float.Span.of_int_sec 5);
     engine = Global_config.E_dbmc;
     test_path = "test/dbmc";
     is_instrumented = false;
@@ -24,8 +24,8 @@ module Cmd_parser = struct
   open Cmdliner
 
   let timeout_conv =
-    let parser s = Result.Ok (Scanf.sscanf s "%d" Time.Span.of_int_sec) in
-    let printer oc s = Fmt.string oc @@ Time.Span.to_string_hum s in
+    let parser s = Result.Ok (Scanf.sscanf s "%d" Time_float.Span.of_int_sec) in
+    let printer oc s = Fmt.string oc @@ Time_float.Span.to_string_hum s in
     Arg.(conv (parser, printer))
 
   let timeout =

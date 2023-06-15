@@ -24,8 +24,9 @@ let log_level_parser : Logs.level Command.Arg_type.t =
 let target_parser : Id.t Command.Arg_type.t =
   Command.Arg_type.create (fun s -> Id.(Ident s))
 
-let timeout_parser : Time.Span.t Command.Arg_type.t =
-  Command.Arg_type.create (fun s -> Scanf.sscanf s "%d" Time.Span.of_int_sec)
+let timeout_parser : Time_float.Span.t Command.Arg_type.t =
+  Command.Arg_type.create (fun s ->
+      Scanf.sscanf s "%d" Time_float.Span.of_int_sec)
 
 let int_option_list_parser : int option list Command.Arg_type.t =
   Command.Arg_type.create (fun s ->
