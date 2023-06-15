@@ -20,7 +20,7 @@ let process_rstk_stat_map (config : Global_config.t) (state : Global_state.t) =
     List.sum (module Float) raw_plist ~f:(fun (k, d) -> d.smt_time)
   in
 
-  LS2Log.info (fun m ->
+  PLog.info (fun m ->
       m "%a@;%f"
         Fmt.(vbox (list ~sep:cut (pair Rstack.pp_length Rstk_stat.pp)))
         srd_list time_sum)
