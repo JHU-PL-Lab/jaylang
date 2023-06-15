@@ -1,0 +1,2 @@
+letd id (x : int) : ({. int | fun a -> a == x }) = x in
+id true

@@ -48,6 +48,9 @@ let new_instrumented_ed (e : 'a expr) : 'a expr_desc m =
   let%bind () = add_instrumented_tag ed.tag in
   return ed
 
+let mk_gc_pair_cod arg_id cod arg =
+  Appl (new_expr_desc @@ Function ([ arg_id ], cod), new_expr_desc @@ Var arg)
+
 (* Phase one of transformation: turning all syntactic types into its
    semantic correspondence.
    i.e. int -> { generator = fun _ -> input,
@@ -65,7 +68,7 @@ let new_instrumented_ed (e : 'a expr) : 'a expr_desc m =
    - Also in this function, because we need to ensure that all subexpressions
      contain unique tags, we cannot reuse a fabricated AST from a recursive
      call, which is a source of redundancy. *)
-let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
+let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
     semantic_only expr_desc m =
   let t = e_desc.body in
   let tag = e_desc.tag in
@@ -119,10 +122,16 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        Ident_map.empty
-        |> Ident_map.add (Ident "generator") (new_expr_desc generator)
-        |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        if do_wrap
+        then
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+          |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        else
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
       let res = new_expr_desc @@ Record rec_map in
       (* Keeping track of which original expression this transformed expr
@@ -166,10 +175,16 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        Ident_map.empty
-        |> Ident_map.add (Ident "generator") (new_expr_desc generator)
-        |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        if do_wrap
+        then
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+          |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        else
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -358,10 +373,16 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        Ident_map.empty
-        |> Ident_map.add (Ident "generator") (new_expr_desc generator)
-        |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-        |> Ident_map.add (Ident "wrap") (new_expr_desc wrapper)
+        if do_wrap
+        then
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+          |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        else
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -504,10 +525,16 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        Ident_map.empty
-        |> Ident_map.add (Ident "generator") (new_expr_desc generator)
-        |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        if do_wrap
+        then
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+          |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        else
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -603,7 +630,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         in
         let%bind proj_ed_2_inner =
           new_instrumented_ed
-          @@ RecordProj (gc_pair_dom_check, Label "~actual_rec")
+          @@ RecordProj (gc_pair_cod_check, Label "~actual_rec")
         in
         let%bind proj_ed_1 =
           new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
@@ -617,26 +644,28 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
         in
         let%bind proj_ed_2 =
-          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "wrapper")
+          new_instrumented_ed @@ RecordProj (proj_ed_2_inner, Label "wrapper")
         in
-        (* Let wrap_res =  *)
-        let check_cls =
+        let eta_appl =
           new_expr_desc
-          @@ If
-               ( check_arg,
-                 new_expr_desc
-                 @@ Appl
-                      (new_expr_desc @@ Var expr_id, new_expr_desc @@ Var arg_id),
-                 assert_cls )
+          @@ Appl (new_expr_desc @@ Var expr_id, new_expr_desc @@ Var arg_id)
         in
+        let wrap_res = new_expr_desc @@ Appl (proj_ed_2, eta_appl) in
+        let check_cls = new_expr_desc @@ If (check_arg, wrap_res, assert_cls) in
         let wrapped_fun = new_expr_desc @@ Function ([ arg_id ], check_cls) in
         return @@ Function ([ expr_id ], wrapped_fun)
       in
       let rec_map =
-        Ident_map.empty
-        |> Ident_map.add (Ident "generator") (new_expr_desc generator)
-        |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        if do_wrap
+        then
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+          |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        else
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -644,9 +673,6 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
   | TypeArrowD ((x1, t1), t2) ->
       (* For dependently typed functions, we need to make sure the co-domain can
          refer to the domain's value, thus this helper function here. *)
-      let mk_gc_pair_cod cod arg =
-        Appl (new_expr_desc @@ Function ([ x1 ], cod), new_expr_desc @@ Var arg)
-      in
       let%bind generator =
         let%bind gc_pair_dom_g = semantic_type_of t1 in
         let%bind gc_pair_cod_g = semantic_type_of t2 in
@@ -661,7 +687,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
         in
         let%bind appl_ed_1 =
-          new_instrumented_ed @@ mk_gc_pair_cod gc_pair_cod_g arg_assume
+          new_instrumented_ed @@ mk_gc_pair_cod x1 gc_pair_cod_g arg_assume
         in
         let%bind proj_ed_2_inner =
           new_instrumented_ed @@ RecordProj (appl_ed_1, Label "~actual_rec")
@@ -692,7 +718,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind arg_assert = fresh_ident "arg_assert" in
         let%bind ret_id = fresh_ident "fun_ret" in
         let%bind appl_ed_1 =
-          new_instrumented_ed @@ mk_gc_pair_cod gc_pair_cod_c arg_assert
+          new_instrumented_ed @@ mk_gc_pair_cod x1 gc_pair_cod_c arg_assert
         in
         let%bind gc_pair_cod' =
           new_instrumented_ed
@@ -727,10 +753,10 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc fun_body)
       in
       let%bind wrapper =
-        let%bind gc_pair_dom_check = semantic_type_of t1 in
+        let%bind gc_pair_dom = semantic_type_of t1 in
+        let%bind gc_pair_cod = semantic_type_of t2 in
         let%bind proj_ed_1_inner =
-          new_instrumented_ed
-          @@ RecordProj (gc_pair_dom_check, Label "~actual_rec")
+          new_instrumented_ed @@ RecordProj (gc_pair_dom, Label "~actual_rec")
         in
         let%bind proj_ed_1 =
           new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
@@ -743,23 +769,41 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind assert_cls =
           new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
         in
-        let check_cls =
-          new_expr_desc
-          @@ If
-               ( check_arg,
-                 new_expr_desc
-                 @@ Appl
-                      (new_expr_desc @@ Var expr_id, new_expr_desc @@ Var arg_id),
-                 assert_cls )
+        let%bind appl_ed_1 =
+          new_instrumented_ed @@ mk_gc_pair_cod x1 gc_pair_cod arg_id
         in
+        let%bind gc_pair_cod' =
+          new_instrumented_ed
+          @@ Appl
+               ( new_expr_desc @@ Function ([ x1 ], appl_ed_1),
+                 new_expr_desc @@ Var arg_id )
+        in
+        let%bind proj_ed_2_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair_cod', Label "~actual_rec")
+        in
+        let%bind proj_ed_2 =
+          new_instrumented_ed @@ RecordProj (proj_ed_2_inner, Label "wrapper")
+        in
+        let eta_appl =
+          new_expr_desc
+          @@ Appl (new_expr_desc @@ Var expr_id, new_expr_desc @@ Var arg_id)
+        in
+        let wrap_res = new_expr_desc @@ Appl (proj_ed_2, eta_appl) in
+        let check_cls = new_expr_desc @@ If (check_arg, wrap_res, assert_cls) in
         let wrapped_fun = new_expr_desc @@ Function ([ arg_id ], check_cls) in
         return @@ Function ([ expr_id ], wrapped_fun)
       in
       let rec_map =
-        Ident_map.empty
-        |> Ident_map.add (Ident "generator") (new_expr_desc generator)
-        |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        if do_wrap
+        then
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+          |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        else
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -854,10 +898,16 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        Ident_map.empty
-        |> Ident_map.add (Ident "generator") (new_expr_desc generator)
-        |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        if do_wrap
+        then
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+          |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        else
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -993,10 +1043,16 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        Ident_map.empty
-        |> Ident_map.add (Ident "generator") (new_expr_desc generator)
-        |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        if do_wrap
+        then
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+          |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        else
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -1037,11 +1093,11 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let well_formed = List.for_all domain_check fun_types in
         if well_formed
         then
-          let mk_gc_pair_cod x_id cod arg =
-            Appl
-              ( new_expr_desc @@ Function ([ x_id ], cod),
-                new_expr_desc @@ Var arg )
-          in
+          (* let mk_gc_pair_cod x_id cod arg =
+               Appl
+                 ( new_expr_desc @@ Function ([ x_id ], cod),
+                   new_expr_desc @@ Var arg )
+             in *)
           let%bind arg = fresh_ident "arg" in
           let rec folder t acc =
             match t.body with
@@ -1274,10 +1330,16 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        Ident_map.empty
-        |> Ident_map.add (Ident "generator") (new_expr_desc generator)
-        |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        if do_wrap
+        then
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+          |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        else
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -1367,10 +1429,16 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        Ident_map.empty
-        |> Ident_map.add (Ident "generator") (new_expr_desc generator)
-        |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        if do_wrap
+        then
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+          |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        else
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -1437,10 +1505,16 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        Ident_map.empty
-        |> Ident_map.add (Ident "generator") (new_expr_desc generator)
-        |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-        |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        if do_wrap
+        then
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+          |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        else
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
       let res = new_expr_desc @@ Record rec_map in
       let%bind () = add_sem_to_syn_mapping res e_desc in
@@ -2195,6 +2269,117 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
   return transformed_ed
 
 let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
+  let mk_check_from_fun_sig fun_sig =
+    match fun_sig with
+    | Typed_funsig (f, typed_params, (f_body, ret_type)) ->
+        let folder ((Ident p as param), t) acc =
+          let%bind bluejay_jay_maps = bluejay_to_jay_maps in
+          let t_syn =
+            Bluejay_to_jay_maps.Intermediate_expr_desc_map.find t
+              bluejay_jay_maps.sem_to_syn
+          in
+          if is_polymorphic_type t_syn
+          then return acc
+          else
+            let%bind eta_arg = fresh_ident p in
+            let%bind arg_check = fresh_ident "arg_check" in
+            let%bind proj_ed_1_inner =
+              new_instrumented_ed @@ RecordProj (t, Label "~actual_rec")
+            in
+            let%bind proj_ed_1 =
+              new_instrumented_ed
+              @@ RecordProj (proj_ed_1_inner, Label "checker")
+            in
+            let%bind check_arg =
+              new_instrumented_ed
+              @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
+            in
+            let%bind assert_cls =
+              (* new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false) *)
+              new_instrumented_ed @@ Assert (new_expr_desc @@ Var arg_check)
+            in
+            let%bind cond =
+              new_instrumented_ed
+              @@ If (new_expr_desc @@ Var arg_check, acc, assert_cls)
+            in
+            let eta_body = Let (arg_check, check_arg, cond) in
+            let%bind wrapped_body =
+              new_instrumented_ed
+              @@ Appl
+                   ( new_expr_desc
+                     @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
+                     new_expr_desc @@ Var param )
+            in
+            return wrapped_body
+        in
+        let%bind ret_type' = wrap ret_type in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (ret_type', Label "~actual_rec")
+        in
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "wrapper")
+        in
+        let%bind f_body' = wrap f_body in
+        let f_body'' = new_expr_desc @@ Appl (proj_ed_1, f_body') in
+        let%bind wrapped_f = list_fold_right_m folder typed_params f_body'' in
+        let%bind typed_params' =
+          sequence
+          @@ List.map
+               (fun (p, t) ->
+                 let%bind t' = wrap t in
+                 return @@ (p, t'))
+               typed_params
+        in
+        let fun_sig' =
+          Typed_funsig (f, typed_params', (wrapped_f, ret_type'))
+        in
+        let%bind () = add_wrapped_to_unwrapped_mapping wrapped_f f_body in
+        return fun_sig'
+    | DTyped_funsig (f, ((Ident p as param), t), (f_body, ret_type)) ->
+        let%bind eta_arg = fresh_ident p in
+        let%bind arg_check = fresh_ident "arg_check" in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (t, Label "~actual_rec")
+        in
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
+        in
+        let%bind check_arg =
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
+        in
+        let%bind ret_type' = wrap ret_type in
+        let%bind appl_ed_1 =
+          new_instrumented_ed @@ mk_gc_pair_cod param ret_type' eta_arg
+        in
+        let%bind proj_ed_2_inner =
+          new_instrumented_ed @@ RecordProj (appl_ed_1, Label "~actual_rec")
+        in
+        let%bind proj_ed_2 =
+          new_instrumented_ed @@ RecordProj (proj_ed_2_inner, Label "wrapper")
+        in
+        let%bind f_body' = wrap f_body in
+        let f_body'' = new_expr_desc @@ Appl (proj_ed_2, f_body') in
+        let%bind assert_cls =
+          new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
+        in
+        let%bind cond =
+          new_instrumented_ed
+          @@ If (new_expr_desc @@ Var arg_check, f_body'', assert_cls)
+        in
+        let eta_body = Let (arg_check, check_arg, cond) in
+        let%bind wrapped_body =
+          new_instrumented_ed
+          @@ Appl
+               ( new_expr_desc
+                 @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
+                 new_expr_desc @@ Var param )
+        in
+        let%bind t' = wrap t in
+        let fun_sig' =
+          DTyped_funsig (f, (Ident p, t'), (wrapped_body, ret_type'))
+        in
+        return fun_sig'
+  in
   let e = e_desc.body in
   (* Using the original tag for now; may be buggy *)
   let tag = e_desc.tag in
@@ -2238,7 +2423,14 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
         let%bind type_decl' = wrap type_decl in
         let%bind e1' = wrap e1 in
         let%bind e2' = wrap e2 in
-        let res = new_expr_desc @@ LetWithType (x, e1', e2', type_decl') in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (type_decl', Label "~actual_rec")
+        in
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "wrapper")
+        in
+        let e1'' = new_expr_desc @@ Appl (proj_ed_1, e1') in
+        let res = new_expr_desc @@ LetWithType (x, e1'', e2', type_decl') in
         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
         return res
     | LetRecFunWithType (sig_lst, e) ->
@@ -2419,11 +2611,13 @@ let transform_bluejay ?(do_wrap = true) (e : syn_type_bluejay) :
         return (new_expr_desc e)
         >>= debug_transform_bluejay "initial" (fun e -> return e)
         >>= debug_transform_bluejay "typed bluejay phase one" semantic_type_of
+        >>= debug_transform_bluejay "bluejay wrap" wrap
         >>= debug_transform_bluejay "typed bluejay phase two" bluejay_to_jay
       else
         return (new_expr_desc e)
         >>= debug_transform_bluejay "initial" (fun e -> return e)
-        >>= debug_transform_bluejay "typed bluejay phase one" semantic_type_of
+        >>= debug_transform_bluejay "typed bluejay phase one"
+              (semantic_type_of ~do_wrap:false)
         >>= debug_transform_bluejay "typed bluejay phase two" bluejay_to_jay
     in
     let%bind bluejay_jay_map = bluejay_to_jay_maps in
