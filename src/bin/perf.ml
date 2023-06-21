@@ -2,19 +2,10 @@ open Core
 open Dj_common
 open Log.Export
 
-let logfile = Log.filename_with "perf.csv"
+let dummy_name = ""
 
-let perf_one_file short_name filename =
-  let raw_config =
-    {
-      Global_config.default_config with
-      filename;
-      timeout = Some (Time.Span.of_int_sec 5);
-      global_logfile = Some logfile;
-      (* global_logfile = None; *)
-    }
-  in
-  let config =
+let perf_one_file raw_config short_name filename =
+  let config : Global_config.t =
     match Test_expect.load_sexp_expectation_for filename with
     | Some eps ->
         let ep = List.hd_exn eps in
@@ -30,11 +21,28 @@ let perf_one_file short_name filename =
   let result = Dbmc.Main.main ~config src in
   Dbmc.Observe.dump_check_info short_name result.state
 
-let () =
-  let perf_path = "test/dbmc/simple" in
-  (* let perf_path = "test/dbmc" in *)
+let perf_group log_name encode_policy perf_path =
+  let logfile = Log.filename_with log_name in
+  let raw_config =
+    {
+      Global_config.default_config with
+      filename = dummy_name;
+      timeout = Some (Time_float.Span.of_int_sec 5);
+      encode_policy;
+      global_logfile = Some logfile;
+    }
+  in
   Log.init_global logfile ;
   PLog.debug (fun m -> m "file,total,resource") ;
+
   Directory_utils.iter_in_groups
-    ~f:(fun _ short_name test_path -> perf_one_file short_name test_path)
-    perf_path
+    ~f:(fun _ short_name test_path ->
+      perf_one_file raw_config short_name test_path)
+    perf_path ;
+  Log.close ()
+
+let () =
+  let perf_path = "test/dbmc/simple" in
+
+  perf_group "perf-inc.csv" Only_incremental perf_path ;
+  perf_group "perf-shr.csv" Always_shrink perf_path

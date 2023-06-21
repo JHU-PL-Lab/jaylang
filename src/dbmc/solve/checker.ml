@@ -59,8 +59,12 @@ let check_incremental (state : Global_state.t) (config : Global_config.t) :
   in
   solver_result
 
+let simplify_phis () = ()
+
 let check_shrink (state : Global_state.t) (config : Global_config.t) :
     (Z3.Model.model, 'a option) result =
+  simplify_phis () ;
+
   let phi_used_once = phi_fix state in
   let detail_lst = Global_state.detail_alist state in
 
@@ -90,7 +94,7 @@ let check_shrink (state : Global_state.t) (config : Global_config.t) :
             Fmt.(list ~sep:cut string)
             (List.map ~f:Z3.Expr.to_string phis_all)) ;
       state.phis_staging <- phis_all @ state.phis_staging) ;
-  let another_result =
+  let check_result =
     Solver.check ~verbose:config.debug_model state.solver state.phis_staging
       phi_used_once
   in
@@ -98,7 +102,7 @@ let check_shrink (state : Global_state.t) (config : Global_config.t) :
       m "Two (used once): %a"
         Fmt.(Dump.list string)
         (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
-  another_result
+  check_result
 
 let assert_equal_result r1 r2 =
   match (r1, r2) with
@@ -132,25 +136,23 @@ let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
 let check (state : Global_state.t) (config : Global_config.t) :
     result_info option =
   LLog.info (fun m -> m "Search Tree Size:\t%d" state.tree_size) ;
-  (*
-     match config.encode_policy with
-     | Only_incremental -> check_incremental state config
-     | Always_shrink -> check_reencode state config
-  *)
-  let solver_result = check_incremental state config in
-  let another_result = check_shrink state config in
-  assert_equal_result solver_result another_result ;
+  let solver_result =
+    match config.encode_policy with
+    | Only_incremental -> check_incremental state config
+    | Always_shrink ->
+        let solver_result = check_incremental state config in
+        let another_result = check_shrink state config in
+        assert_equal_result solver_result another_result ;
+        another_result
+  in
   Global_state.clear_phis state ;
   exactract_solver_result state config solver_result
-
-let simplify_phis () = ()
 
 let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
     stride =
   let is_checked, smt_time, check_result =
     if state.tree_size mod !stride = 0
     then (
-      simplify_phis () ;
       let t_start = Time_ns.now () in
       let check_result = check state config in
       let t_span = Time_ns.(diff (now ()) t_start) in
@@ -167,19 +169,6 @@ let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
   match check_result with
   | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
   | None -> Lwt.return_unit
-
-(* let step_eager_check (state : Global_state.t) (config : Global_config.t) target
-     assumption stride =
-   (* state.tree_size <- state.tree_size + 1 ; *)
-   if state.tree_size mod !stride = 0
-   then (
-     if !stride < config.stride_max
-     then (
-       stride := !stride * 2 ;
-       if !stride > config.stride_max then stride := config.stride_max )
-     ;
-     eager_check state config target assumption)
-   else true *)
 
 (* `check_phis` are used in ddse and dbmc-debug *)
 let check_phis solver phis is_debug : result_info option =
@@ -200,3 +189,16 @@ let check_phis solver phis is_debug : result_info option =
   | Result.Error _exps ->
       SLog.app (fun m -> m "UNSAT") ;
       None
+
+(* let step_eager_check (state : Global_state.t) (config : Global_config.t) target
+     assumption stride =
+   (* state.tree_size <- state.tree_size + 1 ; *)
+   if state.tree_size mod !stride = 0
+   then (
+     if !stride < config.stride_max
+     then (
+       stride := !stride * 2 ;
+       if !stride > config.stride_max then stride := config.stride_max )
+     ;
+     eager_check state config target assumption)
+   else true *)
