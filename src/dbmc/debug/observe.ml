@@ -19,8 +19,10 @@ let process_rstk_stat_map (config : Global_config.t) (state : Global_state.t) =
   let time_sum =
     List.sum (module Float) raw_plist ~f:(fun (k, d) -> d.smt_time)
   in
+
   ()
-(* PLog.info (fun m ->
+(* TODO: why this dumps to stdout? *)
+(* PLog.debug (fun m ->
     m "%a@;%f"
       Fmt.(vbox (list ~sep:cut (pair Rstack.pp_length Rstk_stat.pp)))
       srd_list time_sum) *)

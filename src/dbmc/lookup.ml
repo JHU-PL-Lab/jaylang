@@ -23,20 +23,20 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     match state.unroll with S_ddse unroll -> unroll | _ -> failwith "unroll"
   in
 
-  let module LS = (val (module struct
-                         let state = state
-                         let config = config
+  let module LS =
+    (val (module struct
+           let state = state
+           let config = config
 
-                         let add_phi key phi phis =
-                           let detail =
-                             Hashtbl.find_exn state.lookup_detail_map key
-                           in
-                           detail.phis <- phi :: detail.phis ;
-                           Set.add phis phi
+           let add_phi key phi phis =
+             let detail = Hashtbl.find_exn state.lookup_detail_map key in
+             detail.phis <- phi :: detail.phis ;
+             Set.add phis phi
 
-                         let block_map = state.block_map
-                         let unroll = unroll
-                       end) : Lookup_ddse_rule.S)
+           let block_map = state.block_map
+           let unroll = unroll
+         end)
+        : Lookup_ddse_rule.S)
   in
   let module R = Lookup_ddse_rule.Make (LS) in
   (* block works similar to env in a common interpreter *)
@@ -132,11 +132,13 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
           Unrolls.U_dbmc.alloc_task unroll ~task key)
   in
 
-  let module LS = (val (module struct
-                         let state = state
-                         let config = config
-                         let block_map = state.block_map
-                       end) : Lookup_rule.S)
+  let module LS =
+    (val (module struct
+           let state = state
+           let config = config
+           let block_map = state.block_map
+         end)
+        : Lookup_rule.S)
   in
   let module R = Lookup_rule.Make (LS) in
   let[@landmark] rec lookup (key : Lookup_key.t) () : unit Lwt.t =

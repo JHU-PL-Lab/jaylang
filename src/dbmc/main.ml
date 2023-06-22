@@ -103,9 +103,6 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
         Concrete_stack.pp c_stk) ;
   Observe.update_rstk_pick config state model ;
   handle_both config state (Some model) ;
-  print_endline @@ Concrete_stack.show c_stk ;
-
-  print_endline @@ string_of_int state.tree_size ;
 
   let inputs_from_interpreter = get_input ~config ~state model c_stk in
   (match config.mode with
@@ -163,10 +160,24 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
 
 (* entry functions *)
 
+let dump_result ~(config : Global_config.t) symbolic_result =
+  let dump_result symbolic_result =
+    match symbolic_result with
+    | None -> ()
+    | Some (model, c_stk) ->
+        (* Fmt.pr "%d" state.tree_size ; *)
+        Fmt.pr "%s" (Concrete_stack.show c_stk)
+  in
+  match config.mode with
+  | Dbmc_search -> dump_result symbolic_result
+  | Dbmc_check _ -> dump_result symbolic_result
+  | _ -> Fmt.pr "."
+
 let main_lwt ~config program =
   let state = Global_state.create config program in
   let%lwt inputss, is_timeout, symbolic_result = main_lookup ~config ~state in
   let result = { inputss; is_timeout; symbolic_result; state } in
+  dump_result ~config symbolic_result ;
   Lwt.return result
 
 let main ~config program = Lwt_main.run (main_lwt ~config program)
@@ -191,6 +202,7 @@ let from_commandline () =
          | Some inputs -> Fmt.pr "[%s]@;" (Std.string_of_inputs inputs)
          | None -> Fmt.pr "Unreachable")
      | Dbmc_check inputs -> Fmt.pr "%B" is_timeout
+     | Dbmc_perf -> Fmt.pr "."
      | _ -> ()
    with
   | Sys_error ex -> Fmt.pr "exception Sys_error(%s)" ex

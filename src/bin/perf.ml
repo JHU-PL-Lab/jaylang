@@ -18,6 +18,7 @@ let perf_one_file raw_config short_name filename =
   in
   let is_instrumented = config.is_instrumented in
   let src = File_utils.read_source ~is_instrumented filename in
+
   let result = Dbmc.Main.main ~config src in
   Dbmc.Observe.dump_check_info short_name result.state
 
@@ -28,6 +29,7 @@ let perf_group log_name encode_policy perf_path =
       Global_config.default_config with
       filename = dummy_name;
       timeout = Some (Time_float.Span.of_int_sec 5);
+      mode = Global_config.Dbmc_perf;
       encode_policy;
       global_logfile = Some logfile;
     }

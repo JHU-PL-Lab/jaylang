@@ -5,7 +5,7 @@ exception GenComplete
 
 type ddpa_c_stk = C_0ddpa | C_1ddpa | C_2ddpa | C_kddpa of int
 and engine = E_dbmc | E_ddse
-and mode = Dbmc_search | Dbmc_check of int option list | Sato
+and mode = Dbmc_search | Dbmc_check of int option list | Dbmc_perf | Sato
 and encode_policy = Only_incremental | Always_shrink
 
 and t = {
