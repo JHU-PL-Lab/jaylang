@@ -1,0 +1,17 @@
+let max x1 x2 = 
+    if x1 > x2 then x1 else x2
+in
+let abs n = 
+    if n > 0 then n else (0-1) * n
+in
+let tree_type = Mu tt. ({: left : tt, right : tt :} || {: leaf : int :}) in
+let (x : {. tree_type | fun a -> false }) = 
+    { left = 
+        { left = 
+            { left = 
+                { leaf = 0 }
+            , right = { leaf = 0}
+            }
+        , right = {leaf = 0} }
+    , right = { leaf = 0 } }
+in x

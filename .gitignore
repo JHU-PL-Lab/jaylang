@@ -51,3 +51,12 @@ benchmark/result
 /_notes
 *.txt
 vendor
+
+# paper related
+/docs/sato/paper
+/paper/main.aux
+/paper/main.fdb_latexmk
+/paper/main.out
+/paper/main.log
+/paper/main.fls
+/paper/main.synctex.gz

@@ -1,0 +1,5 @@
+let (r : {: a : int :}) = {a = 1, b = 2} in
+let (r2 : {: a : int, b : int :}) = r in
+match r2 with
+| {a = x, _} -> r2.b
+end

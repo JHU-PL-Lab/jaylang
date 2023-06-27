@@ -1,0 +1,6 @@
+let test = 
+    let i = input in 
+    fun y -> 
+        (fun x -> x) i
+in
+assert (test 0 == test 1)

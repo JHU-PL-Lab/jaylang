@@ -1,0 +1,11 @@
+let set_m = 
+  { emptyset = []
+  , add = fun x -> fun s -> x
+  }
+in
+let set_m_type =
+  {: emptyset : List 'a
+   , add : 'a -> (List 'a) -> (List 'a)
+  :}
+in
+let (check_type : set_m_type) = set_m in check_type 

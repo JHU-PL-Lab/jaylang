@@ -1,0 +1,11 @@
+let set_m = 
+  { emptyset = []
+  }
+in
+let set_m_type =
+  let t = List int in
+  {: emptyset : t
+   , add : int -> List int -> List int
+  :}
+in
+let (check_type : set_m_type) = set_m in check_type 

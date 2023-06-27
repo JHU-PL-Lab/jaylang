@@ -39,8 +39,6 @@ let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
     match remaining_targets with
     | [] -> (None, has_timeout)
     | hd :: tl -> (
-        let () = print_endline "Lookup target: " in
-        let () = print_endline @@ show_ident hd in
         let dbmc_config = { dbmc_config_init with target = hd } in
         (* Right now we're stopping after one error is found. *)
         try
@@ -50,6 +48,8 @@ let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
           in
           match List.hd inputss with
           | Some inputs -> (
+              let () = print_endline "Lookup target: " in
+              let () = print_endline @@ show_ident hd in
               let history = ref inputs in
               let session =
                 {
@@ -96,6 +96,28 @@ let main_commandline () =
     File_utils.read_source_sato ~do_wrap:sato_config.do_wrap
       ~do_instrument:sato_config.do_instrument sato_config.filename
   in
+  let output_parsable = sato_config.output_parsable in
+  if output_parsable
+  then (
+    let og_file =
+      Filename.chop_extension @@ Filename.basename @@ sato_config.filename
+    in
+    let new_file = og_file ^ "_instrumented.jil" in
+    let oc = Out_channel.create new_file in
+    let formatter = Format.formatter_of_out_channel oc in
+    let purged_expr =
+      program
+      |> Jayil.Ast_tools.map_expr_ids (fun (Ident id) ->
+             let id' =
+               id
+               |> String.substr_replace_all ~pattern:"~" ~with_:"bj_"
+               |> String.substr_replace_all ~pattern:"'" ~with_:"tick"
+               |> String.chop_prefix_if_exists ~prefix:"_"
+             in
+             Ident id')
+    in
+    Format.fprintf formatter "%a" Jayil.Pp.expr purged_expr ;
+    Out_channel.close oc) ;
   let errors_res =
     main_from_program ~config:sato_config odefa_inst_maps on_to_odefa_maps_opt
       ton_to_on_mapts_opt program

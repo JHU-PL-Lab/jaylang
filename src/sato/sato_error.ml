@@ -782,6 +782,11 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let jayil_aliases_with_stack = err.err_value_aliases in
       (* This is the stack of the "false" value that indicates where the error
          is located. *)
+      let () =
+        Fmt.pr "\nThese are the aliases: %a \n"
+          (Fmt.list Id_with_stack.pp)
+          jayil_aliases_with_stack
+      in
       let relevant_stk =
         match List.last jayil_aliases_with_stack with
         | Some (_, final_stk) -> final_stk
@@ -846,6 +851,11 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         |> List.map ~f:(Sato_tools.find_alias alias_graph)
         |> List.concat
       in
+      let () =
+        Fmt.pr "\n\n\nThese are the jayil_vars_with_stack: %a\n\n\n"
+          (Fmt.list Id_with_stack.pp)
+          jayil_vars_with_stack
+      in
       (* Helper function for looking up the value definition clause *)
       let rec find_val
           (vdef_mapping :
@@ -857,6 +867,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         | [] -> failwith "Should at least find one value!"
         | hd :: tl -> (
             let found = Hashtbl.find vdef_mapping hd in
+            (* let () =
+                 Fmt.pr "This is the variable we're looking for: %a \n"
+                   Id_with_stack.pp hd
+               in *)
             match found with
             | Some (_, dv) -> (dv, hd)
             | None -> find_val vdef_mapping tl)
@@ -887,6 +901,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                jayil_jay_maps x *)
           |> Jay_translate.Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr
                jayil_jay_maps
+             (* TODO: This is the problem here *)
           |> Option.value_exn
           |> (fun (Ast.Var (x, _)) ->
                Sato_tools.find_alias_without_stack alias_graph x)
@@ -924,13 +939,15 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           Bluejay_ast_internal.syn_bluejay_edesc =
         let open Bluejay_ast_internal in
         let type_expr_opt =
-          if is_type_expr ed then Some ed else check_aliases_for_type ed
+          if is_type_expr ed
+          then Some ed
+          else try check_aliases_for_type ed with _ex -> None
         in
         let resolve_type ted =
           let tag = ted.tag in
           let e = ted.body in
           match e with
-          | TypeVar _ | TypeInt | TypeBool -> ted
+          | TypeVar _ | TypeUntouched _ | TypeInt | TypeBool -> ted
           | TypeRecord r ->
               let body' = TypeRecord (Ident_map.map type_resolution r) in
               { tag; body = body' }
@@ -1146,6 +1163,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                    Bluejay_ast_pp.pp_expr_desc_without_tag t
                in *)
             let t_internal = t |> Bluejay_ast_internal.to_internal_expr_desc in
+            (* let resolved_t = type_resolution t_internal in *)
             let resolved_t = type_resolution t_internal in
             (resolved_t, ret)
         | LetFunWithType (fun_sig, _) -> (
@@ -1317,6 +1335,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
               in
               Bluejay_ast_internal.new_expr_desc @@ TypeUntouched symbol_purged
             else
+              let () =
+                Fmt.pr "\n \n This is the original jayil error var: %a \n \n"
+                  Jayil.Pp.id err_val_var
+              in
               let jay_expr = jayil_to_jay_expr err_val_var in
               match jay_expr with
               | None -> failwith "jayil_to_bluejay_error: TBI!"
@@ -1357,8 +1379,8 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         in
         if Bluejay_ast_internal.equal_expr_desc replaced expected_type
         then
-          new_t
-          (* Bluejay_ast_internal.new_expr_desc @@ TypeError (Ident "Type unknown") *)
+          (* new_t *)
+          Bluejay_ast_internal.new_expr_desc @@ TypeError (Ident "Type unknown")
         else replaced
       in
       let actual_type_external =

@@ -1,0 +1,7 @@
+let e (f : int -> int -> int) : bool = 
+    let f5 = f 5 in
+    let f51 = f5 1 in
+    let f52 = f5 2 in
+    if (not (f51 == f52)) then 1 else true
+in
+e

@@ -271,7 +271,7 @@ and pp_expr (formatter : Format.formatter) (expr : expr) : unit =
       if expr_precedence_cmp expr e.body < 0
       then Format.fprintf formatter "assume %a" pp_expr_desc e
       else Format.fprintf formatter "assume (%a)" pp_expr_desc e
-  | TypeError x -> Format.fprintf formatter "%a" pp_ident x
+  | TypeError x -> Format.fprintf formatter "TypeError: %a" pp_ident x
   | TypeVar v -> Format.fprintf formatter "%a" pp_ident v
   | TypeInt -> Format.pp_print_string formatter "int"
   | TypeBool -> Format.pp_print_string formatter "bool"

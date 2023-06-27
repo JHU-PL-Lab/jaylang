@@ -1,0 +1,24 @@
+let rec is_sorted l = 
+    match l with
+    | [] -> true
+    | hd :: tl -> 
+        match tl with
+        | [] -> true
+        | hd2 :: tl -> (hd <= hd2) and is_sorted tl
+        end
+    end
+in
+let insertion_sort 
+    (insert : {. List int | is_sorted} -> int -> {. List int | is_sorted}) 
+    (l : List int) 
+    : {. List int | is_sorted } =
+    let rec foldl f acc l =
+        match l with
+        | [] -> acc
+        | hd :: tl -> foldl f (f acc hd) tl
+        end
+    in
+    foldl insert [1] l
+in
+insertion_sort
+

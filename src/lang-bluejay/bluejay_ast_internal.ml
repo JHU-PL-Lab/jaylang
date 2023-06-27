@@ -1386,7 +1386,7 @@ let is_type_expr (ed : syn_bluejay_edesc) : bool =
   match ed.body with
   | TypeVar _ | TypeInt | TypeBool | TypeRecord _ | TypeList _ | TypeArrow _
   | TypeArrowD _ | TypeUnion _ | TypeIntersect _ | TypeSet _ | TypeRecurse _
-  | TypeVariant _ ->
+  | TypeVariant _ | TypeUntouched _ ->
       true
   | _ -> false
 

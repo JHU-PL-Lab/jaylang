@@ -18,26 +18,42 @@ let find_alias graph x_with_stk =
   in
   loop [] x_with_stk
 
+(* let find_alias_without_stack graph x : Dj_common.Id_with_stack.t list list =
+   let init_set = Hash_set.create (module Dj_common.Id_with_stack) in
+   let alias_sets = Hash_set.create (module Dj_common.Id_with_stack) in
+   let xs =
+     Interpreter.G.fold_vertex
+       (fun ((i, _) as x_with_stk) acc ->
+         let check_seen ls =
+           List.exists
+             ~f:(fun aliases ->
+               List.mem aliases x_with_stk ~equal:Dj_common.Id_with_stack.equal)
+             ls
+         in
+         if Jayil.Ast.Ident.equal x i && (not @@ check_seen acc)
+         then
+           let new_aliases = find_alias graph x_with_stk in
+           new_aliases :: acc
+         else acc)
+       graph []
+   in
+   xs *)
+
 let find_alias_without_stack graph x : Dj_common.Id_with_stack.t list list =
-  let init_set = Hash_set.create (module Dj_common.Id_with_stack) in
-  let alias_sets = Hash_set.create (module Dj_common.Id_with_stack) in
+  (* let init_set = Hash_set.create (module Dj_common.Id_with_stack) in
+     let alias_sets = Hash_set.create (module Dj_common.Id_with_stack) in *)
   let xs =
     Interpreter.G.fold_vertex
       (fun ((i, _) as x_with_stk) acc ->
-        let check_seen ls =
-          List.exists
-            ~f:(fun aliases ->
-              List.mem aliases x_with_stk ~equal:Dj_common.Id_with_stack.equal)
-            ls
+        let () =
+          Fmt.pr "\nThis is the x_with_stk: %a\n" Dj_common.Id_with_stack.pp
+            x_with_stk
         in
-        if Jayil.Ast.Ident.equal x i && (not @@ check_seen acc)
-        then
-          let new_aliases = find_alias graph x_with_stk in
-          new_aliases :: acc
-        else acc)
+        if Jayil.Ast.Ident.equal x i then x_with_stk :: acc else acc)
       graph []
   in
-  xs
+  let aliases = xs |> List.map ~f:(find_alias graph) in
+  aliases
 
 let get_expected_type_from_operator op =
   match op with

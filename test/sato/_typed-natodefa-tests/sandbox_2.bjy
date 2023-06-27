@@ -1,0 +1,1 @@
+let (o : int) = (fun x -> x x) (fun x -> x x) in o
