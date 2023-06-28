@@ -1,11 +1,22 @@
 open! Core
 
+type lang = Jayil | Jay | Bluejay [@@deriving show]
+
 let jayil_exts = [ "jil"; "odefa" ]
 let jay_exts = [ "jay"; "natodefa" ]
 let bluejay_exts = [ "bjy"; "tnat" ]
 let check_jayil_ext s = List.exists jayil_exts ~f:(Filename.check_suffix s)
 let check_jay_ext s = List.exists jay_exts ~f:(Filename.check_suffix s)
 let check_bluejay_ext s = List.exists bluejay_exts ~f:(Filename.check_suffix s)
+
+let lang_from_file s =
+  if check_bluejay_ext s
+  then Bluejay
+  else if check_jay_ext s
+  then Jay
+  else if check_jayil_ext s
+  then Jayil
+  else failwith "file extension must be .jil, .jay, or .bjy"
 
 let check_upto_jay s =
   List.exists (jayil_exts @ jay_exts) ~f:(Filename.check_suffix s)

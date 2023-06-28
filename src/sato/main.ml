@@ -1,85 +1,68 @@
 open Core
 open Jayil.Ast
 open Jay_translate.Jay_to_jayil_maps
-open Sato_args
 open Sato_result
 
-let create_initial_dmbc_config (sato_config : Sato_args.t) :
-    Dj_common.Global_config.t =
-  (* Extract basic configuration from sato args *)
-  let open Dj_common in
-  let filename = sato_config.filename in
-  let ddpa_ver = sato_config.ddpa_c_stk in
-  let max_step = sato_config.run_max_step in
-  let timeout = sato_config.timeout in
-  let open Dj_common.Global_config in
-  {
-    Global_config.default_config with
-    filename;
-    engine = E_dbmc;
-    is_instrumented = false;
-    mode = Sato;
-    ddpa_c_stk = ddpa_ver;
-    run_max_step = max_step;
-    timeout;
-  }
-
-let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
-    reported_error option * bool =
-  let dbmc_config_init = create_initial_dmbc_config config in
+let main_from_program_lwt ~config inst_maps odefa_to_on_opt ton_to_on_opt
+    program : (reported_error option * bool) Lwt.t =
+  let dbmc_config_init = Sato_args.sato_to_dbmc_config config in
   Dj_common.Log.init dbmc_config_init ;
-  let sato_mode = config.sato_mode in
   let init_sato_state =
-    Sato_state.initialize_state_with_expr sato_mode program inst_maps
+    Sato_state.initialize_state_with_expr config.sato_mode program inst_maps
       odefa_to_on_opt ton_to_on_opt
   in
   let target_vars = init_sato_state.target_vars in
   let rec search_all_targets (remaining_targets : ident list)
-      (has_timeout : bool) : reported_error option * bool =
+      (has_timeout : bool) : (reported_error option * bool) Lwt.t =
     match remaining_targets with
-    | [] -> (None, has_timeout)
+    | [] -> Lwt.return (None, has_timeout)
     | hd :: tl -> (
         let dbmc_config = { dbmc_config_init with target = hd } in
         (* Right now we're stopping after one error is found. *)
         try
           let open Dbmc in
-          let Main.{ inputss; state = dbmc_state; is_timeout; _ } =
-            Dbmc.Main.main ~config:dbmc_config program
+          let%lwt { inputss; state = dbmc_state; is_timeout; _ } =
+            Dbmc.Main.main_lwt ~config:dbmc_config program
           in
           match List.hd inputss with
           | Some inputs -> (
               let () = print_endline "Lookup target: " in
               let () = print_endline @@ show_ident hd in
-              let history = ref inputs in
               let session =
                 {
                   (Interpreter.make_default_session ()) with
-                  input_feeder = Input_feeder.from_list inputs ~history;
+                  input_feeder = Input_feeder.from_list inputs;
                 }
               in
               try Interpreter.eval session program
               with Interpreter.Found_abort ab_clo -> (
                 match ab_clo with
-                | AbortClosure final_env -> (
-                    match sato_mode with
-                    | Bluejay ->
-                        let errors =
-                          Sato_result.Bluejay_type_errors.get_errors
-                            init_sato_state dbmc_state session final_env inputs
-                        in
-                        (Some (Bluejay_error errors), has_timeout)
-                    | Jay ->
-                        let errors =
-                          Sato_result.Jay_type_errors.get_errors init_sato_state
-                            dbmc_state session final_env inputs
-                        in
-                        (Some (Jay_error errors), has_timeout)
-                    | Jayil ->
-                        let errors =
-                          Sato_result.Jayil_type_errors.get_errors
-                            init_sato_state dbmc_state session final_env inputs
-                        in
-                        (Some (Jayil_error errors), has_timeout))
+                | AbortClosure final_env ->
+                    let result =
+                      match config.sato_mode with
+                      | Bluejay ->
+                          let errors =
+                            Sato_result.Bluejay_type_errors.get_errors
+                              init_sato_state dbmc_state session final_env
+                              inputs
+                          in
+                          (Some (Bluejay_error errors), has_timeout)
+                      | Jay ->
+                          let errors =
+                            Sato_result.Jay_type_errors.get_errors
+                              init_sato_state dbmc_state session final_env
+                              inputs
+                          in
+                          (Some (Jay_error errors), has_timeout)
+                      | Jayil ->
+                          let errors =
+                            Sato_result.Jayil_type_errors.get_errors
+                              init_sato_state dbmc_state session final_env
+                              inputs
+                          in
+                          (Some (Jayil_error errors), has_timeout)
+                    in
+                    Lwt.return result
                 | _ -> failwith "Shoud have run into abort here!"))
           | None ->
               if is_timeout
@@ -90,18 +73,15 @@ let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
   in
   search_all_targets target_vars false
 
-let main_commandline () =
-  let sato_config = Argparse.parse_commandline_config () in
-  let program, odefa_inst_maps, on_to_odefa_maps_opt, ton_to_on_mapts_opt =
-    File_utils.read_source_sato ~do_wrap:sato_config.do_wrap
-      ~do_instrument:sato_config.do_instrument sato_config.filename
-  in
-  let output_parsable = sato_config.output_parsable in
+let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program =
+  Lwt_main.run
+    (main_from_program_lwt ~config inst_maps odefa_to_on_opt ton_to_on_opt
+       program)
+
+let do_output_parsable program filename output_parsable =
   if output_parsable
   then (
-    let og_file =
-      Filename.chop_extension @@ Filename.basename @@ sato_config.filename
-    in
+    let og_file = Filename.chop_extension (Filename.basename filename) in
     let new_file = og_file ^ "_instrumented.jil" in
     let oc = Out_channel.create new_file in
     let formatter = Format.formatter_of_out_channel oc in
@@ -117,12 +97,20 @@ let main_commandline () =
              Ident id')
     in
     Format.fprintf formatter "%a" Jayil.Pp.expr purged_expr ;
-    Out_channel.close oc) ;
-  let errors_res =
-    main_from_program ~config:sato_config odefa_inst_maps on_to_odefa_maps_opt
-      ton_to_on_mapts_opt program
+    Out_channel.close oc)
+
+let main_commandline () =
+  let sato_config = Argparse.parse_commandline_config () in
+  let program, odefa_inst_maps, on_to_odefa_maps_opt, ton_to_on_mapts_opt =
+    File_utils.read_source_sato ~do_wrap:sato_config.do_wrap
+      ~do_instrument:sato_config.do_instrument sato_config.filename
   in
+  do_output_parsable program sato_config.filename sato_config.output_parsable ;
   let () =
+    let errors_res =
+      main_from_program ~config:sato_config odefa_inst_maps on_to_odefa_maps_opt
+        ton_to_on_mapts_opt program
+    in
     match errors_res with
     | None, false -> print_endline @@ "No errors found."
     | None, true ->

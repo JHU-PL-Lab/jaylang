@@ -2,11 +2,11 @@ open Core
 open Jayil.Ast
 open Jay_translate
 
-type mode = Sato_args.mode = Jayil | Jay | Bluejay [@@deriving show]
+type mode = Dj_common.File_utils.lang
 
 type t = {
   (* basic *)
-  sato_mode : mode;
+  sato_mode : Dj_common.File_utils.lang;
   program : expr;
   (* book-keeping *)
   abort_mapping : (Ident_new.t, abort_value) Hashtbl.t;

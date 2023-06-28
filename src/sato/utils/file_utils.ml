@@ -4,15 +4,6 @@ open Jay
 open Bluejay
 open Jay_translate
 
-let mode_from_file s =
-  if Dj_common.File_utils.check_bluejay_ext s
-  then Sato_args.Bluejay
-  else if Dj_common.File_utils.check_jay_ext s
-  then Sato_args.Jay
-  else if Dj_common.File_utils.check_jayil_ext s
-  then Sato_args.Jayil
-  else failwith "file extension must be .jil, .jay, or .bjy"
-
 let read_source_sato ?(do_wrap = false) ?(do_instrument = true) filename =
   let program =
     if Dj_common.File_utils.check_bluejay_ext filename

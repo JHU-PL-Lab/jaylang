@@ -167,39 +167,42 @@ let is_error_expected (actual : Sato_result.reported_error)
   let () = print_endline @@ Test_expect.show expected in
   Test_expect.equal expected actual_error
 
-let test_one_file testname () =
+let test_one_file_lwt testname _switch () =
   let program, odefa_inst_maps, on_to_odefa_maps_opt, ton_to_on_maps_opt =
     File_utils.read_source_sato testname
   in
   let config : Sato_args.t =
     {
       filename = testname;
-      sato_mode = File_utils.mode_from_file testname;
+      sato_mode = Dj_common.File_utils.lang_from_file testname;
       ddpa_c_stk = Sato_args.default_ddpa_c_stk;
       do_wrap = false;
       do_instrument = true;
       output_parsable = false;
-      timeout = Some (Time.Span.of_int_sec 2);
+      timeout = Some (Time_float.Span.of_int_sec 2);
       run_max_step = None;
     }
   in
-  let errors_opt, _ =
-    Main.main_from_program ~config odefa_inst_maps on_to_odefa_maps_opt
+  let%lwt errors_opt, _ =
+    Main.main_from_program_lwt ~config odefa_inst_maps on_to_odefa_maps_opt
       ton_to_on_maps_opt program
   in
   let expectation = Test_expect.load_sexp_expectation_for testname in
-  match expectation with
-  | None ->
-      Alcotest.(check bool)
-        "Expect no type errors" true
-        (Option.is_none errors_opt)
-  | Some expected -> (
-      match errors_opt with
-      | None -> Alcotest.(check bool) "Expect type error!" true false
-      | Some error ->
-          Alcotest.(check bool)
-            "Type error matches expected" true
-            (is_error_expected error expected))
+  let test_result =
+    match expectation with
+    | None ->
+        Alcotest.(check bool)
+          "Expect no type errors" true
+          (Option.is_none errors_opt)
+    | Some expected -> (
+        match errors_opt with
+        | None -> Alcotest.(check bool) "Expect type error!" true false
+        | Some error ->
+            Alcotest.(check bool)
+              "Type error matches expected" true
+              (is_error_expected error expected))
+  in
+  Lwt.return @@ test_result
 
 let main test_path =
   let grouped_testfiles = group_all_files test_path in
@@ -207,9 +210,10 @@ let main test_path =
     List.map grouped_testfiles ~f:(fun (group_name, test_names) ->
         ( group_name,
           List.map test_names ~f:(fun testname ->
-              Alcotest.test_case testname `Quick @@ test_one_file testname) ))
+              Alcotest_lwt.test_case testname `Quick
+              @@ test_one_file_lwt testname) ))
   in
-  Alcotest.run "Sato" grouped_tests ;
+  Lwt_main.run @@ Alcotest_lwt.run "Sato" grouped_tests ;
   ()
 
 let () = main "test/sato"
