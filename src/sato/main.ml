@@ -12,6 +12,7 @@ let main_from_program_lwt ~config inst_maps odefa_to_on_opt ton_to_on_opt
       odefa_to_on_opt ton_to_on_opt
   in
   let target_vars = init_sato_state.target_vars in
+  Fmt.pr "[SATO] #tgt=%d@.@?" (List.length target_vars) ;
   let rec search_all_targets (remaining_targets : ident list)
       (has_timeout : bool) : (reported_error option * bool) Lwt.t =
     match remaining_targets with
@@ -21,6 +22,9 @@ let main_from_program_lwt ~config inst_maps odefa_to_on_opt ton_to_on_opt
         (* Right now we're stopping after one error is found. *)
         try
           let open Dbmc in
+          Fmt.pr "[SATO] #tgt=%a  #s=%a@.@?" Ident.pp hd
+            (Fmt.option Time_float.Span.pp)
+            dbmc_config.timeout ;
           let%lwt { inputss; state = dbmc_state; is_timeout; _ } =
             Dbmc.Main.main_lwt ~config:dbmc_config program
           in

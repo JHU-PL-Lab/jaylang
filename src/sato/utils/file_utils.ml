@@ -88,4 +88,5 @@ let read_source_sato ?(do_wrap = false) ?(do_instrument = true) filename =
       (post_inst_ast, odefa_inst_maps, None, None))
     else failwith "file extension must be .jil, .jay, or .bjy"
   in
+  Fmt.pr "@?" ;
   program
