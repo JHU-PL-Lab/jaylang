@@ -152,6 +152,9 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
   | Riddler.Found_solution { model; c_stk } ->
       Lwt.return (handle_found config state model c_stk)
   | Lwt_unix.Timeout -> Lwt.return @@ post_check true
+  | exn ->
+      (* failwith "my z3 timeout" *)
+      Lwt.return @@ handle_not_found config state true
 
 (* The main function should have only one function that doing all the work.
     The function is configured by a pre-tuned argument config.

@@ -3,6 +3,16 @@ open Dj_common.Log.Export
 
 let ctx = Z3.mk_context []
 
+let set_timeout_sec ctx sec =
+  match sec with
+  | None -> ()
+  | Some sec ->
+      let time_s =
+        sec |> Time_float.Span.to_sec |> Float.iround_up_exn |> fun t ->
+        t * 1000 |> string_of_int
+      in
+      Z3.Params.update_param_value ctx "timeout" time_s
+
 module SuduZ3 = Sudu.Z3_api.Make (struct
   let ctx = ctx
 end)

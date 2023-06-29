@@ -11,6 +11,7 @@ let create (config : Global_config.t) program =
     | Global_config.E_dbmc -> S_dbmc (Unrolls.U_dbmc.create ())
     | Global_config.E_ddse -> S_ddse (Unrolls.U_ddse.create ())
   in
+  Solver.set_timeout_sec Solver.ctx config.timeout ;
   let state =
     {
       first = Jayil.Ast_tools.first_id program;
