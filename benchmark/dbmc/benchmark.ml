@@ -112,7 +112,7 @@ let rec countdown n task : unit t =
 
 let read_config () =
   let engine = ref "dbmc" in
-  let config_path = ref "benchmark/config.s" in
+  let config_path = ref "benchmark/dbmc/config.s" in
 
   Arg.parse
     [

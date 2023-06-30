@@ -6,6 +6,7 @@ BUILD_SRC = _build/default/src
 BUILD_BIN = _build/default/src/bin
 BUILD_TEST = _build/default/src-test
 TEST_D = test/dbmc
+BENCH_D = benchmark/dbmc
 
 
 all: dbmc sato translator
@@ -101,19 +102,16 @@ ll:
 # benchmark
 
 benchmark:
-	dune exec benchmark/benchmark.exe -- -e dbmc
-# dune exec benchmark/benchmark.exe -- -e ddse
+	dune exec $(BENCH_D)/benchmark.exe -- -e dbmc
+# dune exec $(BENCH_D)/benchmark.exe -- -e ddse
 
 benchmark-icfp-artifact:
-	dune exec benchmark/benchmark.exe -- -e dbmc -f benchmark/icfp20-artifact.s
-# dune exec benchmark/benchmark.exe -- -e ddse -f benchmark/icfp20-artifact.s
+	dune exec $(BENCH_D)/benchmark.exe -- -e dbmc -f $(BENCH_D)/icfp20-artifact.s
+# dune exec $(BENCH_D)/benchmark.exe -- -e ddse -f $(BENCH_D)/icfp20-artifact.s
 
 b1:
-	dune exec benchmark/benchmark.exe -- -e dbmc -f benchmark/neo.s
-
-b2:
-	dune exec benchmark/benchmark.exe -- -e ddse -f benchmark/neo.s
-
+	dune exec $(BENCH_D)/benchmark.exe -- -e dbmc -f $(BENCH_D)/neo.s
+#	dune exec $(BENCH_D)/benchmark.exe -- -e ddse -f $(BENCH_D)/neo.s
 
 # legacy
 
