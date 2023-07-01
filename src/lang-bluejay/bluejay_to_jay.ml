@@ -79,10 +79,7 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
          here.
 
          tv -> (tv tv) *)
-      let%bind res =
-        new_instrumented_ed
-        @@ Appl (new_expr_desc (Var tvar), new_expr_desc (Var tvar))
-      in
+      let res = new_expr_desc @@ Var tvar in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
   | TypeInt ->
@@ -1346,16 +1343,95 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
       return res
   | TypeRecurse (t_var, t') ->
       (* For recursive types, we're really setting up the bootstrap here. *)
-      let%bind gc_pair = semantic_type_of t' in
-      let%bind primer_id = fresh_ident "primer" in
-      let%bind appl_ed =
+      let%bind self_id = fresh_ident "self" in
+      let%bind x_id = fresh_ident "x" in
+      let%bind f_id = fresh_ident "f" in
+      let%bind ycomb_id = fresh_ident "ycomb" in
+      let%bind inner_appl =
         new_instrumented_ed
-        @@ Appl (new_expr_desc @@ Var primer_id, new_expr_desc @@ Var primer_id)
+        @@ Appl (new_expr_desc @@ Var x_id, new_expr_desc @@ Var x_id)
+      in
+      let%bind inner_appl_2 =
+        new_instrumented_ed
+        @@ Appl (new_expr_desc @@ Var x_id, new_expr_desc @@ Var x_id)
+      in
+      let ycomb_inner = Function ([ x_id ], inner_appl) in
+      let ycomb_inner_2 = Function ([ x_id ], inner_appl_2) in
+      let%bind inner_appl_3 =
+        new_instrumented_ed
+        @@ Appl (new_expr_desc ycomb_inner, new_expr_desc ycomb_inner_2)
+      in
+      let ycomb = Function ([ f_id ], inner_appl_3) in
+      (* let%bind appl_ed =
+           new_instrumented_ed
+           @@ Appl (new_expr_desc @@ Var primer_id, new_expr_desc @@ Var primer_id)
+         in *)
+      (* let res =
+           new_expr_desc
+           @@ Let
+                (primer_id, new_expr_desc @@ Function ([ t_var ], gc_pair), appl_ed)
+         in *)
+      let%bind generator =
+        let%bind gc_pair_g = semantic_type_of t' in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair_g, Label "~actual_rec")
+        in
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "generator")
+        in
+        let%bind appl_ed =
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Int 0)
+        in
+        let generator_body_1 = new_expr_desc @@ Function ([ t_var ], appl_ed) in
+        let%bind generator_body_2 =
+          new_instrumented_ed
+          @@ Appl (generator_body_1, new_expr_desc @@ Var self_id)
+        in
+        return @@ Function ([ Ident "~null" ], generator_body_2)
+      in
+      let%bind checker =
+        let%bind gc_pair_c = semantic_type_of t' in
+        let%bind expr_id = fresh_ident "expr" in
+        let%bind proj_ed_1_inner =
+          new_instrumented_ed @@ RecordProj (gc_pair_c, Label "~actual_rec")
+        in
+        let%bind proj_ed_1 =
+          new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
+        in
+        let%bind appl_ed =
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var expr_id)
+        in
+        let checker_body_1 = new_expr_desc @@ Function ([ t_var ], appl_ed) in
+        let%bind checker_body_2 =
+          new_instrumented_ed
+          @@ Appl (checker_body_1, new_expr_desc @@ Var self_id)
+        in
+        return @@ Function ([ expr_id ], checker_body_2)
+      in
+      let%bind wrapper =
+        let%bind expr_id = fresh_ident "expr" in
+        return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
+      in
+      let rec_map =
+        if do_wrap
+        then
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+          |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+        else
+          Ident_map.empty
+          |> Ident_map.add (Ident "generator") (new_expr_desc generator)
+          |> Ident_map.add (Ident "checker") (new_expr_desc checker)
+      in
+      let type_rec =
+        new_expr_desc @@ Function ([ self_id ], new_expr_desc @@ Record rec_map)
+      in
+      let%bind appl_ycomb =
+        new_instrumented_ed @@ Appl (new_expr_desc @@ Var ycomb_id, type_rec)
       in
       let res =
-        new_expr_desc
-        @@ Let
-             (primer_id, new_expr_desc @@ Function ([ t_var ], gc_pair), appl_ed)
+        new_expr_desc @@ Let (ycomb_id, new_expr_desc ycomb, appl_ycomb)
       in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res

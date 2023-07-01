@@ -1,0 +1,7 @@
+let mk_rec age = 
+    if age >= 18 then {: age : int, employed : bool :} else {: age : int :} 
+in
+letd mk_student (n : int) : bool -> (mk_rec n) = fun employed ->
+    if n > 18 then {age = n, employed = employed} else {age = n}
+in
+mk_student
