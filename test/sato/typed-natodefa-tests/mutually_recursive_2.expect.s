@@ -3,5 +3,5 @@
  (number_of_errors 1)
  (error_list
   ((Type_error
-    ((t_var g) (t_expected_type "(int -> int)")
-     (t_actual_type "(int -> bool)"))))))
+    ((t_var f) (t_expected_type "(int -> bool)")
+     (t_actual_type "(int -> int)"))))))

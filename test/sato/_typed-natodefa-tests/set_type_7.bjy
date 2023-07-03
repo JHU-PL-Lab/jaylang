@@ -1,10 +1,2 @@
-let tree_type = Mu tt. ({: left : tt, right : tt :} || {: leaf : int :}) in
-let (x : {. tree_type | fun a -> false }) = 
-    { left = 
-        { left = 
-            { left = 
-                { left = {leaf = 0}, right = {leaf = 0}} , 
-              right = {leaf = 0}} , 
-          right = {leaf = 0} }, 
-      right = { leaf = 0 } }
-in x
+let tree_type = Mu tt. tt in
+let (x : tree_type) = 1 in x

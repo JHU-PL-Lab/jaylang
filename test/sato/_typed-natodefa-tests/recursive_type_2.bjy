@@ -1,0 +1,1 @@
+let (x : Mu tt. tt) = 1 in x

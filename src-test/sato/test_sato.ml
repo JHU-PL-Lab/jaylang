@@ -216,5 +216,6 @@ let main test_path =
   Lwt_main.run @@ Alcotest_lwt.run "Sato" grouped_tests ;
   ()
 
-let () = main (* "test/sato" *) "benchmark/sato"
+let () = main "test/sato"
+(* "benchmark/sato" *)
 (* let () = main "test/sato/playing-ground" *)
