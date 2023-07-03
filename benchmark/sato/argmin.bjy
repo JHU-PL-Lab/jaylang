@@ -7,7 +7,7 @@ in
 let min (x : int) (y : int) : int = 
   if (x < y) then x else y
 in
-letd rec argmin (f : 'a -> int) (xs : {. List 'a | nelist } ) : 'a =
+letd rec argmin (f : 'a -> int) : {. List 'a | (fun x -> nelist x) } -> 'a = fun xs ->
   match xs with
   | [] -> 0
   | x::xs -> min (f x) (argmin f xs)
