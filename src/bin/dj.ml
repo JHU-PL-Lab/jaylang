@@ -1,3 +1,3 @@
 open Core
 
-let () = Dbmc.Main.from_commandline ()
+let () = Dbmc.Main.main_commandline ()

@@ -187,7 +187,7 @@ let main_lwt ~config program =
 
 let main ~config program = Lwt_main.run (main_lwt ~config program)
 
-let from_commandline () =
+let main_commandline () =
   let config = Argparse.parse_commandline_config () in
   Log.init config ;
   (try

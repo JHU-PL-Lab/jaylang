@@ -17,12 +17,7 @@ let read_source_sato ?(do_wrap = false) ?(do_instrument = true) filename =
       let () = print_endline @@ "Original program: " in
       (* let () = print_endline @@ Bluejay_ast.show_expr_desc bluejay_ast in *)
       let () = print_endline @@ show_bluejay_tagless bluejay_ast in
-      let init_consts =
-        Bluejay.Bluejay_ast_tools.defined_vars_of_expr_desc bluejay_ast
-        |> Bluejay.Bluejay_ast.Ident_set.to_list
-        |> List.map ~f:(fun x -> Jayil.Ast.Var (x, None))
-        |> Jayil.Ast.Var_set.of_list
-      in
+      let init_consts = Dj_common.Convert.bluejay_edesc_to_consts bluejay_ast in
       let bluejay_ast_internal =
         Bluejay_ast_internal.to_internal_expr_desc bluejay_ast
       in
@@ -34,11 +29,9 @@ let read_source_sato ?(do_wrap = false) ?(do_instrument = true) filename =
         Bluejay_to_jay_maps.find_all_syn_tags ton_on_maps bluejay_ast_internal
       in
       let jay_ast = Bluejay_ast_internal.to_jay_expr_desc core_ast in
-      (* let (desugared_typed, ton_on_maps) = transform_natodefa jay_ast in *)
       let () = print_endline @@ "*************************************" in
       let () = print_endline @@ "Jay program after type elimination: " in
       let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in
-      (* let () = print_endline @@ Jay_ast.show_expr_desc jay_ast in *)
       let instrument_tags_bluejay = ton_on_maps'.instrumented_tags in
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
         Jay_translate.Jay_to_jayil.translate ~is_jay:true
@@ -55,16 +48,10 @@ let read_source_sato ?(do_wrap = false) ?(do_instrument = true) filename =
       let jay_ast =
         Jay_ast.new_expr_desc @@ Dj_common.File_utils.parse_jay_file filename
       in
-      let consts =
-        Jay.Jay_ast_tools.defined_vars_of_expr_desc jay_ast
-        |> Jay.Jay_ast.Ident_set.to_list
-        |> List.map ~f:(fun x -> Jayil.Ast.Var (x, None))
-        |> Jayil.Ast.Var_set.of_list
-      in
+      let consts = Dj_common.Convert.jay_edesc_to_consts jay_ast in
       let () = print_endline @@ "*************************************" in
       let () = print_endline @@ "Jay program before instrumentation: " in
       let () = print_endline @@ Jay_ast_pp.show_expr_desc jay_ast in
-      (* let (desugared_typed, ton_on_maps) = transform_natodefa jay_ast in *)
       let post_inst_ast, odefa_inst_maps, on_odefa_maps =
         Jay_to_jayil.translate ~is_instrumented:do_instrument ~consts jay_ast
       in

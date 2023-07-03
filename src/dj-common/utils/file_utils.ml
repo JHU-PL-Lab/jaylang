@@ -26,15 +26,17 @@ let check_upto_bluejay s =
     (jayil_exts @ jay_exts @ bluejay_exts)
     ~f:(Filename.check_suffix s)
 
-let parse_bluejay_file filename =
-  In_channel.with_file filename ~f:Bluejay.Bluejay_parse.parse_program
-
 let parse_jay = Jay.Parse.parse_program
 let parse_jayil = Jayil_parser.Parse.parse_program
 let parse_bluejay = Bluejay.Bluejay_parse.parse_program
+let parse_jay_stdin () = parse_jay In_channel.stdin
+let parse_jayil_stdin () = parse_jayil In_channel.stdin
+let parse_bluejay_stdin () = parse_bluejay In_channel.stdin
 let parse_jay_file filename = In_channel.with_file filename ~f:parse_jay
 let parse_jayil_file filename = In_channel.with_file filename ~f:parse_jayil
-(* let parse_bluejay_file filename = In_channel.with_file filename ~f:parse_bluejay *)
+
+let parse_bluejay_file filename =
+  In_channel.with_file filename ~f:Bluejay.Bluejay_parse.parse_program
 
 (* for users *)
 let read_source ?(is_instrumented = false) ?(consts = []) filename =

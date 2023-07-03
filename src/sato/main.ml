@@ -3,8 +3,8 @@ open Jayil.Ast
 open Jay_translate.Jay_to_jayil_maps
 open Sato_result
 
-let main_from_program_lwt ~config inst_maps odefa_to_on_opt ton_to_on_opt
-    program : (reported_error option * bool) Lwt.t =
+let main_lwt ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
+    (reported_error option * bool) Lwt.t =
   let dbmc_config_init = Sato_args.sato_to_dbmc_config config in
   Dj_common.Log.init dbmc_config_init ;
   let init_sato_state =
@@ -77,10 +77,9 @@ let main_from_program_lwt ~config inst_maps odefa_to_on_opt ton_to_on_opt
   in
   search_all_targets target_vars false
 
-let main_from_program ~config inst_maps odefa_to_on_opt ton_to_on_opt program =
+let main ~config inst_maps odefa_to_on_opt ton_to_on_opt program =
   Lwt_main.run
-    (main_from_program_lwt ~config inst_maps odefa_to_on_opt ton_to_on_opt
-       program)
+    (main_lwt ~config inst_maps odefa_to_on_opt ton_to_on_opt program)
 
 let do_output_parsable program filename output_parsable =
   if output_parsable
@@ -100,7 +99,7 @@ let do_output_parsable program filename output_parsable =
              in
              Ident id')
     in
-    Format.fprintf formatter "%a" Jayil.Pp.expr purged_expr ;
+    Fmt.pr "%a" Jayil.Pp.expr purged_expr ;
     Out_channel.close oc)
 
 let main_commandline () =
@@ -112,7 +111,7 @@ let main_commandline () =
   do_output_parsable program sato_config.filename sato_config.output_parsable ;
   let () =
     let errors_res =
-      main_from_program ~config:sato_config odefa_inst_maps on_to_odefa_maps_opt
+      main ~config:sato_config odefa_inst_maps on_to_odefa_maps_opt
         ton_to_on_mapts_opt program
     in
     match errors_res with

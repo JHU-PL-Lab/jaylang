@@ -184,7 +184,7 @@ let test_one_file_lwt testname _switch () =
     }
   in
   let%lwt errors_opt, _ =
-    Main.main_from_program_lwt ~config odefa_inst_maps on_to_odefa_maps_opt
+    Main.main_lwt ~config odefa_inst_maps on_to_odefa_maps_opt
       ton_to_on_maps_opt program
   in
   let expectation = Test_expect.load_sexp_expectation_for testname in
