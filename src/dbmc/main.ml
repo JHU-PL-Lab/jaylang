@@ -192,9 +192,9 @@ let main_commandline () =
   Log.init config ;
   (try
      let program =
-       let is_instrumented = config.is_instrumented in
+       let do_instrument = config.is_instrumented in
        let target_var = Var (config.target, None) in
-       File_utils.read_source ~is_instrumented ~consts:[ target_var ]
+       File_utils.read_source ~do_instrument ~consts:[ target_var ]
          config.filename
      in
 

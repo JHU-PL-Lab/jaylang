@@ -39,16 +39,16 @@ let parse_bluejay_file filename =
   In_channel.with_file filename ~f:Bluejay.Bluejay_parse.parse_program
 
 (* for users *)
-let read_source ?(is_instrumented = false) ?(consts = []) filename =
+let read_source ?(do_instrument = false) ?(consts = []) filename =
   let jayil_ast =
     if check_jay_ext filename
     then
       let jay_ast = parse_jay_file filename in
-      Convert.jay_ast_to_jayil ~is_instrumented ~consts jay_ast
+      Convert.jay_ast_to_jayil ~do_instrument ~consts jay_ast
     else if check_jayil_ext filename
     then
       let jayal_ast = parse_jayil_file filename in
-      Convert.instrument_jayil_if ~is_instrumented jayal_ast
+      Convert.instrument_jayil_if ~do_instrument jayal_ast
     else failwith "file extension must be .jay or .jil"
   in
   Jayil.Ast_wellformedness.check_wellformed_or_exit jayil_ast ;
