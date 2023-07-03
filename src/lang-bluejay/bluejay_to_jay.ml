@@ -51,6 +51,8 @@ let new_instrumented_ed (e : 'a expr) : 'a expr_desc m =
 let mk_gc_pair_cod arg_id cod arg =
   Appl (new_expr_desc @@ Function ([ arg_id ], cod), new_expr_desc @@ Var arg)
 
+let wrap_flag = ref false
+
 (* Phase one of transformation: turning all syntactic types into its
    semantic correspondence.
    i.e. int -> { generator = fun _ -> input,
@@ -68,7 +70,7 @@ let mk_gc_pair_cod arg_id cod arg =
    - Also in this function, because we need to ensure that all subexpressions
      contain unique tags, we cannot reuse a fabricated AST from a recursive
      call, which is a source of redundancy. *)
-let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
+let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
     semantic_only expr_desc m =
   let t = e_desc.body in
   let tag = e_desc.tag in
@@ -119,7 +121,7 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        if do_wrap
+        if !wrap_flag
         then
           Ident_map.empty
           |> Ident_map.add (Ident "generator") (new_expr_desc generator)
@@ -172,7 +174,7 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        if do_wrap
+        if !wrap_flag
         then
           Ident_map.empty
           |> Ident_map.add (Ident "generator") (new_expr_desc generator)
@@ -370,7 +372,7 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        if do_wrap
+        if !wrap_flag
         then
           Ident_map.empty
           |> Ident_map.add (Ident "generator") (new_expr_desc generator)
@@ -522,7 +524,7 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        if do_wrap
+        if !wrap_flag
         then
           Ident_map.empty
           |> Ident_map.add (Ident "generator") (new_expr_desc generator)
@@ -653,7 +655,7 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], wrapped_fun)
       in
       let rec_map =
-        if do_wrap
+        if !wrap_flag
         then
           Ident_map.empty
           |> Ident_map.add (Ident "generator") (new_expr_desc generator)
@@ -791,7 +793,7 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], wrapped_fun)
       in
       let rec_map =
-        if do_wrap
+        if !wrap_flag
         then
           Ident_map.empty
           |> Ident_map.add (Ident "generator") (new_expr_desc generator)
@@ -895,7 +897,7 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        if do_wrap
+        if !wrap_flag
         then
           Ident_map.empty
           |> Ident_map.add (Ident "generator") (new_expr_desc generator)
@@ -1040,7 +1042,7 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        if do_wrap
+        if !wrap_flag
         then
           Ident_map.empty
           |> Ident_map.add (Ident "generator") (new_expr_desc generator)
@@ -1327,7 +1329,7 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        if do_wrap
+        if !wrap_flag
         then
           Ident_map.empty
           |> Ident_map.add (Ident "generator") (new_expr_desc generator)
@@ -1346,17 +1348,32 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
       let%bind self_id = fresh_ident "self" in
       let%bind x_id = fresh_ident "x" in
       let%bind f_id = fresh_ident "f" in
+      let%bind freeze_id = fresh_ident "freeze" in
       let%bind ycomb_id = fresh_ident "ycomb" in
-      let%bind inner_appl =
+      let%bind innermost_appl =
         new_instrumented_ed
         @@ Appl (new_expr_desc @@ Var x_id, new_expr_desc @@ Var x_id)
+      in
+      let%bind inner_inner_appl =
+        new_instrumented_ed @@ Appl (new_expr_desc @@ Var f_id, innermost_appl)
+      in
+      let%bind inner_appl =
+        new_instrumented_ed
+        @@ Appl (inner_inner_appl, new_expr_desc @@ Var freeze_id)
+      in
+      let%bind innermost_appl_2 =
+        new_instrumented_ed
+        @@ Appl (new_expr_desc @@ Var x_id, new_expr_desc @@ Var x_id)
+      in
+      let%bind inner_inner_appl_2 =
+        new_instrumented_ed @@ Appl (new_expr_desc @@ Var f_id, innermost_appl_2)
       in
       let%bind inner_appl_2 =
         new_instrumented_ed
-        @@ Appl (new_expr_desc @@ Var x_id, new_expr_desc @@ Var x_id)
+        @@ Appl (inner_inner_appl_2, new_expr_desc @@ Var freeze_id)
       in
-      let ycomb_inner = Function ([ x_id ], inner_appl) in
-      let ycomb_inner_2 = Function ([ x_id ], inner_appl_2) in
+      let ycomb_inner = Function ([ x_id; freeze_id ], inner_appl) in
+      let ycomb_inner_2 = Function ([ x_id; freeze_id ], inner_appl_2) in
       let%bind inner_appl_3 =
         new_instrumented_ed
         @@ Appl (new_expr_desc ycomb_inner, new_expr_desc ycomb_inner_2)
@@ -1383,9 +1400,12 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Int 0)
         in
         let generator_body_1 = new_expr_desc @@ Function ([ t_var ], appl_ed) in
-        let%bind generator_body_2 =
+        let%bind unfreeze =
           new_instrumented_ed
-          @@ Appl (generator_body_1, new_expr_desc @@ Var self_id)
+          @@ Appl (new_expr_desc @@ Var self_id, new_expr_desc @@ Int 0)
+        in
+        let%bind generator_body_2 =
+          new_instrumented_ed @@ Appl (generator_body_1, unfreeze)
         in
         return @@ Function ([ Ident "~null" ], generator_body_2)
       in
@@ -1402,9 +1422,12 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
           new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var expr_id)
         in
         let checker_body_1 = new_expr_desc @@ Function ([ t_var ], appl_ed) in
-        let%bind checker_body_2 =
+        let%bind unfreeze =
           new_instrumented_ed
-          @@ Appl (checker_body_1, new_expr_desc @@ Var self_id)
+          @@ Appl (new_expr_desc @@ Var self_id, new_expr_desc @@ Int 0)
+        in
+        let%bind checker_body_2 =
+          new_instrumented_ed @@ Appl (checker_body_1, unfreeze)
         in
         return @@ Function ([ expr_id ], checker_body_2)
       in
@@ -1413,7 +1436,7 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        if do_wrap
+        if !wrap_flag
         then
           Ident_map.empty
           |> Ident_map.add (Ident "generator") (new_expr_desc generator)
@@ -1425,13 +1448,17 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
           |> Ident_map.add (Ident "checker") (new_expr_desc checker)
       in
       let type_rec =
-        new_expr_desc @@ Function ([ self_id ], new_expr_desc @@ Record rec_map)
+        new_expr_desc
+        @@ Function ([ self_id; Ident "~null" ], new_expr_desc @@ Record rec_map)
       in
       let%bind appl_ycomb =
         new_instrumented_ed @@ Appl (new_expr_desc @@ Var ycomb_id, type_rec)
       in
+      let%bind unfreeze_rec =
+        new_instrumented_ed @@ Appl (appl_ycomb, new_expr_desc @@ Int 0)
+      in
       let res =
-        new_expr_desc @@ Let (ycomb_id, new_expr_desc ycomb, appl_ycomb)
+        new_expr_desc @@ Let (ycomb_id, new_expr_desc ycomb, unfreeze_rec)
       in
       let%bind () = add_sem_to_syn_mapping res e_desc in
       return res
@@ -1505,7 +1532,7 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        if do_wrap
+        if !wrap_flag
         then
           Ident_map.empty
           |> Ident_map.add (Ident "generator") (new_expr_desc generator)
@@ -1581,7 +1608,7 @@ let rec semantic_type_of ?(do_wrap = true) (e_desc : syntactic_only expr_desc) :
         return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
       in
       let rec_map =
-        if do_wrap
+        if !wrap_flag
         then
           Ident_map.empty
           |> Ident_map.add (Ident "generator") (new_expr_desc generator)
@@ -2681,6 +2708,7 @@ let debug_transform_bluejay (trans_name : string)
 let transform_bluejay ?(do_wrap = true) (e : syn_type_bluejay) :
     core_bluejay_edesc * Bluejay_to_jay_maps.t =
   let transformed_expr : (core_bluejay_edesc * Bluejay_to_jay_maps.t) m =
+    let () = if do_wrap then wrap_flag := true else () in
     let%bind e' =
       if do_wrap
       then
@@ -2692,8 +2720,7 @@ let transform_bluejay ?(do_wrap = true) (e : syn_type_bluejay) :
       else
         return (new_expr_desc e)
         >>= debug_transform_bluejay "initial" (fun e -> return e)
-        >>= debug_transform_bluejay "typed bluejay phase one"
-              (semantic_type_of ~do_wrap:false)
+        >>= debug_transform_bluejay "typed bluejay phase one" semantic_type_of
         >>= debug_transform_bluejay "typed bluejay phase two" bluejay_to_jay
     in
     let%bind bluejay_jay_map = bluejay_to_jay_maps in
