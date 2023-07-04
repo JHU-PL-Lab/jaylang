@@ -44,11 +44,14 @@ let read_source ?(do_instrument = false) ?(consts = []) filename =
     if check_jay_ext filename
     then
       let jay_ast = parse_jay_file filename in
+      let consts = Jayil.Ast.Var_set.of_list consts in
       Convert.jay_ast_to_jayil ~do_instrument ~consts jay_ast
     else if check_jayil_ext filename
     then
-      let jayal_ast = parse_jayil_file filename in
-      Convert.instrument_jayil_if ~do_instrument jayal_ast
+      let jayil_ast = parse_jayil_file filename in
+      if do_instrument
+      then Jay_instrumentation.Instrumentation.instrument_jayil jayil_ast |> fst
+      else jayil_ast
     else failwith "file extension must be .jay or .jil"
   in
   Jayil.Ast_wellformedness.check_wellformed_or_exit jayil_ast ;
