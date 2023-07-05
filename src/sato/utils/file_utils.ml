@@ -1,45 +1,8 @@
-open! Core
-open Jayil
-open Jay
-open Bluejay
-open Jay_translate
-open Dj_common
-
-let print_delimiter_line content =
-  print_endline "*************************************" ;
-  print_endline content
-
-let read_source_sato ?(do_wrap = false) ?(do_instrument = true) filename =
-  let post_inst_ast, odefa_inst_maps, on_odefa_maps, bluejay_to_jay_map' =
-    if File_utils.check_bluejay_ext filename
-    then
-      let raw_bluejay = File_utils.parse_bluejay_file filename in
-      let a, b, c, d =
-        Convert.bluejay_to_jayil ~do_wrap ~do_instrument raw_bluejay
-      in
-      (a, b, Some c, Some d)
-    else if File_utils.check_jay_ext filename
-    then
-      let raw_jay = File_utils.parse_jay_file filename in
-      let a, b, c = Convert.raw_jay_to_jayil ~do_instrument raw_jay in
-      (a, b, Some c, None)
-    else if File_utils.check_jayil_ext filename
-    then
-      let pre_inst_ast = File_utils.parse_jayil_file filename in
-      let post_inst_ast, odefa_inst_maps =
-        if do_instrument
-        then Jay_instrumentation.Instrumentation.instrument_jayil pre_inst_ast
-        else
-          ( pre_inst_ast,
-            Jay_instrumentation.Jayil_instrumentation_maps.empty false )
-      in
-      (post_inst_ast, odefa_inst_maps, None, None)
-    else failwith "file extension must be .jil, .jay, or .bjy"
-  in
-  let () = Fmt.pr "%a" Jayil.Pp.expr post_inst_ast in
-  Ast_wellformedness.check_wellformed_expr post_inst_ast ;
-  Fmt.pr "@?" ;
-  (post_inst_ast, odefa_inst_maps, on_odefa_maps, bluejay_to_jay_map')
+(* in
+   let () = Fmt.pr "%a" Jayil.Pp.expr post_inst_ast in
+   Ast_wellformedness.check_wellformed_expr post_inst_ast ;
+   Fmt.pr "@?" ;
+   (inst_jil, jil_inst_map, on_odefa_maps, bluejay_to_jay_map') *)
 
 (* print_delimiter_line "Original program: " ;
    let () = print_endline @@ Bluejay_ast.show_expr_desc bluejay_ast in *)

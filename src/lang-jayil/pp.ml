@@ -74,3 +74,5 @@ and pattern oc = function
   | Rec_pattern els ->
       (Fmt.braces id_list) oc @@ (Ident_set.to_list @@ els) @ [ Ident "_" ]
   | Strict_rec_pattern els -> (Fmt.braces id_set) oc els
+
+let print_expr e = Fmt.pr "@[%a@]" expr e

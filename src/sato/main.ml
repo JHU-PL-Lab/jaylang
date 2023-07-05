@@ -105,7 +105,7 @@ let do_output_parsable program filename output_parsable =
 let main_commandline () =
   let sato_config = Argparse.parse_commandline_config () in
   let program, odefa_inst_maps, on_to_odefa_maps_opt, ton_to_on_mapts_opt =
-    File_utils.read_source_sato ~do_wrap:sato_config.do_wrap
+    Dj_common.File_utils.read_source_sato ~do_wrap:sato_config.do_wrap
       ~do_instrument:sato_config.do_instrument sato_config.filename
   in
   do_output_parsable program sato_config.filename sato_config.output_parsable ;

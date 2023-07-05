@@ -169,7 +169,7 @@ let is_error_expected (actual : Sato_result.reported_error)
 
 let test_one_file_lwt testname _switch () =
   let program, odefa_inst_maps, on_to_odefa_maps_opt, ton_to_on_maps_opt =
-    File_utils.read_source_sato testname
+    Dj_common.File_utils.read_source_sato testname
   in
   let config : Sato_args.t =
     {

@@ -10,14 +10,15 @@ let main () : unit =
   | Bluejay_to_jayil ->
       File_utils.parse_bluejay_stdin ()
       |> Convert.bluejay_to_jayil ~do_wrap:false ~do_instrument
-      |> fun (e, _, _, _) -> e |> Fmt.pr "%a" Jayil.Pp.expr
+      |> Convert.jil_ast_of_convert |> Jayil.Pp.print_expr
   | Bluejay_to_jay ->
       File_utils.parse_bluejay_stdin ()
-      |> Convert.raw_bluejay_to_jay ~do_wrap:false
-      |> fst |> Jay.Jay_ast_pp.show_expr_desc |> print_endline
+      |> Convert.bluejay_to_jay ~do_wrap:false
+      |> Jay.Jay_ast_pp.print_expr
   | Jay_to_jayil ->
-      File_utils.parse_jay_stdin () |> Convert.raw_jay_to_jayil ~do_instrument
-      |> fun (e, _, _) -> e |> Fmt.pr "%a" Jayil.Pp.expr
+      File_utils.parse_jay_stdin ()
+      |> Convert.jay_to_jayil ~do_instrument
+      |> Convert.jil_ast_of_convert |> Jayil.Pp.print_expr
   | Scheme_to_jay -> failwith "scheme-to-jay"
 
 let () = main ()
