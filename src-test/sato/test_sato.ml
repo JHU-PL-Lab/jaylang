@@ -168,9 +168,7 @@ let is_error_expected (actual : Sato_result.reported_error)
   Test_expect.equal expected actual_error
 
 let test_one_file_lwt testname _switch () =
-  let program, odefa_inst_maps, on_to_odefa_maps_opt, ton_to_on_maps_opt =
-    Dj_common.File_utils.read_source_sato testname
-  in
+  let program_full = Dj_common.File_utils.read_source_full testname in
   let config : Sato_args.t =
     {
       filename = testname;
@@ -183,10 +181,7 @@ let test_one_file_lwt testname _switch () =
       run_max_step = None;
     }
   in
-  let%lwt errors_opt, _ =
-    Main.main_lwt ~config odefa_inst_maps on_to_odefa_maps_opt
-      ton_to_on_maps_opt program
-  in
+  let%lwt errors_opt, _ = Main.main_lwt ~config program_full in
   let expectation = Test_expect.load_sexp_expectation_for testname in
   let test_result =
     match expectation with

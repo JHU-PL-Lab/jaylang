@@ -3,8 +3,10 @@ open Jayil.Ast
 open Jay_translate.Jay_to_jayil_maps
 open Sato_result
 
-let main_lwt ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
-    (reported_error option * bool) Lwt.t =
+let main_lwt ~config program_full : (reported_error option * bool) Lwt.t =
+  let program, inst_maps, odefa_to_on_opt, ton_to_on_opt =
+    Dj_common.Convert.convert_t_to4 program_full
+  in
   let dbmc_config_init = Sato_args.sato_to_dbmc_config config in
   Dj_common.Log.init dbmc_config_init ;
   let init_sato_state =
@@ -77,9 +79,7 @@ let main_lwt ~config inst_maps odefa_to_on_opt ton_to_on_opt program :
   in
   search_all_targets target_vars false
 
-let main ~config inst_maps odefa_to_on_opt ton_to_on_opt program =
-  Lwt_main.run
-    (main_lwt ~config inst_maps odefa_to_on_opt ton_to_on_opt program)
+let main ~config program_full = Lwt_main.run (main_lwt ~config program_full)
 
 let do_output_parsable program filename output_parsable =
   if output_parsable
@@ -99,21 +99,20 @@ let do_output_parsable program filename output_parsable =
              in
              Ident id')
     in
-    Fmt.pr "%a" Jayil.Pp.expr purged_expr ;
+    Fmt.pf formatter "%a" Jayil.Pp.expr purged_expr ;
     Out_channel.close oc)
 
 let main_commandline () =
   let sato_config = Argparse.parse_commandline_config () in
-  let program, odefa_inst_maps, on_to_odefa_maps_opt, ton_to_on_mapts_opt =
-    Dj_common.File_utils.read_source_sato ~do_wrap:sato_config.do_wrap
+  let program_full =
+    Dj_common.File_utils.read_source_full ~do_wrap:sato_config.do_wrap
       ~do_instrument:sato_config.do_instrument sato_config.filename
   in
-  do_output_parsable program sato_config.filename sato_config.output_parsable ;
+  do_output_parsable
+    (Dj_common.Convert.jil_ast_of_convert program_full)
+    sato_config.filename sato_config.output_parsable ;
   let () =
-    let errors_res =
-      main ~config:sato_config odefa_inst_maps on_to_odefa_maps_opt
-        ton_to_on_mapts_opt program
-    in
+    let errors_res = main ~config:sato_config program_full in
     match errors_res with
     | None, false -> print_endline @@ "No errors found."
     | None, true ->

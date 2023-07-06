@@ -42,43 +42,23 @@ let print_delimiter_line content =
   print_endline "*************************************" ;
   print_endline content
 
+let read_source_full ?(do_wrap = false) ?(do_instrument = false) ?(consts = [])
+    filename =
+  let convert_result =
+    match lang_from_file filename with
+    | Bluejay ->
+        parse_bluejay_file filename
+        |> Convert.bluejay_to_jayil ~do_wrap ~do_instrument
+    | Jay ->
+        parse_jay_file filename |> Convert.jay_to_jayil ~do_instrument ~consts
+    | Jayil ->
+        parse_jayil_file filename |> Convert.instrument_jayil ~do_instrument
+  in
+  let jayil_ast = Convert.jil_ast_of_convert convert_result in
+  Jayil.Ast_wellformedness.check_wellformed_or_exit jayil_ast ;
+  convert_result
+
 let read_source ?(do_wrap = false) ?(do_instrument = false) ?(consts = [])
     filename =
-  let jayil_ast =
-    if check_jay_ext filename
-    then
-      let jay_ast = parse_jay_file filename in
-      Convert.jay_to_jayil ~do_instrument ~consts jay_ast
-      |> Convert.jil_ast_of_convert
-    else if check_jayil_ext filename
-    then
-      let jayil_ast = parse_jayil_file filename in
-      if do_instrument
-      then Jay_instrumentation.Instrumentation.instrument_jayil jayil_ast |> fst
-      else jayil_ast
-    else failwith "file extension must be .jay or .jil"
-  in
-  Jayil.Ast_wellformedness.check_wellformed_or_exit jayil_ast ;
-  jayil_ast
-
-let read_source_sato ?(do_wrap = false) ?(do_instrument = true) filename =
-  (* let inst_jil, jil_inst_map, on_odefa_maps, bluejay_to_jay_map' = *)
-  if check_bluejay_ext filename
-  then
-    let raw_bluejay = parse_bluejay_file filename in
-    Convert.bluejay_to_jayil ~do_wrap ~do_instrument raw_bluejay
-    |> Convert.convert_t_to4
-  else if check_jay_ext filename
-  then
-    let raw_jay = parse_jay_file filename in
-    Convert.jay_to_jayil ~do_instrument raw_jay |> Convert.convert_t_to4
-  else if check_jayil_ext filename
-  then
-    let raw_jil = parse_jayil_file filename in
-    let inst_jil, jil_inst_maps =
-      if do_instrument
-      then Jay_instrumentation.Instrumentation.instrument_jayil raw_jil
-      else (raw_jil, Jay_instrumentation.Jayil_instrumentation_maps.empty false)
-    in
-    (inst_jil, jil_inst_maps, None, None)
-  else failwith "file extension must be .jil, .jay, or .bjy"
+  read_source_full ~do_wrap ~do_instrument ~consts filename
+  |> Convert.jil_ast_of_convert

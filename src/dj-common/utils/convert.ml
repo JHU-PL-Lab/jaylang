@@ -47,6 +47,7 @@ let bluejay_edesc_to_jay ~do_wrap bluejay_edesc =
 (* internal functions - end *)
 
 (* external functions *)
+
 let bluejay_to_jayil ~do_wrap ~do_instrument raw_bluejay =
   let bluejay_edesc = raw_bluejay |> Bluejay.Bluejay_ast.new_expr_desc in
   let consts = bluejay_edesc_to_consts bluejay_edesc in
@@ -74,3 +75,11 @@ let jay_to_jayil ~do_instrument ?(consts = []) raw_jay =
       ~is_instrumented:do_instrument ~consts jay_ast
   in
   convert_t_of4 a b (Some c) None
+
+let instrument_jayil ~do_instrument raw_jay =
+  let inst_jay, jil_inst_map =
+    if do_instrument
+    then Jay_instrumentation.Instrumentation.instrument_jayil raw_jay
+    else (raw_jay, Jay_instrumentation.Jayil_instrumentation_maps.empty false)
+  in
+  convert_t_of4 inst_jay jil_inst_map None None

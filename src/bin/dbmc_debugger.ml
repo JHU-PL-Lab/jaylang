@@ -50,9 +50,9 @@ class read_line ~term ~history ~state =
         ]
 
     initializer
-    self#set_prompt
-      (let _ = state in
-       React.S.const (make_prompt state))
+      self#set_prompt
+        (let _ = state in
+         React.S.const (make_prompt state))
   end
 
 (* +-----------------------------------------------------------------+
@@ -81,15 +81,16 @@ let readline_loop term history prompt_state (config : Dbmc.Global_config.t)
         ignore state ;
 
         (if command = Zed_string.of_utf8 "pause"
-        then Lwt.return_unit
-        else if command = Zed_string.of_utf8 "graph"
-        then (
-          Dbmc.Graphviz.output_graph ~model:None ~testname:config.filename state ;
-          Lwt.return_unit)
-        else (
-          (* if command = Zed_string.of_utf8 "step" *)
-          Lwt_mutex.unlock Dbmc.Control_center.mutex ;
-          Lwt.pause () >>= fun () -> Lwt_mutex.lock Dbmc.Control_center.mutex))
+         then Lwt.return_unit
+         else if command = Zed_string.of_utf8 "graph"
+         then (
+           Dbmc.Graphviz.output_graph ~model:None ~testname:config.filename
+             state ;
+           Lwt.return_unit)
+         else (
+           (* if command = Zed_string.of_utf8 "step" *)
+           Lwt_mutex.unlock Dbmc.Control_center.mutex ;
+           Lwt.pause () >>= fun () -> Lwt_mutex.lock Dbmc.Control_center.mutex))
         (* >>= fun () -> Lwt.return_unit *)
         >>= fun () -> loop prompt_state ()
     | None -> fail_with "why none"
@@ -106,7 +107,7 @@ let make_lookup () =
   let open Core in
   let open Dbmc in
   let config : Global_config.t = Argparse.parse_commandline_config () in
-  let program = File_util.read_source config.filename in
+  let program = File_utils.read_source config.filename in
   let state : Global_state.t = Global_state.create config program in
   let lookup_task () =
     Lwt_mutex.lock Control_center.mutex >>= fun () ->
