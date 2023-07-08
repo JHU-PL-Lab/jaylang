@@ -62,3 +62,9 @@ let read_source ?(do_wrap = false) ?(do_instrument = false) ?(consts = [])
     filename =
   read_source_full ~do_wrap ~do_instrument ~consts filename
   |> Convert.jil_ast_of_convert
+
+let dump_to_file jil_ast filename =
+  let oc = Out_channel.create filename in
+  let formatter = Format.formatter_of_out_channel oc in
+  Fmt.pf formatter "%a" Jayil.Pp.expr jil_ast ;
+  Out_channel.close oc

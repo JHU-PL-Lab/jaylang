@@ -83,11 +83,7 @@ let main ~config program_full = Lwt_main.run (main_lwt ~config program_full)
 
 let do_output_parsable program filename output_parsable =
   if output_parsable
-  then (
-    let og_file = Filename.chop_extension (Filename.basename filename) in
-    let new_file = og_file ^ "_instrumented.jil" in
-    let oc = Out_channel.create new_file in
-    let formatter = Format.formatter_of_out_channel oc in
+  then
     let purged_expr =
       program
       |> Jayil.Ast_tools.map_expr_ids (fun (Ident id) ->
@@ -99,8 +95,9 @@ let do_output_parsable program filename output_parsable =
              in
              Ident id')
     in
-    Fmt.pf formatter "%a" Jayil.Pp.expr purged_expr ;
-    Out_channel.close oc)
+    let og_file = Filename.chop_extension (Filename.basename filename) in
+    let new_file = og_file ^ "_instrumented.jil" in
+    Dj_common.File_utils.dump_to_file purged_expr new_file
 
 let main_commandline () =
   let sato_config = Argparse.parse_commandline_config () in
