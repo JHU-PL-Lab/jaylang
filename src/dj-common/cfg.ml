@@ -297,9 +297,9 @@ let annotate e pt : block Ident_map.t =
   (* and visited_pred_map = ref BatMultiPMap.empty *)
   and cfg = cfg_of e
   (* and id_first = first_var e *)
-  and ret_to_fun_def_map = make_ret_to_fun_def_mapping e
-  and para_to_fun_def_map = make_para_to_fun_def_mapping e in
-  let pt_clause = Ident_map.find pt (clause_mapping e) in
+  and ret_to_fun_def_map = Jayil.Ast_tools.make_ret_to_fun_def_mapping e
+  and para_to_fun_def_map = Jayil.Ast_tools.make_para_to_fun_def_mapping e in
+  let pt_clause = Ident_map.find pt (Jayil.Ast_tools.clause_mapping e) in
   (* let is_abort_clause =
        match pt_clause with Clause (_, Abort_body) -> true | _ -> false
      in *)

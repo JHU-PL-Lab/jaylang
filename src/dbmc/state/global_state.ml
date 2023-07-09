@@ -19,7 +19,7 @@ let create (config : Global_config.t) program =
       key_target = Lookup_key.start target block0;
       program;
       block_map;
-      source_map = lazy (Ddpa.Ddpa_helper.clause_mapping program);
+      source_map = lazy (Jayil.Ast_tools.clause_mapping program);
       unroll;
       job_queue = Schedule.create ();
       root_node = ref (Search_graph.root_node block0 target);

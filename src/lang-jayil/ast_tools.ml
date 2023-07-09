@@ -325,3 +325,63 @@ and defined_vars_of_value (v : value) : Var_set.t =
 and defined_vars_of_function (f : function_value) : Var_set.t =
   let (Function_value (_, e)) = f in
   defined_vars_of_expr e
+
+let clause_mapping e =
+  e |> flatten |> List.enum
+  |> Enum.fold
+       (fun map (Clause (Var (x, _), _) as c) -> Ident_map.add x c map)
+       Ident_map.empty
+
+let make_ret_to_fun_def_mapping e =
+  let map = ref Ident_map.empty in
+  let rec loop (Expr clauses) =
+    match clauses with
+    | [] -> ()
+    | Clause
+        ( Var (def_x, _),
+          Value_body (Value_function (Function_value (_, function_body))) )
+      :: rest_clauses ->
+        let (Var (ret_id, _)) = retv function_body in
+        map := Ident_map.add ret_id def_x !map ;
+        loop function_body ;
+        loop (Expr rest_clauses) ;
+        ()
+    | Clause (_, Conditional_body (_, match_body, antimatch_body))
+      :: rest_clauses ->
+        loop match_body ;
+        loop antimatch_body ;
+        loop (Expr rest_clauses) ;
+        ()
+    | _clause :: rest_clauses ->
+        loop (Expr rest_clauses) ;
+        ()
+  in
+  loop e ;
+  !map
+
+let make_para_to_fun_def_mapping e =
+  let map = ref Ident_map.empty in
+  let rec loop (Expr clauses) =
+    match clauses with
+    | [] -> ()
+    | Clause
+        ( Var (def_x, _),
+          Value_body
+            (Value_function (Function_value (Var (para, _), function_body))) )
+      :: rest_clauses ->
+        map := Ident_map.add para def_x !map ;
+        loop function_body ;
+        loop (Expr rest_clauses) ;
+        ()
+    | Clause (_, Conditional_body (_, match_body, antimatch_body))
+      :: rest_clauses ->
+        loop match_body ;
+        loop antimatch_body ;
+        loop (Expr rest_clauses) ;
+        ()
+    | _clause :: rest_clauses ->
+        loop (Expr rest_clauses) ;
+        ()
+  in
+  loop e ;
+  !map
