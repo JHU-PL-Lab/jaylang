@@ -52,7 +52,7 @@ module Make (S : S) = struct
     U.by_return S.unroll key (Ddse_result.of3 key phis target_stk)
 
   let rule_nonmain vo key phis_top run_task =
-    let key_first = Lookup_key.to_first key S.state.first in
+    let key_first = Lookup_key.to_first key S.state.info.first in
     run_task key_first phis_top ;
     let eq_phi = Riddler.eqz key (Riddler.phi_of_value_opt key vo) in
     let _ = S.add_phi key eq_phi phis_top in

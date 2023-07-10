@@ -36,6 +36,16 @@ open Dj_common
 module State = struct
   type unroll_t = S_dbmc of Unrolls.U_dbmc.t | S_ddse of Unrolls.U_ddse.t
 
+  type info = {
+    first : Id.t;
+    target : Id.t;
+    key_target : Lookup_key.t;
+    program : Jayil.Ast.expr;
+    block_map : Cfg.block Jayil.Ast.Ident_map.t;
+    source_map : Jayil.Ast.clause Jayil.Ast.Ident_map.t Lazy.t;
+    root_node_info : Search_graph.node;
+  }
+
   type job_state = {
     unroll : unroll_t;
     job_queue : (Job_key.t, unit) Scheduler.t;
@@ -66,12 +76,7 @@ module State = struct
 
   type t = {
     (* immutable *)
-    first : Id.t;
-    target : Id.t;
-    key_target : Lookup_key.t;
-    program : Jayil.Ast.expr;
-    block_map : Cfg.block Jayil.Ast.Ident_map.t;
-    source_map : Jayil.Ast.clause Jayil.Ast.Ident_map.t Lazy.t;
+    info : info;
     (* mutable *)
     job : job_state;
     solve : solve_state;

@@ -128,7 +128,7 @@ module type GS = sig
 end
 
 module DotPrinter_Make (S : GS) = struct
-  let source_map = Lazy.force S.state.source_map
+  let source_map = Lazy.force S.state.info.source_map
 
   let graph_of_gate_tree () =
     let root = S.state.search.root_node in

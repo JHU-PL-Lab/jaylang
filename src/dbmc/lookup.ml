@@ -35,7 +35,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
              detail.phis <- phi :: detail.phis ;
              Set.add phis phi
 
-           let block_map = state.block_map
+           let block_map = state.info.block_map
            let unroll = unroll
          end)
         : Lookup_ddse_rule.S)
@@ -48,7 +48,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     | None ->
         let detail : Lookup_detail.t =
           let rule =
-            Rule.rule_of_runtime_status key state.block_map config.target
+            Rule.rule_of_runtime_status key state.info.block_map config.target
           in
           Lookup_detail.mk_detail ~rule ~key
         in
@@ -57,7 +57,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
         U_ddse.alloc_task unroll ~task key
   and lookup (this_key : Lookup_key.t) phis () : unit Lwt.t =
     let rule =
-      Rule.rule_of_runtime_status this_key state.block_map config.target
+      Rule.rule_of_runtime_status this_key state.info.block_map config.target
     in
     LLog.app (fun m ->
         m "[Lookup][=>]: %a ; Rule %a" Lookup_key.pp this_key Rule.pp_rule rule) ;
@@ -89,8 +89,8 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     Lwt.return_unit
   in
 
-  let block0 = Cfg.find_block_by_id state.target state.block_map in
-  let term_target = Lookup_key.start state.target block0 in
+  let block0 = Cfg.find_block_by_id state.info.target state.info.block_map in
+  let term_target = Lookup_key.start state.info.target block0 in
   let phis = Phi_set.empty in
   run_task term_target phis ;
 
@@ -140,13 +140,15 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     (val (module struct
            let state = state
            let config = config
-           let block_map = state.block_map
+           let block_map = state.info.block_map
          end)
         : Lookup_rule.S)
   in
   let module R = Lookup_rule.Make (LS) in
   let[@landmark] rec lookup (key : Lookup_key.t) () : unit Lwt.t =
-    let rule = Rule.rule_of_runtime_status key state.block_map config.target in
+    let rule =
+      Rule.rule_of_runtime_status key state.info.block_map config.target
+    in
     LLog.app (fun m ->
         m "[Lookup][%d][=>]: %a; [Rule] %a; [Block] %a" state.search.tree_size
           Lookup_key.pp key Rule.pp_rule rule Id.pp key.block.id) ;
@@ -188,6 +190,6 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     let td = Hashtbl.find_exn state.search.lookup_detail_map key_target in
     Lwt.return_unit
   in
-  run_eval state.key_target lookup_main ;
+  run_eval state.info.key_target lookup_main ;
   let%lwt _ = Scheduler.run state.job.job_queue in
   Lwt.return_unit

@@ -96,7 +96,7 @@ let create_session ?max_step ?(debug_mode = No_debug) (state : Global_state.t)
     debug_mode;
     step = ref 0;
     alias_graph = G.create ();
-    block_map = state.block_map;
+    block_map = state.info.block_map;
     val_def_map = Hashtbl.create (module Id_with_stack);
     lookup_detail_map = state.search.lookup_detail_map;
     rstk_picked = state.stat.rstk_picked;

@@ -36,7 +36,7 @@ let phi_fix (state : Global_state.t) =
     close_unfinished_lookups (Hash_set.to_list state.search.lookup_created)
   in
   let list_fix = close_smt_list state.solve.smt_lists in
-  unfinish_lookup @ [ picked state.key_target ] @ list_fix
+  unfinish_lookup @ [ picked state.info.key_target ] @ list_fix
 
 let eager_check (state : Global_state.t) (config : Global_config.t) c assumption
     =

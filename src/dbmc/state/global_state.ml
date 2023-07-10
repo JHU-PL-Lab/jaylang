@@ -2,26 +2,15 @@ open Core
 include Types.State
 open Dj_common
 
-type immutable_state = {
-  first : Id.t;
-  target : Id.t;
-  key_target : Lookup_key.t;
-  program : Jayil.Ast.expr;
-  block_map : Cfg.block Jayil.Ast.Ident_map.t;
-  source_map : Jayil.Ast.clause Jayil.Ast.Ident_map.t Lazy.t;
-  root_node : Search_graph.node;
-}
-
-let compute_immutable_state (config : Global_config.t) program : immutable_state
-    =
+let compute_info (config : Global_config.t) program : info =
   let first = Jayil.Ast_tools.first_id program in
   let target = config.target in
   let block_map = Cfg.annotate program target in
   let block0 = Cfg.find_block_by_id target block_map in
   let key_target = Lookup_key.start target block0 in
   let source_map = lazy (Jayil.Ast_tools.clause_mapping program) in
-  let root_node = Search_graph.root_node block0 target in
-  { first; target; key_target; program; block_map; source_map; root_node }
+  let root_node_info = Search_graph.root_node block0 target in
+  { first; target; key_target; program; block_map; source_map; root_node_info }
 
 let create_job_state (config : Global_config.t) : job_state =
   {
@@ -68,51 +57,39 @@ let reset_stat_state (stat_state : stat_state) =
   Hashtbl.clear stat_state.block_stat_map ;
   stat_state.check_infos <- []
 
-let create_search_state (istate : immutable_state) : search_state =
+let create_search_state (info : info) : search_state =
   {
-    root_node = ref istate.root_node;
+    root_node = ref info.root_node_info;
     tree_size = 1;
     lookup_detail_map = Hashtbl.create (module Lookup_key);
     lookup_created = Hash_set.create (module Lookup_key);
     input_nodes = Hash_set.create (module Lookup_key);
   }
 
-let reset_search_state (istate : immutable_state) (search_state : search_state)
-    =
-  search_state.root_node := istate.root_node ;
+let reset_search_state (info : info) (search_state : search_state) =
+  search_state.root_node := info.root_node_info ;
   search_state.tree_size <- 1 ;
   Hashtbl.clear search_state.lookup_detail_map ;
   Hash_set.clear search_state.lookup_created ;
   Hash_set.clear search_state.input_nodes
 
-let reset_mutable_state (config : Global_config.t) (istate : immutable_state)
-    (state : t) =
+let reset_mutable_state (config : Global_config.t) (info : info) (state : t) =
   reset_job_state state.job ;
   reset_solve_state state.solve ;
-  reset_search_state istate state.search ;
-  reset_stat_state state.stat ;
-  ()
+  reset_search_state info state.search ;
+  reset_stat_state state.stat
 
 let create (config : Global_config.t) program =
-  let istate = compute_immutable_state config program in
-
+  let info = compute_info config program in
   Solver.set_timeout_sec Solver.ctx config.timeout ;
-  let state =
-    {
-      first = istate.first;
-      target = istate.target;
-      key_target = istate.key_target;
-      program = istate.program;
-      block_map = istate.block_map;
-      source_map = istate.source_map;
-      job = create_job_state config;
-      solve = create_solve_state ();
-      search = create_search_state istate;
-      stat = create_stat_state ();
-    }
-  in
   (* Global_state.lookup_alert state key_target state.root_node; *)
-  state
+  {
+    info;
+    job = create_job_state config;
+    solve = create_solve_state ();
+    search = create_search_state info;
+    stat = create_stat_state ();
+  }
 
 let clear_phis state =
   state.solve.phis_added <- state.solve.phis_added @ state.solve.phis_staging ;

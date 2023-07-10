@@ -23,7 +23,7 @@ let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t)
     Interpreter.create_session state config mode input_feeder
   in
   let expected_stk =
-    try Interpreter.eval session state.program with
+    try Interpreter.eval session state.info.program with
     | Interpreter.Found_target target ->
         Fmt.(
           pr "[Expected]%a"
@@ -49,7 +49,7 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
         let clause_cb x c_stk v =
           let stk = Rstack.relativize target_stack c_stk in
           let key =
-            Lookup_key.of3 x stk (Cfg.find_block_by_id x state.block_map)
+            Lookup_key.of3 x stk (Cfg.find_block_by_id x state.info.block_map)
           in
           let key_z = Riddler.key_to_var key in
           let key_picked = Riddler.picked key in
@@ -76,7 +76,7 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
     Interpreter.create_session ?max_step ~debug_mode state config mode
       input_feeder
   in
-  (try Interpreter.eval session state.program with
+  (try Interpreter.eval session state.info.program with
   | Interpreter.Found_target _ -> ()
   | ex ->
       (* TODO: Here is where the exception is raised *)

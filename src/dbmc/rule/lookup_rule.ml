@@ -199,7 +199,7 @@ module Make (S : S) = struct
 
   (* Common actions *)
   let first_but_drop (key : Lookup_key.t) =
-    let key_first = Lookup_key.to_first key S.state.first in
+    let key_first = Lookup_key.to_first key S.state.info.first in
     Map { pub = key_first; map = Fn.const key }
 
   let record_start_action (p : Record_start_rule.t) (key : Lookup_key.t) =
@@ -290,7 +290,7 @@ module Make (S : S) = struct
     MapSeq { pub = x'; map = f }
 
   let get_initial_phi_action (key : Lookup_key.t) (rule : Rule.t) =
-    let key_first = Lookup_key.to_first key S.state.first in
+    let key_first = Lookup_key.to_first key S.state.info.first in
     let open Rule in
     let open Lookup_status in
     let open Riddler in
@@ -322,7 +322,7 @@ module Make (S : S) = struct
     | Fun_enter_local p -> (fun_enter_local key p, fun_enter_local_action p key)
     | Fun_enter_nonlocal p -> (true_, fun_enter_nonlocal p key)
     | Fun_exit p ->
-        (fun_exit key p.xf p.fids S.state.block_map, fun_exit_action p key)
+        (fun_exit key p.xf p.fids S.state.info.block_map, fun_exit_action p key)
     | Pattern p -> (true_, pattern_action p key)
 end
 
@@ -334,7 +334,7 @@ let complete_phis_of_rule (state : Global_state.t) key
     (detail : Lookup_detail.t) =
   let open Rule in
   let open Riddler in
-  let key_first = Lookup_key.to_first key state.first in
+  let key_first = Lookup_key.to_first key state.info.first in
   match detail.rule with
   (* Bounded (same as complete phi) *)
   | Discovery_main p -> at_main key (Some p.v)
