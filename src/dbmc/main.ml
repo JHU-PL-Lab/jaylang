@@ -180,6 +180,8 @@ let dump_result ~(config : Global_config.t) symbolic_result =
 
 let main_lwt ~config program =
   let state = Global_state.create config program in
+
+  (* Observe.dump_analysis program state.block_map ; *)
   let%lwt inputss, is_timeout, symbolic_result = main_lookup ~config ~state in
   let result = { inputss; is_timeout; symbolic_result; state } in
   dump_result ~config symbolic_result ;

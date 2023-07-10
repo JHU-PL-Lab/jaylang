@@ -114,3 +114,16 @@ let dump_check_info filename (state : Global_state.t) =
   List.iter state.check_infos ~f:(fun entry ->
       PLog.debug (fun m ->
           m "%s,%d,%d" filename entry.total_phis entry.solver_resource))
+
+let dump_analysis program block_map =
+  let all_id_set = Jayil.Ast_tools.defined_vars_of_expr program in
+  Jayil.Ast.Var_set.iter
+    (fun (Jayil.Ast.Var (x, _)) ->
+      let block = Cfg.find_block_by_id x block_map in
+      let tc = Cfg.clause_of_x_exn block x in
+      Fmt.pr "%a :" Id.pp x ;
+      (match tc.cat with
+      | Cfg.App fids -> Fmt.pr "%a " Id.pp_list fids
+      | _ -> ()) ;
+      Fmt.pr "@.")
+    all_id_set
