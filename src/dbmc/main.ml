@@ -32,7 +32,7 @@ let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t)
         target.stk
     | ex -> raise ex
   in
-  if Solver.check_expected_input_sat expected_stk !history state.solver
+  if Solver.check_expected_input_sat expected_stk !history state.solve.solver
   then ()
   else failwith "expected input leads to a wrong place."
 
@@ -58,7 +58,8 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
             | Value_function _ -> Riddler.true_
             | _ -> Riddler.eqv key v
           in
-          state.phis_staging <- key_picked :: eq_z :: state.phis_staging ;
+          state.solve.phis_staging <-
+            key_picked :: eq_z :: state.solve.phis_staging ;
           let info =
             Fmt.str "[Con]: %a %a = %a \n[Sym] %a\n\n" Id.pp x Concrete_stack.pp
               c_stk Jayil.Pp.value v Lookup_key.pp key
@@ -92,7 +93,7 @@ let handle_both (config : Global_config.t) (state : Global_state.t) model =
   SLog.warn (fun m ->
       m "@,%a"
         Fmt.(vbox (list ~sep:sp Check_info.pp))
-        (List.rev state.check_infos))
+        (List.rev state.stat.check_infos))
 
 let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
     =
@@ -121,7 +122,7 @@ let handle_not_found (config : Global_config.t) (state : Global_state.t)
   if config.debug_model
   then
     SLog.debug (fun m ->
-        m "Solver Phis: %s" (Solver.string_of_solver state.solver)) ;
+        m "Solver Phis: %s" (Solver.string_of_solver state.solve.solver)) ;
   handle_both config state None ;
   ([], is_timeout, None)
 
@@ -178,14 +179,16 @@ let dump_result ~(config : Global_config.t) symbolic_result =
   | Dbmc_check _ -> dump_result symbolic_result
   | _ -> Fmt.pr "."
 
-let main_lwt ~config program =
-  let state = Global_state.create config program in
-
+let main_with_state_lwt ~config ~state program =
   (* Observe.dump_analysis program state.block_map ; *)
   let%lwt inputss, is_timeout, symbolic_result = main_lookup ~config ~state in
   let result = { inputss; is_timeout; symbolic_result; state } in
   dump_result ~config symbolic_result ;
   Lwt.return result
+
+let main_lwt ~config program =
+  let state = Global_state.create config program in
+  main_with_state_lwt ~config ~state program
 
 let main ~config program = Lwt_main.run (main_lwt ~config program)
 

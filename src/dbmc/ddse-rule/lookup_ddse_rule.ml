@@ -68,7 +68,7 @@ module Make (S : S) = struct
 
   let input p key phis run_task =
     let ({ is_in_main; _ } : Input_rule.t) = p in
-    Hash_set.add S.state.input_nodes key ;
+    Hash_set.add S.state.search.input_nodes key ;
     if is_in_main
     then rule_main None key phis
     else rule_nonmain None key phis run_task

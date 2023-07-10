@@ -26,16 +26,16 @@ let lead_unfinished_lookups lookups target =
 
 let eager_phi_fix (state : Global_state.t) c =
   let unfinish_lookup =
-    lead_unfinished_lookups (Hash_set.to_list state.lookup_created) c
+    lead_unfinished_lookups (Hash_set.to_list state.search.lookup_created) c
   in
-  let list_fix = lead_smt_list state.smt_lists c in
+  let list_fix = lead_smt_list state.solve.smt_lists c in
   unfinish_lookup @ [ picked c ] @ list_fix
 
 let phi_fix (state : Global_state.t) =
   let unfinish_lookup =
-    close_unfinished_lookups (Hash_set.to_list state.lookup_created)
+    close_unfinished_lookups (Hash_set.to_list state.search.lookup_created)
   in
-  let list_fix = close_smt_list state.smt_lists in
+  let list_fix = close_smt_list state.solve.smt_lists in
   unfinish_lookup @ [ picked state.key_target ] @ list_fix
 
 let eager_check (state : Global_state.t) (config : Global_config.t) c assumption
@@ -43,7 +43,7 @@ let eager_check (state : Global_state.t) (config : Global_config.t) c assumption
   SLog.debug (fun m -> m "Eager check") ;
   let phi_used_once = eager_phi_fix state c @ assumption in
   let solver_result =
-    Solver.check state.solver state.phis_staging phi_used_once
+    Solver.check state.solve.solver state.solve.phis_staging phi_used_once
   in
   Global_state.clear_phis state ;
   match solver_result with
@@ -54,8 +54,8 @@ let check_incremental (state : Global_state.t) (config : Global_config.t) :
     (Z3.Model.model, 'a option) result =
   let phi_used_once = phi_fix state in
   let solver_result =
-    Solver.check ~verbose:config.debug_model state.solver state.phis_staging
-      phi_used_once
+    Solver.check ~verbose:config.debug_model state.solve.solver
+      state.solve.phis_staging phi_used_once
   in
   solver_result
 
@@ -68,9 +68,9 @@ let check_shrink (state : Global_state.t) (config : Global_config.t) :
   let phi_used_once = phi_fix state in
   let detail_lst = Global_state.detail_alist state in
 
-  SLog.debug (fun m -> m "One: %s" (Z3.Solver.to_string state.solver)) ;
+  SLog.debug (fun m -> m "One: %s" (Z3.Solver.to_string state.solve.solver)) ;
 
-  Solver.reset state.solver ;
+  Solver.reset state.solve.solver ;
   SLog.debug (fun m -> m "Two") ;
   List.iter detail_lst ~f:(fun (key, detail) ->
       let phis =
@@ -93,10 +93,10 @@ let check_shrink (state : Global_state.t) (config : Global_config.t) :
             Lookup_status.pp_short detail.status
             Fmt.(list ~sep:cut string)
             (List.map ~f:Z3.Expr.to_string phis_all)) ;
-      state.phis_staging <- phis_all @ state.phis_staging) ;
+      state.solve.phis_staging <- phis_all @ state.solve.phis_staging) ;
   let check_result =
-    Solver.check ~verbose:config.debug_model state.solver state.phis_staging
-      phi_used_once
+    Solver.check ~verbose:config.debug_model state.solve.solver
+      state.solve.phis_staging phi_used_once
   in
   SLog.debug (fun m ->
       m "Two (used once): %a"
@@ -126,16 +126,17 @@ let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
   in
   (let this_check_info : Check_info.t =
      {
-       total_phis = List.length state.phis_added + List.length phi_used_once;
-       solver_resource = Solver.get_rlimit state.solver;
+       total_phis =
+         List.length state.solve.phis_added + List.length phi_used_once;
+       solver_resource = Solver.get_rlimit state.solve.solver;
      }
    in
-   state.check_infos <- this_check_info :: state.check_infos) ;
+   state.stat.check_infos <- this_check_info :: state.stat.check_infos) ;
   check_result
 
 let check (state : Global_state.t) (config : Global_config.t) :
     result_info option =
-  LLog.info (fun m -> m "Search Tree Size:\t%d" state.tree_size) ;
+  LLog.info (fun m -> m "Search Tree Size:\t%d" state.search.tree_size) ;
   let solver_result =
     match config.encode_policy with
     | Only_incremental -> check_incremental state config
@@ -151,7 +152,7 @@ let check (state : Global_state.t) (config : Global_config.t) :
 let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
     stride =
   let is_checked, smt_time, check_result =
-    if state.tree_size mod !stride = 0
+    if state.search.tree_size mod !stride = 0
     then (
       let t_start = Time_ns.now () in
       let check_result = check state config in

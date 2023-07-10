@@ -15,6 +15,7 @@ module type S = sig
   type key
 
   val create : unit -> t
+  val reset : t -> unit
   val alloc_task : t -> ?task:(unit -> unit) -> key -> unit
   val get_stream : t -> key -> message Lwt_stream.t
   val set_pre_push : t -> key -> (message -> message option) -> unit

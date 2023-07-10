@@ -75,7 +75,9 @@ let run_action run_task unroll (state : Global_state.t)
   let add_sublookup pre_pair key =
     detail.sub_lookups <- detail.sub_lookups @ [ (pre_pair, key) ]
   in
-  let promote_result = promote_result target state.lookup_detail_map detail in
+  let promote_result =
+    promote_result target state.search.lookup_detail_map detail
+  in
   let rec run ?sub_lookup source =
     match source with
     | Leaf Fail ->
@@ -176,7 +178,7 @@ let run_action run_task unroll (state : Global_state.t)
       if List.for_all detail.sub_preconds ~f:Ref.( ! )
       then
         let status' =
-          fold_lookups_status state.lookup_detail_map detail.sub_lookups
+          fold_lookups_status state.search.lookup_detail_map detail.sub_lookups
         in
         promote_result status' r.from
       else Some r
@@ -297,7 +299,7 @@ module Make (S : S) = struct
     | Discovery_main p -> (at_main key (Some p.v), Leaf Complete)
     | Discovery_nonmain p -> (implies_v key key_first p.v, first_but_drop key)
     | Input p ->
-        Hash_set.add S.state.input_nodes key ;
+        Hash_set.add S.state.search.input_nodes key ;
         if p.is_in_main
         then (at_main key None, Leaf Complete)
         else (implies key key_first, first_but_drop key)
@@ -354,8 +356,12 @@ let complete_phis_of_rule (state : Global_state.t) key
       let fid = key.block.id in
       let phi_f_and_arg =
         List.map p.callsites_with_stk ~f:(fun (key_f, key_arg) ->
-            let detail_f = Hashtbl.find_exn state.lookup_detail_map key_f in
-            let detail_arg = Hashtbl.find_exn state.lookup_detail_map key_arg in
+            let detail_f =
+              Hashtbl.find_exn state.search.lookup_detail_map key_f
+            in
+            let detail_arg =
+              Hashtbl.find_exn state.search.lookup_detail_map key_arg
+            in
             [
               K2 (key, key_arg);
               Z (key_f, z_of_fid fid);
@@ -368,7 +374,9 @@ let complete_phis_of_rule (state : Global_state.t) key
       let fid = key.block.id in
       let phi_f_and_arg =
         List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_arg) ->
-            let detail_arg = Hashtbl.find_exn state.lookup_detail_map key_arg in
+            let detail_arg =
+              Hashtbl.find_exn state.search.lookup_detail_map key_arg
+            in
 
             [
               K (key_f, key_fv);
@@ -380,7 +388,9 @@ let complete_phis_of_rule (state : Global_state.t) key
   | Fun_exit p ->
       let phi_f_and_ret =
         List.map detail.sub_lookups ~f:(fun ((key_f, key_fv), key_ret) ->
-            let detail_ret = Hashtbl.find_exn state.lookup_detail_map key_ret in
+            let detail_ret =
+              Hashtbl.find_exn state.search.lookup_detail_map key_ret
+            in
             [
               K (key_f, key_fv);
               Z (key_fv, z_of_fid key_fv.x);
@@ -389,7 +399,7 @@ let complete_phis_of_rule (state : Global_state.t) key
       in
       choices key phi_f_and_ret
   | Pattern p ->
-      let detail_x' = Hashtbl.find_exn state.lookup_detail_map p.x' in
+      let detail_x' = Hashtbl.find_exn state.search.lookup_detail_map p.x' in
       let phi_choices =
         (* detail.domain *)
         List.map detail_x'.domain ~f:(fun key_r ->

@@ -98,9 +98,9 @@ let create_session ?max_step ?(debug_mode = No_debug) (state : Global_state.t)
     alias_graph = G.create ();
     block_map = state.block_map;
     val_def_map = Hashtbl.create (module Id_with_stack);
-    lookup_detail_map = state.lookup_detail_map;
-    rstk_picked = state.rstk_picked;
-    lookup_alert = state.lookup_alert;
+    lookup_detail_map = state.search.lookup_detail_map;
+    rstk_picked = state.stat.rstk_picked;
+    lookup_alert = state.stat.lookup_alert;
   }
 
 let cond_fid b = if b then Ident "$tt" else Ident "$ff"

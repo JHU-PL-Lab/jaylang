@@ -14,6 +14,7 @@ let create ~cmp () =
   let cmp j1 j2 = cmp j1.key j2.key in
   Pairing_heap.create ~cmp ()
 
+let reset queue = Pairing_heap.clear queue
 let push h key payload = Pairing_heap.add h { key; payload }
 let pull h : ('key, 'r) job option = Pairing_heap.pop h
 

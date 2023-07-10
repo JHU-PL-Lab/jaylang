@@ -34,42 +34,29 @@ open Dj_common
    what is better to be relations between nodes?
 *)
 module State = struct
-  type t = {
-    (*
-        lookup basic
-    *)
-    first : Id.t;
-    target : Id.t;
-    key_target : Lookup_key.t;
-    program : Jayil.Ast.expr;
-    block_map : Cfg.block Jayil.Ast.Ident_map.t;
-    source_map : Jayil.Ast.clause Jayil.Ast.Ident_map.t Lazy.t;
+  type unroll_t = S_dbmc of Unrolls.U_dbmc.t | S_ddse of Unrolls.U_ddse.t
+
+  type job_state = {
     unroll : unroll_t;
-    (*
-       scheduling
-    *)
     job_queue : (Job_key.t, unit) Scheduler.t;
-    (*
-        search graph
-    *)
-    root_node : Search_graph.node_ref;
-    mutable tree_size : int;
-    lookup_detail_map : (Lookup_key.t, Lookup_detail.t) Hashtbl.t;
-    (*
-        search graph for solving
-    *)
-    lookup_created : Lookup_key.t Hash_set.t;
-    input_nodes : Lookup_key.t Hash_set.t;
-    (*
-       constraint solving
-    *)
+  }
+
+  type solve_state = {
     mutable phis_staging : Z3.Expr.expr list;
     mutable phis_added : Z3.Expr.expr list;
     smt_lists : (Lookup_key.t, int) Hashtbl.t;
     solver : Z3.Solver.solver;
-    (*
-        debug and stats
-    *)
+  }
+
+  type search_state = {
+    root_node : Search_graph.node_ref;
+    mutable tree_size : int;
+    lookup_detail_map : (Lookup_key.t, Lookup_detail.t) Hashtbl.t;
+    lookup_created : Lookup_key.t Hash_set.t;
+    input_nodes : Lookup_key.t Hash_set.t;
+  }
+
+  type stat_state = {
     lookup_alert : Lookup_key.t Hash_set.t;
     rstk_picked : (Rstack.t, bool) Hashtbl.t;
     rstk_stat_map : (Rstack.t, Rstk_stat.t) Hashtbl.t;
@@ -77,5 +64,18 @@ module State = struct
     mutable check_infos : Check_info.t list;
   }
 
-  and unroll_t = S_dbmc of Unrolls.U_dbmc.t | S_ddse of Unrolls.U_ddse.t
+  type t = {
+    (* immutable *)
+    first : Id.t;
+    target : Id.t;
+    key_target : Lookup_key.t;
+    program : Jayil.Ast.expr;
+    block_map : Cfg.block Jayil.Ast.Ident_map.t;
+    source_map : Jayil.Ast.clause Jayil.Ast.Ident_map.t Lazy.t;
+    (* mutable *)
+    job : job_state;
+    solve : solve_state;
+    search : search_state;
+    stat : stat_state;
+  }
 end

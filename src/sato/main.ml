@@ -4,14 +4,11 @@ open Jay_translate.Jay_to_jayil_maps
 open Sato_result
 
 let main_lwt ~config program_full : (reported_error option * bool) Lwt.t =
-  let program, inst_maps, odefa_to_on_opt, ton_to_on_opt =
-    Dj_common.Convert.convert_t_to4 program_full
-  in
+  let program = Dj_common.Convert.jil_ast_of_convert program_full in
   let dbmc_config_init = Sato_args.sato_to_dbmc_config config in
   Dj_common.Log.init dbmc_config_init ;
   let init_sato_state =
-    Sato_state.initialize_state_with_expr config.sato_mode program inst_maps
-      odefa_to_on_opt ton_to_on_opt
+    Sato_state.initialize_state_with_expr config.sato_mode program_full
   in
   let target_vars = init_sato_state.target_vars in
   Fmt.pr "[SATO] #tgt=%d@.@?" (List.length target_vars) ;
@@ -84,17 +81,7 @@ let main ~config program_full = Lwt_main.run (main_lwt ~config program_full)
 let do_output_parsable program filename output_parsable =
   if output_parsable
   then
-    let purged_expr =
-      program
-      |> Jayil.Ast_tools.map_expr_ids (fun (Ident id) ->
-             let id' =
-               id
-               |> String.substr_replace_all ~pattern:"~" ~with_:"bj_"
-               |> String.substr_replace_all ~pattern:"'" ~with_:"tick"
-               |> String.chop_prefix_if_exists ~prefix:"_"
-             in
-             Ident id')
-    in
+    let purged_expr = Jayil.Ast_tools.purge program in
     let og_file = Filename.chop_extension (Filename.basename filename) in
     let new_file = og_file ^ "_instrumented.jil" in
     Dj_common.File_utils.dump_to_file purged_expr new_file

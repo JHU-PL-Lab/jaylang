@@ -64,6 +64,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
   type t = { map : (Key.t, detail) Hashtbl.t }
 
   let create () : t = { map = Hashtbl.create (module Key) }
+  let reset state : unit = Hashtbl.clear state.map
   let push_mutex = Nano_mutex.create ()
 
   let find_detail t key =

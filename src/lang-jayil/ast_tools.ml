@@ -385,3 +385,15 @@ let make_para_to_fun_def_mapping e =
   in
   loop e ;
   !map
+
+let purge e =
+  map_expr_ids
+    (fun (Ident id) ->
+      let id' =
+        id
+        |> Core.String.substr_replace_all ~pattern:"~" ~with_:"bj_"
+        |> Core.String.substr_replace_all ~pattern:"'" ~with_:"tick"
+        |> Core.String.chop_prefix_if_exists ~prefix:"_"
+      in
+      Ident id')
+    e
