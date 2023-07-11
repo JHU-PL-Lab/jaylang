@@ -21,15 +21,13 @@ let value_of_dvalue = function
   | AbortClosure _ -> Value_bool false
 
 let rec pp_dvalue oc = function
-  | Direct v -> Jayil.Ast_pp.pp_value oc v
+  | Direct v -> Jayil.Pp.value oc v
   | FunClosure _ -> Format.fprintf oc "(fc)"
   | RecordClosure (r, env) -> pp_record_c (r, env) oc
   | AbortClosure _ -> Format.fprintf oc "(abort)"
 
 and pp_record_c (Record_value r, env) oc =
-  let pp_entry oc (x, v) =
-    Fmt.pf oc "%a = %a" Jayil.Ast_pp.pp_ident x Jayil.Ast_pp.pp_var v
-  in
+  let pp_entry oc (x, v) = Fmt.pf oc "%a = %a" Jayil.Pp.id x Jayil.Pp.var_ v in
   (Fmt.braces (Fmt.iter_bindings ~sep:(Fmt.any ", ") Ident_map.iter pp_entry))
     oc r
 

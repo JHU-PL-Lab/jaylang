@@ -28,7 +28,8 @@ let rec eval ?(input_source = stdin_input_source) (e_desc : expr_desc) :
   | Var x ->
       raise
       @@ Evaluation_failure
-           ("Cannot find the variable " ^ show_ident x ^ " in the environment!")
+           ("Cannot find the variable " ^ Jay_ast_pp.show_ident x
+          ^ " in the environment!")
   | Appl (e_desc1, e_desc2) -> (
       let e1_eval = (eval ~input_source e_desc1).body in
       let e2_eval = (eval ~input_source e_desc2).body in

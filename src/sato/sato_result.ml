@@ -21,8 +21,8 @@ let replace_linebreaks (str : string) : string =
 module Jayil_error_location : Error_location with type t = Ast.clause = struct
   type t = Ast.clause
 
-  let show = Ast_pp.show_clause
-  let show_brief = Ast_pp_brief.show_clause
+  let show = Pp.show_clause
+  let show_brief = Pp.Brief.show_clause
   let to_yojson clause = `String (replace_linebreaks @@ show clause)
 end
 
@@ -79,7 +79,7 @@ let get_odefa_errors (sato_state : Sato_state.t)
     (symb_interp_state : Types.State.t) (interp_session : Interpreter.session)
     (final_env : Interpreter.denv) : Ast.clause * Sato_error.Jayil_error.t list
     =
-  let abort_var = symb_interp_state.target in
+  let abort_var = symb_interp_state.info.target in
   let ab_mapping = sato_state.abort_mapping in
   let on_to_odefa_maps = sato_state.on_to_odefa_maps in
   let odefa_inst_maps = sato_state.odefa_instrumentation_maps in

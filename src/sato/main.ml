@@ -30,7 +30,7 @@ let main_lwt ~config program_full : (reported_error option * bool) Lwt.t =
           match List.hd inputss with
           | Some inputs -> (
               let () = print_endline "Lookup target: " in
-              let () = print_endline @@ show_ident hd in
+              let () = print_endline @@ Dj_common.Id.show hd in
               let session =
                 {
                   (Interpreter.make_default_session ()) with

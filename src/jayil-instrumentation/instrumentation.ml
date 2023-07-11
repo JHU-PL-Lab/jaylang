@@ -290,7 +290,7 @@ let instrument_jayil (jayil_ast : expr) : expr * Jayil_instrumentation_maps.t =
   let (monad_val : (expr * Jayil_instrumentation_maps.t) m) =
     (* Transform jayil program *)
     lazy_logger `debug (fun () ->
-        Printf.sprintf "Initial program:\n%s" (Ast_pp.show_expr jayil_ast)) ;
+        Printf.sprintf "Initial program:\n%s" (Pp.show_expr jayil_ast)) ;
     let (Expr jayil_clist) = jayil_ast in
     let%bind transformed_clist =
       return jayil_clist >>= instrument_clauses >>= add_first_var
@@ -298,8 +298,7 @@ let instrument_jayil (jayil_ast : expr) : expr * Jayil_instrumentation_maps.t =
     in
     let t_expr = Expr transformed_clist in
     lazy_logger `debug (fun () ->
-        Printf.sprintf "Result of instrumentation:\n%s"
-          (Ast_pp.show_expr t_expr)) ;
+        Printf.sprintf "Result of instrumentation:\n%s" (Pp.show_expr t_expr)) ;
     (* Add "~result" to the end of the program *)
     let%bind jayil_inst_maps = get_jayil_inst_maps in
     return (t_expr, jayil_inst_maps)

@@ -1,11 +1,6 @@
-(** This module contains a collection of pretty-printing functions which print
-    an abbreviated form of the JayIL AST. Most notably, function bodies are
-    entirely elided in favor of ellipses. This abbreviated form is useful for
-    printing clauses or values as part of an AST without cluttering output. *)
-
 open Batteries
 open Jhupllib
-open Ast
+open Jayil.Ast
 open Pp_utils
 
 let pp_ident formatter (Ident s) = Format.pp_print_string formatter s
@@ -32,8 +27,10 @@ let show_freshening_stack = pp_to_string pp_freshening_stack
 let pp_var formatter (Var (i, mfs)) =
   pp_ident formatter i ;
   match mfs with
-  | None -> Format.pp_print_string formatter ""
-  | Some fs -> pp_freshening_stack formatter fs
+  | None -> ()
+  | Some fs ->
+      Format.pp_print_string formatter "__at__" ;
+      pp_freshening_stack formatter fs
 
 let show_var = pp_to_string pp_var
 
@@ -64,8 +61,13 @@ let pp_record_value formatter (Record_value els) =
 
 let show_record_value = pp_to_string pp_record_value
 
-let rec pp_function_value formatter (Function_value (x, _)) =
-  Format.fprintf formatter "fun %a -> ..." pp_var x
+let pp_variable_list formatter var_list =
+  pp_concat_sep_delim "[" "]" "," pp_var formatter @@ List.enum var_list
+
+let show_variable_list_value = pp_to_string pp_variable_list
+
+let rec pp_function_value formatter (Function_value (x, e)) =
+  Format.fprintf formatter "fun %a -> (@ @[<2>%a@])" pp_var x pp_expr e
 
 and pp_value formatter v =
   match v with
@@ -80,9 +82,11 @@ and pp_clause_body formatter b =
   | Value_body v -> pp_value formatter v
   | Input_body -> Format.pp_print_string formatter "input"
   | Appl_body (x1, x2) -> Format.fprintf formatter "%a %a" pp_var x1 pp_var x2
-  | Conditional_body (x, _, _) ->
-      Format.fprintf formatter "%a @[<4>? ...@]" pp_var x
-  | Match_body (x, _) -> Format.fprintf formatter "%a ~ ..." pp_var x
+  | Conditional_body (x, e1, e2) ->
+      Format.fprintf formatter "%a @[<4>? @[<2>(%a)@] : @[<2>(%a)@]@]" pp_var x
+        pp_expr e1 pp_expr e2
+  | Match_body (x, p) ->
+      Format.fprintf formatter "%a ~ %a" pp_var x pp_pattern p
   | Projection_body (x, l) ->
       Format.fprintf formatter "%a.%a" pp_var x pp_ident l
   | Not_body x -> Format.fprintf formatter "not %a" pp_var x
@@ -101,9 +105,31 @@ and pp_clause formatter c =
 and pp_expr formatter (Expr cls) =
   pp_concat_sep ";" pp_clause formatter @@ List.enum cls
 
+and pp_pattern formatter p =
+  match p with
+  | Fun_pattern -> Format.pp_print_string formatter "fun"
+  | Int_pattern -> Format.pp_print_string formatter "int"
+  | Bool_pattern -> Format.pp_print_string formatter "bool"
+  | Rec_pattern els ->
+      let pp_element formatter idnt =
+        Format.fprintf formatter "%a" pp_ident idnt
+      in
+      pp_concat_sep_delim "{" "}" ", " pp_element formatter
+      @@ Ident_set.enum els
+  | Strict_rec_pattern els ->
+      let pp_element formatter idnt =
+        Format.fprintf formatter "%a" pp_ident idnt
+      in
+      pp_concat_sep_delim "|{" "}|" ", " pp_element formatter
+      @@ Ident_set.enum els
+  | Any_pattern -> Format.pp_print_string formatter "any"
+
 let show_value = pp_to_string pp_value
 let show_clause_body = pp_to_string pp_clause_body
 let show_clause = pp_to_string pp_clause
+let show_brief_clause formatter (Clause (x, _)) = pp_var formatter x
+let show_expr = pp_to_string pp_expr
+let show_pattern = pp_to_string pp_pattern
 
 let pp_type_sig formatter type_sig =
   match type_sig with
@@ -114,8 +140,8 @@ let pp_type_sig formatter type_sig =
   | Rec_type labels ->
       pp_concat_sep_delim "{" "}" "," pp_ident formatter
       @@ Ident_set.enum labels
-  (* | Untouched_type s -> Format.pp_print_string formatter @@ "'" ^ s
-     | Any_untouched_type -> Format.pp_print_string formatter "untouched" *)
+  (* | Untouched_type s -> Format.pp_print_string formatter @@ "'" ^ s *)
   | Bottom_type -> Format.pp_print_string formatter "bottom"
+(* | Any_untouched_type -> Format.pp_print_string formatter "untouched" *)
 
 let show_type_sig = pp_to_string pp_type_sig

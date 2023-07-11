@@ -274,7 +274,7 @@ let do_analysis_steps callbacks conf e =
                      raise
                      @@ Invalid_variable_analysis
                           (Printf.sprintf "No such variable: %s"
-                             (show_ident ident))
+                             (Pp.show_id ident))
                  in
                  (* Perform each of the requested analyses. *)
                  requests |> List.enum

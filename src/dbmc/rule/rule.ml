@@ -1,7 +1,6 @@
 open Core
 open Dj_common
 open Jayil.Ast
-open Jayil.Ast_pp
 
 module Discovery_main_rule = struct
   type t = { v : value }
@@ -178,7 +177,7 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map target : t =
           let x' = Lookup_key.with_x key ix' in
           Pattern { x'; pat }
       | _ ->
-          Log.Export.LLog.err (fun m -> m "%a" Jayil.Ast_pp.pp_clause tc.clause) ;
+          Log.Export.LLog.err (fun m -> m "%a" Jayil.Pp.clause tc.clause) ;
           failwith "Missing rules for this clause")
   | None -> (
       match block.kind with

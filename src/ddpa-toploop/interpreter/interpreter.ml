@@ -187,12 +187,12 @@ let rec evaluate ?(input_source = stdin_input_source)
                 raise
                 @@ Evaluation_failure
                      (Printf.sprintf "cannot project %s from %s: not present"
-                        (show_ident l) (show_value r)))
+                        (Pp.show_id l) (Pp.show_var r)))
           | v ->
               raise
               @@ Evaluation_failure
                    (Printf.sprintf "cannot project %s from non-record value %s"
-                      (show_ident l) (show_value v)))
+                      (Pp.show_id l) (Pp.show_var v)))
       | Binary_operation_body (x1, op, x2) ->
           let v1 = lookup env x1 in
           let v2 = lookup env x2 in

@@ -3,7 +3,6 @@
 
 open Batteries
 open Ast
-open Ast_pp
 open Ast_tools
 
 type illformedness =

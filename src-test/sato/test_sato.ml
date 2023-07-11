@@ -38,12 +38,10 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
             let actual_aliases =
               List.map ~f:(fun (Ident i, _) -> i) err.err_match_aliases
             in
-            let actual_v =
-              Jayil.Ast_pp_brief.show_clause_body err.err_match_val
-            in
+            let actual_v = Jayil.Pp.Brief.show_clause_body err.err_match_val in
             let a_actual_type, a_expected_type =
-              ( Jayil.Ast_pp.show_type_sig @@ err.err_match_actual,
-                Jayil.Ast_pp.show_type_sig @@ err.err_match_expected )
+              ( Jayil.Pp.Brief.show_type_sig @@ err.err_match_actual,
+                Jayil.Pp.Brief.show_type_sig @@ err.err_match_expected )
             in
             Match_error
               {
@@ -55,9 +53,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
             let actual_aliases =
               List.map ~f:(fun (Ident i, _) -> i) err.err_value_aliases
             in
-            let actual_v =
-              Jayil.Ast_pp_brief.show_clause_body err.err_value_val
-            in
+            let actual_v = Jayil.Pp.Brief.show_clause_body err.err_value_val in
             Value_error { v_value = (actual_aliases, actual_v) }
         | _ -> failwith "Expect no other error types!"
       in
