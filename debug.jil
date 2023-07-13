@@ -1,0 +1,101 @@
+
+  _i_first = {};
+  flatten_fun_j_23 = fun f_b_2 -> (
+  
+    flatten_fun_j_12 = fun x_b_1 -> (
+    
+      flatten_fun_j_11 = fun freeze_b_3 -> (
+      
+        var_j_4 = f_b_2;
+        var_j_5 = x_b_1;
+        var_j_6 = x_b_1;
+        appl_j_7 = var_j_5 var_j_6;
+        appl_j_8 = var_j_4 appl_j_7;
+        var_j_9 = freeze_b_3;
+        appl_j_10 = appl_j_8 var_j_9)
+      );
+    flatten_fun_j_21 = fun x_b_1_j_1 -> (
+    
+      flatten_fun_j_20 = fun freeze_b_3_j_0 -> (
+      
+        var_j_13 = f_b_2;
+        var_j_14 = x_b_1_j_1;
+        var_j_15 = x_b_1_j_1;
+        appl_j_16 = var_j_14 var_j_15;
+        appl_j_17 = var_j_13 appl_j_16;
+        var_j_18 = freeze_b_3_j_0;
+        appl_j_19 = appl_j_17 var_j_18)
+      );
+    appl_j_22 = flatten_fun_j_12 flatten_fun_j_21);
+  flatten_fun_j_56 = fun self_b_0 -> (
+  
+    flatten_fun_j_55 = fun null_j_3 -> (
+    
+      flatten_fun_j_35 = fun expr_b_5 -> (
+      
+        flatten_fun_j_30 = fun tt -> (
+        
+          var_j_25 = tt;
+          proj_j_26 = var_j_25.actual_rec;
+          proj_j_27 = proj_j_26.checker;
+          var_j_28 = expr_b_5;
+          appl_j_29 = proj_j_27 var_j_28);
+        var_j_31 = self_b_0;
+        int_j_32 = 0;
+        appl_j_33 = var_j_31 int_j_32;
+        appl_j_34 = flatten_fun_j_30 appl_j_33);
+      flatten_fun_j_46 = fun null -> (
+      
+        flatten_fun_j_41 = fun tt_j_2 -> (
+        
+          var_j_36 = tt_j_2;
+          proj_j_37 = var_j_36.actual_rec;
+          proj_j_38 = proj_j_37.generator;
+          int_j_39 = 0;
+          appl_j_40 = proj_j_38 int_j_39);
+        var_j_42 = self_b_0;
+        int_j_43 = 0;
+        appl_j_44 = var_j_42 int_j_43;
+        appl_j_45 = flatten_fun_j_41 appl_j_44);
+      flatten_fun_j_48 = fun expr_b_6 -> (
+      var_j_47 = expr_b_6);
+      record_j_49 = {
+                       checker=flatten_fun_j_35,
+                       generator=flatten_fun_j_46,
+                       wrapper=flatten_fun_j_48
+                    };
+      record_j_50 = {};
+      record_j_51 = {};
+      record_j_52 = {};
+      record_j_53 = {
+                       checker=record_j_50,
+                       generator=record_j_51,
+                       wrapper=record_j_52
+                    };
+      record_j_54 = {actual_rec=record_j_49, decl_lbls=record_j_53})
+    );
+  appl_j_57 = flatten_fun_j_23 flatten_fun_j_56;
+  int_j_58 = 0;
+  appl_j_59 = appl_j_57 int_j_58;
+  tree_type = appl_j_59;
+  proj_j_61 = tree_type.actual_rec;
+  proj_j_62 = proj_j_61.wrapper;
+  int_j_63 = 1;
+  appl_j_64 = proj_j_62 int_j_63;
+  x = appl_j_64;
+  proj_j_66 = tree_type.actual_rec;
+  proj_j_67 = proj_j_66.checker;
+  proj_j_69 = tree_type.actual_rec;
+  proj_j_70 = proj_j_69.wrapper;
+  int_j_71 = 1;
+  appl_j_72 = proj_j_70 int_j_71;
+  appl_j_73 = proj_j_67 appl_j_72;
+  if_j_81 = appl_j_73 ? (var_j_75 = x) : (
+                                            error_var_j_76 = appl_j_73;
+                                            assert_pred_j_77 = error_var_j_76;
+                                            assert_res_j_78 = assert_pred_j_77 
+                                            ? (assert_res_true_j_79 = {}) : 
+                                                (ab_j_80 = abort)
+                                           );
+  _i_result = if_j_81
+

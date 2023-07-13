@@ -19,6 +19,7 @@ flatten_fun_j_23 = fun f_b_2 -> (
             var_j_18 = freeze_b_3_j_0;
             appl_j_19 = appl_j_17 var_j_18));
     appl_j_22 = flatten_fun_j_12 flatten_fun_j_21);
+ycomb_b_4 = flatten_fun_j_23;
 flatten_fun_j_53 = fun self_b_0 -> (
     flatten_fun_j_52 = fun bj_null_j_3 -> (
         flatten_fun_j_35 = fun expr_b_5 -> (
@@ -48,7 +49,7 @@ flatten_fun_j_53 = fun self_b_0 -> (
         record_j_49 = {};
         record_j_50 = {checker = record_j_48, generator = record_j_49};
         record_j_51 = {bj_actual_rec = record_j_47, bj_decl_lbls = record_j_50}));
-appl_j_54 = flatten_fun_j_23 flatten_fun_j_53;
+appl_j_54 = ycomb_b_4 flatten_fun_j_53;
 int_j_55 = 0;
 appl_j_56 = appl_j_54 int_j_55;
 tree_type = appl_j_56;
@@ -58,10 +59,11 @@ proj_j_59 = tree_type.bj_actual_rec;
 proj_j_60 = proj_j_59.checker;
 int_j_61 = 1;
 appl_j_62 = proj_j_60 int_j_61;
-if_j_70 = appl_j_62 ? (
+cc = appl_j_62;
+if_j_70 = cc ? (
         var_j_64 = x
     ) : (
-        error_var_j_65 = appl_j_62;
+        error_var_j_65 = cc;
         assert_pred_j_66 = error_var_j_65;
         assert_res_j_67 = assert_pred_j_66 ? (
                 assert_res_true_j_68 = {}
