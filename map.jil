@@ -1,9 +1,0 @@
-one = 1;
-g = fun x -> (
-        gr = {a = one}
-    );
-t = {p = one};
-s = {a = one, b = t};
-r = g s;
-aa = r.a;
-target = 1
