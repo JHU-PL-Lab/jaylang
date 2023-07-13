@@ -70,6 +70,12 @@ module Make (B : Is_brief) = struct
     | Assert_body x -> Fmt.pf oc "assert %a" var_ x
 
   and fun_ oc (Function_value (x, e)) =
+    (* '('  '@ '   @[            @] ')'
+        |   space   |             |  |
+        |            - fbody-box  -  |
+        |                            |
+         ---------- wrapper  --------
+    *)
     Fmt.pf oc "fun %a -> (@ @[<2>%a@])" var_ x expr e
 
   and value oc = function
