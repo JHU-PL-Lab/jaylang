@@ -57,16 +57,19 @@
   (into "../..")))
 
 (executable
+ (name jay)
+ (modules jay)
+ (libraries core logs dj_common dbmc jay)
+ (preprocess
+  (pps ppx_jane))
+ (promote
+  (until-clean)
+  (into "../..")))
+
+(executable
  (name ddpa_toploop)
  (modules ddpa_toploop)
  (libraries batteries jhupllib jayil jayil_parser jayil_toploop langdk))
-
-; (executable
-;  (name jay)
-;  (modules jay)
-;  (libraries core logs dbmc bluejay)
-;  (preprocess
-;   (pps ppx_jane ppx_deriving.show)))
 
 (env
  (dev

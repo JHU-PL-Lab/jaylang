@@ -313,8 +313,8 @@ module Jay_type : Error_type with type t = Jay_ast.type_sig = struct
 
   let equal = Jay_ast.equal_type_sig
   let subtype _ _ = false
-  let pp = Jay_ast_pp.pp_on_type
-  let show = Jay_ast_pp.show_on_type
+  let pp = Jay_ast_pp.pp_jay_type
+  let show = Jay_ast_pp.show_jay_type
   let to_yojson typ = `String (replace_linebreaks @@ show typ)
 end
 

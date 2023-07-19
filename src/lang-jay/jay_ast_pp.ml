@@ -218,7 +218,7 @@ let show_expr = Pp_utils.pp_to_string pp_expr
 let show_expr_desc = Pp_utils.pp_to_string pp_expr_desc_without_tag
 let show_pattern = Pp_utils.pp_to_string pp_pattern
 
-let pp_on_type formatter (on_type : Jay_ast.type_sig) =
+let pp_jay_type formatter (on_type : Jay_ast.type_sig) =
   match on_type with
   | TopType -> Format.pp_print_string formatter "Any"
   | IntType -> Format.pp_print_string formatter "Integer"
@@ -229,5 +229,5 @@ let pp_on_type formatter (on_type : Jay_ast.type_sig) =
   | VariantType lbl ->
       Format.fprintf formatter "Variant %a" pp_variant_label lbl
 
-let show_on_type = Pp_utils.pp_to_string pp_on_type
+let show_on_type = Pp_utils.pp_to_string pp_jay_type
 let print_expr e = Fmt.pr "@[%a@]" pp_expr e

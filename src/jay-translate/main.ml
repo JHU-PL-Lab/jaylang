@@ -26,7 +26,7 @@ let debug_transform_jayil (trans_name : string)
   let%bind c_list = transform e in
   let e' = Ast.Expr c_list in
   lazy_logger `debug (fun () ->
-      Printf.sprintf "Result of %s:\n%s" trans_name (Pp.show_expr e')) ;
+      Printf.sprintf "Result of %s:\n%s" trans_name (Jayil.Pp.show_expr e')) ;
   return c_list
 
 let debug_transform_jayil_inst (trans_name : string)
@@ -37,7 +37,7 @@ let debug_transform_jayil_inst (trans_name : string)
   let%bind c_list = transform e in
   let e' = Ast.Expr c_list in
   lazy_logger `debug (fun () ->
-      Printf.sprintf "Result of %s:\n%s" trans_name (Pp.show_expr e')) ;
+      Printf.sprintf "Result of %s:\n%s" trans_name (Jayil.Pp.show_expr e')) ;
   return c_list
 
 let do_translate ?(is_instrumented : bool = true) context

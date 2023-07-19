@@ -1,5 +1,3 @@
-open Batteries
-
 type label = Label of string [@@deriving eq, ord, show, to_yojson]
 
 type ident = Jayil.Ast.ident = Ident of string
@@ -105,8 +103,8 @@ let fresh_tag () =
 let new_expr_desc : expr -> expr_desc =
  fun e -> { tag = fresh_tag (); body = e }
 
-(* Takes expr as an argument.  Returns the relative precedence of the
-    expression.  Higher ints correspond to higher precedences. *)
+(* Takes expr as an argument.  Returns the relative precedence of the expression.
+   Higher ints correspond to higher precedences. *)
 let expr_precedence_p1 (expr : expr) : int =
   match expr with
   | Function _ | Let _ | LetFun _ | LetRecFun _ | Match _ -> 0

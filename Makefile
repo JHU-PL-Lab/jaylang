@@ -27,7 +27,9 @@ translator:
 jil:
 	dune build src/bin/jil.exe
 
-
+jay:
+	dune build src/bin/jay.exe
+	
 # clean up
 
 clean:
