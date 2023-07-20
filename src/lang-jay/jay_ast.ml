@@ -1,3 +1,5 @@
+let dd fmt = Leak.Format_helper.dump_string fmt
+
 type label = Label of string [@@deriving eq, ord, show, to_yojson]
 
 type ident = Jayil.Ast.ident = Ident of string

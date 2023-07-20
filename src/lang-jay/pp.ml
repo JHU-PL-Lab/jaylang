@@ -1,6 +1,8 @@
 open Jay_ast
 module P = Pp_std
 
+(* let dd fmt = Leak.Format_helper.dump_string fmt *)
+let roc = Core.Out_channel.create ~append:true "debug.txt"
 let ss = Fmt.any
 let id : ident Fmt.t = Fmt.(using (fun (Ident s) -> s) string)
 let id_ = id
@@ -79,9 +81,11 @@ and pp_binop oc (expr : expr) : unit =
   | _ -> raise @@ Jhupllib.Utils.Invariant_failure "Not a binary operator!"
 
 and pp_expr_desc oc = (Fmt.using (fun expr_d -> expr_d.body) pp_expr) oc
-and pp_expr oc = Fmt.box pp_expr_raw oc
+and pp_expr oc = Fmt.hovbox pp_expr_raw oc
 
 and pp_expr_raw oc expr : unit =
+  (* Fmt.pf oc "%s" (dd oc) ; *)
+  (* Leak.Format_helper.dump roc oc ; *)
   match expr with
   (* Values *)
   | Int n -> Fmt.int oc n

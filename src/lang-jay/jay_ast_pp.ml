@@ -2,6 +2,8 @@ open Batteries
 open Jhupllib
 open Jay_ast
 
+let oc = Core.Out_channel.create ~append:true "debug.txt"
+
 (* TODO: Keep replacing " " with "@ " in format strings *)
 
 let pp_label formatter (Label l) = Format.pp_print_string formatter l
@@ -142,6 +144,8 @@ and pp_expr_desc_without_tag (formatter : Format.formatter) (e : expr_desc) :
   Format.fprintf formatter "%a" pp_expr e.body
 
 and pp_expr (formatter : Format.formatter) (expr : expr) : unit =
+  (* Fmt.pf formatter "%s" (dd formatter) ; *)
+  (* Leak.Format_helper.dump oc formatter ; *)
   let pp_expr_desc = pp_expr_desc_without_tag in
   match expr with
   (* Values *)
