@@ -244,8 +244,8 @@ module Jayil_value : Error_value with type t = Ast.clause_body = struct
 
   (* We use the brief version in order to avoid printing out function
      bodies (which may have clauses added during instrumentation. *)
-  let pp = Pp.Brief.clause_body
-  let show = Pp.Brief.show_clause_body
+  let pp = Jayil.Pp.Brief.clause_body
+  let show = Jayil.Pp.Brief.show_clause_body
   let to_yojson value = `String (replace_linebreaks @@ show value)
 end
 
@@ -260,8 +260,8 @@ struct
 
   let pp formatter (binop : t) =
     let left, op, right = binop in
-    Format.fprintf formatter "%a %a %a" Pp.clause_body left Pp.binop op
-      Pp.clause_body right
+    Format.fprintf formatter "%a %a %a" Jayil.Pp.clause_body left Jayil.Pp.binop
+      op Jayil.Pp.clause_body right
 
   let show binop = Pp_utils.pp_to_string pp binop
   let to_yojson binop = `String (replace_linebreaks @@ show binop)
@@ -272,9 +272,9 @@ module Jayil_type : Error_type with type t = Ast.type_sig = struct
 
   let equal = Ast.equal_type_sig
   let subtype = Ast.Type_signature.subtype
-  let pp = Pp.type_sig
-  let show = Pp.show_type_sig
-  let to_yojson typ = `String (Pp.show_type_sig typ)
+  let pp = Jayil.Pp.type_sig
+  let show = Jayil.Pp.show_type_sig
+  let to_yojson typ = `String (Jayil.Pp.show_type_sig typ)
 end
 
 module Jayil_error = Make (Jayil_ident) (Jayil_value) (Jayil_binop) (Jayil_type)
@@ -832,8 +832,8 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                (Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps)
       in
       let () =
-        Fmt.pr "\n\n\nThese are the jayil_vars: %a\n\n\n" (Fmt.list Pp.var_)
-          jayil_vars
+        Fmt.pr "\n\n\nThese are the jayil_vars: %a\n\n\n"
+          (Fmt.list Jayil.Pp.var_) jayil_vars
       in
       (* Getting all the aliases (for runtime value lookup) *)
       let alias_graph = interp_session.alias_graph in

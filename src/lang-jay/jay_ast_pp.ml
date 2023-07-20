@@ -229,5 +229,5 @@ let pp_jay_type formatter (on_type : Jay_ast.type_sig) =
   | VariantType lbl ->
       Format.fprintf formatter "Variant %a" pp_variant_label lbl
 
-let show_on_type = Pp_utils.pp_to_string pp_jay_type
+let show_jay_type = Pp_utils.pp_to_string pp_jay_type
 let print_expr e = Fmt.pr "@[%a@]" pp_expr e
