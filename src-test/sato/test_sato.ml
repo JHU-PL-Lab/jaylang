@@ -76,8 +76,8 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
             in
             let actual_v = Jay.Jay_ast_pp.show_expr err.err_match_val.body in
             let a_actual_type, a_expected_type =
-              ( Jay.Jay_ast_pp.show_on_type @@ err.err_match_actual,
-                Jay.Jay_ast_pp.show_on_type @@ err.err_match_expected )
+              ( Jay.Jay_ast_pp.show_jay_type @@ err.err_match_actual,
+                Jay.Jay_ast_pp.show_jay_type @@ err.err_match_expected )
             in
             Match_error
               {

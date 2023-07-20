@@ -39,7 +39,7 @@
 (executables
  (names dbmc_debugger)
  (modules dbmc_debugger)
- (libraries core logs lambda-term dbmc jayil)
+ (libraries core logs lambda-term dj_common jayil)
  (preprocess
   (pps ppx_jane))
  (promote

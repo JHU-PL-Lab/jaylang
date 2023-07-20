@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 
 module To_test = struct
   module R = Dbmc.Rstack
@@ -7,10 +8,10 @@ module To_test = struct
   let test_empty = R.equal empty empty
   let pop_exn r f = Option.value_exn (R.pop r f)
   let r0 = empty
-  let x = Dbmc.Id.Ident "x"
-  let y = Dbmc.Id.Ident "y"
-  let f = Dbmc.Id.Ident "f"
-  let g = Dbmc.Id.Ident "g"
+  let x = Id.Ident "x"
+  let y = Id.Ident "y"
+  let f = Id.Ident "f"
+  let g = Id.Ident "g"
   let xf : R.frame = (x, f)
   let r1 = R.push r0 xf
   let r2 = pop_exn r1 xf

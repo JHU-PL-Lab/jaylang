@@ -8,4 +8,4 @@
 
 (tests
  (names interpreter)
- (libraries core alcotest jayil_ast jayil_parser dbmc))
+ (libraries core alcotest jayil jayil_parser dbmc))

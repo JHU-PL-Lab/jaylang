@@ -16,8 +16,8 @@ let perf_one_file raw_config short_name filename =
         }
     | None -> raw_config
   in
-  let is_instrumented = config.is_instrumented in
-  let src = File_utils.read_source ~is_instrumented filename in
+  let do_instrument = config.is_instrumented in
+  let src = File_utils.read_source ~do_instrument filename in
 
   let result = Dbmc.Main.main ~config src in
   Dbmc.Observe.dump_check_info short_name result.state

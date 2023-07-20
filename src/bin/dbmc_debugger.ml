@@ -1,5 +1,6 @@
 open Lwt
 open LTerm_text
+open Dj_common
 
 (* +-----------------------------------------------------------------+
    | Interpreter                                                     |
@@ -60,8 +61,8 @@ class read_line ~term ~history ~state =
    +-----------------------------------------------------------------+ *)
 (* loop term history state () *)
 
-let readline_loop term history prompt_state (config : Dbmc.Global_config.t)
-    program state =
+let readline_loop term history prompt_state (config : Global_config.t) program
+    state =
   let rec loop prompt_state () =
     let rl =
       new read_line
@@ -89,8 +90,8 @@ let readline_loop term history prompt_state (config : Dbmc.Global_config.t)
            Lwt.return_unit)
          else (
            (* if command = Zed_string.of_utf8 "step" *)
-           Lwt_mutex.unlock Dbmc.Control_center.mutex ;
-           Lwt.pause () >>= fun () -> Lwt_mutex.lock Dbmc.Control_center.mutex))
+           Lwt_mutex.unlock Control_center.mutex ;
+           Lwt.pause () >>= fun () -> Lwt_mutex.lock Control_center.mutex))
         (* >>= fun () -> Lwt.return_unit *)
         >>= fun () -> loop prompt_state ()
     | None -> fail_with "why none"

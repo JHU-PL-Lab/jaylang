@@ -109,10 +109,12 @@ module Make (B : Is_brief) = struct
 
   let show_id = Fmt.to_to_string id
   let show_var = Fmt.to_to_string var_
+  let show_value = Fmt.to_to_string value
   let show_expr = Fmt.to_to_string expr
   let show_clause = Fmt.to_to_string clause
   let show_clause_body = Fmt.to_to_string clause_body
   let show_type_sig = Fmt.to_to_string type_sig
+  let show_binary_operator = Fmt.to_to_string binop
 end
 
 module No_brief = Make (struct

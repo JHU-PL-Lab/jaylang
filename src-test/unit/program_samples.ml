@@ -1,4 +1,4 @@
-let parse = Jayil_parser.Parser.parse_string
+let parse = Jayil_parser.Parse.parse_string
 let e1 = parse "\nt = 1\n"
 let e2 = parse "\na = 0;\nb = 1;\nt = a + b;\n"
 let e3 = parse "\na = 0;\nb = 1;\nc = a < b;\nt = c ? (r1 = 1) : (r2 = 0);\n"
