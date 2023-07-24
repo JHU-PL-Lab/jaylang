@@ -1,0 +1,18 @@
+a1 = 1;
+
+apply = fun g -> (
+  three = 3;
+  x = input;
+  one = 1;
+  cx = x == one;
+  rf = cx ? (
+    du = 7;
+  ) : (
+    h = fun x3 -> (
+      target = 5
+    )    
+  );
+);
+z = 0;
+r1 = apply z;
+r2 = r1 z;

@@ -1,0 +1,17 @@
+em = {};
+sum = fun sum0 -> (
+    rsum = fun n -> (
+        fss = sum0 sum0;
+        zero = 0;
+        is_pos = zero < n;
+        r_pos = is_pos ? (
+                one = 1;
+                np = n + one;
+                sp = fss np;
+                rr = n + sp
+            ) : (
+                ab7 = abort
+            )));
+xi = 1;
+ss = sum sum;
+r = ss xi
