@@ -1,6 +1,22 @@
 open Jay_ast
 module P = Pp_std
 
+module Dummy = struct
+  let _x = 1 in
+  let _y =
+    let y = 2 in
+    y
+  in
+  let z =
+    let z =
+      let z = 3 in
+      z
+    in
+    z
+  in
+  z
+end
+
 let ss = Fmt.any
 let id : ident Fmt.t = Fmt.(using (fun (Ident s) -> s) string)
 let id_ = id
@@ -79,9 +95,10 @@ and pp_binop oc (expr : expr) : unit =
   | _ -> raise @@ Jhupllib.Utils.Invariant_failure "Not a binary operator!"
 
 and pp_expr_desc oc = (Fmt.using (fun expr_d -> expr_d.body) pp_expr) oc
-and pp_expr oc = Fmt.box pp_expr_raw oc
+and pp_expr ?(top = false) oc = Fmt.box (pp_expr_raw ~top) oc
 
-and pp_expr_raw oc expr : unit =
+and pp_expr_raw ?(top = false) oc expr : unit =
+  let _ = top in
   match expr with
   (* Values *)
   | Int n -> Fmt.int oc n
@@ -95,7 +112,16 @@ and pp_expr_raw oc expr : unit =
   (* Operations *)
   | Appl _ -> pp_binop oc expr
   | Let (ident, e1, e2) ->
-      Fmt.pf oc "let %a = %a in@ %a" id ident pp_expr_desc e1 pp_expr_desc e2
+      (* if top
+         then *)
+      if not top then Fmt.pf oc "@," ;
+      Fmt.pf oc "@[<hv 2>let %a =@ %a@ in@]" id ident pp_expr_desc e1 ;
+      Fmt.pf oc "@ %a" pp_expr_desc e2 ;
+      if not top then Fmt.pf oc "@," ;
+      ()
+      (* else
+         Fmt.pf oc "@[<v 2>let %a = %a in@ %a@]" id ident pp_expr_desc e1
+           pp_expr_desc e2 *)
   | LetRecFun (fsig_lst, e) ->
       let funsig_list = P.list ~sep:(ss " with ") funsig in
       Fmt.pf oc "let rec %a in@ @[%a@]" funsig_list fsig_lst pp_expr_desc e
@@ -130,7 +156,7 @@ and pp_expr_raw oc expr : unit =
   | Error x -> Fmt.pf oc "Error: %a" id x
 
 and expr_desc_with_tag oc e : unit =
-  Fmt.pf oc "{tag: %a, body: %a}" Fmt.int e.tag pp_expr e.body
+  Fmt.pf oc "{tag: %a, body: %a}" Fmt.int e.tag (pp_expr : expr Fmt.t) e.body
 
 let jay_type oc = function
   | TopType -> Fmt.string oc "Any"
@@ -146,4 +172,4 @@ let show_expr = Fmt.to_to_string pp_expr
 let show_expr_desc = Fmt.to_to_string pp_expr_desc
 let show_pattern = Fmt.to_to_string pattern
 let show_jay_type = Fmt.to_to_string jay_type
-let print_expr e = Fmt.pr "@[%a@]" pp_expr e
+let print_expr e = Fmt.pr "@[%a@]" (pp_expr ~top:true) e
