@@ -1,0 +1,11 @@
+(library
+ (name jil_analysis)
+ (public_name jay.jil_analysis)
+ (libraries core fmt dj_common fix jayil jayil_parser)
+ (preprocess
+  (pps ppx_jane ppx_deriving.show)))
+
+(env
+ (dev
+  (flags
+   (:standard -w -33 -w -26 -w -27))))

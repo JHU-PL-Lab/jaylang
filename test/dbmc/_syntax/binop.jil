@@ -1,4 +1,3 @@
-x = input;
-y = input;
-z = x + y;
-target = 1;
+x = 3;
+y = 4;
+target = x + y;

@@ -57,6 +57,16 @@
   (into "../..")))
 
 (executable
+ (name ajil)
+ (modules ajil)
+ (libraries core fmt dj_common dbmc jayil jil_analysis)
+ (preprocess
+  (pps ppx_jane))
+ (promote
+  (until-clean)
+  (into "../..")))
+
+(executable
  (name jay)
  (modules jay)
  (libraries core logs dj_common dbmc jay)
