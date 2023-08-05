@@ -207,8 +207,7 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map target : t =
           let condsite_block = Cfg.outer_block block block_map in
           let x, x2 =
             let _paired, condsite_stack =
-              Rstack.pop_at_condtop key.r_stk
-                (cb.condsite, Id.cond_fid cb.choice)
+              Rstack.pop_at_condtop key.r_stk (cb.condsite, Id.cond_id cb.choice)
             in
             ( Lookup_key.of3 key.x condsite_stack condsite_block,
               Lookup_key.of3 cb.cond condsite_stack condsite_block )

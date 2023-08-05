@@ -101,8 +101,6 @@ let create_session ?max_step ?(debug_mode = No_debug) (state : Global_state.t)
     lookup_alert = state.stat.lookup_alert;
   }
 
-let cond_fid b = if b then Ident "$tt" else Ident "$ff"
-
 (* This function will add a directed edge x1 -> x2 in the alias graph. Thus
    x1 here needs to be the *later* defined variable. *)
 let add_alias x1 x2 session : unit =
@@ -237,8 +235,8 @@ and eval_clause ~session stk env clause : denv * dvalue =
     | Conditional_body (x2, e1, e2) ->
         let e, stk' =
           if fetch_val_to_bool ~session ~stk env x2
-          then (e1, Concrete_stack.push (x, cond_fid true) stk)
-          else (e2, Concrete_stack.push (x, cond_fid false) stk)
+          then (e1, Concrete_stack.push (x, Id.cond_id true) stk)
+          else (e2, Concrete_stack.push (x, Id.cond_id false) stk)
         in
         let ret_env, ret_val = eval_exp ~session stk' env e in
         let (Var (ret_id, _) as last_v) = Ast_tools.retv e in

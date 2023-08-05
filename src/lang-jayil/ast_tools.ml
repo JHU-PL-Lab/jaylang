@@ -7,7 +7,7 @@ let rec flatten (Expr clauses) =
   match clauses with
   | [] -> []
   | (Clause (_, Value_body (Value_function (Function_value (_, function_body))))
-    as clause)
+     as clause)
     :: rest_clauses ->
       (clause :: flatten function_body) @ flatten (Expr rest_clauses)
   | (Clause (_, Conditional_body (_, match_body, antimatch_body)) as clause)
@@ -53,32 +53,6 @@ let bindings_with_repetition expression =
 (** Returns the set of variable bindings that occur in expression, deeply
     traversing the syntax tree. *)
 let bindings expression = Var_set.of_list @@ bindings_with_repetition expression
-
-(** Returns the set of variables that have use occurrences in expression, deeply
-    traversing the syntax tree. *)
-(* let use_occurrences expression =
-     flatten expression
-     |> List.map (
-       fun (Clause (_, clause_body)) ->
-         match clause_body with
-         | Value_body _
-         | Input_body ->
-           Var_set.empty
-         | Var_body variable ->
-           Var_set.singleton variable
-         | Appl_body (function_, actual_parameter) ->
-           Var_set.of_list [function_; actual_parameter]
-         | Conditional_body (subject, _, _) ->
-           Var_set.singleton subject
-         | Match_body (subject, _) ->
-           Var_set.singleton subject
-         | Projection_body(subject, _) ->
-           Var_set.singleton subject
-         | Binary_operation_body (left_operand, _, right_operand) ->
-           Var_set.of_list [left_operand; right_operand]
-     )
-     |> List.fold_left Var_set.union Var_set.empty
-   ;; *)
 
 (** Returns the set of bindings repeated in expression, deeply traversing the
     syntax tree. *)

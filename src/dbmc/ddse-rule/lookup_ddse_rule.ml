@@ -118,7 +118,7 @@ module Make (S : S) = struct
     let ({ cond_case_info = cb; condsite_block; _ } : Cond_top_rule.t) = p in
     let beta = cb.choice in
     let _paired, condsite_stack =
-      Rstack.pop_at_condtop key.r_stk (cb.condsite, Id.cond_fid beta)
+      Rstack.pop_at_condtop key.r_stk (cb.condsite, Id.cond_id beta)
     in
     let x2 = cb.cond in
 
