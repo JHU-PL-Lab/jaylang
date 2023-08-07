@@ -47,19 +47,19 @@ let bind (rset : result_set) f : result_set =
          let aenv' = Map.add_exn aenv0 ~key:x ~data:cl_v in
          aeval_clause (cl_store, aenv', ctx, cl_last) rel) *)
 
-let rec aeval (store0, aenv0, ctx, cls) rel : result_set =
+let rec mk_aeval (store0, aenv0, ctx, cls) aeval : result_set =
   let cl_hd, cl_tl = (List.hd_exn cls, List.tl_exn cls) in
   (* let res_hd = aeval_clause (store0, aenv0, ctx, cl_hd) rel in *)
   if List.is_empty cl_tl
-  then aeval_clause (store0, aenv0, ctx, cl_hd) rel
+  then mk_aeval_clause (store0, aenv0, ctx, cl_hd) aeval
   else
-    let res_hd = rel (store0, aenv0, ctx, [ cl_hd ]) in
+    let res_hd = aeval (store0, aenv0, ctx, [ cl_hd ]) in
     let (Clause (x, _)) = cl_hd in
     bind res_hd (fun cl_v cl_store ->
         let aenv' = Map.add_exn aenv0 ~key:x ~data:cl_v in
-        aeval (cl_store, aenv', ctx, cl_tl) rel)
+        mk_aeval (cl_store, aenv', ctx, cl_tl) aeval)
 
-and aeval_clause (store, aenv, ctx, Clause (x, clb)) rel =
+and mk_aeval_clause (store, aenv, ctx, Clause (x, clb)) aeval =
   Fmt.pr "-> %a in %s. %s\n" Id.pp x
     (Abs_exp.clb_to_string clb)
     (env_to_string aenv) ;
@@ -85,7 +85,7 @@ and aeval_clause (store, aenv, ctx, Clause (x, clb)) rel =
       Abs_result.only (v1, store)
   | _ -> failwith "why"
 
-let solution = F.lfp aeval
+let solution = F.lfp mk_aeval
 
 let analyze e =
   let ae = Abs_exp.lift_expr e in
