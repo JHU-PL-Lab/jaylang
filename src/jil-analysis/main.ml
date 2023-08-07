@@ -29,7 +29,9 @@ let eqs ((Expr cls, _) : Exp_with_cs_as_key.t)
   AVal.Any
 
 let f = F.lfp eqs
-let run source = f (source, CS.empty)
+
+(* let run source = f (source, CS.empty) *)
+let run e = Fixer.analyze e
 let _ = 1
 
 (*

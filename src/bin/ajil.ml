@@ -12,7 +12,8 @@ let anon_fun i_raw =
 let run_program source =
   let program = Dj_common.File_utils.read_source source in
   let r = Jil_analysis.Main.run program in
-  Fmt.pr "%a\n" Jil_analysis.Abs_value.pp r
+  Fmt.pr "%s\n" (Jil_analysis.Abs_value.to_string r)
+(* Fmt.pr "%a\n" Jil_analysis.Abs_value.pp r *)
 
 (* let session =
      {
