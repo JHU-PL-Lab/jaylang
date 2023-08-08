@@ -270,16 +270,6 @@ let block_map_of_expr e : t Ident_map.t =
   loop Id.main_block e ;
   !map
 
-let cfg_of e =
-  let open Ddpa in
-  let conf : (module Ddpa_context_stack.Context_stack) =
-    (module Ddpa_single_element_stack.Stack)
-  in
-  let module Stack = (val conf) in
-  let module Analysis = Ddpa_analysis.Make (Stack) in
-  e |> Analysis.create_initial_analysis |> Analysis.perform_full_closure
-  |> Analysis.cfg_of_analysis
-
 (* we cannot use block map to represent the dynamic call graph/stack.
    the point is for one block, we can have a full version and a partial version
    at the same time.
@@ -295,7 +285,7 @@ let cfg_of e =
 let annotate e pt : block Ident_map.t =
   let map = ref (block_map_of_expr e)
   (* and visited_pred_map = ref BatMultiPMap.empty *)
-  and cfg = cfg_of e
+  and cfg = Ddpa_analysis.cfg_of e
   (* and id_first = first_var e *)
   and ret_to_fun_def_map = Jayil.Ast_tools.make_ret_to_fun_def_mapping e
   and para_to_fun_def_map = Jayil.Ast_tools.make_para_to_fun_def_mapping e in
