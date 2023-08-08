@@ -21,18 +21,7 @@ module AValue_as_prop = struct
   let is_maximal _v = false
 end
 
-open Jayil.Ast
-module F = Fix.ForHashedType (Exp_with_cs_as_key) (AValue_as_prop)
-
-let eqs ((Expr cls, _) : Exp_with_cs_as_key.t)
-    (_aeval : Exp_with_cs_as_key.t -> AValue_as_prop.property) =
-  AVal.Any
-
-let f = F.lfp eqs
-
-(* let run source = f (source, CS.empty) *)
 let run e = Fixer.analyze e
-let _ = 1
 
 (*
    Definitive

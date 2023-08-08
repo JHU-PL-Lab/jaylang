@@ -40,13 +40,8 @@ let e2 =
   let c0 = Map.empty (module Id) in
   let c1 = Map.add_exn c0 ~key:(Id.Ident "x") ~data:e1 in
   let c2 = Map.add_exn c1 ~key:(Id.Ident "y") ~data:e1 in
-  AClosure
-    (Id.s_ "x", [ Abs_exp.Clause (Id.s_ "z", Abs_exp.Value Int) ], Ctx.empty)
-
-(* let () =
-   pp Fmt.stdout e1 ;
-   pp Fmt.stdout e2 ;
-   () *)
+  let open Abs_exp.T in
+  AClosure (Id.s_ "x", Just (Clause (Id.s_ "z", Value Int)), Ctx.empty)
 
 type store = AEnv.t Map.M(Ctx).t
 
@@ -72,9 +67,6 @@ module Abs_result = struct
 end
 
 type result_set = Set.M(Abs_result).t [@@deriving equal, compare, hash, sexp]
-(* type result_set2 = Hash_set.M(Abs_result).t *)
-
-(* let aeval e env store : result_set = Set.empty (module Abs_result) *)
 
 let to_string rset = Sexp.to_string_hum (sexp_of_result_set rset)
 let env_to_string aenv = Sexp.to_string_hum (sexp_of_aenv aenv)

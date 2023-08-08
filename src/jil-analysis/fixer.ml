@@ -22,45 +22,24 @@ let bind (rset : result_set) f : result_set =
   Set.fold rset ~init:Abs_result.Set.empty ~f:(fun acc (v, store) ->
       Set.union acc @@ f v store)
 
-(* let rec aeval (store0, aenv0, ctx, cls) rel =
-   let rec loop store aenv cl_hd cl_tl : result_set =
-     let (Clause (x, _cl)) = cl_hd in
-     let cl_result = aeval_clause (store, aenv, ctx, cl_hd) rel in
-     if List.is_empty cl_tl
-     then cl_result
-     else
-       bind cl_result (fun cl_v cl_store ->
-           let aenv' = Map.add_exn aenv ~key:x ~data:cl_v in
-           loop cl_store aenv' (List.hd_exn cl_tl) (List.tl_exn cl_tl))
-   in
-   loop store0 aenv0 (List.hd_exn cls) (List.tl_exn cls) *)
+let bind_env (env_set : env_set) f : result_set =
+  Set.fold env_set ~init:Abs_result.Set.empty ~f:(fun acc env ->
+      Set.union acc @@ f env)
 
-(* let rec aeval (store0, aenv0, ctx, cls) rel =
-   let cl_prev, cl_last = (List.drop_last_exn cls, List.last_exn cls) in
-   (* let res_hd = aeval_clause (store0, aenv0, ctx, cl_hd) rel in *)
-   if List.is_empty cl_prev
-   then aeval_clause (store0, aenv0, ctx, cl_last) rel
-   else
-     let res_prev = rel (store0, aenv0, ctx, cl_prev) in
-     let (Clause (x, _)) = List.last_exn cl_prev in
-     bind res_prev (fun cl_v cl_store ->
-         let aenv' = Map.add_exn aenv0 ~key:x ~data:cl_v in
-         aeval_clause (cl_store, aenv', ctx, cl_last) rel) *)
+let rec mk_aeval (store0, aenv0, ctx, e0) aeval : result_set =
+  match e0 with
+  | Just cl -> mk_aeval_clause (store0, aenv0, ctx, cl) aeval
+  | More (cl, e) ->
+      let res_hd = aeval (store0, aenv0, ctx, Just cl) in
+      bind res_hd (fun cl_v cl_store ->
+          let aenv' =
+            Map.add_exn aenv0 ~key:(Abs_exp.id_of_clause cl) ~data:cl_v
+          in
+          mk_aeval (cl_store, aenv', ctx, e) aeval)
 
-let rec mk_aeval (store0, aenv0, ctx, cls) aeval : result_set =
-  let cl_hd, cl_tl = (List.hd_exn cls, List.tl_exn cls) in
-  (* let res_hd = aeval_clause (store0, aenv0, ctx, cl_hd) rel in *)
-  if List.is_empty cl_tl
-  then mk_aeval_clause (store0, aenv0, ctx, cl_hd) aeval
-  else
-    let res_hd = aeval (store0, aenv0, ctx, [ cl_hd ]) in
-    let (Clause (x, _)) = cl_hd in
-    bind res_hd (fun cl_v cl_store ->
-        let aenv' = Map.add_exn aenv0 ~key:x ~data:cl_v in
-        mk_aeval (cl_store, aenv', ctx, cl_tl) aeval)
-
-and mk_aeval_clause (store, aenv, ctx, Clause (x, clb)) aeval =
-  Fmt.pr "-> %a in %s. %s\n" Id.pp x
+and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set =
+  let env_get x = Map.find_exn aenv (Abs_exp.to_id x) in
+  Fmt.pr "-> %a in %s. %s\n" Id.pp x0
     (Abs_exp.clb_to_string clb)
     (env_to_string aenv) ;
   match clb with
@@ -74,16 +53,27 @@ and mk_aeval_clause (store, aenv, ctx, Clause (x, clb)) aeval =
       let v1 = Map.find_exn aenv (Abs_exp.to_id x1) in
       let v2 = Map.find_exn aenv (Abs_exp.to_id x2) in
       match v1 with
-      | AClosure (id, e, saved_context) ->
-          let envs = Map.find_exn store saved_context in
-          let ctx' = Ctx.push (x, Abs_exp.to_id x1) ctx in
-          Abs_result.empty
+      | AClosure (xc, e, saved_context) ->
+          let saved_envs = Map.find_exn store saved_context in
+          let ctx' = Ctx.push (x0, Abs_exp.to_id x1) ctx in
+          bind_env saved_envs (fun saved_env ->
+              let env_new = Map.add_exn saved_env ~key:xc ~data:v2 in
+              aeval (store, env_new, ctx', e))
       | _ -> Abs_result.empty)
+  | CVar x -> Abs_result.only (env_get x, store)
+  | Not x ->
+      let v = env_get x in
+      Abs_result.only (v, store)
   | Binop (x1, _binop, x2) ->
-      let v1 = Map.find_exn aenv (Abs_exp.to_id x1) in
-      let v2 = Map.find_exn aenv (Abs_exp.to_id x2) in
-      Abs_result.only (v1, store)
-  | _ -> failwith "why"
+      let v1 = env_get x1 in
+      let v2 = env_get x2 in
+      Abs_result.only (ABool true, store)
+  | Cond (x, e1, e2) -> (
+      match env_get x with
+      | ABool true -> aeval (store, aenv, ctx, e1)
+      | ABool false -> aeval (store, aenv, ctx, e2)
+      | _ -> Abs_result.empty)
+  | _ -> failwith "unknown clause"
 
 let solution = F.lfp mk_aeval
 

@@ -20,7 +20,7 @@ module Abs_exp = struct
     [@@deriving equal, compare, hash, sexp]
 
     type t = exp
-    and exp = clause list
+    and exp = Just of clause | More of clause * exp
     and clause = Clause of Id.t * clause_body
 
     and clause_body =
@@ -29,6 +29,7 @@ module Abs_exp = struct
       | Appl of var * var
       | Not of var
       | Binop of var * binop * var
+      | Cond of var * exp * exp
       | Restc
 
     and value = Int | Bool of bool | Function of var * exp | Restv
@@ -41,14 +42,25 @@ end
 
 include Abs_exp
 
-let of_var (Jayil.Ast.Var (x, _)) = Var x
-let id_of_var (Jayil.Ast.Var (x, _)) = x
-let to_id (Var x) = x
+(* Jayil_ast *)
+module For_jayil_ast = struct
+  let of_var (Jayil.Ast.Var (x, _)) = Var x
+  let id_of_jvar (Jayil.Ast.Var (x, _)) = x
+end
 
-let rec lift_expr (Jayil.Ast.Expr cls) = List.map ~f:lift_clause cls
+open For_jayil_ast
+
+let to_id (Var x) = x
+let id_of_clause (Clause (x, _)) = x
+
+let rec lift_expr (Jayil.Ast.Expr cls) =
+  match cls with
+  | [] -> failwith "empty expr"
+  | cl :: [] -> Just (lift_clause cl)
+  | cl :: cls -> More (lift_clause cl, lift_expr (Jayil.Ast.Expr cls))
 
 and lift_clause (Jayil.Ast.Clause (x, cbody)) =
-  Clause (id_of_var x, lift_cbody cbody)
+  Clause (id_of_jvar x, lift_cbody cbody)
 
 and lift_cbody = function
   | Jayil.Ast.Value_body v -> Value (lift_value v)
@@ -58,6 +70,8 @@ and lift_cbody = function
   | Jayil.Ast.Not_body x -> Not (of_var x)
   | Jayil.Ast.Binary_operation_body (x1, bop, x2) ->
       Binop (of_var x1, bop, of_var x2)
+  | Jayil.Ast.Conditional_body (x, e1, e2) ->
+      Cond (of_var x, lift_expr e1, lift_expr e2)
   | _ -> Restc
 
 and lift_value = function
