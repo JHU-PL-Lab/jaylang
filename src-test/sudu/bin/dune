@@ -3,4 +3,4 @@
  (libraries core core_unix sudu z3)
  (promote
   (until-clean)
-  (into "../..")))
+  (into "../../..")))

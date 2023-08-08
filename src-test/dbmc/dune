@@ -3,13 +3,8 @@
 ;  (action
 ;   (run %{exe:test_dbmc.exe} --tp "../../../../test/dbmc")))
 
-(rule
- (alias test_rstack)
- (action
-  (run ./test_rstack.exe)))
-
 (tests
- (names test_dbmc test_rstack)
+ (names test_dbmc)
  (libraries
   core
   core_unix.sys_unix

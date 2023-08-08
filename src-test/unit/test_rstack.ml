@@ -5,13 +5,12 @@ module To_test = struct
   module R = Dbmc.Rstack
 
   let empty = R.empty
-  let test_empty = R.equal empty empty
   let pop_exn r f = Option.value_exn (R.pop r f)
   let r0 = empty
   let x = Id.Ident "x"
-  let y = Id.Ident "y"
+  let _y = Id.Ident "y"
   let f = Id.Ident "f"
-  let g = Id.Ident "g"
+  let _g = Id.Ident "g"
   let xf : R.frame = (x, f)
   let r1 = R.push r0 xf
   let r2 = pop_exn r1 xf

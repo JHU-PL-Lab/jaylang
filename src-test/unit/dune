@@ -6,6 +6,11 @@
  (action
   (run ./interpreter.exe)))
 
+(rule
+ (alias test_rstack)
+ (action
+  (run ./test_rstack.exe)))
+
 (tests
- (names interpreter)
+ (names interpreter test_rstack)
  (libraries core alcotest jayil jayil_parser dbmc))
