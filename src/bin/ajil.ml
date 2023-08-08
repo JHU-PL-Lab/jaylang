@@ -10,10 +10,12 @@ let anon_fun i_raw =
   inputs := !inputs @ [ this_i ]
 
 let run_program source =
+  let open Jil_analysis in
   let program = Dj_common.File_utils.read_source source in
-  let r = Jil_analysis.Main.run program in
-  Fmt.pr "@.%s\n" (Jil_analysis.Abs_value.to_string r)
-(* Fmt.pr "%a\n" Jil_analysis.Abs_value.pp r *)
+  let r = Main.run program in
+  Fmt.pr "@.%s\n" (Abs_value.show_result_set r) ;
+  Fmt.pr "@.%a\n" Abs_value.pp_result_set r
+(* Fmt.pr "%a\n" Abs_value.pp r *)
 
 (* let session =
      {

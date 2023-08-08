@@ -15,11 +15,8 @@ module Make (B : Is_brief) = struct
       (fun f map -> Ident_map.iter f map)
       pp_entry oc map
 
-  let id_set oc set =
-    Fmt.iter ~sep:(Fmt.any ", ") (fun f set -> Ident_set.iter f set) id oc set
-
-  let id_list oc list =
-    Fmt.iter ~sep:(Fmt.any ", ") (fun f list -> List.iter f list) id oc list
+  let id_set oc set = Fmt.iter ~sep:(Fmt.any ", ") Ident_set.iter id oc set
+  let id_list oc list = Fmt.iter ~sep:(Fmt.any ", ") List.iter id oc list
 
   let string_of_binop = function
     | Binary_operator_plus -> "+"

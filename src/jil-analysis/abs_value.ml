@@ -7,6 +7,14 @@ module AVal = struct
   module T = struct
     type t = AInt | ABool of bool | AClosure of Id.t * Abs_exp.t * Ctx.t | Any
     and aenv = t Map.M(Id).t [@@deriving equal, compare, hash, sexp]
+
+    let pp fmter = function
+      | AInt -> Fmt.string fmter "n"
+      | ABool b -> Fmt.pf fmter "%a" Std.pp_b b
+      | Any -> Fmt.string fmter "?"
+      | AClosure (x, _, _ctx) -> Fmt.pf fmter "{%a}" Id.pp x
+
+    let show = Fmt.to_to_string pp
   end
 
   include T
@@ -20,33 +28,44 @@ module AEnv = struct
 
   include T
   include Comparable.Make (T)
+
+  let show aenv = Sexp.to_string_hum (sexp_of_t aenv)
+
+  let pp fmter env =
+    let iter f_ m =
+      let f ~key ~data = f_ key data in
+      Core.Map.iteri m ~f
+    in
+    Fmt.iter_bindings iter (Fmt.Dump.pair Id.pp AVal.pp) fmter env
 end
 
-type aval_set = Set.M(AVal).t
+(* type aval_set = Set.M(AVal).t *)
 type env_set = Set.M(AEnv).t [@@deriving equal, compare, hash, sexp]
+
+let show_env_set es = Sexp.to_string_hum (sexp_of_env_set es)
 
 open AVal.T
 
-let pp fmter = function
-  | AInt -> Fmt.string fmter "int"
-  | ABool b -> Fmt.pf fmter "B:%B" b
-  | Any -> Fmt.string fmter "any"
-  | AClosure (x, _, _ctx) -> Fmt.pf fmter "{%a}" Id.pp x
+(* type store = AEnv.t Map.M(Ctx).t *)
 
-let show = Fmt.to_to_string
-let e1 = AInt
+module AStore = struct
+  (* multimap *)
 
-let e2 =
-  let c0 = Map.empty (module Id) in
-  let c1 = Map.add_exn c0 ~key:(Id.Ident "x") ~data:e1 in
-  let c2 = Map.add_exn c1 ~key:(Id.Ident "y") ~data:e1 in
-  let open Abs_exp.T in
-  AClosure (Id.s_ "x", Just (Clause (Id.s_ "z", Value Int)), Ctx.empty)
+  type t = env_set Map.M(Ctx).t [@@deriving equal, compare, hash, sexp]
 
-type store = AEnv.t Map.M(Ctx).t
+  let show s = Sexp.to_string_hum (sexp_of_t s)
 
-(* multimap *)
-type astore = env_set Map.M(Ctx).t [@@deriving equal, compare, hash, sexp]
+  let pp fmter store =
+    let iter f_ m =
+      let f ~key ~data = f_ key data in
+      Core.Map.iteri m ~f
+    in
+    Fmt.iter_bindings iter
+      (Fmt.Dump.pair Ctx.pp (Fmt.of_to_string show_env_set))
+      fmter store
+end
+
+type astore = AStore.t
 
 let safe_add_store store ctx aenv =
   Map.update store ctx ~f:(function
@@ -64,9 +83,13 @@ module Abs_result = struct
 
   let only v = Set.singleton v
   let empty = Set.empty
+  let show ar = Sexp.to_string_hum (sexp_of_t ar)
+  let pp = Fmt.pair AVal.pp (Fmt.of_to_string AStore.show)
 end
 
 type result_set = Set.M(Abs_result).t [@@deriving equal, compare, hash, sexp]
 
-let to_string rset = Sexp.to_string_hum (sexp_of_result_set rset)
-let env_to_string aenv = Sexp.to_string_hum (sexp_of_aenv aenv)
+let pp_result_set : result_set Fmt.t =
+  Fmt.iter (fun f set -> Set.iter set ~f) Abs_result.pp
+
+let show_result_set rset = Sexp.to_string_hum (sexp_of_result_set rset)

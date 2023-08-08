@@ -4,7 +4,7 @@ open Dj_common
 open Abs_value
 
 module Quadruple_as_key = struct
-  type t = astore * AEnv.t * Ctx.t * Abs_exp.t [@@deriving equal, hash]
+  type t = AStore.t * AEnv.t * Ctx.t * Abs_exp.t [@@deriving equal, hash]
 end
 
 module Pair_as_prop = struct
@@ -41,7 +41,7 @@ and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set =
   let env_get x = Map.find_exn aenv (Abs_exp.to_id x) in
   Fmt.pr "-> %a in %s. %s\n" Id.pp x0
     (Abs_exp.clb_to_string clb)
-    (env_to_string aenv) ;
+    (AEnv.show aenv) ;
   match clb with
   | Value Int -> Abs_result.only (AInt, store)
   | Value (Bool b) -> Abs_result.only (ABool b, store)
