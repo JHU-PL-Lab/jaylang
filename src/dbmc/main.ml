@@ -209,7 +209,7 @@ let main_commandline () =
      match config.mode with
      | Dbmc_search -> (
          match List.hd inputss with
-         | Some inputs -> Fmt.pr "[%s]@;" (Std.string_of_inputs inputs)
+         | Some inputs -> Fmt.pr "[%s]@;" (Std.string_of_opt_int_list inputs)
          | None -> Fmt.pr "Unreachable")
      | Dbmc_check inputs -> Fmt.pr "%B" is_timeout
      | Dbmc_perf -> Fmt.pr "."

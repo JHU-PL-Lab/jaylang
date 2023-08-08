@@ -210,7 +210,7 @@ module Jayil_type_errors : Sato_result with type t = odefa_error_record = struct
    fun error ->
     "** Jayil Type Errors **\n"
     ^ Printf.sprintf "- Input sequence  : %s\n"
-        (Dj_common.Std.string_of_inputs error.err_input_seq)
+        (Dj_common.Std.string_of_opt_int_list error.err_input_seq)
     ^ Printf.sprintf "- Found at clause : %s\n"
         (Jayil_error_location.show error.err_location)
     (* (Printf.sprintf "- Found in steps  : %s\n" (string_of_int error.err_steps)) ^ *)
@@ -275,7 +275,7 @@ struct
    fun error ->
     "** NatOdefa Type Errors **\n"
     ^ Printf.sprintf "- Input sequence  : %s\n"
-        (Dj_common.Std.string_of_inputs error.err_input_seq)
+        (Dj_common.Std.string_of_opt_int_list error.err_input_seq)
     ^ Printf.sprintf "- Found at clause : %s\n"
         (Jay_error_location.show error.err_location)
     ^ "--------------------\n"
@@ -352,7 +352,7 @@ module Bluejay_type_errors : Sato_result with type t = ton_error_record = struct
    fun error ->
     "** Bluejay Type Errors **\n"
     ^ Printf.sprintf "- Input sequence  : %s\n"
-        (Dj_common.Std.string_of_inputs error.err_input_seq)
+        (Dj_common.Std.string_of_opt_int_list error.err_input_seq)
     ^ Printf.sprintf "- Found at clause : %s\n"
         (Bluejay_error_location.show error.err_location)
     ^ "--------------------\n"
