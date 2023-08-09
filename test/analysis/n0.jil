@@ -1,0 +1,6 @@
+tt = true;
+ff = false;
+f1 = fun y -> ( r1 = y );
+f2 = fun x -> ( r2 = f1 x );
+t1 = f2 tt;
+t = f2 ff;

@@ -8,6 +8,7 @@ open! Core
 module For_core = struct
   module Printing = struct
     let pp_b = Fmt.(using (function true -> "t" | false -> "f") string)
+    let pp_bo = Fmt.(using (function true -> "#t" | false -> "#f") string)
 
     let pp_set pp_val oc =
       let set_iter f set = Set.iter set ~f in

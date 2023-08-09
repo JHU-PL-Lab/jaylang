@@ -60,8 +60,16 @@ let rec mk_aeval (store0, aenv0, ctx, e0) aeval : result_set =
           mk_aeval (cl_store, aenv', ctx, e) aeval)
 
 and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set =
-  let env_get x = Map.find_exn aenv (Abs_exp.to_id x) in
-  Fmt.pr "@\n%a with %a@\n" Abs_exp.pp_clause (Clause (x0, clb)) AEnv.pp aenv ;
+  (* Mismatch step 2: fetch x from the wrong env *)
+  let env_get_exn x = Map.find_exn aenv (Abs_exp.to_id x) in
+  let env_get x = Map.find aenv (Abs_exp.to_id x) in
+  let env_get_bind x f =
+    let v = Map.find aenv (Abs_exp.to_id x) in
+    Option.value_map v ~default:Abs_result.empty ~f
+  in
+  Fmt.pr "@\n%a with env @[<h>%a@]@\n with store %a@\n" Abs_exp.pp_clause
+    (Clause (x0, clb))
+    AEnv.pp aenv AStore.pp store ;
   match clb with
   | Value Int -> Abs_result.only (AInt, store)
   | Value (Bool b) -> Abs_result.only (ABool b, store)
@@ -70,29 +78,30 @@ and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set =
       let store' = safe_add_store store ctx aenv in
       Abs_result.only (v, store')
   | Appl (x1, x2) -> (
-      let v1 = Map.find_exn aenv (Abs_exp.to_id x1) in
-      let v2 = Map.find_exn aenv (Abs_exp.to_id x2) in
-      match v1 with
-      | AClosure (xc, e, saved_context) ->
+      match (env_get x1, env_get x2) with
+      | Some (AClosure (xc, e, saved_context)), Some v2 ->
+          (* Mismatch step 1: pick the wrong env *)
           let saved_envs = Map.find_exn store saved_context in
           let ctx' = Ctx.push (x0, Abs_exp.to_id x1) ctx in
           bind saved_envs (fun saved_env ->
               let env_new = Map.add_exn saved_env ~key:xc ~data:v2 in
               aeval (store, env_new, ctx', e))
       | _ -> Abs_result.empty)
-  | CVar x -> Abs_result.only (env_get x, store)
-  | Not x ->
-      let v = env_get x in
-      bind (not_ v) (fun v -> Abs_result.only (v, store))
-  | Binop (x1, bop, x2) ->
-      let v1 = env_get x1 in
-      let v2 = env_get x2 in
-      let v = binop bop v1 v2 in
-      bind v (fun v -> Abs_result.only (v, store))
+  | CVar x -> env_get_bind x (fun v -> Abs_result.only (v, store))
+  | Not x -> (
+      match env_get x with
+      | Some v -> bind (not_ v) (fun v -> Abs_result.only (v, store))
+      | None -> Abs_result.empty)
+  | Binop (x1, bop, x2) -> (
+      match (env_get x1, env_get x2) with
+      | Some v1, Some v2 ->
+          let v = binop bop v1 v2 in
+          bind v (fun v -> Abs_result.only (v, store))
+      | _ -> Abs_result.empty)
   | Cond (x, e1, e2) -> (
       match env_get x with
-      | ABool true -> aeval (store, aenv, ctx, e1)
-      | ABool false -> aeval (store, aenv, ctx, e2)
+      | Some (ABool true) -> aeval (store, aenv, ctx, e1)
+      | Some (ABool false) -> aeval (store, aenv, ctx, e2)
       | _ -> Abs_result.empty)
   | _ -> failwith "unknown clause"
 

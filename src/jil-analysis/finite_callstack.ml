@@ -31,8 +31,14 @@ module Make (K : K) = struct
     if List.length r <= k then r else List.drop_last_exn r
 end
 
+module CS_0 = Make (struct
+  let k = 0
+end)
+
+module CS_1 = Make (struct
+  let k = 1
+end)
+
 module CS_2 = Make (struct
   let k = 2
 end)
-
-type actx = CS_2.t

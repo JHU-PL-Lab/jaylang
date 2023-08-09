@@ -1,7 +1,7 @@
 open Core
 open Jayil
 open Dj_common
-module Ctx = Finite_callstack.CS_2
+module Ctx = Finite_callstack.CS_0
 
 module AVal = struct
   module T = struct
@@ -10,7 +10,7 @@ module AVal = struct
 
     let pp fmter = function
       | AInt -> Fmt.string fmter "n"
-      | ABool b -> Fmt.pf fmter "%a" Std.pp_b b
+      | ABool b -> Fmt.pf fmter "%a" Std.pp_bo b
       | Any -> Fmt.string fmter "?"
       | AClosure (x, _, _ctx) -> Fmt.pf fmter "{%a}" Id.pp x
 
@@ -43,7 +43,9 @@ end
 type env_set = Set.M(AEnv).t [@@deriving equal, compare, hash, sexp]
 
 let show_env_set es = Sexp.to_string_hum (sexp_of_env_set es)
-let pp_env_set : env_set Fmt.t = Fmt.iter (fun f set -> Set.iter set ~f) AEnv.pp
+
+let pp_env_set : env_set Fmt.t =
+  Fmt.iter ~sep:(Fmt.any ";@ ") (fun f set -> Set.iter set ~f) AEnv.pp
 
 open AVal.T
 
@@ -61,7 +63,9 @@ module AStore = struct
       let f ~key ~data = f_ key data in
       Core.Map.iteri m ~f
     in
-    Fmt.iter_bindings iter (Fmt.pair Ctx.pp pp_env_set) fmter store
+    Fmt.iter_bindings ~sep:(Fmt.any ";@ ") iter
+      (Fmt.pair ~sep:(Fmt.any " -> ") Ctx.pp (Fmt.hbox pp_env_set))
+      fmter store
 end
 
 type astore = AStore.t
@@ -73,8 +77,7 @@ let safe_add_store store ctx aenv =
 
 module Abs_result = struct
   module T = struct
-    type t = AVal.t * env_set Map.M(Ctx).t
-    [@@deriving equal, compare, hash, sexp]
+    type t = AVal.t * AStore.t [@@deriving equal, compare, hash, sexp]
   end
 
   include T
