@@ -38,6 +38,17 @@ module Abs_exp = struct
 
   include T
   include Comparable.Make (T)
+
+  let rec pp ff = pp_exp ff
+
+  and pp_exp ff = function
+    | Just c -> pp_clause ff c
+    | More (c, e) -> Fmt.pf ff "%a%a" pp_clause c pp e
+
+  and pp_clause ff (Clause (x, cb)) =
+    Fmt.pf ff "%a = %a;@\n" Id.pp x pp_clause_body cb
+
+  and pp_clause_body ff = function _ -> Fmt.string ff "body"
 end
 
 include Abs_exp

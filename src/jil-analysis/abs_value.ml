@@ -36,13 +36,14 @@ module AEnv = struct
       let f ~key ~data = f_ key data in
       Core.Map.iteri m ~f
     in
-    Fmt.iter_bindings iter (Fmt.Dump.pair Id.pp AVal.pp) fmter env
+    Fmt.Dump.iter_bindings iter Fmt.nop Id.pp AVal.pp fmter env
 end
 
 (* type aval_set = Set.M(AVal).t *)
 type env_set = Set.M(AEnv).t [@@deriving equal, compare, hash, sexp]
 
 let show_env_set es = Sexp.to_string_hum (sexp_of_env_set es)
+let pp_env_set : env_set Fmt.t = Fmt.iter (fun f set -> Set.iter set ~f) AEnv.pp
 
 open AVal.T
 
@@ -60,9 +61,7 @@ module AStore = struct
       let f ~key ~data = f_ key data in
       Core.Map.iteri m ~f
     in
-    Fmt.iter_bindings iter
-      (Fmt.Dump.pair Ctx.pp (Fmt.of_to_string show_env_set))
-      fmter store
+    Fmt.iter_bindings iter (Fmt.pair Ctx.pp pp_env_set) fmter store
 end
 
 type astore = AStore.t
@@ -83,8 +82,7 @@ module Abs_result = struct
 
   let only v = Set.singleton v
   let empty = Set.empty
-  let show ar = Sexp.to_string_hum (sexp_of_t ar)
-  let pp = Fmt.pair AVal.pp (Fmt.of_to_string AStore.show)
+  let pp = Fmt.Dump.pair AVal.pp AStore.pp
 end
 
 type result_set = Set.M(Abs_result).t [@@deriving equal, compare, hash, sexp]
