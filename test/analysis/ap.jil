@@ -1,0 +1,13 @@
+f1 = fun x -> ( r1 = true );
+f2 = fun y -> ( r2 = false );
+app = fun f -> (
+  r3 = fun z -> (
+    r4 = f z
+  )
+);
+tt = true;
+ff = false;
+t1 = app f1;
+p1 = t1 tt;
+t2 = app f2;
+p2 = t2 ff;
