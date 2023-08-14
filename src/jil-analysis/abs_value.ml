@@ -1,7 +1,7 @@
 open Core
 open Jayil
 open Dj_common
-module Ctx = Finite_callstack.CS_0
+module Ctx = Finite_callstack.CS_2
 
 module AVal = struct
   module T = struct
@@ -63,8 +63,9 @@ module AStore = struct
       let f ~key ~data = f_ key data in
       Core.Map.iteri m ~f
     in
+    (* Fmt.Dump.iter_bindings iter Fmt.nop Ctx.pp pp_env_set fmter store *)
     Fmt.iter_bindings ~sep:(Fmt.any ";@ ") iter
-      (Fmt.pair ~sep:(Fmt.any " -> ") Ctx.pp (Fmt.hbox pp_env_set))
+      (Fmt.pair ~sep:(Fmt.any " -> ") Ctx.pp (Fmt.box pp_env_set))
       fmter store
 end
 

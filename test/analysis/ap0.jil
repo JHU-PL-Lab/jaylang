@@ -1,0 +1,12 @@
+ap = fun f -> (
+  z = 0;
+  r4 = f z
+);
+tt = true;
+ff = false;
+
+f1 = fun x -> ( r1 = true );
+f2 = fun y -> ( r2 = false );
+
+t1 = ap f1;
+t2 = ap f2;

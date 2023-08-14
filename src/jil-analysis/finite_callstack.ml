@@ -42,3 +42,11 @@ end)
 module CS_2 = Make (struct
   let k = 2
 end)
+
+module CS_3 = Make (struct
+  let k = 3
+end)
+
+module CS_4 = Make (struct
+  let k = 4
+end)

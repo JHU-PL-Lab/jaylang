@@ -61,11 +61,14 @@ let rec mk_aeval (store0, aenv0, ctx, e0) aeval : result_set =
 
 and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set =
   (* Mismatch step 2: fetch x from the wrong env *)
-  let env_get_exn x = Map.find_exn aenv (Abs_exp.to_id x) in
+  (* let env_get_exn x = Map.find_exn aenv (Abs_exp.to_id x) in *)
   let env_get x = Map.find aenv (Abs_exp.to_id x) in
   let env_get_bind x f =
-    let v = Map.find aenv (Abs_exp.to_id x) in
-    Option.value_map v ~default:Abs_result.empty ~f
+    Option.value_map (env_get x) ~default:Abs_result.empty ~f
+  in
+  let env_add_bind env x v f =
+    let ar = Map.add env ~key:x ~data:v in
+    match ar with `Ok env' -> f env' | `Duplicate -> Abs_result.empty
   in
   Fmt.pr "@\n%a with env @[<h>%a@]@\n with store %a@\n" Abs_exp.pp_clause
     (Clause (x0, clb))
@@ -84,8 +87,10 @@ and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set =
           let saved_envs = Map.find_exn store saved_context in
           let ctx' = Ctx.push (x0, Abs_exp.to_id x1) ctx in
           bind saved_envs (fun saved_env ->
-              let env_new = Map.add_exn saved_env ~key:xc ~data:v2 in
-              aeval (store, env_new, ctx', e))
+              env_add_bind saved_env xc v2 (fun env_new ->
+                  aeval (store, env_new, ctx', e))
+              (* let env_new = Map.add_exn saved_env ~key:xc ~data:v2 in
+                 aeval (store, env_new, ctx', e) *))
       | _ -> Abs_result.empty)
   | CVar x -> env_get_bind x (fun v -> Abs_result.only (v, store))
   | Not x -> (

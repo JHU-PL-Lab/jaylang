@@ -1,0 +1,14 @@
+f = fun t -> (
+  r0 = fun t1 -> (
+    r1 = t;
+  )
+);
+
+tt = true;
+ff = false;
+
+a1 = f tt;
+a2 = a1 tt;
+
+b1 = f ff;
+b2 = b1 tt;
