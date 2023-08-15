@@ -4,8 +4,16 @@ open Dj_common
 open Abs_value
 
 module Quadruple_as_key = struct
-  type t = AStore.t * AEnv.t * Ctx.t * Abs_exp.t [@@deriving equal, hash]
+  module T = struct
+    type t = AStore.t * AEnv.t * Ctx.t * Abs_exp.t
+    [@@deriving equal, hash, compare, sexp]
+  end
+
+  include T
+  include Comparable.Make (T)
 end
+
+let visited = Hash_set.create (module Quadruple_as_key)
 
 module Pair_as_prop = struct
   type property = result_set
@@ -50,7 +58,9 @@ let not_ = function
 
 let rec mk_aeval (store0, aenv0, ctx, e0) aeval : result_set =
   match e0 with
-  | Just cl -> mk_aeval_clause (store0, aenv0, ctx, cl) aeval
+  | Just cl ->
+      Hash_set.add visited (store0, aenv0, ctx, e0) ;
+      mk_aeval_clause (store0, aenv0, ctx, cl) aeval
   | More (cl, e) ->
       let res_hd = aeval (store0, aenv0, ctx, Just cl) in
       bind res_hd (fun (cl_v, cl_store) ->
@@ -112,6 +122,32 @@ and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set =
 
 let solution = F.lfp mk_aeval
 
+type result_table = (Id.t, AVal.t list) Hashtbl.t
+
 let analyze e =
+  Hash_set.clear visited ;
   let ae = Abs_exp.lift_expr e in
-  solution (Map.empty (module Ctx), Map.empty (module Id), Ctx.empty, ae)
+  let result =
+    solution (Map.empty (module Ctx), Map.empty (module Id), Ctx.empty, ae)
+  in
+  let same_e_in_quadruple (_, _, _, e1) (_, _, _, e2) = Abs_exp.compare e1 e2 in
+  let pp_e_in_q fmt (_, _, _, e) = Abs_exp.pp fmt e in
+  let distinct_t4_list =
+    visited |> Hash_set.to_list
+    |> List.sort_and_group ~compare:same_e_in_quadruple
+    |> List.map ~f:(fun es ->
+           let _, _, _, e = List.hd_exn es in
+           let vs =
+             List.fold es
+               ~init:(Set.empty (module AVal))
+               ~f:(fun acc e ->
+                 Set.fold (solution e) ~init:acc ~f:(fun acc (v, _s) ->
+                     Set.add acc v))
+           in
+           (e, vs))
+  in
+  Fmt.pr "Exps (%d): %a"
+    (List.length distinct_t4_list)
+    (Fmt.Dump.list @@ Fmt.Dump.pair Abs_exp.pp Abs_value.pp_aval_set)
+    distinct_t4_list ;
+  result

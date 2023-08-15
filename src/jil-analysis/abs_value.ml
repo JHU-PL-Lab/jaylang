@@ -1,7 +1,7 @@
 open Core
 open Jayil
 open Dj_common
-module Ctx = Finite_callstack.CS_2
+module Ctx = Finite_callstack.CS_1
 
 module AVal = struct
   module T = struct
@@ -48,6 +48,9 @@ let pp_env_set : env_set Fmt.t =
   Fmt.iter ~sep:(Fmt.any ";@ ") (fun f set -> Set.iter set ~f) AEnv.pp
 
 open AVal.T
+
+let pp_aval_set : Set.M(AVal).t Fmt.t =
+  Fmt.iter ~sep:(Fmt.any ";@ ") (fun f set -> Set.iter set ~f) AVal.pp
 
 (* type store = AEnv.t Map.M(Ctx).t *)
 
