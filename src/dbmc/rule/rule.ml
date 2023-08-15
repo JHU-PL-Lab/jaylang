@@ -187,7 +187,7 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map target : t =
           let callsites_with_stk =
             List.filter_map callsites ~f:(fun cs ->
                 let cs_block, x', x'', x''' =
-                  Cfg.fun_info_of_callsite cs block_map
+                  Cfg.fun_info_of_callsite block_map cs
                 in
                 match Rstack.pop key.r_stk (x', fid) with
                 | Some cs_stk ->
@@ -204,7 +204,7 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map target : t =
             Fun_enter_nonlocal
               { fid; fb; is_local = false; callsites; callsites_with_stk }
       | Cond cb ->
-          let condsite_block = Cfg.outer_block block block_map in
+          let condsite_block = Cfg.outer_block block_map block in
           let x, x2 =
             let _paired, condsite_stack =
               Rstack.pop_at_condtop key.r_stk (cb.condsite, Id.cond_id cb.choice)

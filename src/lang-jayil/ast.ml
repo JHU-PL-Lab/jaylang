@@ -236,3 +236,5 @@ let pattern_match pat v =
   | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
       Ident_set.equal ids (Ident_set.of_enum @@ Ident_map.keys rv)
   | _ -> false
+
+let bat_list_of_enum = List.of_enum

@@ -1,3 +1,22 @@
+(* This is block-indexed control-flow-graph that serves two purposes
+   1. query source code information including
+   - find the block of an id
+   - find the outer block of an id
+   - find the previous clause(s)
+   2. query static analysis information including
+   - find the possible values of a cond variable
+   - find the possible functions to call at a callsite
+   - find the possible callsites to return at in a function body
+
+   The implementation is done by
+   1. create a map from block to all clauses details in that block
+   (`Cfg.block_map_of_expr`)
+   2. modify the details from the analysis
+   (`Cfg_of_ddpa.annotate`)
+
+   The struct will be stored in the global state as `block_map` and used later.
+*)
+
 open Core
 open Jayil.Ast
 
@@ -53,6 +72,8 @@ type def_site =
 
 type t = block [@@deriving show { with_path = false }]
 
+(* intra-block query *)
+
 let cast_to_cond_block_info block =
   match block.kind with
   | Cond cb -> cb
@@ -61,21 +82,12 @@ let cast_to_cond_block_info block =
 let cast_to_fun_block_info block =
   match block.kind with Fun fb -> fb | _ -> failwith "cast_to_fun_block_info"
 
-let outer_block block map =
-  let outer_id =
-    match block.kind with
-    | Main -> failwith "no outer_id for main block"
-    | Fun fb -> fb.outer_id
-    | Cond cb -> cb.outer_id
-  in
-  Ident_map.find outer_id map
-
 let ret_of block =
   let clauses = block.clauses in
   (List.last_exn clauses).id
 
 let find_block_by_id x block_map =
-  block_map |> Ident_map.values |> Ddpa.Ddpa_helper.bat_list_of_enum
+  block_map |> Ident_map.values |> bat_list_of_enum
   |> List.find_map ~f:(fun block ->
          let is_possible =
            match block.kind with Cond cb -> cb.possible | _ -> true
@@ -90,7 +102,7 @@ let find_block_by_id x block_map =
 
 let find_cond_blocks x block_map =
   let cond_case_infos =
-    block_map |> Ident_map.values |> Ddpa.Ddpa_helper.bat_list_of_enum
+    block_map |> Ident_map.values |> bat_list_of_enum
     |> List.filter_map ~f:(fun block ->
            match block.kind with
            | Cond cb ->
@@ -140,7 +152,18 @@ let clauses_of_expr e =
       in
       cs @ [ c' ])
 
-let fun_info_of_callsite callsite map =
+(* above-block query *)
+
+let outer_block map block =
+  let outer_id =
+    match block.kind with
+    | Main -> failwith "no outer_id for main block"
+    | Fun fb -> fb.outer_id
+    | Cond cb -> cb.outer_id
+  in
+  Ident_map.find outer_id map
+
+let fun_info_of_callsite map callsite =
   let callsite_block = find_block_by_id callsite map in
   let tc = clause_of_x_exn callsite_block callsite in
   let x', x'', x''' =
@@ -163,55 +186,48 @@ let is_before map x1 x2 =
       else Continue true)
     ~finish:Fn.id
 
-let block_map_of_expr e : t Ident_map.t =
-  let map = ref Ident_map.empty in
+(* for analysis use *)
 
-  let main_block =
-    let clauses = clauses_of_expr e in
-    { id = Id.main_block; clauses; kind = Main }
+let update_clauses f block = { block with clauses = f block.clauses }
+
+let update_id_dst block id dst0 =
+  let add_dsts dst0 dsts =
+    if List.mem dsts dst0 ~equal:Ident.equal then dsts else dst0 :: dsts
   in
-  map := Ident_map.add Id.main_block main_block !map ;
-
-  let rec loop outer_id e =
-    let (Expr clauses) = e in
-    let handle_clause = function
-      | Clause
-          ( Var (cid, _),
-            Value_body (Value_function (Function_value (Var (para, _), fbody)))
-          ) ->
-          let clauses = clauses_of_expr fbody in
-          let block =
-            { id = cid; clauses; kind = Fun { outer_id; para; callsites = [] } }
-          in
-          map := Ident_map.add cid block !map ;
-          loop cid fbody
-      | Clause (Var (cid, _), Conditional_body (Var (cond, _), e1, e2)) ->
-          let make_block e beta =
-            let clauses = clauses_of_expr e in
-            {
-              id = Id.cond_block_id cid beta;
-              clauses;
-              kind =
-                Cond
-                  {
-                    outer_id;
-                    condsite = cid;
-                    cond;
-                    possible = true;
-                    choice = beta;
-                  };
-            }
-          in
-          let block_then = make_block e1 true in
-          let block_else = make_block e2 false in
-          map := Ident_map.add block_then.id block_then !map ;
-          map := Ident_map.add block_else.id block_else !map ;
-          loop block_then.id e1 ;
-          loop block_else.id e2
-      | _ -> ()
-    in
-    List.iter clauses ~f:handle_clause
+  let add_dst_in_clause (tc : tl_clause) =
+    if Ident.equal tc.id id
+    then
+      {
+        tc with
+        cat =
+          (match tc.cat with
+          | App dsts -> App (add_dsts dst0 dsts)
+          | Cond dsts -> Cond (add_dsts dst0 dsts)
+          | other -> other);
+      }
+    else tc
   in
+  update_clauses (List.map ~f:add_dst_in_clause) block
 
-  loop Id.main_block e ;
-  !map
+let add_id_dst tl_map site_x def_x =
+  let tl = find_block_by_id site_x tl_map in
+  let tl' = update_id_dst tl site_x def_x in
+  Ident_map.add tl.id tl' tl_map
+
+(* ddpa-related cfg update*)
+let _add_callsite site block =
+  match block.kind with
+  | Fun b ->
+      { block with kind = Fun { b with callsites = site :: b.callsites } }
+  | _ -> failwith "wrong precondition to call add_callsite"
+
+let add_callsite tl_map f_def site =
+  let tl = Ident_map.find f_def tl_map in
+  let tl' = _add_callsite site tl in
+  Ident_map.add f_def tl' tl_map
+
+let set_block_impossible tl_map block =
+  let cond_block_info = cast_to_cond_block_info block in
+  let cond_block_info' = { cond_block_info with possible = false } in
+  let block' = { block with kind = Cond cond_block_info' } in
+  tl_map := Ident_map.add block.id block' !tl_map

@@ -1,40 +1,24 @@
+(* The file is for temporary use to break some dependency mess
+   The code is moved out from `dj_common` becuase I don't want `dj_common` depends on `ddpa`. Now
+
+   dj_common depends on languages jil, jay, and bluejay
+
+   dbmc depends on ddpa-analysis-for-dj
+   ddpa-analysis-for-dj depends on ddpa and dj_common
+   ddpa depends on languages jil
+
+   jil_analysis depends on dj_common and language jil
+
+   Therefore, dj_common doesn't know about both ddpa and jil_analysis.
+*)
+
 open Core
 open Jayil.Ast
 open Ddpa
 open Ddpa_abstract_ast
 open Ddpa_graph
 open Ddpa_helper
-open Cfg
-
-(* ddpa-unrelate cfg update, should move out *)
-
-let update_clauses f block = { block with clauses = f block.clauses }
-
-let update_id_dst id dst0 block =
-  let add_dsts dst0 dsts =
-    if List.mem dsts dst0 ~equal:Ident.equal then dsts else dst0 :: dsts
-  in
-  let add_dst_in_clause (tc : tl_clause) =
-    if Ident.equal tc.id id
-    then
-      {
-        tc with
-        cat =
-          (match tc.cat with
-          | App dsts -> App (add_dsts dst0 dsts)
-          | Cond dsts -> Cond (add_dsts dst0 dsts)
-          | other -> other);
-      }
-    else tc
-  in
-  update_clauses (List.map ~f:add_dst_in_clause) block
-
-let add_id_dst site_x def_x tl_map =
-  let tl = find_block_by_id site_x tl_map in
-  let tl' = update_id_dst site_x def_x tl in
-  Ident_map.add tl.id tl' tl_map
-
-(* ddpa-related cfg update*)
+open Dj_common.Cfg
 
 let make_cond_block_possible tl_map acls cfg =
   let cond_site, possible =
@@ -53,12 +37,6 @@ let make_cond_block_possible tl_map acls cfg =
         (cond_site, None)
     | _ -> failwith "wrong precondition to call"
   in
-  let make_block_impossible block =
-    let cond_block_info = cast_to_cond_block_info block in
-    let cond_block_info' = { cond_block_info with possible = false } in
-    let block' = { block with kind = Cond cond_block_info' } in
-    tl_map := Ident_map.add block.id block' !tl_map
-  in
 
   let cond_both = find_cond_blocks cond_site !tl_map in
   match possible with
@@ -68,44 +46,27 @@ let make_cond_block_possible tl_map acls cfg =
         then Option.value_exn cond_both.else_
         else Option.value_exn cond_both.then_
       in
-      make_block_impossible beta_block
+      set_block_impossible tl_map beta_block
   | None -> ()
-
-let _add_callsite site block =
-  match block.kind with
-  | Fun b ->
-      { block with kind = Fun { b with callsites = site :: b.callsites } }
-  | _ -> failwith "wrong precondition to call add_callsite"
-
-let add_callsite f_def site tl_map =
-  let tl = Ident_map.find f_def tl_map in
-  let tl' = _add_callsite site tl in
-  Ident_map.add f_def tl' tl_map
-
-(* we cannot use block map to represent the dynamic call graph/stack.
-   the point is for one block, we can have a full version and a partial version
-   at the same time.
-   For this, we may set the original or annotated source code as a (static) map
-   and use another data structure for dynamic
-*)
 
 (* annotate block from the ddpa cfg.
    for call-site `s = e1 e2`, annotate e1 with the real function def_var
-   for cond-site `s = c ? e1 : e2`, replace s with
+   for cond-site `s = c ? e1 : e2`, annotate c with the possible bools
 *)
 
 let annotate e pt : block Ident_map.t =
-  let map = ref (block_map_of_expr e)
-  (* and visited_pred_map = ref BatMultiPMap.empty *)
-  and cfg = Ddpa_analysis.cfg_of e
-  (* and id_first = first_var e *)
+  let map = ref (Dj_common.Cfg_of_source.block_map_of_expr e) in
+  let set_map map' = map := map' in
+  let cfg = Ddpa_analysis.cfg_of e
   and ret_to_fun_def_map = Jayil.Ast_tools.make_ret_to_fun_def_mapping e
   and para_to_fun_def_map = Jayil.Ast_tools.make_para_to_fun_def_mapping e in
-  let pt_clause = Ident_map.find pt (Jayil.Ast_tools.clause_mapping e) in
-  (* let is_abort_clause =
-       match pt_clause with Clause (_, Abort_body) -> true | _ -> false
-     in *)
-  let acl = Unannotated_clause (lift_clause pt_clause) in
+  let acl =
+    let pt_clause = Ident_map.find pt (Jayil.Ast_tools.clause_mapping e) in
+    (* let is_abort_clause =
+         match pt_clause with Clause (_, Abort_body) -> true | _ -> false
+       in *)
+    Unannotated_clause (lift_clause pt_clause)
+  in
 
   (* let debug_bomb = ref 20 in *)
   let visited = ref Annotated_clause_set.empty in
@@ -114,14 +75,12 @@ let annotate e pt : block Ident_map.t =
     then ()
     else (
       visited := Annotated_clause_set.add acl !visited ;
-
       let prev_acls = preds_l acl cfg in
 
       (* debug to prevent infinite loop *)
       (* debug_bomb := !debug_bomb - 1;
          if !debug_bomb = 0
-         then failwith "bomb"
-         ; *)
+         then failwith "bomb" ; *)
 
       (* process logic *)
       (* if cfg shows only one of then-block and else-block is possible,
@@ -129,10 +88,7 @@ let annotate e pt : block Ident_map.t =
          e.g. [prev: [r = c ? ...; r = r1 @- r]]
       *)
       if List.length prev_acls > 1 && has_condition_clause prev_acls
-      then
-        if List.length prev_acls = 1
-        then failwith "cond clause cannot appear along"
-        else make_cond_block_possible map prev_acls cfg ;
+      then make_cond_block_possible map prev_acls cfg ;
 
       (* step logic *)
       let continue = ref true and block_dangling = ref dangling in
@@ -143,17 +99,16 @@ let annotate e pt : block Ident_map.t =
           ( Abs_var _para,
             Abs_var ret_var,
             Abs_clause (Abs_var site_r, Abs_appl_body _) ) ->
-          (* para can also be ignored in Fun since para is a property of a Fun block, defined in the source code
-            *)
+          (* para can also be ignored in Fun since para is a property of a Fun block, defined in the source code *)
           let f_def = Ident_map.find ret_var ret_to_fun_def_map in
-          map := add_id_dst site_r f_def !map ;
+          set_map @@ add_id_dst !map site_r f_def ;
           block_dangling := false
       (* out of fbody *)
       | Binding_enter_clause
           (Abs_var para, _, Abs_clause (Abs_var site_r, Abs_appl_body _)) ->
           let f_def = Ident_map.find para para_to_fun_def_map in
-          map := add_id_dst site_r f_def !map ;
-          map := add_callsite f_def site_r !map ;
+          set_map @@ add_id_dst !map site_r f_def ;
+          set_map @@ add_callsite !map f_def site_r ;
 
           continue := dangling
       (* into cond-body *)

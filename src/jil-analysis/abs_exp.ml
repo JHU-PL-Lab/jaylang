@@ -93,3 +93,7 @@ and lift_value = function
   | _ -> Restv
 
 let clb_to_string clb = Sexp.to_string_hum (sexp_of_clause_body clb)
+
+let clause_of_e_exn = function
+  | Just c -> c
+  | More _ -> failwith "not just a clause"

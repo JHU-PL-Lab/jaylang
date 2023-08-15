@@ -16,7 +16,6 @@
   logs.fmt
   ocamlgraph
   fmt
-  ddpa
   bluejay
   jay
   jayil
