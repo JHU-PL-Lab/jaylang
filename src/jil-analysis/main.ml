@@ -13,8 +13,6 @@ module Quadruple_as_key = struct
   include Comparable.Make (T)
 end
 
-let visited = Hash_set.create (module Quadruple_as_key)
-
 module Pair_as_prop = struct
   type property = result_set
 
@@ -56,83 +54,88 @@ let not_ = function
   | AVal.ABool b -> Set.singleton (module AVal) (ABool (not b))
   | _ -> Set.empty (module AVal)
 
-let rec mk_aeval (store0, aenv0, ctx, e0) aeval : result_set =
-  match e0 with
-  | Just cl ->
-      Hash_set.add visited (store0, aenv0, ctx, e0) ;
-      mk_aeval_clause (store0, aenv0, ctx, cl) aeval
-  | More (cl, e) ->
-      let res_hd = aeval (store0, aenv0, ctx, Just cl) in
-      bind res_hd (fun (cl_v, cl_store) ->
-          let aenv' =
-            Map.add_exn aenv0 ~key:(Abs_exp.id_of_clause cl) ~data:cl_v
-          in
-          mk_aeval (cl_store, aenv', ctx, e) aeval)
+(* let visited = Hash_set.create (module Quadruple_as_key) *)
 
-and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set =
-  (* Mismatch step 2: fetch x from the wrong env *)
-  (* let env_get_exn x = Map.find_exn aenv (Abs_exp.to_id x) in *)
-  let env_get x = Map.find aenv (Abs_exp.to_id x) in
-  let env_get_bind x f =
-    Option.value_map (env_get x) ~default:Abs_result.empty ~f
-  in
-  let env_add_bind env x v f =
-    let ar = Map.add env ~key:x ~data:v in
-    match ar with `Ok env' -> f env' | `Duplicate -> Abs_result.empty
-  in
-  Fmt.pr "@\n%a with env @[<h>%a@]@\n with store %a@\n" Abs_exp.pp_clause
-    (Clause (x0, clb))
-    AEnv.pp aenv AStore.pp store ;
-  match clb with
-  | Value Int -> Abs_result.only (AInt, store)
-  | Value (Bool b) -> Abs_result.only (ABool b, store)
-  | Value (Function (x, e)) ->
-      let v = AVal.AClosure (Abs_exp.to_id x, e, ctx) in
-      let store' = safe_add_store store ctx aenv in
-      Abs_result.only (v, store')
-  | Appl (x1, x2) -> (
-      match (env_get x1, env_get x2) with
-      | Some (AClosure (xc, e, saved_context)), Some v2 ->
-          (* Mismatch step 1: pick the wrong env *)
-          let saved_envs = Map.find_exn store saved_context in
-          let ctx' = Ctx.push (x0, Abs_exp.to_id x1) ctx in
-          bind saved_envs (fun saved_env ->
-              env_add_bind saved_env xc v2 (fun env_new ->
-                  aeval (store, env_new, ctx', e))
-              (* let env_new = Map.add_exn saved_env ~key:xc ~data:v2 in
-                 aeval (store, env_new, ctx', e) *))
-      | _ -> Abs_result.empty)
-  | CVar x -> env_get_bind x (fun v -> Abs_result.only (v, store))
-  | Not x -> (
-      match env_get x with
-      | Some v -> bind (not_ v) (fun v -> Abs_result.only (v, store))
-      | None -> Abs_result.empty)
-  | Binop (x1, bop, x2) -> (
-      match (env_get x1, env_get x2) with
-      | Some v1, Some v2 ->
-          let v = binop bop v1 v2 in
-          bind v (fun v -> Abs_result.only (v, store))
-      | _ -> Abs_result.empty)
-  | Cond (x, e1, e2) -> (
-      match env_get x with
-      | Some (ABool true) -> aeval (store, aenv, ctx, e1)
-      | Some (ABool false) -> aeval (store, aenv, ctx, e2)
-      | _ -> Abs_result.empty)
-  | _ -> failwith "unknown clause"
+let make_solution () =
+  let visited = Hash_set.create (module Quadruple_as_key) in
 
-let solution = F.lfp mk_aeval
+  let rec mk_aeval (store0, aenv0, ctx, e0) aeval : result_set =
+    match e0 with
+    | Just cl ->
+        Hash_set.add visited (store0, aenv0, ctx, e0) ;
+        mk_aeval_clause (store0, aenv0, ctx, cl) aeval
+    | More (cl, e) ->
+        let res_hd = aeval (store0, aenv0, ctx, Just cl) in
+        bind res_hd (fun (cl_v, cl_store) ->
+            let aenv' =
+              Map.add_exn aenv0 ~key:(Abs_exp.id_of_clause cl) ~data:cl_v
+            in
+            mk_aeval (cl_store, aenv', ctx, e) aeval)
+  and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set =
+    (* Mismatch step 2: fetch x from the wrong env *)
+    (* let env_get_exn x = Map.find_exn aenv (Abs_exp.to_id x) in *)
+    let env_get x = Map.find aenv (Abs_exp.to_id x) in
+    let env_get_bind x f =
+      Option.value_map (env_get x) ~default:Abs_result.empty ~f
+    in
+    let env_add_bind env x v f =
+      let ar = Map.add env ~key:x ~data:v in
+      match ar with `Ok env' -> f env' | `Duplicate -> Abs_result.empty
+    in
+    Fmt.pr "@\n%a with env @[<h>%a@]@\n with store %a@\n" Abs_exp.pp_clause
+      (Clause (x0, clb))
+      AEnv.pp aenv AStore.pp store ;
+    match clb with
+    | Value Int -> Abs_result.only (AInt, store)
+    | Value (Bool b) -> Abs_result.only (ABool b, store)
+    | Value (Function (x, e)) ->
+        let v = AVal.AClosure (Abs_exp.to_id x, e, ctx) in
+        let store' = safe_add_store store ctx aenv in
+        Abs_result.only (v, store')
+    | Appl (x1, x2) -> (
+        match (env_get x1, env_get x2) with
+        | Some (AClosure (xc, e, saved_context)), Some v2 ->
+            (* Mismatch step 1: pick the wrong env *)
+            let saved_envs = Map.find_exn store saved_context in
+            let ctx' = Ctx.push (x0, Abs_exp.to_id x1) ctx in
+            bind saved_envs (fun saved_env ->
+                env_add_bind saved_env xc v2 (fun env_new ->
+                    aeval (store, env_new, ctx', e))
+                (* let env_new = Map.add_exn saved_env ~key:xc ~data:v2 in
+                   aeval (store, env_new, ctx', e) *))
+        | _ -> Abs_result.empty)
+    | CVar x -> env_get_bind x (fun v -> Abs_result.only (v, store))
+    | Not x -> (
+        match env_get x with
+        | Some v -> bind (not_ v) (fun v -> Abs_result.only (v, store))
+        | None -> Abs_result.empty)
+    | Binop (x1, bop, x2) -> (
+        match (env_get x1, env_get x2) with
+        | Some v1, Some v2 ->
+            let v = binop bop v1 v2 in
+            bind v (fun v -> Abs_result.only (v, store))
+        | _ -> Abs_result.empty)
+    | Cond (x, e1, e2) -> (
+        match env_get x with
+        | Some (ABool true) -> aeval (store, aenv, ctx, e1)
+        | Some (ABool false) -> aeval (store, aenv, ctx, e2)
+        | _ -> Abs_result.empty)
+    | _ -> failwith "unknown clause"
+  in
+  (F.lfp mk_aeval, visited)
 
 type result_table = (Id.t, AVal.t list) Hashtbl.t
 
 let analyze e =
-  Hash_set.clear visited ;
+  let solution, visited = make_solution () in
+
   let ae = Abs_exp.lift_expr e in
   let result =
     solution (Map.empty (module Ctx), Map.empty (module Id), Ctx.empty, ae)
   in
-  result
+  (solution, visited, result)
 
-let build_result_set visited =
+let build_result_set solution visited =
   let same_e_in_quadruple (_, _, _, e1) (_, _, _, e2) = Abs_exp.compare e1 e2 in
   let pp_e_in_q fmt (_, _, _, e) = Abs_exp.pp fmt e in
   visited |> Hash_set.to_list
@@ -149,8 +152,8 @@ let build_result_set visited =
          (e, vs))
 
 let analyze_and_dump e =
-  let result = analyze e in
-  let result_set = build_result_set visited in
+  let solution, visited, result = analyze e in
+  let result_set = build_result_set solution visited in
 
   Fmt.pr "Exps (%d): %a" (List.length result_set)
     (Fmt.Dump.list @@ Fmt.Dump.pair Abs_exp.pp Abs_value.pp_aval_set)
