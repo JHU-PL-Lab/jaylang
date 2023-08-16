@@ -82,9 +82,9 @@ let make_solution () =
       let ar = Map.add env ~key:x ~data:v in
       match ar with `Ok env' -> f env' | `Duplicate -> Abs_result.empty
     in
-    Fmt.pr "@\n%a with env @[<h>%a@]@\n with store %a@\n" Abs_exp.pp_clause
-      (Clause (x0, clb))
-      AEnv.pp aenv AStore.pp store ;
+    (* Fmt.pr "@\n%a with env @[<h>%a@]@\n with store %a@\n" Abs_exp.pp_clause
+       (Clause (x0, clb))
+       AEnv.pp aenv AStore.pp store ; *)
     match clb with
     | Value Int -> Abs_result.only (AInt, store)
     | Value (Bool b) -> Abs_result.only (ABool b, store)
@@ -135,7 +135,7 @@ let analyze e =
   in
   (solution, visited, result)
 
-let build_result_set solution visited =
+let build_result_alist solution visited =
   let same_e_in_quadruple (_, _, _, e1) (_, _, _, e2) = Abs_exp.compare e1 e2 in
   let pp_e_in_q fmt (_, _, _, e) = Abs_exp.pp fmt e in
   visited |> Hash_set.to_list
@@ -149,13 +149,20 @@ let build_result_set solution visited =
                Set.fold (solution e) ~init:acc ~f:(fun acc (v, _s) ->
                    Set.add acc v))
          in
-         (e, vs))
+
+         (Abs_exp.id_of_e_exn e, vs))
+
+let build_result_map solution visited =
+  let result_alist = build_result_alist solution visited in
+  let result_map = Hashtbl.of_alist_exn (module Id) result_alist in
+  result_map
 
 let analyze_and_dump e =
   let solution, visited, result = analyze e in
-  let result_set = build_result_set solution visited in
+  let result_alist = build_result_alist solution visited in
+  let result_map = Hashtbl.of_alist_exn (module Id) result_alist in
 
-  Fmt.pr "Exps (%d): %a" (List.length result_set)
-    (Fmt.Dump.list @@ Fmt.Dump.pair Abs_exp.pp Abs_value.pp_aval_set)
-    result_set ;
+  Fmt.pr "Exps (%d): %a" (List.length result_alist)
+    (Fmt.Dump.list @@ Fmt.Dump.pair Id.pp Abs_value.pp_aval_set)
+    result_alist ;
   result

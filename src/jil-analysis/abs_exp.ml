@@ -97,3 +97,8 @@ let clb_to_string clb = Sexp.to_string_hum (sexp_of_clause_body clb)
 let clause_of_e_exn = function
   | Just c -> c
   | More _ -> failwith "not just a clause"
+
+let id_of_e_exn e =
+  let cl = clause_of_e_exn e in
+  let (Clause (x, _)) = cl in
+  x

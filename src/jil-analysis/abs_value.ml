@@ -1,7 +1,7 @@
 open Core
 open Jayil
 open Dj_common
-module Ctx = Finite_callstack.CS_1
+module Ctx = Finite_callstack.CS_2
 
 module AVal = struct
   module T = struct
