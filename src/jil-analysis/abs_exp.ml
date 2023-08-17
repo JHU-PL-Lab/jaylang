@@ -51,6 +51,15 @@ module Abs_exp = struct
   and pp_clause_body ff = function _ -> Fmt.string ff "body"
 end
 
+module Abs_clause = struct
+  module T = struct
+    type t = Abs_exp.T.clause [@@deriving equal, compare, hash, sexp]
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
 include Abs_exp
 
 (* Jayil_ast *)

@@ -20,7 +20,8 @@
 open Core
 open Jayil.Ast
 
-type clause_cat = Direct | Fun | App of ident list | Cond of ident list
+type clause_cat = Direct | Fun | Cond | App of ident list
+(* of ident list *)
 [@@deriving show { with_path = false }]
 
 type tl_clause = { id : ident; cat : clause_cat; clause : clause [@opaque] }
@@ -146,7 +147,7 @@ let clauses_of_expr e =
         match b with
         | Appl_body (_, _) -> { id = cid; cat = App []; clause = c }
         | Conditional_body (Var (_, _), _, _) ->
-            { id = cid; cat = Cond []; clause = c }
+            { id = cid; cat = Cond (* [] *); clause = c }
         | Value_body (Value_function _) -> { id = cid; cat = Fun; clause = c }
         | _ -> { id = cid; cat = Direct; clause = c }
       in
@@ -190,10 +191,10 @@ let is_before map x1 x2 =
 
 let update_clauses f block = { block with clauses = f block.clauses }
 
+let add_dsts dst0 dsts =
+  if List.mem dsts dst0 ~equal:Ident.equal then dsts else dst0 :: dsts
+
 let update_id_dst block id dst0 =
-  let add_dsts dst0 dsts =
-    if List.mem dsts dst0 ~equal:Ident.equal then dsts else dst0 :: dsts
-  in
   let add_dst_in_clause (tc : tl_clause) =
     if Ident.equal tc.id id
     then
@@ -202,7 +203,7 @@ let update_id_dst block id dst0 =
         cat =
           (match tc.cat with
           | App dsts -> App (add_dsts dst0 dsts)
-          | Cond dsts -> Cond (add_dsts dst0 dsts)
+          (* | Cond dsts -> Cond (add_dsts dst0 dsts) *)
           | other -> other);
       }
     else tc

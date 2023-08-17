@@ -57,11 +57,12 @@ let make_cond_block_possible tl_map acls cfg =
 let annotate e pt : block Ident_map.t =
   let map = ref (Dj_common.Cfg_of_source.block_map_of_expr e) in
   let set_map map' = map := map' in
-  let cfg = Ddpa_analysis.cfg_of e
-  and ret_to_fun_def_map = Jayil.Ast_tools.make_ret_to_fun_def_mapping e
-  and para_to_fun_def_map = Jayil.Ast_tools.make_para_to_fun_def_mapping e in
+  let cfg = Ddpa_analysis.cfg_of e in
+  let ret_to_fun_def_map = Jayil.Ast_tools.make_ret_to_fun_def_mapping e in
+  let para_to_fun_def_map = Jayil.Ast_tools.make_para_to_fun_def_mapping e in
+  let id_to_clause_map = Jayil.Ast_tools.clause_mapping e in
   let acl =
-    let pt_clause = Ident_map.find pt (Jayil.Ast_tools.clause_mapping e) in
+    let pt_clause = Ident_map.find pt id_to_clause_map in
     (* let is_abort_clause =
          match pt_clause with Clause (_, Abort_body) -> true | _ -> false
        in *)
