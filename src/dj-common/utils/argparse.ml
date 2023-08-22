@@ -2,22 +2,15 @@ open Core
 open Global_config
 
 let analyzer_parser : analyzer Command.Arg_type.t =
-  Command.Arg_type.create (function
-    | "0ddpa" -> Ddpa C_0ddpa
-    | "1ddpa" -> Ddpa C_1ddpa
-    | "2ddpa" -> Ddpa C_2ddpa
-    | "0cfa" -> K_CFA 0
-    | "1cfa" -> K_CFA 1
-    | "2cfa" -> K_CFA 2
-    | aa_str ->
-        let get_k suffix =
-          String.chop_suffix_exn aa_str ~suffix |> Int.of_string
-        in
-        if String.is_suffix aa_str ~suffix:"ddpa"
-        then Ddpa (C_kddpa (get_k "ddpa"))
-        else if String.is_suffix aa_str ~suffix:"cfa"
-        then K_CFA (get_k "cfa")
-        else failwith "unknown analysis")
+  Command.Arg_type.create (function aa_str ->
+      let get_k suffix =
+        String.chop_suffix_exn aa_str ~suffix |> Int.of_string
+      in
+      if String.is_suffix aa_str ~suffix:"ddpa"
+      then K_ddpa (get_k "ddpa")
+      else if String.is_suffix aa_str ~suffix:"cfa"
+      then K_cfa (get_k "cfa")
+      else failwith "unknown analysis")
 
 let log_level_parser : Logs.level Command.Arg_type.t =
   Command.Arg_type.create (function

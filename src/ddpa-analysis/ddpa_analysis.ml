@@ -548,10 +548,18 @@ module Make (C : Context_stack) : Analysis_sig with module C = C = struct
   let cfg_of_analysis analysis = analysis.ddpa_graph
 end
 
-let cfg_of e =
-  let conf : (module Ddpa_context_stack.Context_stack) =
-    (module Ddpa_single_element_stack.Stack)
-  in
+let stack_of_k k : (module Ddpa_context_stack.Context_stack) =
+  match k with
+  | 0 -> (module Ddpa_unit_stack.Stack)
+  | 1 -> (module Ddpa_single_element_stack.Stack)
+  | 2 -> (module Ddpa_two_element_stack.Stack)
+  | k ->
+      (module Ddpa_n_element_stack.Make (struct
+        let size = k
+      end))
+
+let cfg_of e k =
+  let conf = stack_of_k k in
   let module Stack = (val conf) in
   let module Analysis = Make (Stack) in
   e |> Analysis.create_initial_analysis |> Analysis.perform_full_closure

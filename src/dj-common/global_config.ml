@@ -3,8 +3,7 @@ open Core
 
 exception GenComplete
 
-type ddpa_c_stk = C_0ddpa | C_1ddpa | C_2ddpa | C_kddpa of int
-and analyzer = Ddpa of ddpa_c_stk | K_CFA of int
+type analyzer = K_ddpa of int | K_cfa of int
 and engine = E_dbmc | E_ddse
 and mode = Dbmc_search | Dbmc_check of int option list | Dbmc_perf | Sato
 and encode_policy = Only_incremental | Always_shrink
@@ -50,7 +49,7 @@ let default_config =
     stride_init = 100;
     stride_max = 100;
     encode_policy = Only_incremental;
-    analyzer = Ddpa C_1ddpa;
+    analyzer = K_ddpa 1;
     mode = Dbmc_search;
     run_max_step = None;
     engine = E_dbmc;

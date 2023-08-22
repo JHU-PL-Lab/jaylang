@@ -5,8 +5,11 @@ open Dj_common
 let compute_info (config : Global_config.t) program : info =
   let first = Jayil.Ast_tools.first_id program in
   let target = config.target in
-  let block_map = Ddpa_for_dj.Cfg_of_ddpa.block_map_of_expr program target in
-  (* let block_map = Jil_analysis.Cfg_of_analysis.block_map_of_expr program in *)
+  let block_map =
+    match config.analyzer with
+    | K_ddpa k -> Ddpa_for_dj.Cfg_of_ddpa.block_map_of_expr program k target
+    | K_cfa _ -> Jil_analysis.Cfg_of_analysis.block_map_of_expr program
+  in
   let block0 = Cfg.find_block_by_id target block_map in
   let key_target = Lookup_key.start target block0 in
   let source_map = lazy (Jayil.Ast_tools.clause_mapping program) in
