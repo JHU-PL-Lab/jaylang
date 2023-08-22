@@ -8,9 +8,7 @@ let timeout_parser : Time_float.Span.t Command.Arg_type.t =
 let all_params : 'p Command.Param.t =
   let open Command.Let_syntax in
   let%map_open filename = anon ("source_file" %: Filename_unix.arg_type)
-  (* and target =
-          flag "-t" (required target_parser) ~doc:"target_point"
-       and engine =
+  (* and engine =
           flag "-e" (optional_with_default E_dbmc engine_parser) ~doc:"engine"
      and is_instrumented =
          flag "-a" (optional_with_default false bool) ~doc:"instrumented"

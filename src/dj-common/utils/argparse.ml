@@ -1,28 +1,27 @@
 open Core
 open Global_config
 
-let analyzer_parser : analyzer Command.Arg_type.t =
-  Command.Arg_type.create (function aa_str ->
-      let get_k suffix =
-        String.chop_suffix_exn aa_str ~suffix |> Int.of_string
-      in
-      if String.is_suffix aa_str ~suffix:"ddpa"
-      then K_ddpa (get_k "ddpa")
-      else if String.is_suffix aa_str ~suffix:"cfa"
-      then K_cfa (get_k "cfa")
-      else failwith "unknown analysis")
+let parse_analyzer str =
+  let get_k suffix = String.chop_suffix_exn str ~suffix |> Int.of_string in
+  if String.is_suffix str ~suffix:"ddpa"
+  then Some (K_ddpa (get_k "ddpa"))
+  else if String.is_suffix str ~suffix:"cfa"
+  then Some (K_cfa (get_k "cfa"))
+  else None
+
+let parse_analyzer_exn str = parse_analyzer str |> Option.value_exn
 
 let log_level_parser : Logs.level Command.Arg_type.t =
-  Command.Arg_type.create (function
-    | "app" -> Logs.App
-    | "error" -> Logs.Error
-    | "warn" -> Logs.Warning
-    | "info" -> Logs.Info
-    | "debug" -> Logs.Debug
-    | _ -> failwith "incorrect log level")
+  Command.Arg_type.of_alist_exn
+    [
+      ("app", Logs.App);
+      ("error", Logs.Error);
+      ("warn", Logs.Warning);
+      ("info", Logs.Info);
+      ("debug", Logs.Debug);
+    ]
 
-let target_parser : Id.t Command.Arg_type.t =
-  Command.Arg_type.create (fun s -> Id.(Ident s))
+let parse_id s = Id.(Ident s)
 
 let timeout_parser : Time_float.Span.t Command.Arg_type.t =
   Command.Arg_type.create (fun s ->
@@ -43,7 +42,8 @@ let encode_policy_parser =
 
 let all_params : Global_config.t Command.Param.t =
   let open Command.Let_syntax in
-  let%map_open target = flag "-t" (required target_parser) ~doc:"target_point"
+  let%map_open target =
+    flag "-t" (required (Command.Arg_type.create parse_id)) ~doc:"target_point"
   and filename = anon ("source_file" %: Filename_unix.arg_type)
   and engine =
     flag "-e" (optional_with_default E_dbmc engine_parser) ~doc:"engine"
@@ -52,7 +52,8 @@ let all_params : Global_config.t Command.Param.t =
     flag "-i" (optional int_option_list_parser) ~doc:"expected inputs"
   and analyzer =
     flag "-aa"
-      (optional_with_default default_config.analyzer analyzer_parser)
+      (optional_with_default default_config.analyzer
+         (Command.Arg_type.create parse_analyzer_exn))
       ~doc:"ddpa_concrete_stack"
   and run_max_step = flag "-x" (optional int) ~doc:"check per steps"
   and timeout = flag "-m" (optional timeout_parser) ~doc:"timeout in seconds"
@@ -125,5 +126,4 @@ let all_params : Global_config.t Command.Param.t =
 
 let parse_commandline_config () =
   let config = ref default_config in
-  Command_util.parse_command all_params "DBMC top to run ODEFA or NATODEFA file"
-    config
+  Command_util.parse_command all_params "DJ top" config
