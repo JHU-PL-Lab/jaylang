@@ -4,6 +4,7 @@ open Core
 exception GenComplete
 
 type ddpa_c_stk = C_0ddpa | C_1ddpa | C_2ddpa | C_kddpa of int
+and analyzer = Ddpa of ddpa_c_stk | K_CFA of int
 and engine = E_dbmc | E_ddse
 and mode = Dbmc_search | Dbmc_check of int option list | Dbmc_perf | Sato
 and encode_policy = Only_incremental | Always_shrink
@@ -13,11 +14,10 @@ and t = {
   target : Id.t;
   filename : Filename.t; [@printer String.pp]
   (* mode *)
+  analyzer : analyzer;
   engine : engine;
   is_instrumented : bool;
   mode : mode;
-  (* analysis *)
-  ddpa_c_stk : ddpa_c_stk;
   (* tuning *)
   run_max_step : int option;
   timeout : Time_float.Span.t option;
@@ -42,17 +42,15 @@ and t = {
 }
 [@@deriving show { with_path = false }]
 
-let default_ddpa_c_stk = C_1ddpa
-
 let default_config =
   {
-    ddpa_c_stk = default_ddpa_c_stk;
     target = Id.(Ident "target");
     filename = "";
     timeout = None (* Time.Span.of_int_sec 60 *);
     stride_init = 100;
     stride_max = 100;
     encode_policy = Only_incremental;
+    analyzer = Ddpa C_1ddpa;
     mode = Dbmc_search;
     run_max_step = None;
     engine = E_dbmc;

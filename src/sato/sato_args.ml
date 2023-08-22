@@ -15,13 +15,11 @@ type t = {
 }
 [@@deriving show]
 
-let default_ddpa_c_stk = Dj_common.Global_config.C_1ddpa
-
 let default_config =
   {
     filename = "";
     sato_mode = Dj_common.File_utils.Jayil;
-    ddpa_c_stk = default_ddpa_c_stk;
+    ddpa_c_stk = Dj_common.Global_config.C_1ddpa;
     do_wrap = true;
     do_instrument = true;
     output_parsable = false;

@@ -1,16 +1,23 @@
 open Core
 open Global_config
 
-let ddpa_c_stk_parser : ddpa_c_stk Command.Arg_type.t =
+let analyzer_parser : analyzer Command.Arg_type.t =
   Command.Arg_type.create (function
-    | "0ddpa" -> C_0ddpa
-    | "1ddpa" -> C_1ddpa
-    | "2ddpa" -> C_2ddpa
-    | ddpa_c_string ->
-        let k =
-          String.chop_suffix_exn ddpa_c_string ~suffix:"ddpa" |> Int.of_string
+    | "0ddpa" -> Ddpa C_0ddpa
+    | "1ddpa" -> Ddpa C_1ddpa
+    | "2ddpa" -> Ddpa C_2ddpa
+    | "0cfa" -> K_CFA 0
+    | "1cfa" -> K_CFA 1
+    | "2cfa" -> K_CFA 2
+    | aa_str ->
+        let get_k suffix =
+          String.chop_suffix_exn aa_str ~suffix |> Int.of_string
         in
-        C_kddpa k)
+        if String.is_suffix aa_str ~suffix:"ddpa"
+        then Ddpa (C_kddpa (get_k "ddpa"))
+        else if String.is_suffix aa_str ~suffix:"cfa"
+        then K_CFA (get_k "cfa")
+        else failwith "unknown analysis")
 
 let log_level_parser : Logs.level Command.Arg_type.t =
   Command.Arg_type.create (function
@@ -50,9 +57,9 @@ let all_params : Global_config.t Command.Param.t =
   and is_instrumented = flag "-a" no_arg ~doc:"instrumented"
   and expected_inputs =
     flag "-i" (optional int_option_list_parser) ~doc:"expected inputs"
-  and ddpa_c_stk =
-    flag "-c"
-      (optional_with_default default_ddpa_c_stk ddpa_c_stk_parser)
+  and analyzer =
+    flag "-aa"
+      (optional_with_default default_config.analyzer analyzer_parser)
       ~doc:"ddpa_concrete_stack"
   and run_max_step = flag "-x" (optional int) ~doc:"check per steps"
   and timeout = flag "-m" (optional timeout_parser) ~doc:"timeout in seconds"
@@ -101,7 +108,7 @@ let all_params : Global_config.t Command.Param.t =
     engine;
     is_instrumented;
     mode;
-    ddpa_c_stk;
+    analyzer;
     run_max_step;
     timeout;
     stride_init;

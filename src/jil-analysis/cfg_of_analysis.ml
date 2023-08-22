@@ -3,7 +3,7 @@ open Core
 (* TODO: `make dtest` reports
    > Hashtbl: mutation not allowed during iteration *)
 
-let to_cfg e =
+let block_map_of_expr e =
   let solution, visited, _ar = Main.analyze e in
   let block_map = ref (Dj_common.Cfg_of_source.block_map_of_expr e) in
   (* TODO: result map is better to be clause to map *)

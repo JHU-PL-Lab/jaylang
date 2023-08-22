@@ -54,7 +54,7 @@ let make_cond_block_possible tl_map acls cfg =
    for cond-site `s = c ? e1 : e2`, annotate c with the possible bools
 *)
 
-let annotate e pt : block Ident_map.t =
+let block_map_of_expr e pt : block Ident_map.t =
   let map = ref (Dj_common.Cfg_of_source.block_map_of_expr e) in
   let set_map map' = map := map' in
   let cfg = Ddpa_analysis.cfg_of e in

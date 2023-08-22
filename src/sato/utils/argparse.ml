@@ -25,7 +25,7 @@ let all_params : 'p Command.Param.t =
       ~doc:"output parsable .jil file"
   and ddpa_c_stk =
     flag "-c"
-      (optional_with_default default_ddpa_c_stk
+      (optional_with_default default_config.ddpa_c_stk
          Dj_common.Argparse.ddpa_c_stk_parser)
       ~doc:"ddpa_concrete_stack"
   and run_max_step = flag "-x" (optional int) ~doc:"check per steps"
