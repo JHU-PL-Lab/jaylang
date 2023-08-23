@@ -15,6 +15,7 @@ let test_one_file test_config testname () =
     {
       Global_config.default_config with
       filename;
+      analyzer = test_config.analyzer;
       engine = test_config.engine;
       is_instrumented;
       stride_init = test_config.initial_stride;
