@@ -4,10 +4,8 @@ open Core
    > Hashtbl: mutation not allowed during iteration *)
 
 let block_map_of_expr e =
-  let solution, visited, _ar = Main.analyze e in
   let block_map = ref (Dj_common.Cfg_of_source.block_map_of_expr e) in
-  (* TODO: result map is better to be clause to map *)
-  let result_map = Main.build_result_map solution visited in
+  let _, result_map = Main.analysis_result ~dump:false e in
   let para_to_fun_def_map = Jayil.Ast_tools.make_para_to_fun_def_mapping e in
   let id_to_clause_map = Jayil.Ast_tools.clause_mapping e in
 
@@ -32,7 +30,7 @@ let block_map_of_expr e =
             | Direct, Clause (_, Value_body (Value_function _)) -> Direct
             | Fun, _ -> Fun
             | Cond, _ -> Cond
-            | App [], Clause (_, Var_body (Var (f, _))) ->
+            | App [], Clause (_, Appl_body (Var (f, _), _)) ->
                 let dsts =
                   let vs = Hashtbl.find_exn result_map f in
                   vs |> Set.to_list
@@ -44,7 +42,11 @@ let block_map_of_expr e =
                            Some (Jayil.Ast.Ident_map.find x para_to_fun_def_map))
                 in
                 App dsts
-            | _, _ -> failwith "impossible pair"
+            | Direct, _ -> Direct
+            | c, cl ->
+                Fmt.pr "c=%a\ncl=%a\n" Dj_common.Cfg.pp_clause_cat c
+                  Jayil.Pp.clause cl ;
+                failwith "impossible pair"
           in
           { cl with cat = cat' })
     in

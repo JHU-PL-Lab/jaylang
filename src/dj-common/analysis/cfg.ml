@@ -21,7 +21,6 @@ open Core
 open Jayil.Ast
 
 type clause_cat = Direct | Fun | Cond | App of ident list
-(* of ident list *)
 [@@deriving show { with_path = false }]
 
 type tl_clause = { id : ident; cat : clause_cat; clause : clause [@opaque] }

@@ -35,7 +35,7 @@ let binop bop v1 v2 =
   | Binary_operator_divide | Binary_operator_modulus | Binary_operator_less_than
   | Binary_operator_less_than_or_equal_to -> (
       match (v1, v2) with
-      | AInt, AInt -> Set.singleton (module AVal) AInt
+      | AInt, AInt -> Set.of_list (module AVal) [ ABool true; ABool false ]
       | _ -> Set.empty (module AVal))
   | Binary_operator_equal_to | Binary_operator_not_equal_to -> (
       match (v1, v2) with
@@ -152,17 +152,14 @@ let build_result_alist solution visited =
 
          (Abs_exp.id_of_e_exn e, vs))
 
-let build_result_map solution visited =
-  let result_alist = build_result_alist solution visited in
-  let result_map = Hashtbl.of_alist_exn (module Id) result_alist in
-  result_map
-
-let analyze_and_dump e =
-  let solution, visited, result = analyze e in
+let analysis_result ?(dump = false) e =
+  let solution, visited, result_set = analyze e in
   let result_alist = build_result_alist solution visited in
   let result_map = Hashtbl.of_alist_exn (module Id) result_alist in
 
-  Fmt.pr "Exps (%d): %a" (List.length result_alist)
-    (Fmt.Dump.list @@ Fmt.Dump.pair Id.pp Abs_value.pp_aval_set)
-    result_alist ;
-  result
+  if dump
+  then
+    Fmt.pr "Exps (%d): %a" (List.length result_alist)
+      (Fmt.Dump.list @@ Fmt.Dump.pair Id.pp Abs_value.pp_aval_set)
+      result_alist ;
+  (result_set, result_map)
