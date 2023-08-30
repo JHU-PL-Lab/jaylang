@@ -54,16 +54,22 @@ let not_ = function
   | AVal.ABool b -> Set.singleton (module AVal) (ABool (not b))
   | _ -> Set.empty (module AVal)
 
-(* let visited = Hash_set.create (module Quadruple_as_key) *)
-
 let make_solution () =
   let visited = Hash_set.create (module Quadruple_as_key) in
 
   let rec mk_aeval (store0, aenv0, ctx, e0) aeval : result_set =
     match e0 with
     | Just cl ->
+        (* the critical part to run and cache the result;
+           we can think it as the base case of the recursive call,
+           while the recursive call doesn't do the computation work but just
+           decompose into the basic case.
+        *)
         Hash_set.add visited (store0, aenv0, ctx, e0) ;
         mk_aeval_clause (store0, aenv0, ctx, cl) aeval
+        (* let vs = mk_aeval_clause (store0, aenv0, ctx, cl) aeval in
+           let x0 = Abs_exp.clause_of_e_exn e0 in
+           vs *)
     | More (cl, e) ->
         let res_hd = aeval (store0, aenv0, ctx, Just cl) in
         bind res_hd (fun (cl_v, cl_store) ->
