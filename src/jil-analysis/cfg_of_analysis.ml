@@ -105,16 +105,12 @@ let block_map_of_expr e =
           let may_be_false =
             Set.exists ~f:(function ABool false -> true | _ -> false) vs
           in
-          let set_impossible beta =
-            let beta_block =
-              if beta
-              then Option.value_exn cond_both.else_
-              else Option.value_exn cond_both.then_
-            in
-            set_block_impossible block_map beta_block
-          in
-          if not may_be_true then set_impossible true ;
-          if not may_be_false then set_impossible false ;
+          if not may_be_true
+          then
+            set_block_unreachable block_map (Option.value_exn cond_both.then_) ;
+          if not may_be_false
+          then
+            set_block_unreachable block_map (Option.value_exn cond_both.else_) ;
           ()
       | _ -> ()) ;
 

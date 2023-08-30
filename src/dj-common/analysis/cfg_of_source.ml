@@ -36,8 +36,8 @@ let block_map_of_expr e : t Ident_map.t =
                     outer_id;
                     condsite = cid;
                     cond;
-                    possible = true;
                     choice = beta;
+                    reachable = true;
                   };
             }
           in

@@ -35,8 +35,8 @@ type cond_case_info = {
   outer_id : ident;
   cond : ident;
   condsite : ident;
-  possible : bool;
   choice : bool;
+  reachable : bool;
 }
 [@@deriving show { with_path = false }]
 
@@ -89,10 +89,10 @@ let ret_of block =
 let find_block_by_id x block_map =
   block_map |> Ident_map.values |> bat_list_of_enum
   |> List.find_map ~f:(fun block ->
-         let is_possible =
-           match block.kind with Cond cb -> cb.possible | _ -> true
+         let is_reachable =
+           match block.kind with Cond cb -> cb.reachable | _ -> true
          in
-         if is_possible
+         if is_reachable
          then
            if List.exists ~f:(fun tc -> Ident.equal tc.id x) block.clauses
            then Some block
@@ -115,8 +115,8 @@ let find_cond_blocks x block_map =
   | [ (true, block_true, cb_true); (false, block_false, cb_false) ]
   | [ (false, block_false, cb_false); (true, block_true, cb_true) ] ->
       {
-        then_ = (if cb_true.possible then Some block_true else None);
-        else_ = (if cb_false.possible then Some block_false else None);
+        then_ = (if cb_true.reachable then Some block_true else None);
+        else_ = (if cb_false.reachable then Some block_false else None);
       }
   | _ -> failwith "find_cond_blocks must find two blocks"
 
@@ -226,8 +226,8 @@ let add_callsite tl_map f_def site =
   let tl' = _add_callsite site tl in
   Ident_map.add f_def tl' tl_map
 
-let set_block_impossible tl_map block =
+let set_block_unreachable tl_map block =
   let cond_block_info = cast_to_cond_block_info block in
-  let cond_block_info' = { cond_block_info with possible = false } in
+  let cond_block_info' = { cond_block_info with reachable = false } in
   let block' = { block with kind = Cond cond_block_info' } in
   tl_map := Ident_map.add block.id block' !tl_map

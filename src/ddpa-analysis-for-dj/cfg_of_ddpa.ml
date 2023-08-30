@@ -20,8 +20,8 @@ open Ddpa_graph
 open Ddpa_helper
 open Dj_common.Cfg
 
-let make_cond_block_possible tl_map acls cfg =
-  let cond_site, possible =
+let make_cond_block_reachable tl_map acls cfg =
+  let cond_site, reachable_case =
     match acls with
     | [
      Unannotated_clause (Abs_clause (Abs_var cond_site, Abs_conditional_body _));
@@ -39,14 +39,12 @@ let make_cond_block_possible tl_map acls cfg =
   in
 
   let cond_both = find_cond_blocks cond_site !tl_map in
-  match possible with
+  match reachable_case with
   | Some beta ->
-      let beta_block =
-        if beta
-        then Option.value_exn cond_both.else_
-        else Option.value_exn cond_both.then_
-      in
-      set_block_impossible tl_map beta_block
+      set_block_unreachable tl_map
+        (if beta
+         then Option.value_exn cond_both.else_
+         else Option.value_exn cond_both.then_)
   | None -> ()
 
 (* annotate block from the ddpa cfg.
@@ -89,7 +87,7 @@ let block_map_of_expr e k pt : block Ident_map.t =
          e.g. [prev: [r = c ? ...; r = r1 @- r]]
       *)
       if List.length prev_acls > 1 && has_condition_clause prev_acls
-      then make_cond_block_possible map prev_acls cfg ;
+      then make_cond_block_reachable map prev_acls cfg ;
 
       (* step logic *)
       let continue = ref true and block_dangling = ref dangling in
