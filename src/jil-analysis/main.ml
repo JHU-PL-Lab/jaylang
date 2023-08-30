@@ -69,11 +69,14 @@ let make_solution () =
         bind res_hd (fun (cl_v, cl_store) ->
             let aenv' =
               Map.add_exn aenv0 ~key:(Abs_exp.id_of_clause cl) ~data:cl_v
+              (* match Map.add aenv0 ~key:(Abs_exp.id_of_clause cl) ~data:cl_v with
+                 | `Ok env -> env
+                 | `Duplicate -> aenv0 *)
             in
             mk_aeval (cl_store, aenv', ctx, e) aeval)
   and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set =
     (* Mismatch step 2: fetch x from the wrong env *)
-    (* let env_get_exn x = Map.find_exn aenv (Abs_exp.to_id x) in *)
+    let env_get_exn x = Map.find_exn aenv x in
     let env_get x = Map.find aenv (Abs_exp.to_id x) in
     let env_get_bind x f =
       Option.value_map (env_get x) ~default:Abs_result.empty ~f
@@ -86,6 +89,7 @@ let make_solution () =
        (Clause (x0, clb))
        AEnv.pp aenv AStore.pp store ; *)
     match clb with
+    (* | Nobody -> Abs_result.only (env_get_exn x0, store) *)
     | Value Int -> Abs_result.only (AInt, store)
     | Value (Bool b) -> Abs_result.only (ABool b, store)
     | Value (Function (x, e)) ->
@@ -100,7 +104,9 @@ let make_solution () =
             let ctx' = Ctx.push (x0, Abs_exp.to_id x1) ctx in
             bind saved_envs (fun saved_env ->
                 env_add_bind saved_env xc v2 (fun env_new ->
-                    aeval (store, env_new, ctx', e))
+                    (* let e' = Abs_exp.(More (Clause (xc, Nobody), e)) in *)
+                    let e' = e in
+                    aeval (store, env_new, ctx', e'))
                 (* let env_new = Map.add_exn saved_env ~key:xc ~data:v2 in
                    aeval (store, env_new, ctx', e) *))
         | _ -> Abs_result.empty)

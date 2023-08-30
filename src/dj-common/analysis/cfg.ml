@@ -231,3 +231,9 @@ let set_block_unreachable tl_map block =
   let cond_block_info' = { cond_block_info with reachable = false } in
   let block' = { block with kind = Cond cond_block_info' } in
   tl_map := Ident_map.add block.id block' !tl_map
+
+let pp ff tl_map =
+  let pp_block ff block = pp_block_kind ff block.kind in
+  Fmt.Dump.iter_bindings Ident_map.iter Fmt.nop Id.pp pp_block ff tl_map
+
+let dump_block_map tl_map = Fmt.pr "\n@. %a" pp tl_map

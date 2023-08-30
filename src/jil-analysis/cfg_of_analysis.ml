@@ -5,7 +5,7 @@ open Core
 
 let block_map_of_expr e =
   let block_map = ref (Dj_common.Cfg_of_source.block_map_of_expr e) in
-  let _, result_map = Main.analysis_result ~dump:false e in
+  let _, result_map = Main.analysis_result ~dump:true e in
   let para_to_fun_def_map = Jayil.Ast_tools.make_para_to_fun_def_mapping e in
   let id_to_clause_map = Jayil.Ast_tools.clause_mapping e in
 
@@ -32,6 +32,7 @@ let block_map_of_expr e =
             | Cond, _ -> Cond
             | App [], Clause (_, Appl_body (Var (f, _), _)) ->
                 let dsts =
+                  Fmt.pr "finding %a\n" Dj_common.Id.pp f ;
                   let vs = Hashtbl.find_exn result_map f in
                   vs |> Set.to_list
                   |> List.filter_map ~f:(function

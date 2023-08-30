@@ -24,6 +24,7 @@ module Abs_exp = struct
     and clause = Clause of Id.t * clause_body
 
     and clause_body =
+      (* | Nobody *)
       | Value of value
       | CVar of var
       | Appl of var * var
