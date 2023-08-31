@@ -12,7 +12,6 @@ let update_block_clauses result_map para_to_fun_def_map block =
           | Cond, _ -> Cond
           | App [], Clause (_, Appl_body (Var (f, _), _)) ->
               let dsts =
-                Fmt.pr "finding %a\n" Dj_common.Id.pp f ;
                 let vs = Hashtbl.find_exn result_map f in
                 vs |> Set.to_list
                 |> List.filter_map ~f:(function
@@ -48,9 +47,9 @@ let update_fun_and_cond_block block_map result_map id_to_clause_map
   let open Dj_common.Cfg in
   let open Abs_value.AVal.T in
   let open Jayil.Ast in
-  let cl = Ident_map.find x id_to_clause_map in
+  let cl = Ident_map.find_opt x id_to_clause_map in
   match cl with
-  | Clause (Var (xc, _), Appl_body (Var (f, _), Var _)) ->
+  | Some (Clause (Var (xc, _), Appl_body (Var (f, _), Var _))) ->
       Hashtbl.find_exn result_map f
       |> Set.to_list
       |> List.iter ~f:(function
@@ -72,7 +71,7 @@ let update_fun_and_cond_block block_map result_map id_to_clause_map
                    !block_map
                in
                block_map := block_map')
-  | Clause (Var (xc, _), Conditional_body (Var (c, _), _, _)) ->
+  | Some (Clause (Var (xc, _), Conditional_body (Var (c, _), _, _))) ->
       let vs = Hashtbl.find_exn result_map c in
       let cond_both = find_cond_blocks xc !block_map in
       let may_be_true =

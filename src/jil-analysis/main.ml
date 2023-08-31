@@ -164,14 +164,34 @@ let build_result_alist solution visited =
 
          (Abs_exp.id_of_e_exn e, vs))
 
+let binding_from_result visited e =
+  let para_to_fun_def_map = Jayil.Ast_tools.make_para_to_fun_def_mapping e in
+  let get_env (_, env, _, _) = env in
+  let filter_entries env =
+    Map.filteri
+      ~f:(fun ~key ~data -> Jayil.Ast.Ident_map.mem key para_to_fun_def_map)
+      env
+  in
+  visited |> Hash_set.to_list |> List.map ~f:get_env
+  |> List.map ~f:filter_entries
+
 let analysis_result ?(dump = false) e =
   let solution, visited, result_set = analyze e in
   let result_alist = build_result_alist solution visited in
   let result_map = Hashtbl.of_alist_exn (module Id) result_alist in
+  let para_map_list = binding_from_result visited e in
+  List.iter
+    ~f:(fun env ->
+      Map.iteri env ~f:(fun ~key ~data ->
+          Hashtbl.update result_map key ~f:(function
+            | Some vset -> Set.add vset data
+            | None -> Set.singleton (module AVal) data)))
+    para_map_list ;
 
   if dump
   then
-    Fmt.pr "Exps (%d): %a" (List.length result_alist)
-      (Fmt.Dump.list @@ Fmt.Dump.pair Id.pp Abs_value.pp_aval_set)
-      result_alist ;
+    Fmt.pr "%a"
+      (Fmt.Dump.iter_bindings Std.iteri_core_hashtbl Fmt.nop Id.pp
+         Abs_value.pp_aval_set)
+      result_map ;
   (result_set, result_map)
