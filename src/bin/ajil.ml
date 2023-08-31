@@ -12,8 +12,8 @@ let anon_fun i_raw =
 let run_program source =
   let open Jil_analysis in
   let program = Dj_common.File_utils.read_source source in
-  let set, map = Main.analysis_result ~dump:true program in
-  Fmt.pr "@.%a\n" Abs_value.pp_result_set r
+  let set, _map = Main.analysis_result ~dump:true program in
+  Fmt.pr "@.%a\n" Abs_value.pp_result_set set
 (* Fmt.pr "%a\n" Abs_value.pp r *)
 
 (* let session =

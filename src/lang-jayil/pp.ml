@@ -11,9 +11,7 @@ module Make (B : Is_brief) = struct
   let id_map pp_v oc map =
     let pp_entry oc (x, v) = Fmt.pf oc "%a = %a" id x pp_v v in
 
-    Fmt.iter_bindings ~sep:(Fmt.any ", ")
-      (fun f map -> Ident_map.iter f map)
-      pp_entry oc map
+    Fmt.iter_bindings ~sep:(Fmt.any ", ") Ident_map.iter pp_entry oc map
 
   let id_set oc set = Fmt.iter ~sep:(Fmt.any ", ") Ident_set.iter id oc set
   let id_list oc list = Fmt.iter ~sep:(Fmt.any ", ") List.iter id oc list

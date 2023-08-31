@@ -32,11 +32,7 @@ module AEnv = struct
   let show aenv = Sexp.to_string_hum (sexp_of_t aenv)
 
   let pp fmter env =
-    let iter f_ m =
-      let f ~key ~data = f_ key data in
-      Core.Map.iteri m ~f
-    in
-    Fmt.Dump.iter_bindings iter Fmt.nop Id.pp AVal.pp fmter env
+    Fmt.Dump.iter_bindings Std.iteri_core_map Fmt.nop Id.pp AVal.pp fmter env
 end
 
 (* type aval_set = Set.M(AVal).t *)
@@ -45,14 +41,12 @@ type env_set = Set.M(AEnv).t [@@deriving equal, compare, hash, sexp]
 let show_env_set es = Sexp.to_string_hum (sexp_of_env_set es)
 
 let pp_env_set : env_set Fmt.t =
-  Fmt.iter ~sep:(Fmt.any ";@ ") (fun f set -> Set.iter set ~f) AEnv.pp
+  Fmt.iter ~sep:(Fmt.any ";@ ") Std.iter_core_set AEnv.pp
 
 open AVal.T
 
 let pp_aval_set : Set.M(AVal).t Fmt.t =
-  Fmt.iter ~sep:(Fmt.any ";@ ") (fun f set -> Set.iter set ~f) AVal.pp
-
-(* type store = AEnv.t Map.M(Ctx).t *)
+  Fmt.iter ~sep:(Fmt.any ";@ ") Std.iter_core_set AVal.pp
 
 module AStore = struct
   (* multimap *)
@@ -62,12 +56,8 @@ module AStore = struct
   let show s = Sexp.to_string_hum (sexp_of_t s)
 
   let pp fmter store =
-    let iter f_ m =
-      let f ~key ~data = f_ key data in
-      Core.Map.iteri m ~f
-    in
     (* Fmt.Dump.iter_bindings iter Fmt.nop Ctx.pp pp_env_set fmter store *)
-    Fmt.iter_bindings ~sep:(Fmt.any ";@ ") iter
+    Fmt.iter_bindings ~sep:(Fmt.any ";@ ") Std.iteri_core_map
       (Fmt.pair ~sep:(Fmt.any " -> ") Ctx.pp (Fmt.box pp_env_set))
       fmter store
 end
@@ -94,7 +84,5 @@ end
 
 type result_set = Set.M(Abs_result).t [@@deriving equal, compare, hash, sexp]
 
-let pp_result_set : result_set Fmt.t =
-  Fmt.iter (fun f set -> Set.iter set ~f) Abs_result.pp
-
+let pp_result_set : result_set Fmt.t = Fmt.iter Std.iter_core_set Abs_result.pp
 let show_result_set rset = Sexp.to_string_hum (sexp_of_result_set rset)
