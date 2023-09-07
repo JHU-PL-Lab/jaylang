@@ -33,7 +33,11 @@ module Abs_exp = struct
       | Cond of var * exp * exp
       | Restc
 
-    and value = Int | Bool of bool | Function of var * exp | Restv
+    and value =
+      | Int
+      | Bool of bool
+      | Function of var * exp
+      | Record of (Id.t * Id.t) list
     [@@deriving equal, compare, hash, sexp]
   end
 
@@ -100,7 +104,10 @@ and lift_value = function
   | Jayil.Ast.Value_bool b -> Bool b
   | Jayil.Ast.Value_function (Function_value (x, e)) ->
       Function (of_var x, lift_expr e)
-  | _ -> Restv
+  | Jayil.Ast.Value_record (Jayil.Ast.Record_value r) ->
+      Record
+        (r |> Jayil.Ast.Ident_map.enum |> Jayil.Ast.bat_list_of_enum
+        |> List.map ~f:(fun (k, Jayil.Ast.Var (x, _)) -> (k, x)))
 
 let clb_to_string clb = Sexp.to_string_hum (sexp_of_clause_body clb)
 
