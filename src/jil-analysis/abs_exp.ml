@@ -24,20 +24,31 @@ module Abs_exp = struct
     and clause = Clause of Id.t * clause_body
 
     and clause_body =
-      (* | Nobody *)
       | Value of value
       | CVar of var
       | Appl of var * var
       | Not of var
       | Binop of var * binop * var
       | Cond of var * exp * exp
-      | Restc
+      | Match of var * pattern
+      | Project of var * Id.t
+      | Abort
+      | Assume of var
+      | Assert of var
+
+    and pattern =
+      | Fun_pat
+      | Int_pat
+      | Bool_pat
+      | Record_pat of Set.M(Id).t
+      | Strict_record_pat of Set.M(Id).t
+      | Any_pat
 
     and value =
       | Int
       | Bool of bool
       | Function of var * exp
-      | Record of (Id.t * Id.t) list
+      | Record of Id.t Map.M(Id).t
     [@@deriving equal, compare, hash, sexp]
   end
 
@@ -97,7 +108,11 @@ and lift_cbody = function
       Binop (of_var x1, bop, of_var x2)
   | Jayil.Ast.Conditional_body (x, e1, e2) ->
       Cond (of_var x, lift_expr e1, lift_expr e2)
-  | _ -> Restc
+  | Jayil.Ast.Match_body (x, pat) -> Match (of_var x, lift_pattern pat)
+  | Jayil.Ast.Projection_body (x, d) -> Project (of_var x, d)
+  | Jayil.Ast.Abort_body -> Abort
+  | Jayil.Ast.Assume_body x -> Assume (of_var x)
+  | Jayil.Ast.Assert_body x -> Assert (of_var x)
 
 and lift_value = function
   | Jayil.Ast.Value_int _ -> Int
@@ -105,9 +120,16 @@ and lift_value = function
   | Jayil.Ast.Value_function (Function_value (x, e)) ->
       Function (of_var x, lift_expr e)
   | Jayil.Ast.Value_record (Jayil.Ast.Record_value r) ->
-      Record
-        (r |> Jayil.Ast.Ident_map.enum |> Jayil.Ast.bat_list_of_enum
-        |> List.map ~f:(fun (k, Jayil.Ast.Var (x, _)) -> (k, x)))
+      Record (Id_helper.core_map_of_id_map ~f:Jayil.Ast.id_of_var r)
+
+and lift_pattern = function
+  | Jayil.Ast.Fun_pattern -> Fun_pat
+  | Jayil.Ast.Int_pattern -> Int_pat
+  | Jayil.Ast.Bool_pattern -> Bool_pat
+  | Jayil.Ast.Rec_pattern set ->
+      Record_pat (Id_helper.core_set_of_id_set ~f:Fn.id set)
+  | Jayil.Ast.Strict_rec_pattern _ids -> Strict_record_pat
+  | Jayil.Ast.Any_pattern -> Any_pat
 
 let clb_to_string clb = Sexp.to_string_hum (sexp_of_clause_body clb)
 

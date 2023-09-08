@@ -5,14 +5,21 @@ module Ctx = Finite_callstack.CS_2
 
 module AVal = struct
   module T = struct
-    type t = AInt | ABool of bool | AClosure of Id.t * Abs_exp.t * Ctx.t | Any
+    type t =
+      | AInt
+      | ABool of bool
+      | AClosure of Id.t * Abs_exp.t * Ctx.t
+      | ARecord of t Map.M(Id).t
+      | Any
+
     and aenv = t Map.M(Id).t [@@deriving equal, compare, hash, sexp]
 
     let pp fmter = function
       | AInt -> Fmt.string fmter "n"
       | ABool b -> Fmt.pf fmter "%a" Std.pp_bo b
+      | AClosure (x, _, _ctx) -> Fmt.pf fmter "<%a>" Id.pp x
+      | ARecord _ -> Fmt.pf fmter "{..}"
       | Any -> Fmt.string fmter "?"
-      | AClosure (x, _, _ctx) -> Fmt.pf fmter "{%a}" Id.pp x
 
     let show = Fmt.to_to_string pp
   end

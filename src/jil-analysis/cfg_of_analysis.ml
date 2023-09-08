@@ -18,6 +18,7 @@ let update_block_clauses result_map para_to_fun_def_map block =
                      | AInt -> None
                      | ABool _ -> None
                      | Any -> None
+                     | ARecord _ -> None
                      | AClosure (x, _, _) ->
                          Some (Jayil.Ast.Ident_map.find x para_to_fun_def_map))
               in
@@ -56,6 +57,7 @@ let update_fun_and_cond_block block_map result_map id_to_clause_map
            | AInt -> ()
            | ABool _ -> ()
            | Any -> ()
+           | ARecord _ -> ()
            | AClosure (x, _, _) ->
                let fid = Jayil.Ast.Ident_map.find x para_to_fun_def_map in
                let block_map' =

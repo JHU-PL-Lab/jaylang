@@ -50,6 +50,8 @@ let binop bop v1 v2 =
       | ABool b1, ABool b2 -> Set.singleton (module AVal) (ABool (b1 || b2))
       | _ -> Set.empty (module AVal))
 
+let is_v_pat v pat = Set.empty (module AVal)
+
 let not_ = function
   | AVal.ABool b -> Set.singleton (module AVal) (ABool (not b))
   | _ -> Set.empty (module AVal)
@@ -102,6 +104,7 @@ let make_solution () =
         let v = AVal.AClosure (Abs_exp.to_id x, e, ctx) in
         let store' = safe_add_store store ctx aenv in
         Abs_result.only (v, store')
+    | CVar x -> env_get_bind x (fun v -> Abs_result.only (v, store))
     | Appl (x1, x2) -> (
         match (env_get x1, env_get x2) with
         | Some (AClosure (xc, e, saved_context)), Some v2 ->
@@ -116,7 +119,6 @@ let make_solution () =
                 (* let env_new = Map.add_exn saved_env ~key:xc ~data:v2 in
                    aeval (store, env_new, ctx', e) *))
         | _ -> Abs_result.empty)
-    | CVar x -> env_get_bind x (fun v -> Abs_result.only (v, store))
     | Not x -> (
         match env_get x with
         | Some v -> bind (not_ v) (fun v -> Abs_result.only (v, store))
@@ -131,6 +133,10 @@ let make_solution () =
         match env_get x with
         | Some (ABool true) -> aeval (store, aenv, ctx, e1)
         | Some (ABool false) -> aeval (store, aenv, ctx, e2)
+        | _ -> Abs_result.empty)
+    | Match (x, pat) -> (
+        match env_get x with
+        | Some v -> bind (is_v_pat v pat) (fun v -> Abs_result.only (v, store))
         | _ -> Abs_result.empty)
     | _ -> failwith "unknown clause"
   in

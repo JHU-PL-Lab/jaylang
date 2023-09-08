@@ -238,3 +238,4 @@ let pattern_match pat v =
   | _ -> false
 
 let bat_list_of_enum = List.of_enum
+let id_of_var (Var (x, _)) = x
