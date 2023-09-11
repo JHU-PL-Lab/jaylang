@@ -50,7 +50,17 @@ let binop bop v1 v2 =
       | ABool b1, ABool b2 -> Set.singleton (module AVal) (ABool (b1 || b2))
       | _ -> Set.empty (module AVal))
 
-let is_v_pat v pat = Set.empty (module AVal)
+let is_v_pat v pat =
+  match (pat, v) with
+  | Fun_pat, AVal.AClosure _ -> true
+  | Int_pat, AVal.AInt -> true
+  | Bool_pat, AVal.ABool _ -> true
+  | Record_pat set, ARecord map -> Set.for_all set ~f:(Map.mem map)
+  | Strict_record_pat set1, ARecord map ->
+      let set2 = map |> Map.keys |> Set.of_list (module Id) in
+      Set.equal set1 set2
+  | Any_pat, _ -> true
+  | _, _ -> false
 
 let not_ = function
   | AVal.ABool b -> Set.singleton (module AVal) (ABool (not b))
@@ -85,7 +95,8 @@ let make_solution () =
   and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set =
     (* Mismatch step 2: fetch x from the wrong env *)
     let env_get_exn x = Map.find_exn aenv x in
-    let env_get x = Map.find aenv (Abs_exp.to_id x) in
+    let env_get_by_id x = Map.find aenv x in
+    let env_get x = env_get_by_id (Abs_exp.to_id x) in
     let env_get_bind x f =
       Option.value_map (env_get x) ~default:Abs_result.empty ~f
     in
@@ -104,6 +115,15 @@ let make_solution () =
         let v = AVal.AClosure (Abs_exp.to_id x, e, ctx) in
         let store' = safe_add_store store ctx aenv in
         Abs_result.only (v, store')
+    | Value (Record map) ->
+        List.fold_until (Map.keys map) ~init:[]
+          ~f:(fun acc x ->
+            match env_get_by_id x with
+            | Some v -> Continue ((x, v) :: acc)
+            | None -> Stop Abs_result.empty)
+          ~finish:(fun acc ->
+            let map' = Map.of_alist_exn (module Id) acc in
+            Abs_result.only (ARecord map', store))
     | CVar x -> env_get_bind x (fun v -> Abs_result.only (v, store))
     | Appl (x1, x2) -> (
         match (env_get x1, env_get x2) with
@@ -136,9 +156,18 @@ let make_solution () =
         | _ -> Abs_result.empty)
     | Match (x, pat) -> (
         match env_get x with
-        | Some v -> bind (is_v_pat v pat) (fun v -> Abs_result.only (v, store))
+        | Some v -> Abs_result.only (AVal.ABool (is_v_pat v pat), store)
         | _ -> Abs_result.empty)
-    | _ -> failwith "unknown clause"
+    | Project (x, lb) -> (
+        match env_get x with
+        | Some (ARecord map) -> (
+            match Map.find map lb with
+            | Some v -> Abs_result.only (v, store)
+            | None -> Abs_result.empty)
+        | _ -> Abs_result.empty)
+    | Abort -> Abs_result.empty
+    | Assume _x -> Abs_result.only (AVal.ABool true, store)
+    | Assert _x -> Abs_result.only (AVal.ABool true, store)
   in
   (F.lfp mk_aeval, visited)
 

@@ -128,7 +128,8 @@ and lift_pattern = function
   | Jayil.Ast.Bool_pattern -> Bool_pat
   | Jayil.Ast.Rec_pattern set ->
       Record_pat (Id_helper.core_set_of_id_set ~f:Fn.id set)
-  | Jayil.Ast.Strict_rec_pattern _ids -> Strict_record_pat
+  | Jayil.Ast.Strict_rec_pattern set ->
+      Strict_record_pat (Id_helper.core_set_of_id_set ~f:Fn.id set)
   | Jayil.Ast.Any_pattern -> Any_pat
 
 let clb_to_string clb = Sexp.to_string_hum (sexp_of_clause_body clb)

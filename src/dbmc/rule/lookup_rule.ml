@@ -250,7 +250,7 @@ module Make (S : S) = struct
     let elements =
       List.map p.callsites_with_stk ~f:(fun (key_f, _key_arg) ->
           let next i (r : Lookup_key.t) =
-            let fv_block = Cfg.find_block_by_id r.x S.block_map in
+            let fv_block = Cfg.find_reachable_block r.x S.block_map in
             let key_arg = Lookup_key.of3 key.x r.r_stk fv_block in
             let phi_i =
               let fid = key.block.id in

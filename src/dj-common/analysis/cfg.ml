@@ -86,17 +86,25 @@ let ret_of block =
   let clauses = block.clauses in
   (List.last_exn clauses).id
 
-let find_block_by_id x block_map =
+let is_block_reachable block =
+  match block.kind with Cond cb -> cb.reachable | _ -> true
+
+let find_reachable_block x block_map =
   block_map |> Ident_map.values |> bat_list_of_enum
   |> List.find_map ~f:(fun block ->
-         let is_reachable =
-           match block.kind with Cond cb -> cb.reachable | _ -> true
-         in
-         if is_reachable
+         if is_block_reachable block
          then
            if List.exists ~f:(fun tc -> Ident.equal tc.id x) block.clauses
            then Some block
            else None
+         else None)
+  |> Option.value_exn
+
+let find_block_with_reachable x block_map =
+  block_map |> Ident_map.values |> bat_list_of_enum
+  |> List.find_map ~f:(fun block ->
+         if List.exists ~f:(fun tc -> Ident.equal tc.id x) block.clauses
+         then Some (block, is_block_reachable block)
          else None)
   |> Option.value_exn
 
@@ -164,7 +172,7 @@ let outer_block map block =
   Ident_map.find outer_id map
 
 let fun_info_of_callsite map callsite =
-  let callsite_block = find_block_by_id callsite map in
+  let callsite_block = find_reachable_block callsite map in
   let tc = clause_of_x_exn callsite_block callsite in
   let x', x'', x''' =
     match tc.clause with
@@ -176,7 +184,7 @@ let fun_info_of_callsite map callsite =
 
 let is_before map x1 x2 =
   let open Continue_or_stop in
-  let block = find_block_by_id x1 map in
+  let block = find_reachable_block x1 map in
   List.fold_until block.clauses ~init:false
     ~f:(fun _ x ->
       if Id.equal x.id x1
@@ -210,7 +218,7 @@ let update_id_dst block id dst0 =
   update_clauses (List.map ~f:add_dst_in_clause) block
 
 let add_id_dst tl_map site_x def_x =
-  let tl = find_block_by_id site_x tl_map in
+  let tl = find_reachable_block site_x tl_map in
   let tl' = update_id_dst tl site_x def_x in
   Ident_map.add tl.id tl' tl_map
 

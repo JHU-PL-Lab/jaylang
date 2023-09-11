@@ -49,7 +49,8 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
         let clause_cb x c_stk v =
           let stk = Rstack.relativize target_stack c_stk in
           let key =
-            Lookup_key.of3 x stk (Cfg.find_block_by_id x state.info.block_map)
+            Lookup_key.of3 x stk
+              (Cfg.find_reachable_block x state.info.block_map)
           in
           let key_z = Riddler.key_to_var key in
           let key_picked = Riddler.picked key in

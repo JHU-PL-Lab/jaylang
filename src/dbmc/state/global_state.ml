@@ -10,12 +10,21 @@ let compute_info (config : Global_config.t) program : info =
     | K_ddpa k -> Ddpa_for_dj.Cfg_of_ddpa.block_map_of_expr program k target
     | K_cfa _ -> Jil_analysis.Cfg_of_analysis.block_map_of_expr program
   in
-  (* Cfg.dump_block_map block_map ; *)
-  let block0 = Cfg.find_block_by_id target block_map in
+  Cfg.dump_block_map block_map ;
+  let block0, reachable = Cfg.find_block_with_reachable target block_map in
   let key_target = Lookup_key.start target block0 in
-  let source_map = lazy (Jayil.Ast_tools.clause_mapping program) in
   let root_node_info = Search_graph.root_node block0 target in
-  { first; target; key_target; program; block_map; source_map; root_node_info }
+  let source_map = lazy (Jayil.Ast_tools.clause_mapping program) in
+  {
+    first;
+    reachable;
+    target;
+    key_target;
+    program;
+    block_map;
+    source_map;
+    root_node_info;
+  }
 
 let create_job_state (config : Global_config.t) : job_state =
   {
@@ -62,9 +71,9 @@ let reset_stat_state (stat_state : stat_state) =
   Hashtbl.clear stat_state.block_stat_map ;
   stat_state.check_infos <- []
 
-let create_search_state (info : info) : search_state =
+let create_search_state (root_node : Search_graph.node) : search_state =
   {
-    root_node = ref info.root_node_info;
+    root_node = ref root_node;
     tree_size = 1;
     lookup_detail_map = Hashtbl.create (module Lookup_key);
     lookup_created = Hash_set.create (module Lookup_key);
@@ -85,14 +94,14 @@ let reset_mutable_state (config : Global_config.t) (info : info) (state : t) =
   reset_stat_state state.stat
 
 let create (config : Global_config.t) program =
-  let info = compute_info config program in
   Solver.set_timeout_sec Solver.ctx config.timeout ;
+  let info = compute_info config program in
   (* Global_state.lookup_alert state key_target state.root_node; *)
   {
     info;
     job = create_job_state config;
     solve = create_solve_state ();
-    search = create_search_state info;
+    search = create_search_state info.root_node_info;
     stat = create_stat_state ();
   }
 

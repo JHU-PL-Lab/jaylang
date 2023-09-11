@@ -39,6 +39,7 @@ module State = struct
   type info = {
     first : Id.t;
     target : Id.t;
+    reachable : bool;
     key_target : Lookup_key.t;
     program : Jayil.Ast.expr;
     block_map : Cfg.block Jayil.Ast.Ident_map.t;

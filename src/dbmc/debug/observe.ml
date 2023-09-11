@@ -121,7 +121,7 @@ let dump_analysis program block_map =
   let all_id_set = Jayil.Ast_tools.defined_vars_of_expr program in
   Jayil.Ast.Var_set.iter
     (fun (Jayil.Ast.Var (x, _)) ->
-      let block = Cfg.find_block_by_id x block_map in
+      let block = Cfg.find_reachable_block x block_map in
       let tc = Cfg.clause_of_x_exn block x in
       Fmt.pr "%a :" Id.pp x ;
       (match tc.cat with

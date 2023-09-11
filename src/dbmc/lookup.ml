@@ -89,7 +89,9 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     Lwt.return_unit
   in
 
-  let block0 = Cfg.find_block_by_id state.info.target state.info.block_map in
+  let block0 =
+    Cfg.find_reachable_block state.info.target state.info.block_map
+  in
   let term_target = Lookup_key.start state.info.target block0 in
   let phis = Phi_set.empty in
   run_task term_target phis ;

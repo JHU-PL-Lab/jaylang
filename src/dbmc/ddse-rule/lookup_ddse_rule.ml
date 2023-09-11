@@ -238,7 +238,7 @@ module Make (S : S) = struct
 
           let cb_f key (rf : Ddse_result.t) =
             let key_arg = Lookup_key.with_x rf.v this_key.x in
-            let fv_block = Cfg.find_block_by_id rf.v.x S.block_map in
+            let fv_block = Cfg.find_reachable_block rf.v.x S.block_map in
             run_task key_arg phis_top ;
 
             let phi_f = Riddler.eq key_f rf.v in

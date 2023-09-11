@@ -3,6 +3,26 @@ open Jayil
 open Dj_common
 module Ctx = Finite_callstack.CS_2
 
+(* The abstract env is a map from concrete id to abstract value.
+   The abstract store is a map from abstract ctx to a set of abstract env.
+   Note puttinng envs into a set is one choice to _merge_ envs.
+
+   To enhance the flexibility,
+   we made an explicit abstract map, which is a map from concrete id to abstact value.
+
+   Maps can be merged at different granularities, e.g. to merge `m1` and `m2`
+   m1 = {a -> {1,2}}
+   m2 = {a -> {1}, b -> 2}
+
+   we can merge them at set-level:
+   m12s = [{a -> {1,2}; {a -> {1}, {b -> 2}}]
+
+   we can also merge them at key-level:
+   m12k = [{a -> {1,2}, {b -> 2}}
+
+   The difference is one possible mapping case `{a -> 2}, {b -> 2}` is created by `m12k`.
+*)
+
 module AVal = struct
   module T = struct
     type t =
