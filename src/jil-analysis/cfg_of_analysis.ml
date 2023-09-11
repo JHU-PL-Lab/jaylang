@@ -12,15 +12,19 @@ let update_block_clauses result_map para_to_fun_def_map block =
           | Cond, _ -> Cond
           | App [], Clause (_, Appl_body (Var (f, _), _)) ->
               let dsts =
-                let vs = Hashtbl.find_exn result_map f in
-                vs |> Set.to_list
-                |> List.filter_map ~f:(function
-                     | AInt -> None
-                     | ABool _ -> None
-                     | Any -> None
-                     | ARecord _ -> None
-                     | AClosure (x, _, _) ->
-                         Some (Jayil.Ast.Ident_map.find x para_to_fun_def_map))
+                (* `f` can be unreachable *)
+                Hashtbl.find_and_call result_map f
+                  ~if_found:(fun vs ->
+                    vs |> Set.to_list
+                    |> List.filter_map ~f:(function
+                         | AInt -> None
+                         | ABool _ -> None
+                         | Any -> None
+                         | ARecord _ -> None
+                         | AClosure (x, _, _) ->
+                             Some
+                               (Jayil.Ast.Ident_map.find x para_to_fun_def_map)))
+                  ~if_not_found:(fun _ -> [])
               in
               App dsts
           | Direct, _ -> Direct

@@ -10,7 +10,7 @@ let compute_info (config : Global_config.t) program : info =
     | K_ddpa k -> Ddpa_for_dj.Cfg_of_ddpa.block_map_of_expr program k target
     | K_cfa _ -> Jil_analysis.Cfg_of_analysis.block_map_of_expr program
   in
-  Cfg.dump_block_map block_map ;
+  (* Cfg.dump_block_map block_map ; *)
   let block0, reachable = Cfg.find_block_with_reachable target block_map in
   let key_target = Lookup_key.start target block0 in
   let root_node_info = Search_graph.root_node block0 target in

@@ -107,6 +107,9 @@ let make_solution () =
     (* Fmt.pr "@\n%a with env @[<h>%a@]@\n with store %a@\n" Abs_exp.pp_clause
        (Clause (x0, clb))
        AEnv.pp aenv AStore.pp store ; *)
+    (* Fmt.pr "@\n%a with env @[<h>%a@]@\n \n" Abs_exp.pp_clause
+       (Clause (x0, clb))
+       AEnv.pp aenv ; *)
     match clb with
     (* | Nobody -> Abs_result.only (env_get_exn x0, store) *)
     | Value Int -> Abs_result.only (AInt, store)
@@ -116,10 +119,10 @@ let make_solution () =
         let store' = safe_add_store store ctx aenv in
         Abs_result.only (v, store')
     | Value (Record map) ->
-        List.fold_until (Map.keys map) ~init:[]
-          ~f:(fun acc x ->
-            match env_get_by_id x with
-            | Some v -> Continue ((x, v) :: acc)
+        List.fold_until (Map.to_alist map) ~init:[]
+          ~f:(fun acc (k, lb) ->
+            match env_get_by_id lb with
+            | Some v -> Continue ((k, v) :: acc)
             | None -> Stop Abs_result.empty)
           ~finish:(fun acc ->
             let map' = Map.of_alist_exn (module Id) acc in
