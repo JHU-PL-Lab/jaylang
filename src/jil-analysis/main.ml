@@ -111,7 +111,6 @@ let make_solution () =
        (Clause (x0, clb))
        AEnv.pp aenv ; *)
     match clb with
-    (* | Nobody -> Abs_result.only (env_get_exn x0, store) *)
     | Value Int -> Abs_result.only (AInt, store)
     | Value (Bool b) -> Abs_result.only (ABool b, store)
     | Value (Function (x, e)) ->
@@ -173,8 +172,6 @@ let make_solution () =
     | Assert _x -> Abs_result.only (AVal.ABool true, store)
   in
   (F.lfp mk_aeval, visited)
-
-type result_table = (Id.t, AVal.t list) Hashtbl.t
 
 let analyze e =
   let solution, visited = make_solution () in

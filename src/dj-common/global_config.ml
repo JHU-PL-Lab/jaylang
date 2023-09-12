@@ -4,19 +4,20 @@ open Core
 exception GenComplete
 
 type analyzer = K_ddpa of int | K_cfa of int
-and engine = E_dbmc | E_ddse
-and mode = Dbmc_search | Dbmc_check of int option list | Dbmc_perf | Sato
-and encode_policy = Only_incremental | Always_shrink
+type mode = Dbmc_search | Dbmc_check of int option list | Dbmc_perf | Sato
+type engine = E_dbmc | E_ddse
+type encode_policy = Only_incremental | Always_shrink
 
-and t = {
+type t = {
   (* basic *)
   target : Id.t;
   filename : Filename.t; [@printer String.pp]
   (* mode *)
+  mode : mode;
+  stage : Stage.t;
   analyzer : analyzer;
   engine : engine;
   is_instrumented : bool;
-  mode : mode;
   (* tuning *)
   run_max_step : int option;
   timeout : Time_float.Span.t option;
@@ -39,7 +40,6 @@ and t = {
   debug_interpreter : bool;
   is_check_per_step : bool;
 }
-[@@deriving show { with_path = false }]
 
 let default_config =
   {
@@ -50,6 +50,7 @@ let default_config =
     stride_max = 100;
     encode_policy = Only_incremental;
     analyzer = K_ddpa 1;
+    stage = All_done;
     mode = Dbmc_search;
     run_max_step = None;
     engine = E_dbmc;

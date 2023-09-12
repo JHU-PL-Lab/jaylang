@@ -45,6 +45,11 @@ let all_params : Global_config.t Command.Param.t =
   let%map_open target =
     flag "-t" (required (Command.Arg_type.create parse_id)) ~doc:"target_point"
   and filename = anon ("source_file" %: Filename_unix.arg_type)
+  and stage =
+    flag "-st"
+      (optional_with_default Stage.All_done
+         (Command.Arg_type.create Stage.of_str))
+      ~doc:"stage"
   and engine =
     flag "-e" (optional_with_default E_dbmc engine_parser) ~doc:"engine"
   and is_instrumented = flag "-a" no_arg ~doc:"instrumented"
@@ -100,6 +105,7 @@ let all_params : Global_config.t Command.Param.t =
     target;
     filename;
     engine;
+    stage;
     is_instrumented;
     mode;
     analyzer;

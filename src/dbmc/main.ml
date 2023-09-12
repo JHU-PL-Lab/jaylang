@@ -180,16 +180,12 @@ let dump_result ~(config : Global_config.t) symbolic_result =
   | Dbmc_check _ -> dump_result symbolic_result
   | _ -> Fmt.pr "."
 
-let main_with_state_lwt ~config ~state program =
-  (* Observe.dump_analysis program state.block_map ; *)
+let main_lwt ~config program =
+  let state = Global_state.create config program in
   let%lwt inputss, is_timeout, symbolic_result = main_lookup ~config ~state in
   let result = { inputss; is_timeout; symbolic_result; state } in
   dump_result ~config symbolic_result ;
   Lwt.return result
-
-let main_lwt ~config program =
-  let state = Global_state.create config program in
-  main_with_state_lwt ~config ~state program
 
 let main ~config program = Lwt_main.run (main_lwt ~config program)
 
