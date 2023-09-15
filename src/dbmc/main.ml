@@ -187,7 +187,7 @@ let main_lwt ~config program =
   dump_result ~config symbolic_result ;
   Lwt.return result
 
-let main ~config program = Lwt_main.run (main_lwt ~config program)
+(* let main ~config program = Lwt_main.run (main_lwt ~config program) *)
 
 let main_commandline () =
   let config = Argparse.parse_commandline_config () in
@@ -200,7 +200,8 @@ let main_commandline () =
          config.filename
      in
 
-     let result = main ~config program in
+     let result = Lwt_main.run (main_lwt ~config program) in
+
      let { inputss; is_timeout; state; _ } = result in
 
      match config.mode with
