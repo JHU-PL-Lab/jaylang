@@ -4,7 +4,6 @@ open Stage
 
 type stage_result =
   | Argparse of Global_config.t
-  | Analysis of Global_config.t
   | Load_file of unit
   | State_init of Global_state.t
   | Lookup of unit

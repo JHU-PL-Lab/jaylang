@@ -180,6 +180,11 @@ let dump_result ~(config : Global_config.t) symbolic_result =
   | Dbmc_check _ -> dump_result symbolic_result
   | _ -> Fmt.pr "."
 
+let load_program ~(config : Global_config.t) =
+  let do_instrument = config.is_instrumented in
+  let target_var = Var (config.target, None) in
+  File_utils.read_source ~do_instrument ~consts:[ target_var ] config.filename
+
 let main_lwt ~config program =
   let state = Global_state.create config program in
   let%lwt inputss, is_timeout, symbolic_result = main_lookup ~config ~state in
@@ -193,13 +198,7 @@ let main_commandline () =
   let config = Argparse.parse_commandline_config () in
   Log.init config ;
   (try
-     let program =
-       let do_instrument = config.is_instrumented in
-       let target_var = Var (config.target, None) in
-       File_utils.read_source ~do_instrument ~consts:[ target_var ]
-         config.filename
-     in
-
+     let program = load_program ~config in
      let result = Lwt_main.run (main_lwt ~config program) in
 
      let { inputss; is_timeout; state; _ } = result in
