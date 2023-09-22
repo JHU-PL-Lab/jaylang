@@ -185,8 +185,7 @@ let load_program ~(config : Global_config.t) =
   let target_var = Var (config.target, None) in
   File_utils.read_source ~do_instrument ~consts:[ target_var ] config.filename
 
-let main_lwt ~config program =
-  let state = Global_state.create config program in
+let main_lwt ~config ~state program =
   let%lwt inputss, is_timeout, symbolic_result = main_lookup ~config ~state in
   let result = { inputss; is_timeout; symbolic_result; state } in
   dump_result ~config symbolic_result ;
@@ -195,23 +194,40 @@ let main_lwt ~config program =
 (* let main ~config program = Lwt_main.run (main_lwt ~config program) *)
 
 let main_commandline () =
-  let config = Argparse.parse_commandline_config () in
-  Log.init config ;
-  (try
-     let program = load_program ~config in
-     let result = Lwt_main.run (main_lwt ~config program) in
+  try
+    let config = Argparse.parse_commandline_config () in
+    if Stage.equal config.stage Stage.Argparse
+    then raise (Stage_host.Stage_result (Argparse config)) ;
 
-     let { inputss; is_timeout; state; _ } = result in
+    Log.init config ;
 
-     match config.mode with
-     | Dbmc_search -> (
-         match List.hd inputss with
-         | Some inputs -> Fmt.pr "[%s]@;" (Std.string_of_opt_int_list inputs)
-         | None -> Fmt.pr "Unreachable")
-     | Dbmc_check inputs -> Fmt.pr "%B" is_timeout
-     | Dbmc_perf -> Fmt.pr "."
-     | _ -> ()
-   with
+    let program = load_program ~config in
+    if Stage.equal config.stage Stage.Load_file
+    then raise (Stage_host.Stage_result (Load_file program)) ;
+    let state = Global_state.create config program in
+    if Stage.equal config.stage Stage.State_init
+    then raise (Stage_host.Stage_result (State_init state)) ;
+    let result = Lwt_main.run (main_lwt ~config ~state program) in
+
+    if Stage.equal config.stage Stage.Lookup
+    then raise (Stage_host.Stage_result (Lookup ())) ;
+    let { inputss; is_timeout; state; _ } = result in
+
+    (match config.mode with
+    | Dbmc_search -> (
+        match List.hd inputss with
+        | Some inputs -> Fmt.pr "[%s]@;" (Std.string_of_opt_int_list inputs)
+        | None -> Fmt.pr "Unreachable")
+    | Dbmc_check inputs -> Fmt.pr "%B" is_timeout
+    | Dbmc_perf -> Fmt.pr "."
+    | _ -> ()) ;
+    (* TODO: mimic a `finally` for it *)
+    Log.close ()
+  with
+  | Stage_host.Stage_result r -> (
+      match r with
+      | Argparse _ -> Fmt.pr "Reach Argparse"
+      | Load_file _ -> Fmt.pr "Reach Load_file"
+      | _ -> Fmt.pr "Other stages")
   | Sys_error ex -> Fmt.pr "exception Sys_error(%s)" ex
-  | ex -> raise ex) ;
-  Log.close ()
+  | ex -> raise ex

@@ -23,9 +23,10 @@ let test_one_file test_config testname () =
     }
   in
   Dj_common.Log.init config ;
+  let state = Global_state.create config src in
   match expectation with
   | None ->
-      let* { is_timeout; _ } = Main.main_lwt ~config src in
+      let* { is_timeout; _ } = Main.main_lwt ~config ~state src in
       prerr_endline "search_input, no expectation, end" ;
       Lwt.return
       @@ Alcotest.(check bool) "search_input: not timeout" false is_timeout
@@ -38,12 +39,12 @@ let test_one_file test_config testname () =
               let config =
                 { config with mode = Global_config.Dbmc_check inputs }
               in
-              let* _ = Main.main_lwt ~config src in
+              let* _ = Main.main_lwt ~config ~state src in
               let checked = false in
               Lwt.return
               @@ Alcotest.(check bool) "check_input: not timeout" false checked
           | None ->
-              let* { inputss; _ } = Main.main_lwt ~config src in
+              let* { inputss; _ } = Main.main_lwt ~config ~state src in
               let () =
                 match List.hd inputss with
                 | Some _inputs ->
