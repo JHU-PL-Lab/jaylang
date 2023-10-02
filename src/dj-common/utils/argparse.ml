@@ -40,18 +40,18 @@ let encode_policy_parser =
   Command.Arg_type.of_alist_exn
     [ ("inc", Only_incremental); ("shrink", Always_shrink) ]
 
-let all_params : Global_config.t Command.Param.t =
+let params_with ~config : Global_config.t Command.Param.t =
   let open Command.Let_syntax in
   let%map_open target =
     flag "-t" (optional (Command.Arg_type.create parse_id)) ~doc:"target_point"
   and filename = anon ("source_file" %: Filename_unix.arg_type)
   and stage =
     flag "-st"
-      (optional_with_default Stage.All_done
+      (optional_with_default config.stage
          (Command.Arg_type.create Stage.of_str))
       ~doc:"stage"
   and engine =
-    flag "-e" (optional_with_default E_dbmc engine_parser) ~doc:"engine"
+    flag "-e" (optional_with_default config.engine engine_parser) ~doc:"engine"
   and is_wrapped = flag "-w" no_arg ~doc:"wrapped"
   and is_instrumented = flag "-a" no_arg ~doc:"instrumented"
   and dump_instrumented = flag "-ad" no_arg ~doc:"dump instrumented"
@@ -59,22 +59,22 @@ let all_params : Global_config.t Command.Param.t =
     flag "-i" (optional int_option_list_parser) ~doc:"expected inputs"
   and analyzer =
     flag "-aa"
-      (optional_with_default default_config.analyzer
+      (optional_with_default config.analyzer
          (Command.Arg_type.create parse_analyzer_exn))
       ~doc:"ddpa_concrete_stack"
   and run_max_step = flag "-x" (optional int) ~doc:"check per steps"
   and timeout = flag "-m" (optional timeout_parser) ~doc:"timeout in seconds"
   and stride_init =
     flag "-si"
-      (optional_with_default default_config.stride_init int)
+      (optional_with_default config.stride_init int)
       ~doc:"check per steps (initial)"
   and stride_max =
     flag "-sm"
-      (optional_with_default default_config.stride_max int)
+      (optional_with_default config.stride_max int)
       ~doc:"check per steps (max)"
   and encode_policy =
     flag "-ep"
-      (optional_with_default Only_incremental encode_policy_parser)
+      (optional_with_default config.encode_policy encode_policy_parser)
       ~doc:"encode policy"
   and log_level =
     flag "-l"
@@ -138,8 +138,6 @@ let all_params : Global_config.t Command.Param.t =
     is_check_per_step;
   }
 
-let parse_commandline_config ?config () =
-  let config =
-    match config with Some c -> ref c | None -> ref default_config
-  in
-  Command_util.parse_command all_params "DJ top" config
+let parse_commandline ?config () =
+  let config = match config with Some c -> c | None -> default_config in
+  Std.param_of_command (params_with ~config) "DJ top"

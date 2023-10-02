@@ -195,7 +195,7 @@ let main_lwt ~config ~state program =
 
 let main_commandline () =
   try
-    let config = Argparse.parse_commandline_config () in
+    let config = Argparse.parse_commandline () in
     if Stage.equal config.stage Stage.Argparse
     then raise (Stage_host.Stage_result (Argparse config)) ;
 

@@ -107,7 +107,7 @@ let readline_loop term history prompt_state (config : Global_config.t) program
 let make_lookup () =
   let open Core in
   let open Dbmc in
-  let config : Global_config.t = Argparse.parse_commandline_config () in
+  let config : Global_config.t = Argparse.parse_commandline () in
   let program = File_utils.read_source config.filename in
   let state : Global_state.t = Global_state.create config program in
   let lookup_task () =

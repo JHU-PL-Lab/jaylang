@@ -1,4 +1,4 @@
-(* Version: 0.1.5 *)
+(* Version: 0.1.6 *)
 (* Caution: DO NOT EDIT! The file is copied from outside. *)
 
 [@@@warning "-32"]
@@ -163,6 +163,19 @@ module For_core = struct
       in
       loop dir
   end
+
+  module More_Command = struct
+    let param_of_command (all_params : 't Command.Param.t) summary : 't =
+      let store = ref None in
+      let save_param : (unit -> unit) Command.Param.t =
+        Command.Param.(all_params >>| fun params () -> store := Some params)
+      in
+      let command = Command.basic ~summary save_param in
+      Command_unix.run command ;
+      Option.value_exn !store
+  end
+
+  include More_Command
 end
 
 include For_core

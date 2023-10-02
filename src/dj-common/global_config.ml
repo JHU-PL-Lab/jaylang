@@ -17,7 +17,7 @@ type encode_policy = Only_incremental | Always_shrink
 type t = {
   (* basic *)
   target : Id.t;
-  filename : Filename.t; [@printer String.pp]
+  filename : Filename.t;
   (* mode *)
   mode : mode;
   stage : Stage.t;
@@ -65,11 +65,11 @@ let default_config =
     is_wrapped = false;
     is_instrumented = false;
     dump_instrumented = false;
-    log_level = Some Logs.Debug;
+    log_level = None;
     log_level_lookup = None;
     log_level_solver = None;
     log_level_interpreter = None;
-    log_level_search = Some Logs.Debug;
+    log_level_search = None;
     log_level_complete_message = None;
     log_level_perf = None;
     global_logfile = None;
