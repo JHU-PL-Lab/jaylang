@@ -83,9 +83,10 @@ let main_lwt ~config program_full : (reported_error option * bool) Lwt.t =
 
 let main ~config program_full = Lwt_main.run (main_lwt ~config program_full)
 
-let do_output_parsable program filename output_parsable =
-  if output_parsable
+let do_output_parsable program filename dump_instrumented =
+  if dump_instrumented
   then
+    let program = Convert.jil_ast_of_convert program in
     let purged_expr = Jayil.Ast_tools.purge program in
     let og_file = Filename.chop_extension (Filename.basename filename) in
     let new_file = og_file ^ "_instrumented.jil" in
@@ -93,17 +94,14 @@ let do_output_parsable program filename output_parsable =
 
 let main_commandline () =
   let config =
-    Argparse.parse_commandline_config ~config:Global_config.default_sato_config
-      ()
+    Argparse.parse_commandline ~config:Global_config.default_sato_config ()
   in
 
   let program_full =
     File_utils.read_source_full ~do_wrap:config.is_wrapped
       ~do_instrument:config.is_instrumented config.filename
   in
-  do_output_parsable
-    (Convert.jil_ast_of_convert program_full)
-    config.filename config.is_instrumented ;
+  do_output_parsable program_full config.filename config.dump_instrumented ;
   let () =
     let errors_res = main ~config program_full in
     match errors_res with
