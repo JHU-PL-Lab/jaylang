@@ -23,9 +23,9 @@ let test_one_file test_config testname () =
     }
   in
   Dj_common.Log.init config ;
-  let state = Global_state.create config src in
   match expectation with
   | None ->
+      let state = Global_state.create config src in
       let* { is_timeout; _ } = Main.main_lwt ~config ~state src in
       prerr_endline "search_input, no expectation, end" ;
       Lwt.return
@@ -34,6 +34,7 @@ let test_one_file test_config testname () =
       Lwt_list.iter_s
         (fun (expectation : Test_expect.one_case) ->
           let config = { config with target = Id.Ident expectation.target } in
+          let state = Global_state.create config src in
           match List.hd expectation.inputs with
           | Some inputs ->
               let config =

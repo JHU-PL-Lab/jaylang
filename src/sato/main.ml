@@ -2,13 +2,17 @@ open Core
 open Jayil.Ast
 open Jay_translate.Jay_to_jayil_maps
 open Sato_result
+open Dj_common
 
 let main_lwt ~config program_full : (reported_error option * bool) Lwt.t =
-  let program = Dj_common.Convert.jil_ast_of_convert program_full in
-  let dbmc_config_init = Sato_args.sato_to_dbmc_config config in
-  Dj_common.Log.init dbmc_config_init ;
+  let program = Convert.jil_ast_of_convert program_full in
+  let dbmc_config_init = config in
+  Log.init dbmc_config_init ;
+  let sato_mode =
+    match config.mode with Sato m -> m | _ -> failwith "not sato"
+  in
   let init_sato_state =
-    Sato_state.initialize_state_with_expr config.sato_mode program_full
+    Sato_state.initialize_state_with_expr sato_mode program_full
   in
   let target_vars = init_sato_state.target_vars in
   Fmt.pr "[SATO] #tgt=%d@.@?" (List.length target_vars) ;
@@ -25,12 +29,13 @@ let main_lwt ~config program_full : (reported_error option * bool) Lwt.t =
             (Fmt.option Time_float.Span.pp)
             dbmc_config.timeout ;
           let%lwt { inputss; state = dbmc_state; is_timeout; _ } =
-            Dbmc.Main.main_lwt ~config:dbmc_config program
+            let state = Dbmc.Global_state.create dbmc_config program in
+            Dbmc.Main.main_lwt ~config:dbmc_config ~state program
           in
           match List.hd inputss with
           | Some inputs -> (
               let () = print_endline "Lookup target: " in
-              let () = print_endline @@ Dj_common.Id.show hd in
+              let () = print_endline @@ Id.show hd in
               let session =
                 {
                   (Interpreter.make_default_session ()) with
@@ -42,7 +47,7 @@ let main_lwt ~config program_full : (reported_error option * bool) Lwt.t =
                 match ab_clo with
                 | AbortClosure final_env ->
                     let result =
-                      match config.sato_mode with
+                      match sato_mode with
                       | Bluejay ->
                           let errors =
                             Sato_result.Bluejay_type_errors.get_errors
@@ -84,19 +89,23 @@ let do_output_parsable program filename output_parsable =
     let purged_expr = Jayil.Ast_tools.purge program in
     let og_file = Filename.chop_extension (Filename.basename filename) in
     let new_file = og_file ^ "_instrumented.jil" in
-    Dj_common.File_utils.dump_to_file purged_expr new_file
+    File_utils.dump_to_file purged_expr new_file
 
 let main_commandline () =
-  let sato_config = Argparse.parse_commandline_config () in
+  let config =
+    Argparse.parse_commandline_config ~config:Global_config.default_sato_config
+      ()
+  in
+
   let program_full =
-    Dj_common.File_utils.read_source_full ~do_wrap:sato_config.do_wrap
-      ~do_instrument:sato_config.do_instrument sato_config.filename
+    File_utils.read_source_full ~do_wrap:config.is_wrapped
+      ~do_instrument:config.is_instrumented config.filename
   in
   do_output_parsable
-    (Dj_common.Convert.jil_ast_of_convert program_full)
-    sato_config.filename sato_config.output_parsable ;
+    (Convert.jil_ast_of_convert program_full)
+    config.filename config.is_instrumented ;
   let () =
-    let errors_res = main ~config:sato_config program_full in
+    let errors_res = main ~config program_full in
     match errors_res with
     | None, false -> print_endline @@ "No errors found."
     | None, true ->
@@ -105,4 +114,4 @@ let main_commandline () =
             longer timeout setting."
     | Some errors, _ -> print_endline @@ show_reported_error errors
   in
-  Dj_common.Log.close ()
+  Log.close ()

@@ -1,5 +1,5 @@
 .PHONY: all clean dbmc dj sato translator jil logclean benchmark \
-				repl test dbmc-test sato-test dtest dtest-ddse dtest-all 
+				repl test dbmc-test sato-test stest dtest dtest-ddse
 
 BUILD = _build/default
 BUILD_SRC = _build/default/src

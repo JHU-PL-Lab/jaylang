@@ -18,4 +18,5 @@ let cond_id b = Ident (cond_id_s b)
 let cond_block_id (Ident condsite) b = Ident (condsite ^ cond_id_s b)
 let name_main = "0_main"
 let main_block = Ident name_main
+let default_target = Ident "target"
 let s_ n = Ident n

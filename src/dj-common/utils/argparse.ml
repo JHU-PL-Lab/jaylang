@@ -43,7 +43,7 @@ let encode_policy_parser =
 let all_params : Global_config.t Command.Param.t =
   let open Command.Let_syntax in
   let%map_open target =
-    flag "-t" (required (Command.Arg_type.create parse_id)) ~doc:"target_point"
+    flag "-t" (optional (Command.Arg_type.create parse_id)) ~doc:"target_point"
   and filename = anon ("source_file" %: Filename_unix.arg_type)
   and stage =
     flag "-st"
@@ -52,7 +52,9 @@ let all_params : Global_config.t Command.Param.t =
       ~doc:"stage"
   and engine =
     flag "-e" (optional_with_default E_dbmc engine_parser) ~doc:"engine"
+  and is_wrapped = flag "-w" no_arg ~doc:"wrapped"
   and is_instrumented = flag "-a" no_arg ~doc:"instrumented"
+  and dump_instrumented = flag "-ad" no_arg ~doc:"dump instrumented"
   and expected_inputs =
     flag "-i" (optional int_option_list_parser) ~doc:"expected inputs"
   and analyzer =
@@ -63,7 +65,7 @@ let all_params : Global_config.t Command.Param.t =
   and run_max_step = flag "-x" (optional int) ~doc:"check per steps"
   and timeout = flag "-m" (optional timeout_parser) ~doc:"timeout in seconds"
   and stride_init =
-    flag "-s"
+    flag "-si"
       (optional_with_default default_config.stride_init int)
       ~doc:"check per steps (initial)"
   and stride_max =
@@ -94,19 +96,25 @@ let all_params : Global_config.t Command.Param.t =
   and debug_no_model = flag "-dnm" no_arg ~doc:"not output smt model"
   and debug_graph = flag "-dg" no_arg ~doc:"output graphviz dot"
   and debug_interpreter = flag "-di" no_arg ~doc:"check the interpreter"
-  and is_check_per_step = flag "-dcs" no_arg ~doc:"check per step" in
+  and is_check_per_step = flag "-dcs" no_arg ~doc:"check per step"
+  and force_sato = flag "-s" no_arg ~doc:"sato mode" in
   let latter_option l1 l2 = Option.merge l1 l2 ~f:(fun _ y -> y) in
   let mode =
-    match expected_inputs with
-    | Some inputs -> Dbmc_check inputs
-    | None -> Dbmc_search
+    if force_sato || Option.is_none target
+    then Sato (File_utils.lang_from_file filename)
+    else
+      match expected_inputs with
+      | Some inputs -> Dbmc_check inputs
+      | None -> Dbmc_search
   in
   {
-    target;
+    target = (match target with Some t -> t | None -> Id.default_target);
     filename;
     engine;
     stage;
+    is_wrapped;
     is_instrumented;
+    dump_instrumented;
     mode;
     analyzer;
     run_max_step;
@@ -130,6 +138,8 @@ let all_params : Global_config.t Command.Param.t =
     is_check_per_step;
   }
 
-let parse_commandline_config () =
-  let config = ref default_config in
+let parse_commandline_config ?config () =
+  let config =
+    match config with Some c -> ref c | None -> ref default_config
+  in
   Command_util.parse_command all_params "DJ top" config

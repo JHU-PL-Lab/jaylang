@@ -138,7 +138,7 @@ and clause_body =
   | Binary_operation_body of var * binary_operator * var
   | Abort_body
   | Assume_body of var
-  | Assert_body of var
+  | Assert_body of var (* TODO: delete this *)
 [@@deriving eq, ord, to_yojson]
 
 (** A type to represent clauses. *)

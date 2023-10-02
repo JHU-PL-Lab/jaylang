@@ -4,7 +4,13 @@ open Core
 exception GenComplete
 
 type analyzer = K_ddpa of int | K_cfa of int
-type mode = Dbmc_search | Dbmc_check of int option list | Dbmc_perf | Sato
+
+type mode =
+  | Dbmc_search
+  | Dbmc_check of int option list
+  | Dbmc_perf
+  | Sato of File_utils.lang
+
 type engine = E_dbmc | E_ddse
 type encode_policy = Only_incremental | Always_shrink
 
@@ -17,7 +23,9 @@ type t = {
   stage : Stage.t;
   analyzer : analyzer;
   engine : engine;
+  is_wrapped : bool;
   is_instrumented : bool;
+  dump_instrumented : bool;
   (* tuning *)
   run_max_step : int option;
   timeout : Time_float.Span.t option;
@@ -54,7 +62,9 @@ let default_config =
     mode = Dbmc_search;
     run_max_step = None;
     engine = E_dbmc;
+    is_wrapped = false;
     is_instrumented = false;
+    dump_instrumented = false;
     log_level = Some Logs.Debug;
     log_level_lookup = None;
     log_level_solver = None;
@@ -68,4 +78,13 @@ let default_config =
     debug_graph = false;
     debug_interpreter = false;
     is_check_per_step = false;
+  }
+
+let default_sato_config =
+  {
+    default_config with
+    mode = Sato File_utils.Jayil;
+    is_wrapped = false;
+    is_instrumented = true;
+    dump_instrumented = false;
   }

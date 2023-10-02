@@ -1,5 +1,7 @@
 open Core
 open Sato
+open Dj_common
+module Test_expect = Test_expect_sato
 
 (* treat the path as the group name and filename as the test name *)
 let group_all_files dir =
@@ -13,7 +15,7 @@ let group_all_files dir =
               let fullpath = Filename.concat dir path in
               match Sys_unix.is_directory fullpath with
               | `Yes -> (acc_f, loop fullpath @ acc_p)
-              | `No when Dj_common.File_utils.check_upto_bluejay fullpath ->
+              | `No when File_utils.check_upto_bluejay fullpath ->
                   (fullpath :: acc_f, acc_p)
               | `No -> (acc_f, acc_p)
               | `Unknown -> (acc_f, acc_p)))
@@ -164,20 +166,24 @@ let is_error_expected (actual : Sato_result.reported_error)
   Test_expect.equal expected actual_error
 
 let test_one_file_lwt testname _switch () =
-  let program_full = Dj_common.File_utils.read_source_full testname in
-  let config : Sato_args.t =
+  let config : Global_config.t =
+    (* filename = testname;
+       sato_mode = File_utils.lang_from_file testname;
+       ddpa_c_stk = Sato_args.default_ddpa_c_stk;
+       do_wrap = false;
+       do_instrument = true;
+       output_parsable = false; *)
     {
-      filename = testname;
-      sato_mode = Dj_common.File_utils.lang_from_file testname;
-      ddpa_c_stk = Sato_args.default_ddpa_c_stk;
-      do_wrap = false;
-      do_instrument = true;
-      output_parsable = false;
+      Global_config.default_sato_config with
+      mode = Global_config.Sato (File_utils.lang_from_file testname);
       timeout = Some (Time_float.Span.of_int_sec 2);
-      run_max_step = None;
     }
   in
-  let%lwt errors_opt, _ = Main.main_lwt ~config program_full in
+  let program_full =
+    File_utils.read_source_full ~do_wrap:config.is_wrapped
+      ~do_instrument:config.is_instrumented testname
+  in
+  let%lwt errors_opt, _ = Sato.Main.main_lwt ~config program_full in
   let expectation = Test_expect.load_sexp_expectation_for testname in
   let test_result =
     match expectation with
@@ -208,5 +214,3 @@ let main test_path =
   ()
 
 let () = main "test/sato"
-(* "benchmark/sato" *)
-(* let () = main "test/sato/playing-ground" *)
