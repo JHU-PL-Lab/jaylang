@@ -1,11 +1,11 @@
-(* Version: 0.1.2 *)
+(* Version: 0.1.5 *)
 (* Caution: DO NOT EDIT! The file is copied from outside. *)
-
-open! Core
 
 [@@@warning "-32"]
 
 module For_core = struct
+  open! Core
+
   module Printing = struct
     let pp_b = Fmt.(using (function true -> "t" | false -> "f") string)
     let pp_bo = Fmt.(using (function true -> "#t" | false -> "#f") string)
@@ -66,23 +66,6 @@ module For_core = struct
 
   include Printing
 
-  module File_util = struct
-    open Stdlib
-
-    let write_marshal file v =
-      let oc = open_out file in
-      Marshal.to_channel oc v [] ;
-      close_out oc
-
-    let read_marshal file =
-      let ic = open_in file in
-      let v = Marshal.from_channel ic in
-      close_in ic ;
-      v
-  end
-
-  include File_util
-
   module More_bool = struct
     (*
   type ternary = True | False | Unknown
@@ -120,6 +103,16 @@ module For_core = struct
 
   include More_bool
 
+  module Cool_strict = struct
+    type t = Gt | Eq | Lt
+    type cool = t
+  end
+
+  module Cool_eq = struct
+    type t = Gt | Eq | Ls | Ge | Le
+    type coole = t
+  end
+
   module More_list = struct
     let list_split lst =
       let rec loop part1 part2 =
@@ -148,6 +141,28 @@ module For_core = struct
   end
 
   include More_fn
+
+  module File_utils = struct
+    let group_dir ~filter dir =
+      let rec loop dir =
+        let acc_f, acc_p =
+          Sys_unix.fold_dir ~init:([], [])
+            ~f:(fun (acc_f, acc_p) path ->
+              match String.get path 0 with
+              | '.' (* including "." ".." *) | '_' -> (acc_f, acc_p)
+              | _ -> (
+                  let fullpath = Filename.concat dir path in
+                  match Sys_unix.is_directory fullpath with
+                  | `Yes -> (acc_f, loop fullpath @ acc_p)
+                  | `No when filter fullpath -> (fullpath :: acc_f, acc_p)
+                  | `No -> (acc_f, acc_p)
+                  | `Unknown -> (acc_f, acc_p)))
+            dir
+        in
+        (dir, List.sort acc_f ~compare:String.compare) :: acc_p
+      in
+      loop dir
+  end
 end
 
 include For_core
@@ -158,6 +173,59 @@ module For_vanilla = struct
   (* let pp_dump_std_table ?(name = "set") iter pp_elem oc s =
      let pp_name oc _ = Fmt.string oc name in
      (Fmt.Dump.iter_bindings iter pp_name Fmt.(string ++ cut) pp_elem) oc s *)
+
+  module File_util = struct
+    open Stdlib
+
+    module File_infix = struct
+      (* The precedence in OCaml is (See https://v2.ocaml.org/manual/expr.html#ss:precedence-and-associativity for full):
+         (functio application) > `/...` > `@...` > `^...` > `$/`.
+         Therefore, if we have
+         "1" ^ "a" // "a" ^ "2";;
+         "1" ^ "b" @/ "b" ^ "2";;
+         "1" ^ "b" $/ "b" ^ "2";;
+
+         It should be equivalent to
+         "1" ^ ("a" // "a") ^ "2";;
+         "1" ^ ("b" @/ "b") ^ "2";;
+         ("1" ^ "b") $/ ("b" ^ "2");;
+      *)
+      let ( $/ ) a b = Filename.concat a b
+    end
+
+    open File_infix
+
+    let read_file_all path = In_channel.with_open_text path In_channel.input_all
+
+    let write_file_all path content =
+      Out_channel.with_open_text path (fun c ->
+          Out_channel.output_string c content)
+
+    let write_marshal file v =
+      let oc = open_out file in
+      Marshal.to_channel oc v [] ;
+      close_out oc
+
+    let read_marshal file =
+      let ic = open_in file in
+      let v = Marshal.from_channel ic in
+      close_in ic ;
+      v
+
+    let remove_dir path =
+      let rec loop path =
+        Sys.readdir path
+        |> Array.iter (fun sub ->
+               let subpath = path $/ sub in
+               if Sys.is_directory subpath
+               then loop subpath
+               else Sys.remove subpath) ;
+        Sys.rmdir path
+      in
+      if Sys.file_exists path && Sys.is_directory path then loop path
+  end
+
+  include File_util
 end
 
 include For_vanilla

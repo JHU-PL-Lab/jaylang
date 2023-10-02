@@ -3,28 +3,6 @@ open Sato
 open Dj_common
 module Test_expect = Test_expect_sato
 
-(* treat the path as the group name and filename as the test name *)
-let group_all_files dir =
-  let rec loop dir =
-    let acc_f, acc_p =
-      Sys_unix.fold_dir ~init:([], [])
-        ~f:(fun (acc_f, acc_p) path ->
-          match String.get path 0 with
-          | '.' (* including "." ".." *) | '_' -> (acc_f, acc_p)
-          | _ -> (
-              let fullpath = Filename.concat dir path in
-              match Sys_unix.is_directory fullpath with
-              | `Yes -> (acc_f, loop fullpath @ acc_p)
-              | `No when File_utils.check_upto_bluejay fullpath ->
-                  (fullpath :: acc_f, acc_p)
-              | `No -> (acc_f, acc_p)
-              | `Unknown -> (acc_f, acc_p)))
-        dir
-    in
-    (dir, List.sort acc_f ~compare:String.compare) :: acc_p
-  in
-  loop dir
-
 (* TODO: Refactor; there must be a better way of doing this. *)
 let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
   let open Sato_result in
@@ -202,13 +180,11 @@ let test_one_file_lwt testname _switch () =
   Lwt.return @@ test_result
 
 let main test_path =
-  let grouped_testfiles = group_all_files test_path in
   let grouped_tests =
-    List.map grouped_testfiles ~f:(fun (group_name, test_names) ->
-        ( group_name,
-          List.map test_names ~f:(fun testname ->
-              Alcotest_lwt.test_case testname `Quick
-              @@ test_one_file_lwt testname) ))
+    Directory_utils.map_in_groups
+      ~f:(fun _ test_name test_path ->
+        Alcotest_lwt.test_case test_name `Quick @@ test_one_file_lwt test_path)
+      test_path
   in
   Lwt_main.run @@ Alcotest_lwt.run "Sato" grouped_tests ;
   ()
