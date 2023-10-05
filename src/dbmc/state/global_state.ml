@@ -8,7 +8,7 @@ let compute_info (config : Global_config.t) program : info =
   let block_map =
     match config.analyzer with
     | K_ddpa k -> Ddpa_for_dj.Cfg_of_ddpa.block_map_of_expr program k target
-    | K_cfa _ -> Jil_analysis.Cfg_of_analysis.block_map_of_expr program
+    | K_cfa k -> Jil_analysis.Main.block_map_of_expr k program
   in
   (* Cfg.dump_block_map block_map ; *)
   let block0, reachable = Cfg.find_block_with_reachable target block_map in

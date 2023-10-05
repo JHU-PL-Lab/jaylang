@@ -53,7 +53,7 @@ module Abs_exp = struct
   end
 
   include T
-  include Comparable.Make (T)
+  include Comparator.Make (T)
 
   let rec pp ff = pp_exp ff
 
@@ -73,7 +73,7 @@ module Abs_clause = struct
   end
 
   include T
-  include Comparable.Make (T)
+  include Comparator.Make (T)
 end
 
 include Abs_exp
