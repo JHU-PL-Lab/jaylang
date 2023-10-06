@@ -39,10 +39,10 @@ module Make (Ctx : Finite_callstack.C) = struct
     | Fun_pat, AVal.AClosure _ -> true
     | Int_pat, AVal.AInt -> true
     | Bool_pat, AVal.ABool _ -> true
-    | Record_pat set, ARecord map -> Set.for_all set ~f:(Map.mem map)
-    | Strict_record_pat set1, ARecord map ->
-        let set2 = map |> Map.keys |> Set.of_list (module Id) in
-        Set.equal set1 set2
+    | Record_pat set, ARecord (keys, _ctx) -> Set.for_all set ~f:(Set.mem keys)
+    | Strict_record_pat set1, ARecord (keys, _ctx) ->
+        (* let set2 = map |> Map.keys |> Set.of_list (module Id) in *)
+        Set.equal set1 keys
     | Any_pat, _ -> true
     | _, _ -> false
 
@@ -65,8 +65,10 @@ module Make (Ctx : Finite_callstack.C) = struct
 
     let bottom = Abs_result.empty
     let equal = Set.equal
-    let is_maximal v = true
-    (* false *)
+
+    let is_maximal v =
+      (* true *)
+      false
     (* Set.length v >= 3 *)
   end
 
@@ -142,15 +144,18 @@ module Make (Ctx : Finite_callstack.C) = struct
           let v = AVal.AClosure (Abs_exp.to_id x, e, ctx) in
           let store' = safe_add_store store ctx aenv in
           Abs_result.only (v, store')
-      | Value (Record map) ->
-          List.fold_until (Map.to_alist map) ~init:[]
+      | Value (Record rmap) ->
+          List.fold_until (Map.to_alist rmap) ~init:[]
             ~f:(fun acc (k, lb) ->
               match env_get_by_id lb with
               | Some v -> Continue ((k, v) :: acc)
               | None -> Stop Abs_result.empty)
             ~finish:(fun acc ->
               let map' = Map.of_alist_exn (module Id) acc in
-              Abs_result.only (ARecord map', store))
+              let store' = safe_add_store store ctx map' in
+              let keys = Map.keys rmap |> Set.of_list (module Id) in
+              Abs_result.only (ARecord (keys, ctx), store'))
+          (* Abs_result.only (ARecord ctx, store))  *)
       | CVar x -> env_get_bind x (fun v -> Abs_result.only (v, store))
       | Appl (x1, x2) -> (
           match (env_get x1, env_get x2) with
@@ -160,11 +165,7 @@ module Make (Ctx : Finite_callstack.C) = struct
               let ctx' = Ctx.push (x0, Abs_exp.to_id x1) ctx in
               bind saved_envs (fun saved_env ->
                   env_add_bind saved_env xc v2 (fun env_new ->
-                      (* let e' = Abs_exp.(More (Clause (xc, Nobody), e)) in *)
-                      let e' = e in
-                      aeval (store, env_new, ctx', e'))
-                  (* let env_new = Map.add_exn saved_env ~key:xc ~data:v2 in
-                     aeval (store, env_new, ctx', e) *))
+                      aeval (store, env_new, ctx', e)))
           | _ -> Abs_result.empty)
       | Not x -> (
           match env_get x with
@@ -187,10 +188,12 @@ module Make (Ctx : Finite_callstack.C) = struct
           | _ -> Abs_result.empty)
       | Project (x, lb) -> (
           match env_get x with
-          | Some (ARecord map) -> (
-              match Map.find map lb with
-              | Some v -> Abs_result.only (v, store)
-              | None -> Abs_result.empty)
+          | Some (ARecord (keys, r_ctx)) ->
+              let saved_maps = Map.find_exn store r_ctx in
+              bind saved_maps (fun map ->
+                  match Map.find map lb with
+                  | Some v -> Abs_result.only (v, store)
+                  | None -> Abs_result.empty)
           | _ -> Abs_result.empty)
       | Abort -> Abs_result.empty
       | Assume _x -> Abs_result.only (AVal.ABool true, store)
@@ -224,7 +227,6 @@ module Make (Ctx : Finite_callstack.C) = struct
                    Set.fold (solution e) ~init:acc ~f:(fun acc (v, _s) ->
                        Set.add acc v))
              in
-
              (Abs_exp.id_of_e_exn e, vs))
     in
     let binding_from_result visited e =

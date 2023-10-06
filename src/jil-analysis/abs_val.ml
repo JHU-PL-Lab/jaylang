@@ -29,7 +29,8 @@ module Make (Ctx : Finite_callstack.C) = struct
         | AInt
         | ABool of bool
         | AClosure of Id.t * Abs_exp.t * Ctx.t
-        | ARecord of t Map.M(Id).t
+        (* | ARecord of t Map.M(Id).t  *)
+        | ARecord of Set.M(Id).t * Ctx.t
         | Any
 
       and aenv = t Map.M(Id).t [@@deriving equal, compare, hash, sexp]
