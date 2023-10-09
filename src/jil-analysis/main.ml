@@ -65,10 +65,8 @@ module Make (Ctx : Finite_callstack.C) = struct
 
     let bottom = Abs_result.empty
     let equal = Set.equal
-
-    let is_maximal v =
-      (* true *)
-      false
+    let is_maximal v = true
+    (* false *)
     (* Set.length v >= 3 *)
   end
 
@@ -78,6 +76,31 @@ module Make (Ctx : Finite_callstack.C) = struct
     let visited = Hashtbl.create (module Quadruple_as_key) in
     let counter = ref 0 in
 
+    let probe (store0, aenv0, ctx, e0) =
+      Hashtbl.update visited (store0, aenv0, ctx, e0) ~f:(function
+        | Some n -> n + 1
+        | None -> 1) ;
+      Int.incr counter ;
+
+      if !counter mod 1000 = 0
+      then
+        let key_count = Hashtbl.length visited in
+        let val_count =
+          Hashtbl.fold visited ~init:0 ~f:(fun ~key ~data acc -> acc + data)
+        in
+        Fmt.pr "%d %d@." key_count val_count
+      (* Fmt.pr "%a"
+         (Fmt.iter_bindings Std.iteri_core_hashtbl
+            (Fmt.Dump.pair
+               (Fmt.using
+                  (fun (_, _, ctx, e) ->
+                    let x = e |> Abs_exp.id_of_e_exn in
+                    (x, ctx))
+                  (Fmt.pair Id.pp Ctx.pp))
+               Fmt.int))
+         visited *)
+    in
+
     let rec mk_aeval (store0, aenv0, ctx, e0) aeval : result_set =
       match e0 with
       | Abs_exp.Just cl ->
@@ -86,23 +109,6 @@ module Make (Ctx : Finite_callstack.C) = struct
              while the recursive call doesn't do the computation work but just
              decompose into the basic case.
           *)
-          Hashtbl.update visited (store0, aenv0, ctx, e0) ~f:(function
-            | Some n -> n + 1
-            | None -> 0) ;
-          (* Int.incr counter ;
-
-             if !counter mod 500 = 0
-             then
-               Fmt.pr "%a"
-                 (Fmt.iter_bindings Std.iteri_core_hashtbl
-                    (Fmt.Dump.pair
-                       (Fmt.using
-                          (fun (_, _, ctx, e) ->
-                            let x = e |> Abs_exp.id_of_e_exn in
-                            (x, ctx))
-                          (Fmt.pair Id.pp Ctx.pp))
-                       Fmt.int))
-                 visited ; *)
           mk_aeval_clause (store0, aenv0, ctx, cl) aeval
           (* let vs = mk_aeval_clause (store0, aenv0, ctx, cl) aeval in
              let x0 = Abs_exp.clause_of_e_exn e0 in
@@ -119,6 +125,7 @@ module Make (Ctx : Finite_callstack.C) = struct
               mk_aeval (cl_store, aenv', ctx, e) aeval)
     and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set
         =
+      probe (store, aenv, ctx, Just (Clause (x0, clb))) ;
       (* Mismatch step 2: fetch x from the wrong env *)
       let env_get_exn x = Map.find_exn aenv x in
       let env_get_by_id x = Map.find aenv x in
@@ -281,7 +288,6 @@ module Make (Ctx : Finite_callstack.C) = struct
                       |> List.filter_map ~f:(function
                            | AInt -> None
                            | ABool _ -> None
-                           | Any -> None
                            | ARecord _ -> None
                            | AClosure (x, _, _) ->
                                Some
@@ -322,7 +328,6 @@ module Make (Ctx : Finite_callstack.C) = struct
         |> List.iter ~f:(function
              | AInt -> ()
              | ABool _ -> ()
-             | Any -> ()
              | ARecord _ -> ()
              | AClosure (x, _, _) ->
                  let fid = Jayil.Ast.Ident_map.find x para_to_fun_def_map in

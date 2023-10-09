@@ -31,7 +31,6 @@ module Make (Ctx : Finite_callstack.C) = struct
         | AClosure of Id.t * Abs_exp.t * Ctx.t
         (* | ARecord of t Map.M(Id).t  *)
         | ARecord of Set.M(Id).t * Ctx.t
-        | Any
 
       and aenv = t Map.M(Id).t [@@deriving equal, compare, hash, sexp]
 
@@ -40,7 +39,6 @@ module Make (Ctx : Finite_callstack.C) = struct
         | ABool b -> Fmt.pf fmter "%a" Std.pp_bo b
         | AClosure (x, _, _ctx) -> Fmt.pf fmter "<%a>" Id.pp x
         | ARecord _ -> Fmt.pf fmter "{..}"
-        | Any -> Fmt.string fmter "?"
 
       let show = Fmt.to_to_string pp
     end
