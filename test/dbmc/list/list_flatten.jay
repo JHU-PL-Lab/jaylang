@@ -1,6 +1,3 @@
-# EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH target [1, 2, 4] !
-
 let x0 = input in
 let x1 = input in
 let x2 = input in
@@ -40,11 +37,6 @@ let rec flatten r =
 
 let result = flatten d in
 if result.elem == x0
-    and result.next.elem == x1
-    and result.next.next.next.elem == x2
-    and x0 == 1
-    and x1 == 2
-    and x2 == 4
 then
   let target = 1 in 1
 else

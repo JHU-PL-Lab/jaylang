@@ -37,10 +37,9 @@ module Make (Ctx : Finite_callstack.C) = struct
       let pp fmter = function
         | AInt -> Fmt.string fmter "n"
         | ABool b -> Fmt.pf fmter "%a" Std.pp_bo b
-        | AClosure (x, _, _ctx) -> Fmt.pf fmter "<%a>" Id.pp x
-        | ARecord _ -> Fmt.pf fmter "{..}"
-
-      let show = Fmt.to_to_string pp
+        | AClosure (x, _, ctx) -> Fmt.pf fmter "<%a ! %a>" Id.pp x Ctx.pp ctx
+        | ARecord (keys, ctx) ->
+            Fmt.pf fmter "{%a ! %a}" (Std.pp_set Id.pp) keys Ctx.pp ctx
     end
 
     include T
@@ -69,8 +68,6 @@ module Make (Ctx : Finite_callstack.C) = struct
   let pp_env_set : env_set Fmt.t =
     Fmt.iter ~sep:(Fmt.any ";@ ") Std.iter_core_set AEnv.pp
 
-  (* open AVal.T *)
-
   let pp_aval_set : Set.M(AVal).t Fmt.t =
     Fmt.iter ~sep:(Fmt.any ";@ ") Std.iter_core_set AVal.pp
 
@@ -81,11 +78,18 @@ module Make (Ctx : Finite_callstack.C) = struct
 
     let show s = Sexp.to_string_hum (sexp_of_t s)
 
-    let pp fmter store =
+    let pp fmter astore =
       (* Fmt.Dump.iter_bindings iter Fmt.nop Ctx.pp pp_env_set fmter store *)
       Fmt.iter_bindings ~sep:(Fmt.any ";@ ") Std.iteri_core_map
         (Fmt.pair ~sep:(Fmt.any " -> ") Ctx.pp (Fmt.box pp_env_set))
-        fmter store
+        fmter astore
+
+    let weight astore =
+      astore |> Map.data
+      |> List.map ~f:(fun set ->
+             set |> Set.to_list |> List.map ~f:Map.length
+             |> List.sum (module Int) ~f:Fn.id)
+      |> List.sum (module Int) ~f:Fn.id
   end
 
   type astore = AStore.t
@@ -94,6 +98,31 @@ module Make (Ctx : Finite_callstack.C) = struct
     Map.update store ctx ~f:(function
       | Some envs -> Set.add envs aenv
       | None -> Set.singleton (module AEnv) aenv)
+
+  let pp_aenv_deep store ctx fmter aenv =
+    let open AVal in
+    let ctx_set = Hash_set.of_list (module Ctx) [ ctx ] in
+    let rec pp_env fmter aenv =
+      Fmt.Dump.iter_bindings Std.iteri_core_map Fmt.nop Id.pp pp_val fmter aenv
+    and pp_val fmter = function
+      | AInt -> Fmt.string fmter "n"
+      | ABool b -> Fmt.pf fmter "%a" Std.pp_bo b
+      | AClosure (x, _, ctx) -> (
+          match Hash_set.strict_add ctx_set ctx with
+          | Ok _ ->
+              let aenvs = Map.find_exn store ctx |> Set.to_list in
+              Fmt.pf fmter "<%a @ <%a->%a>>" Id.pp x Ctx.pp ctx
+                (Fmt.list pp_env) aenvs
+          | Error _ -> Fmt.pf fmter "<%a @ !%a>" Id.pp x Ctx.pp ctx)
+      | ARecord (keys, ctx) -> (
+          Fmt.pf fmter "{%a" (Std.pp_set Id.pp) keys ;
+          match Hash_set.strict_add ctx_set ctx with
+          | Ok _ ->
+              let aenvs = Map.find_exn store ctx |> Set.to_list in
+              Fmt.pf fmter "{%a %a}}" Ctx.pp ctx (Fmt.list pp_env) aenvs
+          | Error _ -> Fmt.pf fmter "!%a}" Ctx.pp ctx)
+    in
+    pp_env fmter aenv
 
   module Abs_result = struct
     module Imp = struct

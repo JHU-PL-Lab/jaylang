@@ -1,4 +1,4 @@
-(* Version: 0.1.6 *)
+(* Version: 0.1.7 *)
 (* Caution: DO NOT EDIT! The file is copied from outside. *)
 
 [@@@warning "-32"]
@@ -124,6 +124,8 @@ module For_core = struct
             (part1', part2') :: loop part1' part2'
       in
       ([], lst) :: loop [] lst
+
+    let list_sum = List.sum (module Int) ~f:Fn.id
   end
 
   include More_list

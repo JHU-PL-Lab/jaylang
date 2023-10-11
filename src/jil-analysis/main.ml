@@ -74,31 +74,66 @@ module Make (Ctx : Finite_callstack.C) = struct
 
   let make_solution () =
     let visited = Hashtbl.create (module Quadruple_as_key) in
-    let counter = ref 0 in
+    let store_saved = ref None in
 
-    let probe (store0, aenv0, ctx, e0) =
-      Hashtbl.update visited (store0, aenv0, ctx, e0) ~f:(function
+    let probe (store, aenv, ctx, e) =
+      Hashtbl.update visited (store, aenv, ctx, e) ~f:(function
         | Some n -> n + 1
         | None -> 1) ;
-      Int.incr counter ;
 
-      if !counter mod 1000 = 0
-      then
+      (match !store_saved with
+      | None -> store_saved := Some store
+      | Some s2 ->
+          if AStore.weight store > AStore.weight s2
+          then store_saved := Some store) ;
+
+      let counter = Hashtbl.length visited in
+
+      (* Fmt.pr "ENV=%a" (pp_aenv_deep store ctx) aenv ; *)
+      if counter mod 1 = 5000 (* && 5000 < counter && counter < 1006 *)
+      then (
         let key_count = Hashtbl.length visited in
         let val_count =
           Hashtbl.fold visited ~init:0 ~f:(fun ~key ~data acc -> acc + data)
         in
-        Fmt.pr "%d %d@." key_count val_count
-      (* Fmt.pr "%a"
-         (Fmt.iter_bindings Std.iteri_core_hashtbl
-            (Fmt.Dump.pair
-               (Fmt.using
-                  (fun (_, _, ctx, e) ->
-                    let x = e |> Abs_exp.id_of_e_exn in
-                    (x, ctx))
-                  (Fmt.pair Id.pp Ctx.pp))
-               Fmt.int))
-         visited *)
+
+        let store_count, aenv_count, ctx_count, e_count =
+          let astore_set = Hash_set.create (module AStore) in
+          let aenv_set = Hash_set.create (module AEnv) in
+          let ctx_set = Hash_set.create (module Ctx) in
+          let e_set = Hash_set.create (module Abs_exp) in
+          Hashtbl.fold visited ~init:(0, 0, 0, 0)
+            ~f:(fun ~key ~data (store_n, aenv_n, ctx_n, e_n) ->
+              let key = (store, aenv, ctx, e) in
+              let store_n =
+                match Hash_set.strict_add astore_set store with
+                | Ok _ -> store_n + 1
+                | Error _ -> store_n
+              in
+              let aenv_n =
+                match Hash_set.strict_add aenv_set aenv with
+                | Ok _ -> aenv_n + 1
+                | Error _ -> aenv_n
+              in
+              let ctx_n =
+                match Hash_set.strict_add ctx_set ctx with
+                | Ok _ -> ctx_n + 1
+                | Error _ -> ctx_n
+              in
+              let e_n =
+                match Hash_set.strict_add e_set e with
+                | Ok _ -> e_n + 1
+                | Error _ -> e_n
+              in
+              (store_n, aenv_n, ctx_n, e_n))
+        in
+        Fmt.pr "#k=%d #v=%d #store=%d #env=%d #ctx=%d #e=%d e=%a" key_count
+          val_count store_count aenv_count ctx_count e_count Abs_exp.pp e ;
+
+        (* Fmt.pr "store=%a" AStore.pp (Option.value_exn !store_saved) ; *)
+        (* Fmt.pr "store=%a @." AStore.pp store ; *)
+        (* ignore @@ failwith "store" ; *)
+        ())
     in
 
     let rec mk_aeval (store0, aenv0, ctx, e0) aeval : result_set =
@@ -152,7 +187,10 @@ module Make (Ctx : Finite_callstack.C) = struct
           let store' = safe_add_store store ctx aenv in
           Abs_result.only (v, store')
       | Value (Record rmap) ->
-          List.fold_until (Map.to_alist rmap) ~init:[]
+          List.fold_until
+            (* (List.take (Map.to_alist rmap) 3) *)
+            (Map.to_alist rmap)
+            ~init:[]
             ~f:(fun acc (k, lb) ->
               match env_get_by_id lb with
               | Some v -> Continue ((k, v) :: acc)
@@ -186,8 +224,12 @@ module Make (Ctx : Finite_callstack.C) = struct
           | _ -> Abs_result.empty)
       | Cond (x, e1, e2) -> (
           match env_get x with
-          | Some (ABool true) -> aeval (store, aenv, ctx, e1)
-          | Some (ABool false) -> aeval (store, aenv, ctx, e2)
+          | Some (ABool true) ->
+              (* aeval (store, aenv, ctx, e1) *)
+              aeval (store, aenv, Ctx.push (x0, Id.cond_id true) ctx, e1)
+          | Some (ABool false) ->
+              (* aeval (store, aenv, ctx, e2) *)
+              aeval (store, aenv, Ctx.push (x0, Id.cond_id false) ctx, e2)
           | _ -> Abs_result.empty)
       | Match (x, pat) -> (
           match env_get x with

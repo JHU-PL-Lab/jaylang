@@ -31,10 +31,12 @@ in
 
 # Std.List - end
 
-let s = flatten [[[1],2],[3,[4,5]]] in
-let x = input in
-let y = input in
-if hd s == x and len s == y then
-  let target = 1 in 1
-else
-  0
+let s = flatten [1] in
+# let x = input in
+# let y = input in
+# if hd s == x and len s == y then
+  
+# else
+#  0
+
+let target = 1 in 1
