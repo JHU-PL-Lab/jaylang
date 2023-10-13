@@ -89,6 +89,9 @@ profile:
 	dune build --workspace dune-workspace.profile src/bin/dj.exe
 # dune exec --workspace dune-workspace.profiling --context profiling src/bin/dj.exe -- -t target $(TEST_D)/loop/_sum100.jil
 
+landaa:
+	OCAML_LANDMARKS=auto,output="profiling/aa.ansi" time ./dj.exe -aa 1cfa -st si kebug.jil
+
 land100:
 	OCAML_LANDMARKS=auto,output="profiling/callgraph100-ddse.ansi" time ./dj.exe -t target -ls2 debug $(TEST_D)/loop/_sum100.jil
 

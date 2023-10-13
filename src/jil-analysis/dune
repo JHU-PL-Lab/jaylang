@@ -2,8 +2,10 @@
  (name jil_analysis)
  (public_name jay.jil_analysis)
  (libraries core fmt dj_common fix jayil jayil_parser)
+ (instrumentation
+  (backend landmarks))
  (preprocess
-  (pps ppx_jane ppx_deriving.show)))
+  (pps ppx_jane ppx_deriving.show landmarks-ppx --auto)))
 
 (env
  (dev

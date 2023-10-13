@@ -6,9 +6,21 @@ module Make (Ctx : Finite_callstack.C) = struct
   module All_vals = Abs_val.Make (Ctx)
   open All_vals
 
-  let bind (type a) set (f : a -> result_set) : result_set =
+  let _bind (type a) set (f : a -> result_set) : result_set =
     Set.fold set ~init:Abs_result.empty ~f:(fun acc elem ->
         Set.union acc @@ f elem)
+
+  let bind (type a) set (f : a -> result_set) : result_set =
+    set |> Set.to_list |> List.map ~f |> Set.union_list (module Abs_result)
+
+  let lift_store (vs : Set.M(AVal).t) store : result_set =
+    Set.map (module Abs_result) vs ~f:(fun v -> (v, store))
+
+  let both_bools : Set.M(AVal).t =
+    Set.of_list (module AVal) [ ABool true; ABool false ]
+
+  let just_bool b : Set.M(AVal).t = Set.of_list (module AVal) [ ABool b ]
+  let empty_v : Set.M(AVal).t = Set.empty (module AVal)
 
   let binop bop v1 v2 =
     let open AVal in
@@ -17,21 +29,17 @@ module Make (Ctx : Finite_callstack.C) = struct
     | Binary_operator_plus | Binary_operator_minus | Binary_operator_times
     | Binary_operator_divide | Binary_operator_modulus
     | Binary_operator_less_than | Binary_operator_less_than_or_equal_to -> (
-        match (v1, v2) with
-        | AInt, AInt -> Set.of_list (module AVal) [ ABool true; ABool false ]
-        | _ -> Set.empty (module AVal))
+        match (v1, v2) with AInt, AInt -> both_bools | _ -> empty_v)
     | Binary_operator_equal_to | Binary_operator_not_equal_to -> (
-        match (v1, v2) with
-        | AInt, AInt -> Set.(of_list (module AVal) [ ABool true; ABool false ])
-        | _ -> Set.empty (module AVal))
+        match (v1, v2) with AInt, AInt -> both_bools | _ -> empty_v)
     | Binary_operator_and -> (
         match (v1, v2) with
-        | ABool b1, ABool b2 -> Set.singleton (module AVal) (ABool (b1 && b2))
-        | _ -> Set.empty (module AVal))
+        | ABool b1, ABool b2 -> just_bool (b1 && b2)
+        | _ -> empty_v)
     | Binary_operator_or -> (
         match (v1, v2) with
-        | ABool b1, ABool b2 -> Set.singleton (module AVal) (ABool (b1 || b2))
-        | _ -> Set.empty (module AVal))
+        | ABool b1, ABool b2 -> just_bool (b1 || b2)
+        | _ -> empty_v)
 
   let is_v_pat v pat =
     let open Abs_exp in
@@ -47,9 +55,7 @@ module Make (Ctx : Finite_callstack.C) = struct
     | Any_pat, _ -> true
     | _, _ -> false
 
-  let not_ = function
-    | AVal.ABool b -> Set.singleton (module AVal) (ABool (not b))
-    | _ -> Set.empty (module AVal)
+  let not_ = function AVal.ABool b -> just_bool (not b) | _ -> empty_v
 
   module Quadruple_as_key = struct
     module T = struct
@@ -105,39 +111,39 @@ module Make (Ctx : Finite_callstack.C) = struct
           Hashtbl.fold visited ~init:0 ~f:(fun ~key ~data acc -> acc + data)
         in
 
-        (* let store_count, aenv_count, ctx_count, e_count =
-             let astore_set = Hash_set.create (module AStore) in
-             let aenv_set = Hash_set.create (module AEnv) in
-             let ctx_set = Hash_set.create (module Ctx) in
-             let e_set = Hash_set.create (module Abs_exp) in
-             Hashtbl.fold visited ~init:(0, 0, 0, 0)
-               ~f:(fun ~key ~data (store_n, aenv_n, ctx_n, e_n) ->
-                 let key = (store, aenv, ctx, e) in
-                 let store_n =
-                   match Hash_set.strict_add astore_set store with
-                   | Ok _ -> store_n + 1
-                   | Error _ -> store_n
-                 in
-                 let aenv_n =
-                   match Hash_set.strict_add aenv_set aenv with
-                   | Ok _ -> aenv_n + 1
-                   | Error _ -> aenv_n
-                 in
-                 let ctx_n =
-                   match Hash_set.strict_add ctx_set ctx with
-                   | Ok _ -> ctx_n + 1
-                   | Error _ -> ctx_n
-                 in
-                 let e_n =
-                   match Hash_set.strict_add e_set e with
-                   | Ok _ -> e_n + 1
-                   | Error _ -> e_n
-                 in
-                 (store_n, aenv_n, ctx_n, e_n))
-           in
-           Fmt.pr "#k=%d #v=%d #store=%d #env=%d #ctx=%d #e=%d #d=%d e=%a@."
-             key_count val_count store_count aenv_count ctx_count e_count !depth
-             Abs_exp.pp e ; *)
+        let store_count, aenv_count, ctx_count, e_count =
+          let astore_set = Hash_set.create (module AStore) in
+          let aenv_set = Hash_set.create (module AEnv) in
+          let ctx_set = Hash_set.create (module Ctx) in
+          let e_set = Hash_set.create (module Abs_exp) in
+          Hashtbl.fold visited ~init:(0, 0, 0, 0)
+            ~f:(fun ~key ~data (store_n, aenv_n, ctx_n, e_n) ->
+              let key = (store, aenv, ctx, e) in
+              let store_n =
+                match Hash_set.strict_add astore_set store with
+                | Ok _ -> store_n + 1
+                | Error _ -> store_n
+              in
+              let aenv_n =
+                match Hash_set.strict_add aenv_set aenv with
+                | Ok _ -> aenv_n + 1
+                | Error _ -> aenv_n
+              in
+              let ctx_n =
+                match Hash_set.strict_add ctx_set ctx with
+                | Ok _ -> ctx_n + 1
+                | Error _ -> ctx_n
+              in
+              let e_n =
+                match Hash_set.strict_add e_set e with
+                | Ok _ -> e_n + 1
+                | Error _ -> e_n
+              in
+              (store_n, aenv_n, ctx_n, e_n))
+        in
+        Fmt.pr "#k=%d #v=%d #store=%d #env=%d #ctx=%d #e=%d #d=%d e=%a@."
+          key_count val_count store_count aenv_count ctx_count e_count !depth
+          Abs_exp.pp e ;
         Fmt.pr "#k=%d $store=%d $env=%d ctx=%a e=%a@." key_count
           (AStore.weight store)
           (AStore.weight_env store ctx aenv)
@@ -165,7 +171,7 @@ module Make (Ctx : Finite_callstack.C) = struct
               aeval (cl_store, aenv', ctx, e))
     and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set
         =
-      probe (store, aenv, ctx, Just (Clause (x0, clb))) ;
+      (* probe (store, aenv, ctx, Just (Clause (x0, clb))) ; *)
 
       (* Mismatch step 2: fetch x from the wrong env *)
       let env_get_by_id x = Map.find aenv x in
@@ -219,13 +225,13 @@ module Make (Ctx : Finite_callstack.C) = struct
           | _ -> Abs_result.empty)
       | Not x -> (
           match env_get x with
-          | Some v -> bind (not_ v) (fun v -> Abs_result.only (v, store))
+          | Some v -> lift_store (not_ v) store
           | None -> Abs_result.empty)
       | Binop (x1, bop, x2) -> (
           match (env_get x1, env_get x2) with
           | Some v1, Some v2 ->
-              let v = binop bop v1 v2 in
-              bind v (fun v -> Abs_result.only (v, store))
+              let vs = binop bop v1 v2 in
+              lift_store vs store
           | _ -> Abs_result.empty)
       | Cond (x, e1, e2) -> (
           match env_get x with
@@ -316,7 +322,7 @@ module Make (Ctx : Finite_callstack.C) = struct
 
     if dump
     then
-      Fmt.pr "%a"
+      Fmt.pr "Analysis: %a"
         (Fmt.Dump.iter_bindings Std.iteri_core_hashtbl Fmt.nop Id.pp pp_aval_set)
         result_map ;
     (result_set, result_map)
