@@ -39,10 +39,11 @@ module Make (Ctx : Finite_callstack.C) = struct
     | Fun_pat, AVal.AClosure _ -> true
     | Int_pat, AVal.AInt -> true
     | Bool_pat, AVal.ABool _ -> true
-    | Record_pat set, ARecord (keys, _ctx) -> Set.for_all set ~f:(Set.mem keys)
-    | Strict_record_pat set1, ARecord (keys, _ctx) ->
+    | Record_pat set, ARecord (rmap, _ctx) ->
+        Set.for_all set ~f:(Set.mem (Map.key_set rmap))
+    | Strict_record_pat set1, ARecord (rmap, _ctx) ->
         (* let set2 = map |> Map.keys |> Set.of_list (module Id) in *)
-        Set.equal set1 keys
+        Set.equal set1 (Map.key_set rmap)
     | Any_pat, _ -> true
     | _, _ -> false
 
@@ -65,8 +66,10 @@ module Make (Ctx : Finite_callstack.C) = struct
 
     let bottom = Abs_result.empty
     let equal = Set.equal
-    let is_maximal v = true
-    (* false *)
+
+    let is_maximal v =
+      (* true *)
+      false
     (* Set.length v >= 3 *)
   end
 
@@ -75,10 +78,15 @@ module Make (Ctx : Finite_callstack.C) = struct
   let make_solution () =
     let visited = Hashtbl.create (module Quadruple_as_key) in
     let store_saved = ref None in
+    let depth = ref 0 in
+    let max_depth = ref 0 in
 
     let probe (store, aenv, ctx, e) =
       Hashtbl.update visited (store, aenv, ctx, e) ~f:(function
-        | Some n -> n + 1
+        | Some n ->
+            Fmt.pr "store=%a @." AStore.pp store ;
+            (* ignore @@ failwith "store" ; *)
+            n + 1
         | None -> 1) ;
 
       (match !store_saved with
@@ -90,53 +98,56 @@ module Make (Ctx : Finite_callstack.C) = struct
       let counter = Hashtbl.length visited in
 
       (* Fmt.pr "ENV=%a" (pp_aenv_deep store ctx) aenv ; *)
-      if counter mod 1 = 5000 (* && 5000 < counter && counter < 1006 *)
+      if counter mod 5000 = 0 (* && 5000 < counter && counter < 1006 *)
       then (
         let key_count = Hashtbl.length visited in
         let val_count =
           Hashtbl.fold visited ~init:0 ~f:(fun ~key ~data acc -> acc + data)
         in
 
-        let store_count, aenv_count, ctx_count, e_count =
-          let astore_set = Hash_set.create (module AStore) in
-          let aenv_set = Hash_set.create (module AEnv) in
-          let ctx_set = Hash_set.create (module Ctx) in
-          let e_set = Hash_set.create (module Abs_exp) in
-          Hashtbl.fold visited ~init:(0, 0, 0, 0)
-            ~f:(fun ~key ~data (store_n, aenv_n, ctx_n, e_n) ->
-              let key = (store, aenv, ctx, e) in
-              let store_n =
-                match Hash_set.strict_add astore_set store with
-                | Ok _ -> store_n + 1
-                | Error _ -> store_n
-              in
-              let aenv_n =
-                match Hash_set.strict_add aenv_set aenv with
-                | Ok _ -> aenv_n + 1
-                | Error _ -> aenv_n
-              in
-              let ctx_n =
-                match Hash_set.strict_add ctx_set ctx with
-                | Ok _ -> ctx_n + 1
-                | Error _ -> ctx_n
-              in
-              let e_n =
-                match Hash_set.strict_add e_set e with
-                | Ok _ -> e_n + 1
-                | Error _ -> e_n
-              in
-              (store_n, aenv_n, ctx_n, e_n))
-        in
-        Fmt.pr "#k=%d #v=%d #store=%d #env=%d #ctx=%d #e=%d e=%a" key_count
-          val_count store_count aenv_count ctx_count e_count Abs_exp.pp e ;
+        (* let store_count, aenv_count, ctx_count, e_count =
+             let astore_set = Hash_set.create (module AStore) in
+             let aenv_set = Hash_set.create (module AEnv) in
+             let ctx_set = Hash_set.create (module Ctx) in
+             let e_set = Hash_set.create (module Abs_exp) in
+             Hashtbl.fold visited ~init:(0, 0, 0, 0)
+               ~f:(fun ~key ~data (store_n, aenv_n, ctx_n, e_n) ->
+                 let key = (store, aenv, ctx, e) in
+                 let store_n =
+                   match Hash_set.strict_add astore_set store with
+                   | Ok _ -> store_n + 1
+                   | Error _ -> store_n
+                 in
+                 let aenv_n =
+                   match Hash_set.strict_add aenv_set aenv with
+                   | Ok _ -> aenv_n + 1
+                   | Error _ -> aenv_n
+                 in
+                 let ctx_n =
+                   match Hash_set.strict_add ctx_set ctx with
+                   | Ok _ -> ctx_n + 1
+                   | Error _ -> ctx_n
+                 in
+                 let e_n =
+                   match Hash_set.strict_add e_set e with
+                   | Ok _ -> e_n + 1
+                   | Error _ -> e_n
+                 in
+                 (store_n, aenv_n, ctx_n, e_n))
+           in
+           Fmt.pr "#k=%d #v=%d #store=%d #env=%d #ctx=%d #e=%d #d=%d e=%a@."
+             key_count val_count store_count aenv_count ctx_count e_count !depth
+             Abs_exp.pp e ; *)
+        Fmt.pr "#k=%d $store=%d $env=%d ctx=%a e=%a@." key_count
+          (AStore.weight store)
+          (AStore.weight_env store ctx aenv)
+          Ctx.pp ctx Abs_exp.pp e ;
 
         (* Fmt.pr "store=%a" AStore.pp (Option.value_exn !store_saved) ; *)
-        (* Fmt.pr "store=%a @." AStore.pp store ; *)
-        (* ignore @@ failwith "store" ; *)
         ())
     in
 
-    let rec mk_aeval (store0, aenv0, ctx, e0) aeval : result_set =
+    let rec mk_aeval (store, aenv, ctx, e0) aeval : result_set =
       match e0 with
       | Abs_exp.Just cl ->
           (* the critical part to run and cache the result;
@@ -144,34 +155,29 @@ module Make (Ctx : Finite_callstack.C) = struct
              while the recursive call doesn't do the computation work but just
              decompose into the basic case.
           *)
-          mk_aeval_clause (store0, aenv0, ctx, cl) aeval
-          (* let vs = mk_aeval_clause (store0, aenv0, ctx, cl) aeval in
-             let x0 = Abs_exp.clause_of_e_exn e0 in
-             vs *)
+          mk_aeval_clause (store, aenv, ctx, cl) aeval
       | Abs_exp.More (cl, e) ->
-          let res_hd = aeval (store0, aenv0, ctx, Abs_exp.Just cl) in
+          let res_hd = aeval (store, aenv, ctx, Abs_exp.Just cl) in
           bind res_hd (fun (cl_v, cl_store) ->
               let aenv' =
-                Map.add_exn aenv0 ~key:(Abs_exp.id_of_clause cl) ~data:cl_v
-                (* match Map.add aenv0 ~key:(Abs_exp.id_of_clause cl) ~data:cl_v with
-                   | `Ok env -> env
-                   | `Duplicate -> aenv0 *)
+                Map.add_exn aenv ~key:(Abs_exp.id_of_clause cl) ~data:cl_v
               in
-              mk_aeval (cl_store, aenv', ctx, e) aeval)
+              aeval (cl_store, aenv', ctx, e))
     and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set
         =
       probe (store, aenv, ctx, Just (Clause (x0, clb))) ;
+
       (* Mismatch step 2: fetch x from the wrong env *)
-      let env_get_exn x = Map.find_exn aenv x in
       let env_get_by_id x = Map.find aenv x in
       let env_get x = env_get_by_id (Abs_exp.to_id x) in
-      let env_get_bind x f =
+      let env_get_map x f =
         Option.value_map (env_get x) ~default:Abs_result.empty ~f
       in
-      let env_add_bind env x v f =
+      let env_add_map env x v f =
         let ar = Map.add env ~key:x ~data:v in
         match ar with `Ok env' -> f env' | `Duplicate -> Abs_result.empty
       in
+
       (* Fmt.pr "@\n%a with env @[<h>%a@]@\n with store %a@\n" Abs_exp.pp_clause
          (Clause (x0, clb))
          AEnv.pp aenv AStore.pp store ; *)
@@ -187,21 +193,20 @@ module Make (Ctx : Finite_callstack.C) = struct
           let store' = safe_add_store store ctx aenv in
           Abs_result.only (v, store')
       | Value (Record rmap) ->
-          List.fold_until
-            (* (List.take (Map.to_alist rmap) 3) *)
-            (Map.to_alist rmap)
-            ~init:[]
-            ~f:(fun acc (k, lb) ->
-              match env_get_by_id lb with
-              | Some v -> Continue ((k, v) :: acc)
-              | None -> Stop Abs_result.empty)
-            ~finish:(fun acc ->
-              let map' = Map.of_alist_exn (module Id) acc in
-              let store' = safe_add_store store ctx map' in
-              let keys = Map.keys rmap |> Set.of_list (module Id) in
-              Abs_result.only (ARecord (keys, ctx), store'))
-          (* Abs_result.only (ARecord ctx, store))  *)
-      | CVar x -> env_get_bind x (fun v -> Abs_result.only (v, store))
+          let v = AVal.ARecord (rmap, ctx) in
+          let store' = safe_add_store store ctx aenv in
+          Abs_result.only (v, store')
+          (* List.fold_until (Map.to_alist rmap) ~init:[]
+             ~f:(fun acc (lb, x) ->
+               match env_get_by_id x with
+               | Some v -> Continue ((lb, v) :: acc)
+               | None -> Stop Abs_result.empty)
+             ~finish:(fun acc ->
+               let map' = Map.of_alist_exn (module Id) acc in
+               let store' = safe_add_store store ctx map' in
+               (* let keys = Map.keys rmap |> Set.of_list (module Id) in *)
+               Abs_result.only (ARecord (Set.empty (module Id), ctx), store')) *)
+      | CVar x -> env_get_map x (fun v -> Abs_result.only (v, store))
       | Appl (x1, x2) -> (
           match (env_get x1, env_get x2) with
           | Some (AClosure (xc, e, saved_context)), Some v2 ->
@@ -209,7 +214,7 @@ module Make (Ctx : Finite_callstack.C) = struct
               let saved_envs = Map.find_exn store saved_context in
               let ctx' = Ctx.push (x0, Abs_exp.to_id x1) ctx in
               bind saved_envs (fun saved_env ->
-                  env_add_bind saved_env xc v2 (fun env_new ->
+                  env_add_map saved_env xc v2 (fun env_new ->
                       aeval (store, env_new, ctx', e)))
           | _ -> Abs_result.empty)
       | Not x -> (
@@ -237,17 +242,22 @@ module Make (Ctx : Finite_callstack.C) = struct
           | _ -> Abs_result.empty)
       | Project (x, lb) -> (
           match env_get x with
-          | Some (ARecord (keys, r_ctx)) ->
-              let saved_maps = Map.find_exn store r_ctx in
-              bind saved_maps (fun map ->
-                  match Map.find map lb with
-                  | Some v -> Abs_result.only (v, store)
-                  | None -> Abs_result.empty)
+          (* | Some (ARecord (_keys, r_ctx)) -> *)
+          | Some (AVal.ARecord (rmap, r_ctx)) -> (
+              match Map.find rmap lb with
+              | Some v_lb ->
+                  let saved_envs = Map.find_exn store r_ctx in
+                  bind saved_envs (fun saved_env ->
+                      match Map.find saved_env lb with
+                      | Some v -> Abs_result.only (v, store)
+                      | None -> Abs_result.empty)
+              | None -> Abs_result.empty)
           | _ -> Abs_result.empty)
       | Abort -> Abs_result.empty
       | Assume _x -> Abs_result.only (AVal.ABool true, store)
       | Assert _x -> Abs_result.only (AVal.ABool true, store)
     in
+
     (F.lfp mk_aeval, visited)
 
   let analysis_result ?(dump = false) e =

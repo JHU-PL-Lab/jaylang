@@ -30,16 +30,21 @@ module Make (Ctx : Finite_callstack.C) = struct
         | ABool of bool
         | AClosure of Id.t * Abs_exp.t * Ctx.t
         (* | ARecord of t Map.M(Id).t  *)
-        | ARecord of Set.M(Id).t * Ctx.t
+        (* | ARecord of Set.M(Id).t * Ctx.t *)
+        | ARecord of Id.t Map.M(Id).t * Ctx.t
 
       and aenv = t Map.M(Id).t [@@deriving equal, compare, hash, sexp]
+
+      let pp_record0 fmter rmap =
+        (Fmt.Dump.iter_bindings Std.iteri_core_map Fmt.nop Id.pp Id.pp)
+          fmter rmap
 
       let pp fmter = function
         | AInt -> Fmt.string fmter "n"
         | ABool b -> Fmt.pf fmter "%a" Std.pp_bo b
         | AClosure (x, _, ctx) -> Fmt.pf fmter "<%a ! %a>" Id.pp x Ctx.pp ctx
-        | ARecord (keys, ctx) ->
-            Fmt.pf fmter "{%a ! %a}" (Std.pp_set Id.pp) keys Ctx.pp ctx
+        | ARecord (rmap, ctx) ->
+            Fmt.pf fmter "{%a ! %a}" pp_record0 rmap Ctx.pp ctx
     end
 
     include T
@@ -90,6 +95,24 @@ module Make (Ctx : Finite_callstack.C) = struct
              set |> Set.to_list |> List.map ~f:Map.length
              |> List.sum (module Int) ~f:Fn.id)
       |> List.sum (module Int) ~f:Fn.id
+
+    let weight_env astore ctx aenv =
+      let visited = Hash_set.of_list (module Ctx) [ ctx ] in
+      let rec loop aenv =
+        aenv |> Map.to_alist
+        |> List.map ~f:(fun (k, v) ->
+               match v with
+               | AVal.AClosure (_, _, ctx') -> (
+                   match Hash_set.strict_add visited ctx' with
+                   | Ok _ ->
+                       Map.find_exn astore ctx' |> Set.to_list
+                       |> List.map ~f:loop
+                       |> List.sum (module Int) ~f:Fn.id
+                   | Error _ -> 1)
+               | _ -> 1)
+        |> List.sum (module Int) ~f:Fn.id
+      in
+      loop aenv
   end
 
   type astore = AStore.t
@@ -114,8 +137,8 @@ module Make (Ctx : Finite_callstack.C) = struct
               Fmt.pf fmter "<%a @ <%a->%a>>" Id.pp x Ctx.pp ctx
                 (Fmt.list pp_env) aenvs
           | Error _ -> Fmt.pf fmter "<%a @ !%a>" Id.pp x Ctx.pp ctx)
-      | ARecord (keys, ctx) -> (
-          Fmt.pf fmter "{%a" (Std.pp_set Id.pp) keys ;
+      | ARecord (rmap, ctx) -> (
+          Fmt.pf fmter "{%a" pp_record0 rmap ;
           match Hash_set.strict_add ctx_set ctx with
           | Ok _ ->
               let aenvs = Map.find_exn store ctx |> Set.to_list in
