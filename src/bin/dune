@@ -39,7 +39,7 @@
 (executables
  (names dbmc_debugger)
  (modules dbmc_debugger)
- (libraries core logs lambda-term dj_common jayil)
+ (libraries core logs lambda-term dj_common jayil dbmc)
  (preprocess
   (pps ppx_jane))
  (promote
@@ -80,6 +80,15 @@
  (name ddpa_toploop)
  (modules ddpa_toploop)
  (libraries batteries jhupllib jayil jayil_parser jayil_toploop langdk))
+
+(executable
+ (name table_bench)
+ (modules table_bench)
+ (libraries core core_bench fix landmarks jayil jayil_parser dbmc)
+ (preprocess
+  (pps ppx_jane landmarks-ppx --auto))
+ (instrumentation
+  (backend landmarks)))
 
 (env
  (dev

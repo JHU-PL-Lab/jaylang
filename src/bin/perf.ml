@@ -19,7 +19,7 @@ let perf_one_file raw_config short_name filename =
   let do_instrument = config.is_instrumented in
   let src = File_utils.read_source ~do_instrument filename in
 
-  let result = Dbmc.Main.main ~config src in
+  let result = Dbmc.Main.main_top ~config src in
   Dbmc.Observe.dump_check_info short_name result.state
 
 let perf_group log_name encode_policy perf_path =

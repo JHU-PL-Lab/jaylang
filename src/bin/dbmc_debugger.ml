@@ -27,7 +27,7 @@ let make_prompt state =
   eval [ S prompt ]
 
 (* Format the interpreter output for REPL display *)
-let make_output state _out =
+let _make_output state _out =
   let output = Printf.sprintf "Out [%d]: " state.n (* out *) in
   eval [ S output ]
 
@@ -84,10 +84,10 @@ let readline_loop term history prompt_state (config : Global_config.t) program
         (if command = Zed_string.of_utf8 "pause"
          then Lwt.return_unit
          else if command = Zed_string.of_utf8 "graph"
-         then (
-           Dbmc.Graphviz.output_graph ~model:None ~testname:config.filename
-             state ;
-           Lwt.return_unit)
+         then
+           (* Dbmc.Graphviz.output_graph ~model:None ~testname:config.filename
+              state ; *)
+           Lwt.return_unit
          else (
            (* if command = Zed_string.of_utf8 "step" *)
            Lwt_mutex.unlock Control_center.mutex ;
@@ -112,7 +112,7 @@ let make_lookup () =
   let state : Global_state.t = Global_state.create config program in
   let lookup_task () =
     Lwt_mutex.lock Control_center.mutex >>= fun () ->
-    Main.main_lookup ~config ~state >>= fun inputss ->
+    Main.main_lookup ~config ~state >>= fun (inputss, _, _) ->
     (match List.hd inputss with
     | Some inputs ->
         Format.printf "[%s]\n"

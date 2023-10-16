@@ -191,6 +191,11 @@ let main_lwt ~config ~state program =
   dump_result ~config symbolic_result ;
   Lwt.return result
 
+let main_top ~config program =
+  let state = Global_state.create config program in
+  let result = Lwt_main.run (main_lwt ~config ~state program) in
+  result
+
 let main_commandline () =
   try
     let config = Argparse.parse_commandline () in

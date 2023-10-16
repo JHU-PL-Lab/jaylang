@@ -118,6 +118,12 @@ b1:
 	dune exec $(BENCH_D)/benchmark.exe -- -e dbmc -f $(BENCH_D)/neo.s
 #	dune exec $(BENCH_D)/benchmark.exe -- -e ddse -f $(BENCH_D)/neo.s
 
+bep:
+	OCAML_LANDMARKS=auto,output="profiling/bench.ansi" dune exec src/bin/table_bench.exe -- -ascii -quota 5 -clear-columns time speedup
+
+be:
+	dune exec src/bin/table_bench.exe -- -ascii -quota 5 -clear-columns time speedup
+
 # legacy
 
 ddpa:

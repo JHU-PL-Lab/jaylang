@@ -12,19 +12,15 @@ let anon_fun i_raw =
 let run_program source =
   let open Jil_analysis in
   let program = Dj_common.File_utils.read_source source in
-  let set, _map = Main.analysis_result ~dump:true program in
-  Fmt.pr "@.%a\n" Abs_value.pp_result_set set
-(* Fmt.pr "%a\n" Abs_value.pp r *)
-
-(* let session =
-     {
-       (Interpreter.make_default_session ()) with
-       input_feeder = Input_feeder.from_list !inputs;
-     }
-   in
-   try Interpreter.eval session program with
-   | Interpreter.Terminate v -> Format.printf "%a" Interpreter.pp_dvalue v
-   | ex -> raise ex *)
+  let session =
+    {
+      (Interpreter.make_default_session ()) with
+      input_feeder = Input_feeder.from_list !inputs;
+    }
+  in
+  try Interpreter.eval session program with
+  | Interpreter.Terminate v -> Format.printf "%a" Interpreter.pp_dvalue v
+  | ex -> raise ex
 
 let () =
   Arg.parse
