@@ -120,11 +120,9 @@ module Test1 = struct
              | None -> Set.singleton (module Env) env
              | Some set -> Set.add set env))
 
-  let test ~n =
-    let table = do_one n 0 in
-    let table = do_one n 1 in
-    let table = do_one n 0 in
-    ignore @@ table
+  let test ~n = let table = do_one n 0 in
+
+                ignore @@ table
 end
 
 module Test2 = struct
@@ -140,11 +138,9 @@ module Test2 = struct
            then acc
            else Map.add_multi ~key:i ~data:env acc)
 
-  let test ~n =
-    let table = do_one n 0 in
-    let table = do_one n 1 in
-    let table = do_one n 0 in
-    ignore @@ table
+  let test ~n = let table = do_one n 0 in
+
+                ignore @@ table
 end
 
 module Test3 = struct
@@ -159,11 +155,9 @@ module Test3 = struct
              | None -> Set.singleton (module Env_HC) env
              | Some set -> Set.add set env))
 
-  let test ~n =
-    let table = do_one n 0 in
-    let table = do_one n 1 in
-    let table = do_one n 0 in
-    ignore @@ table
+  let test ~n = let table = do_one n 0 in
+
+                ignore @@ table
 end
 
 module Test4 = struct
@@ -180,11 +174,9 @@ module Test4 = struct
                  Hash_set.add set env ;
                  set))
 
-  let test ~n =
-    let table = do_one n 0 in
-    let table = do_one n 1 in
-    let table = do_one n 0 in
-    ignore @@ table
+  let test ~n = let table = do_one n 0 in
+
+                ignore @@ table
 end
 
 module Test5 = struct
@@ -199,11 +191,9 @@ module Test5 = struct
              | None -> Set.singleton (module Env) env
              | Some set -> Set.add set env))
 
-  let test ~n =
-    let () = do_one n 0 in
-    let () = do_one n 1 in
-    let () = do_one n 0 in
-    ()
+  let test ~n = let () = do_one n 0 in
+
+                ()
 end
 
 let tests ~n =

@@ -1,4 +1,5 @@
 open Core
+open Fix
 open Jayil
 open Dj_common
 
@@ -32,8 +33,7 @@ module Make (Ctx : Finite_callstack.C) = struct
         (* | ARecord of t Map.M(Id).t  *)
         (* | ARecord of Set.M(Id).t * Ctx.t *)
         | ARecord of Id.t Map.M(Id).t * Ctx.t
-
-      and aenv = t Map.M(Id).t [@@deriving equal, compare, hash, sexp]
+      [@@deriving equal, compare, hash, sexp]
 
       let pp_record0 fmter rmap =
         (Fmt.Dump.iter_bindings Std.iteri_core_map Fmt.nop Id.pp Id.pp)
@@ -51,9 +51,9 @@ module Make (Ctx : Finite_callstack.C) = struct
     include Comparator.Make (T)
   end
 
-  module AEnv = struct
+  module AEnv_raw = struct
     module T = struct
-      type t = AVal.aenv [@@deriving equal, compare, hash, sexp]
+      type t = AVal.t Map.M(Id).t [@@deriving equal, compare, hash, sexp]
     end
 
     include T
@@ -63,6 +63,33 @@ module Make (Ctx : Finite_callstack.C) = struct
 
     let pp fmter env =
       Fmt.Dump.iter_bindings Std.iteri_core_map Fmt.nop Id.pp AVal.pp fmter env
+  end
+
+  module AEnv = struct
+    module HC = HashCons.ForHashedType (struct
+      type t = AEnv_raw.t
+
+      let equal = AEnv_raw.equal
+      let hash = AEnv_raw.hash
+    end)
+
+    module T = struct
+      type t = AEnv_raw.t HashCons.cell
+
+      let compare = HashCons.compare
+      let hash = HashCons.hash
+      let equal = HashCons.equal
+      let hash_fold_t state t = hash_fold_int state (HashCons.id t)
+      let sexp_of_t e = AEnv_raw.sexp_of_t (HashCons.data e)
+      let t_of_sexp e = HC.make (AEnv_raw.t_of_sexp e)
+      let pp fmt e = AEnv_raw.pp fmt (HashCons.data e)
+    end
+
+    include T
+    include Comparator.Make (T)
+
+    let add_binding ~key ~data (e : t) : t =
+      HC.make (Map.add_exn (HashCons.data e) ~key ~data)
   end
 
   (* type aval_set = Set.M(AVal).t *)
@@ -89,10 +116,11 @@ module Make (Ctx : Finite_callstack.C) = struct
         (Fmt.pair ~sep:(Fmt.any " -> ") Ctx.pp (Fmt.box pp_env_set))
         fmter astore
 
-    let weight astore =
+    let weight (astore : t) : int =
       astore |> Map.data
       |> List.map ~f:(fun set ->
-             set |> Set.to_list |> List.map ~f:Map.length
+             set |> Set.to_list
+             |> List.map ~f:(fun env -> Map.length (HashCons.data env))
              |> List.sum (module Int) ~f:Fn.id)
       |> List.sum (module Int) ~f:Fn.id
 
@@ -117,16 +145,17 @@ module Make (Ctx : Finite_callstack.C) = struct
 
   type astore = AStore.t
 
-  let safe_add_store store ctx aenv =
+  let safe_add_store (store : astore) ctx (aenv : AEnv.t) =
     Map.update store ctx ~f:(function
       | Some envs -> Set.add envs aenv
       | None -> Set.singleton (module AEnv) aenv)
 
-  let pp_aenv_deep store ctx fmter aenv =
+  let pp_aenv_deep (store : AStore.t) ctx fmter (aenv : AEnv.t) =
     let open AVal in
     let ctx_set = Hash_set.of_list (module Ctx) [ ctx ] in
     let rec pp_env fmter aenv =
-      Fmt.Dump.iter_bindings Std.iteri_core_map Fmt.nop Id.pp pp_val fmter aenv
+      Fmt.Dump.iter_bindings Std.iteri_core_map Fmt.nop Id.pp pp_val fmter
+        (HashCons.data aenv)
     and pp_val fmter = function
       | AInt -> Fmt.string fmter "n"
       | ABool b -> Fmt.pf fmter "%a" Std.pp_bo b

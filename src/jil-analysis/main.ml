@@ -1,4 +1,5 @@
 open Core
+open Fix
 open Dj_common
 (* open Abs_exp *)
 
@@ -79,7 +80,7 @@ module Make (Ctx : Finite_callstack.C) = struct
     (* Set.length v >= 3 *)
   end
 
-  module F = Fix.Fix.ForHashedType (Quadruple_as_key) (Pair_as_prop)
+  module F = Fix.ForHashedType (Quadruple_as_key) (Pair_as_prop)
 
   let make_solution () =
     let visited = Hashtbl.create (module Quadruple_as_key) in
@@ -144,9 +145,8 @@ module Make (Ctx : Finite_callstack.C) = struct
         Fmt.pr "#k=%d #v=%d #store=%d #env=%d #ctx=%d #e=%d #d=%d e=%a@."
           key_count val_count store_count aenv_count ctx_count e_count !depth
           Abs_exp.pp e ;
-        Fmt.pr "#k=%d $store=%d $env=%d ctx=%a e=%a@." key_count
-          (AStore.weight store)
-          (AStore.weight_env store ctx aenv)
+        Fmt.pr "#k=%d $store=_d $env=%d ctx=%a e=%a@." key_count
+          (AStore.weight store) (* (AStore.weight_env store ctx aenv) *)
           Ctx.pp ctx Abs_exp.pp e ;
 
         (* Fmt.pr "store=%a" AStore.pp (Option.value_exn !store_saved) ; *)
@@ -166,22 +166,29 @@ module Make (Ctx : Finite_callstack.C) = struct
           let res_hd = aeval (store, aenv, ctx, Abs_exp.Just cl) in
           bind res_hd (fun (cl_v, cl_store) ->
               let aenv' =
-                Map.add_exn aenv ~key:(Abs_exp.id_of_clause cl) ~data:cl_v
+                AEnv.add_binding ~key:(Abs_exp.id_of_clause cl) ~data:cl_v aenv
               in
+
               aeval (cl_store, aenv', ctx, e))
-    and mk_aeval_clause (store, aenv, ctx, Clause (x0, clb)) aeval : result_set
-        =
+    and mk_aeval_clause (store, (aenv : AEnv.t), ctx, Clause (x0, clb)) aeval :
+        result_set =
       (* probe (store, aenv, ctx, Just (Clause (x0, clb))) ; *)
 
       (* Mismatch step 2: fetch x from the wrong env *)
-      let env_get_by_id x = Map.find aenv x in
+      let env_get_by_id x = Map.find (HashCons.data aenv) x in
       let env_get x = env_get_by_id (Abs_exp.to_id x) in
       let env_get_map x f =
         Option.value_map (env_get x) ~default:Abs_result.empty ~f
       in
+      (* let env_add_map env x v f =
+           let ar = Map.add env ~key:x ~data:v in
+           match ar with `Ok env' -> f env' | `Duplicate -> Abs_result.empty
+         in *)
       let env_add_map env x v f =
-        let ar = Map.add env ~key:x ~data:v in
-        match ar with `Ok env' -> f env' | `Duplicate -> Abs_result.empty
+        let ar = Map.add (HashCons.data env) ~key:x ~data:v in
+        match ar with
+        | `Ok env' -> f (AEnv.HC.make env')
+        | `Duplicate -> Abs_result.empty
       in
 
       (* Fmt.pr "@\n%a with env @[<h>%a@]@\n with store %a@\n" Abs_exp.pp_clause
@@ -254,7 +261,7 @@ module Make (Ctx : Finite_callstack.C) = struct
               | Some v_lb ->
                   let saved_envs = Map.find_exn store r_ctx in
                   bind saved_envs (fun saved_env ->
-                      match Map.find saved_env lb with
+                      match Map.find (HashCons.data saved_env) lb with
                       | Some v -> Abs_result.only (v, store)
                       | None -> Abs_result.empty)
               | None -> Abs_result.empty)
@@ -272,7 +279,11 @@ module Make (Ctx : Finite_callstack.C) = struct
 
       let ae = Abs_exp.lift_expr e in
       let result =
-        solution (Map.empty (module Ctx), Map.empty (module Id), Ctx.empty, ae)
+        solution
+          ( Map.empty (module Ctx),
+            AEnv.HC.make (Map.empty (module Id)),
+            Ctx.empty,
+            ae )
       in
       (solution, visited, result)
     in
@@ -302,7 +313,7 @@ module Make (Ctx : Finite_callstack.C) = struct
       let filter_entries env =
         Map.filteri
           ~f:(fun ~key ~data -> Jayil.Ast.Ident_map.mem key para_to_fun_def_map)
-          env
+          (HashCons.data env)
       in
       visited |> Hashtbl.keys |> List.map ~f:get_env
       |> List.map ~f:filter_entries
