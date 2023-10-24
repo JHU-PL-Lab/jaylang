@@ -166,9 +166,9 @@ module Make (Ctx : Finite_callstack.C) = struct
           let res_hd = aeval (store, aenv, ctx, Abs_exp.Just cl) in
           bind res_hd (fun (cl_v, cl_store) ->
               let aenv' =
-                AEnv.add_binding ~key:(Abs_exp.id_of_clause cl) ~data:cl_v aenv
+                AEnv.add_binding_exn ~key:(Abs_exp.id_of_clause cl) ~data:cl_v
+                  aenv
               in
-
               aeval (cl_store, aenv', ctx, e))
     and mk_aeval_clause (store, (aenv : AEnv.t), ctx, Clause (x0, clb)) aeval :
         result_set =
@@ -185,9 +185,8 @@ module Make (Ctx : Finite_callstack.C) = struct
            match ar with `Ok env' -> f env' | `Duplicate -> Abs_result.empty
          in *)
       let env_add_map env x v f =
-        let ar = Map.add (HashCons.data env) ~key:x ~data:v in
-        match ar with
-        | `Ok env' -> f (AEnv.HC.make env')
+        match AEnv.add_binding ~key:x ~data:v env with
+        | `Ok env' -> f env'
         | `Duplicate -> Abs_result.empty
       in
 
@@ -203,11 +202,11 @@ module Make (Ctx : Finite_callstack.C) = struct
       | Value (Bool b) -> Abs_result.only (ABool b, store)
       | Value (Function (x, e)) ->
           let v = AVal.AClosure (Abs_exp.to_id x, e, ctx) in
-          let store' = safe_add_store store ctx aenv in
+          let store' = AStore.safe_add store ctx aenv in
           Abs_result.only (v, store')
       | Value (Record rmap) ->
           let v = AVal.ARecord (rmap, ctx) in
-          let store' = safe_add_store store ctx aenv in
+          let store' = AStore.safe_add store ctx aenv in
           Abs_result.only (v, store')
           (* List.fold_until (Map.to_alist rmap) ~init:[]
              ~f:(fun acc (lb, x) ->
@@ -224,7 +223,7 @@ module Make (Ctx : Finite_callstack.C) = struct
           match (env_get x1, env_get x2) with
           | Some (AClosure (xc, e, saved_context)), Some v2 ->
               (* Mismatch step 1: pick the wrong env *)
-              let saved_envs = Map.find_exn store saved_context in
+              let saved_envs = AStore.find_exn store saved_context in
               let ctx' = Ctx.push (x0, Abs_exp.to_id x1) ctx in
               bind saved_envs (fun saved_env ->
                   env_add_map saved_env xc v2 (fun env_new ->
@@ -259,7 +258,7 @@ module Make (Ctx : Finite_callstack.C) = struct
           | Some (AVal.ARecord (rmap, r_ctx)) -> (
               match Map.find rmap lb with
               | Some v_lb ->
-                  let saved_envs = Map.find_exn store r_ctx in
+                  let saved_envs = AStore.find_exn store r_ctx in
                   bind saved_envs (fun saved_env ->
                       match Map.find (HashCons.data saved_env) lb with
                       | Some v -> Abs_result.only (v, store)
@@ -278,13 +277,7 @@ module Make (Ctx : Finite_callstack.C) = struct
       let solution, visited = make_solution () in
 
       let ae = Abs_exp.lift_expr e in
-      let result =
-        solution
-          ( Map.empty (module Ctx),
-            AEnv.HC.make (Map.empty (module Id)),
-            Ctx.empty,
-            ae )
-      in
+      let result = solution (AStore.empty, AEnv.empty, Ctx.empty, ae) in
       (solution, visited, result)
     in
     let build_result_alist solution visited =

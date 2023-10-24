@@ -82,17 +82,24 @@ module Make (Ctx : Finite_callstack.C) = struct
       let hash_fold_t state t = hash_fold_int state (HashCons.id t)
       let sexp_of_t e = AEnv_raw.sexp_of_t (HashCons.data e)
       let t_of_sexp e = HC.make (AEnv_raw.t_of_sexp e)
-      let pp fmt e = AEnv_raw.pp fmt (HashCons.data e)
     end
+
+    let pp fmt e = AEnv_raw.pp fmt (HashCons.data e)
 
     include T
     include Comparator.Make (T)
 
-    let add_binding ~key ~data (e : t) : t =
-      HC.make (Map.add_exn (HashCons.data e) ~key ~data)
+    let add_binding_exn ~key ~data (env : t) : t =
+      HC.make (Map.add_exn (HashCons.data env) ~key ~data)
+
+    let add_binding ~key ~data (env : t) : t Map_intf.Or_duplicate.t =
+      match Map.add (HashCons.data env) ~key ~data with
+      | `Ok env' -> `Ok (HC.make env')
+      | `Duplicate -> `Duplicate
+
+    let empty : t = HC.make (Map.empty (module Id))
   end
 
-  (* type aval_set = Set.M(AVal).t *)
   type env_set = Set.M(AEnv).t [@@deriving equal, compare, hash, sexp]
 
   let show_env_set es = Sexp.to_string_hum (sexp_of_env_set es)
@@ -103,7 +110,7 @@ module Make (Ctx : Finite_callstack.C) = struct
   let pp_aval_set : Set.M(AVal).t Fmt.t =
     Fmt.iter ~sep:(Fmt.any ";@ ") Std.iter_core_set AVal.pp
 
-  module AStore = struct
+  module AStore_raw = struct
     (* multimap *)
 
     type t = env_set Map.M(Ctx).t [@@deriving equal, compare, hash, sexp]
@@ -115,9 +122,45 @@ module Make (Ctx : Finite_callstack.C) = struct
       Fmt.iter_bindings ~sep:(Fmt.any ";@ ") Std.iteri_core_map
         (Fmt.pair ~sep:(Fmt.any " -> ") Ctx.pp (Fmt.box pp_env_set))
         fmter astore
+  end
+
+  module AStore = struct
+    module HC = HashCons.ForHashedType (struct
+      type t = AStore_raw.t
+
+      let equal = AStore_raw.equal
+      let hash = AStore_raw.hash
+    end)
+
+    module T = struct
+      type t = AStore_raw.t HashCons.cell
+
+      let compare = HashCons.compare
+      let hash = HashCons.hash
+      let equal = HashCons.equal
+      let hash_fold_t state t = hash_fold_int state (HashCons.id t)
+      let sexp_of_t e = AStore_raw.sexp_of_t (HashCons.data e)
+      let t_of_sexp e = HC.make (AStore_raw.t_of_sexp e)
+    end
+
+    include T
+    include Comparator.Make (T)
+
+    let empty = HC.make (Map.empty (module Ctx))
+
+    let safe_add (store : t) ctx (aenv : AEnv.t) =
+      let new_store =
+        Map.update (HashCons.data store) ctx ~f:(function
+          | Some envs -> Set.add envs aenv
+          | None -> Set.singleton (module AEnv) aenv)
+      in
+      HC.make new_store
+
+    let find_exn (store : t) ctx = Map.find_exn (HashCons.data store) ctx
+    let pp fmter store = AStore_raw.pp fmter (HashCons.data store)
 
     let weight (astore : t) : int =
-      astore |> Map.data
+      HashCons.data astore |> Map.data
       |> List.map ~f:(fun set ->
              set |> Set.to_list
              |> List.map ~f:(fun env -> Map.length (HashCons.data env))
@@ -127,14 +170,13 @@ module Make (Ctx : Finite_callstack.C) = struct
     let weight_env astore ctx aenv =
       let visited = Hash_set.of_list (module Ctx) [ ctx ] in
       let rec loop aenv =
-        aenv |> Map.to_alist
+        HashCons.data aenv |> Map.to_alist
         |> List.map ~f:(fun (k, v) ->
                match v with
                | AVal.AClosure (_, _, ctx') -> (
                    match Hash_set.strict_add visited ctx' with
                    | Ok _ ->
-                       Map.find_exn astore ctx' |> Set.to_list
-                       |> List.map ~f:loop
+                       find_exn astore ctx' |> Set.to_list |> List.map ~f:loop
                        |> List.sum (module Int) ~f:Fn.id
                    | Error _ -> 1)
                | _ -> 1)
@@ -144,11 +186,6 @@ module Make (Ctx : Finite_callstack.C) = struct
   end
 
   type astore = AStore.t
-
-  let safe_add_store (store : astore) ctx (aenv : AEnv.t) =
-    Map.update store ctx ~f:(function
-      | Some envs -> Set.add envs aenv
-      | None -> Set.singleton (module AEnv) aenv)
 
   let pp_aenv_deep (store : AStore.t) ctx fmter (aenv : AEnv.t) =
     let open AVal in
@@ -162,7 +199,7 @@ module Make (Ctx : Finite_callstack.C) = struct
       | AClosure (x, _, ctx) -> (
           match Hash_set.strict_add ctx_set ctx with
           | Ok _ ->
-              let aenvs = Map.find_exn store ctx |> Set.to_list in
+              let aenvs = AStore.find_exn store ctx |> Set.to_list in
               Fmt.pf fmter "<%a @ <%a->%a>>" Id.pp x Ctx.pp ctx
                 (Fmt.list pp_env) aenvs
           | Error _ -> Fmt.pf fmter "<%a @ !%a>" Id.pp x Ctx.pp ctx)
@@ -170,7 +207,7 @@ module Make (Ctx : Finite_callstack.C) = struct
           Fmt.pf fmter "{%a" pp_record0 rmap ;
           match Hash_set.strict_add ctx_set ctx with
           | Ok _ ->
-              let aenvs = Map.find_exn store ctx |> Set.to_list in
+              let aenvs = AStore.find_exn store ctx |> Set.to_list in
               Fmt.pf fmter "{%a %a}}" Ctx.pp ctx (Fmt.list pp_env) aenvs
           | Error _ -> Fmt.pf fmter "!%a}" Ctx.pp ctx)
     in
