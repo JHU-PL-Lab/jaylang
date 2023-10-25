@@ -179,23 +179,23 @@ let abstract_binary_operation (binop : binary_operator) (arg1 : abstract_value)
   | _ -> None
 
 let abstract_pattern_match (v : abstract_value) (p : pattern) :
-    abstract_value Enum.t =
+    abstract_value Enum.t option =
   match (v, p) with
-  | Abs_value_abort, _ -> failwith "Shouldn't be here?"
+  | Abs_value_abort, _ -> None
   | _, Any_pattern
   | Abs_value_function _, Fun_pattern
   | Abs_value_int, Int_pattern ->
-      Enum.singleton @@ Abs_value_bool true
-  | Abs_value_bool _, Bool_pattern -> Enum.singleton @@ Abs_value_bool true
+      Some (Enum.singleton @@ Abs_value_bool true)
+  | Abs_value_bool _, Bool_pattern -> Some (Enum.singleton @@ Abs_value_bool true)
   | Abs_value_record _, Rec_pattern _ ->
-      List.enum [ Abs_value_bool true; Abs_value_bool false ]
+    Some (List.enum [ Abs_value_bool true; Abs_value_bool false ])
   | Abs_value_record _, Strict_rec_pattern _ ->
-      List.enum [ Abs_value_bool true; Abs_value_bool false ]
+    Some (List.enum [ Abs_value_bool true; Abs_value_bool false ])
   | ( ( Abs_value_int | Abs_value_bool _ | Abs_value_record _
       | Abs_value_function _ | Abs_value_untouched _ ),
       ( Fun_pattern | Int_pattern | Bool_pattern | Rec_pattern _
       | Strict_rec_pattern _ ) ) ->
-      Enum.singleton @@ Abs_value_bool false
+        Some (Enum.singleton @@ Abs_value_bool false)
 
 let abstract_not (v : abstract_value) : abstract_value Enum.t option =
   let singleton x = Some (Enum.singleton x) in

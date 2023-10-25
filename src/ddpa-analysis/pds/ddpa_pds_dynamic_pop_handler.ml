@@ -155,8 +155,8 @@ module Make
             return [ Pop_dynamic_targeted (Matching_2_of_2 v) ]
         | Matching_2_of_2 v1 ->
             let%orzero (Continuation_pattern p) = element in
-            (* TODO: Maybe should orzero here as well since it's a potential point of failure *)
-            let%bind v2 = pick_enum @@ abstract_pattern_match v1 p in
+            let%orzero (Some pattern_match_res) = abstract_pattern_match v1 p in
+            let%bind v2 = pick_enum @@ pattern_match_res in
             return [ Push (Continuation_value v2) ]
         | Record_projection_lookup (x, x', l) ->
             let%orzero (Lookup_var x0) = element in
