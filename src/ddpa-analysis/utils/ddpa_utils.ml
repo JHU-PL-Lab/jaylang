@@ -137,7 +137,8 @@ and _create_end_of_block_map_for_body (b : abstract_clause_body) =
       | Abs_value_function f -> _create_end_of_block_map_for_function f
       | Abs_value_int -> Annotated_clause_map.empty
       | Abs_value_bool _ -> Annotated_clause_map.empty
-      | Abs_value_untouched _ -> Annotated_clause_map.empty)
+      | Abs_value_untouched _ -> Annotated_clause_map.empty
+      | Abs_value_abort -> Annotated_clause_map.empty)
   | Abs_var_body _ -> Annotated_clause_map.empty
   | Abs_input_body -> Annotated_clause_map.empty
   | Abs_appl_body (_, _) -> Annotated_clause_map.empty
@@ -180,6 +181,7 @@ let abstract_binary_operation (binop : binary_operator) (arg1 : abstract_value)
 let abstract_pattern_match (v : abstract_value) (p : pattern) :
     abstract_value Enum.t =
   match (v, p) with
+  | Abs_value_abort, _ -> failwith "Shouldn't be here?"
   | _, Any_pattern
   | Abs_value_function _, Fun_pattern
   | Abs_value_int, Int_pattern ->

@@ -23,6 +23,7 @@ type abstract_value =
   | Abs_value_int
   | Abs_value_bool of bool
   | Abs_value_untouched of string
+  | Abs_value_abort
 [@@deriving eq, ord, to_yojson]
 
 and abstract_function_value =
@@ -65,6 +66,7 @@ and pp_abstract_value formatter v =
   | Abs_value_bool b ->
       Format.pp_print_string formatter @@ if b then "true" else "false"
   | Abs_value_untouched s -> Format.pp_print_string formatter @@ "'" ^ s
+  | Abs_value_abort -> Format.pp_print_string formatter "abort"
 
 and pp_abstract_record_value formatter (Abs_record_value els) =
   let pp_element formatter (k, v) =
@@ -118,6 +120,7 @@ and pp_brief_abstract_value formatter v =
   | Abs_value_bool b ->
       Format.pp_print_string formatter @@ if b then "true" else "false"
   | Abs_value_untouched s -> Format.pp_print_string formatter @@ "'" ^ s
+  | Abs_value_abort -> Format.pp_print_string formatter "abort"
 
 and pp_brief_abstract_record_value formatter (Abs_record_value els) =
   let pp_brief_element formatter (k, v) =
