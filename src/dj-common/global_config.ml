@@ -19,7 +19,7 @@ and t = {
   ddpa_c_stk : ddpa_c_stk;
   (* tuning *)
   run_max_step : int option;
-  timeout : Time.Span.t option;
+  timeout : Time_float.Span.t option;
   stride_init : int;
   stride_max : int; (* testing *)
   (* logger *)

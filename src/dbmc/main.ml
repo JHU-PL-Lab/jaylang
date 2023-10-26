@@ -134,7 +134,7 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
          match exn with
          | Riddler.Found_solution { model; c_stk } ->
              ignore @@ raise (Riddler.Found_solution { model; c_stk })
-         | exn -> failwith (Caml.Printexc.to_string exn)) ;
+         | exn -> failwith (Stdlib.Printexc.to_string exn)) ;
     let do_work () =
       match config.engine with
       | Global_config.E_dbmc ->
@@ -145,7 +145,7 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
           Lwt.return (post_check_ddse false)
     in
     match config.timeout with
-    | Some ts -> Lwt_unix.with_timeout (Time.Span.to_sec ts) do_work
+    | Some ts -> Lwt_unix.with_timeout (Time_float.Span.to_sec ts) do_work
     | None -> do_work ()
   with
   | Riddler.Found_solution { model; c_stk } ->

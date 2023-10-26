@@ -17,7 +17,9 @@ module Export = struct
 end
 
 let saved_oc = ref None
-let filename_of_now () = Core.Time.(now () |> to_filename_string ~zone:Zone.utc)
+
+let filename_of_now () =
+  Core.Time_float.(now () |> to_filename_string ~zone:Zone.utc)
 
 let init (cfg : Global_config.t) =
   Logs.set_level cfg.log_level ;

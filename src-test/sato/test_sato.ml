@@ -179,7 +179,7 @@ let test_one_file testname () =
       do_wrap = false;
       do_instrument = true;
       output_parsable = false;
-      timeout = Some (Time.Span.of_int_sec 2);
+      timeout = Some (Time_float.Span.of_int_sec 2);
       run_max_step = None;
     }
   in

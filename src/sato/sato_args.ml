@@ -13,7 +13,7 @@ type t = {
   do_instrument : bool;
   output_parsable : bool;
   run_max_step : int option;
-  timeout : Time.Span.t option;
+  timeout : Time_float.Span.t option;
 }
 [@@deriving show]
 
