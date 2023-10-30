@@ -7,6 +7,9 @@ open Cfg
 open Ddpa
 open Log.Export
 
+type result_no_state =
+  int option list list * bool * (Z3.Model.model * Concrete_stack.t) option
+
 type result = {
   inputss : int option list list;
   is_timeout : bool;
@@ -79,9 +82,7 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
   in
   (try Interpreter.eval session state.info.program with
   | Interpreter.Found_target _ -> ()
-  | ex ->
-      (* TODO: Here is where the exception is raised *)
-      raise ex) ;
+  | ex -> raise ex) ;
   List.rev !history
 
 let handle_both (config : Global_config.t) (state : Global_state.t) model =
@@ -97,11 +98,7 @@ let handle_both (config : Global_config.t) (state : Global_state.t) model =
         (List.rev state.stat.check_infos))
 
 let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
-    =
-  (* let unroll = Observe.get_dbmc_unroll state in
-        let msg_list = !Unrolls.U_dbmc.msg_queue in
-        Fmt.pr "[msg]%d@," (List.length msg_list) ;
-     Lwt_list.iter_p (fun msg -> msg) msg_list >>= fun _ -> *)
+    : result_no_state =
   LLog.info (fun m ->
       m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident config.target
         Concrete_stack.pp c_stk) ;
@@ -115,7 +112,7 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
   ([ inputs_from_interpreter ], false, Some (model, c_stk))
 
 let handle_not_found (config : Global_config.t) (state : Global_state.t)
-    is_timeout =
+    is_timeout : result_no_state =
   SLog.info (fun m -> m "UNSAT") ;
   (* (match config.mode with
      | Dbmc_check inputs -> check_expected_input ~config ~state inputs
@@ -154,9 +151,7 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
   | Riddler.Found_solution { model; c_stk } ->
       Lwt.return (handle_found config state model c_stk)
   | Lwt_unix.Timeout -> Lwt.return @@ post_check true
-  | exn ->
-      (* failwith "my z3 timeout" *)
-      Lwt.return @@ handle_not_found config state true
+  | exn -> Lwt.return @@ handle_not_found config state true
 
 (* The main function should have only one function that doing all the work.
     The function is configured by a pre-tuned argument config.
@@ -187,14 +182,12 @@ let load_program ~(config : Global_config.t) =
 
 let main_lwt ~config ~state program =
   let%lwt inputss, is_timeout, symbolic_result = main_lookup ~config ~state in
-  let result = { inputss; is_timeout; symbolic_result; state } in
   dump_result ~config symbolic_result ;
-  Lwt.return result
+  Lwt.return { inputss; is_timeout; symbolic_result; state }
 
 let main_top ~config program =
   let state = Global_state.create config program in
-  let result = Lwt_main.run (main_lwt ~config ~state program) in
-  result
+  Lwt_main.run (main_lwt ~config ~state program)
 
 let main_commandline () =
   try

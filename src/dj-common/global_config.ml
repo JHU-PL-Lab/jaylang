@@ -5,6 +5,9 @@ exception GenComplete
 
 type analyzer = K_ddpa of int | K_cfa of int
 
+(* Dbmc_check is a mode to check the expected inputs is consistent with the dbmc search. The checking starts after an answer is founded in dbmc. The answer contains a target stack where the target variable should be reached at.
+   `Dbmc.Main.check_expected_input` will run the program concretely. Each time an input is required, a constraint for this input is computed based on the call stack and the target stack. These expected inputs should run into the target stack. After that, the contraints along the path should be consistent with the existing constraints from dbmc. This check also covers the correct encoding of clauses.
+*)
 type mode =
   | Dbmc_search
   | Dbmc_check of int option list

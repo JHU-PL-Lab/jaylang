@@ -342,7 +342,7 @@ module Make (Ctx : Finite_callstack.C) = struct
       List.map cls ~f:(fun cl ->
           let cat' =
             match (cl.cat, cl.clause) with
-            | Direct, Clause (_, Value_body (Value_function _)) -> Direct
+            | Direct, _ -> Direct
             | Fun, _ -> Fun
             | Cond, _ -> Cond
             | App [], Clause (_, Appl_body (Var (f, _), _)) ->
@@ -363,7 +363,6 @@ module Make (Ctx : Finite_callstack.C) = struct
                     ~if_not_found:(fun _ -> [])
                 in
                 App dsts
-            | Direct, _ -> Direct
             | c, cl ->
                 Fmt.pr "c=%a\ncl=%a\n" Dj_common.Cfg.pp_clause_cat c
                   Jayil.Pp.clause cl ;

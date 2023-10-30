@@ -29,7 +29,7 @@ let test_one_file test_config testname () =
       let* { is_timeout; _ } = Main.main_lwt ~config ~state src in
       prerr_endline "search_input, no expectation, end" ;
       Lwt.return
-      @@ Alcotest.(check bool) "search_input: not timeout" false is_timeout
+      @@ Alcotest.(check bool) "search_input: timeout" false is_timeout
   | Some expectations ->
       Lwt_list.iter_s
         (fun (expectation : Test_expect.one_case) ->
@@ -40,10 +40,9 @@ let test_one_file test_config testname () =
               let config =
                 { config with mode = Global_config.Dbmc_check inputs }
               in
-              let* _ = Main.main_lwt ~config ~state src in
-              let checked = false in
+              let* { is_timeout; _ } = Main.main_lwt ~config ~state src in
               Lwt.return
-              @@ Alcotest.(check bool) "check_input: not timeout" false checked
+              @@ Alcotest.(check bool) "check_input: timeout" false is_timeout
           | None ->
               let* { inputss; _ } = Main.main_lwt ~config ~state src in
               let () =
