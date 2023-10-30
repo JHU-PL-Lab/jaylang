@@ -137,8 +137,7 @@ and _create_end_of_block_map_for_body (b : abstract_clause_body) =
       | Abs_value_function f -> _create_end_of_block_map_for_function f
       | Abs_value_int -> Annotated_clause_map.empty
       | Abs_value_bool _ -> Annotated_clause_map.empty
-      | Abs_value_untouched _ -> Annotated_clause_map.empty
-      | Abs_value_abort -> Annotated_clause_map.empty)
+      | Abs_value_untouched _ -> Annotated_clause_map.empty)
   | Abs_var_body _ -> Annotated_clause_map.empty
   | Abs_input_body -> Annotated_clause_map.empty
   | Abs_appl_body (_, _) -> Annotated_clause_map.empty
@@ -179,23 +178,22 @@ let abstract_binary_operation (binop : binary_operator) (arg1 : abstract_value)
   | _ -> None
 
 let abstract_pattern_match (v : abstract_value) (p : pattern) :
-    abstract_value Enum.t option =
+    abstract_value Enum.t =
   match (v, p) with
-  | Abs_value_abort, _ -> None
   | _, Any_pattern
   | Abs_value_function _, Fun_pattern
   | Abs_value_int, Int_pattern ->
-      Some (Enum.singleton @@ Abs_value_bool true)
-  | Abs_value_bool _, Bool_pattern -> Some (Enum.singleton @@ Abs_value_bool true)
+      Enum.singleton @@ Abs_value_bool true
+  | Abs_value_bool _, Bool_pattern -> Enum.singleton @@ Abs_value_bool true
   | Abs_value_record _, Rec_pattern _ ->
-    Some (List.enum [ Abs_value_bool true; Abs_value_bool false ])
+    List.enum [ Abs_value_bool true; Abs_value_bool false ]
   | Abs_value_record _, Strict_rec_pattern _ ->
-    Some (List.enum [ Abs_value_bool true; Abs_value_bool false ])
+    List.enum [ Abs_value_bool true; Abs_value_bool false ]
   | ( ( Abs_value_int | Abs_value_bool _ | Abs_value_record _
       | Abs_value_function _ | Abs_value_untouched _ ),
       ( Fun_pattern | Int_pattern | Bool_pattern | Rec_pattern _
       | Strict_rec_pattern _ ) ) ->
-        Some (Enum.singleton @@ Abs_value_bool false)
+        Enum.singleton @@ Abs_value_bool false
 
 let abstract_not (v : abstract_value) : abstract_value Enum.t option =
   let singleton x = Some (Enum.singleton x) in
