@@ -165,11 +165,14 @@ module Make (Ctx : Finite_callstack.C) = struct
       | Abs_exp.More (cl, e) ->
           let res_hd = aeval (store, aenv, ctx, Abs_exp.Just cl) in
           bind res_hd (fun (cl_v, cl_store) ->
-              let aenv' =
-                AEnv.add_binding_exn ~key:(Abs_exp.id_of_clause cl) ~data:cl_v
-                  aenv
-              in
-              aeval (cl_store, aenv', ctx, e))
+              match cl_v with
+              | AVal.AAbort -> Abs_result.empty
+              | _ ->
+                (let aenv' =
+                  AEnv.add_binding_exn ~key:(Abs_exp.id_of_clause cl) ~data:cl_v
+                    aenv
+                in
+                aeval (cl_store, aenv', ctx, e)))
     and mk_aeval_clause (store, (aenv : AEnv.t), ctx, Clause (x0, clb)) aeval :
         result_set =
       probe (store, aenv, ctx, Just (Clause (x0, clb))) ;
@@ -265,7 +268,8 @@ module Make (Ctx : Finite_callstack.C) = struct
                       | None -> Abs_result.empty)
               | None -> Abs_result.empty)
           | _ -> Abs_result.empty)
-      | Abort -> Abs_result.empty
+      | Abort -> 
+        Abs_result.only (AAbort, store)
       | Assume _x -> Abs_result.only (AVal.ABool true, store)
       | Assert _x -> Abs_result.only (AVal.ABool true, store)
     in
@@ -353,7 +357,9 @@ module Make (Ctx : Finite_callstack.C) = struct
                            | ARecord _ -> None
                            | AClosure (x, _, _) ->
                                Some
-                                 (Jayil.Ast.Ident_map.find x para_to_fun_def_map)))
+                                 (Jayil.Ast.Ident_map.find x para_to_fun_def_map)
+                           (* TODO: Check abort logic *)
+                           | AAbort -> None))
                     ~if_not_found:(fun _ -> [])
                 in
                 App dsts
@@ -405,7 +411,9 @@ module Make (Ctx : Finite_callstack.C) = struct
                        | None -> failwith "must have this fblock")
                      !block_map
                  in
-                 block_map := block_map')
+                 block_map := block_map'
+             | AAbort -> () (* TODO: Again, check abort logic. *)
+            )
     | Some (Clause (Var (xc, _), Conditional_body (Var (c, _), _, _))) ->
         let vs = Hashtbl.find_exn result_map c in
         let cond_both = find_cond_blocks xc !block_map in

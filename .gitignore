@@ -43,6 +43,7 @@ _build
 # Local results
 profiling
 benchmark/result
+test/sato/playing-ground
 
 /land*.json
 *.ansi

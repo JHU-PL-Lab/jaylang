@@ -33,6 +33,7 @@ module Make (Ctx : Finite_callstack.C) = struct
         (* | ARecord of t Map.M(Id).t  *)
         (* | ARecord of Set.M(Id).t * Ctx.t *)
         | ARecord of Id.t Map.M(Id).t * Ctx.t
+        | AAbort
       [@@deriving equal, compare, hash, sexp]
 
       let pp_record0 fmter rmap =
@@ -45,6 +46,7 @@ module Make (Ctx : Finite_callstack.C) = struct
         | AClosure (x, _, ctx) -> Fmt.pf fmter "<%a ! %a>" Id.pp x Ctx.pp ctx
         | ARecord (rmap, ctx) ->
             Fmt.pf fmter "{%a ! %a}" pp_record0 rmap Ctx.pp ctx
+        | AAbort -> Fmt.string fmter "abort"
     end
 
     include T
@@ -218,6 +220,7 @@ module Make (Ctx : Finite_callstack.C) = struct
               let aenvs = AStore.find_exn store ctx |> Set.to_list in
               Fmt.pf fmter "{%a %a}}" Ctx.pp ctx (Fmt.list pp_env) aenvs
           | Error _ -> Fmt.pf fmter "!%a}" Ctx.pp ctx)
+      | AAbort -> Fmt.string fmter "abort"
     in
     pp_env fmter aenv
 

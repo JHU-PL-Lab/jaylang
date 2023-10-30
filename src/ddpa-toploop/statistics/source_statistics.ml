@@ -33,7 +33,7 @@ let empty =
 type depth_bindings = int Ident_map.t
 
 let pp_depth_bindings =
-  Jhupllib_pp_utils.pp_map pp_ident Format.pp_print_int Ident_map.enum
+  Jhupllib.Pp_utils.pp_map pp_ident Format.pp_print_int Ident_map.enum
 
 let _ = pp_depth_bindings
 
