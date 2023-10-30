@@ -105,7 +105,7 @@ module Make (Ctx : Finite_callstack.C) = struct
       let counter = Hashtbl.length visited in
 
       (* Fmt.pr "ENV=%a" (pp_aenv_deep store ctx) aenv ; *)
-      if counter mod 5000 = 0 (* && 5000 < counter && counter < 1006 *)
+      if counter mod 5000 = -1 (* && 5000 < counter && counter < 1006 *)
       then (
         let key_count = Hashtbl.length visited in
         let val_count =
@@ -172,7 +172,7 @@ module Make (Ctx : Finite_callstack.C) = struct
               aeval (cl_store, aenv', ctx, e))
     and mk_aeval_clause (store, (aenv : AEnv.t), ctx, Clause (x0, clb)) aeval :
         result_set =
-      (* probe (store, aenv, ctx, Just (Clause (x0, clb))) ; *)
+      probe (store, aenv, ctx, Just (Clause (x0, clb))) ;
 
       (* Mismatch step 2: fetch x from the wrong env *)
       let env_get_by_id x = Map.find (HashCons.data aenv) x in

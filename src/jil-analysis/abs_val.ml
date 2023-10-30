@@ -77,9 +77,13 @@ module Make (Ctx : Finite_callstack.C) = struct
       type t = AEnv_raw.t HashCons.cell
 
       let compare = HashCons.compare
-      let hash = HashCons.hash
       let equal = HashCons.equal
       let hash_fold_t state t = hash_fold_int state (HashCons.id t)
+
+      let hash t =
+        Ppx_hash_lib.Std.Hash.get_hash_value
+          (hash_fold_t (Ppx_hash_lib.Std.Hash.create ()) t)
+
       let sexp_of_t e = AEnv_raw.sexp_of_t (HashCons.data e)
       let t_of_sexp e = HC.make (AEnv_raw.t_of_sexp e)
     end
@@ -136,9 +140,13 @@ module Make (Ctx : Finite_callstack.C) = struct
       type t = AStore_raw.t HashCons.cell
 
       let compare = HashCons.compare
-      let hash = HashCons.hash
       let equal = HashCons.equal
       let hash_fold_t state t = hash_fold_int state (HashCons.id t)
+
+      let hash t =
+        Ppx_hash_lib.Std.Hash.get_hash_value
+          (hash_fold_t (Ppx_hash_lib.Std.Hash.create ()) t)
+
       let sexp_of_t e = AStore_raw.sexp_of_t (HashCons.data e)
       let t_of_sexp e = HC.make (AStore_raw.t_of_sexp e)
     end
