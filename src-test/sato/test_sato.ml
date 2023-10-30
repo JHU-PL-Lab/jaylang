@@ -190,3 +190,4 @@ let main test_path =
   ()
 
 let () = main "test/sato"
+(* let () = main "test/sato/playing-ground" *)

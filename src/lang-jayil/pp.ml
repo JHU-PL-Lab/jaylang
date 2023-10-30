@@ -71,7 +71,10 @@ module Make (B : Is_brief) = struct
         |                            |
          ---------- wrapper  --------
     *)
-    Fmt.pf oc "fun %a -> (@ @[<2>%a@])" var_ x expr e
+    if B.is_brief then 
+      Fmt.pf oc "fun %a -> ..." var_ x
+    else
+      Fmt.pf oc "fun %a -> (@ @[<2>%a@])" var_ x expr e
 
   and value oc = function
     | Value_record r -> record oc r
