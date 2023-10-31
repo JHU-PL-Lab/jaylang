@@ -20,6 +20,7 @@ module Make (Ctx : Finite_callstack.C) = struct
   let both_bools : Set.M(AVal).t =
     Set.of_list (module AVal) [ ABool true; ABool false ]
 
+  let just_int : Set.M(AVal).t = Set.of_list (module AVal) [ AInt ]
   let just_bool b : Set.M(AVal).t = Set.of_list (module AVal) [ ABool b ]
   let empty_v : Set.M(AVal).t = Set.empty (module AVal)
 
@@ -30,7 +31,7 @@ module Make (Ctx : Finite_callstack.C) = struct
     | Binary_operator_plus | Binary_operator_minus | Binary_operator_times
     | Binary_operator_divide | Binary_operator_modulus
     | Binary_operator_less_than | Binary_operator_less_than_or_equal_to -> (
-        match (v1, v2) with AInt, AInt -> both_bools | _ -> empty_v)
+        match (v1, v2) with AInt, AInt -> just_int | _ -> empty_v)
     | Binary_operator_equal_to | Binary_operator_not_equal_to -> (
         match (v1, v2) with AInt, AInt -> both_bools | _ -> empty_v)
     | Binary_operator_and -> (
@@ -168,11 +169,11 @@ module Make (Ctx : Finite_callstack.C) = struct
               match cl_v with
               | AVal.AAbort -> Abs_result.empty
               | _ ->
-                (let aenv' =
-                  AEnv.add_binding_exn ~key:(Abs_exp.id_of_clause cl) ~data:cl_v
-                    aenv
-                in
-                aeval (cl_store, aenv', ctx, e)))
+                  let aenv' =
+                    AEnv.add_binding_exn ~key:(Abs_exp.id_of_clause cl)
+                      ~data:cl_v aenv
+                  in
+                  aeval (cl_store, aenv', ctx, e))
     and mk_aeval_clause (store, (aenv : AEnv.t), ctx, Clause (x0, clb)) aeval :
         result_set =
       probe (store, aenv, ctx, Just (Clause (x0, clb))) ;
@@ -268,8 +269,7 @@ module Make (Ctx : Finite_callstack.C) = struct
                       | None -> Abs_result.empty)
               | None -> Abs_result.empty)
           | _ -> Abs_result.empty)
-      | Abort -> 
-        Abs_result.only (AAbort, store)
+      | Abort -> Abs_result.only (AAbort, store)
       | Assume _x -> Abs_result.only (AVal.ABool true, store)
       | Assert _x -> Abs_result.only (AVal.ABool true, store)
     in
@@ -411,8 +411,7 @@ module Make (Ctx : Finite_callstack.C) = struct
                      !block_map
                  in
                  block_map := block_map'
-             | AAbort -> () (* TODO: Again, check abort logic. *)
-            )
+             | AAbort -> () (* TODO: Again, check abort logic. *))
     | Some (Clause (Var (xc, _), Conditional_body (Var (c, _), _, _))) ->
         let vs = Hashtbl.find_exn result_map c in
         let cond_both = find_cond_blocks xc !block_map in
