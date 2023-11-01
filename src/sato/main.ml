@@ -17,6 +17,7 @@ let main_lwt ~(config : Global_config.t) program_full :
   dump_instrumented program_full config.filename config.dump_instrumented ;
 
   let program = Convert.jil_ast_of_convert program_full in
+  let () = Fmt.pr "%a" Jayil.Pp.expr program in
   Log.init config ;
   let sato_mode =
     match config.mode with Sato m -> m | _ -> failwith "not sato"
@@ -38,56 +39,62 @@ let main_lwt ~(config : Global_config.t) program_full :
           Fmt.pr "[SATO] #tgt=%a  #s=%a@.@?" Ident.pp hd
             (Fmt.option Time_float.Span.pp)
             dbmc_config.timeout ;
-          let%lwt { inputss; state = dbmc_state; is_timeout; _ } =
-            let state = Dbmc.Global_state.create dbmc_config program in
-            Dbmc.Main.main_lwt ~config:dbmc_config ~state program
+          let state = Dbmc.Global_state.create dbmc_config program in
+          let abort_block_opt = 
+            Cfg.find_reachable_block_opt hd state.info.block_map             
           in
-          match List.hd inputss with
-          | Some inputs -> (
-              let () = print_endline "Lookup target: " in
-              let () = print_endline @@ Id.show hd in
-              let session =
-                {
-                  (Interpreter.make_default_session ()) with
-                  input_feeder = Input_feeder.from_list inputs;
-                }
-              in
-              try Interpreter.eval session program
-              with Interpreter.Found_abort ab_clo -> (
-                match ab_clo with
-                | AbortClosure final_env ->
-                    let result =
-                      match sato_mode with
-                      | Bluejay ->
-                          let errors =
-                            Sato_result.Bluejay_type_errors.get_errors
-                              init_sato_state dbmc_state session final_env
-                              inputs
-                          in
-                          (Some (Bluejay_error errors), has_timeout)
-                      | Jay ->
-                          let errors =
-                            Sato_result.Jay_type_errors.get_errors
-                              init_sato_state dbmc_state session final_env
-                              inputs
-                          in
-                          (Some (Jay_error errors), has_timeout)
-                      | Jayil ->
-                          let errors =
-                            Sato_result.Jayil_type_errors.get_errors
-                              init_sato_state dbmc_state session final_env
-                              inputs
-                          in
-                          (Some (Jayil_error errors), has_timeout)
-                    in
-                    Lwt.return result
-                | _ -> failwith "Shoud have run into abort here!"))
-          | None ->
-              if is_timeout
-              then search_all_targets tl true
-              else search_all_targets tl has_timeout
-        with ex -> (* Printexc.print_backtrace Out_channel.stderr ; *)
-                   raise ex)
+          match abort_block_opt with
+          | None -> search_all_targets tl has_timeout
+          | Some _ -> 
+            let%lwt { inputss; state = dbmc_state; is_timeout; _ } =
+              Dbmc.Main.main_lwt ~config:dbmc_config ~state program
+            in
+            match List.hd inputss with
+            | Some inputs -> (
+                let () = print_endline "Lookup target: " in
+                let () = print_endline @@ Id.show hd in
+                let session =
+                  {
+                    (Interpreter.make_default_session ()) with
+                    input_feeder = Input_feeder.from_list inputs;
+                  }
+                in
+                try Interpreter.eval session program
+                with Interpreter.Found_abort ab_clo -> (
+                  match ab_clo with
+                  | AbortClosure final_env ->
+                      let result =
+                        match sato_mode with
+                        | Bluejay ->
+                            let errors =
+                              Sato_result.Bluejay_type_errors.get_errors
+                                init_sato_state dbmc_state session final_env
+                                inputs
+                            in
+                            (Some (Bluejay_error errors), has_timeout)
+                        | Jay ->
+                            let errors =
+                              Sato_result.Jay_type_errors.get_errors
+                                init_sato_state dbmc_state session final_env
+                                inputs
+                            in
+                            (Some (Jay_error errors), has_timeout)
+                        | Jayil ->
+                            let errors =
+                              Sato_result.Jayil_type_errors.get_errors
+                                init_sato_state dbmc_state session final_env
+                                inputs
+                            in
+                            (Some (Jayil_error errors), has_timeout)
+                      in
+                      Lwt.return result
+                  | _ -> failwith "Shoud have run into abort here!"))
+            | None ->
+                if is_timeout
+                then search_all_targets tl true
+                else search_all_targets tl has_timeout
+          with ex -> (* Printexc.print_backtrace Out_channel.stderr ; *)
+                    raise ex)
   in
   search_all_targets target_vars false
 

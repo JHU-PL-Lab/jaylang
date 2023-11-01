@@ -86,6 +86,7 @@ let default_config =
 let default_sato_config =
   {
     default_config with
+    analyzer = K_cfa 1;
     mode = Sato File_utils.Jayil;
     is_wrapped = false;
     is_instrumented = true;

@@ -100,6 +100,16 @@ let find_reachable_block x block_map =
          else None)
   |> Option.value_exn
 
+  let find_reachable_block_opt x block_map =
+    block_map |> Ident_map.values |> bat_list_of_enum
+    |> List.find_map ~f:(fun block ->
+           if is_block_reachable block
+           then
+             if List.exists ~f:(fun tc -> Ident.equal tc.id x) block.clauses
+             then Some block
+             else None
+           else None)
+
 let find_block_with_reachable x block_map =
   block_map |> Ident_map.values |> bat_list_of_enum
   |> List.find_map ~f:(fun block ->
