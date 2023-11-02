@@ -264,7 +264,7 @@ module Make (Ctx : Finite_callstack.C) = struct
               | Some v_lb ->
                   let saved_envs = AStore.find_exn store r_ctx in
                   bind saved_envs (fun saved_env ->
-                      match Map.find (HashCons.data saved_env) lb with
+                      match Map.find (HashCons.data saved_env) v_lb with
                       | Some v -> Abs_result.only (v, store)
                       | None -> Abs_result.empty)
               | None -> Abs_result.empty)
