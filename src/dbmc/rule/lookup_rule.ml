@@ -405,7 +405,11 @@ let complete_phis_of_rule (state : Global_state.t) key
         List.map detail_x'.domain ~f:(fun key_r ->
             let rv = Cfg.clause_body_of_x key_r.block key_r.x in
             [
-              P p.x'; P key_r; Z (key, bool_ (Jayil.Ast.pattern_match p.pat rv));
+              P p.x';
+              P key_r;
+              Z
+                ( key,
+                  bool_ (Option.value_exn (Jayil.Ast.pattern_match p.pat rv)) );
             ])
       in
       choices key phi_choices

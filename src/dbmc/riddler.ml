@@ -173,19 +173,29 @@ let if_pattern term pat =
 
 let pattern x x' key_rv rv pat =
   let value_matched = Jayil.Ast.pattern_match pat rv in
+  Fmt.pr "[P]key_rv = %a; x'=%a;  rv = %a; p? = %a " Lookup_key.pp x'
+    Lookup_key.pp key_rv Jayil.Pp.clause_body rv (Fmt.option Fmt.bool)
+    value_matched ;
+
+  let matching_result =
+    match value_matched with Some b -> [ Z (x, bool_ b) ] | None -> []
+  in
   let type_pattern = if_pattern x' pat in
   let value_pattern =
     if Jayil.Ast.is_record_pattern pat
-    then SuduZ3.inject_bool (and2 type_pattern (box_bool value_matched))
+    then
+      SuduZ3.inject_bool
+        (and2 type_pattern (box_bool (Option.value_exn value_matched)))
     else SuduZ3.inject_bool type_pattern
   in
   imply x
-    [
-      Z (x, value_pattern);
-      Phi (is_bool x);
-      Z (x, bool_ value_matched);
-      K (x', key_rv);
-    ]
+    ([
+       Z (x, value_pattern);
+       Phi (is_bool x);
+       (* Z (x, bool_ value_matched); *)
+       K (x', key_rv);
+     ]
+    @ matching_result)
 
 (* Cond Bottom *)
 let cond_bottom key key_c rets =
