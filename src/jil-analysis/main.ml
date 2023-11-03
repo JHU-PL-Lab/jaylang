@@ -29,9 +29,10 @@ module Make (Ctx : Finite_callstack.C) = struct
     let open Abs_exp in
     match bop with
     | Binary_operator_plus | Binary_operator_minus | Binary_operator_times
-    | Binary_operator_divide | Binary_operator_modulus
-    | Binary_operator_less_than | Binary_operator_less_than_or_equal_to -> (
+    | Binary_operator_divide | Binary_operator_modulus -> (
         match (v1, v2) with AInt, AInt -> just_int | _ -> empty_v)
+    | Binary_operator_less_than | Binary_operator_less_than_or_equal_to -> (
+        match (v1, v2) with AInt, AInt -> both_bools | _ -> empty_v)
     | Binary_operator_equal_to | Binary_operator_not_equal_to -> (
         match (v1, v2) with AInt, AInt -> both_bools | _ -> empty_v)
     | Binary_operator_and -> (
