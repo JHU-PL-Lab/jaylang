@@ -243,6 +243,7 @@ let pattern_match pat v =
       Some (Ident_set.equal ids (Ident_set.of_enum @@ Ident_map.keys rv))
   | Strict_rec_pattern _, Value_body _ -> Some false
   | Strict_rec_pattern _, Input_body -> Some false
+  (* TODO: matching binop *)
   | _ -> None
 
 let bat_list_of_enum = List.of_enum

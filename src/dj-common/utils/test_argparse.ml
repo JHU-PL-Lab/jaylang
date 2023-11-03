@@ -1,5 +1,4 @@
 open Core
-open Dj_common
 
 type config = {
   analyzer : Global_config.analyzer;
@@ -106,9 +105,20 @@ module Cmd_parser = struct
       initial_stride =
     let timeout = if no_timeout then None else timeout in
     { analyzer; engine; is_instrumented; timeout; test_path; initial_stride }
-
-  let config =
-    Term.(
-      const make_config $ analyzer $ engine $ is_instrumented $ timeout
-      $ no_timeout $ test_path $ initial_stride)
 end
+
+open Cmd_parser
+
+let config : config Cmdliner.Term.t =
+  Cmdliner.Term.(
+    const make_config $ analyzer $ engine $ is_instrumented $ timeout
+    $ no_timeout $ test_path $ initial_stride)
+
+let parse_test_commandline () =
+  (ignore
+  @@ Cmdliner.Cmd.(
+       eval
+       @@ v (info "test")
+            Cmdliner.Term.(
+              const (fun config -> top_config := Some config) $ config))) ;
+  Option.value_exn !top_config

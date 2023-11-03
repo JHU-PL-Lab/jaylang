@@ -8,6 +8,7 @@
   core_unix.filename_unix
   core_unix.command_unix
   core_kernel.pairing_heap
+  cmdliner
   lwt
   lwt.unix
   z3
