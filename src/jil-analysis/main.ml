@@ -430,7 +430,7 @@ module Make (Ctx : Finite_callstack.C) = struct
 
   let main e =
     let block_map = ref (Dj_common.Cfg_of_source.block_map_of_expr e) in
-    let _, result_map = analysis_result ~dump:true e in
+    let _, result_map = analysis_result ~dump:false e in
     let para_to_fun_def_map = Jayil.Ast_tools.make_para_to_fun_def_mapping e in
     let id_to_clause_map = Jayil.Ast_tools.clause_mapping e in
 

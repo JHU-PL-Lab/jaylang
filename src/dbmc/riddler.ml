@@ -173,10 +173,6 @@ let if_pattern term pat =
 
 let pattern x x' key_rv rv pat =
   let value_matched = Jayil.Ast.pattern_match pat rv in
-  (* Fmt.pr "[P]key_rv = %a; x'=%a;  rv = %a; p? = %a " Lookup_key.pp x'
-    Lookup_key.pp key_rv Jayil.Pp.clause_body rv (Fmt.option Fmt.bool)
-    value_matched ; *)
-
   let matching_result =
     match value_matched with Some b -> [ Z (x, bool_ b) ] | None -> []
   in

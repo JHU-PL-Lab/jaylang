@@ -1,8 +1,7 @@
 open Core
 open Dj_common
 open Dbmc
-open Test_dbmc_cmd
-open Test_dbmc_cmd.Cmd_parser
+open Test_argparse
 
 let test_one_file test_config testname () =
   let open Lwt.Syntax in
@@ -66,22 +65,14 @@ let test_one_file_lwt testname _switch test_config =
       with Lwt_unix.Timeout -> failwith "test_dbmc: timeout")
   | None -> test_one_file test_config testname ()
 
-let main top_config =
+let () =
+  let top_config = Test_argparse.parse_test_commandline () in
   let grouped_tests =
     Directory_utils.map_in_groups
       ~f:(fun _ test_name test_path ->
         Alcotest_lwt.test_case test_name `Quick @@ test_one_file_lwt test_path)
       top_config.test_path
   in
-
-  Lwt_main.run @@ Alcotest_lwt.run_with_args "DBMC" config grouped_tests ;
+  Lwt_main.run
+  @@ Alcotest_lwt.run_with_args "DBMC" Test_argparse.config grouped_tests ;
   Dj_common.Log.close ()
-
-let () =
-  (ignore
-  @@ Cmdliner.Cmd.(
-       eval
-       @@ v (info "test")
-            Cmdliner.Term.(
-              const (fun config -> top_config := Some config) $ config))) ;
-  main (Option.value_exn !top_config)
