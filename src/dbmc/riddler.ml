@@ -180,8 +180,11 @@ let pattern x x' key_rv rv pat =
   let value_pattern =
     if Jayil.Ast.is_record_pattern pat
     then
-      SuduZ3.inject_bool
-        (and2 type_pattern (box_bool (Option.value_exn value_matched)))
+      match value_matched with
+      | Some v ->
+        SuduZ3.inject_bool
+          (and2 type_pattern (box_bool v))
+      | None -> SuduZ3.inject_bool type_pattern
     else SuduZ3.inject_bool type_pattern
   in
   imply x
