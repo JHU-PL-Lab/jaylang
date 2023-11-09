@@ -782,11 +782,11 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let jayil_aliases_with_stack = err.err_value_aliases in
       (* This is the stack of the "false" value that indicates where the error
          is located. *)
-      let () =
+      (* let () =
         Fmt.pr "\nThese are the aliases: %a \n"
           (Fmt.list Id_with_stack.pp)
           jayil_aliases_with_stack
-      in
+      in *)
       let relevant_stk =
         match List.last jayil_aliases_with_stack with
         | Some (_, final_stk) -> final_stk
@@ -831,10 +831,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
              ~f:
                (Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps)
       in
-      let () =
+      (* let () =
         Fmt.pr "\n\n\nThese are the jayil_vars: %a\n\n\n"
           (Fmt.list Jayil.Pp.var_) jayil_vars
-      in
+      in *)
       (* Getting all the aliases (for runtime value lookup) *)
       let alias_graph = interp_session.alias_graph in
       let jayil_vars_with_stack : Id_with_stack.t list =
@@ -851,11 +851,11 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         |> List.map ~f:(Sato_tools.find_alias alias_graph)
         |> List.concat
       in
-      let () =
+      (* let () =
         Fmt.pr "\n\n\nThese are the jayil_vars_with_stack: %a\n\n\n"
           (Fmt.list Id_with_stack.pp)
           jayil_vars_with_stack
-      in
+      in *)
       (* Helper function for looking up the value definition clause *)
       let rec find_val
           (vdef_mapping :
