@@ -2384,6 +2384,7 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
           if is_polymorphic_type t_syn
           then return acc
           else
+            let%bind t = semantic_type_of t_syn in
             let%bind eta_arg = fresh_ident p in
             let%bind arg_check = fresh_ident "arg_check" in
             let%bind proj_ed_1_inner =
@@ -2524,6 +2525,7 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
     (* TODO: Will want to handle the function case here *)
     | LetWithType (x, e1, e2, type_decl) ->
         let%bind type_decl' = wrap type_decl in
+        let%bind type_decl'' = wrap type_decl in
         let%bind e1' = wrap e1 in
         let%bind e2' = wrap e2 in
         let%bind proj_ed_1_inner =
@@ -2533,7 +2535,7 @@ let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
           new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "wrapper")
         in
         let e1'' = new_expr_desc @@ Appl (proj_ed_1, e1') in
-        let res = new_expr_desc @@ LetWithType (x, e1'', e2', type_decl') in
+        let res = new_expr_desc @@ LetWithType (x, e1'', e2', type_decl'') in
         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
         return res
     | LetRecFunWithType (sig_lst, e) ->
