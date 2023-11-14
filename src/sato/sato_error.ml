@@ -806,10 +806,6 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
              ~f:
                (Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay
                   bluejay_jay_maps)
-        |> List.map
-             ~f:
-               (Bluejay_to_jay_maps.unwrapped_bluejay_from_wrapped_bluejay
-                  bluejay_jay_maps)
       in
       (* Getting the expression that triggered the error *)
       let sem_val_exprs =
@@ -885,7 +881,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let check_aliases_for_type (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
           Bluejay_ast_internal.syn_bluejay_edesc option =
         let jayil_vars =
-          ed |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps |> fun ed' ->
+          ed |> fun ed' ->
           (* let () =
                print_endline @@ Bluejay_ast_pp.show_expr_desc
                @@ Bluejay_ast_internal.from_internal_expr_desc ed
@@ -893,6 +889,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           Option.value ~default:ed'
             (Bluejay_to_jay_maps.wrapped_bluejay_from_unwrapped_bluejay
                bluejay_jay_maps ed')
+          |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps 
           |> Bluejay_to_jay_maps.get_core_expr_from_sem_expr bluejay_jay_maps
           |> Option.value_exn |> Bluejay_ast_internal.to_jay_expr_desc
           (* |> fun x ->
@@ -925,6 +922,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           |> List.map
                ~f:
                  (Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay
+                    bluejay_jay_maps)
+          |> List.map
+               ~f:
+                  (Bluejay_to_jay_maps.unwrapped_bluejay_from_wrapped_bluejay
                     bluejay_jay_maps)
           |> List.filter ~f:(fun ed ->
                  List.mem relevant_tags ed.tag ~equal:( = ))

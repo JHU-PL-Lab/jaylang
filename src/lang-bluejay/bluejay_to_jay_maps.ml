@@ -2,6 +2,12 @@ open Batteries
 open Jhupllib
 open Bluejay_ast_internal
 
+module Typed_expr_desc = struct
+  include Bluejay_ast_internal.Typed_expr_desc
+
+  let pp = Bluejay_ast_internal_pp.pp_expr_desc
+end
+
 module Intermediate_expr_desc = struct
   include Bluejay_ast_internal.Semantic_typed_expr_desc
 
@@ -12,6 +18,12 @@ module Core_expr_desc = struct
   include Bluejay_ast_internal.Core_expr_desc
 
   let pp = Bluejay_ast_internal_pp.pp_expr_desc
+end
+
+module Typed_expr_desc_map = struct
+  module M = Map.Make (Typed_expr_desc)
+  include M
+  include Pp_utils.Map_pp (M) (Typed_expr_desc)
 end
 
 module Intermediate_expr_desc_map = struct
@@ -35,7 +47,7 @@ end)
 type t = {
   error_to_bluejay_expr : sem_bluejay_edesc Ident_map.t;
   sem_to_syn : syn_bluejay_edesc Intermediate_expr_desc_map.t;
-  wrapped_to_unwrapped : sem_bluejay_edesc Intermediate_expr_desc_map.t;
+  wrapped_to_unwrapped : syn_bluejay_edesc Typed_expr_desc_map.t;
   core_to_sem : sem_bluejay_edesc Core_expr_desc_map.t;
   error_to_expr_tag : int Intermediate_expr_desc_map.t;
   error_to_rec_fun_type : ident Ident_map.t;
@@ -48,7 +60,7 @@ let empty =
   {
     error_to_bluejay_expr = Ident_map.empty;
     sem_to_syn = Intermediate_expr_desc_map.empty;
-    wrapped_to_unwrapped = Intermediate_expr_desc_map.empty;
+    wrapped_to_unwrapped = Typed_expr_desc_map.empty;
     core_to_sem = Core_expr_desc_map.empty;
     error_to_expr_tag = Intermediate_expr_desc_map.empty;
     error_to_rec_fun_type = Ident_map.empty;
@@ -76,7 +88,7 @@ let add_wrapped_unwrapped_mapping mappings wrapped unwrapped =
   {
     mappings with
     wrapped_to_unwrapped =
-      Intermediate_expr_desc_map.add wrapped unwrapped wrapped_unwrapped_mapping;
+    Typed_expr_desc_map.add wrapped unwrapped wrapped_unwrapped_mapping;
   }
 
 let add_core_sem_expr_mapping mappings core sem =
@@ -113,6 +125,24 @@ let transform_funsig (f : 'a expr_desc -> 'b expr_desc)
     (Funsig (fun_name, params, e) : 'a funsig) : 'b funsig =
   let e' = f e in
   Funsig (fun_name, params, e')
+
+let transform_typed_funsig (f : 'a expr_desc -> 'b expr_desc)
+    (fun_sig : 'a typed_funsig) : 'b typed_funsig =
+  match fun_sig with
+  | Typed_funsig (fun_name, typed_params, (e, ret_type)) ->
+      let typed_params' =
+        List.map
+          (fun (param, t) -> let t' = f t in (param, t'))
+          typed_params
+      in
+      let e' = f e in
+      let ret_type' = f ret_type in
+      Typed_funsig (fun_name, typed_params', (e', ret_type'))
+  | DTyped_funsig (fun_name, (param, t), (e, ret_type)) ->
+      let t' = f t in
+      let e' = f e in
+      let ret_type' = f ret_type in
+      DTyped_funsig (fun_name, (param, t'), (e', ret_type'))
 
 let find_all_syn_tags bluejay_jay_maps (edesc : syn_bluejay_edesc) =
   let rec loop acc cur =
@@ -358,7 +388,7 @@ let rec syn_bluejay_from_sem_bluejay bluejay_jay_maps
           { tag = og_tag; body = Assume e' })
 
 let rec unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps
-    (wrapped : sem_bluejay_edesc) : sem_bluejay_edesc =
+    (wrapped : syn_bluejay_edesc) : syn_bluejay_edesc =
   let transform_typed_funsig (f : 'a expr_desc -> 'b expr_desc)
       (fun_sig : 'a typed_funsig) : 'b typed_funsig =
     match fun_sig with
@@ -380,7 +410,7 @@ let rec unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps
         DTyped_funsig (fun_name, (param, t'), (e', ret_type'))
   in
   match
-    Intermediate_expr_desc_map.Exceptionless.find wrapped
+    Typed_expr_desc_map.Exceptionless.find wrapped
       bluejay_jay_maps.wrapped_to_unwrapped
   with
   | Some expr' -> expr'
@@ -389,7 +419,12 @@ let rec unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps
       let og_tag = wrapped.tag in
       match on_err with
       | TypeError _err_id -> failwith "Should have type error exprs!"
+      | TypeVar _ | TypeInt | TypeBool
       | Int _ | Bool _ | Var _ | Input -> wrapped
+      | TypeRecord r ->
+        { tag = og_tag
+        ; body = TypeRecord (Ident_map.map (unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps) r)
+        }
       | Function (id_lst, f_expr) ->
           {
             tag = og_tag;
@@ -623,7 +658,8 @@ let rec unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps
           { tag = og_tag; body = Assert e' }
       | Assume e ->
           let e' = unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps e in
-          { tag = og_tag; body = Assume e' })
+          { tag = og_tag; body = Assume e' }
+      | _ -> failwith "TBI!")
 
 let rec sem_bluejay_from_core_bluejay bluejay_jay_maps
     (core_edesc : core_bluejay_edesc) : sem_bluejay_edesc =
@@ -782,11 +818,11 @@ let get_syn_nat_equivalent_expr bluejay_jay_maps
     (expr : Bluejay_ast_internal.core_bluejay_edesc) =
   expr
   |> sem_bluejay_from_core_bluejay bluejay_jay_maps
-  |> unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps
   |> syn_bluejay_from_sem_bluejay bluejay_jay_maps
+  |> unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps
 
 let wrapped_bluejay_from_unwrapped_bluejay bluejay_jay_maps unwrapped =
-  Intermediate_expr_desc_map.fold
+  Typed_expr_desc_map.fold
     (fun k v acc -> if v.tag = unwrapped.tag then Some k else acc)
     bluejay_jay_maps.wrapped_to_unwrapped None
 
@@ -817,7 +853,7 @@ let rec replace_type (t_desc : syn_bluejay_edesc) (new_t : syn_bluejay_edesc)
         else new_t
     | _ -> new_t
   else
-    let transform_funsig (Funsig (fid, args, fe_desc)) =
+    (* let transform_funsig (Funsig (fid, args, fe_desc)) =
       Funsig (fid, args, replace_type fe_desc new_t tag)
     in
     let transform_typed_funsig fun_sig =
@@ -836,7 +872,7 @@ let rec replace_type (t_desc : syn_bluejay_edesc) (new_t : syn_bluejay_edesc)
           let f_body' = replace_type f_body new_t tag in
           let ret_type' = replace_type ret_type new_t tag in
           DTyped_funsig (fid, (param, t'), (f_body', ret_type'))
-    in
+    in *)
     let t' =
       match t with
       | Int _ | Bool _ | Var _ | Input | TypeError _ | TypeUntouched _ -> t
@@ -847,11 +883,11 @@ let rec replace_type (t_desc : syn_bluejay_edesc) (new_t : syn_bluejay_edesc)
       | Let (x, ed1, ed2) ->
           Let (x, replace_type ed1 new_t tag, replace_type ed2 new_t tag)
       | LetRecFun (funsigs, e_desc) ->
-          let funsigs' = List.map transform_funsig funsigs in
+          let funsigs' = List.map (transform_funsig (fun t -> replace_type t new_t tag)) funsigs in
           let e_desc' = replace_type e_desc new_t tag in
           LetRecFun (funsigs', e_desc')
       | LetFun (funsig, e_desc) ->
-          let funsig' = transform_funsig funsig in
+          let funsig' = transform_funsig (fun t -> replace_type t new_t tag) funsig in
           let e_desc' = replace_type e_desc new_t tag in
           LetFun (funsig', e_desc')
       | LetWithType (x, e1_desc, e2_desc, e3_desc) ->
@@ -860,11 +896,11 @@ let rec replace_type (t_desc : syn_bluejay_edesc) (new_t : syn_bluejay_edesc)
           let e3_desc' = replace_type e3_desc new_t tag in
           LetWithType (x, e1_desc', e2_desc', e3_desc')
       | LetRecFunWithType (funsigs, e_desc) ->
-          let funsigs' = List.map transform_typed_funsig funsigs in
+          let funsigs' = List.map (transform_typed_funsig (fun t -> replace_type t new_t tag)) funsigs in
           let e_desc' = replace_type e_desc new_t tag in
           LetRecFunWithType (funsigs', e_desc')
       | LetFunWithType (funsig, e_desc) ->
-          let funsig' = transform_typed_funsig funsig in
+          let funsig' = transform_typed_funsig (fun t -> replace_type t new_t tag) funsig in
           let e_desc' = replace_type e_desc new_t tag in
           LetFunWithType (funsig', e_desc')
       | Plus (e1_desc, e2_desc) ->
