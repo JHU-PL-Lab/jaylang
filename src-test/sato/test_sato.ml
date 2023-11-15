@@ -168,20 +168,21 @@ let is_error_expected (actual : Sato_result.reported_error)
   Test_expect.equal expected actual_error
 
 let test_one_file testname () =
-  let program, odefa_inst_maps, on_to_odefa_maps_opt, ton_to_on_maps_opt =
-    File_utils.read_source_sato testname
-  in
   let config : Sato_args.t =
     {
       filename = testname;
       sato_mode = File_utils.mode_from_file testname;
       ddpa_c_stk = Sato_args.default_ddpa_c_stk;
-      do_wrap = false;
+      do_wrap = true;
       do_instrument = true;
       output_parsable = false;
       timeout = Some (Time_float.Span.of_int_sec 2);
       run_max_step = None;
     }
+  in
+  let program, odefa_inst_maps, on_to_odefa_maps_opt, ton_to_on_maps_opt =
+    File_utils.read_source_sato ~do_wrap:config.do_wrap
+      ~do_instrument:config.do_instrument config.filename
   in
   let errors_opt, _ =
     Main.main_from_program ~config odefa_inst_maps on_to_odefa_maps_opt
@@ -213,4 +214,4 @@ let main test_path =
   ()
 
 let () = main "test/sato"
-(* let () = main "test/sato/_playing-ground" *)
+(* let () = main "test/sato/playing-ground" *)
