@@ -45,10 +45,10 @@ let find_alias_without_stack graph x : Dj_common.Id_with_stack.t list list =
   let xs =
     Interpreter.G.fold_vertex
       (fun ((i, _) as x_with_stk) acc ->
-        let () =
+        (* let () =
           Fmt.pr "\nThis is the x_with_stk: %a\n" Dj_common.Id_with_stack.pp
             x_with_stk
-        in
+        in *)
         if Jayil.Ast.Ident.equal x i then x_with_stk :: acc else acc)
       graph []
   in
