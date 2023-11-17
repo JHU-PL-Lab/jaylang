@@ -1,0 +1,16 @@
+let rec makeList n = 
+    if n == 0 then []
+    else n :: (makeList n-1)
+in
+let getHead l = 
+    match l with
+    | [] -> assert false
+    | hd :: tl -> hd
+    end
+in
+let main (n : {. int | fun a -> a >= 0}) : {. int | fun a -> a > 0} =
+    let l = makeList n in
+    if n > 0 then getHead l
+    else 0
+in
+main
