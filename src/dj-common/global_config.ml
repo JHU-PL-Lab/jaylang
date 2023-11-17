@@ -56,7 +56,7 @@ let default_config =
   {
     target = Id.(Ident "target");
     filename = "";
-    timeout = None (* Time.Span.of_int_sec 60 *);
+    timeout = None (* Some (Time_float.Span.of_int_sec 2); *);
     stride_init = 100;
     stride_max = 100;
     encode_policy = Only_incremental;
@@ -89,6 +89,17 @@ let default_sato_config =
     analyzer = K_ddpa 1;
     mode = Sato File_utils.Jayil;
     is_wrapped = false;
+    is_instrumented = true;
+    dump_instrumented = false;
+  }
+
+let default_sato_test_config =
+  {
+    default_config with
+    analyzer = K_ddpa 1;
+    mode = Sato File_utils.Jayil;
+    timeout = Some (Time_float.Span.of_int_sec 2);
+    is_wrapped = true;
     is_instrumented = true;
     dump_instrumented = false;
   }

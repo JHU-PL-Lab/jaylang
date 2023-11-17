@@ -342,9 +342,18 @@ module Bluejay_type_errors : Sato_result with type t = ton_error_record = struct
       in
       List.map ~f:mapper odefa_errors
     in
+    let actual_err_loc =
+      err_id
+      |> Jay_translate.Jay_to_jayil_maps.get_jay_equivalent_expr_exn
+           on_to_odefa_maps
+      |> Bluejay_ast_internal.from_jay_expr_desc
+      |> Bluejay_to_jay_maps.get_syn_nat_equivalent_expr ton_on_maps
+      |> Bluejay_to_jay_maps.unwrapped_bluejay_from_wrapped_bluejay ton_on_maps
+      |> Bluejay_ast_internal.from_internal_expr_desc
+    in
     {
       err_input_seq = inputs;
-      err_location = on_err_loc_syn;
+      err_location = actual_err_loc;
       err_errors = List.concat ton_err_list;
     }
 

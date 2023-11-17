@@ -34,7 +34,7 @@ module BluejayTranslationMonad : sig
   (** Map a semantic bluejay expression to the syntactic bluejay type it has **)
 
   val add_wrapped_to_unwrapped_mapping :
-    sem_bluejay_edesc -> sem_bluejay_edesc -> unit m
+  syn_bluejay_edesc -> syn_bluejay_edesc -> unit m
 
   val add_core_to_sem_mapping :
     core_bluejay_edesc -> sem_bluejay_edesc -> unit m

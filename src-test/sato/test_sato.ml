@@ -143,23 +143,13 @@ let is_error_expected (actual : Sato_result.reported_error)
   let () = print_endline @@ Test_expect.show expected in
   Test_expect.equal expected actual_error
 
-let test_one_file_lwt testname _switch () =
-  let config : Global_config.t =
-    (* filename = testname;
-       sato_mode = File_utils.lang_from_file testname;
-       ddpa_c_stk = Sato_args.default_ddpa_c_stk;
-       do_wrap = false;
-       do_instrument = true;
-       output_parsable = false; *)
-    {
-      Global_config.default_sato_config with
-      mode = Global_config.Sato (File_utils.lang_from_file testname);
-      timeout = Some (Time_float.Span.of_int_sec 2);
-    }
+let test_one_file testname _switch () =
+  let config =
+    { Global_config.default_sato_test_config with filename = testname }
   in
   let program_full =
     File_utils.read_source_full ~do_wrap:config.is_wrapped
-      ~do_instrument:config.is_instrumented testname
+      ~do_instrument:config.is_instrumented config.filename
   in
   let%lwt errors_opt, _ = Sato.Main.main_lwt ~config program_full in
   let expectation = File_utils.load_expect_s testname in
@@ -183,11 +173,11 @@ let main test_path =
   let grouped_tests =
     Directory_utils.map_in_groups
       ~f:(fun _ test_name test_path ->
-        Alcotest_lwt.test_case test_name `Quick @@ test_one_file_lwt test_path)
+        Alcotest_lwt.test_case test_name `Quick @@ test_one_file test_path)
       test_path
   in
   Lwt_main.run @@ Alcotest_lwt.run "Sato" grouped_tests ;
   ()
 
-(* let () = main "test/sato" *)
+(* let () = main "test/sato/jay" *)
 let () = main "test/sato/playing-ground"

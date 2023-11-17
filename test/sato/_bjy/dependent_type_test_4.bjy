@@ -1,7 +1,15 @@
-let mk_rec age = 
-    if age >= 18 then {: age : int, employed : bool :} else {: age : int :} 
+let rec notNeg l = 
+    match l with
+    | [] -> true
+    | hd :: tl -> if hd >= 0 then notNeg tl else false
+    end
 in
-letd mk_student (n : int) : bool -> (mk_rec n) = fun employed ->
-    if n > 18 then {age = n, employed = employed} else {age = n}
+let rec sum x acc = 
+    match x with
+    | [] -> acc
+    | hd :: tl -> sum tl (acc + hd)
+    end
 in
-mk_student
+letd f (l : {. (List int) | notNeg }) : {. int | fun a -> (a > 0 and (sum l 0 == a)) } = 
+    sum l 0
+in f
