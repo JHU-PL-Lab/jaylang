@@ -145,7 +145,11 @@ let is_error_expected (actual : Sato_result.reported_error)
 
 let test_one_file testname _switch () =
   let config =
-    { Global_config.default_sato_test_config with filename = testname }
+    {
+      Global_config.default_sato_test_config with
+      filename = testname;
+      mode = Sato (Dj_common.File_utils.lang_from_file testname);
+    }
   in
   let program_full =
     File_utils.read_source_full ~do_wrap:config.is_wrapped
@@ -179,5 +183,5 @@ let main test_path =
   Lwt_main.run @@ Alcotest_lwt.run "Sato" grouped_tests ;
   ()
 
-(* let () = main "test/sato/jay" *)
-let () = main "test/sato/playing-ground"
+(* let () = main "test/sato/bjy" *)
+let () = main "test/sato/_playing-ground"
