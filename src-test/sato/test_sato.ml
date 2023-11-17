@@ -162,7 +162,7 @@ let test_one_file_lwt testname _switch () =
       ~do_instrument:config.is_instrumented testname
   in
   let%lwt errors_opt, _ = Sato.Main.main_lwt ~config program_full in
-  let expectation = Test_expect.load_sexp_expectation_for testname in
+  let expectation = File_utils.load_expect_s testname in
   let test_result =
     match expectation with
     | None ->

@@ -8,7 +8,7 @@ let test_one_file testname _switch test_config =
   let is_instrumented = test_config.is_instrumented in
 
   let src = File_utils.read_source ~do_instrument:is_instrumented testname in
-  let expectation = Test_expect.load_sexp_expectation_for testname in
+  let expectation = File_utils.load_expect_d testname in
   let config : Global_config.t =
     let filename = testname in
     {

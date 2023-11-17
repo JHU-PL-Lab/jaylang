@@ -68,12 +68,6 @@ let clean_up_t t =
       let errs' = errs |> List.map ~f:clean_up_error_str in
       { found_at_clause = cls'; number_of_errors = n; error_list = errs' }
 
-let load_sexp_expectation_for testpath =
-  let expect_path = Filename.chop_extension testpath ^ ".expect.s" in
-  if Sys_unix.is_file_exn expect_path
-  then Some (Sexp.load_sexp_conv_exn expect_path t_of_sexp)
-  else None
-
 (*
 ** Bluejay Type Errors **
 - Input sequence  : 2
