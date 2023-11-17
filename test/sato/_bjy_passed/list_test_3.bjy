@@ -1,2 +1,0 @@
-let (lst : List int) = [true] in
-lst

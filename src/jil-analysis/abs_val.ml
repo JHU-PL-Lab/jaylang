@@ -65,6 +65,15 @@ module Make (Ctx : Finite_callstack.C) = struct
 
     let pp fmter env =
       Fmt.Dump.iter_bindings Std.iteri_core_map Fmt.nop Id.pp AVal.pp fmter env
+
+    let is_subsume (env1 : t) (env2 : t) =
+      if Map.length env1 > Map.length env2
+      then false
+      else
+        Map.for_alli env1 ~f:(fun ~key ~data:v1 ->
+            match Map.find env2 key with
+            | Some v2 -> AVal.equal v1 v2
+            | None -> false)
   end
 
   module AEnv = struct
@@ -104,6 +113,11 @@ module Make (Ctx : Finite_callstack.C) = struct
       | `Duplicate -> `Duplicate
 
     let empty : t = HC.make (Map.empty (module Id))
+
+    let is_subsume env1 env2 =
+      if equal env1 env2
+      then false
+      else AEnv_raw.is_subsume (HashCons.data env1) (HashCons.data env2)
   end
 
   type env_set = Set.M(AEnv).t [@@deriving equal, compare, hash, sexp]
@@ -161,7 +175,12 @@ module Make (Ctx : Finite_callstack.C) = struct
     let safe_add (store : t) ctx (aenv : AEnv.t) =
       let new_store =
         Map.update (HashCons.data store) ctx ~f:(function
-          | Some envs -> Set.add envs aenv
+          | Some envs ->
+              let envs' =
+                Set.filter envs ~f:(fun env -> AEnv.is_subsume env aenv)
+              in
+              Set.add envs' aenv
+              (* Set.add envs aenv *)
           | None -> Set.singleton (module AEnv) aenv)
       in
       HC.make new_store

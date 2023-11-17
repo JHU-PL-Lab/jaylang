@@ -68,3 +68,12 @@ let dump_to_file jil_ast filename =
   let formatter = Format.formatter_of_out_channel oc in
   Fmt.pf formatter "%a" Jayil.Pp.expr jil_ast ;
   Out_channel.close oc
+
+let load_expect testpath t_of_sexp =
+  let expect_path = Filename.chop_extension testpath ^ ".expect.s" in
+  if Sys_unix.is_file_exn expect_path
+  then Some (Sexp.load_sexp_conv_exn expect_path t_of_sexp)
+  else None
+
+let load_expect_d testpath = load_expect testpath Test_expect.t_of_sexp
+let load_expect_s testpath = load_expect testpath Test_expect_sato.t_of_sexp

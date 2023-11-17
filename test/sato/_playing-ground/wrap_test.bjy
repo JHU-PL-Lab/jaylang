@@ -1,0 +1,1 @@
+let f (x: List int) : List bool = x in f

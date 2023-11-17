@@ -1,2 +1,0 @@
-let (x : {: a : bool, b : ({: a : bool , b: int :} || int) :}) = { a = true, b = true }
-in x

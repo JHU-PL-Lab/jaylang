@@ -141,12 +141,8 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
          | Riddler.Found_solution { model; c_stk } ->
              ignore @@ raise (Riddler.Found_solution { model; c_stk })
          | exn -> failwith (Stdlib.Printexc.to_string exn)) ;
-    let do_work () =
-      Lookup.run_dbmc ~config ~state >|= fun _ -> post_check false
-    in
-    match config.timeout with
-    | Some ts -> Lwt_unix.with_timeout (Time_float.Span.to_sec ts) do_work
-    | None -> do_work ()
+    Timeout_utils.no_matter config.timeout (fun () ->
+        Lookup.run_dbmc ~config ~state >|= fun _ -> post_check false)
   with
   | Riddler.Found_solution { model; c_stk } ->
       Lwt.return (handle_found config state model c_stk)

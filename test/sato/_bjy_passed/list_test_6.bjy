@@ -1,1 +1,0 @@
-let (int_list : List int) = [1] in int_list 

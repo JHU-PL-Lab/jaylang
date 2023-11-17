@@ -1,0 +1,1 @@
+let (r : {: a : int, b : int :}) = {a = 1, c = 3} in r

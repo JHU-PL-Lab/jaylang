@@ -783,10 +783,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       (* This is the stack of the "false" value that indicates where the error
          is located. *)
       (* let () =
-        Fmt.pr "\nThese are the aliases: %a \n"
-          (Fmt.list Id_with_stack.pp)
-          jayil_aliases_with_stack
-      in *)
+           Fmt.pr "\nThese are the aliases: %a \n"
+             (Fmt.list Id_with_stack.pp)
+             jayil_aliases_with_stack
+         in *)
       let relevant_stk =
         match List.last jayil_aliases_with_stack with
         | Some (_, final_stk) -> final_stk
@@ -828,9 +828,9 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                (Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps)
       in
       (* let () =
-        Fmt.pr "\n\n\nThese are the jayil_vars: %a\n\n\n"
-          (Fmt.list Jayil.Pp.var_) jayil_vars
-      in *)
+           Fmt.pr "\n\n\nThese are the jayil_vars: %a\n\n\n"
+             (Fmt.list Jayil.Pp.var_) jayil_vars
+         in *)
       (* Getting all the aliases (for runtime value lookup) *)
       let alias_graph = interp_session.alias_graph in
       let jayil_vars_with_stack : Id_with_stack.t list =
@@ -848,10 +848,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         |> List.concat
       in
       (* let () =
-        Fmt.pr "\n\n\nThese are the jayil_vars_with_stack: %a\n\n\n"
-          (Fmt.list Id_with_stack.pp)
-          jayil_vars_with_stack
-      in *)
+           Fmt.pr "\n\n\nThese are the jayil_vars_with_stack: %a\n\n\n"
+             (Fmt.list Id_with_stack.pp)
+             jayil_vars_with_stack
+         in *)
       (* Helper function for looking up the value definition clause *)
       let rec find_val
           (vdef_mapping :
@@ -881,15 +881,8 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let check_aliases_for_type (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
           Bluejay_ast_internal.syn_bluejay_edesc option =
         let jayil_vars =
-          ed |> fun ed' ->
-          (* let () =
-               print_endline @@ Bluejay_ast_pp.show_expr_desc
-               @@ Bluejay_ast_internal.from_internal_expr_desc ed
-             in *)
-          Option.value ~default:ed'
-            (Bluejay_to_jay_maps.wrapped_bluejay_from_unwrapped_bluejay
-               bluejay_jay_maps ed')
-          |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps 
+          ed
+          |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps
           |> Bluejay_to_jay_maps.get_core_expr_from_sem_expr bluejay_jay_maps
           |> Option.value_exn |> Bluejay_ast_internal.to_jay_expr_desc
           (* |> fun x ->
@@ -925,7 +918,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                     bluejay_jay_maps)
           |> List.map
                ~f:
-                  (Bluejay_to_jay_maps.unwrapped_bluejay_from_wrapped_bluejay
+                 (Bluejay_to_jay_maps.unwrapped_bluejay_from_wrapped_bluejay
                     bluejay_jay_maps)
           |> List.filter ~f:(fun ed ->
                  List.mem relevant_tags ed.tag ~equal:( = ))

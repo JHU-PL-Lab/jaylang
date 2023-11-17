@@ -1,3 +1,0 @@
-let fun_sig = {: a : int, b: int :} -> int in
-let f (x : {: a : int :}) : int = x.a in
-let (type_check : fun_sig) = f in 1

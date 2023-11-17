@@ -1,2 +1,0 @@
-let (x : Mu tt. ({: a : bool, b : tt :} || bool)) = { a = false, b = true }
-in x

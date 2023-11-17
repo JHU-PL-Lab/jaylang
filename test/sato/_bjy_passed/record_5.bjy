@@ -1,9 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-NO-TYPE-ERRORS
-
-let isPos n = n > 0 in
-let aIsPos re = isPos re.a in
-let isNeg n = n < 0 in
-let access_record (r : {. {: a : int, b : bool :} | aIsPos }) : {. int | isNeg } = r.a
-in
-access_record

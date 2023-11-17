@@ -3,12 +3,12 @@ open Dj_common
 open Dbmc
 open Test_argparse
 
-let test_one_file test_config testname () =
+let test_one_file testname _switch test_config =
   let open Lwt.Syntax in
   let is_instrumented = test_config.is_instrumented in
 
   let src = File_utils.read_source ~do_instrument:is_instrumented testname in
-  let expectation = Test_expect.load_sexp_expectation_for testname in
+  let expectation = File_utils.load_expect_d testname in
   let config : Global_config.t =
     let filename = testname in
     {
@@ -56,21 +56,12 @@ let test_one_file test_config testname () =
               Lwt.return_unit)
         expectations
 
-let test_one_file_lwt testname _switch test_config =
-  match test_config.timeout with
-  | Some t -> (
-      try%lwt
-        Lwt_unix.with_timeout (Time_float.Span.to_sec t) (fun () ->
-            test_one_file test_config testname ())
-      with Lwt_unix.Timeout -> failwith "test_dbmc: timeout")
-  | None -> test_one_file test_config testname ()
-
 let () =
   let top_config = Test_argparse.parse_test_commandline () in
   let grouped_tests =
     Directory_utils.map_in_groups
       ~f:(fun _ test_name test_path ->
-        Alcotest_lwt.test_case test_name `Quick @@ test_one_file_lwt test_path)
+        Alcotest_lwt.test_case test_name `Quick @@ test_one_file test_path)
       top_config.test_path
   in
   Lwt_main.run

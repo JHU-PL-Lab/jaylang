@@ -16,20 +16,3 @@ type one_case = {
 }
 
 and t = one_case list [@@deriving sexp, show { with_path = false }]
-
-let load_sexp_expectation_for testpath =
-  let expect_path = Filename.chop_extension testpath ^ ".expect.s" in
-  if Sys_unix.is_file_exn expect_path
-  then Some (Sexp.load_sexp_conv_exn expect_path t_of_sexp)
-  else None
-
-(* let t1 : t = {
-     runs = [[1]];
-     max_step = None;
-   }
-
-   let ss = sexp_of_t t1
-
-   let sss = Sexp.to_string ss
-
-   let t1v = sss |> Sexp.of_string |> t_of_sexp *)

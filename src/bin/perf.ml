@@ -6,7 +6,7 @@ let dummy_name = ""
 
 let perf_one_file raw_config short_name filename =
   let config : Global_config.t =
-    match Test_expect.load_sexp_expectation_for filename with
+    match File_utils.load_expect_d filename with
     | Some eps ->
         let ep = List.hd_exn eps in
         {
