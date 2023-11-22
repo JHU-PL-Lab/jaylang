@@ -99,7 +99,7 @@ let default_sato_test_config =
     analyzer = K_ddpa 1;
     mode = Sato File_utils.Jayil;
     timeout = Some (Time_float.Span.of_int_sec 2);
-    is_wrapped = true;
+    is_wrapped = false;
     is_instrumented = true;
     dump_instrumented = false;
   }
