@@ -27,11 +27,10 @@ let timeout_parser : Time_float.Span.t Command.Arg_type.t =
   Command.Arg_type.create (fun s ->
       Scanf.sscanf s "%d" Time_float.Span.of_int_sec)
 
-let int_option_list_parser : int option list Command.Arg_type.t =
+let input_spec_parser : Input_spec.t Command.Arg_type.t =
   Command.Arg_type.create (fun s ->
       String.split_on_chars s ~on:[ ',' ]
-      |> List.map ~f:(fun s ->
-             if String.equal s "_" then None else Some (Int.of_string s)))
+      |> List.map ~f:Input_spec.token_of_string)
 
 let engine_parser =
   Command.Arg_type.of_alist_exn [ ("dbmc", E_dbmc); ("ddse", E_ddse) ]
@@ -39,6 +38,8 @@ let engine_parser =
 let encode_policy_parser =
   Command.Arg_type.of_alist_exn
     [ ("inc", Only_incremental); ("shrink", Always_shrink) ]
+
+let latter_option l1 l2 = Option.merge l1 l2 ~f:(fun _ y -> y)
 
 let params_with ~config : Global_config.t Command.Param.t =
   let open Command.Let_syntax in
@@ -55,8 +56,6 @@ let params_with ~config : Global_config.t Command.Param.t =
   and is_wrapped = flag "-w" no_arg ~doc:"wrapped"
   and is_instrumented = flag "-a" no_arg ~doc:"instrumented"
   and dump_instrumented = flag "-ad" no_arg ~doc:"dump instrumented"
-  and expected_inputs =
-    flag "-i" (optional int_option_list_parser) ~doc:"expected inputs"
   and analyzer =
     flag "-aa"
       (optional_with_default config.analyzer
@@ -97,8 +96,10 @@ let params_with ~config : Global_config.t Command.Param.t =
   and debug_graph = flag "-dg" no_arg ~doc:"output graphviz dot"
   and debug_interpreter = flag "-di" no_arg ~doc:"check the interpreter"
   and is_check_per_step = flag "-dcs" no_arg ~doc:"check per step"
-  and force_sato = flag "-s" no_arg ~doc:"sato mode" in
-  let latter_option l1 l2 = Option.merge l1 l2 ~f:(fun _ y -> y) in
+  and force_sato = flag "-s" no_arg ~doc:"sato mode"
+  and expected_inputs =
+    flag "-ei" (optional input_spec_parser) ~doc:"expected inputs"
+  and expected_from_file = flag "-ef" no_arg ~doc:"expected from file" in
   let mode =
     if force_sato || Option.is_none target
     then Sato (File_utils.lang_from_file filename)
@@ -116,6 +117,7 @@ let params_with ~config : Global_config.t Command.Param.t =
     is_instrumented;
     dump_instrumented;
     mode;
+    expected_from_file;
     analyzer;
     run_max_step;
     timeout;

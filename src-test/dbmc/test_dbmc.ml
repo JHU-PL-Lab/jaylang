@@ -5,56 +5,29 @@ open Test_argparse
 
 let test_one_file testname _switch test_config =
   let open Lwt.Syntax in
-  let is_instrumented = test_config.is_instrumented in
-
-  let src = File_utils.read_source ~do_instrument:is_instrumented testname in
-  let expectation = File_utils.load_expect_d testname in
-  let config : Global_config.t =
-    let filename = testname in
-    {
-      Global_config.default_config with
-      filename;
-      analyzer = test_config.analyzer;
-      engine = test_config.engine;
-      is_instrumented;
-      stride_init = test_config.initial_stride;
-      timeout = test_config.timeout;
-    }
-  in
+  let expects = File_utils.load_expect_d testname in
+  let config = Test_argparse.lift_to_global_config test_config testname in
+  let src = Global_config.read_source config in
   Dj_common.Log.init config ;
-  match expectation with
-  | None ->
-      let state = Global_state.create config src in
-      let* { is_timeout; _ } = Main.main_lwt ~config ~state src in
-      prerr_endline "search_input, no expectation, end" ;
-      Lwt.return
-      @@ Alcotest.(check bool) "search_input: timeout" false is_timeout
-  | Some expectations ->
-      Lwt_list.iter_s
-        (fun (expectation : Test_expect.one_case) ->
-          let config = { config with target = Id.Ident expectation.target } in
-          let state = Global_state.create config src in
-          match List.hd expectation.inputs with
-          | Some inputs ->
-              let config =
-                { config with mode = Global_config.Dbmc_check inputs }
-              in
-              let* { is_timeout; _ } = Main.main_lwt ~config ~state src in
-              Lwt.return
-              @@ Alcotest.(check bool) "check_input: timeout" false is_timeout
-          | None ->
-              let* { inputss; _ } = Main.main_lwt ~config ~state src in
-              let () =
-                match List.hd inputss with
-                | Some _inputs ->
-                    Alcotest.(check bool) "shouldn't have result" true false
-                | None ->
-                    Alcotest.(check int)
-                      "equal" 0
-                      (List.length expectation.inputs)
-              in
-              Lwt.return_unit)
-        expectations
+
+  Lwt_list.iter_s
+    (fun (expect : Test_expect.one_case) ->
+      let config = Global_config.with_expect expect config in
+      let* { is_timeout; inputss; state; _ } = Main.main_top_lwt ~config src in
+
+      prerr_endline (string_of_bool is_timeout) ;
+      if is_timeout then Alcotest.(check bool) "timeout" false is_timeout ;
+
+      (if (not (List.is_empty inputss))
+          && not (Input_spec.is_no_spec expect.inputs)
+       then
+         let reachable =
+           Main.check_expected_input ~config ~state expect.inputs
+         in
+         Alcotest.(check bool) "expected input" true reachable) ;
+
+      Lwt.return_unit)
+    expects
 
 let () =
   let top_config = Test_argparse.parse_test_commandline () in

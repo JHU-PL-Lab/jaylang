@@ -1,8 +1,6 @@
 (
   (
-    (inputs (
-      (2)
-    ))
+    (inputs (2))
     (target c)
   )
 )

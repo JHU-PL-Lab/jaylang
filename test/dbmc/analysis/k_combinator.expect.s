@@ -1,8 +1,6 @@
 (
   (
-    (inputs (
-      (_ _)
-    ))
+    (inputs (_ _))
     (target z)
   )
 )

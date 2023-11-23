@@ -108,7 +108,7 @@ let make_lookup () =
   let open Core in
   let open Dbmc in
   let config : Global_config.t = Argparse.parse_commandline () in
-  let program = File_utils.read_source config.filename in
+  let program = Global_config.read_source config in
   let state : Global_state.t = Global_state.create config program in
   let lookup_task () =
     Lwt_mutex.lock Control_center.mutex >>= fun () ->

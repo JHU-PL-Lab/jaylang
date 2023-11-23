@@ -15,8 +15,21 @@ let default_config =
     engine = Global_config.default_config.engine;
     is_instrumented = false;
     timeout = Some (Time_float.Span.of_int_sec 5);
+    (* timeout = None; *)
     test_path = "test/dbmc";
     initial_stride = Global_config.default_config.stride_init;
+  }
+
+let lift_to_global_config (tc : config) testname : Global_config.t =
+  {
+    Global_config.default_config with
+    filename = testname;
+    analyzer = tc.analyzer;
+    engine = tc.engine;
+    expected_from_file = true;
+    is_instrumented = tc.is_instrumented;
+    stride_init = tc.initial_stride;
+    timeout = tc.timeout;
   }
 
 let top_config = ref (Some default_config)

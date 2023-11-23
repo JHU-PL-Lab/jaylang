@@ -25,19 +25,15 @@ let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t)
     let mode = Interpreter.With_target_x config.target in
     Interpreter.create_session state config mode input_feeder
   in
-  let expected_stk =
-    try Interpreter.eval session state.info.program with
-    | Interpreter.Found_target target ->
-        Fmt.(
-          pr "[Expected]%a"
-            (list (Std.pp_tuple3 Id.pp Concrete_stack.pp (option int))))
-          !history ;
-        target.stk
-    | ex -> raise ex
-  in
-  if Solver.check_expected_input_sat expected_stk !history state.solve.solver
-  then ()
-  else failwith "expected input leads to a wrong place."
+  try Interpreter.eval session state.info.program with
+  | Interpreter.Found_target target ->
+      Fmt.(
+        pr "[Expected]%a"
+          (list (Std.pp_tuple3 Id.pp Concrete_stack.pp (option int))))
+        !history ;
+      let expected_stk = target.stk in
+      Solver.check_expected_input_sat expected_stk !history state.solve.solver
+  | ex -> false
 
 let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
     (target_stack : Concrete_stack.t) =
@@ -104,19 +100,12 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
         Concrete_stack.pp c_stk) ;
   Observe.update_rstk_pick config state model ;
   handle_both config state (Some model) ;
-
   let inputs_from_interpreter = get_input ~config ~state model c_stk in
-  (match config.mode with
-  | Dbmc_check inputs -> check_expected_input ~config ~state inputs
-  | _ -> ()) ;
   ([ inputs_from_interpreter ], false, Some (model, c_stk))
 
 let handle_not_found (config : Global_config.t) (state : Global_state.t)
     is_timeout : result_no_state =
   SLog.info (fun m -> m "UNSAT") ;
-  (* (match config.mode with
-     | Dbmc_check inputs -> check_expected_input ~config ~state inputs
-     | _ -> ()) ; *)
   if config.debug_model
   then
     SLog.debug (fun m ->
@@ -146,8 +135,12 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
   with
   | Riddler.Found_solution { model; c_stk } ->
       Lwt.return (handle_found config state model c_stk)
-  | Lwt_unix.Timeout -> Lwt.return @@ post_check true
-  | exn -> Lwt.return @@ handle_not_found config state true
+  | Lwt_unix.Timeout ->
+      prerr_endline "real timeout" ;
+      Lwt.return @@ post_check true
+  | exn ->
+      Fmt.pr "exn = %s" (Stdlib.Printexc.to_string exn) ;
+      Lwt.return @@ handle_not_found config state false
 
 (* The main function should have only one function that doing all the work.
     The function is configured by a pre-tuned argument config.
@@ -171,19 +164,22 @@ let dump_result ~(config : Global_config.t) symbolic_result =
   | Dbmc_check _ -> dump_result symbolic_result
   | _ -> Fmt.pr "."
 
-let load_program ~(config : Global_config.t) =
-  let do_instrument = config.is_instrumented in
-  let target_var = Var (config.target, None) in
-  File_utils.read_source ~do_instrument ~consts:[ target_var ] config.filename
-
 let main_lwt ~config ~state program =
   let%lwt inputss, is_timeout, symbolic_result = main_lookup ~config ~state in
   dump_result ~config symbolic_result ;
   Lwt.return { inputss; is_timeout; symbolic_result; state }
 
-let main_top ~config program =
+let main_top_lwt ~config program =
   let state = Global_state.create config program in
-  Lwt_main.run (main_lwt ~config ~state program)
+  main_lwt ~config ~state program
+
+let main_top ~config program = Lwt_main.run (main_top_lwt ~config program)
+
+let main_config_lwt config =
+  let program = Global_config.read_source config in
+  main_top_lwt ~config program
+
+let main_config config = Lwt_main.run (main_config_lwt config)
 
 let main_commandline () =
   try
@@ -193,9 +189,16 @@ let main_commandline () =
 
     Log.init config ;
 
-    let program = load_program ~config in
+    let program = Global_config.read_source config in
     if Stage.equal config.stage Stage.Load_file
     then raise (Stage_host.Stage_result (Load_file program)) ;
+
+    let config =
+      if config.expected_from_file
+      then Global_config.load_expect config
+      else config
+    in
+
     let state = Global_state.create config program in
     if Stage.equal config.stage Stage.State_init
     then raise (Stage_host.Stage_result (State_init state)) ;
@@ -210,7 +213,13 @@ let main_commandline () =
         match List.hd inputss with
         | Some inputs -> Fmt.pr "[%s]@;" (Std.string_of_opt_int_list inputs)
         | None -> Fmt.pr "Unreachable")
-    | Dbmc_check inputs -> Fmt.pr "%B" is_timeout
+    | Dbmc_check inputs ->
+        (match List.hd inputss with
+        | Some _inputs ->
+            if not (check_expected_input ~config ~state inputs)
+            then failwith "expected input cannot reach the target"
+        | None -> failwith "should not be reachable") ;
+        Fmt.pr "%B" is_timeout
     | Dbmc_perf -> Fmt.pr "."
     | _ -> ()) ;
     (* TODO: mimic a `finally` for it *)

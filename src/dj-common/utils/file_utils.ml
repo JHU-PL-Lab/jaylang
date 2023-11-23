@@ -38,10 +38,6 @@ let parse_jayil_file filename = In_channel.with_file filename ~f:parse_jayil
 let parse_bluejay_file filename =
   In_channel.with_file filename ~f:Bluejay.Bluejay_parse.parse_program
 
-let print_delimiter_line content =
-  print_endline "*************************************" ;
-  print_endline content
-
 let read_source_full ?(do_wrap = false) ?(do_instrument = false) ?(consts = [])
     filename =
   let convert_result =
@@ -75,5 +71,9 @@ let load_expect testpath t_of_sexp =
   then Some (Sexp.load_sexp_conv_exn expect_path t_of_sexp)
   else None
 
-let load_expect_d testpath = load_expect testpath Test_expect.t_of_sexp
+let load_expect_d testpath =
+  match load_expect testpath Test_expect.t_of_sexp with
+  | Some e -> e
+  | None -> [ Test_expect.default ]
+
 let load_expect_s testpath = load_expect testpath Test_expect_sato.t_of_sexp

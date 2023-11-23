@@ -1,6 +1,4 @@
 (
-  (inputs (
-    (0)
-  ))
+  (inputs (0))
   (target end)
 )

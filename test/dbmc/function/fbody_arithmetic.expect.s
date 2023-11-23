@@ -1,8 +1,6 @@
 (
   (
-    (inputs (
-      (3)
-    ))
+    (inputs (3))
     (target good)
   )
 )
