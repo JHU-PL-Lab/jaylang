@@ -6,6 +6,11 @@ open Cfg
 open Log.Export
 module U_ddse = Lookup_ddse_rule.U
 
+let scheduler_run (state : Global_state.t) =
+  let q = state.job.job_queue in
+  LLog.app (fun m -> m "[Queue]size = %d" (Pairing_heap.length q)) ;
+  Scheduler.run q
+
 let push_job (state : Global_state.t) (key : Lookup_key.t) task () =
   (* Scheduler.push state.job_queue key task *)
   let job_key : Job_key.t =
@@ -110,7 +115,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
   let%lwt _ =
     Lwt.pick
       [
-        (let%lwt _ = Scheduler.run state.job.job_queue in
+        (let%lwt _ = scheduler_run state in
          Lwt.return_unit);
         wait_result;
       ]
@@ -193,5 +198,5 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     Lwt.return_unit
   in
   run_eval state.info.key_target lookup_main ;
-  let%lwt _ = Scheduler.run state.job.job_queue in
+  let%lwt _ = scheduler_run state in
   Lwt.return_unit
