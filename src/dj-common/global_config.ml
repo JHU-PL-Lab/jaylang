@@ -14,13 +14,24 @@ type mode =
 type engine = E_dbmc | E_ddse
 type encode_policy = Only_incremental | Always_shrink
 
+type stage = Argparse | Load_file | State_init | Lookup | All_done
+[@@deriving variants, equal]
+
+let stage_of_str str =
+  match str with
+  | "argparse" | "ap" -> Argparse
+  | "load_file" | "lf" -> Load_file
+  | "state_init" | "si" -> State_init
+  | "lookup" | "lu" -> Lookup
+  | "all_done" | "ad" | "all" | _ -> All_done
+
 type t = {
   (* basic *)
   target : Id.t;
   filename : Filename.t;
   (* mode *)
   mode : mode;
-  stage : Stage.t;
+  stage : stage;
   analyzer : analyzer;
   engine : engine;
   is_wrapped : bool;

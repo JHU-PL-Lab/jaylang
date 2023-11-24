@@ -181,17 +181,26 @@ let main_config_lwt config =
 
 let main_config config = Lwt_main.run (main_config_lwt config)
 
+type stage_result =
+  | Argparse of Global_config.t
+  | Load_file of Jayil.Ast.expr
+  | State_init of Global_state.t
+  | Lookup of unit
+  | All_done of unit
+
+exception Stage_result of stage_result
+
 let main_commandline () =
   try
     let config = Argparse.parse_commandline () in
-    if Stage.equal config.stage Stage.Argparse
-    then raise (Stage_host.Stage_result (Argparse config)) ;
+    if Global_config.equal_stage config.stage Global_config.Argparse
+    then raise (Stage_result (Argparse config)) ;
 
     Log.init config ;
 
     let program = Global_config.read_source config in
-    if Stage.equal config.stage Stage.Load_file
-    then raise (Stage_host.Stage_result (Load_file program)) ;
+    if Global_config.equal_stage config.stage Global_config.Load_file
+    then raise (Stage_result (Load_file program)) ;
 
     let config =
       if config.expected_from_file
@@ -200,12 +209,12 @@ let main_commandline () =
     in
 
     let state = Global_state.create config program in
-    if Stage.equal config.stage Stage.State_init
-    then raise (Stage_host.Stage_result (State_init state)) ;
+    if Global_config.equal_stage config.stage Global_config.State_init
+    then raise (Stage_result (State_init state)) ;
     let result = Lwt_main.run (main_lwt ~config ~state program) in
 
-    if Stage.equal config.stage Stage.Lookup
-    then raise (Stage_host.Stage_result (Lookup ())) ;
+    if Global_config.equal_stage config.stage Global_config.Lookup
+    then raise (Stage_result (Lookup ())) ;
     let { inputss; is_timeout; state; _ } = result in
 
     (match config.mode with
@@ -225,7 +234,7 @@ let main_commandline () =
     (* TODO: mimic a `finally` for it *)
     Log.close ()
   with
-  | Stage_host.Stage_result r -> (
+  | Stage_result r -> (
       match r with
       | Argparse _ -> Fmt.pr "Reach Argparse"
       | Load_file _ -> Fmt.pr "Reach Load_file"

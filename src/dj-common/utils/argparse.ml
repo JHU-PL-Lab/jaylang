@@ -49,7 +49,7 @@ let params_with ~config : Global_config.t Command.Param.t =
   and stage =
     flag "-st"
       (optional_with_default config.stage
-         (Command.Arg_type.create Stage.of_str))
+         (Command.Arg_type.create stage_of_str))
       ~doc:"stage"
   and engine =
     flag "-e" (optional_with_default config.engine engine_parser) ~doc:"engine"
