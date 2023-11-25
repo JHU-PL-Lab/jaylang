@@ -1,7 +1,7 @@
 # EXPECT-WELL-FORMED
 # EXPECT-INPUT-IS 4
 # EXPECT-EVALUATES
-# EXPECT-INPUT-SEQUENCES-REACH good [ 2 ]
+# EXPECT-INPUT-SEQUENCES-REACH target [ 2 ]
 
 zero = 0;
 one = 1;
@@ -23,4 +23,4 @@ count = f f;
 num = input;
 total = count num;
 condition = total < two;
-final = condition ? ( dummy1 = 0; bad = false; ) : ( dummy2 = 0; good = true );
+final = condition ? ( dummy1 = 0; bad = false; ) : ( dummy2 = 0; target = true );

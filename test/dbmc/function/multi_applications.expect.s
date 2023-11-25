@@ -1,6 +1,5 @@
 (
   (
     (inputs (_))
-    (target result)
   )
 )

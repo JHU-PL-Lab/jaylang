@@ -65,7 +65,8 @@ let default_config =
   {
     target = Id.(Ident "target");
     filename = "";
-    timeout = None (* Some (Time_float.Span.of_int_sec 2); *);
+    (* timeout = None  *)
+    timeout = Some (Time_float.Span.of_int_sec 5);
     stride_init = 100;
     stride_max = 100;
     encode_policy = Only_incremental;
@@ -113,6 +114,8 @@ let default_sato_test_config =
     is_instrumented = true;
     dump_instrumented = false;
   }
+
+let with_filename filename = { default_config with filename }
 
 let with_expect (expect : Test_expect.one_case) config =
   let config' = { config with target = Id.Ident expect.target } in

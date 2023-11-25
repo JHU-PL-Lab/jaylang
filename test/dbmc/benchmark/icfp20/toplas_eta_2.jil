@@ -1,4 +1,4 @@
-# EXPECT-INPUT-SEQUENCES-REACH r_9 [ 0 ]
+# EXPECT-INPUT-SEQUENCES-REACH target [ 0 ]
 # EXPECT-INPUT-SEQUENCES-REACH r_10 [ 0 ]
 # EXPECT-INPUT-SEQUENCES-REACH r_1 [ 0 ]
 
@@ -6,7 +6,7 @@ x = input;
 
 make_do_something = fun hx -> (
   dummy_1 = 0;
-  r_9 = fun i_0 -> (
+  target = fun i_0 -> (
     dummy_2 = 0;
     r_1 = hx;
   );

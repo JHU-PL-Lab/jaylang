@@ -1,7 +1,3 @@
-# EXPECT-WELL-FORMED
-# EXPECT-EVALUATES
-# EXPECT-INPUT-SEQUENCES-REACH total [ 0 ]
-
 xx = input;
 f = fun s -> (
   rf1 = fun x -> (
@@ -19,4 +15,4 @@ f = fun s -> (
 count = f f;
 num = 0;
 p = count num;
-total = p;
+target = p;

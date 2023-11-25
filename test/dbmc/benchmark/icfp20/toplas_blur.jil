@@ -1,8 +1,8 @@
 # EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH c [ 0 ]
+# EXPECT-INPUT-SEQUENCES-REACH target [ 0 ]
 ##
-## * Did not generate input sequence [2] for variable c.
-## It should reach c for any input
+## * Did not generate input sequence [2] for variable target.
+## It should reach target for any input
 
 # countdown on n,
 #   return (id a) if n >= 1
@@ -28,9 +28,8 @@ lp = fun lp_clone -> (
     r_2 = fun n -> (
       dummy_2 = 0;
       one = 1;
-      c = n <= one;
-      r_6 = c
-      ? (
+      target = n <= one;
+      r_6 = target ? (
         dummy_3 = 0;
         r_1 = id a;
       ) : (

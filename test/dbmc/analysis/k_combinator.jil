@@ -15,4 +15,4 @@ a = input;
 b = input;
 q = f a;
 zz = q b;
-z = zz
+target = zz

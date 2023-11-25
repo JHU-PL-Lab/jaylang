@@ -1,7 +1,6 @@
 (
   (
     (inputs (_))
-    (target r_9)
   )
     (
     (inputs (_))
