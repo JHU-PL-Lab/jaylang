@@ -7,9 +7,9 @@ open Log.Export
 module U_ddse = Lookup_ddse_rule.U
 
 let scheduler_run (state : Global_state.t) =
-  let q = state.job.job_queue in
-  LLog.app (fun m -> m "[Queue]size = %d" (Pairing_heap.length q)) ;
-  Scheduler.run q
+  let s = state.job.job_queue in
+  LLog.app (fun m -> m "[Queue]size = %d" (Pairing_heap.length s.heap)) ;
+  Scheduler.run s
 
 let push_job (state : Global_state.t) (key : Lookup_key.t) task () =
   (* Scheduler.push state.job_queue key task *)

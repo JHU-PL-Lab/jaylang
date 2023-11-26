@@ -12,7 +12,7 @@
   (run ./test_rstack.exe)))
 
 (tests
- (names test_interp test_rstack)
+ (names test_interp test_rstack test_scheduler)
  (libraries core core_bench alcotest jayil jayil_parser dbmc)
  (preprocess
   (pps ppx_jane)))

@@ -74,9 +74,11 @@ test-z3-heavy:
 	dune exec src-test/sudu/test_heavy.exe 
 
 test-rstack:
-	dune runtest src-test/dbmc/inline-expect
+	dune runtest src-test/unit/inline-expect
 	dune promote
 
+test-sched:
+	dune exec src-test/unit/test_scheduler.exe
 
 # profiling
 
