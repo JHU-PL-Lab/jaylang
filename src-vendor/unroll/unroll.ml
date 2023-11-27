@@ -110,9 +110,18 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
                 detail.messages <- detail.messages @ [ msg ]
             | None -> ())
 
+  let real_close t key =
+    let detail = find_detail t key in
+    detail.push None
+
+  let just_push t key v =
+    match v with Some msg -> real_push t key msg | None -> real_close t key
+
+  let push_all t key msgs = List.iter msgs ~f:(real_push t key)
+
   let by_return t key v =
-    let pusher = real_push t key in
-    pusher v
+    real_push t key v ;
+    real_close t key
 
   let by_iter t key_src f =
     let stream_src = get_stream t key_src in
@@ -164,7 +173,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
   let by_join t ?(f = Fn.id) key_src key_dsts =
     let cb = real_push t key_src in
     let stream_tgts = List.map key_dsts ~f:(get_stream t) in
-    Lwt_list.iter_s
+    Lwt_list.iter_p
       (fun lookup_x_ret -> Lwt_stream.iter (fun x -> cb (f x)) lookup_x_ret)
       stream_tgts
 

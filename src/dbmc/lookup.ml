@@ -13,7 +13,7 @@ let scheduler_run (state : Global_state.t) =
 
 let push_job (state : Global_state.t) (key : Lookup_key.t) task () =
   (* Scheduler.push state.job_queue key task *)
-  let job_key : Job_key.t =
+  let job_key : Global_state.job_key =
     { lookup = key; block_visits = Observe.get_block_visits state key }
   in
   Scheduler.push state.job.job_queue job_key task

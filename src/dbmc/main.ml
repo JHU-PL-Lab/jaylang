@@ -27,18 +27,13 @@ let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t)
   in
   try Interpreter.eval session state.info.program with
   | Interpreter.Found_target target ->
-      Fmt.(
-        pr "[Expected]%a"
-          (list (Std.pp_tuple3 Id.pp Concrete_stack.pp (option int))))
-        !history ;
-      let expected_stk = target.stk in
-      Solver.check_expected_input_sat expected_stk !history state.solve.solver
+      Solver.check_expected_input_sat target.stk !history state.solve.solver
   | ex -> false
 
 let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
     (target_stack : Concrete_stack.t) =
   let history = ref [] in
-  let input_feeder = Input_feeder.from_model ~history model target_stack in
+  let input_feeder = Checker.mk_input_feeder ~history model target_stack in
   let session =
     let max_step = config.run_max_step in
     let mode = Interpreter.With_full_target (config.target, target_stack) in
@@ -81,25 +76,13 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
   | ex -> raise ex) ;
   List.rev !history
 
-let handle_both (config : Global_config.t) (state : Global_state.t) model =
-  (* print graph *)
-  if config.debug_graph
-  then () (* Graphviz.output_graph ~model ~testname:config.filename state *)
-  else () ;
-  Observe.process_rstk_stat_map config state ;
-  (* Observe.dump_lookup_details state ; *)
-  SLog.warn (fun m ->
-      m "@,%a"
-        Fmt.(vbox (list ~sep:sp Check_info.pp))
-        (List.rev state.stat.check_infos))
-
 let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
     : result_no_state =
   LLog.info (fun m ->
       m "{target}\nx: %a\ntgt_stk: %a\n\n" Ast.pp_ident config.target
         Concrete_stack.pp c_stk) ;
   Observe.update_rstk_pick config state model ;
-  handle_both config state (Some model) ;
+  Observe.handle_both config state (Some model) ;
   let inputs_from_interpreter = get_input ~config ~state model c_stk in
   ([ inputs_from_interpreter ], false, Some (model, c_stk))
 
@@ -110,7 +93,7 @@ let handle_not_found (config : Global_config.t) (state : Global_state.t)
   then
     SLog.debug (fun m ->
         m "Solver Phis: %s" (Solver.string_of_solver state.solve.solver)) ;
-  handle_both config state None ;
+  Observe.handle_both config state None ;
   ([], is_timeout, None)
 
 let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)

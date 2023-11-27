@@ -1,10 +1,6 @@
 open! Core
 open Dj_common
 
-(* Hashtbl.t is mutable by default.
-   Using explicit *mutable* is for replacing a new one easier.
-*)
-
 (* Note on maps:
    The `State.t` should maintain any necessary datas.
 
@@ -47,9 +43,11 @@ module State = struct
     root_node_info : Search_graph.node;
   }
 
+  type job_key = { lookup : Lookup_key.t; block_visits : int }
+
   type job_state = {
     unroll : unroll_t;
-    job_queue : (Job_key.t, unit) Scheduler.t;
+    job_queue : (job_key, unit) Scheduler.t;
   }
 
   type solve_state = {

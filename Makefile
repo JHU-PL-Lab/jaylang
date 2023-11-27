@@ -80,6 +80,12 @@ test-rstack:
 test-sched:
 	dune exec src-test/unit/test_scheduler.exe
 
+test-unroll:
+	dune exec src-test/unit/test_unroll.exe
+
+test-dummy:
+	dune exec src-test/dbmc/test_dummy.exe
+
 # profiling
 
 perf:
