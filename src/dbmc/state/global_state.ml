@@ -26,13 +26,19 @@ let compute_info (config : Global_config.t) program : info =
     root_node_info;
   }
 
+let job_key_compare (jk1 : job_key) (jk2 : job_key) =
+  let visits_compare = Int.compare jk1.block_visits jk2.block_visits in
+  if visits_compare <> 0
+  then visits_compare
+  else Int.compare (Lookup_key.length jk1.lookup) (Lookup_key.length jk2.lookup)
+
 let create_job_state (config : Global_config.t) : job_state =
   {
     unroll =
       (match config.engine with
       | Global_config.E_dbmc -> S_dbmc (Unrolls.U_dbmc.create ())
       | Global_config.E_ddse -> S_ddse (Unrolls.U_ddse.create ()));
-    job_queue = Schedule.create ();
+    job_queue = Scheduler.create ~cmp:job_key_compare ();
   }
 
 let reset_job_state job_state =
@@ -138,23 +144,3 @@ let fetch_counter state key =
       | None -> failwith (Fmt.str "why not inited : %a" Lookup_key.pp key))
   in
   new_i - 1
-
-(* let picked_from model key =
-     Option.value
-       (Solver.SuduZ3.get_bool model (Riddler.picked key))
-       ~default:true
-
-   let collect_picked_input state model =
-     let node_picked (node : Node.t) =
-       let picked = picked_from model node.key in
-       picked
-     in
-     let sum_path acc_path node = acc_path && node_picked node in
-     let sum acc acc_path (node : Node.t) =
-       if acc_path && Hash_set.mem state.input_nodes node.key
-       then
-         let i = Solver.SuduZ3.get_int_s model (Lookup_key.to_string node.key) in
-         (node.key, i) :: acc
-       else acc
-     in
-     Node.fold_tree ~init:[] ~init_path:true ~sum ~sum_path !(state.root_node) *)

@@ -1,6 +1,4 @@
 (
-  (inputs (
-    ()
-  ))
+  (inputs ())
   (target impossible)
 )

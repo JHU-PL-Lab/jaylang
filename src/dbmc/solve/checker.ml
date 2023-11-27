@@ -203,3 +203,15 @@ let check_phis solver phis is_debug : result_info option =
      ;
      eager_check state config target assumption)
    else true *)
+
+let query_model model target_stack (x, call_stack) : int option =
+  let stk = Rstack.relativize target_stack call_stack in
+  let name = Lookup_key.to_str2 x stk in
+  Solver.SuduZ3.get_int_s model name
+
+let mk_input_feeder ?(history = ref []) model target_stack : Input_feeder.t =
+  let input_feeder = query_model model target_stack in
+  fun query ->
+    let answer = input_feeder query in
+    history := answer :: !history ;
+    Option.value ~default:42 answer

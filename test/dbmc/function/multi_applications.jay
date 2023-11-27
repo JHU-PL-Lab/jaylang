@@ -1,11 +1,8 @@
-# EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH result [ 0 ]
-
 let complete = 42
 in let x = input
 in let rec loop i =
   if i == 2
-  then let result = complete in result
+  then let target = complete in target
   else 0
 in let i0 = loop 0
 in let i1 = loop 1

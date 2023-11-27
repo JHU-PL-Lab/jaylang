@@ -1,6 +1,8 @@
 open Core
 open Lwt.Infix
-open Log.Export
+
+(* This scheduler will use `Lwt.async_exception_hook` so for safety
+   only one instance should be used at one time *)
 
 (* Scheduler doesn't need to maintain a key map to make it unique.
    For a scheduler, it should only require a heap that can pop a task when needed.
@@ -8,35 +10,37 @@ open Log.Export
 *)
 
 type ('key, 'r) job = { key : 'key; payload : unit -> 'r Lwt.t }
-type ('key, 'r) t = ('key, 'r) job Pairing_heap.t
+
+type ('key, 'r) t = {
+  heap : ('key, 'r) job Pairing_heap.t;
+  mutable is_complete : bool;
+}
 
 let create ~cmp () =
   let cmp j1 j2 = cmp j1.key j2.key in
-  Pairing_heap.create ~cmp ()
+  { heap = Pairing_heap.create ~cmp (); is_complete = false }
 
-let reset queue = Pairing_heap.clear queue
-let push h key payload = Pairing_heap.add h { key; payload }
-let pull h : ('key, 'r) job option = Pairing_heap.pop h
+let reset s = Pairing_heap.clear s.heap
+let set_complete s = s.is_complete <- true
+let push s key payload = Pairing_heap.add s.heap { key; payload }
+let pull s : ('key, 'r) job option = Pairing_heap.pop s.heap
 
-let rec run ?(is_empty = false) q : 'a Lwt.t =
-  Control_center.handle_available_commands () ;
-  Lwt_mutex.lock Control_center.mutex >>= fun () ->
-  Lwt_mutex.unlock Control_center.mutex ;
-  LLog.app (fun m -> m "[Queue]size = %d" (Pairing_heap.length q)) ;
-  match pull q with
-  | Some job ->
-      (* ignore @@ job (); *)
-      (* let%lwt _ = job () in *)
-      Lwt.async job.payload ;
-      Lwt_fmt.(flush stdout) ;%lwt
-      Lwt.pause () ;%lwt
-      run q
-  | None ->
-      if is_empty
-      then Lwt.return_none
-      else (
+let rec run s : 'a Lwt.t =
+  if s.is_complete
+  then Lwt.return_none
+  else
+    match pull s with
+    | Some job ->
+        let guarded_payload () =
+          if not s.is_complete then job.payload () else Lwt.return_unit
+        in
+        Lwt.async guarded_payload ;
         Lwt.pause () ;%lwt
-        run ~is_empty:true q)
+        run s
+    | None ->
+        s.is_complete <- true ;
+        Lwt.pause () ;%lwt
+        run s
 
 (*
 Can a queue be empty? Should it raise an exception when it's empty?
@@ -50,6 +54,12 @@ Can a queue be empty? Should it raise an exception when it's empty?
 
    However, we can create a sentinel Lwt.t and wait for that.
    The sentinel Lwt.t is created in the last task in `wait_all`.
+*)
+(*
+   let rec run ?(last_run = false) s : 'a Lwt.t =
+     (* Control_center.handle_available_commands () ;
+        Lwt_mutex.lock Control_center.mutex >>= fun () ->
+        Lwt_mutex.unlock Control_center.mutex ; *)
 *)
 (*
    exception EmptyTaskQueue

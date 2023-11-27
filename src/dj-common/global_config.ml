@@ -5,17 +5,25 @@ exception GenComplete
 
 type analyzer = K_ddpa of int | K_cfa of int
 
-(* Dbmc_check is a mode to check the expected inputs is consistent with the dbmc search. The checking starts after an answer is founded in dbmc. The answer contains a target stack where the target variable should be reached at.
-   `Dbmc.Main.check_expected_input` will run the program concretely. Each time an input is required, a constraint for this input is computed based on the call stack and the target stack. These expected inputs should run into the target stack. After that, the contraints along the path should be consistent with the existing constraints from dbmc. This check also covers the correct encoding of clauses.
-*)
 type mode =
   | Dbmc_search
-  | Dbmc_check of int option list
+  | Dbmc_check of Input_spec.t
   | Dbmc_perf
   | Sato of File_utils.lang
 
 type engine = E_dbmc | E_ddse
 type encode_policy = Only_incremental | Always_shrink
+
+type stage = Argparse | Load_file | State_init | Lookup | All_done
+[@@deriving variants, equal]
+
+let stage_of_str str =
+  match str with
+  | "argparse" | "ap" -> Argparse
+  | "load_file" | "lf" -> Load_file
+  | "state_init" | "si" -> State_init
+  | "lookup" | "lu" -> Lookup
+  | "all_done" | "ad" | "all" | _ -> All_done
 
 type t = {
   (* basic *)
@@ -23,11 +31,12 @@ type t = {
   filename : Filename.t;
   (* mode *)
   mode : mode;
-  stage : Stage.t;
+  stage : stage;
   analyzer : analyzer;
   engine : engine;
   is_wrapped : bool;
   is_instrumented : bool;
+  expected_from_file : bool;
   dump_instrumented : bool;
   (* tuning *)
   run_max_step : int option;
@@ -56,7 +65,8 @@ let default_config =
   {
     target = Id.(Ident "target");
     filename = "";
-    timeout = None (* Some (Time_float.Span.of_int_sec 2); *);
+    (* timeout = None  *)
+    timeout = Some (Time_float.Span.of_int_sec 5);
     stride_init = 100;
     stride_max = 100;
     encode_policy = Only_incremental;
@@ -67,6 +77,7 @@ let default_config =
     engine = E_dbmc;
     is_wrapped = false;
     is_instrumented = false;
+    expected_from_file = false;
     dump_instrumented = false;
     log_level = None;
     log_level_lookup = None;
@@ -103,3 +114,20 @@ let default_sato_test_config =
     is_instrumented = true;
     dump_instrumented = false;
   }
+
+let with_filename filename = { default_config with filename }
+
+let with_expect (expect : Test_expect.one_case) config =
+  let config' = { config with target = Id.Ident expect.target } in
+  if Input_spec.is_no_spec expect.inputs
+  then config'
+  else { config' with mode = Dbmc_check expect.inputs }
+
+let load_expect config =
+  let expect = File_utils.load_expect_d config.filename in
+  with_expect (List.hd_exn expect) config
+
+let read_source config =
+  let target_var = Jayil.Ast.Var (config.target, None) in
+  File_utils.read_source ~do_wrap:config.is_wrapped
+    ~do_instrument:config.is_instrumented ~consts:[ target_var ] config.filename

@@ -123,3 +123,13 @@ let dump_analysis program block_map =
       | _ -> ()) ;
       Fmt.pr "@.")
     all_id_set
+
+let handle_both (config : Global_config.t) (state : Global_state.t) model =
+  if config.debug_graph
+  then () (* Graphviz.output_graph ~model ~testname:config.filename state *) ;
+  process_rstk_stat_map config state ;
+  (* dump_lookup_details state ; *)
+  SLog.warn (fun m ->
+      m "@,%a"
+        Fmt.(vbox (list ~sep:sp Check_info.pp))
+        (List.rev state.stat.check_infos))
