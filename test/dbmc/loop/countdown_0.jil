@@ -15,4 +15,4 @@ f = fun s -> (
 count = f f;
 num = 0;
 p = count num;
-target = p;
+target = p

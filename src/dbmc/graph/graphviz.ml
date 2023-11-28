@@ -1,30 +1,6 @@
 open Core
 open Dj_common
-
-module Palette = struct
-  let int_of_rgb r g b = (r * 256 * 256) + (g * 256) + b
-  let white = int_of_rgb 255 255 255
-  let light = int_of_rgb 200 200 200
-  let dark = int_of_rgb 100 100 100
-  let black = int_of_rgb 0 0 0
-  let red = int_of_rgb 255 0 0
-  let light_purple = int_of_rgb 203 201 226
-  let red_orange = int_of_rgb 253 190 133
-  let blue = int_of_rgb 0 0 255
-  let cyan = int_of_rgb 0 200 200
-  let lime = int_of_rgb 0 255 0
-
-  let greens_with_alert =
-    [
-      red_orange;
-      int_of_rgb 204 236 230;
-      int_of_rgb 153 216 201;
-      int_of_rgb 102 194 164;
-      int_of_rgb 44 162 95;
-      int_of_rgb 0 109 44;
-    ]
-end
-[@@warning "-32"]
+open Palette
 
 module C = struct
   (* string *)
@@ -70,42 +46,6 @@ module C = struct
 end
 [@@warning "-32"]
 
-module Graph_node = struct
-  type t = (Search_graph.Node.t, string) Either.t [@@deriving compare, equal]
-
-  let hash = Hashtbl.hash
-end
-
-module Edge_label = struct
-  type edge = { picked_from_root : bool; picked : bool; complete : bool }
-  and t = (edge, string) Either.t [@@deriving compare, equal]
-
-  let default = Either.second ""
-end
-
-module G = Graph.Imperative.Digraph.ConcreteLabeled (Graph_node) (Edge_label)
-
-(* why vertex_info in module Graph_node doesn't work?
-     Without a property dict, it's hard to update a node via comparing it's key.
-     Say node A and node B shares the same lookup key, but doesn't have the same picked key
-     If node A is added to the graph first, then node B is ignored (or B overrides A).
-     There is unrealistic to think OCamlGraph.Dot can merge these two nodes.
-     Therefore, we have to merge on our own, which occurs outside the module.
-*)
-
-(* type vertex_info = {
-     block_id : Id.t;
-     rule_name : string;
-     picked_from_root : bool;
-     picked : bool;
-   }
-
-   type passing_state = {
-     picked_from_root : bool;
-     picked : bool;
-     prev_vertex : Node.t option;
-   } *)
-
 let escape_gen_align_left =
   String.Escaping.escape_gen_exn
     ~escapeworthy_map:
@@ -126,6 +66,8 @@ module type GS = sig
   val testname : string option
   val model : Z3.Model.model option
 end
+
+open Search_graph
 
 module DotPrinter_Make (S : GS) = struct
   let source_map = Lazy.force S.state.info.source_map
@@ -320,6 +262,10 @@ module DotPrinter_Make (S : GS) = struct
     Out_channel.close oc
 end
 
+(*
+   val output_graph :
+     model:Z3.Model.model option -> testname:string -> Global_state.t -> unit
+*)
 let output_graph ~model ~testname (state : Global_state.t) =
   let module GI =
     (val (module struct

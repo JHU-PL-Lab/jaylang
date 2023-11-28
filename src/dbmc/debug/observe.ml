@@ -126,7 +126,7 @@ let dump_analysis program block_map =
 
 let handle_both (config : Global_config.t) (state : Global_state.t) model =
   if config.debug_graph
-  then () (* Graphviz.output_graph ~model ~testname:config.filename state *) ;
+  then Graphviz.output_graph ~model ~testname:config.filename state ;
   process_rstk_stat_map config state ;
   (* dump_lookup_details state ; *)
   SLog.warn (fun m ->
