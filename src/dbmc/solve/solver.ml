@@ -24,7 +24,6 @@ type value = Sudu.Z3_api.plain =
   | Record of string [@printer Fmt.string]
 [@@deriving sexp, compare, equal, show { with_path = false }]
 
-(* let solver = Z3.Solver.mk_solver ctx None *)
 let reset solver = Z3.Solver.reset solver
 let get_assertion_count solver = List.length (Z3.Solver.get_assertions solver)
 let string_of_solver solver = Z3.Solver.to_string solver

@@ -144,3 +144,12 @@ let fetch_counter state key =
       | None -> failwith (Fmt.str "why not inited : %a" Lookup_key.pp key))
   in
   new_i - 1
+
+let run_if_fresh state key job =
+  match Hashtbl.find state.search.lookup_detail_map key with
+  | Some _ -> ()
+  | None ->
+      if not (Hash_set.mem state.search.lookup_created key)
+      then (
+        Hash_set.strict_add_exn state.search.lookup_created key ;
+        job ())

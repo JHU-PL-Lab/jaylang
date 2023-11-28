@@ -9,10 +9,10 @@ module U_ddse = Lookup_ddse_rule.U
 let scheduler_run (state : Global_state.t) =
   let s = state.job.job_queue in
   LLog.app (fun m -> m "[Queue]size = %d" (Pairing_heap.length s.heap)) ;
-  Scheduler.run s
+  let%lwt _ = Scheduler.run s in
+  Lwt.return_unit
 
 let push_job (state : Global_state.t) (key : Lookup_key.t) task () =
-  (* Scheduler.push state.job_queue key task *)
   let job_key : Global_state.job_key =
     { lookup = key; block_visits = Observe.get_block_visits state key }
   in
@@ -20,7 +20,6 @@ let push_job (state : Global_state.t) (key : Lookup_key.t) task () =
 
 let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     unit Lwt.t =
-  (* reset and init *)
   Solver.reset state.solve.solver ;
   Riddler.reset () ;
 
@@ -57,9 +56,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
           in
           Lookup_detail.mk_detail ~rule ~key
         in
-        Hashtbl.add_exn state.search.lookup_detail_map ~key ~data:detail ;
-        let task = push_job state key (lookup key phis) in
-        U_ddse.alloc_task unroll ~task key
+        Hashtbl.add_exn state.search.lookup_detail_map ~key ~data:detail
   and lookup (this_key : Lookup_key.t) phis () : unit Lwt.t =
     let rule =
       Rule.rule_of_runtime_status this_key state.info.block_map config.target
@@ -98,8 +95,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     Cfg.find_reachable_block state.info.target state.info.block_map
   in
   let term_target = Lookup_key.start state.info.target block0 in
-  let phis = Phi_set.empty in
-  run_task term_target phis ;
+  run_task term_target Phi_set.empty ;
 
   let wait_result =
     U_ddse.by_iter unroll term_target (fun (r : Ddse_result.t) ->
@@ -111,16 +107,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
         | Some { model; c_stk } ->
             raise (Riddler.Found_solution { model; c_stk }))
   in
-
-  let%lwt _ =
-    Lwt.pick
-      [
-        (let%lwt _ = scheduler_run state in
-         Lwt.return_unit);
-        wait_result;
-      ]
-  in
-  Lwt.return_unit
+  Lwt.pick [ scheduler_run state; wait_result ]
 
 let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     unit Lwt.t =
@@ -132,15 +119,11 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     | _ -> failwith "unroll"
   in
   let run_eval key eval =
-    match Hashtbl.find state.search.lookup_detail_map key with
-    | Some _ -> ()
-    | None ->
-        if Hash_set.mem state.search.lookup_created key
-        then ()
-        else (
-          Hash_set.strict_add_exn state.search.lookup_created key ;
-          let task = push_job state key (eval key) in
-          Unrolls.U_dbmc.alloc_task unroll ~task key)
+    let job () =
+      let task = push_job state key (eval key) in
+      Unrolls.U_dbmc.alloc_task unroll ~task key
+    in
+    Global_state.run_if_fresh state key job
   in
 
   let module LS =
@@ -161,10 +144,9 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
           Lookup_key.pp key Rule.pp_rule rule Id.pp key.block.id) ;
 
     let detail = Lookup_detail.mk_detail ~rule ~key in
+    Hashtbl.add_exn state.search.lookup_detail_map ~key ~data:detail ;
 
     Option.iter !Log.saved_oc ~f:Out_channel.flush ;
-
-    Hashtbl.add_exn state.search.lookup_detail_map ~key ~data:detail ;
 
     Checker.try_step_check ~state ~config key stride ;%lwt
     state.search.tree_size <- state.search.tree_size + 1 ;
@@ -198,5 +180,4 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     Lwt.return_unit
   in
   run_eval state.info.key_target lookup_main ;
-  let%lwt _ = scheduler_run state in
-  Lwt.return_unit
+  scheduler_run state

@@ -12,9 +12,6 @@ exception Found_solution of result_info
 let ctx = Solver.ctx
 let top_stack = SuduZ3.var_s "Topstack"
 
-(* let picked (key : Lookup_key.t) =
-   "P_" ^ Rstack.to_string key.r_stk |> SuduZ3.mk_bool_s *)
-
 let picked (key : Lookup_key.t) =
   "P_" ^ Lookup_key.to_string key |> SuduZ3.mk_bool_s
 
@@ -181,9 +178,7 @@ let pattern x x' key_rv rv pat =
     if Jayil.Ast.is_record_pattern pat
     then
       match value_matched with
-      | Some v ->
-        SuduZ3.inject_bool
-          (and2 type_pattern (box_bool v))
+      | Some v -> SuduZ3.inject_bool (and2 type_pattern (box_bool v))
       | None -> SuduZ3.inject_bool type_pattern
     else SuduZ3.inject_bool type_pattern
   in
