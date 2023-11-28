@@ -38,7 +38,7 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
     let max_step = config.run_max_step in
     let mode = Interpreter.With_full_target (config.target, target_stack) in
     let debug_mode =
-      if config.is_check_per_step
+      if config.debug_check_per_step
       then
         let clause_cb x c_stk v =
           let stk = Rstack.relativize target_stack c_stk in
@@ -63,7 +63,10 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
 
           match Checker.check state config with
           | Some _ -> ()
-          | None -> failwith @@ "step check failed"
+          | None ->
+              SLog.debug (fun m ->
+                  m "Unsat solver: %s" (Z3.Solver.to_string state.solve.solver)) ;
+              failwith @@ "step check failed"
         in
         Interpreter.Debug_clause clause_cb
       else Interpreter.No_debug
@@ -73,7 +76,9 @@ let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
   in
   (try Interpreter.eval session state.info.program with
   | Interpreter.Found_target _ -> ()
-  | ex -> raise ex) ;
+  | ex ->
+      Fmt.pr "Partial [%s]@;" (Std.string_of_opt_int_list (List.rev !history)) ;
+      raise ex) ;
   List.rev !history
 
 let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk

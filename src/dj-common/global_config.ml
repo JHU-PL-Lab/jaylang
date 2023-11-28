@@ -58,7 +58,7 @@ type t = {
   debug_model : bool;
   debug_graph : bool;
   debug_interpreter : bool;
-  is_check_per_step : bool;
+  debug_check_per_step : bool;
 }
 
 let default_config =
@@ -91,7 +91,7 @@ let default_config =
     debug_model = true;
     debug_graph = false;
     debug_interpreter = false;
-    is_check_per_step = false;
+    debug_check_per_step = false;
   }
 
 let default_sato_config =
