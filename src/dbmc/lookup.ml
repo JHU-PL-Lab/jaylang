@@ -1,16 +1,10 @@
 open Core
 open Dj_common
+open Log.Export
 open Jayil
 open Jayil.Ast
 open Cfg
-open Log.Export
 module U_ddse = Lookup_ddse_rule.U
-
-let scheduler_run (state : Global_state.t) =
-  let s = state.job.job_queue in
-  LLog.app (fun m -> m "[Queue]size = %d" (Pairing_heap.length s.heap)) ;
-  let%lwt _ = Scheduler.run s in
-  Lwt.return_unit
 
 let push_job (state : Global_state.t) (key : Lookup_key.t) task () =
   let job_key : Global_state.job_key =
@@ -20,15 +14,14 @@ let push_job (state : Global_state.t) (key : Lookup_key.t) task () =
 
 let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     unit Lwt.t =
-  Solver.reset state.solve.solver ;
-  Riddler.reset () ;
-
   let unroll =
     match state.job.unroll with
     | S_ddse unroll -> unroll
     | _ -> failwith "unroll"
   in
-
+  let[@landmark] run_task key phis =
+    Global_state.add_detail_if_fresh state config.target key
+  in
   let module LS =
     (val (module struct
            let state = state
@@ -41,23 +34,12 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
 
            let block_map = state.info.block_map
            let unroll = unroll
+           let run_task = run_task
          end)
         : Lookup_ddse_rule.S)
   in
   let module R = Lookup_ddse_rule.Make (LS) in
-  (* block works similar to env in a common interpreter *)
-  let[@landmark] rec run_task key phis =
-    match Hashtbl.find state.search.lookup_detail_map key with
-    | Some _ -> ()
-    | None ->
-        let detail : Lookup_detail.t =
-          let rule =
-            Rule.rule_of_runtime_status key state.info.block_map config.target
-          in
-          Lookup_detail.mk_detail ~rule ~key
-        in
-        Hashtbl.add_exn state.search.lookup_detail_map ~key ~data:detail
-  and lookup (this_key : Lookup_key.t) phis () : unit Lwt.t =
+  let lookup (this_key : Lookup_key.t) phis () : unit Lwt.t =
     let rule =
       Rule.rule_of_runtime_status this_key state.info.block_map config.target
     in
@@ -68,21 +50,21 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
       let open Rule in
       match rule with
       | Discovery_main p -> R.discovery_main p this_key phis
-      | Discovery_nonmain p -> R.discovery_nonmain p this_key phis run_task
-      | Input p -> R.input p this_key phis run_task
-      | Alias p -> R.alias p this_key phis run_task
-      | Not b -> R.not_ b this_key phis run_task
-      | Binop b -> R.binop b this_key phis run_task
-      | Record_start p -> R.record_start p this_key phis run_task
-      | Cond_top cb -> R.cond_top cb this_key phis run_task
-      | Cond_btm p -> R.cond_btm p this_key phis run_task
-      | Fun_enter_local p -> R.fun_enter_local p this_key phis run_task
-      | Fun_enter_nonlocal p -> R.fun_enter_nonlocal p this_key phis run_task
-      | Fun_exit p -> R.fun_exit p this_key phis run_task
-      | Pattern p -> R.pattern p this_key phis run_task
-      | Assume p -> R.assume p this_key phis run_task
-      | Assert p -> R.assert_ p this_key phis run_task
-      | Abort p -> R.abort p this_key phis run_task
+      | Discovery_nonmain p -> R.discovery_nonmain p this_key phis
+      | Input p -> R.input p this_key phis
+      | Alias p -> R.alias p this_key phis
+      | Not b -> R.not_ b this_key phis
+      | Binop b -> R.binop b this_key phis
+      | Record_start p -> R.record_start p this_key phis
+      | Cond_top cb -> R.cond_top cb this_key phis
+      | Cond_btm p -> R.cond_btm p this_key phis
+      | Fun_enter_local p -> R.fun_enter_local p this_key phis
+      | Fun_enter_nonlocal p -> R.fun_enter_nonlocal p this_key phis
+      | Fun_exit p -> R.fun_exit p this_key phis
+      | Pattern p -> R.pattern p this_key phis
+      | Assume p -> R.assume p this_key phis
+      | Assert p -> R.assert_ p this_key phis
+      | Abort p -> R.abort p this_key phis
       | Mismatch -> R.mismatch this_key phis
     in
 
@@ -107,7 +89,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
         | Some { model; c_stk } ->
             raise (Riddler.Found_solution { model; c_stk }))
   in
-  Lwt.pick [ scheduler_run state; wait_result ]
+  Lwt.pick [ Global_state.scheduler_run state; wait_result ]
 
 let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     unit Lwt.t =
@@ -118,9 +100,9 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     | S_dbmc unroll -> unroll
     | _ -> failwith "unroll"
   in
-  let run_eval key eval =
+  let dispatch lookup key =
     let job () =
-      let task = push_job state key (eval key) in
+      let task = push_job state key (lookup key) in
       Unrolls.U_dbmc.alloc_task unroll ~task key
     in
     Global_state.run_if_fresh state key job
@@ -157,9 +139,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     let phi, action = R.get_initial_phi_action key rule in
     Global_state.add_phi state detail phi ;
 
-    Lookup_rule.run_action
-      (fun key -> run_eval key lookup)
-      unroll state detail key action ;
+    Lookup_rule.run_action (dispatch lookup) unroll state detail key action ;
 
     (* Fix for SATO. `abort` is a side-effect clause so it needs to be implied picked.
         run all previous lookups *)
@@ -168,16 +148,14 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
         let term_prev = Lookup_key.with_x key tc.id in
         Global_state.add_phi ~is_external:true state detail
           (Riddler.implies key term_prev) ;
-        run_eval term_prev lookup) ;
+        dispatch lookup term_prev) ;
     Lwt.return_unit
   in
 
-  Solver.reset state.solve.solver ;
-  Riddler.reset () ;
   let lookup_main key_target () =
     lookup key_target () ;%lwt
     let td = Hashtbl.find_exn state.search.lookup_detail_map key_target in
     Lwt.return_unit
   in
-  run_eval state.info.key_target lookup_main ;
-  scheduler_run state
+  dispatch lookup_main state.info.key_target ;
+  Global_state.scheduler_run state

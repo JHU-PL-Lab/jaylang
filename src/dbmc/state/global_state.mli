@@ -16,3 +16,5 @@ val detail_alist : State.t -> (Lookup_key.t * Lookup_detail.t) list
 val create_counter : State.t -> Lookup_detail.t -> Lookup_key.t -> unit
 val fetch_counter : State.t -> Lookup_key.t -> int
 val run_if_fresh : State.t -> Lookup_key.t -> (unit -> unit) -> unit
+val add_detail_if_fresh : State.t -> Id.t -> Lookup_key.t -> unit
+val scheduler_run : State.t -> unit Lwt.t

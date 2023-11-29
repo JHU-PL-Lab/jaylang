@@ -1,6 +1,7 @@
 open Core
 include Types.State
 open Dj_common
+open Log.Export
 
 let compute_info (config : Global_config.t) program : info =
   let first = Jayil.Ast_tools.first_id program in
@@ -103,6 +104,7 @@ let create (config : Global_config.t) program =
   Solver.set_timeout_sec Solver.ctx config.timeout ;
   let info = compute_info config program in
   (* Global_state.lookup_alert state key_target state.root_node; *)
+  Riddler.reset () ;
   {
     info;
     job = create_job_state config;
@@ -153,3 +155,22 @@ let run_if_fresh state key job =
       then (
         Hash_set.strict_add_exn state.search.lookup_created key ;
         job ())
+
+let add_detail_if_fresh state target key =
+  (* TODO: this is obvious buggy. This function should have a `job` to run  *)
+  match Hashtbl.find state.search.lookup_detail_map key with
+  | Some _ -> ()
+  | None ->
+      let detail : Lookup_detail.t =
+        let rule =
+          Rule.rule_of_runtime_status key state.info.block_map target
+        in
+        Lookup_detail.mk_detail ~rule ~key
+      in
+      Hashtbl.add_exn state.search.lookup_detail_map ~key ~data:detail
+
+let scheduler_run state =
+  let s = state.job.job_queue in
+  LLog.app (fun m -> m "[Queue]size = %d" (Pairing_heap.length s.heap)) ;
+  let%lwt _ = Scheduler.run s in
+  Lwt.return_unit

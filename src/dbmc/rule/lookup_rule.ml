@@ -62,7 +62,7 @@ let promote_result (target : Lookup_key.t) map (detail : Lookup_detail.t)
   | Some Good -> Some Lookup_result.(from_as v Good)
   | None -> None
 
-let run_action run_task unroll (state : Global_state.t)
+let run_action dispatch unroll (state : Global_state.t)
     (detail : Lookup_detail.t) target source =
   let open Rule_action in
   let add_phi = Global_state.add_phi state detail in
@@ -105,14 +105,14 @@ let run_action run_task unroll (state : Global_state.t)
         Log.debug (fun m ->
             m "[Direct]%a <- %a(%B) @." Lookup_key.pp target Lookup_key.pp e.pub
               (Option.is_some sub_lookup)) ;
-        run_task e.pub
+        dispatch e.pub
     | Map e ->
         U.by_filter_map_u unroll target e.pub (fun r ->
             let r' = promote_result r.status (e.map r.from) in
             Option.iter r' ~f:(fun r ->
                 Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from)) ;
             r') ;
-        run_task e.pub
+        dispatch e.pub
     | MapSeq e ->
         Global_state.create_counter state detail target ;
         let f r =
@@ -126,14 +126,14 @@ let run_action run_task unroll (state : Global_state.t)
           r'
         in
         U.by_filter_map_u unroll target e.pub f ;
-        run_task e.pub
+        dispatch e.pub
     | Both e ->
         U.by_filter_map2_u unroll target e.pub1 e.pub2 (fun (v1, v2) ->
             let joined_status = Lookup_status.join v1.status v2.status in
             Lookup_status.iter_ok joined_status (fun () -> add_to_domain target) ;
             promote_result joined_status target) ;
-        run_task e.pub1 ;
-        run_task e.pub2
+        dispatch e.pub1 ;
+        dispatch e.pub2
     | Chain e ->
         if not e.bounded then Global_state.create_counter state detail target ;
 
@@ -159,7 +159,7 @@ let run_action run_task unroll (state : Global_state.t)
           Lwt.return_unit
         in
         U.by_bind_u unroll target e.pub part1_cb ;
-        run_task e.pub
+        dispatch e.pub
     | Or_list e ->
         if not e.bounded then Global_state.create_counter state detail target ;
         List.iter e.elements ~f:(run ?sub_lookup)
@@ -192,6 +192,7 @@ module type S = sig
   val state : Global_state.t
   val config : Global_config.t
   val block_map : Cfg.block Jayil.Ast.Ident_map.t
+  (* val run_eval : Lookup_key.t -> (Lookup_key.t -> unit -> unit Lwt.t) -> unit *)
 end
 
 module Make (S : S) = struct
