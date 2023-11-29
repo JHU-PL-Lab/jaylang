@@ -30,45 +30,46 @@ let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t)
       Solver.check_expected_input_sat target.stk !history state.solve.solver
   | ex -> false
 
+let interp_step_check ~(config : Global_config.t) ~(state : Global_state.t)
+    target_stack x c_stk v =
+  let stk = Rstack.relativize target_stack c_stk in
+  let key =
+    Lookup_key.of3 x stk (Cfg.find_reachable_block x state.info.block_map)
+  in
+  let key_picked = Riddler.picked key in
+  (* let eq_z = Riddler.eqv key v in *)
+  let key_z = Riddler.key_to_var key in
+  let eq_z =
+    match v with
+    | Value_function _ -> Riddler.true_
+    | Value_record _ -> Riddler.true_
+    | _ -> Riddler.eqv key v
+  in
+  state.solve.phis_staging <- key_picked :: eq_z :: state.solve.phis_staging ;
+  let info =
+    Fmt.str "[Con]: %a %a = %a \n[Sym] %a\n\n" Id.pp x Concrete_stack.pp c_stk
+      Jayil.Pp.value v Lookup_key.pp key
+  in
+  Fmt.pr "[Check] %s" info ;
+
+  match Checker.check state config with
+  | Some _ -> ()
+  | None ->
+      SLog.debug (fun m ->
+          m "Unsat solver: %s" (Z3.Solver.to_string state.solve.solver)) ;
+      failwith @@ "step check failed"
+
 let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
     (target_stack : Concrete_stack.t) =
   let history = ref [] in
-  let input_feeder = Checker.mk_input_feeder ~history model target_stack in
+  let input_feeder = Checker.input_feeder ~history model target_stack in
   let session =
     let max_step = config.run_max_step in
     let mode = Interpreter.With_full_target (config.target, target_stack) in
     let debug_mode =
       if config.debug_check_per_step
       then
-        let clause_cb x c_stk v =
-          let stk = Rstack.relativize target_stack c_stk in
-          let key =
-            Lookup_key.of3 x stk
-              (Cfg.find_reachable_block x state.info.block_map)
-          in
-          let key_z = Riddler.key_to_var key in
-          let key_picked = Riddler.picked key in
-          let eq_z =
-            match v with
-            | Value_function _ -> Riddler.true_
-            | _ -> Riddler.eqv key v
-          in
-          state.solve.phis_staging <-
-            key_picked :: eq_z :: state.solve.phis_staging ;
-          let info =
-            Fmt.str "[Con]: %a %a = %a \n[Sym] %a\n\n" Id.pp x Concrete_stack.pp
-              c_stk Jayil.Pp.value v Lookup_key.pp key
-          in
-          Fmt.pr "[Check] %s" info ;
-
-          match Checker.check state config with
-          | Some _ -> ()
-          | None ->
-              SLog.debug (fun m ->
-                  m "Unsat solver: %s" (Z3.Solver.to_string state.solve.solver)) ;
-              failwith @@ "step check failed"
-        in
-        Interpreter.Debug_clause clause_cb
+        Interpreter.Debug_clause (interp_step_check ~config ~state target_stack)
       else Interpreter.No_debug
     in
     Interpreter.create_session ?max_step ~debug_mode state config mode

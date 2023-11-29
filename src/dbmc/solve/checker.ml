@@ -209,7 +209,7 @@ let query_model model target_stack (x, call_stack) : int option =
   let name = Lookup_key.to_str2 x stk in
   Solver.SuduZ3.get_int_s model name
 
-let mk_input_feeder ?(history = ref []) model target_stack : Input_feeder.t =
+let input_feeder ?(history = ref []) model target_stack : Input_feeder.t =
   let input_feeder = query_model model target_stack in
   fun query ->
     let answer = input_feeder query in
