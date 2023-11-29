@@ -10,7 +10,9 @@ let push_job (state : Global_state.t) (key : Lookup_key.t) task () =
   let job_key : Global_state.job_key =
     { lookup = key; block_visits = Observe.get_block_visits state key }
   in
-  Scheduler.push state.job.job_queue job_key task
+  Scheduler.push state.job.job_queue job_key (fun () ->
+      task () ;
+      Lwt.return_unit)
 
 let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     unit Lwt.t =
@@ -39,7 +41,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
         : Lookup_ddse_rule.S)
   in
   let module R = Lookup_ddse_rule.Make (LS) in
-  let lookup (this_key : Lookup_key.t) phis () : unit Lwt.t =
+  let lookup (this_key : Lookup_key.t) phis () : unit =
     let rule =
       Rule.rule_of_runtime_status this_key state.info.block_map config.target
     in
@@ -67,10 +69,10 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
       | Abort p -> R.abort p this_key phis
       | Mismatch -> R.mismatch this_key phis
     in
-
+    ()
     (* LLog.app (fun m ->
         m "[Lookup][<=]: %a" Lookup_key.pp this_key) ; *)
-    Lwt.return_unit
+    (* Lwt.return_unit *)
   in
 
   let block0 =
@@ -100,7 +102,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     | S_dbmc unroll -> unroll
     | _ -> failwith "unroll"
   in
-  let dispatch lookup key =
+  let dispatch (lookup : Lookup_key.t -> unit -> unit) key =
     let job () =
       let task = push_job state key (lookup key) in
       Unrolls.U_dbmc.alloc_task unroll ~task key
@@ -117,7 +119,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
         : Lookup_rule.S)
   in
   let module R = Lookup_rule.Make (LS) in
-  let[@landmark] rec lookup (key : Lookup_key.t) () : unit Lwt.t =
+  let[@landmark] rec lookup (key : Lookup_key.t) () : unit =
     let rule =
       Rule.rule_of_runtime_status key state.info.block_map config.target
     in
@@ -130,7 +132,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
 
     Option.iter !Log.saved_oc ~f:Out_channel.flush ;
 
-    Checker.try_step_check ~state ~config key stride ;%lwt
+    Checker.try_step_check ~state ~config key stride ;
     state.search.tree_size <- state.search.tree_size + 1 ;
     Observe.dump_block_stat config state ;
 
@@ -148,14 +150,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
         let term_prev = Lookup_key.with_x key tc.id in
         Global_state.add_phi ~is_external:true state detail
           (Riddler.implies key term_prev) ;
-        dispatch lookup term_prev) ;
-    Lwt.return_unit
+        dispatch lookup term_prev)
   in
-
-  let lookup_main key_target () =
-    lookup key_target () ;%lwt
-    let td = Hashtbl.find_exn state.search.lookup_detail_map key_target in
-    Lwt.return_unit
-  in
-  dispatch lookup_main state.info.key_target ;
+  dispatch lookup state.info.key_target ;
   Global_state.scheduler_run state

@@ -168,8 +168,11 @@ let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
 
   Observe.update_block_visits config state key is_checked smt_time ;
   match check_result with
-  | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
-  | None -> Lwt.return_unit
+  | Some { model; c_stk } -> raise (Found_solution { model; c_stk })
+  | None -> ()
+(* match check_result with
+   | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
+   | None -> Lwt.return_unit *)
 
 (* `check_phis` are used in ddse and dbmc-debug *)
 let check_phis solver phis is_debug : result_info option =
