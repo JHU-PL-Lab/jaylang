@@ -57,8 +57,8 @@
   (into "../..")))
 
 (executable
- (name ajil)
- (modules ajil)
+ (name cj)
+ (modules cj)
  (libraries core fmt dj_common dbmc jayil jil_analysis)
  (preprocess
   (pps ppx_jane))

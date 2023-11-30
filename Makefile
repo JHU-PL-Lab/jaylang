@@ -24,6 +24,9 @@ sato:
 translator:
 	dune build src/bin/translator.exe
 
+cj:
+	dune build src/bin/cj.exe
+
 jil:
 	dune build src/bin/jil.exe
 
