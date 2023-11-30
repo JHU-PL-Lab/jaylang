@@ -216,3 +216,32 @@ let fun_exit key_arg key_f fids block_map =
         [ K2 (key_arg, key_ret); Z (key_f, z_of_fid fid) ])
   in
   choices key_arg cs
+
+(* used by concolic interpreter *)
+(* OBSOLETE *)
+let eq_fid term (Id.Ident fid) = SuduZ3.eq (key_to_var term) (SuduZ3.fun_ fid)
+
+let eq_term_v term v =
+  match v with
+  (* Ast.Value_body for function *)
+  | Some (Value_function _) -> eq_fid term term.x
+  (* Ast.Value_body *)
+  | Some v -> eqv term v
+  (* Ast.Input_body *)
+  | None -> eq term term
+
+let enter_fun key_para key_arg = eq key_para key_arg
+let exit_fun key_in key_out = eq key_in key_out
+
+let is_pattern term pat =
+  let x = key_to_var term in
+  let is_pattern =
+    match pat with
+    | Fun_pattern -> ifFun x
+    | Int_pattern -> ifInt x
+    | Bool_pattern -> ifBool x
+    | Rec_pattern _ -> ifRecord x
+    | Strict_rec_pattern _ -> ifRecord x
+    | Any_pattern -> true_
+  in
+  is_pattern
