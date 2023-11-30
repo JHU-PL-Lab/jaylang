@@ -4,7 +4,7 @@
 ;   (run %{exe:test_dbmc.exe} --tp "../../../../test/dbmc")))
 
 (tests
- (names test_dbmc test_dummy)
+ (names test_dbmc test_concolic test_dummy)
  (libraries
   core
   core_unix.sys_unix

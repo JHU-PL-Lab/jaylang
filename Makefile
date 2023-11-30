@@ -89,6 +89,9 @@ test-unroll:
 test-dummy:
 	dune exec src-test/dbmc/test_dummy.exe
 
+test-concolic:
+	dune exec src-test/dbmc/test_concolic.exe
+
 # profiling
 
 perf:
