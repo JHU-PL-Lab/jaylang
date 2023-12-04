@@ -36,28 +36,4 @@ let get_rlimit solver =
 
 let check ?(verbose = true) solver phis phi_used_once =
   Z3.Solver.add solver phis ;
-
-  if verbose
-  then (
-    SLog.debug (fun m ->
-        m "Used-once Phis:@?@\n@[<v>%a@]"
-          Fmt.(list ~sep:cut string)
-          (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
-    SLog.debug (fun m ->
-        m "Solver Phis (%d) : %s"
-          (get_assertion_count solver)
-          (string_of_solver solver))) ;
-
   SuduZ3.check_with_assumption solver phi_used_once
-
-let check_expected_input_sat target_stk history solver =
-  let input_phis =
-    List.filter_map history ~f:(fun (x, stk, r) ->
-        Option.map r ~f:(fun i ->
-            let stk = Rstack.relativize target_stk stk in
-            let name = Lookup_key.to_str2 x stk in
-            let zname = SuduZ3.var_s name in
-            SuduZ3.eq zname (SuduZ3.int_ i)))
-  in
-
-  Result.is_ok (SuduZ3.check_with_assumption solver input_phis)

@@ -27,7 +27,7 @@ let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t)
   in
   try Interpreter.eval session state.info.program with
   | Interpreter.Found_target target ->
-      Solver.check_expected_input_sat target.stk !history state.solve.solver
+      Checker.check_expected_input_sat target.stk !history state.solve.solver
   | ex -> false
 
 let interp_step_check ~(config : Global_config.t) ~(state : Global_state.t)
@@ -94,11 +94,8 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
 
 let handle_not_found (config : Global_config.t) (state : Global_state.t)
     is_timeout : result_no_state =
-  SLog.info (fun m -> m "UNSAT") ;
-  if config.debug_model
-  then
-    SLog.debug (fun m ->
-        m "Solver Phis: %s" (Solver.string_of_solver state.solve.solver)) ;
+  if config.debug_model then Checker.log_solver ~is_sat:false state.solve.solver ;
+
   Observe.handle_both config state None ;
   ([], is_timeout, None)
 

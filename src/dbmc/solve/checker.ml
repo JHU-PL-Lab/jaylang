@@ -4,6 +4,31 @@ open Riddler
 open SuduZ3
 open Log.Export
 
+let log_phis ?(prompt = "") phis =
+  SLog.debug (fun m ->
+      m "%s:@?@\n@[<v>%a@]" prompt
+        Fmt.(list ~sep:cut string)
+        (List.map ~f:Z3.Expr.to_string phis))
+
+let log_solver ?(prompt = "") ?is_sat solver =
+  (match is_sat with
+  | Some is_sat -> SLog.info (fun m -> m "UNSAT")
+  | None -> ()) ;
+  SLog.debug (fun m ->
+      m "Solver Phis %s (%d) : %s" prompt
+        (Solver.get_assertion_count solver)
+        (Solver.string_of_solver solver))
+
+let log_model model =
+  SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
+
+let check_and_log ?(verbose = true) solver phis phi_used_once =
+  if verbose
+  then (
+    log_phis ~prompt:"Used-once Phis" phi_used_once ;
+    log_solver solver) ;
+  Solver.check ~verbose solver phis phi_used_once
+
 let close_smt_list smt_list =
   Hashtbl.to_alist smt_list
   |> List.map ~f:(fun (key, i) -> SuduZ3.not_ (pick_key_list key i))
@@ -43,7 +68,7 @@ let eager_check (state : Global_state.t) (config : Global_config.t) c assumption
   SLog.debug (fun m -> m "Eager check") ;
   let phi_used_once = eager_phi_fix state c @ assumption in
   let solver_result =
-    Solver.check state.solve.solver state.solve.phis_staging phi_used_once
+    check_and_log state.solve.solver state.solve.phis_staging phi_used_once
   in
   Global_state.clear_phis state ;
   match solver_result with
@@ -54,7 +79,7 @@ let check_incremental (state : Global_state.t) (config : Global_config.t) :
     (Z3.Model.model, 'a option) result =
   let phi_used_once = phi_fix state in
   let solver_result =
-    Solver.check ~verbose:config.debug_model state.solve.solver
+    check_and_log ~verbose:config.debug_model state.solve.solver
       state.solve.phis_staging phi_used_once
   in
   solver_result
@@ -68,7 +93,7 @@ let check_shrink (state : Global_state.t) (config : Global_config.t) :
   let phi_used_once = phi_fix state in
   let detail_lst = Global_state.detail_alist state in
 
-  SLog.debug (fun m -> m "One: %s" (Z3.Solver.to_string state.solve.solver)) ;
+  log_solver ~prompt:"One" state.solve.solver ;
 
   Solver.reset state.solve.solver ;
   SLog.debug (fun m -> m "Two") ;
@@ -89,19 +114,15 @@ let check_shrink (state : Global_state.t) (config : Global_config.t) :
       in
       let phis_all = phis @ detail.phis_external in
       SLog.debug (fun m ->
-          m "%a @@ %a's phis = \n@[<v>%a@]" Lookup_key.pp key
-            Lookup_status.pp_short detail.status
-            Fmt.(list ~sep:cut string)
-            (List.map ~f:Z3.Expr.to_string phis_all)) ;
+          m "%a @@ %a's " Lookup_key.pp key Lookup_status.pp_short detail.status) ;
+      log_phis ~prompt:"phis = \n" phis_all ;
       state.solve.phis_staging <- phis_all @ state.solve.phis_staging) ;
   let check_result =
-    Solver.check ~verbose:config.debug_model state.solve.solver
+    check_and_log ~verbose:config.debug_model state.solve.solver
       state.solve.phis_staging phi_used_once
   in
-  SLog.debug (fun m ->
-      m "Two (used once): %a"
-        Fmt.(Dump.list string)
-        (List.map ~f:Z3.Expr.to_string phi_used_once)) ;
+  log_solver ~prompt:"Two (used once)" state.solve.solver ;
+
   check_result
 
 let assert_equal_result r1 r2 =
@@ -117,8 +138,7 @@ let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
   let check_result =
     match solver_result with
     | Result.Ok model ->
-        if config.debug_model
-        then SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model)) ;
+        if config.debug_model then log_model model ;
         let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
         let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
         Some { model; c_stk }
@@ -176,7 +196,7 @@ let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
 
 (* `check_phis` are used in ddse and dbmc-debug *)
 let check_phis solver phis is_debug : result_info option =
-  match Solver.check solver [] phis with
+  match check_and_log solver [] phis with
   | Result.Ok model ->
       SLog.app (fun m -> m "SAT") ;
       if is_debug
@@ -218,3 +238,15 @@ let input_feeder ?(history = ref []) model target_stack : Input_feeder.t =
     let answer = input_feeder query in
     history := answer :: !history ;
     Option.value ~default:42 answer
+
+let check_expected_input_sat target_stk history solver =
+  let input_phis =
+    List.filter_map history ~f:(fun (x, stk, r) ->
+        Option.map r ~f:(fun i ->
+            let stk = Rstack.relativize target_stk stk in
+            let name = Lookup_key.to_str2 x stk in
+            let zname = SuduZ3.var_s name in
+            SuduZ3.eq zname (SuduZ3.int_ i)))
+  in
+
+  Result.is_ok (SuduZ3.check_with_assumption solver input_phis)
