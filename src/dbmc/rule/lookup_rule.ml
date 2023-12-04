@@ -54,10 +54,10 @@ let promote_result (target : Lookup_key.t) map (detail : Lookup_detail.t)
     new_status (v : Lookup_key.t) =
   match change_status detail.status new_status with
   | Some Complete ->
-      set_status detail Complete ;
+      (* set_status detail Complete ; *)
       Some Lookup_result.(from_as v Complete)
   | Some Fail ->
-      set_status detail Fail ;
+      (* set_status detail Fail ; *)
       Some Lookup_result.(from_as v Fail)
   | Some Good -> Some Lookup_result.(from_as v Good)
   | None -> None
