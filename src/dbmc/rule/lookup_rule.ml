@@ -83,12 +83,12 @@ let run_action dispatch unroll (state : Global_state.t)
     | Leaf Fail ->
         set_status Lookup_status.Fail ;
         set_status_gen_phi Lookup_status.Fail
-        (* ; U.by_return unroll target (Lookup_result.fail target) *)
+        (* ; U.one_shot unroll target (Lookup_result.fail target) *)
     | Leaf Complete ->
         set_status Lookup_status.Complete ;
         set_status_gen_phi Lookup_status.Complete ;
         add_to_domain target ;
-        U.by_return unroll target (Lookup_result.complete target)
+        U.one_shot unroll target (Lookup_result.complete target)
     | Leaf _ -> failwith "incorrect leaf status"
     | Direct e ->
         (match sub_lookup with

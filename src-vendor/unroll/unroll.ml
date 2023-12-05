@@ -2,9 +2,17 @@ open Core
 open Lwt.Infix
 include Unroll_intf
 
+(* Todo (for stateful stream):
+   1. The stream is stateful.
+   1.1 .. and the state is internal
+   1.2 .. and the state is user-defined
+   3. The message can be control or value.
+   4. The state can propagate.
+*)
+
 (* These things exist together:
    1. a node for a lookup (key)
-   2. a result stream for a lookup
+   2. a payload stream for a lookup
    3. a producer for a lookup in the scheduler
 
    For a parent lookup, it should only be interested in the
@@ -17,36 +25,28 @@ include Unroll_intf
    The lookup of `f` and `a` are lazy. However, it's possible `a` are eager
 *)
 
-module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
+module N = Naive_state_machine
+
+module Make (Key : Base.Hashtbl.Key.S) (M : M_sig) :
   S
     with type message = M.message
-     and type result = M.result
-     and type key = M.key = struct
+     and type payload = M.payload
+     and type key = Key.t = struct
   module C = struct
     type key = Key.t
-    type result = M.result
+    type payload = M.payload
     type message = M.message
     type push = message option -> unit
 
-    type task_status =
-      (* | Not_created *)
-      | Initial
-      (* | Waitng of task *)
-      (* | Pending *)
-      | Running
-    (* | Done *)
-
-    (* | Failed  *)
-    (* used for cancellation *)
-
-    (* TODO: consider thread-safety *)
     type detail = {
       stream : message Lwt_stream.t;
       push : push;
+      mutable status : N.t;
       mutable pre_push : message -> message option;
-      mutable task_status : task_status;
       mutable messages : message list;
     }
+
+    (* init *)
 
     let msg_queue = ref []
 
@@ -54,43 +54,36 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
       msg_queue := msg :: !msg_queue ;
       msg
 
-    let is_status_initial = function Initial -> true | _ -> false
-    let is_initial detail = is_status_initial detail.task_status
+    type t = { map : (Key.t, detail) Hashtbl.t }
+
+    let create () : t = { map = Hashtbl.create (module Key) }
+    let reset state = Hashtbl.clear state.map
+    let push_mutex = Nano_mutex.create ()
 
     let empty_detail () =
       let stream, push = Lwt_stream.create () in
       let pre_push m = Some m in
-      { task_status = Initial; stream; push; pre_push; messages = [] }
+      { stream; push; status = Initial; pre_push; messages = [] }
 
-    type t = { map : (Key.t, detail) Hashtbl.t }
-
-    let create () : t = { map = Hashtbl.create (module Key) }
-    let reset state : unit = Hashtbl.clear state.map
-    let push_mutex = Nano_mutex.create ()
-
-    let find_detail t key =
-      match Hashtbl.find t.map key with
-      | Some detail -> detail
-      | None ->
-          let detail = empty_detail () in
-          Hashtbl.add_exn t.map ~key ~data:detail ;
-          detail
-
-    let get_stream t key =
-      let detail = find_detail t key in
-      Lwt_stream.clone detail.stream
+    let find_detail t key = Hashtbl.find_or_add t.map key ~default:empty_detail
 
     let set_pre_push t key pre_push =
       let detail = find_detail t key in
       detail.pre_push <- pre_push
 
-    let alloc_task t ?task key =
+    let create_key t ?task key =
       let detail = find_detail t key in
-      if is_initial detail
+      if N.is_status_initial detail.status
       then (
-        detail.task_status <- Running ;
+        detail.status <- Running ;
         match task with None -> () | Some t -> t ())
       else ()
+
+    (* low-level *)
+
+    let get_stream t key =
+      let detail = find_detail t key in
+      Lwt_stream.clone detail.stream
 
     let real_push t key =
       let detail = find_detail t key in
@@ -120,7 +113,9 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
 
     let push_all t key msgs = List.iter msgs ~f:(real_push t key)
 
-    let by_return t key v =
+    (* public *)
+
+    let one_shot t key v =
       real_push t key v ;
       real_close t key ;
       Lwt.return_unit
@@ -157,18 +152,18 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
       let stream_src = get_stream t key_src in
       Lwt_stream.iter_s (fun x -> f key_dst x) stream_src
 
-    let by_join t ?(f = Fn.id) key_src key_dsts =
-      let cb = real_push t key_src in
-      let stream_tgts = List.map key_dsts ~f:(get_stream t) in
+    let by_join t ?(f = Fn.id) key_dst key_srcs =
+      let cb = real_push t key_dst in
+      let stream_srcs = List.map key_srcs ~f:(get_stream t) in
       Lwt_list.iter_p
         (fun lookup_x_ret -> Lwt_stream.iter (fun x -> cb (f x)) lookup_x_ret)
-        stream_tgts
+        stream_srcs
 
     (*
-     let by_join_map t key_src key_dsts f = by_join t ~f key_src key_dsts
+     let by_join_map t key_dst key_srcs f = by_join t ~f key_dst key_srcs
 
-     let by_join_map_u t key_src key_dsts f =
-       Lwt.async (fun () -> by_join t ~f key_src key_dsts) *)
+     let by_join_map_u t key_dst key_srcs f =
+       Lwt.async (fun () -> by_join t ~f key_dst key_srcs) *)
 
     (* let product_stream_ s1 s2 =
        let s, f = Lwt_stream.create () in
@@ -249,7 +244,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
          srcs *)
 
     (* external use *)
-    let current_messages t key =
+    let messages_sent t key =
       Hashtbl.find_and_call t.map key
         ~if_found:(fun x -> x.messages)
         ~if_not_found:(fun _ -> [])
@@ -260,9 +255,8 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
   module No_wait = struct
     include C
 
-    let by_return t key v =
-      real_push t key v ;
-      real_close t key
+    let one_shot t key_src v =
+      Lwt.async (fun () -> add_msg @@ one_shot t key_src v)
 
     let by_iter t key_src f =
       Lwt.async (fun () -> add_msg @@ by_iter t key_src f)
@@ -291,4 +285,211 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig with type key = Key.t) :
       Lwt.async (fun () ->
           add_msg @@ by_filter_map2 t key_dst key_src1 key_src2 f)
   end
+end
+
+module Make_just_payload (Key : Base.Hashtbl.Key.S) (P : P_sig) =
+  Make
+    (Key)
+    (struct
+      include P
+
+      type message = payload
+
+      let equal_message = equal_payload
+    end)
+
+module Make0 (Key : Base.Hashtbl.Key.S) (M : P_sig) :
+  S2 with type payload = M.payload and type key = Key.t = struct
+  type key = Key.t
+  type payload = M.payload
+  type control = unit
+  type message = Payload of payload | Control of control
+  type act = unit Lwt.t
+
+  let equal_message _ _ = false
+  let p2m p = Payload p
+  let _not_here : message = Control ()
+
+  (* type control = unit
+     type msg = Payload of payload | Control of control *)
+  type push = message option -> unit
+
+  type detail = {
+    stream : message Lwt_stream.t;
+    push : push;
+    mutable status : N.t;
+    mutable pre_push : message -> message option;
+    mutable messages : message list;
+  }
+
+  (* init *)
+
+  let msg_queue = ref []
+
+  type t = { map : (Key.t, detail) Hashtbl.t }
+
+  let create () : t = { map = Hashtbl.create (module Key) }
+  let reset state = Hashtbl.clear state.map
+  let push_mutex = Nano_mutex.create ()
+
+  let empty_detail () =
+    let stream, push = Lwt_stream.create () in
+    let pre_push m = Some m in
+    { stream; push; status = Initial; pre_push; messages = [] }
+
+  let find_detail t key = Hashtbl.find_or_add t.map key ~default:empty_detail
+
+  let set_pre_push t key pre_push =
+    let detail = find_detail t key in
+    detail.pre_push <- pre_push
+
+  let create_key t ?task key =
+    let detail = find_detail t key in
+    if N.is_status_initial detail.status
+    then (
+      detail.status <- Running ;
+      match task with None -> () | Some t -> t ())
+    else ()
+
+  (* low-level *)
+
+  let get_stream t key =
+    let detail = find_detail t key in
+    Lwt_stream.clone detail.stream
+
+  let real_push t key =
+    let detail = find_detail t key in
+    fun msg ->
+      Nano_mutex.critical_section push_mutex ~f:(fun () ->
+          if List.mem detail.messages msg ~equal:equal_message
+          then ()
+          else
+            (* Note this push is not for the current src-tgt pair.
+               The handler function belonging to this target key is defined at the place
+               where `real_push` is used.
+               This push is used for other pairs in which this target is their's source.
+               That's the reason why we cannot see any handler here.
+            *)
+            match detail.pre_push msg with
+            | Some msg ->
+                detail.push (Some msg) ;
+                detail.messages <- detail.messages @ [ msg ]
+            | None -> ())
+
+  let real_push_lwt t key msg =
+    let push = real_push t key in
+    push msg ;
+    Lwt.return_unit
+
+  (* let push_lwt t key p =
+     let push = real_push t key in
+     push (p2m p) ;
+     Lwt.return_unit *)
+
+  let payload_only f msg =
+    match msg with Payload p -> f p | Control _ -> Lwt.return_unit
+
+  let push_payload t key f p =
+    let push = real_push t key in
+    match p with Payload p -> push (p2m (f p)) | Control _ -> ()
+
+  let push_payload_lwt t key f p =
+    push_payload t key f p ;
+    Lwt.return_unit
+
+  let push_payload_opt_lwt t key f_opt p =
+    let push = real_push t key in
+    (match p with
+    | Payload p -> ( match f_opt p with Some v -> push (p2m v) | None -> ())
+    | Control _ -> ()) ;
+    Lwt.return_unit
+
+  let payload_only2 f = function
+    | Payload p1, Payload p2 -> f (p1, p2)
+    | _, _ -> Lwt.return_unit
+
+  let real_close t key =
+    let detail = find_detail t key in
+    detail.push None
+
+  let just_push t key v =
+    match v with Some msg -> real_push t key msg | None -> real_close t key
+
+  let push_all t key msgs = List.iter msgs ~f:(real_push t key)
+
+  (* public *)
+
+  let one_shot t key v =
+    real_push t key (p2m v) ;
+    real_close t key ;
+    Lwt.return_unit
+
+  let by_iter t key_src f =
+    let stream_src = get_stream t key_src in
+    Lwt_stream.iter_s (payload_only f) stream_src
+
+  let by_id t key_dst key_src =
+    let stream_src = get_stream t key_src in
+    Lwt_stream.iter_s (real_push_lwt t key_dst) stream_src
+
+  let by_map t key_dst key_src f =
+    let stream_src = get_stream t key_src in
+    Lwt_stream.iter_s (push_payload_lwt t key_dst f) stream_src
+
+  let by_filter_map t key_dst key_src f =
+    let stream_src = get_stream t key_src in
+    Lwt_stream.iter_s (push_payload_opt_lwt t key_dst f) stream_src
+
+  let by_bind t key_dst key_src f =
+    let stream_src = get_stream t key_src in
+    Lwt_stream.iter_s (payload_only (f key_dst)) stream_src
+
+  let by_join t ?(f = Fn.id) key_dst key_srcs =
+    (* let cb = real_push t key_src in *)
+    let stream_srcs = List.map key_srcs ~f:(get_stream t) in
+    Lwt_list.iter_p (Lwt_stream.iter (push_payload t key_dst f)) stream_srcs
+
+  let product_stream s1 s2 =
+    let s, f = Lwt_stream.create () in
+    Lwt.async (fun () ->
+        Lwt_stream.iter_s
+          (fun v1 ->
+            let s2' = Lwt_stream.clone s2 in
+            Lwt_stream.iter_s
+              (fun v2 ->
+                f (Some (v1, v2)) ;
+                Lwt.return_unit)
+              s2')
+          s1) ;
+    s
+
+  let by_map2 t key_dst key_src1 key_src2 f : unit Lwt.t =
+    let stream_src1 = get_stream t key_src1 in
+    let stream_src2 = get_stream t key_src2 in
+    let stream12 = product_stream stream_src1 stream_src2 in
+    let cb = real_push t key_dst in
+
+    Lwt_stream.iter_s
+      (payload_only2 (fun (v1, v2) ->
+           cb (p2m (f (v1, v2))) ;
+           Lwt.return_unit))
+      stream12
+
+  let by_filter_map2 t key_dst key_src1 key_src2 f : unit Lwt.t =
+    let stream_src1 = get_stream t key_src1 in
+    let stream_src2 = get_stream t key_src2 in
+    let stream12 = product_stream stream_src1 stream_src2 in
+    let cb = real_push t key_dst in
+
+    Lwt_stream.iter_s
+      (payload_only2 (fun (v1, v2) ->
+           (match f (v1, v2) with Some v -> cb (p2m v) | None -> ()) ;
+           Lwt.return_unit))
+      stream12
+
+  (* external use *)
+  let messages_sent t key =
+    Hashtbl.find_and_call t.map key
+      ~if_found:(fun x -> x.messages)
+      ~if_not_found:(fun _ -> [])
 end

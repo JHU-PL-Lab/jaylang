@@ -2,18 +2,24 @@ open Core
 (* open Lwt.Infix *)
 
 module To_test = struct
+  (* module Int_message = struct
+       type message = int [@@deriving equal]
+       type payload = int
+     end
+
+     module U0 = Unroll.Make (Int) (Int_message)
+     module U = U0.No_wait *)
+
   module Int_message = struct
-    type message = int [@@deriving equal]
-    type result = int
-    type key = int
+    type payload = int [@@deriving equal]
   end
 
-  module U0 = Unroll.Make (Int) (Int_message)
+  module U0 = Unroll.Make_just_payload (Int) (Int_message)
   module U = U0.No_wait
 
   let one_msg msg =
     let u = U.create () in
-    U.by_return u 1 msg ;
+    U.one_shot u 1 msg ;
     let all_work = U.get_stream u 1 |> Lwt_stream.to_list in
     Lwt_main.run all_work
 

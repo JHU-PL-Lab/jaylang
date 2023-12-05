@@ -2,36 +2,41 @@ open Core
 
 module type M_sig = sig
   type message
-  type result
-  type key
+  type payload
 
   val equal_message : message -> message -> bool
 end
 
-module type C = sig
+module type P_sig = sig
+  type payload
+
+  val equal_payload : payload -> payload -> bool
+end
+
+module type Part_C = sig
   type t
   type message
-  type result
+  type payload
   type key
 
   val create : unit -> t
   val reset : t -> unit
-  val alloc_task : t -> ?task:(unit -> unit) -> key -> unit
+  val create_key : t -> ?task:(unit -> unit) -> key -> unit
   val get_stream : t -> key -> message Lwt_stream.t
   val set_pre_push : t -> key -> (message -> message option) -> unit
   val just_push : t -> key -> message option -> unit
   val push_all : t -> key -> message list -> unit
-  val current_messages : t -> key -> message list
+  val messages_sent : t -> key -> message list
   val msg_queue : unit Lwt.t list ref
 end
 
-module type T = sig
+module type Part_T = sig
   type t
   type message
   type key
   type act
 
-  val by_return : t -> key -> message -> act
+  val one_shot : t -> key -> message -> act
   val by_iter : t -> key -> (message -> unit Lwt.t) -> act
   val by_id : t -> key -> key -> act
   val by_map : t -> key -> key -> (message -> message) -> act
@@ -45,24 +50,27 @@ module type T = sig
   val by_bind : t -> key -> key -> (key -> message -> act) -> act
 end
 
-module type S = sig
-  include C
+module type All = sig
+  include Part_C
 
   include
-    T
+    Part_T with type t := t and type message := message and type key := key
+end
+
+module type S = sig
+  include All with type act := unit Lwt.t
+
+  module No_wait :
+    All
       with type t := t
        and type message := message
        and type key := key
-       and type act := unit Lwt.t
+       and type act := unit
+end
 
-  module No_wait : sig
-    include C with type t := t and type message := message and type key := key
+module type S2 = sig
+  include Part_C
 
-    include
-      T
-        with type t := t
-         and type message := message
-         and type key := key
-         and type act := unit
-  end
+  include
+    Part_T with type t := t and type message := payload and type key := key
 end

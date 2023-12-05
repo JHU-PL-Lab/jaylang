@@ -106,7 +106,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   let dispatch (lookup : Lookup_key.t -> unit -> unit) key =
     let job () =
       let task = push_job state key (lookup key) in
-      Unrolls.U_dbmc.alloc_task unroll ~task key
+      Unrolls.U_dbmc.create_key unroll ~task key
     in
     Global_state.run_if_fresh state key job
   in
