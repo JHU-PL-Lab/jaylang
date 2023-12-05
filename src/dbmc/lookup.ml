@@ -89,7 +89,8 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
         with
         | None -> Lwt.return_unit
         | Some { model; c_stk } ->
-            raise (Riddler.Found_solution { model; c_stk }))
+            raise (Riddler.Found_solution { model; c_stk })) ;
+    Lwt.return_unit
   in
   Lwt.pick [ Global_state.scheduler_run state; wait_result ]
 

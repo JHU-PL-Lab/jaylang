@@ -8,7 +8,8 @@ module To_test = struct
     type key = int
   end
 
-  module U = Unroll.Make (Int) (Int_message)
+  module U0 = Unroll.Make (Int) (Int_message)
+  module U = U0.No_wait
 
   let one_msg msg =
     let u = U.create () in
@@ -33,7 +34,7 @@ module To_test = struct
     let u = U.create () in
     U.push_all u 3 msgs1 ;
     U.push_all u 4 msgs2 ;
-    U.by_join_u u 5 [ 3; 4 ] ;
+    U.by_join u 5 [ 3; 4 ] ;
     U.get_stream u 5 |> Lwt_stream.get_available
 end
 
