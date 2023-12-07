@@ -46,6 +46,10 @@ let remove_type_from_funsig (f : 'a expr_desc -> 'b expr_desc m)
 let new_instrumented_ed (e : 'a expr) : 'a expr_desc m =
   let ed = new_expr_desc e in
   let%bind () = add_instrumented_tag ed.tag in
+  (* let () =
+       Fmt.pr "New_instrumented_ed: %a; tag: %n \n"
+         Bluejay_ast_internal_pp.pp_expr_desc_with_tag ed ed.tag
+     in *)
   return ed
 
 let mk_gc_pair_cod arg_id cod arg =
@@ -432,13 +436,6 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
     semantic_only expr_desc m =
   let t = e_desc.body in
   let tag = e_desc.tag in
-  let () =
-    if tag = 8
-    then
-      Fmt.pr "This is tag 8: %a" Bluejay_ast_internal_pp.pp_expr_desc_with_tag
-        e_desc
-    else ()
-  in
   let%bind t' =
     match t with
     | TypeVar tvar ->
@@ -736,7 +733,6 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           let%bind () = add_error_to_tag_mapping fail_pat_cls_3 tag in
           return @@ Function ([ expr_id ], new_expr_desc check_cls_3)
         in
-        (* TODO: Check - Is wrap for record just id? *)
         let%bind wrapper =
           let%bind expr_id = fresh_ident "expr" in
           return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
@@ -2188,16 +2184,6 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind m' = ident_map_map_m semantic_type_of m in
         let res = new_expr_desc @@ Record m' in
         let%bind () = add_sem_to_syn_mapping res e_desc in
-        (* let%bind is_og_inst = is_instrumented e_desc.tag in
-           let () = Fmt.pr "This is the tag: %n" e_desc.tag in
-           let () =
-             Fmt.pr "\n instrumented expression: %a; is_instrumented: %b \n"
-               Bluejay_ast_internal_pp.pp_expr_desc e_desc is_og_inst
-           in
-           let () =
-             Fmt.pr "\n new expression: %a \n" Bluejay_ast_internal_pp.pp_expr_desc
-               res
-           in *)
         return res
     | RecordProj (e, l) ->
         let%bind e' = semantic_type_of e in
@@ -2219,7 +2205,6 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           let check_poly =
             let check_pat =
               Ident_map.empty |> Ident_map.add (Ident "~untouched") None
-              (* |> Ident_map.add (Ident ("~\'" ^ t')) None *)
             in
             (RecPat check_pat, assert_cls)
           in
@@ -2265,7 +2250,16 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
   in
   let%bind instrumented_bool = is_instrumented tag in
   let%bind () =
-    if instrumented_bool then add_instrumented_tag t'.tag else return ()
+    if instrumented_bool
+    then
+      (* let () =
+           Fmt.pr
+             "This is pre-instrumented: %a; \nThis is post-instrumented: %a \n"
+             Bluejay_ast_internal_pp.pp_expr_desc_with_tag e_desc
+             Bluejay_ast_internal_pp.pp_expr_desc_with_tag t'
+         in *)
+      add_instrumented_tag t'.tag
+    else return ()
   in
   return t'
 
@@ -3126,6 +3120,10 @@ let transform_bluejay ?(do_wrap = true) (e : syn_type_bluejay) :
     core_bluejay_edesc * Bluejay_to_jay_maps.t =
   let transformed_expr : (core_bluejay_edesc * Bluejay_to_jay_maps.t) m =
     let () = if do_wrap then wrap_flag := true else () in
+    (* let () =
+         Fmt.pr "This is pre-transformed: %a \n"
+           Bluejay_ast_internal_pp.pp_expr_desc_with_tag (new_expr_desc e)
+       in *)
     let%bind e' =
       if do_wrap
       then

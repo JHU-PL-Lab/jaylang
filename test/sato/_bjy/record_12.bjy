@@ -1,5 +1,5 @@
 let tree_type = {: left : {: leaf : bool :}, item : int :} in
 let (x : tree_type) = 
-    { left = { leaf = 1 }, item = 6 }
+    { left = { leaf = true }, item = 6 }
 in x
 

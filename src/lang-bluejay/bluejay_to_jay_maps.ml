@@ -417,10 +417,6 @@ let rec unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps
   with
   | Some expr' -> expr'
   | None -> (
-      let () =
-        Fmt.pr "This is the expression not found: %a"
-          Bluejay_ast_internal_pp.pp_expr_desc wrapped
-      in
       let on_err = wrapped.body in
       let og_tag = wrapped.tag in
       match on_err with
@@ -856,11 +852,11 @@ let rec replace_type (t_desc : syn_bluejay_edesc) (new_t : syn_bluejay_edesc)
     match t with
     (* TODO: HACK *)
     | TypeSet (td, _) ->
-        let () =
-          Fmt.pr "\n\n equality check for: %a and %a\n\n"
-            Bluejay_ast_internal_pp.pp_expr_desc td
-            Bluejay_ast_internal_pp.pp_expr_desc new_t
-        in
+        (* let () =
+             Fmt.pr "\n\n equality check for: %a and %a\n\n"
+               Bluejay_ast_internal_pp.pp_expr_desc td
+               Bluejay_ast_internal_pp.pp_expr_desc new_t
+           in *)
         if Bluejay_ast_internal.tagless_equal_expr_desc td new_t
         then
           new_expr_desc
