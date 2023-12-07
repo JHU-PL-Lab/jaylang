@@ -351,8 +351,13 @@ module Make0 (Key : Base.Hashtbl.Key.S) (M : P_sig) :
       match task with None -> () | Some t -> t ())
     else ()
 
-  (* low-level *)
+  (* external use *)
+  let messages_sent t key =
+    Hashtbl.find_and_call t.map key
+      ~if_found:(fun x -> x.messages)
+      ~if_not_found:(fun _ -> [])
 
+  (* low-level *)
   let get_stream t key =
     let detail = find_detail t key in
     Lwt_stream.clone detail.stream
@@ -386,27 +391,43 @@ module Make0 (Key : Base.Hashtbl.Key.S) (M : P_sig) :
      push (p2m p) ;
      Lwt.return_unit *)
 
-  let payload_only f msg =
+  (* how to handle state is outside of f *)
+
+  let lift_in f msg =
     match msg with Payload p -> f p | Control _ -> Lwt.return_unit
 
-  let push_payload t key f p =
-    let push = real_push t key in
-    match p with Payload p -> push (p2m (f p)) | Control _ -> ()
+  let map_in f msg =
+    match msg with Payload p -> Some (Payload (f p)) | Control _ -> None
 
-  let push_payload_lwt t key f p =
-    push_payload t key f p ;
+  let map_out f msg = match msg with Some p -> f p | None -> ()
+
+  let map_in_opt f_opt msg =
+    match msg with
+    | Payload p -> (
+        match f_opt p with Some v -> Some (Payload v) | None -> None)
+    | Control _ -> None
+
+  let map2_in f (msg1, msg2) =
+    match (msg1, msg2) with
+    | Payload p1, Payload p2 -> Some (Payload (f (p1, p2)))
+    | _, _ -> None
+
+  let map2_in_opt f_opt (msg1, msg2) =
+    match (msg1, msg2) with
+    | Payload p1, Payload p2 -> (
+        match f_opt (p1, p2) with Some v -> Some (Payload v) | None -> None)
+    | _, _ -> None
+
+  let seq f push msg = msg |> map_in f |> map_out push
+  let seq_opt f_opt push msg = msg |> map_in_opt f_opt |> map_out push
+  let seq2 f push (msg1, msg2) = (msg1, msg2) |> map2_in f |> map_out push
+
+  let seq2_opt f_opt push (msg1, msg2) =
+    (msg1, msg2) |> map2_in_opt f_opt |> map_out push
+
+  let then_lwt f msg =
+    f msg ;
     Lwt.return_unit
-
-  let push_payload_opt_lwt t key f_opt p =
-    let push = real_push t key in
-    (match p with
-    | Payload p -> ( match f_opt p with Some v -> push (p2m v) | None -> ())
-    | Control _ -> ()) ;
-    Lwt.return_unit
-
-  let payload_only2 f = function
-    | Payload p1, Payload p2 -> f (p1, p2)
-    | _, _ -> Lwt.return_unit
 
   let real_close t key =
     let detail = find_detail t key in
@@ -426,7 +447,7 @@ module Make0 (Key : Base.Hashtbl.Key.S) (M : P_sig) :
 
   let by_iter t key_src f =
     let stream_src = get_stream t key_src in
-    Lwt_stream.iter_s (payload_only f) stream_src
+    Lwt_stream.iter_s (lift_in f) stream_src
 
   let by_id t key_dst key_src =
     let stream_src = get_stream t key_src in
@@ -434,20 +455,22 @@ module Make0 (Key : Base.Hashtbl.Key.S) (M : P_sig) :
 
   let by_map t key_dst key_src f =
     let stream_src = get_stream t key_src in
-    Lwt_stream.iter_s (push_payload_lwt t key_dst f) stream_src
+    let push = real_push t key_dst in
+    Lwt_stream.iter_s (then_lwt @@ seq f push) stream_src
 
-  let by_filter_map t key_dst key_src f =
+  let by_filter_map t key_dst key_src f_opt =
     let stream_src = get_stream t key_src in
-    Lwt_stream.iter_s (push_payload_opt_lwt t key_dst f) stream_src
+    let push = real_push t key_dst in
+    Lwt_stream.iter_s (then_lwt @@ seq_opt f_opt push) stream_src
 
   let by_bind t key_dst key_src f =
     let stream_src = get_stream t key_src in
-    Lwt_stream.iter_s (payload_only (f key_dst)) stream_src
+    Lwt_stream.iter_s (lift_in (f key_dst)) stream_src
 
   let by_join t ?(f = Fn.id) key_dst key_srcs =
-    (* let cb = real_push t key_src in *)
     let stream_srcs = List.map key_srcs ~f:(get_stream t) in
-    Lwt_list.iter_p (Lwt_stream.iter (push_payload t key_dst f)) stream_srcs
+    let push = real_push t key_dst in
+    Lwt_list.iter_p (Lwt_stream.iter (seq f push)) stream_srcs
 
   let product_stream s1 s2 =
     let s, f = Lwt_stream.create () in
@@ -467,29 +490,13 @@ module Make0 (Key : Base.Hashtbl.Key.S) (M : P_sig) :
     let stream_src1 = get_stream t key_src1 in
     let stream_src2 = get_stream t key_src2 in
     let stream12 = product_stream stream_src1 stream_src2 in
-    let cb = real_push t key_dst in
+    let push = real_push t key_dst in
+    Lwt_stream.iter_s (then_lwt @@ seq2 f push) stream12
 
-    Lwt_stream.iter_s
-      (payload_only2 (fun (v1, v2) ->
-           cb (p2m (f (v1, v2))) ;
-           Lwt.return_unit))
-      stream12
-
-  let by_filter_map2 t key_dst key_src1 key_src2 f : unit Lwt.t =
+  let by_filter_map2 t key_dst key_src1 key_src2 f_opt : unit Lwt.t =
     let stream_src1 = get_stream t key_src1 in
     let stream_src2 = get_stream t key_src2 in
     let stream12 = product_stream stream_src1 stream_src2 in
-    let cb = real_push t key_dst in
-
-    Lwt_stream.iter_s
-      (payload_only2 (fun (v1, v2) ->
-           (match f (v1, v2) with Some v -> cb (p2m v) | None -> ()) ;
-           Lwt.return_unit))
-      stream12
-
-  (* external use *)
-  let messages_sent t key =
-    Hashtbl.find_and_call t.map key
-      ~if_found:(fun x -> x.messages)
-      ~if_not_found:(fun _ -> [])
+    let push = real_push t key_dst in
+    Lwt_stream.iter_s (then_lwt @@ seq2_opt f_opt push) stream12
 end
