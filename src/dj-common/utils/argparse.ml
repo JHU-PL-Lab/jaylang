@@ -55,7 +55,11 @@ let params_with ~config : Global_config.t Command.Param.t =
     flag "-e" (optional_with_default config.engine engine_parser) ~doc:"engine"
   and is_wrapped = flag "-w" no_arg ~doc:"wrapped"
   and is_instrumented = flag "-a" no_arg ~doc:"instrumented"
-  and dump_instrumented = flag "-ad" no_arg ~doc:"dump instrumented"
+  and dump_level =
+    flag "-dpl"
+      (optional_with_default config.dump_level
+         (Command.Arg_type.create dump_level_of_str))
+      ~doc:"dump program transformation passes"
   and analyzer =
     flag "-aa"
       (optional_with_default config.analyzer
@@ -115,7 +119,7 @@ let params_with ~config : Global_config.t Command.Param.t =
     stage;
     is_wrapped;
     is_instrumented;
-    dump_instrumented;
+    dump_level;
     mode;
     expected_from_file;
     analyzer;

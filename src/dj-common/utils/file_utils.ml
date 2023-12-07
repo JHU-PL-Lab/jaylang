@@ -59,10 +59,22 @@ let read_source ?(do_wrap = false) ?(do_instrument = false) ?(consts = [])
   read_source_full ~do_wrap ~do_instrument ~consts filename
   |> Convert.jil_ast_of_convert
 
-let dump_to_file jil_ast filename =
+let dump_jil_to_file jil_ast filename =
   let oc = Out_channel.create filename in
   let formatter = Format.formatter_of_out_channel oc in
   Fmt.pf formatter "%a" Jayil.Pp.expr jil_ast ;
+  Out_channel.close oc
+
+let dump_jay_to_file jay_ast filename =
+  let oc = Out_channel.create filename in
+  let formatter = Format.formatter_of_out_channel oc in
+  Fmt.pf formatter "%a" Jay.Jay_ast_pp.pp_expr jay_ast ;
+  Out_channel.close oc
+
+let dump_bluejay_to_file bluejay_ast filename =
+  let oc = Out_channel.create filename in
+  let formatter = Format.formatter_of_out_channel oc in
+  Fmt.pf formatter "%a" Bluejay.Bluejay_ast_pp.pp_expr bluejay_ast ;
   Out_channel.close oc
 
 let load_expect testpath t_of_sexp =

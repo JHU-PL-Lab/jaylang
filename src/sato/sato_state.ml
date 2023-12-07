@@ -68,7 +68,7 @@ let get_target_vars (abort_mapping : (Ident_new.t, abort_value) Hashtbl.t) :
 
 let initialize_state_with_expr (sato_mode : mode)
     (program_full : Dj_common.Convert.convert_t) : t =
-  let ({ jil_ast; jil_inst_map; jay_jil_map; bluejay_jay_map }
+  let ({ jil_ast; jil_inst_map; jay_jil_map; bluejay_jay_map; _ }
         : Dj_common.Convert.convert_t) =
     program_full
   in
