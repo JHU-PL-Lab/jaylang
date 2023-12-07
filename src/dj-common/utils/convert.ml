@@ -3,8 +3,8 @@ open Jay_translate
 
 type convert_t = {
   jil_ast : Jayil.Ast.expr;
-  jay_ast : Jay.Jay_ast.expr option;
-  bluejay_ast : Bluejay.Bluejay_ast.expr option;
+  jay_ast : Jay.Jay_ast.expr_desc option;
+  bluejay_ast : Bluejay.Bluejay_ast.expr_desc option;
   jil_inst_map : Jay_instrumentation.Jayil_instrumentation_maps.t;
   jay_jil_map : Jay_to_jayil_maps.t option;
   bluejay_jay_map : Bluejay.Bluejay_to_jay_maps.t option;
@@ -93,7 +93,7 @@ let bluejay_to_jayil ~do_wrap ~do_instrument raw_bluejay =
     Jay_translate.Jay_to_jayil.translate ~is_jay:true
       ~is_instrumented:do_instrument ~consts ~bluejay_instruments jay_edesc
   in
-  convert_t_of6 a (Some jay_edesc.body) (Some bluejay_edesc.body) b (Some c)
+  convert_t_of6 a (Some jay_edesc) (Some bluejay_edesc) b (Some c)
     (Some bluejay_jay_map)
 
 let bluejay_to_jay ~do_wrap raw_bluejay =
@@ -109,7 +109,7 @@ let jay_to_jayil ~do_instrument ?(consts = []) raw_jay =
     Jay_translate.Jay_to_jayil.translate ~is_jay:true
       ~is_instrumented:do_instrument ~consts jay_ast
   in
-  convert_t_of5 a (Some jay_ast.body) b (Some c) None
+  convert_t_of5 a (Some jay_ast) b (Some c) None
 
 let instrument_jayil ~do_instrument raw_jay =
   let inst_jay, jil_inst_map =

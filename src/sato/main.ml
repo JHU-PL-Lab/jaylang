@@ -26,14 +26,14 @@ let dump_program program filename dump_level =
           File_utils.dump_jay_to_file jay_program jay_file ;
           File_utils.dump_jil_to_file purged_expr jil_file
       | _ -> failwith "Should have bluejay and jay programs!")
-  | _ -> failwith "To be implemented!"
+  | _ -> ()
 
 let main_lwt ~(config : Global_config.t) program_full :
     (reported_error option * bool) Lwt.t =
   dump_program program_full config.filename config.dump_level ;
 
   let program = Convert.jil_ast_of_convert program_full in
-  let () = Fmt.pr "%a" Jayil.Pp.expr program in
+  (* let () = Fmt.pr "%a" Jayil.Pp.expr program in *)
   Log.init config ;
   let sato_mode =
     match config.mode with Sato m -> m | _ -> failwith "not sato"

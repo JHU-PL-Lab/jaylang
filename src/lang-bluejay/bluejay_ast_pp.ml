@@ -184,9 +184,10 @@ and pp_binop (formatter : Format.formatter) (expr : expr) : unit =
       else raise @@ Utils.Invariant_failure "Invalid precedence comparison!"
   | _ -> raise @@ Utils.Invariant_failure "Not a binary operator!"
 
-(* and pp_expr_desc_with_tag (formatter : Format.formatter) (e : expr_desc) : unit =
-   Format.fprintf formatter "{tag: %a, body: %a}"
-   Format.pp_print_int e.tag pp_expr e.body *)
+and pp_expr_desc_with_tag (formatter : Format.formatter) (e : expr_desc) : unit
+    =
+  Format.fprintf formatter "{tag: %a, body: %a}" Format.pp_print_int e.tag
+    pp_expr_with_tag e.body
 
 and pp_expr_desc_without_tag (formatter : Format.formatter) (e : expr_desc) :
     unit =
@@ -194,6 +195,109 @@ and pp_expr_desc_without_tag (formatter : Format.formatter) (e : expr_desc) :
 
 and pp_expr (formatter : Format.formatter) (expr : expr) : unit =
   let pp_expr_desc = pp_expr_desc_without_tag in
+  match expr with
+  (* Values *)
+  | Int n -> Format.pp_print_int formatter n
+  | Bool b -> Format.pp_print_bool formatter b
+  | Var x -> pp_ident formatter x
+  | Function (x_list, e) ->
+      Format.fprintf formatter "fun %a -> @[<2>%a@]" pp_ident_list x_list
+        pp_expr_desc e
+  | Input -> Format.pp_print_string formatter "input"
+  | Record record -> pp_ident_map pp_expr_desc formatter record
+  | List e_list ->
+      Pp_utils.pp_concat_sep_delim "[" "]" ","
+        (fun formatter e -> pp_expr_desc formatter e)
+        formatter (List.enum e_list)
+  (* Operations *)
+  | Appl _ -> pp_binop formatter expr
+  | Let (ident, e1, e2) ->
+      Format.fprintf formatter "let %a = %a in @[%a@]" pp_ident ident
+        pp_expr_desc e1 pp_expr_desc e2
+  | LetWithType (ident, e1, e2, type_decl) ->
+      Format.fprintf formatter "let (%a : %a) = %a in @[%a@]" pp_ident ident
+        pp_expr_desc type_decl pp_expr_desc e1 pp_expr_desc e2
+  | LetRecFun (funsig_lst, e) ->
+      Format.fprintf formatter "let rec %a in @[%a@]" pp_funsig_list funsig_lst
+        pp_expr_desc e
+  | LetRecFunWithType (typed_funsig_lst, e) ->
+      Format.fprintf formatter "let rec %a in @[%a@]" pp_typed_funsig_list
+        typed_funsig_lst pp_expr_desc e
+  | LetFun (funsig, e) ->
+      Format.fprintf formatter "let %a in @[%a@]" pp_funsig funsig pp_expr_desc
+        e
+  | LetFunWithType (typed_funsig, e) ->
+      Format.fprintf formatter "let %a in @[%a@]" pp_typed_funsig typed_funsig
+        pp_expr_desc e
+  | If (pred, e1, e2) ->
+      Format.fprintf formatter "if %a then @[<2>%a@] else @[<2>%a@]"
+        pp_expr_desc pred pp_expr_desc e1 pp_expr_desc e2
+  | Match (e, pattern_expr_list) ->
+      let pp_pattern_expr formatter (pattern, expr) =
+        Format.fprintf formatter "@[| %a -> @[<2>%a@]@]" pp_pattern pattern
+          pp_expr_desc expr
+      in
+      let pp_pattern_expr_lst formatter pat_expr_list =
+        Pp_utils.pp_concat_sep "" pp_pattern_expr formatter
+          (List.enum pat_expr_list)
+      in
+      Format.fprintf formatter "match %a with @[%a@] end" pp_expr_desc e
+        pp_pattern_expr_lst pattern_expr_list
+  (* Binary operations *)
+  | Plus _ | Minus _ | Times _ | Divide _ | Modulus _ | Equal _ | Neq _
+  | LessThan _ | Leq _ | GreaterThan _ | Geq _ | And _ | Or _ | ListCons _ ->
+      pp_binop formatter expr
+  (* Unary operations *)
+  | Not e ->
+      if expr_precedence_cmp expr e.body < 0
+      then Format.fprintf formatter "not %a" pp_expr_desc e
+      else Format.fprintf formatter "not (%a)" pp_expr_desc e
+  | RecordProj (e, lbl) ->
+      if expr_precedence_cmp e.body expr > 0
+      then Format.fprintf formatter "%a.%a" pp_expr_desc e pp_label lbl
+      else Format.fprintf formatter "(%a).%a" pp_expr_desc e pp_label lbl
+  | VariantExpr (variant_lbl, e) ->
+      if expr_precedence_cmp expr e.body < 0
+      then
+        Format.fprintf formatter "%a %a" pp_variant_label variant_lbl
+          pp_expr_desc e
+      else
+        Format.fprintf formatter "%a (%a)" pp_variant_label variant_lbl
+          pp_expr_desc e
+  | Assert e ->
+      if expr_precedence_cmp expr e.body < 0
+      then Format.fprintf formatter "assert %a" pp_expr_desc e
+      else Format.fprintf formatter "assert (%a)" pp_expr_desc e
+  | Assume e ->
+      if expr_precedence_cmp expr e.body < 0
+      then Format.fprintf formatter "assume %a" pp_expr_desc e
+      else Format.fprintf formatter "assume (%a)" pp_expr_desc e
+  | TypeError x -> Format.fprintf formatter "TypeError: %a" pp_ident x
+  | TypeVar v -> Format.fprintf formatter "%a" pp_ident v
+  | TypeInt -> Format.pp_print_string formatter "int"
+  | TypeBool -> Format.pp_print_string formatter "bool"
+  | TypeRecord record ->
+      Format.fprintf formatter "%a" (pp_ident_map_as_type pp_expr_desc) record
+  | TypeList t -> Format.fprintf formatter "[%a]" pp_expr_desc t
+  | TypeArrow (t1, t2) ->
+      Format.fprintf formatter "(%a -> %a)" pp_expr_desc t1 pp_expr_desc t2
+  | TypeArrowD ((x1, t1), t2) ->
+      Format.fprintf formatter "((%a : %a) -> %a)" pp_ident x1 pp_expr_desc t1
+        pp_expr_desc t2
+  | TypeSet (t, p) ->
+      Format.fprintf formatter "{%a | %a}" pp_expr_desc t pp_expr_desc p
+  | TypeUnion (t1, t2) ->
+      Format.fprintf formatter "%a v %a" pp_expr_desc t1 pp_expr_desc t2
+  | TypeIntersect (t1, t2) ->
+      Format.fprintf formatter "%a ^ %a" pp_expr_desc t1 pp_expr_desc t2
+  | TypeRecurse (tvar, t) ->
+      Format.fprintf formatter "Mu %a.%a" pp_ident tvar pp_expr_desc t
+  | TypeUntouched s -> Format.pp_print_string formatter @@ "'" ^ s
+  | TypeVariant (l, t) ->
+      Format.fprintf formatter "`%a (%a)" pp_variant_label l pp_expr_desc t
+
+and pp_expr_with_tag (formatter : Format.formatter) (expr : expr) : unit =
+  let pp_expr_desc = pp_expr_desc_with_tag in
   match expr with
   (* Values *)
   | Int n -> Format.pp_print_int formatter n
