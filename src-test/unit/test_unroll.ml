@@ -14,8 +14,7 @@ module To_test = struct
     type payload = int [@@deriving equal]
   end
 
-  module U0 = Unroll.Make_just_payload (Int) (Int_message)
-  module U = U0.No_wait
+  module U = Unroll.Make_just_payload_no_wait (Int) (Int_message)
 
   let one_msg msg =
     let u = U.create () in
@@ -40,12 +39,12 @@ module To_test = struct
     let u = U.create () in
     U.push_all u 3 msgs1 ;
     U.push_all u 4 msgs2 ;
-    U.by_join u 5 [ 3; 4 ] ;
+    U.join u [ 3; 4 ] 5 ;
     U.get_stream u 5 |> Lwt_stream.get_available
 end
 
 (* let history = ref [] in *)
-(* U_int.by_iter u 1 (fun v ->
+(* U_int.iter u 1 (fun v ->
     history := v :: !history ;
     Lwt.return_unit) *)
 

@@ -4,7 +4,7 @@ open Jayil
 open Jayil.Ast
 open Rule
 open Types
-module U = Unrolls.U_dbmc.No_wait
+module U = Unrolls.U_dbmc
 module Log = Log.Export.CMLog
 
 (*
@@ -94,11 +94,11 @@ let run_action dispatch unroll (state : Global_state.t)
         (match sub_lookup with
         | Some pre ->
             add_sublookup pre e.pub ;
-            U.by_map unroll target e.pub (fun r ->
+            U.map unroll e.pub target (fun r ->
                 Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from) ;
                 r)
         | None ->
-            U.by_filter_map unroll target e.pub (fun r ->
+            U.filter_map unroll e.pub target (fun r ->
                 Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from) ;
                 promote_result r.status r.from)) ;
 
@@ -107,7 +107,7 @@ let run_action dispatch unroll (state : Global_state.t)
               (Option.is_some sub_lookup)) ;
         dispatch e.pub
     | Map e ->
-        U.by_filter_map unroll target e.pub (fun r ->
+        U.filter_map unroll e.pub target (fun r ->
             let r' = promote_result r.status (e.map r.from) in
             Option.iter r' ~f:(fun r ->
                 Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from)) ;
@@ -125,10 +125,10 @@ let run_action dispatch unroll (state : Global_state.t)
               Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from)) ;
           r'
         in
-        U.by_filter_map unroll target e.pub f ;
+        U.filter_map unroll e.pub target f ;
         dispatch e.pub
     | Both e ->
-        U.by_filter_map2 unroll target e.pub1 e.pub2 (fun (v1, v2) ->
+        U.filter_map2 unroll e.pub1 e.pub2 target (fun (v1, v2) ->
             let joined_status = Lookup_status.join v1.status v2.status in
             Lookup_status.iter_ok joined_status (fun () -> add_to_domain target) ;
             promote_result joined_status target) ;
@@ -157,7 +157,7 @@ let run_action dispatch unroll (state : Global_state.t)
               | Some edge -> run ~sub_lookup:(e.pub, r.from) edge
               | None -> ())
         in
-        U.by_bind unroll target e.pub part1_cb ;
+        U.iter unroll e.pub (part1_cb target) ;
         dispatch e.pub
     | Or_list e ->
         if not e.bounded then Global_state.create_counter state detail target ;

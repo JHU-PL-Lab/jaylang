@@ -82,12 +82,12 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
   run_task term_target Phi_set.empty ;
 
   let wait_result =
-    U_ddse.by_iter unroll term_target (fun (r : Ddse_result.t) ->
+    U_ddse.iter unroll term_target (fun (r : Ddse_result.t) ->
         let phis_to_check = Set.to_list r.phis in
         match
           Checker.check_phis state.solve.solver phis_to_check config.debug_model
         with
-        | None -> Lwt.return_unit
+        | None -> ()
         | Some { model; c_stk } ->
             raise (Riddler.Found_solution { model; c_stk })) ;
     Lwt.return_unit
