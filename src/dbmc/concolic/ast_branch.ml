@@ -10,9 +10,11 @@ module Status =
       | Unsatisfiable
       | Reached_max_step (* TODO: consider runs with other inputs to try to lower step count *)
       | Unreachable (* any unhit branch whose parent is unsatisfiable *)
-      [@@deriving variants]
+      [@@deriving variants, compare]
 
     let to_string x = Variants.to_name x |> String.capitalize
+
+    let is_hit = function Hit -> true | _ -> false
   end
 
 module Direction =
@@ -62,6 +64,12 @@ module Branch_status =
     let print (x : t) (id : Ast.ident) : unit =
       to_string x id
       |> Core.print_string
+
+    (* changes any occurance of old_status to new_status *)
+    let map (x : t) (old_status : Status.t) (new_status : Status.t) : t =
+      function
+      | d when Status.compare (x d) old_status = 0 -> new_status
+      | d -> x d
   end
 
 
@@ -154,5 +162,9 @@ module Status_store =
       | Value_body (Value_function (Function_value (_, e))) ->
         find_branches e m
       | _ -> m (* no branches in non-conditional or value *)
+
+    (* map any unhit to unreachable *)
+    let finish (map : t) : t =
+      Ast.Ident_map.map (fun b -> Branch_status.map b Status.Unhit Status.Unreachable) map
   end
 

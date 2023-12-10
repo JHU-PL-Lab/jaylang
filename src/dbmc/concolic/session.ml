@@ -173,6 +173,29 @@ module Concolic =
     *)
     let next (session : t) : t =
       (* create brand new eval session, so old session is completely lost *)
+      (* let next_eval_session =
+        match Ast_branch.Status_store.get_unhit_branch session.branch_store with
+        | None -> `All_Branches_Hit (* todo, return inputs that helped hit branches *)
+        | Some unhit -> begin
+          match session.target_stack with
+          | [] ->
+            if session.run_num = 0
+            then `Eval (create_eval default_input_feeder session.global_max_step)
+            else `Done (Ast_branch.Branch_store.finish session.branch_store) (* TODO? back up to prev sessions? *)
+          | target :: tl -> begin
+            match Branch_solver.get_feeder target session.formula_store with 
+            | `Ok input_feeder -> create_eval input_feeder session.global_max_step
+            | `Unsatisfiable_branch b ->
+              (* try next target *)
+              `Temp {
+                session with
+                target_stack = tl
+              ; branch_store = Ast_branch.Branch_store.set_unsatisfiable session.branch_store b
+              (* TODO: make sure that formula store doesn't hold pick formula so can pick new target *)
+              }
+          end
+        end *)
+
       let next_eval_session =
         match Ast_branch.Status_store.get_unhit_branch session.branch_store with
         | None -> raise All_Branches_Hit

@@ -66,7 +66,7 @@ val of_ident_and_bool : Ast.ident -> bool -> t
 
 module Status_store :
   sig
-    type t = Branch_status.t Ast.Ident_map.t
+    type t (* = Branch_status.t Ast.Ident_map.t *)
     (** [t] is a map from a branch identifier to the status of the branch. So it tells
         us whether the true and false direction of each branch have been hit. *)
 
@@ -101,4 +101,7 @@ module Status_store :
     val find_branches : Ast.expr -> t -> t
     (** [find_branches e store] is a new store where all the branches in the given expression [expr]
         have been added as unhit branches to the given [store]. *)
+
+    val finish : t -> t
+    (** [finish store] is a new store where all unhit branches are now marked as unsatisfiable *)
   end
