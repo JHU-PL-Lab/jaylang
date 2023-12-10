@@ -98,6 +98,9 @@ module Status_store :
     (** [is_hit store branch] is true if and only if the status of [branch.branch_ident] in 
         the [store] has [branch.direction] as [Hit]. *)
 
+    val get_status : t -> T.t -> Status.t
+    (** [get_status store branch] is the status of the given [branch]. *)
+
     val find_branches : Ast.expr -> t -> t
     (** [find_branches e store] is a new store where all the branches in the given expression [expr]
         have been added as unhit branches to the given [store]. *)

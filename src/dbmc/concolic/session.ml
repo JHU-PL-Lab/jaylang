@@ -160,6 +160,9 @@ module Concolic =
       ; run_num         = 0 
       ; eval            = create_eval default_input_feeder default_global_max_step }
 
+    let reset_formulas (session : t) : t =
+      { session with formula_store = Branch_solver.empty }
+
     (*
       The next session...
       * keeps the branch store because we want to remember which have been hit
@@ -168,55 +171,51 @@ module Concolic =
       * resets the formula store because formulas are dependent on inputs, which will be different in the next run.
         * TODO: which formulas can we keep? We might want to carry over *some* information
       * creates a brand new eval session
+      * uses the target stack to determine the next input feeder
+
+      A few things can happen
+      * We could have hit the max step, which we can check by comparing step with max step
+        (might prefer to have a flag for this)
+        * In which case we need to back up to the previous session because this one was effectively
+          "unsatisfiable" and cannot provide any new information
+      * We could have properly hit the previous target branch
+      * We can try to find an input feeder for the next target and succeed
+      * We can try to find an input feeder for the next target and fail
+        * in which case we need to record that and move onto the next target
 
       TODO: use variants instead of exceptions?
     *)
-    let next (session : t) : t =
-      (* create brand new eval session, so old session is completely lost *)
-      (* let next_eval_session =
+    let next (session : t) : t option =
+      let with_input_feeder (session : t) (input_feeder : Input_feeder.t) : t =
+        let new_eval_session = create_eval input_feeder session.global_max_step in
+        { session with
+          formula_store = Branch_solver.empty
+        ; eval          = new_eval_session
+        ; prev_sessions = session :: session.prev_sessions
+        ; run_num       = session.run_num + 1 }
+      in
+      let rec next (session : t) : t option =
         match Ast_branch.Status_store.get_unhit_branch session.branch_store with
-        | None -> `All_Branches_Hit (* todo, return inputs that helped hit branches *)
+        | None -> None
         | Some unhit -> begin
           match session.target_stack with
-          | [] ->
-            if session.run_num = 0
-            then `Eval (create_eval default_input_feeder session.global_max_step)
-            else `Done (Ast_branch.Branch_store.finish session.branch_store) (* TODO? back up to prev sessions? *)
-          | target :: tl -> begin
-            match Branch_solver.get_feeder target session.formula_store with 
-            | `Ok input_feeder -> create_eval input_feeder session.global_max_step
-            | `Unsatisfiable_branch b ->
-              (* try next target *)
-              `Temp {
-                session with
-                target_stack = tl
-              ; branch_store = Ast_branch.Branch_store.set_unsatisfiable session.branch_store b
-              (* TODO: make sure that formula store doesn't hold pick formula so can pick new target *)
-              }
-          end
-        end *)
-
-      let next_eval_session =
-        match Ast_branch.Status_store.get_unhit_branch session.branch_store with
-        | None -> raise All_Branches_Hit
-        | Some unhit -> begin
-          match session.target_stack with
-          | [] ->
-            if session.run_num = 0
-            then create_eval default_input_feeder session.global_max_step
-            else raise (Unreachable_Branch unhit) (* could not assign target during previous run, so [unhit] must be unreachable *)
-          | target :: _ -> begin
+          | [] when session.run_num = 0 -> Some (with_input_feeder session default_input_feeder)
+          | [] -> None (* no targets left but some unhit branches, so [unhit] must be unreachable *)
+          | target :: tl -> begin (* FIXME: allows to solve for duplicates ; want to ignore hit branches *)
             match Branch_solver.get_feeder target session.formula_store with
-            | `Ok input_feeder -> create_eval input_feeder session.global_max_step
-            | `Unsatisfiable_branch b -> raise (Unsatisfiable_Branch b)
+            | `Ok input_feeder -> Some (with_input_feeder session input_feeder)
+            | `Unsatisfiable_branch b ->
+              (* mark as unsatisfiable and try the next target *)
+              let new_branch_store = 
+                target
+                |> Branch_solver.Target.to_branch
+                |> Ast_branch.Status_store.set_unsatisfiable session.branch_store
+              in
+              next { session with target_stack = tl ; branch_store = new_branch_store }
           end
         end
       in
-      { session with
-        formula_store = Branch_solver.empty
-      ; eval          = next_eval_session
-      ; prev_sessions = session :: session.prev_sessions
-      ; run_num       = session.run_num + 1 }
+      next session
 
     let assert_target_hit (session : t) (target : Branch_solver.Target.t option) : unit =
       match target with
@@ -282,9 +281,15 @@ module Concolic =
               |> Branch_solver.Runtime_branch.other_direction
               |> fun branch -> Branch_solver.Target.{ branch_key ; branch }
             in
-            if Ast_branch.Status_store.is_hit (!session).branch_store (Branch_solver.Target.to_branch new_target)
-            then (!session).target_stack (* new target is already hit, so don't push new target *)
-            else new_target :: (!session).target_stack
+            match Ast_branch.Status_store.get_status (!session).branch_store (Branch_solver.Target.to_branch new_target) with
+            | Ast_branch.Status.Unhit -> new_target :: (!session).target_stack (* FIXME: this can currently add duplicates *)
+            | Hit | Unreachable | Unsatisfiable | Reached_max_step ->
+              (* Don't push new target if has already been considered *)
+              (!session).target_stack
+(* 
+            if not @@ Ast_branch.Status_store.is_hit (!session).branch_store (Branch_solver.Target.to_branch new_target)
+             (!session).target_stack (* new target is already hit, so don't push new target *)
+            else new_target :: (!session).target_stack *)
           }
 
         let exit_branch

@@ -82,7 +82,7 @@ module Concolic :
     (** [create_default ()] is a concolic session with empty stores, no target, run_num 0, and
         a default eval session *)
 
-    val next : t -> [ `Next of t | `All_branches_hit ]
+    val next : t -> t option (*[ `Next of t | `All_branches_hit ] *)
     (** [next session] is a session for the next run (or throws an exception) that resets formulas,
         keeps the target, and has an eval session whose input feeder is intended to hit the target.
         If there is nothing else to do, then [next session] *)

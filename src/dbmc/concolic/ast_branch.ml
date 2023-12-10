@@ -131,6 +131,11 @@ module Status_store =
     
     let set_reached_max_step = set_branch_status Status.Reached_max_step
 
+    let get_status (map : t) (branch : T.t) : Status.t =
+      match Ast.Ident_map.find_opt branch.branch_ident map with
+      | Some branch_status -> branch_status branch.direction
+      | None -> failwith "unbound branch"
+
     (* gets new target by setting to other direction or calling get_unhit_branch *)
     (* ^ currently only sets to other direction *)
     (* deleted because moving target to branch_solver *)

@@ -445,7 +445,7 @@ let solve_for_target
   : (Z3.Model.model, Ast_branch.t) result
   =
   (* Say that we're picking this branch, so all the parents that it was said to imply will now get implied. *)
-  let picked_formula = Riddler.picked target.branch_key in
+  let picked_branch_formula = Riddler.picked target.branch_key in
   let condition_formula = Runtime_branch.to_expr target.branch in
   let solver =
     store
@@ -454,9 +454,9 @@ let solve_for_target
   in
   (* let solver = Store.to_solver store in *)
   Format.printf "Solving for target branch:\n";
-  Format.printf "Branch to pick: %s\n" (Z3.Expr.to_string picked_formula);
+  Format.printf "Branch to pick: %s\n" (Z3.Expr.to_string picked_branch_formula);
   Format.printf "Branch condition: %s\n" (Z3.Expr.to_string condition_formula);
-  [ picked_formula ; condition_formula ] (* will check if these are consistent with other formulas in the solver *)
+  [ picked_branch_formula ; condition_formula ] (* will check if these are consistent with other formulas in the solver *)
   |> Z3.Solver.check solver (* returns status of "satisfiable" or not *)
   |> Solver.SuduZ3.get_model solver 
   |> function
