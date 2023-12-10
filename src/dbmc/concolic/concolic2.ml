@@ -460,7 +460,7 @@ let eval_exp_default ~(session: Session.Concolic.t ref) (e : expr) : Dvalue.denv
 let rec eval (e : expr) (prev_session : Session.Concolic.t) : unit =
   Format.printf "------------------------------\nRunning program...\n";
   Ast_branch.Status_store.print prev_session.branch_store;
-  Branch_solver.Target.print_option prev_session.target;
+  Branch_solver.Target.print_option @@ List.hd prev_session.target_stack;
 
   (* Generate the next session, which throws appropriate errors if execution is complete *)
   let session = ref @@ Session.Concolic.next prev_session in
@@ -470,7 +470,7 @@ let rec eval (e : expr) (prev_session : Session.Concolic.t) : unit =
   try
     let _, v = eval_exp_default ~session:session e in
     (* Assert that we hit our target branch: *)
-    Session.Concolic.assert_target_hit !session prev_session.target;
+    Session.Concolic.assert_target_hit !session @@ List.hd prev_session.target_stack;
     (* Print evaluated result and run again. *)
     Format.printf "Evaluated to: %a\n" Dvalue.pp v;
     eval e !session

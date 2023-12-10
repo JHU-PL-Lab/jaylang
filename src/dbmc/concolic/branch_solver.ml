@@ -359,12 +359,12 @@ let get_all_parent_dependencies
   : Z3.Expr.expr list
   =
   let rec loop acc = function
-  | [] -> acc
-  | children ->
-    let exps, parents = gen_antecedents children store in
-    loop (exps @ acc) parents
-    (* ^ hopefully exps is small compared to acc, and this isn't slow *)
-    (* Note that this might just run once if I flatten parents properly, so exps is large compared to acc, but still small on grand scale *)
+    | [] -> acc
+    | children ->
+      let exps, parents = gen_antecedents children store in
+      loop (exps @ acc) parents
+      (* ^ hopefully exps is small compared to acc, and this isn't slow *)
+      (* Note that this might just run once if I flatten parents properly, so exps is large compared to acc, but still small on grand scale *)
   in
   loop [] children
 

@@ -3,11 +3,16 @@ open Jayil
 
 module Status =
   struct
-    type t = Hit | Unhit
+    (* TODO: add payload for input *)
+    type t =
+      | Hit
+      | Unhit
+      | Unsatisfiable
+      | Reached_max_step (* TODO: consider runs with other inputs to try to lower step count *)
+      | Unreachable (* any unhit branch whose parent is unsatisfiable *)
+      [@@deriving variants]
 
-    let to_string = function
-    | Hit -> "HIT"
-    | Unhit -> "UNHIT"
+    let to_string x = Variants.to_name x |> String.capitalize
   end
 
 module Direction =
@@ -18,16 +23,16 @@ module Direction =
       [@@deriving equal, compare, sexp]
 
     let to_string = function
-    | True_direction -> "true"
-    | False_direction -> "false"
+      | True_direction -> "true"
+      | False_direction -> "false"
 
     let other_direction = function
-    | True_direction -> False_direction
-    | False_direction -> True_direction
+      | True_direction -> False_direction
+      | False_direction -> True_direction
 
     let to_value_bool = function
-    | True_direction -> Ast.Value_bool true
-    | False_direction -> Ast.Value_bool false
+      | True_direction -> Ast.Value_bool true
+      | False_direction -> Ast.Value_bool false
 
     let of_bool b = if b then True_direction else False_direction
   end
@@ -38,10 +43,14 @@ module Branch_status =
 
     let both_unhit = fun _ -> Status.Unhit
 
-    let hit (f : t) (direction : Direction.t) : t =
+    (* more general [hit] *)
+    let set (f : t) (direction : Direction.t) (new_status : Status.t) : t =
       function
-      | d when Direction.equal d direction -> Status.Hit
+      | d when Direction.equal d direction -> new_status
       | d -> f d
+
+    let hit (f : t) (direction : Direction.t) : t =
+      set f direction Status.Hit
 
     (* TODO: remove ident and let T do it *)
     let to_string (f : t) (Ast.Ident s : Ast.ident) : string =
@@ -98,14 +107,21 @@ module Status_store =
           | _ -> None
         )
 
-    let hit_branch (map : t) (branch : T.t) : t =
-      Printf.printf "Hitting: %s: %s\n" (let (Ast.Ident x) = branch.branch_ident in x) (Direction.to_string branch.direction);
+    let set_branch_status (status : Status.t) (map : t) (branch : T.t) : t =
       Ast.Ident_map.update_stdlib
         branch.branch_ident
         (function
-        | Some branch_status -> Some (Branch_status.hit branch_status branch.direction)
+        | Some branch_status -> Some (Branch_status.set branch_status branch.direction status)
         | None -> failwith "unbound branch")
         map
+
+    let hit_branch (map : t) (branch : T.t) : t =
+      Printf.printf "Hitting: %s: %s\n" (let (Ast.Ident x) = branch.branch_ident in x) (Direction.to_string branch.direction);
+      set_branch_status Status.Hit map branch
+
+    let set_unsatisfiable = set_branch_status Status.Unsatisfiable
+    
+    let set_reached_max_step = set_branch_status Status.Reached_max_step
 
     (* gets new target by setting to other direction or calling get_unhit_branch *)
     (* ^ currently only sets to other direction *)
@@ -120,7 +136,7 @@ module Status_store =
       |> Ast.Ident_map.find branch.branch_ident map (* is a function from direction to status *)
       |> function
         | Status.Hit -> true
-        | Status.Unhit -> false
+        | _ -> false
 
     let rec find_branches (e : Ast.expr) (m : t) : t =
       let open Ast in

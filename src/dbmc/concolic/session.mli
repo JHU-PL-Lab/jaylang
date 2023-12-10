@@ -70,11 +70,13 @@ module Concolic :
       next evaluation (which tries to target a different branch).
     *)
     type t =
-      { branch_store  : Ast_branch.Status_store.t
-      ; formula_store : Branch_solver.t
-      ; target        : Branch_solver.Target.t option
-      ; run_num       : int 
-      ; eval          : Eval.t } 
+      { branch_store    : Ast_branch.Status_store.t 
+      ; formula_store   : Branch_solver.t
+      ; target_stack    : Branch_solver.Target.t list
+      ; prev_sessions   : t list
+      ; global_max_step : int
+      ; run_num         : int 
+      ; eval            : Eval.t } 
 
     val create_default : unit -> t
     (** [create_default ()] is a concolic session with empty stores, no target, run_num 0, and

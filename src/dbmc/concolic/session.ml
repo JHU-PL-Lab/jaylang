@@ -121,41 +121,44 @@ module Concolic =
       The concolic session actually wraps the eval session, which is mutable
     *)
     type t =
-      { branch_store  : Ast_branch.Status_store.t
-      ; formula_store : Branch_solver.t
-      ; target        : Branch_solver.Target.t option
-      ; run_num       : int 
-      ; eval          : Eval.t } 
+      { branch_store    : Ast_branch.Status_store.t
+      ; formula_store   : Branch_solver.t
+      ; target_stack    : Branch_solver.Target.t list
+      ; prev_sessions   : t list
+      ; global_max_step : int
+      ; run_num         : int 
+      ; eval            : Eval.t } 
 
     let load_branches (session : t) (e : expr) : t =
       { session with branch_store = Ast_branch.Status_store.find_branches e session.branch_store }
 
-    let global_max_step = Int.(10 ** 3)
+    let default_global_max_step = Int.(10 ** 3)
+
+    (*
+      Default has no target branch, so input will be random between -10 and 10.
+    *)
+    let default_input_feeder : Input_feeder.t =
+      fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (-10) 10)
 
     (*
       Concolic eval runs have a max step and specific input feeder to try to reach the target.
     *)
-    let create_eval (input_feeder : Input_feeder.t) : Eval.t =
+    let create_eval (input_feeder : Input_feeder.t) (global_max_step : int) : Eval.t =
       { (Eval.create_default ()) with 
         input_feeder
       ; max_step = Some global_max_step }
 
     (*
-      Makes a default evaluation session for a concolic run. Default has no target branch,
-      so input will be random between -10 and 10.
-    *)
-    let create_default_eval () : Eval.t =
-      create_eval (fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (-10) 10))
-
-    (*
       To be called before the very first concolic run to get empty tracking variables.   
     *)
     let create_default () =
-      { branch_store  = Ast_branch.Status_store.empty
-      ; formula_store = Branch_solver.empty 
-      ; target        = None
-      ; run_num       = 0 
-      ; eval          = create_default_eval () }
+      { branch_store    = Ast_branch.Status_store.empty
+      ; formula_store   = Branch_solver.empty 
+      ; target_stack    = []
+      ; prev_sessions   = []
+      ; global_max_step = default_global_max_step
+      ; run_num         = 0 
+      ; eval            = create_eval default_input_feeder default_global_max_step }
 
     (*
       The next session...
@@ -171,25 +174,26 @@ module Concolic =
     let next (session : t) : t =
       (* create brand new eval session, so old session is completely lost *)
       let next_eval_session =
-        match Ast_branch.Status_store.get_unhit_branch session.branch_store, session.target with
-        | None, _ -> raise All_Branches_Hit
-        | Some unhit, None -> begin 
-          (* TODO: consider the logic here a little more--why does no target after first run mean unreachable? *)
-          if session.run_num = 0 then
-            create_default_eval ()
-          else
-            raise (Unreachable_Branch unhit) (* there is an unhit branch and no target after the first run *)
+        match Ast_branch.Status_store.get_unhit_branch session.branch_store with
+        | None -> raise All_Branches_Hit
+        | Some unhit -> begin
+          match session.target_stack with
+          | [] ->
+            if session.run_num = 0
+            then create_eval default_input_feeder session.global_max_step
+            else raise (Unreachable_Branch unhit) (* could not assign target during previous run, so [unhit] must be unreachable *)
+          | target :: _ -> begin
+            match Branch_solver.get_feeder target session.formula_store with
+            | `Ok input_feeder -> create_eval input_feeder session.global_max_step
+            | `Unsatisfiable_branch b -> raise (Unsatisfiable_Branch b)
           end
-        | _, Some target -> begin
-          match Branch_solver.get_feeder target session.formula_store with
-          | `Ok input_feeder -> create_eval input_feeder
-          | `Unsatisfiable_branch b -> raise (Unsatisfiable_Branch b)
         end
       in
       { session with
         formula_store = Branch_solver.empty
-      ; eval = next_eval_session
-      ; run_num = session.run_num + 1 }
+      ; eval          = next_eval_session
+      ; prev_sessions = session :: session.prev_sessions
+      ; run_num       = session.run_num + 1 }
 
     let assert_target_hit (session : t) (target : Branch_solver.Target.t option) : unit =
       match target with
@@ -201,18 +205,6 @@ module Concolic =
         |> function
           | true -> ()
           | false -> raise Missed_Target_Branch
-
-    (*
-      TODO: wrappers for adding formulas.
-        These would need to use the `with` keyword so that the session
-        gets passed over by reference and therefore keeps the same mutable session,
-        even though the concolic fields are immutable.
-
-        A todo at the top of this module says that maybe concolic session should
-        be mutable because the interpreter updates the maps. Other idea is pass in
-        reference cells to eval function, but that is no better than passing in record
-        full of reference cells.
-    *)
 
     module Ref_cell =
       struct
@@ -261,15 +253,15 @@ module Concolic =
           : unit
           =
           session := {
-            !session with target =
+            !session with target_stack =
             let new_target = (* new target is the other side of the branch we just hit *)
               hit_branch
               |> Branch_solver.Runtime_branch.other_direction
               |> fun branch -> Branch_solver.Target.{ branch_key ; branch }
             in
             if Ast_branch.Status_store.is_hit (!session).branch_store (Branch_solver.Target.to_branch new_target)
-            then (!session).target (* new target is already hit, so keep old target *)
-            else Some new_target 
+            then (!session).target_stack (* new target is already hit, so don't push new target *)
+            else new_target :: (!session).target_stack
           }
 
         let exit_branch

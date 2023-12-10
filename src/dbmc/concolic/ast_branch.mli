@@ -2,8 +2,12 @@ open Jayil
 
 module Status :
   sig
-    type t 
-    (** [t] a variant: hit or unhit *)
+    type t =
+      | Hit
+      | Unhit
+      | Unsatisfiable
+      | Reached_max_step
+      | Unreachable
     val to_string : t -> string
   end
 
@@ -82,6 +86,13 @@ module Status_store :
     val hit_branch : t -> T.t -> t
     (** [hit_branch store branch] is a new store where the given branch is now hit. All other
         branches are unaffected. *)
+
+    val set_unsatisfiable : t -> T.t -> t
+    (** [set_unsatisfiable store branch] is a new store where the given branch is marked unsatisfiable. *)
+
+    val set_reached_max_step : t -> T.t -> t
+    (** [set_reached_max_step store branch] is a new store where the given branch is marked such that
+        the branch was attempted to be hit, but the max step was exceeded. *)
 
     val is_hit : t -> T.t -> bool
     (** [is_hit store branch] is true if and only if the status of [branch.branch_ident] in 
