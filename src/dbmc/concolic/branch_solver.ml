@@ -269,7 +269,7 @@ let rec gen_implied_formula
   match gen_antecedents dependencies store with
   | [], _ -> formula (* Logically, the parents "_" must be empty if no expressions *)
   | exps, parent_keys -> (* if no parent keys because is global, then next iteration does nothing *)
-      Riddler.((and_ exps) @=> formula)
+      Riddler.(and_ exps @=> formula) (* all the expressions imply the formula *)
       |> gen_implied_formula parent_keys store
 
 (*

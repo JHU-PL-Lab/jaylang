@@ -409,7 +409,7 @@ and eval_clause
       let z_stk = Fetch.fetch_stk ~eval_session ~stk env vz in
       let y_key = Branch_solver.generate_lookup_key y y_stk in
       let z_key = Branch_solver.generate_lookup_key z z_stk in
-      Session.Concolic.Ref_cell.add_formula session [y_key; z_key] parent @@ Riddler.binop x_key op y_key z_key;
+      Session.Concolic.Ref_cell.add_formula session [y_key; z_key] parent @@ Riddler.binop_without_picked x_key op y_key z_key;
       Session.Concolic.Ref_cell.add_siblings session x_key [y_key; z_key];
       retv
     | Abort_body -> begin
