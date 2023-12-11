@@ -202,17 +202,27 @@ module Concolic =
           | [] when session.run_num = 0 -> Some (with_input_feeder session default_input_feeder)
           | [] -> None (* no targets left but some unhit branches, so [unhit] must be unreachable *)
           | target :: tl -> begin (* FIXME: allows to solve for duplicates ; want to ignore hit branches *)
-            match Branch_solver.get_feeder target session.formula_store with
-            | `Ok input_feeder -> Some (with_input_feeder session input_feeder)
-            | `Unsatisfiable_branch b ->
-              (* mark as unsatisfiable and try the next target *)
-              let new_branch_store = 
-                target
-                |> Branch_solver.Target.to_branch
-                |> Ast_branch.Status_store.set_unsatisfiable session.branch_store
-              in
-              next { session with target_stack = tl ; branch_store = new_branch_store }
-          end
+            if
+              Ast_branch.Status_store.is_hit session.branch_store (Branch_solver.Target.to_branch target)
+            then
+              begin (* I'm surprised this is a syntax error without the begin/end *)
+              Format.printf "Skipping already-hit target %s\n" (Branch_solver.Target.to_string target);
+              next { session with target_stack = tl }
+              end
+            else
+              match Branch_solver.get_feeder target session.formula_store with
+              | `Ok input_feeder -> Some (with_input_feeder session input_feeder)
+              | `Unsatisfiable_branch b ->
+                (* mark as unsatisfiable and try the next target *)
+                Format.printf "Unsatisfiable branch %s. Continuing to next target.\n" (Ast_branch.to_string b);
+                let new_branch_store = 
+                  target
+                  |> Branch_solver.Target.to_branch
+                  |> Ast_branch.Status_store.set_unsatisfiable session.branch_store
+                in
+                (* FIXME: when last branch is unsatisfiable, the setting doesn't propogate and it stays unhit *)
+                next { session with target_stack = tl ; branch_store = new_branch_store }
+            end
         end
       in
       next session
@@ -227,6 +237,11 @@ module Concolic =
         |> function
           | true -> ()
           | false -> raise Missed_Target_Branch
+
+    let finish_and_print ({ branch_store ; _ } : t) : unit =
+      branch_store
+      |> Ast_branch.Status_store.finish
+      |> Ast_branch.Status_store.print
 
     module Ref_cell =
       struct
@@ -283,6 +298,7 @@ module Concolic =
             in
             match Ast_branch.Status_store.get_status (!session).branch_store (Branch_solver.Target.to_branch new_target) with
             | Ast_branch.Status.Unhit -> new_target :: (!session).target_stack (* FIXME: this can currently add duplicates *)
+              (* CONSIDER: maybe have new status that is "enqueued" *)
             | Hit | Unreachable | Unsatisfiable | Reached_max_step ->
               (* Don't push new target if has already been considered *)
               (!session).target_stack

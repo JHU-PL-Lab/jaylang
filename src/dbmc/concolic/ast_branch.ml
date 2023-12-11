@@ -136,13 +136,6 @@ module Status_store =
       | Some branch_status -> branch_status branch.direction
       | None -> failwith "unbound branch"
 
-    (* gets new target by setting to other direction or calling get_unhit_branch *)
-    (* ^ currently only sets to other direction *)
-    (* deleted because moving target to branch_solver *)
-    (* let hit_and_get_new_target (map : t) (hit_target : Target.t) : t * Target.t option =
-      hit_branch map hit_target,
-      Some T.{ hit_target with direction = Direction.other_direction hit_target.direction } *)
-
     (* precondition: the branch is in the map *)
     let is_hit (map : t) (branch : T.t) : bool =
       branch.direction

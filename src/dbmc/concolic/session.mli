@@ -95,6 +95,10 @@ module Concolic :
     (** [assert_target_hit session target_opt] throws an exception if and only if the target (if is Some)
         is unhit in the session's branch store. *)
 
+    val finish_and_print : t -> unit
+    (** [finish_and_print session] prints the branch store where all previously unhit branches are
+        marked as unsatisfiable. *)
+
     module Ref_cell :
       sig
         (* This module holds wrappers to access the solver/store in a concolic session ref cell. *)
