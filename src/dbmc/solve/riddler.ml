@@ -129,9 +129,12 @@ let not_lookup t t1 = imply t [ P t1; Phi (not_ t t1) ]
 let eq_lookup key key' = imply key [ K (key, key') ]
 
 (* Binop *)
+let binop_without_picked = binop (* patch to bring back old binop for concolic evaluator *)
+
 let binop t op t1 t2 =
   let e_bop = binop t op t1 t2 in
   imply t [ P t1; P t2; Phi e_bop ]
+
 
 (* Cond Top *)
 let cond_top key key_x key_c beta =

@@ -47,5 +47,3 @@ let () =
   | "concolic" -> test_program_concolic !source_file reset_limit
   | "normal" -> run_program !source_file
   | _ -> ()
-
-  
