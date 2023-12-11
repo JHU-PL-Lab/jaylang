@@ -17,3 +17,152 @@ Other:
 * Use a logger instead of printing
   * Or set verbosity in session
 * 
+
+
+I have these two outputs, one with it working, and one with it not. I cannot find the difference that causes one to work.
+
+Now I rebuilt and it IS working. But the output doesn't change to justify it. This is some C++ sort of stuff...
+
+The working one:
+```
+Starting concolic execution...
+------------------------------
+Running program...
+
+Branch Information:
+always_false_branch: True=UNHIT; False=UNHIT
+both_reachable: True=UNHIT; False=UNHIT
+unreachable_branch: True=UNHIT; False=UNHIT
+
+Target branch: None
+Feed 2 to x
+ADD GLOBAL FORMULA (= x_ x_)
+ADD GLOBAL FORMULA (= one_ (Int 1))
+ADD GLOBAL FORMULA (let ((a!1 (= cx_ (Bool (< (i one_) (i x_))))))
+  (and a!1 ((_ is Int) one_) ((_ is Int) x_)))
+Hitting: both_reachable: true
+Hitting: always_false_branch: false
+ADD PICK FORMULA: (=> |P_always_false_branch_-(both_reachable,$tt);| (and (= cx_ (Bool true))))
+ADD GLOBAL FORMULA (=> |P_always_false_branch_-(both_reachable,$tt);| (and (= cx_ (Bool true))))
+ADD GLOBAL FORMULA (let ((a!1 (=> (and (= |always_false_cond_-(both_reachable,$tt);| (Bool false)))
+               (= both_reachable_
+                  |ret_true_both_reachable_-(both_reachable,$tt);|)))
+      (a!2 (= |ret_true_both_reachable_-(both_reachable,$tt);|
+              (Bool (< (i one_)
+                       (i |always_false_branch_-(both_reachable,$tt);|)))))
+      (a!4 (=> (= |always_false_cond_-(both_reachable,$tt);| (Bool false))
+               (and (= |always_false_branch_-(both_reachable,$tt);|
+                       |must_get_here_-(always_false_branch,$ff);-(both_reachable,$tt);|)
+                    (= |must_get_here_-(always_false_branch,$ff);-(both_reachable,$tt);|
+                       (Int 10)))))
+      (a!5 (= |always_false_cond_-(both_reachable,$tt);|
+              (Bool (< (i x_) (i one_))))))
+(let ((a!3 (=> (and (= |always_false_cond_-(both_reachable,$tt);| (Bool false)))
+               (and a!2
+                    ((_ is Int) one_)
+                    ((_ is Int) |always_false_branch_-(both_reachable,$tt);|)))))
+  (=> (= cx_ (Bool true))
+      (and a!1 a!3 a!4 a!5 ((_ is Int) x_) ((_ is Int) one_)))))
+ADD PICK FORMULA: (=> P_both_reachable_ and)
+ADD GLOBAL FORMULA (=> P_both_reachable_ and)
+Evaluated to: true
+------------------------------
+Running program...
+
+Branch Information:
+always_false_branch: True=UNHIT; False=HIT
+both_reachable: True=HIT; False=UNHIT
+unreachable_branch: True=UNHIT; False=UNHIT
+
+Target branch: always_false_branch_-(both_reachable,$tt);; condition: always_false_cond_-(both_reachable,$tt); = true
+Solving for target branch:
+Branch to pick: |P_always_false_branch_-(both_reachable,$tt);|
+Branch condition: (= |always_false_cond_-(both_reachable,$tt);| (Bool true))
+```
+
+
+The failing one:
+```
+
+Starting concolic execution...
+------------------------------
+Running program...
+
+Branch Information:
+always_false_branch: True=Unhit; False=Unhit
+both_reachable: True=Unhit; False=Unhit
+unreachable_branch: True=Unhit; False=Unhit
+
+Target branch: None
+Feed -9 to x
+ADD GLOBAL FORMULA (= x_ x_)
+ADD GLOBAL FORMULA (= one_ (Int 1))
+ADD GLOBAL FORMULA (let ((a!1 (= cx_ (Bool (< (i one_) (i x_))))))
+  (and a!1 ((_ is Int) one_) ((_ is Int) x_)))
+Hitting: both_reachable: false
+ADD GLOBAL FORMULA (=> (= cx_ (Bool false))
+    (and (= both_reachable_ |ret_false_both_reachable_-(both_reachable,$ff);|)
+         (= |ret_false_both_reachable_-(both_reachable,$ff);| (Int (- 10)))))
+ADD PICK FORMULA: (=> P_both_reachable_ and)
+ADD GLOBAL FORMULA (=> P_both_reachable_ and)
+Evaluated to: -10
+------------------------------
+Running program...
+
+Branch Information:
+always_false_branch: True=Unhit; False=Unhit
+both_reachable: True=Unhit; False=Hit
+unreachable_branch: True=Unhit; False=Unhit
+
+Target branch: both_reachable_; condition: cx_ = true
+Solving for target branch:
+Branch to pick: P_both_reachable_
+Branch condition: (= cx_ (Bool true))
+Feed 2 to x
+ADD GLOBAL FORMULA (= x_ x_)
+ADD GLOBAL FORMULA (= one_ (Int 1))
+ADD GLOBAL FORMULA (let ((a!1 (= cx_ (Bool (< (i one_) (i x_))))))
+  (and a!1 ((_ is Int) one_) ((_ is Int) x_)))
+Hitting: both_reachable: true
+Hitting: always_false_branch: false
+ADD PICK FORMULA: (=> |P_always_false_branch_-(both_reachable,$tt);| (and (= cx_ (Bool true))))
+ADD GLOBAL FORMULA (=> |P_always_false_branch_-(both_reachable,$tt);| (and (= cx_ (Bool true))))
+ADD GLOBAL FORMULA (let ((a!1 (=> (and (= |always_false_cond_-(both_reachable,$tt);| (Bool false)))
+               (= both_reachable_
+                  |ret_true_both_reachable_-(both_reachable,$tt);|)))
+      (a!2 (= |ret_true_both_reachable_-(both_reachable,$tt);|
+              (Bool (< (i one_)
+                       (i |always_false_branch_-(both_reachable,$tt);|)))))
+      (a!4 (=> (= |always_false_cond_-(both_reachable,$tt);| (Bool false))
+               (and (= |always_false_branch_-(both_reachable,$tt);|
+                       |must_get_here_-(always_false_branch,$ff);-(both_reachable,$tt);|)
+                    (= |must_get_here_-(always_false_branch,$ff);-(both_reachable,$tt);|
+                       (Int 10)))))
+      (a!5 (= |always_false_cond_-(both_reachable,$tt);|
+              (Bool (< (i x_) (i one_))))))
+(let ((a!3 (=> (and (= |always_false_cond_-(both_reachable,$tt);| (Bool false)))
+               (and a!2
+                    ((_ is Int) one_)
+                    ((_ is Int) |always_false_branch_-(both_reachable,$tt);|)))))
+  (=> (= cx_ (Bool true))
+      (and a!1 a!3 a!4 a!5 ((_ is Int) x_) ((_ is Int) one_)))))
+ADD PICK FORMULA: (=> P_both_reachable_ and)
+ADD GLOBAL FORMULA (=> P_both_reachable_ and)
+Evaluated to: true
+------------------------------
+Running program...
+
+Branch Information:
+always_false_branch: True=Unhit; False=Hit
+both_reachable: True=Hit; False=Hit
+unreachable_branch: True=Unhit; False=Unhit
+
+Target branch: always_false_branch_-(both_reachable,$tt);; condition: always_false_cond_-(both_reachable,$tt); = true
+Solving for target branch:
+Branch to pick: |P_always_false_branch_-(both_reachable,$tt);|
+Branch condition: (= |always_false_cond_-(both_reachable,$tt);| (Bool true))
+Solving for target branch:
+Branch to pick: P_both_reachable_
+Branch condition: (= cx_ (Bool true))
+Feed 2 to x
+```
