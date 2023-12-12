@@ -184,7 +184,7 @@ val exit_branch : Lookup_key.t -> Parent.t -> Runtime_branch.t -> Lookup_key.t -
       TODO: consider not clearing branches.
     5. Adds a pick formula to the global scope so that the branch can be picked and solved for later, if wanted *)
 
-val get_feeder : Target.t -> t -> [ `Ok of Concolic_feeder.t | `Unsatisfiable_branch of Ast_branch.t ]
+val get_feeder : Target.t -> t -> (Concolic_feeder.t, Ast_branch.t) result
 (** [get_feeder target store] uses the formulas in the [store] under the global
     scope and uses a Z3 solver to solve for the [target] branch.
     If the formulas in the [store] are satisfiable, then a feeder is returned

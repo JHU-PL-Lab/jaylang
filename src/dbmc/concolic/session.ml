@@ -124,7 +124,7 @@ module Concolic =
       { branch_store    : Ast_branch.Status_store.t
       ; formula_store   : Branch_solver.t
       ; target_stack    : Branch_solver.Target.t list
-      ; prev_sessions   : t list
+      ; prev_sessions   : t list (* TODO: is this even needed for reach max step? If so, can be an option *)
       ; global_max_step : int
       ; run_num         : int 
       ; eval            : Eval.t } 
@@ -164,26 +164,15 @@ module Concolic =
       { session with formula_store = Branch_solver.empty }
 
     (*
-      The next session...
-      * keeps the branch store because we want to remember which have been hit
-      * keeps the target that was found in the previous run
+      The next session
+      * knocks off any hit or unsatisfiable targets (and marks them as such in the branch store)
+      * keeps other items in the branch store
       * increments the run number
-      * resets the formula store because formulas are dependent on inputs, which will be different in the next run.
-        * TODO: which formulas can we keep? We might want to carry over *some* information
+      * resets the formula store (so that it can be filled during the next run)
       * creates a brand new eval session
-      * uses the target stack to determine the next input feeder
+      * uses the top target to determine the input feeder for the eval session
 
-      A few things can happen
-      * We could have hit the max step, which we can check by comparing step with max step
-        (might prefer to have a flag for this)
-        * In which case we need to back up to the previous session because this one was effectively
-          "unsatisfiable" and cannot provide any new information
-      * We could have properly hit the previous target branch
-      * We can try to find an input feeder for the next target and succeed
-      * We can try to find an input feeder for the next target and fail
-        * in which case we need to record that and move onto the next target
-
-      TODO: use variants instead of exceptions?
+      If there is no possible next target, then returns the branch store.
     *)
     let next (session : t) : [ `Next of t | `Done of Ast_branch.Status_store.t ] =
       let with_input_feeder (session : t) (input_feeder : Input_feeder.t) : t =
@@ -211,8 +200,8 @@ module Concolic =
               end
             else
               match Branch_solver.get_feeder target session.formula_store with
-              | `Ok input_feeder -> `Next (with_input_feeder session input_feeder)
-              | `Unsatisfiable_branch b ->
+              | Ok input_feeder -> `Next (with_input_feeder session input_feeder)
+              | Error b ->
                 (* mark as unsatisfiable and try the next target *)
                 Format.printf "Unsatisfiable branch %s. Continuing to next target.\n" (Ast_branch.to_string b);
                 let new_branch_store = 

@@ -225,7 +225,7 @@ let empty = Store.empty
   parent and the parent(s) of the node it depends on. See the comment above `parent_store`
   above.
 *)
-let gen_antecedents
+let gen_parents
   (children : Lookup_key.t list)
   (store : Store.t)
   : (Z3.Expr.expr list) * (Lookup_key.t list)
@@ -266,7 +266,7 @@ let rec gen_implied_formula
   (formula : Z3.Expr.expr)
   : Z3.Expr.expr
   =
-  match gen_antecedents dependencies store with
+  match gen_parents dependencies store with
   | [], _ -> formula (* Logically, the parents "_" must be empty if no expressions *)
   | exps, parent_keys -> (* if no parent keys because is global, then next iteration does nothing *)
       Riddler.(and_ exps @=> formula) (* all the expressions imply the formula *)
@@ -361,7 +361,7 @@ let get_all_parent_dependencies
   let rec loop acc = function
     | [] -> acc
     | children ->
-      let exps, parents = gen_antecedents children store in
+      let exps, parents = gen_parents children store in
       loop (exps @ acc) parents
       (* ^ hopefully exps is small compared to acc, and this isn't slow *)
       (* Note that this might just run once if I flatten parents properly, so exps is large compared to acc, but still small on grand scale *)
@@ -466,8 +466,7 @@ let solve_for_target
 let get_feeder
   (target : Target.t)
   (store : Store.t)
-  : [ `Ok of Concolic_feeder.t | `Unsatisfiable_branch of Ast_branch.t ]
+  : (Concolic_feeder.t, Ast_branch.t) result
   =
-  match solve_for_target target store with 
-  | Ok model -> `Ok (Concolic_feeder.from_model model)
-  | Error branch -> `Unsatisfiable_branch branch
+  solve_for_target target store
+  |> Result.map ~f:Concolic_feeder.from_model
