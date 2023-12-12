@@ -82,10 +82,11 @@ module Concolic :
     (** [create_default ()] is a concolic session with empty stores, no target, run_num 0, and
         a default eval session *)
 
-    val next : t -> t option (*[ `Next of t | `All_branches_hit ] *)
-    (** [next session] is a session for the next run (or throws an exception) that resets formulas,
-        keeps the target, and has an eval session whose input feeder is intended to hit the target.
-        If there is nothing else to do, then [next session] *)
+    val next : t -> [ `Next of t | `Done of Ast_branch.Status_store.t]
+    (** [next session] is a session for the next run that has a resets formulas, keeps the top target
+        (unless it is unsatisfiable), and has an eval session whose input feeder is intended to hit
+        the (next satisfiable) target. If there are no more satisfiable branches, then it is the branch
+        store. *)
 
     val load_branches : t -> expr -> t
     (** [load_branches session expr] is a copy of [session] and has all AST branches from [expr] as

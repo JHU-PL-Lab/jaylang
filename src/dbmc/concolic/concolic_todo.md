@@ -16,7 +16,10 @@ I need to accept a list of AST branches and try to hit them.
 Other:
 * Use a logger instead of printing
   * Or set verbosity in session
-* 
+* Handle reaching max step -- what should happen with formulas?
+  * I think we want to be able to revert to the previous session with a new target
+  * Can also jsut try again with different input
+  * Or can just trust the most recent targets... doesn't feel as safe.
 
 
 I need to be able to back out of an unsatisfiable branch.

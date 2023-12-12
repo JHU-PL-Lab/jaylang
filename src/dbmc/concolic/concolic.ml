@@ -462,8 +462,8 @@ let rec eval (e : expr) (prev_session : Session.Concolic.t) : unit =
 
   (* Generate the next session, which throws appropriate errors if execution is complete *)
   match Session.Concolic.next prev_session with
-  | None -> Session.Concolic.finish_and_print prev_session; raise All_Branches_Hit (* FIXME: be more clear and make sure this is true *)
-  | Some session -> 
+  | `Done branch_store -> Session.Concolic.finish_and_print { (Session.Concolic.create_default ()) with branch_store } (* TODO: clean this *)
+  | `Next session -> 
     let this_target = List.hd session.target_stack in
     let session = ref session in
     (* Sean had bug where step and val_def_map needed to be reset *)

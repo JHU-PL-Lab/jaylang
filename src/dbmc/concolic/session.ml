@@ -185,7 +185,7 @@ module Concolic =
 
       TODO: use variants instead of exceptions?
     *)
-    let next (session : t) : t option =
+    let next (session : t) : [ `Next of t | `Done of Ast_branch.Status_store.t ] =
       let with_input_feeder (session : t) (input_feeder : Input_feeder.t) : t =
         let new_eval_session = create_eval input_feeder session.global_max_step in
         { session with
@@ -194,14 +194,14 @@ module Concolic =
         ; prev_sessions = session :: session.prev_sessions
         ; run_num       = session.run_num + 1 }
       in
-      let rec next (session : t) : t option =
+      let rec next (session : t) : [ `Next of t | `Done of Ast_branch.Status_store.t ] =
         match Ast_branch.Status_store.get_unhit_branch session.branch_store with
-        | None -> None
+        | None -> `Done session.branch_store
         | Some unhit -> begin
           match session.target_stack with
-          | [] when session.run_num = 0 -> Some (with_input_feeder session default_input_feeder)
-          | [] -> None (* no targets left but some unhit branches, so [unhit] must be unreachable *)
-          | target :: tl -> begin (* FIXME: allows to solve for duplicates ; want to ignore hit branches *)
+          | [] when session.run_num = 0 -> `Next (with_input_feeder session default_input_feeder)
+          | [] -> `Done session.branch_store (* no targets left but some unhit branches, so [unhit] must be unreachable *)
+          | target :: tl -> begin
             if
               Ast_branch.Status_store.is_hit session.branch_store (Branch_solver.Target.to_branch target)
             then
@@ -211,7 +211,7 @@ module Concolic =
               end
             else
               match Branch_solver.get_feeder target session.formula_store with
-              | `Ok input_feeder -> Some (with_input_feeder session input_feeder)
+              | `Ok input_feeder -> `Next (with_input_feeder session input_feeder)
               | `Unsatisfiable_branch b ->
                 (* mark as unsatisfiable and try the next target *)
                 Format.printf "Unsatisfiable branch %s. Continuing to next target.\n" (Ast_branch.to_string b);
