@@ -104,6 +104,11 @@ module Concolic :
       sig
         (* This module holds wrappers to access the solver/store in a concolic session ref cell. *)
 
+        val hit_branch : ?new_status:Ast_branch.Status.t -> t ref -> Ast_branch.t -> unit
+        (** [hit_branch session ast_branch] assigns a new session to the [session] cell that contains
+            all the same fields as before, but the branch store now has the given [ast_branch] as hit,
+            or has the given optional status. *)
+
         val add_key_eq_value_opt : t ref -> Branch_solver.Parent.t -> Lookup_key.t -> value option -> unit
         (** [add_key_eq_value_opt session parent key v_opt] assigns a new session to the [session] cell
             that contains all the same fields as before, but the formula store gains the formula that the

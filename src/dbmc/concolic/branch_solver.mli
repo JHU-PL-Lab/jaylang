@@ -125,6 +125,10 @@ module Parent :
 
     val of_runtime_branch : Runtime_branch.t -> t
     (** [of_runtime_branch x] is [x] wrapped in "Local". *)
+
+    val to_ast_branch_exn : t -> Ast_branch.t
+    (** [to_ast_branch_exn x] is the AST branch representation of [x], or an exception if
+        [x] is the global parent. *)
   end
 
 type t

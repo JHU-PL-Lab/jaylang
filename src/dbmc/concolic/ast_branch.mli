@@ -6,6 +6,7 @@ module Status :
       | Hit
       | Unhit
       | Unsatisfiable
+      | Found_abort
       | Reached_max_step
       | Unreachable
     val to_string : t -> string
@@ -86,6 +87,12 @@ module Status_store :
     val hit_branch : t -> T.t -> t
     (** [hit_branch store branch] is a new store where the given branch is now hit. All other
         branches are unaffected. *)
+
+    val set_branch_status : Status.t -> t -> T.t -> t
+    (** [set_branch_status status store branch] is a new store where the given [branch] now has the
+        [status]. All other branches are unaffected.
+        
+        TODO: remove [set_unsatisfiable] and [set_reached_max_step] because they are obsolete now. *)
 
     val set_unsatisfiable : t -> T.t -> t
     (** [set_unsatisfiable store branch] is a new store where the given branch is marked unsatisfiable. *)

@@ -231,6 +231,17 @@ module Concolic =
 
     module Ref_cell =
       struct
+        let hit_branch
+          ?(new_status : Ast_branch.Status.t = Ast_branch.Status.Hit)
+          (session : t ref)
+          (ast_branch : Ast_branch.t)
+          : unit
+          =
+          session := {
+            !session with branch_store =
+            Ast_branch.Status_store.set_branch_status new_status (!session).branch_store ast_branch
+          }
+
         let add_key_eq_value_opt
           (session : t ref)
           (parent : Branch_solver.Parent.t)
@@ -285,7 +296,7 @@ module Concolic =
             match Ast_branch.Status_store.get_status (!session).branch_store (Branch_solver.Target.to_branch new_target) with
             | Ast_branch.Status.Unhit -> new_target :: (!session).target_stack (* FIXME: this can currently add duplicates *)
               (* CONSIDER: maybe have new status that is "enqueued" *)
-            | Hit | Unreachable | Unsatisfiable | Reached_max_step ->
+            | Hit | Unreachable | Unsatisfiable | Found_abort | Reached_max_step ->
               (* Don't push new target if has already been considered *)
               (!session).target_stack
 (* 

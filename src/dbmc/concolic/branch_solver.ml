@@ -42,14 +42,15 @@ module Runtime_branch =
   struct
     type t =
       { condition_key : Condition_key.t
-      ; direction : Ast_branch.Direction.t }
+      ; direction     : Ast_branch.Direction.t }
       [@@deriving compare, sexp]
 
     let to_expr ({condition_key ; direction} : t) : Z3.Expr.expr =
       Riddler.eqv condition_key (Ast_branch.Direction.to_value_bool direction)
 
-    let to_branch ({ condition_key ; direction} : t) : Ast_branch.t =
-      Ast_branch.{ branch_ident = condition_key.x ; direction }
+    (* FIXME: this is wrong because an AST branch is the clause key, not the condition key *)
+    (* let to_branch ({ condition_key ; direction} : t) : Ast_branch.t =
+      Ast_branch.{ branch_ident = condition_key.x ; direction } *)
 
     let other_direction (x : t) : t =
       { x with direction = Ast_branch.Direction.other_direction x.direction }
@@ -126,6 +127,12 @@ module Parent =
       match parent with
       | Global -> None
       | Local branch -> Some branch.condition_key
+
+    let to_ast_branch_exn (parent : t) : Ast_branch.t =
+      match parent with
+      | Local _ -> failwith "unimplemented"
+      | Global -> failwith "global ast branch undefined"
+      
   end
 
 (*

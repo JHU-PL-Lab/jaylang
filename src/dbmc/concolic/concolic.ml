@@ -275,9 +275,8 @@ and eval_clause
       let this_branch = Branch_solver.Runtime_branch.{ condition_key ; direction = Ast_branch.Direction.of_bool cond_bool } in
       let this_branch_as_parent = Branch_solver.Parent.of_runtime_branch this_branch in
       (* Hit branch *)
-      session := { !session with
-        branch_store = Ast_branch.Status_store.hit_branch (!session).branch_store @@ Ast_branch.of_ident_and_bool x cond_bool
-      };
+      Session.Concolic.Ref_cell.hit_branch ~new_status:Ast_branch.Status.Found_abort session
+      @@ Ast_branch.of_ident_and_bool x cond_bool;
       (* Set target branch to the other side if the other side hasn't been hit yet *)
       Session.Concolic.Ref_cell.update_target_branch session x_key this_branch;
 
@@ -285,7 +284,19 @@ and eval_clause
       let stk' = Concrete_stack.push (x, cond_fid cond_bool) stk in
 
       (* this session gets mutated when evaluating the branch *)
-      let ret_env, ret_val = eval_exp ~session stk' env e this_branch_as_parent in
+      (* FIXME: this sets all parent branches to reach max step or abort, when we only want it to set the deepest branch *)
+      let res = Result.try_with (fun () -> eval_exp ~session stk' env e this_branch_as_parent) in
+      begin
+        match res with
+        | Error (Found_abort _) ->
+          Session.Concolic.Ref_cell.hit_branch ~new_status:Ast_branch.Status.Found_abort session
+          @@ Ast_branch.of_ident_and_bool x cond_bool;
+        | Error (Reach_max_step _ as exn) ->
+          Session.Concolic.Ref_cell.hit_branch ~new_status:Ast_branch.Status.Reached_max_step session
+          @@ Ast_branch.of_ident_and_bool x cond_bool;
+        | _ -> () (* continue normally on Ok or any other exception *)
+      end;
+      let ret_env, ret_val = Result.ok_exn res in (* Bubbles exceptions if necessary *)
       let (Var (ret_id, _) as last_v) = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
       let _, ret_stk = Fetch.fetch_val_with_stk ~eval_session ~stk:stk' ret_env last_v in
 
@@ -416,8 +427,11 @@ and eval_clause
       (* TODO: concolic *)
       let ab_v = AbortClosure env in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, ab_v) eval_session;
+      Session.Concolic.set_branch_status ~new_status:Ast_branch.Status.Found_abort session
+      @@ Branch_solver.Parent.to_ast_branch_exn parent;
       match eval_session.mode with
       | Plain -> raise @@ Found_abort ab_v
+      (* next two are for debug mode *)
       | With_target_x target ->
         if Id.equal target x
         then raise @@ Found_target { x ; stk ; v = ab_v }
