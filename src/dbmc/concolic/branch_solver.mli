@@ -69,7 +69,7 @@
 *)
 
 
-module Runtime_branch :
+(* module Runtime_branch :
   sig
     type t =
       { condition_key : Lookup_key.t
@@ -85,9 +85,9 @@ module Runtime_branch :
           runtime branch. *)
 
     val other_direction : t -> t
-  end
+  end *)
 
-module Target :
+(* module Target :
   sig
     type t =
       { branch_key : Lookup_key.t
@@ -108,13 +108,13 @@ module Target :
     val other_direction : t -> t
     (** [other_direction x] is a target branch where the runtime branch [x.branch] is the other
         direction. e.g. if [x.branch] is [false], then [(other_direction x).branch] is [true].*)
-  end
+  end *)
 
 module Parent :
   sig
     type t =
       | Global
-      | Local of Runtime_branch.t
+      | Local of Branch.Runtime.t
     (** [t] represents some parent environment to a clause. A clause either is underneath
         some branch (e.g. the "false" direction of an if-statement), or is under no branch
         and is therefore in the global environment.
@@ -123,10 +123,10 @@ module Parent :
         parent to some direction can imply the clause. The AST branch only considers the
         ident of the branch clause (not the condition), so it has no true/false value. *)
 
-    val of_runtime_branch : Runtime_branch.t -> t
+    val of_runtime_branch : Branch.Runtime.t -> t
     (** [of_runtime_branch x] is [x] wrapped in "Local". *)
 
-    val to_ast_branch_exn : t -> Ast_branch.t
+    val to_ast_branch_exn : t -> Branch.Ast_branch.t
     (** [to_ast_branch_exn x] is the AST branch representation of [x], or an exception if
         [x] is the global parent. *)
   end
@@ -172,7 +172,7 @@ val add_siblings : Lookup_key.t -> Lookup_key.t list -> t -> t
     implied by [branch_key], so that picking [branch_key] later means all parents must be satisfied by
     in the solve. *)
 
-val exit_branch : Lookup_key.t -> Parent.t -> Runtime_branch.t -> Lookup_key.t -> t -> t
+val exit_branch : Lookup_key.t -> Parent.t -> Branch.Runtime.t -> Lookup_key.t -> t -> t
 (** [exit_branch branch_key parent exited_branch result_key store] leaves the branch [exited_branch] that
     is the clause body for [branch_key]. 
     The [parent] is the parent of the [branch_key]. The [result_key] is the key for the last evaluated
@@ -188,7 +188,7 @@ val exit_branch : Lookup_key.t -> Parent.t -> Runtime_branch.t -> Lookup_key.t -
       TODO: consider not clearing branches.
     5. Adds a pick formula to the global scope so that the branch can be picked and solved for later, if wanted *)
 
-val get_feeder : Target.t -> t -> (Concolic_feeder.t, Ast_branch.t) result
+val get_feeder : Branch.Runtime.t -> t -> (Concolic_feeder.t, Branch.Ast_branch.t) result
 (** [get_feeder target store] uses the formulas in the [store] under the global
     scope and uses a Z3 solver to solve for the [target] branch.
     If the formulas in the [store] are satisfiable, then a feeder is returned

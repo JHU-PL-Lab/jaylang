@@ -70,9 +70,9 @@ module Concolic :
       next evaluation (which tries to target a different branch).
     *)
     type t =
-      { branch_store    : Ast_branch.Status_store.t 
+      { branch_store    : Branch.Status_store.t 
       ; formula_store   : Branch_solver.t
-      ; target_stack    : Branch_solver.Target.t list
+      ; target_stack    : Branch.Runtime.t list
       ; prev_sessions   : t list
       ; global_max_step : int
       ; run_num         : int 
@@ -82,7 +82,7 @@ module Concolic :
     (** [create_default ()] is a concolic session with empty stores, no target, run_num 0, and
         a default eval session *)
 
-    val next : t -> [ `Next of t | `Done of Ast_branch.Status_store.t]
+    val next : t -> [ `Next of t | `Done of Branch.Status_store.t]
     (** [next session] is a session for the next run that has a resets formulas, keeps the top target
         (unless it is unsatisfiable), and has an eval session whose input feeder is intended to hit
         the (next satisfiable) target. If there are no more satisfiable branches, then it is the branch
@@ -92,7 +92,7 @@ module Concolic :
     (** [load_branches session expr] is a copy of [session] and has all AST branches from [expr] as
         unhit branches in the branch_store. *)
 
-    val assert_target_hit : t -> Branch_solver.Target.t option -> unit
+    val assert_target_hit : t -> Branch.Runtime.t option -> unit
     (** [assert_target_hit session target_opt] throws an exception if and only if the target (if is Some)
         is unhit in the session's branch store. *)
 
@@ -104,7 +104,7 @@ module Concolic :
       sig
         (* This module holds wrappers to access the solver/store in a concolic session ref cell. *)
 
-        val hit_branch : ?new_status:Ast_branch.Status.t -> t ref -> Ast_branch.t -> unit
+        val hit_branch : ?new_status:Branch.Status.t -> t ref -> Branch.Ast_branch.t -> unit
         (** [hit_branch session ast_branch] assigns a new session to the [session] cell that contains
             all the same fields as before, but the branch store now has the given [ast_branch] as hit,
             or has the given optional status. *)
@@ -122,7 +122,7 @@ module Concolic :
         val add_siblings : t ref -> Lookup_key.t -> Lookup_key.t list -> unit
         (** [add_siblings session child_key siblings] adds all dependencies of siblings to the child_key. *)
 
-        val update_target_branch : t ref -> Lookup_key.t -> Branch_solver.Runtime_branch.t -> unit
+        val update_target_branch : t ref -> Lookup_key.t -> Branch.Runtime.t -> unit
         (** [update_target_branch session branch_key branch] will update the target branch to the other direction of
             the given [branch] that was just hit. If the other direction has already been hit, then nothing is
             updated. The [branch_key] is the variable in the clause for the [branch].
@@ -154,7 +154,7 @@ module Concolic :
             side.
             *)
 
-        val exit_branch : t ref -> Lookup_key.t -> Branch_solver.Parent.t -> Branch_solver.Runtime_branch.t -> Lookup_key.t -> unit
+        val exit_branch : t ref -> Lookup_key.t -> Branch_solver.Parent.t -> Branch.Runtime.t -> Lookup_key.t -> unit
         (** TODO *)
       end
   end

@@ -112,16 +112,16 @@ module Concolic =
       The concolic session actually wraps the eval session, which is mutable
     *)
     type t =
-      { branch_store    : Ast_branch.Status_store.t
+      { branch_store    : Branch.Status_store.t
       ; formula_store   : Branch_solver.t
-      ; target_stack    : Branch_solver.Target.t list
+      ; target_stack    : Branch.Runtime.t list
       ; prev_sessions   : t list (* TODO: is this even needed for reach max step? If so, can be an option *)
       ; global_max_step : int
       ; run_num         : int 
       ; eval            : Eval.t } 
 
     let load_branches (session : t) (e : expr) : t =
-      { session with branch_store = Ast_branch.Status_store.find_branches e session.branch_store }
+      { session with branch_store = Branch.Status_store.find_branches e session.branch_store }
 
     let default_global_max_step = Int.(10 ** 3)
 
@@ -143,7 +143,7 @@ module Concolic =
       To be called before the very first concolic run to get empty tracking variables.   
     *)
     let create_default () =
-      { branch_store    = Ast_branch.Status_store.empty
+      { branch_store    = Branch.Status_store.empty
       ; formula_store   = Branch_solver.empty 
       ; target_stack    = []
       ; prev_sessions   = []
@@ -171,7 +171,7 @@ module Concolic =
         to add those other branches to the target list or else they'll be deemed unreachable, which
         is not necessarily true.
     *)
-    let next (session : t) : [ `Next of t | `Done of Ast_branch.Status_store.t ] =
+    let next (session : t) : [ `Next of t | `Done of Branch.Status_store.t ] =
       let with_input_feeder (session : t) (input_feeder : Input_feeder.t) : t =
         let new_eval_session = create_eval input_feeder session.global_max_step in
         { session with
@@ -180,8 +180,8 @@ module Concolic =
         ; prev_sessions = session :: session.prev_sessions
         ; run_num       = session.run_num + 1 }
       in
-      let rec next (session : t) : [ `Next of t | `Done of Ast_branch.Status_store.t ] =
-        match Ast_branch.Status_store.get_unhit_branch session.branch_store with
+      let rec next (session : t) : [ `Next of t | `Done of Branch.Status_store.t ] =
+        match Branch.Status_store.get_unhit_branch session.branch_store with
         | None -> `Done session.branch_store
         | Some unhit -> begin
           match session.target_stack with
@@ -189,10 +189,10 @@ module Concolic =
           | [] -> `Done session.branch_store (* no targets left but some unhit branches, so [unhit] must be unreachable *)
           | target :: tl -> begin
             if
-              Ast_branch.Status_store.is_hit session.branch_store (Branch_solver.Target.to_branch target)
+              Branch.Status_store.is_hit session.branch_store (Branch.Runtime.to_ast_branch target)
             then
               begin (* I'm surprised this is a syntax error without the begin/end *)
-              Format.printf "Skipping already-hit target %s\n" (Branch_solver.Target.to_string target);
+              Format.printf "Skipping already-hit target %s\n" (Branch.Runtime.to_string target);
               next { session with target_stack = tl }
               end
             else
@@ -200,11 +200,11 @@ module Concolic =
               | Ok input_feeder -> `Next (with_input_feeder session input_feeder)
               | Error b ->
                 (* mark as unsatisfiable and try the next target *)
-                Format.printf "Unsatisfiable branch %s. Continuing to next target.\n" (Ast_branch.to_string b);
+                Format.printf "Unsatisfiable branch %s. Continuing to next target.\n" (Branch.Ast_branch.to_string b);
                 let new_branch_store = 
                   target
-                  |> Branch_solver.Target.to_branch
-                  |> Ast_branch.Status_store.set_unsatisfiable session.branch_store
+                  |> Branch.Runtime.to_ast_branch
+                  |> Branch.Status_store.set_unsatisfiable session.branch_store
                 in
                 (* FIXME: when last branch is unsatisfiable, the setting doesn't propogate and it stays unhit *)
                 next { session with target_stack = tl ; branch_store = new_branch_store }
@@ -213,33 +213,33 @@ module Concolic =
       in
       next session
 
-    let assert_target_hit (session : t) (target : Branch_solver.Target.t option) : unit =
+    let assert_target_hit (session : t) (target : Branch.Runtime.t option) : unit =
       match target with
       | None -> ()
       | Some target -> 
         target
-        |> Branch_solver.Target.to_branch
-        |> Ast_branch.Status_store.is_hit session.branch_store
+        |> Branch.Runtime.to_ast_branch
+        |> Branch.Status_store.is_hit session.branch_store
         |> function
           | true -> ()
           | false -> raise Missed_Target_Branch
 
     let finish_and_print ({ branch_store ; _ } : t) : unit =
       branch_store
-      |> Ast_branch.Status_store.finish
-      |> Ast_branch.Status_store.print
+      |> Branch.Status_store.finish
+      |> Branch.Status_store.print
 
     module Ref_cell =
       struct
         let hit_branch
-          ?(new_status : Ast_branch.Status.t = Ast_branch.Status.Hit)
+          ?(new_status : Branch.Status.t = Branch.Status.Hit)
           (session : t ref)
-          (ast_branch : Ast_branch.t)
+          (ast_branch : Branch.Ast_branch.t)
           : unit
           =
           session := {
             !session with branch_store =
-            Ast_branch.Status_store.set_branch_status new_status (!session).branch_store ast_branch
+            Branch.Status_store.set_branch_status new_status (!session).branch_store ast_branch
           }
 
         let add_key_eq_value_opt
@@ -280,21 +280,21 @@ module Concolic =
             |> Branch_solver.add_siblings child_key siblings
           }
 
+        (* FIXME *)
         let update_target_branch
           (session : t ref)
-          (branch_key : Lookup_key.t)
-          (hit_branch : Branch_solver.Runtime_branch.t)
+          (hit_branch : Branch.Runtime.t)
           : unit
           =
           session := {
             !session with target_stack =
             let new_target = (* new target is the other side of the branch we just hit *)
               hit_branch
-              |> Branch_solver.Runtime_branch.other_direction
-              |> fun branch -> Branch_solver.Target.{ branch_key ; branch }
+              |> Branch.Runtime.other_direction
+              |> fun branch -> Branch.Runtime.{ branch_key ; condition_key = branch.condition }
             in
-            match Ast_branch.Status_store.get_status (!session).branch_store (Branch_solver.Target.to_branch new_target) with
-            | Ast_branch.Status.Unhit -> new_target :: (!session).target_stack (* FIXME: this can currently add duplicates *)
+            match Branch.Status_store.get_status (!session).branch_store (Branch.Runtime.to_branch new_target) with
+            | Branch.Status.Unhit -> new_target :: (!session).target_stack (* FIXME: this can currently add duplicates *)
               (* CONSIDER: maybe have new status that is "enqueued" *)
             | Hit | Unreachable | Unsatisfiable | Found_abort | Reached_max_step ->
               (* Don't push new target if has already been considered *)
@@ -309,7 +309,7 @@ module Concolic =
           (session : t ref)
           (branch_key : Lookup_key.t)
           (parent : Branch_solver.Parent.t)
-          (exited_branch : Branch_solver.Runtime_branch.t)
+          (exited_branch : Branch.Runtime.t)
           (ret_key : Lookup_key.t)
           : unit
           =

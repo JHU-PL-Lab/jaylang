@@ -38,7 +38,7 @@ module Make_list_store (Key : Map.Key) (T : sig type t end) =
         )
   end
 
-module Runtime_branch =
+(* module Runtime_branch =
   struct
     type t =
       { condition_key : Condition_key.t
@@ -54,9 +54,9 @@ module Runtime_branch =
 
     let other_direction (x : t) : t =
       { x with direction = Ast_branch.Direction.other_direction x.direction }
-  end
+  end *)
 
-module Target =
+(* module Target =
   struct
     type t =
       { branch_key : Lookup_key.t
@@ -83,7 +83,7 @@ module Target =
     let other_direction (x : t) : t =
       { x with branch = Runtime_branch.other_direction x.branch }
 
-  end
+  end *)
 
 (*
   The parent is some condition key and the direction that it
@@ -111,24 +111,24 @@ module Parent =
   struct
     type t =
       | Global 
-      | Local of Runtime_branch.t
+      | Local of Branch.Runtime.t
       [@@deriving compare, sexp]
 
-    let of_runtime_branch (branch : Runtime_branch.t) : t =
+    let of_runtime_branch (branch : Branch.Runtime.t) : t =
       Local branch
 
     (* TODO: think about making this option so no redundant `true` statements from Global *)
     let to_expr (parent : t) : Z3.Expr.expr =
       match parent with
       | Global -> Riddler.true_ (* Global scope is just a trivial parent *)
-      | Local branch -> Runtime_branch.to_expr branch
+      | Local branch -> Branch.Runtime.to_expr branch
 
     let to_key (parent : t) : Condition_key.t option =
       match parent with
       | Global -> None
       | Local branch -> Some branch.condition_key
 
-    let to_ast_branch_exn (parent : t) : Ast_branch.t =
+    let to_ast_branch_exn (parent : t) : Branch.Ast_branch.t =
       match parent with
       | Local _ -> failwith "unimplemented"
       | Global -> failwith "global ast branch undefined"
@@ -427,7 +427,7 @@ let add_pick_branch
 let exit_branch
   (branch_key : Lookup_key.t)
   (parent : Parent.t)
-  (exited_branch : Runtime_branch.t)
+  (exited_branch : Branch.Runtime.t)
   (result_key : Lookup_key.t)
   (store : Store.t)
   : Store.t
@@ -436,7 +436,7 @@ let exit_branch
   match Map.find store.fstore exited_parent with
   | None -> store (* nothing happened under the branch, so do nothing *) 
   | Some exps ->
-    let antecedent = Runtime_branch.to_expr exited_branch in
+    let antecedent = Branch.Runtime.to_expr exited_branch in
     (* The branch implies all the expressions within it *)
     let implication = Riddler.(antecedent @=> and_ exps) in
     add_formula [exited_branch.condition_key] parent implication store (* formula depends on exited branch's condition key *)
@@ -447,13 +447,13 @@ let exit_branch
 
 (* See https://github.com/Z3Prover/z3/blob/master/src/api/ml/z3.mli line 3290 *)
 let solve_for_target
-  (target : Target.t)
+  (target : Branch.Runtime.t)
   (store : Store.t)
-  : (Z3.Model.model, Ast_branch.t) result
+  : (Z3.Model.model, Branch.Ast_branch.t) result
   =
   (* Say that we're picking this branch, so all the parents that it was said to imply will now get implied. *)
   let picked_branch_formula = Riddler.picked target.branch_key in
-  let condition_formula = Runtime_branch.to_expr target.branch in
+  let condition_formula = Branch.Runtime.to_expr target.branch in
   let solver =
     store
     (* |> pick_branch target.branch_key *) (* with parent commented out *)
@@ -468,12 +468,12 @@ let solve_for_target
   |> Solver.SuduZ3.get_model solver 
   |> function
     | Some model -> Ok model
-    | None -> Error (Target.to_branch target)
+    | None -> Error (Branch.Runtime.to_ast_branch target)
 
 let get_feeder
-  (target : Target.t)
+  (target : Branch.Runtime.t)
   (store : Store.t)
-  : (Concolic_feeder.t, Ast_branch.t) result
+  : (Concolic_feeder.t, Branch.Ast_branch.t) result
   =
   solve_for_target target store
   |> Result.map ~f:Concolic_feeder.from_model
