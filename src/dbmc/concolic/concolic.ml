@@ -301,7 +301,7 @@ and eval_clause
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       let Ident s = x in
       Format.printf "Feed %d to %s \n" n s;
-      Session.Concolic.Ref_cell.add_key_eq_value_opt session parent x_key None; (* TODO: why not say x equals Value_int n? *)
+      Session.Concolic.Ref_cell.add_key_eq_value_opt session parent x_key None; (* TODO: why not say x equals Value_int n? because we need x to be variable? *)
       retv
     | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin
       (* x = f y ; *)

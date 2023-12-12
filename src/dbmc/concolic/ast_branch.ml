@@ -54,7 +54,6 @@ module Branch_status =
     let hit (f : t) (direction : Direction.t) : t =
       set f direction Status.Hit
 
-    (* TODO: remove ident and let T do it *)
     let to_string (f : t) (Ast.Ident s : Ast.ident) : string =
       Printf.sprintf "%s: True=%s; False=%s\n"
         s

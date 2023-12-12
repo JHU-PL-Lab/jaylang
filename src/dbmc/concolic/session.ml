@@ -91,22 +91,13 @@ module Eval =
 
 (*
     If a record has a field that itself has mutable fields, those inner fields can change
-    and the outer record does not have to have mutable fields.
+    and the outer record does not have to have explicitly mutable fields.
     e.g. type m = { x : int ref }
     type r = { y : m }
     let z = { y = { x = ref 0 }}
     let zy = z.y
     zy.x := 1
     Now z is { y = { x = ref 1 }}, even though z has no ref cells 
-
-  TODO: maybe I do want to make the session with mutable fields so that it doesn't have to pass
-  it along in eval, since already we don't pass along the eval session. It feels weird to pass one
-  but not the other.
-    So basically concolic is just a wrapper for the variables. At that point, why even have a record
-    instead of just mutable members of the module? Because that's ugly and the module is trying to be
-    a class at that point.
-  OR I have a reference to a concolic session, and the interp updates the session.
-    I can then let Session.t = Concolic.t ref, and it has the necessary wrappers.
 
   TODO: because I end up splitting them up anyways, maybe I want to not nest them
     and instead I pass them around separately. I just need to think about the `next` implications.
@@ -173,6 +164,12 @@ module Concolic =
       * uses the top target to determine the input feeder for the eval session
 
       If there is no possible next target, then returns the branch store.
+
+      TODO: when hitting max step or abort, need to potentially revert to previous session (if the
+        current formulas can't make sense) and add all acquired targets to the old stack.
+        Because we can potentially enter new branches in an evaluation that fails, we still need
+        to add those other branches to the target list or else they'll be deemed unreachable, which
+        is not necessarily true.
     *)
     let next (session : t) : [ `Next of t | `Done of Ast_branch.Status_store.t ] =
       let with_input_feeder (session : t) (input_feeder : Input_feeder.t) : t =
