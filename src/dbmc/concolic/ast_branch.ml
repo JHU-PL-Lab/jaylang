@@ -8,6 +8,7 @@ module Status =
       | Hit
       | Unhit
       | Unsatisfiable
+      | Found_abort
       | Reached_max_step (* TODO: consider runs with other inputs to try to lower step count *)
       | Unreachable (* any unhit branch whose parent is unsatisfiable *)
       [@@deriving variants, compare]

@@ -428,9 +428,9 @@ and eval_clause
         else raise @@ Found_abort ab_v
       end
     | Assert_body _ | Assume_body _ ->
-      (* TODO: concolic *)
       let retv = Direct (Value_bool true) in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
+      Session.Concolic.Ref_cell.add_key_eq_value_opt session parent x_key (Some v);
       retv
   in
   Debug.debug_clause ~eval_session x v stk;

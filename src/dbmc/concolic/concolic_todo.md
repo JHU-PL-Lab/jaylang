@@ -21,6 +21,11 @@ Other:
   * Can also jsut try again with different input
   * Or can just trust the most recent targets... doesn't feel as safe.
 
+I need to handle exceptions:
+* Max step:
+* Abort:
+* Assert: these are always considered true by the interpreter
+
 
 I need to be able to back out of an unsatisfiable branch.
 * If target is unsatisfiable, then go up to previous target and solve for it
@@ -40,6 +45,3 @@ I need to be able to back out of an unsatisfiable branch.
     I do need to handle when the max step is reached. When this happens, we need to back up to
     the previous session and try the latest target there. I don't think we can safely assume
     that we just try the next target from the failing session because it might not have gotten as far.
-
-I can hit branches using the ast branch type. But I might need to change the name. The status
-though is good. By the end of evaluation, everything unhit must be unreachable.
