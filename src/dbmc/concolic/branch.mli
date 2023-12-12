@@ -31,24 +31,23 @@ module Direction :
 end
 
 (*
-  An Ast branch is just the identifiers and not the stack.   
+  An Ast branch is just the identifier and not the stack.   
 *)
 module Ast_branch :
   sig
     type t = 
       { branch_ident    : Ast.ident
-      ; condition_ident : Ast.ident
       ; direction       : Direction.t }
     (** [t] has a variable identifier for the branch (the variable in the branch's clause, not the
-        condition variable), and it has a condition variable, and some specific direction.
+        condition variable) and some specific direction.
         i.e. a branch is not just the clause, but it is specfically some direction of the clause. *)
 
     val to_string : t -> string
     (** [to_string branch] ignores the condition of the branch and is the branch ident and direction. *)
 
-    val of_idents_and_bool : Ast.ident -> Ast.ident -> bool -> t
-    (** [of_idents_and_bool branch_ident condition_ident dir] converts the bool [dir] to a direction
-        and uses that to make an Ast branch. *)
+    val of_ident_and_bool : Ast.ident -> bool -> t
+    (** [of_ident_and_bool branch_ident dir] converts the bool [dir] to a direction and uses that to
+        make an Ast branch. *)
   end
 
 (*
@@ -76,7 +75,7 @@ module Runtime :
     (** [to_string x] shows all of the branch, condition, and direction in [x] as a string. *)
 
     val to_ast_branch : t -> Ast_branch.t
-    (** [to_ast_branch x] is an AST branch, where only the idents are kept from the branch and condition clauses. *)
+    (** [to_ast_branch x] is an AST branch, where only the ident is kept from the branch key, and condition is discarded. *)
 
     val other_direction : t -> t
     (** [other_direction x] is a new branch keeping all attributes of [x], but [x.direction] is flipped. *)

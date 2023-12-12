@@ -67,14 +67,13 @@ module Ast_branch =
  struct
     type t =
       { branch_ident    : Ast.ident
-      ; condition_ident : Ast.ident
       ; direction       : Direction.t }
 
-    let to_string { branch_ident = Ast.Ident s ; direction ; _ } =
+    let to_string { branch_ident = Ast.Ident s ; direction } =
       s ^ ":" ^ Direction.to_string direction
 
-    let of_idents_and_bool (branch_ident : Ast.ident) (condition_ident : Ast.ident) (dir : bool) : t =
-      { branch_ident ; condition_ident ; direction = Direction.of_bool dir }
+    let of_ident_and_bool (branch_ident : Ast.ident) (dir : bool) : t =
+      { branch_ident ; direction = Direction.of_bool dir }
   end
 
 
@@ -89,8 +88,8 @@ module Runtime =
     let to_expr ({condition_key ; direction ; _ } : t) : Z3.Expr.expr =
       Riddler.eqv condition_key (Direction.to_value_bool direction)
 
-    let to_branch ({ branch_key ; condition_key ; direction } : t) : Ast_branch.t =
-      Ast_branch.{ branch_ident = branch_key.x ; condition_ident = condition_key.x ; direction }
+    let to_ast_branch ({ branch_key ; direction ; _ } : t) : Ast_branch.t =
+      Ast_branch.{ branch_ident = branch_key.x ; direction }
 
     let to_string ({ branch_key ; condition_key ; direction } : t) : string =
       Lookup_key.to_string branch_key
@@ -118,22 +117,7 @@ module Status_store =
         of trying to ignore duplication and mapping identifier to a branch status.    
         This causes some unnecessary complication, I think.
     *)
-    module Branch_status :
-      sig
-        type t = Direction.t -> Status.t
-        (** [t] is a branch direction and its status. *)
-        
-        val both_unhit : t
-        (** [both_unhit] is a branch status that has both directions as unhit. *)
-
-        val hit : t -> Direction.t -> t
-        (** [hit x dir] is a new branch status with the direction [dir] now hit. The
-            other direction gets the same status as [x]. *)
-
-        val to_string : t -> Ast.ident -> string
-        val print : t -> Ast.ident -> unit
-      end
-      =
+    module Branch_status =
       struct
         type t = Direction.t -> Status.t
         (* Avoid duplication by letting a status only take direction and output a status.

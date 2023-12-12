@@ -427,7 +427,7 @@ and eval_clause
       (* TODO: concolic *)
       let ab_v = AbortClosure env in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, ab_v) eval_session;
-      Session.Concolic.set_branch_status ~new_status:Ast_branch.Status.Found_abort session
+      Session.Concolic.Ref_cell.hit_branch ~new_status:Ast_branch.Status.Found_abort session
       @@ Branch_solver.Parent.to_ast_branch_exn parent;
       match eval_session.mode with
       | Plain -> raise @@ Found_abort ab_v
@@ -442,7 +442,8 @@ and eval_clause
         else raise @@ Found_abort ab_v
       end
     | Assert_body _ | Assume_body _ ->
-      let retv = Direct (Value_bool true) in
+      let v = Value_bool true in
+      let retv = Direct v in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       Session.Concolic.Ref_cell.add_key_eq_value_opt session parent x_key (Some v);
       retv
