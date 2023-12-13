@@ -204,7 +204,7 @@ module Concolic =
                 let new_branch_store = 
                   target
                   |> Branch.Runtime.to_ast_branch
-                  |> Branch.Status_store.set_unsatisfiable session.branch_store
+                  |> Branch.Status_store.set_branch_status ~new_status:Branch.Status.Unsatisfiable session.branch_store
                 in
                 (* FIXME: when last branch is unsatisfiable, the setting doesn't propogate and it stays unhit *)
                 next { session with target_stack = tl ; branch_store = new_branch_store }
@@ -291,9 +291,8 @@ module Concolic =
             let new_target = (* new target is the other side of the branch we just hit *)
               hit_branch
               |> Branch.Runtime.other_direction
-              |> fun branch -> Branch.Runtime.{ branch_key ; condition_key = branch.condition }
             in
-            match Branch.Status_store.get_status (!session).branch_store (Branch.Runtime.to_branch new_target) with
+            match Branch.Status_store.get_status (!session).branch_store (Branch.Runtime.to_ast_branch new_target) with
             | Branch.Status.Unhit -> new_target :: (!session).target_stack (* FIXME: this can currently add duplicates *)
               (* CONSIDER: maybe have new status that is "enqueued" *)
             | Hit | Unreachable | Unsatisfiable | Found_abort | Reached_max_step ->
@@ -307,7 +306,6 @@ module Concolic =
 
         let exit_branch
           (session : t ref)
-          (branch_key : Lookup_key.t)
           (parent : Branch_solver.Parent.t)
           (exited_branch : Branch.Runtime.t)
           (ret_key : Lookup_key.t)
@@ -316,7 +314,7 @@ module Concolic =
           session := {
             !session with formula_store =
             (!session).formula_store
-            |> Branch_solver.exit_branch branch_key parent exited_branch ret_key
+            |> Branch_solver.exit_branch parent exited_branch ret_key
           }
       end
 

@@ -24,6 +24,6 @@ exception Run_into_wrong_stack of Id.t * Concrete_stack.t
 
 (* Concolic exceptions *)
 exception All_Branches_Hit (* Exhausted the AST, so done with concolic evaluation *)
-exception Unreachable_Branch of Ast_branch.t (* Can't enter either side of branch at all *)
-exception Unsatisfiable_Branch of Ast_branch.t (* Branch direction cannot be solved for *)
+exception Unreachable_Branch of Branch.Ast_branch.t (* Can't enter either side of branch at all *)
+exception Unsatisfiable_Branch of Branch.Ast_branch.t (* Branch direction cannot be solved for *)
 exception Missed_Target_Branch (* Previous solve didn't properly let us hit the target branch *)

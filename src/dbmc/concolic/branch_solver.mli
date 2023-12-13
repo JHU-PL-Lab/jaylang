@@ -141,10 +141,12 @@ type t
 val empty : t
 (** [empty] is a branch solver with no information at all. *)
 
-val generate_lookup_key : Jayil.Ast.ident -> Dj_common.Concrete_stack.t -> Lookup_key.t
+(* val generate_lookup_key : Jayil.Ast.ident -> Dj_common.Concrete_stack.t -> Lookup_key.t *)
 (** [generate_lookup_key x stk] is a lookup key for the variable [x] where the key considers the 
     current stack [stk], so the variable is identifiable as a runtime variable, e.g. the same variable
-    name in different calls of a recursive function have different lookup keys. *)
+    name in different calls of a recursive function have different lookup keys.
+    
+    UPDATE: this has been moved to `concolic.ml` because that's the only place that uses it. *)
 
 val add_formula : Lookup_key.t list -> Parent.t -> Z3.Expr.expr -> t -> t
 (** [add_formula deps parent formula store] is a new store where the [formula] is added underneath
@@ -161,7 +163,10 @@ val add_siblings : Lookup_key.t -> Lookup_key.t list -> t -> t
     same parents as the keys in [siblings], and these parents are strictly in addition to the parents
     that the [child_key] already has. This is used to make [child_key] depend on everything that all the
     [siblings] depend on.
-    Only information about [child_key] is updated in the store, and nothing is changed for the [siblings]. *)
+    Only information about [child_key] is updated in the store, and nothing is changed for the [siblings].
+    
+    TODO: everywhere I add a formula, I add siblings. I can either remove the deps parameter to formula
+      and always call add_siblings first, or I can join these two together. *)
 
 (* Note: no longer needed -- is included in exit_branch *)
 (* val add_pick_branch : Lookup_key.t -> Parent.t -> t -> t *)
@@ -172,7 +177,7 @@ val add_siblings : Lookup_key.t -> Lookup_key.t list -> t -> t
     implied by [branch_key], so that picking [branch_key] later means all parents must be satisfied by
     in the solve. *)
 
-val exit_branch : Lookup_key.t -> Parent.t -> Branch.Runtime.t -> Lookup_key.t -> t -> t
+val exit_branch : Parent.t -> Branch.Runtime.t -> Lookup_key.t -> t -> t
 (** [exit_branch branch_key parent exited_branch result_key store] leaves the branch [exited_branch] that
     is the clause body for [branch_key]. 
     The [parent] is the parent of the [branch_key]. The [result_key] is the key for the last evaluated

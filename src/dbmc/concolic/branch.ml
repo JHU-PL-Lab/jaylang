@@ -2,10 +2,10 @@ open Core
 open Jayil
 
 
-let generate_lookup_key (x : Ast.ident) (stk : Dj_common.Concrete_stack.t) : Lookup_key.t =
+(* let generate_lookup_key (x : Ast.ident) (stk : Dj_common.Concrete_stack.t) : Lookup_key.t =
   { x
   ; r_stk = Rstack.from_concrete stk
-  ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
+  ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } } *)
 
 module Lookup_key = 
   struct
@@ -101,7 +101,7 @@ module Runtime =
     let other_direction (x : t) : t =
       { x with direction = Direction.other_direction x.direction }
 
-    let print_option (x : t option) : unit =
+    let print_target_option (x : t option) : unit =
       let target_branch_str = 
         match x with 
         | None -> "None"
@@ -175,6 +175,14 @@ module Status_store =
         )
 
     let set_branch_status (status : Status.t) (map : t) (branch : Ast_branch.t) : t =
+      begin
+        match status with
+        | Status.Hit ->
+          Printf.printf "Hitting: %s: %s\n"
+            (let (Ast.Ident x) = branch.branch_ident in x)
+            (Direction.to_string branch.direction)
+        | _ -> ()
+      end;
       Ast.Ident_map.update_stdlib
         branch.branch_ident
         (function
@@ -182,13 +190,12 @@ module Status_store =
         | None -> failwith "unbound branch")
         map
 
-    let hit_branch (map : t) (branch : Ast_branch.t) : t =
-      Printf.printf "Hitting: %s: %s\n" (let (Ast.Ident x) = branch.branch_ident in x) (Direction.to_string branch.direction);
+    (* let hit_branch (map : t) (branch : Ast_branch.t) : t =
       set_branch_status Status.Hit map branch
 
     let set_unsatisfiable = set_branch_status Status.Unsatisfiable
     
-    let set_reached_max_step = set_branch_status Status.Reached_max_step
+    let set_reached_max_step = set_branch_status Status.Reached_max_step *)
 
     let get_status (map : t) (branch : Ast_branch.t) : Status.t =
       match Ast.Ident_map.find_opt branch.branch_ident map with

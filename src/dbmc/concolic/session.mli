@@ -122,7 +122,7 @@ module Concolic :
         val add_siblings : t ref -> Lookup_key.t -> Lookup_key.t list -> unit
         (** [add_siblings session child_key siblings] adds all dependencies of siblings to the child_key. *)
 
-        val update_target_branch : t ref -> Lookup_key.t -> Branch.Runtime.t -> unit
+        val update_target_branch : t ref -> Branch.Runtime.t -> unit
         (** [update_target_branch session branch_key branch] will update the target branch to the other direction of
             the given [branch] that was just hit. If the other direction has already been hit, then nothing is
             updated. The [branch_key] is the variable in the clause for the [branch].
@@ -154,7 +154,7 @@ module Concolic :
             side.
             *)
 
-        val exit_branch : t ref -> Lookup_key.t -> Branch_solver.Parent.t -> Branch.Runtime.t -> Lookup_key.t -> unit
+        val exit_branch : t ref -> Branch_solver.Parent.t -> Branch.Runtime.t -> Lookup_key.t -> unit
         (** TODO *)
       end
   end

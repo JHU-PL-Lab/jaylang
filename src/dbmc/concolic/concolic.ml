@@ -172,6 +172,11 @@ module Fetch =
   It is an evaluation within a single concolic session.
 *)
 
+let generate_lookup_key (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : Lookup_key.t =
+  { x
+  ; r_stk = Rstack.from_concrete stk
+  ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
+
 (*
   When evaluating any expression, the provided parent is not yet a parent dependency
   inside the session to any variable within. A variable has a parent dependency if it
@@ -235,7 +240,7 @@ and eval_clause
     );
   
   Debug.debug_update_write_node eval_session x stk;
-  let x_key = Branch_solver.generate_lookup_key x stk in
+  let x_key = generate_lookup_key x stk in
   let (v : Dvalue.t)(*, (session : Session.Concolic.t) *) =
     match cbody with
     | Value_body ((Value_function vf) as v) ->
@@ -262,7 +267,7 @@ and eval_clause
       let Var (y, _) = vx in
       let ret_val, ret_stk = Fetch.fetch_val_with_stk ~eval_session ~stk env vx in
       Session.Eval.add_alias (x, stk) (y, ret_stk) eval_session;
-      let y_key = Branch_solver.generate_lookup_key y ret_stk in 
+      let y_key = generate_lookup_key y ret_stk in 
       Session.Concolic.Ref_cell.add_formula session [y_key] parent @@ Riddler.eq x_key y_key;
       Session.Concolic.Ref_cell.add_siblings session x_key [y_key];
       ret_val
@@ -271,14 +276,14 @@ and eval_clause
       let Var (y, _) = cx in
       let cond_val, condition_stk = Fetch.fetch_val_with_stk ~eval_session ~stk env cx in
       let cond_bool = match cond_val with Direct (Value_bool b) -> b | _ -> failwith "non-bool condition" in
-      let condition_key = Branch_solver.generate_lookup_key y condition_stk in
-      let this_branch = Branch_solver.Runtime_branch.{ condition_key ; direction = Ast_branch.Direction.of_bool cond_bool } in
+      let condition_key = generate_lookup_key y condition_stk in
+      let this_branch = Branch.Runtime.{ branch_key = x_key ; condition_key ; direction = Branch.Direction.of_bool cond_bool } in
       let this_branch_as_parent = Branch_solver.Parent.of_runtime_branch this_branch in
       (* Hit branch *)
-      Session.Concolic.Ref_cell.hit_branch ~new_status:Ast_branch.Status.Found_abort session
-      @@ Ast_branch.of_ident_and_bool x cond_bool;
+      Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Hit session
+      @@ Branch.Ast_branch.of_ident_and_bool x cond_bool;
       (* Set target branch to the other side if the other side hasn't been hit yet *)
-      Session.Concolic.Ref_cell.update_target_branch session x_key this_branch;
+      Session.Concolic.Ref_cell.update_target_branch session this_branch;
 
       let e = if cond_bool then e1 else e2 in
       let stk' = Concrete_stack.push (x, cond_fid cond_bool) stk in
@@ -289,11 +294,11 @@ and eval_clause
       begin
         match res with
         | Error (Found_abort _) ->
-          Session.Concolic.Ref_cell.hit_branch ~new_status:Ast_branch.Status.Found_abort session
-          @@ Ast_branch.of_ident_and_bool x cond_bool;
+          Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Found_abort session
+          @@ Branch.Ast_branch.of_ident_and_bool x cond_bool;
         | Error (Reach_max_step _ as exn) ->
-          Session.Concolic.Ref_cell.hit_branch ~new_status:Ast_branch.Status.Reached_max_step session
-          @@ Ast_branch.of_ident_and_bool x cond_bool;
+          Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Reached_max_step session
+          @@ Branch.Ast_branch.of_ident_and_bool x cond_bool;
         | _ -> () (* continue normally on Ok or any other exception *)
       end;
       let ret_env, ret_val = Result.ok_exn res in (* Bubbles exceptions if necessary *)
@@ -301,9 +306,9 @@ and eval_clause
       let _, ret_stk = Fetch.fetch_val_with_stk ~eval_session ~stk:stk' ret_env last_v in
 
       (* say the ret_key is equal to x now, then clear out branch *)
-      let ret_key = Branch_solver.generate_lookup_key ret_id ret_stk in
+      let ret_key = generate_lookup_key ret_id ret_stk in
       Session.Concolic.Ref_cell.add_formula session [ret_key] this_branch_as_parent @@ Riddler.eq x_key ret_key;
-      Session.Concolic.Ref_cell.exit_branch session x_key parent this_branch ret_key;
+      Session.Concolic.Ref_cell.exit_branch session parent this_branch ret_key;
       Session.Eval.add_alias (x, stk) (ret_id, ret_stk) eval_session;
       ret_val
     | Input_body ->
@@ -327,9 +332,9 @@ and eval_clause
         (* enter function: *)
         let Var (xid, _) = vf in
         let f_stk = Fetch.fetch_stk ~eval_session ~stk env vf in
-        let key_f = Branch_solver.generate_lookup_key xid f_stk in
-        let key_param = Branch_solver.generate_lookup_key param stk' in
-        let key_arg = Branch_solver.generate_lookup_key x_arg arg_stk in
+        let key_f = generate_lookup_key xid f_stk in
+        let key_param = generate_lookup_key param stk' in
+        let key_arg = generate_lookup_key x_arg arg_stk in
         Session.Concolic.Ref_cell.add_formula session [key_f; key_arg] parent @@ Riddler.enter_fun key_param key_arg;
 
         (* returned value of function *)
@@ -339,7 +344,7 @@ and eval_clause
         Session.Eval.add_alias (x, stk) (ret_id, ret_stk) eval_session;
 
         (* exit function: *)
-        let ret_key = Branch_solver.generate_lookup_key ret_id ret_stk in
+        let ret_key = generate_lookup_key ret_id ret_stk in
         Session.Concolic.Ref_cell.add_formula session [ret_key; key_f; key_arg] parent @@ Riddler.exit_fun x_key ret_key;
         Session.Concolic.Ref_cell.add_siblings session x_key [ret_key; key_f; key_arg];
         ret_val
@@ -351,7 +356,7 @@ and eval_clause
       let retv = Direct (match_res) in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       let Var (y, _) = vy in
-      let match_key = Branch_solver.generate_lookup_key y stk in
+      let match_key = generate_lookup_key y stk in
       let x_key_exp = Riddler.key_to_var x_key in
       Session.Concolic.Ref_cell.add_formula session [match_key] parent @@ Solver.SuduZ3.ifBool x_key_exp; (* x has a bool value that is must take on *)
       Session.Concolic.Ref_cell.add_formula session [match_key] parent @@ Solver.SuduZ3.eq (Solver.SuduZ3.project_bool x_key_exp) (Riddler.is_pattern match_key p); (* x is same as result of match *)
@@ -368,8 +373,8 @@ and eval_clause
         (* TODO: records have limited concolic functionality *)
         let Var (v_ident, _) = v in
         let v_stk = Fetch.fetch_stk ~eval_session ~stk env v in
-        let record_key = Branch_solver.generate_lookup_key v_ident v_stk in
-        let proj_key = Branch_solver.generate_lookup_key proj_x stk' in
+        let record_key = generate_lookup_key v_ident v_stk in
+        let proj_key = generate_lookup_key proj_x stk' in
         Session.Concolic.Ref_cell.add_formula session [proj_key; record_key] parent @@ Riddler.eq x_key proj_key;
         Session.Concolic.Ref_cell.add_siblings session x_key [proj_key; record_key];
         retv
@@ -388,7 +393,7 @@ and eval_clause
       let retv = Direct bv in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       let (Var (y, _)) = vy in
-      let y_key = Branch_solver.generate_lookup_key y stk in
+      let y_key = generate_lookup_key y stk in
       Session.Concolic.Ref_cell.add_formula session [y_key] parent @@ Riddler.not_ x_key y_key;
       Session.Concolic.Ref_cell.add_siblings session x_key [y_key];
       retv
@@ -418,8 +423,8 @@ and eval_clause
       let Var (z, _) = vz in
       let y_stk = Fetch.fetch_stk ~eval_session ~stk env vy in
       let z_stk = Fetch.fetch_stk ~eval_session ~stk env vz in
-      let y_key = Branch_solver.generate_lookup_key y y_stk in
-      let z_key = Branch_solver.generate_lookup_key z z_stk in
+      let y_key = generate_lookup_key y y_stk in
+      let z_key = generate_lookup_key z z_stk in
       Session.Concolic.Ref_cell.add_formula session [y_key; z_key] parent @@ Riddler.binop_without_picked x_key op y_key z_key;
       Session.Concolic.Ref_cell.add_siblings session x_key [y_key; z_key];
       retv
@@ -427,7 +432,7 @@ and eval_clause
       (* TODO: concolic *)
       let ab_v = AbortClosure env in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, ab_v) eval_session;
-      Session.Concolic.Ref_cell.hit_branch ~new_status:Ast_branch.Status.Found_abort session
+      Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Found_abort session
       @@ Branch_solver.Parent.to_ast_branch_exn parent;
       match eval_session.mode with
       | Plain -> raise @@ Found_abort ab_v
@@ -472,8 +477,8 @@ let eval_exp_default ~(session: Session.Concolic.t ref) (e : expr) : Dvalue.denv
 *)
 let rec eval (e : expr) (prev_session : Session.Concolic.t) : unit =
   Format.printf "------------------------------\nRunning program...\n";
-  Ast_branch.Status_store.print prev_session.branch_store;
-  Branch_solver.Target.print_option @@ List.hd prev_session.target_stack;
+  Branch.Status_store.print prev_session.branch_store;
+  Branch.Runtime.print_target_option @@ List.hd prev_session.target_stack;
 
   (* Generate the next session, which throws appropriate errors if execution is complete *)
   match Session.Concolic.next prev_session with

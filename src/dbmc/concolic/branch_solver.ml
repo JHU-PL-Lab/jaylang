@@ -1,23 +1,11 @@
 open Core
 
-let generate_lookup_key (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : Lookup_key.t =
-  { x
-  ; r_stk = Rstack.from_concrete stk
-  ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
-
 module Lookup_key = 
   struct
     include Lookup_key
     (* Core.Map.Key expects t_of_sexp, so provide failing implementation *)
     let t_of_sexp _ = failwith "Lookup_key.t_of_sexp needed and not implemented"
   end
-
-(*
-  While this just copies Lookup_key, I find it helpful to try to make
-  them distinct for easier reading to tell what is a condition (Condition_key.t),
-  and what is any general variable (Lookup_key.t).
-*)
-module Condition_key = Lookup_key
 
 module Make_list_store (Key : Map.Key) (T : sig type t end) =
   struct
@@ -123,7 +111,7 @@ module Parent =
       | Global -> Riddler.true_ (* Global scope is just a trivial parent *)
       | Local branch -> Branch.Runtime.to_expr branch
 
-    let to_key (parent : t) : Condition_key.t option =
+    let to_condition_key (parent : t) : Lookup_key.t option =
       match parent with
       | Global -> None
       | Local branch -> Some branch.condition_key
@@ -242,7 +230,7 @@ let gen_parents
   let parents = children >>= Parent_store.find_default store.pstore
   in
   (parents >>| Parent.to_expr) (* make expression from key and direction *)
-  , (parents >>= Fn.compose Option.to_list Parent.to_key) (* keep only the key, and empty for Global *)
+  , (parents >>= Fn.compose Option.to_list Parent.to_condition_key) (* keep only the key, and empty for Global *)
 
 (*
   Given some children nodes, get a formula that says the parents
@@ -417,7 +405,6 @@ let add_pick_branch
   is encompassed under the first step.
 
   Arguments:
-    [branch_key] the variable that gets assigned the result of the branch
     [parent] the parent branch of the branch_key. This is NOT the condition and
       direction that evaluates to the branch result.
     [exited_branch] the branch (i.e. parent) that was just evaluated and is being exited.
@@ -425,7 +412,6 @@ let add_pick_branch
     [store] ..
 *)
 let exit_branch
-  (branch_key : Lookup_key.t)
   (parent : Parent.t)
   (exited_branch : Branch.Runtime.t)
   (result_key : Lookup_key.t)
@@ -441,9 +427,9 @@ let exit_branch
     let implication = Riddler.(antecedent @=> and_ exps) in
     add_formula [exited_branch.condition_key] parent implication store (* formula depends on exited branch's condition key *)
     |> Store.remove_formulas exited_parent (* clear out formulas under exited branch because they're not needed anymore *)
-    |> Store.add_parent branch_key exited_parent (* add the exited branch as a parent *)
-    |> add_siblings branch_key [result_key] (* branch_key now depends on everything the result depends on *)
-    |> add_pick_branch branch_key parent
+    |> Store.add_parent exited_branch.branch_key exited_parent (* add the exited branch as a parent *)
+    |> add_siblings exited_branch.branch_key [result_key] (* branch_key now depends on everything the result depends on *)
+    |> add_pick_branch exited_branch.branch_key parent
 
 (* See https://github.com/Z3Prover/z3/blob/master/src/api/ml/z3.mli line 3290 *)
 let solve_for_target
@@ -453,7 +439,7 @@ let solve_for_target
   =
   (* Say that we're picking this branch, so all the parents that it was said to imply will now get implied. *)
   let picked_branch_formula = Riddler.picked target.branch_key in
-  let condition_formula = Branch.Runtime.to_expr target.branch in
+  let condition_formula = Branch.Runtime.to_expr target in
   let solver =
     store
     (* |> pick_branch target.branch_key *) (* with parent commented out *)

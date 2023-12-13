@@ -59,7 +59,7 @@ module Runtime :
     type t =
       { branch_key    : Lookup_key.t
       ; condition_key : Lookup_key.t
-      ; direction     : Direction.t }
+      ; direction     : Direction.t } [@@deriving compare, sexp]
     (** [t] is a branch in the AST during runtime, where its branch and condition both have a stack
         to identify them (hence they are a [Lookup_key.t]).
         The [branch_key] is the key of the clause to identify the node in the AST, and the [condition_key]
@@ -80,8 +80,8 @@ module Runtime :
     val other_direction : t -> t
     (** [other_direction x] is a new branch keeping all attributes of [x], but [x.direction] is flipped. *)
 
-    val print_option : t option -> unit
-    (** [print_option x] prints the branch [x] as "target branch", or prints it as "None". *)
+    val print_target_option : t option -> unit
+    (** [print_target_option x] prints the branch [x] as "target branch", or prints it as "None". *)
   end
 
 (*
@@ -106,20 +106,18 @@ module Status_store :
     val get_unhit_branch : t -> Ast_branch.t option
     (** [get_unhit_branch store] is some branch that is unhit. *)
 
-    val hit_branch : t -> Ast_branch.t -> t
+    (* val hit_branch : t -> Ast_branch.t -> t *)
     (** [hit_branch store branch] is a new store where the given branch is now hit. All other
         branches are unaffected. *)
 
     val set_branch_status : Status.t -> t -> Ast_branch.t -> t
     (** [set_branch_status status store branch] is a new store where the given [branch] now has the
-        [status]. All other branches are unaffected.
-        
-        TODO: remove [set_unsatisfiable] and [set_reached_max_step] because they are obsolete now. *)
+        [status]. All other branches are unaffected. *)
 
-    val set_unsatisfiable : t -> Ast_branch.t -> t
+    (* val set_unsatisfiable : t -> Ast_branch.t -> t *)
     (** [set_unsatisfiable store branch] is a new store where the given branch is marked unsatisfiable. *)
 
-    val set_reached_max_step : t -> Ast_branch.t -> t
+    (* val set_reached_max_step : t -> Ast_branch.t -> t *)
     (** [set_reached_max_step store branch] is a new store where the given branch is marked such that
         the branch was attempted to be hit, but the max step was exceeded. *)
 
