@@ -18,5 +18,5 @@ module Make_just_payload_no_wait (Key : Base.Hashtbl.Key.S) (M : P_sig) :
 module Make_pipe (Key : Base.Hashtbl.Key.S) (M : P_sig) :
   SP with type payload = M.payload and type key = Key.t
 
-module Make_pipe_no_wait (Key : Base.Hashtbl.Key.S) (M : P_sig) :
-  SP with type payload = M.payload and type key = Key.t
+(* module Make_pipe_no_wait (Key : Base.Hashtbl.Key.S) (M : P_sig) :
+   SP with type payload = M.payload and type key = Key.t *)

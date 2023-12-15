@@ -247,8 +247,8 @@ module L_lwt_to_unit
 (*:
   Lifter with type t_in = unit Lwt.t and type t_out = unit *) =
 struct
-  type t_out = unit
-  type t_in = unit Lwt.t
+  type 'b t_in = unit Lwt.t
+  type 'c t_out = unit
 
   let lift1 f a1 = Lwt.async (fun () -> f a1)
   let lift2 f a1 a2 = Lwt.async (fun () -> f a1 a2)
@@ -259,7 +259,7 @@ end
 
 module Change_use
     (U : Use with type 'a act = unit Lwt.t)
-    (L : Lifter with type t_in = unit Lwt.t and type t_out = unit)
+    (L : Lifter with type 'b t_in = unit Lwt.t and type 'c t_out = unit)
 (* :
    Use
      with type t = U.t
@@ -456,19 +456,109 @@ module Make_pipe (Key : Base.Hashtbl.Key.S) (P : P_sig) :
   include Pipe
 end
 
-module L_pipe_to_unit = struct
-  type t_out = unit
-  type 'a t_in = 'a Lwt.t
-
-  let lift1 f a1 = Lwt.async (fun () -> f a1)
-  let lift2 f a1 a2 = Lwt.async (fun () -> f a1 a2)
-  let lift3 f a1 a2 a3 = Lwt.async (fun () -> f a1 a2 a3)
-  let lift4 f a1 a2 a3 a4 = Lwt.async (fun () -> f a1 a2 a3 a4)
-  let lift5 f a1 a2 a3 a4 a5 = Lwt.async (fun () -> f a1 a2 a3 a4 a5)
-end
-
-module Make_pipe_no_wait (Key : Base.Hashtbl.Key.S) (P : P_sig) :
-  SP with type payload = P.payload and type key = Key.t = struct
+module Make_pipe_no_wait
+    (Key : Base.Hashtbl.Key.S)
+    (P : P_sig)
+(* :
+   SP with type key = Key.t *) =
+struct
   module MP = Make_pipe (Key) (P)
   include MP
+
+  module L_pipe_to_unit = struct
+    type 'b t_in = MP.detail Lwt.t
+    type 'c t_out = unit
+
+    open Lwt.Infix
+
+    let lift1 f a1 = Lwt.async (fun () -> f a1 >>= fun _ -> Lwt.return_unit)
+
+    let lift2 f a1 a2 =
+      Lwt.async (fun () -> f a1 a2 >>= fun _ -> Lwt.return_unit)
+
+    let lift3 f a1 a2 a3 =
+      Lwt.async (fun () -> f a1 a2 a3 >>= fun _ -> Lwt.return_unit)
+
+    let lift4 f a1 a2 a3 a4 =
+      Lwt.async (fun () -> f a1 a2 a3 a4 >>= fun _ -> Lwt.return_unit)
+
+    let lift5 f a1 a2 a3 a4 a5 =
+      Lwt.async (fun () -> f a1 a2 a3 a4 a5 >>= fun _ -> Lwt.return_unit)
+  end
+
+  module Change_use_v2_0
+      (U : Use
+             with type 'a act = 'a Lwt.t
+              and type message := payload
+              and type pipe = MP.detail)
+      (L : Lifter with type 'b t_in = MP.detail Lwt.t and type 'c t_out = unit) =
+  struct
+    type t = U.t
+
+    (* type message = U.payload *)
+    type key = U.key
+    type 'a act = unit
+
+    let one_shot t key_src v = L.lift3 U.one_shot t key_src v
+
+    let iter t key_src f =
+      (* U.iter is the old iter which iterates `f` on `key_src`
+         This function is to make a new iter which uses U.iter but with the modified return type.
+
+         `f` is the worker function, `payload -> unit Lwt.t`
+         `U.iter` will finally return `unit Lwt.t`.
+
+         `iter` should return `unit` finally.
+         Luckily with `L_pipe_to_unit.lift3`, it should be able to _lift_ `unit Lwt.t` to `unit`.
+      *)
+
+      (* let iter' (t : t) (d : detail) (f : payload -> unit act) : unit =
+           ignore @@ U.iter t d f ;
+           ()
+         in *)
+      L.lift3 U.iter t key_src f
+
+    let id t key_src key_dst = L.lift3 U.id t key_src key_dst
+    let map t key_src key_dst f = L.lift4 U.map t key_src key_dst f
+
+    let filter_map t key_src key_dst f =
+      L.lift4 U.filter_map t key_src key_dst f
+
+    let join t key_srcs key_dst = L.lift3 U.join t key_srcs key_dst
+
+    let map2 t key_src1 key_src2 key_dst f =
+      L.lift5 U.map2 t key_src1 key_src2 key_dst f
+
+    let filter_map2 t key_src1 key_src2 key_dst f =
+      L.lift5 U.filter_map2 t key_src1 key_src2 key_dst f
+  end
+
+  module Step1 =
+    Change_use_v2_0
+      (struct
+        include MP
+
+        type pipe = MP.detail
+        type 'a act = 'a Lwt.t
+        (*
+    type nonrec t = t
+    type payload = MP.payload
+    *)
+      end)
+      (L_pipe_to_unit)
+  (* include
+     Change_use_v2
+       (struct
+         (* type nonrec t = t
+            type nonrec message = message
+            type nonrec key = key
+         *)
+
+         include MP
+
+         type nonrec t = t
+         type pipe = MP.detail
+         type 'a act = 'a Lwt.t
+       end)
+       (L_pipe_to_unit) *)
 end

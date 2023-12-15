@@ -98,24 +98,29 @@ module type Use = sig
 end
 
 module type Lifter = sig
-  type t_in
-  type t_out
+  type 'b t_in
+  type 'c t_out
 
-  val lift1 : ('a1 -> t_in) -> 'a1 -> t_out
-  val lift2 : ('a1 -> 'a2 -> t_in) -> 'a1 -> 'a2 -> t_out
-  val lift3 : ('a1 -> 'a2 -> 'a3 -> t_in) -> 'a1 -> 'a2 -> 'a3 -> t_out
+  val lift1 : ('a1 -> 'b t_in) -> 'a1 -> 'c t_out
+  val lift2 : ('a1 -> 'a2 -> 'b t_in) -> 'a1 -> 'a2 -> 'c t_out
+  val lift3 : ('a1 -> 'a2 -> 'a3 -> 'b t_in) -> 'a1 -> 'a2 -> 'a3 -> 'c t_out
 
   val lift4 :
-    ('a1 -> 'a2 -> 'a3 -> 'a4 -> t_in) -> 'a1 -> 'a2 -> 'a3 -> 'a4 -> t_out
+    ('a1 -> 'a2 -> 'a3 -> 'a4 -> 'b t_in) ->
+    'a1 ->
+    'a2 ->
+    'a3 ->
+    'a4 ->
+    'c t_out
 
   val lift5 :
-    ('a1 -> 'a2 -> 'a3 -> 'a4 -> 'a5 -> t_in) ->
+    ('a1 -> 'a2 -> 'a3 -> 'a4 -> 'a5 -> 'b t_in) ->
     'a1 ->
     'a2 ->
     'a3 ->
     'a4 ->
     'a5 ->
-    t_out
+    'c t_out
 end
 
 (* S is a derived interface, rather than a general interface *)
