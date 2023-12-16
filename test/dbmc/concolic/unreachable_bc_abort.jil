@@ -1,0 +1,43 @@
+x = input;
+
+one = 1;
+
+x_gte_one_cond = one <= x;
+
+x_gte_one_branch = x_gte_one_cond ?
+  (
+    x_is_one_cond = x == one;
+
+    x_is_one_branch_with_abort = x_is_one_cond ?
+      (
+        abort_clause = abort;
+
+        # unreachable because execution stops after abort
+        unreachable_cond_because_abort = true;
+        unreachable_branch_because_abort = unreachable_cond_because_abort ?
+          (
+            unreachable_true_side = 100
+          ) :
+          (
+            unreachable_false_side = 101
+          );
+
+        clause0 = 0
+      ) :
+      (
+        clause1 = 1
+      );
+
+    x_is_one_branch_without_abort = x_is_one_cond ?
+      (
+        # cannot be satisified because always hits abort first in branch above
+        unsatisfiable_because_abort_clause = 10000
+      ) :
+      (
+        # happens when x > 1
+        clause3 = 3
+      )
+  ) :
+  (
+    arbitrary_x_lt_one = 1000
+  )

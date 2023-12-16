@@ -175,7 +175,7 @@ module Concolic =
       let with_input_feeder (session : t) (input_feeder : Input_feeder.t) : t =
         let new_eval_session = create_eval input_feeder session.global_max_step in
         { session with
-          formula_store = Branch_solver.empty
+          formula_store = Branch_solver.empty (* TODO: disallow some parents when they throw exceptions *)
         ; eval          = new_eval_session
         ; prev_sessions = session :: session.prev_sessions
         ; run_num       = session.run_num + 1 }

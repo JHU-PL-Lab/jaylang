@@ -289,17 +289,19 @@ and eval_clause
       let stk' = Concrete_stack.push (x, cond_fid cond_bool) stk in
 
       (* this session gets mutated when evaluating the branch *)
-      (* FIXME: this sets all parent branches to reach max step or abort, when we only want it to set the deepest branch *)
       let res = Result.try_with (fun () -> eval_exp ~session stk' env e this_branch_as_parent) in
       begin
         match res with
-        | Error (Found_abort _) ->
-          Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Found_abort session
-          @@ Branch.Ast_branch.of_ident_and_bool x cond_bool;
-        | Error (Reach_max_step _) ->
+        | Error (Found_abort (AbortClosure ret_env)) ->
+          (* TODO: fix up this temporary patch where I say result key is x, which is operationally the same as no result at all *)
+          Session.Concolic.Ref_cell.exit_branch session parent this_branch x_key
+          (* Don't set branch to found abort because that happens only to parent when actually finding abort. *)
+          (* Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Found_abort session
+          @@ Branch.Ast_branch.of_ident_and_bool x cond_bool; *)
+        | Error (Reach_max_step _) -> ()
           (* TODO: retry? *)
-          Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Reached_max_step session
-          @@ Branch.Ast_branch.of_ident_and_bool x cond_bool;
+          (* Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Reached_max_step session
+          @@ Branch.Ast_branch.of_ident_and_bool x cond_bool; *)
         | _ -> () (* continue normally on Ok or any other exception *)
       end;
       let ret_env, ret_val = Result.ok_exn res in (* Bubbles exceptions if necessary *)
@@ -318,7 +320,7 @@ and eval_clause
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       let Ident s = x in
       Format.printf "Feed %d to %s \n" n s;
-      (* Session.Concolic.Ref_cell.add_key_eq_value_opt session parent x_key None; TODO: why not say x equals Value_int n? because we need x to be variable? *)
+      (* Session.Concolic.Ref_cell.add_key_eq_value_opt session parent x_key None; TODO: why not say x equals Value_int n? because we need x to be variable? Does it have to do with name of input variable(s)? *)
       retv
     | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin
       (* x = f y ; *)
@@ -433,6 +435,7 @@ and eval_clause
       (* TODO: concolic *)
       let ab_v = AbortClosure env in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, ab_v) eval_session;
+      (* TODO: let abort branches not be solved for in future runs *)
       Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Found_abort session
       @@ Branch_solver.Parent.to_ast_branch_exn parent;
       match eval_session.mode with
@@ -499,6 +502,10 @@ let rec eval (e : expr) (prev_session : Session.Concolic.t) : unit =
       eval e !session
     with
     (* TODO: Error cases: TODO, if we hit abort, re-run if setting is applied. *)
+    | Found_abort _ ->
+        (* TODO: abort cuts us too short to actually solve for the next target. The feeder is wrong.*)
+        Format.printf "Running next iteration of concolic after abort\n";
+        eval e !session
     | Reach_max_step (x, stk) ->
         (* Fmt.epr "Reach max steps\n" ; *)
         (* alert_lookup target_stk x stk session.lookup_alert; *)

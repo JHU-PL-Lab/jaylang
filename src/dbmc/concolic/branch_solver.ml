@@ -424,7 +424,7 @@ let exit_branch
   match Map.find store.fstore exited_parent with
   | None -> store (* nothing happened under the branch, so do nothing *) 
   | Some exps ->
-    let antecedent = Branch.Runtime.to_expr exited_branch in
+    let antecedent = Branch.Runtime.to_expr exited_branch in (* TODO: disallow some parents when they throw exceptions *)
     (* The branch implies all the expressions within it *)
     let implication = Riddler.(antecedent @=> and_ exps) in
     add_formula [exited_branch.condition_key] parent implication store (* formula depends on exited branch's condition key *)
