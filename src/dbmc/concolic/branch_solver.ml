@@ -307,16 +307,18 @@ let add_formula
 
 (*
   Say that some variable (key) is just equal to a value (which necessarily depends on nothing).
+
+  TODO: change `eq_term_v` so that doesn't need an option.
 *)
-let add_key_eq_value_opt
+let add_key_eq_val
   (parent : Parent.t)
   (key : Lookup_key.t)
-  (val_opt : Jayil.Ast.value option)
+  (v : Jayil.Ast.value)
   (store : Store.t)
   : Store.t
   =
   (* no children to consider because values have no dependencies *)
-  add_formula [] parent (Riddler.eq_term_v key val_opt) store
+  add_formula [] parent (Riddler.eq_term_v key (Some v)) store
   
 (*
   Say that the child now acquires all the same parents as the siblings.

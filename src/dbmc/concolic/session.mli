@@ -112,10 +112,10 @@ module Concolic :
             all the same fields as before, but the branch store now has the given [ast_branch] as hit,
             or has the given optional status. *)
 
-        val add_key_eq_value_opt : t ref -> Branch_solver.Parent.t -> Lookup_key.t -> value option -> unit
-        (** [add_key_eq_value_opt session parent key v_opt] assigns a new session to the [session] cell
-            that contains all the same fields as before, but the formula store gains the formula that the
-            key equals the value, if a value is given. *)
+        val add_key_eq_val : t ref -> Branch_solver.Parent.t -> Lookup_key.t -> value -> unit
+        (** [add_key_eq_val session parent key v] assigns a new session to the [session] cell that contains
+            all the same fields as before, but the formula store gains the formula that the [key] equals
+            the given value [v]. *)
 
         val add_formula : t ref -> Lookup_key.t list -> Branch_solver.Parent.t -> Z3.Expr.expr -> unit
         (** [add_formula session deps parent expr] assigns a new session to the [session] cell

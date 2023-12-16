@@ -153,10 +153,9 @@ val add_formula : Lookup_key.t list -> Parent.t -> Z3.Expr.expr -> t -> t
     the [parent]. The formula depends on all the keys [deps], so the parents (that imply all the [deps]),
     all imply the [formula]. *)
 
-val add_key_eq_value_opt : Parent.t -> Lookup_key.t -> Jayil.Ast.value option -> t -> t
-(** [add_key_eq_value_opt parent key val_opt store] is a new store that contains a formula where the [key]
-    equals the value of [val_opt], or the [key] equals itself if [val_opt] is [None]. The formula is added
-    under the [parent] in the [store]. *)
+val add_key_eq_val : Parent.t -> Lookup_key.t -> Jayil.Ast.value -> t -> t
+(** [add_key_eq_val parent key v store] is a new store that contains the formula where [key] equals
+    the given value [v]. The formula is added under the [parent] in the [store]. *)
 
 val add_siblings : Lookup_key.t -> Lookup_key.t list -> t -> t
 (** [add_siblings child_key siblings store] is a new store where the [child_key] now acquires all the

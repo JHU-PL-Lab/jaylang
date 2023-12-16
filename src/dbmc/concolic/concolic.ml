@@ -248,19 +248,19 @@ and eval_clause
       let retv = FunClosure (x, vf, env) in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       (* This would be more smooth if it returned session as well, and session weren't mutable *)
-      Session.Concolic.Ref_cell.add_key_eq_value_opt session parent x_key (Some v);
+      Session.Concolic.Ref_cell.add_key_eq_val session parent x_key v;
       retv
     | Value_body ((Value_record r) as v) ->
       (* x = { ... } ; *)
       let retv = RecordClosure (r, env) in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      Session.Concolic.Ref_cell.add_key_eq_value_opt session parent x_key (Some v);
+      Session.Concolic.Ref_cell.add_key_eq_val session parent x_key v;
       retv
     | Value_body v -> 
       (* x = <bool or int> ; *)
       let retv = Direct v in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      Session.Concolic.Ref_cell.add_key_eq_value_opt session parent x_key (Some v);
+      Session.Concolic.Ref_cell.add_key_eq_val session parent x_key v;
       retv
     | Var_body vx ->
       (* x = y ; *)
@@ -317,7 +317,7 @@ and eval_clause
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       let Ident s = x in
       Format.printf "Feed %d to %s \n" n s;
-      Session.Concolic.Ref_cell.add_key_eq_value_opt session parent x_key None; (* TODO: why not say x equals Value_int n? because we need x to be variable? *)
+      (* Session.Concolic.Ref_cell.add_key_eq_value_opt session parent x_key None; TODO: why not say x equals Value_int n? because we need x to be variable? *)
       retv
     | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin
       (* x = f y ; *)
@@ -450,7 +450,7 @@ and eval_clause
       let v = Value_bool true in
       let retv = Direct v in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      Session.Concolic.Ref_cell.add_key_eq_value_opt session parent x_key (Some v);
+      Session.Concolic.Ref_cell.add_key_eq_val session parent x_key v;
       retv
   in
   Debug.debug_clause ~eval_session x v stk;

@@ -242,17 +242,17 @@ module Concolic =
             Branch.Status_store.set_branch_status new_status (!session).branch_store ast_branch
           }
 
-        let add_key_eq_value_opt
+        let add_key_eq_val
           (session : t ref)
           (parent : Branch_solver.Parent.t)
           (key : Lookup_key.t)
-          (v_opt : value option)
+          (v : value)
           : unit
           =
           session := {
             !session with formula_store =
             (!session).formula_store
-            |> Branch_solver.add_key_eq_value_opt parent key v_opt
+            |> Branch_solver.add_key_eq_val parent key v
           }
 
         let add_formula
