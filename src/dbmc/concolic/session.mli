@@ -100,6 +100,9 @@ module Concolic :
     (** [finish_and_print session] prints the branch store where all previously unhit branches are
         marked as unsatisfiable. *)
 
+    (* TODO: just make mutable fields and assign to those. No point in copying all of them while using a ref cell.
+        Actually maybe the point is because I want to be able to copy previous sessions without them getting
+        mutated. I should see how changing the fields works when two sessions share a field. *)
     module Ref_cell :
       sig
         (* This module holds wrappers to access the solver/store in a concolic session ref cell. *)
