@@ -296,7 +296,8 @@ and eval_clause
         | Error (Found_abort _) ->
           Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Found_abort session
           @@ Branch.Ast_branch.of_ident_and_bool x cond_bool;
-        | Error (Reach_max_step _ as exn) ->
+        | Error (Reach_max_step _) ->
+          (* TODO: retry? *)
           Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Reached_max_step session
           @@ Branch.Ast_branch.of_ident_and_bool x cond_bool;
         | _ -> () (* continue normally on Ok or any other exception *)

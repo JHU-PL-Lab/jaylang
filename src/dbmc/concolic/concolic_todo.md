@@ -24,6 +24,41 @@ Other:
 I need to handle exceptions:
 * Max step:
 * Abort:
+  * I might just like to completely ignore an abort
+  * We need to carry on and hit any higher branches. so it does make sense to try to exit the branch
+  * However, we need it to stop from hitting any lower branches because that's kind of the point of the exception. It's okay to hit parallel ones
+  * So when we hit an abort, we can just jump back to exiting the current branch as an abort and let all of the formulas gather up, and then
+    just continue on normally. We do need to throw the abort again though after collecting so that branches above don't get incorrect values
+    and try to solve using them as if there was never an abort. But does that matter because we are only solver for higher branches.
+  * If we hit an abort in an internal branch and let the interpreter carry on, then it could join up the input and carry on, hitting branches
+    further down in the program
+
+       upper0 
+       /    \ 
+    stuff     upper
+      |      /      \
+      |    normal  abort
+      |    \        /
+      |        lower
+      |        /     \
+      |     normal  normal
+      |        \      /
+      |          joins up
+      \       /
+        lower0
+
+    We dont' want to solve for either branch of the "lower" after hitting abort. However, if we carry on after the abort, then
+    we would hit either of the "normal" "lower" branches and have the other direction set as a target.
+    For this reason, once we hit an abort, we want to exit the branch right then so that the "upper" finishes, and then throw
+    abort again so that "upper0" finishes, and we can eventually solve for "upper->normal".
+    What happens though if we do that and hit a "lower" branch where the solver then chooses inputs that hit abort again.
+    This could maybe be a problem because we need to somehow mark that branch as permanently off limits.
+      * TODO: use the branch store to mark "abort" and "reach max step" branches as off limits when solving. This needs to only
+        be done when the solver might possible want to hit those branches.
+          * Do my pick formulas require that a certain path be taken again to hit the lower? i.e. by my pick formulas, it seems
+            like we force "upper normal" whenever trying to hit "lower normal" because we force parents to be true, and if ever
+            we can't solve for a branch that way, we can try again when going through the other side of the higher up target.
+          * this would grow exponentially, so maybe we don't do that. It's an interesting problem I need to bring up
 * Assert: these are always considered true by the interpreter
 
 

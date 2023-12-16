@@ -118,7 +118,7 @@ module Parent =
 
     let to_ast_branch_exn (parent : t) : Branch.Ast_branch.t =
       match parent with
-      | Local _ -> failwith "unimplemented"
+      | Local x -> Branch.Runtime.to_ast_branch x
       | Global -> failwith "global ast branch undefined"
       
   end
