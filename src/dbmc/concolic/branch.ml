@@ -174,9 +174,9 @@ module Status_store =
           | _ -> None
         )
 
-    let set_branch_status (status : Status.t) (map : t) (branch : Ast_branch.t) : t =
+    let set_branch_status ~(new_status : Status.t) (map : t) (branch : Ast_branch.t) : t =
       begin
-        match status with
+        match new_status with
         | Status.Hit ->
           Printf.printf "Hitting: %s: %s\n"
             (let (Ast.Ident x) = branch.branch_ident in x)
@@ -186,16 +186,9 @@ module Status_store =
       Ast.Ident_map.update_stdlib
         branch.branch_ident
         (function
-        | Some branch_status -> Some (Branch_status.set branch_status branch.direction status)
+        | Some branch_status -> Some (Branch_status.set branch_status branch.direction new_status)
         | None -> failwith "unbound branch")
         map
-
-    (* let hit_branch (map : t) (branch : Ast_branch.t) : t =
-      set_branch_status Status.Hit map branch
-
-    let set_unsatisfiable = set_branch_status Status.Unsatisfiable
-    
-    let set_reached_max_step = set_branch_status Status.Reached_max_step *)
 
     let get_status (map : t) (branch : Ast_branch.t) : Status.t =
       match Ast.Ident_map.find_opt branch.branch_ident map with

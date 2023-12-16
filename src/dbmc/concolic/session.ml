@@ -231,7 +231,7 @@ module Concolic =
 
     module Ref_cell =
       struct
-        let hit_branch
+        let set_branch_status
           ?(new_status : Branch.Status.t = Branch.Status.Hit)
           (session : t ref)
           (ast_branch : Branch.Ast_branch.t)
@@ -239,7 +239,7 @@ module Concolic =
           =
           session := {
             !session with branch_store =
-            Branch.Status_store.set_branch_status new_status (!session).branch_store ast_branch
+            Branch.Status_store.set_branch_status ~new_status (!session).branch_store ast_branch
           }
 
         let add_key_eq_val

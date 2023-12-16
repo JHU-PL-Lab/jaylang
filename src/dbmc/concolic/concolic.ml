@@ -484,7 +484,7 @@ let rec eval (e : expr) (prev_session : Session.Concolic.t) : unit =
   match Session.Concolic.next prev_session with
   | `Done branch_store -> Session.Concolic.finish_and_print { (Session.Concolic.create_default ()) with branch_store } (* TODO: clean this *)
   | `Next session -> 
-    let this_target = List.hd session.target_stack in
+    let this_target = List.hd session.target_stack in (* target is top of stack of new session *)
     let session = ref session in
     (* Sean had bug where step and val_def_map needed to be reset *)
 
@@ -492,9 +492,7 @@ let rec eval (e : expr) (prev_session : Session.Concolic.t) : unit =
     try
       let _, v = eval_exp_default ~session:session e in
       (* Assert that we hit our target branch: *)
-      (* FIXME: this doesn't consider how we skip unreachable branches. *)
       Session.Concolic.assert_target_hit !session this_target;
-      (* Session.Concolic.assert_target_hit !session @@ List.hd prev_session.target_stack; *)
       (* Print evaluated result and run again. *)
       Format.printf "Evaluated to: %a\n" Dvalue.pp v;
       eval e !session

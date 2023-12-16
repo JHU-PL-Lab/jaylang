@@ -45,3 +45,5 @@ I need to be able to back out of an unsatisfiable branch.
     I do need to handle when the max step is reached. When this happens, we need to back up to
     the previous session and try the latest target there. I don't think we can safely assume
     that we just try the next target from the failing session because it might not have gotten as far.
+
+Note the messages I DM'd to Shiwei about changes outside of `conclic/`
