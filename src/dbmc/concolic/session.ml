@@ -204,7 +204,7 @@ module Concolic =
                 let new_branch_store = 
                   target
                   |> Branch.Runtime.to_ast_branch
-                  |> Branch.Status_store.set_branch_status Branch.Status.Unsatisfiable session.branch_store
+                  |> Branch.Status_store.set_branch_status ~new_status:Branch.Status.Unsatisfiable session.branch_store
                 in
                 (* FIXME: when last branch is unsatisfiable, the setting doesn't propogate and it stays unhit *)
                 next { session with target_stack = tl ; branch_store = new_branch_store }
@@ -231,7 +231,7 @@ module Concolic =
 
     module Ref_cell =
       struct
-        let set_branch_status
+        let hit_branch
           ?(new_status : Branch.Status.t = Branch.Status.Hit)
           (session : t ref)
           (ast_branch : Branch.Ast_branch.t)
