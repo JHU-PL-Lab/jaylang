@@ -59,6 +59,15 @@ I need to handle exceptions:
             like we force "upper normal" whenever trying to hit "lower normal" because we force parents to be true, and if ever
             we can't solve for a branch that way, we can try again when going through the other side of the higher up target.
           * this would grow exponentially, so maybe we don't do that. It's an interesting problem I need to bring up
+
+    If we found an abort and did NOT hit the target branch, then we didn't make it far enough and need to back up while
+    updated the branch store and adding any permanent formulas. The permanent formulas must be of the implied format so that
+    they aren't unnecessarily limiting the solver. If we found an abort and DID hit the target branch, then we can just
+    continue to the next session but still add permanent formulas.
+
+    I've started to get a little bit (actually quite a lot) hacky by coupling persistent and temporary aspects of the
+    sessions/runs, and how I have to back up to previous sessions but carry over some info. It's tough to merge some things
+    but overwrite others, and then return some state as well to tell what happened.
 * Assert: these are always considered true by the interpreter
 
 

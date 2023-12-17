@@ -280,8 +280,7 @@ and eval_clause
       let this_branch = Branch.Runtime.{ branch_key = x_key ; condition_key ; direction = Branch.Direction.of_bool cond_bool } in
       let this_branch_as_parent = Branch_solver.Parent.of_runtime_branch this_branch in
       (* Hit branch *)
-      Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Hit session
-      @@ Branch.Ast_branch.of_ident_and_bool x cond_bool;
+      Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Hit session this_branch;
       (* Set target branch to the other side if the other side hasn't been hit yet *)
       Session.Concolic.Ref_cell.update_target_branch session this_branch;
 
@@ -437,7 +436,7 @@ and eval_clause
       Session.Eval.add_val_def_mapping (x, stk) (cbody, ab_v) eval_session;
       (* TODO: let abort branches not be solved for in future runs *)
       Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Found_abort session
-      @@ Branch_solver.Parent.to_ast_branch_exn parent;
+      @@ Branch_solver.Parent.to_runtime_branch_exn parent;
       match eval_session.mode with
       | Plain -> raise @@ Found_abort ab_v
       (* next two are for debug mode *)
@@ -505,7 +504,8 @@ let rec eval (e : expr) (prev_session : Session.Concolic.t) : unit =
     | Found_abort _ ->
         (* TODO: abort cuts us too short to actually solve for the next target. The feeder is wrong.*)
         Format.printf "Running next iteration of concolic after abort\n";
-        eval e !session
+        (* TODO: currently assumes we didn't find target. Need to consider if it actually did *)
+        eval e (Session.Concolic.revert !session `Abort_before_target |> Option.value_exn)
     | Reach_max_step (x, stk) ->
         (* Fmt.epr "Reach max steps\n" ; *)
         (* alert_lookup target_stk x stk session.lookup_alert; *)

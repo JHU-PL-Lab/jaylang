@@ -129,6 +129,9 @@ module Parent :
     val to_ast_branch_exn : t -> Branch.Ast_branch.t
     (** [to_ast_branch_exn x] is the AST branch representation of [x], or an exception if
         [x] is the global parent. *)
+
+    val to_runtime_branch_exn : t -> Branch.Runtime.t
+    (** [to_runetime_branch_exn parent] is [branch] where [parent] is [Local branch], or raises exn. *)
   end
 
 type t
@@ -147,6 +150,9 @@ val empty : t
     name in different calls of a recursive function have different lookup keys.
     
     UPDATE: this has been moved to `concolic.ml` because that's the only place that uses it. *)
+
+(* temporary patch to reveal this; maybe capture other logic inside branch solver instead of session *)
+val gen_implied_formula : Lookup_key.t list -> t -> Z3.Expr.expr -> Z3.Expr.expr
 
 val add_formula : Lookup_key.t list -> Parent.t -> Z3.Expr.expr -> t -> t
 (** [add_formula deps parent formula store] is a new store where the [formula] is added underneath

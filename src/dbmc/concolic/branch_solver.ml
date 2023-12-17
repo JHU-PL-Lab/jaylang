@@ -120,6 +120,10 @@ module Parent =
       match parent with
       | Local x -> Branch.Runtime.to_ast_branch x
       | Global -> failwith "global ast branch undefined"
+
+    let to_runtime_branch_exn = function
+    | Local x -> x
+    | Global -> failwith "global runtime branch undefined"
       
   end
 

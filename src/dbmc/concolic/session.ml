@@ -102,6 +102,10 @@ module Eval =
   TODO: because I end up splitting them up anyways, maybe I want to not nest them
     and instead I pass them around separately. I just need to think about the `next` implications.
     They are currently coupled because of how the concolic session affects the eval session's feeder.
+
+  TODO: there are parts of the concolic session that don't persist over runs, and some that do.
+    I think I should have a Session.t that is for the entire thing, Eval.t is for runtime stuff, Concolic.t
+    is for a single run's concolic stuff. Both are mutable.
 *)
 module Concolic =
   struct
@@ -112,13 +116,14 @@ module Concolic =
       The concolic session actually wraps the eval session, which is mutable
     *)
     type t =
-      { branch_store    : Branch.Status_store.t
-      ; formula_store   : Branch_solver.t
-      ; target_stack    : Branch.Runtime.t list
-      ; prev_sessions   : t list (* TODO: is this even needed for reach max step? If so, can be an option *)
-      ; global_max_step : int
-      ; run_num         : int 
-      ; eval            : Eval.t } 
+      { branch_store       : Branch.Status_store.t
+      ; formula_store      : Branch_solver.t
+      ; permanent_formulas : Z3.Expr.expr list (* persist between sessions; should be Set *)
+      ; target_stack       : Branch.Runtime.t list
+      ; prev_sessions      : t list (* TODO: is this even needed for reach max step? If so, can be an option *)
+      ; global_max_step    : int
+      ; run_num            : int 
+      ; eval               : Eval.t } 
 
     let load_branches (session : t) (e : expr) : t =
       { session with branch_store = Branch.Status_store.find_branches e session.branch_store }
@@ -143,16 +148,37 @@ module Concolic =
       To be called before the very first concolic run to get empty tracking variables.   
     *)
     let create_default () =
-      { branch_store    = Branch.Status_store.empty
-      ; formula_store   = Branch_solver.empty 
-      ; target_stack    = []
-      ; prev_sessions   = []
-      ; global_max_step = default_global_max_step
-      ; run_num         = 0 
-      ; eval            = create_eval default_input_feeder default_global_max_step }
+      { branch_store       = Branch.Status_store.empty
+      ; formula_store      = Branch_solver.empty 
+      ; permanent_formulas = []
+      ; target_stack       = []
+      ; prev_sessions      = []
+      ; global_max_step    = default_global_max_step
+      ; run_num            = 0 
+      ; eval               = create_eval default_input_feeder default_global_max_step }
 
     let reset_formulas (session : t) : t =
       { session with formula_store = Branch_solver.empty }
+
+    (* TODO: think about if we need to revert more than once *)
+    let revert
+      (session : t)
+      (reason : [ `Abort_before_target | `Max_step_before_target of Branch.Runtime.t ])
+      : t option
+      =
+      let prev_session = List.hd session.prev_sessions in
+      let revert prev_session =
+        match reason with
+        | `Max_step_before_target _ -> failwith "unimplemented revert on max step"
+        | `Abort_before_target ->
+          (* Didn't hit target at all. For now, discard targets. TODO: see if we need to keep any *)
+          (* *)
+          { prev_session with
+            permanent_formulas = session.permanent_formulas @ prev_session.permanent_formulas  
+          ; branch_store = session.branch_store }
+      in
+      Option.map ~f:revert
+      @@ List.hd session.prev_sessions
 
     (*
       The next session
@@ -196,7 +222,13 @@ module Concolic =
               next { session with target_stack = tl }
               end
             else
-              match Branch_solver.get_feeder target session.formula_store with
+              let fstore =
+                List.fold session.permanent_formulas ~init:session.formula_store ~f:(
+                  fun acc expr ->
+                    Branch_solver.add_formula [] Branch_solver.Parent.Global expr acc
+                )
+              in
+              match Branch_solver.get_feeder target fstore with
               | Ok input_feeder -> `Next (with_input_feeder session input_feeder)
               | Error b ->
                 (* mark as unsatisfiable and try the next target *)
@@ -234,12 +266,26 @@ module Concolic =
         let hit_branch
           ?(new_status : Branch.Status.t = Branch.Status.Hit)
           (session : t ref)
-          (ast_branch : Branch.Ast_branch.t)
+          (branch : Branch.Runtime.t) (* Used to be ast branch, but can do more with runtime *)
           : unit
           =
           session := {
             !session with branch_store =
-            Branch.Status_store.set_branch_status ~new_status (!session).branch_store ast_branch
+            Branch.Status_store.set_branch_status ~new_status (!session).branch_store
+            @@ Branch.Runtime.to_ast_branch branch
+          ; permanent_formulas =
+            let new_formula =
+              match new_status with
+              | Branch.Status.Reached_max_step -> [] (* unimplemented *)
+              | Found_abort -> [
+                  branch
+                  |> Branch.Runtime.other_direction     
+                  |> Branch.Runtime.to_expr
+                  |> Branch_solver.gen_implied_formula [branch.condition_key] (!session).formula_store
+              ]
+              | _ -> []
+            in
+            new_formula @ (!session).permanent_formulas
           }
 
         let add_key_eq_val

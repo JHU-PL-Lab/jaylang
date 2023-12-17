@@ -70,17 +70,20 @@ module Concolic :
       next evaluation (which tries to target a different branch).
     *)
     type t =
-      { branch_store    : Branch.Status_store.t 
-      ; formula_store   : Branch_solver.t
-      ; target_stack    : Branch.Runtime.t list
-      ; prev_sessions   : t list
-      ; global_max_step : int
-      ; run_num         : int 
-      ; eval            : Eval.t } 
+      { branch_store       : Branch.Status_store.t 
+      ; formula_store      : Branch_solver.t
+      ; permanent_formulas : Z3.Expr.expr list
+      ; target_stack       : Branch.Runtime.t list
+      ; prev_sessions      : t list
+      ; global_max_step    : int
+      ; run_num            : int 
+      ; eval               : Eval.t } 
 
     val create_default : unit -> t
     (** [create_default ()] is a concolic session with empty stores, no target, run_num 0, and
         a default eval session *)
+
+    val revert : t -> [ `Abort_before_target | `Max_step_before_target of Branch.Runtime.t ] -> t option
 
     val next : t -> [ `Next of t | `Done of Branch.Status_store.t]
     (** [next session] is a session for the next run that has a resets formulas, keeps the top target
@@ -107,9 +110,9 @@ module Concolic :
       sig
         (* This module holds wrappers to access the solver/store in a concolic session ref cell. *)
 
-        val hit_branch : ?new_status:Branch.Status.t -> t ref -> Branch.Ast_branch.t -> unit
-        (** [hit_branch session ast_branch] assigns a new session to the [session] cell that contains
-            all the same fields as before, but the branch store now has the given [ast_branch] as hit,
+        val hit_branch : ?new_status:Branch.Status.t -> t ref -> Branch.Runtime.t -> unit
+        (** [hit_branch session branch] assigns a new session to the [session] cell that contains
+            all the same fields as before, but the branch store now has the given [branch] as hit,
             or has the given optional status. *)
 
         val add_key_eq_val : t ref -> Branch_solver.Parent.t -> Lookup_key.t -> value -> unit
