@@ -390,6 +390,7 @@ let add_pick_branch
   (store : Store.t)
   : Store.t
   =
+  (* let deps = Parent.to_expr parent :: get_all_parent_dependencies [branch_key] store in *) (* Too constraining. Is just wrong... *)
   let deps = 
     match parent with
     | Global -> []
@@ -428,7 +429,7 @@ let exit_branch
   match Map.find store.fstore exited_parent with
   | None -> store (* nothing happened under the branch, so do nothing *) 
   | Some exps ->
-    let antecedent = Branch.Runtime.to_expr exited_branch in (* TODO: disallow some parents when they throw exceptions *)
+    let antecedent = Branch.Runtime.to_expr exited_branch in
     (* The branch implies all the expressions within it *)
     let implication = Riddler.(antecedent @=> and_ exps) in
     add_formula [exited_branch.condition_key] parent implication store (* formula depends on exited branch's condition key *)

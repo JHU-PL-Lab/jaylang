@@ -1,0 +1,29 @@
+# this program has an abort that is hit but is exclusive from other solves.
+
+x = input;
+
+one = 1;
+
+abort_on_false_side_cond = x < one;
+
+abort_on_false_side_branch = abort_on_false_side_cond ? (
+  no_abort_inner_branch_cond = one == x;
+
+  no_abort_inner_branch = no_abort_inner_branch_cond ? (
+    forty_four = 44
+  ) : (
+    forty_five = 45
+  )
+) : (
+  inner_branch_cond = x == one;
+
+  inner_branch = inner_branch_cond ? (
+    inner_branch_abort = abort
+  ) : (
+    inner_branch_no_abort = 42
+  );
+
+  two = 2;
+
+  ret = inner_branch * two
+)

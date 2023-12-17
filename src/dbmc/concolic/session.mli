@@ -60,6 +60,11 @@ module Eval :
 
 module Concolic :
   sig
+
+    module Permanent_formulas :
+      sig
+        type t
+      end
     (*
       The concolic session contains an eval session, which is mutable.
       So the concolic session needs to get passed along for the branch
@@ -72,7 +77,7 @@ module Concolic :
     type t =
       { branch_store       : Branch.Status_store.t 
       ; formula_store      : Branch_solver.t
-      ; permanent_formulas : Z3.Expr.expr list
+      ; permanent_formulas : Permanent_formulas.t
       ; target_stack       : Branch.Runtime.t list
       ; prev_sessions      : t list
       ; global_max_step    : int

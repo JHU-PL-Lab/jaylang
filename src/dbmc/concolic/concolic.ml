@@ -295,12 +295,8 @@ and eval_clause
           (* TODO: fix up this temporary patch where I say result key is x, which is operationally the same as no result at all *)
           Session.Concolic.Ref_cell.exit_branch session parent this_branch x_key
           (* Don't set branch to found abort because that happens only to parent when actually finding abort. *)
-          (* Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Found_abort session
-          @@ Branch.Ast_branch.of_ident_and_bool x cond_bool; *)
         | Error (Reach_max_step _) -> ()
           (* TODO: retry? *)
-          (* Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Reached_max_step session
-          @@ Branch.Ast_branch.of_ident_and_bool x cond_bool; *)
         | _ -> () (* continue normally on Ok or any other exception *)
       end;
       let ret_env, ret_val = Result.ok_exn res in (* Bubbles exceptions if necessary *)

@@ -109,6 +109,24 @@ module Eval =
 *)
 module Concolic =
   struct
+
+    module Permanent_formulas =
+      struct
+        module Eset = Set.Make
+          (struct
+            include Z3.Expr
+            type t = Z3.Expr.expr
+            let t_of_sexp _ = failwith "fail t_of_sexp z3 expr"
+            let sexp_of_t _ = failwith "fail sexp_of_t x3 expr" 
+          end)
+        type t = Eset.t
+
+        let add set x = Set.union set @@ Eset.singleton x
+        let join = Set.union
+        let fold = Set.fold
+        let empty = Eset.empty;
+      end
+
     (*
       The concolic session remembers the branches and formulas. These are additional
       fields that are not needed during the regular evaluation.
@@ -118,7 +136,7 @@ module Concolic =
     type t =
       { branch_store       : Branch.Status_store.t
       ; formula_store      : Branch_solver.t
-      ; permanent_formulas : Z3.Expr.expr list (* persist between sessions; should be Set *)
+      ; permanent_formulas : Permanent_formulas.t (* persists between sessions *)
       ; target_stack       : Branch.Runtime.t list
       ; prev_sessions      : t list (* TODO: is this even needed for reach max step? If so, can be an option *)
       ; global_max_step    : int
@@ -150,7 +168,7 @@ module Concolic =
     let create_default () =
       { branch_store       = Branch.Status_store.empty
       ; formula_store      = Branch_solver.empty 
-      ; permanent_formulas = []
+      ; permanent_formulas = Permanent_formulas.empty
       ; target_stack       = []
       ; prev_sessions      = []
       ; global_max_step    = default_global_max_step
@@ -174,7 +192,7 @@ module Concolic =
           (* Didn't hit target at all. For now, discard targets. TODO: see if we need to keep any *)
           (* *)
           { prev_session with
-            permanent_formulas = session.permanent_formulas @ prev_session.permanent_formulas  
+            permanent_formulas = Permanent_formulas.join session.permanent_formulas prev_session.permanent_formulas  
           ; branch_store = session.branch_store (* `next` only adds more information, so we never lose info by overwriting old with new *)
           }
       in
@@ -224,7 +242,7 @@ module Concolic =
               end
             else
               let fstore =
-                List.fold session.permanent_formulas ~init:session.formula_store ~f:(
+                Permanent_formulas.fold session.permanent_formulas ~init:session.formula_store ~f:(
                   fun acc expr ->
                     Branch_solver.add_formula [] Branch_solver.Parent.Global expr acc
                 )
@@ -271,18 +289,15 @@ module Concolic =
             Branch.Status_store.set_branch_status ~new_status (!session).branch_store
             @@ Branch.Runtime.to_ast_branch branch
           ; permanent_formulas =
-            let new_formula =
               match new_status with
-              | Branch.Status.Reached_max_step -> [] (* unimplemented *)
-              | Found_abort -> [
-                  branch
-                  |> Branch.Runtime.other_direction     
-                  |> Branch.Runtime.to_expr
-                  |> Branch_solver.gen_implied_formula [branch.condition_key] (!session).formula_store
-              ]
-              | _ -> []
-            in
-            new_formula @ (!session).permanent_formulas
+              | Found_abort ->
+                branch
+                |> Branch.Runtime.other_direction     
+                |> Branch.Runtime.to_expr
+                (* |> Branch_solver.gen_implied_formula [branch.condition_key] (!session).formula_store *)
+                |> Permanent_formulas.add (!session).permanent_formulas
+              | Branch.Status.Reached_max_step (* unimplemented *)
+              | _ -> (!session).permanent_formulas
           }
 
         let add_key_eq_val
