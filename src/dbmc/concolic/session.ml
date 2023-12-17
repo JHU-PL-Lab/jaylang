@@ -344,10 +344,6 @@ module Concolic =
             | Hit | Unreachable | Unsatisfiable | Found_abort | Reached_max_step ->
               (* Don't push new target if has already been considered *)
               (!session).target_stack
-(* 
-            if not @@ Ast_branch.Status_store.is_hit (!session).branch_store (Branch_solver.Target.to_branch new_target)
-             (!session).target_stack (* new target is already hit, so don't push new target *)
-            else new_target :: (!session).target_stack *)
           }
 
         let exit_branch
