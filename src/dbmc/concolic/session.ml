@@ -175,7 +175,8 @@ module Concolic =
           (* *)
           { prev_session with
             permanent_formulas = session.permanent_formulas @ prev_session.permanent_formulas  
-          ; branch_store = session.branch_store }
+          ; branch_store = session.branch_store (* `next` only adds more information, so we never lose info by overwriting old with new *)
+          }
       in
       Option.map ~f:revert
       @@ List.hd session.prev_sessions
@@ -238,7 +239,6 @@ module Concolic =
                   |> Branch.Runtime.to_ast_branch
                   |> Branch.Status_store.set_branch_status ~new_status:Branch.Status.Unsatisfiable session.branch_store
                 in
-                (* FIXME: when last branch is unsatisfiable, the setting doesn't propogate and it stays unhit *)
                 next { session with target_stack = tl ; branch_store = new_branch_store }
             end
         end

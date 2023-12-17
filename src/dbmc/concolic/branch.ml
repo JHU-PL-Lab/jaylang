@@ -128,7 +128,15 @@ module Status_store =
         (* more general [hit] *)
         let set (f : t) (direction : Direction.t) (new_status : Status.t) : t =
           function
-          | d when Direction.equal d direction -> new_status
+          | d when Direction.equal d direction -> begin
+            (* temporary patch: put in some logic to only allow certain overwrites *) 
+            match new_status, f d (* old status*) with
+            | Status.Hit, Unhit
+            | Unsatisfiable, Unhit | Unsatisfiable, Reached_max_step
+            | Found_abort, Hit | Reached_max_step, Hit
+            | Unreachable, Unhit -> new_status
+            | _, old_status -> old_status (* anything else disallowed *)
+            end
           | d -> f d
 
         let hit (f : t) (direction : Direction.t) : t =

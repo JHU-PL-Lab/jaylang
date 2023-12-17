@@ -505,7 +505,11 @@ let rec eval (e : expr) (prev_session : Session.Concolic.t) : unit =
         (* TODO: abort cuts us too short to actually solve for the next target. The feeder is wrong.*)
         Format.printf "Running next iteration of concolic after abort\n";
         (* TODO: currently assumes we didn't find target. Need to consider if it actually did *)
-        eval e (Session.Concolic.revert !session `Abort_before_target |> Option.value_exn)
+        begin
+        match this_target with
+        | None -> eval e !session
+        | Some _ -> eval e (Session.Concolic.revert !session `Abort_before_target |> Option.value_exn)
+        end
     | Reach_max_step (x, stk) ->
         (* Fmt.epr "Reach max steps\n" ; *)
         (* alert_lookup target_stk x stk session.lookup_alert; *)
