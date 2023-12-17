@@ -245,16 +245,13 @@ module Concolic =
       in
       next session
 
-    let assert_target_hit (session : t) (target : Branch.Runtime.t option) : unit =
+    let check_target_hit (session : t) (target : Branch.Runtime.t option) : bool =
       match target with
-      | None -> ()
+      | None -> true
       | Some target -> 
         target
         |> Branch.Runtime.to_ast_branch
         |> Branch.Status_store.is_hit session.branch_store
-        |> function
-          | true -> ()
-          | false -> raise Missed_Target_Branch
 
     let finish_and_print ({ branch_store ; _ } : t) : unit =
       branch_store
@@ -339,8 +336,9 @@ module Concolic =
               |> Branch.Runtime.other_direction
             in
             match Branch.Status_store.get_status (!session).branch_store (Branch.Runtime.to_ast_branch new_target) with
-            | Branch.Status.Unhit -> new_target :: (!session).target_stack (* FIXME: this can currently add duplicates *)
+            | Branch.Status.Unhit | Missed -> new_target :: (!session).target_stack (* FIXME: this can currently add duplicates *)
               (* CONSIDER: maybe have new status that is "enqueued" *)
+              (* Maybe this solve will be different, so add missed targets again *)
             | Hit | Unreachable | Unsatisfiable | Found_abort | Reached_max_step ->
               (* Don't push new target if has already been considered *)
               (!session).target_stack

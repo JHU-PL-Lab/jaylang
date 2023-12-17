@@ -32,6 +32,7 @@ module Status =
       | Unsatisfiable
       | Found_abort
       | Reached_max_step (* TODO: consider runs with other inputs to try to lower step count *)
+      | Missed
       | Unreachable (* any unhit branch whose parent is unsatisfiable *)
       [@@deriving variants, compare]
 
@@ -133,8 +134,10 @@ module Status_store =
             match new_status, f d (* old status*) with
             | Status.Hit, Unhit
             | Unsatisfiable, Unhit | Unsatisfiable, Reached_max_step
-            | Found_abort, Hit | Reached_max_step, Hit
-            | Unreachable, Unhit -> new_status
+            | Found_abort, Hit
+            | Reached_max_step, Hit
+            | Unreachable, Unhit
+            | Missed, Unhit -> new_status
             | _, old_status -> old_status (* anything else disallowed *)
             end
           | d -> f d

@@ -495,7 +495,13 @@ let rec eval (e : expr) (prev_session : Session.Concolic.t) : unit =
     try
       let _, v = eval_exp_default ~session:session e in
       (* Assert that we hit our target branch: *)
-      Session.Concolic.assert_target_hit !session this_target;
+      begin
+      if Session.Concolic.check_target_hit !session this_target
+      then ()
+      else
+        Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Missed session
+        @@ Option.value_exn this_target
+      end;
       (* Print evaluated result and run again. *)
       Format.printf "Evaluated to: %a\n" Dvalue.pp v;
       eval e !session

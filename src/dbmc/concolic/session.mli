@@ -95,9 +95,9 @@ module Concolic :
     (** [load_branches session expr] is a copy of [session] and has all AST branches from [expr] as
         unhit branches in the branch_store. *)
 
-    val assert_target_hit : t -> Branch.Runtime.t option -> unit
-    (** [assert_target_hit session target_opt] throws an exception if and only if the target (if is Some)
-        is unhit in the session's branch store. *)
+    val check_target_hit : t -> Branch.Runtime.t option -> bool
+    (** [check_target_hit session target_opt] is [b] where [b] is true if and only if the
+        target is hit in the session's branch store. *)
 
     val finish_and_print : t -> unit
     (** [finish_and_print session] prints the branch store where all previously unhit branches are

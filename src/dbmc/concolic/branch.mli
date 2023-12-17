@@ -8,6 +8,7 @@ module Status :
       | Unsatisfiable
       | Found_abort
       | Reached_max_step
+      | Missed
       | Unreachable
 
     val to_string : t -> string
