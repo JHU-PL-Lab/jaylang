@@ -15,4 +15,4 @@
  (names test_interp test_rstack test_scheduler test_unroll)
  (libraries core core_bench alcotest jayil jayil_parser unroll dbmc)
  (preprocess
-  (pps ppx_jane)))
+  (pps ppx_jane lwt_ppx)))

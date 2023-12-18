@@ -84,6 +84,8 @@ module Part_common (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
   let reset state = Hashtbl.clear state.map
   let push_mutex = Nano_mutex.create ()
 
+  (* stream basic *)
+
   let empty_detail () =
     let stream, push = Lwt_stream.create () in
     let pre_push m = Some m in
@@ -122,7 +124,7 @@ module Part_common (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
         else
           (* Note this push is not for the current src-tgt pair.
              The handler function belonging to this target key is defined at the place
-             where `real_push` is used.
+             where `push_msg` is used.
              This push is used for other pairs in which this target is their's source.
              That's the reason why we cannot see any handler here.
           *)
@@ -132,20 +134,15 @@ module Part_common (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
               detail.messages <- detail.messages @ [ msg ]
           | None -> ())
 
-  let real_push t key =
+  (* push basic *)
+
+  let push_msg t key =
     let detail = find_detail t key in
     get_push detail
 
-  let real_close t key =
+  let close t key =
     let detail = find_detail t key in
     detail.push None
-
-  let just_push t key v =
-    match v with Some msg -> real_push t key msg | None -> real_close t key
-
-  let push_all t key msgs = List.iter msgs ~f:(real_push t key)
-
-  (* public *)
 
   (* external use *)
   let messages_sent t key =
@@ -165,28 +162,34 @@ struct
 
   let seq f push x = x |> f |> push
   let map_in f push x = match f x with Some v -> push v | None -> ()
+  let get_payload_stream = get_stream
 
-  let one_shot t key v =
-    real_push t key v ;
-    real_close t key ;
+  let push t key p_opt =
+    match p_opt with Some p -> push_msg t key (Fn.id p) | None -> close t key
+
+  let one_shot t key vs =
+    List.iter vs ~f:(push_msg t key) ;
+    close t key ;
     Lwt.return_unit
 
   let id t key_src key_dst : unit Lwt.t =
     let stream_src = get_stream t key_src in
-    Lwt_stream.iter_s (real_push t key_dst |> then_lwt) stream_src
+    Lwt_stream.iter_s (push_msg t key_dst |> then_lwt) stream_src
 
   let map t key_src key_dst f : unit Lwt.t =
     let stream_src = get_stream t key_src in
     (* (seq_opt f_opt push |> then_lwt) *)
-    Lwt_stream.iter_s (seq f (real_push t key_dst) |> then_lwt) stream_src
+    Lwt_stream.iter_s (seq f (push_msg t key_dst) |> then_lwt) stream_src
 
   let filter_map t key_src key_dst f : unit Lwt.t =
     let stream_src = get_stream t key_src in
-    Lwt_stream.iter_s (map_in f (real_push t key_dst) |> then_lwt) stream_src
+    Lwt_stream.iter_s (map_in f (push_msg t key_dst) |> then_lwt) stream_src
 
   let join t key_srcs key_dst =
     let stream_srcs = List.map key_srcs ~f:(get_stream t) in
-    Lwt_list.iter_p (Lwt_stream.iter (real_push t key_dst)) stream_srcs
+    Lwt_stream.choose stream_srcs |> Lwt_stream.iter (push_msg t key_dst)
+
+  (* Lwt_list.iter_p (Lwt_stream.iter (push_msg t key_dst)) stream_srcs *)
 
   let map2 t key_src1 key_src2 key_dst f : unit Lwt.t =
     let stream_src1 = get_stream t key_src1 in
@@ -194,7 +197,7 @@ struct
 
     (* seq2 *)
     Lwt_stream.iter_s
-      (seq f (real_push t key_dst) |> then_lwt)
+      (seq f (push_msg t key_dst) |> then_lwt)
       (product_stream stream_src1 stream_src2)
 
   let filter_map2 t key_src1 key_src2 key_dst f : unit Lwt.t =
@@ -203,7 +206,7 @@ struct
 
     (* seq2_opt *)
     Lwt_stream.iter_s
-      (map_in f (real_push t key_dst) |> then_lwt)
+      (map_in f (push_msg t key_dst) |> then_lwt)
       (product_stream stream_src1 stream_src2)
 
   let iter t key_src f =
@@ -255,6 +258,8 @@ struct
   type pipe = U.pipe
   type 'a act = unit
 
+  let get_payload_stream = U.get_payload_stream
+  let push = U.push
   let one_shot t key_src v = L.lift3 U.one_shot t key_src v
   let iter t key_src f = L.lift3 U.iter t key_src (then_lwt f)
   let id t key_src key_dst = L.lift3 U.id t key_src key_dst
@@ -277,6 +282,8 @@ struct
   type pipe = U.pipe
   type 'a act = unit
 
+  let get_payload_stream = U.get_payload_stream
+  let push = U.push
   let one_shot t key_src v = L.lift3 U.one_shot t key_src v
   let iter t key_src f = L.lift3 U.iter t key_src (then_lwt f)
   let id t key_src key_dst = L.lift3 U.id t key_src key_dst
@@ -312,7 +319,7 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
   include M0.Use
 end
 
-module Make_just_payload (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
+module Make_payload (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
   module M0 =
     Make0
       (Key)
@@ -326,9 +333,12 @@ module Make_just_payload (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
 
   include M0.Common
   include M0.Use
+
+  let push t key p_opt =
+    match p_opt with Some p -> push_msg t key (Fn.id p) | None -> close t key
 end
 
-module Make_just_payload_no_wait (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
+module Make_payload_bg (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
   module M = struct
     include P
 
@@ -368,6 +378,7 @@ module Payload_to_message (P : P_sig) = struct
 
   let _not_here : message = Control ()
   let inj p = Payload p
+  let prj_opt = function Payload p -> Some p | Control _ -> None
 
   (* all the folling function is human-craft due to the lack of `pair.fmap`, `tuple3.fmap` ... *)
 
@@ -417,9 +428,17 @@ module Make_pipe (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
 
     let stream_of_pipe pipe = Lwt_stream.clone pipe.stream
 
-    let one_shot u dst v =
+    let get_payload_stream u p =
+      get_stream u p |> Lwt_stream.filter_map Message.prj_opt
+
+    let push t key p_opt =
+      match p_opt with
+      | Some p -> push_msg t key (Message.inj p)
+      | None -> close t key
+
+    let one_shot u dst vs =
       let pipe_dst = add_detail u dst in
-      pipe_dst.push (Some (inj v)) ;
+      List.iter vs ~f:(fun v -> pipe_dst.push (Some (inj v))) ;
       pipe_dst.push None ;
       Lwt.return pipe_dst
 
@@ -478,7 +497,7 @@ module Make_pipe (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
   include Pipe
 end
 
-module Make_pipe_no_wait (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
+module Make_pipe_bg (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
   module MP = Make_pipe (Key) (P)
   include MP
   include Change_use_lwt_to_unit (MP) (L_lwt_to_unit)

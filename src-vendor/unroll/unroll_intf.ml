@@ -87,14 +87,11 @@ module type Common = sig
   val create_key : t -> ?task:(unit -> unit) -> key -> unit
   val get_stream : t -> key -> message Lwt_stream.t
   val set_pre_push : t -> key -> (message -> message option) -> unit
-  val just_push : t -> key -> message option -> unit
-  val real_push : t -> key -> message -> unit
-  val real_close : t -> key -> unit
-  val push_all : t -> key -> message list -> unit
+  val push_msg : t -> key -> message -> unit
+  val close : t -> key -> unit
   val messages_sent : t -> key -> message list
   val msg_queue : unit Lwt.t list ref
   val add_detail : t -> key -> detail
-  (* val seq : (_ -> _) -> (_ -> _) -> _ *)
 end
 
 module type Use = sig
@@ -113,8 +110,11 @@ module type Use = sig
   (* internal *)
   type pipe
 
+  val get_payload_stream : t -> key -> payload Lwt_stream.t
+  val push : t -> key -> payload option -> unit
+
   (* create; only immediate pipe can be created *)
-  val one_shot : t -> key -> payload -> pipe act
+  val one_shot : t -> key -> payload list -> pipe act
   val id : t -> pipe -> key -> pipe act
   val map : t -> pipe -> key -> (payload -> payload) -> pipe act
   val filter_map : t -> pipe -> key -> (payload -> payload option) -> pipe act

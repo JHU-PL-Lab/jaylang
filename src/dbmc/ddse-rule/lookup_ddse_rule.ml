@@ -51,7 +51,7 @@ module Make (S : S) = struct
           [ Riddler.stack_in_main key.r_stk; eqz key (phi_of_value_opt key vo) ])
     in
     let phis = S.add_phi key phi Phi_set.empty in
-    U.one_shot S.unroll key (Ddse_result.of3 key phis target_stk)
+    U.one_shot S.unroll key [ Ddse_result.of3 key phis target_stk ]
 
   let rule_nonmain vo key phis_top =
     let key_first = Lookup_key.to_first key S.state.info.first in
