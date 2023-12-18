@@ -36,6 +36,7 @@ open Core
    It's more straightforward but however
 *)
 
+(* Ingredient *)
 module type M_sig = sig
   type message
 
@@ -46,55 +47,6 @@ module type P_sig = sig
   type payload
 
   val equal_payload : payload -> payload -> bool
-end
-
-module type Common = sig
-  type t
-  type message
-  type key
-
-  val create : unit -> t
-  val reset : t -> unit
-  val create_key : t -> ?task:(unit -> unit) -> key -> unit
-  val get_stream : t -> key -> message Lwt_stream.t
-  val set_pre_push : t -> key -> (message -> message option) -> unit
-  val just_push : t -> key -> message option -> unit
-  val push_all : t -> key -> message list -> unit
-  val messages_sent : t -> key -> message list
-  val msg_queue : unit Lwt.t list ref
-end
-
-module type Use = sig
-  type t
-  type key
-  type message
-  type pipe
-  type 'a act
-
-  (* create; only immediate pipe can be created *)
-  val one_shot : t -> key -> message -> pipe act
-  val id : t -> pipe -> key -> pipe act
-  val map : t -> pipe -> key -> (message -> message) -> pipe act
-  val filter_map : t -> pipe -> key -> (message -> message option) -> pipe act
-  (* val filter : u -> t -> key -> (payload -> bool) -> t act *)
-
-  val map2 :
-    t -> pipe -> pipe -> key -> (message * message -> message) -> pipe act
-
-  val filter_map2 :
-    t ->
-    pipe ->
-    pipe ->
-    key ->
-    (message * message -> message option) ->
-    pipe act
-
-  val join : t -> pipe list -> key -> pipe act
-  (* iter doesn't create a new strean *)
-
-  val iter : t -> pipe -> (message -> unit act) -> unit act
-  (* val bind : u -> t -> (payload -> t) -> t act
-     val bind0 : u -> t -> (payload -> key) -> t Lwt_stream.t *)
 end
 
 module type Lifter = sig
@@ -123,29 +75,74 @@ module type Lifter = sig
     'c t_out
 end
 
+(* Public *)
+module type Common = sig
+  type t
+  type message
+  type key
+  type detail
+
+  val create : unit -> t
+  val reset : t -> unit
+  val create_key : t -> ?task:(unit -> unit) -> key -> unit
+  val get_stream : t -> key -> message Lwt_stream.t
+  val set_pre_push : t -> key -> (message -> message option) -> unit
+  val just_push : t -> key -> message option -> unit
+  val real_push : t -> key -> message -> unit
+  val real_close : t -> key -> unit
+  val push_all : t -> key -> message list -> unit
+  val messages_sent : t -> key -> message list
+  val msg_queue : unit Lwt.t list ref
+  val add_detail : t -> key -> detail
+  (* val seq : (_ -> _) -> (_ -> _) -> _ *)
+end
+
+module type Use = sig
+  (* shared, to substitute *)
+  type t
+  type key
+
+  (* whether
+     1. use a `message` that shares the same name with common, to substitute
+     2. use a unique name *)
+  type payload
+
+  (* custom, as output *)
+  type 'a act
+
+  (* internal *)
+  type pipe
+
+  (* create; only immediate pipe can be created *)
+  val one_shot : t -> key -> payload -> pipe act
+  val id : t -> pipe -> key -> pipe act
+  val map : t -> pipe -> key -> (payload -> payload) -> pipe act
+  val filter_map : t -> pipe -> key -> (payload -> payload option) -> pipe act
+  (* val filter : u -> t -> key -> (payload -> bool) -> t act *)
+
+  val map2 :
+    t -> pipe -> pipe -> key -> (payload * payload -> payload) -> pipe act
+
+  val filter_map2 :
+    t ->
+    pipe ->
+    pipe ->
+    key ->
+    (payload * payload -> payload option) ->
+    pipe act
+
+  val join : t -> pipe list -> key -> pipe act
+  (* iter doesn't create a new strean *)
+
+  val iter : t -> pipe -> (payload -> unit act) -> unit act
+  (* val bind : u -> t -> (payload -> t) -> t act
+     val bind0 : u -> t -> (payload -> key) -> t Lwt_stream.t *)
+end
+
 (* S is a derived interface, rather than a general interface *)
 module type S = sig
   include Common
-
-  include
-    Use
-      with type t := t
-       and type message := message
-       and type pipe := key
-       and type key := key
+  include Use with type t := t and type key := key
 end
 
-module type SP = sig
-  include Common
-
-  type detail
-  type payload
-
-  include
-    Use
-      with type t := t
-       and type message := payload
-       and type pipe := detail
-       and type key := key
-       and type 'a act := 'a Lwt.t
-end
+module type S_bg = S with type 'a act = unit
