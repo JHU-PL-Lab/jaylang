@@ -68,47 +68,14 @@
       I check the branch is indeed the parent we're under.
 *)
 
-
-(* module Runtime_branch :
+module Formula_set :
   sig
-    type t =
-      { condition_key : Lookup_key.t
-      ; direction : Ast_branch.Direction.t }
-    (** [t] represents a branch direction during runtime, where the condition key has been
-        evaluated to some true/false direction. The condition is a [Lookup_key.t] because it
-        considers the current stack and is not just an identifier in the AST.
-
-        Note: we represent an AST branch by its branch key because that is unique to
-          the AST node (the variable that is assigned in the clause), but the runtime
-          branch is represented by the condition because the condition actually takes on
-          a true or false value. This allows us to actually solve for a direction in a
-          runtime branch. *)
-
-    val other_direction : t -> t
-  end *)
-
-(* module Target :
-  sig
-    type t =
-      { branch_key : Lookup_key.t
-      ; branch     : Runtime_branch.t }
-    (** [t] is a branch in the AST with its condition and direction such that the branch can
-        be solved for. the [branch_key] is the key of the clause to identify the node in the
-        AST, and the [branch] is the condition key and its direction in order to solve for the
-        condition variable to attain the desired true/false value. *)
-
-    val to_string : t -> string
-    val print_option : t option -> unit
-
-    val to_branch : t -> Ast_branch.t
-    (** [to_branch x] is an AST branch, where it is the branch ident (the clause
-        ident) and the direction the condition [x.branch.condition_key] will
-        evaluate to. The condition key is discarded. *)
-
-    val other_direction : t -> t
-    (** [other_direction x] is a target branch where the runtime branch [x.branch] is the other
-        direction. e.g. if [x.branch] is [false], then [(other_direction x).branch] is [true].*)
-  end *)
+    type t
+    val add : t -> Z3.Expr.expr -> t
+    val join : t -> t -> t
+    val fold : t -> init:'a -> f:('a -> Z3.Expr.expr -> 'a) -> 'a
+    val empty : t
+  end
 
 module Parent :
   sig
@@ -143,13 +110,6 @@ type t
 
 val empty : t
 (** [empty] is a branch solver with no information at all. *)
-
-(* val generate_lookup_key : Jayil.Ast.ident -> Dj_common.Concrete_stack.t -> Lookup_key.t *)
-(** [generate_lookup_key x stk] is a lookup key for the variable [x] where the key considers the 
-    current stack [stk], so the variable is identifiable as a runtime variable, e.g. the same variable
-    name in different calls of a recursive function have different lookup keys.
-    
-    UPDATE: this has been moved to `concolic.ml` because that's the only place that uses it. *)
 
 (* temporary patch to reveal this; maybe capture other logic inside branch solver instead of session *)
 val gen_implied_formula : Lookup_key.t list -> t -> Z3.Expr.expr -> Z3.Expr.expr

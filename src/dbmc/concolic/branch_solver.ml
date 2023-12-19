@@ -26,53 +26,6 @@ module Make_list_store (Key : Map.Key) (T : sig type t end) =
         )
   end
 
-(* module Runtime_branch =
-  struct
-    type t =
-      { condition_key : Condition_key.t
-      ; direction     : Ast_branch.Direction.t }
-      [@@deriving compare, sexp]
-
-    let to_expr ({condition_key ; direction} : t) : Z3.Expr.expr =
-      Riddler.eqv condition_key (Ast_branch.Direction.to_value_bool direction)
-
-    (* FIXME: this is wrong because an AST branch is the clause key, not the condition key *)
-    (* let to_branch ({ condition_key ; direction} : t) : Ast_branch.t =
-      Ast_branch.{ branch_ident = condition_key.x ; direction } *)
-
-    let other_direction (x : t) : t =
-      { x with direction = Ast_branch.Direction.other_direction x.direction }
-  end *)
-
-(* module Target =
-  struct
-    type t =
-      { branch_key : Lookup_key.t
-      ; branch     : Runtime_branch.t }
-
-    let to_string ({ branch_key ; branch } : t) : string =
-      Lookup_key.to_string branch_key
-      ^ "; condition: "
-      ^ Lookup_key.to_string branch.condition_key
-      ^ " = "
-      ^ Ast_branch.Direction.to_string branch.direction
-
-    let print_option (x : t option) : unit =
-      let target_branch_str = 
-        match x with 
-        | None -> "None"
-        | Some target -> to_string target
-      in 
-      Format.printf "\nTarget branch: %s\n" target_branch_str
-
-    let to_branch ({ branch_key ; branch = { direction ; _ } } : t) : Ast_branch.t =
-      Ast_branch.{ branch_ident = branch_key.x ; direction }
-
-    let other_direction (x : t) : t =
-      { x with branch = Runtime_branch.other_direction x.branch }
-
-  end *)
-
 (*
   The parent is some condition key and the direction that it
   evaluates.
@@ -155,6 +108,8 @@ module Z3_expr =
   struct
     include Z3.Expr
     type t = Z3.Expr.expr
+    let t_of_sexp _ = failwith "fail t_of_sexp z3 expr"
+    let sexp_of_t _ = failwith "fail sexp_of_t x3 expr" 
   end
 
 (*
@@ -162,6 +117,18 @@ module Z3_expr =
   Maps a parent to the formulas.
 *)
 module Formula_store = Make_list_store (Parent) (Z3_expr)
+
+module Formula_set =
+  struct
+    module S = Set.Make (Z3_expr)
+
+    type t = S.t
+
+    let add = Set.add
+    let join = Set.union
+    let fold = Set.fold
+    let empty = S.empty
+  end
 
 (*
   Keeps all the data about the program:

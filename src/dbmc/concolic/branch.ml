@@ -180,8 +180,8 @@ module Status_store =
       |> Ast.Ident_map.to_seq
       |> Batteries.Seq.find_map (fun (key, data) ->
           match data Direction.True_direction, data Direction.False_direction with
-          | Status.Unhit, _ -> Some Ast_branch.{ branch_ident = key ; direction = Direction.True_direction }
-          | _, Status.Unhit -> Some Ast_branch.{ branch_ident = key ; direction = Direction.False_direction }
+          | Status.Unhit, _ | Status.Missed, _ -> Some Ast_branch.{ branch_ident = key ; direction = Direction.True_direction }
+          | _, Status.Unhit | _, Status.Missed -> Some Ast_branch.{ branch_ident = key ; direction = Direction.False_direction }
           | _ -> None
         )
 

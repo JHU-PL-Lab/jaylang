@@ -79,6 +79,11 @@ module Eval =
       ; rstk_picked     = state.rstk_picked
       ; lookup_alert    = state.lookup_alert } *)
 
+    let create (input_feeder : Input_feeder.t) (global_max_step : int) : t =
+      { (create_default ()) with 
+        input_feeder
+      ; max_step = Some global_max_step }
+
     (* Say that x1 is an alias for x2. x1 is defined *after* x2 and points to x2. *)
     let add_alias (x1 : Id_with_stack.t) (x2 : Id_with_stack.t) ({ alias_graph; _ } : t) : unit =
       G.add_edge alias_graph x1 x2
@@ -374,3 +379,164 @@ module Concolic =
       end
 
   end
+
+module Concolic2 =
+  struct
+    module Outcome =
+      struct
+        type t =
+          | Hit_target
+          | Found_abort
+          | Reach_max_step
+      end
+
+    type t =
+      { branch_solver : Branch_solver.t
+      ; cur_parent    : Branch_solver.Parent.t
+      ; parent_stack  : Branch_solver.Parent.t list
+      ; cur_target    : Branch.Runtime.t option
+      ; new_targets   : Branch.Runtime.t list
+      ; outcomes      : Outcome.t list
+      ; hit_branches  : Branch.Ast_branch.t list
+      ; inputs        : (Ident.t * Dvalue.t) list } 
+
+    let create_default () : t =
+      { branch_solver = Branch_solver.empty
+      ; cur_parent    = Branch_solver.Parent.Global
+      ; parent_stack  = []
+      ; cur_target    = None
+      ; new_targets   = []
+      ; outcomes      = []
+      ; hit_branches  = []
+      ; inputs        = [] }
+
+    let create ~(target : Branch.Runtime.t) ~(initial_formulas : Branch_solver.Formula_set.t) : t =
+      let simple_add = Fn.flip (Branch_solver.add_formula [] Branch_solver.Parent.Global) in
+      let branch_solver = Branch_solver.Formula_set.fold initial_formulas ~init:Branch_solver.empty ~f:simple_add in
+      { (create_default ()) with branch_solver ; cur_target = Some target }
+
+    let add_formula (session : t) (expr : Z3.Expr.expr) : t =
+      { session with branch_solver = Branch_solver.add_formula [] session.cur_parent expr session.branch_solver }
+
+    let add_key_eq_val (session : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
+      { session with branch_solver = Branch_solver.add_key_eq_val session.cur_parent key v session.branch_solver }
+
+    let add_siblings (session : t) (key : Lookup_key.t) ~(siblings : Lookup_key.t list) : t =
+      { session with branch_solver = Branch_solver.add_siblings key siblings session.branch_solver }
+
+    let is_target (branch : Branch.Runtime.t) (target : Branch.Runtime.t option) : bool =
+      Option.map target ~f:(fun x -> Branch.Runtime.compare branch x = 0)
+      |> Option.value ~default:false
+
+    let enter_branch (session : t) (branch : Branch.Runtime.t) : t =
+      { session with
+        cur_parent   = Branch_solver.Parent.of_runtime_branch branch
+      ; parent_stack = session.cur_parent :: session.parent_stack
+      ; new_targets  = Branch.Runtime.other_direction branch :: session.new_targets
+      ; hit_branches = Branch.Runtime.to_ast_branch branch :: session.hit_branches
+      ; outcomes     = (if is_target branch session.cur_target then [ Outcome.Hit_target ] else []) @ session.outcomes }
+
+    let exit_branch (session : t) (ret_key : Lookup_key.t) : t =
+      let new_parent, new_parent_stack =
+        match session.parent_stack with
+        | hd :: tl -> hd, tl
+        | [] -> failwith "logically impossible to have no branch to exit"
+      in
+      let branch_solver =
+        Branch_solver.exit_branch
+          new_parent
+          (Branch_solver.Parent.to_runtime_branch_exn session.cur_parent)
+          ret_key
+          session.branch_solver
+      in
+      { session with
+        branch_solver
+      ; parent_stack = new_parent_stack
+      ; cur_parent = new_parent }
+
+    let add_input (session : t) (x : Ident.t) (v : Dvalue.t) : t =
+      { session with inputs = (x, v) :: session.inputs }
+
+  end
+
+module Target_stack =
+  struct
+    (* can see about saving less than the full session, but for now just save more than necessary *)
+    type t = (Branch.Runtime.t * Concolic2.t) list
+
+    let empty = []
+  end
+
+type t = 
+  { branch_store        : Branch.Status_store.t
+  ; persistent_formulas : Branch_solver.Formula_set.t
+  ; target_stack        : Target_stack.t
+  ; global_max_step     : int
+  ; run_num             : int }
+
+let default_global_max_step = Int.(10 ** 3)
+
+let create_default () : t =
+  { branch_store        = Branch.Status_store.empty 
+  ; persistent_formulas = Branch_solver.Formula_set.empty
+  ; target_stack        = Target_stack.empty
+  ; global_max_step     = default_global_max_step
+  ; run_num             = 0 }
+
+let load_branches (session : t) (expr : Jayil.Ast.expr) : t =
+  { session with branch_store = Branch.Status_store.find_branches expr session.branch_store }
+
+let inc_run_num (session : t) : t =
+  { session with run_num = session.run_num + 1 }
+
+let default_input_feeder : Input_feeder.t =
+  fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (-10) 10)
+
+let rec next (session : t) : [ `Done of t | `Next of t * Concolic2.t * Eval.t ] =
+  let is_hit target =
+    Branch.Status_store.is_hit session.branch_store
+    @@ Branch.Runtime.to_ast_branch target
+  in
+  match Branch.Status_store.get_unhit_branch session.branch_store, session.target_stack with
+  | None, _ -> (* all branches have been considered *)
+    `Done session
+  | _, [] when session.run_num > 0 -> (* no targets have been found that we can target next *)
+    `Done session
+  | _, [] -> (* no targets, but this is the first run, so use the default *)
+    `Next ( inc_run_num session
+          , Concolic2.create_default ()
+          , Eval.create default_input_feeder session.global_max_step )
+  | _, (target, _) :: tl when is_hit target -> (* next target has already been hit *) (* TODO: consider matching on status *)
+    Format.printf "Skipping already-hit target %s\n" (Branch.Runtime.to_string target);
+    next { session with target_stack = tl }
+  | _, (target, concolic_session) :: tl -> begin (* next target is unhit *)
+    match Branch_solver.get_feeder target concolic_session.branch_solver with
+    | Ok input_feeder ->
+      `Next (inc_run_num session
+            , Concolic2.create ~target ~initial_formulas:session.persistent_formulas
+            , Eval.create input_feeder session.global_max_step )
+    | Error b ->
+      Format.printf "Unsatisfiable branch %s. Continuing to next target.\n" (Branch.Ast_branch.to_string b);
+      next { session with target_stack = tl }
+    end
+
+let finish (session : t) : t =
+  { session with branch_store = Branch.Status_store.finish session.branch_store }
+
+let print ({ branch_store ; _ } : t) : unit =
+  Branch.Status_store.print branch_store
+
+(* TODO: handle persistent formulas *)
+(* TODO: check that target was hit by concolic *)
+(* TODO: handle different types of hits from concolic *)
+let accum_concolic (session : t) (concolic : Concolic2.t) : t =
+  let branch_store =
+    List.fold concolic.hit_branches ~init:session.branch_store ~f:(fun acc branch ->
+      Branch.Status_store.set_branch_status ~new_status:Branch.Status.Hit acc branch
+      )
+  in
+  let new_targets = List.map concolic.new_targets ~f:(fun x -> (x, concolic)) in
+  { session with
+    branch_store
+  ; target_stack = new_targets @ session.target_stack }
+
