@@ -235,5 +235,15 @@ module Status_store =
     let finish (map : t) : t =
       Ast.Ident_map.map (fun b -> Branch_status.map b Status.Unhit Status.Unreachable) map
 
+    (* let merge (a : t) (b : t) : t =
+      let f = fun acc (b, new_status) -> set_branch_status ~new_status acc b in
+      b
+      |> Ast.Ident_map.to_list
+      |> List.fold ~init:a ~f
+
+    let find_all (map : t) ~(f : Ast_branch.t -> Status.t -> bool) : (Ast_branch.t * Status.t) list =
+      map
+      |> Ast.Ident_map.to_list
+      |> List.filter ~f:(Tuple2.uncurry f) *)
 
   end

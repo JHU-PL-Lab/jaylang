@@ -189,7 +189,7 @@ module Concolic2 :
       ; cur_target    : Branch.Runtime.t option
       ; new_targets   : Branch.Runtime.t list
       ; outcomes      : Outcome.t list (* Note: it's possible to hit the target and reach abort later, so we need multiple outcomes *)
-      ; hit_branches  : Branch.Ast_branch.t list (* may want to annotate with inputs as of hitting the branch *)
+      ; hit_branches  : (Branch.Runtime.t * Branch.Status.t) list
       ; inputs        : (Ident.t * Dvalue.t) list }
 
     val add_formula : t -> Z3.Expr.expr -> t

@@ -390,6 +390,7 @@ module Concolic2 =
           | Reach_max_step
       end
 
+    (* TODO: set outcomes -- use outcomes *)
     type t =
       { branch_solver : Branch_solver.t
       ; cur_parent    : Branch_solver.Parent.t
@@ -397,8 +398,8 @@ module Concolic2 =
       ; cur_target    : Branch.Runtime.t option
       ; new_targets   : Branch.Runtime.t list
       ; outcomes      : Outcome.t list
-      ; hit_branches  : Branch.Ast_branch.t list
-      ; inputs        : (Ident.t * Dvalue.t) list } 
+      ; hit_branches  : (Branch.Runtime.t * Branch.Status.t) list
+      ; inputs        : (Ident.t * Dvalue.t) list }
 
     let create_default () : t =
       { branch_solver = Branch_solver.empty
@@ -433,7 +434,7 @@ module Concolic2 =
         cur_parent   = Branch_solver.Parent.of_runtime_branch branch
       ; parent_stack = session.cur_parent :: session.parent_stack
       ; new_targets  = Branch.Runtime.other_direction branch :: session.new_targets
-      ; hit_branches = Branch.Runtime.to_ast_branch branch :: session.hit_branches
+      ; hit_branches = (branch, Branch.Status.Hit) :: session.hit_branches
       ; outcomes     = (if is_target branch session.cur_target then [ Outcome.Hit_target ] else []) @ session.outcomes }
 
     let exit_branch (session : t) (ret_key : Lookup_key.t) : t =
@@ -526,17 +527,31 @@ let finish (session : t) : t =
 let print ({ branch_store ; _ } : t) : unit =
   Branch.Status_store.print branch_store
 
-(* TODO: handle persistent formulas *)
 (* TODO: check that target was hit by concolic *)
 (* TODO: handle different types of hits from concolic *)
 let accum_concolic (session : t) (concolic : Concolic2.t) : t =
   let branch_store =
-    List.fold concolic.hit_branches ~init:session.branch_store ~f:(fun acc branch ->
-      Branch.Status_store.set_branch_status ~new_status:Branch.Status.Hit acc branch
+    concolic.hit_branches
+    |> List.rev (* need to consider branches in the order they were hit *)
+    |> List.fold ~init:session.branch_store ~f:(fun acc (branch, new_status) ->
+      Branch.Status_store.set_branch_status ~new_status acc
+      @@ Branch.Runtime.to_ast_branch branch
       )
+  in
+  let persistent_formulas =
+    List.filter_map concolic.hit_branches ~f:(fun (b, s) ->
+      match s with
+      | Branch.Status.Found_abort ->
+        Branch.Runtime.other_direction b
+        |> Branch.Runtime.to_expr
+        |> Option.return
+      | _ -> None
+    )
+    |> Branch_solver.Formula_set.of_list
   in
   let new_targets = List.map concolic.new_targets ~f:(fun x -> (x, concolic)) in
   { session with
-    branch_store
+    branch_store 
+  ; persistent_formulas = Branch_solver.Formula_set.join session.persistent_formulas persistent_formulas
   ; target_stack = new_targets @ session.target_stack }
 

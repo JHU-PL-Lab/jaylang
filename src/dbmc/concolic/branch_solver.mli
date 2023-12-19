@@ -75,6 +75,7 @@ module Formula_set :
     val join : t -> t -> t
     val fold : t -> init:'a -> f:('a -> Z3.Expr.expr -> 'a) -> 'a
     val empty : t
+    val of_list : Z3.Expr.expr list -> t
   end
 
 module Parent :
