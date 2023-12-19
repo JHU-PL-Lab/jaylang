@@ -1,0 +1,10 @@
+# EXPECT-WELL-FORMED
+# EXPECT-TYPE-ERROR-COUNT 3
+# EXPECT-TYPE-ERROR ~result [] "a == b" "a" "{}" "int" "{}"
+# EXPECT-TYPE-ERROR ~result [] "a == b" "a" "{}" "bool" "{}"
+# EXPECT-TYPE-ERROR ~result [] "a == b" "b" "2000" "bool" "int"
+
+let a = {} in
+let b = 2000 in
+let c = a == b in
+c

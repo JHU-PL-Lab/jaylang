@@ -1,0 +1,10 @@
+# EXPECT-WELL-FORMED
+# EXPECT-TYPE-ERROR-COUNT 2
+# EXPECT-TYPE-ERROR ~result [] "match `A 2 with | `B b -> b | `C c -> c end"  "" "`A 2" "`B" "`A"
+# EXPECT-TYPE-ERROR ~result [] "match `A 2 with | `B b -> b | `C c -> c end" "" "`A 2" "`C" "`A"
+
+match `A 2 with
+| `B b -> b
+| `C c -> c
+| `A a -> a * 21
+end

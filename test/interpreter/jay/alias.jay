@@ -1,0 +1,5 @@
+let a = input in
+let b = a in
+let identity c = c in
+let d = identity b in
+d + 1
