@@ -191,7 +191,8 @@ let generate_lookup_key (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t)
   so do the variables implicitly.
 *)
 let rec eval_exp
-  ~(session : Session.Concolic.t ref)
+  ~(session : Session.t)
+  ~(eval_session : Session.Eval.t)
   (stk : Concrete_stack.t)
   (env : Dvalue.denv)
   (e : expr)

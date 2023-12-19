@@ -429,6 +429,10 @@ module Concolic2 =
       Option.map target ~f:(fun x -> Branch.Runtime.compare branch x = 0)
       |> Option.value ~default:false
 
+    (* TODO: use current parent? Only issue is that might be global *)
+    let found_abort (session : t) (branch : Branch.Runtime.t) : t =
+      { session with hit_branches = (branch, Branch.Status.Found_abort) :: session.hit_branches }
+
     let enter_branch (session : t) (branch : Branch.Runtime.t) : t =
       { session with
         cur_parent   = Branch_solver.Parent.of_runtime_branch branch

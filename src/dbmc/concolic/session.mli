@@ -204,9 +204,11 @@ module Concolic2 :
         
         NOTE: I think this is not needed anymore. *)
 
+    val found_abort : t -> Branch.Runtime.t -> t
+    (* TODO: act on current parent *)
+
     val enter_branch : t -> Branch.Runtime.t -> t
     (** [enter_branch session branch] sets the new parent as [branch] and hits the branch. *)
-    (* TODO: If I'd like this to hit the branch, it needs to access the full session. *)
 
     val exit_branch : t -> Lookup_key.t -> t
     (** [exit_branch session ret_key] uses the final key [ret_key] in the branch to exit and return
