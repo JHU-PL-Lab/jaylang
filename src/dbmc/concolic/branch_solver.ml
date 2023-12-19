@@ -298,7 +298,8 @@ let add_formula
     This is necessary because if the formula includes anything that depends on an
     inner branch, then the branch direction matters.
   *)
-  let implied_formula = gen_implied_formula dependencies store formula in
+  (* let implied_formula = gen_implied_formula dependencies store formula in *)
+  let implied_formula = formula in (* The above isn't even needed? *)
   begin
     match parent with
     | Global ->

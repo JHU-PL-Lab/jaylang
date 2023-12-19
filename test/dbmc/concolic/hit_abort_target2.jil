@@ -1,0 +1,31 @@
+x = input;
+large = 100;
+
+zero_condition = x < large;
+
+zero_branch = zero_condition ? (
+  zero_branch_true = true
+) : (
+  zero_branch_false = false
+);
+
+first_condition = zero_branch;
+
+first_branch = first_condition ? (
+  first_branch_false_return = 5
+) : (
+  abort_clause = abort;
+  first_branch_true_return = 100
+);
+
+# one = 1;
+# x_plus_one = x + one;
+# This seems to always work fine, but when we do x + 1, it doesn't work. See hit_abort_target.jil
+# ^ not true. idk what was happening.
+second_condition = first_branch < x;
+
+second_branch = second_condition ? (
+  result_true = 42
+) : (
+  result_false = 84
+)

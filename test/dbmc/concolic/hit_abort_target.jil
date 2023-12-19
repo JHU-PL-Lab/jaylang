@@ -21,19 +21,27 @@ default_true_branch = default_true_cond ? (
 abort_on_false_side_cond = default_true_branch;
 
 abort_on_false_side_branch = abort_on_false_side_cond ? (
-  abort_on_false_side_true_ret = 0;
+  abort_on_false_side_true_ret = 0
 ) : (
   some_stuff = 1;
-  abort_on_false_side_false_ret = abort;
+  # abort_on_false_side_false_ret = abort;
   other_stuff = 2;
+  large_stuff = 100000
 );
 
 one = 1;
 x_plus_one = x + one;
 
+# This is true when initial input is x where 0 <= x < 100
 final_branch_cond = abort_on_false_side_branch < x_plus_one;
 
 final_branch = final_branch_cond ? (
+  # It actually fails to solve for this somehow when first input is negative, even without the abort and just with the `large_stuff`
+  # Part of why it might be failing is that we only end up saying that default_true_cond == true only implies
+  #  that this condition takes on the formula, but really it takes on that formula no matter what, and we need to solve for
+  #  how the formula becomes true. So I think I need to pull back a bit and say the formula is built that way always, but the
+  #  values each component takes on are dependent on parents. That might be the problem...
+  # With the abort in, it loops depending on first input.
   result = 42
 ) : (
   other_result = 84

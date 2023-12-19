@@ -1,3 +1,59 @@
+
+## Summary
+
+Things that are working:
+* The concolic evaluator continues until it has nothing left to do.
+  * It handles aborts (mostly) smoothly
+  * It marks status of branches clearly
+  * In almost all test cases, it works flawlessly.
+
+Things that aren't working:
+* Sometimes it doesn't solve correctly. This is a fundamental logic issue.
+* "Max step" is unhandled
+* Sometimes aborts lead to infinite loops
+
+Things that I want to do:
+* Use a logger instead of printing
+* Refactor sessions to make it less "hacky"
+* Accept a list of AST branches that are of interest, and return a nice output.
+* Use variants instead of exceptions to make the tracking just a little easier.
+* Record input that let us hit a branch (this is easy...)
+
+## In depth
+
+### Incorrect solving
+
+* I think this has to do with how parents and dependencies are handled. It seems downstream from too many implications and not enough statements.
+  * It might also be dependent on binary operations. See the difference between `hit_abort_target2.jil` and `hit_abort_target.jil`
+* Here is the current logic:
+  * We assume there is some parent branch. This is the global program scope or the condition of the immediate if-statement.
+  * When the parent branch is exited, the formulas are accumulated and "implied" by the parent. Any formulas that depend on the parent in any way are noted as such so that whenever they are used, they are also implied by the parent.
+    * Note that when under the immediate parent, there are no formulas implied by that parent yet. It all happens when the parent is exited.
+  * Any formula that depends on other formulas gain their parents. Thus, they get implied by their parents.
+    * This means that if their parents are not satisfied, then those formulas never get implied. I believe this is a flaw, but it is not the only flaw.
+
+Here is an example of the logic.
+Consider this example:
+```jayil
+x = input;
+zero = 0;
+first_condition = zero < x;
+first_branch = first_condition ? (
+  first_branch_false_return = 5
+) : (
+  first_branch_true_return = 100
+);
+
+second_condition = first_branch < x;
+second_branch = second_condition ? (
+  result_true = 42
+) : (
+  result_false = 84
+)
+```
+
+In this program, suppose the input is `4`. Then `first_branch` takes the true direction and gains the value `5`. Then the clause `second_condition` depends on `first_branch`, whose value depends on `first_condition = true`, so the entire formula `second_condition = first_branch < x` is implied by `first_condition = true`. This isn't correct because `second_condition = first_branch < x` is a formula no matter what, but the *values* of each variable in the formula are dependent on `first_condition = true`.
+
 I need to accept a list of AST branches and try to hit them.
 * The best I can do is try randomly at first, so I think I keep the same flow
 * If a parent is unsatisfiable, then it is unreachable
@@ -91,3 +147,150 @@ I need to be able to back out of an unsatisfiable branch.
     that we just try the next target from the failing session because it might not have gotten as far.
 
 Note the messages I DM'd to Shiwei about changes outside of `conclic/`
+
+
+
+```
+# output when using [x_plus_one], and no implied formulas
+Starting concolic execution...
+------------------------------
+Running program...
+
+Branch Information:
+first_branch: True=Unhit; False=Unhit
+second_branch: True=Unhit; False=Unhit
+zero_branch: True=Unhit; False=Unhit
+
+Target branch: None
+Feed -5 to x
+ADD GLOBAL FORMULA (= large_ (Int 100))
+ADD GLOBAL FORMULA (let ((a!1 (= zero_condition_ (Bool (< (i x_) (i large_))))))
+  (and a!1 ((_ is Int) x_) ((_ is Int) large_)))
+Hitting: zero_branch: true
+ADD GLOBAL FORMULA (=> (= zero_condition_ (Bool true))
+    (and (= zero_branch_ |zero_branch_true_-(zero_branch,$tt);|)
+         (= |zero_branch_true_-(zero_branch,$tt);| (Bool true))))
+ADD PICK FORMULA: (=> P_zero_branch_ and)
+ADD GLOBAL FORMULA (=> P_zero_branch_ and)
+ADD GLOBAL FORMULA (= first_condition_ zero_branch_)
+Hitting: first_branch: true
+ADD GLOBAL FORMULA (=> (= first_condition_ (Bool true))
+    (and (= first_branch_ |first_branch_false_return_-(first_branch,$tt);|)
+         (= |first_branch_false_return_-(first_branch,$tt);| (Int 5))))
+ADD PICK FORMULA: (=> P_first_branch_ and)
+ADD GLOBAL FORMULA (=> P_first_branch_ and)
+ADD GLOBAL FORMULA (= one_ (Int 1))
+ADD GLOBAL FORMULA (let ((a!1 (= x_plus_one_ (Int (+ (i x_) (i one_))))))
+  (and a!1 ((_ is Int) x_) ((_ is Int) one_)))
+ADD GLOBAL FORMULA (let ((a!1 (= second_condition_ (Bool (< (i first_branch_) (i x_plus_one_))))))
+  (and a!1 ((_ is Int) first_branch_) ((_ is Int) x_plus_one_)))
+Hitting: second_branch: false
+ADD GLOBAL FORMULA (=> (= second_condition_ (Bool false))
+    (and (= second_branch_ |result_false_-(second_branch,$ff);|)
+         (= |result_false_-(second_branch,$ff);| (Int 84))))
+ADD PICK FORMULA: (=> P_second_branch_ and)
+ADD GLOBAL FORMULA (=> P_second_branch_ and)
+Evaluated to: 84
+------------------------------
+Running program...
+
+Branch Information:
+first_branch: True=Hit; False=Unhit
+second_branch: True=Unhit; False=Hit
+zero_branch: True=Hit; False=Unhit
+
+Target branch: second_branch_; condition: second_condition_ = true
+Solving for target branch:
+Branch to pick: P_second_branch_
+Branch condition: (= second_condition_ (Bool true))
+Feed 21338 to x
+ADD GLOBAL FORMULA (= large_ (Int 100))
+ADD GLOBAL FORMULA (let ((a!1 (= zero_condition_ (Bool (< (i x_) (i large_))))))
+  (and a!1 ((_ is Int) x_) ((_ is Int) large_)))
+Hitting: zero_branch: false
+ADD GLOBAL FORMULA (=> (= zero_condition_ (Bool false))
+    (and (= zero_branch_ |zero_branch_false_-(zero_branch,$ff);|)
+         (= |zero_branch_false_-(zero_branch,$ff);| (Bool false))))
+ADD PICK FORMULA: (=> P_zero_branch_ and)
+ADD GLOBAL FORMULA (=> P_zero_branch_ and)
+ADD GLOBAL FORMULA (= first_condition_ zero_branch_)
+Hitting: first_branch: false
+Running next iteration of concolic after abort
+
+
+# Then it repeats
+```
+
+```
+# output when using [x_plus_one], and no implied formulas
+Starting concolic execution...
+------------------------------
+Running program...
+
+Branch Information:
+first_branch: True=Unhit; False=Unhit
+second_branch: True=Unhit; False=Unhit
+zero_branch: True=Unhit; False=Unhit
+
+Target branch: None
+Feed 0 to x
+ADD GLOBAL FORMULA (= large_ (Int 100))
+ADD GLOBAL FORMULA (let ((a!1 (= zero_condition_ (Bool (< (i x_) (i large_))))))
+  (and a!1 ((_ is Int) x_) ((_ is Int) large_)))
+Hitting: zero_branch: true
+ADD GLOBAL FORMULA (=> (= zero_condition_ (Bool true))
+    (and (= zero_branch_ |zero_branch_true_-(zero_branch,$tt);|)
+         (= |zero_branch_true_-(zero_branch,$tt);| (Bool true))))
+ADD PICK FORMULA: (=> P_zero_branch_ and)
+ADD GLOBAL FORMULA (=> P_zero_branch_ and)
+ADD GLOBAL FORMULA (=> (and (= zero_condition_ (Bool true))) (= first_condition_ zero_branch_))
+Hitting: first_branch: true
+ADD GLOBAL FORMULA (let ((a!1 (=> (= first_condition_ (Bool true))
+               (and (= first_branch_
+                       |first_branch_false_return_-(first_branch,$tt);|)
+                    (= |first_branch_false_return_-(first_branch,$tt);| (Int 5))))))
+  (=> (and (= zero_condition_ (Bool true))) a!1))
+ADD PICK FORMULA: (=> P_first_branch_ and)
+ADD GLOBAL FORMULA (=> P_first_branch_ and)
+ADD GLOBAL FORMULA (= one_ (Int 1))
+ADD GLOBAL FORMULA (let ((a!1 (= x_plus_one_ (Int (+ (i x_) (i one_))))))
+  (and a!1 ((_ is Int) x_) ((_ is Int) one_)))
+ADD GLOBAL FORMULA (let ((a!1 (= second_condition_ (Bool (< (i first_branch_) (i x_plus_one_))))))
+(let ((a!2 (=> (and (= first_condition_ (Bool true)))
+               (and a!1 ((_ is Int) first_branch_) ((_ is Int) x_plus_one_)))))
+  (=> (and (= zero_condition_ (Bool true))) a!2)))
+Hitting: second_branch: false
+ADD GLOBAL FORMULA (let ((a!1 (=> (= second_condition_ (Bool false))
+               (and (= second_branch_ |result_false_-(second_branch,$ff);|)
+                    (= |result_false_-(second_branch,$ff);| (Int 84))))))
+(let ((a!2 (=> (and (= first_condition_ (Bool true))) a!1)))
+  (=> (and (= zero_condition_ (Bool true))) a!2)))
+ADD PICK FORMULA: (=> P_second_branch_ and)
+ADD GLOBAL FORMULA (=> P_second_branch_ and)
+Evaluated to: 84
+------------------------------
+Running program...
+
+Branch Information:
+first_branch: True=Hit; False=Unhit
+second_branch: True=Unhit; False=Hit
+zero_branch: True=Hit; False=Unhit
+
+Target branch: second_branch_; condition: second_condition_ = true
+Solving for target branch:
+Branch to pick: P_second_branch_
+Branch condition: (= second_condition_ (Bool true))
+Feed 21338 to x
+ADD GLOBAL FORMULA (= large_ (Int 100))
+ADD GLOBAL FORMULA (let ((a!1 (= zero_condition_ (Bool (< (i x_) (i large_))))))
+  (and a!1 ((_ is Int) x_) ((_ is Int) large_)))
+Hitting: zero_branch: false
+ADD GLOBAL FORMULA (=> (= zero_condition_ (Bool false))
+    (and (= zero_branch_ |zero_branch_false_-(zero_branch,$ff);|)
+         (= |zero_branch_false_-(zero_branch,$ff);| (Bool false))))
+ADD PICK FORMULA: (=> P_zero_branch_ and)
+ADD GLOBAL FORMULA (=> P_zero_branch_ and)
+ADD GLOBAL FORMULA (=> (and (= zero_condition_ (Bool false))) (= first_condition_ zero_branch_))
+Hitting: first_branch: false
+Running next iteration of concolic after abort
+```
