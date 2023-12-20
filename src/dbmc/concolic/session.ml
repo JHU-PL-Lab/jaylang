@@ -1,7 +1,7 @@
 open Core
 open Dj_common
 open Jayil.Ast
-open Concolic_exceptions
+(* open Concolic_exceptions *)
 
 module Mode =
   struct
@@ -112,7 +112,7 @@ module Eval =
     I think I should have a Session.t that is for the entire thing, Eval.t is for runtime stuff, Concolic.t
     is for a single run's concolic stuff. Both are mutable.
 *)
-module Concolic =
+(* module Concolic =
   struct
 
     module Permanent_formulas =
@@ -368,19 +368,19 @@ module Concolic =
           (session : t ref)
           (parent : Branch_solver.Parent.t)
           (exited_branch : Branch.Runtime.t)
-          (ret_key : Lookup_key.t)
+          (ret_key : lookup_key.t)
           : unit
           =
           session := {
             !session with formula_store =
             (!session).formula_store
-            |> Branch_solver.exit_branch parent exited_branch ret_key
+            |> branch_solver.exit_branch parent exited_branch ret_key
           }
       end
 
-  end
+  end *)
 
-module Concolic2 =
+module Concolic =
   struct
     module Outcome =
       struct
@@ -429,9 +429,11 @@ module Concolic2 =
       Option.map target ~f:(fun x -> Branch.Runtime.compare branch x = 0)
       |> Option.value ~default:false
 
-    (* TODO: use current parent? Only issue is that might be global *)
-    let found_abort (session : t) (branch : Branch.Runtime.t) : t =
-      { session with hit_branches = (branch, Branch.Status.Found_abort) :: session.hit_branches }
+    let found_abort (session : t) : t =
+      match session.cur_parent with
+      | Branch_solver.Parent.Global -> session (* do nothing *)
+      | Branch_solver.Parent.Local branch ->
+        { session with hit_branches = (branch, Branch.Status.Found_abort) :: session.hit_branches }
 
     let enter_branch (session : t) (branch : Branch.Runtime.t) : t =
       { session with
@@ -467,7 +469,7 @@ module Concolic2 =
 module Target_stack =
   struct
     (* can see about saving less than the full session, but for now just save more than necessary *)
-    type t = (Branch.Runtime.t * Concolic2.t) list
+    type t = (Branch.Runtime.t * Concolic.t) list
 
     let empty = []
   end
@@ -497,7 +499,7 @@ let inc_run_num (session : t) : t =
 let default_input_feeder : Input_feeder.t =
   fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (-10) 10)
 
-let rec next (session : t) : [ `Done of t | `Next of t * Concolic2.t * Eval.t ] =
+let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   let is_hit target =
     Branch.Status_store.is_hit session.branch_store
     @@ Branch.Runtime.to_ast_branch target
@@ -509,7 +511,7 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic2.t * Eval.t ] 
     `Done session
   | _, [] -> (* no targets, but this is the first run, so use the default *)
     `Next ( inc_run_num session
-          , Concolic2.create_default ()
+          , Concolic.create_default ()
           , Eval.create default_input_feeder session.global_max_step )
   | _, (target, _) :: tl when is_hit target -> (* next target has already been hit *) (* TODO: consider matching on status *)
     Format.printf "Skipping already-hit target %s\n" (Branch.Runtime.to_string target);
@@ -518,7 +520,7 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic2.t * Eval.t ] 
     match Branch_solver.get_feeder target concolic_session.branch_solver with
     | Ok input_feeder ->
       `Next (inc_run_num session
-            , Concolic2.create ~target ~initial_formulas:session.persistent_formulas
+            , Concolic.create ~target ~initial_formulas:session.persistent_formulas
             , Eval.create input_feeder session.global_max_step )
     | Error b ->
       Format.printf "Unsatisfiable branch %s. Continuing to next target.\n" (Branch.Ast_branch.to_string b);
@@ -526,14 +528,19 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic2.t * Eval.t ] 
     end
 
 let finish (session : t) : t =
-  { session with branch_store = Branch.Status_store.finish session.branch_store }
+  { session with branch_store = Branch.Status_store.finish session.branch_store ; target_stack = Target_stack.empty }
 
-let print ({ branch_store ; _ } : t) : unit =
+let print ({ branch_store ; target_stack ; _ } : t) : unit =
+  begin
+  match target_stack with
+  | (target, _) :: _ -> Branch.Runtime.print_target_option (Some target)
+  | [] -> ()
+  end;
   Branch.Status_store.print branch_store
 
 (* TODO: check that target was hit by concolic *)
 (* TODO: handle different types of hits from concolic *)
-let accum_concolic (session : t) (concolic : Concolic2.t) : t =
+let accum_concolic (session : t) (concolic : Concolic.t) : t =
   let branch_store =
     concolic.hit_branches
     |> List.rev (* need to consider branches in the order they were hit *)

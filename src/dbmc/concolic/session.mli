@@ -1,7 +1,6 @@
 open Core
 open Dj_common
 open Jayil.Ast
-open Concolic_exceptions
 
 module Mode :
   sig
@@ -60,7 +59,7 @@ module Eval :
         that is evaluated from the clause body [body] in the given [session]. *)
   end
 
-module Concolic :
+(* module Concolic :
   sig
 
     module Permanent_formulas :
@@ -170,9 +169,9 @@ module Concolic :
         val exit_branch : t ref -> Branch_solver.Parent.t -> Branch.Runtime.t -> Lookup_key.t -> unit
         (** TODO *)
       end
-  end
+  end *)
 
-module Concolic2 :
+module Concolic :
   sig
     module Outcome :
       sig
@@ -204,8 +203,8 @@ module Concolic2 :
         
         NOTE: I think this is not needed anymore. *)
 
-    val found_abort : t -> Branch.Runtime.t -> t
-    (* TODO: act on current parent *)
+    val found_abort : t -> t
+    (** [found_abort session] adds the info that an abort was found under the current parent. *)
 
     val enter_branch : t -> Branch.Runtime.t -> t
     (** [enter_branch session branch] sets the new parent as [branch] and hits the branch. *)
@@ -236,7 +235,7 @@ val create_default : unit -> t
 val load_branches : t -> Jayil.Ast.expr -> t
 (** [load_branches session expr] has the AST branches loaded from [expr] into [session]. *)
 
-val next : t -> [ `Done of t | `Next of t * Concolic2.t * Eval.t ]
+val next : t -> [ `Done of t | `Next of t * Concolic.t * Eval.t ]
 (** [next session] is [`Done session'] when there is no satisfiable or unhit target left in [session'],
     or it is a new session with a concolic session and eval session to try to hit the top target. *)
 
@@ -249,7 +248,7 @@ val finish : t -> t
 val print : t -> unit
 (** [print session] prints the branch store. *)
 
-val accum_concolic : t -> Concolic2.t -> t
+val accum_concolic : t -> Concolic.t -> t
 
 (* val hit_branch : ?new_status:Branch.Status.t -> t -> Branch.Runtime.t -> t *)
 (** [hit_branch ~new_status session ast_branch] has the given [ast_branch] set with the [new_status].

@@ -128,7 +128,7 @@ module Formula_set =
     let join = Set.union
     let fold = Set.fold
     let empty = S.empty
-    let of_list _ = failwith "unimplemented"
+    let of_list = S.of_list
   end
 
 (*

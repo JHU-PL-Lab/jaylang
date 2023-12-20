@@ -15,7 +15,7 @@ let cond_fid b = if b then Ident "$tt" else Ident "$ff"
   --------------------------------------
 
   Unless labeled, I just keep these called "session", when really they're
-  an eval session (see Session.mli).
+  an eval session (see session.mli).
 *)
 
 module Debug =
@@ -177,62 +177,43 @@ let generate_lookup_key (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t)
   ; r_stk = Rstack.from_concrete stk
   ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
 
-(*
-  When evaluating any expression, the provided parent is not yet a parent dependency
-  inside the session to any variable within. A variable has a parent dependency if it
-  was a branch key (i.e. a variable that takes on the value of a branch clause);
-  the parent it has is the condition in its clause. It also gains any "parent" from
-  internal branches that it depends on by taking on their parents as dependencies.
-  The only other variables that have parents are those that depend on a branch key that
-  *does* have parents, and these variables thus gain those parents. These variables do
-  not gain their parent condition as a parent yet in the case that they aren't used at all
-  in the return of the branch. If they are used in the return of the branch, then the branch
-  key then depends on them, and when the branch key finally gains the condition as a parent,
-  so do the variables implicitly.
-*)
 let rec eval_exp
-  ~(session : Session.t)
-  ~(eval_session : Session.Eval.t)
+  ~(eval_session : Session.Eval.t) (* Note: is mutable *)
+  ~(conc_session : Session.Concolic.t)
   (stk : Concrete_stack.t)
   (env : Dvalue.denv)
   (e : expr)
-  (parent : Branch_solver.Parent.t)
-  : Dvalue.denv * Dvalue.t
+  : Dvalue.denv * Dvalue.t * Session.Concolic.t
   =
   ILog.app (fun m -> m "@[-> %a@]\n" Concrete_stack.pp stk);
-  (match (!session).eval.mode with
+  (match eval_session.mode with
   | With_full_target (_, target_stk) ->
       let r_stk = Rstack.relativize target_stk stk in
-      Hashtbl.change (!session).eval.rstk_picked r_stk ~f:(function
+      Hashtbl.change eval_session.rstk_picked r_stk ~f:(function
         | Some true -> Some false
         | Some false -> raise (Run_into_wrong_stack (Jayil.Ast_tools.first_id e, stk))
         | None-> None)
   | _ -> ());
   let Expr clauses = e in
-  let denv, vs' =
-    List.fold_map ~f:(eval_clause ~session stk parent) ~init:env clauses
+  let (denv, conc_session), vs =
+    List.fold_map
+      clauses
+      ~init:(env, conc_session)
+      ~f:(fun (env, cs) clause ->
+        let denv, v, cs = eval_clause ~eval_session ~conc_session:cs stk env clause
+        in (denv, cs), v) 
   in
-  (denv, List.last_exn vs')
+  (denv, List.last_exn vs, conc_session)
 
 and eval_clause
-  ~(session : Session.Concolic.t ref)
+  ~(eval_session : Session.Eval.t)
+  ~(conc_session : Session.Concolic.t)
   (stk : Concrete_stack.t)
-  (parent : Branch_solver.Parent.t)
   (env : Dvalue.denv)
   (clause : clause)
-  : Dvalue.denv * Dvalue.t
+  : Dvalue.denv * Dvalue.t * Session.Concolic.t
   =
   let Clause (Var (x, _), cbody) = clause in
-  (* Note that we extract the eval session out, and even if we reassign to the session cell,
-     as long as the eval session is copied (e.g. { !session with run_num = 10 }), changes to eval session
-     carry over to the record that is in the session cell at the end. 
-     e.g.
-        f eval_session; (* mutates eval_session *)
-        session := { !session with run_num = 10};
-        (* here (!session).eval is exactly eval_session still *)
-  *)
-  let eval_session = (!session).eval in
-
   (match eval_session.max_step with 
   | None -> ()
   | Some max_step ->
@@ -242,36 +223,30 @@ and eval_clause
   
   Debug.debug_update_write_node eval_session x stk;
   let x_key = generate_lookup_key x stk in
-  let (v : Dvalue.t)(*, (session : Session.Concolic.t) *) =
+  let (v, conc_session) : Dvalue.t * Session.Concolic.t =
     match cbody with
     | Value_body ((Value_function vf) as v) ->
       (* x = fun ... ; *)
       let retv = FunClosure (x, vf, env) in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      (* This would be more smooth if it returned session as well, and session weren't mutable *)
-      Session.Concolic.Ref_cell.add_key_eq_val session parent x_key v;
-      retv
+      retv, Session.Concolic.add_key_eq_val conc_session x_key v
     | Value_body ((Value_record r) as v) ->
       (* x = { ... } ; *)
       let retv = RecordClosure (r, env) in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      Session.Concolic.Ref_cell.add_key_eq_val session parent x_key v;
-      retv
+      retv, Session.Concolic.add_key_eq_val conc_session x_key v
     | Value_body v -> 
       (* x = <bool or int> ; *)
       let retv = Direct v in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      Session.Concolic.Ref_cell.add_key_eq_val session parent x_key v;
-      retv
+      retv, Session.Concolic.add_key_eq_val conc_session x_key v
     | Var_body vx ->
       (* x = y ; *)
       let Var (y, _) = vx in
       let ret_val, ret_stk = Fetch.fetch_val_with_stk ~eval_session ~stk env vx in
       Session.Eval.add_alias (x, stk) (y, ret_stk) eval_session;
       let y_key = generate_lookup_key y ret_stk in 
-      Session.Concolic.Ref_cell.add_formula session [y_key] parent @@ Riddler.eq x_key y_key;
-      Session.Concolic.Ref_cell.add_siblings session x_key [y_key];
-      ret_val
+      ret_val, Session.Concolic.add_formula conc_session @@ Riddler.eq x_key y_key (* MAYBE: make [add_alias] *)
     | Conditional_body (cx, e1, e2) ->
       (* x = if y then e1 else e2 ; *)
       let Var (y, _) = cx in
@@ -279,45 +254,41 @@ and eval_clause
       let cond_bool = match cond_val with Direct (Value_bool b) -> b | _ -> failwith "non-bool condition" in
       let condition_key = generate_lookup_key y condition_stk in
       let this_branch = Branch.Runtime.{ branch_key = x_key ; condition_key ; direction = Branch.Direction.of_bool cond_bool } in
-      let this_branch_as_parent = Branch_solver.Parent.of_runtime_branch this_branch in
-      (* Hit branch *)
-      Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Hit session this_branch;
-      (* Set target branch to the other side if the other side hasn't been hit yet *)
-      Session.Concolic.Ref_cell.update_target_branch session this_branch;
+
+      (* enter/hit branch *)
+      let conc_session = Session.Concolic.enter_branch conc_session this_branch in
 
       let e = if cond_bool then e1 else e2 in
       let stk' = Concrete_stack.push (x, cond_fid cond_bool) stk in
 
-      (* this session gets mutated when evaluating the branch *)
-      let res = Result.try_with (fun () -> eval_exp ~session stk' env e this_branch_as_parent) in
+      (* note that [eval_session] gets mutated when evaluating the branch *)
+      let res = Result.try_with (fun () -> eval_exp ~eval_session ~conc_session stk' env e) in
       begin
+        (* This is so ugly. I really need to get rid of the exceptions and use variants *)
         match res with
-        | Error (Found_abort (AbortClosure ret_env)) ->
-          (* TODO: fix up this temporary patch where I say result key is x, which is operationally the same as no result at all *)
-          Session.Concolic.Ref_cell.exit_branch session parent this_branch x_key
-          (* Don't set branch to found abort because that happens only to parent when actually finding abort. *)
-        | Error (Reach_max_step _) -> ()
-          (* TODO: retry? *)
+        | Error (Found_abort (v, conc_session)) ->
+          (* can just say x = x and continue aborting to wrap up and let no future formulas get added *)
+          raise @@ Found_abort (v, Session.Concolic.exit_branch conc_session x_key)
+        | Error (Reach_max_step _) -> () (* TODO *)
         | _ -> () (* continue normally on Ok or any other exception *)
       end;
-      let ret_env, ret_val = Result.ok_exn res in (* Bubbles exceptions if necessary *)
+      let ret_env, ret_val, conc_session = Result.ok_exn res in (* Bubbles exceptions *)
       let (Var (ret_id, _) as last_v) = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
       let _, ret_stk = Fetch.fetch_val_with_stk ~eval_session ~stk:stk' ret_env last_v in
 
       (* say the ret_key is equal to x now, then clear out branch *)
       let ret_key = generate_lookup_key ret_id ret_stk in
-      Session.Concolic.Ref_cell.add_formula session [ret_key] this_branch_as_parent @@ Riddler.eq x_key ret_key;
-      Session.Concolic.Ref_cell.exit_branch session parent this_branch ret_key;
+      let conc_session = Session.Concolic.add_formula conc_session @@ Riddler.eq x_key ret_key in
+      let conc_session = Session.Concolic.exit_branch conc_session ret_key in
       Session.Eval.add_alias (x, stk) (ret_id, ret_stk) eval_session;
-      ret_val
+      ret_val, conc_session
     | Input_body ->
       let n = eval_session.input_feeder (x, stk) in
       let retv = Direct (Value_int n) in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       let Ident s = x in
       Format.printf "Feed %d to %s \n" n s;
-      (* Session.Concolic.Ref_cell.add_key_eq_value_opt session parent x_key None; TODO: why not say x equals Value_int n? because we need x to be variable? Does it have to do with name of input variable(s)? *)
-      retv
+      retv, Session.Concolic.add_input conc_session x retv
     | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin
       (* x = f y ; *)
       match Fetch.fetch_val ~eval_session ~stk env vf with
@@ -334,19 +305,17 @@ and eval_clause
         let key_f = generate_lookup_key xid f_stk in
         let key_param = generate_lookup_key param stk' in
         let key_arg = generate_lookup_key x_arg arg_stk in
-        Session.Concolic.Ref_cell.add_formula session [key_f; key_arg] parent @@ Riddler.enter_fun key_param key_arg;
+        let conc_session = Session.Concolic.add_formula conc_session @@ Riddler.eq key_param key_arg in
 
         (* returned value of function *)
-        let ret_env, ret_val = eval_exp ~session stk' env' body parent in
+        let ret_env, ret_val, conc_session = eval_exp ~eval_session ~conc_session stk' env' body in
         let (Var (ret_id, _) as last_v) = Jayil.Ast_tools.retv body in
         let ret_stk = Fetch.fetch_stk ~eval_session ~stk:stk' ret_env last_v in
         Session.Eval.add_alias (x, stk) (ret_id, ret_stk) eval_session;
 
         (* exit function: *)
         let ret_key = generate_lookup_key ret_id ret_stk in
-        Session.Concolic.Ref_cell.add_formula session [ret_key; key_f; key_arg] parent @@ Riddler.exit_fun x_key ret_key;
-        Session.Concolic.Ref_cell.add_siblings session x_key [ret_key; key_f; key_arg];
-        ret_val
+        ret_val, Session.Concolic.add_formula conc_session @@ Riddler.eq x_key ret_key
       | _ -> failwith "appl to a non fun"
       end
     | Match_body (vy, p) ->
@@ -357,12 +326,12 @@ and eval_clause
       let Var (y, _) = vy in
       let match_key = generate_lookup_key y stk in
       let x_key_exp = Riddler.key_to_var x_key in
-      Session.Concolic.Ref_cell.add_formula session [match_key] parent @@ Solver.SuduZ3.ifBool x_key_exp; (* x has a bool value that is must take on *)
-      Session.Concolic.Ref_cell.add_formula session [match_key] parent @@ Solver.SuduZ3.eq (Solver.SuduZ3.project_bool x_key_exp) (Riddler.is_pattern match_key p); (* x is same as result of match *)
-      Session.Concolic.Ref_cell.add_siblings session x_key [match_key];
-      (* we add as a sibling later so that there are fewer "implies" within the expressions, but I think
-          it could be more concise to add siblings before. *)
-      retv
+      let conc_session = Session.Concolic.add_formula conc_session @@ Solver.SuduZ3.ifBool x_key_exp in (* x has a bool value it will take on *)
+      let conc_session =
+        Session.Concolic.add_formula conc_session
+        @@ Solver.SuduZ3.eq (Solver.SuduZ3.project_bool x_key_exp) (Riddler.is_pattern match_key p) (* x is same as result of match *)
+      in
+      retv, conc_session
     | Projection_body (v, label) -> begin
       match Fetch.fetch_val ~eval_session ~stk env v with
       | RecordClosure (Record_value r, denv) ->
@@ -374,9 +343,7 @@ and eval_clause
         let v_stk = Fetch.fetch_stk ~eval_session ~stk env v in
         let record_key = generate_lookup_key v_ident v_stk in
         let proj_key = generate_lookup_key proj_x stk' in
-        Session.Concolic.Ref_cell.add_formula session [proj_key; record_key] parent @@ Riddler.eq x_key proj_key;
-        Session.Concolic.Ref_cell.add_siblings session x_key [proj_key; record_key];
-        retv
+        retv, Session.Concolic.add_formula conc_session @@ Riddler.eq x_key proj_key
       | Direct (Value_record (Record_value _record)) ->
         failwith "project should also have a closure"
       | _ -> failwith "project on a non record"
@@ -393,9 +360,7 @@ and eval_clause
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       let (Var (y, _)) = vy in
       let y_key = generate_lookup_key y stk in
-      Session.Concolic.Ref_cell.add_formula session [y_key] parent @@ Riddler.not_ x_key y_key;
-      Session.Concolic.Ref_cell.add_siblings session x_key [y_key];
-      retv
+      retv, Session.Concolic.add_formula conc_session @@ Riddler.not_ x_key y_key
     | Binary_operation_body (vy, op, vz) ->
       (* x = y op z *)
       let v1 = Fetch.fetch_val_to_direct ~eval_session ~stk env vy
@@ -424,46 +389,46 @@ and eval_clause
       let z_stk = Fetch.fetch_stk ~eval_session ~stk env vz in
       let y_key = generate_lookup_key y y_stk in
       let z_key = generate_lookup_key z z_stk in
-      Session.Concolic.Ref_cell.add_formula session [y_key; z_key] parent @@ Riddler.binop_without_picked x_key op y_key z_key;
-      Session.Concolic.Ref_cell.add_siblings session x_key [y_key; z_key];
-      retv
+      retv, Session.Concolic.add_formula conc_session @@ Riddler.binop_without_picked x_key op y_key z_key
     | Abort_body -> begin
       (* TODO: concolic *)
       let ab_v = AbortClosure env in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, ab_v) eval_session;
       (* TODO: let abort branches not be solved for in future runs *)
-      Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Found_abort session
-      @@ Branch_solver.Parent.to_runtime_branch_exn parent;
+      let conc_session = Session.Concolic.found_abort conc_session in
       match eval_session.mode with
-      | Plain -> raise @@ Found_abort ab_v
+      | Plain -> raise @@ Found_abort (ab_v, conc_session)
       (* next two are for debug mode *)
       | With_target_x target ->
         if Id.equal target x
         then raise @@ Found_target { x ; stk ; v = ab_v }
-        else raise @@ Found_abort ab_v
+        else raise @@ Found_abort (ab_v, conc_session)
       | With_full_target (target, tar_stk) ->
         if Id.equal target x && Concrete_stack.equal_flip tar_stk stk
         then raise @@ Found_target { x ; stk ; v = ab_v }
-        else raise @@ Found_abort ab_v
+        else raise @@ Found_abort (ab_v, conc_session)
       end
     | Assert_body _ | Assume_body _ ->
       let v = Value_bool true in
       let retv = Direct v in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      Session.Concolic.Ref_cell.add_key_eq_val session parent x_key v;
-      retv
+      retv, Session.Concolic.add_key_eq_val conc_session x_key v
   in
   Debug.debug_clause ~eval_session x v stk;
-  (Ident_map.add x (v, stk) env, v)
+  (Ident_map.add x (v, stk) env, v, conc_session)
 
-
-let eval_exp_default ~(session: Session.Concolic.t ref) (e : expr) : Dvalue.denv * Dvalue.t =
+let eval_exp_default
+  ~(eval_session: Session.Eval.t)
+  ~(conc_session : Session.Concolic.t)
+  (e : expr)
+  : Dvalue.denv * Dvalue.t * Session.Concolic.t
+  =
   eval_exp
-    ~session 
+    ~eval_session 
+    ~conc_session
     Concrete_stack.empty (* empty stack *)
     Ident_map.empty (* empty environment *) (* TODO: should env be in the session? *)
     e
-    Branch_solver.Parent.Global (* global environment i.e not under any conditional branch *)
 
 (*
   -------------------
@@ -475,59 +440,45 @@ let eval_exp_default ~(session: Session.Concolic.t ref) (e : expr) : Dvalue.denv
 
   This eval spans multiple concolic sessions, trying to hit the branches.
 *)
-let rec eval (e : expr) (prev_session : Session.Concolic.t) : unit =
-  Format.printf "------------------------------\nRunning program...\n";
-  Branch.Status_store.print prev_session.branch_store;
-  Branch.Runtime.print_target_option @@ List.hd prev_session.target_stack;
+let rec loop (e : expr) (prev_session : Session.t) : unit =
 
-  (* Generate the next session, which throws appropriate errors if execution is complete *)
-  match Session.Concolic.next prev_session with
-  | `Done branch_store -> Session.Concolic.finish_and_print { (Session.Concolic.create_default ()) with branch_store } (* TODO: clean this *)
-  | `Next session -> 
-    let this_target = List.hd session.target_stack in (* target is top of stack of new session *)
-    let session = ref session in
-    (* Sean had bug where step and val_def_map needed to be reset *)
+  match Session.next prev_session with
+  | `Done session ->
+    Format.printf "------------------------------\nFinishing...\n";
+    session
+    |> Session.finish
+    |> Session.print
+  | `Next (session, conc_session, eval_session) ->
+    Format.printf "------------------------------\nRunning program...\n";
+    Session.print session;
 
-    (* Create new environment and evaluate program: *)
     try
-      let _, v = eval_exp_default ~session:session e in
-      (* Assert that we hit our target branch: *)
-      begin
-      if Session.Concolic.check_target_hit !session this_target
-      then ()
-      else
-        Session.Concolic.Ref_cell.hit_branch ~new_status:Branch.Status.Missed session
-        @@ Option.value_exn this_target
-      end;
-      (* Print evaluated result and run again. *)
+      (* might throw exception *)
+      let _, v, conc_session = eval_exp_default ~eval_session ~conc_session e in
       Format.printf "Evaluated to: %a\n" Dvalue.pp v;
-      eval e !session
+      loop e @@ Session.accum_concolic session conc_session
     with
     (* TODO: Error cases: TODO, if we hit abort, re-run if setting is applied. *)
-    | Found_abort _ ->
+    | Found_abort (_, conc_session) ->
         (* TODO: abort cuts us too short to actually solve for the next target. The feeder is wrong.*)
         Format.printf "Running next iteration of concolic after abort\n";
         (* TODO: currently assumes we didn't find target. Need to consider if it actually did *)
-        begin
-        match this_target with
-        | None -> eval e !session
-        | Some _ -> eval e (Session.Concolic.revert !session `Abort_before_target |> Option.value_exn)
-        end
+        loop e @@ Session.accum_concolic session conc_session
     | Reach_max_step (x, stk) ->
         (* Fmt.epr "Reach max steps\n" ; *)
         (* alert_lookup target_stk x stk session.lookup_alert; *)
         raise (Reach_max_step (x, stk))
     | Run_the_same_stack_twice (x, stk) ->
         Fmt.epr "Run into the same stack twice\n" ;
-        Debug.alert_lookup (!session).eval x stk ;
+        (* Debug.alert_lookup (!session).eval x stk ; *) (* no debug statement because we don't keep the eval session *)
         raise (Run_the_same_stack_twice (x, stk))
     | Run_into_wrong_stack (x, stk) ->
         Fmt.epr "Run into wrong stack\n" ;
-        Debug.alert_lookup (!session).eval x stk ;
+        (* Debug.alert_lookup (!session).eval x stk ; *) (* ^^ *)
         raise (Run_into_wrong_stack (x, stk))
 
 (* Concolically execute/test program. *)
 let concolic_eval (e : expr) : unit = 
   Format.printf "\nStarting concolic execution...\n";
-  Session.Concolic.load_branches (Session.Concolic.create_default ()) e
-  |> eval e (* Repeatedly evaluate program *)
+  Session.load_branches (Session.create_default ()) e
+  |> loop e (* Repeatedly evaluate program *)
