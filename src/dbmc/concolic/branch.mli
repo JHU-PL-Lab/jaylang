@@ -125,8 +125,4 @@ module Status_store :
     val finish : t -> t
     (** [finish store] is a new store where all unhit branches are now marked as unsatisfiable *)
 
-    (* val merge : t -> t -> t *)
-    (** [merge a b] is a branch store that calls [set_branch_status] on [a] for each branch in [b]. *)
-
-    (* val find_all : t -> f:(Ast_branch.t -> Status.t -> bool) -> (Ast_branch.t * Status.t) list *)
   end

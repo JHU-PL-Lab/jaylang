@@ -186,14 +186,6 @@ module Status_store =
         )
 
     let set_branch_status ~(new_status : Status.t) (map : t) (branch : Ast_branch.t) : t =
-      begin
-        match new_status with
-        | Status.Hit ->
-          Printf.printf "Hitting: %s: %s\n"
-            (let (Ast.Ident x) = branch.branch_ident in x)
-            (Direction.to_string branch.direction)
-        | _ -> ()
-      end;
       Ast.Ident_map.update_stdlib
         branch.branch_ident
         (function
@@ -234,16 +226,4 @@ module Status_store =
     (* map any unhit to unreachable *)
     let finish (map : t) : t =
       Ast.Ident_map.map (fun b -> Branch_status.map b Status.Unhit Status.Unreachable) map
-
-    (* let merge (a : t) (b : t) : t =
-      let f = fun acc (b, new_status) -> set_branch_status ~new_status acc b in
-      b
-      |> Ast.Ident_map.to_list
-      |> List.fold ~init:a ~f
-
-    let find_all (map : t) ~(f : Ast_branch.t -> Status.t -> bool) : (Ast_branch.t * Status.t) list =
-      map
-      |> Ast.Ident_map.to_list
-      |> List.filter ~f:(Tuple2.uncurry f) *)
-
   end

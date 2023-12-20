@@ -283,11 +283,10 @@ and eval_clause
       Session.Eval.add_alias (x, stk) (ret_id, ret_stk) eval_session;
       ret_val, conc_session
     | Input_body ->
+      (* x = input ; *)
       let n = eval_session.input_feeder (x, stk) in
       let retv = Direct (Value_int n) in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      let Ident s = x in
-      Format.printf "Feed %d to %s \n" n s;
       retv, Session.Concolic.add_input conc_session x retv
     | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin
       (* x = f y ; *)

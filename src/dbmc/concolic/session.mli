@@ -59,118 +59,6 @@ module Eval :
         that is evaluated from the clause body [body] in the given [session]. *)
   end
 
-(* module Concolic :
-  sig
-
-    module Permanent_formulas :
-      sig
-        type t
-      end
-    (*
-      The concolic session contains an eval session, which is mutable.
-      So the concolic session needs to get passed along for the branch
-      and formula stores, but it can pass in its eval session to be mutated.   
-
-      It is expected that a concolic session is used during a single evaluation
-      of the program expression. It is then sent to the "next" session for the
-      next evaluation (which tries to target a different branch).
-    *)
-    type t =
-      { branch_store       : Branch.Status_store.t 
-      ; formula_store      : Branch_solver.t
-      ; permanent_formulas : Permanent_formulas.t
-      ; target_stack       : Branch.Runtime.t list
-      ; prev_sessions      : t list
-      ; global_max_step    : int
-      ; run_num            : int 
-      ; eval               : Eval.t } 
-
-    val create_default : unit -> t
-    (** [create_default ()] is a concolic session with empty stores, no target, run_num 0, and
-        a default eval session *)
-
-    val revert : t -> [ `Abort_before_target | `Max_step_before_target of Branch.Runtime.t ] -> t option
-
-    val next : t -> [ `Next of t | `Done of Branch.Status_store.t]
-    (** [next session] is a session for the next run that has a resets formulas, keeps the top target
-        (unless it is unsatisfiable), and has an eval session whose input feeder is intended to hit
-        the (next satisfiable) target. If there are no more satisfiable branches, then it is the branch
-        store. *)
-
-    val load_branches : t -> expr -> t
-    (** [load_branches session expr] is a copy of [session] and has all AST branches from [expr] as
-        unhit branches in the branch_store. *)
-
-    val check_target_hit : t -> Branch.Runtime.t option -> bool
-    (** [check_target_hit session target_opt] is [b] where [b] is true if and only if the
-        target is hit in the session's branch store. *)
-
-    val finish_and_print : t -> unit
-    (** [finish_and_print session] prints the branch store where all previously unhit branches are
-        marked as unsatisfiable. *)
-
-    (* TODO: just make mutable fields and assign to those. No point in copying all of them while using a ref cell.
-        Actually maybe the point is because I want to be able to copy previous sessions without them getting
-        mutated. I should see how changing the fields works when two sessions share a field. *)
-    module Ref_cell :
-      sig
-        (* This module holds wrappers to access the solver/store in a concolic session ref cell. *)
-
-        val hit_branch : ?new_status:Branch.Status.t -> t ref -> Branch.Runtime.t -> unit
-        (** [hit_branch session branch] assigns a new session to the [session] cell that contains
-            all the same fields as before, but the branch store now has the given [branch] as hit,
-            or has the given optional status. *)
-
-        val add_key_eq_val : t ref -> Branch_solver.Parent.t -> Lookup_key.t -> value -> unit
-        (** [add_key_eq_val session parent key v] assigns a new session to the [session] cell that contains
-            all the same fields as before, but the formula store gains the formula that the [key] equals
-            the given value [v]. *)
-
-        val add_formula : t ref -> Lookup_key.t list -> Branch_solver.Parent.t -> Z3.Expr.expr -> unit
-        (** [add_formula session deps parent expr] assigns a new session to the [session] cell
-            that contains all the same fields as before, but the formula store gains the given formula
-            [expr] under the [parent], and the formula also depends on [deps]. *)
-
-        val add_siblings : t ref -> Lookup_key.t -> Lookup_key.t list -> unit
-        (** [add_siblings session child_key siblings] adds all dependencies of siblings to the child_key. *)
-
-        val update_target_branch : t ref -> Branch.Runtime.t -> unit
-        (** [update_target_branch session branch_key branch] will update the target branch to the other direction of
-            the given [branch] that was just hit. If the other direction has already been hit, then nothing is
-            updated. The [branch_key] is the variable in the clause for the [branch].
-
-            TODO: consider just passing in the target that was just hit
-            
-            This way, when this is called during a concolic evaluation, the target branch after the call will
-            be the deepest branch whose other side has been hit, and nothing under the other side is unhit.
-            
-            This ensures that when moving on from a branch, we've fully used all the information we can to hit
-            everything in it. For sake of argument, suppose we target outermost branches first. Say the true side of the
-            outer branch has a lot of internal branches, and we hit it first. The false side is then our target, and say it
-            has no internal branches. The false side is hit easily, and then we must try to hit internal branches of
-            the true side; we have no information to target these branches. For this reason, we target deeper
-            branches first.
-            
-            outer_branch = outer_branch_condition ?
-              (
-                (* true side. Say it is hit first *)
-                (* lots of internal branches *)
-              ) :
-              (
-                (* false side. It is the target of the next run after hitting the first *)
-                (* no internal branches *)
-              )
-            
-            So in this program, we hit the true side, and then the false side, and then need to dive back into the
-            true side but have no information to help us do so because we have only kept information from the false
-            side.
-            *)
-
-        val exit_branch : t ref -> Branch_solver.Parent.t -> Branch.Runtime.t -> Lookup_key.t -> unit
-        (** TODO *)
-      end
-  end *)
-
 module Concolic :
   sig
     module Outcome :
@@ -181,13 +69,18 @@ module Concolic :
           | Reach_max_step
       end
 
+    module Outcome_set :
+      sig
+         type t
+      end
+
     type t =
       { branch_solver : Branch_solver.t
       ; cur_parent    : Branch_solver.Parent.t
       ; parent_stack  : Branch_solver.Parent.t list (* previous parents to revert back to when exiting branches *)
       ; cur_target    : Branch.Runtime.t option
       ; new_targets   : Branch.Runtime.t list
-      ; outcomes      : Outcome.t list (* Note: it's possible to hit the target and reach abort later, so we need multiple outcomes *)
+      ; outcomes      : Outcome_set.t (* Note: it's possible to hit the target and reach abort later, so we need multiple outcomes *)
       ; hit_branches  : (Branch.Runtime.t * Branch.Status.t) list
       ; inputs        : (Ident.t * Dvalue.t) list }
 
