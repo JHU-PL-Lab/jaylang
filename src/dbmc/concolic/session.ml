@@ -131,7 +131,7 @@ module Concolic =
     let create ~(target : Branch.Runtime.t) ~(initial_formulas : Branch_solver.Formula_set.t) : t =
       let simple_add = Fn.flip (Branch_solver.add_formula [] Branch_solver.Parent.Global) in
       let branch_solver = Branch_solver.Formula_set.fold initial_formulas ~init:Branch_solver.empty ~f:simple_add in
-      { (create_default ()) with branch_solver ; cur_target = Some target }
+      { (create_default ()) with branch_solver ; cur_target = Some target ; outcomes = Outcome_set.empty }
 
     let add_formula (session : t) (expr : Z3.Expr.expr) : t =
       { session with branch_solver = Branch_solver.add_formula [] session.cur_parent expr session.branch_solver }
@@ -235,9 +235,12 @@ let default_input_feeder : Input_feeder.t =
   fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (-10) 10)
 
 let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
-  let is_hit target =
-    Branch.Status_store.is_hit session.branch_store
+  let is_skip target =
+    Branch.Status_store.get_status session.branch_store
     @@ Branch.Runtime.to_ast_branch target
+    |> function
+      | Branch.Status.Hit | Missed | Unsatisfiable | Found_abort -> true
+      | Unhit | Reached_max_step | Unreachable -> false
   in
   match Branch.Status_store.get_unhit_branch session.branch_store, session.target_stack with
   | None, _ -> (* all branches have been considered *)
@@ -248,7 +251,7 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
     `Next ( inc_run_num session
           , Concolic.create_default ()
           , Eval.create default_input_feeder session.global_max_step )
-  | _, (target, _) :: tl when is_hit target -> (* next target has already been hit *) (* TODO: consider matching on status *)
+  | _, (target, _) :: tl when is_skip target -> (* next target should not be consider *)
     Format.printf "Skipping already-hit target %s\n" (Branch.Runtime.to_string target);
     next { session with target_stack = tl }
   | _, (target, concolic_session) :: tl -> begin (* next target is unhit *)
@@ -289,6 +292,11 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
       Branch.Status_store.set_branch_status ~new_status acc
       @@ Branch.Runtime.to_ast_branch branch
       )
+    |> function
+      | branch_store when Concolic.has_hit_target concolic -> branch_store
+      | branch_store ->
+        Branch.Status_store.set_branch_status ~new_status:Branch.Status.Missed branch_store
+        @@ Branch.Runtime.to_ast_branch (Option.value_exn concolic.cur_target)
   in
   let persistent_formulas =
     List.filter_map concolic.hit_branches ~f:(fun (b, s) ->
@@ -307,7 +315,7 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
     match Concolic.has_hit_target concolic, Concolic.has_abort concolic with
     | false, true -> session.target_stack (* didn't make enough progress to add meaningful targets *)
     | true, _ -> map_targets concolic.new_targets @ session.target_stack (* has meaningful targets, so prioritize them *)
-    | false, _ -> failwith "unimplemented missed target" (* TODO: set status and continue reasonably *)
+    | false, _ -> session.target_stack (* TODO: optionally handle targets from missed target *)
   in
   { session with
     branch_store 

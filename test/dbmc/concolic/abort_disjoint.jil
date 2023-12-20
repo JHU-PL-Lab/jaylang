@@ -10,6 +10,7 @@ abort_on_false_side_branch = abort_on_false_side_cond ? (
   no_abort_inner_branch_cond = one == x;
 
   no_abort_inner_branch = no_abort_inner_branch_cond ? (
+    # unsatisfiable because condition is x < 1 && x == 1
     forty_four = 44
   ) : (
     forty_five = 45
