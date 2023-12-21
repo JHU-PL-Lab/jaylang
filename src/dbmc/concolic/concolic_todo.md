@@ -307,3 +307,77 @@ Global formulas
 * zero_condition = true => (zero_branch = zero_branch_true and zero_branch_true = true) 
   * i.e zero_condition = true => zero_branch = true
 * 
+
+## Debug `unreachable_bc_abort.jil`
+
+We miss a target when then first input is 1. I think it may be related to not adding the pick branches properly.
+
+This run doubly prints the formulas, unfortunately.
+
+```
+bstride@bstridexps:/mnt/c/Users/brand/Documents/JHU/CS/masters/jaylang-main/jaylang$ ./_build/default/src/bin/jil.exe -i ./test/dbmc/concolic/unreachable_bc_abort.jil -m concolic
+
+Starting concolic execution...
+------------------------------
+Running program...
+
+Branch Information:
+unreachable_branch_because_abort: True=Unhit; False=Unhit
+x_gte_one_branch: True=Unhit; False=Unhit
+x_is_one_branch_with_abort: True=Unhit; False=Unhit
+x_is_one_branch_without_abort: True=Unhit; False=Unhit
+Feed 1 to x
+ADD GLOBAL FORMULA (= one_ (Int 1))
+ADD GLOBAL FORMULA (let ((a!1 (= x_gte_one_cond_ (Bool (<= (i one_) (i x_))))))
+  (and a!1 ((_ is Int) one_) ((_ is Int) x_)))
+Hitting: x_gte_one_branch: true
+Hitting: x_is_one_branch_with_abort: true
+ADD GLOBAL FORMULA (let ((a!1 (= |x_is_one_cond_-(x_gte_one_branch,$tt);|
+              (Bool (= (i x_) (i one_))))))
+  (=> (= x_gte_one_cond_ (Bool true))
+      (and a!1 ((_ is Int) x_) ((_ is Int) one_))))
+ADD PICK FORMULA: (=> P_x_gte_one_branch_ and)
+ADD GLOBAL FORMULA (=> P_x_gte_one_branch_ and)
+Running next iteration of concolic after abort
+Creating persistent formula for branch x_is_one_branch_with_abort:true
+ADD GLOBAL FORMULA (=> P_x_gte_one_branch_ and)
+ADD GLOBAL FORMULA (let ((a!1 (= |x_is_one_cond_-(x_gte_one_branch,$tt);|
+              (Bool (= (i x_) (i one_))))))
+  (=> (= x_gte_one_cond_ (Bool true))
+      (and a!1 ((_ is Int) x_) ((_ is Int) one_))))
+ADD GLOBAL FORMULA (let ((a!1 (= x_gte_one_cond_ (Bool (<= (i one_) (i x_))))))
+  (and a!1 ((_ is Int) one_) ((_ is Int) x_)))
+ADD GLOBAL FORMULA (= one_ (Int 1))
+ADD GLOBAL FORMULA (= |x_is_one_cond_-(x_gte_one_branch,$tt);| (Bool false))
+Solving for target branch:
+Branch to pick: |P_x_is_one_branch_with_abort_-(x_gte_one_branch,$tt);|
+Branch condition: (= |x_is_one_cond_-(x_gte_one_branch,$tt);| (Bool false))
+------------------------------
+Running program...
+
+Branch Information:
+unreachable_branch_because_abort: True=Unhit; False=Unhit
+x_gte_one_branch: True=Hit; False=Unhit
+x_is_one_branch_with_abort: True=Found_abort; False=Unhit
+x_is_one_branch_without_abort: True=Unhit; False=Unhit
+Feed 0 to x
+ADD GLOBAL FORMULA (= one_ (Int 1))
+ADD GLOBAL FORMULA (let ((a!1 (= x_gte_one_cond_ (Bool (<= (i one_) (i x_))))))
+  (and a!1 ((_ is Int) one_) ((_ is Int) x_)))
+Hitting: x_gte_one_branch: false
+ADD GLOBAL FORMULA (=> (= x_gte_one_cond_ (Bool false))
+    (and (= x_gte_one_branch_ |arbitrary_x_lt_one_-(x_gte_one_branch,$ff);|)
+         (= |arbitrary_x_lt_one_-(x_gte_one_branch,$ff);| (Int 1000))))
+ADD PICK FORMULA: (=> P_x_gte_one_branch_ and)
+ADD GLOBAL FORMULA (=> P_x_gte_one_branch_ and)
+Evaluated to: 1000
+Skipping already-hit target x_gte_one_branch_; condition: x_gte_one_cond_ = false
+------------------------------
+Finishing...
+
+Branch Information:
+unreachable_branch_because_abort: True=Unreachable; False=Unreachable
+x_gte_one_branch: True=Hit; False=Hit
+x_is_one_branch_with_abort: True=Found_abort; False=Missed
+x_is_one_branch_without_abort: True=Unreachable; False=Unreachable
+```

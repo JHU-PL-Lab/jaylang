@@ -1,3 +1,5 @@
+# Misses a target if input is 1 on first run. Otherwise it works
+
 x = input;
 
 one = 1;

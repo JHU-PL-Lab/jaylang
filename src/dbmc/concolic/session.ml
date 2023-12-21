@@ -173,14 +173,14 @@ module Concolic =
       ; outcomes     = if is_target branch session.cur_target then Set.add session.outcomes Outcome.Hit_target else session.outcomes }
 
     let exit_branch (session : t) (ret_key : Lookup_key.t) : t =
-      let new_parent, new_parent_stack =
+      let new_parent, new_parent_stack = 
         match session.parent_stack with
         | hd :: tl -> hd, tl (* pop the parent off the stack *)
         | [] -> failwith "logically impossible to have no branch to exit"
       in
       let branch_solver =
         Branch_solver.exit_branch
-          new_parent
+          new_parent (* exit back out to this parent *)
           (Branch_solver.Parent.to_runtime_branch_exn session.cur_parent)
           ret_key
           session.branch_solver

@@ -268,6 +268,7 @@ and eval_clause
         match res with
         | Error (Found_abort (v, conc_session)) ->
           (* can just say x = x and continue aborting to wrap up and let no future formulas get added *)
+          (* TODO: figure out why pick branch is not getting added on the deepest aborted branch *)
           raise @@ Found_abort (v, Session.Concolic.exit_branch conc_session x_key)
         | Error (Reach_max_step _) -> () (* TODO *)
         | _ -> () (* continue normally on Ok or any other exception *)
