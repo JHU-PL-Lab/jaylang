@@ -1,3 +1,32 @@
+(*
+  TODO:
+    Really, I should completely revamp this. I just need to have a stack of current parent and formula list.
+    That is sufficient because we're under one parent at a time. And we can recurse up the parents to make
+    a pick formula.
+    And we leave a parent into the next one by creating the implies with the "and" of all formulas we're leaving.
+    We need to track formulas along with the parent stack because we may enter and leave a parent as we hit
+    branches in the clause list, and we ought to keep the formulas we've already seen.
+
+    We can either have a global store separately (I think this is a good idea) or have the global be the last
+    on the stack.
+    The reason to keep it separate is to more easily merge solvers and to add the persistent formulas.
+    The reason to keep it not separate is to make sure that we've properly collected the entire stack into the
+    final global formulas before merging or solving, but this is a runtime assertion, so it's not necessary
+    safer programming.
+
+    I'm not sure yet if the formula stacks should be in parallel (each their separate stack) or coupled (as a stack
+    of tuples or records). To ensure safer programming and to let type-checking catch my coding mistakes, it's
+    probably best to keep them coupled even if that is slightly clunky.
+
+    Do separately keep the top value of the stack or always peek at the top value of the stack?
+    If we store separately, it's still a bunch of copying pointers because all the record values need to be copied.
+    If peeking the stack, we are constantly making a new stack and copying the back.
+    So for efficiency, it doesn't matter. It only matters how I care to do the pattern matching: on a variant that
+    helps track state, or just let the stack convey the state. This is to be decided after just a little bit of
+    coding and designing.
+*)
+
+
 open Core
 
 module Lookup_key = 
