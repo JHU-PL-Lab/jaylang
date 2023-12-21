@@ -427,7 +427,7 @@ let solve_for_target
   Format.printf "Branch condition: %s\n" (Z3.Expr.to_string condition_formula);
   [ picked_branch_formula ; condition_formula ] (* will check if these are consistent with other formulas in the solver *)
   |> Z3.Solver.check z3_solver (* returns status of "satisfiable" or not *)
-  |> Solver.SuduZ3.get_model solver 
+  |> Solver.SuduZ3.get_model z3_solver 
   |> function
     | Some model -> Ok model
     | None -> Error (Branch.Runtime.to_ast_branch target)

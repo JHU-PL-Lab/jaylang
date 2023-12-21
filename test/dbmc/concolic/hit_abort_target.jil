@@ -4,6 +4,7 @@
 # 3. branch that gets handled before targeting abort
 #
 # This way, we test how aborts are handled in the midst of other solves
+# TODO: fix how this loops infinitely on negative initial input
 
 x = input;
 large_int = 100;

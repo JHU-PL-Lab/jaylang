@@ -9,7 +9,7 @@ module Status :
       | Found_abort
       | Reached_max_step
       | Missed
-      | Unreachable
+      | Unreachable (* Only to be used when conveying final results. No branch is ever unreachable during evaluation *)
 
     val to_string : t -> string
   end
@@ -37,8 +37,8 @@ end
 module Ast_branch :
   sig
     type t = 
-      { branch_ident    : Ast.ident
-      ; direction       : Direction.t }
+      { branch_ident : Ast.ident
+      ; direction    : Direction.t }
     (** [t] has a variable identifier for the branch (the variable in the branch's clause, not the
         condition variable) and some specific direction.
         i.e. a branch is not just the clause, but it is specfically some direction of the clause. *)

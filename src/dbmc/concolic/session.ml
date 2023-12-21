@@ -138,7 +138,7 @@ module Concolic =
     *)
     let create ~(target : Branch.Runtime.t) : t =
       { (create_default ()) with
-      ; cur_target = Some target
+        cur_target = Some target
       ; outcomes = Outcome_set.empty }
 
     let add_formula (session : t) (expr : Z3.Expr.expr) : t =
@@ -156,7 +156,7 @@ module Concolic =
 
     let found_abort (session : t) : t =
       match session.cur_parent with
-      | Branch_solver.Parent.Global -> session (* do nothing -- should be logically impossible *)
+      | Branch_solver.Parent.Global -> session (* do nothing -- should be logically impossible to reach this *)
       | Branch_solver.Parent.Local branch ->
         { session with
           hit_branches = (branch, Branch.Status.Found_abort) :: session.hit_branches
@@ -176,7 +176,7 @@ module Concolic =
     let exit_branch (session : t) (ret_key : Lookup_key.t) : t =
       let new_parent, new_parent_stack =
         match session.parent_stack with
-        | hd :: tl -> hd, tl
+        | hd :: tl -> hd, tl (* pop the parent off the stack *)
         | [] -> failwith "logically impossible to have no branch to exit"
       in
       let branch_solver =
@@ -244,6 +244,7 @@ let default_input_feeder : Input_feeder.t =
 
 let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   let is_skip target =
+    (* Don't try to re-solve for anything that is hit, missed, unsatisfiable, or contains an abort *)
     Branch.Status_store.get_status session.branch_store
     @@ Branch.Runtime.to_ast_branch target
     |> function
@@ -262,15 +263,15 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   | _, (target, _) :: tl when is_skip target -> (* next target should not be considered *)
     Format.printf "Skipping already-hit target %s\n" (Branch.Runtime.to_string target);
     next { session with target_stack = tl }
-  | _, (target, concolic_session) :: tl -> begin (* next target is unhit *)
-    (* add newly gained persistent formulas first *)
+  | _, (target, concolic_session) :: tl -> begin (* next target is unhit, so we'll solve for it *)
+    (* add all persistent formulas before trying to solve *)
     concolic_session.branch_solver
     |> Branch_solver.add_formula_set session.persistent_formulas
     |> Branch_solver.get_feeder target
     |> function (* do other people think this is bad style? *)
       | Ok input_feeder ->
         `Next (inc_run_num session
-              , Concolic.create ~target ~initial_formulas:session.persistent_formulas
+              , Concolic.create ~target
               , Eval.create input_feeder session.global_max_step )
       | Error b ->
         Format.printf "Unsatisfiable branch %s. Continuing to next target.\n" (Branch.Ast_branch.to_string b);
@@ -294,7 +295,6 @@ let print ({ branch_store ; target_stack ; _ } : t) : unit =
   end;
   Branch.Status_store.print branch_store
 
-(* TODO: check that target was hit by concolic *)
 (* TODO: handle different types of hits from concolic *)
 let accum_concolic (session : t) (concolic : Concolic.t) : t =
   let branch_store =
