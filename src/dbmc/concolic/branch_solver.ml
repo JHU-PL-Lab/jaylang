@@ -447,3 +447,10 @@ let add_formula_set
   =
   let simple_add = Fn.flip (add_formula [] Parent.Global) in
   Formula_set.fold fset ~init:solver ~f:simple_add
+
+let merge (a : t) (b : t) : t =
+  (* TODO: fix how this leads to some ugly printing *)
+  let simple_add = Fn.flip (add_formula [] Parent.Global) in
+  Parent.Global
+  |> Formula_store.find_default b.fstore
+  |> List.fold ~init:a ~f:simple_add

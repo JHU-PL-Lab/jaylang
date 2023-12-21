@@ -166,3 +166,6 @@ val get_feeder : Branch.Runtime.t -> t -> (Concolic_feeder.t, Branch.Ast_branch.
     for the next concolic run to try to hit the target branch. *)
 
 val add_formula_set : Formula_set.t -> t -> t
+
+val merge : t -> t -> t
+(** [merge a b] contains all formulas and dependencies in [a] and all global formulas in [b] *)

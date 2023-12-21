@@ -106,7 +106,6 @@ module Concolic =
 
     module Outcome_set = Set.Make (Outcome)
 
-    (* TODO: set outcomes -- use outcomes *)
     type t =
       { branch_solver : Branch_solver.t
       ; cur_parent    : Branch_solver.Parent.t 
@@ -207,20 +206,68 @@ module Concolic =
     let has_hit_target (session : t) : bool =
       Set.mem session.outcomes Outcome.Hit_target
 
+    (* TODO: see about modularizing these internal functions that are helpers for Session.t *)
+    (* TODO: maybe this shouldn't be here because it is moreso the logic of Session to determine this. *)
+    (* Creates formulas out of all aborted branches such that the abort side should not be satisfied *)
+    let to_persistent_formulas (session : t) : Branch_solver.Formula_set.t =
+      List.filter_map session.hit_branches ~f:(fun (b, s) ->
+        match s with
+        | Branch.Status.Found_abort ->
+          Format.printf "Creating persistent formula for branch %s\n" (Branch.Runtime.to_ast_branch b |> Branch.Ast_branch.to_string);
+          Branch.Runtime.other_direction b
+          |> Branch.Runtime.to_expr
+          |> Option.return
+        | _ -> None
+      )
+      |> Branch_solver.Formula_set.of_list
+
   end
 
-module Target_stack =
+
+module Solver_map :
+  sig
+    type t 
+    val empty : t
+    val add : t -> Branch.Runtime.t -> Concolic.t -> t
+    val get_solver : t -> Branch.Runtime.t -> Branch_solver.t
+    (** [get_solver solver_map target] is a branch solver that contains all formulas from any
+        concolic session that added [target] to the target stack. *)
+  end
+  =
   struct
-    (* can see about saving less than the full session, but for now just save more than necessary *)
-    type t = (Branch.Runtime.t * Concolic.t) list
+    module M = Map.Make (Branch.Runtime)
 
-    let empty = []
+    (* TODO: could be a little faster to maintain a solver and merge upon adding. Depends on use case I think *)
+    (* ^ it also seems from current usage that I can only keep the solver from the session instead of the whole sesion *)
+    type t = Concolic.t list M.t
+
+    let empty = M.empty
+    let add (m : t) (target : Branch.Runtime.t) (c : Concolic.t) : t =
+      Map.update m target ~f:(function
+        | Some ls -> c :: ls 
+        | None -> [c]
+      )
+
+    (* Gets *)
+    let get_solver (m : t) (target : Branch.Runtime.t) : Branch_solver.t =
+      match Map.find m target with
+      | None -> Branch_solver.empty
+      | Some session_list ->
+        List.fold
+          session_list
+          ~init:Branch_solver.empty
+          ~f:(fun acc s -> Branch_solver.merge acc s.branch_solver)
   end
 
+(*
+  TODO: map targets to all concolic sessions that add the target so we get as much information as possible
+    to solve. Need to consider aborts though and if that generates conflicting formulas
+*)
 type t = 
   { branch_store        : Branch.Status_store.t
   ; persistent_formulas : Branch_solver.Formula_set.t
-  ; target_stack        : Target_stack.t
+  ; target_stack        : Branch.Runtime.t list
+  ; solver_map          : Solver_map.t (* map targets to all sessions that find them *)
   ; global_max_step     : int
   ; run_num             : int }
 
@@ -229,15 +276,13 @@ let default_global_max_step = Int.(10 ** 3)
 let create_default () : t =
   { branch_store        = Branch.Status_store.empty 
   ; persistent_formulas = Branch_solver.Formula_set.empty
-  ; target_stack        = Target_stack.empty
+  ; target_stack        = []
+  ; solver_map          = Solver_map.empty
   ; global_max_step     = default_global_max_step
   ; run_num             = 0 }
 
 let load_branches (session : t) (expr : Jayil.Ast.expr) : t =
   { session with branch_store = Branch.Status_store.find_branches expr session.branch_store }
-
-let inc_run_num (session : t) : t =
-  { session with run_num = session.run_num + 1 }
 
 let default_input_feeder : Input_feeder.t =
   fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (-10) 10)
@@ -257,20 +302,21 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   | _, [] when session.run_num > 0 -> (* no targets have been found that we can target next *)
     `Done session
   | _, [] -> (* no targets, but this is the first run, so use the default *)
-    `Next ( inc_run_num session
+    `Next ( { session with run_num = session.run_num + 1 }
           , Concolic.create_default ()
           , Eval.create default_input_feeder session.global_max_step )
-  | _, (target, _) :: tl when is_skip target -> (* next target should not be considered *)
+  | _, target :: tl when is_skip target -> (* next target should not be considered *)
     Format.printf "Skipping already-hit target %s\n" (Branch.Runtime.to_string target);
     next { session with target_stack = tl }
-  | _, (target, concolic_session) :: tl -> begin (* next target is unhit, so we'll solve for it *)
+  | _, target :: tl -> begin (* next target is unhit, so we'll solve for it *)
     (* add all persistent formulas before trying to solve *)
-    concolic_session.branch_solver
+    target
+    |> Solver_map.get_solver session.solver_map
     |> Branch_solver.add_formula_set session.persistent_formulas
     |> Branch_solver.get_feeder target
     |> function (* do other people think this is bad style? *)
       | Ok input_feeder ->
-        `Next (inc_run_num session
+        `Next ({ session with target_stack = tl ; run_num = session.run_num + 1 }
               , Concolic.create ~target
               , Eval.create input_feeder session.global_max_step )
       | Error b ->
@@ -285,14 +331,14 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
     end
 
 let finish (session : t) : t =
-  { session with branch_store = Branch.Status_store.finish session.branch_store ; target_stack = Target_stack.empty }
+  { session with branch_store = Branch.Status_store.finish session.branch_store ; target_stack = [] }
 
 let print ({ branch_store ; target_stack ; _ } : t) : unit =
-  begin
+  (* begin
   match target_stack with
   | (target, _) :: _ -> Branch.Runtime.print_target_option (Some target)
   | [] -> ()
-  end;
+  end; *) (* don't print this because the actual target we might intend to print has been popped off and handed over to concolic session *)
   Branch.Status_store.print branch_store
 
 (* TODO: handle different types of hits from concolic *)
@@ -310,27 +356,26 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
         Branch.Status_store.set_branch_status ~new_status:Branch.Status.Missed branch_store
         @@ Branch.Runtime.to_ast_branch (Option.value_exn concolic.cur_target)
   in
-  let persistent_formulas =
-    List.filter_map concolic.hit_branches ~f:(fun (b, s) ->
-      match s with
-      | Branch.Status.Found_abort ->
-        Format.printf "Creating persistent formula for branch %s\n" (Branch.Runtime.to_ast_branch b |> Branch.Ast_branch.to_string);
-        Branch.Runtime.other_direction b
-        |> Branch.Runtime.to_expr
-        |> Option.return
-      | _ -> None
-    )
-    |> Branch_solver.Formula_set.of_list
-  in
-  let target_stack = 
+  let persistent_formulas = Concolic.to_persistent_formulas concolic in
+  let target_stack, solver_map = 
     let map_targets = List.map ~f:(fun target -> (target, concolic)) in
     match Concolic.has_hit_target concolic, Concolic.has_abort concolic with
-    | false, true -> Format.printf "Did not make meaningful progress, so discarding new targets"; session.target_stack (* didn't make enough progress to add meaningful targets *)
-    | true, _ -> map_targets concolic.new_targets @ session.target_stack (* has meaningful targets, so prioritize them *)
-    | false, _ -> session.target_stack (* TODO: optionally handle targets from missed target, e.g. if missed because abort, try again *) 
+    | false, true -> begin
+      Format.printf "Did not make meaningful progress, so discarding new targets\n";
+      (* Put the original target back on the stack to try to hit it again, but the rest are not new targets *)
+      match concolic.cur_target with
+      | Some target -> target :: session.target_stack, Solver_map.add session.solver_map target concolic
+      | None -> session.target_stack, session.solver_map
+      end
+    | true, _ ->
+      (* has meaningful targets, so prioritize them *)
+      concolic.new_targets @ session.target_stack
+      , List.fold concolic.new_targets ~init:session.solver_map ~f:(fun m target -> Solver_map.add m target concolic)
+    | false, _ -> session.target_stack, session.solver_map (* TODO: optionally handle targets from missed target, e.g. if missed because abort, try again *) 
   in
   { session with
     branch_store 
   ; target_stack
+  ; solver_map
   ; persistent_formulas = Branch_solver.Formula_set.join session.persistent_formulas persistent_formulas }
 

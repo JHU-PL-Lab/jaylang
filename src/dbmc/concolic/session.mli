@@ -110,15 +110,16 @@ module Concolic :
     (** [add_input session x v] adds the fact that [v] was fed to variable [x] as an input. *)
   end
 
-module Target_stack :
+module Solver_map :
   sig
-    type t (* = (Branch_solver.t * Branch.Runtime.t) list *)
+    type t 
   end
 
 type t = 
   { branch_store        : Branch.Status_store.t
   ; persistent_formulas : Branch_solver.Formula_set.t
-  ; target_stack        : Target_stack.t
+  ; target_stack        : Branch.Runtime.t list
+  ; solver_map          : Solver_map.t
   ; global_max_step     : int
   ; run_num             : int }
 

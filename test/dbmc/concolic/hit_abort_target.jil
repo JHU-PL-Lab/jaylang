@@ -4,7 +4,6 @@
 # 3. branch that gets handled before targeting abort
 #
 # This way, we test how aborts are handled in the midst of other solves
-# TODO: fix how this loops infinitely on negative initial input
 
 x = input;
 large_int = 100;
@@ -13,15 +12,17 @@ large_int = 100;
 default_true_cond = x < large_int;
 
 default_true_branch = default_true_cond ? (
+  # always hit on first run
   default_true_branch_true_ret = true
 ) : (
   default_true_branch_false_ret = false
 );
 
-# always false on first run, so abort is not hit on first run
+# always true on first run, so abort is not hit on first run
 abort_on_false_side_cond = default_true_branch;
 
 abort_on_false_side_branch = abort_on_false_side_cond ? (
+  # always hit on first run
   abort_on_false_side_true_ret = 0
 ) : (
   some_stuff = 1;

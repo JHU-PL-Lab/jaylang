@@ -390,10 +390,9 @@ and eval_clause
       let z_key = generate_lookup_key z z_stk in
       retv, Session.Concolic.add_formula conc_session @@ Riddler.binop_without_picked x_key op y_key z_key
     | Abort_body -> begin
-      (* TODO: concolic *)
+      (* TODO: concolic -- I think it's done, but leaving this todo just in case *)
       let ab_v = AbortClosure env in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, ab_v) eval_session;
-      (* TODO: let abort branches not be solved for in future runs *)
       let conc_session = Session.Concolic.found_abort conc_session in
       match eval_session.mode with
       | Plain -> raise @@ Found_abort (ab_v, conc_session)
@@ -426,7 +425,7 @@ let eval_exp_default
     ~eval_session 
     ~conc_session
     Concrete_stack.empty (* empty stack *)
-    Ident_map.empty (* empty environment *) (* TODO: should env be in the session? *)
+    Ident_map.empty (* empty environment *)
     e
 
 (*
@@ -458,9 +457,7 @@ let rec loop (e : expr) (prev_session : Session.t) : unit =
     with
     (* TODO: Error cases: TODO, if we hit abort, re-run if setting is applied. *)
     | Found_abort (_, conc_session) ->
-        (* TODO: abort cuts us too short to actually solve for the next target. The feeder is wrong.*)
         Format.printf "Running next iteration of concolic after abort\n";
-        (* TODO: currently assumes we didn't find target. Need to consider if it actually did *)
         loop e @@ Session.accum_concolic session conc_session
     | Reach_max_step (x, stk) ->
         (* Fmt.epr "Reach max steps\n" ; *)
