@@ -440,7 +440,6 @@ let eval_exp_default
   This eval spans multiple concolic sessions, trying to hit the branches.
 *)
 let rec loop (e : expr) (prev_session : Session.t) : unit =
-
   match Session.next prev_session with
   | `Done session ->
     Format.printf "------------------------------\nFinishing...\n";

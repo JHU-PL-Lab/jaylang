@@ -1,7 +1,6 @@
 open Core
 open Dj_common
 open Jayil.Ast
-(* open Concolic_exceptions *)
 
 module Mode =
   struct

@@ -1,3 +1,4 @@
+# if allowed to continue, this ends up hitting. But on first go, it misses. Seems nondeterministic
 
 other_zero = 0;
 x = input;
