@@ -294,3 +294,25 @@ ADD GLOBAL FORMULA (=> (and (= zero_condition_ (Bool false))) (= first_condition
 Hitting: first_branch: false
 Running next iteration of concolic after abort
 ```
+
+
+## Debug `unreachable_bc_abort.jil`
+
+EDIT: I think the following is wrong because these formulas are discarded since the target was missed and found abort. So it reverts to only use the formulas that were gained from before the abort. Then I need to add my persistent formulas to that one too.
+
+We set that x_is_one_cond = false
+* It has stack x_gte_one_branch = true, but that's trivial because it is within x_gte_one_branch
+
+Global formulas:
+* x_is_one_cond = false (by persistent abort statements)
+* one = 1
+* x_gte_one_cond = one <= x
+  * and one is int and x is int
+* x_gte_one_cond = true => (x_is_one_cond = (x = 1))
+  * and implies x is int and one is int
+
+Solving for x_is_one_branch_without_abort = true
+* But there is no statement about this because it aborted too soon, so it just needs to satisfy other formulas
+
+However, it chooses x = 1, which satisfies x_gte_one_cond, which implies that x_is_one_cond is true. This should be a contradiction. Maybe I need to use ==
+

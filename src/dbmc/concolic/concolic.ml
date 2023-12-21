@@ -298,10 +298,10 @@ and eval_clause
         let env' = Ident_map.add param (arg, stk') fenv in
         Session.Eval.add_alias (param, stk) (x_arg, arg_stk) eval_session;
 
-        (* enter function: *)
-        let Var (xid, _) = vf in
-        let f_stk = Fetch.fetch_stk ~eval_session ~stk env vf in
-        let key_f = generate_lookup_key xid f_stk in
+        (* enter function: say arg is same as param *)
+        (* let Var (xid, _) = vf in *)
+        (* let f_stk = Fetch.fetch_stk ~eval_session ~stk env vf in *)
+        (* let key_f = generate_lookup_key xid f_stk in *) (* this was only needed when we had the siblings and dependencies *)
         let key_param = generate_lookup_key param stk' in
         let key_arg = generate_lookup_key x_arg arg_stk in
         let conc_session = Session.Concolic.add_formula conc_session @@ Riddler.eq key_param key_arg in
@@ -451,7 +451,7 @@ let rec loop (e : expr) (prev_session : Session.t) : unit =
     Session.print session;
 
     try
-      (* might throw exception *)
+      (* might throw exception which is to be caught below *)
       let _, v, conc_session = eval_exp_default ~eval_session ~conc_session e in
       Format.printf "Evaluated to: %a\n" Dvalue.pp v;
       loop e @@ Session.accum_concolic session conc_session

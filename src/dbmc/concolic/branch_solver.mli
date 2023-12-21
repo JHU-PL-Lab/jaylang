@@ -164,3 +164,5 @@ val get_feeder : Branch.Runtime.t -> t -> (Concolic_feeder.t, Branch.Ast_branch.
     scope and uses a Z3 solver to solve for the [target] branch.
     If the formulas in the [store] are satisfiable, then a feeder is returned
     for the next concolic run to try to hit the target branch. *)
+
+val add_formula_set : Formula_set.t -> t -> t

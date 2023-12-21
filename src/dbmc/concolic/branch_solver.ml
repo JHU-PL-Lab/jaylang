@@ -194,12 +194,12 @@ let empty = Store.empty
 *)
 let gen_parents
   (children : Lookup_key.t list)
-  (store : Store.t)
+  (solver : t)
   : (Z3.Expr.expr list) * (Lookup_key.t list)
   =
   let open List.Let_syntax in
   (* all parents of all children as found in the parent store *)
-  let parents = children >>= Parent_store.find_default store.pstore
+  let parents = children >>= Parent_store.find_default solver.pstore
   in
   (parents >>| Parent.to_expr) (* make expression from key and direction *)
   , (parents >>= Fn.compose Option.to_list Parent.to_condition_key) (* keep only the key, and empty for Global *)
@@ -224,20 +224,20 @@ let gen_parents
 
   Arguments:
     [dependencies] are any lookup keys that the formula depends on.
-    [store] is the store thus far.
+    [solver] is the solver thus far.
     [formula] is the formula to which we add any dependencies.
 *)
 let rec gen_implied_formula
   (dependencies : Lookup_key.t list)
-  (store : Store.t)
+  (solver : t)
   (formula : Z3.Expr.expr)
   : Z3.Expr.expr
   =
-  match gen_parents dependencies store with
+  match gen_parents dependencies solver with
   | [], _ -> formula (* Logically, the parents "_" must be empty if no expressions *)
   | exps, parent_keys -> (* if no parent keys because is global, then next iteration does nothing *)
       Riddler.(and_ exps @=> formula) (* all the expressions imply the formula *)
-      |> gen_implied_formula parent_keys store
+      |> gen_implied_formula parent_keys solver
 
 (*
   Say that the parent implies the given formula. Use the children as
@@ -252,21 +252,21 @@ let rec gen_implied_formula
     [dependencies] are any lookup keys that the formula depends on.
     [parent] is the condition and direction of the current branch, or Global
     [formula] is the expression to add as a formula inside the current branch.
-    [store] holds all the information in the evaluation thus far.
+    [solver] holds all the information in the evaluation thus far.
 *)
 let add_formula
   (dependencies : Lookup_key.t list)
   (parent : Parent.t)
   (formula : Z3.Expr.expr)
-  (store : Store.t)
-  : Store.t
+  (solver : t)
+  : t
   =
   (*
     Get a formula that says the parents of the children imply the given formula.
     This is necessary because if the formula includes anything that depends on an
     inner branch, then the branch direction matters.
   *)
-  (* let implied_formula = gen_implied_formula dependencies store formula in *)
+  (* let implied_formula = gen_implied_formula dependencies solver formula in *)
   let implied_formula = formula in (* The above isn't even needed? *)
   begin
     match parent with
@@ -276,7 +276,7 @@ let add_formula
       Printf.printf "ADD GLOBAL FORMULA %s\n" (Z3.Expr.to_string implied_formula)
     | Local branch -> ()
   end;
-  Store.add_formula parent implied_formula store
+  Store.add_formula parent implied_formula solver
 
 (*
   Say that some variable (key) is just equal to a value (which necessarily depends on nothing).
@@ -287,11 +287,11 @@ let add_key_eq_val
   (parent : Parent.t)
   (key : Lookup_key.t)
   (v : Jayil.Ast.value)
-  (store : Store.t)
-  : Store.t
+  (solver : t)
+  : t
   =
   (* no children to consider because values have no dependencies *)
-  add_formula [] parent (Riddler.eq_term_v key (Some v)) store
+  add_formula [] parent (Riddler.eq_term_v key (Some v)) solver
   
 (*
   Say that the child now acquires all the same parents as the siblings.
@@ -303,19 +303,19 @@ let add_key_eq_val
 let add_siblings
   (child_key : Lookup_key.t)
   (siblings : Lookup_key.t list)
-  (store : Store.t)
-  : Store.t
+  (solver : t)
+  : t
   =
   let open List.Let_syntax in
-  let new_parents = siblings >>= Parent_store.find_default store.pstore in
+  let new_parents = siblings >>= Parent_store.find_default solver.pstore in
   let pstore =
     (* May prefer to loop with Store.add_parent for sake of modularism *)
-    Map.update store.pstore child_key ~f:(function
+    Map.update solver.pstore child_key ~f:(function
       | None -> new_parents
       | Some cur_parents -> cur_parents @ new_parents
       )
   in
-  { store with pstore }
+  { solver with pstore }
 
 (*
   Recursively gets the list of all parents for the children, where the parents
@@ -325,13 +325,13 @@ let add_siblings
 *)
 let get_all_parent_dependencies
   (children : Lookup_key.t list)
-  (store : Store.t)
+  (solver : t)
   : Z3.Expr.expr list
   =
   let rec loop acc = function
     | [] -> acc
     | children ->
-      let exps, parents = gen_parents children store in
+      let exps, parents = gen_parents children solver in
       loop (exps @ acc) parents
       (* ^ hopefully exps is small compared to acc, and this isn't slow *)
       (* Note that this might just run once if I flatten parents properly, so exps is large compared to acc, but still small on grand scale *)
@@ -356,19 +356,19 @@ let get_all_parent_dependencies
 let add_pick_branch
   (branch_key : Lookup_key.t)
   (parent : Parent.t)
-  (store : Store.t)
-  : Store.t
+  (solver : t)
+  : t
   =
-  (* let deps = Parent.to_expr parent :: get_all_parent_dependencies [branch_key] store in *) (* Too constraining. Is just wrong... *)
+  (* let deps = Parent.to_expr parent :: get_all_parent_dependencies [branch_key] solver in *) (* Too constraining. Is just wrong... *)
   let deps = 
     match parent with
     | Global -> []
-    | Local branch -> Parent.to_expr parent :: get_all_parent_dependencies [branch.condition_key] store
+    | Local branch -> Parent.to_expr parent :: get_all_parent_dependencies [branch.condition_key] solver
   in
-  (* let deps = get_all_parent_dependencies [branch_key] store in *)
+  (* let deps = get_all_parent_dependencies [branch_key] solver in *)
   let pick_formula = Riddler.(picked branch_key @=> and_ deps) in
   Format.printf "ADD PICK FORMULA: %s\n" (Z3.Expr.to_string pick_formula);
-  add_formula [] Global pick_formula store (* A picked formula will be true under global scope *)
+  add_formula [] Global pick_formula solver (* A picked formula will be true under global scope *)
 
 (*
   Accumulates all the formulas under the branch that was just evaluated
@@ -385,23 +385,23 @@ let add_pick_branch
       direction that evaluates to the branch result.
     [exited_branch] the branch (i.e. parent) that was just evaluated and is being exited.
     [result_key] the key of the last clause in the branch. Gets assigned to branch_key
-    [store] ..
+    [solver] ..
 *)
 let exit_branch
   (parent : Parent.t)
   (exited_branch : Branch.Runtime.t)
   (result_key : Lookup_key.t)
-  (store : Store.t)
-  : Store.t
+  (solver : t)
+  : t
   =
   let exited_parent = Parent.Local exited_branch in
-  match Map.find store.fstore exited_parent with
-  | None -> store (* nothing happened under the branch, so do nothing *) 
+  match Map.find solver.fstore exited_parent with
+  | None -> solver (* nothing happened under the branch, so do nothing *) 
   | Some exps ->
     let antecedent = Branch.Runtime.to_expr exited_branch in
     (* The branch implies all the expressions within it *)
     let implication = Riddler.(antecedent @=> and_ exps) in
-    add_formula [exited_branch.condition_key] parent implication store (* formula depends on exited branch's condition key *)
+    add_formula [exited_branch.condition_key] parent implication solver (* formula depends on exited branch's condition key *)
     |> Store.remove_formulas exited_parent (* clear out formulas under exited branch because they're not needed anymore *)
     |> Store.add_parent exited_branch.branch_key exited_parent (* add the exited branch as a parent *)
     |> add_siblings exited_branch.branch_key [result_key] (* branch_key now depends on everything the result depends on *)
@@ -410,23 +410,23 @@ let exit_branch
 (* See https://github.com/Z3Prover/z3/blob/master/src/api/ml/z3.mli line 3290 *)
 let solve_for_target
   (target : Branch.Runtime.t)
-  (store : Store.t)
+  (solver : t)
   : (Z3.Model.model, Branch.Ast_branch.t) result
   =
   (* Say that we're picking this branch, so all the parents that it was said to imply will now get implied. *)
   let picked_branch_formula = Riddler.picked target.branch_key in
   let condition_formula = Branch.Runtime.to_expr target in
-  let solver =
-    store
+  let z3_solver =
+    solver
     (* |> pick_branch target.branch_key *) (* with parent commented out *)
     |> Store.to_solver
   in
-  (* let solver = Store.to_solver store in *)
+  (* let z3_solver = Store.to_solver solver in *)
   Format.printf "Solving for target branch:\n";
   Format.printf "Branch to pick: %s\n" (Z3.Expr.to_string picked_branch_formula);
   Format.printf "Branch condition: %s\n" (Z3.Expr.to_string condition_formula);
   [ picked_branch_formula ; condition_formula ] (* will check if these are consistent with other formulas in the solver *)
-  |> Z3.Solver.check solver (* returns status of "satisfiable" or not *)
+  |> Z3.Solver.check z3_solver (* returns status of "satisfiable" or not *)
   |> Solver.SuduZ3.get_model solver 
   |> function
     | Some model -> Ok model
@@ -434,8 +434,16 @@ let solve_for_target
 
 let get_feeder
   (target : Branch.Runtime.t)
-  (store : Store.t)
+  (solver : t)
   : (Concolic_feeder.t, Branch.Ast_branch.t) result
   =
-  solve_for_target target store
+  solve_for_target target solver
   |> Result.map ~f:Concolic_feeder.from_model
+
+let add_formula_set
+  (fset : Formula_set.t)
+  (solver : t)
+  : t
+  =
+  let simple_add = Fn.flip (add_formula [] Parent.Global) in
+  Formula_set.fold fset ~init:solver ~f:simple_add
