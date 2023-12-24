@@ -68,15 +68,31 @@
       I check the branch is indeed the parent we're under.
 *)
 
+exception NoParentException
+(** Used to convey that the user of the solver is trying to add a formula or back up to
+    a previous parent when there is no such parent. If the solver is used properly on a
+    valid Jayil program, this should be logically impossible. *)
+
 module Formula_set :
   sig
     type t
     val add : t -> Z3.Expr.expr -> t
-    val join : t -> t -> t
+    val union : t -> t -> t
     val fold : t -> init:'a -> f:('a -> Z3.Expr.expr -> 'a) -> 'a
     val empty : t
     val of_list : Z3.Expr.expr list -> t
   end
+
+type t
+
+val enter_branch : t -> Branch.Runtime.t -> t
+val exit_branch : t -> Lookup_key.t -> t
+val add_key_eq_val : t -> Lookup_key.t -> Jayil.Ast.value -> t
+val add_alias : t -> Lookup_key.t -> Lookup_key.t -> t
+val add_formula : t -> Z3.Expr.expr -> t (* TODO: hide *)
+val get_feeder : t -> Branch.Runtime.t -> (Concolic_feeder.t, Branch.Ast_branch.t) result
+(* val to_formula_set : t -> Formula_set.t
+val merge : t -> t -> t *)
 
 module Parent :
   sig
