@@ -10,6 +10,9 @@
     to hit that branch.
 
   Logic description:
+
+    TODO: update this description
+
     In this section I attempt to describe *how* the solver will work and will be used
     by the concolic evaluator.
 
@@ -84,109 +87,38 @@ module Formula_set :
   end
 
 type t
+(** [t] is a solver that tracks expressions during evaluation of Jayil program. It has a
+    functional state that is the current environment of the Jayil program; it is underneath
+    some branch in the program. These branches are "if" statements or the global environment. *)
 
 val empty : t
+(** [empty] is a solver in the global environment with no formulas. *)
+
 val enter_branch : t -> Branch.Runtime.t -> t
+(** [enter_branch s b] puts the solver [s] in the environment under branch [b]. *)
+
 val exit_branch : t -> t
+(** [exit_branch s] backs the solver [s] out of its branch into the parent branch. *)
+
 val add_key_eq_val : t -> Lookup_key.t -> Jayil.Ast.value -> t
+(** [add_key_eq_val s k v] adds the formula that [k] has value [v] in solver [s]. *)
+
 val add_alias : t -> Lookup_key.t -> Lookup_key.t -> t
+(** [add_alias s k k'] adds the formula that [k] and [k'] hold the same value in solver [s]. *)
+
 val add_formula : t -> Z3.Expr.expr -> t (* TODO: hide *)
+(** [add_formula s e] adds the z3 expression [e] to the solver [s]. *)
+
 val get_feeder : t -> Branch.Runtime.t -> (Concolic_feeder.t, Branch.Ast_branch.t) result
+(** [get_feeder s b] is a feeder to hit the branch [b] based on formulas in the solver [s], 
+    or is an error if [b] is unsatisfiable. *)
+
 val get_cur_parent_exn : t -> Branch.Runtime.t
-val add_formula_set : Formula_set.t -> t -> t
-val merge : t -> t -> t
-
-(* val to_formula_set : t -> Formula_set.t
-val merge : t -> t -> t *)
-
-(* module Parent :
-  sig
-    type t =
-      | Global
-      | Local of Branch.Runtime.t
-    (** [t] represents some parent environment to a clause. A clause either is underneath
-        some branch (e.g. the "false" direction of an if-statement), or is under no branch
-        and is therefore in the global environment.
-        
-        A parent is a runtime branch instead of an AST branch so that the evaluation of the
-        parent to some direction can imply the clause. The AST branch only considers the
-        ident of the branch clause (not the condition), so it has no true/false value. *)
-
-    val of_runtime_branch : Branch.Runtime.t -> t
-    (** [of_runtime_branch x] is [x] wrapped in "Local". *)
-
-    val to_ast_branch_exn : t -> Branch.Ast_branch.t
-    (** [to_ast_branch_exn x] is the AST branch representation of [x], or an exception if
-        [x] is the global parent. *)
-
-    val to_runtime_branch_exn : t -> Branch.Runtime.t
-    (** [to_runetime_branch_exn parent] is [branch] where [parent] is [Local branch], or raises exn. *)
-  end
-
-type t
-(** [t] will hold all the formulas for a solver to eventually use. It contains information
-    about the parents of each clause, what a clause depends on, and what formulas the clause
-    implies. 
-    
-    I sometimes call this a "store" because it stores the information. *)
-
-val empty : t
-(** [empty] is a branch solver with no information at all. *)
-
-(* temporary patch to reveal this; maybe capture other logic inside branch solver instead of session *)
-val gen_implied_formula : Lookup_key.t list -> t -> Z3.Expr.expr -> Z3.Expr.expr
-
-val add_formula : Lookup_key.t list -> Parent.t -> Z3.Expr.expr -> t -> t
-(** [add_formula deps parent formula store] is a new store where the [formula] is added underneath
-    the [parent]. The formula depends on all the keys [deps], so the parents (that imply all the [deps]),
-    all imply the [formula]. *)
-
-val add_key_eq_val : Parent.t -> Lookup_key.t -> Jayil.Ast.value -> t -> t
-(** [add_key_eq_val parent key v store] is a new store that contains the formula where [key] equals
-    the given value [v]. The formula is added under the [parent] in the [store]. *)
-
-val add_siblings : Lookup_key.t -> Lookup_key.t list -> t -> t
-(** [add_siblings child_key siblings store] is a new store where the [child_key] now acquires all the
-    same parents as the keys in [siblings], and these parents are strictly in addition to the parents
-    that the [child_key] already has. This is used to make [child_key] depend on everything that all the
-    [siblings] depend on.
-    Only information about [child_key] is updated in the store, and nothing is changed for the [siblings].
-    
-    TODO: everywhere I add a formula, I add siblings. I can either remove the deps parameter to formula
-      and always call add_siblings first, or I can join these two together. *)
-
-(* Note: no longer needed -- is included in exit_branch *)
-(* val add_pick_branch : Lookup_key.t -> Parent.t -> t -> t *)
-(** [add_pick_branch branch_key parent store] is a new store with an added formula in the global scope such
-    that [branch_key] can be solved for by picking the [branch_key] later.
-    
-    This is done by letting all parents of [branch_key], starting with [parent], be formulas that are
-    implied by [branch_key], so that picking [branch_key] later means all parents must be satisfied by
-    in the solve. *)
-
-val exit_branch : Parent.t -> Branch.Runtime.t -> Lookup_key.t -> t -> t
-(** [exit_branch branch_key parent exited_branch result_key store] leaves the branch [exited_branch] that
-    is the clause body for [branch_key]. 
-    The [parent] is the parent of the [branch_key]. The [result_key] is the key for the last evaluated
-    clause in the branch, and it gets assigned to [branch_key]. 
-    
-    Four things happen in this function:
-    1. Accumulates all the formulas under the branch that was just evaluated and assigns
-      them under the [parent] (as implied by [exited_branch.condition_key] equals [exited_branch.direction]).
-    2. Sets [branch_key] to be a child of [exited_branch] as a parent
-    3. Sets [branch_key] to be a sibling of [result_key].
-    4. Clears out all formulas under [condition_key] because the branch cannot be entered again,
-      and any needed formulas are now encompassed by the first step.
-      TODO: consider not clearing branches.
-    5. Adds a pick formula to the global scope so that the branch can be picked and solved for later, if wanted *)
-
-val get_feeder : Branch.Runtime.t -> t -> (Concolic_feeder.t, Branch.Ast_branch.t) result
-(** [get_feeder target store] uses the formulas in the [store] under the global
-    scope and uses a Z3 solver to solve for the [target] branch.
-    If the formulas in the [store] are satisfiable, then a feeder is returned
-    for the next concolic run to try to hit the target branch. *)
+(** [get_cur_parent_exn s] is the branch that defines current environment of the solver [s],
+    or is an exception if [s] is in the global environment. *)
 
 val add_formula_set : Formula_set.t -> t -> t
+(** [add_formula_set f s] adds all formulas in the set [f] to the solver [s]. *)
 
 val merge : t -> t -> t
-* [merge a b] contains all formulas and dependencies in [a] and all global formulas in [b] *)
+(** [merge a b] adds all formulas in [b] to [a]. Both [a] and [b] must be "in" the global environment. *)
