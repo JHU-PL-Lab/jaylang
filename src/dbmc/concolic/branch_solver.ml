@@ -188,6 +188,7 @@ let exit_branch ({ stack ; pick_formulas ; _ } as x : t) : t =
   in
   match stack with
   | { parent = Local exited_branch ; _ } as old_hd :: new_hd :: tl ->
+    Format.printf "exiting branch and collecting formulas. Formula is %s\n" (Env.collect old_hd |> Z3.Expr.to_string);
     { stack = Env.add new_hd (Env.collect old_hd) :: tl
     ; pick_formulas = Map.set pick_formulas ~key:exited_branch.branch_key ~data:(gen_pick_formula stack) }
   | _ -> raise NoParentException (* no parent to back up to because currently in global (or no) scope *)
