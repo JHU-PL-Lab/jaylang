@@ -1,4 +1,4 @@
-# Misses a target if input is 1 on first run. Otherwise it works
+# Misses a target if input is 1 on first run. Otherwise it works. UPDATE: this is no longer true, and I'm not sure why.
 
 x = input;
 
