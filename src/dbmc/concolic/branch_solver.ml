@@ -47,7 +47,10 @@ module Lookup_key =
     let t_of_sexp _ = failwith "Lookup_key.t_of_sexp needed and not implemented"
   end
 
-
+(*
+  I could no longer use this, and I just keep a global formula store when the stack is empty   .
+  Currently forcing the bottom of the stack to be global feels a little messy.
+*)
 module Parent =
   struct
     type t =
@@ -118,11 +121,12 @@ module Env =
     type t =
       { parent : Parent.t
       ; formulas : Formula_set.t }
-    
-    let empty ?(branch : Branch.Runtime.t) : t =
-      match branch with 
-      | Some b -> { parent = Parent.of_runtime_branch b ; formulas = Formula_set.empty }
-      | None -> { parent = Parent.Global ; formulas = Formula_set.empty }
+
+    let empty : t =
+      { parent = Parent.Global ; formulas = Formula_set.empty }
+
+    let create (branch : Branch.Runtime.t) : t =
+      { empty with parent = Parent.of_runtime_branch branch }
 
     let collect ({ parent ; formulas } : t) : Z3.Expr.expr =
       match parent with
@@ -134,7 +138,7 @@ module Env =
 
   end
 
-module Branch_map = Map.Make (Branch.Runtime)
+module Branch_map = Map.Make (Lookup_key)
 
 (*
   There are a few additions we can make:
@@ -152,9 +156,9 @@ let empty : t =
   { stack = Env.empty :: []
   ; pick_formulas = Branch_map.empty }
 
-let log_add_formula ({ stack ; _ } : t) (formula : Z3.Expr.expr) : () =
+let log_add_formula ({ stack ; _ } : t) (formula : Z3.Expr.expr) : unit =
   match stack with
-  | { parent = Parent.Global ; formulas } -> 
+  | { parent = Parent.Global ; _ } :: _ -> 
     Printf.printf "ADD GLOBAL FORMULA %s\n" (Z3.Expr.to_string formula)
   | _ -> ()
 
@@ -177,43 +181,40 @@ let add_alias (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
 (* TODO: all other types of formulas, e.g. binop, not, pattern, etc *)
 
 let enter_branch ({ stack ; _ } as x : t) (branch : Branch.Runtime.t) : t =
-  { x with stack = Env.empty ~branch :: stack }
+  { x with stack = Env.create branch :: stack }
 
 let exit_branch ({ stack ; pick_formulas ; _ } as x : t) : t =
   let gen_pick_formula (stack : Env.t list) : Z3.Expr.expr =
     match stack with
-    | [] -> Riddler.true_ (* TODO: make option *)
-    | { parent ; _ } :: tl -> (* TODO: ignore when only parent is global *)
-      let deps = List.map tl ~f:(fun { parent ; _ } -> Parent.to_expr parent)
-      Riddler.(picked parent @=> and_ deps) (* hd implies all other parents that are below it on the stack *)
+    | { parent = Local branch ; _ } :: tl ->
+      let deps = List.map tl ~f:(fun { parent ; _ } -> Parent.to_expr parent) in
+      Riddler.(picked branch.branch_key @=> and_ deps) (* hd implies all other parents that are below it on the stack *)
+    | _ -> Riddler.true_ (* TODO: make option *)
   in
   match stack with
-  | { parent = Local _ ; _ } as old_hd :: new_hd :: tl
-    { x with
-      stack = Env.add new_hd (Env.collect old_hd) :: tl
-    ; pick_formulas = Branch_map.set pick_formulas ~key:exited_branch ~data:(gen_pick_formula stack) }
+  | { parent = Local exited_branch ; _ } as old_hd :: new_hd :: tl ->
+    { stack = Env.add new_hd (Env.collect old_hd) :: tl
+    ; pick_formulas = Map.set pick_formulas ~key:exited_branch.branch_key ~data:(gen_pick_formula stack) }
   | _ -> raise NoParentException (* no parent to back up to because currently in global (or no) scope *)
 
-let to_solver ({ stack ; pick_formulas } : t) : Z3.Solver.solver option =
+let to_solver ({ stack ; pick_formulas } : t) (target_branch_key : Lookup_key.t) : Z3.Solver.solver option =
   match stack with
   | { parent = Global ; formulas } :: [] ->
     let new_solver = Z3.Solver.mk_solver Solver.SuduZ3.ctx None in
     Z3.Solver.add new_solver
     @@ Formula_set.to_list formulas;
-    Z3.Solver.add new_solver
-    @@ Formula_set.add pick_formulas; (* TODO: only add necessary formulas *)
-    new_solver
+    Z3.Solver.add new_solver [Map.find_exn pick_formulas target_branch_key];
+    Some new_solver
   | _ -> None
 
 let get_model
   (x : t)
   (target : Branch.Runtime.t)
-  : [ `Success of Z3.Model.model | `Unsatisfiable of Branch.Ast_brach.t | `No_pick | `Not_global ]
-  : (Z3.Model.model, Branch.Ast_branch.t) result
+  : [ `Success of Z3.Model.model | `Unsatisfiable of Branch.Ast_branch.t | `No_pick | `Not_global ]
   =
-  let picked_branch_formula = Riddler.picked target.branch_key in
+  let picked_branch_formula = Riddler.picked target.branch_key in (* TODO: check this is in the solver *)
   let condition_formula = Branch.Runtime.to_expr target in
-  match to_solver x with
+  match to_solver x target.branch_key with
   | None -> `Not_global
   | Some z3_solver ->
     Format.printf "Solving for target branch:\n";
@@ -233,12 +234,35 @@ let get_feeder
   =
   match get_model x target with
   | `No_pick -> failwith "tried to solve for target that can't be picked"
-  | `Not_global -> failwtih "tried to solve for target before closing out of all branches"
+  | `Not_global -> failwith "tried to solve for target before closing out of all branches"
   | `Unsatisfiable b -> Error b
   | `Success model -> Ok (Concolic_feeder.from_model model)
 
+let get_cur_parent_exn ({ stack ; _ } : t) : Branch.Runtime.t =
+  match stack with
+  | { parent = Parent.Local branch ; _ } :: _ -> branch
+  | _ -> failwith "no local parent to get"
 
-module Make_list_store (Key : Map.Key) (T : sig type t end) =
+let add_formula_set (fset : Formula_set.t) (x : t) : t =
+  Formula_set.fold fset ~init:x ~f:add_formula
+
+let merge (a : t) (b : t) : t =
+  let new_stack = 
+    match a.stack, b.stack with
+    | { parent = Global ; formulas = formulas1 } :: [], { parent = Global ; formulas = formulas2 } :: _ ->
+      Env.{ parent = Global ; formulas = Formula_set.union formulas1 formulas2 } :: []
+    | _ -> failwith "cannot merge non-global branch solvers"
+  in
+  let new_pick_formulas =
+    Map.fold
+      b.pick_formulas
+      ~init:a.pick_formulas
+      ~f:(fun ~key ~data acc -> Map.set ~key ~data acc)
+  in
+  { stack = new_stack ; pick_formulas = new_pick_formulas }
+
+
+(* module Make_list_store (Key : Map.Key) (T : sig type t end) =
   struct
     module M = Map.Make (Key)
     type t = T.t list M.t
@@ -684,4 +708,4 @@ let merge (a : t) (b : t) : t =
   let simple_add = Fn.flip (add_formula [] Parent.Global) in
   Parent.Global
   |> Formula_store.find_default b.fstore
-  |> List.fold ~init:a ~f:simple_add
+  |> List.fold ~init:a ~f:simple_add *)

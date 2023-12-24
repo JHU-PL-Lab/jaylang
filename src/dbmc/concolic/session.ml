@@ -108,8 +108,6 @@ module Concolic =
 
     type t =
       { branch_solver : Branch_solver.t
-      ; cur_parent    : Branch_solver.Parent.t 
-      ; parent_stack  : Branch_solver.Parent.t list
       ; cur_target    : Branch.Runtime.t option
       ; new_targets   : Branch.Runtime.t list
       ; outcomes      : Outcome_set.t
@@ -118,8 +116,6 @@ module Concolic =
 
     let create_default () : t =
       { branch_solver = Branch_solver.empty
-      ; cur_parent    = Branch_solver.Parent.Global
-      ; parent_stack  = []
       ; cur_target    = None
       ; new_targets   = []
       ; outcomes      = Outcome_set.singleton Outcome.Hit_target (* hacky: say no target means target is always hit *)
@@ -141,54 +137,39 @@ module Concolic =
       ; outcomes = Outcome_set.empty }
 
     let add_formula (session : t) (expr : Z3.Expr.expr) : t =
-      { session with branch_solver = Branch_solver.add_formula [] session.cur_parent expr session.branch_solver }
+      { session with branch_solver = Branch_solver.add_formula session.branch_solver expr }
 
     let add_key_eq_val (session : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
-      { session with branch_solver = Branch_solver.add_key_eq_val session.cur_parent key v session.branch_solver }
+      { session with branch_solver = Branch_solver.add_key_eq_val session.branch_solver key v }
 
-    let add_siblings (session : t) (key : Lookup_key.t) ~(siblings : Lookup_key.t list) : t =
-      { session with branch_solver = Branch_solver.add_siblings key siblings session.branch_solver }
+    let add_alias (session : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
+      { session with branch_solver = Branch_solver.add_alias session.branch_solver key1 key2 }
+
+    (* let add_siblings (session : t) (key : Lookup_key.t) ~(siblings : Lookup_key.t list) : t =
+      { session with branch_solver = Branch_solver.add_siblings key siblings session.branch_solver } *)
 
     let is_target (branch : Branch.Runtime.t) (target : Branch.Runtime.t option) : bool =
       Option.map target ~f:(fun x -> Branch.Runtime.compare branch x = 0)
       |> Option.value ~default:false
 
     let found_abort (session : t) : t =
-      match session.cur_parent with
-      | Branch_solver.Parent.Global -> session (* do nothing -- should be logically impossible to reach this *)
-      | Branch_solver.Parent.Local branch ->
-        { session with
-          hit_branches = (branch, Branch.Status.Found_abort) :: session.hit_branches
-        ; outcomes = Set.add session.outcomes Outcome.Found_abort }
+      let branch = Branch_solver.get_cur_parent_exn session.branch_solver in
+      { session with
+        hit_branches = (branch, Branch.Status.Found_abort) :: session.hit_branches
+      ; outcomes = Set.add session.outcomes Outcome.Found_abort }
 
     let enter_branch (session : t) (branch : Branch.Runtime.t) : t =
       Printf.printf "Hitting: %s: %s\n"
         (let (Jayil.Ast.Ident x) = branch.branch_key.x in x)
         (Branch.Direction.to_string branch.direction);
       { session with
-        cur_parent   = Branch_solver.Parent.of_runtime_branch branch
-      ; parent_stack = session.cur_parent :: session.parent_stack
-      ; new_targets  = Branch.Runtime.other_direction branch :: session.new_targets
-      ; hit_branches = (branch, Branch.Status.Hit) :: session.hit_branches
-      ; outcomes     = if is_target branch session.cur_target then Set.add session.outcomes Outcome.Hit_target else session.outcomes }
+        branch_solver = Branch_solver.enter_branch session.branch_solver branch
+      ; new_targets   = Branch.Runtime.other_direction branch :: session.new_targets
+      ; hit_branches  = (branch, Branch.Status.Hit) :: session.hit_branches
+      ; outcomes      = if is_target branch session.cur_target then Set.add session.outcomes Outcome.Hit_target else session.outcomes }
 
-    let exit_branch (session : t) (ret_key : Lookup_key.t) : t =
-      let new_parent, new_parent_stack = 
-        match session.parent_stack with
-        | hd :: tl -> hd, tl (* pop the parent off the stack *)
-        | [] -> failwith "logically impossible to have no branch to exit"
-      in
-      let branch_solver =
-        Branch_solver.exit_branch
-          new_parent (* exit back out to this parent *)
-          (Branch_solver.Parent.to_runtime_branch_exn session.cur_parent)
-          ret_key
-          session.branch_solver
-      in
-      { session with
-        branch_solver
-      ; parent_stack = new_parent_stack
-      ; cur_parent = new_parent }
+    let exit_branch (session : t) : t =
+      { session with branch_solver = Branch_solver.exit_branch session.branch_solver }
 
     let add_input (session : t) (x : Ident.t) (v : Dvalue.t) : t =
       let Ident s = x in
@@ -313,7 +294,7 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
     target
     |> Solver_map.get_solver session.solver_map
     |> Branch_solver.add_formula_set session.persistent_formulas
-    |> Branch_solver.get_feeder target
+    |> Fn.flip Branch_solver.get_feeder target
     |> function (* do other people think this is bad style? *)
       | Ok input_feeder ->
         `Next ({ session with target_stack = tl ; run_num = session.run_num + 1 }
@@ -377,5 +358,5 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
     branch_store 
   ; target_stack
   ; solver_map
-  ; persistent_formulas = Branch_solver.Formula_set.join session.persistent_formulas persistent_formulas }
+  ; persistent_formulas = Branch_solver.Formula_set.union session.persistent_formulas persistent_formulas }
 

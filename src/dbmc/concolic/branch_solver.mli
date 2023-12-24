@@ -85,16 +85,21 @@ module Formula_set :
 
 type t
 
+val empty : t
 val enter_branch : t -> Branch.Runtime.t -> t
-val exit_branch : t -> Lookup_key.t -> t
+val exit_branch : t -> t
 val add_key_eq_val : t -> Lookup_key.t -> Jayil.Ast.value -> t
 val add_alias : t -> Lookup_key.t -> Lookup_key.t -> t
 val add_formula : t -> Z3.Expr.expr -> t (* TODO: hide *)
 val get_feeder : t -> Branch.Runtime.t -> (Concolic_feeder.t, Branch.Ast_branch.t) result
+val get_cur_parent_exn : t -> Branch.Runtime.t
+val add_formula_set : Formula_set.t -> t -> t
+val merge : t -> t -> t
+
 (* val to_formula_set : t -> Formula_set.t
 val merge : t -> t -> t *)
 
-module Parent :
+(* module Parent :
   sig
     type t =
       | Global
@@ -184,4 +189,4 @@ val get_feeder : Branch.Runtime.t -> t -> (Concolic_feeder.t, Branch.Ast_branch.
 val add_formula_set : Formula_set.t -> t -> t
 
 val merge : t -> t -> t
-(** [merge a b] contains all formulas and dependencies in [a] and all global formulas in [b] *)
+* [merge a b] contains all formulas and dependencies in [a] and all global formulas in [b] *)

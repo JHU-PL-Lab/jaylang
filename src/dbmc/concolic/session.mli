@@ -76,8 +76,6 @@ module Concolic :
 
     type t =
       { branch_solver : Branch_solver.t
-      ; cur_parent    : Branch_solver.Parent.t
-      ; parent_stack  : Branch_solver.Parent.t list (* previous parents to revert back to when exiting branches *)
       ; cur_target    : Branch.Runtime.t option
       ; new_targets   : Branch.Runtime.t list
       ; outcomes      : Outcome_set.t (* Note: it's possible to hit the target and reach abort later, so we need multiple outcomes *)
@@ -90,7 +88,9 @@ module Concolic :
     val add_key_eq_val : t -> Lookup_key.t -> Jayil.Ast.value -> t
     (** [add_key_eq_val session k v] sets [k = v] in the [session]. This is a special case of [add_formula]. *)
 
-    val add_siblings : t -> Lookup_key.t -> siblings:Lookup_key.t list -> t
+    val add_alias : t -> Lookup_key.t -> Lookup_key.t -> t
+
+    (* val add_siblings : t -> Lookup_key.t -> siblings:Lookup_key.t list -> t *)
     (** [add_siblings session key siblings] adds all dependencies of [siblings] to the [key] so that the
         [key] also depends on them.
         
@@ -102,7 +102,7 @@ module Concolic :
     val enter_branch : t -> Branch.Runtime.t -> t
     (** [enter_branch session branch] sets the new parent as [branch] and hits the branch. *)
 
-    val exit_branch : t -> Lookup_key.t -> t
+    val exit_branch : t -> t
     (** [exit_branch session ret_key] uses the final key [ret_key] in the branch to exit and return
         to previous parent. Also cleans up formulas in the solver. *)
 

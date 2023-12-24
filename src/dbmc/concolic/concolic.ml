@@ -246,7 +246,7 @@ and eval_clause
       let ret_val, ret_stk = Fetch.fetch_val_with_stk ~eval_session ~stk env vx in
       Session.Eval.add_alias (x, stk) (y, ret_stk) eval_session;
       let y_key = generate_lookup_key y ret_stk in 
-      ret_val, Session.Concolic.add_formula conc_session @@ Riddler.eq x_key y_key (* MAYBE: make [add_alias] *)
+      ret_val, Session.Concolic.add_alias conc_session x_key y_key
     | Conditional_body (cx, e1, e2) ->
       (* x = if y then e1 else e2 ; *)
       let Var (y, _) = cx in
@@ -269,7 +269,7 @@ and eval_clause
         | Error (Found_abort (v, conc_session)) ->
           (* can just say x = x and continue aborting to wrap up and let no future formulas get added *)
           (* TODO: figure out why pick branch is not getting added on the deepest aborted branch *)
-          raise @@ Found_abort (v, Session.Concolic.exit_branch conc_session x_key)
+          raise @@ Found_abort (v, Session.Concolic.exit_branch conc_session)
         | Error (Reach_max_step _) -> () (* TODO *)
         | _ -> () (* continue normally on Ok or any other exception *)
       end;
@@ -279,8 +279,8 @@ and eval_clause
 
       (* say the ret_key is equal to x now, then clear out branch *)
       let ret_key = generate_lookup_key ret_id ret_stk in
-      let conc_session = Session.Concolic.add_formula conc_session @@ Riddler.eq x_key ret_key in
-      let conc_session = Session.Concolic.exit_branch conc_session ret_key in
+      let conc_session = Session.Concolic.add_alias conc_session x_key ret_key in
+      let conc_session = Session.Concolic.exit_branch conc_session in
       Session.Eval.add_alias (x, stk) (ret_id, ret_stk) eval_session;
       ret_val, conc_session
     | Input_body ->
@@ -305,7 +305,7 @@ and eval_clause
         (* let key_f = generate_lookup_key xid f_stk in *) (* this was only needed when we had the siblings and dependencies *)
         let key_param = generate_lookup_key param stk' in
         let key_arg = generate_lookup_key x_arg arg_stk in
-        let conc_session = Session.Concolic.add_formula conc_session @@ Riddler.eq key_param key_arg in
+        let conc_session = Session.Concolic.add_alias conc_session key_param key_arg in
 
         (* returned value of function *)
         let ret_env, ret_val, conc_session = eval_exp ~eval_session ~conc_session stk' env' body in
@@ -315,7 +315,7 @@ and eval_clause
 
         (* exit function: *)
         let ret_key = generate_lookup_key ret_id ret_stk in
-        ret_val, Session.Concolic.add_formula conc_session @@ Riddler.eq x_key ret_key
+        ret_val, Session.Concolic.add_alias conc_session x_key ret_key
       | _ -> failwith "appl to a non fun"
       end
     | Match_body (vy, p) ->
@@ -343,7 +343,7 @@ and eval_clause
         let v_stk = Fetch.fetch_stk ~eval_session ~stk env v in
         let record_key = generate_lookup_key v_ident v_stk in
         let proj_key = generate_lookup_key proj_x stk' in
-        retv, Session.Concolic.add_formula conc_session @@ Riddler.eq x_key proj_key
+        retv, Session.Concolic.add_alias conc_session x_key proj_key
       | Direct (Value_record (Record_value _record)) ->
         failwith "project should also have a closure"
       | _ -> failwith "project on a non record"
