@@ -33,6 +33,11 @@
 
     The concolic session still tracks extra stuff like hit targets, abort information, target, etc, but the solver
     tracks current parent and actual expression.
+
+  TODO:
+    We'd like to satisfy as many of the pick formulas as possible while still keeping the target satisfiable. This is probably
+    NP hard because we would try the powerset of the pick formulas, but we seem to miss the target when we give an input that
+    is not very precise and we hit an unexpected branch that we don't have any info about, so it throws stuff off.
 *)
 
 

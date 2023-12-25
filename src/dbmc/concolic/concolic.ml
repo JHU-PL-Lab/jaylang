@@ -288,6 +288,7 @@ and eval_clause
       let n = eval_session.input_feeder (x, stk) in
       let retv = Direct (Value_int n) in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
+      let conc_session = Session.Concolic.add_alias conc_session x_key x_key in
       retv, Session.Concolic.add_input conc_session x retv
     | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin
       (* x = f y ; *)

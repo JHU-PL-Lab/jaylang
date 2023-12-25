@@ -1,0 +1,26 @@
+
+x = input;
+
+one = 1;
+x_is_one_cond = x == one;
+
+x_is_one_branch = x_is_one_cond ?
+  (
+    clause0 = 0
+  ) :
+  (
+    clause10 = 10
+  );
+
+zero = 0;
+prev_was_true_cond = x_is_one_branch == zero;
+
+prev_was_true_branch = prev_was_true_cond ?
+  (
+    # Happens when x is 1
+    clause2 = 2
+  ) :
+  (
+    # Happens when x > 1
+    clause3 = 3
+  )
