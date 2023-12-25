@@ -43,8 +43,6 @@
 
 open Core
 
-module CLog = Dj_common.Log.Export.CLog
-
 exception NoParentException
 
 module Lookup_key = 
@@ -161,7 +159,7 @@ let empty : t =
 let log_add_formula ({ stack ; _ } : t) (formula : Z3.Expr.expr) : unit =
   match stack with
   | { parent = Parent.Global ; _ } :: _ -> 
-    CLog.debug (fun m -> m "ADD GLOBAL FORMULA %s\n" (Z3.Expr.to_string formula))
+    Format.printf "ADD GLOBAL FORMULA %s\n" (Z3.Expr.to_string formula)
   | _ -> ()
 
 let add_formula ({ stack ; _ } as x : t) (formula : Z3.Expr.expr) : t =
@@ -195,7 +193,7 @@ let exit_branch ({ stack ; pick_formulas ; _ } as x : t) : t =
   in
   match stack with
   | { parent = Local exited_branch ; _ } as old_hd :: new_hd :: tl ->
-    CLog.debug (fun m -> m "exiting branch and collecting formulas. Formula is %s\n" (Env.collect old_hd |> Z3.Expr.to_string));
+    Format.printf "exiting branch and collecting formulas. Formula is %s\n" (Env.collect old_hd |> Z3.Expr.to_string);
     { stack = Env.add new_hd (Env.collect old_hd) :: tl
     ; pick_formulas = Map.set pick_formulas ~key:exited_branch.branch_key ~data:(gen_pick_formula stack) }
   | _ -> raise NoParentException (* no parent to back up to because currently in global (or no) scope *)
@@ -215,9 +213,9 @@ let get_model
   =
   let picked_branch_formula = Riddler.picked target.branch_key in (* TODO: check this is in the solver *)
   let condition_formula = Branch.Runtime.to_expr target in
-  CLog.debug (fun m -> m "Solving for target branch:\n");
-  CLog.debug (fun m -> m "Branch to pick: %s\n" (Z3.Expr.to_string picked_branch_formula));
-  CLog.debug (fun m -> m "Branch condition: %s\n" (Z3.Expr.to_string condition_formula));
+  Format.printf "Solving for target branch:\n";
+  Format.printf "Branch to pick: %s\n" (Z3.Expr.to_string picked_branch_formula);
+  Format.printf "Branch condition: %s\n" (Z3.Expr.to_string condition_formula);
   match to_solver x target.branch_key with
   | None -> `Not_global
   | Some z3_solver ->
