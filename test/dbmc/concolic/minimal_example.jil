@@ -18,9 +18,9 @@ first_branch = first_cond ? (
   first_branch_false_return = 100
 );
 
-zero = 0;
+# zero = 0;
 # x_plus_zero = x + zero; # if this is uncommented, it fails. If commented, it works
-one = 1;
+# one = 1;
 # ^ note I don't even have to USE this anywhere. Old concolic versions fail even with this commented.
 second_cond = first_branch < x;
 
