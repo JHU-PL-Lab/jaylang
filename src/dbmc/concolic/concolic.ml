@@ -5,6 +5,7 @@ open Concolic_exceptions (* these help convey status of evaluation *)
 open Dvalue (* just to expose constructors *)
 
 module ILog = Log.Export.ILog
+module CLog = Log.Export.CLog
 
 (* Ident for conditional bool. *)
 let cond_fid b = if b then Ident "$tt" else Ident "$ff"
@@ -443,23 +444,23 @@ let eval_exp_default
 let rec loop (e : expr) (prev_session : Session.t) : unit =
   match Session.next prev_session with
   | `Done session ->
-    Format.printf "------------------------------\nFinishing...\n";
+    CLog.debug (fun m -> m "------------------------------\nFinishing...\n");
     session
     |> Session.finish
     |> Session.print
   | `Next (session, conc_session, eval_session) ->
-    Format.printf "------------------------------\nRunning program...\n";
+    CLog.debug (fun m -> m "------------------------------\nRunning program...\n");
     Session.print session;
 
     try
       (* might throw exception which is to be caught below *)
       let _, v, conc_session = eval_exp_default ~eval_session ~conc_session e in
-      Format.printf "Evaluated to: %a\n" Dvalue.pp v;
+      CLog.debug (fun m -> m "Evaluated to: %a\n" Dvalue.pp v);
       loop e @@ Session.accum_concolic session conc_session
     with
     (* TODO: Error cases: TODO, if we hit abort, re-run if setting is applied. *)
     | Found_abort (_, conc_session) ->
-        Format.printf "Running next iteration of concolic after abort\n";
+        CLog.debug (fun m -> m "Running next iteration of concolic after abort\n");
         loop e @@ Session.accum_concolic session conc_session
     | Reach_max_step (x, stk) ->
         (* Fmt.epr "Reach max steps\n" ; *)
@@ -476,6 +477,6 @@ let rec loop (e : expr) (prev_session : Session.t) : unit =
 
 (* Concolically execute/test program. *)
 let concolic_eval (e : expr) : unit = 
-  Format.printf "\nStarting concolic execution...\n";
+  CLog.debug (fun m -> m "\nStarting concolic execution...\n");
   Session.load_branches (Session.create_default ()) e
   |> loop e (* Repeatedly evaluate program *)
