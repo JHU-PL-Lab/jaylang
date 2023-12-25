@@ -197,9 +197,7 @@ let to_solver ({ stack ; pick_formulas } : t) (target_branch_key : Lookup_key.t)
   match stack with
   | { parent = Global ; formulas } :: [] ->
     let new_solver = Z3.Solver.mk_solver Solver.SuduZ3.ctx None in
-    Z3.Solver.add new_solver
-    @@ Formula_set.to_list formulas;
-    Z3.Solver.add new_solver [Map.find_exn pick_formulas target_branch_key];
+    Z3.Solver.add new_solver (Map.find_exn pick_formulas target_branch_key :: Formula_set.to_list formulas);
     Some new_solver
   | _ -> None
 
@@ -210,12 +208,12 @@ let get_model
   =
   let picked_branch_formula = Riddler.picked target.branch_key in (* TODO: check this is in the solver *)
   let condition_formula = Branch.Runtime.to_expr target in
+  Format.printf "Solving for target branch:\n";
+  Format.printf "Branch to pick: %s\n" (Z3.Expr.to_string picked_branch_formula);
+  Format.printf "Branch condition: %s\n" (Z3.Expr.to_string condition_formula);
   match to_solver x target.branch_key with
   | None -> `Not_global
   | Some z3_solver ->
-    Format.printf "Solving for target branch:\n";
-    Format.printf "Branch to pick: %s\n" (Z3.Expr.to_string picked_branch_formula);
-    Format.printf "Branch condition: %s\n" (Z3.Expr.to_string condition_formula);
     [ picked_branch_formula ; condition_formula ] (* will check that these formulas are consistent *)
     |> Z3.Solver.check z3_solver
     |> Solver.SuduZ3.get_model z3_solver
