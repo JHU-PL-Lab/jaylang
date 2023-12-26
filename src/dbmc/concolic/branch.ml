@@ -132,10 +132,10 @@ module Status_store =
           | d when Direction.equal d direction -> begin
             (* temporary patch: put in some logic to only allow certain overwrites *) 
             match new_status, f d (* old status*) with
-            | Status.Hit, Unhit
-            | Unsatisfiable, Unhit | Unsatisfiable, Reached_max_step
-            | Found_abort, Hit
-            | Reached_max_step, Hit
+            | Status.Hit, Unhit | Hit, Missed
+            | Unsatisfiable, Unhit | Unsatisfiable, Reached_max_step | Unsatisfiable, Missed
+            | Found_abort, Hit | Found_abort, Missed
+            | Reached_max_step, Hit | Reached_max_step, Missed
             | Unreachable, Unhit
             | Missed, Unhit -> new_status
             | _, old_status -> old_status (* anything else disallowed *)

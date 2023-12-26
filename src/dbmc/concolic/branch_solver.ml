@@ -219,6 +219,7 @@ let get_model
   match to_solver x target.branch_key with
   | None -> `Not_global
   | Some z3_solver ->
+    Format.printf "Printing solver: \n%s\n" (Z3.Solver.to_string z3_solver);
     [ picked_branch_formula ; condition_formula ] (* will check that these formulas are consistent *)
     |> Z3.Solver.check z3_solver
     |> Solver.SuduZ3.get_model z3_solver

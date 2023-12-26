@@ -274,8 +274,8 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
     Branch.Status_store.get_status session.branch_store
     @@ Branch.Runtime.to_ast_branch target
     |> function
-      | Branch.Status.Hit | Missed | Unsatisfiable | Found_abort -> true
-      | Unhit | Reached_max_step | Unreachable -> false
+      | Branch.Status.Hit | Unsatisfiable | Found_abort -> true
+      | Unhit | Missed | Reached_max_step | Unreachable -> false
   in
   match Branch.Status_store.get_unhit_branch session.branch_store, session.target_stack with
   | None, _ -> (* all branches have been considered *)
@@ -341,7 +341,7 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
   let target_stack, solver_map = 
     let map_targets = List.map ~f:(fun target -> (target, concolic)) in
     match Concolic.has_hit_target concolic, Concolic.has_abort concolic with
-    | false, true -> begin
+    | false, _ -> begin (* used to be false, true *)
       Format.printf "Did not make meaningful progress, so discarding new targets\n";
       (* Put the original target back on the stack to try to hit it again, but the rest are not new targets *)
       match concolic.cur_target with
@@ -352,7 +352,9 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
       (* has meaningful targets, so prioritize them *)
       concolic.new_targets @ session.target_stack
       , List.fold concolic.new_targets ~init:session.solver_map ~f:(fun m target -> Solver_map.add m target concolic)
-    | false, _ -> session.target_stack, session.solver_map (* TODO: optionally handle targets from missed target, e.g. if missed because abort, try again *) 
+    (* | false, _ -> session.target_stack, session.solver_map TODO: optionally handle targets from missed target, e.g. if missed because abort, try again  *)
+    (* TODO: once the solver hasn't changed between runs (which might be difficult to manage if overadding formulas), then stop trying for missed targets. *)
+    (* TODO: if missed again, put at back of stack to gain even more information first. Need sofisticated tracking of what led to misses, hits, etc, and make sure not trying to solve for same miss *)
   in
   { session with
     branch_store 
