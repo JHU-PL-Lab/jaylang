@@ -2,6 +2,7 @@
 TODO:
 * Docs
 * Continue with misses until steady state
+* Handle max step
 * Track inputs and solvers that lead to hits/misses
 * Nice output
 * Replicable tests
