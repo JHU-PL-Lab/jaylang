@@ -22,6 +22,11 @@ module G : (* = Graph.Imperative.Digraph.ConcreteBidirectional (Id_with_stack) *
     type t
   end
 
+(**
+  The eval session tracks everything needed by the interpreter to evaluate the expression.
+  Nothing here is used for any part of the concolic logic. This is all to correctly evaluate
+  the expression.
+*)
 module Eval :
   sig
     (* NOTE: this type is mutable *)
@@ -59,26 +64,31 @@ module Eval :
         that is evaluated from the clause body [body] in the given [session]. *)
   end
 
+(**
+  The concolic session tracks a single concolic evaluation. It gathers formulas from start to finish
+  one evaluation of the program.   
+*)
 module Concolic :
   sig
     module Outcome :
       sig
         type t =
-          | Hit_target
-          | Found_abort
-          | Reach_max_step
+          | Hit_target (* The session's target was hit. *)
+          | Found_abort (* The session ended in an abort. *)
+          | Reach_max_step (* The session ended by reaching the max number of steps. *)
       end
 
     module Outcome_set :
       sig
          type t
+         (** [t] holds multiple outcomes from the program. e.g. the program can hit the target and later find an abort. *)
       end
 
     type t =
       { branch_solver : Branch_solver.t
       ; cur_target    : Branch.Runtime.t option
       ; new_targets   : Branch.Runtime.t list
-      ; outcomes      : Outcome_set.t (* Note: it's possible to hit the target and reach abort later, so we need multiple outcomes *)
+      ; outcomes      : Outcome_set.t
       ; hit_branches  : (Branch.Runtime.t * Branch.Status.t) list
       ; inputs        : (Ident.t * Dvalue.t) list }
 
@@ -89,12 +99,7 @@ module Concolic :
     (** [add_key_eq_val session k v] sets [k = v] in the [session]. This is a special case of [add_formula]. *)
 
     val add_alias : t -> Lookup_key.t -> Lookup_key.t -> t
-
-    (* val add_siblings : t -> Lookup_key.t -> siblings:Lookup_key.t list -> t *)
-    (** [add_siblings session key siblings] adds all dependencies of [siblings] to the [key] so that the
-        [key] also depends on them.
-        
-        NOTE: I think this is not needed anymore. *)
+    (** [add_alias session x y] sets [x = y] in the [session]. This is a special case of [add_formula]. *)
 
     val found_abort : t -> t
     (** [found_abort session] adds the info that an abort was found under the current parent. *)
@@ -113,6 +118,9 @@ module Concolic :
 module Solver_map :
   sig
     type t 
+    (** [t] maps targets to solvers that can be used to solve for that target. *)
+
+    (* TODO: the formulas never depend on inputs, so maybe I can just keep all formulas together. *)
   end
 
 type t = 
@@ -122,9 +130,11 @@ type t =
   ; solver_map          : Solver_map.t
   ; global_max_step     : int
   ; run_num             : int }
+  (** [t] tracks information between runs of the concolic evaluator and helps create new Eval and Concolic
+      sessions for future runs. *)
 
-val create_default : unit -> t
-(** [create_default ()] is a session to be used for to make the first run of the concolic evaluator. *)
+val default : t
+(** [default] is a session to be used to make the first run of the concolic evaluator. *)
 
 val load_branches : t -> Jayil.Ast.expr -> t
 (** [load_branches session expr] has the AST branches loaded from [expr] into [session]. *)
@@ -133,9 +143,6 @@ val next : t -> [ `Done of t | `Next of t * Concolic.t * Eval.t ]
 (** [next session] is [`Done session'] when there is no satisfiable or unhit target left in [session'],
     or it is a new session with a concolic session and eval session to try to hit the top target. *)
 
-(* val is_finished : t -> bool *)
-(** [is_finished session] is true if there are no satisfiable or unhit targets left. *)
-
 val finish : t -> t
 (** [finish session] is [session] with the finished branch store (i.e. unhit branches set as unreachable). *)
 
@@ -143,11 +150,5 @@ val print : t -> unit
 (** [print session] prints the branch store. *)
 
 val accum_concolic : t -> Concolic.t -> t
-
-(* val hit_branch : ?new_status:Branch.Status.t -> t -> Branch.Runtime.t -> t *)
-(** [hit_branch ~new_status session ast_branch] has the given [ast_branch] set with the [new_status].
-    This may add to the persistent formulas if the status is abort. *)
-
-(* val add_targets : t -> Branch.Runtime.t list -> Branch_solver.t -> t *)
-(** [add_targets session target_list branch_solver] adds the [target_list] to the worklist to be later solved
-    for using the given [branch_solver]. *)
+(** [accum_concolic session concolic_session] is a new session that merges the results of [concolic_session] into
+    [session]. The new session is then ready to be called with [next] to begin another run. *)

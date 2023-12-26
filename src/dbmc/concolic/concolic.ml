@@ -477,5 +477,5 @@ let rec loop (e : expr) (prev_session : Session.t) : unit =
 (* Concolically execute/test program. *)
 let concolic_eval (e : expr) : unit = 
   Format.printf "\nStarting concolic execution...\n";
-  Session.load_branches (Session.create_default ()) e
+  Session.load_branches Session.default e
   |> loop e (* Repeatedly evaluate program *)

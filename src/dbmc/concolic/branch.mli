@@ -53,7 +53,7 @@ module Ast_branch :
 
 (*
   "Runtime" is a modifier/adjective on "Branch", so it is a "Runtime Branch". I could not
-  do the same on "Ast" because I'd like to reveal Jayil.Ast.
+  do the same on "Ast" because I'd like to not overwrite Jayil.Ast.
 *)
 module Runtime :
   sig
@@ -98,6 +98,7 @@ module Status_store :
     (** [empty] has no information on any branches *)
 
     val print : t -> unit
+    (** [print store] prints the statuses of all branches in the [store] to stdout. *)
 
     val add_branch_id : t -> Ast.ident -> t
     (** [add_branch_id store id] is a new store where the identifier [id] has been added to

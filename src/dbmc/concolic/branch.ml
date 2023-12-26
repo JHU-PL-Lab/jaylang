@@ -1,12 +1,6 @@
 open Core
 open Jayil
 
-
-(* let generate_lookup_key (x : Ast.ident) (stk : Dj_common.Concrete_stack.t) : Lookup_key.t =
-  { x
-  ; r_stk = Rstack.from_concrete stk
-  ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } } *)
-
 module Lookup_key = 
   struct
     include Lookup_key

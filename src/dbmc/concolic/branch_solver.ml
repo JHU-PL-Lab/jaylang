@@ -1,46 +1,3 @@
-(*
-  TODO:
-    Really, I should completely revamp this. I just need to have a stack of current parent and formula list.
-    That is sufficient because we're under one parent at a time. And we can recurse up the parents to make
-    a pick formula.
-    And we leave a parent into the next one by creating the implies with the "and" of all formulas we're leaving.
-    We need to track formulas along with the parent stack because we may enter and leave a parent as we hit
-    branches in the clause list, and we ought to keep the formulas we've already seen.
-
-    We can either have a global store separately (I think this is a good idea) or have the global be the last
-    on the stack.
-    The reason to keep it separate is to more easily merge solvers and to add the persistent formulas.
-    The reason to keep it not separate is to make sure that we've properly collected the entire stack into the
-    final global formulas before merging or solving, but this is a runtime assertion, so it's not necessarily
-    safer programming.
-
-    I'm not sure yet if the formula stacks should be in parallel (each their separate stack) or coupled (as a stack
-    of tuples or records). To ensure safer programming and to let type-checking catch my coding mistakes, it's
-    probably best to keep them coupled even if that is slightly clunky.
-
-    Do separately keep the top value of the stack or always peek at the top value of the stack?
-    If we store separately, it's still a bunch of copying pointers because all the record values need to be copied.
-    If peeking the stack, we are constantly making a new stack and copying the back.
-    So for efficiency, it doesn't matter. It only matters how I care to do the pattern matching: on a variant that
-    helps track state, or just let the stack convey the state. This is to be decided after just a little bit of
-    coding and designing.
-
-    Then can wrap up the branch solver into a formula set when done, which makes for much easier and logically sound/safe
-    merging of solvers. And we can delegate any persistent formula logic (ie anything that interacts with a Z3 expr) to
-    the solver (which we can force to only happen when in global scope, or just let it happen any time by keeping global
-    scope separate). So the difference between the branch solver and the concolic session is that the branch solver
-    actually interacts directly with Z3 exprs (so should make `add_alias` and not let formulas get passed directly).
-
-    The concolic session still tracks extra stuff like hit targets, abort information, target, etc, but the solver
-    tracks current parent and actual expression.
-
-  TODO:
-    We'd like to satisfy as many of the pick formulas as possible while still keeping the target satisfiable. This is probably
-    NP hard because we would try the powerset of the pick formulas, but we seem to miss the target when we give an input that
-    is not very precise and we hit an unexpected branch that we don't have any info about, so it throws stuff off.
-*)
-
-
 open Core
 
 exception NoParentException
@@ -53,8 +10,8 @@ module Lookup_key =
   end
 
 (*
-  I could no longer use this, and I just keep a global formula store when the stack is empty   .
-  Currently forcing the bottom of the stack to be global feels a little messy.
+  I may prefer to no longer use this, and I instead add to a global formula store when the stack is empty.
+  Currently, I force the bottom of the stack to be the global scope, which feels a little hacky.
 *)
 module Parent =
   struct
@@ -88,16 +45,19 @@ module Parent =
       
   end
 
-module Z3_expr =
-  struct
-    include Z3.Expr
-    type t = Z3.Expr.expr
-    let t_of_sexp _ = failwith "fail t_of_sexp z3 expr"
-    let sexp_of_t _ = failwith "fail sexp_of_t x3 expr" 
-  end
 
 module Formula_set =
   struct
+    module Z3_expr =
+      struct
+        include Z3.Expr
+        type t = Z3.Expr.expr
+
+        (* Set.Make expects sexp conversions, but they aren't ever used. *)
+        let t_of_sexp _ = failwith "fail t_of_sexp z3 expr"
+        let sexp_of_t _ = failwith "fail sexp_of_t x3 expr" 
+      end
+
     module S = Set.Make (Z3_expr)
 
     type t = S.t
@@ -128,6 +88,7 @@ module Env =
     let create (branch : Branch.Runtime.t) : t =
       { empty with parent = Parent.of_runtime_branch branch }
 
+    (** [collect x] is all formulas in [x.formulas] implied by [x.parent]. *)
     let collect ({ parent ; formulas } : t) : Z3.Expr.expr =
       match parent with
       | Global -> Formula_set.collect formulas
@@ -135,7 +96,6 @@ module Env =
 
     let add ({ formulas ; _ } as x : t) (formula : Z3.Expr.expr) : t =
       { x with formulas = Formula_set.add formulas formula }
-
   end
 
 module Branch_map = Map.Make (Lookup_key)
@@ -143,10 +103,15 @@ module Branch_map = Map.Make (Lookup_key)
 (*
   There are a few additions we can make:
   * Keep global formulas separate   
-  * Store the "current parent" and its formulas separate
+  * Store the "current parent" and its formulas separately
 
   But these can be encapsulated in an environment stack. The global formulas are at
   the bottom of the stack. The current formulas are at the top of the stack.
+
+  I do think it would be nicer to have a stack that is potentially empty, and then a 
+  global formula store. This just leads to fewer fails, I think. It might be worse when
+  exiting a branch, though, because it separates the logic into a consideration of these
+  two cases: 1) exit to another local branch, or 2) exit to the global environment.
 *)
 type t =
   { stack : Env.t list
@@ -166,8 +131,7 @@ let add_formula ({ stack ; _ } as x : t) (formula : Z3.Expr.expr) : t =
   log_add_formula x formula;
   let new_stack =
     match stack with
-    | { formulas ; _ } as hd :: tl ->
-      { hd with formulas = Formula_set.add formulas formula } :: tl
+    | hd :: tl -> Env.add hd formula :: tl
     | _ -> raise NoParentException
   in
   { x with stack = new_stack }

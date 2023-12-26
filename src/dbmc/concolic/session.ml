@@ -254,7 +254,7 @@ type t =
 
 let default_global_max_step = Int.(10 ** 3)
 
-let create_default () : t =
+let default : t =
   { branch_store        = Branch.Status_store.empty 
   ; persistent_formulas = Branch_solver.Formula_set.empty
   ; target_stack        = []

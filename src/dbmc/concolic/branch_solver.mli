@@ -7,68 +7,21 @@
     in an AST. Values of runtime variables can be added to the solver underneath
     the parent branch as found during the interpretation of the program. Then a
     branch can be picked and solved for, and an input feeder is returned to attempt
-    to hit that branch.
+    to hit that branch. It's not guaranteed that the inputs will allow the interpretation
+    to hit the target branch.
 
   Logic description:
+    The solver has a functional state that is the current parent branch: it is the
+    global "branch" ie environment, or it is some local branch under a condition
+    clause.
 
-    TODO: update this description
+    Formulas are added underneath this parent, and when exiting the parent, they are
+    accumulated and implied by the exited parent and put underneath the new parent.
 
-    In this section I attempt to describe *how* the solver will work and will be used
-    by the concolic evaluator.
-
-    Suppose the concolic evaluator recursively evaluates the nodes in the AST like an
-    interpreter, and there is a parent branch (i.e. a condition and the direction of an
-    "if" statement--or no parent, which is the global case and trivial) above the current
-    node.
-    
-    We maintain a parent store that stores the parents for each variable (i.e. the direction
-    that a condition *must* take in order for that variable to take on the value it just did).
-    We can call these parents the "dependencies" because the variable depends on the parents
-    taking on those directions.
-    * Note: any variable we are considering will NOT have the current parent as a parent in
-      the parent store. The variables will only depend on parents that are deeper in the tree
-      because they are within some inner branch or depend on some variable that is within some
-      inner branch.
-
-    We also maintain a formula store that the parents imply (using an actual "implies" formula
-    eventually). This formula store will hold under each parent all the variables and their values,
-    and upon exiting that parent branch, we accumulate all of the formulas and create an "implies"
-    statement that the parent implies those formulas, and we put it under the parent of the parent.
-    e.g.
-      Outer parent
-        <some code>
-        Inner parent
-          /* suppose WLOG we take the "true" direction */
-          x = 0 /* the inner parent has a formula under it that x = 0 */
-          y = 1 /* the inner parent has a formula under it that y = 1 */
-        /* exiting inner parent branch... */
-        /* the outer parent has a formula that (inner parent = true) => (x = 0 and y = 1) */
-        z = result of inner parent /* outer parent has formula z = y */
-
-    To save space, we clear out all the formulas under the branch after exiting because they won't
-    be needed again, and anything that *is* needed will be necessarily stored under the outer parent
-    under a big "anded" expression.
-
-    The only time a parent is directly added to a variable is upon exiting a branch. In the example
-    above, z takes on the result of the inner branch, and it directly gains the parent
-      ( inner branch , true ).
-    Now, whenever any later variable depends on z (e.g. if we add w = z to the next line), that variable
-    gains any parents that z had because now it also depends on z's parents. This is how parents originate
-    and are accumulated. Note that this means no variable EVER has the outer parent as a dependency
-    while underneath the outer parent branch.
-
-    In this formula store, under the global scope, are many "pick" formulas, where each branch key
-    (i.e. the variable that identifies the branch clause) implies all the parents above that
-    are necessary to reach it. Then, upon solving, we "set one of these branch keys to true" (very
-    roughly) so that the parents must all be satisfied by the solver.
-
-    TODO: since we're only ever adding to the parent we're under (or the global parent, in which case
-      I might just want to add to the solver), we can pass along a list of expressions for the current
-      parent and keep on the stack frame the list for upper parents. Equivalently, we could have a 2D
-      list, where the head is the expression list for the current parent, and when done with that parent
-      we just pop off the head and return to the tail.
-      I can assert that the user is doing this properly by making it a list of (branch * expr list) so that
-      I check the branch is indeed the parent we're under.
+    When solving, all formulas from the global scope are added to a Z3 solver and
+    used to make an input feeder. The Z3 solver is mutable, but the scope of the solver
+    is only inside the `get_feeder` function, so to the user, this module is entirely
+    functional.
 *)
 
 exception NoParentException
@@ -79,10 +32,13 @@ exception NoParentException
 module Formula_set :
   sig
     type t
-    val add : t -> Z3.Expr.expr -> t
-    val union : t -> t -> t
-    val fold : t -> init:'a -> f:('a -> Z3.Expr.expr -> 'a) -> 'a
+    (** [t] is a set of Z3 expressions, ie "formulas". *)
     val empty : t
+    val add : t -> Z3.Expr.expr -> t
+    (** [add set e] adds the expression [e] to the [set]. *)
+    val union : t -> t -> t
+    (** [union a b] is all formulas in [a] or [b]. *)
+    val fold : t -> init:'a -> f:('a -> Z3.Expr.expr -> 'a) -> 'a
     val of_list : Z3.Expr.expr list -> t
   end
 
