@@ -1,4 +1,15 @@
 
+TODO:
+* Docs
+* Continue with misses until steady state
+* Track inputs and solvers that lead to hits/misses
+* Nice output
+* Replicable tests
+* Port over logging (and figure out logging in general)
+* Use input AST branches to customize output
+* Use variants instead of exceptions to make tracking easier
+* Confirm that we only want int input
+
 ## Summary
 
 Things that are working:
