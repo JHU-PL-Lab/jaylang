@@ -102,7 +102,7 @@ module Branch_map = Map.Make (Lookup_key)
 
 (*
   There are a few additions we can make:
-  * Keep global formulas separate   
+  * Store global formulas separately
   * Store the "current parent" and its formulas separately
 
   But these can be encapsulated in an environment stack. The global formulas are at
