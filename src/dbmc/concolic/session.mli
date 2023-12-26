@@ -66,7 +66,7 @@ module Eval :
 
 (**
   The concolic session tracks a single concolic evaluation. It gathers formulas from start to finish
-  one evaluation of the program.   
+  of one evaluation of the program.   
 *)
 module Concolic :
   sig
