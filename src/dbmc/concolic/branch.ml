@@ -126,20 +126,46 @@ module Status_store =
 
         let both_unhit = fun _ -> Status.Unhit
 
+        (*
+          We allow status changes that provide new information about the branch.
+          e.g.
+            * If we missed a branch earlier, it is news to now hit it
+            * If we hit a branch earlier, it is not news to mark it as unsatisfiable   
+        *)
+        let is_valid_status_change (new_status : Status.t) (old_status : Status.t) : bool =
+          match old_status with
+          | Missed -> begin
+            match new_status with
+            | Hit | Unsatisfiable | Found_abort | Reached_max_step -> true
+            | Unhit | Unreachable | Missed -> false
+            end
+          | Hit -> begin
+            match new_status with
+            | Found_abort | Reached_max_step -> true
+            | Unhit | Unreachable | Missed | Unsatisfiable | Hit -> false
+            end
+          | Unhit -> true (* everything starts as unhit, and it can always be overwritten *)
+          | Unsatisfiable -> false (* it should be impossible to hit or re-solve for an unsatisfiable branch *)
+          | Unreachable -> false (* we only ever can determine unreachability as a final step, so it can't be overwritten *)
+          | Reached_max_step -> begin
+            match new_status with
+            | Found_abort | Hit (* TODO: allow hits to represent completing the branch *) -> true
+            | Unhit | Unreachable | Missed | Unsatisfiable | Reached_max_step -> false
+            end
+          | Found_abort -> begin
+            match new_status with
+            | Hit -> true
+            | Unhit | Unreachable | Missed | Unsatisfiable | Reached_max_step | Found_abort -> false
+            end
+
         (* more general [hit] *)
         let set (f : t) (direction : Direction.t) (new_status : Status.t) : t =
           function
-          | d when Direction.equal d direction -> begin
-            (* temporary patch: put in some logic to only allow certain overwrites *) 
-            match new_status, f d (* old status*) with
-            | Status.Hit, Unhit | Hit, Missed
-            | Unsatisfiable, Unhit | Unsatisfiable, Reached_max_step | Unsatisfiable, Missed
-            | Found_abort, Hit | Found_abort, Missed
-            | Reached_max_step, Hit | Reached_max_step, Missed
-            | Unreachable, Unhit
-            | Missed, Unhit -> new_status
-            | _, old_status -> old_status (* anything else disallowed *)
-            end
+          | d when Direction.equal d direction ->
+            let old_status = f d in 
+            if is_valid_status_change new_status old_status
+            then new_status
+            else old_status
           | d -> f d
 
         let hit (f : t) (direction : Direction.t) : t =
