@@ -62,6 +62,9 @@ val add_key_eq_val : t -> Lookup_key.t -> Jayil.Ast.value -> t
 val add_alias : t -> Lookup_key.t -> Lookup_key.t -> t
 (** [add_alias s k k'] adds the formula that [k] and [k'] hold the same value in solver [s]. *)
 
+val add_binop : t -> Lookup_key.t -> Jayil.Ast.binary_operator -> Lookup_key.t -> Lookup_key.t -> t
+(** [add_binop s x op left right] adds the formula that [k = left op right] to the solver [s]. *)
+
 val add_formula : t -> Z3.Expr.expr -> t (* TODO: hide *)
 (** [add_formula s e] adds the z3 expression [e] to the solver [s]. *)
 

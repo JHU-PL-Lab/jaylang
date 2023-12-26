@@ -101,6 +101,9 @@ module Concolic :
     val add_alias : t -> Lookup_key.t -> Lookup_key.t -> t
     (** [add_alias session x y] sets [x = y] in the [session]. This is a special case of [add_formula]. *)
 
+    val add_binop : t -> Lookup_key.t -> Jayil.Ast.binary_operator -> Lookup_key.t -> Lookup_key.t -> t
+    (** [add_binop session x op y z] sets [z = y op z] in the [session]. This is a special case of [add_formula]. *)
+
     val found_abort : t -> t
     (** [found_abort session] adds the info that an abort was found under the current parent. *)
 

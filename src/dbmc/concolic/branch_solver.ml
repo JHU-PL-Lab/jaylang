@@ -142,6 +142,9 @@ let add_key_eq_val (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
 let add_alias (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
   add_formula x @@ Riddler.eq key1 key2
 
+let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
+  add_formula x @@ Riddler.binop_without_picked key op left right
+
 (* TODO: all other types of formulas, e.g. binop, not, pattern, etc *)
 
 let enter_branch ({ stack ; _ } as x : t) (branch : Branch.Runtime.t) : t =

@@ -390,7 +390,7 @@ and eval_clause
       let z_stk = Fetch.fetch_stk ~eval_session ~stk env vz in
       let y_key = generate_lookup_key y y_stk in
       let z_key = generate_lookup_key z z_stk in
-      retv, Session.Concolic.add_formula conc_session @@ Riddler.binop_without_picked x_key op y_key z_key
+      retv, Session.Concolic.add_binop conc_session x_key op y_key z_key
     | Abort_body -> begin
       (* TODO: concolic -- I think it's done, but leaving this todo just in case *)
       let ab_v = AbortClosure env in

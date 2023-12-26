@@ -145,8 +145,8 @@ module Concolic =
     let add_alias (session : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
       { session with branch_solver = Branch_solver.add_alias session.branch_solver key1 key2 }
 
-    (* let add_siblings (session : t) (key : Lookup_key.t) ~(siblings : Lookup_key.t list) : t =
-      { session with branch_solver = Branch_solver.add_siblings key siblings session.branch_solver } *)
+    let add_binop (session : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
+      { session with branch_solver = Branch_solver.add_binop session.branch_solver key op left right }
 
     let is_target (branch : Branch.Runtime.t) (target : Branch.Runtime.t option) : bool =
       Option.map target ~f:(fun x -> Branch.Runtime.compare branch x = 0)
