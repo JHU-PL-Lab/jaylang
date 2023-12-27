@@ -90,7 +90,7 @@ module Runtime :
 *)
 module Status_store :
   sig
-    type t
+    type t [@@deriving sexp, compare]
     (** [t] is a map from a branch identifier to the status of the branch. So it tells
         us whether the true and false direction of each branch have been hit. *)
 

@@ -5,6 +5,7 @@ TODO:
 * Track inputs and solvers that lead to hits/misses -- i.e. payloads on branch statuses
 * Nice output
 * Replicable tests
+  * Expect s-expressions
 * Port over logging (and figure out logging in general)
 * Use input AST branches to customize output -- this is for use in the type checker
 * Use variants instead of exceptions to make tracking easier

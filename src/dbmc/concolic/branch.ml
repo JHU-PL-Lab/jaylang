@@ -15,8 +15,6 @@ module Lookup_key =
 *)
 module Condition_key = Lookup_key
 
-
-
 module Status =
   struct
     (* TODO: add payload for input *)
@@ -28,7 +26,7 @@ module Status =
       | Reached_max_step (* TODO: consider runs with other inputs to try to lower step count *)
       | Missed
       | Unreachable (* any unhit branch whose parent is unsatisfiable *)
-      [@@deriving variants, compare]
+      [@@deriving variants, compare, sexp]
 
     let to_string x = Variants.to_name x |> String.capitalize
 
@@ -120,6 +118,11 @@ module Status_store =
 
         let both_unhit = fun _ -> Status.Unhit
 
+        let compare bs1 bs2 =
+          match Status.compare (bs1 True_direction) (bs2 True_direction) with
+          | 0 -> Status.compare (bs1 False_direction) (bs2 False_direction)
+          | x -> x
+
         (*
           We allow status changes that provide new information about the branch.
           e.g.
@@ -162,6 +165,12 @@ module Status_store =
             else old_status
           | d -> f d
 
+        let of_statuses (true_status : Status.t) (false_status : Status.t) : t =
+          set
+            (set both_unhit Direction.True_direction true_status)
+            Direction.False_direction
+            false_status
+
         let hit (f : t) (direction : Direction.t) : t =
           set f direction Status.Hit
 
@@ -182,11 +191,13 @@ module Status_store =
           | d -> x d
       end
       
-
+    (* Note we don't actually derive sexp. We manually do nicer conversions below *)
     type t = Branch_status.t Ast.Ident_map.t
 
     (* Ident_map is Batteries.Map *)
     let empty = Ast.Ident_map.empty
+
+    let compare = Ast.Ident_map.compare Branch_status.compare
 
     let print (map : t) : unit = 
       Format.printf "\nBranch Information:\n";
@@ -246,4 +257,33 @@ module Status_store =
     (* map any unhit to unreachable *)
     let finish (map : t) : t =
       Ast.Ident_map.map (fun b -> Branch_status.map b Status.Unhit Status.Unreachable) map
+
+    module Sexp_conversions =
+      struct
+        module My_tuple =
+          struct
+            (* branch name, true status, false status *)
+            type t = string * Status.t * Status.t [@@deriving sexp]
+
+            let of_ident_branch_status (Ast.Ident s, branch_status) : t =
+              (s, branch_status Direction.True_direction, branch_status Direction.False_direction)
+
+            let to_ident_branch_status (s, true_status, false_status) : Ast.ident * Branch_status.t =
+              (Ast.Ident s, Branch_status.of_statuses true_status false_status)
+          end
+
+        (* Convert to tuple list of ident, true status, false status.
+          This is atrociously inefficient, but it is only used for small maps. *)
+        let sexp_of_t (map : t) : Sexp.t =
+          map
+          |> Ast.Ident_map.to_list
+          |> List.sexp_of_t (Fn.compose My_tuple.sexp_of_t My_tuple.of_ident_branch_status)
+
+        let t_of_sexp (sexp : Sexp.t) : t =
+          sexp
+          |> List.t_of_sexp (Fn.compose My_tuple.to_ident_branch_status My_tuple.t_of_sexp)
+          |> Ast.Ident_map.of_list
+      end
+
+    include Sexp_conversions
   end

@@ -8,5 +8,5 @@ let test_one testname _args =
   Alcotest.(check bool) "concolic" true true
 
 let () =
-  let grouped_tests = Lib.group_tests "test/dbmc" test_one in
+  let grouped_tests = Lib.group_tests "test/dbmc/concolic" test_one in
   Alcotest.run_with_args "concolic" Test_argparse.config grouped_tests
