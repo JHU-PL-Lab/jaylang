@@ -1,4 +1,10 @@
-# this program has an abort that is hit but is exclusive from other solves.
+# This program has an abort that is hit but is exclusive from other solves.
+# The `abort_on_false_side_branch` has an abort in an inner branch of the false side.
+
+# EXPECTED BRANCH INFORMATION
+# abort_on_false_side_branch: True=Hit; False=Hit
+# no_abort_inner_branch: True=Unsatisfiable; False=Hit
+# inner_branch: True=Found_abort; False=Hit
 
 x = input;
 

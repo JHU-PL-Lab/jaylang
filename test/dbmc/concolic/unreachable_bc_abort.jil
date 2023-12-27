@@ -1,4 +1,13 @@
-# Misses a target if input is 1 on first run. Otherwise it works. UPDATE: this is no longer true, and I'm not sure why.
+# This program has an abort that prevents a later branch from being hit because that branch
+#   depends on the same condition that leads to the abort. We need to mark aborts as off limits
+#   so that later solves don't keep running into them, we are unable to solve for later targets
+#   due to earlier aborts.
+
+# EXPECTED BRANCH INFORMATION
+# x_gte_one_branch: True=Hit; False=Hit
+# x_is_one_branch_with_abort: True=Found_abort; False=Hit
+# unreachable_branch_because_abort: True=Unreachable; False=Unreachable
+# x_not_one_branch_without_abort: True=Hit; False=Unsatisfiable
 
 x = input;
 
@@ -30,14 +39,16 @@ x_gte_one_branch = x_gte_one_cond ?
         clause1 = 1
       );
 
-    x_is_one_branch_without_abort = x_is_one_cond ?
-      (
-        # cannot be satisified because always hits abort first in branch above
-        unsatisfiable_because_abort_clause = 10000
-      ) :
+    x_is_not_one_cond = not x_is_one_cond;
+
+    x_not_one_branch_without_abort = x_is_not_one_cond ?
       (
         # happens when x > 1
         clause3 = 3
+      ) :
+      (
+        # cannot be satisified because always hits abort first in branch above
+        unsatisfiable_because_abort_clause = 10000
       )
   ) :
   (

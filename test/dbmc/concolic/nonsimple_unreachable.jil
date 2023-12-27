@@ -1,0 +1,28 @@
+# This program has an unsatisfiable branch because the inner branch has a condition that is
+#   impossible to satisfy due to the parent branch.
+
+# EXPECTED BRANCH INFORMATION
+# both_reachable: True=Hit; False=Hit
+# always_false_branch: True=Unsatisfiable; False=Hit
+# unreachable_branch: True=Unreachable; False=Unreachable
+
+x = input;
+
+one = 1;
+cx = one < x;
+
+both_reachable = cx ? (
+  always_false_cond = x < one;
+  always_false_branch = always_false_cond ? (
+    # Unreachable because cx = one < x, but this side means x < one. That's not possible
+    unreachable_cond = one < one;
+    unreachable_branch = unreachable_cond ? 
+      ( ret_true_unreachable = 1 ) :
+      ( ret_false_unreachable = 0 )
+  ) : (
+    must_get_here = 10
+  );
+  ret_true_both_reachable = one < always_false_branch
+) : (
+  ret_false_both_reachable = -10
+)

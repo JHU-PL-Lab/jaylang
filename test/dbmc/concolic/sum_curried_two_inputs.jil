@@ -1,7 +1,14 @@
 # This program just has a tricky recursive sum to solve. All branches can be hit.
+# There are two inputs:
+# x tries to be the sum of the recursive function.
+# y gives the number of times the recursive function runs.
+# If y is really large or is negative, this could time out. Currently, further runs handle this, I think.
+# ^ Though I had one run that led to w1 false is unsatisfiable, which is incorrect. I need to look into this.
+
 
 other_zero = 0;
 x = input;
+y = input;
 f = fun s -> (
     f0 = fun ra -> (
         fc = fun rc -> (
@@ -28,9 +35,8 @@ f = fun s -> (
     );
 );
 ff = f f;
-x3 = 3;
-rx3 = { val = x3 };
-zz = ff rx3;
+ry = { val = y };
+zz = ff ry;
 z = zz other_zero;
 c = x == z;
 e = c ? (

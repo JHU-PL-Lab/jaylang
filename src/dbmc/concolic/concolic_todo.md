@@ -1,6 +1,5 @@
 
 TODO:
-* Docs
 * Continue with misses until steady state
 * Handle max step
 * Track inputs and solvers that lead to hits/misses -- i.e. payloads on branch statuses

@@ -268,12 +268,11 @@ and eval_clause
         match res with
         | Error (Found_abort (v, conc_session)) ->
           (* can just say x = x and continue aborting to wrap up and let no future formulas get added *)
-          (* TODO: figure out why pick branch is not getting added on the deepest aborted branch *)
           raise @@ Found_abort (v, Session.Concolic.exit_branch conc_session)
         | Error (Reach_max_step _) -> () (* TODO *)
         | _ -> () (* continue normally on Ok or any other exception *)
       end;
-      let ret_env, ret_val, conc_session = Result.ok_exn res in (* Bubbles exceptions *)
+      let ret_env, ret_val, conc_session = Result.ok_exn res in (* Bubbles exceptions that aren't handled above *)
       let (Var (ret_id, _) as last_v) = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
       let _, ret_stk = Fetch.fetch_val_with_stk ~eval_session ~stk:stk' ret_env last_v in
 
@@ -294,16 +293,13 @@ and eval_clause
       (* x = f y ; *)
       match Fetch.fetch_val ~eval_session ~stk env vf with
       | FunClosure (fid, Function_value (Var (param, _), body), fenv) ->
-        (* vx2 is the argument that fills in param *)
+        (* varg is the argument that fills in param *)
         let arg, arg_stk = Fetch.fetch_val_with_stk ~eval_session ~stk env varg in
         let stk' = Concrete_stack.push (x, fid) stk in
         let env' = Ident_map.add param (arg, stk') fenv in
         Session.Eval.add_alias (param, stk) (x_arg, arg_stk) eval_session;
 
         (* enter function: say arg is same as param *)
-        (* let Var (xid, _) = vf in *)
-        (* let f_stk = Fetch.fetch_stk ~eval_session ~stk env vf in *)
-        (* let key_f = generate_lookup_key xid f_stk in *) (* this was only needed when we had the siblings and dependencies *)
         let key_param = generate_lookup_key param stk' in
         let key_arg = generate_lookup_key x_arg arg_stk in
         let conc_session = Session.Concolic.add_alias conc_session key_param key_arg in
@@ -392,7 +388,6 @@ and eval_clause
       let z_key = generate_lookup_key z z_stk in
       retv, Session.Concolic.add_binop conc_session x_key op y_key z_key
     | Abort_body -> begin
-      (* TODO: concolic -- I think it's done, but leaving this todo just in case *)
       let ab_v = AbortClosure env in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, ab_v) eval_session;
       let conc_session = Session.Concolic.found_abort conc_session in
@@ -409,6 +404,7 @@ and eval_clause
         else raise @@ Found_abort (ab_v, conc_session)
       end
     | Assert_body _ | Assume_body _ ->
+      (* TODO: concolic -- should I always let these be true? *)
       let v = Value_bool true in
       let retv = Direct v in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;

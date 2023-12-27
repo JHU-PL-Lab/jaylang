@@ -1,12 +1,14 @@
-# minimal failing example
-# all branches should be solvable
-# cannot solve for second_cond = false
-# it solves just fine without the branch and with `first_branch = -10;` instead, all else the same.
-# it also solves just fine when x is not used in any computation before `second_cond`, and only a computation using `<=` seems okay.
-# Now I'm seeing that just having zero and one statements makes it fail. But neither individually fails it.
-
+# This used to be the minimal example for a failing program. It now works just fine.
+# This was challenging because after the first run, it would need to solve for second_cond == false,
+#   so x < first_branch, but it only knew what first_branch was on the true side. So it might give
+#   an input that hit the false side and failed to hit the target, but with more information from a
+#   second run, it would successfully hit the target. 
 
 # note that concolic gives inputs in [-10, 10] on first run.
+
+# EXPECTED BRANCH INFORMATION
+# first_branch: True=Hit; False=Hit
+# second_branch: True=Hit; False=Hit
 
 x = input;
 large = 100;
@@ -18,11 +20,9 @@ first_branch = first_cond ? (
   first_branch_false_return = 100
 );
 
-# zero = 0;
-# x_plus_zero = x + zero; # if this is uncommented, it fails. If commented, it works
-# one = 1;
-# ^ note I don't even have to USE this anywhere. Old concolic versions fail even with this commented.
-second_cond = first_branch < x;
+one = 1;
+x_plus_one = x + one;
+second_cond = first_branch < x_plus_one; # always true on first run
 
 second_branch = second_cond ? (
   result_true = 42
