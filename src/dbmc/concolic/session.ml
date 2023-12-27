@@ -198,11 +198,13 @@ module Concolic =
 
     (* TODO: see about modularizing these internal functions that are helpers for Session.t *)
     (* TODO: maybe this shouldn't be here because it is moreso the logic of Session to determine this. *)
+    (* TODO: (this one is most important) don't create a persistent formula out of reach max step until it has happend a few times *)
     (* Creates formulas out of all aborted branches such that the abort side should not be satisfied *)
     let to_persistent_formulas (session : t) : Branch_solver.Formula_set.t =
       List.filter_map session.hit_branches ~f:(fun (b, s) ->
         match s with
-        | Branch.Status.Found_abort ->
+        | Branch.Status.Found_abort | Reach_max_step ->
+          (* Handling reach_max_step like this leads to later "unsatisfiable" branches when really they're unreachable due to reach max step. *)
           Format.printf "Creating persistent formula for branch %s\n" (Branch.Runtime.to_ast_branch b |> Branch.Ast_branch.to_string);
           Branch.Runtime.other_direction b
           |> Branch.Runtime.to_expr
