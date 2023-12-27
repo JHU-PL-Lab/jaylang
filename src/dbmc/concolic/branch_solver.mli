@@ -76,6 +76,9 @@ val get_cur_parent_exn : t -> Branch.Runtime.t
 (** [get_cur_parent_exn s] is the branch that defines current environment of the solver [s],
     or is an exception if [s] is in the global environment. *)
 
+val is_global : t -> bool
+(** [is_global s] is false if and only if [get_cur_parent_exn s] throws an exception. *)
+
 val add_formula_set : Formula_set.t -> t -> t
 (** [add_formula_set f s] adds all formulas in the set [f] to the solver [s]. *)
 

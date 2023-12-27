@@ -7,7 +7,7 @@ module Status :
       | Unhit
       | Unsatisfiable
       | Found_abort
-      | Reached_max_step
+      | Reach_max_step
       | Missed
       | Unreachable (* Only to be used when conveying final results. No branch is ever unreachable during evaluation *)
 

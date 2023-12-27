@@ -218,7 +218,9 @@ and eval_clause
   | None -> ()
   | Some max_step ->
       Int.incr eval_session.step;
-      if !(eval_session.step) > max_step then raise (Reach_max_step (x, stk)) else ()
+      if !(eval_session.step) > max_step
+      then raise (Reach_max_step (x, stk, Session.Concolic.reach_max_step conc_session))
+      else ()
     );
   
   Debug.debug_update_write_node eval_session x stk;
@@ -267,9 +269,9 @@ and eval_clause
         (* This is so ugly. I really need to get rid of the exceptions and use variants *)
         match res with
         | Error (Found_abort (v, conc_session)) ->
-          (* can just say x = x and continue aborting to wrap up and let no future formulas get added *)
           raise @@ Found_abort (v, Session.Concolic.exit_branch conc_session)
-        | Error (Reach_max_step _) -> () (* TODO *)
+        | Error (Reach_max_step (v, stk, conc_session)) ->
+          raise @@ Reach_max_step (v, stk, Session.Concolic.exit_branch conc_session)
         | _ -> () (* continue normally on Ok or any other exception *)
       end;
       let ret_env, ret_val, conc_session = Result.ok_exn res in (* Bubbles exceptions that aren't handled above *)
@@ -446,21 +448,21 @@ let rec loop (e : expr) (prev_session : Session.t) : unit =
   | `Next (session, conc_session, eval_session) ->
     Format.printf "------------------------------\nRunning program...\n";
     Session.print session;
-
+    let concolic_session =
     try
       (* might throw exception which is to be caught below *)
       let _, v, conc_session = eval_exp_default ~eval_session ~conc_session e in
       Format.printf "Evaluated to: %a\n" Dvalue.pp v;
-      loop e @@ Session.accum_concolic session conc_session
+      conc_session
     with
     (* TODO: Error cases: TODO, if we hit abort, re-run if setting is applied. *)
     | Found_abort (_, conc_session) ->
         Format.printf "Running next iteration of concolic after abort\n";
-        loop e @@ Session.accum_concolic session conc_session
-    | Reach_max_step (x, stk) ->
-        (* Fmt.epr "Reach max steps\n" ; *)
+        conc_session
+    | Reach_max_step (_, _, conc_session) ->
+        Fmt.epr "Reach max steps\n" ;
         (* alert_lookup target_stk x stk session.lookup_alert; *)
-        raise (Reach_max_step (x, stk))
+        conc_session
     | Run_the_same_stack_twice (x, stk) ->
         Fmt.epr "Run into the same stack twice\n" ;
         (* Debug.alert_lookup (!session).eval x stk ; *) (* no debug statement because we don't keep the eval session *)
@@ -469,6 +471,8 @@ let rec loop (e : expr) (prev_session : Session.t) : unit =
         Fmt.epr "Run into wrong stack\n" ;
         (* Debug.alert_lookup (!session).eval x stk ; *) (* ^^ *)
         raise (Run_into_wrong_stack (x, stk))
+    in
+    loop e @@ Session.accum_concolic session concolic_session
 
 (* Concolically execute/test program. *)
 let concolic_eval (e : expr) : unit = 

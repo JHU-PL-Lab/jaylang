@@ -1,0 +1,39 @@
+# This program has a condition that depends on doubly-nested branches
+
+x = input;
+
+zero = 0;
+
+outer_cond = zero < x;
+outer_branch = outer_cond ? (
+  five = 5;
+  ten = 10;
+
+  first_inner_cond = five < x;
+  first_inner_branch = first_inner_cond ? (
+    useless_statement = ten < x;
+
+    second_inner_cond = x < ten;
+    second_inner_branch = second_inner_cond ? (
+      second_inner_true_return = 0
+    ) : (
+      second_inner_false_return = 1
+    );
+
+    one = 1;
+    first_inner_true_return = second_inner_branch - one
+  ) : (
+    first_inner_false_return = 1
+  );
+
+  #true when second_inner_cond is false i.e. 5 < x < 10
+  depends_cond = first_inner_branch == zero;
+
+  depends_branch = depends_cond ? (
+    y = 42
+  ) : (
+    z = 84
+  )
+) : (
+  w = 126
+)

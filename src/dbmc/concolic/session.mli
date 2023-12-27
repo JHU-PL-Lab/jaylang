@@ -107,6 +107,9 @@ module Concolic :
     val found_abort : t -> t
     (** [found_abort session] adds the info that an abort was found under the current parent. *)
 
+    val reach_max_step : t -> t
+    (** [reach_max_step session] adds the info that the max step was reached under the current parent. *)
+
     val enter_branch : t -> Branch.Runtime.t -> t
     (** [enter_branch session branch] sets the new parent as [branch] and hits the branch. *)
 

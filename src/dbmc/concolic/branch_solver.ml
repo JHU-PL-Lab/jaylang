@@ -128,7 +128,7 @@ let log_add_formula ({ stack ; _ } : t) (formula : Z3.Expr.expr) : unit =
   | _ -> ()
 
 let add_formula ({ stack ; _ } as x : t) (formula : Z3.Expr.expr) : t =
-  log_add_formula x formula;
+  (* log_add_formula x formula; *)
   let new_stack =
     match stack with
     | hd :: tl -> Env.add hd formula :: tl
@@ -145,7 +145,7 @@ let add_alias (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
 let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
   add_formula x @@ Riddler.binop_without_picked key op left right
 
-(* TODO: all other types of formulas, e.g. binop, not, pattern, etc *)
+(* TODO: all other types of formulas, e.g. not, pattern, etc *)
 
 let enter_branch ({ stack ; _ } as x : t) (branch : Branch.Runtime.t) : t =
   { x with stack = Env.create branch :: stack }
@@ -160,7 +160,7 @@ let exit_branch ({ stack ; pick_formulas ; _ } as x : t) : t =
   in
   match stack with
   | { parent = Local exited_branch ; _ } as old_hd :: new_hd :: tl ->
-    Format.printf "exiting branch and collecting formulas. Formula is %s\n" (Env.collect old_hd |> Z3.Expr.to_string);
+    (* Format.printf "exiting branch and collecting formulas. Formula is %s\n" (Env.collect old_hd |> Z3.Expr.to_string); *)
     { stack = Env.add new_hd (Env.collect old_hd) :: tl
     ; pick_formulas = Map.set pick_formulas ~key:exited_branch.branch_key ~data:(gen_pick_formula stack) }
   | _ -> raise NoParentException (* no parent to back up to because currently in global (or no) scope *)
@@ -209,6 +209,11 @@ let get_cur_parent_exn ({ stack ; _ } : t) : Branch.Runtime.t =
   match stack with
   | { parent = Parent.Local branch ; _ } :: _ -> branch
   | _ -> failwith "no local parent to get"
+
+let is_global ({ stack ; _ } : t) : bool =
+  match stack with
+  | { parent = Parent.Global ; _ } :: _ -> true
+  | _ -> false
 
 let add_formula_set (fset : Formula_set.t) (x : t) : t =
   Formula_set.fold fset ~init:x ~f:add_formula

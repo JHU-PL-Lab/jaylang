@@ -23,7 +23,7 @@ module Status =
       | Unhit
       | Unsatisfiable
       | Found_abort
-      | Reached_max_step (* TODO: consider runs with other inputs to try to lower step count *)
+      | Reach_max_step (* TODO: consider runs with other inputs to try to lower step count *)
       | Missed
       | Unreachable (* any unhit branch whose parent is unsatisfiable *)
       [@@deriving variants, compare, sexp]
@@ -119,6 +119,7 @@ module Status_store =
         let both_unhit = fun _ -> Status.Unhit
 
         let compare bs1 bs2 =
+          let open Direction in
           match Status.compare (bs1 True_direction) (bs2 True_direction) with
           | 0 -> Status.compare (bs1 False_direction) (bs2 False_direction)
           | x -> x
@@ -133,26 +134,26 @@ module Status_store =
           match old_status with
           | Missed -> begin
             match new_status with
-            | Hit | Unsatisfiable | Found_abort | Reached_max_step -> true
+            | Hit | Unsatisfiable | Found_abort | Reach_max_step -> true
             | Unhit | Unreachable | Missed -> false
             end
           | Hit -> begin
             match new_status with
-            | Found_abort | Reached_max_step -> true
+            | Found_abort | Reach_max_step -> true
             | Unhit | Unreachable | Missed | Unsatisfiable | Hit -> false
             end
           | Unhit -> true (* everything starts as unhit, and it can always be overwritten *)
           | Unsatisfiable -> false (* it should be impossible to hit or re-solve for an unsatisfiable branch *)
           | Unreachable -> false (* we only ever can determine unreachability as a final step, so it can't be overwritten *)
-          | Reached_max_step -> begin
+          | Reach_max_step -> begin
             match new_status with
             | Found_abort | Hit (* TODO: allow hits to represent completing the branch *) -> true
-            | Unhit | Unreachable | Missed | Unsatisfiable | Reached_max_step -> false
+            | Unhit | Unreachable | Missed | Unsatisfiable | Reach_max_step -> false
             end
           | Found_abort -> begin
             match new_status with
             | Hit -> true
-            | Unhit | Unreachable | Missed | Unsatisfiable | Reached_max_step | Found_abort -> false
+            | Unhit | Unreachable | Missed | Unsatisfiable | Reach_max_step | Found_abort -> false
             end
 
         (* more general [hit] *)

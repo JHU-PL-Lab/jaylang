@@ -18,7 +18,7 @@ open Dj_common (* expose Id, Concrete_stack *)
 exception Found_target of { x : Id.t; stk : Concrete_stack.t; v : Dvalue.t }
 exception Found_abort of Dvalue.t * Session.Concolic.t
 exception Terminate of Dvalue.t
-exception Reach_max_step of Id.t * Concrete_stack.t
+exception Reach_max_step of Id.t * Concrete_stack.t * Session.Concolic.t
 exception Run_the_same_stack_twice of Id.t * Concrete_stack.t
 exception Run_into_wrong_stack of Id.t * Concrete_stack.t
 

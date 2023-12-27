@@ -158,6 +158,15 @@ module Concolic =
         hit_branches = (branch, Branch.Status.Found_abort) :: session.hit_branches
       ; outcomes = Set.add session.outcomes Outcome.Found_abort }
 
+    let reach_max_step (session : t) : t =
+      if Branch_solver.is_global session.branch_solver
+      then session (* if reaching max step globally, then I really don't know what to do... *)
+      else 
+        let branch = Branch_solver.get_cur_parent_exn session.branch_solver in
+        { session with
+          hit_branches = (branch, Branch.Status.Reach_max_step) :: session.hit_branches
+        ; outcomes = Set.add session.outcomes Outcome.Reach_max_step }
+
     let enter_branch (session : t) (branch : Branch.Runtime.t) : t =
       Format.printf "Hitting: %s: %s\n"
         (let (Jayil.Ast.Ident x) = branch.branch_key.x in x)
@@ -275,7 +284,7 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
     @@ Branch.Runtime.to_ast_branch target
     |> function
       | Branch.Status.Hit | Unsatisfiable | Found_abort -> true
-      | Unhit | Missed | Reached_max_step | Unreachable -> false
+      | Unhit | Missed | Reach_max_step | Unreachable -> false
   in
   match Branch.Status_store.get_unhit_branch session.branch_store, session.target_stack with
   | None, _ -> (* all branches have been considered *)
@@ -315,11 +324,6 @@ let finish (session : t) : t =
   { session with branch_store = Branch.Status_store.finish session.branch_store ; target_stack = [] }
 
 let print ({ branch_store ; target_stack ; _ } : t) : unit =
-  (* begin
-  match target_stack with
-  | (target, _) :: _ -> Branch.Runtime.print_target_option (Some target)
-  | [] -> ()
-  end; *) (* don't print this because the actual target we might intend to print has been popped off and handed over to concolic session *)
   Branch.Status_store.print branch_store
 
 (* TODO: handle different types of hits from concolic *)
