@@ -5,6 +5,7 @@ open Dbmc
 let test_one_file testname _args =
   let result = 
     match 
+      (* Read expected branch information via sexp from the `<filename>.expect.s` file. *)
       File_utils.load_expect testname Branch.Status_store.t_of_sexp
     with
     | None -> false (* no expected output, so say it failed *)

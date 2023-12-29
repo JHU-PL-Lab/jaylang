@@ -31,31 +31,27 @@ module Direction :
     val of_bool : bool -> t
 end
 
-(*
-  An Ast branch is just the identifier and not the stack.   
-
-  TODO: make this just Branch.t
-*)
-module Ast_branch :
+module T :
   sig
-    type t = 
+    type t =
       { branch_ident : Ast.ident
       ; direction    : Direction.t }
-    (** [t] has a variable identifier for the branch (the variable in the branch's clause, not the
-        condition variable) and some specific direction.
-        i.e. a branch is not just the clause, but it is specfically some direction of the clause. *)
-
-    val to_string : t -> string
-    (** [to_string branch] ignores the condition of the branch and is the branch ident and direction. *)
-
-    val of_ident_and_bool : Ast.ident -> bool -> t
-    (** [of_ident_and_bool branch_ident dir] converts the bool [dir] to a direction and uses that to
-        make an Ast branch. *)
   end
 
+type t = T.t =
+  { branch_ident : Ast.ident
+  ; direction    : Direction.t }
+(** [t] is an AST branch with just the identifier of the clause. The runtime stack is not considered. *)
+
+val to_string : t -> string
+(** [to_string branch] ignores the condition of the branch and is the branch ident and direction. *)
+
+val of_ident_and_bool : Ast.ident -> bool -> t
+(** [of_ident_and_bool branch_ident dir] converts the bool [dir] to a direction and uses that to
+    make a branch. *)
+
 (*
-  "Runtime" is a modifier/adjective on "Branch", so it is a "Runtime Branch". I could not
-  do the same on "Ast" because I'd like to not overwrite Jayil.Ast.
+  "Runtime" is a modifier/adjective on "Branch", so it is a "Runtime Branch".
 *)
 module Runtime :
   sig
@@ -77,7 +73,7 @@ module Runtime :
     val to_string : t -> string
     (** [to_string x] shows all of the branch, condition, and direction in [x] as a string. *)
 
-    val to_ast_branch : t -> Ast_branch.t
+    val to_ast_branch : t -> T.t
     (** [to_ast_branch x] is an AST branch, where only the ident is kept from the branch key, and condition is discarded. *)
 
     val other_direction : t -> t
@@ -107,18 +103,18 @@ module Status_store :
         the branch store [store], and both directions of the new branch are unhit. See
         [Branch_status.both_unhit]. *)
 
-    val get_unhit_branch : t -> Ast_branch.t option
+    val get_unhit_branch : t -> T.t option
     (** [get_unhit_branch store] is some branch that is unhit. *)
 
-    val set_branch_status : new_status:Status.t -> t -> Ast_branch.t -> t
+    val set_branch_status : new_status:Status.t -> t -> T.t -> t
     (** [set_branch_status status store branch] is a new store where the given [branch] now has the
         [status]. All other branches are unaffected. *)
 
-    val is_hit : t -> Ast_branch.t -> bool
+    val is_hit : t -> T.t -> bool
     (** [is_hit store branch] is true if and only if the status of [branch.branch_ident] in 
         the [store] has [branch.direction] as [Hit]. *)
 
-    val get_status : t -> Ast_branch.t -> Status.t
+    val get_status : t -> T.t -> Status.t
     (** [get_status store branch] is the status of the given [branch]. *)
 
     val find_branches : Ast.expr -> t -> t

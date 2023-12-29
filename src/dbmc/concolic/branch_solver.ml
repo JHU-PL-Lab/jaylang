@@ -34,7 +34,7 @@ module Parent =
       | Global -> None
       | Local branch -> Some branch.condition_key
 
-    let to_ast_branch_exn (parent : t) : Branch.Ast_branch.t =
+    let to_ast_branch_exn (parent : t) : Branch.t =
       match parent with
       | Local x -> Branch.Runtime.to_ast_branch x
       | Global -> failwith "global ast branch undefined"
@@ -176,7 +176,7 @@ let to_solver ({ stack ; pick_formulas } : t) (target_branch_key : Lookup_key.t)
 let get_model
   (x : t)
   (target : Branch.Runtime.t)
-  : [ `Success of Z3.Model.model | `Unsatisfiable of Branch.Ast_branch.t | `No_pick | `Not_global ]
+  : [ `Success of Z3.Model.model | `Unsatisfiable of Branch.t | `No_pick | `Not_global ]
   =
   let picked_branch_formula = Riddler.picked target.branch_key in (* TODO: check this is in the solver *)
   let condition_formula = Branch.Runtime.to_expr target in
@@ -197,7 +197,7 @@ let get_model
 let get_feeder
   (x : t)
   (target : Branch.Runtime.t)
-  : (Concolic_feeder.t, Branch.Ast_branch.t) result
+  : (Concolic_feeder.t, Branch.t) result
   =
   match get_model x target with
   | `No_pick -> failwith "tried to solve for target that can't be picked"

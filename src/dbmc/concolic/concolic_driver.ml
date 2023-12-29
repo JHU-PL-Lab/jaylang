@@ -4,7 +4,7 @@
 
 open Core
 
-(* TODO: this logic is out of date because reach max step should be getting bubbled *)
+(* This logic is out of date because reach max step should be getting bubbled *)
 (* Run concolic tester: *)
 (* let rec test_program_concolic source counter =
   if counter <= 0 then Format.printf "Timeout limit reached. Program will not terminate...\n" else 

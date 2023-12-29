@@ -69,7 +69,7 @@ val add_binop : t -> Lookup_key.t -> Jayil.Ast.binary_operator -> Lookup_key.t -
 val add_formula : t -> Z3.Expr.expr -> t (* TODO: hide eventually *)
 (** [add_formula s e] adds the z3 expression [e] to the solver [s]. *)
 
-val get_feeder : t -> Branch.Runtime.t -> (Concolic_feeder.t, Branch.Ast_branch.t) result
+val get_feeder : t -> Branch.Runtime.t -> (Concolic_feeder.t, Branch.t) result
 (** [get_feeder s b] is a feeder to hit the branch [b] based on formulas in the solver [s], 
     or is an error if [b] is unsatisfiable. *)
 

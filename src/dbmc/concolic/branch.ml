@@ -55,8 +55,7 @@ module Direction =
     let of_bool b = if b then True_direction else False_direction
   end
 
-
-module Ast_branch = 
+module T = 
  struct
     type t =
       { branch_ident    : Ast.ident
@@ -69,6 +68,7 @@ module Ast_branch =
       { branch_ident ; direction = Direction.of_bool dir }
   end
 
+include T
 
 module Runtime =
   struct
@@ -81,8 +81,8 @@ module Runtime =
     let to_expr ({condition_key ; direction ; _ } : t) : Z3.Expr.expr =
       Riddler.eqv condition_key (Direction.to_value_bool direction)
 
-    let to_ast_branch ({ branch_key ; direction ; _ } : t) : Ast_branch.t =
-      Ast_branch.{ branch_ident = branch_key.x ; direction }
+    let to_ast_branch ({ branch_key ; direction ; _ } : t) : T.t =
+      T.{ branch_ident = branch_key.x ; direction }
 
     let to_string ({ branch_key ; condition_key ; direction } : t) : string =
       Lookup_key.to_string branch_key
@@ -207,17 +207,17 @@ module Status_store =
     let add_branch_id (map : t) (id : Ast.ident) : t =
       Ast.Ident_map.add id Branch_status.both_unhit map
 
-    let get_unhit_branch (map : t) : Ast_branch.t option =
+    let get_unhit_branch (map : t) : T.t option =
       map
       |> Ast.Ident_map.to_seq
       |> Batteries.Seq.find_map (fun (branch_ident, data) ->
           match data Direction.True_direction, data Direction.False_direction with
-          | Status.Unhit, _ | Status.Missed, _ -> Some Ast_branch.{ branch_ident ; direction = Direction.True_direction }
-          | _, Status.Unhit | _, Status.Missed -> Some Ast_branch.{ branch_ident ; direction = Direction.False_direction }
+          | Status.Unhit, _ | Status.Missed, _ -> Some T.{ branch_ident ; direction = Direction.True_direction }
+          | _, Status.Unhit | _, Status.Missed -> Some T.{ branch_ident ; direction = Direction.False_direction }
           | _ -> None
         )
 
-    let set_branch_status ~(new_status : Status.t) (map : t) (branch : Ast_branch.t) : t =
+    let set_branch_status ~(new_status : Status.t) (map : t) (branch : T.t) : t =
       Ast.Ident_map.update_stdlib
         branch.branch_ident
         (function
@@ -225,13 +225,13 @@ module Status_store =
         | None -> failwith "unbound branch")
         map
 
-    let get_status (map : t) (branch : Ast_branch.t) : Status.t =
+    let get_status (map : t) (branch : T.t) : Status.t =
       match Ast.Ident_map.find_opt branch.branch_ident map with
       | Some branch_status -> branch_status branch.direction
       | None -> failwith "unbound branch"
 
     (* precondition: the branch is in the map *)
-    let is_hit (map : t) (branch : Ast_branch.t) : bool =
+    let is_hit (map : t) (branch : T.t) : bool =
       branch.direction
       |> Ast.Ident_map.find branch.branch_ident map (* is a function from direction to status *)
       |> function

@@ -205,7 +205,7 @@ module Concolic =
         match s with
         | Branch.Status.Found_abort | Reach_max_step ->
           (* Handling reach_max_step like this leads to later "unsatisfiable" branches when really they're unreachable due to reach max step. *)
-          (* Format.printf "Creating persistent formula for branch %s\n" (Branch.Runtime.to_ast_branch b |> Branch.Ast_branch.to_string); *)
+          (* Format.printf "Creating persistent formula for branch %s\n" (Branch.Runtime.to_ast_branch b |> Branch.to_string); *)
           Branch.Runtime.other_direction b
           |> Branch.Runtime.to_expr
           |> Option.return
@@ -313,7 +313,7 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
               , Concolic.create ~target
               , Eval.create input_feeder session.global_max_step )
       | Error b ->
-        (* Format.printf "Unsatisfiable branch %s. Continuing to next target.\n" (Branch.Ast_branch.to_string b); *)
+        (* Format.printf "Unsatisfiable branch %s. Continuing to next target.\n" (Branch.to_string b); *)
         let branch_store = 
           Branch.Status_store.set_branch_status
             ~new_status:Branch.Status.Unsatisfiable
@@ -329,7 +329,6 @@ let finish (session : t) : t =
 let print ({ branch_store ; target_stack ; _ } : t) : unit =
   Branch.Status_store.print branch_store
 
-(* TODO: handle different types of hits from concolic *)
 let accum_concolic (session : t) (concolic : Concolic.t) : t =
   let branch_store =
     concolic.hit_branches
