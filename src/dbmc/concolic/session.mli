@@ -70,26 +70,19 @@ module Eval :
 *)
 module Concolic :
   sig
-    (* TODO: instead of using outcomes, and just set some bools to true. *)
     module Outcome :
       sig
         type t =
-          | Hit_target (* The session's target was hit. *)
-          | Found_abort (* The session ended in an abort. *)
-          | Reach_max_step (* The session ended by reaching the max number of steps. *)
-      end
-
-    module Outcome_set :
-      sig
-         type t
-         (** [t] holds multiple outcomes from the program. e.g. the program can hit the target and later find an abort. *)
+          { found_abort    : bool
+          ; hit_target     : bool
+          ; reach_max_step : bool }
       end
 
     type t =
       { branch_solver : Branch_solver.t
       ; cur_target    : Branch.Runtime.t option
       ; new_targets   : Branch.Runtime.t list
-      ; outcomes      : Outcome_set.t
+      ; outcome       : Outcome.t
       ; hit_branches  : (Branch.Runtime.t * Branch.Status.t) list
       ; inputs        : (Ident.t * Dvalue.t) list }
 
@@ -137,6 +130,13 @@ module Solver_map :
     We can do this by solving for the target without any persistent formulas added, and then carefully add
     them to determine *why* we can't solve for a target.
     This also helps us decide when to stop trying to hit a target that keeps resulting in max step.
+
+    The issue is that it seems NP hard to add them carefully. For example, maybe including one "max step"
+    formula doesn't make another branch unsatisfiable, but two of them does. I need to be very careful about
+    how I add the persistent formulas in.
+    A cheap patch is to add all "abort" formulas to check unsatisfiability, then add only all "max step", and
+    then all together. This gives an idea of why a branch might not be able to be hit, even if it results in 
+    a "unreachable because of max steps and aborts".
 *)
 type t = 
   { branch_store        : Branch.Status_store.t

@@ -98,19 +98,23 @@ module Concolic =
     module Outcome =
       struct
         type t =
-          | Hit_target
-          | Found_abort
-          | Reach_max_step
+          { found_abort    : bool
+          ; hit_target     : bool
+          ; reach_max_step : bool }
           [@@deriving compare, sexp]
-      end
 
-    module Outcome_set = Set.Make (Outcome)
+        let empty : t =
+          { found_abort    = false
+          ; hit_target     = false
+          ; reach_max_step = false }
+
+      end
 
     type t =
       { branch_solver : Branch_solver.t
       ; cur_target    : Branch.Runtime.t option
       ; new_targets   : Branch.Runtime.t list
-      ; outcomes      : Outcome_set.t
+      ; outcome       : Outcome.t
       ; hit_branches  : (Branch.Runtime.t * Branch.Status.t) list
       ; inputs        : (Ident.t * Dvalue.t) list }
 
@@ -118,7 +122,7 @@ module Concolic =
       { branch_solver = Branch_solver.empty
       ; cur_target    = None
       ; new_targets   = []
-      ; outcomes      = Outcome_set.singleton Outcome.Hit_target (* hacky: say no target means target is always hit *)
+      ; outcome       = { Outcome.empty with hit_target = true } (* hacky: say no target means target is always hit *)
       ; hit_branches  = []
       ; inputs        = [] }
 
@@ -134,7 +138,7 @@ module Concolic =
     let create ~(target : Branch.Runtime.t) : t =
       { (create_default ()) with
         cur_target = Some target
-      ; outcomes = Outcome_set.empty }
+      ; outcome = Outcome.empty }
 
     let add_formula (session : t) (expr : Z3.Expr.expr) : t =
       { session with branch_solver = Branch_solver.add_formula session.branch_solver expr }
@@ -156,7 +160,7 @@ module Concolic =
       let branch = Branch_solver.get_cur_parent_exn session.branch_solver in
       { session with
         hit_branches = (branch, Branch.Status.Found_abort) :: session.hit_branches
-      ; outcomes = Set.add session.outcomes Outcome.Found_abort }
+      ; outcome = { session.outcome with found_abort = true } }
 
     let reach_max_step (session : t) : t =
       if Branch_solver.is_global session.branch_solver
@@ -165,7 +169,7 @@ module Concolic =
         let branch = Branch_solver.get_cur_parent_exn session.branch_solver in
         { session with
           hit_branches = (branch, Branch.Status.Reach_max_step) :: session.hit_branches
-        ; outcomes = Set.add session.outcomes Outcome.Reach_max_step }
+        ; outcome = { session.outcome with reach_max_step = true } }
 
     let enter_branch (session : t) (branch : Branch.Runtime.t) : t =
       (* Format.printf "Hitting: %s: %s\n"
@@ -175,7 +179,7 @@ module Concolic =
         branch_solver = Branch_solver.enter_branch session.branch_solver branch
       ; new_targets   = Branch.Runtime.other_direction branch :: session.new_targets
       ; hit_branches  = (branch, Branch.Status.Hit) :: session.hit_branches
-      ; outcomes      = if is_target branch session.cur_target then Set.add session.outcomes Outcome.Hit_target else session.outcomes }
+      ; outcome       = if is_target branch session.cur_target then { session.outcome with hit_target = true } else session.outcome }
 
     let exit_branch (session : t) : t =
       { session with branch_solver = Branch_solver.exit_branch session.branch_solver }
@@ -189,12 +193,6 @@ module Concolic =
       in
       (* Format.printf "Feed %d to %s \n" n s; *)
       { session with inputs = (x, v) :: session.inputs }
-
-    let has_abort (session : t) : bool =
-      Set.mem session.outcomes Outcome.Found_abort
-
-    let has_hit_target (session : t) : bool =
-      Set.mem session.outcomes Outcome.Hit_target
 
     (* TODO: see about modularizing these internal functions that are helpers for Session.t *)
     (* TODO: maybe this shouldn't be here because it is moreso the logic of Session to determine this. *)
@@ -338,7 +336,7 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
       @@ Branch.Runtime.to_ast_branch branch
       )
     |> function
-      | branch_store when Concolic.has_hit_target concolic || Concolic.has_abort concolic -> branch_store
+      | branch_store when concolic.outcome.hit_target || concolic.outcome.found_abort -> branch_store
       | branch_store -> (* missed target and no abort (if missed and had abort, the abort could have been the reason, so try again) *)
         Branch.Status_store.set_branch_status ~new_status:Branch.Status.Missed branch_store
         @@ Branch.Runtime.to_ast_branch (Option.value_exn concolic.cur_target)
@@ -346,7 +344,7 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
   let persistent_formulas = Concolic.to_persistent_formulas concolic in
   let target_stack, solver_map = 
     let map_targets = List.map ~f:(fun target -> (target, concolic)) in
-    match Concolic.has_hit_target concolic, Concolic.has_abort concolic with
+    match concolic.outcome.hit_target, concolic.outcome.found_abort with
     | false, _ -> begin (* used to be false, true *)
       (* Format.printf "Did not make meaningful progress, so discarding new targets\n"; *)
       (* Put the original target back on the stack to try to hit it again, but the rest are not new targets *)
