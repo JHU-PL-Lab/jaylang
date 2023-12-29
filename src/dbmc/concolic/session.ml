@@ -215,7 +215,13 @@ module Concolic =
 
   end
 
-
+(*
+  TODO: maybe instead of a map, which is very safe and correct, I can just keep a set of formulas.
+    I'd like to prove whether this might not add more information. Because the formulas are written
+    in an "implies" fashion, I don't think any formulas will ever be wrong and conflicting to add,
+    but is there ever a formula that helps us solve for a target, but that formula is found in a run
+    that doesn't hit the either direction of the target branch? Yes. Think of minimal_example.jil
+*)
 module Solver_map :
   sig
     type t 
@@ -240,7 +246,6 @@ module Solver_map :
         | None -> [c]
       )
 
-    (* Gets *)
     let get_solver (m : t) (target : Branch.Runtime.t) : Branch_solver.t =
       match Map.find m target with
       | None -> Branch_solver.empty
@@ -251,10 +256,6 @@ module Solver_map :
           ~f:(fun acc s -> Branch_solver.merge acc s.branch_solver)
   end
 
-(*
-  TODO: map targets to all concolic sessions that add the target so we get as much information as possible
-    to solve. Need to consider aborts though and if that generates conflicting formulas
-*)
 type t = 
   { branch_store        : Branch.Status_store.t
   ; persistent_formulas : Branch_solver.Formula_set.t

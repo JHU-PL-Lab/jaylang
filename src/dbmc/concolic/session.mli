@@ -70,6 +70,7 @@ module Eval :
 *)
 module Concolic :
   sig
+    (* TODO: instead of using outcomes, and just set some bools to true. *)
     module Outcome :
       sig
         type t =
@@ -129,6 +130,14 @@ module Solver_map :
     (* TODO: the formulas never depend on inputs, so maybe I can just keep all formulas together. *)
   end
 
+(*
+  TODO: keep persistent formulas as a result of max step and aborts because we might not want a branch
+    to be unsatisfiable, but rather mark it as "unsatisfiable because of earlier abort" or "unreachable
+    because of max step".
+    We can do this by solving for the target without any persistent formulas added, and then carefully add
+    them to determine *why* we can't solve for a target.
+    This also helps us decide when to stop trying to hit a target that keeps resulting in max step.
+*)
 type t = 
   { branch_store        : Branch.Status_store.t
   ; persistent_formulas : Branch_solver.Formula_set.t

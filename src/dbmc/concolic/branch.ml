@@ -210,10 +210,10 @@ module Status_store =
     let get_unhit_branch (map : t) : Ast_branch.t option =
       map
       |> Ast.Ident_map.to_seq
-      |> Batteries.Seq.find_map (fun (key, data) ->
+      |> Batteries.Seq.find_map (fun (branch_ident, data) ->
           match data Direction.True_direction, data Direction.False_direction with
-          | Status.Unhit, _ | Status.Missed, _ -> Some Ast_branch.{ branch_ident = key ; direction = Direction.True_direction }
-          | _, Status.Unhit | _, Status.Missed -> Some Ast_branch.{ branch_ident = key ; direction = Direction.False_direction }
+          | Status.Unhit, _ | Status.Missed, _ -> Some Ast_branch.{ branch_ident ; direction = Direction.True_direction }
+          | _, Status.Unhit | _, Status.Missed -> Some Ast_branch.{ branch_ident ; direction = Direction.False_direction }
           | _ -> None
         )
 
