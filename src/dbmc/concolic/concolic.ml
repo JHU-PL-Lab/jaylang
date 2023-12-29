@@ -214,14 +214,15 @@ and eval_clause
   : Dvalue.denv * Dvalue.t * Session.Concolic.t
   =
   let Clause (Var (x, _), cbody) = clause in
-  (match eval_session.max_step with 
+  begin
+  match eval_session.max_step with 
   | None -> ()
   | Some max_step ->
       Int.incr eval_session.step;
       if !(eval_session.step) > max_step
       then raise (Reach_max_step (x, stk, Session.Concolic.reach_max_step conc_session))
       else ()
-    );
+  end;
   
   Debug.debug_update_write_node eval_session x stk;
   let x_key = generate_lookup_key x stk in
@@ -337,7 +338,7 @@ and eval_clause
         let Var (proj_x, _) as proj_v = Ident_map.find label r in
         let retv, stk' = Fetch.fetch_val_with_stk ~eval_session ~stk denv proj_v in
         Session.Eval.add_alias (x, stk) (proj_x, stk') eval_session;
-        (* TODO: records have limited concolic functionality *)
+        (* TODO: records have limited concolic functionality as far as I'm aware. *)
         let Var (v_ident, _) = v in
         let v_stk = Fetch.fetch_stk ~eval_session ~stk env v in
         let record_key = generate_lookup_key v_ident v_stk in

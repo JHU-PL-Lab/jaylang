@@ -3,16 +3,17 @@
   Purpose: help store information about runtime variables and solve to hit branches.
 
   Detailed description:
-    This module defines representations of runtime data to solve to hit branches
-    in an AST. Values of runtime variables can be added to the solver underneath
-    the parent branch as found during the interpretation of the program. Then a
-    branch can be picked and solved for, and an input feeder is returned to attempt
-    to hit that branch. It's not guaranteed that the inputs will allow the interpretation
-    to hit the target branch.
+    Values of runtime variables can be added to the solver underneath the parent
+    branch as found during the interpretation of the program. Then a branch can
+    be picked and solved for, and an input feeder is returned to attempt to hit
+    that branch. It's not guaranteed that the inputs will allow the
+    interpretation to hit the target branch. Branches that had not yet been hit
+    have unknown effects, which can lead to missing the target branch, even if
+    all known formulas were satisfied.
 
   Logic description:
     The solver has a functional state that is the current parent branch: it is the
-    global "branch" ie environment, or it is some local branch under a condition
+    global "branch" i.e. environment, or it is some local branch under a condition
     clause.
 
     Formulas are added underneath this parent, and when exiting the parent, they are
@@ -63,9 +64,9 @@ val add_alias : t -> Lookup_key.t -> Lookup_key.t -> t
 (** [add_alias s k k'] adds the formula that [k] and [k'] hold the same value in solver [s]. *)
 
 val add_binop : t -> Lookup_key.t -> Jayil.Ast.binary_operator -> Lookup_key.t -> Lookup_key.t -> t
-(** [add_binop s x op left right] adds the formula that [k = left op right] to the solver [s]. *)
+(** [add_binop s x op left right] adds the formula that [x = left op right] to the solver [s]. *)
 
-val add_formula : t -> Z3.Expr.expr -> t (* TODO: hide *)
+val add_formula : t -> Z3.Expr.expr -> t (* TODO: hide eventually *)
 (** [add_formula s e] adds the z3 expression [e] to the solver [s]. *)
 
 val get_feeder : t -> Branch.Runtime.t -> (Concolic_feeder.t, Branch.Ast_branch.t) result
