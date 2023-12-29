@@ -180,13 +180,13 @@ let get_model
   =
   let picked_branch_formula = Riddler.picked target.branch_key in (* TODO: check this is in the solver *)
   let condition_formula = Branch.Runtime.to_expr target in
-  Format.printf "Solving for target branch:\n";
+  (* Format.printf "Solving for target branch:\n";
   Format.printf "Branch to pick: %s\n" (Z3.Expr.to_string picked_branch_formula);
-  Format.printf "Branch condition: %s\n" (Z3.Expr.to_string condition_formula);
+  Format.printf "Branch condition: %s\n" (Z3.Expr.to_string condition_formula); *)
   match to_solver x target.branch_key with
   | None -> `Not_global
   | Some z3_solver ->
-    Format.printf "Printing solver: \n%s\n" (Z3.Solver.to_string z3_solver);
+    (* Format.printf "Printing solver: \n%s\n" (Z3.Solver.to_string z3_solver); *)
     [ picked_branch_formula ; condition_formula ] (* will check that these formulas are consistent *)
     |> Z3.Solver.check z3_solver
     |> Solver.SuduZ3.get_model z3_solver

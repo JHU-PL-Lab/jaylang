@@ -439,26 +439,25 @@ let eval_exp_default
 
   This eval spans multiple concolic sessions, trying to hit the branches.
 *)
-let rec loop (e : expr) (prev_session : Session.t) : unit =
+let rec loop (e : expr) (prev_session : Session.t) : Branch.Status_store.t =
   match Session.next prev_session with
   | `Done session ->
     Format.printf "------------------------------\nFinishing...\n";
-    session
-    |> Session.finish
-    |> Session.print
+    let finished = Session.finish session in
+    Session.print finished;
+    finished.branch_store
   | `Next (session, conc_session, eval_session) ->
-    Format.printf "------------------------------\nRunning program...\n";
-    Session.print session;
+    (* Format.printf "------------------------------\nRunning program...\n"; *)
+    (* Session.print session; *)
     let concolic_session =
     try
       (* might throw exception which is to be caught below *)
       let _, v, conc_session = eval_exp_default ~eval_session ~conc_session e in
-      Format.printf "Evaluated to: %a\n" Dvalue.pp v;
+      (* Format.printf "Evaluated to: %a\n" Dvalue.pp v; *)
       conc_session
     with
-    (* TODO: Error cases: TODO, if we hit abort, re-run if setting is applied. *)
     | Found_abort (_, conc_session) ->
-        Format.printf "Running next iteration of concolic after abort\n";
+        (* Format.printf "Running next iteration of concolic after abort\n"; *)
         conc_session
     | Reach_max_step (_, _, conc_session) ->
         Fmt.epr "Reach max steps\n" ;
@@ -476,7 +475,7 @@ let rec loop (e : expr) (prev_session : Session.t) : unit =
     loop e @@ Session.accum_concolic session concolic_session
 
 (* Concolically execute/test program. *)
-let concolic_eval (e : expr) : unit = 
-  Format.printf "\nStarting concolic execution...\n";
+let eval (e : expr) : Branch.Status_store.t = 
+  (* Format.printf "\nStarting concolic execution...\n"; *)
   Session.load_branches Session.default e
   |> loop e (* Repeatedly evaluate program *)

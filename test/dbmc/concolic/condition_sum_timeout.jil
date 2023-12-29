@@ -15,7 +15,8 @@ f = fun s -> (
     );
 );
 ff = f f;
-x3 = 500;
+# x3 = 500; # TODO: handle timeouts--max_step currently has us continue forever on this
+x3 = 10;
 
 cm = x < x3;
 

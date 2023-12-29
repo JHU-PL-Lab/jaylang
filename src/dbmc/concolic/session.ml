@@ -168,9 +168,9 @@ module Concolic =
         ; outcomes = Set.add session.outcomes Outcome.Reach_max_step }
 
     let enter_branch (session : t) (branch : Branch.Runtime.t) : t =
-      Format.printf "Hitting: %s: %s\n"
+      (* Format.printf "Hitting: %s: %s\n"
         (let (Jayil.Ast.Ident x) = branch.branch_key.x in x)
-        (Branch.Direction.to_string branch.direction);
+        (Branch.Direction.to_string branch.direction); *)
       { session with
         branch_solver = Branch_solver.enter_branch session.branch_solver branch
       ; new_targets   = Branch.Runtime.other_direction branch :: session.new_targets
@@ -187,7 +187,7 @@ module Concolic =
         | Dvalue.Direct (Value_int n) -> n
         | _ -> failwith "non-int input" (* logically impossible *)
       in
-      Format.printf "Feed %d to %s \n" n s;
+      (* Format.printf "Feed %d to %s \n" n s; *)
       { session with inputs = (x, v) :: session.inputs }
 
     let has_abort (session : t) : bool =
@@ -205,7 +205,7 @@ module Concolic =
         match s with
         | Branch.Status.Found_abort | Reach_max_step ->
           (* Handling reach_max_step like this leads to later "unsatisfiable" branches when really they're unreachable due to reach max step. *)
-          Format.printf "Creating persistent formula for branch %s\n" (Branch.Runtime.to_ast_branch b |> Branch.Ast_branch.to_string);
+          (* Format.printf "Creating persistent formula for branch %s\n" (Branch.Runtime.to_ast_branch b |> Branch.Ast_branch.to_string); *)
           Branch.Runtime.other_direction b
           |> Branch.Runtime.to_expr
           |> Option.return
@@ -299,7 +299,7 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
           , Concolic.create_default ()
           , Eval.create default_input_feeder session.global_max_step )
   | _, target :: tl when is_skip target -> (* next target should not be considered *)
-    Format.printf "Skipping already-hit target %s\n" (Branch.Runtime.to_string target);
+    (* Format.printf "Skipping already-hit target %s\n" (Branch.Runtime.to_string target); *)
     next { session with target_stack = tl }
   | _, target :: tl -> begin (* next target is unhit, so we'll solve for it *)
     (* add all persistent formulas before trying to solve *)
@@ -313,7 +313,7 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
               , Concolic.create ~target
               , Eval.create input_feeder session.global_max_step )
       | Error b ->
-        Format.printf "Unsatisfiable branch %s. Continuing to next target.\n" (Branch.Ast_branch.to_string b);
+        (* Format.printf "Unsatisfiable branch %s. Continuing to next target.\n" (Branch.Ast_branch.to_string b); *)
         let branch_store = 
           Branch.Status_store.set_branch_status
             ~new_status:Branch.Status.Unsatisfiable
@@ -349,7 +349,7 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
     let map_targets = List.map ~f:(fun target -> (target, concolic)) in
     match Concolic.has_hit_target concolic, Concolic.has_abort concolic with
     | false, _ -> begin (* used to be false, true *)
-      Format.printf "Did not make meaningful progress, so discarding new targets\n";
+      (* Format.printf "Did not make meaningful progress, so discarding new targets\n"; *)
       (* Put the original target back on the stack to try to hit it again, but the rest are not new targets *)
       match concolic.cur_target with
       | Some target -> target :: session.target_stack, Solver_map.add session.solver_map target concolic

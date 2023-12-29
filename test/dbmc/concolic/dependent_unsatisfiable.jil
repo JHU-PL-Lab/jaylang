@@ -3,7 +3,7 @@
 
 # EXPECTED BRANCH INFORMATION
 # x_is_target_branch: True=Hit; False=Hit
-# second_cond: True=Unsatisfiable; False=Hit
+# second_branch: True=Unsatisfiable; False=Hit
 
 x = input;
 

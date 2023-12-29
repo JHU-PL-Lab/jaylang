@@ -183,7 +183,7 @@ module Status_store =
 
         let print (x : t) (id : Ast.ident) : unit =
           to_string x id
-          |> Core.print_string
+          |> Format.print_string
 
         (* changes any occurance of old_status to new_status *)
         let map (x : t) (old_status : Status.t) (new_status : Status.t) : t =
