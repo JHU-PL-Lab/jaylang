@@ -201,7 +201,7 @@ module Concolic =
     let to_persistent_formulas (session : t) : Branch_solver.Formula_set.t =
       List.filter_map session.hit_branches ~f:(fun (b, s) ->
         match s with
-        | Branch.Status.Found_abort | Reach_max_step ->
+        | Branch.Status.Found_abort (*| Reach_max_step*) -> 
           (* Handling reach_max_step like this leads to later "unsatisfiable" branches when really they're unreachable due to reach max step. *)
           (* Format.printf "Creating persistent formula for branch %s\n" (Branch.Runtime.to_ast_branch b |> Branch.to_string); *)
           Branch.Runtime.other_direction b
@@ -260,10 +260,21 @@ module Max_step_counter =
 
     type t = int M.t
 
-    (*let num_allowed_trials = 5*) (* each branch can hit max step this many times before being off limits *)
+    (* each branch can hit max step this many times and still not yet be off limits *)
+    let num_allowed_trials = 5
 
     let empty = M.empty
 
+    (* TODO: we're only setting some runtime branch to off limits, but other depths (of recursion) might still be satisfied *)
+    (*  ^ We need to never allow ANY depth of recursion hit that branch. This seems like a hard problem. *)
+    (*  ^ This also makes me wonder how we should target branches. Should I not mark a branch as unsatisfiable until ALL depths are unsatisfiable? *)
+    let inc (m : t) (branch : Branch.Runtime.t) : t * Z3.Expr.expr option =
+      let ast_branch = Branch.Runtime.to_ast_branch branch in
+      let set x = Map.set m ~key:ast_branch ~data:x in
+      match Map.find m ast_branch with
+      | None -> set 1, None (* max step has been hit once now *)
+      | Some c when c < num_allowed_trials -> set (c + 1), None
+      | Some c -> set (c + 1), Some (branch |> Branch.Runtime.other_direction |> Branch.Runtime.to_expr)
   end
 
 type t = 
@@ -288,7 +299,6 @@ let default : t =
 
 let load_branches (session : t) (expr : Jayil.Ast.expr) : t =
   let branch_store = Branch.Status_store.find_branches expr session.branch_store in
-  (* TODO: fold over and add to max_step_counter *)
   { session with branch_store }
 
 let default_input_feeder : Input_feeder.t =
@@ -376,6 +386,19 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
     (* TODO: once the solver hasn't changed between runs (which might be difficult to manage if overadding formulas), then stop trying for missed targets. *)
     (* TODO: if missed again, put at back of stack to gain even more information first. Need sofisticated tracking of what led to misses, hits, etc, and make sure not trying to solve for same miss *)
       (* ^ I only need this if solver logic is wrong. If we continue to miss, then we're hitting unknown branches and gaining information to eventually hit or call unsatisfiable. *)
+  in
+  let max_step_counter, formula_opt =
+    if not concolic.outcome.reach_max_step
+    then session.max_step_counter, None
+    else
+      List.find_map concolic.hit_branches ~f:(
+        function
+        | (branch, Branch.Status.Reach_max_step) -> Some (Max_step_counter.inc session.max_step_counter branch)
+        | _ -> None
+      )
+      |> Option.value_exn (* safe because of the encompassing if statement *)
+  in
+  let persistent_formulas = Branch_solver.Formula_set.union persistent_formulas (formula_opt |> Option.to_list |> Branch_solver.Formula_set.of_list)
   in
   { session with
     branch_store 

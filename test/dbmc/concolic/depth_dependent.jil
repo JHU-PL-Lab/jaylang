@@ -1,0 +1,31 @@
+x = input;
+
+zero = 0;
+one = 1;
+
+x_is_one_cond = x == one;
+
+f = fun self -> (
+    f0 = fun counter -> (
+        second_to_last_iter_cond = counter == one;
+        unsatisfiable_on_last_iter_cond = x_is_one_cond and second_to_last_iter_cond;
+        unsatisfiable_on_last_iter = unsatisfiable_on_last_iter_cond ? (
+          do_nothing1 = 0
+        ) : (
+          do_nothing2 = 0
+        );
+
+        is_done = counter == zero;
+        r = is_done ? (
+              done_val = zero
+            ) : (
+              ss = self self;
+              new_counter = counter - one;
+              res = ss new_counter;
+              sum_val = counter + res
+            );
+    );
+);
+ff = f f;
+x3 = 3;
+z = ff x3;

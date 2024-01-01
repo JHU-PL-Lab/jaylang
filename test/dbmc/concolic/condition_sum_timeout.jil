@@ -4,8 +4,10 @@ f = fun s -> (
         one_a = 0;
         b = a == one_a;
         r = b ? (
+                # unreachable because of reach max step
                 r1 = 0
             ) : (
+                # reaches max step
                 ss = s s;
                 one_b = 1;
                 v = a - one_b;
@@ -15,20 +17,22 @@ f = fun s -> (
     );
 );
 ff = f f;
-# x3 = 500; # TODO: handle timeouts--max_step currently has us continue forever on this
-x3 = 10;
+# x3 = 500; # TODO: handle reach max step and uncomment this line instead of using x3=3
+x3 = 3;
 
 cm = x < x3;
 
 res = cm ? (
     target_cm = -42
 ) : (
+    # times out
     z = ff x3
 );
 
-c = x == res;
+c = x == res; # true when x = -42
 e = c ? (
     target = 42
 ) : (
+    # hittable when x < 500 and not -42
     void = 0
 )
