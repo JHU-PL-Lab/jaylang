@@ -72,19 +72,19 @@ module Concolic :
   sig
     module Outcome :
       sig
-        type t =
-          { found_abort    : bool
+        type t
+          (* { found_abort    : bool
           ; hit_target     : bool
-          ; reach_max_step : bool }
+          ; reach_max_step : bool } *)
       end
 
-    type t =
-      { branch_solver : Branch_solver.t
+    type t
+      (* { branch_solver : Branch_solver.t
       ; cur_target    : Branch.Runtime.t option
       ; new_targets   : Branch.Runtime.t list
       ; outcome       : Outcome.t
       ; hit_branches  : (Branch.Runtime.t * Branch.Status.t) list
-      ; inputs        : (Ident.t * Dvalue.t) list }
+      ; inputs        : (Ident.t * Dvalue.t) list } *)
 
     val add_formula : t -> Z3.Expr.expr -> t
     (** [add_formula session expr] adds the [expr] under the current parent of the [session]. *)
@@ -138,13 +138,13 @@ module Solver_map :
     then all together. This gives an idea of why a branch might not be able to be hit, even if it results in 
     a "unreachable because of max steps and aborts".
 *)
-type t = 
-  { branch_store        : Branch.Status_store.t
+type t 
+  (* { branch_store        : Branch.Status_store.t
   ; persistent_formulas : Branch_solver.Formula_set.t
   ; target_stack        : Branch.Runtime.t list
   ; solver_map          : Solver_map.t
   ; global_max_step     : int
-  ; run_num             : int }
+  ; run_num             : int } *)
   (** [t] tracks information between runs of the concolic evaluator and helps create new Eval and Concolic
       sessions for future runs. *)
 
@@ -167,3 +167,6 @@ val print : t -> unit
 val accum_concolic : t -> Concolic.t -> t
 (** [accum_concolic session concolic_session] is a new session that merges the results of [concolic_session] into
     [session]. The new session is then ready to be called with [next] to begin another run. *)
+
+val branch_store : t -> Branch.Status_store.t
+(** [branch_store session] is the statuses of the branches in the session. *)

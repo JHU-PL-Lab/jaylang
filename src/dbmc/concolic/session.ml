@@ -254,12 +254,25 @@ module Solver_map :
           ~f:(fun acc s -> Branch_solver.merge acc s.branch_solver)
   end
 
+module Max_step_counter =
+  struct
+    module M = Map.Make (Branch)
+
+    type t = int M.t
+
+    (*let num_allowed_trials = 5*) (* each branch can hit max step this many times before being off limits *)
+
+    let empty = M.empty
+
+  end
+
 type t = 
   { branch_store        : Branch.Status_store.t
   ; persistent_formulas : Branch_solver.Formula_set.t
   ; target_stack        : Branch.Runtime.t list
   ; solver_map          : Solver_map.t (* map targets to all sessions that find them *)
   ; global_max_step     : int
+  ; max_step_counter    : Max_step_counter.t
   ; run_num             : int }
 
 let default_global_max_step = Int.(10 ** 3)
@@ -270,10 +283,13 @@ let default : t =
   ; target_stack        = []
   ; solver_map          = Solver_map.empty
   ; global_max_step     = default_global_max_step
+  ; max_step_counter    = Max_step_counter.empty
   ; run_num             = 0 }
 
 let load_branches (session : t) (expr : Jayil.Ast.expr) : t =
-  { session with branch_store = Branch.Status_store.find_branches expr session.branch_store }
+  let branch_store = Branch.Status_store.find_branches expr session.branch_store in
+  (* TODO: fold over and add to max_step_counter *)
+  { session with branch_store }
 
 let default_input_feeder : Input_feeder.t =
   fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (-10) 10)
@@ -359,6 +375,7 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
     (* | false, _ -> session.target_stack, session.solver_map TODO: optionally handle targets from missed target, e.g. if missed because abort, try again  *)
     (* TODO: once the solver hasn't changed between runs (which might be difficult to manage if overadding formulas), then stop trying for missed targets. *)
     (* TODO: if missed again, put at back of stack to gain even more information first. Need sofisticated tracking of what led to misses, hits, etc, and make sure not trying to solve for same miss *)
+      (* ^ I only need this if solver logic is wrong. If we continue to miss, then we're hitting unknown branches and gaining information to eventually hit or call unsatisfiable. *)
   in
   { session with
     branch_store 
@@ -366,3 +383,5 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
   ; solver_map
   ; persistent_formulas = Branch_solver.Formula_set.union session.persistent_formulas persistent_formulas }
 
+let branch_store (session : t) : Branch.Status_store.t =
+  session.branch_store

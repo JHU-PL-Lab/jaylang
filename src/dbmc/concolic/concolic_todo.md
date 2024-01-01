@@ -9,3 +9,10 @@ TODO:
 * Use input AST branches to customize output -- this is for use in the type checker
 * Use variants instead of exceptions to make tracking easier
 * Confirm that we only want int input
+
+
+For the "max step" branch, I intend to keep a counter of which branches have caused us
+to hit max step several times, and after so many times, we call that branch off limits.
+
+I would like to think more intentionally about the representation before I get coding, but
+I expect that it will just be a map from a branch to a count.

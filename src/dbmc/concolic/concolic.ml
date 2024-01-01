@@ -445,7 +445,7 @@ let rec loop (e : expr) (prev_session : Session.t) : Branch.Status_store.t =
     Format.printf "------------------------------\nFinishing...\n";
     let finished = Session.finish session in
     Session.print finished;
-    finished.branch_store
+    Session.branch_store finished
   | `Next (session, conc_session, eval_session) ->
     (* Format.printf "------------------------------\nRunning program...\n"; *)
     (* Session.print session; *)

@@ -8,13 +8,6 @@ module Lookup_key =
     let t_of_sexp _ = failwith "Lookup_key.t_of_sexp needed and not implemented"
   end
 
-(*
-  While this just copies Lookup_key, I find it helpful to try to make
-  them distinct for easier reading to tell what is a condition (Condition_key.t),
-  and what is any general variable (Lookup_key.t).
-*)
-module Condition_key = Lookup_key
-
 module Status =
   struct
     (* TODO: add payload for input *)
@@ -23,7 +16,7 @@ module Status =
       | Unhit
       | Unsatisfiable
       | Found_abort
-      | Reach_max_step (* TODO: consider runs with other inputs to try to lower step count *)
+      | Reach_max_step
       | Missed
       | Unreachable (* any unhit branch whose parent is unsatisfiable *)
       [@@deriving variants, compare, sexp]
@@ -31,6 +24,32 @@ module Status =
     let to_string x = Variants.to_name x |> String.capitalize
 
     let is_hit = function Hit -> true | _ -> false
+
+    let is_valid_change (new_status : t) (old_status : t) : bool =
+      match old_status with
+      | Unhit -> true (* everything starts as unhit, and it can always be overwritten *)
+      | Unsatisfiable -> false (* it should be impossible to hit or re-solve for an unsatisfiable branch *)
+      | Unreachable -> false (* we only ever can determine unreachability as a final step, so it can't be overwritten *)
+      | Missed -> begin
+        match new_status with
+        | Hit | Unsatisfiable | Found_abort | Reach_max_step -> true
+        | Unhit | Unreachable | Missed -> false
+        end
+      | Hit -> begin
+        match new_status with
+        | Found_abort | Reach_max_step -> true
+        | Unhit | Unreachable | Missed | Unsatisfiable | Hit -> false
+        end
+      | Reach_max_step -> begin
+        match new_status with
+        | Found_abort | Hit (* TODO: allow hits to represent completing the branch *) -> true
+        | Unhit | Unreachable | Missed | Unsatisfiable | Reach_max_step -> false
+        end
+      | Found_abort -> begin
+        match new_status with
+        | Hit -> true
+        | Unhit | Unreachable | Missed | Unsatisfiable | Reach_max_step | Found_abort -> false
+        end
   end
 
 module Direction =
@@ -58,8 +77,9 @@ module Direction =
 module T = 
  struct
     type t =
-      { branch_ident    : Ast.ident
-      ; direction       : Direction.t }
+      { branch_ident : Ast.Ident_new.t
+      ; direction    : Direction.t }
+      [@@deriving sexp, compare]
 
     let to_string { branch_ident = Ast.Ident s ; direction } =
       s ^ ":" ^ Direction.to_string direction
@@ -74,7 +94,7 @@ module Runtime =
   struct
     type t =
       { branch_key    : Lookup_key.t
-      ; condition_key : Condition_key.t
+      ; condition_key : Lookup_key.t
       ; direction     : Direction.t }
       [@@deriving compare, sexp]
 
@@ -105,138 +125,24 @@ module Runtime =
 
 module Status_store =
   struct
-    (*
-      TODO: consider restructuring to just have a status for each AST branch instead
-        of trying to ignore duplication and mapping identifier to a branch status.    
-        This causes some unnecessary complication, I think.
-    *)
-    module Branch_status =
-      struct
-        type t = Direction.t -> Status.t
-        (* Avoid duplication by letting a status only take direction and output a status.
-          Thus a status does not have to be associated with a branch identifier at all. *)
+    module M = Map.Make (T)
+    type t = Status.t M.t [@@deriving compare] (* will do sexp conversions manually *)
 
-        let both_unhit = fun _ -> Status.Unhit
+    let is_hit (map : t) (branch : T.t) : bool =
+      match Map.find map branch with
+      | Some Status.Hit -> true
+      | _ -> false
 
-        let compare bs1 bs2 =
-          let open Direction in
-          match Status.compare (bs1 True_direction) (bs2 True_direction) with
-          | 0 -> Status.compare (bs1 False_direction) (bs2 False_direction)
-          | x -> x
-
-        (*
-          We allow status changes that provide new information about the branch.
-          e.g.
-            * If we missed a branch earlier, it is news to now hit it
-            * If we hit a branch earlier, it is not news to mark it as unsatisfiable   
-        *)
-        let is_valid_status_change (new_status : Status.t) (old_status : Status.t) : bool =
-          match old_status with
-          | Missed -> begin
-            match new_status with
-            | Hit | Unsatisfiable | Found_abort | Reach_max_step -> true
-            | Unhit | Unreachable | Missed -> false
-            end
-          | Hit -> begin
-            match new_status with
-            | Found_abort | Reach_max_step -> true
-            | Unhit | Unreachable | Missed | Unsatisfiable | Hit -> false
-            end
-          | Unhit -> true (* everything starts as unhit, and it can always be overwritten *)
-          | Unsatisfiable -> false (* it should be impossible to hit or re-solve for an unsatisfiable branch *)
-          | Unreachable -> false (* we only ever can determine unreachability as a final step, so it can't be overwritten *)
-          | Reach_max_step -> begin
-            match new_status with
-            | Found_abort | Hit (* TODO: allow hits to represent completing the branch *) -> true
-            | Unhit | Unreachable | Missed | Unsatisfiable | Reach_max_step -> false
-            end
-          | Found_abort -> begin
-            match new_status with
-            | Hit -> true
-            | Unhit | Unreachable | Missed | Unsatisfiable | Reach_max_step | Found_abort -> false
-            end
-
-        (* more general [hit] *)
-        let set (f : t) (direction : Direction.t) (new_status : Status.t) : t =
-          function
-          | d when Direction.equal d direction ->
-            let old_status = f d in 
-            if is_valid_status_change new_status old_status
-            then new_status
-            else old_status
-          | d -> f d
-
-        let of_statuses (true_status : Status.t) (false_status : Status.t) : t =
-          set
-            (set both_unhit Direction.True_direction true_status)
-            Direction.False_direction
-            false_status
-
-        let hit (f : t) (direction : Direction.t) : t =
-          set f direction Status.Hit
-
-        let to_string (f : t) (Ast.Ident s : Ast.ident) : string =
-          Printf.sprintf "%s: True=%s; False=%s\n"
-            s
-            (Status.to_string @@ f True_direction)
-            (Status.to_string @@ f False_direction)
-
-        let print (x : t) (id : Ast.ident) : unit =
-          to_string x id
-          |> Format.print_string
-
-        (* changes any occurance of old_status to new_status *)
-        let map (x : t) (old_status : Status.t) (new_status : Status.t) : t =
-          function
-          | d when Status.compare (x d) old_status = 0 -> new_status
-          | d -> x d
-      end
-      
-    (* Note we don't actually derive sexp. We manually do nicer conversions below *)
-    type t = Branch_status.t Ast.Ident_map.t
-
-    (* Ident_map is Batteries.Map *)
-    let empty = Ast.Ident_map.empty
-
-    let compare = Ast.Ident_map.compare Branch_status.compare
-
-    let print (map : t) : unit = 
-      Format.printf "\nBranch Information:\n";
-      Ast.Ident_map.iter (Core.Fn.flip Branch_status.print) map
+    let empty = M.empty
 
     let add_branch_id (map : t) (id : Ast.ident) : t =
-      Ast.Ident_map.add id Branch_status.both_unhit map
-
-    let get_unhit_branch (map : t) : T.t option =
+      let set_unhit = function
+        | Some _ -> failwith "adding non-new branch ident"
+        | None -> Status.Unhit
+      in
       map
-      |> Ast.Ident_map.to_seq
-      |> Batteries.Seq.find_map (fun (branch_ident, data) ->
-          match data Direction.True_direction, data Direction.False_direction with
-          | Status.Unhit, _ | Status.Missed, _ -> Some T.{ branch_ident ; direction = Direction.True_direction }
-          | _, Status.Unhit | _, Status.Missed -> Some T.{ branch_ident ; direction = Direction.False_direction }
-          | _ -> None
-        )
-
-    let set_branch_status ~(new_status : Status.t) (map : t) (branch : T.t) : t =
-      Ast.Ident_map.update_stdlib
-        branch.branch_ident
-        (function
-        | Some branch_status -> Some (Branch_status.set branch_status branch.direction new_status)
-        | None -> failwith "unbound branch")
-        map
-
-    let get_status (map : t) (branch : T.t) : Status.t =
-      match Ast.Ident_map.find_opt branch.branch_ident map with
-      | Some branch_status -> branch_status branch.direction
-      | None -> failwith "unbound branch"
-
-    (* precondition: the branch is in the map *)
-    let is_hit (map : t) (branch : T.t) : bool =
-      branch.direction
-      |> Ast.Ident_map.find branch.branch_ident map (* is a function from direction to status *)
-      |> function
-        | Status.Hit -> true
-        | _ -> false
+      |> Fn.flip Map.update { branch_ident = id ; direction = Direction.True_direction } ~f:set_unhit
+      |> Fn.flip Map.update { branch_ident = id ; direction = Direction.False_direction } ~f:set_unhit
 
     let rec find_branches (e : Ast.expr) (m : t) : t =
       let open Ast in
@@ -255,9 +161,54 @@ module Status_store =
         find_branches e m
       | _ -> m (* no branches in non-conditional or value *)
 
+    let to_list (map : t) : (string * Status.t * Status.t) list =
+      Map.to_alist map ~key_order:`Increasing
+      |> List.chunks_of ~length:2
+      |> List.map ~f:(function
+        | [ ({ branch_ident = Ident a; direction = True_direction }, true_status)
+          ; ({ branch_ident = Ident b; direction = False_direction }, false_status) ]
+          when String.(a = b) ->
+          (a, true_status, false_status)
+        | _ -> failwith "malformed status store during to_list"
+      )
+
+    (* depends on well-formedness of the map from loading in branches *)
+    let print (map : t) : unit = 
+      Format.printf "\nBranch Information:\n";
+      map
+      |> to_list
+      |> List.iter ~f:(fun (s, true_status, false_status) ->
+          Printf.printf "%s: True=%s; False=%s\n"
+            s
+            (Status.to_string true_status)
+            (Status.to_string false_status)
+        )
+
+    (* TODO: we can maintain a list of unhit branches and just peek the hd to improve time complexity *)
+    let get_unhit_branch (map : t) : T.t option =
+      map
+      |> Map.to_alist
+      |> List.find_map ~f:(fun (branch, status) ->
+          match status with
+          | Status.Unhit | Missed -> Some branch
+          | _ -> None
+        )
+
+    let set_branch_status ~(new_status : Status.t) (map : t) (branch : T.t) : t =
+      Map.update map branch ~f:(function
+        | Some old_status when Status.is_valid_change new_status old_status -> new_status
+        | Some old_status -> old_status
+        | None -> failwith "unbound branch" 
+      )
+
+    let get_status (map : t) (branch : T.t) : Status.t =
+      match Map.find map branch with
+      | Some status -> status
+      | None -> failwith "unbound branch"
+
     (* map any unhit to unreachable *)
     let finish (map : t) : t =
-      Ast.Ident_map.map (fun b -> Branch_status.map b Status.Unhit Status.Unreachable) map
+      Map.map map ~f:(function Status.Unhit -> Status.Unreachable | x -> x)
 
     module Sexp_conversions =
       struct
@@ -265,25 +216,23 @@ module Status_store =
           struct
             (* branch name, true status, false status *)
             type t = string * Status.t * Status.t [@@deriving sexp]
-
-            let of_ident_branch_status (Ast.Ident s, branch_status) : t =
-              (s, branch_status Direction.True_direction, branch_status Direction.False_direction)
-
-            let to_ident_branch_status (s, true_status, false_status) : Ast.ident * Branch_status.t =
-              (Ast.Ident s, Branch_status.of_statuses true_status false_status)
           end
 
         (* Convert to tuple list of ident, true status, false status.
           This is atrociously inefficient, but it is only used for small maps. *)
         let sexp_of_t (map : t) : Sexp.t =
           map
-          |> Ast.Ident_map.to_list
-          |> List.sexp_of_t (Fn.compose My_tuple.sexp_of_t My_tuple.of_ident_branch_status)
-
+          |> to_list
+          |> List.sexp_of_t My_tuple.sexp_of_t
+        
         let t_of_sexp (sexp : Sexp.t) : t =
           sexp
-          |> List.t_of_sexp (Fn.compose My_tuple.to_ident_branch_status My_tuple.t_of_sexp)
-          |> Ast.Ident_map.of_list
+          |> List.t_of_sexp My_tuple.t_of_sexp
+          |> List.fold ~init:empty ~f:(fun acc (id, true_status, false_status) ->
+            acc
+            |> Map.set ~key:({ branch_ident = Ast.Ident id ; direction = Direction.True_direction}) ~data:true_status
+            |> Map.set ~key:({ branch_ident = Ast.Ident id ; direction = Direction.False_direction}) ~data:false_status
+          )
       end
 
     include Sexp_conversions

@@ -41,6 +41,7 @@ module T :
 type t = T.t =
   { branch_ident : Ast.ident
   ; direction    : Direction.t }
+  [@@deriving sexp, compare]
 (** [t] is an AST branch with just the identifier of the clause. The runtime stack is not considered. *)
 
 val to_string : t -> string
