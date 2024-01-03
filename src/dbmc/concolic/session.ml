@@ -191,7 +191,7 @@ module Concolic =
         | Dvalue.Direct (Value_int n) -> n
         | _ -> failwith "non-int input" (* logically impossible *)
       in
-      (* Format.printf "Feed %d to %s \n" n s; *)
+      if Printer.print then Format.printf "Feed %d to %s \n" n s;
       { session with inputs = (x, v) :: session.inputs }
 
     (* TODO: see about modularizing these internal functions that are helpers for Session.t *)

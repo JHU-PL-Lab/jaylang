@@ -290,7 +290,6 @@ and eval_clause
       let n = eval_session.input_feeder (x, stk) in
       let retv = Direct (Value_int n) in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      let conc_session = Session.Concolic.add_alias conc_session x_key x_key in
       retv, Session.Concolic.add_input conc_session x retv
     | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin
       (* x = f y ; *)
@@ -447,17 +446,21 @@ let rec loop (e : expr) (prev_session : Session.t) : Branch.Status_store.t =
     Session.print finished;
     Session.branch_store finished
   | `Next (session, conc_session, eval_session) ->
-    (* Format.printf "------------------------------\nRunning program...\n"; *)
-    (* Session.print session; *)
+    if Printer.print
+    then
+      begin
+      Format.printf "------------------------------\nRunning program...\n";
+      Session.print session
+      end;
     let concolic_session =
     try
       (* might throw exception which is to be caught below *)
       let _, v, conc_session = eval_exp_default ~eval_session ~conc_session e in
-      (* Format.printf "Evaluated to: %a\n" Dvalue.pp v; *)
+      if Printer.print then Format.printf "Evaluated to: %a\n" Dvalue.pp v;
       conc_session
     with
     | Found_abort (_, conc_session) ->
-        (* Format.printf "Running next iteration of concolic after abort\n"; *)
+        if Printer.print then Format.printf "Running next iteration of concolic after abort\n";
         conc_session
     | Reach_max_step (_, _, conc_session) ->
         Fmt.epr "Reach max steps\n" ;
@@ -476,6 +479,6 @@ let rec loop (e : expr) (prev_session : Session.t) : Branch.Status_store.t =
 
 (* Concolically execute/test program. *)
 let eval (e : expr) : Branch.Status_store.t = 
-  (* Format.printf "\nStarting concolic execution...\n"; *)
+  if Printer.print then Format.printf "\nStarting concolic execution...\n";
   Session.load_branches Session.default e
   |> loop e (* Repeatedly evaluate program *)
