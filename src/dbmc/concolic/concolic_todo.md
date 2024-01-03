@@ -6,6 +6,7 @@ TODO:
   * Potentially we don't need this, but we do need a way to mark an entire branch (not just one side of it) as off limits if both sides hit abort. I suppose I can mark the parent as off limits.
   * If I do have a "function is called" variable in the solver, then it can be a Parent. However, it shouldn't be needed because the function body is only evaluated when it's actually called, which would be under a parent anyways.
 * When targeting a branch, target all possible runtime instances of that branch and see if any are satisfiable. It will be a big "or"
+  * need to pass them up to session along with the pick formulas
 * Continue with misses until steady state
 * Handle max step
   * And test it
