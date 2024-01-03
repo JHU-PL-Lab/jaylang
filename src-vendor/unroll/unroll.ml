@@ -6,26 +6,46 @@ let then_lwt f x =
   f x ;
   Lwt.return_unit
 
-let product_stream s1 s2 =
+(* let product_stream_bg s1 s2 =
+   Lwt_stream.map_list_s
+     (fun v2 -> Lwt_stream.(clone s1 |> map (fun v1 -> (v1, v2)) |> to_list))
+     s2 *)
+
+(*
+   1,2,3,4,5....
+   10,20,30,....
+*)
+
+let product_stream_bg s1 s2 =
   let s, f = Lwt_stream.create () in
   Lwt.async (fun () ->
-      Lwt_stream.iter_s
-        (fun v1 ->
-          let s2' = Lwt_stream.clone s2 in
-          Lwt_stream.iter_s
-            (fun v2 ->
-              f (Some (v1, v2)) ;
-              Lwt.return_unit)
-            s2')
-        s1) ;
+      Lwt_stream.iter_p
+        (fun v2 ->
+          Lwt_stream.iter (fun v1 -> f (Some (v1, v2))) (Lwt_stream.clone s1))
+        (Lwt_stream.clone s2)) ;
   s
+
+(*
+   val map_list : ('a -> 'b list) -> 'a t -> 'b t
+   val map_list_s : ('a -> 'b list Lwt.t) -> 'a t -> 'b t
+*)
+
+(* let product_stream_bg s1 s2 =
+   let s, f = Lwt_stream.create () in
+   Lwt.async (fun () ->
+       Lwt_stream.iter_s
+         (fun v1 ->
+           let s2' = Lwt_stream.clone s2 in
+           Lwt_stream.iter (fun v2 -> f (Some (v1, v2))) s2)
+         s1) ;
+   s *)
 
 (* let from_filter f msg = if f msg then Some msg else None *)
 (* let to_filter f msg = Option.is_some (f msg) *)
 
 let map_out f = Option.value_map ~default:() ~f
 
-(* let product_stream_ s1 s2 =
+(* let product_stream_bg s1 s2 =
    let s, f = Lwt_stream.create () in
    let rec loop () =
      let r1 = Lwt_stream.get s1 in
@@ -196,18 +216,18 @@ struct
     let stream_src2 = get_stream t key_src2 in
 
     (* seq2 *)
-    Lwt_stream.iter_s
+    Lwt_stream.iter_p
       (seq f (push_msg t key_dst) |> then_lwt)
-      (product_stream stream_src1 stream_src2)
+      (product_stream_bg stream_src1 stream_src2)
 
   let filter_map2 t key_src1 key_src2 key_dst f : unit Lwt.t =
     let stream_src1 = get_stream t key_src1 in
     let stream_src2 = get_stream t key_src2 in
 
     (* seq2_opt *)
-    Lwt_stream.iter_s
-      (map_in f (push_msg t key_dst) |> then_lwt)
-      (product_stream stream_src1 stream_src2)
+    Lwt_stream.iter
+      (map_in f (push_msg t key_dst))
+      (product_stream_bg stream_src1 stream_src2)
 
   let iter t key_src f =
     let stream_src = get_stream t key_src in
@@ -460,7 +480,7 @@ module Make_pipe (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
     let map2 u pipe_src1 pipe_src2 dst f =
       let stream_src1 = stream_of_pipe pipe_src1 in
       let stream_src2 = stream_of_pipe pipe_src2 in
-      let stream12 = product_stream stream_src1 stream_src2 in
+      let stream12 = product_stream_bg stream_src1 stream_src2 in
       let pipe_dst = add_detail u dst in
       stream12 |> Lwt_stream.iter_s (seq2 f (get_push pipe_dst) |> then_lwt) ;%lwt
       Lwt.return pipe_dst
@@ -468,7 +488,7 @@ module Make_pipe (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
     let filter_map2 u pipe_src1 pipe_src2 dst f_opt =
       let stream_src1 = stream_of_pipe pipe_src1 in
       let stream_src2 = stream_of_pipe pipe_src2 in
-      let stream12 = product_stream stream_src1 stream_src2 in
+      let stream12 = product_stream_bg stream_src1 stream_src2 in
       let pipe_dst = add_detail u dst in
       stream12
       |> Lwt_stream.iter_s (seq2_opt f_opt (get_push pipe_dst) |> then_lwt) ;%lwt

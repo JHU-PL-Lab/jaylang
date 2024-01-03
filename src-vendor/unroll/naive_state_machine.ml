@@ -6,6 +6,7 @@ type t =
   | Initial
   (* Working *)
   | Running
+  | Paused
   (* Closed *)
   | Done
   | Fail
@@ -19,9 +20,15 @@ let is_status_initial = function Initial -> true | _ -> false
 let safe_transform from_ to_ =
   let is_valid =
     match (from_, to_) with
-    | Initial, Running -> true
-    | Running, Done -> true
-    | Running, Fail -> true
+    | Initial, Running
+    | Initial, Paused
+    | Running, Paused
+    | Paused, Running
+    | Running, Done
+    | Running, Fail
+    | Paused, Done
+    | Paused, Fail ->
+        true
     | _, _ -> false
   in
   if is_valid
