@@ -1,21 +1,54 @@
+## Concolic Evaluator TODOs
 
-TODO:
-* Try to resolve all of the todos I have left in the code. There are LOTS of them.
-  * The following bullet points, though, try to summarize some of them.
-* We need a "function is called" condition to handle the function_parent test case
-  * Potentially we don't need this, but we do need a way to mark an entire branch (not just one side of it) as off limits if both sides hit abort. I suppose I can mark the parent as off limits.
-  * If I do have a "function is called" variable in the solver, then it can be a Parent. However, it shouldn't be needed because the function body is only evaluated when it's actually called, which would be under a parent anyways.
-* When targeting a branch, target all possible runtime instances of that branch and see if any are satisfiable. It will be a big "or"
-  * need to pass them up to session along with the pick formulas
-* Continue with misses until steady state
+### Urgent
+
+* Target all possible runtime instances of a branch under a large "or" to see if any are satisfiable.
+  * Note: I will need to pass up the pick formulas to the session when I hit a branch
 * Handle max step
-  * And test it
-* Track inputs and solvers that lead to hits/misses -- i.e. payloads on branch statuses
-* Customize unsatisfiability with a reason (e.g. because of aborts, max steps, or both, or neither)
-* Port over logging (and figure out logging in general)
-* Use input AST branches to customize output -- this is for use in the type checker
-* Use variants instead of exceptions to make tracking easier
-* Confirm that we only want int input
+  * Note: This might require the "analyze AST to determine dependencies" bullet in the "eventually" section
+  * If I choose to bubble the max step, then I need to make sure the max step tracker doesn't recount the branches due to recursion
+  * And fix the case where I sometimes have to press ^C to stop the evaluation and continue to the next one
+* Customize unsatisfiability with a reason (e.g. unreachable/unsatisfiable because of abort, max step, both, or neither)
+  * Note: Will need to store the formulas separately and add them to the solver carefully
+* Make persistent formulas true only under their parents (I think this should fix the "double abort" test)
+
+### Eventually
+
+* Payloads on branch statuses
+  * Track inputs and solvers that lead to hits/misses
+* Analyze AST to determine dependencies
+  * This is important so that some later branch that always gives abort doesn't prevent earlier branches from being hit
+  * Also to disallow some parent from being hit if all children result in max step, or similar
+* Allow multiple possible branch outcomes to account for nondeterminism
+* Throw exception if we ever try to solve for the same branch with the same formulas, i.e. continue with misses until we reach a steady state
+* Logging
+* Use optional input AST branches to customize output
+* Use variants instead of exceptions to make tracking a little nicer (it's currently quite hacky)
+
+### Questions
+
+* Can both sides of a branch immediately hit an abort? Is this allowed? e.g. `branch = cond ? ( t = abort ) : ( f = abort )`
+* Do we only have int inputs?
+* Should I have a "function is called" pick formula, or is this always implied by entering the branch that calls the function?
+  * If I need it, then I can enter a function like any Parent in branch solver.
+
+### Random thoughts
+
+**Branch_tracker**
+
+I think I could benefit from having a branch tracker that just handles all program-wide branch logic and relations.
+* The session and concolic session will each have one
+* It would hold the status store
+* It can be merged with other branch trackers to accumulate the results from the concolic session
+* Tracks the number of times max step has been hit in each AST branch
+* Maps AST branches to all runtime instances
+* Tracks parent dependencies so that formulas are implied correctly (e.g. abort formulas)
+* Holds abort and max step formulas separately
+* Unorganized thoughts:
+  * It would handle some formulas because it needs to mark runtime branches as off-limits
+    * Then it might as well take on other solver logic. And let branch_solver just do runtime branch tracking instead of solving logic
+      * That's because we need to be adding some formulas sometimes to determine solvability
+    * This motivates a name change for branch_solver
 
 I think I need a branch_tracker. 
 * It holds the status store
@@ -29,7 +62,7 @@ I think I need a branch_tracker.
   * Then it might as well take on other solver logic. And let branch_solver just do runtime branch tracking instead of solving logic
     * That's because we need to be adding some formulas sometimes to determine solvability
   * This motivates a name change for branch_solver
-* A slight alternative is to be tracking hits and solves for runtime branches. Try to hit as many as possible and combine results.
+* A slight alternative is to be tracking hits and solves for runtime branches. Try to hit as many as possible and combine results. (I'm now not sure what I meant by this)
   * Don't let some unsatisfiables to affect other runtime branches
   * Just need to make sure that we can explore deeply into the recursion -- I don't want to be limited and think we have called a branch unsatisfiable when really we've just not recursed deep enough.
     * For this reason, I'm not sure how we prove whether something is actually unsatisfiable when there is a recursive function. If the recursive depth depends on the input, then my intuition tells me we can't be confident about satisfiability.

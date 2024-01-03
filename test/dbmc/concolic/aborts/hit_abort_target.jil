@@ -5,11 +5,6 @@
 #
 # This way, we test how aborts are handled in the midst of other solves
 
-# EXPECTED BRANCH INFORMATION:
-# default_true_branch: True=Hit; False=Hit
-# abort_on_false_side_branch: True=Hit; False=Found_abort
-# final_branch: True=Hit; False=Hit
-
 x = input;
 large_int = 100;
 

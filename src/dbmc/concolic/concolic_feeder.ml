@@ -1,7 +1,7 @@
 open Core
 open Dj_common
 
-type t = Id.t * Concrete_stack.t -> int
+type t = Input_feeder.t (* = Id.t * Concrete_stack.t -> int *)
 
 let query_model model (x, call_stack) : int option =
   let name = Lookup_key.to_str2 x (call_stack |> Rstack.from_concrete) in 
@@ -14,3 +14,5 @@ let from_model ?(history = ref []) model : t =
     history := answer :: !history ;
     Option.value ~default:42 answer
     
+let default : Input_feeder.t =
+  fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (0) 0)

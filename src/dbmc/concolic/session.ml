@@ -301,8 +301,8 @@ let load_branches (session : t) (expr : Jayil.Ast.expr) : t =
   let branch_store = Branch.Status_store.find_branches expr session.branch_store in
   { session with branch_store }
 
-let default_input_feeder : Input_feeder.t =
-  fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (-10) 10)
+(* let default_input_feeder : Input_feeder.t =
+  fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (-10) 10) *)
 
 let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   let is_skip target =
@@ -321,7 +321,7 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   | _, [] -> (* no targets, but this is the first run, so use the default *)
     `Next ( { session with run_num = session.run_num + 1 }
           , Concolic.create_default ()
-          , Eval.create default_input_feeder session.global_max_step )
+          , Eval.create Concolic_feeder.default session.global_max_step )
   | _, target :: tl when is_skip target -> (* next target should not be considered *)
     (* Format.printf "Skipping already-hit target %s\n" (Branch.Runtime.to_string target); *)
     next { session with target_stack = tl }

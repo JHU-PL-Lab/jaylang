@@ -1,10 +1,6 @@
 # This program has an unsatisfiable branch because of the result of a previous branch (not because
 #   of a parent branch, but because of one earlier in the statement list).
 
-# EXPECTED BRANCH INFORMATION
-# x_is_target_branch: True=Hit; False=Hit
-# second_branch: True=Unsatisfiable; False=Hit
-
 x = input;
 
 target_input = 11;

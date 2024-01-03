@@ -1,9 +1,5 @@
 # This program checks that we can use two inputs, but it's not sophisticated. It's just really simple.
 
-# EXPECTED BRANCH INFORMATION 
-# x_eq_y_branch: True=Hit; False=Hit
-# always_false_branch: True=Unsatisfiable; False=Hit
-
 x = input;
 y = input;
 

@@ -1,11 +1,5 @@
 # This program has a condition that does not depend on x, so the solver cannot satisfy the other side.
 
-# EXPECTED BRANCH INFORMATION
-# always_true_branch: True=Hit; False=Unsatisfiable
-# unreachable_branch: True=Unreachable; False=Unreachable
-# y: True=Hit; False=Hit
-
-
 x = input;
 
 one = 1;

@@ -1,11 +1,6 @@
 # This program has an unsatisfiable branch because the inner branch has a condition that is
 #   impossible to satisfy due to the parent branch.
 
-# EXPECTED BRANCH INFORMATION
-# both_reachable: True=Hit; False=Hit
-# always_false_branch: True=Unsatisfiable; False=Hit
-# unreachable_branch: True=Unreachable; False=Unreachable
-
 x = input;
 
 one = 1;

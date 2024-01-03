@@ -1,0 +1,42 @@
+# This program has a condition inside of a recursive function that is hit only if
+# the function hits some recursive depth. The input determines the depth
+
+x = input;
+
+zero = 0;
+one = 1;
+
+desired_sum = 6;
+
+x_is_one_cond = x == one;
+
+f = fun self -> (
+    f0 = fun counter -> (
+        is_done = counter == zero;
+        r = is_done ? (
+          done_val = zero
+        ) : (
+          ss = self self;
+          new_counter = counter - one;
+          res = ss new_counter;
+          sum_val = counter + res;
+          sum_val_is_desired_cond = sum_val == desired_sum;
+          sum_val_is_desired_branch = sum_val_is_desired_cond ? (
+            # input x at least 3 hits this
+            res0 = 42
+          ) : (
+            res1 = 84
+          );
+          sum_res = sum_val
+        );
+    );
+);
+ff = f f;
+
+neg_1 = -1;
+x_is_non_neg = neg_1 < x;
+call_fun_branch = x_is_non_neg ? (
+  z = ff x;
+) : (
+  w = 0
+)

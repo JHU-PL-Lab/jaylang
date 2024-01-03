@@ -6,12 +6,6 @@
 # This way, we test how aborts are handled in the midst of other solves.
 # Further, this is nested within a parent branch to check that deeper logic works.
 
-# EXPECTED BRANCH INFORMATION:
-# outer_branch: True=Hit; False=Hit
-# default_true_branch: True=Hit; False=Hit
-# abort_on_false_side_branch: True=Hit; False=Found_abort
-# final_branch: True=Hit; False=Hit
-
 x = input;
 
 neg_five = -5;

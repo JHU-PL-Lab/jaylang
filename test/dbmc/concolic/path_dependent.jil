@@ -2,11 +2,6 @@
 #   it hit the target branch. This is because a later condition depends strictly on the result of a
 #   previous condition.
 
-# EXPECTED BRANCH INFORMATION
-# x_gte_one_branch: True=Hit; False=Hit
-# x_is_one_branch: True=Hit; False=Hit
-# prev_was_true_branch: True=Hit; False=Hit
-
 x = input;
 
 one = 1;

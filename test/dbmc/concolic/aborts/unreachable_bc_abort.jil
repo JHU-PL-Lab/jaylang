@@ -3,12 +3,6 @@
 #   so that later solves don't keep running into them, we are unable to solve for later targets
 #   due to earlier aborts.
 
-# EXPECTED BRANCH INFORMATION
-# x_gte_one_branch: True=Hit; False=Hit
-# x_is_one_branch_with_abort: True=Found_abort; False=Hit
-# unreachable_branch_because_abort: True=Unreachable; False=Unreachable
-# x_not_one_branch_without_abort: True=Hit; False=Unsatisfiable
-
 x = input;
 
 one = 1;

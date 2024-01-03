@@ -6,10 +6,6 @@
 
 # note that concolic gives inputs in [-10, 10] on first run.
 
-# EXPECTED BRANCH INFORMATION
-# first_branch: True=Hit; False=Hit
-# second_branch: True=Hit; False=Hit
-
 x = input;
 large = 100;
 
