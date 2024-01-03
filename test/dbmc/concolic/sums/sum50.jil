@@ -1,0 +1,37 @@
+# This program calculates a fixed sum, independent of input, using recursion.
+# The goal is that the concolic evaluator can use the solver to determine this sum.
+
+x = input;
+
+zero = 0;
+one = 1;
+
+
+f = fun self -> (
+    f0 = fun counter -> (
+        is_done = counter == zero;
+        r = is_done ? (
+          done_val = zero
+        ) : (
+          ss = self self;
+          new_counter = counter - one;
+          res = ss new_counter;
+          sum_val = counter + res
+        );
+    );
+);
+
+ff = f f;
+
+counter0 = 50; 
+
+sum50 = ff counter0; # sums to 1250
+
+x_is_sum_cond = x == sum50;
+
+x_is_sum_branch = x_is_sum_cond ? (
+  # To hit this, solver just needs to calculate the sum
+  got_it = 42
+) : (
+  void = 0
+)

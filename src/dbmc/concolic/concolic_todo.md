@@ -2,12 +2,14 @@
 
 ### Urgent
 
+* Reduce max step to reduce load on solver
 * Target all possible runtime instances of a branch under a large "or" to see if any are satisfiable.
   * Note: I will need to pass up the pick formulas to the session when I hit a branch
 * Handle max step
   * Note: This might require the "analyze AST to determine dependencies" bullet in the "eventually" section
   * If I choose to bubble the max step, then I need to make sure the max step tracker doesn't recount the branches due to recursion
   * And fix the case where I sometimes have to press ^C to stop the evaluation and continue to the next one
+    * My guess is this happens when the solver stuck, and any exception quits the solver as "unsatisfiable", but I have no good evidence for this--it's just a hunch.
 * Customize unsatisfiability with a reason (e.g. unreachable/unsatisfiable because of abort, max step, both, or neither)
   * Note: Will need to store the formulas separately and add them to the solver carefully
 * Make persistent formulas true only under their parents (I think this should fix the "double abort" test)

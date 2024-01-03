@@ -1,5 +1,7 @@
 # This program has a condition inside of a recursive function that is hit only if
-# the function hits some recursive depth. The input determines the depth
+# the function hits some recursive depth. The input determines the depth.
+# This used to pass, but idk what changed and now it seems to stall. Maybe it's that I'm not connected to power, 
+# so it runs slower, and I'm not waiting long enough.
 
 x = input;
 
@@ -7,8 +9,6 @@ zero = 0;
 one = 1;
 
 desired_sum = 6;
-
-x_is_one_cond = x == one;
 
 f = fun self -> (
     f0 = fun counter -> (

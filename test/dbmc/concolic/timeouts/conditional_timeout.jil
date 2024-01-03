@@ -1,38 +1,57 @@
+
+# Depending on input, a recursive function might get called that times out.
+# The right inputs can avoid this and hit other branches.
+# The goal is to test that reaching the max step down some branches does
+# not prevent the evaluator from hitting other independent branches.
+
 x = input;
-f = fun s -> (
-    f0 = fun a -> (
-        one_a = 0;
-        b = a == one_a;
-        r = b ? (
-                # unreachable because of reach max step
-                r1 = 0
-            ) : (
-                # reaches max step
-                ss = s s;
-                one_b = 1;
-                v = a - one_b;
-                v2 = ss v;
-                r2 = a + v2
-            );
+one = 1;
+zero = 0;
+
+f = fun self -> (
+  f0 = fun counter -> (
+    is_done = counter == zero; # max step maybe reached here
+    r = is_done ? (
+      # end case won't be reached because of max step
+      done_val = zero
+    ) : (
+      # max step likely reached here
+      ss = self self;
+      new_counter = counter - one;
+      res = ss new_counter;
+      sum_val = counter + res;
     );
+  );
 );
 ff = f f;
-# x3 = 500; # TODO: handle reach max step and uncomment this line instead of using x3=3
-x3 = 3;
 
-cm = x < x3;
+counter0 = 500;
 
-res = cm ? (
-    target_cm = -42
+large = 100;
+
+cm = x < large; # always true on first run
+
+first_branch = cm ? (
+  # always hit on first run
+  fifty = 50;
+  x_is_50 = x == fifty; # arbitrary non-timeout case
+  x_is_50_branch = x_is_50 ? (
+    x_is_50_ret = 49 # reachable despite timeout on other side
+  ) : (
+    # Times out. Always hit on first run
+    z = ff counter0
+  )
 ) : (
-    # times out
-    z = ff x3
+  non_timeout_res = 101 
 );
 
-c = x == res; # true when x = -42
+c = x == first_branch; # true when x = 101
 e = c ? (
-    target = 42
+  # hittable when x = 101
+  # For some unknown reason, this gets missed. It tries to solve for it with 138 then 99...
+  # Then it calls this unsatisfiable when I quit the solver
+  target = 42
 ) : (
-    # hittable when x < 500 and not -42
-    void = 0
+  # hittable when x > 101
+  void = 0
 )

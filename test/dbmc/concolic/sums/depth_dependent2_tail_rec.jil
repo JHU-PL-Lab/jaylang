@@ -12,8 +12,6 @@ one = 1;
 
 desired_sum = 66; # 630 for input 35
 
-x_is_one_cond = x == one;
-
 f = fun self -> (
     f0 = fun counter -> (
       f1 = fun sum -> (
