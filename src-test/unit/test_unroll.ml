@@ -1,9 +1,118 @@
 open Core
+open Unroll.Stream_helper
 
 (* let history = ref [] in *)
 (* U_int.iter u 1 (fun v ->
     history := v :: !history ;
     Lwt.return_unit) *)
+
+let ascending xs = List.sort xs ~compare:Int.compare
+let pair_add (x, y) = x + y
+let pairwire_add xs = List.map xs ~f:pair_add
+
+module Test_stream = struct
+  let two_streams_from_list () =
+    let msgs1 = List.init 3 ~f:Fn.id in
+    let msgs2 = List.init 3 ~f:Fn.id in
+    let s1 = Lwt_stream.of_list msgs1 in
+    let s2 = Lwt_stream.of_list msgs2 in
+    let s12 = product_stream s1 s2 in
+    let ans = Lwt_stream.get_available s12 in
+    Alcotest.(check @@ list (pair int int))
+      "equal"
+      [ (0, 0); (1, 0); (2, 0); (0, 1); (1, 1); (2, 1); (0, 2); (1, 2); (2, 2) ]
+      ans
+
+  let one_stepped_one_list () =
+    let msgs1 = List.init 3 ~f:Fn.id in
+    let msgs2 = List.init 3 ~f:Fn.id in
+    let s1, p1 = Lwt_stream.create () in
+    List.iter msgs1 ~f:(fun m1 -> p1 (Some m1)) ;
+    p1 None ;
+    (* p2 (Some 1) ; *)
+    let s2 = Lwt_stream.of_list msgs2 in
+    let s12 = product_stream s1 s2 in
+    Alcotest.(check @@ list (pair int int))
+      "equal"
+      [ (0, 0); (1, 0); (2, 0); (0, 1); (1, 1); (2, 1); (0, 2); (1, 2); (2, 2) ]
+      (Lwt_stream.get_available s12) ;
+    ()
+
+  let two_stepped () =
+    let msgs1 = List.init 3 ~f:Fn.id in
+    let msgs2 = List.init 3 ~f:Fn.id in
+    let s1, p1 = Lwt_stream.create () in
+    List.iter msgs1 ~f:(fun m -> p1 (Some m)) ;
+    p1 None ;
+    let s2, p2 = Lwt_stream.create () in
+    List.iter msgs2 ~f:(fun m -> p2 (Some m)) ;
+    p2 None ;
+    let s12 = product_stream s1 s2 in
+    Alcotest.(check @@ list (pair int int))
+      "equal"
+      [ (0, 0); (1, 0); (2, 0); (0, 1); (1, 1); (2, 1); (0, 2); (1, 2); (2, 2) ]
+      (Lwt_stream.get_available s12) ;
+    ()
+
+  let two_stepped_interleaved () =
+    let msgs = List.init 3 ~f:Fn.id in
+    let s1, p1 = Lwt_stream.create () in
+    let s2, p2 = Lwt_stream.create () in
+    List.iter msgs ~f:(fun m ->
+        p1 (Some m) ;
+        p2 (Some m)) ;
+    p1 None ;
+    p2 None ;
+    let s12 = product_stream s1 s2 in
+    Alcotest.(check @@ list (pair int int))
+      "equal"
+      [ (0, 0); (1, 0); (2, 0); (0, 1); (1, 1); (2, 1); (0, 2); (1, 2); (2, 2) ]
+      (Lwt_stream.get_available s12) ;
+    ()
+
+  (* This test can pass when the `product_stream` uses `iter_p` rather than `iter_s` *)
+  let two_opened () =
+    let msgs = List.init 3 ~f:Fn.id in
+    let s1, p1 = Lwt_stream.create () in
+    let s2, p2 = Lwt_stream.create () in
+    List.iter msgs ~f:(fun m ->
+        p1 (Some m) ;
+        p2 (Some m)) ;
+    let s12 = product_stream s1 s2 in
+    Alcotest.(check @@ list (pair int int))
+      "equal"
+      [ (0, 0); (1, 0); (2, 0); (0, 1); (1, 1); (2, 1); (0, 2); (1, 2); (2, 2) ]
+      (Lwt_stream.get_available s12) ;
+    ()
+
+  let two_closed () =
+    let msgs1 = List.init 3 ~f:Fn.id in
+    let msgs2 = List.init 3 ~f:Fn.id in
+    let s1, p1 = Lwt_stream.create () in
+    List.iter msgs1 ~f:(fun m -> p1 (Some m)) ;
+    p1 None ;
+    let s2, p2 = Lwt_stream.create () in
+    List.iter msgs2 ~f:(fun m -> p2 (Some m)) ;
+    p2 None ;
+    let s12 = product_stream s1 s2 in
+    let ans = Lwt_main.run @@ Lwt_stream.to_list s12 in
+    Alcotest.(check @@ list (pair int int))
+      "equal"
+      [ (0, 0); (1, 0); (2, 0); (0, 1); (1, 1); (2, 1); (0, 2); (1, 2); (2, 2) ]
+      ans ;
+    ()
+
+  let all_tests =
+    [
+      Alcotest.test_case "two_closed_streams" `Quick two_streams_from_list;
+      Alcotest.test_case "one_stepped_one_list" `Quick one_stepped_one_list;
+      Alcotest.test_case "two_stepped" `Quick two_stepped;
+      Alcotest.test_case "two_stepped_interleaved" `Quick
+        two_stepped_interleaved;
+      Alcotest.test_case "two_opened" `Quick two_opened;
+      Alcotest.test_case "two_closed" `Quick two_closed;
+    ]
+end
 
 module Int_payload = struct
   type payload = int [@@deriving equal]
@@ -61,9 +170,6 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
     U.get_payload_stream u k |> Lwt_stream.get_available
 
   (* let get_msgs u k = U.get_payload_stream u k |> Lwt_stream.to_list *)
-  let ascending xs = List.sort xs ~compare:Int.compare
-  let pair_add (x, y) = x + y
-  let pairwire_add xs = List.map xs ~f:pair_add
 
   let test_join () =
     let k = 5 in
@@ -108,62 +214,6 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
     let anss = Lwt_stream.map pair_add s12 in
     let ans = Lwt_stream.get_available anss in
     Alcotest.(check @@ list int) "equal" [ 0; 2; 4; 6; 8 ] ans
-
-  let _mk_product_stream s1 s2 =
-    Lwt_stream.map_list_s
-      (fun v2 -> Lwt_stream.(clone s1 |> map (fun v1 -> (v1, v2)) |> to_list))
-      (Lwt_stream.clone s2)
-
-  let _mk_product_stream s1 s2 =
-    Lwt_stream.map
-      (* _list_s *)
-        (fun v2 -> Lwt_stream.(clone s1 |> map (fun v1 -> (v1, v2))))
-      (Lwt_stream.clone s2)
-    |> Lwt_stream.concat
-
-  let product_stream_bg s1 s2 =
-    let s, f = Lwt_stream.create () in
-    Lwt.async (fun () ->
-        Lwt_stream.iter_p
-          (fun v2 ->
-            Lwt_stream.iter_p
-              (fun v1 ->
-                f (Some (v1, v2)) ;
-                Lwt.return_unit)
-              (Lwt_stream.clone s1))
-          (Lwt_stream.clone s2)) ;
-    s
-
-  let test_product_stream () =
-    let msgs1 = List.init 3 ~f:Fn.id in
-    let msgs2 = List.init 3 ~f:Fn.id in
-    let s1 = Lwt_stream.of_list msgs1 in
-    let s2 = Lwt_stream.of_list msgs2 in
-    let s12 = product_stream_bg s1 s2 in
-    let ans = Lwt_stream.get_available s12 in
-    Alcotest.(check @@ list (pair int int))
-      "equal"
-      [ (0, 0); (1, 0); (2, 0); (0, 1); (1, 1); (2, 1); (0, 2); (1, 2); (2, 2) ]
-      ans
-
-  let test_product_stream_2 () =
-    let _msgs1 = List.init 3 ~f:Fn.id in
-    let _msgs2 = List.init 3 ~f:Fn.id in
-    let s1, p1 = Lwt_stream.create () in
-    let s2, p2 = Lwt_stream.create () in
-    let s12 = product_stream_bg s1 s2 in
-    Alcotest.(check @@ list (pair int int))
-      "equal" []
-      (Lwt_stream.get_available s12) ;
-    p1 (Some 1) ;
-    p1 (Some 2) ;
-    (* p1 None ; *)
-    p2 (Some 1) ;
-    Alcotest.(check @@ list (pair int int))
-      "equal"
-      [ (1, 1); (2, 1) ]
-      (Lwt_stream.get_available s12) ;
-    ()
 
   let test_map2_naive () =
     let msgs1 = List.init 5 ~f:Fn.id in
@@ -215,8 +265,6 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
       Alcotest.test_case "map_one" `Quick test_map;
       Alcotest.test_case "filter_map_one" `Quick test_filter_map;
       Alcotest.test_case "combine" `Quick test_combine;
-      Alcotest.test_case "product_stream" `Quick test_product_stream;
-      Alcotest.test_case "product_stream_2" `Quick test_product_stream_2;
       Alcotest.test_case "map2_naive" `Quick test_map2_naive;
       Alcotest.test_case "map2_product_seq" `Quick test_map2_product_seq;
       Alcotest.test_case "map2_product_random" `Quick test_map2_product_random;
@@ -266,6 +314,7 @@ module U3 = Unroll.Make_pipe (Int) (Int_payload)
 let () =
   Alcotest.run "Interpreter"
     [
+      ("lwt_stream", Test_stream.all_tests);
       ("basic_bg", make_test_common (module U1));
       ("basic_pipe_bg", make_test_common (module U2));
       ("join_fg", make_test_bg (module U1));
