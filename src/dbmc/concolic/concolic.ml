@@ -463,7 +463,7 @@ let rec loop (e : expr) (prev_session : Session.t) : Branch.Status_store.t =
         if Printer.print then Format.printf "Running next iteration of concolic after abort\n";
         conc_session
     | Reach_max_step (_, _, conc_session) ->
-        Fmt.epr "Reach max steps\n" ;
+        if Printer.print then Format.printf "Reach max steps\n";
         (* alert_lookup target_stk x stk session.lookup_alert; *)
         conc_session
     | Run_the_same_stack_twice (x, stk) ->

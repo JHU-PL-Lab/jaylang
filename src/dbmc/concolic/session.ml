@@ -234,7 +234,7 @@ module Solver_map :
     module M = Map.Make (Branch.Runtime)
 
     (* TODO: could be a little faster to maintain a solver and merge upon adding. Depends on use case I think *)
-    (* ^ it also seems from current usage that I can only keep the solver from the session instead of the whole sesion *)
+    (* ^ it also seems from current usage that I can only keep the solver from the session instead of the whole session *)
     type t = Concolic.t list M.t
 
     let empty = M.empty

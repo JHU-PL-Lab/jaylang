@@ -2,7 +2,7 @@
 
 ### Urgent
 
-* Reduce max step to reduce load on solver
+* Decrease max step limit to reduce load on solver
 * Target all possible runtime instances of a branch under a large "or" to see if any are satisfiable.
   * Note: I will need to pass up the pick formulas to the session when I hit a branch
 * Handle max step
@@ -45,6 +45,10 @@ I think I could benefit from having a branch tracker that just handles all progr
 * Tracks the number of times max step has been hit in each AST branch
 * Maps AST branches to all runtime instances
 * Tracks parent dependencies so that formulas are implied correctly (e.g. abort formulas)
+  * i.e. it tracks the immediate parent to each branch clause key
+  * **GOOD IDEA** or we can just add pickable formulas each time we hit any branch such that we can pick the other
+    side to be forced. Then to set all runtime instances of a branch off limits, we just pick that
+    * I think this can handle if both are aborts because then we just can't enter the immediate parent. Only need to consider what happens if global.
 * Holds abort and max step formulas separately
 * Unorganized thoughts:
   * It would handle some formulas because it needs to mark runtime branches as off-limits
