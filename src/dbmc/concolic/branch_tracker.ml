@@ -1,5 +1,8 @@
 open Core
 
+[@@@warning "-32"]
+[@@@warning "-27"]
+
 module Formula_set =
   struct
     module Z3_expr =
@@ -40,6 +43,10 @@ module Formula_set =
 
   The user just needs to add formulas and enter/exit branches. The runtime branch tracker does
   the rest.
+
+  Note that pick formulas are effectively the same as adding some formulas to the solver with
+  discretion. Instead of having the actual pick, I could just have a map of my own that lets
+  me add in whatever formulas I want.
 *)
 module Runtime = 
   struct
@@ -74,6 +81,8 @@ module Runtime =
         struct
           module Formula :
             sig
+              (* TODO: maybe have these separate types instead of variant because it never bounces between the two *)
+              (* ^ and then it would type check better *)
               type t =
                 | And of Parent.t list (* to "and" all the dependencies -- for picking a branch *)
                 | Implies of Parent.t list * Z3.Expr.expr (* to imply a formula down the line -- for setting a branch off limits *)
@@ -88,15 +97,15 @@ module Runtime =
 
               let exit_parent (parent : Parent.t) (x : t) : t =
                 match x with
-                | And ls -> And (x :: ls)
-                | Implies (ls, expr) -> Expr (x :: ls, expr)
+                | And ls -> And (parent :: ls)
+                | Implies (ls, expr) -> Implies (parent :: ls, expr)
 
               let implies (parent : Parent.t) (expr : Z3.Expr.expr) : Z3.Expr.expr =
                 match Parent.to_expr parent with
                 | Some parent_expr -> Riddler.(parent_expr @=> expr)
                 | None -> expr
 
-              let rec to_expr (x : t) : Z3.Expr.expr =
+              let to_expr (x : t) : Z3.Expr.expr =
                 match x with 
                 | And parents ->
                   parents
@@ -126,14 +135,30 @@ module Runtime =
             { x with formula = Formula.exit_parent parent x.formula }
         end
 
-    module Env =
-      struct
+    module Env :
+      sig
         type t =
           { parent            : Parent.t (* current "scope" *)
           ; formulas          : Formula_set.t (* always true formulas under this parent *)
           ; abort_formulas    : Pick_formula.t list (* to be picked to set branch as off limits *)
           ; max_step_formulas : Pick_formula.t list (* to be picked to set branch as off limits *)
           ; target_formulas   : Pick_formula.t list } (* to be picked to solve for target *)
+
+        val empty : t
+        val create : Branch.Runtime.t -> t
+        val add : t -> Z3.Expr.expr -> t
+        val exit_to_env : t -> t -> t
+        (** [exit_to_env exited new_env] wraps up all info in [exited] and appropriately puts it in [new_env],
+            also adding any necessary pick formulas in case of aborts or max steps at any future point. *)
+      end
+      =
+      struct
+        type t =
+          { parent            : Parent.t
+          ; formulas          : Formula_set.t
+          ; abort_formulas    : Pick_formula.t list
+          ; max_step_formulas : Pick_formula.t list
+          ; target_formulas   : Pick_formula.t list }
 
         let empty : t =
           { parent            = Parent.Global
@@ -145,8 +170,8 @@ module Runtime =
         let create (branch : Branch.Runtime.t) : t =
           { empty with parent = Parent.of_runtime_branch branch }
 
-        (** [collect x] is all formulas in [x.formulas] implied by [x.parent]. *)
-        let collect ({ parent ; formulas ; _ } : t) : Z3.Expr.expr =
+        (** [collect_formulas x] is all formulas in [x.formulas] implied by [x.parent]. *)
+        let collect_formulas ({ parent ; formulas ; _ } : t) : Z3.Expr.expr =
           match parent with
           | Global -> Formula_set.collect formulas
           | Local branch -> Riddler.(Branch.Runtime.to_expr branch @=> Formula_set.collect formulas)
@@ -155,24 +180,34 @@ module Runtime =
           { x with formulas = Formula_set.add formulas formula }
 
         (* add formula to allow to pick this branch via branch key *)
-        let add_pick_branch ({ parent ; target_formulas ; _ } as x : t) : t =
+        let get_branch_pick ({ parent ; _ } : t) : (Pick_formula.t, Parent.t) result =
           match parent with
-          | Global -> x (* no way to target global *)
-          | Local branch ->
-            { x with target_formulas =
-              Pick_formula.empty_and branch.branch_key :: target_formulas
-            }
+          | Global -> Error Global (* no way to target global *)
+          | Local branch -> Ok (Pick_formula.empty_and branch.branch_key)
             (* TODO: we don't actually want to exit the parent on this because then it implies this direction *)
             (* ^ to be clear, if when we exit this env up to the next one, fi we call Pick_formula.exit_parent, then
                that's wrong. *)
             (* One ugly patch is the Pick_formula has a parent to ignore that doesn't get added to the list, and we make that the immediate parent *)
             (* also this doesn't get called yet *)
 
+        (* get an expression that effectively says "NOT branch". It is "condition = other direction" *)
+        let off_limits_expr (branch : Branch.Runtime.t) : Z3.Expr.expr =
+          branch.direction
+          |> Branch.Direction.other_direction
+          |> Branch.Direction.to_value_bool
+          |> Option.return
+          |> Riddler.eq_term_v branch.condition_key
+
         (* 
           Add formulas to the abort formulas that let some condition be picked for either direction
           depending on future aborts.
 
-          This is to be called for any branches that are in the clause list for this environment.
+          This is called upon exiting because we are hitting some side of the branch. So acknowledge
+          that the condition was used. We don't call upon creating because that would imply the parent
+          incorrectly.
+
+          Alternatively, we can accept an input branch to be called when entering that branch and add
+          to this env.
 
           I need to think about this logic a little bit more because it's different from max
           step. If this branch contains an abort that is not in a sub branch, then we will always
@@ -186,25 +221,62 @@ module Runtime =
           So basically every time we come across any key ever being used as a branch condition, we
           add the condition to be the other direction as pickable upon abort.
 
-          [x] is current environment, and [branch] is what we're about to enter. We add formulas
-          concerning [branch].
+          We may run into a problem that the stack for actually hitting the other side is different than
+          the stack for hitting this side, so these formulas basically do nothing. I'll have to see.
+
+          Just returns two pick formulas
         *)
-        let add_condition_for_abort_pick (x : t) (branch : Branch.Runtime.t) : t =
+        let get_abort_pick ({ parent ; _ } : t) : (Pick_formula.t * Pick_formula.t, Parent.t) result =
           (* say that picking this side to find an abort implies the other side must be true *)
           let abort_pick (branch : Branch.Runtime.t) : Pick_formula.t =
-            branch.direction
-            |> Branch.Direction.other_direction
-            |> Branch.Direction.to_value_bool
-            |> Branch.Runtime.other_direction
-            |> Option.return
-            |> Riddler.eq_term_v branch.condition_key
+            branch
+            |> off_limits_expr
             |> Pick_formula.empty_implies (Branch.Runtime.to_abort_pick_key branch)
           in
-          { x with abort_formulas =
-            abort_pick branch :: abort_pick (Branch.Runtime.other_direction branch) :: x.abort_formulas
-          }
+          match parent with
+          | Global -> Error Global
+          | Local branch -> Ok (abort_pick branch, abort_pick (Branch.Runtime.other_direction branch))
 
-        (* TODO max step *)
+        let get_max_step_pick ({ parent ; _ } : t) : (Pick_formula.t * Pick_formula.t, Parent.t) result =
+          let max_step_pick (branch : Branch.Runtime.t) : Pick_formula.t =
+            branch
+            |> off_limits_expr
+            |> Pick_formula.empty_implies (Branch.Runtime.to_max_step_pick_key branch)
+          in
+          match parent with
+          | Global -> Error Global
+          | Local branch -> Ok (max_step_pick branch, max_step_pick (Branch.Runtime.other_direction branch))
+
+        (* This is slow, I think. I should calculated worst case based on max step. *)
+        (*
+          Worst case is that every step is a branch. So we have two new formulas for every step. And then
+          they all get copied and iterated over (but that doesn't increase complexity). And we have to exit
+          as many as we entered. Seems just n^2 for entire program in worst case.
+          i.e. this function is O(n) where n is size of program, but n is bounded by max step.
+        *)
+        let exit_to_env (exited : t) (new_env : t) : t =
+          let exited_formulas = collect_formulas exited in
+          let exit_picks = List.map ~f:(Pick_formula.exit_parent exited.parent) in
+          let merge_picks get_picks old_env old_picks new_picks =
+            match get_picks with
+            | `Two f -> begin
+              match f old_env with
+              | Ok (a, b) -> a :: b :: exit_picks old_picks @ new_picks
+              | _ -> raise NoParentException
+            end
+            | `One f -> begin
+              match f old_env with
+              | Ok a -> a :: exit_picks old_picks @ new_picks
+              | _ -> raise NoParentException
+            end
+          in
+          { parent            = new_env.parent
+          ; formulas          = Formula_set.add new_env.formulas @@ collect_formulas exited
+          ; abort_formulas    = merge_picks (`Two get_abort_pick) exited exited.abort_formulas new_env.abort_formulas
+          ; max_step_formulas = merge_picks (`Two get_max_step_pick) exited exited.max_step_formulas new_env.max_step_formulas
+          ; target_formulas   = merge_picks (`One get_branch_pick) exited exited.target_formulas new_env.target_formulas }
+
+        (* TODO: if exiting to global scope, then finalize all pick formulas *)
 
       end
 
@@ -223,24 +295,22 @@ module Runtime =
     *)
     type t = { stack : Env.t list }
 
-    let empty : t =
-      { stack = Env.empty :: []
-      ; pick_formulas = Branch_map.empty }
+    let empty : t = { stack = Env.empty :: [] }
 
-    let log_add_formula ({ stack ; _ } : t) (formula : Z3.Expr.expr) : unit =
+    let log_add_formula ({ stack  } : t) (formula : Z3.Expr.expr) : unit =
       match stack with
       | { parent = Parent.Global ; _ } :: _ -> 
         Format.printf "ADD GLOBAL FORMULA %s\n" (Z3.Expr.to_string formula)
       | _ -> ()
 
-    let add_formula ({ stack ; _ } as x : t) (formula : Z3.Expr.expr) : t =
+    let add_formula ({ stack } : t) (formula : Z3.Expr.expr) : t =
       (* log_add_formula x formula; *)
       let new_stack =
         match stack with
         | hd :: tl -> Env.add hd formula :: tl
         | _ -> raise NoParentException
       in
-      { x with stack = new_stack }
+      { stack = new_stack }
       
     let add_key_eq_val (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
       add_formula x @@ Riddler.eq_term_v key (Some v)
@@ -254,18 +324,19 @@ module Runtime =
     (* TODO: all other types of formulas, e.g. not, pattern, etc *)
 
     let enter_branch ({ stack } : t) (branch : Branch.Runtime.t) : t =
-      match stack with
-      | hd :: tl ->
-        { stack = Env.create branch :: Env.add_condition_for_abort_pick hd branch :: tl }
-      | _ -> raise NoParentException
+      { stack = Env.create branch :: stack }
 
-    let exit_branch ({ stack ; pick_formulas ; _ } as x : t) : t =
+    let exit_branch ({ stack } : t) : t =
       match stack with
-      | { parent = Local exited_branch as p ; _ } as old_hd :: new_hd :: tl ->
+      | { parent = Local _ ; _ } as old_hd :: new_hd :: tl ->
         (* Format.printf "exiting branch and collecting formulas. Formula is %s\n" (Env.collect old_hd |> Z3.Expr.to_string); *)
-        { stack = Env.add new_hd (Env.collect old_hd) :: tl } (* definitely fails to type check right now *)
+        { stack = Env.exit_to_env old_hd new_hd :: tl }
       | _ -> raise NoParentException (* no parent to back up to because currently in global (or no) scope *)
 
-
-
   end
+
+(*
+  The branch tracker will hold results of all runtime branches and send to solvers.
+
+  See discussion above runtime on the pick vs map scenario
+*)

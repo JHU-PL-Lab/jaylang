@@ -122,19 +122,19 @@ module Runtime =
       in 
       Format.printf "\nTarget branch: %s\n" target_branch_str
 
-    let (^-) a b = a ^ "-" ^ b
+    let (^-) (Ast.Ident a) b = Ast.Ident (a ^ "-" ^ b)
 
     (* hyphen is invalid in variable names, so this key is unique from any variable *)
     let to_abort_pick_key (branch : t) : Lookup_key.t =
       let dir_string = Direction.to_string branch.direction in 
-      let x = branch.branch_key.x ^- dir_string ^- "abort" in
+      let x = (branch.branch_key.x ^- dir_string) ^- "abort" in
       { x
       ; r_stk = Rstack.empty
       ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
 
     let to_max_step_pick_key (branch : t) : Lookup_key.t = 
       let dir_string = Direction.to_string branch.direction in 
-      let x = branch.branch_key.x ^- dir_string ^- "max_step" in
+      let x = (branch.branch_key.x ^- dir_string) ^- "max_step" in
       { x
       ; r_stk = Rstack.empty
       ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
