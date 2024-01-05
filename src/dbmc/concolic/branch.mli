@@ -82,6 +82,15 @@ module Runtime :
 
     val print_target_option : t option -> unit
     (** [print_target_option x] prints the branch [x] as "target branch", or prints it as "None". *)
+
+    val to_abort_pick_key : t -> Lookup_key.t
+    (** [to_abort_pick_key branch] is a key that can be picked to set the [branch] as off limits if there
+        is an abort under the branch. The formulas that handle such logic are not here. This is only the key
+        that will be used in such a case. *)
+
+    val to_max_step_pick_key : t -> Lookup_key.t
+    (** [to_max_step_pick_key branch] is a key that can be picked to set the [branch] as off limits due to
+        reaching max step un der the branch. See [to_abort_pick_key]. *)
   end
 
 (*

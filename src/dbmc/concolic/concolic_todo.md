@@ -88,3 +88,14 @@ targets?
   still thinks it can hit the target with a slightly larger depth, so it does that, and so on...
 * I think I can get around this by marking ALL depths found so far to be off limits.
   * I need to map ast branch to all runtime branches found.
+
+
+## Meeting
+
+I'll share the working test cases.
+
+There are some failing test cases. I wish I had found them earlier. But I find them by testing the edges of my current implementation, and I only found those test cases by implementing. It just seems to require iteration for me.
+
+There are some hacky ways I can solve them quickly, but since I know that I'll need to keep doing this, I'll reserve that trick for when we're really low on time.
+
+See my todos

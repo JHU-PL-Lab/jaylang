@@ -9,10 +9,6 @@ module Lookup_key =
     let t_of_sexp _ = failwith "Lookup_key.t_of_sexp needed and not implemented"
   end
 
-(*
-  I may prefer to no longer use this, and I instead add to a global formula store when the stack is empty.
-  Currently, I force the bottom of the stack to be the global scope, which feels a little hacky.
-*)
 module Parent =
   struct
     type t =
@@ -28,21 +24,6 @@ module Parent =
       match parent with
       | Global -> Riddler.true_ (* Global scope is just a trivial parent *)
       | Local branch -> Branch.Runtime.to_expr branch
-
-    let to_condition_key (parent : t) : Lookup_key.t option =
-      match parent with
-      | Global -> None
-      | Local branch -> Some branch.condition_key
-
-    let to_ast_branch_exn (parent : t) : Branch.t =
-      match parent with
-      | Local x -> Branch.Runtime.to_ast_branch x
-      | Global -> failwith "global ast branch undefined"
-
-    let to_runtime_branch_exn = function
-    | Local x -> x
-    | Global -> failwith "global runtime branch undefined"
-      
   end
 
 
@@ -79,8 +60,8 @@ module Formula_set =
 module Env =
   struct
     type t =
-      { parent : Parent.t
-      ; formulas : Formula_set.t }
+      { parent        : Parent.t
+      ; formulas      : Formula_set.t }
 
     let empty : t =
       { parent = Parent.Global ; formulas = Formula_set.empty }

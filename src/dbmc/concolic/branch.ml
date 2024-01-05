@@ -121,6 +121,23 @@ module Runtime =
         | Some target -> to_string target
       in 
       Format.printf "\nTarget branch: %s\n" target_branch_str
+
+    let (^-) a b = a ^ "-" ^ b
+
+    (* hyphen is invalid in variable names, so this key is unique from any variable *)
+    let to_abort_pick_key (branch : t) : Lookup_key.t =
+      let dir_string = Direction.to_string branch.direction in 
+      let x = branch.branch_key.x ^- dir_string ^- "abort" in
+      { x
+      ; r_stk = Rstack.empty
+      ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
+
+    let to_max_step_pick_key (branch : t) : Lookup_key.t = 
+      let dir_string = Direction.to_string branch.direction in 
+      let x = branch.branch_key.x ^- dir_string ^- "max_step" in
+      { x
+      ; r_stk = Rstack.empty
+      ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
   end
 
 module Status_store =
