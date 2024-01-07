@@ -91,6 +91,8 @@ module Runtime :
     val to_max_step_pick_key : t -> Lookup_key.t
     (** [to_max_step_pick_key branch] is a key that can be picked to set the [branch] as off limits due to
         reaching max step un der the branch. See [to_abort_pick_key]. *)
+        
+    val to_target_pick_key : t -> Lookup_key.t
   end
 
 (*

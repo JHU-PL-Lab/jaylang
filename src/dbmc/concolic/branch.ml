@@ -138,6 +138,13 @@ module Runtime =
       { x
       ; r_stk = Rstack.empty
       ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
+
+    let to_target_pick_key (branch : t) : Lookup_key.t = 
+      let dir_string = Direction.to_string branch.direction in 
+      let x = (branch.branch_key.x ^- dir_string) ^- "target" in
+      { x
+      ; r_stk = Rstack.empty
+      ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
   end
 
 module Status_store =
