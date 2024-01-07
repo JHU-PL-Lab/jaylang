@@ -1,5 +1,27 @@
 ## Concolic Evaluator TODOs
 
+### What I'm working on
+
+I'm tracking all runtime branches and conditions and letting them be "pickable" to be set off limits
+if that AST branch ever finds an abort or max step. That way, the solver knows to never enter that
+branch at any depth, rather than just at the depth it failed.
+
+(However, should we only set max step off limits after a certain depth? In which case we do only want
+the last one to be off limits, and not all thus far?)
+
+The same logic lets me pick to solve for any runtime instance of an AST branch rather than a specific
+instance. This will help me handle the "depth dependent" test, which is currently incorrect.
+(This will be a large "or" of "pick formula and condition = direction" such that parents only have to
+be satisfied if we think we can solve for that direction)
+
+Further, when I track this way, I can easily add in only max step formulas and abort formulas to
+lend insight into why some branch is unsatisfiable. I quickly get "unreachable because of max step" or
+"unsatisfiable because of abort" out of this.
+
+I am only worried about the limits of the solver and if computation becomes infeasible. Max step might
+have to be quite a small limit...
+
+
 ### Urgent
 
 * Decrease max step limit to reduce load on solver
@@ -29,6 +51,7 @@
 
 ### Questions
 
+* Should the stack only be the parents to indicate depth? Or are the other values necessary to be correct?
 * Can both sides of a branch immediately hit an abort? Is this allowed? e.g. `branch = cond ? ( t = abort ) : ( f = abort )`
 * Do we only have int inputs?
 * Should I have a "function is called" pick formula, or is this always implied by entering the branch that calls the function?
