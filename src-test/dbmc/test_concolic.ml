@@ -16,6 +16,6 @@ let test_one_file testname _args =
   Alcotest.(check bool) "concolic" true result
 
 let () =
-  Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec 5.));
+  Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec .5));
   let grouped_tests = Lib.group_tests "test/dbmc/concolic" test_one_file in
   Alcotest.run_with_args "concolic" Test_argparse.config grouped_tests
