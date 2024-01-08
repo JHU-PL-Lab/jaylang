@@ -1,5 +1,5 @@
 (
-  (always_true_branch Hit Unsatisfiable)
+  (always_true_branch (Hit) Unsatisfiable)
   (unreachable_branch Unreachable Unreachable)
-  (y Hit Hit)
+  (y (Hit) (Hit))
 )

@@ -1,18 +1,24 @@
 open Jayil
 
-module Status :
+(* module Status :
   sig
+    module Input :
+      sig
+        type t = Lookup_key.t * Dvalue.t
+      end
+
     type t =
-      | Hit
+      | Hit of Input.t list
       | Unhit
-      | Unsatisfiable
-      | Found_abort
-      | Reach_max_step
+      | Unsatisfiable (* TODO: payload? *)
+      | Found_abort of Input.t list
+      | Reach_max_step of int (* counter for how many times *)
       | Missed
+      | Unreachable_because_aborts of 
       | Unreachable (* Only to be used when conveying final results. No branch is ever unreachable during evaluation *)
 
     val to_string : t -> string
-  end
+  end *)
 
 module Direction :
   sig
@@ -51,6 +57,8 @@ val of_ident_and_bool : Ast.ident -> bool -> t
 (** [of_ident_and_bool branch_ident dir] converts the bool [dir] to a direction and uses that to
     make a branch. *)
 
+val other_direction : t -> t
+
 (*
   "Runtime" is a modifier/adjective on "Branch", so it is a "Runtime Branch".
 *)
@@ -87,7 +95,7 @@ module Runtime :
 (*
   A `Status_store` tracks how AST branches are hit. It maps branch identifiers to their status.
 *)
-module Status_store :
+(* module Status_store :
   sig
     type t [@@deriving sexp, compare]
     (** [t] is a map from a branch identifier to the status of the branch. So it tells
@@ -125,4 +133,4 @@ module Status_store :
     val finish : t -> t
     (** [finish store] is a new store where all unhit branches are now marked as unsatisfiable *)
 
-  end
+  end *)

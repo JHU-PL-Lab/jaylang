@@ -265,17 +265,7 @@ and eval_clause
       let stk' = Concrete_stack.push (x, cond_fid cond_bool) stk in
 
       (* note that [eval_session] gets mutated when evaluating the branch *)
-      let res = Result.try_with (fun () -> eval_exp ~eval_session ~conc_session stk' env e) in
-      begin
-        (* This is so ugly. I really need to get rid of the exceptions and use variants *)
-        match res with
-        | Error (Found_abort (v, conc_session)) ->
-          raise @@ Found_abort (v, Session.Concolic.exit_branch conc_session)
-        | Error (Reach_max_step (v, stk, conc_session)) ->
-          raise @@ Reach_max_step (v, stk, Session.Concolic.exit_branch conc_session)
-        | _ -> () (* continue normally on Ok or any other exception *)
-      end;
-      let ret_env, ret_val, conc_session = Result.ok_exn res in (* Bubbles exceptions that aren't handled above *)
+      let ret_env, ret_val, conc_session = eval_exp ~eval_session ~conc_session stk' env e in
       let (Var (ret_id, _) as last_v) = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
       let _, ret_stk = Fetch.fetch_val_with_stk ~eval_session ~stk:stk' ret_env last_v in
 
@@ -290,7 +280,7 @@ and eval_clause
       let n = eval_session.input_feeder (x, stk) in
       let retv = Direct (Value_int n) in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      retv, Session.Concolic.add_input conc_session x retv
+      retv, Session.Concolic.add_input conc_session x_key retv
     | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin
       (* x = f y ; *)
       match Fetch.fetch_val ~eval_session ~stk env vf with
@@ -438,13 +428,14 @@ let eval_exp_default
 
   This eval spans multiple concolic sessions, trying to hit the branches.
 *)
-let rec loop (e : expr) (prev_session : Session.t) : Branch.Status_store.t =
+let rec loop (e : expr) (prev_session : Session.t) : Branch_tracker.Status_store.t =
   match Session.next prev_session with
   | `Done session ->
     Format.printf "------------------------------\nFinishing...\n";
     let finished = Session.finish session in
     Session.print finished;
-    Session.branch_store finished
+    Branch_tracker.status_store
+    @@ Session.branch_tracker finished
   | `Next (session, conc_session, eval_session) ->
     if Printer.print
     then
@@ -478,7 +469,8 @@ let rec loop (e : expr) (prev_session : Session.t) : Branch.Status_store.t =
     loop e @@ Session.accum_concolic session concolic_session
 
 (* Concolically execute/test program. *)
-let eval (e : expr) : Branch.Status_store.t = 
+let eval (e : expr) : Branch_tracker.Status_store.t = 
   if Printer.print then Format.printf "\nStarting concolic execution...\n";
-  Session.load_branches Session.default e
-  |> loop e (* Repeatedly evaluate program *)
+  (* Repeatedly evaluate program *)
+  loop e 
+  @@ Session.of_expr e

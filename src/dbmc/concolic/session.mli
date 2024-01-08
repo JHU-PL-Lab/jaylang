@@ -70,21 +70,7 @@ module Eval :
 *)
 module Concolic :
   sig
-    module Outcome :
-      sig
-        type t
-          (* { found_abort    : bool
-          ; hit_target     : bool
-          ; reach_max_step : bool } *)
-      end
-
     type t
-      (* { branch_solver : Branch_solver.t
-      ; cur_target    : Branch.Runtime.t option
-      ; new_targets   : Branch.Runtime.t list
-      ; outcome       : Outcome.t
-      ; hit_branches  : (Branch.Runtime.t * Branch.Status.t) list
-      ; inputs        : (Ident.t * Dvalue.t) list } *)
 
     val add_formula : t -> Z3.Expr.expr -> t
     (** [add_formula session expr] adds the [expr] under the current parent of the [session]. *)
@@ -111,48 +97,19 @@ module Concolic :
     (** [exit_branch session ret_key] uses the final key [ret_key] in the branch to exit and return
         to previous parent. Also cleans up formulas in the solver. *)
 
-    val add_input : t -> Ident.t -> Dvalue.t -> t
+    val add_input : t -> Lookup_key.t -> Dvalue.t -> t
     (** [add_input session x v] adds the fact that [v] was fed to variable [x] as an input. *)
   end
 
-module Solver_map :
-  sig
-    type t 
-    (** [t] maps targets to solvers that can be used to solve for that target. *)
-
-    (* TODO: the formulas never depend on inputs, so maybe I can just keep all formulas together. *)
-  end
-
-(*
-  TODO: keep persistent formulas as a result of max step and aborts because we might not want a branch
-    to be unsatisfiable, but rather mark it as "unsatisfiable because of earlier abort" or "unreachable
-    because of max step".
-    We can do this by solving for the target without any persistent formulas added, and then carefully add
-    them to determine *why* we can't solve for a target.
-    This also helps us decide when to stop trying to hit a target that keeps resulting in max step.
-
-    The issue is that it seems NP hard to add them carefully. For example, maybe including one "max step"
-    formula doesn't make another branch unsatisfiable, but two of them does. I need to be very careful about
-    how I add the persistent formulas in.
-    A cheap patch is to add all "abort" formulas to check unsatisfiability, then add only all "max step", and
-    then all together. This gives an idea of why a branch might not be able to be hit, even if it results in 
-    a "unreachable because of max steps and aborts".
-*)
 type t 
-  (* { branch_store        : Branch.Status_store.t
-  ; persistent_formulas : Branch_solver.Formula_set.t
-  ; target_stack        : Branch.Runtime.t list
-  ; solver_map          : Solver_map.t
-  ; global_max_step     : int
-  ; run_num             : int } *)
-  (** [t] tracks information between runs of the concolic evaluator and helps create new Eval and Concolic
-      sessions for future runs. *)
+(** [t] tracks information between runs of the concolic evaluator and helps create new Eval and Concolic
+    sessions for future runs. *)
 
 val default : t
 (** [default] is a session to be used to make the first run of the concolic evaluator. *)
 
-val load_branches : t -> Jayil.Ast.expr -> t
-(** [load_branches session expr] has the AST branches loaded from [expr] into [session]. *)
+val of_expr : Jayil.Ast.expr -> t
+(** [of_expr expr] has the AST branches loaded from [expr] into [default]. *)
 
 val next : t -> [ `Done of t | `Next of t * Concolic.t * Eval.t ]
 (** [next session] is [`Done session'] when there is no satisfiable or unhit target left in [session'],
@@ -168,5 +125,5 @@ val accum_concolic : t -> Concolic.t -> t
 (** [accum_concolic session concolic_session] is a new session that merges the results of [concolic_session] into
     [session]. The new session is then ready to be called with [next] to begin another run. *)
 
-val branch_store : t -> Branch.Status_store.t
-(** [branch_store session] is the statuses of the branches in the session. *)
+val branch_tracker : t -> Branch_tracker.t
+(** [branch_tracker session] is the statuses of the branches in the session. *)
