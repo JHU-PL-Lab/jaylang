@@ -1,124 +1,29 @@
 ## Concolic Evaluator TODOs
 
-### What I'm working on
-
-I'm tracking all runtime branches and conditions and letting them be "pickable" to be set off limits
-if that AST branch ever finds an abort or max step. That way, the solver knows to never enter that
-branch at any depth, rather than just at the depth it failed.
-
-(However, should we only set max step off limits after a certain depth? In which case we do only want
-the last one to be off limits, and not all thus far?)
-
-The same logic lets me pick to solve for any runtime instance of an AST branch rather than a specific
-instance. This will help me handle the "depth dependent" test, which is currently incorrect.
-(This will be a large "or" of "pick formula and condition = direction" such that parents only have to
-be satisfied if we think we can solve for that direction)
-
-Further, when I track this way, I can easily add in only max step formulas and abort formulas to
-lend insight into why some branch is unsatisfiable. I quickly get "unreachable because of max step" or
-"unsatisfiable because of abort" out of this.
-
-I am only worried about the limits of the solver and if computation becomes infeasible. Max step might
-have to be quite a small limit...
-
-
 ### Urgent
 
-* Decrease max step limit to reduce load on solver
-* Target all possible runtime instances of a branch under a large "or" to see if any are satisfiable.
-  * Note: I will need to pass up the pick formulas to the session when I hit a branch
-* Handle max step
-  * Note: This might require the "analyze AST to determine dependencies" bullet in the "eventually" section
-  * If I choose to bubble the max step, then I need to make sure the max step tracker doesn't recount the branches due to recursion
-  * And fix the case where I sometimes have to press ^C to stop the evaluation and continue to the next one
-    * My guess is this happens when the solver stuck, and any exception quits the solver as "unsatisfiable", but I have no good evidence for this--it's just a hunch.
+* Disallow inputs that have already been used
+  * I think we can just add global formulas because even if this makes some branch appear unsatisfiable, that branch has already been hit
+* Fix the case where I sometimes have to press ^C to stop the evaluation and continue to the next one
+  * My guess is this happens when the solver stuck, and any exception quits the solver as "unsatisfiable", but I have no good evidence for this--it's just a hunch.
 * Customize unsatisfiability with a reason (e.g. unreachable/unsatisfiable because of abort, max step, both, or neither)
   * Note: Will need to store the formulas separately and add them to the solver carefully
-* Make persistent formulas true only under their parents (I think this should fix the "double abort" test)
+* Use `Unkown` result from solver and add to branch statuses
+  * I think this is in case of timeout, which I need to be ready to handle.
 
 ### Eventually
 
-* Payloads on branch statuses
-  * Track inputs and solvers that lead to hits/misses
+* Convert Earl's jay files to jayil and make test cases
 * Analyze AST to determine dependencies
   * This is important so that some later branch that always gives abort doesn't prevent earlier branches from being hit
-  * Also to disallow some parent from being hit if all children result in max step, or similar
-* Allow multiple possible branch outcomes to account for nondeterminism
+* Allow multiple expected test results
 * Throw exception if we ever try to solve for the same branch with the same formulas, i.e. continue with misses until we reach a steady state
 * Logging
 * Use optional input AST branches to customize output
-* Use variants instead of exceptions to make tracking a little nicer (it's currently quite hacky)
-
-### Questions
-
-* Should the stack only be the parents to indicate depth? Or are the other values necessary to be correct?
-* Can both sides of a branch immediately hit an abort? Is this allowed? e.g. `branch = cond ? ( t = abort ) : ( f = abort )`
-* Do we only have int inputs?
-* Should I have a "function is called" pick formula, or is this always implied by entering the branch that calls the function?
-  * If I need it, then I can enter a function like any Parent in branch solver.
+* Efficiency optimizations!
+  * Regarding pick formulas, especially. Can I make them shorter or not duplicate? Maybe mark off some runtime branch as already having a pick formula? Could use a hashtbl and mutability for extra speed
+  * Shorten lookup keys to hash, if possible. Might not be beneficial though if the cost of hashing is greater than the cost of comparing a few times later. I think that since I have maps and sets with these lookup keys, I do want them shorter
 
 ### Random thoughts
 
-**Branch_tracker**
-
-I think I could benefit from having a branch tracker that just handles all program-wide branch logic and relations.
-* The session and concolic session will each have one
-* It would hold the status store
-* It can be merged with other branch trackers to accumulate the results from the concolic session
-* Tracks the number of times max step has been hit in each AST branch
-* Maps AST branches to all runtime instances
-* Tracks parent dependencies so that formulas are implied correctly (e.g. abort formulas)
-  * i.e. it tracks the immediate parent to each branch clause key
-  * **GOOD IDEA** or we can just add pickable formulas each time we hit any branch such that we can pick the other
-    side to be forced. Then to set all runtime instances of a branch off limits, we just pick that
-    * I think this can handle if both are aborts because then we just can't enter the immediate parent. Only need to consider what happens if global.
-* Holds abort and max step formulas separately
-* Unorganized thoughts:
-  * It would handle some formulas because it needs to mark runtime branches as off-limits
-    * Then it might as well take on other solver logic. And let branch_solver just do runtime branch tracking instead of solving logic
-      * That's because we need to be adding some formulas sometimes to determine solvability
-    * This motivates a name change for branch_solver
-
-I think I need a branch_tracker. 
-* It holds the status store
-* Maps ast branches to runtime branches found so far
-* tracks number of times max step has been hit in each ast branch
-* All of the above are between-runs data
-  * Should it track data during runtime? 
-    * Maybe, yes, because it could be used during run to store up information as if we're currently at end of run (e.g. it could be a better way to track hits of branches)
-    * But could also just store less data and use that to determine end-of-run data (e.g. no need to store aborts because that happens only once per run)
-* It would handle some formulas because it needs to mark runtime branches as off-limits
-  * Then it might as well take on other solver logic. And let branch_solver just do runtime branch tracking instead of solving logic
-    * That's because we need to be adding some formulas sometimes to determine solvability
-  * This motivates a name change for branch_solver
-* A slight alternative is to be tracking hits and solves for runtime branches. Try to hit as many as possible and combine results. (I'm now not sure what I meant by this)
-  * Don't let some unsatisfiables to affect other runtime branches
-  * Just need to make sure that we can explore deeply into the recursion -- I don't want to be limited and think we have called a branch unsatisfiable when really we've just not recursed deep enough.
-    * For this reason, I'm not sure how we prove whether something is actually unsatisfiable when there is a recursive function. If the recursive depth depends on the input, then my intuition tells me we can't be confident about satisfiability.
-      * Similarly for if we reach max step. Can we make any conclusions at all? If the function is recursive, then there are circular dependencies between branches, so we can't just mark "lower" branches as unknown. This will require some deep analysis of the ast and program.
-* Really I need to talk to scott about this
-
-FAILING TEST CASES:
-I need to think about how this evaluator/solver handles some branches that are satisfiable
-at some depths of recursion but not at others. I think I am currently marking it off as
-unsatisfiable if the branch can't be solved for at some depth. Can I come up with an example
-that proves this wrong?
-* See depth_dependent.jil
-
-Is it ever possible that we keep increasing the size of recursion to get around the stack-dependent
-targets? 
-* E.g. we hit abort or max step at some recursive depth, so we mark it off limits, but then the solver
-  still thinks it can hit the target with a slightly larger depth, so it does that, and so on...
-* I think I can get around this by marking ALL depths found so far to be off limits.
-  * I need to map ast branch to all runtime branches found.
-
-
-## Meeting
-
-I'll share the working test cases.
-
-There are some failing test cases. I wish I had found them earlier. But I find them by testing the edges of my current implementation, and I only found those test cases by implementing. It just seems to require iteration for me.
-
-There are some hacky ways I can solve them quickly, but since I know that I'll need to keep doing this, I'll reserve that trick for when we're really low on time.
-
-See my todos
+None right now
