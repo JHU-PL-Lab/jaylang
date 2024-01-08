@@ -15,6 +15,7 @@ module Status :
       | Missed
       | Unreachable_because_abort (* TODO: payload? *)
       | Unreachable_because_max_step (* ^ *)
+      | Unknown
       | Unreachable
 
     val to_string : t -> string

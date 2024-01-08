@@ -48,10 +48,9 @@ first_branch = cm ? (
 c = x == first_branch; # true when x = 101
 e = c ? (
   # hittable when x = 101
-  # For some unknown reason, this gets missed. It tries to solve for it with 138 then 99...
-  # Then it calls this unsatisfiable when I quit the solver
+  # This sometimes gets called unsatisfiable if it hits max step on first run
   target = 42
 ) : (
-  # hittable when x > 101
+  # hittable when x > 101 or x = 50
   void = 0
 )

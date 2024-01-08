@@ -316,13 +316,6 @@ module Env :
     let add ({ formulas ; _ } as x : t) (formula : Z3.Expr.expr) : t =
       { x with formulas = Formula_set.add formulas formula }
 
-    (* This is slow, I think. I should calculated worst case based on max step. *)
-    (*
-      Worst case is that every step is a branch. So we have two new formulas for every step. And then
-      they all get copied and iterated over (but that doesn't increase complexity). And we have to exit
-      as many as we entered. Seems just n^2 for entire program in worst case.
-      i.e. this function is O(n) where n is size of program, but n is bounded by max step.
-    *)
     let exit_to_env (exited : t) (new_env : t) : t =
       match exited with
       | { parent = Global ; _ } -> raise NoParentException
@@ -372,6 +365,13 @@ let add_alias (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
 
 let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
   add_formula x @@ Riddler.binop_without_picked key op left right
+
+(* We'd like to not choose this input anymore, so mark it off limits *)
+(* TODO: how does this work for inputs in recursive functions that have different previous inputs? *)
+let add_input (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
+  Riddler.eq_term_v key (Some v)
+  |> Solver.SuduZ3.not_
+  |> add_formula x
 
 (* TODO: all other types of formulas, e.g. not, pattern, etc *)
 

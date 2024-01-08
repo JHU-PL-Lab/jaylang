@@ -14,8 +14,11 @@
 ### Eventually
 
 * Convert Earl's jay files to jayil and make test cases
+* Quit solving after missing too many times (e.g. depth_dependent2_tail_rec tried a ton of inputs that got nowhere but didn't hit max step) and say "unknown"
 * Analyze AST to determine dependencies
   * This is important so that some later branch that always gives abort doesn't prevent earlier branches from being hit
+  * SIMILAR: selectively add formulas that are encountered on the path to the target, and discard other formulas
+    * Could give each run a new formula tracker and then save a snapshot of the tracker (exiting up to global) when hitting each target. Then merge all of these before solving.
 * Allow multiple expected test results
 * Throw exception if we ever try to solve for the same branch with the same formulas, i.e. continue with misses until we reach a steady state
 * Logging

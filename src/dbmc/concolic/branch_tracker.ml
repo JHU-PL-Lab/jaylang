@@ -27,6 +27,7 @@ module Status =
       | Missed
       | Unreachable_because_abort
       | Unreachable_because_max_step
+      | Unknown
       | Unreachable (* any unhit branch whose parent is unsatisfiable *)
       [@@deriving variants, compare, sexp]
 
@@ -63,7 +64,8 @@ module Status =
         | Found_abort _ -> new_status
         | _ -> old_status (* TODO: allow hits to represent completing the branch without problem *)
       end
-      | Missed -> new_status
+      | Missed
+      | Unknown -> new_status
       | Unreachable
       | Unreachable_because_abort
       | Unreachable_because_max_step -> old_status
@@ -83,7 +85,7 @@ module Status_store =
       match Map.find map branch with
       | Some Unhit
       | Some Missed -> true
-      | Some Reach_max_step i -> i <= num_allowed_max_step
+      (* | Some Reach_max_step i -> i <= num_allowed_max_step *)
       | _ -> false
 
     let empty = M.empty
@@ -167,8 +169,13 @@ module Status_store =
       | _ -> false
 
     (* map any unhit to unreachable *)
+    (* TODO: use Status.update? *)
     let finish (map : t) : t =
-      Map.map map ~f:(function Status.Unhit -> Status.Unreachable | x -> x)
+      Map.map map ~f:(function
+      | Status.Unhit -> Status.Unreachable
+      | Reach_max_step n when n <= num_allowed_max_step -> Status.Hit [] (* TODO: input payload *)
+      | x -> x
+      )
 
     module Sexp_conversions =
       struct

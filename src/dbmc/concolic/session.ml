@@ -152,7 +152,8 @@ module Concolic =
         | _ -> failwith "non-int input" (* logically impossible *)
       in
       if Printer.print then Format.printf "Feed %d to %s \n" n s;
-      { session with input = (key, n) :: session.input }
+      { session with input = (key, n) :: session.input
+      ; formula_tracker = Formula_tracker.add_input session.formula_tracker key (Value_int n) }
   end
 
 type t = 

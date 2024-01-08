@@ -15,4 +15,4 @@ let from_model ?(history = ref []) model : t =
     Option.value ~default:42 answer
     
 let default : Input_feeder.t =
-  fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (0) 0)
+  fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (-10) 10)
