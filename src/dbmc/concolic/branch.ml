@@ -1,18 +1,22 @@
 open Core
 open Jayil
 
-module Lookup_key = 
+(* module Lookup_key = 
   struct
     include Lookup_key
     (* Core.Map.Key expects t_of_sexp, so provide failing implementation *)
     let t_of_sexp _ = failwith "Lookup_key.t_of_sexp needed and not implemented"
-  end
+  end *)
 
-module Status =
+(* module Status =
   struct
-    (* TODO: add payload for input *)
+    module Input =
+      struct
+        type t = Lookup_key.t * Dvalue.t
+      end
+
     type t =
-      | Hit
+      | Hit of Input.t list
       | Unhit
       | Unsatisfiable
       | Found_abort
@@ -50,7 +54,7 @@ module Status =
         | Hit -> true
         | Unhit | Unreachable | Missed | Unsatisfiable | Reach_max_step | Found_abort -> false
         end
-  end
+  end *)
 
 module Direction =
   struct
@@ -121,33 +125,9 @@ module Runtime =
         | Some target -> to_string target
       in 
       Format.printf "\nTarget branch: %s\n" target_branch_str
-
-    let (^-) (Ast.Ident a) b = Ast.Ident (a ^ "-" ^ b)
-
-    (* hyphen is invalid in variable names, so this key is unique from any variable *)
-    let to_abort_pick_key (branch : t) : Lookup_key.t =
-      let dir_string = Direction.to_string branch.direction in 
-      let x = (branch.branch_key.x ^- dir_string) ^- "abort" in
-      { x
-      ; r_stk = Rstack.empty
-      ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
-
-    let to_max_step_pick_key (branch : t) : Lookup_key.t = 
-      let dir_string = Direction.to_string branch.direction in 
-      let x = (branch.branch_key.x ^- dir_string) ^- "max_step" in
-      { x
-      ; r_stk = Rstack.empty
-      ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
-
-    let to_target_pick_key (branch : t) : Lookup_key.t = 
-      let dir_string = Direction.to_string branch.direction in 
-      let x = (branch.branch_key.x ^- dir_string) ^- "target" in
-      { x
-      ; r_stk = Rstack.empty
-      ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
   end
 
-module Status_store =
+(* module Status_store =
   struct
     module M = Map.Make (T)
     type t = Status.t M.t [@@deriving compare] (* will do sexp conversions manually *)
@@ -260,4 +240,4 @@ module Status_store =
       end
 
     include Sexp_conversions
-  end
+  end *)

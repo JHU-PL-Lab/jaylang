@@ -1,18 +1,24 @@
 open Jayil
 
-module Status :
+(* module Status :
   sig
+    module Input :
+      sig
+        type t = Lookup_key.t * Dvalue.t
+      end
+
     type t =
-      | Hit
+      | Hit of Input.t list
       | Unhit
-      | Unsatisfiable
-      | Found_abort
-      | Reach_max_step
+      | Unsatisfiable (* TODO: payload? *)
+      | Found_abort of Input.t list
+      | Reach_max_step of int (* counter for how many times *)
       | Missed
+      | Unreachable_because_aborts of 
       | Unreachable (* Only to be used when conveying final results. No branch is ever unreachable during evaluation *)
 
     val to_string : t -> string
-  end
+  end *)
 
 module Direction :
   sig
@@ -82,23 +88,12 @@ module Runtime :
 
     val print_target_option : t option -> unit
     (** [print_target_option x] prints the branch [x] as "target branch", or prints it as "None". *)
-
-    val to_abort_pick_key : t -> Lookup_key.t
-    (** [to_abort_pick_key branch] is a key that can be picked to set the [branch] as off limits if there
-        is an abort under the branch. The formulas that handle such logic are not here. This is only the key
-        that will be used in such a case. *)
-
-    val to_max_step_pick_key : t -> Lookup_key.t
-    (** [to_max_step_pick_key branch] is a key that can be picked to set the [branch] as off limits due to
-        reaching max step un der the branch. See [to_abort_pick_key]. *)
-        
-    val to_target_pick_key : t -> Lookup_key.t
   end
 
 (*
   A `Status_store` tracks how AST branches are hit. It maps branch identifiers to their status.
 *)
-module Status_store :
+(* module Status_store :
   sig
     type t [@@deriving sexp, compare]
     (** [t] is a map from a branch identifier to the status of the branch. So it tells
@@ -136,4 +131,4 @@ module Status_store :
     val finish : t -> t
     (** [finish store] is a new store where all unhit branches are now marked as unsatisfiable *)
 
-  end
+  end *)

@@ -3,425 +3,317 @@ open Core
 [@@@warning "-32"]
 [@@@warning "-27"]
 
-module Formula_set =
+module Lookup_key = 
   struct
-    module Z3_expr =
-      struct
-        include Z3.Expr
-        type t = Z3.Expr.expr
-
-        (* Set.Make expects sexp conversions, but we don't ever use them. *)
-        let t_of_sexp _ = failwith "fail t_of_sexp z3 expr"
-        let sexp_of_t _ = failwith "fail sexp_of_t x3 expr" 
-      end
-
-    module S = Set.Make (Z3_expr)
-
-    type t = S.t
-
-    let add : t -> Z3_expr.t -> t = Set.add
-    let union : t -> t -> t = Set.union
-    let fold : t -> init:'a -> f:('a -> Z3_expr.t -> 'a) -> 'a = Set.fold
-    let empty : t = S.empty
-    let of_list : Z3_expr.t list -> t = S.of_list
-    let to_list : t -> Z3_expr.t list = Set.to_list
-
-    let collect (fset : t) : Z3_expr.t =
-      match Set.to_list fset with
-      | [] -> Riddler.true_
-      | exp :: [] -> exp
-      | exps -> Riddler.and_ exps
+    include Lookup_key
+    (* Core.Map.Key expects t_of_sexp, so provide failing implementation *)
+    let t_of_sexp _ = failwith "Lookup_key.t_of_sexp needed and not implemented"
   end
 
-(*
-  The runtime branch tracker is used alongside the interpreter to build up the relationships
-  of runtime branches and formulas.
-
-  The runtime tracker will keep a functional state that is its current parent (global program
-  scope or a local branch), and when it exits that parent, it collects up all formulas it found
-  into the next level.
-
-  The user just needs to add formulas and enter/exit branches. The runtime branch tracker does
-  the rest.
-
-  Note that pick formulas are effectively the same as adding some formulas to the solver with
-  discretion. Instead of having the actual pick, I could just have a map of my own that lets
-  me add in whatever formulas I want.
-*)
-module Runtime = 
+module Input =
   struct
-    (* This will not be raised if the tracker is used properly *)
-    exception NoParentException
+    type t = Lookup_key.t * int (* int is input value *)
+      [@@deriving compare]
+  end
 
-    module Lookup_key = 
-      struct
-        include Lookup_key
-        (* Core.Map.Key expects t_of_sexp, so provide failing implementation *)
-        let t_of_sexp _ = failwith "Lookup_key.t_of_sexp needed and not implemented"
+module Status =
+  struct
+    (* ignore payloads on compare because they are nondeterministic *)
+    type t =
+      | Hit of (Input.t list [@compare.ignore])[@sexp.list]
+      | Unhit
+      | Unsatisfiable
+      | Found_abort of (Input.t list [@compare.ignore])[@sexp.list]
+      | Reach_max_step of (int [@compare.ignore])
+      | Missed
+      | Unreachable_because_abort
+      | Unreachable_because_max_step
+      | Unreachable (* any unhit branch whose parent is unsatisfiable *)
+      [@@deriving variants, compare]
+
+    (* ignores payload *)
+    let to_string x = Variants.to_name x |> String.capitalize
+
+    let is_hit = function
+      | Hit _ | Found_abort _ | Reach_max_step _ -> true
+      | _ -> false
+
+    let update (new_status : t) (old_status : t) : t =
+      match old_status with
+      | Unsatisfiable -> begin
+        match new_status with
+        | Unsatisfiable | Unreachable -> old_status
+        | _ -> failwith "tried to change unsatisfiable status" 
       end
-
-    module Parent =
-      struct
-        type t =
-          | Global 
-          | Local of Branch.Runtime.t
-          [@@deriving compare, sexp]
-
-        let of_runtime_branch (branch : Branch.Runtime.t) : t =
-          Local branch
-
-        let to_expr (parent : t) : Z3.Expr.expr option =
-          match parent with
-          | Global -> None (* Global scope is trivial parent. Could use `true` instead *)
-          | Local branch -> Some (Branch.Runtime.to_expr branch)
+      | Hit ls -> begin
+        match new_status with
+        | Hit ls' -> Hit (ls' @ ls)
+        | Found_abort ls' -> Found_abort (ls' @ ls)
+        | Reach_max_step _  -> new_status (* TODO: don't overwrite? *)
+        | _ -> old_status
       end
-
-    (* Parents are foced to be runtime branches *)
-    module Formula =
-      struct
-        module type S =
-          sig
-            type t
-            val to_expr : t -> Z3.Expr.expr
-            val exit_parent : Branch.Runtime.t -> t -> t
-            val empty : Z3.Expr.expr -> t
-            (** [empty expr] has no parent dependencies, but it does require [expr]. *)
-          end
-
-        module And : S =
-          struct
-            type t = Branch.Runtime.t list * Z3.Expr.expr (* will take the "and" of all parent dependencies and the expr *)
-
-            let empty (expr : Z3.Expr.expr) : t =
-              [], expr
-
-            let exit_parent (parent : Branch.Runtime.t) (stack, expr : t) : t =
-              parent :: stack, expr
-
-            let to_expr (stack, expr : t) : Z3.Expr.expr =
-              match stack with
-              | [] -> expr
-              | _ -> 
-                stack
-                |> List.map ~f:Branch.Runtime.to_expr
-                |> List.cons expr
-                |> Riddler.and_
-          end
-
-        module Implies : S =
-          struct
-            type t = Branch.Runtime.t list * Z3.Expr.expr (* list of parents implies for the formula down the line *)
-
-            let empty (expr : Z3.Expr.expr) : t =
-              [], expr
-
-            (* most recently exited parent is on top of the stack *)
-            let exit_parent (parent : Branch.Runtime.t) (stack, expr : t) : t =
-              parent :: stack, expr
-
-            (* need the least recently exited parent to imply the expr first, so fold right *)
-            let to_expr (stack, expr : t) : Z3.Expr.expr =
-              let implies (branch : Branch.Runtime.t) (expr : Z3.Expr.expr) : Z3.Expr.expr =
-                Riddler.(Branch.Runtime.to_expr branch @=> expr)
-              in
-              List.fold_right stack ~init:expr ~f:implies
-          end
+      | Unhit -> new_status
+      | Found_abort ls -> begin
+        match new_status with
+        | Hit _ | Found_abort _ | Reach_max_step _ -> failwith "rehitting abort"
+        | _ -> old_status
       end
-
-    (* Note: I'm not actually using the "pick". I'm tracking them myself to reduce load on the solver *)
-    module Pick_formulas :
-      sig
-        (* module type S =
-          sig
-            type t
-          end
-
-        module Abort : S
-        module Max_step : S
-        module Target : S *)
-
-        (* TODO: have a "finished" variant where the formulas are now expr *)
-        type t
-          (* { abort    : Abort.t
-          ; max_step : Max_step.t
-          ; target   : Target.t } *)
-
-        val empty : t
-
-        val exit_parent : t -> Branch.Runtime.t -> t
-        (** [exit_parent t parent] steps the tracker [t] out of the [parent], adjusting all formulas
-            as necessary and adding pick formulas for the exited parent. *)
-
-        val merge : t -> t -> t
-        (** [merge a b] contains all info from [a] and [b] *)
-        
-        (*
-          TODO: get formulas. It may be prefered that this is delegated to non runtime versions.
-            But I can keep a runtime version that is always in global state, I guess, even though
-            this doesn't track state.
-        *)
+      | Reach_max_step count -> begin
+        match new_status with
+        | Reach_max_step count' -> Reach_max_step (count + count')
+        | Found_abort _ -> new_status
+        | _ -> old_status (* TODO: allow hits to represent completing the branch without problem *)
       end
-      =
-      struct
-        (* Note that parents must be runtime branches only. Global is not allowed. *)
-        module type S =
-          sig
-            type t
-            (** [t] holds formulas to be picked by parent branches. *)
-            val empty : t
-            (** [empty] has no information about any branches yet. *)
-            val add_pick : t -> Branch.Runtime.t -> t
-            (** [add_pick t parent] is a new t that has formulas pickable by [parent]. *)
-            val to_formula : t -> Branch.Runtime.t -> Z3.Expr.expr
-            (** [to_formulas t parent] is a combination of formulas in [t] that are picked by [parent]. *)
-            val exit_parent : t -> Branch.Runtime.t -> t
-            (** [exit_parent t parent] adds the [parent] to all formulas within, and calls [add_pick t parent] *)
-            val merge : t -> t -> t
-            (** [merge a b] contains all info from [a] and [b] *)
-          end
+      | Missed -> new_status
+      | Unreachable
+      | Unreachable_because_abort
+      | Unreachable_because_max_step -> old_status
 
-        module M = Map.Make (Lookup_key)
-        
-        let merge_m (m1 : 'a list M.t) (m2 : 'a list M.t) : 'a list M.t =
-          Map.merge m1 m2 ~f:(fun ~key:_ -> function
-            | `Both (left, right) -> Some (left @ right)
-            | `Left ls | `Right ls -> Some ls
-          )
+  end
 
-        (*
-          An implies pick formula can be picked such that the list of parents all imply
-          some formula at the bottom.
+module Status_store =
+  struct
+    module M = Map.Make (T)
+    type t = Status.t M.t [@@deriving compare] (* will do sexp conversions manually *)
 
-          The logic is the same for max step and for aborts: whenever a parent is found,
-          a pick key for that parent can set either this parent off limits or the other side
-          off limits.
+    let is_hit (map : t) (branch : T.t) : bool =
+      match Map.find map branch with
+      | Some Status.Hit -> true
+      | _ -> false
 
-          It's intended that the `pick` is the same for any runtime instance of an AST branch.
-          This way, all runtime instance can be set off limits using any runtime instance.
-        *)
-        module Make_implies (P : sig val pick : Branch.Runtime.t -> Lookup_key.t end) : S =
-          struct
-            type t = Formula.Implies.t list M.t
+    let empty = M.empty
 
-            let empty = M.empty
-
-            (* say that picking this side implies the other side must be true *)
-            let add_pick (map : t) (branch : Branch.Runtime.t) : t =
-              (* a formula that says branch is off limits *)
-              let pick_formula (branch : Branch.Runtime.t) : Formula.Implies.t =
-                branch
-                |> Branch.Runtime.other_direction
-                |> Branch.Runtime.to_expr (* the resulting expr is that the other direction must be satisfied *)
-                |> Formula.Implies.empty (* note that this parent is not implied *)
-              in
-              let add (branch : Branch.Runtime.t) : t -> t =
-                Map.add_multi ~key:(P.pick branch) ~data:(pick_formula branch)
-              in
-              map
-              |> add branch
-              |> add (Branch.Runtime.other_direction branch)
-
-            let to_formula (map : t) (branch : Branch.Runtime.t) : Z3.Expr.expr =
-              match Map.find map (P.pick branch) with
-              | Some formula_list ->
-                formula_list
-                |> List.map ~f:Formula.Implies.to_expr
-                |> Riddler.and_
-              | None -> failwith "no \"implies\" pick formulas found for parent branch" (* should be impossible if used correctly *)
-
-            let exit_parent (map : t) (parent : Branch.Runtime.t) : t =
-              map
-              |> Map.map ~f:(List.map ~f:(Formula.Implies.exit_parent parent))
-              |> Fn.flip add_pick parent
-
-            let merge = merge_m
-          end
-
-        module Abort    : S = Make_implies (struct let pick = Branch.Runtime.to_abort_pick_key end)
-        module Max_step : S = Make_implies (struct let pick = Branch.Runtime.to_max_step_pick_key end)
-
-        (*
-          Track targets by letting the condition be satisfied. This takes the "or" of all
-          targets, so when getting formulas for any AST branch, all known runtime instances
-          of that branch are considered.
-        *)
-        module Target : S =
-          struct
-            type t = Formula.And.t list M.t
-
-            let empty = M.empty
-
-            let pick = Branch.Runtime.to_target_pick_key
-
-            (* add formulas for both sides to be picked *)
-            let add_pick (map : t) (branch : Branch.Runtime.t) : t =
-              let pick_formula (branch : Branch.Runtime.t) : Formula.And.t =
-                branch
-                |> Branch.Runtime.to_expr (* say that this branch must be satisfied *)
-                |> Formula.And.empty (* note that this parent is not implied *)
-              in
-              let add (branch : Branch.Runtime.t) : t -> t =
-                Map.add_multi ~key:(pick branch) ~data:(pick_formula branch)
-              in
-              map
-              |> add branch
-              |> add (Branch.Runtime.other_direction branch)
-
-            let to_formula (map : t) (branch : Branch.Runtime.t) : Z3.Expr.expr =
-              match Map.find map (pick branch) with
-              | Some formula_list ->
-                formula_list
-                |> List.map ~f:Formula.And.to_expr
-                |> Solver.SuduZ3.or_ (* TODO: add `or_` to `Riddler` *)
-              | None -> failwith "no \"and\" pick formulas found for parent branch" (* should be impossible if used correctly *)
-
-            let exit_parent (map : t) (parent : Branch.Runtime.t) : t =
-              map
-              |> Map.map ~f:(List.map ~f:(Formula.And.exit_parent parent))
-              |> Fn.flip add_pick parent
-
-            let merge = merge_m
-          end
-
-        type t =
-          { abort    : Abort.t
-          ; max_step : Max_step.t
-          ; target   : Target.t }
-
-        let empty =
-          { abort    = Abort.empty 
-          ; max_step = Max_step.empty
-          ; target   = Target.empty }
-
-        let merge (a : t) (b : t) : t = 
-          { abort    = Abort.merge a.abort b.abort
-          ; max_step = Max_step.merge a.max_step b.max_step 
-          ; target   = Target.merge a.target b.target }
-
-        let exit_parent ({ abort ; max_step ; target } : t) (parent : Branch.Runtime.t) : t =
-          { abort    = Abort.exit_parent abort parent
-          ; max_step = Max_step.exit_parent max_step parent
-          ; target   = Target.exit_parent target parent }
-      end
-
-    module Env :
-      sig
-        type t =
-          { parent        : Parent.t (* current "scope" *)
-          ; formulas      : Formula_set.t (* always true formulas under this parent *)
-          ; pick_formulas : Pick_formulas.t } (* pickable formulas *)
-
-        val empty : t
-        val create : Branch.Runtime.t -> t
-        val add : t -> Z3.Expr.expr -> t
-        val exit_to_env : t -> t -> t
-        (** [exit_to_env exited new_env] wraps up all info in [exited] and appropriately puts it in [new_env],
-            also adding any necessary pick formulas in case of aborts or max steps at any future point. *)
-      end
-      =
-      struct
-        type t =
-          { parent        : Parent.t
-          ; formulas      : Formula_set.t
-          ; pick_formulas : Pick_formulas.t }
-
-        let empty : t =
-          { parent        = Parent.Global
-          ; formulas      = Formula_set.empty
-          ; pick_formulas = Pick_formulas.empty }
-
-        let create (branch : Branch.Runtime.t) : t =
-          { empty with parent = Parent.of_runtime_branch branch }
-
-        (** [collect_formulas x] is all formulas in [x.formulas] implied by [x.parent]. *)
-        let collect_formulas ({ parent ; formulas ; _ } : t) : Z3.Expr.expr =
-          match parent with
-          | Global -> Formula_set.collect formulas
-          | Local branch -> Riddler.(Branch.Runtime.to_expr branch @=> Formula_set.collect formulas)
-
-        let add ({ formulas ; _ } as x : t) (formula : Z3.Expr.expr) : t =
-          { x with formulas = Formula_set.add formulas formula }
-
-        (* This is slow, I think. I should calculated worst case based on max step. *)
-        (*
-          Worst case is that every step is a branch. So we have two new formulas for every step. And then
-          they all get copied and iterated over (but that doesn't increase complexity). And we have to exit
-          as many as we entered. Seems just n^2 for entire program in worst case.
-          i.e. this function is O(n) where n is size of program, but n is bounded by max step.
-        *)
-        let exit_to_env (exited : t) (new_env : t) : t =
-          match exited with
-          | { parent = Global ; _ } -> raise NoParentException
-          | { parent = Local exited_branch ; _ } -> begin
-            { parent = new_env.parent
-            ; formulas = Formula_set.add new_env.formulas @@ collect_formulas exited
-            ; pick_formulas =
-              Pick_formulas.merge new_env.pick_formulas
-              @@ Pick_formulas.exit_parent exited.pick_formulas exited_branch
-            }
-          end
-
-        (* TODO: if exiting to global scope, then finalize all pick formulas ? *)
-
-      end
-
-    (*
-      There are a few additions we can make:
-      * Store global formulas separately
-      * Store the "current parent" and its formulas separately
-
-      But these can be encapsulated in an environment stack. The global formulas are at
-      the bottom of the stack. The current formulas are at the top of the stack.
-
-      I do think it would be nicer to have a stack that is potentially empty, and then a 
-      global formula store. This just leads to fewer fails, I think. It might be worse when
-      exiting a branch, though, because it separates the logic into a consideration of these
-      two cases: 1) exit to another local branch, or 2) exit to the global environment.
-    *)
-    type t = { stack : Env.t list }
-
-    let empty : t = { stack = Env.empty :: [] }
-
-    let log_add_formula ({ stack  } : t) (formula : Z3.Expr.expr) : unit =
-      match stack with
-      | { parent = Parent.Global ; _ } :: _ -> 
-        Format.printf "ADD GLOBAL FORMULA %s\n" (Z3.Expr.to_string formula)
-      | _ -> ()
-
-    let add_formula ({ stack } : t) (formula : Z3.Expr.expr) : t =
-      (* log_add_formula x formula; *)
-      let new_stack =
-        match stack with
-        | hd :: tl -> Env.add hd formula :: tl
-        | _ -> raise NoParentException
+    let add_branch_id (map : t) (id : Ast.ident) : t =
+      let set_unhit = function
+        | Some _ -> failwith "adding non-new branch ident"
+        | None -> Status.Unhit
       in
-      { stack = new_stack }
-      
-    let add_key_eq_val (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
-      add_formula x @@ Riddler.eq_term_v key (Some v)
+      map
+      |> Fn.flip Map.update { branch_ident = id ; direction = Direction.True_direction } ~f:set_unhit
+      |> Fn.flip Map.update { branch_ident = id ; direction = Direction.False_direction } ~f:set_unhit
 
-    let add_alias (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
-      add_formula x @@ Riddler.eq key1 key2
+    let rec find_branches (e : Ast.expr) (m : t) : t =
+      let open Ast in
+      let (Expr clauses) = e in
+      List.fold clauses ~init:m ~f:(fun m clause -> find_branches_in_clause clause m)
 
-    let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
-      add_formula x @@ Riddler.binop_without_picked key op left right
+    and find_branches_in_clause (clause : Ast.clause) (m : t) : t =
+      let open Ast in
+      let (Clause (Var (x, _), cbody)) = clause in
+      match cbody with
+      | Conditional_body (_, e1, e2) ->
+        add_branch_id m x
+        |> find_branches e1
+        |> find_branches e2
+      | Value_body (Value_function (Function_value (_, e))) ->
+        find_branches e m
+      | _ -> m (* no branches in non-conditional or value *)
 
-    (* TODO: all other types of formulas, e.g. not, pattern, etc *)
+    let of_expr (e : Ast.expr) : t =
+      find_branches e empty
 
-    let enter_branch ({ stack } : t) (branch : Branch.Runtime.t) : t =
-      { stack = Env.create branch :: stack }
+    let to_list (map : t) : (string * Status.t * Status.t) list =
+      Map.to_alist map ~key_order:`Increasing
+      |> List.chunks_of ~length:2
+      |> List.map ~f:(function
+        | [ ({ branch_ident = Ident a; direction = True_direction }, true_status)
+          ; ({ branch_ident = Ident b; direction = False_direction }, false_status) ]
+          when String.(a = b) ->
+          (a, true_status, false_status)
+        | _ -> failwith "malformed status store during to_list"
+      )
 
-    let exit_branch ({ stack } : t) : t =
-      match stack with
-      | { parent = Local _ ; _ } as old_hd :: new_hd :: tl ->
-        (* Format.printf "exiting branch and collecting formulas. Formula is %s\n" (Env.collect old_hd |> Z3.Expr.to_string); *)
-        { stack = Env.exit_to_env old_hd new_hd :: tl }
-      | _ -> raise NoParentException (* no parent to back up to because currently in global (or no) scope *)
+    (* depends on well-formedness of the map from loading in branches *)
+    let print (map : t) : unit = 
+      Format.printf "\nBranch Information:\n";
+      map
+      |> to_list
+      |> List.iter ~f:(fun (s, true_status, false_status) ->
+          Printf.printf "%s: True=%s; False=%s\n"
+            s
+            (Status.to_string true_status)
+            (Status.to_string false_status)
+        )
 
+    (* TODO: we can maintain a list of unhit branches and just peek the hd to improve time complexity *)
+    let get_unhit_branch (map : t) : T.t option =
+      map
+      |> Map.to_alist
+      |> List.find_map ~f:(fun (branch, status) ->
+          match status with
+          | Status.Unhit | Missed -> Some branch
+          | _ -> None
+        )
+
+    let set_branch_status ~(new_status : Status.t) (map : t) (branch : T.t) : t =
+      Map.update map branch ~f:(function
+        | Some old_status -> Status.update new_status old_status
+        | None -> failwith "unbound branch" 
+      )
+
+    let get_status (map : t) (branch : T.t) : Status.t =
+      match Map.find map branch with
+      | Some status -> status
+      | None -> failwith "unbound branch"
+
+    (* map any unhit to unreachable *)
+    let finish (map : t) : t =
+      Map.map map ~f:(function Status.Unhit -> Status.Unreachable | x -> x)
+
+    module Sexp_conversions =
+      struct
+        module My_tuple =
+          struct
+            (* branch name, true status, false status *)
+            type t = string * Status.t * Status.t [@@deriving sexp]
+          end
+
+        (* Convert to tuple list of ident, true status, false status.
+          This is atrociously inefficient, but it is only used for small maps. *)
+        let sexp_of_t (map : t) : Sexp.t =
+          map
+          |> to_list
+          |> List.sexp_of_t My_tuple.sexp_of_t
+        
+        let t_of_sexp (sexp : Sexp.t) : t =
+          sexp
+          |> List.t_of_sexp My_tuple.t_of_sexp
+          |> List.fold ~init:empty ~f:(fun acc (id, true_status, false_status) ->
+            acc
+            |> Map.set ~key:({ branch_ident = Ast.Ident id ; direction = Direction.True_direction}) ~data:true_status
+            |> Map.set ~key:({ branch_ident = Ast.Ident id ; direction = Direction.False_direction}) ~data:false_status
+          )
+      end
+
+    include Sexp_conversions
   end
 
 (*
-  The branch tracker will hold results of all runtime branches and send to solvers.
+  There will be a runtime branch tracker that dives into branches and such. But it stores
+  the stuff so well that I want to keep one of them in the global state and merge all others
+  into it
 
-  See discussion above runtime on the pick vs map scenario
+  I can move the logic for Branch.Status_store into here. That would make a lot more sense.
+  And then I'll need to think about where the logic goes for tracking hits because this is
+  becoming a lot like session.
+
+  TODO: for status store, have a list of abort and max step branches. Then simply query the
+    runtime tracker for those after running, and keep a formula set of those branches. Can add
+    them into 
+
+  What I would like to do is have the session hold a branch tracker. I would prefer not to
+  wrap the runtime branch tracker in Session.Concolic, but it makes sense to only have concolic
+  interface with session. For now assume that concolic has a runtime branch tracker.
+  Then it finishes with a list of new targets that are just ast branches. It will also be either
+  OK, reach max step, or found abort. Concolic can actually handle this because it has the max
+  step and abort and stuff, so we can just tell runtime to exit to global, and then report to
+  session where it was found. However we need to ask for current parent where the exception was hit
+  to appropriately record it. This can be returned from exit_until_global, but what about case when
+  reaching max step while in global already?
+
+  I think all I've really done here is made a better branch solver. I didn't accomplish much...
+
+  I just need to track AST targets. I then take the top target, try to solve (and use status store
+  for max step and abort formulas), and run if possible. Then collect by merging runtime,
+  appending targets, updating status store (which will have payloads, and max step has a counter),
+
+
+  TODO: keep list of any branches that have been hit. No need to for target stack.
+    Just keep targeting the hit branches until they all have a conclusive status.
+    Any remaining Unhits are unreachable for unknown reason. Maybe just keep as Unhit.
+
+  TODO: why make a new tracker/solver for every run? Just pass in the one that holds everything
+    and is already in the global scope. No extra merging necessary. This won't run into conflicts
+    because any abort or similar formulas are never added directly. They are always pickable.
+    However, for efficiency sake, I might like to use sets instead of lists.
 *)
+
+module Branch_set = Set.Make (Branch)
+
+(*
+  This just tracks how branches are hit in a single run. So we only use hits, and
+  at most one branch will have max step or abort.
+
+  This should track target.
+*)
+module Runtime =
+  struct
+
+    (* I think the concolic session should track inputs, not this *)
+    module Fail_status = 
+      struct
+        type t =
+          | Ok
+          | Found_abort of Branch.t
+          | Reach_max_step of Branch.t (* TODO: handle max step in global *)
+      end
+    
+    type t =
+      { most_recent_hit : Branch.t option
+      ; hit_branches : Branch_set.t
+      ; fail_status : Fail_status.t
+      ; target : Branch.t option
+      ; hit_target : bool }
+
+    let empty : t =
+      { most_recent_hit = None
+      ; hit_branches = Branch_set.empty
+      ; fail_status = Fail_status.Ok
+      ; target = None
+      ; hit_target = false }
+
+    let with_target (target : Branch.t) : t =
+      { empty with target = Some target }
+
+    let hit_branch (x : t) (branch : Branch.t) : t =
+      { x with 
+        most_recent_hit = Some branch
+      ; hit_branches = Set.add x.hit_branches branch
+      ; hit_target =
+        match x.target with
+        | None -> false
+        | Some target -> Branch.compare target branch = 0 }
+
+    let found_abort (x : t) : t =
+      match x.most_recent_hit with
+      | None -> failwith "abort found in global scope. Failing"
+      | Some branch -> { x with fail_status = Fail_status.Found_abort branch }
+
+    let reach_max_step (x : t) : t =
+      match x.most_recent_hit with
+      | None -> failwith "max step reached in global scope. Failing because unimplemented"
+      | Some branch -> { x with fail_status = Fail_status.Reach_max_step branch }
+  end
+
+type t =
+  { status_store : Branch.Status_store.t
+  ; pending_targets : Branch.t list
+  ; abort_branches : Branch_set.t
+  ; max_step_branches : Branch_set.t }
+
+let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
+  let status_store = 
+    Set.fold
+      runtime.hit_branches
+      ~init:x.status_store
+      ~f:(Status_store.set_branch_status ~new_status:(Status.Hit [input]))
+  in
+  match runtime.fail_status with
+  | Ok -> { x with status_store }
+  | Found_abort branch ->
+    { x with status_store =
+      Status_store.set_branch_status
+        status_store
+        branch
+        ~new_status:(Status.Found_abort [input])
+    ; abort_branches = Set.add x.abort_branches branch
+    }
+  | Reach_max_step branch ->
+    { x with status_store =
+      Status_store.set_branch_status
+        status_store
+        branch
+        ~new_status:(Status.Reach_max_step 1)
+    ; max_step_branches = Set.add x.max_step_branches branch
+    }
+
