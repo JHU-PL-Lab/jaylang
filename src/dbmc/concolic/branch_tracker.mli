@@ -1,6 +1,6 @@
 module Input :
   sig
-    type t = (Lookup_key.t * Dvalue.t) list
+    type t = (Lookup_key.t * int) list
     (* [t] is the input for an entire run. A run can have multiple inputs *)
   end
 
@@ -32,7 +32,7 @@ module Status_store :
     val empty : t
     (** [empty] has no information on any branches *)
 
-    val of_expr : Jayil.Ast.expr -> t -> t
+    val of_expr : Jayil.Ast.expr -> t
     (** [of_expr expr] has all branches unhit that exist in the given [expr]. *)
 
     val print : t -> unit
@@ -45,7 +45,7 @@ module Status_store :
     val get_unhit_branch : t -> Branch.t option
     (** [get_unhit_branch store] is some branch that is unhit. *)
 
-    val set_branch_status : new_status:Branch.Status.t -> t -> Branch.t -> t
+    val set_branch_status : new_status:Status.t -> t -> Branch.t -> t
     (** [set_branch_status status store branch] is a new store where the given [branch] now has the
         [status]. All other branches are unaffected. *)
 
@@ -53,7 +53,7 @@ module Status_store :
     (** [is_hit store branch] is true if and only if the status of [branch.branch_ident] in 
         the [store] has [branch.direction] as [Hit]. *)
 
-    val get_status : t -> Branch.t -> Branch.Status.t
+    val get_status : t -> Branch.t -> Status.t
     (** [get_status store branch] is the status of the given [branch]. *)
 
     val find_branches : Jayil.Ast.expr -> t -> t
@@ -71,10 +71,20 @@ module Runtime :
     val empty : t
     val with_target : Branch.t -> t
     val hit_branch : t -> Branch.t -> t
+    val exit_branch : t -> t
     val found_abort : t -> t
     val reach_max_step : t -> t
   end
 
 type t
 
+val empty : t
+val of_expr : Jayil.Ast.expr -> t
 val collect_runtime : t -> Runtime.t -> Input.t -> t
+val set_unsatisfiable : t -> Branch.t -> t
+val next_target : t -> Branch.t option * t
+val get_aborts : t -> Branch.t list
+val get_max_steps : t -> Branch.t list
+val finish : t -> t
+val print : t -> unit
+val status_store : t -> Status_store.t

@@ -1,3 +1,4 @@
+(*
 open Core
 
 exception NoParentException
@@ -217,3 +218,4 @@ let merge (a : t) (b : t) : t =
   in
   { stack = new_stack ; pick_formulas = new_pick_formulas }
 
+*)

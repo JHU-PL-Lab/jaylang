@@ -1,4 +1,5 @@
 (*
+(*
   File: branch_solver.mli
   Purpose: help store information about runtime variables and solve to hit branches.
 
@@ -85,3 +86,4 @@ val add_formula_set : Formula_set.t -> t -> t
 
 val merge : t -> t -> t
 (** [merge a b] adds all formulas in [b] to [a]. Both [a] and [b] must be "in" the global environment. *)
+*)

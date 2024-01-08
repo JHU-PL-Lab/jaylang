@@ -57,6 +57,8 @@ val of_ident_and_bool : Ast.ident -> bool -> t
 (** [of_ident_and_bool branch_ident dir] converts the bool [dir] to a direction and uses that to
     make a branch. *)
 
+val other_direction : t -> t
+
 (*
   "Runtime" is a modifier/adjective on "Branch", so it is a "Runtime Branch".
 *)

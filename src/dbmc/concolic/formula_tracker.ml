@@ -20,9 +20,9 @@ module Formula_set =
 
     let add : t -> Z3_expr.t -> t = Set.add
     let union : t -> t -> t = Set.union
-    let fold : t -> init:'a -> f:('a -> Z3_expr.t -> 'a) -> 'a = Set.fold
+    (* let fold : t -> init:'a -> f:('a -> Z3_expr.t -> 'a) -> 'a = Set.fold *)
     let empty : t = S.empty
-    let of_list : Z3_expr.t list -> t = S.of_list
+    (* let of_list : Z3_expr.t list -> t = S.of_list *)
     let to_list : t -> Z3_expr.t list = Set.to_list
 
     let collect (fset : t) : Z3_expr.t =
@@ -137,7 +137,7 @@ module Pick_formulas :
         (** [t] holds formulas to be picked by parent branches. *)
         val empty : t
         (** [empty] has no information about any branches yet. *)
-        val add_pick : t -> Branch.Runtime.t -> t
+        (* val add_pick : t -> Branch.Runtime.t -> t *) (* only used internally *)
         (** [add_pick t parent] is a new t that has formulas pickable by [parent]. *)
         val to_formula : t -> Branch.t -> Z3.Expr.expr
         (** [to_formulas t branch] is a combination of formulas in [t] that are picked by [branch]. *)
@@ -397,6 +397,11 @@ let is_global ({ stack } : t) : bool =
   | { parent = Global ; _ } :: [] -> true
   | _ -> false
 
+let hd_env_exn ({ stack } : t) : Env.t =
+  match stack with
+  | hd :: _ -> hd
+  | _ -> failwith "no hd in `hd_env_exn`"
+
 let rec exit_until_global (x : t) : t =
   if is_global x
   then x
@@ -406,6 +411,7 @@ let union (a : t) (b : t) : t option =
   if is_global a && is_global b
   then
     let hd = 
+      let a, b = hd_env_exn a, hd_env_exn b in
       Env.(
       { parent = Global
       ; formulas = Formula_set.union a.formulas b.formulas
@@ -424,10 +430,11 @@ let all_formulas
   : Z3.Expr.expr list
   =
   match stack with
-  | { parent = Local _ ; _ } -> failwith "cannot get formulas unless in global scope"
-  | { parent = Global ; formulas ; pick_formulas } ->
+  | { parent = Local _ ; _ } :: _ -> failwith "cannot get formulas unless in global scope"
+  | { parent = Global ; formulas ; pick_formulas } :: [] ->
     let abort_formulas = List.map aborts ~f:(Pick_formulas.found_abort pick_formulas) in
     let max_step_formulas = List.map max_steps ~f:(Pick_formulas.reach_max_step pick_formulas) in
     let target_formula = Pick_formulas.pick_target pick_formulas target in
     target_formula :: abort_formulas @ max_step_formulas @ Formula_set.to_list formulas
+  | _ -> failwith "impossible global is not bottom of stack"
 

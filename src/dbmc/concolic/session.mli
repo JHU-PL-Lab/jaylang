@@ -70,13 +70,13 @@ module Eval :
 *)
 module Concolic :
   sig
-    module Outcome :
+    (* module Outcome :
       sig
-        type t
+        type t *)
           (* { found_abort    : bool
           ; hit_target     : bool
           ; reach_max_step : bool } *)
-      end
+      (* end *)
 
     type t
       (* { branch_solver : Branch_solver.t
@@ -111,17 +111,17 @@ module Concolic :
     (** [exit_branch session ret_key] uses the final key [ret_key] in the branch to exit and return
         to previous parent. Also cleans up formulas in the solver. *)
 
-    val add_input : t -> Ident.t -> Dvalue.t -> t
+    val add_input : t -> Lookup_key.t -> Dvalue.t -> t
     (** [add_input session x v] adds the fact that [v] was fed to variable [x] as an input. *)
   end
 
-module Solver_map :
+(* module Solver_map :
   sig
-    type t 
+    type t  *)
     (** [t] maps targets to solvers that can be used to solve for that target. *)
 
     (* TODO: the formulas never depend on inputs, so maybe I can just keep all formulas together. *)
-  end
+  (* end *)
 
 (*
   TODO: keep persistent formulas as a result of max step and aborts because we might not want a branch
@@ -151,8 +151,8 @@ type t
 val default : t
 (** [default] is a session to be used to make the first run of the concolic evaluator. *)
 
-val load_branches : t -> Jayil.Ast.expr -> t
-(** [load_branches session expr] has the AST branches loaded from [expr] into [session]. *)
+val of_expr : Jayil.Ast.expr -> t
+(** [of_expr expr] has the AST branches loaded from [expr] into [default]. *)
 
 val next : t -> [ `Done of t | `Next of t * Concolic.t * Eval.t ]
 (** [next session] is [`Done session'] when there is no satisfiable or unhit target left in [session'],
@@ -168,5 +168,5 @@ val accum_concolic : t -> Concolic.t -> t
 (** [accum_concolic session concolic_session] is a new session that merges the results of [concolic_session] into
     [session]. The new session is then ready to be called with [next] to begin another run. *)
 
-val branch_store : t -> Branch.Status_store.t
-(** [branch_store session] is the statuses of the branches in the session. *)
+val branch_tracker : t -> Branch_tracker.t
+(** [branch_tracker session] is the statuses of the branches in the session. *)

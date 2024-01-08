@@ -1,7 +1,6 @@
 open Core
 
-[@@@warning "-32"]
-[@@@warning "-27"]
+let num_allowed_max_step = 3
 
 module Lookup_key = 
   struct
@@ -12,8 +11,8 @@ module Lookup_key =
 
 module Input =
   struct
-    type t = Lookup_key.t * int (* int is input value *)
-      [@@deriving compare]
+    (* int is input value *)
+    type t = (Lookup_key.t * int) list [@@deriving compare, sexp]
   end
 
 module Status =
@@ -29,7 +28,7 @@ module Status =
       | Unreachable_because_abort
       | Unreachable_because_max_step
       | Unreachable (* any unhit branch whose parent is unsatisfiable *)
-      [@@deriving variants, compare]
+      [@@deriving variants, compare, sexp]
 
     (* ignores payload *)
     let to_string x = Variants.to_name x |> String.capitalize
@@ -68,37 +67,43 @@ module Status =
       | Unreachable
       | Unreachable_because_abort
       | Unreachable_because_max_step -> old_status
-
   end
 
 module Status_store =
   struct
-    module M = Map.Make (T)
+    module M = Map.Make (Branch)
     type t = Status.t M.t [@@deriving compare] (* will do sexp conversions manually *)
 
-    let is_hit (map : t) (branch : T.t) : bool =
+    let is_hit (map : t) (branch : Branch.t) : bool =
       match Map.find map branch with
-      | Some Status.Hit -> true
+      | Some status when Status.is_hit status -> true
+      | _ -> false
+
+    let is_valid_target (map : t) (branch : Branch.t) : bool =
+      match Map.find map branch with
+      | Some Unhit
+      | Some Missed -> true
+      | Some Reach_max_step i -> i <= num_allowed_max_step
       | _ -> false
 
     let empty = M.empty
 
-    let add_branch_id (map : t) (id : Ast.ident) : t =
+    let add_branch_id (map : t) (id : Jayil.Ast.ident) : t =
       let set_unhit = function
         | Some _ -> failwith "adding non-new branch ident"
         | None -> Status.Unhit
       in
       map
-      |> Fn.flip Map.update { branch_ident = id ; direction = Direction.True_direction } ~f:set_unhit
-      |> Fn.flip Map.update { branch_ident = id ; direction = Direction.False_direction } ~f:set_unhit
+      |> Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.True_direction } ~f:set_unhit
+      |> Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.False_direction } ~f:set_unhit
 
-    let rec find_branches (e : Ast.expr) (m : t) : t =
-      let open Ast in
+    let rec find_branches (e : Jayil.Ast.expr) (m : t) : t =
+      let open Jayil.Ast in
       let (Expr clauses) = e in
       List.fold clauses ~init:m ~f:(fun m clause -> find_branches_in_clause clause m)
 
-    and find_branches_in_clause (clause : Ast.clause) (m : t) : t =
-      let open Ast in
+    and find_branches_in_clause (clause : Jayil.Ast.clause) (m : t) : t =
+      let open Jayil.Ast in
       let (Clause (Var (x, _), cbody)) = clause in
       match cbody with
       | Conditional_body (_, e1, e2) ->
@@ -109,7 +114,7 @@ module Status_store =
         find_branches e m
       | _ -> m (* no branches in non-conditional or value *)
 
-    let of_expr (e : Ast.expr) : t =
+    let of_expr (e : Jayil.Ast.expr) : t =
       find_branches e empty
 
     let to_list (map : t) : (string * Status.t * Status.t) list =
@@ -136,7 +141,7 @@ module Status_store =
         )
 
     (* TODO: we can maintain a list of unhit branches and just peek the hd to improve time complexity *)
-    let get_unhit_branch (map : t) : T.t option =
+    let get_unhit_branch (map : t) : Branch.t option =
       map
       |> Map.to_alist
       |> List.find_map ~f:(fun (branch, status) ->
@@ -145,13 +150,13 @@ module Status_store =
           | _ -> None
         )
 
-    let set_branch_status ~(new_status : Status.t) (map : t) (branch : T.t) : t =
+    let set_branch_status ~(new_status : Status.t) (map : t) (branch : Branch.t) : t =
       Map.update map branch ~f:(function
         | Some old_status -> Status.update new_status old_status
         | None -> failwith "unbound branch" 
       )
 
-    let get_status (map : t) (branch : T.t) : Status.t =
+    let get_status (map : t) (branch : Branch.t) : Status.t =
       match Map.find map branch with
       | Some status -> status
       | None -> failwith "unbound branch"
@@ -180,8 +185,8 @@ module Status_store =
           |> List.t_of_sexp My_tuple.t_of_sexp
           |> List.fold ~init:empty ~f:(fun acc (id, true_status, false_status) ->
             acc
-            |> Map.set ~key:({ branch_ident = Ast.Ident id ; direction = Direction.True_direction}) ~data:true_status
-            |> Map.set ~key:({ branch_ident = Ast.Ident id ; direction = Direction.False_direction}) ~data:false_status
+            |> Map.set ~key:({ branch_ident = Jayil.Ast.Ident id ; direction = Branch.Direction.True_direction}) ~data:true_status
+            |> Map.set ~key:({ branch_ident = Jayil.Ast.Ident id ; direction = Branch.Direction.False_direction}) ~data:false_status
           )
       end
 
@@ -249,47 +254,66 @@ module Runtime =
       end
     
     type t =
-      { most_recent_hit : Branch.t option
+      { hit_stack    : Branch.t list
       ; hit_branches : Branch_set.t
-      ; fail_status : Fail_status.t
-      ; target : Branch.t option
-      ; hit_target : bool }
+      ; fail_status  : Fail_status.t
+      ; target       : Branch.t option
+      ; hit_target   : bool }
 
     let empty : t =
-      { most_recent_hit = None
+      { hit_stack    = []
       ; hit_branches = Branch_set.empty
-      ; fail_status = Fail_status.Ok
-      ; target = None
-      ; hit_target = false }
+      ; fail_status  = Fail_status.Ok
+      ; target       = None
+      ; hit_target   = false }
 
     let with_target (target : Branch.t) : t =
       { empty with target = Some target }
 
     let hit_branch (x : t) (branch : Branch.t) : t =
       { x with 
-        most_recent_hit = Some branch
+        hit_stack = branch :: x.hit_stack
       ; hit_branches = Set.add x.hit_branches branch
       ; hit_target =
         match x.target with
         | None -> false
         | Some target -> Branch.compare target branch = 0 }
+      
+    let exit_branch (x : t) : t =
+      { x with hit_stack = List.tl_exn x.hit_stack }
 
     let found_abort (x : t) : t =
-      match x.most_recent_hit with
-      | None -> failwith "abort found in global scope. Failing"
-      | Some branch -> { x with fail_status = Fail_status.Found_abort branch }
+      match x.hit_stack with
+      | [] -> failwith "abort found in global scope. Failing"
+      | branch :: _ -> { x with fail_status = Fail_status.Found_abort branch }
 
     let reach_max_step (x : t) : t =
-      match x.most_recent_hit with
-      | None -> failwith "max step reached in global scope. Failing because unimplemented"
-      | Some branch -> { x with fail_status = Fail_status.Reach_max_step branch }
+      match x.hit_stack with
+      | [] -> failwith "max step reached in global scope. Failing because unimplemented"
+      | branch :: _ -> { x with fail_status = Fail_status.Reach_max_step branch }
   end
 
 type t =
-  { status_store : Branch.Status_store.t
-  ; pending_targets : Branch.t list
-  ; abort_branches : Branch_set.t
+  { status_store      : Status_store.t
+  ; pending_targets   : Branch.t list
+  ; abort_branches    : Branch_set.t
   ; max_step_branches : Branch_set.t }
+
+let empty : t =
+  { status_store      = Status_store.empty
+  ; pending_targets   = []
+  ; abort_branches    = Branch_set.empty
+  ; max_step_branches = Branch_set.empty }
+
+let of_expr (expr : Jayil.Ast.expr) : t =
+  { empty with status_store = Status_store.of_expr expr }
+
+let set_unsatisfiable (x : t) (branch : Branch.t) : t =
+  { x with status_store =
+    Status_store.set_branch_status
+      x.status_store
+      branch
+      ~new_status:Status.Unsatisfiable }
 
 let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
   let status_store = 
@@ -298,6 +322,13 @@ let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
       ~init:x.status_store
       ~f:(Status_store.set_branch_status ~new_status:(Status.Hit [input]))
   in
+  let pending_targets = (* TODO: consider if hit target? *)
+    (runtime.hit_branches
+    |> Set.to_list
+    |> List.map ~f:Branch.other_direction)
+    @ x.pending_targets
+  in
+  let x = { x with pending_targets } in
   match runtime.fail_status with
   | Ok -> { x with status_store }
   | Found_abort branch ->
@@ -317,3 +348,25 @@ let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
     ; max_step_branches = Set.add x.max_step_branches branch
     }
 
+let rec next_target (x : t) : Branch.t option * t =
+  match x.pending_targets with
+  | [] -> None, x
+  | hd :: tl ->
+    if Status_store.is_valid_target x.status_store hd
+    then Some hd, { x with pending_targets = tl }
+    else next_target { x with pending_targets = tl }
+
+let get_aborts ({ abort_branches ; _ } : t) : Branch.t list =
+  Set.to_list abort_branches
+
+let get_max_steps ({ max_step_branches ; _ } : t) : Branch.t list =
+  Set.to_list max_step_branches
+
+let finish (x : t) : t =
+  { x with status_store = Status_store.finish x.status_store }
+
+let print ({ status_store ; _ } : t) : unit =
+  Status_store.print status_store
+
+let status_store ({ status_store ; _ } : t) : Status_store.t =
+  status_store

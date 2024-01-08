@@ -1,12 +1,12 @@
 open Core
 open Jayil
 
-(* module Lookup_key = 
+module Lookup_key = 
   struct
     include Lookup_key
     (* Core.Map.Key expects t_of_sexp, so provide failing implementation *)
     let t_of_sexp _ = failwith "Lookup_key.t_of_sexp needed and not implemented"
-  end *)
+  end
 
 (* module Status =
   struct
@@ -85,11 +85,14 @@ module T =
       ; direction    : Direction.t }
       [@@deriving sexp, compare]
 
-    let to_string { branch_ident = Ast.Ident s ; direction } =
+    let to_string { branch_ident = Ast.Ident s ; direction } : string =
       s ^ ":" ^ Direction.to_string direction
 
     let of_ident_and_bool (branch_ident : Ast.ident) (dir : bool) : t =
       { branch_ident ; direction = Direction.of_bool dir }
+    
+    let other_direction { branch_ident ; direction } : t =
+      { branch_ident ; direction = Direction.other_direction direction }
   end
 
 include T
