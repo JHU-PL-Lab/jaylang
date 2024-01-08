@@ -95,20 +95,6 @@ module Eval =
 
 module Concolic =
   struct
-    (* module Outcome =
-      struct
-        type t =
-          { found_abort    : bool
-          ; hit_target     : bool
-          ; reach_max_step : bool }
-          [@@deriving compare, sexp]
-
-        let empty : t =
-          { found_abort    = false
-          ; hit_target     = false
-          ; reach_max_step = false }
-
-      end *)
 
     type t =
       { formula_tracker : Formula_tracker.t
@@ -134,10 +120,6 @@ module Concolic =
 
     let add_binop (session : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
       { session with formula_tracker = Formula_tracker.add_binop session.formula_tracker key op left right }
-
-    (* let is_target (branch : Branch.Runtime.t) (target : Branch.Runtime.t option) : bool =
-      Option.map target ~f:(fun x -> Branch.Runtime.compare branch x = 0)
-      |> Option.value ~default:false *)
 
     let found_abort (session : t) : t =
       { session with
@@ -221,50 +203,6 @@ and solve_for_target (target : Branch.t) (session : t) : [ `Done of t | `Next of
             , Concolic.create ~target ~formula_tracker:session.formula_tracker
             , Eval.create (Concolic_feeder.from_model model) session.global_max_step )
 
-
-(* let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
-  let is_skip target =
-    (* Don't try to re-solve for anything that is hit, missed, unsatisfiable, or contains an abort *)
-    Branch.Status_store.get_status session.branch_store
-    @@ Branch.Runtime.to_ast_branch target
-    |> function
-      | Branch.Status.Hit | Unsatisfiable | Found_abort -> true
-      | Unhit | Missed | Reach_max_step | Unreachable -> false
-  in
-  match Branch.Status_store.get_unhit_branch session.branch_store, session.target_stack with
-  | None, _ -> (* all branches have been considered *)
-    `Done session
-  | _, [] when session.run_num > 0 -> (* no targets have been found that we can target next *)
-    `Done session
-  | _, [] -> (* no targets, but this is the first run, so use the default *)
-    `Next ( { session with run_num = session.run_num + 1 }
-          , Concolic.create_default ()
-          , Eval.create Concolic_feeder.default session.global_max_step )
-  | _, target :: tl when is_skip target -> (* next target should not be considered *)
-    (* Format.printf "Skipping already-hit target %s\n" (Branch.Runtime.to_string target); *)
-    next { session with target_stack = tl }
-  | _, target :: tl -> begin (* next target is unhit, so we'll solve for it *)
-    (* add all persistent formulas before trying to solve *)
-    target
-    |> Solver_map.get_solver session.solver_map
-    |> Branch_solver.add_formula_set session.persistent_formulas
-    |> Fn.flip Branch_solver.get_feeder target
-    |> function (* do other people think this is bad style? *)
-      | Ok input_feeder ->
-        `Next ({ session with target_stack = tl ; run_num = session.run_num + 1 }
-              , Concolic.create ~target
-              , Eval.create input_feeder session.global_max_step )
-      | Error b ->
-        (* Format.printf "Unsatisfiable branch %s. Continuing to next target.\n" (Branch.to_string b); *)
-        let branch_store = 
-          Branch.Status_store.set_branch_status
-            ~new_status:Branch.Status.Unsatisfiable
-            session.branch_store
-            b
-        in
-        next { session with target_stack = tl ; branch_store }
-    end *)
-
 let finish (session : t) : t =
   { session with branch_tracker = Branch_tracker.finish session.branch_tracker }
 
@@ -275,59 +213,6 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
   { session with
     formula_tracker = concolic.formula_tracker (* completely overwrite because we passed it in earlier to make the concolic session *)
   ; branch_tracker = Branch_tracker.collect_runtime session.branch_tracker concolic.branch_tracker concolic.input }
-
-(* let accum_concolic (session : t) (concolic : Concolic.t) : t =
-  let branch_store =
-    concolic.hit_branches
-    |> List.rev (* need to consider branches in the order they were hit *)
-    |> List.fold ~init:session.branch_store ~f:(fun acc (branch, new_status) ->
-      Branch.Status_store.set_branch_status ~new_status acc
-      @@ Branch.Runtime.to_ast_branch branch
-      )
-    |> function
-      | branch_store when concolic.outcome.hit_target || concolic.outcome.found_abort -> branch_store
-      | branch_store -> (* missed target and no abort (if missed and had abort, the abort could have been the reason, so try again) *)
-        Branch.Status_store.set_branch_status ~new_status:Branch.Status.Missed branch_store
-        @@ Branch.Runtime.to_ast_branch (Option.value_exn concolic.cur_target)
-  in
-  let persistent_formulas = Concolic.to_persistent_formulas concolic in
-  let target_stack, solver_map = 
-    let map_targets = List.map ~f:(fun target -> (target, concolic)) in
-    match concolic.outcome.hit_target, concolic.outcome.found_abort with
-    | false, _ -> begin (* used to be false, true *)
-      (* Format.printf "Did not make meaningful progress, so discarding new targets\n"; *)
-      (* Put the original target back on the stack to try to hit it again, but the rest are not new targets *)
-      match concolic.cur_target with
-      | Some target -> target :: session.target_stack, Solver_map.add session.solver_map target concolic
-      | None -> session.target_stack, session.solver_map
-      end
-    | true, _ ->
-      (* has meaningful targets, so prioritize them *)
-      concolic.new_targets @ session.target_stack
-      , List.fold concolic.new_targets ~init:session.solver_map ~f:(fun m target -> Solver_map.add m target concolic)
-    (* | false, _ -> session.target_stack, session.solver_map TODO: optionally handle targets from missed target, e.g. if missed because abort, try again  *)
-    (* TODO: once the solver hasn't changed between runs (which might be difficult to manage if overadding formulas), then stop trying for missed targets. *)
-    (* TODO: if missed again, put at back of stack to gain even more information first. Need sofisticated tracking of what led to misses, hits, etc, and make sure not trying to solve for same miss *)
-      (* ^ I only need this if solver logic is wrong. If we continue to miss, then we're hitting unknown branches and gaining information to eventually hit or call unsatisfiable. *)
-  in
-  let max_step_counter, formula_opt =
-    if not concolic.outcome.reach_max_step
-    then session.max_step_counter, None
-    else
-      List.find_map concolic.hit_branches ~f:(
-        function
-        | (branch, Branch.Status.Reach_max_step) -> Some (Max_step_counter.inc session.max_step_counter branch)
-        | _ -> None
-      )
-      |> Option.value_exn (* safe because of the encompassing if statement *)
-  in
-  let persistent_formulas = Branch_solver.Formula_set.union persistent_formulas (formula_opt |> Option.to_list |> Branch_solver.Formula_set.of_list)
-  in
-  { session with
-    branch_store 
-  ; target_stack
-  ; solver_map
-  ; persistent_formulas = Branch_solver.Formula_set.union session.persistent_formulas persistent_formulas } *)
 
 let branch_tracker ({ branch_tracker ; _ } : t) : Branch_tracker.t =
   branch_tracker

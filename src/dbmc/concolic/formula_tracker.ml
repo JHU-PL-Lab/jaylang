@@ -335,8 +335,6 @@ module Env :
         }
       end
 
-    (* TODO: if exiting to global scope, then finalize all pick formulas ? *)
-
   end
 
 (*
@@ -346,11 +344,6 @@ module Env :
 
   But these can be encapsulated in an environment stack. The global formulas are at
   the bottom of the stack. The current formulas are at the top of the stack.
-
-  I do think it would be nicer to have a stack that is potentially empty, and then a 
-  global formula store. This just leads to fewer fails, I think. It might be worse when
-  exiting a branch, though, because it separates the logic into a consideration of these
-  two cases: 1) exit to another local branch, or 2) exit to the global environment.
 *)
 type t = { stack : Env.t list }
 

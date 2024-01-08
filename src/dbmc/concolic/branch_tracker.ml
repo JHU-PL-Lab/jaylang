@@ -161,6 +161,11 @@ module Status_store =
       | Some status -> status
       | None -> failwith "unbound branch"
 
+    let exceeds_max_step_allowance (map : t) (branch : Branch.t) : bool =
+      match Map.find map branch with
+      | Some (Reach_max_step k) when k > num_allowed_max_step -> true
+      | _ -> false
+
     (* map any unhit to unreachable *)
     let finish (map : t) : t =
       Map.map map ~f:(function Status.Unhit -> Status.Unreachable | x -> x)
@@ -192,46 +197,6 @@ module Status_store =
 
     include Sexp_conversions
   end
-
-(*
-  There will be a runtime branch tracker that dives into branches and such. But it stores
-  the stuff so well that I want to keep one of them in the global state and merge all others
-  into it
-
-  I can move the logic for Branch.Status_store into here. That would make a lot more sense.
-  And then I'll need to think about where the logic goes for tracking hits because this is
-  becoming a lot like session.
-
-  TODO: for status store, have a list of abort and max step branches. Then simply query the
-    runtime tracker for those after running, and keep a formula set of those branches. Can add
-    them into 
-
-  What I would like to do is have the session hold a branch tracker. I would prefer not to
-  wrap the runtime branch tracker in Session.Concolic, but it makes sense to only have concolic
-  interface with session. For now assume that concolic has a runtime branch tracker.
-  Then it finishes with a list of new targets that are just ast branches. It will also be either
-  OK, reach max step, or found abort. Concolic can actually handle this because it has the max
-  step and abort and stuff, so we can just tell runtime to exit to global, and then report to
-  session where it was found. However we need to ask for current parent where the exception was hit
-  to appropriately record it. This can be returned from exit_until_global, but what about case when
-  reaching max step while in global already?
-
-  I think all I've really done here is made a better branch solver. I didn't accomplish much...
-
-  I just need to track AST targets. I then take the top target, try to solve (and use status store
-  for max step and abort formulas), and run if possible. Then collect by merging runtime,
-  appending targets, updating status store (which will have payloads, and max step has a counter),
-
-
-  TODO: keep list of any branches that have been hit. No need to for target stack.
-    Just keep targeting the hit branches until they all have a conclusive status.
-    Any remaining Unhits are unreachable for unknown reason. Maybe just keep as Unhit.
-
-  TODO: why make a new tracker/solver for every run? Just pass in the one that holds everything
-    and is already in the global scope. No extra merging necessary. This won't run into conflicts
-    because any abort or similar formulas are never added directly. They are always pickable.
-    However, for efficiency sake, I might like to use sets instead of lists.
-*)
 
 module Branch_set = Set.Make (Branch)
 
@@ -322,7 +287,11 @@ let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
       ~init:x.status_store
       ~f:(Status_store.set_branch_status ~new_status:(Status.Hit [input]))
   in
-  let pending_targets = (* TODO: consider if hit target? *)
+  let pending_targets =
+    (if not runtime.hit_target
+    then Option.to_list runtime.target (* push target again if missed *)
+    else [])
+    @
     (runtime.hit_branches
     |> Set.to_list
     |> List.map ~f:Branch.other_direction)
@@ -337,16 +306,21 @@ let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
         status_store
         branch
         ~new_status:(Status.Found_abort [input])
-    ; abort_branches = Set.add x.abort_branches branch
-    }
+    ; abort_branches = Set.add x.abort_branches branch }
   | Reach_max_step branch ->
-    { x with status_store =
+    let status_store =
+      (* add one to max step count *)
       Status_store.set_branch_status
         status_store
         branch
         ~new_status:(Status.Reach_max_step 1)
-    ; max_step_branches = Set.add x.max_step_branches branch
-    }
+    in
+    { x with
+      status_store
+    ; max_step_branches = 
+      if Status_store.exceeds_max_step_allowance status_store branch
+      then Set.add x.max_step_branches branch
+      else x.max_step_branches }
 
 let rec next_target (x : t) : Branch.t option * t =
   match x.pending_targets with
