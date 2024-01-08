@@ -182,6 +182,7 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   | Some target, branch_tracker ->
     solve_for_target target { session with branch_tracker }
 
+(* TODO: disallow repeat inputs. (should I only disallow when solving for same target?) *)
 and solve_for_target (target : Branch.t) (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   (* TODO: logic for statuses wrt aborts and max steps *)
   let formulas =
