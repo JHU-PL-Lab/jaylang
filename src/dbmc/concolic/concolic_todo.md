@@ -4,6 +4,7 @@
 
 * Disallow inputs that have already been used
   * I think we can just add global formulas because even if this makes some branch appear unsatisfiable, that branch has already been hit
+  * ^ this is done, but I'm not sure if I properly disallow repeat "second inputs" after the first one is different. I need to disallow some set of inputs, but other sets are fine.
 * Fix the case where I sometimes have to press ^C to stop the evaluation and continue to the next one
   * My guess is this happens when the solver stuck, and any exception quits the solver as "unsatisfiable", but I have no good evidence for this--it's just a hunch.
 * Customize unsatisfiability with a reason (e.g. unreachable/unsatisfiable because of abort, max step, both, or neither)

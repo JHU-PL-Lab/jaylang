@@ -61,8 +61,8 @@ module Status_store :
     (** [find_branches e store] is a new store where all the branches in the given expression [expr]
         have been added as unhit branches to the given [store]. *)
 
-    val finish : t -> t
-    (** [finish store] is a new store where all unhit branches are now marked as unsatisfiable *)
+    val finish : t -> int -> t
+    (** [finish store allowed_max_step] is a new store where all unhit branches are now marked as unsatisfiable. *)
 
   end
 

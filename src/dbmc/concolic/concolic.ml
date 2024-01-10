@@ -327,7 +327,6 @@ and eval_clause
         let Var (proj_x, _) as proj_v = Ident_map.find label r in
         let retv, stk' = Fetch.fetch_val_with_stk ~eval_session ~stk denv proj_v in
         Session.Eval.add_alias (x, stk) (proj_x, stk') eval_session;
-        (* TODO: records have limited concolic functionality as far as I'm aware. *)
         let Var (v_ident, _) = v in
         let v_stk = Fetch.fetch_stk ~eval_session ~stk env v in
         let record_key = generate_lookup_key v_ident v_stk in
@@ -406,7 +405,7 @@ and eval_clause
   (Ident_map.add x (v, stk) env, v, conc_session)
 
 let eval_exp_default
-  ~(eval_session: Session.Eval.t)
+  ~(eval_session : Session.Eval.t)
   ~(conc_session : Session.Concolic.t)
   (e : expr)
   : Dvalue.denv * Dvalue.t * Session.Concolic.t
@@ -417,6 +416,35 @@ let eval_exp_default
     Concrete_stack.empty (* empty stack *)
     Ident_map.empty (* empty environment *)
     e
+
+(* Evaluate the expression and return resulting concolic session. Print and discard output. May bubble exception *)
+let try_eval_exp_default
+  ~(eval_session : Session.Eval.t)
+  ~(conc_session : Session.Concolic.t)
+  (e : expr)
+  : Session.Concolic.t
+  =
+  try
+    (* might throw exception which is to be caught below *)
+    let _, v, conc_session = eval_exp_default ~eval_session ~conc_session e in
+    if Printer.print then Format.printf "Evaluated to: %a\n" Dvalue.pp v;
+    conc_session
+  with
+  | Found_abort (_, conc_session) ->
+      if Printer.print then Format.printf "Running next iteration of concolic after abort\n";
+      conc_session
+  | Reach_max_step (_, _, conc_session) ->
+      if Printer.print then Format.printf "Reach max steps\n";
+      conc_session
+  | Run_the_same_stack_twice (x, stk) -> (* bubbles exception *)
+      Fmt.epr "Run into the same stack twice\n" ;
+      Debug.alert_lookup eval_session x stk ;
+      raise (Run_the_same_stack_twice (x, stk))
+  | Run_into_wrong_stack (x, stk) -> (* bubble exception *)
+      Fmt.epr "Run into wrong stack\n" ;
+      Debug.alert_lookup eval_session x stk ;
+      raise (Run_into_wrong_stack (x, stk))
+
 
 (*
   -------------------
@@ -431,42 +459,16 @@ let eval_exp_default
 let rec loop (e : expr) (prev_session : Session.t) : Branch_tracker.Status_store.t =
   match Session.next prev_session with
   | `Done session ->
-    Format.printf "------------------------------\nFinishing...\n";
     let finished = Session.finish session in
-    Session.print finished;
+    if Printer.print then (Format.printf "------------------------------\nFinishing...\n"; Session.print finished);
     Branch_tracker.status_store
     @@ Session.branch_tracker finished
   | `Next (session, conc_session, eval_session) ->
     if Printer.print
-    then
-      begin
-      Format.printf "------------------------------\nRunning program...\n";
-      Session.print session
-      end;
-    let concolic_session =
-    try
-      (* might throw exception which is to be caught below *)
-      let _, v, conc_session = eval_exp_default ~eval_session ~conc_session e in
-      if Printer.print then Format.printf "Evaluated to: %a\n" Dvalue.pp v;
-      conc_session
-    with
-    | Found_abort (_, conc_session) ->
-        if Printer.print then Format.printf "Running next iteration of concolic after abort\n";
-        conc_session
-    | Reach_max_step (_, _, conc_session) ->
-        if Printer.print then Format.printf "Reach max steps\n";
-        (* alert_lookup target_stk x stk session.lookup_alert; *)
-        conc_session
-    | Run_the_same_stack_twice (x, stk) ->
-        Fmt.epr "Run into the same stack twice\n" ;
-        (* Debug.alert_lookup (!session).eval x stk ; *) (* no debug statement because we don't keep the eval session *)
-        raise (Run_the_same_stack_twice (x, stk))
-    | Run_into_wrong_stack (x, stk) ->
-        Fmt.epr "Run into wrong stack\n" ;
-        (* Debug.alert_lookup (!session).eval x stk ; *) (* ^^ *)
-        raise (Run_into_wrong_stack (x, stk))
-    in
-    loop e @@ Session.accum_concolic session concolic_session
+    then (Format.printf "------------------------------\nRunning program...\n"; Session.print session);
+    try_eval_exp_default ~eval_session ~conc_session e
+    |> Session.accum_concolic session
+    |> loop e
 
 (* Concolically execute/test program. *)
 let eval (e : expr) : Branch_tracker.Status_store.t = 

@@ -110,8 +110,7 @@ module Formula =
 (* Note: I'm not actually using the "pick". I'm tracking them myself to reduce load on the solver *)
 module Pick_formulas :
   sig
-    (* TODO: have a "finished" variant where the formulas are now expr *)
-    (*  ^ but this would be unnecessary computation because we might not need some of the exprs that we computed *)
+    (* TODO: have a "finished" variant where some formulas are now expr, so no recomputation needed *)
     type t
 
     val empty : t
@@ -237,7 +236,7 @@ module Pick_formulas :
           | Some formula_list ->
             formula_list
             |> List.map ~f:Formula.And.to_expr
-            |> Solver.SuduZ3.or_ (* TODO: add `or_` to `Riddler` *)
+            |> Solver.SuduZ3.or_
           | None -> failwith "no \"and\" pick formulas found for parent branch" (* should be impossible if used correctly *)
 
         let exit_parent (map : t) (parent : Branch.Runtime.t) : t =
@@ -373,7 +372,7 @@ let add_input (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
   |> Solver.SuduZ3.not_
   |> add_formula x
 
-(* TODO: all other types of formulas, e.g. not, pattern, etc *)
+(* TODO: all other types of formulas, e.g. not, pattern, etc, then hide `add_formula` *)
 
 let enter_branch ({ stack } : t) (branch : Branch.Runtime.t) : t =
   { stack = Env.create branch :: stack }

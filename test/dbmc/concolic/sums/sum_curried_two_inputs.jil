@@ -8,8 +8,7 @@
 
 other_zero = 0;
 x = input;
-# y = input; # TODO: handle timeouts
-y = 6; # patch
+y = input;
 f = fun s -> (
     f0 = fun ra -> (
         fc = fun rc -> (

@@ -28,7 +28,7 @@ val add_binop : t -> Lookup_key.t -> Jayil.Ast.binary_operator -> Lookup_key.t -
 val add_input : t -> Lookup_key.t -> Jayil.Ast.value -> t
 (** [add_input t x v] is a tracker that knows the input [x = v] was given. *)
 
-val add_formula : t -> Z3.Expr.expr -> t (* TODO: hide eventually *)
+val add_formula : t -> Z3.Expr.expr -> t
 (** [add_formula t e] adds the z3 expression [e] to the tracker [t]. *)
 
 val is_global : t -> bool

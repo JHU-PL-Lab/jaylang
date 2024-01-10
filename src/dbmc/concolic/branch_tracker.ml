@@ -1,7 +1,5 @@
 open Core
 
-let num_allowed_max_step = 3
-
 module Lookup_key = 
   struct
     include Lookup_key
@@ -49,7 +47,7 @@ module Status =
         match new_status with
         | Hit ls' -> Hit (ls' @ ls)
         | Found_abort ls' -> Found_abort (ls' @ ls)
-        | Reach_max_step _  -> new_status (* TODO: don't overwrite? *)
+        | Reach_max_step _  -> new_status
         | _ -> old_status
       end
       | Unhit -> new_status
@@ -62,7 +60,7 @@ module Status =
         match new_status with
         | Reach_max_step count' -> Reach_max_step (count + count')
         | Found_abort _ -> new_status
-        | _ -> old_status (* TODO: allow hits to represent completing the branch without problem *)
+        | _ -> old_status
       end
       | Missed
       | Unknown -> new_status
@@ -85,7 +83,7 @@ module Status_store =
       match Map.find map branch with
       | Some Unhit
       | Some Missed -> true
-      (* | Some Reach_max_step i -> i <= num_allowed_max_step *)
+      (* | Some Reach_max_step i -> i <= allowed_max_step *)
       | _ -> false
 
     let empty = M.empty
@@ -142,7 +140,6 @@ module Status_store =
             (Status.to_string false_status)
         )
 
-    (* TODO: we can maintain a list of unhit branches and just peek the hd to improve time complexity *)
     let get_unhit_branch (map : t) : Branch.t option =
       map
       |> Map.to_alist
@@ -163,17 +160,17 @@ module Status_store =
       | Some status -> status
       | None -> failwith "unbound branch"
 
-    let exceeds_max_step_allowance (map : t) (branch : Branch.t) : bool =
+    let exceeds_max_step_allowance (map : t) (branch : Branch.t) (allowed_max_step : int) : bool =
       match Map.find map branch with
-      | Some (Reach_max_step k) when k > num_allowed_max_step -> true
+      | Some (Reach_max_step k) when k > allowed_max_step -> true
       | _ -> false
 
     (* map any unhit to unreachable *)
     (* TODO: use Status.update? *)
-    let finish (map : t) : t =
+    let finish (map : t) (allowed_max_step : int) : t =
       Map.map map ~f:(function
       | Status.Unhit -> Status.Unreachable
-      | Reach_max_step n when n <= num_allowed_max_step -> Status.Hit [] (* TODO: input payload *)
+      | Reach_max_step n when n <= allowed_max_step -> Status.Hit [] (* TODO: input payload *)
       | x -> x
       )
 
@@ -269,16 +266,24 @@ type t =
   { status_store      : Status_store.t
   ; pending_targets   : Branch.t list
   ; abort_branches    : Branch_set.t
-  ; max_step_branches : Branch_set.t }
+  ; max_step_branches : Branch_set.t
+  ; allowed_max_step  : int }
+
+(* number of times a branch can hit max step before being considered off limits in future runs *)
+let default_allowed_max_step = 3
 
 let empty : t =
   { status_store      = Status_store.empty
   ; pending_targets   = []
   ; abort_branches    = Branch_set.empty
-  ; max_step_branches = Branch_set.empty }
+  ; max_step_branches = Branch_set.empty
+  ; allowed_max_step  = default_allowed_max_step }
 
 let of_expr (expr : Jayil.Ast.expr) : t =
   { empty with status_store = Status_store.of_expr expr }
+
+let set_allowed_max_step (x : t) (allowed_max_step : int) : t =
+  { x with allowed_max_step }
 
 let set_unsatisfiable (x : t) (branch : Branch.t) : t =
   { x with status_store =
@@ -299,7 +304,7 @@ let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
     then Option.to_list runtime.target (* push target again if missed *)
     else [])
     @
-    (runtime.hit_branches
+    (runtime.hit_branches (* add other side of all branches hit as a new target *)
     |> Set.to_list
     |> List.map ~f:Branch.other_direction)
     @ x.pending_targets
@@ -325,7 +330,7 @@ let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
     { x with
       status_store
     ; max_step_branches = 
-      if Status_store.exceeds_max_step_allowance status_store branch
+      if Status_store.exceeds_max_step_allowance status_store branch x.allowed_max_step
       then Set.add x.max_step_branches branch
       else x.max_step_branches }
 
@@ -344,7 +349,7 @@ let get_max_steps ({ max_step_branches ; _ } : t) : Branch.t list =
   Set.to_list max_step_branches
 
 let finish (x : t) : t =
-  { x with status_store = Status_store.finish x.status_store }
+  { x with status_store = Status_store.finish x.status_store x.allowed_max_step }
 
 let print ({ status_store ; _ } : t) : unit =
   Status_store.print status_store

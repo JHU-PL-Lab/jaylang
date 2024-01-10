@@ -40,7 +40,7 @@ module Eval :
       ; (* book-keeping*)
         alias_graph     : G.t
       ; (* debug *)
-        is_debug        : bool (* TODO: get rid of this *) (* can use Mode.Debug.t instead *)
+        is_debug        : bool
       ; debug_mode      : Mode.Debug.t
       ; val_def_map     : (Id_with_stack.t, clause_body * Dvalue.t) Hashtbl.t
       ; term_detail_map : (Lookup_key.t, Lookup_detail.t) Hashtbl.t

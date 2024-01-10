@@ -18,7 +18,7 @@ module Mode =
 module G = Graph.Imperative.Digraph.ConcreteBidirectional (Id_with_stack)
 
 (*
-  Mutable record that tracks a run through the evaluation.   
+  Mutable record that tracks a run through the evaluation. aka "interpreter session"
 *)
 module Eval =
   struct
@@ -157,18 +157,22 @@ module Concolic =
   end
 
 type t = 
-  { branch_tracker  : Branch_tracker.t
-  ; formula_tracker : Formula_tracker.t
-  ; global_max_step : int
-  ; run_num         : int}
+  { branch_tracker   : Branch_tracker.t
+  ; formula_tracker  : Formula_tracker.t
+  ; solver_timeout_s : float (* seconds allowed for each solve *)
+  ; global_max_step  : int
+  ; run_num          : int}
 
 let default_global_max_step = Int.(5 * 10 ** 2)
 
+let default_solver_timeout_s = 0.5
+
 let default : t =
-  { branch_tracker  = Branch_tracker.empty
-  ; formula_tracker = Formula_tracker.empty
-  ; global_max_step = default_global_max_step
-  ; run_num         = 0 }
+  { branch_tracker   = Branch_tracker.empty
+  ; formula_tracker  = Formula_tracker.empty
+  ; solver_timeout_s = default_solver_timeout_s
+  ; global_max_step  = default_global_max_step
+  ; run_num          = 0 }
 
 let of_expr (expr : Jayil.Ast.expr) : t =
   { default with branch_tracker = Branch_tracker.of_expr expr }
@@ -183,9 +187,9 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   | Some target, branch_tracker ->
     solve_for_target target { session with branch_tracker }
 
-(* TODO: disallow repeat inputs. (should I only disallow when solving for same target?) *)
 and solve_for_target (target : Branch.t) (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   (* TODO: logic for statuses wrt aborts and max steps *)
+  Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec session.solver_timeout_s));
   let formulas =
     Formula_tracker.all_formulas
       session.formula_tracker
