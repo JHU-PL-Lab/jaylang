@@ -2,7 +2,10 @@
 # Depending on input, a recursive function might get called that times out.
 # The right inputs can avoid this and hit other branches.
 # The goal is to test that reaching the max step down some branches does
-# not prevent the evaluator from hitting other independent branches.
+# not prevent the evaluator from hitting other independent branches
+
+# Currently it thinks r true is unsatisfiable. I should test by making max step very small
+# and manually working out formulas
 
 x = input;
 one = 1;
@@ -48,7 +51,7 @@ first_branch = cm ? (
 c = x == first_branch; # true when x = 101
 e = c ? (
   # hittable when x = 101
-  # This sometimes gets called unsatisfiable if it hits max step on first run
+  # Could be "unknown" because is hard to solve for when so many formulas clog up the solver, so it times out.
   target = 42
 ) : (
   # hittable when x > 101 or x = 50
