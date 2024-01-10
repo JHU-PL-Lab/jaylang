@@ -1,4 +1,4 @@
-(* open Core *)
+open Core
 open Dj_common
 open Dbmc
 
@@ -6,12 +6,13 @@ let test_one_file testname _args =
   let result = 
     match 
       (* Read expected branch information via sexp from the `<filename>.expect.s` file. *)
-      File_utils.load_expect testname Branch_tracker.Status_store.t_of_sexp
+      File_utils.load_expect testname
+      @@ List.t_of_sexp Branch_tracker.Status_store.t_of_sexp
     with
     | None -> false (* no expected output, so say it failed *)
-    | Some expects ->
+    | Some expect_list ->
       let actual_output = Concolic.eval (Dj_common.File_utils.read_source testname) in
-      Branch_tracker.Status_store.compare actual_output expects = 0
+      List.exists expect_list ~f:(fun e -> Branch_tracker.Status_store.compare actual_output e = 0)
   in
   Alcotest.(check bool) "concolic" true result
 

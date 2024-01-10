@@ -1,4 +1,6 @@
 (
-  (first_branch (Hit) (Hit))
-  (second_branch (Hit) (Hit))
+  (
+    (first_branch (Hit) (Hit))
+    (second_branch (Hit) (Hit))
+  )
 )
