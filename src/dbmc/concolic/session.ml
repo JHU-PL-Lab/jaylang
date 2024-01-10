@@ -187,6 +187,7 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   | Some target, branch_tracker ->
     solve_for_target target { session with branch_tracker }
 
+(* TODO: use Z3.Solver.check to check with abort and max step formulas *)
 and solve_for_target (target : Branch.t) (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   (* TODO: logic for statuses wrt aborts and max steps *)
   Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec session.solver_timeout_s));

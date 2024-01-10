@@ -235,7 +235,7 @@ module Pick_formulas :
           match Map.find map branch with
           | Some formula_list ->
             formula_list
-            |> List.map ~f:Formula.And.to_expr
+            |> List.map ~f:Formula.And.to_expr (* the same parents are "anded" many times. We could make formulas smaller by being more intentional *)
             |> Solver.SuduZ3.or_
           | None -> failwith "no \"and\" pick formulas found for parent branch" (* should be impossible if used correctly *)
 
@@ -262,7 +262,7 @@ module Pick_formulas :
       (* ; max_step = Max_step.merge a.max_step b.max_step  *)
       ; target   = Target.merge a.target b.target }
 
-    let exit_parent ({ abort ; max_step ; target } : t) (parent : Branch.Runtime.t) : t =
+    let exit_parent ({ abort ; (*max_step ;*) target } : t) (parent : Branch.Runtime.t) : t =
       { abort    = Abort.exit_parent abort parent
       (* ; max_step = Max_step.exit_parent max_step parent *)
       ; target   = Target.exit_parent target parent }
