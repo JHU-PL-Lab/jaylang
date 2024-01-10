@@ -204,7 +204,7 @@ module Pick_formulas :
       end
 
     module Abort : S = Implies
-    module Max_step : S = Implies
+    (* module Max_step : S = Implies *)
 
     (*
       Track targets by letting the condition be satisfied. This takes the "or" of all
@@ -249,22 +249,22 @@ module Pick_formulas :
 
     type t =
       { abort    : Abort.t
-      ; max_step : Max_step.t
+      (* ; max_step : Max_step.t *) (* max step is treated precisely like abort right now, so it is redundant *)
       ; target   : Target.t }
 
     let empty =
       { abort    = Abort.empty 
-      ; max_step = Max_step.empty
+      (* ; max_step = Max_step.empty *)
       ; target   = Target.empty }
 
     let union (a : t) (b : t) : t = 
       { abort    = Abort.merge a.abort b.abort
-      ; max_step = Max_step.merge a.max_step b.max_step 
+      (* ; max_step = Max_step.merge a.max_step b.max_step  *)
       ; target   = Target.merge a.target b.target }
 
     let exit_parent ({ abort ; max_step ; target } : t) (parent : Branch.Runtime.t) : t =
       { abort    = Abort.exit_parent abort parent
-      ; max_step = Max_step.exit_parent max_step parent
+      (* ; max_step = Max_step.exit_parent max_step parent *)
       ; target   = Target.exit_parent target parent }
 
     let pick_target ({ target ; _ } : t) (branch : Branch.t) : Z3.Expr.expr =
@@ -273,8 +273,10 @@ module Pick_formulas :
     let found_abort ({ abort ; _ } : t) (branch : Branch.t) : Z3.Expr.expr =
       Abort.to_formula abort branch
 
-    let reach_max_step ({ max_step ; _ } : t) (branch : Branch.t) : Z3.Expr.expr =
-      Max_step.to_formula max_step branch
+    (* let reach_max_step ({ max_step ; _ } : t) (branch : Branch.t) : Z3.Expr.expr = *)
+      (* Max_step.to_formula max_step branch *)
+    let reach_max_step = found_abort (* treat exactly like abort *)
+
   end
 
 module Env :
