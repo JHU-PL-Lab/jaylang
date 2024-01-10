@@ -82,6 +82,7 @@ module Status_store =
     let is_valid_target (map : t) (branch : Branch.t) : bool =
       match Map.find map branch with
       | Some Unhit
+      | Some Unknown
       | Some Missed -> true
       (* | Some Reach_max_step i -> i <= allowed_max_step *)
       | _ -> false
@@ -291,6 +292,14 @@ let set_unsatisfiable (x : t) (branch : Branch.t) : t =
       x.status_store
       branch
       ~new_status:Status.Unsatisfiable }
+
+(* TODO: use update? That would be better if a Hit happens to be given *)
+let set_status (x : t) (branch : Branch.t) (status : Status.t) : t =
+  { x with status_store =
+    Status_store.set_branch_status
+      x.status_store
+      branch
+      ~new_status:status }
 
 let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
   let status_store = 

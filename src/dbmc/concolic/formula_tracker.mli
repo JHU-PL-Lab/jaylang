@@ -44,3 +44,9 @@ val all_formulas : t -> target:Branch.t -> aborts:Branch.t list -> max_steps:Bra
 (** [all_formulas t target aborts max_steps] is all formulas in [t] that are known to solve for the [target] AST
     branch, along with formulas that set any branches given in [aborts] or [max_steps] to be off limits so
     that the branches are not to be hit during the run for the [target]. *)
+
+val abort_formulas : t -> Branch.t list -> Z3.Expr.expr list
+(** [abort_formulas t aborts] is all formulas in [t] that set any branch in [aborts] to off limits. *)
+
+val max_step_formulas : t -> Branch.t list -> Z3.Expr.expr list
+(** [max_step_formulas t max_steps] is all formulas in [t] that set any branch in [max_steps] to off limits. *)

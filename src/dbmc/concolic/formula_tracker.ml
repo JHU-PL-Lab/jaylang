@@ -369,10 +369,12 @@ let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (lef
 
 (* We'd like to not choose this input anymore, so mark it off limits *)
 (* TODO: how does this work for inputs in recursive functions that have different previous inputs? *)
+(* TODO: this makes some branches appear unsatisfiable when really they're unreachable bc abort. Need to optionally add these formulas. *)
 let add_input (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
-  Riddler.eq_term_v key (Some v)
+  let _, _ = key, v in x
+  (* Riddler.eq_term_v key (Some v)
   |> Solver.SuduZ3.not_
-  |> add_formula x
+  |> add_formula x *)
 
 (* TODO: all other types of formulas, e.g. not, pattern, etc, then hide `add_formula` *)
 
@@ -432,3 +434,14 @@ let all_formulas
     target_formula :: abort_formulas @ max_step_formulas @ Formula_set.to_list formulas
   | _ -> failwith "impossible global is not bottom of stack"
 
+let abort_formulas ({ stack } : t) (aborts : Branch.t list) : Z3.Expr.expr list =
+  match stack with
+  | { parent = Local _ ; _ } :: _ -> failwith "cannot get abort formulas unless in global scope"
+  | { parent = Global ; formulas ; pick_formulas } :: [] -> List.map aborts ~f:(Pick_formulas.found_abort pick_formulas)
+  | _ -> failwith "impossible global is not bottom of stack"
+
+let max_step_formulas ({ stack } : t) (max_steps : Branch.t list) : Z3.Expr.expr list =
+  match stack with
+  | { parent = Local _ ; _ } :: _ -> failwith "cannot get max step formulas unless in global scope"
+  | { parent = Global ; formulas ; pick_formulas } :: [] -> List.map max_steps ~f:(Pick_formulas.reach_max_step pick_formulas)
+  | _ -> failwith "impossible global is not bottom of stack"

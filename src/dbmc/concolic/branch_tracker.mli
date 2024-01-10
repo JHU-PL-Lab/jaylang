@@ -69,23 +69,63 @@ module Status_store :
 module Runtime :
   sig
     type t
+    (** [t] tracks branches as they are hit during a run of the interpreter. *)
+
     val empty : t
+    (** [empty] is a runtime branch tracker in global state with no info. *)
+
     val with_target : Branch.t -> t
+    (** [with_target target] is [empty] that knows the given [target]. *)
+
     val hit_branch : t -> Branch.t -> t
+    (** [hit_branch t branch] marks [branch] as hit in [t] and enters the branch. *)
+
     val exit_branch : t -> t
+    (** [exit_branch t] exits the current branch in [t]. *)
+
     val found_abort : t -> t
+    (** [found_abort t] tells [t] that abort was found in the current branch. *)
+    
     val reach_max_step : t -> t
+    (** [reach_max_step t] tells [t] that max step was reached in the current branch. *)
   end
 
 type t
+(** [t] tracks AST branches with statuses and collects results from the runtime tracker. *)
 
 val empty : t
+(** [empty] is a branch tracker with no info and default values. *)
+
 val of_expr : Jayil.Ast.expr -> t
+(** [of_expr expr] is [empty] with all branches in [expr] loaded as unhit. *)
+
 val collect_runtime : t -> Runtime.t -> Input.t -> t
+(** [collect runtime t runtime i] is [t] with all hit branches (and/or abort/max-step results)
+    from [runtime], knowing the input [i] was used to make the runtime. *)
+
 val set_unsatisfiable : t -> Branch.t -> t
+(** [set_unsatisfiable t branch] is [t] with the [branch] having status unsatisfiable. *)
+
+val set_status : t -> Branch.t -> Status.t -> t
+(** [set_status t branch status] is [t] with the [branch] having the given [status]. *)
+
 val next_target : t -> Branch.t option * t
+(** [next_target t] is an optional target and a new branch tracker after popping off the target.
+    The result depends on which targets have been found by collecting runtime trackers and the
+    already known status inside [t]. *)
+
 val get_aborts : t -> Branch.t list
+(** [get_aborts t] is all branches known to contain abort in [t]. *)
+
 val get_max_steps : t -> Branch.t list
+(** [get_max_steps t] is all branches known to have hit max step too many times in [t]. *)
+
 val finish : t -> t
+(** [finish t] sets statuses in [t] to unreachable or hit accordingly, such that results are ready
+    to be nicely printed. *)
+
 val print : t -> unit
+(** [print t] prints the branch statuses in [t]. *)
+
 val status_store : t -> Status_store.t
+(** [status_store t] gets the status_store from [t]. *)
