@@ -5,6 +5,9 @@ exception NoParentException
 [@@@warning "-32"] (* for unused versions *)
 
 (* THIS TRACKER IS MORE CONCISE, BUT IT APPEARS TO TIMEOUT ON IMPOSSIBLE SUM TEST *)
+(* It apparently is just wrong, and I'm not sure why. E.g. it thinks condition_timeout has unsatisfiable *)
+(* Picking the target seems to work, but whenever abort or max step is actually found, it just seems to come out as unsatisfiable *)
+(* So I think it has to do with how I pick those formulas because session logic didn't change *)
 
 module Formula_set :
   sig
@@ -75,57 +78,6 @@ module Parent =
       | Local branch -> Some (Branch.Runtime.to_expr branch)
   end
 
-(* Parents are foced to be runtime branches *)
-module Formula =
-  struct
-    module type S =
-      sig
-        type t
-        val to_expr : t -> Z3.Expr.expr
-        val exit_parent : Branch.Runtime.t -> t -> t
-        val empty : Z3.Expr.expr -> t
-        (** [empty expr] has no parent dependencies, but it does require [expr]. *)
-      end
-
-    module And : S =
-      struct
-        type t = Branch.Runtime.t list * Z3.Expr.expr (* will take the "and" of all parent dependencies and the expr *)
-
-        let empty (expr : Z3.Expr.expr) : t =
-          [], expr
-
-        let exit_parent (parent : Branch.Runtime.t) (stack, expr : t) : t =
-          parent :: stack, expr
-
-        let to_expr (stack, expr : t) : Z3.Expr.expr =
-          match stack with
-          | [] -> expr
-          | _ -> 
-            stack
-            |> List.map ~f:Branch.Runtime.to_expr
-            |> List.cons expr
-            |> Riddler.and_
-      end
-
-    module Implies : S =
-      struct
-        type t = Branch.Runtime.t list * Z3.Expr.expr (* list of parents implies for the formula down the line *)
-
-        let empty (expr : Z3.Expr.expr) : t =
-          [], expr
-
-        (* most recently exited parent is on top of the stack *)
-        let exit_parent (parent : Branch.Runtime.t) (stack, expr : t) : t =
-          parent :: stack, expr
-
-        (* need the least recently exited parent to imply the expr first, so fold right *)
-        let to_expr (stack, expr : t) : Z3.Expr.expr =
-          let implies (branch : Branch.Runtime.t) (expr : Z3.Expr.expr) : Z3.Expr.expr =
-            Riddler.(Branch.Runtime.to_expr branch @=> expr)
-          in
-          List.fold_right stack ~init:expr ~f:implies
-      end
-  end
 
 (* Note: I'm not actually using the "pick". I'm tracking them myself to reduce load on the solver *)
 module Pick_formulas :
@@ -168,6 +120,57 @@ module Pick_formulas :
 
     module V1 : S =
       struct
+        (* Parents are forced to be runtime branches *)
+        module Formula =
+          struct
+            module type S =
+              sig
+                type t
+                val to_expr : t -> Z3.Expr.expr
+                val exit_parent : Branch.Runtime.t -> t -> t
+                val empty : Z3.Expr.expr -> t
+                (** [empty expr] has no parent dependencies, but it does require [expr]. *)
+              end
+
+            module And : S =
+              struct
+                type t = Branch.Runtime.t list * Z3.Expr.expr (* will take the "and" of all parent dependencies and the expr *)
+
+                let empty (expr : Z3.Expr.expr) : t =
+                  [], expr
+
+                let exit_parent (parent : Branch.Runtime.t) (stack, expr : t) : t =
+                  parent :: stack, expr
+
+                let to_expr (stack, expr : t) : Z3.Expr.expr =
+                  match stack with
+                  | [] -> expr
+                  | _ -> 
+                    stack
+                    |> List.map ~f:Branch.Runtime.to_expr
+                    |> List.cons expr
+                    |> Riddler.and_
+              end
+
+            module Implies : S =
+              struct
+                type t = Branch.Runtime.t list * Z3.Expr.expr (* list of parents implies for the formula down the line *)
+
+                let empty (expr : Z3.Expr.expr) : t =
+                  [], expr
+
+                (* most recently exited parent is on top of the stack *)
+                let exit_parent (parent : Branch.Runtime.t) (stack, expr : t) : t =
+                  parent :: stack, expr
+
+                (* need the least recently exited parent to imply the expr first, so fold right *)
+                let to_expr (stack, expr : t) : Z3.Expr.expr =
+                  let implies (branch : Branch.Runtime.t) (expr : Z3.Expr.expr) : Z3.Expr.expr =
+                    Riddler.(Branch.Runtime.to_expr branch @=> expr)
+                  in
+                  List.fold_right stack ~init:expr ~f:implies
+              end
+          end
 
         (* Note that parents must be runtime branches only. Global is not allowed. *)
         module type SS =
@@ -456,15 +459,15 @@ module Env :
           { x with formulas = Formula_set.add formulas formula }
 
         let get_picks (branch : Branch.Runtime.t) : Z3.Expr.expr list =
-          let open List.Let_syntax in
-          let f pick = 
+          List.cartesian_product
+            [ Branch.Runtime.pick_abort ; Branch.Runtime.pick_max_step ]
             [ branch ; Branch.Runtime.other_direction branch ]
-            >>| Branch.Runtime.other_direction
-            >>| Branch.Runtime.to_expr (* say this branch must be satisfied *)
-            >>| Riddler.(@=>) (pick branch) (* original direction implies other direction *)
-          in
-          [ Branch.Runtime.pick_abort ; Branch.Runtime.pick_max_step ]
-          >>= f
+          |> List.map ~f:(fun (pick, branch) ->
+              branch
+              |> Branch.Runtime.other_direction
+              |> Branch.Runtime.to_expr
+              |> Riddler.(@=>) (pick branch)
+            )
 
         let exit_to_env (exited : t) (new_env : t) : t =
           match exited with
@@ -693,6 +696,11 @@ module V2 =
       match stack with
       | { parent = Local _ ; _ } :: _ -> failwith "cannot get formulas unless in global scope"
       | { parent = Global ; formulas ; pick_formulas } :: [] ->
+        begin
+        match aborts with
+        | [] -> print_endline "no abort formulas"
+        | _ -> ()
+        end;
         let abort_formulas = List.map aborts ~f:Branch.pick_abort in
         let max_step_formulas = List.map max_steps ~f:Branch.pick_max_step in
         let target_formula = Pick_formulas.V2.pick_target pick_formulas target in

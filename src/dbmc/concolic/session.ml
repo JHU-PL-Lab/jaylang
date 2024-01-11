@@ -192,6 +192,7 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
 
 and solve_for_target (target : Branch.t) (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec session.solver_timeout_s));
+  Format.printf "Solving for %s\n" (Branch.to_string target);
   let formulas =
     Formula_tracker.all_formulas
       session.formula_tracker
@@ -243,8 +244,9 @@ and check_solver
     end
   in
   (* First solve for target without abort or max step formulas *)
+  print_endline (Z3.Solver.to_string new_solver);
   match Z3.Solver.check new_solver [] with
-  | Z3.Solver.UNSATISFIABLE -> `Unsolvable Branch_tracker.Status.Unsatisfiable
+  | Z3.Solver.UNSATISFIABLE -> Format.printf "FOUND UNSATISFIABLE\n"; `Unsolvable Branch_tracker.Status.Unsatisfiable
   | Z3.Solver.UNKNOWN -> `Unsolvable Branch_tracker.Status.Unknown
   | Z3.Solver.SATISFIABLE -> begin
     match solve_abort () with
