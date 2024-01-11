@@ -4,6 +4,8 @@ exception NoParentException
 
 [@@@warning "-32"] (* for unused versions *)
 
+(* THIS TRACKER IS MORE CONCISE, BUT IT APPEARS TO TIMEOUT ON IMPOSSIBLE SUM TEST *)
+
 module Formula_set :
   sig
     type t
