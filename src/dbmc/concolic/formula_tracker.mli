@@ -37,7 +37,7 @@ val is_global : t -> bool
 val exit_until_global : t -> t
 (** [exit_until_global t] brings [t] back to the global scope. *)
 
-val union : t -> t -> t option
+(* val union : t -> t -> t option *)
 (** [union a b] is all info from [a] and [b] if both are global. Otherwise is None. *)
 
 val all_formulas : t -> target:Branch.t -> aborts:Branch.t list -> max_steps:Branch.t list -> Z3.Expr.expr list

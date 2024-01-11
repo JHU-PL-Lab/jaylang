@@ -38,6 +38,8 @@ val of_ident_and_bool : Ast.ident -> bool -> t
     make a branch. *)
 
 val other_direction : t -> t
+val pick_abort : t -> Z3.Expr.expr
+val pick_max_step : t -> Z3.Expr.expr
 
 (*
   "Runtime" is a modifier/adjective on "Branch", so it is a "Runtime Branch".
@@ -70,4 +72,7 @@ module Runtime :
 
     val print_target_option : t option -> unit
     (** [print_target_option x] prints the branch [x] as "target branch", or prints it as "None". *)
+
+    val pick_abort : t -> Z3.Expr.expr
+    val pick_max_step : t -> Z3.Expr.expr
   end

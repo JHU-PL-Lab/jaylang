@@ -45,6 +45,21 @@ module T =
     
     let other_direction { branch_ident ; direction } : t =
       { branch_ident ; direction = Direction.other_direction direction }
+
+    let (^-) (Ast.Ident a) b = Ast.Ident (a ^ "-" ^ b)
+
+    let pick_abort (x : t) : Z3.Expr.expr =
+      (* hyphens aren't allowed in a variable name, so this is necessarily unique *)
+      { x = (x.branch_ident ^- Direction.to_string x.direction) ^- "abort"
+      ; r_stk = Rstack.empty
+      ; block = Dj_common.Cfg.{ id = x.branch_ident ; clauses = [] ; kind = Main } }
+      |> Riddler.picked
+
+    let pick_max_step (x : t) : Z3.Expr.expr =
+      { x = (x.branch_ident ^- Direction.to_string x.direction) ^- "max-step"
+      ; r_stk = Rstack.empty
+      ; block = Dj_common.Cfg.{ id = x.branch_ident ; clauses = [] ; kind = Main } }
+      |> Riddler.picked
   end
 
 include T
@@ -80,4 +95,12 @@ module Runtime =
         | Some target -> to_string target
       in 
       Format.printf "\nTarget branch: %s\n" target_branch_str
+
+    let pick_abort (x : t) : Z3.Expr.expr =
+      T.pick_abort
+      @@ to_ast_branch x
+
+    let pick_max_step (x : t) : Z3.Expr.expr =
+      T.pick_max_step
+      @@ to_ast_branch x
   end
