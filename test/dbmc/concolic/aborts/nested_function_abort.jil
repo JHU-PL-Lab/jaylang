@@ -1,0 +1,33 @@
+x = input;
+
+zero = 0;
+
+g = fun y -> (
+  g_ret = y
+);
+
+f = fun g_arg -> (
+    f0 = fun int_arg -> (
+      g_res = g_arg int_arg;
+      
+      r_cond = g_res == zero;
+
+      r = r_cond ? (
+        abort_on_r_true = abort
+      ) : (
+        no_abort_on_r_false = 10
+      );
+
+      not_r_cond = not r_cond;
+
+      not_r = not_r_cond ? (
+        res = r
+      ) : (
+        unreachable_bc_abort = abort # This will not get hit ever 
+      )
+    )
+);
+
+fg = f g;
+
+result = fg x
