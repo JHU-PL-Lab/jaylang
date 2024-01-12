@@ -118,13 +118,13 @@ module Int_payload = struct
   type payload = int [@@deriving equal]
 end
 
-module type U_bg_ints = Unroll.S_bg with type key = int and type payload = int
+module type U_bg_ints = Unroll.U_bg with type key = int and type payload = int
 
 module type U_bg_ints_pipe =
-  Unroll.S_bg with type key = int and type payload = int and type pipe = int
+  Unroll.U_bg with type key = int and type payload = int and type pipe = int
 
 module type U_fg_ints_pipe =
-  Unroll.S with type key = int and type payload = int and type 'a act = 'a Lwt.t
+  Unroll.U with type key = int and type payload = int and type 'a act = 'a Lwt.t
 
 module U_to_test_bg_ints (U : U_bg_ints) = struct
   let get_msgs u k = U.get_payload_stream u k |> Lwt_stream.to_list
@@ -168,6 +168,8 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
 
   let get_available_msgs u k =
     U.get_payload_stream u k |> Lwt_stream.get_available
+
+  let get_msgs u k = U.get_payload_stream u k |> Lwt_stream.to_list
 
   (* let get_msgs u k = U.get_payload_stream u k |> Lwt_stream.to_list *)
 
@@ -239,12 +241,30 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
     let ans = get_available_msgs u 5 |> ascending in
     Alcotest.(check @@ list int) "equal" expected ans
 
-  let test_map2_product_random () =
+  let test_map2_product_interleaved () =
     let msgs = List.init 3 ~f:Fn.id in
     let expected =
       List.cartesian_product msgs msgs |> pairwire_add |> ascending
     in
-    let u = U.create () in
+    let u = U.create ~is_dedup:false () in
+    List.iter msgs ~f:(fun n1 ->
+        U.push u 1 (Some n1) ;
+        U.push u 2 (Some n1)) ;
+
+    (* U.push u 1 None ;
+       U.push u 2 None ; *)
+    U.map2 u 1 2 5 pair_add ;
+    Alcotest.(check @@ list int)
+      "s12" expected
+      (get_available_msgs u 5 |> ascending) ;
+    ()
+
+  let test_map2_product_interleaved_open () =
+    let msgs = List.init 3 ~f:Fn.id in
+    let expected =
+      List.cartesian_product msgs msgs |> pairwire_add |> ascending
+    in
+    let u = U.create ~is_dedup:false () in
     List.iter msgs ~f:(fun n1 ->
         U.push u 1 (Some n1) ;
         U.push u 2 (Some n1)) ;
@@ -252,11 +272,10 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
     U.push u 2 None ;
 
     U.map2 u 1 2 5 pair_add ;
-    Alcotest.(check @@ list int) "s1" msgs (get_available_msgs u 1) ;
-    Alcotest.(check @@ list int) "s2" msgs (get_available_msgs u 2) ;
-    Alcotest.(check @@ list int) "s12" expected (get_available_msgs u 5) ;
-    (* let ans = Lwt_main.run @@ get_msgs u 5 in
-       Alcotest.(check @@ list int) "equal" expected ans *)
+    Alcotest.(check @@ list int)
+      "s12" expected
+      (Lwt_main.run @@ get_msgs u 5 |> ascending) ;
+
     ()
 
   let all_tests =
@@ -267,7 +286,10 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
       Alcotest.test_case "combine" `Quick test_combine;
       Alcotest.test_case "map2_naive" `Quick test_map2_naive;
       Alcotest.test_case "map2_product_seq" `Quick test_map2_product_seq;
-      Alcotest.test_case "map2_product_random" `Quick test_map2_product_random;
+      Alcotest.test_case "map2_product_interleaved" `Quick
+        test_map2_product_interleaved;
+      Alcotest.test_case "map2_product_interleaved_open" `Quick
+        test_map2_product_interleaved_open;
     ]
 end
 
@@ -307,18 +329,19 @@ let make_test_fg (module U : U_fg_ints_pipe) =
   let module UA = U_to_test_fg_key_int (U) in
   UA.all_tests
 
-module U1 = Unroll.Make_payload_bg (Int) (Int_payload)
-module U2 = Unroll.Make_pipe_bg (Int) (Int_payload)
-module U3 = Unroll.Make_pipe (Int) (Int_payload)
+(* module U1 = Unroll.Make_payload (Int) (Int_payload)
+   module U1_bg = U1.Bg *)
+module U1 = Unroll.Make_use_key (Int) (Int_payload)
+module U2 = Unroll.Make_dummy_control (Int) (Int_payload)
 
 let () =
   Alcotest.run "Interpreter"
     [
       ("lwt_stream", Test_stream.all_tests);
       ("basic_bg", make_test_common (module U1));
-      ("basic_pipe_bg", make_test_common (module U2));
-      ("join_fg", make_test_bg (module U1));
-      ("join_pipe_fg", make_test_fg (module U3));
+      ("basic_pipe_bg", make_test_common (module U2.Bg));
+      ("join_bg_alt", make_test_bg (module U1));
+      ("join_pipe_fg", make_test_fg (module U2));
     ]
 
 (* let test_bg_ints =

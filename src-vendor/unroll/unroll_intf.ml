@@ -37,10 +37,30 @@ open Core
 *)
 
 (* Ingredient *)
+
+(*
+    The design rationale is the stream is to provide two-folded APIs on messages and payloads.
+
+    The streams are based on messages. If Via_message module is used, all the API for users
+    are based on messages, you are free to be custumized at each API calls.
+
+    If Via_payload is used, all the API are based are based on payload, so at the module creation
+    size, you are responsible to handle non-payload (a.k.a control) messages uniformaly, and
+    you can only work on payload at each API calls.
+
+    It's less intersting to make a dummy payload that is only a message. In this case, you can
+    just use Via_message.
+*)
+
 module type M_sig = sig
   type message
+  type payload
 
   val equal_message : message -> message -> bool
+
+  (* val equal_payload : payload -> payload -> bool *)
+  val inj : payload -> message
+  val prj_opt : message -> payload option
 end
 
 module type P_sig = sig
@@ -49,66 +69,40 @@ module type P_sig = sig
   val equal_payload : payload -> payload -> bool
 end
 
-module type Lifter = sig
-  type 'b t_in
-  type 'c t_out
-
-  val lift1 : ('a1 -> 'b t_in) -> 'a1 -> 'c t_out
-  val lift2 : ('a1 -> 'a2 -> 'b t_in) -> 'a1 -> 'a2 -> 'c t_out
-  val lift3 : ('a1 -> 'a2 -> 'a3 -> 'b t_in) -> 'a1 -> 'a2 -> 'a3 -> 'c t_out
-
-  val lift4 :
-    ('a1 -> 'a2 -> 'a3 -> 'a4 -> 'b t_in) ->
-    'a1 ->
-    'a2 ->
-    'a3 ->
-    'a4 ->
-    'c t_out
-
-  val lift5 :
-    ('a1 -> 'a2 -> 'a3 -> 'a4 -> 'a5 -> 'b t_in) ->
-    'a1 ->
-    'a2 ->
-    'a3 ->
-    'a4 ->
-    'a5 ->
-    'c t_out
-end
-
-(* Public *)
-module type Common = sig
+module type Low_level = sig
   type t
   type message
   type key
   type detail
 
-  val create : unit -> t
+  val create : ?is_dedup:bool -> unit -> t
   val reset : t -> unit
   val create_key : t -> ?task:(unit -> unit) -> key -> unit
   val get_stream : t -> key -> message Lwt_stream.t
   val set_pre_push : t -> key -> (message -> message option) -> unit
-  val push_msg : t -> key -> message -> unit
+  val push_msg_by_key : t -> key -> message -> unit
+  val push_msg : t -> detail -> message -> unit
   val close : t -> key -> unit
   val messages_sent : t -> key -> message list
   val msg_queue : unit Lwt.t list ref
   val add_detail : t -> key -> detail
+  val find_detail : t -> key -> detail
+  val stream_of_detail : detail -> message Lwt_stream.t
 end
 
-module type Use = sig
+module type User_level = sig
   (* shared, to substitute *)
   type t
+
+  (* target *)
   type key
 
-  (* whether
-     1. use a `message` that shares the same name with common, to substitute
-     2. use a unique name *)
+  (* abstract source *)
+  type pipe
   type payload
 
   (* custom, as output *)
   type 'a act
-
-  (* internal *)
-  type pipe
 
   val get_payload_stream : t -> key -> payload Lwt_stream.t
   val push : t -> key -> payload option -> unit
@@ -134,15 +128,41 @@ module type Use = sig
   val join : t -> pipe list -> key -> pipe act
   (* iter doesn't create a new strean *)
 
-  val iter : t -> pipe -> (payload -> unit act) -> unit act
+  val iter : t -> pipe -> (payload -> unit) -> unit act
   (* val bind : u -> t -> (payload -> t) -> t act
      val bind0 : u -> t -> (payload -> key) -> t Lwt_stream.t *)
 end
 
-(* S is a derived interface, rather than a general interface *)
-module type S = sig
-  include Common
-  include Use with type t := t and type key := key
+module type U = sig
+  include Low_level
+  include User_level with type t := t and type key := key
 end
 
-module type S_bg = S with type 'a act = unit
+module type U_bg = U with type 'a act = unit
+
+module type U_payload = sig
+  include U
+  module Bg : U_bg with type key = key and type payload = payload
+end
+
+module type Top_sigs = sig
+  module Make_payload (Key : Base.Hashtbl.Key.S) (P : P_sig) :
+    U_payload
+      with type key = Key.t
+       and type payload = P.payload
+       and type message = P.payload
+       and type 'a act = 'a Lwt.t
+
+  module Make_use_key (Key : Base.Hashtbl.Key.S) (P : P_sig) :
+    U_bg
+      with type key = Key.t
+       and type message = P.payload
+       and type payload = P.payload
+       and type pipe = Key.t
+
+  module Make_dummy_control (Key : Base.Hashtbl.Key.S) (P : P_sig) :
+    U_payload
+      with type key = Key.t
+       and type payload = P.payload
+       and type 'a act = 'a Lwt.t
+end
