@@ -3,6 +3,8 @@
 # desired sum is possible but too large, it thinks it is unsatisfiable (though that also
 # might be because I am stopping the evaluation early due to bad max step handling).
 
+# How come we keep successfully solving for some input that gets progressively larger?
+
 x = input;
 
 zero = 0;

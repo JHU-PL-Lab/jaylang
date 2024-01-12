@@ -1,0 +1,37 @@
+
+x = input;
+
+zero = 0;
+one = 1;
+
+f = fun self -> (
+    f0 = fun counter -> (
+        is_done = counter == zero;
+        r = is_done ? (
+          abort_when_done = abort
+        ) : (
+          do_nothing = 0
+        );
+
+        not_is_done = not is_done;
+
+        w = not_is_done ? (
+          ss = self self;
+          new_counter = counter - one;
+          res = ss new_counter
+        ) : (
+          # unreachable because of abort in is_done
+          unreachable_bc_abort = 100
+        )
+    );
+);
+
+ff = f f;
+
+x_gt_one = one < x;
+
+x_gt_one_branch = x_gt_one ? (
+  void = ff x
+) : (
+  ret = 42
+)

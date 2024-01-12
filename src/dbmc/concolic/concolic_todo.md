@@ -2,6 +2,8 @@
 
 ### Urgent
 
+* Don't resolve for a branch if branch info hasn't changed.
+  * This is tough because we might have gained new formulas by hitting deeper branches, but not new info.
 * Benchmark how the implies work to see what is most difficult to solve for.
 * Disallow inputs that have already been used
   * I think we can just add global formulas because even if this makes some branch appear unsatisfiable, that branch has already been hit

@@ -4,10 +4,12 @@ exception NoParentException
 
 [@@@warning "-32"] (* for unused versions *)
 
-(* THIS TRACKER IS MORE CONCISE, BUT IT APPEARS TO TIMEOUT ON IMPOSSIBLE SUM TEST *)
+(* THIS TRACKER IS MORE CONCISE, BUT IT APPEARS TO CONTINUE INFINITELY ON IMPOSSIBLE SUM TEST *)
 (* It apparently is just wrong, and I'm not sure why. E.g. it thinks condition_timeout has unsatisfiable *)
 (* Picking the target seems to work, but whenever abort or max step is actually found, it just seems to come out as unsatisfiable *)
 (* So I think it has to do with how I pick those formulas because session logic didn't change *)
+(* It also could be due to exiting the branch and how the formulas are collected up. One might seem
+  unsatisfiable because stuff didn't exit properly. However, it seems to exit non-recursive functions just fine. *)
 
 module Formula_set :
   sig
@@ -670,21 +672,6 @@ module V2 =
       if is_global x
       then x
       else exit_until_global (exit_branch x)
-
-    (* let union (a : t) (b : t) : t option =
-      if is_global a && is_global b
-      then
-        let hd = 
-          let a, b = hd_env_exn a, hd_env_exn b in
-          Env.(
-          { parent = Global
-          ; formulas = Formula_set.union a.formulas b.formulas
-          ; pick_formulas = Pick_formulas.union a.pick_formulas b.pick_formulas }
-          )
-        in
-        Some { stack = [ hd ] }
-      else
-        None *)
 
     let all_formulas
       ({ stack } : t)

@@ -225,7 +225,7 @@ and check_solver
     | _ -> begin
       match Z3.Solver.check new_solver abort_formulas with
       | Z3.Solver.UNSATISFIABLE -> `Quit Branch_tracker.Status.Unreachable_because_abort
-      | Z3.Solver.UNKNOWN -> `Quit Branch_tracker.Status.Unknown
+      | Z3.Solver.UNKNOWN -> `Quit (Branch_tracker.Status.Unknown 1)
       | Z3.Solver.SATISFIABLE -> `Continue abort_formulas
     end
   in
@@ -239,15 +239,15 @@ and check_solver
     | _ -> begin
       match Z3.Solver.check new_solver (max_step_formulas @ abort_formulas) with
       | Z3.Solver.UNSATISFIABLE -> `Quit Branch_tracker.Status.Unreachable_because_max_step
-      | Z3.Solver.UNKNOWN -> `Quit Branch_tracker.Status.Unknown
+      | Z3.Solver.UNKNOWN -> `Quit (Branch_tracker.Status.Unknown 1)
       | Z3.Solver.SATISFIABLE -> `Continue
     end
   in
   (* First solve for target without abort or max step formulas *)
-  print_endline (Z3.Solver.to_string new_solver);
+  Format.printf "%s\n" (Z3.Solver.to_string new_solver);
   match Z3.Solver.check new_solver [] with
   | Z3.Solver.UNSATISFIABLE -> Format.printf "FOUND UNSATISFIABLE\n"; `Unsolvable Branch_tracker.Status.Unsatisfiable
-  | Z3.Solver.UNKNOWN -> `Unsolvable Branch_tracker.Status.Unknown
+  | Z3.Solver.UNKNOWN -> `Unsolvable (Branch_tracker.Status.Unknown 1)
   | Z3.Solver.SATISFIABLE -> begin
     match solve_abort () with
     | `Quit status -> `Unsolvable status
