@@ -300,7 +300,6 @@ let set_unsatisfiable (x : t) (branch : Branch.t) : t =
       branch
       ~new_status:Status.Unsatisfiable }
 
-(* TODO: use update? That would be better if a Hit happens to be given *)
 let set_status (x : t) (branch : Branch.t) (status : Status.t) : t =
   { x with status_store =
     Status_store.set_branch_status

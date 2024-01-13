@@ -4,12 +4,14 @@ exception NoParentException
 
 [@@@warning "-32"] (* for unused versions *)
 
-(* THIS TRACKER IS MORE CONCISE, BUT IT APPEARS TO CONTINUE INFINITELY ON IMPOSSIBLE SUM TEST *)
-(* It apparently is just wrong, and I'm not sure why. E.g. it thinks condition_timeout has unsatisfiable *)
-(* Picking the target seems to work, but whenever abort or max step is actually found, it just seems to come out as unsatisfiable *)
-(* So I think it has to do with how I pick those formulas because session logic didn't change *)
-(* It also could be due to exiting the branch and how the formulas are collected up. One might seem
-  unsatisfiable because stuff didn't exit properly. However, it seems to exit non-recursive functions just fine. *)
+(*
+  I keep V1 and V2 both in here. V2 appears to not work as well even though I
+  feel sure it is operationally equivalent. I think this is because it actually
+  works a little faster and doesn't time out as often, so it continues to think
+  it can solve for a branch when it just keeps missing. And then it adds that branch
+  to the target list again and finds a failing solution
+*)
+
 
 module Formula_set :
   sig
@@ -86,7 +88,6 @@ module Pick_formulas :
   sig
     module type S =
       sig
-        (* TODO: have a "finished" variant where some formulas are now expr, so no recomputation needed *)
         type t
 
         val empty : t
@@ -99,7 +100,10 @@ module Pick_formulas :
         (** [union a b] contains all info from [a] and [b] *)
 
         val pick_target : t -> Branch.t -> Z3.Expr.expr
+        (** [pick_target t branch] is an expression that can be added to a solver from a formula tracker that owns this
+            [t] in order to pick the [branch] as a target. *)
         val found_abort : t -> Branch.t -> Z3.Expr.expr
+        (** similar to [pick_targer] but to set a branch as off limits due to abort. *)
         val reach_max_step : t -> Branch.t -> Z3.Expr.expr
       end
     
@@ -326,6 +330,7 @@ module Pick_formulas :
 
     module V2 : S =
       struct
+        (* V2 only allows picks for targets *)
         (* we can pick an AST branch to get a formula *)
         module M = Map.Make (Branch)
 
@@ -354,8 +359,8 @@ module Pick_formulas :
           in
           map
           |> Map.map ~f:(fun data -> Solver.SuduZ3.and_ [parent_expr ; data]) (* AND with the parent so that lower conditions must satisfy that parent *)
-          (* |> update_this_side parent (* OR with condition we just found *) *) (* Since we've already hit this side, there's no need to track the formula b/c we'll never solve for it *)
           |> update_this_side (Branch.Runtime.other_direction parent) (* OR with the condition on the other side to allow as a solvable target *)
+          (* ^ note there is no need to add this side as a target because we clearly just hit this side, so it will never be solved for *)
 
         let pick_target (map : t) (branch : Branch.t) : Z3.Expr.expr =
           match Map.find map branch with
@@ -663,10 +668,10 @@ module V2 =
       | { parent = Global ; _ } :: [] -> true
       | _ -> false
 
-    let hd_env_exn ({ stack } : t) : Env.V2.t =
+    (* let hd_env_exn ({ stack } : t) : Env.V2.t =
       match stack with
       | hd :: _ -> hd
-      | _ -> failwith "no hd in `hd_env_exn`"
+      | _ -> failwith "no hd in `hd_env_exn`" *)
 
     let rec exit_until_global (x : t) : t =
       if is_global x
