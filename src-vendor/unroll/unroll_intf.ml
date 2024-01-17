@@ -1,4 +1,5 @@
 open Core
+open Messages
 
 (* The library has an invariant that the stream with a key can only be create once
     What if a duplicate key is created? As a general case, it may be configurable, but in this library,
@@ -38,37 +39,6 @@ open Core
 
 (* Ingredient *)
 
-(*
-    The design rationale is the stream is to provide two-folded APIs on messages and payloads.
-
-    The streams are based on messages. If Via_message module is used, all the API for users
-    are based on messages, you are free to be custumized at each API calls.
-
-    If Via_payload is used, all the API are based are based on payload, so at the module creation
-    size, you are responsible to handle non-payload (a.k.a control) messages uniformaly, and
-    you can only work on payload at each API calls.
-
-    It's less intersting to make a dummy payload that is only a message. In this case, you can
-    just use Via_message.
-*)
-
-module type M_sig = sig
-  type message
-  type payload
-
-  val equal_message : message -> message -> bool
-
-  (* val equal_payload : payload -> payload -> bool *)
-  val inj : payload -> message
-  val prj_opt : message -> payload option
-end
-
-module type P_sig = sig
-  type payload
-
-  val equal_payload : payload -> payload -> bool
-end
-
 module type Low_level = sig
   type t
   type message
@@ -82,6 +52,7 @@ module type Low_level = sig
   val set_pre_push : t -> key -> (message -> message option) -> unit
   val push_msg_by_key : t -> key -> message -> unit
   val push_msg : t -> detail -> message -> unit
+  val get_push : detail -> message -> unit
   val close : t -> key -> unit
   val messages_sent : t -> key -> message list
   val msg_queue : unit Lwt.t list ref
@@ -104,7 +75,11 @@ module type User_level = sig
   (* custom, as output *)
   type 'a act
 
+  val push_state : t -> key -> N.t -> unit
   val get_payload_stream : t -> key -> payload Lwt_stream.t
+  val get_payloads : t -> key -> payload list Lwt.t
+  val get_available_payloads : t -> key -> payload list
+  val set_pre_push_payload : t -> key -> (payload -> payload option) -> unit
   val push : t -> key -> payload option -> unit
 
   (* create; only immediate pipe can be created *)
@@ -126,16 +101,46 @@ module type User_level = sig
     pipe act
 
   val join : t -> pipe list -> key -> pipe act
+
+  (* val bind : t -> pipe -> key -> (payload -> pipe) -> pipe act *)
+  val bind_like : t -> pipe -> (payload -> key) -> key -> pipe act
+
   (* iter doesn't create a new strean *)
 
   val iter : t -> pipe -> (payload -> unit) -> unit act
   (* val bind : u -> t -> (payload -> t) -> t act
      val bind0 : u -> t -> (payload -> key) -> t Lwt_stream.t *)
+
+  (* Any of these User_level functions has a motivation, to create a stream with a key
+     e.g. unlike the normal
+     fmap : 'a t -> ('a -> 'b) -> 'b t
+       instead we have
+     map : pipe -> key -> ('a -> 'b) -> pipe
+       where `pipe` can be a fixed `_ t` but the key will points to the returning `pipe`
+     since key can point to that, it's also ok to return `unit` therefore it can look like
+     map : pipe -> key -> ('a -> 'b) -> ()
+
+     Applying the same idea on `bind` where the normal bind is
+     bind : 'a t -> ('a -> 'b t) -> 'b t
+     we should have
+     bind : pipe -> ('a -> pipe) -> pipe
+
+     the key binding is the second step to deal with the pipe, the essential idea here is to
+     lisiten to the first pipe, deriving other new pipes and other join the results of the other
+     pipes
+  *)
 end
 
 module type U = sig
   include Low_level
   include User_level with type t := t and type key := key
+end
+
+module type U2 = sig
+  include Low_level
+
+  include
+    User_level with type t := t and type key := key and type pipe := detail
 end
 
 module type U_bg = U with type 'a act = unit
@@ -165,4 +170,17 @@ module type Top_sigs = sig
       with type key = Key.t
        and type payload = P.payload
        and type 'a act = 'a Lwt.t
+
+  module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) :
+    U2
+      with type key = Key.t
+       and type payload = P.payload
+       and type 'a act = 'a Lwt.t
+
+  module Make_control_bg (Key : Base.Hashtbl.Key.S) (P : P_sig) :
+    U
+      with type key = Key.t
+       and type payload = P.payload
+       and type pipe = Key.t
+       and type 'a act = unit
 end

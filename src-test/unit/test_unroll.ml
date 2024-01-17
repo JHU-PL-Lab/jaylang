@@ -123,34 +123,35 @@ module type U_bg_ints = Unroll.U_bg with type key = int and type payload = int
 module type U_bg_ints_pipe =
   Unroll.U_bg with type key = int and type payload = int and type pipe = int
 
-module type U_fg_ints_pipe =
+module type U_fg_ints =
   Unroll.U with type key = int and type payload = int and type 'a act = 'a Lwt.t
 
+module type U2_fg_ints =
+  Unroll.U2
+    with type key = int
+     and type payload = int
+     and type 'a act = 'a Lwt.t
+
 module U_to_test_bg_ints (U : U_bg_ints) = struct
-  let get_msgs u k = U.get_payload_stream u k |> Lwt_stream.to_list
-
-  let get_available_msgs u k =
-    U.get_payload_stream u k |> Lwt_stream.get_available
-
   let one_msg () =
     let msg = 42 in
     let u = U.create () in
     U.one_shot u 1 [ msg ] ;
-    let ans = Lwt_main.run @@ get_msgs u 1 in
+    let ans = Lwt_main.run @@ U.get_payloads u 1 in
     Alcotest.(check @@ list int) "equal" [ msg ] ans
 
   let one_shot () =
     let nums = List.init 10 ~f:Fn.id in
     let u = U.create () in
     U.one_shot u 2 nums ;
-    let ans = Lwt_main.run @@ get_msgs u 2 in
+    let ans = Lwt_main.run @@ U.get_payloads u 2 in
     Alcotest.(check @@ list int) "equal" nums ans
 
   let available_ongoing () =
     let nums = List.init 10 ~f:Fn.id in
     let u = U.create () in
     List.iter nums ~f:(fun msg -> U.push u 2 (Some msg)) ;
-    let ans = get_available_msgs u 2 in
+    let ans = U.get_available_payloads u 2 in
     Alcotest.(check @@ list int) "equal" nums ans
 
   let all_tests =
@@ -158,21 +159,10 @@ module U_to_test_bg_ints (U : U_bg_ints) = struct
       Alcotest.test_case "one_msg" `Quick one_msg;
       Alcotest.test_case "one_shot" `Quick one_shot;
       Alcotest.test_case "available_ongoing" `Quick available_ongoing;
-      (* Alcotest.test_case "get_all_on_blocked" `Quick get_all_on_blocked; *)
-      (* Alcotest.test_case "join_two" `Quick join_two; *)
     ]
 end
 
 module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
-  (* let get_msgs u k = U.get_payload_stream u k |> Lwt_stream.to_list *)
-
-  let get_available_msgs u k =
-    U.get_payload_stream u k |> Lwt_stream.get_available
-
-  let get_msgs u k = U.get_payload_stream u k |> Lwt_stream.to_list
-
-  (* let get_msgs u k = U.get_payload_stream u k |> Lwt_stream.to_list *)
-
   let test_join () =
     let k = 5 in
     let nums1 = List.init k ~f:Fn.id in
@@ -181,7 +171,7 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
     U.one_shot u 3 nums1 ;
     U.one_shot u 4 nums2 ;
     U.join u [ 3; 4 ] 5 ;
-    let ans = get_available_msgs u 5 in
+    let ans = U.get_available_payloads u 5 in
     Alcotest.(check @@ list int) "equal" (nums1 @ nums2) ans
 
   let test_map () =
@@ -191,7 +181,7 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
     let u = U.create () in
     U.one_shot u 1 msgs_in ;
     U.map u 1 42 plus_10 ;
-    let ans = get_available_msgs u 42 in
+    let ans = U.get_available_payloads u 42 in
     Alcotest.(check @@ list int) "equal" msgs_out ans
 
   let test_filter_map () =
@@ -204,7 +194,7 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
     let u = U.create () in
     U.one_shot u 1 msgs_in ;
     U.filter_map u 1 42 plus_10_even ;
-    let ans = get_available_msgs u 42 in
+    let ans = U.get_available_payloads u 42 in
     Alcotest.(check @@ list int) "equal" msgs_out ans
 
   let test_combine () =
@@ -225,7 +215,7 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
     U.one_shot u 1 msgs1 ;
     U.one_shot u 2 msgs2 ;
     U.map2 u 1 2 5 (fun (x, y) -> x + y) ;
-    let ans = get_available_msgs u 5 in
+    let ans = U.get_available_payloads u 5 in
     Alcotest.(check @@ list int) "equal" msgs_out ans
 
   let test_map2_product_seq () =
@@ -238,7 +228,7 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
     U.one_shot u 1 msgs1 ;
     U.one_shot u 2 msgs2 ;
     U.map2 u 1 2 5 pair_add ;
-    let ans = get_available_msgs u 5 |> ascending in
+    let ans = U.get_available_payloads u 5 |> ascending in
     Alcotest.(check @@ list int) "equal" expected ans
 
   let test_map2_product_interleaved () =
@@ -256,7 +246,7 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
     U.map2 u 1 2 5 pair_add ;
     Alcotest.(check @@ list int)
       "s12" expected
-      (get_available_msgs u 5 |> ascending) ;
+      (U.get_available_payloads u 5 |> ascending) ;
     ()
 
   let test_map2_product_interleaved_open () =
@@ -274,7 +264,7 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
     U.map2 u 1 2 5 pair_add ;
     Alcotest.(check @@ list int)
       "s12" expected
-      (Lwt_main.run @@ get_msgs u 5 |> ascending) ;
+      (Lwt_main.run @@ U.get_payloads u 5 |> ascending) ;
 
     ()
 
@@ -293,12 +283,7 @@ module U_to_test_bg_key_int (U : U_bg_ints_pipe) = struct
     ]
 end
 
-module U_to_test_fg_key_int (U : U_fg_ints_pipe) = struct
-  (* let get_msgs u k = U.get_payload_stream u k |> Lwt_stream.to_list *)
-
-  let get_available_msgs u k =
-    U.get_payload_stream u k |> Lwt_stream.get_available
-
+module U_to_test_fg_key_int (U : U_fg_ints) = struct
   let test_join () =
     let k = 5 in
     let nums1 = List.init k ~f:Fn.id in
@@ -309,12 +294,124 @@ module U_to_test_fg_key_int (U : U_fg_ints_pipe) = struct
       let%lwt p4 = U.one_shot u 4 nums2 in
       let%lwt _p5 = U.join u [ p3; p4 ] 5 in
       (* U.get_payload_stream u 5 |> Lwt_stream.to_list *)
-      Lwt.return @@ get_available_msgs u 5
+      Lwt.return @@ U.get_available_payloads u 5
     in
     let ans = Lwt_main.run all_work in
     Alcotest.(check @@ list int) "equal" (nums1 @ nums2) ans
 
   let all_tests = [ Alcotest.test_case "join_two" `Quick test_join ]
+end
+
+module N = Unroll.Naive_state_machine
+
+module U_to_test_state (U : U2_fg_ints) = struct
+  let id_fail () =
+    let u = U.create () in
+    U.push u 1 (Some 1) ;
+    U.push u 1 (Some 2) ;
+    ignore @@ U.id u (U.find_detail u 1) 2 ;
+    U.push_state u 1 N.Fail ;
+    U.push u 1 (Some 3) ;
+    (* let all_work = *)
+    Alcotest.(check @@ list int) "s1" [ 1; 2 ] (U.get_available_payloads u 1) ;
+    Alcotest.(check @@ list int) "s2" [ 1; 2 ] (U.get_available_payloads u 2)
+
+  let map_fail () =
+    let u = U.create () in
+    U.push u 1 (Some 1) ;
+    U.push u 1 (Some 2) ;
+    ignore @@ U.map u (U.find_detail u 1) 2 (fun x -> 10 * x) ;
+    U.push_state u 1 N.Fail ;
+    U.push u 1 (Some 3) ;
+    Alcotest.(check @@ list int) "s1" [ 1; 2 ] (U.get_available_payloads u 1) ;
+    Alcotest.(check @@ list int) "s2" [ 10; 20 ] (U.get_available_payloads u 2)
+
+  let map2_fail () =
+    let u = U.create () in
+    U.push u 1 (Some 1) ;
+    U.push u 1 (Some 2) ;
+    U.push_state u 1 N.Fail ;
+    U.push u 1 (Some 3) ;
+    U.push u 2 (Some 10) ;
+    U.push u 2 (Some 20) ;
+    U.push_state u 2 N.Fail ;
+    U.push u 2 (Some 30) ;
+    ignore
+    @@ U.map2 u (U.find_detail u 1) (U.find_detail u 2) 5 (fun (x, y) -> x + y) ;
+    Alcotest.(check @@ list int) "s1" [ 1; 2 ] (U.get_available_payloads u 1) ;
+    Alcotest.(check @@ list int) "s2" [ 10; 20 ] (U.get_available_payloads u 2) ;
+    Alcotest.(check @@ list int)
+      "s12" [ 11; 12; 21; 22 ]
+      (U.get_available_payloads u 5)
+
+  let map2_fail_extra () =
+    let u = U.create () in
+    U.push u 1 (Some 1) ;
+    U.push u 1 (Some 2) ;
+    U.push_state u 1 N.Fail ;
+    U.push u 1 (Some 3) ;
+    U.push u 2 (Some 10) ;
+    U.push u 2 (Some 20) ;
+    (* U.push_state u 2 N.Fail ;
+       U.push u 2 (Some 30) ; *)
+    ignore
+    @@ U.map2 u (U.find_detail u 1) (U.find_detail u 2) 5 (fun (x, y) -> x + y) ;
+    (* U.push u 5 (Some 42) ; *)
+    (* we cannot push to 5 anymore because the only task is done then stream 5 is closed automatically *)
+    Alcotest.(check @@ list int)
+      "s12" [ 11; 12; 21; 22 ]
+      (U.get_available_payloads u 5)
+
+  let join () =
+    let u = U.create () in
+    U.push u 1 (Some 1) ;
+    U.push u 1 (Some 2) ;
+    U.push_state u 1 N.Fail ;
+    U.push u 1 (Some 3) ;
+    U.push u 2 (Some 10) ;
+    U.push u 2 (Some 20) ;
+    U.push_state u 2 N.Fail ;
+    U.push u 2 (Some 30) ;
+    U.push u 3 (Some 100) ;
+    U.push u 3 (Some 200) ;
+    U.push_state u 3 N.Fail ;
+    U.push u 3 (Some 300) ;
+    ignore
+    @@ U.join u [ U.find_detail u 1; U.find_detail u 2; U.find_detail u 3 ] 5 ;
+    (* U.push u 5 (Some 42) ; *)
+    (* we cannot push to 5 anymore because the only task is done then stream 5 is closed automatically *)
+    Alcotest.(check @@ list int)
+      "s5" [ 1; 2; 10; 20; 100; 200 ]
+      (U.get_available_payloads u 5)
+
+  let bind_like () =
+    let u = U.create () in
+    U.push u 1 (Some 1) ;
+    U.push u 1 (Some 2) ;
+    U.push_state u 1 N.Fail ;
+    U.push u 1 (Some 3) ;
+    U.push u 10 (Some 10) ;
+    U.push u 10 (Some 20) ;
+    U.push_state u 10 N.Fail ;
+    U.push u 10 (Some 30) ;
+    U.push u 20 (Some 100) ;
+    U.push u 20 (Some 200) ;
+    U.push_state u 20 N.Fail ;
+    U.push u 20 (Some 300) ;
+    ignore @@ U.bind_like u (U.find_detail u 1) (fun x -> 10 * x) 5 ;
+    Alcotest.(check @@ list int)
+      "s5" [ 10; 20; 100; 200 ]
+      (U.get_available_payloads u 5)
+
+  let all_tests =
+    [
+      Alcotest.test_case "id_fail" `Quick id_fail;
+      Alcotest.test_case "map_fail" `Quick map_fail;
+      Alcotest.test_case "map2_fail" `Quick map2_fail;
+      Alcotest.test_case "map2_fail_extra" `Quick map2_fail_extra;
+      Alcotest.test_case "join" `Quick join;
+      Alcotest.test_case "bind_like" `Quick bind_like;
+    ]
 end
 
 let make_test_common (module U : U_bg_ints) =
@@ -325,23 +422,30 @@ let make_test_bg (module U : U_bg_ints_pipe) =
   let module UA = U_to_test_bg_key_int (U) in
   UA.all_tests
 
-let make_test_fg (module U : U_fg_ints_pipe) =
+let make_test_fg (module U : U_fg_ints) =
   let module UA = U_to_test_fg_key_int (U) in
   UA.all_tests
 
-(* module U1 = Unroll.Make_payload (Int) (Int_payload)
-   module U1_bg = U1.Bg *)
+let make_test_state (module U : U2_fg_ints) =
+  let module UA = U_to_test_state (U) in
+  UA.all_tests
+
 module U1 = Unroll.Make_use_key (Int) (Int_payload)
 module U2 = Unroll.Make_dummy_control (Int) (Int_payload)
+module U3 = Unroll.Make_control (Int) (Int_payload)
+module U4 = Unroll.Make_control_bg (Int) (Int_payload)
 
 let () =
   Alcotest.run "Interpreter"
     [
       ("lwt_stream", Test_stream.all_tests);
       ("basic_bg", make_test_common (module U1));
+      ("basic_bg_control", make_test_common (module U4));
       ("basic_pipe_bg", make_test_common (module U2.Bg));
+      ("basic_pipe_bg_control", make_test_common (module U4));
       ("join_bg_alt", make_test_bg (module U1));
       ("join_pipe_fg", make_test_fg (module U2));
+      ("state", make_test_state (module U3));
     ]
 
 (* let test_bg_ints =

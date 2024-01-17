@@ -139,7 +139,7 @@ let run_action dispatch unroll (state : Global_state.t)
 
         let precond = ref false in
         add_sub_preconds precond ;
-        let part1_cb key (r : Lookup_result.t) =
+        let part1_cb _key (r : Lookup_result.t) =
           if Lookup_status.is_complete_or_fail r.status then precond := true ;
           Lookup_status.iter_ok r.status (fun () ->
               let i =
@@ -182,7 +182,8 @@ let run_action dispatch unroll (state : Global_state.t)
         promote_result status' r.from
       else Some r
     in
-    U.set_pre_push unroll target pre_push ;
+    (* U.set_pre_push unroll target pre_push ; *)
+    U.set_pre_push_payload unroll target pre_push ;
     Log.debug (fun m ->
         m "[Reg-%B] %a %d@." need_pre_push Lookup_key.pp target
           (List.length detail.sub_preconds)))
