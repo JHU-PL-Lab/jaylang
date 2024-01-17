@@ -55,7 +55,8 @@ module Status =
       | Unhit -> new_status
       | Found_abort ls -> begin
         match new_status with
-        | Hit _ | Found_abort _ | Reach_max_step _ -> failwith "rehitting abort"
+        (* Allow this because solver might accidentally hit, quite like missing target *)
+        (* | Hit _ | Found_abort _ | Reach_max_step _ -> failwith "rehitting abort" *)
         | _ -> old_status
       end
       | Reach_max_step count -> begin

@@ -2,12 +2,26 @@ i_first = {};
 isPos_j_17 = fun n_j_13 -> (
     int_j_14 = 0;
     var_j_15 = n_j_13;
-    binop_j_16 = int_j_14 < var_j_15);
+    m_bl_i_281 = int_j_14 ~ int;
+    m_br_i_282 = var_j_15 ~ int;
+    m_b_i_283 = m_bl_i_281 and m_br_i_282;
+    binop_j_16 = m_b_i_283 ? (
+            c_binop_i_284 = int_j_14 < var_j_15
+        ) : (
+            ab_i_285 = abort
+        ));
 isPos = isPos_j_17;
 isNeg_j_21 = fun n -> (
     var_j_18 = n;
     int_j_19 = 0;
-    binop_j_20 = var_j_18 < int_j_19);
+    m_bl_i_286 = var_j_18 ~ int;
+    m_br_i_287 = int_j_19 ~ int;
+    m_b_i_288 = m_bl_i_286 and m_br_i_287;
+    binop_j_20 = m_b_i_288 ? (
+            c_binop_i_289 = var_j_18 < int_j_19
+        ) : (
+            ab_i_290 = abort
+        ));
 isNeg = isNeg_j_21;
 twice_j_28 = fun f -> (
     twice_j_27 = fun x_j_12 -> (
@@ -15,7 +29,12 @@ twice_j_28 = fun f -> (
         var_j_23 = f;
         var_j_24 = x_j_12;
         appl_j_25 = var_j_23 var_j_24;
-        appl_j_26 = var_j_22 appl_j_25));
+        m_i_291 = var_j_22 ~ fun;
+        appl_j_26 = m_i_291 ? (
+                c_appl_i_292 = var_j_22 appl_j_25
+            ) : (
+                ab_i_293 = abort
+            )));
 twice = twice_j_28;
 flatten_fun_j_64 = fun expr_b_14 -> (
     bool_j_29 = false;
@@ -333,7 +352,12 @@ if_j_280 = check_res_b_57 ? (
         if_j_274 = var_j_263 ? (
                 var_j_264 = twice;
                 var_j_265 = inc;
-                appl_j_266 = var_j_264 var_j_265;
+                m_i_294 = var_j_264 ~ fun;
+                appl_j_266 = m_i_294 ? (
+                        c_appl_i_295 = var_j_264 var_j_265
+                    ) : (
+                        ab_i_296 = abort
+                    );
                 int_j_267 = 0;
                 appl_j_268 = appl_j_266 int_j_267
             ) : (

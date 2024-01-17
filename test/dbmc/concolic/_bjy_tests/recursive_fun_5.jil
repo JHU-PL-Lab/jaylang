@@ -7,15 +7,32 @@ flatten_fun_j_18 = fun f_j_0 -> (
         f = appl_j_6;
         var_j_7 = x;
         int_j_8 = 0;
-        binop_j_9 = var_j_7 == int_j_8;
-        if_j_16 = binop_j_9 ? (
-                bool_j_10 = false
+        m_bl_i_64 = var_j_7 ~ int;
+        m_br_i_65 = int_j_8 ~ int;
+        m_b_i_66 = m_bl_i_64 and m_br_i_65;
+        binop_j_9 = m_b_i_66 ? (
+                c_binop_i_67 = var_j_7 == int_j_8
             ) : (
-                var_j_11 = f;
-                var_j_12 = x;
-                int_j_13 = 1;
-                binop_j_14 = var_j_12 - int_j_13;
-                appl_j_15 = var_j_11 binop_j_14
+                ab_i_68 = abort
+            );
+        m_i_69 = binop_j_9 ~ bool;
+        if_j_16 = m_i_69 ? (
+                c_cond_i_73 = binop_j_9 ? (
+                        bool_j_10 = false
+                    ) : (
+                        var_j_11 = f;
+                        var_j_12 = x;
+                        int_j_13 = 1;
+                        binop_j_14 = var_j_12 - int_j_13;
+                        m_i_70 = var_j_11 ~ fun;
+                        appl_j_15 = m_i_70 ? (
+                                c_appl_i_71 = var_j_11 binop_j_14
+                            ) : (
+                                ab_i_72 = abort
+                            )
+                    )
+            ) : (
+                ab_i_74 = abort
             )));
 appl_j_21 = flatten_fun_j_18 flatten_fun_j_18;
 bool_j_22 = false;

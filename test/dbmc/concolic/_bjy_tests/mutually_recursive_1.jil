@@ -16,15 +16,39 @@ flatten_fun_j_35 = fun f_j_0 -> (
             g = appl_j_22;
             var_j_23 = x;
             int_j_24 = 0;
-            binop_j_25 = var_j_23 == int_j_24;
-            if_j_32 = binop_j_25 ? (
-                    int_j_26 = 0
+            m_bl_i_154 = var_j_23 ~ int;
+            m_br_i_155 = int_j_24 ~ int;
+            m_b_i_156 = m_bl_i_154 and m_br_i_155;
+            binop_j_25 = m_b_i_156 ? (
+                    c_binop_i_157 = var_j_23 == int_j_24
                 ) : (
-                    var_j_27 = g;
-                    var_j_28 = x;
-                    int_j_29 = 1;
-                    binop_j_30 = var_j_28 - int_j_29;
-                    appl_j_31 = var_j_27 binop_j_30
+                    ab_i_158 = abort
+                );
+            m_i_159 = binop_j_25 ~ bool;
+            if_j_32 = m_i_159 ? (
+                    c_cond_i_168 = binop_j_25 ? (
+                            int_j_26 = 0
+                        ) : (
+                            var_j_27 = g;
+                            var_j_28 = x;
+                            int_j_29 = 1;
+                            m_bl_i_160 = var_j_28 ~ int;
+                            m_br_i_161 = int_j_29 ~ int;
+                            m_b_i_162 = m_bl_i_160 and m_br_i_161;
+                            binop_j_30 = m_b_i_162 ? (
+                                    c_binop_i_163 = var_j_28 - int_j_29
+                                ) : (
+                                    ab_i_164 = abort
+                                );
+                            m_i_165 = var_j_27 ~ fun;
+                            appl_j_31 = m_i_165 ? (
+                                    c_appl_i_166 = var_j_27 binop_j_30
+                                ) : (
+                                    ab_i_167 = abort
+                                )
+                        )
+                ) : (
+                    ab_i_169 = abort
                 ))));
 flatten_fun_j_58 = fun f_j_0_j_5 -> (
     flatten_fun_j_57 = fun g_j_1_j_4 -> (
@@ -43,15 +67,32 @@ flatten_fun_j_58 = fun f_j_0_j_5 -> (
             g_j_2 = appl_j_45;
             var_j_46 = y;
             int_j_47 = 0;
-            binop_j_48 = var_j_46 < int_j_47;
-            if_j_55 = binop_j_48 ? (
-                    bool_j_49 = false
+            m_bl_i_170 = var_j_46 ~ int;
+            m_br_i_171 = int_j_47 ~ int;
+            m_b_i_172 = m_bl_i_170 and m_br_i_171;
+            binop_j_48 = m_b_i_172 ? (
+                    c_binop_i_173 = var_j_46 < int_j_47
                 ) : (
-                    var_j_50 = f_j_3;
-                    var_j_51 = y;
-                    int_j_52 = 1;
-                    binop_j_53 = var_j_51 - int_j_52;
-                    appl_j_54 = var_j_50 binop_j_53
+                    ab_i_174 = abort
+                );
+            m_i_175 = binop_j_48 ~ bool;
+            if_j_55 = m_i_175 ? (
+                    c_cond_i_179 = binop_j_48 ? (
+                            bool_j_49 = false
+                        ) : (
+                            var_j_50 = f_j_3;
+                            var_j_51 = y;
+                            int_j_52 = 1;
+                            binop_j_53 = var_j_51 - int_j_52;
+                            m_i_176 = var_j_50 ~ fun;
+                            appl_j_54 = m_i_176 ? (
+                                    c_appl_i_177 = var_j_50 binop_j_53
+                                ) : (
+                                    ab_i_178 = abort
+                                )
+                        )
+                ) : (
+                    ab_i_180 = abort
                 ))));
 appl_j_61 = flatten_fun_j_35 flatten_fun_j_35;
 appl_j_63 = appl_j_61 flatten_fun_j_58;
@@ -152,7 +193,12 @@ if_j_153 = check_res_b_14 ? (
         if_j_147 = var_j_138 ? (
                 var_j_139 = appl_j_63;
                 int_j_140 = 1;
-                appl_j_141 = var_j_139 int_j_140
+                m_i_181 = var_j_139 ~ fun;
+                appl_j_141 = m_i_181 ? (
+                        c_appl_i_182 = var_j_139 int_j_140
+                    ) : (
+                        ab_i_183 = abort
+                    )
             ) : (
                 error_var_j_142 = check_res_b_12;
                 assert_pred_j_143 = error_var_j_142;

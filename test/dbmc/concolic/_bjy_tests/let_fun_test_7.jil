@@ -2,7 +2,14 @@ i_first = {};
 neg_j_6 = fun x -> (
     int_j_1 = 0;
     int_j_2 = 1;
-    binop_j_3 = int_j_1 - int_j_2;
+    m_bl_i_51 = int_j_1 ~ int;
+    m_br_i_52 = int_j_2 ~ int;
+    m_b_i_53 = m_bl_i_51 and m_br_i_52;
+    binop_j_3 = m_b_i_53 ? (
+            c_binop_i_54 = int_j_1 - int_j_2
+        ) : (
+            ab_i_55 = abort
+        );
     var_j_4 = x;
     binop_j_5 = binop_j_3 * var_j_4);
 neg = neg_j_6;
@@ -46,7 +53,14 @@ flatten_fun_j_32 = fun expr_b_3 -> (
 flatten_fun_j_36 = fun bj_null_j_0 -> (
     int_j_33 = 0;
     input_j_34 = input;
-    binop_j_35 = int_j_33 <= input_j_34);
+    m_bl_i_56 = int_j_33 ~ int;
+    m_br_i_57 = input_j_34 ~ int;
+    m_b_i_58 = m_bl_i_56 and m_br_i_57;
+    binop_j_35 = m_b_i_58 ? (
+            c_binop_i_59 = int_j_33 <= input_j_34
+        ) : (
+            ab_i_60 = abort
+        ));
 record_j_37 = {checker = flatten_fun_j_32, generator = flatten_fun_j_36};
 proj_j_38 = record_j_37.checker;
 appl_j_41 = neg x_b_6;

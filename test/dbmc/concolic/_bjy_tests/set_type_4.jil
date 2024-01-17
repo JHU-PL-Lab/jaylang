@@ -28,13 +28,30 @@ flatten_fun_j_56 = fun testFun_j_4 -> (
                                 tl = var_j_33.j_tail;
                                 int_j_37 = 10;
                                 var_j_38 = hd;
-                                binop_j_39 = int_j_37 < var_j_38;
-                                if_j_44 = binop_j_39 ? (
-                                        var_j_40 = testFun;
-                                        var_j_41 = tl;
-                                        appl_j_42 = var_j_40 var_j_41
+                                m_bl_i_314 = int_j_37 ~ int;
+                                m_br_i_315 = var_j_38 ~ int;
+                                m_b_i_316 = m_bl_i_314 and m_br_i_315;
+                                binop_j_39 = m_b_i_316 ? (
+                                        c_binop_i_317 = int_j_37 < var_j_38
                                     ) : (
-                                        bool_j_43 = false
+                                        ab_i_318 = abort
+                                    );
+                                m_i_319 = binop_j_39 ~ bool;
+                                if_j_44 = m_i_319 ? (
+                                        c_cond_i_323 = binop_j_39 ? (
+                                                var_j_40 = testFun;
+                                                var_j_41 = tl;
+                                                m_i_320 = var_j_40 ~ fun;
+                                                appl_j_42 = m_i_320 ? (
+                                                        c_appl_i_321 = var_j_40 var_j_41
+                                                    ) : (
+                                                        ab_i_322 = abort
+                                                    )
+                                            ) : (
+                                                bool_j_43 = false
+                                            )
+                                    ) : (
+                                        ab_i_324 = abort
                                     )
                             ) : (
                                 ab_j_34 = abort

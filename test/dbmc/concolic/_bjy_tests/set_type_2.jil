@@ -31,9 +31,21 @@ flatten_fun_j_37 = fun expr_b_7 -> (
                 flatten_fun_j_26 = fun b -> (
                     var_j_23 = b;
                     int_j_24 = 0;
-                    binop_j_25 = var_j_23 < int_j_24);
+                    m_bl_i_80 = var_j_23 ~ int;
+                    m_br_i_81 = int_j_24 ~ int;
+                    m_b_i_82 = m_bl_i_80 and m_br_i_81;
+                    binop_j_25 = m_b_i_82 ? (
+                            c_binop_i_83 = var_j_23 < int_j_24
+                        ) : (
+                            ab_i_84 = abort
+                        ));
                 var_j_27 = a;
-                appl_j_28 = flatten_fun_j_26 var_j_27);
+                m_i_85 = flatten_fun_j_26 ~ fun;
+                appl_j_28 = m_i_85 ? (
+                        c_appl_i_86 = flatten_fun_j_26 var_j_27
+                    ) : (
+                        ab_i_87 = abort
+                    ));
             var_j_30 = expr_b_7;
             appl_j_31 = flatten_fun_j_29 var_j_30;
             if_j_34 = appl_j_31 ? (
@@ -71,9 +83,21 @@ flatten_fun_j_67 = fun bj_null_j_3 -> (
         flatten_fun_j_57 = fun b_j_1 -> (
             var_j_54 = b_j_1;
             int_j_55 = 0;
-            binop_j_56 = var_j_54 < int_j_55);
+            m_bl_i_88 = var_j_54 ~ int;
+            m_br_i_89 = int_j_55 ~ int;
+            m_b_i_90 = m_bl_i_88 and m_br_i_89;
+            binop_j_56 = m_b_i_90 ? (
+                    c_binop_i_91 = var_j_54 < int_j_55
+                ) : (
+                    ab_i_92 = abort
+                ));
         var_j_58 = a_j_2;
-        appl_j_59 = flatten_fun_j_57 var_j_58);
+        m_i_93 = flatten_fun_j_57 ~ fun;
+        appl_j_59 = m_i_93 ? (
+                c_appl_i_94 = flatten_fun_j_57 var_j_58
+            ) : (
+                ab_i_95 = abort
+            ));
     var_j_61 = candidate_b_3;
     appl_j_62 = flatten_fun_j_60 var_j_61;
     if_j_66 = appl_j_62 ? (

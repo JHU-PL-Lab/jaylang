@@ -78,7 +78,14 @@ flatten_fun_j_81 = fun expr_b_11 -> (
                                     flatten_fun_j_74 = fun bj_null_j_0 -> (
                                         int_j_71 = 0;
                                         input_j_72 = input;
-                                        binop_j_73 = int_j_71 <= input_j_72);
+                                        m_bl_i_142 = int_j_71 ~ int;
+                                        m_br_i_143 = input_j_72 ~ int;
+                                        m_b_i_144 = m_bl_i_142 and m_br_i_143;
+                                        binop_j_73 = m_b_i_144 ? (
+                                                c_binop_i_145 = int_j_71 <= input_j_72
+                                            ) : (
+                                                ab_i_146 = abort
+                                            ));
                                     record_j_75 = {checker = flatten_fun_j_70, generator = flatten_fun_j_74};
                                     proj_j_76 = record_j_75.checker;
                                     var_j_77 = b;
@@ -126,7 +133,14 @@ flatten_fun_j_123 = fun bj_null_j_5 -> (
     flatten_fun_j_95 = fun bj_null_j_3 -> (
         int_j_92 = 0;
         input_j_93 = input;
-        binop_j_94 = int_j_92 <= input_j_93);
+        m_bl_i_147 = int_j_92 ~ int;
+        m_br_i_148 = input_j_93 ~ int;
+        m_b_i_149 = m_bl_i_147 and m_br_i_148;
+        binop_j_94 = m_b_i_149 ? (
+                c_binop_i_150 = int_j_92 <= input_j_93
+            ) : (
+                ab_i_151 = abort
+            ));
     record_j_96 = {checker = flatten_fun_j_91, generator = flatten_fun_j_95};
     proj_j_97 = record_j_96.generator;
     int_j_98 = 0;

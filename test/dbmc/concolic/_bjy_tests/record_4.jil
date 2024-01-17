@@ -37,8 +37,22 @@ record_constraint_j_83 = fun re -> (
                                     int_j_78 = 0;
                                     var_j_79 = x;
                                     var_j_80 = z;
-                                    binop_j_81 = var_j_79 + var_j_80;
-                                    binop_j_82 = int_j_78 <= binop_j_81
+                                    m_bl_i_637 = var_j_79 ~ int;
+                                    m_br_i_638 = var_j_80 ~ int;
+                                    m_b_i_639 = m_bl_i_637 and m_br_i_638;
+                                    binop_j_81 = m_b_i_639 ? (
+                                            c_binop_i_640 = var_j_79 + var_j_80
+                                        ) : (
+                                            ab_i_641 = abort
+                                        );
+                                    m_bl_i_642 = int_j_78 ~ int;
+                                    m_br_i_643 = binop_j_81 ~ int;
+                                    m_b_i_644 = m_bl_i_642 and m_br_i_643;
+                                    binop_j_82 = m_b_i_644 ? (
+                                            c_binop_i_645 = int_j_78 <= binop_j_81
+                                        ) : (
+                                            ab_i_646 = abort
+                                        )
                                 ) : (
                                     ab_j_73 = abort
                                 )
@@ -119,9 +133,23 @@ test_j_120 = fun test_record -> (
                 )
         );
     proj_j_116 = m_match_cond_j_112.c;
-    binop_j_117 = m_match_cond_j_97 + proj_j_116;
+    m_bl_i_647 = m_match_cond_j_97 ~ int;
+    m_br_i_648 = proj_j_116 ~ int;
+    m_b_i_649 = m_bl_i_647 and m_br_i_648;
+    binop_j_117 = m_b_i_649 ? (
+            c_binop_i_650 = m_match_cond_j_97 + proj_j_116
+        ) : (
+            ab_i_651 = abort
+        );
     int_j_118 = 0;
-    binop_j_119 = binop_j_117 < int_j_118);
+    m_bl_i_652 = binop_j_117 ~ int;
+    m_br_i_653 = int_j_118 ~ int;
+    m_b_i_654 = m_bl_i_652 and m_br_i_653;
+    binop_j_119 = m_b_i_654 ? (
+            c_binop_i_655 = binop_j_117 < int_j_118
+        ) : (
+            ab_i_656 = abort
+        ));
 test = test_j_120;
 flatten_fun_j_343 = fun expr_b_79 -> (
     flatten_fun_j_235 = fun expr_b_61 -> (
@@ -799,7 +827,14 @@ flatten_fun_j_596 = fun expr_b_90 -> (
     flatten_fun_j_581 = fun bj_null_j_31 -> (
         int_j_578 = 0;
         input_j_579 = input;
-        binop_j_580 = int_j_578 <= input_j_579);
+        m_bl_i_657 = int_j_578 ~ int;
+        m_br_i_658 = input_j_579 ~ int;
+        m_b_i_659 = m_bl_i_657 and m_br_i_658;
+        binop_j_580 = m_b_i_659 ? (
+                c_binop_i_660 = int_j_578 <= input_j_579
+            ) : (
+                ab_i_661 = abort
+            ));
     record_j_582 = {checker = flatten_fun_j_577, generator = flatten_fun_j_581};
     proj_j_583 = record_j_582.checker;
     var_j_584 = expr_b_90;
@@ -839,7 +874,14 @@ flatten_fun_j_622 = fun bj_null_j_33 -> (
     flatten_fun_j_610 = fun bj_null_j_32 -> (
         int_j_607 = 0;
         input_j_608 = input;
-        binop_j_609 = int_j_607 <= input_j_608);
+        m_bl_i_662 = int_j_607 ~ int;
+        m_br_i_663 = input_j_608 ~ int;
+        m_b_i_664 = m_bl_i_662 and m_br_i_663;
+        binop_j_609 = m_b_i_664 ? (
+                c_binop_i_665 = int_j_607 <= input_j_608
+            ) : (
+                ab_i_666 = abort
+            ));
     record_j_611 = {checker = flatten_fun_j_606, generator = flatten_fun_j_610};
     proj_j_612 = record_j_611.generator;
     int_j_613 = 0;

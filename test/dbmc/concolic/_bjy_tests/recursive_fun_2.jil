@@ -7,15 +7,32 @@ flatten_fun_j_18 = fun f_j_0 -> (
         f = appl_j_6;
         var_j_7 = x;
         int_j_8 = 0;
-        binop_j_9 = var_j_7 == int_j_8;
-        if_j_16 = binop_j_9 ? (
-                int_j_10 = 0
+        m_bl_i_66 = var_j_7 ~ int;
+        m_br_i_67 = int_j_8 ~ int;
+        m_b_i_68 = m_bl_i_66 and m_br_i_67;
+        binop_j_9 = m_b_i_68 ? (
+                c_binop_i_69 = var_j_7 == int_j_8
             ) : (
-                var_j_11 = f;
-                var_j_12 = x;
-                int_j_13 = 1;
-                binop_j_14 = var_j_12 - int_j_13;
-                appl_j_15 = var_j_11 binop_j_14
+                ab_i_70 = abort
+            );
+        m_i_71 = binop_j_9 ~ bool;
+        if_j_16 = m_i_71 ? (
+                c_cond_i_75 = binop_j_9 ? (
+                        int_j_10 = 0
+                    ) : (
+                        var_j_11 = f;
+                        var_j_12 = x;
+                        int_j_13 = 1;
+                        binop_j_14 = var_j_12 - int_j_13;
+                        m_i_72 = var_j_11 ~ fun;
+                        appl_j_15 = m_i_72 ? (
+                                c_appl_i_73 = var_j_11 binop_j_14
+                            ) : (
+                                ab_i_74 = abort
+                            )
+                    )
+            ) : (
+                ab_i_76 = abort
             )));
 appl_j_21 = flatten_fun_j_18 flatten_fun_j_18;
 bool_j_22 = false;
@@ -58,7 +75,14 @@ flatten_fun_j_47 = fun expr_b_3 -> (
 flatten_fun_j_51 = fun bj_null_j_1 -> (
     int_j_48 = 0;
     input_j_49 = input;
-    binop_j_50 = int_j_48 <= input_j_49);
+    m_bl_i_77 = int_j_48 ~ int;
+    m_br_i_78 = input_j_49 ~ int;
+    m_b_i_79 = m_bl_i_77 and m_br_i_78;
+    binop_j_50 = m_b_i_79 ? (
+            c_binop_i_80 = int_j_48 <= input_j_49
+        ) : (
+            ab_i_81 = abort
+        ));
 record_j_52 = {checker = flatten_fun_j_47, generator = flatten_fun_j_51};
 proj_j_53 = record_j_52.checker;
 appl_j_56 = appl_j_21 x_b_7;

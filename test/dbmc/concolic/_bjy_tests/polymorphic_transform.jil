@@ -3,7 +3,12 @@ trans_j_10 = fun a -> (
     trans_j_9 = fun f -> (
         var_j_6 = f;
         var_j_7 = a;
-        appl_j_8 = var_j_6 var_j_7));
+        m_i_190 = var_j_6 ~ fun;
+        appl_j_8 = m_i_190 ? (
+                c_appl_i_191 = var_j_6 var_j_7
+            ) : (
+                ab_i_192 = abort
+            )));
 trans = trans_j_10;
 bool_j_11 = false;
 fail_b_0 = bool_j_11;

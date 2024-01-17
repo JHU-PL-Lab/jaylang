@@ -4,5 +4,12 @@ assume_j_2 = assume f;
 a = assume_j_2;
 int_j_3 = 1;
 bool_j_4 = true;
-binop_j_5 = int_j_3 + bool_j_4;
+m_bl_i_6 = int_j_3 ~ int;
+m_br_i_7 = bool_j_4 ~ int;
+m_b_i_8 = m_bl_i_6 and m_br_i_7;
+binop_j_5 = m_b_i_8 ? (
+        c_binop_i_9 = int_j_3 + bool_j_4
+    ) : (
+        ab_i_10 = abort
+    );
 i_result = binop_j_5

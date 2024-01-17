@@ -2,7 +2,14 @@ i_first = {};
 id_j_4 = fun x -> (
     int_j_1 = 0;
     var_j_2 = x;
-    binop_j_3 = int_j_1 < var_j_2);
+    m_bl_i_47 = int_j_1 ~ int;
+    m_br_i_48 = var_j_2 ~ int;
+    m_b_i_49 = m_bl_i_47 and m_br_i_48;
+    binop_j_3 = m_b_i_49 ? (
+            c_binop_i_50 = int_j_1 < var_j_2
+        ) : (
+            ab_i_51 = abort
+        ));
 id = id_j_4;
 bool_j_5 = false;
 fail_b_1 = bool_j_5;

@@ -5,7 +5,12 @@ intId_j_6 = fun x -> (
     intId2 = intId2_j_2;
     var_j_3 = intId2;
     var_j_4 = x;
-    appl_j_5 = var_j_3 var_j_4);
+    m_i_51 = var_j_3 ~ fun;
+    appl_j_5 = m_i_51 ? (
+            c_appl_i_52 = var_j_3 var_j_4
+        ) : (
+            ab_i_53 = abort
+        ));
 intId = intId_j_6;
 bool_j_7 = false;
 fail_b_1 = bool_j_7;
@@ -54,7 +59,12 @@ check_res_b_7 = appl_j_40;
 if_j_50 = check_res_b_7 ? (
         var_j_42 = intId;
         int_j_43 = 5;
-        appl_j_44 = var_j_42 int_j_43
+        m_i_54 = var_j_42 ~ fun;
+        appl_j_44 = m_i_54 ? (
+                c_appl_i_55 = var_j_42 int_j_43
+            ) : (
+                ab_i_56 = abort
+            )
     ) : (
         error_var_j_45 = check_res_b_7;
         assert_pred_j_46 = error_var_j_45;
