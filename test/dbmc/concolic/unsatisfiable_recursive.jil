@@ -1,0 +1,45 @@
+x = input;
+
+zero = 0;
+one = 1;
+two = 2;
+ten = 10;
+nine = 9;
+nine_ninety = 990;
+
+f = fun self -> (
+  f0 = fun counter -> (
+    f1 = fun x_param -> (
+      done_cond = counter == zero;
+
+      done_branch = done_cond ? (
+        
+        param_is_990_cond = x_param == nine_ninety;
+        param_is_990 = param_is_990_cond ? (
+          ret_t = abort # unsatisfiable
+        ) : (
+          ret_f = 100
+        )
+      ) : (
+        ss = self self;
+        new_counter = counter - one;
+        cont = ss new_counter;
+
+        param_lt_10_cond = x_param < ten;
+
+        new_param = param_lt_10_cond ? (
+          param_times_10 = x_param * ten
+        ) : (
+          param_times_9 = x_param * nine
+        );
+
+        cont0 = cont new_param
+      )
+    )
+  )
+);
+
+ff = f f;
+ff1 = ff two;
+
+res = ff1 x

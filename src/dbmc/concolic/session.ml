@@ -244,7 +244,7 @@ and check_solver
     end
   in
   (* First solve for target without abort or max step formulas *)
-  Format.printf "%s\n" (Z3.Solver.to_string new_solver);
+  (* Format.printf "%s\n" (Z3.Solver.to_string new_solver); *)
   match Z3.Solver.check new_solver [] with
   | Z3.Solver.UNSATISFIABLE -> Format.printf "FOUND UNSATISFIABLE\n"; `Unsolvable Branch_tracker.Status.Unsatisfiable
   | Z3.Solver.UNKNOWN -> `Unsolvable (Branch_tracker.Status.Unknown 1)

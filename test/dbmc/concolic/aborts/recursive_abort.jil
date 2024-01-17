@@ -56,5 +56,6 @@ x_is_one = x == one;
 x_is_one_branch = x_is_one ? (
   ret = 42
 ) : (
+  # Not that calls don't depend on inputs
   void = ff counter0
 )
