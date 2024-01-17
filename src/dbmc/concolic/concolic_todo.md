@@ -4,6 +4,8 @@
 
 * Don't resolve for a branch if branch info hasn't changed.
   * This is tough because we might have gained new formulas by hitting deeper branches, but not new info.
+  * I will just let it run a few times, and if the `Missed` is not significantly different after a few times,
+    then set to unknown.
 * Benchmark how the implies work to see what is most difficult to solve for.
 * Disallow inputs that have already been used
   * I think we can just add global formulas because even if this makes some branch appear unsatisfiable, that branch has already been hit
