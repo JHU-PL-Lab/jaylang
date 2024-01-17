@@ -52,3 +52,4 @@ val max_step_formulas : t -> Branch.t list -> Z3.Expr.expr list
 (** [max_step_formulas t max_steps] is all formulas in [t] that set any branch in [max_steps] to off limits. *)
 
 val input_formula : Z3.Expr.expr
+(** [input_formula] is a formula that picks expressions such that previously given inputs are disallowed. *)

@@ -193,70 +193,13 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
 and solve_for_target (target : Branch.t) (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec session.solver_timeout_s));
   Format.printf "Solving for %s\n" (Branch.to_string target);
-  let formulas =
-    Formula_tracker.all_formulas
-      session.formula_tracker
-      ~target
-      ~aborts:[]
-      ~max_steps:[]
-  in
-  match check_solver session formulas with
+  match Branch_solver.check_solver target session.formula_tracker session.branch_tracker with
   | `Unsolvable status ->
     next { session with branch_tracker = Branch_tracker.set_status session.branch_tracker target status }
   | `Solved model ->
     `Next ({ session with run_num = session.run_num + 1 }
           , Concolic.create ~target ~formula_tracker:session.formula_tracker
           , Eval.create (Concolic_feeder.from_model model) session.global_max_step )
-
-and check_solver
-  (session : t)
-  (formulas : Z3.Expr.expr list)
-  : [ `Unsolvable of Branch_tracker.Status.t | `Solved of Z3.Model.model ]
-  =
-  let new_solver = Z3.Solver.mk_solver Solver.SuduZ3.ctx None in
-  Z3.Solver.add new_solver formulas; (* could be faster to maintain a solver that only ever includes these non-abort and non-max-step formulas *)
-  let solve_abort () =
-    let abort_formulas =
-      Formula_tracker.abort_formulas session.formula_tracker
-      @@ Branch_tracker.get_aborts session.branch_tracker
-    in
-    match abort_formulas with
-    | [] -> `Continue []
-    | _ -> begin
-      match Z3.Solver.check new_solver abort_formulas with
-      | Z3.Solver.UNSATISFIABLE -> `Quit Branch_tracker.Status.Unreachable_because_abort
-      | Z3.Solver.UNKNOWN -> `Quit (Branch_tracker.Status.Unknown 1)
-      | Z3.Solver.SATISFIABLE -> `Continue abort_formulas
-    end
-  in
-  let solve_max_step abort_formulas =
-    let max_step_formulas =
-      Formula_tracker.max_step_formulas session.formula_tracker
-      @@ Branch_tracker.get_aborts session.branch_tracker
-    in
-    match max_step_formulas with 
-    | [] -> `Continue
-    | _ -> begin
-      match Z3.Solver.check new_solver (max_step_formulas @ abort_formulas) with
-      | Z3.Solver.UNSATISFIABLE -> `Quit Branch_tracker.Status.Unreachable_because_max_step
-      | Z3.Solver.UNKNOWN -> `Quit (Branch_tracker.Status.Unknown 1)
-      | Z3.Solver.SATISFIABLE -> `Continue
-    end
-  in
-  (* First solve for target without abort or max step formulas *)
-  (* Format.printf "%s\n" (Z3.Solver.to_string new_solver); *)
-  match Z3.Solver.check new_solver [] with
-  | Z3.Solver.UNSATISFIABLE -> Format.printf "FOUND UNSATISFIABLE\n"; `Unsolvable Branch_tracker.Status.Unsatisfiable
-  | Z3.Solver.UNKNOWN -> `Unsolvable (Branch_tracker.Status.Unknown 1)
-  | Z3.Solver.SATISFIABLE -> `Solved (Z3.Solver.get_model new_solver |> Option.value_exn) (*begin
-    match solve_abort () with
-    | `Quit status -> `Unsolvable status
-    | `Continue abort_formulas -> begin
-      match solve_max_step abort_formulas with
-      | `Quit status -> `Unsolvable status
-      | `Continue -> `Solved (Z3.Solver.get_model new_solver |> Option.value_exn )
-    end
-  end *)
 
 let finish (session : t) : t =
   { session with branch_tracker = Branch_tracker.finish session.branch_tracker }

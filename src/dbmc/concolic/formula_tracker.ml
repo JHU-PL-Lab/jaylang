@@ -12,8 +12,6 @@ exception NoParentException
   to the target list again and finds a failing solution
 *)
 
-
-
 module Formula_set :
   sig
     type t
@@ -707,7 +705,7 @@ module V2 =
         let max_step_formulas = List.map max_steps ~f:Branch.pick_max_step in
         let target_formula = Pick_formulas.V2.pick_target pick_formulas target in
         target_formula
-        :: (if allow_repeat_inputs then [ pick_no_repeat_inputs ] else [])
+        :: (if allow_repeat_inputs then [] else [ pick_no_repeat_inputs ])
         @ abort_formulas
         @ max_step_formulas
         @ Formula_set.to_list formulas
