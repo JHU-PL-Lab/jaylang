@@ -2,7 +2,7 @@ open Core
 
 exception NoParentException
 
-[@@@warning "-32"] (* for unused versions *)
+(* [@@@warning "-32"] (* for unused versions *) *)
 
 (*
   I keep V1 and V2 both in here. V2 appears to not work as well even though I
@@ -20,10 +20,10 @@ module Formula_set :
     val empty : t
     val add : t -> Z3.Expr.expr -> t
     val add_multi : t -> Z3.Expr.expr list -> t
-    val union : t -> t -> t
+    (* val union : t -> t -> t *) (* only used in V1 *)
     val to_list : t -> Z3.Expr.expr list
     val and_ : t -> Z3.Expr.expr
-    val or_ : t -> Z3.Expr.expr
+    (* val or_ : t -> Z3.Expr.expr *) (* only used in V1 *)
   end
   =
   struct
@@ -44,7 +44,7 @@ module Formula_set :
     let empty = S.empty
     let add = Set.add
     let add_multi (s : t) = List.fold ~init:s ~f:add
-    let union = Set.union
+    (* let union = Set.union *)
     let to_list = Set.to_list
 
     let and_ (fset : t) : Z3_expr.t =
@@ -53,11 +53,11 @@ module Formula_set :
       | exp :: [] -> exp
       | exps -> Riddler.and_ exps
 
-    let or_ (fset : t) : Z3_expr.t =
+    (* let or_ (fset : t) : Z3_expr.t =
       match Set.to_list fset with
       | [] -> Riddler.true_
       | exp :: [] -> exp
-      | exps -> Solver.SuduZ3.or_ exps
+      | exps -> Solver.SuduZ3.or_ exps *)
   end
 
 module Lookup_key = 
@@ -108,7 +108,7 @@ module Pick_formulas :
         val reach_max_step : t -> Branch.t -> Z3.Expr.expr
       end
     
-      module V1 : S
+      (* module V1 : S *)
       module V2 : S
     
   end
@@ -125,7 +125,7 @@ module Pick_formulas :
         val reach_max_step : t -> Branch.t -> Z3.Expr.expr
       end
 
-    module V1 : S =
+    (* module V1 : S =
       struct
         (* Parents are forced to be runtime branches *)
         module Formula =
@@ -327,7 +327,7 @@ module Pick_formulas :
           (* Max_step.to_formula max_step branch *)
         let reach_max_step = found_abort (* treat exactly like abort *)
 
-      end
+      end *)
 
     module V2 : S =
       struct
@@ -377,7 +377,7 @@ module Pick_formulas :
 
 module Env :
   sig
-    module V1 :
+    (* module V1 :
       sig
         type t =
           { parent        : Parent.t (* current "scope" *)
@@ -390,8 +390,8 @@ module Env :
         val exit_to_env : t -> t -> t
         (** [exit_to_env exited new_env] wraps up all info in [exited] and appropriately puts it in [new_env],
             also adding any necessary pick formulas in case of aborts or max steps at any future point. *)
+      end *)
 
-      end
     module V2 : 
       sig
         type t =
@@ -406,7 +406,7 @@ module Env :
   end
   =
   struct
-    module V1 = 
+    (* module V1 = 
       struct
         type t =
           { parent        : Parent.t
@@ -441,7 +441,7 @@ module Env :
               @@ Pick_formulas.V1.exit_parent exited.pick_formulas exited_branch
             }
           end
-      end
+      end *)
 
     module V2 =
       struct
@@ -495,7 +495,7 @@ module Env :
       end
   end
 
-module V1 = 
+(* module V1 = 
   struct
     (*
       There are a few additions we can make:
@@ -611,7 +611,7 @@ module V1 =
       | { parent = Local _ ; _ } :: _ -> failwith "cannot get max step formulas unless in global scope"
       | { parent = Global ; formulas ; pick_formulas } :: [] -> List.map max_steps ~f:(Pick_formulas.V1.reach_max_step pick_formulas)
       | _ -> failwith "impossible global is not bottom of stack"
-  end
+  end *)
 
 module V2 =
   struct
