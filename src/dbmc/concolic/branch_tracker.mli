@@ -15,7 +15,7 @@ module Status :
       | Missed
       | Unreachable_because_abort (* TODO: payload? *)
       | Unreachable_because_max_step (* ^ *)
-      | Unknown
+      | Unknown of int (* number of solve attempts *) (* this isn't perfect because we might always want to include missed but only when no other new branch info *)
       | Unreachable
 
     val to_string : t -> string

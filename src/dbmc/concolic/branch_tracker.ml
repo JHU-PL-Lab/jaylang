@@ -25,12 +25,14 @@ module Status =
       | Missed
       | Unreachable_because_abort
       | Unreachable_because_max_step
-      | Unknown
+      | Unknown of (int [@compare.ignore])
       | Unreachable (* any unhit branch whose parent is unsatisfiable *)
       [@@deriving variants, compare, sexp]
 
-    (* ignores payload *)
-    let to_string x = Variants.to_name x |> String.capitalize
+    (* sometimes ignores payload *)
+    let to_string = function
+      | Reach_max_step count as x -> (Variants.to_name x |> String.capitalize) ^ Int.to_string count
+      | x -> Variants.to_name x |> String.capitalize
 
     let is_hit = function
       | Hit _ | Found_abort _ | Reach_max_step _ -> true
@@ -62,11 +64,17 @@ module Status =
         | Found_abort _ -> new_status
         | _ -> old_status
       end
-      | Missed
-      | Unknown -> new_status
+      | Unknown count -> begin
+        match new_status with
+        | Unknown count' -> Unknown (count + count')
+        | _ -> new_status
+      end
+      | Missed -> new_status
       | Unreachable
       | Unreachable_because_abort
       | Unreachable_because_max_step -> old_status
+
+    let n_allowed_unknown_solves = 2
   end
 
 module Status_store =
@@ -82,9 +90,8 @@ module Status_store =
     let is_valid_target (map : t) (branch : Branch.t) : bool =
       match Map.find map branch with
       | Some Unhit
-      | Some Unknown
       | Some Missed -> true
-      (* | Some Reach_max_step i -> i <= allowed_max_step *)
+      | Some (Unknown count) when count <= Status.n_allowed_unknown_solves -> true
       | _ -> false
 
     let empty = M.empty
@@ -146,7 +153,7 @@ module Status_store =
       |> Map.to_alist
       |> List.find_map ~f:(fun (branch, status) ->
           match status with
-          | Status.Unhit | Missed -> Some branch
+          | Status.Unhit | Missed | Unknown _ -> Some branch
           | _ -> None
         )
 
@@ -293,7 +300,6 @@ let set_unsatisfiable (x : t) (branch : Branch.t) : t =
       branch
       ~new_status:Status.Unsatisfiable }
 
-(* TODO: use update? That would be better if a Hit happens to be given *)
 let set_status (x : t) (branch : Branch.t) (status : Status.t) : t =
   { x with status_store =
     Status_store.set_branch_status

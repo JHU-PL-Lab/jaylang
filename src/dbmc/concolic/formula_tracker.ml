@@ -2,7 +2,29 @@ open Core
 
 exception NoParentException
 
-module Formula_set =
+[@@@warning "-32"] (* for unused versions *)
+
+(*
+  I keep V1 and V2 both in here. V2 appears to not work as well even though I
+  feel sure it is operationally equivalent. I think this is because it actually
+  works a little faster and doesn't time out as often, so it continues to think
+  it can solve for a branch when it just keeps missing. And then it adds that branch
+  to the target list again and finds a failing solution
+*)
+
+
+module Formula_set :
+  sig
+    type t
+    val empty : t
+    val add : t -> Z3.Expr.expr -> t
+    val add_multi : t -> Z3.Expr.expr list -> t
+    val union : t -> t -> t
+    val to_list : t -> Z3.Expr.expr list
+    val and_ : t -> Z3.Expr.expr
+    val or_ : t -> Z3.Expr.expr
+  end
+  =
   struct
     module Z3_expr =
       struct
@@ -98,12 +120,12 @@ module Formula =
         let exit_parent (parent : Branch.Runtime.t) (stack, expr : t) : t =
           parent :: stack, expr
 
-        (* need the least recently exited parent to imply the expr first, so fold right *)
-        let to_expr (stack, expr : t) : Z3.Expr.expr =
-          let implies (branch : Branch.Runtime.t) (expr : Z3.Expr.expr) : Z3.Expr.expr =
-            Riddler.(Branch.Runtime.to_expr branch @=> expr)
-          in
-          List.fold_right stack ~init:expr ~f:implies
+        val pick_target : t -> Branch.t -> Z3.Expr.expr
+        (** [pick_target t branch] is an expression that can be added to a solver from a formula tracker that owns this
+            [t] in order to pick the [branch] as a target. *)
+        val found_abort : t -> Branch.t -> Z3.Expr.expr
+        (** similar to [pick_targer] but to set a branch as off limits due to abort. *)
+        val reach_max_step : t -> Branch.t -> Z3.Expr.expr
       end
   end
 
@@ -158,9 +180,11 @@ module Pick_formulas :
       An implies pick formula can be picked such that the list of parents all imply
       some formula at the bottom.
 
-      The logic is the same for max step and for aborts: whenever a parent is found,
-      a pick key for that parent can set either this parent off limits or the other side
-      off limits.
+    module V2 : S =
+      struct
+        (* V2 only allows picks for targets *)
+        (* we can pick an AST branch to get a formula *)
+        module M = Map.Make (Branch)
 
       It's intended that the `pick` is the same for any runtime instance of an AST branch.
       This way, all runtime instance can be set off limits using any runtime instance.
@@ -228,8 +252,9 @@ module Pick_formulas :
             Map.add_multi ~key:(Branch.Runtime.to_ast_branch branch) ~data:(pick_formula branch)
           in
           map
-          |> add branch
-          |> add (Branch.Runtime.other_direction branch)
+          |> Map.map ~f:(fun data -> Solver.SuduZ3.and_ [parent_expr ; data]) (* AND with the parent so that lower conditions must satisfy that parent *)
+          |> update_this_side (Branch.Runtime.other_direction parent) (* OR with the condition on the other side to allow as a solvable target *)
+          (* ^ note there is no need to add this side as a target because we clearly just hit this side, so it will never be solved for *)
 
         let to_formula (map : t) (branch : Branch.t) : Z3.Expr.expr =
           match Map.find map branch with
@@ -308,26 +333,104 @@ module Env :
     let create (branch : Branch.Runtime.t) : t =
       { empty with parent = Parent.of_runtime_branch branch }
 
-    (** [collect_formulas x] is all formulas in [x.formulas] implied by [x.parent]. *)
-    let collect_formulas ({ parent ; formulas ; _ } : t) : Z3.Expr.expr =
-      match parent with
-      | Global -> Formula_set.collect formulas
-      | Local branch -> Riddler.(Branch.Runtime.to_expr branch @=> Formula_set.collect formulas)
+module V2 =
+  struct
+    type t = { stack : Env.V2.t list }
 
-    let add ({ formulas ; _ } as x : t) (formula : Z3.Expr.expr) : t =
-      { x with formulas = Formula_set.add formulas formula }
+    let empty : t = { stack = Env.V2.empty :: [] }
 
-    let exit_to_env (exited : t) (new_env : t) : t =
-      match exited with
-      | { parent = Global ; _ } -> raise NoParentException
-      | { parent = Local exited_branch ; _ } -> begin
-        { parent = new_env.parent
-        ; formulas = Formula_set.add new_env.formulas @@ collect_formulas exited
-        ; pick_formulas =
-          Pick_formulas.union new_env.pick_formulas
-          @@ Pick_formulas.exit_parent exited.pick_formulas exited_branch
-        }
-      end
+    let log_add_formula ({ stack  } : t) (formula : Z3.Expr.expr) : unit =
+      match stack with
+      | { parent = Parent.Global ; _ } :: _ -> 
+        Format.printf "ADD GLOBAL FORMULA %s\n" (Z3.Expr.to_string formula)
+      | _ -> ()
+
+    let add_formula ({ stack } : t) (formula : Z3.Expr.expr) : t =
+      (* log_add_formula x formula; *)
+      let new_stack =
+        match stack with
+        | hd :: tl -> Env.V2.add hd formula :: tl
+        | _ -> raise NoParentException
+      in
+      { stack = new_stack }
+      
+    let add_key_eq_val (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
+      add_formula x @@ Riddler.eq_term_v key (Some v)
+
+    let add_alias (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
+      add_formula x @@ Riddler.eq key1 key2
+
+    let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
+      add_formula x @@ Riddler.binop_without_picked key op left right
+
+    (* We'd like to not choose this input anymore, so mark it off limits *)
+    (* TODO: how does this work for inputs in recursive functions that have different previous inputs? *)
+    (* TODO: this makes some branches appear unsatisfiable when really they're unreachable bc abort. Need to optionally add these formulas. *)
+    let add_input (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
+      let _, _ = key, v in x
+      (* Riddler.eq_term_v key (Some v)
+      |> Solver.SuduZ3.not_
+      |> add_formula x *)
+
+    (* TODO: all other types of formulas, e.g. not, pattern, etc, then hide `add_formula` *)
+
+    let enter_branch ({ stack } : t) (branch : Branch.Runtime.t) : t =
+      { stack = Env.V2.create branch :: stack }
+
+    let exit_branch ({ stack } : t) : t =
+      match stack with
+      | { parent = Local _ ; _ } as old_hd :: new_hd :: tl ->
+        (* Format.printf "exiting branch and collecting formulas. Formula is %s\n" (Env.collect old_hd |> Z3.Expr.to_string); *)
+        { stack = Env.V2.exit_to_env old_hd new_hd :: tl }
+      | _ -> raise NoParentException (* no parent to back up to because currently in global (or no) scope *)
+
+    let is_global ({ stack } : t) : bool =
+      match stack with
+      | { parent = Global ; _ } :: [] -> true
+      | _ -> false
+
+    (* let hd_env_exn ({ stack } : t) : Env.V2.t =
+      match stack with
+      | hd :: _ -> hd
+      | _ -> failwith "no hd in `hd_env_exn`" *)
+
+    let rec exit_until_global (x : t) : t =
+      if is_global x
+      then x
+      else exit_until_global (exit_branch x)
+
+    let all_formulas
+      ({ stack } : t)
+      ~(target : Branch.t)
+      ~(aborts : Branch.t list)
+      ~(max_steps : Branch.t list)
+      : Z3.Expr.expr list
+      =
+      match stack with
+      | { parent = Local _ ; _ } :: _ -> failwith "cannot get formulas unless in global scope"
+      | { parent = Global ; formulas ; pick_formulas } :: [] ->
+        begin
+        match aborts with
+        | [] -> print_endline "no abort formulas"
+        | _ -> ()
+        end;
+        let abort_formulas = List.map aborts ~f:Branch.pick_abort in
+        let max_step_formulas = List.map max_steps ~f:Branch.pick_max_step in
+        let target_formula = Pick_formulas.V2.pick_target pick_formulas target in
+        target_formula :: abort_formulas @ max_step_formulas @ Formula_set.to_list formulas
+      | _ -> failwith "impossible global is not bottom of stack"
+
+    let abort_formulas ({ stack } : t) (aborts : Branch.t list) : Z3.Expr.expr list =
+      match stack with
+      | { parent = Local _ ; _ } :: _ -> failwith "cannot get abort formulas unless in global scope"
+      | { parent = Global ; formulas ; pick_formulas } :: [] -> List.map aborts ~f:Branch.pick_abort
+      | _ -> failwith "impossible global is not bottom of stack"
+
+    let max_step_formulas ({ stack } : t) (max_steps : Branch.t list) : Z3.Expr.expr list =
+      match stack with
+      | { parent = Local _ ; _ } :: _ -> failwith "cannot get max step formulas unless in global scope"
+      | { parent = Global ; formulas ; pick_formulas } :: [] -> List.map max_steps ~f:Branch.pick_max_step
+      | _ -> failwith "impossible global is not bottom of stack"
 
   end
 

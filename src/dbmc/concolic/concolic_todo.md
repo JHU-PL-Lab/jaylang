@@ -2,32 +2,54 @@
 
 ### Urgent
 
+* Don't resolve for a branch if branch info hasn't changed.
+  * This is tough because we might have gained new formulas by hitting deeper branches, but not new info.
 * Benchmark how the implies work to see what is most difficult to solve for.
 * Disallow inputs that have already been used
   * I think we can just add global formulas because even if this makes some branch appear unsatisfiable, that branch has already been hit
   * ^ this is done, but I'm not sure if I properly disallow repeat "second inputs" after the first one is different. I need to disallow some set of inputs, but other sets are fine.
   * ^ It also makes some later branches appear unsatisfiable when they are only so because of aborts. Need to handle this, and with max step as well.
+* Convert Earl's jay (or bluejay?) files to jayil and make test cases
+  * Use convert and translator. Can see about converting on the spot, or maybe write a script to save the conversions.
+  * ^ I should do the latter so that I can read the jil files to debug concolic better
 
 ### Eventually
 
-* Convert Earl's jay files to jayil and make test cases
 * Quit solving after missing too many times (e.g. depth_dependent2_tail_rec tried a ton of inputs that got nowhere but didn't hit max step) and say "unknown"
-* Analyze AST to determine dependencies
+* Analyze AST to determine dependencies?
   * This is important so that some later branch that always gives abort doesn't prevent earlier branches from being hit
   * SIMILAR: selectively add formulas that are encountered on the path to the target, and discard other formulas
     * Could give each run a new formula tracker and then save a snapshot of the tracker (exiting up to global) when hitting each target. Then merge all of these before solving.
+  * ^ I'm no longer sure what I meant by this, but I think it's out of scope for this project because I should just be dealing with runtime values and not anything symbolic
 * Throw exception if we ever try to solve for the same branch with the same formulas, i.e. continue with misses until we reach a steady state
 * Logging
 * Use optional input AST branches to customize output
 * Efficiency optimizations!
   * Regarding pick formulas, especially. Can I make them shorter or not duplicate? Maybe mark off some runtime branch as already having a pick formula? Could use a hashtbl and mutability for extra speed
+  * ^ similarly, having all implied formulas under a map instead would allow me to use sets properly and not have duplicate formulas.
   * Shorten lookup keys to hash, if possible. Might not be beneficial though if the cost of hashing is greater than the cost of comparing a few times later. I think that since I have maps and sets with these lookup keys, I do want them shorter
 
 ### Random thoughts
 
+**Aborts and max steps**
+
+See the recursive_abort test file.
+
+When we hit an abort at some recursive depth, branches later in the clause list at that same depth are never
+found and don't get put into the target list. Then, when that branch is solved for, it "correctly" comes out
+as unsatisfiable because we won't be able to hit it because of max step or abort. However, it is unsatisfiable
+before we add any of the abort or max step formulas--it is unsatisfiable because it has no idea there is a branch
+that is satisfiable.
+
+This is an issue because of max step. Further branches after max step are not necessarily unsatisfiable, but they
+are unknown. For this reason, it seems the best I can do is just quit on max step and mark everything unhit as unknown.
+
+With abort, a branch really is unsatisfiable. I just don't yet get the output status to be correct and specific.
+
 **Efficiency**
 
-I'd like to make the formulas easier to solve.
+I'd like to make the formulas easier to solve. UPDATE: it seems I've done this, but it introduced other problems where
+the solver now quickly thinks it finds a solution, but it misses, so it just continues forever
 
 First, the pick branches for target formulas:
 * Currently, we pick and then add OR (AND "all parents" "runtime condition") (AND "all parents" "runtime condition")

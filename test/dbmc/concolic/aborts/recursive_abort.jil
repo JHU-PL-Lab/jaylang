@@ -1,3 +1,25 @@
+# I think this test is failing because to solve for w false i.e. not_is_done = false, then
+# we must say that x_is_one = false and not_is_done = false ON THE FIRST RECURSIVE CALL!
+# This is because it always aborts on the second call, so it never reaches the not_is_done
+# clause on the second call and has no way of knowing that it is indeed satisfiable on the second
+# iteration.
+# Since the input does not affect the recursive runs, it just outright calls the branch unsatisfiable
+# because it has all the information it ever will about the function. No input can ever give more
+# information, so it makes the deduction that the branch cannot be satisfied.
+
+# This is a big deal because aborts are just like max steps, so if we can't solve for a branch
+# due to quiting from abort, then it's just like failing to solve for a branch due to quiting
+# from max step. We therefore might get wrong information when we exit the program early.
+
+# If the recursive depth can depend on the input, then there are many possible recursive depths, some
+# of which we might not hit that would actually allow us to hit a branch. But if we haven't hit enough
+# of them, we might think a branch is unsatisfiable.
+
+# IDEA: Maybe let run num be used to pick formulas when exiting to global. Then can include/exclude
+# certain runs. I don't think this is that good of an idea though because we also lose the actual
+# pick formulas this way
+
+
 x = input;
 
 zero = 0;
@@ -34,5 +56,6 @@ x_is_one = x == one;
 x_is_one_branch = x_is_one ? (
   ret = 42
 ) : (
+  # Not that calls don't depend on inputs
   void = ff counter0
 )
