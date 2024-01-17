@@ -13,6 +13,7 @@ exception NoParentException
 *)
 
 
+
 module Formula_set :
   sig
     type t
@@ -654,6 +655,10 @@ module V2 =
     let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
       add_formula x @@ Riddler.binop_without_picked key op left right
 
+    (* hyphens are not allowed in variable names, so this is unique from any picked variable *)
+    let pick_no_repeat_inputs = Riddler.picked_string "no-repeat-inputs"
+    let imply_no_repeat_inputs formula = Riddler.(pick_no_repeat_inputs @=> formula)
+
     (* We'd like to not choose this input anymore, so mark it off limits *)
     (* TODO: how does this work for inputs in recursive functions that have different previous inputs? *)
     (* TODO: this makes some branches appear unsatisfiable when really they're unreachable bc abort. Need to optionally add these formulas. *)
@@ -661,6 +666,7 @@ module V2 =
       (* let _, _ = key, v in x *)
       Riddler.eq_term_v key (Some v)
       |> Solver.SuduZ3.not_
+      |> imply_no_repeat_inputs
       |> add_formula x
 
     (* TODO: all other types of formulas, e.g. not, pattern, etc, then hide `add_formula` *)
@@ -687,6 +693,7 @@ module V2 =
       else exit_until_global (exit_branch x)
 
     let all_formulas
+      ?(allow_repeat_inputs : bool = false)
       ({ stack } : t)
       ~(target : Branch.t)
       ~(aborts : Branch.t list)
@@ -699,7 +706,11 @@ module V2 =
         let abort_formulas = List.map aborts ~f:Branch.pick_abort in
         let max_step_formulas = List.map max_steps ~f:Branch.pick_max_step in
         let target_formula = Pick_formulas.V2.pick_target pick_formulas target in
-        target_formula :: abort_formulas @ max_step_formulas @ Formula_set.to_list formulas
+        target_formula
+        :: (if allow_repeat_inputs then [ pick_no_repeat_inputs ] else [])
+        @ abort_formulas
+        @ max_step_formulas
+        @ Formula_set.to_list formulas
 
     let abort_formulas ({ stack } : t) (aborts : Branch.t list) : Z3.Expr.expr list =
       match stack with
@@ -710,6 +721,8 @@ module V2 =
       match stack with
       | Cons _ -> failwith "cannot get max step formulas unless in global scope"
       | Last { formulas ; pick_formulas ; _ } -> List.map max_steps ~f:Branch.pick_max_step
+
+    let input_formula : Z3.Expr.expr = pick_no_repeat_inputs
 
   end
 

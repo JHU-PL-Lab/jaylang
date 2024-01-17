@@ -50,16 +50,14 @@ module T =
 
     let pick_abort (x : t) : Z3.Expr.expr =
       (* hyphens aren't allowed in a variable name, so this is necessarily unique *)
-      { x = (x.branch_ident ^- Direction.to_string x.direction) ^- "abort"
-      ; r_stk = Rstack.empty
-      ; block = Dj_common.Cfg.{ id = x.branch_ident ; clauses = [] ; kind = Main } }
-      |> Riddler.picked
+      let Ident s = (x.branch_ident ^- Direction.to_string x.direction) ^- "abort" in
+      Riddler.picked_string s
 
     let pick_max_step (x : t) : Z3.Expr.expr =
-      { x = (x.branch_ident ^- Direction.to_string x.direction) ^- "max-step"
-      ; r_stk = Rstack.empty
-      ; block = Dj_common.Cfg.{ id = x.branch_ident ; clauses = [] ; kind = Main } }
-      |> Riddler.picked
+      (* hyphens aren't allowed in a variable name, so this is necessarily unique *)
+      let Ident s = (x.branch_ident ^- Direction.to_string x.direction) ^- "max-step" in
+      Riddler.picked_string s
+
   end
 
 include T

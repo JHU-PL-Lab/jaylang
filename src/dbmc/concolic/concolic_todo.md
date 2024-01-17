@@ -2,11 +2,12 @@
 
 ### Urgent
 
+* Search AST for abort branches, and solve for those
+  * Misses will be common while gaining solve info, but we at least target the most important branches
 * Don't resolve for a branch if branch info hasn't changed.
   * This is tough because we might have gained new formulas by hitting deeper branches, but not new info.
   * I will just let it run a few times, and if the `Missed` is not significantly different after a few times,
     then set to unknown.
-* Handle incorrect binop
 * Benchmark how the implies work to see what is most difficult to solve for.
 * Disallow inputs that have already been used
   * I think we can just add global formulas because even if this makes some branch appear unsatisfiable, that branch has already been hit
@@ -19,11 +20,6 @@
 ### Eventually
 
 * Quit solving after missing too many times (e.g. depth_dependent2_tail_rec tried a ton of inputs that got nowhere but didn't hit max step) and say "unknown"
-* Analyze AST to determine dependencies?
-  * This is important so that some later branch that always gives abort doesn't prevent earlier branches from being hit
-  * SIMILAR: selectively add formulas that are encountered on the path to the target, and discard other formulas
-    * Could give each run a new formula tracker and then save a snapshot of the tracker (exiting up to global) when hitting each target. Then merge all of these before solving.
-  * ^ I'm no longer sure what I meant by this, but I think it's out of scope for this project because I should just be dealing with runtime values and not anything symbolic
 * Throw exception if we ever try to solve for the same branch with the same formulas, i.e. continue with misses until we reach a steady state
 * Logging
 * Use optional input AST branches to customize output
@@ -31,6 +27,7 @@
   * Regarding pick formulas, especially. Can I make them shorter or not duplicate? Maybe mark off some runtime branch as already having a pick formula? Could use a hashtbl and mutability for extra speed
   * ^ similarly, having all implied formulas under a map instead would allow me to use sets properly and not have duplicate formulas.
   * Shorten lookup keys to hash, if possible. Might not be beneficial though if the cost of hashing is greater than the cost of comparing a few times later. I think that since I have maps and sets with these lookup keys, I do want them shorter
+* Write up the logic that proves the formula tracker implies stuff is correct
 
 ### Random thoughts
 

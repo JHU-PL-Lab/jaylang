@@ -40,7 +40,7 @@ val exit_until_global : t -> t
 (* val union : t -> t -> t option *)
 (** [union a b] is all info from [a] and [b] if both are global. Otherwise is None. *)
 
-val all_formulas : t -> target:Branch.t -> aborts:Branch.t list -> max_steps:Branch.t list -> Z3.Expr.expr list
+val all_formulas : ?allow_repeat_inputs:bool -> t -> target:Branch.t -> aborts:Branch.t list -> max_steps:Branch.t list -> Z3.Expr.expr list
 (** [all_formulas t target aborts max_steps] is all formulas in [t] that are known to solve for the [target] AST
     branch, along with formulas that set any branches given in [aborts] or [max_steps] to be off limits so
     that the branches are not to be hit during the run for the [target]. *)
@@ -50,3 +50,5 @@ val abort_formulas : t -> Branch.t list -> Z3.Expr.expr list
 
 val max_step_formulas : t -> Branch.t list -> Z3.Expr.expr list
 (** [max_step_formulas t max_steps] is all formulas in [t] that set any branch in [max_steps] to off limits. *)
+
+val input_formula : Z3.Expr.expr

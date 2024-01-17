@@ -15,6 +15,9 @@ let top_stack = SuduZ3.var_s "Topstack"
 let picked (key : Lookup_key.t) =
   "P_" ^ Lookup_key.to_string key |> SuduZ3.mk_bool_s
 
+let picked_string (s : string) =
+  "P_" ^ s |> SuduZ3.mk_bool_s
+
 let key_to_var key = key |> Lookup_key.to_string |> SuduZ3.var_s
 let counter = ref 0
 let reset () = counter := 0
