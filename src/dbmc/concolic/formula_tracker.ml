@@ -614,13 +614,25 @@ module V1 =
 
 module V2 =
   struct
-    type t = { stack : Env.V2.t list }
+    module Env_stack =
+      struct
+        type t =
+          | Last of Env.V2.t (* last is always global parent *)
+          | Cons of Env.V2.t * t
 
-    let empty : t = { stack = Env.V2.empty :: [] }
+        let empty : t = Last Env.V2.empty
 
-    let log_add_formula ({ stack  } : t) (formula : Z3.Expr.expr) : unit =
+        let cons (hd : Env.V2.t) (tl : t) : t =
+          Cons (hd, tl)
+      end
+
+    type t = { stack : Env_stack.t }
+
+    let empty : t = { stack = Env_stack.empty }
+
+    let log_add_formula ({ stack } : t) (formula : Z3.Expr.expr) : unit =
       match stack with
-      | { parent = Parent.Global ; _ } :: _ -> 
+      | Last { parent = Parent.Global ; _ } ->
         Format.printf "ADD GLOBAL FORMULA %s\n" (Z3.Expr.to_string formula)
       | _ -> ()
 
@@ -628,8 +640,8 @@ module V2 =
       (* log_add_formula x formula; *)
       let new_stack =
         match stack with
-        | hd :: tl -> Env.V2.add hd formula :: tl
-        | _ -> raise NoParentException
+        | Cons (hd, tl) -> Env_stack.Cons (Env.V2.add hd formula, tl)
+        | Last global -> Last (Env.V2.add global formula)
       in
       { stack = new_stack }
       
@@ -646,32 +658,28 @@ module V2 =
     (* TODO: how does this work for inputs in recursive functions that have different previous inputs? *)
     (* TODO: this makes some branches appear unsatisfiable when really they're unreachable bc abort. Need to optionally add these formulas. *)
     let add_input (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
-      let _, _ = key, v in x
-      (* Riddler.eq_term_v key (Some v)
+      (* let _, _ = key, v in x *)
+      Riddler.eq_term_v key (Some v)
       |> Solver.SuduZ3.not_
-      |> add_formula x *)
+      |> add_formula x
 
     (* TODO: all other types of formulas, e.g. not, pattern, etc, then hide `add_formula` *)
 
     let enter_branch ({ stack } : t) (branch : Branch.Runtime.t) : t =
-      { stack = Env.V2.create branch :: stack }
+      { stack = Env_stack.cons (Env.V2.create branch) stack }
 
     let exit_branch ({ stack } : t) : t =
       match stack with
-      | { parent = Local _ ; _ } as old_hd :: new_hd :: tl ->
-        (* Format.printf "exiting branch and collecting formulas. Formula is %s\n" (Env.collect old_hd |> Z3.Expr.to_string); *)
-        { stack = Env.V2.exit_to_env old_hd new_hd :: tl }
+      | Cons ({ parent = Local _ ; _ } as old_hd, Cons (new_hd, tl)) ->
+        { stack = Cons (Env.V2.exit_to_env old_hd new_hd, tl) }
+      | Cons ({ parent = Local _ ; _ } as old_hd, Last new_hd ) ->
+        { stack = Last (Env.V2.exit_to_env old_hd new_hd) }
       | _ -> raise NoParentException (* no parent to back up to because currently in global (or no) scope *)
 
     let is_global ({ stack } : t) : bool =
       match stack with
-      | { parent = Global ; _ } :: [] -> true
+      | Last _ -> true
       | _ -> false
-
-    (* let hd_env_exn ({ stack } : t) : Env.V2.t =
-      match stack with
-      | hd :: _ -> hd
-      | _ -> failwith "no hd in `hd_env_exn`" *)
 
     let rec exit_until_global (x : t) : t =
       if is_global x
@@ -686,30 +694,22 @@ module V2 =
       : Z3.Expr.expr list
       =
       match stack with
-      | { parent = Local _ ; _ } :: _ -> failwith "cannot get formulas unless in global scope"
-      | { parent = Global ; formulas ; pick_formulas } :: [] ->
-        begin
-        match aborts with
-        | [] -> print_endline "no abort formulas"
-        | _ -> ()
-        end;
+      | Cons _ -> failwith "cannot get formulas unless in global scope"
+      | Last { formulas ; pick_formulas ; _ } -> 
         let abort_formulas = List.map aborts ~f:Branch.pick_abort in
         let max_step_formulas = List.map max_steps ~f:Branch.pick_max_step in
         let target_formula = Pick_formulas.V2.pick_target pick_formulas target in
         target_formula :: abort_formulas @ max_step_formulas @ Formula_set.to_list formulas
-      | _ -> failwith "impossible global is not bottom of stack"
 
     let abort_formulas ({ stack } : t) (aborts : Branch.t list) : Z3.Expr.expr list =
       match stack with
-      | { parent = Local _ ; _ } :: _ -> failwith "cannot get abort formulas unless in global scope"
-      | { parent = Global ; formulas ; pick_formulas } :: [] -> List.map aborts ~f:Branch.pick_abort
-      | _ -> failwith "impossible global is not bottom of stack"
+      | Cons _ -> failwith "cannot get abort formulas unless in global scope"
+      | Last { formulas ; pick_formulas ; _ } -> List.map aborts ~f:Branch.pick_abort
 
     let max_step_formulas ({ stack } : t) (max_steps : Branch.t list) : Z3.Expr.expr list =
       match stack with
-      | { parent = Local _ ; _ } :: _ -> failwith "cannot get max step formulas unless in global scope"
-      | { parent = Global ; formulas ; pick_formulas } :: [] -> List.map max_steps ~f:Branch.pick_max_step
-      | _ -> failwith "impossible global is not bottom of stack"
+      | Cons _ -> failwith "cannot get max step formulas unless in global scope"
+      | Last { formulas ; pick_formulas ; _ } -> List.map max_steps ~f:Branch.pick_max_step
 
   end
 

@@ -248,7 +248,7 @@ and check_solver
   match Z3.Solver.check new_solver [] with
   | Z3.Solver.UNSATISFIABLE -> Format.printf "FOUND UNSATISFIABLE\n"; `Unsolvable Branch_tracker.Status.Unsatisfiable
   | Z3.Solver.UNKNOWN -> `Unsolvable (Branch_tracker.Status.Unknown 1)
-  | Z3.Solver.SATISFIABLE -> begin
+  | Z3.Solver.SATISFIABLE -> `Solved (Z3.Solver.get_model new_solver |> Option.value_exn) (*begin
     match solve_abort () with
     | `Quit status -> `Unsolvable status
     | `Continue abort_formulas -> begin
@@ -256,7 +256,7 @@ and check_solver
       | `Quit status -> `Unsolvable status
       | `Continue -> `Solved (Z3.Solver.get_model new_solver |> Option.value_exn )
     end
-  end
+  end *)
 
 let finish (session : t) : t =
   { session with branch_tracker = Branch_tracker.finish session.branch_tracker }
