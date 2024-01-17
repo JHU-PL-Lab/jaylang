@@ -1,0 +1,57 @@
+int_j_1 = 1;
+record_j_2 = {a = int_j_1};
+record_j_3 = {};
+record_j_4 = {a = record_j_3};
+record_j_5 = {~actual_rec = record_j_2, ~decl_lbls = record_j_4};
+x = record_j_5;
+bool_j_6 = false;
+fail_b_0 = bool_j_6;
+m_match_bool_j_9 = x ~ {~untouched, _};
+m_match_bool_j_16 = x ~ {~actual_rec, _};
+m_match_cond_j_17 = m_match_bool_j_16 ? (
+        actual_rec_b_2 = x.~actual_rec;
+        var_j_18 = x;
+        proj_j_19 = var_j_18.~decl_lbls;
+        m_match_bool_j_21 = proj_j_19 ~ {a};
+        m_match_cond_j_22 = m_match_bool_j_21 ? (
+                z_j_0 = proj_j_19.a;
+                var_j_23 = actual_rec_b_2;
+                proj_j_24 = var_j_23.a;
+                z = proj_j_24;
+                bool_j_25 = false;
+                fail_b_1 = bool_j_25;
+                var_j_26 = z;
+                m_match_bool_j_28 = var_j_26 ~ int;
+                m_match_bool_j_31 = var_j_26 ~ {~untouched, _};
+                m_match_cond_j_32 = m_match_bool_j_31 ? (
+                        var_j_33 = fail_b_1;
+                        assert_pred_j_34 = var_j_33;
+                        assert_res_j_35 = assert_pred_j_34 ? (
+                                assert_res_true_j_36 = {}
+                            ) : (
+                                ab_j_37 = abort
+                            )
+                    ) : (
+                        m_match_cond_j_29 = m_match_bool_j_28 ? (
+                                int_j_30 = 1
+                            ) : (
+                                ab_j_27 = abort
+                            )
+                    )
+            ) : (
+                ab_j_20 = abort
+            )
+    ) : (
+        m_match_cond_j_10 = m_match_bool_j_9 ? (
+                var_j_11 = fail_b_0;
+                assert_pred_j_12 = var_j_11;
+                assert_res_j_13 = assert_pred_j_12 ? (
+                        assert_res_true_j_14 = {}
+                    ) : (
+                        ab_j_15 = abort
+                    )
+            ) : (
+                ab_j_8 = abort
+            )
+    );
+_i_result = m_match_cond_j_17

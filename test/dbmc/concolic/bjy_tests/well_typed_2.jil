@@ -1,0 +1,36 @@
+int_j_0 = 5;
+x = int_j_0;
+bool_j_1 = false;
+fail_b_1 = bool_j_1;
+flatten_fun_j_10 = fun expr_b_0 -> (
+    var_j_2 = expr_b_0;
+    m_match_bool_j_4 = var_j_2 ~ any;
+    m_match_bool_j_7 = var_j_2 ~ int;
+    m_match_cond_j_8 = m_match_bool_j_7 ? (
+            bool_j_9 = true
+        ) : (
+            m_match_cond_j_5 = m_match_bool_j_4 ? (
+                    var_j_6 = fail_b_1
+                ) : (
+                    void_j_3 = {}
+                )
+        ));
+flatten_fun_j_12 = fun ~null -> (
+    input_j_11 = input);
+record_j_13 = {checker = flatten_fun_j_10, generator = flatten_fun_j_12};
+proj_j_14 = record_j_13.checker;
+int_j_15 = 5;
+appl_j_16 = proj_j_14 int_j_15;
+check_res_b_3 = appl_j_16;
+if_j_24 = check_res_b_3 ? (
+        var_j_18 = x
+    ) : (
+        error_var_j_19 = check_res_b_3;
+        assert_pred_j_20 = error_var_j_19;
+        assert_res_j_21 = assert_pred_j_20 ? (
+                assert_res_true_j_22 = {}
+            ) : (
+                ab_j_23 = abort
+            )
+    );
+_i_result = if_j_24
