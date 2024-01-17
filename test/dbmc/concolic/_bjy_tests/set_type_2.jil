@@ -16,7 +16,7 @@ flatten_fun_j_37 = fun expr_b_7 -> (
                         void_j_7 = {}
                     )
             ));
-    flatten_fun_j_16 = fun ~null -> (
+    flatten_fun_j_16 = fun bj_null -> (
         input_j_15 = input);
     record_j_17 = {checker = flatten_fun_j_14, generator = flatten_fun_j_16};
     proj_j_18 = record_j_17.checker;
@@ -44,7 +44,7 @@ flatten_fun_j_37 = fun expr_b_7 -> (
         ) : (
             var_j_35 = t_check_b_8
         ));
-flatten_fun_j_67 = fun ~null_j_3 -> (
+flatten_fun_j_67 = fun bj_null_j_3 -> (
     bool_j_38 = false;
     fail_b_1 = bool_j_38;
     flatten_fun_j_47 = fun expr_b_0 -> (
@@ -60,7 +60,7 @@ flatten_fun_j_67 = fun ~null_j_3 -> (
                         void_j_40 = {}
                     )
             ));
-    flatten_fun_j_49 = fun ~null_j_0 -> (
+    flatten_fun_j_49 = fun bj_null_j_0 -> (
         input_j_48 = input);
     record_j_50 = {checker = flatten_fun_j_47, generator = flatten_fun_j_49};
     proj_j_51 = record_j_50.generator;
@@ -98,4 +98,4 @@ if_j_79 = check_res_b_11 ? (
                 ab_j_78 = abort
             )
     );
-_i_result = if_j_79
+i_result = if_j_79

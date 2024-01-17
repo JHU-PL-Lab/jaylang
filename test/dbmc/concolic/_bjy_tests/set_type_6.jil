@@ -1,4 +1,4 @@
-_i_first = {};
+i_first = {};
 flatten_fun_j_82 = fun f_b_2 -> (
     flatten_fun_j_71 = fun x_b_1 -> (
         flatten_fun_j_70 = fun freeze_b_3 -> (
@@ -21,7 +21,7 @@ flatten_fun_j_82 = fun f_b_2 -> (
     appl_j_81 = flatten_fun_j_71 flatten_fun_j_80);
 ycomb_b_4 = flatten_fun_j_82;
 flatten_fun_j_914 = fun self_b_0 -> (
-    flatten_fun_j_913 = fun ~null_j_62 -> (
+    flatten_fun_j_913 = fun bj_null_j_62 -> (
         flatten_fun_j_497 = fun expr_b_135 -> (
             flatten_fun_j_492 = fun tt -> (
                 flatten_fun_j_354 = fun expr_b_131 -> (
@@ -42,10 +42,10 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 rec_fail_b_93 = bool_j_91;
                                 var_j_92 = expr_b_96;
                                 m_match_bool_j_94 = var_j_92 ~ any;
-                                m_match_bool_j_97 = var_j_92 ~ {~actual_rec, _};
+                                m_match_bool_j_97 = var_j_92 ~ {bj_actual_rec, _};
                                 m_match_cond_j_98 = m_match_bool_j_97 ? (
                                         var_j_99 = expr_b_96;
-                                        proj_j_100 = var_j_99.~decl_lbls;
+                                        proj_j_100 = var_j_99.bj_decl_lbls;
                                         m_match_bool_j_102 = proj_j_100 ~ any;
                                         m_match_bool_j_105 = proj_j_100 ~ 
                                             {left, right, _};
@@ -53,7 +53,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                 left_j_3 = proj_j_100.left;
                                                 right_j_2 = proj_j_100.right;
                                                 var_j_107 = expr_b_96;
-                                                proj_j_108 = var_j_107.~actual_rec;
+                                                proj_j_108 = var_j_107.bj_actual_rec;
                                                 m_match_bool_j_110 = proj_j_108 ~ any;
                                                 m_match_bool_j_113 = proj_j_108 ~ 
                                                     {left, right, _};
@@ -97,7 +97,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                 void_j_93 = {}
                                             )
                                     ));
-                            flatten_fun_j_142 = fun ~null -> (
+                            flatten_fun_j_142 = fun bj_null -> (
                                 var_j_127 = tt;
                                 proj_j_128 = var_j_127.generator;
                                 int_j_129 = 0;
@@ -114,7 +114,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 record_j_138 = {};
                                 record_j_139 = {};
                                 record_j_140 = {left = record_j_138, right = record_j_139};
-                                record_j_141 = {~actual_rec = record_j_137, ~decl_lbls = record_j_140});
+                                record_j_141 = {bj_actual_rec = record_j_137, bj_decl_lbls = record_j_140});
                             record_j_143 = {checker = flatten_fun_j_126, generator = flatten_fun_j_142};
                             proj_j_144 = record_j_143.checker;
                             var_j_145 = expr_b_131;
@@ -132,17 +132,17 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                         var_j_151 = expr_b_106;
                                         m_match_bool_j_153 = var_j_151 ~ any;
                                         m_match_bool_j_156 = var_j_151 ~ 
-                                            {~actual_rec, _};
+                                            {bj_actual_rec, _};
                                         m_match_cond_j_157 = m_match_bool_j_156 ? (
                                                 var_j_158 = expr_b_106;
-                                                proj_j_159 = var_j_158.~decl_lbls;
+                                                proj_j_159 = var_j_158.bj_decl_lbls;
                                                 m_match_bool_j_161 = proj_j_159 ~ any;
                                                 m_match_bool_j_164 = proj_j_159 ~ 
                                                     {leaf, _};
                                                 m_match_cond_j_165 = m_match_bool_j_164 ? (
                                                         leaf_j_5 = proj_j_159.leaf;
                                                         var_j_166 = expr_b_106;
-                                                        proj_j_167 = var_j_166.~actual_rec;
+                                                        proj_j_167 = var_j_166.bj_actual_rec;
                                                         m_match_bool_j_169 = proj_j_167 ~ any;
                                                         m_match_bool_j_172 = proj_j_167 ~ 
                                                             {leaf, _};
@@ -164,7 +164,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                                     {}
                                                                     )
                                                                     ));
-                                                                flatten_fun_j_185 = fun ~null_j_4 -> (
+                                                                flatten_fun_j_185 = fun bj_null_j_4 -> (
                                                                     input_j_184 = input);
                                                                 record_j_186 = 
                                                                     {checker = flatten_fun_j_183, generator = flatten_fun_j_185};
@@ -197,7 +197,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                             {}
                                                     )
                                             ));
-                                    flatten_fun_j_212 = fun ~null_j_7 -> (
+                                    flatten_fun_j_212 = fun bj_null_j_7 -> (
                                         bool_j_191 = false;
                                         fail_b_101 = bool_j_191;
                                         flatten_fun_j_200 = fun expr_b_100 -> (
@@ -214,7 +214,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                                 {}
                                                         )
                                                 ));
-                                        flatten_fun_j_202 = fun ~null_j_6 -> (
+                                        flatten_fun_j_202 = fun bj_null_j_6 -> (
                                             input_j_201 = input);
                                         record_j_203 = {checker = flatten_fun_j_200, generator = flatten_fun_j_202};
                                         proj_j_204 = record_j_203.generator;
@@ -225,7 +225,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                         record_j_208 = {leaf = var_j_207};
                                         record_j_209 = {};
                                         record_j_210 = {leaf = record_j_209};
-                                        record_j_211 = {~actual_rec = record_j_208, ~decl_lbls = record_j_210});
+                                        record_j_211 = {bj_actual_rec = record_j_208, bj_decl_lbls = record_j_210});
                                     record_j_213 = {checker = flatten_fun_j_190, generator = flatten_fun_j_212};
                                     proj_j_214 = record_j_213.checker;
                                     var_j_215 = expr_b_131;
@@ -246,17 +246,17 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 rec_fail_b_123 = bool_j_223;
                                 var_j_224 = expr_b_126;
                                 m_match_bool_j_226 = var_j_224 ~ any;
-                                m_match_bool_j_229 = var_j_224 ~ {~actual_rec, _};
+                                m_match_bool_j_229 = var_j_224 ~ {bj_actual_rec, _};
                                 m_match_cond_j_230 = m_match_bool_j_229 ? (
                                         var_j_231 = expr_b_126;
-                                        proj_j_232 = var_j_231.~decl_lbls;
+                                        proj_j_232 = var_j_231.bj_decl_lbls;
                                         m_match_bool_j_234 = proj_j_232 ~ any;
                                         m_match_bool_j_237 = proj_j_232 ~ 
                                             {leaf, _};
                                         m_match_cond_j_238 = m_match_bool_j_237 ? (
                                                 leaf_j_10 = proj_j_232.leaf;
                                                 var_j_239 = expr_b_126;
-                                                proj_j_240 = var_j_239.~actual_rec;
+                                                proj_j_240 = var_j_239.bj_actual_rec;
                                                 m_match_bool_j_242 = proj_j_240 ~ any;
                                                 m_match_bool_j_245 = proj_j_240 ~ 
                                                     {leaf, _};
@@ -278,7 +278,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                                     {}
                                                                     )
                                                                 ));
-                                                        flatten_fun_j_258 = fun ~null_j_8 -> (
+                                                        flatten_fun_j_258 = fun bj_null_j_8 -> (
                                                             input_j_257 = input);
                                                         record_j_259 = 
                                                             {checker = flatten_fun_j_256, generator = flatten_fun_j_258};
@@ -308,7 +308,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                 void_j_225 = {}
                                             )
                                     ));
-                            flatten_fun_j_285 = fun ~null_j_12 -> (
+                            flatten_fun_j_285 = fun bj_null_j_12 -> (
                                 bool_j_264 = false;
                                 fail_b_121 = bool_j_264;
                                 flatten_fun_j_273 = fun expr_b_120 -> (
@@ -324,7 +324,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                     void_j_266 = {}
                                                 )
                                         ));
-                                flatten_fun_j_275 = fun ~null_j_11 -> (
+                                flatten_fun_j_275 = fun bj_null_j_11 -> (
                                     input_j_274 = input);
                                 record_j_276 = {checker = flatten_fun_j_273, generator = flatten_fun_j_275};
                                 proj_j_277 = record_j_276.generator;
@@ -335,7 +335,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 record_j_281 = {leaf = var_j_280};
                                 record_j_282 = {};
                                 record_j_283 = {leaf = record_j_282};
-                                record_j_284 = {~actual_rec = record_j_281, ~decl_lbls = record_j_283});
+                                record_j_284 = {bj_actual_rec = record_j_281, bj_decl_lbls = record_j_283});
                             record_j_286 = {checker = flatten_fun_j_263, generator = flatten_fun_j_285};
                             proj_j_287 = record_j_286.checker;
                             var_j_288 = expr_b_131;
@@ -353,10 +353,10 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                         var_j_294 = expr_b_116;
                                         m_match_bool_j_296 = var_j_294 ~ any;
                                         m_match_bool_j_299 = var_j_294 ~ 
-                                            {~actual_rec, _};
+                                            {bj_actual_rec, _};
                                         m_match_cond_j_300 = m_match_bool_j_299 ? (
                                                 var_j_301 = expr_b_116;
-                                                proj_j_302 = var_j_301.~decl_lbls;
+                                                proj_j_302 = var_j_301.bj_decl_lbls;
                                                 m_match_bool_j_304 = proj_j_302 ~ any;
                                                 m_match_bool_j_307 = proj_j_302 ~ 
                                                     {left, right, _};
@@ -364,7 +364,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                         left_j_16 = proj_j_302.left;
                                                         right_j_15 = proj_j_302.right;
                                                         var_j_309 = expr_b_116;
-                                                        proj_j_310 = var_j_309.~actual_rec;
+                                                        proj_j_310 = var_j_309.bj_actual_rec;
                                                         m_match_bool_j_312 = proj_j_310 ~ any;
                                                         m_match_bool_j_315 = proj_j_310 ~ 
                                                             {left, right, _};
@@ -413,7 +413,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                             {}
                                                     )
                                             ));
-                                    flatten_fun_j_344 = fun ~null_j_17 -> (
+                                    flatten_fun_j_344 = fun bj_null_j_17 -> (
                                         var_j_329 = tt;
                                         proj_j_330 = var_j_329.generator;
                                         int_j_331 = 0;
@@ -430,7 +430,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                         record_j_340 = {};
                                         record_j_341 = {};
                                         record_j_342 = {left = record_j_340, right = record_j_341};
-                                        record_j_343 = {~actual_rec = record_j_339, ~decl_lbls = record_j_342});
+                                        record_j_343 = {bj_actual_rec = record_j_339, bj_decl_lbls = record_j_342});
                                     record_j_345 = {checker = flatten_fun_j_328, generator = flatten_fun_j_344};
                                     proj_j_346 = record_j_345.checker;
                                     var_j_347 = expr_b_131;
@@ -442,7 +442,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                         )
                                 )
                         ));
-                flatten_fun_j_487 = fun ~null_j_28 -> (
+                flatten_fun_j_487 = fun bj_null_j_28 -> (
                     input_j_355 = input;
                     select_int_b_90 = input_j_355;
                     int_j_356 = 0;
@@ -458,10 +458,10 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 rec_fail_b_72 = bool_j_361;
                                 var_j_362 = expr_b_75;
                                 m_match_bool_j_364 = var_j_362 ~ any;
-                                m_match_bool_j_367 = var_j_362 ~ {~actual_rec, _};
+                                m_match_bool_j_367 = var_j_362 ~ {bj_actual_rec, _};
                                 m_match_cond_j_368 = m_match_bool_j_367 ? (
                                         var_j_369 = expr_b_75;
-                                        proj_j_370 = var_j_369.~decl_lbls;
+                                        proj_j_370 = var_j_369.bj_decl_lbls;
                                         m_match_bool_j_372 = proj_j_370 ~ any;
                                         m_match_bool_j_375 = proj_j_370 ~ 
                                             {left, right, _};
@@ -469,7 +469,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                 left_j_21 = proj_j_370.left;
                                                 right_j_20 = proj_j_370.right;
                                                 var_j_377 = expr_b_75;
-                                                proj_j_378 = var_j_377.~actual_rec;
+                                                proj_j_378 = var_j_377.bj_actual_rec;
                                                 m_match_bool_j_380 = proj_j_378 ~ any;
                                                 m_match_bool_j_383 = proj_j_378 ~ 
                                                     {left, right, _};
@@ -513,7 +513,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                 void_j_363 = {}
                                             )
                                     ));
-                            flatten_fun_j_412 = fun ~null_j_22 -> (
+                            flatten_fun_j_412 = fun bj_null_j_22 -> (
                                 var_j_397 = tt;
                                 proj_j_398 = var_j_397.generator;
                                 int_j_399 = 0;
@@ -530,7 +530,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 record_j_408 = {};
                                 record_j_409 = {};
                                 record_j_410 = {left = record_j_408, right = record_j_409};
-                                record_j_411 = {~actual_rec = record_j_407, ~decl_lbls = record_j_410});
+                                record_j_411 = {bj_actual_rec = record_j_407, bj_decl_lbls = record_j_410});
                             record_j_413 = {checker = flatten_fun_j_396, generator = flatten_fun_j_412};
                             proj_j_414 = record_j_413.generator;
                             int_j_415 = 0;
@@ -545,17 +545,17 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 rec_fail_b_82 = bool_j_419;
                                 var_j_420 = expr_b_85;
                                 m_match_bool_j_422 = var_j_420 ~ any;
-                                m_match_bool_j_425 = var_j_420 ~ {~actual_rec, _};
+                                m_match_bool_j_425 = var_j_420 ~ {bj_actual_rec, _};
                                 m_match_cond_j_426 = m_match_bool_j_425 ? (
                                         var_j_427 = expr_b_85;
-                                        proj_j_428 = var_j_427.~decl_lbls;
+                                        proj_j_428 = var_j_427.bj_decl_lbls;
                                         m_match_bool_j_430 = proj_j_428 ~ any;
                                         m_match_bool_j_433 = proj_j_428 ~ 
                                             {leaf, _};
                                         m_match_cond_j_434 = m_match_bool_j_433 ? (
                                                 leaf_j_25 = proj_j_428.leaf;
                                                 var_j_435 = expr_b_85;
-                                                proj_j_436 = var_j_435.~actual_rec;
+                                                proj_j_436 = var_j_435.bj_actual_rec;
                                                 m_match_bool_j_438 = proj_j_436 ~ any;
                                                 m_match_bool_j_441 = proj_j_436 ~ 
                                                     {leaf, _};
@@ -577,7 +577,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                                     {}
                                                                     )
                                                                 ));
-                                                        flatten_fun_j_454 = fun ~null_j_23 -> (
+                                                        flatten_fun_j_454 = fun bj_null_j_23 -> (
                                                             input_j_453 = input);
                                                         record_j_455 = 
                                                             {checker = flatten_fun_j_452, generator = flatten_fun_j_454};
@@ -607,7 +607,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                 void_j_421 = {}
                                             )
                                     ));
-                            flatten_fun_j_481 = fun ~null_j_27 -> (
+                            flatten_fun_j_481 = fun bj_null_j_27 -> (
                                 bool_j_460 = false;
                                 fail_b_80 = bool_j_460;
                                 flatten_fun_j_469 = fun expr_b_79 -> (
@@ -623,7 +623,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                     void_j_462 = {}
                                                 )
                                         ));
-                                flatten_fun_j_471 = fun ~null_j_26 -> (
+                                flatten_fun_j_471 = fun bj_null_j_26 -> (
                                     input_j_470 = input);
                                 record_j_472 = {checker = flatten_fun_j_469, generator = flatten_fun_j_471};
                                 proj_j_473 = record_j_472.generator;
@@ -634,7 +634,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 record_j_477 = {leaf = var_j_476};
                                 record_j_478 = {};
                                 record_j_479 = {leaf = record_j_478};
-                                record_j_480 = {~actual_rec = record_j_477, ~decl_lbls = record_j_479});
+                                record_j_480 = {bj_actual_rec = record_j_477, bj_decl_lbls = record_j_479});
                             record_j_482 = {checker = flatten_fun_j_459, generator = flatten_fun_j_481};
                             proj_j_483 = record_j_482.generator;
                             int_j_484 = 0;
@@ -648,7 +648,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
             int_j_494 = 0;
             appl_j_495 = var_j_493 int_j_494;
             appl_j_496 = flatten_fun_j_492 appl_j_495);
-        flatten_fun_j_911 = fun ~null_j_61 -> (
+        flatten_fun_j_911 = fun bj_null_j_61 -> (
             flatten_fun_j_906 = fun tt_j_60 -> (
                 flatten_fun_j_768 = fun expr_b_66 -> (
                     input_j_498 = input;
@@ -668,10 +668,10 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 rec_fail_b_28 = bool_j_505;
                                 var_j_506 = expr_b_31;
                                 m_match_bool_j_508 = var_j_506 ~ any;
-                                m_match_bool_j_511 = var_j_506 ~ {~actual_rec, _};
+                                m_match_bool_j_511 = var_j_506 ~ {bj_actual_rec, _};
                                 m_match_cond_j_512 = m_match_bool_j_511 ? (
                                         var_j_513 = expr_b_31;
-                                        proj_j_514 = var_j_513.~decl_lbls;
+                                        proj_j_514 = var_j_513.bj_decl_lbls;
                                         m_match_bool_j_516 = proj_j_514 ~ any;
                                         m_match_bool_j_519 = proj_j_514 ~ 
                                             {left, right, _};
@@ -679,7 +679,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                 left_j_32 = proj_j_514.left;
                                                 right_j_31 = proj_j_514.right;
                                                 var_j_521 = expr_b_31;
-                                                proj_j_522 = var_j_521.~actual_rec;
+                                                proj_j_522 = var_j_521.bj_actual_rec;
                                                 m_match_bool_j_524 = proj_j_522 ~ any;
                                                 m_match_bool_j_527 = proj_j_522 ~ 
                                                     {left, right, _};
@@ -723,7 +723,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                 void_j_507 = {}
                                             )
                                     ));
-                            flatten_fun_j_556 = fun ~null_j_33 -> (
+                            flatten_fun_j_556 = fun bj_null_j_33 -> (
                                 var_j_541 = tt_j_60;
                                 proj_j_542 = var_j_541.generator;
                                 int_j_543 = 0;
@@ -740,7 +740,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 record_j_552 = {};
                                 record_j_553 = {};
                                 record_j_554 = {left = record_j_552, right = record_j_553};
-                                record_j_555 = {~actual_rec = record_j_551, ~decl_lbls = record_j_554});
+                                record_j_555 = {bj_actual_rec = record_j_551, bj_decl_lbls = record_j_554});
                             record_j_557 = {checker = flatten_fun_j_540, generator = flatten_fun_j_556};
                             proj_j_558 = record_j_557.checker;
                             var_j_559 = expr_b_66;
@@ -758,17 +758,17 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                         var_j_565 = expr_b_41;
                                         m_match_bool_j_567 = var_j_565 ~ any;
                                         m_match_bool_j_570 = var_j_565 ~ 
-                                            {~actual_rec, _};
+                                            {bj_actual_rec, _};
                                         m_match_cond_j_571 = m_match_bool_j_570 ? (
                                                 var_j_572 = expr_b_41;
-                                                proj_j_573 = var_j_572.~decl_lbls;
+                                                proj_j_573 = var_j_572.bj_decl_lbls;
                                                 m_match_bool_j_575 = proj_j_573 ~ any;
                                                 m_match_bool_j_578 = proj_j_573 ~ 
                                                     {leaf, _};
                                                 m_match_cond_j_579 = m_match_bool_j_578 ? (
                                                         leaf_j_36 = proj_j_573.leaf;
                                                         var_j_580 = expr_b_41;
-                                                        proj_j_581 = var_j_580.~actual_rec;
+                                                        proj_j_581 = var_j_580.bj_actual_rec;
                                                         m_match_bool_j_583 = proj_j_581 ~ any;
                                                         m_match_bool_j_586 = proj_j_581 ~ 
                                                             {leaf, _};
@@ -790,7 +790,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                                     {}
                                                                     )
                                                                     ));
-                                                                flatten_fun_j_599 = fun ~null_j_34 -> (
+                                                                flatten_fun_j_599 = fun bj_null_j_34 -> (
                                                                     input_j_598 = input);
                                                                 record_j_600 = 
                                                                     {checker = flatten_fun_j_597, generator = flatten_fun_j_599};
@@ -823,7 +823,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                             {}
                                                     )
                                             ));
-                                    flatten_fun_j_626 = fun ~null_j_38 -> (
+                                    flatten_fun_j_626 = fun bj_null_j_38 -> (
                                         bool_j_605 = false;
                                         fail_b_36 = bool_j_605;
                                         flatten_fun_j_614 = fun expr_b_35 -> (
@@ -840,7 +840,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                                 {}
                                                         )
                                                 ));
-                                        flatten_fun_j_616 = fun ~null_j_37 -> (
+                                        flatten_fun_j_616 = fun bj_null_j_37 -> (
                                             input_j_615 = input);
                                         record_j_617 = {checker = flatten_fun_j_614, generator = flatten_fun_j_616};
                                         proj_j_618 = record_j_617.generator;
@@ -851,7 +851,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                         record_j_622 = {leaf = var_j_621};
                                         record_j_623 = {};
                                         record_j_624 = {leaf = record_j_623};
-                                        record_j_625 = {~actual_rec = record_j_622, ~decl_lbls = record_j_624});
+                                        record_j_625 = {bj_actual_rec = record_j_622, bj_decl_lbls = record_j_624});
                                     record_j_627 = {checker = flatten_fun_j_604, generator = flatten_fun_j_626};
                                     proj_j_628 = record_j_627.checker;
                                     var_j_629 = expr_b_66;
@@ -872,17 +872,17 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 rec_fail_b_58 = bool_j_637;
                                 var_j_638 = expr_b_61;
                                 m_match_bool_j_640 = var_j_638 ~ any;
-                                m_match_bool_j_643 = var_j_638 ~ {~actual_rec, _};
+                                m_match_bool_j_643 = var_j_638 ~ {bj_actual_rec, _};
                                 m_match_cond_j_644 = m_match_bool_j_643 ? (
                                         var_j_645 = expr_b_61;
-                                        proj_j_646 = var_j_645.~decl_lbls;
+                                        proj_j_646 = var_j_645.bj_decl_lbls;
                                         m_match_bool_j_648 = proj_j_646 ~ any;
                                         m_match_bool_j_651 = proj_j_646 ~ 
                                             {leaf, _};
                                         m_match_cond_j_652 = m_match_bool_j_651 ? (
                                                 leaf_j_41 = proj_j_646.leaf;
                                                 var_j_653 = expr_b_61;
-                                                proj_j_654 = var_j_653.~actual_rec;
+                                                proj_j_654 = var_j_653.bj_actual_rec;
                                                 m_match_bool_j_656 = proj_j_654 ~ any;
                                                 m_match_bool_j_659 = proj_j_654 ~ 
                                                     {leaf, _};
@@ -904,7 +904,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                                     {}
                                                                     )
                                                                 ));
-                                                        flatten_fun_j_672 = fun ~null_j_39 -> (
+                                                        flatten_fun_j_672 = fun bj_null_j_39 -> (
                                                             input_j_671 = input);
                                                         record_j_673 = 
                                                             {checker = flatten_fun_j_670, generator = flatten_fun_j_672};
@@ -934,7 +934,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                 void_j_639 = {}
                                             )
                                     ));
-                            flatten_fun_j_699 = fun ~null_j_43 -> (
+                            flatten_fun_j_699 = fun bj_null_j_43 -> (
                                 bool_j_678 = false;
                                 fail_b_56 = bool_j_678;
                                 flatten_fun_j_687 = fun expr_b_55 -> (
@@ -950,7 +950,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                     void_j_680 = {}
                                                 )
                                         ));
-                                flatten_fun_j_689 = fun ~null_j_42 -> (
+                                flatten_fun_j_689 = fun bj_null_j_42 -> (
                                     input_j_688 = input);
                                 record_j_690 = {checker = flatten_fun_j_687, generator = flatten_fun_j_689};
                                 proj_j_691 = record_j_690.generator;
@@ -961,7 +961,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 record_j_695 = {leaf = var_j_694};
                                 record_j_696 = {};
                                 record_j_697 = {leaf = record_j_696};
-                                record_j_698 = {~actual_rec = record_j_695, ~decl_lbls = record_j_697});
+                                record_j_698 = {bj_actual_rec = record_j_695, bj_decl_lbls = record_j_697});
                             record_j_700 = {checker = flatten_fun_j_677, generator = flatten_fun_j_699};
                             proj_j_701 = record_j_700.checker;
                             var_j_702 = expr_b_66;
@@ -979,10 +979,10 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                         var_j_708 = expr_b_51;
                                         m_match_bool_j_710 = var_j_708 ~ any;
                                         m_match_bool_j_713 = var_j_708 ~ 
-                                            {~actual_rec, _};
+                                            {bj_actual_rec, _};
                                         m_match_cond_j_714 = m_match_bool_j_713 ? (
                                                 var_j_715 = expr_b_51;
-                                                proj_j_716 = var_j_715.~decl_lbls;
+                                                proj_j_716 = var_j_715.bj_decl_lbls;
                                                 m_match_bool_j_718 = proj_j_716 ~ any;
                                                 m_match_bool_j_721 = proj_j_716 ~ 
                                                     {left, right, _};
@@ -990,7 +990,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                         left_j_47 = proj_j_716.left;
                                                         right_j_46 = proj_j_716.right;
                                                         var_j_723 = expr_b_51;
-                                                        proj_j_724 = var_j_723.~actual_rec;
+                                                        proj_j_724 = var_j_723.bj_actual_rec;
                                                         m_match_bool_j_726 = proj_j_724 ~ any;
                                                         m_match_bool_j_729 = proj_j_724 ~ 
                                                             {left, right, _};
@@ -1039,7 +1039,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                             {}
                                                     )
                                             ));
-                                    flatten_fun_j_758 = fun ~null_j_48 -> (
+                                    flatten_fun_j_758 = fun bj_null_j_48 -> (
                                         var_j_743 = tt_j_60;
                                         proj_j_744 = var_j_743.generator;
                                         int_j_745 = 0;
@@ -1056,7 +1056,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                         record_j_754 = {};
                                         record_j_755 = {};
                                         record_j_756 = {left = record_j_754, right = record_j_755};
-                                        record_j_757 = {~actual_rec = record_j_753, ~decl_lbls = record_j_756});
+                                        record_j_757 = {bj_actual_rec = record_j_753, bj_decl_lbls = record_j_756});
                                     record_j_759 = {checker = flatten_fun_j_742, generator = flatten_fun_j_758};
                                     proj_j_760 = record_j_759.checker;
                                     var_j_761 = expr_b_66;
@@ -1068,7 +1068,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                         )
                                 )
                         ));
-                flatten_fun_j_901 = fun ~null_j_59 -> (
+                flatten_fun_j_901 = fun bj_null_j_59 -> (
                     input_j_769 = input;
                     select_int_b_25 = input_j_769;
                     int_j_770 = 0;
@@ -1084,10 +1084,10 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 rec_fail_b_7 = bool_j_775;
                                 var_j_776 = expr_b_10;
                                 m_match_bool_j_778 = var_j_776 ~ any;
-                                m_match_bool_j_781 = var_j_776 ~ {~actual_rec, _};
+                                m_match_bool_j_781 = var_j_776 ~ {bj_actual_rec, _};
                                 m_match_cond_j_782 = m_match_bool_j_781 ? (
                                         var_j_783 = expr_b_10;
-                                        proj_j_784 = var_j_783.~decl_lbls;
+                                        proj_j_784 = var_j_783.bj_decl_lbls;
                                         m_match_bool_j_786 = proj_j_784 ~ any;
                                         m_match_bool_j_789 = proj_j_784 ~ 
                                             {left, right, _};
@@ -1095,7 +1095,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                 left_j_52 = proj_j_784.left;
                                                 right_j_51 = proj_j_784.right;
                                                 var_j_791 = expr_b_10;
-                                                proj_j_792 = var_j_791.~actual_rec;
+                                                proj_j_792 = var_j_791.bj_actual_rec;
                                                 m_match_bool_j_794 = proj_j_792 ~ any;
                                                 m_match_bool_j_797 = proj_j_792 ~ 
                                                     {left, right, _};
@@ -1139,7 +1139,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                 void_j_777 = {}
                                             )
                                     ));
-                            flatten_fun_j_826 = fun ~null_j_53 -> (
+                            flatten_fun_j_826 = fun bj_null_j_53 -> (
                                 var_j_811 = tt_j_60;
                                 proj_j_812 = var_j_811.generator;
                                 int_j_813 = 0;
@@ -1156,7 +1156,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 record_j_822 = {};
                                 record_j_823 = {};
                                 record_j_824 = {left = record_j_822, right = record_j_823};
-                                record_j_825 = {~actual_rec = record_j_821, ~decl_lbls = record_j_824});
+                                record_j_825 = {bj_actual_rec = record_j_821, bj_decl_lbls = record_j_824});
                             record_j_827 = {checker = flatten_fun_j_810, generator = flatten_fun_j_826};
                             proj_j_828 = record_j_827.generator;
                             int_j_829 = 0;
@@ -1171,17 +1171,17 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 rec_fail_b_17 = bool_j_833;
                                 var_j_834 = expr_b_20;
                                 m_match_bool_j_836 = var_j_834 ~ any;
-                                m_match_bool_j_839 = var_j_834 ~ {~actual_rec, _};
+                                m_match_bool_j_839 = var_j_834 ~ {bj_actual_rec, _};
                                 m_match_cond_j_840 = m_match_bool_j_839 ? (
                                         var_j_841 = expr_b_20;
-                                        proj_j_842 = var_j_841.~decl_lbls;
+                                        proj_j_842 = var_j_841.bj_decl_lbls;
                                         m_match_bool_j_844 = proj_j_842 ~ any;
                                         m_match_bool_j_847 = proj_j_842 ~ 
                                             {leaf, _};
                                         m_match_cond_j_848 = m_match_bool_j_847 ? (
                                                 leaf_j_56 = proj_j_842.leaf;
                                                 var_j_849 = expr_b_20;
-                                                proj_j_850 = var_j_849.~actual_rec;
+                                                proj_j_850 = var_j_849.bj_actual_rec;
                                                 m_match_bool_j_852 = proj_j_850 ~ any;
                                                 m_match_bool_j_855 = proj_j_850 ~ 
                                                     {leaf, _};
@@ -1203,7 +1203,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                                     {}
                                                                     )
                                                                 ));
-                                                        flatten_fun_j_868 = fun ~null_j_54 -> (
+                                                        flatten_fun_j_868 = fun bj_null_j_54 -> (
                                                             input_j_867 = input);
                                                         record_j_869 = 
                                                             {checker = flatten_fun_j_866, generator = flatten_fun_j_868};
@@ -1233,7 +1233,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                 void_j_835 = {}
                                             )
                                     ));
-                            flatten_fun_j_895 = fun ~null_j_58 -> (
+                            flatten_fun_j_895 = fun bj_null_j_58 -> (
                                 bool_j_874 = false;
                                 fail_b_15 = bool_j_874;
                                 flatten_fun_j_883 = fun expr_b_14 -> (
@@ -1249,7 +1249,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                                     void_j_876 = {}
                                                 )
                                         ));
-                                flatten_fun_j_885 = fun ~null_j_57 -> (
+                                flatten_fun_j_885 = fun bj_null_j_57 -> (
                                     input_j_884 = input);
                                 record_j_886 = {checker = flatten_fun_j_883, generator = flatten_fun_j_885};
                                 proj_j_887 = record_j_886.generator;
@@ -1260,7 +1260,7 @@ flatten_fun_j_914 = fun self_b_0 -> (
                                 record_j_891 = {leaf = var_j_890};
                                 record_j_892 = {};
                                 record_j_893 = {leaf = record_j_892};
-                                record_j_894 = {~actual_rec = record_j_891, ~decl_lbls = record_j_893});
+                                record_j_894 = {bj_actual_rec = record_j_891, bj_decl_lbls = record_j_893});
                             record_j_896 = {checker = flatten_fun_j_873, generator = flatten_fun_j_895};
                             proj_j_897 = record_j_896.generator;
                             int_j_898 = 0;
@@ -1283,12 +1283,12 @@ int_j_918 = 0;
 record_j_919 = {leaf = int_j_918};
 record_j_920 = {};
 record_j_921 = {leaf = record_j_920};
-record_j_922 = {~actual_rec = record_j_919, ~decl_lbls = record_j_921};
+record_j_922 = {bj_actual_rec = record_j_919, bj_decl_lbls = record_j_921};
 int_j_923 = 0;
 record_j_924 = {leaf = int_j_923};
 record_j_925 = {};
 record_j_926 = {leaf = record_j_925};
-record_j_927 = {~actual_rec = record_j_924, ~decl_lbls = record_j_926};
+record_j_927 = {bj_actual_rec = record_j_924, bj_decl_lbls = record_j_926};
 record_j_928 = {left = record_j_922, right = record_j_927};
 x = record_j_928;
 proj_j_930 = tree_type.checker;
@@ -1296,12 +1296,12 @@ int_j_931 = 0;
 record_j_932 = {leaf = int_j_931};
 record_j_933 = {};
 record_j_934 = {leaf = record_j_933};
-record_j_935 = {~actual_rec = record_j_932, ~decl_lbls = record_j_934};
+record_j_935 = {bj_actual_rec = record_j_932, bj_decl_lbls = record_j_934};
 int_j_936 = 0;
 record_j_937 = {leaf = int_j_936};
 record_j_938 = {};
 record_j_939 = {leaf = record_j_938};
-record_j_940 = {~actual_rec = record_j_937, ~decl_lbls = record_j_939};
+record_j_940 = {bj_actual_rec = record_j_937, bj_decl_lbls = record_j_939};
 record_j_941 = {left = record_j_935, right = record_j_940};
 appl_j_942 = proj_j_930 record_j_941;
 check_res_b_137 = appl_j_942;
@@ -1316,4 +1316,4 @@ if_j_950 = check_res_b_137 ? (
                 ab_j_949 = abort
             )
     );
-_i_result = if_j_950
+i_result = if_j_950

@@ -1,4 +1,4 @@
-_i_first = {};
+i_first = {};
 flatten_fun_j_35 = fun f_j_0 -> (
     flatten_fun_j_34 = fun g_j_1 -> (
         flatten_fun_j_33 = fun x -> (
@@ -72,7 +72,7 @@ flatten_fun_j_78 = fun expr_b_0 -> (
                     void_j_71 = {}
                 )
         ));
-flatten_fun_j_80 = fun ~null -> (
+flatten_fun_j_80 = fun bj_null -> (
     input_j_79 = input);
 record_j_81 = {checker = flatten_fun_j_78, generator = flatten_fun_j_80};
 proj_j_82 = record_j_81.generator;
@@ -94,7 +94,7 @@ flatten_fun_j_94 = fun expr_b_3 -> (
                     void_j_87 = {}
                 )
         ));
-flatten_fun_j_96 = fun ~null_j_6 -> (
+flatten_fun_j_96 = fun bj_null_j_6 -> (
     input_j_95 = input);
 record_j_97 = {checker = flatten_fun_j_94, generator = flatten_fun_j_96};
 proj_j_98 = record_j_97.checker;
@@ -117,7 +117,7 @@ if_j_153 = check_res_b_14 ? (
                             void_j_106 = {}
                         )
                 ));
-        flatten_fun_j_115 = fun ~null_j_7 -> (
+        flatten_fun_j_115 = fun bj_null_j_7 -> (
             input_j_114 = input);
         record_j_116 = {checker = flatten_fun_j_113, generator = flatten_fun_j_115};
         proj_j_117 = record_j_116.generator;
@@ -139,7 +139,7 @@ if_j_153 = check_res_b_14 ? (
                             void_j_122 = {}
                         )
                 ));
-        flatten_fun_j_131 = fun ~null_j_8 -> (
+        flatten_fun_j_131 = fun bj_null_j_8 -> (
             input_j_130 = input);
         record_j_132 = {checker = flatten_fun_j_129, generator = flatten_fun_j_131};
         proj_j_133 = record_j_132.checker;
@@ -171,4 +171,4 @@ if_j_153 = check_res_b_14 ? (
                 ab_j_152 = abort
             )
     );
-_i_result = if_j_153
+i_result = if_j_153

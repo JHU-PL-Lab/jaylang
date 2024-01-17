@@ -15,7 +15,7 @@ flatten_fun_j_10 = fun expr_b_0 -> (
                     void_j_3 = {}
                 )
         ));
-flatten_fun_j_12 = fun ~null -> (
+flatten_fun_j_12 = fun bj_null -> (
     input_j_11 = input);
 record_j_13 = {checker = flatten_fun_j_10, generator = flatten_fun_j_12};
 proj_j_14 = record_j_13.checker;
@@ -33,4 +33,4 @@ if_j_24 = check_res_b_3 ? (
                 ab_j_23 = abort
             )
     );
-_i_result = if_j_24
+i_result = if_j_24

@@ -1,4 +1,4 @@
-_i_first = {};
+i_first = {};
 flatten_fun_j_31 = fun makeList_j_0 -> (
     flatten_fun_j_30 = fun n -> (
         var_j_13 = makeList_j_0;
@@ -10,7 +10,7 @@ flatten_fun_j_31 = fun makeList_j_0 -> (
         binop_j_18 = var_j_16 == int_j_17;
         if_j_29 = binop_j_18 ? (
                 record_j_19 = {};
-                record_j_20 = {_j_empty = record_j_19}
+                record_j_20 = {j_empty = record_j_19}
             ) : (
                 record_j_21 = {};
                 var_j_22 = n;
@@ -19,16 +19,16 @@ flatten_fun_j_31 = fun makeList_j_0 -> (
                 appl_j_25 = var_j_23 var_j_24;
                 int_j_26 = 1;
                 binop_j_27 = appl_j_25 - int_j_26;
-                record_j_28 = {_j_cons = record_j_21, _j_head = var_j_22, _j_tail = binop_j_27}
+                record_j_28 = {j_cons = record_j_21, j_head = var_j_22, j_tail = binop_j_27}
             )));
 appl_j_34 = flatten_fun_j_31 flatten_fun_j_31;
 getHead_j_55 = fun l_j_10 -> (
     bool_j_35 = false;
     fail_b_0 = bool_j_35;
     var_j_36 = l_j_10;
-    m_match_bool_j_38 = var_j_36 ~ {_j_head, _j_tail, _};
-    m_match_bool_j_41 = var_j_36 ~ {_j_empty, _};
-    m_match_bool_j_48 = var_j_36 ~ {~untouched, _};
+    m_match_bool_j_38 = var_j_36 ~ {j_head, j_tail, _};
+    m_match_bool_j_41 = var_j_36 ~ {j_empty, _};
+    m_match_bool_j_48 = var_j_36 ~ {bj_untouched, _};
     m_match_cond_j_49 = m_match_bool_j_48 ? (
             var_j_50 = fail_b_0;
             assert_pred_j_51 = var_j_50;
@@ -48,8 +48,8 @@ getHead_j_55 = fun l_j_10 -> (
                         )
                 ) : (
                     m_match_cond_j_39 = m_match_bool_j_38 ? (
-                            hd = var_j_36._j_head;
-                            tl = var_j_36._j_tail;
+                            hd = var_j_36.j_head;
+                            tl = var_j_36.j_tail;
                             var_j_40 = hd
                         ) : (
                             ab_j_37 = abort
@@ -89,7 +89,7 @@ flatten_fun_j_97 = fun expr_b_8 -> (
                         void_j_70 = {}
                     )
             ));
-    flatten_fun_j_79 = fun ~null -> (
+    flatten_fun_j_79 = fun bj_null -> (
         input_j_78 = input);
     record_j_80 = {checker = flatten_fun_j_77, generator = flatten_fun_j_79};
     proj_j_81 = record_j_80.checker;
@@ -114,7 +114,7 @@ flatten_fun_j_97 = fun expr_b_8 -> (
         ) : (
             var_j_95 = t_check_b_9
         ));
-flatten_fun_j_124 = fun ~null_j_3 -> (
+flatten_fun_j_124 = fun bj_null_j_3 -> (
     bool_j_98 = false;
     fail_b_2 = bool_j_98;
     flatten_fun_j_107 = fun expr_b_1 -> (
@@ -130,7 +130,7 @@ flatten_fun_j_124 = fun ~null_j_3 -> (
                         void_j_100 = {}
                     )
             ));
-    flatten_fun_j_109 = fun ~null_j_1 -> (
+    flatten_fun_j_109 = fun bj_null_j_1 -> (
         input_j_108 = input);
     record_j_110 = {checker = flatten_fun_j_107, generator = flatten_fun_j_109};
     proj_j_111 = record_j_110.generator;
@@ -170,7 +170,7 @@ flatten_fun_j_158 = fun expr_b_19 -> (
                         void_j_131 = {}
                     )
             ));
-    flatten_fun_j_140 = fun ~null_j_4 -> (
+    flatten_fun_j_140 = fun bj_null_j_4 -> (
         input_j_139 = input);
     record_j_141 = {checker = flatten_fun_j_138, generator = flatten_fun_j_140};
     proj_j_142 = record_j_141.checker;
@@ -195,7 +195,7 @@ flatten_fun_j_158 = fun expr_b_19 -> (
         ) : (
             var_j_156 = t_check_b_20
         ));
-flatten_fun_j_185 = fun ~null_j_8 -> (
+flatten_fun_j_185 = fun bj_null_j_8 -> (
     bool_j_159 = false;
     fail_b_13 = bool_j_159;
     flatten_fun_j_168 = fun expr_b_12 -> (
@@ -211,7 +211,7 @@ flatten_fun_j_185 = fun ~null_j_8 -> (
                         void_j_161 = {}
                     )
             ));
-    flatten_fun_j_170 = fun ~null_j_6 -> (
+    flatten_fun_j_170 = fun bj_null_j_6 -> (
         input_j_169 = input);
     record_j_171 = {checker = flatten_fun_j_168, generator = flatten_fun_j_170};
     proj_j_172 = record_j_171.generator;
@@ -246,4 +246,4 @@ if_j_199 = check_res_b_24 ? (
                 ab_j_198 = abort
             )
     );
-_i_result = if_j_199
+i_result = if_j_199

@@ -8,7 +8,9 @@ let main () : unit =
   | Bluejay_to_jayil ->
       File_utils.parse_bluejay_stdin ()
       |> Convert.bluejay_to_jayil ~do_wrap:false ~do_instrument
-      |> Convert.jil_ast_of_convert |> Jayil.Pp.print_expr
+      |> Convert.jil_ast_of_convert
+      |> Jayil.Ast_tools.purge
+      |> Jayil.Pp.print_expr
   | Bluejay_to_jay ->
       File_utils.parse_bluejay_stdin ()
       |> Convert.bluejay_to_jay ~do_wrap:false

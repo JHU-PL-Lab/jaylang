@@ -1,12 +1,8 @@
-# bool_j_0 = false;
-# f = bool_j_0;
-# assume_j_2 = assume f;
-# a = assume_j_2;
-# int_j_3 = 1;
-# bool_j_4 = true;
-# binop_j_5 = int_j_3 + bool_j_4;
-# _i_result = binop_j_5
-
-# I think that this file should be ignored. It has incorrect binop because it adds bool and int
-
-void = 0
+bool_j_0 = false;
+f = bool_j_0;
+assume_j_2 = assume f;
+a = assume_j_2;
+int_j_3 = 1;
+bool_j_4 = true;
+binop_j_5 = int_j_3 + bool_j_4;
+i_result = binop_j_5

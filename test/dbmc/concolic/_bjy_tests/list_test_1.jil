@@ -1,11 +1,11 @@
-_i_first = {};
+i_first = {};
 list_test_j_28 = fun lst -> (
     bool_j_12 = false;
     fail_b_15 = bool_j_12;
     var_j_13 = lst;
-    m_match_bool_j_15 = var_j_13 ~ {_j_head, _j_tail, _};
-    m_match_bool_j_18 = var_j_13 ~ {_j_empty, _};
-    m_match_bool_j_21 = var_j_13 ~ {~untouched, _};
+    m_match_bool_j_15 = var_j_13 ~ {j_head, j_tail, _};
+    m_match_bool_j_18 = var_j_13 ~ {j_empty, _};
+    m_match_bool_j_21 = var_j_13 ~ {bj_untouched, _};
     m_match_cond_j_22 = m_match_bool_j_21 ? (
             var_j_23 = fail_b_15;
             assert_pred_j_24 = var_j_23;
@@ -19,8 +19,8 @@ list_test_j_28 = fun lst -> (
                     bool_j_20 = false
                 ) : (
                     m_match_cond_j_16 = m_match_bool_j_15 ? (
-                            hd_j_11 = var_j_13._j_head;
-                            tl_j_10 = var_j_13._j_tail;
+                            hd_j_11 = var_j_13.j_head;
+                            tl_j_10 = var_j_13.j_tail;
                             int_j_17 = 5
                         ) : (
                             ab_j_14 = abort
@@ -33,14 +33,14 @@ flatten_fun_j_80 = fun expr_b_12 -> (
     lst_fail_b_13 = bool_j_29;
     var_j_30 = expr_b_12;
     m_match_bool_j_32 = var_j_30 ~ any;
-    m_match_bool_j_35 = var_j_30 ~ {_j_head, _j_tail, _};
-    m_match_bool_j_77 = var_j_30 ~ {_j_empty, _};
+    m_match_bool_j_35 = var_j_30 ~ {j_head, j_tail, _};
+    m_match_bool_j_77 = var_j_30 ~ {j_empty, _};
     m_match_cond_j_78 = m_match_bool_j_77 ? (
             bool_j_79 = true
         ) : (
             m_match_cond_j_36 = m_match_bool_j_35 ? (
-                    ~underscore = var_j_30._j_head;
-                    ~underscore2 = var_j_30._j_tail;
+                    bj_underscore = var_j_30.j_head;
+                    bj_underscore2 = var_j_30.j_tail;
                     flatten_fun_j_70 = fun test_fun_b_9_j_0 -> (
                         flatten_fun_j_69 = fun test_list_b_10 -> (
                             var_j_37 = test_fun_b_9_j_0;
@@ -48,14 +48,14 @@ flatten_fun_j_80 = fun expr_b_12 -> (
                             appl_j_39 = var_j_37 var_j_38;
                             test_fun_b_9 = appl_j_39;
                             var_j_40 = test_list_b_10;
-                            m_match_bool_j_42 = var_j_40 ~ {_j_head, _j_tail, _};
-                            m_match_bool_j_66 = var_j_40 ~ {_j_empty, _};
+                            m_match_bool_j_42 = var_j_40 ~ {j_head, j_tail, _};
+                            m_match_bool_j_66 = var_j_40 ~ {j_empty, _};
                             m_match_cond_j_67 = m_match_bool_j_66 ? (
                                     bool_j_68 = true
                                 ) : (
                                     m_match_cond_j_43 = m_match_bool_j_42 ? (
-                                            hd = var_j_40._j_head;
-                                            tl = var_j_40._j_tail;
+                                            hd = var_j_40.j_head;
+                                            tl = var_j_40.j_tail;
                                             bool_j_44 = false;
                                             fail_b_7 = bool_j_44;
                                             flatten_fun_j_53 = fun expr_b_6 -> (
@@ -72,7 +72,7 @@ flatten_fun_j_80 = fun expr_b_12 -> (
                                                                     {}
                                                             )
                                                     ));
-                                            flatten_fun_j_55 = fun ~null -> (
+                                            flatten_fun_j_55 = fun bj_null -> (
                                                 input_j_54 = input);
                                             record_j_56 = {checker = flatten_fun_j_53, generator = flatten_fun_j_55};
                                             proj_j_57 = record_j_56.checker;
@@ -107,7 +107,7 @@ flatten_fun_j_80 = fun expr_b_12 -> (
                         )
                 )
         ));
-flatten_fun_j_129 = fun ~null_j_8 -> (
+flatten_fun_j_129 = fun bj_null_j_8 -> (
     flatten_fun_j_115 = fun list_maker_b_4_j_1 -> (
         flatten_fun_j_114 = fun len_b_3 -> (
             var_j_81 = list_maker_b_4_j_1;
@@ -119,7 +119,7 @@ flatten_fun_j_129 = fun ~null_j_8 -> (
             binop_j_86 = var_j_84 == int_j_85;
             if_j_113 = binop_j_86 ? (
                     record_j_87 = {};
-                    record_j_88 = {_j_empty = record_j_87}
+                    record_j_88 = {j_empty = record_j_87}
                 ) : (
                     bool_j_89 = false;
                     fail_b_1 = bool_j_89;
@@ -136,7 +136,7 @@ flatten_fun_j_129 = fun ~null_j_8 -> (
                                         void_j_91 = {}
                                     )
                             ));
-                    flatten_fun_j_100 = fun ~null_j_4 -> (
+                    flatten_fun_j_100 = fun bj_null_j_4 -> (
                         input_j_99 = input);
                     record_j_101 = {checker = flatten_fun_j_98, generator = flatten_fun_j_100};
                     proj_j_102 = record_j_101.generator;
@@ -150,7 +150,7 @@ flatten_fun_j_129 = fun ~null_j_8 -> (
                     int_j_109 = 1;
                     binop_j_110 = var_j_108 - int_j_109;
                     appl_j_111 = var_j_107 binop_j_110;
-                    record_j_112 = {_j_cons = record_j_105, _j_head = var_j_106, _j_tail = appl_j_111}
+                    record_j_112 = {j_cons = record_j_105, j_head = var_j_106, j_tail = appl_j_111}
                 )));
     list_maker_b_4_j_1_j_7 = flatten_fun_j_115;
     var_j_116 = list_maker_b_4_j_1_j_7;
@@ -190,7 +190,7 @@ flatten_fun_j_143 = fun expr_b_16 -> (
                     void_j_136 = {}
                 )
         ));
-flatten_fun_j_145 = fun ~null_j_9 -> (
+flatten_fun_j_145 = fun bj_null_j_9 -> (
     input_j_144 = input);
 record_j_146 = {checker = flatten_fun_j_143, generator = flatten_fun_j_145};
 proj_j_147 = record_j_146.checker;
@@ -208,4 +208,4 @@ if_j_159 = check_res_b_20 ? (
                 ab_j_158 = abort
             )
     );
-_i_result = if_j_159
+i_result = if_j_159

@@ -1,15 +1,15 @@
 bool_j_2 = true;
 record_j_3 = {};
-record_j_4 = {_j_value = bool_j_2, _j_variant_A = record_j_3};
+record_j_4 = {j_value = bool_j_2, j_variant_A = record_j_3};
 x = record_j_4;
 flatten_fun_j_29 = fun expr_b_5 -> (
     bool_j_5 = false;
     variant_fail_b_4 = bool_j_5;
     var_j_6 = expr_b_5;
     m_match_bool_j_8 = var_j_6 ~ any;
-    m_match_bool_j_11 = var_j_6 ~ {_j_value, _j_variant_A, _};
+    m_match_bool_j_11 = var_j_6 ~ {j_value, j_variant_A, _};
     m_match_cond_j_12 = m_match_bool_j_11 ? (
-            v_expr_b_6 = var_j_6._j_value;
+            v_expr_b_6 = var_j_6.j_value;
             bool_j_13 = false;
             fail_b_8 = bool_j_13;
             flatten_fun_j_22 = fun expr_b_7 -> (
@@ -25,7 +25,7 @@ flatten_fun_j_29 = fun expr_b_5 -> (
                                 void_j_15 = {}
                             )
                     ));
-            flatten_fun_j_24 = fun ~null -> (
+            flatten_fun_j_24 = fun bj_null -> (
                 input_j_23 = input);
             record_j_25 = {checker = flatten_fun_j_22, generator = flatten_fun_j_24};
             proj_j_26 = record_j_25.checker;
@@ -53,22 +53,22 @@ flatten_fun_j_39 = fun expr_b_0 -> (
                     void_j_32 = {}
                 )
         ));
-flatten_fun_j_41 = fun ~null_j_0 -> (
+flatten_fun_j_41 = fun bj_null_j_0 -> (
     input_j_40 = input);
 record_j_42 = {checker = flatten_fun_j_39, generator = flatten_fun_j_41};
 proj_j_43 = record_j_42.generator;
 int_j_44 = 0;
 appl_j_45 = proj_j_43 int_j_44;
 record_j_46 = {};
-record_j_47 = {_j_value = appl_j_45, _j_variant_A = record_j_46};
+record_j_47 = {j_value = appl_j_45, j_variant_A = record_j_46};
 v_expr_b_3 = record_j_47;
-flatten_fun_j_49 = fun ~null_j_1 -> (
+flatten_fun_j_49 = fun bj_null_j_1 -> (
     var_j_48 = v_expr_b_3);
 record_j_50 = {checker = flatten_fun_j_29, generator = flatten_fun_j_49};
 proj_j_51 = record_j_50.checker;
 bool_j_52 = true;
 record_j_53 = {};
-record_j_54 = {_j_value = bool_j_52, _j_variant_A = record_j_53};
+record_j_54 = {j_value = bool_j_52, j_variant_A = record_j_53};
 appl_j_55 = proj_j_51 record_j_54;
 check_res_b_11 = appl_j_55;
 if_j_63 = check_res_b_11 ? (
@@ -82,4 +82,4 @@ if_j_63 = check_res_b_11 ? (
                 ab_j_62 = abort
             )
     );
-_i_result = if_j_63
+i_result = if_j_63

@@ -1,4 +1,4 @@
-_i_first = {};
+i_first = {};
 id_j_4 = fun x -> (
     int_j_1 = 0;
     var_j_2 = x;
@@ -19,7 +19,7 @@ flatten_fun_j_14 = fun expr_b_0 -> (
                     void_j_7 = {}
                 )
         ));
-flatten_fun_j_16 = fun ~null -> (
+flatten_fun_j_16 = fun bj_null -> (
     input_j_15 = input);
 record_j_17 = {checker = flatten_fun_j_14, generator = flatten_fun_j_16};
 proj_j_18 = record_j_17.generator;
@@ -41,7 +41,7 @@ flatten_fun_j_30 = fun expr_b_3 -> (
                     void_j_23 = {}
                 )
         ));
-flatten_fun_j_32 = fun ~null_j_0 -> (
+flatten_fun_j_32 = fun bj_null_j_0 -> (
     input_j_31 = input);
 record_j_33 = {checker = flatten_fun_j_30, generator = flatten_fun_j_32};
 proj_j_34 = record_j_33.checker;
@@ -59,4 +59,4 @@ if_j_46 = check_res_b_7 ? (
                 ab_j_45 = abort
             )
     );
-_i_result = if_j_46
+i_result = if_j_46

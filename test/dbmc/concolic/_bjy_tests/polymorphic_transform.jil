@@ -1,4 +1,4 @@
-_i_first = {};
+i_first = {};
 trans_j_10 = fun a -> (
     trans_j_9 = fun f -> (
         var_j_6 = f;
@@ -10,12 +10,12 @@ fail_b_0 = bool_j_11;
 flatten_fun_j_27 = fun expr_b_1 -> (
     var_j_12 = expr_b_1;
     m_match_bool_j_14 = var_j_12 ~ any;
-    m_match_bool_j_17 = var_j_12 ~ {~untouched, _};
+    m_match_bool_j_17 = var_j_12 ~ {bj_untouched, _};
     m_match_cond_j_18 = m_match_bool_j_17 ? (
-            ~poly_var_b_2 = var_j_12.~untouched;
-            var_j_19 = ~poly_var_b_2;
+            bj_poly_var_b_2 = var_j_12.bj_untouched;
+            var_j_19 = bj_poly_var_b_2;
             m_match_bool_j_21 = var_j_19 ~ any;
-            m_match_bool_j_24 = var_j_19 ~ {~'a, _};
+            m_match_bool_j_24 = var_j_19 ~ {bj_ticka, _};
             m_match_cond_j_25 = m_match_bool_j_24 ? (
                     bool_j_26 = true
                 ) : (
@@ -32,10 +32,10 @@ flatten_fun_j_27 = fun expr_b_1 -> (
                     void_j_13 = {}
                 )
         ));
-flatten_fun_j_31 = fun ~null -> (
+flatten_fun_j_31 = fun bj_null -> (
     record_j_28 = {};
-    record_j_29 = {~'a = record_j_28};
-    record_j_30 = {~untouched = record_j_29});
+    record_j_29 = {bj_ticka = record_j_28};
+    record_j_30 = {bj_untouched = record_j_29});
 record_j_32 = {checker = flatten_fun_j_27, generator = flatten_fun_j_31};
 proj_j_33 = record_j_32.generator;
 int_j_34 = 0;
@@ -47,12 +47,12 @@ flatten_fun_j_89 = fun expr_b_22 -> (
     flatten_fun_j_52 = fun expr_b_15 -> (
         var_j_37 = expr_b_15;
         m_match_bool_j_39 = var_j_37 ~ any;
-        m_match_bool_j_42 = var_j_37 ~ {~untouched, _};
+        m_match_bool_j_42 = var_j_37 ~ {bj_untouched, _};
         m_match_cond_j_43 = m_match_bool_j_42 ? (
-                ~poly_var_b_16 = var_j_37.~untouched;
-                var_j_44 = ~poly_var_b_16;
+                bj_poly_var_b_16 = var_j_37.bj_untouched;
+                var_j_44 = bj_poly_var_b_16;
                 m_match_bool_j_46 = var_j_44 ~ any;
-                m_match_bool_j_49 = var_j_44 ~ {~'a, _};
+                m_match_bool_j_49 = var_j_44 ~ {bj_ticka, _};
                 m_match_cond_j_50 = m_match_bool_j_49 ? (
                         bool_j_51 = true
                     ) : (
@@ -69,10 +69,10 @@ flatten_fun_j_89 = fun expr_b_22 -> (
                         void_j_38 = {}
                     )
             ));
-    flatten_fun_j_56 = fun ~null_j_0 -> (
+    flatten_fun_j_56 = fun bj_null_j_0 -> (
         record_j_53 = {};
-        record_j_54 = {~'a = record_j_53};
-        record_j_55 = {~untouched = record_j_54});
+        record_j_54 = {bj_ticka = record_j_53};
+        record_j_55 = {bj_untouched = record_j_54});
     record_j_57 = {checker = flatten_fun_j_52, generator = flatten_fun_j_56};
     proj_j_58 = record_j_57.generator;
     int_j_59 = 0;
@@ -87,12 +87,12 @@ flatten_fun_j_89 = fun expr_b_22 -> (
     flatten_fun_j_80 = fun expr_b_19 -> (
         var_j_65 = expr_b_19;
         m_match_bool_j_67 = var_j_65 ~ any;
-        m_match_bool_j_70 = var_j_65 ~ {~untouched, _};
+        m_match_bool_j_70 = var_j_65 ~ {bj_untouched, _};
         m_match_cond_j_71 = m_match_bool_j_70 ? (
-                ~poly_var_b_20 = var_j_65.~untouched;
-                var_j_72 = ~poly_var_b_20;
+                bj_poly_var_b_20 = var_j_65.bj_untouched;
+                var_j_72 = bj_poly_var_b_20;
                 m_match_bool_j_74 = var_j_72 ~ any;
-                m_match_bool_j_77 = var_j_72 ~ {~'b, _};
+                m_match_bool_j_77 = var_j_72 ~ {bj_tickb, _};
                 m_match_cond_j_78 = m_match_bool_j_77 ? (
                         bool_j_79 = true
                     ) : (
@@ -109,27 +109,27 @@ flatten_fun_j_89 = fun expr_b_22 -> (
                         void_j_66 = {}
                     )
             ));
-    flatten_fun_j_84 = fun ~null_j_1 -> (
+    flatten_fun_j_84 = fun bj_null_j_1 -> (
         record_j_81 = {};
-        record_j_82 = {~'b = record_j_81};
-        record_j_83 = {~untouched = record_j_82});
+        record_j_82 = {bj_tickb = record_j_81};
+        record_j_83 = {bj_untouched = record_j_82});
     record_j_85 = {checker = flatten_fun_j_80, generator = flatten_fun_j_84};
     proj_j_86 = record_j_85.checker;
     var_j_87 = fun_ret_b_24;
     appl_j_88 = proj_j_86 var_j_87);
-flatten_fun_j_148 = fun ~null_j_4 -> (
+flatten_fun_j_148 = fun bj_null_j_4 -> (
     flatten_fun_j_147 = fun arg_assume_b_12 -> (
         bool_j_90 = false;
         fail_b_4 = bool_j_90;
         flatten_fun_j_106 = fun expr_b_5 -> (
             var_j_91 = expr_b_5;
             m_match_bool_j_93 = var_j_91 ~ any;
-            m_match_bool_j_96 = var_j_91 ~ {~untouched, _};
+            m_match_bool_j_96 = var_j_91 ~ {bj_untouched, _};
             m_match_cond_j_97 = m_match_bool_j_96 ? (
-                    ~poly_var_b_6 = var_j_91.~untouched;
-                    var_j_98 = ~poly_var_b_6;
+                    bj_poly_var_b_6 = var_j_91.bj_untouched;
+                    var_j_98 = bj_poly_var_b_6;
                     m_match_bool_j_100 = var_j_98 ~ any;
-                    m_match_bool_j_103 = var_j_98 ~ {~'a, _};
+                    m_match_bool_j_103 = var_j_98 ~ {bj_ticka, _};
                     m_match_cond_j_104 = m_match_bool_j_103 ? (
                             bool_j_105 = true
                         ) : (
@@ -146,10 +146,10 @@ flatten_fun_j_148 = fun ~null_j_4 -> (
                             void_j_92 = {}
                         )
                 ));
-        flatten_fun_j_110 = fun ~null_j_2 -> (
+        flatten_fun_j_110 = fun bj_null_j_2 -> (
             record_j_107 = {};
-            record_j_108 = {~'a = record_j_107};
-            record_j_109 = {~untouched = record_j_108});
+            record_j_108 = {bj_ticka = record_j_107};
+            record_j_109 = {bj_untouched = record_j_108});
         record_j_111 = {checker = flatten_fun_j_106, generator = flatten_fun_j_110};
         proj_j_112 = record_j_111.checker;
         var_j_113 = arg_assume_b_12;
@@ -160,12 +160,12 @@ flatten_fun_j_148 = fun ~null_j_4 -> (
                 flatten_fun_j_131 = fun expr_b_9 -> (
                     var_j_116 = expr_b_9;
                     m_match_bool_j_118 = var_j_116 ~ any;
-                    m_match_bool_j_121 = var_j_116 ~ {~untouched, _};
+                    m_match_bool_j_121 = var_j_116 ~ {bj_untouched, _};
                     m_match_cond_j_122 = m_match_bool_j_121 ? (
-                            ~poly_var_b_10 = var_j_116.~untouched;
-                            var_j_123 = ~poly_var_b_10;
+                            bj_poly_var_b_10 = var_j_116.bj_untouched;
+                            var_j_123 = bj_poly_var_b_10;
                             m_match_bool_j_125 = var_j_123 ~ any;
-                            m_match_bool_j_128 = var_j_123 ~ {~'b, _};
+                            m_match_bool_j_128 = var_j_123 ~ {bj_tickb, _};
                             m_match_cond_j_129 = m_match_bool_j_128 ? (
                                     bool_j_130 = true
                                 ) : (
@@ -182,10 +182,10 @@ flatten_fun_j_148 = fun ~null_j_4 -> (
                                     void_j_117 = {}
                                 )
                         ));
-                flatten_fun_j_135 = fun ~null_j_3 -> (
+                flatten_fun_j_135 = fun bj_null_j_3 -> (
                     record_j_132 = {};
-                    record_j_133 = {~'b = record_j_132};
-                    record_j_134 = {~untouched = record_j_133});
+                    record_j_133 = {bj_tickb = record_j_132};
+                    record_j_134 = {bj_untouched = record_j_133});
                 record_j_136 = {checker = flatten_fun_j_131, generator = flatten_fun_j_135};
                 proj_j_137 = record_j_136.generator;
                 int_j_138 = 0;
@@ -211,12 +211,12 @@ fail_b_35 = bool_j_153;
 flatten_fun_j_169 = fun expr_b_36 -> (
     var_j_154 = expr_b_36;
     m_match_bool_j_156 = var_j_154 ~ any;
-    m_match_bool_j_159 = var_j_154 ~ {~untouched, _};
+    m_match_bool_j_159 = var_j_154 ~ {bj_untouched, _};
     m_match_cond_j_160 = m_match_bool_j_159 ? (
-            ~poly_var_b_37 = var_j_154.~untouched;
-            var_j_161 = ~poly_var_b_37;
+            bj_poly_var_b_37 = var_j_154.bj_untouched;
+            var_j_161 = bj_poly_var_b_37;
             m_match_bool_j_163 = var_j_161 ~ any;
-            m_match_bool_j_166 = var_j_161 ~ {~'b, _};
+            m_match_bool_j_166 = var_j_161 ~ {bj_tickb, _};
             m_match_cond_j_167 = m_match_bool_j_166 ? (
                     bool_j_168 = true
                 ) : (
@@ -233,10 +233,10 @@ flatten_fun_j_169 = fun expr_b_36 -> (
                     void_j_155 = {}
                 )
         ));
-flatten_fun_j_173 = fun ~null_j_5 -> (
+flatten_fun_j_173 = fun bj_null_j_5 -> (
     record_j_170 = {};
-    record_j_171 = {~'b = record_j_170};
-    record_j_172 = {~untouched = record_j_171});
+    record_j_171 = {bj_tickb = record_j_170};
+    record_j_172 = {bj_untouched = record_j_171});
 record_j_174 = {checker = flatten_fun_j_169, generator = flatten_fun_j_173};
 proj_j_175 = record_j_174.checker;
 appl_j_178 = trans a_b_40;
@@ -254,4 +254,4 @@ if_j_189 = check_res_b_41 ? (
                 ab_j_188 = abort
             )
     );
-_i_result = if_j_189
+i_result = if_j_189
