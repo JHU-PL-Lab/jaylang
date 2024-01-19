@@ -2,24 +2,20 @@
 
 ### Urgent
 
-* Search AST for abort branches, and solve for those
-  * Misses will be common while gaining solve info, but we at least target the most important branches
-* Don't resolve for a branch if branch info hasn't changed.
+* Handle incorrect formulas from aborts and max steps
+* Don't re-solve for a branch if branch info hasn't changed.
   * This is tough because we might have gained new formulas by hitting deeper branches, but not new info.
   * I will just let it run a few times, and if the `Missed` is not significantly different after a few times,
     then set to unknown.
-* Benchmark how the implies work to see what is most difficult to solve for.
 * Disallow inputs that have already been used
-  * I think we can just add global formulas because even if this makes some branch appear unsatisfiable, that branch has already been hit
+  * ^ this seems to not work for flow_sensitive_1
   * ^ this is done, but I'm not sure if I properly disallow repeat "second inputs" after the first one is different. I need to disallow some set of inputs, but other sets are fine.
-  * ^ It also makes some later branches appear unsatisfiable when they are only so because of aborts. Need to handle this, and with max step as well.
-* Convert Earl's jay (or bluejay?) files to jayil and make test cases
-  * Use convert and translator. Can see about converting on the spot, or maybe write a script to save the conversions.
-  * ^ I should do the latter so that I can read the jil files to debug concolic better
+    * on that note, do the inputs need to be implied by the parents?
+* fuzz with the answers, and check that they still SAT
+  * try an OR that checks if any of the inputs can be different and still satisfy
 
 ### Eventually
 
-* Quit solving after missing too many times (e.g. depth_dependent2_tail_rec tried a ton of inputs that got nowhere but didn't hit max step) and say "unknown"
 * Throw exception if we ever try to solve for the same branch with the same formulas, i.e. continue with misses until we reach a steady state
 * Logging
 * Use optional input AST branches to customize output
@@ -28,6 +24,11 @@
   * ^ similarly, having all implied formulas under a map instead would allow me to use sets properly and not have duplicate formulas.
   * Shorten lookup keys to hash, if possible. Might not be beneficial though if the cost of hashing is greater than the cost of comparing a few times later. I think that since I have maps and sets with these lookup keys, I do want them shorter
 * Write up the logic that proves the formula tracker implies stuff is correct
+* Benchmark how the implies work to see what is most difficult to solve for.
+
+### Out of scope
+
+
 
 ### Random thoughts
 
@@ -177,6 +178,16 @@ When the program quits early, some conditionals are never found, so the branches
 * I think I should analyze paths in the AST (which have cycles due to functions)...
   * When there are no targets on our stack of found branches, then pull a target from the reachable branches in the AST
   * Branches that are one of unsatisfiable, abort, max step, or unknown would block paths in the graph
+* Similarly, should we limit our solving for branches that contain abort?
+  * The only issue is that we wouldn't have any information about these branches if they are unreachable, and thus we'd be solving repeatedly forever
+
+**Repetitive solving**
+
+Sometimes the solver just can't figure out how to hit a branch, and it seems to make no progress. When do we stop trying?
+
+* If the solver gains new formulas with the run, then it might be worth trying again
+* I may like to quit when the branch information hasn't changed at all
+* I would think that disallowing repeat inputs would fix this, but I must have a bug
 
 #### Questions
 
@@ -186,3 +197,11 @@ When the program quits early, some conditionals are never found, so the branches
 * Is it out of scope to analyze the AST like this?
   * I worry that if we don't do it, then the evaluator is wrong
 * Or is it best to just quit upon any abort or max step? (Max step would mean everything about the program is unknown, abort means we found a type error)
+
+#### Conclusions
+
+* Most programs will time out because they type check and are probably recursive, and we can't solve for that
+* Upon abort or max step, if not recursive, then throw away all formulas and just remember that the given sequence of inputs can't be used again
+* Assume is like abort, where we have to quit if it fails, but we don't report a failing assume
+  * It affects control flow such that we don't continue
+* Assert is like an exception, so again like an abort, but we don't report

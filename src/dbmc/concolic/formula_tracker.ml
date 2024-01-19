@@ -662,9 +662,11 @@ module V2 =
     (* TODO: this makes some branches appear unsatisfiable when really they're unreachable bc abort. Need to optionally add these formulas. *)
     let add_input (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
       (* let _, _ = key, v in x *)
+      let is_int_pattern = Riddler.is_pattern key (Jayil.Ast.Int_pattern) in
       Riddler.eq_term_v key (Some v)
       |> Solver.SuduZ3.not_
       |> imply_no_repeat_inputs
+      |> fun e -> Solver.SuduZ3.and_ [e; is_int_pattern]
       |> add_formula x
 
     (* TODO: all other types of formulas, e.g. not, pattern, etc, then hide `add_formula` *)
