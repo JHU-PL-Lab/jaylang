@@ -163,7 +163,7 @@ type t =
   ; global_max_step  : int
   ; run_num          : int}
 
-let default_global_max_step = Int.(5 * 10 ** 2)
+let default_global_max_step = Int.(10 ** 3)
 
 let default_solver_timeout_s = 0.25
 

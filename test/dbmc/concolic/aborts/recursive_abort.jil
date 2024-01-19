@@ -20,7 +20,7 @@
 # pick formulas this way
 
 
-x = input;
+x = input; # the input is ignored
 
 zero = 0;
 one = 1;
@@ -50,12 +50,5 @@ f = fun self -> (
 ff = f f;
 
 counter0 = 1; 
-
-x_is_one = x == one;
-
-x_is_one_branch = x_is_one ? (
-  ret = 42
-) : (
-  # Note that calls don't depend on inputs
-  void = ff counter0
-)
+# Note that calls don't depend on inputs
+void = ff counter0

@@ -88,21 +88,101 @@ Second, the abort formulas:
 
 ## Meetings
 
+
 ### 19 Jan 2024
 
 **Where we left off**
 * I used to only solve for one runtime instance of a branch, leading to failing tests
-  * e.g. depth_dependent.jil
-* We had several failing tests, and "max step" was completely unhandled
-* We couldn't solve for 
+  * e.g. concolic/depth_dependent.jil (recall: a branch was only satisfiable during exactly one instance of the recursive call)
+* We had several failing tests, and "max step" and solver timeouts were completely unhandled
+* We couldn't solve for some input that determined the recursive depth of the function
+  * e.g. what input leads to a desired sum in a simple sum recursive function
+* I had only used hand-written jil files for tests
 
 **What's been done**:
 * The Bluejay files are copied to Jil, but some (specifically flow_sensitive_1) don't stop
   * It keeps hitting the same abort, but I'm trying to get it to stop giving that same input
   * This might be related to `assume` or `assert` statements.
-* Every known instance of a branch is solved for
+  * For this reason, I don't yet have them automatically tested
+* I now solve for every known instance of a branch  at once (fixing the concolic/depth_dependent.jil test)
 * We have an "unknown" status if the solver times out because it is overloaded
+  * This handles the inability to solve for the recursive depth
+  * The runs can be quite slow though
+* Several possible results are accepted by the tests for nondeterminism
+* I made some efficiency improvements (I think) to the solver, so we can handle more formulas
+  * This is needed because of how difficult solves are for targets in recursive functions
 
+#### Issues
 
-**Questions**
+**Aborts**
+
+Aborts and max steps lead to incorrect formulas.
+
+Two facts first:
+1. Even if we don't have *all* of the information, after a single run, we don't have any *wrong* or *conflicting* information, so the solver will only miss a target branch instead of incorrectly calling a branch unsatisfiable
+2. Quitting because of reaching max step is like hitting an abort, and the program exits with no further information ... so we can simulate max steps by throwing aborts wherever we want, and the two can be handled the same
+
+Here is an example program that shows aborts lead to incorrect formulas:
+
+```
+x = input;
+
+zero = 0;
+one = 1;
+
+f = fun self -> (
+    f0 = fun counter -> (
+        is_done = counter == zero;
+        r = is_done ? (
+          abort_when_done = abort
+        ) : (
+          do_nothing = 0
+        );
+
+        not_is_done = not is_done;
+        w = not_is_done ? (
+          ss = self self;               
+          new_counter = counter - one;  
+          res = ss new_counter
+        ) : (
+          unreachable_bc_abort = r # unreachable because of abort in is_done
+        )
+    );
+);
+
+ff = f f;
+void = ff one
+```
+
+Let's walk through what we expect to happen:
+* Note that the input is never used
+* The function has a counter that decrements, and the function aborts when the counter is zero
+* The counter starts at one, so there will be two runtime instances of the `r = is_done` branch
+  * One is on the first iteration, which is always false
+  * One is on the second iteration, which is always true
+* The program quits during the second iteration, so there is only one runtime instance of `w = not_is_done`
+  * It is on the first iteration, which is always true
+  * The branch is never encountered on the second iteration
+* The solver tries to solve for `not_is_done = false`, but it only knows about the first instance, which is true, so the false branch is unsatisfiable
+  * In reality, it is only "unreachable" because it hits an abort first. It could be satisfied if anything but abort happened first
+  * Since aborts are like quitting due to max step, if this interpreter instead hit the max step at the `abort_when_done = abort` line instead, the branch should be incorrectly labeled as unsatisfiable
+
+**Unreachable branches**
+
+When the program quits early, some conditionals are never found, so the branches appear unreachable
+
+* Some branches are unreachable because they are underneath an unsatisfiable branch. This is correct
+* Some branches appear unreachable because the program quit early, and it never found either side of the branch
+  * Thus, they don't get solved for
+* I think I should analyze paths in the AST (which have cycles due to functions)...
+  * When there are no targets on our stack of found branches, then pull a target from the reachable branches in the AST
+  * Branches that are one of unsatisfiable, abort, max step, or unknown would block paths in the graph
+
+#### Questions
+
+* How do you suggest we handle the incorrect formulas?
+  * Should we continue the interpreter but have a special formula for anything that depends on the abort statement, and don't dive into new functions?
 * What should I do about `assume` statements? The interpreter is incomplete
+* Is it out of scope to analyze the AST like this?
+  * I worry that if we don't do it, then the evaluator is wrong
+* Or is it best to just quit upon any abort or max step? (Max step would mean everything about the program is unknown, abort means we found a type error)
