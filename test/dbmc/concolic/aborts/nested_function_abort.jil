@@ -1,3 +1,9 @@
+# This program has a nonrecursive function with an abort inside.
+# The first function takes a second function as an argument and calls it.
+# At the time of writing this, recursive functions fail with aborts, but
+# if this test passes, then we show that it is not the nested calls that fail
+# but rather the multiple instances of one branch.
+
 x = input;
 
 zero = 0;

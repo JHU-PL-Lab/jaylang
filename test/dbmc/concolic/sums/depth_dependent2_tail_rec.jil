@@ -2,8 +2,6 @@
 # while backtracking.
 # This test case appears to be failing. It doesn't seem like it can solve for this.
 # When max step is handled, we should just get an inconclusive result on this.
-# Update: it is working, but only for small inputs. desired input 11 works, but not 35
-#   This is strange because some inputs larger than 35 don't hit the max step
 
 x = input;
 

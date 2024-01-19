@@ -1,3 +1,7 @@
+# This program has a branch that can be solved for by taking some specific
+# choices of branches in a recursive function. i.e. the branch taken on each
+# recursive call is different
+
 x = input;
 
 zero = 0;

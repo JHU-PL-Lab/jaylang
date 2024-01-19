@@ -1,5 +1,5 @@
 # This program calculates a fixed sum, independent of input, using recursion.
-# The goal is that the concolic evaluator can use the solver to determine this sum.
+# The goal is that the sum is quickly and easily calculated, and all branches are hit.
 
 x = input;
 

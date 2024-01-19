@@ -1,9 +1,7 @@
 # This is a lot like depth_dependent2_tail_rec, but where the sum is not satisfiable.
-# This may be a false positive (i.e. passing for the wrong reasons) because sometimes if the
-# desired sum is possible but too large, it thinks it is unsatisfiable (though that also
-# might be because I am stopping the evaluation early due to bad max step handling).
-
-# How come we keep successfully solving for some input that gets progressively larger?
+# We hope that it will say "unsatisfiable", but realistically this can't be solved for,
+# and the result will be "unknown" because the solver takes too long once it's clogged
+# up with too many formulas.
 
 x = input;
 

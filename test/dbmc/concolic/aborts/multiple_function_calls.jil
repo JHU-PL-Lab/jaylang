@@ -1,0 +1,37 @@
+# The program calls a function multiple times (but not recursively)
+# to create multiple instances of the branches in the function.
+
+x = input;
+
+f = fun y -> (
+  x_lt_y_cond = x < y; 
+  x_lt_y_branch = x_lt_y_cond ? (
+    ret_x_lt_y = 42
+  ) : (
+    x_is_y_cond = x == y;
+    x_is_y_branch = x_is_y_cond ? (
+      abort_x_is_y = abort
+    ) : (
+      ret_x_not_y = 84
+    );
+
+    x_not_y_cond = not x_is_y_cond;
+    x_not_y_branch = x_not_y_cond ? (
+      ret_x_not_y2 = 126 
+    ) : (
+      unreachable_bc_abort = abort
+    )
+  )
+);
+
+y0 = 5;
+y1 = 21244;
+y2 = 10;
+y3 = 15;
+y4 = -10;
+
+fy0 = f y0;
+fy1 = f y1;
+fy2 = f y2;
+fy3 = f y3;
+fy4 = f y4

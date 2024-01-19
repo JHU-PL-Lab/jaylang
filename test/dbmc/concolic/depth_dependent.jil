@@ -1,10 +1,6 @@
 # This has a condition that can only be satisfied when it's at a
 # specific recursive depth.
-# Right now, targets that are found most recently are targeted first,
-# which is at the wrong depth, so it looks unsatisfiable.
-# A quick path (which I won't do) would be to not ignore unsatisfiable
-# branches and try to resolve every time.
-#   This would be expensive because it is way more solving than necessary.
+# This passes if the solver tries to solve for any runtime instance of the target.
 
 x = input;
 

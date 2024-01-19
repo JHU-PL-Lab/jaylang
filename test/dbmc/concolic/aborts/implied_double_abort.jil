@@ -1,4 +1,4 @@
-# This is to check what happens if both lines of a branches imply
+# This is to check what happens if both lines of a branch imply
 # that the program will hit an abort, so neither side should be
 # ever hit, and therefore the parent branch of that branch needs to
 # be avoided.

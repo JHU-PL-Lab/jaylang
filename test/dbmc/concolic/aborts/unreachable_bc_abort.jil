@@ -1,6 +1,6 @@
 # This program has an abort that prevents a later branch from being hit because that branch
 #   depends on the same condition that leads to the abort. We need to mark aborts as off limits
-#   so that later solves don't keep running into them, we are unable to solve for later targets
+#   so that later solves don't keep running into them, and we are unable to solve for later targets
 #   due to earlier aborts.
 
 x = input;

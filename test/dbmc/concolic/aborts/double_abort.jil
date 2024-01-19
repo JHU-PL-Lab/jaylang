@@ -1,8 +1,6 @@
 # This test file has a program where both sides of a branch immediately abort.
 # If both sides imply that an abort will eventually be hit, then that test case
 # is covered in implied_double_abort.jil
-# Currently, this test fails because we get conflicting formulas marking
-# both sides as off limits, and all further targets appear unsatisfiable
 
 x = input;
 

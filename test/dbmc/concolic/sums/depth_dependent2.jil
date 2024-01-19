@@ -1,14 +1,12 @@
-# This program has a condition inside of a recursive function that is hit only if
-# the function hits some recursive depth. The input determines the depth.
-# This used to pass, but idk what changed and now it seems to stall. Maybe it's that I'm not connected to power, 
-# so it runs slower, and I'm not waiting long enough.
+# This program has a condition that is satisfied if the solver can choose the right
+# recursive depth to solve for a sum
 
 x = input;
 
 zero = 0;
 one = 1;
 
-desired_sum = 6;
+desired_sum = 78; # depth 12
 
 f = fun self -> (
     f0 = fun counter -> (
@@ -19,15 +17,7 @@ f = fun self -> (
           ss = self self;
           new_counter = counter - one;
           res = ss new_counter;
-          sum_val = counter + res;
-          sum_val_is_desired_cond = sum_val == desired_sum;
-          sum_val_is_desired_branch = sum_val_is_desired_cond ? (
-            # input x at least 3 hits this
-            res0 = 42
-          ) : (
-            res1 = 84
-          );
-          sum_res = sum_val
+          sum_val = counter + res
         );
     );
 );
@@ -37,6 +27,13 @@ neg_1 = -1;
 x_is_non_neg = neg_1 < x;
 call_fun_branch = x_is_non_neg ? (
   z = ff x;
+
+  sum_val_is_desired_cond = z == desired_sum;
+  sum_val_is_desired_branch = sum_val_is_desired_cond ? (
+    yay = 10000
+  ) : (
+    darn = -10000
+  )
 ) : (
   w = 0
 )

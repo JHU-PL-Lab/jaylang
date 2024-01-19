@@ -1,3 +1,6 @@
+# This program has a branch inside a recursive function that is unsatisfiable.
+# No possible input can satisfy any instance of the branch.
+
 x = input;
 
 zero = 0;

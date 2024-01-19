@@ -85,3 +85,24 @@ Second, the abort formulas:
 * There will then be a bunch of picks in there anyways, but at least they'll all be underneath the same implies, which might make it easier.
 * The same would be done for max steps. Can currently just use the same pick because we handle it the same.
 * This does leave more work up to the solver to parse through the picks, but it makes for smaller formulas.
+
+## Meetings
+
+### 19 Jan 2024
+
+**Where we left off**
+* I used to only solve for one runtime instance of a branch, leading to failing tests
+  * e.g. depth_dependent.jil
+* We had several failing tests, and "max step" was completely unhandled
+* We couldn't solve for 
+
+**What's been done**:
+* The Bluejay files are copied to Jil, but some (specifically flow_sensitive_1) don't stop
+  * It keeps hitting the same abort, but I'm trying to get it to stop giving that same input
+  * This might be related to `assume` or `assert` statements.
+* Every known instance of a branch is solved for
+* We have an "unknown" status if the solver times out because it is overloaded
+
+
+**Questions**
+* What should I do about `assume` statements? The interpreter is incomplete

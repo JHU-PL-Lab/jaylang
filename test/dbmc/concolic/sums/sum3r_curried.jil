@@ -1,4 +1,5 @@
 # This program just has a tricky recursive sum to solve. All branches can be hit.
+# This checks that the solver can handle recursive functions with several inputs.
 
 other_zero = 0;
 x = input;
