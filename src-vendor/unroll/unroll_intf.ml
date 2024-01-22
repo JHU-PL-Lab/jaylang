@@ -1,6 +1,16 @@
 open Core
 open Messages
 
+(*
+   OB1: a stream is obviously compositional. Is a named stream compositional? It should be,
+   however,
+
+   OB2: named operation for `t` includes `get: name -> t` and `set: name -> t -> ()`.
+   We can fuse `get` into the exisiting `t` but we may not fuse `set` into it.
+
+   OB3: a compositional thing should have a compositional type.
+*)
+
 (* The library has an invariant that the stream with a key can only be create once
     What if a duplicate key is created? As a general case, it may be configurable, but in this library,
     maybe we can just raise an exception.
@@ -49,6 +59,8 @@ module type Low_level = sig
   val reset : t -> unit
   val create_key : t -> ?task:(unit -> unit) -> key -> unit
   val get_stream : t -> key -> message Lwt_stream.t
+  val set_creation : detail -> unit
+  val get_status : t -> key -> N.t
   val set_pre_push : t -> key -> (message -> message option) -> unit
   val push_msg_by_key : t -> key -> message -> unit
   val push_msg : t -> detail -> message -> unit
@@ -59,6 +71,7 @@ module type Low_level = sig
   val add_detail : t -> key -> detail
   val find_detail : t -> key -> detail
   val stream_of_detail : detail -> message Lwt_stream.t
+  val dump : t -> unit
 end
 
 module type User_level = sig
@@ -103,10 +116,12 @@ module type User_level = sig
   val join : t -> pipe list -> key -> pipe act
 
   (* val bind : t -> pipe -> key -> (payload -> pipe) -> pipe act *)
-  val bind_like : t -> pipe -> (payload -> key) -> key -> pipe act
+  val bind_like : t -> pipe -> key -> (payload -> pipe option) -> pipe act
+  val bind_like_list : t -> pipe -> key -> (payload -> pipe list) -> pipe act
+  val on : t -> pipe -> N.t -> pipe -> key -> pipe act
 
   (* iter doesn't create a new strean *)
-
+  val joini : t -> pipe list -> key -> (int * payload -> payload) -> pipe act
   val iter : t -> pipe -> (payload -> unit) -> unit act
   (* val bind : u -> t -> (payload -> t) -> t act
      val bind0 : u -> t -> (payload -> key) -> t Lwt_stream.t *)
@@ -133,54 +148,38 @@ end
 
 module type U = sig
   include Low_level
-  include User_level with type t := t and type key := key
-end
-
-module type U2 = sig
-  include Low_level
 
   include
-    User_level with type t := t and type key := key and type pipe := detail
-end
-
-module type U_bg = U with type 'a act = unit
-
-module type U_payload = sig
-  include U
-  module Bg : U_bg with type key = key and type payload = payload
+    User_level
+      with type t := t
+       and type key := key
+       and type pipe := key
+       and type 'a act = unit
 end
 
 module type Top_sigs = sig
-  module Make_payload (Key : Base.Hashtbl.Key.S) (P : P_sig) :
-    U_payload
-      with type key = Key.t
-       and type payload = P.payload
-       and type message = P.payload
-       and type 'a act = 'a Lwt.t
+  (* module Make_payload (Key : Base.Hashtbl.Key.S) (P : P_sig) :
+     U_payload
+       with type key = Key.t
+        and type payload = P.payload
+        and type message = P.payload
+        and type 'a act = detail * unit Lwt.t *)
 
   module Make_use_key (Key : Base.Hashtbl.Key.S) (P : P_sig) :
-    U_bg
+    U
       with type key = Key.t
        and type message = P.payload
        and type payload = P.payload
-       and type pipe = Key.t
 
   module Make_dummy_control (Key : Base.Hashtbl.Key.S) (P : P_sig) :
-    U_payload
-      with type key = Key.t
-       and type payload = P.payload
-       and type 'a act = 'a Lwt.t
+    U with type key = Key.t and type payload = P.payload
+
+  (* module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) :
+     U2
+       with type key = Key.t
+        and type payload = P.payload
+        and type 'a act = unit Lwt.t *)
 
   module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) :
-    U2
-      with type key = Key.t
-       and type payload = P.payload
-       and type 'a act = 'a Lwt.t
-
-  module Make_control_bg (Key : Base.Hashtbl.Key.S) (P : P_sig) :
-    U
-      with type key = Key.t
-       and type payload = P.payload
-       and type pipe = Key.t
-       and type 'a act = unit
+    U with type key = Key.t and type payload = P.payload
 end

@@ -12,6 +12,9 @@ type t = {
   mutable status : Lookup_status.t;
   mutable status_gen_phi : Lookup_status.t;
   (* sublookup *)
+  (* this precond is used to mark the final answer got from a lookup, not an
+     immediate answer from a direct dependency
+  *)
   mutable sub_preconds : bool ref list;
   mutable sub_lookups : ((Lookup_key.t * Lookup_key.t) * Lookup_key.t) list;
   (* debug *)

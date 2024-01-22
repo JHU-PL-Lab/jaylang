@@ -14,15 +14,22 @@ let test_one_file testname _switch test_config =
       let config = Global_config.with_expect expect config in
       let* { is_timeout; inputss; state; _ } = Main.main_top_lwt ~config src in
 
+      prerr_endline ("len of inputss " ^ string_of_int (List.length inputss)) ;
+      prerr_endline ("spec " ^ Input_spec.show expect.inputs) ;
+
       if is_timeout then Alcotest.(check bool) "timeout" false is_timeout ;
 
-      (if (not (List.is_empty inputss))
-          && not (Input_spec.is_no_spec expect.inputs)
-       then
-         let reachable =
-           Main.check_expected_input ~config ~state expect.inputs
-         in
-         Alcotest.(check bool) "expected input" true reachable) ;
+      (* `List.is_empty inputss` means unreachable. Few cases should be unreachable *)
+      let reachable = not (List.is_empty inputss) in
+
+      if not (Input_spec.is_no_spec expect.inputs)
+      then
+        let reachable_with_expected_input =
+          Main.check_expected_input ~config ~state expect.inputs
+        in
+        Alcotest.(check bool)
+          "expected input" true reachable_with_expected_input
+      else Alcotest.(check bool) "should be reachable" true reachable ;
 
       Lwt.return_unit)
     expects

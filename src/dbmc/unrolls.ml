@@ -18,7 +18,7 @@ end
    module U_dbmc = U_dbmc_fg.Bg *)
 
 (* module U_dbmc = Unroll.Make_use_key (Lookup_key) (Unroll_S_dbmc) *)
-module U_dbmc = Unroll.Make_control_bg (Lookup_key) (Unroll_S_dbmc)
+module U_dbmc = Unroll.Make_control (Lookup_key) (Unroll_S_dbmc)
 
 module Unroll_S_ddse = struct
   type payload = Ddse_result.t
@@ -30,4 +30,4 @@ end
    module U_ddse = U_ddse_fg.Bg *)
 
 (* module U_ddse = Unroll.Make_use_key (Lookup_key) (Unroll_S_ddse) *)
-module U_ddse = Unroll.Make_control_bg (Lookup_key) (Unroll_S_ddse)
+module U_ddse = Unroll.Make_control (Lookup_key) (Unroll_S_ddse)

@@ -23,14 +23,17 @@
 open Core
 
 type t =
-  (* Pre-work *)
+  (* Pre-work : before a key-associated detail is created *)
   | Not_created
+  (* Having receiver no working push *)
   | Initial
-  (* Working *)
+  (* Having receiver and a push *)
   | Running
+  (* Having receiver and a push, but not work *)
   | Paused
-  (* Closed *)
+  (* All work done *)
   | Done
+  (* Work is failed. *)
   | Fail
 [@@deriving sexp, equal]
 

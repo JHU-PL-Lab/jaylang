@@ -24,6 +24,17 @@ type t =
       next : int -> Lookup_key.t -> Z3.Expr.expr option * t option;
       bounded : bool;
     }
+  | ChainDirect of {
+      pub : Lookup_key.t;
+      next : int -> Lookup_key.t -> Z3.Expr.expr option * t option;
+      bounded : bool;
+    }
+  | ChainOrList of {
+      pub : Lookup_key.t;
+      next :
+        int -> Lookup_key.t -> Z3.Expr.expr option * Lookup_key.t list option;
+      bounded : bool;
+    }
   (* Fun Enter Local | Fun Enter Nonlocal | Cond Btm *)
   | Or_list of { elements : t list; bounded : bool }
 (* We don't need a vanilla bind here because we don't need a general callback.

@@ -90,6 +90,16 @@
  (instrumentation
   (backend landmarks)))
 
+(executable
+ (name ur)
+ (modules ur)
+ (libraries core unroll fmt)
+ (preprocess
+  (pps ppx_jane))
+ (promote
+  (until-clean)
+  (into "../..")))
+
 (env
  (dev
   (flags
