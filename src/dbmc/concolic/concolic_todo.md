@@ -17,6 +17,7 @@
 
 ### Eventually
 
+* Fuzz the inputs a bit as long as they keep the formulas satisfied
 * Throw exception if we ever try to solve for the same branch with the same formulas, i.e. continue with misses until we reach a steady state
 * Logging
 * Use optional input AST branches to customize output
