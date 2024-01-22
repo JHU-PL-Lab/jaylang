@@ -456,13 +456,15 @@ let try_eval_exp_default
 
   This eval spans multiple concolic sessions, trying to hit the branches.
 *)
-let rec loop (e : expr) (prev_session : Session.t) : Branch_tracker.Status_store.t =
+let rec loop (e : expr) (prev_session : Session.t) : Branch_tracker.Status_store.Without_payload.t =
   match Session.next prev_session with
   | `Done session ->
     let finished = Session.finish session in
     if Printer.print then (Format.printf "------------------------------\nFinishing...\n"; Session.print finished);
-    Branch_tracker.status_store
-    @@ Session.branch_tracker finished
+    finished
+    |> Session.branch_tracker
+    |> Branch_tracker.status_store
+    |> Branch_tracker.Status_store.without_payload
   | `Next (session, conc_session, eval_session) ->
     if Printer.print
     then (Format.printf "------------------------------\nRunning program...\n"; Session.print session);
@@ -471,7 +473,7 @@ let rec loop (e : expr) (prev_session : Session.t) : Branch_tracker.Status_store
     |> loop e
 
 (* Concolically execute/test program. *)
-let eval (e : expr) : Branch_tracker.Status_store.t = 
+let eval (e : expr) : Branch_tracker.Status_store.Without_payload.t = 
   if Printer.print then Format.printf "\nStarting concolic execution...\n";
   (* Repeatedly evaluate program *)
   loop e 

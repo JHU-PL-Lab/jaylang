@@ -2,6 +2,7 @@
 
 ### Urgent
 
+* Scale max step with number of lines
 * Handle incorrect formulas from aborts and max steps
 * Don't re-solve for a branch if branch info hasn't changed.
   * This is tough because we might have gained new formulas by hitting deeper branches, but not new info.
@@ -28,7 +29,8 @@
 
 ### Out of scope
 
-
+* Analyze AST to determine hittable vs unreachable, as well as how aborts affect future runs
+* Any other AST analysis...
 
 ### Random thoughts
 

@@ -6,19 +6,54 @@ module Input :
 
 module Status :
   sig
-    type t =
-      | Hit of Input.t list (* can be hit on multiple runs *)
-      | Unhit
-      | Unsatisfiable (* TODO: payload? *)
-      | Found_abort of Input.t list
-      | Reach_max_step of int (* counter for how many times it has reached max step *)
-      | Missed
-      | Unreachable_because_abort (* TODO: payload? *)
-      | Unreachable_because_max_step (* ^ *)
-      | Unknown of int (* number of solve attempts *) (* this isn't perfect because we might always want to include missed but only when no other new branch info *)
-      | Unreachable
+    module T :
+      sig
+        type t =
+          | Hit of Input.t list (* can be hit on multiple runs *)
+          | Unhit
+          | Unsatisfiable (* TODO: payload? *)
+          | Found_abort of Input.t list
+          | Reach_max_step of int (* counter for how many times it has reached max step *)
+          | Missed
+          | Unreachable_because_abort (* TODO: payload? *)
+          | Unreachable_because_max_step (* ^ *)
+          | Unknown of int (* number of solve attempts *) (* this isn't perfect because we might always want to include missed but only when no other new branch info *)
+          | Unreachable
+      end
 
+    type t = T.t =
+      | Hit of Input.t list
+      | Unhit
+      | Unsatisfiable
+      | Found_abort of Input.t list
+      | Reach_max_step of int
+      | Missed
+      | Unreachable_because_abort
+      | Unreachable_because_max_step
+      | Unknown of int
+      | Unreachable
+     
     val to_string : t -> string
+
+    module Without_payload :
+      sig
+        type t =
+          | Hit
+          | Unhit
+          | Unsatisfiable
+          | Found_abort
+          | Reach_max_step
+          | Missed                       (* Not used in final report *)
+          | Unreachable_because_abort    (* Unused *)
+          | Unreachable_because_max_step (* Unused *)
+          | Unknown
+          | Unreachable                  (* Unused *)
+
+        val to_string : t -> string
+        val t_of_with_payload : T.t -> t
+        val with_payload_of_t : t -> T.t
+        
+      end
   end
 
 (*
@@ -26,44 +61,51 @@ module Status :
 *)
 module Status_store :
   sig
-    type t [@@deriving sexp, compare]
-    (** [t] is a map from a branch identifier to the status of the branch. So it tells
-        us whether the true and false direction of each branch have been hit. *)
+    module type S = 
+      sig
+        module Status : sig type t end
+        type t [@@deriving sexp, compare]
+        (** [t] is a map from a branch identifier to the status of the branch. So it tells
+            us whether the true and false direction of each branch have been hit. *)
 
-    val empty : t
-    (** [empty] has no information on any branches *)
+        val empty : t
+        (** [empty] has no information on any branches *)
 
-    val of_expr : Jayil.Ast.expr -> t
-    (** [of_expr expr] has all branches unhit that exist in the given [expr]. *)
+        val of_expr : Jayil.Ast.expr -> t
+        (** [of_expr expr] has all branches unhit that exist in the given [expr]. *)
 
-    val print : t -> unit
-    (** [print store] prints the statuses of all branches in the [store] to stdout. *)
+        val print : t -> unit
+        (** [print store] prints the statuses of all branches in the [store] to stdout. *)
 
-    val add_branch_id : t -> Jayil.Ast.ident -> t
-    (** [add_branch_id store id] is a new store where the identifier [id] has been added to
-        the branch store [store], and both directions of the new branch are unhit. *)
+        val add_branch_id : t -> Jayil.Ast.ident -> t
+        (** [add_branch_id store id] is a new store where the identifier [id] has been added to
+            the branch store [store], and both directions of the new branch are unhit. *)
 
-    val get_unhit_branch : t -> Branch.t option
-    (** [get_unhit_branch store] is some branch that is unhit. *)
+        (* val get_unhit_branch : t -> Branch.t option *)
+        (** [get_unhit_branch store] is some branch that is unhit. *)
 
-    val set_branch_status : new_status:Status.t -> t -> Branch.t -> t
-    (** [set_branch_status status store branch] is a new store where the given [branch] now has the
-        [status]. All other branches are unaffected. *)
+        val set_branch_status : new_status:Status.t -> t -> Branch.t -> t
+        (** [set_branch_status status store branch] is a new store where the given [branch] now has the
+            [status]. All other branches are unaffected. *)
 
-    val is_hit : t -> Branch.t -> bool
-    (** [is_hit store branch] is true if and only if the status of [branch.branch_ident] in 
-        the [store] has [branch.direction] as [Hit]. *)
+        val is_hit : t -> Branch.t -> bool
+        (** [is_hit store branch] is true if and only if the status of [branch.branch_ident] in 
+            the [store] has [branch.direction] as [Hit]. *)
 
-    val get_status : t -> Branch.t -> Status.t
-    (** [get_status store branch] is the status of the given [branch]. *)
+        val get_status : t -> Branch.t -> Status.t
+        (** [get_status store branch] is the status of the given [branch]. *)
 
-    val find_branches : Jayil.Ast.expr -> t -> t
-    (** [find_branches e store] is a new store where all the branches in the given expression [expr]
-        have been added as unhit branches to the given [store]. *)
+        val find_branches : Jayil.Ast.expr -> t -> t
+        (** [find_branches e store] is a new store where all the branches in the given expression [expr]
+            have been added as unhit branches to the given [store]. *)
 
-    val finish : t -> int -> t
-    (** [finish store allowed_max_step] is a new store where all unhit branches are now marked as unsatisfiable. *)
+        val finish : t -> int -> t
+        (** [finish store allowed_max_step] is a new store where all unhit branches are now marked as unsatisfiable. *)
+      end
 
+    module Without_payload : S with module Status := Status.Without_payload
+    include S with module Status := Status
+    val without_payload : t -> Without_payload.t
   end
 
 module Runtime :

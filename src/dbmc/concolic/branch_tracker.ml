@@ -15,200 +15,352 @@ module Input =
 
 module Status =
   struct
+
+    module type S =
+      sig
+        type t [@@deriving compare, sexp]
+        val to_string : t -> string
+        val is_hit : t -> bool
+        val update : t -> t -> t
+        val is_valid_target : t -> bool
+        val unhit : t
+        val exceeds_max_step_allowance : t -> int -> bool
+        val finish : t -> t
+      end
+
     (* ignore payloads on compare because they are nondeterministic *)
-    type t =
-      | Hit of (Input.t list [@compare.ignore])[@sexp.list]
-      | Unhit
-      | Unsatisfiable
-      | Found_abort of (Input.t list [@compare.ignore])[@sexp.list]
-      | Reach_max_step of (int [@compare.ignore])
-      | Missed
-      | Unreachable_because_abort
-      | Unreachable_because_max_step
-      | Unknown of (int [@compare.ignore])
-      | Unreachable (* any unhit branch whose parent is unsatisfiable *)
-      [@@deriving variants, compare, sexp]
+    module T =
+      struct
+        type t =
+          | Hit of (Input.t list [@compare.ignore])[@sexp.list]
+          | Unhit
+          | Unsatisfiable
+          | Found_abort of (Input.t list [@compare.ignore])[@sexp.list]
+          | Reach_max_step of (int [@compare.ignore])
+          | Missed
+          | Unreachable_because_abort
+          | Unreachable_because_max_step
+          | Unknown of (int [@compare.ignore])
+          | Unreachable (* any unhit branch whose parent is unsatisfiable *)
+          [@@deriving variants, compare, sexp]
 
-    (* sometimes ignores payload *)
-    let to_string = function
-      | Reach_max_step count as x -> (Variants.to_name x |> String.capitalize) ^ Int.to_string count
-      | x -> Variants.to_name x |> String.capitalize
+        let unhit = Unhit
 
-    let is_hit = function
-      | Hit _ | Found_abort _ | Reach_max_step _ -> true
-      | _ -> false
+        (* sometimes ignores payload *)
+        let to_string = function
+          | Reach_max_step count as x -> (Variants.to_name x |> String.capitalize) ^ Int.to_string count
+          | x -> Variants.to_name x |> String.capitalize
 
-    let update (new_status : t) (old_status : t) : t =
-      match old_status with
-      | Unsatisfiable -> begin
-        match new_status with
-        | Unsatisfiable | Unreachable -> old_status
-        | _ -> failwith "tried to change unsatisfiable status" 
-      end
-      | Hit ls -> begin
-        match new_status with
-        | Hit ls' -> Hit (ls' @ ls)
-        | Found_abort ls' -> Found_abort (ls' @ ls)
-        | Reach_max_step _  -> new_status
-        | _ -> old_status
-      end
-      | Unhit -> new_status
-      | Found_abort ls -> begin
-        match new_status with
-        (* Allow this because solver might accidentally hit, quite like missing target *)
-        (* | Hit _ | Found_abort _ | Reach_max_step _ -> failwith "rehitting abort" *)
-        | _ -> old_status
-      end
-      | Reach_max_step count -> begin
-        match new_status with
-        | Reach_max_step count' -> Reach_max_step (count + count')
-        | Found_abort _ -> new_status
-        | _ -> old_status
-      end
-      | Unknown count -> begin
-        match new_status with
-        | Unknown count' -> Unknown (count + count')
-        | _ -> new_status
-      end
-      | Missed -> new_status
-      | Unreachable
-      | Unreachable_because_abort
-      | Unreachable_because_max_step -> old_status
+        let is_hit = function
+          | Hit _ | Found_abort _ | Reach_max_step _ -> true
+          | _ -> false
 
-    let n_allowed_unknown_solves = 2
+        let update (new_status : t) (old_status : t) : t =
+          match old_status with
+          | Unsatisfiable -> begin
+            match new_status with
+            | Unsatisfiable | Unreachable -> old_status
+            | _ -> failwith "tried to change unsatisfiable status" 
+          end
+          | Hit ls -> begin
+            match new_status with
+            | Hit ls' -> Hit (ls' @ ls)
+            | Found_abort ls' -> Found_abort (ls' @ ls)
+            | Reach_max_step _  -> new_status
+            | _ -> old_status
+          end
+          | Unhit -> new_status
+          | Found_abort ls -> begin
+            match new_status with
+            (* Allow this because solver might accidentally hit, quite like missing target *)
+            (* | Hit _ | Found_abort _ | Reach_max_step _ -> failwith "rehitting abort" *)
+            | _ -> old_status
+          end
+          | Reach_max_step count -> begin
+            match new_status with
+            | Reach_max_step count' -> Reach_max_step (count + count')
+            | Found_abort _ -> new_status
+            | _ -> old_status
+          end
+          | Unknown count -> begin
+            match new_status with
+            | Unknown count' -> Unknown (count + count')
+            | _ -> new_status
+          end
+          | Missed -> new_status
+          | Unreachable
+          | Unreachable_because_abort
+          | Unreachable_because_max_step -> old_status
+
+        let n_allowed_unknown_solves = 2
+
+        let is_valid_target (x : t) : bool =
+          match x with
+          | Unhit
+          | Missed -> true
+          | Unknown count when count <= n_allowed_unknown_solves -> true
+          | _ -> false
+
+        let exceeds_max_step_allowance (x : t) (n : int) : bool =
+          match x with
+          | Reach_max_step m when m > n -> true
+          | _ -> false
+
+        (* TODO: if any control flow changes are ever hit, then cannot set to unreachable *)
+        let finish (x : t) : t =
+          match x with
+          | Unhit -> Unreachable
+          | Reach_max_step _ -> Hit [] (* TODO: input payload and max step count *)
+          | _ -> x
+      end
+
+    include T
+
+
+    (* TODO: the signature S doesn't make that much sense without a payload, so should probably not use it *)
+    module Without_payload =
+      struct
+        type t =
+          | Hit
+          | Unhit
+          | Unsatisfiable
+          | Found_abort
+          | Reach_max_step
+          | Missed
+          | Unreachable_because_abort
+          | Unreachable_because_max_step
+          | Unknown
+          | Unreachable
+          [@@deriving variants, compare, sexp]
+
+        let unhit = Unhit
+
+        let to_string (x : t) : string =
+          String.capitalize
+          @@ Variants.to_name x
+
+        let is_hit = function
+          | Hit | Found_abort | Reach_max_step -> true
+          | _ -> false
+
+        let t_of_with_payload (x : T.t) : t =
+          match x with
+          | T.Hit _ -> Hit
+          | Unhit -> Unhit
+          | Unsatisfiable -> Unsatisfiable
+          | Found_abort _ -> Found_abort
+          | Reach_max_step _ -> Reach_max_step
+          | Missed -> Missed
+          | Unreachable_because_abort -> Unreachable_because_abort
+          | Unreachable_because_max_step -> Unreachable_because_max_step
+          | Unknown _ -> Unknown
+          | Unreachable -> Unreachable
+
+        let with_payload_of_t (x : t) : T.t =
+          match x with
+          | Hit -> T.Hit []
+          | Unhit -> Unhit
+          | Unsatisfiable -> Unsatisfiable
+          | Found_abort -> Found_abort []
+          | Reach_max_step -> Reach_max_step 1
+          | Missed -> Missed
+          | Unreachable_because_abort -> Unreachable_because_abort
+          | Unreachable_because_max_step -> Unreachable_because_max_step
+          | Unknown -> Unknown 1
+          | Unreachable -> Unreachable
+
+        let update (new_status : t) (old_status : t) : t =
+          match old_status with
+          | Unsatisfiable -> begin
+            match new_status with
+            | Unsatisfiable | Unreachable -> old_status
+            | _ -> failwith "tried to change unsatisfiable status" 
+          end
+          | Hit -> begin
+            match new_status with
+            | Found_abort -> Found_abort
+            | Reach_max_step  -> new_status
+            | _ -> old_status
+          end
+          | Found_abort -> old_status
+          | Reach_max_step -> begin
+            match new_status with
+            | Found_abort -> new_status
+            | _ -> old_status
+          end
+          | Unhit
+          | Unknown 
+          | Missed -> new_status
+          | Unreachable
+          | Unreachable_because_abort
+          | Unreachable_because_max_step -> old_status
+
+        let is_valid_target (x : t) : bool =
+          match x with
+          | Unhit
+          | Missed
+          | Unknown -> true
+          | _ -> false
+
+        let exceeds_max_step_allowance (x : t) (_ : int) : bool =
+          match x with
+          | Reach_max_step -> true
+          | _ -> false
+
+        let finish (x : t) : t =
+          match x with
+          | Unhit -> Unreachable
+          | Reach_max_step -> Hit
+          | _ -> x
+      end
   end
 
 module Status_store =
   struct
-    module M = Map.Make (Branch)
-    type t = Status.t M.t [@@deriving compare] (* will do sexp conversions manually *)
-
-    let is_hit (map : t) (branch : Branch.t) : bool =
-      match Map.find map branch with
-      | Some status when Status.is_hit status -> true
-      | _ -> false
-
-    let is_valid_target (map : t) (branch : Branch.t) : bool =
-      match Map.find map branch with
-      | Some Unhit
-      | Some Missed -> true
-      | Some (Unknown count) when count <= Status.n_allowed_unknown_solves -> true
-      | _ -> false
-
-    let empty = M.empty
-
-    let add_branch_id (map : t) (id : Jayil.Ast.ident) : t =
-      let set_unhit = function
-        | Some _ -> failwith "adding non-new branch ident"
-        | None -> Status.Unhit
-      in
-      map
-      |> Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.True_direction } ~f:set_unhit
-      |> Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.False_direction } ~f:set_unhit
-
-    let rec find_branches (e : Jayil.Ast.expr) (m : t) : t =
-      let open Jayil.Ast in
-      let (Expr clauses) = e in
-      List.fold clauses ~init:m ~f:(fun m clause -> find_branches_in_clause clause m)
-
-    and find_branches_in_clause (clause : Jayil.Ast.clause) (m : t) : t =
-      let open Jayil.Ast in
-      let (Clause (Var (x, _), cbody)) = clause in
-      match cbody with
-      | Conditional_body (_, e1, e2) ->
-        add_branch_id m x
-        |> find_branches e1
-        |> find_branches e2
-      | Value_body (Value_function (Function_value (_, e))) ->
-        find_branches e m
-      | _ -> m (* no branches in non-conditional or value *)
-
-    let of_expr (e : Jayil.Ast.expr) : t =
-      find_branches e empty
-
-    let to_list (map : t) : (string * Status.t * Status.t) list =
-      Map.to_alist map ~key_order:`Increasing
-      |> List.chunks_of ~length:2
-      |> List.map ~f:(function
-        | [ ({ branch_ident = Ident a; direction = True_direction }, true_status)
-          ; ({ branch_ident = Ident b; direction = False_direction }, false_status) ]
-          when String.(a = b) ->
-          (a, true_status, false_status)
-        | _ -> failwith "malformed status store during to_list"
-      )
-
-    (* depends on well-formedness of the map from loading in branches *)
-    let print (map : t) : unit = 
-      Format.printf "\nBranch Information:\n";
-      map
-      |> to_list
-      |> List.iter ~f:(fun (s, true_status, false_status) ->
-          Printf.printf "%s: True=%s; False=%s\n"
-            s
-            (Status.to_string true_status)
-            (Status.to_string false_status)
-        )
-
-    let get_unhit_branch (map : t) : Branch.t option =
-      map
-      |> Map.to_alist
-      |> List.find_map ~f:(fun (branch, status) ->
-          match status with
-          | Status.Unhit | Missed | Unknown _ -> Some branch
-          | _ -> None
-        )
-
-    let set_branch_status ~(new_status : Status.t) (map : t) (branch : Branch.t) : t =
-      Map.update map branch ~f:(function
-        | Some old_status -> Status.update new_status old_status
-        | None -> failwith "unbound branch" 
-      )
-
-    let get_status (map : t) (branch : Branch.t) : Status.t =
-      match Map.find map branch with
-      | Some status -> status
-      | None -> failwith "unbound branch"
-
-    let exceeds_max_step_allowance (map : t) (branch : Branch.t) (allowed_max_step : int) : bool =
-      match Map.find map branch with
-      | Some (Reach_max_step k) when k > allowed_max_step -> true
-      | _ -> false
-
-    (* map any unhit to unreachable *)
-    (* TODO: use Status.update? *)
-    let finish (map : t) (allowed_max_step : int) : t =
-      Map.map map ~f:(function
-      | Status.Unhit -> Status.Unreachable
-      | Reach_max_step n when n <= allowed_max_step -> Status.Hit [] (* TODO: input payload *)
-      | x -> x
-      )
-
-    module Sexp_conversions =
+    module type S = 
+      sig
+        module Status : sig type t end
+        type t [@@deriving sexp, compare]
+        val empty : t
+        val of_expr : Jayil.Ast.expr -> t
+        val print : t -> unit
+        val add_branch_id : t -> Jayil.Ast.ident -> t
+        val set_branch_status : new_status:Status.t -> t -> Branch.t -> t
+        val is_hit : t -> Branch.t -> bool
+        val get_status : t -> Branch.t -> Status.t
+        val find_branches : Jayil.Ast.expr -> t -> t
+        val finish : t -> int -> t
+      end
+    module Make (Status : Status.S) =
       struct
-        module My_tuple =
-          struct
-            (* branch name, true status, false status *)
-            type t = string * Status.t * Status.t [@@deriving sexp]
-          end
+        module M = Map.Make (Branch)
+        type t = Status.t M.t [@@deriving compare] (* will do sexp conversions manually *)
 
-        (* Convert to tuple list of ident, true status, false status.
-          This is atrociously inefficient, but it is only used for small maps. *)
-        let sexp_of_t (map : t) : Sexp.t =
+        let is_hit (map : t) (branch : Branch.t) : bool =
+          match Map.find map branch with
+          | Some status -> Status.is_hit status
+          | None -> false
+
+        let is_valid_target (map : t) (branch : Branch.t) : bool =
+          match Map.find map branch with
+          | Some status -> Status.is_valid_target status
+          | None -> false
+
+        let empty = M.empty
+
+        let add_branch_id (map : t) (id : Jayil.Ast.ident) : t =
+          let set_unhit = function
+            | Some _ -> failwith "adding non-new branch ident"
+            | None -> Status.unhit
+          in
+          map
+          |> Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.True_direction } ~f:set_unhit
+          |> Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.False_direction } ~f:set_unhit
+
+        let rec find_branches (e : Jayil.Ast.expr) (m : t) : t =
+          let open Jayil.Ast in
+          let (Expr clauses) = e in
+          List.fold clauses ~init:m ~f:(fun m clause -> find_branches_in_clause clause m)
+
+        and find_branches_in_clause (clause : Jayil.Ast.clause) (m : t) : t =
+          let open Jayil.Ast in
+          let (Clause (Var (x, _), cbody)) = clause in
+          match cbody with
+          | Conditional_body (_, e1, e2) ->
+            add_branch_id m x
+            |> find_branches e1
+            |> find_branches e2
+          | Value_body (Value_function (Function_value (_, e))) ->
+            find_branches e m
+          | _ -> m (* no branches in non-conditional or value *)
+
+        let of_expr (e : Jayil.Ast.expr) : t =
+          find_branches e empty
+
+        let to_list (map : t) : (string * Status.t * Status.t) list =
+          Map.to_alist map ~key_order:`Increasing
+          |> List.chunks_of ~length:2
+          |> List.map ~f:(function
+            | [ ({ branch_ident = Ident a; direction = True_direction }, true_status)
+              ; ({ branch_ident = Ident b; direction = False_direction }, false_status) ]
+              when String.(a = b) ->
+              (a, true_status, false_status)
+            | _ -> failwith "malformed status store during to_list"
+          )
+
+        (* depends on well-formedness of the map from loading in branches *)
+        let print (map : t) : unit = 
+          Format.printf "\nBranch Information:\n";
           map
           |> to_list
-          |> List.sexp_of_t My_tuple.sexp_of_t
-        
-        let t_of_sexp (sexp : Sexp.t) : t =
-          sexp
-          |> List.t_of_sexp My_tuple.t_of_sexp
-          |> List.fold ~init:empty ~f:(fun acc (id, true_status, false_status) ->
-            acc
-            |> Map.set ~key:({ branch_ident = Jayil.Ast.Ident id ; direction = Branch.Direction.True_direction}) ~data:true_status
-            |> Map.set ~key:({ branch_ident = Jayil.Ast.Ident id ; direction = Branch.Direction.False_direction}) ~data:false_status
+          |> List.iter ~f:(fun (s, true_status, false_status) ->
+              Printf.printf "%s: True=%s; False=%s\n"
+                s
+                (Status.to_string true_status)
+                (Status.to_string false_status)
+            )
+
+        let get_unhit_branch (map : t) : Branch.t option =
+          map
+          |> Map.to_alist
+          |> List.find_map ~f:(fun (branch, status) ->
+              if not @@ Status.is_hit status (* fix: not hit is not same as unhit. Should be Unhit, Missed, and Unknown *)
+              then Some branch
+              else None
           )
+
+        let set_branch_status ~(new_status : Status.t) (map : t) (branch : Branch.t) : t =
+          Map.update map branch ~f:(function
+            | Some old_status -> Status.update new_status old_status
+            | None -> failwith "unbound branch" 
+          )
+
+        let get_status (map : t) (branch : Branch.t) : Status.t =
+          match Map.find map branch with
+          | Some status -> status
+          | None -> failwith "unbound branch"
+
+        let exceeds_max_step_allowance (map : t) (branch : Branch.t) (allowed_max_step : int) : bool =
+          match Map.find map branch with
+          | Some status when Status.exceeds_max_step_allowance status allowed_max_step -> true
+          | _ -> false
+
+        let finish (map : t) (allowed_max_step : int) : t =
+          Map.map map ~f:Status.finish
+
+        module Sexp_conversions =
+          struct
+            module My_tuple =
+              struct
+                (* branch name, true status, false status *)
+                type t = string * Status.t * Status.t [@@deriving sexp]
+              end
+
+            (* Convert to tuple list of ident, true status, false status.
+              This is atrociously inefficient, but it is only used for small maps. *)
+            let sexp_of_t (map : t) : Sexp.t =
+              map
+              |> to_list
+              |> List.sexp_of_t My_tuple.sexp_of_t
+            
+            let t_of_sexp (sexp : Sexp.t) : t =
+              sexp
+              |> List.t_of_sexp My_tuple.t_of_sexp
+              |> List.fold ~init:empty ~f:(fun acc (id, true_status, false_status) ->
+                acc
+                |> Map.set ~key:({ branch_ident = Jayil.Ast.Ident id ; direction = Branch.Direction.True_direction}) ~data:true_status
+                |> Map.set ~key:({ branch_ident = Jayil.Ast.Ident id ; direction = Branch.Direction.False_direction}) ~data:false_status
+              )
+          end
+
+        include Sexp_conversions
       end
 
-    include Sexp_conversions
+    module Without_payload = Make (Status.Without_payload)
+    include Make (Status.T)
+
+    let without_payload (m : t) : Without_payload.t =
+      Map.map m ~f:Status.Without_payload.t_of_with_payload
   end
 
 module Branch_set = Set.Make (Branch)
