@@ -13,6 +13,12 @@
     (x_is_50_branch Hit Hit)
     (e Hit Hit)
   )
+  (
+    (r Unknown Hit)  
+    (first_branch Hit Hit)
+    (x_is_50_branch Hit Hit)
+    (e Unknown Hit)
+  )
   ; if times out every time, then last branch is unfound, so unknown
   (
     (r Unknown Hit)  

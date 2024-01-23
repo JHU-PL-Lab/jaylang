@@ -1,11 +1,8 @@
 open Core
 
 (* Run concolic tester: *)
-let rec test_program_concolic source counter =
-  if counter <= 0 then Format.printf "Timeout limit reached. Program will not terminate...\n" else 
-  let program = Dj_common.File_utils.read_source source in 
-  try
-    let _ = Concolic.eval program in ()
-  with
-  | Concolic_exceptions.Reach_max_step(_, _, _) -> Format.printf "Reach max step... re-evaluating:\n"; test_program_concolic source (counter - 1)
-  | ex -> raise ex 
+let test_program_concolic ?timeout_sec source =
+  let program = Dj_common.File_utils.read_source source in
+  match timeout_sec with
+  | None -> let _ = Concolic.eval program in ()
+  | Some s -> let _ = Concolic.eval_timeout program s in ()

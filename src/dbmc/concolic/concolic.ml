@@ -478,3 +478,17 @@ let eval (e : expr) : Branch_tracker.Status_store.Without_payload.t =
   (* Repeatedly evaluate program *)
   loop e 
   @@ Session.of_expr e
+
+let eval_timeout (e : expr) (s : float) : Branch_tracker.Status_store.Without_payload.t option =
+  let open Lwt.Syntax in
+  let result_lwt =
+    Lwt.try_bind
+      (fun () -> Lwt.return @@ eval e)
+      (fun result -> Lwt.return (Some result))
+      (fun _ (* exn *) -> Lwt.return_none) 
+  in
+  let timeout_lwt =
+    let* () = Lwt_unix.sleep s in
+    Lwt.return_none
+  in
+  Lwt_main.run (Lwt.pick [timeout_lwt; result_lwt])

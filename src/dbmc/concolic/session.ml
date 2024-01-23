@@ -168,7 +168,7 @@ type t =
   ; run_num          : int
   ; has_hit_exit     : bool } (* true iff some concolic run has hit exiting control flow *)
 
-let default_global_max_step = Int.(10 ** 3)
+let default_global_max_step = Int.(2 * 10 ** 3)
 
 let default_solver_timeout_s = 1.0
 
