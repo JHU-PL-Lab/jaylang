@@ -493,7 +493,7 @@ module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
     |> bg ;
     set_creation pipe_dst
 
-  let filter_map2_r u src1 src2 f_opt =
+  let _filter_map2_r u src1 src2 f_opt =
     let stream12 = map2_r u src1 src2 in
     Lwt_stream.filter_map f_opt stream12
 
@@ -527,16 +527,7 @@ module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
     joini_r u srcs |> Lwt_stream.iter_s (mapi_push f pipe_dst) |> bg ;
     set_creation pipe_dst
 
-  let bind0 (stream, push) src1 f =
-    Lwt_stream.iter_p
-      (fun v1 ->
-        let src2 = f v1 in
-        Lwt_stream.iter (fun v2 -> push (Some v2)) src2)
-      src1
-    >|= (fun () -> push None)
-    |> bg ;
-    stream
-
+  (*
   let bind_like_r u src dst f =
     let pipe_src = find_detail u src in
     let pipe_src = stream_of_detail pipe_src in
@@ -554,9 +545,46 @@ module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
     let f_iter msg = (M.fmap f_here Lwt.return_unit) msg in
     Lwt_stream.iter_p f_iter pipe_src |> bg ;
     pipe_dst
+  *)
+  let _bind0 (stream, push) src1 f =
+    Lwt_stream.iter_p
+      (fun v1 ->
+        let src2 = f v1 in
+        Lwt_stream.iter (fun v2 -> push (Some v2)) src2)
+      src1
+    >|= (fun () -> push None)
+    |> bg ;
+    stream
 
-  let bind_like u srcs dst f =
-    let pipe_dst = bind_like_r u srcs dst f in
+  let bind0 ?sp src1 f_opt =
+    let stream, push =
+      match sp with
+      | Some (stream, push) -> (stream, push)
+      | None -> Lwt_stream.create ()
+    in
+    Lwt_stream.iter_p
+      (fun v1 ->
+        match f_opt v1 with
+        | Some src2 -> Lwt_stream.iter (fun v2 -> push (Some v2)) src2
+        | None -> Lwt.return_unit)
+      src1
+    >|= (fun () -> push None)
+    |> bg ;
+    stream
+
+  let bind_like u src dst f_to_key =
+    let pipe_src = find_detail u src in
+    let pipe_dst = find_detail u dst in
+    let f_to_stream p =
+      f_to_key p |> find_detail u |> stream_of_detail |> Option.some
+    in
+    let stream_msg =
+      bind0
+        ~sp:(pipe_dst.stream, pipe_dst.push)
+        (stream_of_detail pipe_src)
+        f_to_stream
+      (* bind0 pipe_src f_to_stream *)
+    in
     set_creation pipe_dst
 
   let bind_like_list_r u src dst f =
