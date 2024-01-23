@@ -2,6 +2,7 @@
 
 ### Urgent
 
+* assert and assume
 * Scale max step with number of lines
 * Handle incorrect formulas from aborts and max steps
 * Don't re-solve for a branch if branch info hasn't changed.
@@ -14,6 +15,10 @@
     * on that note, do the inputs need to be implied by the parents?
 * fuzz with the answers, and check that they still SAT
   * try an OR that checks if any of the inputs can be different and still satisfy
+* set unsatisfiables to unknown if using formulas from an exited session
+  * can separately keep the formulas from an exit, and if those result in unsatisfiable, then try
+    without. Then make some good choice of whether to try the solve or call unknown
+* "finish" with unknown instead of unreachable if has hit a control flow exit
 
 ### Eventually
 

@@ -15,11 +15,11 @@
   (
     (r Hit Reach_max_step)
     (call_fun_branch Hit Hit)
-    (sum_val_is_desired_branch Unreachable_because_max_step Hit)
+    (sum_val_is_desired_branch Unknown Hit)
   )
   (
     (r Hit Reach_max_step)
     (call_fun_branch Hit Hit)
-    (sum_val_is_desired_branch Unknown Hit)
+    (sum_val_is_desired_branch Unknown Unknown)
   )
 )

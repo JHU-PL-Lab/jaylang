@@ -25,7 +25,7 @@ module Status =
         val is_valid_target : t -> bool
         val unhit : t
         val exceeds_max_step_allowance : t -> int -> bool
-        val finish : t -> t
+        val finish : t -> bool -> t
       end
 
     (* ignore payloads on compare because they are nondeterministic *)
@@ -106,9 +106,9 @@ module Status =
           | Reach_max_step m when m > n -> true
           | _ -> false
 
-        (* TODO: if any control flow changes are ever hit, then cannot set to unreachable *)
-        let finish (x : t) : t =
+        let finish (x : t) (has_quit : bool) : t =
           match x with
+          | Unhit when has_quit -> Unknown 1
           | Unhit -> Unreachable
           | Reach_max_step _ -> Hit [] (* TODO: input payload and max step count *)
           | _ -> x
@@ -207,8 +207,9 @@ module Status =
           | Reach_max_step -> true
           | _ -> false
 
-        let finish (x : t) : t =
+        let finish (x : t) (has_quit : bool) : t =
           match x with
+          | Unhit when has_quit -> Unknown
           | Unhit -> Unreachable
           | Reach_max_step -> Hit
           | _ -> x
@@ -229,7 +230,7 @@ module Status_store =
         val is_hit : t -> Branch.t -> bool
         val get_status : t -> Branch.t -> Status.t
         val find_branches : Jayil.Ast.expr -> t -> t
-        val finish : t -> int -> t
+        val finish : t -> int -> bool -> t
       end
     module Make (Status : Status.S) =
       struct
@@ -325,8 +326,8 @@ module Status_store =
           | Some status when Status.exceeds_max_step_allowance status allowed_max_step -> true
           | _ -> false
 
-        let finish (map : t) (allowed_max_step : int) : t =
-          Map.map map ~f:Status.finish
+        let finish (map : t) (allowed_max_step : int) (has_quit : bool) : t =
+          Map.map map ~f:(Fn.flip Status.finish has_quit)
 
         module Sexp_conversions =
           struct
@@ -516,8 +517,8 @@ let get_aborts ({ abort_branches ; _ } : t) : Branch.t list =
 let get_max_steps ({ max_step_branches ; _ } : t) : Branch.t list =
   Set.to_list max_step_branches
 
-let finish (x : t) : t =
-  { x with status_store = Status_store.finish x.status_store x.allowed_max_step }
+let finish (x : t) (has_quit : bool) : t =
+  { x with status_store = Status_store.finish x.status_store x.allowed_max_step has_quit }
 
 let print ({ status_store ; _ } : t) : unit =
   Status_store.print status_store

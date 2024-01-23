@@ -99,8 +99,8 @@ module Status_store :
         (** [find_branches e store] is a new store where all the branches in the given expression [expr]
             have been added as unhit branches to the given [store]. *)
 
-        val finish : t -> int -> t
-        (** [finish store allowed_max_step] is a new store where all unhit branches are now marked as unsatisfiable. *)
+        val finish : t -> int -> bool -> t
+        (** [finish store allowed_max_step has_quit] is a new store where all unhit branches are now marked as unsatisfiable. *)
       end
 
     module Without_payload : S with module Status := Status.Without_payload
@@ -162,9 +162,9 @@ val get_aborts : t -> Branch.t list
 val get_max_steps : t -> Branch.t list
 (** [get_max_steps t] is all branches known to have hit max step too many times in [t]. *)
 
-val finish : t -> t
-(** [finish t] sets statuses in [t] to unreachable or hit accordingly, such that results are ready
-    to be nicely printed. *)
+val finish : t -> bool -> t
+(** [finish t has_quit] sets statuses in [t] to unreachable or hit accordingly, such that results are ready
+    to be nicely printed. [has_quit] is true iff some concolic evaluation quit via control flow. *)
 
 val print : t -> unit
 (** [print t] prints the branch statuses in [t]. *)

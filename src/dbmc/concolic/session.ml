@@ -99,12 +99,14 @@ module Concolic =
     type t =
       { formula_tracker : Formula_tracker.t
       ; branch_tracker  : Branch_tracker.Runtime.t
-      ; input           : Branch_tracker.Input.t }
+      ; input           : Branch_tracker.Input.t
+      ; has_hit_exit    : bool }
 
     let default : t =
       { formula_tracker = Formula_tracker.empty
       ; branch_tracker  = Branch_tracker.Runtime.empty
-      ; input           = [] }
+      ; input           = []
+      ; has_hit_exit    = false }
 
     let create ~(target : Branch.t) ~(formula_tracker : Formula_tracker.t) : t =
       { default with branch_tracker = Branch_tracker.Runtime.with_target target ; formula_tracker }
@@ -124,12 +126,14 @@ module Concolic =
     let found_abort (session : t) : t =
       { session with
         formula_tracker = Formula_tracker.exit_until_global session.formula_tracker
-      ; branch_tracker = Branch_tracker.Runtime.found_abort session.branch_tracker }
+      ; branch_tracker = Branch_tracker.Runtime.found_abort session.branch_tracker
+      ; has_hit_exit = true }
 
     let reach_max_step (session : t) : t =
       { session with
         formula_tracker = Formula_tracker.exit_until_global session.formula_tracker
-      ; branch_tracker = Branch_tracker.Runtime.reach_max_step session.branch_tracker }
+      ; branch_tracker = Branch_tracker.Runtime.reach_max_step session.branch_tracker
+      ; has_hit_exit = true }
 
     let enter_branch (session : t) (branch : Branch.Runtime.t) : t =
       (* Format.printf "Hitting: %s: %s\n"
@@ -161,18 +165,20 @@ type t =
   ; formula_tracker  : Formula_tracker.t
   ; solver_timeout_s : float (* seconds allowed for each solve *)
   ; global_max_step  : int
-  ; run_num          : int}
+  ; run_num          : int
+  ; has_hit_exit     : bool } (* true iff some concolic run has hit exiting control flow *)
 
 let default_global_max_step = Int.(10 ** 3)
 
-let default_solver_timeout_s = 0.25
+let default_solver_timeout_s = 1.0
 
 let default : t =
   { branch_tracker   = Branch_tracker.empty
   ; formula_tracker  = Formula_tracker.empty
   ; solver_timeout_s = default_solver_timeout_s
   ; global_max_step  = default_global_max_step
-  ; run_num          = 0 }
+  ; run_num          = 0
+  ; has_hit_exit     = false }
 
 let of_expr (expr : Jayil.Ast.expr) : t =
   { default with branch_tracker = Branch_tracker.of_expr expr }
@@ -195,14 +201,21 @@ and solve_for_target (target : Branch.t) (session : t) : [ `Done of t | `Next of
   Format.printf "Solving for %s\n" (Branch.to_string target);
   match Branch_solver.check_solver target session.formula_tracker session.branch_tracker with
   | `Unsolvable status ->
-    next { session with branch_tracker = Branch_tracker.set_status session.branch_tracker target status }
+    let new_status =
+      match status with
+      ( Branch_tracker.Status.Unsatisfiable
+      | Unreachable_because_abort
+      | Unreachable_because_max_step ) when session.has_hit_exit -> Branch_tracker.Status.Unknown 1
+      | _ -> status
+    in
+    next { session with branch_tracker = Branch_tracker.set_status session.branch_tracker target new_status }
   | `Solved model ->
     `Next ({ session with run_num = session.run_num + 1 }
           , Concolic.create ~target ~formula_tracker:session.formula_tracker
           , Eval.create (Concolic_feeder.from_model model) session.global_max_step )
 
 let finish (session : t) : t =
-  { session with branch_tracker = Branch_tracker.finish session.branch_tracker }
+  { session with branch_tracker = Branch_tracker.finish session.branch_tracker session.has_hit_exit }
 
 let print ({ branch_tracker ; _ } : t) : unit =
   Branch_tracker.print branch_tracker
@@ -210,7 +223,8 @@ let print ({ branch_tracker ; _ } : t) : unit =
 let accum_concolic (session : t) (concolic : Concolic.t) : t =
   { session with
     formula_tracker = concolic.formula_tracker (* completely overwrite because we passed it in earlier to make the concolic session *)
-  ; branch_tracker = Branch_tracker.collect_runtime session.branch_tracker concolic.branch_tracker concolic.input }
+  ; branch_tracker = Branch_tracker.collect_runtime session.branch_tracker concolic.branch_tracker concolic.input
+  ; has_hit_exit = session.has_hit_exit || concolic.has_hit_exit }
 
 let branch_tracker ({ branch_tracker ; _ } : t) : Branch_tracker.t =
   branch_tracker
