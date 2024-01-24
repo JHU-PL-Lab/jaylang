@@ -9,6 +9,37 @@ open Messages
    We can fuse `get` into the exisiting `t` but we may not fuse `set` into it.
 
    OB3: a compositional thing should have a compositional type.
+
+   OB4:
+   Now the remaining question is when we get a stream and apply a function, shall we apply 
+   an `f_payload` or an `f_message`, especially the `f` is done in multiple steps e.g.
+
+   let s3 = bind_like s1 (fun v -> s2) in
+   set s3 k3
+
+   OB5:
+   there is some invariant e.g.
+
+   set s k := iter s (push k)
+   map s f1 |> iter f2 == iter s (f1 . f2)
+
+   which may hint we just need 
+
+   OB6:
+   user specifies a function on payload `f_payload`
+   specific pipes are in charge of control messages
+
+   pipe receives control messages from its source and only send message on its own status, which means
+   the above iter (in `set`) is a special set.
+
+   e.g.
+   s1 --map-f-> s2 
+                  \
+                   s5
+                  /
+   s3 --map-f-> s4
+
+
 *)
 
 (* The library has an invariant that the stream with a key can only be create once

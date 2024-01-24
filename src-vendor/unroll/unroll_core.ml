@@ -388,7 +388,7 @@ module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
   let map2_opt_push f pipe = M.seq2 f (L.get_push pipe) |> then_lwt
   let map2_opt_opt_push f pipe = M.seq2_opt f (L.get_push pipe) |> then_lwt
 
-  let with_handling_state pipe_dst f msg =
+  let with_handling_state0 pipe_dst f msg =
     if N.equal pipe_dst.status N.Running
     then (
       (match msg with
@@ -424,57 +424,64 @@ module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
     push_state u dst N.Done
   (* pipe_dst.push None *)
 
-  (* split read and write *)
-
-  let read u src =
+  let stream_of_key u src =
     let pipe_src = find_detail u src in
     let stream_src = stream_of_detail pipe_src in
     stream_src
 
-  let iter u src f =
-    let pipe_src = find_detail u src in
-    pipe_src |> stream_of_detail
-    |> Lwt_stream.iter_s (M.fmap f () |> then_lwt)
-    |> bg
+  (* iter on pipe with payload *)
 
-  let _iter0 u src f =
-    let pipe_src = find_detail u src in
-    pipe_src |> stream_of_detail |> Lwt_stream.iter_s f |> bg
+  let iter0_msg _u pipe_src f =
+    pipe_src |> stream_of_detail |> Lwt_stream.iter_s f
 
-  let iter0p _u pipe_src f = pipe_src |> stream_of_detail |> Lwt_stream.iter_s f
-
-  (* a stream reader is a helper function *)
-  let _map_r u src f =
+  (* iter on key with message *)
+  let iter_msg u src f =
     let pipe_src = find_detail u src in
-    let stream_src = stream_of_detail pipe_src in
-    Lwt_stream.map f stream_src
+    iter0_msg u pipe_src f
+
+  let iter0 u pipe_src f = iter0_msg u pipe_src (M.fmap f () |> then_lwt)
+  let iter u src f = iter_msg u src (M.fmap f () |> then_lwt) |> bg
+
+  let set u stream_src key_dst =
+    let pipe_dst = find_detail u key_dst in
+    let f_here = with_handling_state0 pipe_dst (push u key_dst) in
+    let on_done = iter0_msg u stream_src f_here >|= fun () -> close u key_dst in
+    on_done |> bg ;
+    set_creation pipe_dst
+
+  (* map on key with message *)
+  let map_r u src f = stream_of_key u src |> Lwt_stream.map f
 
   (* the reason is use `push` is the consumer may come before the producer.
      The consumer needs a stream value.
      The later producer can only use the `push` to feed them into the stream.
   *)
+
   let map u src dst f =
-    let pipe_src = read u src in
     let pipe_dst = find_detail u dst in
-    let state_aware_f = with_handling_state pipe_dst (map_push f pipe_dst) in
-    let on_done = iter0p u pipe_dst state_aware_f >|= fun () -> close u dst in
+    let state_aware_f = with_handling_state0 pipe_dst (map_push f pipe_dst) in
+    let on_done = iter' u src state_aware_f >|= fun () -> close u dst in
     on_done |> bg ;
     set_creation pipe_dst
 
   let id u src dst = map u src dst Fn.id
 
   let _filter_map_r u src f_opt =
-    let pipe_src = find_detail u src in
-    let stream_src = stream_of_detail pipe_src in
-    Lwt_stream.filter_map f_opt stream_src
+    stream_of_key u src |> Lwt_stream.filter_map f_opt
+
+  (*
+     filter_map s f1 |> iter f2
+     ===
+     iter s (f1 . f2)
+  *)
 
   let filter_map u src dst f_opt =
-    let pipe_src = read u src in
+    let pipe_src = stream_of_key u src in
     let pipe_dst = find_detail u dst in
     let state_aware_f =
-      with_handling_state pipe_dst (map_opt_push f_opt pipe_dst)
+      with_handling_state0 pipe_dst (map_opt_push f_opt pipe_dst)
     in
-    let on_done = iter0p u pipe_dst state_aware_f >|= fun () -> close u dst in
+    let on_done = iter' u pipe_dst state_aware_f >|= fun () -> close u dst in
     on_done |> bg ;
     set_creation pipe_dst
 
@@ -575,8 +582,13 @@ module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
   let bind_like u src dst f_to_key =
     let pipe_src = find_detail u src in
     let pipe_dst = find_detail u dst in
-    let f_to_stream p =
-      f_to_key p |> find_detail u |> stream_of_detail |> Option.some
+    let f_to_stream m =
+      match M.prj_opt m with
+      | Some p -> (
+          match f_to_key p with
+          | Some k -> k |> find_detail u |> stream_of_detail |> Option.some
+          | None -> None)
+      | None -> None
     in
     let stream_msg =
       bind0
@@ -594,9 +606,7 @@ module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
     let f_here p =
       let key_srcs = f p in
       let key_src2 = List.hd_exn key_srcs in
-      print_endline "in2" ;
       let pipe_src2 = find_detail u key_src2 in
-      print_endline "in3" ;
       Lwt_stream.iter_s
         (M.fmap (fun p -> push u dst (Some p)) () |> then_lwt)
         (stream_of_detail pipe_src2)
@@ -610,6 +620,15 @@ module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
     let pipe_dst = bind_like_list_r u srcs dst f in
     set_creation pipe_dst
 
+  (* After `src_status` has a control message for `status_on`,
+     reading message from `src_v`.
+     write message from `src_v` to `dst`
+  *)
+
+  (*
+     src -> filter_map_s -> s1
+     append s1 src_v
+  *)
   let on_r u src_status status_on src_v dst =
     let pipe_src = find_detail u src_status in
     let pipe_src = stream_of_detail pipe_src in
