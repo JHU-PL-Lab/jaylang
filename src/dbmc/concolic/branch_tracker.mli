@@ -4,7 +4,7 @@ module Input :
     (* [t] is the input for an entire run. A run can have multiple inputs *)
   end
 
-module Status :
+module rec Status :
   sig
     module T :
       sig
@@ -14,7 +14,7 @@ module Status :
           | Unsatisfiable (* TODO: payload? *)
           | Found_abort of Input.t list
           | Reach_max_step of int (* counter for how many times it has reached max step *)
-          | Missed
+          | Missed of Status_store.Without_payload.t (* what were the statuses as of the solve for the miss *)
           | Unreachable_because_abort (* TODO: payload? *)
           | Unreachable_because_max_step (* ^ *)
           | Unknown of int (* number of solve attempts *) (* this isn't perfect because we might always want to include missed but only when no other new branch info *)
@@ -59,7 +59,7 @@ module Status :
 (*
   A `Status_store` tracks how AST branches are hit. It maps branch identifiers to their status.
 *)
-module Status_store :
+and Status_store :
   sig
     module type S = 
       sig

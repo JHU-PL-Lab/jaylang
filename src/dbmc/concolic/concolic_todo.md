@@ -3,10 +3,9 @@
 ### Urgent
 
 * If quit due to timeout, then still report if abort is found or not
-  * This will necessarily require mutation
+  * This will necessarily require mutation, or some great Lwt skills
 * assert and assume
 * Scale max step with number of lines
-* Handle incorrect formulas from aborts and max steps
 * Don't re-solve for a branch if branch info hasn't changed.
   * This is tough because we might have gained new formulas by hitting deeper branches, but not new info.
   * I will just let it run a few times, and if the `Missed` is not significantly different after a few times,
@@ -38,6 +37,8 @@
 ### Out of scope
 
 * Analyze AST to determine hittable vs unreachable, as well as how aborts affect future runs
+* Analyze AST to determine which branches are reachable starting from any line of code, and thus which branches depend on which lines. Then only use those formulas to solve, and ignore other formulas that might clog up the solver.
+  * Further, we can determine if a solve/branch is affected by an abort (but this will need some more thought)
 * Any other AST analysis...
 
 ### Random thoughts

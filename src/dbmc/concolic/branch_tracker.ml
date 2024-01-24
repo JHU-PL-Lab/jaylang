@@ -13,7 +13,26 @@ module Input =
     type t = (Lookup_key.t * int) list [@@deriving compare, sexp]
   end
 
-module Status =
+module rec Status :
+  sig
+    module type S =
+      sig
+        type t [@@deriving compare, sexp]
+        val to_string : t -> string
+        val is_hit : t -> bool
+        val update : t -> t -> t
+        val is_valid_target : t -> bool
+        val unhit : t
+        val exceeds_max_step_allowance : t -> int -> bool
+        val finish : t -> bool -> t
+      end
+
+    module T : S
+    include T
+
+    module Without_payload : S
+  end
+  =
   struct
 
     module type S =
@@ -37,7 +56,7 @@ module Status =
           | Unsatisfiable
           | Found_abort of (Input.t list [@compare.ignore])[@sexp.list]
           | Reach_max_step of (int [@compare.ignore])
-          | Missed
+          | Missed 
           | Unreachable_because_abort
           | Unreachable_because_max_step
           | Unknown of (int [@compare.ignore])
@@ -216,7 +235,30 @@ module Status =
       end
   end
 
-module Status_store =
+and Status_store :
+  sig
+    module type S = 
+      sig
+        module Status : sig type t end
+        type t [@@deriving sexp, compare]
+        val empty : t
+        val of_expr : Jayil.Ast.expr -> t
+        val print : t -> unit
+        val add_branch_id : t -> Jayil.Ast.ident -> t
+        val set_branch_status : new_status:Status.t -> t -> Branch.t -> t
+        val is_hit : t -> Branch.t -> bool
+        val get_status : t -> Branch.t -> Status.t
+        val find_branches : Jayil.Ast.expr -> t -> t
+        val finish : t -> int -> bool -> t
+        val contains : t -> Status.t -> bool
+      end
+
+    module Without_payload : S with module Status := Status.Without_payload
+    module T : S with module Status := Status.T
+    include T
+    val without_payload : t -> Without_payload.t
+  end
+  =
   struct
     module type S = 
       sig
