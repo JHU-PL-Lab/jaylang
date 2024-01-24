@@ -101,6 +101,8 @@ module Status_store :
 
         val finish : t -> int -> bool -> t
         (** [finish store allowed_max_step has_quit] is a new store where all unhit branches are now marked as unsatisfiable. *)
+
+        val contains : t -> Status.t -> bool
       end
 
     module Without_payload : S with module Status := Status.Without_payload

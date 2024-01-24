@@ -2,6 +2,8 @@
 
 ### Urgent
 
+* If quit due to timeout, then still report if abort is found or not
+  * This will necessarily require mutation
 * assert and assume
 * Scale max step with number of lines
 * Handle incorrect formulas from aborts and max steps
@@ -213,3 +215,12 @@ Sometimes the solver just can't figure out how to hit a branch, and it seems to 
 * Assume is like abort, where we have to quit if it fails, but we don't report a failing assume
   * It affects control flow such that we don't continue
 * Assert is like an exception, so again like an abort, but we don't report
+
+### 24 Jan 2024
+
+Updates:
+* Most tests should be passing because an abort is found, but I try to continue to learn more and end up hitting an infinite loop of solving
+  * I think this is because I don't stop trying to solve after several misses
+* I have a **very** hacky timeout system, and I don't know Lwt well, but it sort of works
+* I still add formulas from exited runs (e.g. max step, abort, etc.) but they can't ever imply "unsatisfiable" branches
+  * I would like to selectively add them and be more sophisticated to still let some branches be called unsatisfiable

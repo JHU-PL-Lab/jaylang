@@ -480,15 +480,35 @@ let eval (e : expr) : Branch_tracker.Status_store.Without_payload.t =
   @@ Session.of_expr e
 
 let eval_timeout (e : expr) (s : float) : Branch_tracker.Status_store.Without_payload.t option =
-  let open Lwt.Syntax in
-  let result_lwt =
-    Lwt.try_bind
-      (fun () -> Lwt.return @@ eval e)
-      (fun result -> Lwt.return (Some result))
-      (fun _ (* exn *) -> Lwt.return_none) 
+  
+  (* https://discuss.ocaml.org/t/computation-with-time-constraint/5548/9 *)
+  let exception Timeout in
+  let ugly_timeout f x timeout_sec = 
+    let _ =
+      Stdlib.Sys.set_signal Stdlib.Sys.sigalrm (Stdlib.Sys.Signal_handle (fun _ -> raise Timeout))
+    in
+    ignore (Caml_unix.alarm timeout_sec);
+    try
+      let r = f x in
+      ignore (Caml_unix.alarm 0); r
+    with
+    | e  -> ignore (Caml_unix.alarm 0); raise e
   in
-  let timeout_lwt =
-    let* () = Lwt_unix.sleep s in
-    Lwt.return_none
-  in
-  Lwt_main.run (Lwt.pick [timeout_lwt; result_lwt])
+  try
+    Option.return
+    @@ ugly_timeout eval e (Float.round_up s |> Float.to_int)
+  with
+  | Timeout -> None
+  | _ -> None (* catch any exception that results from an ugly failure due to sig alarm stopping the eval at some arbitrary spot *)
+
+  (* begin
+  try
+    let open Lwt.Infix in
+    Timeout_utils.no_matter (Some (Core.Time_float.Span.of_sec s)) (fun () -> let x = eval e in Lwt.return x)
+    >|= Option.return
+  with
+  | Lwt_unix.Timeout ->
+      prerr_endline "real timeout" ;
+      Lwt.return None
+  end
+  |> Lwt_main.run *)

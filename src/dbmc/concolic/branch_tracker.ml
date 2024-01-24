@@ -231,6 +231,7 @@ module Status_store =
         val get_status : t -> Branch.t -> Status.t
         val find_branches : Jayil.Ast.expr -> t -> t
         val finish : t -> int -> bool -> t
+        val contains : t -> Status.t -> bool
       end
     module Make (Status : Status.S) =
       struct
@@ -329,6 +330,9 @@ module Status_store =
         let finish (map : t) (allowed_max_step : int) (has_quit : bool) : t =
           Map.map map ~f:(Fn.flip Status.finish has_quit)
 
+        let contains (map : t) (status : Status.t) : bool =
+          Map.exists map ~f:(fun v -> Status.compare v status = 0)
+           
         module Sexp_conversions =
           struct
             module My_tuple =
