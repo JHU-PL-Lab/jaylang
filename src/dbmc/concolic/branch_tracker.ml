@@ -22,15 +22,60 @@ module rec Status :
         val is_hit : t -> bool
         val update : t -> t -> t
         val is_valid_target : t -> bool
-        val unhit : t
+        val unhit : unit -> t (* must do this so that all types are function types to make safe recursive module *)
         val exceeds_max_step_allowance : t -> int -> bool
         val finish : t -> bool -> t
+        val missed_store : t -> Status_store.Without_payload.t option
       end
 
-    module T : S
-    include T
+    module T : 
+      sig
+        type t =
+          | Hit of (Input.t list [@compare.ignore])[@sexp.list]
+          | Unhit
+          | Unsatisfiable
+          | Found_abort of (Input.t list [@compare.ignore])[@sexp.list]
+          | Reach_max_step of (int [@compare.ignore])
+          | Missed of Status_store.Without_payload.t
+          | Unreachable_because_abort
+          | Unreachable_because_max_step
+          | Unknown of (int [@compare.ignore])
+          | Unreachable (* any unhit branch whose parent is unsatisfiable *)
+        include S with type t := t
+      end
 
-    module Without_payload : S
+    include T
+    type t = T.t = (* Why do I have to show this again? This is just annoying. doing include module type of T doesn't make it clear that Status.t = Status.T.t *)
+      | Hit of (Input.t list [@compare.ignore])[@sexp.list]
+      | Unhit
+      | Unsatisfiable
+      | Found_abort of (Input.t list [@compare.ignore])[@sexp.list]
+      | Reach_max_step of (int [@compare.ignore])
+      | Missed of Status_store.Without_payload.t
+      | Unreachable_because_abort
+      | Unreachable_because_max_step
+      | Unknown of (int [@compare.ignore])
+      | Unreachable (* any unhit branch whose parent is unsatisfiable *)
+
+    val to_string : t -> string
+
+    module Without_payload : 
+      sig
+        type t =
+          | Hit
+          | Unhit
+          | Unsatisfiable
+          | Found_abort
+          | Reach_max_step
+          | Missed
+          | Unreachable_because_abort
+          | Unreachable_because_max_step
+          | Unknown
+          | Unreachable
+        include S with type t := t
+        val t_of_with_payload : T.t -> t
+        val with_payload_of_t : t -> T.t
+      end
   end
   =
   struct
@@ -42,12 +87,14 @@ module rec Status :
         val is_hit : t -> bool
         val update : t -> t -> t
         val is_valid_target : t -> bool
-        val unhit : t
+        val unhit : unit -> t
         val exceeds_max_step_allowance : t -> int -> bool
         val finish : t -> bool -> t
+        val missed_store : t -> Status_store.Without_payload.t option
       end
 
     (* ignore payloads on compare because they are nondeterministic *)
+    (* TODO: no need to ignore inputs because we have without payload *)
     module T =
       struct
         type t =
@@ -56,14 +103,14 @@ module rec Status :
           | Unsatisfiable
           | Found_abort of (Input.t list [@compare.ignore])[@sexp.list]
           | Reach_max_step of (int [@compare.ignore])
-          | Missed 
+          | Missed of (Status_store.Without_payload.t [@compare.ignore])
           | Unreachable_because_abort
           | Unreachable_because_max_step
           | Unknown of (int [@compare.ignore])
           | Unreachable (* any unhit branch whose parent is unsatisfiable *)
           [@@deriving variants, compare, sexp]
 
-        let unhit = Unhit
+        let unhit () = Unhit
 
         (* sometimes ignores payload *)
         let to_string = function
@@ -106,7 +153,7 @@ module rec Status :
             | Unknown count' -> Unknown (count + count')
             | _ -> new_status
           end
-          | Missed -> new_status
+          | Missed _ -> new_status
           | Unreachable
           | Unreachable_because_abort
           | Unreachable_because_max_step -> old_status
@@ -115,9 +162,9 @@ module rec Status :
 
         let is_valid_target (x : t) : bool =
           match x with
-          | Unhit
-          | Missed -> true
+          | Unhit -> true
           | Unknown count when count <= n_allowed_unknown_solves -> true
+          | Missed _ -> false (* handled in Branch_tracker, which is bad design. See get_target *)
           | _ -> false
 
         let exceeds_max_step_allowance (x : t) (n : int) : bool =
@@ -130,7 +177,12 @@ module rec Status :
           | Unhit when has_quit -> Unknown 1
           | Unhit -> Unreachable
           | Reach_max_step _ -> Hit [] (* TODO: input payload and max step count *)
+          | Missed _ -> Unhit
           | _ -> x
+
+        let missed_store = function
+          | Missed s -> Some s
+          | _ -> None
       end
 
     include T
@@ -152,7 +204,7 @@ module rec Status :
           | Unreachable
           [@@deriving variants, compare, sexp]
 
-        let unhit = Unhit
+        let unhit () = Unhit
 
         let to_string (x : t) : string =
           String.capitalize
@@ -169,7 +221,7 @@ module rec Status :
           | Unsatisfiable -> Unsatisfiable
           | Found_abort _ -> Found_abort
           | Reach_max_step _ -> Reach_max_step
-          | Missed -> Missed
+          | Missed _ -> Missed
           | Unreachable_because_abort -> Unreachable_because_abort
           | Unreachable_because_max_step -> Unreachable_because_max_step
           | Unknown _ -> Unknown
@@ -182,7 +234,7 @@ module rec Status :
           | Unsatisfiable -> Unsatisfiable
           | Found_abort -> Found_abort []
           | Reach_max_step -> Reach_max_step 1
-          | Missed -> Missed
+          | Missed -> Missed Status_store.Without_payload.empty
           | Unreachable_because_abort -> Unreachable_because_abort
           | Unreachable_because_max_step -> Unreachable_because_max_step
           | Unknown -> Unknown 1
@@ -217,8 +269,8 @@ module rec Status :
         let is_valid_target (x : t) : bool =
           match x with
           | Unhit
-          | Missed
           | Unknown -> true
+          | Missed
           | _ -> false
 
         let exceeds_max_step_allowance (x : t) (_ : int) : bool =
@@ -231,54 +283,87 @@ module rec Status :
           | Unhit when has_quit -> Unknown
           | Unhit -> Unreachable
           | Reach_max_step -> Hit
+          | Missed -> Unhit
           | _ -> x
+
+        let missed_store _ = None
       end
   end
 
 and Status_store :
   sig
+    module Branch_map : Map.S
     module type S = 
       sig
-        module Status : sig type t end
+        type status_t
         type t [@@deriving sexp, compare]
         val empty : t
         val of_expr : Jayil.Ast.expr -> t
         val print : t -> unit
         val add_branch_id : t -> Jayil.Ast.ident -> t
-        val set_branch_status : new_status:Status.t -> t -> Branch.t -> t
+        val set_branch_status : new_status:status_t -> t -> Branch.t -> t
         val is_hit : t -> Branch.t -> bool
-        val get_status : t -> Branch.t -> Status.t
+        val get_status : t -> Branch.t -> status_t
         val find_branches : Jayil.Ast.expr -> t -> t
         val finish : t -> int -> bool -> t
-        val contains : t -> Status.t -> bool
+        val contains : t -> status_t -> bool
+      end
+    
+    module type ST =
+      sig
+        type status_t
+        type t = status_t Branch_map.t [@@deriving sexp, compare]
+        include S with type status_t := status_t and type t := t
       end
 
-    module Without_payload : S with module Status := Status.Without_payload
-    module T : S with module Status := Status.T
-    include T
+    module type SS =
+      sig
+        include ST
+        val is_valid_target : t -> Branch.t -> bool
+        val exceeds_max_step_allowance : t -> Branch.t -> int -> bool
+      end
+
+    module Without_payload : SS with type status_t := Status.Without_payload.t
+    include SS with type status_t := Status.t
     val without_payload : t -> Without_payload.t
   end
   =
   struct
+    module Branch_map = Map.Make (Branch)
     module type S = 
       sig
-        module Status : sig type t end
+        type status_t
         type t [@@deriving sexp, compare]
         val empty : t
         val of_expr : Jayil.Ast.expr -> t
         val print : t -> unit
         val add_branch_id : t -> Jayil.Ast.ident -> t
-        val set_branch_status : new_status:Status.t -> t -> Branch.t -> t
+        val set_branch_status : new_status:status_t -> t -> Branch.t -> t
         val is_hit : t -> Branch.t -> bool
-        val get_status : t -> Branch.t -> Status.t
+        val get_status : t -> Branch.t -> status_t
         val find_branches : Jayil.Ast.expr -> t -> t
         val finish : t -> int -> bool -> t
-        val contains : t -> Status.t -> bool
+        val contains : t -> status_t -> bool
       end
-    module Make (Status : Status.S) =
+
+    module type ST =
+      sig
+        type status_t
+        type t = status_t Branch_map.t [@@deriving sexp, compare]
+        include S with type status_t := status_t and type t := t
+      end
+
+    module type SS =
+      sig
+        include ST
+        val is_valid_target : t -> Branch.t -> bool
+        val exceeds_max_step_allowance : t -> Branch.t -> int -> bool
+      end
+
+    module Make (Status : Status.S) : SS with type status_t := Status.t =
       struct
-        module M = Map.Make (Branch)
-        type t = Status.t M.t [@@deriving compare] (* will do sexp conversions manually *)
+        module M = Branch_map
+        type t = Status.t M.t [@@deriving compare]
 
         let is_hit (map : t) (branch : Branch.t) : bool =
           match Map.find map branch with
@@ -295,7 +380,7 @@ and Status_store :
         let add_branch_id (map : t) (id : Jayil.Ast.ident) : t =
           let set_unhit = function
             | Some _ -> failwith "adding non-new branch ident"
-            | None -> Status.unhit
+            | None -> Status.unhit ()
           in
           map
           |> Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.True_direction } ~f:set_unhit
@@ -442,10 +527,10 @@ module Runtime =
       ; hit_branches = Branch_set.empty
       ; fail_status  = Fail_status.Ok
       ; target       = None
-      ; hit_target   = false }
+      ; hit_target   = true }
 
     let with_target (target : Branch.t) : t =
-      { empty with target = Some target }
+      { empty with target = Some target ; hit_target = false }
 
     let hit_branch (x : t) (branch : Branch.t) : t =
       { x with 
@@ -453,7 +538,7 @@ module Runtime =
       ; hit_branches = Set.add x.hit_branches branch
       ; hit_target =
         match x.target with
-        | None -> false
+        | None -> true
         | Some target -> Branch.compare target branch = 0 }
       
     let exit_branch (x : t) : t =
@@ -508,12 +593,14 @@ let set_status (x : t) (branch : Branch.t) (status : Status.t) : t =
       ~new_status:status }
 
 let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
+  (* add hit branches *)
   let status_store = 
     Set.fold
       runtime.hit_branches
       ~init:x.status_store
       ~f:(Status_store.set_branch_status ~new_status:(Status.Hit [input]))
   in
+  (* collect new targets *)
   let pending_targets =
     (if not runtime.hit_target
     then Option.to_list runtime.target (* push target again if missed *)
@@ -525,6 +612,7 @@ let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
     @ x.pending_targets
   in
   let x = { x with pending_targets } in
+  (* add in aborts or max steps *)
   match runtime.fail_status with
   | Ok -> { x with status_store }
   | Found_abort branch ->
@@ -542,6 +630,19 @@ let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
         branch
         ~new_status:(Status.Reach_max_step 1)
     in
+    (* handle missed target *)
+    let status_store =
+      if not runtime.hit_target
+      then
+        begin
+        Status_store.set_branch_status
+          status_store
+          (Option.value_exn runtime.target) (* safe because hit_target is true if target is None *)
+          ~new_status:(Status.Missed (Status_store.without_payload status_store)) (* TODO: set the missed branch to Missed in without payload *)
+        end
+      else
+        status_store
+    in
     { x with
       status_store
     ; max_step_branches = 
@@ -550,10 +651,21 @@ let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
       else x.max_step_branches }
 
 let rec next_target (x : t) : Branch.t option * t =
+  let is_valid_target hd =
+    Status_store.is_valid_target x.status_store hd
+    || begin
+      match Status.T.missed_store (Status_store.get_status x.status_store hd) with
+      | None -> false (* is not valid target and is not missed, so nothing else to check: must just be invalid target *)
+      | Some store -> 
+        (* The status is "missed" with some status store *)
+        (* This is a valid target if the current status store (i.e. branch info) has changed since the last miss *)
+        Status_store.Without_payload.compare (Status_store.without_payload x.status_store) store <> 0
+    end
+  in
   match x.pending_targets with
   | [] -> None, x
   | hd :: tl ->
-    if Status_store.is_valid_target x.status_store hd
+    if is_valid_target hd
     then Some hd, { x with pending_targets = tl }
     else next_target { x with pending_targets = tl }
 

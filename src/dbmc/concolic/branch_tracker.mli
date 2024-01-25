@@ -27,7 +27,7 @@ module rec Status :
       | Unsatisfiable
       | Found_abort of Input.t list
       | Reach_max_step of int
-      | Missed
+      | Missed of Status_store.Without_payload.t
       | Unreachable_because_abort
       | Unreachable_because_max_step
       | Unknown of int
@@ -63,7 +63,7 @@ and Status_store :
   sig
     module type S = 
       sig
-        module Status : sig type t end
+        type status_t 
         type t [@@deriving sexp, compare]
         (** [t] is a map from a branch identifier to the status of the branch. So it tells
             us whether the true and false direction of each branch have been hit. *)
@@ -84,7 +84,7 @@ and Status_store :
         (* val get_unhit_branch : t -> Branch.t option *)
         (** [get_unhit_branch store] is some branch that is unhit. *)
 
-        val set_branch_status : new_status:Status.t -> t -> Branch.t -> t
+        val set_branch_status : new_status:status_t -> t -> Branch.t -> t
         (** [set_branch_status status store branch] is a new store where the given [branch] now has the
             [status]. All other branches are unaffected. *)
 
@@ -92,7 +92,7 @@ and Status_store :
         (** [is_hit store branch] is true if and only if the status of [branch.branch_ident] in 
             the [store] has [branch.direction] as [Hit]. *)
 
-        val get_status : t -> Branch.t -> Status.t
+        val get_status : t -> Branch.t -> status_t
         (** [get_status store branch] is the status of the given [branch]. *)
 
         val find_branches : Jayil.Ast.expr -> t -> t
@@ -102,11 +102,11 @@ and Status_store :
         val finish : t -> int -> bool -> t
         (** [finish store allowed_max_step has_quit] is a new store where all unhit branches are now marked as unsatisfiable. *)
 
-        val contains : t -> Status.t -> bool
+        val contains : t -> status_t -> bool
       end
 
-    module Without_payload : S with module Status := Status.Without_payload
-    include S with module Status := Status
+    module Without_payload : S with type status_t := Status.Without_payload.t
+    include S with type status_t := Status.t
     val without_payload : t -> Without_payload.t
   end
 
