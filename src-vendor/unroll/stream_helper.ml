@@ -74,3 +74,20 @@ let product_stream_bg s1 s2 =
   s
 
 let product_stream = product_stream_bg
+let bg x = Lwt.async (fun () -> x >>= fun _ -> Lwt.return_unit)
+
+let bind0 ?sp src1 f_opt =
+  let stream, push =
+    match sp with
+    | Some (stream, push) -> (stream, push)
+    | None -> Lwt_stream.create ()
+  in
+  Lwt_stream.iter_p
+    (fun v1 ->
+      match f_opt v1 with
+      | Some src2 -> Lwt_stream.iter (fun v2 -> push (Some v2)) src2
+      | None -> Lwt.return_unit)
+    src1
+  >|= (fun () -> push None)
+  |> bg ;
+  stream
