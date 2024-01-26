@@ -45,10 +45,10 @@ val all_formulas : ?allow_repeat_inputs:bool -> t -> target:Branch.t -> aborts:B
     branch, along with formulas that set any branches given in [aborts] or [max_steps] to be off limits so
     that the branches are not to be hit during the run for the [target]. *)
 
-val abort_formulas : t -> Branch.t list -> Z3.Expr.expr list
+(* val abort_formulas : t -> Branch.t list -> Z3.Expr.expr list *)
 (** [abort_formulas t aborts] is all formulas in [t] that set any branch in [aborts] to off limits. *)
 
-val max_step_formulas : t -> Branch.t list -> Z3.Expr.expr list
+(* val max_step_formulas : t -> Branch.t list -> Z3.Expr.expr list *)
 (** [max_step_formulas t max_steps] is all formulas in [t] that set any branch in [max_steps] to off limits. *)
 
 val input_formula : Z3.Expr.expr
