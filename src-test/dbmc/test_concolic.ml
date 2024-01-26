@@ -11,7 +11,7 @@ let test_one_file testname _args =
     with
     | None -> false (* no expected output, so say it failed *)
     | Some expect_list ->
-      let actual_output = Concolic.eval (Dj_common.File_utils.read_source testname) in
+      let actual_output = Concolic.eval ~quit_on_first_abort:false (Dj_common.File_utils.read_source testname) in
       List.exists expect_list ~f:(fun e -> Branch_tracker.Status_store.Without_payload.compare actual_output e = 0)
   in
   Alcotest.(check bool) "concolic" true result

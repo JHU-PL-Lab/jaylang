@@ -100,13 +100,15 @@ module Concolic =
       { formula_tracker : Formula_tracker.t
       ; branch_tracker  : Branch_tracker.Runtime.t
       ; input           : Branch_tracker.Input.t
-      ; has_hit_exit    : bool }
+      ; has_hit_exit    : bool
+      ; has_hit_abort   : bool } (* quick patch for option to quit on first abort *)
 
     let default : t =
       { formula_tracker = Formula_tracker.empty
       ; branch_tracker  = Branch_tracker.Runtime.empty
       ; input           = []
-      ; has_hit_exit    = false }
+      ; has_hit_exit    = false
+      ; has_hit_abort   = false }
 
     let create ~(target : Branch.t) ~(formula_tracker : Formula_tracker.t) : t =
       { default with branch_tracker = Branch_tracker.Runtime.with_target target ; formula_tracker }
@@ -127,7 +129,8 @@ module Concolic =
       { session with
         formula_tracker = Formula_tracker.exit_until_global session.formula_tracker
       ; branch_tracker = Branch_tracker.Runtime.found_abort session.branch_tracker
-      ; has_hit_exit = true }
+      ; has_hit_exit = true
+      ; has_hit_abort = true }
 
     let reach_max_step (session : t) : t =
       { session with
@@ -167,7 +170,8 @@ type t =
   ; global_max_step  : int
   ; run_num          : int
   ; has_hit_exit     : bool (* true iff some concolic run has hit exiting control flow *)
-  ; is_done          : bool } (* temporary patch to hard set a session to done if the concolic session finds no inputs *)
+  ; is_done          : bool (* temporary patch to hard set a session to done if the concolic session finds no inputs *)
+  ; quit_on_first_abort : bool } (* quick patch. See concolic session above *)
 
 let default_global_max_step = Int.(2 * 10 ** 3)
 
@@ -180,7 +184,11 @@ let default : t =
   ; global_max_step  = default_global_max_step
   ; run_num          = 0
   ; has_hit_exit     = false
-  ; is_done          = false }
+  ; is_done          = false
+  ; quit_on_first_abort = true }
+
+let set_quit_on_first_abort (session : t) (b : bool) : t =
+  { session with quit_on_first_abort = b }
 
 let of_expr (expr : Jayil.Ast.expr) : t =
   { default with branch_tracker = Branch_tracker.of_expr expr }
@@ -228,7 +236,7 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
     formula_tracker = concolic.formula_tracker (* completely overwrite because we passed it in earlier to make the concolic session *)
   ; branch_tracker = Branch_tracker.collect_runtime session.branch_tracker concolic.branch_tracker concolic.input
   ; has_hit_exit = session.has_hit_exit || concolic.has_hit_exit
-  ; is_done = List.is_empty concolic.input }
+  ; is_done = List.is_empty concolic.input || (session.quit_on_first_abort && concolic.has_hit_abort) }
 
 let branch_tracker ({ branch_tracker ; _ } : t) : Branch_tracker.t =
   branch_tracker

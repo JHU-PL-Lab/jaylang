@@ -9,12 +9,8 @@
   * This will necessarily require mutation, or some great Lwt skills
 * assert and assume
 * Scale max step with number of lines
-* Don't re-solve for a branch if branch info hasn't changed.
-  * This is tough because we might have gained new formulas by hitting deeper branches, but not new info.
-  * I will just let it run a few times, and if the `Missed` is not significantly different after a few times,
-    then set to unknown.
 * Disallow inputs that have already been used
-  * ^ this seems to not work for flow_sensitive_1
+  * ^ this seems to not work for flow_sensitive_1. UPDATE: maybe it is now, but I'm not sure what changed since I wrote this bullet
   * ^ this is done, but I'm not sure if I properly disallow repeat "second inputs" after the first one is different. I need to disallow some set of inputs, but other sets are fine.
     * on that note, do the inputs need to be implied by the parents?
 * fuzz with the answers, and check that they still SAT
@@ -22,12 +18,10 @@
 * set unsatisfiables to unknown if using formulas from an exited session
   * can separately keep the formulas from an exit, and if those result in unsatisfiable, then try
     without. Then make some good choice of whether to try the solve or call unknown
-* "finish" with unknown instead of unreachable if has hit a control flow exit
+  * The above bullet isn't done, but the parent bullet is
 
 ### Eventually
 
-* Fuzz the inputs a bit as long as they keep the formulas satisfied
-* Throw exception if we ever try to solve for the same branch with the same formulas, i.e. continue with misses until we reach a steady state
 * Logging
 * Use optional input AST branches to customize output
 * Efficiency optimizations!
@@ -36,12 +30,19 @@
   * Shorten lookup keys to hash, if possible. Might not be beneficial though if the cost of hashing is greater than the cost of comparing a few times later. I think that since I have maps and sets with these lookup keys, I do want them shorter
 * Write up the logic that proves the formula tracker implies stuff is correct
 * Benchmark how the implies work to see what is most difficult to solve for.
+* Don't re-solve for a branch if branch info hasn't changed.
+  * This is tough because we might have gained new formulas by hitting deeper branches, but not new info.
+  * I will just let it run a few times, and if the `Missed` is not significantly different after a few times, then set to unknown.
+  * ^ This is done by comparing with a status store without payload, but I've moved it to "eventually" because it might want improvements
 
 ### Out of scope
 
 * Analyze AST to determine hittable vs unreachable, as well as how aborts affect future runs
 * Analyze AST to determine which branches are reachable starting from any line of code, and thus which branches depend on which lines. Then only use those formulas to solve, and ignore other formulas that might clog up the solver.
   * Further, we can determine if a solve/branch is affected by an abort (but this will need some more thought)
+* Target the branches first that are known to have aborts by first analyzing AST
+  * Prioritize any that are seen by pushing them to the front of the stack
+* Value numbering and dead store elimination on jil programs (and hence liveness?)
 * Any other AST analysis...
 
 ### Random thoughts

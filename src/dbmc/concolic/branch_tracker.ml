@@ -602,10 +602,6 @@ let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
   in
   (* collect new targets *)
   let pending_targets =
-    (if not runtime.hit_target
-    then Option.to_list runtime.target (* push target again if missed *)
-    else [])
-    @
     (runtime.hit_branches (* add other side of all branches hit as a new target *)
     |> Set.to_list
     |> List.map ~f:Branch.other_direction)
@@ -666,7 +662,7 @@ let rec next_target (x : t) : Branch.t option * t =
   | [] -> None, x
   | hd :: tl ->
     if is_valid_target hd
-    then Some hd, { x with pending_targets = tl }
+    then Some hd, x (* don't pop off target in case of miss. If it gets hit, then it is easily ignored on the next run *)
     else next_target { x with pending_targets = tl }
 
 let get_aborts ({ abort_branches ; _ } : t) : Branch.t list =

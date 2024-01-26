@@ -473,11 +473,13 @@ let rec loop (e : expr) (prev_session : Session.t) : Branch_tracker.Status_store
     |> loop e
 
 (* Concolically execute/test program. *)
-let eval (e : expr) : Branch_tracker.Status_store.Without_payload.t = 
+let eval ?(quit_on_first_abort : bool = true) (e : expr) : Branch_tracker.Status_store.Without_payload.t = 
   if Printer.print then Format.printf "\nStarting concolic execution...\n";
   (* Repeatedly evaluate program *)
-  loop e 
-  @@ Session.of_expr e
+  e
+  |> Session.of_expr
+  |> Fn.flip Session.set_quit_on_first_abort quit_on_first_abort
+  |> loop e
 
 let eval_timeout (e : expr) (s : float) : Branch_tracker.Status_store.Without_payload.t option =
   
