@@ -10,6 +10,9 @@ exception NoParentException
   works a little faster and doesn't time out as often, so it continues to think
   it can solve for a branch when it just keeps missing. And then it adds that branch
   to the target list again and finds a failing solution
+
+  NOTE: the current commit is the last commit that has V1 and V2. The next commit will
+    contain the commit hash in this comment so the commented out code can be found. 
 *)
 
 module Formula_set :
