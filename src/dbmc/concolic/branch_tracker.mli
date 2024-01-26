@@ -21,7 +21,8 @@ module rec Status :
           | Unreachable
       end
 
-    type t = T.t =
+    include module type of T
+    (* type t = T.t =
       | Hit of Input.t list
       | Unhit
       | Unsatisfiable
@@ -31,7 +32,7 @@ module rec Status :
       | Unreachable_because_abort
       | Unreachable_because_max_step
       | Unknown of int
-      | Unreachable
+      | Unreachable *)
      
     val to_string : t -> string
 

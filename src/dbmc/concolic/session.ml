@@ -193,9 +193,6 @@ let set_quit_on_first_abort (session : t) (b : bool) : t =
 let of_expr (expr : Jayil.Ast.expr) : t =
   { default with branch_tracker = Branch_tracker.of_expr expr }
 
-(* TODO: handle max step on first run leading to not hitting later branches, so they appear unreachable when
-   really they're not. This happens because solver times out on runs containing so many formulas, and then
-   it can't even run a second time, so the branches aren't found. *)
 let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
   if session.is_done then `Done session else
   match Branch_tracker.next_target session.branch_tracker with

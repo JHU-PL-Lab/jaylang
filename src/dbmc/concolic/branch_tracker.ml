@@ -44,20 +44,7 @@ module rec Status :
         include S with type t := t
       end
 
-    include T
-    type t = T.t = (* Why do I have to show this again? This is just annoying. doing include module type of T doesn't make it clear that Status.t = Status.T.t *)
-      | Hit of (Input.t list [@compare.ignore])[@sexp.list]
-      | Unhit
-      | Unsatisfiable
-      | Found_abort of (Input.t list [@compare.ignore])[@sexp.list]
-      | Reach_max_step of (int [@compare.ignore])
-      | Missed of Status_store.Without_payload.t
-      | Unreachable_because_abort
-      | Unreachable_because_max_step
-      | Unknown of (int [@compare.ignore])
-      | Unreachable (* any unhit branch whose parent is unsatisfiable *)
-
-    val to_string : t -> string
+    include module type of T
 
     module Without_payload : 
       sig
@@ -460,6 +447,7 @@ and Status_store :
         let contains (map : t) (status : Status.t) : bool =
           Map.exists map ~f:(fun v -> Status.compare v status = 0)
            
+        (* Custom sexp conversions so that it's easier to hand-write the sexp files *)
         module Sexp_conversions =
           struct
             module My_tuple =
@@ -468,8 +456,6 @@ and Status_store :
                 type t = string * Status.t * Status.t [@@deriving sexp]
               end
 
-            (* Convert to tuple list of ident, true status, false status.
-              This is atrociously inefficient, but it is only used for small maps. *)
             let sexp_of_t (map : t) : Sexp.t =
               map
               |> to_list
@@ -518,6 +504,7 @@ module Runtime =
     type t =
       { hit_stack    : Branch.t list
       ; hit_branches : Branch_set.t
+      ; new_targets  : Branch.t list
       ; fail_status  : Fail_status.t
       ; target       : Branch.t option
       ; hit_target   : bool }
@@ -525,6 +512,7 @@ module Runtime =
     let empty : t =
       { hit_stack    = []
       ; hit_branches = Branch_set.empty
+      ; new_targets  = []
       ; fail_status  = Fail_status.Ok
       ; target       = None
       ; hit_target   = true }
@@ -536,6 +524,7 @@ module Runtime =
       { x with 
         hit_stack = branch :: x.hit_stack
       ; hit_branches = Set.add x.hit_branches branch
+      ; new_targets = if Set.mem x.hit_branches branch then x.new_targets else Branch.other_direction branch :: x.new_targets
       ; hit_target =
         match x.target with
         | None -> true
@@ -600,14 +589,8 @@ let collect_runtime (x : t) (runtime : Runtime.t) (input : Input.t) : t =
       ~init:x.status_store
       ~f:(Status_store.set_branch_status ~new_status:(Status.Hit [input]))
   in
-  (* collect new targets *)
-  let pending_targets =
-    (runtime.hit_branches (* add other side of all branches hit as a new target *)
-    |> Set.to_list
-    |> List.map ~f:Branch.other_direction)
-    @ x.pending_targets
-  in
-  let x = { x with pending_targets } in
+  (* overwrite x with new targets added *)
+  let x = { x with pending_targets = runtime.new_targets @ x.pending_targets } in
   (* add in aborts or max steps *)
   match runtime.fail_status with
   | Ok -> { x with status_store }
@@ -650,7 +633,7 @@ let rec next_target (x : t) : Branch.t option * t =
   let is_valid_target hd =
     Status_store.is_valid_target x.status_store hd
     || begin
-      match Status.T.missed_store (Status_store.get_status x.status_store hd) with
+      match Status.missed_store (Status_store.get_status x.status_store hd) with
       | None -> false (* is not valid target and is not missed, so nothing else to check: must just be invalid target *)
       | Some store -> 
         (* The status is "missed" with some status store *)
@@ -658,6 +641,7 @@ let rec next_target (x : t) : Branch.t option * t =
         Status_store.Without_payload.compare (Status_store.without_payload x.status_store) store <> 0
     end
   in
+  (* Format.printf "Pending targets: %s\n" (List.to_string ~f:Branch.to_string x.pending_targets); *)
   match x.pending_targets with
   | [] -> None, x
   | hd :: tl ->
