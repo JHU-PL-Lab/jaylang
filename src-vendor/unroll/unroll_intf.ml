@@ -150,33 +150,11 @@ module type User_level = sig
   val get_available_payloads : t -> key -> payload list
   val set_pre_push_payload : t -> key -> (payload -> payload option) -> unit
   val push : t -> key -> payload option -> unit
-
-  (* create; only immediate pipe can be created *)
-  val one_shot : t -> key -> payload list -> pipe act
-  val id : t -> pipe -> key -> pipe act
-  val filter_map : t -> pipe -> key -> (payload -> payload option) -> pipe act
-  (* val filter : u -> t -> key -> (payload -> bool) -> t act *)
-
-  val map2 :
-    t -> pipe -> pipe -> key -> (payload * payload -> payload) -> pipe act
-
-  val filter_map2 :
-    t ->
-    pipe ->
-    pipe ->
-    key ->
-    (payload * payload -> payload option) ->
-    pipe act
-
-  val join : t -> pipe list -> key -> pipe act
-
-  (* val bind : t -> pipe -> key -> (payload -> pipe) -> pipe act *)
-  val bind_like : t -> pipe -> key -> (payload -> pipe option) -> pipe act
   val bind_like_list : t -> pipe -> key -> (payload -> pipe list) -> pipe act
   val on : t -> pipe -> N.t -> pipe -> key -> pipe act
 
   (* iter doesn't create a new strean *)
-  val joini : t -> pipe list -> key -> (int * payload -> payload) -> pipe act
+
   val iter : t -> pipe -> (payload -> unit) -> unit act
   (* val bind : u -> t -> (payload -> t) -> t act
      val bind0 : u -> t -> (payload -> key) -> t Lwt_stream.t *)
@@ -194,6 +172,31 @@ module type U = sig
 
   val set : t -> message Lwt_stream.t -> key -> unit
   val map : t -> key -> (payload -> payload) -> message Lwt_stream.t
+  val id : t -> key -> message Lwt_stream.t
+
+  val filter_map :
+    t -> key -> (payload -> payload option) -> message Lwt_stream.t
+  (* val filter : u -> t -> key -> (payload -> bool) -> t act *)
+
+  val map2 :
+    t -> key -> key -> (payload * payload -> payload) -> message Lwt_stream.t
+
+  val filter_map2 :
+    t ->
+    key ->
+    key ->
+    (payload * payload -> payload option) ->
+    message Lwt_stream.t
+
+  val join : t -> key list -> message Lwt_stream.t
+
+  val joini :
+    t -> key list -> (int * payload -> payload) -> message Lwt_stream.t
+
+  val one_shot : t -> payload list -> message Lwt_stream.t
+
+  (* val bind : t -> pipe -> key -> (payload -> pipe) -> pipe act *)
+  val bind_like : t -> key -> (payload -> key option) -> message Lwt_stream.t
 end
 
 module type Top_sigs = sig

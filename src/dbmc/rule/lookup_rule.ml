@@ -89,7 +89,9 @@ let run_action dispatch unroll (state : Global_state.t)
         U.push_state unroll target N.Fail
     | Leaf Complete ->
         add_to_domain target ;
-        U.one_shot unroll target [ Lookup_result.complete target ]
+        U.set unroll
+          (U.one_shot unroll [ Lookup_result.complete target ])
+          target
         (* U.push_state unroll target N.Done *)
         (* set_status Lookup_status.Complete ;
              set_status_gen_phi Lookup_status.Complete ; *)
@@ -162,8 +164,10 @@ let run_action dispatch unroll (state : Global_state.t)
             let joined_status = Lookup_status.join v1.status v2.status in
             Lookup_status.iter_ok joined_status (fun () -> add_to_domain target) ;
             promote_result joined_status target) ; *)
-        U.map2 unroll e.pub1 e.pub2 target (fun (v1, v2) ->
-            Lookup_result.good target) ;
+        U.set unroll
+          (U.map2 unroll e.pub1 e.pub2 (fun (v1, v2) ->
+               Lookup_result.good target))
+          target ;
         (* U.joini unroll [ e.pub1; e.pub2 ] target (fun (_i, vi) ->
             Lookup_result.good target) ; *)
         dispatch e.pub1 ;

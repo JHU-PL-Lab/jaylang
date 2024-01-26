@@ -124,14 +124,14 @@ module U_to_test_bg_ints (U : U_ints) = struct
   let one_msg () =
     let msg = 42 in
     let u = U.create () in
-    U.one_shot u 1 [ msg ] ;
+    U.set u (U.one_shot u [ msg ]) 1 ;
     let ans = Lwt_main.run @@ U.get_payloads u 1 in
     Alcotest.(check @@ list int) "equal" [ msg ] ans
 
   let one_shot () =
     let nums = List.init 10 ~f:Fn.id in
     let u = U.create () in
-    U.one_shot u 2 nums ;
+    U.set u (U.one_shot u nums) 2 ;
     let ans = Lwt_main.run @@ U.get_payloads u 2 in
     Alcotest.(check @@ list int) "equal" nums ans
 
@@ -156,9 +156,9 @@ module U_to_test_bg_key_int (U : U_ints) = struct
     let nums1 = List.init k ~f:Fn.id in
     let nums2 = List.init k ~f:(fun x -> x + k) in
     let u = U.create () in
-    U.one_shot u 3 nums1 ;
-    U.one_shot u 4 nums2 ;
-    U.join u [ 3; 4 ] 5 ;
+    U.set u (U.one_shot u nums1) 3 ;
+    U.set u (U.one_shot u nums2) 4 ;
+    U.set u (U.join u [ 3; 4 ]) 5 ;
     let ans = U.get_available_payloads u 5 in
     Alcotest.(check @@ list int) "equal" (nums1 @ nums2) ans
 
@@ -167,7 +167,7 @@ module U_to_test_bg_key_int (U : U_ints) = struct
     let plus_10 m = m + 10 in
     let msgs_out = List.map msgs_in ~f:plus_10 in
     let u = U.create () in
-    U.one_shot u 1 msgs_in ;
+    U.set u (U.one_shot u msgs_in) 1 ;
     U.set u (U.map u 1 plus_10) 42 ;
     let ans = U.get_available_payloads u 42 in
     Alcotest.(check @@ list int) "equal" msgs_out ans
@@ -180,8 +180,8 @@ module U_to_test_bg_key_int (U : U_ints) = struct
     in
     let msgs_out = List.filter_map msgs_in ~f:plus_10_even in
     let u = U.create () in
-    U.one_shot u 1 msgs_in ;
-    U.filter_map u 1 42 plus_10_even ;
+    U.set u (U.one_shot u msgs_in) 1 ;
+    U.set u (U.filter_map u 1 plus_10_even) 42 ;
     let ans = U.get_available_payloads u 42 in
     Alcotest.(check @@ list int) "equal" msgs_out ans
 
@@ -200,9 +200,9 @@ module U_to_test_bg_key_int (U : U_ints) = struct
     let msgs2 = [ 42 ] in
     let msgs_out = List.map msgs1 ~f:(fun x -> x + 42) in
     let u = U.create () in
-    U.one_shot u 1 msgs1 ;
-    U.one_shot u 2 msgs2 ;
-    U.map2 u 1 2 5 (fun (x, y) -> x + y) ;
+    U.set u (U.one_shot u msgs1) 1 ;
+    U.set u (U.one_shot u msgs2) 2 ;
+    U.set u (U.map2 u 1 2 (fun (x, y) -> x + y)) 5 ;
     let ans = U.get_available_payloads u 5 in
     Alcotest.(check @@ list int) "equal" msgs_out ans
 
@@ -213,9 +213,9 @@ module U_to_test_bg_key_int (U : U_ints) = struct
       List.cartesian_product msgs1 msgs2 |> pairwire_add |> ascending
     in
     let u = U.create () in
-    U.one_shot u 1 msgs1 ;
-    U.one_shot u 2 msgs2 ;
-    U.map2 u 1 2 5 pair_add ;
+    U.set u (U.one_shot u msgs1) 1 ;
+    U.set u (U.one_shot u msgs2) 2 ;
+    U.set u (U.map2 u 1 2 pair_add) 5 ;
     let ans = U.get_available_payloads u 5 |> ascending in
     Alcotest.(check @@ list int) "equal" expected ans
 
@@ -231,7 +231,7 @@ module U_to_test_bg_key_int (U : U_ints) = struct
 
     (* U.push u 1 None ;
        U.push u 2 None ; *)
-    U.map2 u 1 2 5 pair_add ;
+    U.set u (U.map2 u 1 2 pair_add) 5 ;
     Alcotest.(check @@ list int)
       "s12" expected
       (U.get_available_payloads u 5 |> ascending) ;
@@ -249,7 +249,7 @@ module U_to_test_bg_key_int (U : U_ints) = struct
     U.push u 1 None ;
     U.push u 2 None ;
 
-    U.map2 u 1 2 5 pair_add ;
+    U.set u (U.map2 u 1 2 pair_add) 5 ;
     Alcotest.(check @@ list int)
       "s12" expected
       (Lwt_main.run @@ U.get_payloads u 5 |> ascending) ;
@@ -278,7 +278,7 @@ module U_to_test_state (U : U_ints) = struct
     let u = U.create () in
     U.push u 1 (Some 1) ;
     U.push u 1 (Some 2) ;
-    ignore @@ U.id u 1 2 ;
+    U.set u (U.id u 1) 2 ;
     U.push_state u 1 N.Fail ;
     U.push u 1 (Some 3) ;
     (* let all_work = *)
@@ -305,7 +305,7 @@ module U_to_test_state (U : U_ints) = struct
     U.push u 2 (Some 20) ;
     U.push_state u 2 N.Fail ;
     U.push u 2 (Some 30) ;
-    ignore @@ U.map2 u 1 2 5 (fun (x, y) -> x + y) ;
+    U.set u (U.map2 u 1 2 (fun (x, y) -> x + y)) 5 ;
     Alcotest.(check @@ list int) "s1" [ 1; 2 ] (U.get_available_payloads u 1) ;
     Alcotest.(check @@ list int) "s2" [ 10; 20 ] (U.get_available_payloads u 2) ;
     Alcotest.(check @@ list int)
@@ -322,7 +322,7 @@ module U_to_test_state (U : U_ints) = struct
     U.push u 2 (Some 20) ;
     (* U.push_state u 2 N.Fail ;
        U.push u 2 (Some 30) ; *)
-    U.map2 u 1 2 5 (fun (x, y) -> x + y) ;
+    U.set u (U.map2 u 1 2 (fun (x, y) -> x + y)) 5 ;
     (* U.push u 5 (Some 42) ; *)
     (* we cannot push to 5 anymore because the only task is done then stream 5 is closed automatically *)
     Alcotest.(check @@ list int)
@@ -343,7 +343,7 @@ module U_to_test_state (U : U_ints) = struct
     U.push u 3 (Some 200) ;
     U.push_state u 3 N.Fail ;
     U.push u 3 (Some 300) ;
-    U.join u [ 1; 2; 3 ] 5 ;
+    U.set u (U.join u [ 1; 2; 3 ]) 5 ;
     (* U.push u 5 (Some 42) ; *)
     (* we cannot push to 5 anymore because the only task is done then stream 5 is closed automatically *)
     Alcotest.(check @@ list int)
@@ -387,7 +387,7 @@ module U_to_test_state (U : U_ints) = struct
     U.push u 3 (Some 3) ;
     U.push u 4 (Some 4) ;
     U.on u 3 N.Done 4 11 ;
-    U.map2 u 10 11 15 (fun (x, y) -> x + y) ;
+    U.set u (U.map2 u 10 11 (fun (x, y) -> x + y)) 15 ;
 
     Alcotest.(check @@ list int) "s10" [] (U.get_available_payloads u 10) ;
     Alcotest.(check @@ list int) "s11" [] (U.get_available_payloads u 11) ;
@@ -403,7 +403,7 @@ module U_to_test_state (U : U_ints) = struct
     U.push u 1 (Some 2) ;
     U.push u 2 (Some 3) ;
     U.push u 2 (Some 4) ;
-    U.joini u [ 1; 2 ] 42 (fun (i, n) -> ((i + 1) * 100) + n) ;
+    U.set u (U.joini u [ 1; 2 ] (fun (i, n) -> ((i + 1) * 100) + n)) 42 ;
     Alcotest.(check @@ list int)
       "s42" [ 101; 102; 203; 204 ]
       (U.get_available_payloads u 42)
