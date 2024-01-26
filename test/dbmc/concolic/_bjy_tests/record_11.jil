@@ -123,7 +123,7 @@ if_j_116 = check_res_b_14 ? (
         m_match_cond_j_102 = m_match_bool_j_101 ? (
                 actual_rec_b_13 = var_j_92.bj_actual_rec;
                 var_j_103 = r;
-                proj_j_104 = var_j_103.bj_decl_lbls;
+                proj_j_104 = var_j_103.bj_decl_lbls; # proj_j_104 is a record { a = {} }
                 m_match_bool_j_106 = proj_j_104 ~ {b};
                 m_match_cond_j_107 = m_match_bool_j_106 ? (
                         x_j_3 = proj_j_104.b;

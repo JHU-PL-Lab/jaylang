@@ -659,7 +659,6 @@ module V2 =
 
     (* We'd like to not choose this input anymore, so mark it off limits *)
     (* TODO: how does this work for inputs in recursive functions that have different previous inputs? *)
-    (* TODO: this makes some branches appear unsatisfiable when really they're unreachable bc abort. Need to optionally add these formulas. *)
     let add_input (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
       (* let _, _ = key, v in x *)
       let is_int_pattern = Riddler.is_pattern key (Jayil.Ast.Int_pattern) in

@@ -166,7 +166,8 @@ type t =
   ; solver_timeout_s : float (* seconds allowed for each solve *)
   ; global_max_step  : int
   ; run_num          : int
-  ; has_hit_exit     : bool } (* true iff some concolic run has hit exiting control flow *)
+  ; has_hit_exit     : bool (* true iff some concolic run has hit exiting control flow *)
+  ; is_done          : bool } (* temporary patch to hard set a session to done if the concolic session finds no inputs *)
 
 let default_global_max_step = Int.(2 * 10 ** 3)
 
@@ -178,7 +179,8 @@ let default : t =
   ; solver_timeout_s = default_solver_timeout_s
   ; global_max_step  = default_global_max_step
   ; run_num          = 0
-  ; has_hit_exit     = false }
+  ; has_hit_exit     = false
+  ; is_done          = false }
 
 let of_expr (expr : Jayil.Ast.expr) : t =
   { default with branch_tracker = Branch_tracker.of_expr expr }
@@ -187,6 +189,7 @@ let of_expr (expr : Jayil.Ast.expr) : t =
    really they're not. This happens because solver times out on runs containing so many formulas, and then
    it can't even run a second time, so the branches aren't found. *)
 let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
+  if session.is_done then `Done session else
   match Branch_tracker.next_target session.branch_tracker with
   | None, branch_tracker when session.run_num > 0 -> `Done { session with branch_tracker }
   | None, branch_tracker -> (* no targets, but this is the first run, so use the default *)
@@ -224,7 +227,8 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
   { session with
     formula_tracker = concolic.formula_tracker (* completely overwrite because we passed it in earlier to make the concolic session *)
   ; branch_tracker = Branch_tracker.collect_runtime session.branch_tracker concolic.branch_tracker concolic.input
-  ; has_hit_exit = session.has_hit_exit || concolic.has_hit_exit }
+  ; has_hit_exit = session.has_hit_exit || concolic.has_hit_exit
+  ; is_done = List.is_empty concolic.input }
 
 let branch_tracker ({ branch_tracker ; _ } : t) : Branch_tracker.t =
   branch_tracker
