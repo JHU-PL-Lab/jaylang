@@ -111,18 +111,23 @@ let run_action dispatch unroll (state : Global_state.t)
                 r (* promote_result r.status r.from *)) *)
             ()) ;
         Fmt.pr "..%a <- %a" Lookup_key.pp target Lookup_key.pp e.pub ;
-        U.map unroll e.pub target (fun r ->
-            add_to_domain r.from ;
-            r) ;
+
+        U.set unroll
+          (U.map unroll e.pub (fun r ->
+               add_to_domain r.from ;
+               r))
+          target ;
         dispatch e.pub
         (* Log.debug (fun m ->
            m "[Direct]%a <- %a(%B) @." Lookup_key.pp target Lookup_key.pp e.pub
              (Option.is_some sub_lookup)) ; *)
     | Map e ->
-        U.map unroll e.pub target (fun r ->
-            let r' = Lookup_result.good (e.map r.from) in
-            add_to_domain r'.from ;
-            r') ;
+        U.set unroll
+          (U.map unroll e.pub (fun r ->
+               let r' = Lookup_result.good (e.map r.from) in
+               add_to_domain r'.from ;
+               r'))
+          target ;
         dispatch e.pub
     (* U.filter_map unroll e.pub target (fun r ->
             let r' = promote_result r.status (e.map r.from) in
@@ -150,7 +155,7 @@ let run_action dispatch unroll (state : Global_state.t)
           let r' = Lookup_result.good r'.from in
           r'
         in
-        U.map unroll e.pub target f ;
+        U.set unroll (U.map unroll e.pub f) target ;
         dispatch e.pub
     | Both e ->
         (* U.filter_map2 unroll e.pub1 e.pub2 target (fun (v1, v2) ->

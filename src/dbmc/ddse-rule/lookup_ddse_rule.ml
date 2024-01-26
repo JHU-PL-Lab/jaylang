@@ -58,7 +58,9 @@ module Make (S : S) = struct
     S.run_task key_first phis_top ;
     let eq_phi = Riddler.eqz key (Riddler.phi_of_value_opt key vo) in
     let _ = S.add_phi key eq_phi phis_top in
-    U.map S.unroll key_first key (Ddse_result.with_v_and_phi key eq_phi)
+    U.set S.unroll
+      (U.map S.unroll key_first (Ddse_result.with_v_and_phi key eq_phi))
+      key
 
   let discovery_main p key phis =
     let ({ v; _ } : Discovery_main_rule.t) = p in
@@ -77,7 +79,7 @@ module Make (S : S) = struct
     let ({ x' } : Alias_rule.t) = p in
     S.run_task x' phis_top ;
 
-    U.map S.unroll x' key (return_with key)
+    U.set S.unroll (U.map S.unroll x' (return_with key)) key
 
   let not_ _p _key _phis_top = ()
 

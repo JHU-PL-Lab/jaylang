@@ -209,10 +209,39 @@ struct
   let product_pipe u src1 src2 =
     product_stream_bg (L.stream_of_key u src1) (L.stream_of_key u src2)
 
-  (* state-aware payload and message function *)
+  let filter_payload_pair_opt f_opt (msg1, msg2) =
+    (* match (msg1, msg2) with
+       | Payload p1, Payload p2 -> (
+           match f_opt (p1, p2) with Some p -> Some (Payload p) | None -> None)
+       | _, _ -> None *)
+    M.fmap2 f_opt None (msg1, msg2) |> Option.map ~f:M.inj
+
+  let filter_payload_pair f (msg1, msg2) =
+    (* match (msg1, msg2) with
+       | Payload p1, Payload p2 -> Some (Payload (f (p1, p2)))
+       | _, _ -> None *)
+    M.fmap2 (fun p -> Some (M.inj (f p))) None (msg1, msg2)
+
+  let filteri_payload_opt f (i, msg) =
+    (* match msg with Payload p -> Some (Payload (f (i, p))) | _ -> None *)
+    M.fmap (fun p -> Some (M.inj (f (i, p)))) None msg
+
+  (* let iter_push u stream_src dst f =
+     let pipe_dst = L.add_detail u dst in
+     Lwt_stream.iter_s f stream_src >|= fun () -> L.close u dst *)
+
+  let iter_push u stream_src dst =
+    let f_here = L.push_msg_by_key u dst |> then_lwt in
+    Lwt_stream.iter_s f_here stream_src >|= (fun () -> L.close u dst) |> bg
+
+  let map u src f = L.stream_of_key u src |> Lwt_stream.map (M.map_payload f)
+
+  let set u stream_src key_dst =
+    iter_push u stream_src key_dst ;
+    L.set_creation (L.find_detail u key_dst)
 end
 
-module Make0 (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
+module Make (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
   module L = Low_level (Key) (M)
   include L
 
@@ -226,9 +255,11 @@ module Make0 (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
     List.iter vs ~f:(push_payload u pipe_dst) ;
     pipe_dst.push None
 
-  let iter_push u stream_src dst f =
+  let set u stream_src dst =
     let pipe_dst = add_detail u dst in
-    Lwt_stream.iter_s f stream_src >|= fun () -> close u dst
+    Lwt_stream.iter_s (L.get_push pipe_dst |> then_lwt) stream_src
+    >|= (fun () -> close u dst)
+    |> bg
 
   let iter0 _u stream_src f = Lwt_stream.iter_s f stream_src
 
@@ -236,39 +267,32 @@ module Make0 (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
     let pipe_dst = find_detail u dst in
     Lwt_list.iter_p (Lwt_stream.iter f) stream_srcs >|= fun () -> close u dst
 
-  let map u src dst f =
+  let id u src dst =
     let stream_src =
-      stream_of_key u src |> Lwt_stream.map (M.lift_f_payload f)
+      stream_of_key u src |> Lwt_stream.map (M.map_payload Fn.id)
     in
-    let pipe_dst = add_detail u dst in
-    iter_push u stream_src dst (L.get_push pipe_dst |> then_lwt) |> bg
-
-  let id u src dst = map u src dst Fn.id
+    set u stream_src dst
 
   let filter_map u src dst f_opt =
     let stream_src =
-      stream_of_key u src |> Lwt_stream.filter_map (M.lift_f_payload_opt f_opt)
+      stream_of_key u src |> Lwt_stream.filter_map (M.filter_map_payload f_opt)
     in
-    let pipe_dst = add_detail u dst in
-    iter_push u stream_src dst (L.get_push pipe_dst |> then_lwt) |> bg
+    set u stream_src dst
 
   (* let filter u pipe_src dst f = filter_map u pipe_src dst (from_filter f) *)
 
   let map2 u src1 src2 dst f =
     let stream_src =
-      product_pipe u src1 src2
-      |> Lwt_stream.filter_map (M.filter_payload_pair f)
+      product_pipe u src1 src2 |> Lwt_stream.filter_map (filter_payload_pair f)
     in
-    let pipe_dst = add_detail u dst in
-    iter_push u stream_src dst (L.get_push pipe_dst |> then_lwt) |> bg
+    set u stream_src dst
 
   let filter_map2 u src1 src2 dst f_opt =
     let stream_src =
       product_pipe u src1 src2
-      |> Lwt_stream.filter_map (M.filter_payload_pair_opt f_opt)
+      |> Lwt_stream.filter_map (filter_payload_pair_opt f_opt)
     in
-    let pipe_dst = add_detail u dst in
-    iter_push u stream_src dst (L.get_push pipe_dst |> then_lwt) |> bg
+    set u stream_src dst
 
   let join u srcs dst =
     let stream_srcs =
@@ -304,74 +328,14 @@ module Make0 (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
   let joini _u _srcs _dst _f = failwith "joini"
 end
 
-(* derived *)
-(* module Make_payload (Key : Base.Hashtbl.Key.S) (P : P_sig) =
-   Make (Key) (Payload_as_message (P)) *)
+module Make_just_payload (Key : Base.Hashtbl.Key.S) (P : P_sig) =
+  Make (Key) (Payload_as_message (P))
 
 module Make_dummy_control (Key : Base.Hashtbl.Key.S) (P : P_sig) =
-  Make0 (Key) (Payload_to_message (P))
+  Make (Key) (Payload_to_message (P))
 
-module Make_use_key (Key : Base.Hashtbl.Key.S) (P : P_sig) =
-  Make0 (Key) (Payload_as_message (P))
-
-module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
-  module M = struct
-    type payload = P.payload
-    type message = Payload of payload | Set_state of N.t
-
-    let equal_message m1 m2 =
-      match (m1, m2) with
-      | Payload p1, Payload p2 -> P.equal_payload p1 p2
-      | Set_state _, Set_state _ -> true
-      | _, _ -> false
-
-    let map_out f = Option.value_map ~default:() ~f
-    let inj p = Payload p
-    let prj_opt = function Payload p -> Some p | Set_state _ -> None
-    let fmap f d msg = match msg with Payload p -> f p | Set_state _ -> d
-
-    let fmap2 f d (msg1, msg2) =
-      match (msg1, msg2) with Payload p1, Payload p2 -> f (p1, p2) | _, _ -> d
-
-    let fmap_opt f_opt msg =
-      msg |> fmap (fun p -> Option.map (f_opt p) ~f:inj) None
-
-    let fmap2_opt f_opt msg =
-      msg |> fmap2 (fun p -> Option.map (f_opt p) ~f:inj) None
-
-    let seq f push msg =
-      msg |> fmap (fun p -> Some (inj (f p))) None |> map_out push
-
-    let seq2 f push msg =
-      msg |> fmap2 (fun p -> Some (inj (f p))) None |> map_out push
-
-    let seq_opt f_opt push msg = msg |> fmap_opt f_opt |> map_out push
-    let seq2_opt f_opt push msg = msg |> fmap2_opt f_opt |> map_out push
-
-    let lift_f_payload f msg =
-      match msg with Payload p -> Payload (f p) | Set_state s -> Set_state s
-
-    let lift_f_payload_opt f_opt msg =
-      match msg with
-      | Payload p -> (
-          match f_opt p with Some p -> Some (Payload p) | None -> None)
-      | Set_state s -> Some (Set_state s)
-
-    let filter_payload_pair f (msg1, msg2) =
-      match (msg1, msg2) with
-      | Payload p1, Payload p2 -> Some (Payload (f (p1, p2)))
-      | _, _ -> None
-
-    let filter_payload_pair_opt f_opt (msg1, msg2) =
-      match (msg1, msg2) with
-      | Payload p1, Payload p2 -> (
-          match f_opt (p1, p2) with Some p -> Some (Payload p) | None -> None)
-      | _, _ -> None
-
-    let filteri_payload_opt f (i, msg) =
-      match msg with Payload p -> Some (Payload (f (i, p))) | _ -> None
-  end
-
+module Make_stateful (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
+  module M = Payload_to_message (P)
   module L = Low_level (Key) (M)
   include L
 
@@ -379,70 +343,6 @@ module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
   type 'a act = unit
 
   include User_level_common (L) (M)
-
-  let get_payload_stream u k =
-    L.get_stream u k |> Lwt_stream.filter_map M.prj_opt
-
-  let get_payloads u k = get_payload_stream u k |> Lwt_stream.to_list
-
-  let get_available_payloads u k =
-    get_payload_stream u k |> Lwt_stream.get_available
-
-  let set_pre_push_payload u k f =
-    let f' p : M.message option =
-      let p_opt = M.prj_opt p in
-      Option.map p_opt ~f:(fun p -> Option.map (f p) ~f:M.inj) |> Option.join
-    in
-    L.set_pre_push u k f'
-
-  let push t key p_opt =
-    match p_opt with
-    | Some p -> L.push_msg_by_key t key (M.inj p)
-    | None -> L.close t key
-
-  let then_lwt f x =
-    f x ;
-    Lwt.return_unit
-
-  let push_payload u pipe p = L.push_msg u pipe (M.inj p)
-
-  (*
-     filter_map s f1 |> iter f2
-     ===
-     iter s (f1 . f2)
-  *)
-
-  (* let with_handling_state0 pipe_dst f msg =
-     if N.equal pipe_dst.status N.Running
-     then (
-       (match msg with
-       | M.Set_state s' -> pipe_dst.status <- N.safe_transform pipe_dst.status s'
-       | _ -> ()) ;
-       f msg)
-     else Lwt.return_unit *)
-
-  (* used state pattern
-     Leaf
-        U.push_state unroll target N.Fail
-        U.push_state unroll target N.Done
-     map, filter_map, filter_map2
-        promote_result: fail-cascading
-     promote_result is an error-status-carrying payload messaging
-  *)
-
-  (* let map u src dst f =
-     let pipe_dst = find_detail u dst in
-     let state_aware_f = with_handling_state0 pipe_dst (map_push f pipe_dst) in
-     let on_done = iter_msg u src state_aware_f >|= fun () -> close u dst in
-     on_done |> bg ;
-     set_creation pipe_dst *)
-
-  (* the reason is use `push` is the consumer may come before the producer.
-     The consumer needs a stream value.
-     The later producer can only use the `push` to feed them into the stream.
-  *)
-
-  let bg x = Lwt.async (fun () -> x >>= fun _ -> Lwt.return_unit)
 
   let push_state u key status' =
     let detail = find_detail u key in
@@ -472,45 +372,32 @@ module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
   (* let iter0 u pipe_src f = iter0_msg u pipe_src (M.fmap f () |> then_lwt) *)
   let iter u src f = iter_msg u src (M.fmap f () |> then_lwt) |> bg
 
-  let iter_push u stream_src dst =
-    Lwt_stream.iter_s (push_msg_by_key u dst |> then_lwt) stream_src
-    >|= (fun () -> close u dst)
-    |> bg
-
-  let set u stream_src key_dst =
-    let f_here = push_msg_by_key u key_dst |> then_lwt in
-    iter_push u stream_src key_dst ;
-    set_creation (find_detail u key_dst)
-
   let product_pipe u src1 src2 =
     product_stream_bg (stream_of_key u src1) (stream_of_key u src2)
 
-  let map u src dst f =
-    let stream_src =
-      stream_of_key u src |> Lwt_stream.map (M.lift_f_payload f)
-    in
-    set u stream_src dst
+  (* let map u src dst f =
+     let stream_src = stream_of_key u src |> Lwt_stream.map (M.map_payload f) in
+     set u stream_src dst *)
 
-  let id u src dst = map u src dst Fn.id
+  let id u src dst = set u (map u src Fn.id) dst
 
   let filter_map u src dst f_opt =
     let stream_src =
-      stream_of_key u src |> Lwt_stream.filter_map (M.lift_f_payload_opt f_opt)
+      stream_of_key u src |> Lwt_stream.filter_map (M.filter_map_payload f_opt)
     in
     set u stream_src dst
 
   (* TODO: pointless to handle state in map2 *)
   let map2 u src1 src2 dst f =
     let stream_src =
-      product_pipe u src1 src2
-      |> Lwt_stream.filter_map (M.filter_payload_pair f)
+      product_pipe u src1 src2 |> Lwt_stream.filter_map (filter_payload_pair f)
     in
     set u stream_src dst
 
   let filter_map2 u src1 src2 dst f_opt =
     let stream_src =
       product_pipe u src1 src2
-      |> Lwt_stream.filter_map (M.filter_payload_pair_opt f_opt)
+      |> Lwt_stream.filter_map (filter_payload_pair_opt f_opt)
     in
     set u stream_src dst
 
@@ -531,7 +418,7 @@ module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
             Lwt_stream.map (fun msg -> (i, msg)) s)
       in
       Lwt_stream.choose streami_srcs
-      |> Lwt_stream.filter_map (M.filteri_payload_opt f)
+      |> Lwt_stream.filter_map (filteri_payload_opt f)
     in
     set u stream_src dst
 
@@ -573,42 +460,6 @@ module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
     let pipe_dst = bind_like_list_r u srcs dst f in
     set_creation pipe_dst
 
-  (*
-  let bind_like_r u src dst f =
-    let pipe_src = find_detail u src in
-    let pipe_src = stream_of_detail pipe_src in
-    let pipe_dst = find_detail u dst in
-    let f_here p =
-      match f p with
-      | Some key_src2 ->
-          let pipe_src2 = find_detail u key_src2 in
-          Lwt_stream.iter_s
-            (M.fmap (fun p -> push u dst (Some p)) () |> then_lwt)
-            (stream_of_detail pipe_src2)
-      | None -> Lwt.return_unit
-    in
-
-    let f_iter msg = (M.fmap f_here Lwt.return_unit) msg in
-    Lwt_stream.iter_p f_iter pipe_src |> bg ;
-    pipe_dst
-  *)
-
-  (*
-     let _bind0 (stream, push) src1 f =
-     Lwt_stream.iter_p
-       (fun v1 ->
-         let src2 = f v1 in
-         Lwt_stream.iter (fun v2 -> push (Some v2)) src2)
-       src1
-     >|= (fun () -> push None)
-     |> bg ;
-     stream
-  *)
-
-  (* After `src_status` has a control message for `status_on`,
-     reading message from `src_v`.
-     write message from `src_v` to `dst`
-  *)
   let on_r u src_status status_on src_v dst =
     let pipe_src = find_detail u src_status in
     let pipe_src = stream_of_detail pipe_src in

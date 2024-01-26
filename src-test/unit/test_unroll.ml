@@ -168,7 +168,7 @@ module U_to_test_bg_key_int (U : U_ints) = struct
     let msgs_out = List.map msgs_in ~f:plus_10 in
     let u = U.create () in
     U.one_shot u 1 msgs_in ;
-    U.map u 1 42 plus_10 ;
+    U.set u (U.map u 1 plus_10) 42 ;
     let ans = U.get_available_payloads u 42 in
     Alcotest.(check @@ list int) "equal" msgs_out ans
 
@@ -289,7 +289,7 @@ module U_to_test_state (U : U_ints) = struct
     let u = U.create () in
     U.push u 1 (Some 1) ;
     U.push u 1 (Some 2) ;
-    ignore @@ U.map u 1 2 (fun x -> 10 * x) ;
+    U.set u (U.map u 1 (fun x -> 10 * x)) 2 ;
     U.push_state u 1 N.Fail ;
     U.push u 1 (Some 3) ;
     Alcotest.(check @@ list int) "s1" [ 1; 2 ] (U.get_available_payloads u 1) ;
@@ -434,9 +434,9 @@ let make_test_state (module U : U_ints) =
   let module UA = U_to_test_state (U) in
   UA.all_tests
 
-module U1 = Unroll.Make_use_key (Int) (Int_payload)
+module U1 = Unroll.Make_just_payload (Int) (Int_payload)
 module U2 = Unroll.Make_dummy_control (Int) (Int_payload)
-module U3 = Unroll.Make_control (Int) (Int_payload)
+module U3 = Unroll.Make_stateful (Int) (Int_payload)
 
 let () =
   Alcotest.run "Interpreter"

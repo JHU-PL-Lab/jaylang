@@ -95,6 +95,13 @@ open Messages
    pipes
 *)
 
+(* val bind0_pipe :
+   t ->
+   ?sp:'b Lwt_stream.t * ('b option -> unit) ->
+   'a Lwt_stream.t ->
+   ('a -> 'b Lwt_stream.t option) ->
+   'b Lwt_stream.t *)
+
 module type Low_level = sig
   type t
   type message
@@ -121,13 +128,6 @@ module type Low_level = sig
   (* stream related function *)
   val stream_of_detail : detail -> message Lwt_stream.t
   val stream_of_key : t -> key -> message Lwt_stream.t
-
-  (* val bind0_pipe :
-     t ->
-     ?sp:'b Lwt_stream.t * ('b option -> unit) ->
-     'a Lwt_stream.t ->
-     ('a -> 'b Lwt_stream.t option) ->
-     'b Lwt_stream.t *)
 end
 
 module type User_level = sig
@@ -154,7 +154,6 @@ module type User_level = sig
   (* create; only immediate pipe can be created *)
   val one_shot : t -> key -> payload list -> pipe act
   val id : t -> pipe -> key -> pipe act
-  val map : t -> pipe -> key -> (payload -> payload) -> pipe act
   val filter_map : t -> pipe -> key -> (payload -> payload option) -> pipe act
   (* val filter : u -> t -> key -> (payload -> bool) -> t act *)
 
@@ -192,17 +191,13 @@ module type U = sig
        and type key := key
        and type pipe := key
        and type 'a act = unit
+
+  val set : t -> message Lwt_stream.t -> key -> unit
+  val map : t -> key -> (payload -> payload) -> message Lwt_stream.t
 end
 
 module type Top_sigs = sig
-  (* module Make_payload (Key : Base.Hashtbl.Key.S) (P : P_sig) :
-     U_payload
-       with type key = Key.t
-        and type payload = P.payload
-        and type message = P.payload
-        and type 'a act = detail * unit Lwt.t *)
-
-  module Make_use_key (Key : Base.Hashtbl.Key.S) (P : P_sig) :
+  module Make_just_payload (Key : Base.Hashtbl.Key.S) (P : P_sig) :
     U
       with type key = Key.t
        and type message = P.payload
@@ -211,12 +206,6 @@ module type Top_sigs = sig
   module Make_dummy_control (Key : Base.Hashtbl.Key.S) (P : P_sig) :
     U with type key = Key.t and type payload = P.payload
 
-  (* module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) :
-     U2
-       with type key = Key.t
-        and type payload = P.payload
-        and type 'a act = unit Lwt.t *)
-
-  module Make_control (Key : Base.Hashtbl.Key.S) (P : P_sig) :
+  module Make_stateful (Key : Base.Hashtbl.Key.S) (P : P_sig) :
     U with type key = Key.t and type payload = P.payload
 end
