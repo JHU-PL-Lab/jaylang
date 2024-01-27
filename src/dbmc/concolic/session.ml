@@ -138,6 +138,13 @@ module Concolic =
       ; branch_tracker = Branch_tracker.Runtime.reach_max_step session.branch_tracker
       ; has_hit_exit = true }
 
+    let fail_assume (session : t) (cx : Lookup_key.t) : t =
+      { session with
+        formula_tracker =  (* add a found_assume into formula tracker *)
+          Formula_tracker.add_formula session.formula_tracker (Riddler.eqv cx (Jayil.Ast.Value_bool true))
+          |> Formula_tracker.exit_until_global
+      ; has_hit_exit = true }
+
     let enter_branch (session : t) (branch : Branch.Runtime.t) : t =
       (* Format.printf "Hitting: %s: %s\n"
         (let (Jayil.Ast.Ident x) = branch.branch_key.x in x)

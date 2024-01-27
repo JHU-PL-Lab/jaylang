@@ -90,6 +90,10 @@ module Concolic :
     val reach_max_step : t -> t
     (** [reach_max_step session] adds the info that the max step was reached under the current parent. *)
 
+    val fail_assume : t -> Lookup_key.t -> t
+    (** [fail_assume session x] quits the session because the assume statement failed.
+        The info is added that the condition [x] must be true. *)
+
     val enter_branch : t -> Branch.Runtime.t -> t
     (** [enter_branch session branch] sets the new parent as [branch] and hits the branch. *)
 

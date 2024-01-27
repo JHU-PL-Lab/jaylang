@@ -396,12 +396,19 @@ and eval_clause
         then raise @@ Found_target { x ; stk ; v = ab_v }
         else raise @@ Found_abort (ab_v, conc_session)
       end
-    | Assert_body _ | Assume_body _ ->
-      (* TODO: exit program if not true *)
-      let v = Value_bool true in
-      let retv = Direct v in
-      Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      retv, Session.Concolic.add_key_eq_val conc_session x_key v
+    | Assert_body cx | Assume_body cx ->
+      (* TODO: should I ever treat assert and assume differently? *)
+      Format.printf "HITTING ASSERT OR ASSUME STATEMENT.\n";
+      let v = Fetch.fetch_val_to_bool ~eval_session ~stk env cx in
+      if not v
+      then
+        let Var (y, _) = cx in 
+        let key = generate_lookup_key y (Fetch.fetch_stk ~eval_session ~stk env cx) in
+        raise @@ Found_failed_assume (Session.Concolic.fail_assume conc_session key)
+      else
+        let retv = Direct (Value_bool v) in
+        Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
+        retv, Session.Concolic.add_key_eq_val conc_session x_key (Value_bool v)
   in
   Debug.debug_clause ~eval_session x v stk;
   (Ident_map.add x (v, stk) env, v, conc_session)
@@ -437,6 +444,10 @@ let try_eval_exp_default
       conc_session
   | Reach_max_step (_, _, conc_session) ->
       if Printer.print then Format.printf "Reach max steps\n";
+      conc_session
+  | Found_failed_assume conc_session
+  | Found_failed_assert conc_session ->
+      if Printer.print then Format.printf "Found failed assume or assert\n";
       conc_session
   | Run_the_same_stack_twice (x, stk) -> (* bubbles exception *)
       Fmt.epr "Run into the same stack twice\n" ;
