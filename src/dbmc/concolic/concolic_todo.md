@@ -8,9 +8,6 @@
 * If quit due to timeout, then still report if abort is found or not
   * This will necessarily require mutation, or some great Lwt skills
   * ^ This is sort of done because we quit on first abort most of the time
-* assert and assume
-  * quit like abort but don't report "abort"
-  * Set that the parent implies the assert or assume statement
 * Scale max step with number of lines
 * Disallow inputs that have already been used
   * ^ this seems to not work for flow_sensitive_1. UPDATE: maybe it is now, but I'm not sure what changed since I wrote this bullet
