@@ -22,18 +22,6 @@ module rec Status :
       end
 
     include module type of T
-    (* type t = T.t =
-      | Hit of Input.t list
-      | Unhit
-      | Unsatisfiable
-      | Found_abort of Input.t list
-      | Reach_max_step of int
-      | Missed of Status_store.Without_payload.t
-      | Unreachable_because_abort
-      | Unreachable_because_max_step
-      | Unknown of int
-      | Unreachable *)
-     
     val to_string : t -> string
 
     module Without_payload :

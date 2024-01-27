@@ -324,7 +324,9 @@ and eval_clause
     | Projection_body (v, label) -> begin
       match Fetch.fetch_val ~eval_session ~stk env v with
       | RecordClosure (Record_value r, denv) ->
-        let Var (proj_x, _) as proj_v = Ident_map.find label r in
+        let proj_ident = function Ident s -> s in
+        Format.printf "Finding label %s in clause %s\n" (proj_ident label) (proj_ident x);
+        let Var (proj_x, _) as proj_v = Ident_map.find label r in (* TODO: fix error from this on _bjy_tests/record_4.jil test *)
         let retv, stk' = Fetch.fetch_val_with_stk ~eval_session ~stk denv proj_v in
         Session.Eval.add_alias (x, stk) (proj_x, stk') eval_session;
         let Var (v_ident, _) = v in
@@ -395,7 +397,7 @@ and eval_clause
         else raise @@ Found_abort (ab_v, conc_session)
       end
     | Assert_body _ | Assume_body _ ->
-      (* TODO: concolic -- should I always let these be true? *)
+      (* TODO: exit program if not true *)
       let v = Value_bool true in
       let retv = Direct v in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
