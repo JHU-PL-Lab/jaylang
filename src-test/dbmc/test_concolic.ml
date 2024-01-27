@@ -2,7 +2,8 @@ open Core
 open Dj_common
 open Dbmc
 
-let test_one_file testname _args =
+(* Expects some specific branch info by the end of the run, thereby checking that concolic evaluator works exactly as expected *)
+let test_exact_expected testname _args =
   let result = 
     match 
       (* Read expected branch information via sexp from the `<filename>.expect.s` file. *)
@@ -16,8 +17,9 @@ let test_one_file testname _args =
   in
   Alcotest.(check bool) "concolic" true result
 
-let test_bjy_conv testname _args =
-  let expect_path = Filename.chop_extension testname ^ ".expect.s" in
+(* Just tries to find any abort, and that's all *)
+let test_for_abort testname _args =
+  let expect_path = Filename.chop_extension testname ^ ".expect.s" in (* existence of this file implies an abort should be found *)
   let is_error_expected = Sys_unix.is_file_exn expect_path in
   let result =
     let output = Concolic.eval ~timeout_sec:10.0 (Dj_common.File_utils.read_source testname) (* allow ten seconds *) in
@@ -31,6 +33,6 @@ let test_bjy_conv testname _args =
   Alcotest.(check bool) "bjy concolic" true result
 
 let () =
-  let grouped_tests = Lib.group_tests "test/dbmc/concolic/" test_one_file in
-  let bjy_tests = Lib.group_tests "test/dbmc/concolic/_bjy_tests/" test_bjy_conv in
+  let grouped_tests = Lib.group_tests "test/dbmc/concolic/exact_expected/" test_exact_expected in
+  let bjy_tests = Lib.group_tests "test/dbmc/concolic/bjy_tests/" test_for_abort in
   Alcotest.run_with_args "concolic" Test_argparse.config (bjy_tests @ grouped_tests)
