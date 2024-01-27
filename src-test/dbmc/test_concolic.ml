@@ -20,11 +20,10 @@ let test_bjy_conv testname _args =
   let expect_path = Filename.chop_extension testname ^ ".expect.s" in
   let is_error_expected = Sys_unix.is_file_exn expect_path in
   let result =
-    match
-      Concolic.eval_timeout (Dj_common.File_utils.read_source testname) 10.0 (* allow ten seconds *)
-    with
-    | None -> not is_error_expected (* concolic timed out, which is good if there is no error expected *)
-    | Some output -> (* concolic finished, so check for existence of an abort *)
+    let output = Concolic.eval ~timeout_sec:10.0 (Dj_common.File_utils.read_source testname) (* allow ten seconds *) in
+    if Branch_tracker.Status_store.Without_payload.(compare empty output = 0)
+    then not is_error_expected (* concolic timed out, which is good if there is no error expected *)
+    else (* concolic finished, so check for existence of an abort *)
       Bool.(=)
         (Branch_tracker.Status_store.Without_payload.contains output Branch_tracker.Status.Without_payload.Found_abort)
         is_error_expected

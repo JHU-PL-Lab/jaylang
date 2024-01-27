@@ -114,7 +114,7 @@ val set_quit_on_first_abort : t -> bool -> t
 val of_expr : Jayil.Ast.expr -> t
 (** [of_expr expr] has the AST branches loaded from [expr] into [default]. *)
 
-val next : t -> [ `Done of t | `Next of t * Concolic.t * Eval.t ]
+val next : t -> [ `Done of t | `Next of t * Concolic.t * Eval.t ] Lwt.t
 (** [next session] is [`Done session'] when there is no satisfiable or unhit target left in [session'],
     or it is a new session with a concolic session and eval session to try to hit the top target. *)
 

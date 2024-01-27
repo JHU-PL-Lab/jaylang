@@ -7,6 +7,7 @@
   * and remove the `is_done` label is `Session.t` to check this against the record_11.jil test
 * If quit due to timeout, then still report if abort is found or not
   * This will necessarily require mutation, or some great Lwt skills
+  * ^ This is sort of done because we quit on first abort most of the time
 * assert and assume
 * Scale max step with number of lines
 * Disallow inputs that have already been used

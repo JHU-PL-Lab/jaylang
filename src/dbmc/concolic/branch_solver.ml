@@ -89,5 +89,5 @@ let check_solver
   (* Format.printf "%s\n" (Z3.Solver.to_string new_solver); *)
   match Z3.Solver.check new_solver [] with
   | Z3.Solver.UNSATISFIABLE -> Format.printf "FOUND UNSATISFIABLE\n"; `Unsolvable Branch_tracker.Status.Unsatisfiable
-  | Z3.Solver.UNKNOWN -> Format.printf "FOUND UNKNOWN DUE TO TIMEOUT\n"; `Unsolvable (Branch_tracker.Status.Unknown 1)
+  | Z3.Solver.UNKNOWN -> Format.printf "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n"; `Unsolvable (Branch_tracker.Status.Unknown 1)
   | Z3.Solver.SATISFIABLE -> `Solved (Z3.Solver.get_model new_solver |> Core.Option.value_exn)

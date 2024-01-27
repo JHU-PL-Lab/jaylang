@@ -193,34 +193,37 @@ let set_quit_on_first_abort (session : t) (b : bool) : t =
 let of_expr (expr : Jayil.Ast.expr) : t =
   { default with branch_tracker = Branch_tracker.of_expr expr }
 
-let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
-  if session.is_done then `Done session else
+let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] Lwt.t =
+  let%lwt () = Lwt.pause () in
+  if session.is_done then Lwt.return (`Done session) else
   match Branch_tracker.next_target session.branch_tracker with
-  | None, branch_tracker when session.run_num > 0 -> `Done { session with branch_tracker }
+  | None, branch_tracker when session.run_num > 0 -> Lwt.return (`Done { session with branch_tracker })
   | None, branch_tracker -> (* no targets, but this is the first run, so use the default *)
     `Next ({ session with run_num = session.run_num + 1 ; branch_tracker }
           , Concolic.default
           , Eval.create Concolic_feeder.default session.global_max_step )
+    |> Lwt.return
   | Some target, branch_tracker ->
     solve_for_target target { session with branch_tracker }
 
-and solve_for_target (target : Branch.t) (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] =
-  Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec session.solver_timeout_s));
-  Format.printf "Solving for %s\n" (Branch.to_string target);
-  match Branch_solver.check_solver target session.formula_tracker session.branch_tracker with
-  | `Unsolvable status ->
-    let new_status =
-      match status with
-      ( Branch_tracker.Status.Unsatisfiable
-      | Unreachable_because_abort
-      | Unreachable_because_max_step ) when session.has_hit_exit -> Branch_tracker.Status.Unknown 1
-      | _ -> status
-    in
-    next { session with branch_tracker = Branch_tracker.set_status session.branch_tracker target new_status }
-  | `Solved model ->
-    `Next ({ session with run_num = session.run_num + 1 }
-          , Concolic.create ~target ~formula_tracker:session.formula_tracker
-          , Eval.create (Concolic_feeder.from_model model) session.global_max_step )
+  and solve_for_target (target : Branch.t) (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] Lwt.t =
+    Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec session.solver_timeout_s));
+    Format.printf "Solving for %s\n" (Branch.to_string target);
+    match Branch_solver.check_solver target session.formula_tracker session.branch_tracker with
+    | `Unsolvable status ->
+      let new_status =
+        match status with
+        ( Branch_tracker.Status.Unsatisfiable
+        | Unreachable_because_abort
+        | Unreachable_because_max_step ) when session.has_hit_exit -> Branch_tracker.Status.Unknown 1
+        | _ -> status
+      in
+      next { session with branch_tracker = Branch_tracker.set_status session.branch_tracker target new_status }
+    | `Solved model ->
+      `Next ({ session with run_num = session.run_num + 1 }
+            , Concolic.create ~target ~formula_tracker:session.formula_tracker
+            , Eval.create (Concolic_feeder.from_model model) session.global_max_step )
+      |> Lwt.return
 
 let finish (session : t) : t =
   { session with branch_tracker = Branch_tracker.finish session.branch_tracker session.has_hit_exit }

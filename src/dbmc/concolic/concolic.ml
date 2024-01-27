@@ -458,61 +458,46 @@ let try_eval_exp_default
 
   This eval spans multiple concolic sessions, trying to hit the branches.
 *)
-let rec loop (e : expr) (prev_session : Session.t) : Branch_tracker.Status_store.Without_payload.t =
-  match Session.next prev_session with
-  | `Done session ->
-    let finished = Session.finish session in
-    if Printer.print then (Format.printf "------------------------------\nFinishing...\n"; Session.print finished);
-    finished
-    |> Session.branch_tracker
-    |> Branch_tracker.status_store
-    |> Branch_tracker.Status_store.without_payload
-  | `Next (session, conc_session, eval_session) ->
-    if Printer.print
-    then (Format.printf "------------------------------\nRunning program...\n"; Session.print session);
-    try_eval_exp_default ~eval_session ~conc_session e
-    |> Session.accum_concolic session
-    |> loop e
+let rec loop (e : expr) (prev_session : Session.t) : Branch_tracker.Status_store.Without_payload.t Lwt.t =
+  let open Lwt.Infix in
+  let%lwt () = Lwt.pause () in
+  Session.next prev_session
+  >>= begin function
+    | `Done session ->
+      let finished = Session.finish session in
+      if Printer.print then (Format.printf "------------------------------\nFinishing...\n"; Session.print finished);
+      finished
+      |> Session.branch_tracker
+      |> Branch_tracker.status_store
+      |> Branch_tracker.Status_store.without_payload
+      |> Lwt.return
+    | `Next (session, conc_session, eval_session) ->
+      if Printer.print
+      then (Format.printf "------------------------------\nRunning program...\n"; Session.print session);
+      try_eval_exp_default ~eval_session ~conc_session e
+      |> Session.accum_concolic session
+      |> loop e
+    end
 
 (* Concolically execute/test program. *)
-let eval ?(quit_on_first_abort : bool = true) (e : expr) : Branch_tracker.Status_store.Without_payload.t = 
+let eval
+  ?(timeout_sec : float = 120.0)
+  ?(quit_on_first_abort : bool = true)
+  (e : expr)
+  : Branch_tracker.Status_store.Without_payload.t
+  = 
   if Printer.print then Format.printf "\nStarting concolic execution...\n";
   (* Repeatedly evaluate program *)
-  e
-  |> Session.of_expr
-  |> Fn.flip Session.set_quit_on_first_abort quit_on_first_abort
-  |> loop e
-
-let eval_timeout (e : expr) (s : float) : Branch_tracker.Status_store.Without_payload.t option =
-  
-  (* https://discuss.ocaml.org/t/computation-with-time-constraint/5548/9 *)
-  let exception Timeout in
-  let ugly_timeout f x timeout_sec = 
-    let _ =
-      Stdlib.Sys.set_signal Stdlib.Sys.sigalrm (Stdlib.Sys.Signal_handle (fun _ -> raise Timeout))
-    in
-    ignore (Caml_unix.alarm timeout_sec);
-    try
-      let r = f x in
-      ignore (Caml_unix.alarm 0); r
-    with
-    | e  -> ignore (Caml_unix.alarm 0); raise e
+  let run () = 
+    e
+    |> Session.of_expr
+    |> Fn.flip Session.set_quit_on_first_abort quit_on_first_abort
+    |> loop e
   in
   try
-    Option.return
-    @@ ugly_timeout eval e (Float.round_up s |> Float.to_int)
-  with
-  | Timeout -> None
-  | _ -> None (* catch any exception that results from an ugly failure due to sig alarm stopping the eval at some arbitrary spot *)
-
-  (* begin
-  try
-    let open Lwt.Infix in
-    Timeout_utils.no_matter (Some (Core.Time_float.Span.of_sec s)) (fun () -> let x = eval e in Lwt.return x)
-    >|= Option.return
+    Lwt_unix.with_timeout timeout_sec run
+    |> Lwt_main.run
   with
   | Lwt_unix.Timeout ->
-      prerr_endline "real timeout" ;
-      Lwt.return None
-  end
-  |> Lwt_main.run *)
+    if Printer.print then Format.printf "Quit to do total run timeout in %0.3f seconds.\n" timeout_sec;
+    Branch_tracker.Status_store.Without_payload.empty
