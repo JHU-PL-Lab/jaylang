@@ -5,6 +5,7 @@
 * Solver formulas for record pattern matching.
   * e.g. it can't recognize that { b = {} } ~ { a = {} } is always false
   * and remove the `is_done` label is `Session.t` to check this against the record_11.jil test
+  * I think this is finished working, but it seems much slower now. Check with Shiwei about pattern matching
 * If quit due to timeout, then still report if abort is found or not
   * This will necessarily require mutation, or some great Lwt skills
   * ^ This is sort of done because we quit on first abort most of the time

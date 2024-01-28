@@ -13,16 +13,10 @@ x_is_one_branch = x_is_one ? (
 
 r_actual_pattern = x_is_one_branch;
 
+# Solver must use formulas on the patterns to solve for this
 pattern_match_cond = r_actual_pattern ~ { b };
 pattern_match_branch = pattern_match_cond ? (
   hit_when_x_is_one = 0
 ) : (
   hit_when_x_not_one = 1
 );
-
-# This is last branch hit, so it helps us target x = 1 or not
-v = x_is_one ? (
-  a = 0
-) : (
-  b = 1
-)

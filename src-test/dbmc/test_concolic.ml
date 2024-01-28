@@ -32,7 +32,18 @@ let test_for_abort testname _args =
   in
   Alcotest.(check bool) "bjy concolic" true result
 
+(* Change Lib to allow Quick or Slow flag *)
+module From_lib =
+  struct
+    type 'arg test_one = string -> 'arg -> unit
+    let group_tests root speed (test_one : 'arg test_one) =
+      Directory_utils.map_in_groups
+        ~f:(fun _ test_name test_path ->
+          Alcotest.test_case test_name speed @@ test_one test_path)
+        root
+  end
+
 let () =
-  let grouped_tests = Lib.group_tests "test/dbmc/concolic/exact_expected/" test_exact_expected in
-  let bjy_tests = Lib.group_tests "test/dbmc/concolic/bjy_tests/" test_for_abort in
-  Alcotest.run_with_args "concolic" Test_argparse.config (bjy_tests @ grouped_tests)
+  let grouped_tests = From_lib.group_tests "test/dbmc/concolic/exact_expected/" `Quick test_exact_expected in
+  let bjy_tests = From_lib.group_tests "test/dbmc/concolic/bjy_tests/" `Slow test_for_abort in
+  Alcotest.run_with_args "concolic" Test_argparse.config (bjy_tests @ grouped_tests) ~quick_only:true

@@ -1,0 +1,11 @@
+
+x = input; # unused
+
+zero = 0;
+a = { a = zero };
+is_b_cond = a ~ { b };
+is_b_branch = is_b_cond ? (
+  fail = 0
+) : (
+  success = 42
+)

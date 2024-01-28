@@ -314,12 +314,35 @@ and eval_clause
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       let Var (y, _) = vy in
       let match_key = generate_lookup_key y stk in
+      (* This doesn't do records properly *)
       let x_key_exp = Riddler.key_to_var x_key in
       let conc_session = Session.Concolic.add_formula conc_session @@ Solver.SuduZ3.ifBool x_key_exp in (* x has a bool value it will take on *)
       let conc_session =
         Session.Concolic.add_formula conc_session
         @@ Solver.SuduZ3.eq (Solver.SuduZ3.project_bool x_key_exp) (Riddler.is_pattern match_key p) (* x is same as result of match *)
       in
+      (* This commented code doesn't actually do records any better from what I can tell *)
+      (* let conc_session =
+        Session.Concolic.add_formula conc_session
+        @@ Riddler.pattern x_key match_key match_key cbody p (* I think this does the comparisons of record labels, but it fails mismatch1 test *)
+      in
+      let conc_session =
+        Session.Concolic.add_formula conc_session
+        @@ Riddler.picked x_key 
+      in *)
+      (*
+        For loose pattern matching (i.e. subtyping, I think), and not strict where exactly some fields exist:
+        Need to create some bools upon creation of the record that the record has each label. So like
+          "x has label l = true"
+        And then when pattern matching, we for is_pattern, we do
+          "x has label l and x has label k and ..."
+        For strict matching, we might have something that is,
+          "x has exactly labels l and k and ..."
+        So that for strict matching, we can just check for that one formula, and for loose matching, we check
+        for all the formulas that we need.
+
+        I think I'll pass in a lookup key and a set of labels, we the riddler can do the rest.
+      *)
       retv, conc_session
     | Projection_body (v, label) -> begin
       match Fetch.fetch_val ~eval_session ~stk env v with
