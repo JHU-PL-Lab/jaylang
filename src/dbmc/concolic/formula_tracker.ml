@@ -137,15 +137,71 @@ module Pick_formulas :
       | None -> failwith "no target pick formula known for given branch"
   end
 
+(* Represents all the inputs given in a single run of the interpreter. Naming clashes with Branch_tracker.Input *)
+module Input :
+  sig
+    type t
+    val none : t
+    val add : t -> Lookup_key.t -> Jayil.Ast.value -> t
+    val exit_parent : t -> Branch.Runtime.t -> t
+    val merge : t -> t -> t
+    val to_expr : t -> Z3.Expr.expr
+  end
+  =
+  struct
+    type t = Z3.Expr.expr option
+    let none : t = None
+
+    (* hyphens are not allowed in variable names, so this is unique from any picked variable *)
+    (* let pick_no_repeat_inputs = Riddler.picked_string "no-repeat-inputs"
+    let imply_no_repeat_inputs formula = Riddler.(pick_no_repeat_inputs @=> formula) *)
+    
+    let add (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
+      let is_int_pattern = Riddler.is_pattern key (Jayil.Ast.Int_pattern) in
+      let new_formula = (* new formula says that x cannot be the given value *)
+        Riddler.eq_term_v key (Some v)
+        |> Solver.SuduZ3.not_
+        (* |> imply_no_repeat_inputs *)
+        |> fun e -> Solver.SuduZ3.and_ [e; is_int_pattern]
+      in
+      match x with
+      | None -> Some new_formula
+      | Some expr -> Some (Solver.SuduZ3.or_ [expr; new_formula]) (* either change the other input or the new input *)
+
+    let exit_parent (x : t) (parent : Branch.Runtime.t) : t =
+      Option.map x ~f:(
+        fun expr ->
+          Riddler.(Branch.Runtime.to_expr parent @=> expr)
+      )
+
+    (* TODO: fix this for exiting to global because we selectively have to "and" and "or" depending on if we are concluding the run. *)
+    (* We can't just "or" every time because that should only be for different inputs within the same run. *)
+    (* What needs to happen is that we don't reuse the same formula tracker, but instead we make a new one where
+       the merge between runs is "and", but the merge during runs is "or". *)
+    let merge (x : t) (y : t) : t =
+      match x, y with
+      | Some expr, None
+      | None, Some expr -> Some expr
+      | Some e1, Some e2 -> Some (Solver.SuduZ3.or_ [e1; e2])
+      | _ -> None
+
+    let to_expr (x : t) : Z3.Expr.expr =
+      match x with
+      | None -> Riddler.true_
+      | Some expr -> expr
+  end
+
 module Env :
   sig
     type t =
       { parent        : Parent.t (* current "scope" *)
       ; formulas      : Formula_set.t (* always true formulas under this parent *)
-      ; pick_formulas : Pick_formulas.t } (* pickable formulas *)
+      ; pick_formulas : Pick_formulas.t (* pickable formulas *)
+      ; input         : Input.t }
     val empty : t
     val create : Branch.Runtime.t -> t
     val add : t -> Z3.Expr.expr -> t
+    val add_input : t -> Lookup_key.t -> Jayil.Ast.value -> t
     val exit_to_env : t -> t -> t
   end
   =
@@ -153,12 +209,14 @@ module Env :
     type t =
       { parent        : Parent.t
       ; formulas      : Formula_set.t
-      ; pick_formulas : Pick_formulas.t }
+      ; pick_formulas : Pick_formulas.t
+      ; input         : Input.t }
 
     let empty : t =
       { parent        = Parent.Global
       ; formulas      = Formula_set.empty
-      ; pick_formulas = Pick_formulas.empty }
+      ; pick_formulas = Pick_formulas.empty
+      ; input         = Input.none }
 
     let create (branch : Branch.Runtime.t) : t =
       { empty with parent = Parent.of_runtime_branch branch }
@@ -182,6 +240,9 @@ module Env :
           |> Riddler.(@=>) (pick branch)
         )
 
+    let add_input ({ input ; _ } as x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
+      { x with input = Input.add input key v }
+
     let exit_to_env (exited : t) (new_env : t) : t =
       match exited with
       | { parent = Global ; _ } -> raise NoParentException
@@ -195,8 +256,12 @@ module Env :
         ; pick_formulas =
           Pick_formulas.union new_env.pick_formulas
           @@ Pick_formulas.exit_parent exited.pick_formulas exited_branch
-        }
+        ; input =
+          Input.merge
+            new_env.input
+            (Input.exit_parent (exited.input) exited_branch) }
       end
+
   end
 
 (* Non-empty stack of environments *)
@@ -210,6 +275,16 @@ module Env_stack =
 
     let cons (hd : Env.t) (tl : t) : t =
       Cons (hd, tl)
+
+    let map_hd (stack : t) ~(f : Env.t -> Env.t) : t =
+      match stack with
+      | Last last -> Last (f last)
+      | Cons (hd, tl) -> Cons (f hd, tl)
+
+    let is_last (stack : t) : bool =
+      match stack with
+      | Last _ -> true
+      | _ -> false
   end
 
 type t = { stack : Env_stack.t }
@@ -224,12 +299,7 @@ let log_add_formula ({ stack } : t) (formula : Z3.Expr.expr) : unit =
 
 let add_formula ({ stack } : t) (formula : Z3.Expr.expr) : t =
   (* log_add_formula x formula; *)
-  let new_stack =
-    match stack with
-    | Cons (hd, tl) -> Env_stack.Cons (Env.add hd formula, tl)
-    | Last global -> Last (Env.add global formula)
-  in
-  { stack = new_stack }
+  { stack = Env_stack.map_hd stack ~f:(Fn.flip Env.add formula) }
   
 let add_key_eq_val (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
   add_formula x @@ Riddler.eq_term_v key (Some v)
@@ -246,14 +316,8 @@ let imply_no_repeat_inputs formula = Riddler.(pick_no_repeat_inputs @=> formula)
 
 (* We'd like to not choose this input anymore, so mark it off limits *)
 (* TODO: how does this work for inputs in recursive functions that have different previous inputs? *)
-let add_input (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
-  (* let _, _ = key, v in x *)
-  let is_int_pattern = Riddler.is_pattern key (Jayil.Ast.Int_pattern) in
-  Riddler.eq_term_v key (Some v)
-  |> Solver.SuduZ3.not_
-  |> imply_no_repeat_inputs
-  |> fun e -> Solver.SuduZ3.and_ [e; is_int_pattern]
-  |> add_formula x
+let add_input ({ stack } : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
+  { stack = Env_stack.map_hd stack ~f:(fun e -> Env.add_input e key v) }
 
 (* TODO: all other types of formulas, e.g. not, pattern, etc, then hide `add_formula` *)
 
@@ -269,14 +333,17 @@ let exit_branch ({ stack } : t) : t =
   | _ -> raise NoParentException (* no parent to back up to because currently in global (or no) scope *)
 
 let is_global ({ stack } : t) : bool =
-  match stack with
-  | Last _ -> true
-  | _ -> false
+  Env_stack.is_last stack
 
 let rec exit_until_global (x : t) : t =
   if is_global x
   then x
   else exit_until_global (exit_branch x)
+
+let input_formula ({ stack } : t) : Z3.Expr.expr =
+  match stack with
+  | Last env -> Input.to_expr env.input
+  | _ -> failwith "cannot get formulas unless in global scope"
 
 let all_formulas
   ?(allow_repeat_inputs : bool = false)
@@ -293,7 +360,7 @@ let all_formulas
     let max_step_formulas = List.map max_steps ~f:Branch.pick_max_step in
     let target_formula = Pick_formulas.pick_target pick_formulas target in
     target_formula
-    :: (if allow_repeat_inputs then [] else [ pick_no_repeat_inputs ])
+    :: (if allow_repeat_inputs then [] else [ input_formula { stack } ])
     @ abort_formulas
     @ max_step_formulas
     @ Formula_set.to_list formulas
@@ -307,5 +374,3 @@ let max_step_formulas ({ stack } : t) (max_steps : Branch.t list) : Z3.Expr.expr
   match stack with
   | Cons _ -> failwith "cannot get max step formulas unless in global scope"
   | Last { formulas ; pick_formulas ; _ } -> List.map max_steps ~f:Branch.pick_max_step *)
-
-let input_formula : Z3.Expr.expr = pick_no_repeat_inputs
