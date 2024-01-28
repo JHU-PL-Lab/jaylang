@@ -1,10 +1,12 @@
 .PHONY: all clean dbmc dj sato translator jil logclean benchmark \
-				repl test dbmc-test sato-test dtest dtest-ddse dtest-all 
+				repl test dbmc-test sato-test stest dtest dtest-ddse
 
 BUILD = _build/default
 BUILD_SRC = _build/default/src
 BUILD_BIN = _build/default/src/bin
 BUILD_TEST = _build/default/src-test
+TEST_D = test/dbmc
+BENCH_D = benchmark/dbmc
 
 
 all: dbmc sato translator
@@ -22,10 +24,15 @@ sato:
 translator:
 	dune build src/bin/translator.exe
 
+cj:
+	dune build src/bin/cj.exe
+
 jil:
 	dune build src/bin/jil.exe
 
-
+jay:
+	dune build src/bin/jay.exe
+	
 # clean up
 
 clean:
@@ -64,52 +71,72 @@ dtest-ddse: dbmc-test
 
 
 test-z3:
-	dune exec test/sudu/test_sudu_z3.exe -- --verbose
+	dune exec src-test/sudu/test_sudu_z3.exe -- --verbose
 
 test-z3-heavy:
-	dune exec test/sudu/test_heavy.exe 
+	dune exec src-test/sudu/test_heavy.exe 
 
 test-rstack:
-	dune runtest test/dbmc/inline-expect
+	dune runtest src-test/unit/inline-expect
 	dune promote
 
+test-sched:
+	dune exec src-test/unit/test_scheduler.exe
+
+test-unroll:
+	dune exec src-test/unit/test_unroll.exe
+
+test-dummy:
+	dune exec src-test/dbmc/test_dummy.exe
+
+test-concolic:
+	dune exec src-test/dbmc/test_concolic.exe
 
 # profiling
 
+perf:
+	dune build src/bin/perf.exe
+	./perf.exe
+
 profile:
+	mkdir -p profiling
 	dune build --workspace dune-workspace.profile src/bin/dj.exe
-	ln -s -f _build/profile/src/bin/dj.exe dj
-# dune exec --workspace dune-workspace.profiling --context profiling src/bin/dj.exe -- -t target test-sources/loop/_sum100.odefa
+# dune exec --workspace dune-workspace.profiling --context profiling src/bin/dj.exe -- -t target $(TEST_D)/loop/_sum100.jil
+
+landaa:
+	OCAML_LANDMARKS=auto,output="profiling/aa.ansi" time ./dj.exe -aa 1cfa -st si kebug.jil
 
 land100:
-	OCAML_LANDMARKS=auto,output="profiling/callgraph100-ddse.ansi" time ./dj -t target -ls2 debug test-sources/loop/_sum100.odefa
+	OCAML_LANDMARKS=auto,output="profiling/callgraph100-ddse.ansi" time ./dj.exe -t target -ls2 debug $(TEST_D)/loop/_sum100.jil
 
 land200:
-	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dj -t target -ls2 debug test-sources/loop/_sum200.odefa
+	OCAML_LANDMARKS=on,output="profiling/callgraph200.ansi" time ./dj.exe -t target -ls2 debug $(TEST_D)/loop/_sum200.jil
 
 land500:
-	OCAML_LANDMARKS=auto,output="profiling/callgraph500.ansi" time ./dj -t target -ls2 debug test-sources/loop/_sum500.odefa
+	OCAML_LANDMARKS=auto,output="profiling/callgraph500.ansi" time ./dj.exe -t target -ls2 debug $(TEST_D)/loop/_sum500.jil
 
 ll:
-	OCAML_LANDMARKS=on,output="profiling/fold.ansi" time ./dj -t target -e ddse  -m 3 test-sources/benchmark/icfp20/_smbc/smbc_fold0s.natodefa
-
+	OCAML_LANDMARKS=on,output="profiling/fold.ansi" time ./dj.exe -t target -e ddse -m 3 $(TEST_D)/benchmark/icfp20/_smbc/smbc_fold0s.natodefa
 
 # benchmark
 
 benchmark:
-	dune exec benchmark/benchmark.exe -- -e dbmc
-	dune exec benchmark/benchmark.exe -- -e ddse
+	dune exec $(BENCH_D)/benchmark.exe -- -e dbmc
+# dune exec $(BENCH_D)/benchmark.exe -- -e ddse
 
 benchmark-icfp-artifact:
-	dune exec benchmark/benchmark.exe -- -e dbmc -f benchmark/icfp20-artifact.s
-# dune exec benchmark/benchmark.exe -- -e ddse -f benchmark/icfp20-artifact.s
+	dune exec $(BENCH_D)/benchmark.exe -- -e dbmc -f $(BENCH_D)/icfp20-artifact.s
+# dune exec $(BENCH_D)/benchmark.exe -- -e ddse -f $(BENCH_D)/icfp20-artifact.s
 
 b1:
-	dune exec benchmark/benchmark.exe -- -e dbmc -f benchmark/neo.s
+	dune exec $(BENCH_D)/benchmark.exe -- -e dbmc -f $(BENCH_D)/neo.s
+#	dune exec $(BENCH_D)/benchmark.exe -- -e ddse -f $(BENCH_D)/neo.s
 
-b2:
-	dune exec benchmark/benchmark.exe -- -e ddse -f benchmark/neo.s
+bep:
+	OCAML_LANDMARKS=auto,output="profiling/bench.ansi" dune exec src/bin/table_bench.exe -- -ascii -quota 5 -clear-columns time speedup
 
+be:
+	dune exec src/bin/table_bench.exe -- -ascii -quota 5 -clear-columns time speedup
 
 # legacy
 

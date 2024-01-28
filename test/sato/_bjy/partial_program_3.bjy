@@ -1,0 +1,4 @@
+  let g (f : int -> {. int | fun n -> n > 0 } ) (x : int) : {. int | fun n -> n > 0 } =
+    (f x) * (f x)
+  in
+  g 

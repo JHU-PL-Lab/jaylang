@@ -5,6 +5,6 @@
 
 (executables
  (names test_sato)
- (libraries alcotest core sato)
+ (libraries alcotest alcotest-lwt core sato)
  (preprocess
   (pps ppx_jane lwt_ppx ppx_deriving.std ppx_expect)))

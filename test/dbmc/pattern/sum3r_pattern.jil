@@ -18,8 +18,6 @@ f = fun s -> (
                 crv = rv ~ {val};
                 a2 = crv ? (ta2 = rv) : (fa2 = abort);
                 v2 = ss a2;
-
-#                v2 = ss a2;
                 r2 = a + v2
             );
     );

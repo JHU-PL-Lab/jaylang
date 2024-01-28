@@ -128,10 +128,10 @@ module type GS = sig
 end
 
 module DotPrinter_Make (S : GS) = struct
-  let source_map = Lazy.force S.state.source_map
+  let source_map = Lazy.force S.state.info.source_map
 
   let graph_of_gate_tree () =
-    let root = S.state.root_node in
+    let root = S.state.search.root_node in
     let g = G.create () in
 
     let at_node (tree_node : Search_graph.node_ref) =
@@ -196,9 +196,11 @@ module DotPrinter_Make (S : GS) = struct
         let clause = Jayil.Ast.Ident_map.Exceptionless.find c_id source_map in
         let content =
           let phis_string =
-            let term_detail = Hashtbl.find S.state.term_detail_map node.key in
+            let detail =
+              Hashtbl.find S.state.search.lookup_detail_map node.key
+            in
             let phis =
-              Option.value_map term_detail ~default:[] ~f:(fun d -> d.phis)
+              Option.value_map detail ~default:[] ~f:(fun d -> d.phis)
             in
             let phi = Riddler.and_ phis in
             phi |> Z3.Expr.to_string |> label_escape
@@ -229,7 +231,7 @@ module DotPrinter_Make (S : GS) = struct
           in
           let outputs =
             []
-            (* Unrolls.U_dbmc.get_messages S.state.unroll node.key
+            (* Unrolls.U_dbmc.messages_sent S.state.unroll node.key
                |> List.map ~f:(fun m -> m.from) *)
           in
           Fmt.str
@@ -238,7 +240,7 @@ module DotPrinter_Make (S : GS) = struct
             (Id.show node.key.x)
             (Fmt.option Solver.pp_value)
             key_value
-            (Fmt.option Jayil.Pp_graph.clause)
+            (Fmt.option Jayil.Pp.Brief.clause)
             clause Rstack.pp node.key.r_stk
             (Rstack.to_string node.key.r_stk)
             phis_string phi_status
@@ -319,11 +321,13 @@ module DotPrinter_Make (S : GS) = struct
 end
 
 let output_graph ~model ~testname (state : Global_state.t) =
-  let module GI = (val (module struct
-                         let state = state
-                         let testname = Some testname
-                         let model = model
-                       end) : GS)
+  let module GI =
+    (val (module struct
+           let state = state
+           let testname = Some testname
+           let model = model
+         end)
+        : GS)
   in
   let module Graph_dot_printer = DotPrinter_Make (GI) in
   Graph_dot_printer.output_graph ()

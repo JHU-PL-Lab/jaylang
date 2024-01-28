@@ -1,8 +1,5 @@
 (
   (
-    (inputs (
-      (_)
-    ))
-    (target total)
+    (inputs (_))
   )
 )

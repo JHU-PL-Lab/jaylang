@@ -81,17 +81,17 @@ module Make
                     ( Value_lookup (x, Abs_value_int),
                       Program_point_state (acl1, ctx) ));
                  (* Variable Lookup Discovers Abort *)
-                 (*
-          begin
-            let%orzero
-              (Unannotated_clause(Abs_clause(x,Abs_abort_body))) = acl1
-            in
-            (* x = abort *)
-            return (Value_lookup(x, Abs_value_int),
-                    Program_point_state(acl1, ctx))
-          end
-          ;
-          *)
+                 
+                  (* begin
+                    let%orzero
+                      (Unannotated_clause(Abs_clause(x,Abs_abort_body))) = acl1
+                    in
+                    (* x = abort *)
+                    return (Value_lookup(x, Abs_value_abort),
+                            Program_point_state(acl0, ctx))
+                  end
+                  ; *)
+         
                  (* Intermediate Value *)
                  return (Value_drop, Program_point_state (acl0, ctx));
                  (* ********** Value Processing ********** *)

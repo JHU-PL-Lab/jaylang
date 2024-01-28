@@ -1,7 +1,7 @@
-p = 1;
+c = 1;
 f = fun t -> (
   target = 1
 );
 g = f;
-a = g p;
+a = g c;
 x = 1;

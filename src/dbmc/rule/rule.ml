@@ -1,70 +1,90 @@
 open Core
 open Dj_common
 open Jayil.Ast
-open Jayil.Ast_pp
 
 module Discovery_main_rule = struct
-  type t = { x : Id.t; v : value }
+  type t = { v : value }
 end
 
 module Discovery_nonmain_rule = struct
-  type t = { x : Id.t; v : value }
+  type t = { v : value }
 end
 
 module Input_rule = struct
-  type t = { x : Id.t; is_in_main : bool }
+  type t = { is_in_main : bool }
 end
 
 module Alias_rule = struct
-  type t = { x : Id.t; x' : Id.t }
+  type t = { x' : Lookup_key.t }
 end
 
 module Not_rule = struct
-  type t = { x : Id.t; x' : Id.t }
+  type t = { x' : Lookup_key.t }
 end
 
 module Binop_rule = struct
-  type t = { x : Id.t; bop : binary_operator; x1 : Id.t; x2 : Id.t }
+  type t = { bop : binary_operator; x1 : Lookup_key.t; x2 : Lookup_key.t }
 end
 
 module Record_start_rule = struct
-  type t = { x : Id.t; r : Id.t; lbl : Id.t }
+  type t = { r : Lookup_key.t; lbl : Id.t }
 end
 
 module Cond_top_rule = struct
-  type t = { cond_case_info : Cfg.cond_case_info; condsite_block : Cfg.block }
+  type t = {
+    cond_case_info : Cfg.cond_case_info;
+    condsite_block : Cfg.block;
+    x : Lookup_key.t;
+    x2 : Lookup_key.t;
+  }
 end
 
 module Cond_btm_rule = struct
-  type t = { x : Id.t; x' : Id.t; cond_both : Cfg.cond_both_info }
+  type t = {
+    x' : Lookup_key.t;
+    cond_both : Cfg.cond_both_info;
+    rets : (bool * Lookup_key.t) list;
+  }
 end
 
 module Fun_enter_local_rule = struct
-  type t = { x : Id.t; fb : Cfg.fun_block_info; is_local : bool }
+  type t = {
+    fb : Cfg.fun_block_info;
+    fid : Id.t;
+    is_local : bool;
+    callsites : ident list;
+    callsites_with_stk : (Lookup_key.t * Lookup_key.t) list;
+  }
 end
 
 module Fun_enter_nonlocal_rule = struct
-  type t = { x : Id.t; fb : Cfg.fun_block_info; is_local : bool }
+  type t = {
+    fb : Cfg.fun_block_info;
+    fid : Id.t;
+    is_local : bool;
+    callsites : ident list;
+    callsites_with_stk : (Lookup_key.t * Lookup_key.t) list;
+  }
 end
 
 module Fun_exit_rule = struct
-  type t = { x : Id.t; xf : Id.t; fids : Id.t list }
+  type t = { xf : Lookup_key.t; fids : Id.t list }
 end
 
 module Pattern_rule = struct
-  type t = { x : Id.t; x' : Id.t; pat : pattern }
+  type t = { x' : Lookup_key.t; pat : pattern }
 end
 
 module Assume_rule = struct
-  type t = { x : Id.t; x' : Id.t }
+  type t = { x' : Lookup_key.t }
 end
 
 module Assert_rule = struct
-  type t = { x : Id.t; x' : Id.t }
+  type t = { x' : Lookup_key.t }
 end
 
 module Abort_rule = struct
-  type t = { x : Id.t }
+  type t = { is_target : bool }
 end
 
 type t =
@@ -86,7 +106,7 @@ type t =
   | Abort of Abort_rule.t
   | Mismatch
 
-let rule_of_runtime_status (key : Lookup_key.t) block_map : t =
+let rule_of_runtime_status (key : Lookup_key.t) block_map target : t =
   let x = key.x in
   let block = key.block in
   let open Cfg in
@@ -95,48 +115,104 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map : t =
       match tc with
       | { clause = Clause (_, Input_body); _ } ->
           let is_in_main = Ident.equal block.id Id.main_block in
-          Input { x; is_in_main }
-      | { clause = Clause (_, Var_body (Var (x', _))); _ } -> Alias { x; x' }
+          Input { is_in_main }
+      | { clause = Clause (_, Var_body (Var (ix', _))); _ } ->
+          let x' = Lookup_key.with_x key ix' in
+          Alias { x' }
       | { clause = Clause (_, Value_body v); _ } ->
           if Ident.equal block.id Id.main_block
-          then Discovery_main { x; v }
-          else Discovery_nonmain { x; v }
-      | { clause = Clause (_, Projection_body (Var (r, _), lbl)); _ } ->
-          Record_start { x; r; lbl }
-      | { clause = Clause (_, Not_body (Var (x', _))); _ } -> Not { x; x' }
+          then Discovery_main { v }
+          else Discovery_nonmain { v }
+      | { clause = Clause (_, Projection_body (Var (ir, _), lbl)); _ } ->
+          let r = Lookup_key.with_x key ir in
+          Record_start { r; lbl }
+      | { clause = Clause (_, Not_body (Var (ix', _))); _ } ->
+          let x' = Lookup_key.with_x key ix' in
+          Not { x' }
       | {
-       clause = Clause (_, Binary_operation_body (Var (x1, _), bop, Var (x2, _)));
+       clause =
+         Clause (_, Binary_operation_body (Var (id1, _), bop, Var (id2, _)));
        _;
       } ->
-          Binop { x; bop; x1; x2 }
-      | { clause = Clause (_, Conditional_body (Var (x', _), _, _)); _ } ->
-          let cond_both_info = Cfg.find_cond_blocks x block_map in
-          Cond_btm { x; x'; cond_both = cond_both_info }
+          let x1 = Lookup_key.with_x key id1 in
+          let x2 = Lookup_key.with_x key id2 in
+          Binop { bop; x1; x2 }
+      | { clause = Clause (_, Conditional_body (Var (ix', _), _, _)); _ } ->
+          let cond_both = Cfg.find_cond_blocks x block_map in
+          let x' = Lookup_key.with_x key ix' in
+          let rets =
+            List.filter_map [ true; false ] ~f:(fun beta ->
+                let cond_case_block_opt =
+                  if beta then cond_both.then_ else cond_both.else_
+                in
+                match cond_case_block_opt with
+                | Some cond_case_block ->
+                    Some
+                      ( beta,
+                        Lookup_key.return_key_of_cond key beta cond_case_block
+                      )
+                | None -> None)
+          in
+          Cond_btm { x'; cond_both; rets }
       | {
-       clause = Clause (_, Appl_body (Var (xf, _), Var (_xv, _)));
+       clause = Clause (_, Appl_body (Var (ixf, _), Var (_xv, _)));
        cat = App fids;
        _;
       } ->
-          Fun_exit { x; xf; fids }
-      | { clause = Clause (_, Abort_body); _ } -> Abort { x }
-      | { clause = Clause (_, Assume_body (Var (x', _))); _ } ->
-          Assume { x; x' }
-      | { clause = Clause (_, Assert_body (Var (x', _))); _ } ->
-          Assert { x; x' }
-      | { clause = Clause (_, Match_body (Var (x', _), pat)); _ } ->
-          Pattern { x; x'; pat }
+          let xf = Lookup_key.with_x key ixf in
+          Fun_exit { xf; fids }
+      | { clause = Clause (_, Abort_body); _ } ->
+          (* TODO: take care of direct `abort` in the main block *)
+          let is_target =
+            Lookup_key.equal key (Lookup_key.start target key.block)
+          in
+          Abort { is_target }
+      | { clause = Clause (_, Assume_body (Var (ix', _))); _ } ->
+          let x' = Lookup_key.with_x key ix' in
+          Assume { x' }
+      | { clause = Clause (_, Assert_body (Var (ix', _))); _ } ->
+          let x' = Lookup_key.with_x key ix' in
+          Assert { x' }
+      | { clause = Clause (_, Match_body (Var (ix', _), pat)); _ } ->
+          let x' = Lookup_key.with_x key ix' in
+          Pattern { x'; pat }
       | _ ->
-          Log.Export.LLog.err (fun m -> m "%a" Jayil.Ast_pp.pp_clause tc.clause) ;
+          Log.Export.LLog.err (fun m -> m "%a" Jayil.Pp.clause tc.clause) ;
           failwith "Missing rules for this clause")
   | None -> (
       match block.kind with
       | Fun fb ->
+          let fid = block.id in
+          let callsites = Lookup_key.get_callsites key.r_stk key.block in
+          let callsites_with_stk =
+            List.filter_map callsites ~f:(fun cs ->
+                let cs_block, x', x'', x''' =
+                  Cfg.fun_info_of_callsite block_map cs
+                in
+                match Rstack.pop key.r_stk (x', fid) with
+                | Some cs_stk ->
+                    let key_f = Lookup_key.of3 x'' cs_stk cs_block in
+                    let key_arg = Lookup_key.of3 x''' cs_stk cs_block in
+                    Some (key_f, key_arg)
+                | None -> None)
+          in
           if Ident.(equal fb.para x)
-          then Fun_enter_local { x; fb; is_local = true }
-          else Fun_enter_nonlocal { x; fb; is_local = false }
+          then
+            Fun_enter_local
+              { fid; fb; is_local = true; callsites; callsites_with_stk }
+          else
+            Fun_enter_nonlocal
+              { fid; fb; is_local = false; callsites; callsites_with_stk }
       | Cond cb ->
-          let condsite_block = Cfg.outer_block block block_map in
-          Cond_top { cond_case_info = cb; condsite_block }
+          let condsite_block = Cfg.outer_block block_map block in
+          let x, x2 =
+            let _paired, condsite_stack =
+              Rstack.pop_at_condtop key.r_stk (cb.condsite, Id.cond_id cb.choice)
+            in
+            ( Lookup_key.of3 key.x condsite_stack condsite_block,
+              Lookup_key.of3 cb.cond condsite_stack condsite_block )
+          in
+          Cond_top { cond_case_info = cb; condsite_block; x; x2 }
       | Main -> Mismatch)
 
 let show_rule : t -> string = function
@@ -179,10 +255,3 @@ let pp_rule = Fmt.of_to_string show_rule
      val record_end : t -> payload -> result
      val mismatch : t -> payload -> result
    end *)
-
-(* [@@deriving variants]
-   let () =
-     print_endline
-     @@ Variants.map Value_discover_main
-          ~value_discover_main:(fun _ -> "Value_discover_main")
-          ~value_discard:(fun _ -> "Value_discard") *)

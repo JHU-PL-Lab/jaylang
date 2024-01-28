@@ -1,6 +1,9 @@
 open Core
 
 module T = struct
+  (* The first is for callsite (position) and the second is for function (choice)
+     It can also applies on condition where the first is callsite and the second is Id.tt or Id.ff
+  *)
   type t = (Id.t * Id.t) list
   [@@deriving sexp, compare, equal, show { with_path = false }, hash]
 end

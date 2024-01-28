@@ -3,7 +3,6 @@
 
 open Batteries
 open Ast
-open Ast_pp
 open Ast_tools
 
 type illformedness =
@@ -59,3 +58,13 @@ let check_wellformed_expr expression : unit =
       |> List.of_enum
     in
     raise @@ Illformedness_found illformednesses
+
+let check_wellformed_or_exit ast =
+  try check_wellformed_expr ast
+  with Illformedness_found ills ->
+    print_endline "Program is ill-formed." ;
+    ills
+    |> List.iter (fun ill ->
+           print_string "* " ;
+           print_endline @@ show_illformedness ill) ;
+    ignore @@ Stdlib.exit 1

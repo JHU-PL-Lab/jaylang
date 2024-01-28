@@ -4,8 +4,15 @@
 (rule
  (alias unittest)
  (action
-  (run ./interpreter.exe)))
+  (run ./test_interp.exe)))
+
+(rule
+ (alias test_rstack)
+ (action
+  (run ./test_rstack.exe)))
 
 (tests
- (names interpreter)
- (libraries core alcotest jayil_ast jayil_parser dbmc))
+ (names test_interp test_rstack test_scheduler test_unroll)
+ (libraries core core_bench alcotest jayil jayil_parser unroll dbmc)
+ (preprocess
+  (pps ppx_jane lwt_ppx)))

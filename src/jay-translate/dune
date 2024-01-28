@@ -2,7 +2,7 @@
  (name jay_translate)
  (public_name jay.jay_translate)
  (synopsis "Translator from Jay to JayIL")
- (libraries core batteries jhupllib monadlib jay jayil)
+ (libraries core batteries jhupllib monadlib bluejay jay jayil)
  (preprocess
   (pps ppx_deriving.std ppx_deriving_yojson ocaml-monadic))
  (flags

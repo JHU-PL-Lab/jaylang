@@ -53,6 +53,12 @@ module Make_common_builders (C : Context) = struct
     | Z3.Solver.UNSATISFIABLE -> true
     | Z3.Solver.UNKNOWN -> false
 
+  let is_sat status =
+    match status with
+    | Z3.Solver.SATISFIABLE -> true
+    | Z3.Solver.UNSATISFIABLE -> false
+    | Z3.Solver.UNKNOWN -> false
+
   let eval model e flag = Z3.Model.eval model e flag
   let eval_exn model e flag = Option.value_exn (eval model e flag)
   let simplify e = Expr.simplify e None
@@ -66,6 +72,7 @@ module Make_common_builders (C : Context) = struct
   let or_ = Boolean.mk_or ctx
   let not_ = Boolean.mk_not ctx
   let implies = Boolean.mk_implies ctx
+  let ite = Boolean.mk_ite ctx
   let ( @=> ) = implies
 
   (* box to Z3 expression *)

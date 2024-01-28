@@ -21,8 +21,8 @@ let replace_linebreaks (str : string) : string =
 module Jayil_error_location : Error_location with type t = Ast.clause = struct
   type t = Ast.clause
 
-  let show = Ast_pp.show_clause
-  let show_brief = Ast_pp_brief.show_clause
+  let show = Pp.show_clause
+  let show_brief = Pp.Brief.show_clause
   let to_yojson clause = `String (replace_linebreaks @@ show clause)
 end
 
@@ -79,7 +79,7 @@ let get_odefa_errors (sato_state : Sato_state.t)
     (symb_interp_state : Types.State.t) (interp_session : Interpreter.session)
     (final_env : Interpreter.denv) : Ast.clause * Sato_error.Jayil_error.t list
     =
-  let abort_var = symb_interp_state.target in
+  let abort_var = symb_interp_state.info.target in
   let ab_mapping = sato_state.abort_mapping in
   let on_to_odefa_maps = sato_state.on_to_odefa_maps in
   let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
@@ -210,7 +210,7 @@ module Jayil_type_errors : Sato_result with type t = odefa_error_record = struct
    fun error ->
     "** Jayil Type Errors **\n"
     ^ Printf.sprintf "- Input sequence  : %s\n"
-        (Dj_common.Std.string_of_inputs error.err_input_seq)
+        (Dj_common.Std.string_of_opt_int_list error.err_input_seq)
     ^ Printf.sprintf "- Found at clause : %s\n"
         (Jayil_error_location.show error.err_location)
     (* (Printf.sprintf "- Found in steps  : %s\n" (string_of_int error.err_steps)) ^ *)
@@ -275,7 +275,7 @@ struct
    fun error ->
     "** NatOdefa Type Errors **\n"
     ^ Printf.sprintf "- Input sequence  : %s\n"
-        (Dj_common.Std.string_of_inputs error.err_input_seq)
+        (Dj_common.Std.string_of_opt_int_list error.err_input_seq)
     ^ Printf.sprintf "- Found at clause : %s\n"
         (Jay_error_location.show error.err_location)
     ^ "--------------------\n"
@@ -342,9 +342,18 @@ module Bluejay_type_errors : Sato_result with type t = ton_error_record = struct
       in
       List.map ~f:mapper odefa_errors
     in
+    let actual_err_loc =
+      err_id
+      |> Jay_translate.Jay_to_jayil_maps.get_jay_equivalent_expr_exn
+           on_to_odefa_maps
+      |> Bluejay_ast_internal.from_jay_expr_desc
+      |> Bluejay_to_jay_maps.get_syn_nat_equivalent_expr ton_on_maps
+      |> Bluejay_to_jay_maps.unwrapped_bluejay_from_wrapped_bluejay ton_on_maps
+      |> Bluejay_ast_internal.from_internal_expr_desc
+    in
     {
       err_input_seq = inputs;
-      err_location = on_err_loc_syn;
+      err_location = actual_err_loc;
       err_errors = List.concat ton_err_list;
     }
 
@@ -352,7 +361,7 @@ module Bluejay_type_errors : Sato_result with type t = ton_error_record = struct
    fun error ->
     "** Bluejay Type Errors **\n"
     ^ Printf.sprintf "- Input sequence  : %s\n"
-        (Dj_common.Std.string_of_inputs error.err_input_seq)
+        (Dj_common.Std.string_of_opt_int_list error.err_input_seq)
     ^ Printf.sprintf "- Found at clause : %s\n"
         (Bluejay_error_location.show error.err_location)
     ^ "--------------------\n"

@@ -1,0 +1,13 @@
+# DBMC: Buggy behavior from sato
+
+let B x = 
+    if x > 0 then int else bool
+in
+letd f (a : int) : (B a -> int) =
+   letd g (b : B a) : int =
+       if a > 0 then 1 else 
+           if b then true else 2
+   in
+   g
+in
+f

@@ -262,7 +262,7 @@ let get_jay_equivalent_expr_exn mappings jayil_ident =
       raise
       @@ Invalid_argument
            (Printf.sprintf "variable %s is not associated with any jay expr."
-              (Ast.show_ident jayil_ident))
+              (Jay_ast_pp.show_ident jayil_ident))
   | Some res -> res
 
 let get_type_from_idents mappings jayil_idents =

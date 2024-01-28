@@ -2,11 +2,11 @@ open Core
 open Jayil.Ast
 open Jay_translate
 
-type mode = Sato_args.mode = Jayil | Jay | Bluejay [@@deriving show]
+type mode = Dj_common.File_utils.lang
 
 type t = {
   (* basic *)
-  sato_mode : mode;
+  sato_mode : Dj_common.File_utils.lang;
   program : expr;
   (* book-keeping *)
   abort_mapping : (Ident_new.t, abort_value) Hashtbl.t;
@@ -66,19 +66,21 @@ let get_target_vars (abort_mapping : (Ident_new.t, abort_value) Hashtbl.t) :
     ident list =
   abort_mapping |> Hashtbl.keys
 
-let initialize_state_with_expr (sato_mode : mode) (e : expr)
-    (odefa_inst_maps : Jay_instrumentation.Jayil_instrumentation_maps.t)
-    (on_to_odefa_maps_opt : Jay_to_jayil_maps.t option)
-    (ton_to_on_maps_opt : Bluejay.Bluejay_to_jay_maps.t option) : t =
-  let abort_lst = enum_all_aborts_in_expr e in
+let initialize_state_with_expr (sato_mode : mode)
+    (program_full : Dj_common.Convert.convert_t) : t =
+  let ({ jil_ast; jil_inst_map; jay_jil_map; bluejay_jay_map; _ }
+        : Dj_common.Convert.convert_t) =
+    program_full
+  in
+  let abort_lst = enum_all_aborts_in_expr jil_ast in
   let ab_mapping = Hashtbl.of_alist_exn (module Ident_new) abort_lst in
   let targets = get_target_vars ab_mapping in
   {
     sato_mode;
-    program = e;
+    program = jil_ast;
     abort_mapping = ab_mapping;
     target_vars = targets;
-    odefa_instrumentation_maps = odefa_inst_maps;
-    on_to_odefa_maps = on_to_odefa_maps_opt;
-    ton_on_maps = ton_to_on_maps_opt;
+    odefa_instrumentation_maps = jil_inst_map;
+    on_to_odefa_maps = jay_jil_map;
+    ton_on_maps = bluejay_jay_map;
   }

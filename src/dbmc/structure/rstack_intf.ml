@@ -119,6 +119,8 @@ module TT = struct
     | Cons { op = Push; prev; frame } ->
         Fmt.pf oc "+%s;%a" (str_of_frame frame) pp prev
 
+  let to_string rstk = Fmt.str "@[<hov>%a@]" pp rstk
+
   let paired_callsite rstk this_f =
     match rstk.node with
     | Cons { op = Push; frame; _ } ->
@@ -154,3 +156,12 @@ let construct_stks r_stk =
     | Cons { op = Push; prev; frame } -> loop prev co_stk (frame :: stk)
   in
   loop r_stk [] []
+
+let from_concrete (cstk : Concrete_stack.t) : t =
+  let rec loop cstk =
+    match cstk with
+    | [] -> empty
+    | frame :: tail -> cons Co_pop (loop tail) frame
+  in
+  let frame_list = Concrete_stack.to_list cstk in
+  loop frame_list

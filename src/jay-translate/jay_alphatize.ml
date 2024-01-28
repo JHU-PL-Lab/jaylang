@@ -271,7 +271,7 @@ let alphatize (e : Jay_ast.expr_desc) : Jay_ast.expr_desc m =
   let rec walk (expr_desc : expr_desc) (seen_declared : Ident_set.t) :
       (expr_desc * Ident_set.t) m =
     let zero () =
-      raise @@ Jhupllib_utils.Invariant_failure "list changed size"
+      raise @@ Jhupllib.Utils.Invariant_failure "list changed size"
     in
     let%bind expr', seen_declared' =
       let expr = expr_desc.body in

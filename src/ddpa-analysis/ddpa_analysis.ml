@@ -448,60 +448,60 @@ module Make (C : Context_stack) : Analysis_sig with module C = C = struct
     let new_edges_enum =
       Nondeterminism_monad.enum
         (let open Nondeterminism_monad in
-        let%bind acl =
-          pick_enum
-          @@ Annotated_clause_set.enum analysis.ddpa_active_non_immediate_nodes
-        in
-        let has_values x pred =
-          let values, analysis' =
-            restricted_values_of_variable x acl C.empty !analysis_ref
-          in
-          analysis_ref := analysis' ;
-          Enum.exists pred values
-        in
-        match acl with
-        | Unannotated_clause (Abs_clause (x1, Abs_appl_body (x2, x3)) as cl) ->
-            lazy_logger `trace (fun () ->
-                Printf.sprintf "Considering application closure for clause %s"
-                  (show_abstract_clause cl)) ;
-            (* Make sure that a value shows up to the argument. *)
-            [%guard has_values x3 (fun _ -> true)] ;
-            (* Get each of the function values. *)
-            let x2_values, analysis_2 =
-              restricted_values_of_variable x2 acl C.empty !analysis_ref
-            in
-            analysis_ref := analysis_2 ;
-            let%bind x2_value = pick_enum x2_values in
-            let%orzero (Abs_value_function fn) = x2_value in
-            (* Wire each one in. *)
-            return @@ wire_function cl fn x3 x1 analysis_2.ddpa_graph
-        | Unannotated_clause
-            (Abs_clause (x1, Abs_conditional_body (x2, e1, e2)) as cl) ->
-            let _ = x2 in
-            lazy_logger `trace (fun () ->
-                Printf.sprintf "Considering conditional closure for clause %s"
-                  (show_abstract_clause cl)) ;
-            (* We have two functions we may wish to wire: f1 (if x2 has values
-               which match the pattern) and f2 (if x2 has values which antimatch
-               the pattern). *)
-            [ (true, e1); (false, e2) ]
-            |> List.enum
-            |> Enum.filter_map (fun (then_branch, body_expr) ->
-                   let pred = function
-                     | Abs_value_bool n -> n = then_branch
-                     | _ -> false
-                   in
-                   if has_values x2 pred
-                   then Some (body_expr, then_branch)
-                   else None)
-            |> Enum.map (fun (Abs_expr body, then_branch) ->
-                   wire_conditional cl then_branch body x1
-                     !analysis_ref.ddpa_graph)
-            |> Nondeterminism_monad.pick_enum
-        | _ ->
-            raise
-            @@ Utils.Invariant_failure
-                 "Unhandled clause in perform_closure_steps")
+         let%bind acl =
+           pick_enum
+           @@ Annotated_clause_set.enum analysis.ddpa_active_non_immediate_nodes
+         in
+         let has_values x pred =
+           let values, analysis' =
+             restricted_values_of_variable x acl C.empty !analysis_ref
+           in
+           analysis_ref := analysis' ;
+           Enum.exists pred values
+         in
+         match acl with
+         | Unannotated_clause (Abs_clause (x1, Abs_appl_body (x2, x3)) as cl) ->
+             lazy_logger `trace (fun () ->
+                 Printf.sprintf "Considering application closure for clause %s"
+                   (show_abstract_clause cl)) ;
+             (* Make sure that a value shows up to the argument. *)
+             [%guard has_values x3 (fun _ -> true)] ;
+             (* Get each of the function values. *)
+             let x2_values, analysis_2 =
+               restricted_values_of_variable x2 acl C.empty !analysis_ref
+             in
+             analysis_ref := analysis_2 ;
+             let%bind x2_value = pick_enum x2_values in
+             let%orzero (Abs_value_function fn) = x2_value in
+             (* Wire each one in. *)
+             return @@ wire_function cl fn x3 x1 analysis_2.ddpa_graph
+         | Unannotated_clause
+             (Abs_clause (x1, Abs_conditional_body (x2, e1, e2)) as cl) ->
+             let _ = x2 in
+             lazy_logger `trace (fun () ->
+                 Printf.sprintf "Considering conditional closure for clause %s"
+                   (show_abstract_clause cl)) ;
+             (* We have two functions we may wish to wire: f1 (if x2 has values
+                which match the pattern) and f2 (if x2 has values which antimatch
+                the pattern). *)
+             [ (true, e1); (false, e2) ]
+             |> List.enum
+             |> Enum.filter_map (fun (then_branch, body_expr) ->
+                    let pred = function
+                      | Abs_value_bool n -> n = then_branch
+                      | _ -> false
+                    in
+                    if has_values x2 pred
+                    then Some (body_expr, then_branch)
+                    else None)
+             |> Enum.map (fun (Abs_expr body, then_branch) ->
+                    wire_conditional cl then_branch body x1
+                      !analysis_ref.ddpa_graph)
+             |> Nondeterminism_monad.pick_enum
+         | _ ->
+             raise
+             @@ Utils.Invariant_failure
+                  "Unhandled clause in perform_closure_steps")
       |> Enum.concat
     in
     (* Due to the stateful effects of computing the new edges, we're going to
@@ -547,3 +547,20 @@ module Make (C : Context_stack) : Analysis_sig with module C = C = struct
 
   let cfg_of_analysis analysis = analysis.ddpa_graph
 end
+
+let stack_of_k k : (module Ddpa_context_stack.Context_stack) =
+  match k with
+  | 0 -> (module Ddpa_unit_stack.Stack)
+  | 1 -> (module Ddpa_single_element_stack.Stack)
+  | 2 -> (module Ddpa_two_element_stack.Stack)
+  | k ->
+      (module Ddpa_n_element_stack.Make (struct
+        let size = k
+      end))
+
+let cfg_of e k =
+  let conf = stack_of_k k in
+  let module Stack = (val conf) in
+  let module Analysis = Make (Stack) in
+  e |> Analysis.create_initial_analysis |> Analysis.perform_full_closure
+  |> Analysis.cfg_of_analysis

@@ -1,27 +1,7 @@
 open Core
 open Sato
-
-(* treat the path as the group name and filename as the test name *)
-let group_all_files dir =
-  let rec loop dir =
-    let acc_f, acc_p =
-      Sys_unix.fold_dir ~init:([], [])
-        ~f:(fun (acc_f, acc_p) path ->
-          match String.get path 0 with
-          | '.' (* including "." ".." *) | '_' -> (acc_f, acc_p)
-          | _ -> (
-              let fullpath = Filename.concat dir path in
-              match Sys_unix.is_directory fullpath with
-              | `Yes -> (acc_f, loop fullpath @ acc_p)
-              | `No when Dj_common.File_utils.check_upto_bluejay fullpath ->
-                  (fullpath :: acc_f, acc_p)
-              | `No -> (acc_f, acc_p)
-              | `Unknown -> (acc_f, acc_p)))
-        dir
-    in
-    (dir, List.sort acc_f ~compare:String.compare) :: acc_p
-  in
-  loop dir
+open Dj_common
+module Test_expect = Test_expect_sato
 
 (* TODO: Refactor; there must be a better way of doing this. *)
 let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
@@ -38,12 +18,10 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
             let actual_aliases =
               List.map ~f:(fun (Ident i, _) -> i) err.err_match_aliases
             in
-            let actual_v =
-              Jayil.Ast_pp_brief.show_clause_body err.err_match_val
-            in
+            let actual_v = Jayil.Pp.Brief.show_clause_body err.err_match_val in
             let a_actual_type, a_expected_type =
-              ( Jayil.Ast_pp.show_type_sig @@ err.err_match_actual,
-                Jayil.Ast_pp.show_type_sig @@ err.err_match_expected )
+              ( Jayil.Pp.Brief.show_type_sig @@ err.err_match_actual,
+                Jayil.Pp.Brief.show_type_sig @@ err.err_match_expected )
             in
             Match_error
               {
@@ -55,9 +33,7 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
             let actual_aliases =
               List.map ~f:(fun (Ident i, _) -> i) err.err_value_aliases
             in
-            let actual_v =
-              Jayil.Ast_pp_brief.show_clause_body err.err_value_val
-            in
+            let actual_v = Jayil.Pp.Brief.show_clause_body err.err_value_val in
             Value_error { v_value = (actual_aliases, actual_v) }
         | _ -> failwith "Expect no other error types!"
       in
@@ -80,8 +56,8 @@ let errors_to_plain (actual : Sato_result.reported_error) : Test_expect.t =
             in
             let actual_v = Jay.Jay_ast_pp.show_expr err.err_match_val.body in
             let a_actual_type, a_expected_type =
-              ( Jay.Jay_ast_pp.show_on_type @@ err.err_match_actual,
-                Jay.Jay_ast_pp.show_on_type @@ err.err_match_expected )
+              ( Jay.Jay_ast_pp.show_jay_type @@ err.err_match_actual,
+                Jay.Jay_ast_pp.show_jay_type @@ err.err_match_expected )
             in
             Match_error
               {
@@ -167,50 +143,45 @@ let is_error_expected (actual : Sato_result.reported_error)
   let () = print_endline @@ Test_expect.show expected in
   Test_expect.equal expected actual_error
 
-let test_one_file testname () =
-  let program, odefa_inst_maps, on_to_odefa_maps_opt, ton_to_on_maps_opt =
-    File_utils.read_source_sato testname
-  in
-  let config : Sato_args.t =
+let test_one_file testname _switch () =
+  let config =
     {
+      Global_config.default_sato_test_config with
       filename = testname;
-      sato_mode = File_utils.mode_from_file testname;
-      ddpa_c_stk = Sato_args.default_ddpa_c_stk;
-      do_wrap = false;
-      do_instrument = true;
-      output_parsable = false;
-      timeout = Some (Time.Span.of_int_sec 2);
-      run_max_step = None;
+      mode = Sato (Dj_common.File_utils.lang_from_file testname);
     }
   in
-  let errors_opt, _ =
-    Main.main_from_program ~config odefa_inst_maps on_to_odefa_maps_opt
-      ton_to_on_maps_opt program
+  let program_full =
+    File_utils.read_source_full ~do_wrap:config.is_wrapped
+      ~do_instrument:config.is_instrumented config.filename
   in
-  let expectation = Test_expect.load_sexp_expectation_for testname in
-  match expectation with
-  | None ->
-      Alcotest.(check bool)
-        "Expect no type errors" true
-        (Option.is_none errors_opt)
-  | Some expected -> (
-      match errors_opt with
-      | None -> Alcotest.(check bool) "Expect type error!" true false
-      | Some error ->
-          Alcotest.(check bool)
-            "Type error matches expected" true
-            (is_error_expected error expected))
+  let%lwt errors_opt, _ = Sato.Main.main_lwt ~config program_full in
+  let expectation = File_utils.load_expect_s testname in
+  let test_result =
+    match expectation with
+    | None ->
+        Alcotest.(check bool)
+          "Expect no type errors" true
+          (Option.is_none errors_opt)
+    | Some expected -> (
+        match errors_opt with
+        | None -> Alcotest.(check bool) "Expect type error!" true false
+        | Some error ->
+            Alcotest.(check bool)
+              "Type error matches expected" true
+              (is_error_expected error expected))
+  in
+  Lwt.return @@ test_result
 
 let main test_path =
-  let grouped_testfiles = group_all_files test_path in
   let grouped_tests =
-    List.map grouped_testfiles ~f:(fun (group_name, test_names) ->
-        ( group_name,
-          List.map test_names ~f:(fun testname ->
-              Alcotest.test_case testname `Quick @@ test_one_file testname) ))
+    Directory_utils.map_in_groups
+      ~f:(fun _ test_name test_path ->
+        Alcotest_lwt.test_case test_name `Quick @@ test_one_file test_path)
+      test_path
   in
-  Alcotest.run "Sato" grouped_tests ;
+  Lwt_main.run @@ Alcotest_lwt.run "Sato" grouped_tests ;
   ()
 
-let () = main "test/sato"
-(* let () = main "test/sato/playing-ground" *)
+let () = main "test/sato/bjy"
+(* let () = main "test/sato/_playing-ground" *)

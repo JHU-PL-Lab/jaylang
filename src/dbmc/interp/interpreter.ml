@@ -21,15 +21,13 @@ let value_of_dvalue = function
   | AbortClosure _ -> Value_bool false
 
 let rec pp_dvalue oc = function
-  | Direct v -> Jayil.Ast_pp.pp_value oc v
+  | Direct v -> Jayil.Pp.value oc v
   | FunClosure _ -> Format.fprintf oc "(fc)"
   | RecordClosure (r, env) -> pp_record_c (r, env) oc
   | AbortClosure _ -> Format.fprintf oc "(abort)"
 
 and pp_record_c (Record_value r, env) oc =
-  let pp_entry oc (x, v) =
-    Fmt.pf oc "%a = %a" Jayil.Ast_pp.pp_ident x Jayil.Ast_pp.pp_var v
-  in
+  let pp_entry oc (x, v) = Fmt.pf oc "%a = %a" Jayil.Pp.id x Jayil.Pp.var_ v in
   (Fmt.braces (Fmt.iter_bindings ~sep:(Fmt.any ", ") Ident_map.iter pp_entry))
     oc r
 
@@ -63,7 +61,7 @@ type session = {
   is_debug : bool; (* TODO: get rid of this *)
   debug_mode : debug_mode;
   val_def_map : (Id_with_stack.t, clause_body * dvalue) Hashtbl.t;
-  term_detail_map : (Lookup_key.t, Term_detail.t) Hashtbl.t;
+  lookup_detail_map : (Lookup_key.t, Lookup_detail.t) Hashtbl.t;
   block_map : Cfg.block Jayil.Ast.Ident_map.t;
   rstk_picked : (Rstack.t, bool) Hashtbl.t;
   lookup_alert : Lookup_key.t Hash_set.t;
@@ -80,7 +78,7 @@ let make_default_session () =
     alias_graph = G.create ();
     val_def_map = Hashtbl.create (module Id_with_stack);
     block_map = Jayil.Ast.Ident_map.empty;
-    term_detail_map = Hashtbl.create (module Lookup_key);
+    lookup_detail_map = Hashtbl.create (module Lookup_key);
     rstk_picked = Hashtbl.create (module Rstack);
     lookup_alert = Hash_set.create (module Lookup_key);
   }
@@ -96,14 +94,12 @@ let create_session ?max_step ?(debug_mode = No_debug) (state : Global_state.t)
     debug_mode;
     step = ref 0;
     alias_graph = G.create ();
-    block_map = state.block_map;
+    block_map = state.info.block_map;
     val_def_map = Hashtbl.create (module Id_with_stack);
-    term_detail_map = state.term_detail_map;
-    rstk_picked = state.rstk_picked;
-    lookup_alert = state.lookup_alert;
+    lookup_detail_map = state.search.lookup_detail_map;
+    rstk_picked = state.stat.rstk_picked;
+    lookup_alert = state.stat.lookup_alert;
   }
-
-let cond_fid b = if b then Ident "$tt" else Ident "$ff"
 
 (* This function will add a directed edge x1 -> x2 in the alias graph. Thus
    x1 here needs to be the *later* defined variable. *)
@@ -119,24 +115,24 @@ let debug_update_read_node session x stk =
   match (session.is_debug, session.mode) with
   | true, With_full_target (_, target_stk) ->
       let r_stk = Rstack.relativize target_stk stk in
-      let block = Cfg.(find_block_by_id x session.block_map) in
+      let block = Cfg.(find_reachable_block x session.block_map) in
       let key = Lookup_key.of3 x r_stk block in
       (* Fmt.pr "@[Update Get to %a@]\n" Lookup_key.pp key; *)
-      Hashtbl.change session.term_detail_map key ~f:(function
+      Hashtbl.change session.lookup_detail_map key ~f:(function
         | Some td -> Some { td with get_count = td.get_count + 1 }
-        | None -> failwith "not term_detail")
+        | None -> failwith "not lookup_detail")
   | _, _ -> ()
 
 let debug_update_write_node session x stk =
   match (session.is_debug, session.mode) with
   | true, With_full_target (_, target_stk) ->
       let r_stk = Rstack.relativize target_stk stk in
-      let block = Cfg.(find_block_by_id x session.block_map) in
+      let block = Cfg.(find_reachable_block x session.block_map) in
       let key = Lookup_key.of3 x r_stk block in
       (* Fmt.pr "@[Update Set to %a@]\n" Lookup_key.pp key; *)
-      Hashtbl.change session.term_detail_map key ~f:(function
+      Hashtbl.change session.lookup_detail_map key ~f:(function
         | Some td -> Some { td with is_set = true }
-        | None -> failwith "not term_detail")
+        | None -> failwith "not lookup_detail")
   | _, _ -> ()
 
 let debug_stack session x stk (v, _) =
@@ -163,7 +159,7 @@ let alert_lookup session x stk =
   match session.mode with
   | With_full_target (_, target_stk) ->
       let r_stk = Rstack.relativize target_stk stk in
-      let block = Cfg.(find_block_by_id x session.block_map) in
+      let block = Cfg.(find_reachable_block x session.block_map) in
       let key = Lookup_key.of3 x r_stk block in
       Fmt.epr "@[Update Alert to %a\t%a@]\n" Lookup_key.pp key Concrete_stack.pp
         stk ;
@@ -239,8 +235,8 @@ and eval_clause ~session stk env clause : denv * dvalue =
     | Conditional_body (x2, e1, e2) ->
         let e, stk' =
           if fetch_val_to_bool ~session ~stk env x2
-          then (e1, Concrete_stack.push (x, cond_fid true) stk)
-          else (e2, Concrete_stack.push (x, cond_fid false) stk)
+          then (e1, Concrete_stack.push (x, Id.cond_id true) stk)
+          else (e2, Concrete_stack.push (x, Id.cond_id false) stk)
         in
         let ret_env, ret_val = eval_exp ~session stk' env e in
         let (Var (ret_id, _) as last_v) = Ast_tools.retv e in
@@ -379,6 +375,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
             then raise @@ Found_target { x; stk; v = ab_v }
             else raise @@ Found_abort ab_v)
     | Assert_body _ | Assume_body _ ->
+        (* FIXME:  *)
         let retv = Direct (Value_bool true) in
         let () = add_val_def_mapping (x, stk) (cbody, retv) session in
         retv

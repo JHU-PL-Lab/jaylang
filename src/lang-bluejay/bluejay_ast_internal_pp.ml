@@ -4,6 +4,7 @@ open Bluejay_ast_internal
 
 (* TODO: Keep replacing " " with "@ " in format strings *)
 
+let with_tag = ref false
 let pp_label formatter (Label l) = Format.pp_print_string formatter l
 let pp_ident formatter (Ident s) = Format.pp_print_string formatter s
 
@@ -162,24 +163,13 @@ and pp_binop : type a. Format.formatter -> a expr -> unit =
       else raise @@ Utils.Invariant_failure "Invalid precedence comparison!"
   | _ -> raise @@ Utils.Invariant_failure "Not a binary operator!"
 
-(* and pp_expr_desc :
-   type a. Format.formatter -> a expr_desc -> unit =
-   fun formatter e ->
-     if Option.is_some e.tag
-     then
-       Format.fprintf formatter "{tag: %a, body: %a}"
-       Format.pp_print_int (Option.get e.tag) pp_expr e.body
-     else
-       Format.fprintf formatter "{tag: None, body: %a}"
-       pp_expr e.body *)
-
-and pp_expr_desc_with_tag : type a. Format.formatter -> a expr_desc -> unit =
- fun formatter e ->
-  Format.fprintf formatter "{tag: %a, body: %a}" Format.pp_print_int e.tag
-    pp_expr e.body
-
 and pp_expr_desc : type a. Format.formatter -> a expr_desc -> unit =
- fun formatter e -> Format.fprintf formatter "%a" pp_expr e.body
+ fun formatter e ->
+  if !with_tag
+  then
+    Format.fprintf formatter "{tag: %a, body: %a}" Format.pp_print_int e.tag
+      pp_expr e.body
+  else Format.fprintf formatter "%a" pp_expr e.body
 
 and pp_expr : type a. Format.formatter -> a expr -> unit =
  fun formatter expr ->
@@ -304,3 +294,7 @@ let pp_bluejay_type formatter (bluejay_type : Bluejay_ast_internal.type_sig) =
   | UntouchedType t -> Format.pp_print_string formatter @@ "'" ^ t
 
 let show_bluejay_type = Pp_utils.pp_to_string pp_bluejay_type
+
+let pp_expr_desc_with_tag =
+  with_tag := true ;
+  pp_expr_desc

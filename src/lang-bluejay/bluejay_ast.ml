@@ -1,4 +1,5 @@
 open Batteries
+open Dj_std.Translation_counter
 
 type label = Label of string [@@deriving eq, ord, show, to_yojson]
 
@@ -105,15 +106,7 @@ and expr =
   | TypeVariant of variant_label * expr_desc
 [@@deriving eq, ord, show, to_yojson]
 
-let counter = ref 0
-
-let fresh_tag () =
-  let c = !counter in
-  counter := c + 1 ;
-  c
-
-let new_expr_desc : expr -> expr_desc =
- fun e -> { tag = fresh_tag (); body = e }
+let new_expr_desc : expr -> expr_desc = fun e -> { tag = fresh_n (); body = e }
 
 (* Takes [expr] as an argument.  Returns the relative precedence of the
     expression.  Higher ints correspond to higher precedences. *)

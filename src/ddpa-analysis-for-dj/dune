@@ -1,0 +1,11 @@
+(library
+ (name ddpa_for_dj)
+ (public_name jay.ddpa_for_dj)
+ (libraries core logs fmt ddpa jayil dj_common)
+ (preprocess
+  (pps ppx_jane ppx_deriving.show lwt_ppx)))
+
+(env
+ (dev
+  (flags
+   (:standard -w -33 -w -26 -w -27))))

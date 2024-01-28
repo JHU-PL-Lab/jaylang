@@ -6,59 +6,26 @@ open Dj_common
 *)
 
 type t =
-  (* Mismatch *)
-  | Withered of { phis : Z3.Expr.expr list }
-  (* Value main *)
-  | Leaf of { sub : Lookup_key.t; phis : Z3.Expr.expr list }
+  | Leaf of Lookup_status.t
   (* Alias | Not_ *)
-  | Direct of {
-      sub : Lookup_key.t;
-      pub : Lookup_key.t;
-      phis : Z3.Expr.expr list;
-    }
+  | Direct of { pub : Lookup_key.t }
   (* Binop *)
-  | Both of {
-      sub : Lookup_key.t;
-      pub1 : Lookup_key.t;
-      pub2 : Lookup_key.t;
-      phis : Z3.Expr.expr list;
-    }
+  | Both of { pub1 : Lookup_key.t; pub2 : Lookup_key.t }
   (* Non-main *)
-  | Map of {
-      sub : Lookup_key.t;
-      pub : Lookup_key.t;
-      map : Lookup_result.t -> Lookup_result.t;
-      phis : Z3.Expr.expr list;
-    }
+  | Map of { pub : Lookup_key.t; map : Lookup_key.t -> Lookup_key.t }
   (* Pattern *)
   | MapSeq of {
-      sub : Lookup_key.t;
       pub : Lookup_key.t;
       map : int -> Lookup_result.t -> Lookup_result.t * Z3.Expr.expr list;
-      phis : Z3.Expr.expr list;
     }
-  (* Fun Exit | Cond Top | Cond Btm *)
+  (* Fun Enter Local | Fun Exit | Cond Top | Cond Btm | Record | Fun Enter Nonlocal *)
   | Chain of {
-      (* Chain is almost bind *)
-      sub : Lookup_key.t;
       pub : Lookup_key.t;
-      next : Lookup_key.t -> Lookup_result.t -> t option;
-      phis : Z3.Expr.expr list;
+      next : int -> Lookup_key.t -> Z3.Expr.expr option * t option;
+      bounded : bool;
     }
-  (* Fun Enter Local | Fun Enter Nonlocal *)
-  | Or_list of {
-      sub : Lookup_key.t;
-      nexts : t list;
-      unbound : bool;
-      phis : Z3.Expr.expr list;
-    }
-  (* Record *)
-  | Sequence of {
-      sub : Lookup_key.t;
-      pub : Lookup_key.t;
-      next : int -> Lookup_result.t -> (Z3.Expr.expr * t) option;
-      phis : Z3.Expr.expr list;
-    }
+  (* Fun Enter Local | Fun Enter Nonlocal | Cond Btm *)
+  | Or_list of { elements : t list; bounded : bool }
 (* We don't need a vanilla bind here because we don't need a general callback.
    If we directly notify the expected handler on pub's result to the sub, don't use this.
    If we use the pub's result to generate your edge, the function in record only needs
@@ -83,3 +50,15 @@ type t =
    The reason for lazy init is the callback may never be called at all. The fix of
    infinitive list cannot be applied before calling the SMT solver.
 *)
+
+let chain_then_direct pre source =
+  let next _ _r =
+    (* cond_top *)
+    (* true *)
+    (* if Riddler.eager_check S.state S.config key_x2
+         [ Riddler.(eqz key_x2 (bool_ choice)) ] *)
+    (None, Some (Direct { pub = source }))
+  in
+  Chain { pub = pre; next; bounded = true }
+
+let listen_but_use source value = Map { pub = source; map = Fn.const value }

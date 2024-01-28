@@ -1,0 +1,8 @@
+# EXPECT-WELL-FORMED
+# EXPECT-TYPE-ERROR-COUNT 1
+# EXPECT-TYPE-ERROR ~result [] "r.c" "r" "{ a = 2, b = 3 }" "{c}" "{a, b}"
+
+let r = { a = 2, b = 3 } in
+let x1 = r.a in
+let x3 = r.b in
+x1 + x3

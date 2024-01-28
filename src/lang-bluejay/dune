@@ -23,6 +23,7 @@
     jayil
     jay_instrumentation
     jay
+    dj_std
   )
   (preprocess
     (pps

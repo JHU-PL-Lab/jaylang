@@ -3,13 +3,15 @@
 ;  (action
 ;   (run %{exe:test_dbmc.exe} --tp "../../../../test/dbmc")))
 
-(rule
- (alias test_rstack)
- (action
-  (run ./test_rstack.exe)))
-
 (tests
- (names test_dbmc test_rstack)
- (libraries core core_unix.sys_unix cmdliner alcotest alcotest-lwt dbmc)
+ (names test_dbmc test_concolic test_dummy)
+ (libraries
+  core
+  core_unix.sys_unix
+  cmdliner
+  alcotest
+  alcotest-lwt
+  dbmc
+  dj_common)
  (preprocess
   (pps ppx_jane lwt_ppx ppx_deriving.std ppx_expect)))

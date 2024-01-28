@@ -186,14 +186,14 @@ let abstract_pattern_match (v : abstract_value) (p : pattern) :
       Enum.singleton @@ Abs_value_bool true
   | Abs_value_bool _, Bool_pattern -> Enum.singleton @@ Abs_value_bool true
   | Abs_value_record _, Rec_pattern _ ->
-      List.enum [ Abs_value_bool true; Abs_value_bool false ]
+    List.enum [ Abs_value_bool true; Abs_value_bool false ]
   | Abs_value_record _, Strict_rec_pattern _ ->
-      List.enum [ Abs_value_bool true; Abs_value_bool false ]
+    List.enum [ Abs_value_bool true; Abs_value_bool false ]
   | ( ( Abs_value_int | Abs_value_bool _ | Abs_value_record _
       | Abs_value_function _ | Abs_value_untouched _ ),
       ( Fun_pattern | Int_pattern | Bool_pattern | Rec_pattern _
       | Strict_rec_pattern _ ) ) ->
-      Enum.singleton @@ Abs_value_bool false
+        Enum.singleton @@ Abs_value_bool false
 
 let abstract_not (v : abstract_value) : abstract_value Enum.t option =
   let singleton x = Some (Enum.singleton x) in

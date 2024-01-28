@@ -15,12 +15,13 @@
   ocamlgraph
   hashcons
   jayil
-  ddpa
   jay_translate
   jay_instrumentation
   jayil_parser
   bluejay
   dj_common
+  ddpa_for_dj
+  jil_analysis
   unroll
   sudu)
  (instrumentation

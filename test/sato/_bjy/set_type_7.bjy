@@ -1,0 +1,2 @@
+let tree_type = Mu tt. tt in
+let (x : tree_type) = 1 in x

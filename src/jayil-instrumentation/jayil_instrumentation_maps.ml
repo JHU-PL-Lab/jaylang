@@ -4,7 +4,7 @@ open Jayil;;
 
 module Odefa_clause = struct
   type t = Ast.clause;;
-  let pp = Ast_pp.pp_clause;;
+  let pp = Pp.clause;;
 end;;
 
 type t = {
@@ -68,7 +68,7 @@ let get_pre_inst_equivalent_clause mappings odefa_ident =
     raise @@ Invalid_argument
       (Printf.sprintf
         "%s needs to have an associated clause."
-        (Ast.show_ident odefa_ident))
+        (Pp.show_id odefa_ident))
 ;;
 
 let is_jay mappings = mappings.is_jay;;

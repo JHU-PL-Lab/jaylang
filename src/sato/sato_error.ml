@@ -244,8 +244,8 @@ module Jayil_value : Error_value with type t = Ast.clause_body = struct
 
   (* We use the brief version in order to avoid printing out function
      bodies (which may have clauses added during instrumentation. *)
-  let pp = Ast_pp_brief.pp_clause_body
-  let show = Ast_pp_brief.show_clause_body
+  let pp = Jayil.Pp.Brief.clause_body
+  let show = Jayil.Pp.Brief.show_clause_body
   let to_yojson value = `String (replace_linebreaks @@ show value)
 end
 
@@ -260,8 +260,8 @@ struct
 
   let pp formatter (binop : t) =
     let left, op, right = binop in
-    Format.fprintf formatter "%a %a %a" Ast_pp.pp_clause_body left
-      Ast_pp.pp_binary_operator op Ast_pp.pp_clause_body right
+    Format.fprintf formatter "%a %a %a" Jayil.Pp.clause_body left Jayil.Pp.binop
+      op Jayil.Pp.clause_body right
 
   let show binop = Pp_utils.pp_to_string pp binop
   let to_yojson binop = `String (replace_linebreaks @@ show binop)
@@ -272,9 +272,9 @@ module Jayil_type : Error_type with type t = Ast.type_sig = struct
 
   let equal = Ast.equal_type_sig
   let subtype = Ast.Type_signature.subtype
-  let pp = Ast_pp.pp_type_sig
-  let show = Ast_pp.show_type_sig
-  let to_yojson typ = `String (Ast_pp.show_type_sig typ)
+  let pp = Jayil.Pp.type_sig
+  let show = Jayil.Pp.show_type_sig
+  let to_yojson typ = `String (Jayil.Pp.show_type_sig typ)
 end
 
 module Jayil_error = Make (Jayil_ident) (Jayil_value) (Jayil_binop) (Jayil_type)
@@ -313,8 +313,8 @@ module Jay_type : Error_type with type t = Jay_ast.type_sig = struct
 
   let equal = Jay_ast.equal_type_sig
   let subtype _ _ = false
-  let pp = Jay_ast_pp.pp_on_type
-  let show = Jay_ast_pp.show_on_type
+  let pp = Jay_ast_pp.pp_jay_type
+  let show = Jay_ast_pp.show_jay_type
   let to_yojson typ = `String (replace_linebreaks @@ show typ)
 end
 
@@ -782,11 +782,11 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let jayil_aliases_with_stack = err.err_value_aliases in
       (* This is the stack of the "false" value that indicates where the error
          is located. *)
-      let () =
-        Fmt.pr "\nThese are the aliases: %a \n"
-          (Fmt.list Id_with_stack.pp)
-          jayil_aliases_with_stack
-      in
+      (* let () =
+           Fmt.pr "\nThese are the aliases: %a \n"
+             (Fmt.list Id_with_stack.pp)
+             jayil_aliases_with_stack
+         in *)
       let relevant_stk =
         match List.last jayil_aliases_with_stack with
         | Some (_, final_stk) -> final_stk
@@ -805,10 +805,6 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         |> List.map
              ~f:
                (Bluejay_to_jay_maps.sem_bluejay_from_core_bluejay
-                  bluejay_jay_maps)
-        |> List.map
-             ~f:
-               (Bluejay_to_jay_maps.unwrapped_bluejay_from_wrapped_bluejay
                   bluejay_jay_maps)
       in
       (* Getting the expression that triggered the error *)
@@ -831,10 +827,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
              ~f:
                (Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps)
       in
-      let () =
-        Fmt.pr "\n\n\nThese are the jayil_vars: %a\n\n\n"
-          (Fmt.list Ast_pp.pp_var) jayil_vars
-      in
+      (* let () =
+           Fmt.pr "\n\n\nThese are the jayil_vars: %a\n\n\n"
+             (Fmt.list Jayil.Pp.var_) jayil_vars
+         in *)
       (* Getting all the aliases (for runtime value lookup) *)
       let alias_graph = interp_session.alias_graph in
       let jayil_vars_with_stack : Id_with_stack.t list =
@@ -851,11 +847,11 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
         |> List.map ~f:(Sato_tools.find_alias alias_graph)
         |> List.concat
       in
-      let () =
-        Fmt.pr "\n\n\nThese are the jayil_vars_with_stack: %a\n\n\n"
-          (Fmt.list Id_with_stack.pp)
-          jayil_vars_with_stack
-      in
+      (* let () =
+           Fmt.pr "\n\n\nThese are the jayil_vars_with_stack: %a\n\n\n"
+             (Fmt.list Id_with_stack.pp)
+             jayil_vars_with_stack
+         in *)
       (* Helper function for looking up the value definition clause *)
       let rec find_val
           (vdef_mapping :
@@ -885,14 +881,8 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let check_aliases_for_type (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
           Bluejay_ast_internal.syn_bluejay_edesc option =
         let jayil_vars =
-          ed |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps |> fun ed' ->
-          (* let () =
-               print_endline @@ Bluejay_ast_pp.show_expr_desc
-               @@ Bluejay_ast_internal.from_internal_expr_desc ed
-             in *)
-          Option.value ~default:ed'
-            (Bluejay_to_jay_maps.wrapped_bluejay_from_unwrapped_bluejay
-               bluejay_jay_maps ed')
+          ed
+          |> Bluejay_to_jay_maps.sem_from_syn bluejay_jay_maps
           |> Bluejay_to_jay_maps.get_core_expr_from_sem_expr bluejay_jay_maps
           |> Option.value_exn |> Bluejay_ast_internal.to_jay_expr_desc
           (* |> fun x ->
@@ -925,6 +915,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           |> List.map
                ~f:
                  (Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay
+                    bluejay_jay_maps)
+          |> List.map
+               ~f:
+                 (Bluejay_to_jay_maps.unwrapped_bluejay_from_wrapped_bluejay
                     bluejay_jay_maps)
           |> List.filter ~f:(fun ed ->
                  List.mem relevant_tags ed.tag ~equal:( = ))
@@ -1335,23 +1329,23 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
               in
               Bluejay_ast_internal.new_expr_desc @@ TypeUntouched symbol_purged
             else
-              let () =
-                Fmt.pr "\n \n This is the original jayil error var: %a \n \n"
-                  Jayil.Pp.id err_val_var
-              in
+              (* let () =
+                   Fmt.pr "\n \n This is the original jayil error var: %a \n \n"
+                     Jayil.Pp.id err_val_var
+                 in *)
               let jay_expr = jayil_to_jay_expr err_val_var in
               match jay_expr with
               | None -> failwith "jayil_to_bluejay_error: TBI!"
               | Some ed ->
-                  let () =
-                    Fmt.pr "\n \n This is the original actual type: %a \n \n"
-                      Jay_ast_pp.pp_expr_desc_without_tag ed
-                  in
+                  (* let () =
+                       Fmt.pr "\n \n This is the original actual type: %a \n \n"
+                         Jay_ast_pp.pp_expr_desc_without_tag ed
+                     in *)
                   let sem_expr = Bluejay_ast_internal.from_jay_expr_desc ed in
-                  let () =
-                    Fmt.pr "\n \n This is the semantic type: %a \n \n"
-                      Bluejay_ast_internal_pp.pp_expr_desc sem_expr
-                  in
+                  (* let () =
+                       Fmt.pr "\n \n This is the semantic type: %a \n \n"
+                         Bluejay_ast_internal_pp.pp_expr_desc sem_expr
+                     in *)
                   let syn_expr =
                     Bluejay_to_jay_maps.get_syn_nat_equivalent_expr
                       bluejay_jay_maps sem_expr

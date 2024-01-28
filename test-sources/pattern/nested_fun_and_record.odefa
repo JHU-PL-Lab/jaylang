@@ -1,0 +1,25 @@
+q = input;
+one = 1;
+two = 2;
+r1 = {v = one};
+r2 = {v = two};
+f = fun rx -> (
+  g = fun ry -> (
+    x = rx.v;
+    y = ry.v;
+    z = x + y
+  );
+
+  cg = g ~ fun;
+  a2 = cg ? (ta2 = g) : (fa2 = abort);
+
+  zero = 0;
+  r3 = {v = zero};
+  cr3 = r3 ~ {v};
+  r4 = cr3 ? (tr3 = r3) : (fr3 = abort);
+
+  gr = a2 r4;
+);
+cf = f ~ fun;
+a1 = cf ? (ta1 = f r1) : (fa1 = abort);
+target = a1

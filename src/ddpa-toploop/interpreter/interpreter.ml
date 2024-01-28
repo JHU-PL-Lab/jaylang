@@ -2,7 +2,7 @@ open Batteries
 open Jhupllib
 open Jayil
 open Ast
-open Ast_pp
+open Pp
 open Pp_utils
 
 let lazy_logger = Logger_utils.make_lazy_logger "Interpreter"
@@ -11,7 +11,7 @@ module Environment = Var_hashtbl
 
 type evaluation_environment = value Environment.t
 
-let pp_evaluation_environment = pp_map pp_var pp_value Environment.enum
+let pp_evaluation_environment = pp_map var_ value Environment.enum
 let show_evaluation_environment = pp_to_string pp_evaluation_environment
 
 exception Evaluation_failure of string
@@ -124,9 +124,8 @@ let rec evaluate ?(input_source = stdin_input_source)
   lazy_logger `debug (fun () ->
       Format.asprintf
         "\nEnvironment: @[%a@]\nLast var:    @[%a@]\nClauses:     @[%a@]\n"
-        pp_evaluation_environment env
-        (Pp_utils.pp_option pp_var)
-        lastvar pp_expr (Expr cls)) ;
+        pp_evaluation_environment env (Pp_utils.pp_option var_) lastvar expr
+        (Expr cls)) ;
   flush stdout ;
   match cls with
   | [] -> (
@@ -187,12 +186,12 @@ let rec evaluate ?(input_source = stdin_input_source)
                 raise
                 @@ Evaluation_failure
                      (Printf.sprintf "cannot project %s from %s: not present"
-                        (show_ident l) (show_value r)))
+                        (Pp.show_id l) (Pp.show_value r)))
           | v ->
               raise
               @@ Evaluation_failure
                    (Printf.sprintf "cannot project %s from non-record value %s"
-                      (show_ident l) (show_value v)))
+                      (Pp.show_id l) (Pp.show_value v)))
       | Binary_operation_body (x1, op, x2) ->
           let v1 = lookup env x1 in
           let v2 = lookup env x2 in

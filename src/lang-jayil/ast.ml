@@ -20,12 +20,12 @@ end
 (* Refactoring: Use this definition of Ident *)
 module Ident_new = struct
   open Base
+
   type t = ident = Ident of string
   [@@deriving sexp, compare, equal, hash, show, to_yojson]
 
   let hash = Hashtbl.hash
 end
-;;
 
 module Ident_hashtbl = Hashtbl.Make (Ident)
 
@@ -138,7 +138,7 @@ and clause_body =
   | Binary_operation_body of var * binary_operator * var
   | Abort_body
   | Assume_body of var
-  | Assert_body of var
+  | Assert_body of var (* TODO: delete this *)
 [@@deriving eq, ord, to_yojson]
 
 (** A type to represent clauses. *)
@@ -182,7 +182,7 @@ type type_sig =
   | Fun_type
   | Rec_type of Ident_set.t
   (* | Untouched_type of string
-  | Any_untouched_type *)
+     | Any_untouched_type *)
   | Bottom_type
 [@@deriving eq, ord, to_yojson]
 
@@ -207,17 +207,44 @@ module Type_signature = struct
 end
 
 type abort_value = {
-  (** The identifier of the conditional clause the abort clause
+  (* The identifier of the conditional clause the abort clause
       is nested in. *)
   abort_conditional_ident : ident;
-
-  (** The predicate of the conditional clauses the abort clause
+  (* The predicate of the conditional clauses the abort clause
       is nested in. *)
   abort_predicate_ident : ident;
-
-  (** The branch of the conditional clause that the abort clause
+  (* The branch of the conditional clause that the abort clause
       is nested in. *)
   abort_conditional_branch : bool;
 }
-[@@ deriving eq, ord, show]
-;;
+[@@deriving eq, ord, show]
+
+let is_record_pattern = function
+  | Rec_pattern _ | Strict_rec_pattern _ -> true
+  | _ -> false
+
+let pattern_match pat v =
+  match (pat, v) with
+  | Any_pattern, _ -> Some true
+  | Fun_pattern, Value_body (Value_function _) -> Some true
+  | Fun_pattern, Value_body _ -> Some false
+  | Fun_pattern, Input_body -> Some false
+  | Int_pattern, Value_body (Value_int _) -> Some true
+  | Int_pattern, Value_body _ -> Some false
+  | Int_pattern, Input_body -> Some true
+  | Bool_pattern, Value_body (Value_bool _) -> Some true
+  | Bool_pattern, Value_body _ -> Some false
+  | Bool_pattern, Input_body -> Some false
+  | Rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
+      Some (Ident_set.for_all (fun id -> Ident_map.mem id rv) ids)
+  | Rec_pattern _, Value_body _ -> Some false
+  | Rec_pattern _, Input_body -> Some false
+  | Strict_rec_pattern ids, Value_body (Value_record (Record_value rv)) ->
+      Some (Ident_set.equal ids (Ident_set.of_enum @@ Ident_map.keys rv))
+  | Strict_rec_pattern _, Value_body _ -> Some false
+  | Strict_rec_pattern _, Input_body -> Some false
+  (* TODO: matching binop *)
+  | _ -> None
+
+let bat_list_of_enum = List.of_enum
+let id_of_var (Var (x, _)) = x

@@ -14,7 +14,7 @@ let run_program source =
   let session =
     {
       (Interpreter.make_default_session ()) with
-      input_feeder = Input_feeder.from_list !inputs;
+      input_feeder = Dj_common.Input_feeder.from_list !inputs;
     }
   in
   try Interpreter.eval session program with

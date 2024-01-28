@@ -1,0 +1,9 @@
+# correct # p : 'a -> bool
+let rec all (p : 'a -> 'a) (xs : List 'a) : bool  =
+  match xs with
+  | [] -> true
+  | x::xs -> (p x) and (all p xs)
+  end
+in
+
+all 
