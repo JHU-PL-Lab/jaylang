@@ -364,7 +364,7 @@ module U_to_test_state (U : U_ints) = struct
     U.push u 20 (Some 200) ;
     U.push_state u 20 N.Fail ;
     U.push u 20 (Some 300) ;
-    U.bind_like u 1 5 (fun x -> Some (10 * x)) ;
+    U.set u (U.bind_like u 1 (fun x -> Some (10 * x))) 5 ;
     Alcotest.(check @@ list int)
       "s5" [ 10; 20; 100; 200 ]
       (U.get_available_payloads u 5)
@@ -374,7 +374,7 @@ module U_to_test_state (U : U_ints) = struct
     U.push u 1 (Some 1) ;
     U.push u 1 (Some 2) ;
     U.push u 2 (Some 42) ;
-    U.on u 1 N.Done 2 5 ;
+    U.set u (U.on u 1 N.Done 2) 5 ;
     Alcotest.(check @@ list int) "s5" [] (U.get_available_payloads u 5) ;
     U.push_state u 1 N.Done ;
     Alcotest.(check @@ list int) "s5" [ 42 ] (U.get_available_payloads u 5)
@@ -383,10 +383,10 @@ module U_to_test_state (U : U_ints) = struct
     let u = U.create () in
     U.push u 1 (Some 1) ;
     U.push u 2 (Some 2) ;
-    U.on u 1 N.Done 2 10 ;
+    U.set u (U.on u 1 N.Done 2) 10 ;
     U.push u 3 (Some 3) ;
     U.push u 4 (Some 4) ;
-    U.on u 3 N.Done 4 11 ;
+    U.set u (U.on u 3 N.Done 4) 11 ;
     U.set u (U.map2 u 10 11 (fun (x, y) -> x + y)) 15 ;
 
     Alcotest.(check @@ list int) "s10" [] (U.get_available_payloads u 10) ;

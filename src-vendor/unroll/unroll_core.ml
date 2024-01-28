@@ -234,6 +234,7 @@ struct
     let f_here = L.push_msg_by_key u dst |> then_lwt in
     Lwt_stream.iter_s f_here stream_src >|= (fun () -> L.close u dst) |> bg
 
+  let one_shot _u vs = List.map vs ~f:M.inj |> Lwt_stream.of_list
   let map u src f = L.stream_of_key u src |> Lwt_stream.map (M.map_payload f)
 
   let set u stream_src key_dst =
@@ -273,7 +274,57 @@ struct
     Lwt_stream.choose streami_srcs
     |> Lwt_stream.filter_map (filteri_payload_opt f)
 
-  let one_shot _u vs = List.map vs ~f:M.inj |> Lwt_stream.of_list
+  let bind_like u src (* dst *) f_to_key =
+    (* let f_to_stream m =
+         match M.prj_opt m with
+         | Some p -> Option.map (f_to_key p) ~f:(fun k -> stream_of_key u k)
+         | None -> None
+       in *)
+    let f_to_stream m =
+      Option.bind (M.prj_opt m) ~f:(fun p ->
+          Option.map (f_to_key p) ~f:(L.stream_of_key u))
+    in
+    (* let pipe_dst = L.find_detail u dst in *)
+    (* let stream_msg = *)
+    bind0
+      (* ~sp:(pipe_dst.stream, pipe_dst.push) *)
+      (L.stream_of_key u src)
+      f_to_stream
+
+  (* iter on pipe with payload *)
+  let iter0_msg _u pipe_src f =
+    pipe_src |> L.stream_of_detail |> Lwt_stream.iter_s f
+
+  (* iter on key with message *)
+  let iter_msg u src f =
+    let pipe_src = L.find_detail u src in
+    iter0_msg u pipe_src f
+
+  (* let iter0 u pipe_src f = iter0_msg u pipe_src (M.fmap f () |> then_lwt) *)
+  let iter u src f = iter_msg u src (M.fmap f () |> then_lwt) |> bg
+
+  let on u src_status status_on src_v =
+    let stream, push = Lwt_stream.create () in
+    let forward_src_v () =
+      iter u src_v (fun p -> push (Some (M.inj p)))
+      (* Lwt_stream.iter_s
+         (M.fmap (fun p -> push (Some (M.inj p))) () |> then_lwt)
+         (L.stream_of_key u src_v) *)
+    in
+    let f_iter =
+      M.fmap_status
+        (fun s -> if N.equal s status_on then forward_src_v () else ())
+        ()
+      |> then_lwt
+      (* match msg with
+         | M.Payload _p -> Lwt.return_unit
+         | M.Set_state s when N.equal s status_on ->
+             f_here () ;%lwt
+             Lwt.return_unit
+         | M.Set_state _ -> Lwt.return_unit *)
+    in
+    Lwt_stream.iter_s f_iter (L.stream_of_key u src_status) |> bg ;
+    stream
 end
 
 module Make (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
@@ -289,14 +340,14 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
      let pipe_dst = add_detail u dst in
      List.iter vs ~f:(push_payload u pipe_dst) ;
      pipe_dst.push None *)
+  (*
+     let set u stream_src dst =
+       let pipe_dst = add_detail u dst in
+       Lwt_stream.iter_s (L.get_push pipe_dst |> then_lwt) stream_src
+       >|= (fun () -> close u dst)
+       |> bg *)
 
-  let set u stream_src dst =
-    let pipe_dst = add_detail u dst in
-    Lwt_stream.iter_s (L.get_push pipe_dst |> then_lwt) stream_src
-    >|= (fun () -> close u dst)
-    |> bg
-
-  let iter0 _u stream_src f = Lwt_stream.iter_s f stream_src
+  (* let iter0 _u stream_src f = Lwt_stream.iter_s f stream_src *)
 
   (* let iter_list_push u stream_srcs dst f =
      let pipe_dst = find_detail u dst in
@@ -309,30 +360,30 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
      let pipe_dst = find_detail u dst in
      iter_list_push u stream_srcs dst (get_push pipe_dst) |> bg *)
 
-  let iter u src f =
-    iter0 u (stream_of_key u src) (M.fmap f () |> then_lwt) |> bg
+  (* let iter u src f =
+     iter0 u (stream_of_key u src) (M.fmap f () |> then_lwt) |> bg *)
 
-  let bind_like u src dst f_to_key =
-    let pipe_dst = add_detail u dst in
-    let f_to_stream_push p =
-      match f_to_key p with
-      | Some key_src2 ->
-          let pipe_src2 = find_detail u key_src2 in
-          Lwt_stream.iter_s
-            (M.fmap (fun p -> push u dst (Some p)) () |> then_lwt)
-            (stream_of_detail pipe_src2)
-      | None -> Lwt.return_unit
-    in
+  (* let bind_like u src dst f_to_key =
+     let pipe_dst = add_detail u dst in
+     let f_to_stream_push p =
+       match f_to_key p with
+       | Some key_src2 ->
+           let pipe_src2 = find_detail u key_src2 in
+           Lwt_stream.iter_s
+             (M.fmap (fun p -> push u dst (Some p)) () |> then_lwt)
+             (stream_of_detail pipe_src2)
+       | None -> Lwt.return_unit
+     in
 
-    let on_done =
-      Lwt_stream.iter_p
-        (M.fmap f_to_stream_push Lwt.return_unit)
-        (stream_of_key u src)
-    in
-    on_done |> bg
+     let on_done =
+       Lwt_stream.iter_p
+         (M.fmap f_to_stream_push Lwt.return_unit)
+         (stream_of_key u src)
+     in
+     on_done |> bg *)
 
   let bind_like_list _u _src _dst _f = failwith "bind_like_list"
-  let on _u _src _status_on _f _dst = failwith "on"
+  (* let on _u _src _status_on _f _dst = failwith "on" *)
   (* let joini _u _srcs _dst _f = failwith "joini" *)
 end
 
@@ -369,79 +420,26 @@ module Make_stateful (Key : Base.Hashtbl.Key.S) (P : P_sig) = struct
 
   (* pipe_dst.push None *)
 
-  (* iter on pipe with payload *)
-  let iter0_msg _u pipe_src f =
-    pipe_src |> stream_of_detail |> Lwt_stream.iter_s f
-
-  (* iter on key with message *)
-  let iter_msg u src f =
-    let pipe_src = find_detail u src in
-    iter0_msg u pipe_src f
-
-  (* let iter0 u pipe_src f = iter0_msg u pipe_src (M.fmap f () |> then_lwt) *)
-  let iter u src f = iter_msg u src (M.fmap f () |> then_lwt) |> bg
-
-  let bind_like u src dst f_to_key =
-    (* let f_to_stream m =
-         match M.prj_opt m with
-         | Some p -> Option.map (f_to_key p) ~f:(fun k -> stream_of_key u k)
-         | None -> None
-       in *)
-    let f_to_stream m =
-      Option.bind (M.prj_opt m) ~f:(fun p ->
-          Option.map (f_to_key p) ~f:(stream_of_key u))
-    in
-    let pipe_dst = find_detail u dst in
-    let stream_msg =
-      bind0
-        ~sp:(pipe_dst.stream, pipe_dst.push)
-        (stream_of_key u src) f_to_stream
-    in
-    set_creation pipe_dst
-
   let bind_like_list_r u src dst f =
-    let pipe_src = find_detail u src in
-    let pipe_src = stream_of_detail pipe_src in
+    let pipe_src = stream_of_key u src in
     let pipe_dst = find_detail u dst in
     let f_here p =
       let key_srcs = f p in
       let key_src2 = List.hd_exn key_srcs in
-      let pipe_src2 = find_detail u key_src2 in
-      Lwt_stream.iter_s
-        (M.fmap (fun p -> push u dst (Some p)) () |> then_lwt)
-        (stream_of_detail pipe_src2)
+      (*let pipe_src2 = find_detail u key_src2 in
+        Lwt_stream.iter_s
+         (M.fmap (fun p -> push u dst (Some p)) () |> then_lwt)
+         (stream_of_detail pipe_src2) *)
+      iter u key_src2 (fun p -> push u dst (Some p))
     in
-
-    let f_iter msg = (M.fmap f_here Lwt.return_unit) msg in
-    Lwt_stream.iter_p f_iter pipe_src |> bg ;
+    Lwt_stream.iter_p (M.fmap f_here () |> then_lwt) pipe_src |> bg ;
     pipe_dst
 
   let bind_like_list u srcs dst f =
     let pipe_dst = bind_like_list_r u srcs dst f in
     set_creation pipe_dst
 
-  let on_r u src_status status_on src_v dst =
-    let pipe_src = find_detail u src_status in
-    let pipe_src = stream_of_detail pipe_src in
-    let pipe_dst = find_detail u dst in
-    let f_here () =
-      let pipe_src2 = find_detail u src_v in
-      Lwt_stream.iter_s
-        (M.fmap (fun p -> push u dst (Some p)) () |> then_lwt)
-        (stream_of_detail pipe_src2)
-    in
-    let f_iter msg =
-      match msg with
-      | M.Payload _p -> Lwt.return_unit
-      | M.Set_state s when N.equal s status_on ->
-          f_here () ;%lwt
-          Lwt.return_unit
-      | M.Set_state _ -> Lwt.return_unit
-    in
-    Lwt_stream.iter_s f_iter pipe_src |> bg ;
-    pipe_dst
-
-  let on u src_status status_on src_v dst =
-    let pipe_dst = on_r u src_status status_on src_v dst in
-    set_creation pipe_dst
+  (* let on u src_status status_on src_v dst =
+     let pipe_dst = on_r u src_status status_on src_v dst in
+     set_creation pipe_dst *)
 end

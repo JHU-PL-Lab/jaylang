@@ -151,7 +151,6 @@ module type User_level = sig
   val set_pre_push_payload : t -> key -> (payload -> payload option) -> unit
   val push : t -> key -> payload option -> unit
   val bind_like_list : t -> pipe -> key -> (payload -> pipe list) -> pipe act
-  val on : t -> pipe -> N.t -> pipe -> key -> pipe act
 
   (* iter doesn't create a new strean *)
 
@@ -197,6 +196,7 @@ module type U = sig
 
   (* val bind : t -> pipe -> key -> (payload -> pipe) -> pipe act *)
   val bind_like : t -> key -> (payload -> key option) -> message Lwt_stream.t
+  val on : t -> key -> N.t -> key -> message Lwt_stream.t
 end
 
 module type Top_sigs = sig

@@ -16,6 +16,7 @@ module type M_sig = sig
   val inj : payload -> message
   val prj_opt : message -> payload option
   val fmap : (payload -> 'a) -> 'a -> message -> 'a
+  val fmap_status : (Naive_state_machine.t -> 'a) -> 'a -> message -> 'a
   val fmap2 : (payload * payload -> 'a) -> 'a -> message * message -> 'a
   val map_payload : (payload -> payload) -> message -> message
 
@@ -32,6 +33,7 @@ module Payload_as_message (P : P_sig) = struct
   let inj x = x
   let prj_opt x = Some x
   let fmap f _ = f
+  let fmap_status _ d _ = d
   let fmap2 f _ = f
   let map_payload f = f
   let filter_map_payload f = f
@@ -52,6 +54,7 @@ module Payload_to_message (P : P_sig) = struct
   let inj p = Payload p
   let prj_opt = function Payload p -> Some p | Set_state _ -> None
   let fmap f d msg = match msg with Payload p -> f p | Set_state _ -> d
+  let fmap_status f d msg = match msg with Payload _ -> d | Set_state s -> f s
 
   let map_payload f msg =
     match msg with Payload p -> Payload (f p) | Set_state s -> Set_state s

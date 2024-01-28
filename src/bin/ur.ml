@@ -7,7 +7,7 @@ module Int_payload = struct
   type payload = int [@@deriving equal]
 end
 
-module U = Unroll.Make_use_key (Int) (Int_payload)
+module U = Unroll.Make_just_payload (Int) (Int_payload)
 
 let () =
   let nums = List.init 10 ~f:Fn.id in
