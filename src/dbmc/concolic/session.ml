@@ -243,7 +243,7 @@ let accum_concolic (session : t) (concolic : Concolic.t) : t =
     formula_tracker = concolic.formula_tracker (* completely overwrite because we passed it in earlier to make the concolic session *)
   ; branch_tracker = Branch_tracker.collect_runtime session.branch_tracker concolic.branch_tracker concolic.input
   ; has_hit_exit = session.has_hit_exit || concolic.has_hit_exit
-  ; is_done = (*List.is_empty concolic.input ||*) (session.quit_on_first_abort && concolic.has_hit_abort) }
+  ; is_done = List.is_empty concolic.input || (session.quit_on_first_abort && concolic.has_hit_abort) }
 
 let branch_tracker ({ branch_tracker ; _ } : t) : Branch_tracker.t =
   branch_tracker
