@@ -68,35 +68,42 @@ f_j_86 = fun a_j_5 -> (
     g_j_50 = fun b_j_4 -> (
         int_j_41 = 0;
         var_j_42 = a_j_5;
-        binop_j_43 = int_j_41 < var_j_42;
-        m_i_190 = binop_j_43 ~ bool;
-        if_j_49 = m_i_190 ? (
-                c_cond_i_194 = binop_j_43 ? (
+        m_bl_i_190 = int_j_41 ~ int;
+        m_br_i_191 = var_j_42 ~ int;
+        m_b_i_192 = m_bl_i_190 and m_br_i_191;
+        binop_j_43 = m_b_i_192 ? (
+                c_binop_i_193 = int_j_41 < var_j_42
+            ) : (
+                ab_i_194 = abort
+            );
+        m_i_195 = binop_j_43 ~ bool;
+        if_j_49 = m_i_195 ? (
+                c_cond_i_199 = binop_j_43 ? (
                         int_j_44 = 1
                     ) : (
                         var_j_45 = b_j_4;
-                        m_i_191 = var_j_45 ~ bool;
-                        if_j_48 = m_i_191 ? (
-                                c_cond_i_192 = var_j_45 ? (
+                        m_i_196 = var_j_45 ~ bool;
+                        if_j_48 = m_i_196 ? (
+                                c_cond_i_197 = var_j_45 ? (
                                         bool_j_46 = true
                                     ) : (
                                         int_j_47 = 2
                                     )
                             ) : (
-                                ab_i_193 = abort
+                                ab_i_198 = abort
                             )
                     )
             ) : (
-                ab_i_195 = abort
+                ab_i_200 = abort
             ));
     g = g_j_50;
     var_j_51 = B;
     var_j_52 = a_j_5;
-    m_i_196 = var_j_51 ~ fun;
-    appl_j_53 = m_i_196 ? (
-            c_appl_i_197 = var_j_51 var_j_52
+    m_i_201 = var_j_51 ~ fun;
+    appl_j_53 = m_i_201 ? (
+            c_appl_i_202 = var_j_51 var_j_52
         ) : (
-            ab_i_198 = abort
+            ab_i_203 = abort
         );
     proj_j_54 = appl_j_53.generator;
     int_j_55 = 0;
@@ -168,11 +175,11 @@ flatten_fun_j_162 = fun a -> (
     flatten_fun_j_128 = fun expr_b_20 -> (
         var_j_103 = B;
         var_j_104 = a;
-        m_i_199 = var_j_103 ~ fun;
-        appl_j_105 = m_i_199 ? (
-                c_appl_i_200 = var_j_103 var_j_104
+        m_i_204 = var_j_103 ~ fun;
+        appl_j_105 = m_i_204 ? (
+                c_appl_i_205 = var_j_103 var_j_104
             ) : (
-                ab_i_201 = abort
+                ab_i_206 = abort
             );
         proj_j_106 = appl_j_105.generator;
         int_j_107 = 0;
@@ -207,11 +214,11 @@ flatten_fun_j_162 = fun a -> (
         flatten_fun_j_158 = fun arg_assume_b_15 -> (
             var_j_129 = B;
             var_j_130 = a;
-            m_i_202 = var_j_129 ~ fun;
-            appl_j_131 = m_i_202 ? (
-                    c_appl_i_203 = var_j_129 var_j_130
+            m_i_207 = var_j_129 ~ fun;
+            appl_j_131 = m_i_207 ? (
+                    c_appl_i_208 = var_j_129 var_j_130
                 ) : (
-                    ab_i_204 = abort
+                    ab_i_209 = abort
                 );
             proj_j_132 = appl_j_131.checker;
             var_j_133 = arg_assume_b_15;

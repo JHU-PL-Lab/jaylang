@@ -32,9 +32,19 @@ flatten_fun_j_62 = fun map_j_4 -> (
                                     var_j_42 = hd;
                                     var_j_43 = map;
                                     var_j_44 = mf;
-                                    appl_j_45 = var_j_43 var_j_44;
+                                    m_i_441 = var_j_43 ~ fun;
+                                    appl_j_45 = m_i_441 ? (
+                                            c_appl_i_442 = var_j_43 var_j_44
+                                        ) : (
+                                            ab_i_443 = abort
+                                        );
                                     var_j_46 = tl;
-                                    appl_j_47 = appl_j_45 var_j_46;
+                                    m_i_444 = appl_j_45 ~ fun;
+                                    appl_j_47 = m_i_444 ? (
+                                            c_appl_i_445 = appl_j_45 var_j_46
+                                        ) : (
+                                            ab_i_446 = abort
+                                        );
                                     record_j_48 = {j_cons = record_j_41, j_head = var_j_42, j_tail = appl_j_47}
                                 ) : (
                                     ab_j_38 = abort

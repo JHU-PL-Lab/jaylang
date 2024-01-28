@@ -77,22 +77,29 @@ flatten_fun_j_58 = fun f_j_0_j_5 -> (
                 );
             m_i_175 = binop_j_48 ~ bool;
             if_j_55 = m_i_175 ? (
-                    c_cond_i_179 = binop_j_48 ? (
+                    c_cond_i_184 = binop_j_48 ? (
                             bool_j_49 = false
                         ) : (
                             var_j_50 = f_j_3;
                             var_j_51 = y;
                             int_j_52 = 1;
-                            binop_j_53 = var_j_51 - int_j_52;
-                            m_i_176 = var_j_50 ~ fun;
-                            appl_j_54 = m_i_176 ? (
-                                    c_appl_i_177 = var_j_50 binop_j_53
+                            m_bl_i_176 = var_j_51 ~ int;
+                            m_br_i_177 = int_j_52 ~ int;
+                            m_b_i_178 = m_bl_i_176 and m_br_i_177;
+                            binop_j_53 = m_b_i_178 ? (
+                                    c_binop_i_179 = var_j_51 - int_j_52
                                 ) : (
-                                    ab_i_178 = abort
+                                    ab_i_180 = abort
+                                );
+                            m_i_181 = var_j_50 ~ fun;
+                            appl_j_54 = m_i_181 ? (
+                                    c_appl_i_182 = var_j_50 binop_j_53
+                                ) : (
+                                    ab_i_183 = abort
                                 )
                         )
                 ) : (
-                    ab_i_180 = abort
+                    ab_i_185 = abort
                 ))));
 appl_j_61 = flatten_fun_j_35 flatten_fun_j_35;
 appl_j_63 = appl_j_61 flatten_fun_j_58;
@@ -193,11 +200,11 @@ if_j_153 = check_res_b_14 ? (
         if_j_147 = var_j_138 ? (
                 var_j_139 = appl_j_63;
                 int_j_140 = 1;
-                m_i_181 = var_j_139 ~ fun;
-                appl_j_141 = m_i_181 ? (
-                        c_appl_i_182 = var_j_139 int_j_140
+                m_i_186 = var_j_139 ~ fun;
+                appl_j_141 = m_i_186 ? (
+                        c_appl_i_187 = var_j_139 int_j_140
                     ) : (
-                        ab_i_183 = abort
+                        ab_i_188 = abort
                     )
             ) : (
                 error_var_j_142 = check_res_b_12;

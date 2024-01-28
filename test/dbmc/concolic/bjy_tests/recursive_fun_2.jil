@@ -17,22 +17,29 @@ flatten_fun_j_18 = fun f_j_0 -> (
             );
         m_i_71 = binop_j_9 ~ bool;
         if_j_16 = m_i_71 ? (
-                c_cond_i_75 = binop_j_9 ? (
+                c_cond_i_80 = binop_j_9 ? (
                         int_j_10 = 0
                     ) : (
                         var_j_11 = f;
                         var_j_12 = x;
                         int_j_13 = 1;
-                        binop_j_14 = var_j_12 - int_j_13;
-                        m_i_72 = var_j_11 ~ fun;
-                        appl_j_15 = m_i_72 ? (
-                                c_appl_i_73 = var_j_11 binop_j_14
+                        m_bl_i_72 = var_j_12 ~ int;
+                        m_br_i_73 = int_j_13 ~ int;
+                        m_b_i_74 = m_bl_i_72 and m_br_i_73;
+                        binop_j_14 = m_b_i_74 ? (
+                                c_binop_i_75 = var_j_12 - int_j_13
                             ) : (
-                                ab_i_74 = abort
+                                ab_i_76 = abort
+                            );
+                        m_i_77 = var_j_11 ~ fun;
+                        appl_j_15 = m_i_77 ? (
+                                c_appl_i_78 = var_j_11 binop_j_14
+                            ) : (
+                                ab_i_79 = abort
                             )
                     )
             ) : (
-                ab_i_76 = abort
+                ab_i_81 = abort
             )));
 appl_j_21 = flatten_fun_j_18 flatten_fun_j_18;
 bool_j_22 = false;
@@ -75,13 +82,13 @@ flatten_fun_j_47 = fun expr_b_3 -> (
 flatten_fun_j_51 = fun bj_null_j_1 -> (
     int_j_48 = 0;
     input_j_49 = input;
-    m_bl_i_77 = int_j_48 ~ int;
-    m_br_i_78 = input_j_49 ~ int;
-    m_b_i_79 = m_bl_i_77 and m_br_i_78;
-    binop_j_50 = m_b_i_79 ? (
-            c_binop_i_80 = int_j_48 <= input_j_49
+    m_bl_i_82 = int_j_48 ~ int;
+    m_br_i_83 = input_j_49 ~ int;
+    m_b_i_84 = m_bl_i_82 and m_br_i_83;
+    binop_j_50 = m_b_i_84 ? (
+            c_binop_i_85 = int_j_48 <= input_j_49
         ) : (
-            ab_i_81 = abort
+            ab_i_86 = abort
         ));
 record_j_52 = {checker = flatten_fun_j_47, generator = flatten_fun_j_51};
 proj_j_53 = record_j_52.checker;

@@ -1290,78 +1290,54 @@ record_j_925 = {};
 record_j_926 = {leaf = record_j_925};
 record_j_927 = {bj_actual_rec = record_j_924, bj_decl_lbls = record_j_926};
 record_j_928 = {left = record_j_922, right = record_j_927};
-int_j_929 = 0;
-record_j_930 = {leaf = int_j_929};
-record_j_931 = {};
-record_j_932 = {leaf = record_j_931};
-record_j_933 = {bj_actual_rec = record_j_930, bj_decl_lbls = record_j_932};
-record_j_934 = {left = record_j_928, right = record_j_933};
+record_j_929 = {};
+record_j_930 = {};
+record_j_931 = {left = record_j_929, right = record_j_930};
+record_j_932 = {bj_actual_rec = record_j_928, bj_decl_lbls = record_j_931};
+int_j_933 = 0;
+record_j_934 = {leaf = int_j_933};
 record_j_935 = {};
-record_j_936 = {};
-record_j_937 = {left = record_j_935, right = record_j_936};
-record_j_938 = {bj_actual_rec = record_j_934, bj_decl_lbls = record_j_937};
-int_j_939 = 0;
-record_j_940 = {leaf = int_j_939};
-record_j_941 = {left = record_j_938, right = record_j_940};
-record_j_942 = {};
-record_j_943 = {};
-record_j_944 = {left = record_j_942, right = record_j_943};
-record_j_945 = {bj_actual_rec = record_j_941, bj_decl_lbls = record_j_944};
-int_j_946 = 0;
-record_j_947 = {leaf = int_j_946};
-record_j_948 = {left = record_j_945, right = record_j_947};
+record_j_936 = {leaf = record_j_935};
+record_j_937 = {bj_actual_rec = record_j_934, bj_decl_lbls = record_j_936};
+record_j_938 = {left = record_j_932, right = record_j_937};
+record_j_939 = {};
+record_j_940 = {};
+record_j_941 = {left = record_j_939, right = record_j_940};
+record_j_942 = {bj_actual_rec = record_j_938, bj_decl_lbls = record_j_941};
+int_j_943 = 0;
+record_j_944 = {leaf = int_j_943};
+record_j_945 = {};
+record_j_946 = {leaf = record_j_945};
+record_j_947 = {bj_actual_rec = record_j_944, bj_decl_lbls = record_j_946};
+record_j_948 = {left = record_j_942, right = record_j_947};
 record_j_949 = {};
 record_j_950 = {};
 record_j_951 = {left = record_j_949, right = record_j_950};
 record_j_952 = {bj_actual_rec = record_j_948, bj_decl_lbls = record_j_951};
-x = record_j_952;
-proj_j_954 = tree_type.checker;
-int_j_955 = 0;
-record_j_956 = {leaf = int_j_955};
-record_j_957 = {};
-record_j_958 = {leaf = record_j_957};
-record_j_959 = {bj_actual_rec = record_j_956, bj_decl_lbls = record_j_958};
-int_j_960 = 0;
-record_j_961 = {leaf = int_j_960};
-record_j_962 = {};
-record_j_963 = {leaf = record_j_962};
-record_j_964 = {bj_actual_rec = record_j_961, bj_decl_lbls = record_j_963};
-record_j_965 = {left = record_j_959, right = record_j_964};
-int_j_966 = 0;
-record_j_967 = {leaf = int_j_966};
-record_j_968 = {};
-record_j_969 = {leaf = record_j_968};
-record_j_970 = {bj_actual_rec = record_j_967, bj_decl_lbls = record_j_969};
-record_j_971 = {left = record_j_965, right = record_j_970};
-record_j_972 = {};
-record_j_973 = {};
-record_j_974 = {left = record_j_972, right = record_j_973};
-record_j_975 = {bj_actual_rec = record_j_971, bj_decl_lbls = record_j_974};
-int_j_976 = 0;
-record_j_977 = {leaf = int_j_976};
-record_j_978 = {left = record_j_975, right = record_j_977};
-record_j_979 = {};
-record_j_980 = {};
-record_j_981 = {left = record_j_979, right = record_j_980};
-record_j_982 = {bj_actual_rec = record_j_978, bj_decl_lbls = record_j_981};
-int_j_983 = 0;
-record_j_984 = {leaf = int_j_983};
-record_j_985 = {left = record_j_982, right = record_j_984};
-record_j_986 = {};
-record_j_987 = {};
-record_j_988 = {left = record_j_986, right = record_j_987};
-record_j_989 = {bj_actual_rec = record_j_985, bj_decl_lbls = record_j_988};
-appl_j_990 = proj_j_954 record_j_989;
-check_res_b_137 = appl_j_990;
-if_j_998 = check_res_b_137 ? (
-        var_j_992 = x
+int_j_953 = 0;
+record_j_954 = {leaf = int_j_953};
+record_j_955 = {};
+record_j_956 = {leaf = record_j_955};
+record_j_957 = {bj_actual_rec = record_j_954, bj_decl_lbls = record_j_956};
+record_j_958 = {left = record_j_952, right = record_j_957};
+record_j_959 = {};
+record_j_960 = {};
+record_j_961 = {left = record_j_959, right = record_j_960};
+record_j_962 = {bj_actual_rec = record_j_958, bj_decl_lbls = record_j_961};
+x_b_137 = record_j_962;
+x = x_b_137;
+proj_j_965 = tree_type.checker;
+appl_j_967 = proj_j_965 x_b_137;
+check_res_b_138 = appl_j_967;
+if_j_975 = check_res_b_138 ? (
+        var_j_969 = x
     ) : (
-        error_var_j_993 = check_res_b_137;
-        assert_pred_j_994 = error_var_j_993;
-        assert_res_j_995 = assert_pred_j_994 ? (
-                assert_res_true_j_996 = {}
+        error_var_j_970 = check_res_b_138;
+        assert_pred_j_971 = error_var_j_970;
+        assert_res_j_972 = assert_pred_j_971 ? (
+                assert_res_true_j_973 = {}
             ) : (
-                ab_j_997 = abort
+                ab_j_974 = abort
             )
     );
-i_result = if_j_998
+i_result = if_j_975

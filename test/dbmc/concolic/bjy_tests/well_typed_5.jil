@@ -4,12 +4,17 @@ twice_j_15 = fun f -> (
         var_j_9 = f;
         var_j_10 = f;
         var_j_11 = x_j_8;
-        appl_j_12 = var_j_10 var_j_11;
-        m_i_190 = var_j_9 ~ fun;
-        appl_j_13 = m_i_190 ? (
-                c_appl_i_191 = var_j_9 appl_j_12
+        m_i_190 = var_j_10 ~ fun;
+        appl_j_12 = m_i_190 ? (
+                c_appl_i_191 = var_j_10 var_j_11
             ) : (
                 ab_i_192 = abort
+            );
+        m_i_193 = var_j_9 ~ fun;
+        appl_j_13 = m_i_193 ? (
+                c_appl_i_194 = var_j_9 appl_j_12
+            ) : (
+                ab_i_195 = abort
             )));
 twice = twice_j_15;
 flatten_fun_j_51 = fun expr_b_14 -> (
@@ -170,13 +175,13 @@ if_j_189 = check_res_b_41 ? (
         inc_j_137 = fun x -> (
             var_j_134 = x;
             int_j_135 = 1;
-            m_bl_i_193 = var_j_134 ~ int;
-            m_br_i_194 = int_j_135 ~ int;
-            m_b_i_195 = m_bl_i_193 and m_br_i_194;
-            binop_j_136 = m_b_i_195 ? (
-                    c_binop_i_196 = var_j_134 + int_j_135
+            m_bl_i_196 = var_j_134 ~ int;
+            m_br_i_197 = int_j_135 ~ int;
+            m_b_i_198 = m_bl_i_196 and m_br_i_197;
+            binop_j_136 = m_b_i_198 ? (
+                    c_binop_i_199 = var_j_134 + int_j_135
                 ) : (
-                    ab_i_197 = abort
+                    ab_i_200 = abort
                 ));
         inc = inc_j_137;
         bool_j_138 = false;
@@ -229,18 +234,18 @@ if_j_189 = check_res_b_41 ? (
         if_j_183 = var_j_172 ? (
                 var_j_173 = twice;
                 var_j_174 = inc;
-                m_i_198 = var_j_173 ~ fun;
-                appl_j_175 = m_i_198 ? (
-                        c_appl_i_199 = var_j_173 var_j_174
-                    ) : (
-                        ab_i_200 = abort
-                    );
-                int_j_176 = 2;
-                m_i_201 = appl_j_175 ~ fun;
-                appl_j_177 = m_i_201 ? (
-                        c_appl_i_202 = appl_j_175 int_j_176
+                m_i_201 = var_j_173 ~ fun;
+                appl_j_175 = m_i_201 ? (
+                        c_appl_i_202 = var_j_173 var_j_174
                     ) : (
                         ab_i_203 = abort
+                    );
+                int_j_176 = 2;
+                m_i_204 = appl_j_175 ~ fun;
+                appl_j_177 = m_i_204 ? (
+                        c_appl_i_205 = appl_j_175 int_j_176
+                    ) : (
+                        ab_i_206 = abort
                     )
             ) : (
                 error_var_j_178 = check_res_b_40;

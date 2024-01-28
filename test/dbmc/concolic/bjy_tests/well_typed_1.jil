@@ -49,7 +49,12 @@ check_res_b_7 = appl_j_36;
 if_j_46 = check_res_b_7 ? (
         var_j_38 = id;
         int_j_39 = 5;
-        appl_j_40 = var_j_38 int_j_39
+        m_i_47 = var_j_38 ~ fun;
+        appl_j_40 = m_i_47 ? (
+                c_appl_i_48 = var_j_38 int_j_39
+            ) : (
+                ab_i_49 = abort
+            )
     ) : (
         error_var_j_41 = check_res_b_7;
         assert_pred_j_42 = error_var_j_41;

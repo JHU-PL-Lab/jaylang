@@ -3,7 +3,7 @@
 # This script is to be run from jaylang/
 
 input_dir="./test/sato/bjy/"
-output_dir="./test/dbmc/concolic/_bjy_tests/"
+output_dir="./test/dbmc/concolic/bjy_tests/"
 translator_exe="./_build/default/src/bin/translator.exe"
 
 # Create translator exe

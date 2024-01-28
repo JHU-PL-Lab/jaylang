@@ -508,34 +508,36 @@ record_j_379 = {checker = flatten_fun_j_376, generator = flatten_fun_j_378};
 proj_j_380 = record_j_379.checker;
 appl_j_383 = f x_b_91;
 appl_j_384 = proj_j_380 appl_j_383;
-check_res_b_93 = appl_j_384;
-if_j_404 = check_res_b_93 ? (
+check_res_b_94 = appl_j_384;
+if_j_405 = check_res_b_94 ? (
         var_j_386 = f;
-        type_check = var_j_386;
-        var_j_387 = fun_sig;
-        proj_j_388 = var_j_387.checker;
-        var_j_389 = f;
-        appl_j_390 = proj_j_388 var_j_389;
-        check_res_b_92 = appl_j_390;
-        var_j_391 = check_res_b_92;
-        if_j_398 = var_j_391 ? (
-                int_j_392 = 1
+        type_check_b_92 = var_j_386;
+        var_j_387 = type_check_b_92;
+        type_check = var_j_387;
+        var_j_388 = fun_sig;
+        proj_j_389 = var_j_388.checker;
+        var_j_390 = type_check_b_92;
+        appl_j_391 = proj_j_389 var_j_390;
+        check_res_b_93 = appl_j_391;
+        var_j_392 = check_res_b_93;
+        if_j_399 = var_j_392 ? (
+                int_j_393 = 1
             ) : (
-                error_var_j_393 = check_res_b_92;
-                assert_pred_j_394 = error_var_j_393;
-                assert_res_j_395 = assert_pred_j_394 ? (
-                        assert_res_true_j_396 = {}
+                error_var_j_394 = check_res_b_93;
+                assert_pred_j_395 = error_var_j_394;
+                assert_res_j_396 = assert_pred_j_395 ? (
+                        assert_res_true_j_397 = {}
                     ) : (
-                        ab_j_397 = abort
+                        ab_j_398 = abort
                     )
             )
     ) : (
-        error_var_j_399 = check_res_b_93;
-        assert_pred_j_400 = error_var_j_399;
-        assert_res_j_401 = assert_pred_j_400 ? (
-                assert_res_true_j_402 = {}
+        error_var_j_400 = check_res_b_94;
+        assert_pred_j_401 = error_var_j_400;
+        assert_res_j_402 = assert_pred_j_401 ? (
+                assert_res_true_j_403 = {}
             ) : (
-                ab_j_403 = abort
+                ab_j_404 = abort
             )
     );
-i_result = if_j_404
+i_result = if_j_405
