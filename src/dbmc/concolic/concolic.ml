@@ -348,7 +348,7 @@ and eval_clause
       match Fetch.fetch_val ~eval_session ~stk env v with
       | RecordClosure (Record_value r, denv) ->
         let proj_ident = function Ident s -> s in
-        Format.printf "Finding label %s in clause %s\n" (proj_ident label) (proj_ident x);
+        (* Format.printf "Finding label %s in clause %s\n" (proj_ident label) (proj_ident x); *)
         let Var (proj_x, _) as proj_v = Ident_map.find label r in (* TODO: fix error from this on _bjy_tests/record_4.jil test *)
         let retv, stk' = Fetch.fetch_val_with_stk ~eval_session ~stk denv proj_v in
         Session.Eval.add_alias (x, stk) (proj_x, stk') eval_session;
@@ -421,7 +421,7 @@ and eval_clause
       end
     | Assert_body cx | Assume_body cx ->
       (* TODO: should I ever treat assert and assume differently? *)
-      Format.printf "HITTING ASSERT OR ASSUME STATEMENT.\n";
+      (* Format.printf "HITTING ASSERT OR ASSUME STATEMENT.\n"; *)
       let v = Fetch.fetch_val_to_bool ~eval_session ~stk env cx in
       if not v
       then
@@ -513,25 +513,37 @@ let rec loop (e : expr) (prev_session : Session.t) : Branch_tracker.Status_store
       |> loop e
     end
 
+module With_options =
+  struct
+    type 'a t =
+      ?global_timeout_sec:float
+      -> ?solver_timeout_sec:float
+      -> ?quit_on_first_abort:bool
+      -> ?global_max_step:int
+      -> 'a
+  end
+
 (* Concolically execute/test program. *)
-let eval
-  ?(timeout_sec : float = 120.0)
+let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) With_options.t = fun
+  ?(global_timeout_sec : float = 120.0)
+  ?(solver_timeout_sec : float = 1.0)
   ?(quit_on_first_abort : bool = true)
+  ?(global_max_step : int = Int.(2 * 10 ** 3))
   (e : expr)
-  : Branch_tracker.Status_store.Without_payload.t
-  = 
+  ->
   if Printer.print then Format.printf "\nStarting concolic execution...\n";
   (* Repeatedly evaluate program *)
   let run () = 
     e
     |> Session.of_expr
+    |> Session.with_options ~solver_timeout_sec ~quit_on_first_abort ~global_max_step:(`Const global_max_step)
     |> Fn.flip Session.set_quit_on_first_abort quit_on_first_abort
     |> loop e
   in
   try
-    Lwt_unix.with_timeout timeout_sec run
+    Lwt_unix.with_timeout global_timeout_sec run
     |> Lwt_main.run
   with
   | Lwt_unix.Timeout ->
-    if Printer.print then Format.printf "Quit to do total run timeout in %0.3f seconds.\n" timeout_sec;
+    if Printer.print then Format.printf "Quit due to total run timeout in %0.3f seconds.\n" global_timeout_sec;
     Branch_tracker.Status_store.Without_payload.empty

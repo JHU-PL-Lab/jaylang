@@ -38,6 +38,8 @@
 
 ### Out of scope
 
+* Fuzz with answers and try for as small of inputs as possible (which would require many runs of the solver) only when the solver finishes sufficiently quickly
+  * Therefore can get better runs, but we don't waste time on an overloaded solver
 * Prune irrelevant expressions
   * Similar to value numbering, constant folding etc
   * Also very similar to (or frankly just the same as) checking "hittability" from each line of code

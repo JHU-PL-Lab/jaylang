@@ -194,6 +194,18 @@ let default : t =
   ; is_done          = false
   ; quit_on_first_abort = true }
 
+let with_options
+  ?(solver_timeout_sec : float = default_solver_timeout_s)
+  ?(global_max_step : [ `Const of int | `Scale of float ] = `Const default_global_max_step)
+  ?(quit_on_first_abort : bool = true)
+  (session : t)
+  : t
+  =
+  { session with
+    quit_on_first_abort
+  ; solver_timeout_s = solver_timeout_sec
+  ; global_max_step = match global_max_step with `Const x -> x | _ -> failwith "unsupported scaling max step" }
+
 let set_quit_on_first_abort (session : t) (b : bool) : t =
   { session with quit_on_first_abort = b }
 
@@ -201,7 +213,7 @@ let of_expr (expr : Jayil.Ast.expr) : t =
   { default with branch_tracker = Branch_tracker.of_expr expr }
 
 let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] Lwt.t =
-  let%lwt () = Lwt.pause () in
+  let%lwt () = Lwt.pause () in (* allows for lwt timeouts at this point *)
   if session.is_done then Lwt.return (`Done session) else
   match Branch_tracker.next_target session.branch_tracker with
   | None, branch_tracker when session.run_num > 0 -> Lwt.return (`Done { session with branch_tracker })
@@ -213,24 +225,24 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] L
   | Some target, branch_tracker ->
     solve_for_target target { session with branch_tracker }
 
-  and solve_for_target (target : Branch.t) (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] Lwt.t =
-    Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec session.solver_timeout_s));
-    Format.printf "Solving for %s\n" (Branch.to_string target);
-    match Branch_solver.check_solver target session.formula_tracker session.branch_tracker with
-    | `Unsolvable status ->
-      let new_status =
-        match status with
-        ( Branch_tracker.Status.Unsatisfiable
-        | Unreachable_because_abort
-        | Unreachable_because_max_step ) when session.has_hit_exit -> Branch_tracker.Status.Unknown 1
-        | _ -> status
-      in
-      next { session with branch_tracker = Branch_tracker.set_status session.branch_tracker target new_status }
-    | `Solved model ->
-      `Next ({ session with run_num = session.run_num + 1 }
-            , Concolic.create ~target ~formula_tracker:session.formula_tracker
-            , Eval.create (Concolic_feeder.from_model model) session.global_max_step )
-      |> Lwt.return
+and solve_for_target (target : Branch.t) (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] Lwt.t =
+  Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec session.solver_timeout_s));
+  Format.printf "Solving for %s\n" (Branch.to_string target);
+  match Branch_solver.check_solver target session.formula_tracker session.branch_tracker with
+  | `Unsolvable status ->
+    let new_status =
+      match status with
+      ( Branch_tracker.Status.Unsatisfiable
+      | Unreachable_because_abort
+      | Unreachable_because_max_step ) when session.has_hit_exit -> Branch_tracker.Status.Unknown 1
+      | _ -> status
+    in
+    next { session with branch_tracker = Branch_tracker.set_status session.branch_tracker target new_status }
+  | `Solved model ->
+    `Next ({ session with run_num = session.run_num + 1 }
+          , Concolic.create ~target ~formula_tracker:session.formula_tracker
+          , Eval.create (Concolic_feeder.from_model model) session.global_max_step )
+    |> Lwt.return
 
 let finish (session : t) : t =
   { session with branch_tracker = Branch_tracker.finish session.branch_tracker session.has_hit_exit }

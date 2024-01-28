@@ -112,6 +112,8 @@ type t
 val default : t
 (** [default] is a session to be used to make the first run of the concolic evaluator. *)
 
+val with_options : ?solver_timeout_sec:float -> ?global_max_step:[ `Const of int | `Scale of float ] -> ?quit_on_first_abort:bool -> t -> t
+
 val set_quit_on_first_abort : t -> bool -> t
 (** [set_quit_on_first_abort session b] sets the [session] to quit when the first abort is hit iff [b] is true. *)
 
