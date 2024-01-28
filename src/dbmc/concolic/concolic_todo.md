@@ -37,6 +37,9 @@
 
 ### Out of scope
 
+* Prune irrelevant expressions
+  * Similar to value numbering, constant folding etc
+  * Also very similar to (or frankly just the same as) checking "hittability" from each line of code
 * Analyze AST to determine hittable vs unreachable, as well as how aborts affect future runs
 * Analyze AST to determine which branches are reachable starting from any line of code, and thus which branches depend on which lines. Then only use those formulas to solve, and ignore other formulas that might clog up the solver.
   * Further, we can determine if a solve/branch is affected by an abort (but this will need some more thought)
