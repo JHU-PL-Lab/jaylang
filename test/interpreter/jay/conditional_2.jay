@@ -1,0 +1,6 @@
+# EXPECT-WELL-FORMED
+# EXPECT-TYPE-ERROR-COUNT 1
+# EXPECT-TYPE-ERROR ~result [] "if f then true else false" "f" "fun x -> x + 1" "bool" "fun"
+
+let f = fun x -> x + 1 in
+if f then true else false

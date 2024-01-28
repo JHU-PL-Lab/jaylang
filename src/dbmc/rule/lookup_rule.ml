@@ -54,10 +54,10 @@ let promote_result (target : Lookup_key.t) map (detail : Lookup_detail.t)
     new_status (v : Lookup_key.t) =
   match change_status detail.status new_status with
   | Some Complete ->
-      set_status detail Complete ;
+      (* set_status detail Complete ; *)
       Some Lookup_result.(from_as v Complete)
   | Some Fail ->
-      set_status detail Fail ;
+      (* set_status detail Fail ; *)
       Some Lookup_result.(from_as v Fail)
   | Some Good -> Some Lookup_result.(from_as v Good)
   | None -> None
@@ -83,22 +83,22 @@ let run_action dispatch unroll (state : Global_state.t)
     | Leaf Fail ->
         set_status Lookup_status.Fail ;
         set_status_gen_phi Lookup_status.Fail
-        (* ; U.by_return unroll target (Lookup_result.fail target) *)
+        (* ; U.one_shot unroll target [(Lookup_result.fail target)] *)
     | Leaf Complete ->
         set_status Lookup_status.Complete ;
         set_status_gen_phi Lookup_status.Complete ;
         add_to_domain target ;
-        U.by_return unroll target (Lookup_result.complete target)
+        U.one_shot unroll target [ Lookup_result.complete target ]
     | Leaf _ -> failwith "incorrect leaf status"
     | Direct e ->
         (match sub_lookup with
         | Some pre ->
             add_sublookup pre e.pub ;
-            U.by_map_u unroll target e.pub (fun r ->
+            U.map unroll e.pub target (fun r ->
                 Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from) ;
                 r)
         | None ->
-            U.by_filter_map_u unroll target e.pub (fun r ->
+            U.filter_map unroll e.pub target (fun r ->
                 Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from) ;
                 promote_result r.status r.from)) ;
 
@@ -107,7 +107,7 @@ let run_action dispatch unroll (state : Global_state.t)
               (Option.is_some sub_lookup)) ;
         dispatch e.pub
     | Map e ->
-        U.by_filter_map_u unroll target e.pub (fun r ->
+        U.filter_map unroll e.pub target (fun r ->
             let r' = promote_result r.status (e.map r.from) in
             Option.iter r' ~f:(fun r ->
                 Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from)) ;
@@ -125,10 +125,10 @@ let run_action dispatch unroll (state : Global_state.t)
               Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from)) ;
           r'
         in
-        U.by_filter_map_u unroll target e.pub f ;
+        U.filter_map unroll e.pub target f ;
         dispatch e.pub
     | Both e ->
-        U.by_filter_map2_u unroll target e.pub1 e.pub2 (fun (v1, v2) ->
+        U.filter_map2 unroll e.pub1 e.pub2 target (fun (v1, v2) ->
             let joined_status = Lookup_status.join v1.status v2.status in
             Lookup_status.iter_ok joined_status (fun () -> add_to_domain target) ;
             promote_result joined_status target) ;
@@ -155,10 +155,9 @@ let run_action dispatch unroll (state : Global_state.t)
                   then add_phi (Riddler.list_append target i Riddler.false_)) ;
               match action_next with
               | Some edge -> run ~sub_lookup:(e.pub, r.from) edge
-              | None -> ()) ;
-          Lwt.return_unit
+              | None -> ())
         in
-        U.by_bind_u unroll target e.pub part1_cb ;
+        U.iter unroll e.pub (part1_cb target) ;
         dispatch e.pub
     | Or_list e ->
         if not e.bounded then Global_state.create_counter state detail target ;

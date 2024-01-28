@@ -1,4 +1,5 @@
 open Batteries
+open Dj_std.Translation_counter
 
 type label = Bluejay_ast.label = Label of string
 [@@deriving eq, ord, show, to_yojson]
@@ -129,15 +130,8 @@ and 'a expr =
       (variant_label * syntactic_only expr_desc)
       -> syntactic_only expr
 
-let counter = ref 0
-
-let fresh_tag () =
-  let c = !counter in
-  counter := c + 1 ;
-  c
-
 let new_expr_desc : type a. a expr -> a expr_desc =
- fun e -> { tag = fresh_tag (); body = e }
+ fun e -> { tag = fresh_n (); body = e }
 
 type syn_type_bluejay = syntactic_only expr
 type syn_bluejay_edesc = syntactic_only expr_desc

@@ -46,6 +46,10 @@ let remove_type_from_funsig (f : 'a expr_desc -> 'b expr_desc m)
 let new_instrumented_ed (e : 'a expr) : 'a expr_desc m =
   let ed = new_expr_desc e in
   let%bind () = add_instrumented_tag ed.tag in
+  (* let () =
+       Fmt.pr "New_instrumented_ed: %a; tag: %n \n"
+         Bluejay_ast_internal_pp.pp_expr_desc_with_tag ed ed.tag
+     in *)
   return ed
 
 let mk_gc_pair_cod arg_id cod arg =
@@ -729,7 +733,6 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           let%bind () = add_error_to_tag_mapping fail_pat_cls_3 tag in
           return @@ Function ([ expr_id ], new_expr_desc check_cls_3)
         in
-        (* TODO: Check - Is wrap for record just id? *)
         let%bind wrapper =
           let%bind expr_id = fresh_ident "expr" in
           return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
@@ -2202,7 +2205,6 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           let check_poly =
             let check_pat =
               Ident_map.empty |> Ident_map.add (Ident "~untouched") None
-              (* |> Ident_map.add (Ident ("~\'" ^ t')) None *)
             in
             (RecPat check_pat, assert_cls)
           in
@@ -2248,7 +2250,16 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
   in
   let%bind instrumented_bool = is_instrumented tag in
   let%bind () =
-    if instrumented_bool then add_instrumented_tag t'.tag else return ()
+    if instrumented_bool
+    then
+      (* let () =
+           Fmt.pr
+             "This is pre-instrumented: %a; \nThis is post-instrumented: %a \n"
+             Bluejay_ast_internal_pp.pp_expr_desc_with_tag e_desc
+             Bluejay_ast_internal_pp.pp_expr_desc_with_tag t'
+         in *)
+      add_instrumented_tag t'.tag
+    else return ()
   in
   return t'
 
@@ -2402,8 +2413,9 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
     | LetWithType (x, e1, e2, type_decl) ->
         let%bind type_decl' = bluejay_to_jay type_decl in
         let%bind e1_transformed = bluejay_to_jay e1 in
+        let (Ident x_str) = x in
+        let%bind x' = fresh_ident x_str in
         let%bind e1' =
-          (* let%bind e1_transformed = semantic_type_of e1 in *)
           let%bind bluejay_to_jay_maps = bluejay_to_jay_maps in
           let og_t =
             Bluejay_to_jay_maps.syn_bluejay_from_sem_bluejay bluejay_to_jay_maps
@@ -2429,7 +2441,7 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
             in
             let%bind actual_rec =
               new_instrumented_ed
-              @@ RecordProj (e1_transformed, Label "~actual_rec")
+              @@ RecordProj (new_expr_desc @@ Var x', Label "~actual_rec")
             in
             let%bind new_lbls_rec = new_instrumented_ed @@ Record new_lbls in
             let new_rec =
@@ -2445,8 +2457,9 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
             *)
             let%bind () = add_core_to_sem_mapping new_rec_ed e1 in
             return new_rec_ed
-          else return e1_transformed
+          else return @@ new_expr_desc @@ Var x'
         in
+        let e1_processed = new_expr_desc @@ Let (x', e1_transformed, e1') in
         let%bind e2' = bluejay_to_jay e2 in
         let%bind check_res = fresh_ident "check_res" in
         let%bind () = add_error_to_bluejay_mapping check_res e_desc in
@@ -2458,14 +2471,16 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
           new_instrumented_ed @@ RecordProj (type_decl', Label "checker")
         in
         let%bind appl_ed_1 =
-          new_instrumented_ed @@ Appl (proj_ed_1, e1_transformed)
+          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var x')
         in
         let%bind check_1 =
           new_instrumented_ed
           @@ If (new_expr_desc @@ Var check_res, e2', error_cls)
         in
         let check_cls = Let (check_res, appl_ed_1, check_1) in
-        let res = new_expr_desc @@ Let (x, e1', new_expr_desc check_cls) in
+        let res =
+          new_expr_desc @@ Let (x, e1_processed, new_expr_desc check_cls)
+        in
         let%bind () = add_core_to_sem_mapping res e_desc in
         return res
     | LetRecFunWithType (sig_lst, e) ->
@@ -3105,6 +3120,10 @@ let transform_bluejay ?(do_wrap = true) (e : syn_type_bluejay) :
     core_bluejay_edesc * Bluejay_to_jay_maps.t =
   let transformed_expr : (core_bluejay_edesc * Bluejay_to_jay_maps.t) m =
     let () = if do_wrap then wrap_flag := true else () in
+    (* let () =
+         Fmt.pr "This is pre-transformed: %a \n"
+           Bluejay_ast_internal_pp.pp_expr_desc_with_tag (new_expr_desc e)
+       in *)
     let%bind e' =
       if do_wrap
       then

@@ -3,19 +3,53 @@ open Jay_translate
 
 type convert_t = {
   jil_ast : Jayil.Ast.expr;
+  jay_ast : Jay.Jay_ast.expr_desc option;
+  bluejay_ast : Bluejay.Bluejay_ast.expr_desc option;
   jil_inst_map : Jay_instrumentation.Jayil_instrumentation_maps.t;
   jay_jil_map : Jay_to_jayil_maps.t option;
   bluejay_jay_map : Bluejay.Bluejay_to_jay_maps.t option;
 }
 
 let convert_t_of4 jil_ast jil_inst_map jay_jil_map bluejay_jay_map =
-  { jil_ast; jil_inst_map; jay_jil_map; bluejay_jay_map }
+  {
+    jil_ast;
+    jay_ast = None;
+    bluejay_ast = None;
+    jil_inst_map;
+    jay_jil_map;
+    bluejay_jay_map;
+  }
+
+let convert_t_of6 jil_ast jay_ast bluejay_ast jil_inst_map jay_jil_map
+    bluejay_jay_map =
+  { jil_ast; jay_ast; bluejay_ast; jil_inst_map; jay_jil_map; bluejay_jay_map }
+
+let convert_t_of5 jil_ast jay_ast jil_inst_map jay_jil_map bluejay_jay_map =
+  {
+    jil_ast;
+    jay_ast;
+    bluejay_ast = None;
+    jil_inst_map;
+    jay_jil_map;
+    bluejay_jay_map;
+  }
 
 let convert_t_to4 ct =
-  let { jil_ast; jil_inst_map; jay_jil_map; bluejay_jay_map } = ct in
+  let {
+    jil_ast;
+    jay_ast;
+    bluejay_ast;
+    jil_inst_map;
+    jay_jil_map;
+    bluejay_jay_map;
+  } =
+    ct
+  in
   (jil_ast, jil_inst_map, jay_jil_map, bluejay_jay_map)
 
 let jil_ast_of_convert c = c.jil_ast
+let jay_ast_of_convert c = c.jay_ast
+let bluejay_ast_of_convert c = c.bluejay_ast
 
 (* internal functions - start *)
 
@@ -59,7 +93,8 @@ let bluejay_to_jayil ~do_wrap ~do_instrument raw_bluejay =
     Jay_translate.Jay_to_jayil.translate ~is_jay:true
       ~is_instrumented:do_instrument ~consts ~bluejay_instruments jay_edesc
   in
-  convert_t_of4 a b (Some c) (Some bluejay_jay_map)
+  convert_t_of6 a (Some jay_edesc) (Some bluejay_edesc) b (Some c)
+    (Some bluejay_jay_map)
 
 let bluejay_to_jay ~do_wrap raw_bluejay =
   raw_bluejay |> Bluejay.Bluejay_ast.new_expr_desc
@@ -74,7 +109,7 @@ let jay_to_jayil ~do_instrument ?(consts = []) raw_jay =
     Jay_translate.Jay_to_jayil.translate ~is_jay:true
       ~is_instrumented:do_instrument ~consts jay_ast
   in
-  convert_t_of4 a b (Some c) None
+  convert_t_of5 a (Some jay_ast) b (Some c) None
 
 let instrument_jayil ~do_instrument raw_jay =
   let inst_jay, jil_inst_map =

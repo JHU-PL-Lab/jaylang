@@ -1329,23 +1329,23 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
               in
               Bluejay_ast_internal.new_expr_desc @@ TypeUntouched symbol_purged
             else
-              let () =
-                Fmt.pr "\n \n This is the original jayil error var: %a \n \n"
-                  Jayil.Pp.id err_val_var
-              in
+              (* let () =
+                   Fmt.pr "\n \n This is the original jayil error var: %a \n \n"
+                     Jayil.Pp.id err_val_var
+                 in *)
               let jay_expr = jayil_to_jay_expr err_val_var in
               match jay_expr with
               | None -> failwith "jayil_to_bluejay_error: TBI!"
               | Some ed ->
-                  let () =
-                    Fmt.pr "\n \n This is the original actual type: %a \n \n"
-                      Jay_ast_pp.pp_expr_desc_without_tag ed
-                  in
+                  (* let () =
+                       Fmt.pr "\n \n This is the original actual type: %a \n \n"
+                         Jay_ast_pp.pp_expr_desc_without_tag ed
+                     in *)
                   let sem_expr = Bluejay_ast_internal.from_jay_expr_desc ed in
-                  let () =
-                    Fmt.pr "\n \n This is the semantic type: %a \n \n"
-                      Bluejay_ast_internal_pp.pp_expr_desc sem_expr
-                  in
+                  (* let () =
+                       Fmt.pr "\n \n This is the semantic type: %a \n \n"
+                         Bluejay_ast_internal_pp.pp_expr_desc sem_expr
+                     in *)
                   let syn_expr =
                     Bluejay_to_jay_maps.get_syn_nat_equivalent_expr
                       bluejay_jay_maps sem_expr

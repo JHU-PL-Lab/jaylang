@@ -4,16 +4,17 @@ open Jayil
 open Jayil.Ast
 open Log.Export
 open Rule
-module U = Unrolls.U_ddse
 
 module type S = sig
   val state : Global_state.t
   val config : Global_config.t
   val add_phi : Lookup_key.t -> Z3.Expr.expr -> Phi_set.t -> Phi_set.t
   val block_map : Cfg.block Jayil.Ast.Ident_map.t
-  val unroll : U.t
+  val unroll : Unrolls.U_ddse.t
   val run_task : Lookup_key.t -> Phi_set.t -> unit
 end
+
+module U = Unrolls.U_ddse
 
 module Make (S : S) = struct
   let return_with this_key (t : Ddse_result.t) =
@@ -50,14 +51,14 @@ module Make (S : S) = struct
           [ Riddler.stack_in_main key.r_stk; eqz key (phi_of_value_opt key vo) ])
     in
     let phis = S.add_phi key phi Phi_set.empty in
-    U.by_return S.unroll key (Ddse_result.of3 key phis target_stk)
+    U.one_shot S.unroll key [ Ddse_result.of3 key phis target_stk ]
 
   let rule_nonmain vo key phis_top =
     let key_first = Lookup_key.to_first key S.state.info.first in
     S.run_task key_first phis_top ;
     let eq_phi = Riddler.eqz key (Riddler.phi_of_value_opt key vo) in
     let _ = S.add_phi key eq_phi phis_top in
-    U.by_map_u S.unroll key key_first (Ddse_result.with_v_and_phi key eq_phi)
+    U.map S.unroll key_first key (Ddse_result.with_v_and_phi key eq_phi)
 
   let discovery_main p key phis =
     let ({ v; _ } : Discovery_main_rule.t) = p in
@@ -76,7 +77,7 @@ module Make (S : S) = struct
     let ({ x' } : Alias_rule.t) = p in
     S.run_task x' phis_top ;
 
-    U.by_map_u S.unroll key x' (return_with key)
+    U.map S.unroll x' key (return_with key)
 
   let not_ _p _key _phis_top = ()
 
@@ -89,7 +90,7 @@ module Make (S : S) = struct
       Ddse_result.(merge_with_v key bop t1 t2)
     in
 
-    U.by_filter_map2_u S.unroll key x1 x2 cb
+    U.filter_map2 S.unroll x1 x2 key cb
 
   let record_start p key phis_top =
     let ({ r; lbl } : Record_start_rule.t) = p in
@@ -101,17 +102,15 @@ module Make (S : S) = struct
       let phi1 = Riddler.eq r rv.v in
       let clause_body = Cfg.clause_body_of_x rv_block rv.v.x in
       let rvv = Ast_tools.record_of_clause_body clause_body in
-      (match Ident_map.Exceptionless.find lbl rvv with
+      match Ident_map.Exceptionless.find lbl rvv with
       | Some (Var (field, _)) ->
           let key_l = Lookup_key.with_x rv.v field in
           S.run_task key_l phis_top ;
-          U.by_filter_map_u S.unroll this_key key_l
+          U.filter_map S.unroll key_l this_key
             (return_with_phis this_key [ phi1 ] rv)
-      | None -> ()) ;
-
-      Lwt.return_unit
+      | None -> ()
     in
-    U.by_bind_u S.unroll key r cb
+    U.iter S.unroll r (cb key)
 
   let cond_top p (key : Lookup_key.t) phis_top =
     let ({ cond_case_info = cb; condsite_block; _ } : Cond_top_rule.t) = p in
@@ -134,12 +133,11 @@ module Make (S : S) = struct
       S.run_task key_x phis_top_with_c ;
       let phi = Riddler.(eqz key_x2 (bool_ beta)) in
       let choice_beta = (key_x2, beta) in
-      U.by_filter_map_u S.unroll key key_x
+      U.filter_map S.unroll key_x key
         (return_phis_with_beta key [ phi ] [ choice_beta ] rc)
-      (* | None -> ()) *) ;
-      Lwt.return_unit
+      (* | None -> ()) *)
     in
-    U.by_bind_u S.unroll key key_x2 cb
+    U.iter S.unroll key_x2 (cb key)
 
   let cond_btm p (this_key : Lookup_key.t) phis_top =
     let ({ x'; rets; _ } : Cond_btm_rule.t) = p in
@@ -159,22 +157,20 @@ module Make (S : S) = struct
 
           (* Method 1-a: slow in looping *)
           (* let cb this_key (r_ret : Ddse_result.t) =
-               U.by_map_u S.unroll this_key r_ret.v
+               U.map S.unroll  r_ret.v this_key
                  (return_with_phis this_key
                     (Phi_set.add rc.phis phi_beta)
                     r_ret) ;
                Lwt.return_unit
              in
-             U.by_bind_u S.unroll this_key key_ret cb) *)
+             U.iter S.unroll  key_ret (cb this_key)) *)
           (* Method 1-b: slow in looping *)
           let choice_beta = (x', beta) in
-          U.by_filter_map_u S.unroll this_key key_ret
-            (return_phis_with_beta this_key [ phi_beta ] [ choice_beta ] rc)) ;
-
-      Lwt.return_unit
+          U.filter_map S.unroll key_ret this_key
+            (return_phis_with_beta this_key [ phi_beta ] [ choice_beta ] rc))
     in
 
-    U.by_bind_u S.unroll this_key x' cb
+    U.iter S.unroll x' (cb this_key)
 
   (* Method 1 End *)
 
@@ -189,12 +185,12 @@ module Make (S : S) = struct
            | Some _ -> *)
         S.run_task key_ret phis_top ;
 
-        U.by_map_u S.unroll this_key key_ret
+        U.map S.unroll  key_ret this_key
           (return_with_phis this_key (Phi_set.add phis_c phi_beta)) ;
         Lwt.return_unit
         (* | None -> () *)
       in
-      U.by_bind_u S.unroll key_ret term_c cb) *)
+      U.iter S.unroll term_c  (cb key_ret)) *)
 
   (* Method 2 End *)
 
@@ -212,11 +208,10 @@ module Make (S : S) = struct
             S.run_task key_arg phis_top ;
             let phi_f = Riddler.eq key_f rf.v in
             (* This function contains `key = key_arg.v` in the phis *)
-            U.by_filter_map_u S.unroll key key_arg
-              (return_phis key [ phi; phi_f ] [ choice_f ] [] rf) ;
-            Lwt.return_unit
+            U.filter_map S.unroll key_arg key
+              (return_phis key [ phi; phi_f ] [ choice_f ] [] rf)
           in
-          U.by_bind_u S.unroll key key_f cb ;
+          U.iter S.unroll key_f (cb key) ;
 
           sub_trees
           (* @ [ (node_f, node_arg) ] *))
@@ -241,11 +236,10 @@ module Make (S : S) = struct
             S.run_task key_arg phis_top ;
 
             let phi_f = Riddler.eq key_f rf.v in
-            U.by_filter_map_u S.unroll key key_arg
-              (return_phis key [ phi_f; phi ] [ choice_f ] [] rf) ;
-            Lwt.return_unit
+            U.filter_map S.unroll key_arg key
+              (return_phis key [ phi_f; phi ] [ choice_f ] [] rf)
           in
-          U.by_bind_u S.unroll this_key key_f cb_f ;
+          U.iter S.unroll key_f (cb_f this_key) ;
 
           sub_trees
           (* @ [ (node_f, node_f) ] *))
@@ -275,12 +269,11 @@ module Make (S : S) = struct
               S.run_task key_ret phis_top' ;
               let choice_this = Decision.make key.r_stk b_id in
               let choice_f = Decision.make key_ret.r_stk fblock.id in
-              U.by_filter_map_u S.unroll this_key key_ret
+              U.filter_map S.unroll key_ret this_key
                 (return_with_phis_with_choices this_key [ phi ]
-                   [ choice_this; choice_f ] rf)) ;
-            Lwt.return_unit
+                   [ choice_this; choice_f ] rf))
           in
-          U.by_bind_u S.unroll this_key xf cb ;
+          U.iter S.unroll xf (cb this_key) ;
 
           sub_trees)
         ~init:[]

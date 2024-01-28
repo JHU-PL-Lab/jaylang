@@ -17,6 +17,8 @@ type encode_policy = Only_incremental | Always_shrink
 type stage = Argparse | Load_file | State_init | Lookup | All_done
 [@@deriving variants, equal]
 
+type dump_level = No_Dump | Instrumented | All [@@deriving variants, equal]
+
 let stage_of_str str =
   match str with
   | "argparse" | "ap" -> Argparse
@@ -24,6 +26,12 @@ let stage_of_str str =
   | "state_init" | "si" -> State_init
   | "lookup" | "lu" -> Lookup
   | "all_done" | "ad" | "all" | _ -> All_done
+
+let dump_level_of_str str =
+  match str with
+  | "instrumented" | "ins" -> Instrumented
+  | "all" -> All
+  | "none" | _ -> No_Dump
 
 type t = {
   (* basic *)
@@ -37,7 +45,7 @@ type t = {
   is_wrapped : bool;
   is_instrumented : bool;
   expected_from_file : bool;
-  dump_instrumented : bool;
+  dump_level : dump_level;
   (* tuning *)
   run_max_step : int option;
   timeout : Time_float.Span.t option;
@@ -78,7 +86,7 @@ let default_config =
     is_wrapped = false;
     is_instrumented = false;
     expected_from_file = false;
-    dump_instrumented = false;
+    dump_level = No_Dump;
     log_level = None;
     log_level_lookup = None;
     log_level_solver = None;
@@ -101,7 +109,7 @@ let default_sato_config =
     mode = Sato File_utils.Jayil;
     is_wrapped = false;
     is_instrumented = true;
-    dump_instrumented = false;
+    dump_level = No_Dump;
   }
 
 let default_sato_test_config =
@@ -112,7 +120,7 @@ let default_sato_test_config =
     timeout = Some (Time_float.Span.of_int_sec 2);
     is_wrapped = false;
     is_instrumented = true;
-    dump_instrumented = false;
+    dump_level = No_Dump;
   }
 
 let with_filename filename = { default_config with filename }
