@@ -166,7 +166,8 @@ module Input :
       in
       match x with
       | None -> Some new_formula
-      | Some expr -> Some (Solver.SuduZ3.or_ [expr; new_formula]) (* either change the other input or the new input *)
+      | Some expr -> Some (Solver.SuduZ3.and_ [expr; new_formula]) (* either change the other input or the new input *)
+      (* ^ temporarily this is and_, but it probably should be or_ *)
 
     let exit_parent (x : t) (parent : Branch.Runtime.t) : t =
       Option.map x ~f:(
