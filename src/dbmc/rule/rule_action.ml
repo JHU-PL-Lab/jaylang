@@ -19,24 +19,26 @@ type t =
       map : int -> Lookup_result.t -> Lookup_result.t * Z3.Expr.expr list;
     }
   (* Fun Enter Local | Fun Exit | Cond Top | Cond Btm | Record | Fun Enter Nonlocal *)
-  | Chain of {
-      pub : Lookup_key.t;
-      next : int -> Lookup_key.t -> Z3.Expr.expr option * t option;
+  | Bind_like of {
+      precursor : Lookup_key.t;
+      next : int -> Lookup_key.t -> Z3.Expr.expr option * Lookup_key.t option;
       bounded : bool;
     }
-  | ChainDirect of {
-      pub : Lookup_key.t;
-      next : int -> Lookup_key.t -> Z3.Expr.expr option * t option;
-      bounded : bool;
-    }
-  | ChainOrList of {
-      pub : Lookup_key.t;
+  | Bind_list_like of {
+      precursor : Lookup_key.t;
       next :
         int -> Lookup_key.t -> Z3.Expr.expr option * Lookup_key.t list option;
       bounded : bool;
     }
   (* Fun Enter Local | Fun Enter Nonlocal | Cond Btm *)
-  | Or_list of { elements : t list; bounded : bool }
+  | Join of {
+      elements :
+        (Lookup_key.t
+        * (int -> Lookup_key.t -> Z3.Expr.expr option * Lookup_key.t option)
+        * bool)
+        list;
+      bounded : bool;
+    }
 (* We don't need a vanilla bind here because we don't need a general callback.
    If we directly notify the expected handler on pub's result to the sub, don't use this.
    If we use the pub's result to generate your edge, the function in record only needs
@@ -62,14 +64,14 @@ type t =
    infinitive list cannot be applied before calling the SMT solver.
 *)
 
-let chain_then_direct pre source =
+let chain_then_direct precursor source =
   let next _ _r =
     (* cond_top *)
     (* true *)
     (* if Riddler.eager_check S.state S.config key_x2
          [ Riddler.(eqz key_x2 (bool_ choice)) ] *)
-    (None, Some (Direct { pub = source }))
+    (None, Some source)
   in
-  Chain { pub = pre; next; bounded = true }
+  Bind_like { precursor; next; bounded = true }
 
 let listen_but_use source value = Map { pub = source; map = Fn.const value }

@@ -112,22 +112,22 @@ module type Low_level = sig
   val reset : t -> unit
   val create_key : t -> ?task:(unit -> unit) -> key -> unit
   val get_stream : t -> key -> message Lwt_stream.t
-  val set_creation : detail -> unit
   val get_status : t -> key -> N.t
   val set_pre_push : t -> key -> (message -> message option) -> unit
-  val push_msg_by_key : t -> key -> message -> unit
-  val push_msg : t -> detail -> message -> unit
+  val push_msg : t -> key -> message -> unit
   val get_push : detail -> message -> unit
   val close : t -> key -> unit
   val messages_sent : t -> key -> message list
   val msg_queue : unit Lwt.t list ref
+  val dump : t -> unit
+  val stream_of_key : t -> key -> message Lwt_stream.t
+
+  (* detail related *)
   val add_detail : t -> key -> detail
   val find_detail : t -> key -> detail
-  val dump : t -> unit
-
-  (* stream related function *)
+  val set_creation : detail -> unit
   val stream_of_detail : detail -> message Lwt_stream.t
-  val stream_of_key : t -> key -> message Lwt_stream.t
+  (* val push_msg : t -> detail -> message -> unit *)
 end
 
 module type User_level = sig
@@ -144,14 +144,12 @@ module type User_level = sig
   (* custom, as output *)
   type 'a act
 
-  val push_state : t -> key -> N.t -> unit
   val get_payload_stream : t -> key -> payload Lwt_stream.t
   val get_payloads : t -> key -> payload list Lwt.t
   val get_available_payloads : t -> key -> payload list
   val set_pre_push_payload : t -> key -> (payload -> payload option) -> unit
   val push : t -> key -> payload option -> unit
-  val bind_like_list : t -> pipe -> key -> (payload -> pipe list) -> pipe act
-
+  val set_status : t -> key -> N.t -> unit
   (* iter doesn't create a new strean *)
 
   val iter : t -> pipe -> (payload -> unit) -> unit act
@@ -169,7 +167,8 @@ module type U = sig
        and type pipe := key
        and type 'a act = unit
 
-  val set : t -> message Lwt_stream.t -> key -> unit
+  (* TODO: use array syntax? *)
+  val set : t -> key -> message Lwt_stream.t -> unit
   val map : t -> key -> (payload -> payload) -> message Lwt_stream.t
   val id : t -> key -> message Lwt_stream.t
 
@@ -197,6 +196,7 @@ module type U = sig
   (* val bind : t -> pipe -> key -> (payload -> pipe) -> pipe act *)
   val bind_like : t -> key -> (payload -> key option) -> message Lwt_stream.t
   val on : t -> key -> N.t -> key -> message Lwt_stream.t
+  val bind_like_list : t -> key -> (payload -> key list) -> message Lwt_stream.t
 end
 
 module type Top_sigs = sig
