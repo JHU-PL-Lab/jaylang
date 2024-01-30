@@ -2,7 +2,7 @@ x = input;
 one = 1;
 two = 2;
 r = {a = one, b = two};
-c = r ~ {a};
+c = r ~ {a, _};
 z = c ? (
       target = 1
     ) : (

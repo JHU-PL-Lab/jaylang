@@ -4,16 +4,17 @@ open Riddler
 open SuduZ3
 open Log.Export
 
+let flush_staging_phis (state : Global_state.t) =
+  Z3.Solver.add state.solve.solver state.solve.phis_staging ;
+  Global_state.clear_phis state
+
 let log_phis ?(prompt = "") phis =
   SLog.debug (fun m ->
       m "%s:@?@\n@[<v>%a@]" prompt
         Fmt.(list ~sep:cut string)
         (List.map ~f:Z3.Expr.to_string phis))
 
-let log_solver ?(prompt = "") ?is_sat solver =
-  (match is_sat with
-  | Some is_sat -> SLog.info (fun m -> m "UNSAT")
-  | None -> ()) ;
+let log_solver ?(prompt = "") solver =
   SLog.debug (fun m ->
       m "Solver Phis %s (%d) : %s" prompt
         (Solver.get_assertion_count solver)
@@ -22,12 +23,25 @@ let log_solver ?(prompt = "") ?is_sat solver =
 let log_model model =
   SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
 
-let check_and_log ?(verbose = true) solver phis phi_used_once =
-  if verbose
-  then (
-    log_phis ~prompt:"Used-once Phis" phi_used_once ;
-    log_solver solver) ;
-  Solver.check ~verbose solver phis phi_used_once
+let check_and_log ?(verbose = true) ?(is_debug = true) solver phi_used_once =
+  let check_result = Solver.check ~verbose solver [] phi_used_once in
+  let log_phis_here () =
+    if verbose
+    then (
+      log_phis ~prompt:"Used-once Phis" phi_used_once ;
+      log_solver solver)
+  in
+  (match check_result with
+  | Result.Ok model ->
+      SLog.debug (fun m -> m "SAT") ;
+      log_phis_here () ;
+      if is_debug
+      then SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
+  | Result.Error _exps ->
+      SLog.debug (fun m -> m "UNSAT") ;
+      log_phis_here ()) ;
+
+  check_result
 
 let close_smt_list smt_list =
   Hashtbl.to_alist smt_list
@@ -63,26 +77,22 @@ let phi_fix (state : Global_state.t) =
   let list_fix = close_smt_list state.solve.smt_lists in
   unfinish_lookup @ [ picked state.info.key_target ] @ list_fix
 
-let eager_check (state : Global_state.t) (config : Global_config.t) c assumption
-    =
-  SLog.debug (fun m -> m "Eager check") ;
-  let phi_used_once = eager_phi_fix state c @ assumption in
-  let solver_result =
-    check_and_log state.solve.solver state.solve.phis_staging phi_used_once
-  in
-  Global_state.clear_phis state ;
-  match solver_result with
-  | Result.Ok _model -> true
-  | Result.Error _exps -> false
+(* let eager_check (state : Global_state.t) (config : Global_config.t) c assumption
+     =
+   SLog.debug (fun m -> m "Eager check") ;
+   flush_staging_phis state;
+   let phi_used_once = eager_phi_fix state c @ assumption in
+   let solver_result =
+     check_and_log state.solve.solver phi_used_once
+   in
+   match solver_result with
+   | Result.Ok _model -> true
+   | Result.Error _exps -> false *)
 
 let check_incremental (state : Global_state.t) (config : Global_config.t) :
     (Z3.Model.model, 'a option) result =
   let phi_used_once = phi_fix state in
-  let solver_result =
-    check_and_log ~verbose:config.debug_model state.solve.solver
-      state.solve.phis_staging phi_used_once
-  in
-  solver_result
+  check_and_log ~verbose:config.debug_model state.solve.solver phi_used_once
 
 let simplify_phis () = ()
 
@@ -117,13 +127,8 @@ let check_shrink (state : Global_state.t) (config : Global_config.t) :
           m "%a @@ %a's " Lookup_key.pp key Lookup_status.pp_short detail.status) ;
       log_phis ~prompt:"phis = \n" phis_all ;
       state.solve.phis_staging <- phis_all @ state.solve.phis_staging) ;
-  let check_result =
-    check_and_log ~verbose:config.debug_model state.solve.solver
-      state.solve.phis_staging phi_used_once
-  in
-  log_solver ~prompt:"Two (used once)" state.solve.solver ;
-
-  check_result
+  flush_staging_phis state ;
+  check_and_log ~verbose:config.debug_model state.solve.solver phi_used_once
 
 let assert_equal_result r1 r2 =
   match (r1, r2) with
@@ -157,6 +162,7 @@ let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
 let check (state : Global_state.t) (config : Global_config.t) :
     result_info option =
   LLog.info (fun m -> m "Search Tree Size:\t%d" state.search.tree_size) ;
+  flush_staging_phis state ;
   let solver_result =
     match config.encode_policy with
     | Only_incremental -> check_incremental state config
@@ -166,7 +172,6 @@ let check (state : Global_state.t) (config : Global_config.t) :
         assert_equal_result solver_result another_result ;
         another_result
   in
-  Global_state.clear_phis state ;
   exactract_solver_result state config solver_result
 
 let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
@@ -196,23 +201,19 @@ let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
 
 (* `check_phis` are used in ddse and dbmc-debug *)
 let check_phis solver phis is_debug : result_info option =
-  match check_and_log solver [] phis with
+  match check_and_log solver phis with
   | Result.Ok model ->
-      SLog.app (fun m -> m "SAT") ;
       if is_debug
-      then (
+      then
         SLog.debug (fun m ->
             m "Phis: %a"
               Fmt.(Dump.list string)
               (List.map ~f:Z3.Expr.to_string phis)) ;
-        SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))) ;
       let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
       let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
       print_endline @@ Concrete_stack.show c_stk ;
       Some { model; c_stk }
-  | Result.Error _exps ->
-      SLog.app (fun m -> m "UNSAT") ;
-      None
+  | Result.Error _exps -> None
 
 (* let step_eager_check (state : Global_state.t) (config : Global_config.t) target
      assumption stride =

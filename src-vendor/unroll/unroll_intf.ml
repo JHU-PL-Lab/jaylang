@@ -1,4 +1,44 @@
 open Core
+open Messages
+
+(*
+   OB1: a stream is obviously compositional. Is a named stream compositional? It should be,
+   however,
+
+   OB2: named operation for `t` includes `get: name -> t` and `set: name -> t -> ()`.
+   We can fuse `get` into the exisiting `t` but we may not fuse `set` into it.
+
+   OB3: a compositional thing should have a compositional type.
+
+   OB4:
+   Now the remaining question is when we get a stream and apply a function, shall we apply 
+   an `f_payload` or an `f_message`, especially the `f` is done in multiple steps e.g.
+
+   let s3 = bind_like s1 (fun v -> s2) in
+   set s3 k3
+
+   OB5:
+   there is some invariant e.g.
+
+   set s k := iter s (push k)
+   map s f1 |> iter f2 == iter s (f1 . f2)
+
+   which may hint we just need 
+
+   OB6:
+   user specifies a function on payload `f_payload`
+   specific pipes are in charge of control messages
+
+   pipe receives control messages from its source and only send message on its own status, which means
+   the above iter (in `set`) is a special set.
+
+   e.g.
+   s1 --map-f-> s2 
+                  \
+                   s5
+                  /
+   s3 --map-f-> s4
+*)
 
 (* The library has an invariant that the stream with a key can only be create once
     What if a duplicate key is created? As a general case, it may be configurable, but in this library,
@@ -36,38 +76,31 @@ open Core
    It's more straightforward but however
 *)
 
-(* Ingredient *)
+(* Any of these User_level functions has a motivation, to create a stream with a key
+   e.g. unlike the normal
+   fmap : 'a t -> ('a -> 'b) -> 'b t
+     instead we have
+   map : pipe -> key -> ('a -> 'b) -> pipe
+     where `pipe` can be a fixed `_ t` but the key will points to the returning `pipe`
+   since key can point to that, it's also ok to return `unit` therefore it can look like
+   map : pipe -> key -> ('a -> 'b) -> ()
 
-(*
-    The design rationale is the stream is to provide two-folded APIs on messages and payloads.
+   Applying the same idea on `bind` where the normal bind is
+   bind : 'a t -> ('a -> 'b t) -> 'b t
+   we should have
+   bind : pipe -> ('a -> pipe) -> pipe
 
-    The streams are based on messages. If Via_message module is used, all the API for users
-    are based on messages, you are free to be custumized at each API calls.
-
-    If Via_payload is used, all the API are based are based on payload, so at the module creation
-    size, you are responsible to handle non-payload (a.k.a control) messages uniformaly, and
-    you can only work on payload at each API calls.
-
-    It's less intersting to make a dummy payload that is only a message. In this case, you can
-    just use Via_message.
+   the key binding is the second step to deal with the pipe, the essential idea here is to
+   lisiten to the first pipe, deriving other new pipes and other join the results of the other
+   pipes
 *)
 
-module type M_sig = sig
-  type message
-  type payload
-
-  val equal_message : message -> message -> bool
-
-  (* val equal_payload : payload -> payload -> bool *)
-  val inj : payload -> message
-  val prj_opt : message -> payload option
-end
-
-module type P_sig = sig
-  type payload
-
-  val equal_payload : payload -> payload -> bool
-end
+(* val bind0_pipe :
+   t ->
+   ?sp:'b Lwt_stream.t * ('b option -> unit) ->
+   'a Lwt_stream.t ->
+   ('a -> 'b Lwt_stream.t option) ->
+   'b Lwt_stream.t *)
 
 module type Low_level = sig
   type t
@@ -79,15 +112,22 @@ module type Low_level = sig
   val reset : t -> unit
   val create_key : t -> ?task:(unit -> unit) -> key -> unit
   val get_stream : t -> key -> message Lwt_stream.t
-  val set_pre_push : t -> key -> (message -> message option) -> unit
-  val push_msg_by_key : t -> key -> message -> unit
-  val push_msg : t -> detail -> message -> unit
+  val get_status : t -> key -> N.t
+  val set_pre_push : t -> key -> (key -> message -> message option) -> unit
+  val push_msg : t -> key -> message -> unit
+  val get_push : key -> detail -> message -> unit
   val close : t -> key -> unit
   val messages_sent : t -> key -> message list
   val msg_queue : unit Lwt.t list ref
+  val dump : t -> unit
+  val stream_of_key : t -> key -> message Lwt_stream.t
+
+  (* detail related *)
   val add_detail : t -> key -> detail
   val find_detail : t -> key -> detail
+  val set_creation : detail -> unit
   val stream_of_detail : detail -> message Lwt_stream.t
+  (* val push_msg : t -> detail -> message -> unit *)
 end
 
 module type User_level = sig
@@ -105,27 +145,14 @@ module type User_level = sig
   type 'a act
 
   val get_payload_stream : t -> key -> payload Lwt_stream.t
+  val get_payloads : t -> key -> payload list Lwt.t
+  val get_available_payloads : t -> key -> payload list
+
+  val set_pre_push_payload :
+    t -> key -> (key -> payload -> payload option) -> unit
+
   val push : t -> key -> payload option -> unit
-
-  (* create; only immediate pipe can be created *)
-  val one_shot : t -> key -> payload list -> pipe act
-  val id : t -> pipe -> key -> pipe act
-  val map : t -> pipe -> key -> (payload -> payload) -> pipe act
-  val filter_map : t -> pipe -> key -> (payload -> payload option) -> pipe act
-  (* val filter : u -> t -> key -> (payload -> bool) -> t act *)
-
-  val map2 :
-    t -> pipe -> pipe -> key -> (payload * payload -> payload) -> pipe act
-
-  val filter_map2 :
-    t ->
-    pipe ->
-    pipe ->
-    key ->
-    (payload * payload -> payload option) ->
-    pipe act
-
-  val join : t -> pipe list -> key -> pipe act
+  val set_status : t -> key -> N.t -> unit
   (* iter doesn't create a new strean *)
 
   val iter : t -> pipe -> (payload -> unit) -> unit act
@@ -135,34 +162,56 @@ end
 
 module type U = sig
   include Low_level
-  include User_level with type t := t and type key := key
-end
 
-module type U_bg = U with type 'a act = unit
+  include
+    User_level
+      with type t := t
+       and type key := key
+       and type pipe := key
+       and type 'a act = unit
 
-module type U_payload = sig
-  include U
-  module Bg : U_bg with type key = key and type payload = payload
+  (* TODO: use array syntax? *)
+  val set : t -> key -> message Lwt_stream.t -> unit
+  val map : t -> key -> (payload -> payload) -> message Lwt_stream.t
+  val id : t -> key -> message Lwt_stream.t
+
+  val filter_map :
+    t -> key -> (payload -> payload option) -> message Lwt_stream.t
+  (* val filter : u -> t -> key -> (payload -> bool) -> t act *)
+
+  val map2 :
+    t -> key -> key -> (payload * payload -> payload) -> message Lwt_stream.t
+
+  val filter_map2 :
+    t ->
+    key ->
+    key ->
+    (payload * payload -> payload option) ->
+    message Lwt_stream.t
+
+  val join : t -> key list -> message Lwt_stream.t
+
+  val joini :
+    t -> key list -> (int * payload -> payload) -> message Lwt_stream.t
+
+  val one_shot : t -> payload list -> message Lwt_stream.t
+
+  (* val bind : t -> pipe -> key -> (payload -> pipe) -> pipe act *)
+  val bind_like : t -> key -> (payload -> key option) -> message Lwt_stream.t
+  val on : t -> key -> N.t -> key -> message Lwt_stream.t
+  val bind_like_list : t -> key -> (payload -> key list) -> message Lwt_stream.t
 end
 
 module type Top_sigs = sig
-  module Make_payload (Key : Base.Hashtbl.Key.S) (P : P_sig) :
-    U_payload
-      with type key = Key.t
-       and type payload = P.payload
-       and type message = P.payload
-       and type 'a act = 'a Lwt.t
-
-  module Make_use_key (Key : Base.Hashtbl.Key.S) (P : P_sig) :
-    U_bg
+  module Make_just_payload (Key : Base.Hashtbl.Key.S) (P : P_sig) :
+    U
       with type key = Key.t
        and type message = P.payload
        and type payload = P.payload
-       and type pipe = Key.t
 
   module Make_dummy_control (Key : Base.Hashtbl.Key.S) (P : P_sig) :
-    U_payload
-      with type key = Key.t
-       and type payload = P.payload
-       and type 'a act = 'a Lwt.t
+    U with type key = Key.t and type payload = P.payload
+
+  module Make_stateful (Key : Base.Hashtbl.Key.S) (P : P_sig) :
+    U with type key = Key.t and type payload = P.payload
 end

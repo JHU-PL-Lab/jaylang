@@ -62,5 +62,6 @@ rule token = parse
   | "<"                              { LESS }
   | "<="                             { LESS_EQUAL }
   | "=="                             { EQUAL_EQUAL }
+  | "<>"                             { NOT_EQUAL }
   | ident_start ident_cont* as s     { IDENTIFIER s }
   | ";;"                             { DOUBLE_SEMICOLON }

@@ -169,6 +169,10 @@ let if_pattern term pat =
 *)
 
 let pattern x x' key_rv rv pat =
+  LS2Log.debug (fun m ->
+      m "pattern %a = %a (<-%a = %a) ~ %a@." Lookup_key.pp x Lookup_key.pp x'
+        Lookup_key.pp key_rv Jayil.Pp.clause_body rv Jayil.Pp.pattern pat) ;
+
   let value_matched = Jayil.Ast.pattern_match pat rv in
   let matching_result =
     match value_matched with Some b -> [ Z (x, bool_ b) ] | None -> []

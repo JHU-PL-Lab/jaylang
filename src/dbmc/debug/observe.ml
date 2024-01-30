@@ -95,7 +95,7 @@ let dump_lookup_details (state : Global_state.t) =
               m "%a"
                 (Fmt.vbox @@ pp_key_with_detail state.search.lookup_detail_map)
                 (key, td)) ;
-          let msg_s = Unrolls.U_dbmc.get_stream unroll key in
+          let msg_s = Unrolls.U_dbmc.get_payload_stream unroll key in
           let msg_lst = Lwt_stream.get_available msg_s in
           CMLog.app (fun m ->
               m "--v[%d]: %a" (List.length td.domain)

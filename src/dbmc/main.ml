@@ -94,8 +94,6 @@ let handle_found (config : Global_config.t) (state : Global_state.t) model c_stk
 
 let handle_not_found (config : Global_config.t) (state : Global_state.t)
     is_timeout : result_no_state =
-  if config.debug_model then Checker.log_solver ~is_sat:false state.solve.solver ;
-
   Observe.handle_both config state None ;
   ([], is_timeout, None)
 
@@ -190,7 +188,7 @@ let main_commandline () =
 
     let config =
       if config.expected_from_file
-      then Global_config.load_expect config
+      then Global_config.load_one_expect config
       else config
     in
 

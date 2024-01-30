@@ -1,23 +1,32 @@
-let is_lst_nil lst = 
-  match lst with
-  | {___empty = x, _} -> true
+let is_nil l = 
+  match l with
+  | [] -> true
   | _ -> false
   end
 in
-let rec eq_list lst1 lst2 = 
-  let c1 = is_lst_nil lst1 in
-  let c2 = is_lst_nil lst1 in
-  if c1 and c2 then
-    true
-  else
-    if lst1.___head <> lst2.___head then
-      false
-    else
-      eq_list lst1.___tail lst2.___tail
+let hd l = 
+  match l with
+  | x :: xs -> x
+  | [] -> (0 0)
+  end
 in
+let tl l = 
+  match l with
+  | x :: xs -> xs
+  | [] -> (0 0)
+  end
+in
+let rec eq_list l1 l2 = 
+  if (is_nil l1) and (is_nil l2) then
+    true
+  else if (hd l1 == hd l2) then
+    eq_list (tl l1) (tl l2)
+  else
+    false
+  in
 let s1 = [1] in
-let s2 = [2, 3] in
 let x = input in
+let s2 = [2,x] in
 if eq_list s1 s2 then
   0
 else

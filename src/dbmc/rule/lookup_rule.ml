@@ -54,7 +54,7 @@ let promote_result (target : Lookup_key.t) map (detail : Lookup_detail.t)
     new_status (v : Lookup_key.t) =
   match change_status detail.status new_status with
   | Some Complete ->
-      (* set_status detail Complete ; *)
+      (* detail Complete ; *)
       Some Lookup_result.(from_as v Complete)
   | Some Fail ->
       (* set_status detail Fail ; *)
@@ -62,6 +62,48 @@ let promote_result (target : Lookup_key.t) map (detail : Lookup_detail.t)
   | Some Good -> Some Lookup_result.(from_as v Good)
   | None -> None
 
+module N = Unroll.Naive_state_machine
+
+type stream_result =
+  | Real_stream of U.message Lwt_stream.t * Lookup_key.t list
+  | Just_status of N.t
+
+let join_result srcs =
+  let streams =
+    List.map srcs ~f:(function
+      | Real_stream (s, deps) -> s
+      | Just_status _ -> failwith "not here")
+  in
+  let deps =
+    List.map srcs ~f:(function
+      | Real_stream (s, deps) -> deps
+      | Just_status _ -> failwith "not here")
+    |> List.join
+  in
+  (streams, deps)
+
+(* TODO:
+   sub_preconds is used to prioritize tasks, which can be removed.
+   sub_lookups is used to complete constraints, which should be kept;
+   however, sublookup is obvious a dependency, which should be able to be tracked inside
+   unroll (not here)
+
+   what is sublookup after all, saying we have
+
+   A <- bind B (Bv_i -> C_i)
+   C_i <- on D E
+
+   A depends on B, C_i, D, E; or to say
+   A's completion depends on the completion of all B, C_i, D, E.
+
+   However, the constaints may also depend on some of the lookup
+   e.g. in Fun_enter and Fun_exit, when the lookup is complete,
+   the encoding can change from the template getting from the analysis from
+   the template getting from the actual possible values.
+
+   However, in this sense, we don't need to track the sub_lookup any way,
+   we can directly ask for a key's possible values in domains.
+*)
 let run_action dispatch unroll (state : Global_state.t)
     (detail : Lookup_detail.t) target source =
   let open Rule_action in
@@ -69,123 +111,165 @@ let run_action dispatch unroll (state : Global_state.t)
   let set_status = set_status detail in
   let set_status_gen_phi = set_status_gen_phi detail in
   let add_to_domain v = detail.domain <- detail.domain @ [ v ] in
-  let add_sub_preconds cond =
-    detail.sub_preconds <- detail.sub_preconds @ [ cond ]
-  in
-  let add_sublookup pre_pair key =
-    detail.sub_lookups <- detail.sub_lookups @ [ (pre_pair, key) ]
-  in
+  (* let add_sub_preconds cond =
+       detail.sub_preconds <- detail.sub_preconds @ [ cond ]
+     in *)
+  (* let add_sublookup pre_pair key =
+       detail.sub_lookups <- detail.sub_lookups @ [ (pre_pair, key) ]
+     in *)
   let promote_result =
     promote_result target state.search.lookup_detail_map detail
   in
-  let rec run ?sub_lookup source =
+
+  let rec stream_of_action source =
     match source with
     | Leaf Fail ->
-        set_status Lookup_status.Fail ;
-        set_status_gen_phi Lookup_status.Fail
-        (* ; U.one_shot unroll target [(Lookup_result.fail target)] *)
+        (* set_status Lookup_status.Fail ;
+           set_status_gen_phi Lookup_status.Fail ; *)
+        (* U.set_status unroll target N.Fail *)
+        Just_status N.Fail
     | Leaf Complete ->
-        set_status Lookup_status.Complete ;
-        set_status_gen_phi Lookup_status.Complete ;
         add_to_domain target ;
-        U.one_shot unroll target [ Lookup_result.complete target ]
+        Real_stream (U.one_shot unroll [ Lookup_result.complete target ], [])
+        (* U.set_status unroll target N.Done *)
+        (* set_status Lookup_status.Complete ;
+             set_status_gen_phi Lookup_status.Complete ; *)
     | Leaf _ -> failwith "incorrect leaf status"
     | Direct e ->
-        (match sub_lookup with
-        | Some pre ->
-            add_sublookup pre e.pub ;
-            U.map unroll e.pub target (fun r ->
-                Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from) ;
-                r)
-        | None ->
-            U.filter_map unroll e.pub target (fun r ->
-                Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from) ;
-                promote_result r.status r.from)) ;
-
-        Log.debug (fun m ->
-            m "[Direct]%a <- %a(%B) @." Lookup_key.pp target Lookup_key.pp e.pub
-              (Option.is_some sub_lookup)) ;
-        dispatch e.pub
+        (* (match sub_lookup with
+           | Some parent -> add_sublookup parent e.pub
+           | None -> ()) ; *)
+        Real_stream
+          ( U.map unroll e.pub (fun r ->
+                add_to_domain r.from ;
+                r),
+            [ e.pub ] )
+    (* The difference between Map and MapSeq is the pre-and-post handler around `f` *)
     | Map e ->
-        U.filter_map unroll e.pub target (fun r ->
+        Real_stream
+          ( U.map unroll e.pub (fun r ->
+                let r' = Lookup_result.good (e.map r.from) in
+                add_to_domain r'.from ;
+                r'),
+            [ e.pub ] )
+    (* U.filter_map unroll e.pub target (fun r ->
             let r' = promote_result r.status (e.map r.from) in
             Option.iter r' ~f:(fun r ->
                 Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from)) ;
-            r') ;
-        dispatch e.pub
+            r') ; *)
     | MapSeq e ->
         Global_state.create_counter state detail target ;
+        (* let f r =
+             let i = Global_state.fetch_counter state target in
+             let r', phis = e.map i r in
+             add_phi (Riddler.list_append target i (Riddler.and_ phis)) ;
+             Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from) ;
+             let r' = promote_result r.status r'.from in
+             Option.iter r' ~f:(fun r ->
+                 Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from)) ;
+             r'
+           in
+           U.filter_map unroll e.pub target f ; *)
         let f r =
           let i = Global_state.fetch_counter state target in
-          let r', phis = e.map i r in
+          let r', phis = e.map r in
+          add_to_domain r'.from ;
           add_phi (Riddler.list_append target i (Riddler.and_ phis)) ;
-          Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from) ;
-          let r' = promote_result r.status r'.from in
-          Option.iter r' ~f:(fun r ->
-              Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from)) ;
+          let r' = Lookup_result.good r'.from in
           r'
         in
-        U.filter_map unroll e.pub target f ;
-        dispatch e.pub
+        Real_stream (U.map unroll e.pub f, [ e.pub ])
     | Both e ->
-        U.filter_map2 unroll e.pub1 e.pub2 target (fun (v1, v2) ->
-            let joined_status = Lookup_status.join v1.status v2.status in
-            Lookup_status.iter_ok joined_status (fun () -> add_to_domain target) ;
-            promote_result joined_status target) ;
-        dispatch e.pub1 ;
-        dispatch e.pub2
-    | Chain e ->
+        Real_stream
+          ( U.map2 unroll e.pub1 e.pub2 (fun (v1, v2) ->
+                Lookup_result.good target),
+            [ e.pub1; e.pub2 ] )
+        (* U.joini unroll [ e.pub1; e.pub2 ] target (fun (_i, vi) ->
+            Lookup_result.good target) ; *)
+    | Bind_like e ->
         if not e.bounded then Global_state.create_counter state detail target ;
-
-        let precond = ref false in
-        add_sub_preconds precond ;
-        let part1_cb key (r : Lookup_result.t) =
-          if Lookup_status.is_complete_or_fail r.status then precond := true ;
-          Lookup_status.iter_ok r.status (fun () ->
-              let i =
-                if not e.bounded
-                then Global_state.fetch_counter state target
-                else 0
-              in
-              let phi_new, action_next = e.next i r.from in
-              (match phi_new with
-              | Some phi_i -> add_phi @@ Riddler.list_append target i phi_i
-              | None ->
-                  if not e.bounded
-                  then add_phi (Riddler.list_append target i Riddler.false_)) ;
-              match action_next with
-              | Some edge -> run ~sub_lookup:(e.pub, r.from) edge
-              | None -> ())
+        (* let precond = ref false in *)
+        (* add_sub_preconds precond ; *)
+        let on_precursor (r : Lookup_result.t) =
+          (* if Lookup_status.is_complete_or_fail r.status then precond := true ; *)
+          let i =
+            if not e.bounded then Global_state.fetch_counter state target else 0
+          in
+          let phi_new, action_next = e.next i r.from in
+          (match phi_new with
+          | Some phi_i -> add_phi @@ Riddler.list_append target i phi_i
+          | None ->
+              if not e.bounded
+              then add_phi (Riddler.list_append target i Riddler.false_)) ;
+          match action_next with
+          | Some key_src ->
+              dispatch key_src ;
+              (* Fmt.pr "Bind(2) %a <- (%a) <= %a" Lookup_key.pp target
+                 Lookup_key.pp e.precursor Lookup_key.pp key_src ; *)
+              Some key_src
+              (* run ~sub_lookup:(e.pub, r.from) edge *)
+              (* stream_of_action ~sub_lookup:(e.pub, r.from) (Direct d) *)
+          | _ -> None
         in
-        U.iter unroll e.pub (part1_cb target) ;
-        dispatch e.pub
-    | Or_list e ->
+        Real_stream
+          (U.bind_like unroll e.precursor on_precursor, [ e.precursor ])
+    | Bind_list_like e ->
         if not e.bounded then Global_state.create_counter state detail target ;
-        List.iter e.elements ~f:(run ?sub_lookup)
-  in
-
-  run source ;
-  let need_pre_push =
-    (not (List.is_empty detail.sub_preconds))
-    || not (List.is_empty detail.sub_lookups)
-  in
-  if need_pre_push
-  then (
-    let pre_push (r : Lookup_result.t) =
-      (* Fmt.pr "[PrePush] %a <- %a;%a@." Lookup_key.pp target Lookup_key.pp r.from
-         Lookup_status.pp_short r.status ; *)
-      if List.for_all detail.sub_preconds ~f:Ref.( ! )
-      then
-        let status' =
-          fold_lookups_status state.search.lookup_detail_map detail.sub_lookups
+        let on_precursor (r : Lookup_result.t) =
+          let i =
+            if not e.bounded then Global_state.fetch_counter state target else 0
+          in
+          let phi_new, action_next = e.next i r.from in
+          (match phi_new with
+          | Some phi_i -> add_phi @@ Riddler.list_append target i phi_i
+          | None ->
+              if not e.bounded
+              then add_phi (Riddler.list_append target i Riddler.false_)) ;
+          match action_next with
+          | Some ds ->
+              List.iter ds ~f:dispatch ;
+              ds
+          | _ -> []
         in
-        promote_result status' r.from
-      else Some r
-    in
-    U.set_pre_push unroll target pre_push ;
-    Log.debug (fun m ->
-        m "[Reg-%B] %a %d@." need_pre_push Lookup_key.pp target
-          (List.length detail.sub_preconds)))
+        Real_stream
+          (U.bind_like_list unroll e.precursor on_precursor, [ e.precursor ])
+    | Join e ->
+        if not e.bounded then Global_state.create_counter state detail target ;
+        let srcs = List.map e.elements ~f:stream_of_action in
+        let streams, deps = join_result srcs in
+        Real_stream (Lwt_stream.choose streams, deps)
+  in
+  (* U.set_pre_push_payload unroll target (fun key p ->
+      Fmt.pr "@.@[<v>(%a <== %a)@]@." Lookup_key.pp key Lookup_result.pp p ;
+      Some p) ; *)
+  (match stream_of_action source with
+  | Real_stream (stream, deps) ->
+      U.set unroll target stream ;
+      List.iter deps ~f:dispatch
+  | Just_status status -> U.set_status unroll target status) ;
+  ()
+(* let need_pre_push =
+     (not (List.is_empty detail.sub_preconds))
+     || not (List.is_empty detail.sub_lookups)
+   in
+   if need_pre_push
+   then (
+     let pre_push (r : Lookup_result.t) =
+       (* Fmt.pr "[PrePush] %a <- %a;%a@." Lookup_key.pp target Lookup_key.pp r.from
+          Lookup_status.pp_short r.status ; *)
+       if List.for_all detail.sub_preconds ~f:Ref.( ! )
+       then
+         let status' =
+           fold_lookups_status state.search.lookup_detail_map detail.sub_lookups
+         in
+         promote_result status' r.from
+       else Some r
+     in
+     (* U.set_pre_push unroll target pre_push ; *)
+     U.set_pre_push_payload unroll target pre_push ;
+     Log.debug (fun m ->
+         m "[Reg-%B] %a %d@." need_pre_push Lookup_key.pp target
+           (List.length detail.sub_preconds))) *)
 
 module type S = sig
   val state : Global_state.t
@@ -213,12 +297,11 @@ module Make (S : S) = struct
               let phi_i =
                 Riddler.(eq_list [ K2 (key, key_l); K (p.r, key_rv) ])
               in
-              let action = Direct { pub = key_l } in
-              (Some phi_i, Some action)
+              (Some phi_i, Some key_l)
           | None -> (None, None))
       | _ -> (None, None)
     in
-    Chain { pub = p.r; next; bounded = false }
+    Bind_like { precursor = p.r; next; bounded = false }
 
   let cond_btm p (key : Lookup_key.t) =
     let ({ x'; rets; _ } : Cond_btm_rule.t) = p in
@@ -229,22 +312,20 @@ module Make (S : S) = struct
       (* if eager_result *)
       if true
       then
-        let elements =
-          List.map rets ~f:(fun (beta, key_ret) -> Direct { pub = key_ret })
-        in
-        (None, Some (Or_list { elements; bounded = true }))
+        let elements = List.map rets ~f:(fun (beta, key_ret) -> key_ret) in
+        (None, Some elements)
       else (None, None)
     in
-    Chain { pub = x'; next; bounded = true }
+    Bind_list_like { precursor = x'; next; bounded = true }
 
   let fun_enter_local_action (p : Fun_enter_local_rule.t) (key : Lookup_key.t) =
     let fid = key.block.id in
     let elements =
       List.map p.callsites_with_stk ~f:(fun (key_f, key_arg) ->
-          let next _ _r = (None, Some (Direct { pub = key_arg })) in
-          Chain { pub = key_f; next; bounded = true })
+          let next _ _r = (None, Some key_arg) in
+          Bind_like { precursor = key_f; next; bounded = true })
     in
-    Or_list { elements; bounded = true }
+    Join { elements; bounded = true }
 
   let fun_enter_nonlocal (p : Fun_enter_nonlocal_rule.t) (key : Lookup_key.t) =
     let elements =
@@ -262,11 +343,11 @@ module Make (S : S) = struct
                     Z (r, z_of_fid fid);
                   ])
             in
-            (Some phi_i, Some (Direct { pub = key_arg }))
+            (Some phi_i, Some key_arg)
           in
-          Chain { pub = key_f; next; bounded = false })
+          Bind_like { precursor = key_f; next; bounded = false })
     in
-    Or_list { elements; bounded = false }
+    Join { elements; bounded = false }
 
   let fun_exit_action (p : Fun_exit_rule.t) (key : Lookup_key.t) =
     let next _ (rf : Lookup_key.t) =
@@ -274,14 +355,14 @@ module Make (S : S) = struct
       if List.mem p.fids fid ~equal:Id.equal
       then
         let key_ret = Lookup_key.get_f_return S.block_map fid key in
-        (None, Some (Direct { pub = key_ret }))
+        (None, Some key_ret)
       else (None, None)
     in
-    Chain { pub = p.xf; next; bounded = true }
+    Bind_like { precursor = p.xf; next; bounded = true }
 
   let pattern_action p (key : Lookup_key.t) =
     let ({ x'; pat; _ } : Pattern_rule.t) = p in
-    let f i (r : Lookup_result.t) =
+    let f (r : Lookup_result.t) =
       let key_rv = r.from in
       let rv = Cfg.clause_body_of_x key_rv.block key_rv.x in
       ( Lookup_result.from_as key r.status,
@@ -303,21 +384,32 @@ module Make (S : S) = struct
         if p.is_in_main
         then (at_main key None, Leaf Complete)
         else (implies key key_first, first_but_drop key)
-    | Assume p -> (invalid key, Leaf Fail)
-    | Assert p -> (invalid key, Leaf Fail)
+    | Assume p ->
+        ( Riddler.imply key [ K2 (key, p.x'); Z (p.x', SuduZ3.bool_ true) ],
+          Leaf Complete )
+    | Assert p ->
+        ( Riddler.imply key [ K2 (key, p.x'); Z (p.x', SuduZ3.bool_ true) ],
+          Leaf Complete )
     | Mismatch -> (invalid key, Leaf Fail)
     | Abort p ->
         if p.is_target
         then (implies key key_first, first_but_drop key)
         else (invalid key, Leaf Fail)
     | Alias p -> (eq_lookup key p.x', Direct { pub = p.x' })
-    | Not p -> (not_lookup key p.x', listen_but_use p.x' key)
+    | Not p -> (not_lookup key p.x', Map { pub = p.x'; map = Fn.const key })
     | Binop p -> (binop key p.bop p.x1 p.x2, Both { pub1 = p.x1; pub2 = p.x2 })
     | Record_start p -> (true_, record_start_action p key)
     | Cond_top p ->
         ( Riddler.imply key
             [ K2 (key, p.x); Z (p.x2, SuduZ3.bool_ p.cond_case_info.choice) ],
-          chain_then_direct p.x2 p.x )
+          (* if Riddler.eager_check S.state S.config key_x2
+             [ Riddler.(eqz key_x2 (bool_ choice)) ] *)
+          Bind_like
+            {
+              precursor = p.x2;
+              next = (fun _ _ -> (None, Some p.x));
+              bounded = true;
+            } )
     | Cond_btm p -> (cond_bottom key p.x' p.rets, cond_btm p key)
     | Fun_enter_local p -> (fun_enter_local key p, fun_enter_local_action p key)
     | Fun_enter_nonlocal p -> (true_, fun_enter_nonlocal p key)
@@ -377,7 +469,6 @@ let complete_phis_of_rule (state : Global_state.t) key
             let detail_arg =
               Hashtbl.find_exn state.search.lookup_detail_map key_arg
             in
-
             [
               K (key_f, key_fv);
               Z (key_f, z_of_fid fid);

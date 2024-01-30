@@ -23,12 +23,15 @@ let t_of_sexp s =
       | Sexp.Atom x -> token_of_string x)
     s
 
-let no_spec = [ Star ]
-let is_no_spec = function [ Star ] -> true | _ -> false
-let any_n n = List.init n ~f:(fun _ -> One)
+let any_input = [ Star ]
+let is_any_input = function [ Star ] -> true | _ -> false
+let unreachable = []
+let is_unreachable = function [] -> true | _ -> false
 
 let next = function
   | Int x :: s -> (Some x, s)
   | One :: s -> (None, s)
   | Star :: [] -> (None, [])
   | _ -> failwith "wrong input_spec"
+
+(* let any_n n = List.init n ~f:(fun _ -> One) *)
