@@ -47,6 +47,7 @@ let safe_transform from_ to_ =
     match (from_, to_) with
     | Initial, Running
     | Initial, Paused
+    | Initial, Fail
     | Running, Paused
     | Paused, Running
     | Running, Done

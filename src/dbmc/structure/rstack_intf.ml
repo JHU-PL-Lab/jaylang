@@ -115,9 +115,9 @@ module TT = struct
     match rstk.node with
     | Empty -> ()
     | Cons { op = Co_pop; prev; frame } ->
-        Fmt.pf oc "-%s;%a" (str_of_frame frame) pp prev
+        Fmt.pf oc "-%s_%a" (str_of_frame frame) pp prev
     | Cons { op = Push; prev; frame } ->
-        Fmt.pf oc "+%s;%a" (str_of_frame frame) pp prev
+        Fmt.pf oc "+%s_%a" (str_of_frame frame) pp prev
 
   let to_string rstk = Fmt.str "@[<hov>%a@]" pp rstk
 

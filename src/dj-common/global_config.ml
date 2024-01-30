@@ -127,12 +127,12 @@ let with_filename filename = { default_config with filename }
 
 let with_expect (expect : Test_expect.one_case) config =
   let config' = { config with target = Id.Ident expect.target } in
-  if Input_spec.is_no_spec expect.inputs
+  if Input_spec.is_any_input expect.inputs
   then config'
   else { config' with mode = Dbmc_check expect.inputs }
 
-let load_expect config =
-  let expect = File_utils.load_expect_d config.filename in
+let load_one_expect config =
+  let expect = File_utils.load_expect_with_default config.filename in
   with_expect (List.hd_exn expect) config
 
 let read_source config =

@@ -120,7 +120,7 @@ let run_action dispatch unroll (state : Global_state.t)
   let promote_result =
     promote_result target state.search.lookup_detail_map detail
   in
-  Fmt.pr "Run_action for %a@." Lookup_key.pp target ;
+
   let rec stream_of_action source =
     match source with
     | Leaf Fail ->
@@ -130,7 +130,6 @@ let run_action dispatch unroll (state : Global_state.t)
         Just_status N.Fail
     | Leaf Complete ->
         add_to_domain target ;
-        Fmt.pr "Leaf %a @." Lookup_key.pp target ;
         Real_stream (U.one_shot unroll [ Lookup_result.complete target ], [])
         (* U.set_status unroll target N.Done *)
         (* set_status Lookup_status.Complete ;
@@ -179,7 +178,6 @@ let run_action dispatch unroll (state : Global_state.t)
           let r' = Lookup_result.good r'.from in
           r'
         in
-        Fmt.pr "MapSeq %a <- %a" Lookup_key.pp target Lookup_key.pp e.pub ;
         Real_stream (U.map unroll e.pub f, [ e.pub ])
     | Both e ->
         Real_stream
@@ -197,7 +195,6 @@ let run_action dispatch unroll (state : Global_state.t)
           let i =
             if not e.bounded then Global_state.fetch_counter state target else 0
           in
-          Fmt.pr "Bind(2) %a <= %a" Lookup_key.pp target Lookup_result.pp r ;
           let phi_new, action_next = e.next i r.from in
           (match phi_new with
           | Some phi_i -> add_phi @@ Riddler.list_append target i phi_i
@@ -207,19 +204,15 @@ let run_action dispatch unroll (state : Global_state.t)
           match action_next with
           | Some key_src ->
               dispatch key_src ;
-              Fmt.pr "Bind(2) %a <- (%a) <- %a" Lookup_key.pp target
-                Lookup_key.pp e.precursor Lookup_key.pp key_src ;
-
+              (* Fmt.pr "Bind(2) %a <- (%a) <= %a" Lookup_key.pp target
+                 Lookup_key.pp e.precursor Lookup_key.pp key_src ; *)
               Some key_src
               (* run ~sub_lookup:(e.pub, r.from) edge *)
               (* stream_of_action ~sub_lookup:(e.pub, r.from) (Direct d) *)
           | _ -> None
         in
-        Fmt.pr "Bind(1) %a <- (%a)" Lookup_key.pp target Lookup_key.pp
-          e.precursor ;
         Real_stream
           (U.bind_like unroll e.precursor on_precursor, [ e.precursor ])
-        (* U.bind_like unroll e.pub target (part1_cb target) ; *)
     | Bind_list_like e ->
         if not e.bounded then Global_state.create_counter state detail target ;
         let on_precursor (r : Lookup_result.t) =
@@ -246,7 +239,9 @@ let run_action dispatch unroll (state : Global_state.t)
         let streams, deps = join_result srcs in
         Real_stream (Lwt_stream.choose streams, deps)
   in
-
+  (* U.set_pre_push_payload unroll target (fun key p ->
+      Fmt.pr "@.@[<v>(%a <== %a)@]@." Lookup_key.pp key Lookup_result.pp p ;
+      Some p) ; *)
   (match stream_of_action source with
   | Real_stream (stream, deps) ->
       U.set unroll target stream ;
@@ -389,8 +384,12 @@ module Make (S : S) = struct
         if p.is_in_main
         then (at_main key None, Leaf Complete)
         else (implies key key_first, first_but_drop key)
-    | Assume p -> (invalid key, Leaf Fail)
-    | Assert p -> (invalid key, Leaf Fail)
+    | Assume p ->
+        ( Riddler.imply key [ K2 (key, p.x'); Z (p.x', SuduZ3.bool_ true) ],
+          Leaf Complete )
+    | Assert p ->
+        ( Riddler.imply key [ K2 (key, p.x'); Z (p.x', SuduZ3.bool_ true) ],
+          Leaf Complete )
     | Mismatch -> (invalid key, Leaf Fail)
     | Abort p ->
         if p.is_target

@@ -113,9 +113,9 @@ module type Low_level = sig
   val create_key : t -> ?task:(unit -> unit) -> key -> unit
   val get_stream : t -> key -> message Lwt_stream.t
   val get_status : t -> key -> N.t
-  val set_pre_push : t -> key -> (message -> message option) -> unit
+  val set_pre_push : t -> key -> (key -> message -> message option) -> unit
   val push_msg : t -> key -> message -> unit
-  val get_push : detail -> message -> unit
+  val get_push : key -> detail -> message -> unit
   val close : t -> key -> unit
   val messages_sent : t -> key -> message list
   val msg_queue : unit Lwt.t list ref
@@ -147,7 +147,10 @@ module type User_level = sig
   val get_payload_stream : t -> key -> payload Lwt_stream.t
   val get_payloads : t -> key -> payload list Lwt.t
   val get_available_payloads : t -> key -> payload list
-  val set_pre_push_payload : t -> key -> (payload -> payload option) -> unit
+
+  val set_pre_push_payload :
+    t -> key -> (key -> payload -> payload option) -> unit
+
   val push : t -> key -> payload option -> unit
   val set_status : t -> key -> N.t -> unit
   (* iter doesn't create a new strean *)

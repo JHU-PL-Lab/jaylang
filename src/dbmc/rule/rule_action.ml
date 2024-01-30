@@ -32,3 +32,14 @@ type t =
     }
   (* Fun Enter Local | Fun Enter Nonlocal | Cond Btm *)
   | Join of { elements : t list; bounded : bool }
+
+let pp oc = function
+  | Leaf status -> Fmt.pf oc "Leaf %a" Lookup_status.pp_short status
+  | Direct a -> Fmt.pf oc "Direct %a" Lookup_key.pp a.pub
+  | Both a -> Fmt.pf oc "Both %a & %a" Lookup_key.pp a.pub1 Lookup_key.pp a.pub2
+  | Map a -> Fmt.pf oc "Map %a" Lookup_key.pp a.pub
+  | MapSeq a -> Fmt.pf oc "MapSeq %a" Lookup_key.pp a.pub
+  | Bind_like a -> Fmt.pf oc "Bind %a then .." Lookup_key.pp a.precursor
+  | Bind_list_like a ->
+      Fmt.pf oc "Bind_list %a then .." Lookup_key.pp a.precursor
+  | Join a -> Fmt.pf oc "Join .."

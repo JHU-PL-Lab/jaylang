@@ -6,7 +6,7 @@ let dummy_name = ""
 
 let perf_one_file (config : Global_config.t) short_name filename =
   let config = { config with filename } in
-  let config = Global_config.load_expect config in
+  let config = Global_config.load_one_expect config in
   let result = Dbmc.Main.main_config config in
   Dbmc.Observe.dump_check_info short_name result.state
 

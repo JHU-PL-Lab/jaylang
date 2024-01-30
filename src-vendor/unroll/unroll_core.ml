@@ -19,7 +19,7 @@ module Low_level (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
     push : message option -> unit;
     stream : message Lwt_stream.t;
     mutable status : N.t;
-    mutable pre_push : message -> message option;
+    mutable pre_push : key -> message -> message option;
     mutable messages : message list;
     is_dedup : bool;
   }
@@ -42,7 +42,7 @@ module Low_level (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
 
   let empty_detail t () =
     let stream, push = Lwt_stream.create () in
-    let pre_push m = Some m in
+    let pre_push _ m = Some m in
     {
       stream;
       push;
@@ -111,7 +111,7 @@ module Low_level (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
      |> bg_magic ;
      stream *)
 
-  let get_push (detail : detail) msg =
+  let get_push key (detail : detail) msg =
     if detail.is_dedup && List.mem detail.messages msg ~equal:M.equal_message
     then ()
     else if (* Note this push is not for the current src-tgt pair.
@@ -125,7 +125,7 @@ module Low_level (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
             || not (N.equal detail.status N.Done)
             (* true *)
     then
-      match detail.pre_push msg with
+      match detail.pre_push key msg with
       | Some msg ->
           detail.push (Some msg) ;
           detail.messages <- detail.messages @ [ msg ]
@@ -136,7 +136,7 @@ module Low_level (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
 
   let push_msg t key =
     let detail = find_detail t key in
-    get_push detail
+    get_push key detail
 
   let close t key =
     let detail = find_detail t key in
@@ -151,7 +151,7 @@ module Low_level (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
   let dump t = Fmt.pr "len=%d@." (Hashtbl.length t.map)
 
   (* detail related *)
-  let _push_msg _t detail msg = get_push detail msg
+  (* let _push_msg _t detail msg = get_push detail msg *)
 end
 
 module Make (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
@@ -170,9 +170,9 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
     get_payload_stream u k |> Lwt_stream.get_available
 
   let set_pre_push_payload u k f =
-    let f' p : M.message option =
+    let f' k p : M.message option =
       let p_opt = M.prj_opt p in
-      Option.map p_opt ~f:(fun p -> Option.map (f p) ~f:M.inj) |> Option.join
+      Option.map p_opt ~f:(fun p -> Option.map (f k p) ~f:M.inj) |> Option.join
     in
     L.set_pre_push u k f'
 
@@ -216,6 +216,12 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
     Lwt_stream.iter_s f_here stream_src >|= (fun () -> L.close u dst) |> bg
 
   let one_shot _u vs = List.map vs ~f:M.inj |> Lwt_stream.of_list
+
+  (* let one_shot u dst vs =
+     let pipe_dst = add_detail u dst in
+     List.iter vs ~f:(push_payload u pipe_dst) ;
+     set_status u dst N.Done *)
+
   let map u src f = L.stream_of_key u src |> Lwt_stream.map (M.map_payload f)
 
   let set u dst stream_src =
@@ -327,11 +333,6 @@ module Make (Key : Base.Hashtbl.Key.S) (M : M_sig) = struct
 
   (* let push_payload u pipe p = L.push_msg u pipe (M.inj p) *)
   let set_status _u _ _ = ()
-
-  (* let one_shot u dst vs =
-     let pipe_dst = add_detail u dst in
-     List.iter vs ~f:(push_payload u pipe_dst) ;
-     set_status u dst N.Done *)
 
   (* pipe_dst.push None *)
 

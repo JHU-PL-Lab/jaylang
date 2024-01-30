@@ -83,7 +83,7 @@ let load_expect testpath t_of_sexp =
   then Some (Sexp.load_sexp_conv_exn expect_path t_of_sexp)
   else None
 
-let load_expect_d testpath =
+let load_expect_with_default testpath =
   match load_expect testpath Test_expect.t_of_sexp with
   | Some e -> e
   | None -> [ Test_expect.default ]
