@@ -15,7 +15,7 @@ module Formula_set :
     val empty : t
     val add : t -> Z3.Expr.expr -> t
     val add_multi : t -> Z3.Expr.expr list -> t
-    (* val union : t -> t -> t *) (* only used in V1 *)
+    val union : t -> t -> t (* only used in V1 *)
     val to_list : t -> Z3.Expr.expr list
     val and_ : t -> Z3.Expr.expr
     (* val or_ : t -> Z3.Expr.expr *) (* only used in V1 *)
@@ -39,7 +39,7 @@ module Formula_set :
     let empty = S.empty
     let add = Set.add
     let add_multi (s : t) = List.fold ~init:s ~f:add
-    (* let union = Set.union *)
+    let union = Set.union
     let to_list = Set.to_list
 
     let and_ (fset : t) : Z3_expr.t =
@@ -144,7 +144,8 @@ module Input :
     val none : t
     val add : t -> Lookup_key.t -> Jayil.Ast.value -> t
     val exit_parent : t -> Branch.Runtime.t -> t
-    val merge : t -> t -> t
+    val merge_or : t -> t -> t
+    val merge_and : t -> t -> t
     val to_expr : t -> Z3.Expr.expr
   end
   =
@@ -175,16 +176,24 @@ module Input :
           Riddler.(Branch.Runtime.to_expr parent @=> expr)
       )
 
-    (* TODO: fix this for exiting to global because we selectively have to "and" and "or" depending on if we are concluding the run. *)
-    (* We can't just "or" every time because that should only be for different inputs within the same run. *)
-    (* What needs to happen is that we don't reuse the same formula tracker, but instead we make a new one where
-       the merge between runs is "and", but the merge during runs is "or". *)
-    let merge (x : t) (y : t) : t =
+    (* This is used within a single run because we want only one input to be different,
+       "this input is different *or* that one is different." *)
+    let merge_or (x : t) (y : t) : t =
       match x, y with
       | Some expr, None
       | None, Some expr -> Some expr
       | Some e1, Some e2 -> Some (Solver.SuduZ3.or_ [e1; e2])
       | _ -> None
+
+    (* This is used between runs because we want input formulas from this run *and* the other
+       runs to be satisfied. *)
+    let merge_and (x : t) (y : t) : t =
+      match x, y with
+      | Some expr, None
+      | None, Some expr -> Some expr
+      | Some e1, Some e2 -> Some (Solver.SuduZ3.and_ [e1; e2])
+      | _ -> None
+
 
     let to_expr (x : t) : Z3.Expr.expr =
       match x with
@@ -258,7 +267,7 @@ module Env :
           Pick_formulas.union new_env.pick_formulas
           @@ Pick_formulas.exit_parent exited.pick_formulas exited_branch
         ; input =
-          Input.merge
+          Input.merge_or
             new_env.input
             (Input.exit_parent (exited.input) exited_branch) }
       end
@@ -315,8 +324,6 @@ let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (lef
 let pick_no_repeat_inputs = Riddler.picked_string "no-repeat-inputs"
 let imply_no_repeat_inputs formula = Riddler.(pick_no_repeat_inputs @=> formula)
 
-(* We'd like to not choose this input anymore, so mark it off limits *)
-(* TODO: how does this work for inputs in recursive functions that have different previous inputs? *)
 let add_input ({ stack } : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
   { stack = Env_stack.map_hd stack ~f:(fun e -> Env.add_input e key v) }
 
@@ -340,6 +347,17 @@ let rec exit_until_global (x : t) : t =
   if is_global x
   then x
   else exit_until_global (exit_branch x)
+
+let merge (a : t) (b : t) : t =
+  match a.stack, b.stack with
+  | Last a, Last b -> 
+    { stack = Last
+      { parent = Parent.Global
+      ; formulas = Formula_set.union a.formulas b.formulas
+      ; pick_formulas = Pick_formulas.union a.pick_formulas b.pick_formulas
+      ; input = Input.merge_and a.input b.input }
+    }
+  | _ -> failwith "cannot merge non-global formula trackers"
 
 let input_formula ({ stack } : t) : Z3.Expr.expr =
   match stack with

@@ -37,8 +37,9 @@ val is_global : t -> bool
 val exit_until_global : t -> t
 (** [exit_until_global t] brings [t] back to the global scope. *)
 
-(* val union : t -> t -> t option *)
-(** [union a b] is all info from [a] and [b] if both are global. Otherwise is None. *)
+val merge : t -> t -> t
+(** [merge a b] combines [a] and [b] as if they are from two separate runs of the same program.
+    throws exception if [a] or [b] is not in the global state. *)
 
 val all_formulas : ?allow_repeat_inputs:bool -> t -> target:Branch.t -> aborts:Branch.t list -> max_steps:Branch.t list -> Z3.Expr.expr list
 (** [all_formulas t target aborts max_steps] is all formulas in [t] that are known to solve for the [target] AST

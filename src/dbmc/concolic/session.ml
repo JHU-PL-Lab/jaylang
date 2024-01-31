@@ -240,7 +240,7 @@ and solve_for_target (target : Branch.t) (session : t) : [ `Done of t | `Next of
     next { session with branch_tracker = Branch_tracker.set_status session.branch_tracker target new_status }
   | `Solved model ->
     `Next ({ session with run_num = session.run_num + 1 }
-          , Concolic.create ~target ~formula_tracker:session.formula_tracker
+          , Concolic.create ~target ~formula_tracker:Formula_tracker.empty
           , Eval.create (Concolic_feeder.from_model model) session.global_max_step )
     |> Lwt.return
 
@@ -252,7 +252,7 @@ let print ({ branch_tracker ; _ } : t) : unit =
 
 let accum_concolic (session : t) (concolic : Concolic.t) : t =
   { session with
-    formula_tracker = concolic.formula_tracker (* completely overwrite because we passed it in earlier to make the concolic session *)
+    formula_tracker = Formula_tracker.merge session.formula_tracker concolic.formula_tracker
   ; branch_tracker = Branch_tracker.collect_runtime session.branch_tracker concolic.branch_tracker concolic.input
   ; has_hit_exit = session.has_hit_exit || concolic.has_hit_exit
   ; is_done = List.is_empty concolic.input || (session.quit_on_first_abort && concolic.has_hit_abort) }
