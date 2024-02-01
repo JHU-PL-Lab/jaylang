@@ -232,3 +232,41 @@ Updates:
 * I have a **very** hacky timeout system, and I don't know Lwt well, but it sort of works
 * I still add formulas from exited runs (e.g. max step, abort, etc.) but they can't ever imply "unsatisfiable" branches
   * I would like to selectively add them and be more sophisticated to still let some branches be called unsatisfiable
+
+### 2 Feb 2024 -- Weekly PL Meeting
+
+**Sharing the concolic evaluator**
+
+* What is the concolic evaluator
+  * It is an interpreter that collects concrete formulas from runtime variables, and it leaves input variables as abstract
+  * It runs over Jayil files converted from Bluejay programs
+* Purpose
+  * To help with typing of Bluejay, and here's how:
+  * The goal is to run the interpreter such that every line of code gets hit, specifically targeting aborts
+  * Between runs, it solves for input variables that hit other lines while satisfying the concrete formulas
+  * It should be fast to quickly hit as many lines as possible
+  * If the concolic evaluator can find an input that leads to an abort in the Jayil program, it refutes that the Bluejay program was well-typed
+* Comparison with other approaches
+  * It is a forward analysis
+  * It uses concrete runs instead of purely abstract formulas
+  * It allows for random input variables instead of formulas purely from non-input variables
+* Expected behavior
+  * Goals:
+    * It hits every line of satisfiable code and correctly finds the unsatisfiable lines
+    * The next best thing is it always finds an abort if it is possible to hit one
+  * In practice, it either quickly finds an abort, or it times out because there are none, and the program is too large to quickly hit all satisfiable lines
+* What counts as success
+  * If the Bluejay program is well-typed:
+    * The evaluator finishes with a set of formulas that show all aborts are unsatisfiable, OR
+    * The evaluator times out without hitting an abort
+  * If the Bluejay program is not well-typed:
+    * It hits an abort
+* What is a failure:
+  * If the Bluejay program is well-typed:
+    * We count everything as a success
+  * If the Bluejay program is not well-typed:
+    * The evaluator times out (because the program is too large or loops too long)
+* Open challenges:
+  * Handle reaching max step in the interpretation. The choices are:
+    * Quit and forget all formulas (but then we might be likely to hit max step immediately again because we learned nothing), OR
+    * Quit but keep the formulas, recognizing that they can lead to incorrect solves (but then the solver is clogged up with formulas that take a long time to satisfy because there are so many after such a long run of the interpreter) OR

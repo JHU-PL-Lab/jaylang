@@ -23,7 +23,7 @@ module Debug =
     let debug_update_read_node session x stk =
       let open Session.Eval in
       match (session.is_debug, session.mode) with
-      | true, Session.Mode.With_full_target (_, target_stk) ->
+      | true, Session.Eval.Mode.With_full_target (_, target_stk) ->
           let r_stk = Rstack.relativize target_stk stk in
           let block = Cfg.(find_reachable_block x session.block_map) in
           let key = Lookup_key.of3 x r_stk block in
@@ -37,7 +37,7 @@ module Debug =
     let debug_update_write_node session x stk =
       let open Session.Eval in
       match (session.is_debug, session.mode) with
-      | true, Session.Mode.With_full_target (_, target_stk) ->
+      | true, Session.Eval.Mode.With_full_target (_, target_stk) ->
           let r_stk = Rstack.relativize target_stk stk in
           let block = Cfg.(find_reachable_block x session.block_map) in
           let key = Lookup_key.of3 x r_stk block in
@@ -51,7 +51,7 @@ module Debug =
     let debug_stack session x stk (v, _) =
       let open Session.Eval in
       match (session.is_debug, session.mode) with
-      | true, Session.Mode.With_full_target (_, target_stk) ->
+      | true, Session.Eval.Mode.With_full_target (_, target_stk) ->
           let rstk = Rstack.relativize target_stk stk in
           Fmt.pr "@[%a = %a\t\t R = %a@]\n" Id.pp x Dvalue.pp v Rstack.pp rstk
       | _, _ -> ()
@@ -59,21 +59,21 @@ module Debug =
     let raise_if_with_stack session x stk v =
       let open Session.Eval in
       match session.mode with
-      | Session.Mode.With_full_target (target_x, target_stk) when Ident.equal target_x x ->
+      | Session.Eval.Mode.With_full_target (target_x, target_stk) when Ident.equal target_x x ->
           if Concrete_stack.equal_flip target_stk stk
           then raise (Found_target { x; stk; v })
           else
             Fmt.(
               pr "found %a at stack %a, expect %a\n" pp_ident x Concrete_stack.pp
                 target_stk Concrete_stack.pp stk)
-      | Session.Mode.With_target_x target_x when Ident.equal target_x x ->
+      | Session.Eval.Mode.With_target_x target_x when Ident.equal target_x x ->
           raise (Found_target { x; stk; v })
       | _ -> ()
 
     let alert_lookup session x stk =
       let open Session.Eval in
       match session.mode with
-      | Session.Mode.With_full_target (_, target_stk) ->
+      | Session.Eval.Mode.With_full_target (_, target_stk) ->
           let r_stk = Rstack.relativize target_stk stk in
           let block = Cfg.(find_reachable_block x session.block_map) in
           let key = Lookup_key.of3 x r_stk block in
@@ -95,8 +95,8 @@ module Debug =
       ILog.app (fun m -> m "@[%a = %a@]" Id.pp x Dvalue.pp v) ;
 
       (match eval_session.debug_mode with
-      | Session.Mode.Debug.Debug_clause clause_cb -> clause_cb x stk (Dvalue.value_of_t v)
-      | Session.Mode.Debug.No_debug -> ()) ;
+      | Session.Eval.Mode.Debug.Debug_clause clause_cb -> clause_cb x stk (Dvalue.value_of_t v)
+      | Session.Eval.Mode.Debug.No_debug -> ()) ;
 
       raise_if_with_stack eval_session x stk v ;
       debug_stack eval_session x stk (v, stk) ;

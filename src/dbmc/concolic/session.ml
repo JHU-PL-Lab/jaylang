@@ -2,26 +2,27 @@ open Core
 open Dj_common
 open Jayil.Ast
 
-module Mode =
-  struct
-    type t =
-      | Plain
-      | With_target_x of Id.t
-      | With_full_target of Id.t * Concrete_stack.t
-
-    module Debug =
-      struct
-        type t = No_debug | Debug_clause of (Id.t -> Concrete_stack.t -> value -> unit)
-      end
-  end
-
-module G = Graph.Imperative.Digraph.ConcreteBidirectional (Id_with_stack)
 
 (*
   Mutable record that tracks a run through the evaluation. aka "interpreter session"
 *)
 module Eval =
   struct
+    module Mode =
+      struct
+        type t =
+          | Plain
+          | With_target_x of Id.t
+          | With_full_target of Id.t * Concrete_stack.t
+
+        module Debug =
+          struct
+            type t = No_debug | Debug_clause of (Id.t -> Concrete_stack.t -> value -> unit)
+          end
+      end
+
+    module G = Graph.Imperative.Digraph.ConcreteBidirectional (Id_with_stack)
+
     type t =
       { (* mode *)
         input_feeder    : Input_feeder.t

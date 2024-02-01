@@ -2,26 +2,6 @@ open Core
 open Dj_common
 open Jayil.Ast
 
-module Mode :
-  sig
-    type t =
-      | Plain
-      | With_target_x of Id.t
-      | With_full_target of Id.t * Concrete_stack.t
-
-    module Debug :
-      sig
-        type t =
-          | No_debug
-          | Debug_clause of (Id.t -> Concrete_stack.t -> value -> unit)
-      end
-  end
-
-module G : (* = Graph.Imperative.Digraph.ConcreteBidirectional (Id_with_stack) *) (* hide until can find type *)
-  sig
-    type t
-  end
-
 (**
   The eval session tracks everything needed by the interpreter to evaluate the expression.
   Nothing here is used for any part of the concolic logic. This is all to correctly evaluate
@@ -29,6 +9,26 @@ module G : (* = Graph.Imperative.Digraph.ConcreteBidirectional (Id_with_stack) *
 *)
 module Eval :
   sig
+    module Mode :
+      sig
+        type t =
+          | Plain
+          | With_target_x of Id.t
+          | With_full_target of Id.t * Concrete_stack.t
+
+        module Debug :
+          sig
+            type t =
+              | No_debug
+              | Debug_clause of (Id.t -> Concrete_stack.t -> value -> unit)
+          end
+      end
+
+    module G : (* = Graph.Imperative.Digraph.ConcreteBidirectional (Id_with_stack) *) (* hide until can find type *)
+      sig
+        type t
+      end
+
     (* NOTE: this type is mutable *)
     type t =
       { (* mode *)
