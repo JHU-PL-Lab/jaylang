@@ -178,7 +178,7 @@ type t =
   ; global_max_step  : int
   ; run_num          : int
   ; has_hit_exit     : bool (* true iff some concolic run has hit exiting control flow *)
-  ; is_done          : bool (* temporary patch to hard set a session to done if the concolic session finds no inputs *)
+  ; is_done          : bool (* temporary patch to hard set a session to done if the concolic session finds no inputs, or if hits abort and should quit *)
   ; quit_on_first_abort : bool } (* quick patch. See concolic session above *)
 
 let default_global_max_step = Int.(2 * 10 ** 3)

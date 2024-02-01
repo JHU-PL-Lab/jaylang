@@ -463,7 +463,7 @@ let try_eval_exp_default
     conc_session
   with
   | Found_abort (_, conc_session) ->
-      if Printer.print then Format.printf "Running next iteration of concolic after abort\n";
+      if Printer.print then Format.printf "Found abort in interpretation\n";
       conc_session
   | Reach_max_step (_, _, conc_session) ->
       if Printer.print then Format.printf "Reach max steps\n";
