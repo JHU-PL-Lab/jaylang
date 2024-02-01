@@ -1,0 +1,18 @@
+# Needs to be able to choose the same x multiple times but different y
+
+x = input;
+y = input;
+
+one = 1;
+
+x_one = x == one;
+x_one_branch = x_one ? (
+  y_one = y == one;
+  y_one_branch = y_one ? (
+    rt = 0
+  ) : (
+    rf = 1
+  )
+) : (
+  void = 0 
+)

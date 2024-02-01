@@ -46,4 +46,4 @@ module From_lib =
 let () =
   let grouped_tests = From_lib.group_tests "test/dbmc/concolic/exact_expected/" `Quick test_exact_expected in
   let bjy_tests = From_lib.group_tests "test/dbmc/concolic/bjy_tests/" `Slow test_for_abort in
-  Alcotest.run_with_args "concolic" Test_argparse.config (bjy_tests @ grouped_tests) ~quick_only:true
+  Alcotest.run_with_args "concolic" Test_argparse.config (bjy_tests @ grouped_tests) ~quick_only:false

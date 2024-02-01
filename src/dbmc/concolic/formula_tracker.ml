@@ -152,23 +152,17 @@ module Input :
   struct
     type t = Z3.Expr.expr option
     let none : t = None
-
-    (* hyphens are not allowed in variable names, so this is unique from any picked variable *)
-    (* let pick_no_repeat_inputs = Riddler.picked_string "no-repeat-inputs"
-    let imply_no_repeat_inputs formula = Riddler.(pick_no_repeat_inputs @=> formula) *)
     
     let add (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
       let is_int_pattern = Riddler.is_pattern key (Jayil.Ast.Int_pattern) in
       let new_formula = (* new formula says that x cannot be the given value *)
         Riddler.eq_term_v key (Some v)
         |> Solver.SuduZ3.not_
-        (* |> imply_no_repeat_inputs *)
         |> fun e -> Solver.SuduZ3.and_ [e; is_int_pattern]
       in
       match x with
       | None -> Some new_formula
-      | Some expr -> Some (Solver.SuduZ3.and_ [expr; new_formula]) (* either change the other input or the new input *)
-      (* ^ temporarily this is and_, but it probably should be or_ *)
+      | Some expr -> Some (Solver.SuduZ3.or_ [expr; new_formula])
 
     let exit_parent (x : t) (parent : Branch.Runtime.t) : t =
       Option.map x ~f:(
