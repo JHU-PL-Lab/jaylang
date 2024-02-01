@@ -226,6 +226,7 @@ let rec next (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] L
     solve_for_target target { session with branch_tracker }
 
 and solve_for_target (target : Branch.t) (session : t) : [ `Done of t | `Next of t * Concolic.t * Eval.t ] Lwt.t =
+  let%lwt () = Lwt.pause () in
   Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec session.solver_timeout_s));
   Format.printf "Solving for %s\n" (Branch.to_string target);
   match Branch_solver.check_solver target session.formula_tracker session.branch_tracker with

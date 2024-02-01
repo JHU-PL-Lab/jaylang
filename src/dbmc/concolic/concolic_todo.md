@@ -10,12 +10,9 @@
   * This will necessarily require mutation, or some great Lwt skills
   * ^ This is sort of done because we quit on first abort most of the time
 * Scale max step with number of lines
-* Disallow inputs that have already been used
-  * ^ this seems to not work for flow_sensitive_1. UPDATE: maybe it is now, but I'm not sure what changed since I wrote this bullet
-  * ^ this is done, but I'm not sure if I properly disallow repeat "second inputs" after the first one is different. I need to disallow some set of inputs, but other sets are fine.
-    * on that note, do the inputs need to be implied by the parents?
 * fuzz with the answers, and check that they still SAT
   * try an OR that checks if any of the inputs can be different and still satisfy
+* Don't resolve for target if there have been no new runs because currently we try the same target a few times with no change in formulas
 * set unsatisfiables to unknown if using formulas from an exited session
   * can separately keep the formulas from an exit, and if those result in unsatisfiable, then try
     without. Then make some good choice of whether to try the solve or call unknown

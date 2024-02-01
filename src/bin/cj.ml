@@ -1,7 +1,7 @@
 open Core
 open Dbmc
 
-let usage_msg = "jil -i <file> [<input_i>]"
+let usage_msg = "jil -i <file> [-t <total timeout>] [-s <solver_timeout>] [-m <max_step>] [-q]"
 let source_file = ref ""
 let global_timeout_sec = ref 0.0
 let solver_timeout_sec = ref 0.0
