@@ -3,6 +3,7 @@
 ### Urgent
 
 * Figure out why recursive_fun_1_fixed doesn't terminate on positive input
+  * I ran the interpreter until stack overflow
 * Solver formulas for record pattern matching.
   * e.g. it can't recognize that { b = {} } ~ { a = {} } is always false
   * and remove the `is_done` label is `Session.t` to check this against the record_11.jil test

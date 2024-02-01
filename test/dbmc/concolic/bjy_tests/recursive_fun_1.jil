@@ -25,22 +25,22 @@ flatten_fun_j_31 = fun makeList_j_0 -> (
                         var_j_22 = n;
                         var_j_23 = makeList;
                         var_j_24 = n;
-                        m_i_206 = var_j_23 ~ fun;
-                        appl_j_25 = m_i_206 ? (
-                                c_appl_i_207 = var_j_23 var_j_24
+                        int_j_25 = 1;
+                        m_bl_i_206 = var_j_24 ~ int;
+                        m_br_i_207 = int_j_25 ~ int;
+                        m_b_i_208 = m_bl_i_206 and m_br_i_207;
+                        binop_j_26 = m_b_i_208 ? (
+                                c_binop_i_209 = var_j_24 - int_j_25
                             ) : (
-                                ab_i_208 = abort
+                                ab_i_210 = abort
                             );
-                        int_j_26 = 1;
-                        m_bl_i_209 = appl_j_25 ~ int;
-                        m_br_i_210 = int_j_26 ~ int;
-                        m_b_i_211 = m_bl_i_209 and m_br_i_210;
-                        binop_j_27 = m_b_i_211 ? (
-                                c_binop_i_212 = appl_j_25 - int_j_26
+                        m_i_211 = var_j_23 ~ fun;
+                        appl_j_27 = m_i_211 ? (
+                                c_appl_i_212 = var_j_23 binop_j_26
                             ) : (
                                 ab_i_213 = abort
                             );
-                        record_j_28 = {j_cons = record_j_21, j_head = var_j_22, j_tail = binop_j_27}
+                        record_j_28 = {j_cons = record_j_21, j_head = var_j_22, j_tail = appl_j_27}
                     )
             ) : (
                 ab_i_215 = abort

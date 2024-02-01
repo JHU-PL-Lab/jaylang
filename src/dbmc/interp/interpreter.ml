@@ -374,12 +374,15 @@ and eval_clause ~session stk env clause : denv * dvalue =
             if Id.equal target x && Concrete_stack.equal_flip tar_stk stk
             then raise @@ Found_target { x; stk; v = ab_v }
             else raise @@ Found_abort ab_v)
-    | Assert_body _ | Assume_body _ ->
+    | Assert_body cx | Assume_body cx ->
         (* FIXME:  *)
+        let v = fetch_val_to_bool ~session ~stk env cx in
+        if not v
+        then failwith "unimplemented failing assert or assume"
+        else
         let retv = Direct (Value_bool true) in
         let () = add_val_def_mapping (x, stk) (cbody, retv) session in
         retv
-    (* failwith "not supported yet" *)
   in
   debug_clause ~session x v stk ;
   (Ident_map.add x (v, stk) env, v)
