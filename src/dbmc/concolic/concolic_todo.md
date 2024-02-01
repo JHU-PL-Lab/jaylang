@@ -2,10 +2,11 @@
 
 ### Urgent
 
+* Figure out why recursive_fun_1_fixed doesn't terminate on positive input
 * Solver formulas for record pattern matching.
   * e.g. it can't recognize that { b = {} } ~ { a = {} } is always false
   * and remove the `is_done` label is `Session.t` to check this against the record_11.jil test
-  * I think this is finished working, but it seems much slower now. Check with Shiwei about pattern matching
+  * I believe this is the reason record_7 can't find its target branch binop_j_74 unsatisfiable (I traced it, and correct record matching should make that target branch unsatisfiable)
 * If quit due to timeout, then still report if abort is found or not
   * This will necessarily require mutation, or some great Lwt skills
   * ^ This is sort of done because we quit on first abort most of the time
