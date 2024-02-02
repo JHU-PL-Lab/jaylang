@@ -237,7 +237,13 @@ Updates:
 
 ### 2 Feb 2024 -- Weekly PL Meeting
 
-**Sharing the concolic evaluator**
+
+**Overview**
+
+Concolic = concrete + symbolic
+
+It is an interpreter that uses concrete inputs to run the program, and as it runs, it writes a formula for every line of the program.
+
 
 * What is the concolic evaluator
   * It is an interpreter that collects concrete formulas from runtime variables, and it leaves input variables as abstract

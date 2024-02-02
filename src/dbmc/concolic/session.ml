@@ -231,15 +231,12 @@ and solve_for_target (target : Branch.t) (session : t) : [ `Done of t | `Next of
   Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec session.solver_timeout_s));
   Format.printf "Solving for %s\n" (Branch.to_string target);
   match Branch_solver.check_solver target session.formula_tracker session.branch_tracker with
-  | `Unsolvable status ->
-    let new_status =
-      match status with
-      ( Branch_tracker.Status.Unsatisfiable
-      | Unreachable_because_abort
-      | Unreachable_because_max_step ) when session.has_hit_exit -> Branch_tracker.Status.Unknown 1
-      | _ -> status
-    in
-    next { session with branch_tracker = Branch_tracker.set_status session.branch_tracker target new_status }
+  | `Unsolvable when session.has_hit_exit ->
+    next { session with branch_tracker = Branch_tracker.set_unknown session.branch_tracker target }
+  | `Timeout ->
+    next { session with branch_tracker = Branch_tracker.set_unknown session.branch_tracker target }
+  | `Unsolvable ->
+    next { session with branch_tracker = Branch_tracker.set_status session.branch_tracker target Branch_tracker.Status.Unsatisfiable }
   | `Solved model ->
     `Next ({ session with run_num = session.run_num + 1 }
           , Concolic.create ~target ~formula_tracker:Formula_tracker.empty

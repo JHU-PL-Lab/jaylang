@@ -11,13 +11,13 @@ module rec Status :
         type t =
           | Hit of Input.t list (* can be hit on multiple runs *)
           | Unhit
-          | Unsatisfiable (* TODO: payload? *)
+          | Unsatisfiable
           | Found_abort of Input.t list
           | Reach_max_step of int (* counter for how many times it has reached max step *)
           | Missed of Status_store.Without_payload.t (* what were the statuses as of the solve for the miss *)
-          | Unreachable_because_abort (* TODO: payload? *)
-          | Unreachable_because_max_step (* ^ *)
-          | Unknown of int (* number of solve attempts *) (* this isn't perfect because we might always want to include missed but only when no other new branch info *)
+          | Unreachable_because_abort
+          | Unreachable_because_max_step
+          | Unknown of Status_store.Without_payload.t (* similar to missed *)
           | Unreachable
       end
 
@@ -162,3 +162,9 @@ val print : t -> unit
 
 val status_store : t -> Status_store.t
 (** [status_store t] gets the status_store from [t]. *)
+
+val set_unknown : t -> Branch.t -> t
+(** [set_unknown t b] sets [b] to have unknown status in [t]. *)
+
+val set_missed : t -> Branch.t -> t
+(** [set_missed t b] sets [b] to have been missed as a target in [t]. *)

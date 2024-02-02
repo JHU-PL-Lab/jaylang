@@ -74,7 +74,7 @@ let check_solver
   (target : Branch.t)
   (formula_tracker : Formula_tracker.t)
   (branch_tracker : Branch_tracker.t)
-  : [ `Unsolvable of Branch_tracker.Status.t | `Solved of Z3.Model.model ]
+  : [ `Unsolvable | `Timeout | `Solved of Z3.Model.model ]
   =
   let formulas =
     Formula_tracker.all_formulas
@@ -88,6 +88,6 @@ let check_solver
   Z3.Solver.add new_solver formulas;
   (* Format.printf "%s\n" (Z3.Solver.to_string new_solver); *)
   match Z3.Solver.check new_solver [] with
-  | Z3.Solver.UNSATISFIABLE -> Format.printf "FOUND UNSATISFIABLE\n"; `Unsolvable Branch_tracker.Status.Unsatisfiable
-  | Z3.Solver.UNKNOWN -> Format.printf "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n"; `Unsolvable (Branch_tracker.Status.Unknown 1)
+  | Z3.Solver.UNSATISFIABLE -> Format.printf "FOUND UNSATISFIABLE\n"; `Unsolvable
+  | Z3.Solver.UNKNOWN -> Format.printf "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n"; `Timeout
   | Z3.Solver.SATISFIABLE -> `Solved (Z3.Solver.get_model new_solver |> Core.Option.value_exn)
