@@ -1,21 +1,15 @@
 open Core
 
-(*
-  We have a tree that holds formulas, and branches occur when the interpreter takes some side of a conditional.   
-  At the top of every node is the formula "this parent condition = this direction"
-*)
-
 module Formula_set :
   sig
     type t
     val empty : t
-    val singleton : Z3.Expr.expr -> t
+    (* val singleton : Z3.Expr.expr -> t *)
     val add : t -> Z3.Expr.expr -> t
-    val add_multi : t -> Z3.Expr.expr list -> t
-    val union : t -> t -> t (* only used in V1 *)
+    (* val add_multi : t -> Z3.Expr.expr list -> t *)
+    val union : t -> t -> t
     val to_list : t -> Z3.Expr.expr list
-    val and_ : t -> Z3.Expr.expr
-    (* val or_ : t -> Z3.Expr.expr *) (* only used in V1 *)
+    (* val and_ : t -> Z3.Expr.expr *)
   end
   =
   struct
@@ -34,23 +28,17 @@ module Formula_set :
     type t = S.t
 
     let empty = S.empty
-    let singleton = S.singleton
+    (* let singleton = S.singleton *)
     let add = Set.add
-    let add_multi (s : t) = List.fold ~init:s ~f:add
+    (* let add_multi (s : t) = List.fold ~init:s ~f:add *)
     let union = Set.union
     let to_list = Set.to_list
 
-    let and_ (fset : t) : Z3_expr.t =
+    (* let and_ (fset : t) : Z3_expr.t =
       match Set.to_list fset with
       | [] -> Riddler.true_
       | exp :: [] -> exp
-      | exps -> Riddler.and_ exps
-
-    (* let or_ (fset : t) : Z3_expr.t =
-      match Set.to_list fset with
-      | [] -> Riddler.true_
-      | exp :: [] -> exp
-      | exps -> Solver.SuduZ3.or_ exps *)
+      | exps -> Riddler.and_ exps *)
   end
 
 module rec Node_base : (* serves as root node *)
@@ -66,6 +54,12 @@ module rec Node_base : (* serves as root node *)
     (** [merge a b] combines the trees [a] and [b] and throws an exception if there is a discrepancy. *)
     val add_formula : t -> Z3.Expr.expr -> t
     (** [add_formulas t expr] is [t] that has gained [expr] as a formula. *)
+    val get_child : t -> Branch.Runtime.t -> Node.t option
+    (** [get_child t branch] is the child of [t] by taking the [branch], if it exists. *)
+    val is_valid_target : t -> Branch.Runtime.t -> bool
+    (** [is_valid_target t branch] is [true] if and only if [branch] should be a target from [t]. *)
+    val with_formulas : t -> Formula_set.t -> t
+    (** [with_formulas t formulas] is [t] with the given [formulas] overwriting its old formulas. *)
   end
   =
   struct
@@ -86,6 +80,15 @@ module rec Node_base : (* serves as root node *)
 
     let add_formula (x : t) (expr : Z3.Expr.expr) : t =
       { x with formulas = Formula_set.add x.formulas expr }
+
+    let get_child (x : t) (branch : Branch.Runtime.t) : Node.t option =
+      Children.get_child x.children branch
+
+    let is_valid_target (x : t) (branch : Branch.Runtime.t) : bool =
+      Children.is_valid_target x.children branch
+
+    let with_formulas (x : t) (formulas : Formula_set.t) : t =
+      { x with formulas }
   end
 and Children :
   sig
@@ -100,6 +103,10 @@ and Children :
     (** [of_node] makes a child out of the node. *)
     val merge : t -> t -> t
     (** [merge a b] merges all children in [a] and [b]. *)
+    val get_child : t -> Branch.Runtime.t -> Node.t option
+    (** [get_child t branch] is the child in [t] by taking the [branch]. *)
+    val is_valid_target : t -> Branch.Runtime.t -> bool
+    (** [is_valid_target t branch] is [true] if and only if [branch] should be a target. *)
   end
   =
   struct
@@ -138,6 +145,21 @@ and Children :
         { true_side = Status.merge a.true_side b.true_side
         ; false_side = Status.merge a.false_side b.false_side }
 
+    let get_child (x : t) (branch : Branch.Runtime.t) : Node.t option =
+      match x, branch.direction with
+      | Both { true_side = Hit node ; _ }, Branch.Direction.True_direction
+      | Both { false_side = Hit node ; _ }, Branch.Direction.False_direction ->
+        if Lookup_key.compare node.this_branch.branch_key branch.branch_key <> 0
+        then failwith "invalid branch when getting child.";
+        Some node
+      | _ -> None
+
+    let is_valid_target (x : t) (branch : Branch.Runtime.t) : bool =
+      match x, branch.direction with
+      | Both { true_side = status ; _ }, Branch.Direction.True_direction
+      | Both { false_side = status ; _ }, Branch.Direction.False_direction -> Status.is_valid_target status
+      | No_children, _ -> true (* no children *) 
+
   end
 and Status :
   sig
@@ -153,6 +175,8 @@ and Status :
       
     val merge : t -> t -> t
     (** [merge a b] keeps the most information from [a] or [b] and merges the nodes if both are [Hit]. *)
+
+    val is_valid_target : t -> bool
   end
   =
   struct
@@ -176,6 +200,11 @@ and Status :
       | Unsatisfiable, _ | _, Unsatisfiable -> Unsatisfiable
       | Unknown, _ | _, Unknown -> Unknown
       | Unsolved, _ -> Unsolved
+
+    let is_valid_target (x : t) : bool =
+      match x with
+      | Unsolved -> true
+      | _ -> false
   end
 and Node :
   sig
@@ -187,7 +216,7 @@ and Node :
     
     val of_parent_branch : Branch.Runtime.t -> t
     (** [of_parent_branch branch] is an empty node with label [this_branch = branch]. *)
-    val to_children : t -> Children.t
+    (* val to_children : t -> Children.t *)
     (** [to_children t] is the children in [t]. *)
     val merge : t -> t -> t
     (** [merge a b] merges the nodes at [a] and [b] and merges the subtrees of their children.
@@ -204,8 +233,8 @@ and Node :
     let of_parent_branch (this_branch : Branch.Runtime.t) : t =
       { this_branch ; base = Node_base.empty }
 
-    let to_children (node : t) : Children.t =
-      Children.of_node node
+    (* let to_children (node : t) : Children.t =
+      Children.of_node node *)
 
     let merge (a : t) (b : t) : t =
       if Branch.Runtime.compare a.this_branch b.this_branch <> 0 
@@ -213,12 +242,40 @@ and Node :
       else { this_branch = a.this_branch ; base = Node_base.merge a.base b.base }
 
     let with_formulas (x : t) (formulas : Formula_set.t) : t =
-      { x with base = { x.base with formulas } }
+      { x with base = Node_base.with_formulas x.base formulas }
 
   end
 
 (* This is just for better naming *)
 module Root = Node_base
+
+(* TODO: stacks of targets *)
+(* Will need to use priority search queue of targets so that when the same target is added again from a new
+   run, it gets taken out of the old queue and put to the front of the new queue. *)
+(* Can turn this into a list and use psq in session *)
+module Target =
+  struct
+    (* Notice that this is the same as a node. I wonder if I should have a Target status *)
+    module T =  
+      struct
+        type t =
+          { branch : Branch.Runtime.t 
+          ; from : Node_base.t }
+      end
+
+    type t = T.t option
+
+    let none : t = None
+
+    let of_branch_node (branch : Branch.Runtime.t) (from : Node_base.t) : t =
+      Some { branch ; from }
+
+    let to_formulas (target : t) : Z3.Expr.expr list =
+      match target with
+      | Some { branch ; from } ->
+        Branch.Runtime.to_expr branch :: Formula_set.to_list from.formulas
+      | None -> []
+  end
 
 (*
   I will want to solve for targets as they are on the node stack, updating their statuses inside
@@ -231,24 +288,18 @@ module Node_stack :
     (** [t] is a nonempty stack of nodes where the bottom of the stack is a root node. *)
     val empty : t
     (** [empty] has an empty root. *)
+    (* val hd_base : t -> Node_base.t *)
+    (** [hd_base t] is the top node base in [t]. *)
     val map_hd : t -> f:(Node_base.t -> Node_base.t) -> t
     (** [map_hd t ~f] maps the head node base of [t] using [f]. *)
-    val merge_with_tree : t -> Root.t -> Root.t
-    (** [merge_with_tree t root] creates a tree from the stack [t] and merges with the tree given by [root]. *)
+    val merge_with_tree : t -> Root.t -> Root.t * Target.t
+    (** [merge_with_tree t root] creates a tree from the stack [t] and merges with the tree given by [root].
+        Also returns a new target that should be target after the run that created the given stack. *)
     val push : t -> Branch.Runtime.t -> t
     (** [push t branch] pushes the [branch] onto the stack [t] with a copy of all the formulas already on the stack. *)
     val add_formula : t -> Z3.Expr.expr -> t
     (** [add_formula t expr] is [t] where the top node on the stack has gained the formula [expr]. *)
-    val add_key_eq_val : t -> Lookup_key.t -> Jayil.Ast.value -> t
-    (** [add_key_eq_val t k v] adds the formula that [k] has value [v] in the top node of [t]. *)
-    val add_alias : t -> Lookup_key.t -> Lookup_key.t -> t
-    (** [add_alias t k k'] adds the formula that [k] and [k'] hold the same value in the top node of [t]. *)
-    val add_binop : t -> Lookup_key.t -> Jayil.Ast.binary_operator -> Lookup_key.t -> Lookup_key.t -> t
-    (** [add_binop t x op left right] adds the formula that [x = left op right] to the the top node of [t]. *)
-    val add_input : t -> Lookup_key.t -> Jayil.Ast.value -> t
-    (** [add_input t x v] is [t] that knows input [x = v] was given. *)
   end
-
   =
   struct
     type t =
@@ -256,6 +307,10 @@ module Node_stack :
       | Cons of Node.t * t 
 
     let empty : t = Last Root.empty
+
+    let hd_base : t -> Root.t = function
+      | Last base
+      | Cons ({ base ; _ }, _) -> base
 
     let map_hd (stack : t) ~(f : Node_base.t -> Node_base.t) : t =
       match stack with
@@ -271,13 +326,38 @@ module Node_stack :
       in
       to_tree Children.empty stack
 
-    let merge_with_tree (stack : t) (tree : Root.t) : Root.t =
-      Root.merge tree
-      @@ to_tree stack
+    (*
+      Target is the topmost branch in the stack whose other direction is a valid target.
+      Assumes the stack has already been merged with the tree.
+    *)
+    let get_target (stack : t) (tree : Root.t) : Target.t =
+      (* Step from the current node down the branch, and assign a new best target. Return new target and new node. *)
+      let step (cur_best_target : Target.t) (cur_node : Node_base.t) (branch : Branch.Runtime.t) =
+        let other_dir = Branch.Runtime.other_direction branch in
+        let next_node = Node_base.get_child cur_node branch |> Option.value_exn in (* logically must exist because is in stack *)
+        if Node_base.is_valid_target cur_node other_dir
+        then Target.of_branch_node other_dir cur_node, next_node.base
+        else cur_best_target, next_node.base
+      in
+      let rec stack_to_rev_list_no_root acc = function
+        | Last node -> acc
+        | Cons (node, tl) -> stack_to_rev_list_no_root (node :: acc) tl
+      in
+      List.fold
+        (stack_to_rev_list_no_root [] stack)
+        ~init:(None, tree)
+        ~f:(fun (target, cur_node) next_node -> step target cur_node next_node.this_branch )
+      |> Tuple2.get1
 
-    let hd_base : t -> Root.t = function
-      | Last base
-      | Cons ({ base ; _ }, _) -> base
+    (* Note that merging two trees would have to visit every node in both of them in the worst case,
+       but we know that the tree made from the stack is a single path, so it only has to merge down
+       that single path because only one child is hit and needs to be merged (see Status.merge). *)
+    let merge_with_tree (stack : t) (tree : Root.t) : Root.t * Target.t =
+      let merged =
+        Root.merge tree
+        @@ to_tree stack
+      in
+      merged, get_target stack merged
 
     let push (stack : t) (branch : Branch.Runtime.t) : t =
       let formulas = (hd_base stack).formulas in
@@ -285,40 +365,8 @@ module Node_stack :
 
     let add_formula (stack : t) (expr : Z3.Expr.expr) : t =
       map_hd stack ~f:(fun node_base -> Node_base.add_formula node_base expr)
-      
-    let add_key_eq_val (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
-      add_formula x @@ Riddler.eq_term_v key (Some v)
-
-    let add_alias (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
-      add_formula x @@ Riddler.eq key1 key2
-
-    let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
-      add_formula x @@ Riddler.binop_without_picked key op left right
-
-    let add_input (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
-      add_formula x @@ Riddler.is_pattern key Jayil.Ast.Int_pattern
   end
 
-module Target =
-  struct
-    (* Notice that this is the same as a node. I wonder if I should have a Target status *)
-    module T =  
-      struct
-        type t =
-          { branch : Branch.Runtime.t 
-          ; from : Node_base.t }
-      end
-
-    type t = T.t option
-
-    let none : t = None
-
-    let to_formulas (target : t) : Z3.Expr.expr list =
-      match target with
-      | Some { branch ; from } ->
-        Branch.Runtime.to_expr branch :: Formula_set.to_list from.formulas
-      | None -> []
-  end
 
 
 (*
@@ -333,11 +381,47 @@ module Target =
   to avoid creating the same formulas over and over again.
 *)
 type t =
-  { tree   : Root.t
-  ; stack  : Node_stack.t
-  ; target : Target.t }
+  { tree   : Root.t (* pointer to the root of the entire tree of paths *)
+  ; stack  : Node_stack.t (* current stack of nodes found in this run of the interpreter *)
+  ; target : Target.t (* target for the run for stack *)
+  ; has_hit_target : bool } (* quick patch *)
 
 let empty : t =
   { tree   = Root.empty
   ; stack  = Node_stack.empty
-  ; target = Target.none }
+  ; target = Target.none
+  ; has_hit_target = false }
+
+let add_formula (x : t) (expr : Z3.Expr.expr) : t =
+  { x with stack = Node_stack.add_formula x.stack expr }
+
+let add_key_eq_val (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
+  add_formula x @@ Riddler.eq_term_v key (Some v)
+
+let add_alias (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
+  add_formula x @@ Riddler.eq key1 key2
+
+let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
+  add_formula x @@ Riddler.binop_without_picked key op left right
+
+let add_input (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
+  add_formula x @@ Riddler.is_pattern key Jayil.Ast.Int_pattern
+  
+let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
+  { x with stack = Node_stack.add_formula (Node_stack.push x.stack branch) @@ Branch.Runtime.to_expr branch
+  ; has_hit_target =
+    x.has_hit_target
+    || (Option.map x.target ~f:(fun { branch = target_branch ; _ } -> Branch.Runtime.compare branch target_branch = 0) |> Option.value ~default:false)
+  }
+
+let finish (x : t) : t =
+  if Option.is_some x.target && not x.has_hit_target
+  then failwith "missed target branch";
+  let tree, new_target = Node_stack.merge_with_tree x.stack x.tree in
+  { x with tree ; target = new_target }
+
+(* This is supposed to be called only after `finish` is called. *)
+let next (x : t) : t =
+  { x with stack = Node_stack.map_hd Node_stack.empty ~f:(fun node -> Node_base.with_formulas node x.tree.formulas); has_hit_target = false }
+
+(* TODO: session type that has a path tracker *)
