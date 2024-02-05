@@ -244,16 +244,16 @@ Concolic = concrete + symbolic
 
 It is an interpreter that uses concrete inputs to run the program, and as it runs, it writes a formula for every line of the program.
 
-It uses these formulas to solve for inputs that hit other conditional branches.
+It uses these formulas to solve for inputs to hit all conditional branches.
 
-It runs of Jayil programs that are translated from Bluejay programs.
+It runs on Jayil programs that are translated from Bluejay programs.
 
 **Purpose**
 
 The concolic evaluator will help with the typing of Bluejay, and here's how:
-* It tries to hit every line, specifically targeting aborts
+* It tries to hit every line, hopefully hitting aborts
 * It should be fast to quickly hit as many lines as possible
-* If it finds an input to hit an abort, it refutes that the Bluejay program is well-typed
+* If it finds an input to hit an abort, it has refuted that the Bluejay program is well-typed
 
 **Comparison with other approaches**
 
@@ -263,11 +263,11 @@ The concolic evaluator will help with the typing of Bluejay, and here's how:
 
 **Goals**
 
-What is a successful run if the Bluejay program is well-typed:
+What is a successful run when the Bluejay program is well-typed:
 * It hits every line of satisfiable code and correctly finds unsatisfiable lines, OR
 * It times out before it finds an abort (because an abort is impossible to hit)
 
-What is a successful run if the Bluejay program is not well-typed:
+What is a successful run when the Bluejay program is not well-typed:
 * It quickly hits an abort without timing out
 
 **Challenges**
@@ -278,7 +278,11 @@ Max steps:
 * We can't solve the halting program, so we need to stop interpretation short. The choices are:
   * Quit and forget all formulas (but then we might be likely to hit max step immediately again because we learned nothing), OR
   * Quit but keep the formulas, recognizing that they can lead to incorrect solves (but then the solver is clogged up with formulas that take a long time to satisfy because there are so many after such a long run of the interpreter) OR
+  * Something else?
 
-The solver gets clogged up, and it can run slowly.
+The solver gets clogged up, and it begins to run slowly. Similarly, in the worst case it is O(n^2) to track formulas where n is the number of lines in the program.
+
 
 It's unlikely that we'll hit all satisfiable lines of the program quickly, so we settle for a timeout
+
+Input inside of recursive function until sum of inputs is large enough

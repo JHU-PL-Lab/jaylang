@@ -314,10 +314,6 @@ let add_alias (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
 let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
   add_formula x @@ Riddler.binop_without_picked key op left right
 
-(* hyphens are not allowed in variable names, so this is unique from any picked variable *)
-let pick_no_repeat_inputs = Riddler.picked_string "no-repeat-inputs"
-let imply_no_repeat_inputs formula = Riddler.(pick_no_repeat_inputs @=> formula)
-
 let add_input ({ stack } : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
   { stack = Env_stack.map_hd stack ~f:(fun e -> Env.add_input e key v) }
 

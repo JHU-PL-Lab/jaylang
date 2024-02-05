@@ -2,7 +2,6 @@ open Core
 open Dj_common
 open Jayil.Ast
 
-
 (*
   Mutable record that tracks a run through the evaluation. aka "interpreter session"
 *)

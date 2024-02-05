@@ -1,0 +1,21 @@
+
+x = input ;
+
+y = 100;
+
+cond = x == y;
+
+branch = cond ? (
+  a = x
+) : (
+  b = 1
+
+  branch2 = cond2 ? (
+    
+  )
+);
+
+z = branch
+
+# cond == false => (branch = b) and (b = 1)
+# z = branch

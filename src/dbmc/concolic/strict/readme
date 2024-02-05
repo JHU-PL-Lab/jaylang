@@ -1,0 +1,1 @@
+This concolic solver hits every possible path, not just every possible branch.
