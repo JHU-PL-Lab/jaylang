@@ -23,7 +23,8 @@
   ddpa_for_dj
   jil_analysis
   unroll
-  sudu)
+  sudu
+  psq) ; psq added for concolic queue of target branches
  (instrumentation
   (backend landmarks))
  (synopsis "dbmc is demand-driven bounded model checking")

@@ -16,5 +16,8 @@ val add_binop : t -> Lookup_key.t -> Jayil.Ast.binary_operator -> Lookup_key.t -
 val add_input : t -> Lookup_key.t -> Jayil.Ast.value -> t
 (** [add_input t x v] is [t] that knows input [x = v] was given. *)
 
-val finish : t -> t
-(** [finish t] finishes [t] after a run through the interpreter. *)
+val hit_branch : t -> Branch.Runtime.t -> t
+(** [hit_branch t branch] is [t] that knows [branch] has been hit during interpretation. *)
+
+val next : t -> [ `Done of t | `Next of t ]
+(** [next t] is a path tracker intended to hit the most prioritized target after the run in [t]. *)
