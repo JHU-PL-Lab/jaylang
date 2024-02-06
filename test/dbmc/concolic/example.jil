@@ -1,5 +1,5 @@
 
-x = input ;
+x = input;
 
 y = 100;
 
@@ -9,10 +9,6 @@ branch = cond ? (
   a = x
 ) : (
   b = 1
-
-  branch2 = cond2 ? (
-    
-  )
 );
 
 z = branch

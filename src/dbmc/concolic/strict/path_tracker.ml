@@ -75,7 +75,7 @@ module rec Node_base : (* serves as root node *)
       { x with children = Children.add_child x.children branch } *)
 
     let merge (a : t) (b : t) : t =
-      { formulas = Formula_set.union a.formulas b.formulas (* TODO: assert they are equal *)
+      { formulas = Formula_set.union a.formulas b.formulas (* TODO: assert they are equal *) (* can also use list here *)
       ; children = Children.merge a.children b.children }
 
     let add_formula (x : t) (expr : Z3.Expr.expr) : t =
@@ -365,35 +365,43 @@ module Node_stack :
 *)
 module Runtime =
   struct
+    module Branch_set = Set.Make (Branch)
+
     type t =
       { stack          : Node_stack.t
       ; target         : Target.t option
-      ; has_hit_target : bool }
+      ; has_hit_target : bool
+      ; hit_branches   : Branch_set.t }
 
     let empty : t =
       { stack          = Node_stack.empty
       ; target         = None
-      ; has_hit_target = false }
+      ; has_hit_target = false
+      ; hit_branches   = Branch_set.empty }
 
     let add_formula (x : t) (expr : Z3.Expr.expr) : t =
       { x with stack = Node_stack.add_formula x.stack expr }
 
     let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
+      (* Format.printf "Hitting branch %s\n" (Branch.Runtime.to_string branch); *)
       { x with stack = Node_stack.add_formula (Node_stack.push x.stack branch) @@ Branch.Runtime.to_expr branch
       ; has_hit_target =
         x.has_hit_target
         || (Option.map x.target ~f:(fun { branch = target_branch ; _ } -> Branch.Runtime.compare branch target_branch = 0) |> Option.value ~default:false)
-      }
+      ; hit_branches = Set.add x.hit_branches @@ Branch.Runtime.to_ast_branch branch }
 
-    let finish (x : t) (tree : Root.t ) : Root.t * Target.t list =
+    (* Note that other side of all new targets are all the new hits *)
+    let finish (x : t) (tree : Root.t ) : Root.t * Target.t list * Branch.t list =
       if Option.is_some x.target && not x.has_hit_target
       then failwith "missed target branch";
-      Node_stack.merge_with_tree x.stack tree
+      let root, targets = Node_stack.merge_with_tree x.stack tree in
+      root, targets, Set.to_list x.hit_branches
 
     let next (root : Root.t) (target : Target.t) : t =
       { stack          = Node_stack.of_root root
       ; target         = Some target
-      ; has_hit_target = false }
+      ; has_hit_target = false
+      ; hit_branches   = Branch_set.empty }
   end
 
 module Target_queue :
@@ -468,15 +476,21 @@ module Target_queue :
   TODO: solving for target and connection to session
 *)
 type t =
-  { tree   : Root.t (* pointer to the root of the entire tree of paths *)
+  { tree         : Root.t (* pointer to the root of the entire tree of paths *)
   ; target_queue : Target_queue.t
-  ; runtime : Runtime.t
-  }
+  ; runtime      : Runtime.t
+  ; branches     : Branch_tracker.Status_store.Without_payload.t (* quick patch using status store from loose concolic evaluator *)
+  ; run_num      : int }
 
 let empty : t =
-  { tree   = Root.empty
+  { tree         = Root.empty
   ; target_queue = Target_queue.empty
-  ; runtime = Runtime.empty }
+  ; runtime      = Runtime.empty
+  ; branches     = Branch_tracker.Status_store.Without_payload.empty
+  ; run_num      = 0 }
+
+let of_expr (expr : Jayil.Ast.expr) : t =
+  { empty with branches = Branch_tracker.Status_store.Without_payload.of_expr expr }
 
 module Formula_logic =
   struct
@@ -492,29 +506,65 @@ module Formula_logic =
     let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
       add_formula x @@ Riddler.binop_without_picked key op left right
 
-    let add_input (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
+    let add_input (x : t) (key : Lookup_key.t) (v : Dvalue.t) : t =
+      let Ident s = key.x in
+      let n =
+        match v with
+        | Dvalue.Direct (Value_int n) -> n
+        | _ -> failwith "non-int input" (* logically impossible *)
+      in
+      if Printer.print then Format.printf "Feed %d to %s \n" n s;
       add_formula x @@ Riddler.is_pattern key Jayil.Ast.Int_pattern
 
     let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
+      (* Format.printf "hit branch %s\n" (Branch.Runtime.to_string branch); *)
       { x with runtime = Runtime.hit_branch x.runtime branch }
   end
 
 include Formula_logic
 
-(*
-  TODO: return `Done of status store   
-*)
-let next (x : t) : [ `Done of t | `Next of t ] =
-  let new_tree, new_targets = Runtime.finish x.runtime x.tree in
-  match
-    Target_queue.pop
-    @@ Target_queue.push_list x.target_queue new_targets
-  with
-  | Some (target, target_queue) -> 
-    `Next { tree = new_tree
-          ; target_queue
-          ; runtime = Runtime.next new_tree target }
-  | None -> (* no targets left, so done *)
-    `Done { tree = new_tree
-          ; target_queue = Target_queue.empty
-          ; runtime = x.runtime (* nothing to do here *) }
+let default_global_max_step = Int.(2 * 10 ** 3)
+
+let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
+  (* first finish*)
+  let updated_tree, new_targets, hit_branches = Runtime.finish x.runtime x.tree in
+  (* Format.printf "hit branches = %s\n" (List.to_string hit_branches ~f:Branch.to_string); *)
+  let updated_branches =
+    List.fold
+      hit_branches
+      ~init:x.branches
+      ~f:(Branch_tracker.Status_store.Without_payload.set_branch_status ~new_status:Hit)
+  in
+  let rec next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
+    match Target_queue.pop x.target_queue with
+    | Some (target, target_queue) -> 
+      solve_for_target { x with target_queue } target
+    | None when x.run_num = 0 ->
+      `Next ({ x with run_num = 1 }, Session.Eval.create Concolic_feeder.default default_global_max_step)
+    | None -> (* no targets left, so done *)
+      `Done x.branches
+  and solve_for_target (x : t) (target : Target.t) =
+    let new_solver = Z3.Solver.mk_solver Solver.SuduZ3.ctx None in
+    Z3.Solver.add new_solver (Target.to_formulas target);
+    (* Format.printf "%s\n" (Z3.Solver.to_string new_solver); *)
+    match Z3.Solver.check new_solver [] with
+    | Z3.Solver.UNSATISFIABLE -> Format.printf "FOUND UNSATISFIABLE\n"; next x (* TODO: update in tree *)
+    | Z3.Solver.UNKNOWN -> Format.printf "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n"; next x
+    | Z3.Solver.SATISFIABLE ->
+      `Next (
+        { x with runtime = Runtime.next x.tree target ; run_num = x.run_num + 1 }
+        , Z3.Solver.get_model new_solver
+          |> Core.Option.value_exn
+          |> Concolic_feeder.from_model
+          |> fun feeder -> Session.Eval.create feeder default_global_max_step
+      )
+  in
+  { x with tree = updated_tree
+  ; target_queue = Target_queue.push_list x.target_queue new_targets
+  ; branches = updated_branches
+  }
+  |> next 
+
+
+let status_store ({ branches ; _ } : t) : Branch_tracker.Status_store.Without_payload.t =
+  branches
