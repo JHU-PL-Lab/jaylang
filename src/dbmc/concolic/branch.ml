@@ -13,7 +13,7 @@ module Direction =
     type t =
       | True_direction
       | False_direction
-      [@@deriving equal, compare, sexp]
+      [@@deriving equal, compare, sexp, hash]
 
     let to_string = function
       | True_direction -> "true"
@@ -68,7 +68,7 @@ module Runtime =
       { branch_key    : Lookup_key.t
       ; condition_key : Lookup_key.t
       ; direction     : Direction.t }
-      [@@deriving compare, sexp]
+      [@@deriving compare, sexp, hash]
 
     let to_expr ({condition_key ; direction ; _ } : t) : Z3.Expr.expr =
       Riddler.eqv condition_key (Direction.to_value_bool direction)

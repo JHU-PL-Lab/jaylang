@@ -256,7 +256,7 @@ module Target =
     (* Notice that this is the same as a node. I wonder if I should have a Target status *)
     type t =
       { branch : Branch.Runtime.t 
-      ; from : Node_base.t } [@@deriving compare]
+      ; from : Node_base.t [@compare.ignore] } [@@deriving compare]
 
     let of_branch_node (branch : Branch.Runtime.t) (from : Node_base.t) : t =
       { branch ; from }
@@ -265,6 +265,7 @@ module Target =
       Branch.Runtime.to_expr branch :: Formula_set.to_list from.formulas
   end
 
+(* TODO: use the node stack to trace the path to a target in order to update in tree *)
 module Node_stack :
   sig
     type t
@@ -418,6 +419,7 @@ module Target_queue :
     (** [push_list t ls] pushes all targets in [ls] onto [t], where earlier items in [ls] have the best priority. *)
     val pop : t -> (Target.t * t) option
     (** [pop t] is most prioritized target and new queue, or [None]. *)
+    (* val to_string : t -> string *)
 
   end
   =
@@ -460,6 +462,11 @@ module Target_queue :
       match Q.pop queue with
       | None -> None
       | Some ((target, _), q) -> Some (target, q)
+
+    let to_string (queue : t) : string =
+      queue
+      |> Q.to_priority_list
+      |> List.to_string ~f:(fun (target, i) -> let open Target in Format.sprintf "(target:%s, priority:%d)\n" (Branch.Runtime.to_string target.branch) i)
   end
 
 (*
@@ -525,6 +532,9 @@ include Formula_logic
 
 let default_global_max_step = Int.(2 * 10 ** 3)
 
+(* TODO: delete this because it's really bad when run with tests instead of a single file *)
+let unsat_count = Hashtbl.create (module Branch.Runtime)
+
 let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
   (* first finish*)
   let updated_tree, new_targets, hit_branches = Runtime.finish x.runtime x.tree in
@@ -536,6 +546,7 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
       ~f:(Branch_tracker.Status_store.Without_payload.set_branch_status ~new_status:Hit)
   in
   let rec next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
+    (* Format.printf "In `next`. Queue is %s.\n" (Target_queue.to_string x.target_queue); *)
     match Target_queue.pop x.target_queue with
     | Some (target, target_queue) -> 
       solve_for_target { x with target_queue } target
@@ -547,8 +558,12 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
     let new_solver = Z3.Solver.mk_solver Solver.SuduZ3.ctx None in
     Z3.Solver.add new_solver (Target.to_formulas target);
     (* Format.printf "%s\n" (Z3.Solver.to_string new_solver); *)
+    (* Format.printf "Solving for target %s\n" (Branch.Runtime.to_string target.branch); *)
     match Z3.Solver.check new_solver [] with
-    | Z3.Solver.UNSATISFIABLE -> Format.printf "FOUND UNSATISFIABLE\n"; next x (* TODO: update in tree *)
+    | Z3.Solver.UNSATISFIABLE ->
+      Format.printf "FOUND UNSATISFIABLE\n";
+      Hashtbl.update unsat_count target.branch ~f:(function None -> 1 | Some n -> Format.printf "New unsat found %d\n" (n + 1); n + 1);
+      next x (* TODO: update in tree. We don't do this, so sometimes gets solved again *)
     | Z3.Solver.UNKNOWN -> Format.printf "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n"; next x
     | Z3.Solver.SATISFIABLE ->
       `Next (
