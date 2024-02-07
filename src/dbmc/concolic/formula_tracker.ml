@@ -9,52 +9,6 @@ exception NoParentException
     It is on the jaylang/concolic branch
 *)
 
-module Formula_set :
-  sig
-    type t
-    val empty : t
-    val add : t -> Z3.Expr.expr -> t
-    val add_multi : t -> Z3.Expr.expr list -> t
-    val union : t -> t -> t (* only used in V1 *)
-    val to_list : t -> Z3.Expr.expr list
-    val and_ : t -> Z3.Expr.expr
-    (* val or_ : t -> Z3.Expr.expr *) (* only used in V1 *)
-  end
-  =
-  struct
-    module Z3_expr =
-      struct
-        include Z3.Expr
-        type t = Z3.Expr.expr
-
-        (* Set.Make expects sexp conversions, but we don't ever use them. *)
-        let t_of_sexp _ = failwith "fail t_of_sexp z3 expr"
-        let sexp_of_t _ = failwith "fail sexp_of_t x3 expr" 
-      end
-
-    module S = Set.Make (Z3_expr)
-
-    type t = S.t
-
-    let empty = S.empty
-    let add = Set.add
-    let add_multi (s : t) = List.fold ~init:s ~f:add
-    let union = Set.union
-    let to_list = Set.to_list
-
-    let and_ (fset : t) : Z3_expr.t =
-      match Set.to_list fset with
-      | [] -> Riddler.true_
-      | exp :: [] -> exp
-      | exps -> Riddler.and_ exps
-
-    (* let or_ (fset : t) : Z3_expr.t =
-      match Set.to_list fset with
-      | [] -> Riddler.true_
-      | exp :: [] -> exp
-      | exps -> Solver.SuduZ3.or_ exps *)
-  end
-
 module Lookup_key = 
   struct
     include Lookup_key
