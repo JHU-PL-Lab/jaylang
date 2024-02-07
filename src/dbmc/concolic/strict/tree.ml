@@ -24,8 +24,6 @@ module rec Node : (* serves as root node *)
     val set_status : t -> Child.t -> Status.t -> Path.t -> t
     (** [set_status t child status path] is [t] where [child] is given [status], and [child] is necessarily
         found along the [path]. *)
-
-    val contains_unsat : t -> bool
   end
   =
   struct
@@ -60,9 +58,6 @@ module rec Node : (* serves as root node *)
     let with_formulas (x : t) (formulas : Formula_set.t) : t =
       { x with formulas }
 
-    let contains_unsat ({ children ; _ } : t) : bool =
-      Children.contains_unsat children
-
     let set_status (x : t) (child : Child.t) (status : Status.t) (path : Path.t) : t =
       let ret_child = { child with status } in
       let rec loop node path =
@@ -77,33 +72,6 @@ module rec Node : (* serves as root node *)
         end
       in
       loop x path
-      (* let new_root = loop x path in *)
-      (* Format.printf "Returning from set_status. Contains unsat = %b\n" (contains_unsat new_root); *)
-      (* new_root *)
-      (* let new_root = loop x path in
-      let rec travel_path node = function
-        | branch :: tl ->
-          let step = get_child_exn node branch in
-          begin
-          match get_child node ret_child.branch with
-          | Some target_child ->
-            begin
-            match target_child.status with
-            | Unknown | Unsatisfiable -> failwith "found unsatisfiable or unknown"
-            | _ -> ()
-            end;
-          | None -> ()
-          end;
-          begin
-          match step.status with
-          | Unknown | Unsatisfiable -> failwith "found unsatisfiable or unknown on path"
-          | _ -> ()
-          end;
-          travel_path (Child.to_node_exn step) tl
-        | [] -> failwith "end of path"
-      in
-      travel_path new_root path *)
-
 
   end
 and Children :
@@ -113,8 +81,6 @@ and Children :
     val empty : t
     (** [empty] is no children. *)
     (* val is_empty : t -> bool *)
-    (* val of_branch : Branch.Runtime.t -> t *)
-    (* val add_child : t -> Branch.Runtime.t -> t *)
     val set_node : t -> Branch.Runtime.t -> Node.t -> t
     (** [add t branch child] adds [child] as a node underneath the [branch] in [t]. *)
     val merge : t -> t -> t
@@ -124,8 +90,6 @@ and Children :
     val is_valid_target : t -> Branch.Runtime.t -> bool
     (** [is_valid_target t branch] is [true] if and only if [branch] should be a target. *)
     val set_child : t -> Child.t -> t
-
-    val contains_unsat : t -> bool
   end
   =
   struct
@@ -165,20 +129,6 @@ and Children :
         | False_direction -> Both { r with false_side = Child.create node branch }
       end
 
-    (* let of_node ({ this_branch ; base } as node : Node.t) : t =
-      let new_node = Status.Hit node in
-      match this_branch with
-      | { direction = True_direction ; _ } -> Both { true_side = new_node ; false_side = Unsolved }
-      | { direction = False_direction ; _ } -> Both { true_side = Unsolved ; false_side = new_node } *)
-
-    (* let of_branch (branch : Branch.Runtime.t) : t =
-      of_node
-      @@ Node.of_parent_branch branch *)
-
-    (* let add_child (x : t) (branch : Branch.Runtime.t) : t =
-      match x with
-      | No_children -> of_branch branch
-      | _ -> failwith "unimplemented" *)
 
     let merge (a : t) (b : t) : t =
       match a, b with
@@ -206,10 +156,6 @@ and Children :
       | Both { true_side = child ; _ }, Branch.Direction.True_direction
       | Both { false_side = child ; _ }, Branch.Direction.False_direction -> Child.is_valid_target child
       | No_children, _ -> true (* no children *) 
-
-    let contains_unsat = function
-      | No_children -> false
-      | Both { true_side ; false_side ; _ } -> let a = Child.contains_unsat true_side in let b = Child.contains_unsat false_side in a || b
   end
 and Child : 
   sig
@@ -229,8 +175,6 @@ and Child :
     val to_node_exn : t -> Node.t
     val unsolved : Branch.Runtime.t -> t
     val to_formulas : t -> Z3.Expr.expr list
-
-    val contains_unsat : t -> bool
   end
   =
   struct
@@ -283,11 +227,6 @@ and Child :
       @ match x.status with
         | Hit node -> Formula_set.to_list node.formulas
         | _ -> []
-
-    let contains_unsat = function
-      | { status = Unsatisfiable ; branch ; _ } -> Format.printf "Found unsat at %s\n" (Branch.Runtime.to_string branch); true
-      | { status = Hit node ; _ } -> Node.contains_unsat node
-      | _ -> false
   end
 and Status :
   sig
