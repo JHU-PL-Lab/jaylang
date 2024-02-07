@@ -122,30 +122,44 @@ and Node_stack :
       Assumes the stack has already been merged with the tree.
     *)
     let get_targets (stack : t) (tree : Root.t) : Target.t list =
+      let rec step (cur_targets : Target.t list) (cur_node : Node.t) (prev_path : Path.t) (remaining_path : Path.t) =
+        match remaining_path with
+        | branch :: tl ->
+          let other_dir = Branch.Runtime.other_direction branch in
+          let next_node = Node.get_child_exn cur_node branch |> Child.to_node_exn in
+          if Node.is_valid_target_child cur_node other_dir
+          then
+            step
+              (Target.create (Node.get_child_exn cur_node other_dir) prev_path :: cur_targets)
+              next_node
+              (prev_path @ [branch]) (* TODO: maybe go over remaining path from right so that no big append here *)
+              tl
+          else
+            step
+              cur_targets
+              next_node
+              (prev_path @ [branch])
+              tl
+        | [] -> cur_targets
+      in
+      step [] tree [] (to_path stack)
+
+
       (* Step from the current node down the branch and adds a new target if possible. Returns new target list and new node *)
-      let path = to_path stack in
-      (* Format.printf "When getting targets in stack, tree contains unsat = %b\n" (Root.contains_unsat tree); *)
+      (* let path = to_path stack in
       let step (cur_targets : Target.t list) (cur_node : Node.t) (branch : Branch.Runtime.t) =
-        let has_unsat = Root.contains_unsat cur_node in
-        (* Format.printf "When getting targets in stack loop, tree contains unsat = %b\n" has_unsat;  *)
+        (* let has_unsat = Root.contains_unsat cur_node in *)
         let other_dir = Branch.Runtime.other_direction branch in
-        Format.printf "Other dir is %s\n" (Branch.Runtime.to_string other_dir);
         let next_node = Node.get_child_exn cur_node branch |> Child.to_node_exn in (* logically must exist because is in stack *)
         if Node.is_valid_target_child cur_node other_dir
-        then (Format.printf "Push target %s\n" (Branch.Runtime.to_string other_dir); Target.create (Node.get_child_exn cur_node other_dir) path :: cur_targets, next_node)
-        else begin
-          (match Node.get_child cur_node other_dir with
-          | Some { status = Unsatisfiable ; _ } -> Format.printf "Found invalid target child with unsat\n"
-          | _ -> ())
-          ;
-          cur_targets, next_node
-        end
+        then Target.create (Node.get_child_exn cur_node other_dir) path :: cur_targets, next_node
+        else cur_targets, next_node
       in
       List.fold
         path
         ~init:([], tree)
         ~f:(fun (target_list, cur_node) next_branch -> step target_list cur_node next_branch )
-      |> Tuple2.get1
+      |> Tuple2.get1 *)
 
     (* Note that merging two trees would have to visit every node in both of them in the worst case,
        but we know that the tree made from the stack is a single path, so it only has to merge down
@@ -364,6 +378,7 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
     Z3.Solver.add new_solver (Target.to_formulas target x.tree);
     (* Format.printf "%s\n" (Z3.Solver.to_string new_solver); *)
     Format.printf "\nSolving for target %s\n" (Branch.Runtime.to_string target.child.branch);
+    Format.printf "Path is%s\n" (List.to_string target.path ~f:(Branch.Runtime.to_string_short));
     match Z3.Solver.check new_solver [] with
     | Z3.Solver.UNSATISFIABLE ->
       Format.printf "FOUND UNSATISFIABLE\n";
@@ -372,7 +387,7 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
     | Z3.Solver.UNKNOWN -> Format.printf "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n";
       next { x with tree = Root.set_status x.tree target.child Status.Unknown target.path }
     | Z3.Solver.SATISFIABLE ->
-      Format.printf "Found sat when solving; Contains unsat = %b\n" (Root.contains_unsat x.tree);
+      (* Format.printf "Found sat when solving; Contains unsat = %b\n" (Root.contains_unsat x.tree); *)
       `Next (
         { x with runtime = Runtime.next x.tree target ; run_num = x.run_num + 1 }
         , Z3.Solver.get_model new_solver

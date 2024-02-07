@@ -64,6 +64,8 @@ module Runtime :
     val to_string : t -> string
     (** [to_string x] shows all of the branch, condition, and direction in [x] as a string. *)
 
+    val to_string_short : t -> string
+
     val to_ast_branch : t -> T.t
     (** [to_ast_branch x] is an AST branch, where only the ident is kept from the branch key, and condition is discarded. *)
 

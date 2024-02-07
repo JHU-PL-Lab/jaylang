@@ -1,0 +1,40 @@
+# Feed inputs to a sum inside a recursive function. Try to do it with few inputs.
+
+zero = 0;
+one = 1;
+
+desired_sum = 30;
+
+f = fun self -> (
+  f0 = fun counter -> (
+    f1 = fun sum -> (
+      is_done = desired_sum < sum;
+      r = is_done ? (
+        done_val = counter
+      ) : (
+        ss = self self;
+        new_counter = counter + one;
+        ss_counter = ss new_counter;
+        x = input;
+        new_sum = sum + x;
+        res = ss_counter new_sum
+      );
+    );
+  );
+);
+
+ff = f f;
+
+ff_counter = ff zero;
+
+counter_res = ff_counter zero;
+
+desired_counter = 3;
+
+c = counter_res <= desired_counter;
+
+w = c ? (
+  yay = 42
+) : (
+  darn = 0
+)

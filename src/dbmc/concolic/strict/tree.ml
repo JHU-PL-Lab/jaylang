@@ -76,9 +76,10 @@ module rec Node : (* serves as root node *)
           | [] -> failwith "bad path in set status"
         end
       in
-      let new_root = loop x path in
-      Format.printf "Returning from set_status. Contains unsat = %b\n" (contains_unsat new_root);
-      new_root
+      loop x path
+      (* let new_root = loop x path in *)
+      (* Format.printf "Returning from set_status. Contains unsat = %b\n" (contains_unsat new_root); *)
+      (* new_root *)
       (* let new_root = loop x path in
       let rec travel_path node = function
         | branch :: tl ->

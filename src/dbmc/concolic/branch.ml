@@ -83,6 +83,10 @@ module Runtime =
       ^ " = "
       ^ Direction.to_string direction
 
+    let to_string_short ({ branch_key ; direction ; _ } : t) : string =
+      let Jayil.Ast.Ident s = branch_key.x in
+      s ^ " = " ^ Direction.to_string direction
+
     let other_direction (x : t) : t =
       { x with direction = Direction.other_direction x.direction }
 
