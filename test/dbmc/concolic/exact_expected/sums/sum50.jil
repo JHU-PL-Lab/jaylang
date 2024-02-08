@@ -25,7 +25,7 @@ ff = f f;
 
 counter0 = 50; 
 
-sum50 = ff counter0; # sums to 1250
+sum50 = ff counter0; # sums to 1275
 
 x_is_sum_cond = x == sum50;
 

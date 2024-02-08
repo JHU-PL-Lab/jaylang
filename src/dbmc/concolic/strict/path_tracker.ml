@@ -13,14 +13,11 @@ module rec Target :
   end
   =
   struct
-    (* Really this could be just a path, but we want quick access to comparison of the end of the path *)
-
     type t =
       { child : Child.t
       ; path  : Path.t } (* The path just helps the solver find the node in the tree in order to gather formulas *)
-
-    let compare (a : t) (b : t) : int =
-      Branch.Runtime.compare a.child.branch b.child.branch (* TODO: just compare key? *)
+      [@@deriving compare]
+      (* We do need to compare path because the child key doesn't include exited branches, but the path does, so path is necessary to describe target completely *)
 
     let create (child : Child.t) (path : Path.t) : t =
       { child ; path }
@@ -328,7 +325,7 @@ include Formula_logic
 let default_global_max_step = Int.(2 * 10 ** 3)
 
 (* TODO: delete this because it's really bad when run with tests instead of a single file *)
-let unsat_count = Hashtbl.create (module Branch.Runtime)
+(* let unsat_count = Hashtbl.create (module Branch.Runtime) *)
 
 let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
   (* first finish*)
@@ -353,12 +350,12 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
     let new_solver = Z3.Solver.mk_solver Solver.SuduZ3.ctx None in
     Z3.Solver.add new_solver (Target.to_formulas target x.tree);
     (* Format.printf "%s\n" (Z3.Solver.to_string new_solver); *)
-    Format.printf "\nSolving for target %s\n" (Branch.Runtime.to_string target.child.branch);
-    Format.printf "Path is%s\n" (List.to_string target.path ~f:(Branch.Runtime.to_string_short));
+    (* Format.printf "\nSolving for target %s\n" (Branch.Runtime.to_string target.child.branch); *)
+    (* Format.printf "Path is%s\n" (List.to_string target.path ~f:(Branch.Runtime.to_string_short)); *)
     match Z3.Solver.check new_solver [] with
     | Z3.Solver.UNSATISFIABLE ->
       Format.printf "FOUND UNSATISFIABLE\n";
-      Hashtbl.update unsat_count target.child.branch ~f:(function None -> 1 | Some n -> Format.printf "New unsat found %d\n" (n + 1); n + 1);
+      (* Hashtbl.update unsat_count target.child.branch ~f:(function None -> 1 | Some n -> Format.printf "New unsat found %d\n" (n + 1); n + 1); *)
       next { x with tree = Root.set_status x.tree target.child Status.Unsatisfiable target.path }
     | Z3.Solver.UNKNOWN -> Format.printf "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n";
       next { x with tree = Root.set_status x.tree target.child Status.Unknown target.path }

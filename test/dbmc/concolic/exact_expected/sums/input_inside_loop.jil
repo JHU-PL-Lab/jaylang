@@ -34,7 +34,7 @@ desired_counter = 3;
 c = counter_res <= desired_counter;
 
 w = c ? (
-  yay = 42
+  yay = 84
 ) : (
   darn = 0
 )

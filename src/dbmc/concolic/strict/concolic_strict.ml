@@ -479,15 +479,15 @@ let rec loop (e : expr) (prev_tracker : Path_tracker.t) : Branch_tracker.Status_
   Path_tracker.next prev_tracker
   |> begin function
     | `Done status_store ->
-      Format.printf "------------------------------\nFinishing...\n";
+      Format.printf "------------------------------\nFinishing concolic evaluation...\n";
       Branch_tracker.Status_store.Without_payload.print status_store;
       Lwt.return status_store
     | `Next (path_tracker, eval_session) ->
-      Format.printf "------------------------------\nRunning program...\n";
       let status_store = Path_tracker.status_store path_tracker in
       Branch_tracker.Status_store.Without_payload.print status_store;
+      Format.printf "------------------------------\nRunning program...\n";
       try_eval_exp_default ~eval_session ~path_tracker e
-      |> loop e
+      |> loop e 
     end
 
 module With_options =

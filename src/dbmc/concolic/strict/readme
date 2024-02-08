@@ -1,1 +1,29 @@
 This concolic solver hits every possible path, not just every possible branch.
+
+TODO: 
+* assert and assume constraints. If they failed, then move all formulas to "child.constraint" and set as unsolved
+* reach max step
+* faster target compare
+  * potentially by letting lookup key keep more complete stack
+* record formulas! I think this is why we miss the target. Otherwise missing the target should be impossible, I think
+* Store formulas separately that are not dependent on inputs
+* " go back 2, then 4, then 16 ... targets to roll off more in case we're stuck in a loop"
+  * ie exponential rollback
+
+### 7 Feb 2024
+
+Summary of last meeting:
+* We talked about using the "implies" inside the solver versus selectively adding all necessary formulas ourselves
+  * This goes hand-in-hand with solving for some specific instance of a branch instead of solving for all at once
+  * The former is more traditional. The latter is my spin
+
+My progress:
+* I created a "strict" concolic evaluator over the weekend that is just missing a few features
+  * Let's talk about the differences, please!
+
+Questions:
+* What was that factorial test we discussed in the meeting?
+
+TODO:
+* youtube videos
+* z3 records

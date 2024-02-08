@@ -2,3 +2,5 @@
 
 (* Branches at the top of the tree are first *)
 type t = Branch.Runtime.t list
+
+let compare = Core.List.compare Branch.Runtime.compare
