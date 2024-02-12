@@ -47,7 +47,7 @@ module type CHILDREN =
     (** [t] represents the branches underneath some node. *)
     val empty : t
     (** [empty] is no children. *)
-    (* val is_empty : t -> bool *)
+    val is_empty : t -> bool
     val set_node : t -> Branch.Runtime.t -> node -> t
     (** [add t branch child] adds [child] as a node underneath the [branch] in [t]. *)
     val merge : t -> t -> t
@@ -177,10 +177,10 @@ and Children :
       (* Could have chosen to have only true or only false, but Status.Unsolved takes care of that. *)
     
     let empty : t = No_children
-    (* let is_empty (x : t) : bool =
+    let is_empty (x : t) : bool =
       match x with
       | No_children -> true
-      | _ -> false *)
+      | _ -> false
 
     let set_child (x : t) (child : Child.t) : t =
       let other = Child.unsolved @@ Branch.Runtime.other_direction child.branch in
@@ -319,7 +319,7 @@ and Status :
       match a, b with
       | Hit n1, Hit n2 ->
         if not (Formula_set.equal n1.formulas n2.formulas)
-        then failwith "formula sets not equal in merge"; (* formula sets should only ever be equivalent after any visit to the same node *)
+        then failwith "formula sets not equal in merge of Status"; (* formula sets should only ever be equivalent after any visit to the same node *)
         Hit (Node.merge n1 n2)
       | Hit node, _ | _, Hit node -> Hit node
       | Unsatisfiable, _ | _, Unsatisfiable -> Unsatisfiable

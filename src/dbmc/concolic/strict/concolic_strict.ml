@@ -1,8 +1,9 @@
 open Core
 open Jayil.Ast
 open Dj_common (* exposes Concrete_stack *)
-open Concolic_exceptions (* these help convey status of evaluation *)
 open Dvalue (* just to expose constructors *)
+
+open Concolic_exceptions.Make (Path_tracker)
 
 module ILog = Log.Export.ILog
 
@@ -220,8 +221,7 @@ and eval_clause
   | Some max_step ->
       Int.incr eval_session.step;
       if !(eval_session.step) > max_step
-      then failwith "reach max step" (* TODO *)
-      (* then raise (Reach_max_step (x, stk, Session.Concolic.reach_max_step path_tracker)) *)
+      then raise (Reach_max_step (x, stk, path_tracker))
       else ()
   end;
   
@@ -384,10 +384,8 @@ and eval_clause
     | Abort_body -> begin
       let ab_v = AbortClosure env in
       Session.Eval.add_val_def_mapping (x, stk) (cbody, ab_v) eval_session;
-      failwith "found abort" (* TODO *)
-      (* let path_tracker = Path_tracker.found_abort path_tracker in
       match eval_session.mode with
-      | Plain -> raise @@ Found_abort (ab_v, path_tracker)
+      | Plain -> raise @@ Found_abort (ab_v, Path_tracker.found_abort path_tracker) (* no need to "exit" or anything. Just say interpretation stops. *)
       (* next two are for debug mode *)
       | With_target_x target ->
         if Id.equal target x
@@ -396,18 +394,16 @@ and eval_clause
       | With_full_target (target, tar_stk) ->
         if Id.equal target x && Concrete_stack.equal_flip tar_stk stk
         then raise @@ Found_target { x ; stk ; v = ab_v }
-        else raise @@ Found_abort (ab_v, path_tracker) *)
+        else raise @@ Found_abort (ab_v, path_tracker)
       end
     | Assert_body cx | Assume_body cx ->
       (* TODO: should I ever treat assert and assume differently? *)
-      (* Format.printf "HITTING ASSERT OR ASSUME STATEMENT.\n"; *)
       let v = Fetch.fetch_val_to_bool ~eval_session ~stk env cx in
       if not v
       then
         let Var (y, _) = cx in 
         let key = generate_lookup_key y (Fetch.fetch_stk ~eval_session ~stk env cx) in
-        failwith "failed assume or assert"
-        (* raise @@ Found_failed_assume (Path_tracker.fail_assume path_tracker key) *)
+        raise @@ Found_failed_assume (Path_tracker.fail_assume path_tracker key)
       else
         let retv = Direct (Value_bool v) in
         Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
@@ -438,21 +434,20 @@ let try_eval_exp_default
   =
   try
     (* might throw exception which is to be caught below *)
-    let _, v, conc_session = eval_exp_default ~eval_session ~path_tracker e in
+    let _, v, path_tracker = eval_exp_default ~eval_session ~path_tracker e in
     if Printer.print then Format.printf "Evaluated to: %a\n" Dvalue.pp v;
-    conc_session
+    path_tracker
   with
-  | exn -> raise exn
-  (* | Found_abort (_, conc_session) ->
+  | Found_abort (_, path_tracker) ->
       if Printer.print then Format.printf "Found abort in interpretation\n";
-      conc_session
-  | Reach_max_step (_, _, conc_session) ->
+      path_tracker
+  | Reach_max_step (_, _, path_tracker) ->
       if Printer.print then Format.printf "Reach max steps\n";
-      conc_session
-  | Found_failed_assume conc_session
-  | Found_failed_assert conc_session ->
+      path_tracker
+  | Found_failed_assume path_tracker
+  | Found_failed_assert path_tracker ->
       if Printer.print then Format.printf "Found failed assume or assert\n";
-      conc_session
+      path_tracker
   | Run_the_same_stack_twice (x, stk) -> (* bubbles exception *)
       Fmt.epr "Run into the same stack twice\n" ;
       Debug.alert_lookup eval_session x stk ;
@@ -460,7 +455,7 @@ let try_eval_exp_default
   | Run_into_wrong_stack (x, stk) -> (* bubble exception *)
       Fmt.epr "Run into wrong stack\n" ;
       Debug.alert_lookup eval_session x stk ;
-      raise (Run_into_wrong_stack (x, stk)) *)
+      raise (Run_into_wrong_stack (x, stk))
 
 
 (*
@@ -513,6 +508,7 @@ let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Wit
   let run () = 
     e
     |> Path_tracker.of_expr
+    |> Path_tracker.with_options ~quit_on_abort:quit_on_first_abort ~solver_timeout_s:solver_timeout_sec
     (* |> Session.with_options ~solver_timeout_sec ~quit_on_first_abort ~global_max_step:(`Const global_max_step) *)
     (* |> Fn.flip Session.set_quit_on_first_abort quit_on_first_abort *)
     (* TODO: use optional args *)

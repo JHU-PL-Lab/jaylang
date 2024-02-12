@@ -2,16 +2,7 @@ open Core
 
 open Tree
 
-module rec Target :
-  sig
-    type t =
-      { child : Child.t
-      ; path  : Path.t }
-      [@@deriving compare]
-    val create : Child.t -> Path.t -> t
-    val to_formulas : t -> Root.t -> Z3.Expr.expr list
-  end
-  =
+module Target =
   struct
     type t =
       { child : Child.t
@@ -43,8 +34,9 @@ module rec Target :
       trace_path (Formula_set.to_list root.formulas) root path
       
   end
-and Node_stack :
-  sig
+
+module Node_stack =
+  (* sig
     type t
     (** [t] is a nonempty stack of nodes where the bottom of the stack is a root node. *)
     val empty : t
@@ -64,7 +56,7 @@ and Node_stack :
     (** [add_formula t expr] is [t] where the top node on the stack has gained the formula [expr]. *)
     (* val to_path : t -> Path.t *)
   end
-  =
+  = *)
   struct
     type t =
       | Last of Root.t
@@ -88,9 +80,14 @@ and Node_stack :
     let to_tree (stack : t) : Root.t =
       let rec to_tree acc = function
         | Last root -> { root with children = acc }
-        | Cons (child, tl) ->
-          let acc = Children.set_node Children.empty child.branch { (Child.to_node_exn child) with children = acc } in
+        | Cons ({ status = Hit node ; _} as child, tl) -> (* branch was hit, and no failed assert or assume *)
+          let acc = Children.set_node Children.empty child.branch { node with children = acc } in
           to_tree acc tl
+        | Cons ({ status = Unsolved ; _} as child, tl) -> (* branch was hit, and failed assert of assume *)
+          assert (Children.is_empty acc);
+          let acc = Children.set_child Children.empty child in (* has no node in which to set children *)
+          to_tree acc tl
+        | _ -> failwith "logically impossible" (* impossible if the code does as I expect it *) 
       in
       to_tree Children.empty stack
 
@@ -114,8 +111,19 @@ and Node_stack :
     let get_targets (stack : t) (tree : Root.t) : Target.t list =
       let rec step (cur_targets : Target.t list) (cur_node : Node.t) (prev_path : Path.t) (remaining_path : Path.t) =
         match remaining_path with
+        | last_branch :: [] -> (* maybe last node hit should be target again *)
+          push_target
+            (push_target cur_targets cur_node last_branch prev_path) (* push this direction *)
+            cur_node
+            (Branch.Runtime.other_direction last_branch) (* push other direction *)
+            prev_path
         | branch :: tl ->
-          let other_dir = Branch.Runtime.other_direction branch in
+          step
+            (push_target cur_targets cur_node (Branch.Runtime.other_direction branch) prev_path) (* push other direction as possible target *)
+            (Child.to_node_exn @@ Node.get_child_exn cur_node branch) (* step down path *)
+            (prev_path @ [branch]) (* add this branch to the path *)
+            tl (* continue down remainder of path *)
+          (* let other_dir = Branch.Runtime.other_direction branch in
           let next_node = Node.get_child_exn cur_node branch |> Child.to_node_exn in
           if Node.is_valid_target_child cur_node other_dir
           then
@@ -129,8 +137,12 @@ and Node_stack :
               cur_targets
               next_node
               (prev_path @ [branch])
-              tl
+              tl *)
         | [] -> cur_targets
+      and push_target (cur_targets : Target.t list) (cur_node : Node.t) (branch : Branch.Runtime.t) (path_to_target : Path.t) : Target.t list =
+        if Node.is_valid_target_child cur_node branch
+        then Target.create (Node.get_child_exn cur_node branch) path_to_target :: cur_targets
+        else cur_targets
       in
       step [] tree [] (to_path stack)
       (* This is the beginning of an attempt to improve time complexity *)
@@ -192,6 +204,18 @@ module Runtime =
         || (match x.target with None -> false | Some target -> Branch.Runtime.compare branch target.child.branch = 0)
       ; hit_branches = Set.add x.hit_branches @@ Branch.Runtime.to_ast_branch branch }
 
+    let fail_assume (x : t) (cx : Lookup_key.t) : t =
+      match x.stack with
+      | Last _ -> x (* `assume` found in global scope. We assume this is a test case that can't happen in real world translations to JIL *)
+      | Cons (hd, tl) ->
+        let hd = Child.map_node hd ~f:(fun node -> Node.add_formula node @@ Riddler.eqv cx (Jayil.Ast.Value_bool true)) in
+        let new_hd =
+          Child.{ status = Status.Unsolved (* forget all formulas so that it is a possible target in future runs *)
+                ; constraints = Formula_set.add_multi hd.constraints @@ Child.to_formulas hd (* constrain to passing assume/assert *)
+                ; branch = hd.branch }
+        in
+        { x with stack = Cons (new_hd, tl) }
+
     (* Note that other side of all new targets are all the new hits *)
     let finish (x : t) (tree : Root.t ) : Root.t * Target.t list * Branch.t list =
       if Option.is_some x.target && not x.has_hit_target
@@ -204,6 +228,12 @@ module Runtime =
       ; target         = Some target
       ; has_hit_target = false
       ; hit_branches   = Branch_set.empty }
+
+    let hd_branch (x : t) : Branch.Runtime.t option =
+      match x.stack with
+      | Last _ -> None
+      | Cons ({ branch ; _}, _) -> Some branch
+
   end
 
 module Target_queue :
@@ -284,18 +314,31 @@ module Target_queue :
   TODO: solving for target and connection to session
 *)
 type t =
-  { tree         : Root.t (* pointer to the root of the entire tree of paths *)
-  ; target_queue : Target_queue.t
-  ; runtime      : Runtime.t
-  ; branches     : Branch_tracker.Status_store.Without_payload.t (* quick patch using status store from loose concolic evaluator *)
-  ; run_num      : int }
+  { tree          : Root.t (* pointer to the root of the entire tree of paths *)
+  ; target_queue  : Target_queue.t
+  ; runtime       : Runtime.t
+  ; branches      : Branch_tracker.Status_store.Without_payload.t (* quick patch using status store from loose concolic evaluator *)
+  ; run_num       : int
+  ; quit_on_abort : bool
+  ; quit          : bool }
 
 let empty : t =
-  { tree         = Root.empty
-  ; target_queue = Target_queue.empty
-  ; runtime      = Runtime.empty
-  ; branches     = Branch_tracker.Status_store.Without_payload.empty
-  ; run_num      = 0 }
+  { tree          = Root.empty
+  ; target_queue  = Target_queue.empty
+  ; runtime       = Runtime.empty
+  ; branches      = Branch_tracker.Status_store.Without_payload.empty
+  ; run_num       = 0
+  ; quit_on_abort = false
+  ; quit          = false }
+
+let with_options
+  ?(quit_on_abort : bool = true)
+  ?(solver_timeout_s : float = 1.0)
+  (x : t)
+  : t 
+  =
+  Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec solver_timeout_s));
+  { x with quit_on_abort }
 
 let of_expr (expr : Jayil.Ast.expr) : t =
   { empty with branches = Branch_tracker.Status_store.Without_payload.of_expr expr }
@@ -327,6 +370,23 @@ module Formula_logic =
     let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
       (* Format.printf "hit branch %s\n" (Branch.Runtime.to_string branch); *)
       { x with runtime = Runtime.hit_branch x.runtime branch }
+
+    let fail_assume (x : t) (cx : Lookup_key.t) : t =
+      { x with runtime = Runtime.fail_assume x.runtime cx }
+
+    let found_abort (x : t) : t =
+      match Runtime.hd_branch x.runtime with
+      | None -> failwith "assume in global"
+      | Some branch ->
+        { x with
+          quit = x.quit_on_abort
+        ; branches =
+            Branch_tracker.Status_store.Without_payload.set_branch_status
+              x.branches 
+              (Branch.Runtime.to_ast_branch branch)
+              ~new_status:Found_abort
+        }
+
   end
 
 include Formula_logic
@@ -348,6 +408,7 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
   in
   let rec next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
     (* Format.printf "In `next`. Queue is %s.\n" (Target_queue.to_string x.target_queue); *)
+    if x.quit then `Done x.branches else
     match Target_queue.pop x.target_queue with
     | Some (target, target_queue) -> 
       solve_for_target { x with target_queue } target

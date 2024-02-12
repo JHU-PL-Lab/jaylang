@@ -1,8 +1,9 @@
 open Core
 open Jayil.Ast
 open Dj_common (* exposes Concrete_stack *)
-open Concolic_exceptions (* these help convey status of evaluation *)
 open Dvalue (* just to expose constructors *)
+
+open Concolic_exceptions.Make (Session.Concolic)
 
 module ILog = Log.Export.ILog
 

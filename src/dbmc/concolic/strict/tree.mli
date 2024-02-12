@@ -30,7 +30,7 @@ and Children :
     (** [t] represents the branches underneath some node. *)
     val empty : t
     (** [empty] is no children. *)
-    (* val is_empty : t -> bool *)
+    val is_empty : t -> bool
     val set_node : t -> Branch.Runtime.t -> Node.t -> t
     (** [add t branch child] adds [child] as a node underneath the [branch] in [t]. *)
     val merge : t -> t -> t

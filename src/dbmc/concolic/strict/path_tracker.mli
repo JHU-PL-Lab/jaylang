@@ -4,6 +4,8 @@ type t
 val empty : t
 (** [empty] is a default path tracker with no target and empty tree and stack. *)
 
+val with_options : ?quit_on_abort:bool -> ?solver_timeout_s:float -> t -> t
+
 val of_expr : Jayil.Ast.expr -> t
 
 val add_formula : t -> Z3.Expr.expr -> t
@@ -27,3 +29,6 @@ val next : t -> [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next
 (** [next t] is a path tracker intended to hit the most prioritized target after the run in [t]. *)
 
 val status_store : t -> Branch_tracker.Status_store.Without_payload.t
+
+val fail_assume : t -> Lookup_key.t -> t
+val found_abort : t -> t
