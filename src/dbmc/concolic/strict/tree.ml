@@ -39,7 +39,7 @@ module rec Node : (* serves as root node *)
       { x with children = Children.add_child x.children branch } *)
 
     let merge (a : t) (b : t) : t =
-      { formulas = Formula_set.union a.formulas b.formulas (* TODO: assert they are equal *) (* can also use list here *)
+      { formulas = Formula_set.union a.formulas b.formulas
       ; children = Children.merge a.children b.children }
 
     let add_formula (x : t) (expr : Z3.Expr.expr) : t =
@@ -66,8 +66,10 @@ module rec Node : (* serves as root node *)
         | None -> begin (* didn't immediately find desired child, so continue down path *)
           match path with
           | branch :: tl -> 
-            let step = Child.to_node_exn @@ get_child_exn node branch in
-            { node with children = Children.set_node node.children branch @@ loop step tl } (* TODO: fix how we lose constraints here *)
+            let old_child = get_child_exn node branch in (* is Hit next_node *)
+            let result_node = loop (Child.to_node_exn old_child) tl in 
+            let new_child = { old_child with status = Hit result_node } in (* must do this to keep constraints of old child *)
+            { node with children = Children.set_child node.children new_child }
           | [] -> failwith "bad path in set status"
         end
       in
@@ -175,6 +177,7 @@ and Child :
     val to_node_exn : t -> Node.t
     val unsolved : Branch.Runtime.t -> t
     val to_formulas : t -> Z3.Expr.expr list
+    val map_node : t -> f:(Node.t -> Node.t) -> t
   end
   =
   struct
@@ -227,6 +230,11 @@ and Child :
       @ match x.status with
         | Hit node -> Formula_set.to_list node.formulas
         | _ -> []
+
+    let map_node (x : t) ~(f : Node.t -> Node.t) : t =
+      match x.status with
+      | Hit node -> { x with status = Hit (f node) }
+      | _ -> x
   end
 and Status :
   sig
@@ -264,7 +272,10 @@ and Status :
     *)
     let merge (a : t) (b : t) : t =
       match a, b with
-      | Hit n1, Hit n2 -> Hit (Node.merge n1 n2)
+      | Hit n1, Hit n2 ->
+        if not (Formula_set.equal n1.formulas n2.formulas)
+        then failwith "formula sets not equal in merge"; (* formula sets should only ever be equivalent after any visit to the same node *)
+        Hit (Node.merge n1 n2)
       | Hit node, _ | _, Hit node -> Hit node
       | Unsatisfiable, _ | _, Unsatisfiable -> Unsatisfiable
       | Unknown, _ | _, Unknown -> Unknown
@@ -275,45 +286,6 @@ and Status :
       | Unsolved -> true
       | _ -> false
   end
-(* and Node :
-  sig
-    type t =
-      { this_branch : Branch.Runtime.t
-      ; base : Node_base.t } [@@deriving compare]
-    (** [t] is a node in the tree that is reached by taking [this_branch]. It has formulas
-        and children as in [base]. *)
-    
-    val of_parent_branch : Branch.Runtime.t -> t
-    (** [of_parent_branch branch] is an empty node with label [this_branch = branch]. *)
-    (* val to_children : t -> Children.t *)
-    (** [to_children t] is the children in [t]. *)
-    val merge : t -> t -> t
-    (** [merge a b] merges the nodes at [a] and [b] and merges the subtrees of their children.
-        Throws an exception if [a.this_branch] and [b.this_branch] are unequal. *)
-    val with_formulas : t -> Formula_set.t -> t
-    (** [with_formulas t formulas] is [t] where [t.base] has its formulas overwritten with [formulas]. *)
-  end
-  =
-  struct
-    type t =
-      { this_branch : Branch.Runtime.t
-      ; base : Node_base.t } [@@deriving compare]
-    
-    let of_parent_branch (this_branch : Branch.Runtime.t) : t =
-      { this_branch ; base = Node_base.empty }
-
-    (* let to_children (node : t) : Children.t =
-      Children.of_node node *)
-
-    let merge (a : t) (b : t) : t =
-      if Branch.Runtime.compare a.this_branch b.this_branch <> 0 
-      then failwith "trying to merge nodes of a different branch"
-      else { this_branch = a.this_branch ; base = Node_base.merge a.base b.base }
-
-    let with_formulas (x : t) (formulas : Formula_set.t) : t =
-      { x with base = Node_base.with_formulas x.base formulas }
-
-  end *)
 
 (* This is just for better naming *)
 module Root = Node

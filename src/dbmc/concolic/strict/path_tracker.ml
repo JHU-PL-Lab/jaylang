@@ -80,14 +80,10 @@ and Node_stack :
       | Last node -> node
       | Cons (child, _) -> Child.to_node_exn child
 
-    (* TODO: pull some of this logic out into tree, e.g. via Status.map *)
     let map_hd (stack : t) ~(f : Node.t -> Node.t) : t =
       match stack with
       | Last base -> Last (f base)
-      | Cons (hd, tl) ->
-        match hd.status with
-        | Hit node -> Cons ({ hd with status = Hit (f node) }, tl)
-        | _ -> failwith "impossible: no node in child in node stack"
+      | Cons (hd, tl) -> Cons (Child.map_node hd ~f, tl) (* might be a good choice to throw exception if node doesn't exist *)
 
     let to_tree (stack : t) : Root.t =
       let rec to_tree acc = function
@@ -110,6 +106,10 @@ and Node_stack :
       of all valid targets found in the stack. The most recently hit branches are at the top
       of the returned stack.
       Assumes the stack has already been merged with the tree.
+
+      I think the total complexity of this has to be quadratic because we need to cut a path short
+      in order for it to stop at the target. This isn't great, and maybe its better to keep this
+      shorter by storing a reverse path, and we reverse it when we want to trace it.
     *)
     let get_targets (stack : t) (tree : Root.t) : Target.t list =
       let rec step (cur_targets : Target.t list) (cur_node : Node.t) (prev_path : Path.t) (remaining_path : Path.t) =
@@ -122,7 +122,7 @@ and Node_stack :
             step
               (Target.create (Node.get_child_exn cur_node other_dir) prev_path :: cur_targets)
               next_node
-              (prev_path @ [branch]) (* TODO: maybe go over remaining path from right so that no big append here *)
+              (prev_path @ [branch])
               tl
           else
             step
@@ -133,6 +133,15 @@ and Node_stack :
         | [] -> cur_targets
       in
       step [] tree [] (to_path stack)
+      (* This is the beginning of an attempt to improve time complexity *)
+      (* let rec step (cur_node : Node.t) (path : Path.t) : Target.t list =
+        match path with
+        | branch :: tl -> 
+          let next_node = Child.to_node_exn @@ Node.get_child_exn cur_node branch in
+          let acc = step next_node tl in (* NOT TAIL RECURSIVE! *)
+          let other_dir = Branch.Runtime.other_direction branch in
+          if Node.is_valid_target_child cur_node other_dir
+          then Target.create (Node.get_child_exn ) *)
 
     (* Note that merging two trees would have to visit every node in both of them in the worst case,
        but we know that the tree made from the stack is a single path, so it only has to merge down

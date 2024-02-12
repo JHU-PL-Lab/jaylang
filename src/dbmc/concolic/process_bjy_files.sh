@@ -9,17 +9,22 @@ translator_exe="./_build/default/src/bin/translator.exe"
 # Create translator exe
 make translator
 
-# Check if translator executable exists where we expect it
+# Assert that translator executable exists where we expect it
 if [ ! -f "${translator_exe}" ]; then
     echo "Error: Translator executable not found at expected directory after 'make translator'."
     exit 1
 fi
 
 overwrite=false
-while getopts ":o" opt; do
+single_file_mode=false
+while getopts ":of:" opt; do
   case ${opt} in
     o )
       overwrite=true
+      ;;
+    f )
+      single_file_mode=true
+      file_to_translate="$input_dir$OPTARG"
       ;;
     \? )
       echo "Invalid option: -$OPTARG"
@@ -32,19 +37,19 @@ while getopts ":o" opt; do
   esac
 done
 
-for bjy_file in "${input_dir}"*.bjy; do
+if [ "$single_file_mode" = true ]; then
     # Extracting file name without extension
-    file_name=$(basename "${bjy_file%.bjy}")
+    file_name=$(basename "${file_to_translate%.bjy}")
 
     # Check if .jil file exists
     jil_file="${output_dir}${file_name}.jil"
     if [ -f "${jil_file}" ] && [ "${overwrite}" = false ]; then
         echo "Skipped: ${jil_file} already exists. Use -o flag to overwrite."
-        continue
+        exit 0
     fi
 
     # Run the translator and save output to .jil file with the same name
-    (cat "${bjy_file}") | "${translator_exe}" -m bluejay-to-jayil -a > "${output_dir}${file_name}.jil"
+    (cat "${file_to_translate}") | "${translator_exe}" -m bluejay-to-jayil -a > "${output_dir}${file_name}.jil"
 
     # Check if .expect.s file exists, then copy it
     expect_s_file="${input_dir}${file_name}.expect.s"
@@ -55,5 +60,29 @@ for bjy_file in "${input_dir}"*.bjy; do
     # delete tildes that are put in front of some variables
     # This is not needed after we have added `purge` to the translator
     # sed -i -E 's/(~)([^[:space:]]+)/\2/g' "${jil_file}"
+else
+    for bjy_file in "${input_dir}"*.bjy; do
+        # Extracting file name without extension
+        file_name=$(basename "${bjy_file%.bjy}")
 
-done
+        # Check if .jil file exists
+        jil_file="${output_dir}${file_name}.jil"
+        if [ -f "${jil_file}" ] && [ "${overwrite}" = false ]; then
+            echo "Skipped: ${jil_file} already exists. Use -o flag to overwrite."
+            continue
+        fi
+
+        # Run the translator and save output to .jil file with the same name
+        (cat "${bjy_file}") | "${translator_exe}" -m bluejay-to-jayil -a > "${output_dir}${file_name}.jil"
+
+        # Check if .expect.s file exists, then copy it
+        expect_s_file="${input_dir}${file_name}.expect.s"
+        if [ -f "${expect_s_file}" ]; then
+            cp "${expect_s_file}" "${output_dir}"
+        fi
+
+      # delete tildes that are put in front of some variables
+      # This is not needed after we have added `purge` to the translator
+      # sed -i -E 's/(~)([^[:space:]]+)/\2/g' "${jil_file}"
+    done
+fi
