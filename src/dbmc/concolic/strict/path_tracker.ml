@@ -33,7 +33,7 @@ module Target =
       in
       trace_path (Formula_set.to_list root.formulas) root path
       
-  end
+  end (* Target *)
 
 module Node_stack =
   (* sig
@@ -170,7 +170,7 @@ module Node_stack =
 
     let add_formula (stack : t) (expr : Z3.Expr.expr) : t =
       map_hd stack ~f:(fun node -> Node.add_formula node expr)
-  end
+  end (* Node_stack *)
 
 (*
   Runtime is a modifier on Path_tracker, so this is a "Runtime Path Tracker".
@@ -234,7 +234,7 @@ module Runtime =
       | Last _ -> None
       | Cons ({ branch ; _}, _) -> Some branch
 
-  end
+  end (* Runtime *)
 
 module Target_queue :
   sig
@@ -298,7 +298,7 @@ module Target_queue :
       queue
       |> Q.to_priority_list
       |> List.to_string ~f:(fun (target, i) -> let open Target in Format.sprintf "(target:%s, priority:%d)\n" (Branch.Runtime.to_string target.child.branch) i) *)
-  end
+  end (* Target_queue *)
 
 (*
   The user will keep a [t] and use it to enter branches. When the interpretation finishes,
@@ -366,30 +366,34 @@ module Formula_logic =
       in
       if Printer.print then Format.printf "Feed %d to %s \n" n s;
       add_formula x @@ Riddler.is_pattern key Jayil.Ast.Int_pattern
-
-    let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
-      (* Format.printf "hit branch %s\n" (Branch.Runtime.to_string branch); *)
-      { x with runtime = Runtime.hit_branch x.runtime branch }
-
-    let fail_assume (x : t) (cx : Lookup_key.t) : t =
-      { x with runtime = Runtime.fail_assume x.runtime cx }
-
-    let found_abort (x : t) : t =
-      match Runtime.hd_branch x.runtime with
-      | None -> failwith "assume in global"
-      | Some branch ->
-        { x with
-          quit = x.quit_on_abort
-        ; branches =
-            Branch_tracker.Status_store.Without_payload.set_branch_status
-              x.branches 
-              (Branch.Runtime.to_ast_branch branch)
-              ~new_status:Found_abort
-        }
-
   end
 
 include Formula_logic
+
+let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
+  (* Format.printf "hit branch %s\n" (Branch.Runtime.to_string branch); *)
+  { x with runtime = Runtime.hit_branch x.runtime branch }
+
+let fail_assume (x : t) (cx : Lookup_key.t) : t =
+  { x with runtime = Runtime.fail_assume x.runtime cx }
+
+let found_abort (x : t) : t =
+  match Runtime.hd_branch x.runtime with
+  | None -> failwith "assume in global"
+  | Some branch ->
+    { x with
+      quit = x.quit_on_abort
+    ; branches =
+        Branch_tracker.Status_store.Without_payload.set_branch_status
+          x.branches 
+          (Branch.Runtime.to_ast_branch branch)
+          ~new_status:Found_abort
+    }
+
+(* TODO: allow some branches to be targets. Like don't discard, and instead use exponential rollback
+  and some heuristic to target branches that likely won't lead to max step again.  *)
+let reach_max_step (x : t) : t =
+  { x with runtime = Runtime.empty } (* discard everything from the run *)
 
 let default_global_max_step = Int.(2 * 10 ** 3)
 
@@ -427,9 +431,11 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
       Format.printf "FOUND UNSATISFIABLE\n";
       (* Hashtbl.update unsat_count target.child.branch ~f:(function None -> 1 | Some n -> Format.printf "New unsat found %d\n" (n + 1); n + 1); *)
       next { x with tree = Root.set_status x.tree target.child Status.Unsatisfiable target.path }
-    | Z3.Solver.UNKNOWN -> Format.printf "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n";
+    | Z3.Solver.UNKNOWN ->
+      Format.printf "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n";
       next { x with tree = Root.set_status x.tree target.child Status.Unknown target.path }
     | Z3.Solver.SATISFIABLE ->
+      Format.printf "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.to_string @@ Branch.Runtime.to_ast_branch target.child.branch);
       `Next (
         { x with runtime = Runtime.next x.tree target ; run_num = x.run_num + 1 }
         , Z3.Solver.get_model new_solver

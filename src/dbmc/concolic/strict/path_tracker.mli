@@ -32,3 +32,4 @@ val status_store : t -> Branch_tracker.Status_store.Without_payload.t
 
 val fail_assume : t -> Lookup_key.t -> t
 val found_abort : t -> t
+val reach_max_step : t -> t

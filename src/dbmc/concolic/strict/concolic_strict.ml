@@ -221,7 +221,7 @@ and eval_clause
   | Some max_step ->
       Int.incr eval_session.step;
       if !(eval_session.step) > max_step
-      then raise (Reach_max_step (x, stk, path_tracker))
+      then raise (Reach_max_step (x, stk, Path_tracker.reach_max_step path_tracker))
       else ()
   end;
   
@@ -474,15 +474,19 @@ let rec loop (e : expr) (prev_tracker : Path_tracker.t) : Branch_tracker.Status_
   Path_tracker.next prev_tracker
   |> begin function
     | `Done status_store ->
-      Format.printf "------------------------------\nFinishing concolic evaluation...\n";
+      Format.printf "\n------------------------------\nFinishing concolic evaluation...\n\n";
       Branch_tracker.Status_store.Without_payload.print status_store;
       Lwt.return status_store
     | `Next (path_tracker, eval_session) ->
       let status_store = Path_tracker.status_store path_tracker in
+      Format.printf "Pre-run info:\n";
       Branch_tracker.Status_store.Without_payload.print status_store;
-      Format.printf "------------------------------\nRunning program...\n";
-      try_eval_exp_default ~eval_session ~path_tracker e
-      |> loop e 
+      Format.printf "\n------------------------------\nRunning program...\n\n";
+      let t0 = Caml_unix.gettimeofday () in
+      let resulting_tracker = try_eval_exp_default ~eval_session ~path_tracker e in
+      let t1 = Caml_unix.gettimeofday () in
+      Format.printf "Interpretation finished in %fs.\n\n" (t1 -. t0);
+      loop e resulting_tracker
     end
 
 module With_options =
@@ -503,7 +507,7 @@ let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Wit
   ?(global_max_step : int = Int.(2 * 10 ** 3))
   (e : expr)
   ->
-  if Printer.print then Format.printf "\nStarting concolic execution...\n";
+  if Printer.print then Format.printf "\nStarting concolic execution...\n\n";
   (* Repeatedly evaluate program *)
   let run () = 
     e

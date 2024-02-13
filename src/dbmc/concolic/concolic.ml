@@ -509,9 +509,11 @@ let rec loop (e : expr) (prev_session : Session.t) : Branch_tracker.Status_store
     | `Next (session, conc_session, eval_session) ->
       if Printer.print
       then (Format.printf "------------------------------\nRunning program...\n"; Session.print session);
-      try_eval_exp_default ~eval_session ~conc_session e
-      |> Session.accum_concolic session
-      |> loop e
+      let t0 = Caml_unix.gettimeofday () in
+      let resulting_session = try_eval_exp_default ~eval_session ~conc_session e in
+      let t1 = Caml_unix.gettimeofday () in
+      Format.printf "Interpretation finished in %fs.\n" (t1 -. t0);
+      loop e (Session.accum_concolic session resulting_session)
     end
 
 module With_options =

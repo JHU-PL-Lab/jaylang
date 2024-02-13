@@ -163,8 +163,7 @@ module rec Node : (* serves as root node *)
         end
       in
       loop x path
-
-  end
+  end (* Node *)
 and Children :
   CHILDREN with
   type node := Node.t and
@@ -234,7 +233,7 @@ and Children :
       | Both { true_side = child ; _ }, Branch.Direction.True_direction
       | Both { false_side = child ; _ }, Branch.Direction.False_direction -> Child.is_valid_target child
       | No_children, _ -> true (* no children *) 
-  end
+  end (* Children *)
 and Child : 
   CHILD with
   type status := Status.t and
@@ -295,7 +294,7 @@ and Child :
       match x.status with
       | Hit node -> { x with status = Hit (f node) }
       | _ -> x
-  end
+  end (* Child *)
 and Status :
   STATUS with
   type node := Node.t
@@ -330,7 +329,7 @@ and Status :
       match x with
       | Unsolved -> true
       | _ -> false
-  end
+  end (* Status *)
 
 (* This is just for better naming *)
 module Root = Node

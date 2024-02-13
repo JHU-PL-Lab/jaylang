@@ -67,6 +67,8 @@ module rec Status :
   =
   struct
 
+    let red_string = Format.sprintf "\027[31m%s\027[0m"
+
     module type S =
       sig
         type t [@@deriving compare, sexp]
@@ -102,6 +104,7 @@ module rec Status :
         (* sometimes ignores payload *)
         let to_string = function
           | Reach_max_step count as x -> (Variants.to_name x |> String.capitalize) ^ Int.to_string count
+          | Found_abort _ as x -> Variants.to_name x |> String.capitalize |> red_string
           | x -> Variants.to_name x |> String.capitalize
 
         let is_hit = function
@@ -189,8 +192,11 @@ module rec Status :
         let unhit () = Unhit
 
         let to_string (x : t) : string =
-          String.capitalize
-          @@ Variants.to_name x
+          match x with
+          | Found_abort -> Variants.to_name x |> String.capitalize |> red_string
+          | _ -> 
+            String.capitalize
+            @@ Variants.to_name x
 
         let is_hit = function
           | Hit | Found_abort | Reach_max_step -> true
@@ -401,12 +407,18 @@ and Status_store :
 
         (* depends on well-formedness of the map from loading in branches *)
         let print (map : t) : unit = 
-          Format.printf "\nBranch Information:\n";
+          Format.printf "Branch Information:\n";
+          let pad =
+            map
+            |> to_list
+            |> List.fold ~init:0 ~f:(fun m (e, _, _) -> let l = String.length e in if l > m then l else m)
+            |> fun l -> (fun s -> s ^ String.make (l - String.length s) ' ')
+          in
           map
           |> to_list
           |> List.iter ~f:(fun (s, true_status, false_status) ->
-              Printf.printf "%s: True=%s; False=%s\n"
-                s
+              Format.printf "%s : True=%s; False=%s\n"
+                (pad s)
                 (Status.to_string true_status)
                 (Status.to_string false_status)
             )
