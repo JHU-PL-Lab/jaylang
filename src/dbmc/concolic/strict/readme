@@ -21,9 +21,34 @@ My progress:
 * I created a "strict" concolic evaluator over the weekend that is just missing a few features
   * Let's talk about the differences, please!
 
-Questions:
-* What was that factorial test we discussed in the meeting?
+Notes:
+* https://www.burn.im/crest/ 
+  * ^ Publications incluencing CREST, which is improved CUTE: concolic unit testing for C
+* https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=4639362
+  * Heuristics for path exploration (e.g. static analysis to find branches that lead to more program discovery)
+* https://www.researchgate.net/publication/49456034_Oasis_Concolic_Execution_Driven_by_Test_Suites_and_Code_Modifications
+  * See 3.4: Search Strategy
+  * Has excellent results with no path exploration heuristics like above
+    * Though they say the heuristics would probably improve their product if they had tried them
 
-TODO:
-* youtube videos
-* z3 records
+### 13 Feb 2023
+
+Summary of last meeting:
+* We decided to look at how others do concolic evaluation
+* We talked briefly about bitvectors to be used in the solver to describe types
+
+Progess:
+* The videos didn't lend much. They didn't offer solutions and only explained the problems
+* The evaluator now seems to only be wrong in the record matching cases
+* I'm still not sure the best way to get around max step
+  * Discarding formulas leads us to continually hit the issue again and again due to lack of info
+  * Tips for how to choose which targets or formulas will dodge the issue?
+* I'm not sure how we handle exponential rollback
+
+My proposed next steps:
+* I should dedicate my time to the fixing how the solver handles records
+  * Shiwei doesn't seem to consider this high priority for himself
+* We talk about heuristics for how to roll back
+  * How do we decide targets to discard? Do we risk missing important branches? Try to recognize a recursive function and ignore branches inside it?
+* I also need to selectively add inputs that necessarily affect the target condition
+  * I already limit to only formulas on the path (and with no "implies"), but I don't remove irrelevant formulas

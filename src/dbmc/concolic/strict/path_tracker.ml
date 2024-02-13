@@ -310,8 +310,6 @@ module Target_queue :
 
   [t] will manage between-run and during-run logic, so the only only has to interface with
   this [t]. The during-run logic is abstracted into Runtime above.
-
-  TODO: solving for target and connection to session
 *)
 type t =
   { tree          : Root.t (* pointer to the root of the entire tree of paths *)
@@ -390,15 +388,12 @@ let found_abort (x : t) : t =
           ~new_status:Found_abort
     }
 
-(* TODO: allow some branches to be targets. Like don't discard, and instead use exponential rollback
+(* TODO: allow some branches from run to be targets. Like don't discard, and instead use exponential rollback
   and some heuristic to target branches that likely won't lead to max step again.  *)
 let reach_max_step (x : t) : t =
   { x with runtime = Runtime.empty } (* discard everything from the run *)
 
 let default_global_max_step = Int.(2 * 10 ** 3)
-
-(* TODO: delete this because it's really bad when run with tests instead of a single file *)
-(* let unsat_count = Hashtbl.create (module Branch.Runtime) *)
 
 let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
   (* first finish*)
@@ -428,8 +423,7 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
     (* Format.printf "Path is%s\n" (List.to_string target.path ~f:(Branch.Runtime.to_string_short)); *)
     match Z3.Solver.check new_solver [] with
     | Z3.Solver.UNSATISFIABLE ->
-      Format.printf "FOUND UNSATISFIABLE\n";
-      (* Hashtbl.update unsat_count target.child.branch ~f:(function None -> 1 | Some n -> Format.printf "New unsat found %d\n" (n + 1); n + 1); *)
+      Format.printf "FOUND UNSATISFIABLE\n"; (* TODO: add formula that says it's not satisfiable so less solving is necessary *)
       next { x with tree = Root.set_status x.tree target.child Status.Unsatisfiable target.path }
     | Z3.Solver.UNKNOWN ->
       Format.printf "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n";
