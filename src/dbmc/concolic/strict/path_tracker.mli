@@ -1,5 +1,13 @@
 
 type t
+(** [t] tracks paths in the program during and between interpretations of the program.
+    It holds symbolic formulas to solve to hit other paths. *)
+
+(*
+  --------
+  CREATION   
+  --------
+*)
 
 val empty : t
 (** [empty] is a default path tracker with no target and empty tree and stack. *)
@@ -7,8 +15,15 @@ val empty : t
 val with_options : ?quit_on_abort:bool -> ?solver_timeout_s:float -> t -> t
 
 val of_expr : Jayil.Ast.expr -> t
+(** [of_expr expr] is [empty] that knows of all branches in the [expr]. *)
 
+(*
+  ------------------
+  RUNTIME OPERATIONS   
+  ------------------
+*)
 val add_formula : t -> Z3.Expr.expr -> t
+(** [add_formula t expr] adds [expr] to the node in [t] that corresponds to the current location in interpretation. *)
 
 val add_key_eq_val : t -> Lookup_key.t -> Jayil.Ast.value -> t
 (** [add_key_eq_val t k v] adds the formula that [k] has value [v] in the top node of [t]. *)
@@ -25,11 +40,22 @@ val add_input : t -> Lookup_key.t -> Dvalue.t -> t
 val hit_branch : t -> Branch.Runtime.t -> t
 (** [hit_branch t branch] is [t] that knows [branch] has been hit during interpretation. *)
 
+val fail_assume : t -> Lookup_key.t -> t
+(** [fail_assume t key] tells [t] that the variable in [key] was false when it was assumed to be true. *)
+
+val found_abort : t -> t
+(** [found_abort t] tells [t] that an abort was found in interpretation. *)
+
+val reach_max_step : t -> t
+(** [reach_max_step t] tells [t] that the max interpretation step was hit, and interpretation stopped. *)
+(*
+  ----------------------
+  BETWEEN-RUN OPERATIONS   
+  ----------------------
+*)
+
 val next : t -> [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ]
 (** [next t] is a path tracker intended to hit the most prioritized target after the run in [t]. *)
 
 val status_store : t -> Branch_tracker.Status_store.Without_payload.t
-
-val fail_assume : t -> Lookup_key.t -> t
-val found_abort : t -> t
-val reach_max_step : t -> t
+(** [status_store t] is the status store in [t]. *)

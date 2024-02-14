@@ -217,13 +217,13 @@ module Runtime =
 
 (*
   The user will keep a [t] and use it to enter branches. When the interpretation finishes,
-  they will say so, and the stack is traversed to be included in total.   
+  they will say so, and the stack is traversed to be included in the total tree.   
 
   This way, we are not modifying the entire path in the tree with every step, and also we 
   don't have to use mutation to avoid it. It just takes one extra pass through the whole thing
   at the end.
 
-  [t] will manage between-run and during-run logic, so the only only has to interface with
+  [t] will manage between-run and during-run logic, so the evaluator only has to interface with
   this [t]. The during-run logic is abstracted into Runtime above.
 *)
 type t =
