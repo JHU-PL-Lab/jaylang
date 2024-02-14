@@ -112,8 +112,8 @@ module type STATUS =
 module rec Node : (* serves as root node *)
   NODE with
   type children := Children.t and
-  type child := Child.t and
-  type status := Status.t 
+  type child    := Child.t and
+  type status   := Status.t 
   =
   struct
     type t =
@@ -166,7 +166,7 @@ module rec Node : (* serves as root node *)
   end (* Node *)
 and Children :
   CHILDREN with
-  type node := Node.t and
+  type node  := Node.t and
   type child := Child.t
   =
   struct
@@ -237,7 +237,7 @@ and Children :
 and Child : 
   CHILD with
   type status := Status.t and
-  type node := Node.t
+  type node   := Node.t
   =
   struct
     type t =

@@ -42,6 +42,7 @@ Progess:
 * The evaluator now seems to only be wrong in the record matching cases
 * I'm still not sure the best way to get around max step
   * Discarding formulas leads us to continually hit the issue again and again due to lack of info
+    * Keep only n targets every time
   * Tips for how to choose which targets or formulas will dodge the issue?
 * I'm not sure how we handle exponential rollback
 

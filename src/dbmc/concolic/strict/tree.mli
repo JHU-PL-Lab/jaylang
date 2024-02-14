@@ -4,7 +4,7 @@ module rec Node :
     type t =
       { formulas : Formula_set.t
       ; children : Children.t } [@@deriving compare]
-    (** [t] is the root of the JIL program. *)
+    (** [t] is the root of the JIL program and the body of any hit child nodes in the tree. *)
     val empty : t
     (** [empty] is the tree before the program has ever been run. It has no formulas or children. *)
     (* val add_child : t -> Branch.Runtime.t -> t *)
@@ -31,6 +31,7 @@ and Children :
     val empty : t
     (** [empty] is no children. *)
     val is_empty : t -> bool
+    (** [is_empty t] is true if and only if [t] is [empty]. *)
     val set_node : t -> Branch.Runtime.t -> Node.t -> t
     (** [add t branch child] adds [child] as a node underneath the [branch] in [t]. *)
     val merge : t -> t -> t
@@ -40,6 +41,7 @@ and Children :
     val is_valid_target : t -> Branch.Runtime.t -> bool
     (** [is_valid_target t branch] is [true] if and only if [branch] should be a target. *)
     val set_child : t -> Child.t -> t
+    (** [set_child t child] sets [t] to gain [child], overwriting any child with the same branch as [child.branch]. *)
   end
 and Child :
   sig
@@ -55,11 +57,18 @@ and Child :
     (** [create_both node branch] makes a child by taking the [branch] to reach the given [node]. 
         Also returns the other side as unsolved. **Note** [node] is the child, not the parent. *)
     val merge : t -> t -> t
+    (** [merge a b] keeps the most information from status (throwing exception if the formulas in
+        the nodes are different), has all constraints from each, and asserts that the branch is the same. *)
     val is_valid_target : t -> bool
+    (** [is_valid_target t] is [Status.is_valid_target t.status] *)
     val to_node_exn : t -> Node.t
+    (** [to_node_exn t] is [node] where [t.status] matches [Hit node], or exception. *)
     val unsolved : Branch.Runtime.t -> t
+    (** [unsolved branch] is unsolved node with no constraints and has the given [branch]. *)
     val to_formulas : t -> Z3.Expr.expr list
+    (** [to_formulas t] is all constraints in [t] and formulas inside [node] if [t.status] is [Hit node]. *)
     val map_node : t -> f:(Node.t -> Node.t) -> t
+    (** [map_node t ~f] is [t] if [t.status] is not [Hit node], otherwise maps [node] via [f]. *)
   end
 and Status :
   sig
@@ -78,6 +87,7 @@ and Status :
     (** [merge a b] keeps the most information from [a] or [b] and merges the nodes if both are [Hit]. *)
 
     val is_valid_target : t -> bool
+    (** [is_valid_target t] is true if and only if [t] should be targeted in a concolic run. *)
   end
 
 module Root = Node (* for better naming *)
