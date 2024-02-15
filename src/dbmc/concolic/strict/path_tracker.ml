@@ -196,11 +196,12 @@ module Runtime =
         { x with stack = Cons (new_hd, tl) }
 
     (* Note that other side of all new targets are all the new hits *)
-    let finish (x : t) (tree : Root.t ) : Root.t * Target.t list * Branch.t list =
+    let finish (x : t) (tree : Root.t) : Root.t * Target.t list * Branch.t list =
       if Option.is_some x.target && not x.has_hit_target
-      then failwith "missed target branch";
-      let root, targets = Node_stack.merge_with_tree x.stack tree in
-      root, targets, Set.to_list x.hit_branches
+      then (Format.printf "MISSED TARGET BRANCH\n"; tree, [], Set.to_list x.hit_branches) (* don't learn anything from run *)(*failwith "missed target branch" *)
+      else
+        let root, targets = Node_stack.merge_with_tree x.stack tree in
+        root, targets, Set.to_list x.hit_branches
 
     let next (root : Root.t) (target : Target.t) : t =
       { stack          = Node_stack.of_root root
@@ -232,7 +233,7 @@ type t =
   ; runtime       : Runtime.t
   ; branches      : Branch_tracker.Status_store.Without_payload.t (* quick patch using status store from loose concolic evaluator *)
   ; run_num       : int
-  ; quit_on_abort : bool
+  ; options       : Concolic_options.t
   ; quit          : bool }
 
 let empty : t =
@@ -241,17 +242,16 @@ let empty : t =
   ; runtime       = Runtime.empty
   ; branches      = Branch_tracker.Status_store.Without_payload.empty
   ; run_num       = 0
-  ; quit_on_abort = false
+  ; options       = Concolic_options.default
   ; quit          = false }
 
-let with_options
-  ?(quit_on_abort : bool = true)
-  ?(solver_timeout_s : float = 1.0)
-  (x : t)
-  : t 
-  =
-  Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec solver_timeout_s));
-  { x with quit_on_abort }
+let with_options : (t -> t) Concolic_options.With_options.t =
+  let f =
+    fun (r : Concolic_options.t) ->
+      fun (x : t) ->
+        { x with options = r }
+  in
+  Concolic_options.With_options.make f
 
 let of_expr (expr : Jayil.Ast.expr) : t =
   { empty with branches = Branch_tracker.Status_store.Without_payload.of_expr expr }
@@ -295,7 +295,7 @@ let found_abort (x : t) : t =
   | None -> failwith "assume in global"
   | Some branch ->
     { x with
-      quit = x.quit_on_abort
+      quit = x.options.quit_on_abort
     ; branches =
         Branch_tracker.Status_store.Without_payload.set_branch_status
           x.branches 
@@ -307,8 +307,6 @@ let found_abort (x : t) : t =
   and some heuristic to target branches that likely won't lead to max step again.  *)
 let reach_max_step (x : t) : t =
   { x with runtime = Runtime.empty } (* discard everything from the run *)
-
-let default_global_max_step = Int.(2 * 10 ** 3)
 
 let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
   (* first finish*)
@@ -327,15 +325,18 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
     | Some (target, target_queue) -> 
       solve_for_target { x with target_queue } target
     | None when x.run_num = 0 ->
-      `Next ({ x with run_num = 1 }, Session.Eval.create Concolic_feeder.default default_global_max_step)
+      `Next ({ x with run_num = 1 }, Session.Eval.create Concolic_feeder.default x.options.global_max_step)
     | None -> (* no targets left, so done *)
       `Done x.branches
   and solve_for_target (x : t) (target : Target.t) =
     let new_solver = Z3.Solver.mk_solver Solver.SuduZ3.ctx None in
+    Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec x.options.solver_timeout_sec));
     Z3.Solver.add new_solver (Target.to_formulas target x.tree);
-    (* Format.printf "%s\n" (Z3.Solver.to_string new_solver); *)
-    (* Format.printf "\nSolving for target %s\n" (Branch.Runtime.to_string target.child.branch); *)
-    (* Format.printf "Path is%s\n" (List.to_string target.path ~f:(Branch.Runtime.to_string_short)); *)
+    if x.options.print_solver then begin
+    Format.printf "Solving for target %s\n" (Branch.Runtime.to_string target.child.branch);
+    (* Format.printf "Path is%s\n" (List.to_string target.path ~f:(Branch.Runtime.to_string_short)) *)
+    Format.printf "Solver is:\n%s\n" (Z3.Solver.to_string new_solver);
+    end;
     match Z3.Solver.check new_solver [] with
     | Z3.Solver.UNSATISFIABLE ->
       Format.printf "FOUND UNSATISFIABLE\n"; (* TODO: add formula that says it's not satisfiable so less solving is necessary *)
@@ -350,7 +351,7 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
         , Z3.Solver.get_model new_solver
           |> Core.Option.value_exn
           |> Concolic_feeder.from_model
-          |> fun feeder -> Session.Eval.create feeder default_global_max_step
+          |> fun feeder -> Session.Eval.create feeder x.options.global_max_step
       )
   in
   { x with tree = updated_tree
@@ -362,3 +363,6 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
 
 let status_store ({ branches ; _ } : t) : Branch_tracker.Status_store.Without_payload.t =
   branches
+
+let run_num ({ run_num ; _ } : t) : int =
+  run_num

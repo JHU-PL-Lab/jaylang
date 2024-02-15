@@ -8,6 +8,7 @@ let global_timeout_sec = ref 0.0 (* TODO: make a Concolic_options.float_ref () a
 let solver_timeout_sec = ref 0.0
 let global_max_step = ref 0
 let quit_on_first_abort = ref false
+let print_solver = ref false
 let version = ref ""
 let inputs = ref []
 
@@ -21,7 +22,8 @@ let speclist =
   ; ("-s", Arg.Set_float solver_timeout_sec, "Solver timeout seconds")
   ; ("-m", Arg.Set_int global_max_step, "Global max step")
   ; ("-q", Arg.Set quit_on_first_abort, "Quit on first abort")
-  ; ("-v", Arg.Set_string version, "Version") ]
+  ; ("-v", Arg.Set_string version, "Version")
+  ; ("-p", Arg.Set print_solver, "Print solver") ]
 
 let () = 
   Arg.parse speclist anon_fun usage_msg;
@@ -41,6 +43,7 @@ let () =
       ?solver_timeout_sec:(Option.some_if Float.(!solver_timeout_sec <> 0.0) !solver_timeout_sec)
       ?global_max_step:(Option.some_if (!global_max_step <> 0) !global_max_step)
       ~quit_on_abort:!quit_on_first_abort
+      ~print_solver:!print_solver
     in
     ()
     end

@@ -314,7 +314,7 @@ and eval_clause
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       let Var (y, _) = vy in
       let match_key = generate_lookup_key y stk in
-      (* This doesn't do records properly *)
+      (* FIXME: This doesn't do records properly *)
       let x_key_exp = Riddler.key_to_var x_key in
       let path_tracker = Path_tracker.add_formula path_tracker @@ Solver.SuduZ3.ifBool x_key_exp in (* x has a bool value it will take on *)
       let path_tracker =
@@ -475,13 +475,14 @@ let rec loop (e : expr) (prev_tracker : Path_tracker.t) : Branch_tracker.Status_
   |> begin function
     | `Done status_store ->
       Format.printf "\n------------------------------\nFinishing concolic evaluation...\n\n";
+      Format.printf "Ran %d interpretations.\n" (Path_tracker.run_num prev_tracker);
       Branch_tracker.Status_store.Without_payload.print status_store;
       Lwt.return status_store
     | `Next (path_tracker, eval_session) ->
       let status_store = Path_tracker.status_store path_tracker in
       Format.printf "Pre-run info:\n";
       Branch_tracker.Status_store.Without_payload.print status_store;
-      Format.printf "\n------------------------------\nRunning program...\n\n";
+      Format.printf "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Path_tracker.run_num path_tracker);
       let t0 = Caml_unix.gettimeofday () in
       let resulting_tracker = try_eval_exp_default ~eval_session ~path_tracker e in
       let t1 = Caml_unix.gettimeofday () in
@@ -493,21 +494,18 @@ let rec loop (e : expr) (prev_tracker : Path_tracker.t) : Branch_tracker.Status_
 let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Concolic_options.With_options.t =
   let f =
     fun (r : Concolic_options.t) ->
-      fun e ->
+      fun (e : Jayil.Ast.expr) ->
         if Printer.print then Format.printf "\nStarting concolic execution...\n";
         (* Repeatedly evaluate program *)
         let run () = 
           e
           |> Path_tracker.of_expr
-          |> Path_tracker.with_options
-            ~solver_timeout_s:r.solver_timeout_sec
-            ~quit_on_abort:r.quit_on_abort
-          (* |> Fn.flip Session.set_quit_on_first_abort quit_on_first_abort *)
+          |> Concolic_options.With_options.appl Path_tracker.with_options r
           |> loop e
         in
         try
-          Lwt_unix.with_timeout r.global_timeout_sec run
-          |> Lwt_main.run
+          Lwt_main.run
+          @@ Lwt_unix.with_timeout r.global_timeout_sec run
         with
         | Lwt_unix.Timeout ->
           if Printer.print then Format.printf "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec;

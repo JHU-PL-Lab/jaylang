@@ -12,7 +12,7 @@ type t
 val empty : t
 (** [empty] is a default path tracker with no target and empty tree and stack. *)
 
-val with_options : ?quit_on_abort:bool -> ?solver_timeout_s:float -> t -> t
+val with_options : (t -> t) Concolic_options.With_options.t
 
 val of_expr : Jayil.Ast.expr -> t
 (** [of_expr expr] is [empty] that knows of all branches in the [expr]. *)
@@ -59,3 +59,6 @@ val next : t -> [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next
 
 val status_store : t -> Branch_tracker.Status_store.Without_payload.t
 (** [status_store t] is the status store in [t]. *)
+
+val run_num : t -> int
+(** [run_num t] is the number of interpretations [t] has done. *)
