@@ -3,8 +3,8 @@ open Dbmc
 
 (* This executable is to run the concolic evaluator. Think CJ = "concolic jil" *)
 let usage_msg = "jil -i <file> [-t <total timeout>] [-s <solver_timeout>] [-m <max_step>] [-q]"
-let source_file = ref ""
-let global_timeout_sec = ref 0.0
+let source_file = ref "" 
+let global_timeout_sec = ref 0.0 (* TODO: make a Concolic_options.float_ref () and Concolic_options.float_opt_of_ref *)
 let solver_timeout_sec = ref 0.0
 let global_max_step = ref 0
 let quit_on_first_abort = ref false
@@ -40,7 +40,7 @@ let () =
       ?global_timeout_sec:(Option.some_if Float.(!global_timeout_sec <> 0.0) !global_timeout_sec)
       ?solver_timeout_sec:(Option.some_if Float.(!solver_timeout_sec <> 0.0) !solver_timeout_sec)
       ?global_max_step:(Option.some_if (!global_max_step <> 0) !global_max_step)
-      ~quit_on_first_abort:!quit_on_first_abort
+      ~quit_on_abort:!quit_on_first_abort
     in
     ()
     end

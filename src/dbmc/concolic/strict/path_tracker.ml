@@ -1,6 +1,6 @@
 open Core
 
-open Tree
+open Path_tree
 
 module Node_stack =
   (* sig

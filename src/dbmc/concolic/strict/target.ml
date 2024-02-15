@@ -1,5 +1,5 @@
 open Core
-open Tree
+open Path_tree
 
 type t =
   { child : Child.t
