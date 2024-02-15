@@ -52,9 +52,15 @@ module With_options =
       ; print_solver }
       |> f 
 
-    let map (x : 'a t) (f : 'a -> 'b) : 'b t =
+    let map (x : 'a t) ~(f : 'a -> 'b) : 'b t =
       let g = fun r -> f (appl x r)
       in
       make g
-      
+
+    let bind (x : 'a t) ~(f : 'a -> 'b t) : 'b t =
+      let g =
+        fun r ->
+          appl (f (appl x r)) r
+      in
+      make g
   end

@@ -542,28 +542,3 @@ let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Con
           Branch_tracker.Status_store.Without_payload.empty
   in
   Concolic_options.With_options.make f
-(*   
-
-  fun
-  ?(global_timeout_sec : float = 120.0)
-  ?(solver_timeout_sec : float = 1.0)
-  ?(quit_on_first_abort : bool = true)
-  ?(global_max_step : int = Int.(2 * 10 ** 3))
-  (e : expr)
-  ->
-  if Printer.print then Format.printf "\nStarting concolic execution...\n";
-  (* Repeatedly evaluate program *)
-  let run () = 
-    e
-    |> Session.of_expr
-    |> Session.with_options ~solver_timeout_sec ~quit_on_first_abort ~global_max_step:(`Const global_max_step)
-    |> Fn.flip Session.set_quit_on_first_abort quit_on_first_abort
-    |> loop e
-  in
-  try
-    Lwt_unix.with_timeout global_timeout_sec run
-    |> Lwt_main.run
-  with
-  | Lwt_unix.Timeout ->
-    if Printer.print then Format.printf "Quit due to total run timeout in %0.3f seconds.\n" global_timeout_sec;
-    Branch_tracker.Status_store.Without_payload.empty *)
