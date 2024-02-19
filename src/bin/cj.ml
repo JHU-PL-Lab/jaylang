@@ -32,8 +32,8 @@ let () =
   | src_file -> begin
     let f =
       match !version with
-      | "strict" -> Concolic_driver.test_program_strict_concolic
-      | "loose" | "" -> Concolic_driver.test_program_concolic
+      | "strict" | "" -> Concolic_driver.test_program_concolic (* default *)
+      | "loose" -> Concolic_driver.test_program_loose_concolic
       | _ -> failwith "unknown version"
     in
     let _ =
