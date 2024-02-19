@@ -9,6 +9,51 @@ type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
 
 exception Found_solution of result_info
 
+module Record_logic =
+  struct
+  (* maps ident to bit, where rightmost is bit 0 *)
+    let record_label_table : (ident, int) Hashtbl.t = Hashtbl.create (module Ident_new)
+
+    (* assigns bitvector positions from the given labels *)
+    let set_labels (labels : Ident_new.t list) : unit =
+      Hashtbl.clear record_label_table;
+      let b_max = 
+        List.fold
+          labels
+          ~init:0
+          ~f:(fun b id ->
+            match Hashtbl.find record_label_table id with
+            | None -> Hashtbl.set record_label_table ~key:id ~data:b; b + 1 (* give new label the next bit *)
+            | Some _ -> b (* repeat label *)
+          )
+      in
+      if b_max > 62 then failwith "too many record labels" else ()
+
+    let set_labels_from_ast (expr : Jayil.Ast.expr) : unit =
+      let rec find_labels_in_ast (Expr clauses : Jayil.Ast.expr) : ident list =
+        List.fold clauses ~init:[] ~f:(fun acc clause -> find_labels_in_clause clause @ acc)
+      and find_labels_in_clause (clause : Jayil.Ast.clause) : ident list =
+        let Clause (Var (x, _), cbody) = clause in
+        match cbody with
+        | Conditional_body (_, e1, e2) -> find_labels_in_ast e1 @ find_labels_in_ast e2
+        | Value_body (Value_function (Function_value (_, e))) -> find_labels_in_ast e
+        | Value_body (Value_record (Record_value m)) -> Ident_map.key_list m
+        | Match_body (_, (Rec_pattern id_set)) | Match_body (_, (Strict_rec_pattern id_set)) -> Ident_set.to_list id_set
+        | _ -> []
+      in
+      find_labels_in_ast expr
+      |> set_labels
+
+    let create_bv_from_labels (labels : ident list) : int =
+      let set_bit i b = i lor (1 lsl b) in
+      List.fold
+        labels
+        ~init:0
+        ~f:(fun acc id -> set_bit acc (Hashtbl.find_exn record_label_table id))
+  end (* Record_logic *)
+
+include Record_logic
+
 let ctx = Solver.ctx
 let top_stack = SuduZ3.var_s "Topstack"
 
@@ -67,7 +112,11 @@ let phi_of_value (key : Lookup_key.t) = function
   | Value_function _ -> z_of_fid key.x
   | Value_int i -> SuduZ3.int_ i
   | Value_bool i -> SuduZ3.bool_ i
-  | Value_record i -> SuduZ3.record_ (Lookup_key.to_string key)
+  | Value_record (Record_value m) ->
+    m
+    |> Ident_map.key_list
+    |> create_bv_from_labels
+    |> SuduZ3.record_
 
 let phi_of_value_opt (key : Lookup_key.t) = function
   | Some v -> phi_of_value key v
@@ -161,8 +210,16 @@ let if_pattern term pat =
   | Fun_pattern -> ifFun x
   | Int_pattern -> ifInt x
   | Bool_pattern -> ifBool x
-  | Rec_pattern _ -> ifRecord x
-  | Strict_rec_pattern _ -> ifRecord x
+  | Rec_pattern label_set ->
+    let sub_bv = create_bv_from_labels (Ident_set.to_list label_set) in (* this bitvector should be contained within the record's bv *)
+    let desired_record = SuduZ3.record_ sub_bv in
+    SuduZ3.eq (SuduZ3.project_record desired_record) (SuduZ3.project_record x) (* FIXME not correct because this is same as strict *)
+    (* ifRecord x Need to first check if has record sort, then check that it has at le *)
+  | Strict_rec_pattern label_set ->
+    let eq_bv = create_bv_from_labels (Ident_set.to_list label_set) in (* the record's bv should be exactly this *)
+    let desired_record = SuduZ3.record_ eq_bv in
+    SuduZ3.eq (SuduZ3.project_record desired_record) (SuduZ3.project_record x)
+    (* ifRecord x *)
   | Any_pattern -> true_
 
 (* OB1: For some patterns, we can immediately know the result of the matching:
@@ -239,7 +296,7 @@ let eq_term_v term v =
 let enter_fun key_para key_arg = eq key_para key_arg
 let exit_fun key_in key_out = eq key_in key_out
 
-let is_pattern term pat =
+(* let is_pattern term pat =
   let x = key_to_var term in
   let is_pattern =
     match pat with
@@ -250,4 +307,4 @@ let is_pattern term pat =
     | Strict_rec_pattern _ -> ifRecord x
     | Any_pattern -> true_
   in
-  is_pattern
+  is_pattern *)

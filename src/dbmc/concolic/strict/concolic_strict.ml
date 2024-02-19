@@ -319,7 +319,7 @@ and eval_clause
       let path_tracker = Path_tracker.add_formula path_tracker @@ Solver.SuduZ3.ifBool x_key_exp in (* x has a bool value it will take on *)
       let path_tracker =
         Path_tracker.add_formula path_tracker
-        @@ Solver.SuduZ3.eq (Solver.SuduZ3.project_bool x_key_exp) (Riddler.is_pattern match_key p) (* x is same as result of match *)
+        @@ Solver.SuduZ3.eq (Solver.SuduZ3.project_bool x_key_exp) (Riddler.if_pattern match_key p) (* x is same as result of match *)
       in
       retv, path_tracker
     | Projection_body (v, label) -> begin
@@ -498,6 +498,7 @@ let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Con
         if Printer.print then Format.printf "\nStarting concolic execution...\n";
         (* Repeatedly evaluate program *)
         let run () = 
+          Riddler.set_labels_from_ast e;
           e
           |> Path_tracker.of_expr
           |> Concolic_options.With_options.appl Path_tracker.with_options r

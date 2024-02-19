@@ -108,7 +108,7 @@ module Input :
     let none : t = None
     
     let add (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
-      let is_int_pattern = Riddler.is_pattern key (Jayil.Ast.Int_pattern) in
+      let is_int_pattern = Riddler.if_pattern key (Jayil.Ast.Int_pattern) in
       let new_formula = (* new formula says that x cannot be the given value *)
         Riddler.eq_term_v key (Some v)
         |> Solver.SuduZ3.not_

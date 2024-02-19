@@ -278,7 +278,7 @@ module Formula_logic =
         | _ -> failwith "non-int input" (* logically impossible *)
       in
       if Printer.print then Format.printf "Feed %d to %s \n" n s;
-      add_formula x @@ Riddler.is_pattern key Jayil.Ast.Int_pattern
+      add_formula x @@ Riddler.if_pattern key Jayil.Ast.Int_pattern
   end
 
 include Formula_logic

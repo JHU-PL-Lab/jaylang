@@ -320,7 +320,7 @@ and eval_clause
       let conc_session = Session.Concolic.add_formula conc_session @@ Solver.SuduZ3.ifBool x_key_exp in (* x has a bool value it will take on *)
       let conc_session =
         Session.Concolic.add_formula conc_session
-        @@ Solver.SuduZ3.eq (Solver.SuduZ3.project_bool x_key_exp) (Riddler.is_pattern match_key p) (* x is same as result of match *)
+        @@ Solver.SuduZ3.eq (Solver.SuduZ3.project_bool x_key_exp) (Riddler.if_pattern match_key p) (* x is same as result of match *)
       in
       (* This commented code doesn't actually do records any better from what I can tell *)
       (* let conc_session =
@@ -524,6 +524,7 @@ let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Con
         if Printer.print then Format.printf "\nStarting concolic execution...\n";
         (* Repeatedly evaluate program *)
         let run () = 
+          Riddler.set_labels_from_ast e;
           e
           |> Session.of_expr
           |> Session.with_options

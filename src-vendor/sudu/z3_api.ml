@@ -1,7 +1,7 @@
 open Core
 open Z3
 
-type plain = Int of int | Bool of bool | Fun of string | Record of string
+type plain = Int of int | Bool of bool | Fun of string | Record of int (* record can have 63 diff labels *)
 
 module type Context = sig
   val ctx : Z3.context
@@ -115,6 +115,7 @@ module Make_datatype_builders (C : Context) = struct
   let intS = Arithmetic.Integer.mk_sort ctx
   let boolS = Boolean.mk_sort ctx
   let strS = Seq.mk_string_sort ctx
+  let bvS = intS (* bitvector *)
 
   (* making constructors, checkers, and selectors *)
   let intC =
@@ -139,7 +140,7 @@ module Make_datatype_builders (C : Context) = struct
     Datatype.mk_constructor_s ctx "Record"
       (Symbol.mk_string ctx "is-Record")
       [ Symbol.mk_string ctx "rid" ]
-      [ Some strS ] [ 1 ]
+      [ Some bvS ] [ 1 ]
 
   (* making *the* sort *)
   let valS = Datatype.mk_sort_s ctx "TypOdefa" [ intC; boolC; funC; recordC ]
@@ -174,7 +175,8 @@ module Make_datatype_builders (C : Context) = struct
   let bool_ b = FuncDecl.apply boolD [ box_bool b ]
   let fun_ s = FuncDecl.apply funD [ Seq.mk_string ctx s ]
   let string_ = fun_
-  let record_ rid = FuncDecl.apply recordD [ Seq.mk_string ctx rid ]
+  (* let record_ rid = FuncDecl.apply recordD [ Seq.mk_string ctx rid ] *)
+  let record_ bv = FuncDecl.apply recordD [ box_int bv ]
 
   (* basic builders *)
   let inject_int e = FuncDecl.apply intD [ e ]
@@ -219,7 +221,7 @@ module Make_datatype_builders (C : Context) = struct
   let get_unbox_int_exn model e = unbox_int (get_int_expr_exn model e)
   let get_unbox_bool_exn model e = unbox_bool (get_bool_expr_exn model e)
   let get_unbox_fun_exn model e = unbox_string (get_fun_expr_exn model e)
-  let get_unbox_record_exn model e = unbox_string (get_record_expr_exn model e)
+  let get_unbox_record_exn model e = unbox_int (get_record_expr_exn model e)
   let eval_value model e = Option.value_exn (Model.eval model e false)
 
   let get_value model e =
@@ -233,8 +235,8 @@ module Make_datatype_builders (C : Context) = struct
       Some (Fun fid)
     else if is_record_from_model model e
     then
-      let rid = get_unbox_record_exn model e in
-      Some (Record rid)
+      let bv = get_unbox_record_exn model e in
+      Some (Record bv)
     else None
   (* failwith "get_value" *)
 
