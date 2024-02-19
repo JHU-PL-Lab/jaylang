@@ -1,0 +1,14 @@
+
+x = input; # unused
+
+zero = 0;
+
+r1 = { a = zero };
+r2 = { a = zero };
+
+c = r1 == r2; # This is actually illegal. == is only defined on ints and bools 
+b = c ? (
+  r = 42
+) : (
+  void = 0
+)

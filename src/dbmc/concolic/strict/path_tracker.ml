@@ -198,7 +198,7 @@ module Runtime =
     (* Note that other side of all new targets are all the new hits *)
     let finish (x : t) (tree : Root.t) : Root.t * Target.t list * Branch.t list =
       if Option.is_some x.target && not x.has_hit_target
-      then (Format.printf "MISSED TARGET BRANCH\n"; tree, [], Set.to_list x.hit_branches) (* don't learn anything from run *)(*failwith "missed target branch" *)
+      then (*(Format.printf "MISSED TARGET BRANCH\n"; tree, [], Set.to_list x.hit_branches)*)(* don't learn anything from run *) failwith "missed target branch"
       else
         let root, targets = Node_stack.merge_with_tree x.stack tree in
         root, targets, Set.to_list x.hit_branches
