@@ -14,18 +14,6 @@ module S = Set.Make (Z3_expr)
 
 type t = S.t [@@deriving compare]
 
-(* This is just a little experiment to use lists because we expect formula sets to be small *)
-(* type t = Z3_expr.t list [@@deriving compare]
-let empty = []
-let singleton = List.return
-let add = Fn.flip List.cons
-let add_multi = List.append
-let union = Fn.const (* FIXME: this is only okay for strict concolic *)
-let to_list = Fn.id
-let equal = fun a b -> compare a b = 0
-let and_ = Riddler.and_ *)
-
-
 let empty = S.empty
 let singleton = S.singleton
 let add = Set.add
