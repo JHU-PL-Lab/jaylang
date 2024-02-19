@@ -306,7 +306,8 @@ let found_abort (x : t) : t =
 (* TODO: allow some branches from run to be targets. Like don't discard, and instead use exponential rollback
   and some heuristic to target branches that likely won't lead to max step again.  *)
 let reach_max_step (x : t) : t =
-  { x with runtime = Runtime.empty } (* discard everything from the run *)
+  x
+  (*{ x with runtime = Runtime.empty }*) (* discard everything from the run *)
 
 let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
   (* first finish*)
