@@ -9,15 +9,12 @@ bug-reports: "https://github.com/JHU-PL-Lab/jaylang/issues"
 depends: [
   "dune" {>= "3.0"}
   "core"
-  "core_unix.nano_mutex"
-  "core_kernel.pairing_heap"
+  "core_unix"
+  "core_kernel"
   "hashcons"
   "fmt"
   "lwt"
-  "lwt.unix"
   "logs"
-  "logs.lwt"
-  "logs.fmt"
   "odoc" {with-doc}
 ]
 build: [

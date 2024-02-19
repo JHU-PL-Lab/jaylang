@@ -9,7 +9,7 @@ bug-reports: "https://github.com/JHU-PL-Lab/jaylang/issues"
 depends: [
   "dune" {>= "3.0"}
   "core"
-  "core_unix.sys_unix"
+  "core_unix"
   "lwt"
   "lambda-term"
   "react"

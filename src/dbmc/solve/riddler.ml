@@ -36,10 +36,14 @@ module Record_logic =
       and find_labels_in_clause (clause : Jayil.Ast.clause) : ident list =
         let Clause (Var (x, _), cbody) = clause in
         match cbody with
-        | Conditional_body (_, e1, e2) -> find_labels_in_ast e1 @ find_labels_in_ast e2
-        | Value_body (Value_function (Function_value (_, e))) -> find_labels_in_ast e
-        | Value_body (Value_record (Record_value m)) -> Ident_map.key_list m
-        | Match_body (_, (Rec_pattern id_set)) | Match_body (_, (Strict_rec_pattern id_set)) -> Ident_set.to_list id_set
+        | Conditional_body (_, e1, e2) ->
+          find_labels_in_ast e1 @ find_labels_in_ast e2
+        | Value_body (Value_function (Function_value (_, e))) ->
+          find_labels_in_ast e
+        | Value_body (Value_record (Record_value m)) ->
+          Ident_map.key_list m
+        | Match_body (_, (Rec_pattern id_set)) | Match_body (_, (Strict_rec_pattern id_set)) ->
+          Ident_set.to_list id_set
         | _ -> []
       in
       find_labels_in_ast expr

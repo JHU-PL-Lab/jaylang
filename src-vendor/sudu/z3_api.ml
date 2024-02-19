@@ -290,10 +290,6 @@ module Make_datatype_builder_helpers (C : Context) = struct
     let ey = bop getBool boolD fop e1 e2 in
     join [ eq y ey; ifBool e1; ifBool e2 ]
 
-  (* let fn_two_bvs fop y e1 e2 =
-    let ey = bop getRecord recordD fop e1 e2 in
-    join [eq y ey; ifRecord e1; ifRecord e2 ] *)
-
   let fn_plus = fn_two_ints (fun e1 e2 -> Arithmetic.mk_add ctx [ e1; e2 ])
   let fn_minus = fn_two_ints (fun e1 e2 -> Arithmetic.mk_sub ctx [ e1; e2 ])
   let fn_times = fn_two_ints (fun e1 e2 -> Arithmetic.mk_mul ctx [ e1; e2 ])
@@ -310,8 +306,6 @@ module Make_datatype_builder_helpers (C : Context) = struct
   let fn_and = fn_two_bools and2
   let fn_or = fn_two_bools (fun e1 e2 -> Boolean.mk_or ctx [ e1; e2 ])
   (* let fn_xor = fn_two_bools (Boolean.mk_xor ctx) *)
-
-  (* let fn_land = fn_two_bvs (BitVector.mk_and ctx) *)
 
   (* check *)
 
