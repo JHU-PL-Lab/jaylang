@@ -79,6 +79,7 @@ module Make_common_builders (C : Context) = struct
   let box_int i = Z3.Arithmetic.Integer.mk_numeral_i ctx i
   let box_bool b = Boolean.mk_val ctx b
   let box_string s = Seq.mk_string ctx s
+  let box_record i = BitVector.mk_numeral ctx (Int.to_string i) 63 (* if we want the bits for 0b011, we give argument i = 3 *)
 
   (* unbox from Z3 expression *)
   let unbox_bool_exn v =
@@ -97,6 +98,8 @@ module Make_common_builders (C : Context) = struct
     e |> Z3.Arithmetic.Integer.get_big_int |> Big_int_Z.int_of_big_int
 
   let unbox_string e = Seq.get_string ctx e
+
+  let unbox_record e = BitVector.numeral_to_string e |> Int.of_string (* allow only 63 bits *)
 end
 
 module Make_datatype_builders (C : Context) = struct
@@ -115,7 +118,7 @@ module Make_datatype_builders (C : Context) = struct
   let intS = Arithmetic.Integer.mk_sort ctx
   let boolS = Boolean.mk_sort ctx
   let strS = Seq.mk_string_sort ctx
-  let bvS = intS (* bitvector *)
+  let bvS = BitVector.mk_sort ctx 63 (* hardcode 63 bits because we use ocaml int *)
 
   (* making constructors, checkers, and selectors *)
   let intC =
@@ -139,7 +142,7 @@ module Make_datatype_builders (C : Context) = struct
   let recordC =
     Datatype.mk_constructor_s ctx "Record"
       (Symbol.mk_string ctx "is-Record")
-      [ Symbol.mk_string ctx "rid" ]
+      [ Symbol.mk_string ctx "r" ]
       [ Some bvS ] [ 1 ]
 
   (* making *the* sort *)
@@ -176,7 +179,7 @@ module Make_datatype_builders (C : Context) = struct
   let fun_ s = FuncDecl.apply funD [ Seq.mk_string ctx s ]
   let string_ = fun_
   (* let record_ rid = FuncDecl.apply recordD [ Seq.mk_string ctx rid ] *)
-  let record_ bv = FuncDecl.apply recordD [ box_int bv ]
+  let record_ bv = FuncDecl.apply recordD [ box_record bv ]
 
   (* basic builders *)
   let inject_int e = FuncDecl.apply intD [ e ]
@@ -221,7 +224,7 @@ module Make_datatype_builders (C : Context) = struct
   let get_unbox_int_exn model e = unbox_int (get_int_expr_exn model e)
   let get_unbox_bool_exn model e = unbox_bool (get_bool_expr_exn model e)
   let get_unbox_fun_exn model e = unbox_string (get_fun_expr_exn model e)
-  let get_unbox_record_exn model e = unbox_int (get_record_expr_exn model e)
+  let get_unbox_record_exn model e = unbox_record (get_record_expr_exn model e)
   let eval_value model e = Option.value_exn (Model.eval model e false)
 
   let get_value model e =
@@ -287,6 +290,10 @@ module Make_datatype_builder_helpers (C : Context) = struct
     let ey = bop getBool boolD fop e1 e2 in
     join [ eq y ey; ifBool e1; ifBool e2 ]
 
+  (* let fn_two_bvs fop y e1 e2 =
+    let ey = bop getRecord recordD fop e1 e2 in
+    join [eq y ey; ifRecord e1; ifRecord e2 ] *)
+
   let fn_plus = fn_two_ints (fun e1 e2 -> Arithmetic.mk_add ctx [ e1; e2 ])
   let fn_minus = fn_two_ints (fun e1 e2 -> Arithmetic.mk_sub ctx [ e1; e2 ])
   let fn_times = fn_two_ints (fun e1 e2 -> Arithmetic.mk_mul ctx [ e1; e2 ])
@@ -303,6 +310,8 @@ module Make_datatype_builder_helpers (C : Context) = struct
   let fn_and = fn_two_bools and2
   let fn_or = fn_two_bools (fun e1 e2 -> Boolean.mk_or ctx [ e1; e2 ])
   (* let fn_xor = fn_two_bools (Boolean.mk_xor ctx) *)
+
+  (* let fn_land = fn_two_bvs (BitVector.mk_and ctx) *)
 
   (* check *)
 

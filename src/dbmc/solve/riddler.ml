@@ -29,6 +29,7 @@ module Record_logic =
       in
       if b_max > 62 then failwith "too many record labels" else ()
 
+    (* find all labels used anywhere in the ast, then set the labels *)
     let set_labels_from_ast (expr : Jayil.Ast.expr) : unit =
       let rec find_labels_in_ast (Expr clauses : Jayil.Ast.expr) : ident list =
         List.fold clauses ~init:[] ~f:(fun acc clause -> find_labels_in_clause clause @ acc)
@@ -212,14 +213,22 @@ let if_pattern term pat =
   | Bool_pattern -> ifBool x
   | Rec_pattern label_set ->
     let sub_bv = create_bv_from_labels (Ident_set.to_list label_set) in (* this bitvector should be contained within the record's bv *)
-    let desired_record = SuduZ3.record_ sub_bv in
-    SuduZ3.eq (SuduZ3.project_record desired_record) (SuduZ3.project_record x) (* FIXME not correct because this is same as strict *)
-    (* ifRecord x Need to first check if has record sort, then check that it has at le *)
+    let projected = SuduZ3.project_record (SuduZ3.record_ sub_bv) in
+    SuduZ3.and_
+      [ ifRecord x
+      ; SuduZ3.eq
+          projected
+          (Z3.BitVector.mk_and ctx projected (SuduZ3.project_record x))
+      ]
   | Strict_rec_pattern label_set ->
     let eq_bv = create_bv_from_labels (Ident_set.to_list label_set) in (* the record's bv should be exactly this *)
     let desired_record = SuduZ3.record_ eq_bv in
-    SuduZ3.eq (SuduZ3.project_record desired_record) (SuduZ3.project_record x)
-    (* ifRecord x *)
+    SuduZ3.and_
+      [ ifRecord x
+      ; SuduZ3.eq
+          (SuduZ3.project_record desired_record)
+          (SuduZ3.project_record x)
+      ]
   | Any_pattern -> true_
 
 (* OB1: For some patterns, we can immediately know the result of the matching:
