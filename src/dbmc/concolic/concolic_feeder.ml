@@ -8,7 +8,7 @@ let query_model model (x, call_stack) : int option =
   Solver.SuduZ3.get_int_s model name 
 
 let default : Input_feeder.t =
-  fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl 0 1)
+  fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (-10) 10)
 
 let from_model ?(history = ref []) model : t =
   let input_feeder = query_model model in
