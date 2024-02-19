@@ -1,7 +1,7 @@
 open Core
 open Dj_common
 
-type t = Input_feeder.t (* = Id.t * Concrete_stack.t -> int *)
+type t = Input_feeder.t
 
 let query_model model (x, call_stack) : int option =
   let name = Lookup_key.to_str2 x (call_stack |> Rstack.from_concrete) in 
