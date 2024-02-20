@@ -498,7 +498,8 @@ let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Con
         if Printer.print then Format.printf "\nStarting concolic execution...\n";
         (* Repeatedly evaluate program *)
         let run () = 
-          Riddler.set_labels_from_ast e;
+          (* Riddler.set_labels_from_ast e; *)
+          Riddler.clear_labels ();
           e
           |> Path_tracker.of_expr
           |> Concolic_options.With_options.appl Path_tracker.with_options r

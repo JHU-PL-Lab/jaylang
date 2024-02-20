@@ -28,10 +28,11 @@ module Record_logic =
           Hashtbl.clear x.tbl;
           x.n <- 0
 
-        let set_found ({ tbl ; n } as x : t) (id : Ident_new.t) : unit =
+        (* assigns id an offset and returns that offset. mutates the table *)
+        let set_found ({ tbl ; n } as x : t) (id : Ident_new.t) : int =
           match Hashtbl.find tbl id with
-          | None -> Hashtbl.set record_label_table ~key:id ~data:n; x.n <- n + 1 (* give next offset and increment *)
-          | Some _ -> () (* id has already been found *)
+          | None -> Hashtbl.set tbl ~key:id ~data:n; x.n <- n + 1; n (* give next offset and increment *)
+          | Some n -> n (* id has already been found *)
       end
 
     let tbl = Table.create ()
@@ -42,7 +43,7 @@ module Record_logic =
     (* assigns bitvector positions from the given labels *)
     let set_labels (labels : Ident_new.t list) : unit =
       Table.clear tbl;
-      List.iter labels ~f:(fun id -> Table.set_found tbl id);
+      List.iter labels ~f:(fun id -> let _ = Table.set_found tbl id in ());
       if tbl.n > 63 then failwith "too many record labels" else ()
 
     (* find all labels used anywhere in the ast, then set the labels *)
@@ -77,7 +78,7 @@ module Record_logic =
         List.fold
           labels
           ~init:0
-          ~f:(fun acc id -> Table.set_found tbl id; set_bit acc (Hashtbl.find_exn tbl.tbl id))
+          ~f:(fun acc id -> set_bit acc (Table.set_found tbl id))
   end (* Record_logic *)
 
 include Record_logic
@@ -143,7 +144,7 @@ let phi_of_value (key : Lookup_key.t) = function
   | Value_record (Record_value m) ->
     m
     |> Ident_map.key_list
-    |> create_bv_from_labels
+    |> create_bv_from_labels ~are_labels_predefined:false
     |> SuduZ3.record_
 
 let phi_of_value_opt (key : Lookup_key.t) = function
