@@ -295,6 +295,7 @@ and Status_store :
         val find_branches : Jayil.Ast.expr -> t -> t
         val finish : t -> int -> bool -> t
         val contains : t -> status_t -> bool
+        val all_hit : t -> bool
       end
     
     module type ST =
@@ -332,6 +333,7 @@ and Status_store :
         val find_branches : Jayil.Ast.expr -> t -> t
         val finish : t -> int -> bool -> t
         val contains : t -> status_t -> bool
+        val all_hit : t -> bool
       end
 
     module type ST =
@@ -453,6 +455,10 @@ and Status_store :
 
         let contains (map : t) (status : Status.t) : bool =
           Map.exists map ~f:(fun v -> Status.compare v status = 0)
+
+        (* TODO: this could be made more efficient by keeping track of number of hit branches *)
+        let all_hit (map : t) : bool =
+          Map.for_all map ~f:Status.is_hit
            
         (* Custom sexp conversions so that it's easier to hand-write the sexp files *)
         module Sexp_conversions =

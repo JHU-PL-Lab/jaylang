@@ -322,6 +322,7 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
   let rec next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
     (* Format.printf "In `next`. Queue is %s.\n" (Target_queue.to_string x.target_queue); *)
     if x.quit then `Done x.branches else
+    if Branch_tracker.Status_store.Without_payload.all_hit x.branches then `Done x.branches else
     match Target_queue.pop x.target_queue with
     | Some (target, target_queue) -> 
       solve_for_target { x with target_queue } target
