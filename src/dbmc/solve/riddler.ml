@@ -11,23 +11,39 @@ exception Found_solution of result_info
 
 module Record_logic =
   struct
-  (* maps ident to bit, where rightmost is bit 0 *)
+    (* maps ident to bit, where rightmost is bit 0 *)
     let record_label_table : (ident, int) Hashtbl.t = Hashtbl.create (module Ident_new)
+
+    module Table =
+      struct
+        type t =
+          { tbl : (ident, int) Hashtbl.t (* maps ident to bit, where rightmost bit is 0 *)
+          ; mutable n : int (* is the greatest unused offset *)
+          }
+
+        let create () : t =
+          { tbl = Hashtbl.create (module Ident_new) ; n = 0 }
+
+        let clear (x : t) : unit =
+          Hashtbl.clear x.tbl;
+          x.n <- 0
+
+        let set_found ({ tbl ; n } as x : t) (id : Ident_new.t) : unit =
+          match Hashtbl.find tbl id with
+          | None -> Hashtbl.set record_label_table ~key:id ~data:n; x.n <- n + 1 (* give next offset and increment *)
+          | Some _ -> () (* id has already been found *)
+      end
+
+    let tbl = Table.create ()
+
+    let clear_labels () : unit =
+      Table.clear tbl
 
     (* assigns bitvector positions from the given labels *)
     let set_labels (labels : Ident_new.t list) : unit =
-      Hashtbl.clear record_label_table;
-      let b_max = 
-        List.fold
-          labels
-          ~init:0
-          ~f:(fun b id ->
-            match Hashtbl.find record_label_table id with
-            | None -> Hashtbl.set record_label_table ~key:id ~data:b; b + 1 (* give new label the next bit *)
-            | Some _ -> b (* repeat label *)
-          )
-      in
-      if b_max > 62 then failwith "too many record labels" else ()
+      Table.clear tbl;
+      List.iter labels ~f:(fun id -> Table.set_found tbl id);
+      if tbl.n > 63 then failwith "too many record labels" else ()
 
     (* find all labels used anywhere in the ast, then set the labels *)
     let set_labels_from_ast (expr : Jayil.Ast.expr) : unit =
@@ -49,12 +65,19 @@ module Record_logic =
       find_labels_in_ast expr
       |> set_labels
 
-    let create_bv_from_labels (labels : ident list) : int =
+    let create_bv_from_labels ?(are_labels_predefined : bool = true) (labels : ident list) : int =
       let set_bit i b = i lor (1 lsl b) in
-      List.fold
-        labels
-        ~init:0
-        ~f:(fun acc id -> set_bit acc (Hashtbl.find_exn record_label_table id))
+      if are_labels_predefined
+      then
+        List.fold
+          labels
+          ~init:0
+          ~f:(fun acc id -> set_bit acc (Hashtbl.find_exn record_label_table id))
+      else
+        List.fold
+          labels
+          ~init:0
+          ~f:(fun acc id -> Table.set_found tbl id; set_bit acc (Hashtbl.find_exn tbl.tbl id))
   end (* Record_logic *)
 
 include Record_logic
@@ -216,7 +239,7 @@ let if_pattern term pat =
   | Int_pattern -> ifInt x
   | Bool_pattern -> ifBool x
   | Rec_pattern label_set ->
-    let sub_bv = create_bv_from_labels (Ident_set.to_list label_set) in (* this bitvector should be contained within the record's bv *)
+    let sub_bv = create_bv_from_labels ~are_labels_predefined:false (Ident_set.to_list label_set) in (* this bitvector should be contained within the record's bv *)
     let projected = SuduZ3.project_record (SuduZ3.record_ sub_bv) in
     SuduZ3.and_
       [ ifRecord x
@@ -225,7 +248,7 @@ let if_pattern term pat =
           (Z3.BitVector.mk_and ctx projected (SuduZ3.project_record x))
       ]
   | Strict_rec_pattern label_set ->
-    let eq_bv = create_bv_from_labels (Ident_set.to_list label_set) in (* the record's bv should be exactly this *)
+    let eq_bv = create_bv_from_labels ~are_labels_predefined:false (Ident_set.to_list label_set) in (* the record's bv should be exactly this *)
     let desired_record = SuduZ3.record_ eq_bv in
     SuduZ3.and_
       [ ifRecord x
