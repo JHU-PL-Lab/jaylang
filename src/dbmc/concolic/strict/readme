@@ -53,3 +53,9 @@ My proposed next steps:
   * How do we decide targets to discard? Do we risk missing important branches? Try to recognize a recursive function and ignore branches inside it?
 * I also need to selectively add inputs that necessarily affect the target condition
   * I already limit to only formulas on the path (and with no "implies"), but I don't remove irrelevant formulas
+  * I can do this by tracking which clauses each clause necessarily depends on.
+    * We want to know what the condition depends on
+    * Then follow those dependencies until we reach atoms: clauses that depend on nothing.
+      * Each clause also has its own expression, and it must be added to the solver whenever a later clause depends on it
+    * Do the same for any clause in the constraints for the branch
+    * Join with any expressions in the constraints (e.g. that the assume must be true. This is an expression, not a dependency)

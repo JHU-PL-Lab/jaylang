@@ -2,51 +2,31 @@
 
 ### Urgent
 
-* Figure out why recursive_fun_1_fixed doesn't terminate on positive input
-  * I ran the interpreter until stack overflow
-* Solver formulas for record pattern matching.
-  * e.g. it can't recognize that { b = {} } ~ { a = {} } is always false
-  * and remove the `is_done` label is `Session.t` to check this against the record_11.jil test
-  * I believe this is the reason record_7 can't find its target branch binop_j_74 unsatisfiable (I traced it, and correct record matching should make that target branch unsatisfiable)
-* If quit due to timeout, then still report if abort is found or not
-  * This will necessarily require mutation, or some great Lwt skills
-  * ^ This is sort of done because we quit on first abort most of the time
+* Research prioritization schemes
+  * Currently, BFS and DFS do similarly well
+  * Try prioritizing branches that immediately have an abort
+* Prune irrelevant expressions
+  * Similar to value numbering, constant folding etc
+  * Also very similar to (or frankly just the same as) checking "hittability" from each line of code
+* Shorten lookup keys to atoms
 * Scale max step with number of lines
 * fuzz with the answers, and check that they still SAT
   * try an OR that checks if any of the inputs can be different and still satisfy
 * Don't resolve for target if there have been no new runs because currently we try the same target a few times with no change in formulas
-* set unsatisfiables to unknown if using formulas from an exited session
-  * can separately keep the formulas from an exit, and if those result in unsatisfiable, then try
-    without. Then make some good choice of whether to try the solve or call unknown
-  * The above bullet isn't done, but the parent bullet is
 
 ### Eventually
 
 * Logging
 * Use optional input AST branches to customize output
-* Efficiency optimizations!
-  * Regarding pick formulas, especially. Can I make them shorter or not duplicate? Maybe mark off some runtime branch as already having a pick formula? Could use a hashtbl and mutability for extra speed
-  * ^ similarly, having all implied formulas under a map instead would allow me to use sets properly and not have duplicate formulas.
-  * Shorten lookup keys to hash, if possible. Might not be beneficial though if the cost of hashing is greater than the cost of comparing a few times later. I think that since I have maps and sets with these lookup keys, I do want them shorter
-* Write up the logic that proves the formula tracker implies stuff is correct
 * Benchmark how the implies work to see what is most difficult to solve for.
-* Don't re-solve for a branch if branch info hasn't changed.
-  * This is tough because we might have gained new formulas by hitting deeper branches, but not new info.
-  * I will just let it run a few times, and if the `Missed` is not significantly different after a few times, then set to unknown.
-  * ^ This is done by comparing with a status store without payload, but I've moved it to "eventually" because it might want improvements
 
 ### Out of scope
 
 * Fuzz with answers and try for as small of inputs as possible (which would require many runs of the solver) only when the solver finishes sufficiently quickly
   * Therefore can get better runs, but we don't waste time on an overloaded solver
-* Prune irrelevant expressions
-  * Similar to value numbering, constant folding etc
-  * Also very similar to (or frankly just the same as) checking "hittability" from each line of code
 * Analyze AST to determine hittable vs unreachable, as well as how aborts affect future runs
 * Analyze AST to determine which branches are reachable starting from any line of code, and thus which branches depend on which lines. Then only use those formulas to solve, and ignore other formulas that might clog up the solver.
   * Further, we can determine if a solve/branch is affected by an abort (but this will need some more thought)
-* Target the branches first that are known to have aborts by first analyzing AST
-  * Prioritize any that are seen by pushing them to the front of the stack
 * Value numbering and dead store elimination on jil programs (and hence liveness?)
 * Any other AST analysis...
 
