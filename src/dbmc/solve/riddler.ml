@@ -16,6 +16,7 @@ module Record_logic =
 
     module Table =
       struct
+        (* mutable type! *)
         type t =
           { tbl : (ident, int) Hashtbl.t (* maps ident to bit, where rightmost bit is 0 *)
           ; mutable n : int (* is the greatest unused offset *)
@@ -50,6 +51,7 @@ module Record_logic =
       if tbl.n > 63 then failwith "too many record labels" else ()
 
     (* find all labels used anywhere in the ast, then set the labels *)
+    (* Currently, this should not be used because the option ?are_labels_predefined below is applied as false in this file. *)
     let set_labels_from_ast (expr : Jayil.Ast.expr) : unit =
       let rec find_labels_in_ast (Expr clauses : Jayil.Ast.expr) : ident list =
         List.fold clauses ~init:[] ~f:(fun acc clause -> find_labels_in_clause clause @ acc)
@@ -69,6 +71,7 @@ module Record_logic =
       find_labels_in_ast expr
       |> set_labels
 
+    (* Use the table to create a bitvector to indicate which labels are given in the [labels] list. *)
     let create_bv_from_labels ?(are_labels_predefined : bool = true) (labels : ident list) : int =
       let set_bit i b = i lor (1 lsl b) in
       if are_labels_predefined
