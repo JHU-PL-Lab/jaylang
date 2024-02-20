@@ -31,12 +31,15 @@ module Record_logic =
         (* assigns id an offset and returns that offset. mutates the table *)
         let set_found ({ tbl ; n } as x : t) (id : Ident_new.t) : int =
           match Hashtbl.find tbl id with
-          | None -> Hashtbl.set tbl ~key:id ~data:n; x.n <- n + 1; n (* give next offset and increment *)
+          | None ->
+            if n > 62 then failwith "too many record labels" else (* fail if about to assign to 63rd index or greater *)
+            Hashtbl.set tbl ~key:id ~data:n; x.n <- n + 1; n (* give next offset and increment *)
           | Some n -> n (* id has already been found *)
       end
 
     let tbl = Table.create ()
 
+    (* it is suggested (but not always necessary) to clear the table of record labels before running over a new program *)
     let clear_labels () : unit =
       Table.clear tbl
 
