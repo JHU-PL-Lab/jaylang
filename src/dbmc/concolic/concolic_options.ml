@@ -18,7 +18,7 @@ let default : t =
   ; solver_timeout_sec = 1.0
   ; global_max_step    = Core.Int.(2 * 10 ** 3)
   ; print_solver       = false
-  ; max_tree_depth     = 20 }
+  ; max_tree_depth     = 50 }
 
 module Refs =
   struct

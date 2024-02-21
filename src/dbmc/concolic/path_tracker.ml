@@ -67,9 +67,6 @@ module Node_stack =
       in
       loop [] x
 
-    let default_allowed_depth = 50
-    (* This is needed here because we only want to consider the first d branches, not the first d valid target branches. *)
-
     (*
       A target is the other direction of a hit branch. This function returns a list
       of all valid targets found in the stack. The most recently hit branches are at the top
@@ -80,7 +77,7 @@ module Node_stack =
       in order for it to stop at the target. This isn't great, and maybe its better to keep this
       shorter by storing a reverse path, and we reverse it when we want to trace it.
     *)
-    let get_targets ?(allowed_tree_depth : int = default_allowed_depth) (stack : t) (tree : Root.t) : Target.t list =
+    let get_targets (allowed_tree_depth : int) (stack : t) (tree : Root.t) : Target.t list =
       let rec step
         (cur_targets : Target.t list)
         (cur_node : Node.t)
@@ -121,12 +118,12 @@ module Node_stack =
     (* Note that merging two trees would have to visit every node in both of them in the worst case,
        but we know that the tree made from the stack is a single path, so it only has to merge down
        that single path because only one child is hit and needs to be merged (see Status.merge). *)
-    let merge_with_tree (stack : t) (tree : Root.t) : Root.t * Target.t list =
+    let merge_with_tree (allowed_tree_depth : int) (stack : t) (tree : Root.t) : Root.t * Target.t list =
       let merged =
         Root.merge tree
         @@ to_tree stack
       in
-      merged, get_targets stack merged
+      merged, get_targets allowed_tree_depth stack merged
 
     let push (stack : t) (branch : Branch.Runtime.t) : t =
       Cons (Child.create Node.empty branch, stack)
@@ -180,11 +177,11 @@ module Runtime =
         { x with stack = Cons (new_hd, tl) }
 
     (* Note that other side of all new targets are all the new hits *)
-    let finish (x : t) (tree : Root.t) : Root.t * Target.t list * Branch.t list =
+    let finish (x : t) (tree : Root.t) (max_depth : int) : Root.t * Target.t list * Branch.t list =
       if Option.is_some x.target && not x.has_hit_target
       then (*(Format.printf "MISSED TARGET BRANCH\n"; tree, [], Set.to_list x.hit_branches)*)(* don't learn anything from run *) failwith "missed target branch"
       else
-        let root, targets = Node_stack.merge_with_tree x.stack tree in
+        let root, targets = Node_stack.merge_with_tree max_depth x.stack tree in
         root, targets, Set.to_list x.hit_branches
 
     let next (root : Root.t) (target : Target.t) : t =
@@ -295,7 +292,7 @@ let reach_max_step (x : t) : t =
 
 let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
   (* first finish*)
-  let updated_tree, new_targets, hit_branches = Runtime.finish x.runtime x.tree in
+  let updated_tree, new_targets, hit_branches = Runtime.finish x.runtime x.tree x.options.max_tree_depth in
   (* Format.printf "hit branches = %s\n" (List.to_string hit_branches ~f:Branch.to_string); *)
   let updated_branches =
     List.fold

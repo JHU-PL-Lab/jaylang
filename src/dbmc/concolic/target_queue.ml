@@ -10,9 +10,7 @@ type t =
 
 (* default priority for only element in queue *)
 let default_prio = 0
-(* default_allowed_pushes is d in section II A of Hueristics for Scalable Dynamic Test Generation (J Burnum, K Sen). *)
-(* At most 2^d paths can get explored. A good size is around 2^20 ~= 10^6  *)
-let default_allowed_pushes = 20 (*Int.(10 ** 10)*)
+
 let empty : t = 
   { m = default_prio + 1 (* note that max priority is actually the *least prioritized* item. Lower prio is better. *)
   ; q = Q.empty }
@@ -31,15 +29,11 @@ let push_one ?(priority : [ `Front | `Back ] = `Front) ({ q ; m } as x : t) (tar
     { q = Q.push target m q ; m = m + 1 }
   end
 
-(* TODO: allow option for number of targets to keep. Currently is hardcoded *)
 let push_list (x : t) (ls : Target.t list) : t =
-  let take_last n ls =
-    let k = List.length ls - n in
-    List.filteri ls ~f:(fun i _ -> i >= k)
-  in
-  ls (* earlier targets in the program are at back of list. Without reversing ls, they get best priority *)
-  |> take_last default_allowed_pushes
-  |> List.fold ~init:x ~f:(push_one ~priority:`Back) (* hardcoded BFS *)
+  List.fold
+    ls
+    ~init:x
+    ~f:(push_one ~priority:`Back) (* hardcoded BFS *)
 
 (* For more efficiency, can just get the best priority once and add manually without `push_one` *)
 (* I deprecate this because it is not compatible with pushing to different parts of the queue *)
