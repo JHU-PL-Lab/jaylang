@@ -11,9 +11,6 @@ exception Found_solution of result_info
 
 module Record_logic =
   struct
-    (* maps ident to bit, where rightmost is bit 0 *)
-    let record_label_table : (ident, int) Hashtbl.t = Hashtbl.create (module Ident_new)
-
     module Table =
       struct
         (* mutable type! *)
@@ -79,7 +76,7 @@ module Record_logic =
         List.fold
           labels
           ~init:0
-          ~f:(fun acc id -> set_bit acc (Hashtbl.find_exn record_label_table id))
+          ~f:(fun acc id -> set_bit acc (Hashtbl.find_exn tbl.tbl id))
       else
         List.fold
           labels
