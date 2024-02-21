@@ -5,6 +5,8 @@
 * Research prioritization schemes
   * Currently, BFS and DFS do similarly well
   * Try prioritizing branches that immediately have an abort
+  * Prioritize branches that are closest in CFG to uncovered lines
+    * I wonder how this works when so many lines are uncovered due to the many aborts
 * Prune irrelevant expressions
   * Similar to value numbering, constant folding etc
   * Also very similar to (or frankly just the same as) checking "hittability" from each line of code
