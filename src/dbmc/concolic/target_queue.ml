@@ -17,6 +17,7 @@ let empty : t =
 (* let is_empty : t -> bool = Q.is_empty *)
 
 
+(* `Back for breadth-first, `Front for depth-first *)
 let push_one ?(priority : [ `Front | `Back ] = `Front) ({ q ; m } as x : t) (target : Target.t) : t =
   match priority with
   | `Front -> begin
@@ -32,7 +33,7 @@ let push_one ?(priority : [ `Front | `Back ] = `Front) ({ q ; m } as x : t) (tar
 (* TODO: allow option for number of targets to keep. Currently is hardcoded *)
 let push_list (x : t) (ls : Target.t list) : t =
   List.fold_until
-    (List.rev ls) (* Earlier targets get pushed last and hence have best priority when using `Front *)
+    ls (* earlier targets in the program are at back of list. Without reversing ls, they get best priority *)
     ~init:(x, 1)
     ~f:(fun (acc, n) target ->
       if n > default_allowed_pushes

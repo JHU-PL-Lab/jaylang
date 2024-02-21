@@ -332,17 +332,20 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
     | None -> (* no targets left, so done *)
       `Done x.branches
   and solve_for_target (x : t) (target : Target.t) =
+    let t0 = Caml_unix.gettimeofday () in
     let new_solver = Z3.Solver.mk_solver Solver.SuduZ3.ctx None in
     Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec x.options.solver_timeout_sec));
     Z3.Solver.add new_solver (Target.to_formulas target x.tree);
-    if x.options.print_solver then begin
-    Format.printf "Solving for target %s\n" (Branch.Runtime.to_string target.child.branch);
-    (* Format.printf "Path is%s\n" (List.to_string target.path ~f:(Branch.Runtime.to_string_short)) *)
-    Format.printf "Solver is:\n%s\n" (Z3.Solver.to_string new_solver);
-    end;
+    if x.options.print_solver then
+      begin
+      Format.printf "Solving for target %s\n" (Branch.Runtime.to_string target.child.branch);
+      (* Format.printf "Path is%s\n" (List.to_string target.path ~f:(Branch.Runtime.to_string_short)) *)
+      Format.printf "Solver is:\n%s\n" (Z3.Solver.to_string new_solver);
+      end;
     match Z3.Solver.check new_solver [] with
     | Z3.Solver.UNSATISFIABLE ->
-      Format.printf "FOUND UNSATISFIABLE\n"; (* TODO: add formula that says it's not satisfiable so less solving is necessary *)
+      let t1 = Caml_unix.gettimeofday () in
+      Format.printf "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0); (* TODO: add formula that says it's not satisfiable so less solving is necessary *)
       next { x with tree = Root.set_status x.tree target.child Status.Unsatisfiable target.path }
     | Z3.Solver.UNKNOWN ->
       Format.printf "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n";
