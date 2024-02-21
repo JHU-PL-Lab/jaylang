@@ -1,7 +1,20 @@
 ## Concolic Evaluator TODOs
 
+Next steps:
+* propose tutorial vidoes
+  * Not sure if these should be conference videos or some tutorial (e.g. summer school)
+* ask Earl for what benchmarks we need
+  * -> convert other programs to bjy and compare how fast we can type check them
+  * also design programs with very hard to hit type errors
+* ask Robert and Shiwei for tool that tells me where my program is spending the most time (functional programming channel)
+* propose how we might use several heuristics and dial them before actually implementing
+  * e.g. what ideas can we use to do both DFS and BFS on the tree at the same time
+* Check that we're using hashcons for efficient hashing of lookup keys
+* address top urgent todos
+
 ### Urgent
 
+* Stop adding any formulas after hitting max tree depth -- continue with interpretation until max step still
 * Research prioritization schemes
   * Currently, BFS and DFS do similarly well
   * Try prioritizing branches that immediately have an abort

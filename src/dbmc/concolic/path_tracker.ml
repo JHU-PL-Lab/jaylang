@@ -31,7 +31,7 @@ module Node_stack =
 
     let empty : t = Last Root.empty
 
-    (* To avoid extra children and to keep the stack a single path, only keep the formulas (and discard the children) from root. *)
+    (* To avoid extra children and to keep the stack a single path, begin with only the formulas (and discard the children) from root. *)
     let of_root (root : Root.t) : t =
       Last (Root.with_formulas Root.empty root.formulas)
 
@@ -76,44 +76,45 @@ module Node_stack =
       I think the total complexity of this has to be quadratic because we need to cut a path short
       in order for it to stop at the target. This isn't great, and maybe its better to keep this
       shorter by storing a reverse path, and we reverse it when we want to trace it.
+
+      Instead, I can probably just store the length of the path needed
     *)
     let get_targets (allowed_tree_depth : int) (stack : t) (tree : Root.t) : Target.t list =
+      let total_path = to_path stack in
       let rec step
         (cur_targets : Target.t list)
         (cur_node : Node.t)
-        (prev_path : Path.t)
         (remaining_path : Path.t)
-        (step_count : int)
+        (depth : int)
         : Target.t list
         =
-        if step_count > allowed_tree_depth then cur_targets else
+        if depth > allowed_tree_depth then cur_targets else
         match remaining_path with
-        | last_branch :: [] -> (* maybe last node hit should be target again *)
+        | last_branch :: [] -> (* maybe last node hit should be target again in case it failed assume or assert *)
           push_target
-            (push_target cur_targets cur_node last_branch prev_path) (* push this direction *)
+            (push_target cur_targets cur_node last_branch depth) (* push this direction *)
             cur_node
             (Branch.Runtime.other_direction last_branch) (* push other direction *)
-            prev_path
+            depth
         | branch :: tl ->
           step
-            (push_target cur_targets cur_node (Branch.Runtime.other_direction branch) prev_path) (* push other direction as possible target *)
+            (push_target cur_targets cur_node (Branch.Runtime.other_direction branch) depth) (* push other direction as possible target *)
             (Child.to_node_exn @@ Node.get_child_exn cur_node branch) (* step down path *)
-            (prev_path @ [branch]) (* add this branch to the path *)
             tl (* continue down remainder of path *)
-            (step_count + 1)
+            (depth + 1)
         | [] -> cur_targets
       and push_target
         (cur_targets : Target.t list)
         (cur_node : Node.t)
         (branch : Branch.Runtime.t)
-        (path_to_target : Path.t)
+        (depth : int)
         : Target.t list
         =
         if Node.is_valid_target_child cur_node branch
-        then Target.create (Node.get_child_exn cur_node branch) path_to_target :: cur_targets
+        then Target.create (Node.get_child_exn cur_node branch) total_path depth :: cur_targets
         else cur_targets
       in
-      step [] tree [] (to_path stack) 0
+      step [] tree total_path 0
 
     (* Note that merging two trees would have to visit every node in both of them in the worst case,
        but we know that the tree made from the stack is a single path, so it only has to merge down
@@ -141,32 +142,69 @@ module Runtime =
   struct
     module Branch_set = Set.Make (Branch)
 
+    module Depth_logic =
+      struct
+        type t =
+          { cur_depth    : int
+          ; max_depth    : int
+          ; is_below_max : bool } 
+
+        let empty (max_depth : int) : t =
+          { cur_depth = 0; max_depth ; is_below_max = true }
+
+        let incr (x : t) : t =
+          { x with cur_depth = x.cur_depth + 1 ; is_below_max = x.cur_depth < x.max_depth }
+      end
+
     type t =
       { stack          : Node_stack.t
       ; target         : Target.t option
       ; has_hit_target : bool
-      ; hit_branches   : Branch_set.t }
+      ; hit_branches   : Branch_set.t
+      ; depth          : Depth_logic.t }
 
     let empty : t =
       { stack          = Node_stack.empty
       ; target         = None
       ; has_hit_target = false
-      ; hit_branches   = Branch_set.empty }
+      ; hit_branches   = Branch_set.empty
+      ; depth          = Depth_logic.empty Concolic_options.default.max_tree_depth }
 
-    let add_formula (x : t) (expr : Z3.Expr.expr) : t =
-      { x with stack = Node_stack.add_formula x.stack expr }
+    let with_max_depth (x : t) (max_depth : int) : t =
+      { x with depth = { x.depth with max_depth } }
+
+    (* [frozen_expr] does not get evaluated unless [x] is below max depth *)
+    let add_frozen_formula (x : t) (frozen_expr : unit -> Z3.Expr.expr) : t =
+      if x.depth.is_below_max
+      then { x with stack = Node_stack.add_formula x.stack @@ frozen_expr () }
+      else x
 
     let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
       (* Format.printf "Hitting branch %s\n" (Branch.Runtime.to_string branch); *)
-      { x with stack = Node_stack.add_formula (Node_stack.push x.stack branch) @@ Branch.Runtime.to_expr branch
+      let without_formulas =
+        { x with
+          has_hit_target =
+            x.has_hit_target
+            || (match x.target with None -> false | Some target -> Branch.Runtime.compare branch target.child.branch = 0)
+        ; hit_branches = Set.add x.hit_branches @@ Branch.Runtime.to_ast_branch branch }
+      in
+      if x.depth.is_below_max
+      then
+        { without_formulas with
+          stack = Node_stack.add_formula (Node_stack.push without_formulas.stack branch) @@ Branch.Runtime.to_expr branch
+        ; depth = Depth_logic.incr without_formulas.depth }
+      else
+        without_formulas
+      (* { x with stack = Node_stack.add_formula (Node_stack.push x.stack branch) @@ Branch.Runtime.to_expr branch
       ; has_hit_target =
         x.has_hit_target
         || (match x.target with None -> false | Some target -> Branch.Runtime.compare branch target.child.branch = 0)
-      ; hit_branches = Set.add x.hit_branches @@ Branch.Runtime.to_ast_branch branch }
+      ; hit_branches = Set.add x.hit_branches @@ Branch.Runtime.to_ast_branch branch } *)
 
     let fail_assume (x : t) (cx : Lookup_key.t) : t =
       match x.stack with
       | Last _ -> x (* `assume` found in global scope. We assume this is a test case that can't happen in real world translations to JIL *)
+      | _ when not x.depth.is_below_max -> x
       | Cons (hd, tl) ->
         let hd = Child.map_node hd ~f:(fun node -> Node.add_formula node @@ Riddler.eqv cx (Jayil.Ast.Value_bool true)) in
         let new_hd =
@@ -176,19 +214,50 @@ module Runtime =
         in
         { x with stack = Cons (new_hd, tl) }
 
+    (*
+      ------------------------------
+      FORMULAS FOR BASIC JIL CLAUSES
+      ------------------------------
+    *)
+    let add_key_eq_val (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
+      add_frozen_formula x @@ fun () -> Riddler.eq_term_v key (Some v)
+
+    let add_alias (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
+      add_frozen_formula x @@ fun () -> Riddler.eq key1 key2
+
+    let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
+      add_frozen_formula x @@ fun () -> Riddler.binop_without_picked key op left right
+
+    let add_input (x : t) (key : Lookup_key.t) (v : Dvalue.t) : t =
+      let Ident s = key.x in
+      let n =
+        match v with
+        | Dvalue.Direct (Value_int n) -> n
+        | _ -> failwith "non-int input" (* logically impossible *)
+      in
+      if Printer.print then Format.printf "Feed %d to %s \n" n s;
+      add_frozen_formula x @@ fun () -> Riddler.if_pattern key Jayil.Ast.Int_pattern
+
+    let add_not (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
+      add_frozen_formula x @@ fun () -> Riddler.not_ key1 key2
+
+    let add_match (x : t) (k : Lookup_key.t) (m : Lookup_key.t) (pat : Jayil.Ast.pattern) : t =
+      add_frozen_formula x
+      @@ fun () ->
+        let k_expr = Riddler.key_to_var k in
+        Solver.SuduZ3.eq (Solver.SuduZ3.project_bool k_expr) (Riddler.if_pattern m pat)
+
     (* Note that other side of all new targets are all the new hits *)
     let finish (x : t) (tree : Root.t) (max_depth : int) : Root.t * Target.t list * Branch.t list =
       if Option.is_some x.target && not x.has_hit_target
-      then (*(Format.printf "MISSED TARGET BRANCH\n"; tree, [], Set.to_list x.hit_branches)*)(* don't learn anything from run *) failwith "missed target branch"
-      else
-        let root, targets = Node_stack.merge_with_tree max_depth x.stack tree in
-        root, targets, Set.to_list x.hit_branches
+      then failwith "missed target branch"; (* logically impossible if the formulas exactly represent the JIL program *)
+      let root, targets = Node_stack.merge_with_tree max_depth x.stack tree in
+      root, targets, Set.to_list x.hit_branches
 
     let next (root : Root.t) (target : Target.t) : t =
-      { stack          = Node_stack.of_root root
-      ; target         = Some target
-      ; has_hit_target = false
-      ; hit_branches   = Branch_set.empty }
+      { empty with
+        stack = Node_stack.of_root root
+      ; target = Some target }
 
     let hd_branch (x : t) : Branch.Runtime.t option =
       match x.stack with
@@ -227,49 +296,42 @@ let empty : t =
   ; quit          = false }
 
 let with_options : (t -> t) Concolic_options.With_options.t =
-  let f =
-    fun (r : Concolic_options.t) ->
-      fun (x : t) ->
-        { x with options = r }
-  in
-  Concolic_options.With_options.make f
+  Concolic_options.With_options.make
+  @@ fun (r : Concolic_options.t) -> (fun (x : t) -> { x with options = r } : t -> t)
 
 let of_expr (expr : Jayil.Ast.expr) : t =
   { empty with branches = Branch_tracker.Status_store.Without_payload.of_expr expr }
 
 module Formula_logic =
   struct
-    let add_formula (x : t) (expr : Z3.Expr.expr) : t =
-      { x with runtime = Runtime.add_formula x.runtime expr }
+    (* We delegate the formula logic over to Runtime so that it can selectively compute expressions. *) 
 
     let add_key_eq_val (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
-      add_formula x @@ Riddler.eq_term_v key (Some v)
+      { x with runtime = Runtime.add_key_eq_val x.runtime key v }
 
     let add_alias (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
-      add_formula x @@ Riddler.eq key1 key2
+      { x with runtime = Runtime.add_alias x.runtime key1 key2 }
 
     let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
-      add_formula x @@ Riddler.binop_without_picked key op left right
+      { x with runtime = Runtime.add_binop x.runtime key op left right }
 
     let add_input (x : t) (key : Lookup_key.t) (v : Dvalue.t) : t =
-      let Ident s = key.x in
-      let n =
-        match v with
-        | Dvalue.Direct (Value_int n) -> n
-        | _ -> failwith "non-int input" (* logically impossible *)
-      in
-      if Printer.print then Format.printf "Feed %d to %s \n" n s;
-      add_formula x @@ Riddler.if_pattern key Jayil.Ast.Int_pattern
+      { x with runtime = Runtime.add_input x.runtime key v }
+
+    let add_not (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
+      { x with runtime = Runtime.add_not x.runtime key1 key2 }
+
+    let add_match (x : t) (k : Lookup_key.t) (m : Lookup_key.t) (pat : Jayil.Ast.pattern) : t =
+      { x with runtime = Runtime.add_match x.runtime k m pat }
+
+    let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
+      { x with runtime = Runtime.hit_branch x.runtime branch }
+
+    let fail_assume (x : t) (cx : Lookup_key.t) : t =
+      { x with runtime = Runtime.fail_assume x.runtime cx }
   end
 
 include Formula_logic
-
-let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
-  (* Format.printf "hit branch %s\n" (Branch.Runtime.to_string branch); *)
-  { x with runtime = Runtime.hit_branch x.runtime branch }
-
-let fail_assume (x : t) (cx : Lookup_key.t) : t =
-  { x with runtime = Runtime.fail_assume x.runtime cx }
 
 let found_abort (x : t) : t =
   match Runtime.hd_branch x.runtime with

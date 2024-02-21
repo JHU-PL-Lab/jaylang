@@ -22,20 +22,27 @@ val of_expr : Jayil.Ast.expr -> t
   RUNTIME OPERATIONS   
   ------------------
 *)
-val add_formula : t -> Z3.Expr.expr -> t
+(* val add_formula : t -> Z3.Expr.expr -> t *)
 (** [add_formula t expr] adds [expr] to the node in [t] that corresponds to the current location in interpretation. *)
+(* ^ no longer needed because the functions below handle all expressions. Only keys and values need to be handled alongside the interpreter. *)
 
 val add_key_eq_val : t -> Lookup_key.t -> Jayil.Ast.value -> t
-(** [add_key_eq_val t k v] adds the formula that [k] has value [v] in the top node of [t]. *)
+(** [add_key_eq_val t k v] adds the formula that [k] has value [v] in [t]. *)
 
 val add_alias : t -> Lookup_key.t -> Lookup_key.t -> t
-(** [add_alias t k k'] adds the formula that [k] and [k'] hold the same value in the top node of [t]. *)
+(** [add_alias t k k'] adds the formula that [k] and [k'] hold the same value in [t]. *)
 
 val add_binop : t -> Lookup_key.t -> Jayil.Ast.binary_operator -> Lookup_key.t -> Lookup_key.t -> t
-(** [add_binop t x op left right] adds the formula that [x = left op right] to the the top node of [t]. *)
+(** [add_binop t x op left right] adds the formula that [x = left op right] in [t]. *)
 
 val add_input : t -> Lookup_key.t -> Dvalue.t -> t
 (** [add_input t x v] is [t] that knows input [x = v] was given. *)
+
+val add_not : t -> Lookup_key.t -> Lookup_key.t -> t
+(** [add_not t x y] adds [x = not y] to [t]. *)
+
+val add_match : t -> Lookup_key.t -> Lookup_key.t -> Jayil.Ast.pattern -> t
+(** [add_match t x y pat] adds [x = y ~ pat] to [t]. *)
 
 val hit_branch : t -> Branch.Runtime.t -> t
 (** [hit_branch t branch] is [t] that knows [branch] has been hit during interpretation. *)

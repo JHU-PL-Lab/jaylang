@@ -18,7 +18,7 @@ let default : t =
   ; solver_timeout_sec = 1.0
   ; global_max_step    = Core.Int.(2 * 10 ** 3)
   ; print_solver       = false
-  ; max_tree_depth     = 50 }
+  ; max_tree_depth     = 25 }
 
 module Refs =
   struct
@@ -55,7 +55,7 @@ module With_options =
       -> ?quit_on_abort      : bool  (* default false *)
       -> ?global_max_step    : int   (* default 2000 steps *)
       -> ?print_solver       : bool  (* default false *)
-      -> ?max_tree_depth     : int   (* default 20 *)
+      -> ?max_tree_depth     : int   (* default 25 *)
       -> 'a (* 'a = 'b -> 'c *) (* so maybe make this a ('a, 'b) t *)
 
     let appl (x : 'a t) (r : T.t) : 'a =

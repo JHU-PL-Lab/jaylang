@@ -3,14 +3,16 @@ open Path_tree
 
 type t =
   { child : Child.t
+  ; npath : int (* npath is the length of the path needed to find the target. This is so we can copy the path instead of cutting it short *)
   ; path  : Path.t } (* The path just helps the solver find the node in the tree in order to gather formulas *)
   [@@deriving compare]
   (* We do need to compare path because the child key doesn't include exited branches, but the path does, so path is necessary to describe target completely *)
+  (* For now, npath is just used in compare and not in any logic later in this file. *)
 
-let create (child : Child.t) (path : Path.t) : t =
-  { child ; path }
+let create (child : Child.t) (path : Path.t) (npath : int) : t =
+  { child ; path ; npath } 
 
-let to_formulas ({ child ; path } : t) (root : Root.t) : Z3.Expr.expr list =
+let to_formulas ({ child ; path ; _ } : t) (root : Root.t) : Z3.Expr.expr list =
   let target_branch = child.branch in
   let target_key = target_branch.branch_key in
   (* acc already contains all formulas pertaining to `node` *)
