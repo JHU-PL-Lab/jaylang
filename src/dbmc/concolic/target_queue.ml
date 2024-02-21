@@ -1,6 +1,7 @@
 open Core
 
-module Q = Psq.Make (Target) (Int)
+module Q = Psq.Make (Target) (Int) (* functional priority search queue *)
+
 type t =
   { m : int (* maximum (i.e. least prioritized) priority in the queue. *)
   ; q : Q.t }
@@ -24,7 +25,7 @@ let push_one ?(priority : [ `Front | `Back ] = `Front) ({ q ; m } as x : t) (tar
     | Some (_, best_prio) -> { x with q = Q.push target (best_prio - 1) q }  (* push target with best priority *)
   end
   | `Back -> begin
-    (* use `push` so that if it already in the queue, it is not moved to the back. To move to the back, use `add`. *)
+    (* use `push` so that if it is already in the queue, it is not moved to the back. To move to the back, use `add`. *)
     { q = Q.push target m q ; m = m + 1 }
   end
 
@@ -41,7 +42,7 @@ let push_list (x : t) (ls : Target.t list) : t =
 
 (* For more efficiency, can just get the best priority once and add manually without `push_one` *)
 (* I deprecate this because it is not compatible with pushing to different parts of the queue *)
-let push_list_deprecated ({ q ; _ } as x : t) (ls : Target.t list) : t =
+(* let push_list_deprecated ({ q ; _ } as x : t) (ls : Target.t list) : t =
   let n = List.length ls in
   let old_best_prio =
     match Q.min q with
@@ -56,7 +57,7 @@ let push_list_deprecated ({ q ; _ } as x : t) (ls : Target.t list) : t =
   in
   if Q.is_empty q
   then { x with q = new_queue }
-  else { x with q = Q.(q ++ new_queue) } (* merge the two queues *)
+  else { x with q = Q.(q ++ new_queue) } (* merge the two queues *) *)
 
 let pop ({ q ; _ } as x : t) : (Target.t * t) option =
   match Q.pop q with

@@ -1,11 +1,9 @@
 This concolic solver hits every possible path, not just every possible branch.
 
 TODO: 
-* assert and assume constraints. If they failed, then move all formulas to "child.constraint" and set as unsolved
 * reach max step
 * faster target compare
   * potentially by letting lookup key keep more complete stack
-* record formulas! I think this is why we miss the target. Otherwise missing the target should be impossible, I think
 * Store formulas separately that are not dependent on inputs
 * " go back 2, then 4, then 16 ... targets to roll off more in case we're stuck in a loop"
   * ie exponential rollback
