@@ -174,9 +174,11 @@ module Fetch =
 *)
 
 let generate_lookup_key (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : Lookup_key.t =
-  { x
+  Lookup_key.without_block x
+  @@ Rstack.from_concrete stk
+  (* { x
   ; r_stk = Rstack.from_concrete stk
-  ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
+  ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } } *)
 
 let rec eval_exp
   ~(eval_session : Session.Eval.t) (* Note: is mutable *)
@@ -499,7 +501,8 @@ let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Con
         (* Repeatedly evaluate program *)
         let run () = 
           (* Riddler.set_labels_from_ast e; *)
-          Riddler.clear_labels ();
+          (* Riddler.clear_labels (); *)
+          Riddler.reset ();
           e
           |> Path_tracker.of_expr
           |> Concolic_options.With_options.appl Path_tracker.with_options r

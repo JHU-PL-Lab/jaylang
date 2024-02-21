@@ -95,9 +95,60 @@ let picked (key : Lookup_key.t) =
 let picked_string (s : string) =
   "P_" ^ s |> SuduZ3.mk_bool_s
 
-let key_to_var key = key |> Lookup_key.to_string |> SuduZ3.var_s
+module Key_map =
+  struct
+
+    type t =
+      { key_to_int : (Lookup_key.t, int) Hashtbl.t
+      (* ; int_to_key : (int, Lookup_key.t) Hashtbl.t *)
+      ; mutable next_key_i : int }
+      (** [t] is a mutable type to track how lookup keys relate to unique integers *)
+
+    let create () : t =
+      { key_to_int = Hashtbl.create (module Lookup_key)
+      (* ; int_to_key = Hashtbl.create (module Int) *)
+      ; next_key_i = 0 }
+
+    let clear (x : t) : unit =
+      Hashtbl.clear x.key_to_int;
+      (* Hashtbl.clear x.int_to_key; *)
+      x.next_key_i <- 0
+
+    (* mutates [x] if the key is not found *)
+    let get_i (x : t) (key : Lookup_key.t) : int =
+      match Hashtbl.find x.key_to_int key with
+      | Some i -> i
+      | None ->
+        let i = x.next_key_i in
+        Hashtbl.set x.key_to_int ~key ~data:i;
+        (* Hashtbl.set x.int_to_key ~key:i ~data:key; *)
+        x.next_key_i <- i + 1;
+        i
+
+    (* let get_key_exn ({ int_to_key ; _ } : t) (i : int) : Lookup_key.t =
+      Hashtbl.find_exn int_to_key i *)
+  end
+
+
+let keys = Key_map.create ()
+
+let clear_keys () =
+  Key_map.clear keys
+
+let key_to_i key =
+  Key_map.get_i keys key
+
+(* let key_to_var key = key |> Lookup_key.to_string |> SuduZ3.var_s *)
+let key_to_var key =
+  SuduZ3.var_i
+  @@ key_to_i key
+
 let counter = ref 0
-let reset () = counter := 0
+let reset () =
+  counter := 0;
+  clear_keys ();
+  clear_labels ()
+
 
 (* Solver primitives *)
 

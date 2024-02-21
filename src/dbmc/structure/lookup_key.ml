@@ -13,6 +13,7 @@ include Comparator.Make (T)
 
 let start (x : Id.t) block : t = { x; r_stk = Rstack.empty; block }
 let of3 x r_stk block = { x; r_stk; block }
+let without_block x r_stk = { x ; r_stk ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }
 let with_x key x = { key with x }
 let to_first = with_x
 

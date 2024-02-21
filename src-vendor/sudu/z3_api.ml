@@ -195,6 +195,7 @@ module Make_datatype_builders (C : Context) = struct
   let ground_truth = eq true_ true_
   let var_s n = Expr.mk_const_s ctx n valS
   let var_sym n = Expr.mk_const ctx n valS
+  let var_i i = Expr.mk_const ctx (Symbol.mk_int ctx i) valS (* used to identify variables with a unique int *)
 
   (* model *)
   let is_int_from_model model e =
@@ -245,6 +246,15 @@ module Make_datatype_builders (C : Context) = struct
 
   let get_int_s model s =
     let e = var_s s in
+    match get_value model e with
+    | Some (Int i) -> Some i
+    | Some _ ->
+        Logs.warn (fun m -> m "Get non-int for input%s" (Z3.Expr.to_string e)) ;
+        Some 0
+    | None -> None
+
+  let get_int_i model k =
+    let e = var_i k in
     match get_value model e with
     | Some (Int i) -> Some i
     | Some _ ->

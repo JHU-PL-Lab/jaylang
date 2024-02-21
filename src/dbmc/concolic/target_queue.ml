@@ -10,7 +10,7 @@ type t =
 
 (* default priority for only element in queue *)
 let default_prio = 0
-let default_allowed_pushes = 50 (* only allow this many new targets per run *) (* maybe make this scale with program size *)
+let default_allowed_pushes = Int.(10 ** 10) (*50*) (* only allow this many new targets per run *) (* maybe make this scale with program size *)
 let empty : t = 
   { m = default_prio + 1 (* note that max priority is actually the *least prioritized* item. Lower prio is better. *)
   ; q = Q.empty }
