@@ -47,8 +47,8 @@ module Refs =
       ; max_tree_depth     = !(x.max_tree_depth) }
   end
 
-(* `F` for optional arguments on functions *)
-module F =
+(* `Fun` for optional arguments on functions *)
+module Fun =
   struct
     type 'a t =
       ?global_timeout_sec    : float (* default 120.0 seconds *)

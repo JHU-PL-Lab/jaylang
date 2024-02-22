@@ -517,7 +517,7 @@ let rec loop (e : expr) (prev_session : Session.t) : Branch_tracker.Status_store
     end
 
 (* Concolically execute/test program. *)
-let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Concolic_options.F.t =
+let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Concolic_options.Fun.t =
   let f =
     fun (r : Concolic_options.t) ->
       fun e ->
@@ -542,4 +542,4 @@ let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Con
           if Printer.print then Format.printf "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec;
           Branch_tracker.Status_store.Without_payload.empty
   in
-  Concolic_options.F.make f
+  Concolic_options.Fun.make f

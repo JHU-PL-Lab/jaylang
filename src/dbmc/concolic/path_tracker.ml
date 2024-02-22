@@ -298,8 +298,8 @@ let empty : t =
   ; options       = Concolic_options.default
   ; quit          = false }
 
-let with_options : (t -> t) Concolic_options.F.t =
-  Concolic_options.F.make
+let with_options : (t -> t) Concolic_options.Fun.t =
+  Concolic_options.Fun.make
   @@ fun (r : Concolic_options.t) -> fun (x : t) -> { x with options = r ; runtime = Runtime.with_max_depth x.runtime r.max_tree_depth }
 
 let of_expr (expr : Jayil.Ast.expr) : t =
