@@ -2,8 +2,7 @@
 # There are two inputs:
 # x tries to be the sum of the recursive function.
 # y gives the number of times the recursive function runs.
-# If y is really large or is negative, this could time out. Currently, further runs handle this, I think.
-# ^ Though I had one run that led to w1 false is unsatisfiable, which is incorrect. I need to look into this.
+# If y is really large or is negative, this could time out.
 
 
 other_zero = 0;

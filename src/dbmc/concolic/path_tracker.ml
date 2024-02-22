@@ -256,10 +256,11 @@ module Runtime =
       let root, targets = Node_stack.merge_with_tree max_depth x.stack tree in
       root, targets, Set.to_list x.hit_branches
 
-    let next (root : Root.t) (target : Target.t) : t =
+    let next (root : Root.t) (target : Target.t) (max_depth : int) : t =
       { empty with
         stack = Node_stack.of_root root
-      ; target = Some target }
+      ; target = Some target
+      ; depth = Depth_logic.empty max_depth }
 
     let hd_branch (x : t) : Branch.Runtime.t option =
       match x.stack with
@@ -299,7 +300,7 @@ let empty : t =
 
 let with_options : (t -> t) Concolic_options.F.t =
   Concolic_options.F.make
-  @@ fun (r : Concolic_options.t) -> (fun (x : t) -> { x with options = r } : t -> t)
+  @@ fun (r : Concolic_options.t) -> fun (x : t) -> { x with options = r ; runtime = Runtime.with_max_depth x.runtime r.max_tree_depth }
 
 let of_expr (expr : Jayil.Ast.expr) : t =
   { empty with branches = Branch_tracker.Status_store.Without_payload.of_expr expr }
@@ -394,7 +395,7 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
     | Z3.Solver.SATISFIABLE ->
       Format.printf "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.to_string @@ Branch.Runtime.to_ast_branch target.child.branch);
       `Next (
-        { x with runtime = Runtime.next x.tree target ; run_num = x.run_num + 1 }
+        { x with runtime = Runtime.next x.tree target x.options.max_tree_depth ; run_num = x.run_num + 1 }
         , Z3.Solver.get_model new_solver
           |> Core.Option.value_exn
           |> Concolic_feeder.from_model
