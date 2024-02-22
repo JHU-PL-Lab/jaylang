@@ -36,7 +36,7 @@ let () =
       | _ -> failwith "unknown version"
     in
     let g =
-      Concolic_options.With_options.appl f
+      Concolic_options.F.appl f
       @@ Concolic_options.Refs.without_refs optional_args
     in
     let _ = g src_file in

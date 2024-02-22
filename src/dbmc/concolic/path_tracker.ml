@@ -148,6 +148,7 @@ module Runtime =
           { cur_depth    : int
           ; max_depth    : int
           ; is_below_max : bool } 
+          (** [t] helps track if we've reached the max tree depth and thus should stop creating formulas *)
 
         let empty (max_depth : int) : t =
           { cur_depth = 0; max_depth ; is_below_max = true }
@@ -195,11 +196,6 @@ module Runtime =
         ; depth = Depth_logic.incr without_formulas.depth }
       else
         without_formulas
-      (* { x with stack = Node_stack.add_formula (Node_stack.push x.stack branch) @@ Branch.Runtime.to_expr branch
-      ; has_hit_target =
-        x.has_hit_target
-        || (match x.target with None -> false | Some target -> Branch.Runtime.compare branch target.child.branch = 0)
-      ; hit_branches = Set.add x.hit_branches @@ Branch.Runtime.to_ast_branch branch } *)
 
     let fail_assume (x : t) (cx : Lookup_key.t) : t =
       match x.stack with
@@ -246,6 +242,12 @@ module Runtime =
       @@ fun () ->
         let k_expr = Riddler.key_to_var k in
         Solver.SuduZ3.eq (Solver.SuduZ3.project_bool k_expr) (Riddler.if_pattern m pat)
+
+    (*
+      -----------------
+      BETWEEN-RUN LOGIC   
+      -----------------
+    *)
 
     (* Note that other side of all new targets are all the new hits *)
     let finish (x : t) (tree : Root.t) (max_depth : int) : Root.t * Target.t list * Branch.t list =
@@ -295,8 +297,8 @@ let empty : t =
   ; options       = Concolic_options.default
   ; quit          = false }
 
-let with_options : (t -> t) Concolic_options.With_options.t =
-  Concolic_options.With_options.make
+let with_options : (t -> t) Concolic_options.F.t =
+  Concolic_options.F.make
   @@ fun (r : Concolic_options.t) -> (fun (x : t) -> { x with options = r } : t -> t)
 
 let of_expr (expr : Jayil.Ast.expr) : t =
@@ -305,6 +307,7 @@ let of_expr (expr : Jayil.Ast.expr) : t =
 module Formula_logic =
   struct
     (* We delegate the formula logic over to Runtime so that it can selectively compute expressions. *) 
+    (* In this module, just call the appropriate runtime function *)
 
     let add_key_eq_val (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
       { x with runtime = Runtime.add_key_eq_val x.runtime key v }
@@ -346,16 +349,12 @@ let found_abort (x : t) : t =
           ~new_status:Found_abort
     }
 
-(* TODO: allow some branches from run to be targets. Like don't discard, and instead use exponential rollback
-  and some heuristic to target branches that likely won't lead to max step again.  *)
 let reach_max_step (x : t) : t =
-  x
-  (*{ x with runtime = Runtime.empty }*) (* discard everything from the run *)
+  x (* it really doesn't matter that we reach max step. Just conclude like any successful run *)
 
 let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
-  (* first finish*)
+  (* first finish *)
   let updated_tree, new_targets, hit_branches = Runtime.finish x.runtime x.tree x.options.max_tree_depth in
-  (* Format.printf "hit branches = %s\n" (List.to_string hit_branches ~f:Branch.to_string); *)
   let updated_branches =
     List.fold
       hit_branches
@@ -363,7 +362,6 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
       ~f:(Branch_tracker.Status_store.Without_payload.set_branch_status ~new_status:Hit)
   in
   let rec next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
-    (* Format.printf "In `next`. Queue is %s.\n" (Target_queue.to_string x.target_queue); *)
     if x.quit then `Done x.branches else
     (* It's never realistically relevant to quit when all branches are hit because at least one will have an abort *)
     (* if Branch_tracker.Status_store.Without_payload.all_hit x.branches then `Done x.branches else *)

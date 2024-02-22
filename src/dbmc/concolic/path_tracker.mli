@@ -12,7 +12,7 @@ type t
 val empty : t
 (** [empty] is a default path tracker with no target and empty tree and stack. *)
 
-val with_options : (t -> t) Concolic_options.With_options.t
+val with_options : (t -> t) Concolic_options.F.t
 
 val of_expr : Jayil.Ast.expr -> t
 (** [of_expr expr] is [empty] that knows of all branches in the [expr]. *)

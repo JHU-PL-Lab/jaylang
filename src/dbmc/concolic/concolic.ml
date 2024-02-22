@@ -482,7 +482,7 @@ let rec loop (e : expr) (prev_tracker : Path_tracker.t) : Branch_tracker.Status_
     end
 
 (* Concolically execute/test program. *)
-let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Concolic_options.With_options.t =
+let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Concolic_options.F.t =
   let f =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
@@ -492,7 +492,7 @@ let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Con
           Riddler.reset ();
           e
           |> Path_tracker.of_expr
-          |> Concolic_options.With_options.appl Path_tracker.with_options r
+          |> Concolic_options.F.appl Path_tracker.with_options r
           |> loop e
         in
         try
@@ -503,4 +503,4 @@ let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Con
           if Printer.print then Format.printf "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec;
           Branch_tracker.Status_store.Without_payload.empty
   in
-  Concolic_options.With_options.make f
+  Concolic_options.F.make f

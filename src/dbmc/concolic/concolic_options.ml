@@ -47,7 +47,8 @@ module Refs =
       ; max_tree_depth     = !(x.max_tree_depth) }
   end
 
-module With_options =
+(* `F` for optional arguments on functions *)
+module F =
   struct
     type 'a t =
       ?global_timeout_sec    : float (* default 120.0 seconds *)
@@ -89,10 +90,16 @@ module With_options =
       in
       make g
 
-    let bind (x : 'a t) ~(f : 'a -> 'b t) : 'b t =
+    let compose (x : ('a -> 'b) t) ~(f : 'c -> 'a) : ('c -> 'b) t =
+      let g = fun r -> fun c -> appl x r @@ f c
+      in
+      make g
+
+    (* I'm pretty sure this is useless. *)
+    (* let bind (x : 'a t) ~(f : 'a -> 'b t) : 'b t =
       let g =
         fun r ->
           appl (f (appl x r)) r
       in
-      make g
+      make g *)
   end
