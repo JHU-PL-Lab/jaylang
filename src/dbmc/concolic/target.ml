@@ -12,7 +12,7 @@ type t =
 let create (child : Child.t) (path : Path.t) (npath : int) : t =
   { child ; path ; npath } 
 
-let to_formulas ({ child ; path ; _ } : t) (root : Root.t) : Z3.Expr.expr list =
+let[@landmarks] to_formulas ({ child ; path ; _ } : t) (root : Root.t) : Z3.Expr.expr list =
   let target_branch = child.branch in
   let target_key = target_branch.branch_key in
   (* acc already contains all formulas pertaining to `node` *)

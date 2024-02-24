@@ -482,7 +482,7 @@ let rec loop (e : expr) (prev_tracker : Path_tracker.t) : Branch_tracker.Status_
     end
 
 (* Concolically execute/test program. *)
-let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Concolic_options.Fun.t =
+let[@landmark] eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Concolic_options.Fun.t =
   let f =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->

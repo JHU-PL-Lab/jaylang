@@ -140,7 +140,7 @@ let key_to_i key =
 
 (* let key_to_var key = key |> Lookup_key.to_string |> SuduZ3.var_s *)
 let key_to_var key =
-  SuduZ3.var_i
+  SuduZ3.var_i (* calling var_i is the expensive part, so might want to make to expression instead of i. Need to make sure that's safe even if table isn't cleared though  *)
   @@ key_to_i key
 
 let counter = ref 0

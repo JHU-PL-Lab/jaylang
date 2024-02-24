@@ -250,7 +250,7 @@ module Runtime =
     *)
 
     (* Note that other side of all new targets are all the new hits *)
-    let finish (x : t) (tree : Root.t) (max_depth : int) : Root.t * Target.t list * Branch.t list =
+    let[@landmarks] finish (x : t) (tree : Root.t) (max_depth : int) : Root.t * Target.t list * Branch.t list =
       if Option.is_some x.target && not x.has_hit_target
       then failwith "missed target branch"; (* logically impossible if the formulas exactly represent the JIL program *)
       let root, targets = Node_stack.merge_with_tree max_depth x.stack tree in
@@ -353,7 +353,25 @@ let found_abort (x : t) : t =
 let reach_max_step (x : t) : t =
   x (* it really doesn't matter that we reach max step. Just conclude like any successful run *)
 
-let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
+let [@landmarks] check_solver solver =
+  Z3.Solver.check solver []
+
+let [@landmarks] make_solver () =
+  Z3.Solver.mk_solver Solver.SuduZ3.ctx None
+
+(* based on the landmarks, it's taking about as long to make the solver and load it as it is to solve *)
+(* This motivates a change to use the internal stack *)
+let [@landmarks] load_solver solver formulas =
+  Z3.Solver.add solver formulas;
+  solver
+
+(* This shows it might be faster to not load any formulas but just run 'check' *)
+let[@landmarks] check_solver' formulas =
+  let new_solver = Z3.Solver.mk_solver Solver.SuduZ3.ctx None in
+  Z3.Solver.check new_solver formulas
+
+(* $ OCAML_LANDMARKS=on ./_build/... *)
+let[@landmarks] next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
   (* first finish *)
   let updated_tree, new_targets, hit_branches = Runtime.finish x.runtime x.tree x.options.max_tree_depth in
   let updated_branches =
@@ -375,16 +393,17 @@ let next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `N
       `Done x.branches
   and solve_for_target (x : t) (target : Target.t) =
     let t0 = Caml_unix.gettimeofday () in
-    let new_solver = Z3.Solver.mk_solver Solver.SuduZ3.ctx None in
+    let new_solver = load_solver (make_solver ()) (Target.to_formulas target x.tree) in
     Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec x.options.solver_timeout_sec));
-    Z3.Solver.add new_solver (Target.to_formulas target x.tree);
     if x.options.print_solver then
       begin
       Format.printf "Solving for target %s\n" (Branch.Runtime.to_string target.child.branch);
       (* Format.printf "Path is%s\n" (List.to_string target.path ~f:(Branch.Runtime.to_string_short)) *)
       Format.printf "Solver is:\n%s\n" (Z3.Solver.to_string new_solver);
       end;
-    match Z3.Solver.check new_solver [] with
+    (* let[@landmarks] _ = check_solver' (Target.to_formulas target x.tree) in *)
+    let[@landmarks] checked = check_solver new_solver in
+    match checked with
     | Z3.Solver.UNSATISFIABLE ->
       let t1 = Caml_unix.gettimeofday () in
       Format.printf "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0); (* TODO: add formula that says it's not satisfiable so less solving is necessary *)
