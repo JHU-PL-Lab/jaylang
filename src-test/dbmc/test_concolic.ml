@@ -22,7 +22,12 @@ let test_for_abort testname _args =
   let expect_path = Filename.chop_extension testname ^ ".expect.s" in (* existence of this file implies an abort should be found *)
   let is_error_expected = Sys_unix.is_file_exn expect_path in
   let result =
-    let output = Concolic.eval ~global_timeout_sec:10.0 (Dj_common.File_utils.read_source testname) (* allow ten seconds *) in
+    let output =
+      Concolic.eval
+        ~global_timeout_sec:10.0 (* allow ten seconds to find abort *)
+        ~quit_on_abort:true
+        (Dj_common.File_utils.read_source testname)
+    in
     if Branch_tracker.Status_store.Without_payload.(compare empty output = 0)
     then not is_error_expected (* concolic timed out, which is good if there is no error expected *)
     else (* concolic finished, so check for existence of an abort *)
@@ -45,5 +50,5 @@ module From_lib =
 
 let () =
   let grouped_tests = From_lib.group_tests "test/dbmc/concolic/exact_expected/" `Slow test_exact_expected in
-  let bjy_tests = From_lib.group_tests "test/dbmc/concolic/bjy_tests/" `Quick test_for_abort in
+  let bjy_tests = From_lib.group_tests "test/dbmc/concolic/_bjy_tests/" `Quick test_for_abort in
   Alcotest.run_with_args "concolic" Test_argparse.config (bjy_tests @ grouped_tests) ~quick_only:true

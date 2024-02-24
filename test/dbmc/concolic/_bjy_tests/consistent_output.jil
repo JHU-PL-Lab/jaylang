@@ -1,0 +1,46 @@
+input_j_0 = input;
+i = input_j_0;
+flatten_fun_j_5 = fun y -> (
+    flatten_fun_j_2 = fun x -> (
+        var_j_1 = x);
+    var_j_3 = i;
+    m_i_17 = flatten_fun_j_2 ~ fun;
+    appl_j_4 = m_i_17 ? (
+            c_appl_i_18 = flatten_fun_j_2 var_j_3
+        ) : (
+            ab_i_19 = abort
+        ));
+test = flatten_fun_j_5;
+int_j_7 = 0;
+m_i_20 = test ~ fun;
+appl_j_8 = m_i_20 ? (
+        c_appl_i_21 = test int_j_7
+    ) : (
+        ab_i_22 = abort
+    );
+int_j_10 = 1;
+m_i_23 = test ~ fun;
+appl_j_11 = m_i_23 ? (
+        c_appl_i_24 = test int_j_10
+    ) : (
+        ab_i_25 = abort
+    );
+m_bl_i_26 = appl_j_8 ~ int;
+m_br_i_27 = appl_j_11 ~ int;
+m_b_i_28 = m_bl_i_26 and m_br_i_27;
+binop_j_12 = m_b_i_28 ? (
+        c_binop_i_29 = appl_j_8 == appl_j_11
+    ) : (
+        ab_i_30 = abort
+    );
+m_i_31 = binop_j_12 ~ bool;
+assert_res_j_14 = m_i_31 ? (
+        c_cond_i_32 = binop_j_12 ? (
+                assert_res_true_j_15 = {}
+            ) : (
+                ab_j_16 = abort
+            )
+    ) : (
+        ab_i_33 = abort
+    );
+i_result = assert_res_j_14

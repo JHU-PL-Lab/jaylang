@@ -176,9 +176,6 @@ module Fetch =
 let generate_lookup_key (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : Lookup_key.t =
   Lookup_key.without_block x
   @@ Rstack.from_concrete stk
-  (* { x
-  ; r_stk = Rstack.from_concrete stk
-  ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } } *)
 
 let rec eval_exp
   ~(eval_session : Session.Eval.t) (* Note: is mutable *)
@@ -316,19 +313,11 @@ and eval_clause
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       let Var (y, _) = vy in
       let match_key = generate_lookup_key y stk in
-      (* FIXME: This doesn't do records properly *)
-      let x_key_exp = Riddler.key_to_var x_key in
-      let path_tracker = Path_tracker.add_formula path_tracker @@ Solver.SuduZ3.ifBool x_key_exp in (* x has a bool value it will take on *)
-      let path_tracker =
-        Path_tracker.add_formula path_tracker
-        @@ Solver.SuduZ3.eq (Solver.SuduZ3.project_bool x_key_exp) (Riddler.if_pattern match_key p) (* x is same as result of match *)
-      in
-      retv, path_tracker
+      retv, Path_tracker.add_match path_tracker x_key match_key p
     | Projection_body (v, label) -> begin
       match Fetch.fetch_val ~eval_session ~stk env v with
       | RecordClosure (Record_value r, denv) ->
         let proj_ident = function Ident s -> s in
-        (* Format.printf "Finding label %s in clause %s\n" (proj_ident label) (proj_ident x); *)
         let Var (proj_x, _) as proj_v = Ident_map.find label r in
         let retv, stk' = Fetch.fetch_val_with_stk ~eval_session ~stk denv proj_v in
         Session.Eval.add_alias (x, stk) (proj_x, stk') eval_session;
@@ -353,7 +342,7 @@ and eval_clause
       Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       let (Var (y, _)) = vy in
       let y_key = generate_lookup_key y stk in
-      retv, Path_tracker.add_formula path_tracker @@ Riddler.not_ x_key y_key
+      retv, Path_tracker.add_not path_tracker x_key y_key
     | Binary_operation_body (vy, op, vz) ->
       (* x = y op z *)
       let v1 = Fetch.fetch_val_to_direct ~eval_session ~stk env vy
@@ -493,19 +482,17 @@ let rec loop (e : expr) (prev_tracker : Path_tracker.t) : Branch_tracker.Status_
     end
 
 (* Concolically execute/test program. *)
-let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Concolic_options.With_options.t =
+let[@landmark] eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Concolic_options.Fun.t =
   let f =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
         if Printer.print then Format.printf "\nStarting concolic execution...\n";
         (* Repeatedly evaluate program *)
         let run () = 
-          (* Riddler.set_labels_from_ast e; *)
-          (* Riddler.clear_labels (); *)
           Riddler.reset ();
           e
           |> Path_tracker.of_expr
-          |> Concolic_options.With_options.appl Path_tracker.with_options r
+          |> Concolic_options.Fun.appl Path_tracker.with_options r
           |> loop e
         in
         try
@@ -516,4 +503,4 @@ let eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Con
           if Printer.print then Format.printf "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec;
           Branch_tracker.Status_store.Without_payload.empty
   in
-  Concolic_options.With_options.make f
+  Concolic_options.Fun.make f

@@ -10,13 +10,13 @@ type t =
 
 (* default priority for only element in queue *)
 let default_prio = 0
-let default_allowed_pushes = Int.(10 ** 10) (*50*) (* only allow this many new targets per run *) (* maybe make this scale with program size *)
+
 let empty : t = 
   { m = default_prio + 1 (* note that max priority is actually the *least prioritized* item. Lower prio is better. *)
   ; q = Q.empty }
 (* let is_empty : t -> bool = Q.is_empty *)
 
-
+(* `Back for breadth-first, `Front for depth-first *)
 let push_one ?(priority : [ `Front | `Back ] = `Front) ({ q ; m } as x : t) (target : Target.t) : t =
   match priority with
   | `Front -> begin
@@ -29,16 +29,11 @@ let push_one ?(priority : [ `Front | `Back ] = `Front) ({ q ; m } as x : t) (tar
     { q = Q.push target m q ; m = m + 1 }
   end
 
-(* TODO: allow option for number of targets to keep. Currently is hardcoded *)
 let push_list (x : t) (ls : Target.t list) : t =
-  List.fold_until
-    (List.rev ls) (* Earlier targets get pushed last and hence have best priority when using `Front *)
-    ~init:(x, 1)
-    ~f:(fun (acc, n) target ->
-      if n > default_allowed_pushes
-      then Stop acc
-      else Continue (push_one ~priority:`Back acc target, n + 1)) (* hardcoded BFS *)
-    ~finish:Tuple2.get1
+  List.fold
+    ls
+    ~init:x
+    ~f:(push_one ~priority:`Back) (* hardcoded BFS *)
 
 (* For more efficiency, can just get the best priority once and add manually without `push_one` *)
 (* I deprecate this because it is not compatible with pushing to different parts of the queue *)
