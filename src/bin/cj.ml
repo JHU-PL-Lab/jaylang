@@ -16,7 +16,7 @@ let anon_fun i_raw =
 let speclist = 
   [ ("-i", Arg.Set_string source_file, "Input source file")
   ; ("-v", Arg.Set_string version, "Version: strict or loose")
-  (* optional args for evaluation *)
+  (* optional args for evaluation. The record fields get set by arguments *)
   ; ("-t", Arg.Set_float optional_args.global_timeout_sec, "Global timeout seconds")
   ; ("-s", Arg.Set_float optional_args.solver_timeout_sec, "Solver timeout seconds")
   ; ("-m", Arg.Set_int optional_args.global_max_step, "Global max step")

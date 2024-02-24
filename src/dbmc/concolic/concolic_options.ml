@@ -90,7 +90,7 @@ module Fun =
       in
       make g
 
-    let compose (x : ('a -> 'b) t) ~(f : 'c -> 'a) : ('c -> 'b) t =
+    let compose (x : ('a -> 'b) t) (f : 'c -> 'a) : ('c -> 'b) t =
       let g = fun r -> fun c -> appl x r @@ f c
       in
       make g

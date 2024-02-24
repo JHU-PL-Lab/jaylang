@@ -4,12 +4,12 @@ open Core
 let test_program_loose_concolic : (string -> Branch_tracker.Status_store.Without_payload.t) Concolic_options.Fun.t =
   Concolic_options.Fun.compose
     Concolic_loose.eval
-    ~f:Dj_common.File_utils.read_source
+    Dj_common.File_utils.read_source
 
 let test_program_concolic : (string -> Branch_tracker.Status_store.Without_payload.t) Concolic_options.Fun.t =
   Concolic_options.Fun.compose
     Concolic.eval
-    ~f:Dj_common.File_utils.read_source
+    Dj_common.File_utils.read_source
 
 
   (* Toy example of propogating a change in optional args *)
