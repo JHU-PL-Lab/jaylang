@@ -2,7 +2,10 @@ open Core
 open Dbmc
 
 (* This executable is to run the concolic evaluator. Think CJ = "concolic jil" *)
-let usage_msg = "jil -i <file> [-t <total timeout>] [-s <solver_timeout>] [-m <max_step>] [-q]"
+let usage_msg =
+  {|
+  jil -i <file> [-t <total timeout>] [-s <solver_timeout>] [-m <max_step>] [-d <max_tree_depth>] [-v <version>] [-q] [-p]
+  |}
 let source_file = ref "" 
 let version = ref "strict" (* default *)
 let optional_args = Concolic_options.Refs.create_default ()
