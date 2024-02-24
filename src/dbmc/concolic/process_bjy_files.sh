@@ -18,18 +18,19 @@ if [ ! -f "${translator_exe}" ]; then
 fi
 
 overwrite=false
+include_underscore=false
 single_file_mode=false
-while getopts ":ofu:" opt; do
+while getopts ":ouf:" opt; do
   case ${opt} in
     o )
       overwrite=true
       ;;
+    u )
+      include_underscore=true
+      ;;
     f )
       single_file_mode=true
       file_to_translate="$input_dir$OPTARG"
-      ;;
-    u )
-      include_underscore=true
       ;;
     \? )
       echo "Invalid option: -$OPTARG"
