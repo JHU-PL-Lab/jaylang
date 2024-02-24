@@ -99,34 +99,27 @@ module Key_map =
   struct
 
     type t =
-      { key_to_int : (Lookup_key.t, int) Hashtbl.t
-      (* ; int_to_key : (int, Lookup_key.t) Hashtbl.t *)
+      { key_to_expr : (Lookup_key.t, Z3.Expr.expr) Hashtbl.t
       ; mutable next_key_i : int }
       (** [t] is a mutable type to track how lookup keys relate to unique integers *)
 
     let create () : t =
-      { key_to_int = Hashtbl.create (module Lookup_key)
-      (* ; int_to_key = Hashtbl.create (module Int) *)
+      { key_to_expr = Hashtbl.create (module Lookup_key)
       ; next_key_i = 0 }
 
     let clear (x : t) : unit =
-      Hashtbl.clear x.key_to_int;
-      (* Hashtbl.clear x.int_to_key; *)
+      Hashtbl.clear x.key_to_expr;
       x.next_key_i <- 0
 
     (* mutates [x] if the key is not found *)
-    let get_i (x : t) (key : Lookup_key.t) : int =
-      match Hashtbl.find x.key_to_int key with
-      | Some i -> i
+    let get_expr (x : t) (key : Lookup_key.t) : Z3.Expr.expr =
+      match Hashtbl.find x.key_to_expr key with
+      | Some expr -> expr
       | None ->
-        let i = x.next_key_i in
-        Hashtbl.set x.key_to_int ~key ~data:i;
-        (* Hashtbl.set x.int_to_key ~key:i ~data:key; *)
-        x.next_key_i <- i + 1;
-        i
-
-    (* let get_key_exn ({ int_to_key ; _ } : t) (i : int) : Lookup_key.t =
-      Hashtbl.find_exn int_to_key i *)
+        let expr = SuduZ3.var_i (x.next_key_i) in (* make variable out of int *)
+        Hashtbl.set x.key_to_expr ~key ~data:expr;
+        x.next_key_i <- x.next_key_i + 1; (* mark key as used and update to next unused key *)
+        expr
   end
 
 
@@ -135,13 +128,12 @@ let keys = Key_map.create ()
 let clear_keys () =
   Key_map.clear keys
 
-let key_to_i key =
-  Key_map.get_i keys key
+(* let key_to_i key =
+  Key_map.get_i keys key *)
 
 (* let key_to_var key = key |> Lookup_key.to_string |> SuduZ3.var_s *)
 let key_to_var key =
-  SuduZ3.var_i
-  @@ key_to_i key
+  Key_map.get_expr keys key
 
 let counter = ref 0
 let reset () =

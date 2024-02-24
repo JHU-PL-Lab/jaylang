@@ -253,8 +253,8 @@ module Make_datatype_builders (C : Context) = struct
         Some 0
     | None -> None
 
-  let get_int_i model k =
-    let e = var_i k in
+  (* use variable expression to query model for int input *)
+  let get_int_expr model e =
     match get_value model e with
     | Some (Int i) -> Some i
     | Some _ ->
