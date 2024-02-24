@@ -174,10 +174,10 @@ module Runtime =
     let with_max_depth (x : t) (max_depth : int) : t =
       { x with depth = { x.depth with max_depth } }
 
-    (* [frozen_expr] does not get evaluated unless [x] is below max depth *)
-    let add_frozen_formula (x : t) (frozen_expr : unit -> Z3.Expr.expr) : t =
+    (* [lazy_expr] does not get evaluated unless [x] is below max depth *)
+    let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
       if x.depth.is_below_max
-      then { x with stack = Node_stack.add_formula x.stack @@ frozen_expr () }
+      then { x with stack = Node_stack.add_formula x.stack @@ lazy_expr () }
       else x
 
     let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
@@ -216,13 +216,13 @@ module Runtime =
       ------------------------------
     *)
     let add_key_eq_val (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
-      add_frozen_formula x @@ fun () -> Riddler.eq_term_v key (Some v)
+      add_lazy_formula x @@ fun () -> Riddler.eq_term_v key (Some v)
 
     let add_alias (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
-      add_frozen_formula x @@ fun () -> Riddler.eq key1 key2
+      add_lazy_formula x @@ fun () -> Riddler.eq key1 key2
 
     let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
-      add_frozen_formula x @@ fun () -> Riddler.binop_without_picked key op left right
+      add_lazy_formula x @@ fun () -> Riddler.binop_without_picked key op left right
 
     let add_input (x : t) (key : Lookup_key.t) (v : Dvalue.t) : t =
       let Ident s = key.x in
@@ -232,13 +232,13 @@ module Runtime =
         | _ -> failwith "non-int input" (* logically impossible *)
       in
       if Printer.print then Format.printf "Feed %d to %s \n" n s;
-      add_frozen_formula x @@ fun () -> Riddler.if_pattern key Jayil.Ast.Int_pattern
+      add_lazy_formula x @@ fun () -> Riddler.if_pattern key Jayil.Ast.Int_pattern
 
     let add_not (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
-      add_frozen_formula x @@ fun () -> Riddler.not_ key1 key2
+      add_lazy_formula x @@ fun () -> Riddler.not_ key1 key2
 
     let add_match (x : t) (k : Lookup_key.t) (m : Lookup_key.t) (pat : Jayil.Ast.pattern) : t =
-      add_frozen_formula x
+      add_lazy_formula x
       @@ fun () ->
         let k_expr = Riddler.key_to_var k in
         Solver.SuduZ3.eq (Solver.SuduZ3.project_bool k_expr) (Riddler.if_pattern m pat)

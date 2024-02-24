@@ -10,6 +10,9 @@ end
 module Make_common_builders (C : Context) = struct
   let ctx = C.ctx
 
+  (* clone by translating to the same context *)
+  let clone_solver solver = Z3.Solver.translate solver ctx
+
   let dump e =
     let es = Z3.Expr.to_string e in
     let ss = e |> Z3.Expr.get_sort |> Z3.Sort.to_string in
