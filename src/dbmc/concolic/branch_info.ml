@@ -109,11 +109,6 @@ let update_branch_status ~(new_status : Status.t) (map : t) (branch : Branch.t) 
 let set_branch_status ~(new_status : Status.t) (map : t) (branch : Branch.t) : t =
   Map.set map ~key:branch ~data:new_status
 
-(* let get_status (map : t) (branch : Branch.t) : Status.t =
-  match Map.find map branch with
-  | Some status -> status
-  | None -> failwith "unbound branch" *)
-
 let is_hit (map : t) (branch : Branch.t) : bool =
   match Map.find map branch with
   | Some Hit -> true

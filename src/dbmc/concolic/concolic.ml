@@ -426,18 +426,18 @@ let try_eval_exp_default
   try
     (* might throw exception which is to be caught below *)
     let _, v, symb_session = eval_exp_default ~conc_session ~symb_session e in
-    if Printer.print then Format.printf "Evaluated to: %a\n" Dvalue.pp v;
+    Format.printf "Evaluated to: %a\n" Dvalue.pp v;
     symb_session
   with
   | Found_abort (_, symb_session) ->
-      if Printer.print then Format.printf "Found abort in interpretation\n";
+      Format.printf "Found abort in interpretation\n";
       symb_session
   | Reach_max_step (_, _, symb_session) ->
-      if Printer.print then Format.printf "Reach max steps\n";
+      Format.printf "Reach max steps\n";
       symb_session
   | Found_failed_assume symb_session
   | Found_failed_assert symb_session ->
-      if Printer.print then Format.printf "Found failed assume or assert\n";
+      Format.printf "Found failed assume or assert\n";
       symb_session
   | Run_the_same_stack_twice (x, stk) -> (* bubbles exception *)
       Fmt.epr "Run into the same stack twice\n" ;
@@ -488,7 +488,7 @@ let[@landmark] eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t =
   let f =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
-        if Printer.print then Format.printf "\nStarting concolic execution...\n";
+        Format.printf "\nStarting concolic execution...\n";
         (* Repeatedly evaluate program *)
         let run () = 
           Riddler.reset ();
@@ -502,7 +502,7 @@ let[@landmark] eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t =
           @@ Lwt_unix.with_timeout r.global_timeout_sec run
         with
         | Lwt_unix.Timeout ->
-          if Printer.print then Format.printf "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec;
+          Format.printf "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec;
           Branch_info.empty
   in
   Concolic_options.Fun.make f

@@ -4,10 +4,9 @@ open Dbmc
 (* This executable is to run the concolic evaluator. Think CJ = "concolic jil" *)
 let usage_msg =
   {|
-  jil -i <file> [-t <total timeout>] [-s <solver_timeout>] [-m <max_step>] [-d <max_tree_depth>] [-v <version>] [-q] [-p]
+  jil -i <file> [-t <total timeout>] [-s <solver_timeout>] [-m <max_step>] [-d <max_tree_depth>] [-q] [-p]
   |}
 let source_file = ref "" 
-let version = ref "strict" (* default *)
 let optional_args = Concolic_options.Refs.create_default ()
 
 let inputs = ref []
@@ -18,7 +17,6 @@ let anon_fun i_raw =
 
 let speclist = 
   [ ("-i", Arg.Set_string source_file, "Input source file")
-  ; ("-v", Arg.Set_string version, "Version: strict or loose")
   (* optional args for evaluation. The record fields get set by arguments *)
   ; ("-t", Arg.Set_float optional_args.global_timeout_sec, "Global timeout seconds")
   ; ("-s", Arg.Set_float optional_args.solver_timeout_sec, "Solver timeout seconds")
@@ -33,15 +31,9 @@ let () =
   | "" -> ()
   | src_file -> begin
     let f =
-      match !version with
-      | "strict" -> Concolic_driver.test_program_concolic
-      (* | "loose" -> Concolic_driver.test_program_loose_concolic *)
-      | _ -> failwith "unknown version"
-    in
-    let g =
-      Concolic_options.Fun.appl f
+      Concolic_options.Fun.appl Concolic_driver.test_program_concolic
       @@ Concolic_options.Refs.without_refs optional_args
     in
-    let _ = g src_file in
+    let _ = f src_file in
     ()
     end

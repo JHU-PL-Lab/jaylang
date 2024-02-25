@@ -3,19 +3,19 @@ open Dj_common
 open Dbmc
 
 (* Expects some specific branch info by the end of the run, thereby checking that concolic evaluator works exactly as expected *)
-(* let test_exact_expected testname _args =
+let test_exact_expected testname _args =
   let result = 
     match 
       (* Read expected branch information via sexp from the `<filename>.expect.s` file. *)
       File_utils.load_expect testname
-      @@ List.t_of_sexp Branch_tracker.Status_store.Without_payload.t_of_sexp
+      @@ List.t_of_sexp Branch_info.t_of_sexp
     with
     | None -> false (* no expected output, so say it failed *)
     | Some expect_list ->
-      let actual_output = Concolic_loose.eval ~quit_on_abort:false (Dj_common.File_utils.read_source testname) in
-      List.exists expect_list ~f:(fun e -> Branch_info.Status.compare actual_output e = 0)
+      let actual_output = Concolic.eval ~quit_on_abort:false (Dj_common.File_utils.read_source testname) in
+      List.exists expect_list ~f:(fun e -> Branch_info.compare actual_output e = 0)
   in
-  Alcotest.(check bool) "concolic" true result *)
+  Alcotest.(check bool) "concolic" true result
 
 (* Just tries to find any abort, and that's all *)
 let test_for_abort testname _args =
@@ -49,7 +49,6 @@ module From_lib =
   end
 
 let () =
-  (* let grouped_tests = From_lib.group_tests "test/dbmc/concolic/exact_expected/" `Slow test_exact_expected in *)
-  let grouped_tests = [] in
+  let grouped_tests = From_lib.group_tests "test/dbmc/concolic/exact_expected/" `Slow test_exact_expected in (* TODO: fix expected results *)
   let bjy_tests = From_lib.group_tests "test/dbmc/concolic/bjy_tests/" `Quick test_for_abort in
   Alcotest.run_with_args "concolic" Test_argparse.config (bjy_tests @ grouped_tests) ~quick_only:true
