@@ -400,8 +400,6 @@ module Symbolic =
       { stack          : Node_stack.t
       ; target         : Target.t option
       ; branch_info    : Branch_info.t
-      ; has_hit_target : bool
-      ; hit_branches   : Branch_set.t
       ; depth          : Depth_logic.t }
       (* TODO: track a path in a tree and only add formulas if at a new node. TODO: add a "pruned" variant to path tree status *)
       (* FIXME! The wrong branch is aborted when we have hit max depth *)
@@ -411,8 +409,6 @@ module Symbolic =
       { stack          = Node_stack.empty
       ; target         = None
       ; branch_info    = Branch_info.empty
-      ; has_hit_target = false
-      ; hit_branches   = Branch_set.empty
       ; depth          = Depth_logic.empty Concolic_options.default.max_tree_depth }
 
     let with_options : (t -> t) Concolic_options.Fun.t =
@@ -429,11 +425,6 @@ module Symbolic =
     let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
       let without_formulas =
         { x with branch_info = Branch_info.set_branch_status ~new_status:Hit x.branch_info @@ Branch.Runtime.to_ast_branch branch }
-        (* { x with
-          has_hit_target =
-            x.has_hit_target
-            || (match x.target with None -> false | Some target -> Branch.Runtime.compare branch target.child.branch = 0)
-        ; hit_branches = Set.add x.hit_branches @@ Branch.Runtime.to_ast_branch branch } *)
       in
       if x.depth.is_below_max
       then
@@ -513,17 +504,6 @@ module Symbolic =
         stack = Node_stack.of_root root
       ; target = Some target
       ; depth = Depth_logic.empty max_depth }
-
-    (* let next (root : Root.t) (target : Target.t) (max_depth : int) : t =
-      { empty with
-        stack = Node_stack.of_root root
-      ; target = Some target
-      ; depth = Depth_logic.empty max_depth } *)
-
-    (* let hd_branch (x : t) : Branch.Runtime.t option =
-      match x.stack with
-      | Last _ -> None
-      | Cons ({ branch ; _}, _) -> Some branch *)
     
   end
 
@@ -555,23 +535,6 @@ let with_options : (t -> t) Concolic_options.Fun.t =
 let of_expr (expr : Jayil.Ast.expr) : t =
   { empty with branch_info = Branch_info.of_expr expr }
 
-(* let found_abort (x : t) : t =
-  match Runtime.hd_branch x.runtime with
-  | None -> failwith "assume in global"
-  | Some branch ->
-    { x with
-      quit = x.options.quit_on_abort
-    ; branches =
-        Branch_tracker.Status_store.Without_payload.set_branch_status
-          x.branches 
-          (Branch.Runtime.to_ast_branch branch)
-          ~new_status:Found_abort
-    } *)
-
-(* let reach_max_step (x : t) : t = *)
-  (*x*) (* it really doesn't matter that we reach max step. Just conclude like any successful run *)
-  (* TODO: when reaching max step, convert over to BFS for some time *)
-
 let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   let tree, new_targets = Symbolic.finish sym x.tree in
   { x with tree
@@ -599,64 +562,47 @@ let[@landmarks] check_solver' formulas =
 
 (* $ OCAML_LANDMARKS=on ./_build/... *)
 (* TODO: print or return that tree was pruned *)
-let[@landmarks] next (x : t) : [ `Done of Branch_info.t | `Next of (t * Symbolic.t * Concrete.t) ] =
-  (* first finish *)
-  (* let updated_tree, new_targets, hit_branches = Runtime.finish x.runtime x.tree x.options.max_tree_depth in
-  let x = { x with has_pruned = x.has_pruned || not x.runtime.depth.is_below_max } in
-  let updated_branches =
-    List.fold
-      hit_branches
-      ~init:x.branches
-      ~f:(Branch_tracker.Status_store.Without_payload.set_branch_status ~new_status:Hit)
-  in *)
-  let rec next (x : t) : [ `Done of Branch_info.t | `Next of (t * Symbolic.t * Concrete.t) ] =
-    if x.quit then `Done x.branch_info else
-    (* It's never realistically relevant to quit when all branches are hit because at least one will have an abort *)
-    (* if Branch_tracker.Status_store.Without_payload.all_hit x.branches then `Done x.branches else *)
-    match Target_queue.pop x.target_queue with
-    | Some (target, target_queue) -> 
-      solve_for_target { x with target_queue } target
-    | None when x.run_num = 0 ->
-      `Next ({ x with run_num = 1 }, Symbolic.empty, Concrete.create Concolic_feeder.default x.options.global_max_step)
-    | None -> (* no targets left, so done *)
-      `Done x.branch_info
-  and solve_for_target (x : t) (target : Target.t) =
-    let t0 = Caml_unix.gettimeofday () in
-    let new_solver = load_solver (make_solver ()) (Target.to_formulas target x.tree) in
-    Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec x.options.solver_timeout_sec));
-    if x.options.print_solver then
-      begin
-      Format.printf "Solving for target %s\n" (Branch.Runtime.to_string target.child.branch);
-      (* Format.printf "Path is%s\n" (List.to_string target.path ~f:(Branch.Runtime.to_string_short)) *)
-      Format.printf "Solver is:\n%s\n" (Z3.Solver.to_string new_solver);
-      end;
-    (* let[@landmarks] _ = check_solver' (Target.to_formulas target x.tree) in *)
-    match check_solver new_solver with
-    | Z3.Solver.UNSATISFIABLE ->
-      let t1 = Caml_unix.gettimeofday () in
-      Format.printf "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0); (* TODO: add formula that says it's not satisfiable so less solving is necessary *)
-      next { x with tree = Root.set_status x.tree target.child Status.Unsatisfiable target.path }
-    | Z3.Solver.UNKNOWN ->
-      Format.printf "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n";
-      next { x with tree = Root.set_status x.tree target.child Status.Unknown target.path }
-    | Z3.Solver.SATISFIABLE ->
-      Format.printf "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.to_string @@ Branch.Runtime.to_ast_branch target.child.branch);
-      `Next (
-        { x with run_num = x.run_num + 1 }
-        , Symbolic.next x.options.max_tree_depth x.tree target
-        , Z3.Solver.get_model new_solver
-          |> Core.Option.value_exn
-          |> Concolic_feeder.from_model
-          |> fun feeder -> Concrete.create feeder x.options.global_max_step
-      )
-  in
-  next x
-  (* { x with tree = updated_tree
-  ; target_queue = Target_queue.push_list x.target_queue new_targets
-  ; branches = updated_branches
-  }
-  |> next  *)
+let[@landmarks] rec next (x : t) : [ `Done of Branch_info.t | `Next of (t * Symbolic.t * Concrete.t) ] =
+  if x.quit then `Done x.branch_info else
+  (* It's never realistically relevant to quit when all branches are hit because at least one will have an abort *)
+  (* if Branch_tracker.Status_store.Without_payload.all_hit x.branches then `Done x.branches else *)
+  match Target_queue.pop x.target_queue with
+  | Some (target, target_queue) -> 
+    solve_for_target { x with target_queue } target
+  | None when x.run_num = 0 ->
+    `Next ({ x with run_num = 1 }, Symbolic.empty, Concrete.create Concolic_feeder.default x.options.global_max_step)
+  | None -> (* no targets left, so done *)
+    `Done x.branch_info
 
+and solve_for_target (x : t) (target : Target.t) =
+  let t0 = Caml_unix.gettimeofday () in
+  let new_solver = load_solver (make_solver ()) (Target.to_formulas target x.tree) in
+  Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec x.options.solver_timeout_sec));
+  if x.options.print_solver then
+    begin
+    Format.printf "Solving for target %s\n" (Branch.Runtime.to_string target.child.branch);
+    (* Format.printf "Path is%s\n" (List.to_string target.path ~f:(Branch.Runtime.to_string_short)) *)
+    Format.printf "Solver is:\n%s\n" (Z3.Solver.to_string new_solver);
+    end;
+  (* let[@landmarks] _ = check_solver' (Target.to_formulas target x.tree) in *)
+  match check_solver new_solver with
+  | Z3.Solver.UNSATISFIABLE ->
+    let t1 = Caml_unix.gettimeofday () in
+    Format.printf "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0); (* TODO: add formula that says it's not satisfiable so less solving is necessary *)
+    next { x with tree = Root.set_status x.tree target.child Status.Unsatisfiable target.path }
+  | Z3.Solver.UNKNOWN ->
+    Format.printf "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n";
+    next { x with tree = Root.set_status x.tree target.child Status.Unknown target.path }
+  | Z3.Solver.SATISFIABLE ->
+    Format.printf "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.to_string @@ Branch.Runtime.to_ast_branch target.child.branch);
+    `Next (
+      { x with run_num = x.run_num + 1 }
+      , Symbolic.next x.options.max_tree_depth x.tree target
+      , Z3.Solver.get_model new_solver
+        |> Core.Option.value_exn
+        |> Concolic_feeder.from_model
+        |> fun feeder -> Concrete.create feeder x.options.global_max_step
+    )
 
 let branch_info ({ branch_info ; _ } : t) : Branch_info.t =
   branch_info
