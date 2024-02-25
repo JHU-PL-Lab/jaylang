@@ -504,17 +504,15 @@ module Symbolic =
     (* Note that other side of all new targets are all the new hits *)
     let[@landmarks] finish (x : t) (tree : Root.t) : Root.t * Target.t list =
       (* logically sound to have hit target if formulas are consistent with JIL program *)
-      assert (Option.is_none x.target || x.has_hit_target); 
       assert (Option.is_none x.target || Target.is_hit (Option.value_exn x.target) x.branch_info);
       let root, targets = Node_stack.merge_with_tree x.depth.max_depth x.stack tree in
       root, targets
 
-    (* takes depth info from prev *)
-    let next (prev : t) (root : Root.t) (target : Target.t) : t =
+    let next (max_depth : int) (root : Root.t) (target : Target.t) : t =
       { empty with
         stack = Node_stack.of_root root
       ; target = Some target
-      ; depth = Depth_logic.empty prev.depth.max_depth }
+      ; depth = Depth_logic.empty max_depth }
 
     (* let next (root : Root.t) (target : Target.t) (max_depth : int) : t =
       { empty with
@@ -579,7 +577,8 @@ let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   { x with tree
   ; has_pruned   = x.has_pruned || not sym.depth.is_below_max
   ; branch_info  = Branch_info.merge x.branch_info sym.branch_info
-  ; target_queue = Target_queue.push_list x.target_queue new_targets }
+  ; target_queue = Target_queue.push_list x.target_queue new_targets
+  ; quit         = x.quit || x.options.quit_on_abort && Branch_info.contains sym.branch_info Found_abort }
 
 let [@landmarks] check_solver solver =
   Z3.Solver.check solver []
@@ -600,7 +599,7 @@ let[@landmarks] check_solver' formulas =
 
 (* $ OCAML_LANDMARKS=on ./_build/... *)
 (* TODO: print or return that tree was pruned *)
-let[@landmarks] next (x : t) : [ `Done of Branch_info.t | `Next of (t * Concrete.t) ] =
+let[@landmarks] next (x : t) : [ `Done of Branch_info.t | `Next of (t * Symbolic.t * Concrete.t) ] =
   (* first finish *)
   (* let updated_tree, new_targets, hit_branches = Runtime.finish x.runtime x.tree x.options.max_tree_depth in
   let x = { x with has_pruned = x.has_pruned || not x.runtime.depth.is_below_max } in
@@ -610,7 +609,7 @@ let[@landmarks] next (x : t) : [ `Done of Branch_info.t | `Next of (t * Concrete
       ~init:x.branches
       ~f:(Branch_tracker.Status_store.Without_payload.set_branch_status ~new_status:Hit)
   in *)
-  let rec next (x : t) : [ `Done of Branch_info.t | `Next of (t * Concrete.t) ] =
+  let rec next (x : t) : [ `Done of Branch_info.t | `Next of (t * Symbolic.t * Concrete.t) ] =
     if x.quit then `Done x.branch_info else
     (* It's never realistically relevant to quit when all branches are hit because at least one will have an abort *)
     (* if Branch_tracker.Status_store.Without_payload.all_hit x.branches then `Done x.branches else *)
@@ -618,7 +617,7 @@ let[@landmarks] next (x : t) : [ `Done of Branch_info.t | `Next of (t * Concrete
     | Some (target, target_queue) -> 
       solve_for_target { x with target_queue } target
     | None when x.run_num = 0 ->
-      `Next ({ x with run_num = 1 }, Concrete.create Concolic_feeder.default x.options.global_max_step)
+      `Next ({ x with run_num = 1 }, Symbolic.empty, Concrete.create Concolic_feeder.default x.options.global_max_step)
     | None -> (* no targets left, so done *)
       `Done x.branch_info
   and solve_for_target (x : t) (target : Target.t) =
@@ -643,7 +642,8 @@ let[@landmarks] next (x : t) : [ `Done of Branch_info.t | `Next of (t * Concrete
     | Z3.Solver.SATISFIABLE ->
       Format.printf "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.to_string @@ Branch.Runtime.to_ast_branch target.child.branch);
       `Next (
-        { x with symbolic = Symbolic.next x.symbolic x.tree target ; run_num = x.run_num + 1 }
+        { x with run_num = x.run_num + 1 }
+        , Symbolic.next x.options.max_tree_depth x.tree target
         , Z3.Solver.get_model new_solver
           |> Core.Option.value_exn
           |> Concolic_feeder.from_model

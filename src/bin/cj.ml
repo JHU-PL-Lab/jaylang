@@ -35,7 +35,7 @@ let () =
     let f =
       match !version with
       | "strict" -> Concolic_driver.test_program_concolic
-      | "loose" -> Concolic_driver.test_program_loose_concolic
+      (* | "loose" -> Concolic_driver.test_program_loose_concolic *)
       | _ -> failwith "unknown version"
     in
     let g =

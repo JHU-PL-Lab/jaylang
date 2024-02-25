@@ -213,7 +213,7 @@ val of_expr : Jayil.Ast.expr -> t
 (** [of_expr expr] is [empty] that knows of all branches in the [expr]. *)
 
 val accum_symbolic : t -> Symbolic.t -> t
-val next : t -> [ `Done of Branch_info.t | `Next of (t * Concrete.t) ]
+val next : t -> [ `Done of Branch_info.t | `Next of (t * Symbolic.t * Concrete.t) ]
 
 val branch_info : t -> Branch_info.t
 (** [branch_info t] is the branch info in [t]. *)

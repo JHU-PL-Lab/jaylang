@@ -3,7 +3,7 @@ open Jayil.Ast
 open Dj_common (* exposes Concrete_stack *)
 open Dvalue (* just to expose constructors *)
 
-open Concolic_exceptions.Make (Path_tracker)
+open Concolic_exceptions.Make (Session.Symbolic)
 
 module ILog = Log.Export.ILog
 
@@ -16,7 +16,7 @@ let cond_fid b = if b then Ident "$tt" else Ident "$ff"
   --------------------------------------
 
   Unless labeled, I just keep these called "session", when really they're
-  an eval session (see session.mli).
+  a concrete session (see session.mli).
 *)
 
 module Debug =
@@ -91,16 +91,16 @@ module Debug =
       | [], [] -> true
       | _, _ -> false
 
-    let debug_clause ~eval_session x v stk =
+    let debug_clause ~conc_session x v stk =
       let open Session.Concrete in
       ILog.app (fun m -> m "@[%a = %a@]" Id.pp x Dvalue.pp v) ;
 
-      (match eval_session.debug_mode with
+      (match conc_session.debug_mode with
       | Session.Concrete.Mode.Debug.Debug_clause clause_cb -> clause_cb x stk (Dvalue.value_of_t v)
       | Session.Concrete.Mode.Debug.No_debug -> ()) ;
 
-      raise_if_with_stack eval_session x stk v ;
-      debug_stack eval_session x stk (v, stk) ;
+      raise_if_with_stack conc_session x stk v ;
+      debug_stack conc_session x stk (v, stk) ;
       ()
   end
 
@@ -119,30 +119,30 @@ module Debug =
 module Fetch =
   struct
 
-    let fetch_val_with_stk ~(eval_session : Session.Concrete.t) ~stk env (Var (x, _)) :
+    let fetch_val_with_stk ~(conc_session : Session.Concrete.t) ~stk env (Var (x, _)) :
         Dvalue.t * Concrete_stack.t =
       let res = Ident_map.find x env in (* find the variable and stack in the environment *)
-      Debug.debug_update_read_node eval_session x stk ; 
+      Debug.debug_update_read_node conc_session x stk ; 
       res
 
-    let fetch_val ~(eval_session : Session.Concrete.t) ~stk env x : Dvalue.t =
-      fst (fetch_val_with_stk ~eval_session ~stk env x) (* find variable and stack, then discard stack *)
+    let fetch_val ~(conc_session : Session.Concrete.t) ~stk env x : Dvalue.t =
+      fst (fetch_val_with_stk ~conc_session ~stk env x) (* find variable and stack, then discard stack *)
 
-    let fetch_stk ~(eval_session : Session.Concrete.t) ~stk env x : Concrete_stack.t =
-      snd (fetch_val_with_stk ~eval_session ~stk env x) (* find variable and stack, then discard variable *)
+    let fetch_stk ~(conc_session : Session.Concrete.t) ~stk env x : Concrete_stack.t =
+      snd (fetch_val_with_stk ~conc_session ~stk env x) (* find variable and stack, then discard variable *)
 
-    let fetch_val_to_direct ~(eval_session : Session.Concrete.t) ~stk env vx : value =
-      match fetch_val ~eval_session ~stk env vx with
+    let fetch_val_to_direct ~(conc_session : Session.Concrete.t) ~stk env vx : value =
+      match fetch_val ~conc_session ~stk env vx with
       | Direct v -> v
       | _ -> failwith "eval to non direct value"
 
-    let fetch_val_to_bool ~(eval_session : Session.Concrete.t) ~stk env vx : bool =
-      match fetch_val ~eval_session ~stk env vx with
+    let fetch_val_to_bool ~(conc_session : Session.Concrete.t) ~stk env vx : bool =
+      match fetch_val ~conc_session ~stk env vx with
       | Direct (Value_bool b) -> b
       | _ -> failwith "eval to non bool"
 
-    let check_pattern ~(eval_session : Session.Concrete.t) ~stk env vx pattern : bool =
-      match (fetch_val ~eval_session ~stk env vx, pattern) with
+    let check_pattern ~(conc_session : Session.Concrete.t) ~stk env vx pattern : bool =
+      match (fetch_val ~conc_session ~stk env vx, pattern) with
       | Direct (Value_int _), Int_pattern -> true
       | Direct (Value_bool _), Bool_pattern -> true
       | Direct (Value_function _), _ -> failwith "fun must be a closure"
@@ -178,18 +178,18 @@ let generate_lookup_key (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t)
   @@ Rstack.from_concrete stk
 
 let rec eval_exp
-  ~(eval_session : Session.Concrete.t) (* Note: is mutable *)
-  ~(path_tracker : Path_tracker.t)
+  ~(conc_session : Session.Concrete.t) (* Note: is mutable *)
+  ~(symb_session : Session.Symbolic.t)
   (stk : Concrete_stack.t)
   (env : Dvalue.denv)
   (e : expr)
-  : Dvalue.denv * Dvalue.t * Path_tracker.t
+  : Dvalue.denv * Dvalue.t * Session.Symbolic.t
   =
   ILog.app (fun m -> m "@[-> %a@]\n" Concrete_stack.pp stk);
-  (match eval_session.mode with
+  (match conc_session.mode with
   | With_full_target (_, target_stk) ->
       let r_stk = Rstack.relativize target_stk stk in
-      Hashtbl.change eval_session.rstk_picked r_stk ~f:(function
+      Hashtbl.change conc_session.rstk_picked r_stk ~f:(function
         | Some true -> Some false
         | Some false -> raise (Run_into_wrong_stack (Jayil.Ast_tools.first_id e, stk))
         | None-> None)
@@ -198,155 +198,155 @@ let rec eval_exp
   let (denv, conc_session), vs =
     List.fold_map
       clauses
-      ~init:(env, path_tracker)
+      ~init:(env, symb_session)
       ~f:(fun (env, pt) clause ->
-        let denv, v, pt = eval_clause ~eval_session ~path_tracker:pt stk env clause
+        let denv, v, pt = eval_clause ~conc_session ~symb_session:pt stk env clause
         in (denv, pt), v) 
   in
   (denv, List.last_exn vs, conc_session)
 
 and eval_clause
-  ~(eval_session : Session.Concrete.t)
-  ~(path_tracker : Path_tracker.t)
+  ~(conc_session : Session.Concrete.t)
+  ~(symb_session : Session.Symbolic.t)
   (stk : Concrete_stack.t)
   (env : Dvalue.denv)
   (clause : clause)
-  : Dvalue.denv * Dvalue.t * Path_tracker.t
+  : Dvalue.denv * Dvalue.t * Session.Symbolic.t
   =
   let Clause (Var (x, _), cbody) = clause in
   begin
-  match eval_session.max_step with 
+  match conc_session.max_step with 
   | None -> ()
   | Some max_step ->
-      Int.incr eval_session.step;
-      if !(eval_session.step) > max_step
-      then raise (Reach_max_step (x, stk, Path_tracker.reach_max_step path_tracker))
+      Int.incr conc_session.step;
+      if !(conc_session.step) > max_step
+      then raise (Reach_max_step (x, stk, Session.Symbolic.reach_max_step symb_session))
       else ()
   end;
   
-  Debug.debug_update_write_node eval_session x stk;
+  Debug.debug_update_write_node conc_session x stk;
   let x_key = generate_lookup_key x stk in
-  let (v, path_tracker) : Dvalue.t * Path_tracker.t =
+  let (v, symb_session) : Dvalue.t * Session.Symbolic.t =
     match cbody with
     | Value_body ((Value_function vf) as v) ->
       (* x = fun ... ; *)
       let retv = FunClosure (x, vf, env) in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      retv, Path_tracker.add_key_eq_val path_tracker x_key v
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
+      retv, Session.Symbolic.add_key_eq_val symb_session x_key v
     | Value_body ((Value_record r) as v) ->
       (* x = { ... } ; *)
       let retv = RecordClosure (r, env) in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      retv, Path_tracker.add_key_eq_val path_tracker x_key v
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
+      retv, Session.Symbolic.add_key_eq_val symb_session x_key v
     | Value_body v -> 
       (* x = <bool or int> ; *)
       let retv = Direct v in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      retv, Path_tracker.add_key_eq_val path_tracker x_key v
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
+      retv, Session.Symbolic.add_key_eq_val symb_session x_key v
     | Var_body vx ->
       (* x = y ; *)
       let Var (y, _) = vx in
-      let ret_val, ret_stk = Fetch.fetch_val_with_stk ~eval_session ~stk env vx in
-      Session.Concrete.add_alias (x, stk) (y, ret_stk) eval_session;
+      let ret_val, ret_stk = Fetch.fetch_val_with_stk ~conc_session ~stk env vx in
+      Session.Concrete.add_alias (x, stk) (y, ret_stk) conc_session;
       let y_key = generate_lookup_key y ret_stk in 
-      ret_val, Path_tracker.add_alias path_tracker x_key y_key
+      ret_val, Session.Symbolic.add_alias symb_session x_key y_key
     | Conditional_body (cx, e1, e2) ->
       (* x = if y then e1 else e2 ; *)
       let Var (y, _) = cx in
-      let cond_val, condition_stk = Fetch.fetch_val_with_stk ~eval_session ~stk env cx in
+      let cond_val, condition_stk = Fetch.fetch_val_with_stk ~conc_session ~stk env cx in
       let cond_bool = match cond_val with Direct (Value_bool b) -> b | _ -> failwith "non-bool condition" in
       let condition_key = generate_lookup_key y condition_stk in
       let this_branch = Branch.Runtime.{ branch_key = x_key ; condition_key ; direction = Branch.Direction.of_bool cond_bool } in
 
       (* enter/hit branch *)
-      let path_tracker = Path_tracker.hit_branch path_tracker this_branch in
+      let symb_session = Session.Symbolic.hit_branch symb_session this_branch in
 
       let e = if cond_bool then e1 else e2 in
       let stk' = Concrete_stack.push (x, cond_fid cond_bool) stk in
 
-      (* note that [eval_session] gets mutated when evaluating the branch *)
-      let ret_env, ret_val, path_tracker = eval_exp ~eval_session ~path_tracker stk' env e in
+      (* note that [conc_session] gets mutated when evaluating the branch *)
+      let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session stk' env e in
       let (Var (ret_id, _) as last_v) = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
-      let _, ret_stk = Fetch.fetch_val_with_stk ~eval_session ~stk:stk' ret_env last_v in
+      let _, ret_stk = Fetch.fetch_val_with_stk ~conc_session ~stk:stk' ret_env last_v in
 
       (* say the ret_key is equal to x now, then clear out branch *)
       let ret_key = generate_lookup_key ret_id ret_stk in
-      let path_tracker = Path_tracker.add_alias path_tracker x_key ret_key in
-      Session.Concrete.add_alias (x, stk) (ret_id, ret_stk) eval_session;
-      ret_val, path_tracker
+      let symb_session = Session.Symbolic.add_alias symb_session x_key ret_key in
+      Session.Concrete.add_alias (x, stk) (ret_id, ret_stk) conc_session;
+      ret_val, symb_session
     | Input_body ->
       (* x = input ; *)
-      let n = eval_session.input_feeder (x, stk) in
+      let n = conc_session.input_feeder (x, stk) in
       let retv = Direct (Value_int n) in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-      retv, Path_tracker.add_input path_tracker x_key retv
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
+      retv, Session.Symbolic.add_input symb_session x_key retv
     | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin
       (* x = f y ; *)
-      match Fetch.fetch_val ~eval_session ~stk env vf with
+      match Fetch.fetch_val ~conc_session ~stk env vf with
       | FunClosure (fid, Function_value (Var (param, _), body), fenv) ->
         (* varg is the argument that fills in param *)
-        let arg, arg_stk = Fetch.fetch_val_with_stk ~eval_session ~stk env varg in
+        let arg, arg_stk = Fetch.fetch_val_with_stk ~conc_session ~stk env varg in
         let stk' = Concrete_stack.push (x, fid) stk in
         let env' = Ident_map.add param (arg, stk') fenv in
-        Session.Concrete.add_alias (param, stk) (x_arg, arg_stk) eval_session;
+        Session.Concrete.add_alias (param, stk) (x_arg, arg_stk) conc_session;
 
         (* enter function: say arg is same as param *)
         let key_param = generate_lookup_key param stk' in
         let key_arg = generate_lookup_key x_arg arg_stk in
-        let path_tracker = Path_tracker.add_alias path_tracker key_param key_arg in
+        let symb_session = Session.Symbolic.add_alias symb_session key_param key_arg in
 
         (* returned value of function *)
-        let ret_env, ret_val, path_tracker = eval_exp ~eval_session ~path_tracker stk' env' body in
+        let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session stk' env' body in
         let (Var (ret_id, _) as last_v) = Jayil.Ast_tools.retv body in
-        let ret_stk = Fetch.fetch_stk ~eval_session ~stk:stk' ret_env last_v in
-        Session.Concrete.add_alias (x, stk) (ret_id, ret_stk) eval_session;
+        let ret_stk = Fetch.fetch_stk ~conc_session ~stk:stk' ret_env last_v in
+        Session.Concrete.add_alias (x, stk) (ret_id, ret_stk) conc_session;
 
         (* exit function: *)
         let ret_key = generate_lookup_key ret_id ret_stk in
-        ret_val, Path_tracker.add_alias path_tracker x_key ret_key
+        ret_val, Session.Symbolic.add_alias symb_session x_key ret_key
       | _ -> failwith "appl to a non fun"
       end
     | Match_body (vy, p) ->
       (* x = y ~ <pattern> ; *)
-      let match_res = Value_bool (Fetch.check_pattern ~eval_session ~stk env vy p) in
+      let match_res = Value_bool (Fetch.check_pattern ~conc_session ~stk env vy p) in
       let retv = Direct (match_res) in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
       let Var (y, _) = vy in
       let match_key = generate_lookup_key y stk in
-      retv, Path_tracker.add_match path_tracker x_key match_key p
+      retv, Session.Symbolic.add_match symb_session x_key match_key p
     | Projection_body (v, label) -> begin
-      match Fetch.fetch_val ~eval_session ~stk env v with
+      match Fetch.fetch_val ~conc_session ~stk env v with
       | RecordClosure (Record_value r, denv) ->
         let proj_ident = function Ident s -> s in
         let Var (proj_x, _) as proj_v = Ident_map.find label r in
-        let retv, stk' = Fetch.fetch_val_with_stk ~eval_session ~stk denv proj_v in
-        Session.Concrete.add_alias (x, stk) (proj_x, stk') eval_session;
+        let retv, stk' = Fetch.fetch_val_with_stk ~conc_session ~stk denv proj_v in
+        Session.Concrete.add_alias (x, stk) (proj_x, stk') conc_session;
         let Var (v_ident, _) = v in
-        let v_stk = Fetch.fetch_stk ~eval_session ~stk env v in
+        let v_stk = Fetch.fetch_stk ~conc_session ~stk env v in
         let record_key = generate_lookup_key v_ident v_stk in
         let proj_key = generate_lookup_key proj_x stk' in
-        retv, Path_tracker.add_alias path_tracker x_key proj_key
+        retv, Session.Symbolic.add_alias symb_session x_key proj_key
       | Direct (Value_record (Record_value _record)) ->
         failwith "project should also have a closure"
       | _ -> failwith "project on a non record"
       end
     | Not_body vy ->
       (* x = not y ; *)
-      let v = Fetch.fetch_val_to_direct ~eval_session ~stk env vy in 
+      let v = Fetch.fetch_val_to_direct ~conc_session ~stk env vy in 
       let bv =
         match v with
         | Value_bool b -> Value_bool (not b)
         | _ -> failwith "incorrect not"
       in
       let retv = Direct bv in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
       let (Var (y, _)) = vy in
       let y_key = generate_lookup_key y stk in
-      retv, Path_tracker.add_not path_tracker x_key y_key
+      retv, Session.Symbolic.add_not symb_session x_key y_key
     | Binary_operation_body (vy, op, vz) ->
       (* x = y op z *)
-      let v1 = Fetch.fetch_val_to_direct ~eval_session ~stk env vy
-      and v2 = Fetch.fetch_val_to_direct ~eval_session ~stk env vz in
+      let v1 = Fetch.fetch_val_to_direct ~conc_session ~stk env vy
+      and v2 = Fetch.fetch_val_to_direct ~conc_session ~stk env vz in
       let v =
         match op, v1, v2 with
         | Binary_operator_plus, Value_int n1, Value_int n2                  -> Value_int  (n1 + n2)
@@ -364,88 +364,88 @@ and eval_clause
         | _, _, _ -> failwith "incorrect binop"
       in
       let retv = Direct v in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
       let Var (y, _) = vy in
       let Var (z, _) = vz in
-      let y_stk = Fetch.fetch_stk ~eval_session ~stk env vy in
-      let z_stk = Fetch.fetch_stk ~eval_session ~stk env vz in
+      let y_stk = Fetch.fetch_stk ~conc_session ~stk env vy in
+      let z_stk = Fetch.fetch_stk ~conc_session ~stk env vz in
       let y_key = generate_lookup_key y y_stk in
       let z_key = generate_lookup_key z z_stk in
-      retv, Path_tracker.add_binop path_tracker x_key op y_key z_key (* just adding keys, not any runtime values, so does not need to be implied by results of earlier branches *)
+      retv, Session.Symbolic.add_binop symb_session x_key op y_key z_key (* just adding keys, not any runtime values, so does not need to be implied by results of earlier branches *)
     | Abort_body -> begin
       let ab_v = AbortClosure env in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, ab_v) eval_session;
-      match eval_session.mode with
-      | Plain -> raise @@ Found_abort (ab_v, Path_tracker.found_abort path_tracker) (* no need to "exit" or anything. Just say interpretation stops. *)
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, ab_v) conc_session;
+      match conc_session.mode with
+      | Plain -> raise @@ Found_abort (ab_v, Session.Symbolic.found_abort symb_session) (* no need to "exit" or anything. Just say interpretation stops. *)
       (* next two are for debug mode *)
       | With_target_x target ->
         if Id.equal target x
         then raise @@ Found_target { x ; stk ; v = ab_v }
-        else raise @@ Found_abort (ab_v, path_tracker)
+        else raise @@ Found_abort (ab_v, symb_session)
       | With_full_target (target, tar_stk) ->
         if Id.equal target x && Concrete_stack.equal_flip tar_stk stk
         then raise @@ Found_target { x ; stk ; v = ab_v }
-        else raise @@ Found_abort (ab_v, path_tracker)
+        else raise @@ Found_abort (ab_v, symb_session)
       end
     | Assert_body cx | Assume_body cx ->
       (* TODO: should I ever treat assert and assume differently? *)
-      let v = Fetch.fetch_val_to_bool ~eval_session ~stk env cx in
+      let v = Fetch.fetch_val_to_bool ~conc_session ~stk env cx in
       if not v
       then
         let Var (y, _) = cx in 
-        let key = generate_lookup_key y (Fetch.fetch_stk ~eval_session ~stk env cx) in
-        raise @@ Found_failed_assume (Path_tracker.fail_assume path_tracker key)
+        let key = generate_lookup_key y (Fetch.fetch_stk ~conc_session ~stk env cx) in
+        raise @@ Found_failed_assume (Session.Symbolic.fail_assume symb_session key)
       else
         let retv = Direct (Value_bool v) in
-        Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
-        retv, Path_tracker.add_key_eq_val path_tracker x_key (Value_bool v)
+        Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
+        retv, Session.Symbolic.add_key_eq_val symb_session x_key (Value_bool v)
   in
-  Debug.debug_clause ~eval_session x v stk;
-  (Ident_map.add x (v, stk) env, v, path_tracker)
+  Debug.debug_clause ~conc_session x v stk;
+  (Ident_map.add x (v, stk) env, v, symb_session)
 
 let eval_exp_default
-  ~(eval_session : Session.Concrete.t)
-  ~(path_tracker : Path_tracker.t)
+  ~(conc_session : Session.Concrete.t)
+  ~(symb_session : Session.Symbolic.t)
   (e : expr)
-  : Dvalue.denv * Dvalue.t * Path_tracker.t
+  : Dvalue.denv * Dvalue.t * Session.Symbolic.t
   =
   eval_exp
-    ~eval_session 
-    ~path_tracker
+    ~conc_session 
+    ~symb_session
     Concrete_stack.empty (* empty stack *)
     Ident_map.empty (* empty environment *)
     e
 
 (* Evaluate the expression and return resulting concolic session. Print and discard output. May bubble exception *)
 let try_eval_exp_default
-  ~(eval_session : Session.Concrete.t)
-  ~(path_tracker : Path_tracker.t)
+  ~(conc_session : Session.Concrete.t)
+  ~(symb_session : Session.Symbolic.t)
   (e : expr)
-  : Path_tracker.t
+  : Session.Symbolic.t
   =
   try
     (* might throw exception which is to be caught below *)
-    let _, v, path_tracker = eval_exp_default ~eval_session ~path_tracker e in
+    let _, v, symb_session = eval_exp_default ~conc_session ~symb_session e in
     if Printer.print then Format.printf "Evaluated to: %a\n" Dvalue.pp v;
-    path_tracker
+    symb_session
   with
-  | Found_abort (_, path_tracker) ->
+  | Found_abort (_, symb_session) ->
       if Printer.print then Format.printf "Found abort in interpretation\n";
-      path_tracker
-  | Reach_max_step (_, _, path_tracker) ->
+      symb_session
+  | Reach_max_step (_, _, symb_session) ->
       if Printer.print then Format.printf "Reach max steps\n";
-      path_tracker
-  | Found_failed_assume path_tracker
-  | Found_failed_assert path_tracker ->
+      symb_session
+  | Found_failed_assume symb_session
+  | Found_failed_assert symb_session ->
       if Printer.print then Format.printf "Found failed assume or assert\n";
-      path_tracker
+      symb_session
   | Run_the_same_stack_twice (x, stk) -> (* bubbles exception *)
       Fmt.epr "Run into the same stack twice\n" ;
-      Debug.alert_lookup eval_session x stk ;
+      Debug.alert_lookup conc_session x stk ;
       raise (Run_the_same_stack_twice (x, stk))
   | Run_into_wrong_stack (x, stk) -> (* bubble exception *)
       Fmt.epr "Run into wrong stack\n" ;
-      Debug.alert_lookup eval_session x stk ;
+      Debug.alert_lookup conc_session x stk ;
       raise (Run_into_wrong_stack (x, stk))
 
 
@@ -459,30 +459,32 @@ let try_eval_exp_default
 
   This eval spans multiple concolic sessions, trying to hit the branches.
 *)
-let rec loop (e : expr) (prev_tracker : Path_tracker.t) : Branch_tracker.Status_store.Without_payload.t Lwt.t =
+let rec loop (e : expr) (prev_session : Session.t) : Branch_info.t Lwt.t =
   let open Lwt.Infix in
   let%lwt () = Lwt.pause () in
-  Path_tracker.next prev_tracker
+  Session.next prev_session
   |> begin function
-    | `Done status_store ->
+    | `Done branch_info ->
       Format.printf "\n------------------------------\nFinishing concolic evaluation...\n\n";
-      Format.printf "Ran %d interpretations.\n" (Path_tracker.run_num prev_tracker);
-      Branch_tracker.Status_store.Without_payload.print status_store;
-      Lwt.return status_store
-    | `Next (path_tracker, eval_session) ->
-      let status_store = Path_tracker.status_store path_tracker in
+      Format.printf "Ran %d interpretations.\n" (Session.run_num prev_session);
+      Branch_info.print branch_info;
+      Lwt.return branch_info
+    | `Next (session, symb_session, conc_session) ->
+      (* let status_store = Session.Symbolic.status_store symb_session in *)
       Format.printf "Pre-run info:\n";
-      Branch_tracker.Status_store.Without_payload.print status_store;
-      Format.printf "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Path_tracker.run_num path_tracker);
+      Branch_info.print @@ Session.branch_info session;
+      (* Branch_tracker.Status_store.Without_payload.print status_store; *)
+      Format.printf "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session);
       let t0 = Caml_unix.gettimeofday () in
-      let resulting_tracker = try_eval_exp_default ~eval_session ~path_tracker e in
+      let resulting_symbolic = try_eval_exp_default ~conc_session ~symb_session e in
       let t1 = Caml_unix.gettimeofday () in
       Format.printf "Interpretation finished in %fs.\n\n" (t1 -. t0);
-      loop e resulting_tracker
+      loop e
+      @@ Session.accum_symbolic session resulting_symbolic
     end
 
 (* Concolically execute/test program. *)
-let[@landmark] eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_payload.t) Concolic_options.Fun.t =
+let[@landmark] eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t =
   let f =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
@@ -491,8 +493,8 @@ let[@landmark] eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_pay
         let run () = 
           Riddler.reset ();
           e
-          |> Path_tracker.of_expr
-          |> Concolic_options.Fun.appl Path_tracker.with_options r
+          |> Session.of_expr
+          |> Concolic_options.Fun.appl Session.with_options r
           |> loop e
         in
         try
@@ -501,6 +503,6 @@ let[@landmark] eval : (Jayil.Ast.expr -> Branch_tracker.Status_store.Without_pay
         with
         | Lwt_unix.Timeout ->
           if Printer.print then Format.printf "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec;
-          Branch_tracker.Status_store.Without_payload.empty
+          Branch_info.empty
   in
   Concolic_options.Fun.make f
