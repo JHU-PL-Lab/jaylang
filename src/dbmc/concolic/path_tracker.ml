@@ -287,7 +287,8 @@ type t =
   ; branches      : Branch_tracker.Status_store.Without_payload.t (* quick patch using status store from loose concolic evaluator *)
   ; run_num       : int
   ; options       : Concolic_options.t
-  ; quit          : bool }
+  ; quit          : bool
+  ; has_pruned    : bool } (* true iff some evaluation hit more nodes than are allowed to be kept *)
 
 let empty : t =
   { tree          = Root.empty
@@ -296,7 +297,8 @@ let empty : t =
   ; branches      = Branch_tracker.Status_store.Without_payload.empty
   ; run_num       = 0
   ; options       = Concolic_options.default
-  ; quit          = false }
+  ; quit          = false
+  ; has_pruned    = false }
 
 let with_options : (t -> t) Concolic_options.Fun.t =
   Concolic_options.Fun.make
@@ -352,6 +354,7 @@ let found_abort (x : t) : t =
 
 let reach_max_step (x : t) : t =
   x (* it really doesn't matter that we reach max step. Just conclude like any successful run *)
+  (* TODO: when reaching max step, convert over to BFS for some time *)
 
 let [@landmarks] check_solver solver =
   Z3.Solver.check solver []
@@ -371,16 +374,18 @@ let[@landmarks] check_solver' formulas =
   Z3.Solver.check new_solver formulas
 
 (* $ OCAML_LANDMARKS=on ./_build/... *)
-let[@landmarks] next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
+(* TODO: print or return that tree was pruned *)
+let[@landmarks] next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Concrete.t) ] =
   (* first finish *)
   let updated_tree, new_targets, hit_branches = Runtime.finish x.runtime x.tree x.options.max_tree_depth in
+  let x = { x with has_pruned = x.has_pruned || not x.runtime.depth.is_below_max } in
   let updated_branches =
     List.fold
       hit_branches
       ~init:x.branches
       ~f:(Branch_tracker.Status_store.Without_payload.set_branch_status ~new_status:Hit)
   in
-  let rec next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ] =
+  let rec next (x : t) : [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Concrete.t) ] =
     if x.quit then `Done x.branches else
     (* It's never realistically relevant to quit when all branches are hit because at least one will have an abort *)
     (* if Branch_tracker.Status_store.Without_payload.all_hit x.branches then `Done x.branches else *)
@@ -388,7 +393,7 @@ let[@landmarks] next (x : t) : [ `Done of Branch_tracker.Status_store.Without_pa
     | Some (target, target_queue) -> 
       solve_for_target { x with target_queue } target
     | None when x.run_num = 0 ->
-      `Next ({ x with run_num = 1 }, Session.Eval.create Concolic_feeder.default x.options.global_max_step)
+      `Next ({ x with run_num = 1 }, Session.Concrete.create Concolic_feeder.default x.options.global_max_step)
     | None -> (* no targets left, so done *)
       `Done x.branches
   and solve_for_target (x : t) (target : Target.t) =
@@ -402,8 +407,7 @@ let[@landmarks] next (x : t) : [ `Done of Branch_tracker.Status_store.Without_pa
       Format.printf "Solver is:\n%s\n" (Z3.Solver.to_string new_solver);
       end;
     (* let[@landmarks] _ = check_solver' (Target.to_formulas target x.tree) in *)
-    let[@landmarks] checked = check_solver new_solver in
-    match checked with
+    match check_solver new_solver with
     | Z3.Solver.UNSATISFIABLE ->
       let t1 = Caml_unix.gettimeofday () in
       Format.printf "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0); (* TODO: add formula that says it's not satisfiable so less solving is necessary *)
@@ -418,7 +422,7 @@ let[@landmarks] next (x : t) : [ `Done of Branch_tracker.Status_store.Without_pa
         , Z3.Solver.get_model new_solver
           |> Core.Option.value_exn
           |> Concolic_feeder.from_model
-          |> fun feeder -> Session.Eval.create feeder x.options.global_max_step
+          |> fun feeder -> Session.Concrete.create feeder x.options.global_max_step
       )
   in
   { x with tree = updated_tree

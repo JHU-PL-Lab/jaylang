@@ -3,9 +3,12 @@ open Jayil.Ast
 open Dj_common (* exposes Concrete_stack *)
 open Dvalue (* just to expose constructors *)
 
+module Session = Session.Deprecated
+
 open Concolic_exceptions.Make (Session.Concolic)
 
 module ILog = Log.Export.ILog
+
 
 (* Ident for conditional bool. *)
 let cond_fid b = if b then Ident "$tt" else Ident "$ff"

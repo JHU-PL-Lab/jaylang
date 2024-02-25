@@ -22,9 +22,9 @@ let cond_fid b = if b then Ident "$tt" else Ident "$ff"
 module Debug =
   struct
     let debug_update_read_node session x stk =
-      let open Session.Eval in
+      let open Session.Concrete in
       match (session.is_debug, session.mode) with
-      | true, Session.Eval.Mode.With_full_target (_, target_stk) ->
+      | true, Session.Concrete.Mode.With_full_target (_, target_stk) ->
           let r_stk = Rstack.relativize target_stk stk in
           let block = Cfg.(find_reachable_block x session.block_map) in
           let key = Lookup_key.of3 x r_stk block in
@@ -36,9 +36,9 @@ module Debug =
       | _, _ -> ()
 
     let debug_update_write_node session x stk =
-      let open Session.Eval in
+      let open Session.Concrete in
       match (session.is_debug, session.mode) with
-      | true, Session.Eval.Mode.With_full_target (_, target_stk) ->
+      | true, Session.Concrete.Mode.With_full_target (_, target_stk) ->
           let r_stk = Rstack.relativize target_stk stk in
           let block = Cfg.(find_reachable_block x session.block_map) in
           let key = Lookup_key.of3 x r_stk block in
@@ -50,31 +50,31 @@ module Debug =
       | _, _ -> ()
 
     let debug_stack session x stk (v, _) =
-      let open Session.Eval in
+      let open Session.Concrete in
       match (session.is_debug, session.mode) with
-      | true, Session.Eval.Mode.With_full_target (_, target_stk) ->
+      | true, Session.Concrete.Mode.With_full_target (_, target_stk) ->
           let rstk = Rstack.relativize target_stk stk in
           Fmt.pr "@[%a = %a\t\t R = %a@]\n" Id.pp x Dvalue.pp v Rstack.pp rstk
       | _, _ -> ()
 
     let raise_if_with_stack session x stk v =
-      let open Session.Eval in
+      let open Session.Concrete in
       match session.mode with
-      | Session.Eval.Mode.With_full_target (target_x, target_stk) when Ident.equal target_x x ->
+      | Session.Concrete.Mode.With_full_target (target_x, target_stk) when Ident.equal target_x x ->
           if Concrete_stack.equal_flip target_stk stk
           then raise (Found_target { x; stk; v })
           else
             Fmt.(
               pr "found %a at stack %a, expect %a\n" pp_ident x Concrete_stack.pp
                 target_stk Concrete_stack.pp stk)
-      | Session.Eval.Mode.With_target_x target_x when Ident.equal target_x x ->
+      | Session.Concrete.Mode.With_target_x target_x when Ident.equal target_x x ->
           raise (Found_target { x; stk; v })
       | _ -> ()
 
     let alert_lookup session x stk =
-      let open Session.Eval in
+      let open Session.Concrete in
       match session.mode with
-      | Session.Eval.Mode.With_full_target (_, target_stk) ->
+      | Session.Concrete.Mode.With_full_target (_, target_stk) ->
           let r_stk = Rstack.relativize target_stk stk in
           let block = Cfg.(find_reachable_block x session.block_map) in
           let key = Lookup_key.of3 x r_stk block in
@@ -84,7 +84,7 @@ module Debug =
       | _ -> ()
 
     let rec same_stack s1 s2 =
-      let open Session.Eval in
+      let open Session.Concrete in
       match (s1, s2) with
       | (cs1, fid1) :: ss1, (cs2, fid2) :: ss2 ->
           Ident.equal cs1 cs2 && Ident.equal fid1 fid2 && same_stack ss1 ss2
@@ -92,12 +92,12 @@ module Debug =
       | _, _ -> false
 
     let debug_clause ~eval_session x v stk =
-      let open Session.Eval in
+      let open Session.Concrete in
       ILog.app (fun m -> m "@[%a = %a@]" Id.pp x Dvalue.pp v) ;
 
       (match eval_session.debug_mode with
-      | Session.Eval.Mode.Debug.Debug_clause clause_cb -> clause_cb x stk (Dvalue.value_of_t v)
-      | Session.Eval.Mode.Debug.No_debug -> ()) ;
+      | Session.Concrete.Mode.Debug.Debug_clause clause_cb -> clause_cb x stk (Dvalue.value_of_t v)
+      | Session.Concrete.Mode.Debug.No_debug -> ()) ;
 
       raise_if_with_stack eval_session x stk v ;
       debug_stack eval_session x stk (v, stk) ;
@@ -119,29 +119,29 @@ module Debug =
 module Fetch =
   struct
 
-    let fetch_val_with_stk ~(eval_session : Session.Eval.t) ~stk env (Var (x, _)) :
+    let fetch_val_with_stk ~(eval_session : Session.Concrete.t) ~stk env (Var (x, _)) :
         Dvalue.t * Concrete_stack.t =
       let res = Ident_map.find x env in (* find the variable and stack in the environment *)
       Debug.debug_update_read_node eval_session x stk ; 
       res
 
-    let fetch_val ~(eval_session : Session.Eval.t) ~stk env x : Dvalue.t =
+    let fetch_val ~(eval_session : Session.Concrete.t) ~stk env x : Dvalue.t =
       fst (fetch_val_with_stk ~eval_session ~stk env x) (* find variable and stack, then discard stack *)
 
-    let fetch_stk ~(eval_session : Session.Eval.t) ~stk env x : Concrete_stack.t =
+    let fetch_stk ~(eval_session : Session.Concrete.t) ~stk env x : Concrete_stack.t =
       snd (fetch_val_with_stk ~eval_session ~stk env x) (* find variable and stack, then discard variable *)
 
-    let fetch_val_to_direct ~(eval_session : Session.Eval.t) ~stk env vx : value =
+    let fetch_val_to_direct ~(eval_session : Session.Concrete.t) ~stk env vx : value =
       match fetch_val ~eval_session ~stk env vx with
       | Direct v -> v
       | _ -> failwith "eval to non direct value"
 
-    let fetch_val_to_bool ~(eval_session : Session.Eval.t) ~stk env vx : bool =
+    let fetch_val_to_bool ~(eval_session : Session.Concrete.t) ~stk env vx : bool =
       match fetch_val ~eval_session ~stk env vx with
       | Direct (Value_bool b) -> b
       | _ -> failwith "eval to non bool"
 
-    let check_pattern ~(eval_session : Session.Eval.t) ~stk env vx pattern : bool =
+    let check_pattern ~(eval_session : Session.Concrete.t) ~stk env vx pattern : bool =
       match (fetch_val ~eval_session ~stk env vx, pattern) with
       | Direct (Value_int _), Int_pattern -> true
       | Direct (Value_bool _), Bool_pattern -> true
@@ -178,7 +178,7 @@ let generate_lookup_key (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t)
   @@ Rstack.from_concrete stk
 
 let rec eval_exp
-  ~(eval_session : Session.Eval.t) (* Note: is mutable *)
+  ~(eval_session : Session.Concrete.t) (* Note: is mutable *)
   ~(path_tracker : Path_tracker.t)
   (stk : Concrete_stack.t)
   (env : Dvalue.denv)
@@ -206,7 +206,7 @@ let rec eval_exp
   (denv, List.last_exn vs, conc_session)
 
 and eval_clause
-  ~(eval_session : Session.Eval.t)
+  ~(eval_session : Session.Concrete.t)
   ~(path_tracker : Path_tracker.t)
   (stk : Concrete_stack.t)
   (env : Dvalue.denv)
@@ -231,23 +231,23 @@ and eval_clause
     | Value_body ((Value_function vf) as v) ->
       (* x = fun ... ; *)
       let retv = FunClosure (x, vf, env) in
-      Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       retv, Path_tracker.add_key_eq_val path_tracker x_key v
     | Value_body ((Value_record r) as v) ->
       (* x = { ... } ; *)
       let retv = RecordClosure (r, env) in
-      Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       retv, Path_tracker.add_key_eq_val path_tracker x_key v
     | Value_body v -> 
       (* x = <bool or int> ; *)
       let retv = Direct v in
-      Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       retv, Path_tracker.add_key_eq_val path_tracker x_key v
     | Var_body vx ->
       (* x = y ; *)
       let Var (y, _) = vx in
       let ret_val, ret_stk = Fetch.fetch_val_with_stk ~eval_session ~stk env vx in
-      Session.Eval.add_alias (x, stk) (y, ret_stk) eval_session;
+      Session.Concrete.add_alias (x, stk) (y, ret_stk) eval_session;
       let y_key = generate_lookup_key y ret_stk in 
       ret_val, Path_tracker.add_alias path_tracker x_key y_key
     | Conditional_body (cx, e1, e2) ->
@@ -272,13 +272,13 @@ and eval_clause
       (* say the ret_key is equal to x now, then clear out branch *)
       let ret_key = generate_lookup_key ret_id ret_stk in
       let path_tracker = Path_tracker.add_alias path_tracker x_key ret_key in
-      Session.Eval.add_alias (x, stk) (ret_id, ret_stk) eval_session;
+      Session.Concrete.add_alias (x, stk) (ret_id, ret_stk) eval_session;
       ret_val, path_tracker
     | Input_body ->
       (* x = input ; *)
       let n = eval_session.input_feeder (x, stk) in
       let retv = Direct (Value_int n) in
-      Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       retv, Path_tracker.add_input path_tracker x_key retv
     | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin
       (* x = f y ; *)
@@ -288,7 +288,7 @@ and eval_clause
         let arg, arg_stk = Fetch.fetch_val_with_stk ~eval_session ~stk env varg in
         let stk' = Concrete_stack.push (x, fid) stk in
         let env' = Ident_map.add param (arg, stk') fenv in
-        Session.Eval.add_alias (param, stk) (x_arg, arg_stk) eval_session;
+        Session.Concrete.add_alias (param, stk) (x_arg, arg_stk) eval_session;
 
         (* enter function: say arg is same as param *)
         let key_param = generate_lookup_key param stk' in
@@ -299,7 +299,7 @@ and eval_clause
         let ret_env, ret_val, path_tracker = eval_exp ~eval_session ~path_tracker stk' env' body in
         let (Var (ret_id, _) as last_v) = Jayil.Ast_tools.retv body in
         let ret_stk = Fetch.fetch_stk ~eval_session ~stk:stk' ret_env last_v in
-        Session.Eval.add_alias (x, stk) (ret_id, ret_stk) eval_session;
+        Session.Concrete.add_alias (x, stk) (ret_id, ret_stk) eval_session;
 
         (* exit function: *)
         let ret_key = generate_lookup_key ret_id ret_stk in
@@ -310,7 +310,7 @@ and eval_clause
       (* x = y ~ <pattern> ; *)
       let match_res = Value_bool (Fetch.check_pattern ~eval_session ~stk env vy p) in
       let retv = Direct (match_res) in
-      Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       let Var (y, _) = vy in
       let match_key = generate_lookup_key y stk in
       retv, Path_tracker.add_match path_tracker x_key match_key p
@@ -320,7 +320,7 @@ and eval_clause
         let proj_ident = function Ident s -> s in
         let Var (proj_x, _) as proj_v = Ident_map.find label r in
         let retv, stk' = Fetch.fetch_val_with_stk ~eval_session ~stk denv proj_v in
-        Session.Eval.add_alias (x, stk) (proj_x, stk') eval_session;
+        Session.Concrete.add_alias (x, stk) (proj_x, stk') eval_session;
         let Var (v_ident, _) = v in
         let v_stk = Fetch.fetch_stk ~eval_session ~stk env v in
         let record_key = generate_lookup_key v_ident v_stk in
@@ -339,7 +339,7 @@ and eval_clause
         | _ -> failwith "incorrect not"
       in
       let retv = Direct bv in
-      Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       let (Var (y, _)) = vy in
       let y_key = generate_lookup_key y stk in
       retv, Path_tracker.add_not path_tracker x_key y_key
@@ -364,7 +364,7 @@ and eval_clause
         | _, _, _ -> failwith "incorrect binop"
       in
       let retv = Direct v in
-      Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
       let Var (y, _) = vy in
       let Var (z, _) = vz in
       let y_stk = Fetch.fetch_stk ~eval_session ~stk env vy in
@@ -374,7 +374,7 @@ and eval_clause
       retv, Path_tracker.add_binop path_tracker x_key op y_key z_key (* just adding keys, not any runtime values, so does not need to be implied by results of earlier branches *)
     | Abort_body -> begin
       let ab_v = AbortClosure env in
-      Session.Eval.add_val_def_mapping (x, stk) (cbody, ab_v) eval_session;
+      Session.Concrete.add_val_def_mapping (x, stk) (cbody, ab_v) eval_session;
       match eval_session.mode with
       | Plain -> raise @@ Found_abort (ab_v, Path_tracker.found_abort path_tracker) (* no need to "exit" or anything. Just say interpretation stops. *)
       (* next two are for debug mode *)
@@ -397,14 +397,14 @@ and eval_clause
         raise @@ Found_failed_assume (Path_tracker.fail_assume path_tracker key)
       else
         let retv = Direct (Value_bool v) in
-        Session.Eval.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
+        Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) eval_session;
         retv, Path_tracker.add_key_eq_val path_tracker x_key (Value_bool v)
   in
   Debug.debug_clause ~eval_session x v stk;
   (Ident_map.add x (v, stk) env, v, path_tracker)
 
 let eval_exp_default
-  ~(eval_session : Session.Eval.t)
+  ~(eval_session : Session.Concrete.t)
   ~(path_tracker : Path_tracker.t)
   (e : expr)
   : Dvalue.denv * Dvalue.t * Path_tracker.t
@@ -418,7 +418,7 @@ let eval_exp_default
 
 (* Evaluate the expression and return resulting concolic session. Print and discard output. May bubble exception *)
 let try_eval_exp_default
-  ~(eval_session : Session.Eval.t)
+  ~(eval_session : Session.Concrete.t)
   ~(path_tracker : Path_tracker.t)
   (e : expr)
   : Path_tracker.t

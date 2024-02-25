@@ -61,7 +61,7 @@ val reach_max_step : t -> t
   ----------------------
 *)
 
-val next : t -> [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Eval.t) ]
+val next : t -> [ `Done of Branch_tracker.Status_store.Without_payload.t | `Next of (t * Session.Concrete.t) ]
 (** [next t] is a path tracker intended to hit the most prioritized target after the run in [t]. *)
 
 val status_store : t -> Branch_tracker.Status_store.Without_payload.t

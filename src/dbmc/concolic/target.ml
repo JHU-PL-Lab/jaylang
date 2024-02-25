@@ -12,6 +12,10 @@ type t =
 let create (child : Child.t) (path : Path.t) (npath : int) : t =
   { child ; path ; npath } 
 
+let is_hit ({ child ; _ } : t) (branch_info : Branch_info.t) : bool =
+  Branch_info.is_hit branch_info
+  @@ Branch.Runtime.to_ast_branch child.branch
+
 let[@landmarks] to_formulas ({ child ; path ; _ } : t) (root : Root.t) : Z3.Expr.expr list =
   let target_branch = child.branch in
   let target_key = target_branch.branch_key in
