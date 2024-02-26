@@ -58,10 +58,26 @@ val reach_max_step : t -> t
 *)
 
 val finish : t -> Root.t -> t
-val next : t -> Target.t -> t (* TODO: remove *)
+(** [finish t root] creates a finished session from [t] that merges info with the given [root].
+    The merged result can be gotten with [root_exn @@ finish t root]. *)
+
 val make : Root.t -> Target.t -> t
+(** [make root target] makes an empty t that knows the given [root] and [target]. *)
+
+(*
+  ---------
+  ACCESSORS   
+  ---------
+*)
 
 val root_exn : t -> Root.t
+(** [root_exn t] is the root from the finished [t] or exn. *)
+
 val targets_exn : t -> Target.t list
+(** [targets_exn t] is the targets in finished [t] or exn. *)
+
 val branch_info : t -> Branch_info.t
+(** [branch_info t] is current branch info from [t]. *)
+
 val hit_max_depth : t -> bool
+(** [hit_max_depth t] is true iff [t] reached the max allowed tree depth. *)

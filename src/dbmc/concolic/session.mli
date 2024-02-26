@@ -24,7 +24,7 @@ module Concrete :
           end
       end
 
-    module G : (* = Graph.Imperative.Digraph.ConcreteBidirectional (Id_with_stack) *) (* hide until can find type *)
+    module G : (* = Graph.Imperative.Digraph.ConcreteBidirectional (Id_with_stack) *)
       sig
         type t
       end
@@ -65,13 +65,17 @@ module Concrete :
   end
 
 module Symbolic = Symbolic_session
+(** [Symbolic] is alias for [Symbolic_session]. *)
 
 type t
+(** [t] holds program info between interpretations and helps generate concrete and symbolic sessions
+    for the next run. *)
 
 val empty : t
-(** [empty] is a default path tracker with no target and empty tree and stack. *)
+(** [empty] is a default empty session *)
 
 val with_options : (t -> t) Concolic_options.Fun.t
+(** [with_options t] is [t] that has all relevant info loaded in from the optional arguments. *)
 
 val of_expr : Jayil.Ast.expr -> t
 (** [of_expr expr] is [empty] that knows of all branches in the [expr]. *)

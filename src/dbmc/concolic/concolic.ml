@@ -457,7 +457,7 @@ let try_eval_exp_default
   This sections starts up and runs the concolic evaluator (see the eval_exp above)
   repeatedly to hit all the branches.
 
-  This eval spans multiple concolic sessions, trying to hit the branches.
+  This eval spans multiple symbolic sessions, trying to hit the branches.
 *)
 let rec loop (e : expr) (prev_session : Session.t) : Branch_info.t Lwt.t =
   let open Lwt.Infix in

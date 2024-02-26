@@ -198,8 +198,6 @@ type t =
   | At_max_depth of At_max_depth.t
   | Finished of Finished.t
   (* TODO: track a path in a tree and only add formulas if at a new node. TODO: add a "pruned" variant to path tree status *)
-  (* FIXME! The wrong branch is aborted when we have hit max depth *)
-  (* Need to have two variants of this: one is below max depth, the other is not. The one above max depth just has a branch stack *)
 
 let empty : t = Standard Standard.empty
 
@@ -291,14 +289,6 @@ let[@landmarks] finish (x : t) (tree : Root.t) : t =
   | Standard s -> Finished (Finished.of_standard s tree)
   | At_max_depth a -> Finished ({ (Finished.of_standard a.base tree) with hit_max_depth = true })
   | Finished r -> Finished ({ r with tree }) (* allow finishing twice by reseting the tree *)
-
-(* TODO: remove this because not needed *)
-let next (prev : t) (target : Target.t) : t =
-  match prev with
-  | Standard _ | At_max_depth _ -> failwith "getting next session from unfinished session"
-  | Finished x ->
-    Standard
-    { x.prev with stack = Node_stack.of_root x.tree ; target = Some target ; depth = Depth_logic.empty x.prev.depth.max_depth }
 
 let make (root : Root.t) (target : Target.t) : t =
   Standard { Standard.empty with stack = Node_stack.of_root root ; target = Some target }

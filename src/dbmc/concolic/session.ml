@@ -121,7 +121,6 @@ let with_options : (t -> t) Concolic_options.Fun.t =
 let of_expr (expr : Jayil.Ast.expr) : t =
   { empty with branch_info = Branch_info.of_expr expr }
 
-(* TODO: accessors for symbolic *)
 let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   let sym = Symbolic.finish sym x.tree in
   { x with
