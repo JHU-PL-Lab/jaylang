@@ -488,6 +488,7 @@ let[@landmark] eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t =
   let f =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
+        let t0 = Caml_unix.gettimeofday () in
         Format.printf "\nStarting concolic execution...\n";
         (* Repeatedly evaluate program *)
         let run () = 
@@ -498,8 +499,12 @@ let[@landmark] eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t =
           |> loop e
         in
         try
-          Lwt_main.run
-          @@ Lwt_unix.with_timeout r.global_timeout_sec run
+          let res = 
+            Lwt_main.run
+            @@ Lwt_unix.with_timeout r.global_timeout_sec run
+          in
+          Format.printf "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0);
+          res
         with
         | Lwt_unix.Timeout ->
           Format.printf "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec;
