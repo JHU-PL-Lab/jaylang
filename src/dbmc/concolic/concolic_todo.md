@@ -1,11 +1,6 @@
 ## Concolic Evaluator TODOs
 
 Next steps:
-* Split into concrete, symbolic, and concolic sessions.
-  * Concrete is for the interpreter to run correctly
-  * Symbolic is to track everything during a run
-  * Concolic is for between-run to combine the results from the symbolic into what else is known from other runs.
-    * Maybe this can have a better name because it's really a "between-run-symbolic session"
 * If never hit max depth, then report that all program paths were exhausted.
 * Scale max depth of tree with largest non-rec path
 * propose tutorial vidoes
@@ -24,7 +19,6 @@ Next steps:
 * Prune irrelevant expressions
   * Similar to value numbering, constant folding etc
   * Also very similar to (or frankly just the same as) checking "hittability" from each line of code
-* Shorten lookup keys to atoms
 * Scale max step with number of lines
 * fuzz with the answers, and check that they still SAT
   * try an OR that checks if any of the inputs can be different and still satisfy
