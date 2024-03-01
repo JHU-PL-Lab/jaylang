@@ -173,9 +173,12 @@ module Fetch =
   It is an evaluation within a single concolic session.
 *)
 
-let generate_lookup_key (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : Lookup_key.t =
+(* let generate_lookup_key (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : Lookup_key.t =
   Lookup_key.without_block x
-  @@ Rstack.from_concrete stk
+  @@ Rstack.from_concrete stk *)
+
+let make_key = Session.Symbolic.Lazy_key.make
+let get_key = Session.Symbolic.Lazy_key.to_key
 
 let rec eval_exp
   ~(conc_session : Session.Concrete.t) (* Note: is mutable *)
@@ -225,7 +228,7 @@ and eval_clause
   end;
   
   Debug.debug_update_write_node conc_session x stk;
-  let x_key = generate_lookup_key x stk in
+  let x_key = make_key x stk in
   let (v, symb_session) : Dvalue.t * Session.Symbolic.t =
     match cbody with
     | Value_body ((Value_function vf) as v) ->
@@ -248,15 +251,15 @@ and eval_clause
       let Var (y, _) = vx in
       let ret_val, ret_stk = Fetch.fetch_val_with_stk ~conc_session ~stk env vx in
       Session.Concrete.add_alias (x, stk) (y, ret_stk) conc_session;
-      let y_key = generate_lookup_key y ret_stk in 
+      let y_key = make_key y ret_stk in 
       ret_val, Session.Symbolic.add_alias symb_session x_key y_key
     | Conditional_body (cx, e1, e2) ->
       (* x = if y then e1 else e2 ; *)
       let Var (y, _) = cx in
       let cond_val, condition_stk = Fetch.fetch_val_with_stk ~conc_session ~stk env cx in
       let cond_bool = match cond_val with Direct (Value_bool b) -> b | _ -> failwith "non-bool condition" in
-      let condition_key = generate_lookup_key y condition_stk in
-      let this_branch = Branch.Runtime.{ branch_key = x_key ; condition_key ; direction = Branch.Direction.of_bool cond_bool } in
+      let condition_key = make_key y condition_stk in
+      let this_branch = Branch.Runtime.{ branch_key = get_key x_key ; condition_key = get_key condition_key ; direction = Branch.Direction.of_bool cond_bool } in
 
       (* enter/hit branch *)
       let symb_session = Session.Symbolic.hit_branch symb_session this_branch in
@@ -270,7 +273,7 @@ and eval_clause
       let _, ret_stk = Fetch.fetch_val_with_stk ~conc_session ~stk:stk' ret_env last_v in
 
       (* say the ret_key is equal to x now, then clear out branch *)
-      let ret_key = generate_lookup_key ret_id ret_stk in
+      let ret_key = make_key ret_id ret_stk in
       let symb_session = Session.Symbolic.add_alias symb_session x_key ret_key in
       Session.Concrete.add_alias (x, stk) (ret_id, ret_stk) conc_session;
       ret_val, symb_session
@@ -291,8 +294,8 @@ and eval_clause
         Session.Concrete.add_alias (param, stk) (x_arg, arg_stk) conc_session;
 
         (* enter function: say arg is same as param *)
-        let key_param = generate_lookup_key param stk' in
-        let key_arg = generate_lookup_key x_arg arg_stk in
+        let key_param = make_key param stk' in
+        let key_arg = make_key x_arg arg_stk in
         let symb_session = Session.Symbolic.add_alias symb_session key_param key_arg in
 
         (* returned value of function *)
@@ -302,7 +305,7 @@ and eval_clause
         Session.Concrete.add_alias (x, stk) (ret_id, ret_stk) conc_session;
 
         (* exit function: *)
-        let ret_key = generate_lookup_key ret_id ret_stk in
+        let ret_key = make_key ret_id ret_stk in
         ret_val, Session.Symbolic.add_alias symb_session x_key ret_key
       | _ -> failwith "appl to a non fun"
       end
@@ -312,7 +315,7 @@ and eval_clause
       let retv = Direct (match_res) in
       Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
       let Var (y, _) = vy in
-      let match_key = generate_lookup_key y stk in
+      let match_key = make_key y stk in
       retv, Session.Symbolic.add_match symb_session x_key match_key p
     | Projection_body (v, label) -> begin
       match Fetch.fetch_val ~conc_session ~stk env v with
@@ -323,8 +326,8 @@ and eval_clause
         Session.Concrete.add_alias (x, stk) (proj_x, stk') conc_session;
         let Var (v_ident, _) = v in
         let v_stk = Fetch.fetch_stk ~conc_session ~stk env v in
-        let record_key = generate_lookup_key v_ident v_stk in
-        let proj_key = generate_lookup_key proj_x stk' in
+        let record_key = make_key v_ident v_stk in
+        let proj_key = make_key proj_x stk' in
         retv, Session.Symbolic.add_alias symb_session x_key proj_key
       | Direct (Value_record (Record_value _record)) ->
         failwith "project should also have a closure"
@@ -341,7 +344,7 @@ and eval_clause
       let retv = Direct bv in
       Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
       let (Var (y, _)) = vy in
-      let y_key = generate_lookup_key y stk in
+      let y_key = make_key y stk in
       retv, Session.Symbolic.add_not symb_session x_key y_key
     | Binary_operation_body (vy, op, vz) ->
       (* x = y op z *)
@@ -369,8 +372,8 @@ and eval_clause
       let Var (z, _) = vz in
       let y_stk = Fetch.fetch_stk ~conc_session ~stk env vy in
       let z_stk = Fetch.fetch_stk ~conc_session ~stk env vz in
-      let y_key = generate_lookup_key y y_stk in
-      let z_key = generate_lookup_key z z_stk in
+      let y_key = make_key y y_stk in
+      let z_key = make_key z z_stk in
       retv, Session.Symbolic.add_binop symb_session x_key op y_key z_key (* just adding keys, not any runtime values, so does not need to be implied by results of earlier branches *)
     | Abort_body -> begin
       let ab_v = AbortClosure env in
@@ -393,7 +396,7 @@ and eval_clause
       if not v
       then
         let Var (y, _) = cx in 
-        let key = generate_lookup_key y (Fetch.fetch_stk ~conc_session ~stk env cx) in
+        let key = make_key y (Fetch.fetch_stk ~conc_session ~stk env cx) in
         raise @@ Found_failed_assume (Session.Symbolic.fail_assume symb_session key)
       else
         let retv = Direct (Value_bool v) in

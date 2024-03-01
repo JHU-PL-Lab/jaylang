@@ -16,7 +16,7 @@ let default : t =
   { quit_on_abort      = false
   ; global_timeout_sec = 120.0
   ; solver_timeout_sec = 1.0
-  ; global_max_step    = Core.Int.(2 * 10 ** 3)
+  ; global_max_step    = Core.Int.(10 ** 4)
   ; print_solver       = false
   ; max_tree_depth     = 40 }
 
@@ -54,7 +54,7 @@ module Fun =
       ?global_timeout_sec    : float (* default 120.0 seconds *)
       -> ?solver_timeout_sec : float (* default 1.0 seconds *)
       -> ?quit_on_abort      : bool  (* default false *)
-      -> ?global_max_step    : int   (* default 2000 steps *)
+      -> ?global_max_step    : int   (* default 10 000 steps *)
       -> ?print_solver       : bool  (* default false *)
       -> ?max_tree_depth     : int   (* default 25 *)
       -> 'a (* 'a = 'b -> 'c *) (* so maybe make this a ('a, 'b) t *)

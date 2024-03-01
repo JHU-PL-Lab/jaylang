@@ -2,6 +2,22 @@
 open Core
 open Path_tree
 
+module Lazy_key =
+  struct
+    type t = unit -> Lookup_key.t    
+
+    let to_key (x : t) : Lookup_key.t =
+      x ()
+
+    let generate_lookup_key (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : Lookup_key.t =
+      Lookup_key.without_block x
+      @@ Rstack.from_concrete stk
+    
+    let make (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : t =
+      fun () -> generate_lookup_key x stk
+
+  end
+
 (* Node_stack is a stack of nodes that describes a path through the tree. This will be used by the symbolic session. *)
 module Node_stack =
   struct
@@ -143,11 +159,11 @@ module Standard =
     let found_abort (s : t) : t =
       { s with branch_info = Branch_info.set_branch_status ~new_status:Found_abort s.branch_info @@ Node_stack.hd_branch_exn s.stack }
 
-    let failed_assume (s : t) (cx : Lookup_key.t) : t =
+    let failed_assume (s : t) (cx : Lazy_key.t) : t =
       match s.stack with
       | Last _ -> s (* `assume` found in global scope. We assume this is a test case that can't happen in real world translations to JIL *)
       | Cons (hd, tl) ->
-        let hd = Child.map_node hd ~f:(fun node -> Node.add_formula node @@ Riddler.eqv cx (Jayil.Ast.Value_bool true)) in
+        let hd = Child.map_node hd ~f:(fun node -> Node.add_formula node @@ Riddler.eqv (cx ()) (Jayil.Ast.Value_bool true)) in
         let new_hd =
           Child.{ status = Status.Unsolved (* forget all formulas so that it is a possible target in future runs *)
                 ; constraints = Formula_set.add_multi hd.constraints @@ Child.to_formulas hd (* constrain to passing assume/assert *)
@@ -228,7 +244,7 @@ let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
   | At_max_depth a -> At_max_depth { a with last_branch = Branch.Runtime.to_ast_branch branch }
   | Finished _ -> failwith "using finished symbolic session to hit branch"
 
-let fail_assume (x : t) (cx : Lookup_key.t) : t =
+let fail_assume (x : t) (cx : Lazy_key.t) : t =
   match x with
   | Standard s -> Standard (Standard.failed_assume s cx)
   | At_max_depth _ -> x
@@ -249,33 +265,35 @@ let reach_max_step (x : t) : t =
   FORMULAS FOR BASIC JIL CLAUSES
   ------------------------------
 *)
-let add_key_eq_val (x : t) (key : Lookup_key.t) (v : Jayil.Ast.value) : t =
-  add_lazy_formula x @@ fun () -> Riddler.eq_term_v key (Some v)
+let add_key_eq_val (x : t) (key : Lazy_key.t) (v : Jayil.Ast.value) : t =
+  add_lazy_formula x @@ fun () -> Riddler.eq_term_v (key ()) (Some v)
 
-let add_alias (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
-  add_lazy_formula x @@ fun () -> Riddler.eq key1 key2
+let add_alias (x : t) (key1 : Lazy_key.t) (key2 : Lazy_key.t) : t =
+  add_lazy_formula x @@ fun () -> Riddler.eq (key1 ()) (key2 ())
 
-let add_binop (x : t) (key : Lookup_key.t) (op : Jayil.Ast.binary_operator) (left : Lookup_key.t) (right : Lookup_key.t) : t =
-  add_lazy_formula x @@ fun () -> Riddler.binop_without_picked key op left right
+let add_binop (x : t) (key : Lazy_key.t) (op : Jayil.Ast.binary_operator) (left : Lazy_key.t) (right : Lazy_key.t) : t =
+  add_lazy_formula x @@ fun () -> Riddler.binop_without_picked (key ()) op (left ()) (right ())
 
-let add_input (x : t) (key : Lookup_key.t) (v : Dvalue.t) : t =
-  let Ident s = key.x in
-  let n =
-    match v with
-    | Dvalue.Direct (Value_int n) -> n
-    | _ -> failwith "non-int input" (* logically impossible *)
-  in
-  Format.printf "Feed %d to %s \n" n s;
-  add_lazy_formula x @@ fun () -> Riddler.if_pattern key Jayil.Ast.Int_pattern
+let add_input (x : t) (key : Lazy_key.t) (v : Dvalue.t) : t =
+  add_lazy_formula x @@ fun () -> 
+    let key = key () in
+    let Ident s = key.x in
+    let n =
+      match v with
+      | Dvalue.Direct (Value_int n) -> n
+      | _ -> failwith "non-int input" (* logically impossible *)
+    in
+    Format.printf "Feed %d to %s \n" n s;
+    Riddler.if_pattern key Jayil.Ast.Int_pattern
 
-let add_not (x : t) (key1 : Lookup_key.t) (key2 : Lookup_key.t) : t =
-  add_lazy_formula x @@ fun () -> Riddler.not_ key1 key2
+let add_not (x : t) (key1 : Lazy_key.t) (key2 : Lazy_key.t) : t =
+  add_lazy_formula x @@ fun () -> Riddler.not_ (key1 ()) (key2 ())
 
-let add_match (x : t) (k : Lookup_key.t) (m : Lookup_key.t) (pat : Jayil.Ast.pattern) : t =
+let add_match (x : t) (k : Lazy_key.t) (m : Lazy_key.t) (pat : Jayil.Ast.pattern) : t =
   add_lazy_formula x
   @@ fun () ->
-    let k_expr = Riddler.key_to_var k in
-    Solver.SuduZ3.eq (Solver.SuduZ3.project_bool k_expr) (Riddler.if_pattern m pat)
+    let k_expr = Riddler.key_to_var (k ()) in
+    Solver.SuduZ3.eq (Solver.SuduZ3.project_bool k_expr) (Riddler.if_pattern (m ()) pat)
 
 (*
   -----------------

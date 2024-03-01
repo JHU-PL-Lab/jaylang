@@ -1,16 +1,14 @@
 ## Concolic Evaluator TODOs
 
-Next steps:
+### Urgent
+
+* VERY URGENT: stop making lookup keys after max depth
 * If never hit max depth, then report that all program paths were exhausted.
 * Scale max depth of tree with largest non-rec path
 * propose tutorial vidoes
   * Not sure if these should be conference videos or some tutorial (e.g. summer school)
 * propose how we might use several heuristics and dial them before actually implementing
   * e.g. what ideas can we use to do both DFS and BFS on the tree at the same time
-* address top urgent todos
-
-### Urgent
-
 * Research prioritization schemes
   * Currently, BFS and DFS do similarly well
   * Try prioritizing branches that immediately have an abort
