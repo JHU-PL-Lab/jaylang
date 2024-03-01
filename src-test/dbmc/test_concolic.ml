@@ -23,21 +23,14 @@ let test_exact_expected testname _args =
 let test_for_abort testname _args =
   let expect_path = Filename.chop_extension testname ^ ".expect.s" in (* existence of this file implies an abort should be found *)
   let is_error_expected = Sys_unix.is_file_exn expect_path in
-  let result =
-    let output =
-      Concolic.eval
-        ~global_timeout_sec:10.0 (* allow ten seconds to find abort *)
-        ~quit_on_abort:true
-        (Dj_common.File_utils.read_source testname)
-    in
-    if Branch_info.(compare empty output = 0)
-    then not is_error_expected (* concolic timed out, which is good if there is no error expected *)
-    else (* concolic finished, so check for existence of an abort *)
-      Bool.(=)
-        (Branch_info.contains output Found_abort)
-        is_error_expected
-  in
-  Alcotest.(check bool) "bjy concolic" true result
+  Concolic_driver.test ~global_timeout_sec:10.0 ~quit_on_abort:true testname
+  |> begin function
+    | `Timeout
+    | `Exhausted -> false (* did not find error *)
+    | `Found_abort -> true (* found error *)
+  end
+  |> Bool.(=) is_error_expected
+  |> Alcotest.(check bool) "bjy concolic" true
 
 (* Change Lib to allow Quick or Slow flag *)
 module From_lib =
@@ -55,4 +48,4 @@ let () =
   let grouped_tests = [] in
   let _bjy_tests = From_lib.group_tests "test/dbmc/concolic/_bjy_tests/" `Slow test_for_abort in
   let bjy_tests = From_lib.group_tests "test/dbmc/concolic/bjy_tests/" `Quick test_for_abort in
-  Alcotest.run_with_args "concolic" Test_argparse.config (bjy_tests @ _bjy_tests @ grouped_tests) ~quick_only:false
+  Alcotest.run_with_args "concolic" Test_argparse.config (bjy_tests @ _bjy_tests @ grouped_tests) ~quick_only:true

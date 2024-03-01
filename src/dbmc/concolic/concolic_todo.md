@@ -275,3 +275,52 @@ The solver gets clogged up, and it begins to run slowly. Similarly, in the worst
 It's unlikely that we'll hit all satisfiable lines of the program quickly, so we settle for a timeout
 
 Input inside of recursive function until sum of inputs is large enough
+
+
+## 28 Feb 2024
+
+**Last time**
+
+* I brought in the record formula changes (=> all tests passed, and interpretation was exactly modeled by formulas)
+* I used int identifiers in the solver instead of strings (=> small improvement)
+* We wanted to get benchmarks on more programs
+* We wanted to know where the program was slowing
+
+**Since then**
+
+* The new tests are reasonably fast, but we do not yet assert correctness (waiting on Earl to type the programs)
+* Regarding where the program slows:
+  * It takes about as long to load the solver as it does to solve the formulas in it
+    * This motivates a change to use the solver's internal stack and push/pop formulas, but that forces a DFS and nonfunctional code
+  * On "average", solving and loading each separately take about 0.005 seconds
+    * But we might have to do this a lot to exhaust the tree by proving many branches unsatisfiable!
+* We stop tracking any formulas after a certain depth to allow the interpreter to continue further but without slowing
+* And some code cleanup/shortening
+
+**Next**
+
+* A simple way to combine DFS and BFS is this:
+  * Always do DFS, but if we hit max step, then "run BFS once"
+  * i.e. keep a DFS and BFS horizon, always popping from DFS, and if the run hits max step, then dequeue from BFS for next run and continue as normal (by going back to DFS after the run)
+  * Alternatively, push all targets from a max step run to the very back, so all other targets get run first
+  * With both of these approaches, we try to distance ourselves from the branches that are really deep in the program and thus might be more likely to lead to max step again
+  * I don't discard all targets from a max step run because we still want to exhaust the tree eventually, but the above ideas might help us exhaust the expensive parts last
+* Instead of finally using the internal stack to push/pop (which won't be natural if we choose the DFS/BFS combination like above) it sounds more interesting to me to selectively add only the formulas necessary
+  * We have talked about this before but haven't given it high priority
+  * If some value never directly depends on an input (though it might depend on the branches that are affected by the input, which is okay), then I can simply add the concrete value and nothing before it
+  * This might reduce formulas, but maybe the programs are complex enough that it actually won't
+
+**Questions**
+
+* When do we combine all these tools into one pipeline?
+* What's our technique for benchmarking?
+  * Shiwei and robert have used "ocamlbench"
+* When do we call our tool "finished" enough for the paper submission? i.e. what is the deadline to stop making improvements?
+  * It appears to work now, but we have plenty of ideas for potential improvements
+  
+TODO: haskell and racket benchmarks converted (in a while... benchmarch bluejay first)
+
+
+**Other**
+
+* Approximation algorithms

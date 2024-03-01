@@ -483,25 +483,33 @@ let rec loop (e : expr) (prev_session : Session.t) : Branch_info.t Lwt.t =
       @@ Session.accum_symbolic session resulting_symbolic
     end
 
-(* Concolically execute/test program. *)
-let[@landmark] eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t =
+(* TODO: maybe move some of this to driver *)
+let lwt_eval : (Jayil.Ast.expr -> Branch_info.t Lwt.t) Concolic_options.Fun.t =
   let f =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
-        let t0 = Caml_unix.gettimeofday () in
         Format.printf "\nStarting concolic execution...\n";
         (* Repeatedly evaluate program *)
-        let run () = 
-          Riddler.reset ();
+        Riddler.reset ();
+        Lwt_unix.with_timeout r.global_timeout_sec
+        @@ fun () ->
           e
           |> Session.of_expr
           |> Concolic_options.Fun.appl Session.with_options r
           |> loop e
-        in
+  in
+  Concolic_options.Fun.make f
+
+(* Concolically execute/test program. Not necessarily needed anymore *)
+let[@landmark] eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t =
+  let f =
+    fun (r : Concolic_options.t) ->
+      fun (e : Jayil.Ast.expr) ->
         try
-          let res = 
+          let t0 = Caml_unix.gettimeofday () in
+          let res =
             Lwt_main.run
-            @@ Lwt_unix.with_timeout r.global_timeout_sec run
+            @@ Concolic_options.Fun.appl lwt_eval r e
           in
           Format.printf "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0);
           res
@@ -509,5 +517,26 @@ let[@landmark] eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t =
         | Lwt_unix.Timeout ->
           Format.printf "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec;
           Branch_info.empty
+  in
+  Concolic_options.Fun.make f
+
+let[@landmark] test : (Jayil.Ast.expr -> [ `Found_abort (*of Branch.t*) | `Exhausted | `Timeout ]) Concolic_options.Fun.t =
+  let f =
+    fun (r : Concolic_options.t) ->
+      fun (e : Jayil.Ast.expr) ->
+        try
+          let t0 = Caml_unix.gettimeofday () in
+          let res =
+            Lwt_main.run
+            @@ Concolic_options.Fun.appl lwt_eval r e
+          in
+          Format.printf "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0);
+          if Branch_info.contains res Found_abort
+          then `Found_abort
+          else `Exhausted
+        with
+        | Lwt_unix.Timeout ->
+          Format.printf "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec;
+          `Timeout
   in
   Concolic_options.Fun.make f

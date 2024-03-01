@@ -31,7 +31,7 @@ let () =
   | "" -> ()
   | src_file -> begin
     let f =
-      Concolic_options.Fun.appl Concolic_driver.test_program_concolic
+      Concolic_options.Fun.appl Concolic_driver.test
       @@ Concolic_options.Refs.without_refs optional_args
     in
     let _ = f src_file in
