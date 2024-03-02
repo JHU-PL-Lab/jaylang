@@ -14,11 +14,11 @@ include T
 
 let default : t =
   { quit_on_abort      = false
-  ; global_timeout_sec = 120.0
+  ; global_timeout_sec = 20.0
   ; solver_timeout_sec = 1.0
-  ; global_max_step    = Core.Int.(10 ** 4)
+  ; global_max_step    = Core.Int.(5 * 10 ** 3)
   ; print_solver       = false
-  ; max_tree_depth     = 40 }
+  ; max_tree_depth     = 25 }
 
 module Refs =
   struct
@@ -51,12 +51,12 @@ module Refs =
 module Fun =
   struct
     type 'a t =
-      ?global_timeout_sec    : float (* default 120.0 seconds *)
-      -> ?solver_timeout_sec : float (* default 1.0 seconds *)
-      -> ?quit_on_abort      : bool  (* default false *)
-      -> ?global_max_step    : int   (* default 10 000 steps *)
-      -> ?print_solver       : bool  (* default false *)
-      -> ?max_tree_depth     : int   (* default 25 *)
+      ?global_timeout_sec    : float
+      -> ?solver_timeout_sec : float
+      -> ?quit_on_abort      : bool
+      -> ?global_max_step    : int
+      -> ?print_solver       : bool
+      -> ?max_tree_depth     : int
       -> 'a (* 'a = 'b -> 'c *) (* so maybe make this a ('a, 'b) t *)
 
     let appl (x : 'a t) (r : T.t) : 'a =
