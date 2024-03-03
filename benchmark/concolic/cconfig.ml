@@ -10,7 +10,7 @@ and t = {
   engine : string; [@default "concolic"]
   bin : string; [@default "./cj.exe"]
   test_path : string; [@default "test/dbmc/concolic/bjy_tests"]
-  working_path : string; [@default "benchmark/dbmc/_working"]
-  result_path : string; [@default "benchmark/dbmc/result"]
+  working_path : string; [@default "benchmark/concolic/_working"]
+  result_path : string; [@default "benchmark/concolic/result"]
 }
 [@@deriving sexp]
