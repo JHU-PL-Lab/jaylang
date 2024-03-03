@@ -7,9 +7,9 @@ and t = {
   testcases_not_time : test_group;
   repeat : int;
   timeout : string;
-  engine : string; [@default "dbmc"]
-  bin : string; [@default "./dj.exe"]
-  test_path : string; [@default "benchmark/dbmc/cases/ddse"]
+  engine : string; [@default "concolic"]
+  bin : string; [@default "./cj.exe"]
+  test_path : string; [@default "test/dbmc/concolic/bjy_tests"]
   working_path : string; [@default "benchmark/dbmc/_working"]
   result_path : string; [@default "benchmark/dbmc/result"]
 }

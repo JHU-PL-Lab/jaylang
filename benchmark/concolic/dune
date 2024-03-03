@@ -1,0 +1,12 @@
+(executable
+ (name cbenchmark)
+ (package jay)
+ (public_name jay.cbenchmark_test_generation)
+ (libraries shexp.process core core_unix)
+ (preprocess
+  (pps ppx_jane)))
+
+(env
+ (dev
+  (flags
+   (:standard -w -32))))

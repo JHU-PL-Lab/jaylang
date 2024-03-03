@@ -4,7 +4,7 @@ open Dbmc
 (* This executable is to run the concolic evaluator. Think CJ = "concolic jil" *)
 let usage_msg =
   {|
-  jil -i <file> [-t <total timeout>] [-s <solver_timeout>] [-m <max_step>] [-d <max_tree_depth>] [-q] [-p]
+  cj -i <file> [-t <total timeout>] [-s <solver_timeout>] [-m <max_step>] [-d <max_tree_depth>] [-q] [-p]
   |}
 let source_file = ref "" 
 let optional_args = Concolic_options.Refs.create_default ()

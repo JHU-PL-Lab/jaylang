@@ -1,24 +1,19 @@
+open Core
 
 module T =
   struct
     type t =
-      { quit_on_abort      : bool
-      ; global_timeout_sec : float
-      ; solver_timeout_sec : float
-      ; global_max_step    : int
-      ; print_solver       : bool
-      ; max_tree_depth     : int }
+      { quit_on_abort      : bool  [@default false]
+      ; global_timeout_sec : float [@default 20.0]
+      ; solver_timeout_sec : float [@default 1.0]
+      ; global_max_step    : int   [@default Int.(5 * 10**3)]
+      ; print_solver       : bool  [@default false]
+      ; max_tree_depth     : int   [@default 25]} [@@deriving sexp]
   end
 
 include T
 
-let default : t =
-  { quit_on_abort      = false
-  ; global_timeout_sec = 20.0
-  ; solver_timeout_sec = 1.0
-  ; global_max_step    = Core.Int.(5 * 10 ** 3)
-  ; print_solver       = false
-  ; max_tree_depth     = 25 }
+let default : t = T.t_of_sexp @@ Sexp.of_string "()"
 
 module Refs =
   struct
