@@ -238,7 +238,7 @@ let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
   | Standard s when (Depth_logic.incr s.depth).is_below_max ->
     Standard
     { s with branch_info = Branch_info.set_branch_status ~new_status:Hit s.branch_info @@ Branch.Runtime.to_ast_branch branch
-    ; stack = Node_stack.add_formula (Node_stack.push s.stack branch) @@ Branch.Runtime.to_expr branch
+    ; stack = Node_stack.push s.stack branch
     ; depth = Depth_logic.incr s.depth }
   | Standard s -> At_max_depth (At_max_depth.of_standard s)
   | At_max_depth a -> At_max_depth { a with last_branch = Branch.Runtime.to_ast_branch branch }
