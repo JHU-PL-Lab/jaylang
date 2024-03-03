@@ -4,7 +4,7 @@ let test_program_concolic : (string -> Branch_info.t) Concolic_options.Fun.t =
     Concolic.eval
     Dj_common.File_utils.read_source
 
-let test : (string -> [ `Found_abort | `Exhausted | `Timeout ]) Concolic_options.Fun.t =
+let test : (string -> [ `Found_abort | `Exhausted | `Exhausted_pruned_tree | `Timeout ]) Concolic_options.Fun.t =
   Concolic_options.Fun.compose
     Concolic.test
     Dj_common.File_utils.read_source

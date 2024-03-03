@@ -151,9 +151,9 @@ let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
   Concolic_options.Fun.appl Symbolic.with_options x.options sym
 
 (* $ OCAML_LANDMARKS=on ./_build/... *)
-(* TODO: print or return that tree was pruned *)
-let[@landmarks] rec next (x : t) : [ `Done of Branch_info.t | `Next of (t * Symbolic.t * Concrete.t) ] =
-  if x.quit then `Done x.branch_info else
+(* `Done (branch_info, has_pruned) *)
+let[@landmarks] rec next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ] =
+  if x.quit then `Done (x.branch_info, x.has_pruned) else
   (* It's never realistically relevant to quit when all branches are hit because at least one will have an abort *)
   (* if Branch_tracker.Status_store.Without_payload.all_hit x.branches then `Done x.branches else *)
   match Target_queue.pop x.target_queue with
@@ -165,7 +165,7 @@ let[@landmarks] rec next (x : t) : [ `Done of Branch_info.t | `Next of (t * Symb
       , apply_options_symbolic x Symbolic.empty
       , Concrete.create Concolic_feeder.default x.options.global_max_step)
   | None -> (* no targets left, so done *)
-    `Done x.branch_info
+    `Done (x.branch_info, x.has_pruned)
 
 and solve_for_target (x : t) (target : Target.t) =
   let t0 = Caml_unix.gettimeofday () in

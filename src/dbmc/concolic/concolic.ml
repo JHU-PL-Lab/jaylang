@@ -462,16 +462,17 @@ let try_eval_exp_default
 
   This eval spans multiple symbolic sessions, trying to hit the branches.
 *)
-let rec loop (e : expr) (prev_session : Session.t) : Branch_info.t Lwt.t =
+let rec loop (e : expr) (prev_session : Session.t) : (Branch_info.t * bool) Lwt.t =
   let open Lwt.Infix in
   let%lwt () = Lwt.pause () in
   Session.next prev_session
   |> begin function
-    | `Done branch_info ->
+    | `Done (branch_info, has_pruned) ->
       Format.printf "\n------------------------------\nFinishing concolic evaluation...\n\n";
       Format.printf "Ran %d interpretations.\n" (Session.run_num prev_session);
+      Format.printf "Tree was pruned: %b\n" has_pruned;
       Branch_info.print branch_info;
-      Lwt.return branch_info
+      Lwt.return (branch_info, has_pruned)
     | `Next (session, symb_session, conc_session) ->
       (* let status_store = Session.Symbolic.status_store symb_session in *)
       Format.printf "Pre-run info:\n";
@@ -487,7 +488,7 @@ let rec loop (e : expr) (prev_session : Session.t) : Branch_info.t Lwt.t =
     end
 
 (* TODO: maybe move some of this to driver *)
-let lwt_eval : (Jayil.Ast.expr -> Branch_info.t Lwt.t) Concolic_options.Fun.t =
+let lwt_eval : (Jayil.Ast.expr -> (Branch_info.t * bool) Lwt.t) Concolic_options.Fun.t =
   let f =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
@@ -511,7 +512,8 @@ let[@landmark] eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t =
         try
           let t0 = Caml_unix.gettimeofday () in
           let res =
-            Lwt_main.run
+            Tuple2.get1
+            @@ Lwt_main.run
             @@ Concolic_options.Fun.appl lwt_eval r e
           in
           Format.printf "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0);
@@ -523,20 +525,21 @@ let[@landmark] eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t =
   in
   Concolic_options.Fun.make f
 
-let[@landmark] test : (Jayil.Ast.expr -> [ `Found_abort (*of Branch.t*) | `Exhausted | `Timeout ]) Concolic_options.Fun.t =
+let[@landmark] test : (Jayil.Ast.expr -> [ `Found_abort | `Exhausted | `Exhausted_pruned_tree | `Timeout ]) Concolic_options.Fun.t =
   let f =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
         try
           let t0 = Caml_unix.gettimeofday () in
-          let res =
+          let res, has_pruned =
             Lwt_main.run
             @@ Concolic_options.Fun.appl lwt_eval r e
           in
           Format.printf "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0);
-          if Branch_info.contains res Found_abort
-          then `Found_abort
-          else `Exhausted
+          match Branch_info.contains res Found_abort with
+          | true -> `Found_abort
+          | false when not has_pruned -> `Exhausted
+          | _ -> `Exhausted_pruned_tree
         with
         | Lwt_unix.Timeout ->
           Format.printf "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec;

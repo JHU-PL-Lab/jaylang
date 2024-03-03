@@ -83,9 +83,10 @@ val of_expr : Jayil.Ast.expr -> t
 val accum_symbolic : t -> Symbolic.t -> t
 (** [accum_symbolic t sym] finishes the sybolic session [sym] and accumulates results into [t]. *)
 
-val next : t -> [ `Done of Branch_info.t | `Next of (t * Symbolic.t * Concrete.t) ]
-(** [next t] is [`Done branch_info] if the concolic evaluation is done, or is [`Next (session, symbolic, concrete)] if
-    the interpreter is to be run again with [symbolic] and [concrete] sessions. *)
+val next : t -> [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ]
+(** [next t] is [`Done (branch_info, tree_has_been_pruned)] if the concolic evaluation is done,
+    or is [`Next (session, symbolic, concrete)] if the interpreter is to be run again with [symbolic]
+    and [concrete] sessions. *)
 
 val branch_info : t -> Branch_info.t
 (** [branch_info t] is the branch info in [t]. *)

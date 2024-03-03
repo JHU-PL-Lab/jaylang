@@ -26,7 +26,8 @@ let test_for_abort testname _args =
   Concolic_driver.test ~global_timeout_sec:10.0 ~quit_on_abort:true testname
   |> begin function
     | `Timeout
-    | `Exhausted -> false (* did not find error *)
+    | `Exhausted
+    | `Exhausted_pruned_tree -> false (* did not find error *)
     | `Found_abort -> true (* found error *)
   end
   |> Bool.(=) is_error_expected
