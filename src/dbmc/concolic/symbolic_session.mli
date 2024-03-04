@@ -88,3 +88,5 @@ val branch_info : t -> Branch_info.t
 
 val hit_max_depth : t -> bool
 (** [hit_max_depth t] is true iff [t] reached the max allowed tree depth. *)
+
+val is_reach_max_step : t -> bool

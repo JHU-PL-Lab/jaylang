@@ -9,7 +9,7 @@ val empty : t
 (* val is_empty : t -> bool *)
 (* val push_one : t -> Target.t -> t *)
 val push_list : t -> Target.t list -> t
-(** [push_list t ls] pushes all targets in [ls] onto [t], where earlier items in [ls] are hit more recently. *)
-val pop : t -> (Target.t * t) option
+(** [push_list t ls] pushes all targets in [ls] onto [t], where deeper targets are at the front of [ls] *)
+val pop : ?kind:[ `DFS | `BFS | `Random ] -> t -> (Target.t * t) option
 (** [pop t] is most prioritized target and new queue, or [None]. *)
 (* val to_string : t -> string *)

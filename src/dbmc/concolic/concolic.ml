@@ -537,12 +537,13 @@ let[@landmark] test : (Jayil.Ast.expr -> [ `Found_abort | `Exhausted | `Exhauste
           in
           Format.printf "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0);
           match Branch_info.contains res Found_abort with
-          | true -> `Found_abort
-          | false when not has_pruned -> `Exhausted
-          | _ -> `Exhausted_pruned_tree
+          | true -> Format.printf "\nFOUND_ABORT\n"; `Found_abort
+          | false when not has_pruned -> Format.printf "\nEXHAUSTED\n"; `Exhausted
+          | _ -> Format.printf "\nEXHAUSTED_PRUNED_TREE\n"; `Exhausted_pruned_tree
         with
         | Lwt_unix.Timeout ->
           Format.printf "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec;
+          Format.printf "\nTIMEOUT\n";
           `Timeout
   in
   Concolic_options.Fun.make f

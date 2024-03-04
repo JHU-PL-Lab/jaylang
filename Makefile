@@ -126,6 +126,7 @@ benchmark:
 # dune exec $(BENCH_D)/benchmark.exe -- -e ddse
 
 cbenchmark:
+	make cj
 	dune exec $(BENCH_C)/cbenchmark.exe -- -e concolic
 
 benchmark-icfp-artifact:

@@ -67,6 +67,7 @@ module Node_stack =
       in
       loop [] x
 
+    (* Returns list of targets where deeper branches are at the front of the list *)
     let get_targets (stack : t) (tree : Root.t) : Target.t list =
       let total_path = to_path stack in (* this path leads to all possible targets *)
       let rec step
@@ -141,16 +142,18 @@ module Depth_logic =
 module Standard =
   struct
     type t =
-      { stack       : Node_stack.t
-      ; target      : Target.t option
-      ; branch_info : Branch_info.t
-      ; depth       : Depth_logic.t }
+      { stack          : Node_stack.t
+      ; target         : Target.t option
+      ; branch_info    : Branch_info.t
+      ; depth          : Depth_logic.t
+      ; reach_max_step : bool }
 
     let empty : t =
-      { stack       = Node_stack.empty
-      ; target      = None
-      ; branch_info = Branch_info.empty
-      ; depth       = Depth_logic.empty Concolic_options.default.max_tree_depth }
+      { stack          = Node_stack.empty
+      ; target         = None
+      ; branch_info    = Branch_info.empty
+      ; depth          = Depth_logic.empty Concolic_options.default.max_tree_depth
+      ; reach_max_step = false }
 
     let with_options : (t -> t) Concolic_options.Fun.t =
       Concolic_options.Fun.make
@@ -258,7 +261,10 @@ let found_abort (x : t) : t =
   | Finished _ -> failwith "found abort with finished symbolic session"
 
 let reach_max_step (x : t) : t =
-  x
+  match x with
+  | Standard s -> Standard ({ s with reach_max_step = true})
+  | At_max_depth a -> At_max_depth ({ a with base = { a.base with reach_max_step = true } })
+  | Finished _ -> failwith "reach max step with finished symbolic session"
 
 (*
   ------------------------------
@@ -332,3 +338,9 @@ let hit_max_depth (x : t) : bool =
   | Standard _ -> false
   | At_max_depth _ -> true
   | Finished { hit_max_depth ; _ } -> hit_max_depth
+
+let is_reach_max_step (x : t) : bool =
+  match x with
+  | Standard { reach_max_step ; _ }
+  | At_max_depth { base = { reach_max_step ; _ } ; _ }
+  | Finished { prev = { reach_max_step ; _ } ; _ } -> reach_max_step
