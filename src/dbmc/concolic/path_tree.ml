@@ -331,7 +331,7 @@ and Status :
       [@@deriving compare]
 
     let size = function
-    | Hit node -> 1 + Node.size node
+    | Hit node -> Node.size node
     | Unsatisfiable
     | Failed_assume 
     | Unknown -> 1
@@ -341,6 +341,8 @@ and Status :
       Merge by keeping the most info.
       * It is most information to know that we have hit a node. Merge the nodes if necessary.
       * Next is to have solved and determined unsatisfiable
+      * It is less knowledge to know that we have hit a node but failed assume, so we couldn't get further.
+        It's intended that these nodes will be solved for again and determined as (fully) Hit or Unsatisfiable.
       * After that is solved by timed out, so unknown
       * After that is completely unsolved, which is no information at all
     *)

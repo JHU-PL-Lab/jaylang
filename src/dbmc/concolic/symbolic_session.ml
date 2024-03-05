@@ -175,10 +175,6 @@ module Basic =
       | Last _ -> s (* `assume` found in global scope. We assume this is a test case that can't happen in real world translations to JIL *)
       | Cons (hd, tl) ->
         let constraints = Formula_set.add_multi hd.constraints @@ Child.to_formulas hd in
-        Format.printf "Failed assume. Formulas that become constraints are now %s" (
-          Formula_set.to_list constraints
-          |> List.to_string ~f:Z3.Expr.to_string
-        );
         let new_hd =
           Child.{ status = Status.Failed_assume (* forget all formulas so that it is a possible target in future runs *)
                 ; constraints = Formula_set.add_multi hd.constraints @@ Child.to_formulas hd (* constrain to passing assume/assert *)

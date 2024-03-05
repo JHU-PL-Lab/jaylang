@@ -11,7 +11,8 @@ module rec Node :
     (* val add_child : t -> Branch.Runtime.t -> t *)
 
     val size : t -> int
-    (** [size root] is 1 + the number of children [root] has, where unsolved or unsatisfiable children count towards the sum. *)
+    (** [size root] is number of nodes in [root], where only solved children count towards the sum.
+        i.e. only Unsolved children don't count towards the sum. *)
 
     val merge : t -> t -> t
     (** [merge a b] combines the trees [a] and [b] and throws an exception if there is a discrepancy. *)
