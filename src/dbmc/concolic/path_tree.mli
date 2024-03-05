@@ -10,6 +10,9 @@ module rec Node :
 
     (* val add_child : t -> Branch.Runtime.t -> t *)
 
+    val size : t -> int
+    (** [size root] is 1 + the number of children [root] has, where unsolved or unsatisfiable children count towards the sum. *)
+
     val merge : t -> t -> t
     (** [merge a b] combines the trees [a] and [b] and throws an exception if there is a discrepancy. *)
     val add_formula : t -> Z3.Expr.expr -> t
@@ -91,12 +94,16 @@ and Child :
 
     val map_node : t -> f:(Node.t -> Node.t) -> t
     (** [map_node t ~f] is [t] if [t.status] is not [Hit node], otherwise maps [node] via [f]. *)
+
+    val is_hit : t -> bool
+    (** [is_hit t] is true if and only if some interpretation has hit [t], i.e. it's Hit or Failed_assume *)
   end
 and Status :
   sig
     type t =
       | Hit of Node.t
       | Unsatisfiable
+      | Failed_assume (* Node was hit but failed assume shortly after hitting. Node can be determined unsatisfiable after this due to not being able to satisfy the assume *)
       | Unknown (* for timeouts *)
       | Unsolved (* not yet tried *)
       [@@deriving compare]

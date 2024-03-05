@@ -156,11 +156,14 @@ let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
 (* $ OCAML_LANDMARKS=on ./_build/... *)
 (* `Done (branch_info, has_pruned) *)
 let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ] =
-  if x.quit then `Done (x.branch_info, x.has_pruned) else
+  if x.quit then
+    (Format.printf "Done. Tree size is %d\n" (Root.size x.tree);
+    `Done (x.branch_info, x.has_pruned))
+  else
   let pop_kind =
     match x.last_sym with
     | Some s when Symbolic.is_reach_max_step s -> `BFS (* only does BFS when last symbolic run reached max step *)
-    | _ -> `DFS
+    | _ -> `DFS (* TODO: figure out why BFS is faster than DFS *)
   in
   let rec next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ] =
     (* It's never realistically relevant to quit when all branches are hit because at least one will have an abort *)
@@ -174,10 +177,12 @@ let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t *
         , apply_options_symbolic x Symbolic.empty
         , Concrete.create Concolic_feeder.default x.options.global_max_step)
     | None -> (* no targets left, so done *)
+      Format.printf "Done. Tree size is %d\n" (Root.size x.tree);
       `Done (x.branch_info, x.has_pruned)
 
   and solve_for_target (x : t) (target : Target.t) =
     let t0 = Caml_unix.gettimeofday () in
+    Format.printf "About to solve for target, and checking if already hit: %b\n" (Target.is_hit target x.tree);
     let new_solver = load_solver (make_solver ()) (Target.to_formulas target x.tree) in
     Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec x.options.solver_timeout_sec));
     if x.options.print_solver then

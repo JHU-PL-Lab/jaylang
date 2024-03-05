@@ -393,15 +393,16 @@ and eval_clause
     | Assert_body cx | Assume_body cx ->
       (* TODO: should I ever treat assert and assume differently? *)
       let v = Fetch.fetch_val_to_bool ~conc_session ~stk env cx in
+      let Var (y, _) = cx in 
+      let key = make_key y (Fetch.fetch_stk ~conc_session ~stk env cx) in
+      let symb_session = Session.Symbolic.found_assume symb_session key in
       if not v
       then
-        let Var (y, _) = cx in 
-        let key = make_key y (Fetch.fetch_stk ~conc_session ~stk env cx) in
-        raise @@ Found_failed_assume (Session.Symbolic.fail_assume symb_session key)
+        raise @@ Found_failed_assume (Session.Symbolic.fail_assume symb_session) (* fail the assume that was just found *)
       else
         let retv = Direct (Value_bool v) in
         Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
-        retv, Session.Symbolic.add_key_eq_val symb_session x_key (Value_bool v)
+        retv, symb_session (*Session.Symbolic.add_key_eq_val symb_session x_key (Value_bool v) *)
   in
   Debug.debug_clause ~conc_session x v stk;
   (Ident_map.add x (v, stk) env, v, symb_session)

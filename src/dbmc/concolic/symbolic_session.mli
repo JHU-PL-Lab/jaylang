@@ -49,8 +49,11 @@ val add_match : t -> Lazy_key.t -> Lazy_key.t -> Jayil.Ast.pattern -> t
 val hit_branch : t -> Branch.Runtime.t -> t
 (** [hit_branch t branch] is [t] that knows [branch] has been hit during interpretation. *)
 
-val fail_assume : t -> Lazy_key.t -> t
-(** [fail_assume t key] tells [t] that the variable in [key] was false when it was assumed to be true. *)
+val found_assume : t -> Lazy_key.t -> t
+(** [found_assume t key] tells [t] that [key] is assumed to be true. *)
+
+val fail_assume : t -> t
+(** [fail_assume t] tells [t] that a recent assume/assert was false when it needs to be true. *)
 
 val found_abort : t -> t
 (** [found_abort t] tells [t] that an abort was found in interpretation. *)
