@@ -51,7 +51,7 @@ let benchmark_time (cfg : Cconfig.t) test n : unit t =
             cfg.timeout;
             cfg.bin;
             "-t";
-            "10.0"; (* single test timeout *)
+            "30.0"; (* single test timeout *)
             "-q"; (* quits when finds abort *)
             "-i";
             file;
@@ -114,7 +114,7 @@ let read_config () =
       ("-f", Arg.Set_string config_path, "Config path");
     ]
     (fun _ -> ())
-    "Please use `make benchmark`." ;
+    "Please use `make cbenchmark`." ;
   assert (Core.List.mem [ "ddse"; "dbmc" ; "concolic" ] !engine ~equal:String.equal) ;
 
   let config = Sexp.load_sexp_conv_exn !config_path Cconfig.t_of_sexp in
