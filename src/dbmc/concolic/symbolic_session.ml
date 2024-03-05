@@ -74,36 +74,35 @@ module Node_stack =
         (cur_targets : Target.t list)
         (cur_node : Node.t)
         (remaining_path : Path.t)
-        (prev_path : Path.t)
-        (depth : int)
+        (path : Path.t)
         : Target.t list
         =
         match remaining_path with
         | last_branch :: [] -> (* maybe last node hit should be target again in case it failed assume or assert *)
           push_target
-            (push_target cur_targets cur_node last_branch depth) (* push this direction *)
+            (push_target cur_targets cur_node last_branch path) (* push this direction *)
             cur_node
             (Branch.Runtime.other_direction last_branch) (* push other direction *)
-            depth
+            path
         | branch :: tl ->
           step
-            (push_target cur_targets cur_node (Branch.Runtime.other_direction branch) depth) (* push other direction as possible target *)
+            (push_target cur_targets cur_node (Branch.Runtime.other_direction branch) path) (* push other direction as possible target *)
             (Child.to_node_exn @@ Node.get_child_exn cur_node branch) (* step down path *)
             tl (* continue down remainder of path *)
-            (depth + 1)
+            (path @ [ branch ]) (* complexity of this is bad, but depth is so shallow that is not slow in practice *)
         | [] -> cur_targets
       and push_target
         (cur_targets : Target.t list)
         (cur_node : Node.t)
         (branch : Branch.Runtime.t)
-        (depth : int)
+        (path : Path.t)
         : Target.t list
         =
         if Node.is_valid_target_child cur_node branch
-        then Target.create (Node.get_child_exn cur_node branch) total_path depth :: cur_targets
+        then Target.create (Node.get_child_exn cur_node branch) path :: cur_targets
         else cur_targets
       in
-      step [] tree total_path 0
+      step [] tree total_path []
 
     (* Note that merging two trees would have to visit every node in both of them in the worst case,
       but we know that the tree made from the stack is a single path, so it only has to merge down
