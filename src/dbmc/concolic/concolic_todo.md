@@ -2,30 +2,22 @@
 
 ### Urgent
 
-* VERY URGENT: stop making lookup keys after max depth
-* If never hit max depth, then report that all program paths were exhausted.
-* Scale max depth of tree with largest non-rec path
 * propose tutorial vidoes
   * Not sure if these should be conference videos or some tutorial (e.g. summer school)
-* propose how we might use several heuristics and dial them before actually implementing
-  * e.g. what ideas can we use to do both DFS and BFS on the tree at the same time
 * Research prioritization schemes
   * Currently, BFS and DFS do similarly well
   * Try prioritizing branches that immediately have an abort
   * Prioritize branches that are closest in CFG to uncovered lines
     * I wonder how this works when so many lines are uncovered due to the many aborts
-* Prune irrelevant expressions
-  * Similar to value numbering, constant folding etc
-  * Also very similar to (or frankly just the same as) checking "hittability" from each line of code
-* Scale max step with number of lines
-* fuzz with the answers, and check that they still SAT
-  * try an OR that checks if any of the inputs can be different and still satisfy
-* Don't resolve for target if there have been no new runs because currently we try the same target a few times with no change in formulas
 
 ### Eventually
 
+* Scale max depth of tree with largest non-rec path
 * Logging
 * Use optional input AST branches to customize output
+* Prune irrelevant expressions
+  * Similar to value numbering, constant folding etc
+  * Also very similar to (or frankly just the same as) checking "hittability" from each line of code
 
 ### Out of scope
 
