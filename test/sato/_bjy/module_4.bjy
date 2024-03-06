@@ -1,3 +1,5 @@
+# Experiment. Just ignore for now.
+
 let sample_functor = 
   let t = bool in
   let sample_functor_0 (module : {: emptyset : t :}) : {: empty : t :} =

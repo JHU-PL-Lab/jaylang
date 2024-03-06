@@ -1,13 +1,11 @@
-# Experiment. Just ignore for now.
-
 let sample_module = 
-    let t = List 'a in
+    let t = bool in
     { type = { t = t },
     module = 
-    { add = fun x -> fun s -> x :: s
-    }}
+    { emptyset = 1 }}
 in
-let module_type = fun t -> {: add : ('a -> t -> t) :} in
+let module_type = (fun t -> {: emptyset : t :}) 
+in
 let inner_t = (sample_module.type).t in
 let module_type_check = module_type inner_t in
 let (check_type : module_type_check) = sample_module.module in sample_module
