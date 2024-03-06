@@ -1,5 +1,5 @@
 i_first = {};
-point_j_44 = fun t -> (
+point_j_46 = fun t -> (
     flatten_fun_j_32 = fun expr_b_4 -> (
         bool_j_2 = false;
         rec_fail_b_3 = bool_j_2;
@@ -59,61 +59,72 @@ point_j_44 = fun t -> (
         record_j_39 = {};
         record_j_40 = {x = record_j_39};
         record_j_41 = {bj_actual_rec = record_j_38, bj_decl_lbls = record_j_40});
-    record_j_43 = {checker = flatten_fun_j_32, generator = flatten_fun_j_42});
-point = point_j_44;
-bool_j_46 = false;
-fail_b_7 = bool_j_46;
-flatten_fun_j_55 = fun expr_b_6 -> (
-    var_j_47 = expr_b_6;
-    m_match_bool_j_49 = var_j_47 ~ any;
-    m_match_bool_j_52 = var_j_47 ~ bool;
-    m_match_cond_j_53 = m_match_bool_j_52 ? (
-            bool_j_54 = true
+    flatten_fun_j_44 = fun expr_b_5 -> (
+        var_j_43 = expr_b_5);
+    record_j_45 = {checker = flatten_fun_j_32, generator = flatten_fun_j_42, wrapper = flatten_fun_j_44});
+point = point_j_46;
+bool_j_48 = false;
+fail_b_7 = bool_j_48;
+flatten_fun_j_57 = fun expr_b_6 -> (
+    var_j_49 = expr_b_6;
+    m_match_bool_j_51 = var_j_49 ~ any;
+    m_match_bool_j_54 = var_j_49 ~ bool;
+    m_match_cond_j_55 = m_match_bool_j_54 ? (
+            bool_j_56 = true
         ) : (
-            m_match_cond_j_50 = m_match_bool_j_49 ? (
-                    var_j_51 = fail_b_7
+            m_match_cond_j_52 = m_match_bool_j_51 ? (
+                    var_j_53 = fail_b_7
                 ) : (
-                    void_j_48 = {}
+                    void_j_50 = {}
                 )
         ));
-flatten_fun_j_59 = fun bj_null -> (
-    int_j_56 = 0;
-    input_j_57 = input;
-    m_bl_i_80 = int_j_56 ~ int;
-    m_br_i_81 = input_j_57 ~ int;
-    m_b_i_82 = m_bl_i_80 and m_br_i_81;
-    binop_j_58 = m_b_i_82 ? (
-            c_binop_i_83 = int_j_56 <= input_j_57
+flatten_fun_j_61 = fun bj_null -> (
+    int_j_58 = 0;
+    input_j_59 = input;
+    m_bl_i_87 = int_j_58 ~ int;
+    m_br_i_88 = input_j_59 ~ int;
+    m_b_i_89 = m_bl_i_87 and m_br_i_88;
+    binop_j_60 = m_b_i_89 ? (
+            c_binop_i_90 = int_j_58 <= input_j_59
         ) : (
-            ab_i_84 = abort
+            ab_i_91 = abort
         ));
-record_j_60 = {checker = flatten_fun_j_55, generator = flatten_fun_j_59};
-m_i_85 = point ~ fun;
-appl_j_61 = m_i_85 ? (
-        c_appl_i_86 = point record_j_60
+flatten_fun_j_63 = fun expr_b_8 -> (
+    var_j_62 = expr_b_8);
+record_j_64 = {checker = flatten_fun_j_57, generator = flatten_fun_j_61, wrapper = flatten_fun_j_63};
+m_i_92 = point ~ fun;
+appl_j_65 = m_i_92 ? (
+        c_appl_i_93 = point record_j_64
     ) : (
-        ab_i_87 = abort
+        ab_i_94 = abort
     );
-int_point = appl_j_61;
-int_j_62 = 4;
-record_j_63 = {x = int_j_62};
-record_j_64 = {};
-record_j_65 = {x = record_j_64};
-record_j_66 = {bj_actual_rec = record_j_63, bj_decl_lbls = record_j_65};
-p_b_9 = record_j_66;
-p = p_b_9;
-proj_j_69 = int_point.checker;
-appl_j_71 = proj_j_69 p_b_9;
-check_res_b_10 = appl_j_71;
-if_j_79 = check_res_b_10 ? (
-        var_j_73 = p
+int_point = appl_j_65;
+proj_j_67 = int_point.wrapper;
+int_j_68 = 4;
+record_j_69 = {x = int_j_68};
+record_j_70 = {};
+record_j_71 = {x = record_j_70};
+record_j_72 = {bj_actual_rec = record_j_69, bj_decl_lbls = record_j_71};
+m_i_95 = proj_j_67 ~ fun;
+appl_j_73 = m_i_95 ? (
+        c_appl_i_96 = proj_j_67 record_j_72
     ) : (
-        error_var_j_74 = check_res_b_10;
-        assert_pred_j_75 = error_var_j_74;
-        assert_res_j_76 = assert_pred_j_75 ? (
-                assert_res_true_j_77 = {}
+        ab_i_97 = abort
+    );
+p_b_9 = appl_j_73;
+p = p_b_9;
+proj_j_76 = int_point.checker;
+appl_j_78 = proj_j_76 p_b_9;
+check_res_b_10 = appl_j_78;
+if_j_86 = check_res_b_10 ? (
+        var_j_80 = p
+    ) : (
+        error_var_j_81 = check_res_b_10;
+        assert_pred_j_82 = error_var_j_81;
+        assert_res_j_83 = assert_pred_j_82 ? (
+                assert_res_true_j_84 = {}
             ) : (
-                ab_j_78 = abort
+                ab_j_85 = abort
             )
     );
-i_result = if_j_79
+i_result = if_j_86

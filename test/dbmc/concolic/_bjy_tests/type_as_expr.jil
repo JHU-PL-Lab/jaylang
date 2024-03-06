@@ -15,5 +15,7 @@ flatten_fun_j_9 = fun expr_b_0 -> (
         ));
 flatten_fun_j_11 = fun bj_null -> (
     input_j_10 = input);
-record_j_12 = {checker = flatten_fun_j_9, generator = flatten_fun_j_11};
-i_result = record_j_12
+flatten_fun_j_13 = fun expr_b_2 -> (
+    var_j_12 = expr_b_2);
+record_j_14 = {checker = flatten_fun_j_9, generator = flatten_fun_j_11, wrapper = flatten_fun_j_13};
+i_result = record_j_14

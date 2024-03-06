@@ -20,8 +20,8 @@ flatten_fun_j_23 = fun f_b_2 -> (
             appl_j_19 = appl_j_17 var_j_18));
     appl_j_22 = flatten_fun_j_12 flatten_fun_j_21);
 ycomb_b_4 = flatten_fun_j_23;
-flatten_fun_j_47 = fun self_b_0 -> (
-    flatten_fun_j_46 = fun bj_null_j_3 -> (
+flatten_fun_j_49 = fun self_b_0 -> (
+    flatten_fun_j_48 = fun bj_null_j_3 -> (
         flatten_fun_j_34 = fun expr_b_5 -> (
             flatten_fun_j_29 = fun tt -> (
                 var_j_25 = tt;
@@ -42,26 +42,35 @@ flatten_fun_j_47 = fun self_b_0 -> (
             int_j_41 = 0;
             appl_j_42 = var_j_40 int_j_41;
             appl_j_43 = flatten_fun_j_39 appl_j_42);
-        record_j_45 = {checker = flatten_fun_j_34, generator = flatten_fun_j_44}));
-appl_j_48 = ycomb_b_4 flatten_fun_j_47;
-int_j_49 = 0;
-appl_j_50 = appl_j_48 int_j_49;
-tree_type = appl_j_50;
-int_j_51 = 1;
-x_b_7 = int_j_51;
-x = x_b_7;
-proj_j_54 = tree_type.checker;
-appl_j_56 = proj_j_54 x_b_7;
-check_res_b_8 = appl_j_56;
-if_j_64 = check_res_b_8 ? (
-        var_j_58 = x
+        flatten_fun_j_46 = fun expr_b_6 -> (
+            var_j_45 = expr_b_6);
+        record_j_47 = {checker = flatten_fun_j_34, generator = flatten_fun_j_44, wrapper = flatten_fun_j_46}));
+appl_j_50 = ycomb_b_4 flatten_fun_j_49;
+int_j_51 = 0;
+appl_j_52 = appl_j_50 int_j_51;
+tree_type = appl_j_52;
+proj_j_54 = tree_type.wrapper;
+int_j_55 = 1;
+m_i_70 = proj_j_54 ~ fun;
+appl_j_56 = m_i_70 ? (
+        c_appl_i_71 = proj_j_54 int_j_55
     ) : (
-        error_var_j_59 = check_res_b_8;
-        assert_pred_j_60 = error_var_j_59;
-        assert_res_j_61 = assert_pred_j_60 ? (
-                assert_res_true_j_62 = {}
+        ab_i_72 = abort
+    );
+x_b_7 = appl_j_56;
+x = x_b_7;
+proj_j_59 = tree_type.checker;
+appl_j_61 = proj_j_59 x_b_7;
+check_res_b_8 = appl_j_61;
+if_j_69 = check_res_b_8 ? (
+        var_j_63 = x
+    ) : (
+        error_var_j_64 = check_res_b_8;
+        assert_pred_j_65 = error_var_j_64;
+        assert_res_j_66 = assert_pred_j_65 ? (
+                assert_res_true_j_67 = {}
             ) : (
-                ab_j_63 = abort
+                ab_j_68 = abort
             )
     );
-i_result = if_j_64
+i_result = if_j_69
