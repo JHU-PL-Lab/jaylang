@@ -430,18 +430,18 @@ let try_eval_exp_default
   try
     (* might throw exception which is to be caught below *)
     let _, v, symb_session = eval_exp_default ~conc_session ~symb_session e in
-    Format.printf "Evaluated to: %a\n" Dvalue.pp v;
+    Log.Export.CLog.app (fun m -> m "Evaluated to: %a\n" Dvalue.pp v);
     symb_session
   with
   | Found_abort (_, symb_session) ->
-      Format.printf "Found abort in interpretation\n";
+      Log.Export.CLog.app (fun m -> m "Found abort in interpretation\n");
       symb_session
   | Reach_max_step (_, _, symb_session) ->
-      Format.printf "Reach max steps\n";
+      Log.Export.CLog.app (fun m -> m "Reach max steps\n");
       symb_session
   | Found_failed_assume symb_session
   | Found_failed_assert symb_session ->
-      Format.printf "Found failed assume or assert\n";
+      Log.Export.CLog.app (fun m -> m "Found failed assume or assert\n");
       symb_session
   | Run_the_same_stack_twice (x, stk) -> (* bubbles exception *)
       Fmt.epr "Run into the same stack twice\n" ;
@@ -469,21 +469,21 @@ let rec loop (e : expr) (prev_session : Session.t) : (Branch_info.t * bool) Lwt.
   Session.next prev_session
   |> begin function
     | `Done (branch_info, has_pruned) ->
-      Format.printf "\n------------------------------\nFinishing concolic evaluation...\n\n";
-      Format.printf "Ran %d interpretations.\n" (Session.run_num prev_session);
-      Format.printf "Tree was pruned: %b\n" has_pruned;
-      Branch_info.print branch_info;
+      Log.Export.CLog.app (fun m -> m "\n------------------------------\nFinishing concolic evaluation...\n\n");
+      Log.Export.CLog.app (fun m -> m "Ran %d interpretations.\n" (Session.run_num prev_session));
+      Log.Export.CLog.app (fun m -> m "Tree was pruned: %b\n" has_pruned);
+      Log.Export.CLog.app (fun m -> m "%s" (Branch_info.to_string branch_info));
       Lwt.return (branch_info, has_pruned)
     | `Next (session, symb_session, conc_session) ->
       (* let status_store = Session.Symbolic.status_store symb_session in *)
-      Format.printf "Pre-run info:\n";
-      Branch_info.print @@ Session.branch_info session;
+      Log.Export.CLog.info (fun m -> m "Pre-run info:\n");
+      Log.Export.CLog.info (fun m -> m "%s" (Branch_info.to_string @@ Session.branch_info session));
       (* Branch_tracker.Status_store.Without_payload.print status_store; *)
-      Format.printf "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session);
+      Log.Export.CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session));
       let t0 = Caml_unix.gettimeofday () in
       let resulting_symbolic = try_eval_exp_default ~conc_session ~symb_session e in
       let t1 = Caml_unix.gettimeofday () in
-      Format.printf "Interpretation finished in %fs.\n\n" (t1 -. t0);
+      Log.Export.CLog.app (fun m -> m "Interpretation finished in %fs.\n\n" (t1 -. t0));
       loop e
       @@ Session.accum_symbolic session resulting_symbolic
     end
@@ -493,7 +493,7 @@ let lwt_eval : (Jayil.Ast.expr -> (Branch_info.t * bool) Lwt.t) Concolic_options
   let f =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
-        Format.printf "\nStarting concolic execution...\n";
+        Log.Export.CLog.app (fun m -> m "\nStarting concolic execution...\n");
         (* Repeatedly evaluate program *)
         Riddler.reset ();
         Lwt_unix.with_timeout r.global_timeout_sec
@@ -517,11 +517,11 @@ let[@landmark] eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t =
             @@ Lwt_main.run
             @@ Concolic_options.Fun.appl lwt_eval r e
           in
-          Format.printf "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0);
+          Log.Export.CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
           res
         with
         | Lwt_unix.Timeout ->
-          Format.printf "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec;
+          Log.Export.CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
           Branch_info.empty
   in
   Concolic_options.Fun.make f
@@ -536,14 +536,14 @@ let[@landmark] test : (Jayil.Ast.expr -> [ `Found_abort | `Exhausted | `Exhauste
             Lwt_main.run
             @@ Concolic_options.Fun.appl lwt_eval r e
           in
-          Format.printf "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0);
+          Log.Export.CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
           match Branch_info.contains res Found_abort with
           | true -> Format.printf "\nFOUND_ABORT\n"; `Found_abort
           | false when not has_pruned -> Format.printf "\nEXHAUSTED\n"; `Exhausted
           | _ -> Format.printf "\nEXHAUSTED_PRUNED_TREE\n"; `Exhausted_pruned_tree
         with
         | Lwt_unix.Timeout ->
-          Format.printf "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec;
+          Log.Export.CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
           Format.printf "\nTIMEOUT\n";
           `Timeout
   in

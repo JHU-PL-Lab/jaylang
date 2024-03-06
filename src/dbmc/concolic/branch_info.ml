@@ -81,8 +81,8 @@ let to_list (map : t) : (string * Status.t * Status.t) list =
   )
 
 (* depends on well-formedness of the map from loading in branches *)
-let print (map : t) : unit = 
-  Format.printf "Branch Information:\n";
+let to_string (map : t) : string = 
+  "Branch Information:\n" ^ begin
   let pad =
     map
     |> to_list
@@ -91,12 +91,14 @@ let print (map : t) : unit =
   in
   map
   |> to_list
-  |> List.iter ~f:(fun (s, true_status, false_status) ->
-      Format.printf "%s : True=%s; False=%s\n"
+  |> List.map ~f:(fun (s, true_status, false_status) ->
+      Format.sprintf "%s : True=%s; False=%s\n"
         (pad s)
         (Status.to_string true_status)
         (Status.to_string false_status)
     )
+  |> String.concat
+  end
 
 (* throws exception on unbound branch *)
 let update_branch_status ~(new_status : Status.t) (map : t) (branch : Branch.t) : t =

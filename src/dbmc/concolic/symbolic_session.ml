@@ -302,7 +302,7 @@ let add_input (x : t) (key : Lazy_key.t) (v : Dvalue.t) : t =
       | Dvalue.Direct (Value_int n) -> n
       | _ -> failwith "non-int input" (* logically impossible *)
     in
-    Format.printf "Feed %d to %s \n" n s;
+    Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n s);
     Riddler.if_pattern key Jayil.Ast.Int_pattern
 
 let add_not (x : t) (key1 : Lazy_key.t) (key2 : Lazy_key.t) : t =

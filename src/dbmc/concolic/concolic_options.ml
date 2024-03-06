@@ -7,7 +7,6 @@ module T =
       ; global_timeout_sec : float [@default 20.0]
       ; solver_timeout_sec : float [@default 1.0]
       ; global_max_step    : int   [@default Int.(5 * 10**3)]
-      ; print_solver       : bool  [@default false]
       ; max_tree_depth     : int   [@default 25]} [@@deriving sexp]
   end
 
@@ -22,7 +21,6 @@ module Refs =
       ; global_timeout_sec : float ref
       ; solver_timeout_sec : float ref
       ; global_max_step    : int ref
-      ; print_solver       : bool ref
       ; max_tree_depth     : int ref }
 
     let create_default () : t =
@@ -30,7 +28,6 @@ module Refs =
       ; global_timeout_sec = ref default.global_timeout_sec
       ; solver_timeout_sec = ref default.solver_timeout_sec
       ; global_max_step    = ref default.global_max_step
-      ; print_solver       = ref default.print_solver
       ; max_tree_depth     = ref default.max_tree_depth }
 
     let without_refs (x : t) : T.t =
@@ -38,7 +35,6 @@ module Refs =
       ; global_timeout_sec = !(x.global_timeout_sec)
       ; solver_timeout_sec = !(x.solver_timeout_sec)
       ; global_max_step    = !(x.global_max_step)
-      ; print_solver       = !(x.print_solver)
       ; max_tree_depth     = !(x.max_tree_depth) }
   end
 
@@ -50,7 +46,6 @@ module Fun =
       -> ?solver_timeout_sec : float
       -> ?quit_on_abort      : bool
       -> ?global_max_step    : int
-      -> ?print_solver       : bool
       -> ?max_tree_depth     : int
       -> 'a (* 'a = 'b -> 'c *) (* so maybe make this a ('a, 'b) t *)
 
@@ -60,7 +55,6 @@ module Fun =
         ~solver_timeout_sec:r.solver_timeout_sec
         ~quit_on_abort:r.quit_on_abort
         ~global_max_step:r.global_max_step
-        ~print_solver:r.print_solver
         ~max_tree_depth:r.max_tree_depth
 
     let make (f : T.t -> 'a) : 'a t =
@@ -69,14 +63,12 @@ module Fun =
       ?(solver_timeout_sec : float = default.solver_timeout_sec)
       ?(quit_on_abort      : bool  = default.quit_on_abort)
       ?(global_max_step    : int   = default.global_max_step)
-      ?(print_solver       : bool  = default.print_solver)
       ?(max_tree_depth     : int   = default.max_tree_depth)
       ->
       { global_timeout_sec
       ; solver_timeout_sec
       ; quit_on_abort
       ; global_max_step
-      ; print_solver
       ; max_tree_depth }
       |> f 
 

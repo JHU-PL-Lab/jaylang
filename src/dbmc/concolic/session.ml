@@ -179,22 +179,19 @@ let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t *
     let t0 = Caml_unix.gettimeofday () in
     let new_solver = load_solver (make_solver ()) (Target.to_formulas target x.tree) in
     Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec x.options.solver_timeout_sec));
-    if x.options.print_solver then
-      begin
-      Format.printf "Solving for target %s\n" (Branch.Runtime.to_string target.child.branch);
-      Format.printf "Solver is:\n%s\n" (Z3.Solver.to_string new_solver);
-      end;
+    Log.Export.CLog.debug (fun m -> m "Solving for target %s\n" (Branch.Runtime.to_string target.child.branch));
+    Log.Export.CLog.debug (fun m -> m "Solver is:\n%s\n" (Z3.Solver.to_string new_solver));
     (* let[@landmarks] _ = check_solver' (Target.to_formulas target x.tree) in *)
     match check_solver new_solver with
     | Z3.Solver.UNSATISFIABLE ->
       let t1 = Caml_unix.gettimeofday () in
-      Format.printf "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0); (* TODO: add formula that says it's not satisfiable so less solving is necessary *)
+      Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0));
       next { x with tree = Root.set_status x.tree target.child Status.Unsatisfiable target.path }
     | Z3.Solver.UNKNOWN ->
-      Format.printf "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n";
+      Log.Export.CLog.info (fun m -> m "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n");
       next { x with tree = Root.set_status x.tree target.child Status.Unknown target.path }
     | Z3.Solver.SATISFIABLE ->
-      Format.printf "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.to_string @@ Branch.Runtime.to_ast_branch target.child.branch);
+      Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.to_string @@ Branch.Runtime.to_ast_branch target.child.branch));
       `Next (
         { x with run_num = x.run_num + 1 }
         , apply_options_symbolic x @@ Symbolic.make x.tree target
@@ -205,7 +202,7 @@ let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t *
       )
 
   and done_ (x : t) =
-    Format.printf "Done. Tree size is %d\n" (Root.size x.tree);
+    Log.Export.CLog.info (fun m -> m "Done. Tree size is %d\n" (Root.size x.tree));
     `Done (x.branch_info, x.has_pruned)
 
     

@@ -24,22 +24,7 @@ let speclist =
   ; ("-s", Arg.Set_float optional_args.solver_timeout_sec, "Solver timeout seconds")
   ; ("-m", Arg.Set_int optional_args.global_max_step, "Global max step")
   ; ("-q", Arg.Set optional_args.quit_on_abort, "Quit on first abort")
-  ; ("-p", Arg.Set optional_args.print_solver, "Print solver")
   ; ("-d", Arg.Set_int optional_args.max_tree_depth, "Max tree depth") ] 
-
-(* let create_temp_file () = Filename_unix.temp_file "tmp_file" ".txt"
-
-
-let redirect_output out_file f x =
-  let tmp_file = create_temp_file () in
-  let oc = Out_channel.create tmp_file in
-  let fmt = Format.formatter_of_out_channel oc in
-  Format.set_formatter_out_channel oc; *)
-
-
-
-
-
 
 let () = 
   Arg.parse speclist anon_fun usage_msg;

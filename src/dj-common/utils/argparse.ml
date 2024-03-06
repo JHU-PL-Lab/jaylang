@@ -89,6 +89,8 @@ let params_with ~config : Global_config.t Command.Param.t =
     flag "-ls" (optional log_level_parser) ~doc:"log level for solver"
   and log_level_interpreter =
     flag "-li" (optional log_level_parser) ~doc:"log level for interpreter"
+  and log_level_concolic =
+    flag "-lc" (optional log_level_parser) ~doc:"log level for concolic evaluator"
   and log_level_search =
     flag "-ls2" (optional log_level_parser) ~doc:"log level for search"
   and log_level_complete_message =
@@ -132,6 +134,7 @@ let params_with ~config : Global_config.t Command.Param.t =
     log_level_lookup = latter_option log_level log_level_lookup;
     log_level_solver = latter_option log_level log_level_solver;
     log_level_interpreter = latter_option log_level log_level_interpreter;
+    log_level_concolic = latter_option log_level log_level_concolic;
     log_level_search = latter_option log_level log_level_search;
     log_level_complete_message =
       latter_option log_level log_level_complete_message;
