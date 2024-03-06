@@ -114,9 +114,9 @@ else
                 cp "${expect_s_file}" "${_output_dir}"
             fi
 
-            ss_file="${_input_dir}${file_name}.ss"
+            ss_file="${expect_s_file}s" # with an extra s
             if [ -f "${ss_file}" ]; then
-                cp "${ss_file}" "${_output_dir}${file_name}.s"
+                cp "${ss_file}" "${_output_dir}${file_name}.expect.s"
             fi
         done
 
