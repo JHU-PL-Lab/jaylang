@@ -1,122 +1,236 @@
-int_j_3 = 1;
-int_j_4 = 2;
-record_j_5 = {a = int_j_3, b = int_j_4};
-record_j_6 = {};
-record_j_7 = {};
-record_j_8 = {a = record_j_6, b = record_j_7};
-record_j_9 = {bj_actual_rec = record_j_5, bj_decl_lbls = record_j_8};
-x_b_12 = record_j_9;
-proj_j_11 = x_b_12.bj_actual_rec;
-record_j_12 = {};
-record_j_13 = {a = record_j_12};
-record_j_14 = {bj_actual_rec = proj_j_11, bj_decl_lbls = record_j_13};
-x = record_j_14;
-flatten_fun_j_57 = fun expr_b_7 -> (
-    bool_j_15 = false;
-    rec_fail_b_6 = bool_j_15;
-    bool_j_16 = false;
-    rec_fail_b_5 = bool_j_16;
-    bool_j_17 = false;
-    rec_fail_b_4 = bool_j_17;
-    var_j_18 = expr_b_7;
-    m_match_bool_j_20 = var_j_18 ~ any;
-    m_match_bool_j_23 = var_j_18 ~ {bj_actual_rec, _};
-    m_match_cond_j_24 = m_match_bool_j_23 ? (
-            var_j_25 = expr_b_7;
-            proj_j_26 = var_j_25.bj_decl_lbls;
-            m_match_bool_j_28 = proj_j_26 ~ any;
-            m_match_bool_j_31 = proj_j_26 ~ {a, _};
-            m_match_cond_j_32 = m_match_bool_j_31 ? (
-                    a_j_0 = proj_j_26.a;
-                    var_j_33 = expr_b_7;
-                    proj_j_34 = var_j_33.bj_actual_rec;
-                    m_match_bool_j_36 = proj_j_34 ~ any;
-                    m_match_bool_j_39 = proj_j_34 ~ {a, _};
-                    m_match_cond_j_40 = m_match_bool_j_39 ? (
-                            a = proj_j_34.a;
-                            bool_j_41 = false;
-                            fail_b_9 = bool_j_41;
-                            flatten_fun_j_50 = fun expr_b_8 -> (
-                                var_j_42 = expr_b_8;
-                                m_match_bool_j_44 = var_j_42 ~ any;
-                                m_match_bool_j_47 = var_j_42 ~ int;
-                                m_match_cond_j_48 = m_match_bool_j_47 ? (
-                                        bool_j_49 = true
+i_first = {};
+flatten_fun_j_52 = fun expr_b_7 -> (
+    bool_j_8 = false;
+    rec_fail_b_6 = bool_j_8;
+    bool_j_9 = false;
+    rec_fail_b_5 = bool_j_9;
+    bool_j_10 = false;
+    rec_fail_b_4 = bool_j_10;
+    var_j_11 = expr_b_7;
+    m_match_bool_j_13 = var_j_11 ~ any;
+    m_match_bool_j_16 = var_j_11 ~ {bj_actual_rec, _};
+    m_match_cond_j_17 = m_match_bool_j_16 ? (
+            var_j_18 = expr_b_7;
+            proj_j_19 = var_j_18.bj_decl_lbls;
+            m_match_bool_j_21 = proj_j_19 ~ any;
+            m_match_bool_j_24 = proj_j_19 ~ {a, _};
+            m_match_cond_j_25 = m_match_bool_j_24 ? (
+                    a_j_0 = proj_j_19.a;
+                    var_j_26 = expr_b_7;
+                    proj_j_27 = var_j_26.bj_actual_rec;
+                    m_match_bool_j_29 = proj_j_27 ~ any;
+                    m_match_bool_j_32 = proj_j_27 ~ {a, _};
+                    m_match_cond_j_33 = m_match_bool_j_32 ? (
+                            a = proj_j_27.a;
+                            bool_j_34 = false;
+                            fail_b_9 = bool_j_34;
+                            flatten_fun_j_43 = fun expr_b_8 -> (
+                                var_j_35 = expr_b_8;
+                                m_match_bool_j_37 = var_j_35 ~ any;
+                                m_match_bool_j_40 = var_j_35 ~ int;
+                                m_match_cond_j_41 = m_match_bool_j_40 ? (
+                                        bool_j_42 = true
                                     ) : (
-                                        m_match_cond_j_45 = m_match_bool_j_44 ? (
-                                                var_j_46 = fail_b_9
+                                        m_match_cond_j_38 = m_match_bool_j_37 ? (
+                                                var_j_39 = fail_b_9
                                             ) : (
-                                                void_j_43 = {}
+                                                void_j_36 = {}
                                             )
                                     ));
-                            flatten_fun_j_52 = fun bj_null -> (
-                                input_j_51 = input);
-                            record_j_53 = {checker = flatten_fun_j_50, generator = flatten_fun_j_52};
-                            proj_j_54 = record_j_53.checker;
-                            var_j_55 = a;
-                            appl_j_56 = proj_j_54 var_j_55
+                            flatten_fun_j_45 = fun bj_null -> (
+                                input_j_44 = input);
+                            flatten_fun_j_47 = fun expr_b_10 -> (
+                                var_j_46 = expr_b_10);
+                            record_j_48 = {checker = flatten_fun_j_43, generator = flatten_fun_j_45, wrapper = flatten_fun_j_47};
+                            proj_j_49 = record_j_48.checker;
+                            var_j_50 = a;
+                            appl_j_51 = proj_j_49 var_j_50
                         ) : (
-                            m_match_cond_j_37 = m_match_bool_j_36 ? (
-                                    var_j_38 = rec_fail_b_4
+                            m_match_cond_j_30 = m_match_bool_j_29 ? (
+                                    var_j_31 = rec_fail_b_4
                                 ) : (
-                                    void_j_35 = {}
+                                    void_j_28 = {}
                                 )
                         )
                 ) : (
-                    m_match_cond_j_29 = m_match_bool_j_28 ? (
-                            var_j_30 = rec_fail_b_5
+                    m_match_cond_j_22 = m_match_bool_j_21 ? (
+                            var_j_23 = rec_fail_b_5
                         ) : (
-                            void_j_27 = {}
+                            void_j_20 = {}
                         )
                 )
         ) : (
-            m_match_cond_j_21 = m_match_bool_j_20 ? (
-                    var_j_22 = rec_fail_b_6
+            m_match_cond_j_14 = m_match_bool_j_13 ? (
+                    var_j_15 = rec_fail_b_6
                 ) : (
-                    void_j_19 = {}
+                    void_j_12 = {}
                 )
         ));
-flatten_fun_j_79 = fun bj_null_j_2 -> (
-    bool_j_58 = false;
-    fail_b_2 = bool_j_58;
-    flatten_fun_j_67 = fun expr_b_1 -> (
-        var_j_59 = expr_b_1;
-        m_match_bool_j_61 = var_j_59 ~ any;
-        m_match_bool_j_64 = var_j_59 ~ int;
-        m_match_cond_j_65 = m_match_bool_j_64 ? (
-                bool_j_66 = true
+flatten_fun_j_76 = fun bj_null_j_2 -> (
+    bool_j_53 = false;
+    fail_b_2 = bool_j_53;
+    flatten_fun_j_62 = fun expr_b_1 -> (
+        var_j_54 = expr_b_1;
+        m_match_bool_j_56 = var_j_54 ~ any;
+        m_match_bool_j_59 = var_j_54 ~ int;
+        m_match_cond_j_60 = m_match_bool_j_59 ? (
+                bool_j_61 = true
             ) : (
-                m_match_cond_j_62 = m_match_bool_j_61 ? (
-                        var_j_63 = fail_b_2
+                m_match_cond_j_57 = m_match_bool_j_56 ? (
+                        var_j_58 = fail_b_2
                     ) : (
-                        void_j_60 = {}
+                        void_j_55 = {}
                     )
             ));
-    flatten_fun_j_69 = fun bj_null_j_1 -> (
-        input_j_68 = input);
-    record_j_70 = {checker = flatten_fun_j_67, generator = flatten_fun_j_69};
-    proj_j_71 = record_j_70.generator;
-    int_j_72 = 0;
-    appl_j_73 = proj_j_71 int_j_72;
-    a_b_0 = appl_j_73;
-    var_j_74 = a_b_0;
-    record_j_75 = {a = var_j_74};
-    record_j_76 = {};
-    record_j_77 = {a = record_j_76};
-    record_j_78 = {bj_actual_rec = record_j_75, bj_decl_lbls = record_j_77});
-record_j_80 = {checker = flatten_fun_j_57, generator = flatten_fun_j_79};
-proj_j_81 = record_j_80.checker;
-appl_j_83 = proj_j_81 x_b_12;
-check_res_b_13 = appl_j_83;
-if_j_91 = check_res_b_13 ? (
-        var_j_85 = x
+    flatten_fun_j_64 = fun bj_null_j_1 -> (
+        input_j_63 = input);
+    flatten_fun_j_66 = fun expr_b_3 -> (
+        var_j_65 = expr_b_3);
+    record_j_67 = {checker = flatten_fun_j_62, generator = flatten_fun_j_64, wrapper = flatten_fun_j_66};
+    proj_j_68 = record_j_67.generator;
+    int_j_69 = 0;
+    appl_j_70 = proj_j_68 int_j_69;
+    a_b_0 = appl_j_70;
+    var_j_71 = a_b_0;
+    record_j_72 = {a = var_j_71};
+    record_j_73 = {};
+    record_j_74 = {a = record_j_73};
+    record_j_75 = {bj_actual_rec = record_j_72, bj_decl_lbls = record_j_74});
+flatten_fun_j_78 = fun expr_b_11 -> (
+    var_j_77 = expr_b_11);
+record_j_79 = {checker = flatten_fun_j_52, generator = flatten_fun_j_76, wrapper = flatten_fun_j_78};
+proj_j_80 = record_j_79.wrapper;
+int_j_81 = 1;
+int_j_82 = 2;
+record_j_83 = {a = int_j_81, b = int_j_82};
+record_j_84 = {};
+record_j_85 = {};
+record_j_86 = {a = record_j_84, b = record_j_85};
+record_j_87 = {bj_actual_rec = record_j_83, bj_decl_lbls = record_j_86};
+m_i_177 = proj_j_80 ~ fun;
+appl_j_88 = m_i_177 ? (
+        c_appl_i_178 = proj_j_80 record_j_87
     ) : (
-        error_var_j_86 = check_res_b_13;
-        assert_pred_j_87 = error_var_j_86;
-        assert_res_j_88 = assert_pred_j_87 ? (
-                assert_res_true_j_89 = {}
+        ab_i_179 = abort
+    );
+x_b_24 = appl_j_88;
+proj_j_90 = x_b_24.bj_actual_rec;
+record_j_91 = {};
+record_j_92 = {a = record_j_91};
+record_j_93 = {bj_actual_rec = proj_j_90, bj_decl_lbls = record_j_92};
+x = record_j_93;
+flatten_fun_j_138 = fun expr_b_19 -> (
+    bool_j_94 = false;
+    rec_fail_b_18 = bool_j_94;
+    bool_j_95 = false;
+    rec_fail_b_17 = bool_j_95;
+    bool_j_96 = false;
+    rec_fail_b_16 = bool_j_96;
+    var_j_97 = expr_b_19;
+    m_match_bool_j_99 = var_j_97 ~ any;
+    m_match_bool_j_102 = var_j_97 ~ {bj_actual_rec, _};
+    m_match_cond_j_103 = m_match_bool_j_102 ? (
+            var_j_104 = expr_b_19;
+            proj_j_105 = var_j_104.bj_decl_lbls;
+            m_match_bool_j_107 = proj_j_105 ~ any;
+            m_match_bool_j_110 = proj_j_105 ~ {a, _};
+            m_match_cond_j_111 = m_match_bool_j_110 ? (
+                    a_j_5 = proj_j_105.a;
+                    var_j_112 = expr_b_19;
+                    proj_j_113 = var_j_112.bj_actual_rec;
+                    m_match_bool_j_115 = proj_j_113 ~ any;
+                    m_match_bool_j_118 = proj_j_113 ~ {a, _};
+                    m_match_cond_j_119 = m_match_bool_j_118 ? (
+                            a_j_4 = proj_j_113.a;
+                            bool_j_120 = false;
+                            fail_b_21 = bool_j_120;
+                            flatten_fun_j_129 = fun expr_b_20 -> (
+                                var_j_121 = expr_b_20;
+                                m_match_bool_j_123 = var_j_121 ~ any;
+                                m_match_bool_j_126 = var_j_121 ~ int;
+                                m_match_cond_j_127 = m_match_bool_j_126 ? (
+                                        bool_j_128 = true
+                                    ) : (
+                                        m_match_cond_j_124 = m_match_bool_j_123 ? (
+                                                var_j_125 = fail_b_21
+                                            ) : (
+                                                void_j_122 = {}
+                                            )
+                                    ));
+                            flatten_fun_j_131 = fun bj_null_j_3 -> (
+                                input_j_130 = input);
+                            flatten_fun_j_133 = fun expr_b_22 -> (
+                                var_j_132 = expr_b_22);
+                            record_j_134 = {checker = flatten_fun_j_129, generator = flatten_fun_j_131, wrapper = flatten_fun_j_133};
+                            proj_j_135 = record_j_134.checker;
+                            var_j_136 = a_j_4;
+                            appl_j_137 = proj_j_135 var_j_136
+                        ) : (
+                            m_match_cond_j_116 = m_match_bool_j_115 ? (
+                                    var_j_117 = rec_fail_b_16
+                                ) : (
+                                    void_j_114 = {}
+                                )
+                        )
+                ) : (
+                    m_match_cond_j_108 = m_match_bool_j_107 ? (
+                            var_j_109 = rec_fail_b_17
+                        ) : (
+                            void_j_106 = {}
+                        )
+                )
+        ) : (
+            m_match_cond_j_100 = m_match_bool_j_99 ? (
+                    var_j_101 = rec_fail_b_18
+                ) : (
+                    void_j_98 = {}
+                )
+        ));
+flatten_fun_j_162 = fun bj_null_j_7 -> (
+    bool_j_139 = false;
+    fail_b_14 = bool_j_139;
+    flatten_fun_j_148 = fun expr_b_13 -> (
+        var_j_140 = expr_b_13;
+        m_match_bool_j_142 = var_j_140 ~ any;
+        m_match_bool_j_145 = var_j_140 ~ int;
+        m_match_cond_j_146 = m_match_bool_j_145 ? (
+                bool_j_147 = true
             ) : (
-                ab_j_90 = abort
+                m_match_cond_j_143 = m_match_bool_j_142 ? (
+                        var_j_144 = fail_b_14
+                    ) : (
+                        void_j_141 = {}
+                    )
+            ));
+    flatten_fun_j_150 = fun bj_null_j_6 -> (
+        input_j_149 = input);
+    flatten_fun_j_152 = fun expr_b_15 -> (
+        var_j_151 = expr_b_15);
+    record_j_153 = {checker = flatten_fun_j_148, generator = flatten_fun_j_150, wrapper = flatten_fun_j_152};
+    proj_j_154 = record_j_153.generator;
+    int_j_155 = 0;
+    appl_j_156 = proj_j_154 int_j_155;
+    a_b_12 = appl_j_156;
+    var_j_157 = a_b_12;
+    record_j_158 = {a = var_j_157};
+    record_j_159 = {};
+    record_j_160 = {a = record_j_159};
+    record_j_161 = {bj_actual_rec = record_j_158, bj_decl_lbls = record_j_160});
+flatten_fun_j_164 = fun expr_b_23 -> (
+    var_j_163 = expr_b_23);
+record_j_165 = {checker = flatten_fun_j_138, generator = flatten_fun_j_162, wrapper = flatten_fun_j_164};
+proj_j_166 = record_j_165.checker;
+appl_j_168 = proj_j_166 x_b_24;
+check_res_b_25 = appl_j_168;
+if_j_176 = check_res_b_25 ? (
+        var_j_170 = x
+    ) : (
+        error_var_j_171 = check_res_b_25;
+        assert_pred_j_172 = error_var_j_171;
+        assert_res_j_173 = assert_pred_j_172 ? (
+                assert_res_true_j_174 = {}
+            ) : (
+                ab_j_175 = abort
             )
     );
-i_result = if_j_91
+i_result = if_j_176
