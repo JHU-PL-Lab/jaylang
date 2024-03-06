@@ -18,7 +18,7 @@ if [ ! -f "${translator_exe}" ]; then
 fi
 
 overwrite=false
-include_underscore=false
+include_underscore=false # flag to include the tests in _bjy
 single_file_mode=false
 while getopts ":ouf:" opt; do
   case ${opt} in
@@ -107,10 +107,16 @@ else
             # Run the translator and save output to .jil file with the same name
             (cat "${bjy_file}") | "${translator_exe}" -m bluejay-to-jayil -a > "${_output_dir}${file_name}.jil"
 
-            # Check if .expect.s file exists, then copy it
+            # Check if .expect.s or .ss file exists, then copy it to .s
+            # (incomplete error messages are in .ss files)
             expect_s_file="${_input_dir}${file_name}.expect.s"
             if [ -f "${expect_s_file}" ]; then
                 cp "${expect_s_file}" "${_output_dir}"
+            fi
+
+            ss_file="${_input_dir}${file_name}.ss"
+            if [ -f "${ss_file}" ]; then
+                cp "${ss_file}" "${_output_dir}${file_name}.s"
             fi
         done
 
