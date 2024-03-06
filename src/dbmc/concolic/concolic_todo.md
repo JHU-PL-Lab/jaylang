@@ -13,7 +13,6 @@
 ### Eventually
 
 * Scale max depth of tree with largest non-rec path
-* Logging
 * Use optional input AST branches to customize output
 * Prune irrelevant expressions
   * Similar to value numbering, constant folding etc

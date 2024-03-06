@@ -1,4 +1,3 @@
-(* TODO: consider making this a `Queue` "modifier" inside `Target`. *)
 
 type t
 (** [t] is a functional priority queue of targets where pushing a target gives
