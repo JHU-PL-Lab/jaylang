@@ -159,7 +159,7 @@ let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t *
   let pop_kind =
     match x.last_sym with
     | Some s when Symbolic.is_reach_max_step s -> `BFS (* only does BFS when last symbolic run reached max step *)
-    | _ -> `DFS
+    | _ -> `Random
   in
   let rec next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ] =
     if x.quit then done_ x else

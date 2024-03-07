@@ -9,7 +9,7 @@ and t = {
   timeout : string;
   engine : string; [@default "concolic"]
   bin : string; [@default "./cj.exe"]
-  test_path : string; [@default "test/dbmc/concolic/bjy_tests"]
+  test_paths : string list; [@default ["test/dbmc/concolic/bjy_tests"; "test/dbmc/concolic/_bjy_tests"]]
   working_path : string; [@default "benchmark/concolic/_working"]
   result_path : string; [@default "benchmark/concolic/result"]
 }

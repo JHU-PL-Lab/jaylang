@@ -2,7 +2,7 @@
  (name cbenchmark)
  (package jay)
  (public_name jay.cbenchmark_test_generation)
- (libraries shexp.process core core_unix)
+ (libraries shexp.process core core_unix.sys_unix)
  (preprocess
   (pps ppx_jane)))
 
