@@ -59,19 +59,9 @@
 (package
  (name unroll)
  (description "Unroll is a library to search unbounded cases")
- (depends
-  core
-  core_unix.nano_mutex
-  core_kernel.pairing_heap
-  hashcons
-  fmt
-  lwt
-  lwt.unix
-  logs
-  logs.lwt
-  logs.fmt))
+ (depends core core_unix core_kernel hashcons fmt lwt lwt logs))
 
 (package
  (name langdk)
  (description "Lang Develop Toolkit")
- (depends core core_unix.sys_unix lwt lambda-term react))
+ (depends core core_unix lwt lambda-term react))
