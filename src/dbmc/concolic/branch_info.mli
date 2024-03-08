@@ -11,7 +11,7 @@ module Status :
     val to_string : t -> string
   end
 
-type t [@@deriving sexp]
+type t [@@deriving compare, sexp]
 
 val empty : t
 

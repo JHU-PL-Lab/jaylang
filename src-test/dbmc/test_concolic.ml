@@ -25,10 +25,10 @@ let test_for_abort testname _args =
   let is_error_expected = Sys_unix.is_file_exn expect_path in
   Concolic_driver.test ~global_timeout_sec:10.0 ~quit_on_abort:true testname
   |> begin function
-    | `Timeout
-    | `Exhausted
-    | `Exhausted_pruned_tree -> false (* did not find error *)
-    | `Found_abort _ -> true (* found error *)
+    | Concolic.Test_result.Timeout
+    | Exhausted
+    | Exhausted_pruned_tree -> false (* did not find error *)
+    | Found_abort _ -> true (* found error *)
   end
   |> Bool.(=) is_error_expected
   |> Alcotest.(check bool) "bjy concolic" true
