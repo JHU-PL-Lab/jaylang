@@ -4,7 +4,7 @@ module Test_result :
     type t =
       | Found_abort of Branch.t (* Found an abort at this branch *)
       | Exhausted               (* Ran all possible tree paths, and no paths were too deep *)
-      | Exhausted_pruned_tree   (* Ran all possible tree paths up to the given max step *)
+      | Exhausted_pruned_tree   (* Ran all possible tree paths up to the given max depth *)
       | Timeout                 (* total evaluation timeout *)
   end
 
