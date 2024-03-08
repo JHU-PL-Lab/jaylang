@@ -548,3 +548,23 @@ let[@landmark] test : (Jayil.Ast.expr -> [ `Found_abort | `Exhausted | `Exhauste
           `Timeout
   in
   Concolic_options.Fun.make f
+
+let[@landmark] find_abort : (Jayil.Ast.expr -> Branch.t option) Concolic_options.Fun.t =
+  let f =
+    fun (r : Concolic_options.t) ->
+      fun (e : Jayil.Ast.expr) ->
+        try
+          let t0 = Caml_unix.gettimeofday () in
+          let res, has_pruned =
+            Lwt_main.run
+            @@ Concolic_options.Fun.appl lwt_eval r e
+          in
+          Log.Export.CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
+          Branch_info.find res ~f:(fun _ -> function Branch_info.Status.Found_abort -> true | _ -> false)
+          |> Option.map ~f:Tuple2.get1
+        with
+        | Lwt_unix.Timeout ->
+          Log.Export.CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
+          None
+  in
+  Concolic_options.Fun.make f
