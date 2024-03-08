@@ -4,16 +4,10 @@ let test_program_concolic : (string -> Branch_info.t) Concolic_options.Fun.t =
     Concolic.eval
     Dj_common.File_utils.read_source
 
-let test : (string -> [ `Found_abort | `Exhausted | `Exhausted_pruned_tree | `Timeout ]) Concolic_options.Fun.t =
+let test : (string -> Concolic.Test_result.t) Concolic_options.Fun.t =
   Concolic_options.Fun.compose
     Concolic.test
     Dj_common.File_utils.read_source
-
-let find_abort : (string -> Branch.t option) Concolic_options.Fun.t =
-  Concolic_options.Fun.compose
-    Concolic.find_abort
-    Dj_common.File_utils.read_source
-
 
   (* Toy example of propogating a change in optional args *)
   (* Concolic_options.Fun.make (fun r -> fun source ->

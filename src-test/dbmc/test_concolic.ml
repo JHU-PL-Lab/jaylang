@@ -28,7 +28,7 @@ let test_for_abort testname _args =
     | `Timeout
     | `Exhausted
     | `Exhausted_pruned_tree -> false (* did not find error *)
-    | `Found_abort -> true (* found error *)
+    | `Found_abort _ -> true (* found error *)
   end
   |> Bool.(=) is_error_expected
   |> Alcotest.(check bool) "bjy concolic" true
