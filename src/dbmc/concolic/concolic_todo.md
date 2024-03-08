@@ -12,6 +12,7 @@
 
 ### Eventually
 
+* Solve for all targets along a path to not have to load the solver so many times.
 * Scale max depth of tree with largest non-rec path
 * Use optional input AST branches to customize output
 * Prune irrelevant expressions
@@ -20,6 +21,8 @@
 
 ### Out of scope
 
+* Use mutable solver
+  * Write interface that uses mutation but isn't smart. Then make new implementation over same interface that is smart, and that way we know what broke.
 * Fuzz with answers and try for as small of inputs as possible (which would require many runs of the solver) only when the solver finishes sufficiently quickly
   * Therefore can get better runs, but we don't waste time on an overloaded solver
 * Analyze AST to determine hittable vs unreachable, as well as how aborts affect future runs
