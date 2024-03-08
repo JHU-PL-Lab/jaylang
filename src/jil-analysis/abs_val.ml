@@ -66,13 +66,22 @@ module Make (Ctx : Finite_callstack.C) = struct
     let pp fmter env =
       Fmt.Dump.iter_bindings Std.iteri_core_map Fmt.nop Id.pp AVal.pp fmter env
 
-    let is_subsume (env1 : t) (env2 : t) =
+    (* The possible value of env forms a lattice
+       The function asks if env1 <= env2
+       return true means env1 <= env2
+       return false means
+          - env1 is greater than env2
+          - env1 and env2 are incomparable
+          - env1 is <= then env2 but we don't find it
+    *)
+
+    let leq (env1 : t) (env2 : t) =
       if Map.length env1 > Map.length env2
       then false
       else
         Map.for_alli env1 ~f:(fun ~key ~data:v1 ->
             match Map.find env2 key with
-            | Some v2 -> AVal.equal v1 v2
+            | Some v2 -> (* what we really need is AVal.leq *) AVal.equal v1 v2
             | None -> false)
   end
 
@@ -114,10 +123,10 @@ module Make (Ctx : Finite_callstack.C) = struct
 
     let empty : t = HC.make (Map.empty (module Id))
 
-    let is_subsume env1 env2 =
+    let leq env1 env2 =
       if equal env1 env2
-      then false
-      else AEnv_raw.is_subsume (HashCons.data env1) (HashCons.data env2)
+      then true
+      else AEnv_raw.leq (HashCons.data env1) (HashCons.data env2)
   end
 
   type env_set = Set.M(AEnv).t [@@deriving equal, compare, hash, sexp]
@@ -129,6 +138,15 @@ module Make (Ctx : Finite_callstack.C) = struct
 
   let pp_aval_set : Set.M(AVal).t Fmt.t =
     Fmt.iter ~sep:(Fmt.any ";@ ") Std.iter_core_set AVal.pp
+
+  (* return true when
+     env_set1 is not greater then env_set2
+     for any element set in env_set1, it must also be in env_set2
+  *)
+  let env_set_leq env_set1 env_set2 =
+    if Set.length env_set1 > Set.length env_set2
+    then false
+    else Set.for_all env_set1 ~f:(fun env1 -> Set.mem env_set2 env1)
 
   module AStore_raw = struct
     (* multimap *)
@@ -142,6 +160,15 @@ module Make (Ctx : Finite_callstack.C) = struct
       Fmt.iter_bindings ~sep:(Fmt.any ";@ ") Std.iteri_core_map
         (Fmt.pair ~sep:(Fmt.any " -> ") Ctx.pp (Fmt.box pp_env_set))
         fmter astore
+
+    let leq store1 store2 =
+      if Map.length store1 > Map.length store2
+      then false
+      else
+        Map.for_alli store1 ~f:(fun ~key:ctx ~data:env_set1 ->
+            match Map.find store2 ctx with
+            | Some env_set2 -> env_set_leq env_set1 env_set2
+            | None -> false)
   end
 
   module AStore = struct
@@ -176,9 +203,8 @@ module Make (Ctx : Finite_callstack.C) = struct
       let new_store =
         Map.update (HashCons.data store) ctx ~f:(function
           | Some envs ->
-              let envs' =
-                Set.filter envs ~f:(fun env -> AEnv.is_subsume env aenv)
-              in
+              (* it's better to use AEnv.less but we don't have that *)
+              let envs' = Set.filter envs ~f:(fun env -> AEnv.leq env aenv) in
               Set.add envs' aenv
               (* Set.add envs aenv *)
           | None -> Set.singleton (module AEnv) aenv)
@@ -212,6 +238,11 @@ module Make (Ctx : Finite_callstack.C) = struct
         |> List.sum (module Int) ~f:Fn.id
       in
       loop aenv
+
+    let leq astore1 astore2 =
+      if equal astore1 astore2
+      then true
+      else AStore_raw.leq (HashCons.data astore1) (HashCons.data astore2)
   end
 
   type astore = AStore.t
@@ -267,4 +298,7 @@ module Make (Ctx : Finite_callstack.C) = struct
     Fmt.iter Std.iter_core_set Abs_result.pp
 
   let show_result_set rset = Sexp.to_string_hum (sexp_of_result_set rset)
+
+  let leq (v1, s1) (v2, s2) =
+    if AVal.equal v1 v2 then AStore.leq s1 s2 else false
 end
