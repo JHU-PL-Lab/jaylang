@@ -22,6 +22,9 @@ dbmc: dj dbmc-test
 sato:
 	dune build src/bin/sato.exe
 
+sc:
+	dune build src/bin/sato_concolic.exe
+
 translator:
 	dune build src/bin/translator.exe
 

@@ -19,6 +19,16 @@
   (into "../..")))
 
 (executable
+ (name sato_concolic)
+ (modules sato_concolic)
+ (libraries core logs dbmc sato sato_concolic jayil)
+ (preprocess
+  (pps ppx_jane))
+ (promote
+  (until-clean)
+  (into "../..")))
+
+(executable
  (name translator)
  (modules translator translator_options)
  (libraries batteries bluejay jay_translate dj_common)
