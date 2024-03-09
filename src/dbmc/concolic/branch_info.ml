@@ -101,20 +101,20 @@ let to_string (map : t) : string =
   end
 
 (* throws exception on unbound branch *)
-let update_branch_status ~(new_status : Status.t) (map : t) (branch : Branch.t) : t =
+(* let update_branch_status ~(new_status : Status.t) (map : t) (branch : Branch.t) : t =
   Map.update map branch ~f:(function
     | Some old_status -> Status.update new_status old_status
     | None -> failwith "unbound branch" 
-  )
+  ) *)
 
 (* overwrites unbound branch *)
 let set_branch_status ~(new_status : Status.t) (map : t) (branch : Branch.t) : t =
   Map.set map ~key:branch ~data:new_status
 
-let is_hit (map : t) (branch : Branch.t) : bool =
+(* let is_hit (map : t) (branch : Branch.t) : bool =
   match Map.find map branch with
   | Some Hit -> true
-  | _ -> false
+  | _ -> false *)
 
 let contains (map : t) (status : Status.t) : bool =
   Map.exists map ~f:(fun v -> Status.compare v status = 0)
@@ -126,6 +126,17 @@ let merge (m1 : t) (m2 : t) : t =
     | `Left old_status -> Some old_status
     | `Right new_status -> failwith "only new status for branch when old status is expected"
     )
+
+let find (map : t) ~(f : Branch.t -> Status.t -> bool) : (Branch.t * Status.t) option =
+  Map.fold_until
+    map
+    ~init:()
+    ~f:(fun ~key ~data () ->
+      if f key data
+      then Stop (Some (key, data))
+      else Continue ()
+    )
+    ~finish:(fun () -> None)
 
 (* Custom sexp conversions so that it's easier to hand-write the sexp files *)
 module Sexp_conversions =
