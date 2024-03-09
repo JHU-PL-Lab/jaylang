@@ -28,8 +28,7 @@ let dump_program program filename dump_level =
       | _ -> failwith "Should have bluejay and jay programs!")
   | _ -> ()
 
-let main_lwt ~(config : Global_config.t) program_full :
-    (reported_error option * bool) Lwt.t =
+let main_lwt ~(config : Global_config.t) program_full : unit =
   dump_program program_full config.filename config.dump_level ;
 
   let program = Convert.jil_ast_of_convert program_full in
@@ -43,19 +42,9 @@ let main_lwt ~(config : Global_config.t) program_full :
   in
 
   let () =
-    let res, has_pruned =
-      Lwt_main.run
-      @@ Dbmc.Concolic_options.Fun.appl Dbmc.Concolic.lwt_eval
-           (Dbmc.Concolic_options.Refs.without_refs
-              (Dbmc.Concolic_options.Refs.create_default ()))
-           program
-    in
-    match errors_res with
-    | None, false -> print_endline @@ "No errors found."
-    | None, true ->
-        print_endline
-        @@ "Some search timed out; inconclusive result. Please run again with \
-            longer timeout setting."
-    | Some errors, _ -> print_endline @@ show_reported_error errors
+    let res = Dbmc.Concolic.test program in
+    match res with
+    | Found_abort branch -> failwith "TBI!"
+    | _ -> print_endline @@ "No aborts found."
   in
   Log.close ()
