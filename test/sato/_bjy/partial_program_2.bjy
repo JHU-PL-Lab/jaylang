@@ -1,4 +1,6 @@
-  let g (f : int -> int) (x : int) : {. int | fun n -> n > 0 } =
-    (f x) * (f x)
-  in
-  g 
+# Ill-typed. No guarantee that the output will be positive.
+
+let g (f : int -> int) (x : int) : {. int | fun n -> n > 0 } =
+  (f x) * (f x)
+in
+g 

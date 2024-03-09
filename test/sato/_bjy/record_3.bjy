@@ -1,4 +1,3 @@
-# EXPECT-WELL-FORMED
-# EXPECT-NO-TYPE-ERRORS
+# Runtime error. Needs the instrument flag. Projection of non-existent field.
 
 let (r : {: a : int, b : bool :}) = {a = 1, b = true} in r.c
