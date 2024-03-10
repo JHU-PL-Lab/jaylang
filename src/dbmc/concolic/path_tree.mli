@@ -2,7 +2,7 @@
 module rec Node :
   sig
     type t =
-      { formulas : Formula_set.t
+      { formulas : Formula_set.t (* formulas for all clauses in the node *)
       ; children : Children.t } [@@deriving compare]
     (** [t] is the root of the JIL program and the body of any hit child nodes in the tree. *)
     val empty : t
@@ -16,6 +16,7 @@ module rec Node :
 
     val merge : t -> t -> t
     (** [merge a b] combines the trees [a] and [b] and throws an exception if there is a discrepancy. *)
+
     val add_formula : t -> Z3.Expr.expr -> t
     (** [add_formulas t expr] is [t] that has gained [expr] as a formula. *)
 

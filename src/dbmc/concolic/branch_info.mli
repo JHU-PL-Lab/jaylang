@@ -2,13 +2,14 @@
 module Status :
   sig
     type t = 
-      | Found_abort
+      | Found_abort of Jil_input.t list (* quick patch to share inputs found in abort. Payload is ignored on compare *)
       | Hit
       | Unknown
       | Unhit
       [@@deriving compare, sexp]
 
     val to_string : t -> string
+    (** [to_string t] does not show the inputs if [t] is [Found_abort _]. *)
   end
 
 type t [@@deriving compare, sexp]

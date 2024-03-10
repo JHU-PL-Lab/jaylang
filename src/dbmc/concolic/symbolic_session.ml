@@ -145,6 +145,7 @@ module Basic =
       { stack          : Node_stack.t
       ; target         : Target.t option
       ; branch_info    : Branch_info.t
+      ; inputs         : Jil_input.t list
       ; depth          : Depth_logic.t
       ; reach_max_step : bool }
 
@@ -152,6 +153,7 @@ module Basic =
       { stack          = Node_stack.empty
       ; target         = None
       ; branch_info    = Branch_info.empty
+      ; inputs         = []
       ; depth          = Depth_logic.empty Concolic_options.default.max_tree_depth
       ; reach_max_step = false }
 
@@ -160,7 +162,12 @@ module Basic =
       @@ fun (r : Concolic_options.t) -> fun (x : t) -> { x with depth = { x.depth with max_depth = r.max_tree_depth } }
 
     let found_abort (s : t) : t =
-      { s with branch_info = Branch_info.set_branch_status ~new_status:Found_abort s.branch_info @@ Node_stack.hd_branch_exn s.stack }
+      { s with
+        branch_info =
+          Branch_info.set_branch_status
+            ~new_status:(Found_abort s.inputs)
+            s.branch_info @@ Node_stack.hd_branch_exn s.stack
+      }
 
     (* require that cx is true by adding as formula *)
     let found_assume (s : t) (cx : Lazy_key.t) : t =
@@ -181,6 +188,9 @@ module Basic =
                 ; branch = hd.branch }
         in
         { s with stack = Cons (new_hd, tl) }
+
+    let add_input (s : t) (i : Jil_input.t) : t =
+      { s with inputs = i :: s.inputs }
   end
 
 module At_max_depth =
@@ -198,7 +208,16 @@ module At_max_depth =
       @@ fun (r : Concolic_options.t) -> fun (x : t) -> { x with base = Concolic_options.Fun.appl Basic.with_options r x.base }
 
     let found_abort (a : t) : t =
-      { a with base = { a.base with branch_info = Branch_info.set_branch_status ~new_status:Found_abort a.base.branch_info a.last_branch } }
+      { a with
+        base =
+          { a.base with
+            branch_info =
+              Branch_info.set_branch_status
+                ~new_status:(Found_abort a.base.inputs)
+                a.base.branch_info
+                a.last_branch
+          }
+      }
   end
 
 module Finished =
@@ -279,6 +298,12 @@ let reach_max_step (x : t) : t =
   | At_max_depth a -> At_max_depth ({ a with base = { a.base with reach_max_step = true } })
   | Finished _ -> failwith "reach max step with finished symbolic session"
 
+let add_basic_input (x : t) (i : Jil_input.t) : t =
+  match x with
+  | Basic s -> Basic (Basic.add_input s i)
+  | At_max_depth a -> At_max_depth ({ a with base = Basic.add_input a.base i })
+  | Finished _ -> failwith "adding input to finished symbolic session"
+
 (*
   ------------------------------
   FORMULAS FOR BASIC JIL CLAUSES
@@ -294,14 +319,15 @@ let add_binop (x : t) (key : Lazy_key.t) (op : Jayil.Ast.binary_operator) (left 
   add_lazy_formula x @@ fun () -> Riddler.binop_without_picked (key ()) op (left ()) (right ())
 
 let add_input (x : t) (key : Lazy_key.t) (v : Dvalue.t) : t =
-  add_lazy_formula x @@ fun () -> 
-    let key = key () in
+  let key = key () in (* assume it's not that expensive to compute the key on inputs *)
+  let n =
+    match v with
+    | Dvalue.Direct (Value_int n) -> n
+    | _ -> failwith "non-int input" (* logically impossible *)
+  in
+  add_basic_input x { clause_id = key.x ; input_value = n }
+  |> Fn.flip add_lazy_formula @@ fun () -> 
     let Ident s = key.x in
-    let n =
-      match v with
-      | Dvalue.Direct (Value_int n) -> n
-      | _ -> failwith "non-int input" (* logically impossible *)
-    in
     Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n s);
     Riddler.if_pattern key Jayil.Ast.Int_pattern
 
