@@ -2,13 +2,7 @@
 
 ### Urgent
 
-* propose tutorial vidoes
-  * Not sure if these should be conference videos or some tutorial (e.g. summer school)
-* Research prioritization schemes
-  * Currently, BFS and DFS do similarly well
-  * Try prioritizing branches that immediately have an abort
-  * Prioritize branches that are closest in CFG to uncovered lines
-    * I wonder how this works when so many lines are uncovered due to the many aborts
+* benchmarking
 
 ### Eventually
 
@@ -316,3 +310,18 @@ TODO: haskell and racket benchmarks converted (in a while... benchmarch bluejay 
 **Other**
 
 * Approximation algorithms
+
+
+## 13 Mar 2024
+
+**Last time**
+* We decided to just benchmark
+
+**What's been done**
+* I have chosen some (not enough yet) programs to benchmark
+* I benchmark the entire executable (which includes the parsing of the jil file)
+
+**What to do**
+* Let's look at the programs I benchmark
+* Which programs should we add to this?
+* I need to benchmark only the concolic part, not the parsing: use ocamlbench like Robert
