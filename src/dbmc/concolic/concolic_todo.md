@@ -379,4 +379,6 @@ TODO: haskell and racket benchmarks converted (in a while... benchmarch bluejay 
 **What to do**
 * Let's look at the programs I benchmark
 * Which programs should we add to this?
+  * Specifically: is this one limited case not enough?
 * I need to benchmark only the concolic part, not the parsing: use ocamlbench like Robert
+* If these are good, then I'll start looking at Haskell and Racket
