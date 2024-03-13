@@ -36,6 +36,11 @@
 
     "flow_sensitive_1_well_typed.jil" ; 
     "flow_sensitive_1.jil" ; two typed-declared functions where one calls the other
+
+    "recursive_type_3.jil" ; tree type where the tree children are ill-typed. The well-typed case is covered in bst
+
+    "set_type_5_well_typed.jil" ; is balanced tree
+    "set_type_5.jil" ; checks if binary tree is balanced. It's not
     )
   )
   (testcases_not_time
