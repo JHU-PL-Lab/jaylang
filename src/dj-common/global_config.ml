@@ -57,6 +57,7 @@ type t = {
   log_level_lookup : Logs.level option;
   log_level_solver : Logs.level option;
   log_level_interpreter : Logs.level option;
+  log_level_concolic : Logs.level option;
   log_level_search : Logs.level option;
   log_level_complete_message : Logs.level option;
   log_level_perf : Logs.level option;
@@ -91,6 +92,7 @@ let default_config =
     log_level_lookup = None;
     log_level_solver = None;
     log_level_interpreter = None;
+    log_level_concolic = None;
     log_level_search = None;
     log_level_complete_message = None;
     log_level_perf = None;

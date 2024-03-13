@@ -1,3 +1,5 @@
+# Don't know expected output; the bug is in the type of remove and contains; should be ('a -> 'a -> bool) rather than (t -> t -> bool). Though this might be caught as a use error.
+
 let set_m = 
   { emptyset = []
   , add = fun x -> fun s -> x :: s 

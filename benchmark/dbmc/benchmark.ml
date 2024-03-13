@@ -7,8 +7,6 @@ open Shexp_process.Infix
    run "date" [ "-u"; "+%Y_%m_%d_%H_%M_%S" ]
    |- run "xargs" [ "-I"; "%"; "mkdir"; "-p"; "result/%" ] *)
 
-let ddse_bin = "./dj.exe"
-
 let is_mac =
   let ic = Caml_unix.open_process_in "uname" in
   let uname = In_channel.input_line ic in
@@ -51,7 +49,7 @@ let benchmark_time (cfg : Config.t) test n : unit t =
             timeout_bin;
             "--foreground";
             cfg.timeout;
-            ddse_bin;
+            cfg.bin;
             "-e";
             cfg.engine;
             "-t";
@@ -88,7 +86,7 @@ let benchmark_not_time (cfg : Config.t) : unit t =
   List.iter testcases ~f:(fun test ->
       let file = testcase_path cfg test in
       stdout_to ~append:() extra_result
-        (call [ ddse_bin; file; "-t"; "target" (* ; "-r"; "4" *) ]))
+        (call [ cfg.bin; file; "-t"; "target" (* ; "-r"; "4" *) ]))
   >> echo @@ "done - extra"
 
 let collect_result (cfg : Config.t) : unit t =
@@ -121,7 +119,7 @@ let read_config () =
     ]
     (fun _ -> ())
     "Please use `make benchmark`." ;
-  assert (Core.List.mem [ "ddse"; "dbmc" ] !engine ~equal:String.equal) ;
+  assert (Core.List.mem [ "ddse"; "dbmc" ; "concolic" ] !engine ~equal:String.equal) ;
 
   let config = Sexp.load_sexp_conv_exn !config_path Config.t_of_sexp in
   { config with engine = !engine }

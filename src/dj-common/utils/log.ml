@@ -3,6 +3,7 @@ open Core
 let src_lookup = Logs.Src.create "lookup"
 let src_solver = Logs.Src.create "solver"
 let src_interpreter = Logs.Src.create "interpreter"
+let src_concolic = Logs.Src.create "concolic"
 let src_search = Logs.Src.create "search"
 let src_complete_message = Logs.Src.create "complete_message"
 let src_perf = Logs.Src.create "perf"
@@ -11,6 +12,7 @@ module Export = struct
   module LLog = (val Logs.src_log src_lookup : Logs.LOG)
   module SLog = (val Logs.src_log src_solver : Logs.LOG)
   module ILog = (val Logs.src_log src_interpreter : Logs.LOG)
+  module CLog = (val Logs.src_log src_concolic : Logs.LOG)
   module LS2Log = (val Logs.src_log src_search : Logs.LOG)
   module CMLog = (val Logs.src_log src_complete_message : Logs.LOG)
   module PLog = (val Logs.src_log src_perf : Logs.LOG)
@@ -54,6 +56,7 @@ let init (cfg : Global_config.t) =
   Logs.Src.set_level src_lookup cfg.log_level_lookup ;
   Logs.Src.set_level src_solver cfg.log_level_solver ;
   Logs.Src.set_level src_interpreter cfg.log_level_interpreter ;
+  Logs.Src.set_level src_concolic cfg.log_level_concolic ;
   Logs.Src.set_level src_search cfg.log_level_search ;
   Logs.Src.set_level src_complete_message cfg.log_level_complete_message ;
   Logs.Src.set_level src_perf cfg.log_level_perf ;
@@ -64,6 +67,7 @@ let init (cfg : Global_config.t) =
       cfg.log_level_lookup;
       cfg.log_level_solver;
       cfg.log_level_interpreter;
+      cfg.log_level_concolic;
       cfg.log_level_search;
       cfg.log_level_complete_message;
       cfg.log_level_perf;

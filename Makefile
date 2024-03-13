@@ -7,6 +7,7 @@ BUILD_BIN = _build/default/src/bin
 BUILD_TEST = _build/default/src-test
 TEST_D = test/dbmc
 BENCH_D = benchmark/dbmc
+BENCH_C = benchmark/concolic
 
 
 all: dbmc sato translator
@@ -20,6 +21,9 @@ dbmc: dj dbmc-test
 
 sato:
 	dune build src/bin/sato.exe
+
+sc:
+	dune build src/bin/sato_concolic.exe
 
 translator:
 	dune build src/bin/translator.exe
@@ -126,6 +130,10 @@ ll:
 benchmark:
 	dune exec $(BENCH_D)/benchmark.exe -- -e dbmc
 # dune exec $(BENCH_D)/benchmark.exe -- -e ddse
+
+cbenchmark:
+	make cj
+	dune exec $(BENCH_C)/cbenchmark.exe -- -e concolic
 
 benchmark-icfp-artifact:
 	dune exec $(BENCH_D)/benchmark.exe -- -e dbmc -f $(BENCH_D)/icfp20-artifact.s

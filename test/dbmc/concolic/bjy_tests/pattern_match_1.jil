@@ -1,0 +1,41 @@
+bool_j_1 = false;
+fail_b_0 = bool_j_1;
+int_j_2 = 1;
+record_j_3 = {a = int_j_2};
+record_j_4 = {};
+record_j_5 = {a = record_j_4};
+record_j_6 = {bj_actual_rec = record_j_3, bj_decl_lbls = record_j_5};
+m_match_bool_j_8 = record_j_6 ~ {bj_untouched, _};
+m_match_bool_j_15 = record_j_6 ~ {bj_actual_rec, _};
+m_match_cond_j_16 = m_match_bool_j_15 ? (
+        actual_rec_b_1 = record_j_6.bj_actual_rec;
+        int_j_17 = 1;
+        record_j_18 = {a = int_j_17};
+        record_j_19 = {};
+        record_j_20 = {a = record_j_19};
+        record_j_21 = {bj_actual_rec = record_j_18, bj_decl_lbls = record_j_20};
+        proj_j_22 = record_j_21.bj_decl_lbls;
+        m_match_bool_j_24 = proj_j_22 ~ {c};
+        m_match_cond_j_25 = m_match_bool_j_24 ? (
+                z_j_0 = proj_j_22.c;
+                var_j_26 = actual_rec_b_1;
+                proj_j_27 = var_j_26.c;
+                z = proj_j_27;
+                int_j_28 = 1
+            ) : (
+                ab_j_23 = abort
+            )
+    ) : (
+        m_match_cond_j_9 = m_match_bool_j_8 ? (
+                var_j_10 = fail_b_0;
+                assert_pred_j_11 = var_j_10;
+                assert_res_j_12 = assert_pred_j_11 ? (
+                        assert_res_true_j_13 = {}
+                    ) : (
+                        ab_j_14 = abort
+                    )
+            ) : (
+                ab_j_7 = abort
+            )
+    );
+i_result = m_match_cond_j_16

@@ -1,6 +1,6 @@
 let rec makeList n = 
     if n == 0 then []
-    else n :: (makeList n-1)
+    else n :: (makeList (n-1))
 in
 let getHead l = 
     match l with

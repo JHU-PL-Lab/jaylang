@@ -8,6 +8,7 @@ and t = {
   repeat : int;
   timeout : string;
   engine : string; [@default "dbmc"]
+  bin : string; [@default "./dj.exe"]
   test_path : string; [@default "benchmark/dbmc/cases/ddse"]
   working_path : string; [@default "benchmark/dbmc/_working"]
   result_path : string; [@default "benchmark/dbmc/result"]

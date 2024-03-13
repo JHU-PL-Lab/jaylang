@@ -1,3 +1,5 @@
+# Don't know expected output; the bug is in the implementation of the remove function. Its else branch has the wrong type.
+
 let set_m = 
   { emptyset = []
   , add = fun x -> fun s -> x :: s 

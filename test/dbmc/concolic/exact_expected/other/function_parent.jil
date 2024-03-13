@@ -1,0 +1,37 @@
+# This is to check that branches in a function are correctly
+# underneath the branch in which the function is called.
+
+x = input;
+
+f = fun y -> (
+  y_is_x_cond = x == y;
+  y_is_x_branch = y_is_x_cond ? (
+    abort_true = abort
+  ) : (
+    ret_false = 0
+  );
+
+  reachable_return = 1
+);
+
+y0 = 0;
+
+neg_5 = -5;
+
+x_gt_neg_5 = neg_5 < x;
+
+x_gt_neg_5_branch = x_gt_neg_5 ? (
+  abort_or_1 = f y0
+) : (
+  res = 42
+);
+
+last_cond = x_gt_neg_5_branch == y0;
+
+last_branch = last_cond ? (
+  # unsatisfiable
+  unsatisfiable = -42 
+) : (
+  # satisfiable
+  satisfiable = 84
+)

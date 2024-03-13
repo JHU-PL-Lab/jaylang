@@ -1,3 +1,5 @@
+# remove has abort base case.
+
 let set_m = 
   { emptyset = []
   , add = fun x -> fun s -> x :: s 
@@ -24,8 +26,8 @@ let set_m_type =
   let tf tau = List tau in
   {: emptyset : 
    , add : 'a -> (tf 'a) -> (tf 'a)
-   , remove : 'a -> (tf 'a) -> ((tf 'a) -> (tf 'a) -> bool) -> (tf 'a)
-   , contains : 'a -> (tf 'a) -> ((tf 'a) -> (tf 'a) -> bool) -> bool
+   , remove : 'a -> (tf 'a) -> ('a -> 'a -> bool) -> (tf 'a)
+   , contains : 'a -> (tf 'a) -> ('a -> 'a -> bool) -> bool
   :}
 in
 let (check_type : set_m_type) = set_m in check_type 

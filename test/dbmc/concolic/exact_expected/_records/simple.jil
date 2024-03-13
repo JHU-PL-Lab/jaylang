@@ -1,0 +1,11 @@
+
+x = input;
+r = { a = x };
+y = r.a;
+two = 2;
+c = y == two;
+b = c ? (
+  z = 42
+) : (
+  void = 0
+)

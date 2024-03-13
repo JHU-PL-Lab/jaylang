@@ -75,7 +75,11 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
             in
             let%bind check_arg =
               new_instrumented_ed
-              @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
+              @@ 
+              If (new_expr_desc @@ GreaterThan (new_expr_desc @@ Input, new_expr_desc @@ Int 0)
+              , new_expr_desc @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
+              , new_expr_desc @@ Bool true
+              )
             in
             let%bind assert_cls =
               (* new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false) *)

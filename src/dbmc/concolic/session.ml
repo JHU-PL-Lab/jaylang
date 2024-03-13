@@ -1,28 +1,28 @@
 open Core
+open Path_tree
 open Dj_common
 open Jayil.Ast
-open Concolic_exceptions
-
-module Mode =
-  struct
-    type t =
-      | Plain
-      | With_target_x of Id.t
-      | With_full_target of Id.t * Concrete_stack.t
-
-    module Debug =
-      struct
-        type t = No_debug | Debug_clause of (Id.t -> Concrete_stack.t -> value -> unit)
-      end
-  end
-
-module G = Graph.Imperative.Digraph.ConcreteBidirectional (Id_with_stack)
 
 (*
-  Mutable record that tracks a run through the evaluation.   
+  Mutable record that tracks a run through the evaluation. aka "interpreter session"
 *)
-module Eval =
+module Concrete =
   struct
+    module Mode =
+      struct
+        type t =
+          | Plain
+          | With_target_x of Id.t
+          | With_full_target of Id.t * Concrete_stack.t
+
+        module Debug =
+          struct
+            type t = No_debug | Debug_clause of (Id.t -> Concrete_stack.t -> value -> unit)
+          end
+      end
+
+    module G = Graph.Imperative.Digraph.ConcreteBidirectional (Id_with_stack)
+
     type t =
       { (* mode *)
         input_feeder    : Input_feeder.t
@@ -33,7 +33,7 @@ module Eval =
       ; (* book-keeping*)
         alias_graph     : G.t
       ; (* debug *)
-        is_debug        : bool (* TODO: get rid of this *) (* can use Mode.Debug.t instead *)
+        is_debug        : bool
       ; debug_mode      : Mode.Debug.t
       ; val_def_map     : (Id_with_stack.t, clause_body * Dvalue.t) Hashtbl.t
       ; term_detail_map : (Lookup_key.t, Lookup_detail.t) Hashtbl.t
@@ -79,6 +79,11 @@ module Eval =
       ; rstk_picked     = state.rstk_picked
       ; lookup_alert    = state.lookup_alert } *)
 
+    let create (input_feeder : Input_feeder.t) (global_max_step : int) : t =
+      { (create_default ()) with 
+        input_feeder
+      ; max_step = Some global_max_step }
+
     (* Say that x1 is an alias for x2. x1 is defined *after* x2 and points to x2. *)
     let add_alias (x1 : Id_with_stack.t) (x2 : Id_with_stack.t) ({ alias_graph; _ } : t) : unit =
       G.add_edge alias_graph x1 x2
@@ -89,202 +94,122 @@ module Eval =
 
   end
 
-(*
-    If a record has a field that itself has mutable fields, those inner fields can change
-    and the outer record does not have to have mutable fields.
-    e.g. type m = { x : int ref }
-    type r = { y : m }
-    let z = { y = { x = ref 0 }}
-    let zy = z.y
-    zy.x := 1
-    Now z is { y = { x = ref 1 }}, even though z has no ref cells 
+module Symbolic = Symbolic_session
 
-  TODO: maybe I do want to make the session with mutable fields so that it doesn't have to pass
-  it along in eval, since already we don't pass along the eval session. It feels weird to pass one
-  but not the other.
-    So basically concolic is just a wrapper for the variables. At that point, why even have a record
-    instead of just mutable members of the module? Because that's ugly and the module is trying to be
-    a class at that point.
-  OR I have a reference to a concolic session, and the interp updates the session.
-    I can then let Session.t = Concolic.t ref, and it has the necessary wrappers.
+type t =
+  { tree         : Root.t (* pointer to the root of the entire tree of paths *)
+  ; target_queue : Target_queue.t
+  ; branch_info  : Branch_info.t
+  ; run_num      : int
+  ; options      : Concolic_options.t
+  ; quit         : bool
+  ; has_pruned   : bool (* true iff some evaluation hit more nodes than are allowed to be kept *)
+  ; last_sym     : Symbolic.t option }
 
-  TODO: because I end up splitting them up anyways, maybe I want to not nest them
-    and instead I pass them around separately. I just need to think about the `next` implications.
-    They are currently coupled because of how the concolic session affects the eval session's feeder.
-*)
-module Concolic =
-  struct
-    (*
-      The concolic session remembers the branches and formulas. These are additional
-      fields that are not needed during the regular evaluation.
+let empty : t =
+  { tree         = Root.empty
+  ; target_queue = Target_queue.empty
+  ; branch_info  = Branch_info.empty
+  ; run_num      = 0
+  ; options      = Concolic_options.default
+  ; quit         = false
+  ; has_pruned   = false
+  ; last_sym     = None }
 
-      The concolic session actually wraps the eval session, which is mutable
-    *)
-    type t =
-      { branch_store  : Ast_branch.Status_store.t
-      ; formula_store : Branch_solver.t
-      ; target        : Branch_solver.Target.t option
-      ; run_num       : int 
-      ; eval          : Eval.t } 
+let with_options : (t -> t) Concolic_options.Fun.t =
+  Concolic_options.Fun.make
+  @@ fun (r : Concolic_options.t) -> fun (x : t) -> { x with options = r } 
 
-    let load_branches (session : t) (e : expr) : t =
-      { session with branch_store = Ast_branch.Status_store.find_branches e session.branch_store }
+let of_expr (expr : Jayil.Ast.expr) : t =
+  { empty with branch_info = Branch_info.of_expr expr }
 
-    let global_max_step = Int.(10 ** 3)
+let accum_symbolic (x : t) (sym : Symbolic.t) : t =
+  let sym = Symbolic.finish sym x.tree in
+  { x with
+    tree         = Symbolic.root_exn sym
+  ; has_pruned   = x.has_pruned || Symbolic.hit_max_depth sym
+  ; branch_info  = Branch_info.merge x.branch_info @@ Symbolic.branch_info sym
+  ; target_queue = Target_queue.push_list x.target_queue @@ Symbolic.targets_exn sym
+  ; quit         = x.quit || x.options.quit_on_abort && Branch_info.contains (Symbolic.branch_info sym) (Found_abort [])
+  ; last_sym     = Some sym }
 
-    (*
-      Concolic eval runs have a max step and specific input feeder to try to reach the target.
-    *)
-    let create_eval (input_feeder : Input_feeder.t) : Eval.t =
-      { (Eval.create_default ()) with 
-        input_feeder
-      ; max_step = Some global_max_step }
+let [@landmarks] check_solver solver =
+  Z3.Solver.check solver []
 
-    (*
-      Makes a default evaluation session for a concolic run. Default has no target branch,
-      so input will be random between -10 and 10.
-    *)
-    let create_default_eval () : Eval.t =
-      create_eval (fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (-10) 10))
+let [@landmarks] make_solver () =
+  Z3.Solver.mk_solver Solver.SuduZ3.ctx None
 
-    (*
-      To be called before the very first concolic run to get empty tracking variables.   
-    *)
-    let create_default () =
-      { branch_store  = Ast_branch.Status_store.empty
-      ; formula_store = Branch_solver.empty 
-      ; target        = None
-      ; run_num       = 0 
-      ; eval          = create_default_eval () }
+(* based on the landmarks, it's taking about as long to make the solver and load it as it is to solve *)
+(* This motivates a change to use the internal stack *)
+let [@landmarks] load_solver solver formulas =
+  Z3.Solver.add solver formulas;
+  solver
 
-    (*
-      The next session...
-      * keeps the branch store because we want to remember which have been hit
-      * keeps the target that was found in the previous run
-      * increments the run number
-      * resets the formula store because formulas are dependent on inputs, which will be different in the next run.
-        * TODO: which formulas can we keep? We might want to carry over *some* information
-      * creates a brand new eval session
+(* This shows it might be faster to not load any formulas but just run 'check' *)
+let[@landmarks] check_solver' formulas =
+  let new_solver = Z3.Solver.mk_solver Solver.SuduZ3.ctx None in
+  Z3.Solver.check new_solver formulas
 
-      TODO: use variants instead of exceptions?
-    *)
-    let next (session : t) : t =
-      (* create brand new eval session, so old session is completely lost *)
-      let next_eval_session =
-        match Ast_branch.Status_store.get_unhit_branch session.branch_store, session.target with
-        | None, _ -> raise All_Branches_Hit
-        | Some unhit, None -> begin 
-          (* TODO: consider the logic here a little more--why does no target after first run mean unreachable? *)
-          if session.run_num = 0 then
-            create_default_eval ()
-          else
-            raise (Unreachable_Branch unhit) (* there is an unhit branch and no target after the first run *)
-          end
-        | _, Some target -> begin
-          match Branch_solver.get_feeder target session.formula_store with
-          | `Ok input_feeder -> create_eval input_feeder
-          | `Unsatisfiable_branch b -> raise (Unsatisfiable_Branch b)
-        end
-      in
-      { session with
-        formula_store = Branch_solver.empty
-      ; eval = next_eval_session
-      ; run_num = session.run_num + 1 }
+let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
+  Concolic_options.Fun.appl Symbolic.with_options x.options sym
 
-    let assert_target_hit (session : t) (target : Branch_solver.Target.t option) : unit =
-      match target with
-      | None -> ()
-      | Some target -> 
-        target
-        |> Branch_solver.Target.to_branch
-        |> Ast_branch.Status_store.is_hit session.branch_store
-        |> function
-          | true -> ()
-          | false -> raise Missed_Target_Branch
+(* $ OCAML_LANDMARKS=on ./_build/... *)
+(* `Done (branch_info, has_pruned) *)
+let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ] =
+  let pop_kind =
+    match x.last_sym with
+    | Some s when Symbolic.is_reach_max_step s -> `BFS (* only does BFS when last symbolic run reached max step *)
+    | _ -> `Random
+  in
+  let rec next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ] =
+    if x.quit then done_ x else
+    (* It's never realistically relevant to quit when all branches are hit because at least one will have an abort *)
+    (* if Branch_tracker.Status_store.Without_payload.all_hit x.branches then `Done x.branches else *)
+    match Target_queue.pop ~kind:pop_kind x.target_queue with
+    | Some (target, target_queue) -> 
+      solve_for_target { x with target_queue } target
+    | None when x.run_num = 0 ->
+      `Next (
+        { x with run_num = 1 }
+        , apply_options_symbolic x Symbolic.empty
+        , Concrete.create Concolic_feeder.default x.options.global_max_step)
+    | None -> done_ x (* no targets left, so done *)
 
-    (*
-      TODO: wrappers for adding formulas.
-        These would need to use the `with` keyword so that the session
-        gets passed over by reference and therefore keeps the same mutable session,
-        even though the concolic fields are immutable.
+  and solve_for_target (x : t) (target : Target.t) =
+    let t0 = Caml_unix.gettimeofday () in
+    let new_solver = load_solver (make_solver ()) (Target.to_formulas target x.tree) in
+    Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec x.options.solver_timeout_sec));
+    Log.Export.CLog.debug (fun m -> m "Solving for target %s\n" (Branch.Runtime.to_string target.child.branch));
+    Log.Export.CLog.debug (fun m -> m "Solver is:\n%s\n" (Z3.Solver.to_string new_solver));
+    (* let[@landmarks] _ = check_solver' (Target.to_formulas target x.tree) in *)
+    match check_solver new_solver with
+    | Z3.Solver.UNSATISFIABLE ->
+      let t1 = Caml_unix.gettimeofday () in
+      Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0));
+      next { x with tree = Root.set_status x.tree target.child Status.Unsatisfiable target.path }
+    | Z3.Solver.UNKNOWN ->
+      Log.Export.CLog.info (fun m -> m "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n");
+      next { x with tree = Root.set_status x.tree target.child Status.Unknown target.path }
+    | Z3.Solver.SATISFIABLE ->
+      Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.to_string @@ Branch.Runtime.to_ast_branch target.child.branch));
+      `Next (
+        { x with run_num = x.run_num + 1 }
+        , apply_options_symbolic x @@ Symbolic.make x.tree target
+        , Z3.Solver.get_model new_solver
+          |> Core.Option.value_exn
+          |> Concolic_feeder.from_model
+          |> fun feeder -> Concrete.create feeder x.options.global_max_step
+      )
 
-        A todo at the top of this module says that maybe concolic session should
-        be mutable because the interpreter updates the maps. Other idea is pass in
-        reference cells to eval function, but that is no better than passing in record
-        full of reference cells.
-    *)
+  and done_ (x : t) =
+    Log.Export.CLog.info (fun m -> m "Done. Tree size is %d\n" (Root.size x.tree));
+    `Done (x.branch_info, x.has_pruned)
 
-    module Ref_cell =
-      struct
-        let add_key_eq_value_opt
-          (session : t ref)
-          (parent : Branch_solver.Parent.t)
-          (key : Lookup_key.t)
-          (v_opt : value option)
-          : unit
-          =
-          session := {
-            !session with formula_store =
-            (!session).formula_store
-            |> Branch_solver.add_key_eq_value_opt parent key v_opt
-          }
+    
+  in next x
 
-        let add_formula
-          (session : t ref)
-          (dependencies : Lookup_key.t list)
-          (parent : Branch_solver.Parent.t)
-          (formula : Z3.Expr.expr)
-          : unit 
-          =
-          session := {
-            !session with formula_store =
-            (!session.formula_store)
-            |> Branch_solver.add_formula dependencies parent formula
-          }
+let branch_info ({ branch_info ; _ } : t) : Branch_info.t =
+  branch_info
 
-        let add_siblings
-          (session : t ref)
-          (child_key : Lookup_key.t)
-          (siblings : Lookup_key.t list)
-          : unit 
-          =
-          session := {
-            !session with formula_store =
-            (!session.formula_store)
-            |> Branch_solver.add_siblings child_key siblings
-          }
-
-        let update_target_branch
-          (session : t ref)
-          (branch_key : Lookup_key.t)
-          (hit_branch : Branch_solver.Runtime_branch.t)
-          : unit
-          =
-          session := {
-            !session with target =
-            let new_target = (* new target is the other side of the branch we just hit *)
-              hit_branch
-              |> Branch_solver.Runtime_branch.other_direction
-              |> fun branch -> Branch_solver.Target.{ branch_key ; branch }
-            in
-            if Ast_branch.Status_store.is_hit (!session).branch_store (Branch_solver.Target.to_branch new_target)
-            then (!session).target (* new target is already hit, so keep old target *)
-            else Some new_target 
-          }
-
-        let exit_branch
-          (session : t ref)
-          (branch_key : Lookup_key.t)
-          (parent : Branch_solver.Parent.t)
-          (exited_branch : Branch_solver.Runtime_branch.t)
-          (ret_key : Lookup_key.t)
-          : unit
-          =
-          session := {
-            !session with formula_store =
-            (!session).formula_store
-            |> Branch_solver.exit_branch branch_key parent exited_branch ret_key
-          }
-      end
-
-  end
+let run_num ({ run_num ; _ } : t) : int =
+  run_num

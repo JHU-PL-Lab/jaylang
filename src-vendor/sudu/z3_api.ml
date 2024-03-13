@@ -1,7 +1,7 @@
 open Core
 open Z3
 
-type plain = Int of int | Bool of bool | Fun of string | Record of string
+type plain = Int of int | Bool of bool | Fun of string | Record of int (* record can have 63 diff labels *)
 
 module type Context = sig
   val ctx : Z3.context
@@ -9,6 +9,9 @@ end
 
 module Make_common_builders (C : Context) = struct
   let ctx = C.ctx
+
+  (* clone by translating to the same context *)
+  let clone_solver solver = Z3.Solver.translate solver ctx
 
   let dump e =
     let es = Z3.Expr.to_string e in
@@ -79,6 +82,7 @@ module Make_common_builders (C : Context) = struct
   let box_int i = Z3.Arithmetic.Integer.mk_numeral_i ctx i
   let box_bool b = Boolean.mk_val ctx b
   let box_string s = Seq.mk_string ctx s
+  let box_record i = BitVector.mk_numeral ctx (Int.to_string i) 63 (* if we want the bits for 0b011, we give argument i = 3 *)
 
   (* unbox from Z3 expression *)
   let unbox_bool_exn v =
@@ -97,6 +101,8 @@ module Make_common_builders (C : Context) = struct
     e |> Z3.Arithmetic.Integer.get_big_int |> Big_int_Z.int_of_big_int
 
   let unbox_string e = Seq.get_string ctx e
+
+  let unbox_record e = BitVector.numeral_to_string e |> Int.of_string (* allow only 63 bits *)
 end
 
 module Make_datatype_builders (C : Context) = struct
@@ -115,6 +121,7 @@ module Make_datatype_builders (C : Context) = struct
   let intS = Arithmetic.Integer.mk_sort ctx
   let boolS = Boolean.mk_sort ctx
   let strS = Seq.mk_string_sort ctx
+  let bvS = BitVector.mk_sort ctx 63 (* hardcode 63 bits because we use ocaml int *)
 
   (* making constructors, checkers, and selectors *)
   let intC =
@@ -138,8 +145,8 @@ module Make_datatype_builders (C : Context) = struct
   let recordC =
     Datatype.mk_constructor_s ctx "Record"
       (Symbol.mk_string ctx "is-Record")
-      [ Symbol.mk_string ctx "rid" ]
-      [ Some strS ] [ 1 ]
+      [ Symbol.mk_string ctx "r" ]
+      [ Some bvS ] [ 1 ]
 
   (* making *the* sort *)
   let valS = Datatype.mk_sort_s ctx "TypOdefa" [ intC; boolC; funC; recordC ]
@@ -174,7 +181,8 @@ module Make_datatype_builders (C : Context) = struct
   let bool_ b = FuncDecl.apply boolD [ box_bool b ]
   let fun_ s = FuncDecl.apply funD [ Seq.mk_string ctx s ]
   let string_ = fun_
-  let record_ rid = FuncDecl.apply recordD [ Seq.mk_string ctx rid ]
+  (* let record_ rid = FuncDecl.apply recordD [ Seq.mk_string ctx rid ] *)
+  let record_ bv = FuncDecl.apply recordD [ box_record bv ]
 
   (* basic builders *)
   let inject_int e = FuncDecl.apply intD [ e ]
@@ -190,6 +198,7 @@ module Make_datatype_builders (C : Context) = struct
   let ground_truth = eq true_ true_
   let var_s n = Expr.mk_const_s ctx n valS
   let var_sym n = Expr.mk_const ctx n valS
+  let var_i i = Expr.mk_const ctx (Symbol.mk_int ctx i) valS (* used to identify variables with a unique int *)
 
   (* model *)
   let is_int_from_model model e =
@@ -219,7 +228,7 @@ module Make_datatype_builders (C : Context) = struct
   let get_unbox_int_exn model e = unbox_int (get_int_expr_exn model e)
   let get_unbox_bool_exn model e = unbox_bool (get_bool_expr_exn model e)
   let get_unbox_fun_exn model e = unbox_string (get_fun_expr_exn model e)
-  let get_unbox_record_exn model e = unbox_string (get_record_expr_exn model e)
+  let get_unbox_record_exn model e = unbox_record (get_record_expr_exn model e)
   let eval_value model e = Option.value_exn (Model.eval model e false)
 
   let get_value model e =
@@ -233,13 +242,22 @@ module Make_datatype_builders (C : Context) = struct
       Some (Fun fid)
     else if is_record_from_model model e
     then
-      let rid = get_unbox_record_exn model e in
-      Some (Record rid)
+      let bv = get_unbox_record_exn model e in
+      Some (Record bv)
     else None
   (* failwith "get_value" *)
 
   let get_int_s model s =
     let e = var_s s in
+    match get_value model e with
+    | Some (Int i) -> Some i
+    | Some _ ->
+        Logs.warn (fun m -> m "Get non-int for input%s" (Z3.Expr.to_string e)) ;
+        Some 0
+    | None -> None
+
+  (* use variable expression to query model for int input *)
+  let get_int_expr model e =
     match get_value model e with
     | Some (Int i) -> Some i
     | Some _ ->

@@ -38,7 +38,7 @@ let parse_jayil_file filename = In_channel.with_file filename ~f:parse_jayil
 let parse_bluejay_file filename =
   In_channel.with_file filename ~f:Bluejay.Bluejay_parse.parse_program
 
-let read_source_full ?(do_wrap = false) ?(do_instrument = false) ?(consts = [])
+let read_source_full ?(do_wrap = false) ?(do_instrument = true) ?(consts = [])
     filename =
   let convert_result =
     match lang_from_file filename with
@@ -68,7 +68,7 @@ let dump_jil_to_file jil_ast filename =
 let dump_jay_to_file jay_ast filename =
   let oc = Out_channel.create filename in
   let formatter = Format.formatter_of_out_channel oc in
-  Fmt.pf formatter "%a" Jay.Jay_ast_pp.pp_expr_desc_with_tag jay_ast ;
+  Fmt.pf formatter "%a" Jay.Jay_ast_pp.pp_expr_desc_without_tag jay_ast ;
   Out_channel.close oc
 
 let dump_bluejay_to_file bluejay_ast filename =

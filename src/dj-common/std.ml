@@ -104,6 +104,16 @@ module For_core = struct
   include More_bool
   module Ordering = Core.Ordering
 
+  module Cool_strict = struct
+    type t = Gt | Eq | Lt
+    type cool = t
+  end
+
+  module Cool_eq = struct
+    type t = Gt | Eq | Ls | Ge | Le
+    type coole = t
+  end
+
   module More_list = struct
     let list_split lst =
       let rec loop part1 part2 =

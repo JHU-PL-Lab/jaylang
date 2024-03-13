@@ -1,3 +1,4 @@
+# Ignore. We're not doing intersection types for now.
 let (x : ({: a : int :} && {: b : int :})) = 
     {a = 1, b = 2}
 in

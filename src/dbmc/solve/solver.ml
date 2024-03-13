@@ -21,7 +21,7 @@ type value = Sudu.Z3_api.plain =
   | Int of int [@printer Fmt.int]
   | Bool of bool [@printer Fmt.bool]
   | Fun of string [@printer Fmt.string]
-  | Record of string [@printer Fmt.string]
+  | Record of int [@printer Fmt.int] (* int is bitvector *)
 [@@deriving sexp, compare, equal, show { with_path = false }]
 
 let reset solver = Z3.Solver.reset solver

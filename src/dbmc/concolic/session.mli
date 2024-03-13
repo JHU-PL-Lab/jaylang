@@ -1,30 +1,34 @@
 open Core
 open Dj_common
 open Jayil.Ast
-open Concolic_exceptions
 
-module Mode :
+(**
+  The concrete session tracks everything needed by the interpreter to evaluate the expression.
+  Nothing here is used for any part of the concolic logic. This is all to correctly evaluate
+  the expression.
+*)
+module Concrete :
   sig
-    type t =
-      | Plain
-      | With_target_x of Id.t
-      | With_full_target of Id.t * Concrete_stack.t
-
-    module Debug :
+    module Mode :
       sig
         type t =
-          | No_debug
-          | Debug_clause of (Id.t -> Concrete_stack.t -> value -> unit)
+          | Plain
+          | With_target_x of Id.t
+          | With_full_target of Id.t * Concrete_stack.t
+
+        module Debug :
+          sig
+            type t =
+              | No_debug
+              | Debug_clause of (Id.t -> Concrete_stack.t -> value -> unit)
+          end
       end
-  end
 
-module G : (* = Graph.Imperative.Digraph.ConcreteBidirectional (Id_with_stack) *) (* hide until can find type *)
-  sig
-    type t
-  end
+    module G : (* = Graph.Imperative.Digraph.ConcreteBidirectional (Id_with_stack) *)
+      sig
+        type t
+      end
 
-module Eval :
-  sig
     (* NOTE: this type is mutable *)
     type t =
       { (* mode *)
@@ -36,7 +40,7 @@ module Eval :
       ; (* book-keeping*)
         alias_graph     : G.t
       ; (* debug *)
-        is_debug        : bool (* TODO: get rid of this *) (* can use Mode.Debug.t instead *)
+        is_debug        : bool
       ; debug_mode      : Mode.Debug.t
       ; val_def_map     : (Id_with_stack.t, clause_body * Dvalue.t) Hashtbl.t
       ; term_detail_map : (Lookup_key.t, Lookup_detail.t) Hashtbl.t
@@ -48,6 +52,8 @@ module Eval :
     (** [create_default ()] is an arbitrary session with no intentional input feeder and empty graphs. *)
 
     (* val create : ?max_step:int -> ?debug_mode:Mode.Debug.t -> Global_state.t -> Global_config.t -> Mode.t -> Input_feeder.t -> t *)
+    val create : Input_feeder.t -> int -> t
+    (** [create input_feeder global_max_step] *)
 
     val add_alias : Id_with_stack.t -> Id_with_stack.t -> t -> unit
     (** [add_alias x y session] sets the alias graph in the given [session] to say that
@@ -58,90 +64,32 @@ module Eval :
         that is evaluated from the clause body [body] in the given [session]. *)
   end
 
-module Concolic :
-  sig
-    (*
-      The concolic session contains an eval session, which is mutable.
-      So the concolic session needs to get passed along for the branch
-      and formula stores, but it can pass in its eval session to be mutated.   
+module Symbolic = Symbolic_session
+(** [Symbolic] is alias for [Symbolic_session]. *)
 
-      It is expected that a concolic session is used during a single evaluation
-      of the program expression. It is then sent to the "next" session for the
-      next evaluation (which tries to target a different branch).
-    *)
-    type t =
-      { branch_store  : Ast_branch.Status_store.t
-      ; formula_store : Branch_solver.t
-      ; target        : Branch_solver.Target.t option
-      ; run_num       : int 
-      ; eval          : Eval.t } 
+type t
+(** [t] holds program info between interpretations and helps generate concrete and symbolic sessions
+    for the next run. *)
 
-    val create_default : unit -> t
-    (** [create_default ()] is a concolic session with empty stores, no target, run_num 0, and
-        a default eval session *)
+val empty : t
+(** [empty] is a default empty session *)
 
-    val next : t -> t
-    (** [next session] is a session for the next run (or throws an exception) that resets formulas,
-        keeps the target, and has an eval session whose input feeder is intended to hit the target. *)
+val with_options : (t -> t) Concolic_options.Fun.t
+(** [with_options t] is [t] that has all relevant info loaded in from the optional arguments. *)
 
-    val load_branches : t -> expr -> t
-    (** [load_branches session expr] is a copy of [session] and has all AST branches from [expr] as
-        unhit branches in the branch_store. *)
+val of_expr : Jayil.Ast.expr -> t
+(** [of_expr expr] is [empty] that knows of all branches in the [expr]. *)
 
-    val assert_target_hit : t -> Branch_solver.Target.t option -> unit
-    (** [assert_target_hit session target_opt] throws an exception if and only if the target (if is Some)
-        is unhit in the session's branch store. *)
+val accum_symbolic : t -> Symbolic.t -> t
+(** [accum_symbolic t sym] finishes the sybolic session [sym] and accumulates results into [t]. *)
 
-    module Ref_cell :
-      sig
-        (* This module holds wrappers to access the solver/store in a concolic session ref cell. *)
+val next : t -> [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ]
+(** [next t] is [`Done (branch_info, tree_has_been_pruned)] if the concolic evaluation is done,
+    or is [`Next (session, symbolic, concrete)] if the interpreter is to be run again with [symbolic]
+    and [concrete] sessions. *)
 
-        val add_key_eq_value_opt : t ref -> Branch_solver.Parent.t -> Lookup_key.t -> value option -> unit
-        (** [add_key_eq_value_opt session parent key v_opt] assigns a new session to the [session] cell
-            that contains all the same fields as before, but the formula store gains the formula that the
-            key equals the value, if a value is given. *)
+val branch_info : t -> Branch_info.t
+(** [branch_info t] is the branch info in [t]. *)
 
-        val add_formula : t ref -> Lookup_key.t list -> Branch_solver.Parent.t -> Z3.Expr.expr -> unit
-        (** [add_formula session deps parent expr] assigns a new session to the [session] cell
-            that contains all the same fields as before, but the formula store gains the given formula
-            [expr] under the [parent], and the formula also depends on [deps]. *)
-
-        val add_siblings : t ref -> Lookup_key.t -> Lookup_key.t list -> unit
-        (** [add_siblings session child_key siblings] adds all dependencies of siblings to the child_key. *)
-
-        val update_target_branch : t ref -> Lookup_key.t -> Branch_solver.Runtime_branch.t -> unit
-        (** [update_target_branch session branch_key branch] will update the target branch to the other direction of
-            the given [branch] that was just hit. If the other direction has already been hit, then nothing is
-            updated. The [branch_key] is the variable in the clause for the [branch].
-
-            TODO: consider just passing in the target that was just hit
-            
-            This way, when this is called during a concolic evaluation, the target branch after the call will
-            be the deepest branch whose other side has been hit, and nothing under the other side is unhit.
-            
-            This ensures that when moving on from a branch, we've fully used all the information we can to hit
-            everything in it. For sake of argument, suppose we target outermost branches first. Say the true side of the
-            outer branch has a lot of internal branches, and we hit it first. The false side is then our target, and say it
-            has no internal branches. The false side is hit easily, and then we must try to hit internal branches of
-            the true side; we have no information to target these branches. For this reason, we target deeper
-            branches first.
-            
-            outer_branch = outer_branch_condition ?
-              (
-                (* true side. Say it is hit first *)
-                (* lots of internal branches *)
-              ) :
-              (
-                (* false side. It is the target of the next run after hitting the first *)
-                (* no internal branches *)
-              )
-            
-            So in this program, we hit the true side, and then the false side, and then need to dive back into the
-            true side but have no information to help us do so because we have only kept information from the false
-            side.
-            *)
-
-        val exit_branch : t ref -> Lookup_key.t -> Branch_solver.Parent.t -> Branch_solver.Runtime_branch.t -> Lookup_key.t -> unit
-        (** TODO *)
-      end
-  end
+val run_num : t -> int
+(** [run_num t] is the number of interpretations [t] has done. *)
