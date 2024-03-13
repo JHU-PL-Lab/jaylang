@@ -316,10 +316,62 @@ TODO: haskell and racket benchmarks converted (in a while... benchmarch bluejay 
 
 **Last time**
 * We decided to just benchmark
+* I need to choose some concolic tutorials
 
 **What's been done**
-* I have chosen some (not enough yet) programs to benchmark
+* I have chosen some programs to benchmark
 * I benchmark the entire executable (which includes the parsing of the jil file)
+* I found okay videos, but nothing excellent. They all feel slow or focus much more on symbolic execution than I'd expect
+  * https://www.youtube.com/watch?v=TlEjgqSXYNE&list=PLBmY8PAxzwIEGtnJiucyGAnwWpxACE633&index=24 
+
+**The benchmarked programs**
+
+### Trees ###
+
+| **Description** | **Filename** | **Notes** |
+|-----------------|--------------|-----------|
+| Well-typed bst | bst_type_well_typed | Simple small BST | 
+| Ill-typed bst | set_type_10 | Left child is greater than right in small tree |
+| Wrong record field in recursive tree type | recursive_type_3 | |
+| Balanced tree | set_type_5_well_typed | |
+| Imbalanced tree | set_type_5 | |
+
+### Recursive programs
+
+| **Description** | **Filename** | **Notes** |
+|-----------------|--------------|-----------|
+| Simple type error in base case | recursive_fun_1 | |
+| No type error at all | recursive_fun_1_well_typed | Tree gets exhausted up to max depth in not too long |
+
+### Dependent types ###
+
+| **Description** | **Filename** | **Notes** |
+|-----------------|--------------|-----------|
+| Simple type error, no recursion | dependent_type_test_1 | |
+| Simple no error, no recursion | dependent_type_test_1_well_typed | Tree should get exhausted quickly without limiting depth |
+| Mutually recursive with type error | mutually_recursive_dep_types_1 | Should fail at base case, so it's easy to catch |
+
+### Records and modules ###
+
+| **Description** | **Filename** | **Notes** |
+|-----------------|--------------|-----------|
+| Constraints on fields, but no nested record | record_7 | |
+| Fixed values so that constraints are satisfied | record_7_well_typed | No recursion, so should exhaust the tree |
+| Type error in one field of module | module_5_1 | Is a big program, and well-typed version is way too large to include as a test |
+
+### Other ###
+
+| **Description** | **Filename** | **Notes** |
+|-----------------|--------------|------------|
+| Simple functions on types | let_fun_test_9 | Should get covered by other types because they use anonymous functions |
+| Fixed the error | let_fun_test_9_well_typed | Should easily exhaust tree |
+
+### Limitations ###
+
+| **Description** | **Filename** | **Notes** |
+|-----------------|--------------|-----------|
+| Type error is too deep in the program | expected_timeout | Exhausts the tree but limits depth,and the type error is far past the allowed depth |
+
 
 **What to do**
 * Let's look at the programs I benchmark
