@@ -550,7 +550,7 @@ let[@landmark] test : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
           |> function
             | Some (branch, Branch_info.Status.Found_abort inputs) ->
               Format.printf "\nFOUND_ABORT\n";
-              Test_result.Found_abort (branch, inputs)
+              Test_result.Found_abort (branch, List.rev inputs)
             | None when not has_pruned ->
               Format.printf "\nEXHAUSTED\n";
               Exhausted

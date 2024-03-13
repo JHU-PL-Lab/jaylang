@@ -23,14 +23,19 @@
     ;"polymorphic_map_well_typed.jil" ; well-typed polymorphism and lists. Times out
     "polymorphic_map.jil" ; ill-typed polymorphism and lists
 
-    "record_7_well_typed.jil" ; well-typed record type. Not nested
-    "record_7.jil" ; ill-typed record type. Not nested
+    "record_7_well_typed.jil" ; well-typed record type. No nested records
+    "record_7.jil" ; ill-typed record type. No nested records
 
     ;"module_5_well_typed.jil" ; converts to massive jil file (> 10MB). Times out
     "module_5_1.jil" ; ill-typed `remove` in the module and in type of `equal` function parameter in module signature
 
     "bst_type_well_typed.jil" ; is well-typed version of set_type_10
     "set_type_10.jil" ; checks if some tree is valid bst. It's not
+
+    "expected_timeout.jil" ; type error is too deep, so we expect that we can't hit it
+
+    "flow_sensitive_1_well_typed.jil" ; 
+    "flow_sensitive_1.jil" ; two typed-declared functions where one calls the other
     )
   )
   (testcases_not_time

@@ -2,7 +2,7 @@
 module Status :
   sig
     type t = 
-      | Found_abort of Jil_input.t list (* quick patch to share inputs found in abort. Payload is ignored on compare *)
+      | Found_abort of Jil_input.t list (* inputs in the reverse order they're given. payload ignored on compare *)
       | Hit
       | Unknown
       | Unhit
