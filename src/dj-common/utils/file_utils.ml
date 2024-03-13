@@ -38,7 +38,7 @@ let parse_jayil_file filename = In_channel.with_file filename ~f:parse_jayil
 let parse_bluejay_file filename =
   In_channel.with_file filename ~f:Bluejay.Bluejay_parse.parse_program
 
-let read_source_full ?(do_wrap = false) ?(do_instrument = false) ?(consts = [])
+let read_source_full ?(do_wrap = false) ?(do_instrument = true) ?(consts = [])
     filename =
   let convert_result =
     match lang_from_file filename with

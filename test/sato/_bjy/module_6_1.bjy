@@ -1,3 +1,5 @@
+# Ill-typed; missing emptyset in set_m
+
 let set_m = 
   { add = fun x -> fun s -> x :: s 
   }

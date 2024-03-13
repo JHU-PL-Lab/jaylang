@@ -90,7 +90,9 @@ let params_with ~config : Global_config.t Command.Param.t =
   and log_level_interpreter =
     flag "-li" (optional log_level_parser) ~doc:"log level for interpreter"
   and log_level_concolic =
-    flag "-lc" (optional log_level_parser) ~doc:"log level for concolic evaluator"
+    flag "-lc"
+      (optional log_level_parser)
+      ~doc:"log level for concolic evaluator"
   and log_level_search =
     flag "-ls2" (optional log_level_parser) ~doc:"log level for search"
   and log_level_complete_message =

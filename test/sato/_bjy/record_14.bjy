@@ -1,3 +1,4 @@
+# Ill-typed. Can't regain lost type precision.
 let (r : {: a : int :}) = {a = 1, b = 2} in
 let (r2 : {: a : int, b : int :}) = r in
 r2

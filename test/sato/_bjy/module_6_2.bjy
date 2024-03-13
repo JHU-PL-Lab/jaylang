@@ -1,3 +1,5 @@
+# Ill-typed. add returns 'a rather than List 'a.
+
 let set_m = 
   { emptyset = []
   , add = fun x -> fun s -> x

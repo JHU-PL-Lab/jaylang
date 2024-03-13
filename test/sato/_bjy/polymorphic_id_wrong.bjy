@@ -1,3 +1,4 @@
+# Ill-typed. 'a values shouldn't be case-matched on.
 let id (x : 'a) : 'a = 
     match x with
     | int -> x + 1

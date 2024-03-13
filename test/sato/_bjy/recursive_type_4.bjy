@@ -1,3 +1,4 @@
+# Well-typed
 let tree_type = Mu tt. ({: left : tt, right : tt, item : int :} || {: leaf : bool :}) in
 let (x : tree_type) = 
     { left = 
