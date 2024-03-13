@@ -1,0 +1,7 @@
+{tag: 7, body: let (r : {tag: 4, body: {:
+                                           a : {tag: 1, body: int},
+                                           b : {tag: 0, body: bool}
+                                       :}}) = {tag: 6, body: {
+                                                                a = {tag: 3, body: 1},
+                                                                b = {tag: 2, body: 1}
+                                                             }} in {tag: 5, body: r}}

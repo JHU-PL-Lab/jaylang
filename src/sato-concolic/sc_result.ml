@@ -55,7 +55,7 @@ module type Sc_result = sig
 
   val get_errors :
     Sc_state.t ->
-    Dbmc.Types.State.t ->
+    Jayil.Ast.Ident.t ->
     Dbmc.Interpreter.session ->
     Dbmc.Interpreter.denv ->
     int option list ->
@@ -75,14 +75,13 @@ let get_abort_cond_clause_id
   | Some ab_val -> ab_val.abort_conditional_ident
   | None -> failwith "Should have a corresponding clause here!"
 
-let get_odefa_errors (sato_state : Sc_state.t)
-    (symb_interp_state : Types.State.t) (interp_session : Interpreter.session)
-    (final_env : Interpreter.denv) : Ast.clause * Sc_error.Jayil_error.t list =
-  let abort_var = symb_interp_state.info.target in
+let get_odefa_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
+    (interp_session : Interpreter.session) (final_env : Interpreter.denv) :
+    Ast.clause * Sc_error.Jayil_error.t list =
   let ab_mapping = sato_state.abort_mapping in
   let on_to_odefa_maps = sato_state.on_to_odefa_maps in
   let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
-  let abort_cond_var = get_abort_cond_clause_id ab_mapping abort_var in
+  let abort_cond_var = abort_var in
   let (Clause (_, cls) as error_loc) =
     get_pre_inst_equivalent_clause odefa_inst_maps abort_cond_var
   in
@@ -190,12 +189,11 @@ module Jayil_type_errors : Sc_result with type t = odefa_error_record = struct
 
   let description = "error"
 
-  let get_errors (sato_state : Sc_state.t)
-      (symb_interp_state : Dbmc.Types.State.t)
+  let get_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
       (interp_session : Dbmc.Interpreter.session)
       (final_env : Dbmc.Interpreter.denv) (inputs : int option list) : t =
     let error_loc, odefa_errors =
-      get_odefa_errors sato_state symb_interp_state interp_session final_env
+      get_odefa_errors sato_state abort_var interp_session final_env
     in
     let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
     let rm_inst_fn =
@@ -243,13 +241,12 @@ module Jay_type_errors : Sc_result with type t = natodefa_error_record = struct
 
   let description = "natodefa type error"
 
-  let get_errors (sato_state : Sc_state.t)
-      (symb_interp_state : Dbmc.Types.State.t)
+  let get_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
       (interp_session : Dbmc.Interpreter.session)
       (final_env : Dbmc.Interpreter.denv) (inputs : int option list) =
     let open Jay in
     let (Clause (Var (err_id, _), _) as error_loc), odefa_errors =
-      get_odefa_errors sato_state symb_interp_state interp_session final_env
+      get_odefa_errors sato_state abort_var interp_session final_env
     in
     let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
     let on_to_odefa_maps = Option.value_exn sato_state.on_to_odefa_maps in
@@ -305,14 +302,13 @@ module Bluejay_type_errors : Sc_result with type t = ton_error_record = struct
 
   let description = "typed natodefa type error"
 
-  let get_errors (sato_state : Sc_state.t)
-      (symb_interp_state : Dbmc.Types.State.t)
+  let get_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
       (interp_session : Dbmc.Interpreter.session)
       (final_env : Dbmc.Interpreter.denv) (inputs : int option list) =
     let open Jay in
     let open Bluejay in
     let (Clause (Var (err_id, _), _) as error_loc), odefa_errors =
-      get_odefa_errors sato_state symb_interp_state interp_session final_env
+      get_odefa_errors sato_state abort_var interp_session final_env
     in
     let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
     let on_to_odefa_maps = Option.value_exn sato_state.on_to_odefa_maps in
