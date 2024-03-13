@@ -84,7 +84,8 @@ let main_lwt ~(config : Global_config.t) program_full :
             in
             Lwt.return result
         | _ -> failwith "Shoud have run into abort here!"))
-  | _ -> Lwt.return (None, false)
+  | Exhausted -> Lwt.return (None, false)
+  | Exhausted_pruned_tree | Timeout -> Lwt.return (None, true)
 
 let main_commandline () =
   let config =
