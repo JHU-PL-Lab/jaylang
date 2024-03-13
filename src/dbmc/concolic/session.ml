@@ -130,7 +130,7 @@ let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   ; has_pruned   = x.has_pruned || Symbolic.hit_max_depth sym
   ; branch_info  = Branch_info.merge x.branch_info @@ Symbolic.branch_info sym
   ; target_queue = Target_queue.push_list x.target_queue @@ Symbolic.targets_exn sym
-  ; quit         = x.quit || x.options.quit_on_abort && Branch_info.contains (Symbolic.branch_info sym) Found_abort
+  ; quit         = x.quit || x.options.quit_on_abort && Branch_info.contains (Symbolic.branch_info sym) (Found_abort [])
   ; last_sym     = Some sym }
 
 let [@landmarks] check_solver solver =

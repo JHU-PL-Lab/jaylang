@@ -3,7 +3,7 @@ open Core
 module Status =
   struct
     type t = 
-      | Found_abort
+      | Found_abort of (Jil_input.t list [@compare.ignore])
       | Hit
       | Unknown
       | Unhit
@@ -13,22 +13,22 @@ module Status =
 
     let to_string (x : t) : string =
       match x with
-      | Found_abort -> Variants.to_name x |> String.capitalize |> red_string
+      | Found_abort _ -> Variants.to_name x |> String.capitalize |> red_string
       | _ -> 
         String.capitalize
         @@ Variants.to_name x
 
     let update (new_status : t) (old_status : t) : t =
       match old_status with
-      | Found_abort -> old_status
+      | Found_abort _ -> old_status
       | Hit -> begin
         match new_status with
-        | Found_abort -> new_status
+        | Found_abort _ -> new_status
         | _ -> old_status
       end
       | Unknown -> begin
         match new_status with
-        | Hit | Found_abort -> new_status
+        | Hit | Found_abort _ -> new_status
         | _ -> old_status
       end
       | Unhit -> new_status

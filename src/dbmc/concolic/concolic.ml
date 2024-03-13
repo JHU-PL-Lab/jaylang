@@ -529,7 +529,7 @@ let[@landmark] eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t =
 module Test_result =
   struct
     type t =
-      | Found_abort of Branch.t (* Found an abort at this branch *)
+      | Found_abort of Branch.t * Jil_input.t list (* Found an abort at this branch using these inputs *)
       | Exhausted               (* Ran all possible tree paths, and no paths were too deep *)
       | Exhausted_pruned_tree   (* Ran all possible tree paths up to the given max step *)
       | Timeout                 (* total evaluation timeout *)
@@ -546,12 +546,17 @@ let[@landmark] test : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
             @@ Concolic_options.Fun.appl lwt_eval r e
           in
           Log.Export.CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
-          Branch_info.find res ~f:(fun _ -> function Branch_info.Status.Found_abort -> true | _ -> false)
-          |> Option.map ~f:Tuple2.get1
+          Branch_info.find res ~f:(fun _ -> function Branch_info.Status.Found_abort _ -> true | _ -> false)
           |> function
-            | Some branch -> Format.printf "\nFOUND_ABORT\n"; Test_result.Found_abort branch
-            | None when not has_pruned -> Format.printf "\nEXHAUSTED\n"; Exhausted
-            | _ -> Format.printf "\nEXHAUSTED_PRUNED_TREE\n"; Exhausted_pruned_tree
+            | Some (branch, Branch_info.Status.Found_abort inputs) ->
+              Format.printf "\nFOUND_ABORT\n";
+              Test_result.Found_abort (branch, inputs)
+            | None when not has_pruned ->
+              Format.printf "\nEXHAUSTED\n";
+              Exhausted
+            | _ ->
+              Format.printf "\nEXHAUSTED_PRUNED_TREE\n";
+              Exhausted_pruned_tree
         with
         | Lwt_unix.Timeout ->
           Log.Export.CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
