@@ -365,6 +365,9 @@ TODO: haskell and racket benchmarks converted (in a while... benchmarch bluejay 
 |-----------------|--------------|------------|
 | Simple functions on types | let_fun_test_9 | Should get covered by other types because they use anonymous functions |
 | Fixed the error | let_fun_test_9_well_typed | Should easily exhaust tree |
+| List map | polymorphic_map | Well-typed version times out -- cannot even exhaust the pruned tree |
+| Two typed functions | flow_sensitive_1 | No recursion, so type error is easy to catch |
+| Two typed functions, well-typed | flow_sensitive_1_well_typed | Should be able to exhaust tree |
 
 ### Limitations ###
 
