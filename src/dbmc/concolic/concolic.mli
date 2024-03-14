@@ -2,7 +2,7 @@
 module Test_result :
   sig
     type t =
-      | Found_abort of Branch.t * Jil_input.t list (* Found an abort at this branch using these inputs, where the head is the most recent input *)
+      | Found_abort of Branch.t * Jil_input.t list (* Found an abort at this branch using these inputs, where the inputs are in the order they're given *)
       | Exhausted               (* Ran all possible tree paths, and no paths were too deep *)
       | Exhausted_pruned_tree   (* Ran all possible tree paths up to the given max depth *)
       | Timeout                 (* total evaluation timeout *)
