@@ -1,5 +1,6 @@
 open Core
 open Dj_common
+module Riddler = Riddler.V_dbmc
 
 module Palette = struct
   let int_of_rgb r g b = (r * 256 * 256) + (g * 256) + b

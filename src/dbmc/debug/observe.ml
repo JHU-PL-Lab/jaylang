@@ -1,5 +1,6 @@
 open Core
 open Dj_common
+module Riddler = Riddler.V_dbmc
 open Log.Export
 
 let update_rstk_pick (config : Global_config.t) (state : Global_state.t) model =

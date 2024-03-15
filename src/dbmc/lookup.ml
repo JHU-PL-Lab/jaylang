@@ -1,5 +1,6 @@
 open Core
 open Dj_common
+module Riddler = Riddler.V_dbmc
 open Log.Export
 open Jayil
 open Jayil.Ast
