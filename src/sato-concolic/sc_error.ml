@@ -587,6 +587,10 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       match err_val_edesc.body with
       | Match (subj, pat_ed_lst) -> (
           (* TODO: Problem: we eliminated the alias that binds the matached expression (which in this case it's just an alias of a) *)
+          (* let () =
+               print_endline @@ "This is the subj being looked up: "
+               ^ Jay_ast_pp.show_expr_desc subj
+             in *)
           let jayil_var_opt =
             Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps
               subj
@@ -620,7 +624,15 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                 List.map ~f:mapper pat_ed_lst
               in
               errors
-          | None -> failwith "Should have found an jayil var!")
+          | None ->
+              [
+                Error_value
+                  {
+                    err_value_aliases = jayil_to_jay_aliases aliases;
+                    err_value_val = err_val_edesc;
+                  };
+              ]
+          (* failwith "Should have found an jayil var!") *))
       | _ ->
           [
             Error_value
@@ -638,6 +650,7 @@ let jayil_to_bluejay_error_simple
     (final_env : Dbmc.Interpreter.denv) (jayil_err : Jayil_error.t) :
     Bluejay_error.t list =
   let open Bluejay in
+  (* let () = failwith "in jayil_to_bluejay_error_simple" in *)
   let jay_errors =
     jayil_to_jay_error jayil_inst_maps jayil_jay_maps interp_session final_env
       jayil_err

@@ -41,8 +41,14 @@ let main_lwt ~(config : Global_config.t) program_full :
   let init_sato_state =
     Sc_state.initialize_state_with_expr sato_mode program_full
   in
-
-  let res = Dbmc.Concolic.test ~quit_on_abort:true program in
+  let res =
+    match config.timeout with
+    | None -> Dbmc.Concolic.test ~quit_on_abort:true program
+    | Some t ->
+        Dbmc.Concolic.test ~quit_on_abort:true
+          ~global_timeout_sec:(Core_private.Span_float.to_sec t)
+          program
+  in
   match res with
   | Found_abort (branch, input_lst) -> (
       let abort_var = branch.branch_ident in
@@ -61,14 +67,27 @@ let main_lwt ~(config : Global_config.t) program_full :
       with Dbmc.Interpreter.Found_abort ab_clo -> (
         match ab_clo with
         | AbortClosure final_env ->
+            (* let pp_dvalue_with_stack oc (dv, _) =
+                 Dbmc.Interpreter.pp_dvalue oc dv
+               in
+               let () =
+                 Format.printf "This is the final env: \n %a"
+                   (Ident_map.pp pp_dvalue_with_stack)
+                   final_env
+               in *)
             let result =
               match sato_mode with
               | Bluejay ->
+                  (* let errors =
+                       Sc_result.Bluejay_type_errors.get_errors init_sato_state
+                         abort_var session final_env inputs
+                     in
+                     (Some (Bluejay_error errors), false) *)
                   let errors =
-                    Sc_result.Bluejay_type_errors.get_errors init_sato_state
+                    Sc_result.Jayil_type_errors.get_errors init_sato_state
                       abort_var session final_env inputs
                   in
-                  (Some (Bluejay_error errors), false)
+                  (Some (Jayil_error errors), false)
               | Jay ->
                   let errors =
                     Sc_result.Jay_type_errors.get_errors init_sato_state
