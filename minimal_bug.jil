@@ -180,7 +180,7 @@ flatten_fun_j_131 = fun bj_null_j_4 -> (
             );
         m_i_174 = appl_j_122 ~ bool;
         notop_j_123 = m_i_174 ? (
-                c_not_i_175 = not appl_j_122
+                c_not_i_175 = not appl_j_122 # TODO: fix the bug here. The key for this appl_j_122 has the notop_j_123 on the stack, but it needs to reference the outer one
             ) : (
                 ab_i_176 = abort
             ));

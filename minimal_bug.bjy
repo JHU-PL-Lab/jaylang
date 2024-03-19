@@ -1,10 +1,11 @@
 
-#let t = ({: a : int :} || {: b : bool :}) in
-let t = {: a : int :} in
+let t = ({: a : int :} || {: b : bool :}) in
+#let t = {: a : int :} in
 
 let is_a x =
   match x with
   | { a = a } -> true
+  | { b = b } -> false
   end
 in
 
