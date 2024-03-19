@@ -540,6 +540,8 @@ let[@landmark] test : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
         try
+          let cfg = { Global_config.default_config with log_level_concolic = Some Logs.Debug } in
+          Log.init cfg;
           let t0 = Caml_unix.gettimeofday () in
           let res, has_pruned =
             Lwt_main.run

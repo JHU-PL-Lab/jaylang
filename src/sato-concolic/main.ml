@@ -42,7 +42,7 @@ let main_lwt ~(config : Global_config.t) program_full :
     Sc_state.initialize_state_with_expr sato_mode program_full
   in
 
-  let res = Dbmc.Concolic.test ~quit_on_abort:true program in
+  let res = Dbmc.Concolic.test ~quit_on_abort:true ~max_tree_depth:50 ~global_timeout_sec:30.0 ~global_max_step:10000 program in
   match res with
   | Found_abort (branch, input_lst) -> (
       let abort_var = branch.branch_ident in

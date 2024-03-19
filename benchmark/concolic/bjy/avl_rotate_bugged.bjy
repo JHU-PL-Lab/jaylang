@@ -1,0 +1,33 @@
+
+let is_pos x = x > 0 in
+
+let t = Mu tt. ({: left : tt, right : tt, item : int, height : {. int | is_pos } :} || {: leaf : bool :}) in
+
+let is_leaf (x : t) : bool =
+  match x with
+  | { leaf = b } -> true
+  | { left = l , _ } -> false
+  end
+in
+
+let not_leaf = {. t | fun x -> not (is_leaf x) } in
+
+let get_item (x : not_leaf) : int =
+  match x with
+  | { item = i , _ } -> i
+  end
+in
+
+#let left_exn x =
+#  match x with
+#  | { left = left , _ } -> left
+#  end
+#in
+#
+#let right_exn x =
+#  match x with
+#  | { right = right , _ } -> right
+#  end
+#in
+
+get_item

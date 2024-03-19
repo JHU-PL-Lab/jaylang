@@ -32,8 +32,8 @@ module rec Node :
     val with_formulas : t -> Formula_set.t -> t
     (** [with_formulas t formulas] is [t] with the given [formulas] overwriting its old formulas. *)
 
-    val set_status : t -> Child.t -> Status.t -> Path.t -> t
-    (** [set_status t child status path] is [t] where [child] is given [status], and [child] is necessarily
+    val set_status : t -> Branch.Runtime.t -> Status.t -> Path.t -> t
+    (** [set_status t branch status path] is [t] where child at [branch] is given [status], and [branch] is necessarily
         found along the [path]. *)
   end
 and Children :

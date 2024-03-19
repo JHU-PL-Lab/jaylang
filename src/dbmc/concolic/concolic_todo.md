@@ -319,6 +319,8 @@ TODO: haskell and racket benchmarks converted (in a while... benchmarch bluejay 
 * I need to choose some concolic tutorials
 
 **What's been done**
+* I fixed some bugs that caused slowdown
+* It's easy to set a search strategy. Right now I randomly draw from BFS or DFS horizon and always draw from BFS after hitting max step
 * I have chosen some programs to benchmark
 * I benchmark the entire executable (which includes the parsing of the jil file)
 * I found okay videos, but nothing excellent. They all feel slow or focus much more on symbolic execution than I'd expect
