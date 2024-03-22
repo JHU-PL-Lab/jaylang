@@ -1,0 +1,382 @@
+let t =
+{
+   checker = fun expr_b_73
+    ->
+   let select_int_b_74 = input in
+     let fail_b_75 = false in
+     if select_int_b_74 >= 0 then
+     if
+       {
+          checker = fun expr_b_32
+           ->
+          let rec_fail_b_31 = false in
+            let rec_fail_b_30 = false in
+            let rec_fail_b_29 = false in
+            match expr_b_32 with
+            
+              | {~actual_rec = (none),_} ->
+              match expr_b_32.~decl_lbls with
+                
+                  | {a = a,_} ->
+                  match expr_b_32.~actual_rec with
+                    
+                      | {a = a,_} ->
+                      {
+                         checker = let
+                         fail_b_34 =
+                         false
+                         in
+                         fun expr_b_33 ->
+                         match expr_b_33 with
+                           | int -> true | any -> fail_b_34 end,
+                         generator = fun ~null
+                          ->
+                         input
+                      }.checker a
+                      | any -> rec_fail_b_29
+                     end
+                  | any -> rec_fail_b_30
+                 end
+              | any -> rec_fail_b_31
+             end,
+          generator = fun ~null
+           ->
+          {
+             ~actual_rec = let
+             a_b_25 =
+             {
+                checker = let
+                fail_b_27 =
+                false
+                in
+                fun expr_b_26 ->
+                match expr_b_26 with | int -> true | any -> fail_b_27 end,
+                generator = fun ~null
+                 ->
+                input
+             }.generator 0
+             in
+             {a = a_b_25},
+             ~decl_lbls = {a = {}}
+          }
+       }.checker expr_b_73 then true
+       else if
+              {
+                 checker = fun expr_b_44
+                  ->
+                 let rec_fail_b_43 = false in
+                   let rec_fail_b_42 = false in
+                   let rec_fail_b_41 = false in
+                   match expr_b_44 with
+                   
+                     | {~actual_rec = (none),_} ->
+                     match expr_b_44.~decl_lbls with
+                       
+                         | {b = b,_} ->
+                         match expr_b_44.~actual_rec with
+                           
+                             | {b = b,_} ->
+                             {
+                                checker = let
+                                fail_b_46 =
+                                false
+                                in
+                                fun expr_b_45 ->
+                                match expr_b_45 with
+                                  | bool -> true | any -> fail_b_46 end,
+                                generator = fun ~null
+                                 ->
+                                input >= 0
+                             }.checker b
+                             | any -> rec_fail_b_41
+                            end
+                         | any -> rec_fail_b_42
+                        end
+                     | any -> rec_fail_b_43
+                    end,
+                 generator = fun ~null
+                  ->
+                 {
+                    ~actual_rec = let
+                    b_b_37 =
+                    {
+                       checker = let
+                       fail_b_39 =
+                       false
+                       in
+                       fun expr_b_38 ->
+                       match expr_b_38 with | bool -> true | any -> fail_b_39
+                         end,
+                       generator = fun ~null
+                        ->
+                       input >= 0
+                    }.generator 0
+                    in
+                    {b = b_b_37},
+                    ~decl_lbls = {b = {}}
+                 }
+              }.checker expr_b_73 then true else fail_b_75
+     else if
+            {
+               checker = fun expr_b_68
+                ->
+               let rec_fail_b_67 = false in
+                 let rec_fail_b_66 = false in
+                 let rec_fail_b_65 = false in
+                 match expr_b_68 with
+                 
+                   | {~actual_rec = (none),_} ->
+                   match expr_b_68.~decl_lbls with
+                     
+                       | {b = b,_} ->
+                       match expr_b_68.~actual_rec with
+                         
+                           | {b = b,_} ->
+                           {
+                              checker = let
+                              fail_b_70 =
+                              false
+                              in
+                              fun expr_b_69 ->
+                              match expr_b_69 with
+                                | bool -> true | any -> fail_b_70 end,
+                              generator = fun ~null
+                               ->
+                              input >= 0
+                           }.checker b
+                           | any -> rec_fail_b_65
+                          end
+                       | any -> rec_fail_b_66
+                      end
+                   | any -> rec_fail_b_67
+                  end,
+               generator = fun ~null
+                ->
+               {
+                  ~actual_rec = let
+                  b_b_61 =
+                  {
+                     checker = let
+                     fail_b_63 =
+                     false
+                     in
+                     fun expr_b_62 ->
+                     match expr_b_62 with | bool -> true | any -> fail_b_63
+                       end,
+                     generator = fun ~null
+                      ->
+                     input >= 0
+                  }.generator 0
+                  in
+                  {b = b_b_61},
+                  ~decl_lbls = {b = {}}
+               }
+            }.checker expr_b_73 then true
+            else if
+                   {
+                      checker = fun expr_b_56
+                       ->
+                      let rec_fail_b_55 = false in
+                        let rec_fail_b_54 = false in
+                        let rec_fail_b_53 = false in
+                        match expr_b_56 with
+                        
+                          | {~actual_rec = (none),_} ->
+                          match expr_b_56.~decl_lbls with
+                            
+                              | {a = a,_} ->
+                              match expr_b_56.~actual_rec with
+                                
+                                  | {a = a,_} ->
+                                  {
+                                     checker = let
+                                     fail_b_58 =
+                                     false
+                                     in
+                                     fun expr_b_57 ->
+                                     match expr_b_57 with
+                                       | int -> true | any -> fail_b_58 end,
+                                     generator = fun ~null
+                                      ->
+                                     input
+                                  }.checker a
+                                  | any -> rec_fail_b_53
+                                 end
+                              | any -> rec_fail_b_54
+                             end
+                          | any -> rec_fail_b_55
+                         end,
+                      generator = fun ~null
+                       ->
+                      {
+                         ~actual_rec = let
+                         a_b_49 =
+                         {
+                            checker = let
+                            fail_b_51 =
+                            false
+                            in
+                            fun expr_b_50 ->
+                            match expr_b_50 with
+                              | int -> true | any -> fail_b_51 end,
+                            generator = fun ~null
+                             ->
+                            input
+                         }.generator 0
+                         in
+                         {a = a_b_49},
+                         ~decl_lbls = {a = {}}
+                      }
+                   }.checker expr_b_73 then true else fail_b_75,
+   generator = fun ~null
+    ->
+   let select_int_b_24 = input in
+     if select_int_b_24 >= 0 then
+     {
+        checker = fun expr_b_7
+         ->
+        let rec_fail_b_6 = false in
+          let rec_fail_b_5 = false in
+          let rec_fail_b_4 = false in
+          match expr_b_7 with
+          
+            | {~actual_rec = (none),_} ->
+            match expr_b_7.~decl_lbls with
+              
+                | {a = a,_} ->
+                match expr_b_7.~actual_rec with
+                  
+                    | {a = a,_} ->
+                    {
+                       checker = let
+                       fail_b_9 =
+                       false
+                       in
+                       fun expr_b_8 ->
+                       match expr_b_8 with | int -> true | any -> fail_b_9
+                         end,
+                       generator = fun ~null
+                        ->
+                       input
+                    }.checker a
+                    | any -> rec_fail_b_4
+                   end
+                | any -> rec_fail_b_5
+               end
+            | any -> rec_fail_b_6
+           end,
+        generator = fun ~null
+         ->
+        {
+           ~actual_rec = let
+           a_b_0 =
+           {
+              checker = let
+              fail_b_2 =
+              false
+              in
+              fun expr_b_1 ->
+              match expr_b_1 with | int -> true | any -> fail_b_2 end,
+              generator = fun ~null
+               ->
+              input
+           }.generator 0
+           in
+           {a = a_b_0},
+           ~decl_lbls = {a = {}}
+        }
+     }.generator 0
+     else {
+             checker = fun expr_b_19
+              ->
+             let rec_fail_b_18 = false in
+               let rec_fail_b_17 = false in
+               let rec_fail_b_16 = false in
+               match expr_b_19 with
+               
+                 | {~actual_rec = (none),_} ->
+                 match expr_b_19.~decl_lbls with
+                   
+                     | {b = b,_} ->
+                     match expr_b_19.~actual_rec with
+                       
+                         | {b = b,_} ->
+                         {
+                            checker = let
+                            fail_b_21 =
+                            false
+                            in
+                            fun expr_b_20 ->
+                            match expr_b_20 with
+                              | bool -> true | any -> fail_b_21 end,
+                            generator = fun ~null
+                             ->
+                            input >= 0
+                         }.checker b
+                         | any -> rec_fail_b_16
+                        end
+                     | any -> rec_fail_b_17
+                    end
+                 | any -> rec_fail_b_18
+                end,
+             generator = fun ~null
+              ->
+             {
+                ~actual_rec = let
+                b_b_12 =
+                {
+                   checker = let
+                   fail_b_14 =
+                   false
+                   in
+                   fun expr_b_13 ->
+                   match expr_b_13 with | bool -> true | any -> fail_b_14 end,
+                   generator = fun ~null
+                    ->
+                   input >= 0
+                }.generator 0
+                in
+                {b = b_b_12},
+                ~decl_lbls = {b = {}}
+             }
+          }.generator 0
+} in
+let is_a x =
+let fail_b_77 = false in
+match x with
+
+  | {~actual_rec = actual_rec_b_86,_} ->
+  match x.~decl_lbls with
+    
+      | {a = a} -> let a = actual_rec_b_86.a in true
+      | {b = b} -> let b = actual_rec_b_86.b in false
+     end
+  | {~untouched = (none),_} -> assert fail_b_77
+ end in
+let b_type =
+{
+   checker = fun expr_b_79
+    ->
+   let t_check_b_80 = t.checker expr_b_79 in
+     if t_check_b_80 then
+     let pred_check_b_81 = false in
+       if (fun x -> not is_a x) expr_b_79 then true else pred_check_b_81
+     else t_check_b_80,
+   generator = fun ~null
+    ->
+   let candidate_b_78 = t.generator 0 in
+     if (fun x -> not is_a x) candidate_b_78 then candidate_b_78
+     else assume false
+} in
+let b_func x = 0 in
+let check_res_b_88 = let x_b_87 = b_type.generator 0 in
+{
+   checker = let
+   fail_b_84 =
+   false
+   in
+   fun expr_b_83 -> match expr_b_83 with | int -> true | any -> fail_b_84 end,
+   generator = fun ~null
+    ->
+   input
+}.checker (b_func x_b_87) in
