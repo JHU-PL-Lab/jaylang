@@ -1,0 +1,21 @@
+# Confused about this example
+
+let list_type a = {: Cons : a :} || {: Nil : bool :} in
+
+let length2 (l : list_type ('a)) : int = 
+    match l with
+    | {Cons = a} -> 1
+    | {Nil = b} -> 0
+    end
+in
+
+letd rec getNth2 (l : list_type ('a)) : (n : {. int | fun n -> n < length2 l}) -> 'a = 
+fun n -> 
+    match l with
+    | {Cons = a} -> getNth2 l n
+    | any -> 1 + true
+    end
+in
+
+length2
+

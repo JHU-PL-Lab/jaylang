@@ -78,16 +78,11 @@ let main_lwt ~(config : Global_config.t) program_full :
             let result =
               match sato_mode with
               | Bluejay ->
-                  (* let errors =
-                       Sc_result.Bluejay_type_errors.get_errors init_sato_state
-                         abort_var session final_env inputs
-                     in
-                     (Some (Bluejay_error errors), false) *)
                   let errors =
-                    Sc_result.Jayil_type_errors.get_errors init_sato_state
+                    Sc_result.Bluejay_type_errors.get_errors init_sato_state
                       abort_var session final_env inputs
                   in
-                  (Some (Jayil_error errors), false)
+                  (Some (Bluejay_error errors), false)
               | Jay ->
                   let errors =
                     Sc_result.Jay_type_errors.get_errors init_sato_state
