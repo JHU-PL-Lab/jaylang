@@ -1,0 +1,20 @@
+# well-typed
+
+let is_nonempty ls = 
+  match ls with
+  | [] -> false
+  | _ -> true
+  end
+in
+
+# There is no type error yet because of the is_nonempty predicate. We might model the inverse with a user-level abort
+let rec foldl1 (f : 'a -> 'a -> 'a) (xs : {. List 'a | is_nonempty }) : 'a =
+  match xs with
+  | z :: zs ->
+    match zs with 
+    | [] -> z
+    | z1 :: tl -> foldl1 f ((f z z1) :: tl)
+    end
+  end
+in
+foldl1
