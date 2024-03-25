@@ -7,7 +7,7 @@ let is_nonempty ls =
   end
 in
 
-# There is no type error yet because of the is_nonempty predicate. We might model the inverse with a user-level abort
+# There is no type error yet because of the is_nonempty predicate. We might remove the predicate and add user abort
 let rec foldl1 (f : 'a -> 'a -> 'a) (xs : {. List 'a | is_nonempty }) : 'a =
   match xs with
   | z :: zs ->
@@ -15,6 +15,7 @@ let rec foldl1 (f : 'a -> 'a -> 'a) (xs : {. List 'a | is_nonempty }) : 'a =
     | [] -> z
     | z1 :: tl -> foldl1 f ((f z z1) :: tl)
     end
+  | [] -> xs # add abort instead
   end
 in
 foldl1
