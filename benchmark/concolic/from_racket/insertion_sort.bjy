@@ -1,4 +1,4 @@
-# This is safe for now
+# This is well-typed. See ill-typed "buggy" programs
 # We refine like the racket contract: output list is sorted and if input is nonempty, then so is output
 
 let is_nonempty lst =
