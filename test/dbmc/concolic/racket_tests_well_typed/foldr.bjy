@@ -1,0 +1,8 @@
+
+let rec foldr (f : int -> bool -> bool) (z : bool) (xs : List int) : bool =
+  match xs with
+  | [] -> z
+  | xx :: xxs -> f xx (foldr f z xxs)
+  end
+in
+foldr

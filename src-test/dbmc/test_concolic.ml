@@ -19,11 +19,22 @@ let test_exact_expected testname _args =
   Alcotest.(check bool) "concolic" true result
 [@@@ocaml.warning "+32"]
 
+let _ = Filename.split_extension
+
 (* Just tries to find any abort, and that's all *)
 let test_for_abort testname _args =
-  let expect_path = Filename.chop_extension testname ^ ".expect.s" in (* existence of this file implies an abort should be found *)
+  let filename, extension = Filename.split_extension testname in
+  let expect_path = filename ^ ".expect.s" in (* existence of this file implies an abort should be found *)
   let is_error_expected = Sys_unix.is_file_exn expect_path in
-  Concolic_driver.test ~global_timeout_sec:10.0 ~quit_on_abort:true testname
+  begin
+  match extension with
+  | Some "jil" -> Dj_common.File_utils.read_source testname
+  | Some "bjy" ->
+    Convert.jil_ast_of_convert
+    @@ Dj_common.File_utils.read_source_full ~do_instrument:true testname
+  | _ -> failwith "unsupported test extension"
+  end
+  |> Concolic.test ~global_timeout_sec:10.0 ~quit_on_abort:true
   |> begin function
     | Concolic.Test_result.Timeout
     | Exhausted
@@ -45,8 +56,16 @@ module From_lib =
   end
 
 let () =
-  (* let grouped_tests = From_lib.group_tests "test/dbmc/concolic/exact_expected/" `Slow test_exact_expected in *) (* TODO: fix expected results *)
-  let grouped_tests = [] in
-  let _bjy_tests = From_lib.group_tests "test/dbmc/concolic/_bjy_tests/" `Slow test_for_abort in
-  let bjy_tests = From_lib.group_tests "test/dbmc/concolic/bjy_tests/" `Quick test_for_abort in
-  Alcotest.run_with_args "concolic" Test_argparse.config (bjy_tests @ _bjy_tests @ grouped_tests) ~quick_only:false
+  let dir = "test/dbmc/concolic/" in
+  let make_tests s t = From_lib.group_tests (dir ^ s) t test_for_abort in
+  Alcotest.run_with_args 
+    "concolic" 
+    Test_argparse.config 
+    (
+      []
+      (* @ make_tests "_bjy_tests" `Slow not all expect files exist yet, so these tests are not supposed to pass *)
+      @ make_tests "bjy_tests" `Quick
+      @ make_tests "racket_tests" `Quick
+      @ make_tests "racket_tests_well_typed" `Slow
+    ) 
+    ~quick_only:false

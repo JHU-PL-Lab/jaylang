@@ -1,0 +1,25 @@
+
+let rec mem x xs =
+  match xs with
+  | [] -> false
+  | hd :: tl -> hd == x or mem x tl
+  end
+in
+
+let ret_type x =
+  {. List int | fun l -> 
+    match l with  
+    | [] -> true
+    | a :: b -> mem x l
+    end
+  }
+in
+
+letd rec mk_list (x : int) : int -> ret_type x = 
+  fun n ->
+    if n < 0
+    then []
+    else x :: mk_list x (n - 1)
+in
+
+mk_list
