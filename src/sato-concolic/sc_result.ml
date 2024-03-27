@@ -322,6 +322,10 @@ module Bluejay_type_errors : Sc_result with type t = ton_error_record = struct
       |> Bluejay_ast_internal.from_internal_expr_desc
     in
     let is_type_error =
+      (* let () =
+           Format.printf "This is the expression we're determining with: %a"
+             Bluejay_ast_pp.pp_expr on_err_loc_syn.body
+         in *)
       match on_err_loc_syn.body with
       | LetWithType _ | LetFunWithType _ | LetRecFunWithType _ -> true
       | _ -> false

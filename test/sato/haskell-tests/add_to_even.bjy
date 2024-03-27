@@ -1,0 +1,42 @@
+let isEven n = n % 2 == 0 in
+
+let rec length l =
+    match l with
+    | [] -> 0
+    | hd :: tl -> 1 + length tl
+    end
+in
+
+let g (x : int) : {. int | isEven } = x + x in
+
+let f (x : {. int | isEven }) : {. int | isEven } = x + g 5 in
+
+letd rec zipWith (f : 'a -> 'b -> 'c) : ((v1 : List 'a) -> (v2 : {. List 'b | fun l -> if length v1 > 0 then length l > 0 else true }) -> List 'c) = fun v1 v2 ->
+    match v1 with
+    | [] -> 
+        (match v2 with
+        | [] -> []
+        | hd :: tl -> 1 + true
+        end
+        )
+    | hd :: tl ->
+        (match v2 with
+        | [] -> 1 + true
+        | hd2 :: tl2 -> (f hd hd2) :: zipWith f tl tl2 
+        end
+        )
+    end
+
+in
+
+let (g2 : int) = 0 in
+
+let (f2 : {. int | isEven }) = g2 in
+
+let g3 (x : int) : int = x in 
+
+let f3 (x : int) : {. int | isEven } = x + g3 x in
+
+let (h : {. int | fun x -> x == 8}) = 6 + 2 in 
+
+h

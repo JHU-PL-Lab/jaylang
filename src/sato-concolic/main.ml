@@ -41,8 +41,14 @@ let main_lwt ~(config : Global_config.t) program_full :
   let init_sato_state =
     Sc_state.initialize_state_with_expr sato_mode program_full
   in
-
-  let res = Dbmc.Concolic.test ~quit_on_abort:true program in
+  let res =
+    match config.timeout with
+    | None -> Dbmc.Concolic.test ~quit_on_abort:true program
+    | Some t ->
+        Dbmc.Concolic.test ~quit_on_abort:true
+          ~global_timeout_sec:(Core_private.Span_float.to_sec t)
+          program
+  in
   match res with
   | Found_abort (branch, input_lst) -> (
       let abort_var = branch.branch_ident in
@@ -61,6 +67,14 @@ let main_lwt ~(config : Global_config.t) program_full :
       with Dbmc.Interpreter.Found_abort ab_clo -> (
         match ab_clo with
         | AbortClosure final_env ->
+            (* let pp_dvalue_with_stack oc (dv, _) =
+                 Dbmc.Interpreter.pp_dvalue oc dv
+               in
+               let () =
+                 Format.printf "This is the final env: \n %a"
+                   (Ident_map.pp pp_dvalue_with_stack)
+                   final_env
+               in *)
             let result =
               match sato_mode with
               | Bluejay ->
@@ -84,7 +98,8 @@ let main_lwt ~(config : Global_config.t) program_full :
             in
             Lwt.return result
         | _ -> failwith "Shoud have run into abort here!"))
-  | _ -> Lwt.return (None, false)
+  | Exhausted -> Lwt.return (None, false)
+  | Exhausted_pruned_tree | Timeout -> Lwt.return (None, true)
 
 let main_commandline () =
   let config =
