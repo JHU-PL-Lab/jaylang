@@ -35,8 +35,8 @@ module type NODE =
     (** [is_valid_target t branch] is [true] if and only if [branch] should be a target child from [t]. *)
     val with_formulas : t -> Formula_set.t -> t
     (** [with_formulas t formulas] is [t] with the given [formulas] overwriting its old formulas. *)
-    val set_status : t -> child -> status -> Path.t -> t
-    (** [set_status t child status path] is [t] where [child] is given [status], and [child] is necessarily
+    val set_status : t -> Branch.Runtime.t -> status -> Path.t -> t
+    (** [set_status t branch status path] is [t] where child at [branch] is given [status], and [branch] is necessarily
         found along the [path]. *)
   end
 
@@ -157,11 +157,10 @@ module rec Node : (* serves as root node *)
     let with_formulas (x : t) (formulas : Formula_set.t) : t =
       { x with formulas }
 
-    let set_status (x : t) (child : Child.t) (status : Status.t) (path : Path.t) : t =
-      let ret_child = { child with status } in
+    let set_status (x : t) (branch : Branch.Runtime.t) (status : Status.t) (path : Path.t) : t =
       let rec loop node path =
-        match get_child node ret_child.branch with
-        | Some target_child -> { node with children = Children.set_child node.children ret_child }
+        match get_child node branch with
+        | Some target_child -> { node with children = Children.set_child node.children { target_child with status } }
         | None -> begin (* didn't immediately find desired child, so continue down path *)
           match path with
           | branch :: tl -> 
@@ -246,7 +245,7 @@ and Children :
       match x, branch.direction with
       | Both { true_side = child ; _ }, Branch.Direction.True_direction
       | Both { false_side = child ; _ }, Branch.Direction.False_direction -> Child.is_valid_target child
-      | No_children, _ -> true (* no children *) 
+      | No_children, _ -> failwith "child does not exist" (* no children *) 
   end (* Children *)
 and Child : 
   CHILD with
@@ -281,8 +280,7 @@ and Child :
       | False_direction -> other_side, this_side
 
     let merge (a : t) (b : t) : t =
-      if Branch.Runtime.compare a.branch b.branch <> 0
-      then failwith "merging unequal branches";
+      assert (Branch.Runtime.compare a.branch b.branch = 0);
       { status = Status.merge a.status b.status
       ; constraints = Formula_set.union a.constraints b.constraints
       ; branch = a.branch }

@@ -336,6 +336,7 @@ and eval_clause
     | Not_body vy ->
       (* x = not y ; *)
       let v = Fetch.fetch_val_to_direct ~conc_session ~stk env vy in 
+      let y_stk = Fetch.fetch_stk ~conc_session ~stk env vy in
       let bv =
         match v with
         | Value_bool b -> Value_bool (not b)
@@ -344,7 +345,7 @@ and eval_clause
       let retv = Direct bv in
       Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
       let (Var (y, _)) = vy in
-      let y_key = make_key y stk in
+      let y_key = make_key y y_stk in
       retv, Session.Symbolic.add_not symb_session x_key y_key
     | Binary_operation_body (vy, op, vz) ->
       (* x = y op z *)
@@ -540,6 +541,8 @@ let[@landmark] test : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
         try
+          (* let cfg = { Global_config.default_config with log_level_concolic = Some Logs.Debug } in
+          Log.init cfg; *)
           let t0 = Caml_unix.gettimeofday () in
           let res, has_pruned =
             Lwt_main.run

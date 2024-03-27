@@ -1,0 +1,20 @@
+
+let is_nonempty ls = 
+  match ls with
+  | [] -> false
+  | _ -> true
+  end
+in
+
+let rec lastpair (x : {. List 'a | is_nonempty }) : {. List 'a | is_nonempty } =
+  match x with
+  | [] -> []
+  | h :: xs -> 
+    match xs with
+    | [] -> x
+    | _ -> lastpair xs
+    end
+  end
+in
+
+lastpair

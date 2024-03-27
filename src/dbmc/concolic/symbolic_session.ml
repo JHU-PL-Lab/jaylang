@@ -99,7 +99,7 @@ module Node_stack =
         : Target.t list
         =
         if Node.is_valid_target_child cur_node branch
-        then Target.create (Node.get_child_exn cur_node branch) path :: cur_targets
+        then Target.create branch path :: cur_targets
         else cur_targets
       in
       step [] tree total_path []
@@ -181,7 +181,6 @@ module Basic =
       match s.stack with
       | Last _ -> s (* `assume` found in global scope. We assume this is a test case that can't happen in real world translations to JIL *)
       | Cons (hd, tl) ->
-        let constraints = Formula_set.add_multi hd.constraints @@ Child.to_formulas hd in
         let new_hd =
           Child.{ status = Status.Failed_assume (* forget all formulas so that it is a possible target in future runs *)
                 ; constraints = Formula_set.add_multi hd.constraints @@ Child.to_formulas hd (* constrain to passing assume/assert *)
