@@ -158,20 +158,21 @@ module rec Node : (* serves as root node *)
       { x with formulas }
 
     let set_status (x : t) (branch : Branch.Runtime.t) (status : Status.t) (path : Path.t) : t =
-      let rec loop node path =
-        match get_child node branch with
-        | Some target_child -> { node with children = Children.set_child node.children { target_child with status } }
-        | None -> begin (* didn't immediately find desired child, so continue down path *)
-          match path with
-          | branch :: tl -> 
-            let old_child = get_child_exn node branch in (* is Hit next_node *)
-            let result_node = loop (Child.to_node_exn old_child) tl in 
-            let new_child = { old_child with status = Hit result_node } in (* must do this to keep constraints of old child *)
-            { node with children = Children.set_child node.children new_child }
-          | [] -> failwith "bad path in set status"
-        end
+      let rec loop node path d =
+        match path with
+        | [] -> begin (* at end of path, so target should be a child of this node *)
+          match get_child node branch with
+          | Some target_child ->
+            { node with children = Children.set_child node.children { target_child with status } }
+          | None -> failwith "bad path in set status"
+          end
+        | hd :: tl -> (* continue down path *)
+          let old_child = get_child_exn node hd in (* is Hit next_node *)
+          let result_node = loop (Child.to_node_exn old_child) tl (d + 1) in 
+          let new_child = { old_child with status = Hit result_node } in (* must do this to keep constraints of old child *)
+          { node with children = Children.set_child node.children new_child }
       in
-      loop x path
+      loop x path 1
   end (* Node *)
 and Children :
   CHILDREN with
