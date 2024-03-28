@@ -30,7 +30,7 @@ let[@landmarks] to_formulas ({ branch = target_branch ; path } : t) (root : Root
       let next_child = Node.get_child_exn node next_branch in
       trace_path
         (Child.to_formulas next_child @ acc)
-        (Child.to_node_exn next_child)
+        ((*Format.printf "Child is %s\n" (Branch.Runtime.to_string next_child.branch);*) Child.to_node_exn next_child)
         tl
     | [] ->
       let target = Node.get_child_exn node target_branch in

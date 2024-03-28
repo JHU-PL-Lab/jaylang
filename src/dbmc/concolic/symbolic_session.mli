@@ -6,6 +6,9 @@ type t
 val empty : t
 (** [empty] is a default symbolic session. *)
 
+val get_depth : t -> int
+(** [get_depth t] is the tree depth of [t]. *)
+
 val with_options : (t -> t) Concolic_options.Fun.t
 (** [with_options t] is [t] configured with the optional arguments. *)
 

@@ -181,10 +181,12 @@ module At_max_depth =
   struct
     type t =
       { last_branch : Branch.t 
+      ; cur_depth   : int
       ; base        : Basic.t }
 
     let of_basic (s : Basic.t) : t =
       { last_branch = Node_stack.hd_branch_exn s.stack
+      ; cur_depth = s.depth.cur_depth
       ; base = s }
 
     let with_options : (t -> t) Concolic_options.Fun.t =
@@ -231,6 +233,12 @@ type t =
 
 let empty : t = Basic Basic.empty
 
+let get_depth (x : t) : int =
+  match x with
+  | Basic s -> s.depth.cur_depth
+  | At_max_depth s -> s.cur_depth
+  | Finished _ -> failwith "cannot get depth from finished symbolic session"
+
 let with_options : (t -> t) Concolic_options.Fun.t =
   Concolic_options.Fun.make
   @@ fun (r : Concolic_options.t) -> fun (x : t) ->
@@ -254,7 +262,7 @@ let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
     ; stack = Node_stack.push s.stack branch
     ; depth = Depth_logic.incr s.depth }
   | Basic s -> At_max_depth (At_max_depth.of_basic s)
-  | At_max_depth a -> At_max_depth { a with last_branch = Branch.Runtime.to_ast_branch branch }
+  | At_max_depth a -> At_max_depth { a with last_branch = Branch.Runtime.to_ast_branch branch ; cur_depth = a.cur_depth + 1 }
   | Finished _ -> failwith "using finished symbolic session to hit branch"
 
 let found_assume (x : t) (cx : Concolic_key.Lazy2.t) : t =

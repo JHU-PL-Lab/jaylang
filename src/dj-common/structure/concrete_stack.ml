@@ -20,7 +20,8 @@ let of_string s = s |> Sexp.of_string |> t_of_sexp
 let to_list t = t.l
 let of_list l = { l ; n = List.length l ; d = 0 } (* TODO: d is unknown right now *)
 let push frame stk = { stk with l = frame :: stk.l ; n = stk.n + 1}
-let inc_depth stk = { stk with n = stk.n + 1 }
+(* let inc_depth stk = { stk with d = stk.d + 1 } *)
+let set_d d stk = { stk with d }
 let d { d ; _ } = d
 let equal_flip s1 s2 = equal ({ s1 with l = List.rev s1.l}) s2
 let length t = t.n

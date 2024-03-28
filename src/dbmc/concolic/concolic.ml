@@ -263,9 +263,11 @@ and eval_clause
 
       (* enter/hit branch *)
       let symb_session = Session.Symbolic.hit_branch symb_session this_branch in
+      let d = Session.Symbolic.get_depth symb_session in
 
       let e = if cond_bool then e1 else e2 in
-      let stk' = Concrete_stack.push (x, cond_fid cond_bool) stk |> Concrete_stack.inc_depth in
+      let stk' = Concrete_stack.push (x, cond_fid cond_bool) stk |> Concrete_stack.set_d (d + 1)  in
+      (* Format.printf "Just entered branch with depth %d\n" d; *)
 
       (* note that [conc_session] gets mutated when evaluating the branch *)
       let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session stk' env e in
