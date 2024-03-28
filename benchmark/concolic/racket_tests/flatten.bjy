@@ -1,5 +1,6 @@
 
 # flatten the input down to just a list of ints and bools
+# see comment in flatten function for why it's ill-typed
 
 let any = Mu tt. ( int || bool || List tt ) in
 let int_bool = ( int || bool ) in
