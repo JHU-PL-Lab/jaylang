@@ -11,6 +11,7 @@ end
 include T
 include Comparator.Make (T)
 
+let x ({ x ; _ } : t) : Jayil.Ast.ident = x
 let start (x : Id.t) block : t = { x; r_stk = Rstack.empty; block }
 let of3 x r_stk block = { x; r_stk; block }
 let without_block x r_stk = { x ; r_stk ; block = Dj_common.Cfg.{ id = x ; clauses = [] ; kind = Main } }

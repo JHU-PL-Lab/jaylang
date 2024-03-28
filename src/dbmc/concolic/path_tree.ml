@@ -181,7 +181,7 @@ and Children :
   struct
     type t = 
       | No_children
-      | Both of { true_side : Child.t ; false_side : Child.t ; branch_key : Lookup_key.t } [@@deriving compare]
+      | Both of { true_side : Child.t ; false_side : Child.t ; branch_key : Concolic_key.t } [@@deriving compare]
       (* Could have chosen to have only true or only false, but Status.Unsolved takes care of that. *)
 
     let size = function
@@ -219,13 +219,12 @@ and Children :
         | False_direction -> Both { r with false_side = Child.create node branch }
       end
 
-
     let merge (a : t) (b : t) : t =
       match a, b with
       | No_children, x
       | x, No_children -> x
       | Both a, Both b ->
-        if Lookup_key.compare a.branch_key b.branch_key <> 0
+        if Concolic_key.compare a.branch_key b.branch_key <> 0
         then failwith "unequal branches in merging children";
         Both
         { true_side = Child.merge a.true_side b.true_side
@@ -236,7 +235,7 @@ and Children :
       match x, branch.direction with
       | Both { true_side = child ; branch_key ; _ }, Branch.Direction.True_direction
       | Both { false_side = child ; branch_key ; _ }, Branch.Direction.False_direction ->
-          if Lookup_key.compare branch_key branch.branch_key <> 0
+          if Concolic_key.compare branch_key branch.branch_key <> 0
           then None
           else Some child
       | _ -> None

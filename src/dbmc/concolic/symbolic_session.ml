@@ -2,21 +2,6 @@
 open Core
 open Path_tree
 
-module Lazy_key =
-  struct
-    type t = unit -> Lookup_key.t    
-
-    let to_key (x : t) : Lookup_key.t =
-      x ()
-
-    let generate_lookup_key (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : Lookup_key.t =
-      Lookup_key.without_block x
-      @@ Rstack.from_concrete stk
-    
-    let make (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : t =
-      fun () -> generate_lookup_key x stk
-
-  end
 
 (* Node_stack is a stack of nodes that describes a path through the tree. This will be used by the symbolic session. *)
 module Node_stack =
@@ -170,11 +155,11 @@ module Basic =
       }
 
     (* require that cx is true by adding as formula *)
-    let found_assume (s : t) (cx : Lazy_key.t) : t =
+    let found_assume (s : t) (cx : Concolic_key.Lazy2.t) : t =
       match s.stack with
       | Last _ -> s (* `assume` found in global scope. We assume this is a test case that can't happen in real world translations to JIL *)
       | Cons (hd, tl) ->
-        let new_hd = Child.map_node hd ~f:(fun node -> Node.add_formula node @@ Riddler.eqv (cx ()) (Jayil.Ast.Value_bool true)) in
+        let new_hd = Child.map_node hd ~f:(fun node -> Node.add_formula node @@ Concolic_riddler.eqv (cx ()) (Jayil.Ast.Value_bool true)) in
         { s with stack = Cons (new_hd, tl) }
 
     let failed_assume (s : t) : t =
@@ -254,7 +239,6 @@ let with_options : (t -> t) Concolic_options.Fun.t =
     | At_max_depth s -> At_max_depth (Concolic_options.Fun.appl At_max_depth.with_options r s)
     | Finished s -> Finished (Concolic_options.Fun.appl Finished.with_options r s)
 
-
 (* [lazy_expr] does not get evaluated unless [x] is [Basic]. *)
 let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
   match x with
@@ -273,7 +257,7 @@ let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
   | At_max_depth a -> At_max_depth { a with last_branch = Branch.Runtime.to_ast_branch branch }
   | Finished _ -> failwith "using finished symbolic session to hit branch"
 
-let found_assume (x : t) (cx : Lazy_key.t) : t =
+let found_assume (x : t) (cx : Concolic_key.Lazy2.t) : t =
   match x with
   | Basic s -> Basic (Basic.found_assume s cx)
   | At_max_depth _ -> x
@@ -308,36 +292,36 @@ let add_basic_input (x : t) (i : Jil_input.t) : t =
   FORMULAS FOR BASIC JIL CLAUSES
   ------------------------------
 *)
-let add_key_eq_val (x : t) (key : Lazy_key.t) (v : Jayil.Ast.value) : t =
-  add_lazy_formula x @@ fun () -> Riddler.eq_term_v (key ()) (Some v)
+let add_key_eq_val (x : t) (key : Concolic_key.Lazy2.t) (v : Jayil.Ast.value) : t =
+  add_lazy_formula x @@ fun () -> Concolic_riddler.eq_term_v (key ()) (Some v)
 
-let add_alias (x : t) (key1 : Lazy_key.t) (key2 : Lazy_key.t) : t =
-  add_lazy_formula x @@ fun () -> Riddler.eq (key1 ()) (key2 ())
+let add_alias (x : t) (key1 : Concolic_key.Lazy2.t) (key2 : Concolic_key.Lazy2.t) : t =
+  add_lazy_formula x @@ fun () -> Concolic_riddler.eq (key1 ()) (key2 ())
 
-let add_binop (x : t) (key : Lazy_key.t) (op : Jayil.Ast.binary_operator) (left : Lazy_key.t) (right : Lazy_key.t) : t =
-  add_lazy_formula x @@ fun () -> Riddler.binop_without_picked (key ()) op (left ()) (right ())
+let add_binop (x : t) (key : Concolic_key.Lazy2.t) (op : Jayil.Ast.binary_operator) (left : Concolic_key.Lazy2.t) (right : Concolic_key.Lazy2.t) : t =
+  add_lazy_formula x @@ fun () -> Concolic_riddler.binop_without_picked (key ()) op (left ()) (right ())
 
-let add_input (x : t) (key : Lazy_key.t) (v : Dvalue.t) : t =
+let add_input (x : t) (key : Concolic_key.Lazy2.t) (v : Dvalue.t) : t =
   let key = key () in (* assume it's not that expensive to compute the key on inputs *)
   let n =
     match v with
     | Dvalue.Direct (Value_int n) -> n
     | _ -> failwith "non-int input" (* logically impossible *)
   in
-  add_basic_input x { clause_id = key.x ; input_value = n }
+  add_basic_input x { clause_id = Concolic_key.x key ; input_value = n }
   |> Fn.flip add_lazy_formula @@ fun () -> 
-    let Ident s = key.x in
+    let Ident s = Concolic_key.x key in
     Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n s);
-    Riddler.if_pattern key Jayil.Ast.Int_pattern
+    Concolic_riddler.if_pattern key Jayil.Ast.Int_pattern
 
-let add_not (x : t) (key1 : Lazy_key.t) (key2 : Lazy_key.t) : t =
-  add_lazy_formula x @@ fun () -> Riddler.not_ (key1 ()) (key2 ())
+let add_not (x : t) (key1 : Concolic_key.Lazy2.t) (key2 : Concolic_key.Lazy2.t) : t =
+  add_lazy_formula x @@ fun () -> Concolic_riddler.not_ (key1 ()) (key2 ())
 
-let add_match (x : t) (k : Lazy_key.t) (m : Lazy_key.t) (pat : Jayil.Ast.pattern) : t =
+let add_match (x : t) (k : Concolic_key.Lazy2.t) (m : Concolic_key.Lazy2.t) (pat : Jayil.Ast.pattern) : t =
   add_lazy_formula x
   @@ fun () ->
-    let k_expr = Riddler.key_to_var (k ()) in
-    Solver.SuduZ3.eq (Solver.SuduZ3.project_bool k_expr) (Riddler.if_pattern (m ()) pat)
+    let k_expr = Concolic_riddler.key_to_var (k ()) in
+    Solver.SuduZ3.eq (Solver.SuduZ3.project_bool k_expr) (Concolic_riddler.if_pattern (m ()) pat)
 
 (*
   -----------------

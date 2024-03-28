@@ -1,12 +1,5 @@
 open Path_tree
 
-module Lazy_key :
-  sig
-    type t
-    val to_key : t -> Lookup_key.t
-    val make : Jayil.Ast.ident -> Dj_common.Concrete_stack.t -> t
-  end
-
 type t
 (** [t] tracks symbolic representations of the program during interpretation. *)
 
@@ -22,22 +15,22 @@ val with_options : (t -> t) Concolic_options.Fun.t
   -----------
 *)
 
-val add_key_eq_val : t -> Lazy_key.t -> Jayil.Ast.value -> t
+val add_key_eq_val : t -> Concolic_key.Lazy2.t -> Jayil.Ast.value -> t
 (** [add_key_eq_val t k v] adds the formula that [k] has value [v] in [t]. *)
 
-val add_alias : t -> Lazy_key.t -> Lazy_key.t -> t
+val add_alias : t -> Concolic_key.Lazy2.t -> Concolic_key.Lazy2.t -> t
 (** [add_alias t k k'] adds the formula that [k] and [k'] hold the same value in [t]. *)
 
-val add_binop : t -> Lazy_key.t -> Jayil.Ast.binary_operator -> Lazy_key.t -> Lazy_key.t -> t
+val add_binop : t -> Concolic_key.Lazy2.t -> Jayil.Ast.binary_operator -> Concolic_key.Lazy2.t -> Concolic_key.Lazy2.t -> t
 (** [add_binop t x op left right] adds the formula that [x = left op right] in [t]. *)
 
-val add_input : t -> Lazy_key.t -> Dvalue.t -> t
+val add_input : t -> Concolic_key.Lazy2.t -> Dvalue.t -> t
 (** [add_input t x v] is [t] that knows input [x = v] was given. *)
 
-val add_not : t -> Lazy_key.t -> Lazy_key.t -> t
+val add_not : t -> Concolic_key.Lazy2.t -> Concolic_key.Lazy2.t -> t
 (** [add_not t x y] adds [x = not y] to [t]. *)
 
-val add_match : t -> Lazy_key.t -> Lazy_key.t -> Jayil.Ast.pattern -> t
+val add_match : t -> Concolic_key.Lazy2.t -> Concolic_key.Lazy2.t -> Jayil.Ast.pattern -> t
 (** [add_match t x y pat] adds [x = y ~ pat] to [t]. *)
 
 (*
@@ -49,7 +42,7 @@ val add_match : t -> Lazy_key.t -> Lazy_key.t -> Jayil.Ast.pattern -> t
 val hit_branch : t -> Branch.Runtime.t -> t
 (** [hit_branch t branch] is [t] that knows [branch] has been hit during interpretation. *)
 
-val found_assume : t -> Lazy_key.t -> t
+val found_assume : t -> Concolic_key.Lazy2.t -> t
 (** [found_assume t key] tells [t] that [key] is assumed to be true. *)
 
 val fail_assume : t -> t

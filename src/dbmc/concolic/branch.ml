@@ -1,12 +1,12 @@
 open Core
 open Jayil
 
-module Lookup_key = 
+(* module Lookup_key = 
   struct
     include Lookup_key
     (* Core.Map.Key expects t_of_sexp, so provide failing implementation *)
     let t_of_sexp _ = failwith "Lookup_key.t_of_sexp needed and not implemented"
-  end
+  end *)
 
 module Direction =
   struct
@@ -48,16 +48,6 @@ module T =
 
     let (^-) (Ast.Ident a) b = Ast.Ident (a ^ "-" ^ b)
 
-    let pick_abort (x : t) : Z3.Expr.expr =
-      (* hyphens aren't allowed in a variable name, so this is necessarily unique *)
-      let Ident s = (x.branch_ident ^- Direction.to_string x.direction) ^- "abort" in
-      Riddler.picked_string s
-
-    let pick_max_step (x : t) : Z3.Expr.expr =
-      (* hyphens aren't allowed in a variable name, so this is necessarily unique *)
-      let Ident s = (x.branch_ident ^- Direction.to_string x.direction) ^- "max-step" in
-      Riddler.picked_string s
-
   end
 
 include T
@@ -65,26 +55,26 @@ include T
 module Runtime =
   struct
     type t =
-      { branch_key    : Lookup_key.t
-      ; condition_key : Lookup_key.t
+      { branch_key    : Concolic_key.t
+      ; condition_key : Concolic_key.t
       ; direction     : Direction.t }
       [@@deriving compare, sexp, hash]
 
     let to_expr ({condition_key ; direction ; _ } : t) : Z3.Expr.expr =
-      Riddler.eqv condition_key (Direction.to_value_bool direction)
+      Concolic_riddler.eqv condition_key (Direction.to_value_bool direction)
 
     let to_ast_branch ({ branch_key ; direction ; _ } : t) : T.t =
-      T.{ branch_ident = branch_key.x ; direction }
+      T.{ branch_ident = Concolic_key.x branch_key ; direction }
 
     let to_string ({ branch_key ; condition_key ; direction } : t) : string =
-      Lookup_key.to_string branch_key
+      Concolic_key.to_string branch_key
       ^ "; condition: "
-      ^ Lookup_key.to_string condition_key
+      ^ Concolic_key.to_string condition_key
       ^ " = "
       ^ Direction.to_string direction
 
     let to_string_short ({ branch_key ; direction ; _ } : t) : string =
-      let Jayil.Ast.Ident s = branch_key.x in
+      let Jayil.Ast.Ident s = Concolic_key.x branch_key in
       s ^ " = " ^ Direction.to_string direction
 
     let other_direction (x : t) : t =
@@ -97,12 +87,4 @@ module Runtime =
         | Some target -> to_string target
       in 
       Format.printf "\nTarget branch: %s\n" target_branch_str
-
-    let pick_abort (x : t) : Z3.Expr.expr =
-      T.pick_abort
-      @@ to_ast_branch x
-
-    let pick_max_step (x : t) : Z3.Expr.expr =
-      T.pick_max_step
-      @@ to_ast_branch x
   end
