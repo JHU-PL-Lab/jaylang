@@ -27,7 +27,7 @@ module To_test = struct
              let a_i = syme_of_int i in
              let a_ip1 = syme_of_int (i + 1) in
              let a_ip2 = syme_of_int (i + 2) in
-             SuduZ3.(eq a_i (zplus a_ip1 a_ip2)))
+             SuduZ3.(mk_eq a_i (zplus a_ip1 a_ip2)))
     in
     let _ = Z3.Solver.add solver es in
 

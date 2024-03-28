@@ -201,7 +201,7 @@ let run_action dispatch unroll (state : Global_state.t)
           | Some phi_i -> add_phi @@ Riddler.list_append target i phi_i
           | None ->
               if not e.bounded
-              then add_phi (Riddler.list_append target i Riddler.false_)) ;
+              then add_phi (Riddler.list_append target i Riddler.ground_false)) ;
           match action_next with
           | Some key_src ->
               dispatch key_src ;
@@ -225,7 +225,7 @@ let run_action dispatch unroll (state : Global_state.t)
           | Some phi_i -> add_phi @@ Riddler.list_append target i phi_i
           | None ->
               if not e.bounded
-              then add_phi (Riddler.list_append target i Riddler.false_)) ;
+              then add_phi (Riddler.list_append target i Riddler.ground_false)) ;
           match action_next with
           | Some ds ->
               List.iter ds ~f:dispatch ;
@@ -386,10 +386,10 @@ module Make (S : S) = struct
         then (at_main key None, Leaf Complete)
         else (implies key key_first, first_but_drop key)
     | Assume p ->
-        ( Riddler.imply key [ K2 (key, p.x'); Z (p.x', SuduZ3.bool_ true) ],
+        ( Riddler.imply key [ K2 (key, p.x'); Z (p.x', Riddler.bool_ true) ],
           Leaf Complete )
     | Assert p ->
-        ( Riddler.imply key [ K2 (key, p.x'); Z (p.x', SuduZ3.bool_ true) ],
+        ( Riddler.imply key [ K2 (key, p.x'); Z (p.x', Riddler.bool_ true) ],
           Leaf Complete )
     | Mismatch -> (invalid key, Leaf Fail)
     | Abort p ->
@@ -399,10 +399,10 @@ module Make (S : S) = struct
     | Alias p -> (eq_lookup key p.x', Direct { pub = p.x' })
     | Not p -> (not_lookup key p.x', Map { pub = p.x'; map = Fn.const key })
     | Binop p -> (binop key p.bop p.x1 p.x2, Both { pub1 = p.x1; pub2 = p.x2 })
-    | Record_start p -> (true_, record_start_action p key)
+    | Record_start p -> (Riddler.ground_truth, record_start_action p key)
     | Cond_top p ->
         ( Riddler.imply key
-            [ K2 (key, p.x); Z (p.x2, SuduZ3.bool_ p.cond_case_info.choice) ],
+            [ K2 (key, p.x); Z (p.x2, Riddler.bool_ p.cond_case_info.choice) ],
           (* if Riddler.eager_check S.state S.config key_x2
              [ Riddler.(eqz key_x2 (bool_ choice)) ] *)
           Bind_like
@@ -413,14 +413,14 @@ module Make (S : S) = struct
             } )
     | Cond_btm p -> (cond_bottom key p.x' p.rets, cond_btm p key)
     | Fun_enter_local p -> (fun_enter_local key p, fun_enter_local_action p key)
-    | Fun_enter_nonlocal p -> (true_, fun_enter_nonlocal p key)
+    | Fun_enter_nonlocal p -> (Riddler.ground_truth, fun_enter_nonlocal p key)
     | Fun_exit p ->
         (fun_exit key p.xf p.fids S.state.info.block_map, fun_exit_action p key)
-    | Pattern p -> (true_, pattern_action p key)
+    | Pattern p -> (Riddler.ground_truth, pattern_action p key)
 end
 
 open Riddler
-open SuduZ3
+(* open Jil_solver *)
 
 (* Completion *)
 let complete_phis_of_rule (state : Global_state.t) key
@@ -443,7 +443,7 @@ let complete_phis_of_rule (state : Global_state.t) key
   | Record_start p -> imply_domain_with key detail.domain [ P p.r ]
   | Cond_top p ->
       imply_domain_with key detail.domain
-        [ P p.x; Z (p.x2, SuduZ3.bool_ p.cond_case_info.choice) ]
+        [ P p.x; Z (p.x2, Riddler.bool_ p.cond_case_info.choice) ]
   | Cond_btm p -> cond_bottom key p.x' p.rets
   | Fun_enter_local p ->
       let fid = key.block.id in
@@ -501,7 +501,8 @@ let complete_phis_of_rule (state : Global_state.t) key
               P key_r;
               Z
                 ( key,
-                  bool_ (Option.value_exn (Jayil.Ast.pattern_match p.pat rv)) );
+                  Riddler.bool_
+                    (Option.value_exn (Jayil.Ast.pattern_match p.pat rv)) );
             ])
       in
       choices key phi_choices

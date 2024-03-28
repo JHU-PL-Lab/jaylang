@@ -185,7 +185,7 @@ module DotPrinter_Make (S : GS) = struct
           | Some model ->
               let lookup_name = Lookup_key.to_string node.key in
               Logs.info (fun m -> m "lookup (to model) : %s" lookup_name) ;
-              Solver.SuduZ3.(get_value model (var_s lookup_name))
+              Riddler.(get_value model (var_s lookup_name))
         in
         let c_id =
           (* match node.rule with

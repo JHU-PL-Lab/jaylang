@@ -42,8 +42,8 @@ let interp_step_check ~(config : Global_config.t) ~(state : Global_state.t)
   let key_z = Riddler.key_to_var key in
   let eq_z =
     match v with
-    | Value_function _ -> Riddler.true_
-    | Value_record _ -> Riddler.true_
+    | Value_function _ -> Riddler.true_inj
+    | Value_record _ -> Riddler.true_inj
     | _ -> Riddler.eqv key v
   in
   state.solve.phis_staging <- key_picked :: eq_z :: state.solve.phis_staging ;

@@ -2,11 +2,43 @@ open Core
 open Dj_common
 open Jayil.Ast
 open Log.Export
-module SuduZ3 = Solver.SuduZ3
+
+let ctx = Z3.mk_context []
+
+module Jil_solver = Sudu.Z3_api.Make (struct
+  let ctx = ctx
+end)
+
+module Key_map = struct
+  type t = {
+    key_to_expr : (Lookup_key.t, Z3.Expr.expr) Hashtbl.t;
+    mutable next_key_i : int;
+  }
+  (** [t] is a mutable type to track how lookup keys relate to unique integers *)
+
+  let create () : t =
+    { key_to_expr = Hashtbl.create (module Lookup_key); next_key_i = 0 }
+
+  let clear (x : t) : unit =
+    Hashtbl.clear x.key_to_expr ;
+    x.next_key_i <- 0
+
+  (* mutates [x] if the key is not found *)
+  let get_expr (x : t) (key : Lookup_key.t) : Z3.Expr.expr =
+    match Hashtbl.find x.key_to_expr key with
+    | Some expr -> expr
+    | None ->
+        let expr = Jil_solver.var_i x.next_key_i in
+        (* make variable out of int *)
+        Hashtbl.set x.key_to_expr ~key ~data:expr ;
+        x.next_key_i <- x.next_key_i + 1 ;
+        (* mark key as used and update to next unused key *)
+        expr
+end
 
 module Key_to_var_dbmc = struct
   let keys = Key_map.create () (* Not used *)
-  let key_to_var key = key |> Lookup_key.to_string |> SuduZ3.var_s
+  let key_to_var key = key |> Lookup_key.to_string |> Jil_solver.var_s
 end
 
 module Key_to_var_concolic = struct
@@ -23,16 +55,16 @@ module type K = sig
 end
 
 module Make_shared (K : K) = struct
-  open SuduZ3
   include K
+  include Jil_solver
 
   type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
 
   exception Found_solution of result_info
 
   (* module states *)
-  let ctx = Solver.ctx
-  let top_stack = SuduZ3.var_s "Topstack"
+  (* let ctx = Jil_solver.ctx *)
+  let top_stack = Jil_solver.var_s "Topstack"
   let clear_keys () = Key_map.clear keys
   let counter = ref 0
 
@@ -41,25 +73,19 @@ module Make_shared (K : K) = struct
     clear_keys () ;
     Record_logic.clear_labels ()
 
-  (* Solver primitives *)
-
-  let ( @=> ) = SuduZ3.( @=> )
-  let true_ = box_bool true
-  let false_ = box_bool false
-  let bool_ = SuduZ3.bool_
-  let and_ = SuduZ3.and_
+  let ( @=> ) = Jil_solver.( @=> )
 
   (* Riddler primitives - no picked *)
 
   let not_ t t1 =
     let e = key_to_var t in
     let e1 = key_to_var t1 in
-    fn_not e e1
+    Jil_solver.fn_not e e1
 
   let stack_in_main r_stk =
-    SuduZ3.eq top_stack
+    Jil_solver.mk_eq top_stack
       (r_stk |> Rstack.concretize_top |> Concrete_stack.sexp_of_t
-     |> Sexp.to_string_mach |> SuduZ3.fun_)
+     |> Sexp.to_string_mach |> Jil_solver.fun_)
 
   let binop t op t1 t2 =
     let open Jayil.Ast in
@@ -68,46 +94,46 @@ module Make_shared (K : K) = struct
     let e2 = key_to_var t2 in
     let fop =
       match op with
-      | Binary_operator_plus -> fn_plus
-      | Binary_operator_minus -> fn_minus
-      | Binary_operator_times -> fn_times
-      | Binary_operator_divide -> fn_divide
-      | Binary_operator_modulus -> fn_modulus
-      | Binary_operator_less_than -> fn_lt
-      | Binary_operator_less_than_or_equal_to -> fn_le
-      | Binary_operator_equal_to -> fn_eq
+      | Binary_operator_plus -> Jil_solver.fn_plus
+      | Binary_operator_minus -> Jil_solver.fn_minus
+      | Binary_operator_times -> Jil_solver.fn_times
+      | Binary_operator_divide -> Jil_solver.fn_divide
+      | Binary_operator_modulus -> Jil_solver.fn_modulus
+      | Binary_operator_less_than -> Jil_solver.fn_lt
+      | Binary_operator_less_than_or_equal_to -> Jil_solver.fn_le
+      | Binary_operator_equal_to -> Jil_solver.fn_eq
       (* TODO: This might be buggy. Check later *)
-      | Binary_operator_not_equal_to -> fn_neq
-      | Binary_operator_and -> fn_and
-      | Binary_operator_or -> fn_or
+      | Binary_operator_not_equal_to -> Jil_solver.fn_neq
+      | Binary_operator_and -> Jil_solver.fn_and
+      | Binary_operator_or -> Jil_solver.fn_or
     in
     fop e e1 e2
 
-  let z_of_fid (Id.Ident fid) = SuduZ3.fun_ fid
-  let is_bool key = ifBool (key_to_var key)
+  let z_of_fid (Id.Ident fid) = Jil_solver.fun_ fid
+  let is_bool key = Jil_solver.ifBool (key_to_var key)
 
   (* let phi_of_value (key : Lookup_key.t) = function
      | Value_function _ -> z_of_fid key.x
-     | Value_int i -> SuduZ3.int_ i
-     | Value_bool i -> SuduZ3.bool_ i
-     | Value_record i -> SuduZ3.record_ (Lookup_key.to_string key) *)
+     | Value_int i -> Jil_solver.int_ i
+     | Value_bool i -> Jil_solver.bool_ i
+     | Value_record i -> Jil_solver.record_ (Lookup_key.to_string key) *)
 
   let phi_of_value (key : Lookup_key.t) = function
     | Value_function _ -> z_of_fid key.x
-    | Value_int i -> SuduZ3.int_ i
-    | Value_bool i -> SuduZ3.bool_ i
+    | Value_int i -> Jil_solver.int_ i
+    | Value_bool i -> Jil_solver.bool_ i
     | Value_record (Record_value m) ->
         m |> Ident_map.key_list
         |> Record_logic.create_bv_from_labels ~are_labels_predefined:false
-        |> SuduZ3.record_
+        |> Jil_solver.record_
 
   let phi_of_value_opt (key : Lookup_key.t) = function
     | Some v -> phi_of_value key v
     | None -> key_to_var key
 
-  let eqv key v = SuduZ3.eq (key_to_var key) (phi_of_value key v)
-  let eq key key' = SuduZ3.eq (key_to_var key) (key_to_var key')
-  let eqz key v = SuduZ3.eq (key_to_var key) v
+  let eqv key v = Jil_solver.mk_eq (key_to_var key) (phi_of_value key v)
+  let eq key key' = Jil_solver.mk_eq (key_to_var key) (key_to_var key')
+  let eqz key v = Jil_solver.mk_eq (key_to_var key) v
 
   (* Riddler primitives - with picked *)
 
@@ -116,20 +142,20 @@ module Make_shared (K : K) = struct
     (* Rstack.to_string key.r_stk  *)
     ^ "_"
     ^ string_of_int i
-    |> SuduZ3.mk_bool_s
+    |> Jil_solver.mk_bool_s
 
   let picked (key : Lookup_key.t) =
-    "P_" ^ Lookup_key.to_string key |> SuduZ3.mk_bool_s
+    "P_" ^ Lookup_key.to_string key |> Jil_solver.mk_bool_s
 
-  let picked_string (s : string) = "P_" ^ s |> SuduZ3.mk_bool_s
+  let picked_string (s : string) = "P_" ^ s |> Jil_solver.mk_bool_s
   let list_head key = picked key @=> pick_key_list key 0
 
   let list_append key i ele =
-    pick_key_list key i @=> or_ [ ele; pick_key_list key (i + 1) ]
+    pick_key_list key i @=> Jil_solver.or_ [ ele; pick_key_list key (i + 1) ]
 
   let is_picked model key =
     Option.value_map model ~default:false ~f:(fun model ->
-        Option.value (SuduZ3.get_bool model (picked key)) ~default:true)
+        Option.value (Jil_solver.get_bool model (picked key)) ~default:true)
 
   (* A lightweight DSL to simplify constraint encoding.
       This usually suggests a double-layered constraint encoding is probably better
@@ -144,7 +170,8 @@ module Make_shared (K : K) = struct
     | Phi of Z3.Expr.expr
 
   let eq_domain k kvs =
-    or_ (List.map kvs ~f:(fun kv -> and_ [ eq k kv; picked kv ]))
+    Jil_solver.or_
+      (List.map kvs ~f:(fun kv -> Jil_solver.and_ [ eq k kv; picked kv ]))
 
   let eq_list es =
     List.map es ~f:(function
@@ -154,11 +181,11 @@ module Make_shared (K : K) = struct
       | D (k, kvs) -> [ eq_domain k kvs ]
       | P k -> [ picked k ]
       | Phi p -> [ p ])
-    |> List.concat |> and_
+    |> List.concat |> Jil_solver.and_
 
-  let imply k pe = picked k @=> and_ [ eq_list pe ]
-  let choices k pes = picked k @=> or_ (List.map pes ~f:eq_list)
-  let invalid key = imply key [ Phi (box_bool false) ]
+  let imply k pe = picked k @=> Jil_solver.and_ [ eq_list pe ]
+  let choices k pes = picked k @=> Jil_solver.or_ (List.map pes ~f:eq_list)
+  let invalid key = imply key [ Phi (Jil_solver.box_bool false) ]
   let implies key key' = imply key [ P key' ]
   let implies_v key key' v = imply key [ P key'; Z (key, phi_of_value key v) ]
   let not_lookup t t1 = imply t [ P t1; Phi (not_ t t1) ]
@@ -184,8 +211,6 @@ end
 
 module V_dbmc = struct
   include Make_shared (Key_to_var_dbmc)
-  module SuduZ3 = Solver.SuduZ3
-  open SuduZ3
   (* OB1: For some patterns, we can immediately know the result of the matching:
      when the returning value is a literal value. We can use it in the interpreter.
      We lose this information when the lookup go through a conditional block or
@@ -199,12 +224,12 @@ module V_dbmc = struct
     let x = key_to_var term in
     let open Jayil.Ast in
     match pat with
-    | Fun_pattern -> ifFun x
-    | Int_pattern -> ifInt x
-    | Bool_pattern -> ifBool x
-    | Rec_pattern _ -> ifRecord x
-    | Strict_rec_pattern _ -> ifRecord x
-    | Any_pattern -> true_
+    | Fun_pattern -> Jil_solver.ifFun x
+    | Int_pattern -> Jil_solver.ifInt x
+    | Bool_pattern -> Jil_solver.ifBool x
+    | Rec_pattern _ -> Jil_solver.ifRecord x
+    | Strict_rec_pattern _ -> Jil_solver.ifRecord x
+    | Any_pattern -> Jil_solver.ground_truth
 
   let pattern x x' key_rv rv pat =
     LS2Log.debug (fun m ->
@@ -213,16 +238,20 @@ module V_dbmc = struct
 
     let value_matched = Jayil.Ast.pattern_match pat rv in
     let matching_result =
-      match value_matched with Some b -> [ Z (x, bool_ b) ] | None -> []
+      match value_matched with
+      | Some b -> [ Z (x, Jil_solver.bool_ b) ]
+      | None -> []
     in
     let type_pattern = if_pattern x' pat in
     let value_pattern =
       if Jayil.Ast.is_record_pattern pat
       then
         match value_matched with
-        | Some v -> SuduZ3.inject_bool (and2 type_pattern (box_bool v))
-        | None -> SuduZ3.inject_bool type_pattern
-      else SuduZ3.inject_bool type_pattern
+        | Some v ->
+            Jil_solver.inject_bool
+              (Jil_solver.and2 type_pattern (Jil_solver.box_bool v))
+        | None -> Jil_solver.inject_bool type_pattern
+      else Jil_solver.inject_bool type_pattern
     in
     imply x
       ([
@@ -234,12 +263,12 @@ module V_dbmc = struct
       @ matching_result)
 
   let cond_top key key_x key_c beta =
-    imply key [ K2 (key, key_x); Z (key_c, SuduZ3.bool_ beta) ]
+    imply key [ K2 (key, key_x); Z (key_c, Jil_solver.bool_ beta) ]
 
   let cond_bottom key key_c rets =
     let es =
       List.map rets ~f:(fun (beta, key_ret) ->
-          [ K2 (key, key_ret); Z (key_c, bool_ beta) ])
+          [ K2 (key, key_ret); Z (key_c, Jil_solver.bool_ beta) ])
     in
     choices key es
 
@@ -265,7 +294,8 @@ module V_concolic = struct
 
   (* used by concolic interpreter *)
   (* OBSOLETE *)
-  let eq_fid term (Id.Ident fid) = SuduZ3.eq (key_to_var term) (SuduZ3.fun_ fid)
+  let eq_fid term (Id.Ident fid) =
+    Jil_solver.mk_eq (key_to_var term) (Jil_solver.fun_ fid)
 
   let eq_term_v term v =
     match v with
@@ -276,28 +306,27 @@ module V_concolic = struct
     (* Ast.Input_body *)
     | None -> eq term term
 
-  open SuduZ3
   (* Pattern *)
 
   let if_pattern term pat =
     let x = key_to_var term in
     let open Jayil.Ast in
     match pat with
-    | Fun_pattern -> ifFun x
-    | Int_pattern -> ifInt x
-    | Bool_pattern -> ifBool x
+    | Fun_pattern -> Jil_solver.ifFun x
+    | Int_pattern -> Jil_solver.ifInt x
+    | Bool_pattern -> Jil_solver.ifBool x
     | Rec_pattern label_set ->
         let sub_bv =
           Record_logic.create_bv_from_labels ~are_labels_predefined:false
             (Ident_set.to_list label_set)
         in
         (* this bitvector should be contained within the record's bv *)
-        let projected = SuduZ3.project_record (SuduZ3.record_ sub_bv) in
-        SuduZ3.and_
+        let projected = Jil_solver.project_record (Jil_solver.record_ sub_bv) in
+        Jil_solver.and_
           [
-            ifRecord x;
-            SuduZ3.eq projected
-              (Z3.BitVector.mk_and ctx projected (SuduZ3.project_record x));
+            Jil_solver.ifRecord x;
+            Jil_solver.mk_eq projected
+              (Z3.BitVector.mk_and ctx projected (Jil_solver.project_record x));
           ]
     | Strict_rec_pattern label_set ->
         let eq_bv =
@@ -305,15 +334,15 @@ module V_concolic = struct
             (Ident_set.to_list label_set)
         in
         (* the record's bv should be exactly this *)
-        let desired_record = SuduZ3.record_ eq_bv in
-        SuduZ3.and_
+        let desired_record = Jil_solver.record_ eq_bv in
+        Jil_solver.and_
           [
-            ifRecord x;
-            SuduZ3.eq
-              (SuduZ3.project_record desired_record)
-              (SuduZ3.project_record x);
+            Jil_solver.ifRecord x;
+            Jil_solver.mk_eq
+              (Jil_solver.project_record desired_record)
+              (Jil_solver.project_record x);
           ]
-    | Any_pattern -> true_
+    | Any_pattern -> Jil_solver.ground_truth
 end
 
 include V_concolic

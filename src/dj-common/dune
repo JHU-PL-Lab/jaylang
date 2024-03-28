@@ -21,7 +21,8 @@
   jay
   jayil
   jayil_parser
-  jay_translate)
+  jay_translate
+  sudu)
  (synopsis "dj-common is common data structures")
  (preprocess
   (pps

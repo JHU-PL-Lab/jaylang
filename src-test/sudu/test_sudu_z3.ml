@@ -61,7 +61,7 @@ module To_test = struct
   let put_get_eval_int i =
     let x = var_s "x" in
     let e1 = int_ i in
-    let eq_x_e1 = eq x e1 in
+    let eq_x_e1 = mk_eq x e1 in
     let status = Z3.Solver.check solver [ eq_x_e1 ] in
     let model = get_model_exn solver status in
     (* dump_model model; *)
@@ -72,7 +72,7 @@ module To_test = struct
   let put_get_const_interp_int i =
     let x = var_s "x" in
     let e1 = int_ i in
-    let model = get_model_exn solver @@ Z3.Solver.check solver [ eq x e1 ] in
+    let model = get_model_exn solver @@ Z3.Solver.check solver [ mk_eq x e1 ] in
     (* dump_model model; *)
     let v = Option.value_exn (Z3.Model.get_const_interp_e model x) in
     v |> project_int |> simplify |> unbox_int
@@ -81,7 +81,7 @@ module To_test = struct
     let x = var_s "x" in
     let e1 = int_ i in
     let model =
-      get_model_exn solver @@ Z3.Solver.check solver [ not_ @@ eq x e1 ]
+      get_model_exn solver @@ Z3.Solver.check solver [ mk_not @@ mk_eq x e1 ]
     in
     (* dump_model model; *)
     let v = Option.value_exn (Z3.Model.get_const_interp_e model x) in
@@ -172,7 +172,7 @@ module To_test = struct
   let add_int i =
     let x = Z3.Arithmetic.Integer.mk_const_s ctx "x" in
     let e1 = box_int i in
-    let phi = eq x e1 in
+    let phi = mk_eq x e1 in
     Z3.Solver.add solver [ phi ] ;
     let _status = Z3.Solver.check solver [] in
     Z3.Solver.reset solver ;
@@ -181,7 +181,7 @@ module To_test = struct
   let add_bool b =
     let x = Z3.Boolean.mk_const_s ctx "x" in
     let e1 = box_bool b in
-    let phi = eq x e1 in
+    let phi = mk_eq x e1 in
     Z3.Solver.add solver [ phi ] ;
     let _status = Z3.Solver.check solver [] in
     Z3.Solver.reset solver ;
@@ -204,7 +204,7 @@ module To_test = struct
     let ix = inject_int x in
     let y = var_s "y" in
     let by = inject_bool y in
-    let phi = eq ix by in
+    let phi = mk_eq ix by in
     Z3.Solver.add solver [ phi ] ;
     (* let status = Z3.Solver.check solver [ phi ] in
        is_unsat status *)
@@ -215,18 +215,18 @@ module To_test = struct
     let ix = ifInt x in
     let y = var_s "y" in
     let by = ifBool y in
-    let phi = eq x y in
+    let phi = mk_eq x y in
     let status = Z3.Solver.check solver [ ix; by; phi ] in
     is_unsat status
 
   (* x = 3; y = x ~ int *)
   let pattern_check_true () =
     let x = var_s "x" in
-    let phi_x = eq x (int_ 3) in
+    let phi_x = mk_eq x (int_ 3) in
     let ix = ifInt x in
     let y = var_s "y" in
     let by = ifBool y in
-    let phi = eq (project_bool y) ix in
+    let phi = mk_eq (project_bool y) ix in
     let phi_y = project_bool y in
     let status = Z3.Solver.check solver [ ix; by; phi_x; phi; phi_y ] in
     is_sat status
@@ -234,40 +234,40 @@ module To_test = struct
   (* x = true; y = x ~ int *)
   let pattern_check_false () =
     let x = var_s "x" in
-    let phi_x = eq x (bool_ true) in
+    let phi_x = mk_eq x (bool_ true) in
     let ix = ifInt x in
     let y = var_s "y" in
     let by = ifBool y in
-    let phi = eq (project_bool y) ix in
+    let phi = mk_eq (project_bool y) ix in
     let phi_y = project_bool y in
-    let status = Z3.Solver.check solver [ by; phi_x; phi; not_ phi_y ] in
+    let status = Z3.Solver.check solver [ by; phi_x; phi; mk_not phi_y ] in
     is_sat status
 
   (* x = 3; c = x ~ int; z = ite c 1 2 *)
   let pattern_cond_true () =
     let x = var_s "x" in
-    let phi_x = eq x (int_ 3) in
+    let phi_x = mk_eq x (int_ 3) in
     let c = var_s "c" in
     let bc = ifBool c in
     let ix = ifInt x in
-    let phi_c = eq (project_bool c) ix in
+    let phi_c = mk_eq (project_bool c) ix in
     let z = var_s "z" in
-    let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
-    let z1 = eq z (int_ 1) in
+    let phi_z = mk_eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
+    let z1 = mk_eq z (int_ 1) in
     let status = Z3.Solver.check solver [ phi_x; bc; phi_c; phi_z; z1 ] in
     is_sat status
 
   (* x = true; c = x ~ int; z = ite c 1 2 *)
   let pattern_cond_false () =
     let x = var_s "x" in
-    let phi_x = eq x true_ in
+    let phi_x = mk_eq x true_inj in
     let c = var_s "c" in
     let bc = ifBool c in
     let ix = ifInt x in
-    let phi_c = eq (project_bool c) ix in
+    let phi_c = mk_eq (project_bool c) ix in
     let z = var_s "z" in
-    let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
-    let z2 = eq z (int_ 2) in
+    let phi_z = mk_eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
+    let z2 = mk_eq z (int_ 2) in
     let status = Z3.Solver.check solver [ phi_x; bc; phi_c; phi_z; z2 ] in
     is_sat status
 
@@ -278,10 +278,10 @@ module To_test = struct
     let valid_x = box_bool true in
     let c = var_s "c" in
     let bc = ifBool c in
-    let phi_c = eq (project_bool c) (and2 rx valid_x) in
+    let phi_c = mk_eq (project_bool c) (and2 rx valid_x) in
     let z = var_s "z" in
-    let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
-    let z1 = eq z (int_ 1) in
+    let phi_z = mk_eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
+    let z1 = mk_eq z (int_ 1) in
     let status = Z3.Solver.check solver [ rx; bc; phi_c; phi_z; z1 ] in
     is_sat status
 
@@ -292,10 +292,10 @@ module To_test = struct
     let valid_x = box_bool false in
     let c = var_s "c" in
     let bc = ifBool c in
-    let phi_c = eq (project_bool c) (and2 rx valid_x) in
+    let phi_c = mk_eq (project_bool c) (and2 rx valid_x) in
     let z = var_s "z" in
-    let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
-    let z2 = eq z (int_ 2) in
+    let phi_z = mk_eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
+    let z2 = mk_eq z (int_ 2) in
     let status = Z3.Solver.check solver [ rx; bc; phi_c; phi_z; z2 ] in
     is_sat status
 
@@ -305,10 +305,10 @@ module To_test = struct
     let valid_x = box_bool true in
     let c = var_s "c" in
     let bc = ifBool c in
-    let phi_c = eq c (inject_bool (and2 rx valid_x)) in
+    let phi_c = mk_eq c (inject_bool (and2 rx valid_x)) in
     let z = var_s "z" in
-    let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
-    let z1 = eq z (int_ 1) in
+    let phi_z = mk_eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
+    let z1 = mk_eq z (int_ 1) in
     let status = Z3.Solver.check solver [ rx; bc; phi_c; phi_z; z1 ] in
     is_sat status
 
@@ -319,10 +319,10 @@ module To_test = struct
     let valid_x = box_bool false in
     let c = var_s "c" in
     let bc = ifBool c in
-    let phi_c = eq c (inject_bool (and2 rx valid_x)) in
+    let phi_c = mk_eq c (inject_bool (and2 rx valid_x)) in
     let z = var_s "z" in
-    let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
-    let z2 = eq z (int_ 2) in
+    let phi_z = mk_eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
+    let z2 = mk_eq z (int_ 2) in
     let status = Z3.Solver.check solver [ rx; bc; phi_c; phi_z; z2 ] in
     is_sat status
 end

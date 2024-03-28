@@ -47,9 +47,11 @@ module Make (S : S) = struct
   let rule_main vo (key : Lookup_key.t) _phis =
     let target_stk = Rstack.concretize_top key.r_stk in
     let phi =
-      Riddler.(
-        and_
-          [ Riddler.stack_in_main key.r_stk; eqz key (phi_of_value_opt key vo) ])
+      Riddler.and_
+        [
+          Riddler.stack_in_main key.r_stk;
+          Riddler.eqz key (Riddler.phi_of_value_opt key vo);
+        ]
     in
     let phis = S.add_phi key phi Phi_set.empty in
     U.set S.unroll key
@@ -130,12 +132,12 @@ module Make (S : S) = struct
     S.run_task key_x2 phis_top ;
 
     let cb key (rc : Ddse_result.t) =
-      let phi_c = Riddler.(eqz rc.v (bool_ beta)) in
+      let phi_c = Riddler.(eqz rc.v (Riddler.bool_ beta)) in
       let phis_top_with_c = Phi_set.(add (union rc.phis phis_top) phi_c) in
       (* (match Riddler.check_phis (Phi_set.to_list phis_top_with_c) false with
          | Some _ -> *)
       S.run_task key_x phis_top_with_c ;
-      let phi = Riddler.(eqz key_x2 (bool_ beta)) in
+      let phi = Riddler.(eqz key_x2 (Riddler.bool_ beta)) in
       let choice_beta = (key_x2, beta) in
       U.set S.unroll key
         (U.filter_map S.unroll key_x
@@ -153,7 +155,7 @@ module Make (S : S) = struct
 
     let cb (this_key : Lookup_key.t) (rc : Ddse_result.t) =
       List.iter rets ~f:(fun (beta, key_ret) ->
-          let phi_beta = Riddler.(eqz rc.v (bool_ beta)) in
+          let phi_beta = Riddler.(eqz rc.v (Riddler.bool_ beta)) in
           let phis_top_with_c =
             Phi_set.(add (union rc.phis phis_top) phi_beta)
           in
@@ -208,7 +210,12 @@ module Make (S : S) = struct
         ~f:(fun sub_trees (key_f, key_arg) ->
           S.run_task key_f phis_top ;
           let phi =
-            Riddler.(and_ [ eqz key_f (z_of_fid fid); eq key key_arg ])
+            Riddler.(
+              and_
+                [
+                  Riddler.eqz key_f (Riddler.z_of_fid fid);
+                  Riddler.eq key key_arg;
+                ])
           in
           let choice_f = Decision.make key_f.r_stk key_f.block.id in
           let cb key (rf : Ddse_result.t) =
@@ -270,7 +277,12 @@ module Make (S : S) = struct
           let fblock = Ident_map.find fid S.block_map in
           let key_ret = Lookup_key.get_f_return S.block_map fid this_key in
           let phi =
-            Riddler.(and_ [ eqz xf (z_of_fid fid); eq key_ret this_key ])
+            Riddler.(
+              and_
+                [
+                  Riddler.eqz xf (Riddler.z_of_fid fid);
+                  Riddler.eq key_ret this_key;
+                ])
           in
           let cb (key : Lookup_key.t) (rf : Ddse_result.t) =
             let fid' = rf.v.x in
@@ -296,12 +308,12 @@ module Make (S : S) = struct
   let assume _p _key _phis_top = ()
 
   let assert_ _p this_key phis_top =
-    let _phis' = S.add_phi this_key Riddler.false_ phis_top in
+    let _phis' = S.add_phi this_key Riddler.ground_false phis_top in
     ()
 
   let abort _p _key _phis_top = ()
 
   let mismatch this_key phis =
-    let _phis' = S.add_phi this_key Riddler.false_ phis in
+    let _phis' = S.add_phi this_key Riddler.ground_false phis in
     ()
 end

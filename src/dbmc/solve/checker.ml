@@ -2,10 +2,19 @@ open Core
 open Dj_common
 module Riddler = Riddler.V_dbmc
 open Riddler
-open SuduZ3
+
+(* open Solver *)
 open Log.Export
 
 let flush_staging_phis (state : Global_state.t) =
+  (* let exp_debug = ref Riddler.ground_truth in
+     try
+       List.iter state.solve.phis_staging ~f:(fun exp ->
+           exp_debug := exp ;
+           Z3.Solver.add state.solve.solver [ exp ])
+     with ex ->
+       Fmt.pr "<=flushing@. %s @." (Z3.Expr.to_string !exp_debug) ;
+       ignore @@ raise ex ; *)
   Z3.Solver.add state.solve.solver state.solve.phis_staging ;
   Global_state.clear_phis state
 
@@ -18,14 +27,14 @@ let log_phis ?(prompt = "") phis =
 let log_solver ?(prompt = "") solver =
   SLog.debug (fun m ->
       m "Solver Phis %s (%d) : %s" prompt
-        (Solver.get_assertion_count solver)
-        (Solver.string_of_solver solver))
+        (Riddler.get_assertion_count solver)
+        (Riddler.string_of_solver solver))
 
 let log_model model =
   SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
 
 let check_and_log ?(verbose = true) ?(is_debug = true) solver phi_used_once =
-  let check_result = Solver.check ~verbose solver [] phi_used_once in
+  let check_result = Riddler.check ~verbose solver [] phi_used_once in
   let log_phis_here () =
     if verbose
     then (
@@ -46,15 +55,15 @@ let check_and_log ?(verbose = true) ?(is_debug = true) solver phi_used_once =
 
 let close_smt_list smt_list =
   Hashtbl.to_alist smt_list
-  |> List.map ~f:(fun (key, i) -> SuduZ3.not_ (pick_key_list key i))
+  |> List.map ~f:(fun (key, i) -> Riddler.mk_not (pick_key_list key i))
 
 let lead_smt_list smt_list target =
   Hashtbl.to_alist smt_list
   |> List.map ~f:(fun (_key, _i) ->
-         picked target (* SuduZ3.not_ (pick_key_list key i) *))
+         picked target (* Riddler.mk_not (pick_key_list key i) *))
 
 let close_unfinished_lookups lookups =
-  lookups |> List.map ~f:(fun key -> Solver.SuduZ3.not_ (picked key))
+  lookups |> List.map ~f:(fun key -> Riddler.mk_not (picked key))
 
 let lead_unfinished_lookups lookups target =
   lookups
@@ -106,7 +115,7 @@ let check_shrink (state : Global_state.t) (config : Global_config.t) :
 
   log_solver ~prompt:"One" state.solve.solver ;
 
-  Solver.reset state.solve.solver ;
+  Riddler.reset_solver state.solve.solver ;
   SLog.debug (fun m -> m "Two") ;
   List.iter detail_lst ~f:(fun (key, detail) ->
       let phis =
@@ -145,7 +154,7 @@ let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
     match solver_result with
     | Result.Ok model ->
         if config.debug_model then log_model model ;
-        let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
+        let c_stk_mach = Riddler.(get_unbox_fun_exn model top_stack) in
         let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
         Some { model; c_stk }
     | Result.Error _exps -> None
@@ -154,7 +163,7 @@ let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
      {
        total_phis =
          List.length state.solve.phis_added + List.length phi_used_once;
-       solver_resource = Solver.get_rlimit state.solve.solver;
+       solver_resource = Riddler.get_rlimit state.solve.solver;
      }
    in
    state.stat.check_infos <- this_check_info :: state.stat.check_infos) ;
@@ -210,7 +219,7 @@ let check_phis solver phis is_debug : result_info option =
             m "Phis: %a"
               Fmt.(Dump.list string)
               (List.map ~f:Z3.Expr.to_string phis)) ;
-      let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
+      let c_stk_mach = Riddler.get_unbox_fun_exn model top_stack in
       let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
       print_endline @@ Concrete_stack.show c_stk ;
       Some { model; c_stk }
@@ -232,7 +241,7 @@ let check_phis solver phis is_debug : result_info option =
 let query_model model target_stack (x, call_stack) : int option =
   let stk = Rstack.relativize target_stack call_stack in
   let name = Lookup_key.to_str2 x stk in
-  Solver.SuduZ3.get_int_s model name
+  Riddler.get_int_s model name
 
 let input_feeder ?(history = ref []) model target_stack : Input_feeder.t =
   let input_feeder = query_model model target_stack in
@@ -247,8 +256,8 @@ let check_expected_input_sat target_stk history solver =
         Option.map r ~f:(fun i ->
             let stk = Rstack.relativize target_stk stk in
             let name = Lookup_key.to_str2 x stk in
-            let zname = SuduZ3.var_s name in
-            SuduZ3.eq zname (SuduZ3.int_ i)))
+            let zname = Riddler.var_s name in
+            Riddler.mk_eq zname (Riddler.int_ i)))
   in
 
-  Result.is_ok (SuduZ3.check_with_assumption solver input_phis)
+  Result.is_ok (Riddler.check_with_assumption solver input_phis)

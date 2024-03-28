@@ -8,8 +8,28 @@ end
 module Make_helper (C : Context) = struct
   open C
 
+  let set_timeout_sec sec =
+    match sec with
+    | None -> ()
+    | Some sec ->
+        let time_s =
+          sec |> Time_float.Span.to_sec |> Float.iround_up_exn |> fun t ->
+          t * 1000 |> string_of_int
+        in
+        Params.update_param_value ctx "timeout" time_s
+
+  let reset_solver solver = Solver.reset solver
+
   (* clone by translating to the same context *)
   let clone_solver solver = Solver.translate solver ctx
+  let string_of_solver solver = Solver.to_string solver
+  let get_assertion_count solver = List.length (Solver.get_assertions solver)
+
+  let get_rlimit solver =
+    let stat = Z3.Solver.get_statistics solver in
+    let r = Z3.Statistics.get stat "rlimit count" in
+    let rv = Option.value_exn r in
+    Z3.Statistics.Entry.get_int rv
 
   let dump e =
     let es = Expr.to_string e in
@@ -74,6 +94,11 @@ module Make_helper (C : Context) = struct
         failwith
         @@ Printf.sprintf "[check_and_get_model] Unknown result in solve: %s"
              (Solver.get_reason_unknown solver)
+
+  let check ?(verbose = true) solver phis phi_used_once =
+    let _ = verbose in
+    Solver.add solver phis ;
+    check_with_assumption solver phi_used_once
 end
 
 module Make_basic_to_z3_basic (C : Context) = struct
@@ -92,12 +117,12 @@ module Make_basic_to_z3_basic (C : Context) = struct
   let and_ = Boolean.mk_and ctx
   let join = and_
   let or_ = Boolean.mk_or ctx
-  let not_ = Boolean.mk_not ctx
+  let mk_not = Boolean.mk_not ctx
   let implies = Boolean.mk_implies ctx
   let and2 e1 e2 = Boolean.mk_and ctx [ e1; e2 ]
   let or2 e1 e2 = Boolean.mk_or ctx [ e1; e2 ]
-  let eq = Boolean.mk_eq ctx
-  let neq e1 e2 = not_ @@ eq e1 e2
+  let mk_eq = Boolean.mk_eq ctx
+  let mk_neq e1 e2 = mk_not @@ mk_eq e1 e2
   let ite = Boolean.mk_ite ctx
   let ( @=> ) = implies
 

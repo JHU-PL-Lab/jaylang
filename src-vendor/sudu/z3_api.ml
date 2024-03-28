@@ -20,6 +20,13 @@ type case = Int_case | Bool_case | Fun_case | Record_case
      ```
   *)
 
+(* type value = Sudu.Z3_api.plain =
+     | Int of int [@printer Fmt.int]
+     | Bool of bool [@printer Fmt.bool]
+     | Fun of string [@printer Fmt.string]
+     | Record of int [@printer Fmt.int] (* int is bitvector *)
+   [@@deriving sexp, compare, equal, show { with_path = false }] *)
+
 module Make_z3_datatype (C : Context) = struct
   open C
 
@@ -39,19 +46,19 @@ module Make_z3_datatype (C : Context) = struct
       [ Some intS ] [ 1 ]
 
   let boolC =
-    Datatype.mk_constructor_s ctx "Bool"
+    Datatype.mk_constructor_s ctx "J_bool"
       (Symbol.mk_string ctx "is-Bool")
       [ Symbol.mk_string ctx "b" ]
       [ Some boolS ] [ 1 ]
 
   let funC =
-    Datatype.mk_constructor_s ctx "Fun"
+    Datatype.mk_constructor_s ctx "J_fun"
       (Symbol.mk_string ctx "is-Fun")
       [ Symbol.mk_string ctx "fid" ]
       [ Some strS ] [ 1 ]
 
   let recordC =
-    Datatype.mk_constructor_s ctx "Record"
+    Datatype.mk_constructor_s ctx "J_record"
       (Symbol.mk_string ctx "is-Record")
       [ Symbol.mk_string ctx "r" ]
       [ Some bvS ] [ 1 ]
@@ -123,9 +130,12 @@ module Make_datatype_builders (C : Context) = struct
 
   (* z3 basic to this datatype *)
 
-  let true_ = bool_ true
-  let false_ = bool_ false
-  let ground_truth = eq true_ true_
+  let true_inj = bool_ true
+  let false_inj = bool_ false
+
+  (* let ground_truth = mk_eq true_inj true_inj *)
+  let ground_truth = box_bool true
+  let ground_false = box_bool false
   let var_s n = Expr.mk_const_s ctx n valS
   let var_sym n = Expr.mk_const ctx n valS
   let var_i i = Expr.mk_const ctx (Symbol.mk_int ctx i) valS
@@ -181,22 +191,22 @@ module Make_datatype_ops (C : Context) = struct
   include Make_datatype_builders (C)
 
   let fn_not y e =
-    let not_y = e |> project_bool |> not_ |> inject_bool in
-    join [ eq y not_y; ifBool e ]
+    let not_y = e |> project_bool |> mk_not |> inject_bool in
+    join [ mk_eq y not_y; ifBool e ]
 
   let bop prj inj fn e1 e2 = inj (fn (prj e1) (prj e2))
 
   let typing_two_ints fop y e1 e2 =
     let ey = bop project_int inject_int fop e1 e2 in
-    join [ eq y ey; ifInt e1; ifInt e2 ]
+    join [ mk_eq y ey; ifInt e1; ifInt e2 ]
 
   let typing_two_ints_bool fop y e1 e2 =
     let ey = bop project_int inject_bool fop e1 e2 in
-    join [ eq y ey; ifInt e1; ifInt e2 ]
+    join [ mk_eq y ey; ifInt e1; ifInt e2 ]
 
   let typing_two_bools fop y e1 e2 =
     let ey = bop project_bool inject_bool fop e1 e2 in
-    join [ eq y ey; ifBool e1; ifBool e2 ]
+    join [ mk_eq y ey; ifBool e1; ifBool e2 ]
 
   let fn_plus = typing_two_ints add2
   let fn_minus = typing_two_ints sub2
@@ -205,8 +215,8 @@ module Make_datatype_ops (C : Context) = struct
   let fn_modulus = typing_two_ints mod_
   let fn_lt = typing_two_ints_bool lt
   let fn_le = typing_two_ints_bool le
-  let fn_eq = typing_two_ints_bool eq
-  let fn_neq = typing_two_ints_bool neq
+  let fn_eq = typing_two_ints_bool mk_eq
+  let fn_neq = typing_two_ints_bool mk_neq
   let fn_and = typing_two_bools and2
   let fn_or = typing_two_bools or2
   (* let fn_xor = typing_two_bools (Boolean.mk_xor ctx) *)
