@@ -218,7 +218,7 @@ module DotPrinter_Make (S : GS) = struct
                          List.map noted_phis ~f:(fun (note, phi) ->
                              let phi_v =
                                Solver.(
-                                 SuduZ3.eval_value model phi |> SuduZ3.unbox_bool)
+                                 SuduZ3.eval_exn model phi |> SuduZ3.unbox_bool)
                              in
                              (note, phi_v))
                        in
@@ -239,7 +239,8 @@ module DotPrinter_Make (S : GS) = struct
             "{ {[%s] | %a} | %a | %a | %s | {φ | { %s %s } } | {out | %a } | \
              %s}"
             (Id.show node.key.x)
-            (Fmt.option Solver.pp_value)
+            (* (Fmt.option Solver.pp_value) *)
+            (Fmt.option Fmt.nop)
             key_value
             (Fmt.option Jayil.Pp.Brief.clause)
             clause Rstack.pp node.key.r_stk

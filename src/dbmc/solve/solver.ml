@@ -1,7 +1,12 @@
 open Core
 open Dj_common.Log.Export
 
+(* A global z3 solver ctx. *)
 let ctx = Z3.mk_context []
+
+module SuduZ3 = Sudu.Z3_api.Make (struct
+  let ctx = ctx
+end)
 
 let set_timeout_sec ctx sec =
   match sec with
@@ -13,16 +18,12 @@ let set_timeout_sec ctx sec =
       in
       Z3.Params.update_param_value ctx "timeout" time_s
 
-module SuduZ3 = Sudu.Z3_api.Make (struct
-  let ctx = ctx
-end)
-
-type value = Sudu.Z3_api.plain =
-  | Int of int [@printer Fmt.int]
-  | Bool of bool [@printer Fmt.bool]
-  | Fun of string [@printer Fmt.string]
-  | Record of int [@printer Fmt.int] (* int is bitvector *)
-[@@deriving sexp, compare, equal, show { with_path = false }]
+(* type value = Sudu.Z3_api.plain =
+     | Int of int [@printer Fmt.int]
+     | Bool of bool [@printer Fmt.bool]
+     | Fun of string [@printer Fmt.string]
+     | Record of int [@printer Fmt.int] (* int is bitvector *)
+   [@@deriving sexp, compare, equal, show { with_path = false }] *)
 
 let reset solver = Z3.Solver.reset solver
 let get_assertion_count solver = List.length (Z3.Solver.get_assertions solver)

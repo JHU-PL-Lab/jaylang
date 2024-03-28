@@ -1,6 +1,7 @@
 open Core
 include Types.State
 open Dj_common
+module Riddler = Riddler.V_dbmc
 open Log.Export
 
 let compute_info (config : Global_config.t) program : info =

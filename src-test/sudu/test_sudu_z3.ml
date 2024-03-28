@@ -36,10 +36,10 @@ module To_test = struct
   let inj_and_prj_bool b = b |> bool_ |> project_bool |> simplify |> unbox_bool
 
   let inj_and_prj_string b =
-    b |> string_ |> project_string |> simplify |> unbox_string
+    b |> fun_ |> project_string |> simplify |> unbox_string
 
   (* let inj_and_prj_record rid =
-    rid |> record_ |> project_record |> simplify |> unbox_string *)
+     rid |> record_ |> project_record |> simplify |> unbox_string *)
 
   (* open Fact *)
   let binop_bool (b1, b2) =
@@ -364,7 +364,8 @@ let () =
           test_case "box invariant on string" `Quick
             (invariant_string "world" To_test.box_and_unbox_string);
           (* test_case "box invariant on record" `Quick
-            (invariant_string "record" To_test.inj_and_prj_record); *) (* changed record representation to bitvector *)
+             (invariant_string "record" To_test.inj_and_prj_record); *)
+          (* changed record representation to bitvector *)
         ]
         @ invariant_bools "box invariant on bools" To_test.box_and_unbox_bool );
       ( "projection",
