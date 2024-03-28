@@ -24,12 +24,6 @@ let equal = Set.equal
 
 let and_ (fset : t) : Z3_expr.t =
   match Set.to_list fset with
-  | [] -> Riddler.true_
+  | [] -> Concolic_riddler.true_
   | exp :: [] -> exp
-  | exps -> Riddler.and_ exps
-
-(* let or_ (fset : t) : Z3_expr.t =
-  match Set.to_list fset with
-  | [] -> Riddler.true_
-  | exp :: [] -> exp
-  | exps -> Solver.SuduZ3.or_ exps *)
+  | exps -> Concolic_riddler.and_ exps

@@ -177,8 +177,8 @@ module Fetch =
   Lookup_key.without_block x
   @@ Rstack.from_concrete stk *)
 
-let make_key = Session.Symbolic.Lazy_key.make
-let get_key = Session.Symbolic.Lazy_key.to_key
+let make_key = Concolic_key.Lazy2.make
+let force_key = Concolic_key.Lazy2.to_key
 
 let rec eval_exp
   ~(conc_session : Session.Concrete.t) (* Note: is mutable *)
@@ -259,13 +259,14 @@ and eval_clause
       let cond_val, condition_stk = Fetch.fetch_val_with_stk ~conc_session ~stk env cx in
       let cond_bool = match cond_val with Direct (Value_bool b) -> b | _ -> failwith "non-bool condition" in
       let condition_key = make_key y condition_stk in
-      let this_branch = Branch.Runtime.{ branch_key = get_key x_key ; condition_key = get_key condition_key ; direction = Branch.Direction.of_bool cond_bool } in
+      let this_branch = Branch.Runtime.{ branch_key = force_key x_key ; condition_key = force_key condition_key ; direction = Branch.Direction.of_bool cond_bool } in
 
       (* enter/hit branch *)
       let symb_session = Session.Symbolic.hit_branch symb_session this_branch in
+      let d = Session.Symbolic.get_depth symb_session in
 
       let e = if cond_bool then e1 else e2 in
-      let stk' = Concrete_stack.push (x, cond_fid cond_bool) stk in
+      let stk' = Concrete_stack.push (x, cond_fid cond_bool) stk |> Concrete_stack.set_d (d + 1)  in
 
       (* note that [conc_session] gets mutated when evaluating the branch *)
       let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session stk' env e in
@@ -489,15 +490,18 @@ let rec loop (e : expr) (prev_session : Session.t) : (Branch_info.t * bool) Lwt.
       @@ Session.accum_symbolic session resulting_symbolic
     end
 
+let seed =
+  String.fold "jhu-pl-lab" ~init:0 ~f:(fun acc c -> Char.to_int c + acc)
+
 (* TODO: maybe move some of this to driver *)
 let lwt_eval : (Jayil.Ast.expr -> (Branch_info.t * bool) Lwt.t) Concolic_options.Fun.t =
   let f =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
-        if not r.random then Random.init 31415926;
+        if not r.random then Random.init seed;
         Log.Export.CLog.app (fun m -> m "\nStarting concolic execution...\n");
         (* Repeatedly evaluate program *)
-        Riddler.reset ();
+        Concolic_riddler.reset ();
         Lwt_unix.with_timeout r.global_timeout_sec
         @@ fun () ->
           e

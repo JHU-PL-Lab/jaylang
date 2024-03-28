@@ -38,8 +38,6 @@ val of_ident_and_bool : Ast.ident -> bool -> t
     make a branch. *)
 
 val other_direction : t -> t
-val pick_abort : t -> Z3.Expr.expr
-val pick_max_step : t -> Z3.Expr.expr
 
 (*
   "Runtime" is a modifier/adjective on "Branch", so it is a "Runtime Branch".
@@ -47,11 +45,11 @@ val pick_max_step : t -> Z3.Expr.expr
 module Runtime :
   sig
     type t =
-      { branch_key    : Lookup_key.t
-      ; condition_key : Lookup_key.t
+      { branch_key    : Concolic_key.t
+      ; condition_key : Concolic_key.t
       ; direction     : Direction.t } [@@deriving compare, sexp, hash]
     (** [t] is a branch in the AST during runtime, where its branch and condition both have a stack
-        to identify them (hence they are a [Lookup_key.t]).
+        to identify them (hence they are a [Concolic_key.t]).
         The [branch_key] is the key of the clause to identify the node in the AST, and the [condition_key]
         is the key of the condition variable. 
         
@@ -74,7 +72,4 @@ module Runtime :
 
     val print_target_option : t option -> unit
     (** [print_target_option x] prints the branch [x] as "target branch", or prints it as "None". *)
-
-    val pick_abort : t -> Z3.Expr.expr
-    val pick_max_step : t -> Z3.Expr.expr
   end

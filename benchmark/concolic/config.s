@@ -40,7 +40,7 @@
     "flow_sensitive_1_well_typed.jil" ; 
 
     ; limitations
-    ;"expected_timeout.jil" ; type error is too deep, so we expect that we can't hit it
+    "expected_timeout.jil" ; type error is too deep, so we expect that we can't hit it
 
     ; racket
     "all.jil"
@@ -66,6 +66,6 @@
   (testcases_not_time
     ()
   )
-  (repeat 5)
+  (repeat 10)
   (timeout "30m")
 )
