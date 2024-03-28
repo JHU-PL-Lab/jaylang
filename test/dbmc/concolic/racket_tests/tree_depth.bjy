@@ -1,4 +1,5 @@
 # simple error that depth should be positive but leaf has depth 0
+# EDIT: I made this a little harder to see if it could find a tree with depth 10. It does
 
 let t = Mu tt. ({: left : tt , right : tt :} || {: leaf : bool :}) in
 
@@ -8,7 +9,7 @@ let max x y =
   else y
 in
 
-let rec depth (tree : t) : {. int | fun i -> i > 0 } =
+let rec depth (tree : t) : {. int | fun i -> i <> 10 } =
   match tree with
   | { leaf = b } -> 0
   | { left = l , right = r } -> 1 + max (depth l) (depth r)

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-input_dir="./benchmark/concolic/bjy/"
+input_dir="./benchmark/concolic/racket_tests/"
 output_dir="./benchmark/concolic/jil/"
 translator_exe="./translator.exe"
 
@@ -14,7 +14,7 @@ if [ ! -f "${translator_exe}" ]; then
 fi
 
 overwrite=false
-while getopts ":o:" opt; do
+while getopts "o" opt; do
   case ${opt} in
     o )
       overwrite=true

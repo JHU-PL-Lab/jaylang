@@ -1,10 +1,12 @@
 # main 1 returns 1 so fails contract
 
+# Note: there is a parsing error from the translated jil code when using `<>` instead `not ... == `
+
 let rec zip x y =
   if x == 0 and y == 0
   then x
   else
-    if x <> 0 and y <> 0
+    if not (x == 0) and (y == 0) 
     then 1 + zip (x - 1) (y - 1)
     else assert false
 in
@@ -15,7 +17,7 @@ let rec map x =
   else 1 + map (x - 1)
 in
 
-letd main (n : int) : {. int | fun i -> i <> n } =
+letd main (n : int) : {. int | fun i -> not (i == n) } =
   map (zip n n)
 in
 main

@@ -4,7 +4,7 @@ open Dbmc
 (* This executable is to run the concolic evaluator. Think CJ = "concolic jil" *)
 let usage_msg =
   {|
-  cj -i <file> [-t <total timeout>] [-s <solver_timeout>] [-m <max_step>] [-d <max_tree_depth>] [-q] [-p]
+  cj -i <file> [-t <total timeout>] [-s <solver_timeout>] [-m <max_step>] [-d <max_tree_depth>] [-q] [-p] [-r]
   |}
 let source_file = ref "" 
 (* let out_file = ref "" *)
@@ -24,7 +24,8 @@ let speclist =
   ; ("-s", Arg.Set_float optional_args.solver_timeout_sec, "Solver timeout seconds")
   ; ("-m", Arg.Set_int optional_args.global_max_step, "Global max step")
   ; ("-q", Arg.Set optional_args.quit_on_abort, "Quit on first abort")
-  ; ("-d", Arg.Set_int optional_args.max_tree_depth, "Max tree depth") ] 
+  ; ("-d", Arg.Set_int optional_args.max_tree_depth, "Max tree depth")
+  ; ("-r", Arg.Set optional_args.random, "Random")] 
 
 let () = 
   Arg.parse speclist anon_fun usage_msg;
