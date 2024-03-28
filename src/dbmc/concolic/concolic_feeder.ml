@@ -11,7 +11,8 @@ let query_model model (x, call_stack) : int option =
   (* Solver.SuduZ3.get_int_i model (Riddler.key_to_i key) *)
 
 let default : Input_feeder.t =
-  fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (-10) 10)
+  (* fun _ -> Quickcheck.random_value ~seed:`Nondeterministic (Int.gen_incl (-10) 10) *)
+  fun _ -> Random.int 21 - 10
 
 let from_model ?(history = ref []) model : t =
   let input_feeder = query_model model in

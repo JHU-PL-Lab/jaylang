@@ -42,6 +42,25 @@
     ; limitations
     "expected_timeout.jil" ; type error is too deep, so we expect that we can't hit it
 
+    ; racket
+    "all.jil"
+    "append.jil"
+    "braun_tree.jil"
+    "flatten.jil"
+    "foldl.jil"
+    "foldl1.jil"
+    "foldr.jil"
+    "insertion_sort1.jil"
+    "insertion_sort2.jil"
+    "l_zipmap.jil"
+    "l_zipunzip.jil"
+    "last.jil"
+    "lastpair.jil"
+    "mem.jil"
+    "member.jil"
+    "sum.jil"
+    "tree_depth.jil"
+
     )
   )
   (testcases_not_time

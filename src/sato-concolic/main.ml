@@ -43,7 +43,7 @@ let main_lwt ~(config : Global_config.t) program_full :
   in
   let res =
     match config.timeout with
-    | None -> Dbmc.Concolic.test ~quit_on_abort:true program
+    | None -> Dbmc.Concolic.test ~quit_on_abort:true ~random:false program
     | Some t ->
         Dbmc.Concolic.test ~quit_on_abort:true
           ~global_timeout_sec:(Core_private.Span_float.to_sec t)
