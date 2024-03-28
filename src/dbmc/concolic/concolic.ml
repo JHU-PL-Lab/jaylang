@@ -490,12 +490,15 @@ let rec loop (e : expr) (prev_session : Session.t) : (Branch_info.t * bool) Lwt.
       @@ Session.accum_symbolic session resulting_symbolic
     end
 
+let seed =
+  String.fold "jhu-pl-lab" ~init:0 ~f:(fun acc c -> Char.to_int c + acc)
+
 (* TODO: maybe move some of this to driver *)
 let lwt_eval : (Jayil.Ast.expr -> (Branch_info.t * bool) Lwt.t) Concolic_options.Fun.t =
   let f =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
-        if not r.random then Random.init 31415926;
+        if not r.random then Random.init seed;
         Log.Export.CLog.app (fun m -> m "\nStarting concolic execution...\n");
         (* Repeatedly evaluate program *)
         Concolic_riddler.reset ();
