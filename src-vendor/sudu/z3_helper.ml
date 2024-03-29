@@ -1,55 +1,13 @@
 open Core
 open Z3
 
-module type Context = sig
-  val ctx : context
-end
-
-module type Jil_z3_datatye = sig
-  type t
-  type case
-
-  (* sort *)
-  val the_sort : Sort.sort
-  val mk_int : FuncDecl.func_decl
-  val mk_bool : FuncDecl.func_decl
-  val mk_fun : FuncDecl.func_decl
-  val mk_record : FuncDecl.func_decl
-  val is_int : Expr.expr -> Expr.expr
-  val is_bool : Expr.expr -> Expr.expr
-  val is_fun : Expr.expr -> Expr.expr
-  val is_record : Expr.expr -> Expr.expr
-  val inject_int : Expr.expr -> Expr.expr
-  val inject_bool : Expr.expr -> Expr.expr
-  val inject_string : Expr.expr -> Expr.expr
-  val inject_record : Expr.expr -> Expr.expr
-  val project_int : Expr.expr -> Expr.expr
-  val project_bool : Expr.expr -> Expr.expr
-  val project_string : Expr.expr -> Expr.expr
-  val project_record : Expr.expr -> Expr.expr
-  val case_to_recognizer : case -> Expr.expr -> Expr.expr
-  val case_to_injector : case -> Expr.expr -> Expr.expr
-  val case_to_projecter : case -> Expr.expr -> Expr.expr
-end
-
-module Make_helper (C : Context) = struct
-  open C
-
-  let set_timeout_sec sec =
-    match sec with
-    | None -> ()
-    | Some sec ->
-        let time_s =
-          sec |> Time_float.Span.to_sec |> Float.iround_up_exn |> fun t ->
-          t * 1000 |> string_of_int
-        in
-        Params.update_param_value ctx "timeout" time_s
-
+module Contextless_functions = struct
   let reset_solver solver = Solver.reset solver
-
-  (* clone by translating to the same context *)
-  let clone_solver solver = Solver.translate solver ctx
   let string_of_solver solver = Solver.to_string solver
+  let eval model e flag = Model.eval model e flag
+  let eval_ model e = Model.eval model e false
+  let eval_exn model e flag = Option.value_exn (eval model e flag)
+  let eval_exn_ model e = Option.value_exn (eval_ model e)
   let get_assertion_count solver = List.length (Solver.get_assertions solver)
 
   let get_rlimit solver =
@@ -94,10 +52,6 @@ module Make_helper (C : Context) = struct
 
   let is_unsat status = Poly.equal status Solver.UNSATISFIABLE
   let is_sat status = Poly.equal status Solver.SATISFIABLE
-  let eval model e flag = Model.eval model e flag
-  let eval_ model e = Model.eval model e false
-  let eval_exn model e flag = Option.value_exn (eval model e flag)
-  let eval_exn_ model e = Option.value_exn (eval_ model e)
   let simplify e = Expr.simplify e None
 
   let check_with_assumption solver assumptions =
@@ -126,6 +80,58 @@ module Make_helper (C : Context) = struct
     let _ = verbose in
     Solver.add solver phis ;
     check_with_assumption solver phi_used_once
+end
+
+include Contextless_functions
+
+module type Context = sig
+  val ctx : context
+end
+
+module type Jil_z3_datatye = sig
+  type t
+  type case
+
+  (* sort *)
+  val the_sort : Sort.sort
+  val mk_int : FuncDecl.func_decl
+  val mk_bool : FuncDecl.func_decl
+  val mk_fun : FuncDecl.func_decl
+  val mk_record : FuncDecl.func_decl
+  val is_int : Expr.expr -> Expr.expr
+  val is_bool : Expr.expr -> Expr.expr
+  val is_fun : Expr.expr -> Expr.expr
+  val is_record : Expr.expr -> Expr.expr
+  val inject_int : Expr.expr -> Expr.expr
+  val inject_bool : Expr.expr -> Expr.expr
+  val inject_string : Expr.expr -> Expr.expr
+  val inject_record : Expr.expr -> Expr.expr
+  val project_int : Expr.expr -> Expr.expr
+  val project_bool : Expr.expr -> Expr.expr
+  val project_string : Expr.expr -> Expr.expr
+  val project_record : Expr.expr -> Expr.expr
+  val case_to_recognizer : case -> Expr.expr -> Expr.expr
+  val case_to_injector : case -> Expr.expr -> Expr.expr
+  val case_to_projecter : case -> Expr.expr -> Expr.expr
+  val unbox_value : Expr.expr -> t
+  val eval_value : Model.model -> Expr.expr -> t option
+end
+
+module Make_helper (C : Context) = struct
+  open C
+
+  let set_timeout_sec sec =
+    match sec with
+    | None -> ()
+    | Some sec ->
+        let time_s =
+          sec |> Time_float.Span.to_sec |> Float.iround_up_exn |> fun t ->
+          t * 1000 |> string_of_int
+        in
+        Params.update_param_value ctx "timeout" time_s
+
+  (* clone by translating to the same context *)
+  let clone_solver solver = Solver.translate solver ctx
 end
 
 module Make_basic_to_z3_basic (C : Context) = struct

@@ -10,6 +10,11 @@ type plain =
 
 type case = Int_case | Bool_case | Fun_case | Record_case
 
+let cases = [ Int_case; Bool_case; Fun_case; Record_case ]
+
+module type z3_datatype_with_case = Jil_z3_datatye with type t = plain
+(*  and type case = case *)
+
 module Make_z3_datatype (C : Context) = struct
   type t = plain
   type nonrec case = case
@@ -103,22 +108,50 @@ module Make_z3_datatype (C : Context) = struct
     | Bool_case -> project_bool
     | Fun_case -> project_string
     | Record_case -> project_record
+
+  include Make_basic_to_z3_basic (C)
+
+  let case_of_value_exn v =
+    List.find_exn cases ~f:(fun case ->
+        v |> case_to_recognizer case |> simplify |> unbox_bool)
+
+  (* let project_int v = v |> project_int |> simplify *)
+
+  let project_value case v =
+    match case with
+    | Int_case -> v |> project_int |> simplify
+    | Bool_case -> v |> project_bool |> simplify
+    | Fun_case -> v |> project_string |> simplify
+    | Record_case -> v |> project_record |> simplify
+
+  let unbox_value v =
+    let case = case_of_value_exn v in
+    let pv = project_value case v in
+    match case with
+    | Int_case -> Int (unbox_int pv)
+    | Bool_case -> Bool (unbox_bool pv)
+    | Fun_case -> Fun (unbox_string pv)
+    | Record_case -> Record (unbox_bitvector pv)
+
+  let eval_value model e =
+    let v = eval_exn_ model e in
+    Some (unbox_value v)
 end
 
-module Make_datatype_builders
-    (JZ : Jil_z3_datatye with type case = case)
-    (C : Context) =
+module Make_datatype_builders (JZ : z3_datatype_with_case) (C : Context) =
 struct
   open JZ
   open C
-  include Make_helper (C)
   include Make_basic_to_z3_basic (C)
-  (* include Make_z3_datatype (C) *)
+
+  let get_unbox_fun_exn model e =
+    unbox_string (eval_exn_ model (project_string e))
 
   (* ocaml basic to this datatype *)
   let int_ i = inject_int (box_int i)
   let bool_ b = inject_bool (box_bool b)
-  let fun_ s = inject_string (box_string s)
+  let string_ s = inject_string (box_string s)
+  let fun_ s = string_ s
   let record_ bv = inject_record (box_bitvector bv)
   let true_ = bool_ true
   let false_ = bool_ false
@@ -130,33 +163,9 @@ struct
     Expr.mk_const ctx (Symbol.mk_int ctx i)
       the_sort (* used to identify variables with a unique int *)
 
-  (* model *)
-  let is_case_from_model model e case =
-    unbox_bool (eval_exn_ model ((case_to_recognizer case) e))
-
-  let get_unbox_int_exn model e = unbox_int (eval_exn_ model (project_int e))
-  let get_unbox_bool_exn model e = unbox_bool (eval_exn_ model (project_bool e))
-
-  let get_unbox_fun_exn model e =
-    unbox_string (eval_exn_ model (project_string e))
-
-  let get_unbox_record_exn model e =
-    unbox_bitvector (eval_exn_ model (project_record e))
-
-  let get_value model e =
-    if is_case_from_model model e Int_case
-    then Some (Int (get_unbox_int_exn model e))
-    else if is_case_from_model model e Bool_case
-    then Some (Bool (get_unbox_bool_exn model e))
-    else if is_case_from_model model e Bool_case
-    then Some (Fun (get_unbox_fun_exn model e))
-    else if is_case_from_model model e Record_case
-    then Some (Record (get_unbox_record_exn model e))
-    else None
-
   (* use variable expression to query model for int input *)
   let get_int_expr model e =
-    match get_value model e with
+    match eval_value model e with
     | Some (Int i) -> Some i
     | Some _ ->
         Logs.warn (fun m -> m "Get non-int for input%s" (Z3.Expr.to_string e)) ;
@@ -175,10 +184,7 @@ struct
         None
 end
 
-module Make_datatype_ops
-    (JZ : Jil_z3_datatye with type case = case)
-    (C : Context) =
-struct
+module Make_datatype_ops (JZ : z3_datatype_with_case) (C : Context) = struct
   open JZ
   include Make_datatype_builders (JZ) (C)
 
@@ -215,6 +221,8 @@ end
 
 module Make (C : Context) = struct
   include C
+  include Make_helper (C)
+  include Contextless_functions
   module JZ = Make_z3_datatype (C)
   include JZ
   include Make_datatype_ops (JZ) (C)

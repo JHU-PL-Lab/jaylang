@@ -36,10 +36,10 @@ module To_test = struct
   let inj_and_prj_bool b = b |> bool_ |> project_bool |> simplify |> unbox_bool
 
   let inj_and_prj_string b =
-    b |> string_ |> project_string |> simplify |> unbox_string
+    b |> fun_ |> project_string |> simplify |> unbox_string
 
   (* let inj_and_prj_record rid =
-    rid |> record_ |> project_record |> simplify |> unbox_string *)
+     rid |> record_ |> project_record |> simplify |> unbox_string *)
 
   (* open Fact *)
   let binop_bool (b1, b2) =
@@ -212,9 +212,9 @@ module To_test = struct
 
   let mis_pattern_soft () =
     let x = var_s "x" in
-    let ix = ifInt x in
+    let ix = is_int x in
     let y = var_s "y" in
-    let by = ifBool y in
+    let by = is_bool y in
     let phi = eq x y in
     let status = Z3.Solver.check solver [ ix; by; phi ] in
     is_unsat status
@@ -223,9 +223,9 @@ module To_test = struct
   let pattern_check_true () =
     let x = var_s "x" in
     let phi_x = eq x (int_ 3) in
-    let ix = ifInt x in
+    let ix = is_int x in
     let y = var_s "y" in
-    let by = ifBool y in
+    let by = is_bool y in
     let phi = eq (project_bool y) ix in
     let phi_y = project_bool y in
     let status = Z3.Solver.check solver [ ix; by; phi_x; phi; phi_y ] in
@@ -235,9 +235,9 @@ module To_test = struct
   let pattern_check_false () =
     let x = var_s "x" in
     let phi_x = eq x (bool_ true) in
-    let ix = ifInt x in
+    let ix = is_int x in
     let y = var_s "y" in
-    let by = ifBool y in
+    let by = is_bool y in
     let phi = eq (project_bool y) ix in
     let phi_y = project_bool y in
     let status = Z3.Solver.check solver [ by; phi_x; phi; not_ phi_y ] in
@@ -248,8 +248,8 @@ module To_test = struct
     let x = var_s "x" in
     let phi_x = eq x (int_ 3) in
     let c = var_s "c" in
-    let bc = ifBool c in
-    let ix = ifInt x in
+    let bc = is_bool c in
+    let ix = is_int x in
     let phi_c = eq (project_bool c) ix in
     let z = var_s "z" in
     let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
@@ -262,8 +262,8 @@ module To_test = struct
     let x = var_s "x" in
     let phi_x = eq x true_ in
     let c = var_s "c" in
-    let bc = ifBool c in
-    let ix = ifInt x in
+    let bc = is_bool c in
+    let ix = is_int x in
     let phi_c = eq (project_bool c) ix in
     let z = var_s "z" in
     let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
@@ -274,10 +274,10 @@ module To_test = struct
   (* x = <Record>; c = x ~ {...}; z = ite c 1 2 *)
   let pattern_cond_record_true () =
     let x = var_s "x" in
-    let rx = ifRecord x in
+    let rx = is_record x in
     let valid_x = box_bool true in
     let c = var_s "c" in
-    let bc = ifBool c in
+    let bc = is_bool c in
     let phi_c = eq (project_bool c) (and2 rx valid_x) in
     let z = var_s "z" in
     let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
@@ -288,10 +288,10 @@ module To_test = struct
   (* x = <Record>; c = x ~ {...}; z = ite c 1 2 *)
   let pattern_cond_record_false () =
     let x = var_s "x" in
-    let rx = ifRecord x in
+    let rx = is_record x in
     let valid_x = box_bool false in
     let c = var_s "c" in
-    let bc = ifBool c in
+    let bc = is_bool c in
     let phi_c = eq (project_bool c) (and2 rx valid_x) in
     let z = var_s "z" in
     let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
@@ -301,10 +301,10 @@ module To_test = struct
 
   let pattern_cond_record_inj_true () =
     let x = var_s "x" in
-    let rx = ifRecord x in
+    let rx = is_record x in
     let valid_x = box_bool true in
     let c = var_s "c" in
-    let bc = ifBool c in
+    let bc = is_bool c in
     let phi_c = eq c (inject_bool (and2 rx valid_x)) in
     let z = var_s "z" in
     let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
@@ -315,10 +315,10 @@ module To_test = struct
   (* x = <Record>; c = x ~ {...}; z = ite c 1 2 *)
   let pattern_cond_record_inj_false () =
     let x = var_s "x" in
-    let rx = ifRecord x in
+    let rx = is_record x in
     let valid_x = box_bool false in
     let c = var_s "c" in
-    let bc = ifBool c in
+    let bc = is_bool c in
     let phi_c = eq c (inject_bool (and2 rx valid_x)) in
     let z = var_s "z" in
     let phi_z = eq z (ite (project_bool c) (int_ 1) (int_ 2)) in
@@ -364,7 +364,8 @@ let () =
           test_case "box invariant on string" `Quick
             (invariant_string "world" To_test.box_and_unbox_string);
           (* test_case "box invariant on record" `Quick
-            (invariant_string "record" To_test.inj_and_prj_record); *) (* changed record representation to bitvector *)
+             (invariant_string "record" To_test.inj_and_prj_record); *)
+          (* changed record representation to bitvector *)
         ]
         @ invariant_bools "box invariant on bools" To_test.box_and_unbox_bool );
       ( "projection",
