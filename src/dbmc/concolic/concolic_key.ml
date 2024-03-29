@@ -35,6 +35,8 @@ let to_string ({ x ; n } : t) : string =
 let x ({ x ; _ } : t) : Jayil.Ast.ident =
   x
 
+let d ({ n ; _ } : t) : int = n
+
 module Lazy2 =
   struct
     type t = unit -> T.t    

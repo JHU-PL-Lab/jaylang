@@ -20,6 +20,8 @@ val to_string : t -> string
 
 val x : t -> Jayil.Ast.ident
 
+val d : t -> int
+
 module Lazy2 :
   sig
     type t = unit -> T.t

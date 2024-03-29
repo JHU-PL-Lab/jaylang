@@ -263,10 +263,10 @@ and eval_clause
 
       (* enter/hit branch *)
       let symb_session = Session.Symbolic.hit_branch symb_session this_branch in
-      let d = Session.Symbolic.get_depth symb_session in
+      let d = Session.Symbolic.get_key_depth symb_session in
 
       let e = if cond_bool then e1 else e2 in
-      let stk' = Concrete_stack.push (x, cond_fid cond_bool) stk |> Concrete_stack.set_d (d + 1)  in
+      let stk' = Concrete_stack.push (x, cond_fid cond_bool) stk |> Concrete_stack.set_d d in
 
       (* note that [conc_session] gets mutated when evaluating the branch *)
       let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session stk' env e in
@@ -288,9 +288,12 @@ and eval_clause
       (* x = f y ; *)
       match Fetch.fetch_val ~conc_session ~stk env vf with
       | FunClosure (fid, Function_value (Var (param, _), body), fenv) ->
+        let symb_session = Session.Symbolic.enter_fun symb_session in
+        let d = Session.Symbolic.get_key_depth symb_session in
+
         (* varg is the argument that fills in param *)
         let arg, arg_stk = Fetch.fetch_val_with_stk ~conc_session ~stk env varg in
-        let stk' = Concrete_stack.push (x, fid) stk in
+        let stk' = Concrete_stack.push (x, fid) stk |> Concrete_stack.set_d d in
         let env' = Ident_map.add param (arg, stk') fenv in
         Session.Concrete.add_alias (param, stk) (x_arg, arg_stk) conc_session;
 

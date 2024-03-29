@@ -111,16 +111,34 @@ module Node_stack =
 module Depth_logic =
   struct
     type t =
-      { cur_depth    : int
-      ; max_depth    : int
+      { cur_depth    : int (* branch depth *)
+      ; max_depth    : int (* only for conditional branch depth *)
+      ; max_step     : int (* max number of steps of program ~= upper bound for number of branches possibly hit *)
+      ; fun_depth    : int (* number of functions entered *)
       ; is_below_max : bool } 
       (** [t] helps track if we've reached the max tree depth and thus should stop creating formulas *)
 
     let empty (max_depth : int) : t =
-      { cur_depth = 0; max_depth ; is_below_max = true }
+      { cur_depth = 0
+      ; max_depth 
+      ; is_below_max = true 
+      ; max_step = Concolic_options.default.global_max_step
+      ; fun_depth = 0 }
 
-    let incr (x : t) : t =
+    let with_options : (t -> t) Concolic_options.Fun.t =
+      Concolic_options.Fun.make
+      @@ fun (r : Concolic_options.t) -> fun (x : t) -> { x with max_depth = r.max_tree_depth ; max_step = r.global_max_step }
+
+    let incr_branch (x : t) : t =
       { x with cur_depth = x.cur_depth + 1 ; is_below_max = x.cur_depth < x.max_depth }
+
+    let incr_fun (x : t) : t =
+      { x with fun_depth = x.fun_depth + 1 }
+
+    let get_key_depth (x : t) : int =
+      x.cur_depth + x.fun_depth * x.max_step
+      (* since cur_depth cannot exceed max step, we use base x.max_step to safely order cur depth and fun depth *)
+
   end
 
 (* Basic holds the information that is needed at any state of the session *)
@@ -144,7 +162,7 @@ module Basic =
 
     let with_options : (t -> t) Concolic_options.Fun.t =
       Concolic_options.Fun.make
-      @@ fun (r : Concolic_options.t) -> fun (x : t) -> { x with depth = { x.depth with max_depth = r.max_tree_depth } }
+      @@ fun (r : Concolic_options.t) -> fun (x : t) -> { x with depth = Concolic_options.Fun.appl Depth_logic.with_options r x.depth }
 
     let found_abort (s : t) : t =
       { s with
@@ -181,12 +199,10 @@ module At_max_depth =
   struct
     type t =
       { last_branch : Branch.t 
-      ; cur_depth   : int
       ; base        : Basic.t }
 
     let of_basic (s : Basic.t) : t =
       { last_branch = Node_stack.hd_branch_exn s.stack
-      ; cur_depth = s.depth.cur_depth
       ; base = s }
 
     let with_options : (t -> t) Concolic_options.Fun.t =
@@ -233,10 +249,10 @@ type t =
 
 let empty : t = Basic Basic.empty
 
-let get_depth (x : t) : int =
+let get_key_depth (x : t) : int =
   match x with
-  | Basic s -> s.depth.cur_depth
-  | At_max_depth s -> s.cur_depth
+  | Basic s -> Depth_logic.get_key_depth s.depth
+  | At_max_depth s -> Depth_logic.get_key_depth s.base.depth
   | Finished _ -> failwith "cannot get depth from finished symbolic session"
 
 let with_options : (t -> t) Concolic_options.Fun.t =
@@ -256,14 +272,20 @@ let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
 
 let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
   match x with
-  | Basic s when (Depth_logic.incr s.depth).is_below_max ->
+  | Basic s when (Depth_logic.incr_branch s.depth).is_below_max ->
     Basic
     { s with branch_info = Branch_info.set_branch_status ~new_status:Hit s.branch_info @@ Branch.Runtime.to_ast_branch branch
     ; stack = Node_stack.push s.stack branch
-    ; depth = Depth_logic.incr s.depth }
+    ; depth = Depth_logic.incr_branch s.depth }
   | Basic s -> At_max_depth (At_max_depth.of_basic s)
-  | At_max_depth a -> At_max_depth { a with last_branch = Branch.Runtime.to_ast_branch branch ; cur_depth = a.cur_depth + 1 }
+  | At_max_depth a -> At_max_depth { last_branch = Branch.Runtime.to_ast_branch branch ; base = { a.base with depth = Depth_logic.incr_branch a.base.depth } }
   | Finished _ -> failwith "using finished symbolic session to hit branch"
+
+let enter_fun (x : t) : t =
+  match x with
+  | Basic s -> Basic { s with depth = Depth_logic.incr_fun s.depth }
+  | At_max_depth a -> At_max_depth { a with base = { a.base with depth = Depth_logic.incr_fun a.base.depth } } 
+  | Finished _ -> failwith "entering fun with finished symbolic session"
 
 let found_assume (x : t) (cx : Concolic_key.Lazy2.t) : t =
   match x with
