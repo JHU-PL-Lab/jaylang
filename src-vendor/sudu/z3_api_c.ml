@@ -2,7 +2,12 @@ open Core
 open Z3
 open Z3_helper
 
-type plain = Int of int | Bool of bool | Fun of string | Record of string
+type plain =
+  | Int of int
+  | Bool of bool
+  | Fun of string
+  | Record of int (* record can have 63 diff labels *)
+
 type case = Int_case | Bool_case | Fun_case | Record_case
 
 module Make_z3_datatype (C : Context) = struct
@@ -15,6 +20,9 @@ module Make_z3_datatype (C : Context) = struct
   let intS = Arithmetic.Integer.mk_sort ctx
   let boolS = Boolean.mk_sort ctx
   let strS = Seq.mk_string_sort ctx
+
+  let bvS =
+    BitVector.mk_sort ctx 63 (* hardcode 63 bits because we use ocaml int *)
 
   (* making constructors, checkers, and selectors *)
   let intC =
@@ -38,8 +46,8 @@ module Make_z3_datatype (C : Context) = struct
   let recordC =
     Datatype.mk_constructor_s ctx "Record"
       (Symbol.mk_string ctx "is-Record")
-      [ Symbol.mk_string ctx "rid" ]
-      [ Some strS ] [ 1 ]
+      [ Symbol.mk_string ctx "r" ]
+      [ Some bvS ] [ 1 ]
 
   let the_sort =
     Datatype.mk_sort_s ctx "Jil_type" [ intC; boolC; funC; recordC ]
@@ -105,12 +113,13 @@ struct
   open C
   include Make_helper (C)
   include Make_basic_to_z3_basic (C)
+  (* include Make_z3_datatype (C) *)
 
   (* ocaml basic to this datatype *)
   let int_ i = inject_int (box_int i)
   let bool_ b = inject_bool (box_bool b)
   let fun_ s = inject_string (box_string s)
-  let record_ bv = inject_record (box_string bv)
+  let record_ bv = inject_record (box_bitvector bv)
   let true_ = bool_ true
   let false_ = bool_ false
   let ground_truth = eq true_ true_
@@ -132,7 +141,7 @@ struct
     unbox_string (eval_exn_ model (project_string e))
 
   let get_unbox_record_exn model e =
-    unbox_string (eval_exn_ model (project_record e))
+    unbox_bitvector (eval_exn_ model (project_record e))
 
   let get_value model e =
     if is_case_from_model model e Int_case
@@ -145,6 +154,7 @@ struct
     then Some (Record (get_unbox_record_exn model e))
     else None
 
+  (* use variable expression to query model for int input *)
   let get_int_expr model e =
     match get_value model e with
     | Some (Int i) -> Some i
@@ -165,7 +175,10 @@ struct
         None
 end
 
-module Make_datatype_ops (JZ : Jil_z3_datatye) (C : Context) = struct
+module Make_datatype_ops
+    (JZ : Jil_z3_datatye with type case = case)
+    (C : Context) =
+struct
   open JZ
   include Make_datatype_builders (JZ) (C)
 
@@ -198,7 +211,6 @@ module Make_datatype_ops (JZ : Jil_z3_datatye) (C : Context) = struct
   let fn_neq = typing_two_ints_bool neq
   let fn_and = typing_two_bools and2
   let fn_or = typing_two_bools or2
-  (* let fn_xor = fn_two_bools (Boolean.mk_xor ctx) *)
 end
 
 module Make (C : Context) = struct

@@ -53,7 +53,7 @@ let create_solve_state () : solve_state =
     phis_staging = [];
     phis_added = [];
     smt_lists = Hashtbl.create (module Lookup_key);
-    solver = Z3.Solver.mk_solver Solver.ctx None;
+    solver = Z3.Solver.mk_solver Riddler.ctx None;
   }
 
 let reset_solve_state solve_state =
@@ -101,7 +101,7 @@ let reset_mutable_state (config : Global_config.t) (info : info) (state : t) =
   reset_stat_state state.stat
 
 let create (config : Global_config.t) program =
-  Solver.set_timeout_sec Solver.ctx config.timeout ;
+  Riddler.SuduZ3.set_timeout_sec config.timeout ;
   let info = compute_info config program in
   (* Global_state.lookup_alert state key_target state.root_node; *)
   Riddler.reset () ;

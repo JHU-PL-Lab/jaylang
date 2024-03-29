@@ -39,7 +39,7 @@ let update_block_visits (config : Global_config.t) (state : Global_state.t)
           block_id = key.block.id;
           visits = 1;
           smt_checks = (if is_checked then 1 else 0);
-          smt_size = Solver.get_assertion_count state.solve.solver;
+          smt_size = Riddler.SuduZ3.get_assertion_count state.solve.solver;
           smt_time;
         }
     | Some d ->
@@ -48,7 +48,8 @@ let update_block_visits (config : Global_config.t) (state : Global_state.t)
           visits = d.visits + 1;
           smt_checks = (if is_checked then d.smt_checks + 1 else d.smt_checks);
           smt_size =
-            max d.smt_size (Solver.get_assertion_count state.solve.solver);
+            max d.smt_size
+              (Riddler.SuduZ3.get_assertion_count state.solve.solver);
           smt_time = d.smt_time +. smt_time;
         }) ;
   let block = key.block.id in

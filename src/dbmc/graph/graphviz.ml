@@ -184,7 +184,7 @@ module DotPrinter_Make (S : GS) = struct
           | Some model ->
               let lookup_name = Lookup_key.to_string node.key in
               Logs.info (fun m -> m "lookup (to model) : %s" lookup_name) ;
-              Solver.SuduZ3.(get_value model (var_s lookup_name))
+              Riddler.SuduZ3.(get_value model (var_s lookup_name))
         in
         let c_id =
           (* match node.rule with
@@ -237,9 +237,7 @@ module DotPrinter_Make (S : GS) = struct
           Fmt.str
             "{ {[%s] | %a} | %a | %a | %s | {φ | { %s %s } } | {out | %a } | \
              %s}"
-            (Id.show node.key.x)
-            (Fmt.option Solver.pp_value)
-            key_value
+            (Id.show node.key.x) (Fmt.option Fmt.nop) key_value
             (Fmt.option Jayil.Pp.Brief.clause)
             clause Rstack.pp node.key.r_stk
             (Rstack.to_string node.key.r_stk)

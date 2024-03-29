@@ -17,14 +17,14 @@ let log_phis ?(prompt = "") phis =
 let log_solver ?(prompt = "") solver =
   SLog.debug (fun m ->
       m "Solver Phis %s (%d) : %s" prompt
-        (Solver.get_assertion_count solver)
-        (Solver.string_of_solver solver))
+        (Riddler.SuduZ3.get_assertion_count solver)
+        (Riddler.SuduZ3.string_of_solver solver))
 
 let log_model model =
   SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
 
 let check_and_log ?(verbose = true) ?(is_debug = true) solver phi_used_once =
-  let check_result = Solver.check ~verbose solver [] phi_used_once in
+  let check_result = Riddler.SuduZ3.check ~verbose solver [] phi_used_once in
   let log_phis_here () =
     if verbose
     then (
@@ -53,7 +53,7 @@ let lead_smt_list smt_list target =
          picked target (* SuduZ3.not_ (pick_key_list key i) *))
 
 let close_unfinished_lookups lookups =
-  lookups |> List.map ~f:(fun key -> Solver.SuduZ3.not_ (picked key))
+  lookups |> List.map ~f:(fun key -> Riddler.SuduZ3.not_ (picked key))
 
 let lead_unfinished_lookups lookups target =
   lookups
@@ -105,7 +105,7 @@ let check_shrink (state : Global_state.t) (config : Global_config.t) :
 
   log_solver ~prompt:"One" state.solve.solver ;
 
-  Solver.reset state.solve.solver ;
+  Riddler.SuduZ3.reset_solver state.solve.solver ;
   SLog.debug (fun m -> m "Two") ;
   List.iter detail_lst ~f:(fun (key, detail) ->
       let phis =
@@ -144,7 +144,7 @@ let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
     match solver_result with
     | Result.Ok model ->
         if config.debug_model then log_model model ;
-        let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
+        let c_stk_mach = Riddler.SuduZ3.(get_unbox_fun_exn model top_stack) in
         let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
         Some { model; c_stk }
     | Result.Error _exps -> None
@@ -153,7 +153,7 @@ let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
      {
        total_phis =
          List.length state.solve.phis_added + List.length phi_used_once;
-       solver_resource = Solver.get_rlimit state.solve.solver;
+       solver_resource = Riddler.SuduZ3.get_rlimit state.solve.solver;
      }
    in
    state.stat.check_infos <- this_check_info :: state.stat.check_infos) ;
@@ -209,7 +209,7 @@ let check_phis solver phis is_debug : result_info option =
             m "Phis: %a"
               Fmt.(Dump.list string)
               (List.map ~f:Z3.Expr.to_string phis)) ;
-      let c_stk_mach = Solver.SuduZ3.(get_unbox_fun_exn model top_stack) in
+      let c_stk_mach = Riddler.SuduZ3.(get_unbox_fun_exn model top_stack) in
       let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
       print_endline @@ Concrete_stack.show c_stk ;
       Some { model; c_stk }
@@ -231,7 +231,7 @@ let check_phis solver phis is_debug : result_info option =
 let query_model model target_stack (x, call_stack) : int option =
   let stk = Rstack.relativize target_stack call_stack in
   let name = Lookup_key.to_str2 x stk in
-  Solver.SuduZ3.get_int_s model name
+  Riddler.SuduZ3.get_int_s model name
 
 let input_feeder ?(history = ref []) model target_stack : Input_feeder.t =
   let input_feeder = query_model model target_stack in
