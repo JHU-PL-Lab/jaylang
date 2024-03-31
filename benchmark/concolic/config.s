@@ -66,6 +66,6 @@
   (testcases_not_time
     ()
   )
-  (repeat 10)
+  (repeat 5)
   (timeout "30m")
 )

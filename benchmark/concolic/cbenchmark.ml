@@ -16,16 +16,7 @@ let is_mac =
 let time_bin = if is_mac then "gtime" else "/usr/bin/time"
 let timeout_bin = if is_mac then "gtimeout" else "/usr/bin/timeout"
 let testcase_path (cfg : Cconfig.t) test =
-  let open Core in
-  let filenames =
-    List.filter_map cfg.test_paths ~f:(fun path ->
-      let filename = Filename.concat path test in
-      if Sys_unix.is_file_exn filename
-      then Some filename
-      else None
-      )
-  in
-  List.hd_exn filenames
+  Filename.concat cfg.test_path test
 
 let escape_path s = String.substr_replace_all ~pattern:"/" ~with_:"_" s
 

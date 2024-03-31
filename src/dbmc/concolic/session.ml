@@ -86,11 +86,13 @@ module Concrete =
 
     (* Say that x1 is an alias for x2. x1 is defined *after* x2 and points to x2. *)
     let add_alias (x1 : Id_with_stack.t) (x2 : Id_with_stack.t) ({ alias_graph; _ } : t) : unit =
-      G.add_edge alias_graph x1 x2
+      ()
+      (* G.add_edge alias_graph x1 x2 *)
 
     (* Say that x is the variable for the clause body that evaluates to dvalue *)
     let add_val_def_mapping (x : Id_with_stack.t) (vdef : (clause_body * Dvalue.t)) ({ val_def_map; _ } : t) : unit =
-      Hashtbl.add_exn ~key:x ~data:vdef val_def_map
+      ()
+      (* Hashtbl.add_exn ~key:x ~data:vdef val_def_map *)
 
   end
 
