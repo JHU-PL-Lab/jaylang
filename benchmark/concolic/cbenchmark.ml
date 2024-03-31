@@ -57,6 +57,7 @@ let benchmark_time (cfg : Cconfig.t) test n : unit t =
             "-q"; (* quits when finds abort *)
             "-i";
             file;
+            (* Note I don't add the `r` flag for randomness, so benchmarks are reproducable. *)
           ])
   >> echo @@ " done - " ^ string_of_int n
 (* |- run "tee" ["-a"; result_file] *)
@@ -117,7 +118,7 @@ let read_config () =
     ]
     (fun _ -> ())
     "Please use `make cbenchmark`." ;
-  assert (Core.List.mem [ "ddse"; "dbmc" ; "concolic" ] !engine ~equal:String.equal) ;
+  assert (Core.List.mem [ "concolic" ] !engine ~equal:String.equal) ;
 
   let config = Sexp.load_sexp_conv_exn !config_path Cconfig.t_of_sexp in
   { config with engine = !engine }
