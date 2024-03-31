@@ -9,7 +9,7 @@
     ;   * Have ill-typed programs where the type error won't be found because it is too deep
 
     ; trees
-    "bst_type_well_typed.jil" ; is well-typed version of bst
+    "bst_well_typed.jil" ; is well-typed version of bst
     "bst.jil" ; checks if some tree is valid bst. It's not
     "rec_type.jil" ; tree type where the tree children are ill-typed. The well-typed case is covered in bst
     "balanced_tree_well_typed.jil" ; is balanced tree -- is simpler case of braun_tree from racket
@@ -63,6 +63,7 @@
   (testcases_not_time
     ()
   )
+  (test_path "benchmark/concolic/jil_no_wrap")
   (repeat 5)
   (timeout "30m")
 )

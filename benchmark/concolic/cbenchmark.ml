@@ -53,11 +53,11 @@ let benchmark_time (cfg : Cconfig.t) test n : unit t =
             cfg.timeout;
             cfg.bin;
             "-t";
-            "30.0"; (* single test timeout *)
+            "90.0"; (* single test timeout *)
             "-q"; (* quits when finds abort *)
             "-i";
             file;
-            (* Note I don't add the `r` flag for randomness, so benchmarks are reproducable. *)
+            (* Note I don't add the `r` flag for randomness. This way benchmarks are reproducable. *)
           ])
   >> echo @@ " done - " ^ string_of_int n
 (* |- run "tee" ["-a"; result_file] *)
@@ -66,7 +66,8 @@ let stat (cfg : Cconfig.t) : unit t =
   let working_path = cfg.working_path in
   let testcases = cfg.testcases_to_time in
   let table = working_path ^ "/0table.txt" in
-  List.iter testcases ~f:(fun testcase ->
+  stdout_to ~append:() table (echo @@ "Testing files from " ^ cfg.test_path ^ "\n")
+  >> List.iter testcases ~f:(fun testcase ->
       stdout_to ~append:() table
         (run "echo" [ testcase ]
         >> run "awk"

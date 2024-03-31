@@ -119,13 +119,12 @@ let rotate_right_left x =
 in
 
 let rec insert (tree : {. t | is_balanced }) (i : int) : {. t | is_balanced } =
-#let rec insert tree i =
   let rebalance i node =
     let bf = balance_factor node in
     if bf > 1
     then
       if i < item_exn (left_exn node)
-      then rotate_left node # should be rotate_right
+      then rotate_left node           # ERROR HERE! should be rotate_right
       else rotate_left_right node
     else
       if bf < (0 - 1)

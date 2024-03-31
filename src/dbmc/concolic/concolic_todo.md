@@ -1,86 +1,21 @@
 ## Concolic Evaluator TODOs
 
-### Urgent
-
-* benchmarking
-
-### Eventually
+### Eventually (after April deadline...)
 
 * Solve for all targets along a path to not have to load the solver so many times.
 * Scale max depth of tree with largest non-rec path
-* Use optional input AST branches to customize output
 * Prune irrelevant expressions
   * Similar to value numbering, constant folding etc
   * Also very similar to (or frankly just the same as) checking "hittability" from each line of code
 
-### Out of scope
+### Out of scope (for April deadline)
 
 * Use mutable solver
   * Write interface that uses mutation but isn't smart. Then make new implementation over same interface that is smart, and that way we know what broke.
 * Fuzz with answers and try for as small of inputs as possible (which would require many runs of the solver) only when the solver finishes sufficiently quickly
   * Therefore can get better runs, but we don't waste time on an overloaded solver
-* Analyze AST to determine hittable vs unreachable, as well as how aborts affect future runs
-* Analyze AST to determine which branches are reachable starting from any line of code, and thus which branches depend on which lines. Then only use those formulas to solve, and ignore other formulas that might clog up the solver.
-  * Further, we can determine if a solve/branch is affected by an abort (but this will need some more thought)
 * Value numbering and dead store elimination on jil programs (and hence liveness?)
-* Any other AST analysis...
 
-### Random thoughts
-
-**Aborts and max steps**
-
-See the recursive_abort test file.
-
-When we hit an abort at some recursive depth, branches later in the clause list at that same depth are never
-found and don't get put into the target list. Then, when that branch is solved for, it "correctly" comes out
-as unsatisfiable because we won't be able to hit it because of max step or abort. However, it is unsatisfiable
-before we add any of the abort or max step formulas--it is unsatisfiable because it has no idea there is a branch
-that is satisfiable.
-
-This is an issue because of max step. Further branches after max step are not necessarily unsatisfiable, but they
-are unknown. For this reason, it seems the best I can do is just quit on max step and mark everything unhit as unknown.
-
-With abort, a branch really is unsatisfiable. I just don't yet get the output status to be correct and specific.
-
-**Efficiency**
-
-I'd like to make the formulas easier to solve. UPDATE: it seems I've done this, but it introduced other problems where
-the solver now quickly thinks it finds a solution, but it misses, so it just continues forever
-
-First, the pick branches for target formulas:
-* Currently, we pick and then add OR (AND "all parents" "runtime condition") (AND "all parents" "runtime condition")
-* I think this is what is so difficult to solve for, but I think it will be hard to improve because we need to make
-  and AND of all parents until the next pick statement that does the AND.
-* We really we have a sequence of sets A1 > A2 > A3 > ... > An where A1 contains all the other sets of parents.
-  We then use (AND An) OR (AND A(n-1)) OR ... OR (AND A1), which I think is hard on the solver.
-  I would like to just show that if we have A > B, and we have (AND A) OR (AND B), this is the same
-  as 
-
-  This is tough because we have and, or, union, intersect which are all different.
-
-  (AND (A union B)) is the AND of all formulas in A and B. SO this is (AND (AND A) (AND B))
-
-  A > B when A - B = C, so (AND A) OR (AND B) = (AND (B union C)) OR (AND B) = (AND (AND B) (AND C)) OR (AND B) = (AND X Y) OR X = X = AND B
-* This seems like it's wrong because of the depth dependent test. We can't just solve for the first instance.
-  The reason it's wrong is because this doesn't include the condition. SO the nestedness is only for the parents, not for the conditions. Really we need to satisfy parents and condition, but a set that contains more parents doesn't have to satisfy the previous condition.
-
-  P1 > P2 are the parent sets, and we have conditions C1 and C2 respectively. The formula to satisfy is
-    (AND (AND P1) C1) OR (AND (AND P2) C2)
-  where P1 - P2 = P, so P union P2 = P1
-    (AND (AND P) (AND P2) C1) OR (AND (AND P2) C2)
-    = AND P2 ((AND (AND P) C1) OR C2)
-  i.e. we need to satisfy all the additional parents and the new condition, or we can just satisfy the original thing.
-  So when building the formulas, we make an AND of condition plus all parents since the last checkpoint, and we OR that
-  with the already known formulas. This builds the entire target formula
-
-Second, the abort formulas:
-* We have AND (A1 => ... => An => "abort condition n") (A1 => ... => Am => "abort condition m") ...
-* This is added when we pick the abort.
-* We already have formulas added underneath each Ai. So we could just add the picks underneath.
-* i.e. AND pick (A1 => AND (pick => "abort condition1") ... A2 => ... An => (pick => abort condition2") )
-* There will then be a bunch of picks in there anyways, but at least they'll all be underneath the same implies, which might make it easier.
-* The same would be done for max steps. Can currently just use the same pick because we handle it the same.
-* This does leave more work up to the solver to parse through the picks, but it makes for smaller formulas.
 
 ## Meetings
 
