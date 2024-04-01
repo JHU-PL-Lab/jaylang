@@ -105,7 +105,7 @@ type t =
   ; run_num      : int
   ; options      : Concolic_options.t
   ; quit         : bool
-  ; has_pruned   : bool (* true iff some evaluation hit more nodes than are allowed to be kept *)
+  ; has_pruned   : bool (* true iff some evaluation hit more nodes than are allowed to be kept or interpretation was stopped due to max step *)
   ; last_sym     : Symbolic.t option }
 
 let empty : t =
@@ -129,7 +129,7 @@ let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   let sym = Symbolic.finish sym x.tree in
   { x with
     tree         = Symbolic.root_exn sym
-  ; has_pruned   = x.has_pruned || Symbolic.hit_max_depth sym
+  ; has_pruned   = x.has_pruned || Symbolic.hit_max_depth sym || Symbolic.is_reach_max_step sym
   ; branch_info  = Branch_info.merge x.branch_info @@ Symbolic.branch_info sym
   ; target_queue = Target_queue.push_list x.target_queue @@ Symbolic.targets_exn sym
   ; quit         = x.quit || x.options.quit_on_abort && Branch_info.contains (Symbolic.branch_info sym) (Found_abort [])
@@ -206,7 +206,6 @@ let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t *
   and done_ (x : t) =
     Log.Export.CLog.info (fun m -> m "Done. Tree size is %d\n" (Root.size x.tree));
     `Done (x.branch_info, x.has_pruned)
-
     
   in next x
 

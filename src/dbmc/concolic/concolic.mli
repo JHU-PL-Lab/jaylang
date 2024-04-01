@@ -8,7 +8,7 @@ module Test_result :
       | Timeout                 (* total evaluation timeout *)
   end
 
-val eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t
+(* val eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t *)
 
 val test : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t
 

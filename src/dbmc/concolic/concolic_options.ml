@@ -80,8 +80,8 @@ module Fun =
       ; random }
       |> f 
 
-    let map (x : 'a t) ~(f : 'a -> 'b) : 'b t =
-      let g = fun r -> f (appl x r)
+    let map (x : ('a -> 'b) t) (f : 'b -> 'c) : ('a -> 'c) t =
+      let g = fun r -> fun a -> f (appl x r a)
       in
       make g
 

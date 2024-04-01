@@ -2,23 +2,6 @@ open Core
 open Dj_common
 open Dbmc
 
-[@@@ocaml.warning "-32"]
-(* Expects some specific branch info by the end of the run, thereby checking that concolic evaluator works exactly as expected *)
-let test_exact_expected testname _args =
-  let result = 
-    match 
-      (* Read expected branch information via sexp from the `<filename>.expect.s` file. *)
-      File_utils.load_expect testname
-      @@ List.t_of_sexp Branch_info.t_of_sexp
-    with
-    | None -> false (* no expected output, so say it failed *)
-    | Some expect_list ->
-      let actual_output = Concolic.eval ~quit_on_abort:false (Dj_common.File_utils.read_source testname) in
-      List.exists expect_list ~f:(fun e -> Branch_info.compare actual_output e = 0)
-  in
-  Alcotest.(check bool) "concolic" true result
-[@@@ocaml.warning "+32"]
-
 let _ = Filename.split_extension
 
 (* Just tries to find any abort, and that's all *)

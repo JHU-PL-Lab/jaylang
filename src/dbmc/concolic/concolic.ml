@@ -514,27 +514,6 @@ let lwt_eval : (Jayil.Ast.expr -> (Branch_info.t * bool) Lwt.t) Concolic_options
   in
   Concolic_options.Fun.make f
 
-(* Concolically execute/test program. Not necessarily needed anymore *)
-let[@landmark] eval : (Jayil.Ast.expr -> Branch_info.t) Concolic_options.Fun.t =
-  let f =
-    fun (r : Concolic_options.t) ->
-      fun (e : Jayil.Ast.expr) ->
-        try
-          let t0 = Caml_unix.gettimeofday () in
-          let res =
-            Tuple2.get1
-            @@ Lwt_main.run
-            @@ Concolic_options.Fun.appl lwt_eval r e
-          in
-          Log.Export.CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
-          res
-        with
-        | Lwt_unix.Timeout ->
-          Log.Export.CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
-          Branch_info.empty
-  in
-  Concolic_options.Fun.make f
-
 module Test_result =
   struct
     type t =
@@ -542,9 +521,16 @@ module Test_result =
       | Exhausted               (* Ran all possible tree paths, and no paths were too deep *)
       | Exhausted_pruned_tree   (* Ran all possible tree paths up to the given max step *)
       | Timeout                 (* total evaluation timeout *)
+
+    let merge a b =
+      match a, b with
+      | (Found_abort _ as x), _ | _, (Found_abort _ as x) -> x
+      | Exhausted, _ | _, Exhausted -> Exhausted
+      | Exhausted_pruned_tree, _ | _, Exhausted_pruned_tree -> Exhausted_pruned_tree
+      | Timeout, Timeout  -> Timeout
   end
 
-let[@landmark] test : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
+let[@landmark] test_one : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
   let f =
     fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
@@ -559,19 +545,45 @@ let[@landmark] test : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
           Log.Export.CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
           Branch_info.find res ~f:(fun _ -> function Branch_info.Status.Found_abort _ -> true | _ -> false)
           |> function
-            | Some (branch, Branch_info.Status.Found_abort inputs) ->
-              Format.printf "\nFOUND_ABORT\n";
-              Test_result.Found_abort (branch, List.rev inputs)
-            | None when not has_pruned ->
-              Format.printf "\nEXHAUSTED\n";
-              Exhausted
-            | _ ->
-              Format.printf "\nEXHAUSTED_PRUNED_TREE\n";
-              Exhausted_pruned_tree
+            | Some (branch, Branch_info.Status.Found_abort inputs) -> Test_result.Found_abort (branch, List.rev inputs)
+            | None when not has_pruned -> Exhausted
+            | _ -> Exhausted_pruned_tree
         with
         | Lwt_unix.Timeout ->
           Log.Export.CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
-          Format.printf "\nTIMEOUT\n";
           Timeout
   in
   Concolic_options.Fun.make f
+
+(* [test_incremental n] incrementally increases the max tree depth in [n] equal steps until it reaches the given max depth *)
+let[@landmark] test_incremental n : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
+  let f =
+    fun (r : Concolic_options.t) ->
+      fun (e : Jayil.Ast.expr) ->
+        n
+        |> List.init ~f:(fun i -> (i + 1) * r.max_tree_depth / n)
+        |> List.fold_until
+            ~init:Test_result.Timeout
+            ~f:(fun acc d ->
+                Concolic_options.Fun.appl test_one { r with max_tree_depth = d } e
+                |> function
+                  | Test_result.Found_abort _ as x -> Continue_or_stop.Stop x
+                  | x -> Continue (Test_result.merge acc x)
+            )
+            ~finish:Fn.id
+  in
+  Concolic_options.Fun.make f
+
+let[@landmark] test : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
+  Concolic_options.Fun.map
+    (test_incremental 3)
+    (fun r ->
+      begin
+      match r with
+      | Test_result.Found_abort _ -> Format.printf "\nFOUND_ABORT\n"
+      | Exhausted ->                 Format.printf "\nEXHAUSTED\n"
+      | Exhausted_pruned_tree ->     Format.printf "\nEXHAUSTED_PRUNED_TREE\n"
+      | Timeout ->                   Format.printf "\nTIMEOUT\n"
+      end;
+      r
+    )
