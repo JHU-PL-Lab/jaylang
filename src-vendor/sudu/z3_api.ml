@@ -2,19 +2,27 @@ open Core
 open Z3
 open Z3_helper
 
-(* if a module is functor-ing on a type, then it shouldn't read the type's concrete tags *)
+(*
+  Note:
+  We are going to make two final modules that based on two types.
+  The final modules are step-wise constructed via module functor-ing.
+  We are going to make two core type-aware modules and the rest module functors are type-agnostic.
 
-type plain = Int of int | Bool of bool | Fun of string | Record of string
-type case = Int_case | Bool_case | Fun_case | Record_case
+  The point is the module functors work like polymorphic functions, therefore we should not inspect
+  the type (the tags in the variant) in them. Only the two core modules can inspect type and the rest
+  are based on the type of that core module.
 
-let cases = [ Int_case; Bool_case; Fun_case; Record_case ]
+  This can simply the signatures of module functors. That is, no `with` will be used.
 
-module type z3_datatype_with_case = Jil_z3_datatye with type t = plain
-(*  and type case = case *)
+  One remaining question is I thought `case` is for the user-side selection.
+
+if a module is functor-ing on a type, then it shouldn't read the type's concrete tags *)
 
 module Make_z3_datatype (C : Context) = struct
-  type t = plain
-  type nonrec case = case
+  type t = Int of int | Bool of bool | Fun of string | Record of string
+  type case = Int_case | Bool_case | Fun_case | Record_case
+
+  let cases = [ Int_case; Bool_case; Fun_case; Record_case ]
 
   open C
 
@@ -125,13 +133,25 @@ module Make_z3_datatype (C : Context) = struct
     | Fun_case -> Fun (unbox_string pv)
     | Record_case -> Record (unbox_string pv)
 
+  (* let project_unbox_int v =
+     if v |> is_int |> simplify |> unbox_bool
+     then Some (v |> project_int |> simplify |> unbox_int)
+     else None *)
+
   let eval_value model e =
     let v = eval_exn_ model e in
     Some (unbox_value v)
+
+  let get_int_expr model e =
+    match eval_value model e with
+    | Some (Int i) -> Some i
+    | Some _ ->
+        Logs.warn (fun m -> m "Get non-int for input%s" (Z3.Expr.to_string e)) ;
+        Some 0
+    | None -> None
 end
 
-module Make_datatype_builders (JZ : z3_datatype_with_case) (C : Context) =
-struct
+module Make_datatype_builders (JZ : Jil_z3_datatye) (C : Context) = struct
   open JZ
   open C
   include Make_basic_to_z3_basic (C)
@@ -144,7 +164,6 @@ struct
   let bool_ b = inject_bool (box_bool b)
   let string_ s = inject_string (box_string s)
   let fun_ s = string_ s
-  let record_ bv = inject_record (box_string bv)
   let true_ = bool_ true
   let false_ = bool_ false
   let ground_truth = eq true_ true_
@@ -154,14 +173,6 @@ struct
   let var_i i =
     Expr.mk_const ctx (Symbol.mk_int ctx i)
       the_sort (* used to identify variables with a unique int *)
-
-  let get_int_expr model e =
-    match eval_value model e with
-    | Some (Int i) -> Some i
-    | Some _ ->
-        Logs.warn (fun m -> m "Get non-int for input%s" (Z3.Expr.to_string e)) ;
-        Some 0
-    | None -> None
 
   let get_int_s model s = get_int_expr model (var_s s)
 
@@ -175,7 +186,7 @@ struct
         None
 end
 
-module Make_datatype_ops (JZ : z3_datatype_with_case) (C : Context) = struct
+module Make_datatype_ops (JZ : Jil_z3_datatye) (C : Context) = struct
   open JZ
   include Make_datatype_builders (JZ) (C)
 
@@ -215,7 +226,19 @@ module Make (C : Context) = struct
   include C
   include Make_helper (C)
   include Contextless_functions
-  module JZ = Make_z3_datatype (C)
-  include JZ
-  include Make_datatype_ops (JZ) (C)
+
+  (* module JZ = Make_z3_datatype (C)
+     include JZ
+     include Make_datatype_ops (JZ) (C) *)
+  (* module JZ = Make_z3_datatype (C) *)
+  include Make_z3_datatype (C)
+  include Make_datatype_ops (Make_z3_datatype (C)) (C)
 end
+
+(* module Make1 (JZ : Jil_z3_datatye) (C : Context) = struct
+     include C
+     include Make_helper (C)
+     include Contextless_functions
+     include JZ
+     include Make_datatype_ops (JZ) (C)
+   end *)
