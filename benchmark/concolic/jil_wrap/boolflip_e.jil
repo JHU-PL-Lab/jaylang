@@ -1,0 +1,148 @@
+i_first = {};
+h_j_11 = fun x_j_5 -> (
+    var_j_6 = x_j_5;
+    assert_pred_j_7 = var_j_6;
+    m_i_59 = assert_pred_j_7 ~ bool;
+    assert_res_j_8 = m_i_59 ? (
+            c_cond_i_60 = assert_pred_j_7 ? (
+                    assert_res_true_j_9 = {}
+                ) : (
+                    ab_j_10 = abort
+                )
+        ) : (
+            ab_i_61 = abort
+        ));
+h = h_j_11;
+g_j_18 = fun x_j_4 -> (
+    g_j_17 = fun y_j_3 -> (
+        var_j_12 = y_j_3;
+        assert_pred_j_13 = var_j_12;
+        m_i_62 = assert_pred_j_13 ~ bool;
+        assert_res_j_14 = m_i_62 ? (
+                c_cond_i_63 = assert_pred_j_13 ? (
+                        assert_res_true_j_15 = {}
+                    ) : (
+                        ab_j_16 = abort
+                    )
+            ) : (
+                ab_i_64 = abort
+            )));
+g = g_j_18;
+flatten_fun_j_36 = fun f_j_0 -> (
+    flatten_fun_j_35 = fun x -> (
+        flatten_fun_j_34 = fun y -> (
+            var_j_19 = f_j_0;
+            var_j_20 = f_j_0;
+            appl_j_21 = var_j_19 var_j_20;
+            f = appl_j_21;
+            var_j_22 = x;
+            m_i_65 = var_j_22 ~ bool;
+            if_j_33 = m_i_65 ? (
+                    c_cond_i_78 = var_j_22 ? (
+                            var_j_23 = f;
+                            var_j_24 = y;
+                            m_i_66 = var_j_23 ~ fun;
+                            appl_j_25 = m_i_66 ? (
+                                    c_appl_i_67 = var_j_23 var_j_24
+                                ) : (
+                                    ab_i_68 = abort
+                                );
+                            var_j_26 = y;
+                            m_i_69 = appl_j_25 ~ fun;
+                            appl_j_27 = m_i_69 ? (
+                                    c_appl_i_70 = appl_j_25 var_j_26
+                                ) : (
+                                    ab_i_71 = abort
+                                )
+                        ) : (
+                            var_j_28 = g;
+                            var_j_29 = x;
+                            m_i_72 = var_j_28 ~ fun;
+                            appl_j_30 = m_i_72 ? (
+                                    c_appl_i_73 = var_j_28 var_j_29
+                                ) : (
+                                    ab_i_74 = abort
+                                );
+                            var_j_31 = y;
+                            m_i_75 = appl_j_30 ~ fun;
+                            appl_j_32 = m_i_75 ? (
+                                    c_appl_i_76 = appl_j_30 var_j_31
+                                ) : (
+                                    ab_i_77 = abort
+                                )
+                        )
+                ) : (
+                    ab_i_79 = abort
+                ))));
+appl_j_39 = flatten_fun_j_36 flatten_fun_j_36;
+int_j_40 = 0;
+int_j_41 = 1;
+m_bl_i_80 = int_j_40 ~ int;
+m_br_i_81 = int_j_41 ~ int;
+m_b_i_82 = m_bl_i_80 and m_br_i_81;
+binop_j_42 = m_b_i_82 ? (
+        c_binop_i_83 = int_j_40 < int_j_41
+    ) : (
+        ab_i_84 = abort
+    );
+m_i_85 = binop_j_42 ~ bool;
+if_j_57 = m_i_85 ? (
+        c_cond_i_110 = binop_j_42 ? (
+                var_j_43 = appl_j_39;
+                int_j_44 = 0;
+                int_j_45 = 1;
+                m_bl_i_86 = int_j_44 ~ int;
+                m_br_i_87 = int_j_45 ~ int;
+                m_b_i_88 = m_bl_i_86 and m_br_i_87;
+                binop_j_46 = m_b_i_88 ? (
+                        c_binop_i_89 = int_j_44 < int_j_45
+                    ) : (
+                        ab_i_90 = abort
+                    );
+                m_i_91 = var_j_43 ~ fun;
+                appl_j_47 = m_i_91 ? (
+                        c_appl_i_92 = var_j_43 binop_j_46
+                    ) : (
+                        ab_i_93 = abort
+                    );
+                int_j_48 = 1;
+                int_j_49 = 0;
+                m_bl_i_94 = int_j_48 ~ int;
+                m_br_i_95 = int_j_49 ~ int;
+                m_b_i_96 = m_bl_i_94 and m_br_i_95;
+                binop_j_50 = m_b_i_96 ? (
+                        c_binop_i_97 = int_j_48 < int_j_49
+                    ) : (
+                        ab_i_98 = abort
+                    );
+                m_i_99 = appl_j_47 ~ fun;
+                appl_j_51 = m_i_99 ? (
+                        c_appl_i_100 = appl_j_47 binop_j_50
+                    ) : (
+                        ab_i_101 = abort
+                    )
+            ) : (
+                var_j_52 = h;
+                int_j_53 = 1;
+                int_j_54 = 0;
+                m_bl_i_102 = int_j_53 ~ int;
+                m_br_i_103 = int_j_54 ~ int;
+                m_b_i_104 = m_bl_i_102 and m_br_i_103;
+                binop_j_55 = m_b_i_104 ? (
+                        c_binop_i_105 = int_j_53 < int_j_54
+                    ) : (
+                        ab_i_106 = abort
+                    );
+                m_i_107 = var_j_52 ~ fun;
+                appl_j_56 = m_i_107 ? (
+                        c_appl_i_108 = var_j_52 binop_j_55
+                    ) : (
+                        ab_i_109 = abort
+                    )
+            )
+    ) : (
+        ab_i_111 = abort
+    );
+main = if_j_57;
+var_j_58 = main;
+i_result = var_j_58

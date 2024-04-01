@@ -1,0 +1,14 @@
+# Error is that n should be less than 14, but the param to main is not bounded
+# NOTE: we don't catch this error because it is too deep
+
+let rec sum x =
+  if x <= 0
+  then 0
+  else x + sum (x - 1)
+in
+
+let main (n : int) : {. int | fun i -> i <= 100 } =
+  sum n
+in
+
+main

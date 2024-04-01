@@ -1,6 +1,6 @@
 #!/bin/bash
 
-input_dir="./benchmark/concolic/racket/"
+input_dir="./benchmark/concolic/bjy/"
 output_dir="./benchmark/concolic/jil_wrap/"
 output_dir_no_wrap="./benchmark/concolic/jil_no_wrap/"
 translator_exe="./translator.exe"

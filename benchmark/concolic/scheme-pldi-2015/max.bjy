@@ -1,0 +1,18 @@
+# error is that max is not performed on `x` but predicate relies on x
+
+let max max2 x y z =
+  max2 y z
+in
+
+let f x y =
+  if x >= y
+  then x
+  else y
+in
+
+letd main (x : int) : int -> int -> {. int | fun c -> c == f x c } =
+  fun y -> fun z -> 
+    max f x y z # `max f y x z` fixes the error
+in
+
+main
