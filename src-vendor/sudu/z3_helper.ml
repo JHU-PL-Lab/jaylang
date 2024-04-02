@@ -113,6 +113,7 @@ module type Jil_z3_datatye = sig
   val case_to_recognizer : case -> Expr.expr -> Expr.expr
   val case_to_injector : case -> Expr.expr -> Expr.expr
   val case_to_projecter : case -> Expr.expr -> Expr.expr
+  val box_value : t -> Expr.expr
   val unbox_value : Expr.expr -> t
   val eval_value : Model.model -> Expr.expr -> t option
   val get_int_expr : Model.model -> Expr.expr -> int option

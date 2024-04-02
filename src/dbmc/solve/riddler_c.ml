@@ -9,33 +9,33 @@ module SuduZ3 = struct
   module JZ = Sudu.Z3_datatype_c.Make_z3_datatype_V2 (Riddler.C)
   include JZ
   include Sudu.Z3_datatype.Make_datatype_ops (JZ) (Riddler.C)
+  open Jayil.Ast
+  open Sudu.Z3_datatype_c
+
+  let t_v2_of_value (key : Lookup_key.t) = function
+    | Value_function _ ->
+        let (Id.Ident fid) = key.x in
+        Sudu.Z3_datatype_c.Fun fid
+    | Value_int i -> Sudu.Z3_datatype_c.Int i
+    | Value_bool b -> Sudu.Z3_datatype_c.Bool b
+    | Value_record (Record_value m) ->
+        Sudu.Z3_datatype_c.Record
+          (m |> Ident_map.key_list
+          |> Record_logic.create_bv_from_labels ~are_labels_predefined:false)
+
+  let phi_of_value key v = t_v2_of_value key v |> box_value
 end
 
 module Make_specific (SuduZ3 : Riddler.S) = struct
   open SuduZ3
   open Riddler.Make_common (SuduZ3)
 
-  let record_ bv = inject_record (box_bitvector bv)
   let keys = Key_map.create ()
 
   let reset () =
     counter := 0 ;
     Key_map.clear keys ;
     Record_logic.clear_labels ()
-
-  open Jayil.Ast
-
-  let z_of_fid (Id.Ident fid) = SuduZ3.fun_ fid
-
-  let phi_of_value (key : Lookup_key.t) = function
-    | Value_function _ -> z_of_fid key.x
-    | Value_int i -> SuduZ3.int_ i
-    | Value_bool i -> SuduZ3.bool_ i
-    | Value_record (Record_value m) ->
-        m |> Ident_map.key_list
-        |> Record_logic.create_bv_from_labels ~are_labels_predefined:false
-        |> record_
-
   (* let key_to_i key =
      Key_map.get_i keys key *)
 
@@ -47,118 +47,16 @@ module Make_specific (SuduZ3 : Riddler.S) = struct
     | None -> key_to_var key
 end
 
-module type S2 = module type of struct
-  include Make_specific (SuduZ3)
-end
-
-module Make_more (SuduZ3 : Riddler.S) (Sudu_more : S2) = struct
+module Make_more (SuduZ3 : Riddler.S) (Sudu_more : Riddler.S2) = struct
   open SuduZ3
   open Sudu_more
   open Jayil.Ast
   open Riddler.Make_common (SuduZ3)
 
   (* AST primitive (no picked) *)
+  include Riddler.Make_common_more (SuduZ3) (Sudu_more)
 
-  let not_ t t1 =
-    let e = key_to_var t in
-    let e1 = key_to_var t1 in
-    fn_not e e1
-
-  let binop t op t1 t2 =
-    let open Jayil.Ast in
-    let e = key_to_var t in
-    let e1 = key_to_var t1 in
-    let e2 = key_to_var t2 in
-    let fop =
-      match op with
-      | Binary_operator_plus -> fn_plus
-      | Binary_operator_minus -> fn_minus
-      | Binary_operator_times -> fn_times
-      | Binary_operator_divide -> fn_divide
-      | Binary_operator_modulus -> fn_modulus
-      | Binary_operator_less_than -> fn_lt
-      | Binary_operator_less_than_or_equal_to -> fn_le
-      | Binary_operator_equal_to -> fn_eq
-      (* TODO: This might be buggy. Check later *)
-      | Binary_operator_not_equal_to -> fn_neq
-      | Binary_operator_and -> fn_and
-      | Binary_operator_or -> fn_or
-    in
-    fop e e1 e2
-
-  (* let eq_bool key b = SuduZ3.eq (key_to_var key) (SuduZ3.bool_ b) *)
-  let is_bool key = is_bool (key_to_var key)
-  let eqv key v = SuduZ3.eq (key_to_var key) (phi_of_value key v)
-  let eq key key' = SuduZ3.eq (key_to_var key) (key_to_var key')
-  let eqz key v = SuduZ3.eq (key_to_var key) v
-
-  let stack_in_main r_stk =
-    SuduZ3.eq top_stack
-      (r_stk |> Rstack.concretize_top |> Concrete_stack.sexp_of_t
-     |> Sexp.to_string_mach |> SuduZ3.fun_)
-
-  (* with picked *)
-
-  let pick_key_list (key : Lookup_key.t) i =
-    Lookup_key.to_string key
-    (* Rstack.to_string key.r_stk  *)
-    ^ "_"
-    ^ string_of_int i
-    |> SuduZ3.mk_bool_s
-
-  let list_head key = picked key @=> pick_key_list key 0
-
-  let list_append key i ele =
-    pick_key_list key i @=> or_ [ ele; pick_key_list key (i + 1) ]
-
-  let is_picked model key =
-    Option.value_map model ~default:false ~f:(fun model ->
-        Option.value (SuduZ3.get_bool model (picked key)) ~default:true)
-
-  let eq_domain k kvs =
-    or_ (List.map kvs ~f:(fun kv -> and_ [ eq k kv; picked kv ]))
-
-  let eq_list es =
-    List.map es ~f:(function
-      | K (k1, k2) -> [ eq k1 k2; picked k1; picked k2 ]
-      | K2 (k1, k2) -> [ eq k1 k2; picked k2 ]
-      | Z (k, z) -> [ eqz k z; picked k ]
-      | D (k, kvs) -> [ eq_domain k kvs ]
-      | P k -> [ picked k ]
-      | Phi p -> [ p ])
-    |> List.concat |> and_
-
-  let imply k pe = picked k @=> and_ [ eq_list pe ]
-  let choices k pes = picked k @=> or_ (List.map pes ~f:eq_list)
-  let invalid key = imply key [ Phi (box_bool false) ]
-  let implies key key' = imply key [ P key' ]
-  let implies_v key key' v = imply key [ P key'; Z (key, phi_of_value key v) ]
-  let not_lookup t t1 = imply t [ P t1; Phi (not_ t t1) ]
-
-  (* Alias *)
-  let eq_lookup key key' = imply key [ K (key, key') ]
-
-  (* Binop *)
-  let binop_without_picked =
-    binop (* patch to bring back old binop for concolic evaluator *)
-
-  let binop t op t1 t2 =
-    let e_bop = binop t op t1 t2 in
-    imply t [ P t1; P t2; Phi e_bop ]
-
-  (* Cond Top *)
-  let cond_top key key_x key_c beta =
-    imply key [ K2 (key, key_x); Z (key_c, SuduZ3.bool_ beta) ]
-
-  let imply_domain k kd = imply k [ D (k, kd) ]
-  let imply_domain_with k kd pe = imply k ([ D (k, kd) ] @ pe)
-
-  (* Rules *)
-  (* Value rules for main and non-main *)
-
-  let at_main key vo =
-    imply key
-      [ Z (key, phi_of_value_opt key vo); Phi (stack_in_main key.r_stk) ]
+  let record_ bv = inject_record (box_bitvector bv)
 
   (* Pattern *)
 
@@ -198,15 +96,6 @@ module Make_more (SuduZ3 : Riddler.S) (Sudu_more : S2) = struct
           ]
     | Any_pattern -> true_
 
-  (* OB1: For some patterns, we can immediately know the result of the matching:
-     when the returning value is a literal value. We can use it in the interpreter.
-     We lose this information when the lookup go through a conditional block or
-     some binop. *)
-  (* OB2: The pattern matching can tolerate infeasible cases caused by the analysis,
-     because the literal value is incorrect. A conditional block can use this result
-     to go into a then-block or a else-block.
-  *)
-
   let pattern x x' key_rv rv pat =
     LS2Log.debug (fun m ->
         m "pattern %a = %a (<-%a = %a) ~ %a@." Lookup_key.pp x Lookup_key.pp x'
@@ -233,111 +122,16 @@ module Make_more (SuduZ3 : Riddler.S) (Sudu_more : S2) = struct
          K (x', key_rv);
        ]
       @ matching_result)
-
-  (* Cond Bottom *)
-  let cond_bottom key key_c rets =
-    let es =
-      List.map rets ~f:(fun (beta, key_ret) ->
-          [ K2 (key, key_ret); Z (key_c, bool_ beta) ])
-    in
-    choices key es
-
-  (* Fun Enter Local *)
-  let fun_enter_local (key_para : Lookup_key.t)
-      (p : Rule.Fun_enter_local_rule.t) =
-    let cs =
-      List.map p.callsites_with_stk ~f:(fun (key_f, key_arg) ->
-          [ K2 (key_para, key_arg); Z (key_f, z_of_fid p.fid) ])
-    in
-    choices key_para cs
-
-  (* Fun Exit *)
-  let fun_exit key_arg key_f fids block_map =
-    let cs =
-      List.map fids ~f:(fun fid ->
-          let key_ret = Lookup_key.get_f_return block_map fid key_arg in
-          [ K2 (key_arg, key_ret); Z (key_f, z_of_fid fid) ])
-    in
-    choices key_arg cs
-
-  (* used by concolic interpreter *)
-  (* OBSOLETE *)
-  let eq_fid term (Id.Ident fid) = SuduZ3.eq (key_to_var term) (SuduZ3.fun_ fid)
-
-  let eq_term_v term v =
-    match v with
-    (* Ast.Value_body for function *)
-    | Some (Value_function _) -> eq_fid term term.x
-    (* Ast.Value_body *)
-    | Some v -> eqv term v
-    (* Ast.Input_body *)
-    | None -> eq term term
-
-  let enter_fun key_para key_arg = eq key_para key_arg
-  let exit_fun key_in key_out = eq key_in key_out
-
-  (* let is_pattern term pat =
-     let x = key_to_var term in
-     let is_pattern =
-       match pat with
-       | Fun_pattern -> ifFun x
-       | Int_pattern -> ifInt x
-       | Bool_pattern -> ifBool x
-       | Rec_pattern _ -> ifRecord x
-       | Strict_rec_pattern _ -> ifRecord x
-       | Any_pattern -> true_
-     in
-     is_pattern *)
 end
 
-module Make (SuduZ3 : Riddler.S) = struct
+module Make (SuduZ3 : Riddler.S) (MS : Riddler.S2) = struct
   open Jayil.Ast
   open SuduZ3
   open Log.Export
   include Riddler.Make_common (SuduZ3)
-  module MS = Make_specific (SuduZ3)
   include MS
   include Make_more (SuduZ3) (MS)
-
-  (*  *)
   module Solver = Riddler.Make_solver_helper (Riddler.C)
 end
 
-include Make (SuduZ3)
-
-(* module type S = module type of struct
-     include SuduZ3
-   end *)
-
-(* module S1 : S = Riddler.SuduZ3 *)
-(* module S2 : Riddler.S = SuduZ3 *)
-(* module SS = Make_common (SuduZ3) *)
-
-(* module Make_common (SuduZ3 : Riddler.S) = struct
-     open SuduZ3
-     include Riddler_helper
-
-     let top_stack = SuduZ3.var_s "Topstack"
-
-     let picked (key : Lookup_key.t) =
-       "P_" ^ Lookup_key.to_string key |> SuduZ3.mk_bool_s
-
-     let picked_string (s : string) = "P_" ^ s |> SuduZ3.mk_bool_s
-     let counter = ref 0
-
-     (* Solver primitives *)
-
-     let ( @=> ) = SuduZ3.( @=> )
-     let true_ = box_bool true
-     let false_ = box_bool false
-     let bool_ = SuduZ3.bool_
-     let and_ = SuduZ3.and_
-
-     type eg_edge =
-       | K of (Lookup_key.t * Lookup_key.t)
-       | K2 of (Lookup_key.t * Lookup_key.t)
-       | Z of (Lookup_key.t * Z3.Expr.expr)
-       | D of (Lookup_key.t * Lookup_key.t list)
-       | P of Lookup_key.t
-       | Phi of Z3.Expr.expr
-   end *)
+include Make (SuduZ3) (Make_specific (SuduZ3))

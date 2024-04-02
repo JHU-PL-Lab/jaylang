@@ -19,6 +19,17 @@ module SuduZ3 = struct
   module JZ = Sudu.Z3_datatype.Make_z3_datatype (C)
   include JZ
   include Sudu.Z3_datatype.Make_datatype_ops (JZ) (C)
+  open Jayil.Ast
+
+  let t_v1_of_value (key : Lookup_key.t) = function
+    | Value_function _ ->
+        let (Id.Ident fid) = key.x in
+        Sudu.Z3_datatype.Fun fid
+    | Value_int i -> Sudu.Z3_datatype.Int i
+    | Value_bool b -> Sudu.Z3_datatype.Bool b
+    | Value_record i -> Sudu.Z3_datatype.Record (Lookup_key.to_string key)
+
+  let phi_of_value key v = t_v1_of_value key v |> box_value
 end
 
 (* module type S = module type of SuduZ3 *)
@@ -29,6 +40,8 @@ module type S = sig
   end
 
   include Sudu.Z3_helper.Jil_z3_datatye
+
+  val phi_of_value : Lookup_key.t -> Jayil.Ast.value -> Z3.Expr.expr
 end
 
 module Make_common (SuduZ3 : S) = struct
@@ -50,6 +63,7 @@ module Make_common (SuduZ3 : S) = struct
   let false_ = box_bool false
   let bool_ = SuduZ3.bool_
   let and_ = SuduZ3.and_
+  let z_of_fid (Id.Ident fid) = SuduZ3.fun_ fid
 
   type eg_edge =
     | K of (Lookup_key.t * Lookup_key.t)
@@ -65,23 +79,9 @@ module Make_specific (SuduZ3 : S) = struct
   open Make_common (SuduZ3)
 
   (* specific *)
-
-  (* should be in SuduZ3 *)
-  let record_ bv = inject_record (box_string bv)
   let reset () = counter := 0
 
-  open Jayil.Ast
-
   (* let eq_bool key b = SuduZ3.eq (key_to_var key) (SuduZ3.bool_ b) *)
-  let z_of_fid (Id.Ident fid) = SuduZ3.fun_ fid
-
-  (* duplicate by : ast_value -> jil_type -> z3_of_jil_type *)
-  let phi_of_value (key : Lookup_key.t) = function
-    | Value_function _ -> z_of_fid key.x
-    | Value_int i -> SuduZ3.int_ i
-    | Value_bool i -> SuduZ3.bool_ i
-    | Value_record i -> record_ (Lookup_key.to_string key)
-
   let key_to_var key = key |> Lookup_key.to_string |> SuduZ3.var_s
 
   let phi_of_value_opt (key : Lookup_key.t) = function
@@ -93,13 +93,11 @@ module type S2 = module type of struct
   include Make_specific (SuduZ3)
 end
 
-module Make_more (SuduZ3 : S) (Sudu_more : S2) = struct
+module Make_common_more (SuduZ3 : S) (Sudu_more : S2) = struct
   open SuduZ3
   open Sudu_more
   open Jayil.Ast
   open Make_common (SuduZ3)
-  (* AST primitive (no picked) *)
-  (* the folloing are based on SuduZ3, key_to_var, phi_of_value *)
 
   let not_ t t1 =
     let e = key_to_var t in
@@ -139,7 +137,6 @@ module Make_more (SuduZ3 : S) (Sudu_more : S2) = struct
      |> Sexp.to_string_mach |> SuduZ3.fun_)
 
   (* with picked *)
-
   let pick_key_list (key : Lookup_key.t) i =
     Lookup_key.to_string key
     (* Rstack.to_string key.r_stk  *)
@@ -180,12 +177,14 @@ module Make_more (SuduZ3 : S) (Sudu_more : S2) = struct
   let eq_lookup key key' = imply key [ K (key, key') ]
 
   (* Binop *)
-  let binop t op t1 t2 =
-    let e_bop = binop t op t1 t2 in
-    imply t [ P t1; P t2; Phi e_bop ]
 
   let binop_without_picked =
     binop (* patch to bring back old binop for concolic evaluator *)
+
+  (* TODO: redefined binop. not good *)
+  let binop t op t1 t2 =
+    let e_bop = binop t op t1 t2 in
+    imply t [ P t1; P t2; Phi e_bop ]
 
   (* Cond Top *)
   let cond_top key key_x key_c beta =
@@ -200,6 +199,72 @@ module Make_more (SuduZ3 : S) (Sudu_more : S2) = struct
   let at_main key vo =
     imply key
       [ Z (key, phi_of_value_opt key vo); Phi (stack_in_main key.r_stk) ]
+
+  (* Cond Bottom *)
+  let cond_bottom key key_c rets =
+    let es =
+      List.map rets ~f:(fun (beta, key_ret) ->
+          [ K2 (key, key_ret); Z (key_c, bool_ beta) ])
+    in
+    choices key es
+
+  (* Fun Enter Local *)
+  let fun_enter_local (key_para : Lookup_key.t)
+      (p : Rule.Fun_enter_local_rule.t) =
+    let cs =
+      List.map p.callsites_with_stk ~f:(fun (key_f, key_arg) ->
+          [ K2 (key_para, key_arg); Z (key_f, z_of_fid p.fid) ])
+    in
+    choices key_para cs
+
+  (* Fun Exit *)
+  let fun_exit key_arg key_f fids block_map =
+    let cs =
+      List.map fids ~f:(fun fid ->
+          let key_ret = Lookup_key.get_f_return block_map fid key_arg in
+          [ K2 (key_arg, key_ret); Z (key_f, z_of_fid fid) ])
+    in
+    choices key_arg cs
+
+  (* let enter_fun key_para key_arg = eq key_para key_arg
+     let exit_fun key_in key_out = eq key_in key_out
+
+     let is_pattern term pat =
+       let x = key_to_var term in
+       let is_pattern =
+         match pat with
+         | Fun_pattern -> is_fun x
+         | Int_pattern -> is_int x
+         | Bool_pattern -> SuduZ3.is_bool x
+         | Rec_pattern _ -> is_record x
+         | Strict_rec_pattern _ -> is_record x
+         | Any_pattern -> true_
+       in
+       is_pattern *)
+
+  (* used by concolic interpreter *)
+  (* OBSOLETE *)
+  let eq_fid term (Id.Ident fid) = SuduZ3.eq (key_to_var term) (SuduZ3.fun_ fid)
+
+  let eq_term_v term v =
+    match v with
+    (* Ast.Value_body for function *)
+    | Some (Value_function _) -> eq_fid term term.x
+    (* Ast.Value_body *)
+    | Some v -> eqv term v
+    (* Ast.Input_body *)
+    | None -> eq term term
+end
+
+module Make_more (SuduZ3 : S) (Sudu_more : S2) = struct
+  open SuduZ3
+  open Sudu_more
+  open Jayil.Ast
+  open Make_common (SuduZ3)
+
+  (* AST primitive (no picked) *)
+  (* the folloing are based on SuduZ3, key_to_var, phi_of_value *)
+  include Make_common_more (SuduZ3) (Sudu_more)
 
   (* Pattern *)
 
@@ -249,85 +314,29 @@ module Make_more (SuduZ3 : S) (Sudu_more : S2) = struct
          K (x', key_rv);
        ]
       @ matching_result)
-
-  (* Cond Bottom *)
-  let cond_bottom key key_c rets =
-    let es =
-      List.map rets ~f:(fun (beta, key_ret) ->
-          [ K2 (key, key_ret); Z (key_c, bool_ beta) ])
-    in
-    choices key es
-
-  (* Fun Enter Local *)
-  let fun_enter_local (key_para : Lookup_key.t)
-      (p : Rule.Fun_enter_local_rule.t) =
-    let cs =
-      List.map p.callsites_with_stk ~f:(fun (key_f, key_arg) ->
-          [ K2 (key_para, key_arg); Z (key_f, z_of_fid p.fid) ])
-    in
-    choices key_para cs
-
-  (* Fun Exit *)
-  let fun_exit key_arg key_f fids block_map =
-    let cs =
-      List.map fids ~f:(fun fid ->
-          let key_ret = Lookup_key.get_f_return block_map fid key_arg in
-          [ K2 (key_arg, key_ret); Z (key_f, z_of_fid fid) ])
-    in
-    choices key_arg cs
-
-  (* used by concolic interpreter *)
-  (* OBSOLETE *)
-  let eq_fid term (Id.Ident fid) = SuduZ3.eq (key_to_var term) (SuduZ3.fun_ fid)
-
-  let eq_term_v term v =
-    match v with
-    (* Ast.Value_body for function *)
-    | Some (Value_function _) -> eq_fid term term.x
-    (* Ast.Value_body *)
-    | Some v -> eqv term v
-    (* Ast.Input_body *)
-    | None -> eq term term
-
-  let enter_fun key_para key_arg = eq key_para key_arg
-  let exit_fun key_in key_out = eq key_in key_out
-
-  let is_pattern term pat =
-    let x = key_to_var term in
-    let is_pattern =
-      match pat with
-      | Fun_pattern -> is_fun x
-      | Int_pattern -> is_int x
-      | Bool_pattern -> SuduZ3.is_bool x
-      | Rec_pattern _ -> is_record x
-      | Strict_rec_pattern _ -> is_record x
-      | Any_pattern -> true_
-    in
-    is_pattern
 end
 
-module Make (SuduZ3 : S) = struct
+module Make (SuduZ3 : S) (MS : S2) = struct
   open Jayil.Ast
   open SuduZ3
   open Log.Export
   include Make_common (SuduZ3)
-  module MS = Make_specific (SuduZ3)
   include MS
   include Make_more (SuduZ3) (MS)
-
-  (*  *)
   module Solver = Make_solver_helper (C)
 end
 
-include Make (SuduZ3)
+include Make (SuduZ3) (Make_specific (SuduZ3))
 
-(*
-   module Make_sudu (C : Sudu.Z3_helper.Context) = struct
-     open Make_solver_helper (C)
-     module JZ = Sudu.Z3_datatype.Make_z3_datatype (C)
-     include JZ
-     include Sudu.Z3_datatype.Make_datatype_ops (JZ) (C)
+(* module Make (SuduZ3 : S) = struct
+     open Jayil.Ast
+     open SuduZ3
+     open Log.Export
+     include Make_common (SuduZ3)
+     module MS = Make_specific (SuduZ3)
+     include MS
+     include Make_more (SuduZ3) (MS)
+     module Solver = Make_solver_helper (C)
    end
 
-   module SuduZ3 = Make_sudu (C)
-*)
+   include Make (SuduZ3) *)

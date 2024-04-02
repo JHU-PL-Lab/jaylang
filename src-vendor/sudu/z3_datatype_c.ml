@@ -8,7 +8,8 @@ type t_v2 =
   | Fun of string
   | Record of int (* record can have 63 diff labels *)
 
-module Make_z3_datatype_V2 (C : Context) = struct
+module Make_z3_datatype_V2 (C : Context) : Jil_z3_datatye with type t = t_v2 =
+struct
   type t = t_v2
   type case = Z3_datatype.case = Int_case | Bool_case | Fun_case | Record_case
 
@@ -120,6 +121,12 @@ module Make_z3_datatype_V2 (C : Context) = struct
     | Fun_case -> Fun (unbox_string pv)
     | Record_case -> Record (unbox_bitvector pv)
 
+  let box_value = function
+    | Int i -> i |> box_int |> inject_int
+    | Bool b -> b |> box_bool |> inject_bool
+    | Fun fs -> fs |> box_string |> inject_string
+    | Record rs -> rs |> box_bitvector |> inject_record
+
   let eval_value model e =
     let v = eval_exn_ model e in
     Some (unbox_value v)
@@ -133,89 +140,3 @@ module Make_z3_datatype_V2 (C : Context) = struct
         Some 0
     | None -> None
 end
-(*
-   module Make (C : Context) = struct
-     include C
-     include Make_helper (C)
-     include Contextless_functions
-     (* module JZ = Make_z3_datatype (C)
-        include JZ
-        include Z3_api.Make_datatype_ops (JZ) (C) *)
-
-     include Make_z3_datatype (C)
-     include Z3_api.Make_datatype_ops (Make_z3_datatype (C)) (C)
-   end *)
-
-(*
-module Make_datatype_builders (JZ : z3_datatype_with_case) (C : Context) =
-struct
-  open JZ
-  open C
-  include Make_basic_to_z3_basic (C)
-
-  let get_unbox_fun_exn model e =
-    unbox_string (eval_exn_ model (project_string e))
-
-  (* ocaml basic to this datatype *)
-  let int_ i = inject_int (box_int i)
-  let bool_ b = inject_bool (box_bool b)
-  let string_ s = inject_string (box_string s)
-  let fun_ s = string_ s
-  let true_ = bool_ true
-  let false_ = bool_ false
-  let ground_truth = eq true_ true_
-  let var_s n = Expr.mk_const_s ctx n the_sort
-  let var_sym n = Expr.mk_const ctx n the_sort
-
-  let var_i i =
-    Expr.mk_const ctx (Symbol.mk_int ctx i)
-      the_sort (* used to identify variables with a unique int *)
-
-  let get_int_s model s = get_int_expr model (var_s s)
-
-  let get_bool model e =
-    let r = Option.value_exn (Z3.Model.eval model e false) in
-    match Z3.Boolean.get_bool_value r with
-    | L_TRUE -> Some true
-    | L_FALSE -> Some false
-    | L_UNDEF ->
-        Logs.warn (fun m -> m "%s L_UNDEF" (Z3.Expr.to_string e)) ;
-        None
-end
-
-
-   module Make_datatype_ops (JZ : z3_datatype_with_case) (C : Context) = struct
-     open JZ
-     include Make_datatype_builders (JZ) (C)
-
-     let fn_not y e =
-       let not_y = e |> project_bool |> not_ |> inject_bool in
-       join [ eq y not_y; is_bool e ]
-
-     let bop prj inj fn e1 e2 = inj (fn (prj e1) (prj e2))
-
-     let typing_two_ints fop y e1 e2 =
-       let ey = bop project_int inject_int fop e1 e2 in
-       join [ eq y ey; is_int e1; is_int e2 ]
-
-     let typing_two_ints_bool fop y e1 e2 =
-       let ey = bop project_int inject_bool fop e1 e2 in
-       join [ eq y ey; is_int e1; is_int e2 ]
-
-     let typing_two_bools fop y e1 e2 =
-       let ey = bop project_bool inject_bool fop e1 e2 in
-       join [ eq y ey; is_bool e1; is_bool e2 ]
-
-     let fn_plus = typing_two_ints add2
-     let fn_minus = typing_two_ints sub2
-     let fn_times = typing_two_ints mul2
-     let fn_divide = typing_two_ints div
-     let fn_modulus = typing_two_ints mod_
-     let fn_lt = typing_two_ints_bool lt
-     let fn_le = typing_two_ints_bool le
-     let fn_eq = typing_two_ints_bool eq
-     let fn_neq = typing_two_ints_bool neq
-     let fn_and = typing_two_bools and2
-     let fn_or = typing_two_bools or2
-   end
-*)

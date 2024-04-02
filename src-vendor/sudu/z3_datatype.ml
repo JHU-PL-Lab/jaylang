@@ -23,7 +23,8 @@ type case = Int_case | Bool_case | Fun_case | Record_case
 
 let cases = [ Int_case; Bool_case; Fun_case; Record_case ]
 
-module Make_z3_datatype (C : Context) = struct
+module Make_z3_datatype (C : Context) : Jil_z3_datatye with type t = t_v1 =
+struct
   type t = t_v1
   type nonrec case = case
 
@@ -132,6 +133,12 @@ module Make_z3_datatype (C : Context) = struct
     | Fun_case -> Fun (unbox_string pv)
     | Record_case -> Record (unbox_string pv)
 
+  let box_value = function
+    | Int i -> i |> box_int |> inject_int
+    | Bool b -> b |> box_bool |> inject_bool
+    | Fun fs -> fs |> box_string |> inject_string
+    | Record rs -> rs |> box_string |> inject_record
+
   (* let project_unbox_int v =
      if v |> is_int |> simplify |> unbox_bool
      then Some (v |> project_int |> simplify |> unbox_int)
@@ -159,10 +166,12 @@ module Make_datatype_builders (JZ : Jil_z3_datatye) (C : Context) = struct
     unbox_string (eval_exn_ model (project_string e))
 
   (* ocaml basic to this datatype *)
-  let int_ i = inject_int (box_int i)
-  let bool_ b = inject_bool (box_bool b)
-  let string_ s = inject_string (box_string s)
+  let int_ i = i |> box_int |> inject_int
+  let bool_ b = b |> box_bool |> inject_bool
+  let string_ s = s |> box_string |> inject_string
   let fun_ s = string_ s
+  (* let record_ rs = rs |> box_string |> inject_record *)
+
   let true_ = bool_ true
   let false_ = bool_ false
   let ground_truth = eq true_ true_
@@ -225,19 +234,7 @@ module Make (C : Context) = struct
   include C
   include Make_helper (C)
   include Contextless_functions
-
-  (* module JZ = Make_z3_datatype (C)
-     include JZ
-     include Make_datatype_ops (JZ) (C) *)
-  (* module JZ = Make_z3_datatype (C) *)
-  include Make_z3_datatype (C)
-  include Make_datatype_ops (Make_z3_datatype (C)) (C)
+  module JZ = Make_z3_datatype (C)
+  include JZ
+  include Make_datatype_ops (JZ) (C)
 end
-
-(* module Make1 (JZ : Jil_z3_datatye) (C : Context) = struct
-     include C
-     include Make_helper (C)
-     include Contextless_functions
-     include JZ
-     include Make_datatype_ops (JZ) (C)
-   end *)
