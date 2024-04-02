@@ -16,54 +16,37 @@
     "balanced_tree.jil" ; checks if binary tree is balanced. It's not
 
     ; recursive programs
-    "rec_fun.jil" ; ill-typed recursive program
     "rec_fun_well_typed.jil" ; well-typed recursive program
+    "rec_fun.jil" ; ill-typed recursive program
     "mutually_rec_dep_types.jil" ; ill-typed. combine mutually rec and dependent types, but well-typed is not a trivial extension on the program
+    "insertion_sort1.jil"
+    "insertion_sort2.jil"
 
     ; dependent types
     "dep_type_well_typed.jil" ; well-typed dependent types
     "dep_type.jil" ; ill-typed dependent types
 
     ; records and modules
-    "record_constraint.jil" ; ill-typed record type. No nested records
     "record_constraint_well_typed.jil" ; well-typed record type. No nested records
+    "record_constraint.jil" ; ill-typed record type. No nested records
     "module.jil" ; ill-typed `remove` in the module and in type of `equal` function parameter in module signature
     ;"module_well_typed.jil" ; converts to massive jil file (> 10MB) when wrapped. Times out
 
 
     ; other
     "polymorphic_map.jil" ; ill-typed polymorphism and lists
-    "flow_sensitive.jil" ; two typed-declared functions where one calls the other
     "flow_sensitive_well_typed.jil" ; 
+    "flow_sensitive.jil" ; two typed-declared functions where one calls the other
 
     ; limitations
     "deep_abort.jil" ; type error is too deep, so we expect that we can't hit it
-
-    ; racket
-    "all.jil"
-    "append.jil"
-    "braun_tree.jil"
-    "flatten.jil"
-    "foldl.jil"
-    "foldl1.jil"
-    "foldr.jil"
-    "insertion_sort1.jil"
-    "insertion_sort2.jil"
-    "l_zipmap.jil"
-    "l_zipunzip.jil"
-    "last.jil"
-    "lastpair.jil"
-    "mem.jil"
-    "member.jil"
-    "sum.jil"
-    "tree_depth.jil"
 
     )
   )
   (testcases_not_time
     ()
   )
-  (test_path "benchmark/concolic/jil_no_wrap")
+  (test_path "benchmark/concolic/jil_wrap")
   (repeat 5)
   (timeout "30m")
 )

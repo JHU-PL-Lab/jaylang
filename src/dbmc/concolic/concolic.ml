@@ -576,7 +576,7 @@ let[@landmark] test_incremental n : (Jayil.Ast.expr -> Test_result.t) Concolic_o
 
 let[@landmark] test : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
   Concolic_options.Fun.map
-    (test_incremental 3)
+    (test_incremental 5)
     (fun r ->
       begin
       match r with
