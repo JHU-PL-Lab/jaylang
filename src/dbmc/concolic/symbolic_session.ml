@@ -370,8 +370,8 @@ let add_match (x : t) (k : Lazy_key.t) (m : Lazy_key.t)
     (pat : Jayil.Ast.pattern) : t =
   add_lazy_formula x @@ fun () ->
   let k_expr = Riddler.key_to_var (k ()) in
-  Riddler_c.SuduZ3.eq
-    (Riddler_c.SuduZ3.project_bool k_expr)
+  Riddler_c.Jil_val.eq
+    (Riddler_c.Jil_val.project_bool k_expr)
     (Riddler.if_pattern (m ()) pat)
 
 (*

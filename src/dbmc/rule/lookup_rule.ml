@@ -385,10 +385,10 @@ module Make (S : S) = struct
         then (at_main key None, Leaf Complete)
         else (implies key key_first, first_but_drop key)
     | Assume p ->
-        ( Riddler.imply key [ K2 (key, p.x'); Z (p.x', SuduZ3.bool_ true) ],
+        ( Riddler.imply key [ K2 (key, p.x'); Z (p.x', Jil_val.bool_ true) ],
           Leaf Complete )
     | Assert p ->
-        ( Riddler.imply key [ K2 (key, p.x'); Z (p.x', SuduZ3.bool_ true) ],
+        ( Riddler.imply key [ K2 (key, p.x'); Z (p.x', Jil_val.bool_ true) ],
           Leaf Complete )
     | Mismatch -> (invalid key, Leaf Fail)
     | Abort p ->
@@ -401,7 +401,7 @@ module Make (S : S) = struct
     | Record_start p -> (true_, record_start_action p key)
     | Cond_top p ->
         ( Riddler.imply key
-            [ K2 (key, p.x); Z (p.x2, SuduZ3.bool_ p.cond_case_info.choice) ],
+            [ K2 (key, p.x); Z (p.x2, Jil_val.bool_ p.cond_case_info.choice) ],
           (* if Riddler.eager_check S.state S.config key_x2
              [ Riddler.(eqz key_x2 (bool_ choice)) ] *)
           Bind_like
@@ -419,7 +419,7 @@ module Make (S : S) = struct
 end
 
 open Riddler
-open SuduZ3
+open Jil_val
 
 (* Completion *)
 let complete_phis_of_rule (state : Global_state.t) key
@@ -442,7 +442,7 @@ let complete_phis_of_rule (state : Global_state.t) key
   | Record_start p -> imply_domain_with key detail.domain [ P p.r ]
   | Cond_top p ->
       imply_domain_with key detail.domain
-        [ P p.x; Z (p.x2, SuduZ3.bool_ p.cond_case_info.choice) ]
+        [ P p.x; Z (p.x2, Jil_val.bool_ p.cond_case_info.choice) ]
   | Cond_btm p -> cond_bottom key p.x' p.rets
   | Fun_enter_local p ->
       let fid = key.block.id in

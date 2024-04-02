@@ -1,7 +1,7 @@
 open Core
 open Dj_common
 open Riddler
-open SuduZ3
+open Jil_val
 open Log.Export
 
 let flush_staging_phis (state : Global_state.t) =
@@ -45,21 +45,21 @@ let check_and_log ?(verbose = true) ?(is_debug = true) solver phi_used_once =
 
 let close_smt_list smt_list =
   Hashtbl.to_alist smt_list
-  |> List.map ~f:(fun (key, i) -> SuduZ3.not_ (pick_key_list key i))
+  |> List.map ~f:(fun (key, i) -> Jil_val.not_ (pick_key_list key i))
 
 let lead_smt_list smt_list target =
   Hashtbl.to_alist smt_list
   |> List.map ~f:(fun (_key, _i) ->
-         picked target (* SuduZ3.not_ (pick_key_list key i) *))
+         picked target (* Jil_val.not_ (pick_key_list key i) *))
 
 let close_unfinished_lookups lookups =
-  lookups |> List.map ~f:(fun key -> Riddler.SuduZ3.not_ (picked key))
+  lookups |> List.map ~f:(fun key -> Riddler.Jil_val.not_ (picked key))
 
 let lead_unfinished_lookups lookups target =
   lookups
   (* |> List.map ~f:(fun key ->
          if not (Lookup_key.equal key target)
-         then Solver.SuduZ3.not_ (Riddler.picked key)
+         then Solver.Jil_val.not_ (Riddler.picked key)
          else Riddler.picked key) *)
   |> List.map ~f:(fun key -> picked key @=> picked target)
 
@@ -144,7 +144,7 @@ let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
     match solver_result with
     | Result.Ok model ->
         if config.debug_model then log_model model ;
-        let c_stk_mach = Riddler.SuduZ3.(get_unbox_fun_exn model top_stack) in
+        let c_stk_mach = Riddler.Jil_val.(get_unbox_fun_exn model top_stack) in
         let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
         Some { model; c_stk }
     | Result.Error _exps -> None
@@ -209,7 +209,7 @@ let check_phis solver phis is_debug : result_info option =
             m "Phis: %a"
               Fmt.(Dump.list string)
               (List.map ~f:Z3.Expr.to_string phis)) ;
-      let c_stk_mach = Riddler.SuduZ3.(get_unbox_fun_exn model top_stack) in
+      let c_stk_mach = Riddler.Jil_val.(get_unbox_fun_exn model top_stack) in
       let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
       print_endline @@ Concrete_stack.show c_stk ;
       Some { model; c_stk }
@@ -231,7 +231,7 @@ let check_phis solver phis is_debug : result_info option =
 let query_model model target_stack (x, call_stack) : int option =
   let stk = Rstack.relativize target_stack call_stack in
   let name = Lookup_key.to_str2 x stk in
-  Riddler.SuduZ3.get_int_s model name
+  Riddler.Jil_val.get_int_s model name
 
 let input_feeder ?(history = ref []) model target_stack : Input_feeder.t =
   let input_feeder = query_model model target_stack in
@@ -246,8 +246,8 @@ let check_expected_input_sat target_stk history solver =
         Option.map r ~f:(fun i ->
             let stk = Rstack.relativize target_stk stk in
             let name = Lookup_key.to_str2 x stk in
-            let zname = SuduZ3.var_s name in
-            SuduZ3.eq zname (SuduZ3.int_ i)))
+            let zname = Jil_val.var_s name in
+            Jil_val.eq zname (Jil_val.int_ i)))
   in
 
   Result.is_ok (Solver.check_with_assumption solver input_phis)

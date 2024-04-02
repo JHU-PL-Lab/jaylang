@@ -14,7 +14,7 @@ module Make_solver_helper (C : Sudu.Z3_helper.Context) = struct
   include Sudu.Z3_helper.Contextless_functions
 end
 
-module SuduZ3 = struct
+module Jil_val = struct
   open Make_solver_helper (C)
   module JZ = Sudu.Z3_datatype.Make_z3_datatype (C)
   include JZ
@@ -32,11 +32,11 @@ module SuduZ3 = struct
   let phi_of_value key v = t_v1_of_value key v |> box_value
 end
 
-(* module type S = module type of SuduZ3 *)
+(* module type S = module type of Jil_val *)
 
 module type S = sig
   include module type of struct
-    include Sudu.Z3_datatype.Make_datatype_ops (SuduZ3.JZ) (C)
+    include Sudu.Z3_datatype.Make_datatype_ops (Jil_val.JZ) (C)
   end
 
   include Sudu.Z3_helper.Jil_z3_datatye
@@ -44,26 +44,26 @@ module type S = sig
   val phi_of_value : Lookup_key.t -> Jayil.Ast.value -> Z3.Expr.expr
 end
 
-module Make_common (SuduZ3 : S) = struct
-  open SuduZ3
+module Make_common (Jil_val : S) = struct
+  open Jil_val
   include Riddler_helper
 
-  let top_stack = SuduZ3.var_s "Topstack"
+  let top_stack = Jil_val.var_s "Topstack"
 
   let picked (key : Lookup_key.t) =
-    "P_" ^ Lookup_key.to_string key |> SuduZ3.mk_bool_s
+    "P_" ^ Lookup_key.to_string key |> Jil_val.mk_bool_s
 
-  let picked_string (s : string) = "P_" ^ s |> SuduZ3.mk_bool_s
+  let picked_string (s : string) = "P_" ^ s |> Jil_val.mk_bool_s
   let counter = ref 0
 
   (* Solver primitives *)
 
-  let ( @=> ) = SuduZ3.( @=> )
+  let ( @=> ) = Jil_val.( @=> )
   let true_ = box_bool true
   let false_ = box_bool false
-  let bool_ = SuduZ3.bool_
-  let and_ = SuduZ3.and_
-  let z_of_fid (Id.Ident fid) = SuduZ3.fun_ fid
+  let bool_ = Jil_val.bool_
+  let and_ = Jil_val.and_
+  let z_of_fid (Id.Ident fid) = Jil_val.fun_ fid
 
   type eg_edge =
     | K of (Lookup_key.t * Lookup_key.t)
@@ -74,15 +74,15 @@ module Make_common (SuduZ3 : S) = struct
     | Phi of Z3.Expr.expr
 end
 
-module Make_specific (SuduZ3 : S) = struct
-  open SuduZ3
-  open Make_common (SuduZ3)
+module Make_specific (Jil_val : S) = struct
+  open Jil_val
+  open Make_common (Jil_val)
 
   (* specific *)
   let reset () = counter := 0
 
-  (* let eq_bool key b = SuduZ3.eq (key_to_var key) (SuduZ3.bool_ b) *)
-  let key_to_var key = key |> Lookup_key.to_string |> SuduZ3.var_s
+  (* let eq_bool key b = Jil_val.eq (key_to_var key) (Jil_val.bool_ b) *)
+  let key_to_var key = key |> Lookup_key.to_string |> Jil_val.var_s
 
   let phi_of_value_opt (key : Lookup_key.t) = function
     | Some v -> phi_of_value key v
@@ -90,14 +90,14 @@ module Make_specific (SuduZ3 : S) = struct
 end
 
 module type S2 = module type of struct
-  include Make_specific (SuduZ3)
+  include Make_specific (Jil_val)
 end
 
-module Make_common_more (SuduZ3 : S) (Sudu_more : S2) = struct
-  open SuduZ3
+module Make_common_more (Jil_val : S) (Sudu_more : S2) = struct
+  open Jil_val
   open Sudu_more
   open Jayil.Ast
-  open Make_common (SuduZ3)
+  open Make_common (Jil_val)
 
   let not_ t t1 =
     let e = key_to_var t in
@@ -126,15 +126,15 @@ module Make_common_more (SuduZ3 : S) (Sudu_more : S2) = struct
     in
     fop e e1 e2
 
-  let is_bool key = SuduZ3.is_bool (key_to_var key)
-  let eqv key v = SuduZ3.eq (key_to_var key) (phi_of_value key v)
-  let eq key key' = SuduZ3.eq (key_to_var key) (key_to_var key')
-  let eqz key v = SuduZ3.eq (key_to_var key) v
+  let is_bool key = Jil_val.is_bool (key_to_var key)
+  let eqv key v = Jil_val.eq (key_to_var key) (phi_of_value key v)
+  let eq key key' = Jil_val.eq (key_to_var key) (key_to_var key')
+  let eqz key v = Jil_val.eq (key_to_var key) v
 
   let stack_in_main r_stk =
-    SuduZ3.eq top_stack
+    Jil_val.eq top_stack
       (r_stk |> Rstack.concretize_top |> Concrete_stack.sexp_of_t
-     |> Sexp.to_string_mach |> SuduZ3.fun_)
+     |> Sexp.to_string_mach |> Jil_val.fun_)
 
   (* with picked *)
   let pick_key_list (key : Lookup_key.t) i =
@@ -142,7 +142,7 @@ module Make_common_more (SuduZ3 : S) (Sudu_more : S2) = struct
     (* Rstack.to_string key.r_stk  *)
     ^ "_"
     ^ string_of_int i
-    |> SuduZ3.mk_bool_s
+    |> Jil_val.mk_bool_s
 
   let list_head key = picked key @=> pick_key_list key 0
 
@@ -151,7 +151,7 @@ module Make_common_more (SuduZ3 : S) (Sudu_more : S2) = struct
 
   let is_picked model key =
     Option.value_map model ~default:false ~f:(fun model ->
-        Option.value (SuduZ3.get_bool model (picked key)) ~default:true)
+        Option.value (Jil_val.get_bool model (picked key)) ~default:true)
 
   let eq_domain k kvs =
     or_ (List.map kvs ~f:(fun kv -> and_ [ eq k kv; picked kv ]))
@@ -188,7 +188,7 @@ module Make_common_more (SuduZ3 : S) (Sudu_more : S2) = struct
 
   (* Cond Top *)
   let cond_top key key_x key_c beta =
-    imply key [ K2 (key, key_x); Z (key_c, SuduZ3.bool_ beta) ]
+    imply key [ K2 (key, key_x); Z (key_c, Jil_val.bool_ beta) ]
 
   let imply_domain k kd = imply k [ D (k, kd) ]
   let imply_domain_with k kd pe = imply k ([ D (k, kd) ] @ pe)
@@ -235,7 +235,7 @@ module Make_common_more (SuduZ3 : S) (Sudu_more : S2) = struct
          match pat with
          | Fun_pattern -> is_fun x
          | Int_pattern -> is_int x
-         | Bool_pattern -> SuduZ3.is_bool x
+         | Bool_pattern -> Jil_val.is_bool x
          | Rec_pattern _ -> is_record x
          | Strict_rec_pattern _ -> is_record x
          | Any_pattern -> true_
@@ -244,7 +244,8 @@ module Make_common_more (SuduZ3 : S) (Sudu_more : S2) = struct
 
   (* used by concolic interpreter *)
   (* OBSOLETE *)
-  let eq_fid term (Id.Ident fid) = SuduZ3.eq (key_to_var term) (SuduZ3.fun_ fid)
+  let eq_fid term (Id.Ident fid) =
+    Jil_val.eq (key_to_var term) (Jil_val.fun_ fid)
 
   let eq_term_v term v =
     match v with
@@ -256,15 +257,15 @@ module Make_common_more (SuduZ3 : S) (Sudu_more : S2) = struct
     | None -> eq term term
 end
 
-module Make_more (SuduZ3 : S) (Sudu_more : S2) = struct
-  open SuduZ3
+module Make_more (Jil_val : S) (Sudu_more : S2) = struct
+  open Jil_val
   open Sudu_more
   open Jayil.Ast
-  open Make_common (SuduZ3)
+  open Make_common (Jil_val)
 
   (* AST primitive (no picked) *)
-  (* the folloing are based on SuduZ3, key_to_var, phi_of_value *)
-  include Make_common_more (SuduZ3) (Sudu_more)
+  (* the folloing are based on Jil_val, key_to_var, phi_of_value *)
+  include Make_common_more (Jil_val) (Sudu_more)
 
   (* Pattern *)
 
@@ -274,7 +275,7 @@ module Make_more (SuduZ3 : S) (Sudu_more : S2) = struct
     match pat with
     | Fun_pattern -> is_fun x
     | Int_pattern -> is_int x
-    | Bool_pattern -> SuduZ3.is_bool x
+    | Bool_pattern -> Jil_val.is_bool x
     | Rec_pattern _ -> is_record x
     | Strict_rec_pattern _ -> is_record x
     | Any_pattern -> ground_truth
@@ -302,9 +303,9 @@ module Make_more (SuduZ3 : S) (Sudu_more : S2) = struct
       if Jayil.Ast.is_record_pattern pat
       then
         match value_matched with
-        | Some v -> SuduZ3.inject_bool (and2 type_pattern (box_bool v))
-        | None -> SuduZ3.inject_bool type_pattern
-      else SuduZ3.inject_bool type_pattern
+        | Some v -> Jil_val.inject_bool (and2 type_pattern (box_bool v))
+        | None -> Jil_val.inject_bool type_pattern
+      else Jil_val.inject_bool type_pattern
     in
     imply x
       ([
@@ -316,27 +317,27 @@ module Make_more (SuduZ3 : S) (Sudu_more : S2) = struct
       @ matching_result)
 end
 
-module Make (SuduZ3 : S) (MS : S2) = struct
+module Make (Jil_val : S) (MS : S2) = struct
   open Jayil.Ast
-  open SuduZ3
+  open Jil_val
   open Log.Export
-  include Make_common (SuduZ3)
+  include Make_common (Jil_val)
   include MS
-  include Make_more (SuduZ3) (MS)
+  include Make_more (Jil_val) (MS)
   module Solver = Make_solver_helper (C)
 end
 
-include Make (SuduZ3) (Make_specific (SuduZ3))
+include Make (Jil_val) (Make_specific (Jil_val))
 
-(* module Make (SuduZ3 : S) = struct
+(* module Make (Jil_val : S) = struct
      open Jayil.Ast
-     open SuduZ3
+     open Jil_val
      open Log.Export
-     include Make_common (SuduZ3)
-     module MS = Make_specific (SuduZ3)
+     include Make_common (Jil_val)
+     module MS = Make_specific (Jil_val)
      include MS
-     include Make_more (SuduZ3) (MS)
+     include Make_more (Jil_val) (MS)
      module Solver = Make_solver_helper (C)
    end
 
-   include Make (SuduZ3) *)
+   include Make (Jil_val) *)

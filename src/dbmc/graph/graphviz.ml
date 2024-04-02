@@ -184,7 +184,7 @@ module DotPrinter_Make (S : GS) = struct
           | Some model ->
               let lookup_name = Lookup_key.to_string node.key in
               Logs.info (fun m -> m "lookup (to model) : %s" lookup_name) ;
-              Riddler.SuduZ3.(eval_value model (var_s lookup_name))
+              Riddler.Jil_val.(eval_value model (var_s lookup_name))
         in
         let c_id =
           (* match node.rule with
@@ -216,8 +216,8 @@ module DotPrinter_Make (S : GS) = struct
                        let noted_vs =
                          List.map noted_phis ~f:(fun (note, phi) ->
                              let phi_v =
-                               Solver.(
-                                 SuduZ3.eval_value model phi |> SuduZ3.unbox_bool)
+                               Riddler.(
+                                 Jil_val.eval_value model phi |> Jil_val.unbox_bool)
                              in
                              (note, phi_v))
                        in

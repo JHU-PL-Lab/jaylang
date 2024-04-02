@@ -4,7 +4,7 @@ open Log.Export
 
 let ctx = Riddler.ctx
 
-module SuduZ3 = struct
+module Jil_val = struct
   open Riddler.Make_solver_helper (Riddler.C)
   module JZ = Sudu.Z3_datatype_c.Make_z3_datatype_V2 (Riddler.C)
   include JZ
@@ -26,9 +26,9 @@ module SuduZ3 = struct
   let phi_of_value key v = t_v2_of_value key v |> box_value
 end
 
-module Make_specific (SuduZ3 : Riddler.S) = struct
-  open SuduZ3
-  open Riddler.Make_common (SuduZ3)
+module Make_specific (Jil_val : Riddler.S) = struct
+  open Jil_val
+  open Riddler.Make_common (Jil_val)
 
   let keys = Key_map.create ()
 
@@ -39,22 +39,22 @@ module Make_specific (SuduZ3 : Riddler.S) = struct
   (* let key_to_i key =
      Key_map.get_i keys key *)
 
-  (* let key_to_var key = key |> Lookup_key.to_string |> SuduZ3.var_s *)
-  let key_to_var key = Key_map.get_expr keys key SuduZ3.var_i
+  (* let key_to_var key = key |> Lookup_key.to_string |> Jil_val.var_s *)
+  let key_to_var key = Key_map.get_expr keys key Jil_val.var_i
 
   let phi_of_value_opt (key : Lookup_key.t) = function
     | Some v -> phi_of_value key v
     | None -> key_to_var key
 end
 
-module Make_more (SuduZ3 : Riddler.S) (Sudu_more : Riddler.S2) = struct
-  open SuduZ3
+module Make_more (Jil_val : Riddler.S) (Sudu_more : Riddler.S2) = struct
+  open Jil_val
   open Sudu_more
   open Jayil.Ast
-  open Riddler.Make_common (SuduZ3)
+  open Riddler.Make_common (Jil_val)
 
   (* AST primitive (no picked) *)
-  include Riddler.Make_common_more (SuduZ3) (Sudu_more)
+  include Riddler.Make_common_more (Jil_val) (Sudu_more)
 
   let record_ bv = inject_record (box_bitvector bv)
 
@@ -66,19 +66,19 @@ module Make_more (SuduZ3 : Riddler.S) (Sudu_more : Riddler.S2) = struct
     match pat with
     | Fun_pattern -> is_fun x
     | Int_pattern -> is_int x
-    | Bool_pattern -> SuduZ3.is_bool x
+    | Bool_pattern -> Jil_val.is_bool x
     | Rec_pattern label_set ->
         let sub_bv =
           Record_logic.create_bv_from_labels ~are_labels_predefined:false
             (Ident_set.to_list label_set)
         in
         (* this bitvector should be contained within the record's bv *)
-        let projected = SuduZ3.project_record (record_ sub_bv) in
-        SuduZ3.and_
+        let projected = Jil_val.project_record (record_ sub_bv) in
+        Jil_val.and_
           [
             is_record x;
-            SuduZ3.eq projected
-              (Z3.BitVector.mk_and ctx projected (SuduZ3.project_record x));
+            Jil_val.eq projected
+              (Z3.BitVector.mk_and ctx projected (Jil_val.project_record x));
           ]
     | Strict_rec_pattern label_set ->
         let eq_bv =
@@ -87,12 +87,12 @@ module Make_more (SuduZ3 : Riddler.S) (Sudu_more : Riddler.S2) = struct
         in
         (* the record's bv should be exactly this *)
         let desired_record = record_ eq_bv in
-        SuduZ3.and_
+        Jil_val.and_
           [
             is_record x;
-            SuduZ3.eq
-              (SuduZ3.project_record desired_record)
-              (SuduZ3.project_record x);
+            Jil_val.eq
+              (Jil_val.project_record desired_record)
+              (Jil_val.project_record x);
           ]
     | Any_pattern -> true_
 
@@ -110,9 +110,9 @@ module Make_more (SuduZ3 : Riddler.S) (Sudu_more : Riddler.S2) = struct
       if Jayil.Ast.is_record_pattern pat
       then
         match value_matched with
-        | Some v -> SuduZ3.inject_bool (and2 type_pattern (box_bool v))
-        | None -> SuduZ3.inject_bool type_pattern
-      else SuduZ3.inject_bool type_pattern
+        | Some v -> Jil_val.inject_bool (and2 type_pattern (box_bool v))
+        | None -> Jil_val.inject_bool type_pattern
+      else Jil_val.inject_bool type_pattern
     in
     imply x
       ([
@@ -124,14 +124,14 @@ module Make_more (SuduZ3 : Riddler.S) (Sudu_more : Riddler.S2) = struct
       @ matching_result)
 end
 
-module Make (SuduZ3 : Riddler.S) (MS : Riddler.S2) = struct
+module Make (Jil_val : Riddler.S) (MS : Riddler.S2) = struct
   open Jayil.Ast
-  open SuduZ3
+  open Jil_val
   open Log.Export
-  include Riddler.Make_common (SuduZ3)
+  include Riddler.Make_common (Jil_val)
   include MS
-  include Make_more (SuduZ3) (MS)
+  include Make_more (Jil_val) (MS)
   module Solver = Riddler.Make_solver_helper (Riddler.C)
 end
 
-include Make (SuduZ3) (Make_specific (SuduZ3))
+include Make (Jil_val) (Make_specific (Jil_val))
