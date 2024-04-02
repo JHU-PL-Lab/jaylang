@@ -2,7 +2,7 @@ open Core
 
 let ctx = Z3.mk_context []
 
-module SuduZ3 = Sudu.Z3_api.Make (struct
+module SuduZ3 = Sudu.Z3_datatype.Make (struct
   let ctx = ctx
 end)
 

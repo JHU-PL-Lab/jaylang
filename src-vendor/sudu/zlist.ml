@@ -3,7 +3,7 @@ open! Z3
 
 let ctx = Z3.mk_context []
 
-module Z3API = Z3_api.Make (struct
+module Z3API = Z3_datatype.Make (struct
   let ctx = ctx
 end)
 

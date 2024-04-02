@@ -101,7 +101,7 @@ let reset_mutable_state (config : Global_config.t) (info : info) (state : t) =
   reset_stat_state state.stat
 
 let create (config : Global_config.t) program =
-  Riddler.SuduZ3.set_timeout_sec config.timeout ;
+  Riddler.Solver.set_timeout_sec config.timeout ;
   let info = compute_info config program in
   (* Global_state.lookup_alert state key_target state.root_node; *)
   Riddler.reset () ;

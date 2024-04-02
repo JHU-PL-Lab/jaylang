@@ -145,7 +145,7 @@ let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   }
 
 let[@landmarks] check_solver solver = Z3.Solver.check solver []
-let[@landmarks] make_solver () = Z3.Solver.mk_solver Riddler_c.SuduZ3.ctx None
+let[@landmarks] make_solver () = Z3.Solver.mk_solver Riddler_c.Solver.ctx None
 
 (* based on the landmarks, it's taking about as long to make the solver and load it as it is to solve *)
 (* This motivates a change to use the internal stack *)
@@ -193,7 +193,7 @@ let[@landmarks] next (x : t) :
     let new_solver =
       load_solver (make_solver ()) (Target.to_formulas target x.tree)
     in
-    Riddler_c.SuduZ3.set_timeout_sec
+    Riddler_c.Solver.set_timeout_sec
       (Some (Core.Time_float.Span.of_sec x.options.solver_timeout_sec)) ;
     Log.Export.CLog.debug (fun m ->
         m "Solving for target %s\n"

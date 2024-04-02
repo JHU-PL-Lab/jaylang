@@ -4,58 +4,16 @@ open Log.Export
 
 let ctx = Riddler.ctx
 
-module Make_sudu (C : Sudu.Z3_helper.Context) = struct
-  include C
-  include Sudu.Z3_helper.Make_helper (C)
-  include Sudu.Z3_helper.Contextless_functions
-  include Sudu.Z3_api_c.Make_z3_datatype_V2 (C)
-
-  include
-    Sudu.Z3_api.Make_datatype_ops (Sudu.Z3_api_c.Make_z3_datatype_V2 (C)) (C)
+module SuduZ3 = struct
+  open Riddler.Make_solver_helper (Riddler.C)
+  module JZ = Sudu.Z3_datatype_c.Make_z3_datatype_V2 (Riddler.C)
+  include JZ
+  include Sudu.Z3_datatype.Make_datatype_ops (JZ) (Riddler.C)
 end
 
-module SuduZ3 = Make_sudu (struct
-  let ctx = ctx
-end)
-
-module type S = module type of struct
-  include SuduZ3
-end
-
-module Make_common (SuduZ3 : S) = struct
+module Make_specific (SuduZ3 : Riddler.S) = struct
   open SuduZ3
-  include Riddler_helper
-
-  let top_stack = SuduZ3.var_s "Topstack"
-
-  let picked (key : Lookup_key.t) =
-    "P_" ^ Lookup_key.to_string key |> SuduZ3.mk_bool_s
-
-  let picked_string (s : string) = "P_" ^ s |> SuduZ3.mk_bool_s
-  let counter = ref 0
-
-  (* Solver primitives *)
-
-  let ( @=> ) = SuduZ3.( @=> )
-  let true_ = box_bool true
-  let false_ = box_bool false
-  let bool_ = SuduZ3.bool_
-  let and_ = SuduZ3.and_
-
-  type eg_edge =
-    | K of (Lookup_key.t * Lookup_key.t)
-    | K2 of (Lookup_key.t * Lookup_key.t)
-    | Z of (Lookup_key.t * Z3.Expr.expr)
-    | D of (Lookup_key.t * Lookup_key.t list)
-    | P of Lookup_key.t
-    | Phi of Z3.Expr.expr
-end
-
-module SS = Make_common (SuduZ3)
-
-module Make_specific (SuduZ3 : S) = struct
-  open SuduZ3
-  open Make_common (SuduZ3)
+  open Riddler.Make_common (SuduZ3)
 
   let record_ bv = inject_record (box_bitvector bv)
   let keys = Key_map.create ()
@@ -93,11 +51,11 @@ module type S2 = module type of struct
   include Make_specific (SuduZ3)
 end
 
-module Make_more (SuduZ3 : S) (Sudu_more : S2) = struct
+module Make_more (SuduZ3 : Riddler.S) (Sudu_more : S2) = struct
   open SuduZ3
   open Sudu_more
   open Jayil.Ast
-  open Make_common (SuduZ3)
+  open Riddler.Make_common (SuduZ3)
 
   (* AST primitive (no picked) *)
 
@@ -332,14 +290,54 @@ module Make_more (SuduZ3 : S) (Sudu_more : S2) = struct
      is_pattern *)
 end
 
-module Make (SuduZ3 : S) = struct
+module Make (SuduZ3 : Riddler.S) = struct
   open Jayil.Ast
   open SuduZ3
   open Log.Export
-  include Make_common (SuduZ3)
+  include Riddler.Make_common (SuduZ3)
   module MS = Make_specific (SuduZ3)
   include MS
   include Make_more (SuduZ3) (MS)
+
+  (*  *)
+  module Solver = Riddler.Make_solver_helper (Riddler.C)
 end
 
 include Make (SuduZ3)
+
+(* module type S = module type of struct
+     include SuduZ3
+   end *)
+
+(* module S1 : S = Riddler.SuduZ3 *)
+(* module S2 : Riddler.S = SuduZ3 *)
+(* module SS = Make_common (SuduZ3) *)
+
+(* module Make_common (SuduZ3 : Riddler.S) = struct
+     open SuduZ3
+     include Riddler_helper
+
+     let top_stack = SuduZ3.var_s "Topstack"
+
+     let picked (key : Lookup_key.t) =
+       "P_" ^ Lookup_key.to_string key |> SuduZ3.mk_bool_s
+
+     let picked_string (s : string) = "P_" ^ s |> SuduZ3.mk_bool_s
+     let counter = ref 0
+
+     (* Solver primitives *)
+
+     let ( @=> ) = SuduZ3.( @=> )
+     let true_ = box_bool true
+     let false_ = box_bool false
+     let bool_ = SuduZ3.bool_
+     let and_ = SuduZ3.and_
+
+     type eg_edge =
+       | K of (Lookup_key.t * Lookup_key.t)
+       | K2 of (Lookup_key.t * Lookup_key.t)
+       | Z of (Lookup_key.t * Z3.Expr.expr)
+       | D of (Lookup_key.t * Lookup_key.t list)
+       | P of Lookup_key.t
+       | Phi of Z3.Expr.expr
+   end *)

@@ -4,7 +4,7 @@ let ctx = Z3.mk_context [] ;;
 
 Z3.Params.update_param_value ctx "timeout" "500"
 
-module SuduZ3 = Sudu.Z3_api.Make (struct
+module SuduZ3 = Sudu.Z3_datatype.Make (struct
   let ctx = ctx
 end)
 

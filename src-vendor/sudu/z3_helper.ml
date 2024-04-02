@@ -138,8 +138,17 @@ end
 module Make_basic_to_z3_basic (C : Context) = struct
   open C
 
-  let mk_bool_s s = Boolean.mk_const_s ctx s
+  (* making sorts *)
+  let int_sort = Arithmetic.Integer.mk_sort ctx
+  let bool_sort = Boolean.mk_sort ctx
   let string_sort = Seq.mk_string_sort ctx
+
+  let bitvector_sort w =
+    BitVector.mk_sort ctx w (* hardcode 63 bits because we use ocaml int *)
+
+  (* OCaml basic to z3 basic *)
+
+  let mk_bool_s s = Boolean.mk_const_s ctx s
   let mk_string_s s = Expr.mk_const_s ctx s string_sort
   let add2 e1 e2 = Arithmetic.mk_add ctx [ e1; e2 ]
   let sub2 e1 e2 = Arithmetic.mk_sub ctx [ e1; e2 ]

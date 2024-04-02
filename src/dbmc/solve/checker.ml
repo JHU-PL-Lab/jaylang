@@ -17,14 +17,14 @@ let log_phis ?(prompt = "") phis =
 let log_solver ?(prompt = "") solver =
   SLog.debug (fun m ->
       m "Solver Phis %s (%d) : %s" prompt
-        (Riddler.SuduZ3.get_assertion_count solver)
-        (Riddler.SuduZ3.string_of_solver solver))
+        (Riddler.Solver.get_assertion_count solver)
+        (Riddler.Solver.string_of_solver solver))
 
 let log_model model =
   SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
 
 let check_and_log ?(verbose = true) ?(is_debug = true) solver phi_used_once =
-  let check_result = Riddler.SuduZ3.check ~verbose solver [] phi_used_once in
+  let check_result = Riddler.Solver.check ~verbose solver [] phi_used_once in
   let log_phis_here () =
     if verbose
     then (
@@ -105,7 +105,7 @@ let check_shrink (state : Global_state.t) (config : Global_config.t) :
 
   log_solver ~prompt:"One" state.solve.solver ;
 
-  Riddler.SuduZ3.reset_solver state.solve.solver ;
+  Riddler.Solver.reset_solver state.solve.solver ;
   SLog.debug (fun m -> m "Two") ;
   List.iter detail_lst ~f:(fun (key, detail) ->
       let phis =
@@ -153,7 +153,7 @@ let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
      {
        total_phis =
          List.length state.solve.phis_added + List.length phi_used_once;
-       solver_resource = Riddler.SuduZ3.get_rlimit state.solve.solver;
+       solver_resource = Riddler.Solver.get_rlimit state.solve.solver;
      }
    in
    state.stat.check_infos <- this_check_info :: state.stat.check_infos) ;
@@ -250,4 +250,4 @@ let check_expected_input_sat target_stk history solver =
             SuduZ3.eq zname (SuduZ3.int_ i)))
   in
 
-  Result.is_ok (SuduZ3.check_with_assumption solver input_phis)
+  Result.is_ok (Solver.check_with_assumption solver input_phis)
