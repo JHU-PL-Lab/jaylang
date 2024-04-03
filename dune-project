@@ -59,7 +59,7 @@
 (package
  (name unroll)
  (description "Unroll is a library to search unbounded cases")
- (depends core core_unix core_kernel hashcons fmt lwt lwt logs))
+ (depends core core_unix core_kernel hashcons fmt lwt logs))
 
 (package
  (name langdk)

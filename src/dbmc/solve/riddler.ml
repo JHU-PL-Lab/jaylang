@@ -99,7 +99,7 @@ module Make_common_more (Jil_val : S) (Sudu_more : S2) = struct
   open Jayil.Ast
   open Make_common (Jil_val)
 
-  let not_ t t1 =
+  let not_op t t1 =
     let e = key_to_var t in
     let e1 = key_to_var t1 in
     fn_not e e1
@@ -128,7 +128,7 @@ module Make_common_more (Jil_val : S) (Sudu_more : S2) = struct
 
   let is_bool key = Jil_val.is_bool (key_to_var key)
   let eqv key v = Jil_val.eq (key_to_var key) (phi_of_value key v)
-  let eq key key' = Jil_val.eq (key_to_var key) (key_to_var key')
+  let eq_key key key' = Jil_val.eq (key_to_var key) (key_to_var key')
   let eqz key v = Jil_val.eq (key_to_var key) v
 
   let stack_in_main r_stk =
@@ -154,12 +154,12 @@ module Make_common_more (Jil_val : S) (Sudu_more : S2) = struct
         Option.value (Jil_val.get_bool model (picked key)) ~default:true)
 
   let eq_domain k kvs =
-    or_ (List.map kvs ~f:(fun kv -> and_ [ eq k kv; picked kv ]))
+    or_ (List.map kvs ~f:(fun kv -> and_ [ eq_key k kv; picked kv ]))
 
   let eq_list es =
     List.map es ~f:(function
-      | K (k1, k2) -> [ eq k1 k2; picked k1; picked k2 ]
-      | K2 (k1, k2) -> [ eq k1 k2; picked k2 ]
+      | K (k1, k2) -> [ eq_key k1 k2; picked k1; picked k2 ]
+      | K2 (k1, k2) -> [ eq_key k1 k2; picked k2 ]
       | Z (k, z) -> [ eqz k z; picked k ]
       | D (k, kvs) -> [ eq_domain k kvs ]
       | P k -> [ picked k ]
@@ -171,7 +171,7 @@ module Make_common_more (Jil_val : S) (Sudu_more : S2) = struct
   let invalid key = imply key [ Phi (box_bool false) ]
   let implies key key' = imply key [ P key' ]
   let implies_v key key' v = imply key [ P key'; Z (key, phi_of_value key v) ]
-  let not_lookup t t1 = imply t [ P t1; Phi (not_ t t1) ]
+  let not_lookup t t1 = imply t [ P t1; Phi (not_op t t1) ]
 
   (* Alias *)
   let eq_lookup key key' = imply key [ K (key, key') ]
@@ -254,7 +254,7 @@ module Make_common_more (Jil_val : S) (Sudu_more : S2) = struct
     (* Ast.Value_body *)
     | Some v -> eqv term v
     (* Ast.Input_body *)
-    | None -> eq term term
+    | None -> eq_key term term
 end
 
 module Make_more (Jil_val : S) (Sudu_more : S2) = struct
@@ -317,9 +317,11 @@ module Make_more (Jil_val : S) (Sudu_more : S2) = struct
       @ matching_result)
 end
 
+(* module Solver = Make_solver_helper (C) *)
+
 module Make (Jil_val : S) (MS : S2) = struct
   open Jayil.Ast
-  open Jil_val
+  include Jil_val
   open Log.Export
   include Make_common (Jil_val)
   include MS
@@ -327,7 +329,8 @@ module Make (Jil_val : S) (MS : S2) = struct
   module Solver = Make_solver_helper (C)
 end
 
-include Make (Jil_val) (Make_specific (Jil_val))
+module V1 = Make (Jil_val) (Make_specific (Jil_val))
+include V1
 
 (* module Make (Jil_val : S) = struct
      open Jayil.Ast
@@ -341,3 +344,5 @@ include Make (Jil_val) (Make_specific (Jil_val))
    end
 
    include Make (Jil_val) *)
+
+module V2 = V1

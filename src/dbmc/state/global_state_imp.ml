@@ -55,6 +55,7 @@ module State = struct
     mutable phis_added : Z3.Expr.expr list;
     smt_lists : (Lookup_key.t, int) Hashtbl.t;
     solver : Z3.Solver.solver;
+    z3_ctx : Z3.context;
   }
 
   type search_state = {

@@ -1,4 +1,5 @@
 open Core
+module Riddler = Riddler.V2
 
 module Z3_expr = struct
   include Z3.Expr
@@ -24,12 +25,12 @@ let equal = Set.equal
 
 let and_ (fset : t) : Z3_expr.t =
   match Set.to_list fset with
-  | [] -> Riddler_c.true_
+  | [] -> Riddler.true_
   | exp :: [] -> exp
-  | exps -> Riddler_c.and_ exps
+  | exps -> Riddler.and_ exps
 
 (* let or_ (fset : t) : Z3_expr.t =
    match Set.to_list fset with
-   | [] -> Riddler_c.true_
+   | [] -> Riddler.true_
    | exp :: [] -> exp
-   | exps -> Riddler_c.Jil_val.or_ exps *)
+   | exps -> Riddler.Jil_val.or_ exps *)

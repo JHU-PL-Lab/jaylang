@@ -55,7 +55,7 @@ module type Sato_result = sig
 
   val get_errors :
     Sato_state.t ->
-    Dbmc.Types.State.t ->
+    Dbmc.Global_state.t ->
     Dbmc.Interpreter.session ->
     Dbmc.Interpreter.denv ->
     int option list ->
@@ -76,9 +76,9 @@ let get_abort_cond_clause_id
   | None -> failwith "Should have a corresponding clause here!"
 
 let get_odefa_errors (sato_state : Sato_state.t)
-    (symb_interp_state : Types.State.t) (interp_session : Interpreter.session)
-    (final_env : Interpreter.denv) : Ast.clause * Sato_error.Jayil_error.t list
-    =
+    (symb_interp_state : Dbmc.Global_state.t)
+    (interp_session : Interpreter.session) (final_env : Interpreter.denv) :
+    Ast.clause * Sato_error.Jayil_error.t list =
   let abort_var = symb_interp_state.info.target in
   let ab_mapping = sato_state.abort_mapping in
   let on_to_odefa_maps = sato_state.on_to_odefa_maps in
@@ -190,7 +190,7 @@ module Jayil_type_errors : Sato_result with type t = odefa_error_record = struct
   let description = "error"
 
   let get_errors (sato_state : Sato_state.t)
-      (symb_interp_state : Dbmc.Types.State.t)
+      (symb_interp_state : Dbmc.Global_state.t)
       (interp_session : Dbmc.Interpreter.session)
       (final_env : Dbmc.Interpreter.denv) (inputs : int option list) : t =
     let error_loc, odefa_errors =
@@ -244,7 +244,7 @@ struct
   let description = "natodefa type error"
 
   let get_errors (sato_state : Sato_state.t)
-      (symb_interp_state : Dbmc.Types.State.t)
+      (symb_interp_state : Dbmc.Global_state.t)
       (interp_session : Dbmc.Interpreter.session)
       (final_env : Dbmc.Interpreter.denv) (inputs : int option list) =
     let open Jay in
@@ -306,7 +306,7 @@ module Bluejay_type_errors : Sato_result with type t = ton_error_record = struct
   let description = "typed natodefa type error"
 
   let get_errors (sato_state : Sato_state.t)
-      (symb_interp_state : Dbmc.Types.State.t)
+      (symb_interp_state : Dbmc.Global_state.t)
       (interp_session : Dbmc.Interpreter.session)
       (final_env : Dbmc.Interpreter.denv) (inputs : int option list) =
     let open Jay in

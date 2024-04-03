@@ -1,9 +1,9 @@
 open! Core
-open! Types
+open! Global_state_imp
 open Dj_common
 
 include module type of struct
-  include State
+  include Global_state_imp.State
 end
 
 val create : Global_config.t -> Jayil.Ast.expr -> State.t

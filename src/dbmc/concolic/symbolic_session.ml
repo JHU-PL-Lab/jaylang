@@ -1,5 +1,6 @@
 open Core
 open Path_tree
+module Riddler = Riddler.V2
 
 module Lazy_key = struct
   type t = unit -> Lookup_key.t
@@ -342,7 +343,7 @@ let add_key_eq_val (x : t) (key : Lazy_key.t) (v : Jayil.Ast.value) : t =
   add_lazy_formula x @@ fun () -> Riddler.eq_term_v (key ()) (Some v)
 
 let add_alias (x : t) (key1 : Lazy_key.t) (key2 : Lazy_key.t) : t =
-  add_lazy_formula x @@ fun () -> Riddler.eq (key1 ()) (key2 ())
+  add_lazy_formula x @@ fun () -> Riddler.eq_key (key1 ()) (key2 ())
 
 let add_binop (x : t) (key : Lazy_key.t) (op : Jayil.Ast.binary_operator)
     (left : Lazy_key.t) (right : Lazy_key.t) : t =
@@ -364,15 +365,13 @@ let add_input (x : t) (key : Lazy_key.t) (v : Dvalue.t) : t =
      Riddler.if_pattern key Jayil.Ast.Int_pattern
 
 let add_not (x : t) (key1 : Lazy_key.t) (key2 : Lazy_key.t) : t =
-  add_lazy_formula x @@ fun () -> Riddler.not_ (key1 ()) (key2 ())
+  add_lazy_formula x @@ fun () -> Riddler.not_op (key1 ()) (key2 ())
 
 let add_match (x : t) (k : Lazy_key.t) (m : Lazy_key.t)
     (pat : Jayil.Ast.pattern) : t =
   add_lazy_formula x @@ fun () ->
   let k_expr = Riddler.key_to_var (k ()) in
-  Riddler_c.Jil_val.eq
-    (Riddler_c.Jil_val.project_bool k_expr)
-    (Riddler.if_pattern (m ()) pat)
+  Riddler.eq (Riddler.project_bool k_expr) (Riddler.if_pattern (m ()) pat)
 
 (*
   -----------------

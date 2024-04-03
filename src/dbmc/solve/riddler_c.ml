@@ -126,7 +126,7 @@ end
 
 module Make (Jil_val : Riddler.S) (MS : Riddler.S2) = struct
   open Jayil.Ast
-  open Jil_val
+  include Jil_val
   open Log.Export
   include Riddler.Make_common (Jil_val)
   include MS

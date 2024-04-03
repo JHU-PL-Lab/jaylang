@@ -1,7 +1,8 @@
 open Core
-include Types.State
+include Global_state_imp.State
 open Dj_common
 open Log.Export
+(* module Riddler = Riddler.V1 *)
 
 let compute_info (config : Global_config.t) program : info =
   let first = Jayil.Ast_tools.first_id program in
@@ -49,11 +50,13 @@ let reset_job_state job_state =
   Scheduler.reset job_state.job_queue
 
 let create_solve_state () : solve_state =
+  let z3_ctx = Riddler.ctx in
   {
     phis_staging = [];
     phis_added = [];
     smt_lists = Hashtbl.create (module Lookup_key);
-    solver = Z3.Solver.mk_solver Riddler.ctx None;
+    z3_ctx;
+    solver = Z3.Solver.mk_solver z3_ctx None;
   }
 
 let reset_solve_state solve_state =
