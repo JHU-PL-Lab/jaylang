@@ -6,6 +6,7 @@ open Rule
 open Types
 module U = Unrolls.U_dbmc
 module Log = Log.Export.CMLog
+module Riddler = Riddler.V1
 
 (*
    Status promotion:

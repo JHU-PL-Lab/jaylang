@@ -174,7 +174,6 @@ module Make_datatype_builders (JZ : Jil_z3_datatye) (C : Context) = struct
 
   let true_ = bool_ true
   let false_ = bool_ false
-  let ground_truth = eq true_ true_
   let var_s n = Expr.mk_const_s ctx n the_sort
   let var_sym n = Expr.mk_const ctx n the_sort
 

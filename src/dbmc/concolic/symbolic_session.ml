@@ -1,5 +1,6 @@
 open Core
 open Path_tree
+open Dj_common
 module Riddler = Riddler.V2
 
 module Lazy_key = struct
@@ -9,7 +10,7 @@ module Lazy_key = struct
 
   let generate_lookup_key (x : Jayil.Ast.ident)
       (stk : Dj_common.Concrete_stack.t) : Lookup_key.t =
-    Lookup_key.without_block x @@ Rstack.from_concrete stk
+    Lookup_key.without_block x @@ Dj_common.Rstack.from_concrete stk
 
   let make (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : t =
    fun () -> generate_lookup_key x stk
@@ -362,7 +363,7 @@ let add_input (x : t) (key : Lazy_key.t) (v : Dvalue.t) : t =
   |> Fn.flip add_lazy_formula @@ fun () ->
      let (Ident s) = key.x in
      Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n s) ;
-     Riddler.if_pattern key Jayil.Ast.Int_pattern
+     Riddler.if_pattern (Riddler.key_to_var key) Jayil.Ast.Int_pattern
 
 let add_not (x : t) (key1 : Lazy_key.t) (key2 : Lazy_key.t) : t =
   add_lazy_formula x @@ fun () -> Riddler.not_op (key1 ()) (key2 ())
@@ -371,7 +372,9 @@ let add_match (x : t) (k : Lazy_key.t) (m : Lazy_key.t)
     (pat : Jayil.Ast.pattern) : t =
   add_lazy_formula x @@ fun () ->
   let k_expr = Riddler.key_to_var (k ()) in
-  Riddler.eq (Riddler.project_bool k_expr) (Riddler.if_pattern (m ()) pat)
+  Riddler.eq
+    (Riddler.project_bool k_expr)
+    (Riddler.if_pattern (Riddler.key_to_var (m ())) pat)
 
 (*
   -----------------

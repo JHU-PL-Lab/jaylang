@@ -6,6 +6,7 @@ open Jayil.Ast
 open Cfg
 open Ddpa
 open Log.Export
+module Riddler = Riddler.V1
 
 type result_no_state =
   int option list list * bool * (Z3.Model.model * Concrete_stack.t) option

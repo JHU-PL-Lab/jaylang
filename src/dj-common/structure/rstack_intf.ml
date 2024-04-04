@@ -1,5 +1,4 @@
 open Core
-open Dj_common
 open Hashcons
 
 module TT = struct
@@ -104,7 +103,7 @@ module TT = struct
 
   let str_of_frame (Id.Ident x1, Id.Ident x2) = "(" ^ x1 ^ "," ^ x2 ^ ")"
   let str_of_op = function Push -> "<-" | Co_pop -> "!"
-  let to_string h = string_of_int h.hkey
+  (* let to_string h = string_of_int h.hkey *)
 
   let rec length r_stk =
     match r_stk.node with Empty -> 0 | Cons { prev; _ } -> 1 + length prev

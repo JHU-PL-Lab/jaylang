@@ -1,5 +1,4 @@
 open Core
-open Dj_common
 open Jayil.Ast
 
 module Table = struct

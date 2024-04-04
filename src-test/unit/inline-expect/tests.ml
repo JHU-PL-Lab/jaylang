@@ -1,6 +1,6 @@
 open! Core
 open Dj_common
-module R = Dbmc.Rstack
+module R = Rstack
 
 let x = Id.Ident "x"
 let f = Id.Ident "f"

@@ -1,5 +1,6 @@
 open Core
 open Dj_common
+module Riddler = Riddler.V1
 
 type t = {
   v : Lookup_key.t;

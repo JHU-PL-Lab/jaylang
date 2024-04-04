@@ -47,8 +47,8 @@ val pick_max_step : t -> Z3.Expr.expr
 module Runtime :
   sig
     type t =
-      { branch_key    : Lookup_key.t
-      ; condition_key : Lookup_key.t
+      { branch_key    : Dj_common.Lookup_key.t
+      ; condition_key : Dj_common.Lookup_key.t
       ; direction     : Direction.t } [@@deriving compare, sexp, hash]
     (** [t] is a branch in the AST during runtime, where its branch and condition both have a stack
         to identify them (hence they are a [Lookup_key.t]).

@@ -4,6 +4,7 @@ open Jayil
 open Jayil.Ast
 open Log.Export
 open Rule
+module Riddler = Riddler.V1
 
 module type S = sig
   val state : Global_state.t

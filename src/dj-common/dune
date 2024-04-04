@@ -15,13 +15,15 @@
   logs
   logs.lwt
   logs.fmt
+  hashcons
   ocamlgraph
   fmt
   bluejay
   jay
   jayil
   jayil_parser
-  jay_translate)
+  jay_translate
+  sudu)
  (synopsis "dj-common is common data structures")
  (preprocess
   (pps

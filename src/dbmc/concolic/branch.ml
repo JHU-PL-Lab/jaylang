@@ -3,7 +3,7 @@ open Jayil
 module Riddler = Riddler.V2
 
 module Lookup_key = struct
-  include Lookup_key
+  include Dj_common.Lookup_key
 
   (* Core.Map.Key expects t_of_sexp, so provide failing implementation *)
   let t_of_sexp _ = failwith "Lookup_key.t_of_sexp needed and not implemented"

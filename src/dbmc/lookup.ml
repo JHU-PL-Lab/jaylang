@@ -5,6 +5,7 @@ open Jayil
 open Jayil.Ast
 open Cfg
 module U_ddse = Lookup_ddse_rule.U
+module Riddler = Riddler.V1
 
 let push_job (state : Global_state.t) (key : Lookup_key.t) task () =
   let job_key : Global_state.job_key =

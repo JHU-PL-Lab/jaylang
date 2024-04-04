@@ -2,7 +2,7 @@ open Core
 open Dj_common
 
 module To_test = struct
-  module R = Dbmc.Rstack
+  module R = Rstack
 
   let empty = R.empty
   let pop_exn r f = Option.value_exn (R.pop r f)

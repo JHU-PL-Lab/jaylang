@@ -2,6 +2,7 @@ open Core
 open Dj_common
 open Riddler
 open Log.Export
+module Riddler = Riddler.V1
 
 let flush_staging_phis (state : Global_state.t) =
   Z3.Solver.add state.solve.solver state.solve.phis_staging ;
@@ -16,14 +17,14 @@ let log_phis ?(prompt = "") phis =
 let log_solver ?(prompt = "") solver =
   SLog.debug (fun m ->
       m "Solver Phis %s (%d) : %s" prompt
-        (Riddler.Solver.get_assertion_count solver)
-        (Riddler.Solver.string_of_solver solver))
+        (Solver_helper.get_assertion_count solver)
+        (Solver_helper.string_of_solver solver))
 
 let log_model model =
   SLog.debug (fun m -> m "Model: %s" (Z3.Model.to_string model))
 
 let check_and_log ?(verbose = true) ?(is_debug = true) solver phi_used_once =
-  let check_result = Riddler.Solver.check ~verbose solver [] phi_used_once in
+  let check_result = Solver_helper.check ~verbose solver [] phi_used_once in
   let log_phis_here () =
     if verbose
     then (
@@ -91,7 +92,6 @@ let phi_fix (state : Global_state.t) =
 let check_incremental (state : Global_state.t) (config : Global_config.t) :
     (Z3.Model.model, 'a option) result =
   let phi_used_once = phi_fix state in
-  Fmt.pr "here0" ;
   check_and_log ~verbose:config.debug_model state.solve.solver phi_used_once
 
 let simplify_phis () = ()
@@ -105,7 +105,7 @@ let check_shrink (state : Global_state.t) (config : Global_config.t) :
 
   log_solver ~prompt:"One" state.solve.solver ;
 
-  Riddler.Solver.reset_solver state.solve.solver ;
+  Solver_helper.reset_solver state.solve.solver ;
   SLog.debug (fun m -> m "Two") ;
   List.iter detail_lst ~f:(fun (key, detail) ->
       let phis =
@@ -153,7 +153,7 @@ let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
      {
        total_phis =
          List.length state.solve.phis_added + List.length phi_used_once;
-       solver_resource = Riddler.Solver.get_rlimit state.solve.solver;
+       solver_resource = Solver_helper.get_rlimit state.solve.solver;
      }
    in
    state.stat.check_infos <- this_check_info :: state.stat.check_infos) ;
@@ -251,4 +251,4 @@ let check_expected_input_sat target_stk history solver =
             Riddler.eq zname (Riddler.int_ i)))
   in
 
-  Result.is_ok (Riddler.Solver.check_with_assumption solver input_phis)
+  Result.is_ok (Solver_helper.check_with_assumption solver input_phis)

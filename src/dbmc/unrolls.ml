@@ -11,10 +11,10 @@ module Unroll_S_dbmc = struct
   type payload = Lookup_result.t
 
   let equal_payload (m1 : Lookup_result.t) (m2 : Lookup_result.t) =
-    Lookup_key.equal m1.from m2.from
+    Dj_common.Lookup_key.equal m1.from m2.from
 end
 
-module U_dbmc = Unroll.Make_stateful (Lookup_key) (Unroll_S_dbmc)
+module U_dbmc = Unroll.Make_stateful (Dj_common.Lookup_key) (Unroll_S_dbmc)
 
 module Unroll_S_ddse = struct
   type payload = Ddse_result.t
@@ -22,4 +22,4 @@ module Unroll_S_ddse = struct
   let equal_payload = Ddse_result.equal
 end
 
-module U_ddse = Unroll.Make_stateful (Lookup_key) (Unroll_S_ddse)
+module U_ddse = Unroll.Make_stateful (Dj_common.Lookup_key) (Unroll_S_ddse)

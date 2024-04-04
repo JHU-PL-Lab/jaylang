@@ -3,7 +3,7 @@ open Path_tree
 module Lazy_key :
   sig
     type t
-    val to_key : t -> Lookup_key.t
+    val to_key : t -> Dj_common.Lookup_key.t
     val make : Jayil.Ast.ident -> Dj_common.Concrete_stack.t -> t
   end
 

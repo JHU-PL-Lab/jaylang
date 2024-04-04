@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 open Lookup_status
 
 type t = { status : Lookup_status.t; from : Lookup_key.t }
