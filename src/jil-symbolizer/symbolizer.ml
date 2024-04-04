@@ -23,7 +23,7 @@ module Make_exp_helper (Sym_val : Sym_val_sig.S) (Sym_key : Sym_key.S) = struct
 
   let phi_of_value_opt (key : Lookup_key.t) = function
     | Some v -> phi_of_value key v
-    | None -> Sym_key.key_to_var key
+    | None -> Sym_key.key_to_sym key
 
   type eg_edge =
     | K of (Lookup_key.t * Lookup_key.t)
@@ -41,15 +41,15 @@ module Make_sym_exp (Sym_val : Sym_val_sig.S) (Sym_key : Sym_key.S) = struct
   include Make_exp_helper (Sym_val) (Sym_key)
 
   let not_op t t1 =
-    let e = key_to_var t in
-    let e1 = key_to_var t1 in
+    let e = key_to_sym t in
+    let e1 = key_to_sym t1 in
     fn_not e e1
 
   let binop t op t1 t2 =
     let open Jayil.Ast in
-    let e = key_to_var t in
-    let e1 = key_to_var t1 in
-    let e2 = key_to_var t2 in
+    let e = key_to_sym t in
+    let e1 = key_to_sym t1 in
+    let e2 = key_to_sym t2 in
     let fop =
       match op with
       | Binary_operator_plus -> fn_plus
@@ -67,10 +67,10 @@ module Make_sym_exp (Sym_val : Sym_val_sig.S) (Sym_key : Sym_key.S) = struct
     in
     fop e e1 e2
 
-  let is_bool_key key = Sym_val.is_bool (key_to_var key)
-  let eqv key v = Sym_val.eq (key_to_var key) (phi_of_value key v)
-  let eq_key key key' = Sym_val.eq (key_to_var key) (key_to_var key')
-  let eqz key v = Sym_val.eq (key_to_var key) v
+  let is_bool_key key = Sym_val.is_bool (key_to_sym key)
+  let eqv key v = Sym_val.eq (key_to_sym key) (phi_of_value key v)
+  let eq_key key key' = Sym_val.eq (key_to_sym key) (key_to_sym key')
+  let eqz key v = Sym_val.eq (key_to_sym key) v
 
   let stack_in_main r_stk =
     Sym_val.eq top_stack
@@ -169,7 +169,7 @@ module Make_sym_exp (Sym_val : Sym_val_sig.S) (Sym_key : Sym_key.S) = struct
   (* used by concolic interpreter *)
   (* OBSOLETE *)
   let eq_fid term (Id.Ident fid) =
-    Sym_val.eq (key_to_var term) (Sym_val.fun_ fid)
+    Sym_val.eq (key_to_sym term) (Sym_val.fun_ fid)
 
   let eq_term_v term v =
     match v with
@@ -198,7 +198,7 @@ module Make_sym_exp (Sym_val : Sym_val_sig.S) (Sym_key : Sym_key.S) = struct
     let matching_result =
       match value_matched with Some b -> [ Z (x, bool_ b) ] | None -> []
     in
-    let type_pattern = if_pattern (key_to_var x') pat in
+    let type_pattern = if_pattern (key_to_sym x') pat in
     let value_pattern =
       if Jayil.Ast.is_record_pattern pat
       then

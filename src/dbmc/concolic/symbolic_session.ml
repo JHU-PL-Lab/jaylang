@@ -363,7 +363,7 @@ let add_input (x : t) (key : Lazy_key.t) (v : Dvalue.t) : t =
   |> Fn.flip add_lazy_formula @@ fun () ->
      let (Ident s) = key.x in
      Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n s) ;
-     Symbolizer.if_pattern (Symbolizer.key_to_var key) Jayil.Ast.Int_pattern
+     Symbolizer.if_pattern (Symbolizer.key_to_sym key) Jayil.Ast.Int_pattern
 
 let add_not (x : t) (key1 : Lazy_key.t) (key2 : Lazy_key.t) : t =
   add_lazy_formula x @@ fun () -> Symbolizer.not_op (key1 ()) (key2 ())
@@ -371,10 +371,10 @@ let add_not (x : t) (key1 : Lazy_key.t) (key2 : Lazy_key.t) : t =
 let add_match (x : t) (k : Lazy_key.t) (m : Lazy_key.t)
     (pat : Jayil.Ast.pattern) : t =
   add_lazy_formula x @@ fun () ->
-  let k_expr = Symbolizer.key_to_var (k ()) in
+  let k_expr = Symbolizer.key_to_sym (k ()) in
   Symbolizer.eq
     (Symbolizer.project_bool k_expr)
-    (Symbolizer.if_pattern (Symbolizer.key_to_var (m ())) pat)
+    (Symbolizer.if_pattern (Symbolizer.key_to_sym (m ())) pat)
 
 (*
   -----------------

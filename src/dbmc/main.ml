@@ -39,7 +39,7 @@ let interp_step_check ~(config : Global_config.t) ~(state : Global_state.t)
   in
   let key_picked = Symbolizer.picked key in
   (* let eq_z = Symbolizer.eqv key v in *)
-  let key_z = Symbolizer.key_to_var key in
+  let key_z = Symbolizer.key_to_sym key in
   let eq_z =
     match v with
     | Value_function _ -> Symbolizer.true_

@@ -9,7 +9,7 @@ let query_model model (x, call_stack) : int option =
      Symbolizer.Jil_val.get_int_s model name *)
   (* this commented code is for when we're using strings to identify variables *)
   let key = Lookup_key.without_block x (Rstack.from_concrete call_stack) in
-  Symbolizer.get_int_expr model (Symbolizer.key_to_var key)
+  Symbolizer.get_int_expr model (Symbolizer.key_to_sym key)
 (* Symbolizer.get_int_i model (Symbolizer.key_to_i key) *)
 
 let default : Input_feeder.t =
