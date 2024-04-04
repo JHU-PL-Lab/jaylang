@@ -2,7 +2,6 @@ open Core
 include Global_state_imp.State
 open Dj_common
 open Log.Export
-module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 let compute_info (config : Global_config.t) program : info =
   let first = Jayil.Ast_tools.first_id program in
@@ -51,11 +50,13 @@ let reset_job_state job_state =
 
 let create_solve_state () : solve_state =
   let z3_ctx = Solver_helper.ctx in
+  let module Symbolizer = Jil_symbolizer.Symbolizer.V1 in
   {
     phis_staging = [];
     phis_added = [];
     smt_lists = Hashtbl.create (module Lookup_key);
     z3_ctx;
+    symbolizer = (module Symbolizer);
     solver = Z3.Solver.mk_solver z3_ctx None;
   }
 
@@ -107,14 +108,18 @@ let create (config : Global_config.t) program =
   Solver_helper.set_timeout_sec config.timeout ;
   let info = compute_info config program in
   (* Global_state.lookup_alert state key_target state.root_node; *)
+  let state =
+    {
+      info;
+      job = create_job_state config;
+      solve = create_solve_state ();
+      search = create_search_state info.root_node_info;
+      stat = create_stat_state ();
+    }
+  in
+  let (module Symbolizer) = state.solve.symbolizer in
   Symbolizer.reset () ;
-  {
-    info;
-    job = create_job_state config;
-    solve = create_solve_state ();
-    search = create_search_state info.root_node_info;
-    stat = create_stat_state ();
-  }
+  state
 
 let clear_phis state =
   state.solve.phis_added <- state.solve.phis_added @ state.solve.phis_staging ;
@@ -136,6 +141,7 @@ let detail_alist (state : t) =
   sorted_list_of_hashtbl state.search.lookup_detail_map
 
 let create_counter state detail key =
+  let (module Symbolizer) = state.solve.symbolizer in
   Hashtbl.update state.solve.smt_lists key ~f:(function
     | Some i -> i
     | None ->

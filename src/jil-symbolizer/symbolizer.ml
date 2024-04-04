@@ -24,14 +24,6 @@ module Make_exp_helper (Sym_val : Sym_val_sig.S) (Sym_key : Sym_key.S) = struct
   let phi_of_value_opt (key : Lookup_key.t) = function
     | Some v -> phi_of_value key v
     | None -> Sym_key.key_to_sym key
-
-  type eg_edge =
-    | K of (Lookup_key.t * Lookup_key.t)
-    | K2 of (Lookup_key.t * Lookup_key.t)
-    | Z of (Lookup_key.t * Z3.Expr.expr)
-    | D of (Lookup_key.t * Lookup_key.t list)
-    | P of Lookup_key.t
-    | Phi of Z3.Expr.expr
 end
 
 module Make_sym_exp (Sym_val : Sym_val_sig.S) (Sym_key : Sym_key.S) = struct
@@ -223,6 +215,12 @@ module Make (Sym_val : Sym_val_sig.S) (Sym_key : Sym_key.S) = struct
   include Make_sym_exp (Sym_val) (Sym_key)
 end
 
+module type S = sig
+  include Sym_val_sig.S
+  include Sym_key.S
+  include module type of Make_sym_exp (Sym_val) (Sym_key.Make_V1 (Sym_val))
+end
+
 module V1 = Make (Sym_val) (Sym_key.Make_V1 (Sym_val))
-module V2 = V1
-(* module V2 = Make (Sym_val_v2) (Sym_key.Make_V2 (Sym_val_v2)) *)
+module V2 : S = V1
+(* module V2 : S = Make (Sym_val_v2) (Sym_key.Make_V2 (Sym_val_v2)) *)
