@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 module Jil_val_z3 = Sudu.Z3_datatype_c.Make_z3_datatype_V2 (Solver_helper.C)
 include Jil_val_z3
 include Sudu.Z3_datatype.Make_datatype_ops (Jil_val_z3) (Solver_helper.C)

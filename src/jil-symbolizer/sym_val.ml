@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 open Log.Export
 module Jil_val_z3 = Sudu.Z3_datatype.Make_z3_datatype (Solver_helper.C)
 include Jil_val_z3

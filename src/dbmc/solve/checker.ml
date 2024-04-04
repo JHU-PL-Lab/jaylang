@@ -1,8 +1,7 @@
 open Core
 open Dj_common
-open Riddler
 open Log.Export
-module Riddler = Riddler.V1
+module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 let flush_staging_phis (state : Global_state.t) =
   Z3.Solver.add state.solve.solver state.solve.phis_staging ;
@@ -45,37 +44,37 @@ let check_and_log ?(verbose = true) ?(is_debug = true) solver phi_used_once =
 
 let close_smt_list smt_list =
   Hashtbl.to_alist smt_list
-  |> List.map ~f:(fun (key, i) -> Riddler.(not_ (pick_key_list key i)))
+  |> List.map ~f:(fun (key, i) -> Symbolizer.(not_ (pick_key_list key i)))
 
 let lead_smt_list smt_list target =
   Hashtbl.to_alist smt_list
   |> List.map ~f:(fun (_key, _i) ->
-         Riddler.picked target (* Jil_val.not_ (pick_key_list key i) *))
+         Symbolizer.picked target (* Jil_val.not_ (pick_key_list key i) *))
 
 let close_unfinished_lookups lookups =
-  lookups |> List.map ~f:(fun key -> Riddler.(not_ (picked key)))
+  lookups |> List.map ~f:(fun key -> Symbolizer.(not_ (picked key)))
 
 let lead_unfinished_lookups lookups target =
   lookups
   (* |> List.map ~f:(fun key ->
          if not (Lookup_key.equal key target)
-         then Solver.Jil_val.not_ (Riddler.picked key)
-         else Riddler.picked key) *)
-  |> List.map ~f:(fun key -> Riddler.(picked key @=> picked target))
+         then Solver.Jil_val.not_ (Symbolizer.picked key)
+         else Symbolizer.picked key) *)
+  |> List.map ~f:(fun key -> Symbolizer.(picked key @=> picked target))
 
 let eager_phi_fix (state : Global_state.t) c =
   let unfinish_lookup =
     lead_unfinished_lookups (Hash_set.to_list state.search.lookup_created) c
   in
   let list_fix = lead_smt_list state.solve.smt_lists c in
-  unfinish_lookup @ [ Riddler.picked c ] @ list_fix
+  unfinish_lookup @ [ Symbolizer.picked c ] @ list_fix
 
 let phi_fix (state : Global_state.t) =
   let unfinish_lookup =
     close_unfinished_lookups (Hash_set.to_list state.search.lookup_created)
   in
   let list_fix = close_smt_list state.solve.smt_lists in
-  unfinish_lookup @ [ Riddler.picked state.info.key_target ] @ list_fix
+  unfinish_lookup @ [ Symbolizer.picked state.info.key_target ] @ list_fix
 
 (* let eager_check (state : Global_state.t) (config : Global_config.t) c assumption
      =
@@ -115,7 +114,7 @@ let check_shrink (state : Global_state.t) (config : Global_config.t) :
           let phis' =
             match detail.status with
             | Complete -> Lookup_rule.complete_phis_of_rule state key detail
-            | Fail -> Riddler.invalid key
+            | Fail -> Symbolizer.invalid key
             | Good -> failwith "Good in re-gen phis"
           in
           detail.status_gen_phi <- detail.status ;
@@ -144,9 +143,9 @@ let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
     match solver_result with
     | Result.Ok model ->
         if config.debug_model then log_model model ;
-        let c_stk_mach = Riddler.(get_unbox_fun_exn model top_stack) in
+        let c_stk_mach = Symbolizer.(get_unbox_fun_exn model top_stack) in
         let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
-        Some Riddler.{ model; c_stk }
+        Some Symbolizer.{ model; c_stk }
     | Result.Error _exps -> None
   in
   (let this_check_info : Check_info.t =
@@ -160,7 +159,7 @@ let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
   check_result
 
 let check (state : Global_state.t) (config : Global_config.t) :
-    Riddler.result_info option =
+    Symbolizer.result_info option =
   LLog.info (fun m -> m "Search Tree Size:\t%d" state.search.tree_size) ;
   flush_staging_phis state ;
   let solver_result =
@@ -193,14 +192,14 @@ let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
 
   Observe.update_block_visits config state key is_checked smt_time ;
   match check_result with
-  | Some { model; c_stk } -> raise (Riddler.Found_solution { model; c_stk })
+  | Some { model; c_stk } -> raise (Symbolizer.Found_solution { model; c_stk })
   | None -> ()
 (* match check_result with
    | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
    | None -> Lwt.return_unit *)
 
 (* `check_phis` are used in ddse and dbmc-debug *)
-let check_phis solver phis is_debug : Riddler.result_info option =
+let check_phis solver phis is_debug : Symbolizer.result_info option =
   match check_and_log solver phis with
   | Result.Ok model ->
       if is_debug
@@ -209,7 +208,7 @@ let check_phis solver phis is_debug : Riddler.result_info option =
             m "Phis: %a"
               Fmt.(Dump.list string)
               (List.map ~f:Z3.Expr.to_string phis)) ;
-      let c_stk_mach = Riddler.(get_unbox_fun_exn model top_stack) in
+      let c_stk_mach = Symbolizer.(get_unbox_fun_exn model top_stack) in
       let c_stk = c_stk_mach |> Sexp.of_string |> Concrete_stack.t_of_sexp in
       print_endline @@ Concrete_stack.show c_stk ;
       Some { model; c_stk }
@@ -232,7 +231,7 @@ let query_model model target_stack (x, call_stack) : int option =
   let stk = Rstack.relativize target_stack call_stack in
   let name = Lookup_key.to_str2 x stk in
   (* TODO *)
-  Riddler.get_int_s model name
+  Symbolizer.get_int_s model name
 
 let input_feeder ?(history = ref []) model target_stack : Input_feeder.t =
   let input_feeder = query_model model target_stack in
@@ -247,8 +246,8 @@ let check_expected_input_sat target_stk history solver =
         Option.map r ~f:(fun i ->
             let stk = Rstack.relativize target_stk stk in
             let name = Lookup_key.to_str2 x stk in
-            let zname = Riddler.var_s name in
-            Riddler.eq zname (Riddler.int_ i)))
+            let zname = Symbolizer.var_s name in
+            Symbolizer.eq zname (Symbolizer.int_ i)))
   in
 
   Result.is_ok (Solver_helper.check_with_assumption solver input_phis)

@@ -6,7 +6,7 @@ open Rule
 open Types
 module U = Unrolls.U_dbmc
 module Log = Log.Export.CMLog
-module Riddler = Riddler.V1
+module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 (*
    Status promotion:
@@ -163,7 +163,7 @@ let run_action dispatch unroll (state : Global_state.t)
         (* let f r =
              let i = Global_state.fetch_counter state target in
              let r', phis = e.map i r in
-             add_phi (Riddler.list_append target i (Riddler.and_ phis)) ;
+             add_phi (Symbolizer.list_append target i (Symbolizer.and_ phis)) ;
              Lookup_status.iter_ok r.status (fun () -> add_to_domain r.from) ;
              let r' = promote_result r.status r'.from in
              Option.iter r' ~f:(fun r ->
@@ -175,7 +175,7 @@ let run_action dispatch unroll (state : Global_state.t)
           let i = Global_state.fetch_counter state target in
           let r', phis = e.map r in
           add_to_domain r'.from ;
-          add_phi (Riddler.list_append target i (Riddler.and_ phis)) ;
+          add_phi (Symbolizer.list_append target i (Symbolizer.and_ phis)) ;
           let r' = Lookup_result.good r'.from in
           r'
         in
@@ -198,10 +198,10 @@ let run_action dispatch unroll (state : Global_state.t)
           in
           let phi_new, action_next = e.next i r.from in
           (match phi_new with
-          | Some phi_i -> add_phi @@ Riddler.list_append target i phi_i
+          | Some phi_i -> add_phi @@ Symbolizer.list_append target i phi_i
           | None ->
               if not e.bounded
-              then add_phi (Riddler.list_append target i Riddler.false_)) ;
+              then add_phi (Symbolizer.list_append target i Symbolizer.false_)) ;
           match action_next with
           | Some key_src ->
               dispatch key_src ;
@@ -222,10 +222,10 @@ let run_action dispatch unroll (state : Global_state.t)
           in
           let phi_new, action_next = e.next i r.from in
           (match phi_new with
-          | Some phi_i -> add_phi @@ Riddler.list_append target i phi_i
+          | Some phi_i -> add_phi @@ Symbolizer.list_append target i phi_i
           | None ->
               if not e.bounded
-              then add_phi (Riddler.list_append target i Riddler.false_)) ;
+              then add_phi (Symbolizer.list_append target i Symbolizer.false_)) ;
           match action_next with
           | Some ds ->
               List.iter ds ~f:dispatch ;
@@ -296,7 +296,7 @@ module Make (S : S) = struct
           | Some (Var (field, _)) ->
               let key_l = Lookup_key.with_x key_rv field in
               let phi_i =
-                Riddler.(eq_list [ K2 (key, key_l); K (p.r, key_rv) ])
+                Symbolizer.(eq_list [ K2 (key, key_l); K (p.r, key_rv) ])
               in
               (Some phi_i, Some key_l)
           | None -> (None, None))
@@ -336,7 +336,7 @@ module Make (S : S) = struct
             let key_arg = Lookup_key.of3 key.x r.r_stk fv_block in
             let phi_i =
               let fid = key.block.id in
-              Riddler.(
+              Symbolizer.(
                 eq_list
                   [
                     K2 (key, key_arg);
@@ -367,7 +367,7 @@ module Make (S : S) = struct
       let key_rv = r.from in
       let rv = Cfg.clause_body_of_x key_rv.block key_rv.x in
       ( Lookup_result.from_as key r.status,
-        [ Riddler.pattern key x' key_rv rv pat ] )
+        [ Symbolizer.pattern key x' key_rv rv pat ] )
     in
     MapSeq { pub = x'; map = f }
 
@@ -375,7 +375,7 @@ module Make (S : S) = struct
     let key_first = Lookup_key.to_first key S.state.info.first in
     let open Rule in
     let open Lookup_status in
-    let open Riddler in
+    let open Symbolizer in
     match rule with
     (* Bounded (same as complete phi) *)
     | Discovery_main p -> (at_main key (Some p.v), Leaf Complete)
@@ -386,10 +386,12 @@ module Make (S : S) = struct
         then (at_main key None, Leaf Complete)
         else (implies key key_first, first_but_drop key)
     | Assume p ->
-        ( Riddler.imply key [ K2 (key, p.x'); Z (p.x', Riddler.bool_ true) ],
+        ( Symbolizer.imply key
+            [ K2 (key, p.x'); Z (p.x', Symbolizer.bool_ true) ],
           Leaf Complete )
     | Assert p ->
-        ( Riddler.imply key [ K2 (key, p.x'); Z (p.x', Riddler.bool_ true) ],
+        ( Symbolizer.imply key
+            [ K2 (key, p.x'); Z (p.x', Symbolizer.bool_ true) ],
           Leaf Complete )
     | Mismatch -> (invalid key, Leaf Fail)
     | Abort p ->
@@ -401,10 +403,12 @@ module Make (S : S) = struct
     | Binop p -> (binop key p.bop p.x1 p.x2, Both { pub1 = p.x1; pub2 = p.x2 })
     | Record_start p -> (true_, record_start_action p key)
     | Cond_top p ->
-        ( Riddler.imply key
-            [ K2 (key, p.x); Z (p.x2, Riddler.bool_ p.cond_case_info.choice) ],
-          (* if Riddler.eager_check S.state S.config key_x2
-             [ Riddler.(eqz key_x2 (bool_ choice)) ] *)
+        ( Symbolizer.imply key
+            [
+              K2 (key, p.x); Z (p.x2, Symbolizer.bool_ p.cond_case_info.choice);
+            ],
+          (* if Symbolizer.eager_check S.state S.config key_x2
+             [ Symbolizer.(eqz key_x2 (bool_ choice)) ] *)
           Bind_like
             {
               precursor = p.x2;
@@ -412,20 +416,22 @@ module Make (S : S) = struct
               bounded = true;
             } )
     | Cond_btm p -> (cond_bottom key p.x' p.rets, cond_btm p key)
-    | Fun_enter_local p -> (fun_enter_local key p, fun_enter_local_action p key)
+    | Fun_enter_local p ->
+        ( fun_enter_local key p.callsites_with_stk p.fid,
+          fun_enter_local_action p key )
     | Fun_enter_nonlocal p -> (true_, fun_enter_nonlocal p key)
     | Fun_exit p ->
         (fun_exit key p.xf p.fids S.state.info.block_map, fun_exit_action p key)
     | Pattern p -> (true_, pattern_action p key)
 end
 
-open Riddler
+open Symbolizer
 
 (* Completion *)
 let complete_phis_of_rule (state : Global_state.t) key
     (detail : Lookup_detail.t) =
   let open Rule in
-  let open Riddler in
+  let open Symbolizer in
   let key_first = Lookup_key.to_first key state.info.first in
   match detail.rule with
   (* Bounded (same as complete phi) *)

@@ -1,6 +1,6 @@
 open Core
 open Dj_common
-module Riddler = Riddler.V1
+module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 type t = {
   v : Lookup_key.t;
@@ -81,7 +81,7 @@ let merge_left t1 t2 =
 let merge_with_v v bop t1 t2 =
   match merge_left t1 t2 with
   | Some t ->
-      let phi = Riddler.binop v bop t1.v t2.v in
+      let phi = Symbolizer.binop v bop t1.v t2.v in
       Some { t with v; phis = Phi_set.add t.phis phi }
   | None -> None
 

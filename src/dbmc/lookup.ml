@@ -5,7 +5,7 @@ open Jayil
 open Jayil.Ast
 open Cfg
 module U_ddse = Lookup_ddse_rule.U
-module Riddler = Riddler.V1
+module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 let push_job (state : Global_state.t) (key : Lookup_key.t) task () =
   let job_key : Global_state.job_key =
@@ -90,7 +90,7 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
         with
         | None -> ()
         | Some { model; c_stk } ->
-            raise (Riddler.Found_solution { model; c_stk })) ;
+            raise (Symbolizer.Found_solution { model; c_stk })) ;
     Lwt.return_unit
   in
   Lwt.pick [ Global_state.scheduler_run state; wait_result ]
@@ -151,7 +151,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
     List.iter previous_clauses ~f:(fun tc ->
         let term_prev = Lookup_key.with_x key tc.id in
         Global_state.add_phi ~is_external:true state detail
-          (Riddler.implies key term_prev) ;
+          (Symbolizer.implies key term_prev) ;
         dispatch lookup term_prev)
   in
   dispatch lookup state.info.key_target ;

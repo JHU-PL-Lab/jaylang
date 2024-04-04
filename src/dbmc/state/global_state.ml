@@ -2,7 +2,7 @@ open Core
 include Global_state_imp.State
 open Dj_common
 open Log.Export
-module Riddler = Riddler.V1
+module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 let compute_info (config : Global_config.t) program : info =
   let first = Jayil.Ast_tools.first_id program in
@@ -107,7 +107,7 @@ let create (config : Global_config.t) program =
   Solver_helper.set_timeout_sec config.timeout ;
   let info = compute_info config program in
   (* Global_state.lookup_alert state key_target state.root_node; *)
-  Riddler.reset () ;
+  Symbolizer.reset () ;
   {
     info;
     job = create_job_state config;
@@ -139,7 +139,7 @@ let create_counter state detail key =
   Hashtbl.update state.solve.smt_lists key ~f:(function
     | Some i -> i
     | None ->
-        add_phi state detail (Riddler.list_head key) ;
+        add_phi state detail (Symbolizer.list_head key) ;
         0)
 
 let fetch_counter state key =

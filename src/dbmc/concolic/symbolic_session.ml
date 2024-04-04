@@ -1,7 +1,7 @@
 open Core
 open Path_tree
 open Dj_common
-module Riddler = Riddler.V2
+module Symbolizer = Jil_symbolizer.Symbolizer.V2
 
 module Lazy_key = struct
   type t = unit -> Lookup_key.t
@@ -185,7 +185,7 @@ module Basic = struct
         let new_hd =
           Child.map_node hd ~f:(fun node ->
               Node.add_formula node
-              @@ Riddler.eqv (cx ()) (Jayil.Ast.Value_bool true))
+              @@ Symbolizer.eqv (cx ()) (Jayil.Ast.Value_bool true))
         in
         { s with stack = Cons (new_hd, tl) }
 
@@ -341,15 +341,15 @@ let add_basic_input (x : t) (i : Jil_input.t) : t =
   ------------------------------
 *)
 let add_key_eq_val (x : t) (key : Lazy_key.t) (v : Jayil.Ast.value) : t =
-  add_lazy_formula x @@ fun () -> Riddler.eq_term_v (key ()) (Some v)
+  add_lazy_formula x @@ fun () -> Symbolizer.eq_term_v (key ()) (Some v)
 
 let add_alias (x : t) (key1 : Lazy_key.t) (key2 : Lazy_key.t) : t =
-  add_lazy_formula x @@ fun () -> Riddler.eq_key (key1 ()) (key2 ())
+  add_lazy_formula x @@ fun () -> Symbolizer.eq_key (key1 ()) (key2 ())
 
 let add_binop (x : t) (key : Lazy_key.t) (op : Jayil.Ast.binary_operator)
     (left : Lazy_key.t) (right : Lazy_key.t) : t =
   add_lazy_formula x @@ fun () ->
-  Riddler.binop_without_picked (key ()) op (left ()) (right ())
+  Symbolizer.binop_without_picked (key ()) op (left ()) (right ())
 
 let add_input (x : t) (key : Lazy_key.t) (v : Dvalue.t) : t =
   let key = key () in
@@ -363,18 +363,18 @@ let add_input (x : t) (key : Lazy_key.t) (v : Dvalue.t) : t =
   |> Fn.flip add_lazy_formula @@ fun () ->
      let (Ident s) = key.x in
      Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n s) ;
-     Riddler.if_pattern (Riddler.key_to_var key) Jayil.Ast.Int_pattern
+     Symbolizer.if_pattern (Symbolizer.key_to_var key) Jayil.Ast.Int_pattern
 
 let add_not (x : t) (key1 : Lazy_key.t) (key2 : Lazy_key.t) : t =
-  add_lazy_formula x @@ fun () -> Riddler.not_op (key1 ()) (key2 ())
+  add_lazy_formula x @@ fun () -> Symbolizer.not_op (key1 ()) (key2 ())
 
 let add_match (x : t) (k : Lazy_key.t) (m : Lazy_key.t)
     (pat : Jayil.Ast.pattern) : t =
   add_lazy_formula x @@ fun () ->
-  let k_expr = Riddler.key_to_var (k ()) in
-  Riddler.eq
-    (Riddler.project_bool k_expr)
-    (Riddler.if_pattern (Riddler.key_to_var (m ())) pat)
+  let k_expr = Symbolizer.key_to_var (k ()) in
+  Symbolizer.eq
+    (Symbolizer.project_bool k_expr)
+    (Symbolizer.if_pattern (Symbolizer.key_to_var (m ())) pat)
 
 (*
   -----------------

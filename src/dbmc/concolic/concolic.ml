@@ -3,7 +3,7 @@ open Jayil.Ast
 open Dj_common (* exposes Concrete_stack *)
 open Dvalue (* just to expose constructors *)
 open Concolic_exceptions.Make (Session.Symbolic)
-module Riddler = Riddler.V2
+module Symbolizer = Jil_symbolizer.Symbolizer.V2
 module ILog = Log.Export.ILog
 
 (* Ident for conditional bool. *)
@@ -551,7 +551,7 @@ let lwt_eval :
   let f (r : Concolic_options.t) (e : Jayil.Ast.expr) =
     Log.Export.CLog.app (fun m -> m "\nStarting concolic execution...\n") ;
     (* Repeatedly evaluate program *)
-    Riddler.reset () ;
+    Symbolizer.reset () ;
     Lwt_unix.with_timeout r.global_timeout_sec @@ fun () ->
     e |> Session.of_expr
     |> Concolic_options.Fun.appl Session.with_options r

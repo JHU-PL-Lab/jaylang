@@ -6,7 +6,7 @@ open Jayil.Ast
 open Cfg
 open Ddpa
 open Log.Export
-module Riddler = Riddler.V1
+module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 type result_no_state =
   int option list list * bool * (Z3.Model.model * Concrete_stack.t) option
@@ -37,14 +37,14 @@ let interp_step_check ~(config : Global_config.t) ~(state : Global_state.t)
   let key =
     Lookup_key.of3 x stk (Cfg.find_reachable_block x state.info.block_map)
   in
-  let key_picked = Riddler.picked key in
-  (* let eq_z = Riddler.eqv key v in *)
-  let key_z = Riddler.key_to_var key in
+  let key_picked = Symbolizer.picked key in
+  (* let eq_z = Symbolizer.eqv key v in *)
+  let key_z = Symbolizer.key_to_var key in
   let eq_z =
     match v with
-    | Value_function _ -> Riddler.true_
-    | Value_record _ -> Riddler.true_
-    | _ -> Riddler.eqv key v
+    | Value_function _ -> Symbolizer.true_
+    | Value_record _ -> Symbolizer.true_
+    | _ -> Symbolizer.eqv key v
   in
   state.solve.phis_staging <- key_picked :: eq_z :: state.solve.phis_staging ;
   let info =
@@ -112,13 +112,13 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
     (Lwt.async_exception_hook :=
        fun exn ->
          match exn with
-         | Riddler.Found_solution { model; c_stk } ->
-             ignore @@ raise (Riddler.Found_solution { model; c_stk })
+         | Symbolizer.Found_solution { model; c_stk } ->
+             ignore @@ raise (Symbolizer.Found_solution { model; c_stk })
          | exn -> failwith (Stdlib.Printexc.to_string exn)) ;
     Timeout_utils.no_matter config.timeout (fun () ->
         Lookup.run_dbmc ~config ~state >|= fun _ -> post_check false)
   with
-  | Riddler.Found_solution { model; c_stk } ->
+  | Symbolizer.Found_solution { model; c_stk } ->
       Lwt.return (handle_found config state model c_stk)
   | Lwt_unix.Timeout ->
       prerr_endline "real timeout" ;

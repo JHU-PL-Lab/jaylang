@@ -1,4 +1,5 @@
 open Core
+open Dj_common
 
 type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
 

@@ -1,6 +1,6 @@
 open Core
 open Jayil
-module Riddler = Riddler.V2
+module Symbolizer = Jil_symbolizer.Symbolizer.V2
 
 module Lookup_key = struct
   include Dj_common.Lookup_key
@@ -48,14 +48,14 @@ module T = struct
     let (Ident s) =
       (x.branch_ident ^- Direction.to_string x.direction) ^- "abort"
     in
-    Riddler.picked_string s
+    Symbolizer.picked_string s
 
   let pick_max_step (x : t) : Z3.Expr.expr =
     (* hyphens aren't allowed in a variable name, so this is necessarily unique *)
     let (Ident s) =
       (x.branch_ident ^- Direction.to_string x.direction) ^- "max-step"
     in
-    Riddler.picked_string s
+    Symbolizer.picked_string s
 end
 
 include T
@@ -69,7 +69,7 @@ module Runtime = struct
   [@@deriving compare, sexp, hash]
 
   let to_expr ({ condition_key; direction; _ } : t) : Z3.Expr.expr =
-    Riddler.eqv condition_key (Direction.to_value_bool direction)
+    Symbolizer.eqv condition_key (Direction.to_value_bool direction)
 
   let to_ast_branch ({ branch_key; direction; _ } : t) : T.t =
     T.{ branch_ident = branch_key.x; direction }

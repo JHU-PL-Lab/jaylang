@@ -1,0 +1,13 @@
+(library
+ (name jil_symbolizer)
+ (public_name jay.jil_symbolizer)
+ (libraries core fmt dj_common jayil)
+ (instrumentation
+  (backend landmarks))
+ (preprocess
+  (pps ppx_jane ppx_deriving.show landmarks-ppx --auto)))
+
+(env
+ (dev
+  (flags
+   (:standard -w -33 -w -26 -w -27))))

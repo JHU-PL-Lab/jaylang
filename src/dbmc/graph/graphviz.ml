@@ -1,6 +1,6 @@
 open Core
 open Dj_common
-module Riddler = Riddler.V1
+module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 module Palette = struct
   let int_of_rgb r g b = (r * 256 * 256) + (g * 256) + b
@@ -185,7 +185,7 @@ module DotPrinter_Make (S : GS) = struct
           | Some model ->
               let lookup_name = Lookup_key.to_string node.key in
               Logs.info (fun m -> m "lookup (to model) : %s" lookup_name) ;
-              Riddler.(eval_value model (var_s lookup_name))
+              Symbolizer.(eval_value model (var_s lookup_name))
         in
         let c_id =
           (* match node.rule with
@@ -203,7 +203,7 @@ module DotPrinter_Make (S : GS) = struct
             let phis =
               Option.value_map detail ~default:[] ~f:(fun d -> d.phis)
             in
-            let phi = Riddler.and_ phis in
+            let phi = Symbolizer.and_ phis in
             phi |> Z3.Expr.to_string |> label_escape
           in
 
@@ -217,7 +217,7 @@ module DotPrinter_Make (S : GS) = struct
                        let noted_vs =
                          List.map noted_phis ~f:(fun (note, phi) ->
                              let phi_v =
-                               Riddler.(
+                               Symbolizer.(
                                  Jil_val.eval_value model phi |> Jil_val.unbox_bool)
                              in
                              (note, phi_v))
@@ -254,7 +254,7 @@ module DotPrinter_Make (S : GS) = struct
              | _ ->
                  if Hash_set.mem S.state.lookup_alert node.key
                  then C.alert
-                 else if Riddler.is_picked S.model node.key
+                 else if Symbolizer.is_picked S.model node.key
                  then
                    let is_defining_node = Id.equal c_id node.key.x in
                    if is_defining_node

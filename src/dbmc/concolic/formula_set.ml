@@ -1,5 +1,5 @@
 open Core
-module Riddler = Riddler.V2
+module Symbolizer = Jil_symbolizer.Symbolizer.V2
 
 module Z3_expr = struct
   include Z3.Expr
@@ -25,12 +25,12 @@ let equal = Set.equal
 
 let and_ (fset : t) : Z3_expr.t =
   match Set.to_list fset with
-  | [] -> Riddler.true_
+  | [] -> Symbolizer.true_
   | exp :: [] -> exp
-  | exps -> Riddler.and_ exps
+  | exps -> Symbolizer.and_ exps
 
 (* let or_ (fset : t) : Z3_expr.t =
    match Set.to_list fset with
-   | [] -> Riddler.true_
+   | [] -> Symbolizer.true_
    | exp :: [] -> exp
-   | exps -> Riddler.Jil_val.or_ exps *)
+   | exps -> Symbolizer.Jil_val.or_ exps *)

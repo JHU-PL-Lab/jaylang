@@ -1,16 +1,16 @@
 open Core
 open Dj_common
-module Riddler = Riddler.V2
+module Symbolizer = Jil_symbolizer.Symbolizer.V2
 
 type t = Input_feeder.t
 
 let query_model model (x, call_stack) : int option =
   (* let name = Lookup_key.to_str2 x (call_stack |> Rstack.from_concrete) in
-     Riddler.Jil_val.get_int_s model name *)
+     Symbolizer.Jil_val.get_int_s model name *)
   (* this commented code is for when we're using strings to identify variables *)
   let key = Lookup_key.without_block x (Rstack.from_concrete call_stack) in
-  Riddler.get_int_expr model (Riddler.key_to_var key)
-(* Riddler.get_int_i model (Riddler.key_to_i key) *)
+  Symbolizer.get_int_expr model (Symbolizer.key_to_var key)
+(* Symbolizer.get_int_i model (Symbolizer.key_to_i key) *)
 
 let default : Input_feeder.t =
  fun _ ->

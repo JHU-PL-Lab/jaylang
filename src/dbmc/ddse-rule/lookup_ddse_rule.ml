@@ -4,7 +4,7 @@ open Jayil
 open Jayil.Ast
 open Log.Export
 open Rule
-module Riddler = Riddler.V1
+module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 module type S = sig
   val state : Global_state.t
@@ -19,37 +19,40 @@ module U = Unrolls.U_ddse
 
 module Make (S : S) = struct
   let return_with this_key (t : Ddse_result.t) =
-    let phi = Riddler.eq_key this_key t.v in
+    let phi = Symbolizer.eq_key this_key t.v in
     Ddse_result.add_phi phi t
 
   let return_with_phis this_key phis (this_t : Ddse_result.t)
       (t : Ddse_result.t) =
-    let phi = Riddler.eq_key this_key t.v in
+    let phi = Symbolizer.eq_key this_key t.v in
     Ddse_result.(merge_all t this_t (Phi_set.of_list (phi :: phis)) [] [])
 
   let return_with_phis_with_choices this_key phis choices
       (this_t : Ddse_result.t) (t : Ddse_result.t) =
-    let phi = Riddler.eq_key this_key t.v in
+    let phi = Symbolizer.eq_key this_key t.v in
     Ddse_result.(merge_all t this_t (Phi_set.of_list (phi :: phis)) choices [])
 
   let return_phis_with_beta this_key phis choice_betas (this_t : Ddse_result.t)
       (t : Ddse_result.t) =
-    let phi = Riddler.eq_key this_key t.v in
+    let phi = Symbolizer.eq_key this_key t.v in
     Ddse_result.(
       merge_all t this_t (Phi_set.of_list (phi :: phis)) [] choice_betas)
 
   let return_phis outer_term phis choices choice_betas (outer_t : Ddse_result.t)
       (t : Ddse_result.t) =
-    let phi = Riddler.eq_key outer_term t.v in
+    let phi = Symbolizer.eq_key outer_term t.v in
     Ddse_result.(
       merge_all t outer_t (Phi_set.of_list (phi :: phis)) choices choice_betas)
 
   let rule_main vo (key : Lookup_key.t) _phis =
     let target_stk = Rstack.concretize_top key.r_stk in
     let phi =
-      Riddler.(
+      Symbolizer.(
         and_
-          [ Riddler.stack_in_main key.r_stk; eqz key (phi_of_value_opt key vo) ])
+          [
+            Symbolizer.stack_in_main key.r_stk;
+            eqz key (phi_of_value_opt key vo);
+          ])
     in
     let phis = S.add_phi key phi Phi_set.empty in
     U.set S.unroll key
@@ -58,7 +61,7 @@ module Make (S : S) = struct
   let rule_nonmain vo key phis_top =
     let key_first = Lookup_key.to_first key S.state.info.first in
     S.run_task key_first phis_top ;
-    let eq_phi = Riddler.eqz key (Riddler.phi_of_value_opt key vo) in
+    let eq_phi = Symbolizer.eqz key (Symbolizer.phi_of_value_opt key vo) in
     let _ = S.add_phi key eq_phi phis_top in
     U.set S.unroll key
       (U.map S.unroll key_first (Ddse_result.with_v_and_phi key eq_phi))
@@ -102,7 +105,7 @@ module Make (S : S) = struct
 
     let cb this_key (rv : Ddse_result.t) =
       let rv_block = rv.v.block in
-      let phi1 = Riddler.eq_key r rv.v in
+      let phi1 = Symbolizer.eq_key r rv.v in
       let clause_body = Cfg.clause_body_of_x rv_block rv.v.x in
       let rvv = Ast_tools.record_of_clause_body clause_body in
       match Ident_map.Exceptionless.find lbl rvv with
@@ -130,12 +133,12 @@ module Make (S : S) = struct
     S.run_task key_x2 phis_top ;
 
     let cb key (rc : Ddse_result.t) =
-      let phi_c = Riddler.(eqz rc.v (bool_ beta)) in
+      let phi_c = Symbolizer.(eqz rc.v (bool_ beta)) in
       let phis_top_with_c = Phi_set.(add (union rc.phis phis_top) phi_c) in
-      (* (match Riddler.check_phis (Phi_set.to_list phis_top_with_c) false with
+      (* (match Symbolizer.check_phis (Phi_set.to_list phis_top_with_c) false with
          | Some _ -> *)
       S.run_task key_x phis_top_with_c ;
-      let phi = Riddler.(eqz key_x2 (bool_ beta)) in
+      let phi = Symbolizer.(eqz key_x2 (bool_ beta)) in
       let choice_beta = (key_x2, beta) in
       U.set S.unroll key
         (U.filter_map S.unroll key_x
@@ -153,11 +156,11 @@ module Make (S : S) = struct
 
     let cb (this_key : Lookup_key.t) (rc : Ddse_result.t) =
       List.iter rets ~f:(fun (beta, key_ret) ->
-          let phi_beta = Riddler.(eqz rc.v (bool_ beta)) in
+          let phi_beta = Symbolizer.(eqz rc.v (bool_ beta)) in
           let phis_top_with_c =
             Phi_set.(add (union rc.phis phis_top) phi_beta)
           in
-          (* match Riddler.check_phis (Phi_set.to_list phis_top_with_c) false with
+          (* match Symbolizer.check_phis (Phi_set.to_list phis_top_with_c) false with
              | Some _ -> *)
           S.run_task key_ret phis_top_with_c ;
 
@@ -187,8 +190,8 @@ module Make (S : S) = struct
       S.run_task term_c phis_top ;
 
       let cb key_ret ((key_c : Lookup_key.t), phis_c) =
-        let phi_beta = Riddler.(eqz key_c (bool_ beta)) in
-        (* match Riddler.check_phis (Phi_set.to_list phis_top') false with
+        let phi_beta = Symbolizer.(eqz key_c (bool_ beta)) in
+        (* match Symbolizer.check_phis (Phi_set.to_list phis_top') false with
            | Some _ -> *)
         S.run_task key_ret phis_top ;
 
@@ -208,12 +211,12 @@ module Make (S : S) = struct
         ~f:(fun sub_trees (key_f, key_arg) ->
           S.run_task key_f phis_top ;
           let phi =
-            Riddler.(and_ [ eqz key_f (z_of_fid fid); eq_key key key_arg ])
+            Symbolizer.(and_ [ eqz key_f (z_of_fid fid); eq_key key key_arg ])
           in
           let choice_f = Decision.make key_f.r_stk key_f.block.id in
           let cb key (rf : Ddse_result.t) =
             S.run_task key_arg phis_top ;
-            let phi_f = Riddler.eq_key key_f rf.v in
+            let phi_f = Symbolizer.eq_key key_f rf.v in
             (* This function contains `key = key_arg.v` in the phis *)
             U.set S.unroll key
               (U.filter_map S.unroll key_arg
@@ -235,7 +238,7 @@ module Make (S : S) = struct
       List.fold callsites_with_stk
         ~f:(fun sub_trees (key_f, _key_arg) ->
           S.run_task key_f phis_top ;
-          let phi = Riddler.(eqz key_f (z_of_fid fid)) in
+          let phi = Symbolizer.(eqz key_f (z_of_fid fid)) in
           (* let choice_this = Decision.make r_stk this_key.block.id in *)
           let choice_f = Decision.make key_f.r_stk key_f.block.id in
 
@@ -244,7 +247,7 @@ module Make (S : S) = struct
             let fv_block = Cfg.find_reachable_block rf.v.x S.block_map in
             S.run_task key_arg phis_top ;
 
-            let phi_f = Riddler.eq_key key_f rf.v in
+            let phi_f = Symbolizer.eq_key key_f rf.v in
             U.set S.unroll key
               (U.filter_map S.unroll key_arg
                  (return_phis key [ phi_f; phi ] [ choice_f ] [] rf))
@@ -270,7 +273,7 @@ module Make (S : S) = struct
           let fblock = Ident_map.find fid S.block_map in
           let key_ret = Lookup_key.get_f_return S.block_map fid this_key in
           let phi =
-            Riddler.(and_ [ eqz xf (z_of_fid fid); eq_key key_ret this_key ])
+            Symbolizer.(and_ [ eqz xf (z_of_fid fid); eq_key key_ret this_key ])
           in
           let cb (key : Lookup_key.t) (rf : Ddse_result.t) =
             let fid' = rf.v.x in
@@ -296,12 +299,12 @@ module Make (S : S) = struct
   let assume _p _key _phis_top = ()
 
   let assert_ _p this_key phis_top =
-    let _phis' = S.add_phi this_key Riddler.false_ phis_top in
+    let _phis' = S.add_phi this_key Symbolizer.false_ phis_top in
     ()
 
   let abort _p _key _phis_top = ()
 
   let mismatch this_key phis =
-    let _phis' = S.add_phi this_key Riddler.false_ phis in
+    let _phis' = S.add_phi this_key Symbolizer.false_ phis in
     ()
 end
