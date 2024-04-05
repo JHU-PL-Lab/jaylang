@@ -1,7 +1,7 @@
 open Core
 open Dj_common
+open Jil_symbolizer
 open Log.Export
-module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 let flush_staging_phis (state : Global_state.t) =
   Z3.Solver.add state.solve.solver state.solve.phis_staging ;
@@ -42,19 +42,23 @@ let check_and_log ?(verbose = true) ?(is_debug = true) solver phi_used_once =
 
   check_result
 
-let close_smt_list smt_list =
+let close_smt_list (state : Global_state.t) smt_list =
+  let (module Symbolizer) = state.solve.symbolizer in
   Hashtbl.to_alist smt_list
   |> List.map ~f:(fun (key, i) -> Symbolizer.(not_ (pick_key_list key i)))
 
-let lead_smt_list smt_list target =
+let lead_smt_list (state : Global_state.t) smt_list target =
+  let (module Symbolizer) = state.solve.symbolizer in
   Hashtbl.to_alist smt_list
   |> List.map ~f:(fun (_key, _i) ->
          Symbolizer.picked target (* Jil_val.not_ (pick_key_list key i) *))
 
-let close_unfinished_lookups lookups =
+let close_unfinished_lookups (state : Global_state.t) lookups =
+  let (module Symbolizer) = state.solve.symbolizer in
   lookups |> List.map ~f:(fun key -> Symbolizer.(not_ (picked key)))
 
-let lead_unfinished_lookups lookups target =
+let lead_unfinished_lookups (state : Global_state.t) lookups target =
+  let (module Symbolizer) = state.solve.symbolizer in
   lookups
   (* |> List.map ~f:(fun key ->
          if not (Lookup_key.equal key target)
@@ -63,17 +67,22 @@ let lead_unfinished_lookups lookups target =
   |> List.map ~f:(fun key -> Symbolizer.(picked key @=> picked target))
 
 let eager_phi_fix (state : Global_state.t) c =
+  let (module Symbolizer) = state.solve.symbolizer in
   let unfinish_lookup =
-    lead_unfinished_lookups (Hash_set.to_list state.search.lookup_created) c
+    lead_unfinished_lookups state
+      (Hash_set.to_list state.search.lookup_created)
+      c
   in
-  let list_fix = lead_smt_list state.solve.smt_lists c in
+  let list_fix = lead_smt_list state state.solve.smt_lists c in
   unfinish_lookup @ [ Symbolizer.picked c ] @ list_fix
 
 let phi_fix (state : Global_state.t) =
+  let (module Symbolizer) = state.solve.symbolizer in
   let unfinish_lookup =
-    close_unfinished_lookups (Hash_set.to_list state.search.lookup_created)
+    close_unfinished_lookups state
+      (Hash_set.to_list state.search.lookup_created)
   in
-  let list_fix = close_smt_list state.solve.smt_lists in
+  let list_fix = close_smt_list state state.solve.smt_lists in
   unfinish_lookup @ [ Symbolizer.picked state.info.key_target ] @ list_fix
 
 (* let eager_check (state : Global_state.t) (config : Global_config.t) c assumption
@@ -97,6 +106,7 @@ let simplify_phis () = ()
 
 let check_shrink (state : Global_state.t) (config : Global_config.t) :
     (Z3.Model.model, 'a option) result =
+  let (module Symbolizer) = state.solve.symbolizer in
   simplify_phis () ;
 
   let phi_used_once = phi_fix state in
@@ -137,6 +147,7 @@ let assert_equal_result r1 r2 =
 
 let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
     (solver_result : (Z3.Model.model, 'a option) result) =
+  let (module Symbolizer) = state.solve.symbolizer in
   let phi_used_once = phi_fix state in
 
   let check_result =
@@ -159,7 +170,7 @@ let exactract_solver_result (state : Global_state.t) (config : Global_config.t)
   check_result
 
 let check (state : Global_state.t) (config : Global_config.t) :
-    Symbolizer.result_info option =
+    Symbolizer_helper.result_info option =
   LLog.info (fun m -> m "Search Tree Size:\t%d" state.search.tree_size) ;
   flush_staging_phis state ;
   let solver_result =
@@ -192,14 +203,17 @@ let try_step_check ~(config : Global_config.t) ~(state : Global_state.t) key
 
   Observe.update_block_visits config state key is_checked smt_time ;
   match check_result with
-  | Some { model; c_stk } -> raise (Symbolizer.Found_solution { model; c_stk })
+  | Some { model; c_stk } ->
+      raise (Symbolizer_helper.Found_solution { model; c_stk })
   | None -> ()
 (* match check_result with
    | Some { model; c_stk } -> Lwt.fail (Found_solution { model; c_stk })
    | None -> Lwt.return_unit *)
 
 (* `check_phis` are used in ddse and dbmc-debug *)
-let check_phis solver phis is_debug : Symbolizer.result_info option =
+let check_phis (state : Global_state.t) solver phis is_debug :
+    Symbolizer_helper.result_info option =
+  let (module Symbolizer) = state.solve.symbolizer in
   match check_and_log solver phis with
   | Result.Ok model ->
       if is_debug
@@ -227,20 +241,25 @@ let check_phis solver phis is_debug : Symbolizer.result_info option =
      eager_check state config target assumption)
    else true *)
 
-let query_model model target_stack (x, call_stack) : int option =
+let query_model (state : Global_state.t) model target_stack (x, call_stack) :
+    int option =
+  let (module Symbolizer) = state.solve.symbolizer in
   let stk = Rstack.relativize target_stack call_stack in
   let name = Lookup_key.to_str2 x stk in
   (* TODO *)
   Symbolizer.get_int_s model name
 
-let input_feeder ?(history = ref []) model target_stack : Input_feeder.t =
-  let input_feeder = query_model model target_stack in
+let input_feeder ?(history = ref []) (state : Global_state.t) model target_stack
+    : Input_feeder.t =
+  let input_feeder = query_model state model target_stack in
   fun query ->
     let answer = input_feeder query in
     history := answer :: !history ;
     Option.value ~default:42 answer
 
-let check_expected_input_sat target_stk history solver =
+let check_expected_input_sat (state : Global_state.t) target_stk history solver
+    =
+  let (module Symbolizer) = state.solve.symbolizer in
   let input_phis =
     List.filter_map history ~f:(fun (x, stk, r) ->
         Option.map r ~f:(fun i ->

@@ -1,11 +1,11 @@
 open Core
 open Dj_common
+open Jil_symbolizer
 open Log.Export
 open Jayil
 open Jayil.Ast
 open Cfg
 module U_ddse = Lookup_ddse_rule.U
-module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 let push_job (state : Global_state.t) (key : Lookup_key.t) task () =
   let job_key : Global_state.job_key =
@@ -86,11 +86,12 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
     U_ddse.iter unroll term_target (fun (r : Ddse_result.t) ->
         let phis_to_check = Set.to_list r.phis in
         match
-          Checker.check_phis state.solve.solver phis_to_check config.debug_model
+          Checker.check_phis state state.solve.solver phis_to_check
+            config.debug_model
         with
         | None -> ()
         | Some { model; c_stk } ->
-            raise (Symbolizer.Found_solution { model; c_stk })) ;
+            raise (Symbolizer_helper.Found_solution { model; c_stk })) ;
     Lwt.return_unit
   in
   Lwt.pick [ Global_state.scheduler_run state; wait_result ]
@@ -122,6 +123,7 @@ let[@landmark] run_dbmc ~(config : Global_config.t) ~(state : Global_state.t) :
   in
   let module R = Lookup_rule.Make (LS) in
   let[@landmark] rec lookup (key : Lookup_key.t) () : unit =
+    let (module Symbolizer) = state.solve.symbolizer in
     let rule =
       Rule.rule_of_runtime_status key state.info.block_map config.target
     in

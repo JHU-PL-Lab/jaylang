@@ -1,6 +1,5 @@
 open Core
 open Dj_common
-module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 module Palette = struct
   let int_of_rgb r g b = (r * 256 * 256) + (g * 256) + b
@@ -175,6 +174,7 @@ module DotPrinter_Make (S : GS) = struct
     let default_vertex_attributes _ = [ `Shape `Record ]
 
     let vertex_attributes v0 =
+      let (module Symbolizer) = S.state.solve.symbolizer in
       let node_attr (node : Search_graph.node) =
         let open Search_graph in
         (* let rule = Node.rule_name node.rule in *)

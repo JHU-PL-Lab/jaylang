@@ -1,5 +1,5 @@
 open Core
-module Symbolizer = Jil_symbolizer.Symbolizer.V2
+module Symbolizer = Jil_symbolizer.Symbolizer.Default
 
 module Z3_expr = struct
   include Z3.Expr

@@ -221,6 +221,9 @@ module type S = sig
   include module type of Make_sym_exp (Sym_val) (Sym_key.Make_V1 (Sym_val))
 end
 
-module V1 = Make (Sym_val) (Sym_key.Make_V1 (Sym_val))
-module V2 : S = V1
+(* module V2 = Make (Sym_val_v2) (Sym_key.Make_V2 (Sym_val_v2)) *)
+(* module Default = V2 *)
+module V_dbmc = Make (Sym_val) (Sym_key.Make_V1 (Sym_val))
+module Default = V_dbmc
+(* module V1 = Default *)
 (* module V2 : S = Make (Sym_val_v2) (Sym_key.Make_V2 (Sym_val_v2)) *)

@@ -3,7 +3,7 @@ open Jayil.Ast
 open Dj_common (* exposes Concrete_stack *)
 open Dvalue (* just to expose constructors *)
 open Concolic_exceptions.Make (Session.Symbolic)
-module Symbolizer = Jil_symbolizer.Symbolizer.V2
+module Symbolizer = Jil_symbolizer.Symbolizer.Default
 module ILog = Log.Export.ILog
 
 (* Ident for conditional bool. *)

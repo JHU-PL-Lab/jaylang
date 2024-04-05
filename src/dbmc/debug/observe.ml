@@ -1,9 +1,9 @@
 open Core
 open Dj_common
 open Log.Export
-module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 let update_rstk_pick (config : Global_config.t) (state : Global_state.t) model =
+  let (module Symbolizer) = state.solve.symbolizer in
   Hashtbl.clear state.stat.rstk_picked ;
   Hashtbl.iter_keys state.search.lookup_detail_map ~f:(fun key ->
       if Symbolizer.is_picked (Some model) key

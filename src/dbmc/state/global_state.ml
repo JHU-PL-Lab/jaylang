@@ -50,7 +50,7 @@ let reset_job_state job_state =
 
 let create_solve_state () : solve_state =
   let z3_ctx = Solver_helper.ctx in
-  let module Symbolizer = Jil_symbolizer.Symbolizer.V1 in
+  let module Symbolizer = Jil_symbolizer.Symbolizer.V_dbmc in
   {
     phis_staging = [];
     phis_added = [];

@@ -1,7 +1,7 @@
 open Core
 open Path_tree
 open Dj_common
-module Symbolizer = Jil_symbolizer.Symbolizer.V2
+module Symbolizer = Jil_symbolizer.Symbolizer.Default
 
 module Lazy_key = struct
   type t = unit -> Lookup_key.t

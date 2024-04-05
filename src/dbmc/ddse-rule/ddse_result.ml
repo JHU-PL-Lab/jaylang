@@ -1,6 +1,6 @@
 open Core
 open Dj_common
-module Symbolizer = Jil_symbolizer.Symbolizer.V1
+module Symbolizer = Jil_symbolizer.Symbolizer.Default
 
 type t = {
   v : Lookup_key.t;

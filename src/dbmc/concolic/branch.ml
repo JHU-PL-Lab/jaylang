@@ -1,6 +1,6 @@
 open Core
 open Jayil
-module Symbolizer = Jil_symbolizer.Symbolizer.V2
+module Symbolizer = Jil_symbolizer.Symbolizer.Default
 
 module Lookup_key = struct
   include Dj_common.Lookup_key

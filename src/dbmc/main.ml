@@ -1,12 +1,12 @@
 open Core
 open Dj_common
+open Jil_symbolizer
 open Lwt.Infix
 open Jayil
 open Jayil.Ast
 open Cfg
 open Ddpa
 open Log.Export
-module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 type result_no_state =
   int option list list * bool * (Z3.Model.model * Concrete_stack.t) option
@@ -28,11 +28,13 @@ let check_expected_input ~(config : Global_config.t) ~(state : Global_state.t)
   in
   try Interpreter.eval session state.info.program with
   | Interpreter.Found_target target ->
-      Checker.check_expected_input_sat target.stk !history state.solve.solver
+      Checker.check_expected_input_sat state target.stk !history
+        state.solve.solver
   | ex -> false
 
 let interp_step_check ~(config : Global_config.t) ~(state : Global_state.t)
     target_stack x c_stk v =
+  let (module Symbolizer) = state.solve.symbolizer in
   let stk = Rstack.relativize target_stack c_stk in
   let key =
     Lookup_key.of3 x stk (Cfg.find_reachable_block x state.info.block_map)
@@ -63,7 +65,7 @@ let interp_step_check ~(config : Global_config.t) ~(state : Global_state.t)
 let get_input ~(config : Global_config.t) ~(state : Global_state.t) model
     (target_stack : Concrete_stack.t) =
   let history = ref [] in
-  let input_feeder = Checker.input_feeder ~history model target_stack in
+  let input_feeder = Checker.input_feeder ~history state model target_stack in
   let session =
     let max_step = config.run_max_step in
     let mode = Interpreter.With_full_target (config.target, target_stack) in
@@ -112,13 +114,13 @@ let[@landmark] main_lookup ~(config : Global_config.t) ~(state : Global_state.t)
     (Lwt.async_exception_hook :=
        fun exn ->
          match exn with
-         | Symbolizer.Found_solution { model; c_stk } ->
-             ignore @@ raise (Symbolizer.Found_solution { model; c_stk })
+         | Symbolizer_helper.Found_solution { model; c_stk } ->
+             ignore @@ raise (Symbolizer_helper.Found_solution { model; c_stk })
          | exn -> failwith (Stdlib.Printexc.to_string exn)) ;
     Timeout_utils.no_matter config.timeout (fun () ->
         Lookup.run_dbmc ~config ~state >|= fun _ -> post_check false)
   with
-  | Symbolizer.Found_solution { model; c_stk } ->
+  | Symbolizer_helper.Found_solution { model; c_stk } ->
       Lwt.return (handle_found config state model c_stk)
   | Lwt_unix.Timeout ->
       prerr_endline "real timeout" ;

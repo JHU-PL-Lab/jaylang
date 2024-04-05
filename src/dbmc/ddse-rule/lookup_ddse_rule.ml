@@ -4,7 +4,7 @@ open Jayil
 open Jayil.Ast
 open Log.Export
 open Rule
-module Symbolizer = Jil_symbolizer.Symbolizer.V1
+module Symbolizer = Jil_symbolizer.Symbolizer.Default
 
 module type S = sig
   val state : Global_state.t

@@ -6,7 +6,6 @@ open Rule
 open Types
 module U = Unrolls.U_dbmc
 module Log = Log.Export.CMLog
-module Symbolizer = Jil_symbolizer.Symbolizer.V1
 
 (*
    Status promotion:
@@ -108,6 +107,7 @@ let join_result srcs =
 let run_action dispatch unroll (state : Global_state.t)
     (detail : Lookup_detail.t) target source =
   let open Rule_action in
+  let (module Symbolizer) = state.solve.symbolizer in
   let add_phi = Global_state.add_phi state detail in
   let set_status = set_status detail in
   let set_status_gen_phi = set_status_gen_phi detail in
@@ -288,6 +288,7 @@ module Make (S : S) = struct
     Map { pub = key_first; map = Fn.const key }
 
   let record_start_action (p : Record_start_rule.t) (key : Lookup_key.t) =
+    let (module Symbolizer) = S.state.solve.symbolizer in
     let next i (key_rv : Lookup_key.t) =
       let rv = Cfg.clause_body_of_x key_rv.block key_rv.x in
       match rv with
@@ -329,6 +330,7 @@ module Make (S : S) = struct
     Join { elements; bounded = true }
 
   let fun_enter_nonlocal (p : Fun_enter_nonlocal_rule.t) (key : Lookup_key.t) =
+    let (module Symbolizer) = S.state.solve.symbolizer in
     let elements =
       List.map p.callsites_with_stk ~f:(fun (key_f, _key_arg) ->
           let next i (r : Lookup_key.t) =
@@ -362,6 +364,7 @@ module Make (S : S) = struct
     Bind_like { precursor = p.xf; next; bounded = true }
 
   let pattern_action p (key : Lookup_key.t) =
+    let (module Symbolizer) = S.state.solve.symbolizer in
     let ({ x'; pat; _ } : Pattern_rule.t) = p in
     let f (r : Lookup_result.t) =
       let key_rv = r.from in
@@ -375,6 +378,7 @@ module Make (S : S) = struct
     let key_first = Lookup_key.to_first key S.state.info.first in
     let open Rule in
     let open Lookup_status in
+    let (module Symbolizer) = S.state.solve.symbolizer in
     let open Symbolizer in
     match rule with
     (* Bounded (same as complete phi) *)
@@ -425,12 +429,11 @@ module Make (S : S) = struct
     | Pattern p -> (true_, pattern_action p key)
 end
 
-open Symbolizer
-
 (* Completion *)
 let complete_phis_of_rule (state : Global_state.t) key
     (detail : Lookup_detail.t) =
   let open Rule in
+  let (module Symbolizer) = state.solve.symbolizer in
   let open Symbolizer in
   let key_first = Lookup_key.to_first key state.info.first in
   match detail.rule with
