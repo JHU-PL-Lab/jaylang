@@ -2,8 +2,7 @@
 # flatten the input down to just a list of ints and bools
 # see comment in flatten function for why it's ill-typed
 
-let any_type = Mu tt. ( int || bool || List tt ) in
-let int_bool = ( int || bool ) in
+let any_type = Mu tt. ( 'a || List tt ) in
 
 let rec append a b =
   match a with
@@ -12,7 +11,7 @@ let rec append a b =
   end
 in
 
-let rec flatten (x : any_type) : List int_bool =
+let rec flatten (x : any_type) : List 'a =
   match x with
   | [] -> []
   | hd :: tl -> append (flatten hd) tl # should have flatten tl not tl in the correct call 

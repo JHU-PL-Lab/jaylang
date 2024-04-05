@@ -110,7 +110,7 @@ let rec countdown n task : unit t =
 
 let read_config () =
   let engine = ref "concolic" in
-  let config_path = ref "benchmark/concolic/config.s" in
+  let config_path = ref "benchmark/concolic/config_scheme2.s" in
 
   Arg.parse
     [
