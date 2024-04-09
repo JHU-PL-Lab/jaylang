@@ -158,10 +158,10 @@ let find_all_syn_tags bluejay_jay_maps (edesc : syn_bluejay_edesc) =
     | VariantExpr (_, e)
     | RecordProj (e, _)
     | Assert e
-    | Assume e
-    | TypeVariant (_, e) ->
+    | Assume e ->
         let acc' = cur_tag :: acc in
         loop acc' e
+    | TypeVariant vs -> List.fold (fun acc (_l, e) -> loop acc e) acc vs
     | Appl (e1, e2)
     | Let (_, e1, e2)
     | Plus (e1, e2)
@@ -1049,9 +1049,11 @@ let rec replace_type (t_desc : syn_bluejay_edesc) (new_t : syn_bluejay_edesc)
       | TypeRecurse (tv, td) ->
           let td' = replace_type td new_t tag in
           TypeRecurse (tv, td')
-      | TypeVariant (vl, e_desc) ->
-          let e_desc' = replace_type e_desc new_t tag in
-          TypeVariant (vl, e_desc')
+      | TypeVariant vs ->
+          let vs' =
+            List.map (fun (v_lbl, t) -> (v_lbl, replace_type t new_t tag)) vs
+          in
+          TypeVariant vs'
     in
     { tag = cur_tag; body = t' }
 

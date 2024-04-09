@@ -39,9 +39,13 @@ and defined_vars_of_expr (e : expr) : Ident_set.t =
   | VariantExpr (_, ed)
   | Assert ed
   | Assume ed
-  | TypeList ed
-  | TypeVariant (_, ed) ->
+  | TypeList ed ->
       defined_vars_of_expr_desc ed
+  | TypeVariant vs ->
+      List.fold_left
+        ~f:(fun acc (_l, ve) ->
+          Ident_set.union (defined_vars_of_expr_desc ve) acc)
+        ~init:Ident_set.empty vs
   | If (ed1, ed2, ed3) ->
       let s1 = defined_vars_of_expr_desc ed1 in
       let s2 = defined_vars_of_expr_desc ed2 in

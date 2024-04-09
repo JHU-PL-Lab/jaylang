@@ -75,11 +75,13 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
             in
             let%bind check_arg =
               new_instrumented_ed
-              @@ 
-              If (new_expr_desc @@ GreaterThan (new_expr_desc @@ Input, new_expr_desc @@ Int 0)
-              , new_expr_desc @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
-              , new_expr_desc @@ Bool true
-              )
+              @@ If
+                   ( new_expr_desc
+                     @@ GreaterThan
+                          (new_expr_desc @@ Input, new_expr_desc @@ Int 0),
+                     new_expr_desc
+                     @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg),
+                     new_expr_desc @@ Bool true )
             in
             let%bind assert_cls =
               (* new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false) *)
@@ -217,11 +219,9 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
       let e_desc' = new_expr_desc @@ TypeRecurse (tvar, t') in
       let%bind () = add_wrapped_to_unwrapped_mapping e_desc' e_desc in
       return e_desc'
-  | TypeVariant (lbl, t) ->
-      let%bind t' = wrap t in
-      let e_desc' = new_expr_desc @@ TypeVariant (lbl, t') in
-      let%bind () = add_wrapped_to_unwrapped_mapping e_desc' e_desc in
-      return e_desc'
+  | TypeVariant _vs ->
+      (* TODO: Fix wrap for union types *)
+      return e_desc
   | Function (xs, f_body) ->
       let%bind f_body' = wrap f_body in
       let e_desc' = new_expr_desc @@ Function (xs, f_body') in
@@ -1939,68 +1939,10 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind res = new_instrumented_ed @@ Record rec_map in
         let%bind () = add_sem_to_syn_mapping res e_desc in
         return res
-    | TypeVariant (v_lbl, t') ->
-        let%bind generator =
-          let%bind gc_pair_g = semantic_type_of t' in
-          (* let%bind proj_ed_1_inner =
-               new_instrumented_ed @@ RecordProj (gc_pair_g, Label "~actual_rec")
-             in *)
-          let%bind proj_ed_1 =
-            new_instrumented_ed @@ RecordProj (gc_pair_g, Label "generator")
-          in
-          let%bind appl_ed_1 =
-            new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Int 0)
-          in
-          let%bind expr_id = fresh_ident "v_expr" in
-          let v_maker =
-            Function ([ Ident "~null" ], new_expr_desc @@ Var expr_id)
-          in
-          let v_expr =
-            Let
-              ( expr_id,
-                new_expr_desc @@ VariantExpr (v_lbl, appl_ed_1),
-                new_expr_desc @@ v_maker )
-          in
-          return v_expr
-        in
-        let%bind checker =
-          let%bind variant_fail_id = fresh_ident "variant_fail" in
-          let%bind expr_id = fresh_ident "expr" in
-          let%bind v_expr = fresh_ident "v_expr" in
-          let fail_pat_cls = new_expr_desc @@ Var variant_fail_id in
-          let matched_expr = new_expr_desc @@ Var expr_id in
-          let%bind gc_pair_c = semantic_type_of t' in
-          (* let%bind proj_ed_1_inner =
-               new_instrumented_ed @@ RecordProj (gc_pair_c, Label "~actual_rec")
-             in *)
-          let%bind proj_ed_1 =
-            new_instrumented_ed @@ RecordProj (gc_pair_c, Label "checker")
-          in
-          let%bind appl_ed =
-            new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var v_expr)
-          in
-          let%bind match_body =
-            new_instrumented_ed
-            @@ Match
-                 ( matched_expr,
-                   [
-                     (VariantPat (v_lbl, v_expr), appl_ed);
-                     (AnyPat, fail_pat_cls);
-                   ] )
-          in
-          let check_cls =
-            Let (variant_fail_id, new_expr_desc @@ Bool false, match_body)
-          in
-          let%bind () =
-            add_error_to_value_expr_mapping fail_pat_cls matched_expr
-          in
-          let%bind () = add_error_to_tag_mapping fail_pat_cls tag in
-          return @@ Function ([ expr_id ], new_expr_desc check_cls)
-        in
-        let%bind wrapper =
-          let%bind expr_id = fresh_ident "expr" in
-          return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
-        in
+    | TypeVariant _vs ->
+        let%bind generator = failwith "TBI!" in
+        let%bind checker = failwith "TBI" in
+        let%bind wrapper = failwith "TBI" in
         let rec_map =
           if !wrap_flag
           then
