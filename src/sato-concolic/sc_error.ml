@@ -990,9 +990,11 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
               let ed' = type_resolution ed in
               let body' = TypeRecurse (rec_id, ed') in
               { tag; body = body' }
-          | TypeVariant (v_lbl, ed) ->
-              let ed' = type_resolution ed in
-              let body' = TypeVariant (v_lbl, ed') in
+          | TypeVariant vs ->
+              let vs' =
+                List.map ~f:(fun (v_lbl, ve) -> (v_lbl, type_resolution ve)) vs
+              in
+              let body' = TypeVariant vs' in
               { tag; body = body' }
           | _ ->
               failwith "resolve_type: Should be working with a type expression!"

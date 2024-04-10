@@ -625,7 +625,9 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           let fail_pat_cls_1 = new_expr_desc @@ Var rec_fail_id_1 in
           let fail_pat_cls_2 = new_expr_desc @@ Var rec_fail_id_2 in
           let fail_pat_cls_3 = new_expr_desc @@ Var rec_fail_id_3 in
-          let matched_expr = new_expr_desc @@ Var expr_id in
+          let matched_expr_1 = new_expr_desc @@ Var expr_id in
+          let matched_expr_2 = new_expr_desc @@ Var expr_id in
+          let matched_expr_3 = new_expr_desc @@ Var expr_id in
           (* For the checker, we need to first check whether the value in
              question is a record. If not, returns false. Otherwise. we need
              to go through all the fields in this record to check whether it
@@ -677,10 +679,12 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
             list_fold_left_m fold_fun init_acc (List.tl all_bindings)
           in
           let%bind actual_rec =
-            new_instrumented_ed @@ RecordProj (matched_expr, Label "~actual_rec")
+            new_instrumented_ed
+            @@ RecordProj (matched_expr_1, Label "~actual_rec")
           in
           let%bind decl_lbls =
-            new_instrumented_ed @@ RecordProj (matched_expr, Label "~decl_lbls")
+            new_instrumented_ed
+            @@ RecordProj (matched_expr_2, Label "~decl_lbls")
           in
           let%bind lbls_check =
             new_instrumented_ed
@@ -701,7 +705,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           let%bind match_body =
             new_instrumented_ed
             @@ Match
-                 ( matched_expr,
+                 ( matched_expr_3,
                    [
                      (RecPat rec_pat, decl_lbls_check); (AnyPat, fail_pat_cls_3);
                    ] )
@@ -730,7 +734,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
             add_error_to_value_expr_mapping fail_pat_cls_2 decl_lbls
           in
           let%bind () =
-            add_error_to_value_expr_mapping fail_pat_cls_3 matched_expr
+            add_error_to_value_expr_mapping fail_pat_cls_3 matched_expr_3
           in
           let%bind () = add_error_to_tag_mapping fail_pat_cls_1 tag in
           let%bind () = add_error_to_tag_mapping fail_pat_cls_2 tag in
@@ -1939,10 +1943,125 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind res = new_instrumented_ed @@ Record rec_map in
         let%bind () = add_sem_to_syn_mapping res e_desc in
         return res
-    | TypeVariant _vs ->
-        let%bind generator = failwith "TBI!" in
-        let%bind checker = failwith "TBI" in
-        let%bind wrapper = failwith "TBI" in
+    | TypeVariant vs ->
+        let%bind generator =
+          match vs with
+          | [] -> failwith "Can't have empty variant types!"
+          | (v_lbl, ve) :: [] ->
+              let%bind gen_body =
+                let%bind gc_pair1_g = semantic_type_of ve in
+                let%bind proj_ed_1 =
+                  new_instrumented_ed
+                  @@ RecordProj (gc_pair1_g, Label "generator")
+                in
+                let%bind appl_ed_1 =
+                  new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Int 0)
+                in
+                return @@ new_expr_desc @@ VariantExpr (v_lbl, appl_ed_1)
+              in
+              return @@ Function ([ Ident "~null" ], gen_body)
+          | hd :: tl ->
+              let tl_rev = List.rev tl in
+              let last_v_lbl, last_ve = List.hd tl_rev in
+              let tl' = List.rev @@ List.tl tl_rev in
+              let%bind last_gen = semantic_type_of last_ve in
+              let%bind last_proj_ed =
+                new_instrumented_ed @@ RecordProj (last_gen, Label "generator")
+              in
+              let%bind last_appl_ed =
+                new_instrumented_ed
+                @@ Appl (last_proj_ed, new_expr_desc @@ Int 0)
+              in
+              let last_gen_val =
+                new_expr_desc @@ VariantExpr (last_v_lbl, last_appl_ed)
+              in
+              let%bind gen_body =
+                hd :: tl'
+                |> list_fold_left_m
+                     (fun acc (v_lbl, ve) ->
+                       let cond =
+                         GreaterThan
+                           (new_expr_desc @@ Input, new_expr_desc @@ Int 0)
+                       in
+                       let%bind curr_gen = semantic_type_of ve in
+                       let%bind curr_proj_ed =
+                         new_instrumented_ed
+                         @@ RecordProj (curr_gen, Label "generator")
+                       in
+                       let%bind curr_appl_ed =
+                         new_instrumented_ed
+                         @@ Appl (curr_proj_ed, new_expr_desc @@ Int 0)
+                       in
+                       new_instrumented_ed
+                       @@ If
+                            ( new_expr_desc @@ cond,
+                              new_expr_desc @@ VariantExpr (v_lbl, curr_appl_ed),
+                              acc ))
+                     last_gen_val
+              in
+              return @@ Function ([ Ident "~null" ], gen_body)
+        in
+        let%bind checker =
+          let%bind expr_id = fresh_ident "expr" in
+          let%bind match_fail_id = fresh_ident "match_fail" in
+          let match_fail_var = new_expr_desc @@ Var match_fail_id in
+          let matched_expr = new_expr_desc @@ Var expr_id in
+          let%bind match_body =
+            list_fold_right_m
+              (fun (v_lbl, ve) acc ->
+                let%bind curr_val_id = fresh_ident "v_val" in
+
+                let%bind curr_type = semantic_type_of ve in
+                let%bind curr_proj_ed =
+                  new_instrumented_ed @@ RecordProj (curr_type, Label "checker")
+                in
+                let%bind curr_check_ed =
+                  new_instrumented_ed
+                  @@ Appl (curr_proj_ed, new_expr_desc @@ Var curr_val_id)
+                in
+                return
+                @@ ((VariantPat (v_lbl, curr_val_id), curr_check_ed) :: acc))
+              vs
+              [ (AnyPat, match_fail_var) ]
+          in
+          let%bind match_check =
+            new_instrumented_ed @@ Match (matched_expr, match_body)
+          in
+          let full_expr =
+            new_expr_desc
+            @@ Let (match_fail_id, new_expr_desc @@ Bool false, match_check)
+          in
+          let%bind () =
+            add_error_to_value_expr_mapping match_fail_var matched_expr
+          in
+          let%bind () = add_error_to_tag_mapping match_fail_var tag in
+          return @@ Function ([ expr_id ], full_expr)
+        in
+        let%bind wrapper =
+          let%bind expr_id = fresh_ident "expr" in
+          let wrap_expr = new_expr_desc @@ Var expr_id in
+          let%bind wrap_body =
+            list_fold_right_m
+              (fun (v_lbl, ve) acc ->
+                let%bind curr_val_id = fresh_ident "v_val" in
+                let%bind curr_type = semantic_type_of ve in
+                let%bind curr_proj_ed =
+                  new_instrumented_ed @@ RecordProj (curr_type, Label "wrapper")
+                in
+                let%bind curr_check_ed =
+                  new_instrumented_ed
+                  @@ Appl (curr_proj_ed, new_expr_desc @@ Var curr_val_id)
+                in
+                return
+                @@ ((VariantPat (v_lbl, curr_val_id), curr_check_ed) :: acc))
+              vs
+              [ (AnyPat, new_expr_desc @@ Var expr_id) ]
+          in
+          let%bind match_to_wrap =
+            new_instrumented_ed @@ Match (wrap_expr, wrap_body)
+          in
+          return @@ Function ([ expr_id ], match_to_wrap)
+        in
         let rec_map =
           if !wrap_flag
           then
