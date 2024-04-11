@@ -585,54 +585,45 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let aliases = err.err_value_aliases |> List.map ~f:Id_with_stack.id_of in
       let err_val_edesc = jayil_to_jay_value aliases in
       match err_val_edesc.body with
-      | Match (subj, pat_ed_lst) -> (
-          (* TODO: Problem: we eliminated the alias that binds the matached expression (which in this case it's just an alias of a) *)
-          (* let () =
-               print_endline @@ "This is the subj being looked up: "
-               ^ Jay_ast_pp.show_expr_desc subj
-             in *)
-          let jayil_var_opt =
-            Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps
-              subj
+      | Match (subj, pat_ed_lst) ->
+          let jayil_vars =
+            Jay_to_jayil_maps.get_jayil_vars_from_jay_expr jayil_jay_maps subj
           in
-          match jayil_var_opt with
-          | Some (Var (x, _)) ->
-              let dv1, stk = Ast.Ident_map.find x final_env in
-              let v = Dbmc.Interpreter.value_of_dvalue dv1 in
-              let alias_graph = interp_session.alias_graph in
-              let jayil_aliases_raw =
-                Sato.Sato_tools.find_alias alias_graph (x, stk)
+          let rec loop vars =
+            match vars with
+            | [] -> failwith "Should have associated jay exprs!"
+            | Ast.Var (x, _) :: tl -> (
+                match Ast.Ident_map.find_opt x final_env with
+                | None -> loop tl
+                | Some v -> (x, v))
+          in
+          let x, (dv1, stk) = loop jayil_vars in
+          let v = Dbmc.Interpreter.value_of_dvalue dv1 in
+          let alias_graph = interp_session.alias_graph in
+          let jayil_aliases_raw =
+            Sato.Sato_tools.find_alias alias_graph (x, stk)
+          in
+          let jayil_aliases =
+            jayil_aliases_raw |> List.map ~f:(fun (x, _) -> x) |> List.rev
+          in
+          let actual_type = Sato.Sato_tools.get_value_type v in
+          let errors =
+            let mapper (pat, _) =
+              let expected_type =
+                Sato.Sato_tools.get_expected_type_from_pattern jayil_jay_maps
+                  pat
               in
-              let jayil_aliases =
-                jayil_aliases_raw |> List.map ~f:(fun (x, _) -> x) |> List.rev
-              in
-              let actual_type = Sato.Sato_tools.get_value_type v in
-              let errors =
-                let mapper (pat, _) =
-                  let expected_type =
-                    Sato.Sato_tools.get_expected_type_from_pattern
-                      jayil_jay_maps pat
-                  in
-                  On_error.Error_match
-                    {
-                      err_match_aliases = jayil_to_jay_aliases jayil_aliases;
-                      err_match_val = jayil_to_jay_value jayil_aliases;
-                      err_match_expected = expected_type;
-                      err_match_actual = jayil_to_jay_type actual_type;
-                    }
-                in
-                List.map ~f:mapper pat_ed_lst
-              in
-              errors
-          | None ->
-              [
-                Error_value
-                  {
-                    err_value_aliases = jayil_to_jay_aliases aliases;
-                    err_value_val = err_val_edesc;
-                  };
-              ]
-          (* failwith "Should have found an jayil var!") *))
+              On_error.Error_match
+                {
+                  err_match_aliases = jayil_to_jay_aliases jayil_aliases;
+                  err_match_val = jayil_to_jay_value jayil_aliases;
+                  err_match_expected = expected_type;
+                  err_match_actual = jayil_to_jay_type actual_type;
+                }
+            in
+            List.map ~f:mapper pat_ed_lst
+          in
+          errors
       | _ ->
           [
             Error_value
@@ -837,9 +828,9 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
              ~f:
                (Bluejay_to_jay_maps.get_core_expr_from_sem_expr bluejay_jay_maps)
         |> List.map ~f:Bluejay_ast_internal.to_jay_expr_desc
-        |> List.filter_map
-             ~f:
-               (Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr jayil_jay_maps)
+        |> List.map
+             ~f:(Jay_to_jayil_maps.get_jayil_vars_from_jay_expr jayil_jay_maps)
+        |> List.concat
       in
       (* let () =
            Fmt.pr "\n\n\nThese are the jayil_vars: %a\n\n\n"
@@ -903,13 +894,12 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
              let () = print_endline @@ Jay.Jay_ast_pp.show_expr_desc x in
              Jay_translate.Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr
                jayil_jay_maps x *)
-          |> Jay_translate.Jay_to_jayil_maps.get_jayil_var_opt_from_jay_expr
+          |> Jay_translate.Jay_to_jayil_maps.get_jayil_vars_from_jay_expr
                jayil_jay_maps
-             (* TODO: This is the problem here *)
-          |> Option.value_exn
-          |> (fun (Ast.Var (x, _)) ->
-               Sato.Sato_tools.find_alias_without_stack alias_graph x)
-          |> List.concat
+          (* TODO: This is the problem here *)
+          |> List.map ~f:(fun (Ast.Var (x, _)) ->
+                 Sato.Sato_tools.find_alias_without_stack alias_graph x)
+          |> List.concat |> List.concat
           (* TODO: Rethink the strategy here *)
           |> List.filter ~f:(fun (_, stk) ->
                  Concrete_stack.equal stk relevant_stk)

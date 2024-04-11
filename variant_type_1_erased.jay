@@ -1,0 +1,691 @@
+let rec
+
+  is_bst
+  t
+   =
+  let fail_b_0 = false in
+  match t with
+  
+    | {~actual_rec = actual_rec_b_199,_} ->
+    match t.~decl_lbls with
+      
+        | {item = n, left = lt, right = rt} ->
+        let rt = actual_rec_b_199.right in
+          let lt = actual_rec_b_199.left in
+          let n = actual_rec_b_199.item in
+          let check_left = let fail_b_1 = false in
+          match lt with
+          
+            | {~actual_rec = actual_rec_b_197,_} ->
+            match lt.~decl_lbls with
+              
+                | {item = n2, left = lt2, right = rt2} ->
+                let rt2 = actual_rec_b_197.right in
+                  let lt2 = actual_rec_b_197.left in
+                  let n2 = actual_rec_b_197.item in n >= n2
+                | {leaf = b2} -> let b2 = actual_rec_b_197.leaf in true
+               end
+            | {~untouched = (none),_} -> assert fail_b_1
+           end in
+          if check_left then
+          let check_right = let fail_b_2 = false in
+            match rt with
+            
+              | {~actual_rec = actual_rec_b_198,_} ->
+              match rt.~decl_lbls with
+                
+                  | {item = n2, left = lt2, right = rt2} ->
+                  let rt2 = actual_rec_b_198.right in
+                    let lt2 = actual_rec_b_198.left in
+                    let n2 = actual_rec_b_198.item in n <= n2
+                  | {leaf = b2} -> let b2 = actual_rec_b_198.leaf in true
+                 end
+              | {~untouched = (none),_} -> assert fail_b_2
+             end in
+            if check_right then if is_bst lt then is_bst rt else false
+            else false
+          else false
+        | {leaf = b} -> let b = actual_rec_b_199.leaf in true
+       end
+    | {~untouched = (none),_} -> assert fail_b_0
+   end in
+let tree_type = let ycomb_b_7 = fun f_b_5 ->
+(fun x_b_4  freeze_b_6 ->
+  f_b_5 (x_b_4 x_b_4) freeze_b_6) (fun x_b_4  freeze_b_6 ->
+  f_b_5 (x_b_4 x_b_4) freeze_b_6)
+in
+ycomb_b_7 (fun self_b_3  ~null ->
+{
+   checker = fun expr_b_190
+    ->
+   (fun tt ->
+     {
+        checker = fun expr_b_127
+         ->
+        let match_fail_b_128 = false in
+          match expr_b_127 with
+          
+            | `Tree v_val_b_142 ->
+            {
+               checker = fun expr_b_152
+                ->
+               let rec_fail_b_151 = false in
+                 let rec_fail_b_150 = false in
+                 let rec_fail_b_149 = false in
+                 match expr_b_152 with
+                 
+                   | {~actual_rec = (none),_} ->
+                   match expr_b_152.~decl_lbls with
+                     
+                       | {item = item, left = left, right = right,_} ->
+                       match expr_b_152.~actual_rec with
+                         
+                           | {item = item, left = left, right = right,_} ->
+                           let lbl_check_b_154 =
+                             {
+                                checker = let
+                                fail_b_156 =
+                                false
+                                in
+                                fun expr_b_155 ->
+                                match expr_b_155 with
+                                  | int -> true | any -> fail_b_156 end,
+                                generator = fun ~null
+                                 ->
+                                input
+                             }.checker item in
+                             if lbl_check_b_154 then
+                             let lbl_check_b_153 = tt.checker left in
+                               if lbl_check_b_153 then tt.checker right
+                               else lbl_check_b_153
+                             else lbl_check_b_154
+                           | any -> rec_fail_b_149
+                          end
+                       | any -> rec_fail_b_150
+                      end
+                   | any -> rec_fail_b_151
+                  end,
+               generator = fun ~null
+                ->
+               {
+                  ~actual_rec = let
+                  right_b_145 =
+                  tt.generator 0
+                  in
+                  let left_b_144 = tt.generator 0 in
+                  let item_b_143 =
+                  {
+                     checker = let
+                     fail_b_147 =
+                     false
+                     in
+                     fun expr_b_146 ->
+                     match expr_b_146 with | int -> true | any -> fail_b_147
+                       end,
+                     generator = fun ~null
+                      ->
+                     input
+                  }.generator 0 in
+                  {item = item_b_143, left = left_b_144, right = right_b_145},
+                  ~decl_lbls = {item = {}, left = {}, right = {}}
+               }
+            }.checker v_val_b_142
+            | `Leaf v_val_b_129 ->
+            {
+               checker = fun expr_b_137
+                ->
+               let rec_fail_b_136 = false in
+                 let rec_fail_b_135 = false in
+                 let rec_fail_b_134 = false in
+                 match expr_b_137 with
+                 
+                   | {~actual_rec = (none),_} ->
+                   match expr_b_137.~decl_lbls with
+                     
+                       | {leaf = leaf,_} ->
+                       match expr_b_137.~actual_rec with
+                         
+                           | {leaf = leaf,_} ->
+                           {
+                              checker = let
+                              fail_b_139 =
+                              false
+                              in
+                              fun expr_b_138 ->
+                              match expr_b_138 with
+                                | bool -> true | any -> fail_b_139 end,
+                              generator = fun ~null
+                               ->
+                              input >= 0
+                           }.checker leaf
+                           | any -> rec_fail_b_134
+                          end
+                       | any -> rec_fail_b_135
+                      end
+                   | any -> rec_fail_b_136
+                  end,
+               generator = fun ~null
+                ->
+               {
+                  ~actual_rec = let
+                  leaf_b_130 =
+                  {
+                     checker = let
+                     fail_b_132 =
+                     false
+                     in
+                     fun expr_b_131 ->
+                     match expr_b_131 with | bool -> true | any -> fail_b_132
+                       end,
+                     generator = fun ~null
+                      ->
+                     input >= 0
+                  }.generator 0
+                  in
+                  {leaf = leaf_b_130},
+                  ~decl_lbls = {leaf = {}}
+               }
+            }.checker v_val_b_129
+            | any -> match_fail_b_128
+           end,
+        generator = fun ~null
+         ->
+        if input > 0 then
+          `Tree {
+                   checker = fun expr_b_120
+                    ->
+                   let rec_fail_b_119 = false in
+                     let rec_fail_b_118 = false in
+                     let rec_fail_b_117 = false in
+                     match expr_b_120 with
+                     
+                       | {~actual_rec = (none),_} ->
+                       match expr_b_120.~decl_lbls with
+                         
+                           | {item = item, left = left, right = right,_} ->
+                           match expr_b_120.~actual_rec with
+                             
+                               | {item = item, left = left, right = right,_} ->
+                               let lbl_check_b_122 =
+                                 {
+                                    checker = let
+                                    fail_b_124 =
+                                    false
+                                    in
+                                    fun expr_b_123 ->
+                                    match expr_b_123 with
+                                      | int -> true | any -> fail_b_124 end,
+                                    generator = fun ~null
+                                     ->
+                                    input
+                                 }.checker item in
+                                 if lbl_check_b_122 then
+                                 let lbl_check_b_121 = tt.checker left in
+                                   if lbl_check_b_121 then tt.checker right
+                                   else lbl_check_b_121
+                                 else lbl_check_b_122
+                               | any -> rec_fail_b_117
+                              end
+                           | any -> rec_fail_b_118
+                          end
+                       | any -> rec_fail_b_119
+                      end,
+                   generator = fun ~null
+                    ->
+                   {
+                      ~actual_rec = let
+                      right_b_113 =
+                      tt.generator 0
+                      in
+                      let left_b_112 = tt.generator 0 in
+                      let item_b_111 =
+                      {
+                         checker = let
+                         fail_b_115 =
+                         false
+                         in
+                         fun expr_b_114 ->
+                         match expr_b_114 with
+                           | int -> true | any -> fail_b_115 end,
+                         generator = fun ~null
+                          ->
+                         input
+                      }.generator 0 in
+                      {
+                         item = item_b_111,
+                         left = left_b_112,
+                         right = right_b_113
+                      },
+                      ~decl_lbls = {item = {}, left = {}, right = {}}
+                   }
+                }.generator 0
+          else `Leaf {
+                        checker = fun expr_b_106
+                         ->
+                        let rec_fail_b_105 = false in
+                          let rec_fail_b_104 = false in
+                          let rec_fail_b_103 = false in
+                          match expr_b_106 with
+                          
+                            | {~actual_rec = (none),_} ->
+                            match expr_b_106.~decl_lbls with
+                              
+                                | {leaf = leaf,_} ->
+                                match expr_b_106.~actual_rec with
+                                  
+                                    | {leaf = leaf,_} ->
+                                    {
+                                       checker = let
+                                       fail_b_108 =
+                                       false
+                                       in
+                                       fun expr_b_107 ->
+                                       match expr_b_107 with
+                                         | bool -> true | any -> fail_b_108
+                                         end,
+                                       generator = fun ~null
+                                        ->
+                                       input >= 0
+                                    }.checker leaf
+                                    | any -> rec_fail_b_103
+                                   end
+                                | any -> rec_fail_b_104
+                               end
+                            | any -> rec_fail_b_105
+                           end,
+                        generator = fun ~null
+                         ->
+                        {
+                           ~actual_rec = let
+                           leaf_b_99 =
+                           {
+                              checker = let
+                              fail_b_101 =
+                              false
+                              in
+                              fun expr_b_100 ->
+                              match expr_b_100 with
+                                | bool -> true | any -> fail_b_101 end,
+                              generator = fun ~null
+                               ->
+                              input >= 0
+                           }.generator 0
+                           in
+                           {leaf = leaf_b_99},
+                           ~decl_lbls = {leaf = {}}
+                        }
+                     }.generator 0
+     }.checker expr_b_190) (self_b_3 0),
+   generator = fun ~null
+    ->
+   (fun tt ->
+     {
+        checker = fun expr_b_36
+         ->
+        let match_fail_b_37 = false in
+          match expr_b_36 with
+          
+            | `Tree v_val_b_51 ->
+            {
+               checker = fun expr_b_61
+                ->
+               let rec_fail_b_60 = false in
+                 let rec_fail_b_59 = false in
+                 let rec_fail_b_58 = false in
+                 match expr_b_61 with
+                 
+                   | {~actual_rec = (none),_} ->
+                   match expr_b_61.~decl_lbls with
+                     
+                       | {item = item, left = left, right = right,_} ->
+                       match expr_b_61.~actual_rec with
+                         
+                           | {item = item, left = left, right = right,_} ->
+                           let lbl_check_b_63 =
+                             {
+                                checker = let
+                                fail_b_65 =
+                                false
+                                in
+                                fun expr_b_64 ->
+                                match expr_b_64 with
+                                  | int -> true | any -> fail_b_65 end,
+                                generator = fun ~null
+                                 ->
+                                input
+                             }.checker item in
+                             if lbl_check_b_63 then
+                             let lbl_check_b_62 = tt.checker left in
+                               if lbl_check_b_62 then tt.checker right
+                               else lbl_check_b_62
+                             else lbl_check_b_63
+                           | any -> rec_fail_b_58
+                          end
+                       | any -> rec_fail_b_59
+                      end
+                   | any -> rec_fail_b_60
+                  end,
+               generator = fun ~null
+                ->
+               {
+                  ~actual_rec = let
+                  right_b_54 =
+                  tt.generator 0
+                  in
+                  let left_b_53 = tt.generator 0 in
+                  let item_b_52 =
+                  {
+                     checker = let
+                     fail_b_56 =
+                     false
+                     in
+                     fun expr_b_55 ->
+                     match expr_b_55 with | int -> true | any -> fail_b_56
+                       end,
+                     generator = fun ~null
+                      ->
+                     input
+                  }.generator 0 in
+                  {item = item_b_52, left = left_b_53, right = right_b_54},
+                  ~decl_lbls = {item = {}, left = {}, right = {}}
+               }
+            }.checker v_val_b_51
+            | `Leaf v_val_b_38 ->
+            {
+               checker = fun expr_b_46
+                ->
+               let rec_fail_b_45 = false in
+                 let rec_fail_b_44 = false in
+                 let rec_fail_b_43 = false in
+                 match expr_b_46 with
+                 
+                   | {~actual_rec = (none),_} ->
+                   match expr_b_46.~decl_lbls with
+                     
+                       | {leaf = leaf,_} ->
+                       match expr_b_46.~actual_rec with
+                         
+                           | {leaf = leaf,_} ->
+                           {
+                              checker = let
+                              fail_b_48 =
+                              false
+                              in
+                              fun expr_b_47 ->
+                              match expr_b_47 with
+                                | bool -> true | any -> fail_b_48 end,
+                              generator = fun ~null
+                               ->
+                              input >= 0
+                           }.checker leaf
+                           | any -> rec_fail_b_43
+                          end
+                       | any -> rec_fail_b_44
+                      end
+                   | any -> rec_fail_b_45
+                  end,
+               generator = fun ~null
+                ->
+               {
+                  ~actual_rec = let
+                  leaf_b_39 =
+                  {
+                     checker = let
+                     fail_b_41 =
+                     false
+                     in
+                     fun expr_b_40 ->
+                     match expr_b_40 with | bool -> true | any -> fail_b_41
+                       end,
+                     generator = fun ~null
+                      ->
+                     input >= 0
+                  }.generator 0
+                  in
+                  {leaf = leaf_b_39},
+                  ~decl_lbls = {leaf = {}}
+               }
+            }.checker v_val_b_38
+            | any -> match_fail_b_37
+           end,
+        generator = fun ~null
+         ->
+        if input > 0 then
+          `Tree {
+                   checker = fun expr_b_29
+                    ->
+                   let rec_fail_b_28 = false in
+                     let rec_fail_b_27 = false in
+                     let rec_fail_b_26 = false in
+                     match expr_b_29 with
+                     
+                       | {~actual_rec = (none),_} ->
+                       match expr_b_29.~decl_lbls with
+                         
+                           | {item = item, left = left, right = right,_} ->
+                           match expr_b_29.~actual_rec with
+                             
+                               | {item = item, left = left, right = right,_} ->
+                               let lbl_check_b_31 =
+                                 {
+                                    checker = let
+                                    fail_b_33 =
+                                    false
+                                    in
+                                    fun expr_b_32 ->
+                                    match expr_b_32 with
+                                      | int -> true | any -> fail_b_33 end,
+                                    generator = fun ~null
+                                     ->
+                                    input
+                                 }.checker item in
+                                 if lbl_check_b_31 then
+                                 let lbl_check_b_30 = tt.checker left in
+                                   if lbl_check_b_30 then tt.checker right
+                                   else lbl_check_b_30
+                                 else lbl_check_b_31
+                               | any -> rec_fail_b_26
+                              end
+                           | any -> rec_fail_b_27
+                          end
+                       | any -> rec_fail_b_28
+                      end,
+                   generator = fun ~null
+                    ->
+                   {
+                      ~actual_rec = let
+                      right_b_22 =
+                      tt.generator 0
+                      in
+                      let left_b_21 = tt.generator 0 in
+                      let item_b_20 =
+                      {
+                         checker = let
+                         fail_b_24 =
+                         false
+                         in
+                         fun expr_b_23 ->
+                         match expr_b_23 with
+                           | int -> true | any -> fail_b_24 end,
+                         generator = fun ~null
+                          ->
+                         input
+                      }.generator 0 in
+                      {item = item_b_20, left = left_b_21, right = right_b_22
+                      },
+                      ~decl_lbls = {item = {}, left = {}, right = {}}
+                   }
+                }.generator 0
+          else `Leaf {
+                        checker = fun expr_b_15
+                         ->
+                        let rec_fail_b_14 = false in
+                          let rec_fail_b_13 = false in
+                          let rec_fail_b_12 = false in
+                          match expr_b_15 with
+                          
+                            | {~actual_rec = (none),_} ->
+                            match expr_b_15.~decl_lbls with
+                              
+                                | {leaf = leaf,_} ->
+                                match expr_b_15.~actual_rec with
+                                  
+                                    | {leaf = leaf,_} ->
+                                    {
+                                       checker = let
+                                       fail_b_17 =
+                                       false
+                                       in
+                                       fun expr_b_16 ->
+                                       match expr_b_16 with
+                                         | bool -> true | any -> fail_b_17
+                                         end,
+                                       generator = fun ~null
+                                        ->
+                                       input >= 0
+                                    }.checker leaf
+                                    | any -> rec_fail_b_12
+                                   end
+                                | any -> rec_fail_b_13
+                               end
+                            | any -> rec_fail_b_14
+                           end,
+                        generator = fun ~null
+                         ->
+                        {
+                           ~actual_rec = let
+                           leaf_b_8 =
+                           {
+                              checker = let
+                              fail_b_10 =
+                              false
+                              in
+                              fun expr_b_9 ->
+                              match expr_b_9 with
+                                | bool -> true | any -> fail_b_10 end,
+                              generator = fun ~null
+                               ->
+                              input >= 0
+                           }.generator 0
+                           in
+                           {leaf = leaf_b_8},
+                           ~decl_lbls = {leaf = {}}
+                        }
+                     }.generator 0
+     }.generator 0) (self_b_3 0)
+}) 0 in
+let x = let x_b_200 =
+`Tree {
+         ~actual_rec = {
+                          item = 2,
+                          left = `Tree {
+                                          ~actual_rec = {
+                                                           item = 6,
+                                                           left = `Tree 
+                                                           {
+                                                              ~actual_rec = 
+                                                              {
+                                                                 item = 3,
+                                                                 left = `Tree 
+                                                                 {
+                                                                    ~actual_rec = 
+                                                                    {
+                                                                    
+                                                                    item = 4,
+                                                                    left = `Leaf 
+                                                                    {
+                                                                    
+                                                                    ~actual_rec = 
+                                                                    {
+                                                                    
+                                                                    leaf = true
+                                                                    },
+                                                                    ~decl_lbls = 
+                                                                    {
+                                                                    
+                                                                    leaf = 
+                                                                    {}}},
+                                                                    right = `Leaf 
+                                                                    {
+                                                                    
+                                                                    ~actual_rec = 
+                                                                    {
+                                                                    
+                                                                    leaf = true
+                                                                    },
+                                                                    ~decl_lbls = 
+                                                                    {
+                                                                    
+                                                                    leaf = 
+                                                                    {}}}},
+                                                                    ~decl_lbls = 
+                                                                    {
+                                                                    
+                                                                    item = 
+                                                                    {},
+                                                                    left = 
+                                                                    {},
+                                                                    right = 
+                                                                    {
+                                                                    }}
+                                                                 },
+                                                                 right = `Leaf 
+                                                                 {
+                                                                    ~actual_rec = 
+                                                                    {
+                                                                    
+                                                                    leaf = true
+                                                                    },
+                                                                    ~decl_lbls = 
+                                                                    {
+                                                                    
+                                                                    leaf = 
+                                                                    {}}
+                                                                 }
+                                                              },
+                                                              ~decl_lbls = 
+                                                              {
+                                                                 item = 
+                                                                 {},
+                                                                 left = 
+                                                                 {},
+                                                                 right = 
+                                                                 {}
+                                                              }
+                                                           },
+                                                           right = `Leaf 
+                                                           {
+                                                              ~actual_rec = 
+                                                              {leaf = true},
+                                                              ~decl_lbls = 
+                                                              {leaf = {}}
+                                                           }
+                                                        },
+                                          ~decl_lbls = {
+                                                          item = {},
+                                                          left = {},
+                                                          right = {}
+                                                       }
+                                       },
+                          right = `Leaf {
+                                           ~actual_rec = {leaf = true},
+                                           ~decl_lbls = {leaf = {}}
+                                        }
+                       },
+         ~decl_lbls = {item = {}, left = {}, right = {}}
+      }
+in x_b_200 in
+let check_res_b_201 =
+{
+   checker = fun expr_b_193
+    ->
+   let t_check_b_194 = tree_type.checker expr_b_193 in
+     if t_check_b_194 then
+     let pred_check_b_195 = false in
+       if is_bst expr_b_193 then true else pred_check_b_195
+     else t_check_b_194,
+   generator = fun ~null
+    ->
+   let candidate_b_192 = tree_type.generator 0 in
+     if is_bst candidate_b_192 then candidate_b_192 else assume false
+}.checker x_b_200 in

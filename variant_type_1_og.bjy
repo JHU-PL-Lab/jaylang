@@ -1,0 +1,73 @@
+{tag: 72, body: let rec 
+                          is_bst
+                          t
+                           =
+                          match t with 
+                                         | {item = n, left = lt, right = rt} -> 
+                                         let check_left = match lt with 
+                                           
+                                             | {
+                                                  item = n2,
+                                                  left = lt2,
+                                                  right = rt2
+                                               } -> n >= n2
+                                             | {leaf = b2} -> true
+                                            end in if check_left then 
+                                                   let check_right = match rt with 
+                                                     
+                                                       | {
+                                                            item = n2,
+                                                            left = lt2,
+                                                            right = rt2
+                                                         } -> n <= n2
+                                                       | {leaf = b2} -> true
+                                                      end in if check_right then 
+                                                             if is_bst lt then 
+                                                               is_bst rt else 
+                                                               false else 
+                                                             false else 
+                                                   false
+                                         | {leaf = b} -> true
+                                        end
+ in {tag: 71, body: let tree_type = {tag: 70, body: Mu tt.{tag: 37, body: 
+    
+      `Tree({tag: 36, body: {:
+                                item : {tag: 31, body: int},
+                                left : {tag: 33, body: tt},
+                                right : {tag: 32, body: tt}
+                            :}})||
+      `Leaf({tag: 35, body: {:leaf : {tag: 34, body: bool}:}})
+    }} in {tag: 69, body: let (x : {tag: 66, body: {{tag: 39, body: tree_type} | {tag: 38, body: is_bst}}}) = {tag: 68, body: `Tree {tag: 65, body: 
+          {
+             item = {tag: 62, body: 2},
+             left = {tag: 64, body: `Tree {tag: 59, body: {
+                                                             item = {tag: 56, body: 6},
+                                                             left = {tag: 58, body: `Tree {tag: 53, body: 
+                                                             {
+                                                                item = {tag: 50, body: 3},
+                                                                left = {tag: 52, body: `Tree {tag: 47, body: 
+                                                                {
+                                                                   item = {tag: 44, body: 4},
+                                                                   left = {tag: 46, body: `Leaf {tag: 41, body: 
+                                                                   {
+                                                                    leaf = {tag: 40, body: true}
+                                                                   }}},
+                                                                   right = {tag: 45, body: `Leaf {tag: 43, body: 
+                                                                   {
+                                                                    leaf = {tag: 42, body: true}
+                                                                   }}}
+                                                                }}},
+                                                                right = {tag: 51, body: `Leaf {tag: 49, body: 
+                                                                {
+                                                                   leaf = {tag: 48, body: true}
+                                                                }}}
+                                                             }}},
+                                                             right = {tag: 57, body: `Leaf {tag: 55, body: 
+                                                             {
+                                                                leaf = {tag: 54, body: true}
+                                                             }}}
+                                                          }}},
+             right = {tag: 63, body: `Leaf {tag: 61, body: {
+                                                              leaf = {tag: 60, body: true}
+                                                           }}}
+          }}} in {tag: 67, body: x}}}}
