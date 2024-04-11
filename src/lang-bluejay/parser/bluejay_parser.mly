@@ -310,11 +310,12 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
       else
         let e_desc' = build_recursive_type t_var e_desc in
         TypeRecurse (tv, e_desc')
-    | TypeVariant (l, e_desc) ->
-      let e_desc' = build_recursive_type t_var e_desc in
-      TypeVariant (l, e_desc')
+    | TypeVariant vs ->
+      let vs' = List.map (fun (l, ve) -> (l, build_recursive_type t_var ve)) vs in
+      TypeVariant vs'
   in
   {tag = tag; body = body'}
+;;
 %}
 
 %token <string> IDENTIFIER
@@ -487,16 +488,17 @@ expr:
   | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN ARROW expr { TypeArrowD (($2, new_expr_desc $4), new_expr_desc $7) }
   // TODO: Change this to fancy curly
   | OPEN_BRACE DOT expr PIPE expr CLOSE_BRACE { TypeSet (new_expr_desc $3, new_expr_desc $5) } 
-  | expr DOUBLE_PIPE expr { TypeUnion (new_expr_desc $1, new_expr_desc $3) }
+  // | expr DOUBLE_PIPE expr { TypeUnion (new_expr_desc $1, new_expr_desc $3) }
   | expr DOUBLE_AMPERSAND expr { TypeIntersect (new_expr_desc $1, new_expr_desc $3) }
-  | variant_type_label expr { TypeVariant ($1, new_expr_desc $2)  }
+  | variant_type_body { TypeVariant $1 }
 ;
 
 type_parameter:
   | APOSTROPHE IDENTIFIER { TypeUntouched $2 }
 
-type_var:
-  | DOLLAR IDENTIFIER { TypeVar $2 }
+variant_type_body:
+  | variant_type_label expr { [($1, new_expr_desc $2)] }
+  | variant_type_label expr DOUBLE_PIPE variant_type_body { ($1, new_expr_desc $2) :: $4 }
 
 record_type:
   | OPEN_BRACE_TYPE record_type_body CLOSE_BRACE_TYPE

@@ -158,6 +158,7 @@ let encode_match_exprs recurse (match_expr : expr_desc)
     (pat_expr_lst : (pattern * expr_desc) list) =
   (* Transform first expression *)
   let%bind new_match_expr = recurse match_expr in
+  (* let%bind () = add_jay_expr_mapping new_match_expr match_expr in *)
   (* Transform pattern-expression pairs *)
   let pat_expr_list_changer pat_expr_tuple =
     let curr_pat, curr_expr = pat_expr_tuple in

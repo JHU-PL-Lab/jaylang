@@ -127,7 +127,7 @@ and 'a expr =
   | TypeRecurse : (ident * syntactic_only expr_desc) -> syntactic_only expr
   | TypeUntouched : string -> syntactic_only expr
   | TypeVariant :
-      (variant_label * syntactic_only expr_desc)
+      (variant_label * syntactic_only expr_desc) list
       -> syntactic_only expr
 
 let new_expr_desc : type a. a expr -> a expr_desc =
@@ -270,8 +270,10 @@ and equal_expr : type a. a expr -> a expr -> bool =
       id1 = id2 && equal_expr_desc lt1 lt2 && equal_expr_desc rt1 rt2
   | TypeRecurse (x1, t1), TypeRecurse (x2, t2) -> x1 = x2 && t1 = t2
   | TypeUntouched s1, TypeUntouched s2 -> s1 = s2
-  | TypeVariant (l1, e1), TypeVariant (l2, e2) ->
-      l1 = l2 && equal_expr_desc e1 e2
+  | TypeVariant l1, TypeVariant l2 ->
+      List.equal
+        (fun (l1, ve1) (l2, ve2) -> l1 = l2 && equal_expr_desc ve1 ve2)
+        l1 l2
   | _ -> false
 
 let rec tagless_equal_funsig : type a. a funsig -> a funsig -> bool =
@@ -410,8 +412,10 @@ and tagless_equal_expr : type a. a expr -> a expr -> bool =
       && tagless_equal_expr_desc rt1 rt2
   | TypeRecurse (x1, t1), TypeRecurse (x2, t2) -> x1 = x2 && t1 = t2
   | TypeUntouched s1, TypeUntouched s2 -> s1 = s2
-  | TypeVariant (l1, e1), TypeVariant (l2, e2) ->
-      l1 = l2 && tagless_equal_expr_desc e1 e2
+  | TypeVariant l1, TypeVariant l2 ->
+      List.equal
+        (fun (l1, ve1) (l2, ve2) -> l1 = l2 && tagless_equal_expr_desc ve1 ve2)
+        l1 l2
   | _ -> false
 
 let compare_helper (x : int) (y : int) : int = if x <> 0 then x else y
@@ -530,8 +534,11 @@ and compare_expr : type a. a expr -> a expr -> int =
   | TypeRecurse (x1, t1), TypeRecurse (x2, t2) ->
       compare x1 x2 |> compare_helper (compare t1 t2)
   | TypeUntouched s1, TypeUntouched s2 -> compare s1 s2
-  | TypeVariant (l1, e1), TypeVariant (l2, e2) ->
-      compare l1 l2 |> compare_helper (compare_expr_desc e1 e2)
+  | TypeVariant l1, TypeVariant l2 ->
+      List.compare
+        (fun (l1, ve1) (l2, ve2) ->
+          compare l1 l2 |> compare_helper (compare_expr_desc ve1 ve2))
+        l1 l2
   (* TODO: Another potential source for bug *)
   | Int _, _ -> 1
   | _, Int _ -> -1
@@ -894,9 +901,9 @@ and from_internal_expr (e : syn_type_bluejay) : Bluejay_ast.expr =
       let ed' = from_internal_expr_desc ed in
       TypeRecurse (tv, ed')
   | TypeUntouched s -> TypeUntouched s
-  | TypeVariant (l, ed) ->
-      let ed' = from_internal_expr_desc ed in
-      TypeVariant (l, ed')
+  | TypeVariant vs ->
+      let vs' = List.map (fun (l, ve) -> (l, from_internal_expr_desc ve)) vs in
+      TypeVariant vs'
 
 (* Helper routines to transform external bluejay to internal bluejay *)
 
@@ -1087,9 +1094,9 @@ and to_internal_expr (e : Bluejay_ast.expr) : syn_type_bluejay =
       let ed' = to_internal_expr_desc ed in
       TypeRecurse (tv, ed')
   | TypeUntouched s -> TypeUntouched s
-  | TypeVariant (lbl, ed) ->
-      let ed' = to_internal_expr_desc ed in
-      TypeVariant (lbl, ed')
+  | TypeVariant vs ->
+      let vs' = List.map (fun (l, ve) -> (l, to_internal_expr_desc ve)) vs in
+      TypeVariant vs'
 
 (* Helper routines to transform jay to internal bluejay *)
 

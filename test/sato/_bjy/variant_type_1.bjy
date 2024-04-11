@@ -1,0 +1,55 @@
+let rec is_bst t = 
+    match t with
+    | `Tree tree -> 
+        match tree with 
+        | {left = lt, right = rt, item = n} ->
+            let check_left = 
+                match lt with
+                | `Tree ltree ->
+                    match ltree with
+                    | {left = lt2, right = rt2, item = n2} -> n >= n2
+                    end
+                | `Leaf lf -> 
+                    match lf with 
+                    | {leaf = b2} -> true
+                    end
+                end
+            in
+            if check_left then
+                let check_right = 
+                    match rt with
+                    | `Tree rtree -> 
+                        match rtree with 
+                        | {left = lt2, right = rt2, item = n2} -> n <= n2
+                        end
+                    | `Leaf lf -> 
+                        match lf with
+                        | {leaf = b2} -> true
+                        end
+                    end
+                in
+                if check_right then
+                    if is_bst lt then is_bst rt else false
+                else
+                    false
+            else false
+        end
+    | `Leaf lf -> 
+        match lf with 
+        | {leaf = b} -> true
+        end
+    end
+in
+let tree_type = Mu tt. (``Tree {: left : tt, right : tt, item : int :} || ``Leaf {: leaf : bool :}) in
+let (x : {. tree_type | is_bst }) = 
+    `Tree { left = 
+        `Tree { left = 
+            `Tree { left = 
+                `Tree { left = `Leaf {leaf = true}, right = `Leaf {leaf = true}, item = 4} , 
+              right = `Leaf {leaf = true},
+              item = 3} , 
+          right = `Leaf {leaf = true},
+          item = 6 }, 
+      right = `Leaf { leaf = true },
+      item = 2 }
+in x
