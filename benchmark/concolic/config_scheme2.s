@@ -2,7 +2,7 @@
 (
   (testcases_to_time
     (
-    "mult.jil"
+    "flatten.jil"
     )
   )
   (testcases_not_time
