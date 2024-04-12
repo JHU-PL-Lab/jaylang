@@ -2,16 +2,15 @@ open Core
 open Path_tree
 
 type t =
-  { child : Child.t
-  ; path  : Path.t } (* The path just helps the solver find the node in the tree in order to gather formulas *)
+  { branch : Branch.Runtime.t
+  ; path   : Path.t } (* The path just helps the solver find the node in the tree in order to gather formulas *)
   [@@deriving compare]  
-  (* We do need to compare path because the child key doesn't include exited branches, but the path does, so path is necessary to describe target completely *)
+  (* We do need to compare path because the branch key doesn't include exited branches, but the path does, so path is necessary to describe target completely *)
 
-let create (child : Child.t) (path : Path.t) : t =
-  { child ; path }
+let create (branch : Branch.Runtime.t) (path : Path.t) : t =
+  { branch ; path }
 
-let is_hit ({ child ; path } : t) (root : Root.t) : bool =
-  let target_branch = child.branch in
+let is_hit ({ branch = target_branch ; path } : t) (root : Root.t) : bool =
   (* acc already contains all formulas pertaining to `node` *)
   let rec trace_path node = function
     | next_branch :: tl -> (*begin*)
@@ -24,8 +23,7 @@ let is_hit ({ child ; path } : t) (root : Root.t) : bool =
   in
   trace_path root path
 
-let[@landmarks] to_formulas ({ child ; path } : t) (root : Root.t) : Z3.Expr.expr list =
-  let target_branch = child.branch in
+let[@landmarks] to_formulas ({ branch = target_branch ; path } : t) (root : Root.t) : Z3.Expr.expr list =
   (* acc already contains all formulas pertaining to `node` *)
   let rec trace_path acc node = function
     | next_branch :: tl ->

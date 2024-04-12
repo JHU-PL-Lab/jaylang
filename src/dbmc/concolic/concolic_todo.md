@@ -319,6 +319,8 @@ TODO: haskell and racket benchmarks converted (in a while... benchmarch bluejay 
 * I need to choose some concolic tutorials
 
 **What's been done**
+* I fixed some bugs that caused slowdown
+* It's easy to set a search strategy. Right now I randomly draw from BFS or DFS horizon and always draw from BFS after hitting max step
 * I have chosen some programs to benchmark
 * I benchmark the entire executable (which includes the parsing of the jil file)
 * I found okay videos, but nothing excellent. They all feel slow or focus much more on symbolic execution than I'd expect
@@ -365,6 +367,9 @@ TODO: haskell and racket benchmarks converted (in a while... benchmarch bluejay 
 |-----------------|--------------|------------|
 | Simple functions on types | let_fun_test_9 | Should get covered by other types because they use anonymous functions |
 | Fixed the error | let_fun_test_9_well_typed | Should easily exhaust tree |
+| List map | polymorphic_map | Well-typed version times out -- cannot even exhaust the pruned tree |
+| Two typed functions | flow_sensitive_1 | No recursion, so type error is easy to catch |
+| Two typed functions, well-typed | flow_sensitive_1_well_typed | Should be able to exhaust tree |
 
 ### Limitations ###
 
@@ -376,4 +381,6 @@ TODO: haskell and racket benchmarks converted (in a while... benchmarch bluejay 
 **What to do**
 * Let's look at the programs I benchmark
 * Which programs should we add to this?
+  * Specifically: is this one limited case not enough?
 * I need to benchmark only the concolic part, not the parsing: use ocamlbench like Robert
+* If these are good, then I'll start looking at Haskell and Racket

@@ -1,0 +1,17 @@
+
+let t = Mu tt. ({: left : tt , right : tt :} || {: leaf : bool :}) in
+
+let max x y =
+  if x > y
+  then x
+  else y
+in
+
+let rec depth (tree : t) : {. int | fun i -> i > 0 } =
+  match tree with
+  | { leaf = b } -> 1
+  | { left = l , right = r } -> 1 + max (depth l) (depth r)
+  end
+in
+
+depth
