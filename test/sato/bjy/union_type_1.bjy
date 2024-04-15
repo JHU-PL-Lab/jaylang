@@ -1,2 +1,2 @@
-let (x : {: a : bool :} || int) = true
+let (x : ``BRec {: a : bool :} || ``Int int) = true
 in x

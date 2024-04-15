@@ -1,5 +1,5 @@
-let tree_type = Mu tt. ({: left : tt, right : tt :} || {: leaf : int :}) in
+let tree_type = Mu tt. (``Tree {: left : tt, right : tt :} || ``Leaf {: leaf : int :}) in
 let (x : tree_type) = 
-    { left = { leaf = 0 } , 
-      right = { leaf = 0 } }
+    `Tree { left = `Leaf { leaf = 0 } , 
+            right = `Leaf { leaf = 0 } }
 in x

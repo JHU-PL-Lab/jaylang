@@ -1,2 +1,2 @@
-let (x : {: a : bool, b : ({: a : bool , b: int :} || int) :}) = { a = true, b = true }
+let (x : {: a : bool, b : (``RecTp {: a : bool , b: int :} || ``Int int) :}) = { a = true, b = true }
 in x

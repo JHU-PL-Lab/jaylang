@@ -1,5 +1,5 @@
 .PHONY: all clean dbmc dj sato translator jil logclean benchmark \
-				repl test dbmc-test sato-test stest dtest dtest-ddse
+				repl test dbmc-test sato-test stest dtest sctest dtest-ddse
 
 BUILD = _build/default
 BUILD_SRC = _build/default/src
@@ -61,8 +61,15 @@ sato-test:
 	dune build src-test/sato/test_sato.exe
 	ln -s -f $(BUILD_TEST)/sato/test_sato.exe stest
 
+sc-test:
+	dune build src-test/sato-concolic/test_sc.exe
+	ln -s -f $(BUILD_TEST)/sato-concolic/test_sc.exe sctest
+
 stest: sato-test
 	./stest
+
+sctest: sc-test
+	./sctest
 
 dtest: dbmc-test
 	./dtest 
