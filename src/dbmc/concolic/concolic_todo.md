@@ -1,5 +1,10 @@
 ## Concolic Evaluator TODOs
 
+### Super urgent
+
+* Also type mismatches in global branch
+* Allow "quit on abort" to quit on type mismatch
+
 ### Eventually (after April deadline...)
 
 * Solve for all targets along a path to not have to load the solver so many times.

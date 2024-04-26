@@ -6,6 +6,7 @@ module Make (T : sig type t end) =
   struct
     exception Found_target of { x : Id.t; stk : Concrete_stack.t; v : Dvalue.t }
     exception Found_abort of Dvalue.t * T.t
+    exception Type_mismatch of T.t
     exception Found_failed_assume of T.t
     exception Found_failed_assert of T.t
     exception Terminate of Dvalue.t

@@ -253,7 +253,12 @@ and eval_clause
       (* x = if y then e1 else e2 ; *)
       let Var (y, _) = cx in
       let cond_val, condition_stk = Fetch.fetch_val_with_stk ~conc_session ~stk env cx in
-      let cond_bool = match cond_val with Direct (Value_bool b) -> b | _ -> failwith "non-bool condition" in
+      let cond_bool =
+        match cond_val with
+        | Direct (Value_bool b) -> b 
+        | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session x)
+        (* | _ -> failwith "non-bool condition" *)
+      in
       let condition_key = make_key y condition_stk in
       let this_branch = Branch.Runtime.{ branch_key = force_key x_key ; condition_key = force_key condition_key ; direction = Branch.Direction.of_bool cond_bool } in
 
@@ -307,7 +312,7 @@ and eval_clause
         (* exit function: *)
         let ret_key = make_key ret_id ret_stk in
         ret_val, Session.Symbolic.add_alias symb_session x_key ret_key
-      | _ -> failwith "appl to a non fun"
+      | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session x)
       end
     | Match_body (vy, p) ->
       (* x = y ~ <pattern> ; *)
@@ -340,7 +345,8 @@ and eval_clause
       let bv =
         match v with
         | Value_bool b -> Value_bool (not b)
-        | _ -> failwith "incorrect not"
+        | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session x)
+        (* | _ -> failwith "incorrect not" *)
       in
       let retv = Direct bv in
       Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
@@ -365,7 +371,8 @@ and eval_clause
         | Binary_operator_and, Value_bool b1, Value_bool b2                 -> Value_bool (b1 && b2)
         | Binary_operator_or, Value_bool b1, Value_bool b2                  -> Value_bool (b1 || b2)
         | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> Value_bool (n1 <> n2)
-        | _, _, _ -> failwith "incorrect binop"
+        | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session x)
+        (* | _, _, _ -> failwith "incorrect binop" *)
       in
       let retv = Direct v in
       Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
@@ -393,15 +400,20 @@ and eval_clause
       end
     | Assert_body cx | Assume_body cx -> (* TYPE MISMATCH *)
       (* TODO: should I ever treat assert and assume differently? *)
-      let v = Fetch.fetch_val_to_bool ~conc_session ~stk env cx in
+      let v = Fetch.fetch_val_to_direct ~conc_session ~stk env cx in 
+      let b =
+        match v with
+        | Value_bool b -> b
+        | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session x)
+      in
       let Var (y, _) = cx in 
       let key = make_key y (Fetch.fetch_stk ~conc_session ~stk env cx) in
       let symb_session = Session.Symbolic.found_assume symb_session key in
-      if not v
+      if not b
       then
         raise @@ Found_failed_assume (Session.Symbolic.fail_assume symb_session) (* fail the assume that was just found *)
       else
-        let retv = Direct (Value_bool v) in
+        let retv = Direct (Value_bool b) in
         Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
         retv, symb_session (*Session.Symbolic.add_key_eq_val symb_session x_key (Value_bool v) *)
   in
@@ -436,6 +448,9 @@ let try_eval_exp_default
   with
   | Found_abort (_, symb_session) ->
       Log.Export.CLog.app (fun m -> m "Found abort in interpretation\n");
+      symb_session
+  | Type_mismatch symb_session ->
+      Log.Export.CLog.app (fun m -> m "Type mismatch in interpretation\n");
       symb_session
   | Reach_max_step (_, _, symb_session) ->
       Log.Export.CLog.app (fun m -> m "Reach max steps\n");
@@ -514,13 +529,15 @@ module Test_result =
   struct
     type t =
       | Found_abort of Branch.t * Jil_input.t list (* Found an abort at this branch using these inputs *)
+      | Type_mismatch of Jayil.Ast.Ident_new.t * Jil_input.t list (* Proposed addition for removing instrumentation *)
       | Exhausted               (* Ran all possible tree paths, and no paths were too deep *)
       | Exhausted_pruned_tree   (* Ran all possible tree paths up to the given max step *)
       | Timeout                 (* total evaluation timeout *)
 
     let merge a b =
       match a, b with
-      | (Found_abort _ as x), _ | _, (Found_abort _ as x) -> x
+      | (Found_abort _ as x), _ | _, (Found_abort _ as x)
+      | (Type_mismatch _ as x), _ | _, (Type_mismatch _ as x) -> x
       | Exhausted, _ | _, Exhausted -> Exhausted
       | Exhausted_pruned_tree, _ | _, Exhausted_pruned_tree -> Exhausted_pruned_tree
       | Timeout, Timeout  -> Timeout
@@ -539,9 +556,10 @@ let[@landmark] test_one : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun
             @@ Concolic_options.Fun.appl lwt_eval r e
           in
           Log.Export.CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
-          Branch_info.find res ~f:(fun _ -> function Branch_info.Status.Found_abort _ -> true | _ -> false)
+          Branch_info.find res ~f:(fun _ -> function Branch_info.Status.Found_abort _ | Type_mismatch _ -> true | _ -> false)
           |> function
             | Some (branch, Branch_info.Status.Found_abort inputs) -> Test_result.Found_abort (branch, List.rev inputs)
+            | Some (_, Branch_info.Status.Type_mismatch (id, inputs)) -> Test_result.Type_mismatch (id, List.rev inputs)
             | None when not has_pruned -> Exhausted
             | _ -> Exhausted_pruned_tree
         with
@@ -561,7 +579,7 @@ let[@landmark] test_incremental n : (Jayil.Ast.expr -> Test_result.t) Concolic_o
             ~f:(fun acc d ->
                 Concolic_options.Fun.appl test_one { r with max_tree_depth = d } e
                 |> function
-                  | Test_result.Found_abort _ as x -> Continue_or_stop.Stop x
+                  | (Test_result.Found_abort _ as x) | (Type_mismatch _ as x) -> Continue_or_stop.Stop x
                   | x -> Continue (Test_result.merge acc x)
             )
             ~finish:Fn.id
@@ -573,6 +591,7 @@ let[@landmark] test : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
       begin
       match r with
       | Test_result.Found_abort _ -> Format.printf "\nFOUND_ABORT\n"
+      | Type_mismatch _ ->           Format.printf "\nTYPE_MISMATCH\n"
       | Exhausted ->                 Format.printf "\nEXHAUSTED\n"
       | Exhausted_pruned_tree ->     Format.printf "\nEXHAUSTED_PRUNED_TREE\n"
       | Timeout ->                   Format.printf "\nTIMEOUT\n"

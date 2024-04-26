@@ -57,6 +57,9 @@ val fail_assume : t -> t
 val found_abort : t -> t
 (** [found_abort t] tells [t] that an abort was found in interpretation. *)
 
+val found_type_mismatch : t -> Jayil.Ast.Ident_new.t -> t
+(** [found_type_mismatch t id] tells [t] that there was a type mismatch at clause [id]. *)
+
 val reach_max_step : t -> t
 (** [reach_max_step t] tells [t] that the max interpretation step was hit, and interpretation stopped. *)
 

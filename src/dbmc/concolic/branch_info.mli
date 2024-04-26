@@ -3,6 +3,7 @@ module Status :
   sig
     type t = 
       | Found_abort of Jil_input.t list (* inputs in the reverse order they're given. payload ignored on compare *)
+      | Type_mismatch of (Jayil.Ast.Ident_new.t * Jil_input.t list) (* ^ *)
       | Hit
       | Unknown
       | Unhit

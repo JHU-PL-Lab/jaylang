@@ -169,8 +169,19 @@ module Basic =
         branch_info =
           Branch_info.set_branch_status
             ~new_status:(Found_abort s.inputs)
-            s.branch_info @@ Node_stack.hd_branch_exn s.stack
+            s.branch_info
+            (Node_stack.hd_branch_exn s.stack)
       }
+
+    let found_type_mismatch (s : t) (id : Jayil.Ast.Ident_new.t) : t =
+      { s with
+        branch_info =
+          Branch_info.set_branch_status
+            ~new_status:(Type_mismatch (id, s.inputs)) 
+            s.branch_info
+            (Node_stack.hd_branch_exn s.stack)
+      }
+
 
     (* require that cx is true by adding as formula *)
     let found_assume (s : t) (cx : Concolic_key.Lazy.t) : t =
@@ -216,6 +227,18 @@ module At_max_depth =
             branch_info =
               Branch_info.set_branch_status
                 ~new_status:(Found_abort a.base.inputs)
+                a.base.branch_info
+                a.last_branch
+          }
+      }
+
+    let found_type_mismatch (a : t) (id : Jayil.Ast.Ident_new.t) : t =
+      { a with
+        base =
+          { a.base with
+            branch_info =
+              Branch_info.set_branch_status
+                ~new_status:(Type_mismatch (id, a.base.inputs))
                 a.base.branch_info
                 a.last_branch
           }
@@ -304,6 +327,12 @@ let found_abort (x : t) : t =
   | Basic s -> Basic (Basic.found_abort s)
   | At_max_depth a -> At_max_depth (At_max_depth.found_abort a)
   | Finished _ -> failwith "found abort with finished symbolic session"
+
+let found_type_mismatch (x : t) (id : Jayil.Ast.Ident_new.t) : t =
+  match x with
+  | Basic s -> Basic (Basic.found_type_mismatch s id)
+  | At_max_depth a -> At_max_depth (At_max_depth.found_type_mismatch a id)
+  | Finished _ -> failwith "found type mismatch with finished symbolic session"
 
 let reach_max_step (x : t) : t =
   match x with
